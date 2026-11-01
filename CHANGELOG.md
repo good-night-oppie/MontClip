@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Shorten the simple-mode guidance in both languages and mark advanced-only
+  shortcut help rows, distinguishing deletion with and without closing the gap.
+
 ### Added
 - Local FLV import with retained originals, compatible MP4 remux and explicit
   consent for legacy-codec transcoding in the editor and MCP. Cancel leaves the

@@ -141,17 +141,24 @@ async function start() {
       typing.remove();
       key('n', {isComposing:true}); key('n', {ctrlKey:true});
       const compositionGuard = snapButton.classList.contains('on') === snapBefore;
+      const englishHelp = document.getElementById('mcModeHelp').textContent === 'Simple mode keeps the common controls. Switch to Advanced mode for more tools and shortcuts.' &&
+        document.getElementById('mcLiftExtractHelp').textContent.includes('Lift leaves the gap; Extract closes it');
+      updateMontClipView({language:'zh-CN'});
+      const helpLocalized = englishHelp && document.getElementById('mcModeHelp').textContent === '简单模式保留常用操作；需要更多工具和快捷键时，可切到高级模式。' &&
+        document.getElementById('mcLiftExtractHelp').textContent.includes('分号保留空隙；单引号连同空隙删除') &&
+        [...document.querySelectorAll('#helpKeys [data-mc-mode-note]')].length === 10 &&
+        [...document.querySelectorAll('#helpKeys [data-mc-mode-note]')].every(n=>n.textContent.includes('仅高级模式'));
       updateMontClipView(originalView);
       let externalBlocked = false;
       try { await fetch('https://example.com/'); } catch { externalBlocked = true; }
       return { nodeUnavailable: typeof require === 'undefined' && typeof process === 'undefined',
         projectLoaded: Array.isArray(doc.clips), apiStatus: response.status, externalBlocked, viewPreserved,
-        simpleShortcutBlocked, advancedShortcutWorks, typingGuard, compositionGuard,
+        simpleShortcutBlocked, advancedShortcutWorks, typingGuard, compositionGuard, helpLocalized,
         compositor: typeof drawFrame === 'function', saved: await flushSaveForClose() };
     })()`);
     process.stdout.write("MONTCLIP_SMOKE " + JSON.stringify(result) + "\n");
     const pass = result.nodeUnavailable && result.projectLoaded && result.externalBlocked &&
-      result.compositor && result.saved && result.viewPreserved && result.simpleShortcutBlocked && result.advancedShortcutWorks && result.typingGuard && result.compositionGuard && result.apiStatus === 200;
+      result.compositor && result.saved && result.viewPreserved && result.simpleShortcutBlocked && result.advancedShortcutWorks && result.typingGuard && result.compositionGuard && result.helpLocalized && result.apiStatus === 200;
     if (!pass) process.exitCode = 1;
     closing = true; win.close();
   } else win.show();

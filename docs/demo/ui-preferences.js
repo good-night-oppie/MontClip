@@ -28,7 +28,11 @@
       },
     };
   }
-  text["zh-CN"].modeHelp = "简单模式停用：IN/OUT、插入/替换、查找/关闭空隙、Lift/Extract、吸附和标记快捷键。切到高级模式可使用。";
-  text.en.modeHelp = "Simple mode disables IN/OUT, insert/replace, find/close gap, lift/extract, snapping and marker shortcuts. Switch to Advanced to use them.";
+  text["zh-CN"].modeHelp = "简单模式保留常用操作；需要更多工具和快捷键时，可切到高级模式。";
+  text.en.modeHelp = "Simple mode keeps the common controls. Switch to Advanced mode for more tools and shortcuts.";
+  text["zh-CN"].advancedOnly = "仅高级模式";
+  text.en.advancedOnly = "Advanced mode only";
+  text["zh-CN"].liftExtractHelp = "删除目标轨道入点到出点之间的内容：分号保留空隙；单引号连同空隙删除";
+  text.en.liftExtractHelp = "Lift / Extract IN→OUT on targeted tracks: Lift leaves the gap; Extract closes it";
   return { create, text, KEY, advancedControls, advancedShortcut };
 });

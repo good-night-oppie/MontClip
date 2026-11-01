@@ -50,6 +50,12 @@ function renderMontClipView() {
   document.getElementById("mcLanguage").setAttribute("aria-label", t.language);
   document.getElementById("mcAssistantPanel").setAttribute("aria-label", t.assistant);
   document.getElementById("mcModeHelp").textContent = t.modeHelp;
+  document.getElementById("mcLiftExtractHelp").textContent = t.liftExtractHelp;
+  for (const row of document.querySelectorAll("#helpKeys [data-mc-advanced-only]")) {
+    let note = row.querySelector("[data-mc-mode-note]");
+    if (!note) { note = document.createElement("span"); note.dataset.mcModeNote = ""; row.lastElementChild.append(note); }
+    note.textContent = " — " + t.advancedOnly;
+  }
 }
 function updateMontClipView(patch) {
   const saved = mcView.set(patch); renderMontClipView();

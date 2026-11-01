@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FableCut playground</title>
+<title>MontClip</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
 <meta name="theme-color" content="#0e0e10">
@@ -535,8 +535,8 @@
         <h3>Source monitor</h3>
         <table class="keys">
           <tr><td>Dbl-click bin / clip</td><td>Load into the Source monitor</td></tr>
-          <tr><td><kbd>,</kbd></td><td>Insert Source In→Out at the timeline playhead (ripples later clips)</td></tr>
-          <tr><td><kbd>.</kbd></td><td>Replace — overwrite at the playhead, or apply new Source In / Out to a timeline-loaded clip (ripples if the duration changes)</td></tr>
+          <tr data-mc-advanced-only><td><kbd>,</kbd></td><td>Insert Source In→Out at the timeline playhead (ripples later clips)</td></tr>
+          <tr data-mc-advanced-only><td><kbd>.</kbd></td><td>Replace — overwrite at the playhead, or apply new Source In / Out to a timeline-loaded clip (ripples if the duration changes)</td></tr>
         </table>
       </section>
       <section class="keys-sec">
@@ -547,8 +547,8 @@
           <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td>Trim selected in / out to the playhead</td></tr>
           <tr><td><kbd>Del</kbd></td><td>Delete selected clip(s), or clear the focused transition</td></tr>
           <tr><td><kbd>⇧</kbd>+<kbd>Del</kbd></td><td>Ripple delete — remove the selection and close the gap on targeted tracks</td></tr>
-          <tr><td><kbd>G</kbd></td><td>Find the next shared gap (wraps; respects IN / OUT)</td></tr>
-          <tr><td><kbd>⇧</kbd>+<kbd>G</kbd></td><td>Close the gap at the playhead (targeted tracks)</td></tr>
+          <tr data-mc-advanced-only><td><kbd>G</kbd></td><td>Find the next shared gap (wraps; respects IN / OUT)</td></tr>
+          <tr data-mc-advanced-only><td><kbd>⇧</kbd>+<kbd>G</kbd></td><td>Close the gap at the playhead (targeted tracks)</td></tr>
           <tr><td><kbd>Alt</kbd>+<kbd>T</kbd></td><td>Add a transition at the playhead (in / out by half)</td></tr>
           <tr><td><kbd>⇧</kbd>+<kbd>E</kbd></td><td>Disable / enable selected clip(s) — hidden from preview and export</td></tr>
           <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>L</kbd></td><td>Unlink / link video and its audio</td></tr>
@@ -567,13 +567,13 @@
       <section class="keys-sec">
         <h3>IN / OUT and markers</h3>
         <table class="keys">
-          <tr><td><kbd>I</kbd> / <kbd>O</kbd></td><td>Set Source In / Out (Source mode) or the timeline work area (Program; also bounds Export)</td></tr>
-          <tr><td><kbd>⇧</kbd>+<kbd>I</kbd> / <kbd>⇧</kbd>+<kbd>O</kbd></td><td>Clear Source or timeline IN / OUT</td></tr>
+          <tr data-mc-advanced-only><td><kbd>I</kbd> / <kbd>O</kbd></td><td>Set Source In / Out (Source mode) or the timeline work area (Program; also bounds Export)</td></tr>
+          <tr data-mc-advanced-only><td><kbd>⇧</kbd>+<kbd>I</kbd> / <kbd>⇧</kbd>+<kbd>O</kbd></td><td>Clear Source or timeline IN / OUT</td></tr>
           <tr><td><kbd>T</kbd></td><td>Split clips at the IN / OUT marks</td></tr>
           <tr><td><kbd>⇧</kbd>+<kbd>T</kbd></td><td>Trim clips to IN / OUT (remove heads and tails)</td></tr>
-          <tr><td><kbd>;</kbd> / <kbd>'</kbd></td><td>Lift / Extract IN→OUT on targeted tracks (Extract closes the gap)</td></tr>
-          <tr><td><kbd>M</kbd></td><td>Add / remove a marker at the playhead</td></tr>
-          <tr><td><kbd>⇧</kbd>+<kbd>M</kbd> / <kbd>Alt</kbd>+<kbd>⇧</kbd>+<kbd>M</kbd></td><td>Go to the next / previous marker</td></tr>
+          <tr data-mc-advanced-only><td><kbd>;</kbd> / <kbd>'</kbd></td><td id="mcLiftExtractHelp">Lift / Extract IN→OUT on targeted tracks (Extract closes the gap)</td></tr>
+          <tr data-mc-advanced-only><td><kbd>M</kbd></td><td>Add / remove a marker at the playhead</td></tr>
+          <tr data-mc-advanced-only><td><kbd>⇧</kbd>+<kbd>M</kbd> / <kbd>Alt</kbd>+<kbd>⇧</kbd>+<kbd>M</kbd></td><td>Go to the next / previous marker</td></tr>
           <tr><td>Marker on ruler</td><td>Drag to move · click to jump · double-click or right-click to name / colour / delete · <b>Markers</b> lists them all</td></tr>
         </table>
       </section>
@@ -585,7 +585,7 @@
           <tr><td><kbd>Z</kbd></td><td>Zoom to the selected clip(s)</td></tr>
           <tr><td><kbd>Alt</kbd>+<kbd>Z</kbd></td><td>Zoom to the IN–OUT work area</td></tr>
           <tr><td><kbd>⇧</kbd>+<kbd>Z</kbd></td><td>Zoom to fit</td></tr>
-          <tr><td><kbd>N</kbd></td><td>Snapping on / off — <b>▾</b> picks targets (clip edges, playhead, markers, IN / OUT, keyframes, frame grid)</td></tr>
+          <tr data-mc-advanced-only><td><kbd>N</kbd></td><td>Snapping on / off — <b>▾</b> picks targets (clip edges, playhead, markers, IN / OUT, keyframes, frame grid)</td></tr>
           <tr><td>Click track name</td><td>Target / untarget the track — edits touch lit (targeted) tracks only</td></tr>
           <tr><td>Track <b>S</b></td><td>Solo the track (mutes all others; click again to restore)</td></tr>
           <tr><td>Track padlock</td><td>Lock the track — nothing on it can be edited or moved</td></tr>
