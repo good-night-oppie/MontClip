@@ -20,3 +20,21 @@ test('capacity recovery restores existing scope without leaking its draft into b
 test('mounted disconnected status uses actual send result and survives locale switch without clearing draft',()=>{const {mount}=require('../agent-pane'),old=global.document;const element=()=>({value:'',dataset:{},style:{setProperty(){}},setAttribute(){},replaceChildren(){},append(){}});const nodes=new Map(),panel={querySelector(s){if(!nodes.has(s))nodes.set(s,element());return nodes.get(s);},querySelectorAll(){return [];}};let language='zh-CN';global.document={createElement:element,documentElement:element()};try{const ui=mount({panel,getContext:()=>ctx(),getLanguage:()=>language});const status=panel.querySelector('[data-status]'),draft=panel.querySelector('[data-draft]');a.equal(status.textContent,text[language]['agent.state.disconnected.brief']);draft.value='x'.repeat(16000);draft.oninput({target:draft});a.equal(status.textContent,text[language]['agent.state.disconnected.brief']);draft.value+='x';draft.oninput({target:draft});a.equal(status.textContent,text[language].paneLimitChars);draft.value='保留这份草稿';draft.oninput({target:draft});panel.onclick({target:{dataset:{action:'send'}}});a.equal(status.textContent,text[language]['agent.state.sendFailedNoProvider.brief']);a.equal(draft.value,'保留这份草稿');language='en';ui.render();a.equal(status.textContent,text.en['agent.state.sendFailedNoProvider.brief']);a.equal(draft.value,'保留这份草稿');a.deepEqual(panel.querySelector('[data-messages]').textContent,text.en.paneEmpty);}finally{global.document=old;}});
 
 test('mounted initial read failure states temporary lifetime and hides futile save retry',()=>{const {mount}=require('../agent-pane'),old=global.document;const element=()=>({value:'',hidden:false,dataset:{},style:{setProperty(){}},setAttribute(){},replaceChildren(){},append(){}});const nodes=new Map(),panel={querySelector(s){if(!nodes.has(s))nodes.set(s,element());return nodes.get(s);},querySelectorAll(){return [];}};global.document={createElement:element,documentElement:element()};let writes=0;try{const ui=mount({panel,getContext:()=>ctx(),getLanguage:()=> 'zh-CN',sessionStorage:{get:()=>({ok:false,code:'SESSION_READ_FAILED'}),set:()=>writes++}});const draft=panel.querySelector('[data-draft]');draft.value='copy before closing';draft.oninput({target:draft});a.equal(panel.querySelector('[data-local]').textContent,text['zh-CN'].paneLocalTemporary);a.equal(panel.querySelector('[data-action=retry]').hidden,true);a.equal(panel.querySelector('[data-persistence]').textContent,'');a.equal(ui.flush(),true);a.equal(writes,0);a.equal(draft.value,'copy before closing');}finally{global.document=old;}});
+
+for(const language of ['zh-CN','en'])test('mounted storage policy is separate from a failed write: '+language,()=>{
+ const {mount}=require('../agent-pane'),old=global.document;
+ const element=()=>({value:'',hidden:false,dataset:{},style:{setProperty(){}},setAttribute(){},replaceChildren(){},append(){}});
+ const nodes=new Map(),panel={querySelector(s){if(!nodes.has(s))nodes.set(s,element());return nodes.get(s);},querySelectorAll(){return [];}};
+ global.document={createElement:element,documentElement:element()};
+ let writes=0;
+ try{
+  const ui=mount({panel,getContext:()=>ctx(),getLanguage:()=>language,sessionStorage:{get:()=>({ok:true,token:'initial',value:{version:1,scopes:[]}}),set:()=>{writes++;return {ok:false,code:'EACCES'};}}});
+  a.equal(panel.querySelector('[data-local]').textContent,text[language].paneLocalPolicy);
+  a.equal(panel.querySelector('[data-persistence]').textContent,'');
+  const draft=panel.querySelector('[data-draft]');draft.value='keep this edit';draft.oninput({target:draft});
+  a.equal(panel.querySelector('[data-local]').textContent,text[language].paneLocalPolicy);
+  a.equal(panel.querySelector('[data-persistence]').textContent,text[language].paneSessionFailed);
+  a.equal(panel.querySelector('[data-action=retry]').hidden,false);
+  a.equal(ui.flush(),false);a.ok(writes>0);a.equal(draft.value,'keep this edit');
+ }finally{global.document=old;}
+});
