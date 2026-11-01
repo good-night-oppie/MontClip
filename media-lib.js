@@ -251,7 +251,7 @@
   }
 
   const KIND_BY_EXT = {
-    mp4: "video", webm: "video", mov: "video", mkv: "video", m4v: "video", avi: "video",
+    mp4: "video", webm: "video", mov: "video", mkv: "video", m4v: "video", avi: "video", flv: "video",
     mp3: "audio", wav: "audio", ogg: "audio", m4a: "audio", aac: "audio", flac: "audio", opus: "audio",
     png: "image", jpg: "image", jpeg: "image", gif: "image", webp: "image", svg: "svg",
   };
