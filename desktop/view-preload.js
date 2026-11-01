@@ -16,3 +16,5 @@ contextBridge.exposeInMainWorld('montclipWorkspaceSettings',Object.freeze({
  set:value=>ipcRenderer.sendSync('montclip:workspace:set',value),
  migrate:value=>ipcRenderer.sendSync('montclip:workspace:migrate',value)
 }));
+
+contextBridge.exposeInMainWorld('montclipAgentSessions',Object.freeze({get:()=>ipcRenderer.sendSync('montclip:sessions:get'),set:value=>ipcRenderer.sendSync('montclip:sessions:set',value)}));
