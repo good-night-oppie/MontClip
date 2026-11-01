@@ -55,3 +55,16 @@ for(const language of ['zh-CN','en'])test('mounted storage policy is separate fr
   a.equal(ui.flush(),false);a.ok(writes>0);a.equal(draft.value,'keep this edit');
  }finally{global.document=old;}
 });
+
+test('paste limit rejects the entire oversized insertion and allows exact-limit selection replacement',()=>{
+ const {mount}=require('../agent-pane'),old=global.document;
+ const element=()=>({value:'',hidden:false,dataset:{},style:{setProperty(){}},setAttribute(){},replaceChildren(){},append(){}}),nodes=new Map(),panel={querySelector(s){if(!nodes.has(s))nodes.set(s,element());return nodes.get(s);},querySelectorAll(){return [];}};
+ global.document={createElement:element,documentElement:element()};
+ try{const ui=mount({panel,getContext:()=>ctx(),getLanguage:()=> 'en'}),d=panel.querySelector('[data-draft]');d.value='keep';d.oninput({target:d});d.selectionStart=d.selectionEnd=4;
+ let prevented=0;const paste=value=>d.onpaste({clipboardData:{getData:()=>value},preventDefault(){prevented++;}});
+ paste('x'.repeat(15997));a.equal(prevented,1);a.equal(d.value,'keep');a.equal(panel.querySelector('[data-status]').textContent,text.en.panePasteTooLong);
+ d.selectionStart=0;d.selectionEnd=4;paste('x'.repeat(16000));a.equal(prevented,1);
+ d.selectionStart=d.selectionEnd=4;paste('x'.repeat(15994)+'\r\n');a.equal(prevented,1);
+ ui.render();a.equal(d.value,'keep');
+ }finally{global.document=old;}
+});
