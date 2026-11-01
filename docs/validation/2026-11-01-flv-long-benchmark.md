@@ -25,3 +25,10 @@ Actual range start0.046/end7200.200000000001/duration7200.154; maxGap0.067000000
 Two short follow-up frame windows (2s video, then4s AV including keyframe preroll) found no gap around the first loop join; the second actually covered8.003–12.034s. Their bounded results are retained separately. Thus the67ms maximum is not localized by these observations; do not assert that looping, B frames or the scanner caused it. A future single instrumented scan can retain offending type/PTS neighbors to classify it before optimizing; avoid unbounded frame logs.
 
 Decision: this low-complexity2h case finishes within the unchanged15-minute watchdog, but user wait is over3minutes and no target latency criterion/real-capture complexity acceptance exists. There is insufficient equivalence evidence to replace show_frames with show_packets. Keep the current fail-closed gap guard. Packet candidates must separately cover per-stream start/end, reordered Bframes (PTS vs DTS), durations/quantization, holes and corrupt decode cases before a production change.
+
+## Clean-branch checks
+
+After measurement (not competing with timed decode), Windows/Node22.15.1 npm test563/563,0 fail/cancel/skip and node .github/scripts/release-check.js passed on c5420a8445c8dcc7c13c216de6644a28543c719f/tree b1a85b7ea6993825f703ae315c3b89846ac5bae3. Runner itself was syntax-checked and actually executed once; it is never run automatically by the test suite. Final commit adds only evidence bindings. Linux/macOS not run.
+docs/validation/2026-11-01-flv-long-full.log sanitized UTF-8 LF SHA256 c7a4a0f7654184b962de01d0f0a4bf648e0e759c2d2d54646b4e4c54b557efde
+docs/validation/2026-11-01-flv-long-release.log sanitized UTF-8 LF SHA256 5a0e4845a4bae15d87b152750d4b1609256641d0ca3f298fe42a79199aa05b58
+docs/validation/2026-11-01-flv-long-benchmark.json sanitized UTF-8 LF SHA256 3e9431f33f7782a054f259eee9d5baa0a75ca8a64e5b0ae3cbbec746cc9fe660
