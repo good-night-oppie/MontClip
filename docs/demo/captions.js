@@ -201,7 +201,7 @@
       const start = readStamp(a), end = readStamp(String(b).trim().split(/\s+/)[0]);
       if (start == null || end == null || !(end > start)) continue;
       const body = lines.slice(at + 1).map((l) => l.replace(/<[^>]*>/g, "").replace(/\{\\[^}]*\}/g, "").trim()).filter(Boolean).join("\n");
-      if (body) out.push({ start: r4(start), end: r4(end), text: body.slice(0, 500) });
+      if (body) out.push({ start: r4(start), end: r4(end), text: body });
     }
     if (!out.length) throw new Error("no subtitles found — expected an SRT or WebVTT file (00:00:01,000 --> 00:00:03,000 lines)");
     return out.sort((x, y) => x.start - y.start);

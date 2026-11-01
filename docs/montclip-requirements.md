@@ -68,3 +68,5 @@ Additional owner requirements remain separate from the 40-item count:
 The owner resolved the former missing Oppie rule on 2026-11-01: use this
 repository's AGENTS → CLAUDE/CONTRIBUTING and QQ Review Inbox. No legacy variant
 is required or copied. See `decisions/2026-11-01-development-workflow.md`.
+
+Clean PR2 follow-up prepared directly from its public 8f461b9 head: narrowly removes parser's 500-code-unit truncation, with source/demo parity and 17/17 memory parser/clip/JSON/subtitle + range tests. Not whole subtitle workflow or layout acceptance; UI/MCP fit changes remain separate. Full tests/release-check and review still required; no push/merge/release. See validation/2026-11-01-pr2-fulltext-review.md.

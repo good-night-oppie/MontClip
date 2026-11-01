@@ -8,6 +8,23 @@ const ProjectOps = require("../project-ops.js");
 
 const W = (list) => list.map(([w, s, e]) => ({ w, s, e }));
 
+test('long SRT/VTT cues retain normalized text through clip JSON and standard subtitle export', () => {
+  const text = '中文正文🙂'.repeat(110) + '\n尾部 END 🚀';
+  for (const encode of [C.toSRT, C.toVTT]) {
+    const cues = C.parse(encode([{start:1.25,end:8.75,text}]));
+    assert.equal(cues.length,1);assert.equal(cues[0].text,text);
+    assert.deepEqual([cues[0].start,cues[0].end],[1.25,8.75]);
+    const saved = JSON.parse(JSON.stringify(C.clip(cues[0],{id:'long-cue',track:'V2'})));
+    const output = C.fromClips([saved]);
+    assert.equal(output[0].text,text);
+    assert.deepEqual(C.parse(C.toSRT(output)),cues);
+    assert.deepEqual(C.parse(C.toVTT(output)),cues);
+    assert.ok(!saved.props.wordTimes?.length,'no fabricated word alignment');
+  }
+  const marked='1\n00:00:01,250 --> 00:00:08,750\n<b>'+text+'</b>\n';
+  assert.equal(C.parse(marked)[0].text,text,'existing tag normalization remains');
+});
+
 test("styles are checked; sizes and line length follow the canvas", () => {
   assert.equal(C.style(), "subtitle");
   assert.throws(() => C.style("comic"), /style must be subtitle, karaoke, highlight, pop/);

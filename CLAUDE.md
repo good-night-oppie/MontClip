@@ -2757,3 +2757,7 @@ Encoding profiles are listed at the bottom of the Export dialog's Preset list.
 
 **MCP:** `fablecut_encode_profiles` lists profiles; `{detail:true}` includes each `args`
 array; `{profile:"hq"}` returns one profile. `fablecut_status` shows the effective profile.
+
+### Caption import text preservation
+
+SRT/WebVTT parsing preserves the full normalized cue body instead of truncating it at 500 UTF-16 code units. Existing tag normalization and cue timestamps are unchanged; this does not create word timing. This parser fix does not change UI/MCP fitting behavior or claim long-text layout acceptance.

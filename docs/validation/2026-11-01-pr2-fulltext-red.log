@@ -1,0 +1,117 @@
+TAP version 13
+# Subtest: long SRT/VTT cues retain normalized text through clip JSON and standard subtitle export
+not ok 1 - long SRT/VTT cues retain normalized text through clip JSON and standard subtitle export
+  ---
+  duration_ms: 2.4116
+  type: 'test'
+  location: '<repo>\\test\\captions.test.js:11:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + '中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文'
+    - '中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂\n' +
+    -   '尾部 END 🚀'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: |-
+    中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂
+    尾部 END 🚀
+  actual: '中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文正文🙂中文'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (<repo>\test\captions.test.js:15:40)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.start (node:internal/test_runner/test:944:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)
+  ...
+# Subtest: styles are checked; sizes and line length follow the canvas
+ok 2 - styles are checked; sizes and line length follow the canvas
+  ---
+  duration_ms: 0.5959
+  type: 'test'
+  ...
+# Subtest: wrap splits into even lines
+ok 3 - wrap splits into even lines
+  ---
+  duration_ms: 0.8156
+  type: 'test'
+  ...
+# Subtest: cues break at pauses, sentences, room and word limits, on frames, never overlapping
+ok 4 - cues break at pauses, sentences, room and word limits, on frames, never overlapping
+  ---
+  duration_ms: 1.6616
+  type: 'test'
+  ...
+# Subtest: a cue lasts at least minDur when there is room
+ok 5 - a cue lasts at least minDur when there is room
+  ---
+  duration_ms: 0.3675
+  type: 'test'
+  ...
+# Subtest: wordTimes require actual alignment; sentence timestamps never invent word timing
+ok 6 - wordTimes require actual alignment; sentence timestamps never invent word timing
+  ---
+  duration_ms: 0.7366
+  type: 'test'
+  ...
+# Subtest: SRT imports stay sentence-level in every style, including Chinese without spaces
+ok 7 - SRT imports stay sentence-level in every style, including Chinese without spaces
+  ---
+  duration_ms: 14.6055
+  type: 'test'
+  ...
+# Subtest: clip() makes a caption text clip in the style, placed for the canvas
+ok 8 - clip() makes a caption text clip in the style, placed for the canvas
+  ---
+  duration_ms: 1.4351
+  type: 'test'
+  ...
+# Subtest: the lane: captions' own, else the top video lane when free, else a new one
+ok 9 - the lane: captions' own, else the top video lane when free, else a new one
+  ---
+  duration_ms: 0.7577
+  type: 'test'
+  ...
+# Subtest: SRT and WebVTT out, and back in
+ok 10 - SRT and WebVTT out, and back in
+  ---
+  duration_ms: 1.2438
+  type: 'test'
+  ...
+# Subtest: fromClips lists the caption clips in time order
+ok 11 - fromClips lists the caption clips in time order
+  ---
+  duration_ms: 0.3589
+  type: 'test'
+  ...
+# Subtest: fit re-breaks an imported caption to the style's line length
+ok 12 - fit re-breaks an imported caption to the style's line length
+  ---
+  duration_ms: 0.3664
+  type: 'test'
+  ...
+# Subtest: one word longer than a line stays whole, in wrap, cues and fit
+ok 13 - one word longer than a line stays whole, in wrap, cues and fit
+  ---
+  duration_ms: 0.1842
+  type: 'test'
+  ...
+# Subtest: fromClips leaves out captions on a disabled track
+ok 14 - fromClips leaves out captions on a disabled track
+  ---
+  duration_ms: 0.1435
+  type: 'test'
+  ...
+1..14
+# tests 14
+# suites 0
+# pass 13
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 167.6591

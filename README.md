@@ -697,3 +697,5 @@ Rather email? Write to [hello@fablecut.space](mailto:hello@fablecut.space), or
 ## License
 
 [MIT](LICENSE)
+
+Subtitle parsing preserves complete normalized SRT/WebVTT cue text, including long Chinese/Unicode lines, instead of silently truncating at 500 code units. Display layout and import fitting remain separate from this parser correction.
