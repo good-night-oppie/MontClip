@@ -98,3 +98,5 @@ Clean PR2 follow-up prepared directly from its public 8f461b9 head: narrowly rem
 PR23 drag correction (base18261590): defer track folding/content focus during state.gesture; settle on completion/cancellation. Production VM6/6, Windows full601/601 and release-check pass; actual offscreen Electron coordinate drag3/3, visible/physical VV review pending. See existing agent-layout-fix validation section; no release or whole-workbench completion claim.
 
 Simple view occupied-lane follow-up: V1/A1 placeholders retained only if their kind has no occupied lane; V2+A1 visible together at804/630 with preview>=160×90, offscreen4/4, Node602/602. VV originalPR23 drag result remains separate; new same-head visible acceptance pending. Details validation/2026-11-01-simple-primary.md.
+
+Independent three-track visibility increment (basePR25): V3 subtitle+V1 video+A1 audio initial focus now favors actual AV pair;8 hidden viewport/mode/assistant cases with full V1/A1 clip visibility and16 split/undos. No PR26 changes; combined-tree/visibleVV acceptance pending. See validation/2026-11-01-three-track.md.
