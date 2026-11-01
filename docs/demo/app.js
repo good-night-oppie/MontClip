@@ -584,7 +584,7 @@ const state = {
   silenceBusy: false,    // a Find is listening (the Inspector offers Cancel)
   beats: null,           // the beat Find beats heard (Inspector → Beats): {clipId, sig, a, grid, bpm, drop}, ticks on the timeline
   beatsBusy: false,      // Find beats is listening
-  trackSize: "s",        // s | m | l — compact for new preferences; saved size wins
+  trackSize: "l",        // s | m | l — timeline track density preset
   connected: false, exporting: false,
   rendering: false,      // fast (server/ffmpeg) export in progress
   guides: false,         // safe-area overlay on the monitor
