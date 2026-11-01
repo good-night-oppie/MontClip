@@ -2,6 +2,23 @@
 const {test}=require('node:test'),a=require('node:assert/strict');
 const {create,text}=require('../agent-pane');
 const ctx=(id='p',seq='s',gen=1)=>({projectId:id,sequenceId:seq,gen,revision:2});
+
+test('final capacity copy appears only on rejection, in both locales',()=>{
+ const {mount}=require('../agent-pane'),old=global.document;
+ const element=()=>({value:'',dataset:{},style:{setProperty(){}},setAttribute(){},replaceChildren(){},append(){}});
+ try{for(const language of ['zh-CN','en']){
+  const nodes=new Map(),panel={querySelector(s){if(!nodes.has(s))nodes.set(s,element());return nodes.get(s);},querySelectorAll(){return [];}};
+  global.document={createElement:element,documentElement:element()};
+  mount({panel,getContext:()=>ctx(),getLanguage:()=>language});
+  const draft=panel.querySelector('[data-draft]'),status=panel.querySelector('[data-status]');
+  draft.value='x'.repeat(16000);draft.oninput({target:draft});a.equal(status.textContent,'');
+  draft.value+='x';draft.oninput({target:draft});a.ok(text[language].paneLimitChars);a.equal(status.textContent,text[language].paneLimitChars);
+  draft.value='retained';draft.oninput({target:draft});a.equal(status.textContent,'');
+  panel.onclick({target:{dataset:{action:'send'}}});a.equal(status.textContent,text[language].pending);a.equal(draft.value,'retained');
+  for(let i=0;i<49;i++)panel.onclick({target:{dataset:{action:'new'}}});
+  panel.onclick({target:{dataset:{action:'new'}}});a.ok(text[language].paneLimitSessions);a.equal(status.textContent,text[language].paneLimitSessions);
+ }}finally{global.document=old;}
+});
 test('draft/session isolation and no fake response or transport',()=>{const c=create();c.context(ctx());c.draft('你好');a.equal(c.send().code,'UNCONFIGURED');a.equal(c.current().draft,'你好');a.deepEqual(c.current().messages,[]);c.context(ctx('q'));a.equal(c.current().draft,'');c.context(ctx());a.equal(c.current().draft,'你好');c.context(ctx('p','t'));a.equal(c.current().draft,'');});
 test('new/select/search sessions and cancel keep drafts',()=>{const c=create();c.context(ctx());c.draft('alpha');const first=c.current().id;c.newSession();c.draft('beta');a.equal(c.list('alpha').length,1);c.select(first);c.cancel();a.equal(c.current().draft,'alpha');a.equal(c.list().length,2);});
 test('bounded drafts/sessions and locale key parity',()=>{const c=create();c.context(ctx());a.throws(()=>c.draft('x'.repeat(16001)));for(let i=0;i<49;i++)c.newSession();a.throws(()=>c.newSession());a.deepEqual(Object.keys(text.en).sort(),Object.keys(text['zh-CN']).sort());});
