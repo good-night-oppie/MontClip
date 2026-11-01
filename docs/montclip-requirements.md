@@ -77,3 +77,5 @@ Clean PR2 follow-up prepared directly from its public 8f461b9 head: narrowly rem
 
 2026-11-01 build dependency: official packager20.3.0 installed with scripts disabled, exact lockfile; actual ESM API loader check passes without packaging. Windows559/559 and repo release-check passed. Audit5moderate/0high remains unapproved; manifest/resources/ASR/real bundle/fuses gates remain open. See validation/2026-11-01-packager-dependency.md.
 2026-11-01 Agent Pane foundation: local session/draft UI plus shared locale and whitelisted desktop width store. Provider/approved payload/proposal lifecycle and real-window acceptance incomplete; no actual model traffic. See validation/2026-11-01-agent-pane-foundation.md.
+
+2026-11-01 Agent Pane SPEC hash verified and ADR adopted. Explicit local project/caption/range references and keyboard composition/layer protection implemented; no external payload approval or persistence completion. Full tool/provider/session restore/window gates remain open. See validation/2026-11-01-agent-pane-context.md.
