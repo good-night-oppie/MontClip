@@ -1,0 +1,173 @@
+{
+  "args": [
+    "-v",
+    "error",
+    "-read_intervals",
+    "7198%",
+    "-show_packets",
+    "-show_entries",
+    "packet=stream_index,pts_time,dts_time,duration_time,pos,flags",
+    "-of",
+    "json",
+    "<fixture>/two-hours.flv"
+  ],
+  "packetCount": 158,
+  "videoTailDecodeOrder": [
+    {
+      "stream_index": 0,
+      "pts_time": "7199.834000",
+      "dts_time": "7199.800000",
+      "duration_time": "0.033000",
+      "pos": "37098934",
+      "flags": "___"
+    },
+    {
+      "stream_index": 0,
+      "pts_time": "7199.967000",
+      "dts_time": "7199.834000",
+      "duration_time": "0.033000",
+      "pos": "37099009",
+      "flags": "___"
+    },
+    {
+      "stream_index": 0,
+      "pts_time": "7199.900000",
+      "dts_time": "7199.867000",
+      "duration_time": "0.033000",
+      "pos": "37099064",
+      "flags": "___"
+    },
+    {
+      "stream_index": 0,
+      "pts_time": "7199.934000",
+      "dts_time": "7199.900000",
+      "duration_time": "0.033000",
+      "pos": "37099141",
+      "flags": "___"
+    },
+    {
+      "stream_index": 0,
+      "pts_time": "7200.034000",
+      "dts_time": "7199.934000",
+      "duration_time": "0.033000",
+      "pos": "37099195",
+      "flags": "___"
+    },
+    {
+      "stream_index": 0,
+      "pts_time": "7200.000000",
+      "dts_time": "7199.967000",
+      "duration_time": "0.033000",
+      "pos": "37099272",
+      "flags": "___"
+    },
+    {
+      "stream_index": 0,
+      "pts_time": "7200.067000",
+      "dts_time": "7200.000000",
+      "duration_time": "0.033000",
+      "pos": "37099326",
+      "flags": "K__"
+    },
+    {
+      "stream_index": 0,
+      "pts_time": "7200.167000",
+      "dts_time": "7200.034000",
+      "duration_time": "0.033000",
+      "pos": "37106234",
+      "flags": "___"
+    }
+  ],
+  "videoTailPresentationOrder": [
+    {
+      "stream_index": 0,
+      "pts_time": "7199.867000",
+      "dts_time": "7199.734000",
+      "duration_time": "0.033000",
+      "pos": "37098802",
+      "flags": "___"
+    },
+    {
+      "stream_index": 0,
+      "pts_time": "7199.900000",
+      "dts_time": "7199.867000",
+      "duration_time": "0.033000",
+      "pos": "37099064",
+      "flags": "___"
+    },
+    {
+      "stream_index": 0,
+      "pts_time": "7199.934000",
+      "dts_time": "7199.900000",
+      "duration_time": "0.033000",
+      "pos": "37099141",
+      "flags": "___"
+    },
+    {
+      "stream_index": 0,
+      "pts_time": "7199.967000",
+      "dts_time": "7199.834000",
+      "duration_time": "0.033000",
+      "pos": "37099009",
+      "flags": "___"
+    },
+    {
+      "stream_index": 0,
+      "pts_time": "7200.000000",
+      "dts_time": "7199.967000",
+      "duration_time": "0.033000",
+      "pos": "37099272",
+      "flags": "___"
+    },
+    {
+      "stream_index": 0,
+      "pts_time": "7200.034000",
+      "dts_time": "7199.934000",
+      "duration_time": "0.033000",
+      "pos": "37099195",
+      "flags": "___"
+    },
+    {
+      "stream_index": 0,
+      "pts_time": "7200.067000",
+      "dts_time": "7200.000000",
+      "duration_time": "0.033000",
+      "pos": "37099326",
+      "flags": "K__"
+    },
+    {
+      "stream_index": 0,
+      "pts_time": "7200.167000",
+      "dts_time": "7200.034000",
+      "duration_time": "0.033000",
+      "pos": "37106234",
+      "flags": "___"
+    }
+  ],
+  "audioTail": [
+    {
+      "stream_index": 1,
+      "pts_time": "7200.003000",
+      "dts_time": "7200.003000",
+      "duration_time": "0.021000",
+      "pos": "37106192",
+      "flags": "K__"
+    },
+    {
+      "stream_index": 1,
+      "pts_time": "7200.024000",
+      "dts_time": "7200.024000",
+      "duration_time": "0.021000",
+      "pos": "37106213",
+      "flags": "K__"
+    },
+    {
+      "stream_index": 1,
+      "pts_time": "7200.046000",
+      "dts_time": "7200.046000",
+      "duration_time": "0.021000",
+      "pos": "37106268",
+      "flags": "K__"
+    }
+  ]
+}

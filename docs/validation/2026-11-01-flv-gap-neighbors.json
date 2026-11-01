@@ -1,0 +1,106 @@
+{
+  "source": "19377acd3dea9e0ff7df49cde62f020869c10580",
+  "moduleSha256": "2c833e1a931bc304f7df42ce61adade2dc7f9cbbfddbd2fe307b7a09844dd9aa",
+  "inputSha256": "1c51c1dcb56f688ab7b8cb2c3f9cc2b2462ad20b866b84c25034a5b3650af467",
+  "inputAfter": "1c51c1dcb56f688ab7b8cb2c3f9cc2b2462ad20b866b84c25034a5b3650af467",
+  "args": [
+    "-v",
+    "error",
+    "-show_frames",
+    "-show_entries",
+    "frame=media_type,stream_index,best_effort_timestamp_time,pts_time,pkt_dts_time,duration_time,pkt_duration_time,nb_samples,pict_type,coded_picture_number,key_frame,pkt_pos",
+    "-of",
+    "compact=p=0",
+    "<fixture>/two-hours.flv"
+  ],
+  "elapsedMs": 200936.4252,
+  "exit": {
+    "code": 0,
+    "signal": null
+  },
+  "stderr": "",
+  "production": {
+    "start": 0.046,
+    "end": 7200.200000000001,
+    "duration": 7200.154,
+    "frames": 553503,
+    "tolerance": 0.10200000000000001,
+    "maxGap": 0.06700000000000728,
+    "estimatedTail": false,
+    "declaredDuration": 7200.2,
+    "needsConsent": false
+  },
+  "observed": {
+    "frames": 553503,
+    "maxGap": 0.06700000000000728,
+    "equalMaxCount": 1,
+    "neighbor": {
+      "stream": "video",
+      "gap": 0.06700000000000728,
+      "previousTail": {
+        "end": 7200.1,
+        "frame": {
+          "media_type": "video",
+          "stream_index": "0",
+          "key_frame": "1",
+          "pts_time": "7200.067000",
+          "pkt_dts_time": "N/A",
+          "best_effort_timestamp_time": "7200.067000",
+          "duration_time": "0.033000",
+          "pkt_pos": "37099326",
+          "pict_type": "I",
+          "side_datum/h_26_45__user_data_unregistered_sei_message:side_data_type": "H.26[45] User Data Unregistered SEI message"
+        }
+      },
+      "before": [
+        {
+          "media_type": "video",
+          "stream_index": "0",
+          "key_frame": "0",
+          "pts_time": "7200.000000",
+          "pkt_dts_time": "7200.000000",
+          "best_effort_timestamp_time": "7200.000000",
+          "duration_time": "0.033000",
+          "pkt_pos": "37099272",
+          "pict_type": "B"
+        },
+        {
+          "media_type": "video",
+          "stream_index": "0",
+          "key_frame": "0",
+          "pts_time": "7200.034000",
+          "pkt_dts_time": "7200.034000",
+          "best_effort_timestamp_time": "7200.034000",
+          "duration_time": "0.033000",
+          "pkt_pos": "37099195",
+          "pict_type": "P"
+        },
+        {
+          "media_type": "video",
+          "stream_index": "0",
+          "key_frame": "1",
+          "pts_time": "7200.067000",
+          "pkt_dts_time": "N/A",
+          "best_effort_timestamp_time": "7200.067000",
+          "duration_time": "0.033000",
+          "pkt_pos": "37099326",
+          "pict_type": "I",
+          "side_datum/h_26_45__user_data_unregistered_sei_message:side_data_type": "H.26[45] User Data Unregistered SEI message"
+        }
+      ],
+      "next": {
+        "media_type": "video",
+        "stream_index": "0",
+        "key_frame": "0",
+        "pts_time": "7200.167000",
+        "pkt_dts_time": "N/A",
+        "best_effort_timestamp_time": "7200.167000",
+        "duration_time": "0.033000",
+        "pkt_pos": "37106234",
+        "pict_type": "P"
+      },
+      "after": []
+    }
+  },
+  "equivalentMax": true
+}

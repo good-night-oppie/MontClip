@@ -32,3 +32,20 @@ After measurement (not competing with timed decode), Windows/Node22.15.1 npm tes
 docs/validation/2026-11-01-flv-long-full.log sanitized UTF-8 LF SHA256 c7a4a0f7654184b962de01d0f0a4bf648e0e759c2d2d54646b4e4c54b557efde
 docs/validation/2026-11-01-flv-long-release.log sanitized UTF-8 LF SHA256 5a0e4845a4bae15d87b152750d4b1609256641d0ca3f298fe42a79199aa05b58
 docs/validation/2026-11-01-flv-long-benchmark.json sanitized UTF-8 LF SHA256 3e9431f33f7782a054f259eee9d5baa0a75ca8a64e5b0ae3cbbec746cc9fe660
+
+## Single bounded-neighbor follow-up
+
+PR12 original head1f795ec is preserved. Diagnostic branch runner f4006f9 reused the same retained input; SHA256 matched before and after. One full decoded scan with extra DTS/position fields ran200936.425ms, exit0, empty stderr,553503frames. The frozen19377acd production accumulator and bounded observer both report0.06700000000000728 maximum; exactly one maximum occurrence. No input generated, modified or deleted. Production thresholds/timeouts/consents are unchanged.
+
+Exact boundary is VIDEO stream_index0 at EOF, not the first loop join:
+- Previous frame I/keyframe: PTS/best_effort7200.067000, duration0.033000 → covered end7200.100000, byte position37099326. Decoded frame DTS is N/A at decoder drain.
+- Next and final frame P: PTS/best_effort7200.167000, duration0.033000 → end7200.200000, byte position37106234; decoded DTS N/A; no later video frame.
+- Last earlier presentation frames were7200.000(B) and7200.034(P), both33ms.
+
+A separate bounded tail packet query (-read_intervals7198%,158packets) resolves the unavailable decoded DTS using identical byte positions: I packet PTS7200.067/DTS7200.000; P packet PTS7200.167/DTS7200.034. Sorted video packet PTS also contains no frame at7200.100 or7200.134. Audio tail PTS/DTS7200.003,.024,.046, each21ms. The67ms uncovered presentation interval is present in this generated file, not created by accumulator arrival order or rounding. This classifies an input-tail structural gap; it does not prove the detailed encoder/mux cutoff mechanism, nor that all B-frame streams are broken. A static blue display could conceal it visually; the timeline guard must still refuse it.
+
+Packet DTS advances34ms across this boundary, so switching to packet-DTS continuity would falsely accept this actual fixture. Packet PTS must also account for reorder and decoded validity; no packet replacement is justified by this evidence. Minimum action: keep production refusal unchanged and treat this particular benchmark fixture as long-decode performance evidence plus a real tail-gap rejection case, never a continuous-long-input acceptance fixture. A future continuous fixture needs separate generation/validation and cannot retroactively change these results.
+
+Evidence:2026-11-01-flv-gap-neighbors.json records max neighbors and exact commands;2026-11-01-flv-gap-tail-packets.json records bounded tail packets in decode/presentation order. Diagnostic storage is two per-type rings of3, one max record plus3 later frames, counters, and at most8KiB stderr; no all-frame log. Focused observer tests2/2 include exact PTS-vs-DTS tail example. Production accumulator uses its original frame duration handling; the observer explicitly refuses absent durations rather than claiming fallback equivalence. No production code changed.
+
+Deja's receipt: PR11 dec39178 QQ formal approval582/582, but remains on its current base pending PR9 merge/rebase verification; neither reviewed head moved. Original-FLV/output PTS correspondence, user-recording/2–3h complexity, Electron and export-sync gates remain open.
