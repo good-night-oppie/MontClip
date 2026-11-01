@@ -45,3 +45,7 @@ Evidence hashes below use sanitized UTF-8 git blob bytes (LF), not unsanitized p
 - docs/validation/2026-11-01-pr8-view-width-red.json: d40796e241b31f16e26c61879b8d3ad8334401db848a8452cbea551983f04d0d
 - docs/validation/2026-11-01-pr8-view-width-exit-red.json: f1165b0e678b99c09a6652aa4076706a5e08e1122aef69332793c38fdd543010
 - docs/validation/2026-11-01-pr8-native-resize-red.json: ce5fe42fa4ea5dff7f0aa787e37c60a9e3ee4e7d2567d74ca3391b358db3091f
+
+### Public source binding
+
+GitHub rejected the first push with GH007; no rejected commit was published. The five new local commits were recreated with the public noreply identity, preserving every tree and the existing public parent f643999. Local backup is retained; remote was updated by normal fast-forward, not force. Tested code 8d42c6bf5161344bae72c98829fbca2773e7c73a has public equivalent 02255064a6ce9c8e67b8d90712500e47f3df8d74, identical tree a29055466bcb19a0e901e01b5aeda30ef26fc8e5. The evidence source IDs remain the actual original local run IDs, not fabricated reruns. Red equivalents:7e8e958→3f83609, a04ac64→8eab450, 494d5ba→923f357. Evidence commit a2e35ad→7a59872 has identical tree07c0910670fc89057091df1e2699ff4192907624. Tests were not repeated for identity-only recreation or this documentation addition.
