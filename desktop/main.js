@@ -111,6 +111,7 @@ async function start() {
     return;
   }
   if (smoke) {
+    if (process.argv.includes("--m0")) await require("./m0-smoke").run(win, origin, token, env.FABLECUT_DATA_DIR);
     const result = await win.webContents.executeJavaScript(`(async () => {
       const deadline = Date.now() + 15000;
       while ((typeof project === 'undefined' || !project || !project.clips) && Date.now() < deadline)

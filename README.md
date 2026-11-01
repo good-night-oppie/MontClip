@@ -162,6 +162,10 @@ big operation (cutting silences, snapping to the beat, reframing), and every
   the canvas. Export or import SRT and WebVTT. Imports keep sentence timing;
   word animations require real word timestamps. Agents use `fablecut_captions`.
 - **Experimental MontClip desktop host** — see [desktop/README.md](desktop/README.md).
+  Development sentence selection keeps click order, previews before applying,
+  and uses one undo step. Agents can also specify exact ordered ranges. Boundary
+  subtitles keep whole text with clipped display times; source mapping is a
+  separate JSON file. Real media/package acceptance is still pending.
   Sandboxed Electron runs this same editor locally, blocks remote requests and
   waits for saving before closing. A stalled save offers keep waiting (default)
   or explicit force close after 15 seconds; recent edits may be lost on force close.

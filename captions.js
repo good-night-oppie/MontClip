@@ -225,5 +225,77 @@
     return { track: "V" + n, add: true };
   }
 
-  return { STYLES, DEFAULT_STYLE, DEFAULT_TRACKS, style, metrics, wrap, fit, cues, wordTimes, clip, fromClips, toSRT, toVTT, parse, readStamp, isCaption, trackFor };
+  /** Keep selected sentence intervals, removing their complement on every lane.
+   * The plan is read-only; callers apply all ops in one revision/undo transaction. */
+  function selectionPlan(doc, ids) {
+    if (!Array.isArray(ids) || !ids.length || ids.some((id) => typeof id !== "string"))
+      throw new Error("Select at least one caption sentence");
+    const selected = [...new Set(ids)].map((id) => {
+      const c = doc.clips.find((c) => c.id === id);
+      if (!c || !isCaption(c) || c.disabled || (doc.disabledTracks || []).includes(c.track))
+        throw new Error("Selected caption is missing or disabled: " + id);
+      return { from: c.start, to: r4(c.start + c.duration) };
+    }).sort((a, b) => a.from - b.from);
+    for (const c of doc.clips) if (!num(c.start) || !num(c.duration) || c.start < 0 || c.duration <= 0)
+      throw new Error("Invalid clip timing: " + c.id);
+    const end = Math.max(0, ...doc.clips.map((c) => r4(c.start + c.duration)));
+    const keep = [];
+    for (const range of selected) {
+      const last = keep[keep.length - 1];
+      if (last && range.from <= last.to) last.to = Math.max(last.to, range.to);
+      else keep.push({ ...range });
+    }
+    const remove = [];
+    let cursor = 0;
+    for (const range of keep) {
+      if (range.from > cursor) remove.push({ from: cursor, to: range.from });
+      cursor = range.to;
+    }
+    if (cursor < end) remove.push({ from: cursor, to: end });
+    if (remove.some((r) => r4(r.to - r.from) <= 0.05))
+      throw new Error("A gap is too short for the timeline edit engine (<=0.05s); adjust the sentence boundary first");
+    if (remove.length && doc.clips.some((c) => c.locked || (doc.lockedTracks || []).includes(c.track)))
+      throw new Error("Unlock clips and tracks before joining sentence ranges");
+    // Nested sequences and speed ramps require their own mapping; do not silently approximate.
+    if (doc.clips.some((c) => c.kind === "comp" || (c.keyframes?.speed || []).length))
+      throw new Error("Sentence selection currently requires clips without compositions or speed ramps");
+    const tracks = [...new Set(doc.clips.map((c) => c.track))];
+    return { keep, remove, duration: r4(keep.reduce((s, r) => s + r.to - r.from, 0)),
+      ops: remove.slice().reverse().map((r) => ({ op: "extract", ...r, tracks })) };
+  }
+
+  /** Independent JSON sidecar: current output seconds ↔ original source seconds.
+   * This describes the edit, not measured encoder/A-V accuracy. */
+  function sourceMap(doc) {
+    for (const c of (doc.clips || []).filter(isCaption)) {
+      const saved = c.props.captionSource?.output;
+      if (saved && (Math.abs(saved.start-c.start) > 1e-6 || Math.abs(saved.end-c.start-c.duration) > 1e-6))
+        throw new Error("Caption timing changed after the range plan; source mapping needs rebuilding / 选段后字幕时间已改变，请重新建立源时间映射");
+    }
+    const off = new Set(doc.disabledTracks || []), segments = [];
+    for (const c of doc.clips || []) {
+      if (c.disabled || off.has(c.track)) continue;
+      if (c.kind === "comp") throw new Error("Source mapping for compositions is not supported yet");
+      if (c.kind !== "video" && c.kind !== "audio") continue;
+      if ((c.keyframes?.speed || []).length) throw new Error("Source mapping for speed ramps is not supported yet");
+      const m = (doc.media || []).find((m) => m.id === c.mediaId);
+      const speed = Math.max(0.1, Math.min(8, Number(c.props?.speed) || 1)), inn = c.in == null ? 0 : c.in;
+      if (!m || !num(inn) || inn < 0 || !num(c.start) || c.start < 0 || !num(c.duration) || c.duration <= 0)
+        throw new Error("Invalid source mapping for clip " + c.id);
+      const end = r4(inn + c.duration * speed);
+      if (num(m.duration) && end > m.duration + 0.001)
+        throw new Error("Clip exceeds source duration; looping mapping is not supported yet: " + c.id);
+      segments.push({ clipId: c.id, mediaId: c.mediaId, track: c.track,
+        source: { start: inn, end }, output: { start: c.start, end: r4(c.start + c.duration) }, speed });
+    }
+    segments.sort((a, b) => a.output.start - b.output.start || a.track.localeCompare(b.track));
+    return { format: "montclip-source-map", version: 1, unit: "seconds", revision: doc.revision,
+      sequence: doc.sequence || null, segments, omittedCaptions: doc.captionOmissions || [],
+      captions: (doc.clips || []).filter(isCaption).filter(c => c.props.captionSource).map(c => ({
+        ...c.props.captionSource, clipId: c.id, output: { start: c.start, end: r4(c.start + c.duration) },
+        hidden: !!c.disabled || off.has(c.track),
+      })) };
+  }
+
+  return { STYLES, DEFAULT_STYLE, DEFAULT_TRACKS, style, metrics, wrap, fit, cues, wordTimes, clip, fromClips, toSRT, toVTT, parse, readStamp, isCaption, trackFor, selectionPlan, sourceMap };
 });

@@ -4508,3 +4508,9 @@ body { background: var(--bg); }
 .tracks-content, .timeline-scroll { background-color: var(--well); }
 .track:nth-child(even):not(.drop-hint) { background-color: #ffffff05; }   /* a drop target keeps its highlight */
 .insp-section { background: var(--panel-sub); border-radius: 6px; padding: 8px 10px; margin: 0 0 10px; }
+.sentence-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(620px, 90vw); max-height: 85vh; padding: 20px; }
+.sentence-dialog::backdrop { background: #0009; }
+.sentence-dialog [data-sentences] { max-height: 42vh; overflow: auto; }
+.sentence-dialog label { display: flex; align-items: start; gap: 8px; padding: 8px 0; }
+.sentence-dialog p { line-height: 1.5; }
+.sentence-dialog .tr-row { flex-wrap: wrap; }

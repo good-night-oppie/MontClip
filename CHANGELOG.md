@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Development ordered sentence/range proposals, boundary-caption provenance and
+  independent source/output JSON export. Native trim engine and one undo/revision
+  transaction are retained; unsupported edits fail explicitly.
 - Experimental MontClip Electron development host: isolated renderer, ephemeral
   loopback server, per-instance request token, exact origin validation, offline
   request policy and save-before-close. This is not a portable release build.

@@ -7,13 +7,14 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "MontClip 中文 smoke "));
 const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE;
 const fault = process.argv.includes("--close-crash") ? "--close-crash" : process.argv.includes("--close-timeout") ? "--close-timeout" : null;
-const child = spawn(require("electron"), [__dirname, "--montclip-smoke", ...(fault ? [fault] : []), "--user-data-dir=" + dir], {
+const m0 = process.argv.includes("--m0");
+const child = spawn(require("electron"), [__dirname, "--montclip-smoke", ...(fault ? [fault] : []), ...(m0 ? ["--m0"] : []), "--user-data-dir=" + dir], {
   env, windowsHide: true, stdio: ["ignore", "pipe", "pipe"],
 });
 let output = "";
 child.stdout.on("data", (data) => { output += data; process.stdout.write(data); });
 child.stderr.on("data", (data) => process.stderr.write(data));
-const timer = setTimeout(() => { console.error("Electron smoke timed out; data retained at " + dir); child.kill(); }, 45000);
+const timer = setTimeout(() => { console.error("Electron smoke timed out; data retained at " + dir); child.kill(); }, m0 ? 180000 : 45000);
 child.on("exit", (code) => {
   clearTimeout(timer);
   let pass = false;
@@ -28,6 +29,7 @@ child.on("exit", (code) => {
       .every((key) => result[key] === true);
     }
   } catch { }
+  if (m0 && !output.includes("MONTCLIP_M0 ")) pass = false;
   process.exitCode = code || (pass ? 0 : 1);
   console.log("Smoke data: " + dir);
 });
