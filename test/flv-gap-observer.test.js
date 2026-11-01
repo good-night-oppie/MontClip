@@ -1,0 +1,3 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict');const {observer}=require('../.github/scripts/flv-gap-neighbors');
+test('gap observer retains bounded per-stream neighbors and does not confuse interleaving',()=>{const o=observer();for(let i=0;i<1000;i++){o.frame({media_type:'video',pts_time:String(i+(i>=10?2:0)),duration_time:'1',pkt_dts_time:String(i-.5)});o.frame({media_type:'audio',pts_time:String(i),duration_time:'1'});}const r=o.finish();assert.equal(r.frames,2000);assert.equal(r.maxGap,2);assert.equal(r.neighbor.stream,'video');assert.equal(r.neighbor.previousTail.end,10);assert.equal(r.neighbor.next.pts_time,'12');assert.equal(r.neighbor.before.length,3);assert.equal(r.neighbor.after.length,3);});
