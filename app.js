@@ -20818,6 +20818,7 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  getContext:agentProjectContext,
  getLanguage:()=>mcView.get().language,settings:window.montclipPaneSettings,sessionStorage:window.montclipAgentSessions,
  onHide:()=>{setSideTab("inspector");document.getElementById("mcAssistant").focus();},
+ getProjectName:id=>id===runtime.projectId?project.name:null,
  onUndo:()=>undo(),
  onProposal:(response,result)=>{
    const c=agentProjectContext();

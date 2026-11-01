@@ -13,4 +13,6 @@ function createConversation({state,getContext,service,id=()=>crypto.randomUUID()
  sync(){if(pending&&pending.signature!==signature())void this.cancel();if(review&&review.signature!==signature())review=null;}
  };
 }
-return{createConversation};});
+function clock(seconds){if(!Number.isFinite(seconds)||seconds<0)return '';const n=Math.floor(seconds),h=Math.floor(n/3600),m=Math.floor(n/60)%60,sec=n%60;return(h?h+':':'')+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');}
+function referenceText(r,labels,projectName){if(r.type==='project')return labels.project+' · '+projectName;return (r.type==='caption'?labels.caption:labels.range)+' · '+clock(r.start)+'–'+clock(r.end)+(r.type==='caption'?' · '+r.text:'');}
+return{createConversation,referenceText};});
