@@ -106,3 +106,5 @@ Simple view occupied-lane follow-up: V1/A1 placeholders retained only if their k
 PR26 QQ follow-up: explicit backed-up connection reset, complete scheduler MIT notice and bundle license coverage; Windows628/628+release-check and hidden synthetic reset/reopen pass. Renderer-only consent limitation documented. Real provider/VV/portable release remain unverified; see existing official-pane validation record.
 
 PR26 follow-up: own-application top-of-shared-undo eligibility and JJ final disclosure/noun chips;630/630 plus release-check and hidden DOM lifecycle pass. New same-head QQ/JJ/VV review required; live provider remains unaccepted.
+
+PR26 VV workflow increment: readable review/text/chips/quoted proposal summary, fixed action, zero-send reask;634/634+release-check and hidden workflow pass.630x452 shows only reply end in29px scroll area, VV usability pending. Legacy proposal-dialog locale/time and separate three-track V3/V1/A1 visibility remain open.

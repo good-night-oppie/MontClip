@@ -4621,3 +4621,26 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .cindy-confirm {max-width:min(620px,90vw);max-height:85vh;color:var(--text);background:var(--panel);}
 .cindy-confirm pre {white-space:pre-wrap;overflow-wrap:anywhere;max-height:55vh;overflow:auto;}
 .cindy-port p {margin:2px 0;font-size:11px;}
+
+/* Review is a centered themed modal; reply actions stay outside the scrolling history. */
+.cindy-confirm {position:fixed;inset:0;margin:auto;width:min(620px,90vw);box-sizing:border-box;padding:16px;border:1px solid var(--border);border-radius:8px;overflow:auto;background:var(--panel);color:var(--text);}
+.cindy-confirm::backdrop {background:rgba(0,0,0,.45);}
+.cindy-review-text {max-height:30vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;}
+.cindy-chip {display:block;border:1px solid var(--border);border-radius:4px;padding:2px 4px;overflow-wrap:anywhere;}
+.cindy-proposal-actions {flex:none;display:flex;gap:4px;flex-wrap:wrap;}
+.cindy-config {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:3px;max-height:60%;}
+.cindy-config p,.cindy-config [role=alert] {grid-column:1 / -1;}
+
+@media (max-height:560px) {
+ .cindy-port {gap:2px;}
+ .cindy-composer textarea {height:42px;min-height:42px;max-height:60px;}
+ .cindy-proposal-actions button {padding:2px 4px;font-size:11px;}
+ .cindy-port > .agent-toolbar {flex-shrink:0;}
+}
+
+@media (max-width:700px) and (max-height:560px) {
+ #mcAgentContent .cindy-composer textarea {height:28px;min-height:28px;max-height:42px;}
+ .cindy-port {gap:1px;}
+ .cindy-port > .agent-toolbar button,.cindy-proposal-actions button {padding:1px 3px;font-size:11px;}
+ .cindy-composer {padding:2px;}
+}

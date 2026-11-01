@@ -1,0 +1,32 @@
+
+
+  FableCut running →  http://localhost:42862
+
+  project file : <user>\AppData\Local\Temp\MontClip-official-pane-3F1dyK\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-official-pane-3F1dyK\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-official-pane-3F1dyK\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+OFFICIAL_CONFIG_ESCAPE focus-restored
+(electron) 'safeStorage.isEncryptionAvailable' is deprecated and will be removed. Please use 'safeStorage.isAsyncEncryptionAvailable' instead.
+(electron) 'safeStorage.encryptString' is deprecated and will be removed. Please use 'safeStorage.encryptStringAsync' instead.
+OFFICIAL_IME synthetic-composition-enter: zero review/send
+OFFICIAL_REVIEW {"projectId":"p_0886a0f4cc","revision":3,"draftLength":907,"status":[""],"sessionCount":1}
+OFFICIAL_COPY labels/time/disclosure/synthetic-event-paste: passed
+OFFICIAL_REPLY_VIEW {"width":804,"bottom":0,"replyVisible":true,"hit":true,"noJSON":true}
+OFFICIAL_REPLY_VIEW {"width":630,"bottom":0,"replyVisible":false,"hit":true,"noJSON":true}
+AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+  assert.ok(observed.replyVisible&&observed.hit&&observed.noJSON)
+
+    at BrowserWindow.loadURL (<repo>\desktop\official-pane-smoke.cjs:46:861)
+    at async start (<repo>\desktop\main.js:131:3) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
