@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Agent pane restores existing project drafts after a capacity-blocked project switch and distinguishes session, text and reference limits.
+
 ### Added
 - Development ordered sentence/range proposals, boundary-caption provenance and
   independent source/output JSON export. Native trim engine and one undo/revision
