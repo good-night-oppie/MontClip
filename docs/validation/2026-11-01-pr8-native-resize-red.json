@@ -1,0 +1,11 @@
+{
+  "source": "494d5ba7f203045890980218af6edfa32d650763",
+  "results": [
+    {
+      "reopen": false,
+      "status": 1,
+      "stdout": "\r\n\n  FableCut running →  http://localhost:58745\n\n  project file : <profile>\\workspace\\project.json\n  media folder : <profile>\\workspace\\media\n  library      : <profile>\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\n",
+      "stderr": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n807 !== 804\n\n    at exports.run (<repo>\\desktop\\view-smoke.js:21:31)\n    at async start (<repo>\\desktop\\main.js:120:48) {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: 807,\n  expected: 804,\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n"
+    }
+  ]
+}
