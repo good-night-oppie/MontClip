@@ -52,6 +52,8 @@
       if (s && node) node.data = (node.data.match(/^\s*/)[0]) + s;
     }
   }
+  Object.assign(text['zh-CN'], { paneNew:'新建会话', paneSearch:'搜索本项目会话', paneDraft:'输入消息（仅本次打开保留）', paneSend:'发送', paneCancel:'取消', paneConfig:'助手设置', paneModel:'模型', paneNone:'未配置服务', paneWidth:'面板宽度', paneEmpty:'暂无消息。未连接服务，不会发送内容。', paneTools:'暂无工具执行', paneLocal:'会话和草稿仅保留到本次窗口关闭，不会自动附加项目内容。', paneLimit:'会话或输入已达本次窗口上限，请保留当前草稿。', paneSaveFailed:'面板宽度未能记住，下次打开可能恢复默认。' });
+  Object.assign(text.en, { paneNew:'New session', paneSearch:'Search project sessions', paneDraft:'Message (kept for this window only)', paneSend:'Send', paneCancel:'Cancel', paneConfig:'Assistant settings', paneModel:'Model', paneNone:'Service not configured', paneWidth:'Pane width', paneEmpty:'No messages. No service is connected; nothing will be sent.', paneTools:'No tool activity', paneLocal:'Sessions and drafts last until this window closes. Project content is not attached automatically.', paneLimit:'Session or input limit reached for this window. Keep your current draft.', paneSaveFailed:'Pane width could not be saved; the next launch may use the default.' });
   function create(storage) {
     let saved; try { saved = JSON.parse(storage.getItem(KEY)); } catch {}
     let value = { mode: saved?.mode === "advanced" ? "advanced" : "simple", language: saved?.language === "en" ? "en" : "zh-CN" };
