@@ -1657,6 +1657,7 @@ function cancelCloseSave(attempt) {
   }
 }
 async function flushSaveForClose(attempt = 1) {
+  if (typeof mcAgent !== "undefined" && mcAgent && !mcAgent.flush()) return false;
   if (attempt <= closeSaveInvalidThrough || closeSaveTransaction) return false;
   const body = document.body, wasInert = body.inert;
   const events = ["keydown", "keyup", "pointerdown", "pointerup", "click", "drop", "paste", "input"];
@@ -20748,7 +20749,7 @@ const mcAgentPanel=document.getElementById('mcAssistantPanel');
 document.body.append(mcAgentPanel);
 mcAgent=MontClipAgentPane.mount({panel:document.getElementById('mcAgentContent'),
  getContext:()=>({projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen,revision:project.revision}),
- getLanguage:()=>mcView.get().language,settings:window.montclipPaneSettings,
+ getLanguage:()=>mcView.get().language,settings:window.montclipPaneSettings,sessionStorage:window.montclipAgentSessions,
  onHide:()=>{mcAgentPanel.classList.add('hidden');document.getElementById('mcAssistant').focus();},
  getReferences:kind=>MontClipAgentPane.referenceChips(kind,{projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen,revision:project.revision,
  start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(FableCutCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
