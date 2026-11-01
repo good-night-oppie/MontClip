@@ -1034,3 +1034,5 @@ the report in [#1](https://github.com/ronak-create/FableCut/issues/1) — thanks
 
 ### MontClip view controls
 - Add persisted Simple/Advanced layout and Chinese/English control labels using the existing editor DOM, plus undo/redo entry points and an honest disconnected Assistant panel.
+
+- Desktop: retain view preferences across random-port restarts; reserve normal-flow space for wrapped narrow-window toolbar buttons.

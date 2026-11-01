@@ -18,3 +18,10 @@ test("unavailable preference storage leaves current view usable and reports fail
   assert.equal(view.get().mode, "advanced");
   assert.deepEqual(Object.keys(View.text.en).sort(), Object.keys(View.text["zh-CN"]).sort());
 });
+
+test('desktop bridge defaults on read failure and reports write failure without changing editor data', () => {
+ const view=View.create(View.desktopStorage({get:()=>({ok:false}),set:()=>({ok:false})}));
+ assert.deepEqual(view.get(),{mode:'simple',language:'zh-CN'});
+ assert.equal(view.set({language:'en'}),false);
+ assert.equal(view.get().language,'en');
+});

@@ -35,7 +35,7 @@ const TRACK_SIZE_PRESETS = {
 };
 const TRACK_SIZE_KEY = "fablecut-track-size";
 // Shared DOM and project; this controller only changes view preferences.
-const mcView = MontClipView.create(localStorage);
+const mcView = MontClipView.create(window.montclipViewSettings ? MontClipView.desktopStorage(window.montclipViewSettings) : localStorage);
 function renderMontClipView() {
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
   document.documentElement.lang = language;

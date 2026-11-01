@@ -708,3 +708,5 @@ all existing editor panels. Mode/language changes do not replace the project or
 undo history. Undo/redo buttons use the existing editor commands. The collapsible
 Assistant panel states that no AI service is connected; it sends nothing.
 FLV import, broader localization and interactive chat are separate changes.
+
+Desktop view preferences (simple/advanced and zh-CN/en) use the fixed userData/view-settings.json file, independent of the random local server port. The sandboxed preload exposes only get/set for these two enum settings; main validates sender, top frame and exact origin. Browser use retains localStorage. This does not save project edits.

@@ -22,5 +22,9 @@
       },
     };
   }
-  return { create, text, KEY };
+  function desktopStorage(bridge) {
+    return { getItem() { const r=bridge.get(); if(!r?.ok) throw Error('View settings unavailable'); return JSON.stringify(r.value); },
+      setItem(_key, raw) { if(!bridge.set(JSON.parse(raw))?.ok) throw Error('View settings not saved'); } };
+  }
+  return { create, desktopStorage, text, KEY };
 });
