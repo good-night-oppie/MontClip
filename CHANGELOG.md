@@ -1031,3 +1031,6 @@ the report in [#1](https://github.com/ronak-create/FableCut/issues/1) — thanks
 [1.0.0]: https://github.com/ronak-create/FableCut/releases/tag/v1.0.0
 
 - Preserve complete normalized SRT/WebVTT cue bodies instead of silently truncating after 500 UTF-16 code units; keep original cue times and existing tag normalization.
+
+### MontClip view controls
+- Add persisted Simple/Advanced layout and Chinese/English control labels using the existing editor DOM, plus undo/redo entry points and an honest disconnected Assistant panel.
