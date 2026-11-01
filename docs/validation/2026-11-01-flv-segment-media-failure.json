@@ -1,0 +1,485 @@
+{
+  "error": "ffmpeg:3199971767",
+  "commands": [
+    {
+      "tool": "where.exe",
+      "args": [
+        "ffmpeg"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-version"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "where.exe",
+      "args": [
+        "ffprobe"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffprobe",
+      "args": [
+        "-version"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-n",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=160x96:rate=10:duration=4",
+        "-f",
+        "lavfi",
+        "-i",
+        "aevalsrc=sin(2*PI*(300*t+50*t*t)):s=48000:d=4",
+        "-vf",
+        "setpts=PTS+2/TB+gte(T\\,2)*0.5/TB",
+        "-af",
+        "asetpts=PTS+2/TB+gte(T\\,2)*0.5/TB",
+        "-fps_mode",
+        "passthrough",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-crf",
+        "18",
+        "-g",
+        "10",
+        "-keyint_min",
+        "10",
+        "-sc_threshold",
+        "0",
+        "-bf",
+        "0",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "96k",
+        "-copyts",
+        "-f",
+        "flv",
+        "<fixture>\\gop10.flv"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffprobe",
+      "args": [
+        "-v",
+        "error",
+        "-show_frames",
+        "-show_streams",
+        "-of",
+        "json",
+        "<fixture>\\gop10.flv"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-i",
+        "<fixture>\\gop10.flv",
+        "-map",
+        "0:v:0",
+        "-f",
+        "framemd5",
+        "-"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-i",
+        "<fixture>\\gop10.flv",
+        "-map",
+        "0:a:0",
+        "-f",
+        "framemd5",
+        "-"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-n",
+        "-copyts",
+        "-i",
+        "<fixture>\\gop10.flv",
+        "-ss",
+        "2",
+        "-to",
+        "4",
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a:0",
+        "-c",
+        "copy",
+        "<fixture>\\gop10-left.mkv"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffprobe",
+      "args": [
+        "-v",
+        "error",
+        "-show_frames",
+        "-show_streams",
+        "-of",
+        "json",
+        "<fixture>\\gop10-left.mkv"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-i",
+        "<fixture>\\gop10-left.mkv",
+        "-map",
+        "0:v:0",
+        "-f",
+        "framemd5",
+        "-"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-i",
+        "<fixture>\\gop10-left.mkv",
+        "-map",
+        "0:a:0",
+        "-f",
+        "framemd5",
+        "-"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-n",
+        "-copyts",
+        "-i",
+        "<fixture>\\gop10.flv",
+        "-ss",
+        "4.5",
+        "-to",
+        "6.5",
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a:0",
+        "-c",
+        "copy",
+        "<fixture>\\gop10-right.mkv"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffprobe",
+      "args": [
+        "-v",
+        "error",
+        "-show_frames",
+        "-show_streams",
+        "-of",
+        "json",
+        "<fixture>\\gop10-right.mkv"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-i",
+        "<fixture>\\gop10-right.mkv",
+        "-map",
+        "0:v:0",
+        "-f",
+        "framemd5",
+        "-"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-i",
+        "<fixture>\\gop10-right.mkv",
+        "-map",
+        "0:a:0",
+        "-f",
+        "framemd5",
+        "-"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-n",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=160x96:rate=10:duration=4",
+        "-f",
+        "lavfi",
+        "-i",
+        "aevalsrc=sin(2*PI*(300*t+50*t*t)):s=48000:d=4",
+        "-vf",
+        "setpts=PTS+2/TB+gte(T\\,2)*0.5/TB",
+        "-af",
+        "asetpts=PTS+2/TB+gte(T\\,2)*0.5/TB",
+        "-fps_mode",
+        "passthrough",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-crf",
+        "18",
+        "-g",
+        "40",
+        "-keyint_min",
+        "40",
+        "-sc_threshold",
+        "0",
+        "-bf",
+        "0",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "96k",
+        "-copyts",
+        "-f",
+        "flv",
+        "<fixture>\\gop40.flv"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffprobe",
+      "args": [
+        "-v",
+        "error",
+        "-show_frames",
+        "-show_streams",
+        "-of",
+        "json",
+        "<fixture>\\gop40.flv"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-i",
+        "<fixture>\\gop40.flv",
+        "-map",
+        "0:v:0",
+        "-f",
+        "framemd5",
+        "-"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-i",
+        "<fixture>\\gop40.flv",
+        "-map",
+        "0:a:0",
+        "-f",
+        "framemd5",
+        "-"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-n",
+        "-copyts",
+        "-i",
+        "<fixture>\\gop40.flv",
+        "-ss",
+        "2",
+        "-to",
+        "4",
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a:0",
+        "-c",
+        "copy",
+        "<fixture>\\gop40-left.mkv"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffprobe",
+      "args": [
+        "-v",
+        "error",
+        "-show_frames",
+        "-show_streams",
+        "-of",
+        "json",
+        "<fixture>\\gop40-left.mkv"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-i",
+        "<fixture>\\gop40-left.mkv",
+        "-map",
+        "0:v:0",
+        "-f",
+        "framemd5",
+        "-"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-i",
+        "<fixture>\\gop40-left.mkv",
+        "-map",
+        "0:a:0",
+        "-f",
+        "framemd5",
+        "-"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-n",
+        "-copyts",
+        "-i",
+        "<fixture>\\gop40.flv",
+        "-ss",
+        "4.5",
+        "-to",
+        "6.5",
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a:0",
+        "-c",
+        "copy",
+        "<fixture>\\gop40-right.mkv"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffprobe",
+      "args": [
+        "-v",
+        "error",
+        "-show_frames",
+        "-show_streams",
+        "-of",
+        "json",
+        "<fixture>\\gop40-right.mkv"
+      ],
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-i",
+        "<fixture>\\gop40-right.mkv",
+        "-map",
+        "0:v:0",
+        "-f",
+        "framemd5",
+        "-"
+      ],
+      "exit": 3199971767,
+      "stderr": "[vf#0:0 @ 000001d21c6038c0] Cannot determine format of input 0:0 after EOF\r\n[vf#0:0 @ 000001d21c6038c0] Task finished with error code: -1094995529 (Invalid data found when processing input)\r\n[vf#0:0 @ 000001d21c6038c0] Terminating thread with return code -1094995529 (Invalid data found when processing input)\r\n[vost#0:0/rawvideo @ 000001d21c5f3580] [enc:rawvideo @ 000001d21c5facc0] Could not open encoder before EOF\r\n[vost#0:0/rawvideo @ 000001d21c5f3580] Task finished with error code: -22 (Invalid argument)\r\n[vost#0:0/rawvideo @ 000001d21c5f3580] Terminating thread with return code -22 (Invalid argument)\r\n[out#0/framemd5 @ 000001d21c6026c0] Nothing was written into output file, because at least one of its streams received no packets.\r\n"
+    }
+  ]
+}

@@ -74,3 +74,5 @@ Clean PR2 follow-up prepared directly from its public 8f461b9 head: narrowly rem
 2026-11-01 review split: clean view-controls replacement based on squash main5df54aec; see validation/2026-11-01-view-clean.md. Windows558/558 and repository release-check pass. Full bilingual UI/chat/FLV remain separate pending changes; no old PR4 approval inherited, no new-window acceptance claimed.
 
 2026-11-01 isolated FLV segment planner: exact synthetic PTS unit coverage and per-segment mathematical mapping only; unmatched AV/boundaries refused. No production entry, executable=false. Actual media identity, output PTS, UI consent, undo and failure isolation unverified. See validation/2026-11-01-flv-segment-plan.md.
+
+2026-11-01 encoded short FLV experiment: GOP10 video halves20/20 hash-preserved but AAC boundaries mismatch; GOP40 right0/20 decodable frames. Both real AV inputs refused by isolated planner; no production enablement. See validation/2026-11-01-flv-segment-media.md for measured source/output PTS, tool/hash evidence and concrete VV/JJ decision pages. Packaging resources/ASR/license gates unchanged.

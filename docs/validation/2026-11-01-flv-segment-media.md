@@ -1,0 +1,26 @@
+# Encoded short-segment experiment (not import acceptance)
+
+Based on PR14 9ba8e44 unchanged. Windows x64 Node22.15.1; source/test code in .github/scripts/flv-segment-media.js. Manual only, no production entry. Tool versions/executable SHA256, exact commands, all source/output SHA256, presentation timestamps, frame types, decoded frame/audio MD5 and per-output matches are in the adjacent JSON. Installed GPL development FFmpeg is not an approved distribution resource.
+
+Fixtures:4s160x96@10fps moving testsrc2, synthesized chirped mono48kHz audio (sin phase300*t+50*t*t), libx264 CRF18 ultrafast, bf0, GOP10 or40, AAC96k. PTS shifted by2s and another0.5s at2s content time. Nonzero video start2.000, audio1.979. Proposed source intervals [2,4) and [4.5,6.5). Remux only to MKV, no output reencoding, fill or stretching. These are diagnostic candidate cuts, NOT planner-approved segments: the real extracted AV coverage is rejected UNMATCHED_AV_COVERAGE for both fixtures. Production gap guard unchanged.
+
+Results: GOP10 both halves20/20 exact ordered decoded video MD5; GOP40 left20/20, right0/20 with invalid-data decode failure after remux exit0. Thus command exit0 is insufficient; non-keyframe side is unusable. Each output contains94 decoded audio blocks versus93 wholly-inside source blocks, with ordered MD5 mismatch. Source blocks cross ends:3.984–4.005 and6.489–6.510,1024samples each (reported ms durations). Initial decoded audio blocks do not match source, so audio identity cannot be claimed; AAC decoder priming/edge effects need separate explanation, not a fabricated correction. GOP10 video2→0 and4.5→0 mapping observed by MD5; right audio later4.527→.027 matches but first output.005 has no match. Never infer complete AV mapping from those later matches.
+
+Conclusion: both complete AV segment candidates FAIL this experiment. Keep executable=false and unmatched-boundary refusal. No planner constraint relaxation or production fix justified. This proves limitations of this exact output-side -ss/-to stream-copy procedure; it does not prove all possible lossless splitting impossible. No UI/undo integration.
+
+Execution: initial filter expression comma escaping failed before a valid fixture (exit3015096584, retained MontClip-segment-media-Q6xf9O); corrected escaping then generated both inputs and four outputs once in MontClip-segment-media-Vj6ydV. Analysis stopped on the GOP40-right decode error; bounded command/error evidence is retained in *-failure.json. Final harness records decode failure instead of aborting the remaining report; re-analysis reused existing files, no regeneration/remux. Final report exit0 means report completed, NOT media accepted: every output explicitly accepted=false. Retained directory553136 bytes, before run C free41.49GB, reserve>10GiB. No files deleted. No owner recordings or profiles. The first generator error was not captured to a raw file; only console exit/directory retained, not invented as full stderr evidence.
+
+Commands: node .github/scripts/flv-segment-media.js (generation); node .github/scripts/flv-segment-media.js MontClip-segment-media-Vj6ydV (read/analyze retained outputs). Reuse argument only allows a task basename, not arbitrary paths. Existing failure evidence is not overwritten by successful re-analysis. Full JSON records potentially several hundred short-frame hashes, bounded by4s fixture and subprocess4MiB output/60s limits. No long input rescan. Linux/macOS/60fps/real recording/portable package not tested.
+
+## Concrete VV/JJ decisions required before UI implementation
+
+1. Import rejection sheet: display each located hole as source-time start/end and length, separate video/audio coverage. Confirm label and explanation for no verified segmentation available. Current action remains cancel/back, not a disabled capability advertised as ready.
+2. Future candidate review sheet: source identity display name, per-segment source ranges, excluded/unmatched boundary content, exact preservation status. Decide whether an unverified boundary has only cancel/back (recommended); do not offer a misleading acceptance override.
+3. Future successful-plan confirmation: separate user action for splitting, distinct from readable-range and transcode consents; label must say creating separate clips and preserving originals, not repairing gaps. Show projected placement and number of clips before confirmation. Final wording pending JJ, layout VV.
+4. Preparation failure/cancel sheet: distinguish unchanged project from any owned temporary output; never say all files restored without proof. For success later, define one undo action over the complete placement transaction, and what remains in media bin after undo. Pending design, not enabled here.
+
+Validation: Windows Node22.15.1 focused planner7/7, node --test (npm test script command)569/569,0 fail/cancel/skip; release-check exit0; manual harness syntax check passed. Green Node tests do not override failed media-preservation result.
+
+Evidence byte SHA256:
+docs/validation/2026-11-01-flv-segment-media-failure.json 1bee6c7dd11a2fffce346f9a8e6a4663ccf23a73ec0fc5bb1407ddea1966eb30
+docs/validation/2026-11-01-flv-segment-media.json cd953ae5df6096840f6bea66fe5d15d4393d3d0b8d9d620adc9a355ab378e226
