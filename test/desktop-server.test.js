@@ -44,6 +44,14 @@ test("desktop binds an ephemeral port and requires its session and exact origin"
     body: JSON.stringify({ url: "https://example.com/private.mp4" }) });
   assert.equal(response.status, 403);
   assert.equal((await response.json()).code, "NETWORK_DISABLED");
+  for (const route of ["export", "transcribe", "scopes", "track"]) {
+    for (const where of ["headless", "auto"]) {
+      const r = await fetch(s.origin + `/api/${route}/request`, { method: "POST", headers,
+        body: JSON.stringify({ where }) });
+      assert.equal(r.status, 409, route + " " + where);
+      assert.equal((await r.json()).code, where === "headless" ? "HEADLESS_DISABLED" : "EDITOR_NOT_READY");
+    }
+  }
 });
 
 test("desktop shutdown leaves another instance alive and tokens cannot cross instances", async (t) => {

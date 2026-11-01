@@ -20,6 +20,8 @@ const crypto = require("crypto");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const ownedProcesses = process.env.MONTCLIP_DESKTOP === "1"
+  ? require("./owned-processes").trackOwnedProcesses(require("child_process")) : null;
 const { spawn, spawnSync, execFile } = require("child_process");
 
 const { analyze, frame, frameGrid } = require("./analyze");
@@ -94,7 +96,7 @@ function requestAllowed(req) {
 /* ffmpeg powers optional niceties (faststart remux on upload, fast export).
    Everything else works without it. */
 let HAS_FFMPEG = false;
-try { HAS_FFMPEG = spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status === 0; } catch {}
+try { HAS_FFMPEG = spawnSync("ffmpeg", ["-version"], { stdio: "ignore", timeout: 1500 }).status === 0; } catch {}
 
 const MIME = {
   ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
@@ -557,6 +559,7 @@ function stopExportSweep() {
 /* Agent-requested exports: handed to an open editor tab over SSE, or to a
    headless browser the server starts (export-jobs.js). */
 const exportJobs = createExportJobs({
+  allowHeadless: !DESKTOP,
   url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}`,
   // a transcription's headless browser keeps its profile, so the speech model is downloaded once
   keepProfile: (kind) => kind === "transcribe" ? path.join(ANALYSIS_DIR, "browser-profile") : null,
@@ -841,6 +844,7 @@ const server = http.createServer(async (req, res) => {
   if (p === "/api/transcribe/request" && req.method === "POST") {
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
+      exportJobs.assertWhere(opts.where);
       const t = opts.transcribe;
       if (!t || typeof t !== "object" || !Array.isArray(t.srcs) || !t.srcs.length || t.srcs.length > 200 || !t.srcs.every((x) => typeof x === "string")) {
         sendJSON(res, 400, { error: "transcribe must be {srcs: [\"/media/…\", …] (1–200), model?, language?, again?}" }); return;
@@ -853,7 +857,7 @@ const server = http.createServer(async (req, res) => {
       catch (e) { sendJSON(res, 400, { error: e.message }); return; }
       sendJSON(res, 200, exportJobs.request({ kind: "transcribe", where: opts.where, transcribe: spec }));
     } catch (e) {
-      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { error: String(e.message || e) });
+      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e) });
     }
     return;
   }
@@ -976,6 +980,7 @@ const server = http.createServer(async (req, res) => {
   if (p === "/api/export/request" && req.method === "POST") {
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
+      exportJobs.assertWhere(opts.where);
       if (!HAS_FFMPEG) { sendJSON(res, 400, { error: "ffmpeg not found on PATH — export needs it" }); return; }
       if (opts.profile) resolveProfile(String(opts.profile));
       if (opts.profile && (opts.preset || opts.delivery || opts.outputs)) { sendJSON(res, 400, { error: "pass a profile (raw ffmpeg args) or a preset / delivery spec / outputs, not both" }); return; }
@@ -1013,7 +1018,7 @@ const server = http.createServer(async (req, res) => {
         : delivery ? { ...job, delivery: Delivery.describe(delivery), notes } : job);
     } catch (e) {
       const code = e.code === 409 || e.code === 400 ? e.code : /^Unknown encoding profile/.test(e.message || "") ? 400 : 500;
-      sendJSON(res, code, { error: String(e.message || e) });
+      sendJSON(res, code, { code: e.errorCode, error: String(e.message || e) });
     }
     return;
   }
@@ -1022,6 +1027,7 @@ const server = http.createServer(async (req, res) => {
   if (p === "/api/scopes/request" && req.method === "POST") {
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
+      exportJobs.assertWhere(opts.where);
       let revision = null;
       try { revision = JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(/^﻿/, "")).revision ?? null; } catch {}
       const ok = typeof opts.time === "number" || (typeof opts.time === "string" && opts.time.trim() !== "" && Number.isFinite(Number(opts.time)));
@@ -1037,7 +1043,7 @@ const server = http.createServer(async (req, res) => {
       }
       sendJSON(res, 200, exportJobs.request({ kind: "scopes", time, where: opts.where, revision, matte: m || null, mask: mk || null, image: opts.image === true }));
     } catch (e) {
-      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { error: String(e.message || e) });
+      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e) });
     }
     return;
   }
@@ -1046,6 +1052,7 @@ const server = http.createServer(async (req, res) => {
   if (p === "/api/track/request" && req.method === "POST") {
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
+      exportJobs.assertWhere(opts.where);
       let revision = null;
       try { revision = JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(/^﻿/, "")).revision ?? null; } catch {}
       const t = opts.track;
@@ -1054,7 +1061,7 @@ const server = http.createServer(async (req, res) => {
       if (body.length > 8192) { sendJSON(res, 400, { error: "track spec too large" }); return; }
       sendJSON(res, 200, exportJobs.request({ kind: "track", where: opts.where, revision, track: JSON.parse(body) }));
     } catch (e) {
-      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { error: String(e.message || e) });
+      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e) });
     }
     return;
   }
@@ -1487,6 +1494,7 @@ function shutdown() {
   stopExportSweep();
   for (const id of [...exportSessions.keys()]) cleanupExport(id);
   exportJobs.shutdown();
+  ownedProcesses?.stop();
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 2000).unref?.();
 }

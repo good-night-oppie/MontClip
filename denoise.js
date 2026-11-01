@@ -9,7 +9,7 @@
 "use strict";
 const fs = require("fs");
 const path = require("path");
-const { spawn, spawnSync } = require("child_process");
+const { spawn, execFile } = require("child_process");
 
 /* nr: how far the noise is pulled down, dB. The floor is measured per file —
    afftdn's own noise tracking (tn) left loud hiss untouched in testing. */
@@ -26,12 +26,13 @@ function denoiseName(srcName, amount) {
   const stem = base.replace(/\.[^.]+$/, "").replace(/\.denoise-(light|medium|strong)$/, "");
   return `${stem}.denoise-${amount}.flac`;
 }
-function probe(file) {
-  const r = spawnSync("ffprobe", ["-v", "error", "-select_streams", "a:0",
-    "-show_entries", "stream=channels:format=duration", "-of", "json", file], { encoding: "utf8" });
-  if (r.error) throw new Error("ffprobe not found on PATH — needed for noise reduction");
+async function probe(file) {
+  const stdout = await new Promise((resolve, reject) => execFile("ffprobe", ["-v", "error", "-select_streams", "a:0",
+    "-show_entries", "stream=channels:format=duration", "-of", "json", file],
+    { encoding: "utf8", timeout: 30000, windowsHide: true },
+    (error, stdout) => error ? reject(new Error("ffprobe failed — needed for noise reduction: " + error.message)) : resolve(stdout)));
   try {
-    const j = JSON.parse(r.stdout);
+    const j = JSON.parse(stdout);
     return { channels: j.streams?.[0]?.channels || 0, duration: Math.round(+j.format?.duration * 1000) / 1000 || undefined };
   } catch { return { channels: 0, duration: undefined }; }
 }
@@ -68,14 +69,14 @@ function measureNoiseFloor(file) {
 const FLOOR_OFFSET_DB = 4;
 /** Denoise `file` into `outDir`. Resolves {file, name, duration, channels, cached}.
  *  An existing output with the same name is reused. */
-function denoiseFile(file, outDir, amount) {
+async function denoiseFile(file, outDir, amount) {
   const a = AMOUNTS[amount];
   if (!a) return Promise.reject(new Error(`amount must be one of ${AMOUNT_IDS.join(", ")}`));
   const name = denoiseName(file, amount);
   const out = path.join(outDir, name);
   if (fs.existsSync(out) && fs.statSync(out).size > 0)
-    return Promise.resolve({ file: out, name, cached: true, ...probe(out) });
-  const src = probe(file);
+    return { file: out, name, cached: true, ...await probe(out) };
+  const src = await probe(file);
   if (!src.channels) return Promise.reject(new Error(`${path.basename(file)} has no audio to clean up`));
   const part = out + ".part.flac";
   return measureNoiseFloor(file).then((floor) => new Promise((resolve, reject) => {
@@ -91,7 +92,7 @@ function denoiseFile(file, outDir, amount) {
         return reject(new Error("ffmpeg denoise failed: " + (err.trim().split("\n").pop() || code)));
       }
       fs.renameSync(part, out);
-      resolve({ file: out, name, cached: false, noiseFloor: nf, ...probe(out) });
+      probe(out).then((info) => resolve({ file: out, name, cached: false, noiseFloor: nf, ...info }), reject);
     });
   }));
 }

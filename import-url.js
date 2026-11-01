@@ -268,7 +268,7 @@ async function downloadImportUrl(raw, destDir, opts = {}) {
 let hasFfmpeg = null;
 function ffmpegAvailable() {
   if (hasFfmpeg == null) {
-    try { hasFfmpeg = spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status === 0; }
+    try { hasFfmpeg = spawnSync("ffmpeg", ["-version"], { stdio: "ignore", timeout: 1500 }).status === 0; }
     catch { hasFfmpeg = false; }
   }
   return hasFfmpeg;

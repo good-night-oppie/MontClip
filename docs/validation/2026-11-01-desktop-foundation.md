@@ -41,7 +41,29 @@ present: this is explicitly not the required bundled-FFmpeg test.
 - Rea Opus external-behavior SPEC read at SHA-256 `d00935f4ecfdd4ae4b8a4638bc8c514f7b6b5c9b0b0ff598aaa1cf40d6011709`.
   No reverse-engineered originals were read. It is not a CapCut compatibility SPEC.
 
-## Remaining acceptance
+## PR 1 review repairs (after 7145779f)
+
+- Red: shared queue attempted a system-browser spawn in desktop mode; HTTP
+  task errors lacked the required stable code. Green: all four request routes
+  and the public queue reject headless with 409 HEADLESS_DISABLED, and auto
+  without an editor with 409 EDITOR_NOT_READY. Spawn spy records zero launches.
+- Close controller and renderer tests cover duplicate requests, 15-second timeout,
+  default wait, explicit force, faults, late save receipts and stale cancellation.
+- Real Electron smoke passed normal startup/save, `--close-crash` (actual
+  forcefullyCrashRenderer), and `--close-timeout` (never-resolving save). Fault
+  smoke injects dialog choices wait then force, not native mouse clicks. The
+  timeout run exercised two real 15-second deadlines. This is not visible UX acceptance.
+- Actual child-process tests kill only registered spawn/execFile handles and
+  leave an unrelated child alive. A pending denoise probe is interruptible;
+  denoise now uses async execFile with a 30-second limit. Short synchronous
+  version checks have 1.5-second limits so they cannot indefinitely block shutdown.
+- Packaged worker stdout/stderr forwarding is disabled. Development diagnostics
+  still include paths. Package/runtime-path inspection remains pending.
+- Final repair validation: npm test 548/548 and release-check passed; see PR
+  author reply for source head. Same-name export and offline ASR acceptance
+  remain open; no package, merge or publication is claimed.
+
+## Still open
 
 Sentence-selection workflow, independent source/output JSON, real two-range
 MP4/SRT export, bundled FFmpeg, offline model closure, Chinese-default i18n,

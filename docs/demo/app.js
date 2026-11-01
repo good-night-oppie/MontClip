@@ -1609,7 +1609,15 @@ async function flushSave() {
 }
 /** Desktop close transaction: freeze input and accept only an unchanged, durable
  * document. A conflict reload or late asynchronous edit keeps the window open. */
-async function flushSaveForClose() {
+let closeSaveTransaction = null, closeSaveInvalidThrough = 0;
+function cancelCloseSave(attempt) {
+  closeSaveInvalidThrough = Math.max(closeSaveInvalidThrough, attempt);
+  if (closeSaveTransaction && closeSaveTransaction.attempt <= attempt) {
+    closeSaveTransaction.restore(); closeSaveTransaction = null;
+  }
+}
+async function flushSaveForClose(attempt = 1) {
+  if (attempt <= closeSaveInvalidThrough || closeSaveTransaction) return false;
   const body = document.body, wasInert = body.inert;
   const events = ["keydown", "keyup", "pointerdown", "pointerup", "click", "drop", "paste", "input"];
   const block = (event) => { event.preventDefault(); event.stopImmediatePropagation(); };
@@ -1618,15 +1626,19 @@ async function flushSaveForClose() {
   let saved = false;
   body.inert = true;
   for (const event of events) window.addEventListener(event, block, true);
+  const transaction = closeSaveTransaction = { attempt, restore() {
+    body.inert = wasInert;
+    for (const event of events) window.removeEventListener(event, block, true);
+  } };
   try {
     const ok = await flushSave();
-    saved = ok && !runtime.saveTimer && !runtime.saveFailed &&
+    saved = attempt > closeSaveInvalidThrough && closeSaveTransaction === transaction &&
+      ok && !runtime.saveTimer && !runtime.saveFailed &&
       runtime.projectId === projectId && snapshot() === before;
     return saved;
   } finally {
-    if (!saved) {
-      body.inert = wasInert;
-      for (const event of events) window.removeEventListener(event, block, true);
+    if (!saved && closeSaveTransaction === transaction) {
+      transaction.restore(); closeSaveTransaction = null;
     }
   }
 }

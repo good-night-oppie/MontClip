@@ -177,6 +177,10 @@ so a test that triggers it would leave a `server.js` running after it finishes.
 MontClip also has an experimental Electron host in `desktop/`; see
 `desktop/README.md` for development startup, isolation and offline limitations.
 It uses this same server/project/compositor and has no renderer Node API.
+Desktop task requests reject `where: "headless"` with HTTP 409 and code
+`HEADLESS_DISABLED`. `auto` requires an existing editor connection, otherwise
+409 `EDITOR_NOT_READY`; it never launches a system browser. These guards cover
+export, transcription, scopes and tracking, including the shared job queue.
 It is not yet a portable release or offline transcription distribution.
 
 ```

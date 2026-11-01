@@ -46,6 +46,11 @@ function findBrowser(env = process.env) {
 /** opts: {url(id) → page to open headless, broadcast(event, data), editors() → open tab count,
  *  keepProfile(kind) → a browser profile dir that outlives the job (a model cache), or null for a throwaway one} */
 function createExportJobs(opts) {
+  function assertWhere(where = "auto") {
+    if (opts.allowHeadless !== false) return;
+    if (where === "headless") throw Object.assign(new Error("桌面模式不允许系统浏览器后台任务。 / Headless system browsers are disabled in desktop mode."), { code: 409, errorCode: "HEADLESS_DISABLED" });
+    if (!opts.editors()) throw Object.assign(new Error("编辑页面尚未就绪，请打开页面后重试。 / The editor is not ready; open it and retry."), { code: 409, errorCode: "EDITOR_NOT_READY" });
+  }
   const jobs = new Map();
   let timer = null;
   const isEnded = (j) => j.status === "done" || j.status === "failed" || j.status === "cancelled";
@@ -79,7 +84,9 @@ function createExportJobs(opts) {
       if (j.status === "pending" && now - j.created > (j.via === "headless" ? PENDING_HEADLESS_MS : PENDING_TAB_MS))
         end(j, "failed", { error: j.via === "headless"
           ? "the headless browser never picked up the job (it may have failed to start or to load the editor)"
-          : "no editor tab picked up the job — is it busy exporting? Retry with where:\"headless\"" });
+          : opts.allowHeadless === false
+            ? "编辑页面未接收任务，请等待页面就绪后重试。 / The editor did not accept the task; retry when it is ready."
+            : "no editor tab picked up the job — is it busy exporting? Retry with where:\"headless\"" });
       else if (j.status === "running" && now - j.updated > STALL_MS)
         end(j, "failed", { error: "the editor stopped reporting progress (tab closed or browser crashed)" });
       else if (isEnded(j) && now - j.updated > KEEP_MS) jobs.delete(j.id);
@@ -87,6 +94,7 @@ function createExportJobs(opts) {
     if (![...jobs.values()].some((j) => !isEnded(j)) && timer) { clearInterval(timer); timer = null; }
   }
   function launch(j) {
+    assertWhere("headless");
     const exe = findBrowser();
     if (!exe) throw Object.assign(new Error("no editor tab is open and no Chrome / Edge was found to export headless — " +
       "open the editor in a browser, or set FABLECUT_CHROME to a Chromium-based browser"), { code: 409 });
@@ -106,6 +114,7 @@ function createExportJobs(opts) {
   }
 
   return {
+    assertWhere,
     /** Queue an export. where: auto (open tab, else headless) · tab · headless.
      *  kind "scopes" measures one still at `time` instead (fablecut_scopes);
      *  kind "track" follows a region of a clip and saves it (fablecut_track);
@@ -114,6 +123,7 @@ function createExportJobs(opts) {
      *  which is how fablecut_frame shows an agent the composed program picture. */
     request({ kind = "export", range, profile, delivery = null, deliveries = null, time, revision, where = "auto", matte = null, mask = null, track = null, transcribe = null, image = false }) {
       if (!["auto", "tab", "headless"].includes(where)) throw Object.assign(new Error("where must be auto, tab or headless"), { code: 400 });
+      assertWhere(where);
       if (!["export", "scopes", "track", "transcribe"].includes(kind)) throw Object.assign(new Error("kind must be export, scopes, track or transcribe"), { code: 400 });
       if (time != null && !(Number.isFinite(time) && time >= 0)) throw Object.assign(new Error("time must be seconds ≥ 0"), { code: 400 });
       if (range != null && range !== "entire" && range !== "in-out") throw Object.assign(new Error("range must be \"entire\" or \"in-out\""), { code: 400 });

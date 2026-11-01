@@ -23,13 +23,25 @@ for the upstream compositor/UI. Font/model CDN requests and Node URL imports are
 blocked in desktop mode. ASR remains unavailable until local assets are supplied.
 
 Data lives in Electron userData/workspace. Closing asks the existing `flushSave`
-to finish; a failed or unknown save keeps the window open. Cleanup sends shutdown
-only to this instance's utility process. Single-instance locking prevents two
-windows sharing the same data directory. Full FFmpeg descendant cleanup,
-packaging fuses, language coverage and save-failure UI acceptance
+to finish. A renderer fault, failed save or 15-second timeout offers bilingual
+Keep waiting (default) / Force close (recent changes may be lost). Repeated close
+requests and late save results cannot skip this choice or close a newer attempt.
+Cleanup sends shutdown only to this instance's utility process, which kills its
+tracked spawn/execFile children. It does not enumerate or terminate other apps.
+Packaged worker stdout/stderr are not forwarded to avoid exposing project paths.
+Desktop export/transcription/scopes/tracking reject headless execution; auto
+requires an existing editor, with no system-browser fallback.
+Single-instance locking prevents two windows sharing the same data directory.
+Abnormal OS termination cleanup, packaging fuses, language coverage and save-failure UI acceptance
 are still pending. Development smoke runs in a new Chinese/space-containing temp
 directory, without showing a window or manipulating the mouse. It is not VV's
 real-window test and does not measure A/V sync.
+
+`node smoke.js --close-crash` crashes a real hidden Electron renderer;
+`node smoke.js --close-timeout` injects a never-resolving save and exercises the
+real 15-second deadline twice. Both inject dialog choices (wait, then force),
+assert only two prompts despite repeated close clicks, and wait for app exit.
+Fault injection is development-only and requires `--montclip-smoke`.
 
 Runtime selection: Electron 45.2.1, resolved from npm on 2026-11-01, pinned by
 `package-lock.json`; binary fetched by the official Electron installer, which uses

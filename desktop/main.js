@@ -3,8 +3,10 @@
 const { app, BrowserWindow, dialog, session, utilityProcess } = require("electron");
 const path = require("node:path");
 const crypto = require("node:crypto");
-let worker, win, stopping = false, closing = false, checkingSave = false, workerExited = false;
+const { createCloseController } = require("./close-controller");
+let worker, win, stopping = false, closing = false, workerExited = false;
 const smoke = !app.isPackaged && process.argv.includes("--montclip-smoke");
+const faultTest = smoke && (process.argv.includes("--close-crash") ? "crash" : process.argv.includes("--close-timeout") ? "timeout" : null);
 
 app.enableSandbox();
 app.setName("MontClip");
@@ -24,8 +26,8 @@ async function start() {
   delete env.NODE_PATH;
   worker = utilityProcess.fork(path.join(__dirname, "..", "server.js"), [], { env, stdio: "pipe" });
   worker.once("exit", () => { workerExited = true; });
-  worker.stdout?.on("data", (data) => process.stdout.write(data));
-  worker.stderr?.on("data", (data) => process.stderr.write(data));
+  worker.stdout?.on("data", (data) => { if (!app.isPackaged) process.stdout.write(data); });
+  worker.stderr?.on("data", (data) => { if (!app.isPackaged) process.stderr.write(data); });
   const origin = await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error("启动本地编辑服务超时。")), 30000);
     worker.once("exit", () => { clearTimeout(timeout); reject(new Error("本地编辑服务已退出。")); });
@@ -63,23 +65,51 @@ async function start() {
     title: "MontClip", show: false, webPreferences: { session: ses, sandbox: true,
       contextIsolation: true, nodeIntegration: false, webSecurity: true, devTools: !app.isPackaged } });
   win.removeMenu();
-  win.on("close", async (event) => {
+  let rendererFault = null, prompts = 0;
+  const closeController = createCloseController({
+    save: (attempt) => {
+      if (rendererFault || win.webContents.isDestroyed()) return false;
+      return win.webContents.executeJavaScript(`typeof flushSaveForClose === 'function' && flushSaveForClose(${attempt})`);
+    },
+    cancel: (attempt) => {
+      if (!win.isDestroyed() && !win.webContents.isDestroyed())
+        return win.webContents.executeJavaScript(`typeof cancelCloseSave === 'function' && cancelCloseSave(${attempt})`);
+    },
+    prompt: async (reason) => {
+      if (faultTest) {
+        prompts++;
+        process.stdout.write("MONTCLIP_CLOSE_PROMPT " + JSON.stringify({ reason, prompts, default: 0, choice: prompts === 1 ? 0 : 1 }) + "\n");
+        if (prompts === 1) setTimeout(() => { win.close(); win.close(); }, 50);
+        return prompts === 1 ? 0 : 1;
+      }
+      const result = await dialog.showMessageBox(win, { type: "warning", title: "保存尚未确认 / Save not confirmed",
+        message: "页面可能未响应，最近修改尚未确认保存。\nThe editor may be unresponsive; recent changes are not confirmed saved.",
+        detail: "继续等：保持窗口打开，恢复后可重试关闭。强制关闭：最近修改可能丢失。\nKeep waiting: leave the window open and retry closing after recovery. Force close: recent changes may be lost.",
+        buttons: ["继续等 / Keep waiting", "强制关闭（最近修改可能丢失） / Force close (may lose changes)"], defaultId: 0, cancelId: 0, noLink: true });
+      return result.response;
+    },
+    close: () => { closing = true; win.destroy(); },
+  });
+  win.on("close", (event) => {
     if (closing) return;
     event.preventDefault();
-    if (checkingSave) return;
-    checkingSave = true;
-    try {
-      const saved = await win.webContents.executeJavaScript("typeof flushSaveForClose === 'function' && flushSaveForClose()");
-      if (saved === true) { closing = true; win.close(); return; }
-    } catch { }
-    await dialog.showMessageBox(win, { type: "error", title: "未能保存 / Save failed",
-      message: "修改尚未确认保存，窗口将保持打开。请重试保存。\nChanges are not confirmed saved. Retry saving before closing.", buttons: ["返回编辑 / Back"] });
-    checkingSave = false;
+    closeController.request();
   });
+  win.on("closed", () => closeController.dispose());
+  win.on("unresponsive", () => { rendererFault = "unresponsive"; closeController.fault(rendererFault); });
+  win.on("responsive", () => { if (rendererFault === "unresponsive") rendererFault = null; });
+  win.webContents.on("render-process-gone", () => { rendererFault = "crashed"; closeController.fault(rendererFault); });
   worker.on("exit", () => {
     if (!stopping) dialog.showErrorBox("MontClip", "本地编辑服务意外退出。请保留窗口中的修改，重新启动后检查项目。 / The local editor service stopped unexpectedly.");
   });
   await win.loadURL(origin);
+  if (faultTest) {
+    if (faultTest === "crash") {
+      await new Promise((resolve) => { win.webContents.once("render-process-gone", resolve); win.webContents.forcefullyCrashRenderer(); });
+    } else await win.webContents.executeJavaScript("flushSaveForClose = () => new Promise(() => {}); true");
+    win.close(); win.close();
+    return;
+  }
   if (smoke) {
     const result = await win.webContents.executeJavaScript(`(async () => {
       const deadline = Date.now() + 15000;
