@@ -86,3 +86,5 @@ Clean PR2 follow-up prepared directly from its public 8f461b9 head: narrowly rem
 2026-11-01 capacity delta after PR20: separate session/text/reference feedback and mounted blocked-scope return repair; old drafts retained, no cross-project reuse or restart advice. Validation: docs/validation/2026-11-01-agent-capacity.md. New locale/trigger review pending JJ; not complete Agent acceptance.
 
 2026-11-01 VV v2 actual source hash 0d74505ab45d61be0c3e2a3a27187c2024f671fbf803494422948b32e59b5dcf verified; source/override alignment and concrete remaining gaps appended to existing agent-workbench-layout ADR. No new product approval or test claimed; PR16–21 heads unchanged.
+
+2026-11-01 JJ v1.1 limited integration: six shared-locale Agent keys for existing disconnected/basic controls, one connection status region; mounted+storage21/21. Actual transport/payload/history authorization and scoped tools remain pending; no whole-disk read or excluded-data guarantees. See existing workbench ADR; not full i18n acceptance.
