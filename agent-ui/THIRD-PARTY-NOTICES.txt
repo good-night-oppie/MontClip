@@ -1,3 +1,15 @@
+--- Original Cindy NOTICE (verbatim) ---
+Cindy
+Copyright 2026 XD Inc.
+
+This product includes software developed by XD Inc.
+
+Third-party components distributed with this product retain their own
+copyright and license terms. Their attribution notices and SPDX SBOMs are
+collected under docs/legal/notices/, not in this file.
+
+--- End original Cindy NOTICE ---
+
 Cindy official source: https://github.com/makecindy/cindy @ 021923684f54129effbba6b72a8218526418fa45
 Apache-2.0. Copyright 2026 XD Inc.
 Full original terms: upstream/LICENSE and upstream/NOTICE. File inventory: SOURCES.json.

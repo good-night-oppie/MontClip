@@ -7,3 +7,5 @@ MontClip host code retains the repository's MIT LICENSE. Imported components ret
 - esbuild0.25.12: MIT build tool, not shipped as a runtime dependency. Lockfile fixes build versions.
 
 The generated cindy-official.js has been adapted through bundling/minification and MontClip host interfaces. It has an explicit modification notice; the copied upstream source files have not been edited. No private Cindy configuration, API key, packaged extraction or Rea source is included. See the [reuse/change inventory](docs/decisions/2026-11-01-official-cindy-port.md).
+
+The complete original282-byte Cindy NOTICE is also embedded verbatim in THIRD-PARTY-NOTICES.txt; upstream/NOTICE remains unchanged. Behavior SPEC v2 reference/hash is recorded in the ADR; it is not a source-code license substitute.
