@@ -1,8 +1,9 @@
 /* Desktop host for the existing editor and compositor. No renderer Node API. */
 "use strict";
-const { app, BrowserWindow, dialog, session, utilityProcess } = require("electron");
+const { app, BrowserWindow, dialog, session, utilityProcess, ipcMain } = require("electron");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const { createStore, allowed: settingsAllowed } = require("./view-settings");
 const { createCloseController } = require("./close-controller");
 let worker, win, stopping = false, closing = false, workerExited = false;
 const smoke = !app.isPackaged && process.argv.includes("--montclip-smoke");
@@ -63,8 +64,13 @@ async function start() {
   });
   win = new BrowserWindow({ width: 1280, height: 820, minWidth: 640, minHeight: 480,
     title: "MontClip", show: false, webPreferences: { session: ses, sandbox: true,
-      contextIsolation: true, nodeIntegration: false, webSecurity: true, devTools: !app.isPackaged } });
+      preload: path.join(__dirname, "view-preload.js"), contextIsolation: true, nodeIntegration: false, webSecurity: true, devTools: !app.isPackaged } });
   win.removeMenu();
+  const settings = createStore(app.getPath("userData"));
+  for (const operation of ["get", "set"]) ipcMain.on("montclip:view:" + operation, (event, value) => {
+    event.returnValue = settingsAllowed(event, win, origin)
+      ? settings[operation](value) : {ok:false,code:"VIEW_SETTINGS_FORBIDDEN"};
+  });
   let rendererFault = null, prompts = 0;
   const closeController = createCloseController({
     save: (attempt) => {
@@ -111,6 +117,7 @@ async function start() {
     return;
   }
   if (smoke) {
+    if (process.argv.includes("--view-check")) await require("./view-smoke").run(win);
     if (process.argv.includes("--m0")) await require("./m0-smoke").run(win, origin, token, env.FABLECUT_DATA_DIR);
     const result = await win.webContents.executeJavaScript(`(async () => {
       const deadline = Date.now() + 15000;
@@ -142,6 +149,8 @@ app.on("before-quit", (event) => {
     worker.postMessage({ type: "shutdown" });
   }
 });
+// Electron does not consistently propagate process.exitCode through app.quit().
+app.on("will-quit", (event) => { if (smoke && process.exitCode) { event.preventDefault(); app.exit(process.exitCode); } });
 app.whenReady().then(start).catch((error) => {
   if (smoke) { console.error(error); process.exitCode = 1; }
   else dialog.showErrorBox("MontClip 启动失败", `${error.message}\n请关闭后重试，并检查工作目录是否可写。`);

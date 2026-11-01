@@ -2761,3 +2761,14 @@ array; `{profile:"hq"}` returns one profile. `fablecut_status` shows the effecti
 ### Caption import text preservation
 
 SRT/WebVTT parsing preserves the full normalized cue body instead of truncating it at 500 UTF-16 code units. Existing tag normalization and cue timestamps are unchanged; this does not create word timing. This parser fix does not change UI/MCP fitting behavior or claim long-text layout acceptance.
+
+### MontClip view preferences
+
+The shared editor DOM has Simple/Advanced layout controls, Chinese/English labels
+for these controls, and persistent local view preferences. This does not translate
+all existing editor panels. Mode/language changes do not replace the project or
+undo history. Undo/redo buttons use the existing editor commands. The collapsible
+Assistant panel states that no AI service is connected; it sends nothing.
+FLV import, broader localization and interactive chat are separate changes.
+
+Desktop view preferences (simple/advanced and zh-CN/en) use the fixed userData/view-settings.json file, independent of the random local server port. The sandboxed preload exposes only get/set for these two enum settings; main validates sender, top frame and exact origin. Browser use retains localStorage. This does not save project edits.
