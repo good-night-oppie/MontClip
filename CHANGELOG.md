@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Show the final session-capacity and message-length guidance only for the corresponding rejected action.
+- Reject oversized Agent draft pastes explicitly instead of silently truncating their text; preserve the accepted draft.
 - Separate Agent local storage policy from actual save confirmation; identify storage eligibility by project ID, not project name.
 - Hide an empty main-lane placeholder in simple view when another lane of that kind already has content.
 - Keep timeline lanes and scroll stable while dragging; cancelled clip gestures restore their snapshot without adding an undo step.
