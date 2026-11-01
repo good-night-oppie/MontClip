@@ -18,7 +18,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
  for(const scenario of ['advanced','simple','cancel']){
   await read('updateMontClipView({mode:"advanced"});setSideTab("assistant");true');await wait();
   // The simple case starts from the result of the preceding real drag.
-  if(scenario==='simple')await read('updateMontClipView({mode:"simple"});true');
+  if(scenario==='simple')await read('addClipFromMedia(getMedia(project.clips.find(c=>c.kind==="video").mediaId),"V1",8);updateMontClipView({mode:"simple"});true');
   await wait();await read('els.timelineScroll.scrollTop=0;true');await wait();
   const before=await read('JSON.stringify(project.clips)'),undoBefore=await read('runtime.undo.length');
   const source=scenario==='simple'?'V2':'V1',target=scenario==='simple'?'V1':'V2';

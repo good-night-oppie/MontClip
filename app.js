@@ -5063,11 +5063,14 @@ function syncTimelineTrackView() {
   syncTimelineTrackView.pending = false;
   const occupied = new Set(project.clips.map(c => c.track));
   const simple = mcView.get().mode === "simple";
+  const occupiedKinds = new Set(TRACKS.filter(t => occupied.has(t.id)).map(t => t.kind));
   for (const container of [els.tracks, $("trackHeadInner")]) {
     if (!container) continue;
     for (const row of container.children) {
       const id = row.dataset.track;
-      row.hidden = simple && id !== "V1" && id !== "A1" && !occupied.has(id);
+      const placeholder = (id === "V1" && !occupiedKinds.has("video")) ||
+        (id === "A1" && !occupiedKinds.has("audio"));
+      row.hidden = simple && !occupied.has(id) && !placeholder;
     }
   }
   const key = JSON.stringify([runtime.projectGen, SeqLib.activeId(seqRoot()), simple,
