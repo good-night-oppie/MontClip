@@ -104,3 +104,5 @@ Simple view occupied-lane follow-up: V1/A1 placeholders retained only if their k
 JJ session-policy follow-up: PR22 separates local storage scope text from save status; eligibility uses project ID, not name. Temporary read-failure behavior already implemented, loaded write failure still protects close. #17/18/19 copy approvals remain limited to their exact heads; #21 cda46345 separately public. See existing agent-temporary-sessions validation.
 
 Agent paste follow-up: independent PR22-based delta rejects entire over-limit paste before native maxlength truncates it, with explicit bilingual notice and retained accepted draft; exact-limit selected replacement accepted. Real trusted Chromium paste zh/en2/2; physical VV/JJ/QQ review pending. Evidence: validation/2026-11-01-agent-paste-limit.md. Other input overflow/IME behavior not expanded.
+
+Independent three-track visibility increment (basePR25): V3 subtitle+V1 video+A1 audio initial focus now favors actual AV pair;8 hidden viewport/mode/assistant cases with full V1/A1 clip visibility and16 split/undos. No PR26 changes; combined-tree/visibleVV acceptance pending. See validation/2026-11-01-three-track.md.
