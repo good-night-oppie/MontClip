@@ -2772,3 +2772,6 @@ Assistant panel states that no AI service is connected; it sends nothing.
 FLV import, broader localization and interactive chat are separate changes.
 
 Desktop view preferences (simple/advanced and zh-CN/en) use the fixed userData/view-settings.json file, independent of the random local server port. The sandboxed preload exposes only get/set for these two enum settings; main validates sender, top frame and exact origin. Browser use retains localStorage. This does not save project edits.
+
+
+Offline FLV segment planning: planning/flv-segment-plan.js is an unconnected experimental pure module, not a REST/MCP/editor capability or project schema. It accepts explicit integer source-presentation ticks and known unit durations/IDs; refuses unmatched AV coverage and overlap rather than trimming units. Returned per-segment local times are mathematical plans, never measured output-container PTS or subtitle transformations. executable is always false. No production gap/consent policy changes.
