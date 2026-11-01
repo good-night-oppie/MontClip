@@ -82,7 +82,7 @@ async function start() {
   });
   const agentSessions = require('./agent-session-store').createStore(app.getPath('userData'));
   const agentService = require('./agent-service').createDiskService(app.getPath('userData'),safeStorage);
-  for(const operation of ['get','configure','send','cancel']) ipcMain.handle('montclip:agent:'+operation,(event,value)=>{
+  for(const operation of ['get','configure','reset','send','cancel']) ipcMain.handle('montclip:agent:'+operation,(event,value)=>{
     if(!settingsAllowed(event,win,origin))return {ok:false,code:'AGENT_FORBIDDEN'};
     return agentService[operation](value);
   });

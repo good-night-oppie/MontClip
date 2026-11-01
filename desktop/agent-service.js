@@ -10,11 +10,12 @@ async function httpsRequest(config,payload,signal){
  const data=JSON.parse(Buffer.concat(chunks).toString('utf8')),text=data.choices?.[0]?.message?.content;
  if(typeof text!=='string'||text.length>16000||!text.trim())throw Error('INVALID_RESPONSE');return{text};
 }
-function createService({read,write,seal,unseal,request=httpsRequest}){
- let config=null,bad=false;const jobs=new Map();
- try{const raw=read();if(raw){if(raw.length>40000)throw Error();const v=JSON.parse(raw);if(!v||Object.keys(v).sort().join(',')!=='model,provider,secret,version'||v.version!==1||!Object.hasOwn(ENDPOINTS,v.provider)||typeof v.model!=='string'||!/^[a-zA-Z0-9_.:/-]{1,100}$/.test(v.model)||typeof v.secret!=='string'||!v.secret||v.secret.length>32768)throw Error();config=v;}}catch{bad=true;}
+function createService({read,write,backup,seal,unseal,request=httpsRequest}){
+ let config=null,bad=false,original;const jobs=new Map();
+ try{const raw=read();original=raw;if(raw){if(raw.length>40000)throw Error();const v=JSON.parse(raw);if(!v||Object.keys(v).sort().join(',')!=='model,provider,secret,version'||v.version!==1||!Object.hasOwn(ENDPOINTS,v.provider)||typeof v.model!=='string'||!/^[a-zA-Z0-9_.:/-]{1,100}$/.test(v.model)||typeof v.secret!=='string'||!v.secret||v.secret.length>32768)throw Error();config=v;}}catch{bad=true;}
  return {
  get(){return{ok:!bad,configured:!!config,provider:config?.provider||'openai',model:config?.model||'',code:bad?'CONFIG_READ_FAILED':null};},
+ reset(){if(!bad)return fail('RESET_NOT_REQUIRED');try{if(typeof original!=='string'||typeof backup!=='function')throw Error();backup(original);bad=false;config=null;original=undefined;return{...this.get(),code:'CONFIG_BACKED_UP'};}catch{return fail('CONFIG_BACKUP_FAILED');}},
  configure(v){if(bad)return fail('CONFIG_READ_FAILED');if(!v||Object.keys(v).sort().join(',')!=='apiKey,model,provider'||!Object.hasOwn(ENDPOINTS,v.provider)||typeof v.model!=='string'||!/^[a-zA-Z0-9_.:/-]{1,100}$/.test(v.model)||typeof v.apiKey!=='string'||v.apiKey.length>4096||/[\r\n]/.test(v.apiKey))return fail('CONFIG_INVALID');
  try{const secret=v.apiKey?seal(v.apiKey):config?.provider===v.provider?config.secret:null;if(!secret)return fail('KEY_REQUIRED');const next={version:1,provider:v.provider,model:v.model,secret};write(JSON.stringify(next));config=next;return this.get();}catch{return fail('CONFIG_WRITE_FAILED');}},
  async send(payload){if(!validPayload(payload))return fail('PAYLOAD_INVALID');if(!config)return fail('UNCONFIGURED');if(jobs.has(payload.requestId))return fail('DUPLICATE');if(jobs.size>=2000)return fail('REQUEST_CAPACITY');if([...jobs.values()].some(j=>j.running))return fail('BUSY');
@@ -24,7 +25,8 @@ function createService({read,write,seal,unseal,request=httpsRequest}){
  dispose(){for(const job of jobs.values())if(job.running){job.cancelled=true;job.controller.abort();}}
  };
 }
-function createDiskService(root,safeStorage){const fs=require('node:fs'),path=require('node:path'),{randomUUID}=require('node:crypto');const file=path.join(root,'agent-connection-v1.json');return createService({
+function createDiskService(root,safeStorage,fs=require('node:fs')){const path=require('node:path'),{randomUUID}=require('node:crypto');const file=path.join(root,'agent-connection-v1.json');return createService({
+ backup(expected){if(fs.readFileSync(file,'utf8')!==expected)throw Error('CHANGED');const dir=fs.mkdtempSync(path.join(root,'agent-connection-backup-'));fs.renameSync(file,path.join(dir,'agent-connection-v1.json'));},
  read(){try{return fs.readFileSync(file,'utf8');}catch(e){if(e.code==='ENOENT')return null;throw e;}},
  write(raw){const tmp=file+'.'+randomUUID()+'.tmp';let owned=false;try{fs.writeFileSync(tmp,raw,{flag:'wx',mode:0o600});owned=true;fs.renameSync(tmp,file);owned=false;}finally{if(owned)try{fs.unlinkSync(tmp);}catch{}}},
  seal(key){if(!safeStorage.isEncryptionAvailable())throw Error();return safeStorage.encryptString(key).toString('base64');},unseal(secret){return safeStorage.decryptString(Buffer.from(secret,'base64'));}

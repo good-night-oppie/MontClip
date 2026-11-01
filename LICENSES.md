@@ -9,3 +9,5 @@ MontClip host code retains the repository's MIT LICENSE. Imported components ret
 The generated cindy-official.js has been adapted through bundling/minification and MontClip host interfaces. It has an explicit modification notice; the copied upstream source files have not been edited. No private Cindy configuration, API key, packaged extraction or Rea source is included. See the [reuse/change inventory](docs/decisions/2026-11-01-official-cindy-port.md).
 
 The complete original282-byte Cindy NOTICE is also embedded verbatim in THIRD-PARTY-NOTICES.txt; upstream/NOTICE remains unchanged. Behavior SPEC v2 reference/hash is recorded in the ADR; it is not a source-code license substitute.
+
+The official pane bundle also includes scheduler 0.27.0 (MIT, Meta Platforms, Inc. and affiliates). Its full license is retained in agent-ui/THIRD-PARTY-NOTICES.txt. BUNDLED-LICENSES.json pins each bundled dependency version and full notice hash.
