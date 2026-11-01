@@ -5047,6 +5047,9 @@ function clipKeyframesHtml(c) {
 // View-only filtering. Keep every project track and its compositor/undo identity.
 // Focus newly encountered content once; ordinary edits/renders keep the user's scroll.
 function syncTimelineTrackView() {
+  // Pointer coordinates must keep referring to the same rows until the gesture settles.
+  if (state.gesture) { syncTimelineTrackView.pending = true; return; }
+  syncTimelineTrackView.pending = false;
   const occupied = new Set(project.clips.map(c => c.track));
   const simple = mcView.get().mode === "simple";
   for (const container of [els.tracks, $("trackHeadInner")]) {
@@ -5057,7 +5060,7 @@ function syncTimelineTrackView() {
     }
   }
   const key = JSON.stringify([runtime.projectGen, SeqLib.activeId(seqRoot()), simple,
-    TRACKS.filter(t => occupied.has(t.id)).map(t => [t.id, t.h])]);
+    TRACKS.filter(t => occupied.has(t.id)).map(t => t.id)]);
   if (syncTimelineTrackView.focusKey === key) return;
   syncTimelineTrackView.focusKey = key;
   const first = [...els.tracks.children].find(row => occupied.has(row.dataset.track));
@@ -6041,22 +6044,46 @@ function startClipGesture(e, c, mode, collapseOnClick) {
     state.dirtyTimeline = true;
     renderInspector(true);
   };
-  const onUp = () => {
+  let ended = false;
+  const finish = (cancelled) => {
+    if (ended) return;
+    ended = true;
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerup", onUp);
+    window.removeEventListener("pointercancel", onCancel);
+    window.removeEventListener("keydown", onKey, true);
+    window.removeEventListener("blur", onCancel);
+    if (cancelled) {
+      restoreSnapshot(snapshot);
+      for (const clip of project.clips) if (groupIds.has(clip.id)) routeClipGain(clip);
+      pruneSelection();
+    }
     state.gesture = false;
-    if (moved) {
+    state.dirtyTimeline = true;
+    if (!cancelled && moved) {
       runtime.undo.push(snapshot);
       if (runtime.undo.length > 100) runtime.undo.shift();
       runtime.redo.length = 0;
       scheduleSave();
-    } else if (collapseOnClick) {
+    } else if (!cancelled && collapseOnClick) {
       selectClip(c.id);
     }
+    renderInspector(true);
     if (runtime.pendingSync) syncFromServer();
+  };
+  const onUp = () => finish(false);
+  const onCancel = () => finish(true);
+  const onKey = (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    finish(true);
   };
   window.addEventListener("pointermove", onMove);
   window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", onCancel);
+  window.addEventListener("keydown", onKey, true);
+  window.addEventListener("blur", onCancel);
 }
 
 /* ── Marquee (rubber-band) selection on empty timeline area ──
@@ -16222,7 +16249,7 @@ function loop(ts) {
       if (draw) drawFrame();
     }
   }
-  if (state.dirtyTimeline) rebuildClips();
+  if (state.dirtyTimeline || (syncTimelineTrackView.pending && !state.gesture)) rebuildClips();
   if (trState.open) transcriptTick();
   watchCaptions(ts);
   const phX = Math.round(state.time * state.pps);
