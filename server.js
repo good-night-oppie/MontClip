@@ -934,9 +934,15 @@ const server = http.createServer(async (req, res) => {
       let target = path.join(MEDIA_DIR, name);
       let i = 1;
       const ext = path.extname(name), base = path.basename(name, ext);
-      while (fs.existsSync(target)) target = path.join(MEDIA_DIR, `${base}_${i++}${ext}`);
       const body = await readBody(req);
-      fs.writeFileSync(target, body);
+      // Reserve only after receiving the body, and never overwrite another upload.
+      for (;;) {
+        try { fs.writeFileSync(target, body, { flag: "wx" }); break; }
+        catch (error) {
+          if (error.code !== "EEXIST") throw error;
+          target = path.join(MEDIA_DIR, `${base}_${i++}${ext}`);
+        }
+      }
       await faststart(target);
       sendJSON(res, 200, { ok: true, ...await prepareMedia(target) });
     } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
