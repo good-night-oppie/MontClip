@@ -1624,6 +1624,11 @@ No project or timeline is changed by either HTTP endpoint; the UI registers the
 media only after browser metadata loading. Canceling conversion does not save a
 project change. Derived copies are persistent project assets, not final exports.
 The portable bundled-tool path and visible Windows dialogs remain to be tested.
+FLV packet inspection rejects detected timestamp gaps with `FLV_TIMELINE_GAP`
+and unreadable/ambiguous timing with `FLV_TIMELINE_UNVERIFIED`, retaining the
+original. Passing this guard is not acceptance of presentation-gap handling.
+See `docs/decisions/2026-11-01-flv-presentation-gaps.md`: the intended shared PTS
+axis preserves held video and silent audio, never silently folds missing time.
 
 The Project bin knows each file's details and helps find, group and track
 footage. Everything here is organization: none of it changes what plays or

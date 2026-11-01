@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   request policy and save-before-close. This is not a portable release build.
 
 ### Fixed
+- Refuse detected FLV timestamp gaps until the shared presentation-time hold/silence
+  behavior is implemented; retain originals instead of silently accepting a remux.
 - Desktop tasks reject headless execution at both HTTP and job-queue boundaries.
   Close/save recovery handles crashed renderers and a 15-second save timeout;
   only explicit force close bypasses saving. Late results cannot close a newer

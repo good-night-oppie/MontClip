@@ -10,6 +10,20 @@ const available = () => {
   try { for (const name of ["ffmpeg", "ffprobe"]) execFileSync(name, ["-version"], {stdio:"ignore"}); return true; } catch { return false; }
 };
 const hash = file => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+test("FLV timestamp gaps are refused rather than silently collapsed", async t => {
+  if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
+  const dir = makeDataDir(t), original = path.join(dir, "gap.flv");
+  execFileSync("ffmpeg", ["-v","error","-f","lavfi","-i","testsrc2=size=64x64:rate=30","-vf","setpts=PTS+gte(T\\,0.15)*2/TB","-frames:v","12","-fps_mode","passthrough","-c:v","libx264",original]);
+  const before = hash(original);
+  const {probeTimeline} = require("../flv-timeline");
+  const timeline = await probeTimeline(original);
+  assert.ok(timeline.streams[0].maxGap > 1.9);
+  assert.ok(timeline.end > 2);
+  const {prepareMedia} = require("../prepare-media");
+  await assert.rejects(prepareMedia(original, {allowTranscode:true}), {code:"FLV_TIMELINE_GAP"});
+  assert.equal(hash(original), before);
+  assert.deepEqual(fs.readdirSync(dir).filter(x=>x.endsWith(".mp4")), []);
+});
 test("FLV upload remuxes compatible streams without modifying the original", async t => {
   if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
   const dir = makeDataDir(t);

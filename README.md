@@ -23,6 +23,8 @@ Compatible H.264/AAC streams are remuxed to an MP4 copy; legacy codecs require
 confirmation before transcoding. The original remains unchanged. Keep both the
 original and compatible copy with the project. Portable bundled-tool validation
 is still pending; this is not a release-readiness claim.
+Detected FLV timestamp gaps currently stop import with an explanation and retain
+the original. Correct held-picture/silent-audio gap handling is still pending.
 
 </div>
 
