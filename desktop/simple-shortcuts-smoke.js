@@ -14,16 +14,35 @@ exports.run = async win => {
     const snapshot=()=>JSON.stringify({doc:projectJSON(),undo:runtime.undo,redo:runtime.redo});
     try {
       reset(); updateMontClipView({mode:'simple',language:'zh-CN'});
+      const blocked=[['t',{altKey:true}],['E',{shiftKey:true}],['D',{shiftKey:true}],['l',{ctrlKey:true}],['[',{}],[']',{}],['[',{ctrlKey:true}],['b',{}],['r',{}],['y',{}],['u',{}],['z',{code:'KeyZ',altKey:true}]];
+      const stable=()=>JSON.stringify({project:projectJSON(),sel:[...state.selIds],tool:state.tool,undo:runtime.undo,redo:runtime.redo,pps:state.pps});
+      const unchanged=stable();
+      for(const [k,mods] of blocked) key(k,mods);
+      const combinationsProtected=stable()===unchanged;
+      let toolTransitions=true;
+      for(const tool of ['ripple','roll','slip','slide']) {
+        updateMontClipView({mode:'advanced'});setEditTool(tool);
+        const doc=snapshot(), selection=JSON.stringify([...state.selIds]);
+        updateMontClipView({mode:'simple'});
+        const button=document.querySelector('[data-edit-tool="'+tool+'"]');button.click();setEditTool(tool);
+        toolTransitions=toolTransitions && state.tool==='select' && els.tracksContent.dataset.tool==='select' && snapshot()===doc && JSON.stringify([...state.selIds])===selection && getComputedStyle(button).display==='none';
+        updateMontClipView({mode:'advanced'});
+        toolTransitions=toolTransitions && state.tool==='select' && getComputedStyle(button).display!=='none';
+      }
+      updateMontClipView({mode:'simple'});
       const before=snapshot();
       key('t');key('T',{shiftKey:true});key('Delete',{shiftKey:true});key('Backspace',{shiftKey:true});
       document.getElementById('btnRippleDelete').click();
       document.getElementById('btnTrimIO').click(); splitAtWorkArea();
       const hiddenProtected=snapshot()===before && getComputedStyle(document.getElementById('btnRippleDelete')).display==='none' && getComputedStyle(document.getElementById('btnTrimIO')).display==='none';
       const input=document.createElement('textarea');document.body.append(input);input.focus();
-      const textNotClaimed=!key('T',{shiftKey:true}).defaultPrevented && !key('Delete',{shiftKey:true}).defaultPrevented;
+      const textNotClaimed=!key('T',{shiftKey:true}).defaultPrevented && !key('Delete',{shiftKey:true}).defaultPrevented && blocked.every(([k,mods])=>!key(k,mods).defaultPrevented);
       input.remove(); key('T',{shiftKey:true,isComposing:true});key('Delete',{shiftKey:true,keyCode:229});
+      for(const [k,mods] of blocked) {key(k,{...mods,isComposing:true});key(k,{...mods,keyCode:229});}
       const dialog=document.createElement('dialog');document.body.append(dialog);dialog.showModal();
-      key('T',{shiftKey:true});key('Delete',{shiftKey:true});dialog.close();dialog.remove();
+      key('T',{shiftKey:true});key('Delete',{shiftKey:true});
+      for(const [k,mods] of blocked) key(k,mods);
+      dialog.close();dialog.remove();
       const compositionDialogProtected=snapshot()===before;
       key('Delete');
       const plainDelete=project.clips.length===2 && project.clips.every(c=>c.start===10) && runtime.undo.length===1;
@@ -39,7 +58,7 @@ exports.run = async win => {
       reset(); updateMontClipView({mode:'advanced'});key('t');const advancedSplit=project.clips.length>4;
       reset();key('T',{shiftKey:true});const advancedTrim=project.clips.length===2 && project.clips.every(c=>c.duration===3);
       reset();key('Delete',{shiftKey:true});const advancedRipple=project.clips.length===2 && project.clips.every(c=>c.start===0);
-      return {hiddenProtected,textNotClaimed,compositionDialogProtected,plainDelete,undoAtomic,linkedLock,englishLock,clipLock,advancedSplit,advancedTrim,advancedRipple};
+      return {combinationsProtected,toolTransitions,hiddenProtected,textNotClaimed,compositionDialogProtected,plainDelete,undoAtomic,linkedLock,englishLock,clipLock,advancedSplit,advancedTrim,advancedRipple};
     } finally {toast=originalToast;applyProject(original);runtime.undo=beforeUndo;runtime.redo=beforeRedo;updateMontClipView(view);scheduleSave();await flushSave();}
   })()`);
   process.stdout.write("MONTCLIP_SHORTCUTS "+JSON.stringify(result)+"\n");

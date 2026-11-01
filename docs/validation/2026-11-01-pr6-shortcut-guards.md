@@ -33,7 +33,31 @@ user-authored names retain their original language. If another independent unloc
 selection was actually removed, append `其它未锁定的选中片段已删除。` /
 `Other unlocked selections were deleted.` No failed-operation undo entry is added.
 
-## Remaining key consistency review (static, not newly runtime-tested)
+## Additional mapping decision and verification
+
+The subsequent Deja/VV decision supersedes the static pending table below:
+simple mode now also stops Alt+T, Shift+E, Shift+D, Ctrl/Cmd+L, brackets,
+unmodified B/R/Y/U, and Alt+Z. Modifier conditions follow the actual dispatcher:
+Alt+T/Alt+Z include Shift variants, and brackets have no modifier restriction.
+L/Shift+L, Ctrl+Y, Ctrl+Z/Shift+Ctrl+Z, Z/Shift+Z and Ctrl+arrows remain distinct.
+Tool buttons B/R/Y/U are hidden and setEditTool refuses their activation in simple
+mode. Switching from any of those tools intentionally sets V; switching back
+does not restore the old tool. Project, selection, links and history stay intact.
+
+Node tests execute the production keyboard listener with operation spies, and
+the actual mode-update/setEditTool functions with a DOM stub. They check each
+restricted combination against advanced mode, input/composition/dialog guards,
+retained transport/navigation/save/open/undo/zoom/timecode dispatch and all four
+tool transitions. These are dispatch/state tests, not real drag or IME tests.
+The hidden Electron test is extended for combinations/buttons/tool transitions;
+its new version has not run because new profiles are paused for low disk space.
+Previous Electron results apply only to the previous head.
+
+New short-mode controls do not remove existing clip context-menu/inspector
+operations. This batch limits the specified shortcuts and edit-tool selector;
+it does not claim all advanced UI entry points are hidden.
+
+## Historical static mapping before the additional decision
 
 | Key | Production path | Visible entry / current simple status | Follow-up |
 |---|---|---|---|

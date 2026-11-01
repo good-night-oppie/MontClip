@@ -1,5 +1,7 @@
 # Changelog
 
+- Simple mode now gates the remaining advanced shortcut combinations and hides B/R/Y/U tools; switching to simple selects V without changing project, selection, links or undo history.
+
 All notable changes to FableCut are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),

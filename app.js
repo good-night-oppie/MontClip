@@ -37,6 +37,7 @@ const TRACK_SIZE_KEY = "fablecut-track-size";
 // Shared DOM and project; this controller only changes view preferences.
 const mcView = MontClipView.create(localStorage);
 function renderMontClipView() {
+  for (const b of document.querySelectorAll('[data-edit-tool]:not([data-edit-tool="select"])')) b.classList.toggle("mc-mode-hidden", mcView.get().mode === "simple");
   for (const id of MontClipView.advancedControls) document.getElementById(id)?.classList.toggle("mc-mode-hidden", mcView.get().mode === "simple");
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
   document.documentElement.lang = language;
@@ -59,6 +60,8 @@ function renderMontClipView() {
 }
 function updateMontClipView(patch) {
   const saved = mcView.set(patch); renderMontClipView();
+  // Intentional view-tool transition only; never edit the project or relink clips.
+  if (mcView.get().mode === "simple" && state.tool !== "select") setEditTool("select");
   if (!saved) toast(mcView.get().language === "en" ? "View preference could not be saved." : "界面偏好未能保存。");
 }
 document.getElementById("mcMode").addEventListener("click", e => {
@@ -5742,6 +5745,7 @@ const EDIT_TOOLS = {
 };
 function setEditTool(name) {
   if (!EDIT_TOOLS[name]) return;
+  if (mcView.get().mode === "simple" && name !== "select") return;
   state.tool = name;
   els.tracksContent.dataset.tool = name;
   for (const b of document.querySelectorAll("[data-edit-tool]")) {

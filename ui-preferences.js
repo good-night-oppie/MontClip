@@ -7,7 +7,13 @@
   const KEY = "montclip-view-v1";
   const advancedControls = ["btnMarkIn", "btnMarkOut", "btnTrimIO", "btnRippleDelete", "btnInsert", "btnReplace", "btnCloseGap", "btnNextGap", "btnLift", "btnExtract", "btnSnap", "btnSnapMenu", "btnMarkers"];
   function advancedShortcut(event) {
-    if (event.ctrlKey || event.metaKey) return false;
+    const key = String(event.key).toLowerCase();
+    // The existing trim-to-playhead handler accepts brackets with modifiers too.
+    if (["[", "]"].includes(key)) return true;
+    if (event.ctrlKey || event.metaKey) return key === "l" && !event.altKey && !event.shiftKey;
+    if (event.altKey && (key === "t" || event.code === "KeyZ")) return true;
+    if (!event.altKey && event.shiftKey && ["e", "d"].includes(key)) return true;
+    if (!event.altKey && !event.shiftKey && ["b", "r", "y", "u"].includes(key)) return true;
     if (!event.altKey && event.shiftKey && ["Delete", "Backspace"].includes(event.key)) return true;
     if (event.code === "KeyM" && event.shiftKey) return true;
     return !event.altKey && [";", "'", ",", ".", "g", "i", "o", "n", "m", "t"].includes(String(event.key).toLowerCase());

@@ -147,7 +147,7 @@ async function start() {
       updateMontClipView({language:'zh-CN'});
       const helpLocalized = englishHelp && document.getElementById('mcModeHelp').textContent === '简单模式保留常用操作；需要更多工具和快捷键时，可切到高级模式。' &&
         document.getElementById('mcLiftExtractHelp').textContent.includes('分号保留空隙；单引号连同空隙删除') &&
-        [...document.querySelectorAll('#helpKeys [data-mc-mode-note]')].length === 13 &&
+        [...document.querySelectorAll('#helpKeys [data-mc-mode-note]')].length === 20 &&
         [...document.querySelectorAll('#helpKeys [data-mc-mode-note]')].every(n=>n.textContent.includes('仅高级模式'));
       updateMontClipView(originalView);
       let externalBlocked = false;
