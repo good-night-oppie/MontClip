@@ -49,3 +49,8 @@ Packet DTS advances34ms across this boundary, so switching to packet-DTS continu
 Evidence:2026-11-01-flv-gap-neighbors.json records max neighbors and exact commands;2026-11-01-flv-gap-tail-packets.json records bounded tail packets in decode/presentation order. Diagnostic storage is two per-type rings of3, one max record plus3 later frames, counters, and at most8KiB stderr; no all-frame log. Focused observer tests2/2 include exact PTS-vs-DTS tail example. Production accumulator uses its original frame duration handling; the observer explicitly refuses absent durations rather than claiming fallback equivalence. No production code changed.
 
 Deja's receipt: PR11 dec39178 QQ formal approval582/582, but remains on its current base pending PR9 merge/rebase verification; neither reviewed head moved. Original-FLV/output PTS correspondence, user-recording/2–3h complexity, Electron and export-sync gates remain open.
+
+
+Follow-up validation on bd7893d3e87f067aee3b0f93dbad181cc7c7624b/tree d73a770f145f9ef7f23475f096b6f939e9229e90: Windows x64 Node22.15.1 npm test 565/565, 0 fail/cancel/skip; node .github/scripts/release-check.js exit0. Node checks only; Electron/real-capture/package acceptance and Linux/macOS not run. Hashes are sanitized LF working-file bytes.
+docs/validation/2026-11-01-flv-neighbor-full.log sanitized UTF-8 LF SHA256 946bb5191d5267e3ac16ff32ef1b148b447e6e0efb1a6fe348d09599f1be5178
+docs/validation/2026-11-01-flv-neighbor-release.log sanitized UTF-8 LF SHA256 5a0e4845a4bae15d87b152750d4b1609256641d0ca3f298fe42a79199aa05b58
