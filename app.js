@@ -5069,7 +5069,15 @@ function syncTimelineTrackView() {
     TRACKS.filter(t => occupied.has(t.id)).map(t => t.id)]);
   if (syncTimelineTrackView.focusKey === key) return;
   syncTimelineTrackView.focusKey = key;
-  const first = [...els.tracks.children].find(row => occupied.has(row.dataset.track));
+  const rows = [...els.tracks.children];
+  // Prefer a real video/audio pair over an upper subtitle lane on initial focus.
+  const videos = rows.filter(row => project.clips.some(c => c.track === row.dataset.track && c.kind === 'video'));
+  const audios = rows.filter(row => project.clips.some(c => c.track === row.dataset.track && c.kind === 'audio'));
+  let first = rows.find(row => occupied.has(row.dataset.track)), distance = Infinity;
+  for (const video of videos) for (const audio of audios) {
+    const gap = Math.abs(video.getBoundingClientRect().top - audio.getBoundingClientRect().top);
+    if (gap < distance) { distance = gap; first = rows.indexOf(video) < rows.indexOf(audio) ? video : audio; }
+  }
   if (first) {
     const scroller = els.timelineScroll;
     scroller.scrollTop += first.getBoundingClientRect().top - scroller.getBoundingClientRect().top - RULER_H;
