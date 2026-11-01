@@ -136,24 +136,26 @@
     });
   }
 
-  /** Each word's [start, end], seconds from the cue's start: from the words when they are
-   *  there (a transcript), else spread over the cue by length (a subtitle file). */
+  /** Measured word intervals, or null for sentence-only subtitles. Never infer
+   *  speech timing from character count (SRT/VTT do not contain word alignment). */
   function wordTimes(cue) {
     const dur = cue.end - cue.start;
     const ws = String(cue.text).split(/\s+/).filter(Boolean);
-    if (cue.words && cue.words.length === ws.length)
-      return cue.words.map((w) => [r4(Math.max(0, w.s - cue.start)), r4(Math.min(dur, Math.max(0, w.e - cue.start)))]);
-    const weight = ws.map((w) => w.length + 2), total = weight.reduce((a, b) => a + b, 0) || 1;
-    let t = 0;
-    return ws.map((w, i) => { const a = t; t += dur * weight[i] / total; return [r4(a), r4(t)]; });
+    if (!num(cue.start) || !num(cue.end) || dur <= 0 || !ws.length ||
+        !Array.isArray(cue.words) || cue.words.length !== ws.length) return null;
+    if (!cue.words.every((w, i) => w && num(w.s) && num(w.e) && w.e > w.s &&
+        w.e > cue.start && w.s < cue.end && (!i || w.s >= cue.words[i - 1].s))) return null;
+    const times = cue.words.map((w) => [r4(Math.max(0, w.s - cue.start)), r4(Math.min(dur, w.e - cue.start))]);
+    return times.every(([a, b]) => b > a) ? times : null;
   }
 
   /** A caption clip (for addClip) for a cue: the style on this canvas, `y` placed by the style. */
   function clip(cue, { style: st, width, height, track, id, scale } = {}) {
     const k = style(st), S = STYLES[k], m = metrics(k, width || 1920, height || 1080, { scale });
+    const timing = wordTimes(cue);
     const props = Object.assign({}, S.props, {
       text: cue.text, fontSize: m.fontSize, y: Math.round((height || 1080) * S.y),
-      wordTimes: wordTimes(cue), caption: true, captionStyle: k,
+      ...(timing ? { wordTimes: timing } : { textAnim: "none" }), caption: true, captionStyle: k,
     });
     return { ...(id ? { id } : {}), kind: "text", mediaId: null, track: track || "V2", start: r4(cue.start), duration: r4(cue.end - cue.start), name: "Caption", props };
   }

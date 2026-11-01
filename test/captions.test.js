@@ -44,13 +44,30 @@ test("a cue lasts at least minDur when there is room", () => {
   assert.deepEqual([c.start, c.end], [1, 1.7]);
 });
 
-test("wordTimes come from the words, or are spread over the cue by length", () => {
+test("wordTimes require actual alignment; sentence timestamps never invent word timing", () => {
   const cue = { start: 2, end: 4, text: "big news", words: [{ w: "big", s: 2.1, e: 2.5 }, { w: "news", s: 2.6, e: 3.2 }] };
   assert.deepEqual(C.wordTimes(cue), [[0.1, 0.5], [0.6, 1.2]]);
-  const spread = C.wordTimes({ start: 0, end: 2, text: "a bbbbbb" });
-  assert.equal(spread.length, 2);
-  assert.equal(spread[1][1], 2);
-  assert.ok(spread[0][1] < 1, "a short word gets less time");
+  assert.equal(C.wordTimes({ start: 0, end: 2, text: "a bbbbbb" }), null);
+  for (const words of [[], [{ s: 2, e: 3 }], [{ s: NaN, e: 3 }, { s: 3, e: 4 }],
+    [{ s: 3, e: 2 }, { s: 3, e: 4 }], [{ s: 3, e: 4 }, { s: 2, e: 3 }]]) {
+    assert.equal(C.wordTimes({ ...cue, words }), null);
+  }
+});
+
+test("SRT imports stay sentence-level in every style, including Chinese without spaces", () => {
+  for (const text of ["你好世界，这是整句字幕。", "Hello there, a sentence."]) {
+    const [cue] = C.parse(`1\n00:00:01,000 --> 00:00:04,000\n${text}\n`);
+    for (const style of Object.keys(C.STYLES)) {
+      const clip = C.clip(cue, { style });
+      assert.equal(clip.props.wordTimes, undefined);
+      assert.equal(clip.props.textAnim, "none");
+      assert.equal(clip.props.text, text);
+      assert.equal(C.toSRT(C.fromClips([clip])), C.toSRT([cue]));
+      const doc = { revision: 1, media: [], clips: [] };
+      ProjectOps.applyPatch(doc, [{ op: "addClip", clip }]);
+      assert.doesNotMatch(ProjectOps.compactView(doc), /words timed to speech/);
+    }
+  }
 });
 
 test("clip() makes a caption text clip in the style, placed for the canvas", () => {
@@ -128,4 +145,3 @@ test("fromClips leaves out captions on a disabled track", () => {
   assert.deepEqual(C.fromClips(clips, ["V5"]).map((c) => c.text), ["shown"]);
   assert.equal(C.fromClips(clips).length, 2);
 });
-

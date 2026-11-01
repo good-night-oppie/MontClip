@@ -1607,6 +1607,41 @@ async function flushSave() {
   if (runtime.saveTimer || runtime.saveFailed) { clearTimeout(runtime.saveTimer); runtime.saveTimer = null; runtime.saving = saveNow(); }
   try { return (await runtime.saving) !== false; } catch { return false; }
 }
+/** Desktop close transaction: freeze input and accept only an unchanged, durable
+ * document. A conflict reload or late asynchronous edit keeps the window open. */
+let closeSaveTransaction = null, closeSaveInvalidThrough = 0;
+function cancelCloseSave(attempt) {
+  closeSaveInvalidThrough = Math.max(closeSaveInvalidThrough, attempt);
+  if (closeSaveTransaction && closeSaveTransaction.attempt <= attempt) {
+    closeSaveTransaction.restore(); closeSaveTransaction = null;
+  }
+}
+async function flushSaveForClose(attempt = 1) {
+  if (attempt <= closeSaveInvalidThrough || closeSaveTransaction) return false;
+  const body = document.body, wasInert = body.inert;
+  const events = ["keydown", "keyup", "pointerdown", "pointerup", "click", "drop", "paste", "input"];
+  const block = (event) => { event.preventDefault(); event.stopImmediatePropagation(); };
+  const snapshot = () => JSON.stringify({ ...projectJSON(), revision: 0 });
+  const before = snapshot(), projectId = runtime.projectId;
+  let saved = false;
+  body.inert = true;
+  for (const event of events) window.addEventListener(event, block, true);
+  const transaction = closeSaveTransaction = { attempt, restore() {
+    body.inert = wasInert;
+    for (const event of events) window.removeEventListener(event, block, true);
+  } };
+  try {
+    const ok = await flushSave();
+    saved = attempt > closeSaveInvalidThrough && closeSaveTransaction === transaction &&
+      ok && !runtime.saveTimer && !runtime.saveFailed &&
+      runtime.projectId === projectId && snapshot() === before;
+    return saved;
+  } finally {
+    if (!saved && closeSaveTransaction === transaction) {
+      transaction.restore(); closeSaveTransaction = null;
+    }
+  }
+}
 async function flushSaveBeforeSwitch() {
   if (await flushSave()) return true;
   toast("Your last change couldn't be saved, so the project stays open. Try again in a moment.");

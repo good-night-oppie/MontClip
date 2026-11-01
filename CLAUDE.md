@@ -174,6 +174,15 @@ so a test that triggers it would leave a `server.js` running after it finishes.
 
 ## Run
 
+MontClip also has an experimental Electron host in `desktop/`; see
+`desktop/README.md` for development startup, isolation and offline limitations.
+It uses this same server/project/compositor and has no renderer Node API.
+Desktop task requests reject `where: "headless"` with HTTP 409 and code
+`HEADLESS_DISABLED`. `auto` requires an existing editor connection, otherwise
+409 `EDITOR_NOT_READY`; it never launches a system browser. These guards cover
+export, transcription, scopes and tracking, including the shared job queue.
+It is not yet a portable release or offline transcription distribution.
+
 ```
 node server.js        # → http://localhost:7777   (from npm: npx -y fablecut)
 ```
@@ -780,8 +789,10 @@ again after you change the edit. The editor says so for a moment whenever an edi
 In the editor, the **Captions** row of the **Transcript** tab: pick a style, then
 **Add captions** (one undo step). **SRT** and **VTT** download the timeline's
 captions as a subtitle file; **Import…** places the captions of an SRT or WebVTT
-file instead, re-broken to the style's line length, with their words spread over
-each caption. Select a caption to restyle it in the Inspector: the **Highlight**
+file instead, re-broken to the style's line length. Imported subtitles have only
+sentence timestamps: they carry no `wordTimes`, and word animations are disabled
+instead of inventing alignment. Real transcript word timestamps enable word
+animation. Select a caption to restyle it in the Inspector: the **Highlight**
 colour sits under **Animation**, and a note says its words follow the speech.
 
 **Agents** use `fablecut_captions`:

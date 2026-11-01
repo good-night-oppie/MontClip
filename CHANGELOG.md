@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Experimental MontClip Electron development host: isolated renderer, ephemeral
+  loopback server, per-instance request token, exact origin validation, offline
+  request policy and save-before-close. This is not a portable release build.
+
+### Fixed
+- Desktop tasks reject headless execution at both HTTP and job-queue boundaries.
+  Close/save recovery handles crashed renderers and a 15-second save timeout;
+  only explicit force close bypasses saving. Late results cannot close a newer
+  attempt. Shutdown terminates this service's tracked media child processes.
+- SRT/WebVTT imports no longer invent word timestamps from character lengths.
+  Imported captions remain sentence-timed with word animations disabled; real
+  transcript alignment still enables word animation in preview and export.
+
 ## [1.18.0] - 2026-10-28
 
 ### Added

@@ -1,0 +1,13 @@
+{
+  "name": "montclip-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "main.js",
+  "description": "MontClip desktop development shell",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "45.2.1"
+  }
+}

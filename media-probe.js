@@ -18,7 +18,7 @@ const PROBE_CONCURRENCY = 4;
 let hasProbe = null;
 function ffprobeAvailable() {
   if (hasProbe == null) {
-    try { hasProbe = spawnSync("ffprobe", ["-version"], { stdio: "ignore" }).status === 0; } catch { hasProbe = false; }
+    try { hasProbe = spawnSync("ffprobe", ["-version"], { stdio: "ignore", timeout: 1500 }).status === 0; } catch { hasProbe = false; }
   }
   return hasProbe;
 }

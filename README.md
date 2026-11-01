@@ -159,7 +159,14 @@ big operation (cutting silences, snapping to the beat, reframing), and every
   Agents use `fablecut_transcribe` to read an interview, find a line and cut it.
 - **Captions** — one click makes captions from the transcript, timed word by
   word: subtitle, karaoke, a highlighted word or big popping words, sized for
-  the canvas. Export or import SRT and WebVTT. Agents use `fablecut_captions`.
+  the canvas. Export or import SRT and WebVTT. Imports keep sentence timing;
+  word animations require real word timestamps. Agents use `fablecut_captions`.
+- **Experimental MontClip desktop host** — see [desktop/README.md](desktop/README.md).
+  Sandboxed Electron runs this same editor locally, blocks remote requests and
+  waits for saving before closing. A stalled save offers keep waiting (default)
+  or explicit force close after 15 seconds; recent edits may be lost on force close.
+  Desktop tasks use the existing editor and never launch system browsers.
+  Portable packaging and full bilingual UI are pending.
 - **Project bin folders** — tree view with expand/collapse; drag media or folders to nest; right-click the **Project** tab → New folder; drop files onto a folder to import into it
 - **Media management** — each file's frame rate, codecs, audio channels and size (ffprobe); search by name, codec, resolution or `#tag`; filter by favorites, used / unused, kind, tag or collection; sort by any detail or by times used; a list view with metadata columns; favorites, tags and collections; **Find timeline instances** and **Reveal in project**; offline files flagged with a "Media offline" slate, **Relink…** (finds moved files by name and size) and **Replace file…**
 - **Projects** — a dashboard of every project with pictures, notes and tags: open, create from a canvas or a saved project template, duplicate, rename, archive and delete, import an old project file; media is shared, so copies cost no footage
