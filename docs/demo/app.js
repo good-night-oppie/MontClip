@@ -34,6 +34,34 @@ const TRACK_SIZE_PRESETS = {
   l: { thumbs: true, hVideo: 58, hAudio: 42 },
 };
 const TRACK_SIZE_KEY = "fablecut-track-size";
+// Shared DOM and project; this controller only changes view preferences.
+const mcView = MontClipView.create(localStorage);
+function renderMontClipView() {
+  const { mode, language } = mcView.get(), t = MontClipView.text[language];
+  document.documentElement.lang = language;
+  document.body.dataset.mcMode = mode;
+  document.getElementById("mcLanguage").value = language;
+  const group = document.getElementById("mcMode"); group.setAttribute("aria-label", t.mode);
+  for (const b of group.querySelectorAll("[data-mc-mode]")) {
+    b.textContent = t[b.dataset.mcMode]; b.setAttribute("aria-pressed", String(b.dataset.mcMode === mode));
+  }
+  for (const [id, key] of Object.entries({ mcUndo: "undo", mcRedo: "redo", mcAssistant: "assistant", mcAssistantClose: "close", mcAssistantStatus: "unavailable", mcAssistantPending: "pending" })) document.getElementById(id).textContent = t[key];
+  document.getElementById("mcLanguage").setAttribute("aria-label", t.language);
+  document.getElementById("mcAssistantPanel").setAttribute("aria-label", t.assistant);
+}
+function updateMontClipView(patch) {
+  const saved = mcView.set(patch); renderMontClipView();
+  if (!saved) toast(mcView.get().language === "en" ? "View preference could not be saved." : "界面偏好未能保存。");
+}
+document.getElementById("mcMode").addEventListener("click", e => {
+  const b = e.target.closest("[data-mc-mode]"); if (b) updateMontClipView({ mode: b.dataset.mcMode });
+});
+document.getElementById("mcLanguage").addEventListener("change", e => updateMontClipView({ language: e.target.value }));
+document.getElementById("mcUndo").addEventListener("click", () => undo());
+document.getElementById("mcRedo").addEventListener("click", () => redo());
+document.getElementById("mcAssistant").addEventListener("click", () => document.getElementById("mcAssistantPanel").classList.toggle("hidden"));
+document.getElementById("mcAssistantClose").addEventListener("click", () => document.getElementById("mcAssistantPanel").classList.add("hidden"));
+renderMontClipView();
 const LAST_TRANS_KEY = { in: "fablecut-last-trans-in", out: "fablecut-last-trans-out" };
 const DEFAULT_LAST_TRANS = { type: "fade", duration: 1 };
 const RULER_H = 26;
@@ -556,7 +584,7 @@ const state = {
   silenceBusy: false,    // a Find is listening (the Inspector offers Cancel)
   beats: null,           // the beat Find beats heard (Inspector → Beats): {clipId, sig, a, grid, bpm, drop}, ticks on the timeline
   beatsBusy: false,      // Find beats is listening
-  trackSize: "l",        // s | m | l — timeline track density preset
+  trackSize: "s",        // s | m | l — compact for new preferences; saved size wins
   connected: false, exporting: false,
   rendering: false,      // fast (server/ffmpeg) export in progress
   guides: false,         // safe-area overlay on the monitor

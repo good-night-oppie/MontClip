@@ -118,15 +118,23 @@ async function start() {
         await new Promise(resolve => setTimeout(resolve, 50));
       const response = await fetch('/api/project');
       const doc = await response.json();
+      const beforeView = JSON.stringify({ project: projectJSON(), time: state.time, selection: state.selId, undo: runtime.undo, redo: runtime.redo });
+      const originalView = mcView.get(), transcriptNode = document.getElementById('transcriptPage');
+      document.querySelector('[data-mc-mode="advanced"]').click();
+      const lang = document.getElementById('mcLanguage'); lang.value = 'en'; lang.dispatchEvent(new Event('change'));
+      document.querySelector('[data-mc-mode="simple"]').click();
+      const viewPreserved = beforeView === JSON.stringify({ project: projectJSON(), time: state.time, selection: state.selId, undo: runtime.undo, redo: runtime.redo }) &&
+        transcriptNode === document.getElementById('transcriptPage') && document.documentElement.lang === 'en' && mcView.get().mode === 'simple';
+      updateMontClipView(originalView);
       let externalBlocked = false;
       try { await fetch('https://example.com/'); } catch { externalBlocked = true; }
       return { nodeUnavailable: typeof require === 'undefined' && typeof process === 'undefined',
-        projectLoaded: Array.isArray(doc.clips), apiStatus: response.status, externalBlocked,
+        projectLoaded: Array.isArray(doc.clips), apiStatus: response.status, externalBlocked, viewPreserved,
         compositor: typeof drawFrame === 'function', saved: await flushSaveForClose() };
     })()`);
     process.stdout.write("MONTCLIP_SMOKE " + JSON.stringify(result) + "\n");
     const pass = result.nodeUnavailable && result.projectLoaded && result.externalBlocked &&
-      result.compositor && result.saved && result.apiStatus === 200;
+      result.compositor && result.saved && result.viewPreserved && result.apiStatus === 200;
     if (!pass) process.exitCode = 1;
     closing = true; win.close();
   } else win.show();

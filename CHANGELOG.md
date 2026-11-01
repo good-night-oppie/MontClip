@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Development view-mode and language preferences with shared-DOM layout switching,
+  persistent undo/redo controls and an explicit disconnected assistant panel.
+  Complete bilingual/simple-mode UI and AI connection are not implemented yet.
 - Development ordered sentence/range proposals, boundary-caption provenance and
   independent source/output JSON export. Native trim engine and one undo/revision
   transaction are retained; unsupported edits fail explicitly.
