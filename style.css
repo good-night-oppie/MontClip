@@ -4594,7 +4594,7 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 @media(max-height:600px) { #mcAgentContent > textarea { height:40px; min-height:40px; } }
 @media(max-width:700px) {
  .monitor .panel-head { max-height:28px; min-height:28px; padding-top:2px; padding-bottom:2px; }
- .monitor-stage { margin:2px; }
+ .monitor-stage { margin:1px; }
  .transport { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px; padding:2px; }
  .transport-btns { grid-column:1 / -1; grid-row:1; justify-content:center; }
  .transport > .tc-playhead { grid-column:1; grid-row:2; min-width:0; }
