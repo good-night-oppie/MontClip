@@ -43,3 +43,9 @@ model/config and licenses are separate: research weights stay selectedForRelease
 false until Chinese quality/word timing/license approval. No model selection or
 resource gate changed. Existing missing manifest+21 resources and real Windows
 package/fuses/offline acceptance remain blockers.
+
+Tested code 5848b2f984e7ff3c3bae2cce044c3223cd10e282 tree c683105578a40f726fd3712f30eacc5c512e140f
+Windows x64/Node22.15.1 npm test559/559,0failed/cancelled/skipped;
+node .github/scripts/release-check.js passed. These are repo checks, not packaged
+execution. docs/validation/2026-11-01-packager-full.log sanitized UTF-8 worktree SHA256 13c66bd6decc46336c8accdcbe14eb18bc07b3bc3d13eb5153c98c4cfd30dec1
+docs/validation/2026-11-01-packager-release.log sanitized UTF-8 worktree SHA256 69980001d5df35fd5446c687112ff20f3358f5c38c4def264f6a209a2e69e9f5
