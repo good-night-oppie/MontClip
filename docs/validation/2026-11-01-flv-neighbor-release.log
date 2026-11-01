@@ -1,0 +1,78 @@
+
+Versions
+  ok  package.json = 1.18.0
+  ok  server.json version = 1.18.0
+  ok  server.json npm package = 1.18.0
+  ok  manifest.json = 1.18.0
+  ok  .claude-plugin/plugin.json = 1.18.0
+  ok  mcp-server.js serverInfo = 1.18.0
+  ok  server.json mcpb URL points at this release
+
+Registry / Glama metadata
+  ok  server.json npm identifier = fablecut
+  ok  server.json name io.github.ronak-create/fablecut
+  ok  package.json mcpName matches server.json
+  ok  server.json description fits the registry (≤ 100 chars)
+  ok  glama.json has $schema and maintainers
+  ok  LICENSE present (MIT)
+  ok  package.json bin exists
+  ok  package.json parses
+  ok  server.json parses
+  ok  manifest.json parses
+  ok  glama.json parses
+  ok  .mcp.json parses
+  ok  .claude-plugin/plugin.json parses
+  ok  .claude-plugin/marketplace.json parses
+
+Syntax
+  ok  analyze.js
+  ok  app.js
+  ok  audio-fx.js
+  ok  beats.js
+  ok  captions.js
+  ok  cli.js
+  ok  color.js
+  ok  comp.js
+  ok  delivery.js
+  ok  denoise.js
+  ok  ducking.js
+  ok  edit-ops.js
+  ok  encode-profiles.js
+  ok  export-jobs.js
+  ok  frame-cache.js
+  ok  frame-stats.js
+  ok  fx-worklet.js
+  ok  highlights.js
+  ok  history.js
+  ok  import-url.js
+  ok  loudness.js
+  ok  mask.js
+  ok  mcp-server.js
+  ok  media-lib.js
+  ok  media-probe.js
+  ok  meter-worklet.js
+  ok  motion.js
+  ok  mp4-demux.js
+  ok  owned-processes.js
+  ok  paths.js
+  ok  project-ops.js
+  ok  projects.js
+  ok  proxy.js
+  ok  range-plan.js
+  ok  reframe.js
+  ok  ruler-worker.js
+  ok  sequences.js
+  ok  server.js
+  ok  silence.js
+  ok  templates.js
+  ok  tracker.js
+  ok  transcribe-worker.js
+  ok  transcribe.js
+  ok  transcripts.js
+  ok  ui-preferences.js
+
+MCP server (repo)
+  ok  repo: 24 tools
+  ok  repo: tools match manifest.json
+
+all release checks passed
