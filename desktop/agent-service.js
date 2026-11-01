@@ -1,0 +1,32 @@
+'use strict';
+// Fixed destinations chosen by the user. Model output cannot select a host or tool.
+const ENDPOINTS=Object.freeze({openai:'https://api.openai.com/v1/chat/completions',deepseek:'https://api.deepseek.com/chat/completions'});
+const fail=code=>({ok:false,code});
+function validPayload(p){return p&&Object.keys(p).sort().join(',')==='gen,messages,projectId,requestId,revision,sequenceId,version'&&p.version===1&&/^[a-zA-Z0-9_-]{1,80}$/.test(p.requestId)&&typeof p.projectId==='string'&&p.projectId.length>0&&p.projectId.length<=256&&(p.sequenceId===null||typeof p.sequenceId==='string'&&p.sequenceId.length<=256)&&Number.isSafeInteger(p.revision)&&p.revision>=0&&Number.isSafeInteger(p.gen)&&p.gen>=0&&Array.isArray(p.messages)&&p.messages.length>0&&p.messages.length<=100&&p.messages.every(m=>m&&Object.keys(m).sort().join(',')==='content,role'&&['user','assistant'].includes(m.role)&&typeof m.content==='string'&&m.content.length<=16000)&&p.messages.at(-1).role==='user'&&JSON.stringify(p).length<=131072;}
+async function httpsRequest(config,payload,signal){
+ const response=await fetch(ENDPOINTS[config.provider],{method:'POST',redirect:'error',signal,headers:{'Content-Type':'application/json',Authorization:'Bearer '+config.key},body:JSON.stringify({model:config.model,messages:payload.messages,stream:false,max_tokens:2048})});
+ if(!response.ok)throw Error('PROVIDER_HTTP');
+ let size=0;const chunks=[];for await(const part of response.body){size+=part.length;if(size>131072){await response.body.cancel().catch(()=>{});throw Error('RESPONSE_LIMIT');}chunks.push(part);}
+ const data=JSON.parse(Buffer.concat(chunks).toString('utf8')),text=data.choices?.[0]?.message?.content;
+ if(typeof text!=='string'||text.length>16000||!text.trim())throw Error('INVALID_RESPONSE');return{text};
+}
+function createService({read,write,seal,unseal,request=httpsRequest}){
+ let config=null,bad=false;const jobs=new Map();
+ try{const raw=read();if(raw){if(raw.length>40000)throw Error();const v=JSON.parse(raw);if(!v||Object.keys(v).sort().join(',')!=='model,provider,secret,version'||v.version!==1||!Object.hasOwn(ENDPOINTS,v.provider)||typeof v.model!=='string'||!/^[a-zA-Z0-9_.:/-]{1,100}$/.test(v.model)||typeof v.secret!=='string'||!v.secret||v.secret.length>32768)throw Error();config=v;}}catch{bad=true;}
+ return {
+ get(){return{ok:!bad,configured:!!config,provider:config?.provider||'openai',model:config?.model||'',code:bad?'CONFIG_READ_FAILED':null};},
+ configure(v){if(bad)return fail('CONFIG_READ_FAILED');if(!v||Object.keys(v).sort().join(',')!=='apiKey,model,provider'||!Object.hasOwn(ENDPOINTS,v.provider)||typeof v.model!=='string'||!/^[a-zA-Z0-9_.:/-]{1,100}$/.test(v.model)||typeof v.apiKey!=='string'||v.apiKey.length>4096||/[\r\n]/.test(v.apiKey))return fail('CONFIG_INVALID');
+ try{const secret=v.apiKey?seal(v.apiKey):config?.provider===v.provider?config.secret:null;if(!secret)return fail('KEY_REQUIRED');const next={version:1,provider:v.provider,model:v.model,secret};write(JSON.stringify(next));config=next;return this.get();}catch{return fail('CONFIG_WRITE_FAILED');}},
+ async send(payload){if(!validPayload(payload))return fail('PAYLOAD_INVALID');if(!config)return fail('UNCONFIGURED');if(jobs.has(payload.requestId))return fail('DUPLICATE');if(jobs.size>=2000)return fail('REQUEST_CAPACITY');if([...jobs.values()].some(j=>j.running))return fail('BUSY');
+ const controller=new AbortController(),job={running:true,cancelled:false,controller};jobs.set(payload.requestId,job);const timer=setTimeout(()=>{job.cancelled=true;controller.abort();},60000);
+ try{const key=unseal(config.secret);if(!key)throw Error();const result=await request({...config,key},JSON.parse(JSON.stringify(payload)),controller.signal);if(job.cancelled)return fail('CANCELLED');if(typeof result.text!=='string'||!result.text.trim()||result.text.length>16000)return fail('INVALID_RESPONSE');return {ok:true,text:result.text,requestId:payload.requestId};}catch{return fail(job.cancelled?'CANCELLED':'REQUEST_FAILED');}finally{clearTimeout(timer);job.running=false;job.controller=null;}},
+ cancel(id){const job=jobs.get(id);if(!job)return fail('UNKNOWN_REQUEST');if(!job.running)return{ok:true,code:'COMPLETED'};job.cancelled=true;job.controller.abort();return{ok:true,code:'CANCELLED'};},
+ dispose(){for(const job of jobs.values())if(job.running){job.cancelled=true;job.controller.abort();}}
+ };
+}
+function createDiskService(root,safeStorage){const fs=require('node:fs'),path=require('node:path'),{randomUUID}=require('node:crypto');const file=path.join(root,'agent-connection-v1.json');return createService({
+ read(){try{return fs.readFileSync(file,'utf8');}catch(e){if(e.code==='ENOENT')return null;throw e;}},
+ write(raw){const tmp=file+'.'+randomUUID()+'.tmp';let owned=false;try{fs.writeFileSync(tmp,raw,{flag:'wx',mode:0o600});owned=true;fs.renameSync(tmp,file);owned=false;}finally{if(owned)try{fs.unlinkSync(tmp);}catch{}}},
+ seal(key){if(!safeStorage.isEncryptionAvailable())throw Error();return safeStorage.encryptString(key).toString('base64');},unseal(secret){return safeStorage.decryptString(Buffer.from(secret,'base64'));}
+ });}
+module.exports={createService,createDiskService,validPayload,httpsRequest,ENDPOINTS};

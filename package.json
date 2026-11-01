@@ -18,7 +18,11 @@
     "library/elements/",
     "library/fonts/",
     "library/svg/",
-    "library/sfx/README.md"
+    "library/sfx/README.md",
+    "agent-ui/upstream/LICENSE",
+    "agent-ui/upstream/NOTICE",
+    "agent-ui/SOURCES.json",
+    "agent-ui/THIRD-PARTY-NOTICES.txt"
   ],
   "scripts": {
     "start": "node server.js",

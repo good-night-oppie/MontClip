@@ -9535,10 +9535,13 @@ function watchCaptions(now) {
   }
 }
 /** SRT sentence selection: preview a read-only plan, apply on a clone as one undo step. */
-async function showSentenceSelection() {
-  if (state.exporting || state.gesture || state.compCtx) { toast("请先结束导出或退出嵌套编辑 / Finish export or nested editing first"); return; }
-  if (!(await flushSaveBeforeSwitch())) return;
-  const doc = projectJSON(), signature = JSON.stringify(doc), projectId = runtime.projectId;
+async function showSentenceSelection(suggestion = null) {
+  const busy=()=>state.exporting||state.gesture||state.compCtx||runtime.activeImports||runtime.activeTranscriptions||runtime.desktopExportPending||runtime.saveRequests||runtime.saveTimer||runtime.saveFailed||(typeof closeSaveTransaction!=='undefined'&&closeSaveTransaction);
+  const proposalContext=()=>({...agentProjectContext(),generation:agentProjectContext().gen});
+  if (state.exporting || state.gesture || state.compCtx || suggestion&&busy()) { toast("请先结束编辑、导出并确认保存 / Finish editing/export and confirm saving first"); return; }
+  if (suggestion) {if(!MontClipProposal.current(suggestion,projectJSON(),proposalContext()))return;}
+  else if (!(await flushSaveBeforeSwitch())) return;
+  const doc = projectJSON(), signature = JSON.stringify(doc), projectId = runtime.projectId, projectGen=runtime.projectGen, sequenceId=SeqLib.activeId(seqRoot());
   const captions = doc.clips.filter((c) => FableCutCaptions.isCaption(c) && !c.disabled && !(doc.disabledTracks || []).includes(c.track)).sort((a, b) => a.start - b.start);
   if (!captions.length) { toast("先导入 SRT 或添加字幕 / Import SRT or add captions first"); return; }
   pause();
@@ -9553,6 +9556,7 @@ async function showSentenceSelection() {
     <button type="button" class="btn primary" data-apply>保留选段 / Apply</button>
     <button class="btn" value="cancel">取消 / Cancel</button></div></form>`;
   const list = dialog.querySelector("[data-sentences]"), summary = dialog.querySelector("[data-summary]");
+  if(suggestion){dialog.querySelector('[data-ranges]').value=suggestion.keep.map(r=>r.from+','+r.to).join('\n');dialog.querySelector('[data-ranges]').readOnly=true;list.hidden=true;}
   const selected = new Set();
   let previewTimer, plan;
   let previewSettings;
@@ -9586,7 +9590,7 @@ async function showSentenceSelection() {
     label.append(input, text); list.append(label);
   }
   dialog.querySelector("[data-ranges]").addEventListener("input", refresh);
-  const current = () => JSON.stringify(projectJSON()) === signature && runtime.projectId === projectId;
+  const current = () => JSON.stringify(projectJSON()) === signature && runtime.projectId === projectId && runtime.projectGen===projectGen && SeqLib.activeId(seqRoot())===sequenceId && (!suggestion||!busy()&&MontClipProposal.current(suggestion,projectJSON(),proposalContext()));
   const changed = () => { stopPreview(); summary.textContent = "项目已变化，请关闭后重新选择 / Project changed; reopen selection"; };
   dialog.querySelector("[data-preview]").addEventListener("click", () => {
     if (!plan) return;
@@ -20802,15 +20806,24 @@ connectServer().then(() => { loadLibraryFonts(); runExportJobFromUrl(); });
 requestAnimationFrame(loop);
 
 // Pane state is independent of editor view mode; all actions rebind to the live project/sequence.
+function agentProjectContext(){
+ return {projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen??0,revision:project.revision};
+}
 const mcAgentPanel=document.getElementById('mcAssistantPanel');
 document.querySelector(".upper > .inspector").append(mcAgentPanel);
 document.querySelector(".topbar-right").prepend(document.getElementById("mcMediaToggle"));
 document.querySelector(".topbar-right").insertBefore(document.querySelector(".mc-history"),document.getElementById("btnExport"));
 document.getElementById("mcMediaToggle").onclick=()=>document.getElementById("app").classList.toggle("media-open");
-mcAgent=MontClipAgentPane.mount({panel:document.getElementById('mcAgentContent'),
- getContext:()=>({projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen,revision:project.revision}),
+mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentContent'),
+ getContext:agentProjectContext,
  getLanguage:()=>mcView.get().language,settings:window.montclipPaneSettings,sessionStorage:window.montclipAgentSessions,
  onHide:()=>{setSideTab("inspector");document.getElementById("mcAssistant").focus();},
- getReferences:kind=>MontClipAgentPane.referenceChips(kind,{projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen,revision:project.revision,
+ onProposal:(response,result)=>{
+   const c=agentProjectContext();
+   if(JSON.stringify(result.context)!==JSON.stringify(c))throw Error('STALE');
+   const proposal=MontClipProposal.prepare(response,{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});
+   showSentenceSelection(proposal);
+ },
+ getReferences:kind=>MontClipAgentPane.referenceChips(kind,{...agentProjectContext(),
  start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(FableCutCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
 setInterval(()=>mcAgent.sync(),500);

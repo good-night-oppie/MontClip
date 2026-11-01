@@ -725,3 +725,9 @@ Agent workbench repair: the assistant shares the existing right-side tab region;
 Agent pane capacity feedback distinguishes session, current-project, text and reference limits. Returning from a capacity-blocked project restores its existing project sessions; no restart is recommended to free capacity.
 
 If session storage cannot be read at initialization, the Agent pane explicitly uses window-only sessions. Copy drafts before closing; the original session file is not changed. This temporary mode does not block normal project close/save checks. A write failure after successful loading remains unconfirmed and retains the existing close protection.
+
+## Experimental official Cindy composer integration
+
+The desktop assistant reuses pinned Apache-2.0 Cindy components, bundled locally. Open **AI service** in the assistant, select OpenAI or DeepSeek, enter a model ID and your own key, then save. Configuration alone sends no request. Before sending, review the full outgoing JSON including prior messages and explicitly selected references. Keys are encrypted by Electron safeStorage in this MontClip profile and are not returned to the page. The key is briefly present in its write-only input before save. Session text is local plaintext; do not treat the profile as encrypted message storage.
+
+Only text chat is available through this adapter. Sentence proposals require explicitly quoted whole subtitles and strict keep_sentences JSON. Review/preview do not edit; Apply uses the existing range engine, and Undo restores it. Invalid or stale suggestions are refused. No shell, arbitrary URL, media upload or automatic edit tool is exposed. Live provider acceptance is pending; tests use a clearly labelled injected transport. This is a partial official-component port, not full Cindy compatibility or a packaged release. See [provenance and limits](docs/decisions/2026-11-01-official-cindy-port.md).
