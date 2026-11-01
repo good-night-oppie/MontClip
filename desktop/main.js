@@ -71,6 +71,11 @@ async function start() {
     event.returnValue = settingsAllowed(event, win, origin)
       ? settings[operation](value) : {ok:false,code:"VIEW_SETTINGS_FORBIDDEN"};
   });
+  const paneSettings = createStore(app.getPath("userData"), {pane:true});
+  for (const operation of ["get", "set"]) ipcMain.on("montclip:pane:" + operation, (event, value) => {
+    event.returnValue = settingsAllowed(event, win, origin)
+      ? paneSettings[operation](value) : {ok:false,code:"VIEW_SETTINGS_FORBIDDEN"};
+  });
   let rendererFault = null, prompts = 0;
   const closeController = createCloseController({
     save: (attempt) => {

@@ -1,0 +1,11 @@
+'use strict';
+const {test}=require('node:test'),a=require('node:assert/strict');
+const {create,text}=require('../agent-pane');
+const ctx=(id='p',seq='s',gen=1)=>({projectId:id,sequenceId:seq,gen,revision:2});
+test('draft/session isolation and no fake response or transport',()=>{const c=create();c.context(ctx());c.draft('你好');a.equal(c.send().code,'UNCONFIGURED');a.equal(c.current().draft,'你好');a.deepEqual(c.current().messages,[]);c.context(ctx('q'));a.equal(c.current().draft,'');c.context(ctx());a.equal(c.current().draft,'你好');c.context(ctx('p','t'));a.equal(c.current().draft,'');});
+test('new/select/search sessions and cancel keep drafts',()=>{const c=create();c.context(ctx());c.draft('alpha');const first=c.current().id;c.newSession();c.draft('beta');a.equal(c.list('alpha').length,1);c.select(first);c.cancel();a.equal(c.current().draft,'alpha');a.equal(c.list().length,2);});
+test('bounded drafts/sessions and locale key parity',()=>{const c=create();c.context(ctx());a.throws(()=>c.draft('x'.repeat(16001)));for(let i=0;i<49;i++)c.newSession();a.throws(()=>c.newSession());a.deepEqual(Object.keys(text.en).sort(),Object.keys(text['zh-CN']).sort());});
+
+test('capacity on project switch never exposes previous project draft',()=>{const c=create();c.context(ctx());c.draft('private previous');for(let i=0;i<49;i++)c.newSession();a.throws(()=>c.context(ctx('other')));a.equal(c.current().draft,'');a.throws(()=>c.draft('new'));});
+
+test('mounted handler clears old textarea when a new project hits capacity',()=>{const {mount}=require('../agent-pane');const old=global.document;const element=()=>({value:'',dataset:{},style:{setProperty(){}},setAttribute(){},replaceChildren(){},append(){}});const nodes=new Map();const panel={querySelector(s){if(!nodes.has(s))nodes.set(s,element());return nodes.get(s);},querySelectorAll(){return [];}};global.document={createElement:element,documentElement:element()};let context=ctx();try{const ui=mount({panel,getContext:()=>context,getLanguage:()=> 'en'});const draft=panel.querySelector('[data-draft]');draft.value='old project text';draft.oninput({target:draft});for(let i=0;i<49;i++)panel.onclick({target:{dataset:{action:'new'}}});draft.value='last private draft';draft.oninput({target:draft});context=ctx('new');ui.render();a.equal(draft.value,'');}finally{global.document=old;}});

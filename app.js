@@ -35,9 +35,12 @@ const TRACK_SIZE_PRESETS = {
 };
 const TRACK_SIZE_KEY = "fablecut-track-size";
 // Shared DOM and project; this controller only changes view preferences.
+let mcAgent = null;
 const mcView = MontClipView.create(window.montclipViewSettings ? MontClipView.desktopStorage(window.montclipViewSettings) : localStorage);
 function renderMontClipView() {
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
+  mcAgent?.render();
+  document.querySelector(".mc-history").setAttribute("aria-label", t.undo + " / " + t.redo);
   document.documentElement.lang = language;
   document.body.dataset.mcMode = mode;
   document.getElementById("mcLanguage").value = language;
@@ -59,7 +62,7 @@ document.getElementById("mcMode").addEventListener("click", e => {
 document.getElementById("mcLanguage").addEventListener("change", e => updateMontClipView({ language: e.target.value }));
 document.getElementById("mcUndo").addEventListener("click", () => undo());
 document.getElementById("mcRedo").addEventListener("click", () => redo());
-document.getElementById("mcAssistant").addEventListener("click", () => document.getElementById("mcAssistantPanel").classList.toggle("hidden"));
+document.getElementById("mcAssistant").addEventListener("click", () => { const panel=document.getElementById("mcAssistantPanel"); panel.classList.toggle("hidden"); if(!panel.classList.contains("hidden")){ mcAgent?.render(); panel.scrollIntoView({block:"nearest"}); } });
 document.getElementById("mcAssistantClose").addEventListener("click", () => document.getElementById("mcAssistantPanel").classList.add("hidden"));
 renderMontClipView();
 const LAST_TRANS_KEY = { in: "fablecut-last-trans-in", out: "fablecut-last-trans-out" };
@@ -20726,3 +20729,11 @@ try {
 } catch { }
 connectServer().then(() => { loadLibraryFonts(); runExportJobFromUrl(); });
 requestAnimationFrame(loop);
+
+// Pane state is independent of editor view mode; all actions rebind to the live project/sequence.
+const mcAgentPanel=document.getElementById('mcAssistantPanel');
+document.body.append(mcAgentPanel);
+mcAgent=MontClipAgentPane.mount({panel:document.getElementById('mcAgentContent'),
+ getContext:()=>({projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen,revision:project.revision}),
+ getLanguage:()=>mcView.get().language,settings:window.montclipPaneSettings});
+setInterval(()=>mcAgent.sync(),500);

@@ -710,3 +710,6 @@ Assistant panel states that no AI service is connected; it sends nothing.
 FLV import, broader localization and interactive chat are separate changes.
 
 Desktop view preferences (simple/advanced and zh-CN/en) use the fixed userData/view-settings.json file, independent of the random local server port. The sandboxed preload exposes only get/set for these two enum settings; main validates sender, top frame and exact origin. Browser use retains localStorage. This does not save project edits.
+
+
+MontClip Agent Pane foundation: one pane is shared across view modes. Session search/new/select and bounded drafts are local to the open window and project/sequence; no provider or tool execution is connected. Sending reports unconfigured and retains draft; no synthetic assistant reply. Model selector intentionally has only an unavailable option. Desktop IPC montclip:pane:get/set accepts only width280–480 through the existing sender/frame/origin guard, storing agent-pane-settings.json under userData; no credentials, paths, messages or project data accepted. UI strings share MontClipView locale keys. Wide layout reserves pane width; narrow layout places pane below the editor in document flow. Real-window accessibility/layout acceptance pending.

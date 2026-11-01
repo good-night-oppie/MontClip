@@ -4526,3 +4526,18 @@ body { background: var(--bg); }
 .sentence-dialog label { display: flex; align-items: start; gap: 8px; padding: 8px 0; }
 .sentence-dialog p { line-height: 1.5; }
 .sentence-dialog .tr-row { flex-wrap: wrap; }
+
+/* Agent pane occupies layout space; it never floats over editor controls. */
+body { display:flex; }
+body > .app { flex:1 1 auto; min-width:0; }
+body > .mc-assistant { position:static; flex:0 0 var(--agent-pane-width,340px); width:var(--agent-pane-width,340px); height:100vh; max-height:100vh; padding:12px; overflow:auto; }
+.agent-toolbar { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+#mcAgentContent textarea, #mcAgentContent input[type=search] { width:100%; user-select:text; }
+#mcAgentContent [data-sessions] { display:flex; flex-direction:column; max-height:120px; overflow:auto; }
+#mcAgentContent [data-sessions] button { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#mcAgentContent [data-config] label { display:block; margin:8px 0; }
+@media(max-width:1200px) {
+ body { display:block; overflow-y:auto; }
+ body > .app { height:100vh; }
+ body > .mc-assistant { width:100%; height:auto; max-height:70vh; }
+}
