@@ -1,0 +1,24 @@
+# PR16 layout and default identity repair — 2026-11-01
+
+Base PR19 5a36b849. New normal branch review/agent-pane-layout-fix, no changes to public16–19 heads. Intended integration is additive after19 (and its bases), or a parent-coordinated combined review of the same final tree; do not merge this delta onto main without its declared ancestors. No private ancestry. VV PR16 report was read in full; JJ candidate text read then deferred by priority correction, not represented as approved.
+
+Production changes: assistant moves into existing right-side tab page, replaces inspector content instead of adding a second body rail. Preview and timeline retain their layout allocation; timeline remains full width and height is constrained by available viewport. Narrow Media button exposes existing media bin in the right page region; ordinary properties/mixer/color/transcript tabs remain reachable. Composer/actions are pinned while secondary content scrolls inside the pane; body does not scroll. Buttons/input use theme variables. Hidden controls stay hidden despite .btn display styling.
+
+Default identity: pjLoad already checks server active ID/header against shown document. Added snapshot+generation check before adopting the anonymous same-sequence chat scope into its confirmed project ID. Preserve both session IDs/drafts and active selection; existing identified scope can merge without resetting drafts. Never infer identity solely from the next non-null ID. New controller test failed before identify existed, then passed. Real default null project: two UI-created drafts → normal pjLoad assigns ID → create/open different project → open original → both drafts selectable and correct. No fake generation or project initialization change.
+
+Normal session write failure still returns false to the existing close controller; default choice restores/keeps window, explicit force closes. Memory controller regression covers both outcomes. Force-close/crash can discard unconfirmed session edits, not advertised durable. Native failure prompt itself not newly induced.
+
+Evidence progression, all retained:
+- first.json: identity passes, narrow send/cancel not visible; pin composer fix.
+- second.json: native content sizes subject to Windows DPI rounding (1272/1101/807/632),16 hit cases pass; not claimed exact requested widths.
+- exact.json: added title caused autosave revision snapshot race; harness now awaits actual flushSave before comparison (no product timing change).
+- verified.json: CDP exact CSS widths1270/1100/804/630,16 measurement cases pass; then moved history into header to enlarge630 preview and styled dynamically-created session buttons.
+- click.json/delivery.json/observe.json: export click received, initial arbitrary2s harness wait insufficient for asynchronous codec/profiles lookup; retained failures. Final action check uses bounded10s and records completion through actual behavior, no altered production codec/timeout policy or mock response. A diagnostic wrapper records started/settled async stages only in development harness.
+- actions.json: actual coordinate play/pause, export dialog, send/cancel and hide/show pass for8 open combinations. Screenshot inspection found hidden Retry rendered because .btn overrode hidden; one CSS rule fixes this.
+- finalproof.json: final source-byte hashes and exact16 measurements +8 coordinate action combinations, two-draft identity proof, explicit markers and exit. New task-owned profiles retained, no deletion.
+
+Commands: `node --test test/agent-session-storage.test.js test/agent-pane.test.js` (18 then19 tests as close-choice regression added); `node --test` (npm test script):585/585,0 fail/cancel/skip; `node .github/scripts/release-check.js`:passed. Full suite preceded only the final hidden-control CSS rule; final Electron validates that rule. No unrelated older-head full reruns.
+
+Actual Windows Electron45.2.1, hidden independent window; OS-scaled native sizes first, then CDP Emulation sets exact CSS viewport with native window resized. CDP coordinate events, not physical mouse/keyboard. Program title is synthetic, no video/audio generation. Final preview approximately606×341 /511×287 /443×249 /264×148. All16 center-hit checks include play/export/undo/redo; open cases additionally draft/send/cancel/hide. All cases no body scroll and full-width timeline. Existing smoke verifies save and isolation. No MP4 export run. Source snapshot/undo unchanged across layout/action traversal (intentional title creation stabilized before baseline).
+
+Remaining: VV visible-window/same-head approval, physical input/IME/readers, light theme, real footage/aspect extremes, complete simple-mode and unified locale, tool/model connection/payload/proposal protocol, Linux/macOS, packaged release. Passing CSS dimensions/center-hit is not a blanket UX approval. Top-right width preference is clamped by available room; no new persistence namespace introduced.

@@ -1,0 +1,12 @@
+{
+  "exit": 1,
+  "profile": "MontClip-layout-click-NIHKMl",
+  "freeBefore": 43769733120,
+  "hashes": {
+    "agent-pane.js": "cc746e985100592c8dac1102ccded97ed8211541c3499ee3c8ab22040a46a8d9",
+    "app.js": "5e56f45ba01094370884413960935cfe8e4028131394680fb9d35a63d391addb",
+    "style.css": "549c26c7de062e811b9f2f1400e3568931bfcfaf9ee63157bc2f6d11bff0253a",
+    "desktop/agent-layout-smoke.js": "6f09c819ff12fad8f39dfd0a09f1b965f6c443d6635366642c78c09b22b84f3f"
+  },
+  "log": "\r\n\n  FableCut running →  http://localhost:15046\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-layout-click-NIHKMl\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-layout-click-NIHKMl\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-layout-click-NIHKMl\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\ntrue !== false\n\n    at exports.run (<repo>\\desktop\\agent-layout-smoke.js:13:188)\n    at async start (<repo>\\desktop\\main.js:133:56) {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: true,\n  expected: false,\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n"
+}

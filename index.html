@@ -46,6 +46,7 @@
     </div>
   </header>
 
+  <button class="btn tiny mc-media-toggle" id="mcMediaToggle" type="button">素材</button>
   <div class="mc-history" role="group" aria-label="Undo / Redo">
     <button class="btn tiny" id="mcUndo" type="button">撤销</button>
     <button class="btn tiny" id="mcRedo" type="button">重做</button>
@@ -207,6 +208,7 @@
     <!-- Inspector -->
     <aside class="panel inspector">
       <div class="bin-tabs side-tabs" id="sideTabs" role="tablist">
+        <button type="button" data-side="assistant" id="mcAssistantTab">助手</button>
         <button type="button" data-side="inspector" class="on" title="Selected clip: transform, effects &amp; audio">Inspector</button>
         <button type="button" data-side="mixer" title="Track and master faders, pan, mute / solo, meters">Mixer</button>
         <button type="button" data-side="color" title="Grade the selected clip: wheels, exposure, white balance, tone">Color</button>

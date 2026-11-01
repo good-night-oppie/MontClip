@@ -39,6 +39,7 @@ let mcAgent = null;
 const mcView = MontClipView.create(window.montclipViewSettings ? MontClipView.desktopStorage(window.montclipViewSettings) : localStorage);
 function renderMontClipView() {
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
+  document.getElementById("mcAssistantTab").textContent=t.assistant;document.getElementById("mcMediaToggle").textContent=mcView.get().language==="en"?"Media":"素材";
   mcAgent?.render();
   document.querySelector(".mc-history").setAttribute("aria-label", t.undo + " / " + t.redo);
   document.documentElement.lang = language;
@@ -67,8 +68,8 @@ document.getElementById("mcMode").addEventListener("click", e => {
 document.getElementById("mcLanguage").addEventListener("change", e => updateMontClipView({ language: e.target.value }));
 document.getElementById("mcUndo").addEventListener("click", () => undo());
 document.getElementById("mcRedo").addEventListener("click", () => redo());
-document.getElementById("mcAssistant").addEventListener("click", () => { const panel=document.getElementById("mcAssistantPanel"); panel.classList.toggle("hidden"); if(!panel.classList.contains("hidden")){ mcAgent?.render(); panel.scrollIntoView({block:"nearest"}); } });
-document.getElementById("mcAssistantClose").addEventListener("click", () => {document.getElementById("mcAssistantPanel").classList.add("hidden");document.getElementById("mcAssistant").focus();});
+document.getElementById("mcAssistant").addEventListener("click", () => { const panel=document.getElementById("mcAssistantPanel");setSideTab(panel.classList.contains("hidden")?"assistant":"inspector");mcAgent?.render(); });
+document.getElementById("mcAssistantClose").addEventListener("click", () => {setSideTab("inspector");document.getElementById("mcAssistant").focus();});
 renderMontClipView();
 const LAST_TRANS_KEY = { in: "fablecut-last-trans-in", out: "fablecut-last-trans-out" };
 const DEFAULT_LAST_TRANS = { type: "fade", duration: 1 };
@@ -3355,11 +3356,15 @@ async function pjLoad() {
     // On first use the list has just given the shown project.json its id: adopt it, if
     // project.json is still the document this tab shows.
     if (data.active && !runtime.projectId) {
+      const identityBefore={gen:runtime.projectGen,sequenceId:SeqLib.activeId(seqRoot()),snapshot:JSON.stringify(projectJSON())};
       const r = await fetch("/api/project", { cache: "no-store" }).catch(() => null);
       const doc = r && r.ok ? await r.json().catch(() => null) : null;
       const ids = (d) => JSON.stringify([d.name, d.revision || 0, (d.clips || []).map((c) => c.id), (d.media || []).map((m) => m.id)]);
       const shown = projectJSON();
-      if (doc && r.headers.get("X-FableCut-Project") === data.active && ids(doc) === ids(shown)) runtime.projectId = data.active;
+      if (doc && r.headers.get("X-FableCut-Project") === data.active && ids(doc) === ids(shown)) {
+        if(identityBefore.gen===runtime.projectGen && identityBefore.snapshot===JSON.stringify(shown)) mcAgent?.identify({projectId:data.active,sequenceId:identityBefore.sequenceId,gen:identityBefore.gen});
+        runtime.projectId = data.active;
+      }
       else { runtime.projectId = "?"; syncFromServer(true); }   // not what this tab shows: load it as a switch
     } else if (data.active && data.active !== runtime.projectId) syncFromServer(true);
     if (!pj.list.some((p) => p.id === pj.sel)) pj.sel = (pj.list.find((p) => p.active) || pj.list[0] || {}).id || null;
@@ -9799,13 +9804,15 @@ function parseDbInput(s) {
   return Number.isFinite(v) ? clampFaderDb(v) : null;
 }
 function setSideTab(tab) {
+  document.getElementById("app").classList.remove("media-open");
+  const assistant=tab==="assistant";document.getElementById("mcAssistantPanel").classList.toggle("hidden",!assistant);document.getElementById("app").classList.toggle("agent-open",assistant);
   const mixer = tab === "mixer", color = tab === "color", transcript = tab === "transcript";
   mixerState.open = mixer;
   colorState.open = color;
   trState.open = transcript;
   for (const b of els.sideTabs.querySelectorAll("[data-side]"))
     b.classList.toggle("on", b.dataset.side === tab);
-  els.inspector.classList.toggle("hidden", mixer || color || transcript);
+  els.inspector.classList.toggle("hidden", mixer || color || transcript || assistant);
   els.mixer.classList.toggle("hidden", !mixer);
   els.colorPage.classList.toggle("hidden", !color);
   els.transcriptPage.classList.toggle("hidden", !transcript);
@@ -9813,7 +9820,7 @@ function setSideTab(tab) {
   if (mixer) renderMixer();
   else if (color) renderColorPage(true);
   else if (transcript) renderTranscript(true);
-  else renderInspector();
+  else if(!assistant) renderInspector();
 }
 /** Write a track's fader / pan, push it into the live graph, persist. */
 function setTrackMix(id, { gain, pan } = {}) {
@@ -20742,11 +20749,14 @@ requestAnimationFrame(loop);
 
 // Pane state is independent of editor view mode; all actions rebind to the live project/sequence.
 const mcAgentPanel=document.getElementById('mcAssistantPanel');
-document.body.append(mcAgentPanel);
+document.querySelector(".upper > .inspector").append(mcAgentPanel);
+document.querySelector(".topbar-right").prepend(document.getElementById("mcMediaToggle"));
+document.querySelector(".topbar-right").insertBefore(document.querySelector(".mc-history"),document.getElementById("btnExport"));
+document.getElementById("mcMediaToggle").onclick=()=>document.getElementById("app").classList.toggle("media-open");
 mcAgent=MontClipAgentPane.mount({panel:document.getElementById('mcAgentContent'),
  getContext:()=>({projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen,revision:project.revision}),
  getLanguage:()=>mcView.get().language,settings:window.montclipPaneSettings,sessionStorage:window.montclipAgentSessions,
- onHide:()=>{mcAgentPanel.classList.add('hidden');document.getElementById('mcAssistant').focus();},
+ onHide:()=>{setSideTab("inspector");document.getElementById("mcAssistant").focus();},
  getReferences:kind=>MontClipAgentPane.referenceChips(kind,{projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen,revision:project.revision,
  start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(FableCutCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
 setInterval(()=>mcAgent.sync(),500);
