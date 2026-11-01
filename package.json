@@ -22,7 +22,8 @@
     "agent-ui/upstream/LICENSE",
     "agent-ui/upstream/NOTICE",
     "agent-ui/SOURCES.json",
-    "agent-ui/THIRD-PARTY-NOTICES.txt"
+    "agent-ui/THIRD-PARTY-NOTICES.txt",
+    "LICENSES.md"
   ],
   "scripts": {
     "start": "node server.js",

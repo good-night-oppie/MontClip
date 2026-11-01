@@ -18,3 +18,24 @@ Plain text replies are untrusted, never executed or rendered as HTML. A separate
 
 ## Limits
 Non-streaming transport is implemented but no live service credentials were supplied for acceptance. Injected test responses are test-only, never product fake output. Full official session/message/tool rendering, live-provider acceptance, complete Chinese UI, physical input/accessibility and portable packaging remain open. Hidden Electron verification is not VV visible-window approval. No system clipboard test is permitted or performed.
+
+## Apache-2.0 reuse and change inventory
+
+The Rea behavior SPEC §0 statement "closed-source / license unconfirmed" was an outdated erroneous premise, corrected by the user. It is not evidence about the official repository's license and does not restrict this official-source port.
+
+Unmodified copied files (exact identities in SOURCES.json):
+- `agent-ui/upstream/ComposerCard.tsx` ← `apps/desktop/src/renderer/components/new-chat/ComposerCard.tsx`
+- `agent-ui/upstream/composerListContinuation.ts` ← `apps/desktop/src/renderer/lib/composerListContinuation.ts`
+- `agent-ui/upstream/composerListTextarea.ts` ← `apps/desktop/src/renderer/lib/composerListTextarea.ts`
+- `agent-ui/upstream/LICENSE` ← `LICENSE`
+- `agent-ui/upstream/ListComposerTextarea.tsx` ← `apps/desktop/src/renderer/components/new-chat/ListComposerTextarea.tsx`
+- `agent-ui/upstream/NOTICE` ← `NOTICE`
+- `agent-ui/upstream/SendButton.tsx` ← `apps/desktop/src/renderer/components/new-chat/SendButton.tsx`
+- `agent-ui/upstream/thinkingText.ts` ← `packages/maker-shared/src/thinkingText.ts`
+- `agent-ui/upstream/ThinkingText.tsx` ← `apps/desktop/src/renderer/components/chat/ThinkingText.tsx`
+- `agent-ui/upstream/SettingsTextInput.tsx` ← `apps/desktop/src/renderer/components/settings/SettingsTextInput.tsx`
+- `agent-ui/upstream/input.tsx` ← `apps/desktop/src/renderer/components/ui/input.tsx`
+
+Modified upstream source files: **none**. Original source bytes remain unchanged. Generated derivative `cindy-official.js` is a bundled/minified combination with MontClip host imports; it now carries a prominent modification/provenance notice in its generated banner, retained on rebuild. `agent-ui/pane.tsx`, `host.tsx`, `tooltip-host.tsx`, `build.cjs`, the service/conversation/proposal modules are MontClip adapters, not files claimed to be original Cindy containers. MontClip app/main/preload/locale/CSS are existing host integration changes. No copied file comes from packaged products, private source or Rea materials.
+
+`LICENSES.md` indexes the unchanged Apache LICENSE/NOTICE and bundled dependencies; `agent-ui/THIRD-PARTY-NOTICES.txt` links the exact source/version and retains React/ReactDOM/lucide notices. Root MIT licensing does not replace upstream Apache/third-party licenses. Package files include LICENSES.md plus original LICENSE/NOTICE and attribution manifest.

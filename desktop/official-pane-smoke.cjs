@@ -9,6 +9,11 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
  await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);await wait();
  if(process.argv.includes('--official-visible'))win.show();
  assert.equal(await read(`getComputedStyle(document.querySelector('.cindy-send .block.opacity-0')).display`),'none');
+ await read(`setSideTab('assistant');mcAgent.render();true`);await wait();
+ await read(`(()=>{const b=Array.from(document.querySelectorAll('.cindy-port button')).find(b=>['AI 服务','AI service'].includes(b.textContent));b.click();})()`);await wait();
+ await read(`(()=>{const e=document.querySelector('.cindy-config input');e.focus();e.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));})()`);await wait();
+ assert.equal(await read(`['AI 服务','AI service'].includes(document.activeElement.textContent)`),true,'config Escape must restore invoking button focus');
+ process.stdout.write('OFFICIAL_CONFIG_ESCAPE focus-restored\n');
  const reopen=process.argv.includes('--official-reopen');
  if(!reopen)await read(`(async()=>{if(!await flushSaveBeforeSwitch())throw Error('SAVE');await pjPost({action:'new',name:'Official pane synthetic',open:true});if(!await syncFromServer(true))throw Error('CREATE');mcAgent.render();})()`);await wait();
  await read(`setSideTab('assistant');mcAgent.render();true`);await wait();

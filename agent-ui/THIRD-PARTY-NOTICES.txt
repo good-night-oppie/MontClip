@@ -1,3 +1,8 @@
+Cindy official source: https://github.com/makecindy/cindy @ 021923684f54129effbba6b72a8218526418fa45
+Apache-2.0. Copyright 2026 XD Inc.
+Full original terms: upstream/LICENSE and upstream/NOTICE. File inventory: SOURCES.json.
+Generated cindy-official.js is a modified bundled combination with MontClip adapters; original copied source files are unchanged.
+
 react/LICENSE
 MIT License
 
