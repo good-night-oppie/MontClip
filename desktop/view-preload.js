@@ -10,3 +10,9 @@ contextBridge.exposeInMainWorld('montclipPaneSettings',Object.freeze({
  get:()=>ipcRenderer.sendSync('montclip:pane:get'),
  set:value=>ipcRenderer.sendSync('montclip:pane:set',value)
 }));
+
+contextBridge.exposeInMainWorld('montclipWorkspaceSettings',Object.freeze({
+ get:()=>ipcRenderer.sendSync('montclip:workspace:get'),
+ set:value=>ipcRenderer.sendSync('montclip:workspace:set',value),
+ migrate:value=>ipcRenderer.sendSync('montclip:workspace:migrate',value)
+}));
