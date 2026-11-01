@@ -66,7 +66,7 @@ document.getElementById("mcLanguage").addEventListener("change", e => updateMont
 document.getElementById("mcUndo").addEventListener("click", () => undo());
 document.getElementById("mcRedo").addEventListener("click", () => redo());
 document.getElementById("mcAssistant").addEventListener("click", () => { const panel=document.getElementById("mcAssistantPanel"); panel.classList.toggle("hidden"); if(!panel.classList.contains("hidden")){ mcAgent?.render(); panel.scrollIntoView({block:"nearest"}); } });
-document.getElementById("mcAssistantClose").addEventListener("click", () => document.getElementById("mcAssistantPanel").classList.add("hidden"));
+document.getElementById("mcAssistantClose").addEventListener("click", () => {document.getElementById("mcAssistantPanel").classList.add("hidden");document.getElementById("mcAssistant").focus();});
 renderMontClipView();
 const LAST_TRANS_KEY = { in: "fablecut-last-trans-in", out: "fablecut-last-trans-out" };
 const DEFAULT_LAST_TRANS = { type: "fade", duration: 1 };
@@ -20747,5 +20747,8 @@ const mcAgentPanel=document.getElementById('mcAssistantPanel');
 document.body.append(mcAgentPanel);
 mcAgent=MontClipAgentPane.mount({panel:document.getElementById('mcAgentContent'),
  getContext:()=>({projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen,revision:project.revision}),
- getLanguage:()=>mcView.get().language,settings:window.montclipPaneSettings});
+ getLanguage:()=>mcView.get().language,settings:window.montclipPaneSettings,
+ onHide:()=>{mcAgentPanel.classList.add('hidden');document.getElementById('mcAssistant').focus();},
+ getReferences:kind=>MontClipAgentPane.referenceChips(kind,{projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen,revision:project.revision,
+ start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(FableCutCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
 setInterval(()=>mcAgent.sync(),500);
