@@ -1,0 +1,32 @@
+[
+  {
+    "fault": "json",
+    "profile": "MontClip-session-identified-1LVaAE",
+    "exit": 1,
+    "log": "\r\n\n  FableCut running →  http://localhost:14002\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-session-identified-1LVaAE\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-session-identified-1LVaAE\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-session-identified-1LVaAE\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nError: DRAFT_LOST\n    at <anonymous>:1:661\n"
+  },
+  {
+    "fault": "schema",
+    "profile": "MontClip-session-identified-iCCnF7",
+    "exit": 1,
+    "log": "\r\n\n  FableCut running →  http://localhost:64751\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-session-identified-iCCnF7\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-session-identified-iCCnF7\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-session-identified-iCCnF7\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nError: DRAFT_LOST\n    at <anonymous>:1:661\n"
+  },
+  {
+    "fault": "read",
+    "profile": "MontClip-session-identified-QmIm5s",
+    "exit": 1,
+    "log": "\r\n\n  FableCut running →  http://localhost:59972\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-session-identified-QmIm5s\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-session-identified-QmIm5s\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-session-identified-QmIm5s\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nError: DRAFT_LOST\n    at <anonymous>:1:661\n"
+  },
+  {
+    "fault": "project",
+    "profile": "MontClip-session-identified-VBU1RI",
+    "exit": 1,
+    "log": "\r\n\n  FableCut running →  http://localhost:40617\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-session-identified-VBU1RI\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-session-identified-VBU1RI\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-session-identified-VBU1RI\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nError: DRAFT_LOST\n    at <anonymous>:1:661\n"
+  },
+  {
+    "fault": "write",
+    "profile": "MontClip-session-identified-LHUGyQ",
+    "exit": 1,
+    "log": "\r\n\n  FableCut running →  http://localhost:27651\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-session-identified-LHUGyQ\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-session-identified-LHUGyQ\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-session-identified-LHUGyQ\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nError: DRAFT_LOST\n    at <anonymous>:1:661\n"
+  }
+]

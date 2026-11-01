@@ -63,6 +63,7 @@ function updateMontClipView(patch) {
     if(patch.mode==='simple'&&wasColor)toast(MontClipView.text[mcView.get().language].colorExited);
   }
   const saved = mcView.set(patch); renderMontClipView();
+  state.dirtyTimeline = true;
   if (!saved) toast(mcView.get().language === "en" ? "View preference could not be saved." : "界面偏好未能保存。");
 }
 document.getElementById("mcMode").addEventListener("click", e => {
@@ -5054,7 +5055,30 @@ function clipKeyframesHtml(c) {
   }
   return html + `</div>`;
 }
+// View-only filtering. Keep every project track and its compositor/undo identity.
+// Focus newly encountered content once; ordinary edits/renders keep the user's scroll.
+function syncTimelineTrackView() {
+  const occupied = new Set(project.clips.map(c => c.track));
+  const simple = mcView.get().mode === "simple";
+  for (const container of [els.tracks, $("trackHeadInner")]) {
+    if (!container) continue;
+    for (const row of container.children) {
+      const id = row.dataset.track;
+      row.hidden = simple && id !== "V1" && id !== "A1" && !occupied.has(id);
+    }
+  }
+  const key = JSON.stringify([runtime.projectGen, SeqLib.activeId(seqRoot()), simple,
+    TRACKS.filter(t => occupied.has(t.id)).map(t => [t.id, t.h])]);
+  if (syncTimelineTrackView.focusKey === key) return;
+  syncTimelineTrackView.focusKey = key;
+  const first = [...els.tracks.children].find(row => occupied.has(row.dataset.track));
+  if (first) {
+    const scroller = els.timelineScroll;
+    scroller.scrollTop += first.getBoundingClientRect().top - scroller.getBoundingClientRect().top - RULER_H;
+  }
+}
 function rebuildClips() {
+  syncTimelineTrackView();
   const w = contentWidth();
   els.tracksContent.style.width = w + "px";
   els.ruler.style.width = els.timelineScroll.clientWidth + "px";
