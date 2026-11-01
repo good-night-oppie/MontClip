@@ -1,0 +1,4 @@
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.MontClipWorkspace=factory();})(typeof globalThis!=='undefined'?globalThis:this,function(){
+'use strict';const KEY='fablecut-workspace';
+function create(bridge,storage){return{load(mode){let legacy='edit';try{if(storage.getItem(KEY)==='color')legacy='color';}catch{}if(!bridge)return{ok:true,workspace:mode==='simple'?'edit':legacy};try{let r=bridge.get();if(r.ok&&r.missing)r=bridge.migrate({version:1,workspace:legacy});return{ok:!!r.ok,workspace:mode==='simple'?'edit':r.ok&&r.value?.workspace==='color'?'color':'edit'};}catch{return{ok:false,workspace:'edit'};}},save(workspace){if(!['edit','color'].includes(workspace))return false;try{if(bridge)return !!bridge.set({version:1,workspace}).ok;storage.setItem(KEY,workspace);return true;}catch{return false;}}};}
+return{create,KEY};});
