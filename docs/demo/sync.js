@@ -20,6 +20,7 @@ if (!html.includes("static-shim.js")) {
   process.exit(1);
 }
 fs.writeFileSync(path.join(OUT, "index.html"), html);
+fs.copyFileSync(path.join(ROOT, "range-plan.js"), path.join(OUT, "range-plan.js"));
 
 /* app.js and style.css are copied verbatim. Some of these only exist on
    branches that add them, so a missing one is skipped rather than fatal. */

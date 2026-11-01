@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Development ordered sentence/range proposals, boundary-caption provenance and
+  independent source/output JSON export. Native trim engine and one undo/revision
+  transaction are retained; unsupported edits fail explicitly.
 - Experimental MontClip Electron development host: isolated renderer, ephemeral
   loopback server, per-instance request token, exact origin validation, offline
   request policy and save-before-close. This is not a portable release build.
@@ -1026,3 +1029,5 @@ the report in [#1](https://github.com/ronak-create/FableCut/issues/1) — thanks
 [1.2.0]: https://github.com/ronak-create/FableCut/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/ronak-create/FableCut/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/ronak-create/FableCut/releases/tag/v1.0.0
+
+- Preserve complete normalized SRT/WebVTT cue bodies instead of silently truncating after 500 UTF-16 code units; keep original cue times and existing tag normalization.

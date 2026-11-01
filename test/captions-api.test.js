@@ -30,6 +30,28 @@ const boot = async (t) => {
 };
 const caps = (dir) => readProject(dir).clips.filter((c) => c.props && c.props.caption);
 
+test("sentence selection checks revision, joins nonadjacent ranges and exports a separate mapping", async (t) => {
+  const { dir, mcp } = await boot(t);
+  const srt = "1\n00:00:01,000 --> 00:00:02,000\n第一句\n\n2\n00:00:03,000 --> 00:00:04,000\n不要这一句\n\n3\n00:00:05,000 --> 00:00:06,000\nKeep me\n";
+  assert.equal((await mcp.callTool("fablecut_captions", { import: srt })).isError, false);
+  const before = readProject(dir), selected = caps(dir).sort((a, b) => a.start - b.start);
+  const ids = [selected[0].id, selected[2].id];
+  const stale = await mcp.callTool("fablecut_captions", { keepIds: ids, baseRevision: before.revision - 1 });
+  assert.equal(stale.isError, true); assert.match(stale.text, /CONFLICT/);
+  assert.deepEqual(readProject(dir), before);
+  const kept = await mcp.callTool("fablecut_captions", { keepIds: ids, baseRevision: before.revision });
+  assert.equal(kept.isError, false, kept.text);
+  assert.equal(readProject(dir).revision, before.revision + 1);
+  assert.deepEqual(caps(dir).map((c) => [c.start, c.duration, c.props.text]), [[0, 1, "第一句"], [1, 1, "Keep me"]]);
+  const mapped = await mcp.callTool("fablecut_captions", { export: "mapping" });
+  assert.equal(mapped.isError, false, mapped.text);
+  const map = JSON.parse(fs.readFileSync(path.join(dir, "exports/Test Project.mapping.json"), "utf8"));
+  assert.deepEqual(map.segments.map((s) => s.source), [{ start: 1, end: 2 }, { start: 5, end: 6 }]);
+  assert.equal((await mcp.callTool("fablecut_captions", { export: "srt" })).isError, false);
+  assert.match(fs.readFileSync(path.join(dir, "exports/Test Project.srt"), "utf8"), /00:00:00,000 --> 00:00:01,000/);
+  assert.equal(fs.statSync(path.join(dir, "media/vo.wav")).size, 4096);
+});
+
 test("captions from the transcript, on a new lane above the title, timed word by word", async (t) => {
   const { dir, mcp } = await boot(t);
   const none = await mcp.callTool("fablecut_captions", { export: "srt" });

@@ -1,0 +1,198 @@
+{
+  "fps": 30,
+  "duration": 16,
+  "sourceFrames": 480,
+  "intervalConvention": "half-open",
+  "order": "second source range first",
+  "segments": [
+    {
+      "source": [
+        9,
+        12
+      ],
+      "output": [
+        0,
+        3
+      ],
+      "frames": [
+        270,
+        360
+      ]
+    },
+    {
+      "source": [
+        1,
+        4
+      ],
+      "output": [
+        3,
+        6
+      ],
+      "frames": [
+        30,
+        120
+      ]
+    }
+  ],
+  "expectedOutputFrames": 180,
+  "expectedFrameSequence": [
+    [
+      270,
+      359
+    ],
+    [
+      30,
+      119
+    ]
+  ],
+  "fullCues": [
+    {
+      "id": "ZH1",
+      "segment": 1,
+      "sourceMs": [
+        1000,
+        2000
+      ],
+      "intersectionMs": [
+        1000,
+        2000
+      ],
+      "outputMs": [
+        3000,
+        4000
+      ],
+      "text": "第一句：保留这个片段。"
+    },
+    {
+      "id": "EN1",
+      "segment": 1,
+      "sourceMs": [
+        2000,
+        3000
+      ],
+      "intersectionMs": [
+        2000,
+        3000
+      ],
+      "outputMs": [
+        4000,
+        5000
+      ],
+      "text": "Second sentence: keep this clip."
+    },
+    {
+      "id": "ZH_SHORT",
+      "segment": 1,
+      "sourceMs": [
+        3000,
+        3200
+      ],
+      "intersectionMs": [
+        3000,
+        3200
+      ],
+      "outputMs": [
+        5000,
+        5200
+      ],
+      "text": "好。"
+    },
+    {
+      "id": "ZH2",
+      "segment": 0,
+      "sourceMs": [
+        9200,
+        10000
+      ],
+      "intersectionMs": [
+        9200,
+        10000
+      ],
+      "outputMs": [
+        200,
+        1000
+      ],
+      "text": "第二段：先播放这里。"
+    },
+    {
+      "id": "EN2",
+      "segment": 0,
+      "sourceMs": [
+        10000,
+        11000
+      ],
+      "intersectionMs": [
+        10000,
+        11000
+      ],
+      "outputMs": [
+        1000,
+        2000
+      ],
+      "text": "Play this part first."
+    },
+    {
+      "id": "ROUND",
+      "segment": 0,
+      "sourceMs": [
+        11001,
+        11099
+      ],
+      "intersectionMs": [
+        11001,
+        11099
+      ],
+      "outputMs": [
+        2001,
+        2099
+      ],
+      "text": "Short timing label."
+    }
+  ],
+  "crossingCuesPendingDecision": [
+    {
+      "id": "CROSS_END",
+      "segment": 1,
+      "sourceMs": [
+        3800,
+        4200
+      ],
+      "intersectionMs": [
+        3800,
+        4000
+      ],
+      "outputMs": [
+        5800,
+        6000
+      ],
+      "text": "This sentence crosses the cut."
+    },
+    {
+      "id": "CROSS_START",
+      "segment": 0,
+      "sourceMs": [
+        8800,
+        9200
+      ],
+      "intersectionMs": [
+        9000,
+        9200
+      ],
+      "outputMs": [
+        0,
+        200
+      ],
+      "text": "这句话跨过起点。"
+    }
+  ],
+  "flashSourceSeconds": [
+    2,
+    10
+  ],
+  "flashOutputSeconds": [
+    1,
+    4
+  ],
+  "audioSource": "pulse-truth.wav PCM; not speech",
+  "uiLanguageIsNotSubtitleTranslation": true
+}

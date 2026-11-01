@@ -10,7 +10,7 @@ All rows remain **not released** until the Windows package and review gates pass
 |---|---|---|---|
 | N1 | Semantic highlights with reasons | Extend highlights with evidence-backed proposals | Pending semantic evaluation |
 | N2 | Three title/description styles | Evidence-only model proposal | Pending |
-| N3 | Local ASR, proper names, large captions | Existing Transformers.js 4.3.1 path; local resource closure pending | No offline ASR claim |
+| N3 | Local ASR, proper names, large captions | Existing Transformers.js 4.3.1 path; local resource closure pending | Rea's q8 revision 608c49e61301901684bc36cac8f74b95ff6b5a8e failed research samples (Chinese CER, out-of-bounds timestamps, silence hallucination); not a release candidate. Electron offline closure/licensing pending; do not auto-apply invalid timestamps |
 | N4 | Alternative opening structure | Reuse sequences, preserve original | Pending |
 | N5 | Three cleanup strengths | Reuse silence; approval and music protection needed | Pending |
 | N6 | Lossless song/dance cuts | Keyframe-aware path and transparent fallback needed | Pending |
@@ -45,7 +45,7 @@ All rows remain **not released** until the Windows package and review gates pass
 | R05 | OpenAI-compatible text-only model | Explicit payload consent and adapter needed | No model connected; no AI claim |
 | R06 | SRT import/trim/rebase | Removed invented word timing; source/output mapping needed | Caption unit tests pass; end-to-end pending |
 | R07 | Subtitle sidecars | Existing SRT/VTT export; independently editable recipe needed | Pending |
-| R08 | Save time, bounded repair | Simplified default workbench; max three repair rounds | Pending |
+| R08 | Save time, bounded repair | Default simple / advanced switch; both retain core editing and chat, same project/undo/save; max three repair rounds | Pending implementation and real-window verification |
 | R09 | Reproducible receipts | Test logs and runtime lock recorded; export receipt needed | Partial development evidence only |
 | R10 | No revenue labels/auto-publish | No new publishing integration | Package audit pending |
 
@@ -68,3 +68,5 @@ Additional owner requirements remain separate from the 40-item count:
 The owner resolved the former missing Oppie rule on 2026-11-01: use this
 repository's AGENTS → CLAUDE/CONTRIBUTING and QQ Review Inbox. No legacy variant
 is required or copied. See `decisions/2026-11-01-development-workflow.md`.
+
+Clean PR2 follow-up prepared directly from its public 8f461b9 head: narrowly removes parser's 500-code-unit truncation, with source/demo parity and 17/17 memory parser/clip/JSON/subtitle + range tests. Not whole subtitle workflow or layout acceptance; UI/MCP fit changes remain separate. Full tests/release-check and review still required; no push/merge/release. See validation/2026-11-01-pr2-fulltext-review.md.

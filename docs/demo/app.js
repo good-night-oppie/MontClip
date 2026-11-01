@@ -1489,6 +1489,7 @@ function applyProject(data, opts = {}) {
     media: (data.media || []).map(normalizeMediaEntry),
     collections: MediaLib.normalizeCollections(data.collections, data.media || []),
     clips: data.clips || [],
+    captionOmissions: data.captionOmissions || [],
     markers: normalizeMarkers(data.markers),
     inPoint: wa.inPoint,
     outPoint: wa.outPoint,
@@ -1686,6 +1687,7 @@ function projectJSONHere() {
       return mo;
     }),
     clips: clips.map(serializeClip),
+    captionOmissions: project.captionOmissions || [],
     markers: normalizeMarkers(markers),
     inPoint: inPoint == null ? null : inPoint,
     outPoint: outPoint == null ? null : outPoint,
@@ -3877,6 +3879,7 @@ function restoreSnapshot(json) {
   if (Array.isArray(snap)) project.clips = snap;
   else {
     project.clips = snap.clips; project.markers = snap.markers; if (snap.comps) project.comps = snap.comps;
+    if (snap.rangeState) Object.assign(project, snap.rangeState);
     if (snap.media) {
       const before = new Map(project.media.map((m) => [m.id, m.src]));
       project.media = snap.media;
@@ -3890,6 +3893,9 @@ function restoreSnapshot(json) {
 /** The current state to step back to, carrying the media list when `snap` does
  *  (removing, relinking or replacing media), so redo puts it back too. */
 function counterSnapshot(snap) {
+  if (snap.includes('"rangeState":')) return JSON.stringify({ ...JSON.parse(undoSnapshot()), rangeState: {
+    inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
+  } });
   if (!snap.includes('"media":')) return undoSnapshot();
   return JSON.stringify({ clips: project.clips, markers: project.markers || [], comps: project.comps || [], media: project.media,
     ...(hasSeqClips(snap) ? { seqClips: otherSequenceClips() } : {}) });
@@ -9130,6 +9136,8 @@ function buildTranscriptPage() {
         <button type="button" class="btn tiny" data-tr-cap-file="srt" title="Download the timeline's captions as a SubRip file">SRT</button>
         <button type="button" class="btn tiny" data-tr-cap-file="vtt" title="Download the timeline's captions as a WebVTT file">VTT</button>
         <button type="button" class="btn tiny" data-tr-cap-import title="Place the captions of an SRT or WebVTT file">Import…</button>
+        <button type="button" class="btn tiny" data-tr-sentences>按句选段 / Select sentences</button>
+        <button type="button" class="btn tiny" data-tr-mapping>时间映射 / Mapping</button>
         <input type="file" accept=".srt,.vtt,text/vtt,application/x-subrip" data-tr-cap-input hidden>
       </div>
       <div class="tr-note">Caption last: a cut through a caption doesn't re-time its words, so add captions again after changing the edit.</div>
@@ -9161,6 +9169,8 @@ function buildTranscriptPage() {
   root.querySelectorAll("[data-tr-cap-file]").forEach((b) => b.addEventListener("click", () => downloadCaptions(b.dataset.trCapFile)));
   const capInput = q("[data-tr-cap-input]");
   q("[data-tr-cap-import]").addEventListener("click", () => capInput.click());
+  q("[data-tr-sentences]").addEventListener("click", showSentenceSelection);
+  q("[data-tr-mapping]").addEventListener("click", downloadSourceMap);
   capInput.addEventListener("change", async () => {
     const f = capInput.files && capInput.files[0];
     capInput.value = "";
@@ -9427,6 +9437,99 @@ function watchCaptions(now) {
       return;
     }
   }
+}
+/** SRT sentence selection: preview a read-only plan, apply on a clone as one undo step. */
+async function showSentenceSelection() {
+  if (state.exporting || state.gesture || state.compCtx) { toast("请先结束导出或退出嵌套编辑 / Finish export or nested editing first"); return; }
+  if (!(await flushSaveBeforeSwitch())) return;
+  const doc = projectJSON(), signature = JSON.stringify(doc), projectId = runtime.projectId;
+  const captions = doc.clips.filter((c) => FableCutCaptions.isCaption(c) && !c.disabled && !(doc.disabledTracks || []).includes(c.track)).sort((a, b) => a.start - b.start);
+  if (!captions.length) { toast("先导入 SRT 或添加字幕 / Import SRT or add captions first"); return; }
+  pause();
+  const dialog = document.createElement("dialog");
+  dialog.className = "sentence-dialog";
+  dialog.innerHTML = `<form method="dialog"><h3>按句选择保留片段 / Keep sentences</h3>
+    <p>只保留勾选的句段，移除中间间隙和其余音视频。原片不变，一步撤销。<br>Join checked ranges only. Remove gaps and other media from the edit. Source files stay unchanged.</p>
+    <label>或按顺序输入明确区间（秒，每行 起点,终点；填写后替代勾选） / Or ordered ranges in seconds, one start,end per line (overrides checks)
+    <textarea data-ranges rows="2" placeholder="9,12&#10;1,4"></textarea></label>
+    <div data-sentences></div><p data-summary role="status"></p>
+    <div class="tr-row"><button type="button" class="btn" data-preview>试听选段 / Preview</button>
+    <button type="button" class="btn primary" data-apply>保留选段 / Apply</button>
+    <button class="btn" value="cancel">取消 / Cancel</button></div></form>`;
+  const list = dialog.querySelector("[data-sentences]"), summary = dialog.querySelector("[data-summary]");
+  const selected = new Set();
+  let previewTimer, plan;
+  let previewSettings;
+  const stopPreview = () => {
+    clearInterval(previewTimer); previewTimer = null; pause();
+    if (previewSettings) {
+      state.workAreaPlay = previewSettings.limit; setPreviewRate(previewSettings.rate); previewSettings = null;
+    }
+  };
+  const refresh = () => {
+    stopPreview();
+    try {
+      const explicit = dialog.querySelector("[data-ranges]").value.trim();
+      const keep = explicit ? explicit.split(/\r?\n/).map(line => {
+        const pair = line.split(",").map(s => s.trim());
+        if (pair.length !== 2 || pair.some(s => !s)) throw new Error("每行填写 起点,终点（秒） / Enter start,end seconds on each line");
+        return { from: Number(pair[0]), to: Number(pair[1]) };
+      }) : [...selected].map(id => captions.find(c => c.id === id)).map(c => ({ from: c.start, to: c.start+c.duration }));
+      plan = FableCutRangePlan.create(doc, keep); plan.keep = keep;
+      const cut = plan.captions.filter(c => c.truncated).length;
+      summary.textContent = `${keep.map((r) => `${fmt(r.from)}–${fmt(r.to)}`).join(" → ")} → ${plan.duration.toFixed(2)} s。按勾选顺序 / In selection order. ${cut ? `${cut} 句只保留了一部分声音，请检查字幕和开头结尾。 / Boundary captions need checking.` : ""}`;
+    } catch (error) { plan = null; summary.textContent = error.message; }
+    dialog.querySelector("[data-apply]").disabled = !plan;
+    dialog.querySelector("[data-preview]").disabled = !plan;
+  };
+  for (const c of captions) {
+    const label = document.createElement("label"), input = document.createElement("input"), text = document.createElement("span");
+    input.type = "checkbox";
+    text.textContent = `${fmt(c.start)}–${fmt(c.start + c.duration)}  ${c.props.text}`;
+    input.addEventListener("change", () => { if (input.checked) selected.add(c.id); else selected.delete(c.id); refresh(); });
+    label.append(input, text); list.append(label);
+  }
+  dialog.querySelector("[data-ranges]").addEventListener("input", refresh);
+  const current = () => JSON.stringify(projectJSON()) === signature && runtime.projectId === projectId;
+  const changed = () => { stopPreview(); summary.textContent = "项目已变化，请关闭后重新选择 / Project changed; reopen selection"; };
+  dialog.querySelector("[data-preview]").addEventListener("click", () => {
+    if (!plan) return;
+    if (!current()) { changed(); return; }
+    stopPreview();
+    let index = 0;
+    previewSettings = { limit: state.workAreaPlay, rate: state.previewRate };
+    state.workAreaPlay = false; setPreviewRate(1);
+    setTime(plan.keep[0].from); play();
+    previewTimer = setInterval(() => {
+      if (!current()) { changed(); return; }
+      if (state.time >= plan.keep[index].to - 1e-6) {
+        if (++index >= plan.keep.length) { stopPreview(); return; }
+        setTime(plan.keep[index].from); play();
+      } else if (!state.playing) stopPreview();
+    }, 20);
+  });
+  dialog.querySelector("[data-apply]").addEventListener("click", () => {
+    if (!plan) return;
+    stopPreview();
+    if (!current()) { changed(); return; }
+    try {
+      const next = plan.project;
+      const snap = JSON.stringify({ ...JSON.parse(undoSnapshot()), rangeState: {
+        inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
+      } });
+      applyProject(next); pushUndo(snap); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
+      dialog.close(); toast("已拼接选段，可撤销 / Joined selected sentences; Undo is available");
+    } catch (error) { summary.textContent = error.message; }
+  });
+  dialog.addEventListener("close", () => { stopPreview(); dialog.remove(); });
+  document.body.append(dialog); refresh(); dialog.showModal();
+}
+function downloadSourceMap() {
+  let map;
+  try { map = FableCutCaptions.sourceMap(projectJSON()); } catch (error) { toast(error.message); return; }
+  if (!map.segments.length) { toast("没有可映射的音视频 / No source media to map"); return; }
+  const a = document.createElement("a"), url = URL.createObjectURL(new Blob([JSON.stringify(map, null, 2)], { type: "application/json" }));
+  a.href = url; a.download = "MontClip.mapping.json"; a.click(); setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 function downloadCaptions(kind) {
   const C = FableCutCaptions, list = C.fromClips(project.clips, [...state.disabledTracks]);

@@ -374,7 +374,10 @@ const TOOLS = [
         size: { type: "number", description: "Scale the style's text size, e.g. 1.2 (default 1)" },
         track: { type: "string", description: "The video lane to put them on (default: chosen as described)" },
         replace: { type: "boolean", description: "Remove the captions already on the timeline first (default true)" },
-        export: { type: "string", enum: ["srt", "vtt"], description: "Write the timeline's captions to exports/ as SubRip or WebVTT, and change nothing" },
+        export: { type: "string", enum: ["srt", "vtt", "mapping"], description: "Write SubRip, WebVTT, or independent source/output time mapping JSON to exports/; change nothing" },
+        keepIds: { type: "array", items: { type: "string" }, description: "Keep these caption sentence intervals, joining nonadjacent ranges and removing the rest on ALL tracks as one revision. Source files unchanged; locks refuse. Requires baseRevision. Read captions first, show selection and gaps to the user before applying." },
+        keepRanges: { type: "array", items: { type: "object", properties: { from: { type: "number" }, to: { type: "number" } }, required: ["from", "to"] }, description: "Explicit half-open timeline ranges in user order, seconds. Requires baseRevision; separate from keepIds. Boundary captions keep whole text with clipped display time." },
+        baseRevision: { type: "integer", description: "Required with keepIds: exact project revision used to propose the selection; stale plans are refused" },
         import: { type: "string", description: "An SRT or WebVTT file (absolute path, or a /media/… src) or its text: place its captions" },
         remove: { type: "boolean", description: "Delete every caption clip" },
         force: { type: "boolean", description: "Also replace or remove locked captions (only when the user asked)" },
@@ -1058,6 +1061,36 @@ async function captionsTool(args) {
   const C = require("./captions.js");
   const st = C.style(args.style);
   const ownLocks = (proj, c) => c.locked === true || (Array.isArray(proj.lockedTracks) && proj.lockedTracks.includes(c.track));
+  if (args.keepIds != null || args.keepRanges != null) {
+    if (args.keepIds != null && args.keepRanges != null) throw new Error("Use keepIds or keepRanges separately");
+    if (args.export != null || args.import != null || args.remove) throw new Error("keepIds must be used separately from import/export/remove");
+    const proj = readProject();
+    if (!Number.isInteger(args.baseRevision) || args.baseRevision !== proj.revision)
+      throw new Error(`CONFLICT — not saved: read the project and supply baseRevision ${proj.revision}`);
+    const ranges = args.keepRanges || args.keepIds.map(id => {
+      const c = proj.clips.find(c => c.id === id && C.isCaption(c));
+      if (!c) throw new Error("Unknown caption: " + id);
+      return { from: c.start, to: c.start+c.duration };
+    });
+    const plan = require("./range-plan").create(proj, ranges);
+    Object.assign(proj, plan.project);
+    const history = createHistory({ projects: createProjects({ dataDir: DATA_DIR, projectFile: PROJECT_FILE, libraryDir: LIBRARY_DIR }) });
+    history.beforeAgent("Before joining caption sentences");
+    proj.revision++;
+    writeProject(proj);
+    lastReadRevision = proj.revision;
+    return `Kept ${plan.segments.length} ranges in user order; ${plan.duration}s (revision ${proj.revision}). Source files unchanged. Export srt and mapping separately.`;
+  }
+  if (args.export === "mapping") {
+    const proj = readProject(), map = C.sourceMap(proj);
+    if (!map.segments.length) throw new Error("No source media clips to map");
+    fs.mkdirSync(EXPORTS_DIR, { recursive: true });
+    const base = String(proj.name || "captions").replace(/[^\w\- ]+/g, "_").trim().slice(0, 80) || "captions";
+    let file = path.join(EXPORTS_DIR, `${base}.mapping.json`);
+    for (let n = 2; fs.existsSync(file); n++) file = path.join(EXPORTS_DIR, `${base} ${n}.mapping.json`);
+    fs.writeFileSync(file, JSON.stringify(map, null, 2));
+    return `Wrote ${map.segments.length} source/output segments to ${file}. Times describe the edit; encoder/A-V accuracy is not measured here.`;
+  }
   if (args.export != null) {
     if (args.export !== "srt" && args.export !== "vtt") throw new Error("export must be srt or vtt");
     const proj = readProject(), list = C.fromClips(proj.clips, proj.disabledTracks);

@@ -27,7 +27,7 @@
 
   /** What a sequence owns: its timeline, canvas, frame rate, mix and delivery. */
   const KEYS = ["width", "height", "fps", "background", "exportFrame", "clips", "tracks", "markers", "inPoint", "outPoint",
-    "disabledTracks", "lockedTracks", "untargetedTracks", "master", "buses", "delivery", "outputs", "encodeProfile"];
+    "disabledTracks", "lockedTracks", "untargetedTracks", "master", "buses", "delivery", "outputs", "encodeProfile", "captionOmissions"];
   const MAIN = { id: "main", name: "Main" };
   const MAX = 64;
   const isObj = (v) => v != null && typeof v === "object" && !Array.isArray(v);

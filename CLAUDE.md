@@ -758,6 +758,26 @@ check it with `fablecut_frame`.
 
 ### Captions
 
+**Ordered sentence/range proposals (MontClip development)**
+
+`fablecut_captions` accepts `keepIds` in user order, or `keepRanges` as an ordered
+array of `{from,to}` half-open timeline intervals in seconds. Both require the
+exact `baseRevision` and must be separate from import/export/remove. Applying
+reuses the native trimming engine across tracks in one revision; locks refuse.
+Nested/parented clips, speed ramps and unsupported short media intersections
+refuse rather than approximate. The editor's sentence dialog previews a plan
+and applies it in one undo step. These are development features, not M0 package acceptance.
+
+Boundary captions retain their whole text and use the intersection display time.
+`props.captionSource` records source caption ID, original/intersection/output
+intervals, segment index and truncation. `captionOmissions` stores positive
+intersections that round to zero milliseconds; no fake 1ms cue is emitted.
+`fablecut_captions {export:"mapping"}` writes a separate JSON source/output map
+with caption provenance; SRT stays standard. Ordinary editing may change current
+clip positions, so mapping output times are read from the current clips.
+
+
+
 Captions are made from a transcript (see "Transcripts and text-based editing"):
 the timeline's words are grouped into captions, and each caption is an ordinary
 **text clip** with `wordTimes` (each word's start and end), so its animation follows
@@ -2737,3 +2757,7 @@ Encoding profiles are listed at the bottom of the Export dialog's Preset list.
 
 **MCP:** `fablecut_encode_profiles` lists profiles; `{detail:true}` includes each `args`
 array; `{profile:"hq"}` returns one profile. `fablecut_status` shows the effective profile.
+
+### Caption import text preservation
+
+SRT/WebVTT parsing preserves the full normalized cue body instead of truncating it at 500 UTF-16 code units. Existing tag normalization and cue timestamps are unchanged; this does not create word timing. This parser fix does not change UI/MCP fitting behavior or claim long-text layout acceptance.
