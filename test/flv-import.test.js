@@ -24,7 +24,7 @@ test("FLV upload remuxes compatible streams without modifying the original", asy
   assert.match(body.src, /\.mp4$/);
   assert.match(body.originalSrc, /\.flv$/);
   assert.equal(hash(original), before);
-  assert.equal(crypto.createHash("sha256").update(await (await fetch(base + body.originalSrc)).bytes()).digest("hex"), before);
+  assert.equal(crypto.createHash("sha256").update(Buffer.from(await (await fetch(base + body.originalSrc)).arrayBuffer())).digest("hex"), before);
   const packets = file => execFileSync("ffmpeg", ["-v", "error", "-i", file, "-map", "0:v:0", "-f", "framemd5", "-"], {encoding:"utf8"}).split("\n").filter(x => x && !x.startsWith("#")).map(x => x.split(",").at(-1).trim());
   assert.deepEqual(packets(path.join(dir, "media", decodeURIComponent(body.src.slice(7)))), packets(original));
 });

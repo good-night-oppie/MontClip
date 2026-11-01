@@ -26,7 +26,7 @@ child.on("exit", (code) => {
     } else {
     const line = output.split(/\r?\n/).find((line) => line.startsWith("MONTCLIP_SMOKE "));
     const result = JSON.parse(line.slice("MONTCLIP_SMOKE ".length));
-    pass = result.apiStatus === 200 && ["nodeUnavailable", "projectLoaded", "externalBlocked", "compositor", "saved"]
+    pass = result.apiStatus === 200 && ["nodeUnavailable", "projectLoaded", "externalBlocked", "viewPreserved", "compositor", "saved"]
       .every((key) => result[key] === true);
     }
   } catch { }
