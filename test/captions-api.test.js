@@ -72,7 +72,8 @@ test("captions from the transcript, on a new lane above the title, timed word by
   assert.match(imp.text, /Read 2 captions from the SubRip file/);
   const ic = caps(dir).sort((a, b) => a.start - b.start);
   assert.deepEqual(ic.map((c) => [c.start, c.duration, c.props.text]), [[1, 1.5, "Hello there"], [3, 1, "Bye"]]);
-  assert.equal(ic[0].props.wordTimes.length, 2, "spread over the caption");
+  assert.equal(ic[0].props.wordTimes, undefined, "SRT has sentence timestamps, not word alignment");
+  assert.equal(ic[0].props.textAnim, "none");
 
   const rm = await mcp.callTool("fablecut_captions", { remove: true });
   assert.match(rm.text, /Removed 2 captions/);

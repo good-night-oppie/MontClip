@@ -1607,6 +1607,29 @@ async function flushSave() {
   if (runtime.saveTimer || runtime.saveFailed) { clearTimeout(runtime.saveTimer); runtime.saveTimer = null; runtime.saving = saveNow(); }
   try { return (await runtime.saving) !== false; } catch { return false; }
 }
+/** Desktop close transaction: freeze input and accept only an unchanged, durable
+ * document. A conflict reload or late asynchronous edit keeps the window open. */
+async function flushSaveForClose() {
+  const body = document.body, wasInert = body.inert;
+  const events = ["keydown", "keyup", "pointerdown", "pointerup", "click", "drop", "paste", "input"];
+  const block = (event) => { event.preventDefault(); event.stopImmediatePropagation(); };
+  const snapshot = () => JSON.stringify({ ...projectJSON(), revision: 0 });
+  const before = snapshot(), projectId = runtime.projectId;
+  let saved = false;
+  body.inert = true;
+  for (const event of events) window.addEventListener(event, block, true);
+  try {
+    const ok = await flushSave();
+    saved = ok && !runtime.saveTimer && !runtime.saveFailed &&
+      runtime.projectId === projectId && snapshot() === before;
+    return saved;
+  } finally {
+    if (!saved) {
+      body.inert = wasInert;
+      for (const event of events) window.removeEventListener(event, block, true);
+    }
+  }
+}
 async function flushSaveBeforeSwitch() {
   if (await flushSave()) return true;
   toast("Your last change couldn't be saved, so the project stays open. Try again in a moment.");

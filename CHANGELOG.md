@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Experimental MontClip Electron development host: isolated renderer, ephemeral
+  loopback server, per-instance request token, exact origin validation, offline
+  request policy and save-before-close. This is not a portable release build.
+
+### Fixed
+- SRT/WebVTT imports no longer invent word timestamps from character lengths.
+  Imported captions remain sentence-timed with word animations disabled; real
+  transcript alignment still enables word animation in preview and export.
+
 ## [1.18.0] - 2026-10-28
 
 ### Added

@@ -56,6 +56,12 @@ const { createHistory } = require("./history");
 const ROOT = APP_DIR;
 const PORT = process.env.PORT || 7777;
 const HOST = process.env.HOST || "127.0.0.1";
+const DESKTOP = process.env.MONTCLIP_DESKTOP === "1";
+const DESKTOP_TOKEN = process.env.MONTCLIP_SESSION_TOKEN;
+if (DESKTOP && (HOST !== "127.0.0.1" || !/^[a-f0-9]{64}$/.test(DESKTOP_TOKEN || "")))
+  throw new Error("Desktop requires loopback binding and a fresh session token");
+let boundPort = PORT;
+const serverOrigin = () => `http://127.0.0.1:${boundPort}`;
 
 /* Requests must come from the local machine (or an explicitly allowed host).
    The Host check stops DNS rebinding; the Origin check stops malicious web
@@ -72,6 +78,11 @@ function hostAllowed(value) {
   return ALLOWED_HOSTS.has(host);
 }
 function requestAllowed(req) {
+  if (DESKTOP) {
+    if (req.headers.host !== `127.0.0.1:${boundPort}` ||
+        req.headers["x-montclip-session"] !== DESKTOP_TOKEN) return false;
+    return !req.headers.origin || req.headers.origin === serverOrigin();
+  }
   if (!hostAllowed(req.headers.host)) return false;
   const origin = req.headers.origin;
   if (origin) {
@@ -546,7 +557,7 @@ function stopExportSweep() {
 /* Agent-requested exports: handed to an open editor tab over SSE, or to a
    headless browser the server starts (export-jobs.js). */
 const exportJobs = createExportJobs({
-  url: (id) => `http://localhost:${PORT}/?exportJob=${encodeURIComponent(id)}`,
+  url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}`,
   // a transcription's headless browser keeps its profile, so the speech model is downloaded once
   keepProfile: (kind) => kind === "transcribe" ? path.join(ANALYSIS_DIR, "browser-profile") : null,
   broadcast,
@@ -931,6 +942,10 @@ const server = http.createServer(async (req, res) => {
      Body {url}. Rejects http/file/local/private targets. Does not register
      project media — the client / MCP tool does that, matching /api/upload. */
   if (p === "/api/import-url" && req.method === "POST") {
+    if (DESKTOP) {
+      sendJSON(res, 403, { code: "NETWORK_DISABLED", error: "当前为离线模式，请导入本地文件。 / Offline mode: import a local file." });
+      return;
+    }
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       const ac = new AbortController();
@@ -1444,7 +1459,13 @@ setInterval(() => {
 }, 60_000).unref();
 
 server.listen(PORT, HOST, () => {
-  console.log(`\n  FableCut running →  http://localhost:${PORT}\n`);
+  boundPort = server.address().port;
+  console.log(`\n  FableCut running →  http://localhost:${boundPort}\n`);
+  const ready = { type: "montclip-ready", origin: serverOrigin() };
+  if (DESKTOP) {
+    process.parentPort?.postMessage(ready);
+    if (process.send) process.send(ready);
+  }
   if (!["127.0.0.1", "localhost", "::1"].includes(HOST))
     console.log(`  ⚠ WARNING: HOST=${HOST} exposes the editor (and its file APIs) to the network.\n`);
   console.log(`  project file : ${PROJECT_FILE}`);
@@ -1471,3 +1492,8 @@ function shutdown() {
 }
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
+if (DESKTOP) {
+  process.parentPort?.on("message", ({ data }) => { if (data?.type === "shutdown") shutdown(); });
+  process.on("message", (data) => { if (data?.type === "shutdown") shutdown(); });
+  process.on("disconnect", shutdown);
+}
