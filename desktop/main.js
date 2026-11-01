@@ -126,16 +126,32 @@ async function start() {
       document.querySelector('[data-mc-mode="simple"]').click();
       const viewPreserved = beforeView === JSON.stringify({ project: projectJSON(), time: state.time, selection: state.selId, undo: runtime.undo, redo: runtime.redo }) &&
         transcriptNode === document.getElementById('transcriptPage') && document.documentElement.lang === 'en' && mcView.get().mode === 'simple';
+      const snapButton = document.getElementById('btnSnap');
+      const snapBefore = snapButton.classList.contains('on');
+      const key = (value, extra = {}) => window.dispatchEvent(new KeyboardEvent('keydown', {key:value, bubbles:true, cancelable:true, ...extra}));
+      key('n');
+      const simpleShortcutBlocked = snapButton.classList.contains('on') === snapBefore && getComputedStyle(snapButton).display === 'none';
+      updateMontClipView({mode:'advanced'});
+      key('n');
+      const advancedShortcutWorks = snapButton.classList.contains('on') !== snapBefore && getComputedStyle(snapButton).display !== 'none';
+      key('n');
+      const typing = document.createElement('textarea'); document.body.append(typing); typing.focus();
+      key('n'); key(' ', {isComposing:true});
+      const typingGuard = snapButton.classList.contains('on') === snapBefore;
+      typing.remove();
+      key('n', {isComposing:true}); key('n', {ctrlKey:true});
+      const compositionGuard = snapButton.classList.contains('on') === snapBefore;
       updateMontClipView(originalView);
       let externalBlocked = false;
       try { await fetch('https://example.com/'); } catch { externalBlocked = true; }
       return { nodeUnavailable: typeof require === 'undefined' && typeof process === 'undefined',
         projectLoaded: Array.isArray(doc.clips), apiStatus: response.status, externalBlocked, viewPreserved,
+        simpleShortcutBlocked, advancedShortcutWorks, typingGuard, compositionGuard,
         compositor: typeof drawFrame === 'function', saved: await flushSaveForClose() };
     })()`);
     process.stdout.write("MONTCLIP_SMOKE " + JSON.stringify(result) + "\n");
     const pass = result.nodeUnavailable && result.projectLoaded && result.externalBlocked &&
-      result.compositor && result.saved && result.viewPreserved && result.apiStatus === 200;
+      result.compositor && result.saved && result.viewPreserved && result.simpleShortcutBlocked && result.advancedShortcutWorks && result.typingGuard && result.compositionGuard && result.apiStatus === 200;
     if (!pass) process.exitCode = 1;
     closing = true; win.close();
   } else win.show();

@@ -37,6 +37,7 @@ const TRACK_SIZE_KEY = "fablecut-track-size";
 // Shared DOM and project; this controller only changes view preferences.
 const mcView = MontClipView.create(localStorage);
 function renderMontClipView() {
+  for (const id of MontClipView.advancedControls) document.getElementById(id)?.classList.toggle("mc-mode-hidden", mcView.get().mode === "simple");
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
   document.documentElement.lang = language;
   document.body.dataset.mcMode = mode;
@@ -48,6 +49,7 @@ function renderMontClipView() {
   for (const [id, key] of Object.entries({ mcUndo: "undo", mcRedo: "redo", mcAssistant: "assistant", mcAssistantClose: "close", mcAssistantStatus: "unavailable", mcAssistantPending: "pending" })) document.getElementById(id).textContent = t[key];
   document.getElementById("mcLanguage").setAttribute("aria-label", t.language);
   document.getElementById("mcAssistantPanel").setAttribute("aria-label", t.assistant);
+  document.getElementById("mcModeHelp").textContent = t.modeHelp;
 }
 function updateMontClipView(patch) {
   const saved = mcView.set(patch); renderMontClipView();
@@ -19289,6 +19291,7 @@ els.exportFrameOverlay?.querySelector(".ef-handle")?.addEventListener("keydown",
 
 window.addEventListener("keydown", (e) => {
   const k = e.key;
+  if (e.defaultPrevented || e.isComposing || e.keyCode === 229 || document.querySelector("dialog[open]")) return;
   if ((k === "Delete" || k === "Backspace") && !e.ctrlKey && !e.metaKey && !e.altKey) {
     if (!isTypingTarget(document.activeElement) && clearFocusedTransition()) {
       e.preventDefault();
@@ -19313,6 +19316,10 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   if (isTypingTarget(document.activeElement)) return;
+  if (mcView.get().mode === "simple" && MontClipView.advancedShortcut(e)) {
+    e.preventDefault();
+    return;
+  }
   if (k === " ") { e.preventDefault(); toggleTransportPlay(); }
   // JKL shuttle — bare keys only, so Cmd/Ctrl+J/K/L stay with the browser.
   // K stops; hold K and tap J / L to step a frame, hold both to crawl.
@@ -19425,7 +19432,7 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     e.shiftKey ? clearMarkOut() : markOut();
   }
-  else if (k === "n" || k === "N") els.btnSnap.click();
+  else if ((k === "n" || k === "N") && !e.ctrlKey && !e.metaKey && !e.altKey) els.btnSnap.click();
   else if (k === "Escape") {
     if (!$("settingsOverlay").classList.contains("hidden")) {
       e.preventDefault();

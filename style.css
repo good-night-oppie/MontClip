@@ -4526,3 +4526,4 @@ body { background: var(--bg); }
 .sentence-dialog label { display: flex; align-items: start; gap: 8px; padding: 8px 0; }
 .sentence-dialog p { line-height: 1.5; }
 .sentence-dialog .tr-row { flex-wrap: wrap; }
+.mc-mode-hidden { display: none !important; }

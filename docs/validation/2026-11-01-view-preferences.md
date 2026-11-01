@@ -32,3 +32,27 @@ first closes the topmost overlay. Payload confirmation must describe the actual
 outgoing history/references, and removing history must remove its old references.
 Missing-model and model-runtime failures require distinct messages. None of those
 future behaviors is marked passed by this increment.
+
+## Follow-up: first advanced-only shortcut group
+
+Simple mode now hides the existing mark-in/out, source insert/replace,
+find/close-gap, lift/extract, snap and marker controls via a separate CSS class.
+Their matching shortcuts are blocked in the main global editor handler after
+the typing guard. Switching back only removes that class, preserving the
+original conditional visibility and DOM nodes. Other advanced tool panels and
+shortcuts still require the remaining UI mapping; this is not blanket coverage.
+
+Transport, navigation, split, undo/redo and existing Delete semantics are not
+repurposed. In particular, Delete has not become ripple delete. Main editor
+shortcuts ignore composition events and open native HTML dialogs. Keyup shuttle
+cleanup is unchanged. Help explains the restricted group in Chinese and English.
+
+Unit tests exercise the key/modifier groups. Hidden Electron sends real DOM
+KeyboardEvents: N does not toggle the hidden snap button in simple, does toggle
+it in advanced, and does not toggle it from a focused test textarea, an IME
+composition event or Ctrl+N. Mode-switch project/playhead/selection/history
+preservation continues to pass. This is synthetic event testing, not physical
+keyboard/IME, an implemented chat draft, all tools' local key handlers or VV
+visible-window acceptance. The unit test initially failed before the classifier
+was implemented. Broader Chinese coverage and the remaining mode controls are
+still pending.

@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   request policy and save-before-close. This is not a portable release build.
 
 ### Fixed
+- Simple mode hides and disables the matching IN/OUT, source insert/replace,
+  gap, lift/extract, snap and marker shortcuts. Global editing shortcuts ignore
+  composing input and open modal dialogs; core editing behavior is retained.
 - Desktop tasks reject headless execution at both HTTP and job-queue boundaries.
   Close/save recovery handles crashed renderers and a 15-second save timeout;
   only explicit force close bypasses saving. Late results cannot close a newer
