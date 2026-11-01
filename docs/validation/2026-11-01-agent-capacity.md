@@ -11,3 +11,9 @@ Production controller and mounted-handler red: 9 tests, 7 pass/2 fail (generic L
 Request JJ review of new keys and trigger conditions, QQ of context-key fix; old approvals do not transfer.
 
 Actual Windows Node result: node --test 586 pass, 0 fail/cancel/skip; node .github/scripts/release-check.js passed. Logs sanitized before staging.
+
+## JJ final copy integration (current follow-up, not the original PR21 result)
+
+Replaced paneSessionCapacity/paneTextLimit with requested paneLimitSessions/paneLimitChars and the supplied bilingual final text. SESSION_CAPACITY uses the session text; SCOPE_CAPACITY keeps its separate project-return action. The window count includes restored persisted sessions; reopening is not a capacity reset and is not recommended. TEXT_LIMIT uses the too-long text only above16000 UTF-16 units, matching the actual rejection. Exactly16000 is accepted and does not claim it is too long; native maxlength usually prevents further typing. Unconfigured send still reports its independent actual no-provider result.
+
+Mounted boundary regression red:9/10, previously exactly16000 displayed a limit status. After the trigger correction pane+storage21/21. Tests also enter16001 programmatically and then a valid draft, verifying the correct error and independent unconfigured send with preserved draft/language switch. No new full-suite or physical input run. JJ review requested only for changed keys/triggers at the follow-up commit; original approval does not cover this delta.
