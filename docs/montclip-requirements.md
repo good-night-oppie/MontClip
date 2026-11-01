@@ -88,3 +88,5 @@ Clean PR2 follow-up prepared directly from its public 8f461b9 head: narrowly rem
 2026-11-01 VV v2 actual source hash 0d74505ab45d61be0c3e2a3a27187c2024f671fbf803494422948b32e59b5dcf verified; source/override alignment and concrete remaining gaps appended to existing agent-workbench-layout ADR. No new product approval or test claimed; PR16–21 heads unchanged.
 
 2026-11-01 JJ v1.1 limited integration: six shared-locale Agent keys for existing disconnected/basic controls, one connection status region; mounted+storage21/21. Actual transport/payload/history authorization and scoped tools remain pending; no whole-disk read or excluded-data guarantees. See existing workbench ADR; not full i18n acceptance.
+
+2026-11-01 VV PR16 full-page baseline attribution incorporated into existing agent-layout-fix validation: assistant-closed matches base and overlays/menus24/24 remain valid; narrow preview/overflow are pre-existing but still in workbench acceptance scope. Assistant-open preview/playback/timeline/offscreen regressions distinct. No new tests or approval inferred.
