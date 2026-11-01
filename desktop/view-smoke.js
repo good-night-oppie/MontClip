@@ -15,6 +15,7 @@ exports.run = async function(win) {
  for(const width of [804,630,1100]) {
   win.setContentSize(width,700);
   await evaluate(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);
+  for(let attempt=0;attempt<4;attempt++){const actual=await evaluate('innerWidth');if(actual===width)break;const [cw,ch]=win.getContentSize();win.setContentSize(cw+width-actual,ch);await evaluate(`new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))`);}
   const result=await evaluate(`(()=>({width:innerWidth,buttons:['btnExport','mcUndo','mcRedo'].map(id=>{const e=document.getElementById(id),b=e.getBoundingClientRect(),x=b.x+b.width/2,y=b.y+b.height/2,h=document.elementFromPoint(x,y);return{id,x,y,hit:!!h&&(h===e||e.contains(h)),hitId:h?.id||h?.className};})}))()`);
   layouts.push(result);assert.equal(result.width,width);assert.ok(result.buttons.every(b=>b.hit),JSON.stringify(result));
  }

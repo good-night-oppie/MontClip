@@ -149,6 +149,8 @@ app.on("before-quit", (event) => {
     worker.postMessage({ type: "shutdown" });
   }
 });
+// Electron does not consistently propagate process.exitCode through app.quit().
+app.on("will-quit", (event) => { if (smoke && process.exitCode) { event.preventDefault(); app.exit(process.exitCode); } });
 app.whenReady().then(start).catch((error) => {
   if (smoke) { console.error(error); process.exitCode = 1; }
   else dialog.showErrorBox("MontClip 启动失败", `${error.message}\n请关闭后重试，并检查工作目录是否可写。`);
