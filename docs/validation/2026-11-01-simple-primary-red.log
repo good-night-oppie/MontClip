@@ -45,7 +45,7 @@ not ok 7 - simple V2/A1 content hides the empty V1 placeholder without editing p
   error: |-
     Expected values to be strictly deep-equal:
     + actual - expected
-    
+
       [
         true,
         false,
@@ -54,7 +54,7 @@ not ok 7 - simple V2/A1 content hides the empty V1 placeholder without editing p
     +   false,
         true
       ]
-    
+
   code: 'ERR_ASSERTION'
   name: 'AssertionError'
   expected:
