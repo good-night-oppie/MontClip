@@ -23,6 +23,10 @@ Compatible H.264/AAC streams are remuxed to an MP4 copy; legacy codecs require
 confirmation before transcoding. The original remains unchanged. Keep both the
 original and compatible copy with the project. Portable bundled-tool validation
 is still pending; this is not a release-readiness claim.
+Desktop-selected FLV files are probed in place before confirmation. Canceling
+that confirmation creates no persistent copy. Conversion shows elapsed time and
+supports cancellation. Repeated content in the same app session prompts before
+creating another independent copy; there is no cross-project deduplication.
 
 </div>
 

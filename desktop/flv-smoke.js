@@ -30,14 +30,14 @@ exports.run = async function (win, dataDir) {
     };
     const cancelDialog = await waitDialog();
     const cancelDefault = document.activeElement === cancelDialog.querySelector('button');
-    const chineseCopy = cancelDialog.querySelector('p').textContent === MontClipView.flvMessage('FLV_TRANSCODE_REQUIRED','zh-CN');
+    const chineseCopy = cancelDialog.querySelector('.mc-flv-explanation').textContent === MontClipView.flvMessage('FLV_TRANSCODE_REQUIRED','zh-CN');
     cancelDialog.querySelector('button').click();
     await canceled;
     const canceledUnchanged = before === JSON.stringify(projectJSON());
     updateMontClipView({language:'en'});
     const accepted = importFiles([legacy]);
     const acceptDialog = await waitDialog();
-    const english = acceptDialog.textContent.includes('Create compatible copy') && acceptDialog.querySelector('p').textContent === MontClipView.flvMessage('FLV_TRANSCODE_REQUIRED','en');
+    const english = acceptDialog.textContent.includes('Create compatible copy') && acceptDialog.querySelector('.mc-flv-explanation').textContent === MontClipView.flvMessage('FLV_TRANSCODE_REQUIRED','en');
     acceptDialog.querySelectorAll('button')[1].click();
     const converted = await accepted;
     const transcode = converted.length === 1 && converted[0].preparation === 'transcode';

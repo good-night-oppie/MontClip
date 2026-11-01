@@ -9,7 +9,8 @@ delete env.ELECTRON_RUN_AS_NODE;
 const fault = process.argv.includes("--close-crash") ? "--close-crash" : process.argv.includes("--close-timeout") ? "--close-timeout" : null;
 const m0 = process.argv.includes("--m0");
 const flv = process.argv.includes("--flv");
-const child = spawn(require("electron"), [__dirname, "--montclip-smoke", ...(fault ? [fault] : []), ...(m0 ? ["--m0"] : []), ...(flv ? ["--flv"] : []), "--user-data-dir=" + dir], {
+const nativeFlv = process.argv.includes("--flv-native");
+const child = spawn(require("electron"), [__dirname, "--montclip-smoke", ...(fault ? [fault] : []), ...(m0 ? ["--m0"] : []), ...(flv ? ["--flv"] : []), ...(nativeFlv ? ["--flv-native"] : []), "--user-data-dir=" + dir], {
   env, windowsHide: true, stdio: ["ignore", "pipe", "pipe"],
 });
 let output = "";
@@ -32,6 +33,7 @@ child.on("exit", (code) => {
   } catch { }
   if (m0 && !output.includes("MONTCLIP_M0 ")) pass = false;
   if (flv && !output.includes("MONTCLIP_FLV ")) pass = false;
+  if (nativeFlv && !output.includes("MONTCLIP_NATIVE_FLV ")) pass = false;
   process.exitCode = code || (pass ? 0 : 1);
   console.log("Smoke data: " + dir);
 });

@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Ignore stale non-forced project reads after a newer local revision, preventing
+  late responses from rolling back imported media. Explicit reload paths remain.
+
 ### Added
+- Desktop selected-file FLV preflight before copying, owned-file cancellation,
+  same-session duplicate confirmation, centered confirmation and elapsed busy status.
+  Browser/MCP cancellation and packaged-tool acceptance remain outstanding.
 - Local FLV import with retained originals, compatible MP4 remux and explicit
   consent for legacy-codec transcoding in the editor and MCP. Cancel leaves the
   project unchanged. Portable bundled-FFmpeg validation remains pending.

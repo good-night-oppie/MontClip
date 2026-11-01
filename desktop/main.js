@@ -1,10 +1,14 @@
 /* Desktop host for the existing editor and compositor. No renderer Node API. */
 "use strict";
-const { app, BrowserWindow, dialog, session, utilityProcess } = require("electron");
+const { app, BrowserWindow, dialog, session, utilityProcess, ipcMain } = require("electron");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { createCloseController } = require("./close-controller");
 let worker, win, stopping = false, closing = false, workerExited = false;
+let flvImports;
+let nativeShutdown;
+let nativeShutdownDone = false;
+let desktopLanguage = "zh-CN";
 const smoke = !app.isPackaged && process.argv.includes("--montclip-smoke");
 const faultTest = smoke && (process.argv.includes("--close-crash") ? "crash" : process.argv.includes("--close-timeout") ? "timeout" : null);
 
@@ -24,6 +28,7 @@ async function start() {
     MONTCLIP_SESSION_TOKEN: token, FABLECUT_DATA_DIR: path.join(app.getPath("userData"), "workspace") };
   delete env.NODE_OPTIONS;
   delete env.NODE_PATH;
+  flvImports = require("./flv-import").createFlvImports(path.join(env.FABLECUT_DATA_DIR, "media"));
   worker = utilityProcess.fork(path.join(__dirname, "..", "server.js"), [], { env, stdio: "pipe" });
   worker.once("exit", () => { workerExited = true; });
   worker.stdout?.on("data", (data) => { if (!app.isPackaged) process.stdout.write(data); });
@@ -63,7 +68,25 @@ async function start() {
   });
   win = new BrowserWindow({ width: 1280, height: 820, minWidth: 640, minHeight: 480,
     title: "MontClip", show: false, webPreferences: { session: ses, sandbox: true,
-      contextIsolation: true, nodeIntegration: false, webSecurity: true, devTools: !app.isPackaged } });
+      preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false, webSecurity: true, devTools: !app.isPackaged } });
+  ipcMain.handle("montclip:flv", async (event, action, value, consent) => {
+    if (event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame || !local(event.senderFrame.url)) return {error:"FLV_SERVICE_UNAVAILABLE"};
+    try {
+      if (action === "inspect") {
+        if (!value || typeof value.path !== "string" || !value.path || !/^[\da-f-]{36}$/i.test(value.id)) return {error:"FLV_PROBE_FAILED"};
+        desktopLanguage = value.language === "en" ? "en" : "zh-CN";
+        return await flvImports.inspect(value.path, value.id);
+      }
+      if (typeof value !== "string" || !value) return {error:"FLV_PROBE_FAILED"};
+      if (action === "prepare") return await flvImports.prepare(value, consent);
+      if (action === "cancel") { flvImports.cancel(value); return {ok:true}; }
+      if (action === "finish") { flvImports.finish(value); return {ok:true}; }
+      return {error:"IMPORT_FAILED"};
+    } catch (error) {
+      if (["FLV_SOURCE_CHANGED", "FLV_CLEANUP_FAILED"].includes(error.code)) return {error:error.code};
+      return {error:require("../prepare-media").publicPreparationError(error).code};
+    }
+  });
   win.removeMenu();
   let rendererFault = null, prompts = 0;
   const closeController = createCloseController({
@@ -98,7 +121,7 @@ async function start() {
   win.on("closed", () => closeController.dispose());
   win.on("unresponsive", () => { rendererFault = "unresponsive"; closeController.fault(rendererFault); });
   win.on("responsive", () => { if (rendererFault === "unresponsive") rendererFault = null; });
-  win.webContents.on("render-process-gone", () => { rendererFault = "crashed"; closeController.fault(rendererFault); });
+  win.webContents.on("render-process-gone", () => { rendererFault = "crashed"; flvImports.shutdown().catch(() => {}); closeController.fault(rendererFault); });
   worker.on("exit", () => {
     if (!stopping) dialog.showErrorBox("MontClip", "本地编辑服务意外退出。请保留窗口中的修改，重新启动后检查项目。 / The local editor service stopped unexpectedly.");
   });
@@ -111,6 +134,7 @@ async function start() {
     return;
   }
   if (smoke) {
+    if (process.argv.includes("--flv-native")) await require("./flv-native-smoke").run(win, env.FABLECUT_DATA_DIR);
     if (process.argv.includes("--flv")) await require("./flv-smoke").run(win, env.FABLECUT_DATA_DIR);
     if (process.argv.includes("--m0")) await require("./m0-smoke").run(win, origin, token, env.FABLECUT_DATA_DIR);
     const result = await win.webContents.executeJavaScript(`(async () => {
@@ -143,12 +167,18 @@ async function start() {
 
 app.on("window-all-closed", () => app.quit());
 app.on("before-quit", (event) => {
+  if (stopping && !nativeShutdownDone) { event.preventDefault(); return; }
   if (win && !win.isDestroyed() && !closing) { event.preventDefault(); win.close(); return; }
+  nativeShutdown ||= Promise.resolve(flvImports?.shutdown()).catch(() => {
+    dialog.showErrorBox("MontClip", require("../ui-preferences").flvMessage("FLV_CLEANUP_FAILED",desktopLanguage));
+  }).then(() => {nativeShutdownDone=true;});
   if (worker && !workerExited && !stopping) {
     event.preventDefault(); stopping = true;
-    const timer = setTimeout(() => { worker.kill(); app.quit(); }, 4000);
-    worker.once("exit", () => { clearTimeout(timer); app.quit(); });
+    const timer = setTimeout(() => { worker.kill(); nativeShutdown.then(() => app.quit()); }, 4000);
+    worker.once("exit", () => { clearTimeout(timer); nativeShutdown.then(() => app.quit()); });
     worker.postMessage({ type: "shutdown" });
+  } else if (!stopping) {
+    event.preventDefault(); stopping = true; nativeShutdown.then(() => app.quit());
   }
 });
 app.whenReady().then(start).catch((error) => {

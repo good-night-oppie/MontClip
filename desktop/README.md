@@ -15,7 +15,12 @@ node smoke.js
 The shell runs its own utility process on an OS-assigned loopback port. A fresh
 256-bit session token is injected into requests by the main process, never placed
 in a URL. Desktop server requests require exact Host/Origin and that token.
-No preload or renderer IPC methods are exposed. Sandbox, context isolation and
+A narrow preload exposes selected-File FLV inspection, preparation, cancellation
+and completion. The renderer cannot supply a filesystem path or arbitrary IPC
+channel through this bridge. Main checks the owning webContents, main frame and
+exact session origin; opaque IDs bind inspection to its selected source. Include
+preload.js and flv-import.js in the eventual desktop package (not yet validated).
+Sandbox, context isolation and
 web security are enabled; navigation, new windows, webviews and permissions are
 denied. Downloads are limited to this editor's export files and blob outputs.
 The main-frame CSP forbids remote scripts and eval; inline styles remain necessary
@@ -28,6 +33,8 @@ Keep waiting (default) / Force close (recent changes may be lost). Repeated clos
 requests and late save results cannot skip this choice or close a newer attempt.
 Cleanup sends shutdown only to this instance's utility process, which kills its
 tracked spawn/execFile children. It does not enumerate or terminate other apps.
+Native FLV jobs also abort only their own subprocesses and clean their owned new
+copies on shutdown. The source and previously registered project media stay intact.
 Packaged worker stdout/stderr are not forwarded to avoid exposing project paths.
 Desktop export/transcription/scopes/tracking reject headless execution; auto
 requires an existing editor, with no system-browser fallback.

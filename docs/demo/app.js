@@ -1828,7 +1828,10 @@ async function syncFromServer(force) {
       await probeMissingMeta();
       return true;
     }
-    if (!force && (data.revision || 0) === (project.revision || 0)) return; // our own save
+    // A GET started before our save can finish after it. Never roll the active
+    // document back to that older revision; force/conflict/project switches
+    // still reload explicitly through their existing paths.
+    if (!force && (data.revision || 0) <= (project.revision || 0)) return;
     // An edit from outside (an agent, another tab) on the open timeline becomes an undo step of its own,
     // so Ctrl+Z takes it back first instead of replaying an older step over it.
     const before = !state.compCtx && SeqLib.activeId(data) === SeqLib.activeId(project) ? undoSnapshot() : null;
@@ -2012,20 +2015,69 @@ function mediaKindFromFile(file) {
   if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif"].includes(ext)) return "image";
   return null;
 }
-function confirmFlvConversion() {
+function confirmFlvConversion(fileName = "", {duplicate = false, compatible = false} = {}) {
   const en = mcView.get().language === "en";
   return new Promise(resolve => {
     const dialog = document.createElement("dialog"), text = document.createElement("p");
+    const heading = document.createElement("h2"), name = document.createElement("p"), actions = document.createElement("div");
     const cancel = document.createElement("button"), convert = document.createElement("button");
+    dialog.className = "mc-flv-dialog";
     dialog.setAttribute("aria-label", en ? "FLV compatibility" : "FLV 兼容处理");
+    heading.textContent = dialog.getAttribute("aria-label");
+    name.className = "mc-flv-file"; name.textContent = fileName;
+    text.className = "mc-flv-explanation";
     text.textContent = MontClipView.flvMessage("FLV_TRANSCODE_REQUIRED", mcView.get().language);
+    if (duplicate) {
+      const notice = en ? "This file was already imported in this app session. Importing again creates another original and compatible copy, using more disk space. Cancel to skip the duplicate import." : "这个文件已在本次运行中导入过。再次导入会新建原片和兼容副本，增加磁盘占用；取消就不重复导入。";
+      text.textContent = compatible ? notice : text.textContent + "\n\n" + notice;
+    }
     cancel.textContent = en ? "Cancel" : "取消"; convert.textContent = en ? "Create compatible copy" : "生成兼容副本";
-    cancel.className = convert.className = "btn";
+    cancel.className = "btn"; convert.className = "btn primary";
+    actions.className = "mc-flv-actions";
     const finish = yes => { dialog.close(); dialog.remove(); resolve(yes); };
     cancel.onclick = () => finish(false); convert.onclick = () => finish(true);
     dialog.addEventListener("cancel", e => { e.preventDefault(); finish(false); });
-    dialog.append(text, cancel, convert); document.body.append(dialog); dialog.showModal(); cancel.focus();
+    actions.append(cancel, convert);
+    dialog.append(heading, name, text, actions); document.body.append(dialog); dialog.showModal(); cancel.focus();
   });
+}
+async function prepareDesktopFlv(file) {
+  const en = mcView.get().language === "en", bridge = window.montclipFlv;
+  let id, canceled = false;
+  const panel = document.createElement("dialog"), label = document.createElement("p"), cancel = document.createElement("button");
+  panel.className = "mc-flv-dialog"; panel.setAttribute("aria-label", en ? "Importing FLV" : "正在导入 FLV");
+  label.setAttribute("role", "status"); label.setAttribute("aria-live", "polite");
+  cancel.className = "btn"; cancel.textContent = en ? "Cancel" : "取消";
+  let cleanupReported = false;
+  const cancelJob = async () => {
+    if (!id) return;
+    const result = await bridge.cancel(id);
+    if (result.error && !cleanupReported) {cleanupReported=true; toast(MontClipView.flvMessage(result.error,mcView.get().language));}
+  };
+  const stop = () => { canceled = true; cancel.disabled = true; cancelJob(); };
+  cancel.onclick = stop; panel.addEventListener("cancel", e => { e.preventDefault(); stop(); });
+  panel.append(label, cancel); document.body.append(panel);
+  const started = Date.now();
+  let phase = en ? "Checking the original file" : "正在检查原片";
+  const status = () => { label.textContent = `${canceled ? (en ? "Canceling" : "正在取消") : phase}… ${Math.floor((Date.now() - started) / 1000)}s`; };
+  status(); panel.showModal(); cancel.focus();
+  const timer = setInterval(status, 1000);
+  try {
+    id = crypto.randomUUID();
+    const inspected = await bridge.inspect(file, id, mcView.get().language);
+    if (inspected.error) throw Object.assign(Error("Import failed"), {code:inspected.error});
+    id = inspected.id;
+    if (canceled) { await cancelJob(); return null; }
+    panel.close();
+    if ((!inspected.compatible || inspected.duplicate) && !await confirmFlvConversion(file.name, inspected)) { await cancelJob(); return null; }
+    phase = en ? "Creating a compatible copy" : "正在生成兼容副本";
+    status(); panel.showModal(); cancel.focus();
+    const prepared = await bridge.prepare(id, !inspected.compatible);
+    if (canceled) { await cancelJob(); return null; }
+    if (prepared.error) throw Object.assign(Error("Import failed"), {code:prepared.error});
+    return {...prepared, importId:id};
+  } catch (error) { await cancelJob(); if (canceled) return null; throw error; }
+  finally { clearInterval(timer); panel.close(); panel.remove(); }
 }
 async function importFiles(fileList) {
   const request = async (url, options) => {
@@ -2043,13 +2095,19 @@ async function importFiles(fileList) {
     const kind = mediaKindFromFile(file);
     if (!kind) { skipped++; continue; }
     const flv = /\.flv$/i.test(file.name);
-    let src, originalSrc, preparation, transient = false;
-    if (state.connected) {
+    let src, originalSrc, preparation, importId, transient = false;
+    if (flv && window.montclipFlv?.canUse(file)) {
+      try {
+        const prepared = await prepareDesktopFlv(file);
+        if (!prepared) continue;
+        ({src, originalSrc, preparation, importId} = prepared);
+      } catch (error) { toast(MontClipView.flvMessage(error.code, mcView.get().language)); continue; }
+    } else if (state.connected) {
       try {
         let res = await request("/api/upload?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
         let body = await res.json();
         if (flv && body.code === "FLV_TRANSCODE_REQUIRED") {
-          if (!await confirmFlvConversion()) continue;
+          if (!await confirmFlvConversion(file.name)) continue;
           if (gen !== runtime.projectGen) break;
           res = await request("/api/prepare-media", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({src:body.originalSrc, allowTranscode:true})});
           body = await res.json();
@@ -2071,10 +2129,16 @@ async function importFiles(fileList) {
       if (kind === "video") grabThumb(m).catch(() => { });
       ensureWave(m);
     } catch {
+      if (importId) await window.montclipFlv.cancel(importId);
       if (flv) { toast(MontClipView.flvMessage("FLV_PREVIEW_FAILED", mcView.get().language)); continue; }
       skipped++; continue;
     }
-    if (gen !== runtime.projectGen) { toast("Import stopped: another project was opened. The uploaded files are in media/"); break; }
+    if (gen !== runtime.projectGen) { if (importId) await window.montclipFlv.cancel(importId); toast("Import stopped: another project was opened."); break; }
+    if (importId) {
+      const finished = await window.montclipFlv.finish(importId);
+      if (finished.error) { await window.montclipFlv.cancel(importId); toast(MontClipView.flvMessage(finished.error, mcView.get().language)); continue; }
+      toast(mcView.get().language === "en" ? "Compatible copy ready." : "兼容副本已生成。");
+    }
     project.media.push(m);
     addedMedia.push(m);
     added++;

@@ -2,13 +2,16 @@
 const { test } = require("node:test"), assert = require("node:assert/strict");
 const View = require("../ui-preferences");
 test("FLV errors use the selected language and never surface arbitrary server detail", () => {
-  for (const code of ["FLV_PROBE_FAILED", "FLV_STREAMS_UNSUPPORTED", "FLV_TRANSCODE_REQUIRED", "FLV_PREPARATION_FAILED", "FLV_COMPONENT_MISSING", "FLV_SERVICE_UNAVAILABLE", "FLV_OPEN_FULL_APP"]) {
+  for (const code of ["FLV_PROBE_FAILED", "FLV_STREAMS_UNSUPPORTED", "FLV_TRANSCODE_REQUIRED", "FLV_PREPARATION_FAILED", "FLV_DISK_FULL", "FLV_COMPONENT_MISSING", "FLV_SERVICE_UNAVAILABLE", "FLV_OPEN_FULL_APP"]) {
     assert.match(View.flvMessage(code, "zh-CN"), /[\u4e00-\u9fff]/);
     assert.doesNotMatch(View.flvMessage(code, "en"), /[\u4e00-\u9fff]/);
     assert.doesNotMatch(View.flvMessage(code, "zh-CN"), /FFmpeg|FFprobe| \/ /);
   }
   assert.equal(View.flvMessage("C:/private/path error", "en"), View.flvMessage("UNKNOWN", "en"));
   assert.doesNotMatch(View.flvMessage("FLV_PREPARATION_FAILED", "zh-CN"), /空间|磁盘|详细/);
+  assert.doesNotMatch(View.flvMessage("FLV_PREPARATION_FAILED", "en"), /space|disk|details/i);
+  assert.match(View.flvMessage("FLV_DISK_FULL", "zh-CN"), /清出空间后再试/);
+  assert.match(View.flvMessage("FLV_DISK_FULL", "en"), /Free up space and try again/);
   assert.match(View.flvMessage("FLV_TRANSCODE_REQUIRED", "en"), /Cancel to skip importing this file/);
   assert.equal(View.flvDisconnectedCode({protocol:"file:", desktop:false}), "FLV_OPEN_FULL_APP");
   assert.equal(View.flvDisconnectedCode({protocol:"http:", desktop:true}), "FLV_SERVICE_UNAVAILABLE");

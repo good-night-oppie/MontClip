@@ -1610,6 +1610,15 @@ it in every project; **titles that arrive and leave the same way** —
 ### Media management
 
 Local FLV import creates a compatible MP4 copy and preserves the uploaded FLV.
+Desktop file selections use a separate narrow preload bridge: inspect the original
+in place, then copy only after consent where required. Source content is SHA-256
+checked against the copied snapshot before conversion. A changed source fails.
+Cancel/failed conversion/failed metadata/project switch clean only that job's
+owned new files; registered copies remain persistent. Repeated content imported
+in the same app session prompts before another independent copy. No cross-project
+reuse, reference counting, or historical-file cleanup is implemented. Browser
+uploads and MCP retain the legacy behavior described below; do not claim their
+cancellation is zero-residual. Desktop busy status reports elapsed time, not percent.
 H.264 4:2:0 with AAC (or no audio) is remuxed without re-encoding. Other codecs
 require explicit consent to H.264/AAC transcoding; multi-video/audio layouts are
 refused instead of dropping tracks. `fablecut_import_media` accepts optional
