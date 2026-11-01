@@ -53,6 +53,11 @@ function renderMontClipView() {
   document.getElementById("mcAssistantPanel").setAttribute("aria-label", t.assistant);
 }
 function updateMontClipView(patch) {
+  if(patch.mode && patch.mode!==mcView.get().mode){
+    if(state.exporting||state.compCtx){toast(MontClipView.text[mcView.get().language].modeBlocked);return;}
+    const wasColor=colorState.ws==='color';setWorkspace('edit');
+    if(patch.mode==='simple'&&wasColor)toast(MontClipView.text[mcView.get().language].colorExited);
+  }
   const saved = mcView.set(patch); renderMontClipView();
   if (!saved) toast(mcView.get().language === "en" ? "View preference could not be saved." : "界面偏好未能保存。");
 }
@@ -19564,7 +19569,7 @@ loadSettings();
    Color workspace swaps the media bin for live scopes of the program
    monitor. Grade edits are plain prop writes, so undo, save and the SSE
    reload behave as for any inspector field. */
-const WS_KEY = "fablecut-workspace";
+const workspacePreference = MontClipWorkspace.create(window.montclipWorkspaceSettings, localStorage);
 const SCOPE_KEY = "fablecut-scopes";
 const SCOPE_KINDS = { waveform: "Waveform", parade: "RGB Parade", vectorscope: "Vectorscope", histogram: "Histogram" };
 const WHEEL_LABEL = { lift: "Lift", gamma: "Gamma", gain: "Gain", offset: "Offset" };
@@ -19583,11 +19588,11 @@ try {
 } catch { }
 
 function isGradable(c) { return !!c && (c.kind === "video" || c.kind === "image" || c.kind === "svg" || c.kind === "adjust" || c.kind === "comp"); }
-function setWorkspace(ws) {
+function setWorkspace(ws, persist = true) {
   colorState.ws = ws === "color" ? "color" : "edit";
   $("app").classList.toggle("ws-color", colorState.ws === "color");
   for (const b of document.querySelectorAll("#wsSwitch [data-ws]")) b.classList.toggle("on", b.dataset.ws === colorState.ws);
-  try { localStorage.setItem(WS_KEY, colorState.ws); } catch { }
+  if (persist && !workspacePreference.save(colorState.ws)) toast(MontClipView.text[mcView.get().language].workspaceSaveFailed);
   if (colorState.ws === "color") { buildScopeSlots(); setSideTab("color"); }
   else {
     if (runtime.matte) setMatte(null, false);
@@ -20725,8 +20730,12 @@ for (const b of els.sideTabs.querySelectorAll("[data-side]"))
 try {
   const side = localStorage.getItem(SIDE_TAB_KEY);
   if (side === "mixer" || side === "color" || side === "transcript") setSideTab(side);
-  if (localStorage.getItem(WS_KEY) === "color") setWorkspace("color");
+
 } catch { }
+const initialWorkspace=workspacePreference.load(mcView.get().mode);
+if(initialWorkspace.workspace==='color')setWorkspace('color',false);
+else if(mcView.get().mode==='simple')setWorkspace('edit',false);
+if(!initialWorkspace.ok)toast(MontClipView.text[mcView.get().language].workspaceReadFailed);
 connectServer().then(() => { loadLibraryFonts(); runExportJobFromUrl(); });
 requestAnimationFrame(loop);
 
