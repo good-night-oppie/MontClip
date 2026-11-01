@@ -18,6 +18,12 @@
 
 **English** · [简体中文](docs/i18n/README.zh-CN.md) · [日本語](docs/i18n/README.ja.md) · [Español](docs/i18n/README.es.md) · [Português (BR)](docs/i18n/README.pt-BR.md)
 
+MontClip development builds accept local FLV files with FFmpeg/FFprobe available.
+Compatible H.264/AAC streams are remuxed to an MP4 copy; legacy codecs require
+confirmation before transcoding. The original remains unchanged. Keep both the
+original and compatible copy with the project. Portable bundled-tool validation
+is still pending; this is not a release-readiness claim.
+
 </div>
 
 [![Watch the FableCut Studio demo: an agent cuts a reel live (58 s)](docs/showcase/fablecut-studio-demo-play.jpg)](https://fablecut.space/showcase/fablecut-studio-demo.mp4)

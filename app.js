@@ -1712,6 +1712,7 @@ function projectJSONHere() {
       if (m.favorite === true) mo.favorite = true;
       if (m.tags && m.tags.length) mo.tags = m.tags.slice();
       if (derivedFrom) { mo.derivedFrom = derivedFrom; if (denoise) mo.denoise = denoise; }
+      if (m.originalSrc) { mo.originalSrc = m.originalSrc; mo.preparation = m.preparation; }
       return mo;
     }),
     clips: clips.map(serializeClip),
@@ -2005,10 +2006,25 @@ function mediaKindFromFile(file) {
   if (t.startsWith("image/")) return "image";
   const ext = (file.name.split(".").pop() || "").toLowerCase();
   if (ext === "svg") return "svg";
-  if (["mp4", "mov", "webm", "mkv", "m4v", "avi", "mpg", "mpeg"].includes(ext)) return "video";
+  if (["mp4", "mov", "webm", "mkv", "m4v", "avi", "mpg", "mpeg", "flv"].includes(ext)) return "video";
   if (["mp3", "wav", "m4a", "aac", "ogg", "flac", "wma"].includes(ext)) return "audio";
   if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif"].includes(ext)) return "image";
   return null;
+}
+function confirmFlvConversion() {
+  const en = mcView.get().language === "en";
+  return new Promise(resolve => {
+    const dialog = document.createElement("dialog"), text = document.createElement("p");
+    const cancel = document.createElement("button"), convert = document.createElement("button");
+    dialog.setAttribute("aria-label", en ? "FLV compatibility" : "FLV 兼容处理");
+    text.textContent = en ? "This FLV needs a compatible MP4 copy. Transcoding may change quality and take time. The original stays unchanged. Continue?" : "此 FLV 需要转成兼容的 MP4 副本，可能改变画质并需要等待。原片保持不变。继续吗？";
+    cancel.textContent = en ? "Cancel" : "取消"; convert.textContent = en ? "Create compatible copy" : "生成兼容副本";
+    cancel.className = convert.className = "btn";
+    const finish = yes => { dialog.close(); dialog.remove(); resolve(yes); };
+    cancel.onclick = () => finish(false); convert.onclick = () => finish(true);
+    dialog.addEventListener("cancel", e => { e.preventDefault(); finish(false); });
+    dialog.append(text, cancel, convert); document.body.append(dialog); dialog.showModal(); cancel.focus();
+  });
 }
 async function importFiles(fileList) {
   const files = [...fileList];
@@ -2021,17 +2037,30 @@ async function importFiles(fileList) {
   for (const file of files) {
     const kind = mediaKindFromFile(file);
     if (!kind) { skipped++; continue; }
-    let src, transient = false;
+    const flv = /\.flv$/i.test(file.name);
+    let src, originalSrc, preparation, transient = false;
     if (state.connected) {
       try {
-        const res = await fetch("/api/upload?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
-        if (!res.ok) throw new Error("upload " + res.status);
-        src = (await res.json()).src;
-      } catch { src = URL.createObjectURL(file); transient = true; }
+        let res = await fetch("/api/upload?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
+        let body = await res.json();
+        if (flv && body.code === "FLV_TRANSCODE_REQUIRED") {
+          if (!await confirmFlvConversion()) continue;
+          if (gen !== runtime.projectGen) break;
+          res = await fetch("/api/prepare-media", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({src:body.originalSrc, allowTranscode:true})});
+          body = await res.json();
+        }
+        if (!res.ok) throw new Error(body.error || (mcView.get().language === "en" ? "Import failed" : "导入失败"));
+        ({src, originalSrc, preparation} = body);
+      } catch (error) {
+        if (flv) { toast(error.message); continue; }
+        src = URL.createObjectURL(file); transient = true;
+      }
     } else {
+      if (flv) { toast(mcView.get().language === "en" ? "FLV import needs the local editor service." : "导入 FLV 需要本地编辑服务。"); continue; }
       src = URL.createObjectURL(file); transient = true;
     }
     const m = { id: "m_" + uid(), name: file.name, kind, src, transient, folderId };
+    if (originalSrc) Object.assign(m, {originalSrc, preparation});
     try {
       await loadMediaMetadata(m);
       if (kind === "video") grabThumb(m).catch(() => { });
@@ -2042,8 +2071,7 @@ async function importFiles(fileList) {
     addedMedia.push(m);
     added++;
   }
-  renderBin(); scheduleSave();
-  refreshMediaInfo(addedMedia);
+  if (added) { renderBin(); scheduleSave(); refreshMediaInfo(addedMedia); }
   if (!added && skipped)
     toast("Couldn't import — unsupported or unreadable file type");
   else if (skipped)

@@ -1609,6 +1609,22 @@ it in every project; **titles that arrive and leave the same way** —
 
 ### Media management
 
+Local FLV import creates a compatible MP4 copy and preserves the uploaded FLV.
+H.264 4:2:0 with AAC (or no audio) is remuxed without re-encoding. Other codecs
+require explicit consent to H.264/AAC transcoding; multi-video/audio layouts are
+refused instead of dropping tracks. `fablecut_import_media` accepts optional
+`allowTranscode:true` only after user consent. A denied MCP import leaves its
+copied original in media/ but does not register a project entry.
+Media entries use `src` for the compatible MP4, `originalSrc` for the retained
+FLV and `preparation:"remux"|"transcode"`. Retain both files when moving a project.
+`POST /api/upload` returns these fields, or 409 `FLV_TRANSCODE_REQUIRED` with
+`originalSrc`. `POST /api/prepare-media {src:originalSrc, allowTranscode:true}`
+resumes without another upload. Missing/broken FFprobe or FFmpeg fails explicitly.
+No project or timeline is changed by either HTTP endpoint; the UI registers the
+media only after browser metadata loading. Canceling conversion does not save a
+project change. Derived copies are persistent project assets, not final exports.
+The portable bundled-tool path and visible Windows dialogs remain to be tested.
+
 The Project bin knows each file's details and helps find, group and track
 footage. Everything here is organization: none of it changes what plays or
 exports.

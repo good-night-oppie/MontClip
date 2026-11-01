@@ -24,6 +24,7 @@ const {
   APP_DIR, DATA_DIR, MEDIA_DIR, EXPORTS_DIR, ANALYSIS_DIR, LIBRARY_DIR, PROJECT_FILE, PROXIES_DIR, ensureDirs, readSaved, writeSaved,
 } = require("./paths");
 const { downloadImportUrl, kindFromName, maybeFaststart } = require("./import-url");
+const { prepareMedia } = require("./prepare-media");
 const FX = require("./audio-fx");
 const EditOps = require("./edit-ops");
 const ProjectOps = require("./project-ops");
@@ -120,7 +121,7 @@ async function ensureUIServer() {
   return false;
 }
 const KIND_BY_EXT = {
-  ".mp4": "video", ".webm": "video", ".mov": "video", ".mkv": "video", ".m4v": "video", ".avi": "video",
+  ".mp4": "video", ".webm": "video", ".mov": "video", ".mkv": "video", ".m4v": "video", ".avi": "video", ".flv": "video",
   ".mp3": "audio", ".wav": "audio", ".ogg": "audio", ".m4a": "audio", ".aac": "audio", ".flac": "audio",
   ".png": "image", ".jpg": "image", ".jpeg": "image", ".gif": "image", ".webp": "image", ".svg": "svg",
 };
@@ -227,7 +228,7 @@ const TOOLS = [
     description: "Import a media file into FableCut's media library and register it in the project. Pass a local absolute path (copied, including .svg) or an https:// URL (downloaded into ./media/; video/audio/image only — remote SVG is refused). The URL is never kept as the playback src — CORS would break export. Returns the created media entry (use its id in clips).",
     inputSchema: {
       type: "object",
-      properties: { path: { type: "string", description: "Absolute path to a local file, or an https:// URL to download" } },
+      properties: { path: { type: "string", description: "Absolute path to a local file, or an https:// URL to download" }, allowTranscode: {type: "boolean", description: "For incompatible local FLV only: explicitly consent to a compatible MP4 transcode. Default false; original retained."} },
       required: ["path"],
     },
   },
@@ -1969,13 +1970,17 @@ async function callTool(name, args, attempt = 0) {
         fs.copyFileSync(src, target);
       }
       if (!kind) throw new Error("Unsupported media type");
+      const prepared = await prepareMedia(target, { allowTranscode: args.allowTranscode });
+      const originalName = path.basename(target);
+      if (prepared.originalSrc) target = path.join(MEDIA_DIR, decodeURIComponent(prepared.src.slice(7)));
       const entry = {
         id: "m_" + uid(),
-        name: path.basename(target),
+        name: originalName,
         kind,
         src: "/media/" + encodeURIComponent(path.basename(target)),
         duration: kind === "image" || kind === "svg" ? undefined : ffprobeDuration(target),
       };
+      if (prepared.originalSrc) Object.assign(entry, {originalSrc: prepared.originalSrc, preparation: prepared.preparation});
       Object.assign(entry, infoForEntry(await probeFile(target), entry));
       const proj = readProject();
       // import only appends a media entry (never touches clips), so it merges

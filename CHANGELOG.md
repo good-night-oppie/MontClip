@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Local FLV import with retained originals, compatible MP4 remux and explicit
+  consent for legacy-codec transcoding in the editor and MCP. Cancel leaves the
+  project unchanged. Portable bundled-FFmpeg validation remains pending.
 - Development view-mode and language preferences with shared-DOM layout switching,
   persistent undo/redo controls and an explicit disconnected assistant panel.
   Complete bilingual/simple-mode UI and AI connection are not implemented yet.
