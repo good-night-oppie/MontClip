@@ -70,3 +70,5 @@ repository's AGENTS → CLAUDE/CONTRIBUTING and QQ Review Inbox. No legacy varia
 is required or copied. See `decisions/2026-11-01-development-workflow.md`.
 
 Clean PR2 follow-up prepared directly from its public 8f461b9 head: narrowly removes parser's 500-code-unit truncation, with source/demo parity and 17/17 memory parser/clip/JSON/subtitle + range tests. Not whole subtitle workflow or layout acceptance; UI/MCP fit changes remain separate. Full tests/release-check and review still required; no push/merge/release. See validation/2026-11-01-pr2-fulltext-review.md.
+
+2026-11-01 review split: clean view-controls replacement based on squash main5df54aec; see validation/2026-11-01-view-clean.md. Windows558/558 and repository release-check pass. Full bilingual UI/chat/FLV remain separate pending changes; no old PR4 approval inherited, no new-window acceptance claimed.
