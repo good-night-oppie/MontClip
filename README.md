@@ -723,3 +723,5 @@ Desktop Agent sessions now retain identified project/sequence drafts and explici
 Agent workbench repair: the assistant shares the existing right-side tab region; the timeline stays full-width. Narrow windows can reveal Media using the toolbar control. Default-project chat sessions adopt a confirmed project ID only through the existing verified project-list binding, retaining drafts across later project switches. This is not completion of the entire simple-mode or AI workflow.
 
 Agent pane capacity feedback distinguishes session, current-project, text and reference limits. Returning from a capacity-blocked project restores its existing project sessions; no restart is recommended to free capacity.
+
+If session storage cannot be read at initialization, the Agent pane explicitly uses window-only sessions. Copy drafts before closing; the original session file is not changed. This temporary mode does not block normal project close/save checks. A write failure after successful loading remains unconfirmed and retains the existing close protection.

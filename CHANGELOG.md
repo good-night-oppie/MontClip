@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Initial Agent session read failures use explicit window-only storage without blocking normal project close; loaded-session write failures retain save protection.
 - Agent pane restores existing project drafts after a capacity-blocked project switch and distinguishes session, text and reference limits.
 
 ### Added
