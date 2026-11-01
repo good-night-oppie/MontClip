@@ -45,4 +45,3 @@ Module._load=function(id,...args){
  return load.call(this,id,...args);
 };
 require('./main');
-
