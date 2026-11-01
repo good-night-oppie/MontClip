@@ -10,6 +10,28 @@ const available = () => {
   try { for (const name of ["ffmpeg", "ffprobe"]) execFileSync(name, ["-version"], {stdio:"ignore"}); return true; } catch { return false; }
 };
 const hash = file => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+test("public preparation errors sanitize unknown paths and distinguish confirmed disk errors", () => {
+  const {publicPreparationError} = require("../prepare-media");
+  const error = Object.assign(new Error("C:/private/user/file failed"), {code:"EACCES"});
+  assert.deepEqual(publicPreparationError(error), {code:"IMPORT_FAILED", error:"IMPORT_FAILED"});
+  assert.equal(publicPreparationError({code:"ENOSPC"}).code, "FLV_DISK_FULL");
+  for (const code of ["FLV_PROBE_FAILED","FLV_STREAMS_UNSUPPORTED","FLV_TRANSCODE_REQUIRED","FLV_PREPARATION_FAILED","FLV_COMPONENT_MISSING"]) assert.deepEqual(publicPreparationError({code}), {code,error:code});
+});
+test("FLV probe, unsupported layout and missing component return stable codes", async t => {
+  if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
+  const dir = makeDataDir(t);
+  const {base} = await startServer(t, dir, {FABLECUT_NO_FS_WATCH:"1"});
+  const upload = (root, bytes) => fetch(root + "/api/upload?name=test.flv", {method:"POST", body:bytes});
+  const bad = await (await upload(base, Buffer.from("not a video"))).json();
+  assert.equal(bad.code,"FLV_PROBE_FAILED"); assert.equal(bad.error,bad.code);
+  const audio = path.join(dir,"audio.flv");
+  execFileSync("ffmpeg", ["-v","error","-f","lavfi","-i","sine=frequency=440","-t","0.1","-c:a","aac",audio]);
+  const unsupported = await (await upload(base,fs.readFileSync(audio))).json();
+  assert.equal(unsupported.code,"FLV_STREAMS_UNSUPPORTED"); assert.equal(unsupported.error,unsupported.code);
+  const noTools = await startServer(t, makeDataDir(t), {FABLECUT_NO_FS_WATCH:"1",Path:"",PATH:""});
+  const missing = await (await upload(noTools.base,Buffer.from("no tool needed to expose missing tool"))).json();
+  assert.equal(missing.code,"FLV_COMPONENT_MISSING"); assert.equal(missing.error,missing.code);
+});
 test("FLV upload remuxes compatible streams without modifying the original", async t => {
   if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
   const dir = makeDataDir(t);

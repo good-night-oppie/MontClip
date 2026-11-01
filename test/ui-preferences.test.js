@@ -1,6 +1,20 @@
 "use strict";
 const { test } = require("node:test"), assert = require("node:assert/strict");
 const View = require("../ui-preferences");
+test("FLV errors use the selected language and never surface arbitrary server detail", () => {
+  for (const code of ["FLV_PROBE_FAILED", "FLV_STREAMS_UNSUPPORTED", "FLV_TRANSCODE_REQUIRED", "FLV_PREPARATION_FAILED", "FLV_COMPONENT_MISSING", "FLV_SERVICE_UNAVAILABLE", "FLV_OPEN_FULL_APP"]) {
+    assert.match(View.flvMessage(code, "zh-CN"), /[\u4e00-\u9fff]/);
+    assert.doesNotMatch(View.flvMessage(code, "en"), /[\u4e00-\u9fff]/);
+    assert.doesNotMatch(View.flvMessage(code, "zh-CN"), /FFmpeg|FFprobe| \/ /);
+  }
+  assert.equal(View.flvMessage("C:/private/path error", "en"), View.flvMessage("UNKNOWN", "en"));
+  assert.doesNotMatch(View.flvMessage("FLV_PREPARATION_FAILED", "zh-CN"), /空间|磁盘|详细/);
+  assert.match(View.flvMessage("FLV_TRANSCODE_REQUIRED", "en"), /Cancel to skip importing this file/);
+  assert.equal(View.flvDisconnectedCode({protocol:"file:", desktop:false}), "FLV_OPEN_FULL_APP");
+  assert.equal(View.flvDisconnectedCode({protocol:"http:", desktop:true}), "FLV_SERVICE_UNAVAILABLE");
+  assert.equal(View.flvDisconnectedCode({protocol:"http:", desktop:false}), "FLV_OPEN_FULL_APP");
+  assert.equal(View.flvDisconnectedCode({desktop:false, everConnected:true}), "FLV_SERVICE_UNAVAILABLE");
+});
 test("view mode/language persist independently of editor data", () => {
   const data = new Map([["project", "keep project bytes"], ["draft", "聊天草稿"]]);
   const storage = { getItem: k => data.get(k), setItem: (k, v) => data.set(k, v) };

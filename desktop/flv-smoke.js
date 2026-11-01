@@ -30,21 +30,69 @@ exports.run = async function (win, dataDir) {
     };
     const cancelDialog = await waitDialog();
     const cancelDefault = document.activeElement === cancelDialog.querySelector('button');
+    const chineseCopy = cancelDialog.querySelector('p').textContent === MontClipView.flvMessage('FLV_TRANSCODE_REQUIRED','zh-CN');
     cancelDialog.querySelector('button').click();
     await canceled;
     const canceledUnchanged = before === JSON.stringify(projectJSON());
     updateMontClipView({language:'en'});
     const accepted = importFiles([legacy]);
     const acceptDialog = await waitDialog();
-    const english = acceptDialog.textContent.includes('Create compatible copy');
+    const english = acceptDialog.textContent.includes('Create compatible copy') && acceptDialog.querySelector('p').textContent === MontClipView.flvMessage('FLV_TRANSCODE_REQUIRED','en');
     acceptDialog.querySelectorAll('button')[1].click();
     const converted = await accepted;
     const transcode = converted.length === 1 && converted[0].preparation === 'transcode';
+    let batchCancelOnlyOne = true;
+    for (const language of ['zh-CN','en']) {
+      updateMontClipView({language});
+      const priorCount = project.media.length;
+      const compatible = await file('flv-compatible.flv');
+      const batch = importFiles([legacy, compatible]);
+      const dialog = await waitDialog(); dialog.querySelector('button').click();
+      const added = await batch;
+      batchCancelOnlyOne &&= added.length === 1 && added[0].name === compatible.name && project.media.length === priorCount + 1;
+    }
+    const priorSingleCount = project.media.length;
+    const singleEnglishCancel = importFiles([legacy]);
+    (await waitDialog()).querySelector('button').click();
+    const singleEnglishSkipped = (await singleEnglishCancel).length === 0 && project.media.length === priorSingleCount;
+    // Finish real import metadata/save work before injecting service failures.
+    // Fault cases must not temporarily disconnect an unrelated pending save.
+    const settleDeadline = Date.now() + 10000;
+    while (mediaInfoBusy && Date.now() < settleDeadline) await new Promise(r => setTimeout(r, 20));
+    if (mediaInfoBusy || !await flushSave()) throw Error('Imports did not settle before failure injection');
+    const beforeFaults = await (await fetch('/api/project')).json();
+    if (!imported.concat(converted).every(m => beforeFaults.media.some(d => d.id === m.id && d.originalSrc === m.originalSrc && d.src === m.src)))
+      throw Error('Import provenance missing before failure injection');
+    const realFetch = window.fetch, realToast = toast;
+    let localizedErrors = true;
+    try {
+      for (const language of ['zh-CN','en']) {
+        updateMontClipView({language});
+        for (const code of ['FLV_PROBE_FAILED','FLV_STREAMS_UNSUPPORTED','FLV_PREPARATION_FAILED','FLV_COMPONENT_MISSING','UNKNOWN']) {
+          let shown;
+          toast = message => { shown = message; };
+          window.fetch = (url, options) => String(url).startsWith('/api/upload') ? Promise.resolve(new Response(JSON.stringify({code,error:'C:/private/secret path'}), {status:500, headers:{'Content-Type':'application/json'}})) : realFetch(url, options);
+          await importFiles([legacy]);
+          localizedErrors &&= shown === MontClipView.flvMessage(code,language) && !shown.includes('private');
+        }
+        let shown;
+        toast = message => {shown=message;};
+        window.fetch = (url, options) => String(url).startsWith('/api/upload') ? Promise.reject(new TypeError('Failed to fetch internal path')) : realFetch(url,options);
+        await importFiles([legacy]);
+        localizedErrors &&= shown === MontClipView.flvMessage('FLV_SERVICE_UNAVAILABLE',language);
+        const connected = state.connected;
+        try {
+          state.connected=false;
+          await importFiles([legacy]);
+          localizedErrors &&= shown === MontClipView.flvMessage('FLV_SERVICE_UNAVAILABLE',language);
+        } finally {state.connected=connected;}
+      }
+    } finally {window.fetch = realFetch; toast = realToast;}
     updateMontClipView(originalView);
     const saved = await flushSave();
     const disk = await (await fetch('/api/project')).json();
     const provenanceSaved = imported.concat(converted).every(m => disk.media.some(d => d.id === m.id && d.originalSrc === m.originalSrc && d.src === m.src));
-    return {remux:true, cancelDefault, canceledUnchanged, english, transcode, saved, provenanceSaved};
+    return {remux:true, cancelDefault, chineseCopy, canceledUnchanged, english, transcode, batchCancelOnlyOne, singleEnglishSkipped, localizedErrors, saved, provenanceSaved};
   })()`);
   process.stdout.write("MONTCLIP_FLV " + JSON.stringify(result) + "\n");
   if (!Object.values(result).every(x => x === true)) throw new Error("FLV smoke failed");

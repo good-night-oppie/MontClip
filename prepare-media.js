@@ -5,23 +5,28 @@ const path = require("path");
 const { randomUUID } = require("crypto");
 const { execFile } = require("child_process");
 const url = file => "/media/" + encodeURIComponent(path.basename(file));
-const failure = (code, message, originalSrc) => Object.assign(new Error(message), { code, originalSrc });
+const failure = (code, originalSrc, cause) => Object.assign(new Error(code, {cause}), { code, originalSrc });
+const PUBLIC_CODES = new Set(["FLV_PROBE_FAILED", "FLV_STREAMS_UNSUPPORTED", "FLV_TRANSCODE_REQUIRED", "FLV_PREPARATION_FAILED", "FLV_COMPONENT_MISSING", "FLV_DISK_FULL"]);
+function publicPreparationError(error) {
+  const code = error.code === "ENOSPC" ? "FLV_DISK_FULL" : PUBLIC_CODES.has(error.code) ? error.code : "IMPORT_FAILED";
+  return {code, error:code, ...(error.originalSrc ? {originalSrc:error.originalSrc} : {})};
+}
 function run(cmd, args) {
   return new Promise((resolve, reject) => execFile(cmd, args, { windowsHide: true, timeout: 15 * 60 * 1000, maxBuffer: 4 * 1024 * 1024 },
-    (error, stdout) => error ? reject(error) : resolve(stdout)));
+    (error, stdout) => error ? reject(Object.assign(error, {missingTool:error.code === "ENOENT"})) : resolve(stdout)));
 }
 async function prepareMedia(file, { allowTranscode = false } = {}) {
   const originalSrc = url(file);
   if (path.extname(file).toLowerCase() !== ".flv") return { src: originalSrc };
   let streams;
   try { streams = JSON.parse(await run("ffprobe", ["-v", "error", "-show_streams", "-of", "json", file])).streams; }
-  catch { throw failure("FLV_PROBE_FAILED", "无法探测 FLV。请检查 FFprobe 和文件。 / Cannot probe FLV. Check FFprobe and the file.", originalSrc); }
+  catch (error) { throw failure(error.missingTool ? "FLV_COMPONENT_MISSING" : "FLV_PROBE_FAILED", originalSrc, error); }
   const video = streams?.filter(s => s.codec_type === "video") || [];
   const audio = streams?.filter(s => s.codec_type === "audio") || [];
   // Refuse silently dropping additional streams; multi-track policy is separate.
-  if (video.length !== 1 || audio.length > 1) throw failure("FLV_STREAMS_UNSUPPORTED", "暂不支持此 FLV 轨道结构，原片已保留。 / Unsupported FLV track layout; original retained.", originalSrc);
+  if (video.length !== 1 || audio.length > 1) throw failure("FLV_STREAMS_UNSUPPORTED", originalSrc);
   const compatible = video[0].codec_name === "h264" && ["yuv420p", "yuvj420p"].includes(video[0].pix_fmt) && (!audio.length || audio[0].codec_name === "aac");
-  if (!compatible && allowTranscode !== true) throw failure("FLV_TRANSCODE_REQUIRED", "此 FLV 需要兼容转码（可能改变画质），原片保持不变。 / This FLV needs compatibility transcoding (quality may change); the original stays unchanged.", originalSrc);
+  if (!compatible && allowTranscode !== true) throw failure("FLV_TRANSCODE_REQUIRED", originalSrc);
   const out = path.join(path.dirname(file), "compat-" + randomUUID() + ".mp4");
   const part = out + ".part.mp4";
   try {
@@ -30,10 +35,10 @@ async function prepareMedia(file, { allowTranscode = false } = {}) {
       "-movflags", "+faststart", part]);
     if (!fs.statSync(part).size) throw new Error("Empty output");
     fs.renameSync(part, out);
-  } catch {
-    fs.rmSync(part, { force: true });
-    throw failure("FLV_PREPARATION_FAILED", "FLV 兼容处理失败，原片已保留。请检查 FFmpeg 或可用空间后重试。 / FLV preparation failed; original retained. Check FFmpeg or free space and retry.", originalSrc);
+  } catch (error) {
+    try { fs.rmSync(part, { force: true }); } catch { /* preserve the original failure */ }
+    throw failure(error.missingTool ? "FLV_COMPONENT_MISSING" : error.code === "ENOSPC" ? "FLV_DISK_FULL" : "FLV_PREPARATION_FAILED", originalSrc, error);
   }
   return { src: url(out), originalSrc, preparation: compatible ? "remux" : "transcode" };
 }
-module.exports = { prepareMedia };
+module.exports = { prepareMedia, publicPreparationError };

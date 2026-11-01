@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   request policy and save-before-close. This is not a portable release build.
 
 ### Fixed
+- FLV import prompts follow the selected language, explain single-file and batch
+  cancellation, and map stable error codes without leaking paths or guessing
+  disk failures. Missing components and disconnected service have distinct copy.
 - Desktop tasks reject headless execution at both HTTP and job-queue boundaries.
   Close/save recovery handles crashed renderers and a 15-second save timeout;
   only explicit force close bypasses saving. Late results cannot close a newer

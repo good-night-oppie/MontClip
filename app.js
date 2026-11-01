@@ -1230,6 +1230,7 @@ async function connectServer() {
     const data = await res.json();
     applyProject(data);
     state.connected = true;
+    runtime.serverWasConnected = true;
     els.projectName.textContent = project.name + "  ·  🟢 connected";
     runtime.projectId = res.headers.get("X-FableCut-Project");
     if (res.headers.get("X-FableCut-Projects")) initProjectsUi();
@@ -2017,7 +2018,7 @@ function confirmFlvConversion() {
     const dialog = document.createElement("dialog"), text = document.createElement("p");
     const cancel = document.createElement("button"), convert = document.createElement("button");
     dialog.setAttribute("aria-label", en ? "FLV compatibility" : "FLV 兼容处理");
-    text.textContent = en ? "This FLV needs a compatible MP4 copy. Transcoding may change quality and take time. The original stays unchanged. Continue?" : "此 FLV 需要转成兼容的 MP4 副本，可能改变画质并需要等待。原片保持不变。继续吗？";
+    text.textContent = MontClipView.flvMessage("FLV_TRANSCODE_REQUIRED", mcView.get().language);
     cancel.textContent = en ? "Cancel" : "取消"; convert.textContent = en ? "Create compatible copy" : "生成兼容副本";
     cancel.className = convert.className = "btn";
     const finish = yes => { dialog.close(); dialog.remove(); resolve(yes); };
@@ -2027,6 +2028,10 @@ function confirmFlvConversion() {
   });
 }
 async function importFiles(fileList) {
+  const request = async (url, options) => {
+    try { return await fetch(url, options); }
+    catch { throw Object.assign(new Error("Import request failed"), {code:"FLV_SERVICE_UNAVAILABLE"}); }
+  };
   const files = [...fileList];
   if (!files.length) return [];
   const folderId = runtime.importFolderId && getFolder(runtime.importFolderId)
@@ -2041,22 +2046,22 @@ async function importFiles(fileList) {
     let src, originalSrc, preparation, transient = false;
     if (state.connected) {
       try {
-        let res = await fetch("/api/upload?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
+        let res = await request("/api/upload?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
         let body = await res.json();
         if (flv && body.code === "FLV_TRANSCODE_REQUIRED") {
           if (!await confirmFlvConversion()) continue;
           if (gen !== runtime.projectGen) break;
-          res = await fetch("/api/prepare-media", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({src:body.originalSrc, allowTranscode:true})});
+          res = await request("/api/prepare-media", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({src:body.originalSrc, allowTranscode:true})});
           body = await res.json();
         }
-        if (!res.ok) throw new Error(body.error || (mcView.get().language === "en" ? "Import failed" : "导入失败"));
+        if (!res.ok) throw Object.assign(new Error("Import failed"), {code:body.code});
         ({src, originalSrc, preparation} = body);
       } catch (error) {
-        if (flv) { toast(error.message); continue; }
+        if (flv) { toast(MontClipView.flvMessage(error.code, mcView.get().language)); continue; }
         src = URL.createObjectURL(file); transient = true;
       }
     } else {
-      if (flv) { toast(mcView.get().language === "en" ? "FLV import needs the local editor service." : "导入 FLV 需要本地编辑服务。"); continue; }
+      if (flv) { toast(MontClipView.flvMessage(MontClipView.flvDisconnectedCode({desktop:/Electron\//.test(navigator.userAgent), everConnected:runtime.serverWasConnected}), mcView.get().language)); continue; }
       src = URL.createObjectURL(file); transient = true;
     }
     const m = { id: "m_" + uid(), name: file.name, kind, src, transient, folderId };
@@ -2065,7 +2070,10 @@ async function importFiles(fileList) {
       await loadMediaMetadata(m);
       if (kind === "video") grabThumb(m).catch(() => { });
       ensureWave(m);
-    } catch { skipped++; continue; }
+    } catch {
+      if (flv) { toast(MontClipView.flvMessage("FLV_PREVIEW_FAILED", mcView.get().language)); continue; }
+      skipped++; continue;
+    }
     if (gen !== runtime.projectGen) { toast("Import stopped: another project was opened. The uploaded files are in media/"); break; }
     project.media.push(m);
     addedMedia.push(m);

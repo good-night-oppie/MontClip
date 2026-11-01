@@ -1620,6 +1620,12 @@ FLV and `preparation:"remux"|"transcode"`. Retain both files when moving a proje
 `POST /api/upload` returns these fields, or 409 `FLV_TRANSCODE_REQUIRED` with
 `originalSrc`. `POST /api/prepare-media {src:originalSrc, allowTranscode:true}`
 resumes without another upload. Missing/broken FFprobe or FFmpeg fails explicitly.
+Import errors return stable codes, not raw process stderr or local filesystem
+paths. The UI maps them to its selected language: FLV_PROBE_FAILED,
+FLV_STREAMS_UNSUPPORTED, FLV_TRANSCODE_REQUIRED, FLV_PREPARATION_FAILED,
+FLV_COMPONENT_MISSING and FLV_DISK_FULL (only confirmed ENOSPC). Unknown failures
+return IMPORT_FAILED. Cancel skips only that file; a batch continues with the
+next file. The already uploaded original remains on disk but is not registered.
 No project or timeline is changed by either HTTP endpoint; the UI registers the
 media only after browser metadata loading. Canceling conversion does not save a
 project change. Derived copies are persistent project assets, not final exports.

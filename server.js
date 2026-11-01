@@ -36,7 +36,7 @@ const {
   dryRunProfile,
 } = require("./encode-profiles");
 const { downloadImportUrl, maybeFaststart } = require("./import-url");
-const { prepareMedia } = require("./prepare-media");
+const { prepareMedia, publicPreparationError } = require("./prepare-media");
 const { pruneCache } = require("./frame-cache");
 const { createExportJobs } = require("./export-jobs");
 const { denoiseFile, AMOUNT_IDS: DENOISE_AMOUNTS } = require("./denoise");
@@ -939,7 +939,7 @@ const server = http.createServer(async (req, res) => {
       fs.writeFileSync(target, body);
       await faststart(target);
       sendJSON(res, 200, { ok: true, ...await prepareMedia(target) });
-    } catch (e) { sendJSON(res, e.code === "FLV_TRANSCODE_REQUIRED" ? 409 : 500, { error: String(e.message || e), code: e.code, originalSrc: e.originalSrc }); }
+    } catch (e) { sendJSON(res, e.code === "FLV_TRANSCODE_REQUIRED" ? 409 : 500, publicPreparationError(e)); }
     return;
   }
 
@@ -948,11 +948,11 @@ const server = http.createServer(async (req, res) => {
       const body = JSON.parse((await readBody(req)).toString("utf8"));
       const file = resolveSrc(body.src);
       if (!file || !String(body.src).startsWith("/media/") || path.extname(file).toLowerCase() !== ".flv") {
-        sendJSON(res, 400, { error: "需要已导入的 FLV。 / An imported FLV is required." });
+        sendJSON(res, 400, { code:"FLV_SOURCE_REQUIRED", error:"FLV_SOURCE_REQUIRED" });
         return;
       }
       sendJSON(res, 200, { ok: true, ...await prepareMedia(file, {allowTranscode: body.allowTranscode}) });
-    } catch (e) { sendJSON(res, e.code === "FLV_TRANSCODE_REQUIRED" ? 409 : 500, { error: String(e.message || e), code: e.code, originalSrc: e.originalSrc }); }
+    } catch (e) { sendJSON(res, e.code === "FLV_TRANSCODE_REQUIRED" ? 409 : 500, publicPreparationError(e)); }
     return;
   }
 
