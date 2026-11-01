@@ -104,3 +104,5 @@ Simple view occupied-lane follow-up: V1/A1 placeholders retained only if their k
 2026-11-01 PR26 follow-up: proposal-card button calls existing global undo directly, localized latest-edit wording; real hidden Electron card Undo/topbar Redo/topbar Undo produce identical clip states and shared one-step depth. No separate undo history; visible/physical/live-model gates remain pending.
 
 PR26 QQ follow-up: explicit backed-up connection reset, complete scheduler MIT notice and bundle license coverage; Windows628/628+release-check and hidden synthetic reset/reopen pass. Renderer-only consent limitation documented. Real provider/VV/portable release remain unverified; see existing official-pane validation record.
+
+PR26 follow-up: own-application top-of-shared-undo eligibility and JJ final disclosure/noun chips;630/630 plus release-check and hidden DOM lifecycle pass. New same-head QQ/JJ/VV review required; live provider remains unaccepted.

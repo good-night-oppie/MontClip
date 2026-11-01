@@ -3936,7 +3936,7 @@ function restoreSnapshot(json) {
 /** The current state to step back to, carrying the media list when `snap` does
  *  (removing, relinking or replacing media), so redo puts it back too. */
 function counterSnapshot(snap) {
-  if (snap.includes('"rangeState":')) return JSON.stringify({ ...JSON.parse(undoSnapshot()), rangeState: {
+  if (snap.includes('"rangeState":')) return JSON.stringify({ ...JSON.parse(undoSnapshot()), ...(JSON.parse(snap).agentApplyId ? {agentApplyId:JSON.parse(snap).agentApplyId} : {}), rangeState: {
     inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
   } });
   if (!snap.includes('"media":')) return undoSnapshot();
@@ -9535,7 +9535,7 @@ function watchCaptions(now) {
   }
 }
 /** SRT sentence selection: preview a read-only plan, apply on a clone as one undo step. */
-async function showSentenceSelection(suggestion = null) {
+async function showSentenceSelection(suggestion = null, onApplied = null) {
   const busy=()=>state.exporting||state.gesture||state.compCtx||runtime.activeImports||runtime.activeTranscriptions||runtime.desktopExportPending||runtime.saveRequests||runtime.saveTimer||runtime.saveFailed||(typeof closeSaveTransaction!=='undefined'&&closeSaveTransaction);
   const proposalContext=()=>({...agentProjectContext(),generation:agentProjectContext().gen});
   if (state.exporting || state.gesture || state.compCtx || suggestion&&busy()) { toast("请先结束编辑、导出并确认保存 / Finish editing/export and confirm saving first"); return; }
@@ -9614,10 +9614,11 @@ async function showSentenceSelection(suggestion = null) {
     if (!current()) { changed(); return; }
     try {
       const next = plan.project;
-      const snap = JSON.stringify({ ...JSON.parse(undoSnapshot()), rangeState: {
+      const applyToken = suggestion ? crypto.randomUUID() : null;
+      const snap = JSON.stringify({ ...JSON.parse(undoSnapshot()), ...(applyToken ? {agentApplyId:applyToken} : {}), rangeState: {
         inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
       } });
-      applyProject(next); pushUndo(snap); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
+      applyProject(next); pushUndo(snap); if(onApplied)onApplied(applyToken); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
       dialog.close(); toast("已拼接选段，可撤销 / Joined selected sentences; Undo is available");
     } catch (error) { summary.textContent = error.message; }
   });
@@ -20809,6 +20810,12 @@ requestAnimationFrame(loop);
 function agentProjectContext(){
  return {projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen??0,revision:project.revision};
 }
+const officialProposalApplications=new WeakMap();
+function canUndoOfficialProposal(result){
+ const entry=result&&officialProposalApplications.get(result),c=agentProjectContext();
+ if(!entry||entry.projectId!==c.projectId||entry.sequenceId!==c.sequenceId||entry.gen!==c.gen)return false;
+ try{return JSON.parse(runtime.undo.at(-1)).agentApplyId===entry.token;}catch{return false;}
+}
 const mcAgentPanel=document.getElementById('mcAssistantPanel');
 document.querySelector(".upper > .inspector").append(mcAgentPanel);
 document.querySelector(".topbar-right").prepend(document.getElementById("mcMediaToggle"));
@@ -20819,12 +20826,13 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  getLanguage:()=>mcView.get().language,settings:window.montclipPaneSettings,sessionStorage:window.montclipAgentSessions,
  onHide:()=>{setSideTab("inspector");document.getElementById("mcAssistant").focus();},
  getProjectName:id=>id===runtime.projectId?project.name:null,
- onUndo:()=>undo(),
+ canUndoProposal:canUndoOfficialProposal,
+ onUndo:result=>{if(canUndoOfficialProposal(result))undo();},
  onProposal:(response,result)=>{
    const c=agentProjectContext();
    if(JSON.stringify(result.context)!==JSON.stringify(c))throw Error('STALE');
    const proposal=MontClipProposal.prepare(response,{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});
-   showSentenceSelection(proposal);
+   showSentenceSelection(proposal,token=>officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen}));
  },
  getReferences:kind=>MontClipAgentPane.referenceChips(kind,{...agentProjectContext(),
  start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(FableCutCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
