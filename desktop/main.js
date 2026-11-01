@@ -111,6 +111,7 @@ async function start() {
     return;
   }
   if (smoke) {
+    await require("./simple-shortcuts-smoke").run(win);
     if (process.argv.includes("--flv")) await require("./flv-smoke").run(win, env.FABLECUT_DATA_DIR);
     if (process.argv.includes("--m0")) await require("./m0-smoke").run(win, origin, token, env.FABLECUT_DATA_DIR);
     const result = await win.webContents.executeJavaScript(`(async () => {
@@ -146,7 +147,7 @@ async function start() {
       updateMontClipView({language:'zh-CN'});
       const helpLocalized = englishHelp && document.getElementById('mcModeHelp').textContent === '简单模式保留常用操作；需要更多工具和快捷键时，可切到高级模式。' &&
         document.getElementById('mcLiftExtractHelp').textContent.includes('分号保留空隙；单引号连同空隙删除') &&
-        [...document.querySelectorAll('#helpKeys [data-mc-mode-note]')].length === 10 &&
+        [...document.querySelectorAll('#helpKeys [data-mc-mode-note]')].length === 13 &&
         [...document.querySelectorAll('#helpKeys [data-mc-mode-note]')].every(n=>n.textContent.includes('仅高级模式'));
       updateMontClipView(originalView);
       let externalBlocked = false;

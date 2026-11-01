@@ -78,7 +78,7 @@ test("delete refuses a locked clip and reports it", () => {
   w.deleteSelected();
   assert.equal(w.project.clips.length, 1);
   assert.equal(w.calls.undo, 0, "a refused delete leaves no undo step");
-  assert.match(w.calls.toast[0], /Locked/);
+  assert.match(w.calls.toast[0], /locked clips.*c.*not deleted.*Unlock/);
 });
 
 test("delete removes the unlocked part of a mixed selection", () => {
@@ -86,7 +86,7 @@ test("delete removes the unlocked part of a mixed selection", () => {
   const w = world({ clips, selected: ["a", "b"] });
   w.deleteSelected();
   assert.deepEqual(w.project.clips.map((c) => c.id), ["b"]);
-  assert.match(w.calls.toast[0], /left untouched/);
+  assert.match(w.calls.toast[0], /locked clips.*b.*Other unlocked selections were deleted/);
 });
 
 test("split skips a locked clip and splits the rest", () => {
@@ -212,4 +212,23 @@ test("a stale unlink does not block linking", () => {
   const w = world({ clips, selected: ["v", "a"] });
   w.toggleLinkSelected();
   assert.ok(w.byId("v").linkGroup && w.byId("v").linkGroup === w.byId("a").linkGroup);
+});
+test("simple mode does not expose direct ripple deletion or downgrade it to plain delete", () => {
+  const clips = [clip("a", "V1", 0, 2), clip("b", "V1", 2, 2)];
+  const w = world({clips,selected:["a"],mode:"simple"});
+  const before = JSON.stringify(w.project);
+  w.rippleDeleteSelected();
+  assert.equal(JSON.stringify(w.project),before);
+  assert.equal(w.calls.undo,0);
+  w.deleteSelected();
+  assert.equal(w.byId("b").start,2);
+  assert.equal(w.calls.undo,1);
+});
+test("Chinese deletion reason identifies the locked linked track without partial removal", () => {
+  const clips=[clip("picture","V1",0,2,{linkGroup:"pair"}),clip("sound","A1",0,2,{linkGroup:"pair"})];
+  const w=world({clips,selected:["picture"],locked:["A1"],language:"zh-CN"});
+  w.deleteSelected();
+  assert.equal(w.project.clips.length,2);
+  assert.equal(w.calls.undo,0);
+  assert.match(w.calls.toast[0],/锁住的轨道：A1.*关联片段都未删除.*先解锁/);
 });

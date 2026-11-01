@@ -55,6 +55,7 @@ function world({
   trackIds = DEFAULT_TRACKS, disabled = [], locked = [], untargeted = [],
   clips = [], selected = [], time = 0, media = [{ id: "m1", kind: "video", duration: 60 }],
   inPoint = null, outPoint = null,
+  mode = "advanced", language = "en", // legacy editing cases exercise the full tool set
 } = {}) {
   const project = { clips, media, inPoint, outPoint };
   const TRACKS = trackIds.map((id) => ({ id, kind: id[0] === "A" ? "audio" : "video" }));
@@ -68,6 +69,7 @@ function world({
   let n = 0;
   let sourceWindow = () => null;
   const env = {
+    mcView: require("../ui-preferences").create({getItem:()=>JSON.stringify({mode,language}),setItem(){}}),
     project, TRACKS, state, MIN_DUR, MIN_TRANS_DUR: 0.1,
     DEFAULT_PROPS: { volume: 1 },
     uid: () => "u" + (++n),

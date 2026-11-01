@@ -5,11 +5,12 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
   const KEY = "montclip-view-v1";
-  const advancedControls = ["btnMarkIn", "btnMarkOut", "btnInsert", "btnReplace", "btnCloseGap", "btnNextGap", "btnLift", "btnExtract", "btnSnap", "btnSnapMenu", "btnMarkers"];
+  const advancedControls = ["btnMarkIn", "btnMarkOut", "btnTrimIO", "btnRippleDelete", "btnInsert", "btnReplace", "btnCloseGap", "btnNextGap", "btnLift", "btnExtract", "btnSnap", "btnSnapMenu", "btnMarkers"];
   function advancedShortcut(event) {
     if (event.ctrlKey || event.metaKey) return false;
+    if (!event.altKey && event.shiftKey && ["Delete", "Backspace"].includes(event.key)) return true;
     if (event.code === "KeyM" && event.shiftKey) return true;
-    return !event.altKey && [";", "'", ",", ".", "g", "i", "o", "n", "m"].includes(String(event.key).toLowerCase());
+    return !event.altKey && [";", "'", ",", ".", "g", "i", "o", "n", "m", "t"].includes(String(event.key).toLowerCase());
   }
   const text = {
     "zh-CN": { simple: "简单", advanced: "高级", language: "界面语言", undo: "撤销", redo: "重做", assistant: "助手", close: "收起", unavailable: "尚未连接 AI 服务。手动剪辑不受影响。", pending: "AI 服务接入尚未完成，当前不会发送任何内容。", mode: "编辑模式" },

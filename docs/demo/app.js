@@ -4587,8 +4587,9 @@ function addAdjust() {
 }
 function deleteSelected() {
   const snap = undoSnapshot();
+  const locks = deletionLocks(selectedClips());
   const { removed, blocked } = EDIT.removeClips(selectedClips());
-  if (blocked) toastLocked(removed.length > 0);
+  if (blocked) toastDeletionLocked(locks, removed.length > 0);
   if (!removed.length) return;
   pushUndo(snap);
   setSelection([]);
@@ -4596,14 +4597,30 @@ function deleteSelected() {
 }
 /** Delete selection and pull later clips left on targeted tracks (per-track ripple). */
 function rippleDeleteSelected() {
+  if (mcView.get().mode === "simple") return; // no confirmed affected-track preview exists yet
   const snap = undoSnapshot();
+  const locks = deletionLocks(selectedClips());
   const { removed, blocked } = EDIT.rippleDelete(selectedClips());
-  if (blocked) toastLocked(removed.length > 0);
+  if (blocked) toastDeletionLocked(locks, removed.length > 0);
   if (!removed.length) return;
   pushUndo(snap);
   setSelection([]);
   state.dirtyTimeline = true;
   scheduleSave(); renderInspector();
+}
+function deletionLocks(clips) {
+  const locked = withLinked(clips).filter(isClipLocked);
+  return {
+    tracks: [...new Set(locked.filter(c => isTrackLocked(c.track)).map(c => c.track))],
+    clips: locked.filter(c => c.locked === true).map(c => `${c.name || c.id} (${c.id})`),
+  };
+}
+function toastDeletionLocked(locks, partial) {
+  const en = mcView.get().language === "en";
+  const reasons = [locks.tracks.length ? `${en ? "locked tracks" : "锁住的轨道"}：${locks.tracks.join("、")}` : "",
+    locks.clips.length ? `${en ? "locked clips" : "锁住的片段"}：${locks.clips.join("、")}` : ""].filter(Boolean).join("；");
+  toast(en ? `${reasons}. These clips and their linked partners were not deleted. Unlock them first.${partial ? " Other unlocked selections were deleted." : ""}`
+    : `${reasons}。这些片段及其关联片段都未删除，请先解锁。${partial ? "其它未锁定的选中片段已删除。" : ""}`);
 }
 const GAP_EPS = FableCutEdit.GAP_EPS;
 /* Sync-safe close (EDIT.closeGapAt): every targeted track must have a gap at
@@ -4708,6 +4725,7 @@ function splitAtPlayhead() {
 }
 /* Split every targeted-track clip that crosses IN and/or OUT (no head/tail removal). */
 function splitAtWorkArea() {
+  if (mcView.get().mode === "simple") return;
   const cuts = [project.inPoint, project.outPoint].filter((t) => t != null);
   if (!cuts.length) {
     toast("Set an IN or OUT marker first (I / O)");
@@ -4737,6 +4755,7 @@ function trimToPlayhead(side) {
 /* Split at IN/OUT and discard clip heads before IN and tails after OUT.
    Targets targeted tracks; linked partners get the identical trim (sync lock). */
 function trimToWorkArea() {
+  if (mcView.get().mode === "simple") return;
   const inn = project.inPoint, out = project.outPoint;
   if (inn == null && out == null) {
     toast("Set an IN or OUT marker first (I / O)");
@@ -18599,6 +18618,7 @@ $("btnDelete").addEventListener("click", () => {
   if (!clearFocusedTransition()) deleteSelected();
 });
 $("btnRippleDelete").addEventListener("click", () => {
+  if (mcView.get().mode === "simple") return;
   if (!clearFocusedTransition()) rippleDeleteSelected();
 });
 $("btnExport").addEventListener("click", openExportSetup);
@@ -19298,6 +19318,9 @@ els.exportFrameOverlay?.querySelector(".ef-handle")?.addEventListener("keydown",
 window.addEventListener("keydown", (e) => {
   const k = e.key;
   if (e.defaultPrevented || e.isComposing || e.keyCode === 229 || document.querySelector("dialog[open]")) return;
+  if (!isTypingTarget(document.activeElement) && mcView.get().mode === "simple" && MontClipView.advancedShortcut(e)) {
+    e.preventDefault(); return;
+  }
   if ((k === "Delete" || k === "Backspace") && !e.ctrlKey && !e.metaKey && !e.altKey) {
     if (!isTypingTarget(document.activeElement) && clearFocusedTransition()) {
       e.preventDefault();
@@ -19322,10 +19345,6 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   if (isTypingTarget(document.activeElement)) return;
-  if (mcView.get().mode === "simple" && MontClipView.advancedShortcut(e)) {
-    e.preventDefault();
-    return;
-  }
   if (k === " ") { e.preventDefault(); toggleTransportPlay(); }
   // JKL shuttle — bare keys only, so Cmd/Ctrl+J/K/L stay with the browser.
   // K stops; hold K and tap J / L to step a frame, hold both to crawl.

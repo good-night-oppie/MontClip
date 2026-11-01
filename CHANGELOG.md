@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Block simple-mode IN/OUT trim/split and ripple-delete bypasses; keep ordinary
+  deletion and linked-lock atomic protection, with specific bilingual lock reasons.
 - Shorten the simple-mode guidance in both languages and mark advanced-only
   shortcut help rows, distinguishing deletion with and without closing the gap.
 
