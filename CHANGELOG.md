@@ -1044,3 +1044,5 @@ the report in [#1](https://github.com/ronak-create/FableCut/issues/1) — thanks
 - Share decoded-gap refusal and separate readable-range/transcode permission across local REST/MCP imports; retain source references on browser serialization and refuse transient FLV fallback. Native desktop integration remains separate.
 
 - Preserve concurrent same-name uploads using exclusive creation and suffix collision retries.
+
+- Faststart optimization uses an exclusively created temporary directory, refuses output overwrite and retains the valid upload when replacement fails.

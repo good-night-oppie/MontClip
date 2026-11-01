@@ -36,3 +36,11 @@ Related QQ receipt: PR10 at5b14ffd0 formally approved559/559 plus release-check,
 Follow-up tested code 5ca7d7c6fa4c1417890ea38db8ef778e4bb658ad: Windows x64/Node22.15.1, node --test (the npm test script command)575/575,0 fail/cancel/skip; node .github/scripts/release-check.js passed. Full suite uses its existing tiny synthetic media fixtures; no long-recording benchmark, user media, new Electron profile or package build.
 docs/validation/2026-11-01-upload-owned-full.log sanitized UTF-8 LF SHA256 19d9715341815c45cee883c3dfb3c43bc70d50415e53b03bc9e082a090898d0f
 docs/validation/2026-11-01-upload-owned-release.log sanitized UTF-8 LF SHA256 4876ddd7f469df9a52ff350e8f351e0408ea02dbe45c9cef202b022e7d8b889d
+
+## PR11 QQ faststart blocking fix
+
+QQ requested changes on43295b5: wx protected upload creation but fixed file.fs.ext plus ffmpeg -y could overwrite unrelated media; rm-before-rename could lose the uploaded file. Five production maybeFaststart VM tests failed before the fix (existing-media was removed).
+
+New helper exclusively mkdirs a random task directory (not ownership inferred from UUID), uses output.part plus the original supported extension and ffmpeg -n/-nostdin, rejects preexisting output and preserves collision outputs. It never deletes the uploaded file before rename. Same-directory-volume rename replaces directly; failure retains the unoptimized valid upload, returning optimized:false rather than claiming optimization. Existing HTTP callers report a valid upload, not optimization success. Cleanup removes only potential task output and uses nonrecursive rmdir; collisions leave foreign entries intact.
+
+Focused production-function cases: success, encoder failure, rename failure, directory collision, preexisting output, output race/EEXIST; additionally production function with real Windows small-file IO and injected encoder verified rename replacement without pre-delete. Together with concurrent upload regression:8/8. This validates current host rename semantics, not all Windows locks/antivirus/filesystems or a real encoder failure. No user files/profile/old evidence were touched. Linux/macOS untested. Partial upload write failure cleanup/ENOSPC user wording remain independent nonblocking work.
