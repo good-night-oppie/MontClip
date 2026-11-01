@@ -183,6 +183,13 @@ Desktop task requests reject `where: "headless"` with HTTP 409 and code
 export, transcription, scopes and tracking, including the shared job queue.
 It is not yet a portable release or offline transcription distribution.
 
+MontClip runs only its bundled LGPL FFmpeg (`ffmpeg-path.js`), never `ffmpeg`
+on `PATH`: packaged, `resources/ffmpeg/`; in development, `vendor/ffmpeg/<platform>-<arch>/`
+(`node desktop/fetch-ffmpeg.cjs`) or `MONTCLIP_FFMPEG` / `MONTCLIP_FFPROBE` full paths.
+Where this manual says "needs ffmpeg on PATH", read "needs the bundled FFmpeg".
+The LGPL build has no libx264: H.264 export, the encoding profiles and proxies fail
+unless a working hardware encoder exists; a software H.264 choice is still open. See `LICENSES.md` and `desktop/README.md`.
+
 ```
 node server.js        # → http://localhost:7777   (from npm: npx -y fablecut)
 ```

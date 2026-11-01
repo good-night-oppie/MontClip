@@ -45,7 +45,7 @@ function findProxies(dir, file) {
     .filter(Boolean).sort((a, b) => b.height - a.height);
 }
 
-function createProxies({ dir, resolveSrc, probe, broadcast = () => { }, ffmpeg = "ffmpeg" }) {
+function createProxies({ dir, resolveSrc, probe, broadcast = () => { }, ffmpeg = require("./ffmpeg-path").path("ffmpeg") }) {
   fs.mkdirSync(dir, { recursive: true });
   const jobs = new Map();   // src → job {src, file, out, height, state, progress, error, proc}
   const queue = [];

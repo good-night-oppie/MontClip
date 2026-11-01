@@ -66,6 +66,23 @@ for (const f of ["package.json", "server.json", "manifest.json", "glama.json", "
   try { readJSON(f); ok(`${f} parses`); } catch (e) { fail(`${f}: ${e.message}`); }
 }
 
+/* ── Bundled FFmpeg: pinned LGPL builds, packaged with their license ── */
+section("Bundled FFmpeg");
+{
+  const man = readJSON("desktop/ffmpeg-manifest.json");
+  const lic = fs.existsSync(path.join(ROOT, "LICENSES.md")) ? fs.readFileSync(path.join(ROOT, "LICENSES.md"), "utf8") : "";
+  check(/^LGPL/.test(man.license || ""), `FFmpeg manifest license ${man.license}`, "desktop/ffmpeg-manifest.json must pin an LGPL build");
+  for (const plat of ["win32-x64", "linux-x64"]) {
+    const b = (man.builds || {})[plat] || {};
+    check(/^https:\/\//.test(b.url || "") && /lgpl/.test(b.url) && !/-gpl/.test(b.url) && /^[0-9a-f]{64}$/.test(b.sha256 || ""),
+      `${plat}: LGPL archive pinned by SHA-256`, `${plat}: needs an https LGPL archive URL and a SHA-256 in desktop/ffmpeg-manifest.json`);
+    check(lic.includes(b.sha256 || "-") && lic.includes(b.url || "-"), `${plat}: LICENSES.md lists its source and SHA-256`, `${plat}: LICENSES.md must list the archive URL and SHA-256`);
+  }
+  const res = (readJSON("desktop/package.json").build || {}).extraResources || [];
+  check(res.some((r) => r && r.to === "ffmpeg" && /vendor\/ffmpeg\/\$\{platform\}-\$\{arch\}/.test(r.from || "")),
+    "desktop packaging copies vendor/ffmpeg/<platform>-<arch> to resources/ffmpeg", "desktop/package.json build.extraResources must copy vendor/ffmpeg/${platform}-${arch} to ffmpeg");
+}
+
 /* ── Every root script parses ── */
 section("Syntax");
 const rootJs = fs.readdirSync(ROOT).filter((f) => f.endsWith(".js"));

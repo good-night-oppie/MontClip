@@ -23,6 +23,7 @@ const path = require("path");
 const ownedProcesses = process.env.MONTCLIP_DESKTOP === "1"
   ? require("./owned-processes").trackOwnedProcesses(require("child_process")) : null;
 const { spawn, spawnSync, execFile } = require("child_process");
+const FF = require("./ffmpeg-path");
 
 const { analyze, frame, frameGrid } = require("./analyze");
 const {
@@ -94,9 +95,14 @@ function requestAllowed(req) {
 }
 
 /* ffmpeg powers optional niceties (faststart remux on upload, fast export).
-   Everything else works without it. */
+   Everything else works without it. It is always the bundled build
+   (ffmpeg-path.js); FFMPEG_MISSING says in plain words why it is unavailable. */
 let HAS_FFMPEG = false;
-try { HAS_FFMPEG = spawnSync("ffmpeg", ["-version"], { stdio: "ignore", timeout: 1500 }).status === 0; } catch {}
+let FFMPEG_MISSING = FF.reason("ffmpeg");
+if (!FFMPEG_MISSING) {
+  try { HAS_FFMPEG = spawnSync(FF.path("ffmpeg"), ["-version"], { stdio: "ignore", timeout: 15000, windowsHide: true }).status === 0; } catch {}
+  if (!HAS_FFMPEG) FFMPEG_MISSING = `MontClip's bundled ffmpeg (${FF.path("ffmpeg")}) could not be started. Reinstall MontClip to restore it.`;
+}
 
 const MIME = {
   ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
@@ -137,7 +143,7 @@ function broadcast(event = "change", data = event) {
   const payload = `event: ${event}\ndata: ${data}\n\n`;
   for (const res of sseClients) res.write(payload);
 }
-const proxies = createProxies({ dir: PROXIES_DIR, resolveSrc, probe: probeFile, broadcast: (ev, data) => broadcast(ev, data) });
+const proxies = createProxies({ dir: PROXIES_DIR, resolveSrc, probe: probeFile, ffmpeg: FF.path("ffmpeg"), broadcast: (ev, data) => broadcast(ev, data) });
 /* Word transcripts, one per version of a file (fablecut_transcribe, the Transcript tab). */
 const transcripts = createTranscripts({ dir: path.join(ANALYSIS_DIR, "transcripts"), resolveSrc });
 let debounce = null;
@@ -281,7 +287,7 @@ function attachProc(sess, proc) {
 let deliveryEncodersP = null;
 function runFfmpeg(args, timeout = 15000) {
   return new Promise((resolve) => {
-    execFile("ffmpeg", args, { timeout, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
+    execFile(FF.path("ffmpeg"), args, { timeout, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
       (err, stdout, stderr) => resolve({ code: err ? (err.code ?? 1) : 0, stdout: String(stdout || ""), stderr: String(stderr || "") }));
   });
 }
@@ -366,7 +372,7 @@ async function measureLoudness(file, timeout = 10 * 60 * 1000) {
 }
 function ffprobeJSON(file) {
   return new Promise((resolve) => {
-    execFile("ffprobe", ["-v", "error", "-show_streams", "-show_format", "-of", "json", file], { timeout: 60000, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
+    execFile(FF.path("ffprobe"), ["-v", "error", "-show_streams", "-show_format", "-of", "json", file], { timeout: 60000, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
       (err, stdout) => { try { resolve(err ? null : JSON.parse(stdout)); } catch { resolve(null); } });
   });
 }
@@ -389,7 +395,7 @@ async function verifyDeliveryOutput(sess, o, file) {
 /** Spawn one ffmpeg per output of a delivery session. */
 function startDeliveryEncoders(sess) {
   for (const o of sess.outputs) {
-    const proc = spawn("ffmpeg", Delivery.ffmpegArgs(o.spec, {
+    const proc = spawn(FF.path("ffmpeg"), Delivery.ffmpegArgs(o.spec, {
       fps: sess.fps, input: sess.input, canvasW: sess.canvasW, canvasH: sess.canvasH, frame: o.frame,
       wavPath: sess.wav, outPath: o.partPath, duration: sess.duration, loudnorm: o.loudnorm,
     }), { stdio: ["pipe", "ignore", "pipe"] });
@@ -467,7 +473,7 @@ function startEncoder(sess) {
     fps: sess.fps, wavPath: sess.wav, outPath: sess.partPath,
     pixelFormat: sess.pixelFormat, width: sess.width, height: sess.height,
   });
-  const proc = spawn("ffmpeg", args, { stdio: ["pipe", "ignore", "pipe"] });
+  const proc = spawn(FF.path("ffmpeg"), args, { stdio: ["pipe", "ignore", "pipe"] });
   proc.stderr.on("data", (d) => { sess.stderr = (sess.stderr + d).slice(-2000); });
   // EPIPE on end()/late writes is normal once ffmpeg has exited; writeExportFrame
   // attaches its own error listener while a backpressured write is in flight.
@@ -525,7 +531,7 @@ function startAnnexbEncoder(sess) {
   // do not use -shortest: with unset/generated PTS it drops the audio track
   if (sess.wav) args.push("-map", "1:a:0", "-c:a", "aac", "-b:a", "192k");
   args.push("-movflags", "+faststart+write_colr", sess.partPath);
-  attachProc(sess, spawn("ffmpeg", args, { stdio: ["pipe", "ignore", "pipe"] }));
+  attachProc(sess, spawn(FF.path("ffmpeg"), args, { stdio: ["pipe", "ignore", "pipe"] }));
   return sess.proc;
 }
 function cleanupExport(id) {
@@ -876,7 +882,7 @@ const server = http.createServer(async (req, res) => {
         sendJSON(res, 200, { deleted });
         return;
       }
-      if (p === "/api/proxy" && !HAS_FFMPEG) { sendJSON(res, 503, { error: "proxies need ffmpeg on PATH" }); return; }
+      if (p === "/api/proxy" && !HAS_FFMPEG) { sendJSON(res, 503, { error: FFMPEG_MISSING }); return; }
       const status = {};
       for (const src of srcs) status[src] = p === "/api/proxy" ? await proxies.start(src, body.height) : await proxies.status(src);
       sendJSON(res, 200, { status });
@@ -981,7 +987,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       exportJobs.assertWhere(opts.where);
-      if (!HAS_FFMPEG) { sendJSON(res, 400, { error: "ffmpeg not found on PATH — export needs it" }); return; }
+      if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING }); return; }
       if (opts.profile) resolveProfile(String(opts.profile));
       if (opts.profile && (opts.preset || opts.delivery || opts.outputs)) { sendJSON(res, 400, { error: "pass a profile (raw ffmpeg args) or a preset / delivery spec / outputs, not both" }); return; }
       // several files from one render: outputs:true = the project's checked batch outputs, or a list of specs
@@ -1086,7 +1092,7 @@ const server = http.createServer(async (req, res) => {
 
   /* API: fast export (browser-rendered frames → ffmpeg encode) */
   if (p === "/api/export/ffmpeg" && req.method === "GET") {
-    sendJSON(res, 200, { available: HAS_FFMPEG });
+    sendJSON(res, 200, HAS_FFMPEG ? { available: true } : { available: false, reason: FFMPEG_MISSING });
     return;
   }
   if (p === "/api/export/profiles" && req.method === "GET") {
@@ -1135,7 +1141,7 @@ const server = http.createServer(async (req, res) => {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       const mode = opts.mode === "annexb" ? "annexb" : "jpeg";
       if (mode !== "annexb" && opts.profile) resolveProfile(opts.profile); // 400, not 500, on a bad id — even without ffmpeg
-      if (!HAS_FFMPEG) { sendJSON(res, 400, { error: "ffmpeg not found on PATH" }); return; }
+      if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING }); return; }
       sendJSON(res, 200, await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts));
     } catch (e) {
       // an unusable profile is the caller's problem, not a server fault
@@ -1247,7 +1253,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (p === "/api/analyze" && req.method === "POST") {
-    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: "ffmpeg not found on PATH" }); return; }
+    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING }); return; }
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       const name = path.basename(decodeURIComponent(opts.src || ""));
@@ -1286,7 +1292,7 @@ const server = http.createServer(async (req, res) => {
      request string into a path inside a served root.
 
      &text=1 returns JSON statistics instead of the image, for agents (or
-     models) that cannot see one. Needs ffmpeg on PATH.
+     models) that cannot see one. Needs the bundled ffmpeg.
 
      Results are cached under analysis/frames/ by a hash of every argument, so
      polling the same timestamp costs nothing and the mtime/size of the cached
@@ -1317,7 +1323,7 @@ const server = http.createServer(async (req, res) => {
         : "src must name an existing file under /media/ or /library/" });
       return;
     }
-    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: "ffmpeg not found on PATH — frame extraction needs it" }); return; }
+    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING }); return; }
     const num = (k, dflt) => {
       const raw = url.searchParams.get(k);
       if (raw === null || raw === "") return dflt;
@@ -1392,7 +1398,7 @@ const server = http.createServer(async (req, res) => {
      writes a denoised FLAC of the whole file into media/ (reused if it exists)
      and returns {src, name, duration, channels}. Registering it is the caller's job. */
   if (p === "/api/denoise" && req.method === "POST") {
-    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: "ffmpeg not found on PATH — noise reduction needs it" }); return; }
+    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING }); return; }
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       if (!DENOISE_AMOUNTS.includes(opts.amount)) { sendJSON(res, 400, { error: `amount must be one of ${DENOISE_AMOUNTS.join(", ")}` }); return; }
@@ -1479,7 +1485,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  media folder : ${MEDIA_DIR}`);
   console.log(`  library      : ${LIBRARY_DIR} (${LIBRARY_SUBDIRS.join(", ")})`);
   if (DATA_DIR !== APP_DIR) console.log(`  app files    : ${APP_DIR}`);
-  console.log(`  ffmpeg       : ${HAS_FFMPEG ? "found (fast export + faststart remux on)" : "not found (real-time export only)"}`);
+  console.log(`  ffmpeg       : ${HAS_FFMPEG ? "found (fast export + faststart remux on)" : "not available (real-time export only) — " + FFMPEG_MISSING}`);
   const enc = loadEncodeProfiles(true);
   console.log(`  encode prof. : ${PROFILES_FILE} (${Object.keys(enc.profiles).join(", ")} · default ${enc.default})`);
   for (const issue of enc.issues || []) console.log(`     ⚠ ${issue}`);

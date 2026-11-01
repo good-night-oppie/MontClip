@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   FableCut reference analyzer — zero-dependency Node.js (needs ffmpeg on PATH)
+   FableCut reference analyzer — zero-dependency Node.js (runs the bundled ffmpeg, see ffmpeg-path.js)
 
    Turns a reference video into an "edit blueprint": shot boundaries (cuts),
    music beats + BPM, an audio-energy curve, the drop, and the extracted music
@@ -14,6 +14,7 @@
 const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
+const FF = require("./ffmpeg-path");
 const Stats = require("./frame-stats");
 const Beats = require("./beats");
 
@@ -38,7 +39,7 @@ function run(cmd, args, { binary = false } = {}) {
 
 /* ── ffprobe: container + stream facts ── */
 async function probe(file) {
-  const r = await run("ffprobe", ["-v", "error", "-show_streams", "-show_format", "-of", "json", file]);
+  const r = await run(FF.path("ffprobe"), ["-v", "error", "-show_streams", "-show_format", "-of", "json", file]);
   if (r.code !== 0) throw new Error("ffprobe failed: " + r.stderr.slice(-400));
   const info = JSON.parse(r.stdout);
   const v = (info.streams || []).find((s) => s.codec_type === "video");
@@ -59,7 +60,7 @@ async function probe(file) {
 
 /* ── Shot boundaries via ffmpeg scene-change scores ── */
 async function detectCuts(file, threshold) {
-  const r = await run("ffmpeg", [
+  const r = await run(FF.path("ffmpeg"), [
     "-hide_banner", "-nostats", "-i", file,
     "-vf", `select='gt(scene,${threshold})',metadata=print:file=-`,
     "-an", "-f", "null", "-",
@@ -81,7 +82,7 @@ async function detectCuts(file, threshold) {
 
 /* ── Audio: decode → onset envelope → beats + BPM + energy curve ── */
 async function decodePCM(file) {
-  const r = await run("ffmpeg", ["-v", "error", "-i", file, "-vn", "-ac", "1", "-ar", String(SR), "-f", "s16le", "-"], { binary: true });
+  const r = await run(FF.path("ffmpeg"), ["-v", "error", "-i", file, "-vn", "-ac", "1", "-ar", String(SR), "-f", "s16le", "-"], { binary: true });
   if (r.code !== 0 || r.stdout.length < WIN * 2) return null;
   const buf = r.stdout;
   return new Int16Array(buf.buffer, buf.byteOffset, Math.floor(buf.length / 2));
@@ -98,7 +99,7 @@ async function extractMusic(file, outDir) {
   let out = path.join(outDir, stem + "-music.m4a");
   let i = 1;
   while (fs.existsSync(out)) out = path.join(outDir, `${stem}-music_${i++}.m4a`);
-  const r = await run("ffmpeg", ["-y", "-i", file, "-vn", "-c:a", "aac", "-b:a", "192k", out]);
+  const r = await run(FF.path("ffmpeg"), ["-y", "-i", file, "-vn", "-c:a", "aac", "-b:a", "192k", out]);
   if (r.code !== 0) { try { fs.rmSync(out); } catch {} return null; }
   return out;
 }
@@ -145,7 +146,7 @@ function checkQuality(q) {
 async function pipeOut(file, pre, filter, post, fmtArgs) {
   const args = ["-hide_banner", "-nostats", "-loglevel", "error", ...(pre || []), "-i", file];
   args.push(...(post || []), "-an", "-sn", "-dn", "-vf", filter, ...fmtArgs);
-  const r = await run("ffmpeg", args, { binary: true });
+  const r = await run(FF.path("ffmpeg"), args, { binary: true });
   if (!r.stdout || !r.stdout.length) throw new Error("ffmpeg produced nothing — is the timestamp inside the clip? (has video?)");
   return r.stdout;
 }

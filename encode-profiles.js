@@ -23,6 +23,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { spawn } = require("child_process");
+const FF = require("./ffmpeg-path");
 
 const PROFILES_FILE = path.join(__dirname, "encoding-profiles.json");
 
@@ -272,7 +273,7 @@ function dryRunProfile(profile, { fps = 30, hasAudio = true } = {}) {
       resolve(result);
     };
     try {
-      proc = spawn("ffmpeg", args, { stdio: ["ignore", "ignore", "pipe"] });
+      proc = spawn(FF.path("ffmpeg"), args, { stdio: ["ignore", "ignore", "pipe"] });
     } catch (e) {
       finish({ ok: false, error: e.message || String(e) });
       return;

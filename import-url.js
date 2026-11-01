@@ -10,7 +10,8 @@ const dns = require("dns");
 const net = require("net");
 const fs = require("fs");
 const path = require("path");
-const { spawnSync, execFile } = require("child_process");
+const { execFile } = require("child_process");
+const FF = require("./ffmpeg-path");
 
 const MAX_BYTES = 2 * 1024 * 1024 * 1024; // 2 GiB
 const TIMEOUT_MS = 180_000;
@@ -268,8 +269,7 @@ async function downloadImportUrl(raw, destDir, opts = {}) {
 let hasFfmpeg = null;
 function ffmpegAvailable() {
   if (hasFfmpeg == null) {
-    try { hasFfmpeg = spawnSync("ffmpeg", ["-version"], { stdio: "ignore", timeout: 1500 }).status === 0; }
-    catch { hasFfmpeg = false; }
+    hasFfmpeg = FF.available("ffmpeg");
   }
   return hasFfmpeg;
 }
@@ -278,7 +278,7 @@ function maybeFaststart(file) {
     return Promise.resolve();
   const tmp = file + ".fs" + path.extname(file);
   return new Promise((resolve) => {
-    execFile("ffmpeg", ["-y", "-i", file, "-c", "copy", "-movflags", "+faststart", tmp],
+    execFile(FF.path("ffmpeg"), ["-y", "-i", file, "-c", "copy", "-movflags", "+faststart", tmp],
       { maxBuffer: 1 << 24 }, (err) => {
         if (err) { try { fs.rmSync(tmp, { force: true }); } catch {} return resolve(); }
         try { fs.rmSync(file); fs.renameSync(tmp, file); } catch { try { fs.rmSync(tmp, { force: true }); } catch {} }

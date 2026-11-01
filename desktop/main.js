@@ -25,6 +25,15 @@ async function start() {
     MONTCLIP_SESSION_TOKEN: token, FABLECUT_DATA_DIR: path.join(app.getPath("userData"), "workspace") };
   delete env.NODE_OPTIONS;
   delete env.NODE_PATH;
+  // The server runs only the FFmpeg shipped in resources/ffmpeg once packaged
+  // (see ffmpeg-path.js); development keeps MONTCLIP_FFMPEG* or vendor/.
+  delete env.MONTCLIP_FFMPEG_PACKAGED;
+  if (app.isPackaged) {
+    delete env.MONTCLIP_FFMPEG;
+    delete env.MONTCLIP_FFPROBE;
+    env.MONTCLIP_FFMPEG_PACKAGED = "1";
+    env.MONTCLIP_FFMPEG_DIR = path.join(process.resourcesPath, "ffmpeg");
+  }
   worker = utilityProcess.fork(path.join(__dirname, "..", "server.js"), [], { env, stdio: "pipe" });
   worker.once("exit", () => { workerExited = true; });
   worker.stdout?.on("data", (data) => { if (!app.isPackaged) process.stdout.write(data); });

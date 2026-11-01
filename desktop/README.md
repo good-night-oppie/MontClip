@@ -53,3 +53,17 @@ that is not a complete security review. Electron's MIT and Chromium third-party
 licenses must accompany a future package.
 
 Security implementation follows [Electron's security checklist](https://www.electronjs.org/docs/latest/tutorial/security).
+
+## Bundled FFmpeg
+
+The server runs only the FFmpeg MontClip ships, never one found on `PATH`
+(`ffmpeg-path.js`). Once packaged, `main.js` points it at
+`resources/ffmpeg/` and ignores development overrides. In development, either
+run `node desktop/fetch-ffmpeg.cjs` (downloads the pinned LGPL build for this
+platform into `vendor/ffmpeg/<platform>-<arch>/`, checks its SHA-256 and that it
+is not a GPL build), or set `MONTCLIP_FFMPEG` and `MONTCLIP_FFPROBE` to full paths
+(or `MONTCLIP_FFMPEG_DIR` to a folder holding both). Without one of these,
+export, preview frames, proxies and noise reduction report that the bundled
+FFmpeg is missing. Packaging (`build.extraResources` in `package.json`) copies
+`vendor/ffmpeg/<platform>-<arch>` to `resources/ffmpeg`; no packager is
+configured in this repo yet. Source and checksums: `LICENSES.md`.
