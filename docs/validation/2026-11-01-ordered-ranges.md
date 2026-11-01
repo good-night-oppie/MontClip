@@ -23,13 +23,13 @@ Only synthetic inputs were read; reference-reordered.mp4 was not used as output.
   180 video frames, 30fps and 6 seconds. The SRT has all eight expected intervals,
   including 0–200ms and 5800–6000ms whole-text boundary captions.
 - Test artifacts retained outside the repository:
-  `C:/Users/tyb90/AppData/Local/Temp/MontClip 中文 smoke XZJTbp/workspace/exports/`
-  and `C:/Users/tyb90/AppData/Local/Temp/MontClip 中文 smoke UBOsSw/workspace/exports/`.
+  `%TEMP%/MontClip 中文 smoke XZJTbp/workspace/exports/`
+  and `%TEMP%/MontClip 中文 smoke UBOsSw/workspace/exports/`.
   Each contains M0 reordered.mp4, M0.srt, M0.mapping.json and M0.receipt.json.
 - Final closeout run also passed with existing Limit/2x preview settings and
   IN/OUT: preview temporarily used unlimited 1x and restored settings; undo
   restored old IN/OUT and redo cleared it. Artifacts:
-  `C:/Users/tyb90/AppData/Local/Temp/MontClip 中文 smoke 2IjCmG/workspace/exports/`.
+  `%TEMP%/MontClip 中文 smoke 2IjCmG/workspace/exports/`.
 
 ## Not passed or not tested
 
