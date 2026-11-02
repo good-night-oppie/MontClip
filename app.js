@@ -36,9 +36,12 @@ const TRACK_SIZE_PRESETS = {
 const TRACK_SIZE_KEY = "fablecut-track-size";
 // Shared DOM and project; this controller only changes view preferences.
 const mcView = MontClipView.create(window.montclipViewSettings ? MontClipView.desktopStorage(window.montclipViewSettings) : localStorage);
+/** Keyed interface text in the current language (ui-terms.js / ui-preferences.js). Never for user content. */
+const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
 function renderMontClipView() {
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
   document.documentElement.lang = language;
+  MontClipView.applyI18n(document, language);
   document.body.dataset.mcMode = mode;
   document.getElementById("mcLanguage").value = language;
   const group = document.getElementById("mcMode"); group.setAttribute("aria-label", t.mode);
@@ -466,9 +469,9 @@ function showClipCtxMenu(clientX, clientY, c) {
     item("Find silences", "", () => findSilences(selectedClips()));
   if (selectedClips().some((x) => isVisualClip(x) && x.kind !== "null"))
     item("Parent to a new null", "", parentSelectionToNull, locked ? "Locked — unlock to change" : null);
-  item("Precompose", "", precomposeSelection, locked ? "Locked — unlock to change" : null);
-  if (c.kind === "comp") item("Open composition", "", () => enterComp(c.compId, c));
-  if (c.mediaId || c.kind === "comp") item("Reveal in project", "", () => revealInProject(c));
+  item(uiText("term.precompose"), "", precomposeSelection, locked ? "Locked — unlock to change" : null);
+  if (c.kind === "comp") item(uiText("term.open-composition"), "", () => enterComp(c.compId, c));
+  if (c.mediaId || c.kind === "comp") item(uiText("term.reveal-in-project"), "", () => revealInProject(c));
   const linked = selectedClips().some((x) => x.linkGroup || x.linkedId);
   if (linked) item("Unlink audio / video", "Ctrl+L", toggleLinkSelected, locked ? "Locked — unlock to change" : null);
   else if (c.kind === "video" || c.kind === "audio") {
@@ -2604,11 +2607,11 @@ function showMediaMenu(x, y, m) {
   item("Open in Source", () => loadSourceFromMedia(m));
   item(`Find timeline instances (${uses})`, () => showMediaInstances(m, x, y), uses ? null : "Not used on the timeline");
   item("Media info…", () => showMediaInfo(m, x, y));
-  item(isMediaOffline(m.id) ? "Relink…" : "Relink to another copy…", () => openRelinkDialog([m]), state.connected ? null : "Needs the FableCut server");
-  item("Replace file…", () => replaceMediaFile(m), state.connected ? null : "Needs the FableCut server");
+  item(isMediaOffline(m.id) ? "Relink…" : "Relink to another copy…", () => openRelinkDialog([m]), state.connected ? null : uiText("own.needs-server"));
+  item(uiText("term.replace-file"), () => replaceMediaFile(m), state.connected ? null : uiText("own.needs-server"));
   if (m.kind === "video") {
     const ps = proxyStatus.get(m.id);
-    const why = !state.connected ? "Needs the FableCut server" : !state.ffmpeg ? "Needs ffmpeg on the server's PATH" : isMediaOffline(m.id) ? "The file is offline" : null;
+    const why = !state.connected ? uiText("own.needs-server") : !state.ffmpeg ? "Needs ffmpeg on the server's PATH" : isMediaOffline(m.id) ? "The file is offline" : null;
     if (ps && (ps.state === "ready" || ps.state === "running" || ps.state === "queued")) item(ps.state === "ready" ? "Delete proxy" : "Stop making the proxy", () => deleteProxies([m]));
     else {
       item("Create proxy (540p)", () => createProxies([m], 540), why);
@@ -3535,7 +3538,7 @@ async function pjAction(act, btn) {
   if (act === "delete") {
     if (btn.dataset.armed !== "1") {
       btn.dataset.armed = "1"; btn.textContent = "Click again to delete";
-      setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ""; btn.textContent = "Delete…"; } }, 3000);
+      setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ""; btn.textContent = uiText("term.delete-2"); } }, 3000);
       return;
     }
     const out = await pjBusy(() => pjPost({ action: "delete", id: p.id }));
@@ -3680,7 +3683,7 @@ async function pjVersionRun(act, btn) {
   if (act === "restore") {
     if (btn.dataset.armed !== "1") {
       btn.dataset.armed = "1"; btn.textContent = "Click again to restore";
-      setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ""; btn.textContent = "Restore…"; } }, 3000);
+      setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ""; btn.textContent = uiText("term.restore"); } }, 3000);
       return;
     }
     if (p.active && state.exporting) { toast("Wait for the export to finish before restoring"); return; }
@@ -3725,7 +3728,7 @@ async function pjVersionRun(act, btn) {
   if (act === "delete") {
     if (btn.dataset.armed !== "1") {
       btn.dataset.armed = "1"; btn.textContent = "Click again to delete";
-      setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ""; btn.textContent = "Delete…"; } }, 3000);
+      setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ""; btn.textContent = uiText("term.delete-2"); } }, 3000);
       return;
     }
     const out = await post({ action: "delete", version: v });
@@ -6644,7 +6647,8 @@ function renderInspector(lite) {
   if (colorState.open && !lite) renderColorPage();
   const c = getClip(state.selId);
   if (!c) {
-    els.inspector.innerHTML = `<div class="inspector-empty">Select a clip to edit its<br>transform, effects &amp; audio.</div>`;
+    els.inspector.innerHTML = `<div class="inspector-empty"></div>`;
+    els.inspector.firstChild.textContent = uiText("own.inspector-empty");
     renderKfGraphsPanel();
     return;
   }
@@ -12354,15 +12358,15 @@ function showCompMenu(x, y, comp) {
     menu.appendChild(b);
   };
   item("Open", () => enterComp(comp.id));
-  item("Duplicate", () => {
+  item(uiText("term.duplicate"), () => {
     pushUndo();
     const copy = JSON.parse(JSON.stringify(comp)); copy.id = newCompId(); copy.name = `${comp.name} copy`.slice(0, 80);
     project.comps.push(copy); runtime.compGen = (runtime.compGen || 0) + 1; scheduleSave(); renderBin();
   });
   // an open comp's live clips are on the timeline, not yet in its entry
-  item("Save as template", () => saveCompAsTemplate(comp.id === compCtxId() ? { ...comp, clips: project.clips, tracks: project.tracks } : comp));
+  item(uiText("term.save-as-template"), () => saveCompAsTemplate(comp.id === compCtxId() ? { ...comp, clips: project.clips, tracks: project.tracks } : comp));
   const used = CompLib.usages(state.compCtx ? state.compCtx.root : project, comp.id).length;
-  item("Delete", () => {
+  item(uiText("term.delete"), () => {
     pushUndo();
     project.comps = project.comps.filter((c) => c.id !== comp.id);
     runtime.compGen = (runtime.compGen || 0) + 1; scheduleSave(); renderBin();
@@ -16208,7 +16212,7 @@ function loop(ts) {
     const t0 = w ? w.start : 0;
     const pct = span ? ((state.time - t0) / span) * 100 : 0;
     els.exportProgress.style.width = pct.toFixed(1) + "%";
-    els.exportTitle.textContent = `Exporting… ${pct.toFixed(0)}%`;
+    els.exportTitle.textContent = uiText("own.exporting-pct", { pct: pct.toFixed(0) });
   }
   idleAudio(ts);
   if (loopBusy(ts)) requestAnimationFrame(loop);
@@ -17657,7 +17661,7 @@ async function fastExport(opts = {}) {
   let uploadError = null;
   const setError = (err) => { if (!uploadError) uploadError = err; };
   try {
-    els.exportTitle.textContent = "Mixing audio…";
+    els.exportTitle.textContent = uiText("own.mixing-audio");
     const wav = await renderAudioMix(t0, t1);
     if (renderCancelled) throw new Error("cancelled");
     const profileId = opts.profile || effectiveEncodeProfileId();
@@ -17751,13 +17755,13 @@ async function fastExport(opts = {}) {
       }).catch((err) => { setError(err); throw err; }).finally(() => { pixelsInflight--; });
       const pct = ((f + 1) / frames) * 100;
       els.exportProgress.style.width = pct.toFixed(1) + "%";
-      els.exportTitle.textContent = `Rendering… ${pct.toFixed(0)}%`;
+      els.exportTitle.textContent = uiText("own.rendering-pct", { pct: pct.toFixed(0) });
       if (opts.onProgress) opts.onProgress(0.97 * (f + 1) / frames);
       if (job) reportExportJob(job, { progress: 0.97 * (f + 1) / frames });
     }
     await pixelChain;
     if (uploadError) throw uploadError;
-    els.exportTitle.textContent = "Encoding…";
+    els.exportTitle.textContent = uiText("own.encoding");
     await up.done();
     if (uploadError) throw uploadError;
     } finally {
@@ -18353,7 +18357,7 @@ async function webCodecsExport() {
   const setError = (err) => { if (!uploadError) uploadError = err; };
   let up = null;
   try {
-    els.exportTitle.textContent = "Mixing audio…";
+    els.exportTitle.textContent = uiText("own.mixing-audio");
     const wav = await renderAudioMix(t0, t1);
     if (renderCancelled) throw new Error("cancelled");
 
@@ -18441,9 +18445,9 @@ async function webCodecsExport() {
       }
       const pct = ((f + 1) / frames) * 100;
       els.exportProgress.style.width = pct.toFixed(1) + "%";
-      els.exportTitle.textContent = `Encoding… ${pct.toFixed(0)}%`;
+      els.exportTitle.textContent = uiText("own.encoding-pct", { pct: pct.toFixed(0) });
     }
-    els.exportTitle.textContent = "Finishing…";
+    els.exportTitle.textContent = uiText("own.finishing");
     await encoder.flush();
     await up.done();
     if (uploadError) throw uploadError;
@@ -18817,7 +18821,7 @@ function openProjectTabMenu(clientX, clientY) {
   menu.className = "ctx-menu";
   const item = document.createElement("div");
   item.className = "ctx-opt";
-  item.textContent = "New folder";
+  item.textContent = uiText("term.new-folder");
   item.addEventListener("click", () => {
     closeBinCtxMenu();
     if (state.binTab !== "project") setBinTab("project");
