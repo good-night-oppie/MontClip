@@ -50,3 +50,25 @@ test('the package is zipped with zipDir, and its smoke checks the entry names', 
   a.doesNotMatch(read('desktop/package-win.cjs'), /CreateFromDirectory/);
   a.match(read('desktop/package-smoke.cjs'), /zipEntries\(zip\)/);
 });
+
+test('zipDir takes hidden files too, and checks the zip holds every file (QQ, cf45bd8: a hidden file was silently left out)', { skip: !win && 'zipDir uses Windows PowerShell' }, () => {
+  const { zipDir } = require('../desktop/zip-dir.cjs');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'montclip-zip-'));
+  try {
+    const top = path.join(root, 'T');
+    fs.mkdirSync(path.join(top, 'sub dir'), { recursive: true });
+    for (const f of ['a.txt', 'sub dir/a.txt', 'sub dir/隐藏 b.txt']) fs.writeFileSync(path.join(top, f), f);
+    const hide = spawnSync('attrib', ['+h', path.join(top, 'sub dir', 'a.txt')], { windowsHide: true });
+    a.equal(hide.status, 0);
+    const zip = path.join(root, 'o.zip');
+    zipDir(top, zip);
+    a.deepEqual(zipEntries(zip).map((e) => e.name).sort(), ['T/a.txt', 'T/sub dir/a.txt', 'T/sub dir/隐藏 b.txt']);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('zipDir counts: a zip that does not hold every file is an error, and no zip is left', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'desktop', 'zip-dir.cjs'), 'utf8');
+  a.match(src, /Get-ChildItem -LiteralPath \$src -Recurse -File -Force/);
+  a.match(src, /entries\.length !== files\.length/);
+  a.match(fs.readFileSync(path.join(__dirname, '..', 'desktop', 'package-win.cjs'), 'utf8'), /the zip holds \$\{n\} entries, the package \$\{all\.length \+ 1\} files/);
+});
