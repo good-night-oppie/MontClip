@@ -255,10 +255,14 @@
   /* Never chosen, whatever the build lists (release blocker, docs/decisions/2026-11-02-h264-encoder.md):
      a build that still links libopenh264 must not make MontClip use it. */
   const NEVER_ENCODERS = ["libopenh264"];
-  /** The forbidden encoder named by raw ffmpeg args (-c:v / -vcodec / -codec:v), or null. */
+  /** A forbidden encoder anywhere in raw ffmpeg args, in any case, or null. ffmpeg accepts many spellings of
+   *  the codec option (-c, -codec, -c:v, -c:v:0, -c:V, -vcodec, …), so the option is not looked at at all:
+   *  the name appearing anywhere refuses the args (QQ, 2026-11-02). */
   function forbiddenEncoder(args) {
-    for (let i = 0; i < (args || []).length - 1; i++)
-      if (/^-(c:v|vcodec|codec:v)$/.test(args[i]) && NEVER_ENCODERS.includes(args[i + 1])) return args[i + 1];
+    for (const arg of args || []) {
+      const s = String(arg).toLowerCase();
+      if (NEVER_ENCODERS.some((e) => s.includes(e))) return String(arg);
+    }
     return null;
   }
   function encodersFor(codec, available) {
