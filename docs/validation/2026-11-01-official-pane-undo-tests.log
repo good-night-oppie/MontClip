@@ -1,0 +1,130 @@
+TAP version 13
+# Subtest: production host represents pre-first-load generation consistently for references and request
+ok 1 - production host represents pre-first-load generation consistently for references and request
+  ---
+  duration_ms: 5.8463
+  type: 'test'
+  ...
+# Subtest: confirmation displays exact history; cancel sends zero; failure preserves draft
+ok 2 - confirmation displays exact history; cancel sends zero; failure preserves draft
+  ---
+  duration_ms: 2.0603
+  type: 'test'
+  ...
+# Subtest: stale context and edited references reject before transport
+ok 3 - stale context and edited references reject before transport
+  ---
+  duration_ms: 0.3664
+  type: 'test'
+  ...
+# Subtest: real transport result persists history; new session has empty history
+ok 4 - real transport result persists history; new session has empty history
+  ---
+  duration_ms: 0.6229
+  type: 'test'
+  ...
+# Subtest: cancelled/late completion cannot clear new input or add messages
+ok 5 - cancelled/late completion cannot clear new input or add messages
+  ---
+  duration_ms: 0.3968
+  type: 'test'
+  ...
+# Subtest: close flush synchronously refuses live request and retains session save failure after completion
+ok 6 - close flush synchronously refuses live request and retains session save failure after completion
+  ---
+  duration_ms: 0.3935
+  type: 'test'
+  ...
+# Subtest: strict sentence suggestion builds existing range plan without mutating and preserves user order
+ok 7 - strict sentence suggestion builds existing range plan without mutating and preserves user order
+  ---
+  duration_ms: 4.97
+  type: 'test'
+  ...
+# Subtest: untrusted extra operations, unknown/unquoted identities, partial sentences and invalid times reject
+ok 8 - untrusted extra operations, unknown/unquoted identities, partial sentences and invalid times reject
+  ---
+  duration_ms: 2.2761
+  type: 'test'
+  ...
+# Subtest: locked tracks and speed ramps retain existing range-plan refusal, edits invalidate binding
+ok 9 - locked tracks and speed ramps retain existing range-plan refusal, edits invalidate binding
+  ---
+  duration_ms: 1.0188
+  type: 'test'
+  ...
+# Subtest: official reused sources remain byte-identical to pinned source manifest
+ok 10 - official reused sources remain byte-identical to pinned source manifest
+  ---
+  duration_ms: 4.4272
+  type: 'test'
+  ...
+# Subtest: production island imports official components; no runtime CDN or clipboard API
+ok 11 - production island imports official components; no runtime CDN or clipboard API
+  ---
+  duration_ms: 0.7871
+  type: 'test'
+  ...
+# Subtest: independent M0 truth: user order and all eight exact caption intersections
+ok 12 - independent M0 truth: user order and all eight exact caption intersections
+  ---
+  duration_ms: 14.365
+  type: 'test'
+  ...
+# Subtest: half-open boundaries, repeated source ranges and collapsed millisecond intersections
+ok 13 - half-open boundaries, repeated source ranges and collapsed millisecond intersections
+  ---
+  duration_ms: 1.1727
+  type: 'test'
+  ...
+# Subtest: later native caption timing changes refuse stale provenance; markers follow user order
+ok 14 - later native caption timing changes refuse stale provenance; markers follow user order
+  ---
+  duration_ms: 1.0604
+  type: 'test'
+  ...
+# Subtest: Ctrl+Z after an agent edit takes back the agent's edit, then the user's
+ok 15 - Ctrl+Z after an agent edit takes back the agent's edit, then the user's
+  ---
+  duration_ms: 1.5334
+  type: 'test'
+  ...
+# Subtest: undoing an outside edit that removed media brings the media back with its clips; redo removes it again
+ok 16 - undoing an outside edit that removed media brings the media back with its clips; redo removes it again
+  ---
+  duration_ms: 1.1823
+  type: 'test'
+  ...
+# Subtest: an outside edit that only changes clips keeps the step small (no media)
+ok 17 - an outside edit that only changes clips keeps the step small (no media)
+  ---
+  duration_ms: 0.2697
+  type: 'test'
+  ...
+# Subtest: an outside write that leaves the open timeline alone adds no undo step
+ok 18 - an outside write that leaves the open timeline alone adds no undo step
+  ---
+  duration_ms: 0.2564
+  type: 'test'
+  ...
+# Subtest: syncFromServer: an agent's edit becomes an undo step of its own; undo and redo walk through it in order
+ok 19 - syncFromServer: an agent's edit becomes an undo step of its own; undo and redo walk through it in order
+  ---
+  duration_ms: 1.2956
+  type: 'test'
+  ...
+# Subtest: syncFromServer: a write that leaves the timeline alone adds no step; a collision lets Ctrl+Z put the user's version back
+ok 20 - syncFromServer: a write that leaves the timeline alone adds no step; a collision lets Ctrl+Z put the user's version back
+  ---
+  duration_ms: 0.8669
+  type: 'test'
+  ...
+1..20
+# tests 20
+# suites 0
+# pass 20
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 159.1285

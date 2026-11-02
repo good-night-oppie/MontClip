@@ -1,0 +1,18 @@
+{
+  "react": {
+    "version": "19.2.0",
+    "licenseSha256": "cf9b17822d1fcd4ff32ccbe14183386fb3adf6f2ff92dc184130823f7fc28173"
+  },
+  "react-dom": {
+    "version": "19.2.0",
+    "licenseSha256": "cf9b17822d1fcd4ff32ccbe14183386fb3adf6f2ff92dc184130823f7fc28173"
+  },
+  "scheduler": {
+    "version": "0.27.0",
+    "licenseSha256": "cf9b17822d1fcd4ff32ccbe14183386fb3adf6f2ff92dc184130823f7fc28173"
+  },
+  "lucide-react": {
+    "version": "0.468.0",
+    "licenseSha256": "092a9de2ea14bcedb33f7fdf523461346251bf5334f62480a162466f4591afe1"
+  }
+}

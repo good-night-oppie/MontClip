@@ -1,0 +1,26 @@
+
+
+  FableCut running →  http://localhost:37358
+
+  project file : <user>\AppData\Local\Temp\MontClip-official-pane-wMFfDv\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-official-pane-wMFfDv\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-official-pane-wMFfDv\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+(electron) 'safeStorage.isEncryptionAvailable' is deprecated and will be removed. Please use 'safeStorage.isAsyncEncryptionAvailable' instead.
+(electron) 'safeStorage.encryptString' is deprecated and will be removed. Please use 'safeStorage.encryptStringAsync' instead.
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+false !== true
+
+    at BrowserWindow.loadURL (<repo>\desktop\official-pane-smoke.cjs:23:120)
+    at async start (<repo>\desktop\main.js:131:3) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: 'strictEqual',
+  diff: 'simple'
+}

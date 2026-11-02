@@ -2,6 +2,8 @@
 // Development-only external entry: electron this-file --montclip-smoke --user-data-dir=<owned-profile>
 // Loads the real host and measures its native minimum window, without emulation.
 const {app,BrowserWindow,screen}=require('electron');
+const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
+if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 assert.ok(process.argv.includes('--montclip-smoke'));
 const original=BrowserWindow.prototype.loadURL;

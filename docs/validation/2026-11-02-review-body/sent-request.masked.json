@@ -1,0 +1,32 @@
+{
+ "url": "https://openrouter.ai/api/v1/chat/completions",
+ "method": "POST",
+ "redirect": "error",
+ "headers": {
+  "Content-Type": "application/json",
+  "Authorization": "Bearer <masked>"
+ },
+ "body": {
+  "model": "vendor/model-x:free",
+  "messages": [
+   {
+    "role": "system",
+    "content": "You help edit a video by its subtitles in MontClip.\nThe user message may end with a JSON object {\"references\":[...]} listing subtitle sentences the user selected; each has clipId, sourceCaptionId, start, end and text.\nWhen the user asks to keep, cut down to or choose some of those sentences, reply with only this JSON and nothing else (no code fence, no explanation):\n{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"<clipId>\",\"sourceCaptionId\":\"<sourceCaptionId>\",\"from\":<start>,\"to\":<end>}]}\nUse one range per sentence to keep, in the order the user wants; copy clipId, sourceCaptionId, start (as from) and end (as to) exactly from that sentence in references; never invent or change values.\nFor any other question, answer briefly in the user's language without that JSON."
+   },
+   {
+    "role": "user",
+    "content": "第一句留下"
+   },
+   {
+    "role": "assistant",
+    "content": "好的"
+   },
+   {
+    "role": "user",
+    "content": "只保留这两句\n\n{\"references\":[{\"type\":\"caption\",\"projectId\":\"p\",\"sequenceId\":\"s\",\"revision\":3,\"gen\":0,\"clipId\":\"c1\",\"sourceCaptionId\":\"c1\",\"text\":\"今天我们来看三个剪辑技巧。\",\"start\":1,\"end\":3.2}]}"
+   }
+  ],
+  "stream": false,
+  "max_tokens": 2048
+ }
+}

@@ -1,0 +1,95 @@
+# Official Cindy source port: first runnable vertical slice
+
+2026-11-01. Implements the user's request to port Cindy Agent Chat Pane/configuration; supersedes the earlier assumption that Cindy is closed-source. Existing work is preserved.
+
+## Provenance and actual reuse
+Official repository: https://github.com/makecindy/cindy . Pinned commit: 021923684f54129effbba6b72a8218526418fa45. Apache-2.0 LICENSE and upstream NOTICE are preserved byte-for-byte in agent-ui/upstream. SOURCES.json records original paths, Git blob identities and SHA-256 for every reused file. No Rea implementation, packaged app extraction, private Cindy data or credentials were used.
+
+Actual unmodified runtime components: ComposerCard, SendButton, ListComposerTextarea, ThinkingText, SettingsTextInput and Input; their list-editing/text helpers are also retained. React19.2.0, ReactDOM19.2.0, lucide-react0.468.0 (MIT/ISC) are bundled by esbuild0.25.12; lockfile and third-party notices are included. This scoped prebuilt React island is an explicit exception to the upstream no-framework preference, justified by directly reusing the requested official React source. Running the editor needs no npm install/CDN. Rebuilding this island uses npm ci --prefix agent-ui then npm run build --prefix agent-ui.
+
+Full CCAgentSessionView/MessageStream/ChatInput are NOT claimed as transplanted. Their Cindy session/provider/attachment/agent-event/store hooks and Tiptap editor depend on the surrounding desktop application. A direct esbuild attempt for official ChatInput fails with 152 unresolved imports (agent-ui/DIRECT-IMPORT-BLOCKERS.json); these include Cindy host hooks and rich-editor packages. This increment reuses the real composer, text-stream and configuration primitives, replacing host orchestration only. Tool-rich message stream and full session container port remain follow-up work, not completed capability. The tooltip boundary is a small native title host adapter; original files remain unchanged.
+
+## Host contract and consent
+MontClip retains its project, range plan, preview compositor and undo engine. Agent references are explicit project/caption/timeline-range chips. A displayed local project target is not automatically sent. Review lists the exact HTTP JSON body: selected model, all history and current text/references, stream=false, max_tokens=2048. New sessions start with no history. Removing a current chip does not delete older history. No implicit system message, media, screenshot, account or filesystem path is appended.
+
+Main-process IPC is restricted to the existing exact window/mainFrame/origin. Only fixed OpenAI/DeepSeek HTTPS endpoints are supported; no arbitrary URL/shell/MCP tool. User-entered key is transient write-only form state, cleared after save; persisted ciphertext uses Electron safeStorage in the MontClip profile, and get() returns metadata only. This does not read existing Cindy credentials. Configuration/startup are offline. Payload confirmation happens in the renderer. The main process validates payload format and fixed HTTPS destinations and refuses redirects; it does not independently enforce user confirmation. Known limitation: a compromised renderer can bypass this confirmation. contextIsolation/sandbox reduce exposure but do not remove that trust boundary. Response text/requests are bounded, timeout60s, one request at a time; 2000 IDs per process is a conservative bounded dedup limit, after which requests fail explicitly rather than evicting replay protection.
+
+Plain text replies are untrusted, never executed or rendered as HTML. A separate button parses only strict keep_sentences JSON against explicitly quoted whole subtitles and current project/sequence/revision/generation. Preview is read-only; explicit Apply uses existing range-plan and one undo transaction. Stale/locked/unsupported plans refuse. No direct agent editing tools are enabled. Cancellation suppresses later text; it cannot recall already sent requests or provider charges. Unknown cancellation is not success. Active requests block ordinary close; the existing main-project wait/explicit-force mechanism remains.
+
+## Limits
+Non-streaming transport is implemented but no live service credentials were supplied for acceptance. Injected test responses are test-only, never product fake output. Full official session/message/tool rendering, live-provider acceptance, complete Chinese UI, physical input/accessibility and portable packaging remain open. Hidden Electron verification is not VV visible-window approval. No system clipboard test is permitted or performed.
+
+## Apache-2.0 reuse and change inventory
+
+The Rea behavior SPEC §0 statement "closed-source / license unconfirmed" was an outdated erroneous premise, corrected by the user. It is not evidence about the official repository's license and does not restrict this official-source port.
+
+Unmodified copied files (exact identities in SOURCES.json):
+- `agent-ui/upstream/ComposerCard.tsx` ← `apps/desktop/src/renderer/components/new-chat/ComposerCard.tsx`
+- `agent-ui/upstream/composerListContinuation.ts` ← `apps/desktop/src/renderer/lib/composerListContinuation.ts`
+- `agent-ui/upstream/composerListTextarea.ts` ← `apps/desktop/src/renderer/lib/composerListTextarea.ts`
+- `agent-ui/upstream/LICENSE` ← `LICENSE`
+- `agent-ui/upstream/ListComposerTextarea.tsx` ← `apps/desktop/src/renderer/components/new-chat/ListComposerTextarea.tsx`
+- `agent-ui/upstream/NOTICE` ← `NOTICE`
+- `agent-ui/upstream/SendButton.tsx` ← `apps/desktop/src/renderer/components/new-chat/SendButton.tsx`
+- `agent-ui/upstream/thinkingText.ts` ← `packages/maker-shared/src/thinkingText.ts`
+- `agent-ui/upstream/ThinkingText.tsx` ← `apps/desktop/src/renderer/components/chat/ThinkingText.tsx`
+- `agent-ui/upstream/SettingsTextInput.tsx` ← `apps/desktop/src/renderer/components/settings/SettingsTextInput.tsx`
+- `agent-ui/upstream/input.tsx` ← `apps/desktop/src/renderer/components/ui/input.tsx`
+
+Modified upstream source files: **none**. Original source bytes remain unchanged. Generated derivative `cindy-official.js` is a bundled/minified combination with MontClip host imports; it now carries a prominent modification/provenance notice in its generated banner, retained on rebuild. `agent-ui/pane.tsx`, `host.tsx`, `tooltip-host.tsx`, `build.cjs`, the service/conversation/proposal modules are MontClip adapters, not files claimed to be original Cindy containers. MontClip app/main/preload/locale/CSS are existing host integration changes. No copied file comes from packaged products, private source or Rea materials.
+
+`LICENSES.md` indexes the unchanged Apache LICENSE/NOTICE and bundled dependencies; `agent-ui/THIRD-PARTY-NOTICES.txt` links the exact source/version and retains React/ReactDOM/lucide notices. Root MIT licensing does not replace upstream Apache/third-party licenses. Package files include LICENSES.md plus original LICENSE/NOTICE and attribution manifest.
+
+## Behavior SPEC reference update — v2
+
+Current behavior handoff: Rea workspace-relative `handoff/agent-pane-spec/SPEC.md`, draft v2,15322bytes, SHA-256 `6a7ea49a807e6d1df558f4838d4e41a2b9ec2ba1685c750678c6deb77bf109dd`. Implementation side read §0 and independently verified the complete file hash on2026-11-01. v1 is archived as `SPEC-v1.SUPERSEDED.md`; its closed-source/license-unconfirmed premise is superseded. v2 states that only the license premise changed (§0.1/§11), not behavioral content. This update does not promote prototype P evidence or grant product approval.
+
+Official source remains pinned to021923684f54129effbba6b72a8218526418fa45. Local original LICENSE11358bytes and NOTICE282bytes were size-checked; SOURCES.json keeps their exact hashes. In addition to the separate unmodified NOTICE file, its complete original bytes are now embedded verbatim in `agent-ui/THIRD-PARTY-NOTICES.txt`. No source, generated bundle or behavior changes in this documentation-only increment.
+
+
+## QQ connection recovery and bundle attribution follow-up
+A corrupted connection is never silently overwritten. The explicit Set up connection again action invokes only fixed reset IPC with the existing origin/mainFrame checks. Main compares the captured malformed bytes with the current file, creates a uniquely owned backup directory, and renames the old file into that directory. It permits new settings only after successful rename. Failed reads/backup or changed source retain the error and prevent configure; an actual read permission failure must be resolved before restarting to capture the original. Backup directory names/contents are not exposed to the renderer. OS rename/access semantics and external concurrent file changes are not an interprocess transaction guarantee. Backups remain locally available; no automatic deletion. Normal valid configuration write failures do not enter reset mode.
+
+The bundle license test accounts for every @license block and each associated module path, requires a declared dependency and locked version, and verifies the full retained license text hash. scheduler 0.27.0 MIT is now included; this is not an upstream component modification. Renderer confirmation remains the user interaction boundary as explicitly decided above; main cannot prove that a compromised renderer displayed it.
+
+
+## Proposal-specific card Undo (supersedes latest-edit wording)
+The card button is shown only when its exact applied operation is at the shared undo stack top in the same project/sequence/generation. Each successful proposal Apply tags the existing range-state undo snapshot with a fresh local operation id. Shared counterSnapshot preserves that id through Undo/Redo; no separate history or project schema field is created. A WeakMap binds the live response card to its application. No Apply, an intervening edit, Undo, or context change hides the button; Redo restores eligibility. Click rechecks eligibility before calling the existing undo(). The normal toolbar remains unrestricted. This live card association is not persisted/reconstructed on reopening.
+
+JJ final bilingual disclosure is used verbatim. Chip labels use separate noun keys (subtitles/range/project), while action labels retain verbs. Existing payload restrictions and explicit text/history caveat remain unchanged.
+
+
+## VV workflow follow-up (fc93674 report, implemented after ef13b45)
+Stored/outbound messages remain unchanged. A display-only helper recognizes an exact trailing references envelope with validated reference records; titles/search/user-message views use its plain text and localized chips. Malformed or unrelated JSON is not stripped. A user intentionally typing the same exact envelope is also displayed this way, but exact raw content remains available in confirmation. Proposal summaries require strict bounded ranges matching the preceding quoted subtitles, with finite intervals and no overlaps. This proves presentation structure/reference association, not current edit eligibility: the existing project/revision/gen/source/range-plan checks still gate Apply.
+
+Confirmation is centered/themed, lists counts and actual readable content (including history references), with exact HTTP JSON collapsed by default and fixed destination domain visible. JJ notSent remains constant. New responses and content/viewport resize scroll to the latest message; proposal action stays outside history scroll. No network is started by settings or reask. Reask creates a new session containing only the original typed prompt; old sessions/drafts remain available and no old references are rebound. Configuration close clears the transient key field.
+
+Known remaining UI work: at630x452 the compact message viewport is about29px; long replies require scrolling within that viewport, while reply end/action/composer/core editor remain reachable. Visible VV must judge usability. Legacy sentence proposal dialog bilingual/time formatting is deferred. Three populated V3/V1/A1 track visibility is explicitly a separate follow-up, not fixed here.
+
+## Providers offered: OpenRouter for tests only (Deja, 2026-11-02)
+
+The owner asked for integration and unit tests to run on OpenRouter's free vision models, and for the
+e2e test to use DeepSeek Flash. That is about testing; it does not open OpenRouter to streamers.
+
+- **A release offers OpenAI and DeepSeek only.** `desktop/agent-service.js` keeps OpenRouter's fixed
+  endpoint so the integration tests go through the product's real request path. Three things make it
+  unreachable from a release:
+  - `get().providers` does not list it, and the settings menu is built from that list;
+  - `configure` refuses it;
+  - `httpsRequest` throws `PROVIDER_UNAVAILABLE` before any network call.
+
+  A connection saved by a development build reads as "not configured" in a release, not as a broken file.
+- **When it is listed:**
+  - in a development build (`!app.isPackaged`);
+  - in a release started with `--montclip-test-providers`;
+  - in a release started with `MONTCLIP_TEST_PROVIDERS=1`.
+
+  Only the main process reads these, at start-up. No IPC channel or page setting can change the list.
+- **Opening OpenRouter to streamers later: the owner decides.** Before that, QQ reviews the privacy side:
+  free models may retain or train on the conversation. The interface must not call it "free" (the test
+  checks every interface string).
+- **If it is opened** (QQ, 2026-11-02, not blocking this PR): the settings page adds the line
+  「免费模型的服务商可能会保存你发送的文字」 (en: "The provider of a free model may keep the text you send."),
+  worded with JJ.
+- Tests: `test/agent-providers.test.js`. The real-model tests (`real-tests/`, off unless
+  `MONTCLIP_REAL_MODELS=1`, never in CI) construct the service with the test providers explicitly.

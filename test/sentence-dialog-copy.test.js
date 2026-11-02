@@ -25,7 +25,7 @@ test('durationText: mm:ss under an hour, h:mm:ss from an hour (the Agent pane\'s
 });
 
 test('the dialog summary uses durationText for {duration}', () => {
-  const at = app.indexOf('async function showSentenceSelection()'), body = app.slice(at, app.indexOf('\n}\n', at));
+  const at = app.indexOf('async function showSentenceSelection('), body = app.slice(at, app.indexOf('\n}\n', at));
   a.match(body, /uiText\("own\.sd-summary", \{ ranges: [\s\S]*?, duration: MontClipView\.durationText\(plan\.duration\) \}\)/);
   a.equal(V.t('zh-CN', 'own.sd-summary', { ranges: '00:00:04–00:01:05', duration: V.durationText(83.4) }), '00:00:04–00:01:05 → 成片约 01:23，按勾选顺序。');
 });
