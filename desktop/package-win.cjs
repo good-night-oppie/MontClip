@@ -94,16 +94,16 @@ async function main() {
     fs.copyFileSync(path.join(src, 'LICENSES.md'), path.join(lic, 'LICENSES.md'));
     fs.copyFileSync(path.join(src, 'LICENSE'), path.join(lic, 'MontClip-LICENSE.txt'));
 
-    // JJ's notes for testers, in the zip's root: UTF-8 with a BOM and CRLF so Notepad shows them right. The repo keeps
-    // them with placeholders (desktop/package-readme/); {version} is this build (date and commit), {exe} the program,
-    // {repo} the GitHub repository.
+    // JJ's notes for testers, in the zip's root (desktop/package-readme/render.js): placeholders filled, UTF-8 with a BOM
+    // and CRLF; when this app hides + URL (#58), JJ's alternative URL line replaces v3's and nothing else changes.
     const date0 = new Date().toISOString().slice(0, 10).replace(/-/g, ''), buildId = date0 + '-' + short;
-    for (const [from, to] of [['zh-CN.txt', '先看我-使用说明.txt'], ['en.txt', 'README-first.txt']]) {
-      const text = fs.readFileSync(path.join(src, 'desktop', 'package-readme', from), 'utf8').replace(/\r\n/g, '\n')
-        .replace(/\{version\}/g, buildId).replace(/\{exe\}/g, 'MontClip.exe').replace(/\{repo\}/g, 'https://github.com/good-night-oppie/MontClip');
-      if (/\{[a-z0-9]+\}/.test(text)) fail(from + ' still has a placeholder');
-      if (/落地前|实施侧/.test(text)) fail(from + ' holds the internal checklist');
-      fs.writeFileSync(path.join(appDir, to), '\uFEFF' + text.replace(/\n/g, '\r\n'), 'utf8');
+    const Readme = require(path.join(src, 'desktop', 'package-readme', 'render.js'));
+    const urlHidden = Readme.hidesUrl(fs.readFileSync(path.join(src, 'app.js'), 'utf8'));
+    let readmeVariant = null;
+    for (const [lang, to] of [['zh-CN', '先看我-使用说明.txt'], ['en', 'README-first.txt']]) {
+      let r; try { r = Readme.render(Readme.read(lang), { lang, buildId, urlHidden }); } catch (e) { fail(e.message); }
+      fs.writeFileSync(path.join(appDir, to), r.text, 'utf8');
+      readmeVariant = r.variant;
     }
 
     // what must and must not be in it
@@ -121,7 +121,7 @@ async function main() {
     const info = { product: 'MontClip', kind: 'internal test build (not a release)', commit, tree, built: new Date().toISOString(),
       electron: electronVersion, packager: dep.version, platform: 'win32-x64',
       ffmpeg: { release: 'ffmpeg-lgpl-n9.0.2-montclip1', version: source.version, archiveSha256: source.sha256, files: source.files },
-      appFiles: all.filter((f) => f.startsWith('resources/app/')).length, notIncluded: ['openh264 (H.264 encoding uses the system: Media Foundation or the graphics card)', 'local speech recognition models', 'ffplay'] };
+      appFiles: all.filter((f) => f.startsWith('resources/app/')).length, readme: { source: JSON.parse(fs.readFileSync(path.join(src, 'desktop', 'package-readme', 'SOURCE.json'), 'utf8')).sha256, variant: readmeVariant, urlButtonHidden: urlHidden }, notIncluded: ['openh264 (H.264 encoding uses the system: Media Foundation or the graphics card)', 'local speech recognition models', 'ffplay'] };
     fs.writeFileSync(path.join(appDir, 'BUILD-INFO.json'), JSON.stringify(info, null, 2));
 
     // zip + sha256
