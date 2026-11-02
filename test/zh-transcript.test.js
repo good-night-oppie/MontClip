@@ -46,6 +46,6 @@ test('switching language relabels the panel and the top bar without rebuilding t
 });
 
 test('the new own.* keys are listed for JJ',()=>{
- const doc=read('docs/i18n/2026-11-02-zh-transcript-review.md');
+ const doc=read('docs/decisions/2026-11-02-zh-transcript-review.md');
  for(const k of OWN)a.ok(doc.includes('own.'+k),'listed: own.'+k);
 });
