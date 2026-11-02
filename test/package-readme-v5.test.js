@@ -10,7 +10,7 @@ const ROOT = path.join(__dirname, '..');
 const PATH = '%APPDATA%\\MontClip\\workspace\\exports';   // one backslash between each part
 
 test('both notes name the folder exactly: %APPDATA%\\MontClip\\workspace\\exports', () => {
-  a.equal(PATH.length, 34);
+  a.equal(PATH.length, 36);   // %APPDATA% 9 + MontClip 9 + workspace 10 + exports 8
   for (const lang of ['zh-CN', 'en']) {
     const raw = read(lang);
     a.ok(raw.includes(PATH), lang + ' notes name the folder');

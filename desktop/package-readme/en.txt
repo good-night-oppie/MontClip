@@ -27,6 +27,7 @@ This is a test build for internal testing only, and it may have problems. Your o
 H.264 export (ordinary MP4) uses your graphics card's encoder or Windows' built-in encoder. Nothing else needs to be installed.
 - If it says it cannot find a usable H.264 encoder: it is usually a graphics driver issue, or a Windows "N" edition without media components. On an N edition, install the Media Feature Pack under Windows Settings › Apps › Optional features, then open MontClip again.
 - For better quality you can choose an FFmpeg with x264 that is already on your computer, in Settings. This is optional; export works without it.
+- Each export also leaves an extra copy on your computer, which takes up space on drive C (this will be fixed in the next version). The copy you saved yourself is not affected. If drive C is getting full, you can delete the extra copies: close MontClip, open any folder, type %APPDATA%\MontClip\workspace\exports into the address bar at the top, press Enter, and delete the video files there. Only delete things inside the exports folder. Do not delete any other folder or file in workspace; your projects are there and would be lost.
 
 [Internet]
 - Only the AI assistant connects to the internet, and only after you click Send and confirm.

@@ -1,7 +1,7 @@
 {
   "author": "JJ",
-  "document": "2026-11-03-MontClip内部试用包-使用说明-中英.md (v4)",
-  "sha256": "1c3b5515e8efff619b1bab7f2044521c033d5ba1af14f83f3a7bb5914efe1407",
+  "document": "2026-11-03-MontClip内部试用包-使用说明-中英.md (v5)",
+  "sha256": "2e58ccd7f7f0732cccb6c39aecb68eade7761a0653d22982431caf12990589fe",
   "taken": [
     "## 中文",
     "## English"
@@ -13,5 +13,5 @@
     "{repo}": "https://github.com/good-night-oppie/MontClip (not used in the v2 body)"
   },
   "encoding": "written into the zip as UTF-8 with BOM, CRLF",
-  "confirmedBy": "Deja, 2026-11-02: v4 (1c3b5515) replaces v3 (22048c9b); only the export line under 现在能做的 / What works now changed"
+  "confirmedBy": "Deja, 2026-11-02: v5 (2e58ccd7) replaces v4 (1c3b5515); one line added at the end of 导出视频要注意 / the export notes: deleting the hidden copies in %APPDATA%\\MontClip\\workspace\\exports"
 }
