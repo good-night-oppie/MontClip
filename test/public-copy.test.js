@@ -14,10 +14,9 @@ const READMES={en:'README.md',zh:'docs/i18n/README.zh-CN.md'};
 function expectedReadme(lang){
  let lines=copy.readme[lang].split('\n');
  if(!AI_MERGED){
-  const ai=lines.findIndex(l=>/^- \*\*(可选的 AI 助手|Optional AI assistant)\*\*/.test(l)),bullet=lines[ai];lines.splice(ai,1);
-  const planned=lines.findIndex(l=>l==='## 计划中'||l==='## Planned');let end=planned+1;
-  while(end<lines.length&&!/^## /.test(lines[end]))end++;
-  let last=end-1;while(!/^- /.test(lines[last]))last--;lines.splice(last+1,0,bullet);
+  const ai=lines.findIndex(l=>/^- \*\*(可选的 AI 助手|Optional AI assistant)\*\*/.test(l));lines.splice(ai,1);
+  const planned=lines.findIndex(l=>l==='## 计划中'||l==='## Planned');let first=planned+1;
+  while(!/^- /.test(lines[first]))first++;lines.splice(first,0,'- '+AI_PLANNED[lang]);
  }
  const credit=lines.findIndex(l=>/^(基于|Based on) \[ronak-create\/FableCut\]/.test(l));
  lines.splice(credit+1,0,'',lang==='en'?'[简体中文](docs/i18n/README.zh-CN.md)':'[English](../../README.md)');
@@ -40,9 +39,12 @@ function pieces(rows){
  }
  return out;
 }
-// Deja 2026-11-02 (JJ found the start page out of step): until #26 is merged, the start page's A3 says the AI
-// assistant is still planned (JJ to review this wording); JJ's own A3 returns with #26.
-const AI_PLANNED_A3={zh:'剪辑本身不需要。AI 助手还在计划中，以后用它时，才需要你自己的 AI 服务账号。',en:'Not for editing. The AI assistant is still planned; you will only need your own AI service account once you use it.'};
+// JJ, 2026-11-02, word for word (relayed by Deja): until #26 is merged, the AI assistant is the first item of
+// "planned" in README, home and start page, the home page keeps 3 cards, and the start page's A3 says no
+// sign-in is needed. With #26 merged these three places return to JJ's copy file (sha256 3ec69dbf…) in a
+// separate small PR; this test then checks the copy file again (AI_MERGED).
+const AI_PLANNED={zh:'可选的 AI 助手：连接你自己的 AI 服务账号，让它提剪辑建议（费用由你自己的账号承担）',en:'Optional AI assistant: connect your own AI service account and ask it for editing suggestions (charges billed to your own account)'};
+const START_A3={zh:'不需要。剪辑不用登录，也不用注册。',en:'No. Editing needs no sign-in or registration.'};
 const isA3=p=>/^(答 3|A3)$/.test(p.pos);
 const isAiCard=p=>/卡 4|Card 4/.test(p.pos),isAiNote=p=>/^(AI 说明|AI note)$/.test(p.pos)||/^(关于 AI 助手|About the AI assistant)$/.test(p.text);
 
@@ -59,7 +61,9 @@ test('home and start pages show every sentence of the copy, links where it says 
   const meta=rows.find(r=>r[0]==='meta description');if(meta)a.ok(html.includes('<meta name="description" content="'+meta[1]+'">'),f+' meta description');
   for(const p of pieces(rows)){
    if(!AI_MERGED&&page==='start'&&isAiNote(p)){a.ok(!text.includes(p.text),f+': AI note waits for #26: '+p.text);continue;}
-   if(!AI_MERGED&&page==='start'&&isA3(p)){a.ok(!text.includes(p.text),f+': A3 waits for #26');a.ok(text.includes(AI_PLANNED_A3[lang]),f+': A3 says the assistant is planned');continue;}
+   if(!AI_MERGED&&page==='start'&&isA3(p)){a.ok(!text.includes(p.text),f+': A3 waits for #26');a.ok(text.includes(START_A3[lang]),f+': A3 is JJ\'s no-sign-in answer');continue;}
+   // the card's body waits for #26; its title opens JJ's planned line, and rule 7 checks it is not under 'now'
+   if(!AI_MERGED&&page==='home'&&isAiCard(p)){if(p.body)a.ok(!text.includes(p.text),f+': AI card waits for #26: '+p.text);continue;}
    a.ok(text.includes(p.text),f+' shows: '+p.text);
    if(p.href)a.ok(html.includes('href="'+p.href+'"'),f+' links '+p.text+' to '+p.href);
   }
@@ -70,9 +74,14 @@ test('rule 7: the AI assistant is listed as available only once PR #26 is merged
  for(const lang of ['zh','en']){
   const html=read(PAGES[lang].home),ai=pieces(copy.home[lang]).find(p=>isAiCard(p)&&!p.body).text;
   const can=html.match(/<section[^>]*id="now"[\s\S]*?<\/section>/)[0],planned=html.match(/<section[^>]*id="planned"[\s\S]*?<\/section>/)[0];
-  a.equal(can.includes(ai),AI_MERGED,lang+' AI in "what it can do": '+AI_MERGED);a.equal(planned.includes(ai),!AI_MERGED,lang+' AI in "planned"');
-  const readme=read(READMES[lang]),plannedMd=readme.split(/^## /m).find(s=>/^(计划中|Planned)\n/.test(s));
-  a.equal(plannedMd.includes(lang==='zh'?'可选的 AI 助手':'Optional AI assistant'),!AI_MERGED,READMES[lang]);
+  a.equal(can.includes(ai),AI_MERGED,lang+' AI in "what it can do": '+AI_MERGED);
+  if(!AI_MERGED){
+   a.equal((can.match(/class="docs-card"/g)||[]).length,3,lang+': three cards');
+   a.equal(decode((planned.match(/<li>([\s\S]*?)<\/li>/)||[])[1]||'').replace(/<[^>]+>/g,''),AI_PLANNED[lang],lang+': JJ\'s line first in "planned"');
+   const readme=read(READMES[lang]),plannedMd=readme.split(/^## /m).find(s=>/^(计划中|Planned)\n/.test(s));
+   a.equal((plannedMd.match(/^- (.*)$/m)||[])[1],AI_PLANNED[lang],READMES[lang]+': first in "planned"');
+   const meta=copy.home[lang].find(r=>r[0]==='meta description');if(meta)a.ok(html.includes('<meta name="description" content="'+meta[1]+'">'),'meta description unchanged');
+  }
  }
 });
 
@@ -80,7 +89,7 @@ test('rule 1: the pages carry nothing but the copy (no upstream pitch, quotes, s
  const NAV=['MontClip','English','简体中文'];
  for(const lang of ['zh','en'])for(const page of ['home','start']){
   const f=PAGES[lang][page];let rest=' '+visible(read(f))+' ';
-  const ps=pieces(copy[page][lang]).map(p=>p.text).concat(!AI_MERGED&&page==='start'?[AI_PLANNED_A3[lang]]:[]).sort((x,y)=>y.length-x.length);
+  const ps=pieces(copy[page][lang]).map(p=>p.text).concat(AI_MERGED?[]:page==='start'?[START_A3[lang]]:[AI_PLANNED[lang]]).sort((x,y)=>y.length-x.length);
   for(const t of ps)rest=rest.split(t).join(' ');for(const n of NAV)rest=rest.split(n).join(' ');
   a.equal(rest.replace(/[\s·|←→:：,，.。]/g,''),'',f+' has text outside the copy');
  }
