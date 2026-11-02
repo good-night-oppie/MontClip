@@ -1,0 +1,16 @@
+{
+  "profile": "MontClip-workspace-final-ii0cWi",
+  "freeBefore": 43994542080,
+  "reports": [
+    {
+      "reopen": false,
+      "exit": 0,
+      "log": "\r\n\n  FableCut running →  http://localhost:13130\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-workspace-final-ii0cWi\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-workspace-final-ii0cWi\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-workspace-final-ii0cWi\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nMONTCLIP_WORKSPACE {\"baseline\":false,\"reopen\":false,\"initial\":{\"workspace\":\"edit\",\"mode\":\"simple\",\"origin\":\"http://127.0.0.1:13130\"},\"final\":{\"workspace\":\"color\",\"mode\":\"advanced\",\"origin\":\"http://127.0.0.1:13130\"},\"projectUnchanged\":true}\nMONTCLIP_SMOKE {\"nodeUnavailable\":true,\"projectLoaded\":true,\"apiStatus\":200,\"externalBlocked\":true,\"compositor\":true,\"saved\":true}\n"
+    },
+    {
+      "reopen": true,
+      "exit": 0,
+      "log": "\r\n\n  FableCut running →  http://localhost:18514\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-workspace-final-ii0cWi\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-workspace-final-ii0cWi\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-workspace-final-ii0cWi\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nMONTCLIP_WORKSPACE {\"baseline\":false,\"reopen\":true,\"initial\":{\"workspace\":\"color\",\"mode\":\"advanced\",\"origin\":\"http://127.0.0.1:18514\"},\"final\":{\"workspace\":\"edit\",\"mode\":\"simple\",\"origin\":\"http://127.0.0.1:18514\"},\"projectUnchanged\":true}\nMONTCLIP_SMOKE {\"nodeUnavailable\":true,\"projectLoaded\":true,\"apiStatus\":200,\"externalBlocked\":true,\"compositor\":true,\"saved\":true}\n"
+    }
+  ]
+}

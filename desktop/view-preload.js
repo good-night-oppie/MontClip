@@ -7,3 +7,16 @@ contextBridge.exposeInMainWorld('montclipViewSettings',Object.freeze({
 }));
 // Feature switches the main process decides (desktop/features.js), read once; the page cannot set them.
 contextBridge.exposeInMainWorld('montclipFeatures',Object.freeze({transcribe:!!(ipcRenderer.sendSync('montclip:features:get')||{}).transcribe}));
+
+contextBridge.exposeInMainWorld('montclipPaneSettings',Object.freeze({
+ get:()=>ipcRenderer.sendSync('montclip:pane:get'),
+ set:value=>ipcRenderer.sendSync('montclip:pane:set',value)
+}));
+
+contextBridge.exposeInMainWorld('montclipWorkspaceSettings',Object.freeze({
+ get:()=>ipcRenderer.sendSync('montclip:workspace:get'),
+ set:value=>ipcRenderer.sendSync('montclip:workspace:set',value),
+ migrate:value=>ipcRenderer.sendSync('montclip:workspace:migrate',value)
+}));
+
+contextBridge.exposeInMainWorld('montclipAgentSessions',Object.freeze({get:()=>ipcRenderer.sendSync('montclip:sessions:get'),set:value=>ipcRenderer.sendSync('montclip:sessions:set',value)}));

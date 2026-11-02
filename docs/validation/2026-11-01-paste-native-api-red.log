@@ -1,0 +1,17 @@
+{"exit":1,"profile":"MontClip-paste-eLw9fm","hashes":{"agent-pane.js":"49f923992421b4d4bb67339511295606b006e93517e787dcec468a318cd34a58","ui-preferences.js":"ef56a6e54ee6abdc64959e6aea353a69c811fb1678a9f3360b20e0ccc4985d79","desktop/agent-paste-smoke.cjs":"58257d1343a7671a4644ee91466a531c6a4603e65ec0eb5ca001314f11d924c4"}}
+
+
+  FableCut running →  http://localhost:43089
+
+  project file : <user>\AppData\Local\Temp\MontClip-paste-eLw9fm\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-paste-eLw9fm\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-paste-eLw9fm\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+
+TypeError: clipboard.availableFormats is not a function
+    at paste (<repo>\desktop\agent-paste-smoke.cjs:10:25)
+    at BrowserWindow.loadURL (<repo>\desktop\agent-paste-smoke.cjs:16:8)
+    at async start (<repo>\desktop\main.js:124:3)
