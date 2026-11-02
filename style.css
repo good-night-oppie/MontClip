@@ -4691,3 +4691,6 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .highlight-dialog .hl-card ul { margin: 4px 0 6px 18px; padding: 0; font-size: 12px; }
 .highlight-dialog .hl-text { margin: 2px 0; font-size: 12px; opacity: .85; }
 .highlight-dialog .tr-row { flex-wrap: wrap; }
+/* the list folded after Go to: a button over the timeline corner, never over the picture */
+.hl-return { position: fixed; right: 12px; bottom: 12px; z-index: 2000; box-shadow: 0 6px 18px #0008; }
+.hl-return[hidden] { display: none; }

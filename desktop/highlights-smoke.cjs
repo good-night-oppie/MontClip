@@ -59,6 +59,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
    assert.equal(view.playing,true,w+': the player plays from the card');
    assert.ok(view.time>=10&&view.time<12,w+': from the card\'s start '+view.time);
    assert.ok(view.back,w+': a button brings the list back');
+   if(process.env.MONTCLIP_HL_PNG)require('node:fs').writeFileSync(process.env.MONTCLIP_HL_PNG.replace(/.png$/,'-goto-'+w+'.png'),(await win.webContents.capturePage()).toPNG());
    await read(`pause();true`);
    assert.equal(await read(`JSON.stringify(projectJSON())`),before,w+': Go to does not change the project');
    assert.equal(await read(`runtime.undo.length`),undoDepth);

@@ -35,6 +35,7 @@
     "hl-reading": ["Reading the timeline's sound and sentences…", "正在读取时间线的声音和字幕…"],
     "hl-found": ["{n} candidates. Go to one to check it; tick the ones to keep.", "找到 {n} 个候选。可以先点「跳转」看一看，再勾选要保留的。"],
     "hl-jump": ["Go to", "跳转"],
+    "hl-back": ["Highlight candidates ({n}) — back to the list", "高光候选（{n}）· 回到列表"],
     "hl-keep": ["Keep the ticked ones", "保留勾选的片段"],
     "hl-close": ["Close", "关闭"],
     "hl-kept": ["Kept {n} highlights. Undo brings the edit back.", "已保留 {n} 段高光，可以撤销。"],
