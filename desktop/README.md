@@ -67,3 +67,10 @@ export, preview frames, proxies and noise reduction report that the bundled
 FFmpeg is missing. Packaging (`build.extraResources` in `package.json`) copies
 `vendor/ffmpeg/<platform>-<arch>` to `resources/ffmpeg`; no packager is
 configured in this repo yet. Source and checksums: `LICENSES.md`.
+
+Reuse, not re-download: `fetch-ffmpeg.cjs` does nothing when `vendor/ffmpeg/<platform>-<arch>`
+(or `MONTCLIP_FFMPEG_DIR`) already holds the pinned build with the program hashes it recorded
+at install. `--cache-dir <dir>` keeps the archive between runs (CI caches it under a key made
+from `desktop/ffmpeg-manifest.json`), checked against the pinned SHA-256 before every use.
+Packaging copies the checked vendor folder; it never downloads. CI never uses the runner's own
+ffmpeg, and never the local FFmpeg a user may choose for H.264 export.

@@ -1,11 +1,16 @@
 /* Fetch the LGPL FFmpeg build that MontClip bundles into vendor/ffmpeg/<platform>-<arch>/.
 
-   node desktop/fetch-ffmpeg.cjs [--platform win32-x64] [--archive <already downloaded file>]
+   node desktop/fetch-ffmpeg.cjs [--platform win32-x64] [--archive <file>] [--cache-dir <dir>] [--force]
 
-   The archive must match the SHA-256 pinned in desktop/ffmpeg-manifest.json, and the
-   extracted ffmpeg must report an LGPL configuration (no --enable-gpl, no
-   --enable-nonfree) — a GPL build is refused even if its checksum were pinned by
-   mistake. Packaging copies the resulting folder to <resources>/ffmpeg. */
+   One source of truth for CI, local runs and packaging: desktop/ffmpeg-manifest.json
+   (pinned URL + SHA-256). The archive must match that SHA-256, and the extracted ffmpeg
+   must report an LGPL configuration (no --enable-gpl, no --enable-nonfree) — a GPL
+   build is refused even if its checksum were pinned by mistake.
+   Nothing is fetched when vendor/ (or MONTCLIP_FFMPEG_DIR) already holds that build
+   with the program hashes recorded at install; --cache-dir keeps the archive between
+   runs (CI caches it) and it is checked again before every use. A failed or mismatched
+   download fails; nothing ever falls back to an ffmpeg on PATH or on the runner.
+   Packaging copies this checked vendor folder to <resources>/ffmpeg; it never downloads. */
 "use strict";
 const crypto = require("node:crypto");
 const fs = require("node:fs");
@@ -63,7 +68,9 @@ function installTree({ src, dest, win, check, source }) {
     }
     fs.copyFileSync(path.join(src, "LICENSE.txt"), path.join(stage, "LICENSE.txt"));
     const version = check(path.join(stage, exe("ffmpeg")));
-    fs.writeFileSync(path.join(stage, "SOURCE.json"), JSON.stringify({ ...(source || {}), checked: version || null }, null, 2) + "\n");
+    // the installed programs' hashes, so a later run can verify and reuse them
+    const files = Object.fromEntries(["ffmpeg", "ffprobe"].map((n) => [exe(n), sha256(path.join(stage, exe(n)))]));
+    fs.writeFileSync(path.join(stage, "SOURCE.json"), JSON.stringify({ ...(source || {}), checked: version || null, files }, null, 2) + "\n");
     if (fs.existsSync(dest)) fs.renameSync(dest, old);
     try { fs.renameSync(stage, dest); }
     catch (e) { if (fs.existsSync(old)) fs.renameSync(old, dest); throw e; }
@@ -72,6 +79,39 @@ function installTree({ src, dest, win, check, source }) {
   } finally {
     fs.rmSync(stage, { recursive: true, force: true });
   }
+}
+
+/** Is dest already this pinned build, unchanged since it was installed and checked?
+ *  → {ok:true} | {ok:false, reason} */
+function upToDate(dest, build, { win }) {
+  let src;
+  try { src = JSON.parse(fs.readFileSync(path.join(dest, "SOURCE.json"), "utf8")); } catch { return { ok: false, reason: "not installed" }; }
+  if (src.sha256 !== build.sha256) return { ok: false, reason: "a different pinned build" };
+  if (!src.files) return { ok: false, reason: "installed without file hashes" };
+  for (const n of ["ffmpeg", "ffprobe"]) if (!src.files[win ? n + ".exe" : n]) return { ok: false, reason: `${n} missing` };
+  for (const [name, want] of Object.entries(src.files)) {
+    let got = null;
+    try { got = sha256(path.join(dest, name)); } catch { }
+    if (got !== want) return { ok: false, reason: `${name} changed since it was installed` };
+  }
+  return { ok: true };
+}
+
+/** The pinned archive in cacheDir: reused when its SHA-256 matches, else (re)downloaded
+ *  and checked. A download that fails or does not match throws: no fallback of any kind. */
+async function cachedArchive(build, cacheDir, { download: get = download } = {}) {
+  fs.mkdirSync(cacheDir, { recursive: true });
+  const file = path.join(cacheDir, path.basename(new URL(build.url).pathname));
+  if (fs.existsSync(file) && sha256(file) === build.sha256) { console.log("using cached " + path.basename(file) + " (SHA-256 checked)"); return file; }
+  fs.rmSync(file, { force: true });
+  const part = file + ".part";
+  fs.rmSync(part, { force: true });
+  console.log("downloading " + build.url);
+  await get(build.url, part);
+  const got = sha256(part);
+  if (got !== build.sha256) { fs.rmSync(part, { force: true }); throw new Error(`SHA-256 mismatch for ${build.url}: got ${got}, pinned ${build.sha256}`); }
+  fs.renameSync(part, file);
+  return file;
 }
 
 function sha256(file) {
@@ -97,14 +137,26 @@ async function main() {
   const plat = arg("--platform") || `${process.platform}-${process.arch}`;
   const build = manifest.builds[plat];
   if (!build) throw new Error(`no pinned FFmpeg build for ${plat} (have: ${Object.keys(manifest.builds).join(", ")})`);
+  const win = plat.startsWith("win32");
+  const dest = path.join(ROOT, "vendor", "ffmpeg", plat);
+  const runnable = plat === `${process.platform}-${process.arch}`;
+  // reuse what is there: MONTCLIP_FFMPEG_DIR when it holds this pinned build, else vendor/
+  const envDir = process.env.MONTCLIP_FFMPEG_DIR;
+  if (envDir && runnable) {
+    const r = upToDate(path.resolve(envDir), build, { win });
+    if (r.ok) { console.log(`MONTCLIP_FFMPEG_DIR already holds the pinned ${plat} build (hashes checked) — nothing to fetch`); return; }
+    console.log(`MONTCLIP_FFMPEG_DIR is not the pinned build (${r.reason}); installing into vendor/ — MONTCLIP_FFMPEG_DIR still takes priority at run time`);
+  }
+  const have = upToDate(dest, build, { win });
+  if (have.ok && !process.argv.includes("--force")) {
+    if (runnable) checkLgpl(path.join(dest, win ? "ffmpeg.exe" : "ffmpeg"));
+    console.log(`vendor/ffmpeg/${plat} already holds the pinned build (hashes checked) — nothing to fetch`);
+    return;
+  }
   const work = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-ffmpeg-"));
   try {
     let archive = arg("--archive");
-    if (!archive) {
-      archive = path.join(work, path.basename(new URL(build.url).pathname));
-      console.log("downloading " + build.url);
-      await download(build.url, archive);
-    }
+    if (!archive) archive = await cachedArchive(build, arg("--cache-dir") || work);
     const got = sha256(archive);
     if (got !== build.sha256) throw new Error(`SHA-256 mismatch for ${archive}: got ${got}, pinned ${build.sha256}`);
     const ex = path.join(work, "x");
@@ -113,9 +165,6 @@ async function main() {
     const t = spawnSync(tar, ["-xf", archive, "-C", ex], { stdio: "inherit" });
     if (t.status !== 0) throw new Error("extracting the archive failed");
     const src = path.join(ex, build.root);
-    const win = plat.startsWith("win32");
-    const dest = path.join(ROOT, "vendor", "ffmpeg", plat);
-    const runnable = plat === `${process.platform}-${process.arch}`;
     const version = installTree({ src, dest, win, check: (file) => (runnable ? checkLgpl(file) : null),
       source: { version: manifest.version, license: manifest.license, builder: manifest.builder, source: manifest.source, url: build.url, sha256: build.sha256 } });
     console.log(`installed ${plat} into ${dest}` + (version ? ` (${version})` : " (not runnable here; LGPL check skipped)"));
@@ -125,4 +174,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch((e) => { console.error(e.message); process.exit(1); });
-module.exports = { checkLgpl, sha256, download, installTree };
+module.exports = { checkLgpl, sha256, download, installTree, upToDate, cachedArchive };

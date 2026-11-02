@@ -36,3 +36,4 @@ pnpm-lock.yaml
 /projects/
 /library/project-templates/
 /vendor/
+/.cache/

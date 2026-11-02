@@ -32,3 +32,31 @@ test('a response that breaks off or stalls rejects instead of hanging',async t=>
  await a.rejects(F.download('https://x/b.zip',path.join(d,'b'),{get:fakeGet(res=>res.emit('error',new Error('ECONNRESET')))}),/ECONNRESET/);
  await a.rejects(F.download('https://x/c.zip',path.join(d,'c'),{get:fakeGet(()=>{}),timeoutMs:50}),/timed out/);
 });
+
+// Owner 2026-11-02: CI and local runs reuse the one pinned build; nothing is fetched
+// again unless the manifest changes, and a reused copy is verified first.
+const build={url:'https://example.invalid/ffmpeg-x-lgpl.tar.xz',sha256:null,root:'r'};
+function installed(t,{win=false}={}){const {src,dest}=tree(t);F.installTree({src,dest,win,check:()=>'v',source:{sha256:'abc',url:build.url}});return dest;}
+test('an installed folder with the same pinned hash and unchanged programs is reused',t=>{
+ const dest=installed(t);
+ a.equal(F.upToDate(dest,{sha256:'abc'},{win:false}).ok,true);
+ a.equal(F.upToDate(dest,{sha256:'other'},{win:false}).ok,false,'another pinned build');
+ fs.writeFileSync(path.join(dest,'ffmpeg'),'tampered');
+ const r=F.upToDate(dest,{sha256:'abc'},{win:false});a.equal(r.ok,false);a.match(r.reason,/ffmpeg changed/);
+ a.equal(F.upToDate(path.join(dest,'nope'),{sha256:'abc'},{win:false}).ok,false);
+});
+test('a cached archive is used only when its SHA-256 matches; otherwise it is fetched again',async t=>{
+ const d=fs.mkdtempSync(path.join(os.tmpdir(),'mc-cache-'));t.after(()=>fs.rmSync(d,{recursive:true,force:true}));
+ const good=Buffer.from('pinned archive bytes'),sha=require('node:crypto').createHash('sha256').update(good).digest('hex');
+ const b={url:'https://example.invalid/a.tar.xz',sha256:sha};let downloads=0;
+ const dl=async(url,file)=>{downloads++;fs.writeFileSync(file,good);};
+ const p1=await F.cachedArchive(b,d,{download:dl});a.equal(downloads,1);a.equal(F.sha256(p1),sha);
+ const p2=await F.cachedArchive(b,d,{download:dl});a.equal(downloads,1,'cache hit: no download');a.equal(p2,p1);
+ fs.writeFileSync(p1,'corrupt');await F.cachedArchive(b,d,{download:dl});a.equal(downloads,2,'bad cached copy is replaced');
+ await a.rejects(F.cachedArchive({...b,sha256:'0'.repeat(64)},fs.mkdtempSync(path.join(d,'x')),{download:dl}),/SHA-256 mismatch/,'a download that does not match fails red');
+ await a.rejects(F.cachedArchive(b,fs.mkdtempSync(path.join(d,'y')),{download:async()=>{throw new Error('HTTP 503');}}),/HTTP 503/);
+});
+test('fetch-ffmpeg never looks for an ffmpeg on PATH or the runner',()=>{
+ const src=fs.readFileSync(path.join(__dirname,'..','desktop','fetch-ffmpeg.cjs'),'utf8');
+ a.ok(!/process\.env\.PATH|["']which["']|["']where(\.exe)?["']|spawnSync\(["']ffmpeg/.test(src));
+});
