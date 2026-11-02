@@ -7,9 +7,17 @@ body[data-mc-mode="simple"] .upper > .monitor { grid-column: 2; grid-row: 1; }
 body[data-mc-mode="simple"] .upper > .bin { grid-column: 3; grid-row: 1; }
 #mcMode [aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: -2px; }
 @media (max-width: 1100px) {
-  .app > .topbar { flex-wrap: wrap; height: auto; flex: 0 0 auto; min-height: 46px; padding-top: 6px; padding-bottom: 6px; }
-  .topbar-right { flex-wrap: wrap; }
-  .topbar-center { min-width: 0; }
+  /* narrow windows: the side panels give way so the monitor keeps a picture (VV 804×535) */
+  html:root { --side-panel-w: clamp(150px, 23vw, 320px); }   /* beats the :root default below */
+  /* one row: the project name gives way first, then the right-hand tools go into More (Export stays) */
+  .topbar-center { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar-right { flex: 0 1 auto; min-width: 0; position: relative; }
+  .topbar-right > *:not(.more-menu) { flex-shrink: 0; }
+  /* side panels: tabs keep their width and the strip scrolls; the bin header uses More */
+  .bin-tabs { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+  .bin-tabs button { flex: 1 0 auto; padding-left: 6px; padding-right: 6px; }
+  .panel-head-actions.bin-actions { position: relative; }
+  .panel-head > .panel-head-actions.bin-actions > .btn { flex: 1 0 auto; }   /* beats the flex: 1 / min-width: 0 rule below */
 }
 :root {
   /* surfaces, darkest at the back: app → panels → header bars → controls */
@@ -64,13 +72,13 @@ body {
 
 .upper {
   flex: 1 1 0;
-  min-height: 140px;
+  min-height: 150px;   /* = MontClipNarrow.UPPER_MIN */
   min-width: 0;
 }
 
 .timeline-panel {
   flex: 0 0 var(--timeline-h, 400px);
-  min-height: 180px;
+  min-height: 140px;   /* = MontClipNarrow.TIMELINE_MIN */
   overflow: hidden;
 }
 
@@ -1953,6 +1961,89 @@ input[type=range] {
   gap: 8px;
   padding: 6px 10px;
   border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+/* No tool shrinks under its neighbour: what does not fit moves into More (narrow-layout.js). */
+.timeline-toolbar > *:not(.flex-spacer):not(.more-menu) {
+  flex-shrink: 0;
+}
+
+.zoom-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* the zoom slider still gives way first (down to 48px) before any tool moves into More */
+.timeline-toolbar > .zoom-seg {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+@media (max-width: 700px) {
+  .app > .topbar { gap: 6px; padding: 0 8px; }
+  .topbar-right { gap: 6px; }
+}
+
+/* The player: on a narrow monitor, timecode and IN/OUT on one row, the buttons on the next. */
+#monitorPanel {
+  container: monitor / inline-size;
+  container-type: inline-size;
+}
+
+@container monitor (max-width: 540px) {
+  #monitorPanel .transport {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "tc end" "btns btns";
+    row-gap: 4px;
+    padding: 4px 8px 6px;
+  }
+  #monitorPanel .tc-playhead { grid-area: tc; }
+  #monitorPanel .transport-btns { grid-area: btns; justify-self: center; }
+  #monitorPanel .transport-end { grid-area: end; }
+}
+
+#monitorPanel > .panel-head {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+#monitorPanel > .panel-head > .panel-head-title {
+  flex: 0 1 auto;
+}
+
+#monitorPanel .panel-head-actions {
+  flex: 1 1 0;
+  min-width: 0;
+  flex-wrap: nowrap;
+  position: relative;
+}
+
+#monitorPanel .panel-head-actions > *:not(.more-menu) {
+  flex-shrink: 0;
+}
+
+.more-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 6px;
+  z-index: 40;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  max-width: min(380px, calc(100vw - 24px));
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px #0008;
+}
+
+.more-menu[hidden],
+.more-btn[hidden] {
+  display: none;
 }
 
 .tiny-label {
