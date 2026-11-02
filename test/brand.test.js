@@ -123,7 +123,7 @@ test('QQ (2026-11-02): docs/i18n is under the brand rules; no translation promot
 test('QQ (2026-11-02): no page under docs/ links to the upstream repository, except the home and start pages\' credit', () => {
  const walk=d=>fs.readdirSync(path.join(root,d),{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(d+'/'+e.name):[d+'/'+e.name]);
  const pages=walk('docs').filter(f=>f.endsWith('.html')&&!/^docs\/(validation|demo)\//.test(f));
- a.ok(pages.includes('docs/community/index.html'));
+ a.ok(pages.includes('docs/docs/index.html'));
  const CREDIT=['docs/index.html','docs/en/index.html','docs/start/index.html','docs/en/start/index.html'];
  const found=[];
  for(const f of pages){
@@ -133,4 +133,23 @@ test('QQ (2026-11-02): no page under docs/ links to the upstream repository, exc
   for(const l of links)if(!allowed.includes(l)||links.filter(x=>x===l).length>allowed.filter(x=>x===l).length)found.push(f+' → '+l);
  }
  a.deepEqual([...new Set(found)],[]);
+});
+
+// Deja (2026-11-02), JJ's option (a): the community page was upstream's wholesale; it goes, and so does every way to it.
+test('Deja (2026-11-02): no community page, and nothing links to one', () => {
+ a.ok(!fs.existsSync(path.join(root,'docs','community')),'docs/community is removed');
+ const walk=d=>fs.readdirSync(path.join(root,d),{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(d+'/'+e.name):[d+'/'+e.name]);
+ const pages=walk('docs').filter(f=>f.endsWith('.html')&&!/^docs\/(validation|demo)\//.test(f));
+ a.ok(pages.includes('docs/docs/index.html')&&pages.includes('docs/index.html'));
+ for(const f of [...pages,'docs/docs/build.js','docs/sitemap.xml'])
+  a.ok(!/href="[^"]*community\/?"|<loc>[^<]*\/community\/?<\/loc>/.test(read(f)),f+' links to the community page');
+});
+
+test('Deja (2026-11-02): no public page offers a fablecut.space email address or Discord', () => {
+ const walk=d=>fs.readdirSync(path.join(root,d),{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(d+'/'+e.name):[d+'/'+e.name]);
+ // every page we publish under docs/ (the playground included) and what the docs pages are generated from
+ const files=[...walk('docs').filter(f=>/\.(html|svg)$/.test(f)&&!/^docs\/validation\//.test(f)),'docs/docs/build.js'];
+ for(const f of files){const t=read(f);
+  a.ok(!/[\w.+-]+@fablecut\.space/i.test(t),f+' shows a fablecut.space email address');
+  a.ok(!/discord/i.test(t),f+' mentions Discord');}
 });
