@@ -13,6 +13,12 @@
   const own = {
     "needs-server": ["Needs the MontClip server", "需要 MontClip 服务"],
     "relink-count": ["Relink {n} files…", "重新链接 {n} 个文件…"],
+    "exporting-pct": ["Exporting… {pct}%", "正在导出… {pct}%"],
+    "rendering-pct": ["Rendering… {pct}%", "正在渲染… {pct}%"],
+    "encoding": ["Encoding…", "正在编码…"],
+    "encoding-pct": ["Encoding… {pct}%", "正在编码… {pct}%"],
+    "mixing-audio": ["Mixing audio…", "正在混音…"],
+    "finishing": ["Finishing…", "正在收尾…"],
   };
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }

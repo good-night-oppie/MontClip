@@ -36,9 +36,12 @@ const TRACK_SIZE_PRESETS = {
 const TRACK_SIZE_KEY = "fablecut-track-size";
 // Shared DOM and project; this controller only changes view preferences.
 const mcView = MontClipView.create(window.montclipViewSettings ? MontClipView.desktopStorage(window.montclipViewSettings) : localStorage);
+/** Keyed interface text in the current language (ui-terms.js / ui-preferences.js). Never for user content. */
+const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
 function renderMontClipView() {
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
   document.documentElement.lang = language;
+  MontClipView.applyI18n(document, language);
   document.body.dataset.mcMode = mode;
   document.getElementById("mcLanguage").value = language;
   const group = document.getElementById("mcMode"); group.setAttribute("aria-label", t.mode);
@@ -2604,11 +2607,11 @@ function showMediaMenu(x, y, m) {
   item("Open in Source", () => loadSourceFromMedia(m));
   item(`Find timeline instances (${uses})`, () => showMediaInstances(m, x, y), uses ? null : "Not used on the timeline");
   item("Media info…", () => showMediaInfo(m, x, y));
-  item(isMediaOffline(m.id) ? "Relink…" : "Relink to another copy…", () => openRelinkDialog([m]), state.connected ? null : "Needs the FableCut server");
-  item("Replace file…", () => replaceMediaFile(m), state.connected ? null : "Needs the FableCut server");
+  item(isMediaOffline(m.id) ? "Relink…" : "Relink to another copy…", () => openRelinkDialog([m]), state.connected ? null : uiText("own.needs-server"));
+  item("Replace file…", () => replaceMediaFile(m), state.connected ? null : uiText("own.needs-server"));
   if (m.kind === "video") {
     const ps = proxyStatus.get(m.id);
-    const why = !state.connected ? "Needs the FableCut server" : !state.ffmpeg ? "Needs ffmpeg on the server's PATH" : isMediaOffline(m.id) ? "The file is offline" : null;
+    const why = !state.connected ? uiText("own.needs-server") : !state.ffmpeg ? "Needs ffmpeg on the server's PATH" : isMediaOffline(m.id) ? "The file is offline" : null;
     if (ps && (ps.state === "ready" || ps.state === "running" || ps.state === "queued")) item(ps.state === "ready" ? "Delete proxy" : "Stop making the proxy", () => deleteProxies([m]));
     else {
       item("Create proxy (540p)", () => createProxies([m], 540), why);
@@ -16208,7 +16211,7 @@ function loop(ts) {
     const t0 = w ? w.start : 0;
     const pct = span ? ((state.time - t0) / span) * 100 : 0;
     els.exportProgress.style.width = pct.toFixed(1) + "%";
-    els.exportTitle.textContent = `Exporting… ${pct.toFixed(0)}%`;
+    els.exportTitle.textContent = uiText("own.exporting-pct", { pct: pct.toFixed(0) });
   }
   idleAudio(ts);
   if (loopBusy(ts)) requestAnimationFrame(loop);
@@ -17657,7 +17660,7 @@ async function fastExport(opts = {}) {
   let uploadError = null;
   const setError = (err) => { if (!uploadError) uploadError = err; };
   try {
-    els.exportTitle.textContent = "Mixing audio…";
+    els.exportTitle.textContent = uiText("own.mixing-audio");
     const wav = await renderAudioMix(t0, t1);
     if (renderCancelled) throw new Error("cancelled");
     const profileId = opts.profile || effectiveEncodeProfileId();
@@ -17751,13 +17754,13 @@ async function fastExport(opts = {}) {
       }).catch((err) => { setError(err); throw err; }).finally(() => { pixelsInflight--; });
       const pct = ((f + 1) / frames) * 100;
       els.exportProgress.style.width = pct.toFixed(1) + "%";
-      els.exportTitle.textContent = `Rendering… ${pct.toFixed(0)}%`;
+      els.exportTitle.textContent = uiText("own.rendering-pct", { pct: pct.toFixed(0) });
       if (opts.onProgress) opts.onProgress(0.97 * (f + 1) / frames);
       if (job) reportExportJob(job, { progress: 0.97 * (f + 1) / frames });
     }
     await pixelChain;
     if (uploadError) throw uploadError;
-    els.exportTitle.textContent = "Encoding…";
+    els.exportTitle.textContent = uiText("own.encoding");
     await up.done();
     if (uploadError) throw uploadError;
     } finally {
@@ -18353,7 +18356,7 @@ async function webCodecsExport() {
   const setError = (err) => { if (!uploadError) uploadError = err; };
   let up = null;
   try {
-    els.exportTitle.textContent = "Mixing audio…";
+    els.exportTitle.textContent = uiText("own.mixing-audio");
     const wav = await renderAudioMix(t0, t1);
     if (renderCancelled) throw new Error("cancelled");
 
@@ -18441,9 +18444,9 @@ async function webCodecsExport() {
       }
       const pct = ((f + 1) / frames) * 100;
       els.exportProgress.style.width = pct.toFixed(1) + "%";
-      els.exportTitle.textContent = `Encoding… ${pct.toFixed(0)}%`;
+      els.exportTitle.textContent = uiText("own.encoding-pct", { pct: pct.toFixed(0) });
     }
-    els.exportTitle.textContent = "Finishing…";
+    els.exportTitle.textContent = uiText("own.finishing");
     await encoder.flush();
     await up.done();
     if (uploadError) throw uploadError;
