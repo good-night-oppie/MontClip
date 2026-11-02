@@ -27,9 +27,15 @@ BrowserWindow.prototype.loadURL=async function(...a){await original.apply(this,a
     for(const b of list.querySelectorAll('button')){const k=b.getBoundingClientRect(),inside=k.top>=box.t-0.5&&k.bottom<=box.b+0.5,outside=k.bottom<=box.t+0.5||k.top>=box.b-0.5;
      const h=document.elementFromPoint(k.left+k.width/2,k.top+k.height/2);rows.push({t:b.textContent.slice(0,6),cut:!inside&&!outside,hitWhenShown:inside?(h===b||b.contains(h)):null});}
     const reach=[];for(const b of list.querySelectorAll('button')){b.scrollIntoView({block:'nearest'});await frame();const k=b.getBoundingClientRect(),h=document.elementFromPoint(k.left+k.width/2,k.top+k.height/2);reach.push(h===b||b.contains(h));}
-    list.scrollTop=0;for(let e=list;e;e=e.parentElement)if(e.classList&&e.classList.contains('cindy-more'))e.scrollTop=0;return {rows,reach};})()`);
-   const ok=r.rows.every(x=>!x.cut&&x.hitWhenShown!==false)&&r.reach.every(Boolean);
-   results.push({size:[W,H],ok,...r});process.stdout.write('MORE '+JSON.stringify({size:[W,H],ok,cut:r.rows.filter(x=>x.cut).map(x=>x.t),unreachable:r.reach.filter(x=>!x).length})+'\n');
+    list.scrollTop=0;for(let e=list;e;e=e.parentElement)if(e.classList&&e.classList.contains('cindy-more'))e.scrollTop=0;await frame();
+    // every part of More (search, session list, storage note, format note) is whole, and the composer stays usable
+    const more=document.querySelector('.cindy-more'),mk=more.getBoundingClientRect();
+    const parts=[...more.children].map(c=>{const k=c.getBoundingClientRect();return {tag:c.tagName.toLowerCase(),cut:k.height>0&&(k.top<mk.top-0.5||k.bottom>mk.bottom+0.5)};});
+    const hitOf=e=>{if(!e)return false;const k=e.getBoundingClientRect(),h=document.elementFromPoint(k.left+k.width/2,k.top+k.height/2);return !!h&&(h===e||e.contains(h));};
+    const composer={draft:hitOf(document.querySelector('[data-cindy-draft]')),send:hitOf(document.querySelector('.cindy-send button'))};
+    return {rows,reach,parts,composer};})()`);
+   const ok=r.rows.every(x=>!x.cut&&x.hitWhenShown!==false)&&r.reach.every(Boolean)&&r.parts.every(x=>!x.cut)&&r.composer.draft&&r.composer.send;
+   results.push({size:[W,H],ok,...r});process.stdout.write('MORE '+JSON.stringify({size:[W,H],ok,cut:r.rows.filter(x=>x.cut).map(x=>x.t),cutParts:r.parts.filter(x=>x.cut).map(x=>x.tag),composer:r.composer,unreachable:r.reach.filter(x=>!x).length})+'\n');
    if(out)fs.writeFileSync(path.join(out,`more-sessions-${W}x${H}.page.png`),(await w.webContents.capturePage()).toPNG());}
   if(out)fs.writeFileSync(path.join(out,'more-sessions.json'),JSON.stringify(results,null,1)+'\n');
   process.stdout.write((results.every(x=>x.ok)?'MORE_PASS':'MORE_FAIL')+'\n');

@@ -4647,7 +4647,22 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 
 /* Assistant on short panes (VV 630x452): references sit beside the composer, notes and
    sessions fold into “More”, and “Collapse” shares the toolbar row instead of its own. */
-.cindy-more {flex:0 1 auto;min-height:0;max-height:40%;overflow:auto;display:flex;flex-direction:column;gap:2px;}
+.cindy-more {flex:0 1 auto;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:2px;}
+/* VV 2026-11-02: More is sized to its content (no percentage cap, whose edge cut a row and the
+   storage note at 630); kept small so it fits: two session rows (one when compact), the note on one
+   line, an opened format note scrolling inside itself. It can still shrink, so the composer stays. */
+.cindy-more > * {flex:none;}
+.cindy-more > p {white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0;}
+.cindy-more > details[open] {max-height:6em;overflow:auto;}
+/* 630×452: the whole pane is 139px; compact More keeps search + sessions only. The storage note
+   moves to the More button tooltip; the format note is the first section of every review dialog. */
+.cindy-port.compact .cindy-more > p, .cindy-port.compact .cindy-more > details {display:none;}
+/* VV 2026-11-02: only the session list scrolls, by whole rows, so its edge never cuts a row in half */
+.cindy-session-list {--row:22px;--gap:4px;flex:0 1 auto;min-height:var(--row);overflow-y:auto;scroll-snap-type:y mandatory;align-content:flex-start;max-height:calc(var(--row) * 2 + var(--gap));gap:var(--gap);}
+/* the pane sits in #mcAgentContent, whose .agent-toolbar gap would otherwise win and break the row maths */
+#mcAgentContent .cindy-session-list {gap:var(--gap);}
+.cindy-session-list > button {height:var(--row);box-sizing:border-box;scroll-snap-align:start;}
+.cindy-port.compact .cindy-session-list {max-height:calc(var(--row) * 1);}
 .cindy-ref-actions {flex:none;}
 .cindy-references {flex:0 1 auto;min-height:0;}
 .cindy-port [role=status]:empty {display:none;}

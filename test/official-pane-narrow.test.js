@@ -58,7 +58,7 @@ test('reference buttons leave the message scroller; notes and sessions fold into
  const refs=element(pane,'data-reference-actions'),composer=element(pane,'<ComposerCard');
  a.ok(refs>threadEnd&&refs<composer,'reference actions sit after the thread, beside the composer');
  const more=element(pane,'className="cindy-more"'),moreEnd=pane.indexOf('</details>',more);
- for(const part of ['type="search"','state.list(query)','t.local','t.formatTitle'])a.ok(pane.indexOf(part)>more&&pane.indexOf(part)<moreEnd,part+' belongs in More');
+ for(const part of ['type="search"','state.list(query)','{t.local}</p>','t.formatTitle'])a.ok(pane.indexOf(part)>more&&pane.indexOf(part)<moreEnd,part+' belongs in More');
  a.ok(!pane.slice(thread,threadEnd).includes('getReferences'),'no reference button inside the scroller');
  a.ok(pane.slice(more,more+300).includes('compact'),'More starts folded on short panes');
  for(const l of ['zh-CN','en'])a.ok(require('../ui-preferences').text[l].officialPane_more);
@@ -76,7 +76,13 @@ test('VV 630x452: More cannot push the composer out, Esc folds More before hidin
 test('VV 2026-11-02: the session list in More scrolls by whole rows, so no row is shown cut in half',()=>{
  const css=fs.readFileSync(require.resolve('../style.css'),'utf8'),pane=fs.readFileSync(require.resolve('../agent-ui/pane.tsx'),'utf8');
  a.match(pane,/className="agent-toolbar cindy-session-list" data-session-list/);
- a.match(css,/\.cindy-more\s*\{[^}]*overflow:\s*hidden/,'More itself does not scroll (its edge cut rows)');
+ a.ok(!/\.cindy-more\s*\{[^}]*max-height:\s*\d+%/.test(css),'no percentage cap: at 630 its edge cut a row and the storage note');
+ a.match(css,/\.cindy-more > p\s*\{[^}]*white-space:\s*nowrap[^}]*text-overflow:\s*ellipsis/,'the storage note stays one line');
+ a.match(pane,/<p title=\{t\.local\}>\{t\.local\}<\/p>/,'with its full text as a tooltip');
+ // 630×452: the whole pane is 139px; compact More keeps search + sessions, the storage note moves to
+ // the More button's tooltip, the format note is the first section of every review dialog
+ a.match(css,/\.cindy-port\.compact \.cindy-more > p,\s*\.cindy-port\.compact \.cindy-more > details\s*\{[^}]*display:\s*none/);
+ a.match(pane,/title=\{compact\?t\.local:undefined\}/,'compact: the storage note on the More button');
  a.match(css,/\.cindy-session-list\s*\{[^}]*overflow-y:\s*auto[^}]*scroll-snap-type:\s*y mandatory/);
  a.match(css,/\.cindy-session-list\s*\{[^}]*max-height:\s*calc\(/,'height is a whole number of rows');
  a.match(css,/\.cindy-session-list > button\s*\{[^}]*scroll-snap-align:\s*start/);
