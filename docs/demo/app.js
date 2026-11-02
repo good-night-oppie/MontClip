@@ -2608,7 +2608,7 @@ function showMediaMenu(x, y, m) {
   item("Replace file…", () => replaceMediaFile(m), state.connected ? null : "Needs the FableCut server");
   if (m.kind === "video") {
     const ps = proxyStatus.get(m.id);
-    const why = !state.connected ? "Needs the FableCut server" : !state.ffmpeg ? "Needs ffmpeg on the server's PATH" : isMediaOffline(m.id) ? "The file is offline" : null;
+    const why = !state.connected ? "Needs the FableCut server" : !state.ffmpeg ? "Needs MontClip's bundled FFmpeg" : isMediaOffline(m.id) ? "The file is offline" : null;
     if (ps && (ps.state === "ready" || ps.state === "running" || ps.state === "queued")) item(ps.state === "ready" ? "Delete proxy" : "Stop making the proxy", () => deleteProxies([m]));
     else {
       item("Create proxy (540p)", () => createProxies([m], 540), why);
@@ -3088,7 +3088,7 @@ function proxyLabel(m) {
 async function createProxies(list, height) {
   list = list.filter((m) => m.kind === "video" && !m.transient && isLocalSrc(m.src) && !isMediaOffline(m.id));
   if (!list.length) { toast("No video to make proxies of"); return; }
-  if (!state.ffmpeg) { toast("Proxies need ffmpeg on the server's PATH"); return; }
+  if (!state.ffmpeg) { toast("Proxies need MontClip's bundled FFmpeg"); return; }
   (runtime.proxyAsked ||= new Set());
   for (const m of list) runtime.proxyAsked.add(m.id);
   try {
@@ -6816,7 +6816,7 @@ function renderInspector(lite) {
         <button type="button" class="btn tiny" data-norm-run title="Measure the selected clips and set their gain to hit this target (linked stems share one gain)">Apply</button></span>`)}
       ${row("Noise", `<span class="insp-ctrls"><select data-denoise title="${state.connected && state.ffmpeg
         ? "Noise reduction (ffmpeg FFT denoiser) — renders a cleaned copy of the file; Off switches back to the original"
-        : "Noise reduction needs the server with ffmpeg on PATH"}" ${state.connected && state.ffmpeg ? "" : "disabled"}>${["off", ...DENOISE_LEVELS].map((v) =>
+        : "Noise reduction needs the server with MontClip's bundled FFmpeg"}" ${state.connected && state.ffmpeg ? "" : "disabled"}>${["off", ...DENOISE_LEVELS].map((v) =>
         `<option value="${v}" ${v === clipDenoise(c) ? "selected" : ""}>${v[0].toUpperCase() + v.slice(1)}</option>`).join("")}</select></span>`)}
       ${slider("volume", 0, 2, 0.01, p.volume)}
       ${slider("pan", -1, 1, 0.01, p.pan)}
@@ -16650,8 +16650,8 @@ async function openExportSetup() {
     ? (ef ? "Exports the " + ef.w + "×" + ef.h + " delivery frame (cropped). Keeps rendering if you switch tabs."
       : "Frame-accurate. Server encodes from JPEG frames. Keeps going if you switch tabs.")
     : (ef
-      ? "Needs the server + ffmpeg on PATH to export a cropped delivery frame."
-      : "Needs the server + ffmpeg on PATH.");
+      ? "Needs the server + MontClip's bundled FFmpeg to export a cropped delivery frame."
+      : "Needs the server + MontClip's bundled FFmpeg.");
   const wcNote = $("engineWebCodecsNote");
   if (wcNote) {
     if (wcOk) wcNote.textContent = "Frame-accurate. Browser HW-encodes H.264; server muxes with audio. Faster upload than Fast.";
@@ -18021,7 +18021,7 @@ async function runExportJob(ticket) {
     const j = await fetch("/api/export/ffmpeg").then((r) => r.json()).catch(() => ({}));
     state.ffmpeg = !!j.available;
   }
-  if (!state.ffmpeg) return fail("ffmpeg not found on PATH — export needs it");
+  if (!state.ffmpeg) return fail("MontClip's bundled FFmpeg is not available — export needs it");
   if (!project.clips.length) return fail("the timeline is empty");
   await fetchEncodeProfiles();
   await probeMissingMeta();
@@ -18762,6 +18762,7 @@ function openSettings() {
   overlay.addEventListener("keydown", onSettingsTabTrap);
   const dialog = $("settingsDialog");
   (cb || dialog)?.focus();
+  renderH264Settings();
 }
 function closeSettings() {
   const overlay = $("settingsOverlay");
@@ -18769,6 +18770,37 @@ function closeSettings() {
   overlay.classList.add("hidden");
   $("btnSettings")?.focus();
 }
+/* Settings → H.264 export (desktop only): which encoder H.264 export uses here, and the
+   optional local FFmpeg with libx264. The path is chosen in the main process's file
+   dialog and never passes through the page. */
+async function renderH264Settings(result) {
+  const box = $("setH264"), bridge = window.montclipExternalFfmpeg;
+  if (!box) return;
+  if (!bridge) { box.classList.add("hidden"); return; }
+  box.classList.remove("hidden");
+  const t = MontClipView.text[mcView.get().language] || MontClipView.text.en;
+  const fill = (s, v) => s.replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m));
+  $("setH264Title").textContent = t.h264Title;
+  $("btnH264Choose").textContent = t.h264Choose;
+  $("btnH264Clear").textContent = t.h264Clear;
+  let st = null;
+  try { st = await (await fetch("/api/export/h264", { cache: "no-store" })).json(); } catch { }
+  const ext = result || await bridge.get().catch(() => null);
+  const lines = [];
+  if (ext && ext.ok) lines.push(fill(t.h264External, { path: ext.path }));
+  else if (ext && ext.reason && ext.reason !== "none") lines.push(fill(t.h264ExternalFailed, { reason: ext.reason }));
+  if (st && st.encoder) lines.push(fill(t.h264Using, { encoder: (FableCutDelivery.ENCODERS[st.encoder] || {}).label || st.encoder }));
+  else lines.push((st && st.reason) || t.h264None);
+  lines.push(t.h264Hint);
+  $("setH264Status").textContent = lines.join(" ");
+  $("btnH264Clear").disabled = !(ext && (ext.ok || (ext.reason && ext.reason !== "none")));
+}
+$("btnH264Choose")?.addEventListener("click", async () => {
+  const r = await window.montclipExternalFfmpeg?.choose();
+  if (!r || r.code === "CANCELLED") return;
+  renderH264Settings(r);
+});
+$("btnH264Clear")?.addEventListener("click", async () => { await window.montclipExternalFfmpeg?.clear(); renderH264Settings(); });
 $("btnSettings").addEventListener("click", openSettings);
 $("btnCloseSettings").addEventListener("click", closeSettings);
 $("settingsOverlay").addEventListener("click", (e) => {

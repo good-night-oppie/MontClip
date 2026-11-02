@@ -187,8 +187,12 @@ MontClip runs only its bundled LGPL FFmpeg (`ffmpeg-path.js`), never `ffmpeg`
 on `PATH`: packaged, `resources/ffmpeg/`; in development, `vendor/ffmpeg/<platform>-<arch>/`
 (`node desktop/fetch-ffmpeg.cjs`) or `MONTCLIP_FFMPEG` / `MONTCLIP_FFPROBE` full paths.
 Where this manual says "needs ffmpeg on PATH", read "needs the bundled FFmpeg".
-The LGPL build has no libx264: H.264 export, the encoding profiles and proxies fail
-unless a working hardware encoder exists; a software H.264 choice is still open. See `LICENSES.md` and `desktop/README.md`.
+The LGPL build has no libx264. H.264 export and proxies use a graphics-card encoder
+(NVENC / Quick Sync / AMF), else Windows' own `h264_mf`; `GET /api/export/h264` says which.
+A user may choose their own FFmpeg with libx264 in Settings (desktop): it is used only for
+H.264 export, never for preview, decoding or proxies, and is never searched for on PATH.
+Raw encoding profiles that use libx264 need that local FFmpeg. With no H.264 encoder at all,
+export says why in plain words. See `docs/decisions/2026-11-02-h264-encoder.md`, `LICENSES.md`.
 
 ```
 node server.js        # → http://localhost:7777   (from npm: npx -y fablecut)

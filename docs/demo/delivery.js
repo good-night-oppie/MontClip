@@ -57,7 +57,9 @@
      profile / spec, no bitrate or CRF). crf: [min, max, default]. */
   const CODECS = {
     h264: {
-      label: "H.264", encoders: ["libx264", "h264_videotoolbox", "h264_nvenc", "h264_qsv", "h264_amf"],
+      // libx264 only ever comes from a local FFmpeg the user chose (external-ffmpeg.js); the
+      // bundled LGPL build has hardware encoders and Windows' own h264_mf, tried in this order.
+      label: "H.264", encoders: ["libx264", "h264_videotoolbox", "h264_nvenc", "h264_qsv", "h264_amf", "h264_mf"],
       containers: ["mp4", "mov", "mkv"], rate: ["crf", "vbr", "cbr"], crf: [0, 51, 18],
       pixFmts: ["yuv420p", "yuv422p", "yuv444p", "yuv420p10le", "yuv422p10le"],
     },
@@ -100,9 +102,10 @@
      generic name (yuv420p10le); hardware encoders get their own (p010le). */
   const HW_PIX = { yuv420p: "nv12", yuv420p10le: "p010le", yuv444p: "yuv444p" };
   const ENCODERS = {
-    libx264: { label: "x264 (software)" },
+    libx264: { label: "x264 (your FFmpeg)" },
     h264_videotoolbox: { label: "Apple Silicon VideoToolbox", hw: "videotoolbox", pix: ["yuv420p"] },
-    h264_nvenc: { label: "NVIDIA NVENC", hw: "nvenc", pix: ["yuv420p", "yuv444p", "yuv420p10le"] },
+    h264_nvenc: { label: "NVIDIA NVENC", hw: "nvenc", pix: ["yuv420p", "yuv444p", "yuv420p10le"], min: [145, 49] },
+    h264_mf: { label: "Windows Media Foundation", hw: "mf", pix: ["yuv420p"] },
     h264_qsv: { label: "Intel Quick Sync", hw: "qsv", pix: ["yuv420p"] },
     h264_amf: { label: "AMD AMF", hw: "amf", pix: ["yuv420p"] },
     libx265: { label: "x265 (software)" },
@@ -298,7 +301,9 @@
     const codec = CODECS[v.codec] ? v.codec : "h264";
     if (v.codec && !CODECS[v.codec]) notes.push(`unknown codec "${v.codec}" — using H.264`);
     const C = CODECS[codec];
-    const avail = encodersFor(codec, opts.available);
+    // an encoder with a minimum frame size (NVENC) is skipped for outputs smaller than it
+    const fits = (e) => !(ENCODERS[e] && ENCODERS[e].min && w != null && (w < ENCODERS[e].min[0] || h < ENCODERS[e].min[1]));
+    const avail = encodersFor(codec, opts.available).filter(fits);
     let encoder = v.encoder && C.encoders.includes(v.encoder) ? v.encoder : null;
     if (v.encoder && !encoder) notes.push(`encoder "${v.encoder}" does not make ${C.label}`);
     if (encoder && opts.available && !opts.available.has(encoder)) { notes.push(`this ffmpeg has no ${encoder}`); encoder = null; }
@@ -452,6 +457,7 @@
       else if (E.hw === "videotoolbox") out.push("-q:v", String(Math.max(1, Math.min(100, Math.round((51 - v.crf) * 100 / 51)))));
       else if (E.hw === "qsv") out.push("-global_quality", String(v.crf));
       else if (E.hw === "amf") out.push("-rc", "cqp", "-qp_i", String(v.crf), "-qp_p", String(v.crf), ...(v.codec === "h264" ? ["-qp_b", String(v.crf)] : []));
+      else if (E.hw === "mf") out.push("-rate_control", "quality", "-quality", String(Math.max(1, Math.min(100, Math.round((51 - v.crf) * 100 / 51)))));
       if (max && E.hw !== "amf") {
         if (enc === "libsvtav1") out.push("-svtav1-params", `mbr=${max}`);
         else out.push("-maxrate", k(max), "-bufsize", k(max * 2));
@@ -460,10 +466,12 @@
       const peak = max || Math.round(br * 1.5);
       if (E.hw === "nvenc") out.push("-rc", "vbr");
       if (E.hw === "amf") out.push("-rc", "vbr_peak");
+      if (E.hw === "mf") out.push("-rate_control", "u_vbr");
       out.push("-b:v", k(br), "-maxrate", k(peak), "-bufsize", k(peak * 2));
     } else if (v.rate === "cbr") {
       if (E.hw === "nvenc") out.push("-rc", "cbr");
       if (E.hw === "amf") out.push("-rc", "cbr");
+      if (E.hw === "mf") out.push("-rate_control", "cbr");
       if (E.hw === "videotoolbox") out.push("-constant_bit_rate", "1");
       out.push("-b:v", k(br), "-minrate", k(br), "-maxrate", k(br), "-bufsize", k(br));
       if (enc === "libx264") out.push("-x264-params", "nal-hrd=cbr");
