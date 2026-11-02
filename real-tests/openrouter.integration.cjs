@@ -22,7 +22,8 @@ async function pickModel(){
  return free.find(id=>/nemotron.*vl/i.test(id))||free[0]||null;
 }
 let modelP=null;const model=()=>modelP||(modelP=off?Promise.resolve(null):pickModel());
-function service(key,m){return S.createService({read:()=>JSON.stringify({version:1,provider:'openrouter',model:m,secret:'sealed'}),write(){},seal:k=>k,unseal:()=>key,timeoutMs:90000});}
+// OpenRouter is a test provider: the integration test switches it on explicitly, as a release never does
+function service(key,m){return S.createService({read:()=>JSON.stringify({version:1,provider:'openrouter',model:m,secret:'sealed'}),write(){},seal:k=>k,unseal:()=>key,timeoutMs:90000,providers:S.ALL_PROVIDERS});}
 const refs=[{type:'caption',projectId:'p_it',sequenceId:'main',revision:3,gen:0,clipId:'c1',sourceCaptionId:'c1',text:'今天我们来看三个剪辑技巧。',start:1,end:3.2},
  {type:'caption',projectId:'p_it',sequenceId:'main',revision:3,gen:0,clipId:'c2',sourceCaptionId:'c2',text:'第一个是删掉停顿。',start:3.2,end:5}];
 const payload=(text,withRefs=true)=>({version:1,requestId:'it'+Date.now()+Math.random().toString(36).slice(2,7),projectId:'p_it',sequenceId:'main',revision:3,gen:0,

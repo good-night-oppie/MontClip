@@ -1,6 +1,6 @@
 {
  "zh-CN": {
-  "summary": "这次共发送 2 条：固定的格式说明、你的消息（引用 0 条字幕），以及之前的 0 条消息（包含其中的引用）。",
+  "summary": "这次会发送一段固定的格式说明、消息文字、引用的 0 条字幕，以及之前的 0 条消息（包含其中的引用）。",
   "sections": [
    "每次请求都会附带的格式说明",
    "你"
@@ -9,13 +9,14 @@
    "sameCount": true,
    "noteFirst": true,
    "messagesInOrder": true,
-   "countIncludesNote": true,
+   "summaryNamesNote": true,
    "rawFields": true,
-   "noKeyShown": true
+   "noKeyShown": true,
+   "explainAboveFoldedNote": true
   }
  },
  "en": {
-  "summary": "This sends 2 messages: the fixed format note, your message (0 referenced subtitles) and 0 previous messages (including their references).",
+  "summary": "This will send a fixed formatting note, your message, 0 quoted subtitles, and 0 earlier messages (including their quotes).",
   "sections": [
    "Format note sent with every request",
    "You"
@@ -24,9 +25,10 @@
    "sameCount": true,
    "noteFirst": true,
    "messagesInOrder": true,
-   "countIncludesNote": true,
+   "summaryNamesNote": true,
    "rawFields": true,
-   "noKeyShown": true
+   "noKeyShown": true,
+   "explainAboveFoldedNote": true
   }
  }
 }

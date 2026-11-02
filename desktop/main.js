@@ -81,7 +81,9 @@ async function start() {
     event.returnValue=settingsAllowed(event,win,origin)?workspaceSettings[operation](value):{ok:false,code:'WORKSPACE_FORBIDDEN'};
   });
   const agentSessions = require('./agent-session-store').createStore(app.getPath('userData'));
-  const agentService = require('./agent-service').createDiskService(app.getPath('userData'),safeStorage);
+  const AgentService = require('./agent-service');
+  // OpenRouter only for tests: development builds, or the main process's own launch switch (never the page)
+  const agentService = AgentService.createDiskService(app.getPath('userData'),safeStorage,undefined,{providers:AgentService.testProvidersEnabled({isPackaged:app.isPackaged,argv:process.argv,env:process.env})?AgentService.ALL_PROVIDERS:AgentService.PUBLIC_PROVIDERS});
   for(const operation of ['get','configure','reset','send','cancel']) ipcMain.handle('montclip:agent:'+operation,(event,value)=>{
     if(!settingsAllowed(event,win,origin))return {ok:false,code:'AGENT_FORBIDDEN'};
     return agentService[operation](value);

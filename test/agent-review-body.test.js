@@ -11,7 +11,7 @@ const payload={version:1,requestId:'rb1',projectId:'p',sequenceId:'s',revision:3
 async function capture(provider){
  let seen=null;
  const fake=async(url,init)=>{seen={url,init};return{ok:true,status:200,body:(async function*(){yield Buffer.from(JSON.stringify({choices:[{message:{content:'ok'}}]}));})()};};
- const s=S.createService({read:()=>JSON.stringify({version:1,provider,model:'vendor/model-x:free',secret:'sealed'}),write(){},seal:k=>k,unseal:()=>KEY,request:(cfg,p,signal)=>S.httpsRequest(cfg,p,signal,{fetch:fake})});
+ const s=S.createService({read:()=>JSON.stringify({version:1,provider,model:'vendor/model-x:free',secret:'sealed'}),write(){},seal:k=>k,unseal:()=>KEY,providers:S.ALL_PROVIDERS,request:(cfg,p,signal)=>S.httpsRequest(cfg,p,signal,{fetch:fake,providers:S.ALL_PROVIDERS})});
  const r=await s.send(JSON.parse(JSON.stringify(payload)));a.equal(r.ok,true,JSON.stringify(r));return seen;
 }
 
@@ -42,12 +42,12 @@ test('OpenRouter: fixed address, redirects refused, response capped',async()=>{
  a.equal(S.ENDPOINTS.openrouter,'https://openrouter.ai/api/v1/chat/completions');a.ok(Object.isFrozen(S.ENDPOINTS));
  const seen=await capture('openrouter');a.equal(seen.url,S.ENDPOINTS.openrouter);a.equal(seen.init.redirect,'error');a.equal(seen.init.method,'POST');
  const big=async()=>({ok:true,status:200,body:(async function*(){for(let i=0;i<20;i++)yield Buffer.alloc(8192,32);})(),});
- let code;try{await S.httpsRequest({provider:'openrouter',model:'m',key:'k'},payload,new AbortController().signal,{fetch:big});}catch(e){code=e.message;}
+ let code;try{await S.httpsRequest({provider:'openrouter',model:'m',key:'k'},payload,new AbortController().signal,{fetch:big,providers:S.ALL_PROVIDERS});}catch(e){code=e.message;}
  a.equal(code,'RESPONSE_LIMIT','a reply over 131072 bytes is refused');
  a.equal(S.RESPONSE_LIMIT_BYTES,131072);
 });
 
 test('the format note counts in what is sent: shown in the dialog and in the count',()=>{
- for(const l of ['zh-CN','en']){const s=view[l].officialPane_reviewSummary;a.match(s,/\{total\}/,l);a.ok(/格式说明|format note/i.test(s),l+': names the format note');}
+ for(const l of ['zh-CN','en']){const s=view[l].officialPane_reviewSummary;a.match(s,/\{captions\}/,l);a.match(s,/\{history\}/,l);a.ok(/格式说明|formatting note/i.test(s),l+': names the format note');}
  a.match(pane,/\.replace\('\{total\}',String\(\(review\?\.messages\?\.length\|\|0\)\+1\)\)/,'total = page messages + the format note');
 });

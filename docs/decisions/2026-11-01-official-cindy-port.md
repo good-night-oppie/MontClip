@@ -65,3 +65,31 @@ Stored/outbound messages remain unchanged. A display-only helper recognizes an e
 Confirmation is centered/themed, lists counts and actual readable content (including history references), with exact HTTP JSON collapsed by default and fixed destination domain visible. JJ notSent remains constant. New responses and content/viewport resize scroll to the latest message; proposal action stays outside history scroll. No network is started by settings or reask. Reask creates a new session containing only the original typed prompt; old sessions/drafts remain available and no old references are rebound. Configuration close clears the transient key field.
 
 Known remaining UI work: at630x452 the compact message viewport is about29px; long replies require scrolling within that viewport, while reply end/action/composer/core editor remain reachable. Visible VV must judge usability. Legacy sentence proposal dialog bilingual/time formatting is deferred. Three populated V3/V1/A1 track visibility is explicitly a separate follow-up, not fixed here.
+
+## Providers offered: OpenRouter for tests only (Deja, 2026-11-02)
+
+The owner asked for integration and unit tests to run on OpenRouter's free vision models, and for the
+e2e test to use DeepSeek Flash. That is about testing; it does not open OpenRouter to streamers.
+
+- **A release offers OpenAI and DeepSeek only.** `desktop/agent-service.js` keeps OpenRouter's fixed
+  endpoint so the integration tests go through the product's real request path. Three things make it
+  unreachable from a release:
+  - `get().providers` does not list it, and the settings menu is built from that list;
+  - `configure` refuses it;
+  - `httpsRequest` throws `PROVIDER_UNAVAILABLE` before any network call.
+
+  A connection saved by a development build reads as "not configured" in a release, not as a broken file.
+- **When it is listed:**
+  - in a development build (`!app.isPackaged`);
+  - in a release started with `--montclip-test-providers`;
+  - in a release started with `MONTCLIP_TEST_PROVIDERS=1`.
+
+  Only the main process reads these, at start-up. No IPC channel or page setting can change the list.
+- **Opening OpenRouter to streamers later: the owner decides.** Before that, QQ reviews the privacy side:
+  free models may retain or train on the conversation. The interface must not call it "free" (the test
+  checks every interface string).
+- **If it is opened** (QQ, 2026-11-02, not blocking this PR): the settings page adds the line
+  「免费模型的服务商可能会保存你发送的文字」 (en: "The provider of a free model may keep the text you send."),
+  worded with JJ.
+- Tests: `test/agent-providers.test.js`. The real-model tests (`real-tests/`, off unless
+  `MONTCLIP_REAL_MODELS=1`, never in CI) construct the service with the test providers explicitly.
