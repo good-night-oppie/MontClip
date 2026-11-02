@@ -88,3 +88,15 @@ test('the server lets go of a file when its download stops half way (pipeline, n
   a.doesNotMatch(serveFile, /createReadStream\([^)]*\)\.pipe\(res\)/);
   a.equal((serveFile.match(/pipeline\(fs\.createReadStream\(filePath(, \{ start, end \})?\), res, /g) || []).length, 2);
 });
+
+test('every download says how it ended (VV, 012ba18: a cancelled save still read "Exported … checks passed")', (t) => {
+  const exportsDir = dir(t);
+  for (const [url, name, state] of [[ORIGIN + '/exports/a.mp4', 'a.mp4', 'completed'], [ORIGIN + '/exports/b.mp4', 'b.mp4', 'cancelled'],
+    [ORIGIN + '/exports/c.mp4', 'c.mp4', 'interrupted'], ['blob:' + ORIGIN + '/x', '录播.srt', 'cancelled']]) {
+    const it = item(url, name), seen = [];
+    X.attach(it, { origin: ORIGIN, exportsDir, language: 'zh-CN', onDone: (v) => seen.push(v) });
+    it.savePath = path.join(exportsDir, 'elsewhere-' + name);
+    it.emit('done', {}, state);
+    a.deepEqual(seen, [{ state, name }], name);
+  }
+});

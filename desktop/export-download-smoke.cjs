@@ -54,6 +54,23 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
    read(`(()=>{updateMontClipView({language:'zh-CN'});const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['1\\n00:00:00,000 --> 00:00:01,000\\nx\\n']));a.download='录播.srt';a.click();return true})()`);});
   assert.equal(out.captions.dialog.title,'保存字幕');assert.equal(out.captions.state,'completed');
   assert.deepEqual(fs.readdirSync(exportsDir),['older export.mp4']);
+  // the toast follows the save (VV, 012ba18): the page's own saveDownload, as the export uses it
+  const toastAfter=(name,language,act)=>new Promise((resolve,reject)=>{
+   fs.writeFileSync(path.join(exportsDir,name),Buffer.alloc(48*1024*1024,1));
+   const on=(_e,item)=>{ses.removeListener('will-download',on);act(item);item.once('done',()=>setTimeout(()=>read(`document.getElementById('toast').textContent`).then(resolve,reject),600));};
+   ses.on('will-download',on);
+   read(`(()=>{updateMontClipView({language:${JSON.stringify(language)}});document.getElementById('toast').textContent='';saveDownload('/exports/'+encodeURIComponent(${JSON.stringify(name)}),${JSON.stringify(name)},'Exported '+${JSON.stringify(name)});return document.getElementById('toast').textContent})()`)
+    .then((before)=>{if(before)reject(Error('a toast before the save: '+before));},reject);
+  });
+  out.toastSaved=await toastAfter('t1.mp4','zh-CN',(item)=>item.setSavePath(path.join(saved,'t1.mp4')));
+  assert.equal(out.toastSaved,'Exported t1.mp4','the success message once saved');
+  out.toastCanceledZh=await toastAfter('t2.mp4','zh-CN',(item)=>{item.setSavePath(path.join(downloads,'t2.mp4'));item.once('updated',()=>item.cancel());});
+  assert.equal(out.toastCanceledZh,'已取消保存，没有保存文件。');
+  out.toastCanceledEn=await toastAfter('t3.mp4','en',(item)=>{item.setSavePath(path.join(downloads,'t3.mp4'));item.once('updated',()=>item.cancel());});
+  assert.equal(out.toastCanceledEn,'Save canceled. No file was saved.');
+  await wait(1000);
+  assert.deepEqual(fs.readdirSync(exportsDir),['older export.mp4'],'the copies went');
+  assert.deepEqual(fs.readdirSync(downloads),[],'nothing left in Downloads');
   process.stdout.write('EXPORT_DOWNLOAD_COMPLETE '+JSON.stringify(out)+'\n');
  }catch(e){process.stdout.write('EXPORT_DOWNLOAD_FAIL '+(e&&e.stack)+' '+JSON.stringify(out)+'\n');}
  finally{setTimeout(()=>app.exit(0),300);}
