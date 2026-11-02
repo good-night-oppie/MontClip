@@ -1,0 +1,27 @@
+{
+ "zh-CN": {
+  "own": "按句选择保留片段 只保留勾选的句段，移除中间间隙和其余音视频。原片不变，一步撤销。 或按顺序输入明确区间（秒，每行 起点,终点；填写后替代勾选） 试听选段 保留选段 取消",
+  "summary": "00:01:05–00:01:24 → 0.63 秒，按勾选顺序。",
+  "checks": {
+   "oneLanguage": true,
+   "summaryOneLanguage": true,
+   "noFalsePartial": true
+  }
+ },
+ "en": {
+  "own": "Keep sentences Only the checked sentences are kept, joined in order; the gaps and other media are removed from the edit. Source files stay unchanged, and one Undo restores it. Or ordered ranges in seconds, one start,end per line (overrides the checks) Preview Apply Cancel",
+  "summary": "00:01:05–00:01:24 → 0.63 s, in selection order.",
+  "checks": {
+   "oneLanguage": true,
+   "summaryOneLanguage": true,
+   "noFalsePartial": true
+  }
+ },
+ "secondPass": {
+  "summary": "00:01:02–00:01:21 → 0.63 s, in selection order.",
+  "checks": {
+   "noFalsePartial": true,
+   "planned": true
+  }
+ }
+}
