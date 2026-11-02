@@ -63,3 +63,12 @@ test('reference buttons leave the message scroller; notes and sessions fold into
  a.ok(pane.slice(more,more+300).includes('compact'),'More starts folded on short panes');
  for(const l of ['zh-CN','en'])a.ok(require('../ui-preferences').text[l].officialPane_more);
 });
+
+test('VV 630x452: More cannot push the composer out, Esc folds More before hiding, reopen starts folded',()=>{
+ const css=fs.readFileSync(require.resolve('../style.css'),'utf8');
+ const rule=sel=>css.split(/\r?\n/).filter(l=>l.startsWith(sel+' {')).join(' ');
+ a.match(rule('.cindy-more'),/flex:0 1 auto/);a.match(rule('.cindy-more'),/min-height:0/);
+ a.match(rule('.cindy-references'),/flex:0 1 auto/);a.match(rule('.cindy-thread'),/min-height:0/);
+ a.match(pane,/e\.key==='Escape'[^]*?configOpen\)\{[^]*?\}else if\(more\)\{setMoreOpen\(false\)[^]*?\}else options\.onHide\(\)/);
+ a.match(pane,/clientHeight===0\)setMoreOpen\(false\)/,'hidden pane folds More so it reopens folded');
+});

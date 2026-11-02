@@ -23,3 +23,10 @@ Not covered: physical mouse/keyboard, IME hardware, screen readers, real provide
 - `adopt-only/` — after QQ's review of a432149: the assistant adopts the id without
   `pjLoad` / `syncFromServer` (no reload path at all). Same visible-window run, fresh
   profile, default project: id adopted, review opens, 3 sizes pass.
+- `more-red/` / `more-green/` — VV 2026-11-02: at 630×452 with More open, referencing
+  two subtitles pushed the composer below the pane (red: draft centre y=270, not hit).
+  Green: More and the reference chips shrink and scroll instead, the composer and Send
+  stay visible and hit (`p630-more-refs`); the first Esc folds More, the second hides
+  the pane, and the pane reopens with More folded (`p630-reopen`).
+- `flake-runs.txt` — 12 full test runs looking for VV's intermittent failure; none
+  reproduced.

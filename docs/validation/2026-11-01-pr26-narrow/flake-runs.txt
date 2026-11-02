@@ -1,0 +1,14 @@
+Full node --test runs on Windows (Node 22.15.1) to look for VV's intermittent 637/638:
+6fbf3a3 run1: # tests 642 # pass 642 # fail 0 
+6fbf3a3 run2: # tests 642 # pass 642 # fail 0 
+6fbf3a3 run3: # tests 642 # pass 642 # fail 0 
+6fbf3a3 run4: # tests 642 # pass 642 # fail 0 
+6fbf3a3 run5: # tests 642 # pass 642 # fail 0 
+6fbf3a3 two suites in parallel par1: # tests 642 # pass 642 # fail 0 
+6fbf3a3 two suites in parallel par2: # tests 642 # pass 642 # fail 0 
+this commit after1: # tests 643 # pass 643 # fail 0 
+this commit after2: # tests 643 # pass 643 # fail 0 
+this commit after3: # tests 643 # pass 643 # fail 0 
+this commit after4: # tests 643 # pass 643 # fail 0 
+this commit after5: # tests 643 # pass 643 # fail 0 
+No failure reproduced in 12 full runs; the failing test name from VV's run is needed to fix it.
