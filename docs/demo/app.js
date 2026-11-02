@@ -9594,8 +9594,28 @@ async function highlightSignals(isCurrent = () => true) {
   const sentences = project.clips.filter((c) => FableCutCaptions.isCaption(c) && !c.disabled && !(project.disabledTracks || []).includes(c.track))
     .map((c) => ({ id: c.id, start: c.start, end: c.start + c.duration, text: (c.props && c.props.text) || "" }));
   let loudness = null; const beats = [];
-  const sounding = mediaClips().some((c) => (c.kind === "audio" || c.kind === "video") && clipRenders(c));
-  if (duration > 0 && sounding) {
+  const audible = mediaClips().filter((c) => clipRenders(c) && (c.kind === "audio" || (c.kind === "video" && ((c.props && c.props.volume) ?? 1) > 0)));
+  // the server reads each file's sound once, as a stream, and keeps it (a 2-hour recording decoded whole in the page
+  // took 705 s and 3.1 GB, and failed); the page maps it onto the timeline. Effects, faders and volume keyframes are
+  // not applied here: this is a guide to where the timeline is louder, not the export mix.
+  if (duration > 0 && audible.length && state.connected) {
+    const perMedia = {};
+    try {
+      for (const id of new Set(audible.map((c) => c.mediaId))) {
+        if (!isCurrent()) return null;
+        const m = getMedia(id); if (!m || !m.src) continue;
+        const r = await fetch("/api/signals/loudness?src=" + encodeURIComponent(m.src));
+        if (r.ok) perMedia[id] = await r.json();
+      }
+      const clips = audible.filter((c) => perMedia[c.mediaId]).map((c) => ({ mediaId: c.mediaId, start: c.start, in: c.in || 0, duration: c.duration,
+        speed: (c.props && c.props.speed) || 1, volume: (c.props && c.props.volume) ?? 1, gain: (c.props && c.props.gain) || 0 }));
+      if (clips.length) loudness = MontClipHighlights.mapLoudness(clips, perMedia, { duration, step: 0.5 });
+    } catch { loudness = null; }
+  }
+  // without the server (the web demo), or when it could not read the files: the mix itself, in 60 s pieces.
+  // Beats need the sound itself: only on a timeline up to 10 minutes.
+  const mixNeeded = duration > 0 && audible.length && (!loudness || duration <= 600);
+  if (mixNeeded) {
     const step = 0.5, values = [];
     for (let t0 = 0; t0 < duration; t0 += 60) {
       if (!isCurrent()) return null;
@@ -9609,9 +9629,9 @@ async function highlightSignals(isCurrent = () => true) {
         for (let k = i * per; k < Math.min(mono.length, (i + 1) * per); k++) { acc += mono[k] * mono[k]; n++; }
         values.push(n ? Math.max(-90, 10 * Math.log10(acc / n + 1e-12)) : -90);
       }
-      try { for (const b of FableCutBeats.analyze(FableCutBeats.resample(mono, buf.sampleRate)).beats) beats.push(b + t0); } catch { /* no beat in this piece */ }
+      if (duration <= 600) try { for (const b of FableCutBeats.analyze(FableCutBeats.resample(mono, buf.sampleRate)).beats) beats.push(b + t0); } catch { /* no beat in this piece */ }
     }
-    loudness = { step, values };
+    if (!loudness) loudness = { step, values };
   }
   const danmaku = Array.isArray(project.danmaku) ? project.danmaku : [];
   return { duration, sentences, loudness, beats, danmaku };

@@ -131,6 +131,27 @@
     return out.slice(0, o.max).map((c, i) => ({ ...c, rank: i + 1 }));
   }
 
+  /** Each file's loudness ({step, values} in its own seconds) on the timeline: for every timeline bin, the power of
+   *  the clips sounding there, each at its media time (in + (t − start) × speed), scaled by its volume and gain.
+   *  clips: [{mediaId, start, in, duration, speed, volume, gain}]. No sound → −90 dBFS. */
+  function mapLoudness(clips, perMedia, { duration, step = 0.5 }) {
+    const n = Math.max(0, Math.ceil(duration / step - 1e-9)), power = new Float64Array(n);
+    for (const c of clips) {
+      const L = perMedia[c.mediaId];
+      if (!L || !L.values || !L.values.length) continue;
+      const speed = c.speed > 0 ? c.speed : 1, scale = Math.pow(c.volume == null ? 1 : c.volume, 2) * Math.pow(10, (c.gain || 0) / 10);
+      if (!(scale > 0)) continue;
+      const i0 = Math.max(0, Math.floor(c.start / step)), i1 = Math.min(n, Math.ceil((c.start + c.duration) / step));
+      for (let i = i0; i < i1; i++) {
+        const t = (i + 0.5) * step;
+        if (t < c.start || t >= c.start + c.duration) continue;
+        const j = Math.floor(((c.in || 0) + (t - c.start) * speed) / L.step);
+        if (j >= 0 && j < L.values.length) power[i] += Math.pow(10, L.values[j] / 10) * scale;
+      }
+    }
+    return { step, values: Array.from(power, (p) => (p > 0 ? Math.max(-90, Math.round(10 * Math.log10(p) * 100) / 100) : -90)) };
+  }
+
   /** Why there are no cards: no-media (nothing on the timeline), no-signals (no sentences and no sound to read),
    *  nothing-stands-out (signals read, nothing above the ordinary). */
   function emptyReason(sig) {
@@ -140,5 +161,5 @@
     return "nothing-stands-out";
   }
 
-  return { DEFAULTS, segments, candidates, emptyReason, windowDb };
+  return { DEFAULTS, segments, candidates, emptyReason, windowDb, mapLoudness };
 });

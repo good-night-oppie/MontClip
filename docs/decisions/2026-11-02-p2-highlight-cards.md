@@ -41,9 +41,13 @@ takes a few seconds per minute of timeline, then it shows up to 12 cards, best f
 
 - **Signals (local only; nothing is sent; no model runs):**
   - **Sentences:** the caption clips on the timeline (enabled, on enabled lanes).
-  - **Loudness:** the timeline's own sound mix (the export mix, with the same faders and effects), rendered in
-    60 s pieces. Each piece is reduced to one dBFS value per 0.5 s, so a long recording is never decoded in one go.
-  - **Beats:** the existing beat analysis (`beats.js`), run on each piece.
+  - **Loudness:** each sounding clip's file, read once by the server (`signals.js`,
+    `GET /api/signals/loudness?src=`). ffmpeg decodes it as a stream to 8 kHz mono, one dBFS value per 0.5 s, and the
+    result is cached in `analysis/signals/` per file version. The page maps it onto the timeline through each clip's
+    start, in point, speed, volume and gain, adding the clips that sound at once in power. Effects, faders and volume
+    keyframes are not applied: it shows where the timeline is louder, not the export mix. Without a server (the web
+    demo), or when the server cannot read a file, the timeline's own mix is rendered in 60 s pieces instead.
+  - **Beats:** the existing beat analysis (`beats.js`) on the mix, only for timelines up to 10 minutes.
   - **Danmaku:** `project.danmaku` (`[{t}]`, timeline seconds) when the project has any. MontClip has no danmaku
     import yet, so today this signal is absent and no card cites it.
 - **Candidates** (`highlight-candidates.js`, pure, tested):
@@ -69,16 +73,30 @@ takes a few seconds per minute of timeline, then it shows up to 12 cards, best f
   caption provenance as the sentence dialog keeps them. If the project changed while the dialog was open, it
   refuses and asks to reopen.
 
+## Measured on a recording of real length (Deja, #52)
+
+A synthetic 2-hour clip (160×90, 10 fps, VP9 + AAC mono, made with MontClip's own ffmpeg; a loud 8 s every
+10 minutes) on the timeline with 1200 synthetic sentences. It was measured with `desktop/highlights-perf.cjs`
+(fresh profile, hidden window) on an i7-11800H with 16 threads.
+
+| | read signals | renderer peak | app total peak | cards |
+|---|---|---|---|---|
+| first version (the page renders the mix) | 705 s | 3.1 GB | 3.8 GB | 0 — the 2-hour sound could not be decoded in the page |
+| now (server stream + mapping) | **3.0 s**, uncached | **213 MB** | 907 MB | **12**, one per loud stretch |
+
+ffmpeg's own memory is not in the app's process metrics. The temporary clip and profile were deleted after the run.
+
 ## Relation to P1
 
 P1 (the local media index, built in the background and stored by content hash) is not built yet. P2 therefore
-computes the minimal subset it needs on demand — loudness, silences, beats, sentences and danmaku — and stores
-nothing. When P1 lands, `highlightSignals()` reads the index instead of rendering the mix, and the candidate
-logic stays as it is.
+computes the minimal subset it needs on demand: loudness, silences, beats, sentences and danmaku. The per-file
+loudness cache (`analysis/signals/`, keyed by the file's name, size and modification time) is the first piece of
+that index. P1 takes it over, moves it to content hashes and runs it in the background; the candidate logic stays
+as it is.
 
 ## Not covered (stated, not claimed)
 
-- A real 2-hour recording: the signal reading is per 60 s piece but its time on a long timeline is not measured.
+- Real (not synthetic) long recordings, and machines slower than the one measured.
 - Danmaku: there is no import yet, so the danmaku reason is tested in the module only.
 - Shot changes and motion (which `highlights.js` uses for `fablecut_highlights`) are not signals here.
 - No model ranks or describes the cards; P3 brings the cards into the chat.
