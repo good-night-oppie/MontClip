@@ -41,3 +41,17 @@ test('desktop/main.js holds no "中文 / English" string', () => {
     a.ok(!/[一-鿿]/.test(t), 'Chinese written into main.js: ' + t.slice(0, 80));
   }
 });
+
+test("JJ's wording (2026-11-02): the start-up hint, and \"MontClip's internal service\"", () => {
+  const zh = N.nativeText('zh-CN'), en = N.nativeText('en');
+  a.equal(zh.startFailedHint, '请关闭后重新打开。还不行，就换一个能保存文件的文件夹再试。');
+  a.equal(en.startFailedHint, 'Close and reopen MontClip. If it still fails, try a folder where files can be saved.');
+  for (const k of KEYS) {
+    a.ok(!/本地编辑服务/.test(zh[k]), 'zh ' + k + ' says MontClip 的内部服务');
+    a.ok(!/local editor service/i.test(en[k]), 'en ' + k + " says MontClip's internal service");
+  }
+  for (const k of ['serviceStopped', 'serviceStartTimeout', 'serviceExitedAtStart']) {
+    a.match(zh[k], /MontClip 的内部服务/, k);
+    a.match(en[k], /MontClip's internal service/, k);
+  }
+});
