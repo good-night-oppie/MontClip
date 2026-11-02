@@ -46,6 +46,7 @@ function renderMontClipView() {
   document.querySelector(".mc-history").setAttribute("aria-label", t.undo + " / " + t.redo);
   document.documentElement.lang = language;
   MontClipView.applyI18n(document, language);
+  if (typeof syncTimelineTrackView === "function" && syncTimelineTrackView.folded) updateTracksAboveHint();
   document.body.dataset.mcMode = mode;
   document.getElementById("mcLanguage").value = language;
   const group = document.getElementById("mcMode"); group.setAttribute("aria-label", t.mode);
@@ -5065,6 +5066,11 @@ function syncTimelineTrackView() {
   syncTimelineTrackView.pending = false;
   const occupied = new Set(project.clips.map(c => c.track));
   const simple = mcView.get().mode === "simple";
+  const key = JSON.stringify([runtime.projectGen, SeqLib.activeId(seqRoot()), simple,
+    TRACKS.filter(t => occupied.has(t.id)).map(t => t.id)]);
+  // Lanes folded away because they could not be shown whole (simple mode): kept until the tracks change.
+  if (syncTimelineTrackView.focusKey !== key) syncTimelineTrackView.folded = new Set();
+  const folded = syncTimelineTrackView.folded || (syncTimelineTrackView.folded = new Set());
   const occupiedKinds = new Set(TRACKS.filter(t => occupied.has(t.id)).map(t => t.kind));
   for (const container of [els.tracks, $("trackHeadInner")]) {
     if (!container) continue;
@@ -5072,11 +5078,10 @@ function syncTimelineTrackView() {
       const id = row.dataset.track;
       const placeholder = (id === "V1" && !occupiedKinds.has("video")) ||
         (id === "A1" && !occupiedKinds.has("audio"));
-      row.hidden = simple && !occupied.has(id) && !placeholder;
+      row.hidden = (simple && !occupied.has(id) && !placeholder) || folded.has(id);
     }
   }
-  const key = JSON.stringify([runtime.projectGen, SeqLib.activeId(seqRoot()), simple,
-    TRACKS.filter(t => occupied.has(t.id)).map(t => t.id)]);
+  updateTracksAboveHint();
   // A drop the user just made is never answered by re-focusing elsewhere: keep the
   // view, scrolling only as far as needed to show the dropped clips' rows whole.
   const dropped = syncTimelineTrackView.dropped;
@@ -5109,11 +5114,41 @@ function syncTimelineTrackView() {
     const gap = Math.abs(video.getBoundingClientRect().top - audio.getBoundingClientRect().top);
     if (gap < distance) { distance = gap; first = rows.indexOf(video) < rows.indexOf(audio) ? video : audio; }
   }
+  if (first && simple && syncTimelineTrackView.unfolded !== key) {
+    // VV 2026-11-02: a lane above the focused ones must not sit half behind the sticky ruler. Show every lane with
+    // clips whole when they fit under the ruler; otherwise fold the lanes above the focused one and say so.
+    const shown = rows.filter(row => !row.hidden), withClips = shown.filter(row => occupied.has(row.dataset.track));
+    const room = els.timelineScroll.clientHeight - RULER_H;
+    const span = withClips.length ? withClips.at(-1).getBoundingClientRect().bottom - withClips[0].getBoundingClientRect().top : 0;
+    if (span <= room) first = withClips[0] || first;
+    else for (const row of shown.slice(0, shown.indexOf(first))) foldTrackRow(row.dataset.track);
+    updateTracksAboveHint();
+  }
   if (first) {
     const scroller = els.timelineScroll;
     scroller.scrollTop += first.getBoundingClientRect().top - scroller.getBoundingClientRect().top - RULER_H;
   }
 }
+function foldTrackRow(id) {
+  syncTimelineTrackView.folded.add(id);
+  for (const container of [els.tracks, $("trackHeadInner")]) { const row = container?.querySelector(`[data-track="${id}"]`); if (row) row.hidden = true; }
+}
+/** The corner above the track heads says when lanes with clips are folded away above; a click shows them. */
+function updateTracksAboveHint() {
+  const hint = document.getElementById("btnTracksAbove"), folded = syncTimelineTrackView.folded;
+  if (!hint) return;
+  const ids = folded ? [...folded].filter(id => project.clips.some(c => c.track === id)) : [];
+  hint.hidden = !ids.length;
+  hint.textContent = uiText(project.clips.some(c => ids.includes(c.track) && FableCutCaptions.isCaption(c)) ? "own.tl-above-captions" : "own.tl-above-tracks");
+}
+document.getElementById("btnTracksAbove").addEventListener("click", () => {
+  const ids = [...syncTimelineTrackView.folded];
+  syncTimelineTrackView.folded.clear();
+  syncTimelineTrackView.unfolded = syncTimelineTrackView.focusKey;
+  syncTimelineTrackView();
+  const top = [...els.tracks.children].find(row => !row.hidden && ids.includes(row.dataset.track));
+  if (top) els.timelineScroll.scrollTop += top.getBoundingClientRect().top - els.timelineScroll.getBoundingClientRect().top - RULER_H;
+});
 /* After the window changes size, focus the content once more (never mid-drag). */
 function timelineResizeRefocus() {
   if (state.gesture) return;
