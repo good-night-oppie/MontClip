@@ -94,6 +94,17 @@ async function main() {
     fs.copyFileSync(path.join(src, 'LICENSES.md'), path.join(lic, 'LICENSES.md'));
     fs.copyFileSync(path.join(src, 'LICENSE'), path.join(lic, 'MontClip-LICENSE.txt'));
 
+    // JJ's notes for testers, in the zip's root: UTF-8 with a BOM and CRLF so Notepad shows them right. The repo keeps
+    // them with placeholders (desktop/package-readme/); {version} is this build (date and commit), {exe} the program.
+    const date0 = new Date().toISOString().slice(0, 10).replace(/-/g, ''), buildId = date0 + '-' + short;
+    for (const [from, to] of [['zh-CN.txt', '先看我-使用说明.txt'], ['en.txt', 'README-first.txt']]) {
+      const text = fs.readFileSync(path.join(src, 'desktop', 'package-readme', from), 'utf8').replace(/\r\n/g, '\n')
+        .replace(/\{version\}/g, buildId).replace(/\{exe\}/g, 'MontClip.exe');
+      if (/\{[a-z0-9]+\}/.test(text)) fail(from + ' still has a placeholder');
+      if (/落地前|实施侧/.test(text)) fail(from + ' holds the internal checklist');
+      fs.writeFileSync(path.join(appDir, to), '\uFEFF' + text.replace(/\n/g, '\r\n'), 'utf8');
+    }
+
     // what must and must not be in it
     const all = [];
     (function list(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); e.isDirectory() ? list(p) : all.push(path.relative(appDir, p).split(path.sep).join('/')); } })(appDir);
@@ -114,8 +125,7 @@ async function main() {
 
     // zip + sha256
     fs.mkdirSync(out, { recursive: true });
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const top = `MontClip-internal-win-x64-${date}-${short}`, zipName = top + '.zip', zip = path.join(out, zipName);
+    const top = `MontClip-internal-win-x64-${buildId}`, zipName = top + '.zip', zip = path.join(out, zipName);
     if (fs.existsSync(zip)) fail(zipName + ' already exists in ' + out);
     fs.renameSync(appDir, path.join(path.dirname(appDir), top));
     execFileSync(path.join(process.env.SystemRoot, 'System32', 'tar.exe'), ['-a', '-c', '-f', zip, top], { cwd: path.dirname(appDir) });

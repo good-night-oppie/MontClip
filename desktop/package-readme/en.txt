@@ -1,0 +1,38 @@
+MontClip {version}, internal test build
+
+This is a test build for internal testing only, and it may have problems. Your original recordings are never changed.
+
+[Opening it]
+1. Check the file first: SHA256SUMS.txt on the download page lists this zip's sha256. Compare it with the value for the zip you downloaded. If it does not match, do not use it; contact whoever sent it. If you are not sure how to check, ask them.
+2. Unzip the whole archive into a folder you can write to, for example a new folder in Documents. Do not run it from inside the zip.
+3. Double-click {exe}.
+4. This build is not digitally signed yet, so Windows may show "Windows protected your PC". Only if the sha256 in step 1 matched, click "More info" → "Run anyway". If it did not match, do not.
+
+[What it can do]
+- Import recordings from your computer (MP4 recommended for now).
+- Import an existing SRT subtitle file, then tick the sentences you want to keep. Preview first, then apply; one Undo reverts it.
+- Highlight candidates: on this computer, using the sound, subtitles and danmaku, it lists a few pieces that may be worth keeping. They are only candidates. No AI is used, and nothing is cut for you; you tick what to keep.
+- Export MP4 and SRT subtitles.
+- Optional AI assistant: connect your own OpenAI or DeepSeek account; charges go to your account. Editing works fine without it.
+
+[Not in this build]
+- No Chinese transcription on this computer. You need an SRT subtitle file.
+- You can cut by whole sentence only, not by individual words.
+- Some screens and messages are still in English.
+- Tested on Windows 11 only.
+
+[Exporting video]
+H.264 export (ordinary MP4) uses your graphics card's encoder or Windows' built-in encoder. Nothing else needs to be installed.
+- If it says it cannot find a usable H.264 encoder: it is usually a graphics driver issue, or a Windows "N" edition without media components. On an N edition, install the Media Feature Pack under Windows Settings › Apps › Optional features, then open MontClip again.
+- For better quality you can choose an FFmpeg with x264 that is already on your computer, in Settings. This is optional; export works without it.
+
+[Internet]
+- Only the AI assistant and Import from URL connect to the internet, and only when you start them yourself.
+- The AI assistant sends only the text you see in the review box, never recordings, audio, screenshots or project files.
+- To stop using the AI assistant: under Settings › AI service, click Remove this connection. The key saved on this computer is cleared.
+- See the release notes on the release page for details.
+
+[If something goes wrong]
+- First follow what the screen says.
+- When you report it, tell us which step, what you clicked and what the screen said. Before taking screenshots, blur nicknames, accounts and file paths.
+- Keep recordings and danmaku on your computer; do not send them to us.

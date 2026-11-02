@@ -1,0 +1,15 @@
+{
+  "author": "JJ",
+  "document": "2026-11-03-MontClip内部试用包-使用说明-中英.md (v2)",
+  "sha256": "7b3c8abaace3d09757ecafa7ace687b96952b96a8465e171385633fe22f5c5b2",
+  "taken": [
+    "## 中文",
+    "## English"
+  ],
+  "left_out": "## 落地前要实施侧确认 (internal, not shipped)",
+  "placeholders": {
+    "{version}": "<UTC date>-<short commit>, filled by desktop/package-win.cjs",
+    "{exe}": "MontClip.exe"
+  },
+  "encoding": "written into the zip as UTF-8 with BOM, CRLF"
+}
