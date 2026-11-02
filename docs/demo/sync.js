@@ -12,7 +12,7 @@ const OUT = __dirname;
 /* index.html: same markup, plus the shim ahead of app.js */
 let html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 html = html
-  .replace(/<title>[^<]*<\/title>/, "<title>FableCut playground</title>")
+  .replace(/<title>[^<]*<\/title>/, "<title>MontClip playground</title>")
   .replace('<script src="app.js"></script>',
     '<script src="static-shim.js"></script>\n<script src="app.js"></script>');
 if (!html.includes("static-shim.js")) {
