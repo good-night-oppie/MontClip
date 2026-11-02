@@ -87,3 +87,16 @@ test('the top bar tightens its spacing on very narrow windows so Export stays in
 test('the static demo ships narrow-layout.js (app.js needs it at start-up)',()=>{
  a.match(read('docs/demo/sync.js'),/"narrow-layout\.js"/);
 });
+
+// VV (#33 b9b8ddb, 804 and 630): the monitor's More menu sat under #preview, and the transcript's caption row was cut off.
+test('the monitor More menu floats in <body> above the panels; the transcript tools scroll and the sentence row stands alone', () => {
+  const read = (f) => require('node:fs').readFileSync(require('node:path').join(__dirname, '..', f), 'utf8');
+  const lib = read('narrow-layout.js'), app = read('app.js'), css = read('style.css');
+  a.match(lib, /function attach\(bar, button, menu, \{ onChange, floating = false \} = \{\}\)/);
+  a.match(lib, /if \(floating\) \{ doc\.body\.appendChild\(menu\); menu\.classList\.add\("more-menu-floating"\); \}/);
+  a.match(lib, /function open\(\) \{ menu\.hidden = false; button\.setAttribute\("aria-expanded", "true"\); place\(\); \}/);
+  a.match(app, /MontClipNarrow\.attach\(document\.querySelector\("#monitorPanel \.panel-head-actions"\), \$\("btnMonMore"\), \$\("monMoreMenu"\), \{ floating: true \}\);/);
+  a.match(css, /\.more-menu\.more-menu-floating \{\n  position: fixed;\n  right: auto;\n  z-index: 1000;/);
+  a.match(css, /\.tr-head \{[^}]*max-height: 60%;\n  overflow-y: auto;\n\}/);
+  a.match(app, /<div class="tr-row">\n        <button type="button" class="btn tiny" data-tr-sentences>[^\n]*\n        <button type="button" class="btn tiny" data-tr-mapping>[^\n]*\n      <\/div>/);
+});
