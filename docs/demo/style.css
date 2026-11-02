@@ -1961,6 +1961,8 @@ input[type=range] {
 
 #zoomSlider {
   width: 130px;
+  min-width: 48px;
+  flex: 0 1 130px;   /* gives way first when longer zh-CN labels need the room */
 }
 
 .timeline {
@@ -4526,3 +4528,4 @@ body { background: var(--bg); }
 .sentence-dialog label { display: flex; align-items: start; gap: 8px; padding: 8px 0; }
 .sentence-dialog p { line-height: 1.5; }
 .sentence-dialog .tr-row { flex-wrap: wrap; }
+.tiny-label { white-space:nowrap; }
