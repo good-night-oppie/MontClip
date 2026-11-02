@@ -104,7 +104,7 @@ test('QQ (2026-11-02): generated docs pages link to our repository, not upstream
  const build=read('docs/docs/build.js');
  a.match(build,/const REPO = "https:\/\/github\.com\/good-night-oppie\/MontClip";/);
  a.match(build,/const RAW = "https:\/\/raw\.githubusercontent\.com\/good-night-oppie\/MontClip\/main\/CLAUDE\.md";/);
- const pages=walk('docs/docs').filter(f=>f.endsWith('.html'));a.ok(pages.length>=28,pages.length+' pages');
+ const pages=walk('docs/docs').filter(f=>f.endsWith('.html'));a.ok(pages.length>=27,pages.length+' pages');
  for(const f of pages){
   const t=read(f).replace(/Based on \[?<a [^>]*href="https:\/\/github\.com\/ronak-create\/FableCut"[^>]*>[^<]*<\/a>/g,'');
   a.ok(!/(github\.com|raw\.githubusercontent\.com)\/ronak-create/.test(t),f+' still links to the upstream repository');

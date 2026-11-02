@@ -13,9 +13,9 @@ const path = require("path");
 const ROOT = path.resolve(__dirname, "..", "..");
 const OUT = __dirname;
 const SITE = "https://fablecut.space";
-const REPO = "https://github.com/ronak-create/FableCut";
+const REPO = "https://github.com/good-night-oppie/MontClip";
 const MANUAL = REPO + "/blob/main/CLAUDE.md";
-const RAW = "https://raw.githubusercontent.com/ronak-create/FableCut/main/CLAUDE.md";
+const RAW = "https://raw.githubusercontent.com/good-night-oppie/MontClip/main/CLAUDE.md";
 const VERSION = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).version;
 const SRC = fs.readFileSync(path.join(ROOT, "CLAUDE.md"), "utf8").replace(/\r\n/g, "\n");
 
