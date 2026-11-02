@@ -9689,7 +9689,7 @@ async function showHighlightCandidates() {
     card.className = "hl-card"; card.dataset.hlCard = String(i); card.dataset.hlRange = c.from + "-" + c.to;
     // m:ss.t and the length (VV, #52: 00:09:05 read as nine minutes five seconds)
     const when = MontClipHighlights.clock(c.from) + "–" + MontClipHighlights.clock(c.to) + uiText("own.hl-dur", { s: MontClipHighlights.seconds(c.to - c.from) });
-    card.innerHTML = `<label><input type="checkbox" data-hl-pick> <strong>#${c.rank} ${escapeHtml(when)}</strong></label>
+    card.innerHTML = `<label><input type="checkbox" data-hl-pick> <strong>${escapeHtml(when)}</strong></label>
       ${c.text ? `<p class="hl-text">${escapeHtml(c.text.length > 120 ? c.text.slice(0, 120) + "…" : c.text)}</p>` : ""}
       <ul>${c.reasons.map((r) => { const t = highlightReasonText(r); return `<li data-hl-reason="${r.signal}" title="${escapeHtml(t.title)}">${escapeHtml(t.text)}</li>`; }).join("")}</ul>
       <button type="button" class="btn tiny" data-hl-jump>${say("own.hl-jump")}</button>`;

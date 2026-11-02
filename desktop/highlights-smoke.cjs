@@ -52,6 +52,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   // VV (#52): minutes:seconds and the length, no frame numbers; JJ: plain words, the dB in the tooltip
   const label=await read(`document.querySelector('.highlight-dialog [data-hl-card] strong').textContent`);
   assert.ok(label.includes('0:10–0:18')&&label.includes(await read(`uiText('own.hl-dur',{s:'8'})`)),label);
+  assert.doesNotMatch(label,/^\s*#\d/,'JJ: no rank number on the card');
   const loud=await read(`(()=>{const li=document.querySelector('.highlight-dialog [data-hl-reason=loudness]');return{text:li.textContent,title:li.title};})()`);
   assert.ok(!/dB|分贝/.test(loud.text)&&/分贝|dB/.test(loud.title),JSON.stringify(loud));
   assert.ok(await read(`!!document.querySelector('.highlight-dialog [data-hl-keep-note]').textContent`),'the consequence of Keep is always shown');
