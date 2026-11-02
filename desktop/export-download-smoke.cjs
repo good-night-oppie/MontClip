@@ -92,21 +92,25 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   assert.equal(out.cancelledEn.copyLeft,true);
   out.captionCancel=await download(`saveDownload(URL.createObjectURL(new Blob(['1'])),'录播.srt',{kind:'captions',savedMsg:'Saved 1 caption'})`,cancel);
   assert.equal(out.captionCancel.dialog.title,'Save captions');assert.equal(out.captionCancel.toast,'Captions not saved. Click export captions again to save them.');
-  // a save that fails (the chosen folder is not there): an export keeps its copy and says how to try again; other downloads say the general line
-  const failSave=(item)=>item.setSavePath(path.join(saved,'no such folder','x-'+item.getFilename()));
-  out.failedEn=await download(`saveDownload(${JSON.stringify(src2)},${JSON.stringify(name2)},{exportFile:true})`,failSave);
-  assert.equal(out.failedEn.state,'interrupted');assert.equal(out.failedEn.copyLeft,true,'a failed save keeps the export');
+  // a save that fails: a download the server cannot send (a file no longer there) ends 'interrupted', always with a save path set,
+  // so no save window can open. An export download says the export is still there; other downloads say the general line
+  // (that main keeps the export's copy when a save is interrupted is covered in test/export-downloads.test.js).
+  const failing=(name,opts)=>`saveDownload('/exports/'+encodeURIComponent(${JSON.stringify('gone '+name)}),${JSON.stringify(name)},${opts})`;
+  const mapping=`saveDownload(URL.createObjectURL(new Blob(['{}'])),'MontClip.mapping.json')`;
+  out.failedEn=await download(failing(name2,'{exportFile:true}'),saveTo('failed-en.mp4'));
+  assert.equal(out.failedEn.state,'interrupted');
   assert.equal(out.failedEn.toast,'The save did not finish. The exported video is still here: open the export queue and click Save on this item to try again. If it still fails, choose another location or check that it has enough space.');
-  out.mapFailedEn=await download(`saveDownload(URL.createObjectURL(new Blob(['{}'])),'MontClip.mapping.json')`,failSave);
+  assert.ok(has(name2),'the export is still in exports/');
+  out.mapFailedEn=await download(failing('MontClip.mapping.json','{}'),saveTo('m-en.json'));
   assert.equal(out.mapFailedEn.state,'interrupted');assert.equal(out.mapFailedEn.toast,'The save did not finish. Try another location, or check that it has enough space.');
-  out.mapCancelEn=await download(`saveDownload(URL.createObjectURL(new Blob(['{}'])),'MontClip.mapping.json')`,cancel);
+  out.mapCancelEn=await download(mapping,cancel);
   assert.equal(out.mapCancelEn.toast,'Not saved. Click again if you need it.');
   await lang('zh-CN');
-  out.failedZh=await download(`saveDownload(${JSON.stringify(src2)},${JSON.stringify(name2)},{exportFile:true})`,failSave);
-  assert.equal(out.failedZh.toast,'没有保存成功。导出的视频还在，打开『导出队列』，在这一条后面点『保存』再试一次；还不行的话，换个位置保存，或者看看那里的空间够不够。');assert.equal(out.failedZh.copyLeft,true);
-  out.mapFailedZh=await download(`saveDownload(URL.createObjectURL(new Blob(['{}'])),'MontClip.mapping.json')`,failSave);
+  out.failedZh=await download(failing(name2,'{exportFile:true}'),saveTo('failed-zh.mp4'));
+  assert.equal(out.failedZh.toast,'没有保存成功。导出的视频还在，打开『导出队列』，在这一条后面点『保存』再试一次；还不行的话，换个位置保存，或者看看那里的空间够不够。');
+  out.mapFailedZh=await download(failing('MontClip.mapping.json','{}'),saveTo('m-zh.json'));
   assert.equal(out.mapFailedZh.toast,'没有保存成功。请换个位置再试，或者看看那里的空间够不够。');
-  out.mapCancelZh=await download(`saveDownload(URL.createObjectURL(new Blob(['{}'])),'MontClip.mapping.json')`,cancel);
+  out.mapCancelZh=await download(mapping,cancel);
   assert.equal(out.mapCancelZh.toast,'没有保存。需要的话再点一次。');
   await lang('en');
   out.queueEn=await queueView();

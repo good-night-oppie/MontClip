@@ -1239,7 +1239,7 @@ window.montclipDownloads?.onDone(({ state, name, removed }) => {
   if (removed) renderQueue();
   if (state === "completed") { if (msg) toast(msg); }
   else if (state === "cancelled") toast(uiText(wasExport ? "own.export-save-cancelled" : kind === "captions" ? "own.captions-save-cancelled" : "own.save-canceled"));
-  else toast(uiText("own.save-failed"));
+  else toast(uiText(wasExport ? "own.export-save-failed" : "own.save-failed"));
 });
 function toast(msg) {
   if (!els.toast) return;
