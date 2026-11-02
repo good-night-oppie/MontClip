@@ -6,23 +6,23 @@
 const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const S=require('../desktop/agent-service'),V=require('../ui-preferences');
 const ROOT=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(ROOT,f),'utf8');
-const stored=provider=>JSON.stringify({version:1,provider,model:'deepseek/deepseek-v4.1-flash',secret:'sealed'});
+const stored=provider=>JSON.stringify({version:1,provider,model:'deepseek/deepseek-v4.1-flash-1017',secret:'sealed'});
 const svc=(extra={})=>{const calls=[];const s=S.createService({read:()=>null,write(){},seal:k=>k,unseal:()=>'k',request:async(c)=>{calls.push(c);return{text:'ok'};},...extra});return{s,calls};};
 const payload=()=>({version:1,requestId:'r'+Math.random().toString(36).slice(2,8),projectId:'p',sequenceId:'main',revision:1,gen:0,messages:[{role:'user',content:'hi'}]});
 
 test('a release lists OpenRouter first, then DeepSeek and OpenAI; unconfigured it starts on OpenRouter with DeepSeek Flash',()=>{
  a.deepEqual(S.PUBLIC_PROVIDERS,['openrouter','deepseek','openai']);
  a.equal(S.DEFAULT_PROVIDER,'openrouter');
- a.deepEqual(S.DEFAULT_MODELS,{openrouter:'deepseek/deepseek-v4.1-flash'});
+ a.deepEqual(S.DEFAULT_MODELS,{openrouter:'deepseek/deepseek-v4.1-flash-1017'});
  const {s}=svc();const g=s.get();
  a.deepEqual(g.providers,['openrouter','deepseek','openai']);a.equal(g.configured,false);
- a.equal(g.provider,'openrouter');a.deepEqual(g.defaultModels,{openrouter:'deepseek/deepseek-v4.1-flash'});
- a.equal(s.configure({provider:'openrouter',model:'deepseek/deepseek-v4.1-flash',apiKey:'k'}).configured,true);
+ a.equal(g.provider,'openrouter');a.deepEqual(g.defaultModels,{openrouter:'deepseek/deepseek-v4.1-flash-1017'});
+ a.equal(s.configure({provider:'openrouter',model:'deepseek/deepseek-v4.1-flash-1017',apiKey:'k'}).configured,true);
 });
 
 test('a saved OpenRouter connection is used, through its fixed endpoint',async()=>{
  const {s,calls}=svc({read:()=>stored('openrouter')});
- a.equal(s.get().configured,true);a.equal(s.get().model,'deepseek/deepseek-v4.1-flash');
+ a.equal(s.get().configured,true);a.equal(s.get().model,'deepseek/deepseek-v4.1-flash-1017');
  a.equal((await s.send(payload())).ok,true);a.equal(calls[0].provider,'openrouter');
  let url;await S.httpsRequest({provider:'openrouter',model:'m',key:'k'},payload(),new AbortController().signal,{fetch:async(u)=>{url=u;return{ok:true,status:200,body:[Buffer.from(JSON.stringify({choices:[{message:{content:'x'}}]}))]};}});
  a.equal(url,'https://openrouter.ai/api/v1/chat/completions');
@@ -86,4 +86,15 @@ test("JJ's copy: the format note is explained, folded by default, and still coun
 test('the ADR records the owner\'s decision: OpenRouter with DeepSeek Flash by default, and the retention line',()=>{
  const adr=read('docs/decisions/2026-11-01-official-cindy-port.md');
  a.match(adr,/OpenRouter/);a.match(adr,/deepseek\/deepseek-v4\.1-flash/);a.match(adr,/服务商可能会保存你发送的文字/);a.match(adr,/"free"/);a.match(adr,/QQ/);a.match(adr,/JJ/);
+});
+
+// Deja (2026-11-02): which default (OpenRouter or DeepSeek direct) is still the owner's call. The default service and
+// model are one constant, so switching is a one-line change; the model id is the one Rea's catalogue lists for
+// DeepSeek V4.1 Flash on OpenRouter (openrouter-flash-catalogue.json, sha256 c477d643…).
+test('the default service and model are one constant in one line',()=>{
+ const src=read('desktop/agent-service.js');
+ const lines=src.split('\n').filter(l=>/^const DEFAULT_SERVICE=/.test(l));
+ a.equal(lines.length,1);a.match(lines[0],/^const DEFAULT_SERVICE=Object\.freeze\(\{provider:'openrouter',model:'deepseek\/deepseek-v4\.1-flash-1017'\}\);/);
+ a.equal(S.DEFAULT_PROVIDER,S.DEFAULT_SERVICE.provider);a.deepEqual(S.DEFAULT_MODELS,{[S.DEFAULT_SERVICE.provider]:S.DEFAULT_SERVICE.model});
+ a.equal((src.match(/deepseek-v4\.1-flash/g)||[]).length,1,'the model id is written once');
 });
