@@ -9747,7 +9747,7 @@ async function showHighlightCandidates() {
     const when = MontClipHighlights.clock(c.from) + "–" + MontClipHighlights.clock(c.to) + uiText("own.hl-dur", { s: MontClipHighlights.seconds(c.to - c.from) });
     card.innerHTML = `<label><input type="checkbox" data-hl-pick> <strong>${escapeHtml(when)}</strong></label>
       ${c.text ? `<p class="hl-text">${escapeHtml(c.text.length > 120 ? c.text.slice(0, 120) + "…" : c.text)}</p>` : ""}
-      <ul>${c.reasons.map((r) => { const t = highlightReasonText(r); return `<li data-hl-reason="${r.signal}" title="${escapeHtml(t.title)}">${escapeHtml(t.text)}</li>`; }).join("")}</ul>
+      <ul>${c.reasons.map((r) => { const t = highlightReasonText(r); return `<li data-hl-reason="${escapeHtml(r.signal)}" title="${escapeHtml(t.title)}">${escapeHtml(t.text)}</li>`; }).join("")}</ul>
       <button type="button" class="btn tiny" data-hl-jump>${say("own.hl-jump")}</button>`;
     card.querySelector("[data-hl-jump]").addEventListener("click", () => { folding = true; dialog.close(); back.hidden = false; pause(); setTime(c.from); play(); });
     card.querySelector("[data-hl-pick]").addEventListener("change", (e) => { e.target.checked ? picked.add(i) : picked.delete(i); keep.disabled = !picked.size; });

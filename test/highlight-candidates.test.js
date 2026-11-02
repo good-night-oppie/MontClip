@@ -144,3 +144,11 @@ test('beats change nothing: no beat reason, the same scores and order', () => {
   a.ok(withBeats.every((c) => c.reasons.every((r) => r.signal !== 'beat')));
   a.equal('beatMinRate' in H.DEFAULTS, false);
 });
+
+// QQ (#52, c5b1f98): every value written into the card's markup is escaped, the reason's signal name too
+test('the reason attribute is escaped', () => {
+  const app = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'app.js'), 'utf8');
+  const at = app.indexOf('async function showHighlightCandidates('), body = app.slice(at, app.indexOf('\n}\n', at));
+  a.match(body, /data-hl-reason="\$\{escapeHtml\(r\.signal\)\}"/);
+  a.doesNotMatch(body, /data-hl-reason="\$\{r\.signal\}"/);
+});
