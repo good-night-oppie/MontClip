@@ -2,6 +2,7 @@
 // Text for the dialogs the main process shows itself (close prompt, stopped service), in the interface
 // language the user chose (view-settings.json, read when the dialog shows). One language at a time:
 // the Chinese is the old wording's Chinese half, the English its English half (JJ to review).
+// serviceStoppedTitle and ok title and label the error boxes, which showErrorBox left as "Error" / "OK" (VV; JJ to review).
 const TEXT = {
   'zh-CN': {
     closeTitle: '保存尚未确认',
@@ -14,6 +15,8 @@ const TEXT = {
     startFailedHint: '请关闭后重新打开。还不行，就换一个能保存文件的文件夹再试。',
     serviceStartTimeout: '启动 MontClip 的内部服务超时。',
     serviceExitedAtStart: 'MontClip 的内部服务已退出。',
+    serviceStoppedTitle: 'MontClip 出错了',
+    ok: '确定',
   },
   en: {
     closeTitle: 'Save not confirmed',
@@ -26,6 +29,8 @@ const TEXT = {
     startFailedHint: 'Close and reopen MontClip. If it still fails, try a folder where files can be saved.',
     serviceStartTimeout: "MontClip's internal service took too long to start.",
     serviceExitedAtStart: "MontClip's internal service stopped while starting.",
+    serviceStoppedTitle: 'MontClip ran into a problem',
+    ok: 'OK',
   },
 };
 /** The language in a view-settings read ({ok, value:{language}}); Chinese when it can't be told. */
