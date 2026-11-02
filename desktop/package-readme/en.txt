@@ -12,7 +12,7 @@ This is a test build for internal testing only, and it may have problems. Your o
 - Import recordings from your computer (MP4 recommended for now).
 - Import an existing SRT subtitle file, then tick the sentences you want to keep. Preview first, then apply; one Undo reverts it.
 - Highlight candidates: on this computer, using the sound and subtitles, it lists a few pieces that may be worth keeping. They are only candidates. No AI is used, and nothing is cut for you; you tick what to keep.
-- Export MP4 and SRT subtitles.
+- Export MP4 and SRT subtitles. Each export opens a Windows save window: once for the video and once again for the subtitles. It starts in your Downloads folder; choose where to save, then click Save.
 - Optional AI assistant: connect your own OpenAI or DeepSeek account; charges go to your account. Editing works fine without it.
 
 [Not in this build]
