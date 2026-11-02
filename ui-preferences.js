@@ -48,6 +48,16 @@
     "hl-r-danmaku": ["{count} danmaku, {ratio}× the average rate", "弹幕 {count} 条，是平均密度的 {ratio} 倍"],
     "hl-r-speech": ["Speech {ratio}× the median pace", "语速是中位的 {ratio} 倍"],
     "hl-r-beat": ["A steady beat (about {bpm} per minute)", "有稳定的节拍（约每分钟 {bpm} 拍）"],
+    // danmaku import (for JJ to review)
+    "dm-import": ["Import danmaku…", "导入弹幕…"],
+    "dm-import-title": ["A 录播姬 or Bilibili danmaku XML for the selected clip's recording (or the file of the same name)", "为选中片段的录播（或同名文件）导入录播姬 / B 站弹幕 XML"],
+    "dm-reading": ["Reading {name}…", "正在读取 {name}…"],
+    "dm-imported": ["{n} danmaku imported for {name}.", "已为 {name} 导入 {n} 条弹幕。"],
+    "dm-pick-clip": ["Select the recording's clip on the timeline first.", "请先在时间线上选中这场录播的片段。"],
+    "dm-bad": ["This is not a 录播姬 or Bilibili danmaku XML file.", "这不是录播姬或 B 站的弹幕 XML 文件。"],
+    "dm-too-many": ["More than {n} danmaku in one file: not imported.", "一个文件里的弹幕超过 {n} 条，没有导入。"],
+    "dm-remove": ["Remove danmaku ({n})", "移除弹幕（{n} 条）"],
+    "dm-removed": ["Danmaku removed from {name}.", "已移除 {name} 的弹幕。"],
   };
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
