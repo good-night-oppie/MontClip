@@ -108,7 +108,10 @@ async function start() {
   win.on("responsive", () => { if (rendererFault === "unresponsive") rendererFault = null; });
   win.webContents.on("render-process-gone", () => { rendererFault = "crashed"; closeController.fault(rendererFault); });
   worker.on("exit", () => {
-    if (!stopping) dialog.showErrorBox("MontClip", nativeText(languageOf(settings.get())).serviceStopped);
+    if (stopping) return;
+    // start() only runs once the app is ready, so a message box can show here
+    const t = nativeText(languageOf(settings.get()));
+    dialog.showMessageBox({ type: "error", title: t.serviceStoppedTitle, message: t.serviceStopped, buttons: [t.ok], noLink: true });
   });
   await win.loadURL(origin);
   if (faultTest) {
@@ -153,12 +156,15 @@ app.on("before-quit", (event) => {
 });
 // Electron does not consistently propagate process.exitCode through app.quit().
 app.on("will-quit", (event) => { if (smoke && process.exitCode) { event.preventDefault(); app.exit(process.exitCode); } });
-app.whenReady().then(start).catch((error) => {
+app.whenReady().then(start).catch(async (error) => {
   if (smoke) { console.error(error); process.exitCode = 1; }
   else {
-    // the interface language from view-settings.json (Chinese when it cannot be read)
+    // the interface language from view-settings.json (Chinese when it cannot be read); the box is
+    // awaited: a message box does not block, and quitting would close it at once
     let t; try { t = nativeText(languageOf(createStore(app.getPath("userData")).get())); } catch { t = nativeText("zh-CN"); }
-    dialog.showErrorBox(t.startFailedTitle, `${(error && error.textKey && t[error.textKey]) || String((error && error.message) || error)}\n${t.startFailedHint}`);
+    await dialog.showMessageBox({ type: "error", title: t.startFailedTitle,
+      message: `${(error && error.textKey && t[error.textKey]) || String((error && error.message) || error)}\n${t.startFailedHint}`,
+      buttons: [t.ok], noLink: true });
   }
   closing = true; app.quit();
 });
