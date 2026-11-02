@@ -42,3 +42,7 @@ test('CI runs for every PR, draft included, whatever branch it targets; the FFmp
  const b=fs.readFileSync(path.join(__dirname,'..','.github','workflows','build-ffmpeg.yml'),'utf8');
  a.match(b,/BTBN_COMMIT: 5ece62897c650b863c1ddda7b6964845344aef2d/);a.match(b,/return -1/);a.match(b,/verify-build\.cjs/);a.ok(!/pull_request/.test(b),'never on every PR');
 });
+test('the H.264 tests run on a Windows CI job (h264_mf), not only on machines with a graphics card',()=>{
+ const ci=fs.readFileSync(path.join(__dirname,'..','.github','workflows','ci.yml'),'utf8');
+ a.match(ci,/test-windows:\n[\s\S]*?runs-on: windows-latest[\s\S]*?--platform win32-x64[\s\S]*?node --test/);
+});
