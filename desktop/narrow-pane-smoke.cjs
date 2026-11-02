@@ -6,6 +6,8 @@
 // where VV found projectId null.
 const electron=require('electron'),{app,BrowserWindow}=electron,assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
 if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke required');
+const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
+if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const out=process.env.MONTCLIP_NARROW_OUT;if(!out)throw Error('MONTCLIP_NARROW_OUT required');
 const service=require('./agent-service'),originalService=service.createDiskService;let requests=0;
 service.createDiskService=(...args)=>{const real=originalService(...args);return{...real,async send(p){assert.ok(service.validPayload(p));requests++;const content=p.messages.at(-1).content,at=content.indexOf('{"references"'),refs=at<0?[]:JSON.parse(content.slice(at)).references;return{ok:true,text:JSON.stringify({type:'keep_sentences',ranges:refs.filter(r=>r.type==='caption').map(r=>({clipId:r.clipId,sourceCaptionId:r.sourceCaptionId,from:r.start,to:r.end}))})};}};};

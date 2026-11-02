@@ -1,6 +1,8 @@
 'use strict';
 // Explicit development entry; uses only a caller-owned synthetic MP4/profile.
 const {app,BrowserWindow}=require('electron');
+const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
+if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const assert=require('node:assert/strict'),fs=require('node:fs'),crypto=require('node:crypto');
 assert.ok(process.argv.includes('--montclip-smoke'));
 const input=fs.readFileSync(process.env.MONTCLIP_TIMELINE_INPUT);

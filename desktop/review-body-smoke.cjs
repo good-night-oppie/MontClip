@@ -6,6 +6,8 @@
 // is the body the service sends; this proves the dialog's sections and count match that raw request.
 const {app,BrowserWindow}=require('electron'),fs=require('node:fs'),path=require('node:path');
 if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke required');
+const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
+if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const out=process.env.MONTCLIP_REVIEW_OUT||null;if(out&&!path.isAbsolute(out))throw Error('MONTCLIP_REVIEW_OUT must be an absolute folder');
 const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...args){await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=ms=>new Promise(r=>setTimeout(r,ms));

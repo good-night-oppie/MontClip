@@ -6,6 +6,8 @@
 // The key is typed into the password field like a user would; it is never printed.
 const electron=require('electron'),{app,BrowserWindow}=electron,assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 if(!process.argv.includes('--montclip-smoke')||process.env.MONTCLIP_REAL_MODELS!=='1')throw Error('Explicit smoke with MONTCLIP_REAL_MODELS=1 required');
+const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
+if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const out=process.env.MONTCLIP_E2E_OUT,KEY=process.env.MONTCLIP_E2E_KEY_FILE?fs.readFileSync(process.env.MONTCLIP_E2E_KEY_FILE,'utf8').trim():null,MODEL=process.env.MONTCLIP_E2E_MODEL;
 if(!out||!KEY||!MODEL)throw Error('runner required');
 const log=(k,v)=>process.stdout.write(k+' '+JSON.stringify(v).split(KEY).join('<key>')+'\n');
