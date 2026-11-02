@@ -4,7 +4,7 @@
 // coordinates (no OS-level input, no clipboard). Screenshots: capturePage + an OS
 // screenshot of the window's client area.
 const electron=require('electron'),{app,BrowserWindow}=electron;
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 assert.ok(process.argv.includes('--montclip-smoke'));
 const input=fs.readFileSync(process.env.MONTCLIP_TIMELINE_INPUT),out=process.env.MONTCLIP_REVEAL_OUT;assert.ok(out);
 const log=(k,v)=>process.stdout.write(k+' '+JSON.stringify(v)+'\n');
@@ -15,8 +15,8 @@ BrowserWindow.prototype.loadURL=async function(...args){
  try{
  win.show();win.setAlwaysOnTop(true);win.focus();
  await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');const bytes=Uint8Array.from(atob(${JSON.stringify(input.toString('base64'))}),c=>c.charCodeAt(0));const [m]=await importFiles([new File([bytes],'synthetic-timeline.mp4',{type:'video/mp4'})]);if(!m)throw Error('IMPORT_FAILED');updateMontClipView({mode:'advanced'});addClipFromMedia(m,'V1',0);const cue=FableCutCaptions.parse('1\\n00:00:00,000 --> 00:00:02,000\\nSynthetic subtitle\\n')[0];project.clips.push(FableCutCaptions.clip(cue,{id:'three-caption',track:'V3'}));rebuildClips();if(!await flushSave())throw Error('SAVE_FAILED');setTime(3);})()`);
- const shoot=async name=>{fs.writeFileSync(path.join(out,name+'.page.png'),(await win.webContents.capturePage()).toPNG());const b=electron.screen.dipToScreenRect(win,win.getContentBounds());
-  cp.spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',`Add-Type -AssemblyName System.Drawing;Add-Type -Namespace W -Name D -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetProcessDPIAware();';[void][W.D]::SetProcessDPIAware();$b=New-Object System.Drawing.Bitmap ${b.width},${b.height};$g=[System.Drawing.Graphics]::FromImage($b);$g.CopyFromScreen(${b.x},${b.y},0,0,$b.Size);$b.Save('${path.join(out,name+'.screen.png').replace(/'/g,"''")}');`],{windowsHide:true});};
+ // screenshots are the app's own page only (webContents.capturePage), never the screen: privacy
+ const shoot=async name=>{fs.writeFileSync(path.join(out,name+'.page.png'),(await win.webContents.capturePage()).toPNG());};
  // visible share of a row / of a clip element inside the scroller (below the ruler)
  const seen=sel=>read(`(()=>{const e=${sel};if(!e)return null;const r=e.getBoundingClientRect(),s=els.timelineScroll.getBoundingClientRect(),v=Math.max(0,Math.min(r.bottom,s.top+els.timelineScroll.clientHeight)-Math.max(r.top,s.top+RULER_H));return +(v/r.height).toFixed(3);})()`);
  const audioClip=`els.tracks.querySelector('.clip[data-id="'+project.clips.find(c=>c.kind==='audio').id+'"]')`;
