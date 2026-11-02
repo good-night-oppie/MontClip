@@ -1,0 +1,13 @@
+{
+  "why": "When the packaged app no longer keeps a hidden copy of each export (#58: desktop/export-downloads.js removes it once the file is saved or the save is cancelled), the line under 导出视频要注意 / the export notes on deleting those copies is wrong. Only that line changes.",
+  "pending": "JJ supplies the replacement or confirms deleting the line (Deja, 2026-11-02). Until then \"to\" is null: the whole line is removed.",
+  "marker": "require(\"./export-downloads\").attach(item,",
+  "zh-CN": {
+    "from": "- 每次导出，软件还会在电脑里另外留一份副本，会占 C 盘空间（下个版本会改掉）。你自己选位置保存的那份不受影响。C 盘紧张时可以手动删掉副本：先关掉 MontClip，打开任意一个文件夹，在上面的地址栏里输入 %APPDATA%\\MontClip\\workspace\\exports ，按回车，删掉里面的视频文件。只删 exports 这个文件夹里的东西，不要删 workspace 里别的文件夹或文件，那里有你的项目，删了会丢。",
+    "to": null
+  },
+  "en": {
+    "from": "- Each export also leaves an extra copy on your computer, which takes up space on drive C (this will be fixed in the next version). The copy you saved yourself is not affected. If drive C is getting full, you can delete the extra copies: close MontClip, open any folder, type %APPDATA%\\MontClip\\workspace\\exports into the address bar at the top, press Enter, and delete the video files there. Only delete things inside the exports folder. Do not delete any other folder or file in workspace; your projects are there and would be lost.",
+    "to": null
+  }
+}

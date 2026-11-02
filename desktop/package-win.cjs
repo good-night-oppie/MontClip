@@ -99,9 +99,10 @@ async function main() {
     const date0 = new Date().toISOString().slice(0, 10).replace(/-/g, ''), buildId = date0 + '-' + short;
     const Readme = require(path.join(src, 'desktop', 'package-readme', 'render.js'));
     const urlHidden = Readme.hidesUrl(fs.readFileSync(path.join(src, 'app.js'), 'utf8'));
+    const copyGone = Readme.dropsExportCopy(fs.readFileSync(path.join(src, 'desktop', 'main.js'), 'utf8'));
     let readmeVariant = null;
     for (const [lang, to] of [['zh-CN', '先看我-使用说明.txt'], ['en', 'README-first.txt']]) {
-      let r; try { r = Readme.render(Readme.read(lang), { lang, buildId, urlHidden }); } catch (e) { fail(e.message); }
+      let r; try { r = Readme.render(Readme.read(lang), { lang, buildId, urlHidden, copyGone }); } catch (e) { fail(e.message); }
       fs.writeFileSync(path.join(appDir, to), r.text, 'utf8');
       readmeVariant = r.variant;
     }
@@ -121,7 +122,7 @@ async function main() {
     const info = { product: 'MontClip', kind: 'internal test build (not a release)', commit, tree, built: new Date().toISOString(),
       electron: electronVersion, packager: dep.version, platform: 'win32-x64',
       ffmpeg: { release: 'ffmpeg-lgpl-n9.0.2-montclip1', version: source.version, archiveSha256: source.sha256, files: source.files },
-      appFiles: all.filter((f) => f.startsWith('resources/app/')).length, readme: { source: JSON.parse(fs.readFileSync(path.join(src, 'desktop', 'package-readme', 'SOURCE.json'), 'utf8')).sha256, variant: readmeVariant, urlButtonHidden: urlHidden }, notIncluded: ['openh264 (H.264 encoding uses the system: Media Foundation or the graphics card)', 'local speech recognition models', 'ffplay'] };
+      appFiles: all.filter((f) => f.startsWith('resources/app/')).length, readme: { source: JSON.parse(fs.readFileSync(path.join(src, 'desktop', 'package-readme', 'SOURCE.json'), 'utf8')).sha256, variant: readmeVariant, urlButtonHidden: urlHidden, exportCopyGone: copyGone }, notIncluded: ['openh264 (H.264 encoding uses the system: Media Foundation or the graphics card)', 'local speech recognition models', 'ffplay'] };
     fs.writeFileSync(path.join(appDir, 'BUILD-INFO.json'), JSON.stringify(info, null, 2));
 
     // zip + sha256
