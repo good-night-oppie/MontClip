@@ -1,15 +1,15 @@
 'use strict';
 /* The tester notes as they go into the zip (desktop/package-win.cjs): placeholders filled ({version} this build,
    {exe} the program, {repo} the repository); when the packaged app hides + URL (#58), JJ's alternative URL line
-   (url-hidden.json) replaces the written one; when the packaged app keeps no hidden export copy (#58), the line on
-   deleting those copies goes, or gives way to JJ's wording (export-copy.json). Nothing else changes. UTF-8 with a BOM
-   and CRLF so Notepad shows it right. */
+   (url-hidden.json) replaces the written one; when the packaged app really has the fix that removes each export's
+   hidden copy, the line on deleting those copies goes with its line break (exports-fixed.json; JJ: no replacement).
+   Nothing else changes. UTF-8 with a BOM and CRLF so Notepad shows it right. */
 const fs = require('node:fs'), path = require('node:path');
-const ALT = require('./url-hidden.json'), COPY = require('./export-copy.json');
+const ALT = require('./url-hidden.json'), COPY = require('./exports-fixed.json');
 /** Does this app.js hide + URL in the desktop app? */
 const hidesUrl = (appJs) => appJs.includes(ALT.marker);
-/** Does this desktop/main.js remove each export's hidden copy once it is saved or cancelled? */
-const dropsExportCopy = (mainJs) => mainJs.includes(COPY.marker);
+/** Is the fix really there: desktop/main.js wires export-downloads.js, and that module removes the copy? */
+const dropsExportCopy = (mainJs, exportDownloadsJs) => String(mainJs || '').includes(COPY.marker) && String(exportDownloadsJs || '').includes(COPY.removes);
 /** → {text (with BOM and CRLF), variant: "as written" | "JJ's URL line" | "no export-copy line" | both, joined by " + "} */
 function render(raw, { lang, buildId, urlHidden, copyGone }) {
   let text = raw.replace(/\r\n/g, '\n').replace(/\{version\}/g, buildId).replace(/\{exe\}/g, 'MontClip.exe')
@@ -23,8 +23,8 @@ function render(raw, { lang, buildId, urlHidden, copyGone }) {
   if (copyGone) {
     const { from, to } = COPY[lang], lines = text.split('\n');
     if (lines.filter((l) => l === from).length !== 1) throw Error(`the export-copy line is not in the ${lang} notes exactly once`);
-    text = lines.flatMap((l) => (l === from ? (to == null ? [] : [to]) : [l])).join('\n');
-    variant.push(to == null ? 'no export-copy line' : "JJ's export-copy line");
+    text = lines.flatMap((l) => (l === from ? (to ? [to] : []) : [l])).join('\n');   // empty: the line and its break go
+    variant.push(to ? "JJ's export-copy line" : 'no export-copy line');
   }
   if (/\{[a-z0-9]+\}/.test(text)) throw Error(lang + ' notes still have a placeholder');
   if (/落地前|实施侧/.test(text)) throw Error(lang + ' notes hold the internal checklist');

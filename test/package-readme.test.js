@@ -36,7 +36,7 @@ for (const lang of ['zh-CN', 'en']) {
       const expected = [];
       for (const l of base) {
         if (c.urlHidden && l === R.ALT[lang].from) expected.push(R.ALT[lang].to);
-        else if (c.copyGone && l === R.COPY[lang].from) { if (R.COPY[lang].to != null) expected.push(R.COPY[lang].to); }
+        else if (c.copyGone && l === R.COPY[lang].from) { if (R.COPY[lang].to) expected.push(R.COPY[lang].to); }
         else expected.push(l);
       }
       a.deepEqual(lines, expected);

@@ -96,12 +96,13 @@ async function main() {
       const t = fs.readFileSync(path.join(appDir, n), 'utf8');
       assert.ok(t.includes(hides ? ALT[lang].to : ALT[lang].from) && !t.includes(hides ? ALT[lang].from : ALT[lang].to), n + ': the URL line matches the app');
     }
-    // the export-copy line matches it too: gone when the packaged app removes each export's copy (#58), there otherwise
-    const COPY = require('./package-readme/export-copy.json'), copyGone = fs.readFileSync(path.join(appDir, 'resources', 'app', 'desktop', 'main.js'), 'utf8').includes(COPY.marker);
-    out.readmeCopyLine = copyGone ? (COPY['zh-CN'].to == null ? 'removed (app keeps no export copy)' : "JJ's replacement (app keeps no export copy)") : 'as written (app keeps export copies)';
+    // the export-copy line matches it too: gone when the packaged app has the fix that removes each export's copy
+    const COPY = require('./package-readme/exports-fixed.json'), pkgRead = (f) => { try { return fs.readFileSync(path.join(appDir, 'resources', 'app', 'desktop', f), 'utf8'); } catch { return ''; } };
+    const copyGone = pkgRead('main.js').includes(COPY.marker) && pkgRead('export-downloads.js').includes(COPY.removes);
+    out.readmeCopyLine = copyGone ? (!COPY['zh-CN'].to ? 'removed (app keeps no export copy)' : "JJ's replacement (app keeps no export copy)") : 'as written (app keeps export copies)';
     for (const [n, lang] of [['先看我-使用说明.txt', 'zh-CN'], ['README-first.txt', 'en']]) {
       const lines = fs.readFileSync(path.join(appDir, n), 'utf8').replace(/^\uFEFF/, '').split('\r\n'), has = lines.includes(COPY[lang].from);
-      assert.ok(copyGone ? !has && (COPY[lang].to == null || lines.includes(COPY[lang].to)) : has, n + ': the export-copy line matches the app');
+      assert.ok(copyGone ? !has && (!COPY[lang].to || lines.includes(COPY[lang].to)) : has, n + ': the export-copy line matches the app');
     }
     out.unpackedTo = 'a new folder under %TEMP% named "MontClip 包测试 …"';
     // a synthetic MP4, made with the packaged ffmpeg: 4 s, 320×180 at 30 fps, H.264 by Media Foundation + AAC
