@@ -42,10 +42,10 @@ test('the copy to remove: only a file directly in /exports/ of this origin', () 
 // /api/export/end made it, (2) the page's own export download asked for it, and (3) the Save dialog reports the save
 // completed somewhere else. A cancel or a failed save keeps it (it may be the only copy of a 30-minute render); the
 // export queue's Open, or any download of an older file in exports/, never removes anything.
-function run(t, { state, expected = true, fresh = true, saveOnCopy = false, url, name = 'Untitled Project_master_720p.mp4' } = {}) {
+function run(t, { state, expected = true, fresh = true, saveOnCopy = false, url, name = 'Untitled Project_master_720p.mp4', fileName } = {}) {
   const exportsDir = dir(t), copy = path.join(exportsDir, name), other = path.join(exportsDir, 'older export.mp4');
   fs.writeFileSync(copy, 'video'); fs.writeFileSync(other, 'keep');
-  const it = item(url || ORIGIN + '/exports/' + encodeURIComponent(name), name), claimed = [];
+  const it = item(url || ORIGIN + '/exports/' + encodeURIComponent(name), fileName || name), claimed = [];
   return new Promise((resolve) => {
     X.attach(it, { origin: ORIGIN, exportsDir, language: 'en', expected, claim: async (n) => { claimed.push(n); return fresh; },
       onDone: (v) => resolve({ v, claimed, kept: fs.existsSync(copy), otherKept: fs.existsSync(other), options: it.options }) });
@@ -81,6 +81,14 @@ test('an older file in exports/ (or an agent\'s export) is not this session\'s: 
   const r = await run(t, { state: 'completed', fresh: false });
   a.deepEqual(r.claimed, ['Untitled Project_master_720p.mp4']);
   a.equal(r.kept, true); a.equal(r.v.removed, false);
+});
+
+test('the file to remove (from the URL) and the name the page and the server know (the download's file name) must be the same, or nothing is removed (QQ, 71cd650)', async (t) => {
+  const r = await run(t, { state: 'completed', fileName: 'another name.mp4' });
+  a.equal(r.kept, true); a.deepEqual(r.claimed, [], 'not even claimed');
+  a.equal(r.v.removed, false);
+  const ok = await run(t, { state: 'completed' });
+  a.deepEqual(ok.claimed, [path.basename('Untitled Project_master_720p.mp4')], 'claimed by the copy's own name');
 });
 
 test('saving onto the copy itself, or a blob download, removes nothing', async (t) => {
