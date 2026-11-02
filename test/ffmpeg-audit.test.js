@@ -35,3 +35,10 @@ test('no test looks for ffmpeg or ffprobe on PATH',()=>{
   a.ok(!/(execFileSync|spawnSync|spawn|execFile)\(\s*["'](ffmpeg|ffprobe)["']/.test(s),f+' runs ffmpeg/ffprobe from PATH');
   a.ok(!/not on PATH/.test(s),f+' still says "not on PATH"');}
 });
+test('CI runs for every PR, draft included, whatever branch it targets; the FFmpeg build is manual',()=>{
+ const ci=fs.readFileSync(path.join(__dirname,'..','.github','workflows','ci.yml'),'utf8');
+ const on=ci.slice(ci.indexOf('\non:'),ci.indexOf('\njobs:'));
+ a.match(on,/pull_request:\n    types: \[opened, synchronize, reopened, ready_for_review\]/);a.ok(!/pull_request:\n    branches:/.test(on),'no base-branch filter');a.match(on,/workflow_dispatch:/);
+ const b=fs.readFileSync(path.join(__dirname,'..','.github','workflows','build-ffmpeg.yml'),'utf8');
+ a.match(b,/BTBN_COMMIT: 5ece62897c650b863c1ddda7b6964845344aef2d/);a.match(b,/return -1/);a.match(b,/verify-build\.cjs/);a.ok(!/pull_request/.test(b),'never on every PR');
+});

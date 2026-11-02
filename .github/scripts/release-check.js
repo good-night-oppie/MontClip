@@ -86,16 +86,21 @@ section("Bundled FFmpeg");
 /* ── The bundled FFmpeg itself: no GPL or non-free code in the package ── */
 section("Bundled FFmpeg build (no GPL)");
 {
-  const GPL_ONLY = /--enable-(gpl|nonfree|libx264|libx265|libxvid|libxavs2?|libdavs2|libvidstab|frei0r|librubberband|libcdio|avisynth)\b/;
+  // GPL / non-free and libopenh264 are release blockers (Deja 2026-11-02); the rules live in one module
+  const { auditBuild, auditManifest } = require("../../desktop/ffmpeg-audit");
+  const manProblems = auditManifest(readJSON("desktop/ffmpeg-manifest.json"));
+  check(!manProblems.length, "FFmpeg manifest: our own build without libopenh264 (openh264: false)",
+    "FFmpeg manifest: " + manProblems.map((p) => p.detail).join("; "));
   const plat = `${process.platform}-${process.arch}`;
   const vendor = path.join(ROOT, "vendor", "ffmpeg", plat), exe = path.join(vendor, process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
   if (!fs.existsSync(exe)) ok(`vendor/ffmpeg/${plat} not fetched here — run node desktop/fetch-ffmpeg.cjs to check the build itself`);
   else {
     const v = spawnSync(exe, ["-hide_banner", "-version"], { encoding: "utf8", timeout: 60000 });
-    const conf = (v.stdout || "").split(/\r?\n/).find((l) => l.startsWith("configuration:")) || "";
-    check(v.status === 0 && conf && !GPL_ONLY.test(conf), `${plat}: bundled ffmpeg is an LGPL build (no GPL or non-free component)`,
-      `${plat}: bundled ffmpeg reports a GPL or non-free component: ${(conf.match(GPL_ONLY) || ["(could not run it)"])[0]}`);
-    if (/--enable-libopenh264\b/.test(conf)) console.log("::warning::" + plat + ": the bundled LGPL build links libopenh264 (BSD, not GPL); the H.264 decision says the package should not ship openh264 — a build without it is still to be chosen");
+    const e = spawnSync(exe, ["-hide_banner", "-encoders"], { encoding: "utf8", timeout: 60000 });
+    const configuration = (v.stdout || "").split(/\r?\n/).find((l) => l.startsWith("configuration:")) || "";
+    const problems = v.status === 0 ? auditBuild({ configuration, encoders: e.stdout || "" }) : [{ detail: "could not run it" }];
+    check(!problems.length, `${plat}: bundled ffmpeg is LGPL with no GPL, non-free or libopenh264 component`,
+      `${plat}: bundled ffmpeg: ${problems.map((p) => p.detail).join("; ")}`);
   }
   const res = (readJSON("desktop/package.json").build || {}).extraResources || [];
   const ffRes = res.find((r) => r && r.to === "ffmpeg") || {};

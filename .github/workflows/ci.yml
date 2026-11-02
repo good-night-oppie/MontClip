@@ -1,10 +1,13 @@
 name: CI
 
+# Every PR runs, draft or not, whatever branch it targets (Deja 2026-11-02: #28 is a draft and
+# stacked PRs target other branches). Pushes to main run too, and it can be started by hand.
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 jobs:
   test:

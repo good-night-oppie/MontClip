@@ -15,7 +15,7 @@ const { createProxies, findProxies } = require("../proxy");
 const hasFfmpeg = () => {
   try { execFileSync(require("../ffmpeg-path").path("ffmpeg"), ["-version"], { stdio: "ignore" }); return true; } catch { return false; }
 };
-const NO_FFMPEG = !hasFfmpeg() && "ffmpeg not on PATH";
+const NO_FFMPEG = !hasFfmpeg() && "bundled ffmpeg not installed (node desktop/fetch-ffmpeg.cjs)";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** A short 1280×720 test clip with a frame counter in the picture. */
 function makeClip(file, seconds = 2) {

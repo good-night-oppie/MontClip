@@ -154,7 +154,7 @@ test("codec strings for HEVC, VP9 and AV1 config boxes", () => {
   assert.equal(cs("av01", [0x81, 0x08, 0x0c]), "av01.0.08M.08");
 });
 
-test("real files match ffprobe's packet list", { skip: !hasFfmpeg() && "ffmpeg / ffprobe not on PATH" }, (t) => {
+test("real files match ffprobe's packet list", { skip: !hasFfmpeg() && "bundled ffmpeg / ffprobe not installed (node desktop/fetch-ffmpeg.cjs)" }, (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "fablecut-mp4-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const src = ["-f", "lavfi", "-i", "testsrc2=s=320x180:r=30", "-t", "2"];
