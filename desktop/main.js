@@ -38,6 +38,11 @@ async function start() {
     delete env.MONTCLIP_FFPROBE;
     env.MONTCLIP_FFMPEG_PACKAGED = "1";
     env.MONTCLIP_FFMPEG_DIR = path.join(process.resourcesPath, "ffmpeg");
+    // the FLV import runs prepareMedia here in the main process: the same FFmpeg, never PATH
+    delete process.env.MONTCLIP_FFMPEG;
+    delete process.env.MONTCLIP_FFPROBE;
+    process.env.MONTCLIP_FFMPEG_PACKAGED = "1";
+    process.env.MONTCLIP_FFMPEG_DIR = env.MONTCLIP_FFMPEG_DIR;
   }
   flvImports = require("./flv-import").createFlvImports({ mediaDir: path.join(env.FABLECUT_DATA_DIR, "media") });
   worker = utilityProcess.fork(path.join(__dirname, "..", "server.js"), [], { env, stdio: "pipe" });
