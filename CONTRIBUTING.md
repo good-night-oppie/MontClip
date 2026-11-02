@@ -163,3 +163,12 @@ if relevant — a minimal `project.json` that reproduces the problem.
 
 By contributing, you agree that your contributions are licensed under the
 [MIT License](LICENSE).
+
+### Desktop build tooling
+
+The optional desktop packager is a pinned development dependency, separate from
+the zero-dependency editor server. With Node22.12+ use npm install --prefix desktop
+--ignore-scripts, then npm run --prefix desktop package:tool-check. The check loads
+the real ESM API without running a packager or downloading runtime resources.
+Review docs/validation/2026-11-01-packager-dependency.md and its audit limits before
+any distribution; a successful loader check is not release approval.

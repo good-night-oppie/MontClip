@@ -1036,3 +1036,6 @@ the report in [#1](https://github.com/ronak-create/FableCut/issues/1) — thanks
 - Add persisted Simple/Advanced layout and Chinese/English control labels using the existing editor DOM, plus undo/redo entry points and an honest disconnected Assistant panel.
 
 - Desktop: retain view preferences across random-port restarts; reserve normal-flow space for wrapped narrow-window toolbar buttons.
+
+### Desktop build dependency
+- Pin the optional ESM packager development tool and add an explicit no-package API check; resource, audit and Windows acceptance gates remain pending.
