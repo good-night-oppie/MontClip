@@ -136,3 +136,16 @@ test("only regular .flv files are taken", async (t) => {
   await assert.rejects(w.service.inspect(path.join(path.dirname(w.file), "missing.flv")), { code: "FLV_NOT_FOUND" });
   assert.deepEqual(w.others(), []);
 });
+
+test("packaged: the FLV import in the main process runs MontClip's own FFmpeg, as the server does", () => {
+  // After #28 the packaged app's server gets MONTCLIP_FFMPEG_PACKAGED / MONTCLIP_FFMPEG_DIR in its env; the FLV import
+  // runs prepareMedia in the main process, whose own env lacked them, so ffmpeg-path.js could not find the bundled tools.
+  const main = fs.readFileSync(path.join(__dirname, "..", "desktop", "main.js"), "utf8");
+  const setsOwn = main.indexOf("process.env.MONTCLIP_FFMPEG_PACKAGED = \"1\""), creates = main.indexOf("createFlvImports(");
+  assert.ok(setsOwn > 0, "the main process sets the packaged FFmpeg for itself");
+  assert.ok(setsOwn < creates, "before the FLV import service starts");
+  assert.match(main, /process\.env\.MONTCLIP_FFMPEG_DIR = env\.MONTCLIP_FFMPEG_DIR;/);
+  const FF = require("../ffmpeg-path");
+  const r = FF.resolveTool("ffmpeg", { env: { MONTCLIP_FFMPEG_PACKAGED: "1", MONTCLIP_FFMPEG_DIR: path.join("R", "ffmpeg") }, platform: "win32", exists: () => true });
+  assert.equal(r.path, path.join("R", "ffmpeg", "ffmpeg.exe"));
+});
