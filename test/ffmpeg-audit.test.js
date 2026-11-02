@@ -123,7 +123,7 @@ test('the manifest points at our own build without openh264: release assets of t
    'linux-x64': ['linux64', 'tar.xz', '69a9690a4c0eb7e7059f2141de54b4ec57100741a95a04809734c6adc9a0b8ae'] };
  for (const [plat, [t, ext, sha]] of Object.entries(want)) {
   const b = man.builds[plat], file = `ffmpeg-n9.0.2-42-gd7643a0fe3-${t}-lgpl-9.0.${ext}`;
-  a.equal(b.url, 'https://github.com/good-night-oppie/MontClip/releases/download/ffmpeg-n9.0.2-42-noh264/' + file, plat);
+  a.equal(b.url, 'https://github.com/good-night-oppie/MontClip/releases/download/ffmpeg-lgpl-n9.0.2-montclip1/' + file, plat);
   a.equal(b.sha256, sha, plat); a.ok(adr.includes(sha), plat + ': the ADR records this SHA-256');
   a.equal(b.root, file.replace(/\.(zip|tar\.xz)$/, ''), plat);
  }
