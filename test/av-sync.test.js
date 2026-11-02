@@ -45,6 +45,7 @@ test('the smoke keeps ranges through the real dialog, saves, exports with fastEx
   a.match(s, /throw Error\('A fresh --user-data-dir is required'\)/);
   a.match(s, /show:false,webPreferences:\{\.\.\.o\.webPreferences,offscreen:true/);
   a.match(s, /showSentenceSelection\(\)/);
-  a.match(s, /fastExport\(\{ ?silent: ?true ?\}\)/);
+  // the bundled LGPL ffmpeg has no libx264: MONTCLIP_AV_ENCODER names the H.264 encoder (ADR 2026-11-02-h264-encoder)
+  a.match(s, /fastExport\(encoder\?\{silent:true,delivery:\{preset:'master',video:\{codec:'h264',encoder\}\}\}:\{silent:true\}\)/);
   a.doesNotMatch(s, /\.show\(|setAlwaysOnTop|\.focus\(\)/);
 });
