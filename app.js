@@ -9530,7 +9530,7 @@ async function showSentenceSelection() {
         return { from: Number(pair[0]), to: Number(pair[1]) };
       }) : [...selected].map(id => captions.find(c => c.id === id)).map(c => ({ from: c.start, to: c.start+c.duration }));
       plan = FableCutRangePlan.create(doc, keep); plan.keep = keep;
-      const cut = plan.captions.filter(c => c.truncated).length;
+      const cut = plan.captions.filter((c) => c.status === "visible" && c.truncated).length;
       summary.textContent = `${keep.map((r) => `${fmt(r.from)}–${fmt(r.to)}`).join(" → ")} → ${plan.duration.toFixed(2)} s。按勾选顺序 / In selection order. ${cut ? `${cut} 句只保留了一部分声音，请检查字幕和开头结尾。 / Boundary captions need checking.` : ""}`;
     } catch (error) { plan = null; summary.textContent = error.message; }
     dialog.querySelector("[data-apply]").disabled = !plan;

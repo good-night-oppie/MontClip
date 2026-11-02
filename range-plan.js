@@ -16,6 +16,10 @@
       throw new Error("Unlock clips and tracks first / 请先解锁片段和轨道");
     if (doc.clips.some(c => c.kind === "comp" || c.parentId || c.parent || c.keyframes?.speed?.length))
       throw new Error("Nested, parented or speed-ramped clips need manual editing / 嵌套、父子关联或变速曲线请先手动处理");
+    // "The same boundary" within half a frame (and never less than the 1 ms the output is rounded to):
+    // times are floats, captions land on frames and output times are kept in whole milliseconds, so a
+    // range that is exactly a sentence must not read as cutting it — on a second pass either.
+    const tol = Math.max(0.0015, 0.5 / (Number(doc.fps) > 0 ? Number(doc.fps) : 30));
     const result = clone(doc), captions = [], clips = [], segments = [], markers = [];
     // Conservatively reject stale provenance after arbitrary timeline edits;
     // do not present old source intervals as if they described the current cue.
@@ -25,8 +29,9 @@
       const part = clone(doc);
       part.clips = part.clips.filter(c => !C.isCaption(c));
       // Do not silently drop a short non-caption intersection in the upstream
-      // engine, whose minimum clip length is 50ms. Caption precision is separate.
-      if (part.clips.some(c => { const n = Math.min(c.start+c.duration, range.to)-Math.max(c.start, range.from); return n > 0 && n < Edit.MIN_DUR; }))
+      // engine, whose minimum clip length is 50ms. Caption precision is separate. An overlap within the
+      // boundary tolerance is rounding (a range taken from a rounded caption), not media: it is dropped.
+      if (part.clips.some(c => { const n = Math.min(c.start+c.duration, range.to)-Math.max(c.start, range.from); return n > tol && n < Edit.MIN_DUR; }))
         throw new Error("Media intersection below supported clip duration / 音视频交集短于当前编辑器支持长度");
       Edit.forDoc(part, { tracks: [...new Set(part.clips.map(c => c.track))] }).trimToRange(range.from, range.to);
       for (const c of part.clips) {
@@ -48,7 +53,7 @@
           originalText: prior?.originalText ?? original.props.text,
           original: sourceOriginal,
           intersection: { start: sourceStart, end: sourceEnd }, output: { start, end },
-          truncated: sourceStart > sourceOriginal.start || sourceEnd < sourceOriginal.end,
+          truncated: sourceStart > sourceOriginal.start + tol || sourceEnd < sourceOriginal.end - tol,
           status: end > start ? "visible" : "omitted-rounded-empty" };
         captions.push(entry);
         if (end <= start) continue;
