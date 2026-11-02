@@ -19,7 +19,10 @@ const fs = require('node:fs'), path = require('node:path'), os = require('node:o
 const { spawn, spawnSync } = require('node:child_process');
 const assert = require('node:assert/strict');
 const zip = path.resolve(process.argv[2] || '');
-if (!process.argv[2] || !fs.existsSync(zip)) { console.error('usage: node desktop/package-smoke.cjs <zip>'); process.exit(2); }
+// --no-path-ffmpeg (Deja): start the app with every PATH folder holding ffmpeg / ffprobe taken out, as on a computer with no FFmpeg
+const noPath = process.argv.includes('--no-path-ffmpeg');
+const NP = require('./smoke-no-path.cjs');
+if (!process.argv[2] || !fs.existsSync(zip)) { console.error('usage: node desktop/package-smoke.cjs <zip> [--no-path-ffmpeg]'); process.exit(2); }
 const sha = (f) => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const ps = (script) => spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '[Console]::OutputEncoding = [Text.Encoding]::UTF8; ' + script], { encoding: 'utf8', windowsHide: true }).stdout || '';
@@ -68,7 +71,7 @@ async function cdp(port) {
 }
 
 async function main() {
-  const out = { zip: path.basename(zip) };
+  const out = { zip: path.basename(zip), round: noPath ? 'no FFmpeg on PATH' : 'normal' };
   // 1. the zip and its sum
   const sums = fs.readFileSync(path.join(path.dirname(zip), 'SHA256SUMS.txt'), 'utf8');
   const listed = sums.split('\n').map((l) => l.trim().split(/\s+/)).find((p) => p[1] === path.basename(zip));
@@ -97,15 +100,27 @@ async function main() {
       assert.ok(t.includes(hides ? ALT[lang].to : ALT[lang].from) && !t.includes(hides ? ALT[lang].from : ALT[lang].to), n + ': the URL line matches the app');
     }
     out.unpackedTo = 'a new folder under %TEMP% named "MontClip 包测试 …"';
-    // a synthetic MP4, made with the packaged ffmpeg: 4 s, 320×180 at 30 fps, H.264 by Media Foundation + AAC
+    // a synthetic MP4, made with the packaged ffmpeg: 24 s, 320×180 at 30 fps, H.264 by Media Foundation + AAC; a 440 Hz tone,
+    // quiet except 12–16 s (+25 dB), so the highlight candidates have a louder stretch to find
     const mp4 = path.join(media, '合成 片段.mp4');
-    const mk = spawnSync(path.join(ffDir, 'ffmpeg.exe'), ['-hide_banner', '-loglevel', 'error', '-n', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=30:duration=4', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=4',
+    const mk = spawnSync(path.join(ffDir, 'ffmpeg.exe'), ['-hide_banner', '-loglevel', 'error', '-n', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=30:duration=24', '-f', 'lavfi', '-i', 'aevalsrc=if(between(t\\,12\\,16)\\,0.9\\,0.05)*sin(2*PI*440*t):s=48000:d=24',
       '-c:v', 'h264_mf', '-pix_fmt', 'nv12', '-b:v', '1M', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', mp4], { windowsHide: true });
     assert.equal(mk.status, 0, 'synthetic MP4: ' + String(mk.stderr).slice(0, 200));
     // 3. start it on a desktop nobody sees
+    // the app's environment: as is, or without any PATH folder that holds ffmpeg / ffprobe
+    const launchEnv = { ...process.env }, pathKey = Object.keys(launchEnv).find((k) => k.toUpperCase() === 'PATH') || 'PATH';
+    const onPath = spawnSync('where.exe', ['ffmpeg'], { encoding: 'utf8', windowsHide: true });
+    out.pathFfmpegBefore = onPath.status === 0 ? NP.lavcFromVersion(spawnSync(onPath.stdout.split(/\r?\n/)[0].trim(), ['-version'], { encoding: 'utf8', windowsHide: true }).stdout) : null;
+    if (noPath) {
+      const r = NP.pathWithoutFfmpeg(launchEnv[pathKey]);
+      launchEnv[pathKey] = r.path; out.pathRemoved = r.removed;
+      const left = spawnSync('where.exe', ['ffmpeg', 'ffprobe'], { encoding: 'utf8', windowsHide: true, env: launchEnv });
+      out.pathFfmpegLeft = left.status === 0 ? left.stdout.trim().split(/\r?\n/) : [];
+      assert.deepEqual(out.pathFfmpegLeft, [], 'no ffmpeg / ffprobe left on the app\'s PATH');
+    }
     const launcher = path.join(root, 'launch.ps1'); fs.writeFileSync(launcher, '﻿' + LAUNCHER, 'utf8');
     const args = `--user-data-dir="${profile}" --remote-debugging-port=0 --disable-backgrounding-occluded-windows --disable-renderer-backgrounding`;
-    child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', launcher, '-Exe', exe, '-ArgLine', args, '-Desk', 'MontClipSmoke' + crypto.randomBytes(4).toString('hex')], { windowsHide: true });
+    child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', launcher, '-Exe', exe, '-ArgLine', args, '-Desk', 'MontClipSmoke' + crypto.randomBytes(4).toString('hex')], { windowsHide: true, env: launchEnv });
     let log = '';
     const exited = new Promise((res) => child.stdout.on('data', (d) => { log += d; const m = /EXIT (\d+)/.exec(log); if (m) res(Number(m[1])); }));
     child.stderr.on('data', (d) => { log += d; });
@@ -144,11 +159,22 @@ async function main() {
     assert.ok(seen.size > 0, 'an ffmpeg process was seen during the export');
     assert.ok([...seen].every((p) => p.toLowerCase() === ffExe), 'every ffmpeg was the packaged one: ' + [...seen].join(', '));
     const exported = path.join(profile, 'workspace', decodeURIComponent(job.src.replace(/^\//, '')).split('/').join(path.sep));
-    const probe = JSON.parse(spawnSync(path.join(ffDir, 'ffprobe.exe'), ['-v', 'error', '-show_entries', 'stream=codec_type,codec_name,width,height:format=format_name,duration', '-of', 'json', exported], { encoding: 'utf8', windowsHide: true }).stdout || '{}');
+    const probe = JSON.parse(spawnSync(path.join(ffDir, 'ffprobe.exe'), ['-v', 'error', '-show_entries', 'stream=codec_type,codec_name,width,height:stream_tags=encoder:format=format_name,duration:format_tags=encoder', '-of', 'json', exported], { encoding: 'utf8', windowsHide: true }).stdout || '{}');
     out.exportedFile = { name: path.basename(exported), bytes: fs.statSync(exported).size, format: probe.format?.format_name, duration: Number(probe.format?.duration), streams: (probe.streams || []).map((s) => [s.codec_type, s.codec_name, s.width, s.height].filter((x) => x != null).join(' ')) };
     assert.ok(/mp4/.test(out.exportedFile.format || '') && out.exportedFile.streams.some((s) => s.startsWith('video h264')), 'an H.264 MP4 ' + JSON.stringify(out.exportedFile));
+    // the encoder tags: the video was encoded by the packaged libavcodec, not one on PATH
+    out.encoderTags = { format: probe.format?.tags?.encoder || null, streams: (probe.streams || []).map((s) => s.codec_type + ': ' + (s.tags?.encoder || '-')) };
+    const videoTag = (probe.streams || []).find((s) => s.codec_type === 'video')?.tags?.encoder;
+    out.lavc = { packaged: NP.lavcFromVersion(spawnSync(path.join(ffDir, 'ffmpeg.exe'), ['-version'], { encoding: 'utf8', windowsHide: true }).stdout), exportedVideo: NP.lavcFromTag(videoTag), onPath: out.pathFfmpegBefore };
+    assert.ok(out.lavc.packaged && out.lavc.exportedVideo === out.lavc.packaged, 'the export was encoded by the packaged libavcodec: ' + JSON.stringify(out.lavc));
+    // the highlight candidates read the sound: the server's loudness of the imported file, and the cards' loudness reasons
+    out.highlightSound = await c.read(`(async()=>{const m=project.media[0];const r=await fetch('/api/signals/loudness?src='+encodeURIComponent(m.src));const j=await r.json();const v=j.values||[];
+      return{status:r.status,code:j.code||null,bins:v.length,quietDb:v.length?Math.min(...v):null,loudDb:v.length?Math.max(...v):null};})()`);
+    assert.ok(out.highlightSound.status === 200 && out.highlightSound.bins > 0 && out.highlightSound.loudDb - out.highlightSound.quietDb > 15, 'the sound was read: ' + JSON.stringify(out.highlightSound));
     // the highlight candidates (from #52)
-    out.highlights = await c.read(`(async()=>{setSideTab('transcript');await new Promise(r=>setTimeout(r,500));const b=document.querySelector('[data-tr-highlights]');if(!b)return 'not in this build';b.click();await new Promise(r=>setTimeout(r,1500));const d=document.querySelector('.highlight-dialog');return d&&d.open?'opens':'did not open';})()`);
+    out.highlights = await c.read(`(async()=>{setSideTab('transcript');await new Promise(r=>setTimeout(r,500));const b=document.querySelector('[data-tr-highlights]');if(!b)return 'not in this build';b.click();await new Promise(r=>setTimeout(r,1500));const d=document.querySelector('.highlight-dialog');if(!(d&&d.open))return 'did not open';const until=Date.now()+20000;while(!d.querySelector('.hl-card')&&Date.now()<until)await new Promise(r=>setTimeout(r,250));
+      const cards=[...d.querySelectorAll('.hl-card')];return{opens:true,cards:cards.length,loudnessReasons:d.querySelectorAll('[data-hl-reason="loudness"]').length,first:cards[0]?cards[0].querySelector('h3,h4,strong,.hl-title')?.textContent||null:null};})()`);
+    out.highlightSound.cardsWithLoudness = out.highlights.loudnessReasons;
     out.pathFallback = await c.read(`fetch('/api/export/ffmpeg').then(r=>r.json())`).catch(() => null);
     // 5. close the normal way
     await c.read(`setTimeout(()=>window.close(),50);true`).catch(() => {});
