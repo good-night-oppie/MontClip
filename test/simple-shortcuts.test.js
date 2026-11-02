@@ -100,7 +100,7 @@ test("the tools: simple mode refuses B/R/Y/U, and going to simple mode goes back
   const fixed = { mcView: pref, MontClipView: View, state, project, runtime, colorState: { ws: "edit" }, setWorkspace() {}, renderMontClipView() {}, toast() {},
     document: { querySelectorAll: () => nodes }, els: { tracksContent: { dataset: {} } } };
   const env = new Proxy(fixed, { has: () => true, get: (t, n) => (n === Symbol.unscopables ? undefined : n in t ? t[n] : globalThis[n]), set: (t, n, v) => { t[n] = v; return true; } });
-  new Function("env", "with (env) {" + SRC.slice(toolStart, toolEnd) + SRC.slice(upStart, upEnd) + "; env.setEditTool = setEditTool; env.updateMontClipView = updateMontClipView; }")(env);
+  Object.assign(fixed, new Function("env", "with (env) {" + SRC.slice(toolStart, toolEnd) + SRC.slice(upStart, upEnd) + "; return { setEditTool, updateMontClipView }; }")(env));
   const snap = () => JSON.stringify({ project, undo: runtime.undo, redo: runtime.redo, sel: [...state.selIds] });
   for (const tool of ["ripple", "roll", "slip", "slide"]) {
     fixed.updateMontClipView({ mode: "advanced" }); fixed.setEditTool(tool);
