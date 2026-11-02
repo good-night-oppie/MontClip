@@ -103,8 +103,8 @@ test('the draft is kept after a model-name error',async()=>{
  c.prepare();const r=await c.confirm();a.equal(r.code,'MODEL_INVALID');a.equal(state.current().draft,'只保留第一句');a.deepEqual(state.current().messages,[]);
 });
 test('wrong model name: its own line; wrong key: a Go to settings button like the unconfigured one',()=>{
- a.equal(V.text['zh-CN'].officialPane_errModel,'模型名称不对，请去设置里检查。');
- a.equal(V.text.en.officialPane_errModel,'The model name is wrong. Check it in settings.');
+ a.equal(V.text['zh-CN'].officialPane_errModel,'模型名称不对，请去设置里检查。草稿仍保留。');
+ a.equal(V.text.en.officialPane_errModel,'The model name is wrong. Check it in settings. Your draft is kept.');
  const pane=read('agent-ui/pane.tsx');
  a.match(pane,/MODEL_INVALID:'errModel'/);
  a.match(pane,/\{\(notice==='unconfigured'\|\|notice==='errAuth'\|\|notice==='errModel'\)&&<button data-go-config onClick=\{\(\)=>\{if\(!configOpen\)void openConfig\(\);\}\}>\{t\.goConfig\}<\/button>\}/,'the same button, the same action');
