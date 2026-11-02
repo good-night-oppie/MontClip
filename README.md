@@ -20,11 +20,11 @@ MontClip is an editor you install and run on your own computer. Bring in your st
 
 These are still in progress or not yet verified, and are not available now:
 
+- Optional AI assistant: connect your own AI service account and ask it for editing suggestions (charges billed to your own account)
 - More of the interface in Chinese (some panels and dialogs are still in English)
 - An installer (for now MontClip runs the developer way)
 - Cutting Chinese by individual words (Chinese transcription currently has sentence-level timing only)
 - macOS and Linux versions (only tested on Windows so far)
-- **Optional AI assistant**: connect your own AI service account and ask it for editing suggestions. Before every send you see the exact text that will go out; a suggestion only changes your clip when you click Apply, and it can be undone. Editing works fine without it. Service charges are billed to your own AI account.
 
 ## About the upstream project
 
