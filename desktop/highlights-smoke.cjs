@@ -42,10 +42,31 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   assert.ok(first.reasons.includes('loudness'),'with a loudness reason');
   // Go to: the playhead only
   const before=await read(`JSON.stringify(projectJSON())`),undoDepth=await read(`runtime.undo.length`);
-  await read(`document.querySelector('.highlight-dialog [data-hl-card] [data-hl-jump]').click();true`);await wait(300);
-  assert.equal(await read(`Math.round(state.time*1000)`),10000,'the playhead is at the card');
-  assert.equal(await read(`JSON.stringify(projectJSON())`),before,'Go to does not change the project');
-  assert.equal(await read(`runtime.undo.length`),undoDepth);
+  // Deja (#52): after Go to the preview must be in view — the cards fold into a small button off the picture, and
+  // the player plays from the card. Checked at the full window and at 630×460 (page size), by elementsFromPoint.
+  const seen=[];
+  for(const [w,h] of [[1270,800],[630,460]]){
+   win.setMinimumSize(200,200);
+   for(let i=0;i<5;i++){const [iw,ih]=await read(`[innerWidth,innerHeight]`),[cw,ch]=win.getContentSize();if(iw===w&&ih===h)break;win.setContentSize(Math.round(cw*w/iw),Math.round(ch*h/ih));await wait(400);}
+   if(!(await read(`!!document.querySelector('.highlight-dialog[open]')`)))await read(`document.querySelector('[data-hl-return]').click();true`),await wait(300);
+   await read(`document.querySelector('.highlight-dialog [data-hl-card] [data-hl-jump]').click();true`);await wait(400);
+   const view=await read(`(()=>{const p=document.getElementById('preview').getBoundingClientRect(),pts=[[.5,.5],[.1,.1],[.9,.1],[.1,.9],[.9,.9]];
+     const covered=pts.map(([x,y])=>{const t=document.elementsFromPoint(p.left+p.width*x,p.top+p.height*y)[0];return t&&(t.id==='preview'||t.closest('#monitorStage'))?null:(t?(t.id||t.className||t.tagName):'nothing');}).filter(Boolean);
+     const back=document.querySelector('[data-hl-return]');
+     return{covered,dialogOpen:!!document.querySelector('.highlight-dialog[open]'),playing:state.playing,time:state.time,back:back&&back.getClientRects().length?back.textContent:null};})()`);
+   assert.deepEqual(view.covered,[],w+': nothing covers the preview after Go to '+JSON.stringify(view));
+   assert.equal(view.dialogOpen,false,w+': the list is folded away');
+   assert.equal(view.playing,true,w+': the player plays from the card');
+   assert.ok(view.time>=10&&view.time<12,w+': from the card\'s start '+view.time);
+   assert.ok(view.back,w+': a button brings the list back');
+   await read(`pause();true`);
+   assert.equal(await read(`JSON.stringify(projectJSON())`),before,w+': Go to does not change the project');
+   assert.equal(await read(`runtime.undo.length`),undoDepth);
+   // the button brings the same list back
+   await read(`document.querySelector('[data-hl-return]').click();true`);await wait(300);
+   assert.equal(await read(`!!document.querySelector('.highlight-dialog[open]')&&document.querySelectorAll('.highlight-dialog [data-hl-card]').length`),cards,w+': the same cards come back');
+   seen.push({size:[w,h],back:view.back});
+  }
   // Keep: the range engine, one undo step
   await read(`document.querySelector('.highlight-dialog [data-hl-card] [data-hl-pick]').click();document.querySelector('.highlight-dialog [data-hl-keep]').click();true`);await wait(500);
   const kept=await read(`project.clips.filter(c=>c.kind==='audio').map(c=>[Math.round(c.start*1000),Math.round(c.in*1000),Math.round(c.duration*1000)])`);
@@ -53,7 +74,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   assert.equal(await read(`runtime.undo.length`),undoDepth+1,'one undo step');
   await read(`undo();true`);await wait(200);
   assert.equal(await read(`JSON.stringify(projectJSON().clips)`),JSON.stringify(JSON.parse(before).clips),'Undo restores the edit');
-  process.stdout.write('HIGHLIGHTS_COMPLETE '+JSON.stringify({empty:empty.status,cards,first})+'\n');
+  process.stdout.write('HIGHLIGHTS_COMPLETE '+JSON.stringify({empty:empty.status,cards,first,seen})+'\n');
  }catch(e){process.stdout.write('HIGHLIGHTS_FAIL '+(e&&e.message)+'\n');}
  finally{setTimeout(()=>app.exit(0),300);}
 };
