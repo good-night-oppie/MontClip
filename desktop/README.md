@@ -43,6 +43,13 @@ real 15-second deadline twice. Both inject dialog choices (wait, then force),
 assert only two prompts despite repeated close clicks, and wait for app exit.
 Fault injection is development-only and requires `--montclip-smoke`.
 
+The timeline smokes (`MONTCLIP_TIMELINE_INPUT`) and the drop-reveal and three-track
+runners take a synthetic 4-second clip made by `node make-fixture-av.cjs <out.mp4>`:
+320x180, 30 fps, VP9 with mono AAC, fixed arguments, MontClip's own ffmpeg
+(`vendor/ffmpeg`, or `--ffmpeg <path>` / `MONTCLIP_FFMPEG`; never the system PATH).
+It writes `<out.mp4>.json` with the SHA-256 and the ffmpeg version; the runners make
+the clip when it is missing and refuse one that does not match its record.
+
 Runtime selection: Electron 45.2.1, resolved from npm on 2026-11-01, pinned by
 `package-lock.json`; binary fetched by the official Electron installer, which uses
 the version's checksums. Initial cached 42.11.12 was rejected: [GHSA-jr5w-w6x2-84p9](https://github.com/electron/electron/security/advisories/GHSA-jr5w-w6x2-84p9)
