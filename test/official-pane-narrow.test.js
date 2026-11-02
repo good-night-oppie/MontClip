@@ -72,3 +72,12 @@ test('VV 630x452: More cannot push the composer out, Esc folds More before hidin
  a.match(pane,/e\.key==='Escape'[^]*?configOpen\)\{[^]*?\}else if\(more\)\{setMoreOpen\(false\)[^]*?\}else options\.onHide\(\)/);
  a.match(pane,/clientHeight===0\)setMoreOpen\(false\)/,'hidden pane folds More so it reopens folded');
 });
+
+test('VV 2026-11-02: the session list in More scrolls by whole rows, so no row is shown cut in half',()=>{
+ const css=fs.readFileSync(require.resolve('../style.css'),'utf8'),pane=fs.readFileSync(require.resolve('../agent-ui/pane.tsx'),'utf8');
+ a.match(pane,/className="agent-toolbar cindy-session-list" data-session-list/);
+ a.match(css,/\.cindy-more\s*\{[^}]*overflow:\s*hidden/,'More itself does not scroll (its edge cut rows)');
+ a.match(css,/\.cindy-session-list\s*\{[^}]*overflow-y:\s*auto[^}]*scroll-snap-type:\s*y mandatory/);
+ a.match(css,/\.cindy-session-list\s*\{[^}]*max-height:\s*calc\(/,'height is a whole number of rows');
+ a.match(css,/\.cindy-session-list > button\s*\{[^}]*scroll-snap-align:\s*start/);
+});
