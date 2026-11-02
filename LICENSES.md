@@ -10,16 +10,19 @@ The desktop app runs only the FFmpeg it ships in `resources/ffmpeg/`
   `--enable-gpl` and without `--enable-nonfree`). The full license text ships as
   `resources/ffmpeg/LICENSE.txt`.
 - Corresponding source: https://github.com/FFmpeg/FFmpeg/commit/d7643a0fe3
-- Built by: BtbN/FFmpeg-Builds, release `autobuild-2026-11-01-12-49`
-  (build scripts: https://github.com/BtbN/FFmpeg-Builds)
+- Built by: this repository's `.github/workflows/build-ffmpeg.yml`, Actions run `41397853139`, from
+  BtbN/FFmpeg-Builds `5ece62897c650b863c1ddda7b6964845344aef2d` (the commit of release
+  `autobuild-2026-11-01-12-49`, its build image pinned by digest) with only `--disable-libopenh264`
+  changed (build scripts: https://github.com/BtbN/FFmpeg-Builds). Published as release
+  `ffmpeg-n9.0.2-42-noh264` of this repository.
 - Pinned in `desktop/ffmpeg-manifest.json`; `node desktop/fetch-ffmpeg.cjs`
   refuses an archive whose SHA-256 differs, or an `ffmpeg` that reports a GPL or
   non-free configuration.
 
 | Platform | Archive | SHA-256 |
 |---|---|---|
-| win32-x64 | https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-11-01-12-49/ffmpeg-n9.0.2-42-gd7643a0fe3-win64-lgpl-9.0.zip | `187fef3a0221148eaf9c342c82309209277d84b2257efcac7d230687b77f2862` |
-| linux-x64 | https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-11-01-12-49/ffmpeg-n9.0.2-42-gd7643a0fe3-linux64-lgpl-9.0.tar.xz | `9f0b46b253bc352aeb63b7829dd518f4d879e10f51bc135496b7e266ceea0bb3` |
+| win32-x64 | https://github.com/good-night-oppie/MontClip/releases/download/ffmpeg-n9.0.2-42-noh264/ffmpeg-n9.0.2-42-gd7643a0fe3-win64-lgpl-9.0.zip | `67c30e30206b5bddcc2af9ea4f0215bbbcd2519533316997945a0fd9602a2f96` |
+| linux-x64 | https://github.com/good-night-oppie/MontClip/releases/download/ffmpeg-n9.0.2-42-noh264/ffmpeg-n9.0.2-42-gd7643a0fe3-linux64-lgpl-9.0.tar.xz | `69a9690a4c0eb7e7059f2141de54b4ec57100741a95a04809734c6adc9a0b8ae` |
 
 ### Replacing the bundled FFmpeg (LGPL)
 
