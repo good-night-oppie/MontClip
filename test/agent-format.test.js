@@ -64,3 +64,11 @@ test('errors are told apart: key, rate limit, upstream, network, timeout',async(
  a.equal(view['zh-CN'].officialPane_errRateLimit,'服务暂时限流，请过一会再试。草稿仍保留。');
  for(const [c,k] of [['AUTH','errAuth'],['RATE_LIMIT','errRateLimit'],['TIMEOUT','errTimeout'],['NETWORK','errNetwork'],['UPSTREAM','errUpstream']])a.ok(pane.includes(`${c}:'${k}'`),c);
 });
+
+test('real-model tests are opt-in and never part of the default or CI run',()=>{
+ const real=fs.readdirSync(path.join(__dirname,'..','real-tests'));
+ for(const f of real)a.ok(!/\.test\.[cm]?js$|-test\.|_test\.|^test-/.test(f),f+' must not match node --test defaults');
+ for(const f of real.filter(f=>/openrouter|deepseek/.test(f))){const src=fs.readFileSync(path.join(__dirname,'..','real-tests',f),'utf8');a.match(src,/MONTCLIP_REAL_MODELS/,f);}
+ const ci=fs.readFileSync(path.join(__dirname,'..','.github','workflows','ci.yml'),'utf8');a.ok(!/MONTCLIP_REAL_MODELS|openrouter-token|deepseek/i.test(ci),'CI never enables them or holds their keys');
+ const pkg=require('../package.json');a.equal(pkg.scripts.test,'node --test');
+});
