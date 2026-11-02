@@ -36,9 +36,12 @@
   }
 
   /* Keep `bar`'s direct children with data-more-rank in the bar while they fit; move the
-     rest (highest rank first) into `menu`, shown by `button`. Placeholders keep the order. */
-  function attach(bar, button, menu, { onChange } = {}) {
-    const doc = bar.ownerDocument, slots = new Map();
+     rest (highest rank first) into `menu`, shown by `button`. Placeholders keep the order.
+     floating: the menu lives in <body> and opens fixed under its button, so nothing the bar's
+     panel draws (the monitor's picture) or clips can cover it (VV, #33: #preview did). */
+  function attach(bar, button, menu, { onChange, floating = false } = {}) {
+    const doc = bar.ownerDocument, slots = new Map(), view = doc.defaultView || window;
+    if (floating) { doc.body.appendChild(menu); menu.classList.add("more-menu-floating"); }
     let lastWidth = -1; // the width our own last move left the bar at: not a reason to re-plan
     const ranked = () => [...bar.children, ...menu.children].filter((e) => e.dataset && e.dataset.moreRank != null);
     const restore = () => { for (const [el, mark] of slots) mark.replaceWith(el); slots.clear(); };
@@ -62,7 +65,14 @@
       lastWidth = bar.getBoundingClientRect().width;
       if (onChange) onChange(plan.more.map((id) => items[id].el));
     }
-    function open() { menu.hidden = false; button.setAttribute("aria-expanded", "true"); }
+    function place() {
+      if (!floating || menu.hidden) return;
+      const b = button.getBoundingClientRect(), w = menu.offsetWidth, top = Math.round(b.bottom + 4);
+      menu.style.top = top + "px";
+      menu.style.left = Math.round(Math.max(8, Math.min(b.right - w, view.innerWidth - w - 8))) + "px";
+      menu.style.maxHeight = Math.max(80, view.innerHeight - top - 8) + "px";
+    }
+    function open() { menu.hidden = false; button.setAttribute("aria-expanded", "true"); place(); }
     function close() { menu.hidden = true; button.setAttribute("aria-expanded", "false"); }
     button.addEventListener("click", (e) => { e.stopPropagation(); menu.hidden ? open() : close(); });
     doc.addEventListener("pointerdown", (e) => { if (!menu.hidden && !menu.contains(e.target) && e.target !== button) close(); }, true);
@@ -71,12 +81,12 @@
     const schedule = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; layout(); }); };
     new ResizeObserver((entries) => { if (Math.abs(entries[0].target.getBoundingClientRect().width - lastWidth) > 0.5) schedule(); }).observe(bar);
     // a bar that sizes to its content still re-plans when the window changes
-    (doc.defaultView || window).addEventListener("resize", schedule);
+    view.addEventListener("resize", () => { schedule(); place(); });
     // a tool that appears or disappears (IN/OUT tools, Source mode) or relabels (language) re-plans
     const watch = new MutationObserver(schedule);
     for (const el of ranked()) watch.observe(el, { attributes: true, attributeFilter: ["class", "hidden"], childList: true, subtree: true, characterData: true });
     close(); schedule();
-    return { layout, open, close };
+    return { layout, open, close, place };
   }
 
   return { UPPER_MIN, TIMELINE_MIN, planOverflow, timelineMax, upperNeed, attach };

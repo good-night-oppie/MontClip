@@ -9282,9 +9282,11 @@ function buildTranscriptPage() {
         <button type="button" class="btn tiny" data-tr-cap-file="srt" title="Download the timeline's captions as a SubRip file">SRT</button>
         <button type="button" class="btn tiny" data-tr-cap-file="vtt" title="Download the timeline's captions as a WebVTT file">VTT</button>
         <button type="button" class="btn tiny" data-tr-cap-import title="Place the captions of an SRT or WebVTT file">Import…</button>
+        <input type="file" accept=".srt,.vtt,text/vtt,application/x-subrip" data-tr-cap-input hidden>
+      </div>
+      <div class="tr-row">
         <button type="button" class="btn tiny" data-tr-sentences>按句选段 / Select sentences</button>
         <button type="button" class="btn tiny" data-tr-mapping>时间映射 / Mapping</button>
-        <input type="file" accept=".srt,.vtt,text/vtt,application/x-subrip" data-tr-cap-input hidden>
       </div>
       <div class="tr-note">Caption last: a cut through a caption doesn't re-time its words, so add captions again after changing the edit.</div>
     </div>
@@ -20847,7 +20849,7 @@ for (const b of document.querySelectorAll("#wsSwitch [data-ws]"))
 initPanelSplit();
 // Tools that do not fit go into the bar's More menu instead of being cut off (Snap last).
 MontClipNarrow.attach(document.querySelector(".timeline-toolbar"), $("btnTlMore"), $("tlMoreMenu"));
-MontClipNarrow.attach(document.querySelector("#monitorPanel .panel-head-actions"), $("btnMonMore"), $("monMoreMenu"));
+MontClipNarrow.attach(document.querySelector("#monitorPanel .panel-head-actions"), $("btnMonMore"), $("monMoreMenu"), { floating: true });
 MontClipNarrow.attach(document.querySelector(".topbar-right"), $("btnTopMore"), $("topMoreMenu"));
 MontClipNarrow.attach(document.querySelector(".bin-actions"), $("btnBinMore"), $("binMoreMenu"));
 // A narrow side panel scrolls its tab strip: a mouse wheel moves it sideways, and the open tab stays in view.
