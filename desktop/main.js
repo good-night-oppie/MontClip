@@ -5,6 +5,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { createStore, allowed: settingsAllowed } = require("./view-settings");
 const { nativeText, languageOf } = require("./native-text");
+const { transcribeEnabled } = require("./features");
 const { createCloseController } = require("./close-controller");
 let worker, win, stopping = false, closing = false, workerExited = false;
 const smoke = !app.isPackaged && process.argv.includes("--montclip-smoke");
@@ -71,6 +72,11 @@ async function start() {
   for (const operation of ["get", "set"]) ipcMain.on("montclip:view:" + operation, (event, value) => {
     event.returnValue = settingsAllowed(event, win, origin)
       ? settings[operation](value) : {ok:false,code:"VIEW_SETTINGS_FORBIDDEN"};
+  });
+  // read-only feature switches for the page (desktop/features.js); no channel sets them
+  const features = { transcribe: transcribeEnabled({ isPackaged: app.isPackaged, argv: process.argv, env: process.env }) };
+  ipcMain.on("montclip:features:get", (event) => {
+    event.returnValue = settingsAllowed(event, win, origin) ? { transcribe: features.transcribe } : { transcribe: false };
   });
   let rendererFault = null, prompts = 0;
   const closeController = createCloseController({

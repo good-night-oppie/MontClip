@@ -54,6 +54,7 @@ test('(b) with transcription off nothing starts: no worker, no download', async 
   const src = pick('function transcribeAvailable()', '\n') + '\n' + pick('async function transcribeSrcs(', '\nasync function ') ;
   const calls = { worker: 0, fetch: 0 };
   const ctx = { window: { montclipViewSettings: {}, montclipFeatures: { transcribe: false } }, Worker: function () { calls.worker++; }, fetch: async () => { calls.fetch++; return {}; },
+    transcribeSettings: () => ({}), trState: {}, renderTranscript() {},
     console, Promise, Error, Object };
   vm.createContext(ctx); vm.runInContext(src + '\nthis.transcribeSrcs = transcribeSrcs;', ctx);
   await a.rejects(ctx.transcribeSrcs(['/media/a.wav']), (e) => e.code === 'TRANSCRIBE_DISABLED');

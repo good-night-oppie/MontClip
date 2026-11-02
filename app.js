@@ -38,6 +38,9 @@ const TRACK_SIZE_KEY = "fablecut-track-size";
 const mcView = MontClipView.create(window.montclipViewSettings ? MontClipView.desktopStorage(window.montclipViewSettings) : localStorage);
 /** Keyed interface text in the current language (ui-terms.js / ui-preferences.js). Never for user content. */
 const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
+/** On-device transcription: on in development and the browser editor; a packaged desktop build has it
+ *  off unless the main process turned it on (desktop/features.js). Off means no entry and no download. */
+function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
 function renderMontClipView() {
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
   document.documentElement.lang = language;
@@ -9077,6 +9080,8 @@ async function transcribeFile(src, { model, language, onProgress, cancelled }) {
 }
 /** Transcribe files one after another. `beat(fraction)` hears about progress (an agent's job). */
 async function transcribeSrcs(srcs, opts = transcribeSettings(), beat = null) {
+  // off in a packaged build: no worker, no model download, from the panel or from an agent job
+  if (!transcribeAvailable()) throw Object.assign(new Error("on-device transcription is not available in this build"), { code: "TRANSCRIBE_DISABLED" });
   if (trState.busy) throw new Error("this tab is already transcribing — wait for it, or cancel it");
   const busy = trState.busy = { srcs, i: 0, frac: 0, cancel: false, dl: new Map(), beat: () => beat?.((busy.i + busy.frac) / srcs.length) };
   const out = { done: [], failed: [], cancelled: false };
@@ -9152,17 +9157,19 @@ function transcriptSig() {
 
 function buildTranscriptPage() {
   const T = FableCutTranscribe, root = els.transcriptPage, set = transcribeSettings();
+  // a packaged build without on-device transcription shows no transcribe entry, model choice or download progress
+  const listen = transcribeAvailable();
   root.innerHTML = `<div class="tr-head">
       <div class="tr-row">
-        <button type="button" class="btn primary" data-tr-go></button>
-        <select data-tr-model title="Speech model. Base is quick; Small is more accurate and slower. Each downloads once, then stays in this browser">${Object.entries(T.MODELS).map(([k, m]) =>
-          `<option value="${k}" ${k === set.model ? "selected" : ""}>${m.label} · ${m.mb} MB</option>`).join("")}</select>
-        <select data-tr-lang title="The language spoken. Auto-detect works for most; pick it when a clip is short or mixes languages">
+        ${listen ? `<button type="button" class="btn primary" data-tr-go></button>` : ""}
+        ${listen ? `<select data-tr-model title="Speech model. Base is quick; Small is more accurate and slower. Each downloads once, then stays in this browser">${Object.entries(T.MODELS).map(([k, m]) =>
+          `<option value="${k}" ${k === set.model ? "selected" : ""}>${m.label} · ${m.mb} MB</option>`).join("")}</select>` : ""}
+        ${listen ? `<select data-tr-lang title="The language spoken. Auto-detect works for most; pick it when a clip is short or mixes languages">
           <option value="auto">Auto-detect</option>${Object.entries(T.LANGUAGES).sort((a, b) => a[1].localeCompare(b[1])).map(([k, n]) =>
-            `<option value="${k}" ${k === set.language ? "selected" : ""}>${n}</option>`).join("")}</select>
+            `<option value="${k}" ${k === set.language ? "selected" : ""}>${n}</option>`).join("")}</select>` : ""}
       </div>
-      <div class="tr-busy hidden" data-tr-busy><span data-tr-busy-text></span><span class="tr-bar"><i data-tr-bar></i></span>
-        <button type="button" class="btn tiny" data-tr-cancel title="Stop transcribing (what is done is kept)" data-i18n="term.cancel">${uiText("term.cancel")}</button></div>
+      ${listen ? `<div class="tr-busy hidden" data-tr-busy><span data-tr-busy-text></span><span class="tr-bar"><i data-tr-bar></i></span>
+        <button type="button" class="btn tiny" data-tr-cancel title="Stop transcribing (what is done is kept)" data-i18n="term.cancel">${uiText("term.cancel")}</button></div>` : ""}
       <div class="tr-row">
         <input type="search" data-tr-find placeholder="${uiText("term.find-words")}" data-i18n-placeholder="term.find-words" spellcheck="false" title="A word or phrase; case and punctuation don't matter. Enter goes to the next one">
         <span class="tr-count" data-tr-count></span>
@@ -9173,7 +9180,7 @@ function buildTranscriptPage() {
         <span class="tr-lbl" data-i18n="term.captions">${uiText("term.captions")}</span>
         <select data-tr-cap-style title="The look: subtitle on a dark bar, karaoke (words light up as said), highlight (the word being said in colour), word pop (a few big words at a time)">${Object.entries(FableCutCaptions.STYLES).map(([k, st]) =>
           `<option value="${k}" ${k === (set.captionStyle || FableCutCaptions.DEFAULT_STYLE) ? "selected" : ""}>${st.label}</option>`).join("")}</select>
-        <button type="button" class="btn tiny" data-tr-cap-add title="Make captions from these words, timed word by word, on a video lane above the edit (replaces the captions there; one undo step)" data-i18n="term.add-captions">${uiText("term.add-captions")}</button>
+        ${listen ? `<button type="button" class="btn tiny" data-tr-cap-add title="Make captions from these words, timed word by word, on a video lane above the edit (replaces the captions there; one undo step)" data-i18n="term.add-captions">${uiText("term.add-captions")}</button>` : ""}
         <button type="button" class="btn tiny" data-tr-cap-file="srt" title="Download the timeline's captions as a SubRip file">SRT</button>
         <button type="button" class="btn tiny" data-tr-cap-file="vtt" title="Download the timeline's captions as a WebVTT file">VTT</button>
         <button type="button" class="btn tiny" data-tr-cap-import title="Place the captions of an SRT or WebVTT file" data-i18n="term.import-2">${uiText("term.import-2")}</button>
@@ -9191,10 +9198,12 @@ function buildTranscriptPage() {
     find: q("[data-tr-find]"), count: q("[data-tr-count]"), cutFound: q("[data-tr-cut-found]"), body: q("[data-tr-body]"),
     foot: q("[data-tr-foot]"), selText: q("[data-tr-sel]") };
   const E = trState.el;
-  E.go.addEventListener("click", transcribeFromTab);
-  q("[data-tr-cancel]").addEventListener("click", cancelTranscribe);
-  q("[data-tr-model]").addEventListener("change", (e) => saveTranscribeSettings({ model: e.target.value }));
-  q("[data-tr-lang]").addEventListener("change", (e) => saveTranscribeSettings({ language: e.target.value === "auto" ? null : e.target.value }));
+  if (listen) {
+    E.go.addEventListener("click", transcribeFromTab);
+    q("[data-tr-cancel]").addEventListener("click", cancelTranscribe);
+    q("[data-tr-model]").addEventListener("change", (e) => saveTranscribeSettings({ model: e.target.value }));
+    q("[data-tr-lang]").addEventListener("change", (e) => saveTranscribeSettings({ language: e.target.value === "auto" ? null : e.target.value }));
+  }
   E.find.addEventListener("input", () => { trState.query = E.find.value; findTranscript(); });
   E.find.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); nextTranscriptHit(e.shiftKey ? -1 : 1); }
@@ -9206,7 +9215,7 @@ function buildTranscriptPage() {
   });
   q("[data-tr-copy]").addEventListener("click", copyTranscript);
   q("[data-tr-cap-style]").addEventListener("change", (e) => saveTranscribeSettings({ captionStyle: e.target.value }));
-  q("[data-tr-cap-add]").addEventListener("click", () => addCaptionsFromTranscript(q("[data-tr-cap-style]").value));
+  q("[data-tr-cap-add]")?.addEventListener("click", () => addCaptionsFromTranscript(q("[data-tr-cap-style]").value));
   root.querySelectorAll("[data-tr-cap-file]").forEach((b) => b.addEventListener("click", () => downloadCaptions(b.dataset.trCapFile)));
   const capInput = q("[data-tr-cap-input]");
   q("[data-tr-cap-import]").addEventListener("click", () => capInput.click());
@@ -9279,9 +9288,9 @@ function renderTranscript(force = false) {
   trState.wsig = transcriptWordsSig();
   const tgt = transcribeTargets();
   const n = tgt.srcs.length;
-  E.go.textContent = tgt.selected ? uiText("own.transcribe-selected", { n }) : n ? uiText(n === 1 ? "own.transcribe-file" : "own.transcribe-files", { n }) : uiText("own.transcribe");
-  E.go.disabled = !!trState.busy || !tgt.srcs.length;
-  E.go.title = tgt.srcs.length ? "Turn the speech into words, in this browser (the model downloads once). Select clips to transcribe just those, or again"
+  if (E.go) E.go.textContent = tgt.selected ? uiText("own.transcribe-selected", { n }) : n ? uiText(n === 1 ? "own.transcribe-file" : "own.transcribe-files", { n }) : uiText("own.transcribe");
+  if (E.go) E.go.disabled = !!trState.busy || !tgt.srcs.length;
+  if (E.go) E.go.title = tgt.srcs.length ? "Turn the speech into words, in this browser (the model downloads once). Select clips to transcribe just those, or again"
     : groups.length ? "Every file on the timeline has a transcript — select clips to transcribe them again" : "Put clips with speech on the timeline first";
   const missing = [...new Set(groups.map((g) => getMedia(g[0].mediaId)).filter((m) => transcriptCache.get(m.src) === false).map((m) => m.name || m.src))];
   let html = "";
@@ -9313,7 +9322,7 @@ function goToTranscriptTime(t) {
 }
 function paintTranscribeBusy() {
   const E = trState.el, b = trState.busy;
-  if (!E) return;
+  if (!E || !E.busy) return;
   E.busy.classList.toggle("hidden", !b);
   if (!b) return;
   let loaded = 0, total = 0, downloading = false;

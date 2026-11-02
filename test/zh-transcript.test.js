@@ -19,7 +19,7 @@ test('every string of the panel has a key in both languages; SPEC terms are reus
 
 test('placeholders fill in both languages',()=>{
  const t=(l,k,v)=>V.t(l,k,v);
- a.equal(t('zh-CN','own.transcribe-selected',{n:2}),'转写所选（2）');a.equal(t('en','own.transcribe-selected',{n:2}),'Transcribe selected (2)');
+ a.equal(t('zh-CN','own.transcribe-selected',{n:2}),'听写所选（2）');a.equal(t('en','own.transcribe-selected',{n:2}),'Transcribe selected (2)');
  a.equal(t('zh-CN','own.found',{n:3}),'找到 3 处');a.equal(t('en','own.cut-n',{n:3}),'Cut 3');
  a.match(t('zh-CN','own.tr-transcribing-of',{name:'a.mp4',i:1,n:2,pct:40}),/a\.mp4.*1.*2.*40%/);
 });
