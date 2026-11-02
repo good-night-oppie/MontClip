@@ -33,6 +33,27 @@ test('package and bundle metadata say MontClip',()=>{
  for(const t of man.tools)a.match(t.name,/^fablecut_/,'MCP tool names unchanged');
 });
 
+// QQ's option A (Deja, 2026-11-02): nothing is published to npm or the MCP registry until the
+// owner registers montclip and io.github.good-night-oppie/montclip. So the package is private,
+// nothing points at the upstream's registry entries, and no page tells anyone to install it.
+test('not published: private package, no registry entry, no install command anywhere a person reads',()=>{
+ const REPO='https://github.com/good-night-oppie/MontClip';
+ const pkg=JSON.parse(read('package.json')),man=JSON.parse(read('manifest.json')),plugin=JSON.parse(read('.claude-plugin/plugin.json'));
+ a.equal(pkg.private,true,'package.json private');
+ a.equal(pkg.mcpName,undefined,'no MCP registry name until the owner registers one');
+ a.ok(pkg.repository.url.startsWith(REPO),'package repository is ours');
+ a.ok(!fs.existsSync(path.join(root,'server.json')),'no MCP registry manifest');
+ a.ok(man.repository.url.startsWith(REPO)&&man.documentation.startsWith(REPO),'bundle repository and docs are ours');
+ a.ok(plugin.repository.startsWith(REPO)&&plugin.homepage.startsWith(REPO),'plugin repository and homepage are ours');
+ const ci=read('.github/workflows/ci.yml');a.ok(!/npm publish/.test(ci),'CI does not rehearse a publish');a.ok(!/fablecut-\*\.tgz|node_modules\/fablecut/.test(ci),'CI packs the package by its name');
+ a.ok(!/server\.json/.test(read('.github/scripts/release-check.js')),'release-check no longer reads server.json');
+ const walk=d=>fs.readdirSync(path.join(root,d),{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(d+'/'+e.name):[d+'/'+e.name]);
+ const files=['README.md','DEVELOPMENT.md','CLAUDE.md','cli.js','mcp-server.js','docs/llms.txt','docs/i18n/README.zh-CN.md',...walk('docs').filter(f=>/\.html$/.test(f)&&!/^docs\/(validation|demo)\//.test(f))];
+ for(const f of files){const t=read(f);
+  a.ok(!/npx\s+(-y\s+)?(fablecut|montclip)|"npx"/.test(t),f+' still tells people to install with npx');
+  a.ok(!/plugin marketplace add ronak-create|fablecut\.mcpb/.test(t),f+' still points at the upstream plugin or bundle');}
+});
+
 test('editor, server, CLI and MCP descriptions name MontClip where a person reads them',()=>{
  const strings=src=>[...src.matchAll(/(["'`])((?:\\.|(?!\1)[^\\])*)\1/g)].map(m=>m[2]);
  const out=[];
