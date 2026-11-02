@@ -107,3 +107,28 @@ test('the page cannot delete by itself: one fixed, guarded IPC with no argument,
  const svc=read('desktop/agent-service.js');
  assert.match(svc,/deleteConnection\(\)\{/,'the service method takes no argument');
 });
+
+// JJ (2026-11-02 release notes, "落地前必须确认" item 1): the button and the confirmation, word for word
+test('the button and the confirmation use JJ\'s wording in both languages',()=>{
+ const view=require('../ui-preferences');
+ const want={'zh-CN':{removeConnection:'删除这个连接',removeConfirm:'删除后，这台电脑上保存的密钥会被清掉，AI 助手要重新设置才能用。剪辑不受影响。'},
+  en:{removeConnection:'Remove this connection',removeConfirm:'This clears the key saved on this computer. You will need to set up the AI service again to use the assistant. Editing is not affected.'}};
+ for(const l of ['zh-CN','en']){for(const [k,v] of Object.entries(want[l]))assert.equal(view.text[l]['officialPane_'+k],v,l+' '+k);
+  for(const k of ['connectionRemoved','connectionRemoveFailed'])assert.ok(view.text[l]['officialPane_'+k],l+' '+k);}
+});
+
+test('the pane asks first: the button only opens the confirmation, and only its confirm button deletes',()=>{
+ const pane=read('agent-ui/pane.tsx');
+ const button=pane.match(/<button data-remove-connection onClick=\{([^}]*)\}>/);assert.ok(button,'the remove button');
+ assert.doesNotMatch(button[1],/deleteConnection/);assert.match(button[1],/removeDialog\.current\?\.showModal\(\)/);
+ assert.equal((pane.match(/deleteConnection\(\)/g)||[]).length,1,'one call');
+ assert.match(pane,/<button data-remove-confirm onClick=\{async\(\)=>\{removeDialog\.current\?\.close\(\);const result=await W\.montclipAgentService\?\.deleteConnection\(\);/);
+ assert.match(pane,/\(cfg\?\.configured\|\|cfg\?\.code==='CONFIG_READ_FAILED'\)&&<button data-remove-connection/,'shown while a connection is saved or unreadable');
+ assert.match(pane,/if\(result\?\.ok\)\{setCfg\(result\);setModel\(''\);setKey\(''\);setNotice\('connectionRemoved'\);\}else\{setCfg\(await W\.montclipAgentService\?\.get\(\)\);setNotice\('connectionRemoveFailed'\);\}/,'a failure shows its own notice and re-reads the real state');
+ assert.match(pane,/<button data-remove-cancel onClick=\{\(\)=>removeDialog\.current\?\.close\(\)\}>/);
+});
+
+test('the shipped bundle is rebuilt from the pane source with the remove button',()=>{
+ const bundle=read('cindy-official.js');
+ for(const s of ['data-remove-connection','data-remove-confirm','data-remove-cancel','deleteConnection()'])assert.ok(bundle.includes(s),s);
+});
