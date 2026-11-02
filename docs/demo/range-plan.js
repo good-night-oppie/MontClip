@@ -9,6 +9,15 @@
   // bilingual message for agents and MCP; the code is what the editor says in its own language (own.rp-*)
   const fail = (code, message) => Object.assign(new Error(message), { code });
   const ms = (x) => Math.round((x + Number.EPSILON) * 1000) / 1000;
+  // "The same boundary" within half a frame (and never less than the 1 ms the output is rounded to), but never
+  // more than 1/48 s: under 10 fps half a frame reached Edit.MIN_DUR (50 ms), and a real media sliver between the
+  // two was dropped silently instead of refused (QQ, #36). The ceiling keeps it below MIN_DUR at any frame rate.
+  const TOL_MAX = 1 / 48;
+  function boundaryTolerance(fps) {
+    const tol = Math.min(Math.max(0.0015, 0.5 / (Number(fps) > 0 ? Number(fps) : 30)), TOL_MAX);
+    if (!(tol < Edit.MIN_DUR)) throw fail("invalid", "Boundary tolerance must stay below the shortest clip / 边界容差必须小于最短片段");
+    return tol;
+  }
   function create(doc, ranges) {
     if (!Array.isArray(ranges) || !ranges.length || ranges.some(r => !Number.isFinite(r.from) || !Number.isFinite(r.to) || r.from < 0 || r.to <= r.from))
       throw fail("invalid", "Select valid ordered ranges / 请选择有效的有序区间");
@@ -18,10 +27,9 @@
       throw fail("locked", "Unlock clips and tracks first / 请先解锁片段和轨道");
     if (doc.clips.some(c => c.kind === "comp" || c.parentId || c.parent || c.keyframes?.speed?.length))
       throw fail("nested", "Nested, parented or speed-ramped clips need manual editing / 嵌套、父子关联或变速曲线请先手动处理");
-    // "The same boundary" within half a frame (and never less than the 1 ms the output is rounded to):
-    // times are floats, captions land on frames and output times are kept in whole milliseconds, so a
+    // Times are floats, captions land on frames and output times are kept in whole milliseconds, so a
     // range that is exactly a sentence must not read as cutting it — on a second pass either.
-    const tol = Math.max(0.0015, 0.5 / (Number(doc.fps) > 0 ? Number(doc.fps) : 30));
+    const tol = boundaryTolerance(doc.fps);
     const result = clone(doc), captions = [], clips = [], segments = [], markers = [];
     // Conservatively reject stale provenance after arbitrary timeline edits;
     // do not present old source intervals as if they described the current cue.
@@ -77,5 +85,5 @@
     result.captionOmissions = captions.filter(c => c.status === "omitted-rounded-empty");
     return { project: clone(result), duration: offset, segments, captions };
   }
-  return { create };
+  return { create, boundaryTolerance };
 });
