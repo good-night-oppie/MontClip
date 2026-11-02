@@ -57,8 +57,30 @@ attribution line. Written first; it failed 4/4 before the change.
 
 ## Later work
 
-- The rest of the docs site (`docs/docs/`, showcase, community, sponsors,
-  translated READMEs in `docs/i18n/`) still says FableCut.
+- The rest of the docs site (`docs/docs/`, showcase, sponsors, translated
+  READMEs in `docs/i18n/`) still says FableCut.
+- **Docs site header and footer (Deja, 2026-11-02).** Every `docs/docs/` page
+  still shows "FableCut" as the brand in its header and footer (with
+  `aria-label="FableCut home"`), and still points at upstream's hosted
+  services: the Studio link (`studio.fablecut.space`), the Status link
+  (`status.fablecut.space`), and the `SITE` constant behind canonical and
+  og addresses (`fablecut.space`). The Studio docs page itself describes
+  upstream's hosted Studio. Left for the docs-site rework, all together.
+
+## Community page removed (Deja, 2026-11-02, JJ's option a)
+
+`docs/community/` was upstream's page wholesale (FableCut name, Discord,
+`hello@fablecut.space`, press quotes). It is deleted, with every way to it:
+the Community entry in the `docs/docs/` header (generator and the generated
+pages; the home pages had none), and its `docs/sitemap.xml` entry. The
+upstream support channels went with it: the Discord icon in the header, the
+Discord and Email links in the footer, the Discord icon in
+`docs/docs/icons.svg`, and the "ask on the FableCut Discord or email
+support@fablecut.space" sentence in `docs/docs/studio.md`.
+`test/brand.test.js` checks that the page is gone, that no page under
+`docs/` (and not the generator or sitemap) links to it, and that no public
+page under `docs/` (the playground included, `docs/validation/` excluded)
+shows a fablecut.space email address or mentions Discord.
 - `CLAUDE.md` (also returned by the `fablecut_docs` MCP tool) still says
   FableCut.
 - Code comments are not user-visible and were left alone.

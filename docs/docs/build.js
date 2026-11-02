@@ -499,13 +499,9 @@ ${ICONS}
       <a href="${base}#playground">Playground</a>
       <a href="${base}start/">Get started</a>
       <a href="https://studio.fablecut.space">Studio</a>
-      <a href="${base}community/">Community</a>
       <a href="${docsHome}" aria-current="page">Docs</a>
     </nav>
     <div class="nav-end">
-      <a class="gh" href="https://discord.gg/EFMQH7d6Tv" rel="noopener" target="_blank" aria-label="FableCut on Discord" title="Discord — questions, bugs, ideas">
-        <svg class="i" aria-hidden="true"><use href="#i-discord"/></svg>
-      </a>
       <a class="gh" href="${REPO}" rel="noopener" target="_blank" aria-label="FableCut on GitHub">
         <svg class="i" aria-hidden="true"><use href="#i-gh"/></svg><span class="gh-label">GitHub</span><span class="gh-count" data-stars></span>
       </a>
@@ -523,8 +519,6 @@ ${main}
       <nav class="foot-links" aria-label="Footer">
         <a href="${REPO}" rel="noopener" target="_blank">GitHub</a>
         <a href="${docsHome}">Docs</a>
-        <a href="https://discord.gg/EFMQH7d6Tv" rel="noopener" target="_blank">Discord</a>
-        <a href="mailto:hello@fablecut.space">Email</a>
         <a href="${REPO}/releases" rel="noopener" target="_blank">Releases</a>
         <a href="https://status.fablecut.space" rel="noopener" target="_blank">Status</a>
         <a href="${REPO}/blob/main/SECURITY.md" rel="noopener" target="_blank">Security</a>
