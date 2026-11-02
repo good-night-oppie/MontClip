@@ -135,3 +135,24 @@ test("without the bundled FFmpeg the server says so plainly and does not hang", 
   assert.equal(info.info.probe, "stat");
   assert.ok(Date.now() - t0 < 10000, "the refusals come back promptly");
 });
+
+// QQ (#28, 5c986adf): every runtime file anywhere in the repository — .js, .cjs and .mjs, not only the root and desktop/ —
+// so a new file cannot slip past. Allowed by name, and only these: CI scripts (they make fixtures with the runner's own
+// ffmpeg and never ship), tests, and the demo-media generator (a development script; the demo ships its outputs only).
+test("no runtime .js / .cjs / .mjs file anywhere runs ffmpeg or ffprobe by name", () => {
+  const { execFileSync } = require("node:child_process");
+  const ALLOWED_DIRS = [".github/scripts/", "test/"];
+  const ALLOWED_FILES = ["docs/demo/make-media.js"];
+  for (const f of ALLOWED_FILES) assert.ok(fs.existsSync(path.join(ROOT, f)), "an allowed file that no longer exists: " + f);
+  const files = execFileSync("git", ["ls-files", "*.js", "*.cjs", "*.mjs"], { cwd: ROOT, encoding: "utf8" }).trim().split("\n")
+    .filter((f) => f && !ALLOWED_DIRS.some((d) => f.startsWith(d)) && !ALLOWED_FILES.includes(f));
+  assert.ok(files.length > 100, "the scan sees the repository's files: " + files.length);
+  const call = /\b(?:spawn|spawnSync|execFile|execFileSync|exec|execSync|run|runFfmpeg)\s*\(\s*["'`](ffmpeg|ffprobe)\b/g;
+  const bad = [];
+  for (const f of files) {
+    const src = fs.readFileSync(path.join(ROOT, f), "utf8");
+    for (const m of src.matchAll(call)) bad.push(`${f}: ${m[0]}`);
+    if (/\b(?:ffmpeg|ffprobe)\s*=\s*["'`](?:ffmpeg|ffprobe)["'`]/.test(src)) bad.push(`${f}: a default that names ffmpeg / ffprobe`);
+  }
+  assert.deepEqual(bad, []);
+});
