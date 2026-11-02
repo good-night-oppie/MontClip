@@ -23,6 +23,13 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
+      # MontClip runs only its bundled LGPL FFmpeg, never one on PATH. Fetch the
+      # pinned build (SHA-256 and LGPL configuration are checked) so the tests that
+      # need ffmpeg run against it. H.264 tests skip here: the runner has no
+      # graphics-card encoder and no Windows h264_mf, and the LGPL build has no libx264.
+      - name: Fetch the bundled FFmpeg (pinned LGPL build)
+        run: node desktop/fetch-ffmpeg.cjs --platform linux-x64
+
       # No install step on purpose: FableCut has no runtime dependencies and the
       # suite uses only node:test. A missing `npm install` here is the feature.
       - name: Run the test suite
