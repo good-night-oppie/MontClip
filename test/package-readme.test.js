@@ -4,7 +4,8 @@
 //  - the app hides + URL (#58): JJ's alternative URL line instead of the written one (url-hidden.json);
 //  - the packaged app really has the fix that removes each export's hidden copy (desktop/export-downloads.js, wired in
 //    desktop/main.js): the whole line under 导出视频要注意 / the export notes on deleting those copies goes, its line
-//    break too, no empty list item (exports-fixed.json; JJ, 2026-11-02: delete it, no replacement). The four
+//    break too, no empty list item — or, as JJ decided in the end (2026-11-02), gives way to her line on what a cancel
+//    keeps (exports-fixed.json). The four
 //    combinations are all tested, and BUILD-INFO.json records which.
 const test = require('node:test'), a = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
@@ -40,7 +41,7 @@ for (const lang of ['zh-CN', 'en']) {
         else expected.push(l);
       }
       a.deepEqual(lines, expected);
-      a.equal(lines.length, base.length - (c.copyGone ? 1 : 0), 'the deleted line leaves no empty line behind');
+      a.equal(lines.length, base.length - (c.copyGone && !R.COPY[lang].to ? 1 : 0), 'a replaced line keeps the count; a deleted one leaves no empty line');
       a.ok(!lines.some((l) => /^\s*-\s*$/.test(l)), 'no empty list item');
       a.equal(got.text.includes(R.ALT[lang].from), !c.urlHidden);
       a.equal(got.text.includes(R.COPY[lang].from), !c.copyGone);
@@ -55,7 +56,7 @@ test("JJ's alternative URL lines word for word (Deja, 2026-11-02)", () => {
   a.equal(R.ALT.en.to, '- This build cannot import media from a URL. Import files from your computer instead.');
 });
 
-test('the export-copy line is in the notes exactly once per language, and JJ deletes it (to is empty)', () => {
+test('the export-copy line is in the notes exactly once per language, and JJ replaces it, word for word', () => {
   for (const lang of ['zh-CN', 'en']) {
     const lines = R.read(lang).replace(/\r\n/g, '\n').split('\n');
     a.equal(lines.filter((l) => l === R.COPY[lang].from).length, 1, lang);
@@ -63,8 +64,12 @@ test('the export-copy line is in the notes exactly once per language, and JJ del
   }
   a.ok(R.COPY['zh-CN'].from.startsWith('- 每次导出，软件还会在电脑里另外留一份副本'));
   a.ok(R.COPY.en.from.startsWith('- Each export also leaves an extra copy'));
-  a.equal(R.COPY['zh-CN'].to, ''); a.equal(R.COPY.en.to, '');
-  a.equal(require('../desktop/package-readme/exports-fixed.json').en.to, '', 'exports-fixed.json');
+  a.equal(R.COPY['zh-CN'].to, "- 如果在保存窗口点了『取消』，导出的视频会先留着：打开『导出队列』，在这一条后面点『保存』就能再存一次。");
+  a.equal(R.COPY.en.to, "- If you click Cancel in the save window, the exported video is kept: open the export queue and click Save on this item to save it again.");
+  // an empty to would still delete the line, its break too
+  const del = { ...R.COPY, 'zh-CN': { ...R.COPY['zh-CN'], to: '' } };
+  const raw = R.read('zh-CN'), kept = raw.replace(/\r\n/g, '\n').split('\n');
+  a.equal(kept.filter((l) => l !== del['zh-CN'].from).length, kept.length - 1);
 });
 
 test('the switches follow the app: + URL hidden (app.js); the export-copy fix is really there (main.js wires export-downloads.js, which removes the copy)', () => {
