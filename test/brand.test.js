@@ -45,3 +45,25 @@ test('the docs site home and download entry name MontClip',()=>{
   a.deepEqual(hits(page.replace(/https?:\/\/[^"'\s<>]+/g,''),f).filter(h=>!/基于|based on/i.test(h)),[]);
  }
 });
+
+// JJ on 2f4707d6: renaming the upstream pitch turned its claims into MontClip's own
+// promises. Those go until JJ's plain-language copy replaces them.
+test('no inherited promises: sponsor, free/no paid tier, zero-dependency/no-install claims, upstream feature list, testimonials',()=>{
+ const readme=read('README.md'),home=read('docs/index.html'),start=read('docs/start/index.html');
+ for(const [name,src] of [['README',readme],['home',home],['start',start]]){
+  for(const bad of [/SDRFABLECUT|Sidrune/i,/no paid tier/i,/Is MontClip free/i,/zero npm dependencies/i,/Nothing to install/i,/runs entirely in your\s+browser/i])a.ok(!bad.test(src),name+' still has '+bad);
+ }
+ a.ok(!/^## Features$/m.test(readme),'README upstream feature list removed');a.ok(!/^## Sponsors$/m.test(readme));
+ a.match(readme,/基于 \[ronak-create\/FableCut\]/,'attribution kept');
+ const ld=home.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1];
+ const doc=JSON.parse(ld);
+ for(const k of ['@id','url','downloadUrl','codeRepository'])a.ok(!doc[k]||doc[k].startsWith('https://github.com/good-night-oppie/MontClip'),k+' points to MontClip');
+ a.ok(!/fablecut\.space/.test(ld));a.equal(doc.isBasedOn,'https://github.com/ronak-create/FableCut','upstream credited');
+ a.ok(!/discord\.gg|mailto:hello@fablecut|status\.fablecut/.test(home),'no upstream community/support channels presented as ours');
+ a.ok(!/api\.github\.com\/repos\/ronak-create/.test(read('docs/main.js')),'star count is our repo, not upstream');
+ a.ok(!/"featureList"/.test(ld),'no copied feature list in structured data');
+ a.ok(!/id="mentions"/.test(home),'third-party testimonials removed');a.ok(!/id="sponsor"/.test(home));
+ a.ok(!/<link rel="canonical" href="https:\/\/fablecut\.space/.test(home)&&!/og:url" content="https:\/\/fablecut\.space/.test(home));
+ a.ok(!/exports go to <code class="ic">~\/FableCut<\/code>/.test(start),'start page names the default data folder, not the old product');
+ a.match(start,/default data folder/);
+});
