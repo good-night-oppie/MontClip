@@ -75,3 +75,19 @@ test('every reason is traceable: a signal name, a number and the window it was m
       a.ok(Array.isArray(r.window) && r.window.length === 2);
     }
 });
+
+// the editor: a button in the Transcript tab, Go to moves only the playhead, Keep goes through the range engine as one
+// undo step; the page loads the module and the web demo carries it
+test('the editor wires the cards to local signals, the playhead and the range engine', () => {
+  const fs = require('node:fs'), path = require('node:path'), read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+  const app = read('app.js');
+  a.match(read('index.html'), /<script src="highlight-candidates\.js"><\/script>/);
+  a.match(read('docs/demo/sync.js'), /"highlight-candidates\.js"/);
+  a.match(app, /q\("\[data-tr-highlights\]"\)\.addEventListener\("click", \(\) => showHighlightCandidates\(\)\);/);
+  const at = app.indexOf('async function showHighlightCandidates('), body = app.slice(at, app.indexOf('\n}\n', at));
+  a.ok(at > 0);
+  a.match(body, /MontClipHighlights\.candidates\(sig\)/);
+  a.match(body, /data-hl-jump[\s\S]*setTime\(c\.from\)/, 'Go to sets the playhead');
+  a.match(app, /function keepHighlightRanges\(ranges\) \{[\s\S]*?FableCutRangePlan\.create\(doc, ranges\)[\s\S]*?pushUndo\(snap\)/, 'Keep: the range engine and one undo step');
+  a.doesNotMatch(body, /montclipAgentService|fetch\(/, 'no model and no request from the cards');
+});
