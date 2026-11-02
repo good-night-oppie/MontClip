@@ -61,6 +61,45 @@ attribution line. Written first; it failed 4/4 before the change.
   translated READMEs in `docs/i18n/`) still says FableCut.
 - `CLAUDE.md` (also returned by the `fablecut_docs` MCP tool) still says
   FableCut.
-- The download entry still links the upstream release assets; MontClip has no
-  release of its own yet.
 - Code comments are not user-visible and were left alone.
+
+## Public copy (JJ, 2026-11-02)
+
+The README, `docs/i18n/README.zh-CN.md`, the docs home and the docs/start page
+now carry only JJ's copy (`test/fixtures/montclip-public-copy-v1.md`, sha256
+`3ec69dbf…`), parsed rather than retyped (`test/public-copy-source.js`).
+`test/public-copy.test.js` checks it word for word, that the pages carry no
+other text, and that the banned words appear in neither language.
+
+Implementation choices (not in the copy, for JJ to check):
+
+- Chinese pages at the site root, English under `docs/en/`; each links the
+  other ("English" / "简体中文"). The README carries one language link.
+- `{upstream-docs}` = `https://github.com/ronak-create/FableCut` (Deja).
+- Rule 7: PR #26 is not on this branch (`desktop/agent-service.js` absent),
+  so the AI assistant is the last "Planned" item in the README and on the home
+  page. The start page leaves out its "About the AI assistant" section until
+  then. The test switches both automatically when #26 lands.
+- The README's developer sections (Quick start, agents, layout, architecture,
+  notes) moved to `DEVELOPMENT.md` unchanged.
+- No download button and no release link (rule 5).
+
+## Outbound connections (audit at this branch, base main bc771db)
+
+"Desktop" is the Electron host in `desktop/`. Its window session cancels
+every request that is not to its own local server, `blob:` or `data:`
+(`webRequest.onBeforeRequest`), and its CSP allows only `'self'`.
+"Developer mode" is `node server.js` opened in an ordinary browser, which is
+how MontClip runs today.
+
+| Connection | Started by | Goes to | Desktop | Developer mode |
+|---|---|---|---|---|
+| Import from URL | the user pastes a link (`/api/import-url`, also the MCP `fablecut_import_media`) | the HTTPS address given; private and loopback addresses refused | server makes the request: **works** | works |
+| AI assistant (PR #26) | the user, after reviewing the exact text | the provider the user chose (OpenAI / DeepSeek / OpenRouter), from the desktop main process | not on main yet | n/a |
+| Web fonts | a title uses a font that is neither a system font nor in `library/fonts` (`ensureFont`, app.js) | `fonts.googleapis.com`, `fonts.gstatic.com` | blocked | **automatic, no prompt** |
+| AI background removal | the user turns on `bgRemove` | `cdn.jsdelivr.net` (MediaPipe) | blocked (the feature fails) | works |
+| Transcription | the user clicks Transcribe | `cdn.jsdelivr.net` (transformers.js), Hugging Face (Whisper model) | blocked (the feature fails) | works |
+| Spellchecker dictionaries | Electron default (`spellcheck` not turned off) | Google dictionary host | Windows uses the system spellchecker; Linux not checked | n/a |
+
+The first two were approved by Deja. The other four are reported to Deja and
+are not changed by this PR.

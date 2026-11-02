@@ -26,7 +26,7 @@ function expectedReadme(lang){
  return text;
 }
 const decode=s=>s.replace(/&nbsp;/g,' ').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,'&');
-const visible=html=>decode(html.replace(/<script[\s\S]*?<\/script>/g,' ').replace(/<style[\s\S]*?<\/style>/g,' ').replace(/<!--[\s\S]*?-->/g,' ').replace(/<head>[\s\S]*?<\/head>/,' ').replace(/<[^>]+>/g,' ')).replace(/\s+/g,' ').trim();
+const visible=html=>decode(html.replace(/<script[\s\S]*?<\/script>/g,' ').replace(/<style[\s\S]*?<\/style>/g,' ').replace(/<!--[\s\S]*?-->/g,' ').replace(/<head>[\s\S]*?<\/head>/,' ').replace(/<\/?(a|b|strong|em|code)\b[^>]*>/g,'').replace(/<[^>]+>/g,' ')).replace(/\s+/g,' ').trim();
 // "Title / body", "label → `url`", "a · b · c", and "(`{upstream-docs}`)" link notes → the words shown.
 function pieces(rows){
  const out=[];
