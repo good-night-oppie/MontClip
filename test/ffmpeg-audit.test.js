@@ -87,3 +87,17 @@ test('a win64 ffmpeg.exe: "--disable-libopenh264" in its configure string is not
  a.deepEqual(scanExe(exe('MZ',enabled)),['libopenh264'],'an enabled flag is not hidden');
  const v=fs.readFileSync(path.join(__dirname,'..','desktop','ffmpeg-build','verify-build.cjs'),'utf8');a.match(v,/scanExe\(buf\)/);a.ok(!/buf\.includes\(needle\)/.test(v));
 });
+
+test('libiconv: its texts at the pinned commit, fetched from a mirror by commit hash, LGPL for the library', () => {
+ const inv = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'licenses', 'ffmpeg', 'inventory.json'), 'utf8'));
+ const e = inv.find((x) => x.name === 'libiconv');
+ a.equal(e.ref, 'b5a1735e02bf43ee6e490fcf9395e8abc8d32432');
+ a.deepEqual(e.files.map((f) => f.file).sort(), ['COPYING', 'COPYING.LIB', 'README']);
+ a.match(e.fetchedFrom, /^https:\/\/github\.com\/GitMirroring\/libiconv/);
+ a.match(e.reviewed, /LGPL-2\.1/);a.match(e.reviewed, /iconv program/);
+ for (const f of e.files) {
+  const buf = fs.readFileSync(path.join(__dirname, '..', 'licenses', 'ffmpeg', 'texts', f.saved));
+  a.equal(require('node:crypto').createHash('sha256').update(buf).digest('hex'), f.sha256, f.saved);
+ }
+ a.ok(!/Still missing \(release blocker\): \*\*libiconv/.test(fs.readFileSync(path.join(__dirname, '..', 'LICENSES.md'), 'utf8')));
+});
