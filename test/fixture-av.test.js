@@ -63,3 +63,47 @@ test("with MontClip's ffmpeg present: two runs make the same bytes, in the state
     a.match(one.ffmpeg, /^ffmpeg version /);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+// QQ (2026-11-02): -y overwrote an existing file, and the record next to it was overwritten too.
+test("an existing file or record is never overwritten: -n, a refusal before ffmpeg runs, and the record written wx", () => {
+  const args = F.fixtureArgs("out.mp4");
+  a.ok(args.includes("-n") && !args.includes("-y"), "ffmpeg refuses to overwrite (-n), never -y");
+  const src = fs.readFileSync(path.join(ROOT, "desktop", "make-fixture-av.cjs"), "utf8");
+  a.match(src, /writeFileSync\(out \+ '\.json',[^;]*\{ flag: 'wx' \}\)/, "the record is written with wx");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-fixture-"));
+  try {
+    // never reaches ffmpeg: a path that is not an ffmpeg would fail differently
+    const ffmpeg = path.join(dir, "not-ffmpeg.exe");
+    const file = path.join(dir, "x.mp4");
+    fs.writeFileSync(file, "existing bytes");
+    a.throws(() => F.makeFixture(file, { ffmpeg }), /FIXTURE_EXISTS/);
+    a.equal(fs.readFileSync(file, "utf8"), "existing bytes");
+    a.ok(!fs.existsSync(file + ".json"), "no record is written for a refused file");
+    const other = path.join(dir, "y.mp4");
+    fs.writeFileSync(other + ".json", "existing record");
+    a.throws(() => F.makeFixture(other, { ffmpeg }), /FIXTURE_EXISTS/);
+    a.equal(fs.readFileSync(other + ".json", "utf8"), "existing record");
+    a.ok(!fs.existsSync(other), "no clip is made when its record already exists");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// QQ (2026-11-02): the pinned ffmpeg build's output, fixed in the test.
+test("MontClip's pinned ffmpeg build makes exactly the recorded fixture", { skip: !ff && "no vendored ffmpeg here" }, () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-fixture-"));
+  try {
+    const r = F.makeFixture(path.join(dir, "a.mp4"), { ffmpeg: ff });
+    a.match(r.ffmpeg, /^ffmpeg version n9\.0\.2-42-gd7643a0fe3-20261102 /, "this hash belongs to the pinned build; another build needs its own");
+    a.equal(r.sha256, "189f3a1e4a6b013dd088e0b69e2d2904bf58db1993630c6a5b0092dde4ca8900");
+    a.equal(r.bytes, 230956);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// QQ (2026-11-02): the CLI line names the file without the user's home or the repository's absolute path.
+test("the CLI prints the file's path masked", () => {
+  const home = os.homedir();
+  a.equal(F.displayPath(path.join(home, "clips", "a.mp4")), path.join("<user>", "clips", "a.mp4"));
+  a.equal(F.displayPath(path.join(ROOT, "x", "a.mp4")), path.join("<repo>", "x", "a.mp4"));
+  a.equal(F.displayPath(path.join(path.parse(ROOT).root, "elsewhere", "a.mp4")), path.join("<path>", "a.mp4"));
+  const src = fs.readFileSync(path.join(ROOT, "desktop", "make-fixture-av.cjs"), "utf8");
+  a.match(src, /MONTCLIP_FIXTURE \$\{JSON\.stringify\(\{ file: displayPath\(/);
+});
