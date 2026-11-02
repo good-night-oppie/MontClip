@@ -99,7 +99,8 @@ async function extractMusic(file, outDir) {
   let out = path.join(outDir, stem + "-music.m4a");
   let i = 1;
   while (fs.existsSync(out)) out = path.join(outDir, `${stem}-music_${i++}.m4a`);
-  const r = await run(FF.path("ffmpeg"), ["-y", "-i", file, "-vn", "-c:a", "aac", "-b:a", "192k", out]);
+  // -n: never overwrite; out was picked as a name not yet taken
+  const r = await run(FF.path("ffmpeg"), ["-n", "-i", file, "-vn", "-c:a", "aac", "-b:a", "192k", out]);
   if (r.code !== 0) { try { fs.rmSync(out); } catch {} return null; }
   return out;
 }
