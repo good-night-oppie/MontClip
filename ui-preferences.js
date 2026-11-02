@@ -63,7 +63,7 @@
     "sd-apply": ["Apply", "保留选段"],
     "sd-cancel": ["Cancel", "取消"],
     "sd-range-line": ["Enter start,end in seconds on each line.", "每行填写 起点,终点（秒）。"],
-    "sd-summary": ["{ranges} → {secs} s, in selection order.", "{ranges} → {secs} 秒，按勾选顺序。"],
+    "sd-summary": ["{ranges} → about {duration} in the final cut, in selection order.", "{ranges} → 成片约 {duration}，按勾选顺序。"],
     "sd-partial": ["{n} sentence keeps only part of its sound: check its caption and where it starts and ends.", "{n} 句只保留了一部分声音，请检查字幕和开头结尾。"],
     "sd-partial-many": ["{n} sentences keep only part of their sound: check their captions and where they start and end.", "{n} 句只保留了一部分声音，请检查字幕和开头结尾。"],
     "sd-changed": ["The project has changed: close this and select again.", "项目已变化，请关闭后重新选择。"],
@@ -72,8 +72,8 @@
     "rp-exceeds": ["The selection goes past the end of the timeline.", "选区超出时间线。"],
     "rp-locked": ["Unlock clips and tracks first.", "请先解锁片段和轨道。"],
     "rp-nested": ["Nested, parented or speed-ramped clips need editing by hand.", "嵌套、父子关联或变速曲线请先手动处理。"],
-    "rp-short-media": ["A piece of media in the selection is shorter than the editor's shortest clip.", "音视频交集短于当前编辑器支持长度。"],
-    "rp-source-changed": ["Caption timing changed after the selection; the source mapping needs rebuilding.", "选段后字幕时间已改变，请重新建立源时间映射。"],
+    "rp-short-media": ["The selected piece is too short to cut. Move the start and end further apart.", "选中的片段太短，剪不出来。请把起点和终点拉开一点。"],
+    "rp-source-changed": ["The subtitle timing changed after you selected. Close this and select again.", "选好之后字幕的时间又变了。请关掉这个窗口，重新选一次。"],
     "rp-source-invalid": ["A clip's timing doesn't match its file. Check the clip, then select again.", "有片段的时间和它的文件对不上，请检查后重新选择。"],
     "rp-source-loop": ["A clip runs past the end of its file; selecting sentences doesn't support that yet.", "有片段超出了源文件长度，按句选段暂不支持。"],
     // refusals the server sends as a code (JJ to review); the Chinese is the old message's Chinese half
@@ -81,13 +81,20 @@
     "err-headless-disabled": ["Background browser tasks are turned off in the desktop app.", "桌面模式不允许系统浏览器后台任务。"],
     "err-editor-not-ready": ["The editor is not ready yet. Open it, then try again.", "编辑页面尚未就绪，请打开页面后重试。"],
     "err-editor-no-accept": ["The editor did not take the task. Wait until it is ready, then try again.", "编辑页面未接收任务，请等待页面就绪后重试。"],
-    "map-no-media": ["There is no audio or video to map.", "没有可映射的音视频。"],
+    "map-no-media": ["This project has no audio or video, so there is no time mapping to export.", "这个项目里没有音视频，导不出时间对照表。"],
     "connected": ["local service running", "本机服务正常"],
     "local-session": ["local session only", "仅本地会话"],
   };
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
   /** Keyed lookup: the language's string, else the English one, else "" (never the key). */
+  /** A length as mm:ss, h:mm:ss from an hour; "" for none. The same as the Agent pane's durationText (agent-conversation.js, #26). */
+  function clock(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) return "";
+    const n = Math.floor(seconds), h = Math.floor(n / 3600), m = Math.floor(n / 60) % 60, s = n % 60;
+    return (h ? h + ":" : "") + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+  }
+  function durationText(seconds) { return Number.isFinite(seconds) && seconds > 0 ? clock(Math.max(1, Math.round(seconds))) : ""; }
   function t(language, key, vars) {
     const s = (text[language] && text[language][key]) ?? text.en[key] ?? "";
     return vars ? s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : s;
@@ -124,5 +131,5 @@
     return { getItem() { const r=bridge.get(); if(!r?.ok) throw Error('View settings unavailable'); return JSON.stringify(r.value); },
       setItem(_key, raw) { if(!bridge.set(JSON.parse(raw))?.ok) throw Error('View settings not saved'); } };
   }
-  return { create, desktopStorage, text, KEY, t, applyI18n };
+  return { create, desktopStorage, text, KEY, t, applyI18n, durationText };
 });

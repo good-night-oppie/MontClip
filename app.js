@@ -9540,7 +9540,7 @@ async function showSentenceSelection() {
       }) : [...selected].map(id => captions.find(c => c.id === id)).map(c => ({ from: c.start, to: c.start+c.duration }));
       plan = FableCutRangePlan.create(doc, keep); plan.keep = keep;
       const cut = plan.captions.filter((c) => c.status === "visible" && c.truncated).length;
-      summary.textContent = uiText("own.sd-summary", { ranges: keep.map((r) => `${fmt(r.from)}–${fmt(r.to)}`).join(" → "), secs: plan.duration.toFixed(2) }) +
+      summary.textContent = uiText("own.sd-summary", { ranges: keep.map((r) => `${fmt(r.from)}–${fmt(r.to)}`).join(" → "), duration: MontClipView.durationText(plan.duration) }) +
         (cut ? " " + uiText(cut === 1 ? "own.sd-partial" : "own.sd-partial-many", { n: cut }) : "");
     } catch (error) { plan = null; summary.textContent = ownError(error); }
     dialog.querySelector("[data-apply]").disabled = !plan;
