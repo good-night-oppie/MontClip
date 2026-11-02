@@ -111,3 +111,8 @@ test('the development-only English reasons cannot be reached in the packaged app
  a.ok(at>0);const body=main.slice(at,main.indexOf('}',at));
  for(const s of ['delete env.MONTCLIP_FFMPEG;','delete env.MONTCLIP_FFPROBE;','env.MONTCLIP_FFMPEG_PACKAGED = "1";'])a.ok(body.includes(s),s);
 });
+
+test("JJ (2026-11-02): extRemoveFailed says the FFmpeg could not be turned off", () => {
+ a.equal(zh.extRemoveFailed, '没能停用这个 FFmpeg，请再试一次。');
+ a.equal(en.extRemoveFailed, 'Could not stop using this FFmpeg. Try again.');
+});
