@@ -72,27 +72,33 @@ test('the export-copy line is in the notes exactly once per language, and JJ rep
   a.equal(kept.filter((l) => l !== del['zh-CN'].from).length, kept.length - 1);
 });
 
-test('the switches follow the app: + URL hidden (app.js); the export-copy fix is really there (main.js wires export-downloads.js, which removes the copy)', () => {
+test('the switches follow the app: + URL hidden (app.js); the registered-export fix is really there (main.js wires export-downloads.js and takes the page\'s expectation, that module removes the copy, the server registers each export)', () => {
   const app = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8'), main = fs.readFileSync(path.join(ROOT, 'desktop', 'main.js'), 'utf8');
-  const dl = (() => { try { return fs.readFileSync(path.join(ROOT, 'desktop', 'export-downloads.js'), 'utf8'); } catch { return ''; } })();
+  const opt = (f) => { try { return fs.readFileSync(path.join(ROOT, f), 'utf8'); } catch { return ''; } };
+  const dl = opt('desktop/export-downloads.js'), server = opt('server.js');
   a.equal(R.hidesUrl(app), app.includes('if (window.montclipViewSettings) { const urlButton = $("btnImportUrl"); if (urlButton) urlButton.hidden = true; }'));
   a.equal(R.hidesUrl('x\n' + R.ALT.marker + '\ny'), true);
   a.equal(R.hidesUrl('$("btnImportUrl")?.addEventListener("click", openImportUrl);'), false);
-  a.equal(R.dropsExportCopy(main, dl), main.includes('require("./export-downloads").attach(item,') && dl.includes('fs.rmSync(copy'));
-  const wired = 'x\n    require("./export-downloads").attach(item, { origin });\n', removes = 'const remove = () => { fs.rmSync(copy, { force: true }); };';
-  a.equal(R.dropsExportCopy(wired, removes), true);
-  a.equal(R.dropsExportCopy(wired, ''), false, 'wired, but the module that removes the copy is not there');
-  a.equal(R.dropsExportCopy('ses.on("will-download", (event, item, contents) => {});', removes), false, 'the module, but not wired');
+  a.equal(R.dropsExportCopy(main, dl, server), main.includes('require("./export-downloads").attach(item,') && main.includes('montclip:downloads:expect') && dl.includes('fs.rmSync(copy') && server.includes('freshExports.add('));
+  const wired = 'x\n    require("./export-downloads").attach(item, { origin });\n  ipcMain.on("montclip:downloads:expect", () => {});\n', removes = 'const remove = () => { fs.rmSync(copy, { force: true }); };', registers = 'freshExports.add(file);';
+  a.equal(R.dropsExportCopy(wired, removes, registers), true);
+  a.equal(R.dropsExportCopy(wired, '', registers), false, 'wired, but the module that removes the copy is not there');
+  a.equal(R.dropsExportCopy('ses.on("will-download", (event, item, contents) => {});', removes, registers), false, 'the module, but not wired');
+  // the first #58 (0a2c13b) removed the copy on a cancel too, with no registration: the cancel line would be wrong
+  a.equal(R.dropsExportCopy('x\n    require("./export-downloads").attach(item, { origin });\n', removes, ''), false, 'no registration of exports: not this fix');
+  a.equal(R.dropsExportCopy(wired, removes, ''), false, 'the server does not register exports');
 });
 
 test('the package records which of the four it used, and its smoke checks both lines against the app', () => {
   const win = fs.readFileSync(path.join(ROOT, 'desktop', 'package-win.cjs'), 'utf8');
   a.match(win, /copyGone = Readme\.dropsExportCopy\(/);
+  a.match(win, /readOr\(path\.join\(src, 'server\.js'\)\)/);
   a.match(win, /'export-downloads\.js'/);
   a.match(win, /exportCopyGone: copyGone/);
   const smoke = fs.readFileSync(path.join(ROOT, 'desktop', 'package-smoke.cjs'), 'utf8');
   a.match(smoke, /out\.readmeCopyLine/);
   a.match(smoke, /exports-fixed\.json/);
   a.match(smoke, /'export-downloads\.js'/);
+  a.match(smoke, /COPY\.registers/);
   a.match(smoke, /the export-copy line matches the app/);
 });
