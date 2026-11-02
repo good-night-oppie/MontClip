@@ -38,46 +38,65 @@ test('the copy to remove: only a file directly in /exports/ of this origin', () 
     a.equal(X.exportCopy(url, { origin: ORIGIN, exportsDir }), null, url);
 });
 
-test('saved: the dialog is set up, and the export copy is removed once the save completes', (t) => {
-  const exportsDir = dir(t), other = path.join(exportsDir, 'older export.mp4');
-  fs.writeFileSync(path.join(exportsDir, 'Untitled Project_master_720p.mp4'), 'video'); fs.writeFileSync(other, 'keep');
-  const it = item(ORIGIN + '/exports/Untitled%20Project_master_720p.mp4', 'Untitled Project_master_720p.mp4');
-  const removed = [];
-  X.attach(it, { origin: ORIGIN, exportsDir, language: 'en', onRemoved: (f) => removed.push(path.basename(f)) });
-  a.equal(it.options.title, 'Save the exported video');
-  it.savePath = path.join(dir(t), 'mine.mp4');
-  it.emit('done', {}, 'completed');
-  a.deepEqual(fs.readdirSync(exportsDir), ['older export.mp4'], 'only this export file is removed');
-  a.deepEqual(removed, ['Untitled Project_master_720p.mp4']);
+// QQ (0a2c13b) and Deja: a copy is removed only when (1) it is this session's new export, registered by the server when
+// /api/export/end made it, (2) the page's own export download asked for it, and (3) the Save dialog reports the save
+// completed somewhere else. A cancel or a failed save keeps it (it may be the only copy of a 30-minute render); the
+// export queue's Open, or any download of an older file in exports/, never removes anything.
+function run(t, { state, expected = true, fresh = true, saveOnCopy = false, url, name = 'Untitled Project_master_720p.mp4' } = {}) {
+  const exportsDir = dir(t), copy = path.join(exportsDir, name), other = path.join(exportsDir, 'older export.mp4');
+  fs.writeFileSync(copy, 'video'); fs.writeFileSync(other, 'keep');
+  const it = item(url || ORIGIN + '/exports/' + encodeURIComponent(name), name), claimed = [];
+  return new Promise((resolve) => {
+    X.attach(it, { origin: ORIGIN, exportsDir, language: 'en', expected, claim: async (n) => { claimed.push(n); return fresh; },
+      onDone: (v) => resolve({ v, claimed, kept: fs.existsSync(copy), otherKept: fs.existsSync(other), options: it.options }) });
+    it.savePath = saveOnCopy ? copy : path.join(dir(t), 'mine.mp4');
+    it.emit('done', {}, state);
+  });
+}
+
+test('saved: only this session\'s registered export is removed, once the save completes', async (t) => {
+  const r = await run(t, { state: 'completed' });
+  a.equal(r.options.title, 'Save the exported video');
+  a.deepEqual(r.claimed, ['Untitled Project_master_720p.mp4'], 'asked the server whether it made this file');
+  a.equal(r.kept, false); a.equal(r.otherKept, true, 'nothing else in exports/');
+  a.deepEqual(r.v, { state: 'completed', name: 'Untitled Project_master_720p.mp4', removed: true });
 });
 
-test('cancelled: the copy is removed too; interrupted: it is kept', (t) => {
-  const exportsDir = dir(t);
-  for (const [state, kept] of [['cancelled', false], ['interrupted', true]]) {
-    const f = path.join(exportsDir, state + '.mp4'); fs.writeFileSync(f, 'v');
-    const it = item(ORIGIN + '/exports/' + state + '.mp4', state + '.mp4');
-    X.attach(it, { origin: ORIGIN, exportsDir, language: 'zh-CN' });
-    it.emit('done', {}, state);
-    a.equal(fs.existsSync(f), kept, state);
+test('cancelled or interrupted: the export is kept (it may be the only copy)', async (t) => {
+  for (const state of ['cancelled', 'interrupted']) {
+    const r = await run(t, { state });
+    a.equal(r.kept, true, state); a.deepEqual(r.claimed, [], state + ': not even claimed');
+    a.deepEqual(r.v, { state, name: 'Untitled Project_master_720p.mp4', removed: false });
   }
 });
 
-test('saving onto the copy itself, or a blob download, removes nothing', (t) => {
-  const exportsDir = dir(t), f = path.join(exportsDir, 'a.mp4'); fs.writeFileSync(f, 'v');
-  const it = item(ORIGIN + '/exports/a.mp4', 'a.mp4');
-  X.attach(it, { origin: ORIGIN, exportsDir, language: 'zh-CN' });
-  it.savePath = f; it.emit('done', {}, 'completed');
-  a.ok(fs.existsSync(f), 'the user chose that very file');
-  const blob = item('blob:' + ORIGIN + '/x', '录播.srt');
-  X.attach(blob, { origin: ORIGIN, exportsDir, language: 'zh-CN' });
-  a.equal(blob.options.title, '保存字幕');
-  blob.emit('done', {}, 'completed');
-  a.ok(fs.existsSync(f));
+test('Open in the export queue, clicked again and again, removes nothing (the page did not ask for it)', async (t) => {
+  for (let i = 0; i < 3; i++) {
+    const r = await run(t, { state: 'completed', expected: false });
+    a.equal(r.kept, true); a.deepEqual(r.claimed, []); a.equal(r.v.removed, false);
+  }
 });
 
-test('main.js uses it for the editor\'s own downloads, in the interface language', () => {
+test('an older file in exports/ (or an agent\'s export) is not this session\'s: the server says so, nothing is removed', async (t) => {
+  const r = await run(t, { state: 'completed', fresh: false });
+  a.deepEqual(r.claimed, ['Untitled Project_master_720p.mp4']);
+  a.equal(r.kept, true); a.equal(r.v.removed, false);
+});
+
+test('saving onto the copy itself, or a blob download, removes nothing', async (t) => {
+  const r = await run(t, { state: 'completed', saveOnCopy: true });
+  a.equal(r.kept, true); a.deepEqual(r.claimed, []);
+  const b = await run(t, { state: 'completed', url: 'blob:' + ORIGIN + '/x', name: '录播.srt' });
+  a.equal(b.options.title, 'Save captions'); a.equal(b.kept, true); a.deepEqual(b.claimed, []);
+});
+
+test('main.js: the page names its export before the download, the server is asked, and the page hears the outcome', () => {
   const main = fs.readFileSync(path.join(__dirname, '..', 'desktop', 'main.js'), 'utf8');
-  a.match(main, /require\("\.\/export-downloads"\)\.attach\(item, \{ origin, exportsDir: path\.join\(env\.FABLECUT_DATA_DIR, "exports"\), language: languageOf\(settings\.get\(\)\), downloadsDir: app\.getPath\("downloads"\),\n\s+onDone: /);
+  a.match(main, /require\("\.\/export-downloads"\)\.attach\(item, \{ origin, exportsDir: path\.join\(env\.FABLECUT_DATA_DIR, "exports"\), language: languageOf\(settings\.get\(\)\), downloadsDir: app\.getPath\("downloads"\),/);
+  a.match(main, /expected: expectedExports\.delete\(item\.getFilename\(\)\)/, 'one expectation per export, used up by its download');
+  a.match(main, /ipcMain\.on\("montclip:downloads:expect", \(event, name\) => \{ if \(settingsAllowed\(event, win, origin\) && /, 'only the editor page may ask');
+  a.match(main, /fetch\(origin \+ "\/api\/export\/claim\?name=" \+ encodeURIComponent\(n\), \{ method: "POST", headers: \{ "X-MontClip-Session": token \} \}\)/);
+  a.match(main, /win\.webContents\.send\("montclip:download:done", \{ state: v\.state, name: v\.name, removed: v\.removed \}\)/);
 });
 
 test('the server lets go of a file when its download stops half way (pipeline, not .pipe)', () => {
@@ -89,14 +108,9 @@ test('the server lets go of a file when its download stops half way (pipeline, n
   a.equal((serveFile.match(/pipeline\(fs\.createReadStream\(filePath(, \{ start, end \})?\), res, /g) || []).length, 2);
 });
 
-test('every download says how it ended (VV, 012ba18: a cancelled save still read "Exported … checks passed")', (t) => {
-  const exportsDir = dir(t);
-  for (const [url, name, state] of [[ORIGIN + '/exports/a.mp4', 'a.mp4', 'completed'], [ORIGIN + '/exports/b.mp4', 'b.mp4', 'cancelled'],
-    [ORIGIN + '/exports/c.mp4', 'c.mp4', 'interrupted'], ['blob:' + ORIGIN + '/x', '录播.srt', 'cancelled']]) {
-    const it = item(url, name), seen = [];
-    X.attach(it, { origin: ORIGIN, exportsDir, language: 'zh-CN', onDone: (v) => seen.push(v) });
-    it.savePath = path.join(exportsDir, 'elsewhere-' + name);
-    it.emit('done', {}, state);
-    a.deepEqual(seen, [{ state, name }], name);
+test('every download says how it ended (VV, 012ba18: a cancelled save still read "Exported … checks passed")', async (t) => {
+  for (const [state, url, name] of [['completed', null, 'a.mp4'], ['cancelled', null, 'b.mp4'], ['interrupted', null, 'c.mp4'], ['cancelled', 'blob:' + ORIGIN + '/x', '录播.srt']]) {
+    const r = await run(t, { state, expected: false, url, name });
+    a.deepEqual(r.v, { state, name, removed: false }, name);
   }
 });
