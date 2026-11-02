@@ -55,6 +55,9 @@ test("FLV upload remuxes compatible streams without modifying the original", asy
 });
 test("legacy FLV requires explicit transcode consent and retains its source", async t => {
   if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
+  // transcoding needs an H.264 encoder that works here (graphics card or Windows' h264_mf); a Linux runner has none,
+  // and the import is then refused with FLV_ENCODER_MISSING (test/flv-transcode-encoder.test.js)
+  if (!(await require("../prepare-media").usableH264()).length) { t.skip("no H.264 encoder works here, so an FLV cannot be transcoded"); return; }
   const dir = makeDataDir(t), original = path.join(dir, "legacy.flv");
   execFileSync(FF.path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=30", "-t", "0.3", "-c:v", "flv", original]);
   const before = hash(original);
@@ -80,6 +83,9 @@ test("legacy FLV requires explicit transcode consent and retains its source", as
 });
 test("MCP FLV import shares the explicit conversion gate", async t => {
   if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
+  // transcoding needs an H.264 encoder that works here (graphics card or Windows' h264_mf); a Linux runner has none,
+  // and the import is then refused with FLV_ENCODER_MISSING (test/flv-transcode-encoder.test.js)
+  if (!(await require("../prepare-media").usableH264()).length) { t.skip("no H.264 encoder works here, so an FLV cannot be transcoded"); return; }
   const dir = makeDataDir(t), original = path.join(dir, "legacy.flv");
   execFileSync(FF.path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=30", "-t", "0.3", "-c:v", "flv", original]);
   const mcp = startMcp(t, dir);
