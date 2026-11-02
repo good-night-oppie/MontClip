@@ -5,6 +5,8 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { createStore, allowed: settingsAllowed } = require("./view-settings");
 const { createCloseController } = require("./close-controller");
+const External = require("../external-ffmpeg");
+const fs = require("node:fs");
 let worker, win, stopping = false, closing = false, workerExited = false;
 const smoke = !app.isPackaged && process.argv.includes("--montclip-smoke");
 const faultTest = smoke && (process.argv.includes("--close-crash") ? "crash" : process.argv.includes("--close-timeout") ? "timeout" : null);
@@ -27,6 +29,8 @@ async function start() {
   delete env.NODE_PATH;
   // The server runs only the FFmpeg shipped in resources/ffmpeg once packaged
   // (see ffmpeg-path.js); development keeps MONTCLIP_FFMPEG* or vendor/.
+  // the user's own FFmpeg (H.264 export only): chosen in Settings, stored here, read by the server
+  env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS = path.join(app.getPath("userData"), "external-ffmpeg.json");
   delete env.MONTCLIP_FFMPEG_PACKAGED;
   if (app.isPackaged) {
     delete env.MONTCLIP_FFMPEG;
@@ -79,6 +83,32 @@ async function start() {
   for (const operation of ["get", "set"]) ipcMain.on("montclip:view:" + operation, (event, value) => {
     event.returnValue = settingsAllowed(event, win, origin)
       ? settings[operation](value) : {ok:false,code:"VIEW_SETTINGS_FORBIDDEN"};
+  });
+  const externalFile = path.join(app.getPath("userData"), "external-ffmpeg.json");
+  const externalStatus = async () => {
+    const saved = External.readSetting(externalFile);
+    if (!saved) return { ok: false, reason: "none" };
+    if (saved.bad) return { ok: false, reason: "The saved local FFmpeg setting could not be read. Choose the program again." };
+    return External.check(saved.path);
+  };
+  const forbidden = { ok: false, code: "EXTERNAL_FFMPEG_FORBIDDEN" };
+  ipcMain.handle("montclip:ffmpeg:get", async (event) => settingsAllowed(event, win, origin) ? externalStatus() : forbidden);
+  ipcMain.handle("montclip:ffmpeg:choose", async (event) => {
+    if (!settingsAllowed(event, win, origin)) return forbidden;
+    // only a file the user picks in this dialog; nothing is searched or guessed
+    const pick = await dialog.showOpenDialog(win, { title: "FFmpeg (libx264)", properties: ["openFile"],
+      filters: process.platform === "win32" ? [{ name: "FFmpeg", extensions: ["exe"] }] : [] });
+    if (pick.canceled || !pick.filePaths[0]) return { ok: false, code: "CANCELLED" };
+    const result = await External.check(pick.filePaths[0]);
+    if (!result.ok) return result;
+    const temp = externalFile + "." + crypto.randomUUID() + ".tmp";
+    try { fs.writeFileSync(temp, JSON.stringify({ version: 1, path: result.path }), { flag: "wx" }); fs.renameSync(temp, externalFile); }
+    catch { try { fs.unlinkSync(temp); } catch { } return { ok: false, reason: "The choice could not be saved." }; }
+    return result;
+  });
+  ipcMain.handle("montclip:ffmpeg:clear", async (event) => {
+    if (!settingsAllowed(event, win, origin)) return forbidden;
+    try { fs.rmSync(externalFile, { force: true }); return { ok: false, reason: "none" }; } catch { return { ok: false, reason: "The choice could not be removed." }; }
   });
   let rendererFault = null, prompts = 0;
   const closeController = createCloseController({

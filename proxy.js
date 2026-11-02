@@ -45,7 +45,19 @@ function findProxies(dir, file) {
     .filter(Boolean).sort((a, b) => b.height - a.height);
 }
 
-function createProxies({ dir, resolveSrc, probe, broadcast = () => { }, ffmpeg = require("./ffmpeg-path").path("ffmpeg") }) {
+/* Video encoder arguments for a proxy. The bundled LGPL FFmpeg has no libx264, so the
+   server passes the first H.264 encoder it has (hardware, then Windows' h264_mf). A
+   proxy is for preview: the user's own FFmpeg (chosen in Settings) is never used here. */
+const PROXY_H264 = {
+  libx264: ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p"],
+  h264_nvenc: ["-c:v", "h264_nvenc", "-preset", "p4", "-rc", "vbr", "-cq", "23", "-b:v", "0", "-pix_fmt", "yuv420p"],
+  h264_qsv: ["-c:v", "h264_qsv", "-global_quality", "23", "-pix_fmt", "nv12"],
+  h264_amf: ["-c:v", "h264_amf", "-rc", "cqp", "-qp_i", "23", "-qp_p", "23", "-qp_b", "23", "-pix_fmt", "nv12"],
+  h264_videotoolbox: ["-c:v", "h264_videotoolbox", "-q:v", "60", "-pix_fmt", "nv12"],
+  h264_mf: ["-c:v", "h264_mf", "-rate_control", "quality", "-quality", "60", "-pix_fmt", "nv12"],
+};
+function createProxies({ dir, resolveSrc, probe, broadcast = () => { }, ffmpeg = require("./ffmpeg-path").path("ffmpeg"),
+  encoder = async () => "libx264", noEncoder = () => "no H.264 encoder is available for proxies" }) {
   fs.mkdirSync(dir, { recursive: true });
   const jobs = new Map();   // src → job {src, file, out, height, state, progress, error, proc}
   const queue = [];
@@ -91,12 +103,12 @@ function createProxies({ dir, resolveSrc, probe, broadcast = () => { }, ffmpeg =
     return jobStatus(j);
   }
 
-  function args(j, part, fpsMode) {
+  function args(j, part, fpsMode, video) {
     return ["-y", "-hide_banner", "-v", "error", "-nostdin", "-i", j.file,
       "-map", "0:v:0", "-map", "0:a:0?",
       "-vf", `scale=-2:'min(ih,${j.height})':flags=bicubic`,
       ...fpsMode,
-      "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p",
+      ...video,
       "-g", "12", "-keyint_min", "12", "-sc_threshold", "0",
       "-c:a", "aac", "-b:a", "160k",
       "-movflags", "+faststart", "-map_metadata", "-1",
@@ -114,8 +126,13 @@ function createProxies({ dir, resolveSrc, probe, broadcast = () => { }, ffmpeg =
     const dur = (info && info.duration) || 0;
     const part = j.out + ".part";
     let err = "", last = 0;
+    let name = null;
+    try { name = await encoder(); } catch { }
+    if (j.state !== "running") { finish(); return; }
+    const video = PROXY_H264[name];
+    if (!video) { j.state = "failed"; j.error = noEncoder(); tell(j); jobs.delete(j.src); finish(); return; }
     const run = (fpsMode, retried) => {
-      const proc = j.proc = spawn(ffmpeg, args(j, part, fpsMode), { windowsHide: true });
+      const proc = j.proc = spawn(ffmpeg, args(j, part, fpsMode, video), { windowsHide: true });
       proc.stdout.on("data", (d) => {
         const m = /out_time_(?:us|ms)=(\d+)/.exec(String(d).split("\n").reverse().join("\n"));
         if (m && dur > 0) {
@@ -177,4 +194,4 @@ function createProxies({ dir, resolveSrc, probe, broadcast = () => { }, ffmpeg =
   return { status, start, remove, cancel, file, HEIGHTS, DEFAULT_HEIGHT };
 }
 
-module.exports = { createProxies, findProxies, HEIGHTS, DEFAULT_HEIGHT };
+module.exports = { createProxies, findProxies, HEIGHTS, DEFAULT_HEIGHT, PROXY_H264 };
