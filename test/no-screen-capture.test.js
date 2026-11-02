@@ -60,3 +60,11 @@ test("drop-reveal and zh-terms smokes run in a hidden, offscreen window: no show
     a.match(s, /offscreen:\s*true/, f + " paints offscreen, so capturePage still gets real frames");
   }
 });
+
+// VV (2026-11-02): REVEAL_COMPLETE said "visible":false, which reads like "the clip is not visible". It is the
+// window's visibility (false now that the window is offscreen), so it is called windowVisible.
+test("drop-reveal reports the window's visibility as windowVisible, not a bare visible", () => {
+  const s = fs.readFileSync(path.join(ROOT, "desktop/drop-reveal-smoke.cjs"), "utf8");
+  a.match(s, /log\('REVEAL_COMPLETE',\{saved:[^}]*windowVisible:win\.isVisible\(\)\}\)/);
+  a.doesNotMatch(s, /[{,]visible:win\.isVisible\(\)/);
+});
