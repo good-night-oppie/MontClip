@@ -128,7 +128,12 @@ async function main() {
     const top = `MontClip-internal-win-x64-${buildId}`, zipName = top + '.zip', zip = path.join(out, zipName);
     if (fs.existsSync(zip)) fail(zipName + ' already exists in ' + out);
     fs.renameSync(appDir, path.join(path.dirname(appDir), top));
-    execFileSync(path.join(process.env.SystemRoot, 'System32', 'tar.exe'), ['-a', '-c', '-f', zip, top], { cwd: path.dirname(appDir) });
+    // .NET's ZipFile, not tar.exe: tar.exe cannot store a name like 先看我-使用说明.txt; ZipFile writes non-ASCII names
+    // as UTF-8 with the flag set, which Explorer and Expand-Archive read. A failed zip is removed, never left half-written.
+    const zipped = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+      'Add-Type -AssemblyName System.IO.Compression.FileSystem; [IO.Compression.ZipFile]::CreateFromDirectory($env:MC_ZIP_SRC, $env:MC_ZIP_OUT, [IO.Compression.CompressionLevel]::Optimal, $true)'],
+      { encoding: 'utf8', windowsHide: true, env: { ...process.env, MC_ZIP_SRC: path.join(path.dirname(appDir), top), MC_ZIP_OUT: zip } });
+    if (zipped.status !== 0) { fs.rmSync(zip, { force: true }); fail('zip: ' + (zipped.stderr || '').trim().slice(0, 300)); }
     const zsha = sha(zip), size = fs.statSync(zip).size;
     const sums = path.join(out, 'SHA256SUMS.txt'), line = `${zsha}  ${zipName}\n`;
     fs.appendFileSync(sums, line);
