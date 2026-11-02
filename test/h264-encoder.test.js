@@ -22,7 +22,12 @@ test('encoder order: your libx264, then hardware, then Windows h264_mf',()=>{
 
 test('h264_mf gets rate control it understands',()=>{
  const args=s=>{const spec=Delivery.normalize(s,{available:new Set(['h264_mf'])}).spec;return Delivery.ffmpegArgs(spec,{fps:30,input:'jpeg',canvasW:640,canvasH:360,frame:Delivery.reframe(spec,640,360),outPath:'o.mp4'});};
- const crf=args({preset:'youtube'});a.ok(crf.includes('h264_mf'));a.deepEqual(crf.slice(crf.indexOf('-rate_control'),crf.indexOf('-rate_control')+4),['-rate_control','quality','-quality',String(Math.round((51-18)*100/51))]);
+ const crf=args({preset:'youtube'});a.ok(crf.includes('h264_mf'));a.deepEqual(crf.slice(crf.indexOf('-rate_control'),crf.indexOf('-rate_control')+4),['-rate_control','quality','-quality','75']);
+ // VV 2026-11-02 (#28): Windows' software MFT gets 10 steps more than the plain CRF scale.
+ // CRF 18 → quality 75 (6.6 Mb/s, PSNR 47.4 overall / 42.9 skin, about x264's, 187 fps); 80 drops to 70 fps.
+ const q=(crf)=>{const x=args({preset:'custom',video:{codec:'h264',crf}});return x[x.indexOf('-quality')+1];};
+ a.deepEqual([0,16,18,19,20,23,28,51].map(q),['100','79','75','73','71','65','55','10']);
+ a.ok(!crf.includes('-hw_encoding'),'MontClip uses the software MFT; the hardware MFT mapping is unchanged until measured');
  const vbr=args({preset:'youtube',video:{rate:'vbr',bitrate:8000}});a.ok(vbr.join(' ').includes('-rate_control u_vbr'));
  const cbr=args({preset:'youtube',video:{rate:'cbr',bitrate:8000}});a.ok(cbr.join(' ').includes('-rate_control cbr'));
 });
