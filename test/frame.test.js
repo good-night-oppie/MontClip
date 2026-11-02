@@ -28,7 +28,7 @@ const { makeDataDir, startServer, startMcp, rawGet } = require("./helpers");
 const NO_WATCH = { FABLECUT_NO_FS_WATCH: "1" };
 
 const hasFfmpeg = () => {
-  try { execFileSync("ffmpeg", ["-version"], { stdio: "ignore" }); return true; }
+  try { execFileSync(require("../ffmpeg-path").path("ffmpeg"), ["-version"], { stdio: "ignore" }); return true; }
   catch { return false; }
 };
 const JPEG_SOI = (b) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8;
@@ -40,13 +40,13 @@ function fixture(dir, name, seconds = 3, w = 160, h = 90) {
   const file = path.join(dir, "media", name);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const seg = (seconds / 3).toFixed(3);
-  execFileSync("ffmpeg", [
+  execFileSync(require("../ffmpeg-path").path("ffmpeg"), [
     "-y", "-hide_banner", "-loglevel", "error",
     "-f", "lavfi", "-i", `color=c=red:s=${w}x${h}:d=${seg}`,
     "-f", "lavfi", "-i", `color=c=lime:s=${w}x${h}:d=${seg}`,
     "-f", "lavfi", "-i", `color=c=blue:s=${w}x${h}:d=${seg}`,
     "-filter_complex", `[0:v][1:v][2:v]concat=n=3:v=1:a=0[v]`,
-    "-map", "[v]", "-pix_fmt", "yuv420p", "-r", "25", file,
+    "-map", "[v]", "-c:v", "mpeg4", "-q:v", "3", "-pix_fmt", "yuv420p", "-r", "25", file,
   ]);
   return file;
 }
@@ -141,7 +141,7 @@ test("GET /api/frame returns one JPEG for a source timestamp", { skip: !hasFfmpe
    grab landed on. The fixture is red → lime → blue, so the colour identifies
    the second. */
 async function dominantRgb(buf) {
-  const raw = execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error",
+  const raw = execFileSync(require("../ffmpeg-path").path("ffmpeg"), ["-hide_banner", "-loglevel", "error",
     "-f", "image2pipe", "-c:v", "mjpeg", "-i", "pipe:0",
     "-vf", "scale=1:1", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
     { input: buf, maxBuffer: 1 << 20, encoding: "buffer" });

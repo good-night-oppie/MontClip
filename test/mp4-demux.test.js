@@ -15,8 +15,8 @@ const M = require("../mp4-demux.js");
 
 const hasFfmpeg = () => {
   try {
-    execFileSync("ffmpeg", ["-version"], { stdio: "ignore" });
-    execFileSync("ffprobe", ["-version"], { stdio: "ignore" });
+    execFileSync(require("../ffmpeg-path").path("ffmpeg"), ["-version"], { stdio: "ignore" });
+    execFileSync(require("../ffmpeg-path").path("ffprobe"), ["-version"], { stdio: "ignore" });
     return true;
   } catch { return false; }
 };
@@ -163,15 +163,19 @@ test("real files match ffprobe's packet list", { skip: !hasFfmpeg() && "ffmpeg /
     "faststart.mp4": ["-c:v", "libx264", "-bf", "2", "-movflags", "+faststart"],
     "clip.mov": ["-c:v", "libx264", "-bf", "2"],
     "hevc.mp4": ["-c:v", "libx265", "-x265-params", "log-level=error", "-tag:v", "hvc1"],
+    // the bundled LGPL build has no x264 / x265: its own H.264 encoders, where this machine has them
+    "mf.mp4": ["-c:v", "h264_mf"],
+    "nvenc-bframes.mp4": ["-c:v", "h264_nvenc", "-bf", "2", "-g", "15"],
+    "qsv-bframes.mp4": ["-c:v", "h264_qsv", "-bf", "2", "-g", "15"],
   };
   for (const [name, args] of Object.entries(files)) {
     const f = path.join(dir, name);
-    try { execFileSync("ffmpeg", ["-v", "error", "-y", ...src, ...args, f], { stdio: "ignore" }); }
+    try { execFileSync(require("../ffmpeg-path").path("ffmpeg"), ["-v", "error", "-y", ...src, ...args, f], { stdio: "ignore" }); }
     catch { continue; }   // an encoder this ffmpeg lacks
     const buf = new Uint8Array(fs.readFileSync(f));
     const moov = M.boxes(buf).find((b) => b.type === "moov");
     const mv = M.parseMovie(buf.subarray(moov.start, moov.end));
-    const probe = JSON.parse(execFileSync("ffprobe", ["-v", "error", "-select_streams", "v:0",
+    const probe = JSON.parse(execFileSync(require("../ffmpeg-path").path("ffprobe"), ["-v", "error", "-select_streams", "v:0",
       "-show_entries", "packet=pts_time,size,pos,flags", "-of", "json", f]));
     assert.equal(mv.samples.length, probe.packets.length, name);
     probe.packets.forEach((p, i) => {
