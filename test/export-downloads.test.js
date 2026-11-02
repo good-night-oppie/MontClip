@@ -83,12 +83,12 @@ test('an older file in exports/ (or an agent\'s export) is not this session\'s: 
   a.equal(r.kept, true); a.equal(r.v.removed, false);
 });
 
-test('the file to remove (from the URL) and the name the page and the server know (the download's file name) must be the same, or nothing is removed (QQ, 71cd650)', async (t) => {
+test('the file to remove (from the URL) and the name the page and the server know (the download file name) must be the same, or nothing is removed (QQ, 71cd650)', async (t) => {
   const r = await run(t, { state: 'completed', fileName: 'another name.mp4' });
   a.equal(r.kept, true); a.deepEqual(r.claimed, [], 'not even claimed');
   a.equal(r.v.removed, false);
   const ok = await run(t, { state: 'completed' });
-  a.deepEqual(ok.claimed, [path.basename('Untitled Project_master_720p.mp4')], 'claimed by the copy's own name');
+  a.deepEqual(ok.claimed, [path.basename('Untitled Project_master_720p.mp4')], 'claimed by the name of the copy itself');
 });
 
 test('saving onto the copy itself, or a blob download, removes nothing', async (t) => {
