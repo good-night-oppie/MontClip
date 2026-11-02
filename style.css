@@ -2041,6 +2041,14 @@ input[type=range] {
   box-shadow: 0 8px 24px #0008;
 }
 
+/* VV (#33): the monitor's menu opens above everything the panels draw (#preview covered it) */
+.more-menu.more-menu-floating {
+  position: fixed;
+  right: auto;
+  z-index: 1000;
+  overflow-y: auto;
+}
+
 .more-menu[hidden],
 .more-btn[hidden] {
   display: none;
@@ -3777,6 +3785,10 @@ body.file-drag::after {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  /* VV (#33, 630×460): in a short panel the tools scroll instead of being cut off at the bottom */
+  flex-shrink: 0;
+  max-height: 60%;
+  overflow-y: auto;
 }
 
 .tr-row {
