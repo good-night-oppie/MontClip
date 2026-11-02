@@ -3,30 +3,47 @@
 // profile: at 1270×800, 804×535 and 630×452, in zh-CN and en, simple and advanced, measures
 //  - the preview picture (#preview) on screen, which must be larger than 0×0;
 //  - whether the player controls (.transport) overlap the timeline panel;
-//  - every timeline tool: reachable when fully inside the toolbar and hit at its centre,
-//    or listed in the toolbar's More menu;
+//  - every tool of the timeline toolbar, the monitor header and the top bar: reachable when fully inside
+//    its bar, hit at its centre, overlapping no neighbour and with its whole label, or hit at its centre inside the opened More menu;
+//  - every player button: hit at its centre;
+//  - every side-panel tab: hit at its centre once its strip is scrolled to it;
 // and saves a page capture and an OS screenshot of the window for each case.
 // Pass --montclip-smoke; output dir in MONTCLIP_LAYOUT_OUT.
 const electron=require('electron'),{app,BrowserWindow}=electron,fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
 if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke required');
-const out=process.env.MONTCLIP_LAYOUT_OUT,SIZES=[[1270,800],[804,535],[630,452]];
-const MEASURE=`(()=>{
- const r=e=>e.getBoundingClientRect(),vis=e=>!!e&&e.offsetParent!==null&&getComputedStyle(e).visibility!=='hidden';
- const bar=document.querySelector('.timeline-toolbar'),b=r(bar),panel=r(document.getElementById('timelinePanel'));
- const pv=r(document.getElementById('preview')),stage=r(document.getElementById('monitorStage'));
+const out=process.env.MONTCLIP_LAYOUT_OUT||null;if(out&&!path.isAbsolute(out))throw Error('MONTCLIP_LAYOUT_OUT must be an absolute folder');const SIZES=[[1270,800],[804,535],[630,452]];
+const MEASURE=`(async()=>{
+ const r=e=>e.getBoundingClientRect(),vis=e=>!!e&&e.offsetParent!==null&&getComputedStyle(e).visibility!=="hidden";
+ const frame=()=>new Promise(res=>requestAnimationFrame(()=>requestAnimationFrame(res)));
+ const hit=e=>{const k=r(e);if(!(k.width>0&&k.height>0)||!vis(e))return false;if(k.left<0||k.top<0||k.right>innerWidth+0.5||k.bottom>innerHeight+0.5)return false;
+  const h=document.elementFromPoint(k.left+k.width/2,k.top+k.height/2);return !!h&&(h===e||e.contains(h));};
+ const tools=(root)=>[...root.querySelectorAll("button,input,select")].filter(e=>!e.classList.contains("more-btn")&&!e.classList.contains("hidden")&&!e.closest(".hidden")&&!e.hidden);
+ async function bar(box,btn,menu,label){
+  const bb=r(box),rows=[];
+  for(const e of tools(box).filter(e=>!menu.contains(e))){const k=r(e),inside=k.left>=bb.left-0.5&&k.right<=bb.right+0.5;rows.push({id:e.id||e.dataset.editTool||e.className,where:label,inMore:false,ok:inside&&hit(e)});}
+  const moved=tools(menu);
+  if(moved.length){btn.click();await frame();for(const e of moved)rows.push({id:e.id||e.dataset.editTool||e.className,where:label,inMore:true,ok:!menu.hidden&&hit(e)});btn.click();await frame();}
+  const kids=[...box.children].filter(e=>e!==menu&&vis(e)).map(e=>[e.id||e.className,r(e)]);const overlaps=[];
+  for(let i=0;i<kids.length;i++)for(let j=i+1;j<kids.length;j++){const p=kids[i][1],q=kids[j][1];if(Math.min(p.right,q.right)-Math.max(p.left,q.left)>1&&Math.min(p.bottom,q.bottom)-Math.max(p.top,q.top)>1)overlaps.push(label+":"+kids[i][0]+"/"+kids[j][0]);}
+  for(const e of tools(box).filter(e=>!menu.contains(e)&&e.tagName==="BUTTON"&&vis(e)))if(e.scrollWidth>e.clientWidth+1)overlaps.push(label+":"+(e.id||e.className)+" label cut");
+  return {rows,overlaps,moreShown:vis(btn)};}
+ const tl=await bar(document.querySelector(".timeline-toolbar"),document.getElementById("btnTlMore"),document.getElementById("tlMoreMenu"),"timeline");
+ const mon=await bar(document.querySelector("#monitorPanel .panel-head-actions"),document.getElementById("btnMonMore"),document.getElementById("monMoreMenu"),"monitor");
+ const top=await bar(document.querySelector(".topbar-right"),document.getElementById("btnTopMore"),document.getElementById("topMoreMenu"),"topbar");
+ const bin=await bar(document.querySelector(".bin-actions"),document.getElementById("btnBinMore"),document.getElementById("binMoreMenu"),"bin");
+ const tabs=[];for(const t of document.querySelectorAll("#sideTabs button,#binTabs button")){if(t.classList.contains("hidden")||t.hidden||t.offsetParent===null)continue;
+  t.scrollIntoView({block:"nearest",inline:"nearest"});await frame();tabs.push({id:t.textContent.trim(),ok:hit(t)});}
+ for(const s of document.querySelectorAll(".bin-tabs"))s.scrollLeft=0;
+ const panel=r(document.getElementById("timelinePanel")),pv=r(document.getElementById("preview")),stage=r(document.getElementById("monitorStage"));
  const shown={w:Math.max(0,Math.min(pv.right,stage.right)-Math.max(pv.left,stage.left)),h:Math.max(0,Math.min(pv.bottom,stage.bottom)-Math.max(pv.top,stage.top))};
- const tr=r(document.querySelector('#monitorPanel .transport'));
+ const tr=r(document.querySelector("#monitorPanel .transport"));
  const overlap=Math.max(0,Math.min(tr.bottom,panel.bottom)-Math.max(tr.top,panel.top))*Math.max(0,Math.min(tr.right,panel.right)-Math.max(tr.left,panel.left));
- const more=document.getElementById('tlMoreMenu'),inMore=new Set(more?[...more.querySelectorAll('[data-more-for]')].map(e=>e.dataset.moreFor):[]);
- const tools=[...bar.querySelectorAll('button,input,select')].filter(e=>!e.closest('#tlMoreMenu')&&!e.classList.contains('hidden')&&!e.closest('.hidden')&&e.id!=='btnTlMore');
- const rows=tools.map(e=>{const id=e.id||e.dataset.editTool||e.className,k=r(e);
-  const inside=k.width>0&&k.left>=b.left-0.5&&k.right<=b.right+0.5&&k.top>=b.top-0.5&&k.bottom<=b.bottom+0.5;
-  const hit=inside&&vis(e)&&(()=>{const h=document.elementFromPoint(k.left+k.width/2,k.top+k.height/2);return !!h&&(h===e||e.contains(h));})();
-  return {id,inBar:hit,inMore:inMore.has(id),reachable:hit||inMore.has(id)};});
+ const player=[...document.querySelectorAll("#monitorPanel .transport-btns button")].filter(e=>!e.classList.contains("hidden")).map(e=>({id:e.id,ok:hit(e)}));
+ const rows=[...tl.rows,...mon.rows,...top.rows,...bin.rows];
  return {lang:document.documentElement.lang,mode:mcView.get().mode,preview:{w:Math.round(shown.w),h:Math.round(shown.h)},transportOverTimeline:Math.round(overlap),
-  unreachable:rows.filter(x=>!x.reachable).map(x=>x.id),inMore:rows.filter(x=>x.inMore).map(x=>x.id),tools:rows.length,
-  moreButton:!!document.getElementById('btnTlMore')&&vis(document.getElementById('btnTlMore')),snapInBar:(rows.find(x=>x.id==='btnSnap')||{}).inBar,
-  overflowX:document.documentElement.scrollWidth-innerWidth,overflowY:document.documentElement.scrollHeight-innerHeight};})()`;
+  unreachable:rows.filter(x=>!x.ok).map(x=>x.where+":"+x.id),playerUnreachable:player.filter(x=>!x.ok).map(x=>x.id),overlaps:[...tl.overlaps,...mon.overlaps,...top.overlaps,...bin.overlaps],tabsUnreachable:tabs.filter(x=>!x.ok).map(x=>x.id),tabs:tabs.length,
+  inMore:rows.filter(x=>x.inMore).map(x=>x.where+":"+x.id),tools:rows.length,
+  snap:(tl.rows.find(x=>x.id==="btnSnap")||{}),overflowX:document.documentElement.scrollWidth-innerWidth,overflowY:document.documentElement.scrollHeight-innerHeight};})()`;
 const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...args){await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=ms=>new Promise(r=>setTimeout(r,ms));
  const results=[];
@@ -39,8 +56,13 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
     process.stdout.write('LAYOUT '+JSON.stringify({size:[w,h],...m})+'\n');
     if(out){fs.writeFileSync(path.join(out,name+'.page.png'),(await win.webContents.capturePage()).toPNG());
      const s=electron.screen.dipToScreenRect(win,win.getContentBounds());
+     if(mode==="simple"&&w<1270){ // the timeline More menu open, as a person would see it
+      const opened=await read(`(()=>{const b=document.getElementById("btnTlMore");if(b.hidden)return false;b.click();return true;})()`);
+      if(opened){await wait(250);fs.writeFileSync(path.join(out,name+".more.page.png"),(await win.webContents.capturePage()).toPNG());await read(`document.getElementById("btnTlMore").click();true`);await wait(150);}}
      cp.spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',`Add-Type -AssemblyName System.Drawing;Add-Type -Namespace W -Name D -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetProcessDPIAware();';[void][W.D]::SetProcessDPIAware();$b=New-Object System.Drawing.Bitmap ${s.width},${s.height};$g=[System.Drawing.Graphics]::FromImage($b);$g.CopyFromScreen(${s.x},${s.y},0,0,$b.Size);$b.Save('${path.join(out,name+'.screen.png').replace(/'/g,"''")}');`],{windowsHide:true});}}}
   if(out)fs.writeFileSync(path.join(out,'layout.json'),JSON.stringify(results,null,1)+'\n');
+  const bad=results.filter(m=>!(m.preview.w>0&&m.preview.h>0)||m.transportOverTimeline>0||m.unreachable.length||m.playerUnreachable.length||m.tabsUnreachable.length||m.overlaps.length||m.overflowX>0||m.overflowY>0);
+  process.stdout.write((bad.length?'LAYOUT_FAIL '+bad.length+' of ':'LAYOUT_PASS ')+results.length+' cases\n');
   process.stdout.write('LAYOUT_COMPLETE\n');
  }catch(e){process.stdout.write('LAYOUT_FAIL '+e.message+'\n');}finally{win.setAlwaysOnTop(false);setTimeout(()=>app.exit(0),300);}};
 require('./main');

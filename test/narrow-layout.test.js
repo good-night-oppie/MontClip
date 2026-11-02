@@ -53,3 +53,37 @@ test('narrow windows give the monitor room: side panels shrink below 1100px',()=
 test('More labels are in both languages',()=>{
  const v=require('../ui-preferences').text;for(const l of ['zh-CN','en'])a.ok(v[l]['own.more']||v[l].more,l);
 });
+
+test('the upper area keeps the monitor header, the player and a 90px picture',()=>{
+ a.equal(L.upperNeed({head:40,transport:68}),40+68+90);
+ a.equal(L.upperNeed({head:10,transport:20}),L.UPPER_MIN,'never below UPPER_MIN');
+ a.match(read('app.js'),/upperMin:\s*MontClipNarrow\.upperNeed\(/,'the timeline budget uses it');
+});
+test('the top bar stays one row on narrow windows: its right-hand tools collapse, Export never does',()=>{
+ const html=read('index.html'),right=html.match(/<div class="topbar-right">([\s\S]*?)\n    <\/div>\n  <\/header>/)[1];
+ a.match(right,/id="btnTopMore"/);a.match(right,/id="topMoreMenu"/);
+ a.ok(!/id="btnExport"[^>]*data-more-rank|data-more-rank[^>]*id="btnExport"/.test(right),'Export is pinned');
+ a.ok([...right.matchAll(/data-more-rank="\d+"/g)].length>=4);
+ const css=read('style.css'),m=css.match(/@media \(max-width: 1100px\) \{([\s\S]*?)\n\}/)[1];a.ok(!/\.topbar[^{]*\{[^}]*flex-wrap:\s*wrap/.test(m),'no wrapping top bar');
+ a.match(read('app.js'),/attach\(document\.querySelector\("\.topbar-right"\)/);
+});
+test('a narrow monitor puts the player on two rows instead of cutting buttons off',()=>{
+ const css=read('style.css');a.match(css,/container-type:\s*inline-size/);a.match(css,/@container monitor \(max-width: 540px\)/);
+});
+test('a bar whose width follows its content cannot re-plan itself in a loop',()=>{
+ a.match(read('narrow-layout.js'),/lastWidth/);
+});
+test('narrow side panels: tab strips scroll instead of cutting tabs off; the bin header collapses into More (Import stays)',()=>{
+ const css=read('style.css'),m=css.match(/@media \(max-width: 1100px\) \{([\s\S]*?)\n\}/)[1];
+ a.match(m,/\.bin-tabs\s*\{[^}]*overflow-x:\s*auto/);a.match(m,/\.bin-tabs button\s*\{[^}]*flex:\s*1 0 auto/);
+ const html=read('index.html'),head=html.match(/<span class="panel-head-actions bin-actions">([\s\S]*?)<\/span>\n      <\/div>/)[1];
+ a.match(head,/id="btnBinMore"/);a.match(head,/id="binMoreMenu"/);a.ok(!/data-more-rank[^>]*id="btnImport"|id="btnImport"[^>]*data-more-rank/.test(head),'Import is pinned');
+ a.match(read('app.js'),/attach\(document\.querySelector\("\.bin-actions"\)/);
+ a.match(read('app.js'),/\.bin-tabs[\s\S]{0,200}wheel/,'a mouse wheel scrolls a tab strip');
+});
+test('the top bar tightens its spacing on very narrow windows so Export stays in reach',()=>{
+ a.match(read('style.css'),/@media \(max-width: 700px\) \{[^@]*\.app > \.topbar\s*\{[^}]*gap:\s*6px/);
+});
+test('the static demo ships narrow-layout.js (app.js needs it at start-up)',()=>{
+ a.match(read('docs/demo/sync.js'),/"narrow-layout\.js"/);
+});
