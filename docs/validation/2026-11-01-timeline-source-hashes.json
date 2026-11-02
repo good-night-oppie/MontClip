@@ -1,0 +1,18 @@
+{
+  "base": "a455d6d925ce7d069e8ce11cd7c08bbc0bec3dea",
+  "byteSource": "working tree bytes; CRLF may differ from Git LF blobs",
+  "files": {
+    "app.js": "bf2e2a49997eeb7345206e9b69cb8c888040b03c326315aa3de63efc9df3225e",
+    "style.css": "818e0b84ceccc01d92f9f3d17f19ab9db626cc40c14af0acaf4ecbb8a4004a21",
+    "desktop/timeline-content-smoke.cjs": "753a631dfc5a1b9d55f60ed2864c3fb8e4aa5d194005e76761a3f3c0f4179eab",
+    "desktop/agent-close-fault-smoke.cjs": "9a74b33c460fa2430905fabedff1b9c6f44212ae272f9a67901a81647ae443c7",
+    "test/timeline-content-view.test.js": "10db6867afdc88509bc531c001c0f82f9e6fa05f2230e91c4a1a59baee284ae3"
+  },
+  "tools": {
+    "node": "v22.15.1",
+    "electron": "45.2.1",
+    "ffmpeg": "ffmpeg version 9.0.1-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers\r",
+    "ffmpegSha256": "57c56e369d5b4873b4d93fc1a1d833cb7cd8bc9325c14b05c34ce60b22842d8a"
+  },
+  "inputSha256": "1c4e4a41621932a3a0af00edd23a93575ff95abcb52f9d243621e17f2fc30789"
+}

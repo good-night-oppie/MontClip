@@ -35,6 +35,7 @@ const TRACK_SIZE_PRESETS = {
 };
 const TRACK_SIZE_KEY = "fablecut-track-size";
 // Shared DOM and project; this controller only changes view preferences.
+let mcAgent = null;
 const mcView = MontClipView.create(window.montclipViewSettings ? MontClipView.desktopStorage(window.montclipViewSettings) : localStorage);
 /** Keyed interface text in the current language (ui-terms.js / ui-preferences.js). Never for user content. */
 const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
@@ -43,6 +44,9 @@ const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
 function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
 function renderMontClipView() {
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
+  document.getElementById("mcAssistantTab").textContent=t.assistant;document.getElementById("mcMediaToggle").textContent=mcView.get().language==="en"?"Media":"素材";
+  mcAgent?.render();
+  document.querySelector(".mc-history").setAttribute("aria-label", t.undo + " / " + t.redo);
   document.documentElement.lang = language;
   MontClipView.applyI18n(document, language);
   document.body.dataset.mcMode = mode;
@@ -65,7 +69,13 @@ function refreshLanguageText() {
   if (trState.built) renderTranscript(true);
 }
 function updateMontClipView(patch) {
+  if(patch.mode && patch.mode!==mcView.get().mode){
+    if(state.exporting||state.compCtx){toast(MontClipView.text[mcView.get().language].modeBlocked);return;}
+    const wasColor=colorState.ws==='color';setWorkspace('edit');
+    if(patch.mode==='simple'&&wasColor)toast(MontClipView.text[mcView.get().language].colorExited);
+  }
   const saved = mcView.set(patch); renderMontClipView(); refreshLanguageText();
+  state.dirtyTimeline = true;
   if (!saved) toast(mcView.get().language === "en" ? "View preference could not be saved." : "界面偏好未能保存。");
 }
 document.getElementById("mcMode").addEventListener("click", e => {
@@ -74,8 +84,8 @@ document.getElementById("mcMode").addEventListener("click", e => {
 document.getElementById("mcLanguage").addEventListener("change", e => updateMontClipView({ language: e.target.value }));
 document.getElementById("mcUndo").addEventListener("click", () => undo());
 document.getElementById("mcRedo").addEventListener("click", () => redo());
-document.getElementById("mcAssistant").addEventListener("click", () => document.getElementById("mcAssistantPanel").classList.toggle("hidden"));
-document.getElementById("mcAssistantClose").addEventListener("click", () => document.getElementById("mcAssistantPanel").classList.add("hidden"));
+document.getElementById("mcAssistant").addEventListener("click", () => { const panel=document.getElementById("mcAssistantPanel");setSideTab(panel.classList.contains("hidden")?"assistant":"inspector");mcAgent?.render(); });
+document.getElementById("mcAssistantClose").addEventListener("click", () => {setSideTab("inspector");document.getElementById("mcAssistant").focus();});
 renderMontClipView();
 const LAST_TRANS_KEY = { in: "fablecut-last-trans-in", out: "fablecut-last-trans-out" };
 const DEFAULT_LAST_TRANS = { type: "fade", duration: 1 };
@@ -1661,6 +1671,7 @@ function cancelCloseSave(attempt) {
   }
 }
 async function flushSaveForClose(attempt = 1) {
+  if (typeof mcAgent !== "undefined" && mcAgent && !mcAgent.flush()) return false;
   if (attempt <= closeSaveInvalidThrough || closeSaveTransaction) return false;
   const body = document.body, wasInert = body.inert;
   const events = ["keydown", "keyup", "pointerdown", "pointerup", "click", "drop", "paste", "input"];
@@ -1842,7 +1853,9 @@ async function syncFromServer(force) {
       await probeMissingMeta();
       return true;
     }
-    if (!force && (data.revision || 0) === (project.revision || 0)) return; // our own save
+    // our own save, or an answer older than this page's document (a GET sent before our save and
+    // answered after it): disk revisions only go up, so an older one is stale, not an outside edit
+    if (!force && (data.revision || 0) <= (project.revision || 0)) return;
     // An edit from outside (an agent, another tab) on the open timeline becomes an undo step of its own,
     // so Ctrl+Z takes it back first instead of replaying an older step over it.
     const before = !state.compCtx && SeqLib.activeId(data) === SeqLib.activeId(project) ? undoSnapshot() : null;
@@ -3369,11 +3382,15 @@ async function pjLoad() {
     // On first use the list has just given the shown project.json its id: adopt it, if
     // project.json is still the document this tab shows.
     if (data.active && !runtime.projectId) {
+      const identityBefore={gen:runtime.projectGen,sequenceId:SeqLib.activeId(seqRoot()),snapshot:JSON.stringify(projectJSON())};
       const r = await fetch("/api/project", { cache: "no-store" }).catch(() => null);
       const doc = r && r.ok ? await r.json().catch(() => null) : null;
       const ids = (d) => JSON.stringify([d.name, d.revision || 0, (d.clips || []).map((c) => c.id), (d.media || []).map((m) => m.id)]);
       const shown = projectJSON();
-      if (doc && r.headers.get("X-FableCut-Project") === data.active && ids(doc) === ids(shown)) runtime.projectId = data.active;
+      if (doc && r.headers.get("X-FableCut-Project") === data.active && ids(doc) === ids(shown)) {
+        if(identityBefore.gen===runtime.projectGen && identityBefore.snapshot===JSON.stringify(shown)) mcAgent?.identify({projectId:data.active,sequenceId:identityBefore.sequenceId,gen:identityBefore.gen});
+        runtime.projectId = data.active;
+      }
       else { runtime.projectId = "?"; syncFromServer(true); }   // not what this tab shows: load it as a switch
     } else if (data.active && data.active !== runtime.projectId) syncFromServer(true);
     if (!pj.list.some((p) => p.id === pj.sel)) pj.sel = (pj.list.find((p) => p.active) || pj.list[0] || {}).id || null;
@@ -5052,7 +5069,71 @@ function clipKeyframesHtml(c) {
   }
   return html + `</div>`;
 }
+// View-only filtering. Keep every project track and its compositor/undo identity.
+// Focus newly encountered content once; ordinary edits/renders keep the user's scroll.
+function syncTimelineTrackView() {
+  // Pointer coordinates must keep referring to the same rows until the gesture settles.
+  if (state.gesture) { syncTimelineTrackView.pending = true; return; }
+  syncTimelineTrackView.pending = false;
+  const occupied = new Set(project.clips.map(c => c.track));
+  const simple = mcView.get().mode === "simple";
+  const occupiedKinds = new Set(TRACKS.filter(t => occupied.has(t.id)).map(t => t.kind));
+  for (const container of [els.tracks, $("trackHeadInner")]) {
+    if (!container) continue;
+    for (const row of container.children) {
+      const id = row.dataset.track;
+      const placeholder = (id === "V1" && !occupiedKinds.has("video")) ||
+        (id === "A1" && !occupiedKinds.has("audio"));
+      row.hidden = simple && !occupied.has(id) && !placeholder;
+    }
+  }
+  const key = JSON.stringify([runtime.projectGen, SeqLib.activeId(seqRoot()), simple,
+    TRACKS.filter(t => occupied.has(t.id)).map(t => t.id)]);
+  // A drop the user just made is never answered by re-focusing elsewhere: keep the
+  // view, scrolling only as far as needed to show the dropped clips' rows whole.
+  const dropped = syncTimelineTrackView.dropped;
+  syncTimelineTrackView.dropped = null;
+  const changed = syncTimelineTrackView.focusKey !== key;
+  syncTimelineTrackView.focusKey = key;
+  if (dropped) {
+    const rectsOf = ids => {
+      const tracks = new Set(project.clips.filter(c => ids.includes(c.id)).map(c => c.track));
+      return [...els.tracks.children].filter(row => tracks.has(row.dataset.track) && !row.hidden).map(row => row.getBoundingClientRect());
+    };
+    const scroller = els.timelineScroll, view = scroller.getBoundingClientRect().top, room = scroller.clientHeight - RULER_H;
+    let shown = rectsOf(dropped);
+    // all dropped rows when they fit together, else the row of the clip that was grabbed
+    if (shown.length && Math.max(...shown.map(r => r.bottom)) - Math.min(...shown.map(r => r.top)) > room) shown = rectsOf(dropped.slice(0, 1));
+    if (shown.length) {
+      const top = Math.min(...shown.map(r => r.top)), bottom = Math.max(...shown.map(r => r.bottom));
+      if (bottom > view + scroller.clientHeight) scroller.scrollTop += bottom - (view + scroller.clientHeight);
+      if (top - 0 < view + RULER_H) scroller.scrollTop -= view + RULER_H - top;
+    }
+    return;
+  }
+  if (!changed) return;
+  const rows = [...els.tracks.children];
+  // Prefer a real video/audio pair over an upper subtitle lane on initial focus.
+  const videos = rows.filter(row => project.clips.some(c => c.track === row.dataset.track && c.kind === 'video'));
+  const audios = rows.filter(row => project.clips.some(c => c.track === row.dataset.track && c.kind === 'audio'));
+  let first = rows.find(row => occupied.has(row.dataset.track)), distance = Infinity;
+  for (const video of videos) for (const audio of audios) {
+    const gap = Math.abs(video.getBoundingClientRect().top - audio.getBoundingClientRect().top);
+    if (gap < distance) { distance = gap; first = rows.indexOf(video) < rows.indexOf(audio) ? video : audio; }
+  }
+  if (first) {
+    const scroller = els.timelineScroll;
+    scroller.scrollTop += first.getBoundingClientRect().top - scroller.getBoundingClientRect().top - RULER_H;
+  }
+}
+/* After the window changes size, focus the content once more (never mid-drag). */
+function timelineResizeRefocus() {
+  if (state.gesture) return;
+  syncTimelineTrackView.focusKey = null;
+  syncTimelineTrackView();
+}
 function rebuildClips() {
+  syncTimelineTrackView();
   const w = contentWidth();
   els.tracksContent.style.width = w + "px";
   els.ruler.style.width = els.timelineScroll.clientWidth + "px";
@@ -6026,22 +6107,47 @@ function startClipGesture(e, c, mode, collapseOnClick) {
     state.dirtyTimeline = true;
     renderInspector(true);
   };
-  const onUp = () => {
+  let ended = false;
+  const finish = (cancelled) => {
+    if (ended) return;
+    ended = true;
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerup", onUp);
+    window.removeEventListener("pointercancel", onCancel);
+    window.removeEventListener("keydown", onKey, true);
+    window.removeEventListener("blur", onCancel);
+    if (cancelled) {
+      restoreSnapshot(snapshot);
+      for (const clip of project.clips) if (groupIds.has(clip.id)) routeClipGain(clip);
+      pruneSelection();
+    }
     state.gesture = false;
-    if (moved) {
+    state.dirtyTimeline = true;
+    if (!cancelled && moved) {
+      syncTimelineTrackView.dropped = [c.id, ...[...groupIds].filter(id => id !== c.id)];
       runtime.undo.push(snapshot);
       if (runtime.undo.length > 100) runtime.undo.shift();
       runtime.redo.length = 0;
       scheduleSave();
-    } else if (collapseOnClick) {
+    } else if (!cancelled && collapseOnClick) {
       selectClip(c.id);
     }
+    renderInspector(true);
     if (runtime.pendingSync) syncFromServer();
+  };
+  const onUp = () => finish(false);
+  const onCancel = () => finish(true);
+  const onKey = (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    finish(true);
   };
   window.addEventListener("pointermove", onMove);
   window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", onCancel);
+  window.addEventListener("keydown", onKey, true);
+  window.addEventListener("blur", onCancel);
 }
 
 /* ── Marquee (rubber-band) selection on empty timeline area ──
@@ -9824,13 +9930,15 @@ function parseDbInput(s) {
   return Number.isFinite(v) ? clampFaderDb(v) : null;
 }
 function setSideTab(tab) {
+  document.getElementById("app").classList.remove("media-open");
+  const assistant=tab==="assistant";document.getElementById("mcAssistantPanel").classList.toggle("hidden",!assistant);document.getElementById("app").classList.toggle("agent-open",assistant);
   const mixer = tab === "mixer", color = tab === "color", transcript = tab === "transcript";
   mixerState.open = mixer;
   colorState.open = color;
   trState.open = transcript;
   for (const b of els.sideTabs.querySelectorAll("[data-side]"))
     b.classList.toggle("on", b.dataset.side === tab);
-  els.inspector.classList.toggle("hidden", mixer || color || transcript);
+  els.inspector.classList.toggle("hidden", mixer || color || transcript || assistant);
   els.mixer.classList.toggle("hidden", !mixer);
   els.colorPage.classList.toggle("hidden", !color);
   els.transcriptPage.classList.toggle("hidden", !transcript);
@@ -9838,7 +9946,7 @@ function setSideTab(tab) {
   if (mixer) renderMixer();
   else if (color) renderColorPage(true);
   else if (transcript) renderTranscript(true);
-  else renderInspector();
+  else if(!assistant) renderInspector();
 }
 /** Write a track's fader / pan, push it into the live graph, persist. */
 function setTrackMix(id, { gain, pan } = {}) {
@@ -16216,7 +16324,7 @@ function loop(ts) {
       if (draw) drawFrame();
     }
   }
-  if (state.dirtyTimeline) rebuildClips();
+  if (state.dirtyTimeline || (syncTimelineTrackView.pending && !state.gesture)) rebuildClips();
   if (trState.open) transcriptTick();
   watchCaptions(ts);
   const phX = Math.round(state.time * state.pps);
@@ -19463,6 +19571,7 @@ window.addEventListener("keydown", (e) => {
 });
 
 window.addEventListener("resize", () => { state.dirtyTimeline = true; clampTimelineHeight(); if (mixerState.open) sizeMixerMeters(); });
+{ let refocus = null; window.addEventListener("resize", () => { clearTimeout(refocus); refocus = setTimeout(timelineResizeRefocus, 150); }); }
 
 /* ── Resizable upper / timeline split ── */
 const TL_H_KEY = "fablecut-timeline-h";
@@ -19595,7 +19704,7 @@ loadSettings();
    Color workspace swaps the media bin for live scopes of the program
    monitor. Grade edits are plain prop writes, so undo, save and the SSE
    reload behave as for any inspector field. */
-const WS_KEY = "fablecut-workspace";
+const workspacePreference = MontClipWorkspace.create(window.montclipWorkspaceSettings, localStorage);
 const SCOPE_KEY = "fablecut-scopes";
 const SCOPE_KINDS = { waveform: "Waveform", parade: "RGB Parade", vectorscope: "Vectorscope", histogram: "Histogram" };
 const WHEEL_LABEL = { lift: "Lift", gamma: "Gamma", gain: "Gain", offset: "Offset" };
@@ -19614,11 +19723,11 @@ try {
 } catch { }
 
 function isGradable(c) { return !!c && (c.kind === "video" || c.kind === "image" || c.kind === "svg" || c.kind === "adjust" || c.kind === "comp"); }
-function setWorkspace(ws) {
+function setWorkspace(ws, persist = true) {
   colorState.ws = ws === "color" ? "color" : "edit";
   $("app").classList.toggle("ws-color", colorState.ws === "color");
   for (const b of document.querySelectorAll("#wsSwitch [data-ws]")) b.classList.toggle("on", b.dataset.ws === colorState.ws);
-  try { localStorage.setItem(WS_KEY, colorState.ws); } catch { }
+  if (persist && !workspacePreference.save(colorState.ws)) toast(MontClipView.text[mcView.get().language].workspaceSaveFailed);
   if (colorState.ws === "color") { buildScopeSlots(); setSideTab("color"); }
   else {
     if (runtime.matte) setMatte(null, false);
@@ -20756,7 +20865,25 @@ for (const b of els.sideTabs.querySelectorAll("[data-side]"))
 try {
   const side = localStorage.getItem(SIDE_TAB_KEY);
   if (side === "mixer" || side === "color" || side === "transcript") setSideTab(side);
-  if (localStorage.getItem(WS_KEY) === "color") setWorkspace("color");
+
 } catch { }
+const initialWorkspace=workspacePreference.load(mcView.get().mode);
+if(initialWorkspace.workspace==='color')setWorkspace('color',false);
+else if(mcView.get().mode==='simple')setWorkspace('edit',false);
+if(!initialWorkspace.ok)toast(MontClipView.text[mcView.get().language].workspaceReadFailed);
 connectServer().then(() => { loadLibraryFonts(); runExportJobFromUrl(); });
 requestAnimationFrame(loop);
+
+// Pane state is independent of editor view mode; all actions rebind to the live project/sequence.
+const mcAgentPanel=document.getElementById('mcAssistantPanel');
+document.querySelector(".upper > .inspector").append(mcAgentPanel);
+document.querySelector(".topbar-right").prepend(document.getElementById("mcMediaToggle"));
+document.querySelector(".topbar-right").insertBefore(document.querySelector(".mc-history"),document.getElementById("btnExport"));
+document.getElementById("mcMediaToggle").onclick=()=>document.getElementById("app").classList.toggle("media-open");
+mcAgent=MontClipAgentPane.mount({panel:document.getElementById('mcAgentContent'),
+ getContext:()=>({projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen,revision:project.revision}),
+ getLanguage:()=>mcView.get().language,settings:window.montclipPaneSettings,sessionStorage:window.montclipAgentSessions,
+ onHide:()=>{setSideTab("inspector");document.getElementById("mcAssistant").focus();},
+ getReferences:kind=>MontClipAgentPane.referenceChips(kind,{projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen,revision:project.revision,
+ start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(FableCutCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
+setInterval(()=>mcAgent.sync(),500);

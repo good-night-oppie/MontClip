@@ -1,0 +1,20 @@
+{"status":0,"hashes":{"app.js":"63bd788ede212e0000b9e7aad3e0f839501f60ad67e68101a8f62dda9c3d442e","desktop/timeline-drag-smoke.cjs":"8c9efa958c9ec4412b7d084d97b66adfbeb4eec00cbb5177ed623f624ceb0dd9"},"profile":"<user>\\AppData\\Local\\Temp\\MontClip-drag-qsx7KD"}
+
+
+  FableCut running →  http://localhost:54858
+
+  project file : <user>\AppData\Local\Temp\MontClip-drag-qsx7KD\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-drag-qsx7KD\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-drag-qsx7KD\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+MONTCLIP_DRAG_SETTLED {"mode":"advanced","dirty":false,"pending":false,"tracks":["V2","A1"]}
+MONTCLIP_DRAG_CASE {"scenario":"advanced","source":"V1","target":"V2","samples":[{"track":"V2","scroll":0,"gesture":true,"sourceHidden":false},{"track":"V2","scroll":0,"gesture":true,"sourceHidden":false},{"track":"V2","scroll":0,"gesture":true,"sourceHidden":false}],"cancelled":false}
+MONTCLIP_DRAG_SETTLED {"mode":"simple","dirty":false,"pending":false,"tracks":["V1","A1"]}
+MONTCLIP_DRAG_CASE {"scenario":"simple","source":"V2","target":"V1","samples":[{"track":"V1","scroll":0,"gesture":true,"sourceHidden":false},{"track":"V1","scroll":0,"gesture":true,"sourceHidden":false},{"track":"V1","scroll":0,"gesture":true,"sourceHidden":false}],"cancelled":false}
+MONTCLIP_DRAG_SETTLED {"mode":"advanced","dirty":false,"pending":false,"tracks":["V1","A1"]}
+MONTCLIP_DRAG_CASE {"scenario":"cancel","source":"V1","target":"V2","samples":[{"track":"V2","scroll":0,"gesture":true,"sourceHidden":false},{"track":"V2","scroll":0,"gesture":true,"sourceHidden":false},{"track":"V2","scroll":0,"gesture":true,"sourceHidden":false}],"cancelled":true}
+MONTCLIP_DRAG_COMPLETE {"cases":3,"inputSha256":"1c4e4a41621932a3a0af00edd23a93575ff95abcb52f9d243621e17f2fc30789"}
+MONTCLIP_SMOKE {"nodeUnavailable":true,"projectLoaded":true,"apiStatus":200,"externalBlocked":true,"compositor":true,"saved":true}

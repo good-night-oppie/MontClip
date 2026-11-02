@@ -1,0 +1,19 @@
+{"exit":1,"profile":"MontClip-paste-jsBgmd"}
+
+
+  FableCut running →  http://localhost:55571
+
+  project file : <user>\AppData\Local\Temp\MontClip-paste-jsBgmd\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-paste-jsBgmd\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-paste-jsBgmd\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+
+TypeError: clipboard.write cannot accept a ClipboardItem returned from clipboard.read() — construct a new ClipboardItem to write.
+    at [toNative] (node:internal/electron/js2c/browser_init:4:10266)
+    at Object.write (node:internal/electron/js2c/browser_init:4:10992)
+    at paste (<repo>\desktop\agent-paste-smoke.cjs:12:82)
+    at async BrowserWindow.loadURL (<repo>\desktop\agent-paste-smoke.cjs:16:2)
+    at async start (<repo>\desktop\main.js:124:3)
