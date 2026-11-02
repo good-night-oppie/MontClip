@@ -156,7 +156,7 @@ const proxies = createProxies({ dir: PROXIES_DIR, resolveSrc, probe: probeFile, 
 /* Word transcripts, one per version of a file (fablecut_transcribe, the Transcript tab). */
 const transcripts = createTranscripts({ dir: path.join(ANALYSIS_DIR, "transcripts"), resolveSrc });
 // P2 highlight signals: each file's loudness, read once by ffmpeg as a stream and cached per file version
-const signals = require("./signals").createSignals({ dir: path.join(ANALYSIS_DIR, "signals") });
+const signals = require("./signals").createSignals({ dir: path.join(ANALYSIS_DIR, "signals"), ffmpeg: FF.path("ffmpeg") });
 let debounce = null;
 let profilesDebounce = null;
 function onFsChange() {
@@ -818,7 +818,7 @@ const server = http.createServer(async (req, res) => {
     const file = resolveSrc(url.searchParams.get("src") || "");
     if (!file) { sendJSON(res, 404, { error: "no such file under media/ or library/" }); return; }
     try { sendJSON(res, 200, await signals.loudness(file)); }
-    catch (e) { sendJSON(res, 422, { error: e.message, code: e.code || "SIGNALS_FAILED" }); }
+    catch (e) { sendJSON(res, 422, { error: X.maskUserPath(e.message), code: e.code || "SIGNALS_FAILED" }); }   // no local paths in the answer (QQ, #52)
     return;
   }
   if (p === "/api/media-info" && (req.method === "GET" || req.method === "POST")) {
