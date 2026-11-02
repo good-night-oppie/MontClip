@@ -1,0 +1,146 @@
+[
+ {
+  "case": "auth",
+  "language": "zh-CN",
+  "size": [
+   1270,
+   800
+  ],
+  "ok": true,
+  "checks": {
+   "settingsClosedFirst": true,
+   "requestMade": true,
+   "line": true,
+   "button": true,
+   "opensSettings": true,
+   "draftKept": true
+  },
+  "line": "密钥不对或没有权限，请去设置里检查。草稿仍保留。"
+ },
+ {
+  "case": "model",
+  "language": "zh-CN",
+  "size": [
+   1270,
+   800
+  ],
+  "ok": true,
+  "checks": {
+   "settingsClosedFirst": true,
+   "requestMade": true,
+   "line": true,
+   "button": true,
+   "opensSettings": true,
+   "draftKept": true
+  },
+  "line": "模型名称不对，请去设置里检查。"
+ },
+ {
+  "case": "auth",
+  "language": "en",
+  "size": [
+   1270,
+   800
+  ],
+  "ok": true,
+  "checks": {
+   "settingsClosedFirst": true,
+   "requestMade": true,
+   "line": true,
+   "button": true,
+   "opensSettings": true,
+   "draftKept": true
+  },
+  "line": "The key is wrong or has no access. Check it in settings. Your draft is kept."
+ },
+ {
+  "case": "model",
+  "language": "en",
+  "size": [
+   1270,
+   800
+  ],
+  "ok": true,
+  "checks": {
+   "settingsClosedFirst": true,
+   "requestMade": true,
+   "line": true,
+   "button": true,
+   "opensSettings": true,
+   "draftKept": true
+  },
+  "line": "The model name is wrong. Check it in settings."
+ },
+ {
+  "case": "auth",
+  "language": "zh-CN",
+  "size": [
+   630,
+   452
+  ],
+  "ok": true,
+  "checks": {
+   "settingsClosedFirst": true,
+   "requestMade": true,
+   "line": true,
+   "button": true,
+   "opensSettings": true,
+   "draftKept": true
+  },
+  "line": "密钥不对或没有权限，请去设置里检查。草稿仍保留。"
+ },
+ {
+  "case": "model",
+  "language": "zh-CN",
+  "size": [
+   630,
+   452
+  ],
+  "ok": true,
+  "checks": {
+   "settingsClosedFirst": true,
+   "requestMade": true,
+   "line": true,
+   "button": true,
+   "opensSettings": true,
+   "draftKept": true
+  },
+  "line": "模型名称不对，请去设置里检查。"
+ },
+ {
+  "case": "auth",
+  "language": "en",
+  "size": [
+   630,
+   452
+  ],
+  "ok": true,
+  "checks": {
+   "settingsClosedFirst": true,
+   "requestMade": true,
+   "line": true,
+   "button": true,
+   "opensSettings": true,
+   "draftKept": true
+  },
+  "line": "The key is wrong or has no access. Check it in settings. Your draft is kept."
+ },
+ {
+  "case": "model",
+  "language": "en",
+  "size": [
+   630,
+   452
+  ],
+  "ok": true,
+  "checks": {
+   "settingsClosedFirst": true,
+   "requestMade": true,
+   "line": true,
+   "button": true,
+   "opensSettings": true,
+   "draftKept": true
+  },
+  "line": "The model name is wrong. Check it in settings."
+ }
+]

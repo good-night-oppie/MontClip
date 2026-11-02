@@ -1,0 +1,32 @@
+{
+ "when": "2026-11-02T02:28:58.215Z",
+ "provider": "openrouter",
+ "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+ "results": [
+  {
+   "name": "plain-keep",
+   "model": "nvidia/nemotron-3.5-super-vl:free",
+   "result": "passed",
+   "ms": 1512,
+   "reply": "{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"c1\",\"sourceCaptionId\":\"c1\",\"from\":1,\"to\":3.2},{\"clipId\":\"c2\",\"sourceCaptionId\":\"c2\",\"from\":3.2,\"to\":5}]}"
+  },
+  {
+   "name": "ordinary-question",
+   "model": "nvidia/nemotron-3.5-super-vl:free",
+   "result": "passed",
+   "ms": 1590,
+   "reply": "这两句字幕主要介绍三个剪辑技巧，并指出第一个技巧是删掉停顿。"
+  },
+  {
+   "name": "wrong-key",
+   "model": "nvidia/nemotron-3.5-super-vl:free",
+   "result": "passed",
+   "ms": 116,
+   "code": "AUTH"
+  }
+ ],
+ "counts": {
+  "passed": 3,
+  "skipped": 0
+ }
+}

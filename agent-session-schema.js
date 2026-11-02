@@ -23,4 +23,4 @@ function valid(v){
  }if(!s.sessions.some(i=>i.id===s.active))return false;
  }return true;}catch{return false;}
 }
-return {valid,MAX};});
+return {valid,MAX,reference};});

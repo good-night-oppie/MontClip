@@ -1,0 +1,191 @@
+[
+ {
+  "size": [
+   630,
+   452
+  ],
+  "ok": true,
+  "rows": [
+   {
+    "t": "第0个会话的",
+    "cut": false,
+    "hitWhenShown": true
+   },
+   {
+    "t": "第1个会话的",
+    "cut": false,
+    "hitWhenShown": null
+   },
+   {
+    "t": "第2个会话的",
+    "cut": false,
+    "hitWhenShown": null
+   },
+   {
+    "t": "第3个会话的",
+    "cut": false,
+    "hitWhenShown": null
+   },
+   {
+    "t": "新会话",
+    "cut": false,
+    "hitWhenShown": null
+   }
+  ],
+  "reach": [
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "parts": [
+   {
+    "tag": "input",
+    "cut": false
+   },
+   {
+    "tag": "div",
+    "cut": false
+   },
+   {
+    "tag": "p",
+    "cut": false
+   },
+   {
+    "tag": "details",
+    "cut": false
+   }
+  ],
+  "composer": {
+   "draft": true,
+   "send": true
+  }
+ },
+ {
+  "size": [
+   804,
+   535
+  ],
+  "ok": true,
+  "rows": [
+   {
+    "t": "第0个会话的",
+    "cut": false,
+    "hitWhenShown": true
+   },
+   {
+    "t": "第1个会话的",
+    "cut": false,
+    "hitWhenShown": null
+   },
+   {
+    "t": "第2个会话的",
+    "cut": false,
+    "hitWhenShown": null
+   },
+   {
+    "t": "第3个会话的",
+    "cut": false,
+    "hitWhenShown": null
+   },
+   {
+    "t": "新会话",
+    "cut": false,
+    "hitWhenShown": null
+   }
+  ],
+  "reach": [
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "parts": [
+   {
+    "tag": "input",
+    "cut": false
+   },
+   {
+    "tag": "div",
+    "cut": false
+   },
+   {
+    "tag": "p",
+    "cut": false
+   },
+   {
+    "tag": "details",
+    "cut": false
+   }
+  ],
+  "composer": {
+   "draft": true,
+   "send": true
+  }
+ },
+ {
+  "size": [
+   1270,
+   800
+  ],
+  "ok": true,
+  "rows": [
+   {
+    "t": "第0个会话的",
+    "cut": false,
+    "hitWhenShown": true
+   },
+   {
+    "t": "第1个会话的",
+    "cut": false,
+    "hitWhenShown": true
+   },
+   {
+    "t": "第2个会话的",
+    "cut": false,
+    "hitWhenShown": null
+   },
+   {
+    "t": "第3个会话的",
+    "cut": false,
+    "hitWhenShown": null
+   },
+   {
+    "t": "新会话",
+    "cut": false,
+    "hitWhenShown": null
+   }
+  ],
+  "reach": [
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "parts": [
+   {
+    "tag": "input",
+    "cut": false
+   },
+   {
+    "tag": "div",
+    "cut": false
+   },
+   {
+    "tag": "p",
+    "cut": false
+   },
+   {
+    "tag": "details",
+    "cut": false
+   }
+  ],
+  "composer": {
+   "draft": true,
+   "send": true
+  }
+ }
+]

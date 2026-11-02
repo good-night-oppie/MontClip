@@ -1,0 +1,32 @@
+
+
+  FableCut running →  http://localhost:11173
+
+  project file : <user>\AppData\Local\Temp\MontClip-official-pane-3R3vWy\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-official-pane-3R3vWy\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-official-pane-3R3vWy\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+(electron) 'safeStorage.isEncryptionAvailable' is deprecated and will be removed. Please use 'safeStorage.isAsyncEncryptionAvailable' instead.
+(electron) 'safeStorage.encryptString' is deprecated and will be removed. Please use 'safeStorage.encryptStringAsync' instead.
+OFFICIAL_REVIEW {"projectId":"p_133dfdc8a3","revision":3,"draftLength":13,"status":[""],"sessionCount":1}
+OFFICIAL_LAYOUT {"mode":"simple","language":"zh-CN","width":1270,"preview":[510.90625,287.375],"draft":[936,370.328125,316,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"en","width":1270,"preview":[510.90625,287.375],"draft":[936,370.328125,316,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"zh-CN","width":1270,"preview":[510.90625,287.375],"draft":[936,370.328125,316,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"en","width":1270,"preview":[510.90625,287.375],"draft":[936,370.328125,316,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"zh-CN","width":1100,"preview":[430.21875,241.984375],"draft":[754,303.15625,328,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"en","width":1100,"preview":[430.21875,241.984375],"draft":[754,303.15625,328,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"zh-CN","width":1100,"preview":[430.21875,241.984375],"draft":[754,303.15625,328,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"en","width":1100,"preview":[430.21875,241.984375],"draft":[754,303.15625,328,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"zh-CN","width":804,"preview":[316.4375,177.984375],"draft":[552.734375,259.109375,239.265625,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"en","width":804,"preview":[266.25,149.765625],"draft":[552.734375,320.1875,239.265625,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"zh-CN","width":804,"preview":[316.4375,177.984375],"draft":[552.734375,259.109375,239.265625,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"en","width":804,"preview":[266.25,149.765625],"draft":[552.734375,320.1875,239.265625,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"zh-CN","width":630,"preview":[161.359375,90.75],"draft":[386,287.34375,232,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"en","width":630,"preview":[161.359375,90.75],"draft":[386,320.1875,232,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"zh-CN","width":630,"preview":[161.359375,90.75],"draft":[386,287.34375,232,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"en","width":630,"preview":[161.359375,90.75],"draft":[386,320.1875,232,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_COMPLETE {"reopen":false,"requests":1,"transport":"injected-test-only","projectId":"p_133dfdc8a3","origin":"http://127.0.0.1:11173"}
+MONTCLIP_SMOKE {"nodeUnavailable":true,"projectLoaded":true,"apiStatus":200,"externalBlocked":true,"compositor":true,"saved":false}

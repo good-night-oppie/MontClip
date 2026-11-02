@@ -1,0 +1,22 @@
+
+
+  FableCut running →  http://localhost:37034
+
+  project file : <user>\AppData\Local\Temp\MontClip-narrow-pane-UrhqHa\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-narrow-pane-UrhqHa\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-narrow-pane-UrhqHa\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+NARROW_START {"visible":true,"projectId":null}
+(electron) 'safeStorage.isEncryptionAvailable' is deprecated and will be removed. Please use 'safeStorage.isAsyncEncryptionAvailable' instead.
+(electron) 'safeStorage.encryptString' is deprecated and will be removed. Please use 'safeStorage.encryptStringAsync' instead.
+NARROW_SEND {"size":[630,452],"projectId":"p_75326bf14a","status":"","dialogOpen":true,"chips":"字幕 · 00:01–00:02 · 合成句子一移除字幕 · 00:03–00:04 · 合成句子二移除"}
+NARROW_VIEW {"size":[630,452],"view":{"thread":[136.19212341308594,41.14583206176758],"reply":[143.0208282470703,34.39814758300781],"replyInside":true,"text":"助手已生成提案：保留 2 句，成片约 00:03。请先查看再应用。"},"proposal":{"x":421,"y":188,"hit":true,"rect":[383.33331298828125,178.3333282470703,75.47453308105469,19.40972137451172]},"proposalVisible":true,"refsVisible":[true,true,true],"refHits":[true,true,true],"overflow":0}
+NARROW_SEND {"size":[804,535],"projectId":"p_75326bf14a","status":"","dialogOpen":true,"chips":"字幕 · 00:01–00:02 · 合成句子一移除字幕 · 00:03–00:04 · 合成句子二移除"}
+NARROW_VIEW {"size":[804,535],"view":{"thread":[110.53240203857422,120.78703308105469],"reply":[170.69444274902344,34.39814758300781],"replyInside":true,"text":"助手已生成提案：保留 2 句，成片约 00:03。请先查看再应用。"},"proposal":{"x":587,"y":243,"hit":true,"rect":[549.2824096679688,233.3101806640625,75.47453308105469,19.40972137451172]},"proposalVisible":true,"refsVisible":[true,true,true],"refHits":[true,true,true],"overflow":0}
+NARROW_SEND {"size":[1270,800],"projectId":"p_75326bf14a","status":"","dialogOpen":true,"chips":"字幕 · 00:01–00:02 · 合成句子一移除字幕 · 00:03–00:04 · 合成句子二移除"}
+NARROW_VIEW {"size":[1270,800],"view":{"thread":[272.6041564941406,184.0972137451172],"reply":[371.6319274902344,69.2592544555664],"replyInside":true,"text":"助手已生成提案：保留 2 句，成片约 00:03。请先查看再应用。"},"proposal":{"x":979,"y":475,"hit":true,"rect":[933.3333129882812,460.6944274902344,91.48147583007812,28.310184478759766]},"proposalVisible":true,"refsVisible":[true,true,true],"refHits":[true,true,true],"overflow":0}
+NARROW_COMPLETE {"requests":3,"transport":"injected-test-only","projectId":"p_75326bf14a","saved":true}
+MONTCLIP_SMOKE {"nodeUnavailable":true,"projectLoaded":true,"apiStatus":200,"externalBlocked":true,"compositor":true,"saved":true}

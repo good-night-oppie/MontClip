@@ -108,5 +108,14 @@ PR23 drag correction (base18261590): defer track folding/content focus during st
 
 Simple view occupied-lane follow-up: V1/A1 placeholders retained only if their kind has no occupied lane; V2+A1 visible together at804/630 with preview>=160×90, offscreen4/4, Node602/602. VV originalPR23 drag result remains separate; new same-head visible acceptance pending. Details validation/2026-11-01-simple-primary.md.
 
+2026-11-01 official-source integration increment: actual unchanged Cindy composer/text/configuration primitives at pinned0219236, main-owned user-configured fixed-provider text transport and explicit payload review, existing sentence proposal/apply/undo. Hidden Windows Electron session/config reopen and injected-response edit cycle verified; no live-provider acceptance, full Cindy container/tool parity, visible-window approval or portable package claim. See decisions/2026-11-01-official-cindy-port.md and validation/2026-11-01-official-pane.md.
+
+2026-11-01 PR26 follow-up: proposal-card button calls existing global undo directly, localized latest-edit wording; real hidden Electron card Undo/topbar Redo/topbar Undo produce identical clip states and shared one-step depth. No separate undo history; visible/physical/live-model gates remain pending.
+
+PR26 QQ follow-up: explicit backed-up connection reset, complete scheduler MIT notice and bundle license coverage; Windows628/628+release-check and hidden synthetic reset/reopen pass. Renderer-only consent limitation documented. Real provider/VV/portable release remain unverified; see existing official-pane validation record.
+
+PR26 follow-up: own-application top-of-shared-undo eligibility and JJ final disclosure/noun chips;630/630 plus release-check and hidden DOM lifecycle pass. New same-head QQ/JJ/VV review required; live provider remains unaccepted.
+
+PR26 VV workflow increment: readable review/text/chips/quoted proposal summary, fixed action, zero-send reask;634/634+release-check and hidden workflow pass.630x452 shows only reply end in29px scroll area, VV usability pending. Legacy proposal-dialog locale/time and separate three-track V3/V1/A1 visibility remain open.
 Agent paste follow-up: independent PR22-based delta rejects entire over-limit paste before native maxlength truncates it, with explicit bilingual notice and retained accepted draft; exact-limit selected replacement accepted. Real trusted Chromium paste zh/en2/2; physical VV/JJ/QQ review pending. Evidence: validation/2026-11-01-agent-paste-limit.md. Other input overflow/IME behavior not expanded.
 Independent three-track visibility increment (basePR25): V3 subtitle+V1 video+A1 audio initial focus now favors actual AV pair;8 hidden viewport/mode/assistant cases with full V1/A1 clip visibility and16 split/undos. No PR26 changes; combined-tree/visibleVV acceptance pending. See validation/2026-11-01-three-track.md.
