@@ -3,6 +3,8 @@
 const {app,BrowserWindow}=require('electron');
 const assert=require('node:assert/strict'),fs=require('node:fs'),crypto=require('node:crypto');
 assert.ok(process.argv.includes('--montclip-smoke'));
+const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
+if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const input=fs.readFileSync(process.env.MONTCLIP_TIMELINE_INPUT);
 const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...args){

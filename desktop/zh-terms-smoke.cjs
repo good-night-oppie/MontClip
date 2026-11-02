@@ -4,6 +4,8 @@
 // and captures the app's own page (capturePage; never the screen) in zh-CN and en at two sizes.
 const electron=require('electron'),{app,BrowserWindow}=electron,fs=require('node:fs'),path=require('node:path');
 if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke required');
+const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
+if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const out=process.env.MONTCLIP_TERMS_OUT;
 const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...args){await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=ms=>new Promise(r=>setTimeout(r,ms));
