@@ -111,7 +111,9 @@ async function start() {
     if (stopping) return;
     // start() only runs once the app is ready, so a message box can show here
     const t = nativeText(languageOf(settings.get()));
-    dialog.showMessageBox({ type: "error", title: t.serviceStoppedTitle, message: t.serviceStopped, buttons: [t.ok], noLink: true });
+    const options = { type: "error", title: t.serviceStoppedTitle, message: t.serviceStopped, buttons: [t.ok], noLink: true };
+    // over the editor window while it is open, so the box cannot end up behind it
+    if (win && !win.isDestroyed()) dialog.showMessageBox(win, options); else dialog.showMessageBox(options);
   });
   await win.loadURL(origin);
   if (faultTest) {
@@ -157,14 +159,18 @@ app.on("before-quit", (event) => {
 // Electron does not consistently propagate process.exitCode through app.quit().
 app.on("will-quit", (event) => { if (smoke && process.exitCode) { event.preventDefault(); app.exit(process.exitCode); } });
 app.whenReady().then(start).catch(async (error) => {
-  if (smoke) { console.error(error); process.exitCode = 1; }
-  else {
-    // the interface language from view-settings.json (Chinese when it cannot be read); the box is
-    // awaited: a message box does not block, and quitting would close it at once
-    let t; try { t = nativeText(languageOf(createStore(app.getPath("userData")).get())); } catch { t = nativeText("zh-CN"); }
-    await dialog.showMessageBox({ type: "error", title: t.startFailedTitle,
-      message: `${(error && error.textKey && t[error.textKey]) || String((error && error.message) || error)}\n${t.startFailedHint}`,
-      buttons: [t.ok], noLink: true });
+  try {
+    if (smoke) { console.error(error); process.exitCode = 1; }
+    else {
+      // the interface language from view-settings.json (Chinese when it cannot be read); the box is
+      // awaited: a message box does not block, and quitting would close it at once
+      let t; try { t = nativeText(languageOf(createStore(app.getPath("userData")).get())); } catch { t = nativeText("zh-CN"); }
+      await dialog.showMessageBox({ type: "error", title: t.startFailedTitle,
+        message: `${(error && error.textKey && t[error.textKey]) || String((error && error.message) || error)}\n${t.startFailedHint}`,
+        buttons: [t.ok], noLink: true });
+    }
+  } finally {
+    // quit even when the box could not be shown
+    closing = true; app.quit();
   }
-  closing = true; app.quit();
 });
