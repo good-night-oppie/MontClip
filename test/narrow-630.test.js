@@ -32,3 +32,12 @@ test('the caption lane above is folded with a hint instead of being left behind 
  assert.match(app,/syncTimelineTrackView\.folded/);
  assert.match(read('ui-preferences.js'),/"tl-above-captions": \["Captions above", "字幕轨在上方"\]/);
 });
+
+// VV (85f66ea, real window 630×460): the hint stayed on screen after a click (hidden lost to .btn's display), and the
+// open settings were 108 px with the key box below the fold. The smoke now sizes the page itself to 630×460.
+test('a hidden hint is off screen, and compact settings use small labels and fields',()=>{
+ const css=read('style.css');
+ assert.match(css,/#btnTracksAbove\[hidden\] \{display:none;\}/);
+ assert.match(css,/#mcAgentContent \.cindy-port\.compact\.config-open > \.cindy-config label \{font-size:10px;line-height:12px;gap:1px;\}/);
+ assert.match(css,/#mcAgentContent \.cindy-port\.compact\.config-open > \.cindy-config :is\(select,input\) \{height:24px;min-height:24px;/);
+});
