@@ -1,6 +1,6 @@
 /* Desktop host for the existing editor and compositor. No renderer Node API. */
 "use strict";
-const { app, BrowserWindow, dialog, session, utilityProcess, ipcMain } = require("electron");
+const { app, BrowserWindow, dialog, session, utilityProcess, ipcMain, safeStorage } = require("electron");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { createStore, allowed: settingsAllowed } = require("./view-settings");
@@ -82,6 +82,15 @@ async function start() {
     event.returnValue=settingsAllowed(event,win,origin)?workspaceSettings[operation](value):{ok:false,code:'WORKSPACE_FORBIDDEN'};
   });
   const agentSessions = require('./agent-session-store').createStore(app.getPath('userData'));
+  const AgentService = require('./agent-service');
+  // OpenRouter only for tests: development builds, or the main process's own launch switch (never the page)
+  const agentService = AgentService.createDiskService(app.getPath('userData'),safeStorage,undefined,{providers:AgentService.testProvidersEnabled({isPackaged:app.isPackaged,argv:process.argv,env:process.env})?AgentService.ALL_PROVIDERS:AgentService.PUBLIC_PROVIDERS});
+  for(const operation of ['get','configure','reset','send','cancel']) ipcMain.handle('montclip:agent:'+operation,(event,value)=>{
+    if(!settingsAllowed(event,win,origin))return {ok:false,code:'AGENT_FORBIDDEN'};
+    return agentService[operation](value);
+  });
+  win.webContents.on('render-process-gone',()=>agentService.dispose());
+  win.on('closed',()=>agentService.dispose());
   for(const operation of ['get','set']) ipcMain.on('montclip:sessions:'+operation,(event,value)=>{
     event.returnValue=settingsAllowed(event,win,origin)?agentSessions[operation](value):{ok:false,code:'SESSION_FORBIDDEN'};
   });

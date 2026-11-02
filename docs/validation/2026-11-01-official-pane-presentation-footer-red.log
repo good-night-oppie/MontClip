@@ -1,0 +1,43 @@
+
+
+  FableCut running →  http://localhost:12195
+
+  project file : <user>\AppData\Local\Temp\MontClip-official-pane-7HnkLW\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-official-pane-7HnkLW\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-official-pane-7HnkLW\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+OFFICIAL_CONFIG_ESCAPE focus-restored
+(electron) 'safeStorage.isEncryptionAvailable' is deprecated and will be removed. Please use 'safeStorage.isAsyncEncryptionAvailable' instead.
+(electron) 'safeStorage.encryptString' is deprecated and will be removed. Please use 'safeStorage.encryptStringAsync' instead.
+OFFICIAL_IME synthetic-composition-enter: zero review/send
+OFFICIAL_REVIEW {"projectId":"p_3c49917304","revision":3,"draftLength":907,"status":[""],"sessionCount":1}
+OFFICIAL_COPY labels/time/disclosure/synthetic-event-paste: passed
+OFFICIAL_REPLY_VIEW {"width":804,"bottom":0,"replyVisible":true,"hit":true,"noJSON":true}
+OFFICIAL_REPLY_VIEW {"width":630,"bottom":0,"replyVisible":true,"hit":true,"noJSON":true}
+OFFICIAL_CARD_UNDO own-top-entry visibility/apply/undo/redo same-global-chain: passed
+OFFICIAL_LAYOUT {"mode":"simple","language":"zh-CN","hits":[true,true,true,true,true,true,true],"width":1270,"preview":[588.828125,331.203125],"draft":[936,449,286,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"en","hits":[true,true,true,true,true,true,true],"width":1270,"preview":[588.828125,331.203125],"draft":[936,449,286,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"zh-CN","hits":[true,true,true,true,true,true,true],"width":1270,"preview":[588.828125,331.203125],"draft":[936,449,286,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"en","hits":[true,true,true,true,true,true,true],"width":1270,"preview":[588.828125,331.203125],"draft":[936,449,286,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"zh-CN","hits":[true,true,true,true,true,true,true],"width":1100,"preview":[451.546875,253.984375],"draft":[754,350,298,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"en","hits":[true,true,true,true,true,true,true],"width":1100,"preview":[451.546875,253.984375],"draft":[754,350,298,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"zh-CN","hits":[true,true,true,true,true,true,true],"width":1100,"preview":[451.546875,253.984375],"draft":[754,350,298,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"en","hits":[true,true,true,true,true,true,true],"width":1100,"preview":[451.546875,253.984375],"draft":[754,350,298,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"zh-CN","hits":[true,true,true,true,true,true,true],"width":804,"preview":[316.4375,177.984375],"draft":[552.734375,271,209.265625,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"en","hits":[true,true,true,true,true,true,true],"width":804,"preview":[266.25,149.765625],"draft":[552.734375,271,209.265625,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"zh-CN","hits":[true,true,true,true,true,true,true],"width":804,"preview":[316.4375,177.984375],"draft":[552.734375,271,209.265625,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"en","hits":[true,true,true,true,true,true,true],"width":804,"preview":[266.25,149.765625],"draft":[552.734375,271,209.265625,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"zh-CN","hits":[true,false,true,true,true,true,true],"width":630,"preview":[161.359375,90.75],"draft":[386,218.5,202,56],"overflow":0,"text":"保留草稿 retained"}
+AssertionError [ERR_ASSERTION]: core control covered
+    at BrowserWindow.loadURL (<repo>\desktop\official-pane-smoke.cjs:55:874)
+    at async start (<repo>\desktop\main.js:131:3) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}

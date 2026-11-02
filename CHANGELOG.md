@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Partial official Apache-2.0 Cindy composer/configuration component port, local session restoration, explicit full-payload confirmation, fixed-provider desktop transport and guarded sentence proposal preview/apply/undo. Live-provider and visible-window acceptance remain pending.
+
 ### Fixed
 - Show the final session-capacity and message-length guidance only for the corresponding rejected action.
 - Reject oversized Agent draft pastes explicitly instead of silently truncating their text; preserve the accepted draft.

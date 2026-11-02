@@ -1,0 +1,22 @@
+
+
+  FableCut running →  http://localhost:41103
+
+  project file : <user>\AppData\Local\Temp\MontClip-real-e2e-ao8FKN\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-real-e2e-ao8FKN\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-real-e2e-ao8FKN\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+(electron) 'safeStorage.isEncryptionAvailable' is deprecated and will be removed. Please use 'safeStorage.isAsyncEncryptionAvailable' instead.
+(electron) 'safeStorage.encryptString' is deprecated and will be removed. Please use 'safeStorage.encryptStringAsync' instead.
+E2E_STEP {"name":"configured","provider":"deepseek","model":"deepseek-flash","configured":true}
+E2E_STEP {"name":"review","domain":"api.deepseek.com · deepseek-flash","formatNote":true,"raw":true}
+(electron) 'safeStorage.decryptString' is deprecated and will be removed. Please use 'safeStorage.decryptStringAsync' instead.
+E2E_STEP {"name":"reply","ms":1828,"text":"助手已生成提案：保留 2 句，成片约 00:04。请先查看再应用。","button":true,"noProposal":false,"notice":""}
+E2E_STEP {"name":"proposal-dialog","ranges":"1,3.2\n3.2,5"}
+E2E_STEP {"name":"applied","changed":true,"clips":2}
+E2E_STEP {"name":"undone","restored":true}
+E2E_DONE {"passed":true,"skipped":null,"failed":null}
+MONTCLIP_SMOKE {"nodeUnavailable":true,"projectLoaded":true,"apiStatus":200,"externalBlocked":true,"compositor":true,"saved":true}

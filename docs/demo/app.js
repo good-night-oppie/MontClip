@@ -3949,7 +3949,7 @@ function restoreSnapshot(json) {
 /** The current state to step back to, carrying the media list when `snap` does
  *  (removing, relinking or replacing media), so redo puts it back too. */
 function counterSnapshot(snap) {
-  if (snap.includes('"rangeState":')) return JSON.stringify({ ...JSON.parse(undoSnapshot()), rangeState: {
+  if (snap.includes('"rangeState":')) return JSON.stringify({ ...JSON.parse(undoSnapshot()), ...(JSON.parse(snap).agentApplyId ? {agentApplyId:JSON.parse(snap).agentApplyId} : {}), rangeState: {
     inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
   } });
   if (!snap.includes('"media":')) return undoSnapshot();
@@ -9315,7 +9315,7 @@ function buildTranscriptPage() {
   root.querySelectorAll("[data-tr-cap-file]").forEach((b) => b.addEventListener("click", () => downloadCaptions(b.dataset.trCapFile)));
   const capInput = q("[data-tr-cap-input]");
   q("[data-tr-cap-import]").addEventListener("click", () => capInput.click());
-  q("[data-tr-sentences]").addEventListener("click", showSentenceSelection);
+  q("[data-tr-sentences]").addEventListener("click", () => showSentenceSelection());
   q("[data-tr-mapping]").addEventListener("click", downloadSourceMap);
   capInput.addEventListener("change", async () => {
     const f = capInput.files && capInput.files[0];
@@ -9585,10 +9585,13 @@ function watchCaptions(now) {
   }
 }
 /** SRT sentence selection: preview a read-only plan, apply on a clone as one undo step. */
-async function showSentenceSelection() {
-  if (state.exporting || state.gesture || state.compCtx) { toast("请先结束导出或退出嵌套编辑 / Finish export or nested editing first"); return; }
-  if (!(await flushSaveBeforeSwitch())) return;
-  const doc = projectJSON(), signature = JSON.stringify(doc), projectId = runtime.projectId;
+async function showSentenceSelection(suggestion = null, onApplied = null) {
+  const busy=()=>state.exporting||state.gesture||state.compCtx||runtime.activeImports||runtime.activeTranscriptions||runtime.desktopExportPending||runtime.saveRequests||runtime.saveTimer||runtime.saveFailed||(typeof closeSaveTransaction!=='undefined'&&closeSaveTransaction);
+  const proposalContext=()=>({...agentProjectContext(),generation:agentProjectContext().gen});
+  if (state.exporting || state.gesture || state.compCtx || suggestion&&busy()) { toast("请先结束编辑、导出并确认保存 / Finish editing/export and confirm saving first"); return; }
+  if (suggestion) {if(!MontClipProposal.current(suggestion,projectJSON(),proposalContext())){console.warn("showSentenceSelection: the suggestion is not valid for the current project; nothing opened");return;}}
+  else if (!(await flushSaveBeforeSwitch())) return;
+  const doc = projectJSON(), signature = JSON.stringify(doc), projectId = runtime.projectId, projectGen=runtime.projectGen, sequenceId=SeqLib.activeId(seqRoot());
   const captions = doc.clips.filter((c) => FableCutCaptions.isCaption(c) && !c.disabled && !(doc.disabledTracks || []).includes(c.track)).sort((a, b) => a.start - b.start);
   if (!captions.length) { toast("先导入 SRT 或添加字幕 / Import SRT or add captions first"); return; }
   pause();
@@ -9603,6 +9606,7 @@ async function showSentenceSelection() {
     <button type="button" class="btn primary" data-apply>保留选段 / Apply</button>
     <button class="btn" value="cancel">取消 / Cancel</button></div></form>`;
   const list = dialog.querySelector("[data-sentences]"), summary = dialog.querySelector("[data-summary]");
+  if(suggestion){dialog.querySelector('[data-ranges]').value=suggestion.keep.map(r=>r.from+','+r.to).join('\n');dialog.querySelector('[data-ranges]').readOnly=true;list.hidden=true;}
   const selected = new Set();
   let previewTimer, plan;
   let previewSettings;
@@ -9636,7 +9640,7 @@ async function showSentenceSelection() {
     label.append(input, text); list.append(label);
   }
   dialog.querySelector("[data-ranges]").addEventListener("input", refresh);
-  const current = () => JSON.stringify(projectJSON()) === signature && runtime.projectId === projectId;
+  const current = () => JSON.stringify(projectJSON()) === signature && runtime.projectId === projectId && runtime.projectGen===projectGen && SeqLib.activeId(seqRoot())===sequenceId && (!suggestion||!busy()&&MontClipProposal.current(suggestion,projectJSON(),proposalContext()));
   const changed = () => { stopPreview(); summary.textContent = "项目已变化，请关闭后重新选择 / Project changed; reopen selection"; };
   dialog.querySelector("[data-preview]").addEventListener("click", () => {
     if (!plan) return;
@@ -9660,10 +9664,11 @@ async function showSentenceSelection() {
     if (!current()) { changed(); return; }
     try {
       const next = plan.project;
-      const snap = JSON.stringify({ ...JSON.parse(undoSnapshot()), rangeState: {
+      const applyToken = suggestion ? crypto.randomUUID() : null;
+      const snap = JSON.stringify({ ...JSON.parse(undoSnapshot()), ...(applyToken ? {agentApplyId:applyToken} : {}), rangeState: {
         inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
       } });
-      applyProject(next); pushUndo(snap); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
+      applyProject(next); pushUndo(snap); if(onApplied)onApplied(applyToken); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
       dialog.close(); toast("已拼接选段，可撤销 / Joined selected sentences; Undo is available");
     } catch (error) { summary.textContent = error.message; }
   });
@@ -20853,15 +20858,60 @@ connectServer().then(() => { loadLibraryFonts(); runExportJobFromUrl(); });
 requestAnimationFrame(loop);
 
 // Pane state is independent of editor view mode; all actions rebind to the live project/sequence.
+/* The assistant needs the open project's id. A first-run default project has none
+   until the projects list is read (GET /api/projects gives ./project.json its id).
+   This path only adopts that id: it never reloads the document (unlike pjLoad, which
+   may syncFromServer when the read-back differs), so an edit made meanwhile or an
+   outside write is never loaded over the view. If the id cannot be adopted safely it
+   returns false and the pane offers "Save project". (No dialog.) */
+async function ensureAgentProject(){
+ if(runtime.projectId==="?")return false;   // a project switch is pending elsewhere
+ if(runtime.projectId)return true;
+ if(!await flushSave())return false;
+ const gen=runtime.projectGen,sequenceId=SeqLib.activeId(seqRoot()),snapshot=JSON.stringify(projectJSON());
+ try{
+  const list=await fetch("/api/projects?archived=exclude",{cache:"no-store"});
+  const active=list.ok?(await list.json()).active:null;
+  if(!active)return false;
+  const r=await fetch("/api/project",{cache:"no-store"});
+  const doc=r.ok?await r.json():null;
+  const ids=d=>JSON.stringify([d.name,d.revision||0,(d.clips||[]).map(c=>c.id),(d.media||[]).map(m=>m.id)]);
+  const shown=projectJSON();
+  // adopt only if nothing moved: same project on disk as on screen, no edit since the save
+  if(!doc||r.headers.get("X-FableCut-Project")!==active||ids(doc)!==ids(shown)||JSON.stringify(shown)!==snapshot||
+    runtime.projectGen!==gen||runtime.projectId)return false;
+  mcAgent?.identify({projectId:active,sequenceId,gen});
+  runtime.projectId=active;
+  return true;
+ }catch{return false;}
+}
+function agentProjectContext(){
+ return {projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen??0,revision:project.revision};
+}
+const officialProposalApplications=new WeakMap();
+function canUndoOfficialProposal(result){
+ const entry=result&&officialProposalApplications.get(result),c=agentProjectContext();
+ if(!entry||entry.projectId!==c.projectId||entry.sequenceId!==c.sequenceId||entry.gen!==c.gen)return false;
+ try{return JSON.parse(runtime.undo.at(-1)).agentApplyId===entry.token;}catch{return false;}
+}
 const mcAgentPanel=document.getElementById('mcAssistantPanel');
 document.querySelector(".upper > .inspector").append(mcAgentPanel);
 document.querySelector(".topbar-right").prepend(document.getElementById("mcMediaToggle"));
 document.querySelector(".topbar-right").insertBefore(document.querySelector(".mc-history"),document.getElementById("btnExport"));
 document.getElementById("mcMediaToggle").onclick=()=>document.getElementById("app").classList.toggle("media-open");
-mcAgent=MontClipAgentPane.mount({panel:document.getElementById('mcAgentContent'),
- getContext:()=>({projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen,revision:project.revision}),
+mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentContent'),
+ getContext:agentProjectContext,ensureProject:ensureAgentProject,
  getLanguage:()=>mcView.get().language,settings:window.montclipPaneSettings,sessionStorage:window.montclipAgentSessions,
  onHide:()=>{setSideTab("inspector");document.getElementById("mcAssistant").focus();},
- getReferences:kind=>MontClipAgentPane.referenceChips(kind,{projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen,revision:project.revision,
+ getProjectName:id=>id===runtime.projectId?project.name:null,
+ canUndoProposal:canUndoOfficialProposal,
+ onUndo:result=>{if(canUndoOfficialProposal(result))undo();},
+ onProposal:(response,result)=>{
+   const c=agentProjectContext();
+   if(JSON.stringify(result.context)!==JSON.stringify(c))throw Error('STALE');
+   const proposal=MontClipProposal.prepare(response,{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});
+   showSentenceSelection(proposal,token=>officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen}));
+ },
+ getReferences:kind=>MontClipAgentPane.referenceChips(kind,{...agentProjectContext(),
  start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(FableCutCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
 setInterval(()=>mcAgent.sync(),500);
