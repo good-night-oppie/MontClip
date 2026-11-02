@@ -31,7 +31,7 @@ test('every request starts with the fixed format note; the page cannot add or ch
 
 test('the review shows the format note that will be sent, and the exact request includes it',()=>{
  a.ok(pane.includes('data-format-note'),'review shows it');a.ok(pane.includes('MontClipFormat.FORMAT_NOTE'));
- a.match(pane,/messages:MontClipFormat\.withFormat\(review\?\.messages\|\|\[\]\)/,'raw request = what is sent');
+ a.match(pane,/MontClipFormat\.body\(cfg\?\.model,MontClipFormat\.withFormat\(review\?\.messages\|\|\[\]\)\)/,'raw request = what is sent (same builder as the service)');
  for(const l of ['zh-CN','en'])a.ok(view[l].officialPane_formatNote,l);
 });
 

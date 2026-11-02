@@ -13,5 +13,8 @@ const FORMAT_NOTE=[
  'For any other question, answer briefly in the user\'s language without that JSON.'
 ].join('\n');
 function withFormat(messages){return [{role:'system',content:FORMAT_NOTE}].concat(messages);}
-return {FORMAT_NOTE,withFormat};
+// The request body. The review dialog shows body(model, withFormat(messages)) and the service
+// sends body(model, <the same messages with the note>): one function, so the two cannot drift.
+function body(model,messages){return {model,messages,stream:false,max_tokens:2048};}
+return {FORMAT_NOTE,withFormat,body};
 });

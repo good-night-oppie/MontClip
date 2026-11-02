@@ -5,13 +5,15 @@ const Format=require('../agent-format');
 // Provider failures the pane explains in plain words (anything else is REQUEST_FAILED).
 const KNOWN=new Set(['AUTH','RATE_LIMIT','UPSTREAM','NETWORK','PROVIDER_HTTP','RESPONSE_LIMIT','INVALID_RESPONSE']);
 const fail=code=>({ok:false,code});
+// A reply larger than this is refused (RESPONSE_LIMIT) without reading the rest.
+const RESPONSE_LIMIT_BYTES=131072;
 function validPayload(p){return p&&Object.keys(p).sort().join(',')==='gen,messages,projectId,requestId,revision,sequenceId,version'&&p.version===1&&/^[a-zA-Z0-9_-]{1,80}$/.test(p.requestId)&&typeof p.projectId==='string'&&p.projectId.length>0&&p.projectId.length<=256&&(p.sequenceId===null||typeof p.sequenceId==='string'&&p.sequenceId.length<=256)&&Number.isSafeInteger(p.revision)&&p.revision>=0&&Number.isSafeInteger(p.gen)&&p.gen>=0&&Array.isArray(p.messages)&&p.messages.length>0&&p.messages.length<=100&&p.messages.every(m=>m&&Object.keys(m).sort().join(',')==='content,role'&&['user','assistant'].includes(m.role)&&typeof m.content==='string'&&m.content.length<=16000)&&p.messages.at(-1).role==='user'&&JSON.stringify(p).length<=131072;}
 async function httpsRequest(config,payload,signal,{fetch:get=fetch}={}){
  let response;
- try{response=await get(ENDPOINTS[config.provider],{method:'POST',redirect:'error',signal,headers:{'Content-Type':'application/json',Authorization:'Bearer '+config.key},body:JSON.stringify({model:config.model,messages:payload.messages,stream:false,max_tokens:2048})});}
+ try{response=await get(ENDPOINTS[config.provider],{method:'POST',redirect:'error',signal,headers:{'Content-Type':'application/json',Authorization:'Bearer '+config.key},body:JSON.stringify(Format.body(config.model,payload.messages))});}
  catch(e){if(signal.aborted)throw e;throw Error('NETWORK');}
  if(!response.ok)throw Error(response.status===401||response.status===403?'AUTH':response.status===429?'RATE_LIMIT':response.status>=500?'UPSTREAM':'PROVIDER_HTTP');
- let size=0;const chunks=[];for await(const part of response.body){size+=part.length;if(size>131072){await response.body.cancel().catch(()=>{});throw Error('RESPONSE_LIMIT');}chunks.push(part);}
+ let size=0;const chunks=[];for await(const part of response.body){size+=part.length;if(size>RESPONSE_LIMIT_BYTES){try{await response.body.cancel?.();}catch{}throw Error('RESPONSE_LIMIT');}chunks.push(part);}
  const data=JSON.parse(Buffer.concat(chunks).toString('utf8')),text=data.choices?.[0]?.message?.content;
  if(typeof text!=='string'||text.length>16000||!text.trim())throw Error('INVALID_RESPONSE');return{text};
 }
@@ -38,4 +40,4 @@ function createDiskService(root,safeStorage,fs=require('node:fs')){const path=re
  write(raw){const tmp=file+'.'+randomUUID()+'.tmp';let owned=false;try{fs.writeFileSync(tmp,raw,{flag:'wx',mode:0o600});owned=true;fs.renameSync(tmp,file);owned=false;}finally{if(owned)try{fs.unlinkSync(tmp);}catch{}}},
  seal(key){if(!safeStorage.isEncryptionAvailable())throw Error();return safeStorage.encryptString(key).toString('base64');},unseal(secret){return safeStorage.decryptString(Buffer.from(secret,'base64'));}
  });}
-module.exports={createService,createDiskService,validPayload,httpsRequest,ENDPOINTS};
+module.exports={createService,createDiskService,validPayload,httpsRequest,ENDPOINTS,RESPONSE_LIMIT_BYTES};
