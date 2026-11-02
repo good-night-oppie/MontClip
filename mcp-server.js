@@ -16,6 +16,7 @@ const fs = require("fs");
 const path = require("path");
 const http = require("http");
 const { spawn, spawnSync } = require("child_process");
+const FF = require("./ffmpeg-path");
 const { loadEncodeProfiles, listProfilesPublic, resolveProfile, profileSummary } = require("./encode-profiles");
 
 const {
@@ -125,7 +126,7 @@ const KIND_BY_EXT = {
 };
 function ffprobeDuration(file) {
   try {
-    const r = spawnSync("ffprobe",
+    const r = spawnSync(FF.path("ffprobe"),
       ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file],
       { encoding: "utf8", timeout: 10_000 });
     const d = parseFloat((r.stdout || "").trim());
@@ -556,9 +557,9 @@ function clipSourceLen(c) {
   return sum;
 }
 function probeChannels(file) {
-  const r = spawnSync("ffprobe", ["-v", "error", "-select_streams", "a:0", "-show_entries", "stream=channels",
+  const r = spawnSync(FF.path("ffprobe"), ["-v", "error", "-select_streams", "a:0", "-show_entries", "stream=channels",
     "-of", "csv=p=0", file], { encoding: "utf8" });
-  if (r.error) throw new Error("ffprobe not found on PATH — needed to measure audio");
+  if (r.error) throw new Error(FF.why("ffprobe", "to measure audio"));
   const n = parseInt(String(r.stdout).trim(), 10);
   return n > 0 ? n : 0;
 }
@@ -571,7 +572,7 @@ function streamClipAudio(proj, c0, onStart, onChunk) {
   const nCh = probeChannels(file);
   if (!nCh || onStart(nCh) === false) return Promise.resolve(0);
   return new Promise((resolve, reject) => {
-    const proc = spawn("ffmpeg", ["-v", "error", "-ss", String(Math.max(0, +c0.in || 0)),
+    const proc = spawn(FF.path("ffmpeg"), ["-v", "error", "-ss", String(Math.max(0, +c0.in || 0)),
       "-t", String(Math.max(0.01, clipSourceLen(c0))), "-i", file, "-vn", "-map", "0:a:0",
       "-ar", String(NORM_SR), "-f", "f32le", "-acodec", "pcm_f32le", "-"]);
     let rest = Buffer.alloc(0), err = "";
@@ -587,7 +588,7 @@ function streamClipAudio(proj, c0, onStart, onChunk) {
       onChunk(chs);
     });
     proc.stderr.on("data", (d) => { err += d; });
-    proc.on("error", () => reject(new Error("ffmpeg not found on PATH — needed to read audio")));
+    proc.on("error", () => reject(new Error(FF.why("ffmpeg", "to read audio"))));
     proc.on("close", (code) => code === 0 ? resolve(nCh)
       : reject(new Error(`ffmpeg failed reading ${c0.id}: ${err.trim().split("\n").pop() || code}`)));
   });
@@ -742,8 +743,8 @@ function sampleFrames(file, c, w, h) {
     ? ["-v", "error", "-i", file, "-frames:v", "1", "-vf", `scale=${w}:${h}`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
     : ["-v", "error", "-ss", String(Math.max(0, +c.in || 0)), "-t", String(len), "-i", file, "-an",
        "-vf", `fps=${R.SAMPLE_FPS},scale=${w}:${h}`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"];
-  const r = require("child_process").spawnSync("ffmpeg", args, { maxBuffer: 1 << 29, timeout: Math.max(120000, len * 2000) });
-  if (r.error?.code === "ENOENT") throw new Error("ffmpeg not found on PATH — needed to look at the footage");
+  const r = require("child_process").spawnSync(FF.path("ffmpeg"), args, { maxBuffer: 1 << 29, timeout: Math.max(120000, len * 2000) });
+  if (r.error?.code === "ENOENT") throw new Error(FF.why("ffmpeg", "to look at the footage"));
   if (r.error) throw new Error(`ffmpeg couldn't read ${c.id}: ${r.error.code === "ETIMEDOUT" ? "it took too long" : r.error.message}`);
   if (r.status !== 0) throw new Error(`ffmpeg couldn't read ${c.id}: ${String(r.stderr).trim().split("\n").pop()}`);
   const fb = w * h * 3, frames = [];
@@ -780,7 +781,7 @@ async function reframeTool(args) {
     if (!file) { skip.push({ id: c.id, why: "media file not found" }); continue; }
     let src = m.width > 0 && m.height > 0 ? { width: m.width, height: m.height } : null;
     if (!src) {
-      const pr = require("child_process").spawnSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", file], { timeout: 10000 });
+      const pr = require("child_process").spawnSync(FF.path("ffprobe"), ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", file], { timeout: 10000 });
       const [w, h] = String(pr.stdout).trim().split(",").map(Number);
       if (w > 0 && h > 0) src = { width: w, height: h };
     }
@@ -818,7 +819,7 @@ async function reframeTool(args) {
 function streamPicture(file, from, len, w, h, push) {
   const H = require("./highlights.js");
   return new Promise((resolve, reject) => {
-    const proc = spawn("ffmpeg", ["-v", "error", "-ss", String(Math.max(0, from)), "-t", String(Math.max(0.1, len)), "-i", file, "-an",
+    const proc = spawn(FF.path("ffmpeg"), ["-v", "error", "-ss", String(Math.max(0, from)), "-t", String(Math.max(0.1, len)), "-i", file, "-an",
       "-vf", `fps=${H.PIC_FPS},scale=${w}:${h}`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]);
     const fb = w * h * 3;
     let rest = Buffer.alloc(0), err = "", n = 0;
@@ -830,7 +831,7 @@ function streamPicture(file, from, len, w, h, push) {
       rest = Buffer.from(buf.subarray(o));
     });
     proc.stderr.on("data", (d) => { err += d; });
-    proc.on("error", (e) => { clearTimeout(tm); reject(new Error(e.code === "ENOENT" ? "ffmpeg not found on PATH — needed to look at the footage" : e.message)); });
+    proc.on("error", (e) => { clearTimeout(tm); reject(new Error(e.code === "ENOENT" ? FF.why("ffmpeg", "to look at the footage") : e.message)); });
     proc.on("close", (code) => { clearTimeout(tm); if (code === 0) resolve(n); else reject(new Error(`ffmpeg couldn't read the footage: ${err.trim().split("\n").pop() || code}`)); });
   });
 }
@@ -871,7 +872,7 @@ async function highlightsTool(args) {
     if (!file) { skip.push({ id: s.id, why: "media file not found" }); continue; }
     let mw = s.media.width, mh = s.media.height;
     if (!(mw > 0 && mh > 0)) {
-      const pr = spawnSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", file], { timeout: 10000 });
+      const pr = spawnSync(FF.path("ffprobe"), ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", file], { timeout: 10000 });
       [mw, mh] = String(pr.stdout || "").trim().split(",").map(Number);
     }
     const w = H.SAMPLE_W, h = Math.max(8, Math.round((w * (mw > 0 && mh > 0 ? mh / mw : 9 / 16)) / 2) * 2);

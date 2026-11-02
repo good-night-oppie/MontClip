@@ -23,6 +23,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { spawn } = require("child_process");
+const FF = require("./ffmpeg-path");
 
 const PROFILES_FILE = path.join(__dirname, "encoding-profiles.json");
 
@@ -250,7 +251,7 @@ const DRY_RUN_TIMEOUT_MS = 15_000;
    renders anything. Without this a typo (or an encoder this ffmpeg build lacks)
    would only surface when ffmpeg exits — i.e. after every frame was rendered.
    Async spawn so /api/export/begin does not block the event loop. */
-function dryRunProfile(profile, { fps = 30, hasAudio = true } = {}) {
+function dryRunProfile(profile, { fps = 30, hasAudio = true, bin = FF.path("ffmpeg") } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "fablecut-dry-"));
   const out = path.join(dir, `probe${profile.extension}`);
   // 256×144: hardware encoders refuse tiny frames (NVENC's minimum is about
@@ -272,7 +273,7 @@ function dryRunProfile(profile, { fps = 30, hasAudio = true } = {}) {
       resolve(result);
     };
     try {
-      proc = spawn("ffmpeg", args, { stdio: ["ignore", "ignore", "pipe"] });
+      proc = spawn(bin, args, { stdio: ["ignore", "ignore", "pipe"] });
     } catch (e) {
       finish({ ok: false, error: e.message || String(e) });
       return;
