@@ -4534,12 +4534,13 @@ body { background: var(--bg); }
 /* One right page region; header and timeline always span the workbench. */
 body { display:block; overflow:hidden; }
 .app { min-width:0; }
-.app .upper { grid-template-columns:minmax(150px,200px) minmax(260px,1fr) minmax(260px,320px); min-height:200px; }
+.app .upper { grid-template-columns:minmax(150px,200px) minmax(260px,1fr) minmax(260px,320px); min-height:140px; }
 .app.agent-open .upper { grid-template-columns:minmax(150px,190px) minmax(280px,1fr) minmax(280px,min(var(--agent-pane-width,340px),34vw)); }
 body[data-mc-mode] .upper > .bin { grid-column:1; grid-row:1; }
 body[data-mc-mode] .upper > .monitor { grid-column:2; grid-row:1; }
 body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
-.app .timeline-panel { flex-basis:clamp(110px,var(--timeline-h,180px),25vh); min-height:110px; }
+.app .timeline-panel { flex-basis:clamp(180px,var(--timeline-h,180px),32vh); min-height:180px; }
+.track[hidden],.track-head[hidden] { display:none; }
 .app .upper > .inspector { display:flex; flex-direction:column; min-height:0; }
 .side-tabs { flex-shrink:0; overflow-x:auto; }
 .side-tabs button { flex-shrink:0; }
@@ -4569,14 +4570,13 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
  .transport { display:flex; flex-wrap:wrap; justify-content:center; gap:3px; padding:3px; min-height:36px; }
  .transport-end { gap:3px; }
  .transport > .tc { display:none; }
- #mcAgentContent [data-local],#mcAgentContent [data-messages]:empty { display:none; }
+ #mcAgentContent [data-messages]:empty { display:none; }
  .layout-tools { display:none; }
 }
 @media(max-height:600px) {
  .app { gap:3px; padding:3px; }
- .app .timeline-panel { flex-basis:110px; min-height:110px; }
  #mcAgentContent { gap:2px; }
- #mcAgentContent [data-local],#mcAgentContent [data-key=paneTools] { display:none; }
+ #mcAgentContent [data-key=paneTools] { display:none; }
  #mcAgentContent [data-sessions] { max-height:24px; }
  #mcAgentContent [data-messages] { max-height:24px; }
  #mcAgentContent input[type=search] { height:24px; }
@@ -4593,7 +4593,12 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 #mcAgentContent > textarea,#mcAgentContent > .agent-toolbar { flex-shrink:0; }
 @media(max-height:600px) { #mcAgentContent > textarea { height:40px; min-height:40px; } }
 @media(max-width:700px) {
- .monitor .panel-head { max-height:32px; min-height:32px; }
- .app .timeline-panel { flex-basis:100px; min-height:100px; }
+ .monitor .panel-head { max-height:28px; min-height:28px; padding-top:2px; padding-bottom:2px; }
+ .monitor-stage { margin:2px; }
+ .transport { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px; padding:2px; }
+ .transport-btns { grid-column:1 / -1; grid-row:1; justify-content:center; }
+ .transport > .tc-playhead { grid-column:1; grid-row:2; min-width:0; }
+ .transport-end { grid-column:2; grid-row:2; max-width:100%; overflow-x:auto; }
+ .transport-end .tc-io.idle { display:none; }
 }
 #mcAgentContent [hidden] { display:none !important; }

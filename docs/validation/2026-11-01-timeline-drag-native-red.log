@@ -1,0 +1,27 @@
+{"status":1,"hashes":{"app.js":"63bd788ede212e0000b9e7aad3e0f839501f60ad67e68101a8f62dda9c3d442e","desktop/timeline-drag-smoke.cjs":"6c68476d204cd635a8461b747580aa86878cb67b25acec921e9a68aa8d097a48"},"profile":"<user>\\AppData\\Local\\Temp\\MontClip-drag-QgmBxI"}
+
+
+  FableCut running →  http://localhost:11831
+
+  project file : <user>\AppData\Local\Temp\MontClip-drag-QgmBxI\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-drag-QgmBxI\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-drag-QgmBxI\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+MONTCLIP_DRAG_CASE {"scenario":"advanced","source":"V1","target":"V2","samples":[{"track":"V2","scroll":0,"gesture":true,"sourceHidden":false},{"track":"V2","scroll":0,"gesture":true,"sourceHidden":false},{"track":"V2","scroll":0,"gesture":true,"sourceHidden":false}],"cancelled":false}
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+false !== true
+
+    at BrowserWindow.loadURL (<repo>\desktop\timeline-drag-smoke.cjs:38:33)
+    at async start (<repo>\desktop\main.js:124:3) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: 'strictEqual',
+  diff: 'simple'
+}

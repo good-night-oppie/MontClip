@@ -1,0 +1,23 @@
+{"status":1,"profile":"MontClip-timeline-red-H69pWF"}
+
+
+  FableCut running →  http://localhost:59353
+
+  project file : <user>\AppData\Local\Temp\MontClip-timeline-red-H69pWF\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-timeline-red-H69pWF\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-timeline-red-H69pWF\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+MONTCLIP_TIMELINE_CASE {"mode":"simple","open":false,"width":1272,"height":738,"preview":{"x":272.77777099609375,"y":129.7106475830078,"w":607.0369873046875,"h":341.45831298828125},"timeline":{"x":5.995370388031006,"y":547.8934936523438,"w":1260.601806640625,"h":184.62962341308594},"tracks":[{"id":"V1","height":57.997684478759766,"visible":3.553253173828125,"clipHeight":51.261573791503906,"clipVisible":0.555572509765625},{"id":"A1","height":41.99073791503906,"visible":0,"clipHeight":35.2546272277832,"clipVisible":0}],"overflow":[0,0],"hits":{"#btnPlay":true,"#btnExport":true,"#mcUndo":true,"#mcRedo":true,"#mcAssistant":true}}
+AssertionError [ERR_ASSERTION]: content tracks clipped
+    at BrowserWindow.loadURL (<repo>\desktop\timeline-content-smoke.cjs:22:10)
+    at async start (<repo>\desktop\main.js:124:3) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
