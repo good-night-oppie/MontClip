@@ -12,6 +12,15 @@ Request JJ review of new keys and trigger conditions, QQ of context-key fix; old
 
 Actual Windows Node result: node --test 586 pass, 0 fail/cancel/skip; node .github/scripts/release-check.js passed. Logs sanitized before staging.
 
+## PR21 final capacity wording delivery
+
+Normal fast-forward follow-up directly on public6dfa20a329ff63940190672aa3aa2f82dc386a09; no later layout, persistence or unrelated locale changes extracted. Parent is exactly that public head; author/committer use GitHub noreply. PR20 dependency remains unchanged. PR22/23 remain on their existing public heads; the equivalent capacity text already present there is not a new approval and their dependency merge must be reconciled without force.
+
+Supersedes the earlier key/trigger paragraph: SESSION_CAPACITY now maps to paneLimitSessions and TEXT_LIMIT to paneLimitChars, using JJ final Chinese/English verbatim. paneScopeCapacity, paneReferenceLimit and paneActionFailed retain their distinct meaning. No restart recommendation. Exactly16000 UTF-16 units is accepted without an error status; only rejected oversized input displays the shortening/splitting text. Unconfigured send remains separate and retains the draft. No new service or transport.
+
+New production mounted-handler regression covers both locales, exact boundary, rejected16001, valid edit clearing error, unconfigured send and51st-session rejection. Before fix1/1 failed on exactly16000 showing the old limit status; after fix1/1 passed. Existing21/21 evidence is retained, not rerun as a separate subset. Because the input handler changed, run the full candidate suite and release-check once; actual totals recorded below and in capacity-final logs. No new Electron/profile/media/physical IME validation.
+
+Final candidate on Windows Node22.15.1: `node --test` (npm test script)587/587,0 fail/cancel/skip; `node .github/scripts/release-check.js` passed. Logs use <repo>/<user> for local paths. No old-head approval inherited; JJ reviews changed keys only, QQ the boundary-handler increment.
 ## JJ final copy integration (current follow-up, not the original PR21 result)
 
 Replaced paneSessionCapacity/paneTextLimit with requested paneLimitSessions/paneLimitChars and the supplied bilingual final text. SESSION_CAPACITY uses the session text; SCOPE_CAPACITY keeps its separate project-return action. The window count includes restored persisted sessions; reopening is not a capacity reset and is not recommended. TEXT_LIMIT uses the too-long text only above16000 UTF-16 units, matching the actual rejection. Exactly16000 is accepted and does not claim it is too long; native maxlength usually prevents further typing. Unconfigured send still reports its independent actual no-provider result.

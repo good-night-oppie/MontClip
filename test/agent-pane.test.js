@@ -2,6 +2,26 @@
 const {test}=require('node:test'),a=require('node:assert/strict');
 const {create,text}=require('../agent-pane');
 const ctx=(id='p',seq='s',gen=1)=>({projectId:id,sequenceId:seq,gen,revision:2});
+
+test('final capacity copy appears only on rejection, in both locales',()=>{
+ const {mount}=require('../agent-pane'),old=global.document;
+ const element=()=>({value:'',dataset:{},style:{setProperty(){}},setAttribute(){},replaceChildren(){},append(){}});
+ try{for(const language of ['zh-CN','en']){
+  const nodes=new Map(),panel={querySelector(s){if(!nodes.has(s))nodes.set(s,element());return nodes.get(s);},querySelectorAll(){return [];}};
+  global.document={createElement:element,documentElement:element()};
+  mount({panel,getContext:()=>ctx(),getLanguage:()=>language});
+  // Wave 2 integration (Deja, 2026-11-02): #22's behaviour wins. Between rejections the status line keeps the
+  // honest disconnected notice instead of going blank, and Send says no provider is set up.
+  a.ok(text[language]['agent.state.disconnected.brief']);a.ok(text[language]['agent.state.sendFailedNoProvider.brief']);
+  const draft=panel.querySelector('[data-draft]'),status=panel.querySelector('[data-status]');
+  draft.value='x'.repeat(16000);draft.oninput({target:draft});a.equal(status.textContent,text[language]['agent.state.disconnected.brief']);
+  draft.value+='x';draft.oninput({target:draft});a.ok(text[language].paneLimitChars);a.equal(status.textContent,text[language].paneLimitChars);
+  draft.value='retained';draft.oninput({target:draft});a.equal(status.textContent,text[language]['agent.state.disconnected.brief']);
+  panel.onclick({target:{dataset:{action:'send'}}});a.equal(status.textContent,text[language]['agent.state.sendFailedNoProvider.brief']);a.equal(draft.value,'retained');
+  for(let i=0;i<49;i++)panel.onclick({target:{dataset:{action:'new'}}});
+  panel.onclick({target:{dataset:{action:'new'}}});a.ok(text[language].paneLimitSessions);a.equal(status.textContent,text[language].paneLimitSessions);
+ }}finally{global.document=old;}
+});
 test('draft/session isolation and no fake response or transport',()=>{const c=create();c.context(ctx());c.draft('你好');a.equal(c.send().code,'UNCONFIGURED');a.equal(c.current().draft,'你好');a.deepEqual(c.current().messages,[]);c.context(ctx('q'));a.equal(c.current().draft,'');c.context(ctx());a.equal(c.current().draft,'你好');c.context(ctx('p','t'));a.equal(c.current().draft,'');});
 test('new/select/search sessions and cancel keep drafts',()=>{const c=create();c.context(ctx());c.draft('alpha');const first=c.current().id;c.newSession();c.draft('beta');a.equal(c.list('alpha').length,1);c.select(first);c.cancel();a.equal(c.current().draft,'alpha');a.equal(c.list().length,2);});
 test('bounded drafts/sessions and locale key parity',()=>{const c=create();c.context(ctx());a.throws(()=>c.draft('x'.repeat(16001)));for(let i=0;i<49;i++)c.newSession();a.throws(()=>c.newSession());a.deepEqual(Object.keys(text.en).sort(),Object.keys(text['zh-CN']).sort());});
@@ -20,3 +40,34 @@ test('capacity recovery restores existing scope without leaking its draft into b
 test('mounted disconnected status uses actual send result and survives locale switch without clearing draft',()=>{const {mount}=require('../agent-pane'),old=global.document;const element=()=>({value:'',dataset:{},style:{setProperty(){}},setAttribute(){},replaceChildren(){},append(){}});const nodes=new Map(),panel={querySelector(s){if(!nodes.has(s))nodes.set(s,element());return nodes.get(s);},querySelectorAll(){return [];}};let language='zh-CN';global.document={createElement:element,documentElement:element()};try{const ui=mount({panel,getContext:()=>ctx(),getLanguage:()=>language});const status=panel.querySelector('[data-status]'),draft=panel.querySelector('[data-draft]');a.equal(status.textContent,text[language]['agent.state.disconnected.brief']);draft.value='x'.repeat(16000);draft.oninput({target:draft});a.equal(status.textContent,text[language]['agent.state.disconnected.brief']);draft.value+='x';draft.oninput({target:draft});a.equal(status.textContent,text[language].paneLimitChars);draft.value='保留这份草稿';draft.oninput({target:draft});panel.onclick({target:{dataset:{action:'send'}}});a.equal(status.textContent,text[language]['agent.state.sendFailedNoProvider.brief']);a.equal(draft.value,'保留这份草稿');language='en';ui.render();a.equal(status.textContent,text.en['agent.state.sendFailedNoProvider.brief']);a.equal(draft.value,'保留这份草稿');a.deepEqual(panel.querySelector('[data-messages]').textContent,text.en.paneEmpty);}finally{global.document=old;}});
 
 test('mounted initial read failure states temporary lifetime and hides futile save retry',()=>{const {mount}=require('../agent-pane'),old=global.document;const element=()=>({value:'',hidden:false,dataset:{},style:{setProperty(){}},setAttribute(){},replaceChildren(){},append(){}});const nodes=new Map(),panel={querySelector(s){if(!nodes.has(s))nodes.set(s,element());return nodes.get(s);},querySelectorAll(){return [];}};global.document={createElement:element,documentElement:element()};let writes=0;try{const ui=mount({panel,getContext:()=>ctx(),getLanguage:()=> 'zh-CN',sessionStorage:{get:()=>({ok:false,code:'SESSION_READ_FAILED'}),set:()=>writes++}});const draft=panel.querySelector('[data-draft]');draft.value='copy before closing';draft.oninput({target:draft});a.equal(panel.querySelector('[data-local]').textContent,text['zh-CN'].paneLocalTemporary);a.equal(panel.querySelector('[data-action=retry]').hidden,true);a.equal(panel.querySelector('[data-persistence]').textContent,'');a.equal(ui.flush(),true);a.equal(writes,0);a.equal(draft.value,'copy before closing');}finally{global.document=old;}});
+
+for(const language of ['zh-CN','en'])test('mounted storage policy is separate from a failed write: '+language,()=>{
+ const {mount}=require('../agent-pane'),old=global.document;
+ const element=()=>({value:'',hidden:false,dataset:{},style:{setProperty(){}},setAttribute(){},replaceChildren(){},append(){}});
+ const nodes=new Map(),panel={querySelector(s){if(!nodes.has(s))nodes.set(s,element());return nodes.get(s);},querySelectorAll(){return [];}};
+ global.document={createElement:element,documentElement:element()};
+ let writes=0;
+ try{
+  const ui=mount({panel,getContext:()=>ctx(),getLanguage:()=>language,sessionStorage:{get:()=>({ok:true,token:'initial',value:{version:1,scopes:[]}}),set:()=>{writes++;return {ok:false,code:'EACCES'};}}});
+  a.equal(panel.querySelector('[data-local]').textContent,text[language].paneLocalPolicy);
+  a.equal(panel.querySelector('[data-persistence]').textContent,'');
+  const draft=panel.querySelector('[data-draft]');draft.value='keep this edit';draft.oninput({target:draft});
+  a.equal(panel.querySelector('[data-local]').textContent,text[language].paneLocalPolicy);
+  a.equal(panel.querySelector('[data-persistence]').textContent,text[language].paneSessionFailed);
+  a.equal(panel.querySelector('[data-action=retry]').hidden,false);
+  a.equal(ui.flush(),false);a.ok(writes>0);a.equal(draft.value,'keep this edit');
+ }finally{global.document=old;}
+});
+
+test('paste limit rejects the entire oversized insertion and allows exact-limit selection replacement',()=>{
+ const {mount}=require('../agent-pane'),old=global.document;
+ const element=()=>({value:'',hidden:false,dataset:{},style:{setProperty(){}},setAttribute(){},replaceChildren(){},append(){}}),nodes=new Map(),panel={querySelector(s){if(!nodes.has(s))nodes.set(s,element());return nodes.get(s);},querySelectorAll(){return [];}};
+ global.document={createElement:element,documentElement:element()};
+ try{const ui=mount({panel,getContext:()=>ctx(),getLanguage:()=> 'en'}),d=panel.querySelector('[data-draft]');d.value='keep';d.oninput({target:d});d.selectionStart=d.selectionEnd=4;
+ let prevented=0;const paste=value=>d.onpaste({clipboardData:{getData:()=>value},preventDefault(){prevented++;}});
+ paste('x'.repeat(15997));a.equal(prevented,1);a.equal(d.value,'keep');a.equal(panel.querySelector('[data-status]').textContent,text.en.panePasteTooLong);
+ d.selectionStart=0;d.selectionEnd=4;paste('x'.repeat(16000));a.equal(prevented,1);
+ d.selectionStart=d.selectionEnd=4;paste('x'.repeat(15994)+'\r\n');a.equal(prevented,1);
+ ui.render();a.equal(d.value,'keep');
+ }finally{global.document=old;}
+});

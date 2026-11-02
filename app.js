@@ -37,12 +37,15 @@ const TRACK_SIZE_KEY = "fablecut-track-size";
 // Shared DOM and project; this controller only changes view preferences.
 let mcAgent = null;
 const mcView = MontClipView.create(window.montclipViewSettings ? MontClipView.desktopStorage(window.montclipViewSettings) : localStorage);
+/** Keyed interface text in the current language (ui-terms.js / ui-preferences.js). Never for user content. */
+const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
 function renderMontClipView() {
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
   document.getElementById("mcAssistantTab").textContent=t.assistant;document.getElementById("mcMediaToggle").textContent=mcView.get().language==="en"?"Media":"素材";
   mcAgent?.render();
   document.querySelector(".mc-history").setAttribute("aria-label", t.undo + " / " + t.redo);
   document.documentElement.lang = language;
+  MontClipView.applyI18n(document, language);
   document.body.dataset.mcMode = mode;
   document.getElementById("mcLanguage").value = language;
   const group = document.getElementById("mcMode"); group.setAttribute("aria-label", t.mode);
@@ -476,9 +479,9 @@ function showClipCtxMenu(clientX, clientY, c) {
     item("Find silences", "", () => findSilences(selectedClips()));
   if (selectedClips().some((x) => isVisualClip(x) && x.kind !== "null"))
     item("Parent to a new null", "", parentSelectionToNull, locked ? "Locked — unlock to change" : null);
-  item("Precompose", "", precomposeSelection, locked ? "Locked — unlock to change" : null);
-  if (c.kind === "comp") item("Open composition", "", () => enterComp(c.compId, c));
-  if (c.mediaId || c.kind === "comp") item("Reveal in project", "", () => revealInProject(c));
+  item(uiText("term.precompose"), "", precomposeSelection, locked ? "Locked — unlock to change" : null);
+  if (c.kind === "comp") item(uiText("term.open-composition"), "", () => enterComp(c.compId, c));
+  if (c.mediaId || c.kind === "comp") item(uiText("term.reveal-in-project"), "", () => revealInProject(c));
   const linked = selectedClips().some((x) => x.linkGroup || x.linkedId);
   if (linked) item("Unlink audio / video", "Ctrl+L", toggleLinkSelected, locked ? "Locked — unlock to change" : null);
   else if (c.kind === "video" || c.kind === "audio") {
@@ -1723,6 +1726,7 @@ function projectJSONHere() {
       if (m.favorite === true) mo.favorite = true;
       if (m.tags && m.tags.length) mo.tags = m.tags.slice();
       if (derivedFrom) { mo.derivedFrom = derivedFrom; if (denoise) mo.denoise = denoise; }
+      if (m.originalSrc) { mo.originalSrc = m.originalSrc; mo.preparation = m.preparation; }
       return mo;
     }),
     clips: clips.map(serializeClip),
@@ -1837,7 +1841,9 @@ async function syncFromServer(force) {
       await probeMissingMeta();
       return true;
     }
-    if (!force && (data.revision || 0) === (project.revision || 0)) return; // our own save
+    // our own save, or an answer older than this page's document (a GET sent before our save and
+    // answered after it): disk revisions only go up, so an older one is stale, not an outside edit
+    if (!force && (data.revision || 0) <= (project.revision || 0)) return;
     // An edit from outside (an agent, another tab) on the open timeline becomes an undo step of its own,
     // so Ctrl+Z takes it back first instead of replaying an older step over it.
     const before = !state.compCtx && SeqLib.activeId(data) === SeqLib.activeId(project) ? undoSnapshot() : null;
@@ -2016,7 +2022,7 @@ function mediaKindFromFile(file) {
   if (t.startsWith("image/")) return "image";
   const ext = (file.name.split(".").pop() || "").toLowerCase();
   if (ext === "svg") return "svg";
-  if (["mp4", "mov", "webm", "mkv", "m4v", "avi", "mpg", "mpeg"].includes(ext)) return "video";
+  if (["mp4", "mov", "webm", "mkv", "m4v", "avi", "mpg", "mpeg", "flv"].includes(ext)) return "video";
   if (["mp3", "wav", "m4a", "aac", "ogg", "flac", "wma"].includes(ext)) return "audio";
   if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif"].includes(ext)) return "image";
   return null;
@@ -2029,20 +2035,28 @@ async function importFiles(fileList) {
   runtime.importFolderId = null;
   let added = 0, skipped = 0;
   const addedMedia = [], gen = runtime.projectGen;
+  // an FLV that could not be imported: the server's reason code, said in the interface language
+  const flvFailure = (code) => toast(MontClipView.flvImportMessage(mcView.get().language, code));
   for (const file of files) {
     const kind = mediaKindFromFile(file);
     if (!kind) { skipped++; continue; }
-    let src, transient = false;
+    const flv = /\.flv$/i.test(file.name);
+    let src, originalSrc, preparation, transient = false;
     if (state.connected) {
       try {
         const res = await fetch("/api/upload?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
-        if (!res.ok) throw new Error("upload " + res.status);
-        src = (await res.json()).src;
-      } catch { src = URL.createObjectURL(file); transient = true; }
+        if (!res.ok) { let code = ""; try { code = (await res.json()).code || ""; } catch {} throw Object.assign(new Error("upload " + res.status), { code }); }
+        ({src, originalSrc, preparation} = await res.json());
+      } catch (error) {
+        if (flv) { flvFailure(typeof error?.code === "string" && error.code ? error.code : "UPLOAD_FAILED"); continue; }
+        src = URL.createObjectURL(file); transient = true;
+      }
     } else {
+      if (flv) { flvFailure("NO_SERVER"); continue; }
       src = URL.createObjectURL(file); transient = true;
     }
     const m = { id: "m_" + uid(), name: file.name, kind, src, transient, folderId };
+    if (originalSrc) Object.assign(m, {originalSrc, preparation});
     try {
       await loadMediaMetadata(m);
       if (kind === "video") grabThumb(m).catch(() => { });
@@ -2053,8 +2067,7 @@ async function importFiles(fileList) {
     addedMedia.push(m);
     added++;
   }
-  renderBin(); scheduleSave();
-  refreshMediaInfo(addedMedia);
+  if (added) { renderBin(); scheduleSave(); refreshMediaInfo(addedMedia); }
   if (!added && skipped)
     toast("Couldn't import — unsupported or unreadable file type");
   else if (skipped)
@@ -2615,11 +2628,11 @@ function showMediaMenu(x, y, m) {
   item("Open in Source", () => loadSourceFromMedia(m));
   item(`Find timeline instances (${uses})`, () => showMediaInstances(m, x, y), uses ? null : "Not used on the timeline");
   item("Media info…", () => showMediaInfo(m, x, y));
-  item(isMediaOffline(m.id) ? "Relink…" : "Relink to another copy…", () => openRelinkDialog([m]), state.connected ? null : "Needs the FableCut server");
-  item("Replace file…", () => replaceMediaFile(m), state.connected ? null : "Needs the FableCut server");
+  item(isMediaOffline(m.id) ? "Relink…" : "Relink to another copy…", () => openRelinkDialog([m]), state.connected ? null : uiText("own.needs-server"));
+  item(uiText("term.replace-file"), () => replaceMediaFile(m), state.connected ? null : uiText("own.needs-server"));
   if (m.kind === "video") {
     const ps = proxyStatus.get(m.id);
-    const why = !state.connected ? "Needs the FableCut server" : !state.ffmpeg ? "Needs ffmpeg on the server's PATH" : isMediaOffline(m.id) ? "The file is offline" : null;
+    const why = !state.connected ? uiText("own.needs-server") : !state.ffmpeg ? "Needs ffmpeg on the server's PATH" : isMediaOffline(m.id) ? "The file is offline" : null;
     if (ps && (ps.state === "ready" || ps.state === "running" || ps.state === "queued")) item(ps.state === "ready" ? "Delete proxy" : "Stop making the proxy", () => deleteProxies([m]));
     else {
       item("Create proxy (540p)", () => createProxies([m], 540), why);
@@ -3550,7 +3563,7 @@ async function pjAction(act, btn) {
   if (act === "delete") {
     if (btn.dataset.armed !== "1") {
       btn.dataset.armed = "1"; btn.textContent = "Click again to delete";
-      setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ""; btn.textContent = "Delete…"; } }, 3000);
+      setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ""; btn.textContent = uiText("term.delete-2"); } }, 3000);
       return;
     }
     const out = await pjBusy(() => pjPost({ action: "delete", id: p.id }));
@@ -3695,7 +3708,7 @@ async function pjVersionRun(act, btn) {
   if (act === "restore") {
     if (btn.dataset.armed !== "1") {
       btn.dataset.armed = "1"; btn.textContent = "Click again to restore";
-      setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ""; btn.textContent = "Restore…"; } }, 3000);
+      setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ""; btn.textContent = uiText("term.restore"); } }, 3000);
       return;
     }
     if (p.active && state.exporting) { toast("Wait for the export to finish before restoring"); return; }
@@ -3740,7 +3753,7 @@ async function pjVersionRun(act, btn) {
   if (act === "delete") {
     if (btn.dataset.armed !== "1") {
       btn.dataset.armed = "1"; btn.textContent = "Click again to delete";
-      setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ""; btn.textContent = "Delete…"; } }, 3000);
+      setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ""; btn.textContent = uiText("term.delete-2"); } }, 3000);
       return;
     }
     const out = await post({ action: "delete", version: v });
@@ -4000,7 +4013,7 @@ function toggleClipsLocked() {
   const trackLocked = !lock && group.some((c) => isTrackLocked(c.track));
   toast(lock ? "Clip locked" : trackLocked ? "Clip unlocked — its track is still locked" : "Clip unlocked");
 }
-/** Why these clips can't be linked, or null when they can. Links in FableCut
+/** Why these clips can't be linked, or null when they can. Links in MontClip
  *  mean identical timing, so only aligned clips of one file qualify: one
  *  video plus its audio (e.g. after unlink → nudge → nudge back). */
 function linkRefusal(clips) {
@@ -5064,13 +5077,48 @@ function syncTimelineTrackView() {
   }
   const key = JSON.stringify([runtime.projectGen, SeqLib.activeId(seqRoot()), simple,
     TRACKS.filter(t => occupied.has(t.id)).map(t => t.id)]);
-  if (syncTimelineTrackView.focusKey === key) return;
+  // A drop the user just made is never answered by re-focusing elsewhere: keep the
+  // view, scrolling only as far as needed to show the dropped clips' rows whole.
+  const dropped = syncTimelineTrackView.dropped;
+  syncTimelineTrackView.dropped = null;
+  const changed = syncTimelineTrackView.focusKey !== key;
   syncTimelineTrackView.focusKey = key;
-  const first = [...els.tracks.children].find(row => occupied.has(row.dataset.track));
+  if (dropped) {
+    const rectsOf = ids => {
+      const tracks = new Set(project.clips.filter(c => ids.includes(c.id)).map(c => c.track));
+      return [...els.tracks.children].filter(row => tracks.has(row.dataset.track) && !row.hidden).map(row => row.getBoundingClientRect());
+    };
+    const scroller = els.timelineScroll, view = scroller.getBoundingClientRect().top, room = scroller.clientHeight - RULER_H;
+    let shown = rectsOf(dropped);
+    // all dropped rows when they fit together, else the row of the clip that was grabbed
+    if (shown.length && Math.max(...shown.map(r => r.bottom)) - Math.min(...shown.map(r => r.top)) > room) shown = rectsOf(dropped.slice(0, 1));
+    if (shown.length) {
+      const top = Math.min(...shown.map(r => r.top)), bottom = Math.max(...shown.map(r => r.bottom));
+      if (bottom > view + scroller.clientHeight) scroller.scrollTop += bottom - (view + scroller.clientHeight);
+      if (top - 0 < view + RULER_H) scroller.scrollTop -= view + RULER_H - top;
+    }
+    return;
+  }
+  if (!changed) return;
+  const rows = [...els.tracks.children];
+  // Prefer a real video/audio pair over an upper subtitle lane on initial focus.
+  const videos = rows.filter(row => project.clips.some(c => c.track === row.dataset.track && c.kind === 'video'));
+  const audios = rows.filter(row => project.clips.some(c => c.track === row.dataset.track && c.kind === 'audio'));
+  let first = rows.find(row => occupied.has(row.dataset.track)), distance = Infinity;
+  for (const video of videos) for (const audio of audios) {
+    const gap = Math.abs(video.getBoundingClientRect().top - audio.getBoundingClientRect().top);
+    if (gap < distance) { distance = gap; first = rows.indexOf(video) < rows.indexOf(audio) ? video : audio; }
+  }
   if (first) {
     const scroller = els.timelineScroll;
     scroller.scrollTop += first.getBoundingClientRect().top - scroller.getBoundingClientRect().top - RULER_H;
   }
+}
+/* After the window changes size, focus the content once more (never mid-drag). */
+function timelineResizeRefocus() {
+  if (state.gesture) return;
+  syncTimelineTrackView.focusKey = null;
+  syncTimelineTrackView();
 }
 function rebuildClips() {
   syncTimelineTrackView();
@@ -6064,6 +6112,7 @@ function startClipGesture(e, c, mode, collapseOnClick) {
     state.gesture = false;
     state.dirtyTimeline = true;
     if (!cancelled && moved) {
+      syncTimelineTrackView.dropped = [c.id, ...[...groupIds].filter(id => id !== c.id)];
       runtime.undo.push(snapshot);
       if (runtime.undo.length > 100) runtime.undo.shift();
       runtime.redo.length = 0;
@@ -6712,7 +6761,8 @@ function renderInspector(lite) {
   if (colorState.open && !lite) renderColorPage();
   const c = getClip(state.selId);
   if (!c) {
-    els.inspector.innerHTML = `<div class="inspector-empty">Select a clip to edit its<br>transform, effects &amp; audio.</div>`;
+    els.inspector.innerHTML = `<div class="inspector-empty"></div>`;
+    els.inspector.firstChild.textContent = uiText("own.inspector-empty");
     renderKfGraphsPanel();
     return;
   }
@@ -8348,7 +8398,7 @@ function loadFxWorklet(ctx) {
   if (!p) {
     p = ctx.audioWorklet.addModule("fx-worklet.js?v=2")
       .then(() => { fxWorkletReady.add(ctx); return true; })
-      .catch((err) => { console.warn("[FableCut] fx worklet unavailable:", err); return false; });
+      .catch((err) => { console.warn("[MontClip] fx worklet unavailable:", err); return false; });
     fxWorklets.set(ctx, p);
   }
   return p;
@@ -10562,7 +10612,7 @@ async function installMeterWorklet(audio) {
     resetMasterMeterBallistics();
     buildMeterDOM();
   } catch (err) {
-    console.warn("[FableCut] meter worklet unavailable:", err);
+    console.warn("[MontClip] meter worklet unavailable:", err);
     if (meter) {
       try { meter.port.onmessage = null; } catch {}
       try { meter.disconnect(); } catch {}
@@ -11537,7 +11587,7 @@ function initPixGL() {
     Object.assign(pixGL, { gl, canvas: cv, loc, stage, stageCtx: stage.getContext("2d") });
     return gl;
   } catch (err) {
-    console.warn("[FableCut] WebGL2 pixel pass unavailable, using the CPU path:", err && err.message);
+    console.warn("[MontClip] WebGL2 pixel pass unavailable, using the CPU path:", err && err.message);
     return null;
   }
 }
@@ -11594,7 +11644,7 @@ function pixelPassGL(c, p, src, sx, sy, sw, sh, w, h, dw) {
     return out;
   } catch (err) {
     if (err && err.name === "SecurityError") throw err;   // tainted source: same as getImageData on the CPU path
-    console.warn("[FableCut] pixel pass failed, using the CPU path:", err && err.message);
+    console.warn("[MontClip] pixel pass failed, using the CPU path:", err && err.message);
     pixGL.gl = null;
     return null;
   }
@@ -11759,7 +11809,7 @@ function initGradeGL() {
     Object.assign(gradeGL, { gl, canvas: cv, loc, tex, curveTex, hueTex, curveRef: null, hueRef: null, fbos: [], floatFbo });
     return gl;
   } catch (err) {
-    console.warn("[FableCut] WebGL2 grade unavailable, using the CPU path:", err && err.message);
+    console.warn("[MontClip] WebGL2 grade unavailable, using the CPU path:", err && err.message);
     return null;
   }
 }
@@ -11843,7 +11893,7 @@ function gradeSource(src, sx, sy, sw, sh, srcW, srcH, dw, dh, grade, matte = -1)
     } catch (err) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       if (err && err.name === "SecurityError") return null; // this source only — keep the GPU path
-      console.warn("[FableCut] grade pass failed, using the CPU path:", err && err.message);
+      console.warn("[MontClip] grade pass failed, using the CPU path:", err && err.message);
       gradeGL.gl = null;
     }
   }
@@ -12429,15 +12479,15 @@ function showCompMenu(x, y, comp) {
     menu.appendChild(b);
   };
   item("Open", () => enterComp(comp.id));
-  item("Duplicate", () => {
+  item(uiText("term.duplicate"), () => {
     pushUndo();
     const copy = JSON.parse(JSON.stringify(comp)); copy.id = newCompId(); copy.name = `${comp.name} copy`.slice(0, 80);
     project.comps.push(copy); runtime.compGen = (runtime.compGen || 0) + 1; scheduleSave(); renderBin();
   });
   // an open comp's live clips are on the timeline, not yet in its entry
-  item("Save as template", () => saveCompAsTemplate(comp.id === compCtxId() ? { ...comp, clips: project.clips, tracks: project.tracks } : comp));
+  item(uiText("term.save-as-template"), () => saveCompAsTemplate(comp.id === compCtxId() ? { ...comp, clips: project.clips, tracks: project.tracks } : comp));
   const used = CompLib.usages(state.compCtx ? state.compCtx.root : project, comp.id).length;
-  item("Delete", () => {
+  item(uiText("term.delete"), () => {
     pushUndo();
     project.comps = project.comps.filter((c) => c.id !== comp.id);
     runtime.compGen = (runtime.compGen || 0) + 1; scheduleSave(); renderBin();
@@ -16283,7 +16333,7 @@ function loop(ts) {
     const t0 = w ? w.start : 0;
     const pct = span ? ((state.time - t0) / span) * 100 : 0;
     els.exportProgress.style.width = pct.toFixed(1) + "%";
-    els.exportTitle.textContent = `Exporting… ${pct.toFixed(0)}%`;
+    els.exportTitle.textContent = uiText("own.exporting-pct", { pct: pct.toFixed(0) });
   }
   idleAudio(ts);
   if (loopBusy(ts)) requestAnimationFrame(loop);
@@ -17500,7 +17550,7 @@ async function exportDecodeFrame(c, t) {
     runtime.exportFrames.set(c.id, await src.frameAt(mediaTimeAt(c, t)));
     return true;
   } catch (e) {   // a decode error: this clip falls back to its element for the rest of the export
-    console.warn("[FableCut] export decode failed, using the video element:", e && e.message);
+    console.warn("[MontClip] export decode failed, using the video element:", e && e.message);
     src.close(); d.sources.set(c.id, null); runtime.exportFrames.delete(c.id);
     return false;
   }
@@ -17732,7 +17782,7 @@ async function fastExport(opts = {}) {
   let uploadError = null;
   const setError = (err) => { if (!uploadError) uploadError = err; };
   try {
-    els.exportTitle.textContent = "Mixing audio…";
+    els.exportTitle.textContent = uiText("own.mixing-audio");
     const wav = await renderAudioMix(t0, t1);
     if (renderCancelled) throw new Error("cancelled");
     const profileId = opts.profile || effectiveEncodeProfileId();
@@ -17826,13 +17876,13 @@ async function fastExport(opts = {}) {
       }).catch((err) => { setError(err); throw err; }).finally(() => { pixelsInflight--; });
       const pct = ((f + 1) / frames) * 100;
       els.exportProgress.style.width = pct.toFixed(1) + "%";
-      els.exportTitle.textContent = `Rendering… ${pct.toFixed(0)}%`;
+      els.exportTitle.textContent = uiText("own.rendering-pct", { pct: pct.toFixed(0) });
       if (opts.onProgress) opts.onProgress(0.97 * (f + 1) / frames);
       if (job) reportExportJob(job, { progress: 0.97 * (f + 1) / frames });
     }
     await pixelChain;
     if (uploadError) throw uploadError;
-    els.exportTitle.textContent = "Encoding…";
+    els.exportTitle.textContent = uiText("own.encoding");
     await up.done();
     if (uploadError) throw uploadError;
     } finally {
@@ -18428,7 +18478,7 @@ async function webCodecsExport() {
   const setError = (err) => { if (!uploadError) uploadError = err; };
   let up = null;
   try {
-    els.exportTitle.textContent = "Mixing audio…";
+    els.exportTitle.textContent = uiText("own.mixing-audio");
     const wav = await renderAudioMix(t0, t1);
     if (renderCancelled) throw new Error("cancelled");
 
@@ -18516,9 +18566,9 @@ async function webCodecsExport() {
       }
       const pct = ((f + 1) / frames) * 100;
       els.exportProgress.style.width = pct.toFixed(1) + "%";
-      els.exportTitle.textContent = `Encoding… ${pct.toFixed(0)}%`;
+      els.exportTitle.textContent = uiText("own.encoding-pct", { pct: pct.toFixed(0) });
     }
-    els.exportTitle.textContent = "Finishing…";
+    els.exportTitle.textContent = uiText("own.finishing");
     await encoder.flush();
     await up.done();
     if (uploadError) throw uploadError;
@@ -18892,7 +18942,7 @@ function openProjectTabMenu(clientX, clientY) {
   menu.className = "ctx-menu";
   const item = document.createElement("div");
   item.className = "ctx-opt";
-  item.textContent = "New folder";
+  item.textContent = uiText("term.new-folder");
   item.addEventListener("click", () => {
     closeBinCtxMenu();
     if (state.binTab !== "project") setBinTab("project");
@@ -19504,6 +19554,7 @@ window.addEventListener("keydown", (e) => {
 });
 
 window.addEventListener("resize", () => { state.dirtyTimeline = true; clampTimelineHeight(); if (mixerState.open) sizeMixerMeters(); });
+{ let refocus = null; window.addEventListener("resize", () => { clearTimeout(refocus); refocus = setTimeout(timelineResizeRefocus, 150); }); }
 
 /* ── Resizable upper / timeline split ── */
 const TL_H_KEY = "fablecut-timeline-h";

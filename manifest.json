@@ -1,20 +1,20 @@
 {
   "manifest_version": "0.2",
-  "name": "fablecut",
-  "display_name": "FableCut",
+  "name": "montclip",
+  "display_name": "MontClip",
   "version": "1.18.0",
   "description": "Zero-dependency browser video editor that AI agents can drive — JSON timeline, MCP tools, live-reloading UI.",
-  "long_description": "FableCut is a Premiere-style non-linear video editor that runs in the browser with zero npm dependencies. An AI agent edits video by patching a single project.json timeline (clips, keyframes, transitions, text animations, filters, speed ramps, adjustment layers) through MCP tools, with color grading, masks and tracking, an audio mixer with effects, motion graphics (shape layers, compositions, animation presets and templates), and media management with offline relink and proxies; the open editor UI live-reloads within ~150 ms and exports through ffmpeg with delivery presets (YouTube, Reels, TikTok, Broadcast ProRes, lossless archive…), batch outputs from one render, loudness normalization and a check of every file. Includes reference-video analysis (shot cuts, beats, BPM, energy, drop) so agents can remake an edit with new footage.",
+  "long_description": "MontClip is a Premiere-style non-linear video editor that runs in the browser with zero npm dependencies. An AI agent edits video by patching a single project.json timeline (clips, keyframes, transitions, text animations, filters, speed ramps, adjustment layers) through MCP tools, with color grading, masks and tracking, an audio mixer with effects, motion graphics (shape layers, compositions, animation presets and templates), and media management with offline relink and proxies; the open editor UI live-reloads within ~150 ms and exports through ffmpeg with delivery presets (YouTube, Reels, TikTok, Broadcast ProRes, lossless archive…), batch outputs from one render, loudness normalization and a check of every file. Includes reference-video analysis (shot cuts, beats, BPM, energy, drop) so agents can remake an edit with new footage.",
   "author": {
     "name": "Ronak Parmar",
     "url": "https://github.com/ronak-create"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ronak-create/FableCut"
+    "url": "https://github.com/good-night-oppie/MontClip"
   },
-  "homepage": "https://fablecut.space/",
-  "documentation": "https://github.com/ronak-create/FableCut/blob/main/CLAUDE.md",
+  "homepage": "https://github.com/good-night-oppie/MontClip",
+  "documentation": "https://github.com/good-night-oppie/MontClip/blob/main/CLAUDE.md",
   "license": "MIT",
   "keywords": ["video-editor", "nle", "timeline", "canvas", "mcp", "ai-agent", "ffmpeg"],
   "server": {

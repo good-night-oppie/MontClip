@@ -294,9 +294,14 @@ test("POST /api/export/frame accepts concatenated RGBA frames", async (t) => {
 });
 
 test("Fast JPEG image2pipe does not duplicate unique frames", async (t) => {
-  const { dir, base } = await boot(t);
-  const ffmpeg = await (await fetch(base + "/api/export/ffmpeg")).json();
-  if (!ffmpeg.available) return;
+  /* Make the frames before the server starts. Twelve synchronous ffmpeg runs
+     freeze this process; under load that outlasted the server's 5 s
+     keep-alive, the server closed the idle connection left by the previous
+     request, fetch could not see it close while frozen, and /api/export/begin
+     went out on the dead socket (ECONNRESET, "fetch failed").
+     Reproduction: docs/validation/2026-11-02-keepalive-race.md. */
+  try { execFileSync("ffmpeg", ["-version"], { stdio: "ignore" }); }
+  catch { t.skip("ffmpeg not on PATH"); return; }
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "fc-jpeg-"));
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
@@ -314,6 +319,7 @@ test("Fast JPEG image2pipe does not duplicate unique frames", async (t) => {
     ]);
     parts.push(fs.readFileSync(jpg));
   }
+  const { dir, base } = await boot(t);
 
   const begin = await fetch(base + "/api/export/begin", {
     method: "POST", headers: { "Content-Type": "application/json" },

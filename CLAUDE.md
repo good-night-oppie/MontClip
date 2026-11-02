@@ -11,9 +11,9 @@ drive the editor.
 
 ## MCP connection (preferred — works from any session, any directory)
 
-Register the MCP server once at user scope as `fablecut`:
-`claude mcp add -s user fablecut -- npx -y fablecut mcp` (from npm, no path needed),
-or from a clone `claude mcp add -s user fablecut -- node "<path-to>/fablecut/mcp-server.js"`.
+Register the MCP server once at user scope as `fablecut`, from a clone:
+`claude mcp add -s user fablecut -- node "<path-to>/MontClip/mcp-server.js"`.
+(MontClip is not published to npm; see `docs/decisions/2026-11-02-brand-montclip.md`.)
 Every Claude Code session then has these tools:
 
 - `fablecut_status` — auto-starts the editor server, returns URL + project summary. Call first.
@@ -147,17 +147,13 @@ asks to overwrite conflicting changes. `fablecut_import_media` only appends a
 new media entry and always merges safely — no conflict check needed.
 
 For Claude Desktop, add to its MCP config:
-`{"mcpServers":{"fablecut":{"command":"npx","args":["-y","fablecut","mcp"]}}}`
-(or `"command":"node","args":["<path-to>/fablecut/mcp-server.js"]` from a clone)
+`{"mcpServers":{"fablecut":{"command":"node","args":["<path-to>/MontClip/mcp-server.js"]}}}`
 Direct file editing of `project.json` (below) works too and is equivalent.
-
-Installing as a Claude Code plugin (`/plugin marketplace add ronak-create/FableCut`,
-then `/plugin install fablecut@fablecut`) does the registration for you.
 
 ### Where the files are
 
 `project.json`, `projects/`, `media/`, `exports/`, `analysis/` and `library/` normally sit in
-the repo next to `server.js`; installed from npm (`npx fablecut`) they sit in
+the repo next to `server.js`; when the code sits under `node_modules` they sit in
 `~/FableCut`. Set **`FABLECUT_DATA_DIR`** to move all six
 somewhere else; the code and the static app files stay in the install directory
 either way. The plugin sets this so a plugin update can replace the install
@@ -184,7 +180,7 @@ export, transcription, scopes and tracking, including the shared job queue.
 It is not yet a portable release or offline transcription distribution.
 
 ```
-node server.js        # → http://localhost:7777   (from npm: npx -y fablecut)
+node server.js        # → http://localhost:7777
 ```
 
 Files: `index.html` + `style.css` + `app.js` (editor UI), `server.js` (API + hosting),
@@ -2773,6 +2769,38 @@ FLV import, broader localization and interactive chat are separate changes.
 
 Desktop view preferences (simple/advanced and zh-CN/en) use the fixed userData/view-settings.json file, independent of the random local server port. The sandboxed preload exposes only get/set for these two enum settings; main validates sender, top frame and exact origin. Browser use retains localStorage. This does not save project edits.
 
+## Guarded local FLV preparation (clean core split)
+
+Local FLV uploads and fablecut_import_media share prepare-media.js. Compatible
+single-video H.264 4:2:0 plus optional AAC streams are remuxed; other codecs need
+boolean allowTranscode:true. Decoded timestamp gaps above5ms are refused with
+FLV_TIMELINE_GAP before any MP4 allocation; this is clock quantization, not an
+AV quality guarantee. Multiple video/audio streams are refused. Source bytes
+are retained; output is a distinct MP4 and metadata carries originalSrc and
+preparation (remux/transcode), preserved by renderer serialization.
+
+Uncertain decoded tails/header lengths/warnings require acceptReadable:true,
+separately from codec consent. REST upload returns409 with
+FLV_READABLE_CONSENT_REQUIRED, originalSrc and decoded range. POST
+/api/prepare-media accepts {src, acceptReadable, allowTranscode}; src must resolve
+to a local /media/ FLV. Booleans must be true, not strings. MCP accepts the same
+two booleans on fablecut_import_media. Callers must show the detected limitation
+before accepting; these flags do not make source timing verified or authorize gaps.
+
+Legacy upload/MCP copies are already stored before probing and remain on refusal;
+this is not native zero-allocation consent. Repeated MCP attempts can retain extra
+source copies. The simple browser entry imports only unambiguous compatible FLV;
+when authorization is required it reports refusal, does not create a transient
+blob, and does not yet offer the deferred native consent UI. Source registration
+is guarded against project changes after metadata. These tests do not explain the
+historical browser disk-revision1 incident. No automatic subtitle/danmaku shift.
+
+This split uses the existing development child_process/PATH tools, parameter
+arrays, timeout and owned partial-output cleanup. It is not the packaged tool
+resolver or a portable/offline release. System GPLv3 FFmpeg is a development test
+tool only, not an approved LGPL distribution candidate. Native IPC/hash snapshot/
+close cleanup and its diagnostic harness will be a separate clean change. No
+AI/model/runtime dependency is added by this core split.
 
 MontClip Agent Pane foundation: one pane is shared across view modes. Session search/new/select and bounded drafts are local to the open window and project/sequence; no provider or tool execution is connected. Sending reports unconfigured and retains draft; no synthetic assistant reply. Model selector intentionally has only an unavailable option. Desktop IPC montclip:pane:get/set accepts only width280–480 through the existing sender/frame/origin guard, storing agent-pane-settings.json under userData; no credentials, paths, messages or project data accepted. UI strings share MontClipView locale keys. The assistant shares the existing right-side page area with inspector tabs; the timeline spans the full workspace. Simple view hides empty non-main tracks while keeping occupied tracks and V1/A1. Advanced view retains every track with scrolling. New project/sequence or occupied-track changes initially reveal content; routine redraws preserve manual scrolling. View filtering does not change project tracks, clips or undo. Same-head visible-window review and full workspace acceptance remain pending.
 
