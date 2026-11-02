@@ -2767,6 +2767,11 @@ undo history. Undo/redo buttons use the existing editor commands. The collapsibl
 Assistant panel states that no AI service is connected; it sends nothing.
 FLV import, broader localization and interactive chat are separate changes.
 
+Simple mode holds back the advanced shortcuts (Alt+T, Shift+E / Shift+D, Ctrl/Cmd+L, [ and ], B / R / Y / U, Alt+Z,
+T / Shift+T, Shift+Delete), hides the B / R / Y / U tool buttons and refuses to switch to those tools; going to
+simple mode returns to the selection tool (V). The project, the selection and the undo history are unchanged.
+Advanced mode keeps every shortcut. Buttons and menus that are shown in simple mode keep working.
+
 Desktop view preferences (simple/advanced and zh-CN/en) use the fixed userData/view-settings.json file, independent of the random local server port. The sandboxed preload exposes only get/set for these two enum settings; main validates sender, top frame and exact origin. Browser use retains localStorage. This does not save project edits.
 
 ## Guarded local FLV preparation (clean core split)
