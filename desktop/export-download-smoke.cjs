@@ -17,7 +17,7 @@ fs.mkdirSync(downloads,{recursive:true});fs.mkdirSync(saved,{recursive:true});
 app.setPath('downloads',downloads);
 const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...args){await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=(ms=200)=>new Promise(r=>setTimeout(r,ms));
- const out={};
+ const out={};setTimeout(()=>{process.stdout.write('EXPORT_DOWNLOAD_FAIL watchdog (5 min) '+JSON.stringify(out)+String.fromCharCode(10));app.exit(1);},300000);
  try{
   await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
   const exportsDir=path.join(app.getPath('userData'),'workspace','exports');fs.mkdirSync(exportsDir,{recursive:true});
@@ -115,37 +115,45 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   await lang('en');
   out.queueEn=await queueView();
   assert.deepEqual(out.queueEn.rows.map(r=>[r.id,r.save,r.saved]),[['qsmoke',null,'Saved'],['q2','Save',null]]);assert.equal(out.queueEn.button,'Export queue · 2');
-  // 7. the queue's Save while its save is still open (VV, 71cd650): the button is greyed, a second click opens nothing,
-  //    and main refuses any other download of the same file; once the open one is saved, the copy goes and the row shows only Saved
+  // 7. one download of an export at a time (VV, 71cd650). A 48 MB recording in the queue (an older file, so it is never
+  //    removed: what is tested here is that nothing else can read it while its save is open): its Save is greyed while
+  //    the save is open, a second click opens nothing, and the open save comes out whole
   out.step='qsave-held';
+  fs.writeFileSync(path.join(exportsDir,'big recording.mp4'),Buffer.alloc(48*1024*1024,1));
+  await read(`exportQueue.push({id:'q3',label:'smoke',spec:normalizeDelivery('master').spec,name:'z',range:'entire',status:'done',progress:1,src:'/exports/'+encodeURIComponent('big recording.mp4'),file:'big recording.mp4',report:null});renderQueue();true`);
   const held=await new Promise((resolve,reject)=>{
    const timer=setTimeout(()=>reject(Error('the held download did not start')),30000);
-   const on=(_e,item)=>{ses.removeListener('will-download',on);clearTimeout(timer);item.setSavePath(path.join(saved,'from-queue.mp4'));item.pause();resolve(item);};
+   const on=(_e,item)=>{ses.removeListener('will-download',on);clearTimeout(timer);item.setSavePath(path.join(saved,'big from queue.mp4'));item.pause();resolve(item);};
    ses.on('will-download',on);
-   read(`document.querySelector('#exportQueueList [data-q-save="q2"]').click();true`).catch(reject);
+   read(`document.querySelector('#exportQueueList [data-q-save="q3"]').click();true`).catch(reject);
   });
-  out.whileOpen=await read(`(()=>{const b=document.querySelector('#exportQueueList [data-q-save="q2"]');return{disabled:!!b&&b.disabled}})()`);
+  out.heldState=held.getState();
+  out.whileOpen=await read(`(()=>{const b=document.querySelector('#exportQueueList [data-q-save="q3"]');return{disabled:!!b&&b.disabled}})()`);
   assert.deepEqual(out.whileOpen,{disabled:true},'Save is greyed while its save is open');
-  let extra=0;const count=(e)=>{extra++;out.secondRefused=e.defaultPrevented;};ses.on('will-download',count);
-  await read(`document.querySelector('#exportQueueList [data-q-save="q2"]').click();true`);await wait(800);
+  // every extra download gets a save path first (no save window can open); whether main let it go ahead shows in its state
+  let extra=0;const count=(_e,item)=>{extra++;item.setSavePath(path.join(saved,'second-'+extra+'.mp4'));setTimeout(()=>{out.secondState=item.getState();},400);};ses.on('will-download',count);
+  await read(`document.querySelector('#exportQueueList [data-q-save="q3"]').click();true`);await wait(800);
   out.secondClickDownloads=extra;assert.equal(extra,0,'a click on the greyed button opens nothing');
-  await read(`(()=>{const a=document.createElement('a');a.href=${JSON.stringify(src2)};a.download='';document.body.appendChild(a);a.click();a.remove();return true})()`);await wait(1500);
   ses.removeListener('will-download',count);
-  assert.equal(extra,1,'the plain link reached will-download');assert.equal(out.secondRefused,true,'main refuses a second download of the same export');
-  assert.equal(has(name2),true,'the copy is still there while the first save is open');
+  // (that main refuses another download of a file whose download is open is tested in test/export-downloads.test.js)
   const doneState=await new Promise((resolve)=>{held.once('done',(_e,state)=>setTimeout(()=>resolve(state),800));held.resume();});
-  out.queueSave={state:doneState,copyLeft:has(name2)};
-  assert.equal(doneState,'completed');assert.equal(out.queueSave.copyLeft,false,'saved from the queue: the copy goes');
+  out.heldDone={state:doneState,bytes:fs.statSync(path.join(saved,'big from queue.mp4')).size};
+  assert.equal(doneState,'completed');assert.equal(out.heldDone.bytes,48*1024*1024,'the open save is whole');
+  out.afterHeld=await read(`(()=>{const b=document.querySelector('#exportQueueList [data-q-save="q3"]');return{disabled:!!b&&b.disabled}})()`);
+  assert.deepEqual(out.afterHeld,{disabled:false},'Save is usable again once its save ended (an older file stays)');
+  // 8. the queue's Save on this session's export, saved: now the copy goes, and the row shows only Saved, no path
+  out.step='qsave';out.queueSave=await download(`document.querySelector('#exportQueueList [data-q-save="q2"]').click()`,saveTo('from-queue.mp4'));
+  assert.equal(out.queueSave.state,'completed');assert.equal(out.queueSave.copyLeft,false,'saved from the queue: the copy goes');
   out.queueAfter=await queueView();
-  assert.deepEqual(out.queueAfter.rows.map(r=>[r.id,r.save,r.saved,r.links]),[['qsmoke',null,'Saved',0],['q2',null,'Saved',0]]);
+  assert.deepEqual(out.queueAfter.rows.map(r=>[r.id,r.save,r.saved,r.links]),[['qsmoke',null,'Saved',0],['q2',null,'Saved',0],['q3','Save',null,0]]);
   out.statusText=await read(`[...document.querySelectorAll('#exportQueueList [data-q] .xq-status')].map(x=>x.textContent)`);
-  assert.deepEqual(out.statusText,['',''],'a saved item shows no path to the removed file');
+  assert.deepEqual(out.statusText.slice(0,2),['',''],'a saved item shows no path to the removed file');
 
   await wait(1000);
   out.downloadsLeft=fs.readdirSync(downloads);
   assert.deepEqual(out.downloadsLeft,[],'nothing left in Downloads after the cancels');
   out.exportsLeft=fs.readdirSync(exportsDir).sort();
-  assert.deepEqual(out.exportsLeft,['older export.mp4'],'only the saved exports\' copies went');
+  assert.deepEqual(out.exportsLeft,['big recording.mp4','older export.mp4'],'only the saved exports\' copies went');
   process.stdout.write('EXPORT_DOWNLOAD_COMPLETE '+JSON.stringify(out)+'\n');
  }catch(e){process.stdout.write('EXPORT_DOWNLOAD_FAIL '+(e&&e.stack)+' '+JSON.stringify(out)+'\n');}
  finally{setTimeout(()=>app.exit(0),300);}

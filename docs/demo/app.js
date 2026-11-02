@@ -1235,8 +1235,8 @@ function saveDownload(href, name, { savedMsg, exportFile = false, kind = null } 
 window.montclipDownloads?.onDone(({ state, name, removed }) => {
   const msg = pendingSaves.get(name), wasExport = pendingExports.has(name), kind = pendingKinds.get(name);
   pendingSaves.delete(name); pendingExports.delete(name); pendingKinds.delete(name);
-  if (removed) for (const q of exportQueue) if (q.file === name) q.saved = true;
-  if (removed) renderQueue();
+  for (const q of exportQueue) if (q.file === name) { q.saving = false; if (removed) q.saved = true; }
+  renderQueue();
   if (state === "completed") { if (msg) toast(msg); }
   else if (state === "cancelled") toast(uiText(wasExport ? "own.export-save-cancelled" : kind === "captions" ? "own.captions-save-cancelled" : "own.save-canceled"));
   else toast(uiText(wasExport ? "own.export-save-failed" : "own.save-failed"));
@@ -18115,12 +18115,12 @@ function renderQueue() {
     const ext = Delivery.CONTAINERS[q.spec.container].ext;
     const fr = deliveryFrame(q.spec), fps = q.spec.fps || projectFps();
     const status = q.status === "running" ? `Rendering… ${Math.round(q.progress * 100)}%`
-      : q.status === "done" ? `Done → exports/${q.file || q.name + ext}`
+      : q.status === "done" ? (q.saved ? "" : `Done → exports/${q.file || q.name + ext}`)
         : q.status === "failed" ? `Failed: ${q.error || "unknown error"}`
           : q.status === "cancelled" ? "Stopped" : "Waiting";
     const actions = [
       // 保存 opens the save window again; once a save went through, 已保存
-      q.status === "done" && q.src ? (q.saved ? `<span class="dlv-q-saved">${escapeHtml(uiText("own.q-saved"))}</span>` : `<button type="button" class="btn tiny" data-q-save="${q.id}">${escapeHtml(uiText("own.q-save"))}</button>`) : "",
+      q.status === "done" && q.src ? (q.saved ? `<span class="dlv-q-saved">${escapeHtml(uiText("own.q-saved"))}</span>` : `<button type="button" class="btn tiny" data-q-save="${q.id}"${q.saving ? " disabled" : ""}>${escapeHtml(uiText("own.q-save"))}</button>`) : "",
       q.status === "failed" || q.status === "cancelled" ? `<button type="button" class="btn tiny" data-q-retry="${q.id}">Retry</button>` : "",
       q.status !== "running" ? `<button type="button" class="btn tiny" data-q-remove="${q.id}" title="Remove from the queue">✕</button>` : "",
     ].join("");
@@ -18898,7 +18898,7 @@ $("exportQueueList")?.addEventListener("click", (e) => {
   const q = exportQueue.find((v) => v.id === (r || x || s));
   if (!q) return;
   // save this export again: it names itself, so the copy goes only once a save completes
-  if (s) { saveDownload(q.src, q.file || decodeURIComponent(q.src.split("/").pop()), { exportFile: true }); return; }
+  if (s) { if (q.saving) return; q.saving = true; renderQueue(); saveDownload(q.src, q.file || decodeURIComponent(q.src.split("/").pop()), { exportFile: true }); return; }
   if (r) { q.status = "pending"; q.error = null; q.progress = 0; }
   else exportQueue.splice(exportQueue.indexOf(q), 1);
   renderQueue();

@@ -36,7 +36,7 @@ test('the queue: its button, Save on each item and Saved come from the interface
   a.doesNotMatch(app, /download>Open<\/a>/, 'no hard-coded Open');
   a.doesNotMatch(app, /`Queue · \$\{/, 'no hard-coded Queue · n');
   a.match(app, /btnOpen\.textContent = exportQueue\.length \? uiText\("own\.q-list-n", \{ n: pending \|\| exportQueue\.length \}\) : uiText\("own\.q-list"\);/);
-  a.match(app, /<button type="button" class="btn tiny" data-q-save="\$\{q\.id\}">\$\{escapeHtml\(uiText\("own\.q-save"\)\)\}<\/button>/);
+  a.match(app, /<button type="button" class="btn tiny" data-q-save="\$\{q\.id\}"\$\{q\.saving \? " disabled" : ""\}>\$\{escapeHtml\(uiText\("own\.q-save"\)\)\}<\/button>/);
   a.match(app, /<span class="dlv-q-saved">\$\{escapeHtml\(uiText\("own\.q-saved"\)\)\}<\/span>/);
   a.match(html, /id="btnOpenQueue"[^>]*data-i18n="own\.q-list"/);
   a.match(app, /renderMontClipView\(\);\s*try \{ renderQueue\(\); \} catch \{ \/\* not built yet \*\/ \}/, 'a language switch relabels the queue');
@@ -44,7 +44,7 @@ test('the queue: its button, Save on each item and Saved come from the interface
 
 test("the queue's Save saves this export again: it names itself, so only a completed save removes the copy", () => {
   const app = read('app.js');
-  a.match(app, /if \(s\) \{ saveDownload\(q\.src, q\.file \|\| decodeURIComponent\(q\.src\.split\("\/"\)\.pop\(\)\), \{ exportFile: true \}\); return; \}/);
+  a.match(app, /renderQueue\(\); saveDownload\(q\.src, q\.file \|\| decodeURIComponent\(q\.src\.split\("\/"\)\.pop\(\)\), \{ exportFile: true \}\); return; \}/);
 });
 
 test('the page: success only once saved; a cancel says how to save again; captions say so too', () => {

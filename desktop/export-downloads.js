@@ -31,12 +31,20 @@ function exportCopy(url, { origin, exportsDir }) {
 /* The copy is removed only when all three hold (QQ / Deja, 0a2c13b): `expected` — the page's own export download asked
    for this file; `claim(name)` — the server says it is this session's new export (registered by /api/export/end, once);
    and the save completed somewhere other than the copy itself. A cancel or a failed save keeps it: it may be the only
-   copy of a long render. onDone hears every outcome ({state, name, removed}). */
-function attach(item, { origin, exportsDir, language, downloadsDir, onDone, expected = false, claim = async () => false } = {}) {
-  const name = item.getFilename();
-  item.setSaveDialogOptions(saveDialogOptions(name, language, downloadsDir));
+   copy of a long render. onDone hears every outcome ({state, name, removed}).
+   One download of an export file at a time (VV, 71cd650): while one is open, attach refuses another of the same file
+   (returns false; the caller cancels it), so a copy is never removed while a second save is still reading it.
+   `busy` holds the open ones; `take(name)` uses up the page's expectation — only for a download that goes ahead. */
+function attach(item, { origin, exportsDir, language, downloadsDir, onDone, expected, take = () => false, claim = async () => false, busy = new Set() } = {}) {
   const copy = exportCopy(item.getURL(), { origin, exportsDir });
+  const key = copy ? path.resolve(copy).toLowerCase() : null;
+  if (key && busy.has(key)) return false;
+  if (key) busy.add(key);
+  const name = item.getFilename();
+  if (expected === undefined) expected = take(name) === true;
+  item.setSaveDialogOptions(saveDialogOptions(name, language, downloadsDir));
   item.once('done', async (_e, state) => {
+    if (key) busy.delete(key);
     let removed = false;
     const saved = state === 'completed' ? item.getSavePath() : '';
     // one name throughout (QQ, 71cd650): the file the URL points at must be the one the page asked for and the server
@@ -48,6 +56,7 @@ function attach(item, { origin, exportsDir, language, downloadsDir, onDone, expe
     }
     if (onDone) onDone({ state, name, removed });
   });
+  return true;
 }
 
 module.exports = { saveDialogOptions, exportCopy, attach };
