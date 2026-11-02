@@ -9315,7 +9315,7 @@ function buildTranscriptPage() {
   root.querySelectorAll("[data-tr-cap-file]").forEach((b) => b.addEventListener("click", () => downloadCaptions(b.dataset.trCapFile)));
   const capInput = q("[data-tr-cap-input]");
   q("[data-tr-cap-import]").addEventListener("click", () => capInput.click());
-  q("[data-tr-sentences]").addEventListener("click", showSentenceSelection);
+  q("[data-tr-sentences]").addEventListener("click", () => showSentenceSelection());
   q("[data-tr-mapping]").addEventListener("click", downloadSourceMap);
   capInput.addEventListener("change", async () => {
     const f = capInput.files && capInput.files[0];
@@ -9589,7 +9589,7 @@ async function showSentenceSelection(suggestion = null, onApplied = null) {
   const busy=()=>state.exporting||state.gesture||state.compCtx||runtime.activeImports||runtime.activeTranscriptions||runtime.desktopExportPending||runtime.saveRequests||runtime.saveTimer||runtime.saveFailed||(typeof closeSaveTransaction!=='undefined'&&closeSaveTransaction);
   const proposalContext=()=>({...agentProjectContext(),generation:agentProjectContext().gen});
   if (state.exporting || state.gesture || state.compCtx || suggestion&&busy()) { toast("请先结束编辑、导出并确认保存 / Finish editing/export and confirm saving first"); return; }
-  if (suggestion) {if(!MontClipProposal.current(suggestion,projectJSON(),proposalContext()))return;}
+  if (suggestion) {if(!MontClipProposal.current(suggestion,projectJSON(),proposalContext())){console.warn("showSentenceSelection: the suggestion is not valid for the current project; nothing opened");return;}}
   else if (!(await flushSaveBeforeSwitch())) return;
   const doc = projectJSON(), signature = JSON.stringify(doc), projectId = runtime.projectId, projectGen=runtime.projectGen, sequenceId=SeqLib.activeId(seqRoot());
   const captions = doc.clips.filter((c) => FableCutCaptions.isCaption(c) && !c.disabled && !(doc.disabledTracks || []).includes(c.track)).sort((a, b) => a.start - b.start);
