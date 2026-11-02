@@ -9284,6 +9284,7 @@ function buildTranscriptPage() {
         <button type="button" class="btn tiny" data-tr-cap-import title="Place the captions of an SRT or WebVTT file">Import…</button>
         <button type="button" class="btn tiny" data-tr-sentences>按句选段 / Select sentences</button>
         <button type="button" class="btn tiny" data-tr-mapping>时间映射 / Mapping</button>
+        <button type="button" class="btn tiny" data-tr-highlights>${escapeHtml(uiText("own.hl-open"))}</button>
         <input type="file" accept=".srt,.vtt,text/vtt,application/x-subrip" data-tr-cap-input hidden>
       </div>
       <div class="tr-note">Caption last: a cut through a caption doesn't re-time its words, so add captions again after changing the edit.</div>
@@ -9317,6 +9318,7 @@ function buildTranscriptPage() {
   q("[data-tr-cap-import]").addEventListener("click", () => capInput.click());
   q("[data-tr-sentences]").addEventListener("click", () => showSentenceSelection());
   q("[data-tr-mapping]").addEventListener("click", downloadSourceMap);
+  q("[data-tr-highlights]").addEventListener("click", () => showHighlightCandidates());
   capInput.addEventListener("change", async () => {
     const f = capInput.files && capInput.files[0];
     capInput.value = "";
@@ -9583,6 +9585,89 @@ function watchCaptions(now) {
       return;
     }
   }
+}
+/* P2 (owner, 2026-11-02): highlight candidates from local signals only — the timeline's sentences, the loudness
+   of its own sound mix (rendered here in 60 s pieces), its beats and, when the project has any, danmaku. Nothing is
+   sent anywhere and no model runs. Go to moves the playhead; Keep goes through the range engine as one undo step. */
+async function highlightSignals(isCurrent = () => true) {
+  const duration = projDur();
+  const sentences = project.clips.filter((c) => FableCutCaptions.isCaption(c) && !c.disabled && !(project.disabledTracks || []).includes(c.track))
+    .map((c) => ({ id: c.id, start: c.start, end: c.start + c.duration, text: (c.props && c.props.text) || "" }));
+  let loudness = null; const beats = [];
+  const sounding = mediaClips().some((c) => (c.kind === "audio" || c.kind === "video") && clipRenders(c));
+  if (duration > 0 && sounding) {
+    const step = 0.5, values = [];
+    for (let t0 = 0; t0 < duration; t0 += 60) {
+      if (!isCurrent()) return null;
+      const t1 = Math.min(duration, t0 + 60), buf = await renderAudioMix(t0, t1, { raw: true });
+      const bins = Math.ceil((t1 - t0) / step - 1e-9);
+      if (!buf) { for (let i = 0; i < bins; i++) values.push(-90); continue; }
+      const chs = []; for (let ch = 0; ch < buf.numberOfChannels; ch++) chs.push(buf.getChannelData(ch));
+      const mono = FableCutBeats.mono(chs), per = Math.round(step * buf.sampleRate);
+      for (let i = 0; i < bins; i++) {
+        let acc = 0, n = 0;
+        for (let k = i * per; k < Math.min(mono.length, (i + 1) * per); k++) { acc += mono[k] * mono[k]; n++; }
+        values.push(n ? Math.max(-90, 10 * Math.log10(acc / n + 1e-12)) : -90);
+      }
+      try { for (const b of FableCutBeats.analyze(FableCutBeats.resample(mono, buf.sampleRate)).beats) beats.push(b + t0); } catch { /* no beat in this piece */ }
+    }
+    loudness = { step, values };
+  }
+  const danmaku = Array.isArray(project.danmaku) ? project.danmaku : [];
+  return { duration, sentences, loudness, beats, danmaku };
+}
+function highlightReasonText(r) {
+  const v = { db: r.value, peak: r.peak, ratio: r.value, count: r.count, bpm: Math.round(r.value) };
+  return uiText("own.hl-r-" + r.signal, v);
+}
+/** Keep the given timeline ranges (in this order) with the range engine, as one undo step. */
+function keepHighlightRanges(ranges) {
+  const doc = projectJSON(), plan = FableCutRangePlan.create(doc, ranges);
+  const snap = JSON.stringify({ ...JSON.parse(undoSnapshot()), rangeState: {
+    inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
+  } });
+  applyProject(plan.project); pushUndo(snap); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
+  return plan;
+}
+async function showHighlightCandidates() {
+  if (state.exporting || state.gesture || state.compCtx) { toast(uiText("own.hl-busy")); return; }
+  const say = (key, vars) => escapeHtml(uiText(key, vars));
+  const dialog = document.createElement("dialog");
+  dialog.className = "highlight-dialog";
+  dialog.innerHTML = `<form method="dialog"><h3>${say("own.hl-title")}</h3>
+    <p data-hl-status role="status">${say("own.hl-reading")}</p><div data-hl-list></div>
+    <div class="tr-row"><button type="button" class="btn primary" data-hl-keep disabled>${say("own.hl-keep")}</button>
+    <button class="btn" value="cancel" data-hl-close>${say("own.hl-close")}</button></div></form>`;
+  document.body.append(dialog); dialog.showModal();
+  dialog.addEventListener("close", () => dialog.remove());
+  const status = dialog.querySelector("[data-hl-status]"), list = dialog.querySelector("[data-hl-list]"), keep = dialog.querySelector("[data-hl-keep]");
+  const signature = JSON.stringify(projectJSON()), projectId = runtime.projectId;
+  const current = () => dialog.isConnected && JSON.stringify(projectJSON()) === signature && runtime.projectId === projectId;
+  let sig;
+  try { sig = await highlightSignals(current); } catch { sig = null; }
+  if (!dialog.isConnected) return;
+  if (!sig || !current()) { status.textContent = uiText("own.hl-changed"); return; }
+  const cards = MontClipHighlights.candidates(sig);
+  if (!cards.length) { status.textContent = uiText("own.hl-empty-" + MontClipHighlights.emptyReason(sig)); return; }
+  status.textContent = uiText("own.hl-found", { n: cards.length });
+  const picked = new Set();
+  cards.forEach((c, i) => {
+    const card = document.createElement("div");
+    card.className = "hl-card"; card.dataset.hlCard = String(i); card.dataset.hlRange = c.from + "-" + c.to;
+    card.innerHTML = `<label><input type="checkbox" data-hl-pick> <strong>#${c.rank} ${escapeHtml(fmt(c.from))}–${escapeHtml(fmt(c.to))}</strong></label>
+      ${c.text ? `<p class="hl-text">${escapeHtml(c.text.length > 120 ? c.text.slice(0, 120) + "…" : c.text)}</p>` : ""}
+      <ul>${c.reasons.map((r) => `<li data-hl-reason="${r.signal}" title="${escapeHtml(fmt(r.window[0]) + "–" + fmt(r.window[1]))}">${escapeHtml(highlightReasonText(r))}</li>`).join("")}</ul>
+      <button type="button" class="btn tiny" data-hl-jump>${say("own.hl-jump")}</button>`;
+    card.querySelector("[data-hl-jump]").addEventListener("click", () => { pause(); setTime(c.from); });
+    card.querySelector("[data-hl-pick]").addEventListener("change", (e) => { e.target.checked ? picked.add(i) : picked.delete(i); keep.disabled = !picked.size; });
+    list.append(card);
+  });
+  keep.addEventListener("click", () => {
+    if (!current()) { status.textContent = uiText("own.hl-changed"); return; }
+    const ranges = [...picked].map((i) => cards[i]).sort((x, y) => x.from - y.from).map((c) => ({ from: c.from, to: c.to }));
+    try { keepHighlightRanges(ranges); dialog.close(); toast(uiText("own.hl-kept", { n: ranges.length })); }
+    catch (error) { status.textContent = (error && error.code && uiText("own.rp-" + error.code)) || error.message; }
+  });
 }
 /** SRT sentence selection: preview a read-only plan, apply on a clone as one undo step. */
 async function showSentenceSelection(suggestion = null, onApplied = null) {
@@ -17662,7 +17747,7 @@ function encodeWAV(buf) {
    (clip chains → track buses → master fader), honoring volume / pan keyframes
    and fades. t0/t1 are timeline seconds (export window); mix time 0 is t0. */
 const FX_AUTOMATION_STEP = 0.02; // export automation resolution, seconds
-async function renderAudioMix(t0, t1) {
+async function renderAudioMix(t0, t1, opts = {}) {
   const jobs = [];
   for (const c of mediaClips()) {
     if (c.kind !== "audio" && c.kind !== "video") continue;
@@ -17741,7 +17826,8 @@ async function renderAudioMix(t0, t1) {
       off.suspend(when).then(() => { for (const run of animated) run(t0 + when); off.resume(); });
     }
   }
-  return encodeWAV(await off.startRendering());
+  const rendered = await off.startRendering();
+  return opts.raw ? rendered : encodeWAV(rendered);   // raw: the AudioBuffer itself (highlight signals)
 }
 /* Frame-exact asset prep for the fast exporter: rasterize the SVG frame for
    this exact time, and refresh AI person masks synchronously. */

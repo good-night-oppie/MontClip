@@ -29,6 +29,24 @@
     "encoding-pct": ["Encoding… {pct}%", "正在编码… {pct}%"],
     "mixing-audio": ["Mixing audio…", "正在混音…"],
     "finishing": ["Finishing…", "正在收尾…"],
+    // P2 highlight cards (for JJ to review)
+    "hl-open": ["Highlight candidates", "高光候选"],
+    "hl-title": ["Highlight candidates (from this computer's own signals; no AI)", "高光候选（只用本机信号，不调用 AI）"],
+    "hl-reading": ["Reading the timeline's sound and sentences…", "正在读取时间线的声音和字幕…"],
+    "hl-found": ["{n} candidates. Go to one to check it; tick the ones to keep.", "找到 {n} 个候选。可以先点「跳转」看一看，再勾选要保留的。"],
+    "hl-jump": ["Go to", "跳转"],
+    "hl-keep": ["Keep the ticked ones", "保留勾选的片段"],
+    "hl-close": ["Close", "关闭"],
+    "hl-kept": ["Kept {n} highlights. Undo brings the edit back.", "已保留 {n} 段高光，可以撤销。"],
+    "hl-busy": ["Finish the export or leave the nested edit first.", "请先结束导出或退出嵌套编辑。"],
+    "hl-changed": ["The project changed while reading: close this and try again.", "读取时项目有变化，请关闭后重新打开。"],
+    "hl-empty-no-media": ["There is nothing on the timeline yet.", "时间线上还没有素材。"],
+    "hl-empty-no-signals": ["Nothing to go on: no subtitles on the timeline and no sound to read.", "没有可用的信号：时间线上没有字幕，也读不到声音。"],
+    "hl-empty-nothing-stands-out": ["No clear highlight: nothing is louder than usual, and no burst of danmaku.", "没有找到明显的高光：没有哪一段比平常更响，弹幕也没有突然变多。"],
+    "hl-r-loudness": ["{db} dB louder than the timeline's median (peak {peak} dB above)", "比整场中位响度高 {db} dB（峰值高 {peak} dB）"],
+    "hl-r-danmaku": ["{count} danmaku, {ratio}× the average rate", "弹幕 {count} 条，是平均密度的 {ratio} 倍"],
+    "hl-r-speech": ["Speech {ratio}× the median pace", "语速是中位的 {ratio} 倍"],
+    "hl-r-beat": ["A steady beat (about {bpm} per minute)", "有稳定的节拍（约每分钟 {bpm} 拍）"],
   };
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }

@@ -2758,6 +2758,10 @@ array; `{profile:"hq"}` returns one profile. `fablecut_status` shows the effecti
 
 SRT/WebVTT parsing preserves the full normalized cue body instead of truncating it at 500 UTF-16 code units. Existing tag normalization and cue timestamps are unchanged; this does not create word timing. This parser fix does not change UI/MCP fitting behavior or claim long-text layout acceptance.
 
+### Highlight candidate cards (P2, MontClip)
+
+The Transcript tab's **高光候选 / Highlight candidates** reads local signals only and runs no model. The signals are the timeline's sentences (caption clips), the loudness of its own sound mix (rendered in 60 s pieces, 0.5 s bins), its beats, and `project.danmaku` (`[{t}]`) when present. It shows up to 12 candidate ranges, best first, each with reasons that name the signal, the value, the baseline and the window. `highlight-candidates.js` holds the pure logic. **Go to** only moves the playhead; **Keep the ticked ones** keeps the ranges through the range engine as one undo step. With nothing to go on, it says why. Design and clean-room exception: `docs/decisions/2026-11-02-p2-highlight-cards.md`.
+
 ### MontClip view preferences
 
 The shared editor DOM has Simple/Advanced layout controls, Chinese/English labels

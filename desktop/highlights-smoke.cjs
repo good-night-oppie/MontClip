@@ -35,6 +35,8 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   await read(`document.querySelector('[data-tr-highlights]').click();true`);
   const until=Date.now()+30000;let cards=0;while(Date.now()<until){await wait(300);cards=await read(`document.querySelectorAll('.highlight-dialog [data-hl-card]').length`);if(cards)break;}
   assert.ok(cards>=1,'cards appear');
+  // MONTCLIP_HL_PNG: the app's own page (capturePage), never the screen
+  if(process.env.MONTCLIP_HL_PNG)require('node:fs').writeFileSync(process.env.MONTCLIP_HL_PNG,(await win.webContents.capturePage()).toPNG());
   const first=await read(`(()=>{const c=document.querySelector('.highlight-dialog [data-hl-card]');return{range:c.dataset.hlRange,reasons:[...c.querySelectorAll('[data-hl-reason]')].map(r=>r.dataset.hlReason)};})()`);
   assert.equal(first.range,'10-18','the loud stretch is first');
   assert.ok(first.reasons.includes('loudness'),'with a loudness reason');
