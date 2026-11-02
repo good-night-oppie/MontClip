@@ -98,3 +98,24 @@ test('CI validates only JSON files that exist (server.json is gone with option A
   a.ok(files.length >= 3, files.join(' '));
   for (const f of files) a.ok(fs.existsSync(path.join(__dirname, '..', f)), 'CI validates a file that is not there: ' + f);
 });
+
+test('QQ (2026-11-02): generated docs pages link to our repository, not upstream; the credit stays', () => {
+ const walk=d=>fs.readdirSync(path.join(root,d),{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(d+'/'+e.name):[d+'/'+e.name]);
+ const build=read('docs/docs/build.js');
+ a.match(build,/const REPO = "https:\/\/github\.com\/good-night-oppie\/MontClip";/);
+ a.match(build,/const RAW = "https:\/\/raw\.githubusercontent\.com\/good-night-oppie\/MontClip\/main\/CLAUDE\.md";/);
+ const pages=walk('docs/docs').filter(f=>f.endsWith('.html'));a.ok(pages.length>=28,pages.length+' pages');
+ for(const f of pages){
+  const t=read(f).replace(/Based on \[?<a [^>]*href="https:\/\/github\.com\/ronak-create\/FableCut"[^>]*>[^<]*<\/a>/g,'');
+  a.ok(!/(github\.com|raw\.githubusercontent\.com)\/ronak-create/.test(t),f+' still links to the upstream repository');
+ }
+});
+
+test('QQ (2026-11-02): docs/i18n is under the brand rules; no translation promotes the upstream registry or npx', () => {
+ const files=fs.readdirSync(path.join(root,'docs','i18n')).map(f=>'docs/i18n/'+f);
+ a.ok(files.length>=1);
+ for(const f of files){const t=read(f);
+  a.ok(!/MCP Registry|registry\.modelcontextprotocol|io\.github\.ronak-create|npx\s+(-y\s+)?fablecut|plugin marketplace add ronak-create/i.test(t),f+' promotes the upstream registry or install');
+  a.ok(/MontClip/.test(t),f+' names MontClip');}
+ a.ok(!/README\.(es|ja|pt-BR)\.md/.test(read('CONTRIBUTING.md')),'CONTRIBUTING does not point at a removed translation');
+});
