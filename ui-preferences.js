@@ -12,7 +12,14 @@
   // MontClip's own wording for keyed strings the terms SPEC does not cover.
   const own = {
     "needs-server": ["Needs the MontClip server", "需要 MontClip 服务"],
-    "relink-count": ["Relink {n} files…", "重新链接 {n} 个文件…"],
+    "add-title": ["+ Title", "+ 标题"],
+    "add-adjust": ["+ Adjust", "+ 调节层"],
+    "add-adjust-title": ["Add an adjustment layer (grades everything below it)", "添加调节层（调节它下面的所有画面）"],
+    "add-import": ["+ Import", "+ 导入"],
+    "add-url": ["+ URL", "+ 网址"],
+    "import-url-title": ["Download media from an HTTPS URL into the project", "从 HTTPS 网址下载素材到项目"],
+    "fit": ["Fit", "适配"],
+    "inspector-empty": ["Select a clip to edit its transform, effects & audio.", "选中一个片段以编辑它的画面、特效与音频。"],
     "exporting-pct": ["Exporting… {pct}%", "正在导出… {pct}%"],
     "rendering-pct": ["Rendering… {pct}%", "正在渲染… {pct}%"],
     "encoding": ["Encoding…", "正在编码…"],
@@ -35,6 +42,11 @@
       const s = t(language, el.dataset[key]);
       if (!s) continue;
       if (attr) el.setAttribute(attr, s); else el.textContent = s;
+    }
+    // icon buttons: keep the icon, rewrite the label text after it
+    for (const el of rootEl.querySelectorAll("[data-i18n-tail]")) {
+      const s = t(language, el.dataset.i18nTail), node = [...el.childNodes].reverse().find(n => n.nodeType === 3 && n.data.trim());
+      if (s && node) node.data = (node.data.match(/^\s*/)[0]) + s;
     }
   }
   function create(storage) {

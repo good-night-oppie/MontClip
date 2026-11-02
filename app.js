@@ -6647,7 +6647,8 @@ function renderInspector(lite) {
   if (colorState.open && !lite) renderColorPage();
   const c = getClip(state.selId);
   if (!c) {
-    els.inspector.innerHTML = `<div class="inspector-empty">Select a clip to edit its<br>transform, effects &amp; audio.</div>`;
+    els.inspector.innerHTML = `<div class="inspector-empty"></div>`;
+    els.inspector.firstChild.textContent = uiText("own.inspector-empty");
     renderKfGraphsPanel();
     return;
   }

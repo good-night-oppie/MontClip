@@ -6,7 +6,7 @@ const view=require('../ui-preferences'),terms=require('../ui-terms');
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8'),app=fs.readFileSync(path.join(root,'app.js'),'utf8');
 
 test('static page labels are keyed and every key exists in both languages',()=>{
- const keys=[...html.matchAll(/data-i18n(?:-title|-placeholder|-aria-label)?="([^"]+)"/g)].map(m=>m[1]);
+ const keys=[...html.matchAll(/data-i18n(?:-title|-placeholder|-aria-label|-tail)?="([^"]+)"/g)].map(m=>m[1]);
  a.ok(keys.length>=60,'at least 60 keyed static labels, got '+keys.length);
  for(const k of keys){a.ok(view.t('zh-CN',k)&&view.t('zh-CN',k)!==k,k);a.ok(view.t('en',k),k);}
  a.ok(app.includes('MontClipView.applyI18n(document'),'renderMontClipView applies the keys');

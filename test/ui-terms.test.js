@@ -12,7 +12,7 @@ test('every term has both languages and the keyed lookup falls back to English, 
  a.equal(view.t('zh-CN','term.effects'),'特效','section A core term wins over section B wording');
  a.equal(view.t('zh-CN','term.transform'),'画面');
  a.equal(view.t('zh-CN','own.needs-server'),'需要 MontClip 服务');a.equal(view.t('zh-CN','own.missing-key-x'),'');
- a.equal(view.t('zh-CN','own.relink-count',{n:3}),'重新链接 3 个文件…');
+ a.equal(view.t('zh-CN','own.exporting-pct',{pct:42}),'正在导出… 42%');a.equal(view.t('en','own.exporting-pct',{pct:42}),'Exporting… 42%');
 });
 
 test('default stays zh-CN and the language is still the one existing preference',()=>{
@@ -37,4 +37,11 @@ test('only elements marked with data-i18n attributes are rewritten; user content
  // the elements that hold user content carry no i18n marker in the page
  for(const id of ['projectName','monitorClipName','binList','tracks'])a.ok(!new RegExp('id="'+id+'"[^>]*data-i18n').test(html)&&!new RegExp('data-i18n[^>]*id="'+id+'"').test(html),id);
  a.ok(/project\.name/.test(app.match(/els\.projectName\.textContent = [^;]*/)[0]),'project name shown as written');
+});
+
+test('an icon button keeps its icon; only its trailing label text is rewritten',()=>{
+ const icon={nodeType:1},label={nodeType:3,data:' Close gap'},btn={dataset:{i18nTail:'term.close-gap'},childNodes:[icon,label],setAttribute(){}};
+ const rootEl={querySelectorAll:sel=>sel==='[data-i18n-tail]'?[btn]:[]};
+ view.applyI18n(rootEl,'zh-CN');a.equal(label.data,' 关闭空隙');a.equal(btn.childNodes[0],icon);
+ view.applyI18n(rootEl,'en');a.equal(label.data,' Close gap');
 });
