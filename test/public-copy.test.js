@@ -40,6 +40,10 @@ function pieces(rows){
  }
  return out;
 }
+// Deja 2026-11-02 (JJ found the start page out of step): until #26 is merged, the start page's A3 says the AI
+// assistant is still planned (JJ to review this wording); JJ's own A3 returns with #26.
+const AI_PLANNED_A3={zh:'剪辑本身不需要。AI 助手还在计划中，以后用它时，才需要你自己的 AI 服务账号。',en:'Not for editing. The AI assistant is still planned; you will only need your own AI service account once you use it.'};
+const isA3=p=>/^(答 3|A3)$/.test(p.pos);
 const isAiCard=p=>/卡 4|Card 4/.test(p.pos),isAiNote=p=>/^(AI 说明|AI note)$/.test(p.pos)||/^(关于 AI 助手|About the AI assistant)$/.test(p.text);
 
 test('the copy file is the one JJ delivered',()=>{a.equal(src.sha(),src.SHA256);});
@@ -55,6 +59,7 @@ test('home and start pages show every sentence of the copy, links where it says 
   const meta=rows.find(r=>r[0]==='meta description');if(meta)a.ok(html.includes('<meta name="description" content="'+meta[1]+'">'),f+' meta description');
   for(const p of pieces(rows)){
    if(!AI_MERGED&&page==='start'&&isAiNote(p)){a.ok(!text.includes(p.text),f+': AI note waits for #26: '+p.text);continue;}
+   if(!AI_MERGED&&page==='start'&&isA3(p)){a.ok(!text.includes(p.text),f+': A3 waits for #26');a.ok(text.includes(AI_PLANNED_A3[lang]),f+': A3 says the assistant is planned');continue;}
    a.ok(text.includes(p.text),f+' shows: '+p.text);
    if(p.href)a.ok(html.includes('href="'+p.href+'"'),f+' links '+p.text+' to '+p.href);
   }
