@@ -1,0 +1,18 @@
+
+
+  FableCut running →  http://localhost:31111
+
+  project file : <user>\AppData\Local\Temp\MontClip-drop-reveal-2f1hyn\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-drop-reveal-2f1hyn\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-drop-reveal-2f1hyn\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+REVEAL_DROP {"size":[804,535],"before":{"scrollTop":153.3333282470703,"a2":1},"after":{"track":"A2","scrollTop":153.3333282470703,"dropped":1,"undo":2}}
+REVEAL_DROP {"size":[630,452],"before":{"scrollTop":153.3333282470703,"a2":1},"after":{"track":"A2","scrollTop":153.3333282470703,"dropped":1,"undo":2}}
+REVEAL_RESIZE {"size":[804,535],"V1":1,"A1":0.991,"scrollTop":52.59259033203125}
+REVEAL_RESIZE {"size":[630,452],"V1":1,"A1":0.991,"scrollTop":52.59259033203125}
+REVEAL_RESIZE_DURING_DRAG {"manual":33.33333206176758,"gesture":true,"during":33.33333206176758,"afterUp":52.59259033203125}
+REVEAL_COMPLETE {"saved":true,"visible":true}
+MONTCLIP_SMOKE {"nodeUnavailable":true,"projectLoaded":true,"apiStatus":200,"externalBlocked":true,"compositor":true,"saved":true}
