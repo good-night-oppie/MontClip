@@ -49,11 +49,20 @@ test('the switch: on in development; in a release only by a launch argument or a
  a.ok(!/montclip:agent:providers|testProviders/.test(preload+read('agent-ui/pane.tsx')));
 });
 
+// Deja (2026-11-02): what is banned is a claim of free models or free usage, not the word. JJ's
+// "Free up some space and try again." (the FLV disk-full line) is fine.
+const FREE_CLAIM=/免费(的)?(模型|额度|使用|调用|套餐)|\bfree[\s-]+(models?|tier|credits?|quota|usage|plan)\b/i;
+test('the free-claim check catches free-model claims and leaves other uses of the word alone',()=>{
+ for(const bad of ['免费模型','免费额度','可免费使用','free model','Free models','a free tier','free credits','free-tier'])a.ok(FREE_CLAIM.test(bad),bad);
+ for(const ok of ['Free up some space and try again.','电脑空间不够，这个文件没导进来。清理一些空间后再试。','freedom','vendor/m:free'.replace(/:free/g,'')])a.ok(!FREE_CLAIM.test(ok),ok);
+ a.ok(!FREE_CLAIM.test(V.text.en.flvDiskFull)&&/Free up some space/.test(V.text.en.flvDiskFull),"JJ's disk-full line is in the interface and passes");
+});
+
 test('the settings list comes from the service, not a fixed list in the page',()=>{
  const pane=read('agent-ui/pane.tsx');
  a.ok(!/<option value="openrouter">/.test(pane),'no hard-coded OpenRouter option');
  a.match(pane,/\(cfg\?\.providers\|\|\['openai','deepseek'\]\)\.map\(/);
- a.ok(!/免费|free/i.test(JSON.stringify(V.text['zh-CN'])+JSON.stringify(V.text.en).replace(/:free/g,'')),'no "free" in the interface');
+ a.ok(!FREE_CLAIM.test(JSON.stringify(V.text['zh-CN'])+JSON.stringify(V.text.en).replace(/:free/g,'')),'no "free model" claim in the interface');
 });
 
 test("JJ's copy: the format note is explained, folded by default, and still counted and shown in full in the raw request",()=>{
