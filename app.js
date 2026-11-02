@@ -16970,6 +16970,7 @@ function startChosenExport() {
     const c = selectedExportChoice();
     setSetting("exportKind", c.kind);
     if (c.kind === "delivery") {
+      if (!dlvSpec) { const n = normalizeDelivery(c.id); dlvSpec = n.spec; dlvNotes = n.notes; }   // never the raw x264 profile
       setSetting("delivery", dlvSpec);
       fastExport({ delivery: dlvSpec });
     } else fastExport({ profile: c.id });
