@@ -137,6 +137,7 @@ async function start() {
     return;
   }
   if (smoke) {
+    if (process.argv.includes("--agent-layout-check")) await require("./agent-layout-smoke").run(win);
     if (process.argv.includes("--sessions-check")) await require("./agent-session-smoke").run(win);
     if (process.argv.includes("--workspace-check")) await require("./workspace-smoke").run(win);
     if (process.argv.includes("--view-check")) await require("./view-smoke").run(win);
