@@ -1039,3 +1039,6 @@ the report in [#1](https://github.com/ronak-create/FableCut/issues/1) — thanks
 
 ### Desktop build dependency
 - Pin the optional ESM packager development tool and add an explicit no-package API check; resource, audit and Windows acceptance gates remain pending.
+
+### Guarded local FLV core
+- Share decoded-gap refusal and separate readable-range/transcode permission across local REST/MCP imports; retain source references on browser serialization and refuse transient FLV fallback. Native desktop integration remains separate.

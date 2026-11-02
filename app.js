@@ -1715,6 +1715,7 @@ function projectJSONHere() {
       if (m.favorite === true) mo.favorite = true;
       if (m.tags && m.tags.length) mo.tags = m.tags.slice();
       if (derivedFrom) { mo.derivedFrom = derivedFrom; if (denoise) mo.denoise = denoise; }
+      if (m.originalSrc) { mo.originalSrc = m.originalSrc; mo.preparation = m.preparation; }
       return mo;
     }),
     clips: clips.map(serializeClip),
@@ -2008,7 +2009,7 @@ function mediaKindFromFile(file) {
   if (t.startsWith("image/")) return "image";
   const ext = (file.name.split(".").pop() || "").toLowerCase();
   if (ext === "svg") return "svg";
-  if (["mp4", "mov", "webm", "mkv", "m4v", "avi", "mpg", "mpeg"].includes(ext)) return "video";
+  if (["mp4", "mov", "webm", "mkv", "m4v", "avi", "mpg", "mpeg", "flv"].includes(ext)) return "video";
   if (["mp3", "wav", "m4a", "aac", "ogg", "flac", "wma"].includes(ext)) return "audio";
   if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif"].includes(ext)) return "image";
   return null;
@@ -2021,20 +2022,28 @@ async function importFiles(fileList) {
   runtime.importFolderId = null;
   let added = 0, skipped = 0;
   const addedMedia = [], gen = runtime.projectGen;
+  // an FLV that could not be imported: the server's reason code, said in the interface language
+  const flvFailure = (code) => toast(MontClipView.flvImportMessage(mcView.get().language, code));
   for (const file of files) {
     const kind = mediaKindFromFile(file);
     if (!kind) { skipped++; continue; }
-    let src, transient = false;
+    const flv = /\.flv$/i.test(file.name);
+    let src, originalSrc, preparation, transient = false;
     if (state.connected) {
       try {
         const res = await fetch("/api/upload?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
-        if (!res.ok) throw new Error("upload " + res.status);
-        src = (await res.json()).src;
-      } catch { src = URL.createObjectURL(file); transient = true; }
+        if (!res.ok) { let code = ""; try { code = (await res.json()).code || ""; } catch {} throw Object.assign(new Error("upload " + res.status), { code }); }
+        ({src, originalSrc, preparation} = await res.json());
+      } catch (error) {
+        if (flv) { flvFailure(typeof error?.code === "string" && error.code ? error.code : "UPLOAD_FAILED"); continue; }
+        src = URL.createObjectURL(file); transient = true;
+      }
     } else {
+      if (flv) { flvFailure("NO_SERVER"); continue; }
       src = URL.createObjectURL(file); transient = true;
     }
     const m = { id: "m_" + uid(), name: file.name, kind, src, transient, folderId };
+    if (originalSrc) Object.assign(m, {originalSrc, preparation});
     try {
       await loadMediaMetadata(m);
       if (kind === "video") grabThumb(m).catch(() => { });
@@ -2045,8 +2054,7 @@ async function importFiles(fileList) {
     addedMedia.push(m);
     added++;
   }
-  renderBin(); scheduleSave();
-  refreshMediaInfo(addedMedia);
+  if (added) { renderBin(); scheduleSave(); refreshMediaInfo(addedMedia); }
   if (!added && skipped)
     toast("Couldn't import — unsupported or unreadable file type");
   else if (skipped)
