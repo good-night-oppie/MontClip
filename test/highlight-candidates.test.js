@@ -91,3 +91,32 @@ test('the editor wires the cards to local signals, the playhead and the range en
   a.match(app, /function keepHighlightRanges\(ranges\) \{[\s\S]*?FableCutRangePlan\.create\(doc, ranges\)[\s\S]*?pushUndo\(snap\)/, 'Keep: the range engine and one undo step');
   a.doesNotMatch(body, /montclipAgentService|fetch\(/, 'no model and no request from the cards');
 });
+
+// VV (#52, 5bfca2f7): two stretches both well over the old 12 dB cap scored the same and fell back to time order, so
+// the loudest moment came second. The cap is 24 dB now, and a tie goes to the louder mean, then the louder peak.
+test('the louder of two very loud stretches ranks first (VV\'s scenario: +17 dB and +23 dB)', () => {
+  const s = sentences([[0, 7.5, '开场'], [9.2, 18, '来来来这次我换个打法 哈哈哈哈'], [20, 28, '平静'], [30, 38, '继续'], [44.8, 52, '啊啊啊啊 二阶段了'], [54, 60, '收尾']]);
+  const values = [];
+  for (let t = 0; t < 60; t += 0.5) values.push(t >= 9.2 && t < 18 ? -30 + 17 : t >= 44.8 && t < 52 ? -30 + 23 : -30);
+  const out = H.candidates({ duration: 60, sentences: s, loudness: { step: 0.5, values } });
+  a.deepEqual(out.slice(0, 2).map((c) => [c.from, c.to]), [[44.8, 52], [9.2, 18]], 'the louder one first');
+  a.ok(out[0].score > out[1].score, 'and it scores higher, not only by the tie-break');
+});
+
+test('equal scores: the louder mean, then the louder peak, then the earlier one', () => {
+  const card = (from, above, peak) => ({ from, to: from + 5, score: 0.55, reasons: [{ signal: 'loudness', value: above, peak }] });
+  const sorted = [card(0, 30, 31), card(10, 30, 40), card(20, 35, 36), card(30, 30, 40)].sort(H.compare);
+  a.deepEqual(sorted.map((c) => c.from), [20, 10, 30, 0]);
+});
+
+// VV (#52): 00:09:05 reads as nine minutes five seconds; cards say 0:09.2–0:18 (8.8 秒)
+test('card times: minutes:seconds with a tenth when there is one, and the length', () => {
+  a.equal(H.clock(9.2), '0:09.2');
+  a.equal(H.clock(18), '0:18');
+  a.equal(H.clock(44.8), '0:44.8');
+  a.equal(H.clock(125.04), '2:05');
+  a.equal(H.clock(3725.5), '1:02:05.5');
+  a.equal(H.clock(59.96), '1:00');
+  a.equal(H.seconds(18 - 9.2), '8.8');
+  a.equal(H.seconds(7), '7');
+});

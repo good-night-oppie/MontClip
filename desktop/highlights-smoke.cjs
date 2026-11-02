@@ -32,6 +32,16 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
     clips:[{id:'a',kind:'audio',mediaId:'snd',track:'A1',start:0,in:0,duration:30,props:{volume:1}},
      ...[[0,8,'平静的开场白'],[10,18,'这里突然喊起来了'],[20,28,'又安静下来']].map(([f,t,text],i)=>FableCutCaptions.clip({start:f,end:t,text},{id:'s'+i,track:'V2',width:1280,height:720}))]});
    applyProject(doc);scheduleSave();if(!await flushSave())throw Error('save');})()`);
+  // VV (#52): the entries can be clicked at every width — elementFromPoint at each button's centre is the button
+  const size=async(w,h)=>{win.setMinimumSize(200,200);for(let i=0;i<6;i++){const [iw,ih]=await read(`[innerWidth,innerHeight]`),[cw,ch]=win.getContentSize();if(iw===w&&ih===h)break;win.setContentSize(Math.round(cw*w/iw),Math.round(ch*h/ih));await wait(400);}};
+  const reach=[];
+  for(const [w,h] of [[1270,800],[804,600],[630,460]]){
+   await size(w,h);
+   const hit=await read(`['[data-tr-highlights]','[data-tr-sentences]','[data-tr-mapping]'].map(sel=>{const b=document.querySelector(sel),r=b.getBoundingClientRect(),t=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return [sel,!!t&&(t===b||b.contains(t)),t&&(t.id||t.dataset&&Object.keys(t.dataset)[0]||t.tagName)];})`);
+   for(const [sel,ok,what] of hit)assert.ok(ok,w+': '+sel+' is hit at its centre, not '+what);
+   reach.push([w,h]);
+  }
+  await size(1270,800);
   await read(`document.querySelector('[data-tr-highlights]').click();true`);
   const until=Date.now()+30000;let cards=0;while(Date.now()<until){await wait(300);cards=await read(`document.querySelectorAll('.highlight-dialog [data-hl-card]').length`);if(cards)break;}
   assert.ok(cards>=1,'cards appear');
@@ -39,6 +49,12 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   if(process.env.MONTCLIP_HL_PNG)require('node:fs').writeFileSync(process.env.MONTCLIP_HL_PNG,(await win.webContents.capturePage()).toPNG());
   const first=await read(`(()=>{const c=document.querySelector('.highlight-dialog [data-hl-card]');return{range:c.dataset.hlRange,reasons:[...c.querySelectorAll('[data-hl-reason]')].map(r=>r.dataset.hlReason)};})()`);
   assert.equal(first.range,'10-18','the loud stretch is first');
+  // VV (#52): minutes:seconds and the length, no frame numbers; JJ: plain words, the dB in the tooltip
+  const label=await read(`document.querySelector('.highlight-dialog [data-hl-card] strong').textContent`);
+  assert.ok(label.includes('0:10–0:18')&&label.includes(await read(`uiText('own.hl-dur',{s:'8'})`)),label);
+  const loud=await read(`(()=>{const li=document.querySelector('.highlight-dialog [data-hl-reason=loudness]');return{text:li.textContent,title:li.title};})()`);
+  assert.ok(!/dB|分贝/.test(loud.text)&&/分贝|dB/.test(loud.title),JSON.stringify(loud));
+  assert.ok(await read(`!!document.querySelector('.highlight-dialog [data-hl-keep-note]').textContent`),'the consequence of Keep is always shown');
   assert.ok(first.reasons.includes('loudness'),'with a loudness reason');
   // Go to: the playhead only
   const before=await read(`JSON.stringify(projectJSON())`),undoDepth=await read(`runtime.undo.length`);
@@ -64,8 +80,9 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
    assert.equal(await read(`JSON.stringify(projectJSON())`),before,w+': Go to does not change the project');
    assert.equal(await read(`runtime.undo.length`),undoDepth);
    // the button brings the same list back
-   await read(`document.querySelector('[data-hl-return]').click();true`);await wait(300);
+   await read(`play();document.querySelector('[data-hl-return]').click();true`);await wait(300);
    assert.equal(await read(`!!document.querySelector('.highlight-dialog[open]')&&document.querySelectorAll('.highlight-dialog [data-hl-card]').length`),cards,w+': the same cards come back');
+   assert.equal(await read(`state.playing`),false,w+': back to the list pauses');
    seen.push({size:[w,h],back:view.back});
   }
   // Keep: the range engine, one undo step
@@ -75,7 +92,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   assert.equal(await read(`runtime.undo.length`),undoDepth+1,'one undo step');
   await read(`undo();true`);await wait(200);
   assert.equal(await read(`JSON.stringify(projectJSON().clips)`),JSON.stringify(JSON.parse(before).clips),'Undo restores the edit');
-  process.stdout.write('HIGHLIGHTS_COMPLETE '+JSON.stringify({empty:empty.status,cards,first,seen})+'\n');
+  process.stdout.write('HIGHLIGHTS_COMPLETE '+JSON.stringify({empty:empty.status,reach,cards,first,label,loud,seen})+'\n');
  }catch(e){process.stdout.write('HIGHLIGHTS_FAIL '+(e&&e.message)+'\n');}
  finally{setTimeout(()=>app.exit(0),300);}
 };

@@ -26,6 +26,7 @@
     beatMinRate: 1.2,    // beats per second inside the window → a beat reason (only adds, never alone)
     max: 12,             // at most this many cards
   });
+  const LOUD_FULL = 24;   // dB above the usual level that gives the full loudness score
   const r1 = (x) => Math.round(x * 10) / 10, r3 = (x) => Math.round(x * 1000) / 1000;
   const median = (xs) => { if (!xs.length) return null; const s = xs.slice().sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
   const chars = (text) => String(text || "").replace(/[\s\p{P}]/gu, "").length;
@@ -100,7 +101,8 @@
           const above = w.mean - loudBase, peakAbove = w.peak - loudBase;
           if (above >= o.loudMinDb || peakAbove >= o.loudMinDb + 4) {
             reasons.push({ signal: "loudness", value: r1(Math.max(above, 0)), peak: r1(peakAbove), baseline: r1(loudBase), unit: "dB", window: win });
-            score += Math.min(1, Math.max(above, peakAbove / 2) / 12) * 0.55;
+            // up to 24 dB above the usual level counts (VV, #52: at 12 dB, +17 and +23 dB scored the same)
+            score += Math.min(1, Math.max(above, peakAbove / 2) / LOUD_FULL) * 0.55;
           }
         }
       }
@@ -127,9 +129,26 @@
       }
       if (score > 0) out.push({ from: g.from, to: g.to, score: Math.round(score * 1000) / 1000, reasons, sentenceIds: g.sentenceIds, text: g.text });
     }
-    out.sort((a, b) => b.score - a.score || a.from - b.from);
+    out.sort(compare);
     return out.slice(0, o.max).map((c, i) => ({ ...c, rank: i + 1 }));
   }
+
+  /** Best first: score; on a tie the louder mean, then the louder peak (loudness reason); then the earlier one. */
+  function compare(a, b) {
+    const loud = (c) => (c.reasons || []).find((r) => r.signal === "loudness") || { value: -Infinity, peak: -Infinity };
+    const la = loud(a), lb = loud(b);
+    return b.score - a.score || lb.value - la.value || lb.peak - la.peak || a.from - b.from;
+  }
+
+  /** A time on a card: m:ss, with a tenth when there is one, and h:mm:ss past an hour (VV, #52: 00:09:05 read as
+   *  nine minutes). */
+  function clock(t) {
+    const d = Math.max(0, Math.round(t * 10)), whole = Math.floor(d / 10), tenth = d % 10;
+    const h = Math.floor(whole / 3600), m = Math.floor(whole / 60) % 60, sec = whole % 60, two = (n) => String(n).padStart(2, "0");
+    return (h ? h + ":" + two(m) : String(m)) + ":" + two(sec) + (tenth ? "." + tenth : "");
+  }
+  /** A length in seconds, with a tenth when there is one. */
+  function seconds(x) { const d = Math.round(Math.max(0, x) * 10) / 10; return Number.isInteger(d) ? String(d) : d.toFixed(1); }
 
   /** Each file's loudness ({step, values} in its own seconds) on the timeline: for every timeline bin, the power of
    *  the clips sounding there, each at its media time (in + (t − start) × speed), scaled by its volume and gain.
@@ -161,5 +180,5 @@
     return "nothing-stands-out";
   }
 
-  return { DEFAULTS, segments, candidates, emptyReason, windowDb, mapLoudness };
+  return { DEFAULTS, LOUD_FULL, segments, candidates, compare, clock, seconds, emptyReason, windowDb, mapLoudness };
 });
