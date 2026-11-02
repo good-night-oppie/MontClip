@@ -9,98 +9,29 @@
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#0a0a0b" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
-<link rel="canonical" href="https://fablecut.space/">
 
-<!-- Open Graph / social. Absolute URLs: most crawlers will not resolve a
-     relative og:image, and a bare text card is what gets shared instead. -->
+<!-- Open Graph / social. No og:image until MontClip has its own site to host one. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MontClip">
 <meta property="og:locale" content="en_US">
-<meta property="og:url" content="https://fablecut.space/">
 <meta property="og:title" content="MontClip - the browser video editor AI agents can drive">
 <meta property="og:description" content="A Premiere-style browser video editor whose whole timeline is one JSON file. Any agent that writes JSON can edit video.">
-<meta property="og:image" content="https://fablecut.space/screenshot.png">
-<meta property="og:image:width" content="1600">
-<meta property="og:image:height" content="900">
-<meta property="og:image:alt" content="The MontClip editor: project bin, program monitor showing a title over graded footage, the inspector, and a timeline with titles, SVG overlays, an adjustment layer, colored markers and three audio tracks.">
-<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="MontClip - the browser video editor AI agents can drive">
 <meta name="twitter:description" content="A Premiere-style browser video editor whose whole timeline is one JSON file. Any agent that writes JSON can edit video.">
-<meta name="twitter:image" content="https://fablecut.space/screenshot.png">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "SoftwareApplication",
-      "@id": "https://fablecut.space/#app",
-      "name": "MontClip",
-      "alternateName": "MontClip video editor",
-      "applicationCategory": "MultimediaApplication",
-      "applicationSubCategory": "Video editor",
-      "operatingSystem": "Windows, macOS, Linux",
-      "url": "https://fablecut.space/",
-      "downloadUrl": "https://github.com/ronak-create/FableCut",
-      "codeRepository": "https://github.com/ronak-create/FableCut",
-      "license": "https://opensource.org/licenses/MIT",
-      "isAccessibleForFree": true,
-      "description": "A Premiere-style video editor that runs in the browser and keeps its whole timeline in one JSON file, so an AI agent can edit video through MCP or a REST API while you watch.",
-      "featureList": [
-        "JSON timeline (project.json) as the editing interface",
-        "MCP server for Claude Code, Claude Desktop and other MCP clients",
-        "REST API for media, analysis, live reload and export",
-        "Live reload of the open editor over server-sent events",
-        "Multi-track video and audio with per-clip volume, pan and keyframes",
-        "Audio mixer with submix buses, effect chains, loudness normalization, auto-duck, noise reduction and silence removal",
-        "Beat detection on music clips (tempo, a steady beat grid, the drop): mark the beats, snap cuts to them, or re-cut a track so each shot lasts N beats",
-        "Highlights: the best moments of long footage cut into a short edit",
-        "Reframe for 9:16, 1:1 or 4:5: a copy of the edit whose shots follow the subject with a virtual camera",
-        "Transcripts in the browser (Whisper) with text-based editing: find a phrase and cut it, or select words and delete them",
-        "Captions from measured transcript word times (subtitle, karaoke, word highlight, word pop), with SRT and WebVTT export and sentence-timed import",
-        "Color grading on the GPU: lift / gamma / gain / offset wheels, exposure, white balance picker, tone bands, log-style contrast, luma / RGB and hue curves, secondaries with HSL qualifiers and keyframable masks, with waveform, RGB parade, vectorscope and histogram scopes",
-        "Masks on video, image, SVG, text and adjustment clips: rectangle, ellipse, bezier pen and free-hand shapes with feather, expansion, invert and add / subtract / intersect modes, all keyframable",
-        "Motion tracking of points and regions (with scale and rotation): masks follow them and titles, stickers or clips pin to them as editable keyframes",
-        "Track mattes (alpha, luma and inverted) from the track above, and 17 blend modes including color-burn, exclusion, hue, saturation, color and luminosity",
-        "Motion paths with bezier handles and auto-orient, shutter-angle motion blur, and text on a path (lines, arcs, circles, drawn paths)",
-        "Motion graphics: shape layers (rectangles, ellipses, polygons, stars, lines and bezier paths in groups) with fills, strokes and trim-path draw-ons, null objects, parenting and anchor points, all keyframable",
-        "Compositions (nested sequences): reusable timelines placed as one clip, nested up to 4 deep, with precompose",
-        "Media management: frame rate, codec, audio and size of every file, search, filters, sorting, favorites, tags, collections, usage counts, find-all-instances, offline detection, relink and replace",
-        "Projects dashboard: open, create from canvas presets or saved project templates, duplicate, rename, notes, tags, archive, delete and import projects",
-        "Versions: non-destructive project history with automatic and agent versions, compare, restore, final cut, backups and crash recovery",
-        "Sequences: several timelines in one project, each with its own canvas, frame rate, mix and delivery, sharing the media and compositions",
-        "Proxy workflow: frame-accurate H.264 proxies of 4K / HEVC / ProRes footage made in the background; edit on proxies, export from the originals",
-        "Animation presets and templates: entrances, exits and loops for any clip; lower thirds, logo animations and social layouts with editable fields",
-        "Frame inspection for agents: single-frame JPEGs, N-up contact sheets and text-only measurements of any source clip or the composed timeline",
-        "Delivery presets: YouTube, Shorts, Reels, TikTok, X, LinkedIn, Broadcast (ProRes), Web, Archive (FFV1) and Custom, with resolution, reframing, frame rate, codec, hardware encoder, CRF / VBR / CBR, keyframe interval, pixel format, color, audio, file-name templates and metadata",
-        "Batch export: one project to many files (master, YouTube, reel, square, preview) from one render per frame rate and range, with an export queue",
-        "Loudness normalization to −14 / −16 / −23 / −24 LUFS with a true-peak ceiling, and a check of every exported file against its settings",
-        "Fast ffmpeg export, WebCodecs hardware export and a realtime fallback"
-      ],
-      "softwareRequirements": "Node.js 18 or newer and a Chromium-based browser; ffmpeg optional for fast export",
-      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-      "screenshot": "https://fablecut.space/screenshot.png",
-      "author": { "@type": "Person", "name": "Ronak Parmar", "url": "https://github.com/ronak-create" }
-    },
-    {
-      "@type": "SoftwareSourceCode",
-      "@id": "https://fablecut.space/#source",
-      "name": "MontClip",
-      "codeRepository": "https://github.com/ronak-create/FableCut",
-      "programmingLanguage": "JavaScript",
-      "runtimePlatform": "Node.js",
-      "license": "https://opensource.org/licenses/MIT",
-      "about": { "@id": "https://fablecut.space/#app" }
-    },
-    {
-      "@type": "WebSite",
-      "@id": "https://fablecut.space/#website",
-      "url": "https://fablecut.space/",
-      "name": "MontClip",
-      "inLanguage": "en",
-      "about": { "@id": "https://fablecut.space/#app" }
-    }
-  ]
+  "@type": "SoftwareApplication",
+  "@id": "https://github.com/good-night-oppie/MontClip#app",
+  "name": "MontClip",
+  "applicationCategory": "MultimediaApplication",
+  "applicationSubCategory": "Video editor",
+  "url": "https://github.com/good-night-oppie/MontClip",
+  "codeRepository": "https://github.com/good-night-oppie/MontClip",
+  "license": "https://opensource.org/licenses/MIT",
+  "isBasedOn": "https://github.com/ronak-create/FableCut"
 }
 </script>
 <script>document.documentElement.classList.add("js");try{var t=localStorage.getItem("fc-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
@@ -145,10 +76,7 @@
       <a href="./docs/">Docs</a>
     </nav>
     <div class="nav-end">
-      <a class="gh" href="https://discord.gg/EFMQH7d6Tv" rel="noopener" target="_blank" aria-label="MontClip on Discord" title="Discord — questions, bugs, ideas">
-        <svg class="i" aria-hidden="true"><use href="#i-discord"/></svg>
-      </a>
-      <a class="gh" href="https://github.com/ronak-create/FableCut" rel="noopener" target="_blank" aria-label="MontClip on GitHub">
+      <a class="gh" href="https://github.com/good-night-oppie/MontClip" rel="noopener" target="_blank" aria-label="MontClip on GitHub">
         <svg class="i" aria-hidden="true"><use href="#i-gh"/></svg><span class="gh-label">GitHub</span><span class="gh-count" data-stars></span>
       </a>
       <button class="menu-btn" id="menuBtn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navLinks"><svg class="i" aria-hidden="true"><use href="#i-menu"/></svg></button>
@@ -167,7 +95,7 @@
       <svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg>
     </a>
     <h1 class="hero-title"><span class="wipe">The browser video editor <span class="br-lg"></span>agents can drive.</span><span class="ph" aria-hidden="true"></span></h1>
-    <p class="hero-sub">Open MontClip Studio, pick a folder of clips, and let Claude or ChatGPT cut your video while you watch. Nothing to install, and your footage never leaves your disk.</p>
+    <p class="hero-sub">Open MontClip Studio, pick a folder of clips, and let Claude or ChatGPT cut your video while you watch.</p>
     <div class="hero-cta">
       <a class="btn btn-primary" href="https://studio.fablecut.space">Open Studio<svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a>
       <button class="btn btn-ghost" type="button" data-demo><svg class="i" aria-hidden="true"><use href="#i-play"/></svg>Watch the demo</button>
@@ -224,21 +152,6 @@
           <div class="cut-ph" data-cut-ph style="--ph:.14"></div>
         </div>
       </div>
-    </div>
-  </div>
-</section>
-
-<section class="section" id="sponsor" aria-labelledby="sponsorTitle">
-  <div class="wrap sponsor reveal">
-    <a class="sponsor-art" href="https://fluxionai.space/register?source=github&amp;campaign=github-sidrune-fablecut&amp;promo=SDRFABLECUT" rel="noopener sponsored" target="_blank">
-      <img src="./sponsors/sidrune-ai-banner.png" width="2172" height="724" loading="lazy" decoding="async"
-           alt="Sidrune AI: one API for GPT, Claude and other leading AI models">
-    </a>
-    <div>
-      <p class="sponsor-k">Sponsor</p>
-      <h3 id="sponsorTitle">Sidrune AI</h3>
-      <p>One API for GPT, Claude, and other leading AI models. Sign up and get $3 in API credit.</p>
-      <a class="more" href="https://fluxionai.space/register?source=github&amp;campaign=github-sidrune-fablecut&amp;promo=SDRFABLECUT" rel="noopener sponsored" target="_blank">sidrune.ai <svg class="i i-ne" aria-hidden="true"><use href="#i-ne"/></svg></a>
     </div>
   </div>
 </section>
@@ -582,34 +495,6 @@
   </div>
 </section>
 
-<section class="section" id="mentions" aria-labelledby="mentionsTitle">
-  <div class="wrap">
-    <h2 class="sr" id="mentionsTitle">What people are saying</h2>
-    <div class="proof">
-      <a class="q-big reveal" href="https://x.com/QCXINT_/status/2075525663168115016" target="_blank" rel="noopener">
-        <blockquote>&ldquo;FableCut isn&rsquo;t trying to be another AI video editor. It&rsquo;s trying to become a video editor that AI agents can fully control.&rdquo;</blockquote>
-        <span class="q-by"><b>QCXINT</b>, on X</span>
-      </a>
-      <div class="q-list reveal">
-        <a class="q-sm" href="https://kompozy.io/alternatives/fablecut" target="_blank" rel="noopener">
-          <blockquote>&ldquo;A genuinely clever architecture: the whole timeline is one JSON file, so any agent that can write JSON can edit video.&rdquo;</blockquote>
-          <span class="q-by"><b>Kompozy</b>, review</span>
-        </a>
-        <a class="q-sm" href="https://www.youtube.com/shorts/XttVPJiR2B0" target="_blank" rel="noopener">
-          <blockquote>&ldquo;The AI video editor where the AI actually edits.&rdquo;</blockquote>
-          <span class="q-by"><b>Evgenii Arsentev</b>, on YouTube</span>
-        </a>
-      </div>
-    </div>
-    <div class="proof-foot reveal">
-      <a class="hn" href="https://news.ycombinator.com/item?id=48845422" target="_blank" rel="noopener">
-        <span class="hn-y" aria-hidden="true">Y</span><span><b>Front page of Hacker News</b>, 98 points</span>
-      </a>
-      <a class="more" href="./community/">See all mentions <svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a>
-    </div>
-  </div>
-</section>
-
 <section class="section" id="start">
   <div class="wrap cta">
     <div class="reveal">
@@ -623,10 +508,12 @@
     </div>
     <div class="reveal">
       <div class="code code-card">
-<pre><code>npx -y fablecut</code></pre>
+<pre><code>git clone https://github.com/good-night-oppie/MontClip.git
+cd MontClip
+node server.js</code></pre>
         <button class="copy" type="button" aria-label="Copy the install commands"><svg class="i i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i i-ok" aria-hidden="true"><use href="#i-check"/></svg></button>
       </div>
-      <p class="cta-note">Then open <code class="ic">localhost:7777</code>. MIT licensed, zero npm dependencies.</p>
+      <p class="cta-note">Then open <code class="ic">localhost:7777</code>.</p>
     </div>
   </div>
 </section>
@@ -638,14 +525,11 @@
     <div class="foot">
       <a class="brand" href="./" aria-label="MontClip home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>MontClip</span></a>
       <nav class="foot-links" aria-label="Footer">
-        <a href="https://github.com/ronak-create/FableCut" rel="noopener" target="_blank">GitHub</a>
+        <a href="https://github.com/good-night-oppie/MontClip" rel="noopener" target="_blank">GitHub</a>
         <a href="./docs/">Docs</a>
-        <a href="https://discord.gg/EFMQH7d6Tv" rel="noopener" target="_blank">Discord</a>
-        <a href="mailto:hello@fablecut.space">Email</a>
-        <a href="https://github.com/ronak-create/FableCut/releases" rel="noopener" target="_blank">Releases</a>
-        <a href="https://status.fablecut.space" rel="noopener" target="_blank">Status</a>
-        <a href="https://github.com/ronak-create/FableCut/blob/main/SECURITY.md" rel="noopener" target="_blank">Security</a>
-        <a href="https://github.com/ronak-create/FableCut/blob/main/LICENSE" rel="noopener" target="_blank">MIT License</a>
+        <a href="https://github.com/good-night-oppie/MontClip/releases" rel="noopener" target="_blank">Releases</a>
+        <a href="https://github.com/good-night-oppie/MontClip/blob/main/SECURITY.md" rel="noopener" target="_blank">Security</a>
+        <a href="https://github.com/good-night-oppie/MontClip/blob/main/LICENSE" rel="noopener" target="_blank">MIT License</a>
       </nav>
       <div class="foot-end">
         <button class="theme-btn" type="button" data-theme-toggle aria-label="Switch color theme"><svg class="i i-sun" aria-hidden="true"><use href="#i-sun"/></svg><svg class="i i-moon" aria-hidden="true"><use href="#i-moon"/></svg></button>

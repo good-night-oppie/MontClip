@@ -49,13 +49,8 @@
     },
     {
       "@type": "Question",
-      "name": "Is MontClip free?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Yes. MIT licensed, free for personal and commercial work, with no account, no telemetry and no paid tier waiting for you later. It also has zero npm dependencies, so node server.js really is the whole install." }
-    },
-    {
-      "@type": "Question",
       "name": "What do I need to run it?",
-      "acceptedAnswer": { "@type": "Answer", "text": "Node 18 or newer and a Chromium browser. Run npx -y fablecut and open http://localhost:7777. It works on Windows, macOS and Linux." }
+      "acceptedAnswer": { "@type": "Answer", "text": "Node 18 or newer and a Chromium browser. Run node server.js from a clone and open http://localhost:7777. It works on Windows, macOS and Linux." }
     }
   ]
 }
@@ -127,11 +122,13 @@
     <div class="step reveal" id="run">
       <div class="step-copy">
         <h2>Run the editor</h2>
-        <p>Start it with one command. MontClip has zero npm dependencies; your projects, media and exports go to <code class="ic">~/FableCut</code>.</p>
+        <p>Start it from a clone. Projects, media and exports go to the default data folder next to <code class="ic">server.js</code>.</p>
       </div>
       <div>
         <div class="code code-card">
-<pre><code>npx -y fablecut</code></pre>
+<pre><code>git clone https://github.com/good-night-oppie/MontClip.git
+cd MontClip
+node server.js</code></pre>
           <button class="copy" type="button" aria-label="Copy the install commands"><svg class="i i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i i-ok" aria-hidden="true"><use href="#i-check"/></svg></button>
         </div>
         <p class="step-note">Opens at <code class="ic">http://localhost:7777</code>. The server listens on 127.0.0.1 only. Prefer a clone? <code class="ic">git clone https://github.com/ronak-create/FableCut</code>, then <code class="ic">node server.js</code>.</p>
@@ -259,12 +256,8 @@
         <p>No. The server runs on your own machine and listens on 127.0.0.1 only, so your media sits in a local folder and never goes near anyone's cloud. Two things do touch the network, and both are your call: the <strong>+ URL</strong> button downloads a file you paste in, and AI background removal fetches its model from a CDN the first time you use it.</p>
       </details>
       <details>
-        <summary>Is MontClip free?</summary>
-        <p>Yes. MIT licensed, free for personal and commercial work, with no account, no telemetry and no paid tier waiting for you later. It also has zero npm dependencies, so <code class="ic">node server.js</code> really is the whole install.</p>
-      </details>
-      <details>
         <summary>What do I need to run it?</summary>
-        <p>Node 18 or newer and a Chromium browser. Run <code class="ic">npx -y fablecut</code> and open <code class="ic">http://localhost:7777</code>. It works on Windows, macOS and Linux.</p>
+        <p>Node 18 or newer and a Chromium browser. Run <code class="ic">node server.js</code> from a clone and open <code class="ic">http://localhost:7777</code>. It works on Windows, macOS and Linux.</p>
       </details>
     </div>
     <div class="links-row reveal">
