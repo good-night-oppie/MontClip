@@ -14,15 +14,15 @@ The desktop app runs only the FFmpeg it ships in `resources/ffmpeg/`
   BtbN/FFmpeg-Builds `5ece62897c650b863c1ddda7b6964845344aef2d` (the commit of release
   `autobuild-2026-11-01-12-49`, its build image pinned by digest) with only `--disable-libopenh264`
   changed (build scripts: https://github.com/BtbN/FFmpeg-Builds). Published as release
-  `ffmpeg-n9.0.2-42-noh264` of this repository.
+  `ffmpeg-lgpl-n9.0.2-montclip1` of this repository.
 - Pinned in `desktop/ffmpeg-manifest.json`; `node desktop/fetch-ffmpeg.cjs`
   refuses an archive whose SHA-256 differs, or an `ffmpeg` that reports a GPL or
   non-free configuration.
 
 | Platform | Archive | SHA-256 |
 |---|---|---|
-| win32-x64 | https://github.com/good-night-oppie/MontClip/releases/download/ffmpeg-n9.0.2-42-noh264/ffmpeg-n9.0.2-42-gd7643a0fe3-win64-lgpl-9.0.zip | `67c30e30206b5bddcc2af9ea4f0215bbbcd2519533316997945a0fd9602a2f96` |
-| linux-x64 | https://github.com/good-night-oppie/MontClip/releases/download/ffmpeg-n9.0.2-42-noh264/ffmpeg-n9.0.2-42-gd7643a0fe3-linux64-lgpl-9.0.tar.xz | `69a9690a4c0eb7e7059f2141de54b4ec57100741a95a04809734c6adc9a0b8ae` |
+| win32-x64 | https://github.com/good-night-oppie/MontClip/releases/download/ffmpeg-lgpl-n9.0.2-montclip1/ffmpeg-n9.0.2-42-gd7643a0fe3-win64-lgpl-9.0.zip | `67c30e30206b5bddcc2af9ea4f0215bbbcd2519533316997945a0fd9602a2f96` |
+| linux-x64 | https://github.com/good-night-oppie/MontClip/releases/download/ffmpeg-lgpl-n9.0.2-montclip1/ffmpeg-n9.0.2-42-gd7643a0fe3-linux64-lgpl-9.0.tar.xz | `69a9690a4c0eb7e7059f2141de54b4ec57100741a95a04809734c6adc9a0b8ae` |
 
 ### Replacing the bundled FFmpeg (LGPL)
 
