@@ -5115,13 +5115,14 @@ function syncTimelineTrackView() {
     if (gap < distance) { distance = gap; first = rows.indexOf(video) < rows.indexOf(audio) ? video : audio; }
   }
   if (first && simple && syncTimelineTrackView.unfolded !== key) {
-    // VV 2026-11-02: a lane above the focused ones must not sit half behind the sticky ruler. Show every lane with
-    // clips whole when they fit under the ruler; otherwise fold the lanes above the focused one and say so.
+    // VV 2026-11-02: a caption lane above the focused ones must not sit half behind the sticky ruler. Show every lane
+    // with clips whole when they fit under the ruler; otherwise fold the caption-only lanes above the focused one and
+    // say so. Lanes with other clips are never folded (a drag or an edit there keeps its row).
     const shown = rows.filter(row => !row.hidden), withClips = shown.filter(row => occupied.has(row.dataset.track));
     const room = els.timelineScroll.clientHeight - RULER_H;
     const span = withClips.length ? withClips.at(-1).getBoundingClientRect().bottom - withClips[0].getBoundingClientRect().top : 0;
     if (span <= room) first = withClips[0] || first;
-    else for (const row of shown.slice(0, shown.indexOf(first))) foldTrackRow(row.dataset.track);
+    else for (const row of shown.slice(0, shown.indexOf(first))) if (captionOnlyTrack(row.dataset.track)) foldTrackRow(row.dataset.track);
     updateTracksAboveHint();
   }
   if (first) {
@@ -5129,17 +5130,22 @@ function syncTimelineTrackView() {
     scroller.scrollTop += first.getBoundingClientRect().top - scroller.getBoundingClientRect().top - RULER_H;
   }
 }
+/** A lane whose clips are all captions (and that has some). */
+function captionOnlyTrack(id) {
+  const clips = project.clips.filter(c => c.track === id);
+  return clips.length > 0 && clips.every(c => FableCutCaptions.isCaption(c));
+}
 function foldTrackRow(id) {
   syncTimelineTrackView.folded.add(id);
-  for (const container of [els.tracks, $("trackHeadInner")]) { const row = container?.querySelector(`[data-track="${id}"]`); if (row) row.hidden = true; }
+  for (const container of [els.tracks, $("trackHeadInner")]) { const row = container && [...container.children].find(r => r.dataset.track === id); if (row) row.hidden = true; }
 }
-/** The corner above the track heads says when lanes with clips are folded away above; a click shows them. */
+/** The corner above the track heads says when caption lanes are folded away above; a click shows them. */
 function updateTracksAboveHint() {
   const hint = document.getElementById("btnTracksAbove"), folded = syncTimelineTrackView.folded;
   if (!hint) return;
   const ids = folded ? [...folded].filter(id => project.clips.some(c => c.track === id)) : [];
   hint.hidden = !ids.length;
-  hint.textContent = uiText(project.clips.some(c => ids.includes(c.track) && FableCutCaptions.isCaption(c)) ? "own.tl-above-captions" : "own.tl-above-tracks");
+  hint.textContent = uiText("own.tl-above-captions");
 }
 document.getElementById("btnTracksAbove").addEventListener("click", () => {
   const ids = [...syncTimelineTrackView.folded];

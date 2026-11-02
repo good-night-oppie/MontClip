@@ -30,7 +30,6 @@
     "mixing-audio": ["Mixing audio…", "正在混音…"],
     "finishing": ["Finishing…", "正在收尾…"],
     "tl-above-captions": ["Captions above", "字幕轨在上方"],
-    "tl-above-tracks": ["More tracks above", "上方还有轨道"],
   };
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
