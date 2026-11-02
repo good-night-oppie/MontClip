@@ -18,6 +18,7 @@
 const http = require("http");
 const crypto = require("crypto");
 const fs = require("fs");
+const { pipeline } = require("stream");
 const os = require("os");
 const path = require("path");
 const ownedProcesses = process.env.MONTCLIP_DESKTOP === "1"
@@ -592,13 +593,13 @@ function serveFile(req, res, filePath) {
         "Content-Range": `bytes ${start}-${end}/${st.size}`,
         "Content-Length": end - start + 1, ...extra,
       });
-      fs.createReadStream(filePath, { start, end }).pipe(res);
+      pipeline(fs.createReadStream(filePath, { start, end }), res, () => {});
     } else {
       res.writeHead(200, {
         "Content-Type": type, "Content-Length": st.size,
         "Accept-Ranges": "bytes", "Cache-Control": "no-cache", ...extra,
       });
-      fs.createReadStream(filePath).pipe(res);
+      pipeline(fs.createReadStream(filePath), res, () => {});
     }
   });
 }
