@@ -44,3 +44,19 @@ test("the scan catches the patterns it is meant to", () => {
     a.ok(SCREEN.test(bad), bad);
   for (const ok of ["(await win.webContents.capturePage()).toPNG()", "name+'.page.png'", "screen.getPrimaryDisplay()"]) a.ok(!SCREEN.test(ok), ok);
 });
+
+// Deja (2026-11-02): screen captures are no longer kept in the repository; validation goes by the .page.png.
+test("no screen capture is kept under docs/validation", () => {
+  const walk = (d) => fs.readdirSync(path.join(ROOT, d), { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(d + "/" + e.name) : [d + "/" + e.name]);
+  a.deepEqual(walk("docs/validation").filter((f) => /\.screen\.png$/i.test(f)), []);
+});
+
+// ...and the two smokes that took them no longer take over the desktop: no window on screen, no focus.
+test("drop-reveal and zh-terms smokes run in a hidden, offscreen window: no show, no always-on-top, no focus", () => {
+  for (const f of ["desktop/drop-reveal-smoke.cjs", "desktop/zh-terms-smoke.cjs"]) {
+    const s = fs.readFileSync(path.join(ROOT, f), "utf8");
+    a.doesNotMatch(s, /\.show\(\)|showInactive\(|setAlwaysOnTop|\.focus\(\)|moveTop\(/, f);
+    a.match(s, /show:\s*false/, f + " creates its window hidden");
+    a.match(s, /offscreen:\s*true/, f + " paints offscreen, so capturePage still gets real frames");
+  }
+});
