@@ -2,6 +2,7 @@
 // Text for the dialogs the main process shows itself (close prompt, stopped service), in the interface
 // language the user chose (view-settings.json, read when the dialog shows). One language at a time:
 // the Chinese is the old wording's Chinese half, the English its English half (JJ to review).
+// serviceStoppedTitle and ok title and label the error boxes, which showErrorBox left as "Error" / "OK" (VV; JJ to review).
 const TEXT = {
   'zh-CN': {
     closeTitle: '保存尚未确认',
@@ -9,11 +10,13 @@ const TEXT = {
     closeDetail: '继续等：保持窗口打开，恢复后可重试关闭。强制关闭：最近修改可能丢失。',
     closeKeepWaiting: '继续等',
     closeForce: '强制关闭（最近修改可能丢失）',
-    serviceStopped: 'MontClip 的内部服务意外退出。请保留窗口中的修改，重新启动后检查项目。',
+    serviceStopped: 'MontClip 的内部服务意外停止了，最近的修改可能没有保存。请关掉 MontClip 再重新打开，看看最近剪的地方还在不在。',
     startFailedTitle: 'MontClip 启动失败',
     startFailedHint: '请关闭后重新打开。还不行，就换一个能保存文件的文件夹再试。',
     serviceStartTimeout: '启动 MontClip 的内部服务超时。',
     serviceExitedAtStart: 'MontClip 的内部服务已退出。',
+    serviceStoppedTitle: 'MontClip 出错了',
+    ok: '确定',
   },
   en: {
     closeTitle: 'Save not confirmed',
@@ -21,11 +24,13 @@ const TEXT = {
     closeDetail: 'Keep waiting: leave the window open and retry closing after recovery. Force close: recent changes may be lost.',
     closeKeepWaiting: 'Keep waiting',
     closeForce: 'Force close (may lose changes)',
-    serviceStopped: "MontClip's internal service stopped unexpectedly. Keep the changes in the window, restart MontClip and check the project.",
+    serviceStopped: "MontClip's internal service stopped unexpectedly, so your most recent changes may not have been saved. Close MontClip, open it again, and check whether your latest edits are still there.",
     startFailedTitle: 'MontClip could not start',
     startFailedHint: 'Close and reopen MontClip. If it still fails, try a folder where files can be saved.',
     serviceStartTimeout: "MontClip's internal service took too long to start.",
     serviceExitedAtStart: "MontClip's internal service stopped while starting.",
+    serviceStoppedTitle: 'MontClip ran into a problem',
+    ok: 'OK',
   },
 };
 /** The language in a view-settings read ({ok, value:{language}}); Chinese when it can't be told. */

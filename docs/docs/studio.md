@@ -15,7 +15,7 @@ Firefox and Safari can't open folders on your disk, so there Studio keeps projec
 - **New project** starts an empty one; add clips with the editor's Import button or drop them onto the bin. They are copied into the browser's storage.
 - **Import a folder** copies a folder of clips, or a FableCut project folder with its `project.json`, into a new project.
 - Exports download to your computer instead of landing in `exports/`.
-- **Download** on a project's card saves the whole project as a `.zip`: clips, `project.json` and versions. Unzip it and the folder opens in Studio on a Chromium browser, or locally with `FABLECUT_DATA_DIR=<folder> npx -y fablecut`.
+- **Download** on a project's card saves the whole project as a `.zip`: clips, `project.json` and versions. Unzip it and the folder opens in Studio on a Chromium browser, or locally with `FABLECUT_DATA_DIR=<folder> node server.js`.
 - **Delete** (click twice) removes a project and its clips from the browser. The home page shows how much of the browser's storage the projects use.
 
 The files are still never uploaded, and agents connect the same way. Browser storage holds a copy of each clip, and the browser may clear it when the disk runs low, so download projects you want to keep. Chrome, Edge, Brave and Arc open real folders and need none of this.
@@ -31,7 +31,7 @@ A Studio project is a plain folder with the same layout as a local FableCut data
 | `exports/` | Your renders |
 | `history/` | Saved versions of the project |
 
-Clips already in the folder are used where they are, and new files you drop into it show up in the media bin. The same folder opens in the local editor too: `FABLECUT_DATA_DIR=<folder> npx -y fablecut`.
+Clips already in the folder are used where they are, and new files you drop into it show up in the media bin. The same folder opens in the local editor too: `FABLECUT_DATA_DIR=<folder> node server.js`.
 
 ### Connect an agent
 
@@ -61,7 +61,7 @@ Studio renders in the browser and encodes an `.mp4` with H.264 video and AAC aud
 
 ### Studio or the local install
 
-| | Studio | Local (`npx -y fablecut`) |
+| | Studio | Local (`node server.js`) |
 |---|---|---|
 | Install | None | Node 18+, optional ffmpeg |
 | Browser | Chrome, Edge, Brave, Arc; Firefox and Safari keep projects in the browser | Any Chromium browser |
@@ -78,4 +78,3 @@ Chrome can pause a site's access to a folder when its tab sits in the background
 
 If Studio won't load, or the agent panel says **Relay offline** for more than a minute, check [status.fablecut.space](https://status.fablecut.space). It checks the editor and the agent connection every hour and lists any recent outages.
 
-Something else wrong, or a question? Ask on the **[FableCut Discord](https://discord.gg/EFMQH7d6Tv)**, or email **[support@fablecut.space](mailto:support@fablecut.space)**. Say which browser and version you use, and what you did just before it went wrong.

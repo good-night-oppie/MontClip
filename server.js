@@ -36,6 +36,7 @@ const {
   dryRunProfile,
 } = require("./encode-profiles");
 const { downloadImportUrl, maybeFaststart } = require("./import-url");
+const { prepareMedia, publicPreparationError } = require("./prepare-media");
 const { pruneCache } = require("./frame-cache");
 const { createExportJobs } = require("./export-jobs");
 const { denoiseFile, AMOUNT_IDS: DENOISE_AMOUNTS } = require("./denoise");
@@ -102,7 +103,7 @@ const MIME = {
   ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8", ".json": "application/json",
   ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime",
-  ".mkv": "video/x-matroska", ".m4v": "video/mp4",
+  ".mkv": "video/x-matroska", ".m4v": "video/mp4", ".flv": "video/x-flv",
   ".mp3": "audio/mpeg", ".wav": "audio/wav", ".ogg": "audio/ogg",
   ".m4a": "audio/mp4", ".aac": "audio/aac", ".flac": "audio/flac",
   ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
@@ -933,12 +934,31 @@ const server = http.createServer(async (req, res) => {
       let target = path.join(MEDIA_DIR, name);
       let i = 1;
       const ext = path.extname(name), base = path.basename(name, ext);
-      while (fs.existsSync(target)) target = path.join(MEDIA_DIR, `${base}_${i++}${ext}`);
       const body = await readBody(req);
-      fs.writeFileSync(target, body);
+      // Reserve only after receiving the body, and never overwrite another upload.
+      for (;;) {
+        try { fs.writeFileSync(target, body, { flag: "wx" }); break; }
+        catch (error) {
+          if (error.code !== "EEXIST") throw error;
+          target = path.join(MEDIA_DIR, `${base}_${i++}${ext}`);
+        }
+      }
       await faststart(target);
-      sendJSON(res, 200, { ok: true, src: "/media/" + encodeURIComponent(path.basename(target)) });
-    } catch (e) { sendJSON(res, 500, { error: String(e) }); }
+      sendJSON(res, 200, { ok: true, ...await prepareMedia(target) });
+    } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
+    return;
+  }
+
+  if (p === "/api/prepare-media" && req.method === "POST") {
+    try {
+      const body = JSON.parse((await readBody(req)).toString("utf8"));
+      const file = resolveSrc(body.src);
+      if (!file || !String(body.src).startsWith("/media/") || path.extname(file).toLowerCase() !== ".flv") {
+        sendJSON(res, 400, { code:"FLV_SOURCE_REQUIRED", error:"FLV_SOURCE_REQUIRED" });
+        return;
+      }
+      sendJSON(res, 200, { ok: true, ...await prepareMedia(file, {allowTranscode: body.allowTranscode, acceptReadable: body.acceptReadable}) });
+    } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
     return;
   }
 
@@ -1467,7 +1487,7 @@ setInterval(() => {
 
 server.listen(PORT, HOST, () => {
   boundPort = server.address().port;
-  console.log(`\n  FableCut running →  http://localhost:${boundPort}\n`);
+  console.log(`\n  MontClip running →  http://localhost:${boundPort}\n`);
   const ready = { type: "montclip-ready", origin: serverOrigin() };
   if (DESKTOP) {
     process.parentPort?.postMessage(ready);

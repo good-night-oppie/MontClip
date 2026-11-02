@@ -218,11 +218,11 @@
     if (cached && Date.now() - cached.t < TTL) { paint(cached); return; }
 
     var out = { t: Date.now() };
-    var repo = fetch("https://api.github.com/repos/ronak-create/FableCut")
+    var repo = fetch("https://api.github.com/repos/good-night-oppie/MontClip")
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) { if (j && typeof j.stargazers_count === "number") out.stars = j.stargazers_count; })
       .catch(function () { });
-    var rel = fetch("https://api.github.com/repos/ronak-create/FableCut/releases/latest")
+    var rel = fetch("https://api.github.com/repos/good-night-oppie/MontClip/releases/latest")
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         if (!j || !j.tag_name) return;
