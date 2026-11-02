@@ -4,8 +4,9 @@ Runner: `node desktop/run-narrow-pane.cjs <label>` (manual; fresh temporary prof
 visible always-on-top window resized with `setContentSize`, injected provider only,
 no clipboard, no OS-level input). Clicks are `webContents.sendInputEvent` at the
 real window coordinates of each control after checking `elementFromPoint` hits it.
-`*.screen.png` is an OS screenshot of the visible window's client area
-(`CopyFromScreen`, DPI-aware); `*.page.png` is `capturePage`.
+`*.page.png` is `capturePage` (the app's own page); the results below go by these.
+The `*.screen.png` OS screenshots of the window area were removed on 2026-11-02:
+screen captures can take in other programs, and the repository keeps none (#47).
 
 - `red/` — before the fix, default project of a fresh profile: `projectId:null`,
   Send shows 「请先打开或创建项目，再发送。」 and no review opens.
