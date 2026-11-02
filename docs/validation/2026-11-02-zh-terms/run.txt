@@ -1,0 +1,3 @@
+TERMS {"lang":"zh-CN","saved":"zh-CN","export":"⬇ 导出","split":"✂ 分割","settings":"设置","project":"Untitled Project  ·  🟢 connected","marked":185,"overflowX":0}
+TERMS {"lang":"en","saved":"en","export":"⬇ Export","split":"✂ Split","settings":"Settings","project":"Untitled Project  ·  🟢 connected","marked":185,"overflowX":0}
+TERMS_COMPLETE
