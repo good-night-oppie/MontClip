@@ -11,7 +11,7 @@ This is a test build for internal testing only, and it may have problems. Your o
 [What it can do]
 - Import recordings from your computer (MP4 recommended for now).
 - Import an existing SRT subtitle file, then tick the sentences you want to keep. Preview first, then apply; one Undo reverts it.
-- Highlight candidates: on this computer, using the sound, subtitles and danmaku, it lists a few pieces that may be worth keeping. They are only candidates. No AI is used, and nothing is cut for you; you tick what to keep.
+- Highlight candidates: on this computer, using the sound and subtitles, it lists a few pieces that may be worth keeping. They are only candidates. No AI is used, and nothing is cut for you; you tick what to keep.
 - Export MP4 and SRT subtitles.
 - Optional AI assistant: connect your own OpenAI or DeepSeek account; charges go to your account. Editing works fine without it.
 
@@ -19,6 +19,8 @@ This is a test build for internal testing only, and it may have problems. Your o
 - No Chinese transcription on this computer. You need an SRT subtitle file.
 - You can cut by whole sentence only, not by individual words.
 - Some screens and messages are still in English.
+- Danmaku cannot be imported yet, so Highlight candidates use only the sound and subtitles for now.
+- "+ URL" (Import from URL) does not work in this build; it says offline mode. Import files from your computer instead.
 - Tested on Windows 11 only.
 
 [Exporting video]
@@ -27,9 +29,9 @@ H.264 export (ordinary MP4) uses your graphics card's encoder or Windows' built-
 - For better quality you can choose an FFmpeg with x264 that is already on your computer, in Settings. This is optional; export works without it.
 
 [Internet]
-- Only the AI assistant and Import from URL connect to the internet, and only when you start them yourself.
+- Only the AI assistant connects to the internet, and only after you click Send and confirm.
 - The AI assistant sends only the text you see in the review box, never recordings, audio, screenshots or project files.
-- To stop using the AI assistant: under Settings › AI service, click Remove this connection. The key saved on this computer is cleared.
+- To stop using the AI assistant: under Assistant › AI service, click Remove this connection. The key saved on this computer is cleared.
 - See the release notes on the release page for details.
 
 [If something goes wrong]

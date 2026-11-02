@@ -1,7 +1,7 @@
 {
   "author": "JJ",
-  "document": "2026-11-03-MontClip内部试用包-使用说明-中英.md (v2)",
-  "sha256": "7b3c8abaace3d09757ecafa7ace687b96952b96a8465e171385633fe22f5c5b2",
+  "document": "2026-11-03-MontClip内部试用包-使用说明-中英.md (v3)",
+  "sha256": "22048c9bbc1b3dc00ec0c3dd4fad907d430fdab1b9c6ffda7ff5a846fecd7cc7",
   "taken": [
     "## 中文",
     "## English"
@@ -13,5 +13,5 @@
     "{repo}": "https://github.com/good-night-oppie/MontClip (not used in the v2 body)"
   },
   "encoding": "written into the zip as UTF-8 with BOM, CRLF",
-  "confirmedBy": "Deja, 2026-11-02: 7b3c8aba is the version to use; 076caf39 is withdrawn"
+  "confirmedBy": "Deja, 2026-11-02: v3 (22048c9b) replaces v2 (7b3c8aba)"
 }
