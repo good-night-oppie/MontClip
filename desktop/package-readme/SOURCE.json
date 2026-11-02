@@ -9,7 +9,9 @@
   "left_out": "## 落地前要实施侧确认 (internal, not shipped)",
   "placeholders": {
     "{version}": "<UTC date>-<short commit>, filled by desktop/package-win.cjs",
-    "{exe}": "MontClip.exe"
+    "{exe}": "MontClip.exe",
+    "{repo}": "https://github.com/good-night-oppie/MontClip (not used in the v2 body)"
   },
-  "encoding": "written into the zip as UTF-8 with BOM, CRLF"
+  "encoding": "written into the zip as UTF-8 with BOM, CRLF",
+  "confirmedBy": "Deja, 2026-11-02: 7b3c8aba is the version to use; 076caf39 is withdrawn"
 }

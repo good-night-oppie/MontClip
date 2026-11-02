@@ -95,11 +95,12 @@ async function main() {
     fs.copyFileSync(path.join(src, 'LICENSE'), path.join(lic, 'MontClip-LICENSE.txt'));
 
     // JJ's notes for testers, in the zip's root: UTF-8 with a BOM and CRLF so Notepad shows them right. The repo keeps
-    // them with placeholders (desktop/package-readme/); {version} is this build (date and commit), {exe} the program.
+    // them with placeholders (desktop/package-readme/); {version} is this build (date and commit), {exe} the program,
+    // {repo} the GitHub repository.
     const date0 = new Date().toISOString().slice(0, 10).replace(/-/g, ''), buildId = date0 + '-' + short;
     for (const [from, to] of [['zh-CN.txt', '先看我-使用说明.txt'], ['en.txt', 'README-first.txt']]) {
       const text = fs.readFileSync(path.join(src, 'desktop', 'package-readme', from), 'utf8').replace(/\r\n/g, '\n')
-        .replace(/\{version\}/g, buildId).replace(/\{exe\}/g, 'MontClip.exe');
+        .replace(/\{version\}/g, buildId).replace(/\{exe\}/g, 'MontClip.exe').replace(/\{repo\}/g, 'https://github.com/good-night-oppie/MontClip');
       if (/\{[a-z0-9]+\}/.test(text)) fail(from + ' still has a placeholder');
       if (/落地前|实施侧/.test(text)) fail(from + ' holds the internal checklist');
       fs.writeFileSync(path.join(appDir, to), '\uFEFF' + text.replace(/\n/g, '\r\n'), 'utf8');
