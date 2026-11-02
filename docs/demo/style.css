@@ -4681,3 +4681,10 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .cindy-port.compact .cindy-message {display:block;font-size:11px;line-height:1.35;}
 .cindy-port.compact .cindy-message > strong {margin-right:4px;}
 .cindy-port.compact .cindy-composer {padding:2px;}
+
+/* desktop FLV import dialog */
+.flv-import-dialog { max-width: min(460px, 92vw); }
+.flv-import-dialog .flv-import-name { word-break: break-all; opacity: .8; }
+.flv-import-dialog [data-flv-ask] { white-space: pre-line; line-height: 1.5; }
+.flv-import-dialog .flv-import-row { display: flex; gap: 8px; justify-content: flex-end; }
+.flv-import-dialog [hidden] { display: none; }

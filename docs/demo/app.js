@@ -2027,6 +2027,48 @@ function mediaKindFromFile(file) {
   if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif"].includes(ext)) return "image";
   return null;
 }
+/* Desktop FLV import (Deja, replacing #7): the main process checks the picked file where it is and hashes it; a
+   re-encode or a file whose end could not be confirmed asks first (Cancel focused); only then is it copied into
+   media/ as a stream and the copy's hash checked. A dialog shows each step with a Cancel that removes only this
+   import's files. Returns {src, originalSrc, preparation, importId}, or null when nothing was imported. */
+async function desktopFlvImport(file) {
+  const bridge = globalThis.montclipFlv, T = (k, v) => MontClipView.t(mcView.get().language, k, v);
+  const dlg = document.createElement("dialog"), title = document.createElement("h3"), name = document.createElement("p"),
+    status = document.createElement("p"), ask = document.createElement("p"), row = document.createElement("div"),
+    cancel = document.createElement("button"), go = document.createElement("button");
+  dlg.className = "flv-import-dialog"; dlg.dataset.flvImport = "";
+  title.textContent = T("flvTitle"); name.textContent = file.name; name.className = "flv-import-name";
+  status.dataset.flvStatus = ""; status.setAttribute("role", "status");
+  ask.dataset.flvAsk = ""; ask.hidden = true;
+  cancel.className = "btn"; cancel.dataset.flvCancel = ""; cancel.textContent = T("flvCancel");
+  go.className = "btn primary"; go.dataset.flvContinue = ""; go.textContent = T("flvContinue"); go.hidden = true;
+  row.className = "flv-import-row"; row.append(cancel, go);
+  dlg.append(title, name, status, ask, row); document.body.append(dlg); dlg.showModal(); cancel.focus();
+  let id = null, canceled = false, answer = null;
+  const PHASE = { inspect: "flvPhaseInspect", hash: "flvPhaseHash", copy: "flvPhaseCopy", verify: "flvPhaseVerify", prepare: "flvPhasePrepare" };
+  const show = (st) => { if (st && PHASE[st.phase]) status.textContent = T(PHASE[st.phase], { pct: st.size ? Math.min(100, Math.floor(st.done / st.size * 100)) : 0 }); };
+  status.textContent = T("flvPhaseInspect");
+  const stop = () => { canceled = true; cancel.disabled = true; if (answer) answer(false); if (id) bridge.cancel(id); };
+  cancel.onclick = stop; dlg.addEventListener("cancel", (e) => { e.preventDefault(); stop(); });
+  const poll = setInterval(async () => { if (id && !canceled) { const r = await bridge.status(id); if (r && r.ok) show(r.status); } }, 250);
+  try {
+    const seen = await bridge.inspect(file);
+    if (!seen.ok) { toast(MontClipView.flvImportMessage(mcView.get().language, seen.code)); return null; }
+    id = seen.id;
+    if (canceled) { await bridge.cancel(id); toast(T("flvCanceled")); return null; }
+    if (!seen.compatible || seen.needsReadableConsent) {
+      ask.textContent = [!seen.compatible ? T("flvAskTranscode") : "", seen.needsReadableConsent ? T("flvAskReadable") : ""].filter(Boolean).join("\n\n");
+      ask.hidden = false; go.hidden = false; status.textContent = ""; cancel.focus();
+      const yes = await new Promise((resolve) => { answer = resolve; go.onclick = () => resolve(true); });
+      answer = null; ask.hidden = true; go.hidden = true;
+      if (!yes) { await bridge.cancel(id); toast(T("flvCanceled")); return null; }
+    }
+    status.textContent = T("flvPhaseCopy", { pct: 0 });
+    const out = await bridge.prepare({ id, allowTranscode: !seen.compatible, acceptReadable: seen.needsReadableConsent });
+    if (!out.ok) { toast(MontClipView.flvImportMessage(mcView.get().language, canceled ? "FLV_IMPORT_CANCELED" : out.code)); return null; }
+    return { src: out.src, originalSrc: out.originalSrc, preparation: out.preparation, importId: id };
+  } finally { clearInterval(poll); dlg.close(); dlg.remove(); }
+}
 async function importFiles(fileList) {
   const files = [...fileList];
   if (!files.length) return [];
@@ -2041,8 +2083,13 @@ async function importFiles(fileList) {
     const kind = mediaKindFromFile(file);
     if (!kind) { skipped++; continue; }
     const flv = /\.flv$/i.test(file.name);
-    let src, originalSrc, preparation, transient = false;
-    if (state.connected) {
+    let src, originalSrc, preparation, flvImport = null, transient = false;
+    if (flv && globalThis.montclipFlv) {
+      // desktop: checked where it is, copied only after the user agrees (desktopFlvImport)
+      const r = await desktopFlvImport(file);
+      if (!r) continue;
+      ({src, originalSrc, preparation} = r); flvImport = r.importId;
+    } else if (state.connected) {
       try {
         const res = await fetch("/api/upload?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
         if (!res.ok) { let code = ""; try { code = (await res.json()).code || ""; } catch {} throw Object.assign(new Error("upload " + res.status), { code }); }
@@ -2061,8 +2108,15 @@ async function importFiles(fileList) {
       await loadMediaMetadata(m);
       if (kind === "video") grabThumb(m).catch(() => { });
       ensureWave(m);
-    } catch { skipped++; continue; }
-    if (gen !== runtime.projectGen) { toast("Import stopped: another project was opened. The uploaded files are in media/"); break; }
+    } catch {
+      if (flvImport) { await globalThis.montclipFlv.cancel(flvImport); flvFailure("FLV_PREPARATION_FAILED"); continue; }
+      skipped++; continue;
+    }
+    if (gen !== runtime.projectGen) {
+      if (flvImport) await globalThis.montclipFlv.cancel(flvImport);
+      toast("Import stopped: another project was opened. The uploaded files are in media/"); break;
+    }
+    if (flvImport) await globalThis.montclipFlv.finish(flvImport);
     project.media.push(m);
     addedMedia.push(m);
     added++;
