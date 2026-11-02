@@ -2789,3 +2789,5 @@ Maximum50 sessions across scopes,100 messages/session,20 references/session,1600
 Agent default identity adoption is internal to verified pjLoad: preserve anonymous same-generation/same-sequence sessions when snapshot/header identity checks succeed, without automatically changing reference ownership. The assistant uses the existing right-side page area. Existing close controller continues to offer default keep-open and explicit force-close when session saving fails; force can discard unconfirmed edits.
 
 Agent pane capacity feedback distinguishes session, current-project, text and reference limits. Returning from a capacity-blocked project restores its existing project sessions; no restart is recommended to free capacity.
+
+If session storage cannot be read at initialization, the Agent pane explicitly uses window-only sessions. Copy drafts before closing; the original session file is not changed. This temporary mode does not block normal project close/save checks. A write failure after successful loading remains unconfirmed and retains the existing close protection.
