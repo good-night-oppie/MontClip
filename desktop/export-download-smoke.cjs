@@ -56,37 +56,55 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   assert.equal(out.saved.state,'completed');assert.ok(fs.statSync(path.join(saved,'mine.mp4')).size>0);
   assert.equal(out.saved.toast,'Exported '+name1,'the success message once saved');
   assert.equal(out.saved.copyLeft,false,'this export\'s copy is removed');
-  out.step='queueRow';out.queueRow=await read(`(()=>{renderQueue();const t=document.body.innerHTML;return{saved:t.includes('已保存到你选的位置'),openToRemoved:t.includes('href="'+${JSON.stringify(src1)}+'"')}})()`);
-  assert.deepEqual(out.queueRow,{saved:true,openToRemoved:false},'the queue row says saved, no dead Open link');
+  // the queue in the interface language (JJ): 导出队列 · n, 保存 on each item, 已保存 once saved; no English left in them
+  const queueView=()=>read(`(()=>{renderQueue();const l=document.getElementById('exportQueueList').innerHTML,b=document.getElementById('btnOpenQueue').textContent;
+    return{button:b,rows:[...document.querySelectorAll('#exportQueueList [data-q]')].map(li=>({id:li.dataset.q,save:li.querySelector('[data-q-save]')?.textContent||null,saved:li.querySelector('.dlv-q-saved')?.textContent||null,links:li.querySelectorAll('a[href]').length})),english:/\b(Open|Save|Saved|Queue)\b/.test(b+' '+[...document.querySelectorAll('#exportQueueList [data-q-save], #exportQueueList .dlv-q-saved')].map(x=>x.textContent).join(' '))}})()`);
+  out.step='queueRow';out.queueRow=await queueView();
+  assert.deepEqual(out.queueRow.rows,[{id:'qsmoke',save:null,saved:'已保存',links:0}],'the saved row says 已保存, with no dead link');
+  assert.equal(out.queueRow.button,'导出队列 · 1');assert.equal(out.queueRow.english,false);
 
-  // 2. this session's export, cancelled: kept, and the toast says where it still is
+  // 2. this session's export, cancelled: kept, and the toast says how to save it again
   out.step='export2';const src2=await exportNow('第二次 导出'),name2=decodeURIComponent(src2.split('/').pop());
+  await read(`exportQueue.push({id:'q2',label:'smoke',spec:normalizeDelivery('master').spec,name:'y',range:'entire',status:'done',progress:1,src:${JSON.stringify(src2)},file:${JSON.stringify(name2)},report:null});renderQueue();true`);
   out.step='cancel2';out.cancelledZh=await download(`saveDownload(${JSON.stringify(src2)},${JSON.stringify(name2)},{savedMsg:'Exported',exportFile:true})`,cancel);
   assert.equal(out.cancelledZh.state,'cancelled');
-  assert.equal(out.cancelledZh.toast,'没有保存。导出的视频还在，可以在导出列表里点「Open」再存一次。');
+  assert.equal(out.cancelledZh.toast,'没有保存。导出的视频还在，打开『导出队列』，在这一条后面点『保存』就能再存一次。');
   assert.equal(out.cancelledZh.copyLeft,true,'a cancel keeps the export');
-  // 3. Open in the export queue (a plain link), saved twice: nothing is removed
-  out.step='open';for(let i=0;i<2;i++){
+  out.queueZh=await queueView();
+  assert.deepEqual(out.queueZh.rows.map(r=>[r.id,r.save,r.saved]),[['qsmoke',null,'已保存'],['q2','保存',null]]);
+  assert.equal(out.queueZh.button,'导出队列 · 2');assert.equal(out.queueZh.english,false,'no English in the queue\'s buttons');
+  // 3. any other download of that file (a plain link), saved twice: nothing is removed
+  out.step='plain';for(let i=0;i<2;i++){
    const r=await download(`const a=document.createElement('a');a.href=${JSON.stringify(src2)};a.download='';document.body.appendChild(a);a.click();a.remove()`,saveTo('again'+i+'.mp4'));
-   assert.equal(r.state,'completed');assert.equal(r.copyLeft,true,'Open removes nothing ('+i+')');
+   assert.equal(r.state,'completed');assert.equal(r.copyLeft,true,'a plain download removes nothing ('+i+')');
   }
-  out.openTwice='kept';
-  // 4. an older file in exports/, downloaded as an export: not this session's, kept
+  // 4. the queue's 保存, cancelled: kept, same toast
+  out.step='qsave-cancel';out.queueSaveCancel=await download(`document.querySelector('#exportQueueList [data-q-save="q2"]').click()`,cancel);
+  assert.equal(out.queueSaveCancel.state,'cancelled');assert.equal(out.queueSaveCancel.copyLeft,true);
+  assert.equal(out.queueSaveCancel.toast,'没有保存。导出的视频还在，打开『导出队列』，在这一条后面点『保存』就能再存一次。');
+  // 5. an older file in exports/, downloaded as an export: not this session's, kept
   out.step='older';out.older=await download(`saveDownload('/exports/'+encodeURIComponent('older export.mp4'),'older export.mp4',{exportFile:true})`,saveTo('older.mp4'));
   assert.equal(out.older.state,'completed');assert.equal(out.older.copyLeft,true,'an older file is never removed');
-  // 5. English: the export cancel; a caption (blob) cancel says nothing was saved
+  // 6. English: the export cancel; a captions cancel (blob: nothing kept anywhere)
   out.step='en';await lang('en');
   out.cancelledEn=await download(`saveDownload(${JSON.stringify(src2)},${JSON.stringify(name2)},{exportFile:true})`,cancel);
-  assert.equal(out.cancelledEn.toast,'Not saved. The exported video is still here; click Open in the export list to save it again.');
+  assert.equal(out.cancelledEn.toast,'Not saved. The exported video is still here: open the export queue and click Save on this item to save it again.');
   assert.equal(out.cancelledEn.copyLeft,true);
-  out.captionCancel=await download(`saveDownload(URL.createObjectURL(new Blob(['1'])),'录播.srt',{savedMsg:'Saved 1 caption'})`,cancel);
-  assert.equal(out.captionCancel.dialog.title,'Save captions');assert.equal(out.captionCancel.toast,'Save canceled. No file was saved.');
+  out.captionCancel=await download(`saveDownload(URL.createObjectURL(new Blob(['1'])),'录播.srt',{kind:'captions',savedMsg:'Saved 1 caption'})`,cancel);
+  assert.equal(out.captionCancel.dialog.title,'Save captions');assert.equal(out.captionCancel.toast,'Captions not saved. Click export captions again to save them.');
+  out.queueEn=await queueView();
+  assert.deepEqual(out.queueEn.rows.map(r=>[r.id,r.save,r.saved]),[['qsmoke',null,'Saved'],['q2','Save',null]]);assert.equal(out.queueEn.button,'Export queue · 2');
+  // 7. the queue's Save, saved: now the copy goes, and the row says Saved
+  out.step='qsave';out.queueSave=await download(`document.querySelector('#exportQueueList [data-q-save="q2"]').click()`,saveTo('from-queue.mp4'));
+  assert.equal(out.queueSave.state,'completed');assert.equal(out.queueSave.copyLeft,false,'saved from the queue: the copy goes');
+  out.queueAfter=await queueView();
+  assert.deepEqual(out.queueAfter.rows.map(r=>[r.id,r.save,r.saved,r.links]),[['qsmoke',null,'Saved',0],['q2',null,'Saved',0]]);
 
   await wait(1000);
   out.downloadsLeft=fs.readdirSync(downloads);
   assert.deepEqual(out.downloadsLeft,[],'nothing left in Downloads after the cancels');
   out.exportsLeft=fs.readdirSync(exportsDir).sort();
-  assert.deepEqual(out.exportsLeft,[name2,'older export.mp4'].sort(),'only the saved export\'s copy went');
+  assert.deepEqual(out.exportsLeft,['older export.mp4'],'only the saved exports\' copies went');
   process.stdout.write('EXPORT_DOWNLOAD_COMPLETE '+JSON.stringify(out)+'\n');
  }catch(e){process.stdout.write('EXPORT_DOWNLOAD_FAIL '+(e&&e.stack)+' '+JSON.stringify(out)+'\n');}
  finally{setTimeout(()=>app.exit(0),300);}
