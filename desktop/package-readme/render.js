@@ -8,8 +8,10 @@ const fs = require('node:fs'), path = require('node:path');
 const ALT = require('./url-hidden.json'), COPY = require('./exports-fixed.json');
 /** Does this app.js hide + URL in the desktop app? */
 const hidesUrl = (appJs) => appJs.includes(ALT.marker);
-/** Is the fix really there: desktop/main.js wires export-downloads.js, and that module removes the copy? */
-const dropsExportCopy = (mainJs, exportDownloadsJs) => String(mainJs || '').includes(COPY.marker) && String(exportDownloadsJs || '').includes(COPY.removes);
+/** Is the registered-export fix really there? desktop/main.js wires export-downloads.js and takes the page's
+ *  expectation, that module removes the copy, and server.js registers each export it makes. Not a PR number. */
+const dropsExportCopy = (mainJs, exportDownloadsJs, serverJs) => { const m = String(mainJs || ''); return m.includes(COPY.marker) && m.includes(COPY.expects) &&
+  String(exportDownloadsJs || '').includes(COPY.removes) && String(serverJs || '').includes(COPY.registers); };
 /** → {text (with BOM and CRLF), variant: "as written" | "JJ's URL line" | "no export-copy line" | both, joined by " + "} */
 function render(raw, { lang, buildId, urlHidden, copyGone }) {
   let text = raw.replace(/\r\n/g, '\n').replace(/\{version\}/g, buildId).replace(/\{exe\}/g, 'MontClip.exe')

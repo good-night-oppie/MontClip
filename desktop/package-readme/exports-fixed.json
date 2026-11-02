@@ -1,8 +1,10 @@
 {
-  "why": "When the packaged app really has the fix that removes each export's hidden copy once saved (desktop/export-downloads.js, wired in desktop/main.js), the line under 导出视频要注意 / the export notes on deleting those copies is wrong: JJ's line on what a cancel keeps replaces it.",
+  "why": "When the packaged app really has the registered-export fix — the server registers each export it makes, main.js takes the page's own expectation and wires export-downloads.js, and that module removes the copy only after a completed save — the line under 导出视频要注意 / the export notes on deleting those copies is wrong: JJ's line on what a cancel keeps replaces it.",
   "decided": "JJ, 2026-11-02 (final): replace the line with what a cancel keeps and how to save again; an empty to would delete it.",
   "marker": "require(\"./export-downloads\").attach(item,",
+  "expects": "montclip:downloads:expect",
   "removes": "fs.rmSync(copy",
+  "registers": "freshExports.add(",
   "zh-CN": {
     "from": "- 每次导出，软件还会在电脑里另外留一份副本，会占 C 盘空间（下个版本会改掉）。你自己选位置保存的那份不受影响。C 盘紧张时可以手动删掉副本：先关掉 MontClip，打开任意一个文件夹，在上面的地址栏里输入 %APPDATA%\\MontClip\\workspace\\exports ，按回车，删掉里面的视频文件。只删 exports 这个文件夹里的东西，不要删 workspace 里别的文件夹或文件，那里有你的项目，删了会丢。",
     "to": "- 如果在保存窗口点了『取消』，导出的视频会先留着：打开『导出队列』，在这一条后面点『保存』就能再存一次。"

@@ -100,7 +100,7 @@ async function main() {
     const Readme = require(path.join(src, 'desktop', 'package-readme', 'render.js'));
     const urlHidden = Readme.hidesUrl(fs.readFileSync(path.join(src, 'app.js'), 'utf8'));
     const readOr = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch { return ''; } };
-    const copyGone = Readme.dropsExportCopy(readOr(path.join(src, 'desktop', 'main.js')), readOr(path.join(src, 'desktop', 'export-downloads.js')));
+    const copyGone = Readme.dropsExportCopy(readOr(path.join(src, 'desktop', 'main.js')), readOr(path.join(src, 'desktop', 'export-downloads.js')), readOr(path.join(src, 'server.js')));
     let readmeVariant = null;
     for (const [lang, to] of [['zh-CN', '先看我-使用说明.txt'], ['en', 'README-first.txt']]) {
       let r; try { r = Readme.render(Readme.read(lang), { lang, buildId, urlHidden, copyGone }); } catch (e) { fail(e.message); }
