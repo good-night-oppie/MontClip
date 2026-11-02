@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Show the final session-capacity and message-length guidance only for the corresponding rejected action.
+- Separate Agent local storage policy from actual save confirmation; identify storage eligibility by project ID, not project name.
+- Initial Agent session read failures use explicit window-only storage without blocking normal project close; loaded-session write failures retain save protection.
 - Agent pane restores existing project drafts after a capacity-blocked project switch and distinguishes session, text and reference limits.
 
 ### Added

@@ -1,0 +1,3592 @@
+TAP version 13
+# Subtest: draft/session isolation and no fake response or transport
+ok 1 - draft/session isolation and no fake response or transport
+  ---
+  duration_ms: 4.2872
+  type: 'test'
+  ...
+# Subtest: new/select/search sessions and cancel keep drafts
+ok 2 - new/select/search sessions and cancel keep drafts
+  ---
+  duration_ms: 0.4796
+  type: 'test'
+  ...
+# Subtest: bounded drafts/sessions and locale key parity
+ok 3 - bounded drafts/sessions and locale key parity
+  ---
+  duration_ms: 0.5623
+  type: 'test'
+  ...
+# Subtest: capacity on project switch never exposes previous project draft
+ok 4 - capacity on project switch never exposes previous project draft
+  ---
+  duration_ms: 0.26
+  type: 'test'
+  ...
+# Subtest: mounted handler clears old textarea when a new project hits capacity
+ok 5 - mounted handler clears old textarea when a new project hits capacity
+  ---
+  duration_ms: 7.8838
+  type: 'test'
+  ...
+# Subtest: reference whitelist excludes media, path and account; known range/caption IDs only
+ok 6 - reference whitelist excludes media, path and account; known range/caption IDs only
+  ---
+  duration_ms: 0.5071
+  type: 'test'
+  ...
+# Subtest: reference removal and session switch do not silently retain removed context
+ok 7 - reference removal and session switch do not silently retain removed context
+  ---
+  duration_ms: 0.3639
+  type: 'test'
+  ...
+# Subtest: mounted keyboard respects IME, Shift+Enter and upper dialog before hide
+ok 8 - mounted keyboard respects IME, Shift+Enter and upper dialog before hide
+  ---
+  duration_ms: 1.1556
+  type: 'test'
+  ...
+# Subtest: capacity recovery restores existing scope without leaking its draft into blocked scope
+ok 9 - capacity recovery restores existing scope without leaking its draft into blocked scope
+  ---
+  duration_ms: 1.4826
+  type: 'test'
+  ...
+# Subtest: mounted disconnected status uses actual send result and survives locale switch without clearing draft
+ok 10 - mounted disconnected status uses actual send result and survives locale switch without clearing draft
+  ---
+  duration_ms: 1.3991
+  type: 'test'
+  ...
+# Subtest: mounted initial read failure states temporary lifetime and hides futile save retry
+ok 11 - mounted initial read failure states temporary lifetime and hides futile save retry
+  ---
+  duration_ms: 0.608
+  type: 'test'
+  ...
+# Subtest: mounted storage policy is separate from a failed write: zh-CN
+ok 12 - mounted storage policy is separate from a failed write: zh-CN
+  ---
+  duration_ms: 0.8419
+  type: 'test'
+  ...
+# Subtest: mounted storage policy is separate from a failed write: en
+ok 13 - mounted storage policy is separate from a failed write: en
+  ---
+  duration_ms: 0.1876
+  type: 'test'
+  ...
+# Subtest: controller persists drafts, selection and explicit references across recreation without sending
+ok 14 - controller persists drafts, selection and explicit references across recreation without sending
+  ---
+  duration_ms: 3.901
+  type: 'test'
+  ...
+# Subtest: failed and unknown saves preserve edits; retries never overwrite another snapshot
+ok 15 - failed and unknown saves preserve edits; retries never overwrite another snapshot
+  ---
+  duration_ms: 0.4633
+  type: 'test'
+  ...
+# Subtest: fixed store rejects extra keys, malformed data, lost update and corrupt read; duplicate save is idempotent
+ok 16 - fixed store rejects extra keys, malformed data, lost update and corrupt read; duplicate save is idempotent
+  ---
+  duration_ms: 6.7534
+  type: 'test'
+  ...
+# Subtest: anonymous contexts do not persist and invalid stored messages cannot enter renderer
+ok 17 - anonymous contexts do not persist and invalid stored messages cannot enter renderer
+  ---
+  duration_ms: 0.7176
+  type: 'test'
+  ...
+# Subtest: owned temporary failure cleanup preserves saved file and a collided foreign file
+ok 18 - owned temporary failure cleanup preserves saved file and a collided foreign file
+  ---
+  duration_ms: 4.3751
+  type: 'test'
+  ...
+# Subtest: stored text messages restore without turning content into commands or automatic sends
+ok 19 - stored text messages restore without turning content into commands or automatic sends
+  ---
+  duration_ms: 0.4396
+  type: 'test'
+  ...
+# Subtest: lost acknowledgement retry reads committed content, corrupt load never overwrites evidence
+ok 20 - lost acknowledgement retry reads committed content, corrupt load never overwrites evidence
+  ---
+  duration_ms: 0.5372
+  type: 'test'
+  ...
+# Subtest: failed local session save refuses normal close before starting project save
+ok 21 - failed local session save refuses normal close before starting project save
+  ---
+  duration_ms: 6.4997
+  type: 'test'
+  ...
+# Subtest: initial production context can lack generation: keep explicit unknown, never invent an identity
+ok 22 - initial production context can lack generation: keep explicit unknown, never invent an identity
+  ---
+  duration_ms: 1.3154
+  type: 'test'
+  ...
+# Subtest: verified default identity adoption preserves both sessions and isolates subsequent projects
+ok 23 - verified default identity adoption preserves both sessions and isolates subsequent projects
+  ---
+  duration_ms: 0.7012
+  type: 'test'
+  ...
+# Subtest: session failure retains existing continue-waiting and explicit-force close choices
+ok 24 - session failure retains existing continue-waiting and explicit-force close choices
+  ---
+  duration_ms: 12.2899
+  type: 'test'
+  ...
+# Subtest: initial json failure keeps sessions temporary without writes or close obstruction
+ok 25 - initial json failure keeps sessions temporary without writes or close obstruction
+  ---
+  duration_ms: 1.0339
+  type: 'test'
+  ...
+# Subtest: initial schema failure keeps sessions temporary without writes or close obstruction
+ok 26 - initial schema failure keeps sessions temporary without writes or close obstruction
+  ---
+  duration_ms: 0.3019
+  type: 'test'
+  ...
+# Subtest: initial read failure keeps sessions temporary without writes or close obstruction
+ok 27 - initial read failure keeps sessions temporary without writes or close obstruction
+  ---
+  duration_ms: 0.3051
+  type: 'test'
+  ...
+# Subtest: initial throw failure keeps sessions temporary without writes or close obstruction
+ok 28 - initial throw failure keeps sessions temporary without writes or close obstruction
+  ---
+  duration_ms: 0.1975
+  type: 'test'
+  ...
+# Subtest: initial token failure keeps sessions temporary without writes or close obstruction
+ok 29 - initial token failure keeps sessions temporary without writes or close obstruction
+  ---
+  duration_ms: 0.1608
+  type: 'test'
+  ...
+# Subtest: temporary assistant allows normal project close transaction but never bypasses project save failure
+ok 30 - temporary assistant allows normal project close transaction but never bypasses project save failure
+  ---
+  duration_ms: 6.6611
+  type: 'test'
+  ...
+# Subtest: invalid successful write receipt cannot downgrade a loaded session to temporary mode
+ok 31 - invalid successful write receipt cannot downgrade a loaded session to temporary mode
+  ---
+  duration_ms: 0.3575
+  type: 'test'
+  ...
+# Subtest: app.js declares every top-level function once
+ok 32 - app.js declares every top-level function once
+  ---
+  duration_ms: 9.6369
+  type: 'test'
+  ...
+# Subtest: there are library SVGs to validate
+ok 33 - there are library SVGs to validate
+  ---
+  duration_ms: 2.1074
+  type: 'test'
+  ...
+# Subtest: every library SVG is well-formed and self-contained
+ok 34 - every library SVG is well-formed and self-contained
+  ---
+  duration_ms: 3.835
+  type: 'test'
+  ...
+# Subtest: animated library SVGs stay drivable by the compositor clock
+ok 35 - animated library SVGs stay drivable by the compositor clock
+  ---
+  duration_ms: 4.0025
+  type: 'test'
+  ...
+# Subtest: the documented starter SVGs still ship
+ok 36 - the documented starter SVGs still ship
+  ---
+  duration_ms: 0.2792
+  type: 'test'
+  ...
+# Subtest: library fonts can draw Latin text
+ok 37 - library fonts can draw Latin text
+  ---
+  duration_ms: 22.2248
+  type: 'test'
+  ...
+# Subtest: shipped JSON files parse
+ok 38 - shipped JSON files parse
+  ---
+  duration_ms: 3.6044
+  type: 'test'
+  ...
+# Subtest: package.json declares no runtime dependencies
+ok 39 - package.json declares no runtime dependencies
+  ---
+  duration_ms: 1.3725
+  type: 'test'
+  ...
+# Subtest: inspector sliders advertise and handle Ctrl/Cmd-click reset
+ok 40 - inspector sliders advertise and handle Ctrl/Cmd-click reset
+  ---
+  duration_ms: 7.0945
+  type: 'test'
+  ...
+# Subtest: normalizeFx fills defaults, clamps ranges and keeps bypass
+ok 41 - normalizeFx fills defaults, clamps ranges and keeps bypass
+  ---
+  duration_ms: 2.2945
+  type: 'test'
+  ...
+# Subtest: every preset is a valid, distinct chain
+ok 42 - every preset is a valid, distinct chain
+  ---
+  duration_ms: 2.8083
+  type: 'test'
+  ...
+# Subtest: limiter: nothing passes the ceiling, quiet audio passes untouched (delayed 5 ms)
+ok 43 - limiter: nothing passes the ceiling, quiet audio passes untouched (delayed 5 ms)
+  ---
+  duration_ms: 135.2394
+  type: 'test'
+  ...
+# Subtest: gate: closes on room noise, opens for the voice
+ok 44 - gate: closes on room noise, opens for the voice
+  ---
+  duration_ms: 45.5382
+  type: 'test'
+  ...
+# Subtest: fade curves: constant power crossfades sum to unity power; no curve keeps the old shape
+ok 45 - fade curves: constant power crossfades sum to unity power; no curve keeps the old shape
+  ---
+  duration_ms: 7.3632
+  type: 'test'
+  ...
+# Subtest: duck multiplies volume; the volume-line taper round-trips
+ok 46 - duck multiplies volume; the volume-line taper round-trips
+  ---
+  duration_ms: 1.539
+  type: 'test'
+  ...
+# Subtest: dB helpers: unity, −6 dB, the floor is silence, junk is unity
+ok 47 - dB helpers: unity, −6 dB, the floor is silence, junk is unity
+  ---
+  duration_ms: 1.3914
+  type: 'test'
+  ...
+# Subtest: fader taper: unity at ¾ throw, −∞ at the bottom, and it inverts
+ok 48 - fader taper: unity at ¾ throw, −∞ at the bottom, and it inverts
+  ---
+  duration_ms: 1.005
+  type: 'test'
+  ...
+# Subtest: track mixer settings round-trip through project.tracks, written only off-default
+ok 49 - track mixer settings round-trip through project.tracks, written only off-default
+  ---
+  duration_ms: 2.4479
+  type: 'test'
+  ...
+# Subtest: one graph: clip → trim → vol → pan → track input → track fader → track pan → master sum → master fader
+ok 50 - one graph: clip → trim → vol → pan → track input → track fader → track pan → master sum → master fader
+  ---
+  duration_ms: 2.5363
+  type: 'test'
+  ...
+# Subtest: channel modes: what each one wires in front of the clip's trim
+ok 51 - channel modes: what each one wires in front of the clip's trim
+  ---
+  duration_ms: 1.1396
+  type: 'test'
+  ...
+# Subtest: fx slot: effects sit between gain and volume; tweaks update in place, shape changes rebuild
+ok 52 - fx slot: effects sit between gain and volume; tweaks update in place, shape changes rebuild
+  ---
+  duration_ms: 1.9278
+  type: 'test'
+  ...
+# Subtest: track and master fx: before the faders; gate/limiter pass through until the worklet loads
+ok 53 - track and master fx: before the faders; gate/limiter pass through until the worklet loads
+  ---
+  duration_ms: 1.2269
+  type: 'test'
+  ...
+# Subtest: changing channelMode re-routes a live chain in place
+ok 54 - changing channelMode re-routes a live chain in place
+  ---
+  duration_ms: 0.8641
+  type: 'test'
+  ...
+# Subtest: pitch shift moves a sine by the asked interval and leaves 0 st untouched
+ok 55 - pitch shift moves a sine by the asked interval and leaves 0 st untouched
+  ---
+  duration_ms: 268.3693
+  type: 'test'
+  ...
+# Subtest: Deep voice is a real pitch shift now, and pitch is a normal effect
+ok 56 - Deep voice is a real pitch shift now, and pitch is a normal effect
+  ---
+  duration_ms: 2.4238
+  type: 'test'
+  ...
+# Subtest: effect keys are validated, clamped, sorted and interpolated
+ok 57 - effect keys are validated, clamped, sorted and interpolated
+  ---
+  duration_ms: 1.5926
+  type: 'test'
+  ...
+# Subtest: a stem playing a denoised copy still links to its picture
+ok 58 - a stem playing a denoised copy still links to its picture
+  ---
+  duration_ms: 1.1382
+  type: 'test'
+  ...
+# Subtest: setBus / setTrack out / removeBus route tracks through submix buses
+ok 59 - setBus / setTrack out / removeBus route tracks through submix buses
+  ---
+  duration_ms: 337.8752
+  type: 'test'
+  ...
+# Subtest: setFxKeys automates one parameter and clears it again
+ok 60 - setFxKeys automates one parameter and clears it again
+  ---
+  duration_ms: 402.0166
+  type: 'test'
+  ...
+# Subtest: fablecut_denoise renders a cleaner copy, switches the stems, and off switches back
+ok 61 - fablecut_denoise renders a cleaner copy, switches the stems, and off switches back
+  ---
+  duration_ms: 3164.0123
+  type: 'test'
+  ...
+# Subtest: fablecut_denoise refuses a picture that carries its own sound
+ok 62 - fablecut_denoise refuses a picture that carries its own sound
+  ---
+  duration_ms: 387.982
+  type: 'test'
+  ...
+# Subtest: POST /api/denoise validates its input
+ok 63 - POST /api/denoise validates its input
+  ---
+  duration_ms: 712.2445
+  type: 'test'
+  ...
+# Subtest: analyze + grid: a 120 BPM kick track gives 120 BPM and a grid on the clicks
+ok 64 - analyze + grid: a 120 BPM kick track gives 120 BPM and a grid on the clicks
+  ---
+  duration_ms: 35.8498
+  type: 'test'
+  ...
+# Subtest: resample: a 48 kHz kick track analyzes like the 22.05 kHz one
+ok 65 - resample: a 48 kHz kick track analyzes like the 22.05 kHz one
+  ---
+  duration_ms: 37.3952
+  type: 'test'
+  ...
+# Subtest: mono averages channels
+ok 66 - mono averages channels
+  ---
+  duration_ms: 1.1436
+  type: 'test'
+  ...
+# Subtest: grid without a tempo, or with too few onsets, is the onsets themselves
+ok 67 - grid without a tempo, or with too few onsets, is the onsets themselves
+  ---
+  duration_ms: 0.8949
+  type: 'test'
+  ...
+# Subtest: toTimeline maps source seconds through in, start and speed, inside the clip
+ok 68 - toTimeline maps source seconds through in, start and speed, inside the clip
+  ---
+  duration_ms: 0.4006
+  type: 'test'
+  ...
+# Subtest: every accepts 1, 2, 4, 8, 16 beats
+ok 69 - every accepts 1, 2, 4, 8, 16 beats
+  ---
+  duration_ms: 0.2448
+  type: 'test'
+  ...
+# Subtest: snapOps rolls each cut to the nearest beat within half a beat, at whole frames
+ok 70 - snapOps rolls each cut to the nearest beat within half a beat, at whole frames
+  ---
+  duration_ms: 1.6513
+  type: 'test'
+  ...
+# Subtest: retimePlan lays a track's clips back to back, n beats each, from the first beat
+ok 71 - retimePlan lays a track's clips back to back, n beats each, from the first beat
+  ---
+  duration_ms: 0.7511
+  type: 'test'
+  ...
+# Subtest: retimePlan gives a clip with little source fewer beats, and skips one too short for a beat
+ok 72 - retimePlan gives a clip with little source fewer beats, and skips one too short for a beat
+  ---
+  duration_ms: 0.9587
+  type: 'test'
+  ...
+# Subtest: retimePlan: clips past the music follow on at their own length
+ok 73 - retimePlan: clips past the music follow on at their own length
+  ---
+  duration_ms: 0.9354
+  type: 'test'
+  ...
+# Subtest: retimePlan only takes the clips from `from` on
+ok 74 - retimePlan only takes the clips from `from` on
+  ---
+  duration_ms: 0.5838
+  type: 'test'
+  ...
+# Subtest: snapOps plans the rolls one after another: two cuts can't both take a short clip's time
+ok 75 - snapOps plans the rolls one after another: two cuts can't both take a short clip's time
+  ---
+  duration_ms: 0.5776
+  type: 'test'
+  ...
+# Subtest: fitTimed drops keyframes past a shorter end and clamps transitions
+ok 76 - fitTimed drops keyframes past a shorter end and clamps transitions
+  ---
+  duration_ms: 0.8999
+  type: 'test'
+  ...
+# Subtest: plan: markers keep every marker the user had, and add none where one already sits
+ok 77 - plan: markers keep every marker the user had, and add none where one already sits
+  ---
+  duration_ms: 1.6291
+  type: 'test'
+  ...
+# Subtest: plan: retime never moves the music clip, even on the track it re-cuts
+ok 78 - plan: retime never moves the music clip, even on the track it re-cuts
+  ---
+  duration_ms: 2.9627
+  type: 'test'
+  ...
+# Subtest: plan: a re-cut shot carries its trimmed keyframes and transitions in the op
+ok 79 - plan: a re-cut shot carries its trimmed keyframes and transitions in the op
+  ---
+  duration_ms: 0.8214
+  type: 'test'
+  ...
+# Subtest: plan: snap counts a linked stem's footage — a stem on a shorter file keeps the cut where it is
+ok 80 - plan: snap counts a linked stem's footage — a stem on a shorter file keeps the cut where it is
+  ---
+  duration_ms: 1.0291
+  type: 'test'
+  ...
+# Subtest: plan: the tempo on the timeline follows the music clip's speed
+ok 81 - plan: the tempo on the timeline follows the music clip's speed
+  ---
+  duration_ms: 0.5711
+  type: 'test'
+  ...
+# Subtest: plan: marking twice adds nothing and says so plainly
+ok 82 - plan: marking twice adds nothing and says so plainly
+  ---
+  duration_ms: 1.3418
+  type: 'test'
+  ...
+# Subtest: plan: re-cut gives a shot no more beats than its linked stem's footage allows
+ok 83 - plan: re-cut gives a shot no more beats than its linked stem's footage allows
+  ---
+  duration_ms: 0.5145
+  type: 'test'
+  ...
+# Subtest: snapOps leaves a hairline gap alone: only clips that really meet make a cut a roll can move
+ok 84 - snapOps leaves a hairline gap alone: only clips that really meet make a cut a roll can move
+  ---
+  duration_ms: 0.177
+  type: 'test'
+  ...
+# Subtest: sentence selection checks revision, joins nonadjacent ranges and exports a separate mapping
+ok 85 - sentence selection checks revision, joins nonadjacent ranges and exports a separate mapping
+  ---
+  duration_ms: 928.4828
+  type: 'test'
+  ...
+# Subtest: captions from the transcript, on a new lane above the title, timed word by word
+ok 86 - captions from the transcript, on a new lane above the title, timed word by word
+  ---
+  duration_ms: 1194.4747
+  type: 'test'
+  ...
+# Subtest: refusals: a bad style, a locked caption, a missing file
+ok 87 - refusals: a bad style, a locked caption, a missing file
+  ---
+  duration_ms: 1145.604
+  type: 'test'
+  ...
+# Subtest: long SRT/VTT cues retain normalized text through clip JSON and standard subtitle export
+ok 88 - long SRT/VTT cues retain normalized text through clip JSON and standard subtitle export
+  ---
+  duration_ms: 6.5742
+  type: 'test'
+  ...
+# Subtest: styles are checked; sizes and line length follow the canvas
+ok 89 - styles are checked; sizes and line length follow the canvas
+  ---
+  duration_ms: 0.6683
+  type: 'test'
+  ...
+# Subtest: wrap splits into even lines
+ok 90 - wrap splits into even lines
+  ---
+  duration_ms: 0.4514
+  type: 'test'
+  ...
+# Subtest: cues break at pauses, sentences, room and word limits, on frames, never overlapping
+ok 91 - cues break at pauses, sentences, room and word limits, on frames, never overlapping
+  ---
+  duration_ms: 2.9155
+  type: 'test'
+  ...
+# Subtest: a cue lasts at least minDur when there is room
+ok 92 - a cue lasts at least minDur when there is room
+  ---
+  duration_ms: 0.5039
+  type: 'test'
+  ...
+# Subtest: wordTimes require actual alignment; sentence timestamps never invent word timing
+ok 93 - wordTimes require actual alignment; sentence timestamps never invent word timing
+  ---
+  duration_ms: 0.5866
+  type: 'test'
+  ...
+# Subtest: SRT imports stay sentence-level in every style, including Chinese without spaces
+ok 94 - SRT imports stay sentence-level in every style, including Chinese without spaces
+  ---
+  duration_ms: 19.9479
+  type: 'test'
+  ...
+# Subtest: clip() makes a caption text clip in the style, placed for the canvas
+ok 95 - clip() makes a caption text clip in the style, placed for the canvas
+  ---
+  duration_ms: 0.9543
+  type: 'test'
+  ...
+# Subtest: the lane: captions' own, else the top video lane when free, else a new one
+ok 96 - the lane: captions' own, else the top video lane when free, else a new one
+  ---
+  duration_ms: 2.1756
+  type: 'test'
+  ...
+# Subtest: SRT and WebVTT out, and back in
+ok 97 - SRT and WebVTT out, and back in
+  ---
+  duration_ms: 1.0386
+  type: 'test'
+  ...
+# Subtest: fromClips lists the caption clips in time order
+ok 98 - fromClips lists the caption clips in time order
+  ---
+  duration_ms: 0.6384
+  type: 'test'
+  ...
+# Subtest: fit re-breaks an imported caption to the style's line length
+ok 99 - fit re-breaks an imported caption to the style's line length
+  ---
+  duration_ms: 0.9875
+  type: 'test'
+  ...
+# Subtest: one word longer than a line stays whole, in wrap, cues and fit
+ok 100 - one word longer than a line stays whole, in wrap, cues and fit
+  ---
+  duration_ms: 0.2117
+  type: 'test'
+  ...
+# Subtest: fromClips leaves out captions on a disabled track
+ok 101 - fromClips leaves out captions on a disabled track
+  ---
+  duration_ms: 0.1805
+  type: 'test'
+  ...
+# Subtest: a neutral grade is the identity, and normalizeGrade keeps only what differs
+ok 102 - a neutral grade is the identity, and normalizeGrade keeps only what differs
+  ---
+  duration_ms: 6.2873
+  type: 'test'
+  ...
+# Subtest: exposure works in stops of linear light; lift moves black and keeps white
+ok 103 - exposure works in stops of linear light; lift moves black and keeps white
+  ---
+  duration_ms: 3.1657
+  type: 'test'
+  ...
+# Subtest: tone bands act where they should and saturation keeps luma
+ok 104 - tone bands act where they should and saturation keeps luma
+  ---
+  duration_ms: 0.5604
+  type: 'test'
+  ...
+# Subtest: the white-balance picker neutralizes the sampled colour
+ok 105 - the white-balance picker neutralizes the sampled colour
+  ---
+  duration_ms: 0.4641
+  type: 'test'
+  ...
+# Subtest: wheels sit on the vectorscope's Cb/Cr plane and carry no luma
+ok 106 - wheels sit on the vectorscope's Cb/Cr plane and carry no luma
+  ---
+  duration_ms: 1.4783
+  type: 'test'
+  ...
+# Subtest: CPU fallback = per-pixel reference; scopes and stats count the right things
+ok 107 - CPU fallback = per-pixel reference; scopes and stats count the right things
+  ---
+  duration_ms: 6.1618
+  type: 'test'
+  ...
+# Subtest: setGrade merges, resets with null, replaces, clears — and respects locks
+ok 108 - setGrade merges, resets with null, replaces, clears — and respects locks
+  ---
+  duration_ms: 376.5276
+  type: 'test'
+  ...
+# Subtest: fablecut_scopes hands a scopes job to the tab and reports its measurement
+ok 109 - fablecut_scopes hands a scopes job to the tab and reports its measurement
+  ---
+  duration_ms: 1685.2993
+  type: 'test'
+  ...
+# Subtest: curves: monotone, endpoints added, luma curve keeps hue, hue curves wrap
+ok 110 - curves: monotone, endpoints added, luma curve keeps hue, hue curves wrap
+  ---
+  duration_ms: 14.3646
+  type: 'test'
+  ...
+# Subtest: setGrade sets curves per channel and hue curves, null removes one
+ok 111 - setGrade sets curves per channel and hue curves, null removes one
+  ---
+  duration_ms: 455.5135
+  type: 'test'
+  ...
+# Subtest: layers: qualifier and mask mattes, mixing, stacking, keys and validation
+ok 112 - layers: qualifier and mask mattes, mixing, stacking, keys and validation
+  ---
+  duration_ms: 8.5014
+  type: 'test'
+  ...
+# Subtest: setGradeLayer adds, merges, finds by name, removes — and setGrade replaces the layer list
+ok 113 - setGradeLayer adds, merges, finds by name, removes — and setGrade replaces the layer list
+  ---
+  duration_ms: 531.3487
+  type: 'test'
+  ...
+# Subtest: flatten: a comp clip's contents land at timeline times, trimmed to its window
+ok 114 - flatten: a comp clip's contents land at timeline times, trimmed to its window
+  ---
+  duration_ms: 9.1409
+  type: 'test'
+  ...
+# Subtest: flatten: nested comps, loops cut off, parents and links renamed per instance
+ok 115 - flatten: nested comps, loops cut off, parents and links renamed per instance
+  ---
+  duration_ms: 1.6687
+  type: 'test'
+  ...
+# Subtest: precompose moves clips into a new comp and leaves a comp clip in their place
+ok 116 - precompose moves clips into a new comp and leaves a comp clip in their place
+  ---
+  duration_ms: 4.4523
+  type: 'test'
+  ...
+# Subtest: trims treat a comp clip's in as a window into its comp
+ok 117 - trims treat a comp clip's in as a window into its comp
+  ---
+  duration_ms: 5.5754
+  type: 'test'
+  ...
+# Subtest: normalizeComp: defaults and strict refusals
+ok 118 - normalizeComp: defaults and strict refusals
+  ---
+  duration_ms: 2.166
+  type: 'test'
+  ...
+# Subtest: agent: addComp, inComp, precompose, updateComp, removeComp and the compact view
+ok 119 - agent: addComp, inComp, precompose, updateComp, removeComp and the compact view
+  ---
+  duration_ms: 441.8376
+  type: 'test'
+  ...
+# Subtest: a butt cut borrows half the crossfade from each side and fades both
+ok 120 - a butt cut borrows half the crossfade from each side and fades both
+  ---
+  duration_ms: 6.5782
+  type: 'test'
+  ...
+# Subtest: short handles shift the overlap to the side that has media
+ok 121 - short handles shift the overlap to the side that has media
+  ---
+  duration_ms: 3.9103
+  type: 'test'
+  ...
+# Subtest: no spare media on either side refuses
+ok 122 - no spare media on either side refuses
+  ---
+  duration_ms: 0.6414
+  type: 'test'
+  ...
+# Subtest: clips that already overlap just get fades across the overlap
+ok 123 - clips that already overlap just get fades across the overlap
+  ---
+  duration_ms: 0.3806
+  type: 'test'
+  ...
+# Subtest: a linked shot cut: both stems crossfade, the incoming picture dissolves
+ok 124 - a linked shot cut: both stems crossfade, the incoming picture dissolves
+  ---
+  duration_ms: 2.6875
+  type: 'test'
+  ...
+# Subtest: locked clips are left alone
+ok 125 - locked clips are left alone
+  ---
+  duration_ms: 0.4354
+  type: 'test'
+  ...
+# Subtest: with nothing selected, Shift+D takes the cut nearest the playhead on targeted tracks
+ok 126 - with nothing selected, Shift+D takes the cut nearest the playhead on targeted tracks
+  ---
+  duration_ms: 1.4819
+  type: 'test'
+  ...
+# Subtest: every preset normalizes to a complete spec with nothing to correct
+ok 127 - every preset normalizes to a complete spec with nothing to correct
+  ---
+  duration_ms: 5.7881
+  type: 'test'
+  ...
+# Subtest: normalize corrects impossible combinations and says how
+ok 128 - normalize corrects impossible combinations and says how
+  ---
+  duration_ms: 1.7112
+  type: 'test'
+  ...
+# Subtest: normalize picks an encoder this ffmpeg has, and keeps hardware pixel formats legal
+ok 129 - normalize picks an encoder this ffmpeg has, and keeps hardware pixel formats legal
+  ---
+  duration_ms: 0.4799
+  type: 'test'
+  ...
+# Subtest: reframe: fill crops the middle, fit pads, the export frame is the source region
+ok 130 - reframe: fill crops the middle, fit pads, the export frame is the source region
+  ---
+  duration_ms: 0.9579
+  type: 'test'
+  ...
+# Subtest: ffmpegArgs: the input side, the filter chain, rate control and the container flags
+ok 131 - ffmpegArgs: the input side, the filter chain, rate control and the container flags
+  ---
+  duration_ms: 3.3835
+  type: 'test'
+  ...
+# Subtest: renderFilename fills tokens and strips what a file name cannot hold
+ok 132 - renderFilename fills tokens and strips what a file name cannot hold
+  ---
+  duration_ms: 1.5711
+  type: 'test'
+  ...
+# Subtest: checks: upscaling, crops, platform limits and size
+ok 133 - checks: upscaling, crops, platform limits and size
+  ---
+  duration_ms: 1.2233
+  type: 'test'
+  ...
+# Subtest: savedPresets and parseEncoders
+ok 134 - savedPresets and parseEncoders
+  ---
+  duration_ms: 1.3492
+  type: 'test'
+  ...
+# Subtest: setProject delivery stores the complete spec; a bad preset is refused
+ok 135 - setProject delivery stores the complete spec; a bad preset is refused
+  ---
+  duration_ms: 10.8159
+  type: 'test'
+  ...
+# Subtest: delivery presets: list, save, refuse a built-in name, delete
+ok 136 - delivery presets: list, save, refuse a built-in name, delete
+  ---
+  duration_ms: 6496.4177
+  type: 'test'
+  ...
+# Subtest: export/request: a profile and a preset together are refused
+ok 137 - export/request: a profile and a preset together are refused
+  ---
+  duration_ms: 384.806
+  type: 'test'
+  ...
+# Subtest: export/begin with a delivery spec: crops, scales and encodes the frames it is sent
+ok 138 - export/begin with a delivery spec: crops, scales and encodes the frames it is sent
+  ---
+  duration_ms: 5226.8956
+  type: 'test'
+  ...
+# Subtest: export/begin with a delivery spec: ffmpeg's refusal comes back before any frame
+ok 139 - export/begin with a delivery spec: ffmpeg's refusal comes back before any frame
+  ---
+  duration_ms: 5738.8316
+  type: 'test'
+  ...
+# Subtest: reframe: an export frame of another shape is ignored — the output reframes the whole canvas
+ok 140 - reframe: an export frame of another shape is ignored — the output reframes the whole canvas
+  ---
+  duration_ms: 0.4836
+  type: 'test'
+  ...
+# Subtest: setProject outputs: the batch list is stored complete, with ids and checkboxes
+ok 141 - setProject outputs: the batch list is stored complete, with ids and checkboxes
+  ---
+  duration_ms: 1.1732
+  type: 'test'
+  ...
+# Subtest: export/begin with several deliveries: one stream of frames, one file per output
+ok 142 - export/begin with several deliveries: one stream of frames, one file per output
+  ---
+  duration_ms: 4454.4441
+  type: 'test'
+  ...
+# Subtest: loudness: spec, gain, limiter filter and the ebur128 parser
+ok 143 - loudness: spec, gain, limiter filter and the ebur128 parser
+  ---
+  duration_ms: 1.4389
+  type: 'test'
+  ...
+# Subtest: verify: what came out against what was asked
+ok 144 - verify: what came out against what was asked
+  ---
+  duration_ms: 1.2017
+  type: 'test'
+  ...
+# Subtest: export with a loudness target: the mix is measured, turned to the target, limited, and the file is checked
+ok 145 - export with a loudness target: the mix is measured, turned to the target, limited, and the file is checked
+  ---
+  duration_ms: 4751.6217
+  type: 'test'
+  ...
+# Subtest: a silent mix through the real ffmpeg measures as silence
+ok 146 - a silent mix through the real ffmpeg measures as silence
+  ---
+  duration_ms: 56.6477
+  type: 'test'
+  ...
+# Subtest: close saves once; repeated requests and late results cannot close twice
+ok 147 - close saves once; repeated requests and late results cannot close twice
+  ---
+  duration_ms: 7.4503
+  type: 'test'
+  ...
+# Subtest: timeout defaults to keep waiting/open, cancels old freeze and ignores late success
+ok 148 - timeout defaults to keep waiting/open, cancels old freeze and ignores late success
+  ---
+  duration_ms: 3.1499
+  type: 'test'
+  ...
+# Subtest: renderer fault only closes on explicit force; late dialog ignored after dispose
+ok 149 - renderer fault only closes on explicit force; late dialog ignored after dispose
+  ---
+  duration_ms: 1.8282
+  type: 'test'
+  ...
+# Subtest: desktop queue never spawns a system browser for any job kind
+ok 150 - desktop queue never spawns a system browser for any job kind
+  ---
+  duration_ms: 10.1588
+  type: 'test'
+  ...
+# Subtest: desktop close freezes input and permits revision-only successful save
+ok 151 - desktop close freezes input and permits revision-only successful save
+  ---
+  duration_ms: 3.8255
+  type: 'test'
+  ...
+# Subtest: timed-out save unfreezes, and its late receipt cannot unfreeze a newer attempt
+ok 152 - timed-out save unfreezes, and its late receipt cannot unfreeze a newer attempt
+  ---
+  duration_ms: 2.0915
+  type: 'test'
+  ...
+# Subtest: desktop close rejects late edit, conflict reload, failed and unknown saves
+ok 153 - desktop close rejects late edit, conflict reload, failed and unknown saves
+  ---
+  duration_ms: 8.7176
+  type: 'test'
+  ...
+# Subtest: desktop binds an ephemeral port and requires its session and exact origin
+ok 154 - desktop binds an ephemeral port and requires its session and exact origin
+  ---
+  duration_ms: 559.7927
+  type: 'test'
+  ...
+# Subtest: desktop shutdown leaves another instance alive and tokens cannot cross instances
+ok 155 - desktop shutdown leaves another instance alive and tokens cannot cross instances
+  ---
+  duration_ms: 1099.4557
+  type: 'test'
+  ...
+# Subtest: fixed settings survive a new store instance without any port in the filename
+ok 156 - fixed settings survive a new store instance without any port in the filename
+  ---
+  duration_ms: 7.019
+  type: 'test'
+  ...
+# Subtest: whitelist and persistence errors are explicit and never write arbitrary data
+ok 157 - whitelist and persistence errors are explicit and never write arbitrary data
+  ---
+  duration_ms: 0.4679
+  type: 'test'
+  ...
+# Subtest: settings IPC rejects other sender/frame/origin before touching storage
+ok 158 - settings IPC rejects other sender/frame/origin before touching storage
+  ---
+  duration_ms: 0.5327
+  type: 'test'
+  ...
+# Subtest: pane namespace persists width only and rejects credentials
+ok 159 - pane namespace persists width only and rejects credentials
+  ---
+  duration_ms: 0.6895
+  type: 'test'
+  ...
+# Subtest: the envelope finds speech, offset onto the timeline
+ok 160 - the envelope finds speech, offset onto the timeline
+  ---
+  duration_ms: 20.0944
+  type: 'test'
+  ...
+# Subtest: threshold, clip gain and speed shape what counts as voice
+ok 161 - threshold, clip gain and speed shape what counts as voice
+  ---
+  duration_ms: 23.554
+  type: 'test'
+  ...
+# Subtest: blips shorter than minLen are ignored; close regions merge across short gaps
+ok 162 - blips shorter than minLen are ignored; close regions merge across short gaps
+  ---
+  duration_ms: 3.9697
+  type: 'test'
+  ...
+# Subtest: duck keyframes ramp down before speech and back up after
+ok 163 - duck keyframes ramp down before speech and back up after
+  ---
+  duration_ms: 1.1983
+  type: 'test'
+  ...
+# Subtest: duck keyframes are cut cleanly at the clip edges
+ok 164 - duck keyframes are cut cleanly at the clip edges
+  ---
+  duration_ms: 1.1754
+  type: 'test'
+  ...
+# Subtest: overlapping ramps stay ducked instead of bouncing
+ok 165 - overlapping ramps stay ducked instead of bouncing
+  ---
+  duration_ms: 0.3324
+  type: 'test'
+  ...
+# Subtest: chunked envelope streaming matches one push
+ok 166 - chunked envelope streaming matches one push
+  ---
+  duration_ms: 16.6521
+  type: 'test'
+  ...
+# Subtest: the colour filter stamps primaries and transfer from the profile
+ok 167 - the colour filter stamps primaries and transfer from the profile
+  ---
+  duration_ms: 1.8902
+  type: 'test'
+  ...
+# Subtest: a profile -vf is chained after the colour conversion
+ok 168 - a profile -vf is chained after the colour conversion
+  ---
+  duration_ms: 0.6809
+  type: 'test'
+  ...
+# Subtest: exported H.264 is tagged BT.709 end to end
+ok 169 - exported H.264 is tagged BT.709 end to end
+  ---
+  duration_ms: 447.0596
+  type: 'test'
+  ...
+# Subtest: export decode: a server ignoring Range is cancelled without consuming its body
+ok 170 - export decode: a server ignoring Range is cancelled without consuming its body
+  ---
+  duration_ms: 3.2047
+  type: 'test'
+  ...
+# Subtest: export decode: empty output waits for B-frames at flush without restarting
+ok 171 - export decode: empty output waits for B-frames at flush without restarting
+  ---
+  duration_ms: 1.0181
+  type: 'test'
+  ...
+# Subtest: export decode: empty output waits for pending output without restarting
+ok 172 - export decode: empty output waits for pending output without restarting
+  ---
+  duration_ms: 10.3581
+  type: 'test'
+  ...
+# Subtest: export decode: an output past the requested frame still restarts at its sync sample
+ok 173 - export decode: an output past the requested frame still restarts at its sync sample
+  ---
+  duration_ms: 1.4979
+  type: 'test'
+  ...
+# Subtest: where:tab with no editor open is refused, and so is a bad range
+ok 174 - where:tab with no editor open is refused, and so is a bad range
+  ---
+  duration_ms: 536.1044
+  type: 'test'
+  ...
+# Subtest: with no tab and no browser, auto explains how to get one
+ok 175 - with no tab and no browser, auto explains how to get one
+  ---
+  duration_ms: 629.7032
+  type: 'test'
+  ...
+# Subtest: a tab claims the job once, reports progress, and fablecut_export returns the file
+ok 176 - a tab claims the job once, reports progress, and fablecut_export returns the file
+  ---
+  duration_ms: 2071.5561
+  type: 'test'
+  ...
+# Subtest: one export at a time; a cancel reaches the running tab
+ok 177 - one export at a time; a cancel reaches the running tab
+  ---
+  duration_ms: 1364.3388
+  type: 'test'
+  ...
+# Subtest: waitForPresentedFrame: timeout rejects without recording currentTime
+ok 178 - waitForPresentedFrame: timeout rejects without recording currentTime
+  ---
+  duration_ms: 28.1639
+  type: 'test'
+  ...
+# Subtest: waitForPresentedFrame: rvfc without mediaTime times out instead of using currentTime
+ok 179 - waitForPresentedFrame: rvfc without mediaTime times out instead of using currentTime
+  ---
+  duration_ms: 59.7587
+  type: 'test'
+  ...
+# Subtest: waitForPresentedFrame: records finite mediaTime from rvfc
+ok 180 - waitForPresentedFrame: records finite mediaTime from rvfc
+  ---
+  duration_ms: 0.856
+  type: 'test'
+  ...
+# Subtest: playAdvanceVideo: no hard-seek when presented reached target but clock ran ahead
+ok 181 - playAdvanceVideo: no hard-seek when presented reached target but clock ran ahead
+  ---
+  duration_ms: 1.1963
+  type: 'test'
+  ...
+# Subtest: playAdvanceVideo: hard-seeks when picture never reaches target
+ok 182 - playAdvanceVideo: hard-seeks when picture never reaches target
+  ---
+  duration_ms: 416.5937
+  type: 'test'
+  ...
+# Subtest: playAdvanceVideo: tolerates small clock drift when picture is on target
+ok 183 - playAdvanceVideo: tolerates small clock drift when picture is on target
+  ---
+  duration_ms: 0.6806
+  type: 'test'
+  ...
+# Subtest: playAdvanceVideo: hard-seeks when presented picture overshoots target
+ok 184 - playAdvanceVideo: hard-seeks when presented picture overshoots target
+  ---
+  duration_ms: 0.7566
+  type: 'test'
+  ...
+# Subtest: hardSeekVideo: slow motion inside the frame on screen resolves without a frame callback
+ok 185 - hardSeekVideo: slow motion inside the frame on screen resolves without a frame callback
+  ---
+  duration_ms: 122.9747
+  type: 'test'
+  ...
+# Subtest: hardSeekVideo: a target in the next source frame is not taken for the frame on screen
+ok 186 - hardSeekVideo: a target in the next source frame is not taken for the frame on screen
+  ---
+  duration_ms: 1070.6651
+  type: 'test'
+  ...
+# Subtest: notePresented learns the source frame duration from consecutive frames
+ok 187 - notePresented learns the source frame duration from consecutive frames
+  ---
+  duration_ms: 1.3406
+  type: 'test'
+  ...
+# Subtest: hardSeekVideo: a late frame callback on the last try still uses the finished seek
+ok 188 - hardSeekVideo: a late frame callback on the last try still uses the finished seek
+  ---
+  duration_ms: 1039.5613
+  type: 'test'
+  ...
+# Subtest: hardSeekVideo: a seek that never lands still fails
+ok 189 - hardSeekVideo: a seek that never lands still fails
+  ---
+  duration_ms: 5530.8719
+  type: 'test'
+  ...
+# Subtest: pruning removes the oldest entries first, sidecars included
+ok 190 - pruning removes the oldest entries first, sidecars included
+  ---
+  duration_ms: 21.8122
+  type: 'test'
+  ...
+# Subtest: the byte cap bites even when the file count does not
+ok 191 - the byte cap bites even when the file count does not
+  ---
+  duration_ms: 8.943
+  type: 'test'
+  ...
+# Subtest: a cache already under the limits is left alone
+ok 192 - a cache already under the limits is left alone
+  ---
+  duration_ms: 5.1287
+  type: 'test'
+  ...
+# Subtest: a missing directory prunes to nothing instead of throwing
+ok 193 - a missing directory prunes to nothing instead of throwing
+  ---
+  duration_ms: 0.3528
+  type: 'test'
+  ...
+# Subtest: production defaults are generous but finite
+ok 194 - production defaults are generous but finite
+  ---
+  duration_ms: 0.3495
+  type: 'test'
+  ...
+# Subtest: describe names the colour it was given
+ok 195 - describe names the colour it was given
+  ---
+  duration_ms: 12.3074
+  type: 'test'
+  ...
+# Subtest: brightness buckets follow the luma, and luma levels are Rec.709
+ok 196 - brightness buckets follow the luma, and luma levels are Rec.709
+  ---
+  duration_ms: 2.5026
+  type: 'test'
+  ...
+# Subtest: percentiles and range are reported, and a flat frame has no spread
+ok 197 - percentiles and range are reported, and a flat frame has no spread
+  ---
+  duration_ms: 4.4474
+  type: 'test'
+  ...
+# Subtest: texture separates a flat frame from a detailed one, and never NaNs
+ok 198 - texture separates a flat frame from a detailed one, and never NaNs
+  ---
+  duration_ms: 4.853
+  type: 'test'
+  ...
+# Subtest: saturation is 0 for grey and high for pure colour
+ok 199 - saturation is 0 for grey and high for pure colour
+  ---
+  duration_ms: 1.0599
+  type: 'test'
+  ...
+# Subtest: meanRgb survives a buffer whose height did not divide evenly
+ok 200 - meanRgb survives a buffer whose height did not divide evenly
+  ---
+  duration_ms: 0.4401
+  type: 'test'
+  ...
+# Subtest: motionScore is 0 for identical frames and 1 for opposite ones
+ok 201 - motionScore is 0 for identical frames and 1 for opposite ones
+  ---
+  duration_ms: 1.1096
+  type: 'test'
+  ...
+# Subtest: describeGrid reads cells left→right then top→bottom
+ok 202 - describeGrid reads cells left→right then top→bottom
+  ---
+  duration_ms: 1.1989
+  type: 'test'
+  ...
+# Subtest: describeGrid compares each cell against the previous real cell
+ok 203 - describeGrid compares each cell against the previous real cell
+  ---
+  duration_ms: 3.1475
+  type: 'test'
+  ...
+# Subtest: describeGrid marks tile padding instead of describing it as a black frame
+ok 204 - describeGrid marks tile padding instead of describing it as a black frame
+  ---
+  duration_ms: 2.1681
+  type: 'test'
+  ...
+# Subtest: the text lines carry the numbers and stay honest about what they are
+ok 205 - the text lines carry the numbers and stay honest about what they are
+  ---
+  duration_ms: 2.7339
+  type: 'test'
+  ...
+# Subtest: GET /api/frame refuses a src outside /media and /library
+ok 206 - GET /api/frame refuses a src outside /media and /library
+  ---
+  duration_ms: 569.6084
+  type: 'test'
+  ...
+# Subtest: GET /api/frame rejects bad arguments with a 400, not a 500
+ok 207 - GET /api/frame rejects bad arguments with a 400, not a 500
+  ---
+  duration_ms: 1862.0764
+  type: 'test'
+  ...
+# Subtest: GET /api/frame returns one JPEG for a source timestamp
+ok 208 - GET /api/frame returns one JPEG for a source timestamp
+  ---
+  duration_ms: 3267.5982
+  type: 'test'
+  ...
+# Subtest: a frame grab lands on the requested moment, not on the first frame
+ok 209 - a frame grab lands on the requested moment, not on the first frame
+  ---
+  duration_ms: 1534.3998
+  type: 'test'
+  ...
+# Subtest: a contact sheet samples across the requested range, not just the head
+ok 210 - a contact sheet samples across the requested range, not just the head
+  ---
+  duration_ms: 942.7074
+  type: 'test'
+  ...
+# Subtest: GET /api/frame?frames=N returns one contact sheet and labels its cells
+ok 211 - GET /api/frame?frames=N returns one contact sheet and labels its cells
+  ---
+  duration_ms: 939.7767
+  type: 'test'
+  ...
+# Subtest: frame extraction is cached, and the cache follows the file's mtime
+ok 212 - frame extraction is cached, and the cache follows the file's mtime
+  ---
+  duration_ms: 837.4381
+  type: 'test'
+  ...
+# Subtest: fablecut_frame returns an image the agent can look at
+ok 213 - fablecut_frame returns an image the agent can look at
+  ---
+  duration_ms: 1330.9054
+  type: 'test'
+  ...
+# Subtest: fablecut_frame without a path is a timeline render, and says so
+ok 214 - fablecut_frame without a path is a timeline render, and says so
+  ---
+  duration_ms: 266.663
+  type: 'test'
+  ...
+# Subtest: a /library asset can be looked at without being copied into media
+ok 215 - a /library asset can be looked at without being copied into media
+  ---
+  duration_ms: 297.206
+  type: 'test'
+  ...
+# Subtest: looking at a file outside media/ never writes into media/
+ok 216 - looking at a file outside media/ never writes into media/
+  ---
+  duration_ms: 664.2452
+  type: 'test'
+  ...
+# Subtest: GET /api/frame?path rejects a path that is not a file
+ok 217 - GET /api/frame?path rejects a path that is not a file
+  ---
+  duration_ms: 320.9484
+  type: 'test'
+  ...
+# Subtest: GET /api/frame?text=1 describes a frame instead of returning pixels
+ok 218 - GET /api/frame?text=1 describes a frame instead of returning pixels
+  ---
+  duration_ms: 645.5117
+  type: 'test'
+  ...
+# Subtest: GET /api/frame?text=1 gives a contact sheet a line per cell
+ok 219 - GET /api/frame?text=1 gives a contact sheet a line per cell
+  ---
+  duration_ms: 542.7956
+  type: 'test'
+  ...
+# Subtest: fablecut_frame {text:true} returns no image and says what it cannot tell you
+ok 220 - fablecut_frame {text:true} returns no image and says what it cannot tell you
+  ---
+  duration_ms: 863.754
+  type: 'test'
+  ...
+# Subtest: GET /api/frame?path= needs the MCP client header
+ok 221 - GET /api/frame?path= needs the MCP client header
+  ---
+  duration_ms: 232.6716
+  type: 'test'
+  ...
+# Subtest: omitting cols gives the squarest contact-sheet layout
+ok 222 - omitting cols gives the squarest contact-sheet layout
+  ---
+  duration_ms: 915.2112
+  type: 'test'
+  ...
+# Subtest: GET /api/frame is only reachable from this machine
+ok 223 - GET /api/frame is only reachable from this machine
+  ---
+  duration_ms: 235.1921
+  type: 'test'
+  ...
+# Subtest: test\\helpers.js
+ok 28 - test\\helpers.js
+  ---
+  duration_ms: 133.003
+  type: 'test'
+  ...
+# Subtest: picture and sound meters measure what they see and hear
+ok 225 - picture and sound meters measure what they see and hear
+  ---
+  duration_ms: 73.8545
+  type: 'test'
+  ...
+# Subtest: shots: the cut in the footage is found, the movement isn't one
+ok 226 - shots: the cut in the footage is found, the movement isn't one
+  ---
+  duration_ms: 54.1631
+  type: 'test'
+  ...
+# Subtest: pick: the busy and the loud moments, in order, never across the cut, exactly the length
+ok 227 - pick: the busy and the loud moments, in order, never across the cut, exactly the length
+  ---
+  duration_ms: 56.1144
+  type: 'test'
+  ...
+# Subtest: pick: a clip at 2× counts by its length on the timeline
+ok 228 - pick: a clip at 2× counts by its length on the timeline
+  ---
+  duration_ms: 51.3243
+  type: 'test'
+  ...
+# Subtest: options: limits and the default shot length
+ok 229 - options: limits and the default shot length
+  ---
+  duration_ms: 2.1605
+  type: 'test'
+  ...
+# Subtest: ops: a new sequence, the moments back to back with their linked sound
+ok 230 - ops: a new sequence, the moments back to back with their linked sound
+  ---
+  duration_ms: 1.4775
+  type: 'test'
+  ...
+# Subtest: sourcesOf: video clips only, not disabled or ramped
+ok 231 - sourcesOf: video clips only, not disabled or ramped
+  ---
+  duration_ms: 0.6041
+  type: 'test'
+  ...
+# Subtest: save, list and diff: what changed since a version
+ok 232 - save, list and diff: what changed since a version
+  ---
+  duration_ms: 62.5366
+  type: 'test'
+  ...
+# Subtest: restore is never destructive: what was there becomes a version first
+ok 233 - restore is never destructive: what was there becomes a version first
+  ---
+  duration_ms: 70.1798
+  type: 'test'
+  ...
+# Subtest: one final version; a final one can't be deleted; old auto-saves are pruned
+ok 234 - one final version; a final one can't be deleted; old auto-saves are pruned
+  ---
+  duration_ms: 197.0689
+  type: 'test'
+  ...
+# Subtest: auto-save: only when the project changed and the last version is old enough
+ok 235 - auto-save: only when the project changed and the last version is old enough
+  ---
+  duration_ms: 78.0975
+  type: 'test'
+  ...
+# Subtest: before an agent edits: one version, not one per edit
+ok 236 - before an agent edits: one version, not one per edit
+  ---
+  duration_ms: 43.5315
+  type: 'test'
+  ...
+# Subtest: backup carries the versions; importing it brings them back
+ok 237 - backup carries the versions; importing it brings them back
+  ---
+  duration_ms: 308.6284
+  type: 'test'
+  ...
+# Subtest: diffDocs reads project settings too
+ok 238 - diffDocs reads project settings too
+  ---
+  duration_ms: 0.5163
+  type: 'test'
+  ...
+# Subtest: REST: list, save, diff, restore, update, delete and the version file
+ok 239 - REST: list, save, diff, restore, update, delete and the version file
+  ---
+  duration_ms: 799.0966
+  type: 'test'
+  ...
+# Subtest: REST: a downloaded backup imports with its versions
+ok 240 - REST: a downloaded backup imports with its versions
+  ---
+  duration_ms: 619.6867
+  type: 'test'
+  ...
+# Subtest: an unreadable project.json at startup is kept aside and the newest version restored
+ok 241 - an unreadable project.json at startup is kept aside and the newest version restored
+  ---
+  duration_ms: 559.1572
+  type: 'test'
+  ...
+# Subtest: fablecut_versions, and a version before an agent's first edit
+ok 242 - fablecut_versions, and a version before an agent's first edit
+  ---
+  duration_ms: 1277.3783
+  type: 'test'
+  ...
+# Subtest: lengths round up into the next minute; imported versions are checked and rebuilt
+ok 243 - lengths round up into the next minute; imported versions are checked and rebuilt
+  ---
+  duration_ms: 85.8771
+  type: 'test'
+  ...
+# Subtest: fablecut_versions: restoring a project that isn't open says so
+ok 244 - fablecut_versions: restoring a project that isn't open says so
+  ---
+  duration_ms: 1143.1579
+  type: 'test'
+  ...
+# Subtest: recovery skips a version that isn't a project and uses the next good one
+ok 245 - recovery skips a version that isn't a project and uses the next good one
+  ---
+  duration_ms: 905.9778
+  type: 'test'
+  ...
+# Subtest: parseImportUrl accepts https and rejects everything else
+ok 246 - parseImportUrl accepts https and rejects everything else
+  ---
+  duration_ms: 8.8138
+  type: 'test'
+  ...
+# Subtest: localhost and private hosts are blocked before any fetch
+ok 247 - localhost and private hosts are blocked before any fetch
+  ---
+  duration_ms: 3.3873
+  type: 'test'
+  ...
+# Subtest: isBlockedIp covers IPv4 private, loopback, link-local, CGNAT, multicast
+ok 248 - isBlockedIp covers IPv4 private, loopback, link-local, CGNAT, multicast
+  ---
+  duration_ms: 0.5219
+  type: 'test'
+  ...
+# Subtest: filenameFrom prefers Content-Disposition then the URL path
+ok 249 - filenameFrom prefers Content-Disposition then the URL path
+  ---
+  duration_ms: 1.2306
+  type: 'test'
+  ...
+# Subtest: allowLoopback is 127.0.0.1 only, not a private-range bypass
+ok 250 - allowLoopback is 127.0.0.1 only, not a private-range bypass
+  ---
+  duration_ms: 0.6114
+  type: 'test'
+  ...
+# Subtest: downloadImportUrl streams a file when allowLoopback is set (test hook)
+ok 251 - downloadImportUrl streams a file when allowLoopback is set (test hook)
+  ---
+  duration_ms: 90.5002
+  type: 'test'
+  ...
+# Subtest: downloadImportUrl enforces maxBytes and rejects HTML
+ok 252 - downloadImportUrl enforces maxBytes and rejects HTML
+  ---
+  duration_ms: 18.9913
+  type: 'test'
+  ...
+# Subtest: downloadImportUrl without allowLoopback still refuses http and loopback
+ok 253 - downloadImportUrl without allowLoopback still refuses http and loopback
+  ---
+  duration_ms: 1.258
+  type: 'test'
+  ...
+# Subtest: kfChannel: fallback, edge holds, interpolation, easing
+ok 254 - kfChannel: fallback, edge holds, interpolation, easing
+  ---
+  duration_ms: 3.4313
+  type: 'test'
+  ...
+# Subtest: playheadOverClip: inside, edge tolerance, outside
+ok 255 - playheadOverClip: inside, edge tolerance, outside
+  ---
+  duration_ms: 1.0817
+  type: 'test'
+  ...
+# Subtest: kfAtPlayhead: matches absolute playhead time, never clamps off-clip
+ok 256 - kfAtPlayhead: matches absolute playhead time, never clamps off-clip
+  ---
+  duration_ms: 0.4884
+  type: 'test'
+  ...
+# Subtest: propsAtPlayhead: keyed channels interpolate, statics pass through
+ok 257 - propsAtPlayhead: keyed channels interpolate, statics pass through
+  ---
+  duration_ms: 0.7831
+  type: 'test'
+  ...
+# Subtest: fmtInspNum: integers, step rounding, fallback precision, junk
+ok 258 - fmtInspNum: integers, step rounding, fallback precision, junk
+  ---
+  duration_ms: 1.563
+  type: 'test'
+  ...
+# Subtest: setAnimProp: unkeyed channel writes the static prop
+ok 259 - setAnimProp: unkeyed channel writes the static prop
+  ---
+  duration_ms: 0.7056
+  type: 'test'
+  ...
+# Subtest: setAnimProp: keyed channel updates the keyframe under the playhead
+ok 260 - setAnimProp: keyed channel updates the keyframe under the playhead
+  ---
+  duration_ms: 1.4065
+  type: 'test'
+  ...
+# Subtest: setAnimProp: keyed channel off a keyframe auto-keys, sorted
+ok 261 - setAnimProp: keyed channel off a keyframe auto-keys, sorted
+  ---
+  duration_ms: 0.639
+  type: 'test'
+  ...
+# Subtest: setAnimProp: off-clip keyed write is refused without touching anything
+ok 262 - setAnimProp: off-clip keyed write is refused without touching anything
+  ---
+  duration_ms: 0.7881
+  type: 'test'
+  ...
+# Subtest: setAnimProp: invalid input refused
+ok 263 - setAnimProp: invalid input refused
+  ---
+  duration_ms: 0.7163
+  type: 'test'
+  ...
+# Subtest: toggleKfAtPlayhead: adds a keyframe holding the playhead value
+ok 264 - toggleKfAtPlayhead: adds a keyframe holding the playhead value
+  ---
+  duration_ms: 1.1141
+  type: 'test'
+  ...
+# Subtest: toggleKfAtPlayhead: removes the keyframe under the playhead
+ok 265 - toggleKfAtPlayhead: removes the keyframe under the playhead
+  ---
+  duration_ms: 0.4163
+  type: 'test'
+  ...
+# Subtest: toggleKfAtPlayhead: removing the last keyframe promotes it to static
+ok 266 - toggleKfAtPlayhead: removing the last keyframe promotes it to static
+  ---
+  duration_ms: 0.2179
+  type: 'test'
+  ...
+# Subtest: toggleKfAtPlayhead: refused off-clip, no phantom edge keyframe
+ok 267 - toggleKfAtPlayhead: refused off-clip, no phantom edge keyframe
+  ---
+  duration_ms: 0.2339
+  type: 'test'
+  ...
+# Subtest: toggleKfAtPlayhead: eps-duplicate updates instead of inserting
+ok 268 - toggleKfAtPlayhead: eps-duplicate updates instead of inserting
+  ---
+  duration_ms: 0.2059
+  type: 'test'
+  ...
+# Subtest: resetPropChannel: factory default + channel keyframes wiped
+ok 269 - resetPropChannel: factory default + channel keyframes wiped
+  ---
+  duration_ms: 0.2183
+  type: 'test'
+  ...
+# Subtest: resetPropChannel: clears transitions
+ok 270 - resetPropChannel: clears transitions
+  ---
+  duration_ms: 0.1523
+  type: 'test'
+  ...
+# Subtest: resetPropAtPlayhead: parked on a keyframe removes just that one
+ok 271 - resetPropAtPlayhead: parked on a keyframe removes just that one
+  ---
+  duration_ms: 0.2543
+  type: 'test'
+  ...
+# Subtest: resetPropAtPlayhead: keyed off a keyframe sets default at the playhead
+ok 272 - resetPropAtPlayhead: keyed off a keyframe sets default at the playhead
+  ---
+  duration_ms: 0.3331
+  type: 'test'
+  ...
+# Subtest: resetPropAtPlayhead: unkeyed writes the static default even off-clip
+ok 273 - resetPropAtPlayhead: unkeyed writes the static default even off-clip
+  ---
+  duration_ms: 0.2446
+  type: 'test'
+  ...
+# Subtest: resetPropAtPlayhead: keyed off-clip is refused
+ok 274 - resetPropAtPlayhead: keyed off-clip is refused
+  ---
+  duration_ms: 0.3032
+  type: 'test'
+  ...
+# Subtest: dirtyTimeline: setAnimProp dirties on insert, not on value-only writes
+ok 275 - dirtyTimeline: setAnimProp dirties on insert, not on value-only writes
+  ---
+  duration_ms: 0.2387
+  type: 'test'
+  ...
+# Subtest: dirtyTimeline: toggleKfAtPlayhead dirties on add and on remove
+ok 276 - dirtyTimeline: toggleKfAtPlayhead dirties on add and on remove
+  ---
+  duration_ms: 0.2307
+  type: 'test'
+  ...
+# Subtest: dirtyTimeline: refused mutations stay clean
+ok 277 - dirtyTimeline: refused mutations stay clean
+  ---
+  duration_ms: 0.1904
+  type: 'test'
+  ...
+# Subtest: dirtyTimeline: resetPropAtPlayhead inherits it from the delegate
+ok 278 - dirtyTimeline: resetPropAtPlayhead inherits it from the delegate
+  ---
+  duration_ms: 0.1824
+  type: 'test'
+  ...
+# Subtest: audio hold: setAnimProp refreshes on volume/pan/speed only
+ok 279 - audio hold: setAnimProp refreshes on volume/pan/speed only
+  ---
+  duration_ms: 0.2976
+  type: 'test'
+  ...
+# Subtest: audio hold: toggleKfAtPlayhead refreshes on add and remove
+ok 280 - audio hold: toggleKfAtPlayhead refreshes on add and remove
+  ---
+  duration_ms: 0.2898
+  type: 'test'
+  ...
+# Subtest: audio hold: resets refresh through the mutators
+ok 281 - audio hold: resets refresh through the mutators
+  ---
+  duration_ms: 0.242
+  type: 'test'
+  ...
+# Subtest: audio hold: refused writes never refresh
+ok 282 - audio hold: refused writes never refresh
+  ---
+  duration_ms: 0.1913
+  type: 'test'
+  ...
+# Subtest: syncInspectorPlayhead: fields show playhead values, ◆ state follows
+ok 283 - syncInspectorPlayhead: fields show playhead values, ◆ state follows
+  ---
+  duration_ms: 1.6959
+  type: 'test'
+  ...
+# Subtest: syncInspectorPlayhead: unchanged stamp is a no-op
+ok 284 - syncInspectorPlayhead: unchanged stamp is a no-op
+  ---
+  duration_ms: 0.6323
+  type: 'test'
+  ...
+# Subtest: syncInspectorPlayhead: clip start/duration change invalidates the stamp
+ok 285 - syncInspectorPlayhead: clip start/duration change invalidates the stamp
+  ---
+  duration_ms: 1.0152
+  type: 'test'
+  ...
+# Subtest: syncInspectorPlayhead: out-of-range keyframe saturates the thumb, label keeps truth
+ok 286 - syncInspectorPlayhead: out-of-range keyframe saturates the thumb, label keeps truth
+  ---
+  duration_ms: 0.4195
+  type: 'test'
+  ...
+# Subtest: syncInspectorPlayhead: focused field is never rewritten
+ok 287 - syncInspectorPlayhead: focused field is never rewritten
+  ---
+  duration_ms: 0.3067
+  type: 'test'
+  ...
+# Subtest: syncInspectorPlayhead: blur re-syncs a field skipped while it held focus
+ok 288 - syncInspectorPlayhead: blur re-syncs a field skipped while it held focus
+  ---
+  duration_ms: 0.3467
+  type: 'test'
+  ...
+# Subtest: syncInspectorPlayhead: off the clip, keyframed fields lock, statics stay editable
+ok 289 - syncInspectorPlayhead: off the clip, keyframed fields lock, statics stay editable
+  ---
+  duration_ms: 0.4582
+  type: 'test'
+  ...
+# Subtest: syncInspectorOffClip: a locked clip's fields and ◆ buttons are read-only
+ok 290 - syncInspectorOffClip: a locked clip's fields and ◆ buttons are read-only
+  ---
+  duration_ms: 1.0767
+  type: 'test'
+  ...
+# Subtest: transOffsetAt: no transitions, or outside their windows, is zero
+ok 291 - transOffsetAt: no transitions, or outside their windows, is zero
+  ---
+  duration_ms: 1.0585
+  type: 'test'
+  ...
+# Subtest: transOffsetAt: mirrors the compositor envelope for every transition type
+ok 292 - transOffsetAt: mirrors the compositor envelope for every transition type
+  ---
+  duration_ms: 6.7933
+  type: 'test'
+  ...
+# Subtest: box drag during a transition: the box lands where the pointer left it
+ok 293 - box drag during a transition: the box lands where the pointer left it
+  ---
+  duration_ms: 0.3252
+  type: 'test'
+  ...
+# Subtest: EBU reference: stereo 1 kHz at −23 dBFS reads −23 LUFS
+ok 294 - EBU reference: stereo 1 kHz at −23 dBFS reads −23 LUFS
+  ---
+  duration_ms: 79.7162
+  type: 'test'
+  ...
+# Subtest: a mono 0 dBFS sine reads −3 LUFS, and works at 44.1 kHz too
+ok 295 - a mono 0 dBFS sine reads −3 LUFS, and works at 44.1 kHz too
+  ---
+  duration_ms: 62.1648
+  type: 'test'
+  ...
+# Subtest: gating: silence does not drag the reading down, a quiet bed is gated out
+ok 296 - gating: silence does not drag the reading down, a quiet bed is gated out
+  ---
+  duration_ms: 136.7009
+  type: 'test'
+  ...
+# Subtest: silence measures −∞ and normalizeGainDb declines it
+ok 297 - silence measures −∞ and normalizeGainDb declines it
+  ---
+  duration_ms: 3.1411
+  type: 'test'
+  ...
+# Subtest: clips shorter than one 400 ms block still get a reading
+ok 298 - clips shorter than one 400 ms block still get a reading
+  ---
+  duration_ms: 1.5556
+  type: 'test'
+  ...
+# Subtest: streaming in chunks gives the same answer as one push
+ok 299 - streaming in chunks gives the same answer as one push
+  ---
+  duration_ms: 21.2552
+  type: 'test'
+  ...
+# Subtest: normalizeGainDb is the distance to the target
+ok 300 - normalizeGainDb is the distance to the target
+  ---
+  duration_ms: 21.5324
+  type: 'test'
+  ...
+# Subtest: routeChannels mirrors the editor graph: stems and mono modes are one channel
+ok 301 - routeChannels mirrors the editor graph: stems and mono modes are one channel
+  ---
+  duration_ms: 2.8167
+  type: 'test'
+  ...
+# Subtest: colon timecode reads right to left as frames, seconds, minutes, hours
+ok 302 - colon timecode reads right to left as frames, seconds, minutes, hours
+  ---
+  duration_ms: 4.8958
+  type: 'test'
+  ...
+# Subtest: bare digits pack Premiere-style from the right
+ok 303 - bare digits pack Premiere-style from the right
+  ---
+  duration_ms: 0.6471
+  type: 'test'
+  ...
+# Subtest: a decimal point or trailing s means seconds
+ok 304 - a decimal point or trailing s means seconds
+  ---
+  duration_ms: 0.1906
+  type: 'test'
+  ...
+# Subtest: + and - offset from the base time and never go below zero
+ok 305 - + and - offset from the base time and never go below zero
+  ---
+  duration_ms: 0.2161
+  type: 'test'
+  ...
+# Subtest: junk is refused
+ok 306 - junk is refused
+  ---
+  duration_ms: 0.835
+  type: 'test'
+  ...
+# Subtest: markers normalize to {t, label?, color?}, sorted, junk dropped
+ok 307 - markers normalize to {t, label?, color?}, sorted, junk dropped
+  ---
+  duration_ms: 1.9914
+  type: 'test'
+  ...
+# Subtest: marker colour falls back to gold
+ok 308 - marker colour falls back to gold
+  ---
+  duration_ms: 0.4124
+  type: 'test'
+  ...
+# Subtest: next / previous marker skips the one under the playhead
+ok 309 - next / previous marker skips the one under the playhead
+  ---
+  duration_ms: 0.3801
+  type: 'test'
+  ...
+# Subtest: L / J from a stop play at 1× in their direction
+ok 310 - L / J from a stop play at 1× in their direction
+  ---
+  duration_ms: 1.1371
+  type: 'test'
+  ...
+# Subtest: repeat taps climb the ladder and stop at the top
+ok 311 - repeat taps climb the ladder and stop at the top
+  ---
+  duration_ms: 0.6254
+  type: 'test'
+  ...
+# Subtest: the opposite key turns around at 1×; a crawl rate restarts at 1×
+ok 312 - the opposite key turns around at 1×; a crawl rate restarts at 1×
+  ---
+  duration_ms: 0.3434
+  type: 'test'
+  ...
+# Subtest: only the enabled targets pull
+ok 313 - only the enabled targets pull
+  ---
+  duration_ms: 2.5073
+  type: 'test'
+  ...
+# Subtest: keyframes snap at clip start + local time, but not the clip being dragged
+ok 314 - keyframes snap at clip start + local time, but not the clip being dragged
+  ---
+  duration_ms: 0.4764
+  type: 'test'
+  ...
+# Subtest: frame grid rounds only when no target is in reach, and doesn't count as a hit
+ok 315 - frame grid rounds only when no target is in reach, and doesn't count as a hit
+  ---
+  duration_ms: 1.0193
+  type: 'test'
+  ...
+# Subtest: next marker skips markers past the last clip instead of sticking at the end
+ok 316 - next marker skips markers past the last clip instead of sticking at the end
+  ---
+  duration_ms: 0.9012
+  type: 'test'
+  ...
+# Subtest: a marker past the end can't be jumped to, and says so
+ok 317 - a marker past the end can't be jumped to, and says so
+  ---
+  duration_ms: 0.4275
+  type: 'test'
+  ...
+# Subtest: normalizeMask fills defaults, clamps, and refuses bad input in strict mode
+ok 318 - normalizeMask fills defaults, clamps, and refuses bad input in strict mode
+  ---
+  duration_ms: 6.0188
+  type: 'test'
+  ...
+# Subtest: shapes: rect, ellipse and bezier outlines cover the right pixels, and follow scale / rotation
+ok 319 - shapes: rect, ellipse and bezier outlines cover the right pixels, and follow scale / rotation
+  ---
+  duration_ms: 3.5936
+  type: 'test'
+  ...
+# Subtest: modes, invert, opacity, feather and expansion combine like the canvas raster
+ok 320 - modes, invert, opacity, feather and expansion combine like the canvas raster
+  ---
+  duration_ms: 1.2451
+  type: 'test'
+  ...
+# Subtest: keys animate numbers and bezier outlines; masksAt drops masks that are off
+ok 321 - keys animate numbers and bezier outlines; masksAt drops masks that are off
+  ---
+  duration_ms: 1.9692
+  type: 'test'
+  ...
+# Subtest: a free-hand stroke becomes an editable bezier that keeps the drawn area
+ok 322 - a free-hand stroke becomes an editable bezier that keeps the drawn area
+  ---
+  duration_ms: 9.7977
+  type: 'test'
+  ...
+# Subtest: adding or removing a bezier point keeps the curve and changes every keyed outline alike
+ok 323 - adding or removing a bezier point keeps the curve and changes every keyed outline alike
+  ---
+  duration_ms: 4.27
+  type: 'test'
+  ...
+# Subtest: mergeMask merges key by key, resets with null, and a new shape starts fresh
+ok 324 - mergeMask merges key by key, resets with null, and a new shape starts fresh
+  ---
+  duration_ms: 1.0749
+  type: 'test'
+  ...
+# Subtest: setMask adds, merges, finds by name, removes; setMaskKeys animates; locks and audio are refused
+ok 325 - setMask adds, merges, finds by name, removes; setMaskKeys animates; locks and audio are refused
+  ---
+  duration_ms: 663.4831
+  type: 'test'
+  ...
+# Subtest: fablecut_scopes passes mask:{clip} on the ticket and reports the masks' coverage
+ok 326 - fablecut_scopes passes mask:{clip} on the ticket and reports the masks' coverage
+  ---
+  duration_ms: 1468.8869
+  type: 'test'
+  ...
+# Subtest: a split or head trim re-bases mask keys, so the animation plays on unchanged
+ok 327 - a split or head trim re-bases mask keys, so the animation plays on unchanged
+  ---
+  duration_ms: 421.1361
+  type: 'test'
+  ...
+# Subtest: track mattes: the matte track is the video track above unless named; blend and matte values are checked
+ok 328 - track mattes: the matte track is the video track above unless named; blend and matte values are checked
+  ---
+  duration_ms: 1.5852
+  type: 'test'
+  ...
+# Subtest: setMatte sets and clears a track matte; blend, matte and matteTrack are validated on updateClip
+ok 329 - setMatte sets and clears a track matte; blend, matte and matteTrack are validated on updateClip
+  ---
+  duration_ms: 684.5195
+  type: 'test'
+  ...
+# Subtest: split cuts the targeted tracks and keeps each half linked to its stems
+ok 330 - split cuts the targeted tracks and keeps each half linked to its stems
+  ---
+  duration_ms: 577.4955
+  type: 'test'
+  ...
+# Subtest: split skips untargeted tracks unless the op names its own
+ok 331 - split skips untargeted tracks unless the op names its own
+  ---
+  duration_ms: 490.0477
+  type: 'test'
+  ...
+# Subtest: rippleDelete removes the shot with its stems and pulls the next one left
+ok 332 - rippleDelete removes the shot with its stems and pulls the next one left
+  ---
+  duration_ms: 560.6135
+  type: 'test'
+  ...
+# Subtest: rippleDelete refuses a locked clip unless forced
+ok 333 - rippleDelete refuses a locked clip unless forced
+  ---
+  duration_ms: 476.8056
+  type: 'test'
+  ...
+# Subtest: closeGap closes the gap under a time on every targeted track
+ok 334 - closeGap closes the gap under a time on every targeted track
+  ---
+  duration_ms: 486.6693
+  type: 'test'
+  ...
+# Subtest: extract removes a range and closes it; lift leaves the hole
+ok 335 - extract removes a range and closes it; lift leaves the hole
+  ---
+  duration_ms: 895.8895
+  type: 'test'
+  ...
+# Subtest: insert puts media at a time and pushes later clips right; overwrite does not
+ok 336 - insert puts media at a time and pushes later clips right; overwrite does not
+  ---
+  duration_ms: 594.9011
+  type: 'test'
+  ...
+# Subtest: insert checks the source window against the media length
+ok 337 - insert checks the source window against the media length
+  ---
+  duration_ms: 423.8653
+  type: 'test'
+  ...
+# Subtest: trims report the clamped delta and move linked stems together
+ok 338 - trims report the clamped delta and move linked stems together
+  ---
+  duration_ms: 569.3977
+  type: 'test'
+  ...
+# Subtest: crossfade overlaps the stems at a cut with constant-power fades
+ok 339 - crossfade overlaps the stems at a cut with constant-power fades
+  ---
+  duration_ms: 480.2688
+  type: 'test'
+  ...
+# Subtest: setProject takes inPoint / outPoint and rejects a reversed range
+ok 340 - setProject takes inPoint / outPoint and rejects a reversed range
+  ---
+  duration_ms: 470.1481
+  type: 'test'
+  ...
+# Subtest: initialize echoes each protocol version the server actually speaks
+ok 341 - initialize echoes each protocol version the server actually speaks
+  ---
+  duration_ms: 475.7632
+  type: 'test'
+  ...
+# Subtest: initialize downgrades an unsupported version instead of echoing it
+ok 342 - initialize downgrades an unsupported version instead of echoing it
+  ---
+  duration_ms: 450.5616
+  type: 'test'
+  ...
+# Subtest: initialize without a version is served on the default and does not kill the server
+ok 343 - initialize without a version is served on the default and does not kill the server
+  ---
+  duration_ms: 366.1747
+  type: 'test'
+  ...
+# Subtest: initialize result carries the capabilities and serverInfo clients read
+ok 344 - initialize result carries the capabilities and serverInfo clients read
+  ---
+  duration_ms: 429.0237
+  type: 'test'
+  ...
+# Subtest: the advertised server version tracks package.json
+ok 345 - the advertised server version tracks package.json
+  ---
+  duration_ms: 1.978
+  type: 'test'
+  ...
+# Subtest: tools/list advertises well-formed tools
+ok 346 - tools/list advertises well-formed tools
+  ---
+  duration_ms: 450.7379
+  type: 'test'
+  ...
+# Subtest: every tools/call answer is well-formed content blocks
+ok 347 - every tools/call answer is well-formed content blocks
+  ---
+  duration_ms: 582.8216
+  type: 'test'
+  ...
+# Subtest: tools/call on an unknown tool is an error result, not a crash
+ok 348 - tools/call on an unknown tool is an error result, not a crash
+  ---
+  duration_ms: 383.8563
+  type: 'test'
+  ...
+# Subtest: an unknown method returns JSON-RPC -32601
+ok 349 - an unknown method returns JSON-RPC -32601
+  ---
+  duration_ms: 454.3331
+  type: 'test'
+  ...
+# Subtest: notifications get no reply
+ok 350 - notifications get no reply
+  ---
+  duration_ms: 413.0511
+  type: 'test'
+  ...
+# Subtest: fablecut_docs returns the manual, and can slice it by section
+ok 351 - fablecut_docs returns the manual, and can slice it by section
+  ---
+  duration_ms: 572.1455
+  type: 'test'
+  ...
+# Subtest: fablecut_get_project returns the document, and compact hides default props
+ok 352 - fablecut_get_project returns the document, and compact hides default props
+  ---
+  duration_ms: 457.5542
+  type: 'test'
+  ...
+# Subtest: fablecut_patch_project applies a batch atomically and bumps the revision once
+ok 353 - fablecut_patch_project applies a batch atomically and bumps the revision once
+  ---
+  duration_ms: 429.9914
+  type: 'test'
+  ...
+# Subtest: updateClip merges into props, and null deletes a key
+ok 354 - updateClip merges into props, and null deletes a key
+  ---
+  duration_ms: 545.7491
+  type: 'test'
+  ...
+# Subtest: patch ops reject edits that would corrupt the timeline
+ok 355 - patch ops reject edits that would corrupt the timeline
+  ---
+  duration_ms: 440.4472
+  type: 'test'
+  ...
+# Subtest: patch refuses to change locked clips and tracks unless forced
+ok 356 - patch refuses to change locked clips and tracks unless forced
+  ---
+  duration_ms: 490.5173
+  type: 'test'
+  ...
+# Subtest: compact view shows locked tracks and clip flags
+ok 357 - compact view shows locked tracks and clip flags
+  ---
+  duration_ms: 407.9479
+  type: 'test'
+  ...
+# Subtest: text and adjust clips need no media, unlike footage clips
+ok 358 - text and adjust clips need no media, unlike footage clips
+  ---
+  duration_ms: 554.3814
+  type: 'test'
+  ...
+# Subtest: fablecut_set_project refuses to clobber an edit made behind its back
+ok 359 - fablecut_set_project refuses to clobber an edit made behind its back
+  ---
+  duration_ms: 410.349
+  type: 'test'
+  ...
+# Subtest: patch with a stale baseRevision is refused instead of landing on a newer edit
+ok 360 - patch with a stale baseRevision is refused instead of landing on a newer edit
+  ---
+  duration_ms: 575.4352
+  type: 'test'
+  ...
+# Subtest: fablecut_encode_profiles lists shipped presets and rejects an unknown id
+ok 361 - fablecut_encode_profiles lists shipped presets and rejects an unknown id
+  ---
+  duration_ms: 452.978
+  type: 'test'
+  ...
+# Subtest: fablecut_set_project validates the document before writing it
+ok 362 - fablecut_set_project validates the document before writing it
+  ---
+  duration_ms: 481.8369
+  type: 'test'
+  ...
+# Subtest: fablecut_import_media copies a local file and registers it
+ok 363 - fablecut_import_media copies a local file and registers it
+  ---
+  duration_ms: 455.2318
+  type: 'test'
+  ...
+# Subtest: fablecut_import_media rejects http and loopback https URLs
+ok 364 - fablecut_import_media rejects http and loopback https URLs
+  ---
+  duration_ms: 329.4852
+  type: 'test'
+  ...
+# Subtest: setTrack sets an audio lane's fader / pan; setProject master sets the master fader
+ok 365 - setTrack sets an audio lane's fader / pan; setProject master sets the master fader
+  ---
+  duration_ms: 370.6004
+  type: 'test'
+  ...
+# Subtest: fablecut_normalize_audio measures with ffmpeg and sets one gain per linked group
+ok 366 - fablecut_normalize_audio measures with ffmpeg and sets one gain per linked group
+  ---
+  duration_ms: 1009.508
+  type: 'test'
+  ...
+# Subtest: fablecut_auto_duck writes duck keys on the music where the voice speaks, and clears them
+ok 367 - fablecut_auto_duck writes duck keys on the music where the voice speaks, and clears them
+  ---
+  duration_ms: 561.2276
+  type: 'test'
+  ...
+# Subtest: fablecut_silence reports the pauses in speech, then cuts them with the stems in step
+ok 368 - fablecut_silence reports the pauses in speech, then cuts them with the stems in step
+  ---
+  duration_ms: 1211.7914
+  type: 'test'
+  ...
+# Subtest: fablecut_beats finds the tempo and the beat, marks it, snaps cuts to it and re-cuts a track on it
+ok 369 - fablecut_beats finds the tempo and the beat, marks it, snaps cuts to it and re-cuts a track on it
+  ---
+  duration_ms: 1725.052
+  type: 'test'
+  ...
+# Subtest: fablecut_reframe makes a 9:16 copy whose shots follow the subject
+ok 370 - fablecut_reframe makes a 9:16 copy whose shots follow the subject
+  ---
+  duration_ms: 1021.4506
+  type: 'test'
+  ...
+# Subtest: setFx puts validated chains or presets on clips (with their stems), tracks and the master
+ok 371 - setFx puts validated chains or presets on clips (with their stems), tracks and the master
+  ---
+  duration_ms: 179.62
+  type: 'test'
+  ...
+# Subtest: fablecut_highlights picks the busy and the loud moments into a new sequence
+ok 372 - fablecut_highlights picks the busy and the loud moments into a new sequence
+  ---
+  duration_ms: 2052.0289
+  type: 'test'
+  ...
+# Subtest: parseProbe reads frame rate, codecs, channels, size and bitrate
+ok 373 - parseProbe reads frame rate, codecs, channels, size and bitrate
+  ---
+  duration_ms: 11.7643
+  type: 'test'
+  ...
+# Subtest: parseProbe: rotated phone footage swaps width and height; stills have no fps; silent video has 0 channels
+ok 374 - parseProbe: rotated phone footage swaps width and height; stills have no fps; silent video has 0 channels
+  ---
+  duration_ms: 0.4866
+  type: 'test'
+  ...
+# Subtest: formatting helpers
+ok 375 - formatting helpers
+  ---
+  duration_ms: 0.6225
+  type: 'test'
+  ...
+# Subtest: normalizeTags trims, drops '\#', dedupes case-insensitively and caps the list
+ok 376 - normalizeTags trims, drops '\#', dedupes case-insensitively and caps the list
+  ---
+  duration_ms: 38.5929
+  type: 'test'
+  ...
+# Subtest: normalizeCollections drops unknown media, duplicates and broken entries
+ok 377 - normalizeCollections drops unknown media, duplicates and broken entries
+  ---
+  duration_ms: 1.3496
+  type: 'test'
+  ...
+# Subtest: usage: a video and its linked stems count once; comps count too
+ok 378 - usage: a video and its linked stems count once; comps count too
+  ---
+  duration_ms: 1.4479
+  type: 'test'
+  ...
+# Subtest: search: words match name, kind, extension, codec, resolution or tags; \#word matches tags only
+ok 379 - search: words match name, kind, extension, codec, resolution or tags; \#word matches tags only
+  ---
+  duration_ms: 2.2757
+  type: 'test'
+  ...
+# Subtest: filters: favorites, used / unused, kind, tag, collection
+ok 380 - filters: favorites, used / unused, kind, tag, collection
+  ---
+  duration_ms: 2.0516
+  type: 'test'
+  ...
+# Subtest: sorting: numeric names, metadata keys, missing values last in both directions
+ok 381 - sorting: numeric names, metadata keys, missing values last in both directions
+  ---
+  duration_ms: 2.9051
+  type: 'test'
+  ...
+# Subtest: updateMedia sets favorite, tags and folder; refuses metadata and unknown ids
+ok 382 - updateMedia sets favorite, tags and folder; refuses metadata and unknown ids
+  ---
+  duration_ms: 12.6219
+  type: 'test'
+  ...
+# Subtest: setCollection creates, adds, removes and renames; removeCollection deletes; removeMedia leaves collections clean
+ok 383 - setCollection creates, adds, removes and renames; removeCollection deletes; removeMedia leaves collections clean
+  ---
+  duration_ms: 5.933
+  type: 'test'
+  ...
+# Subtest: the compact view shows metadata, favorites, tags, usage and collections
+ok 384 - the compact view shows metadata, favorites, tags, usage and collections
+  ---
+  duration_ms: 2.7555
+  type: 'test'
+  ...
+# Subtest: checkProject normalizes tags, favorites and collections
+ok 385 - checkProject normalizes tags, favorites and collections
+  ---
+  duration_ms: 0.9547
+  type: 'test'
+  ...
+# Subtest: usage: a denoised stem in a video's link group counts for its own file, and the video still counts once
+ok 386 - usage: a denoised stem in a video's link group counts for its own file, and the video still counts once
+  ---
+  duration_ms: 0.3821
+  type: 'test'
+  ...
+# Subtest: media-probe answers asynchronously (ffprobe never blocks the server)
+ok 387 - media-probe answers asynchronously (ffprobe never blocks the server)
+  ---
+  duration_ms: 419.8166
+  type: 'test'
+  ...
+# Subtest: relinkScore: same name beats another extension beats a similar name; size adds; other kinds never match
+ok 388 - relinkScore: same name beats another extension beats a similar name; size adds; other kinds never match
+  ---
+  duration_ms: 1.001
+  type: 'test'
+  ...
+# Subtest: relinkMedia points the entry at the found file, keeps clips, re-reads the details; refuses a missing file or another kind
+ok 389 - relinkMedia points the entry at the found file, keeps clips, re-reads the details; refuses a missing file or another kind
+  ---
+  duration_ms: 3.2939
+  type: 'test'
+  ...
+# Subtest: replaceMedia puts a new file behind the entry and trims clips to fit it
+ok 390 - replaceMedia puts a new file behind the entry and trims clips to fit it
+  ---
+  duration_ms: 1.1434
+  type: 'test'
+  ...
+# Subtest: the compact view flags offline media
+ok 391 - the compact view flags offline media
+  ---
+  duration_ms: 0.6595
+  type: 'test'
+  ...
+# Subtest: mono stem panned left: track RMS matches active channel
+ok 392 - mono stem panned left: track RMS matches active channel
+  ---
+  duration_ms: 6.6566
+  type: 'test'
+  ...
+# Subtest: stereo centered track: track RMS matches per-channel master
+ok 393 - stereo centered track: track RMS matches per-channel master
+  ---
+  duration_ms: 14.9434
+  type: 'test'
+  ...
+# Subtest: single track: master LUFS equals per-track LUFS
+ok 394 - single track: master LUFS equals per-track LUFS
+  ---
+  duration_ms: 2.9177
+  type: 'test'
+  ...
+# Subtest: output is the sum of inputs
+ok 395 - output is the sum of inputs
+  ---
+  duration_ms: 1.2164
+  type: 'test'
+  ...
+# Subtest: programInput: only the program reaches the output; the other inputs are meter taps
+ok 396 - programInput: only the program reaches the output; the other inputs are meter taps
+  ---
+  duration_ms: 1.4489
+  type: 'test'
+  ...
+# Subtest: shape items validate, fill defaults and reject bad input in strict mode
+ok 397 - shape items validate, fill defaults and reject bad input in strict mode
+  ---
+  duration_ms: 11.2033
+  type: 'test'
+  ...
+# Subtest: keys interpolate numbers, colours and points; groups resolve their children
+ok 398 - keys interpolate numbers, colours and points; groups resolve their children
+  ---
+  duration_ms: 2.3586
+  type: 'test'
+  ...
+# Subtest: outlines, bounds and trim windows
+ok 399 - outlines, bounds and trim windows
+  ---
+  duration_ms: 2.3329
+  type: 'test'
+  ...
+# Subtest: draw paints fills, strokes and trims onto a 2D context
+ok 400 - draw paints fills, strokes and trims onto a 2D context
+  ---
+  duration_ms: 1.5808
+  type: 'test'
+  ...
+# Subtest: anchor point and parenting keep the picture where it is
+ok 401 - anchor point and parenting keep the picture where it is
+  ---
+  duration_ms: 2.0946
+  type: 'test'
+  ...
+# Subtest: a split carries shape keys into the right half, re-based
+ok 402 - a split carries shape keys into the right half, re-based
+  ---
+  duration_ms: 2.6519
+  type: 'test'
+  ...
+# Subtest: agent: shape and null clips, setShape / removeShape, setParent and the compact view
+ok 403 - agent: shape and null clips, setShape / removeShape, setParent and the compact view
+  ---
+  duration_ms: 631.2298
+  type: 'test'
+  ...
+# Subtest: deleting a parent leaves its children in place, under the nearest ancestor that stays
+ok 404 - deleting a parent leaves its children in place, under the nearest ancestor that stays
+  ---
+  duration_ms: 2.6723
+  type: 'test'
+  ...
+# Subtest: motion paths: curved position keys, arc-length pacing, auto-orient, smooth and straight
+ok 405 - motion paths: curved position keys, arc-length pacing, auto-orient, smooth and straight
+  ---
+  duration_ms: 13.7487
+  type: 'test'
+  ...
+# Subtest: text paths: validation, presets and the arc-length sampler
+ok 406 - text paths: validation, presets and the arc-length sampler
+  ---
+  duration_ms: 2.5954
+  type: 'test'
+  ...
+# Subtest: a split keeps the motion path's handles on both halves
+ok 407 - a split keeps the motion path's handles on both halves
+  ---
+  duration_ms: 0.4364
+  type: 'test'
+  ...
+# Subtest: agent: setMotionPath, setTextPath, motion blur props and the compact view
+ok 408 - agent: setMotionPath, setTextPath, motion blur props and the compact view
+  ---
+  duration_ms: 592.7449
+  type: 'test'
+  ...
+# Subtest: text on a path: further lines run on parallel curves
+ok 409 - text on a path: further lines run on parallel curves
+  ---
+  duration_ms: 1.567
+  type: 'test'
+  ...
+# Subtest: sample table: sizes, chunk offsets, sync samples and B-frame order
+ok 410 - sample table: sizes, chunk offsets, sync samples and B-frame order
+  ---
+  duration_ms: 7.1814
+  type: 'test'
+  ...
+# Subtest: ctts version 0: negative offsets preserve B-frame presentation order
+ok 411 - ctts version 0: negative offsets preserve B-frame presentation order
+  ---
+  duration_ms: 1.9506
+  type: 'test'
+  ...
+# Subtest: ctts version 1: negative offsets preserve B-frame presentation order
+ok 412 - ctts version 1: negative offsets preserve B-frame presentation order
+  ---
+  duration_ms: 0.8673
+  type: 'test'
+  ...
+# Subtest: the edit list moves pts onto the clock a <video> element shows
+ok 413 - the edit list moves pts onto the clock a <video> element shows
+  ---
+  duration_ms: 1.9812
+  type: 'test'
+  ...
+# Subtest: 64-bit chunk offsets
+ok 414 - 64-bit chunk offsets
+  ---
+  duration_ms: 1.1266
+  type: 'test'
+  ...
+# Subtest: a rotated track is refused, so the exporter keeps the <video> element
+ok 415 - a rotated track is refused, so the exporter keeps the <video> element
+  ---
+  duration_ms: 0.5495
+  type: 'test'
+  ...
+# Subtest: pasp: anamorphic pixels widen the display size, square pixels leave it alone
+ok 416 - pasp: anamorphic pixels widen the display size, square pixels leave it alone
+  ---
+  duration_ms: 2.2646
+  type: 'test'
+  ...
+# Subtest: findMoov walks top-level boxes through range reads
+ok 417 - findMoov walks top-level boxes through range reads
+  ---
+  duration_ms: 45.5312
+  type: 'test'
+  ...
+# Subtest: codec strings for HEVC, VP9 and AV1 config boxes
+ok 418 - codec strings for HEVC, VP9 and AV1 config boxes
+  ---
+  duration_ms: 0.7621
+  type: 'test'
+  ...
+# Subtest: real files match ffprobe's packet list
+ok 419 - real files match ffprobe's packet list
+  ---
+  duration_ms: 3809.8017
+  type: 'test'
+  ...
+# Subtest: fablecut -v prints the package version; an unknown command fails with usage
+ok 420 - fablecut -v prints the package version; an unknown command fails with usage
+  ---
+  duration_ms: 358.0318
+  type: 'test'
+  ...
+# Subtest: package.json exposes the command and ships the files it runs from
+ok 421 - package.json exposes the command and ships the files it runs from
+  ---
+  duration_ms: 3.6453
+  type: 'test'
+  ...
+# Subtest: installed under node_modules, the data folder defaults to ~/FableCut
+ok 422 - installed under node_modules, the data folder defaults to ~/FableCut
+  ---
+  duration_ms: 647.2529
+  type: 'test'
+  ...
+# Subtest: desktop shutdown kills only children created by this service
+ok 423 - desktop shutdown kills only children created by this service
+  ---
+  duration_ms: 101.4877
+  type: 'test'
+  ...
+# Subtest: shutdown interrupts a pending denoise probe without blocking the service
+ok 424 - shutdown interrupts a pending denoise probe without blocking the service
+  ---
+  duration_ms: 24.6532
+  type: 'test'
+  ...
+# Subtest: the existing project.json becomes the first project, without being rewritten
+ok 425 - the existing project.json becomes the first project, without being rewritten
+  ---
+  duration_ms: 26.5843
+  type: 'test'
+  ...
+# Subtest: opening a project parks the open one and lifts the revision past both
+ok 426 - opening a project parks the open one and lifts the revision past both
+  ---
+  duration_ms: 95.9978
+  type: 'test'
+  ...
+# Subtest: duplicate, rename, notes and tags; archive and delete take two steps
+ok 427 - duplicate, rename, notes and tags; archive and delete take two steps
+  ---
+  duration_ms: 187.1445
+  type: 'test'
+  ...
+# Subtest: templates: built-in canvases, and a saved project as a template
+ok 428 - templates: built-in canvases, and a saved project as a template
+  ---
+  duration_ms: 84.2534
+  type: 'test'
+  ...
+# Subtest: import takes a project file from elsewhere; a non-project is refused
+ok 429 - import takes a project file from elsewhere; a non-project is refused
+  ---
+  duration_ms: 20.7778
+  type: 'test'
+  ...
+# Subtest: a project that can't be read is never switched over
+ok 430 - a project that can't be read is never switched over
+  ---
+  duration_ms: 26.1111
+  type: 'test'
+  ...
+# Subtest: a switch that fails halfway puts the open project back
+ok 431 - a switch that fails halfway puts the open project back
+  ---
+  duration_ms: 31.4402
+  type: 'test'
+  ...
+# Subtest: REST: list, create and open; GET /api/project names the open project
+ok 432 - REST: list, create and open; GET /api/project names the open project
+  ---
+  duration_ms: 770.6827
+  type: 'test'
+  ...
+# Subtest: REST: thumbnails are JPEG only
+ok 433 - REST: thumbnails are JPEG only
+  ---
+  duration_ms: 721.3264
+  type: 'test'
+  ...
+# Subtest: fablecut_projects: list, new, open and refusals, through the editor server
+ok 434 - fablecut_projects: list, new, open and refusals, through the editor server
+  ---
+  duration_ms: 1260.4638
+  type: 'test'
+  ...
+# Subtest: proxy names follow the source version, so a changed original stops matching its old proxy
+ok 435 - proxy names follow the source version, so a changed original stops matching its old proxy
+  ---
+  duration_ms: 18.6604
+  type: 'test'
+  ...
+# Subtest: /api/proxy makes a frame-accurate H.264 proxy, serves it, reports it, deletes it
+ok 436 - /api/proxy makes a frame-accurate H.264 proxy, serves it, reports it, deletes it
+  ---
+  duration_ms: 3405.929
+  type: 'test'
+  ...
+# Subtest: independent M0 truth: user order and all eight exact caption intersections
+ok 437 - independent M0 truth: user order and all eight exact caption intersections
+  ---
+  duration_ms: 41.4947
+  type: 'test'
+  ...
+# Subtest: half-open boundaries, repeated source ranges and collapsed millisecond intersections
+ok 438 - half-open boundaries, repeated source ranges and collapsed millisecond intersections
+  ---
+  duration_ms: 2.407
+  type: 'test'
+  ...
+# Subtest: later native caption timing changes refuse stale provenance; markers follow user order
+ok 439 - later native caption timing changes refuse stale provenance; markers follow user order
+  ---
+  duration_ms: 2.3917
+  type: 'test'
+  ...
+# Subtest: subjectTrack finds a moving square, sure of it
+ok 440 - subjectTrack finds a moving square, sure of it
+  ---
+  duration_ms: 142.0146
+  type: 'test'
+  ...
+# Subtest: camera holds inside the dead zone, then follows without jumping
+ok 441 - camera holds inside the dead zone, then follows without jumping
+  ---
+  duration_ms: 1.8044
+  type: 'test'
+  ...
+# Subtest: coverRect / offsetFor / keysFor stay inside the picture
+ok 442 - coverRect / offsetFor / keysFor stay inside the picture
+  ---
+  duration_ms: 1.6696
+  type: 'test'
+  ...
+# Subtest: canvasFor keeps the project's shorter side, even sizes
+ok 443 - canvasFor keeps the project's shorter side, even sizes
+  ---
+  duration_ms: 3.2418
+  type: 'test'
+  ...
+# Subtest: targets: full-frame shots only; reframed ones can be redone
+ok 444 - targets: full-frame shots only; reframed ones can be redone
+  ---
+  duration_ms: 2.5683
+  type: 'test'
+  ...
+# Subtest: clipPlan: follows, holds, centres — and redoing replaces its own keys
+ok 445 - clipPlan: follows, holds, centres — and redoing replaces its own keys
+  ---
+  duration_ms: 2.1299
+  type: 'test'
+  ...
+# Subtest: GET /api/project serves the document on disk
+ok 446 - GET /api/project serves the document on disk
+  ---
+  duration_ms: 550.7632
+  type: 'test'
+  ...
+# Subtest: PUT /api/project saves a newer revision
+ok 447 - PUT /api/project saves a newer revision
+  ---
+  duration_ms: 565.7295
+  type: 'test'
+  ...
+# Subtest: PUT /api/project rejects a stale write instead of clobbering it
+ok 448 - PUT /api/project rejects a stale write instead of clobbering it
+  ---
+  duration_ms: 640.1261
+  type: 'test'
+  ...
+# Subtest: PUT /api/project?force=1 overwrites deliberately
+ok 449 - PUT /api/project?force=1 overwrites deliberately
+  ---
+  duration_ms: 659.7273
+  type: 'test'
+  ...
+# Subtest: PUT /api/project rejects malformed JSON without corrupting the file
+ok 450 - PUT /api/project rejects malformed JSON without corrupting the file
+  ---
+  duration_ms: 629.5561
+  type: 'test'
+  ...
+# Subtest: GET /api/library lists assets and validates the dir argument
+ok 451 - GET /api/library lists assets and validates the dir argument
+  ---
+  duration_ms: 382.383
+  type: 'test'
+  ...
+# Subtest: seeding the library never overwrites the user's own files
+ok 452 - seeding the library never overwrites the user's own files
+  ---
+  duration_ms: 466.3106
+  type: 'test'
+  ...
+# Subtest: POST /api/import-url rejects non-https and private targets
+ok 453 - POST /api/import-url rejects non-https and private targets
+  ---
+  duration_ms: 453.6005
+  type: 'test'
+  ...
+# Subtest: POST /api/import-url downloads into media and returns a same-origin src
+ok 454 - POST /api/import-url downloads into media and returns a same-origin src
+  ---
+  duration_ms: 510.4188
+  type: 'test'
+  ...
+# Subtest: GET /api/media lists the media folder
+ok 455 - GET /api/media lists the media folder
+  ---
+  duration_ms: 239.3589
+  type: 'test'
+  ...
+# Subtest: GET /api/export/ffmpeg reports encoder availability
+ok 456 - GET /api/export/ffmpeg reports encoder availability
+  ---
+  duration_ms: 299.6098
+  type: 'test'
+  ...
+# Subtest: POST /api/export/begin validates the encoding profile
+ok 457 - POST /api/export/begin validates the encoding profile
+  ---
+  duration_ms: 358.6993
+  type: 'test'
+  ...
+# Subtest: buildExportArgs uses raw RGBA when the client asks for it
+ok 458 - buildExportArgs uses raw RGBA when the client asks for it
+  ---
+  duration_ms: 2.8962
+  type: 'test'
+  ...
+# Subtest: the profile dry run probes a frame hardware encoders accept, and names the cause of a failure
+ok 459 - the profile dry run probes a frame hardware encoders accept, and names the cause of a failure
+  ---
+  duration_ms: 157.766
+  type: 'test'
+  ...
+# Subtest: buildExportArgs still accepts JPEG image2pipe for older clients
+ok 460 - buildExportArgs still accepts JPEG image2pipe for older clients
+  ---
+  duration_ms: 0.2397
+  type: 'test'
+  ...
+# Subtest: POST /api/export/frame accepts concatenated RGBA frames
+ok 461 - POST /api/export/frame accepts concatenated RGBA frames
+  ---
+  duration_ms: 414.8374
+  type: 'test'
+  ...
+# Subtest: Fast JPEG image2pipe does not duplicate unique frames
+ok 462 - Fast JPEG image2pipe does not duplicate unique frames
+  ---
+  duration_ms: 1280.8574
+  type: 'test'
+  ...
+# Subtest: the app shell and its assets are served
+ok 463 - the app shell and its assets are served
+  ---
+  duration_ms: 249.7637
+  type: 'test'
+  ...
+# Subtest: requests from a foreign Host or Origin are refused (DNS-rebinding guard)
+ok 464 - requests from a foreign Host or Origin are refused (DNS-rebinding guard)
+  ---
+  duration_ms: 307.4192
+  type: 'test'
+  ...
+# Subtest: traversal out of the served roots and dot-directories are refused
+ok 465 - traversal out of the served roots and dot-directories are refused
+  ---
+  duration_ms: 316.3134
+  type: 'test'
+  ...
+# Subtest: /api/media-info answers a file's metadata, null for a missing one, and never leaves media/ or library/
+ok 466 - /api/media-info answers a file's metadata, null for a missing one, and never leaves media/ or library/
+  ---
+  duration_ms: 330.577
+  type: 'test'
+  ...
+# Subtest: /media/ serves files in subfolders and never leaves media/
+ok 467 - /media/ serves files in subfolders and never leaves media/
+  ---
+  duration_ms: 334.0656
+  type: 'test'
+  ...
+# Subtest: /api/relink/candidates ranks files under media/ by name and size, same kind only
+ok 468 - /api/relink/candidates ranks files under media/ by name and size, same kind only
+  ---
+  duration_ms: 516.9491
+  type: 'test'
+  ...
+# Subtest: nonadjacent sentences join only selected ranges, audio/video stay aligned and SRT rebases
+ok 469 - nonadjacent sentences join only selected ranges, audio/video stay aligned and SRT rebases
+  ---
+  duration_ms: 59.0816
+  type: 'test'
+  ...
+# Subtest: selection refuses missing, disabled, locked and unrepresentable ranges before mutation
+ok 470 - selection refuses missing, disabled, locked and unrepresentable ranges before mutation
+  ---
+  duration_ms: 3.2591
+  type: 'test'
+  ...
+# Subtest: mapping supports constant speed and refuses unsupported ramps or past-source windows
+ok 471 - mapping supports constant speed and refuses unsupported ramps or past-source windows
+  ---
+  duration_ms: 1.3534
+  type: 'test'
+  ...
+# Subtest: a project without sequences has one, Main, and stays as it was
+ok 472 - a project without sequences has one, Main, and stays as it was
+  ---
+  duration_ms: 3.5782
+  type: 'test'
+  ...
+# Subtest: add, open and come back: each sequence keeps its own timeline, canvas and settings
+ok 473 - add, open and come back: each sequence keeps its own timeline, canvas and settings
+  ---
+  duration_ms: 1.5998
+  type: 'test'
+  ...
+# Subtest: copies, renames, reorders and deletes
+ok 474 - copies, renames, reorders and deletes
+  ---
+  duration_ms: 2.0639
+  type: 'test'
+  ...
+# Subtest: patch ops: addSequence, inSequence, openSequence, updateSequence, removeSequence
+ok 475 - patch ops: addSequence, inSequence, openSequence, updateSequence, removeSequence
+  ---
+  duration_ms: 19.3105
+  type: 'test'
+  ...
+# Subtest: media and comps used by another sequence are counted and protected
+ok 476 - media and comps used by another sequence are counted and protected
+  ---
+  duration_ms: 3.6966
+  type: 'test'
+  ...
+# Subtest: the compact view lists the sequences; a whole document is checked across them
+ok 477 - the compact view lists the sequences; a whole document is checked across them
+  ---
+  duration_ms: 3.5747
+  type: 'test'
+  ...
+# Subtest: compare: each sequence against itself, whichever was open
+ok 478 - compare: each sequence against itself, whichever was open
+  ---
+  duration_ms: 4.636
+  type: 'test'
+  ...
+# Subtest: MCP: sequence ops through fablecut_patch_project, the status and the compact view
+ok 479 - MCP: sequence ops through fablecut_patch_project, the status and the compact view
+  ---
+  duration_ms: 1223.2365
+  type: 'test'
+  ...
+# Subtest: review: a stale `sequence` never strips a timeline; typos and locks are refused
+ok 480 - review: a stale `sequence` never strips a timeline; typos and locks are refused
+  ---
+  duration_ms: 2.7351
+  type: 'test'
+  ...
+# Subtest: every key the editor handles has a row in the Keyboard shortcuts dialog
+ok 481 - every key the editor handles has a row in the Keyboard shortcuts dialog
+  ---
+  duration_ms: 27.5468
+  type: 'test'
+  ...
+# Subtest: every single key the dialog shows is handled somewhere in app.js
+ok 482 - every single key the dialog shows is handled somewhere in app.js
+  ---
+  duration_ms: 21.0967
+  type: 'test'
+  ...
+# Subtest: options default, and refuse values out of range
+ok 483 - options default, and refuse values out of range
+  ---
+  duration_ms: 4.1514
+  type: 'test'
+  ...
+# Subtest: gaps between phrases, less the padding; none at a clip's own edges
+ok 484 - gaps between phrases, less the padding; none at a clip's own edges
+  ---
+  duration_ms: 1.7119
+  type: 'test'
+  ...
+# Subtest: a pause shorter than minSilence stays, and so does sound across the whole clip
+ok 485 - a pause shorter than minSilence stays, and so does sound across the whole clip
+  ---
+  duration_ms: 0.3268
+  type: 'test'
+  ...
+# Subtest: cuts land on whole frames, inside the silence
+ok 486 - cuts land on whole frames, inside the silence
+  ---
+  duration_ms: 7.0709
+  type: 'test'
+  ...
+# Subtest: a span that rounds to extract's minimum (0.05 s) is dropped, not sent to be refused
+ok 487 - a span that rounds to extract's minimum (0.05 s) is dropped, not sent to be refused
+  ---
+  duration_ms: 0.3053
+  type: 'test'
+  ...
+# Subtest: only inside the clips: the gap between two clips is left alone
+ok 488 - only inside the clips: the gap between two clips is left alone
+  ---
+  duration_ms: 0.9321
+  type: 'test'
+  ...
+# Subtest: ramped: a clip with speed keyframes is left out
+ok 489 - ramped: a clip with speed keyframes is left out
+  ---
+  duration_ms: 0.3466
+  type: 'test'
+  ...
+# Subtest: cutOps extract last first, with tracks and force passed on
+ok 490 - cutOps extract last first, with tracks and force passed on
+  ---
+  duration_ms: 1.1342
+  type: 'test'
+  ...
+# Subtest: the ops cut a linked shot and its stems in step, and close the gaps
+ok 491 - the ops cut a linked shot and its stems in step, and close the gaps
+  ---
+  duration_ms: 14.2281
+  type: 'test'
+  ...
+# Subtest: punching a tail overhang rebases keyframes onto the new clip start
+ok 492 - punching a tail overhang rebases keyframes onto the new clip start
+  ---
+  duration_ms: 7.3358
+  type: 'test'
+  ...
+# Subtest: a refused split that keeps the tail rebases keyframes too
+ok 493 - a refused split that keeps the tail rebases keyframes too
+  ---
+  duration_ms: 1.1553
+  type: 'test'
+  ...
+# Subtest: punching the middle of a clip keeps head and tail keyframes in place
+ok 494 - punching the middle of a clip keeps head and tail keyframes in place
+  ---
+  duration_ms: 1.1419
+  type: 'test'
+  ...
+# Subtest: punching also trims linked partners on an untargeted track (sync lock)
+ok 495 - punching also trims linked partners on an untargeted track (sync lock)
+  ---
+  duration_ms: 0.7983
+  type: 'test'
+  ...
+# Subtest: punching leaves a locked clip whole
+ok 496 - punching leaves a locked clip whole
+  ---
+  duration_ms: 0.4592
+  type: 'test'
+  ...
+# Subtest: sourceEditTracks uses the default lanes when they are targeted
+ok 497 - sourceEditTracks uses the default lanes when they are targeted
+  ---
+  duration_ms: 0.8209
+  type: 'test'
+  ...
+# Subtest: sourceEditTracks falls back to live lanes when V1 / A1 were removed
+ok 498 - sourceEditTracks falls back to live lanes when V1 / A1 were removed
+  ---
+  duration_ms: 0.4604
+  type: 'test'
+  ...
+# Subtest: sourceEditTracks lands an SVG on the lowest video lane when V3 is gone
+ok 499 - sourceEditTracks lands an SVG on the lowest video lane when V3 is gone
+  ---
+  duration_ms: 0.4182
+  type: 'test'
+  ...
+# Subtest: sourceEditTracks returns only the stems that exist
+ok 500 - sourceEditTracks returns only the stems that exist
+  ---
+  duration_ms: 0.8459
+  type: 'test'
+  ...
+# Subtest: sourceEditTracks returns an empty list when no compatible lane exists
+ok 501 - sourceEditTracks returns an empty list when no compatible lane exists
+  ---
+  duration_ms: 0.8998
+  type: 'test'
+  ...
+# Subtest: sourceEditTracks follows targeting and skips locked lanes
+ok 502 - sourceEditTracks follows targeting and skips locked lanes
+  ---
+  duration_ms: 1.3962
+  type: 'test'
+  ...
+# Subtest: sourceEditTracks drops the picture when no video lane is a target
+ok 503 - sourceEditTracks drops the picture when no video lane is a target
+  ---
+  duration_ms: 0.4424
+  type: 'test'
+  ...
+# Subtest: an output-disabled lane still receives Source placement
+ok 504 - an output-disabled lane still receives Source placement
+  ---
+  duration_ms: 0.1866
+  type: 'test'
+  ...
+# Subtest: placed Source clips never land on a lane that doesn't exist
+ok 505 - placed Source clips never land on a lane that doesn't exist
+  ---
+  duration_ms: 0.9656
+  type: 'test'
+  ...
+# Subtest: ripple delete shifts a linked A/V group once, partners on an untargeted track included
+ok 506 - ripple delete shifts a linked A/V group once, partners on an untargeted track included
+  ---
+  duration_ms: 1.4526
+  type: 'test'
+  ...
+# Subtest: ripple delete leaves unlinked clips on an untargeted track where they are
+ok 507 - ripple delete leaves unlinked clips on an untargeted track where they are
+  ---
+  duration_ms: 0.5615
+  type: 'test'
+  ...
+# Subtest: Replace refuses to retarget a locked timeline clip
+ok 508 - Replace refuses to retarget a locked timeline clip
+  ---
+  duration_ms: 0.8408
+  type: 'test'
+  ...
+# Subtest: Replace retargets the loaded clip even on an output-disabled track
+ok 509 - Replace retargets the loaded clip even on an output-disabled track
+  ---
+  duration_ms: 0.3963
+  type: 'test'
+  ...
+# Subtest: built-in presets and templates are all valid
+ok 510 - built-in presets and templates are all valid
+  ---
+  duration_ms: 8.7852
+  type: 'test'
+  ...
+# Subtest: presets key relative to the clip: in, out, at and loops
+ok 511 - presets key relative to the clip: in, out, at and loops
+  ---
+  duration_ms: 6.2301
+  type: 'test'
+  ...
+# Subtest: exits mirror their entrances, eases flipped
+ok 512 - exits mirror their entrances, eases flipped
+  ---
+  duration_ms: 0.4579
+  type: 'test'
+  ...
+# Subtest: a clip's animation saved as a preset plays the same on another clip
+ok 513 - a clip's animation saved as a preset plays the same on another clip
+  ---
+  duration_ms: 2.2696
+  type: 'test'
+  ...
+# Subtest: templates: fields, their own comp, shared media and retiming
+ok 514 - templates: fields, their own comp, shared media and retiming
+  ---
+  duration_ms: 5.1023
+  type: 'test'
+  ...
+# Subtest: templateFromComp: titles and pictures become fields; bad templates are refused
+ok 515 - templateFromComp: titles and pictures become fields; bad templates are refused
+  ---
+  duration_ms: 1.1131
+  type: 'test'
+  ...
+# Subtest: agent: applyPreset, addTemplate, setTemplate, savePreset, saveTemplate
+ok 516 - agent: applyPreset, addTemplate, setTemplate, savePreset, saveTemplate
+  ---
+  duration_ms: 940.8022
+  type: 'test'
+  ...
+# Subtest: ripple delete leaves a locked track where it is while the rest closes up
+ok 517 - ripple delete leaves a locked track where it is while the rest closes up
+  ---
+  duration_ms: 8.4682
+  type: 'test'
+  ...
+# Subtest: a locked member pins its whole linked group during a ripple
+ok 518 - a locked member pins its whole linked group during a ripple
+  ---
+  duration_ms: 2.1404
+  type: 'test'
+  ...
+# Subtest: insert ripples the targeted tracks but not a locked one
+ok 519 - insert ripples the targeted tracks but not a locked one
+  ---
+  duration_ms: 3.2726
+  type: 'test'
+  ...
+# Subtest: insert never splits a locked clip
+ok 520 - insert never splits a locked clip
+  ---
+  duration_ms: 0.7211
+  type: 'test'
+  ...
+# Subtest: close gap moves the targeted tracks and leaves locked clips alone
+ok 521 - close gap moves the targeted tracks and leaves locked clips alone
+  ---
+  duration_ms: 0.9005
+  type: 'test'
+  ...
+# Subtest: close gap ignores a locked track even when it has no gap
+ok 522 - close gap ignores a locked track even when it has no gap
+  ---
+  duration_ms: 0.626
+  type: 'test'
+  ...
+# Subtest: delete refuses a locked clip and reports it
+ok 523 - delete refuses a locked clip and reports it
+  ---
+  duration_ms: 0.6612
+  type: 'test'
+  ...
+# Subtest: delete removes the unlocked part of a mixed selection
+ok 524 - delete removes the unlocked part of a mixed selection
+  ---
+  duration_ms: 0.4847
+  type: 'test'
+  ...
+# Subtest: split skips a locked clip and splits the rest
+ok 525 - split skips a locked clip and splits the rest
+  ---
+  duration_ms: 1.2616
+  type: 'test'
+  ...
+# Subtest: split with no selection touches targeted tracks only
+ok 526 - split with no selection touches targeted tracks only
+  ---
+  duration_ms: 1.6718
+  type: 'test'
+  ...
+# Subtest: a selected clip splits even when its track is untargeted
+ok 527 - a selected clip splits even when its track is untargeted
+  ---
+  duration_ms: 0.5286
+  type: 'test'
+  ...
+# Subtest: an output-disabled track is still edited — the eye toggle is output-only
+ok 528 - an output-disabled track is still edited — the eye toggle is output-only
+  ---
+  duration_ms: 0.3333
+  type: 'test'
+  ...
+# Subtest: a locked track is never an edit target, even when targeted
+ok 529 - a locked track is never an edit target, even when targeted
+  ---
+  duration_ms: 0.2307
+  type: 'test'
+  ...
+# Subtest: disabling a clip disables its whole linked group, and toggles back
+ok 530 - disabling a clip disables its whole linked group, and toggles back
+  ---
+  duration_ms: 0.4752
+  type: 'test'
+  ...
+# Subtest: a clip on a disabled track does not render; an enabled clip on an enabled track does
+ok 531 - a clip on a disabled track does not render; an enabled clip on an enabled track does
+  ---
+  duration_ms: 0.2059
+  type: 'test'
+  ...
+# Subtest: a locked clip cannot be disabled
+ok 532 - a locked clip cannot be disabled
+  ---
+  duration_ms: 0.213
+  type: 'test'
+  ...
+# Subtest: locking a clip locks its group; unlocking says when the track still holds it
+ok 533 - locking a clip locks its group; unlocking says when the track still holds it
+  ---
+  duration_ms: 0.4806
+  type: 'test'
+  ...
+# Subtest: unlink survives the reload-time relink, and link restores the group
+ok 534 - unlink survives the reload-time relink, and link restores the group
+  ---
+  duration_ms: 1.0806
+  type: 'test'
+  ...
+# Subtest: after unlink, deleting the picture leaves its audio behind
+ok 535 - after unlink, deleting the picture leaves its audio behind
+  ---
+  duration_ms: 0.9503
+  type: 'test'
+  ...
+# Subtest: link refuses clips that don't line up or come from different files
+ok 536 - link refuses clips that don't line up or come from different files
+  ---
+  duration_ms: 0.3698
+  type: 'test'
+  ...
+# Subtest: a stale unlink does not block linking
+ok 537 - a stale unlink does not block linking
+  ---
+  duration_ms: 0.3764
+  type: 'test'
+  ...
+# Subtest: test\\timeline-sandbox.js
+ok 57 - test\\timeline-sandbox.js
+  ---
+  duration_ms: 234.5149
+  type: 'test'
+  ...
+# Subtest: follows a patch moving along a curve to within a fraction of a pixel
+ok 539 - follows a patch moving along a curve to within a fraction of a pixel
+  ---
+  duration_ms: 504.6375
+  type: 'test'
+  ...
+# Subtest: follows scale and rotation when asked
+ok 540 - follows scale and rotation when asked
+  ---
+  duration_ms: 274.7383
+  type: 'test'
+  ...
+# Subtest: reports a lost region instead of guessing
+ok 541 - reports a lost region instead of guessing
+  ---
+  duration_ms: 36.0927
+  type: 'test'
+  ...
+# Subtest: stored tracks: validation, lookup between samples, re-basing on trims, simplify
+ok 542 - stored tracks: validation, lookup between samples, re-basing on trims, simplify
+  ---
+  duration_ms: 7.4309
+  type: 'test'
+  ...
+# Subtest: agents: tracks are validated on updateClip, summarized in the compact view, removed with removeTrack; fablecut_track checks its input
+ok 543 - agents: tracks are validated on updateClip, summarized in the compact view, removed with removeTrack; fablecut_track checks its input
+  ---
+  duration_ms: 480.9144
+  type: 'test'
+  ...
+# Subtest: transcripts are saved, read, listed and deleted per file
+ok 544 - transcripts are saved, read, listed and deleted per file
+  ---
+  duration_ms: 930.2765
+  type: 'test'
+  ...
+# Subtest: a transcribe request is checked before it reaches a tab
+ok 545 - a transcribe request is checked before it reaches a tab
+  ---
+  duration_ms: 451.5116
+  type: 'test'
+  ...
+# Subtest: fablecut_transcribe has a tab transcribe, then reads, finds and cuts words on the timeline
+ok 546 - fablecut_transcribe has a tab transcribe, then reads, finds and cuts words on the timeline
+  ---
+  duration_ms: 1798.7983
+  type: 'test'
+  ...
+# Subtest: model and language are defaulted and checked
+ok 547 - model and language are defaulted and checked
+  ---
+  duration_ms: 4.7845
+  type: 'test'
+  ...
+# Subtest: joinChunks glues pieces without a leading space onto the word before
+ok 548 - joinChunks glues pieces without a leading space onto the word before
+  ---
+  duration_ms: 1.8072
+  type: 'test'
+  ...
+# Subtest: joinChunks mends missing or backwards times and keeps CJK characters apart
+ok 549 - joinChunks mends missing or backwards times and keeps CJK characters apart
+  ---
+  duration_ms: 1.1836
+  type: 'test'
+  ...
+# Subtest: plan splits long audio at its quietest moment, short audio in one piece
+ok 550 - plan splits long audio at its quietest moment, short audio in one piece
+  ---
+  duration_ms: 5.6814
+  type: 'test'
+  ...
+# Subtest: quiet() spots silence and leaves speech
+ok 551 - quiet() spots silence and leaves speech
+  ---
+  duration_ms: 0.6714
+  type: 'test'
+  ...
+# Subtest: validate keeps a clean document and refuses a broken one
+ok 552 - validate keeps a clean document and refuses a broken one
+  ---
+  duration_ms: 2.711
+  type: 'test'
+  ...
+# Subtest: clipWords maps file time onto the timeline through in and speed
+ok 553 - clipWords maps file time onto the timeline through in and speed
+  ---
+  duration_ms: 0.8267
+  type: 'test'
+  ...
+# Subtest: layout puts several clips' words in time order
+ok 554 - layout puts several clips' words in time order
+  ---
+  duration_ms: 0.6277
+  type: 'test'
+  ...
+# Subtest: find matches whole words, ignoring case, punctuation and spacing
+ok 555 - find matches whole words, ignoring case, punctuation and spacing
+  ---
+  duration_ms: 2.5236
+  type: 'test'
+  ...
+# Subtest: cutSpans takes the words and the pause after them, never a neighbour, on frames
+ok 556 - cutSpans takes the words and the pause after them, never a neighbour, on frames
+  ---
+  duration_ms: 1.3144
+  type: 'test'
+  ...
+# Subtest: cutSpans stays inside the clip, and a word in another clip isn't a neighbour
+ok 557 - cutSpans stays inside the clip, and a word in another clip isn't a neighbour
+  ---
+  duration_ms: 0.5033
+  type: 'test'
+  ...
+# Subtest: cutOps extracts last first, and the ops apply to a project
+ok 558 - cutOps extracts last first, and the ops apply to a project
+  ---
+  duration_ms: 13.4448
+  type: 'test'
+  ...
+# Subtest: segments break at sentences and pauses, not at abbreviations
+ok 559 - segments break at sentences and pauses, not at abbreviations
+  ---
+  duration_ms: 1.3254
+  type: 'test'
+  ...
+# Subtest: ripple on a tail shortens the clip and pulls everything after it left
+ok 560 - ripple on a tail shortens the clip and pulls everything after it left
+  ---
+  duration_ms: 5.2655
+  type: 'test'
+  ...
+# Subtest: ripple on a tail lengthens into more source and pushes the rest right
+ok 561 - ripple on a tail lengthens into more source and pushes the rest right
+  ---
+  duration_ms: 2.3001
+  type: 'test'
+  ...
+# Subtest: ripple on a head keeps the clip's start and trims its source In
+ok 562 - ripple on a head keeps the clip's start and trims its source In
+  ---
+  duration_ms: 1.452
+  type: 'test'
+  ...
+# Subtest: ripple stops at the start of the source media
+ok 563 - ripple stops at the start of the source media
+  ---
+  duration_ms: 0.7848
+  type: 'test'
+  ...
+# Subtest: ripple stops at the end of the source media
+ok 564 - ripple stops at the end of the source media
+  ---
+  duration_ms: 0.4299
+  type: 'test'
+  ...
+# Subtest: ripple never makes a clip shorter than MIN_DUR
+ok 565 - ripple never makes a clip shorter than MIN_DUR
+  ---
+  duration_ms: 0.3473
+  type: 'test'
+  ...
+# Subtest: ripple leaves a locked track in place
+ok 566 - ripple leaves a locked track in place
+  ---
+  duration_ms: 0.9248
+  type: 'test'
+  ...
+# Subtest: ripple on a locked clip refuses
+ok 567 - ripple on a locked clip refuses
+  ---
+  duration_ms: 0.422
+  type: 'test'
+  ...
+# Subtest: ripple can't pull a lane into a clip that stays behind
+ok 568 - ripple can't pull a lane into a clip that stays behind
+  ---
+  duration_ms: 2.6608
+  type: 'test'
+  ...
+# Subtest: roll moves the cut: one side lengthens, the other shortens, nothing else moves
+ok 569 - roll moves the cut: one side lengthens, the other shortens, nothing else moves
+  ---
+  duration_ms: 2.9185
+  type: 'test'
+  ...
+# Subtest: roll from the other side of the cut does the same thing
+ok 570 - roll from the other side of the cut does the same thing
+  ---
+  duration_ms: 0.4406
+  type: 'test'
+  ...
+# Subtest: roll is limited by source on both sides and by MIN_DUR
+ok 571 - roll is limited by source on both sides and by MIN_DUR
+  ---
+  duration_ms: 0.641
+  type: 'test'
+  ...
+# Subtest: roll with nothing on the other side trims into the free room only
+ok 572 - roll with nothing on the other side trims into the free room only
+  ---
+  duration_ms: 0.7955
+  type: 'test'
+  ...
+# Subtest: roll refuses when either side is locked
+ok 573 - roll refuses when either side is locked
+  ---
+  duration_ms: 0.3055
+  type: 'test'
+  ...
+# Subtest: slip changes the source In only
+ok 574 - slip changes the source In only
+  ---
+  duration_ms: 0.4245
+  type: 'test'
+  ...
+# Subtest: slip is clamped to the source media
+ok 575 - slip is clamped to the source media
+  ---
+  duration_ms: 0.2565
+  type: 'test'
+  ...
+# Subtest: slip refuses stills and titles
+ok 576 - slip refuses stills and titles
+  ---
+  duration_ms: 0.1828
+  type: 'test'
+  ...
+# Subtest: slide moves the clip; its neighbours trim, the sequence length stays
+ok 577 - slide moves the clip; its neighbours trim, the sequence length stays
+  ---
+  duration_ms: 0.3459
+  type: 'test'
+  ...
+# Subtest: slide is limited by the neighbours' length and source
+ok 578 - slide is limited by the neighbours' length and source
+  ---
+  duration_ms: 0.5477
+  type: 'test'
+  ...
+# Subtest: slide into free room when there is no neighbour
+ok 579 - slide into free room when there is no neighbour
+  ---
+  duration_ms: 0.4622
+  type: 'test'
+  ...
+# Subtest: slide refuses when a neighbour is locked
+ok 580 - slide refuses when a neighbour is locked
+  ---
+  duration_ms: 0.3014
+  type: 'test'
+  ...
+# Subtest: lift removes IN→OUT on targeted tracks and leaves the gap
+ok 581 - lift removes IN→OUT on targeted tracks and leaves the gap
+  ---
+  duration_ms: 2.1902
+  type: 'test'
+  ...
+# Subtest: extract removes IN→OUT and closes the gap
+ok 582 - extract removes IN→OUT and closes the gap
+  ---
+  duration_ms: 1.9114
+  type: 'test'
+  ...
+# Subtest: extract skips untargeted tracks except for linked partners, and locked clips
+ok 583 - extract skips untargeted tracks except for linked partners, and locked clips
+  ---
+  duration_ms: 0.3826
+  type: 'test'
+  ...
+# Subtest: lift and extract need both IN and OUT
+ok 584 - lift and extract need both IN and OUT
+  ---
+  duration_ms: 0.8351
+  type: 'test'
+  ...
+# Subtest: every tool respects the tightest linked partner's source
+ok 585 - every tool respects the tightest linked partner's source
+  ---
+  duration_ms: 1.3995
+  type: 'test'
+  ...
+# Subtest: view mode/language persist independently of editor data
+ok 586 - view mode/language persist independently of editor data
+  ---
+  duration_ms: 5.4247
+  type: 'test'
+  ...
+# Subtest: unavailable preference storage leaves current view usable and reports failure
+ok 587 - unavailable preference storage leaves current view usable and reports failure
+  ---
+  duration_ms: 0.5716
+  type: 'test'
+  ...
+# Subtest: desktop bridge defaults on read failure and reports write failure without changing editor data
+ok 588 - desktop bridge defaults on read failure and reports write failure without changing editor data
+  ---
+  duration_ms: 0.4648
+  type: 'test'
+  ...
+# Subtest: Ctrl+Z after an agent edit takes back the agent's edit, then the user's
+ok 589 - Ctrl+Z after an agent edit takes back the agent's edit, then the user's
+  ---
+  duration_ms: 3.4937
+  type: 'test'
+  ...
+# Subtest: undoing an outside edit that removed media brings the media back with its clips; redo removes it again
+ok 590 - undoing an outside edit that removed media brings the media back with its clips; redo removes it again
+  ---
+  duration_ms: 2.4963
+  type: 'test'
+  ...
+# Subtest: an outside edit that only changes clips keeps the step small (no media)
+ok 591 - an outside edit that only changes clips keeps the step small (no media)
+  ---
+  duration_ms: 1.7867
+  type: 'test'
+  ...
+# Subtest: an outside write that leaves the open timeline alone adds no undo step
+ok 592 - an outside write that leaves the open timeline alone adds no undo step
+  ---
+  duration_ms: 0.4334
+  type: 'test'
+  ...
+# Subtest: syncFromServer: an agent's edit becomes an undo step of its own; undo and redo walk through it in order
+ok 593 - syncFromServer: an agent's edit becomes an undo step of its own; undo and redo walk through it in order
+  ---
+  duration_ms: 2.7762
+  type: 'test'
+  ...
+# Subtest: syncFromServer: a write that leaves the timeline alone adds no step; a collision lets Ctrl+Z put the user's version back
+ok 594 - syncFromServer: a write that leaves the timeline alone adds no step; a collision lets Ctrl+Z put the user's version back
+  ---
+  duration_ms: 2.1135
+  type: 'test'
+  ...
+# Subtest: different origin stores reproduce legacy loss; desktop survives port change
+ok 595 - different origin stores reproduce legacy loss; desktop survives port change
+  ---
+  duration_ms: 5.3707
+  type: 'test'
+  ...
+# Subtest: version whitelist, migration cannot override existing selection, errors are explicit
+ok 596 - version whitelist, migration cannot override existing selection, errors are explicit
+  ---
+  duration_ms: 1.4403
+  type: 'test'
+  ...
+# Subtest: initial UI workspace restore cannot overwrite unknown stored result
+ok 597 - initial UI workspace restore cannot overwrite unknown stored result
+  ---
+  duration_ms: 18.8701
+  type: 'test'
+  ...
+1..597
+# tests 597
+# suites 0
+# pass 597
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 27518.1581
