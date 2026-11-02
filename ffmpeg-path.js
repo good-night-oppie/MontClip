@@ -84,6 +84,11 @@ module.exports = {
   /** Absolute path to spawn (it may not exist — see `available`). */
   path: (name) => cached(name).path,
   available: (name) => cached(name).ok,
+  /** Where the tool was looked for: packaged · env · env-dir · vendor. */
+  source: (name) => cached(name).source,
+  /** The code the page shows: the packaged app says "ffmpegMissing" in its language; the env /
+      vendor reasons only exist in a development setup and stay English ("ffmpegDev"). */
+  missingCode: ({ source }) => (source === "packaged" ? "ffmpegMissing" : "ffmpegDev"),
   /** Plain-language reason the tool is missing, or "" when it is there. */
   reason: (name) => cached(name).error || "",
   /** The error to report when running the tool failed: why, and what needed it. */

@@ -102,6 +102,8 @@ function requestAllowed(req) {
    (ffmpeg-path.js); FFMPEG_MISSING says in plain words why it is unavailable. */
 let HAS_FFMPEG = false;
 let FFMPEG_MISSING = FF.reason("ffmpeg");
+/* the page says "ffmpegMissing" in its language; the English reasons of a development setup stay English */
+const FFMPEG_MISSING_CODE = FF.missingCode({ source: FF.source("ffmpeg") });
 if (!FFMPEG_MISSING) {
   try { HAS_FFMPEG = spawnSync(FF.path("ffmpeg"), ["-version"], { stdio: "ignore", timeout: 15000, windowsHide: true }).status === 0; } catch {}
   if (!HAS_FFMPEG) FFMPEG_MISSING = `MontClip's bundled ffmpeg (${FF.path("ffmpeg")}) could not be started. Reinstall MontClip to restore it.`;
@@ -327,15 +329,15 @@ async function exportBinary(useX264) {
   if (ext.ok) return ext.path;
   throw Object.assign(new Error(ext.reason === "none"
     ? "libx264 is only available from your own FFmpeg: choose it in Settings, or use a delivery preset (MontClip then uses the graphics card or Windows' own H.264 encoder)."
-    : "Your local FFmpeg cannot be used: " + X.maskUserPath(ext.reason)), { status: 400 });
+    : "Your local FFmpeg cannot be used: " + X.maskUserPath(ext.reason)), { status: 400, code: ext.reason === "none" ? "extNeeded" : ext.code });
 }
 /** What H.264 export will use here, for the export dialog and agents. */
 async function h264Status() {
   const available = await deliveryEncoders();
   const list = Delivery.encodersFor("h264", available);
   const ext = await externalFfmpeg.current();
-  return { encoder: list[0] || null, encoders: list, external: ext.ok ? { ok: true } : { ok: false, reason: X.maskUserPath(ext.reason) },
-    reason: list.length ? null : X.noH264Reason({ mediaFoundation: hasMediaFoundation() }) };
+  return { encoder: list[0] || null, encoders: list, external: ext.ok ? { ok: true } : { ok: false, code: ext.code },
+    reason: list.length ? null : X.noH264({ mediaFoundation: hasMediaFoundation() }) };
 }
 /** Saved delivery presets: library/delivery/<id>.json, each a spec plus a label. */
 function savedDeliveryPresets() { return Delivery.savedPresets(readSaved("delivery")); }
@@ -366,8 +368,8 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
       frame = Delivery.reframe(spec, canvasW, canvasH, region);
     }
     if (avail !== available && !avail.has(spec.video.encoder))
-      throw Object.assign(new Error(`The exported picture (${frame.outW}×${frame.outH}) is smaller than this computer's H.264 encoder accepts (${[...available].filter((e) => Delivery.ENCODERS[e]?.min).map((e) => Delivery.ENCODERS[e].label + " needs " + Delivery.ENCODERS[e].min.join("×")).join(", ")}). Export a larger size, or choose another format.`), { status: 400 });
-    return { spec, notes, name: d && typeof d.name === "string" ? d.name : name, frame };
+      throw Object.assign(new Error(`The exported picture (${frame.outW}×${frame.outH}) is smaller than this computer's H.264 encoder accepts (${[...available].filter((e) => Delivery.ENCODERS[e]?.min).map((e) => Delivery.ENCODERS[e].label + " needs " + Delivery.ENCODERS[e].min.join("×")).join(", ")}). Export a larger size, or choose another format.`), { status: 400, code: "frameTooSmall", params: { w: frame.outW, h: frame.outH } });
+    return { spec, notes, noteCodes: [], name: d && typeof d.name === "string" ? d.name : name, frame };
   });
   // one render has one frame rate: an output asking for another needs a render of its own
   const off = outs.map((o, i) => [o, i]).filter(([o]) => o.spec.fps != null && Math.abs(o.spec.fps - rate) > 0.01);
@@ -375,12 +377,14 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
   const input = outs.some((o) => Delivery.frameInput(o.spec) === "rgba") ? "rgba" : "jpeg";
   // H.264 with no encoder at all: say why now, not after the render
   if (outs.some((o) => o.spec.video.codec === "h264") && !Delivery.encodersFor("h264", available).length)
-    throw Object.assign(new Error(X.noH264Reason({ mediaFoundation: hasMediaFoundation() })), { status: 400 });
+    throw Object.assign(new Error(X.noH264Reason({ mediaFoundation: hasMediaFoundation() })), { status: 400, ...X.noH264({ mediaFoundation: hasMediaFoundation() }) });
   const ext = await externalFfmpeg.current();
   for (const o of outs) {
     o.binary = await exportBinary(X.isExternalJob(o.spec));
-    if (o.spec.video.codec === "h264" && !X.isExternalJob(o.spec) && ext.reason !== "none" && !ext.ok)
+    if (o.spec.video.codec === "h264" && !X.isExternalJob(o.spec) && ext.reason !== "none" && !ext.ok) {
       o.notes.push("Your local FFmpeg is not used (" + X.maskUserPath(ext.reason) + ") — using " + (Delivery.ENCODERS[o.spec.video.encoder]?.label || o.spec.video.encoder));
+      o.noteCodes.push({ code: "extNotUsedNote", params: { reason: ext.code, encoder: o.spec.video.encoder } });
+    }
   }
   // check every output on a 0.1 s synthetic canvas before the browser renders anything
   const dryDir = fs.mkdtempSync(path.join(os.tmpdir(), "fablecut-dry-"));
@@ -411,7 +415,7 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
   sess.writeLock = Promise.resolve();
   exportSessions.set(id, sess);
   const jpegQuality = Math.max(...outs.map((o) => Delivery.jpegQuality(o.spec)));
-  const view = outs.map((o) => ({ file: path.basename(o.outPath), spec: o.spec, notes: o.notes, summary: Delivery.describe(o.spec), size: { w: o.frame.outW, h: o.frame.outH } }));
+  const view = outs.map((o) => ({ file: path.basename(o.outPath), spec: o.spec, notes: o.notes, noteCodes: o.noteCodes, summary: Delivery.describe(o.spec), size: { w: o.frame.outW, h: o.frame.outH } }));
   // the single-output fields stay as they were for one delivery
   return { id, mode: "jpeg", input, jpegQuality, outputs: view, ...view[0] };
 }
@@ -936,7 +940,7 @@ const server = http.createServer(async (req, res) => {
         sendJSON(res, 200, { deleted });
         return;
       }
-      if (p === "/api/proxy" && !HAS_FFMPEG) { sendJSON(res, 503, { error: FFMPEG_MISSING }); return; }
+      if (p === "/api/proxy" && !HAS_FFMPEG) { sendJSON(res, 503, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
       const status = {};
       for (const src of srcs) status[src] = p === "/api/proxy" ? await proxies.start(src, body.height) : await proxies.status(src);
       sendJSON(res, 200, { status });
@@ -1041,7 +1045,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       exportJobs.assertWhere(opts.where);
-      if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING }); return; }
+      if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
       if (opts.profile) resolveProfile(String(opts.profile));
       if (opts.profile && (opts.preset || opts.delivery || opts.outputs)) { sendJSON(res, 400, { error: "pass a profile (raw ffmpeg args) or a preset / delivery spec / outputs, not both" }); return; }
       // several files from one render: outputs:true = the project's checked batch outputs, or a list of specs
@@ -1146,11 +1150,11 @@ const server = http.createServer(async (req, res) => {
 
   /* API: fast export (browser-rendered frames → ffmpeg encode) */
   if (p === "/api/export/ffmpeg" && req.method === "GET") {
-    sendJSON(res, 200, HAS_FFMPEG ? { available: true } : { available: false, reason: FFMPEG_MISSING });
+    sendJSON(res, 200, HAS_FFMPEG ? { available: true } : { available: false, reason: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE });
     return;
   }
   if (p === "/api/export/h264" && req.method === "GET") {
-    sendJSON(res, 200, HAS_FFMPEG ? await h264Status() : { encoder: null, encoders: [], external: { ok: false, reason: "none" }, reason: FFMPEG_MISSING });
+    sendJSON(res, 200, HAS_FFMPEG ? await h264Status() : { encoder: null, encoders: [], external: { ok: false, code: "none" }, reason: { code: FFMPEG_MISSING_CODE } });
     return;
   }
   if (p === "/api/export/profiles" && req.method === "GET") {
@@ -1199,12 +1203,12 @@ const server = http.createServer(async (req, res) => {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       const mode = opts.mode === "annexb" ? "annexb" : "jpeg";
       if (mode !== "annexb" && opts.profile) resolveProfile(opts.profile); // 400, not 500, on a bad id — even without ffmpeg
-      if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING }); return; }
+      if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
       sendJSON(res, 200, await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts));
     } catch (e) {
       // an unusable profile is the caller's problem, not a server fault
       const bad = /^Unknown encoding profile|was rejected by ffmpeg|ffmpeg rejected these settings|at most \d+ outputs|deliveries is empty|render each frame rate separately|export fps required|export width\/height required/.test(e.message || "");
-      sendJSON(res, bad || e.status === 400 ? 400 : 500, { error: String(e.message || e) });
+      sendJSON(res, bad || e.status === 400 ? 400 : 500, { error: String(e.message || e), code: e.code, params: e.params, featurePack: e.featurePack });
     }
     return;
   }
@@ -1311,7 +1315,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (p === "/api/analyze" && req.method === "POST") {
-    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING }); return; }
+    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       const name = path.basename(decodeURIComponent(opts.src || ""));
@@ -1381,7 +1385,7 @@ const server = http.createServer(async (req, res) => {
         : "src must name an existing file under /media/ or /library/" });
       return;
     }
-    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING }); return; }
+    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
     const num = (k, dflt) => {
       const raw = url.searchParams.get(k);
       if (raw === null || raw === "") return dflt;
@@ -1456,7 +1460,7 @@ const server = http.createServer(async (req, res) => {
      writes a denoised FLAC of the whole file into media/ (reused if it exists)
      and returns {src, name, duration, channels}. Registering it is the caller's job. */
   if (p === "/api/denoise" && req.method === "POST") {
-    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING }); return; }
+    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       if (!DENOISE_AMOUNTS.includes(opts.amount)) { sendJSON(res, 400, { error: `amount must be one of ${DENOISE_AMOUNTS.join(", ")}` }); return; }

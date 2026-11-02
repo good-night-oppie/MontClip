@@ -87,8 +87,8 @@ async function start() {
   const externalFile = path.join(app.getPath("userData"), "external-ffmpeg.json");
   const externalStatus = async () => {
     const saved = External.readSetting(externalFile);
-    if (!saved) return { ok: false, reason: "none" };
-    if (saved.bad) return { ok: false, reason: "The saved local FFmpeg setting could not be read. Choose the program again." };
+    if (!saved) return { ok: false, code: "none" };
+    if (saved.bad) return { ok: false, code: "extSettingBad" };
     return External.check(saved.path);
   };
   const forbidden = { ok: false, code: "EXTERNAL_FFMPEG_FORBIDDEN" };
@@ -103,12 +103,12 @@ async function start() {
     if (!result.ok) return External.forPage(result);
     const temp = externalFile + "." + crypto.randomUUID() + ".tmp";
     try { fs.writeFileSync(temp, JSON.stringify({ version: 1, path: result.path }), { flag: "wx" }); fs.renameSync(temp, externalFile); }
-    catch { try { fs.unlinkSync(temp); } catch { } return { ok: false, reason: "The choice could not be saved." }; }
+    catch { try { fs.unlinkSync(temp); } catch { } return { ok: false, code: "extSaveFailed" }; }
     return External.forPage(result);
   });
   ipcMain.handle("montclip:ffmpeg:clear", async (event) => {
     if (!settingsAllowed(event, win, origin)) return forbidden;
-    try { fs.rmSync(externalFile, { force: true }); return { ok: false, reason: "none" }; } catch { return { ok: false, reason: "The choice could not be removed." }; }
+    try { fs.rmSync(externalFile, { force: true }); return { ok: false, code: "none" }; } catch { return { ok: false, code: "extRemoveFailed" }; }
   });
   let rendererFault = null, prompts = 0;
   const closeController = createCloseController({

@@ -17676,7 +17676,7 @@ async function fastExport(opts = {}) {
       }),
       signal,
     }).then((r) => r.json());
-    if (!begin.id) throw new Error(begin.error || "export begin failed");
+    if (!begin.id) throw new Error(MontClipView.h264Message(mcView.get().language, begin) || begin.error || "export begin failed");
     sessId = begin.id;
     const jpegQ = delivery ? begin.jpegQuality ?? 0.95 : exportProfileMeta(profileId).jpegQuality ?? 0.95;
     const rgba = begin.input === "rgba";
@@ -18021,7 +18021,7 @@ async function runExportJob(ticket) {
     const j = await fetch("/api/export/ffmpeg").then((r) => r.json()).catch(() => ({}));
     state.ffmpeg = !!j.available;
   }
-  if (!state.ffmpeg) return fail("MontClip's bundled FFmpeg is not available — export needs it");
+  if (!state.ffmpeg) return fail(MontClipView.h264Message(mcView.get().language, { code: "ffmpegMissing" }));
   if (!project.clips.length) return fail("the timeline is empty");
   await fetchEncodeProfiles();
   await probeMissingMeta();
@@ -18367,7 +18367,7 @@ async function webCodecsExport() {
       }),
       signal,
     }).then((r) => r.json());
-    if (!begin.id) throw new Error(begin.error || "export begin failed");
+    if (!begin.id) throw new Error(MontClipView.h264Message(mcView.get().language, begin) || begin.error || "export begin failed");
     sessId = begin.id;
     if (wav) {
       const r = await fetch("/api/export/audio?id=" + sessId, { method: "POST", body: wav, signal });
@@ -18786,14 +18786,17 @@ async function renderH264Settings(result) {
   let st = null;
   try { st = await (await fetch("/api/export/h264", { cache: "no-store" })).json(); } catch { }
   const ext = result || await bridge.get().catch(() => null);
+  // the server and the main process send reason codes; MontClipView says them in this language
+  const lang = mcView.get().language, say = (r) => MontClipView.h264Message(lang, r);
+  const failed = ext && !ext.ok && ext.code && ext.code !== "none" && ext.code !== "CANCELLED";
   const lines = [];
   if (ext && ext.ok) lines.push(fill(t.h264External, { path: ext.path }));
-  else if (ext && ext.reason && ext.reason !== "none") lines.push(fill(t.h264ExternalFailed, { reason: ext.reason }));
-  if (st && st.encoder) lines.push(fill(t.h264Using, { encoder: (FableCutDelivery.ENCODERS[st.encoder] || {}).label || st.encoder }));
-  else lines.push((st && st.reason) || t.h264None);
+  else if (failed) lines.push(fill(t.h264ExternalFailed, { reason: say(ext) || t.h264None }));
+  if (st && st.encoder) lines.push(fill(t.h264Using, { encoder: MontClipView.h264Encoder(lang, st.encoder) }));
+  else lines.push((st && st.reason && say(st.reason)) || t.h264None);
   lines.push(t.h264Hint);
   $("setH264Status").textContent = lines.join(" ");
-  $("btnH264Clear").disabled = !(ext && (ext.ok || (ext.reason && ext.reason !== "none")));
+  $("btnH264Clear").disabled = !(ext && (ext.ok || failed));
 }
 $("btnH264Choose")?.addEventListener("click", async () => {
   const r = await window.montclipExternalFfmpeg?.choose();

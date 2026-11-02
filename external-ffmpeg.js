@@ -38,12 +38,12 @@ function maskUserPath(s) {
   out = out.replace(/(^|[\s("'=])\/(?:home|Users)\/[^/\s]+(?=\/|$)/g, "$1~");
   return out;
 }
-/** A check result as the page may see it: the path and the reason masked. */
+/** A check result as the page may see it: ok, the reason code, and the path masked; no English reason. */
 function forPage(r) {
   if (!r || typeof r !== "object") return r;
-  const out = { ...r };
-  if (typeof out.path === "string") out.path = maskUserPath(out.path);
-  if (typeof out.reason === "string") out.reason = maskUserPath(out.reason);
+  const out = { ok: !!r.ok };
+  if (!r.ok) out.code = typeof r.code === "string" ? r.code : "none";
+  if (typeof r.path === "string") out.path = maskUserPath(r.path);
   return out;
 }
 
@@ -54,17 +54,18 @@ function defaultRun(file, args) {
   });
 }
 
-/** Check one file. → {ok:true, path, version} | {ok:false, path, reason} */
+/** Check one file. → {ok:true, path, version} | {ok:false, path, code, reason}. `code` is what the page
+    shows (ui-preferences.js says it in the interface language); `reason` is English, for logs and agents. */
 async function check(file, { run = defaultRun } = {}) {
   if (typeof file !== "string" || !file || !path.isAbsolute(file))
-    return { ok: false, path: file || null, reason: "Choose the FFmpeg program file itself (a full path)." };
+    return { ok: false, path: file || null, code: "extNotFullPath", reason: "Choose the FFmpeg program file itself (a full path)." };
   let st = null;
   try { st = fs.statSync(file); } catch { }
-  if (!st || !st.isFile()) return { ok: false, path: file, reason: `There is no file at ${maskUserPath(file)} any more.` };
+  if (!st || !st.isFile()) return { ok: false, path: file, code: "extGone", reason: `There is no file at ${maskUserPath(file)} any more.` };
   const v = await run(file, ["-hide_banner", "-version"]);
-  if (v.code !== 0 || !/ffmpeg version/i.test(v.stdout)) return { ok: false, path: file, reason: `The chosen program could not be started or did not run as FFmpeg (${maskUserPath(file)}).` };
+  if (v.code !== 0 || !/ffmpeg version/i.test(v.stdout)) return { ok: false, path: file, code: "extNotFfmpeg", reason: `The chosen program could not be started or did not run as FFmpeg (${maskUserPath(file)}).` };
   const e = await run(file, ["-hide_banner", "-encoders"]);
-  if (e.code !== 0 || !/^\s*V\S*\s+libx264\b/m.test(e.stdout)) return { ok: false, path: file, reason: "The chosen FFmpeg has no libx264 encoder, so it cannot improve H.264 export." };
+  if (e.code !== 0 || !/^\s*V\S*\s+libx264\b/m.test(e.stdout)) return { ok: false, path: file, code: "extNoX264", reason: "The chosen FFmpeg has no libx264 encoder, so it cannot improve H.264 export." };
   return { ok: true, path: file, version: v.stdout.split(/\r?\n/)[0] };
 }
 
@@ -84,8 +85,8 @@ function createExternal({ settingsFile = process.env.MONTCLIP_EXTERNAL_FFMPEG_SE
   const stamp = (f) => { try { const s = fs.statSync(f); return `${s.size}:${s.mtimeMs}`; } catch { return "gone"; } };
   async function current() {
     const s = readSetting(settingsFile);
-    if (!s) return { ok: false, reason: "none" };
-    if (s.bad) return { ok: false, reason: "The saved local FFmpeg setting could not be read. Choose the program again in Settings." };
+    if (!s) return { ok: false, code: "none", reason: "none" };
+    if (s.bad) return { ok: false, code: "extSettingBad", reason: "The saved local FFmpeg setting could not be read. Choose the program again in Settings." };
     const key = `${s.path}|${stamp(s.path)}|${stamp(settingsFile)}`;
     if (memo && memo.key === key) return memo.value;
     const value = await check(s.path, { run });
@@ -111,7 +112,11 @@ function argsUseX264(args) {
   return false;
 }
 
-/** Why there is no H.264 encoder, in plain words. */
+/** Why there is no H.264 encoder, as a code for the page. */
+function noH264({ platform = process.platform, mediaFoundation = true } = {}) {
+  return platform === "win32" ? { code: "h264NoneWin", featurePack: !mediaFoundation } : { code: "h264NoneOther", featurePack: false };
+}
+/** The same in English, for agents and logs. */
 function noH264Reason({ platform = process.platform, mediaFoundation = true } = {}) {
   let s = "This computer has no H.264 encoder MontClip can use: no graphics-card encoder answered";
   if (platform === "win32") {
@@ -121,4 +126,4 @@ function noH264Reason({ platform = process.platform, mediaFoundation = true } = 
   return s + " You can choose your own FFmpeg with libx264 in Settings, or export in another format (for example Archive).";
 }
 
-module.exports = { maskUserPath, forPage, check, createExternal, isExternalJob, argsUseX264, noH264Reason, readSetting };
+module.exports = { maskUserPath, forPage, noH264, check, createExternal, isExternalJob, argsUseX264, noH264Reason, readSetting };
