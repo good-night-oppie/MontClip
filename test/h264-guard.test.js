@@ -68,7 +68,14 @@ test('reasons and paths from the local FFmpeg check carry no user name',async t=
 
 test('desktop and server hand the page masked results only',()=>{
  const main=fs.readFileSync(path.join(ROOT,'desktop/main.js'),'utf8');
- for(const op of ['get','choose']){const at=main.indexOf('ipcMain.handle("montclip:ffmpeg:'+op+'"');const body=main.slice(at,main.indexOf('});',at));a.match(body,/External\.forPage\(/,op+' masks what it returns');}
+ for(const op of ['get','choose']){const at=main.indexOf('ipcMain.handle("montclip:ffmpeg:'+op+'"');const body=main.slice(at,main.indexOf('ipcMain.handle(',at+10));a.match(body,/External\.forPage\(/,op+' masks what it returns');}
  // every reason the server forwards from the local check is masked
- for(const s of ['ext.reason']){const uses=server.split(s).length-1;const masked=server.split('X.maskUserPath('+s+')').length-1;a.equal(masked,uses,'every '+s+' is masked');}
+ const shown=server.match(/[\w.(]*ext\.reason\)?(?!\s*[!=]==)/g)||[];a.ok(shown.length>=3);
+ for(const u of shown)a.equal(u,'X.maskUserPath(ext.reason)','a forwarded reason is masked: '+u);
+});
+
+test('ffmpeg refusals forwarded to the page are masked (dry-run output paths sit in the user temp folder)',()=>{
+ a.match(server,/rejected these settings \(\$\{Delivery\.describe\(o\.spec\)\}\): \$\{X\.maskUserPath\(why\)/);
+ a.match(server,/was rejected by ffmpeg: \$\{X\.maskUserPath\(dry\.error\)\}/);
+ a.equal(require('../external-ffmpeg').maskUserPath('Could not open C:\\Users\\ada\\AppData\\Local\\Temp\\fablecut-dry-1\\probe0.mp4'),'Could not open %USERPROFILE%\\AppData\\Local\\Temp\\fablecut-dry-1\\probe0.mp4');
 });
