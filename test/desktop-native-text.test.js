@@ -39,7 +39,9 @@ test('no showErrorBox: the stopped-service and start-up boxes take their title a
   // the stopped service: the language is read when it happens
   const stop = main.slice(main.indexOf('worker.on("exit"'), main.indexOf('await win.loadURL(origin)'));
   a.ok(stop.includes('const t = nativeText(languageOf(settings.get()));'), stop);
-  a.ok(stop.includes('dialog.showMessageBox({ type: "error", title: t.serviceStoppedTitle, message: t.serviceStopped, buttons: [t.ok], noLink: true })'), stop);
+  a.ok(stop.includes('const options = { type: "error", title: t.serviceStoppedTitle, message: t.serviceStopped, buttons: [t.ok], noLink: true };'), stop);
+  // QQ (2026-11-02): over the editor window while it is open, so the box cannot end up behind it
+  a.ok(stop.includes('if (win && !win.isDestroyed()) dialog.showMessageBox(win, options); else dialog.showMessageBox(options);'), stop);
   // ...and the handler is registered inside start(), which only runs once the app is ready
   const start = main.indexOf('async function start()'), reg = main.indexOf('worker.on("exit"');
   a.ok(start >= 0 && reg > start && reg < main.indexOf('app.on("window-all-closed"'), 'the handler is registered in start()');
@@ -47,9 +49,12 @@ test('no showErrorBox: the stopped-service and start-up boxes take their title a
     'start() is only called once the app is ready');
   // the start-up failure: the box is awaited before the app quits (showErrorBox blocked; showMessageBox does not)
   const fail = main.slice(main.indexOf('app.whenReady().then(start)'));
-  a.ok(fail.includes('.catch(async (error) =>'), fail);
-  a.ok(fail.includes('await dialog.showMessageBox({ type: "error", title: t.startFailedTitle,\n      message: `${(error && error.textKey && t[error.textKey]) || String((error && error.message) || error)}\\n${t.startFailedHint}`,\n      buttons: [t.ok], noLink: true });'), fail);
+  a.ok(fail.includes('.catch(async (error) => {\n  try {'), fail);
+  a.ok(fail.includes('await dialog.showMessageBox({ type: "error", title: t.startFailedTitle,\n        message: `${(error && error.textKey && t[error.textKey]) || String((error && error.message) || error)}\\n${t.startFailedHint}`,\n        buttons: [t.ok], noLink: true });'), fail);
   a.ok(fail.indexOf('await dialog.showMessageBox') < fail.indexOf('app.quit()'), 'shown before quitting');
+  // QQ (2026-11-02): the app quits even when the language read or the box throws
+  a.ok(fail.includes('  } finally {\n    // quit even when the box could not be shown\n    closing = true; app.quit();\n  }\n});'), fail);
+  a.equal(fail.split('app.quit()').length, 2, 'app.quit() only in the finally');
 });
 
 test('the new strings (JJ to review): the stopped-service title and the button', () => {
