@@ -1,5 +1,5 @@
 'use strict';
-// JJ's notes v5 (Deja, 2026-11-02): under 导出视频要注意 / the export notes, one more line on deleting the hidden copies in
+// JJ's notes v5, kept in v6 (Deja, 2026-11-02): under 导出视频要注意 / the export notes, one more line on deleting the hidden copies in
 // %APPDATA%\MontClip\workspace\exports. The path must reach the tester exactly as written, backslashes and all, and
 // it must be where the packaged app really keeps them; deleting them (with MontClip closed) must not break anything.
 const test = require('node:test'), a = require('node:assert/strict');
