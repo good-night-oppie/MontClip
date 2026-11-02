@@ -131,6 +131,8 @@ async function main() {
     fs.renameSync(appDir, path.join(path.dirname(appDir), top));
     // entries named with '/' and UTF-8 (desktop/zip-dir.cjs); a failed zip is removed, never left half-written
     try { require('./zip-dir.cjs').zipDir(path.join(path.dirname(appDir), top), zip); } catch (e) { fail(e.message); }
+    // every file of the package is in the zip: the files listed above, and BUILD-INFO.json
+    { const n = require('./zip-entries.cjs').zipEntries(zip).length; if (n !== all.length + 1) { fs.rmSync(zip, { force: true }); fail(`the zip holds ${n} entries, the package ${all.length + 1} files`); } }
     const zsha = sha(zip), size = fs.statSync(zip).size;
     const sums = path.join(out, 'SHA256SUMS.txt'), line = `${zsha}  ${zipName}\n`;
     fs.appendFileSync(sums, line);
