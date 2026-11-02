@@ -9494,22 +9494,25 @@ function watchCaptions(now) {
 }
 /** SRT sentence selection: preview a read-only plan, apply on a clone as one undo step. */
 async function showSentenceSelection() {
-  if (state.exporting || state.gesture || state.compCtx) { toast("请先结束导出或退出嵌套编辑 / Finish export or nested editing first"); return; }
+  if (state.exporting || state.gesture || state.compCtx) { toast(uiText("own.sd-busy")); return; }
   if (!(await flushSaveBeforeSwitch())) return;
   const doc = projectJSON(), signature = JSON.stringify(doc), projectId = runtime.projectId;
   const captions = doc.clips.filter((c) => FableCutCaptions.isCaption(c) && !c.disabled && !(doc.disabledTracks || []).includes(c.track)).sort((a, b) => a.start - b.start);
-  if (!captions.length) { toast("先导入 SRT 或添加字幕 / Import SRT or add captions first"); return; }
+  if (!captions.length) { toast(uiText("own.sd-no-captions")); return; }
   pause();
   const dialog = document.createElement("dialog");
   dialog.className = "sentence-dialog";
-  dialog.innerHTML = `<form method="dialog"><h3>按句选择保留片段 / Keep sentences</h3>
-    <p>只保留勾选的句段，移除中间间隙和其余音视频。原片不变，一步撤销。<br>Join checked ranges only. Remove gaps and other media from the edit. Source files stay unchanged.</p>
-    <label>或按顺序输入明确区间（秒，每行 起点,终点；填写后替代勾选） / Or ordered ranges in seconds, one start,end per line (overrides checks)
+  // one language at a time (own.sd-*); a planner error is said by its code (own.rp-*)
+  const say = (key) => escapeHtml(uiText(key));
+  dialog.innerHTML = `<form method="dialog"><h3>${say("own.sd-title")}</h3>
+    <p>${say("own.sd-intro")}</p>
+    <label>${say("own.sd-ranges")}
     <textarea data-ranges rows="2" placeholder="9,12&#10;1,4"></textarea></label>
     <div data-sentences></div><p data-summary role="status"></p>
-    <div class="tr-row"><button type="button" class="btn" data-preview>试听选段 / Preview</button>
-    <button type="button" class="btn primary" data-apply>保留选段 / Apply</button>
-    <button class="btn" value="cancel">取消 / Cancel</button></div></form>`;
+    <div class="tr-row"><button type="button" class="btn" data-preview>${say("own.sd-preview")}</button>
+    <button type="button" class="btn primary" data-apply>${say("own.sd-apply")}</button>
+    <button class="btn" value="cancel">${say("own.sd-cancel")}</button></div></form>`;
+  const ownError = (error) => (error && error.code && uiText("own.rp-" + error.code)) || error.message;
   const list = dialog.querySelector("[data-sentences]"), summary = dialog.querySelector("[data-summary]");
   const selected = new Set();
   let previewTimer, plan;
@@ -9526,13 +9529,14 @@ async function showSentenceSelection() {
       const explicit = dialog.querySelector("[data-ranges]").value.trim();
       const keep = explicit ? explicit.split(/\r?\n/).map(line => {
         const pair = line.split(",").map(s => s.trim());
-        if (pair.length !== 2 || pair.some(s => !s)) throw new Error("每行填写 起点,终点（秒） / Enter start,end seconds on each line");
+        if (pair.length !== 2 || pair.some(s => !s)) throw new Error(uiText("own.sd-range-line"));
         return { from: Number(pair[0]), to: Number(pair[1]) };
       }) : [...selected].map(id => captions.find(c => c.id === id)).map(c => ({ from: c.start, to: c.start+c.duration }));
       plan = FableCutRangePlan.create(doc, keep); plan.keep = keep;
-      const cut = plan.captions.filter(c => c.truncated).length;
-      summary.textContent = `${keep.map((r) => `${fmt(r.from)}–${fmt(r.to)}`).join(" → ")} → ${plan.duration.toFixed(2)} s。按勾选顺序 / In selection order. ${cut ? `${cut} 句只保留了一部分声音，请检查字幕和开头结尾。 / Boundary captions need checking.` : ""}`;
-    } catch (error) { plan = null; summary.textContent = error.message; }
+      const cut = plan.captions.filter((c) => c.status === "visible" && c.truncated).length;
+      summary.textContent = uiText("own.sd-summary", { ranges: keep.map((r) => `${fmt(r.from)}–${fmt(r.to)}`).join(" → "), secs: plan.duration.toFixed(2) }) +
+        (cut ? " " + uiText(cut === 1 ? "own.sd-partial" : "own.sd-partial-many", { n: cut }) : "");
+    } catch (error) { plan = null; summary.textContent = ownError(error); }
     dialog.querySelector("[data-apply]").disabled = !plan;
     dialog.querySelector("[data-preview]").disabled = !plan;
   };
@@ -9545,7 +9549,7 @@ async function showSentenceSelection() {
   }
   dialog.querySelector("[data-ranges]").addEventListener("input", refresh);
   const current = () => JSON.stringify(projectJSON()) === signature && runtime.projectId === projectId;
-  const changed = () => { stopPreview(); summary.textContent = "项目已变化，请关闭后重新选择 / Project changed; reopen selection"; };
+  const changed = () => { stopPreview(); summary.textContent = uiText("own.sd-changed"); };
   dialog.querySelector("[data-preview]").addEventListener("click", () => {
     if (!plan) return;
     if (!current()) { changed(); return; }
@@ -9572,8 +9576,8 @@ async function showSentenceSelection() {
         inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
       } });
       applyProject(next); pushUndo(snap); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
-      dialog.close(); toast("已拼接选段，可撤销 / Joined selected sentences; Undo is available");
-    } catch (error) { summary.textContent = error.message; }
+      dialog.close(); toast(uiText("own.sd-done"));
+    } catch (error) { summary.textContent = ownError(error); }
   });
   dialog.addEventListener("close", () => { stopPreview(); dialog.remove(); });
   document.body.append(dialog); refresh(); dialog.showModal();
