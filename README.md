@@ -1,28 +1,16 @@
 <div align="center">
 
-<img src="docs/fablecut-banner.png" alt="FableCut" width="800">
+# MontClip
 
+**A video editor an AI agent can drive — Chinese first, English one click away.**
 
-**A browser video editor that AI agents can drive.**
-
-<a href="https://trendshift.io/repositories/77702?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-77702" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/77702/daily?language=JavaScript" alt="ronak-create%2FFableCut | Trendshift" width="250" height="55"/></a>
-
-[![Hacker News — front page](https://img.shields.io/badge/Hacker%20News-front%20page-ff6600?logo=ycombinator&logoColor=white)](https://news.ycombinator.com/item?id=48845422)
-[![DEV — Top 7 of the week](https://img.shields.io/badge/DEV-Top%207%20of%20the%20week-0A0A0A?logo=devdotto&logoColor=white)](https://dev.to/devteam/top-7-featured-dev-posts-of-the-week-815)
-[![Official MCP registry](https://img.shields.io/badge/MCP%20registry-io.github.ronak--create%2Ffablecut-7b6cff?logo=modelcontextprotocol&logoColor=white)](https://registry.modelcontextprotocol.io/v0/servers?search=fablecut)
-[![Mentioned in Awesome MCP Servers](https://awesome.re/mentioned-badge.svg)](https://github.com/punkpeye/awesome-mcp-servers)
-[![Glama score](https://glama.ai/mcp/servers/ronak-create/FableCut/badges/score.svg)](https://glama.ai/mcp/servers/ronak-create/FableCut)
-[![Glama — #18 Best Browser Automation MCP Servers](https://img.shields.io/badge/Glama-%2318%20Best%20Browser%20Automation-0e1618)](https://glama.ai/mcp/best/browser-automation)
-[![Docs](https://img.shields.io/badge/Docs-fablecut.space%2Fdocs-7b6cff)](https://fablecut.space/docs/)
-[![Discord](https://img.shields.io/badge/Discord-join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/EFMQH7d6Tv)
+基于 [ronak-create/FableCut](https://github.com/ronak-create/FableCut)（MIT）。
 
 **English** · [简体中文](docs/i18n/README.zh-CN.md) · [日本語](docs/i18n/README.ja.md) · [Español](docs/i18n/README.es.md) · [Português (BR)](docs/i18n/README.pt-BR.md)
 
 </div>
 
-[![Watch the FableCut Studio demo: an agent cuts a reel live (58 s)](docs/showcase/fablecut-studio-demo-play.jpg)](https://fablecut.space/showcase/fablecut-studio-demo.mp4)
-
-FableCut is a Premiere-style non-linear video editor that runs entirely in your
+MontClip is a Premiere-style non-linear video editor that runs entirely in your
 browser — and exposes its whole timeline as one JSON document. Edit it by hand,
 from the UI, or let an AI agent (Claude Code, Claude Desktop, or anything that
 speaks MCP/REST) cut your video for you while you watch the timeline update
@@ -30,7 +18,7 @@ live.
 
 Zero npm dependencies. One `node server.js`. That's it.
 
-![FableCut editor](docs/screenshot.png)
+![MontClip editor](docs/screenshot.png)
 
 ## Sponsors
 
@@ -42,7 +30,7 @@ Zero npm dependencies. One `node server.js`. That's it.
 
 ## Why it's interesting
 
-Most "AI video" tools hide the edit behind an API. FableCut flips that: the
+Most "AI video" tools hide the edit behind an API. MontClip flips that: the
 **project file is the interface**. `project.json` describes media, clips,
 tracks, effects, keyframes and transitions — any process that can write JSON
 can edit video, and the open browser UI hot-reloads within ~150 ms via
@@ -407,8 +395,8 @@ npx -y fablecut       # → http://localhost:7777
 Your projects, media and exports go to `~/FableCut`. Or run it from a clone:
 
 ```bash
-git clone https://github.com/ronak-create/FableCut.git
-cd FableCut
+git clone https://github.com/good-night-oppie/MontClip.git
+cd MontClip
 node server.js        # → http://localhost:7777
 ```
 
@@ -473,7 +461,7 @@ Three equivalent control surfaces:
      "mcp": {
        "fablecut": {
          "type": "local",
-         "command": ["node", "/absolute/path/to/FableCut/mcp-server.js"],
+         "command": ["node", "/absolute/path/to/MontClip/mcp-server.js"],
          "enabled": true
        }
      }
@@ -493,7 +481,7 @@ Three equivalent control surfaces:
    }
    ```
 
-   (From a clone: `"command": "node"`, `"args": ["/absolute/path/to/FableCut/mcp-server.js"]`.)
+   (From a clone: `"command": "node"`, `"args": ["/absolute/path/to/MontClip/mcp-server.js"]`.)
 
    The server is intentionally client-neutral. It speaks MCP over stdio and
    does not require Claude-specific environment variables. With a clone, keep
@@ -505,7 +493,7 @@ Three equivalent control surfaces:
    `fablecut_encode_profiles`, `fablecut_normalize_audio`, `fablecut_auto_duck`,
    `fablecut_denoise`, `fablecut_silence`, `fablecut_beats`, `fablecut_reframe`, `fablecut_highlights`, `fablecut_transcribe`, `fablecut_captions`, `fablecut_export`, `fablecut_scopes`, `fablecut_track`.
 
-   FableCut is also published on the **official MCP registry** as
+   The upstream project ([ronak-create/FableCut](https://github.com/ronak-create/FableCut)) is also published on the **official MCP registry** as
    [`io.github.ronak-create/fablecut`](https://registry.modelcontextprotocol.io/v0/servers?search=fablecut)
    — each release ships an MCPB bundle (`fablecut.mcpb`) that MCPB-capable
    clients can install directly.
@@ -681,7 +669,7 @@ examples in [`library/svg/`](library/svg/).
   `LICENSES.md` there) and a set of self-authored SVG overlays and animated
   elements (`library/elements/`, `library/svg/`, MIT like the rest of the repo).
 - `library/sfx/` is yours to fill (gitignored): sound-effect sites typically
-  don't allow redistributing their files in a public repo, so FableCut doesn't —
+  don't allow redistributing their files in a public repo, so MontClip doesn't —
   `library/sfx/README.md` lists good free sources.
 - Export runs in the browser because the compositor *is* the browser; agents
   ask you to click Export (or render directly with ffmpeg from `media/`).
@@ -689,7 +677,7 @@ examples in [`library/svg/`](library/svg/).
 ## Community
 
 Questions, ideas, showing off an edit, or want to help shape what's next? Join
-the **[FableCut Discord](https://discord.gg/EFMQH7d6Tv)**. Bugs and feature
+the upstream project's **[Discord](https://discord.gg/EFMQH7d6Tv)**. Bugs and feature
 requests are still best filed as [GitHub issues](https://github.com/ronak-create/FableCut/issues).
 Rather email? Write to [hello@fablecut.space](mailto:hello@fablecut.space), or
 [support@fablecut.space](mailto:support@fablecut.space) for help.

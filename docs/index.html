@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FableCut - the browser video editor AI agents can drive</title>
-<meta name="description" content="A Premiere-style video editor that runs in your browser and exposes its whole timeline as one JSON file. Open FableCut Studio with no install, or run it locally, and let an AI agent cut your video while you watch.">
+<title>MontClip - the browser video editor AI agents can drive</title>
+<meta name="description" content="A Premiere-style video editor that runs in your browser and exposes its whole timeline as one JSON file. Open MontClip Studio with no install, or run it locally, and let an AI agent cut your video while you watch.">
 <link rel="icon" type="image/svg+xml" href="./favicon.svg">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#0a0a0b" media="(prefers-color-scheme: dark)">
@@ -14,17 +14,17 @@
 <!-- Open Graph / social. Absolute URLs: most crawlers will not resolve a
      relative og:image, and a bare text card is what gets shared instead. -->
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="FableCut">
+<meta property="og:site_name" content="MontClip">
 <meta property="og:locale" content="en_US">
 <meta property="og:url" content="https://fablecut.space/">
-<meta property="og:title" content="FableCut - the browser video editor AI agents can drive">
+<meta property="og:title" content="MontClip - the browser video editor AI agents can drive">
 <meta property="og:description" content="A Premiere-style browser video editor whose whole timeline is one JSON file. Any agent that writes JSON can edit video.">
 <meta property="og:image" content="https://fablecut.space/screenshot.png">
 <meta property="og:image:width" content="1600">
 <meta property="og:image:height" content="900">
-<meta property="og:image:alt" content="The FableCut editor: project bin, program monitor showing a title over graded footage, the inspector, and a timeline with titles, SVG overlays, an adjustment layer, colored markers and three audio tracks.">
+<meta property="og:image:alt" content="The MontClip editor: project bin, program monitor showing a title over graded footage, the inspector, and a timeline with titles, SVG overlays, an adjustment layer, colored markers and three audio tracks.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="FableCut - the browser video editor AI agents can drive">
+<meta name="twitter:title" content="MontClip - the browser video editor AI agents can drive">
 <meta name="twitter:description" content="A Premiere-style browser video editor whose whole timeline is one JSON file. Any agent that writes JSON can edit video.">
 <meta name="twitter:image" content="https://fablecut.space/screenshot.png">
 
@@ -35,8 +35,8 @@
     {
       "@type": "SoftwareApplication",
       "@id": "https://fablecut.space/#app",
-      "name": "FableCut",
-      "alternateName": "FableCut video editor",
+      "name": "MontClip",
+      "alternateName": "MontClip video editor",
       "applicationCategory": "MultimediaApplication",
       "applicationSubCategory": "Video editor",
       "operatingSystem": "Windows, macOS, Linux",
@@ -85,7 +85,7 @@
     {
       "@type": "SoftwareSourceCode",
       "@id": "https://fablecut.space/#source",
-      "name": "FableCut",
+      "name": "MontClip",
       "codeRepository": "https://github.com/ronak-create/FableCut",
       "programmingLanguage": "JavaScript",
       "runtimePlatform": "Node.js",
@@ -96,7 +96,7 @@
       "@type": "WebSite",
       "@id": "https://fablecut.space/#website",
       "url": "https://fablecut.space/",
-      "name": "FableCut",
+      "name": "MontClip",
       "inLanguage": "en",
       "about": { "@id": "https://fablecut.space/#app" }
     }
@@ -135,7 +135,7 @@
 
 <header class="nav" id="nav">
   <div class="wrap nav-inner">
-    <a class="brand" href="./" aria-label="FableCut home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>FableCut</span></a>
+    <a class="brand" href="./" aria-label="MontClip home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>MontClip</span></a>
     <nav class="nav-links" id="navLinks" aria-label="Primary">
       <a href="https://studio.fablecut.space">Studio</a>
       <a href="#made">Showcase</a>
@@ -145,10 +145,10 @@
       <a href="./docs/">Docs</a>
     </nav>
     <div class="nav-end">
-      <a class="gh" href="https://discord.gg/EFMQH7d6Tv" rel="noopener" target="_blank" aria-label="FableCut on Discord" title="Discord — questions, bugs, ideas">
+      <a class="gh" href="https://discord.gg/EFMQH7d6Tv" rel="noopener" target="_blank" aria-label="MontClip on Discord" title="Discord — questions, bugs, ideas">
         <svg class="i" aria-hidden="true"><use href="#i-discord"/></svg>
       </a>
-      <a class="gh" href="https://github.com/ronak-create/FableCut" rel="noopener" target="_blank" aria-label="FableCut on GitHub">
+      <a class="gh" href="https://github.com/ronak-create/FableCut" rel="noopener" target="_blank" aria-label="MontClip on GitHub">
         <svg class="i" aria-hidden="true"><use href="#i-gh"/></svg><span class="gh-label">GitHub</span><span class="gh-count" data-stars></span>
       </a>
       <button class="menu-btn" id="menuBtn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navLinks"><svg class="i" aria-hidden="true"><use href="#i-menu"/></svg></button>
@@ -163,11 +163,11 @@
   <div class="wrap">
     <a class="pill" href="https://studio.fablecut.space">
       <span class="pill-tag">New</span>
-      <span class="pill-txt">FableCut Studio: the whole editor in your browser</span>
+      <span class="pill-txt">MontClip Studio: the whole editor in your browser</span>
       <svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg>
     </a>
     <h1 class="hero-title"><span class="wipe">The browser video editor <span class="br-lg"></span>agents can drive.</span><span class="ph" aria-hidden="true"></span></h1>
-    <p class="hero-sub">Open FableCut Studio, pick a folder of clips, and let Claude or ChatGPT cut your video while you watch. Nothing to install, and your footage never leaves your disk.</p>
+    <p class="hero-sub">Open MontClip Studio, pick a folder of clips, and let Claude or ChatGPT cut your video while you watch. Nothing to install, and your footage never leaves your disk.</p>
     <div class="hero-cta">
       <a class="btn btn-primary" href="https://studio.fablecut.space">Open Studio<svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a>
       <button class="btn btn-ghost" type="button" data-demo><svg class="i" aria-hidden="true"><use href="#i-play"/></svg>Watch the demo</button>
@@ -178,7 +178,7 @@
          one clock in main.js; without JS (or with reduced motion) it holds a
          single finished frame. -->
     <div class="shot">
-      <div class="shot-frame cut" id="cut" role="img" aria-label="An agent editing a FableCut timeline: it places three night-city clips, a title and a synthwave track, gives the clips a noir grade, and the editor plays the cut.">
+      <div class="shot-frame cut" id="cut" role="img" aria-label="An agent editing a MontClip timeline: it places three night-city clips, a title and a synthwave track, gives the clips a noir grade, and the editor plays the cut.">
         <div class="cut-bar" aria-hidden="true">
           <span class="cut-file">project.json</span>
           <span class="cut-tick" data-cut-tick></span>
@@ -316,7 +316,7 @@
       <h2>Your agent connects with one link.</h2>
       <p>The same editor, in your browser. Your clips never leave your disk.</p>
       <div class="studio-acts">
-        <a class="btn btn-primary" href="https://studio.fablecut.space">Open FableCut Studio</a>
+        <a class="btn btn-primary" href="https://studio.fablecut.space">Open MontClip Studio</a>
         <a class="more" href="./docs/studio/">How Studio works <svg class="i" aria-hidden="true"><use href="#i-arrow"/></svg></a>
       </div>
     </div>
@@ -500,7 +500,7 @@
         </div>
         <div class="pg-view" id="pgView">
           <p class="pg-wait">Loading the editor</p>
-          <iframe id="pgFrame" data-src="./demo/?embed=1&amp;view=monitor" title="The FableCut editor, running on this page" loading="lazy"></iframe>
+          <iframe id="pgFrame" data-src="./demo/?embed=1&amp;view=monitor" title="The MontClip editor, running on this page" loading="lazy"></iframe>
         </div>
       </div>
     </div>
@@ -636,7 +636,7 @@
 <footer class="footer">
   <div class="wrap">
     <div class="foot">
-      <a class="brand" href="./" aria-label="FableCut home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>FableCut</span></a>
+      <a class="brand" href="./" aria-label="MontClip home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>MontClip</span></a>
       <nav class="foot-links" aria-label="Footer">
         <a href="https://github.com/ronak-create/FableCut" rel="noopener" target="_blank">GitHub</a>
         <a href="./docs/">Docs</a>
@@ -655,7 +655,7 @@
   </div>
 </footer>
 
-<dialog class="demo-dlg" id="demoDlg" aria-label="FableCut Studio demo">
+<dialog class="demo-dlg" id="demoDlg" aria-label="MontClip Studio demo">
   <div class="demo-box">
     <video controls playsinline preload="none" poster="./showcase/fablecut-studio-demo.jpg"
            data-src="./showcase/fablecut-studio-demo.mp4">
@@ -664,7 +664,7 @@
     </video>
   </div>
   <div class="demo-cap">
-    <span>An agent cuts a reel in FableCut Studio over MCP, live. AI voice. Music: LoFi by prettyjohn1 (Pixabay).</span>
+    <span>An agent cuts a reel in MontClip Studio over MCP, live. AI voice. Music: LoFi by prettyjohn1 (Pixabay).</span>
     <button class="demo-close" type="button" data-close><svg class="i" aria-hidden="true"><use href="#i-x"/></svg>Close</button>
   </div>
 </dialog>

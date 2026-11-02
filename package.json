@@ -1,7 +1,7 @@
 {
-  "name": "fablecut",
+  "name": "montclip",
   "version": "1.18.0",
-  "description": "Zero-dependency browser video editor that AI agents can drive — JSON timeline, MCP server, REST API, live-reloading UI.",
+  "description": "MontClip: a zero-dependency browser video editor that AI agents can drive — JSON timeline, MCP server, REST API, live-reloading UI.",
   "main": "server.js",
   "bin": {
     "fablecut": "cli.js"
@@ -38,7 +38,7 @@
     "type": "git",
     "url": "https://github.com/ronak-create/FableCut.git"
   },
-  "homepage": "https://fablecut.space",
+  "homepage": "https://github.com/good-night-oppie/MontClip",
   "mcpName": "io.github.ronak-create/fablecut",
   "license": "MIT",
   "engines": {

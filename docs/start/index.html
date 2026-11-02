@@ -3,17 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Get started - FableCut</title>
-<meta name="description" content="Run FableCut in under a minute and connect Claude Code, Codex, Gemini CLI, Cursor, opencode or any MCP client to edit video through one JSON timeline.">
+<title>Get started - MontClip</title>
+<meta name="description" content="Run MontClip in under a minute and connect Claude Code, Codex, Gemini CLI, Cursor, opencode or any MCP client to edit video through one JSON timeline.">
 <link rel="icon" type="image/svg+xml" href="../favicon.svg">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#0a0a0b" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
 <link rel="canonical" href="https://fablecut.space/start/">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="FableCut">
+<meta property="og:site_name" content="MontClip">
 <meta property="og:url" content="https://fablecut.space/start/">
-<meta property="og:title" content="Get started with FableCut">
+<meta property="og:title" content="Get started with MontClip">
 <meta property="og:description" content="Run the editor, connect your agent, ask for an edit. Node 18+ and a Chromium browser, nothing else to install.">
 <meta property="og:image" content="https://fablecut.space/screenshot.png">
 <meta property="og:image:width" content="1600">
@@ -35,7 +35,7 @@
     {
       "@type": "Question",
       "name": "What is an MCP video editor?",
-      "acceptedAnswer": { "@type": "Answer", "text": "MCP is the Model Context Protocol, the standard way an AI client talks to outside tools. FableCut ships an MCP server, so Claude Code, Claude Desktop or any other MCP client gets real typed tools for reading and rewriting your timeline instead of guessing at it." }
+      "acceptedAnswer": { "@type": "Answer", "text": "MCP is the Model Context Protocol, the standard way an AI client talks to outside tools. MontClip ships an MCP server, so Claude Code, Claude Desktop or any other MCP client gets real typed tools for reading and rewriting your timeline instead of guessing at it." }
     },
     {
       "@type": "Question",
@@ -49,7 +49,7 @@
     },
     {
       "@type": "Question",
-      "name": "Is FableCut free?",
+      "name": "Is MontClip free?",
       "acceptedAnswer": { "@type": "Answer", "text": "Yes. MIT licensed, free for personal and commercial work, with no account, no telemetry and no paid tier waiting for you later. It also has zero npm dependencies, so node server.js really is the whole install." }
     },
     {
@@ -92,7 +92,7 @@
 
 <header class="nav" id="nav">
   <div class="wrap nav-inner">
-    <a class="brand" href="../" aria-label="FableCut home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>FableCut</span></a>
+    <a class="brand" href="../" aria-label="MontClip home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>MontClip</span></a>
     <nav class="nav-links" id="navLinks" aria-label="Primary">
       <a href="../#playground">Playground</a>
       <a href="./" aria-current="page">Get started</a>
@@ -101,10 +101,10 @@
       <a href="../docs/">Docs</a>
     </nav>
     <div class="nav-end">
-      <a class="gh" href="https://discord.gg/EFMQH7d6Tv" rel="noopener" target="_blank" aria-label="FableCut on Discord" title="Discord — questions, bugs, ideas">
+      <a class="gh" href="https://discord.gg/EFMQH7d6Tv" rel="noopener" target="_blank" aria-label="MontClip on Discord" title="Discord — questions, bugs, ideas">
         <svg class="i" aria-hidden="true"><use href="#i-discord"/></svg>
       </a>
-      <a class="gh" href="https://github.com/ronak-create/FableCut" rel="noopener" target="_blank" aria-label="FableCut on GitHub">
+      <a class="gh" href="https://github.com/ronak-create/FableCut" rel="noopener" target="_blank" aria-label="MontClip on GitHub">
         <svg class="i" aria-hidden="true"><use href="#i-gh"/></svg><span class="gh-label">GitHub</span><span class="gh-count" data-stars></span>
       </a>
       <button class="menu-btn" id="menuBtn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navLinks"><svg class="i" aria-hidden="true"><use href="#i-menu"/></svg></button>
@@ -127,7 +127,7 @@
     <div class="step reveal" id="run">
       <div class="step-copy">
         <h2>Run the editor</h2>
-        <p>Start it with one command. FableCut has zero npm dependencies; your projects, media and exports go to <code class="ic">~/FableCut</code>.</p>
+        <p>Start it with one command. MontClip has zero npm dependencies; your projects, media and exports go to <code class="ic">~/FableCut</code>.</p>
       </div>
       <div>
         <div class="code code-card">
@@ -141,10 +141,10 @@
     <div class="step reveal" id="studio">
       <div class="step-copy">
         <h2>Or open it in your browser</h2>
-        <p>No Node, no install: <a href="https://studio.fablecut.space">FableCut Studio</a> is the same editor in Chrome, Edge, Brave or Arc. It edits a folder on your own disk, so your clip files are never uploaded, and Claude Code, claude.ai or ChatGPT connect to it with a link.</p>
+        <p>No Node, no install: <a href="https://studio.fablecut.space">MontClip Studio</a> is the same editor in Chrome, Edge, Brave or Arc. It edits a folder on your own disk, so your clip files are never uploaded, and Claude Code, claude.ai or ChatGPT connect to it with a link.</p>
       </div>
       <div>
-        <div class="btns"><a class="btn btn-primary" href="https://studio.fablecut.space">Open FableCut Studio</a></div>
+        <div class="btns"><a class="btn btn-primary" href="https://studio.fablecut.space">Open MontClip Studio</a></div>
         <p class="step-note">Studio covers everything except importing from a path or URL, reference analysis and noise reduction, which need the local install. See <a href="../docs/studio/">Studio in the docs</a>.</p>
       </div>
     </div>
@@ -248,7 +248,7 @@
       </details>
       <details>
         <summary>What is an MCP video editor?</summary>
-        <p>MCP is the Model Context Protocol, the standard way an AI client talks to outside tools. FableCut ships an MCP server, so Claude Code, Claude Desktop or any other MCP client gets real typed tools for reading and rewriting your timeline instead of guessing at it.</p>
+        <p>MCP is the Model Context Protocol, the standard way an AI client talks to outside tools. MontClip ships an MCP server, so Claude Code, Claude Desktop or any other MCP client gets real typed tools for reading and rewriting your timeline instead of guessing at it.</p>
       </details>
       <details>
         <summary>Do I need ffmpeg?</summary>
@@ -259,7 +259,7 @@
         <p>No. The server runs on your own machine and listens on 127.0.0.1 only, so your media sits in a local folder and never goes near anyone's cloud. Two things do touch the network, and both are your call: the <strong>+ URL</strong> button downloads a file you paste in, and AI background removal fetches its model from a CDN the first time you use it.</p>
       </details>
       <details>
-        <summary>Is FableCut free?</summary>
+        <summary>Is MontClip free?</summary>
         <p>Yes. MIT licensed, free for personal and commercial work, with no account, no telemetry and no paid tier waiting for you later. It also has zero npm dependencies, so <code class="ic">node server.js</code> really is the whole install.</p>
       </details>
       <details>
@@ -285,7 +285,7 @@
 <footer class="footer">
   <div class="wrap">
     <div class="foot">
-      <a class="brand" href="../" aria-label="FableCut home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>FableCut</span></a>
+      <a class="brand" href="../" aria-label="MontClip home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>MontClip</span></a>
       <nav class="foot-links" aria-label="Footer">
         <a href="https://github.com/ronak-create/FableCut" rel="noopener" target="_blank">GitHub</a>
         <a href="../docs/">Docs</a>
