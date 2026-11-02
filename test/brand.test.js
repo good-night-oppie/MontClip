@@ -119,3 +119,18 @@ test('QQ (2026-11-02): docs/i18n is under the brand rules; no translation promot
   a.ok(/MontClip/.test(t),f+' names MontClip');}
  a.ok(!/README\.(es|ja|pt-BR)\.md/.test(read('CONTRIBUTING.md')),'CONTRIBUTING does not point at a removed translation');
 });
+
+test('QQ (2026-11-02): no page under docs/ links to the upstream repository, except the home and start pages\' credit', () => {
+ const walk=d=>fs.readdirSync(path.join(root,d),{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(d+'/'+e.name):[d+'/'+e.name]);
+ const pages=walk('docs').filter(f=>f.endsWith('.html')&&!/^docs\/(validation|demo)\//.test(f));
+ a.ok(pages.includes('docs/community/index.html'));
+ const CREDIT=['docs/index.html','docs/en/index.html','docs/start/index.html','docs/en/start/index.html'];
+ const found=[];
+ for(const f of pages){
+  const links=[...read(f).matchAll(/href="([^"]*ronak-create[^"]*)"/g)].map(m=>m[1]);
+  // the credit: one link to the upstream repository itself, on the home and start pages only
+  const allowed=CREDIT.includes(f)?links.filter(l=>l==='https://github.com/ronak-create/FableCut').slice(0,1):[];
+  for(const l of links)if(!allowed.includes(l)||links.filter(x=>x===l).length>allowed.filter(x=>x===l).length)found.push(f+' → '+l);
+ }
+ a.deepEqual([...new Set(found)],[]);
+});
