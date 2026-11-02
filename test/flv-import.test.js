@@ -6,9 +6,11 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { execFileSync } = require("node:child_process");
 const { makeDataDir, startServer, startMcp, readProject } = require("./helpers");
-const available = () => {
-  try { for (const name of ["ffmpeg", "ffprobe"]) execFileSync(name, ["-version"], {stdio:"ignore"}); return true; } catch { return false; }
-};
+// the bundled ffmpeg/ffprobe (ffmpeg-path.js), never PATH (#28)
+const FF = require("../ffmpeg-path");
+const available = () => FF.available("ffmpeg") && FF.available("ffprobe");
+// the bundled LGPL build has no libx264; a fixture that needs it is skipped there
+const hasEncoder = name => available() && execFileSync(FF.path("ffmpeg"), ["-hide_banner", "-encoders"], {encoding:"utf8"}).includes(" " + name + " ");
 const hash = file => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 test("public preparation errors sanitize unknown paths and distinguish confirmed disk errors", () => {
   const {publicPreparationError} = require("../prepare-media");
@@ -25,18 +27,18 @@ test("FLV probe, unsupported layout and missing component return stable codes", 
   const bad = await (await upload(base, Buffer.from("not a video"))).json();
   assert.equal(bad.code,"FLV_PROBE_FAILED"); assert.equal(bad.error,bad.code);
   const audio = path.join(dir,"audio.flv");
-  execFileSync("ffmpeg", ["-v","error","-f","lavfi","-i","sine=frequency=440","-t","0.1","-c:a","aac",audio]);
+  execFileSync(FF.path("ffmpeg"), ["-v","error","-f","lavfi","-i","sine=frequency=440","-t","0.1","-c:a","aac",audio]);
   const unsupported = await (await upload(base,fs.readFileSync(audio))).json();
   assert.equal(unsupported.code,"FLV_STREAMS_UNSUPPORTED"); assert.equal(unsupported.error,unsupported.code);
-  const noTools = await startServer(t, makeDataDir(t), {FABLECUT_NO_FS_WATCH:"1",Path:"",PATH:""});
+  const noTools = await startServer(t, makeDataDir(t), {FABLECUT_NO_FS_WATCH:"1",MONTCLIP_FFMPEG:path.join(dir,"missing","ffmpeg.exe"),MONTCLIP_FFPROBE:path.join(dir,"missing","ffprobe.exe")});
   const missing = await (await upload(noTools.base,Buffer.from("no tool needed to expose missing tool"))).json();
   assert.equal(missing.code,"FLV_COMPONENT_MISSING"); assert.equal(missing.error,missing.code);
 });
 test("FLV upload remuxes compatible streams without modifying the original", async t => {
-  if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
+  if (!hasEncoder("libx264")) { t.skip("the bundled LGPL ffmpeg has no libx264 to make this H.264 fixture"); return; }
   const dir = makeDataDir(t);
   const original = path.join(dir, "中文 空格.flv");
-  execFileSync("ffmpeg", ["-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=30", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-t", "0.5", "-c:v", "libx264", "-c:a", "aac", original]);
+  execFileSync(FF.path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=30", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-t", "0.5", "-c:v", "libx264", "-c:a", "aac", original]);
   const before = hash(original);
   const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1" });
   let res = await fetch(base + "/api/upload?name=" + encodeURIComponent("中文 空格.flv"), { method: "POST", body: fs.readFileSync(original) });
@@ -48,13 +50,13 @@ test("FLV upload remuxes compatible streams without modifying the original", asy
   assert.match(body.originalSrc, /\.flv$/);
   assert.equal(hash(original), before);
   assert.equal(crypto.createHash("sha256").update(Buffer.from(await (await fetch(base + body.originalSrc)).arrayBuffer())).digest("hex"), before);
-  const packets = file => execFileSync("ffmpeg", ["-v", "error", "-i", file, "-map", "0:v:0", "-f", "framemd5", "-"], {encoding:"utf8"}).split("\n").filter(x => x && !x.startsWith("#")).map(x => x.split(",").at(-1).trim());
+  const packets = file => execFileSync(FF.path("ffmpeg"), ["-v", "error", "-i", file, "-map", "0:v:0", "-f", "framemd5", "-"], {encoding:"utf8"}).split("\n").filter(x => x && !x.startsWith("#")).map(x => x.split(",").at(-1).trim());
   assert.deepEqual(packets(path.join(dir, "media", decodeURIComponent(body.src.slice(7)))), packets(original));
 });
 test("legacy FLV requires explicit transcode consent and retains its source", async t => {
   if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
   const dir = makeDataDir(t), original = path.join(dir, "legacy.flv");
-  execFileSync("ffmpeg", ["-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=30", "-t", "0.3", "-c:v", "flv", original]);
+  execFileSync(FF.path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=30", "-t", "0.3", "-c:v", "flv", original]);
   const before = hash(original);
   const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1" });
   const response = await fetch(base + "/api/upload?name=legacy.flv", {method:"POST", body:fs.readFileSync(original)});
@@ -79,7 +81,7 @@ test("legacy FLV requires explicit transcode consent and retains its source", as
 test("MCP FLV import shares the explicit conversion gate", async t => {
   if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
   const dir = makeDataDir(t), original = path.join(dir, "legacy.flv");
-  execFileSync("ffmpeg", ["-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=30", "-t", "0.3", "-c:v", "flv", original]);
+  execFileSync(FF.path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=30", "-t", "0.3", "-c:v", "flv", original]);
   const mcp = startMcp(t, dir);
   await mcp.request("initialize", { protocolVersion: "2025-11-25" });
   const before = readProject(dir);

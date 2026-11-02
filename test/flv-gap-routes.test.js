@@ -44,7 +44,7 @@ test('production MCP copied original remains but gap cannot register media with 
 });
 test('production URL receiver rejects a .flv filename before storing the response',async()=>{
  const source=fs.readFileSync(path.join(root,'import-url.js'),'utf8'),mod={exports:{}};
- vm.runInNewContext(source+'\nmodule.exports.saveResponse=saveResponse;',{module:mod,exports:mod.exports,require:id=>(id==='node:child_process'||id==='child_process')?createMediaProcess({processes:{spawnSync(){assert.fail('URL rejection must not spawn');},execFile(){assert.fail('URL rejection must not execute');}}}):require(id),URL,Buffer,setTimeout,clearTimeout});
+ vm.runInNewContext(source+'\nmodule.exports.saveResponse=saveResponse;',{module:mod,exports:mod.exports,require:id=>id==='./ffmpeg-path'?require('../ffmpeg-path'):(id==='node:child_process'||id==='child_process')?createMediaProcess({processes:{spawnSync(){assert.fail('URL rejection must not spawn');},execFile(){assert.fail('URL rejection must not execute');}}}):require(id),URL,Buffer,setTimeout,clearTimeout});
  let drained=0;const res={statusCode:200,headers:{'content-type':'video/x-flv'},resume(){drained++;}};
  await assert.rejects(mod.exports.saveResponse(res,new URL('https://example.invalid/source.flv'),'/unused',{maxBytes:1024}),/unsupported media type/);
  assert.equal(drained,1);
