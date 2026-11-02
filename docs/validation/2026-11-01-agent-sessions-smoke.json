@@ -1,0 +1,24 @@
+{
+  "profile": "MontClip-sessions-final-iPocDa",
+  "freeBefore": 43902251008,
+  "hashes": {
+    "agent-pane.js": "25dc3bec6e835c230dbc8505682af7783f2387e8302e8ce572006b2e41f64384",
+    "agent-session-schema.js": "46b164deb2481dd4e80bcfa3f0f5434f3d600142d7615f894c3329ef5b6cfd84",
+    "desktop/agent-session-store.js": "b20157f42f54ac3c96fb939b2be9c5d010b874794920fed7c3294451b204ed01",
+    "desktop/main.js": "42f79096abf85f5d28666db160135b90147fb1bd71c19327258790a2e0c6f676",
+    "desktop/agent-session-smoke.js": "8f6f62ce278cc874a491e8709f15dda9ea219e8dcd5d5a202ec13292f48c6d6b",
+    "app.js": "fee744503a8191dc2550473da7650a420bcd9031dbf464e057b9f88b51689491"
+  },
+  "reports": [
+    {
+      "reopen": false,
+      "exit": 0,
+      "log": "\r\n\n  FableCut running →  http://localhost:21220\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-sessions-final-iPocDa\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-sessions-final-iPocDa\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-sessions-final-iPocDa\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nMONTCLIP_SESSION_STATE {\"revision\":1,\"sequenceId\":\"main\",\"notice\":\"\",\"referenceCount\":1}\nMONTCLIP_SESSIONS {\"reopen\":false,\"projectId\":\"p_377295cb7c\",\"origin\":\"http://127.0.0.1:21220\",\"restored\":false,\"draft\":true,\"reference\":true,\"messages\":0,\"projectUnchanged\":true}\nMONTCLIP_SMOKE {\"nodeUnavailable\":true,\"projectLoaded\":true,\"apiStatus\":200,\"externalBlocked\":true,\"compositor\":true,\"saved\":true}\n"
+    },
+    {
+      "reopen": true,
+      "exit": 0,
+      "log": "\r\n\n  FableCut running →  http://localhost:10817\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-sessions-final-iPocDa\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-sessions-final-iPocDa\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-sessions-final-iPocDa\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nMONTCLIP_SESSION_STATE {\"revision\":2,\"sequenceId\":\"main\",\"notice\":\"\",\"referenceCount\":1}\nMONTCLIP_SESSIONS {\"reopen\":true,\"projectId\":\"p_377295cb7c\",\"origin\":\"http://127.0.0.1:10817\",\"restored\":true,\"draft\":true,\"reference\":true,\"messages\":0,\"projectUnchanged\":true}\nMONTCLIP_SMOKE {\"nodeUnavailable\":true,\"projectLoaded\":true,\"apiStatus\":200,\"externalBlocked\":true,\"compositor\":true,\"saved\":true}\n"
+    }
+  ]
+}

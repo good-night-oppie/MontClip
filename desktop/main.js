@@ -72,6 +72,19 @@ async function start() {
     event.returnValue = settingsAllowed(event, win, origin)
       ? settings[operation](value) : {ok:false,code:"VIEW_SETTINGS_FORBIDDEN"};
   });
+  const paneSettings = createStore(app.getPath("userData"), {pane:true});
+  for (const operation of ["get", "set"]) ipcMain.on("montclip:pane:" + operation, (event, value) => {
+    event.returnValue = settingsAllowed(event, win, origin)
+      ? paneSettings[operation](value) : {ok:false,code:"VIEW_SETTINGS_FORBIDDEN"};
+  });
+  const workspaceSettings = require('./workspace-settings').createStore(app.getPath('userData'));
+  for (const operation of ['get','set','migrate']) ipcMain.on('montclip:workspace:'+operation,(event,value)=>{
+    event.returnValue=settingsAllowed(event,win,origin)?workspaceSettings[operation](value):{ok:false,code:'WORKSPACE_FORBIDDEN'};
+  });
+  const agentSessions = require('./agent-session-store').createStore(app.getPath('userData'));
+  for(const operation of ['get','set']) ipcMain.on('montclip:sessions:'+operation,(event,value)=>{
+    event.returnValue=settingsAllowed(event,win,origin)?agentSessions[operation](value):{ok:false,code:'SESSION_FORBIDDEN'};
+  });
   let rendererFault = null, prompts = 0;
   const closeController = createCloseController({
     save: (attempt) => {
@@ -124,6 +137,9 @@ async function start() {
     return;
   }
   if (smoke) {
+    if (process.argv.includes("--agent-layout-check")) await require("./agent-layout-smoke").run(win);
+    if (process.argv.includes("--sessions-check")) await require("./agent-session-smoke").run(win);
+    if (process.argv.includes("--workspace-check")) await require("./workspace-smoke").run(win);
     if (process.argv.includes("--view-check")) await require("./view-smoke").run(win);
     if (process.argv.includes("--m0")) await require("./m0-smoke").run(win, origin, token, env.FABLECUT_DATA_DIR);
     const result = await win.webContents.executeJavaScript(`(async () => {
