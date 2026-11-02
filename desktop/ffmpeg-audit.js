@@ -26,4 +26,17 @@ function auditManifest(manifest = {}) {
   return problems;
 }
 
-module.exports = { auditBuild, auditManifest, GPL_ONLY };
+/** licenses/ffmpeg/inventory.json: every library in the build must have its licence text from the
+    pinned ref and a classification; a GPL-looking text must have been read by hand (reviewed). */
+function auditLicenses(list = []) {
+  const problems = [];
+  for (const e of list) {
+    if (!e.files || !e.files.length) { problems.push({ code: "LICENSE_MISSING", detail: `${e.name}: no licence text collected at ${e.ref}` }); continue; }
+    const kinds = e.kinds || [];
+    if (!e.reviewed && (!kinds.length || kinds.includes("?") || kinds.some((k) => /^GPL/.test(k))))
+      problems.push({ code: "LICENSE_UNCLASSIFIED", detail: `${e.name}: licence not classified or GPL-looking text not read` });
+  }
+  return problems;
+}
+
+module.exports = { auditBuild, auditManifest, auditLicenses, GPL_ONLY };

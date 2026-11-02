@@ -46,3 +46,17 @@ test('the H.264 tests run on a Windows CI job (h264_mf), not only on machines wi
  const ci=fs.readFileSync(path.join(__dirname,'..','.github','workflows','ci.yml'),'utf8');
  a.match(ci,/test-windows:\n[\s\S]*?runs-on: windows-latest[\s\S]*?--platform win32-x64[\s\S]*?node --test/);
 });
+test('every library in the build has its license text collected and classified, version by version',()=>{
+ const inv=path.join(__dirname,'..','licenses','ffmpeg','inventory.json');a.ok(fs.existsSync(inv),'licenses/ffmpeg/inventory.json');
+ const list=JSON.parse(fs.readFileSync(inv,'utf8'));a.ok(list.length>=100,'whole build, not a sample: '+list.length);
+ a.ok(!list.some(e=>/openh264/.test(e.repo)),'openh264 is not in our build');
+ for(const e of list){a.match(e.ref,/\S/,e.name+' pinned');for(const f of e.files)a.ok(fs.existsSync(path.join(path.dirname(inv),'texts',f.saved)),f.saved);}
+ // what is still missing or unclassified is a release blocker, reported by name
+ const problems=audit.auditLicenses(list);
+ for(const p of problems)a.match(p.code,/^(LICENSE_MISSING|LICENSE_UNCLASSIFIED)$/);
+ a.deepEqual(audit.auditLicenses([{name:'x',ref:'1',files:[{saved:'a'}],kinds:['MIT']}]),[]);
+ a.deepEqual(audit.auditLicenses([{name:'x',ref:'1',files:[],kinds:[]}]).map(p=>p.code),['LICENSE_MISSING']);
+ a.deepEqual(audit.auditLicenses([{name:'x',ref:'1',files:[{saved:'a'}],kinds:['?']}]).map(p=>p.code),['LICENSE_UNCLASSIFIED']);
+ a.deepEqual(audit.auditLicenses([{name:'x',ref:'1',files:[{saved:'a'}],kinds:['?'],reviewed:'MIT (read by hand)'}]),[],'a hand review settles it');
+ a.match(fs.readFileSync(path.join(__dirname,'..','.github','scripts','release-check.js'),'utf8'),/auditLicenses\(/);
+});

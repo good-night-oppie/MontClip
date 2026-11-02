@@ -35,29 +35,138 @@ Separately, a user may choose an FFmpeg of their own with libx264 in Settings fo
 H.264 export only (`docs/decisions/2026-11-02-h264-encoder.md`). That program is the
 user's; MontClip does not ship or download it.
 
-### Libraries linked into the pinned build
+### Libraries in the build, version by version
 
-From the build's own `configuration:` line (`--enable-…`). Licence names are the
-upstream projects' declared licences, **not yet verified against the exact versions
-BtbN pinned, and their full texts are not yet collected** (release blocker):
+Every library BtbN/FFmpeg-Builds `5ece62897c650b863c1ddda7b6964845344aef2d` builds for **win64** and
+**linux64**, `lgpl 9.0`: the release our manifest pins, and the source of our own build without
+openh264 (`.github/workflows/build-ffmpeg.yml`). The list comes from asking each `scripts.d` script
+whether it is enabled for that target. Each library has its pinned source and ref, and the licence
+texts from that exact ref, in `licenses/ffmpeg/texts/` (SHA-256 in `licenses/ffmpeg/inventory.json`).
+"Built" means built into BtbN's image for that target. Not every library is linked into `ffmpeg`;
+fftw3, for example, is not.
 
-| Library | Upstream licence (declared) |
-|---|---|
-| zlib | Zlib |
-| libxml2, fontconfig, libfreetype (FTL/GPLv2 dual), libharfbuzz, libfribidi (LGPL-2.1), lcms2 | MIT / FTL / MIT / LGPL-2.1 / MIT |
-| libdav1d, librav1e, libsvtav1, libaom, libvpx, libwebp, libjxl, libopenjpeg, libzimg | BSD-2 / BSD-2 / BSD-3 / BSD-2 / BSD-3 / BSD-3 / BSD-3 / BSD-2 / WTFPL |
-| libvorbis, libtheora, libopus, libmp3lame (LGPL-2.0), libtwolame (LGPL-2.1), libsoxr (LGPL-2.1), libopencore-amrnb/amrwb (Apache-2.0) | BSD-3 / BSD-3 / BSD-3 / LGPL / LGPL / LGPL / Apache-2.0 |
-| libopenh264 | BSD-2 (see the H.264 ADR: shipping it conflicts with the decision; a build without it is still to be chosen) |
-| libkvazaar, libvvenc, liboapv, liblcevc-dec, libuavs3d | BSD-3 / BSD-3-Clear / BSD-3 / BSD-3-Clear / BSD-3 |
-| libass, libbluray (LGPL-2.1), libgme (LGPL-2.1), libopenmpt, libaribb24 (LGPL-3), libaribcaption, libzvbi (LGPL-2), chromaprint (LGPL-2.1) | ISC / LGPL / LGPL / BSD-3 / LGPL / MIT / LGPL / LGPL |
-| librsvg (LGPL-2.1), libplacebo (LGPL-2.1), vulkan loader / headers, opencl headers, ffnvcodec, amf, libvpl, lv2 | LGPL / LGPL / Apache-2.0 / Apache-2.0 / MIT / MIT / MIT / ISC |
-| librist, libsrt (MPL-2.0), libssh (LGPL-2.1), libzmq (MPL-2.0), libsnappy, gmp (LGPL-3), lzma, iconv (LGPL), sdl2, openal (LGPL-2), vapoursynth (LGPL-2.1), libvmaf | BSD-2 / MPL-2.0 / LGPL / MPL-2.0 / BSD-3 / LGPL / 0BSD / LGPL / Zlib / LGPL / LGPL / BSD-2 |
+The licence column is detected from the text; entries with "(read)" were read by hand.
+release-check fails while any entry is missing its text or is unclassified (`auditLicenses`).
+
+| Library | Targets | Source @ ref | Licence texts | Licence |
+|---|---|---|---|---|
+| amf | linux64, win64 | github.com/GPUOpen-LibrariesAndSDKs/AMF @ `57ee0cfb0e1a` | LICENSE.txt | MIT |
+| aom | linux64, win64 | aomedia.googlesource.com/aom @ `9ace39e02a34` | LICENSE | BSD-2 |
+| brotli | linux64, win64 | github.com/google/brotli @ `2e2bcf17ae71` | LICENSE | MIT |
+| cairo | linux64, win64 | gitlab.freedesktop.org/cairo/cairo @ `74755964edef` | COPYING | LGPL-2.1 OR MPL-1.1 (read) |
+| chromaprint | linux64, win64 | github.com/acoustid/chromaprint @ `3b38c100022b` | LICENSE.md | LGPL-2.1 / MIT |
+| dav1d | linux64, win64 | code.videolan.org/videolan/dav1d @ `b8b2d726b4b7` | COPYING | BSD-2 |
+| ffnvcodec | linux64, win64 | github.com/FFmpeg/nv-codec-headers @ `f2053071ea93` | include/ffnvcodec/nvEncodeAPI.h | MIT |
+| fftw3 | linux64, win64 | github.com/FFTW/fftw3 @ `a7b679c52833` | COPYING, COPYRIGHT | GPL-2.0-or-later — built in BtbN's image but NOT linked: only rubberband (GPL-only, excluded from LGPL builds) uses it; 0 fftw strings in the linux64 ffmpeg and the win64 ffmpeg.exe (read) |
+| fontconfig | linux64, win64 | gitlab.freedesktop.org/fontconfig/fontconfig @ `b25ffeabd15b` | COPYING | MIT / PD |
+| freetype | linux64, win64 | gitlab.freedesktop.org/freetype/freetype @ `4ba7c3d82ab8` | LICENSE.TXT | PD |
+| fribidi | linux64, win64 | github.com/fribidi/fribidi @ `d2f3e1f4946e` | COPYING | LGPL-2.1 |
+| glib | linux64, win64 | github.com/GNOME/glib @ `50b938a3e8f5` | LICENSES/LGPL-2.1-or-later.txt | LGPL-2.1 |
+| gme | linux64, win64 | github.com/libgme/game-music-emu @ `f68963b1de06` | license.txt | LGPL-2.1 |
+| gmp | linux64, win64 | github.com/BtbN/gmplib @ `5c3e9a9d52b6` | COPYING.LESSERv3, COPYINGv2, COPYINGv3 | LGPL-3.0-or-later OR GPL-2.0-or-later (dual); FFmpeg is built --enable-version3, LGPL-3 applies (read) |
+| harfbuzz | linux64, win64 | github.com/harfbuzz/harfbuzz @ `75d8ac5d2313` | COPYING | MIT ("Old MIT") (read) |
+| kvazaar | linux64, win64 | github.com/ultravideo/kvazaar @ `1f11f9ae33ef` | LICENSE | BSD-3 |
+| lcevcdec | linux64, win64 | github.com/v-novaltd/LCEVCdec @ `741fb7c869cf` | LICENSE.md, COPYING | BSD-3-Clause-Clear (no patent license granted) (read) |
+| lcms2 | linux64, win64 | github.com/mm2/Little-CMS @ `1112313b3784` | LICENSE | MIT |
+| libaribb24 | linux64, win64 | github.com/nkoriyama/aribb24 @ `5e9be272f96e` | COPYING | LGPL-3 |
+| libaribcaption | linux64, win64 | github.com/xqq/libaribcaption @ `37dde0f32652` | LICENSE | MIT |
+| libass | linux64, win64 | github.com/libass/libass @ `f61db567e659` | COPYING | ISC |
+| libbluray | linux64, win64 | code.videolan.org/videolan/libbluray @ `f33a738fd7bb` | COPYING | LGPL-2.1 |
+| libdrm | linux64 | gitlab.freedesktop.org/mesa/drm @ `b97cbde15c5c` | LICENSES/MIT.txt | MIT |
+| libffi | linux64, win64 | github.com/libffi/libffi @ `bc5538673672` | LICENSE | MIT |
+| libglvnd | linux64 | gitlab.freedesktop.org/glvnd/libglvnd @ `c046a760d845` | README.md | MIT / BSD-2 |
+| libiconv | linux64, win64 | git.savannah.gnu.org/git/libiconv @ `b5a1735e02bf` | **missing** | — |
+| libjxl | linux64, win64 | github.com/libjxl/libjxl @ `e47d2a2b5bb4` | LICENSE | BSD-3 |
+| libogg | linux64, win64 | github.com/xiph/ogg @ `06a5e0262cdc` | COPYING | BSD-3 |
+| libopus | linux64, win64 | github.com/xiph/opus @ `a8b2545eec71` | COPYING | BSD-3 |
+| libpciaccess | linux64 | gitlab.freedesktop.org/xorg/lib/libpciaccess @ `38e6f15f839f` | COPYING | MIT |
+| libplacebo | linux64, win64 | code.videolan.org/videolan/libplacebo @ `275f7dea2792` | LICENSE | LGPL-2.1 |
+| libpng | linux64, win64 | github.com/glennrp/libpng @ `0b0876829d77` | LICENSE.md | libpng-2.0 (PNG Reference Library License v2) (read) |
+| libpsl | linux64, win64 | github.com/rockdaboot/libpsl @ `620d51d13351` | LICENSE | MIT |
+| librist | linux64, win64 | code.videolan.org/rist/librist @ `47ad5513d1aa` | COPYING | BSD-2 |
+| librsvg | linux64, win64 | github.com/GNOME/librsvg @ `0c074d0a25ad` | COPYING.LIB | LGPL-2.1 |
+| libsamplerate | linux64, win64 | github.com/libsndfile/libsamplerate @ `0844c208f683` | COPYING | BSD-2 |
+| libssh | linux64, win64 | gitlab.com/libssh/libssh-mirror @ `9de02f3d01ba` | COPYING | LGPL-2.1 |
+| libtheora | linux64, win64 | github.com/xiph/theora @ `28fd5ec77f0a` | LICENSE, COPYING | BSD-3-Clause (Xiph), with On2 patent non-assertion (read) |
+| libudfread | linux64, win64 | code.videolan.org/videolan/libudfread @ `b0bc6957e7e0` | COPYING | LGPL-2.1 |
+| libunibreak | linux64, win64 | github.com/adah1972/libunibreak @ `f8172fe771ef` | LICENCE | Zlib |
+| libva | linux64, win64 | github.com/intel/libva @ `f052e984e0c8` | COPYING | MIT |
+| libvorbis | linux64, win64 | github.com/xiph/vorbis @ `1b75110b5a27` | COPYING | BSD-3 |
+| libvpx | linux64, win64 | chromium.googlesource.com/webm/libvpx @ `900b2a52b69e` | LICENSE | BSD-3 |
+| libwebp | linux64, win64 | chromium.googlesource.com/webm/libwebp @ `1844042d1ca7` | COPYING | BSD-3 |
+| libx11 | linux64 | gitlab.freedesktop.org/xorg/lib/libx11 @ `b8d5a7046a98` | COPYING | MIT |
+| libxau | linux64 | gitlab.freedesktop.org/xorg/lib/libxau @ `be1daeb909f1` | COPYING | MIT / X11-style (read) |
+| libxcb | linux64 | gitlab.freedesktop.org/xorg/lib/libxcb @ `d4e07bab5729` | COPYING | MIT |
+| libxcursor | linux64 | gitlab.freedesktop.org/xorg/lib/libxcursor @ `15efad7ccd03` | COPYING | MIT / X11-style (read) |
+| libxext | linux64 | gitlab.freedesktop.org/xorg/lib/libxext @ `508f8adca254` | COPYING | MIT |
+| libxfixes | linux64 | gitlab.freedesktop.org/xorg/lib/libxfixes @ `55bb2d1d57d4` | COPYING | MIT |
+| libxi | linux64 | gitlab.freedesktop.org/xorg/lib/libxi @ `9ea632ab9dce` | COPYING | MIT |
+| libxinerama | linux64 | gitlab.freedesktop.org/xorg/lib/libxinerama @ `d7162b962710` | COPYING | MIT |
+| libxml2 | linux64, win64 | github.com/GNOME/libxml2 @ `c79c9612fcc7` | Copyright | MIT |
+| libxrandr | linux64 | gitlab.freedesktop.org/xorg/lib/libxrandr @ `8a4ba1974bcf` | COPYING | MIT / X11-style (read) |
+| libxrender | linux64 | gitlab.freedesktop.org/xorg/lib/libxrender @ `f30d654658eb` | COPYING | MIT / X11-style (read) |
+| libxscrnsaver | linux64 | gitlab.freedesktop.org/xorg/lib/libxscrnsaver @ `3f753e7a4050` | COPYING | MIT |
+| libxv | linux64 | gitlab.freedesktop.org/xorg/lib/libxv @ `f315ec50fcad` | COPYING | MIT / X11-style (read) |
+| libxxf86vm | linux64 | gitlab.freedesktop.org/xorg/lib/libxxf86vm @ `c76fde6bffcc` | COPYING | MIT |
+| libzmq | linux64, win64 | github.com/zeromq/libzmq @ `46493370217a` | LICENSE | MPL-2.0 (the GPL match is the MPL text naming GPL as a secondary licence) (read) |
+| lilv | linux64, win64 | github.com/lv2/lilv @ `4b8f30055fa5` | COPYING | ISC |
+| lv2 | linux64, win64 | github.com/lv2/lv2 @ `3c57dae600a5` | COPYING | ISC |
+| mbedtls | linux64, win64 | github.com/ARMmbed/mbedtls @ `v4.2.0` | LICENSE | Apache-2.0 |
+| mingw | win64 | git.code.sf.net/p/mingw-w64/mingw-w64 @ `7213d719fe34` | COPYING | BSD-3 / PD |
+| mingw-std-threads | win64 | github.com/meganz/mingw-std-threads @ `c931bac289dd` | LICENSE | BSD-2 |
+| nghttp2 | linux64, win64 | github.com/nghttp2/nghttp2 @ `3baf9561e09f` | COPYING | MIT |
+| nghttp3 | linux64, win64 | github.com/ngtcp2/nghttp3 @ `ac11a456eb9d` | COPYING | MIT |
+| ngtcp2 | linux64, win64 | github.com/ngtcp2/ngtcp2 @ `20da63db12a3` | COPYING | MIT |
+| onevpl | linux64, win64 | github.com/intel/libvpl @ `674d015bcb29` | LICENSE | MIT |
+| openal | linux64, win64 | github.com/kcat/openal-soft @ `4a52288b772d` | COPYING | LGPL-2 |
+| openapv | linux64, win64 | github.com/AcademySoftwareFoundation/openapv @ `b4ff69856b4c` | LICENSE | BSD-3 |
+| opencl | linux64, win64 | github.com/KhronosGroup/OpenCL-Headers @ `82f60316cc14` | LICENSE | Apache-2.0 |
+| opencore-amr | linux64, win64 | git.code.sf.net/p/opencore-amr/code @ `7dba8c322384` | LICENSE | Apache-2.0 |
+| openjpeg | linux64, win64 | github.com/uclouvain/openjpeg @ `8314119b067c` | LICENSE | BSD-2 |
+| openmpt | linux64, win64 | github.com/OpenMPT/openmpt @ `3ee3c8000b45` | LICENSE | BSD-3 |
+| openssl | linux64, win64 | github.com/openssl/openssl @ `openssl-3.6.5` | LICENSE.txt | Apache-2.0 |
+| pango | linux64, win64 | github.com/GNOME/pango @ `68e981d243d5` | COPYING | LGPL-2 |
+| pcre2 | linux64, win64 | github.com/PCRE2Project/pcre2 @ `be940c4eaec0` | LICENCE.md | BSD-3 / PD |
+| pixman | linux64, win64 | gitlab.freedesktop.org/pixman/pixman @ `e7fd44140fe6` | COPYING | MIT |
+| pulseaudio | linux64 | gitlab.freedesktop.org/pulseaudio/pulseaudio @ `77d25a1e6130` | LICENSE | LGPL-2.1 (client library; GPL parts are optional server modules, not linked) (read) |
+| rav1e | linux64, win64 | github.com/xiph/rav1e @ `31435de9d76f` | LICENSE | BSD-2 |
+| sdl | linux64, win64 | github.com/libsdl-org/SDL @ `8acf7cfc0f88` | LICENSE.txt | Zlib |
+| serd | linux64, win64 | github.com/drobilla/serd @ `b621b0bc790d` | COPYING | ISC |
+| shaderc | linux64, win64 | github.com/google/shaderc @ `2737994b5521` | LICENSE | Apache-2.0 |
+| snappy | linux64, win64 | github.com/google/snappy @ `946606459314` | COPYING | BSD-3 / PD |
+| sord | linux64, win64 | github.com/drobilla/sord @ `4b5232bb91e7` | COPYING | ISC |
+| soxr | linux64, win64 | git.code.sf.net/p/soxr/code @ `945b592b7047` | LICENCE, COPYING.LGPL | LGPL-2.1 |
+| spirv-cross | linux64, win64 | github.com/KhronosGroup/SPIRV-Cross @ `300681bbcb83` | LICENSE | Apache-2.0 |
+| spirv-headers | linux64, win64 | github.com/KhronosGroup/SPIRV-Headers @ `fbf86836a9b1` | LICENSE | MIT / PD |
+| sratom | linux64, win64 | github.com/lv2/sratom @ `9e8ee84eed50` | COPYING | ISC |
+| srt | linux64, win64 | github.com/Haivision/srt @ `9f2390232a82` | LICENSE | MPL-2.0 (the GPL match is the MPL text naming GPL as a secondary licence) (read) |
+| svtav1 | linux64, win64 | gitlab.com/AOMediaCodec/SVT-AV1 @ `f2c3fb78611d` | LICENSE.md | BSD-3 |
+| twolame | linux64, win64 | github.com/njh/twolame @ `6fced852d4d5` | COPYING | LGPL-2.1 |
+| uavs3d | linux64, win64 | github.com/uavs3/uavs3d @ `0e20d2c29185` | COPYING | BSD-3 |
+| vapoursynth | linux64, win64 | github.com/vapoursynth/vapoursynth @ `R81` | COPYING.LESSER | LGPL-2.1 |
+| vmaf | linux64, win64 | github.com/Netflix/vmaf @ `f712fa7564fe` | LICENSE | BSD-2 |
+| vulkan-headers | linux64, win64 | github.com/KhronosGroup/Vulkan-Headers @ `v1.4.366` | LICENSE.md | Apache-2.0 OR MIT (read) |
+| vulkan-loader | linux64, win64 | github.com/BtbN/Vulkan-Shim-Loader @ `65b3936528cd` | LICENSE | MIT |
+| vvenc | linux64, win64 | github.com/fraunhoferhhi/vvenc @ `0e7508b811bb` | LICENSE.txt | BSD-3 |
+| xcbproto | linux64 | gitlab.freedesktop.org/xorg/proto/xcbproto @ `cf7e2581b613` | COPYING | MIT |
+| xorg-macros | linux64 | gitlab.freedesktop.org/xorg/util/macros @ `ea1e15a4909a` | COPYING | MIT |
+| xproto | linux64 | gitlab.freedesktop.org/xorg/proto/xorgproto @ `6d3907b6d5dc` | COPYING-applewmproto, COPYING-bigreqsproto, COPYING-compositeproto (+34) | MIT / X11-style (one file per protocol) (read) |
+| xtrans | linux64 | gitlab.freedesktop.org/xorg/lib/libxtrans @ `79f6b0bfe217` | COPYING | MIT |
+| xxhash | linux64, win64 | github.com/Cyan4973/xxHash @ `61fd0fece2eb` | LICENSE | BSD-2 |
+| xz | linux64, win64 | github.com/tukaani-project/xz @ `299eb5c3f597` | COPYING | LGPL-3 / PD |
+| zimg | linux64, win64 | github.com/sekrit-twc/zimg @ `67e0603271c0` | COPYING | WTFPL |
+| zix | linux64, win64 | github.com/drobilla/zix @ `17d632393f5a` | COPYING | ISC |
+| zlib | linux64, win64 | github.com/madler/zlib @ `9d314c341b2c` | LICENSE | Zlib |
+| zstd | linux64, win64 | github.com/facebook/zstd @ `49cf51799ea0` | LICENSE, COPYING | BSD-3 / LGPL-2 |
+| zvbi | linux64, win64 | github.com/zapping-vbi/zvbi @ `34bb6f660c5c` | COPYING.md | LGPL-2 |
+
+Still missing (release blocker): **libiconv** — git.savannah.gnu.org could not be reached from the machine that collected the texts; fetch COPYING.LIB at the pinned ref from a CI runner.
 
 Open items before a release (not resolved by this entry):
 
-- The build links further libraries statically (for example libopenh264,
-  dav1d, libvorbis, libvmaf, librsvg). Their own license texts are not in the
-  BtbN archive and are not yet collected here.
+- **libopenh264 must not ship** (H.264 ADR): the manifest moves to our own build without it
+  (`.github/workflows/build-ffmpeg.yml`); release-check fails until then.
+- Licence texts: collected for every library above except the ones listed as missing.
 - BtbN autobuild releases are not kept forever. Keep a copy of both archives
   and the corresponding source — FFmpeg at the commit above, BtbN's build scripts
   at the release tag, and every library's source at the version BtbN used — where

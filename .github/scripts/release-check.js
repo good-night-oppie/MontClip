@@ -87,10 +87,14 @@ section("Bundled FFmpeg");
 section("Bundled FFmpeg build (no GPL)");
 {
   // GPL / non-free and libopenh264 are release blockers (Deja 2026-11-02); the rules live in one module
-  const { auditBuild, auditManifest } = require("../../desktop/ffmpeg-audit");
+  const { auditBuild, auditManifest, auditLicenses } = require("../../desktop/ffmpeg-audit");
   const manProblems = auditManifest(readJSON("desktop/ffmpeg-manifest.json"));
   check(!manProblems.length, "FFmpeg manifest: our own build without libopenh264 (openh264: false)",
     "FFmpeg manifest: " + manProblems.map((p) => p.detail).join("; "));
+  // every library in the build: its licence text at the pinned ref, classified (LICENSES.md)
+  const licProblems = auditLicenses(readJSON("licenses/ffmpeg/inventory.json"));
+  check(!licProblems.length, "FFmpeg libraries: every licence text collected and classified",
+    "FFmpeg libraries: " + licProblems.map((p) => p.detail).join("; "));
   const plat = `${process.platform}-${process.arch}`;
   const vendor = path.join(ROOT, "vendor", "ffmpeg", plat), exe = path.join(vendor, process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
   if (!fs.existsSync(exe)) ok(`vendor/ffmpeg/${plat} not fetched here — run node desktop/fetch-ffmpeg.cjs to check the build itself`);
