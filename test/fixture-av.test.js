@@ -5,7 +5,7 @@
    is VP9 (in MP4, which Electron plays); with -threads 1 and bitexact flags one ffmpeg build makes the
    same bytes every time. */
 "use strict";
-const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), crypto = require("node:crypto");
+const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), crypto = require("node:crypto"), cp = require("node:child_process");
 const { ROOT } = require("./helpers");
 const F = require("../desktop/make-fixture-av.cjs");
 const read = (f) => fs.readFileSync(path.join(ROOT, f), "utf8");
@@ -87,15 +87,38 @@ test("an existing file or record is never overwritten: -n, a refusal before ffmp
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-// QQ (2026-11-02): the pinned ffmpeg build's output, fixed in the test.
-test("MontClip's pinned ffmpeg build makes exactly the recorded fixture", { skip: !ff && "no vendored ffmpeg here" }, () => {
+// QQ (2026-11-02): the pinned ffmpeg build's output, fixed in the test. "20261102" is MontClip's own LGPL build
+// without libopenh264 from #28 (GitHub Actions run 41397853139; win64 zip sha256 67c30e30…, its ffmpeg.exe
+// sha256 39341362…). main has no ffmpeg manifest or fetch script yet (both are in #28), so a machine's
+// vendor/ffmpeg can hold another build (QQ's held BtbN 20261101): the check is then skipped, not failed.
+const PINNED = { version: /^ffmpeg version n9\.0\.2-42-gd7643a0fe3-20261102 /, sha256: "189f3a1e4a6b013dd088e0b69e2d2904bf58db1993630c6a5b0092dde4ca8900", bytes: 230956 };
+const ffVersion = (ffmpeg) => (cp.spawnSync(ffmpeg, ["-hide_banner", "-version"], { encoding: "utf8", windowsHide: true }).stdout || "").split(/\r?\n/)[0];
+function pinnedCheck(t, version, make) {
+  if (!PINNED.version.test(version)) {
+    t.skip(`vendor/ffmpeg is another build (${version || "unknown"}); the recorded hash belongs to #28's 20261102 build`);
+    return null;
+  }
+  const r = make();
+  a.equal(r.sha256, PINNED.sha256);
+  a.equal(r.bytes, PINNED.bytes);
+  return r;
+}
+test("MontClip's pinned ffmpeg build makes exactly the recorded fixture", { skip: !ff && "no vendored ffmpeg here" }, (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-fixture-"));
-  try {
-    const r = F.makeFixture(path.join(dir, "a.mp4"), { ffmpeg: ff });
-    a.match(r.ffmpeg, /^ffmpeg version n9\.0\.2-42-gd7643a0fe3-20261102 /, "this hash belongs to the pinned build; another build needs its own");
-    a.equal(r.sha256, "189f3a1e4a6b013dd088e0b69e2d2904bf58db1993630c6a5b0092dde4ca8900");
-    a.equal(r.bytes, 230956);
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  try { pinnedCheck(t, ffVersion(ff), () => F.makeFixture(path.join(dir, "a.mp4"), { ffmpeg: ff })); }
+  finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("another ffmpeg build in vendor/ffmpeg skips the pinned-hash check instead of failing", () => {
+  let skipped = null, made = false;
+  const t = { skip: (m) => { skipped = m; } };
+  a.equal(pinnedCheck(t, "ffmpeg version n8.0-20261101 Copyright (c) 2000-2026 the FFmpeg developers", () => { made = true; }), null);
+  a.equal(made, false, "nothing is made for another build");
+  a.match(skipped, /another build \(ffmpeg version n8\.0-20261101 /);
+  skipped = null;
+  pinnedCheck(t, "ffmpeg version n9.0.2-42-gd7643a0fe3-20261102 Copyright (c) 2000-2026 the FFmpeg developers", () => ({ sha256: PINNED.sha256, bytes: PINNED.bytes }));
+  a.equal(skipped, null, "the pinned build is checked, not skipped");
+  a.throws(() => pinnedCheck(t, "ffmpeg version n9.0.2-42-gd7643a0fe3-20261102 Copyright", () => ({ sha256: "0".repeat(64), bytes: 1 })), "a wrong hash from the pinned build still fails");
 });
 
 // QQ (2026-11-02): the CLI line names the file without the user's home or the repository's absolute path.
