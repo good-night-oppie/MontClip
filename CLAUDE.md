@@ -2801,3 +2801,5 @@ resolver or a portable/offline release. System GPLv3 FFmpeg is a development tes
 tool only, not an approved LGPL distribution candidate. Native IPC/hash snapshot/
 close cleanup and its diagnostic harness will be a separate clean change. No
 AI/model/runtime dependency is added by this core split.
+
+MontClip Agent Pane foundation: one pane is shared across view modes. Session search/new/select and bounded drafts are local to the open window and project/sequence; no provider or tool execution is connected. Sending reports unconfigured and retains draft; no synthetic assistant reply. Model selector intentionally has only an unavailable option. Desktop IPC montclip:pane:get/set accepts only width280–480 through the existing sender/frame/origin guard, storing agent-pane-settings.json under userData; no credentials, paths, messages or project data accepted. UI strings share MontClipView locale keys. Wide layout reserves pane width; narrow layout places pane below the editor in document flow. Real-window accessibility/layout acceptance pending.
