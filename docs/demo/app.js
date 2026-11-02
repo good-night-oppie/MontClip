@@ -1830,7 +1830,9 @@ async function syncFromServer(force) {
       await probeMissingMeta();
       return true;
     }
-    if (!force && (data.revision || 0) === (project.revision || 0)) return; // our own save
+    // our own save, or an answer older than this page's document (a GET sent before our save and
+    // answered after it): disk revisions only go up, so an older one is stale, not an outside edit
+    if (!force && (data.revision || 0) <= (project.revision || 0)) return;
     // An edit from outside (an agent, another tab) on the open timeline becomes an undo step of its own,
     // so Ctrl+Z takes it back first instead of replaying an older step over it.
     const before = !state.compCtx && SeqLib.activeId(data) === SeqLib.activeId(project) ? undoSnapshot() : null;
