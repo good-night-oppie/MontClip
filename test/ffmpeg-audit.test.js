@@ -40,7 +40,15 @@ test('CI runs for every PR, draft included, whatever branch it targets; the FFmp
  const on=ci.slice(ci.indexOf('\non:'),ci.indexOf('\njobs:'));
  a.match(on,/pull_request:\n    types: \[opened, synchronize, reopened, ready_for_review\]/);a.ok(!/pull_request:\n    branches:/.test(on),'no base-branch filter');a.match(on,/workflow_dispatch:/);
  const b=fs.readFileSync(path.join(__dirname,'..','.github','workflows','build-ffmpeg.yml'),'utf8');
- a.match(b,/BTBN_COMMIT: 5ece62897c650b863c1ddda7b6964845344aef2d/);a.match(b,/return -1/);a.match(b,/verify-build\.cjs/);a.ok(!/pull_request/.test(b),'never on every PR');
+ a.match(b,/BTBN_COMMIT: 5ece62897c650b863c1ddda7b6964845344aef2d/);a.match(b,/verify-build\.cjs/);a.ok(!/pull_request/.test(b),'never on every PR');
+ // every input pinned: BtbN's build image by digest (no :latest), FFmpeg by the manifest's commit
+ const images=b.match(/image: ghcr\.io\/btbn\/ffmpeg-builds\/(win64|linux64)-lgpl-9\.0@sha256:[0-9a-f]{64}/g)||[];a.equal(images.length,2,'both images pinned by digest');
+ a.ok(!/ffmpeg-builds\/[\w.-]+:latest"?\s*$/m.test(b.replace(/docker tag[^\n]*/g,'')),'never pulls :latest');
+ const manifest=require('../desktop/ffmpeg-manifest.json');const short=manifest.source.split('/').pop();
+ const commit=(b.match(/FFMPEG_COMMIT: ([0-9a-f]{40})/)||[])[1];a.ok(commit&&commit.startsWith(short),'FFmpeg is the manifest\'s commit');
+ a.match(b,/case "\$a" in \*n9\.0\.2-42-gd7643a0fe3\*\)/);a.ok(b.includes(manifest.version),'the artifact must carry the manifest version');
+ a.match(b,/FF_CONFIGURE="\\\$\{FF_CONFIGURE\/\/--enable-libopenh264\/--disable-libopenh264\}"/);a.match(b,/\*--enable-libopenh264\*\) exit 1/);
+ a.ok(!/makeimage\.sh/.test(b),'the toolchain image is not rebuilt from gnu.org sources');
 });
 test('the H.264 tests run on a Windows CI job (h264_mf), not only on machines with a graphics card',()=>{
  const ci=fs.readFileSync(path.join(__dirname,'..','.github','workflows','ci.yml'),'utf8');
