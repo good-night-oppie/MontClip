@@ -79,3 +79,14 @@ test('ffmpeg refusals forwarded to the page are masked (dry-run output paths sit
  a.match(server,/was rejected by ffmpeg: \$\{X\.maskUserPath\(dry\.error\)\}/);
  a.equal(require('../external-ffmpeg').maskUserPath('Could not open C:\\Users\\ada\\AppData\\Local\\Temp\\fablecut-dry-1\\probe0.mp4'),'Could not open %USERPROFILE%\\AppData\\Local\\Temp\\fablecut-dry-1\\probe0.mp4');
 });
+
+test('QQ (2026-11-02): no spelling of the codec option gets libopenh264 past the check', () => {
+ a.equal(Delivery.forbiddenEncoder(['-c:v:0','libopenh264']),'libopenh264','-c:v:0');
+ a.equal(Delivery.forbiddenEncoder(['-codec','libopenh264']),'libopenh264','-codec');
+ a.equal(Delivery.forbiddenEncoder(['-c','libopenh264']),'libopenh264','-c');
+ a.equal(Delivery.forbiddenEncoder(['-c:V','libopenh264']),'libopenh264','-c:V');
+ a.equal(Delivery.forbiddenEncoder(['-c:v','LibOpenH264']),'LibOpenH264','any case');
+ a.equal(Delivery.forbiddenEncoder(['-y','-i','-','libopenh264']),'libopenh264','anywhere in the args');
+ a.equal(Delivery.forbiddenEncoder(['-c:v','h264_mf','-b:v','4M']),null);
+ a.equal(Delivery.forbiddenEncoder([]),null);a.equal(Delivery.forbiddenEncoder(undefined),null);
+});
