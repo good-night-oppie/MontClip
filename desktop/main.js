@@ -92,7 +92,7 @@ async function start() {
     return External.check(saved.path);
   };
   const forbidden = { ok: false, code: "EXTERNAL_FFMPEG_FORBIDDEN" };
-  ipcMain.handle("montclip:ffmpeg:get", async (event) => settingsAllowed(event, win, origin) ? externalStatus() : forbidden);
+  ipcMain.handle("montclip:ffmpeg:get", async (event) => settingsAllowed(event, win, origin) ? External.forPage(await externalStatus()) : forbidden);
   ipcMain.handle("montclip:ffmpeg:choose", async (event) => {
     if (!settingsAllowed(event, win, origin)) return forbidden;
     // only a file the user picks in this dialog; nothing is searched or guessed
@@ -100,11 +100,11 @@ async function start() {
       filters: process.platform === "win32" ? [{ name: "FFmpeg", extensions: ["exe"] }] : [] });
     if (pick.canceled || !pick.filePaths[0]) return { ok: false, code: "CANCELLED" };
     const result = await External.check(pick.filePaths[0]);
-    if (!result.ok) return result;
+    if (!result.ok) return External.forPage(result);
     const temp = externalFile + "." + crypto.randomUUID() + ".tmp";
     try { fs.writeFileSync(temp, JSON.stringify({ version: 1, path: result.path }), { flag: "wx" }); fs.renameSync(temp, externalFile); }
     catch { try { fs.unlinkSync(temp); } catch { } return { ok: false, reason: "The choice could not be saved." }; }
-    return result;
+    return External.forPage(result);
   });
   ipcMain.handle("montclip:ffmpeg:clear", async (event) => {
     if (!settingsAllowed(event, win, origin)) return forbidden;

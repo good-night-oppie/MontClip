@@ -18,7 +18,34 @@
 "use strict";
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 const { execFile } = require("child_process");
+
+/* A path can carry the user's name (C:\Users\<name>\…). What reaches the page, an export note
+   or a log says %USERPROFILE% (Windows) or ~ instead; only the main process keeps the real path. */
+const SHARED_PROFILES = /^(public|default|default user|all users)$/i;
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function maskUserPath(s) {
+  if (typeof s !== "string") return s;
+  let out = s;
+  const home = os.homedir();
+  if (home && home.length > 3) {
+    const pattern = home.split(/[\\/]/).map(escapeRe).join("[\\\\/]") + "(?=[\\\\/]|$|\\s)";
+    out = out.replace(new RegExp(pattern, process.platform === "win32" ? "gi" : "g"), process.platform === "win32" ? "%USERPROFILE%" : "~");
+  }
+  out = out.replace(/\b[A-Za-z]:([\\/])Users[\\/]([^\\/:*?"<>|\r\n]+)(?=[\\/]|$)/gi,
+    (m, sep, name) => (SHARED_PROFILES.test(name) ? m : "%USERPROFILE%"));
+  out = out.replace(/(^|[\s("'=])\/(?:home|Users)\/[^/\s]+(?=\/|$)/g, "$1~");
+  return out;
+}
+/** A check result as the page may see it: the path and the reason masked. */
+function forPage(r) {
+  if (!r || typeof r !== "object") return r;
+  const out = { ...r };
+  if (typeof out.path === "string") out.path = maskUserPath(out.path);
+  if (typeof out.reason === "string") out.reason = maskUserPath(out.reason);
+  return out;
+}
 
 function defaultRun(file, args) {
   return new Promise((resolve) => {
@@ -33,9 +60,9 @@ async function check(file, { run = defaultRun } = {}) {
     return { ok: false, path: file || null, reason: "Choose the FFmpeg program file itself (a full path)." };
   let st = null;
   try { st = fs.statSync(file); } catch { }
-  if (!st || !st.isFile()) return { ok: false, path: file, reason: `There is no file at ${file} any more.` };
+  if (!st || !st.isFile()) return { ok: false, path: file, reason: `There is no file at ${maskUserPath(file)} any more.` };
   const v = await run(file, ["-hide_banner", "-version"]);
-  if (v.code !== 0 || !/ffmpeg version/i.test(v.stdout)) return { ok: false, path: file, reason: `The chosen program could not be started or did not run as FFmpeg (${file}).` };
+  if (v.code !== 0 || !/ffmpeg version/i.test(v.stdout)) return { ok: false, path: file, reason: `The chosen program could not be started or did not run as FFmpeg (${maskUserPath(file)}).` };
   const e = await run(file, ["-hide_banner", "-encoders"]);
   if (e.code !== 0 || !/^\s*V\S*\s+libx264\b/m.test(e.stdout)) return { ok: false, path: file, reason: "The chosen FFmpeg has no libx264 encoder, so it cannot improve H.264 export." };
   return { ok: true, path: file, version: v.stdout.split(/\r?\n/)[0] };
@@ -94,4 +121,4 @@ function noH264Reason({ platform = process.platform, mediaFoundation = true } = 
   return s + " You can choose your own FFmpeg with libx264 in Settings, or export in another format (for example Archive).";
 }
 
-module.exports = { check, createExternal, isExternalJob, argsUseX264, noH264Reason, readSetting };
+module.exports = { maskUserPath, forPage, check, createExternal, isExternalJob, argsUseX264, noH264Reason, readSetting };

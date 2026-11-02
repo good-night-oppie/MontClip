@@ -327,14 +327,14 @@ async function exportBinary(useX264) {
   if (ext.ok) return ext.path;
   throw Object.assign(new Error(ext.reason === "none"
     ? "libx264 is only available from your own FFmpeg: choose it in Settings, or use a delivery preset (MontClip then uses the graphics card or Windows' own H.264 encoder)."
-    : "Your local FFmpeg cannot be used: " + ext.reason), { status: 400 });
+    : "Your local FFmpeg cannot be used: " + X.maskUserPath(ext.reason)), { status: 400 });
 }
 /** What H.264 export will use here, for the export dialog and agents. */
 async function h264Status() {
   const available = await deliveryEncoders();
   const list = Delivery.encodersFor("h264", available);
   const ext = await externalFfmpeg.current();
-  return { encoder: list[0] || null, encoders: list, external: ext.ok ? { ok: true } : { ok: false, reason: ext.reason },
+  return { encoder: list[0] || null, encoders: list, external: ext.ok ? { ok: true } : { ok: false, reason: X.maskUserPath(ext.reason) },
     reason: list.length ? null : X.noH264Reason({ mediaFoundation: hasMediaFoundation() }) };
 }
 /** Saved delivery presets: library/delivery/<id>.json, each a spec plus a label. */
@@ -380,7 +380,7 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
   for (const o of outs) {
     o.binary = await exportBinary(X.isExternalJob(o.spec));
     if (o.spec.video.codec === "h264" && !X.isExternalJob(o.spec) && ext.reason !== "none" && !ext.ok)
-      o.notes.push("Your local FFmpeg is not used (" + ext.reason + ") — using " + (Delivery.ENCODERS[o.spec.video.encoder]?.label || o.spec.video.encoder));
+      o.notes.push("Your local FFmpeg is not used (" + X.maskUserPath(ext.reason) + ") — using " + (Delivery.ENCODERS[o.spec.video.encoder]?.label || o.spec.video.encoder));
   }
   // check every output on a 0.1 s synthetic canvas before the browser renders anything
   const dryDir = fs.mkdtempSync(path.join(os.tmpdir(), "fablecut-dry-"));
@@ -391,7 +391,7 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
     if (bad.length) {
       throw new Error(bad.map(([d, o]) => {
         const why = d.stderr.trim().split("\n").filter(Boolean).slice(-3).map((l) => l.trim()).join(" · ");
-        return `ffmpeg rejected these settings (${Delivery.describe(o.spec)}): ${why || "exit " + d.code}`;
+        return `ffmpeg rejected these settings (${Delivery.describe(o.spec)}): ${X.maskUserPath(why) || "exit " + d.code}`;
       }).join("\n"));
     }
   } finally { try { fs.rmSync(dryDir, { recursive: true, force: true }); } catch {} }
@@ -498,10 +498,12 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
   }
 
   const profile = resolveProfile(profileId);
+  const never = Delivery.forbiddenEncoder(profile.args);
+  if (never) throw Object.assign(new Error(`profile "${profile.id}" encodes with ${never}, which MontClip never uses`), { status: 400 });
   // a raw profile that encodes with libx264 needs the user's local FFmpeg
   const binary = await exportBinary(X.argsUseX264(profile.args));
   const dry = await dryRunProfile(profile, { fps: rate, hasAudio, bin: binary });
-  if (!dry.ok) throw new Error(`profile "${profile.id}" was rejected by ffmpeg: ${dry.error}`);
+  if (!dry.ok) throw new Error(`profile "${profile.id}" was rejected by ffmpeg: ${X.maskUserPath(dry.error)}`);
   // Reserve the output name now (not at first frame) so concurrent exports
   // cannot both see the same free path. The empty .part file is overwritten by ffmpeg (-y).
   const { outPath, partPath } = reserveExportPaths(EXPORTS_DIR, safe, profile.extension);
