@@ -1,0 +1,14 @@
+
+
+  FableCut running →  http://localhost:30821
+
+  project file : <user>\AppData\Local\Temp\MontClip-official-pane-HgFL9l\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-official-pane-HgFL9l\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-official-pane-HgFL9l\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+OFFICIAL_CONFIG_ESCAPE focus-restored
+OFFICIAL_COMPLETE {"reopen":true,"requests":0,"transport":"injected-test-only","projectId":"p_61ffbb2cda","origin":"http://127.0.0.1:30821"}
+MONTCLIP_SMOKE {"nodeUnavailable":true,"projectLoaded":true,"apiStatus":200,"externalBlocked":true,"compositor":true,"saved":true}

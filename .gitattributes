@@ -1,1 +1,4 @@
 * text=auto eol=lf
+
+# Preserve official upstream source bytes for provenance verification.
+agent-ui/upstream/** -text

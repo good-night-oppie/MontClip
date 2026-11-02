@@ -1,0 +1,39 @@
+
+
+  FableCut running →  http://localhost:27092
+
+  project file : <user>\AppData\Local\Temp\MontClip-official-pane-i7ZefG\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-official-pane-i7ZefG\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-official-pane-i7ZefG\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+OFFICIAL_CONFIG_ESCAPE focus-restored
+(electron) 'safeStorage.isEncryptionAvailable' is deprecated and will be removed. Please use 'safeStorage.isAsyncEncryptionAvailable' instead.
+(electron) 'safeStorage.encryptString' is deprecated and will be removed. Please use 'safeStorage.encryptStringAsync' instead.
+OFFICIAL_IME synthetic-composition-enter: zero review/send
+OFFICIAL_REVIEW {"projectId":"p_eac2bfe453","revision":3,"draftLength":907,"status":[""],"sessionCount":1}
+OFFICIAL_COPY labels/time/disclosure/synthetic-event-paste: passed
+OFFICIAL_REPLY_VIEW {"width":804,"thread":[112.125,116],"reply":[193.09375,34.6875],"pane":246,"bottom":0,"replyVisible":true,"hit":true,"noJSON":true}
+OFFICIAL_REPLY_VIEW {"width":630,"thread":[139.359375,34.765625],"reply":[140.015625,34.6875],"pane":135,"bottom":0,"replyVisible":true,"hit":true,"noJSON":true}
+OFFICIAL_CARD_UNDO own-top-entry visibility/apply/undo/redo same-global-chain: passed
+OFFICIAL_LAYOUT {"mode":"simple","language":"zh-CN","hits":[true,true,true,true,true,true,true],"width":1270,"preview":[610.15625,343.203125],"draft":[936,465,286,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"en","hits":[true,true,true,true,true,true,true],"width":1270,"preview":[610.15625,343.203125],"draft":[936,465,286,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"zh-CN","hits":[true,true,true,true,true,true,true],"width":1270,"preview":[610.15625,343.203125],"draft":[936,465,286,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"en","hits":[true,true,true,true,true,true,true],"width":1270,"preview":[610.15625,343.203125],"draft":[936,465,286,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"zh-CN","hits":[true,true,true,true,true,true,true],"width":1100,"preview":[472.875,265.984375],"draft":[754,366,298,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"en","hits":[true,true,true,true,true,true,true],"width":1100,"preview":[472.875,265.984375],"draft":[754,366,298,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"zh-CN","hits":[true,true,true,true,true,true,true],"width":1100,"preview":[472.875,265.984375],"draft":[754,366,298,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"en","hits":[true,true,true,true,true,true,true],"width":1100,"preview":[472.875,265.984375],"draft":[754,366,298,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"zh-CN","hits":[true,true,true,true,true,true,true],"width":804,"preview":[316.4375,177.984375],"draft":[550.734375,277,213.265625,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"en","hits":[true,true,true,true,true,true,true],"width":804,"preview":[266.25,149.765625],"draft":[550.734375,277,213.265625,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"zh-CN","hits":[true,true,true,true,true,true,true],"width":804,"preview":[316.4375,177.984375],"draft":[550.734375,277,213.265625,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"en","hits":[true,true,true,true,true,true,true],"width":804,"preview":[266.25,149.765625],"draft":[550.734375,277,213.265625,56],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"zh-CN","hits":[true,true,true,true,true,true,true],"width":630,"preview":[161.359375,90.75],"draft":[384,222,206,28],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"simple","language":"en","hits":[true,true,true,true,true,true,true],"width":630,"preview":[161.359375,90.75],"draft":[384,222,206,28],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"zh-CN","hits":[true,true,true,true,true,true,true],"width":630,"preview":[161.359375,90.75],"draft":[384,222,206,28],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_LAYOUT {"mode":"advanced","language":"en","hits":[true,true,true,true,true,true,true],"width":630,"preview":[161.359375,90.75],"draft":[384,222,206,28],"overflow":0,"text":"保留草稿 retained"}
+OFFICIAL_STALE_REASK new-draft-empty-context zero-request old-session-retained
+OFFICIAL_COMPLETE {"reopen":false,"requests":1,"transport":"injected-test-only","projectId":"p_eac2bfe453","origin":"http://127.0.0.1:27092"}
+MONTCLIP_SMOKE {"nodeUnavailable":true,"projectLoaded":true,"apiStatus":200,"externalBlocked":true,"compositor":true,"saved":true}

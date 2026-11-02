@@ -1,6 +1,8 @@
 'use strict';
 // Development-only fault injection, confined to a fresh caller-owned profile.
 const {app,BrowserWindow,dialog}=require('electron');
+const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
+if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 assert.ok(process.argv.includes('--montclip-smoke'));
 const profile=process.argv.find(a=>a.startsWith('--user-data-dir=')).slice(16);

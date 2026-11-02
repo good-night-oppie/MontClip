@@ -2819,3 +2819,17 @@ Agent default identity adoption is internal to verified pjLoad: preserve anonymo
 Agent pane capacity feedback distinguishes session, current-project, text and reference limits. Returning from a capacity-blocked project restores its existing project sessions; no restart is recommended to free capacity.
 
 If session storage cannot be read at initialization, the Agent pane explicitly uses window-only sessions. Copy drafts before closing; the original session file is not changed. This temporary mode does not block normal project close/save checks. A write failure after successful loading remains unconfirmed and retains the existing close protection.
+
+## Experimental official Cindy composer integration
+
+The desktop assistant reuses pinned Apache-2.0 Cindy components, bundled locally. Open **AI service** in the assistant, select OpenAI or DeepSeek, enter a model ID and your own key, then save. Configuration alone sends no request. Before sending, review the full outgoing JSON including prior messages and explicitly selected references. Keys are encrypted by Electron safeStorage in this MontClip profile and are not returned to the page. The key is briefly present in its write-only input before save. Session text is local plaintext; do not treat the profile as encrypted message storage.
+
+Only text chat is available through this adapter. Sentence proposals require explicitly quoted whole subtitles and strict keep_sentences JSON. Review/preview do not edit; Apply uses the existing range engine, and Undo restores it. Invalid or stale suggestions are refused. No shell, arbitrary URL, media upload or automatic edit tool is exposed. Live provider acceptance is pending; tests use a clearly labelled injected transport. This is a partial official-component port, not full Cindy compatibility or a packaged release. See [provenance and limits](docs/decisions/2026-11-01-official-cindy-port.md).
+
+Host-only bridge: montclipAgentService.get/configure/send/cancel; no REST/MCP key endpoint. send requires version1, requestId, projectId, sequenceId, revision, gen and bounded user/assistant messages. Proposal schema is {type:"keep_sentences",ranges:[{clipId,sourceCaptionId,from,to}]}; timestamps are timeline seconds and every boundary must equal the explicitly referenced whole sentence. Existing MCP/REST operations are unchanged.
+
+The experimental official Agent Pane offers an explicit reset for unreadable connection settings. The fixed `montclip:agent:reset` IPC backs up the damaged connection file in a newly owned local directory before accepting replacement settings; backup failure leaves the original untouched. No arbitrary file/path IPC is exposed. Confirmation of outgoing text is renderer-side, not a second main-process authorization prompt.
+
+The official proposal card offers Undo this apply only while its application is the current shared undo stack top; later edits hide the button. It calls the same global undo() and follows global Redo. The local operation tag lives only in undo snapshots, not exported project data.
+
+Official-pane history presentation separates validated trailing reference envelopes into text and chips without changing stored/sent history. Confirmation lists human-readable messages and references; the exact HTTP request is available in collapsed details. A bounded proposal summary is presentation only: application still revalidates the live project. Stale replies can create a new draft with empty history/references, never automatically send.

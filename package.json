@@ -19,11 +19,18 @@
     "library/elements/",
     "library/fonts/",
     "library/svg/",
-    "library/sfx/README.md"
+    "library/sfx/README.md",
+    "agent-ui/upstream/LICENSE",
+    "agent-ui/upstream/NOTICE",
+    "agent-ui/SOURCES.json",
+    "agent-ui/THIRD-PARTY-NOTICES.txt",
+    "LICENSES.md"
   ],
   "scripts": {
     "start": "node server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "test:integration": "node --test real-tests/openrouter.integration.cjs",
+    "test:e2e": "node real-tests/run-deepseek-e2e.cjs"
   },
   "keywords": [
     "video-editor",

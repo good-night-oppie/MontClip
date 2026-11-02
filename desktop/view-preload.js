@@ -1,5 +1,12 @@
 'use strict';
 const {contextBridge,ipcRenderer}=require('electron');
+contextBridge.exposeInMainWorld('montclipAgentService',Object.freeze({
+ reset:()=>ipcRenderer.invoke('montclip:agent:reset'),
+ get:()=>ipcRenderer.invoke('montclip:agent:get'),
+ configure:value=>ipcRenderer.invoke('montclip:agent:configure',value),
+ send:value=>ipcRenderer.invoke('montclip:agent:send',value),
+ cancel:id=>ipcRenderer.invoke('montclip:agent:cancel',id)
+}));
 // Two fixed settings only. No file/path/channel/Node interface reaches the page.
 contextBridge.exposeInMainWorld('montclipViewSettings',Object.freeze({
  get:()=>ipcRenderer.sendSync('montclip:view:get'),
