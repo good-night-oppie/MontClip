@@ -45,6 +45,7 @@ function renderMontClipView() {
   mcAgent?.render();
   document.querySelector(".mc-history").setAttribute("aria-label", t.undo + " / " + t.redo);
   document.documentElement.lang = language;
+  for (const b of document.querySelectorAll('[data-edit-tool]:not([data-edit-tool="select"])')) b.hidden = mode === "simple";
   MontClipView.applyI18n(document, language);
   document.body.dataset.mcMode = mode;
   document.getElementById("mcLanguage").value = language;
@@ -63,6 +64,8 @@ function updateMontClipView(patch) {
     if(patch.mode==='simple'&&wasColor)toast(MontClipView.text[mcView.get().language].colorExited);
   }
   const saved = mcView.set(patch); renderMontClipView();
+  // simple mode has the selection tool only: back to V; the project, selection and history stay as they are
+  if (mcView.get().mode === "simple" && state.tool !== "select") setEditTool("select");
   state.dirtyTimeline = true;
   if (!saved) toast(mcView.get().language === "en" ? "View preference could not be saved." : "界面偏好未能保存。");
 }
@@ -5779,6 +5782,7 @@ const EDIT_TOOLS = {
 };
 function setEditTool(name) {
   if (!EDIT_TOOLS[name]) return;
+  if (name !== "select" && mcView.get().mode === "simple") return;   // simple mode has the selection tool only
   state.tool = name;
   els.tracksContent.dataset.tool = name;
   for (const b of document.querySelectorAll("[data-edit-tool]")) {
@@ -19410,6 +19414,8 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   if (isTypingTarget(document.activeElement)) return;
+  // simple mode: the advanced shortcuts do nothing (ui-preferences.js lists them)
+  if (mcView.get().mode === "simple" && MontClipView.advancedShortcut(e)) { e.preventDefault(); return; }
   if (k === " ") { e.preventDefault(); toggleTransportPlay(); }
   // JKL shuttle — bare keys only, so Cmd/Ctrl+J/K/L stay with the browser.
   // K stops; hold K and tap J / L to step a frame, hold both to crawl.

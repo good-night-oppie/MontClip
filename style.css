@@ -4681,3 +4681,6 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .cindy-port.compact .cindy-message {display:block;font-size:11px;line-height:1.35;}
 .cindy-port.compact .cindy-message > strong {margin-right:4px;}
 .cindy-port.compact .cindy-composer {padding:2px;}
+
+/* simple mode hides the B / R / Y / U tools; .btn would otherwise win over [hidden] */
+[data-edit-tool][hidden] {display:none;}

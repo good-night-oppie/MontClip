@@ -126,5 +126,20 @@
     return { getItem() { const r=bridge.get(); if(!r?.ok) throw Error('View settings unavailable'); return JSON.stringify(r.value); },
       setItem(_key, raw) { if(!bridge.set(JSON.parse(raw))?.ok) throw Error('View settings not saved'); } };
   }
-  return { create, desktopStorage, text, KEY, t, applyI18n, flvImportMessage };
+  /** Simple mode holds back these advanced shortcuts (Deja, replacing #6): Alt+T, Shift+E / Shift+D, Ctrl/Cmd+L,
+   *  [ and ], B / R / Y / U, Alt+Z, T / Shift+T, Shift+Delete (and Shift+Backspace, the same key on a Mac). */
+  function advancedShortcut(e) {
+    const k = String(e.key || ""), low = k.toLowerCase(), cm = !!(e.ctrlKey || e.metaKey), alt = !!e.altKey, shift = !!e.shiftKey;
+    if (k === "[" || k === "]") return true;
+    if (alt && !cm && low === "t") return true;
+    if (alt && !cm && e.code === "KeyZ") return true;
+    if (cm && !alt && !shift && low === "l") return true;
+    if (cm || alt) return false;
+    if (shift && (low === "e" || low === "d")) return true;
+    if (!shift && ["b", "r", "y", "u"].includes(low)) return true;
+    if (low === "t") return true;
+    if (shift && (k === "Delete" || k === "Backspace")) return true;
+    return false;
+  }
+  return { create, desktopStorage, text, KEY, t, applyI18n, flvImportMessage, advancedShortcut };
 });
