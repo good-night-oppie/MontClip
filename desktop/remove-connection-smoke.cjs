@@ -24,6 +24,8 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   await read(`document.querySelector('[data-remove-connection]').click();true`);await wait();
   assert.equal(await read(`document.querySelector('[data-remove-dialog]').open`),true);
   assert.equal(await read(`document.querySelector('[data-remove-dialog] p').textContent`),T.confirm);
+  // VV (#49): Cancel has the focus, so Enter cancels
+  assert.equal(await read(`document.activeElement&&document.activeElement.hasAttribute('data-remove-cancel')`),true,'Cancel is focused');
   await read(`document.querySelector('[data-remove-cancel]').click();true`);await wait();
   assert.equal(await read(`document.querySelector('[data-remove-dialog]').open`),false);
   assert.ok(fs.existsSync(file),'cancel keeps the connection');

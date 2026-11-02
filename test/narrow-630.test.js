@@ -10,7 +10,8 @@ const view=require('../ui-preferences'),F=require('../agent-format');
 test('a caption reference with no caption selected gives its own notice',()=>{
  const pane=read('agent-ui/pane.tsx');
  assert.match(pane,/const refs=options\.getReferences\(kind\);if\(!refs\.length&&kind==='captionRef'\)\{setNotice\('noCaptionSelected'\);return;\}/);
- assert.equal(view.text['zh-CN'].officialPane_noCaptionSelected,'先在时间线上选中字幕');
+ assert.equal(view.text['zh-CN'].officialPane_noCaptionSelected,'先在时间线上选中字幕。');
+ assert.equal(view.text.en.officialPane_noCaptionSelected,'Select captions on the timeline first.');
  assert.ok(view.text.en.officialPane_noCaptionSelected);
 });
 
@@ -30,7 +31,8 @@ test('the caption lane above is folded with a hint instead of being left behind 
  const app=read('app.js'),html=read('index.html');
  assert.match(html,/<button type="button" class="btn tiny tracks-above" id="btnTracksAbove" hidden><\/button>/);
  assert.match(app,/syncTimelineTrackView\.folded/);
- assert.match(read('ui-preferences.js'),/"tl-above-captions": \["Captions above", "字幕轨在上方"\]/);
+ // JJ (#50): say what the button does
+ assert.match(read('ui-preferences.js'),/"tl-above-captions": \["Captions above, click to show", "上方有字幕轨，点这里显示"\]/);
 });
 
 // VV (85f66ea, real window 630×460): the hint stayed on screen after a click (hidden lost to .btn's display), and the
