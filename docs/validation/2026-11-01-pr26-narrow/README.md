@@ -20,3 +20,6 @@ real window coordinates of each control after checking `elementFromPoint` hits i
   the harness now opens “More” before picking a session on a short pane.
 
 Not covered: physical mouse/keyboard, IME hardware, screen readers, real provider.
+- `adopt-only/` — after QQ's review of a432149: the assistant adopts the id without
+  `pjLoad` / `syncFromServer` (no reload path at all). Same visible-window run, fresh
+  profile, default project: id adopted, review opens, 3 sizes pass.

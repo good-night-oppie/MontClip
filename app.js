@@ -20808,14 +20808,31 @@ requestAnimationFrame(loop);
 
 // Pane state is independent of editor view mode; all actions rebind to the live project/sequence.
 /* The assistant needs the open project's id. A first-run default project has none
-   until the projects list is read; pjLoad is the existing path that gives
-   ./project.json its id and adopts it here (no dialog). Unsaved edits are saved
-   first, so the adoption never falls back to reloading over them. */
+   until the projects list is read (GET /api/projects gives ./project.json its id).
+   This path only adopts that id: it never reloads the document (unlike pjLoad, which
+   may syncFromServer when the read-back differs), so an edit made meanwhile or an
+   outside write is never loaded over the view. If the id cannot be adopted safely it
+   returns false and the pane offers "Save project". (No dialog.) */
 async function ensureAgentProject(){
- if(runtime.projectId&&runtime.projectId!=="?")return true;
+ if(runtime.projectId==="?")return false;   // a project switch is pending elsewhere
+ if(runtime.projectId)return true;
  if(!await flushSave())return false;
- await pjLoad();
- return !!runtime.projectId&&runtime.projectId!=="?";
+ const gen=runtime.projectGen,sequenceId=SeqLib.activeId(seqRoot()),snapshot=JSON.stringify(projectJSON());
+ try{
+  const list=await fetch("/api/projects?archived=exclude",{cache:"no-store"});
+  const active=list.ok?(await list.json()).active:null;
+  if(!active)return false;
+  const r=await fetch("/api/project",{cache:"no-store"});
+  const doc=r.ok?await r.json():null;
+  const ids=d=>JSON.stringify([d.name,d.revision||0,(d.clips||[]).map(c=>c.id),(d.media||[]).map(m=>m.id)]);
+  const shown=projectJSON();
+  // adopt only if nothing moved: same project on disk as on screen, no edit since the save
+  if(!doc||r.headers.get("X-FableCut-Project")!==active||ids(doc)!==ids(shown)||JSON.stringify(shown)!==snapshot||
+    runtime.projectGen!==gen||runtime.projectId)return false;
+  mcAgent?.identify({projectId:active,sequenceId,gen});
+  runtime.projectId=active;
+  return true;
+ }catch{return false;}
 }
 function agentProjectContext(){
  return {projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen??0,revision:project.revision};
