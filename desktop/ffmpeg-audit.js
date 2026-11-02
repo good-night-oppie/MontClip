@@ -39,4 +39,15 @@ function auditLicenses(list = []) {
   return problems;
 }
 
-module.exports = { auditBuild, auditManifest, auditLicenses, GPL_ONLY };
+/** The bytes of a win64 ffmpeg.exe (it cannot run on the Linux runner): openh264 shows as its encoder's
+    name and long name, or its entry points. FFmpeg embeds its configure line once per library, and
+    "--disable-libopenh264" there names openh264 without linking it, so that flag is blanked first;
+    "--enable-libopenh264" is not, and still counts. → the needles found. */
+function scanExe(buf) {
+  const flag = Buffer.from("--disable-libopenh264", "latin1");
+  const b = Buffer.from(buf);
+  for (let at = b.indexOf(flag); at >= 0; at = b.indexOf(flag, at + flag.length)) b.fill(0x20, at, at + flag.length);
+  return ["libopenh264", "OpenH264 H.264", "WelsCreateSVCEncoder", "WelsCreateDecoder"].filter((n) => b.includes(n));
+}
+
+module.exports = { auditBuild, auditManifest, auditLicenses, scanExe, GPL_ONLY };

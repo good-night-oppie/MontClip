@@ -4,9 +4,10 @@
 // Prints a JSON record (SHA-256, configure line, problems) and exits 1 if the build links
 // libopenh264 or any GPL / non-free component (rules: desktop/ffmpeg-audit.js).
 // A win64 ffmpeg.exe cannot run on the Linux runner, so its embedded configure string and
-// its bytes are read instead (an encoder named libopenh264 or the openh264 entry point).
+// its bytes are read instead (an encoder named libopenh264 or the openh264 entry point; scanExe
+// ignores the "--disable-libopenh264" flag in the embedded configure lines).
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),cp=require('node:child_process');
-const {auditBuild}=require('../ffmpeg-audit');
+const {auditBuild,scanExe}=require('../ffmpeg-audit');
 const [archive,target]=process.argv.slice(2);
 if(!archive||!/^(linux64|win64)$/.test(target||''))throw Error('usage: verify-build.cjs <archive> <linux64|win64>');
 const sha256=crypto.createHash('sha256').update(fs.readFileSync(archive)).digest('hex');
@@ -22,7 +23,7 @@ if(target==='linux64'){
  const exe=find(dir,'ffmpeg.exe');if(!exe)throw Error('no ffmpeg.exe in the archive');
  const buf=fs.readFileSync(exe),at=buf.indexOf('--prefix=');
  if(at>=0){const end=buf.indexOf(0,at);configuration='configuration: '+buf.subarray(at,end).toString('latin1');}
- for(const needle of ['libopenh264','WelsCreateSVCEncoder','WelsCreateDecoder'])if(buf.includes(needle))bytesHit.push(needle);
+ bytesHit=scanExe(buf);
 }
 const problems=auditBuild({configuration,encoders});
 if(bytesHit.length)problems.push({code:'OPENH264',detail:'ffmpeg.exe contains '+bytesHit.join(', ')});
