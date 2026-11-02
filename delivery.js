@@ -442,6 +442,7 @@
     "libaom-av1": { fast: ["-cpu-used", "8"], balanced: ["-cpu-used", "6"], best: ["-cpu-used", "4"] },
     libsvtav1: { fast: ["-preset", "10"], balanced: ["-preset", "8"], best: ["-preset", "5"] },
   };
+  const MF_SOFTWARE_BOOST = 10;
   const PRORES_PROFILE = { proxy: "0", lt: "1", standard: "2", hq: "3", 4444: "4", "4444xq": "5" };
 
   function videoArgs(spec, fps) {
@@ -466,7 +467,9 @@
       else if (E.hw === "videotoolbox") out.push("-q:v", String(Math.max(1, Math.min(100, Math.round((51 - v.crf) * 100 / 51)))));
       else if (E.hw === "qsv") out.push("-global_quality", String(v.crf));
       else if (E.hw === "amf") out.push("-rc", "cqp", "-qp_i", String(v.crf), "-qp_p", String(v.crf), ...(v.codec === "h264" ? ["-qp_b", String(v.crf)] : []));
-      else if (E.hw === "mf") out.push("-rate_control", "quality", "-quality", String(Math.max(1, Math.min(100, Math.round((51 - v.crf) * 100 / 51)))));
+      // Windows' software MFT (MontClip never sets -hw_encoding): the plain CRF scale + 10, so CRF 18 is
+      // quality 75 — about x264's picture at 6.6 Mb/s and 187 fps (VV, 2026-11-02; 80 halves the speed)
+      else if (E.hw === "mf") out.push("-rate_control", "quality", "-quality", String(Math.max(1, Math.min(100, Math.round((51 - v.crf) * 100 / 51) + MF_SOFTWARE_BOOST))));
       if (max && E.hw !== "amf") {
         if (enc === "libsvtav1") out.push("-svtav1-params", `mbr=${max}`);
         else out.push("-maxrate", k(max), "-bufsize", k(max * 2));
