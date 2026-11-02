@@ -11,7 +11,7 @@ const { spawn } = require("child_process");
 
 const STEP = 0.5, RATE = 8000, PER = STEP * RATE, FLOOR = -90;
 
-function createSignals({ dir, ffmpeg = "ffmpeg" }) {
+function createSignals({ dir, ffmpeg = require("./ffmpeg-path").path("ffmpeg") }) {
   const pending = new Map();
   const keyOf = (file) => {
     const st = fs.statSync(file);
