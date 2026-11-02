@@ -2,7 +2,8 @@
 /* The editor's own downloads (an export from /exports/, captions or a mapping from a blob). VV, package fccc225: the
    Save dialog's title was the download URL, and every export stayed behind as a hidden copy in workspace/exports.
    attach() gives the dialog a plain title in the interface language and the file name, and once the download is done —
-   saved or cancelled — removes the one export file it came from. An interrupted save keeps it, so nothing is lost. */
+   saved or cancelled — removes the one export file it came from. An interrupted save keeps it, so nothing is lost.
+   onDone hears how every download ended ({state, name}), so the page can say whether a file was saved. */
 const fs = require('node:fs'), path = require('node:path');
 
 const TITLES = {
@@ -28,8 +29,10 @@ function exportCopy(url, { origin, exportsDir }) {
   return path.join(exportsDir, name);
 }
 
-function attach(item, { origin, exportsDir, language, downloadsDir, onRemoved } = {}) {
-  item.setSaveDialogOptions(saveDialogOptions(item.getFilename(), language, downloadsDir));
+function attach(item, { origin, exportsDir, language, downloadsDir, onRemoved, onDone } = {}) {
+  const name = item.getFilename();
+  item.setSaveDialogOptions(saveDialogOptions(name, language, downloadsDir));
+  if (onDone) item.once('done', (_e, state) => onDone({ state, name }));
   const copy = exportCopy(item.getURL(), { origin, exportsDir });
   if (!copy) return;
   item.once('done', (_e, state) => {

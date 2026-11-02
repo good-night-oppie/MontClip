@@ -76,7 +76,8 @@ async function start() {
     if (!win || contents !== win.webContents ||
         !(url.startsWith("blob:" + origin + "/") || local(url) && new URL(url).pathname.startsWith("/exports/"))) { event.preventDefault(); return; }
     // A plain title and file name in the interface language; the workspace copy goes once it is saved or cancelled.
-    require("./export-downloads").attach(item, { origin, exportsDir: path.join(env.FABLECUT_DATA_DIR, "exports"), language: languageOf(settings.get()), downloadsDir: app.getPath("downloads") });
+    require("./export-downloads").attach(item, { origin, exportsDir: path.join(env.FABLECUT_DATA_DIR, "exports"), language: languageOf(settings.get()), downloadsDir: app.getPath("downloads"),
+      onDone: (v) => { if (win && !win.isDestroyed()) win.webContents.send("montclip:download:done", { state: v.state, name: v.name }); } });
   });
   win = new BrowserWindow({ width: 1280, height: 820, minWidth: 640, minHeight: 480,
     title: "MontClip", show: false, webPreferences: { session: ses, sandbox: true,

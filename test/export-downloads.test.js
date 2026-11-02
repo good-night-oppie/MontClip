@@ -77,7 +77,7 @@ test('saving onto the copy itself, or a blob download, removes nothing', (t) => 
 
 test('main.js uses it for the editor\'s own downloads, in the interface language', () => {
   const main = fs.readFileSync(path.join(__dirname, '..', 'desktop', 'main.js'), 'utf8');
-  a.match(main, /require\("\.\/export-downloads"\)\.attach\(item, \{ origin, exportsDir: path\.join\(env\.FABLECUT_DATA_DIR, "exports"\), language: languageOf\(settings\.get\(\)\), downloadsDir: app\.getPath\("downloads"\) \}\);/);
+  a.match(main, /require\("\.\/export-downloads"\)\.attach\(item, \{ origin, exportsDir: path\.join\(env\.FABLECUT_DATA_DIR, "exports"\), language: languageOf\(settings\.get\(\)\), downloadsDir: app\.getPath\("downloads"\),\n\s+onDone: /);
 });
 
 test('the server lets go of a file when its download stops half way (pipeline, not .pipe)', () => {

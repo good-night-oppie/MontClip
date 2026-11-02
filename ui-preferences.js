@@ -91,6 +91,9 @@
     "add-url": ["+ URL", "+ 网址"],
     // the Transcript tab's sentence button, one language at a time (for JJ to review)
     "tr-sentences": ["Select sentences", "按句选段"],
+    // the Save dialog's outcome in the desktop app (VV, 012ba18; for JJ to review)
+    "save-canceled": ["Save canceled. No file was saved.", "已取消保存，没有保存文件。"],
+    "save-failed": ["The save did not finish. No file was saved.", "保存没有完成，没有保存文件。"],
     "import-url-title": ["Download media from an HTTPS URL into the project", "从 HTTPS 网址下载素材到项目"],
     "fit": ["Fit", "适配"],
     "or-click": ["or click", "或点击"],

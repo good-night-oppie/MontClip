@@ -1215,6 +1215,23 @@ function localTimeForMedia(c, mediaTarget) {
   return (i - 1 + frac) * step;
 }
 let toastTimer = null;
+/* The editor's own downloads. In the desktop app the Save dialog decides: the success message waits until the file
+   is saved, and a cancel says nothing was saved (VV, 012ba18: Cancel still read "Exported … checks passed"). The
+   browser shows the message as before. */
+const pendingSaves = new Map();   // file name → its success message
+function saveDownload(href, name, savedMsg) {
+  const a = document.createElement("a");
+  a.href = href; a.download = name;
+  if (window.montclipDownloads) { if (savedMsg) pendingSaves.set(name, savedMsg); }
+  else if (savedMsg) toast(savedMsg);
+  document.body.appendChild(a); a.click(); a.remove();
+}
+window.montclipDownloads?.onDone(({ state, name }) => {
+  const msg = pendingSaves.get(name); pendingSaves.delete(name);
+  if (state === "completed") { if (msg) toast(msg); }
+  else if (state === "cancelled") toast(uiText("own.save-canceled"));
+  else toast(uiText("own.save-failed"));
+});
 function toast(msg) {
   if (!els.toast) return;
   els.toast.textContent = msg;
@@ -9798,21 +9815,16 @@ function downloadSourceMap() {
   let map;
   try { map = FableCutCaptions.sourceMap(projectJSON()); } catch (error) { toast(error.message); return; }
   if (!map.segments.length) { toast("没有可映射的音视频 / No source media to map"); return; }
-  const a = document.createElement("a"), url = URL.createObjectURL(new Blob([JSON.stringify(map, null, 2)], { type: "application/json" }));
-  a.href = url; a.download = "MontClip.mapping.json"; a.click(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+  const url = URL.createObjectURL(new Blob([JSON.stringify(map, null, 2)], { type: "application/json" }));
+  saveDownload(url, "MontClip.mapping.json"); setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 function downloadCaptions(kind) {
   const C = FableCutCaptions, list = C.fromClips(project.clips, [...state.disabledTracks]);
   if (!list.length) { toast("No captions on the timeline yet — Add captions first"); return; }
   const blob = new Blob([kind === "vtt" ? C.toVTT(list) : C.toSRT(list)], { type: kind === "vtt" ? "text/vtt" : "application/x-subrip" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `${String(project.name || "captions").replace(/[^\w\- ]+/g, "_").trim() || "captions"}.${kind}`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  toast(`Saved ${list.length} caption${list.length === 1 ? "" : "s"} as ${a.download}`);
+  const url = URL.createObjectURL(blob), name = `${String(project.name || "captions").replace(/[^\w\- ]+/g, "_").trim() || "captions"}.${kind}`;
+  saveDownload(url, name, `Saved ${list.length} caption${list.length === 1 ? "" : "s"} as ${name}`);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 /* fablecut_transcribe: transcribe the job's files in this tab, save them, report. */
 async function runTranscribeJob(ticket, fail) {
@@ -18021,18 +18033,10 @@ async function fastExport(opts = {}) {
         name: String(o.file || "").replace(/\.[^.]+$/, ""), range: exportRangeMode(), status: "done", progress: 1,
         src: o.src, file: o.file, report: o.report || null });
       renderQueue();
-      toast(o.report && !o.report.ok ? `Exported ${o.file} — check: ${o.report.checks.filter((c) => !c.ok).map((c) => c.text).join("; ")} (Export → Queue)` : `Exported ${o.file}${o.report ? " — checks passed" : ""}`);
-      const a = document.createElement("a");
-      a.href = end.src;
-      a.download = decodeURIComponent(end.src.split("/").pop());
-      a.click();
+      saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()),
+        o.report && !o.report.ok ? `Exported ${o.file} — check: ${o.report.checks.filter((c) => !c.ok).map((c) => c.text).join("; ")} (Export → Queue)` : `Exported ${o.file}${o.report ? " — checks passed" : ""}`);
     }
-    else {
-      const a = document.createElement("a");
-      a.href = end.src;
-      a.download = decodeURIComponent(end.src.split("/").pop());
-      a.click();
-    }
+    else saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()));
   } catch (e) {
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
     const msg = e?.name === "AbortError" ? "cancelled" : String(e.message || e);
@@ -18696,10 +18700,7 @@ async function webCodecsExport() {
     encoder = null;
     const end = await fetch("/api/export/end?id=" + sessId, { method: "POST", signal }).then((r) => r.json());
     if (!end.src) throw new Error(end.error || "mux failed");
-    const a = document.createElement("a");
-    a.href = end.src;
-    a.download = decodeURIComponent(end.src.split("/").pop());
-    a.click();
+    saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()));
   } catch (e) {
     try { encoder?.close(); } catch { }
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
@@ -18751,11 +18752,9 @@ async function startExport() {
     if (recDiscard || !recChunks.length) return;
     const ext = mime.startsWith("video/mp4") ? "mp4" : "webm";
     const blob = new Blob(recChunks, { type: mime.split(";")[0] });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = (project.name.replace(/[^\w\- ]+/g, "") || "export") + "." + ext;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 30_000);
+    const url = URL.createObjectURL(blob);
+    saveDownload(url, (project.name.replace(/[^\w\- ]+/g, "") || "export") + "." + ext);
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
   };
   els.exportOverlay.classList.remove("hidden");
   els.exportProgress.style.width = "0%";
