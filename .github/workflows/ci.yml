@@ -48,7 +48,7 @@ jobs:
 
       - name: Validate JSON files
         run: |
-          for f in package.json server.json manifest.json .mcp.json \
+          for f in package.json manifest.json .mcp.json \
                    .claude-plugin/plugin.json .claude-plugin/marketplace.json; do
             node -e "JSON.parse(require('fs').readFileSync('$f','utf8')); console.log('$f OK')"
           done
