@@ -1,5 +1,5 @@
 'use strict';
-// Explicit development entry (docs/validation/2026-11-02-narrow-layout). Visible window, fresh
+// Explicit development entry (docs/validation/2026-11-02-narrow-layout). Hidden offscreen window, fresh
 // profile: at 1270×800, 804×535 and 630×452, in zh-CN and en, simple and advanced, measures
 //  - the preview picture (#preview) on screen, which must be larger than 0×0;
 //  - whether the player controls (.transport) overlap the timeline panel;
@@ -7,9 +7,9 @@
 //    its bar, hit at its centre, overlapping no neighbour and with its whole label, or hit at its centre inside the opened More menu;
 //  - every player button: hit at its centre;
 //  - every side-panel tab: hit at its centre once its strip is scrolled to it;
-// and saves a page capture and an OS screenshot of the window for each case.
+// and saves a page capture (the app's own page; never the screen) for each case.
 // Pass --montclip-smoke; output dir in MONTCLIP_LAYOUT_OUT.
-const electron=require('electron'),{app,BrowserWindow}=electron,fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
+const electron=require('electron'),{app,BrowserWindow}=electron,fs=require('node:fs'),path=require('node:path');
 if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke required');
 const out=process.env.MONTCLIP_LAYOUT_OUT||null;if(out&&!path.isAbsolute(out))throw Error('MONTCLIP_LAYOUT_OUT must be an absolute folder');const SIZES=[[1270,800],[804,535],[630,452]];
 const MEASURE=`(async()=>{
@@ -48,21 +48,22 @@ const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...args){await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=ms=>new Promise(r=>setTimeout(r,ms));
  const results=[];
  try{await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));})()`);
-  win.show();win.setAlwaysOnTop(true);
   for(const [w,h] of SIZES){win.setContentSize(w,h);await wait(700);
    for(const language of ['zh-CN','en'])for(const mode of ['simple','advanced']){
     await read(`updateMontClipView({language:${JSON.stringify(language)},mode:${JSON.stringify(mode)}});true`);await wait(450);
     const m=await read(MEASURE),name=`${language}-${mode}-${w}x${h}`;results.push({size:[w,h],...m});
     process.stdout.write('LAYOUT '+JSON.stringify({size:[w,h],...m})+'\n');
     if(out){fs.writeFileSync(path.join(out,name+'.page.png'),(await win.webContents.capturePage()).toPNG());
-     const s=electron.screen.dipToScreenRect(win,win.getContentBounds());
+     // screenshots are the app's own page only (webContents.capturePage), never the screen: privacy
      if(mode==="simple"&&w<1270){ // the timeline More menu open, as a person would see it
       const opened=await read(`(()=>{const b=document.getElementById("btnTlMore");if(b.hidden)return false;b.click();return true;})()`);
       if(opened){await wait(250);fs.writeFileSync(path.join(out,name+".more.page.png"),(await win.webContents.capturePage()).toPNG());await read(`document.getElementById("btnTlMore").click();true`);await wait(150);}}
-     cp.spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',`Add-Type -AssemblyName System.Drawing;Add-Type -Namespace W -Name D -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetProcessDPIAware();';[void][W.D]::SetProcessDPIAware();$b=New-Object System.Drawing.Bitmap ${s.width},${s.height};$g=[System.Drawing.Graphics]::FromImage($b);$g.CopyFromScreen(${s.x},${s.y},0,0,$b.Size);$b.Save('${path.join(out,name+'.screen.png').replace(/'/g,"''")}');`],{windowsHide:true});}}}
+    }}}
   if(out)fs.writeFileSync(path.join(out,'layout.json'),JSON.stringify(results,null,1)+'\n');
   const bad=results.filter(m=>!(m.preview.w>0&&m.preview.h>0)||m.transportOverTimeline>0||m.unreachable.length||m.playerUnreachable.length||m.tabsUnreachable.length||m.overlaps.length||m.overflowX>0||m.overflowY>0);
   process.stdout.write((bad.length?'LAYOUT_FAIL '+bad.length+' of ':'LAYOUT_PASS ')+results.length+' cases\n');
   process.stdout.write('LAYOUT_COMPLETE\n');
- }catch(e){process.stdout.write('LAYOUT_FAIL '+e.message+'\n');}finally{win.setAlwaysOnTop(false);setTimeout(()=>app.exit(0),300);}};
+ }catch(e){process.stdout.write('LAYOUT_FAIL '+e.message+'\n');}finally{setTimeout(()=>app.exit(0),300);}};
+// Hidden, offscreen window: nothing on the desktop, no focus taken; capturePage still gets real frames.
+{const Module=require('node:module'),load=Module._load;Module._load=function(id,...args){if(id==='electron'){Module._load=load;return{...electron,BrowserWindow:class extends BrowserWindow{constructor(o){super({...o,show:false,webPreferences:{...o.webPreferences,offscreen:true,backgroundThrottling:false}});}}};}return load.call(this,id,...args);};}
 require('./main');
