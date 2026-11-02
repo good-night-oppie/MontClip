@@ -16,7 +16,7 @@ const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...args){await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=(ms=150)=>new Promise(r=>setTimeout(r,ms));
  try{
  await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
- win.show();win.setAlwaysOnTop(true);win.focus();await wait(400);
+ await wait(400);
  log('NARROW_START',{visible:win.isVisible(),projectId:await read('runtime.projectId')});
  await read(`montclipAgentService.configure({provider:'openai',model:'synthetic-model',apiKey:'synthetic-test-key-not-real'})`);
  await read(`(()=>{const cues=FableCutCaptions.parse('1\\n00:00:01,000 --> 00:00:02,800\\n合成句子一\\n\\n2\\n00:00:03,000 --> 00:00:04,000\\n合成句子二\\n');project.clips=cues.map((c,i)=>FableCutCaptions.clip(c,{id:'synthetic_c'+i,track:'V1'}));rebuildClips();setSelection(project.clips.map(c=>c.id));scheduleSave();})()`);
@@ -76,6 +76,8 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   assert.deepEqual(e1,{more:'false',hidden:false},'first Esc folds More only');assert.equal(e2.hidden,true,'second Esc hides the pane');assert.deepEqual(e3,{hidden:false,more:'false'},'reopens folded');}
  log('NARROW_COMPLETE',{requests,transport:'injected-test-only',projectId:await read('runtime.projectId'),saved:await read('flushSave()')});
  }catch(e){process.stdout.write('NARROW_FAIL '+(e&&e.message)+'\n');try{await (async()=>{const b=win.getContentBounds();fs.writeFileSync(path.join(out,'pr26-narrow-failure.page.png'),(await win.webContents.capturePage()).toPNG());})();}catch{}}
- finally{win.setAlwaysOnTop(false);setTimeout(()=>app.exit(0),300);}
+ finally{setTimeout(()=>app.exit(0),300);}
 };
+// Hidden, offscreen window: nothing on the desktop, no focus taken; capturePage still gets real frames.
+{const Module=require('node:module'),load=Module._load;Module._load=function(id,...args){if(id==='electron'){Module._load=load;return{...electron,BrowserWindow:class extends BrowserWindow{constructor(o){super({...o,show:false,webPreferences:{...o.webPreferences,offscreen:true,backgroundThrottling:false}});}}};}return load.call(this,id,...args);};}
 require('./main');

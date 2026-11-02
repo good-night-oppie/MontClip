@@ -16,7 +16,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
  const result={steps:[]};const step=(name,data)=>{result.steps.push({name,...data});log('E2E_STEP',{name,...data});};
  try{
   await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
-  win.show();win.setContentSize(1270,800);await wait(500);
+  win.setContentSize(1270,800);await wait(500);
   await read(`updateMontClipView({language:'zh-CN'});setSideTab('assistant');mcAgent.render();true`);await wait(300);
   const byText=t=>`Array.from(document.querySelectorAll('.cindy-port button')).find(b=>b.textContent===${JSON.stringify(t)})`;
   const click=async sel=>{const ok=await read(`(()=>{const e=${sel};if(!e)return false;e.click();return true;})()`);assert.ok(ok,'missing '+sel);await wait(250);};
@@ -60,4 +60,6 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
  }catch(e){if(!e.skip){result.failed=String(e.message||e).split(KEY).join('<key>');}}
  finally{fs.writeFileSync(path.join(out,'e2e-result.json'),JSON.stringify(result,null,1).split(KEY).join('<key>')+'\n');log('E2E_DONE',{passed:!!result.passed,skipped:result.skipped||null,failed:result.failed||null});setTimeout(()=>app.exit(0),300);}
 };
+// Hidden, offscreen window: nothing on the desktop, no focus taken; capturePage still gets real frames.
+{const Module=require('node:module'),load=Module._load;Module._load=function(id,...args){if(id==='electron'){Module._load=load;return{...electron,BrowserWindow:class extends BrowserWindow{constructor(o){super({...o,show:false,webPreferences:{...o.webPreferences,offscreen:true,backgroundThrottling:false}});}}};}return load.call(this,id,...args);};}
 require('../desktop/main');

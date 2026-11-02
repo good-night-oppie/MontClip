@@ -3,7 +3,7 @@
 // half its text under the reference buttons). Fresh profile, visible window: four long-named
 // sessions, More open; every session button must be either fully visible and hit at its centre,
 // or entirely scrolled out of view — never cut — and reachable once scrolled to.
-const {app,BrowserWindow}=require('electron'),fs=require('node:fs'),path=require('node:path');
+const electron=require('electron'),{app,BrowserWindow}=electron,fs=require('node:fs'),path=require('node:path');
 if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke required');
 // never fall back to the default profile: a broken command line must stop here, not use real data
 const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
@@ -12,7 +12,7 @@ const out=process.env.MONTCLIP_MORE_OUT||null;if(out&&!path.isAbsolute(out))thro
 const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...a){await original.apply(this,a);const w=this,read=s=>w.webContents.executeJavaScript(s),wait=ms=>new Promise(r=>setTimeout(r,ms));
  const results=[];
- try{await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));})()`);w.show();
+ try{await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));})()`);
   await read(`updateMontClipView({language:'zh-CN'});setSideTab('assistant');mcAgent.render();true`);await wait(300);
   const btn=t=>`[...document.querySelectorAll('.cindy-port button')].find(b=>b.textContent===${JSON.stringify(t)})`;
   for(let i=0;i<4;i++){await read(`(()=>{const e=document.querySelector('[data-cindy-draft]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'第${i}个会话的标题比较长一些');e.dispatchEvent(new Event('input',{bubbles:true}));(${btn('新会话')}).click();return true;})()`);await wait(150);}
@@ -40,4 +40,6 @@ BrowserWindow.prototype.loadURL=async function(...a){await original.apply(this,a
   if(out)fs.writeFileSync(path.join(out,'more-sessions.json'),JSON.stringify(results,null,1)+'\n');
   process.stdout.write((results.every(x=>x.ok)?'MORE_PASS':'MORE_FAIL')+'\n');
  }catch(e){process.stdout.write('MORE_FAIL '+e.message+'\n');}finally{setTimeout(()=>app.exit(0),300);}};
+// Hidden, offscreen window: nothing on the desktop, no focus taken; capturePage still gets real frames.
+{const Module=require('node:module'),load=Module._load;Module._load=function(id,...args){if(id==='electron'){Module._load=load;return{...electron,BrowserWindow:class extends BrowserWindow{constructor(o){super({...o,show:false,webPreferences:{...o.webPreferences,offscreen:true,backgroundThrottling:false}});}}};}return load.call(this,id,...args);};}
 require('./main');
