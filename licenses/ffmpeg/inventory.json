@@ -55,8 +55,32 @@
   ],
   "repo": "https://git.savannah.gnu.org/git/libiconv.git",
   "ref": "b5a1735e02bf43ee6e490fcf9395e8abc8d32432",
-  "files": [],
-  "kinds": []
+  "files": [
+   {
+    "file": "COPYING.LIB",
+    "saved": "libiconv@b5a1735e02bf--COPYING.LIB",
+    "sha256": "b14c366c41cc9f62dc20ec1a0885f278cf9681076d98027012a910fca5e89639",
+    "firstLine": "GNU LESSER GENERAL PUBLIC LICENSE"
+   },
+   {
+    "file": "COPYING",
+    "saved": "libiconv@b5a1735e02bf--COPYING",
+    "sha256": "0b383d5a63da644f628d99c33976ea6487ed89aaa59f0b3257992deac1171e6b",
+    "firstLine": "GNU GENERAL PUBLIC LICENSE"
+   },
+   {
+    "file": "README",
+    "saved": "libiconv@b5a1735e02bf--README",
+    "sha256": "ee9455e8fb76cab4a28763d29399118fa63c130f8dd5508e0c108852cb5d484c",
+    "firstLine": "GNU LIBICONV - character set conversion library"
+   }
+  ],
+  "kinds": [
+   "LGPL-2.1",
+   "GPL-3"
+  ],
+  "fetchedFrom": "https://github.com/GitMirroring/libiconv.git (git.savannah.gnu.org unreachable; fetched by commit hash, so the content is that commit's)",
+  "reviewed": "LGPL-2.1-or-later for the libiconv/libcharset library FFmpeg links (README: \"The libiconv and libcharset libraries and their header files are under LGPL, see file COPYING.LIB\"); COPYING (GPL-3) covers the iconv program and the documentation, not linked"
  },
  {
   "name": "zlib",

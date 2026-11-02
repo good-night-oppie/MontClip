@@ -75,7 +75,7 @@ release-check fails while any entry is missing its text or is unclassified (`aud
 | libdrm | linux64 | gitlab.freedesktop.org/mesa/drm @ `b97cbde15c5c` | LICENSES/MIT.txt | MIT |
 | libffi | linux64, win64 | github.com/libffi/libffi @ `bc5538673672` | LICENSE | MIT |
 | libglvnd | linux64 | gitlab.freedesktop.org/glvnd/libglvnd @ `c046a760d845` | README.md | MIT / BSD-2 |
-| libiconv | linux64, win64 | git.savannah.gnu.org/git/libiconv @ `b5a1735e02bf` | **missing** | — |
+| libiconv | linux64, win64 | git.savannah.gnu.org/git/libiconv @ `b5a1735e02bf` (texts via the GitMirroring mirror, same commit) | COPYING.LIB, COPYING, README | LGPL-2.1-or-later for the libiconv/libcharset library FFmpeg links (README: "The libiconv and libcharset libraries and their header files are under LGPL, see file COPYING.LIB"); COPYING (GPL-3) covers the iconv program and the documentation, not linked (read) |
 | libjxl | linux64, win64 | github.com/libjxl/libjxl @ `e47d2a2b5bb4` | LICENSE | BSD-3 |
 | libogg | linux64, win64 | github.com/xiph/ogg @ `06a5e0262cdc` | COPYING | BSD-3 |
 | libopus | linux64, win64 | github.com/xiph/opus @ `a8b2545eec71` | COPYING | BSD-3 |
@@ -160,7 +160,7 @@ release-check fails while any entry is missing its text or is unclassified (`aud
 | zstd | linux64, win64 | github.com/facebook/zstd @ `49cf51799ea0` | LICENSE, COPYING | BSD-3 / LGPL-2 |
 | zvbi | linux64, win64 | github.com/zapping-vbi/zvbi @ `34bb6f660c5c` | COPYING.md | LGPL-2 |
 
-Still missing (release blocker): **libiconv** — git.savannah.gnu.org could not be reached from the machine that collected the texts; fetch COPYING.LIB at the pinned ref from a CI runner.
+Still missing (release blocker): none. libiconv's texts came from github.com/GitMirroring/libiconv at the pinned commit `b5a1735e02bf43ee6e490fcf9395e8abc8d32432` (git.savannah.gnu.org unreachable from here and from GitHub's runners; a fetch by commit hash yields that commit's content, its tree `90720578248f` included).
 
 Open items before a release (not resolved by this entry):
 
