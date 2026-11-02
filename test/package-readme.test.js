@@ -14,8 +14,8 @@ const ROOT = path.join(__dirname, '..');
 const CASES = [
   { urlHidden: false, copyGone: false, variant: 'as written' },
   { urlHidden: true, copyGone: false, variant: "JJ's URL line" },
-  { urlHidden: false, copyGone: true, variant: 'no export-copy line' },
-  { urlHidden: true, copyGone: true, variant: "JJ's URL line + no export-copy line" },
+  { urlHidden: false, copyGone: true, variant: "JJ's export-copy line" },
+  { urlHidden: true, copyGone: true, variant: "JJ's URL line + JJ's export-copy line" },
 ];
 
 for (const lang of ['zh-CN', 'en']) {
