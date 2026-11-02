@@ -9,9 +9,17 @@ const { makeDataDir, startServer, startMcp, readProject } = require("./helpers")
 // the bundled ffmpeg/ffprobe (ffmpeg-path.js), never PATH (#28)
 const FF = require("../ffmpeg-path");
 const available = () => FF.available("ffmpeg") && FF.available("ffprobe");
-// the bundled LGPL build has no libx264; a fixture that needs it is skipped there
-const hasEncoder = name => available() && execFileSync(FF.path("ffmpeg"), ["-hide_banner", "-encoders"], {encoding:"utf8"}).includes(" " + name + " ");
 const hash = file => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+// The H.264 encoders that work here (prepare-media.js usableH264: graphics card, then Windows' h264_mf). QQ (#28,
+// 5c986adf): on Windows there is always h264_mf, so an empty list there is a broken check and fails the test; elsewhere
+// (a Linux runner without a graphics card) the test is skipped.
+async function h264Here(t) {
+  const encoders = await require("../prepare-media").usableH264();
+  if (encoders.length) return encoders;
+  if (process.platform === "win32") assert.fail("usableH264() found no H.264 encoder on Windows (h264_mf should always work)");
+  t.skip("no H.264 encoder works here, so this H.264 path cannot run");
+  return null;
+}
 test("public preparation errors sanitize unknown paths and distinguish confirmed disk errors", () => {
   const {publicPreparationError} = require("../prepare-media");
   const error = Object.assign(new Error("C:/private/user/file failed"), {code:"EACCES"});
@@ -35,10 +43,14 @@ test("FLV probe, unsupported layout and missing component return stable codes", 
   assert.equal(missing.code,"FLV_COMPONENT_MISSING"); assert.equal(missing.error,missing.code);
 });
 test("FLV upload remuxes compatible streams without modifying the original", async t => {
-  if (!hasEncoder("libx264")) { t.skip("the bundled LGPL ffmpeg has no libx264 to make this H.264 fixture"); return; }
+  if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
+  // the H.264 fixture comes from an encoder that works here (QQ, #28: libx264 is not in the LGPL build, so this most
+  // common path for recorder FLVs was skipped everywhere); 320×180 so a graphics-card encoder's minimum size is met
+  const encoders = await h264Here(t);
+  if (!encoders) return;
   const dir = makeDataDir(t);
   const original = path.join(dir, "中文 空格.flv");
-  execFileSync(FF.path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=30", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-t", "0.5", "-c:v", "libx264", "-c:a", "aac", original]);
+  execFileSync(FF.path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=30", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-t", "0.5", "-pix_fmt", "nv12", "-c:v", encoders[0], "-b:v", "1M", "-c:a", "aac", original]);
   const before = hash(original);
   const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1" });
   let res = await fetch(base + "/api/upload?name=" + encodeURIComponent("中文 空格.flv"), { method: "POST", body: fs.readFileSync(original) });
@@ -57,7 +69,7 @@ test("legacy FLV requires explicit transcode consent and retains its source", as
   if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
   // transcoding needs an H.264 encoder that works here (graphics card or Windows' h264_mf); a Linux runner has none,
   // and the import is then refused with FLV_ENCODER_MISSING (test/flv-transcode-encoder.test.js)
-  if (!(await require("../prepare-media").usableH264()).length) { t.skip("no H.264 encoder works here, so an FLV cannot be transcoded"); return; }
+  if (!(await h264Here(t))) return;
   const dir = makeDataDir(t), original = path.join(dir, "legacy.flv");
   execFileSync(FF.path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=30", "-t", "0.3", "-c:v", "flv", original]);
   const before = hash(original);
@@ -85,7 +97,7 @@ test("MCP FLV import shares the explicit conversion gate", async t => {
   if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
   // transcoding needs an H.264 encoder that works here (graphics card or Windows' h264_mf); a Linux runner has none,
   // and the import is then refused with FLV_ENCODER_MISSING (test/flv-transcode-encoder.test.js)
-  if (!(await require("../prepare-media").usableH264()).length) { t.skip("no H.264 encoder works here, so an FLV cannot be transcoded"); return; }
+  if (!(await h264Here(t))) return;
   const dir = makeDataDir(t), original = path.join(dir, "legacy.flv");
   execFileSync(FF.path("ffmpeg"), ["-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=30", "-t", "0.3", "-c:v", "flv", original]);
   const mcp = startMcp(t, dir);
