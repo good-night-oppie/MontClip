@@ -74,3 +74,16 @@ test('every licence text is stored byte for byte (its SHA-256 matches the invent
  for(const e of list)for(const f of e.files)a.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(base,'texts',f.saved),'utf8')).digest('hex'),f.sha256,f.saved);
  a.match(fs.readFileSync(path.join(__dirname,'..','.gitattributes'),'utf8'),/licenses\/ffmpeg\/texts\/\*\* -text/);
 });
+
+test('a win64 ffmpeg.exe: "--disable-libopenh264" in its configure string is not openh264; the encoder or its entry points are',()=>{
+ const {scanExe}=require('../desktop/ffmpeg-audit');
+ const cfg='--prefix=/ffbuild/prefix --enable-version3 --disable-libopenh264 --enable-libdav1d';
+ const exe=(...parts)=>Buffer.concat(parts.map(p=>Buffer.from(p+'\0','latin1')));
+ // FFmpeg embeds its configure line once per library: several copies
+ a.deepEqual(scanExe(exe('MZ',cfg,'x',cfg,cfg,'h264_mf')),[]);
+ a.deepEqual(scanExe(exe('MZ',cfg,'libopenh264','OpenH264 H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10')),['libopenh264','OpenH264 H.264']);
+ a.deepEqual(scanExe(exe('MZ',cfg,'WelsCreateSVCEncoder')),['WelsCreateSVCEncoder']);
+ const enabled=cfg.replace('--disable-libopenh264','--enable-libopenh264');
+ a.deepEqual(scanExe(exe('MZ',enabled)),['libopenh264'],'an enabled flag is not hidden');
+ const v=fs.readFileSync(path.join(__dirname,'..','desktop','ffmpeg-build','verify-build.cjs'),'utf8');a.match(v,/scanExe\(buf\)/);a.ok(!/buf\.includes\(needle\)/.test(v));
+});
