@@ -4,8 +4,10 @@ Runner: `node desktop/run-drop-reveal.cjs <electron.exe> <synthetic.mp4> <label>
 visible always-on-top window, fresh temporary profile, the task's synthetic MP4
 (SHA-256 `1c4e4a41…0789`, mono, so A2 starts empty) plus a synthetic caption on V3.
 Pointer input is `webContents.sendInputEvent` at real window coordinates (no OS
-input, no clipboard). `*.screen.png` = OS screenshot of the window client area,
-`*.page.png` = `capturePage`.
+input, no clipboard). `*.page.png` = `capturePage` (the app's own page); the results
+below go by these. The `*.screen.png` OS screenshots of the window area were removed on
+2026-11-02: screen captures can take in other programs (the zh-terms ones took in the
+taskbar), and the repository keeps none. The smoke now runs in a hidden offscreen window.
 
 - `red/` — app.js of e9e0c07: advanced mode 804×535, A2 scrolled fully into view,
   A1 audio dragged onto empty A2 → the timeline re-focused (scrollTop 153 → 116)
