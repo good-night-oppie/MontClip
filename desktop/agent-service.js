@@ -6,10 +6,12 @@ const Format=require('../agent-format');
 // default and listed first; DeepSeek and OpenAI follow. (Until then OpenRouter was for tests only, #26; the
 // test switch below remains but no longer changes the list.) The page cannot change the list.
 const PUBLIC_PROVIDERS=Object.freeze(['openrouter','deepseek','openai']),TEST_PROVIDERS=Object.freeze([]);
-const DEFAULT_PROVIDER='openrouter';
-// OpenRouter's id for DeepSeek's Flash model, checked against openrouter.ai/api/v1/models on 2026-11-02; not the
-// "~…-latest" alias, which can move to another model without a MontClip release
-const DEFAULT_MODELS=Object.freeze({openrouter:'deepseek/deepseek-v4.1-flash'});
+// The default service and model, in one line (Deja, 2026-11-02: OpenRouter or DeepSeek direct is still the owner's
+// call). The OpenRouter id is the one Rea's catalogue lists for DeepSeek V4.1 Flash (openrouter-flash-catalogue.json,
+// sha256 c477d643…, from openrouter.ai/api/v1/models on 2026-11-02); not a "~…-latest" alias, which can move to
+// another model without a MontClip release. DeepSeek direct would be {provider:'deepseek',model:<its Flash id>}.
+const DEFAULT_SERVICE=Object.freeze({provider:'openrouter',model:'deepseek/deepseek-v4.1-flash-1017'});
+const DEFAULT_PROVIDER=DEFAULT_SERVICE.provider,DEFAULT_MODELS=Object.freeze({[DEFAULT_SERVICE.provider]:DEFAULT_SERVICE.model});
 const ALL_PROVIDERS=Object.freeze([...PUBLIC_PROVIDERS,...TEST_PROVIDERS]);
 const testProvidersEnabled=({isPackaged,argv=[],env={}})=>!isPackaged||argv.includes('--montclip-test-providers')||env.MONTCLIP_TEST_PROVIDERS==='1';
 // Provider failures the pane explains in plain words (anything else is REQUEST_FAILED).
@@ -74,4 +76,4 @@ function createDiskService(root,safeStorage,fs=require('node:fs'),{providers=PUB
  write(raw){const tmp=file+'.'+randomUUID()+'.tmp';let owned=false;try{fs.writeFileSync(tmp,raw,{flag:'wx',mode:0o600});owned=true;fs.renameSync(tmp,file);owned=false;}finally{if(owned)try{fs.unlinkSync(tmp);}catch{}}},
  seal(key){if(!safeStorage.isEncryptionAvailable())throw Error();return safeStorage.encryptString(key).toString('base64');},unseal(secret){return safeStorage.decryptString(Buffer.from(secret,'base64'));}
  });}
-module.exports={createService,createDiskService,validPayload,httpsRequest,ENDPOINTS,RESPONSE_LIMIT_BYTES,PUBLIC_PROVIDERS,TEST_PROVIDERS,ALL_PROVIDERS,DEFAULT_PROVIDER,DEFAULT_MODELS,testProvidersEnabled};
+module.exports={createService,createDiskService,validPayload,httpsRequest,ENDPOINTS,RESPONSE_LIMIT_BYTES,PUBLIC_PROVIDERS,TEST_PROVIDERS,ALL_PROVIDERS,DEFAULT_SERVICE,DEFAULT_PROVIDER,DEFAULT_MODELS,testProvidersEnabled};

@@ -72,9 +72,15 @@ The owner decided (relayed by Deja, 2026-11-02): rely on OpenRouter's DeepSeek F
 earlier "OpenRouter for tests only" (#26).
 
 - **A release lists OpenRouter first, marked recommended, then DeepSeek and OpenAI.** An unconfigured pane starts
-  on OpenRouter with the model filled in: `deepseek/deepseek-v4.1-flash`, OpenRouter's id for DeepSeek's Flash
-  model, checked against `openrouter.ai/api/v1/models` on 2026-11-02. Not the `~…-latest` alias, which can
-  move to another model without a MontClip release. The user still enters their own OpenRouter key; nothing
+  on OpenRouter with the model filled in: `deepseek/deepseek-v4.1-flash-1017`. That is the entry Rea's catalogue
+  lists as OpenRouter's counterpart of DeepSeek V4.1 Flash (`openrouter-flash-catalogue.json`, sha256 `c477d643…`,
+  from `openrouter.ai/api/v1/models`, 2026-11-02). The cheaper `deepseek/deepseek-v4.1-flash` entry is not assumed
+  to be the same weights, provider or quality (Rea's report). Not a `~…-latest` alias, which can move to another
+  model without a MontClip release.
+- **The default is one constant** (`DEFAULT_SERVICE` in `desktop/agent-service.js`): OpenRouter or DeepSeek direct
+  is still the owner's call (Deja, 2026-11-02). Rea's mainland research: whether streamers in mainland China can
+  reach OpenRouter directly is unknown; DeepSeek's own price for its Flash model is the clearest. Switching is a
+  one-line change. The user still enters their own OpenRouter key; nothing
   is sent until it is saved and a message is reviewed and sent, as before.
 - Still exactly three fixed endpoints (`ENDPOINTS`); an unknown provider is refused before any network call.
   The page cannot change the list. The old test switch (`--montclip-test-providers`, `MONTCLIP_TEST_PROVIDERS=1`)
