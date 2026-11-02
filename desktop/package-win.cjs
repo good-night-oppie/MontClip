@@ -62,7 +62,7 @@ async function main() {
     // the commit, unpacked
     const src = path.join(work, 'src'); fs.mkdirSync(src);
     execFileSync('git', ['-c', 'core.autocrlf=false', 'archive', '--format=tar', '-o', path.join(work, 'src.tar'), 'HEAD'], { cwd: ROOT });
-    execFileSync('tar', ['-xf', path.join(work, 'src.tar'), '-C', src]);
+    execFileSync(path.join(process.env.SystemRoot, 'System32', 'tar.exe'), ['-xf', path.join(work, 'src.tar'), '-C', src]);
     const tracked = git('ls-files').split('\n');
     const stage = path.join(work, 'app'); fs.mkdirSync(stage);
     const take = (rel) => { const from = path.join(src, rel), to = path.join(stage, rel); if (!fs.existsSync(from)) fail('missing ' + rel); fs.mkdirSync(path.dirname(to), { recursive: true }); fs.cpSync(from, to, { recursive: true }); };
