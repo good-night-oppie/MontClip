@@ -41,6 +41,12 @@ const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
 /** On-device transcription: on in development and the browser editor; a packaged desktop build has it
  *  off unless the main process turned it on (desktop/features.js). Off means no entry and no download. */
 function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
+/** A server refusal's reason code, said in the interface language; "" when the code has no text of its own. */
+const CODE_TEXT = { NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready", EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept" };
+function codeText(error) {
+  const code = error && (error.code || error.errorCode);
+  return typeof code === "string" && CODE_TEXT[code] ? uiText(CODE_TEXT[code]) : "";
+}
 function renderMontClipView() {
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
   document.documentElement.lang = language;
