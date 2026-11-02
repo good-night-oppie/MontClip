@@ -10,8 +10,9 @@ function world({gap=true,compatible=false,scanFailure=false,uncertain=false}={})
  const processes={execFile(cmd,args,opts,cb){assert.ok(['ffmpeg','ffprobe'].includes(cmd));assert.ok(Array.isArray(args));assert.notEqual(opts.shell,true);if(cmd==='ffmpeg')calls.encode++;cb(null,JSON.stringify({streams,format:{duration:0.1}}));return{once(){}};}};
  const mediaProcess=createMediaProcess({processes,io:fakeFs});
  const mod={exports:{}};
- vm.runInNewContext(fs.readFileSync(path.join(root,'prepare-media.js'),'utf8'),{module:mod,exports:mod.exports,require:id=>id==='fs'?fakeFs:(id==='node:child_process'||id==='child_process')?mediaProcess:id==='./flv-readable-range'?{async scanReadableRange(){calls.scan++;if(scanFailure)throw Object.assign(Error('private path'),{code:'FLV_PROBE_FAILED'});const a=accumulator(streams,0.1);for(const pts of [0,1/30,gap?2+2/30:2/30])a.frame(`media_type=video|pts_time=${pts}|duration_time=${1/30}`);return {...a.finish(),needsConsent:uncertain};}}:require(id)});
- return{...mod.exports,calls,files,fakeFs};
+ vm.runInNewContext(fs.readFileSync(path.join(root,'prepare-media.js'),'utf8'),{module:mod,exports:mod.exports,require:id=>id==='./ffmpeg-path'?{path:n=>n,available:()=>true}:id==='fs'?fakeFs:(id==='node:child_process'||id==='child_process')?mediaProcess:id==='./flv-readable-range'?{async scanReadableRange(){calls.scan++;if(scanFailure)throw Object.assign(Error('private path'),{code:'FLV_PROBE_FAILED'});const a=accumulator(streams,0.1);for(const pts of [0,1/30,gap?2+2/30:2/30])a.frame(`media_type=video|pts_time=${pts}|duration_time=${1/30}`);return {...a.finish(),needsConsent:uncertain};}}:require(id)});
+ const prepareMedia=(file,opts={})=>mod.exports.prepareMedia(file,{chooseEncoder:async()=>['h264_mf'],...opts});
+ return{...mod.exports,prepareMedia,calls,files,fakeFs};
 }
 test('shared preparation refuses decoded gaps before codec permission or ffmpeg, even with consent',async()=>{
  for(const compatible of [false,true])for(const allowTranscode of [false,true]){
