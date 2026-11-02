@@ -101,7 +101,10 @@ test('saving onto the copy itself, or a blob download, removes nothing', async (
 test('main.js: the page names its export before the download, the server is asked, and the page hears the outcome', () => {
   const main = fs.readFileSync(path.join(__dirname, '..', 'desktop', 'main.js'), 'utf8');
   a.match(main, /require\("\.\/export-downloads"\)\.attach\(item, \{ origin, exportsDir: path\.join\(env\.FABLECUT_DATA_DIR, "exports"\), language: languageOf\(settings\.get\(\)\), downloadsDir: app\.getPath\("downloads"\),/);
-  a.match(main, /expected: expectedExports\.delete\(item\.getFilename\(\)\)/, 'one expectation per export, used up by its download');
+  a.match(main, /take: \(n\) => expectedExports\.delete\(n\)/, 'one expectation per export, used up by its download');
+  a.match(main, /busy: exportDownloads,/, 'one download of an export at a time');
+  a.match(main, /if \(!require\("\.\/export-downloads"\)\.attach\(item, \{/, 'a refused download is cancelled');
+  a.match(main, /\}\)\) event\.preventDefault\(\);/);
   a.match(main, /ipcMain\.on\("montclip:downloads:expect", \(event, name\) => \{ if \(settingsAllowed\(event, win, origin\) && /, 'only the editor page may ask');
   a.match(main, /fetch\(origin \+ "\/api\/export\/claim\?name=" \+ encodeURIComponent\(n\), \{ method: "POST", headers: \{ "X-MontClip-Session": token \} \}\)/);
   a.match(main, /win\.webContents\.send\("montclip:download:done", \{ state: v\.state, name: v\.name, removed: v\.removed \}\)/);
@@ -120,5 +123,34 @@ test('every download says how it ended (VV, 012ba18: a cancelled save still read
   for (const [state, url, name] of [['completed', null, 'a.mp4'], ['cancelled', null, 'b.mp4'], ['interrupted', null, 'c.mp4'], ['cancelled', 'blob:' + ORIGIN + '/x', '录播.srt']]) {
     const r = await run(t, { state, expected: false, url, name });
     a.deepEqual(r.v, { state, name, removed: false }, name);
+  }
+});
+
+test('one download of an export at a time (VV, 71cd650): a second one of the same file while the first is open is refused; the copy goes only after the first is saved', async (t) => {
+  const exportsDir = dir(t), name = 'big recording.mp4', copy = path.join(exportsDir, name);
+  fs.writeFileSync(copy, 'video');
+  const busy = new Set(), url = ORIGIN + '/exports/' + encodeURIComponent(name), outcomes = [];
+  const first = item(url, name), second = item(url, name), third = item(url, name);
+  const opts = { origin: ORIGIN, exportsDir, language: 'en', busy, take: () => true, claim: async () => true, onDone: (v) => outcomes.push(v) };
+  a.equal(X.attach(first, opts), true, 'the first is taken');
+  a.equal(X.attach(second, opts), false, 'a second of the same file while the first is open is refused');
+  a.equal(second.options, null, 'nothing set up for the refused one');
+  a.ok(fs.existsSync(copy));
+  first.savePath = path.join(dir(t), 'saved.mp4');
+  await new Promise((resolve) => { first.once('done', () => setTimeout(resolve, 50)); first.emit('done', {}, 'completed'); });
+  a.equal(fs.existsSync(copy), false, 'removed once the only open download was saved');
+  a.deepEqual(outcomes.map((o) => [o.state, o.removed]), [['completed', true]]);
+  a.equal(busy.size, 0, 'free again');
+  a.equal(X.attach(third, { ...opts, claim: async () => false }), true, 'another download may start after the first ended');
+});
+
+test('a cancelled or failed download frees the file for the next try', async (t) => {
+  const exportsDir = dir(t), name = 'x.mp4'; fs.writeFileSync(path.join(exportsDir, name), 'v');
+  const busy = new Set(), url = ORIGIN + '/exports/' + name;
+  for (const state of ['cancelled', 'interrupted']) {
+    const it = item(url, name);
+    a.equal(X.attach(it, { origin: ORIGIN, exportsDir, language: 'en', busy, take: () => true }), true);
+    it.emit('done', {}, state); await new Promise((r) => setTimeout(r, 20));
+    a.equal(busy.size, 0, state);
   }
 });
