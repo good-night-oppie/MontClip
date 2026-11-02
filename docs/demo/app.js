@@ -1727,6 +1727,7 @@ function projectJSONHere() {
       if (m.favorite === true) mo.favorite = true;
       if (m.tags && m.tags.length) mo.tags = m.tags.slice();
       if (derivedFrom) { mo.derivedFrom = derivedFrom; if (denoise) mo.denoise = denoise; }
+      if (m.originalSrc) { mo.originalSrc = m.originalSrc; mo.preparation = m.preparation; }
       return mo;
     }),
     clips: clips.map(serializeClip),
@@ -2020,7 +2021,7 @@ function mediaKindFromFile(file) {
   if (t.startsWith("image/")) return "image";
   const ext = (file.name.split(".").pop() || "").toLowerCase();
   if (ext === "svg") return "svg";
-  if (["mp4", "mov", "webm", "mkv", "m4v", "avi", "mpg", "mpeg"].includes(ext)) return "video";
+  if (["mp4", "mov", "webm", "mkv", "m4v", "avi", "mpg", "mpeg", "flv"].includes(ext)) return "video";
   if (["mp3", "wav", "m4a", "aac", "ogg", "flac", "wma"].includes(ext)) return "audio";
   if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif"].includes(ext)) return "image";
   return null;
@@ -2033,20 +2034,28 @@ async function importFiles(fileList) {
   runtime.importFolderId = null;
   let added = 0, skipped = 0;
   const addedMedia = [], gen = runtime.projectGen;
+  // an FLV that could not be imported: the server's reason code, said in the interface language
+  const flvFailure = (code) => toast(MontClipView.flvImportMessage(mcView.get().language, code));
   for (const file of files) {
     const kind = mediaKindFromFile(file);
     if (!kind) { skipped++; continue; }
-    let src, transient = false;
+    const flv = /\.flv$/i.test(file.name);
+    let src, originalSrc, preparation, transient = false;
     if (state.connected) {
       try {
         const res = await fetch("/api/upload?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
-        if (!res.ok) throw new Error("upload " + res.status);
-        src = (await res.json()).src;
-      } catch { src = URL.createObjectURL(file); transient = true; }
+        if (!res.ok) { let code = ""; try { code = (await res.json()).code || ""; } catch {} throw Object.assign(new Error("upload " + res.status), { code }); }
+        ({src, originalSrc, preparation} = await res.json());
+      } catch (error) {
+        if (flv) { flvFailure(typeof error?.code === "string" && error.code ? error.code : "UPLOAD_FAILED"); continue; }
+        src = URL.createObjectURL(file); transient = true;
+      }
     } else {
+      if (flv) { flvFailure("NO_SERVER"); continue; }
       src = URL.createObjectURL(file); transient = true;
     }
     const m = { id: "m_" + uid(), name: file.name, kind, src, transient, folderId };
+    if (originalSrc) Object.assign(m, {originalSrc, preparation});
     try {
       await loadMediaMetadata(m);
       if (kind === "video") grabThumb(m).catch(() => { });
@@ -2057,8 +2066,7 @@ async function importFiles(fileList) {
     addedMedia.push(m);
     added++;
   }
-  renderBin(); scheduleSave();
-  refreshMediaInfo(addedMedia);
+  if (added) { renderBin(); scheduleSave(); refreshMediaInfo(addedMedia); }
   if (!added && skipped)
     toast("Couldn't import — unsupported or unreadable file type");
   else if (skipped)
@@ -4000,7 +4008,7 @@ function toggleClipsLocked() {
   const trackLocked = !lock && group.some((c) => isTrackLocked(c.track));
   toast(lock ? "Clip locked" : trackLocked ? "Clip unlocked — its track is still locked" : "Clip unlocked");
 }
-/** Why these clips can't be linked, or null when they can. Links in FableCut
+/** Why these clips can't be linked, or null when they can. Links in MontClip
  *  mean identical timing, so only aligned clips of one file qualify: one
  *  video plus its audio (e.g. after unlink → nudge → nudge back). */
 function linkRefusal(clips) {
@@ -8296,7 +8304,7 @@ function loadFxWorklet(ctx) {
   if (!p) {
     p = ctx.audioWorklet.addModule("fx-worklet.js?v=2")
       .then(() => { fxWorkletReady.add(ctx); return true; })
-      .catch((err) => { console.warn("[FableCut] fx worklet unavailable:", err); return false; });
+      .catch((err) => { console.warn("[MontClip] fx worklet unavailable:", err); return false; });
     fxWorklets.set(ctx, p);
   }
   return p;
@@ -10513,7 +10521,7 @@ async function installMeterWorklet(audio) {
     resetMasterMeterBallistics();
     buildMeterDOM();
   } catch (err) {
-    console.warn("[FableCut] meter worklet unavailable:", err);
+    console.warn("[MontClip] meter worklet unavailable:", err);
     if (meter) {
       try { meter.port.onmessage = null; } catch {}
       try { meter.disconnect(); } catch {}
@@ -11488,7 +11496,7 @@ function initPixGL() {
     Object.assign(pixGL, { gl, canvas: cv, loc, stage, stageCtx: stage.getContext("2d") });
     return gl;
   } catch (err) {
-    console.warn("[FableCut] WebGL2 pixel pass unavailable, using the CPU path:", err && err.message);
+    console.warn("[MontClip] WebGL2 pixel pass unavailable, using the CPU path:", err && err.message);
     return null;
   }
 }
@@ -11545,7 +11553,7 @@ function pixelPassGL(c, p, src, sx, sy, sw, sh, w, h, dw) {
     return out;
   } catch (err) {
     if (err && err.name === "SecurityError") throw err;   // tainted source: same as getImageData on the CPU path
-    console.warn("[FableCut] pixel pass failed, using the CPU path:", err && err.message);
+    console.warn("[MontClip] pixel pass failed, using the CPU path:", err && err.message);
     pixGL.gl = null;
     return null;
   }
@@ -11710,7 +11718,7 @@ function initGradeGL() {
     Object.assign(gradeGL, { gl, canvas: cv, loc, tex, curveTex, hueTex, curveRef: null, hueRef: null, fbos: [], floatFbo });
     return gl;
   } catch (err) {
-    console.warn("[FableCut] WebGL2 grade unavailable, using the CPU path:", err && err.message);
+    console.warn("[MontClip] WebGL2 grade unavailable, using the CPU path:", err && err.message);
     return null;
   }
 }
@@ -11794,7 +11802,7 @@ function gradeSource(src, sx, sy, sw, sh, srcW, srcH, dw, dh, grade, matte = -1)
     } catch (err) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       if (err && err.name === "SecurityError") return null; // this source only — keep the GPU path
-      console.warn("[FableCut] grade pass failed, using the CPU path:", err && err.message);
+      console.warn("[MontClip] grade pass failed, using the CPU path:", err && err.message);
       gradeGL.gl = null;
     }
   }
@@ -17451,7 +17459,7 @@ async function exportDecodeFrame(c, t) {
     runtime.exportFrames.set(c.id, await src.frameAt(mediaTimeAt(c, t)));
     return true;
   } catch (e) {   // a decode error: this clip falls back to its element for the rest of the export
-    console.warn("[FableCut] export decode failed, using the video element:", e && e.message);
+    console.warn("[MontClip] export decode failed, using the video element:", e && e.message);
     src.close(); d.sources.set(c.id, null); runtime.exportFrames.delete(c.id);
     return false;
   }

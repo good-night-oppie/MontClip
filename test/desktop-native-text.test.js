@@ -6,7 +6,7 @@ const test = require('node:test'), a = require('node:assert/strict'), fs = requi
 const N = require('../desktop/native-text');
 const main = fs.readFileSync(path.join(__dirname, '..', 'desktop', 'main.js'), 'utf8');
 const KEYS = ['closeTitle', 'closeMessage', 'closeDetail', 'closeKeepWaiting', 'closeForce', 'serviceStopped',
-  'startFailedTitle', 'startFailedHint', 'serviceStartTimeout', 'serviceExitedAtStart'];
+  'startFailedTitle', 'startFailedHint', 'serviceStartTimeout', 'serviceExitedAtStart', 'serviceStoppedTitle', 'ok'];
 
 test('each native string in one language at a time', () => {
   const zh = N.nativeText('zh-CN'), en = N.nativeText('en');
@@ -27,10 +27,40 @@ test('the language is read from the view settings each time a dialog shows', () 
   const prompt = main.slice(main.indexOf('prompt: async (reason) =>'), main.indexOf('close: () =>', main.indexOf('prompt: async (reason) =>')));
   a.match(prompt, /const t = nativeText\(languageOf\(settings\.get\(\)\)\);/, 'read at the moment the dialog shows');
   a.match(prompt, /title: t\.closeTitle, message: t\.closeMessage, detail: t\.closeDetail,\s*buttons: \[t\.closeKeepWaiting, t\.closeForce\]/);
-  a.match(main, /dialog\.showErrorBox\("MontClip", nativeText\(languageOf\(settings\.get\(\)\)\)\.serviceStopped\)/);
-  // the start-up failure too: its own errors carry a key, said in the interface language
-  a.match(main, /dialog\.showErrorBox\(t\.startFailedTitle, /);
+  // the stopped service and the start-up failure: see 'no showErrorBox' below
+  // the start-up failure's own errors carry a key, said in the interface language
   a.match(main, /textKey: "serviceStartTimeout"/); a.match(main, /textKey: "serviceExitedAtStart"/);
+});
+
+// VV (2026-11-02, real window): dialog.showErrorBox titles the window "Error" and labels its button "OK",
+// whatever the interface language. Both error boxes are message boxes now, titled and labelled from native-text.js.
+test('no showErrorBox: the stopped-service and start-up boxes take their title and button from the interface language', () => {
+  a.doesNotMatch(main, /showErrorBox/);
+  // the stopped service: the language is read when it happens
+  const stop = main.slice(main.indexOf('worker.on("exit"'), main.indexOf('await win.loadURL(origin)'));
+  a.ok(stop.includes('const t = nativeText(languageOf(settings.get()));'), stop);
+  a.ok(stop.includes('const options = { type: "error", title: t.serviceStoppedTitle, message: t.serviceStopped, buttons: [t.ok], noLink: true };'), stop);
+  // QQ (2026-11-02): over the editor window while it is open, so the box cannot end up behind it
+  a.ok(stop.includes('if (win && !win.isDestroyed()) dialog.showMessageBox(win, options); else dialog.showMessageBox(options);'), stop);
+  // ...and the handler is registered inside start(), which only runs once the app is ready
+  const start = main.indexOf('async function start()'), reg = main.indexOf('worker.on("exit"');
+  a.ok(start >= 0 && reg > start && reg < main.indexOf('app.on("window-all-closed"'), 'the handler is registered in start()');
+  a.deepEqual([...main.matchAll(/\bstart\b(?!\()/g)].map(m => main.slice(m.index - 21, m.index + 5)), ['app.whenReady().then(start'],
+    'start() is only called once the app is ready');
+  // the start-up failure: the box is awaited before the app quits (showErrorBox blocked; showMessageBox does not)
+  const fail = main.slice(main.indexOf('app.whenReady().then(start)'));
+  a.ok(fail.includes('.catch(async (error) => {\n  try {'), fail);
+  a.ok(fail.includes('await dialog.showMessageBox({ type: "error", title: t.startFailedTitle,\n        message: `${(error && error.textKey && t[error.textKey]) || String((error && error.message) || error)}\\n${t.startFailedHint}`,\n        buttons: [t.ok], noLink: true });'), fail);
+  a.ok(fail.indexOf('await dialog.showMessageBox') < fail.indexOf('app.quit()'), 'shown before quitting');
+  // QQ (2026-11-02): the app quits even when the language read or the box throws
+  a.ok(fail.includes('  } finally {\n    // quit even when the box could not be shown\n    closing = true; app.quit();\n  }\n});'), fail);
+  a.equal(fail.split('app.quit()').length, 2, 'app.quit() only in the finally');
+});
+
+test('the new strings (JJ to review): the stopped-service title and the button', () => {
+  const zh = N.nativeText('zh-CN'), en = N.nativeText('en');
+  a.equal(zh.ok, '确定'); a.equal(en.ok, 'OK');
+  a.equal(zh.serviceStoppedTitle, 'MontClip 出错了'); a.equal(en.serviceStoppedTitle, 'MontClip ran into a problem');
 });
 
 test('desktop/main.js holds no "中文 / English" string', () => {
@@ -54,4 +84,11 @@ test("JJ's wording (2026-11-02): the start-up hint, and \"MontClip's internal se
     a.match(zh[k], /MontClip 的内部服务/, k);
     a.match(en[k], /MontClip's internal service/, k);
   }
+});
+
+test("JJ's final wording (2026-11-02): the stopped-service message; title and button unchanged", () => {
+  const zh = N.nativeText('zh-CN'), en = N.nativeText('en');
+  a.equal(zh.serviceStopped, 'MontClip 的内部服务意外停止了，最近的修改可能没有保存。请关掉 MontClip 再重新打开，看看最近剪的地方还在不在。');
+  a.equal(en.serviceStopped, "MontClip's internal service stopped unexpectedly, so your most recent changes may not have been saved. Close MontClip, open it again, and check whether your latest edits are still there.");
+  a.equal(zh.serviceStoppedTitle, 'MontClip 出错了'); a.equal(zh.ok, '确定');
 });
