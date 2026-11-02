@@ -9258,6 +9258,11 @@ function transcriptSig() {
 function buildTranscriptPage() {
   const T = FableCutTranscribe, root = els.transcriptPage, set = transcribeSettings();
   root.innerHTML = `<div class="tr-head">
+      <div class="tr-row tr-entries">
+        <button type="button" class="btn tiny" data-tr-highlights>${escapeHtml(uiText("own.hl-open"))}</button>
+        <button type="button" class="btn tiny" data-tr-sentences>按句选段 / Select sentences</button>
+        <button type="button" class="btn tiny" data-tr-mapping>时间映射 / Mapping</button>
+      </div>
       <div class="tr-row">
         <button type="button" class="btn primary" data-tr-go></button>
         <select data-tr-model title="Speech model. Base is quick; Small is more accurate and slower. Each downloads once, then stays in this browser">${Object.entries(T.MODELS).map(([k, m]) =>
@@ -9282,9 +9287,6 @@ function buildTranscriptPage() {
         <button type="button" class="btn tiny" data-tr-cap-file="srt" title="Download the timeline's captions as a SubRip file">SRT</button>
         <button type="button" class="btn tiny" data-tr-cap-file="vtt" title="Download the timeline's captions as a WebVTT file">VTT</button>
         <button type="button" class="btn tiny" data-tr-cap-import title="Place the captions of an SRT or WebVTT file">Import…</button>
-        <button type="button" class="btn tiny" data-tr-sentences>按句选段 / Select sentences</button>
-        <button type="button" class="btn tiny" data-tr-mapping>时间映射 / Mapping</button>
-        <button type="button" class="btn tiny" data-tr-highlights>${escapeHtml(uiText("own.hl-open"))}</button>
         <input type="file" accept=".srt,.vtt,text/vtt,application/x-subrip" data-tr-cap-input hidden>
       </div>
       <div class="tr-note">Caption last: a cut through a caption doesn't re-time its words, so add captions again after changing the edit.</div>
@@ -9636,9 +9638,13 @@ async function highlightSignals(isCurrent = () => true) {
   const danmaku = Array.isArray(project.danmaku) ? project.danmaku : [];
   return { duration, sentences, loudness, beats, danmaku };
 }
+/** A reason on a card: {text, title} — the words, and the numbers behind them for the tooltip. Loudness with only
+ *  its peak above the usual level (value 0) has its own sentence. */
 function highlightReasonText(r) {
   const v = { db: r.value, peak: r.peak, ratio: r.value, count: r.count, bpm: Math.round(r.value) };
-  return uiText("own.hl-r-" + r.signal, v);
+  const key = r.signal === "loudness" && !(r.value > 0) ? "own.hl-r-loudness-peak" : "own.hl-r-" + r.signal;
+  const detail = uiText(key + "-detail", v), when = MontClipHighlights.clock(r.window[0]) + "–" + MontClipHighlights.clock(r.window[1]);
+  return { text: uiText(key, v), title: detail ? detail + " · " + when : when };
 }
 /** Keep the given timeline ranges (in this order) with the range engine, as one undo step. */
 function keepHighlightRanges(ranges) {
@@ -9656,12 +9662,13 @@ async function showHighlightCandidates() {
   dialog.className = "highlight-dialog";
   dialog.innerHTML = `<form method="dialog"><h3>${say("own.hl-title")}</h3>
     <p data-hl-status role="status">${say("own.hl-reading")}</p><div data-hl-list></div>
+    <p class="hl-keep-note" data-hl-keep-note>${say("own.hl-keep-note")}</p>
     <div class="tr-row"><button type="button" class="btn primary" data-hl-keep disabled>${say("own.hl-keep")}</button>
     <button class="btn" value="cancel" data-hl-close>${say("own.hl-close")}</button></div></form>`;
   // Go to folds the list into a small button off the picture, so the streamer sees the moment play (Deja, #52)
   const back = document.createElement("button");
   back.type = "button"; back.className = "btn hl-return"; back.dataset.hlReturn = ""; back.hidden = true;
-  back.addEventListener("click", () => { back.hidden = true; dialog.showModal(); });
+  back.addEventListener("click", () => { pause(); back.hidden = true; dialog.showModal(); });
   let folding = false;
   document.body.append(dialog, back); dialog.showModal();
   dialog.addEventListener("close", () => { if (folding) { folding = false; return; } dialog.remove(); back.remove(); });
@@ -9680,9 +9687,11 @@ async function showHighlightCandidates() {
   cards.forEach((c, i) => {
     const card = document.createElement("div");
     card.className = "hl-card"; card.dataset.hlCard = String(i); card.dataset.hlRange = c.from + "-" + c.to;
-    card.innerHTML = `<label><input type="checkbox" data-hl-pick> <strong>#${c.rank} ${escapeHtml(fmt(c.from))}–${escapeHtml(fmt(c.to))}</strong></label>
+    // m:ss.t and the length (VV, #52: 00:09:05 read as nine minutes five seconds)
+    const when = MontClipHighlights.clock(c.from) + "–" + MontClipHighlights.clock(c.to) + uiText("own.hl-dur", { s: MontClipHighlights.seconds(c.to - c.from) });
+    card.innerHTML = `<label><input type="checkbox" data-hl-pick> <strong>#${c.rank} ${escapeHtml(when)}</strong></label>
       ${c.text ? `<p class="hl-text">${escapeHtml(c.text.length > 120 ? c.text.slice(0, 120) + "…" : c.text)}</p>` : ""}
-      <ul>${c.reasons.map((r) => `<li data-hl-reason="${r.signal}" title="${escapeHtml(fmt(r.window[0]) + "–" + fmt(r.window[1]))}">${escapeHtml(highlightReasonText(r))}</li>`).join("")}</ul>
+      <ul>${c.reasons.map((r) => { const t = highlightReasonText(r); return `<li data-hl-reason="${r.signal}" title="${escapeHtml(t.title)}">${escapeHtml(t.text)}</li>`; }).join("")}</ul>
       <button type="button" class="btn tiny" data-hl-jump>${say("own.hl-jump")}</button>`;
     card.querySelector("[data-hl-jump]").addEventListener("click", () => { folding = true; dialog.close(); back.hidden = false; pause(); setTime(c.from); play(); });
     card.querySelector("[data-hl-pick]").addEventListener("change", (e) => { e.target.checked ? picked.add(i) : picked.delete(i); keep.disabled = !picked.size; });

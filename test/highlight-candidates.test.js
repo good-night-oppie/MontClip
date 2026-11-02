@@ -95,7 +95,7 @@ test('the editor wires the cards to local signals, the playhead and the range en
 // VV (#52, 5bfca2f7): two stretches both well over the old 12 dB cap scored the same and fell back to time order, so
 // the loudest moment came second. The cap is 24 dB now, and a tie goes to the louder mean, then the louder peak.
 test('the louder of two very loud stretches ranks first (VV\'s scenario: +17 dB and +23 dB)', () => {
-  const s = sentences([[0, 8, '开场'], [9.2, 18, '来来来这次我换个打法 哈哈哈哈'], [20, 28, '平静'], [30, 38, '继续'], [44.8, 52, '啊啊啊啊 二阶段了'], [54, 60, '收尾']]);
+  const s = sentences([[0, 7.5, '开场'], [9.2, 18, '来来来这次我换个打法 哈哈哈哈'], [20, 28, '平静'], [30, 38, '继续'], [44.8, 52, '啊啊啊啊 二阶段了'], [54, 60, '收尾']]);
   const values = [];
   for (let t = 0; t < 60; t += 0.5) values.push(t >= 9.2 && t < 18 ? -30 + 17 : t >= 44.8 && t < 52 ? -30 + 23 : -30);
   const out = H.candidates({ duration: 60, sentences: s, loudness: { step: 0.5, values } });

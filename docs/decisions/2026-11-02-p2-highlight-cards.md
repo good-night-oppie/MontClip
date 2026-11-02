@@ -61,8 +61,8 @@ takes a few seconds per minute of timeline, then it shows up to 12 cards, best f
   - **speech:** characters per second at least 1.35× the median sentence;
   - **beat:** a steady beat inside the window. It only adds to a card that already has another reason; a music
     bed alone is not a highlight.
-- **Score:** loudness weighs most (up to 0.55), then danmaku (0.45), speech (0.15) and beat (0.05). Ties go to
-  the earlier card.
+- **Score:** loudness weighs most (up to 0.55, reached at 24 dB above the usual level), then danmaku (0.45), speech
+  (0.15) and beat (0.05). A tie goes to the louder mean, then the louder peak, then the earlier card.
 - **Empty states**, each with its own text:
   - nothing on the timeline;
   - no sentences and no sound to read;
@@ -93,6 +93,12 @@ computes the minimal subset it needs on demand: loudness, silences, beats, sente
 loudness cache (`analysis/signals/`, keyed by the file's name, size and modification time) is the first piece of
 that index. P1 takes it over, moves it to content hashes and runs it in the background; the candidate logic stays
 as it is.
+
+## P2.1 backlog (Deja, from VV's review of 5bfca2f7; not in this PR)
+
+- Pad each kept range: 0.2 s before its start and 0.4 s after its end, so a laugh is not cut off and two kept ranges have room to breathe.
+- When a short set-up sentence comes just before a highlight, take it along (VV's example: the line announcing the final boss, before the boss fight).
+- Buttons on each card to move its start by one sentence either way and its end one sentence later.
 
 ## Not covered (stated, not claimed)
 
