@@ -1,0 +1,113 @@
+name: Build FFmpeg (LGPL, without openh264)
+
+# Deja 2026-11-02 (#28): openh264 must not ship, and every BtbN variant links it. This rebuilds what our
+# manifest pinned (BtbN release autobuild-2026-11-01-12-49 = FFmpeg d7643a0fe3, BtbN 5ece628), with
+# only libopenh264 switched off at configure time (--disable-libopenh264). It never runs on a developer
+# machine. Run it from the Actions tab (workflow_dispatch, once this file is on main) or by pushing a
+# branch named ffmpeg-build/<anything>. Artifacts are kept 90 days with their SHA-256; publishing a
+# release for the manifest to point at is a separate, manual step.
+#
+# Inputs, all pinned:
+#   - BtbN/FFmpeg-Builds 5ece628 for build.sh and its packaging;
+#   - BtbN's published build image for that commit, by digest. It holds the cross toolchain and every
+#     dependency, already built. (Building that image from source needs ftp.gnu.org, which GitHub's
+#     runners could not reach on 2026-11-02: run 41391684826 failed fetching gmp.) The image named
+#     `latest` was created 2026-10-31T21:37Z by BtbN's push run 41222097386 for 5ece628, the newest
+#     BtbN commit; the scheduled run that made release autobuild-2026-11-01-12-49 reused it;
+#   - FFmpeg d7643a0fe3f4f65516c302eba045ba884faed015 (n9.0.2-42), the manifest's source. BtbN's
+#     build.sh clones the head of release/9.0, which has moved on since, so it is checked out by commit.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["ffmpeg-build/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: FFmpeg ${{ matrix.target }} lgpl 9.0, no openh264
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: win64
+            image: ghcr.io/btbn/ffmpeg-builds/win64-lgpl-9.0@sha256:3dc7a24eb7a47963eb8ae75bd6d1f9ca3ee68e620005ae86039e927fcc3e1b7d
+          - target: linux64
+            image: ghcr.io/btbn/ffmpeg-builds/linux64-lgpl-9.0@sha256:dc3e18671ccd3601f543d2ecf719e1c323249e88457e6be36c76bc1cd0ef2391
+    env:
+      BTBN_COMMIT: 5ece62897c650b863c1ddda7b6964845344aef2d   # = tag autobuild-2026-11-01-12-49
+      FFMPEG_COMMIT: d7643a0fe3f4f65516c302eba045ba884faed015 # n9.0.2-42-gd7643a0fe3
+      VARIANT: lgpl
+      ADDIN: "9.0"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false   # the build never pushes; keep the token out of .git/config
+
+      - name: Fetch BtbN/FFmpeg-Builds at the pinned commit
+        run: |
+          set -euo pipefail
+          git init -q btbn && cd btbn
+          git remote add origin https://github.com/BtbN/FFmpeg-Builds.git
+          git fetch -q --depth 1 origin "$BTBN_COMMIT"
+          git checkout -q FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$BTBN_COMMIT"
+
+      - name: Pull BtbN's build image by digest
+        run: |
+          set -euo pipefail
+          docker pull "${{ matrix.image }}"
+          env=$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "${{ matrix.image }}")
+          grep -qx "TARGET=${{ matrix.target }}" <<<"$env"
+          grep -qx "VARIANT=$VARIANT" <<<"$env"
+          # the image's configure line enables openh264; the next step turns exactly that off
+          grep '^FF_CONFIGURE=' <<<"$env" | grep -q -- '--enable-libopenh264'
+          docker tag "${{ matrix.image }}" "ghcr.io/btbn/ffmpeg-builds/${{ matrix.target }}-$VARIANT-$ADDIN:latest"
+
+      - name: Pin FFmpeg's commit and switch off libopenh264 only
+        run: |
+          set -euo pipefail
+          f=btbn/build.sh
+          test "$(grep -c '^    cd ffmpeg$' "$f")" = 1
+          # lines for build.sh's (unquoted) heredoc, so \$ runs inside the container: check out the
+          # manifest's commit, then flip the one flag and make sure nothing enables it again
+          cat > ff-patch.txt <<'PATCH'
+              git checkout -q @FFMPEG_COMMIT@
+              test "\$(git rev-parse HEAD)" = @FFMPEG_COMMIT@
+              FF_CONFIGURE="\${FF_CONFIGURE//--enable-libopenh264/--disable-libopenh264}"
+              case " \$FF_CONFIGURE " in *--enable-libopenh264*) exit 1;; esac
+          PATCH
+          sed -i -e "s/@FFMPEG_COMMIT@/$FFMPEG_COMMIT/g" ff-patch.txt
+          awk -v f=ff-patch.txt '{print} /^    cd ffmpeg$/{while((getline l < f)>0) print l}' "$f" > "$f.new" && mv "$f.new" "$f" && chmod +x "$f"
+          grep -qx "    git checkout -q $FFMPEG_COMMIT" "$f"
+          grep -q -- '--disable-libopenh264' "$f"
+          git -C btbn diff
+
+      - name: Build FFmpeg
+        # build.sh names its image after GITHUB_REPOSITORY (the runner always sets it to this repository);
+        # give it BtbN's name, which the pull step tagged locally from the pinned digest
+        run: cd btbn && GITHUB_REPOSITORY=btbn/ffmpeg-builds ./build.sh ${{ matrix.target }} "$VARIANT" "$ADDIN"
+
+      - name: Verify (no libopenh264, no GPL) and record the SHA-256
+        run: |
+          set -euo pipefail
+          a=$(ls btbn/artifacts/*-${{ matrix.target }}-${VARIANT}-${ADDIN}.* | head -1)
+          case "$a" in *n9.0.2-42-gd7643a0fe3*) ;; *) echo "unexpected version: $a"; exit 1;; esac
+          node desktop/ffmpeg-build/verify-build.cjs "$a" ${{ matrix.target }} | tee "$a.verify.json"
+          sha256sum "$a" | tee "$a.sha256"
+          { echo "BtbN/FFmpeg-Builds $BTBN_COMMIT (build.sh, packaging)";
+            echo "image ${{ matrix.image }}";
+            echo "FFmpeg $FFMPEG_COMMIT, variant $VARIANT $ADDIN, configure: --enable-libopenh264 -> --disable-libopenh264";
+            git -C btbn diff; } > "$a.source.txt"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ffmpeg-${{ matrix.target }}-lgpl-9.0-noh264
+          path: |
+            btbn/artifacts/*
+          retention-days: 90
+          if-no-files-found: error

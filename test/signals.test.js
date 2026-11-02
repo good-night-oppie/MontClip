@@ -4,10 +4,11 @@
 // through ffmpeg (8 kHz mono, one dBFS value per 0.5 s), caches it per file version, and the page maps it onto the
 // timeline through each clip's start, in point, speed, volume and gain.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
-const { execFileSync } = require('node:child_process');
 const { makeDataDir, startServer } = require('./helpers');
 const H = require('../highlight-candidates');
-const hasFfmpeg = () => { try { execFileSync('ffmpeg', ['-version'], { stdio: 'ignore' }); return true; } catch { return false; } };
+// MontClip's own ffmpeg (vendor/, via ffmpeg-path.js) — never one found on PATH
+const FF = require('../ffmpeg-path');
+const hasFfmpeg = () => FF.resolveTool('ffmpeg').ok;
 
 function wav(seconds, loud = [], rate = 16000) {
   const n = seconds * rate, data = Buffer.alloc(n * 2);
@@ -16,7 +17,7 @@ function wav(seconds, loud = [], rate = 16000) {
   h.writeUInt32LE(rate, 24); h.writeUInt32LE(rate * 2, 28); h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34); h.write('data', 36); h.writeUInt32LE(data.length, 40); return Buffer.concat([h, data]);
 }
 
-test('GET /api/signals/loudness streams one file once and answers dBFS per 0.5 s, cached per file version', { skip: !hasFfmpeg() && 'ffmpeg not on PATH' }, async (t) => {
+test('GET /api/signals/loudness streams one file once and answers dBFS per 0.5 s, cached per file version', { skip: !hasFfmpeg() && "MontClip's ffmpeg is not in vendor/ (node desktop/fetch-ffmpeg.cjs)" }, async (t) => {
   const dir = makeDataDir(t);
   fs.mkdirSync(path.join(dir, 'media'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'media', '合成 响度.wav'), wav(20, [[10, 14]]));
