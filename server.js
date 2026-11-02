@@ -1487,7 +1487,7 @@ setInterval(() => {
 
 server.listen(PORT, HOST, () => {
   boundPort = server.address().port;
-  console.log(`\n  FableCut running →  http://localhost:${boundPort}\n`);
+  console.log(`\n  MontClip running →  http://localhost:${boundPort}\n`);
   const ready = { type: "montclip-ready", origin: serverOrigin() };
   if (DESKTOP) {
     process.parentPort?.postMessage(ready);

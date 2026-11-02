@@ -25,7 +25,7 @@ if (cmd === "mcp") {
     "  fablecut          start the editor at http://localhost:7777\n" +
     "  fablecut mcp      run the MCP server on stdio\n" +
     "  fablecut -v       print the version\n\n" +
-    "Register with Claude Code:\n" +
-    "  claude mcp add -s user fablecut -- npx -y fablecut mcp");
+    "Register with Claude Code (from a clone):\n" +
+    "  claude mcp add -s user fablecut -- node \"<path-to>/MontClip/mcp-server.js\"");
   process.exit(help ? 0 : 1);
 }
