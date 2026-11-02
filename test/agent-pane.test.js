@@ -10,11 +10,14 @@ test('final capacity copy appears only on rejection, in both locales',()=>{
   const nodes=new Map(),panel={querySelector(s){if(!nodes.has(s))nodes.set(s,element());return nodes.get(s);},querySelectorAll(){return [];}};
   global.document={createElement:element,documentElement:element()};
   mount({panel,getContext:()=>ctx(),getLanguage:()=>language});
+  // Wave 2 integration (Deja, 2026-11-02): #22's behaviour wins. Between rejections the status line keeps the
+  // honest disconnected notice instead of going blank, and Send says no provider is set up.
+  a.ok(text[language]['agent.state.disconnected.brief']);a.ok(text[language]['agent.state.sendFailedNoProvider.brief']);
   const draft=panel.querySelector('[data-draft]'),status=panel.querySelector('[data-status]');
-  draft.value='x'.repeat(16000);draft.oninput({target:draft});a.equal(status.textContent,'');
+  draft.value='x'.repeat(16000);draft.oninput({target:draft});a.equal(status.textContent,text[language]['agent.state.disconnected.brief']);
   draft.value+='x';draft.oninput({target:draft});a.ok(text[language].paneLimitChars);a.equal(status.textContent,text[language].paneLimitChars);
-  draft.value='retained';draft.oninput({target:draft});a.equal(status.textContent,'');
-  panel.onclick({target:{dataset:{action:'send'}}});a.equal(status.textContent,text[language].pending);a.equal(draft.value,'retained');
+  draft.value='retained';draft.oninput({target:draft});a.equal(status.textContent,text[language]['agent.state.disconnected.brief']);
+  panel.onclick({target:{dataset:{action:'send'}}});a.equal(status.textContent,text[language]['agent.state.sendFailedNoProvider.brief']);a.equal(draft.value,'retained');
   for(let i=0;i<49;i++)panel.onclick({target:{dataset:{action:'new'}}});
   panel.onclick({target:{dataset:{action:'new'}}});a.ok(text[language].paneLimitSessions);a.equal(status.textContent,text[language].paneLimitSessions);
  }}finally{global.document=old;}
