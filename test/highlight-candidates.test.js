@@ -70,7 +70,7 @@ test('every reason is traceable: a signal name, a number and the window it was m
   const s = sentences([[0, 8, 'a'], [10, 18, '大喊'], [20, 28, 'c']]);
   for (const c of H.candidates({ duration: 30, sentences: s, loudness: curve(30, [[11, 17]]), beats: [10.5, 11, 11.5, 12, 12.5, 13, 13.5] }))
     for (const r of c.reasons) {
-      a.ok(['loudness', 'danmaku', 'speech', 'beat'].includes(r.signal), r.signal);
+      a.ok(['loudness', 'danmaku', 'speech'].includes(r.signal), r.signal);
       a.equal(typeof r.value, 'number');
       a.ok(Array.isArray(r.window) && r.window.length === 2);
     }
@@ -129,4 +129,18 @@ test('card titles carry no rank number', () => {
   a.ok(title, 'the card title');
   a.doesNotMatch(title[1], /^#/, 'starts with the time, not #number: ' + title[1]);
   a.doesNotMatch(title[1], /c\.rank/);
+});
+
+// JJ (#52, c5b1f98): every point on a card needs a reason the streamer can see; a beat is not one (it added 0.05
+// with nothing to show for it). Highlights of singing will be designed separately.
+test('beats change nothing: no beat reason, the same scores and order', () => {
+  const s = sentences([[0, 8, '开场'], [10, 18, '大喊'], [20, 28, '又平静'], [30, 38, '再喊一次']]);
+  const loudness = curve(40, [[11, 17], [31, 37]], -30, -16);
+  const beats = []; for (let t = 0; t < 40; t += 0.4) beats.push(Math.round(t * 10) / 10);
+  const without = H.candidates({ duration: 40, sentences: s, loudness });
+  const withBeats = H.candidates({ duration: 40, sentences: s, loudness, beats });
+  a.ok(without.length >= 2);
+  a.deepEqual(withBeats, without);
+  a.ok(withBeats.every((c) => c.reasons.every((r) => r.signal !== 'beat')));
+  a.equal('beatMinRate' in H.DEFAULTS, false);
 });

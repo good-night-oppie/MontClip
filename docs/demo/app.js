@@ -9589,13 +9589,13 @@ function watchCaptions(now) {
   }
 }
 /* P2 (owner, 2026-11-02): highlight candidates from local signals only — the timeline's sentences, the loudness
-   of its own sound mix (rendered here in 60 s pieces), its beats and, when the project has any, danmaku. Nothing is
+   of its own sound mix (rendered here in 60 s pieces) and, when the project has any, danmaku. Nothing is
    sent anywhere and no model runs. Go to moves the playhead; Keep goes through the range engine as one undo step. */
 async function highlightSignals(isCurrent = () => true) {
   const duration = projDur();
   const sentences = project.clips.filter((c) => FableCutCaptions.isCaption(c) && !c.disabled && !(project.disabledTracks || []).includes(c.track))
     .map((c) => ({ id: c.id, start: c.start, end: c.start + c.duration, text: (c.props && c.props.text) || "" }));
-  let loudness = null; const beats = [];
+  let loudness = null;
   const audible = mediaClips().filter((c) => clipRenders(c) && (c.kind === "audio" || (c.kind === "video" && ((c.props && c.props.volume) ?? 1) > 0)));
   // the server reads each file's sound once, as a stream, and keeps it (a 2-hour recording decoded whole in the page
   // took 705 s and 3.1 GB, and failed); the page maps it onto the timeline. Effects, faders and volume keyframes are
@@ -9615,8 +9615,8 @@ async function highlightSignals(isCurrent = () => true) {
     } catch { loudness = null; }
   }
   // without the server (the web demo), or when it could not read the files: the mix itself, in 60 s pieces.
-  // Beats need the sound itself: only on a timeline up to 10 minutes.
-  const mixNeeded = duration > 0 && audible.length && (!loudness || duration <= 600);
+  // No beat analysis for highlights any more (JJ, #52); beats.js only folds the channels here.
+  const mixNeeded = duration > 0 && audible.length && !loudness;
   if (mixNeeded) {
     const step = 0.5, values = [];
     for (let t0 = 0; t0 < duration; t0 += 60) {
@@ -9631,17 +9631,16 @@ async function highlightSignals(isCurrent = () => true) {
         for (let k = i * per; k < Math.min(mono.length, (i + 1) * per); k++) { acc += mono[k] * mono[k]; n++; }
         values.push(n ? Math.max(-90, 10 * Math.log10(acc / n + 1e-12)) : -90);
       }
-      if (duration <= 600) try { for (const b of FableCutBeats.analyze(FableCutBeats.resample(mono, buf.sampleRate)).beats) beats.push(b + t0); } catch { /* no beat in this piece */ }
     }
-    if (!loudness) loudness = { step, values };
+    loudness = { step, values };
   }
   const danmaku = Array.isArray(project.danmaku) ? project.danmaku : [];
-  return { duration, sentences, loudness, beats, danmaku };
+  return { duration, sentences, loudness, danmaku };
 }
 /** A reason on a card: {text, title} — the words, and the numbers behind them for the tooltip. Loudness with only
  *  its peak above the usual level (value 0) has its own sentence. */
 function highlightReasonText(r) {
-  const v = { db: r.value, peak: r.peak, ratio: r.value, count: r.count, bpm: Math.round(r.value) };
+  const v = { db: r.value, peak: r.peak, ratio: r.value, count: r.count };
   const key = r.signal === "loudness" && !(r.value > 0) ? "own.hl-r-loudness-peak" : "own.hl-r-" + r.signal;
   const detail = uiText(key + "-detail", v), when = MontClipHighlights.clock(r.window[0]) + "–" + MontClipHighlights.clock(r.window[1]);
   return { text: uiText(key, v), title: detail ? detail + " · " + when : when };
