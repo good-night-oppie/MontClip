@@ -9638,8 +9638,13 @@ async function showHighlightCandidates() {
     <p data-hl-status role="status">${say("own.hl-reading")}</p><div data-hl-list></div>
     <div class="tr-row"><button type="button" class="btn primary" data-hl-keep disabled>${say("own.hl-keep")}</button>
     <button class="btn" value="cancel" data-hl-close>${say("own.hl-close")}</button></div></form>`;
-  document.body.append(dialog); dialog.showModal();
-  dialog.addEventListener("close", () => dialog.remove());
+  // Go to folds the list into a small button off the picture, so the streamer sees the moment play (Deja, #52)
+  const back = document.createElement("button");
+  back.type = "button"; back.className = "btn hl-return"; back.dataset.hlReturn = ""; back.hidden = true;
+  back.addEventListener("click", () => { back.hidden = true; dialog.showModal(); });
+  let folding = false;
+  document.body.append(dialog, back); dialog.showModal();
+  dialog.addEventListener("close", () => { if (folding) { folding = false; return; } dialog.remove(); back.remove(); });
   const status = dialog.querySelector("[data-hl-status]"), list = dialog.querySelector("[data-hl-list]"), keep = dialog.querySelector("[data-hl-keep]");
   const signature = JSON.stringify(projectJSON()), projectId = runtime.projectId;
   const current = () => dialog.isConnected && JSON.stringify(projectJSON()) === signature && runtime.projectId === projectId;
@@ -9650,6 +9655,7 @@ async function showHighlightCandidates() {
   const cards = MontClipHighlights.candidates(sig);
   if (!cards.length) { status.textContent = uiText("own.hl-empty-" + MontClipHighlights.emptyReason(sig)); return; }
   status.textContent = uiText("own.hl-found", { n: cards.length });
+  back.textContent = uiText("own.hl-back", { n: cards.length });
   const picked = new Set();
   cards.forEach((c, i) => {
     const card = document.createElement("div");
@@ -9658,7 +9664,7 @@ async function showHighlightCandidates() {
       ${c.text ? `<p class="hl-text">${escapeHtml(c.text.length > 120 ? c.text.slice(0, 120) + "…" : c.text)}</p>` : ""}
       <ul>${c.reasons.map((r) => `<li data-hl-reason="${r.signal}" title="${escapeHtml(fmt(r.window[0]) + "–" + fmt(r.window[1]))}">${escapeHtml(highlightReasonText(r))}</li>`).join("")}</ul>
       <button type="button" class="btn tiny" data-hl-jump>${say("own.hl-jump")}</button>`;
-    card.querySelector("[data-hl-jump]").addEventListener("click", () => { pause(); setTime(c.from); });
+    card.querySelector("[data-hl-jump]").addEventListener("click", () => { folding = true; dialog.close(); back.hidden = false; pause(); setTime(c.from); play(); });
     card.querySelector("[data-hl-pick]").addEventListener("change", (e) => { e.target.checked ? picked.add(i) : picked.delete(i); keep.disabled = !picked.size; });
     list.append(card);
   });
