@@ -2022,6 +2022,8 @@ async function importFiles(fileList) {
   runtime.importFolderId = null;
   let added = 0, skipped = 0;
   const addedMedia = [], gen = runtime.projectGen;
+  // an FLV that could not be imported: the server's reason code, said in the interface language
+  const flvFailure = (code) => toast(MontClipView.flvImportMessage(mcView.get().language, code));
   for (const file of files) {
     const kind = mediaKindFromFile(file);
     if (!kind) { skipped++; continue; }
@@ -2030,14 +2032,14 @@ async function importFiles(fileList) {
     if (state.connected) {
       try {
         const res = await fetch("/api/upload?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
-        if (!res.ok) throw new Error("upload " + res.status);
+        if (!res.ok) { let code = ""; try { code = (await res.json()).code || ""; } catch {} throw Object.assign(new Error("upload " + res.status), { code }); }
         ({src, originalSrc, preparation} = await res.json());
-      } catch {
-        if (flv) { toast("FLV 未导入：无法完成兼容检查或需要明确授权。FLV not imported: compatibility check failed or explicit consent is required."); continue; }
+      } catch (error) {
+        if (flv) { flvFailure(typeof error?.code === "string" && error.code ? error.code : "UPLOAD_FAILED"); continue; }
         src = URL.createObjectURL(file); transient = true;
       }
     } else {
-      if (flv) { toast("FLV 未导入：需要运行编辑服务。FLV not imported: the editor server is required."); continue; }
+      if (flv) { flvFailure("NO_SERVER"); continue; }
       src = URL.createObjectURL(file); transient = true;
     }
     const m = { id: "m_" + uid(), name: file.name, kind, src, transient, folderId };
