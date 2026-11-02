@@ -14,11 +14,18 @@ function createConversation({state,getContext,service,id=()=>crypto.randomUUID()
  sync(){if(pending&&pending.signature!==signature())void this.cancel();if(review&&review.signature!==signature())review=null;}
  };
 }
+/** A reply that is exactly one JSON object, optionally inside a ``` / ```json fence. → object | null */
+function parseProposal(text){
+ if(typeof text!=='string'||text.length>16000)return null;
+ const m=/^\s*```(?:json)?\s*([\s\S]*?)\s*```\s*$/i.exec(text),body=(m?m[1]:text).trim();
+ if(!body.startsWith('{'))return null;
+ try{const v=JSON.parse(body);return v&&typeof v==='object'&&!Array.isArray(v)?v:null;}catch{return null;}
+}
 function proposalSummary(text,references){
- try{if(typeof text!=='string'||text.length>16000)return null;const p=JSON.parse(text);if(!p||Object.keys(p).sort().join(',')!=='ranges,type'||p.type!=='keep_sentences'||!Array.isArray(p.ranges)||!p.ranges.length||p.ranges.length>100)return null;
+ try{const p=parseProposal(text);if(!p||Object.keys(p).sort().join(',')!=='ranges,type'||p.type!=='keep_sentences'||!Array.isArray(p.ranges)||!p.ranges.length||p.ranges.length>100)return null;
  let duration=0;for(let i=0;i<p.ranges.length;i++){const r=p.ranges[i];if(!r||Object.keys(r).sort().join(',')!=='clipId,from,sourceCaptionId,to'||!Number.isFinite(r.from)||!Number.isFinite(r.to)||r.from<0||r.to<=r.from||!references.some(q=>q.type==='caption'&&q.clipId===r.clipId&&q.sourceCaptionId===r.sourceCaptionId&&q.start===r.from&&q.end===r.to))return null;for(let j=0;j<i;j++)if(Math.min(r.to,p.ranges[j].to)>Math.max(r.from,p.ranges[j].from))return null;duration+=r.to-r.from;}return{count:p.ranges.length,duration};}catch{return null;}
 }
 function clock(seconds){if(!Number.isFinite(seconds)||seconds<0)return '';const n=Math.floor(seconds),h=Math.floor(n/3600),m=Math.floor(n/60)%60,sec=n%60;return(h?h+':':'')+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');}
 function durationText(seconds){return Number.isFinite(seconds)&&seconds>0?clock(Math.max(1,Math.round(seconds))):'';}
 function referenceText(r,labels,projectName){if(r.type==='project')return labels.project+' · '+projectName;return (r.type==='caption'?labels.caption:labels.range)+' · '+clock(r.start)+'–'+clock(r.end)+(r.type==='caption'?' · '+r.text:'');}
-return{createConversation,referenceText,proposalSummary,durationText};});
+return{createConversation,referenceText,proposalSummary,durationText,parseProposal};});
