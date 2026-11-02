@@ -80,3 +80,10 @@ test("JJ's wording (2026-11-02): the start-up hint, and \"MontClip's internal se
     a.match(en[k], /MontClip's internal service/, k);
   }
 });
+
+test("JJ's final wording (2026-11-02): the stopped-service message; title and button unchanged", () => {
+  const zh = N.nativeText('zh-CN'), en = N.nativeText('en');
+  a.equal(zh.serviceStopped, 'MontClip 的内部服务意外停止了，最近的修改可能没有保存。请关掉 MontClip 再重新打开，看看最近剪的地方还在不在。');
+  a.equal(en.serviceStopped, "MontClip's internal service stopped unexpectedly, so your most recent changes may not have been saved. Close MontClip, open it again, and check whether your latest edits are still there.");
+  a.equal(zh.serviceStoppedTitle, 'MontClip 出错了'); a.equal(zh.ok, '确定');
+});
