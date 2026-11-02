@@ -1,10 +1,12 @@
 'use strict';
-// Explicit development entry (docs/validation/2026-11-02-zh-transcript). Visible window, fresh
+// Explicit development entry (docs/validation/2026-11-02-zh-transcript). Hidden offscreen window, fresh
 // profile: imports a 1 s synthetic WAV with a Chinese name, puts it on A1, selects it, opens the
 // Transcript tab, searches, and in zh-CN and en reads the panel's visible text and the top bar
 // status (dropdown options and hover titles are batch 3 and not read). Captures the page.
 // Pass --montclip-smoke; output dir (absolute) in MONTCLIP_TR_OUT.
 const electron=require('electron'),{app,BrowserWindow}=electron,fs=require('node:fs'),path=require('node:path');
+const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
+if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke required');
 const out=process.env.MONTCLIP_TR_OUT||null;if(out&&!path.isAbsolute(out))throw Error('MONTCLIP_TR_OUT must be an absolute folder');
 const SETUP=`(async()=>{
@@ -26,7 +28,7 @@ const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...args){await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=ms=>new Promise(r=>setTimeout(r,ms));
  const results=[];
  try{await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));})()`);
-  win.show();win.setContentSize(1270,800);await wait(600);
+  win.setContentSize(1270,800);await wait(600);
   const name=await read(SETUP);await wait(800);
   for(const [step,language] of ['zh-CN','en','zh-CN'].entries()){
    await read(`updateMontClipView({language:${JSON.stringify(language)}});true`);await wait(500);
@@ -42,4 +44,6 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
  }catch(e){process.stdout.write('TR_FAIL '+e.message+'\n');}finally{setTimeout(()=>app.exit(0),300);}};
 // the project name is user content (default "Untitled Project"): left out of the language check
 function project_name_placeholder(top){return top.split('  ·  ')[0];}
+// Hidden, offscreen window: nothing on the desktop, no focus taken; capturePage still gets real frames.
+{const Module=require('node:module'),load=Module._load;Module._load=function(id,...args){if(id==='electron'){Module._load=load;return{...electron,BrowserWindow:class extends BrowserWindow{constructor(o){super({...o,show:false,webPreferences:{...o.webPreferences,offscreen:true,backgroundThrottling:false}});}}};}return load.call(this,id,...args);};}
 require('./main');
