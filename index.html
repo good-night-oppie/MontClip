@@ -48,13 +48,14 @@
     </div>
   </header>
 
+  <button class="btn tiny mc-media-toggle" id="mcMediaToggle" type="button">素材</button>
   <div class="mc-history" role="group" aria-label="Undo / Redo">
     <button class="btn tiny" id="mcUndo" type="button">撤销</button>
     <button class="btn tiny" id="mcRedo" type="button">重做</button>
   </div>
   <section id="mcAssistantPanel" class="panel mc-assistant hidden" aria-label="助手">
     <button class="btn tiny" id="mcAssistantClose" type="button">收起</button>
-    <p id="mcAssistantStatus"></p><p id="mcAssistantPending"></p>
+    <p id="mcAssistantStatus"></p><p id="mcAssistantPending"></p><div id="mcAgentContent"></div>
   </section>
   <!-- ══════════ UPPER PANELS ══════════ -->
   <div class="upper">
@@ -213,6 +214,7 @@
     <!-- Inspector -->
     <aside class="panel inspector">
       <div class="bin-tabs side-tabs" id="sideTabs" role="tablist">
+        <button type="button" data-side="assistant" id="mcAssistantTab">助手</button>
         <button type="button" data-side="inspector" class="on" title="Selected clip: transform, effects &amp; audio" data-i18n-title="term.selected-clip-transform-effects-audio" data-i18n="term.inspector">Inspector</button>
         <button type="button" data-side="mixer" title="Track and master faders, pan, mute / solo, meters" data-i18n="term.mixer">Mixer</button>
         <button type="button" data-side="color" title="Grade the selected clip: wheels, exposure, white balance, tone" data-i18n="term.color">Color</button>
@@ -719,6 +721,9 @@
 <script src="ui-terms.js"></script>
 <script src="narrow-layout.js"></script>
 <script src="ui-preferences.js"></script>
+<script src="agent-session-schema.js"></script>
+<script src="agent-pane.js"></script>
+<script src="workspace-preferences.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

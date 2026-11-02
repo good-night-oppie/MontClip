@@ -72,6 +72,19 @@ async function start() {
     event.returnValue = settingsAllowed(event, win, origin)
       ? settings[operation](value) : {ok:false,code:"VIEW_SETTINGS_FORBIDDEN"};
   });
+  const paneSettings = createStore(app.getPath("userData"), {pane:true});
+  for (const operation of ["get", "set"]) ipcMain.on("montclip:pane:" + operation, (event, value) => {
+    event.returnValue = settingsAllowed(event, win, origin)
+      ? paneSettings[operation](value) : {ok:false,code:"VIEW_SETTINGS_FORBIDDEN"};
+  });
+  const workspaceSettings = require('./workspace-settings').createStore(app.getPath('userData'));
+  for (const operation of ['get','set','migrate']) ipcMain.on('montclip:workspace:'+operation,(event,value)=>{
+    event.returnValue=settingsAllowed(event,win,origin)?workspaceSettings[operation](value):{ok:false,code:'WORKSPACE_FORBIDDEN'};
+  });
+  const agentSessions = require('./agent-session-store').createStore(app.getPath('userData'));
+  for(const operation of ['get','set']) ipcMain.on('montclip:sessions:'+operation,(event,value)=>{
+    event.returnValue=settingsAllowed(event,win,origin)?agentSessions[operation](value):{ok:false,code:'SESSION_FORBIDDEN'};
+  });
   let rendererFault = null, prompts = 0;
   const closeController = createCloseController({
     save: (attempt) => {
@@ -108,7 +121,12 @@ async function start() {
   win.on("responsive", () => { if (rendererFault === "unresponsive") rendererFault = null; });
   win.webContents.on("render-process-gone", () => { rendererFault = "crashed"; closeController.fault(rendererFault); });
   worker.on("exit", () => {
-    if (!stopping) dialog.showErrorBox("MontClip", nativeText(languageOf(settings.get())).serviceStopped);
+    if (stopping) return;
+    // start() only runs once the app is ready, so a message box can show here
+    const t = nativeText(languageOf(settings.get()));
+    const options = { type: "error", title: t.serviceStoppedTitle, message: t.serviceStopped, buttons: [t.ok], noLink: true };
+    // over the editor window while it is open, so the box cannot end up behind it
+    if (win && !win.isDestroyed()) dialog.showMessageBox(win, options); else dialog.showMessageBox(options);
   });
   await win.loadURL(origin);
   if (faultTest) {
@@ -119,6 +137,9 @@ async function start() {
     return;
   }
   if (smoke) {
+    if (process.argv.includes("--agent-layout-check")) await require("./agent-layout-smoke").run(win);
+    if (process.argv.includes("--sessions-check")) await require("./agent-session-smoke").run(win);
+    if (process.argv.includes("--workspace-check")) await require("./workspace-smoke").run(win);
     if (process.argv.includes("--view-check")) await require("./view-smoke").run(win);
     if (process.argv.includes("--m0")) await require("./m0-smoke").run(win, origin, token, env.FABLECUT_DATA_DIR);
     const result = await win.webContents.executeJavaScript(`(async () => {
@@ -153,12 +174,19 @@ app.on("before-quit", (event) => {
 });
 // Electron does not consistently propagate process.exitCode through app.quit().
 app.on("will-quit", (event) => { if (smoke && process.exitCode) { event.preventDefault(); app.exit(process.exitCode); } });
-app.whenReady().then(start).catch((error) => {
-  if (smoke) { console.error(error); process.exitCode = 1; }
-  else {
-    // the interface language from view-settings.json (Chinese when it cannot be read)
-    let t; try { t = nativeText(languageOf(createStore(app.getPath("userData")).get())); } catch { t = nativeText("zh-CN"); }
-    dialog.showErrorBox(t.startFailedTitle, `${(error && error.textKey && t[error.textKey]) || String((error && error.message) || error)}\n${t.startFailedHint}`);
+app.whenReady().then(start).catch(async (error) => {
+  try {
+    if (smoke) { console.error(error); process.exitCode = 1; }
+    else {
+      // the interface language from view-settings.json (Chinese when it cannot be read); the box is
+      // awaited: a message box does not block, and quitting would close it at once
+      let t; try { t = nativeText(languageOf(createStore(app.getPath("userData")).get())); } catch { t = nativeText("zh-CN"); }
+      await dialog.showMessageBox({ type: "error", title: t.startFailedTitle,
+        message: `${(error && error.textKey && t[error.textKey]) || String((error && error.message) || error)}\n${t.startFailedHint}`,
+        buttons: [t.ok], noLink: true });
+    }
+  } finally {
+    // quit even when the box could not be shown
+    closing = true; app.quit();
   }
-  closing = true; app.quit();
 });

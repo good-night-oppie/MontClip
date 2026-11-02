@@ -1,0 +1,16 @@
+{"exit":0,"profile":"MontClip-paste-7mnsA3"}
+
+
+  FableCut running →  http://localhost:20639
+
+  project file : <user>\AppData\Local\Temp\MontClip-paste-7mnsA3\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-paste-7mnsA3\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-paste-7mnsA3\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+MONTCLIP_PASTE_CASE {"language":"zh-CN","trustedPaste":true,"rejectedWhole":true,"exactLimitAccepted":true,"overflowAtLimitRejected":true}
+MONTCLIP_PASTE_CASE {"language":"en","trustedPaste":true,"rejectedWhole":true,"exactLimitAccepted":true,"overflowAtLimitRejected":true}
+MONTCLIP_PASTE_COMPLETE {"cases":2,"baselineTruncated":true}
+MONTCLIP_SMOKE {"nodeUnavailable":true,"projectLoaded":true,"apiStatus":200,"externalBlocked":true,"compositor":true,"saved":true}

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Show the final session-capacity and message-length guidance only for the corresponding rejected action.
+- Reject oversized Agent draft pastes explicitly instead of silently truncating their text; preserve the accepted draft.
+- Separate Agent local storage policy from actual save confirmation; identify storage eligibility by project ID, not project name.
+- Hide an empty main-lane placeholder in simple view when another lane of that kind already has content.
+- Keep timeline lanes and scroll stable while dragging; cancelled clip gestures restore their snapshot without adding an undo step.
+- Keep default video/audio content lanes editable alongside the preview and Agent pane; simple view hides empty secondary tracks without changing the project.
+- Initial Agent session read failures use explicit window-only storage without blocking normal project close; loaded-session write failures retain save protection.
+- Agent pane restores existing project drafts after a capacity-blocked project switch and distinguishes session, text and reference limits.
+
 ### Added
 - Development ordered sentence/range proposals, boundary-caption provenance and
   independent source/output JSON export. Native trim engine and one undo/revision
@@ -1039,3 +1049,10 @@ the report in [#1](https://github.com/ronak-create/FableCut/issues/1) — thanks
 
 ### Desktop build dependency
 - Pin the optional ESM packager development tool and add an explicit no-package API check; resource, audit and Windows acceptance gates remain pending.
+
+### Guarded local FLV core
+- Share decoded-gap refusal and separate readable-range/transcode permission across local REST/MCP imports; retain source references on browser serialization and refuse transient FLV fallback. Native desktop integration remains separate.
+
+- Preserve concurrent same-name uploads using exclusive creation and suffix collision retries.
+
+- Faststart optimization uses an exclusively created temporary directory, refuses output overwrite and retains the valid upload when replacement fails.

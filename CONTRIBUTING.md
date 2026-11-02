@@ -148,7 +148,7 @@ translations of it, section for section.
   everything inside code fences stay as-is. Translate the prose around them.
 - Each file ends with a sync note giving the `README.md` commit it was written
   against. Update that short SHA whenever you re-sync a translation.
-- Adding a language: copy `docs/i18n/README.es.md`, translate, then add your
+- Adding a language: copy `docs/i18n/README.zh-CN.md`, translate, then add your
   language to the selector line at the top of **every** i18n file and of the
   root `README.md`. Relative links resolve from `docs/i18n/`, so the repo root
   is `../../` (e.g. `../../CLAUDE.md`) and the screenshot is `../screenshot.png`.

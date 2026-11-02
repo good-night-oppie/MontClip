@@ -273,18 +273,38 @@ function ffmpegAvailable() {
   }
   return hasFfmpeg;
 }
-function maybeFaststart(file) {
+async function maybeFaststart(file) {
   if (!ffmpegAvailable() || !FASTSTART_EXT.has(path.extname(file).toLowerCase()))
-    return Promise.resolve();
-  const tmp = file + ".fs" + path.extname(file);
-  return new Promise((resolve) => {
-    execFile("ffmpeg", ["-y", "-i", file, "-c", "copy", "-movflags", "+faststart", tmp],
-      { maxBuffer: 1 << 24 }, (err) => {
-        if (err) { try { fs.rmSync(tmp, { force: true }); } catch {} return resolve(); }
-        try { fs.rmSync(file); fs.renameSync(tmp, file); } catch { try { fs.rmSync(tmp, { force: true }); } catch {} }
-        resolve();
-      });
-  });
+    return { optimized: false, reason: "not-applicable" };
+  // Exclusive directory creation establishes ownership; a random name alone does not.
+  const dir = path.join(path.dirname(file), ".faststart-" + require("crypto").randomUUID());
+  const tmp = path.join(dir, "output.part" + path.extname(file));
+  let ownedDir = false, outputMayBeOwned = false;
+  try {
+    fs.mkdirSync(dir, { mode: 0o700 });
+    ownedDir = true;
+    if (fs.existsSync(tmp)) return { optimized: false, reason: "temporary-collision" };
+    outputMayBeOwned = true;
+    await new Promise((resolve, reject) => {
+      execFile("ffmpeg", ["-nostdin", "-n", "-i", file, "-c", "copy", "-movflags", "+faststart", tmp],
+        { maxBuffer: 1 << 24, windowsHide: true }, (err) => {
+          // A collision is not ours, even inside the directory we created.
+          if (err?.code === "EEXIST" || /already exists/i.test(String(err?.message || ""))) outputMayBeOwned = false;
+          err ? reject(err) : resolve();
+        });
+    });
+    if (!fs.statSync(tmp).isFile() || !fs.statSync(tmp).size) throw new Error("empty faststart output");
+    // Same-volume rename replaces on supported OSes. On failure retain the valid
+    // unoptimized upload; never remove it to make replacement work on Windows.
+    fs.renameSync(tmp, file);
+    outputMayBeOwned = false;
+    return { optimized: true };
+  } catch {
+    return { optimized: false, reason: "optimization-failed" };
+  } finally {
+    if (outputMayBeOwned) try { fs.rmSync(tmp, { force: true }); } catch {}
+    if (ownedDir) try { fs.rmdirSync(dir); } catch {} // nonrecursive: never delete foreign entries
+  }
 }
 
 module.exports = {

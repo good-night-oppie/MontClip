@@ -1,0 +1,19 @@
+{
+  "profile": "MontClip-sessions-ayYRWu",
+  "freeBefore": 43936092160,
+  "hashes": {
+    "agent-pane.js": "3db9a0d78e567d722526440d872a5365b7503dacf039910c422dc6841a3acc82",
+    "agent-session-schema.js": "499d4524cec363c689a40623b0df8b3ba5b9c4f6de98d9d78cfaeca03712163f",
+    "desktop/agent-session-store.js": "b20157f42f54ac3c96fb939b2be9c5d010b874794920fed7c3294451b204ed01",
+    "desktop/main.js": "42f79096abf85f5d28666db160135b90147fb1bd71c19327258790a2e0c6f676",
+    "desktop/agent-session-smoke.js": "6e4f5ea6b3ea7b754d6aa162ac76b11166c77be457666e0f2947f1465f28cc7f",
+    "app.js": "fee744503a8191dc2550473da7650a420bcd9031dbf464e057b9f88b51689491"
+  },
+  "reports": [
+    {
+      "reopen": false,
+      "exit": 1,
+      "log": "\r\n\n  FableCut running →  http://localhost:46026\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-sessions-ayYRWu\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-sessions-ayYRWu\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-sessions-ayYRWu\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n0 !== 1\n\n    at exports.run (<repo>\\desktop\\agent-session-smoke.js:16:107)\n    at async start (<repo>\\desktop\\main.js:133:52) {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: 0,\n  expected: 1,\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n"
+    }
+  ]
+}

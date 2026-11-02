@@ -1,0 +1,32 @@
+[
+  {
+    "fault": "json",
+    "profile": "MontClip-session-fault-zNeb3O",
+    "exit": 0,
+    "log": "\r\n\n  FableCut running →  http://localhost:19303\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-session-fault-zNeb3O\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-session-fault-zNeb3O\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-session-fault-zNeb3O\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nMONTCLIP_SESSION_CLOSE_COMPLETE {\"fault\":\"json\",\"prompts\":0,\"defaultWait\":false,\"explicitForce\":false,\"originalPreserved\":true,\"notice\":\"没能读取已存的会话。本次会话和草稿只在这次打开期间保留，关闭前请复制要留的内容。原有会话文件未改动。\",\"retryHidden\":true,\"assistantFlush\":true}\n"
+  },
+  {
+    "fault": "schema",
+    "profile": "MontClip-session-fault-6H6pnG",
+    "exit": 0,
+    "log": "\r\n\n  FableCut running →  http://localhost:56144\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-session-fault-6H6pnG\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-session-fault-6H6pnG\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-session-fault-6H6pnG\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nMONTCLIP_SESSION_CLOSE_COMPLETE {\"fault\":\"schema\",\"prompts\":0,\"defaultWait\":false,\"explicitForce\":false,\"originalPreserved\":true,\"notice\":\"没能读取已存的会话。本次会话和草稿只在这次打开期间保留，关闭前请复制要留的内容。原有会话文件未改动。\",\"retryHidden\":true,\"assistantFlush\":true}\n"
+  },
+  {
+    "fault": "read",
+    "profile": "MontClip-session-fault-EimZVD",
+    "exit": 0,
+    "log": "\r\n\n  FableCut running →  http://localhost:52581\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-session-fault-EimZVD\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-session-fault-EimZVD\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-session-fault-EimZVD\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nMONTCLIP_SESSION_CLOSE_COMPLETE {\"fault\":\"read\",\"prompts\":0,\"defaultWait\":false,\"explicitForce\":false,\"originalPreserved\":true,\"notice\":\"没能读取已存的会话。本次会话和草稿只在这次打开期间保留，关闭前请复制要留的内容。原有会话文件未改动。\",\"retryHidden\":true,\"assistantFlush\":true}\n"
+  },
+  {
+    "fault": "project",
+    "profile": "MontClip-session-fault-2Du6Y2",
+    "exit": 0,
+    "log": "\r\n\n  FableCut running →  http://localhost:33464\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-session-fault-2Du6Y2\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-session-fault-2Du6Y2\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-session-fault-2Du6Y2\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nMONTCLIP_SESSION_CLOSE_COMPLETE {\"fault\":\"project\",\"prompts\":2,\"defaultWait\":true,\"explicitForce\":true,\"originalPreserved\":true,\"notice\":\"没能读取已存的会话。本次会话和草稿只在这次打开期间保留，关闭前请复制要留的内容。原有会话文件未改动。\",\"retryHidden\":true,\"assistantFlush\":true}\n"
+  },
+  {
+    "fault": "write",
+    "profile": "MontClip-session-fault-zWAmTY",
+    "exit": 1,
+    "log": "\r\n\n  FableCut running →  http://localhost:13212\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-session-fault-zWAmTY\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-session-fault-zWAmTY\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-session-fault-zWAmTY\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\ntrue !== false\n\n    at BrowserWindow.loadURL (<repo>\\desktop\\agent-close-fault-smoke.cjs:28:9)\n    at async start (<repo>\\desktop\\main.js:124:3) {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: true,\n  expected: false,\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n"
+  }
+]
