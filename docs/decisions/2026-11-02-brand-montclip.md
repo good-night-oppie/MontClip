@@ -103,3 +103,35 @@ how MontClip runs today.
 
 The first two were approved by Deja. The other four are reported to Deja and
 are not changed by this PR.
+
+## Not published to npm or the MCP registry (QQ option A, Deja 2026-11-02)
+
+Publishing to npm needs the owner's authorization, which has not been given.
+Until it is, MontClip is published nowhere:
+
+- `package.json` is `"private": true` (npm refuses to publish it), keeps the
+  name `montclip`, and has no `mcpName`. Its `repository` points to
+  `good-night-oppie/MontClip`, and so do the bundle (`manifest.json`
+  repository, documentation) and the Claude Code plugin (`plugin.json`
+  repository, homepage).
+- `server.json` (the MCP registry manifest) is deleted. It named
+  `io.github.ronak-create/fablecut` and the upstream's MCPB bundle.
+  `release-check` now checks the opposite: the package is private, has no
+  `mcpName`, and there is no `server.json`.
+- CI packs and installs the package as `montclip` to check what it ships. The
+  `npm publish --dry-run` step is removed.
+- No install command anywhere a person reads: `npx -y fablecut` installs the
+  upstream package. README, `DEVELOPMENT.md`, `CLAUDE.md` (and the docs built
+  from it), the `fablecut` CLI help, `mcp-server.js`'s header and `llms.txt`
+  now register the MCP server from a clone (`node <path>/mcp-server.js`). The
+  upstream plugin-marketplace and MCPB instructions are removed.
+  `CHANGELOG.md` keeps its history as written.
+- `docs/docs/build.js` read its icon sprite from the home page, which now
+  holds only JJ's copy; the sprite moved to `docs/docs/icons.svg`.
+
+To publish later, the owner first registers the npm name `montclip` and the
+MCP registry name `io.github.good-night-oppie/montclip`. Then, together and
+in one change: `private` comes off, `mcpName` and a new `server.json` name
+those registrations, the MCPB bundle is built from our own release,
+`release-check` checks the registry metadata again, CI rehearses the publish,
+and the install instructions come back.

@@ -46,7 +46,7 @@ test('not published: private package, no registry entry, no install command anyw
  a.ok(man.repository.url.startsWith(REPO)&&man.documentation.startsWith(REPO),'bundle repository and docs are ours');
  a.ok(plugin.repository.startsWith(REPO)&&plugin.homepage.startsWith(REPO),'plugin repository and homepage are ours');
  const ci=read('.github/workflows/ci.yml');a.ok(!/npm publish/.test(ci),'CI does not rehearse a publish');a.ok(!/fablecut-\*\.tgz|node_modules\/fablecut/.test(ci),'CI packs the package by its name');
- a.ok(!/server\.json/.test(read('.github/scripts/release-check.js')),'release-check no longer reads server.json');
+ a.ok(!/readJSON\("server\.json"\)/.test(read('.github/scripts/release-check.js')),'release-check no longer reads server.json');
  const walk=d=>fs.readdirSync(path.join(root,d),{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(d+'/'+e.name):[d+'/'+e.name]);
  const files=['README.md','DEVELOPMENT.md','CLAUDE.md','cli.js','mcp-server.js','docs/llms.txt','docs/i18n/README.zh-CN.md',...walk('docs').filter(f=>/\.html$/.test(f)&&!/^docs\/(validation|demo)\//.test(f))];
  for(const f of files){const t=read(f);

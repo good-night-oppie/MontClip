@@ -446,9 +446,8 @@ function pageBody(pg, ctx) {
 }
 
 /* ── Page shell: the site's nav, footer and icons ── */
-// the icon sprite comes from the home page, so the two can't drift apart
-const ICONS = fs.readFileSync(path.join(ROOT, "docs", "index.html"), "utf8")
-  .match(/<svg width="0" height="0"[\s\S]*?<\/svg>/)[0];
+// the icon sprite these pages use; the home page no longer carries one (it holds only JJ's copy)
+const ICONS = fs.readFileSync(path.join(__dirname, "icons.svg"), "utf8").trim();
 
 function shell(pg, main, desc) {
   const base = pg.slug ? "../../" : "../";

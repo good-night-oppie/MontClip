@@ -2,10 +2,8 @@
    FableCut MCP server — connects Claude (Code / Desktop) to the video editor.
    Zero-dependency stdio JSON-RPC (Model Context Protocol).
 
-   Register once for all Claude Code sessions:
-     claude mcp add -s user fablecut -- npx -y fablecut mcp
-   or, from a clone:
-     claude mcp add -s user fablecut -- node "<path-to>/fablecut/mcp-server.js"
+   Register once for all Claude Code sessions, from a clone:
+     claude mcp add -s user fablecut -- node "<path-to>/MontClip/mcp-server.js"
 
     Tools: fablecut_status, fablecut_docs, fablecut_get_project,
            fablecut_set_project, fablecut_patch_project, fablecut_import_media,

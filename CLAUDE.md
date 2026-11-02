@@ -11,9 +11,9 @@ drive the editor.
 
 ## MCP connection (preferred — works from any session, any directory)
 
-Register the MCP server once at user scope as `fablecut`:
-`claude mcp add -s user fablecut -- npx -y fablecut mcp` (from npm, no path needed),
-or from a clone `claude mcp add -s user fablecut -- node "<path-to>/fablecut/mcp-server.js"`.
+Register the MCP server once at user scope as `fablecut`, from a clone:
+`claude mcp add -s user fablecut -- node "<path-to>/MontClip/mcp-server.js"`.
+(MontClip is not published to npm; see `docs/decisions/2026-11-02-brand-montclip.md`.)
 Every Claude Code session then has these tools:
 
 - `fablecut_status` — auto-starts the editor server, returns URL + project summary. Call first.
@@ -147,17 +147,13 @@ asks to overwrite conflicting changes. `fablecut_import_media` only appends a
 new media entry and always merges safely — no conflict check needed.
 
 For Claude Desktop, add to its MCP config:
-`{"mcpServers":{"fablecut":{"command":"npx","args":["-y","fablecut","mcp"]}}}`
-(or `"command":"node","args":["<path-to>/fablecut/mcp-server.js"]` from a clone)
+`{"mcpServers":{"fablecut":{"command":"node","args":["<path-to>/MontClip/mcp-server.js"]}}}`
 Direct file editing of `project.json` (below) works too and is equivalent.
-
-Installing as a Claude Code plugin (`/plugin marketplace add ronak-create/FableCut`,
-then `/plugin install fablecut@fablecut`) does the registration for you.
 
 ### Where the files are
 
 `project.json`, `projects/`, `media/`, `exports/`, `analysis/` and `library/` normally sit in
-the repo next to `server.js`; installed from npm (`npx fablecut`) they sit in
+the repo next to `server.js`; when the code sits under `node_modules` they sit in
 `~/FableCut`. Set **`FABLECUT_DATA_DIR`** to move all six
 somewhere else; the code and the static app files stay in the install directory
 either way. The plugin sets this so a plugin update can replace the install
@@ -184,7 +180,7 @@ export, transcription, scopes and tracking, including the shared job queue.
 It is not yet a portable release or offline transcription distribution.
 
 ```
-node server.js        # → http://localhost:7777   (from npm: npx -y fablecut)
+node server.js        # → http://localhost:7777
 ```
 
 Files: `index.html` + `style.css` + `app.js` (editor UI), `server.js` (API + hosting),

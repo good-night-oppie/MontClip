@@ -11,10 +11,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ronak-create/FableCut"
+    "url": "https://github.com/good-night-oppie/MontClip"
   },
   "homepage": "https://github.com/good-night-oppie/MontClip",
-  "documentation": "https://github.com/ronak-create/FableCut/blob/main/CLAUDE.md",
+  "documentation": "https://github.com/good-night-oppie/MontClip/blob/main/CLAUDE.md",
   "license": "MIT",
   "keywords": ["video-editor", "nle", "timeline", "canvas", "mcp", "ai-agent", "ffmpeg"],
   "server": {

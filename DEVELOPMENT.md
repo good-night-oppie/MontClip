@@ -28,18 +28,6 @@ To keep your work outside the checkout, set **`FABLECUT_DATA_DIR`** — it moves
 `project.json`, `media/`, `exports/`, `analysis/` and `library/` to a directory
 you choose. Leave it unset and everything stays in the repo, exactly as before.
 
-### Or install it as a Claude Code plugin
-
-```
-/plugin marketplace add ronak-create/FableCut
-/plugin install fablecut@fablecut
-```
-
-That registers the MCP server for you and adds three skills — `edit-video`,
-`remake-reel` and `motion-graphics`. Your timeline and footage live in the plugin's own data
-directory, so an update never touches them. Node 18+ and (optionally) ffmpeg
-still need to be on your machine.
-
 ## Driving it with an AI agent
 
 Everything an agent needs is in **[CLAUDE.md](CLAUDE.md)** — the complete
@@ -55,12 +43,7 @@ Three equivalent control surfaces:
 1. **MCP** (best for Claude Code / Claude Desktop) — register the bundled
    zero-dependency MCP server once:
 
-   ```bash
-   claude mcp add -s user fablecut -- npx -y fablecut mcp
-   ```
-
-   No clone or path needed; your work lives in `~/FableCut`. From a clone,
-   point at the file instead:
+   MontClip is not published to npm, so register it from a clone:
 
    ```bash
    claude mcp add -s user fablecut -- node "<path-to>/fablecut/mcp-server.js"
@@ -90,12 +73,10 @@ Three equivalent control surfaces:
    {
      "name": "fablecut",
      "transport": "stdio",
-     "command": "npx",
-     "args": ["-y", "fablecut", "mcp"]
+     "command": "node",
+     "args": ["/absolute/path/to/MontClip/mcp-server.js"]
    }
    ```
-
-   (From a clone: `"command": "node"`, `"args": ["/absolute/path/to/MontClip/mcp-server.js"]`.)
 
    The server is intentionally client-neutral. It speaks MCP over stdio and
    does not require Claude-specific environment variables. With a clone, keep
@@ -106,11 +87,6 @@ Three equivalent control surfaces:
    `fablecut_import_media`, `fablecut_analyze_reference`, `fablecut_frame`,
    `fablecut_encode_profiles`, `fablecut_normalize_audio`, `fablecut_auto_duck`,
    `fablecut_denoise`, `fablecut_silence`, `fablecut_beats`, `fablecut_reframe`, `fablecut_highlights`, `fablecut_transcribe`, `fablecut_captions`, `fablecut_export`, `fablecut_scopes`, `fablecut_track`.
-
-   The upstream project ([ronak-create/FableCut](https://github.com/ronak-create/FableCut)) is also published on the **official MCP registry** as
-   [`io.github.ronak-create/fablecut`](https://registry.modelcontextprotocol.io/v0/servers?search=fablecut)
-   — each release ships an MCPB bundle (`fablecut.mcpb`) that MCPB-capable
-   clients can install directly.
 
    The surface is **token-efficient by design**: agents patch the timeline with
    small ops (`fablecut_patch_project`) instead of round-tripping the whole

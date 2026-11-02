@@ -1,6 +1,7 @@
 {
   "name": "montclip",
   "version": "1.18.0",
+  "private": true,
   "description": "MontClip: a zero-dependency browser video editor that AI agents can drive — JSON timeline, MCP server, REST API, live-reloading UI.",
   "main": "server.js",
   "bin": {
@@ -36,10 +37,9 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/ronak-create/FableCut.git"
+    "url": "https://github.com/good-night-oppie/MontClip.git"
   },
   "homepage": "https://github.com/good-night-oppie/MontClip",
-  "mcpName": "io.github.ronak-create/fablecut",
   "license": "MIT",
   "engines": {
     "node": ">=18"
