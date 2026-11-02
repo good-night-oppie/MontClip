@@ -23,6 +23,8 @@ const {
 } = require("./paths");
 const { downloadImportUrl, kindFromName, maybeFaststart } = require("./import-url");
 const { prepareMedia } = require("./prepare-media");
+const Danmaku = require("./danmaku");
+const { readDanmakuFile } = require("./danmaku-file");
 const FX = require("./audio-fx");
 const EditOps = require("./edit-ops");
 const ProjectOps = require("./project-ops");
@@ -228,6 +230,18 @@ const TOOLS = [
       type: "object",
       properties: { path: { type: "string", description: "Absolute path to a local file, or an https:// URL to download" }, acceptReadable: {type:"boolean", description:"Explicitly accept the currently readable FLV range when timing is uncertain. Does not authorize timestamp gaps or transcoding."}, allowTranscode: {type: "boolean", description: "For incompatible local FLV only: explicitly consent to a compatible MP4 transcode. Default false; original retained."} },
       required: ["path"],
+    },
+  },
+  {
+    name: "fablecut_danmaku",
+    description: "Bilibili danmaku for a recording. {path, mediaId} reads a 录播姬 or Bilibili danmaku XML from a local path (read in pieces, any size; Chinese paths are fine) and keeps it in project.danmaku for that recording: each danmaku's display time and length in the recording's own seconds, and its send time, apart. User names and ids are not kept; gifts, super chats and guard events are only counted. Importing again replaces that recording's danmaku. mediaId may be left out when the project has one video or audio file. {mediaId, remove:true} removes them; {} lists them. The highlight candidates (P2) read them: a burst of danmaku is a reason on a card.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Absolute path to the danmaku .xml" },
+        mediaId: { type: "string", description: "The recording the danmaku belong to (a media id)" },
+        remove: { type: "boolean", description: "Remove this recording's danmaku" },
+      },
     },
   },
   {
@@ -1942,6 +1956,37 @@ async function callTool(name, args, attempt = 0) {
         musicNote,
         `REMAKE RECIPE: 1) set project width/height/fps to ${bp.width}x${bp.height} @ ${bp.fps} — 2) write beats[] into project markers — 3) extracted music on A1 — 4) one clip per shots[] entry at the same start/duration on V1 (hard cuts; footage energy should track each shot's energy value) — 5) biggest moment on drop (${bp.drop}s)${bp.bpm ? ` — tempo ${bp.bpm} BPM` : ""}. Full recipe: fablecut_docs → "Remake a reference video".`,
       ].join("\n");
+    }
+    case "fablecut_danmaku": {
+      const doc0 = readProject();
+      const listText = (doc) => {
+        const list = Danmaku.normalize(doc.danmaku, (doc.media || []).map((m) => m.id));
+        return list.length ? list.map((e) => `${e.mediaId} "${e.name}" ${e.format} ${e.count} danmaku`).join("\n") : "No danmaku in this project.";
+      };
+      if (!args.path && args.remove !== true) return listText(doc0);
+      const av = (doc0.media || []).filter((m) => m.kind === "video" || m.kind === "audio");
+      const mediaId = args.mediaId != null ? String(args.mediaId) : av.length === 1 ? av[0].id : null;
+      if (!mediaId) throw new Error("Say which recording: pass mediaId (" + (av.map((m) => m.id).join(", ") || "no video or audio in the project") + ")");
+      if (!(doc0.media || []).some((m) => m.id === mediaId)) throw new Error("no media " + mediaId);
+      let entry = null;
+      if (args.remove !== true) {
+        let parsed;
+        try { parsed = await readDanmakuFile(path.resolve(String(args.path))); }
+        catch (e) { throw new Error((e.code ? e.code + ": " : "") + e.message); }
+        entry = Danmaku.entry({ id: "dm_" + Math.random().toString(36).slice(2, 9), mediaId, name: path.basename(String(args.path)), parsed });
+      }
+      // re-read after the (possibly long) read so concurrent UI edits are kept
+      const proj = readProject();
+      if (!(proj.media || []).some((m) => m.id === mediaId)) throw new Error("no media " + mediaId);
+      const kept = (Array.isArray(proj.danmaku) ? proj.danmaku : []).filter((e) => e && e.mediaId !== mediaId);
+      const next = entry ? kept.concat([entry]) : kept;
+      if (next.length) proj.danmaku = next; else delete proj.danmaku;
+      proj.revision = (proj.revision || 0) + 1;
+      writeProject(proj);
+      lastReadRevision = proj.revision;
+      if (!entry) return `Danmaku removed from ${mediaId} (revision ${proj.revision}).`;
+      const sk = Object.entries(entry.skipped).filter(([, n]) => n).map(([k, n]) => `${n} ${k}`).join(", ");
+      return `Imported ${entry.count} danmaku (${entry.format}) for ${mediaId} (revision ${proj.revision}).` + (sk ? ` Not kept: ${sk}.` : "");
     }
     case "fablecut_import_media": {
       const src = args.path;
