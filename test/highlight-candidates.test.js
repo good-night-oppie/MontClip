@@ -120,3 +120,13 @@ test('card times: minutes:seconds with a tenth when there is one, and the length
   a.equal(H.seconds(18 - 9.2), '8.8');
   a.equal(H.seconds(7), '7');
 });
+
+// JJ (#52): a card's title is its time span only — no "#1" in front
+test('card titles carry no rank number', () => {
+  const app = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'app.js'), 'utf8');
+  const at = app.indexOf('async function showHighlightCandidates('), body = app.slice(at, app.indexOf('\n}\n', at));
+  const title = body.match(/<strong>([^<]*)<\/strong>/);
+  a.ok(title, 'the card title');
+  a.doesNotMatch(title[1], /^#/, 'starts with the time, not #number: ' + title[1]);
+  a.doesNotMatch(title[1], /c\.rank/);
+});
