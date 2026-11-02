@@ -13,7 +13,11 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
  const results={};
  try{
   await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
-  win.setContentSize(630,452);await wait(500);
+  // VV measures the page itself: 630×460 CSS px is the content of the smallest window (frame included). An offscreen
+  // window has no frame, so the app's minimum size would leave the page larger: lift it for this window only.
+  win.setMinimumSize(200,200);
+  for(let i=0;i<5;i++){const [iw,ih]=await read(`[innerWidth,innerHeight]`),[cw,ch]=win.getContentSize();if(iw===630&&ih===460)break;win.setContentSize(Math.round(cw*630/iw),Math.round(ch*460/ih));await wait(400);}
+  assert.deepEqual(await read(`[innerWidth,innerHeight]`),[630,460],'the page is 630×460');
   for(const language of ['zh-CN','en']){
    await read(`mcView.set({mode:'simple',language:${JSON.stringify(language)}});true`);await wait(300);
    const T=await read(`(()=>{const t=MontClipView.text[${JSON.stringify(language)}];return{above:uiText('own.tl-above-captions'),noCaption:t.officialPane_noCaptionSelected,config:t.officialPane_config,save:t.officialPane_save,caption:t.officialPane_reference};})()`);
@@ -28,7 +32,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
      const partly=rows.filter(r=>r.top<under-0.5&&r.bottom>under+0.5).map(r=>r.track);
      const whole=rows.filter(r=>r.top>=under-0.5&&r.bottom<=bottom+0.5).map(r=>r.track);
      const hint=document.getElementById('btnTracksAbove');
-     return{partly,whole,hidden:[...els.tracks.children].filter(r=>r.hidden&&project.clips.some(c=>c.track===r.dataset.track)).map(r=>r.dataset.track),hint:hint&&!hint.hidden?hint.textContent:null,hintCut:!!hint&&!hint.hidden&&(hint.scrollWidth>hint.clientWidth+0.5||hint.getBoundingClientRect().right>document.getElementById('trackHeadTools').getBoundingClientRect().right+0.5)};})()`;
+     return{partly,whole,hidden:[...els.tracks.children].filter(r=>r.hidden&&project.clips.some(c=>c.track===r.dataset.track)).map(r=>r.dataset.track),hint:hint&&hint.getClientRects().length?hint.textContent:null,hintCut:!!hint&&hint.getClientRects().length>0&&(hint.scrollWidth>hint.clientWidth+0.5||hint.getBoundingClientRect().right>document.getElementById('trackHeadTools').getBoundingClientRect().right+0.5)};})()`;
    const before=await read(lanes);
    assert.deepEqual(before.partly,[],language+': no visible lane is partly behind the ruler '+JSON.stringify(before));
    if(!before.whole.includes('V3')){
