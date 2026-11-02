@@ -19,22 +19,59 @@ const manifest = require("./ffmpeg-manifest.json");
 
 function arg(name) { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : null; }
 
-function download(url, file, hops = 0) {
+// Rejects on any network trouble: redirect loops, non-HTTPS hops, HTTP errors, a
+// response that breaks off ("aborted"/"error"), or no data for timeoutMs.
+function download(url, file, { get = https.get, timeoutMs = 120000 } = {}, hops = 0) {
   return new Promise((resolve, reject) => {
     if (hops > 5) return reject(new Error("too many redirects"));
     if (!url.startsWith("https://")) return reject(new Error("refusing non-HTTPS URL " + url));
-    https.get(url, (res) => {
+    let done = false, out = null, response = null, req = null;
+    // a failure also closes the half-written file and the response, so nothing stays open
+    const fail = (e) => { if (!done) { done = true; out?.destroy(); response?.destroy?.(); req?.destroy(); reject(e); } };
+    req = get(url, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        res.resume();
-        return resolve(download(new URL(res.headers.location, url).href, file, hops + 1));
+        res.resume(); done = true;
+        return resolve(download(new URL(res.headers.location, url).href, file, { get, timeoutMs }, hops + 1));
       }
-      if (res.statusCode !== 200) { res.resume(); return reject(new Error(`download failed: HTTP ${res.statusCode}`)); }
-      const out = fs.createWriteStream(file);
+      if (res.statusCode !== 200) { res.resume(); return fail(new Error(`download failed: HTTP ${res.statusCode}`)); }
+      response = res;
+      res.on("aborted", () => fail(new Error("download interrupted (connection aborted)")));
+      res.on("error", fail);
+      out = fs.createWriteStream(file);
       res.pipe(out);
-      out.on("finish", () => out.close(resolve));
-      out.on("error", reject);
-    }).on("error", reject);
+      out.on("finish", () => out.close(() => { if (!done) { done = true; resolve(); } }));
+      out.on("error", fail);
+    });
+    req.on("error", fail);
+    req.setTimeout(timeoutMs, () => fail(new Error(`download timed out after ${timeoutMs} ms without data`)));
   });
+}
+
+/** Copy ffmpeg/ffprobe/LICENSE into a staging folder beside dest, self-check the staged
+ *  ffmpeg, and only then swap it into dest (rename). A failure at any step leaves dest as
+ *  it was and removes the staging folder. Returns what check() returned. */
+function installTree({ src, dest, win, check, source }) {
+  const exe = (n) => (win ? n + ".exe" : n);
+  const parent = path.dirname(dest);
+  fs.mkdirSync(parent, { recursive: true });
+  const stage = fs.mkdtempSync(path.join(parent, ".staging-"));
+  const old = dest + ".old-" + path.basename(stage);
+  try {
+    for (const n of ["ffmpeg", "ffprobe"]) {
+      fs.copyFileSync(path.join(src, "bin", exe(n)), path.join(stage, exe(n)));
+      if (!win) fs.chmodSync(path.join(stage, exe(n)), 0o755);
+    }
+    fs.copyFileSync(path.join(src, "LICENSE.txt"), path.join(stage, "LICENSE.txt"));
+    const version = check(path.join(stage, exe("ffmpeg")));
+    fs.writeFileSync(path.join(stage, "SOURCE.json"), JSON.stringify({ ...(source || {}), checked: version || null }, null, 2) + "\n");
+    if (fs.existsSync(dest)) fs.renameSync(dest, old);
+    try { fs.renameSync(stage, dest); }
+    catch (e) { if (fs.existsSync(old)) fs.renameSync(old, dest); throw e; }
+    fs.rmSync(old, { recursive: true, force: true });
+    return version;
+  } finally {
+    fs.rmSync(stage, { recursive: true, force: true });
+  }
 }
 
 function sha256(file) {
@@ -77,21 +114,10 @@ async function main() {
     if (t.status !== 0) throw new Error("extracting the archive failed");
     const src = path.join(ex, build.root);
     const win = plat.startsWith("win32");
-    const exe = (n) => (win ? n + ".exe" : n);
     const dest = path.join(ROOT, "vendor", "ffmpeg", plat);
-    fs.rmSync(dest, { recursive: true, force: true });
-    fs.mkdirSync(dest, { recursive: true });
-    for (const n of ["ffmpeg", "ffprobe"]) {
-      fs.copyFileSync(path.join(src, "bin", exe(n)), path.join(dest, exe(n)));
-      if (!win) fs.chmodSync(path.join(dest, exe(n)), 0o755);
-    }
-    fs.copyFileSync(path.join(src, "LICENSE.txt"), path.join(dest, "LICENSE.txt"));
     const runnable = plat === `${process.platform}-${process.arch}`;
-    const version = runnable ? checkLgpl(path.join(dest, exe("ffmpeg"))) : null;
-    fs.writeFileSync(path.join(dest, "SOURCE.json"), JSON.stringify({
-      version: manifest.version, license: manifest.license, builder: manifest.builder, source: manifest.source,
-      url: build.url, sha256: build.sha256, checked: version,
-    }, null, 2) + "\n");
+    const version = installTree({ src, dest, win, check: (file) => (runnable ? checkLgpl(file) : null),
+      source: { version: manifest.version, license: manifest.license, builder: manifest.builder, source: manifest.source, url: build.url, sha256: build.sha256 } });
     console.log(`installed ${plat} into ${dest}` + (version ? ` (${version})` : " (not runnable here; LGPL check skipped)"));
   } finally {
     fs.rmSync(work, { recursive: true, force: true });
@@ -99,4 +125,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch((e) => { console.error(e.message); process.exit(1); });
-module.exports = { checkLgpl, sha256 };
+module.exports = { checkLgpl, sha256, download, installTree };
