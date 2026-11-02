@@ -1994,7 +1994,8 @@ input[type=range] {
   box-sizing: border-box;
 }
 
-.track-head-tools .tracks-above {font-size:10px;padding:1px 3px;white-space:nowrap;}
+/* JJ's wording (#50) is longer than the corner is wide: it wraps to two lines inside the 26px corner (.btn.tracks-above: after .track-head-tools .btn) */
+.track-head-tools .btn.tracks-above {font-size:10px;padding:0 3px;white-space:normal;line-height:12px;height:auto;min-height:0;max-width:100%;}
 /* a hidden attribute alone loses to the .btn display rule; keep the hint off screen when it is hidden */
 #btnTracksAbove[hidden] {display:none;}
 /* while lanes are folded above, the corner says so; +V / +A step aside for it */
