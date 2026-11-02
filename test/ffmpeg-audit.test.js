@@ -111,3 +111,19 @@ test('QQ (2026-11-02): the build to publish is recorded in the repository; the b
  const b = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'build-ffmpeg.yml'), 'utf8');
  a.match(b, /uses: actions\/checkout@[0-9a-f]{40}[^\n]*\n\s+with:\n\s+persist-credentials: false/);
 });
+
+test('the manifest points at our own build without openh264: release assets of this repository, the SHA-256 the ADR records', () => {
+ const man = require('../desktop/ffmpeg-manifest.json'), {auditManifest} = require('../desktop/ffmpeg-audit');
+ const adr = fs.readFileSync(path.join(__dirname, '..', 'docs', 'decisions', '2026-11-02-h264-encoder.md'), 'utf8');
+ a.equal(man.openh264, false);
+ a.deepEqual(auditManifest(man), []);
+ const want = { 'win32-x64': ['win64', 'zip', '67c30e30206b5bddcc2af9ea4f0215bbbcd2519533316997945a0fd9602a2f96'],
+   'linux-x64': ['linux64', 'tar.xz', '69a9690a4c0eb7e7059f2141de54b4ec57100741a95a04809734c6adc9a0b8ae'] };
+ for (const [plat, [t, ext, sha]] of Object.entries(want)) {
+  const b = man.builds[plat], file = `ffmpeg-n9.0.2-42-gd7643a0fe3-${t}-lgpl-9.0.${ext}`;
+  a.equal(b.url, 'https://github.com/good-night-oppie/MontClip/releases/download/ffmpeg-n9.0.2-42-noh264/' + file, plat);
+  a.equal(b.sha256, sha, plat); a.ok(adr.includes(sha), plat + ': the ADR records this SHA-256');
+  a.equal(b.root, file.replace(/\.(zip|tar\.xz)$/, ''), plat);
+ }
+ a.match(man.builder, /41397853139/); a.match(man.builder, /disable-libopenh264/);
+});
