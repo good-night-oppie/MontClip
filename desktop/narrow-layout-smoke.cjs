@@ -10,6 +10,8 @@
 // and saves a page capture (the app's own page; never the screen) for each case.
 // Pass --montclip-smoke; output dir in MONTCLIP_LAYOUT_OUT.
 const electron=require('electron'),{app,BrowserWindow}=electron,fs=require('node:fs'),path=require('node:path');
+const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
+if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke required');
 const out=process.env.MONTCLIP_LAYOUT_OUT||null;if(out&&!path.isAbsolute(out))throw Error('MONTCLIP_LAYOUT_OUT must be an absolute folder');const SIZES=[[1270,800],[804,535],[630,452]];
 const MEASURE=`(async()=>{
