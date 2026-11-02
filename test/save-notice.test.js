@@ -16,6 +16,10 @@ test("JJ's wording, zh and en, word for word", () => {
     '"q-saved": ["Saved", "已保存"]',
     '"export-save-cancelled": ["Not saved. The exported video is still here: open the export queue and click Save on this item to save it again.", "没有保存。导出的视频还在，打开『导出队列』，在这一条后面点『保存』就能再存一次。"]',
     '"captions-save-cancelled": ["Captions not saved. Click export captions again to save them.", "字幕没有保存。可以再点一次导出字幕。"]',
+    // JJ on 71cd650: a failed save of an export says it is still there; the general cancel and failure lines
+    '"export-save-failed": ["The save did not finish. The exported video is still here: open the export queue and click Save on this item to try again. If it still fails, choose another location or check that it has enough space.", "没有保存成功。导出的视频还在，打开『导出队列』，在这一条后面点『保存』再试一次；还不行的话，换个位置保存，或者看看那里的空间够不够。"]',
+    '"save-failed": ["The save did not finish. Try another location, or check that it has enough space.", "没有保存成功。请换个位置再试，或者看看那里的空间够不够。"]',
+    '"save-canceled": ["Not saved. Click again if you need it.", "没有保存。需要的话再点一次。"]',
   ]) a.ok(ui.includes(line), line);
   a.doesNotMatch(ui, /"export-not-saved"|"queue-saved"/, 'the earlier drafts are gone');
 });
@@ -51,6 +55,7 @@ test('the page: success only once saved; a cancel says how to save again; captio
   a.match(fn, /else if \(savedMsg\) toast\(savedMsg\);/, 'the browser keeps its old order');
   a.match(app, /state === "cancelled"\) toast\(uiText\(wasExport \? "own\.export-save-cancelled" : kind === "captions" \? "own\.captions-save-cancelled" : "own\.save-canceled"\)\)/);
   a.match(app, /if \(removed\) for \(const q of exportQueue\) if \(q\.file === name\) q\.saved = true;/);
+  a.match(app, /else toast\(uiText\(wasExport \? "own\.export-save-failed" : "own\.save-failed"\)\);/, 'a failed save: the export line for an export, the general one otherwise');
   a.match(app, /saveDownload\(url, name, \{ kind: "captions", savedMsg:/);
   a.equal((app.match(/exportFile: true/g) || []).length, 4, 'three export paths and the queue\'s Save');
   a.doesNotMatch(app, /toast\(o\.report && !o\.report\.ok \? `Exported/);

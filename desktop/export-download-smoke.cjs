@@ -92,6 +92,23 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   assert.equal(out.cancelledEn.copyLeft,true);
   out.captionCancel=await download(`saveDownload(URL.createObjectURL(new Blob(['1'])),'录播.srt',{kind:'captions',savedMsg:'Saved 1 caption'})`,cancel);
   assert.equal(out.captionCancel.dialog.title,'Save captions');assert.equal(out.captionCancel.toast,'Captions not saved. Click export captions again to save them.');
+  // a save that fails (the chosen folder is not there): an export keeps its copy and says how to try again; other downloads say the general line
+  const failSave=(item)=>item.setSavePath(path.join(saved,'no such folder','x-'+item.getFilename()));
+  out.failedEn=await download(`saveDownload(${JSON.stringify(src2)},${JSON.stringify(name2)},{exportFile:true})`,failSave);
+  assert.equal(out.failedEn.state,'interrupted');assert.equal(out.failedEn.copyLeft,true,'a failed save keeps the export');
+  assert.equal(out.failedEn.toast,'The save did not finish. The exported video is still here: open the export queue and click Save on this item to try again. If it still fails, choose another location or check that it has enough space.');
+  out.mapFailedEn=await download(`saveDownload(URL.createObjectURL(new Blob(['{}'])),'MontClip.mapping.json')`,failSave);
+  assert.equal(out.mapFailedEn.state,'interrupted');assert.equal(out.mapFailedEn.toast,'The save did not finish. Try another location, or check that it has enough space.');
+  out.mapCancelEn=await download(`saveDownload(URL.createObjectURL(new Blob(['{}'])),'MontClip.mapping.json')`,cancel);
+  assert.equal(out.mapCancelEn.toast,'Not saved. Click again if you need it.');
+  await lang('zh-CN');
+  out.failedZh=await download(`saveDownload(${JSON.stringify(src2)},${JSON.stringify(name2)},{exportFile:true})`,failSave);
+  assert.equal(out.failedZh.toast,'没有保存成功。导出的视频还在，打开『导出队列』，在这一条后面点『保存』再试一次；还不行的话，换个位置保存，或者看看那里的空间够不够。');assert.equal(out.failedZh.copyLeft,true);
+  out.mapFailedZh=await download(`saveDownload(URL.createObjectURL(new Blob(['{}'])),'MontClip.mapping.json')`,failSave);
+  assert.equal(out.mapFailedZh.toast,'没有保存成功。请换个位置再试，或者看看那里的空间够不够。');
+  out.mapCancelZh=await download(`saveDownload(URL.createObjectURL(new Blob(['{}'])),'MontClip.mapping.json')`,cancel);
+  assert.equal(out.mapCancelZh.toast,'没有保存。需要的话再点一次。');
+  await lang('en');
   out.queueEn=await queueView();
   assert.deepEqual(out.queueEn.rows.map(r=>[r.id,r.save,r.saved]),[['qsmoke',null,'Saved'],['q2','Save',null]]);assert.equal(out.queueEn.button,'Export queue · 2');
   // 7. the queue's Save, saved: now the copy goes, and the row says Saved
