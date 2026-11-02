@@ -39,8 +39,10 @@ function attach(item, { origin, exportsDir, language, downloadsDir, onDone, expe
   item.once('done', async (_e, state) => {
     let removed = false;
     const saved = state === 'completed' ? item.getSavePath() : '';
-    if (copy && expected && saved && path.resolve(saved).toLowerCase() !== path.resolve(copy).toLowerCase()) {
-      let fresh = false; try { fresh = (await claim(name)) === true; } catch { fresh = false; }
+    // one name throughout (QQ, 71cd650): the file the URL points at must be the one the page asked for and the server
+    // made; when the download's file name differs, nothing is removed
+    if (copy && expected && path.basename(copy) === name && saved && path.resolve(saved).toLowerCase() !== path.resolve(copy).toLowerCase()) {
+      let fresh = false; try { fresh = (await claim(path.basename(copy))) === true; } catch { fresh = false; }
       // the server may still be closing its read of the file: try again for a few seconds, then leave it
       if (fresh) removed = await new Promise((resolve) => { const remove = (tries) => { try { fs.rmSync(copy, { force: true }); resolve(true); } catch { if (tries > 0) setTimeout(() => remove(tries - 1), 500); else resolve(false); } }; remove(10); });
     }
