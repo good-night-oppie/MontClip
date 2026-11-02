@@ -77,6 +77,10 @@ async function main() {
   const listed = sums.split('\n').map((l) => l.trim().split(/\s+/)).find((p) => p[1] === path.basename(zip));
   out.sha256 = sha(zip);
   assert.ok(listed && listed[0] === out.sha256, 'the zip matches SHA256SUMS.txt');
+  // every entry is named with '/' (QQ, #57: they had a backslash), non-ASCII names flagged UTF-8
+  const entries = require('./zip-entries.cjs').zipEntries(zip);
+  out.zipEntries = { count: entries.length, withBackslash: entries.filter((e) => e.name.includes(String.fromCharCode(92))).length, nonAsciiNotUtf8: entries.filter((e) => /[^\x00-\x7f]/.test(e.name) && !e.utf8).length };
+  assert.deepEqual([out.zipEntries.withBackslash, out.zipEntries.nonAsciiNotUtf8], [0, 0], 'zip entry names: ' + JSON.stringify(out.zipEntries));
   // 2. unpack into a new folder with Chinese and a space; a new profile
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'MontClip 包测试 ')), profile = path.join(root, '全新 profile'), media = path.join(root, '合成 素材');
   fs.mkdirSync(profile); fs.mkdirSync(media);
