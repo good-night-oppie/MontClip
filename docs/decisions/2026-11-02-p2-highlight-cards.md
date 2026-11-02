@@ -47,10 +47,10 @@ takes a few seconds per minute of timeline, then it shows up to 12 cards, best f
     start, in point, speed, volume and gain, adding the clips that sound at once in power. Effects, faders and volume
     keyframes are not applied: it shows where the timeline is louder, not the export mix. Without a server (the web
     demo), or when the server cannot read a file, the timeline's own mix is rendered in 60 s pieces instead.
-  - **Beats:** the existing beat analysis (`beats.js`) on the mix, only for timelines up to 10 minutes.
   - **Danmaku:** imported danmaku (`project.danmaku`, one entry per recording, in the recording's seconds — see
     `danmaku.js` and "Danmaku (Bilibili recordings)" in CLAUDE.md), mapped onto the timeline through each clip that
     plays the recording.
+  - **No beat** (JJ, 2026-11-02): the beat analysis is not a signal for highlights; see "No beat" under Score.
 - **Candidates** (`highlight-candidates.js`, pure, tested):
   - With sentences, consecutive sentences are grouped, a pause of 1.2 s or more starts a new group, and groups run
     4–45 s, splitting longer runs at a sentence. Without sentences, the spans of sound between silences are used
@@ -60,10 +60,12 @@ takes a few seconds per minute of timeline, then it shows up to 12 cards, best f
   - **loudness:** the group's mean (power) at least 4 dB above the timeline's median, or its peak at least 8 dB above;
   - **danmaku:** at least 1.8× the timeline's average rate, and at least 3 danmaku;
   - **speech:** characters per second at least 1.35× the median sentence;
-  - **beat:** a steady beat inside the window. It only adds to a card that already has another reason; a music
-    bed alone is not a highlight.
-- **Score:** loudness weighs most (up to 0.55, reached at 24 dB above the usual level), then danmaku (0.45), speech
-  (0.15) and beat (0.05). A tie goes to the louder mean, then the louder peak, then the earlier card.
+- **Score:** loudness weighs most (up to 0.55, reached at 24 dB above the usual level), then danmaku (0.45) and speech
+  (0.15). A tie goes to the louder mean, then the louder peak, then the earlier card.
+- **No beat (JJ, 2026-11-02, on c5b1f98):** every point on a card needs a reason the streamer can see. A steady beat
+  was a reason nobody could act on, and it added 0.05 to the score. It is gone: no beat reason, no beat score, and
+  the highlight dialog no longer runs the beat analysis (`beats.js` stays for the editor's own beat tools).
+  Highlights of singing will be designed separately.
 - **Empty states**, each with its own text:
   - nothing on the timeline;
   - no sentences and no sound to read;
@@ -90,7 +92,7 @@ ffmpeg's own memory is not in the app's process metrics. The temporary clip and 
 ## Relation to P1
 
 P1 (the local media index, built in the background and stored by content hash) is not built yet. P2 therefore
-computes the minimal subset it needs on demand: loudness, silences, beats, sentences and danmaku. The per-file
+computes the minimal subset it needs on demand: loudness, silences, sentences and danmaku. The per-file
 loudness cache (`analysis/signals/`, keyed by the file's name, size and modification time) is the first piece of
 that index. P1 takes it over, moves it to content hashes and runs it in the background; the candidate logic stays
 as it is.

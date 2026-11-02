@@ -1,7 +1,7 @@
 /* MontClip P2 — highlight candidates from local signals (no model, nothing leaves the computer).
  *
  * Input (all in timeline seconds): the timeline's length, its sentences (caption clips), a loudness curve of the
- * timeline's own sound mix ({step, values: dBFS}), and, when there are any, beat times and danmaku times. Output:
+ * timeline's own sound mix ({step, values: dBFS}), and, when there are any, danmaku times. Output:
  * candidate ranges, each with a score and the reasons it was picked; a reason names its signal, the measured value,
  * what it was compared with and the window it was measured over, so every claim on a card can be checked.
  *
@@ -23,7 +23,6 @@
     loudMinDb: 4,        // louder than the timeline's median by at least this → a loudness reason
     danmakuMinRatio: 1.8, // this many times the average danmaku rate → a danmaku reason
     speechMinRatio: 1.35, // characters per second against the median sentence → a speech reason
-    beatMinRate: 1.2,    // beats per second inside the window → a beat reason (only adds, never alone)
     max: 12,             // at most this many cards
   });
   const LOUD_FULL = 24;   // dB above the usual level that gives the full loudness score
@@ -90,7 +89,6 @@
     const sentences = sig.sentences || [];
     const rates = sentences.filter((s) => s.end > s.start).map((s) => chars(s.text) / (s.end - s.start)).filter((x) => x > 0);
     const speechBase = rates.length ? median(rates) : null;
-    const beats = Array.isArray(sig.beats) ? sig.beats : [];
     const out = [];
     for (const g of segs) {
       const win = [g.from, g.to], len = g.to - g.from, reasons = [];
@@ -122,11 +120,7 @@
           score += Math.min(1, (ratio - 1) / 1.5) * 0.15;
         }
       }
-      // a beat only adds to a window that already stands out (a music bed alone is not a highlight)
-      if (score > 0 && beats.length) {
-        const n = beats.filter((t) => t >= g.from && t < g.to).length, rate = n / len;
-        if (rate >= o.beatMinRate) { reasons.push({ signal: "beat", value: r1(rate * 60), count: n, window: win }); score += 0.05; }
-      }
+      // no beat reason (JJ, #52): every point on a card needs a reason the streamer can see
       if (score > 0) out.push({ from: g.from, to: g.to, score: Math.round(score * 1000) / 1000, reasons, sentenceIds: g.sentenceIds, text: g.text });
     }
     out.sort(compare);
