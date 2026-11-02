@@ -19,3 +19,9 @@ test('the product is called MontClip everywhere the user can read it',()=>{
  for(const [k,[en,zh]] of Object.entries(terms.rows))a.ok(!/FableCut/.test(en+zh),k);
  a.ok(!/Needs the FableCut server/.test(app),'menu notes name MontClip');
 });
+
+test('menus built in app.js take SPEC terms by key',()=>{
+ for(const k of ['precompose','open-composition','reveal-in-project','replace-file','duplicate','save-as-template','delete','new-folder'])a.ok(app.includes('uiText("term.'+k+'")'),k);
+ a.ok(!/item\("(Precompose|Open composition|Reveal in project|Duplicate|Delete)"/.test(app));
+ a.equal(view.t('zh-CN','term.open-composition'),'打开复合片段');
+});
