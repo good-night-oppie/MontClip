@@ -43,8 +43,6 @@ jobs:
       FFMPEG_COMMIT: d7643a0fe3f4f65516c302eba045ba884faed015 # n9.0.2-42-gd7643a0fe3
       VARIANT: lgpl
       ADDIN: "9.0"
-      # build.sh names its image after this repository; make it BtbN's, which we pull by digest below
-      GITHUB_REPOSITORY: btbn/ffmpeg-builds
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -88,7 +86,9 @@ jobs:
           git -C btbn diff
 
       - name: Build FFmpeg
-        run: cd btbn && ./build.sh ${{ matrix.target }} "$VARIANT" "$ADDIN"
+        # build.sh names its image after GITHUB_REPOSITORY (the runner always sets it to this repository);
+        # give it BtbN's name, which the pull step tagged locally from the pinned digest
+        run: cd btbn && GITHUB_REPOSITORY=btbn/ffmpeg-builds ./build.sh ${{ matrix.target }} "$VARIANT" "$ADDIN"
 
       - name: Verify (no libopenh264, no GPL) and record the SHA-256
         run: |
