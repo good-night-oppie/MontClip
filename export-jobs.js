@@ -48,8 +48,9 @@ function findBrowser(env = process.env) {
 function createExportJobs(opts) {
   function assertWhere(where = "auto") {
     if (opts.allowHeadless !== false) return;
-    if (where === "headless") throw Object.assign(new Error("桌面模式不允许系统浏览器后台任务。 / Headless system browsers are disabled in desktop mode."), { code: 409, errorCode: "HEADLESS_DISABLED" });
-    if (!opts.editors()) throw Object.assign(new Error("编辑页面尚未就绪，请打开页面后重试。 / The editor is not ready; open it and retry."), { code: 409, errorCode: "EDITOR_NOT_READY" });
+    // English for agents and logs; the page says errorCode in the interface language (app.js codeText)
+    if (where === "headless") throw Object.assign(new Error("Headless system browsers are disabled in desktop mode."), { code: 409, errorCode: "HEADLESS_DISABLED" });
+    if (!opts.editors()) throw Object.assign(new Error("The editor is not ready; open it and retry."), { code: 409, errorCode: "EDITOR_NOT_READY" });
   }
   const jobs = new Map();
   let timer = null;
@@ -82,10 +83,10 @@ function createExportJobs(opts) {
     const now = Date.now();
     for (const j of jobs.values()) {
       if (j.status === "pending" && now - j.created > (j.via === "headless" ? PENDING_HEADLESS_MS : PENDING_TAB_MS))
-        end(j, "failed", { error: j.via === "headless"
-          ? "the headless browser never picked up the job (it may have failed to start or to load the editor)"
-          : opts.allowHeadless === false
-            ? "编辑页面未接收任务，请等待页面就绪后重试。 / The editor did not accept the task; retry when it is ready."
+        end(j, "failed", j.via !== "headless" && opts.allowHeadless === false
+          ? { error: "The editor did not accept the task; retry when it is ready.", errorCode: "EDITOR_DID_NOT_ACCEPT" }
+          : { error: j.via === "headless"
+            ? "the headless browser never picked up the job (it may have failed to start or to load the editor)"
             : "no editor tab picked up the job — is it busy exporting? Retry with where:\"headless\"" });
       else if (j.status === "running" && now - j.updated > STALL_MS)
         end(j, "failed", { error: "the editor stopped reporting progress (tab closed or browser crashed)" });

@@ -41,6 +41,12 @@ const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
 /** On-device transcription: on in development and the browser editor; a packaged desktop build has it
  *  off unless the main process turned it on (desktop/features.js). Off means no entry and no download. */
 function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
+/** A server refusal's reason code, said in the interface language; "" when the code has no text of its own. */
+const CODE_TEXT = { NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready", EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept" };
+function codeText(error) {
+  const code = error && (error.code || error.errorCode);
+  return typeof code === "string" && CODE_TEXT[code] ? uiText(CODE_TEXT[code]) : "";
+}
 function renderMontClipView() {
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
   document.documentElement.lang = language;
@@ -2112,7 +2118,7 @@ async function importFromUrl(url) {
       signal: runtime.importUrlAbort.signal,
     });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || "import failed (" + res.status + ")");
+    if (!res.ok) throw Object.assign(new Error(body.error || "import failed (" + res.status + ")"), { code: body.code });
     const kind = libKind(body.name);
     if (!kind) throw new Error("unsupported file type: " + (body.name || ""));
     const folderId = runtime.importFolderId && getFolder(runtime.importFolderId)
@@ -2132,7 +2138,7 @@ async function importFromUrl(url) {
   } catch (e) {
     if (e && e.name === "AbortError") return;
     setImportUrlBusy(false);
-    toast(e && e.message ? e.message : "Couldn't import URL");
+    toast(codeText(e) || (e && e.message ? e.message : "Couldn't import URL"));
   } finally {
     runtime.importUrlAbort = null;
   }
@@ -9585,7 +9591,7 @@ async function showSentenceSelection() {
 function downloadSourceMap() {
   let map;
   try { map = FableCutCaptions.sourceMap(projectJSON()); } catch (error) { toast(error.message); return; }
-  if (!map.segments.length) { toast("没有可映射的音视频 / No source media to map"); return; }
+  if (!map.segments.length) { toast(uiText("own.map-no-media")); return; }
   const a = document.createElement("a"), url = URL.createObjectURL(new Blob([JSON.stringify(map, null, 2)], { type: "application/json" }));
   a.href = url; a.download = "MontClip.mapping.json"; a.click(); setTimeout(() => URL.revokeObjectURL(url), 2000);
 }

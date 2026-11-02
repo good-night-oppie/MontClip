@@ -76,6 +76,12 @@
     "rp-source-changed": ["Caption timing changed after the selection; the source mapping needs rebuilding.", "选段后字幕时间已改变，请重新建立源时间映射。"],
     "rp-source-invalid": ["A clip's timing doesn't match its file. Check the clip, then select again.", "有片段的时间和它的文件对不上，请检查后重新选择。"],
     "rp-source-loop": ["A clip runs past the end of its file; selecting sentences doesn't support that yet.", "有片段超出了源文件长度，按句选段暂不支持。"],
+    // refusals the server sends as a code (JJ to review); the Chinese is the old message's Chinese half
+    "err-offline": ["Offline mode: import a local file.", "当前为离线模式，请导入本地文件。"],
+    "err-headless-disabled": ["Background browser tasks are turned off in the desktop app.", "桌面模式不允许系统浏览器后台任务。"],
+    "err-editor-not-ready": ["The editor is not ready yet. Open it, then try again.", "编辑页面尚未就绪，请打开页面后重试。"],
+    "err-editor-no-accept": ["The editor did not take the task. Wait until it is ready, then try again.", "编辑页面未接收任务，请等待页面就绪后重试。"],
+    "map-no-media": ["There is no audio or video to map.", "没有可映射的音视频。"],
     "connected": ["local service running", "本机服务正常"],
     "local-session": ["local session only", "仅本地会话"],
   };
