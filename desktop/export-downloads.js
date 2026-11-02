@@ -1,9 +1,8 @@
 'use strict';
 /* The editor's own downloads (an export from /exports/, captions or a mapping from a blob). VV, package fccc225: the
    Save dialog's title was the download URL, and every export stayed behind as a hidden copy in workspace/exports.
-   attach() gives the dialog a plain title in the interface language and the file name, and once the download is done —
-   saved or cancelled — removes the one export file it came from. An interrupted save keeps it, so nothing is lost.
-   onDone hears how every download ended ({state, name}), so the page can say whether a file was saved. */
+   attach() gives the dialog a plain title in the interface language and the file name, and once this session's export
+   is saved, removes its copy (see attach). */
 const fs = require('node:fs'), path = require('node:path');
 
 const TITLES = {
@@ -29,19 +28,23 @@ function exportCopy(url, { origin, exportsDir }) {
   return path.join(exportsDir, name);
 }
 
-function attach(item, { origin, exportsDir, language, downloadsDir, onRemoved, onDone } = {}) {
+/* The copy is removed only when all three hold (QQ / Deja, 0a2c13b): `expected` — the page's own export download asked
+   for this file; `claim(name)` — the server says it is this session's new export (registered by /api/export/end, once);
+   and the save completed somewhere other than the copy itself. A cancel or a failed save keeps it: it may be the only
+   copy of a long render. onDone hears every outcome ({state, name, removed}). */
+function attach(item, { origin, exportsDir, language, downloadsDir, onDone, expected = false, claim = async () => false } = {}) {
   const name = item.getFilename();
   item.setSaveDialogOptions(saveDialogOptions(name, language, downloadsDir));
-  if (onDone) item.once('done', (_e, state) => onDone({ state, name }));
   const copy = exportCopy(item.getURL(), { origin, exportsDir });
-  if (!copy) return;
-  item.once('done', (_e, state) => {
-    if (state !== 'completed' && state !== 'cancelled') return;
+  item.once('done', async (_e, state) => {
+    let removed = false;
     const saved = state === 'completed' ? item.getSavePath() : '';
-    if (saved && path.resolve(saved).toLowerCase() === path.resolve(copy).toLowerCase()) return;
-    // the server may still be closing its read of the file: try again for a few seconds, then leave it
-    const remove = (tries) => { try { fs.rmSync(copy, { force: true }); if (onRemoved) onRemoved(copy); } catch { if (tries > 0) setTimeout(() => remove(tries - 1), 500); } };
-    remove(10);
+    if (copy && expected && saved && path.resolve(saved).toLowerCase() !== path.resolve(copy).toLowerCase()) {
+      let fresh = false; try { fresh = (await claim(name)) === true; } catch { fresh = false; }
+      // the server may still be closing its read of the file: try again for a few seconds, then leave it
+      if (fresh) removed = await new Promise((resolve) => { const remove = (tries) => { try { fs.rmSync(copy, { force: true }); resolve(true); } catch { if (tries > 0) setTimeout(() => remove(tries - 1), 500); else resolve(false); } }; remove(10); });
+    }
+    if (onDone) onDone({ state, name, removed });
   });
 }
 

@@ -94,6 +94,8 @@
     // the Save dialog's outcome in the desktop app (VV, 012ba18; for JJ to review)
     "save-canceled": ["Save canceled. No file was saved.", "已取消保存，没有保存文件。"],
     "save-failed": ["The save did not finish. No file was saved.", "保存没有完成，没有保存文件。"],
+    "export-not-saved": ["Not saved. The exported video is still here; click Open in the export list to save it again.", "没有保存。导出的视频还在，可以在导出列表里点「Open」再存一次。"],
+    "queue-saved": ["Saved where you chose", "已保存到你选的位置"],
     "import-url-title": ["Download media from an HTTPS URL into the project", "从 HTTPS 网址下载素材到项目"],
     "fit": ["Fit", "适配"],
     "or-click": ["or click", "或点击"],

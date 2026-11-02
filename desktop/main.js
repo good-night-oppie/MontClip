@@ -70,14 +70,19 @@ async function start() {
     }
     callback({ responseHeaders: headers });
   });
+  // the exports the editor page is about to download (its own export flow, not Open in the queue); one each
+  const expectedExports = new Set();
+  ipcMain.on("montclip:downloads:expect", (event, name) => { if (settingsAllowed(event, win, origin) && typeof name === "string" && name.length > 0 && name.length <= 255 && !/[\\/]/.test(name)) expectedExports.add(name); });
   ses.on("will-download", (event, item, contents) => {
     // Editor-owned exports only. Native save dialog remains the user's destination choice.
     const url = item.getURL();
     if (!win || contents !== win.webContents ||
         !(url.startsWith("blob:" + origin + "/") || local(url) && new URL(url).pathname.startsWith("/exports/"))) { event.preventDefault(); return; }
-    // A plain title and file name in the interface language; the workspace copy goes once it is saved or cancelled.
+    // A plain title and file name in the interface language; this session's export loses its copy once it is saved.
     require("./export-downloads").attach(item, { origin, exportsDir: path.join(env.FABLECUT_DATA_DIR, "exports"), language: languageOf(settings.get()), downloadsDir: app.getPath("downloads"),
-      onDone: (v) => { if (win && !win.isDestroyed()) win.webContents.send("montclip:download:done", { state: v.state, name: v.name }); } });
+      expected: expectedExports.delete(item.getFilename()),
+      claim: async (n) => { const r = await fetch(origin + "/api/export/claim?name=" + encodeURIComponent(n), { method: "POST", headers: { "X-MontClip-Session": token } }); return r.ok && (await r.json()).fresh === true; },
+      onDone: (v) => { if (win && !win.isDestroyed()) win.webContents.send("montclip:download:done", { state: v.state, name: v.name, removed: v.removed }); } });
   });
   win = new BrowserWindow({ width: 1280, height: 820, minWidth: 640, minHeight: 480,
     title: "MontClip", show: false, webPreferences: { session: ses, sandbox: true,

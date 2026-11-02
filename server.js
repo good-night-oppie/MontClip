@@ -624,6 +624,10 @@ function stopExportSweep() {
   exportSweepTimer = null;
 }
 
+/* The files /api/export/end made since this server started, until the desktop app claims one (after its Save dialog
+   saved it): only these may lose their copy in exports/ (QQ, 0a2c13b). */
+const freshExports = new Set();
+
 /* Agent-requested exports: handed to an open editor tab over SSE, or to a
    headless browser the server starts (export-jobs.js). */
 const exportJobs = createExportJobs({
@@ -1289,6 +1293,13 @@ const server = http.createServer(async (req, res) => {
     } catch (e) { sendJSON(res, 500, { error: String(e) }); }
     return;
   }
+  /* {fresh:true} once for a file this session exported (then forgotten); {fresh:false} for anything else */
+  if (p === "/api/export/claim") {
+    if (req.method !== "POST") { sendJSON(res, 405, { error: "POST only" }); return; }
+    const name = url.searchParams.get("name") || "";
+    sendJSON(res, 200, { fresh: freshExports.delete(name) });
+    return;
+  }
   if (p === "/api/export/end" && req.method === "POST") {
     const id = url.searchParams.get("id");
     const sess = exportSessions.get(id);
@@ -1311,6 +1322,7 @@ const server = http.createServer(async (req, res) => {
           try { fs.renameSync(o.partPath, o.outPath); }
           catch (e) { return { file, ok: false, error: "could not save the file: " + (e.message || e) }; }
           o.partPath = null; // renamed — cleanup must not delete the finished file
+          freshExports.add(file);
           const report = await verifyDeliveryOutput(sess, o, o.outPath);
           return { file, ok: true, src: "/exports/" + encodeURIComponent(file), ...(report ? { report } : {}),
             ...(o.loudnorm ? { mixLoudness: o.loudnorm.input_i } : {}) };
@@ -1327,6 +1339,7 @@ const server = http.createServer(async (req, res) => {
       const out = sess.outPath;
       fs.renameSync(sess.partPath, out);
       sess.partPath = null; // renamed — cleanup must not delete the finished file
+      freshExports.add(path.basename(out));
       cleanupExport(id);
       sendJSON(res, 200, { ok: true, src: "/exports/" + encodeURIComponent(path.basename(out)) });
     } catch (e) { cleanupExport(id); sendJSON(res, 500, { error: String(e) }); }

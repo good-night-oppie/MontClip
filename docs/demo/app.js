@@ -1216,20 +1216,24 @@ function localTimeForMedia(c, mediaTarget) {
 }
 let toastTimer = null;
 /* The editor's own downloads. In the desktop app the Save dialog decides: the success message waits until the file
-   is saved, and a cancel says nothing was saved (VV, 012ba18: Cancel still read "Exported … checks passed"). The
-   browser shows the message as before. */
-const pendingSaves = new Map();   // file name → its success message
-function saveDownload(href, name, savedMsg) {
+   is saved (VV, 012ba18: Cancel still read "Exported … checks passed"). An export's download names itself first, so
+   once saved its copy in exports/ may go (desktop/export-downloads.js); a cancel keeps it and says where it is, and
+   its queue row then says it was saved. The browser shows the message as before. */
+const pendingSaves = new Map(), pendingExports = new Set();   // file name → its success message · names of exports
+function saveDownload(href, name, { savedMsg, exportFile = false } = {}) {
   const a = document.createElement("a");
   a.href = href; a.download = name;
-  if (window.montclipDownloads) { if (savedMsg) pendingSaves.set(name, savedMsg); }
+  if (window.montclipDownloads) { if (savedMsg) pendingSaves.set(name, savedMsg); if (exportFile) { window.montclipDownloads.expect(name); pendingExports.add(name); } }
   else if (savedMsg) toast(savedMsg);
   document.body.appendChild(a); a.click(); a.remove();
 }
-window.montclipDownloads?.onDone(({ state, name }) => {
-  const msg = pendingSaves.get(name); pendingSaves.delete(name);
+window.montclipDownloads?.onDone(({ state, name, removed }) => {
+  const msg = pendingSaves.get(name), wasExport = pendingExports.has(name);
+  pendingSaves.delete(name); pendingExports.delete(name);
+  if (removed) for (const q of exportQueue) if (q.file === name) q.saved = true;
+  if (removed) renderQueue();
   if (state === "completed") { if (msg) toast(msg); }
-  else if (state === "cancelled") toast(uiText("own.save-canceled"));
+  else if (state === "cancelled") toast(uiText(wasExport ? "own.export-not-saved" : "own.save-canceled"));
   else toast(uiText("own.save-failed"));
 });
 function toast(msg) {
@@ -9823,7 +9827,7 @@ function downloadCaptions(kind) {
   if (!list.length) { toast("No captions on the timeline yet — Add captions first"); return; }
   const blob = new Blob([kind === "vtt" ? C.toVTT(list) : C.toSRT(list)], { type: kind === "vtt" ? "text/vtt" : "application/x-subrip" });
   const url = URL.createObjectURL(blob), name = `${String(project.name || "captions").replace(/[^\w\- ]+/g, "_").trim() || "captions"}.${kind}`;
-  saveDownload(url, name, `Saved ${list.length} caption${list.length === 1 ? "" : "s"} as ${name}`);
+  saveDownload(url, name, { savedMsg: `Saved ${list.length} caption${list.length === 1 ? "" : "s"} as ${name}` });
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 /* fablecut_transcribe: transcribe the job's files in this tab, save them, report. */
@@ -18033,10 +18037,10 @@ async function fastExport(opts = {}) {
         name: String(o.file || "").replace(/\.[^.]+$/, ""), range: exportRangeMode(), status: "done", progress: 1,
         src: o.src, file: o.file, report: o.report || null });
       renderQueue();
-      saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()),
-        o.report && !o.report.ok ? `Exported ${o.file} — check: ${o.report.checks.filter((c) => !c.ok).map((c) => c.text).join("; ")} (Export → Queue)` : `Exported ${o.file}${o.report ? " — checks passed" : ""}`);
+      saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true, savedMsg:
+        o.report && !o.report.ok ? `Exported ${o.file} — check: ${o.report.checks.filter((c) => !c.ok).map((c) => c.text).join("; ")} (Export → Queue)` : `Exported ${o.file}${o.report ? " — checks passed" : ""}` });
     }
-    else saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()));
+    else saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true });
   } catch (e) {
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
     const msg = e?.name === "AbortError" ? "cancelled" : String(e.message || e);
@@ -18110,7 +18114,7 @@ function renderQueue() {
         : q.status === "failed" ? `Failed: ${q.error || "unknown error"}`
           : q.status === "cancelled" ? "Stopped" : "Waiting";
     const actions = [
-      q.status === "done" && q.src ? `<a class="btn tiny" href="${escapeHtml(q.src)}" target="_blank" rel="noopener" download>Open</a>` : "",
+      q.status === "done" && q.src ? (q.saved ? `<span class="dlv-q-saved">${escapeHtml(uiText("own.queue-saved"))}</span>` : `<a class="btn tiny" href="${escapeHtml(q.src)}" target="_blank" rel="noopener" download>Open</a>`) : "",
       q.status === "failed" || q.status === "cancelled" ? `<button type="button" class="btn tiny" data-q-retry="${q.id}">Retry</button>` : "",
       q.status !== "running" ? `<button type="button" class="btn tiny" data-q-remove="${q.id}" title="Remove from the queue">✕</button>` : "",
     ].join("");
@@ -18700,7 +18704,7 @@ async function webCodecsExport() {
     encoder = null;
     const end = await fetch("/api/export/end?id=" + sessId, { method: "POST", signal }).then((r) => r.json());
     if (!end.src) throw new Error(end.error || "mux failed");
-    saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()));
+    saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true });
   } catch (e) {
     try { encoder?.close(); } catch { }
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
