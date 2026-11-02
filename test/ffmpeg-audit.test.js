@@ -106,7 +106,9 @@ test('QQ (2026-11-02): the build to publish is recorded in the repository; the b
  const adr = fs.readFileSync(path.join(__dirname, '..', 'docs', 'decisions', '2026-11-02-h264-encoder.md'), 'utf8');
  for (const v of ['41397853139', '34c222b793c0e396ad3178791fc082d772f0cad9',
    '67c30e30206b5bddcc2af9ea4f0215bbbcd2519533316997945a0fd9602a2f96', '69a9690a4c0eb7e7059f2141de54b4ec57100741a95a04809734c6adc9a0b8ae',
-   'sha256:dd7fbc6957cff74bc49f1b606892971057366617a388a6a1ad8483d70157b0a2', 'sha256:86d5d0355c8b98ef1f9dba4cc15328a7ddcd36a6cf62f2ef5499cfc7507a424d', '2027-01-31'])
+   'sha256:dd7fbc6957cff74bc49f1b606892971057366617a388a6a1ad8483d70157b0a2', 'sha256:86d5d0355c8b98ef1f9dba4cc15328a7ddcd36a6cf62f2ef5499cfc7507a424d', '2027-01-31',
+   // QQ (2026-11-02): the ffmpeg.exe inside the win64 archive, the binary MontClip runs
+   '393413629e4cd237ab6c18c2e0724fd4d7d4cdd41a94f0bea6c393a1f8768fee'])
   a.ok(adr.includes(v), 'ADR records ' + v);
  const b = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'build-ffmpeg.yml'), 'utf8');
  a.match(b, /uses: actions\/checkout@[0-9a-f]{40}[^\n]*\n\s+with:\n\s+persist-credentials: false/);
