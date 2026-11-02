@@ -4,7 +4,7 @@
 // window coordinates of each control. Provider is an injected test transport.
 // Uses the DEFAULT project of a fresh profile (no dashboard "new project"), which is
 // where VV found projectId null.
-const electron=require('electron'),{app,BrowserWindow}=electron,assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
+const electron=require('electron'),{app,BrowserWindow}=electron,assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke required');
 const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
 if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
@@ -26,10 +26,8 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
  const point=async sel=>read(`(()=>{const e=${sel};if(!e)return null;const r=e.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2,n=document.elementFromPoint(x,y);return{x:Math.round(x),y:Math.round(y),hit:e===n||e.contains(n),rect:[r.x,r.y,r.width,r.height]};})()`);
  const click=async(sel,name)=>{const p=await point(sel);assert.ok(p,name+' missing');assert.ok(p.hit,name+' covered at its own centre '+JSON.stringify(p));for(const type of ['mouseDown','mouseUp'])win.webContents.sendInputEvent({type,x:p.x,y:p.y,button:'left',clickCount:1});await wait(250);return p;};
  const byText=t=>`Array.from(document.querySelectorAll('.cindy-port button')).find(b=>b.textContent===${JSON.stringify(t)})`;
- const shoot=async name=>{const b=electron.screen.dipToScreenRect(win,win.getContentBounds());fs.writeFileSync(path.join(out,name+'.page.png'),(await win.webContents.capturePage()).toPNG());
-  // OS screenshot of the visible window's client area (no input, read-only)
-  const ps=`Add-Type -AssemblyName System.Drawing;Add-Type -Namespace W -Name D -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetProcessDPIAware();';[void][W.D]::SetProcessDPIAware();$b=New-Object System.Drawing.Bitmap ${b.width},${b.height};$g=[System.Drawing.Graphics]::FromImage($b);$g.CopyFromScreen(${b.x},${b.y},0,0,$b.Size);$b.Save('${path.join(out,name+'.screen.png').replace(/'/g,"''")}');`;
-  cp.spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',ps],{windowsHide:true});};
+ // screenshots are the app's own page only (webContents.capturePage), never the screen: privacy
+ const shoot=async name=>{fs.writeFileSync(path.join(out,name+'.page.png'),(await win.webContents.capturePage()).toPNG());};
  for(const [w,h] of [[630,452],[804,535],[1270,800]]){
   win.setContentSize(w,h);await wait(600);
   if(process.env.MONTCLIP_NARROW_DEBUG)log('NARROW_DEBUG',await read(`[...Array.from(document.querySelector('.upper > .inspector').children).map((e,i)=>'.upper > .inspector > :nth-child('+(i+1)+')'),'#mcAssistantPanel','#mcAssistantClose','#mcAgentContent','.cindy-port','.cindy-port > .agent-toolbar','.cindy-thread','[data-reference-actions]','.cindy-composer','.upper > .inspector'].map(s=>{const e=document.querySelector(s);if(!e)return s+':none';const r=e.getBoundingClientRect(),c=getComputedStyle(e);return s+':'+[r.x,r.y,r.width,r.height].map(Math.round).join(',')+' pos='+c.position+' scrollTop='+e.scrollTop+' sh='+e.scrollHeight+' ch='+e.clientHeight;})`));
