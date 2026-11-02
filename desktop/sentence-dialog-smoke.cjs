@@ -1,10 +1,10 @@
 'use strict';
 // Explicit development entry: the sentence dialog in one language, and no false "partly kept" (VV / Deja 2026-11-02).
-// Visible window, fresh profile: imports a 2 s synthetic WAV, puts it on A1 under two captions that sit on frame
+// Hidden offscreen window, fresh profile: imports a 2 s synthetic WAV, puts it on A1 under two captions that sit on frame
 // boundaries, opens the dialog in zh-CN and in en and reads it; ticks one whole sentence and reads the summary;
 // applies both sentences, reopens, ticks one again (a second pass over captions with provenance) and reads it.
 //   electron desktop/sentence-dialog-smoke.cjs --montclip-smoke --user-data-dir=<fresh folder>   [MONTCLIP_SD_OUT=<abs folder>]
-const {app,BrowserWindow}=require('electron'),fs=require('node:fs'),path=require('node:path');
+const electron=require('electron'),{app,BrowserWindow}=electron,fs=require('node:fs'),path=require('node:path');
 if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke required');
 const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
 if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
@@ -28,7 +28,7 @@ const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...args){await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=ms=>new Promise(r=>setTimeout(r,ms));
  const results={};
  try{await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));})()`);
-  win.show();win.setContentSize(1270,800);await wait(600);
+  win.setContentSize(1270,800);await wait(600);
   await read(SETUP);await wait(500);
   const PARTIAL={'zh-CN':/一部分声音/,en:/part of (its|their) sound/};
   for(const language of ['zh-CN','en']){
@@ -55,4 +55,6 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   if(out)fs.writeFileSync(path.join(out,'sentence-dialog.json'),JSON.stringify(results,null,1)+'\n');
   process.stdout.write((ok?'SD_PASS':'SD_FAIL')+'\n');
  }catch(e){process.stdout.write('SD_FAIL '+e.message+'\n');}finally{setTimeout(()=>app.exit(0),300);}};
+// Hidden, offscreen window: nothing on the desktop, no focus taken; capturePage still gets real frames.
+{const Module=require('node:module'),load=Module._load;Module._load=function(id,...args){if(id==='electron'){Module._load=load;return{...electron,BrowserWindow:class extends BrowserWindow{constructor(o){super({...o,show:false,webPreferences:{...o.webPreferences,offscreen:true,backgroundThrottling:false}});}}};}return load.call(this,id,...args);};}
 require('./main');
