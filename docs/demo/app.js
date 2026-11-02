@@ -9260,7 +9260,7 @@ function buildTranscriptPage() {
   root.innerHTML = `<div class="tr-head">
       <div class="tr-row tr-entries">
         <button type="button" class="btn tiny" data-tr-highlights>${escapeHtml(uiText("own.hl-open"))}</button>
-        <button type="button" class="btn tiny" data-tr-sentences>按句选段 / Select sentences</button>
+        <button type="button" class="btn tiny" data-tr-sentences data-i18n="own.tr-sentences">${escapeHtml(uiText("own.tr-sentences"))}</button>
         <button type="button" class="btn tiny" data-tr-mapping>时间映射 / Mapping</button>
       </div>
       <div class="tr-row">
@@ -18783,6 +18783,9 @@ function finishExport(keep) {
 /* ═══════════════════════════ WIRING ═══════════════════════════ */
 els.fileInput.addEventListener("change", () => { importFiles(els.fileInput.files); els.fileInput.value = ""; });
 $("btnImportUrl")?.addEventListener("click", openImportUrl);
+// The desktop app works offline: its service refuses URL imports (403 NETWORK_DISABLED), so the button is not shown
+// there. The web demo has no desktop preload and keeps it.
+if (window.montclipViewSettings) { const urlButton = $("btnImportUrl"); if (urlButton) urlButton.hidden = true; }
 $("btnCancelImportUrl")?.addEventListener("click", closeImportUrl);
 $("btnDoImportUrl")?.addEventListener("click", () => importFromUrl(els.importUrlInput?.value));
 els.importUrlInput?.addEventListener("keydown", (e) => {

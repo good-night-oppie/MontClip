@@ -17,6 +17,8 @@
     "add-adjust-title": ["Add an adjustment layer (grades everything below it)", "添加调节层（调节它下面的所有画面）"],
     "add-import": ["+ Import", "+ 导入"],
     "add-url": ["+ URL", "+ 网址"],
+    // the Transcript tab's sentence button, one language at a time (for JJ to review)
+    "tr-sentences": ["Select sentences", "按句选段"],
     "import-url-title": ["Download media from an HTTPS URL into the project", "从 HTTPS 网址下载素材到项目"],
     "fit": ["Fit", "适配"],
     "or-click": ["or click", "或点击"],
