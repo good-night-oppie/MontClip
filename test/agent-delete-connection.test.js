@@ -120,7 +120,7 @@ test('the button and the confirmation use JJ\'s wording in both languages',()=>{
 
 test('the pane asks first: the button only opens the confirmation, and only its confirm button deletes',()=>{
  const pane=read('agent-ui/pane.tsx');
- const button=pane.match(/<button data-remove-connection onClick=\{([^}]*)\}>/);assert.ok(button,'the remove button');
+ const button=pane.match(/<button data-remove-connection onClick=\{(.*?)\}>/);assert.ok(button,'the remove button');
  assert.doesNotMatch(button[1],/deleteConnection/);assert.match(button[1],/removeDialog\.current\?\.showModal\(\)/);
  // VV (#49): Cancel has the focus when it opens, so Enter does not delete
  assert.match(button[1],/showModal\(\);removeDialog\.current\?\.querySelector<HTMLButtonElement>\('\[data-remove-cancel\]'\)\?\.focus\(\)/);
