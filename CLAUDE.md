@@ -2828,6 +2828,8 @@ Only text chat is available through this adapter. Sentence proposals require exp
 
 Host-only bridge: montclipAgentService.get/configure/send/cancel; no REST/MCP key endpoint. send requires version1, requestId, projectId, sequenceId, revision, gen and bounded user/assistant messages. Proposal schema is {type:"keep_sentences",ranges:[{clipId,sourceCaptionId,from,to}]}; timestamps are timeline seconds and every boundary must equal the explicitly referenced whole sentence. Existing MCP/REST operations are unchanged.
 
+**Remove this connection** (删除这个连接) in AI service asks for confirmation, then the main process cancels a running request and deletes the saved connection file, which holds the sealed key, together with any write temporaries and reset backups. Only when the file is confirmed gone does the state return to not configured; sending is then refused. A failed delete is reported and still shows what remains saved. The fixed `montclip:agent:deleteConnection` IPC takes no argument.
+
 The experimental official Agent Pane offers an explicit reset for unreadable connection settings. The fixed `montclip:agent:reset` IPC backs up the damaged connection file in a newly owned local directory before accepting replacement settings; backup failure leaves the original untouched. No arbitrary file/path IPC is exposed. Confirmation of outgoing text is renderer-side, not a second main-process authorization prompt.
 
 The official proposal card offers Undo this apply only while its application is the current shared undo stack top; later edits hide the button. It calls the same global undo() and follows global Redo. The local operation tag lives only in undo snapshots, not exported project data.

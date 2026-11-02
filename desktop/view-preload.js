@@ -2,6 +2,7 @@
 const {contextBridge,ipcRenderer}=require('electron');
 contextBridge.exposeInMainWorld('montclipAgentService',Object.freeze({
  reset:()=>ipcRenderer.invoke('montclip:agent:reset'),
+ deleteConnection:()=>ipcRenderer.invoke('montclip:agent:deleteConnection'),
  get:()=>ipcRenderer.invoke('montclip:agent:get'),
  configure:value=>ipcRenderer.invoke('montclip:agent:configure',value),
  send:value=>ipcRenderer.invoke('montclip:agent:send',value),
