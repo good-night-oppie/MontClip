@@ -306,6 +306,10 @@ test("export/begin with a delivery spec: ffmpeg's refusal comes back before any 
   const { base } = await boot(t);
   const ff = await (await fetch(base + "/api/export/ffmpeg")).json();
   if (!ff.available) return;
+  // with no H.264 encoder at all (GitHub's Linux runners), export refuses earlier and plainly —
+  // there is no ffmpeg refusal to see; the Windows CI job (h264_mf) runs this
+  const h264 = await (await fetch(base + "/api/export/h264")).json();
+  if (!h264.encoder) return t.skip("no H.264 encoder on this machine: " + h264.reason);
   const list = await (await fetch(base + "/api/export/presets")).json();
   // an encoder this build lists but cannot open (no GPU) is not offered; ask for a size H.264 refuses instead
   const r = await post(base, "/api/export/begin", {
