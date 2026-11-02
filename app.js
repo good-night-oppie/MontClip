@@ -5067,8 +5067,29 @@ function syncTimelineTrackView() {
   }
   const key = JSON.stringify([runtime.projectGen, SeqLib.activeId(seqRoot()), simple,
     TRACKS.filter(t => occupied.has(t.id)).map(t => t.id)]);
-  if (syncTimelineTrackView.focusKey === key) return;
+  // A drop the user just made is never answered by re-focusing elsewhere: keep the
+  // view, scrolling only as far as needed to show the dropped clips' rows whole.
+  const dropped = syncTimelineTrackView.dropped;
+  syncTimelineTrackView.dropped = null;
+  const changed = syncTimelineTrackView.focusKey !== key;
   syncTimelineTrackView.focusKey = key;
+  if (dropped) {
+    const rectsOf = ids => {
+      const tracks = new Set(project.clips.filter(c => ids.includes(c.id)).map(c => c.track));
+      return [...els.tracks.children].filter(row => tracks.has(row.dataset.track) && !row.hidden).map(row => row.getBoundingClientRect());
+    };
+    const scroller = els.timelineScroll, view = scroller.getBoundingClientRect().top, room = scroller.clientHeight - RULER_H;
+    let shown = rectsOf(dropped);
+    // all dropped rows when they fit together, else the row of the clip that was grabbed
+    if (shown.length && Math.max(...shown.map(r => r.bottom)) - Math.min(...shown.map(r => r.top)) > room) shown = rectsOf(dropped.slice(0, 1));
+    if (shown.length) {
+      const top = Math.min(...shown.map(r => r.top)), bottom = Math.max(...shown.map(r => r.bottom));
+      if (bottom > view + scroller.clientHeight) scroller.scrollTop += bottom - (view + scroller.clientHeight);
+      if (top - 0 < view + RULER_H) scroller.scrollTop -= view + RULER_H - top;
+    }
+    return;
+  }
+  if (!changed) return;
   const rows = [...els.tracks.children];
   // Prefer a real video/audio pair over an upper subtitle lane on initial focus.
   const videos = rows.filter(row => project.clips.some(c => c.track === row.dataset.track && c.kind === 'video'));
@@ -5082,6 +5103,12 @@ function syncTimelineTrackView() {
     const scroller = els.timelineScroll;
     scroller.scrollTop += first.getBoundingClientRect().top - scroller.getBoundingClientRect().top - RULER_H;
   }
+}
+/* After the window changes size, focus the content once more (never mid-drag). */
+function timelineResizeRefocus() {
+  if (state.gesture) return;
+  syncTimelineTrackView.focusKey = null;
+  syncTimelineTrackView();
 }
 function rebuildClips() {
   syncTimelineTrackView();
@@ -6075,6 +6102,7 @@ function startClipGesture(e, c, mode, collapseOnClick) {
     state.gesture = false;
     state.dirtyTimeline = true;
     if (!cancelled && moved) {
+      syncTimelineTrackView.dropped = [c.id, ...[...groupIds].filter(id => id !== c.id)];
       runtime.undo.push(snapshot);
       if (runtime.undo.length > 100) runtime.undo.shift();
       runtime.redo.length = 0;
@@ -19511,6 +19539,7 @@ window.addEventListener("keydown", (e) => {
 });
 
 window.addEventListener("resize", () => { state.dirtyTimeline = true; clampTimelineHeight(); if (mixerState.open) sizeMixerMeters(); });
+{ let refocus = null; window.addEventListener("resize", () => { clearTimeout(refocus); refocus = setTimeout(timelineResizeRefocus, 150); }); }
 
 /* ── Resizable upper / timeline split ── */
 const TL_H_KEY = "fablecut-timeline-h";
