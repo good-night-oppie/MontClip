@@ -42,6 +42,6 @@ test('only elements marked with data-i18n attributes are rewritten; user content
 test('an icon button keeps its icon; only its trailing label text is rewritten',()=>{
  const icon={nodeType:1},label={nodeType:3,data:' Close gap'},btn={dataset:{i18nTail:'term.close-gap'},childNodes:[icon,label],setAttribute(){}};
  const rootEl={querySelectorAll:sel=>sel==='[data-i18n-tail]'?[btn]:[]};
- view.applyI18n(rootEl,'zh-CN');a.equal(label.data,' 关闭空隙');a.equal(btn.childNodes[0],icon);
+ view.applyI18n(rootEl,'zh-CN');a.equal(label.data,' 合拢空隙');a.equal(btn.childNodes[0],icon);
  view.applyI18n(rootEl,'en');a.equal(label.data,' Close gap');
 });

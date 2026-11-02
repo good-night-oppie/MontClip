@@ -1961,6 +1961,8 @@ input[type=range] {
 
 #zoomSlider {
   width: 130px;
+  min-width: 48px;
+  flex: 0 1 130px;   /* gives way first when longer zh-CN labels need the room */
 }
 
 .timeline {

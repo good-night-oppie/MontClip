@@ -1,3 +1,5 @@
-TERMS {"lang":"zh-CN","saved":"zh-CN","export":"⬇ 导出","split":"✂ 分割","settings":"设置","project":"Untitled Project  ·  🟢 connected","marked":185,"overflowX":0}
-TERMS {"lang":"en","saved":"en","export":"⬇ Export","split":"✂ Split","settings":"Settings","project":"Untitled Project  ·  🟢 connected","marked":185,"overflowX":0}
+TERMS {"size":[1270,800],"lang":"zh-CN","saved":"zh-CN","export":"⬇ 导出","lift":"提起（留空隙）","settings":"设置","project":"Untitled Project  ·  🟢 connected","marked":194,"overflowX":0,"toolbarClipped":[]}
+TERMS {"size":[1270,800],"lang":"en","saved":"en","export":"⬇ Export","lift":"Lift","settings":"Settings","project":"Untitled Project  ·  🟢 connected","marked":194,"overflowX":0,"toolbarClipped":[]}
+TERMS {"size":[804,535],"lang":"zh-CN","saved":"zh-CN","export":"⬇ 导出","lift":"提起（留空隙）","settings":"设置","project":"Untitled Project  ·  🟢 connected","marked":194,"overflowX":0,"toolbarClipped":["snap-seg","btnMarkers","btnAudioHold","flex-spacer","dim tiny-label","zoomSlider","btnZoomFit"]}
+TERMS {"size":[804,535],"lang":"en","saved":"en","export":"⬇ Export","lift":"Lift","settings":"Settings","project":"Untitled Project  ·  🟢 connected","marked":194,"overflowX":0,"toolbarClipped":["btnMarkers","btnAudioHold","flex-spacer","dim tiny-label","zoomSlider","btnZoomFit"]}
 TERMS_COMPLETE

@@ -1,6 +1,6 @@
 # 新增界面文案（交 JJ 审）
 
-来源：SPEC = Rea SPEC-i18n-terms v1 §B（B>A = 按 §A 核心术语改写）；own = MontClip 自定（SPEC §C 留给实现侧）。用户内容（项目名、素材名、片段名、字幕）不在此表。
+来源：SPEC = Rea SPEC-i18n-terms v1 §B（B>A = 按 §A 核心术语改写）；own = MontClip 自定（SPEC §C 留给实现侧，或 JJ 2026-11-02 复审后改定）。用户内容（项目名、素材名、片段名、字幕）不在此表。
 
 | 键 | English | 中文 | 来源 | 备注 |
 |---|---|---|---|---|
@@ -39,11 +39,11 @@
 | term.untitled-project | Untitled Project | 未命名项目 | B |  |
 | term.workspace | Workspace | 工作区 | B |  |
 | term.edit | Edit | 剪辑 | B |  |
-| term.color | Color | 调节 | B |  |
-| term.color-workspace | Color workspace | 调节工作区 | B |  |
+| term.color | Color | 调色 | own | JJ review 2026-11-02 |
+| term.color-workspace | Color workspace | 调色工作区 | own | JJ review 2026-11-02 |
 | term.edit-workspace-media-bin-inspector-mixer | Edit workspace: media bin, inspector, mixer | 剪辑工作区：素材库、属性面板、混音器 | B |  |
 | term.settings | Settings | 设置 | B |  |
-| term.preferences-are-stored-in-this-browser-only | Preferences are stored in this browser only. | 这些偏好只保存在本机浏览器里。 | B |  |
+| term.preferences-are-stored-in-this-browser-only | Preferences are stored in this browser only. | 这些偏好只保存在这台电脑上。 | own | JJ review 2026-11-02 |
 | term.restore-default-layout | Restore default layout | 恢复默认布局 | B |  |
 | term.layout | ⊡ Layout | ⊡ 布局 | B |  |
 | term.safe | ▦ Safe | ▦ 安全区 | B |  |
@@ -75,7 +75,7 @@
 | term.link-timeline-and-project-bin-selection | Link timeline and Project bin selection | 联动时间线与素材库选择 | B |  |
 | term.compact-tracks-no-thumbnails | Compact tracks (no thumbnails) | 紧凑轨道（不显示缩略图） | B |  |
 | term.medium-tracks | Medium tracks | 中等轨道 | B |  |
-| term.large-tracks | Large tracks | 较宽轨道 | B |  |
+| term.large-tracks | Large tracks | 较高轨道 | own | JJ review 2026-11-02 |
 | term.zoom | Zoom | 缩放 | B |  |
 | term.zoom-the-timeline | Zoom the timeline | 缩放时间线 | B |  |
 | term.zoom-timeline-to-fit-z | Zoom timeline to fit (⇧Z) | 缩放以适配时间线（⇧Z） | B |  |
@@ -88,8 +88,8 @@
 | term.toggle-snapping-n | Toggle snapping (N) | 切换吸附（N） | B |  |
 | term.find-gap | Find gap | 查找空隙 | B |  |
 | term.find-gap-g | Find gap (G) | 查找空隙（G） | B |  |
-| term.close-gap | Close gap | 关闭空隙 | B |  |
-| term.close-gap-at-playhead-g | Close gap at playhead (⇧G) | 关闭播放头处的空隙（⇧G） | B |  |
+| term.close-gap | Close gap | 合拢空隙 | own | JJ review 2026-11-02 |
+| term.close-gap-at-playhead-g | Close gap at playhead (⇧G) | 合拢播放头处的空隙（⇧G） | own | JJ review 2026-11-02 |
 | term.split-at-playhead-on-targeted-tracks-s | Split at playhead on targeted tracks (S) | 在播放头处分割目标轨道（S） | B |  |
 | term.delete-selected-del | Delete selected (Del) | 删除所选（Del） | B |  |
 | term.ripple-delete | Ripple delete | 波纹删除 | B |  |
@@ -108,8 +108,8 @@
 | term.play-pause-space | Play / Pause (Space) | 播放 / 暂停（空格） | B |  |
 | term.back-1-frame | Back 1 frame (←) | 后退一帧（←） | B |  |
 | term.forward-1-frame | Forward 1 frame (→) | 前进一帧（→） | B |  |
-| term.extract | Extract | 剔除 | B |  |
-| term.lift | Lift | 抽取 | B |  |
+| term.extract | Extract | 提取（补上空隙） | own | JJ review 2026-11-02 |
+| term.lift | Lift | 提起（留空隙） | own | JJ review 2026-11-02 |
 | term.cut | Cut | 剪切 | B |  |
 | term.insert | Insert | 插入 | B |  |
 | term.undo-redo-also | Undo / redo (also | 撤销 / 重做（也可用 | B |  |
@@ -120,7 +120,7 @@
 | term.select-a-clip-to-edit-its | Select a clip to edit its | 选中一个片段以编辑它的 | B |  |
 | term.transform-effects-audio | transform, effects & audio. | 画面、特效与音频。 | B |  |
 | term.source-monitor | Source monitor | 源监视器 | B |  |
-| term.scrub-source-drag-to-seek | Scrub source · drag to seek | 拖动源预览定位 · 拖拽跳转 | B |  |
+| term.scrub-source-drag-to-seek | Scrub source · drag to seek | 拖动以定位源画面 | own | JJ review 2026-11-02 |
 | term.reset-monitor-view-to-fit-stage | Reset monitor view to fit stage | 重置监视器视图以适配画面 | B |  |
 | term.toggle-safe-area-guides | Toggle safe-area guides | 切换安全区 | B |  |
 | term.layer-mask-on-monitor | Layer mask on monitor | 监视器上的图层蒙版 | B |  |
@@ -128,7 +128,7 @@
 | term.shape-item-on-monitor | Shape item on monitor | 监视器上的形状对象 | B |  |
 | term.masks | Masks | 蒙版 | B |  |
 | term.inspector-masks | Inspector → Masks | 属性面板 → 蒙版 | B |  |
-| term.shapes-and-transforms | Shapes and transforms | 形状与变换 | B |  |
+| term.shapes-and-transforms | Shapes and transforms | 形状与画面 | own | JJ review 2026-11-02 |
 | term.shape-layers-and-null-objects | Shape layers and null objects | 形状层与空对象 | B |  |
 | term.transform | Transform | 画面 | B>A | A: Transform 面板级 = 画面 |
 | term.effects | Effects | 特效 | B>A | A: Effects = 特效（不用「效果」） |
@@ -247,7 +247,7 @@
 | term.new-folder-new-composition | New folder · New composition | 新建文件夹 · 新建复合片段 | B>A | A: Composition = 复合片段（不用「合成」） |
 | term.new-sequence | New sequence… | 新建序列… | B |  |
 | term.new-folder | New folder | 新建文件夹 | B |  |
-| term.main | Main | 主线 | B |  |
+| term.main | Main | 主序列 | own | JJ review 2026-11-02 |
 | term.inside-a-comp | inside a comp | 位于复合片段内 | B |  |
 | term.playback | Playback | 播放 | B |  |
 | term.playhead-sequence-duration | Playhead / sequence duration | 播放头 / 序列时长 | B |  |
@@ -269,7 +269,7 @@
 | term.add-video-track | Add video track | 添加视频轨道 | B |  |
 | term.add-a-title-card-at-the-playhead | Add a title card at the playhead | 在播放头处添加标题卡 | B |  |
 | term.add-captions | Add captions | 添加字幕 | B |  |
-| term.click-a-word | Click a word | 点击一个词 | B |  |
+| term.click-a-word | Click a word | 点击文稿中的文字 | own | JJ review 2026-11-02: Chinese has sentence-level timing only |
 | term.click-track-name | Click track name | 点击轨道名称 | B |  |
 | term.find-words | Find words | 查找词 | B |  |
 | term.filter-e-g-marker-trim-mask | Filter — e.g. marker, trim, mask | 筛选 — 例如 marker、trim、mask | B |  |
@@ -293,6 +293,9 @@
 | own.add-url | + URL | + 网址 | own | |
 | own.import-url-title | Download media from an HTTPS URL into the project | 从 HTTPS 网址下载素材到项目 | own | |
 | own.fit | Fit | 适配 | own | |
+| own.or-click | or click | 或点击 | own | |
+| own.lift-title | Lift (;) — remove IN→OUT on targeted tracks, leave the gap | 提起（;）— 删除目标轨道上入点到出点的内容，留下空隙 | own | |
+| own.extract-title | Extract (') — remove IN→OUT on targeted tracks and close the gap | 提取（'）— 删除目标轨道上入点到出点的内容，并补上空隙 | own | |
 | own.inspector-empty | Select a clip to edit its transform, effects & audio. | 选中一个片段以编辑它的画面、特效与音频。 | own | |
 | own.exporting-pct | Exporting… {pct}% | 正在导出… {pct}% | own | |
 | own.rendering-pct | Rendering… {pct}% | 正在渲染… {pct}% | own | |
