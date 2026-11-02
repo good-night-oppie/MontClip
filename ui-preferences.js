@@ -34,7 +34,7 @@
     // not in JJ's list: for JJ to review
     extNeeded: "这个导出设置要用 x264，需要先在设置里选一个带 x264 的 FFmpeg。也可以改用导出预设，用显卡或 Windows 自带的编码器。",
     extSaveFailed: "这次的选择没能保存，请再选一次。",
-    extRemoveFailed: "没能取消这个 FFmpeg，请再试一次。",
+    extRemoveFailed: "没能停用这个 FFmpeg，请再试一次。",
   });
   Object.assign(text.en, {
     h264Title: "H.264 export",
@@ -58,7 +58,7 @@
     ffmpegMissing: "MontClip's built-in FFmpeg cannot be found, so export and preview are unavailable. Reinstall MontClip.",
     extNeeded: "This export setting uses x264: first choose an FFmpeg with x264 in Settings, or use a delivery preset, which exports with your graphics card or Windows' built-in encoder.",
     extSaveFailed: "The choice could not be saved. Choose again.",
-    extRemoveFailed: "The FFmpeg could not be removed. Try again.",
+    extRemoveFailed: "Could not stop using this FFmpeg. Try again.",
   });
   // encoders by name: plain words in Chinese, the technical names (delivery.js labels) in English
   const ENCODER_NAMES = {
