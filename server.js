@@ -155,6 +155,8 @@ const proxies = createProxies({ dir: PROXIES_DIR, resolveSrc, probe: probeFile, 
   noEncoder: () => X.noH264Reason({ mediaFoundation: hasMediaFoundation() }) });
 /* Word transcripts, one per version of a file (fablecut_transcribe, the Transcript tab). */
 const transcripts = createTranscripts({ dir: path.join(ANALYSIS_DIR, "transcripts"), resolveSrc });
+// P2 highlight signals: each file's loudness, read once by ffmpeg as a stream and cached per file version
+const signals = require("./signals").createSignals({ dir: path.join(ANALYSIS_DIR, "signals") });
 let debounce = null;
 let profilesDebounce = null;
 function onFsChange() {
@@ -812,6 +814,13 @@ const server = http.createServer(async (req, res) => {
        GET  /api/media-info?src=/media/x.mp4 → {src, info} (info null = file missing)
        POST /api/media-info {srcs:[…], stat?} → {info:{src: info | null}} — up to 2000 per call;
        stat:true answers {size, mtimeMs} without ffprobe (the editor's offline check) */
+  if (p === "/api/signals/loudness" && req.method === "GET") {
+    const file = resolveSrc(url.searchParams.get("src") || "");
+    if (!file) { sendJSON(res, 404, { error: "no such file under media/ or library/" }); return; }
+    try { sendJSON(res, 200, await signals.loudness(file)); }
+    catch (e) { sendJSON(res, 422, { error: e.message, code: e.code || "SIGNALS_FAILED" }); }
+    return;
+  }
   if (p === "/api/media-info" && (req.method === "GET" || req.method === "POST")) {
     try {
       if (req.method === "GET") {
