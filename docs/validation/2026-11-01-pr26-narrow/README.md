@@ -1,0 +1,22 @@
+# PR26 narrow-window and first-run project fixes (VV real-window findings)
+
+Runner: `node desktop/run-narrow-pane.cjs <label>` (manual; fresh temporary profile,
+visible always-on-top window resized with `setContentSize`, injected provider only,
+no clipboard, no OS-level input). Clicks are `webContents.sendInputEvent` at the
+real window coordinates of each control after checking `elementFromPoint` hits it.
+`*.screen.png` is an OS screenshot of the visible window's client area
+(`CopyFromScreen`, DPI-aware); `*.page.png` is `capturePage`.
+
+- `red/` — before the fix, default project of a fresh profile: `projectId:null`,
+  Send shows 「请先打开或创建项目，再发送。」 and no review opens.
+- `green/` — after the fix, 630×452, 804×535, 1270×800 (zh-CN, simple mode): the
+  default project gets its id through the existing `pjLoad` adoption (no dialog),
+  review opens, one injected reply; the whole reply is inside the message area
+  without user scrolling, 「查看剪辑提案」 and the three reference buttons are
+  fully visible and hit at their centres, page overflow 0, reply shows
+  「成片约 00:03」 (mm:ss).
+- `official-pane-regression.txt` — existing official-pane smoke (hidden,
+  16 emulated layouts, IME, Escape, copy, stale reask) rerun after the change;
+  the harness now opens “More” before picking a session on a short pane.
+
+Not covered: physical mouse/keyboard, IME hardware, screen readers, real provider.

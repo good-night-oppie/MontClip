@@ -4644,3 +4644,22 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
  .cindy-port > .agent-toolbar button,.cindy-proposal-actions button {padding:1px 3px;font-size:11px;}
  .cindy-composer {padding:2px;}
 }
+
+/* Assistant on short panes (VV 630x452): references sit beside the composer, notes and
+   sessions fold into “More”, and “Collapse” shares the toolbar row instead of its own. */
+.cindy-more {flex:none;max-height:40%;overflow:auto;display:flex;flex-direction:column;gap:2px;}
+.cindy-ref-actions {flex:none;}
+.cindy-references {flex:none;}
+.cindy-port [role=status]:empty {display:none;}
+.cindy-port.compact .cindy-references {max-height:36px;}
+.cindy-port.compact .cindy-message {padding:2px 4px;}
+.cindy-port.compact .agent-toolbar {gap:2px;}
+.cindy-port.compact button {padding:1px 4px;font-size:11px;}
+.upper .mc-assistant {position:relative;inset:auto;}
+@media (max-height:560px) {
+ .upper .mc-assistant #mcAssistantClose {position:absolute;top:3px;right:3px;z-index:1;padding:1px 4px;}
+ .upper .mc-assistant .cindy-port > .agent-toolbar:first-child {padding-right:44px;}
+}
+.cindy-port.compact .cindy-message {display:block;font-size:11px;line-height:1.35;}
+.cindy-port.compact .cindy-message > strong {margin-right:4px;}
+.cindy-port.compact .cindy-composer {padding:2px;}

@@ -20807,6 +20807,16 @@ connectServer().then(() => { loadLibraryFonts(); runExportJobFromUrl(); });
 requestAnimationFrame(loop);
 
 // Pane state is independent of editor view mode; all actions rebind to the live project/sequence.
+/* The assistant needs the open project's id. A first-run default project has none
+   until the projects list is read; pjLoad is the existing path that gives
+   ./project.json its id and adopts it here (no dialog). Unsaved edits are saved
+   first, so the adoption never falls back to reloading over them. */
+async function ensureAgentProject(){
+ if(runtime.projectId&&runtime.projectId!=="?")return true;
+ if(!await flushSave())return false;
+ await pjLoad();
+ return !!runtime.projectId&&runtime.projectId!=="?";
+}
 function agentProjectContext(){
  return {projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen??0,revision:project.revision};
 }
@@ -20822,7 +20832,7 @@ document.querySelector(".topbar-right").prepend(document.getElementById("mcMedia
 document.querySelector(".topbar-right").insertBefore(document.querySelector(".mc-history"),document.getElementById("btnExport"));
 document.getElementById("mcMediaToggle").onclick=()=>document.getElementById("app").classList.toggle("media-open");
 mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentContent'),
- getContext:agentProjectContext,
+ getContext:agentProjectContext,ensureProject:ensureAgentProject,
  getLanguage:()=>mcView.get().language,settings:window.montclipPaneSettings,sessionStorage:window.montclipAgentSessions,
  onHide:()=>{setSideTab("inspector");document.getElementById("mcAssistant").focus();},
  getProjectName:id=>id===runtime.projectId?project.name:null,
