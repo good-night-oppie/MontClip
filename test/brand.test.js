@@ -12,13 +12,16 @@ const ALLOWED=[/ronak-create\/FableCut/g,/~\/FableCut/g,/X-FableCut-[\w-]+/g,/Fa
 const visible=s=>{for(const r of ALLOWED)s=s.replace(r,'');return s;};
 const hits=(s,label)=>[...visible(s).matchAll(/FableCut/g)].map(m=>label+': …'+s.slice(Math.max(0,m.index-30),m.index+30).replace(/\n/g,' ')+'…');
 
-test('README names MontClip and credits the upstream once',()=>{
- const readme=read('README.md'),lines=readme.split('\n');
- a.match(lines.find(l=>l.startsWith('# '))||'',/MontClip/);
- a.ok(/基于 \[?ronak-create\/FableCut\]?(\([^)]*\))?（MIT）/.test(readme),'attribution line');
- // the attribution line is the only place the upstream product name may appear as a word
- const rest=lines.filter(l=>!/基于 .*ronak-create\/FableCut/.test(l)).join('\n');
- a.deepEqual(hits(rest.replace(/\[[^\]]*\]\((https?:\/\/[^)]*)\)/g,(m)=>m.replace(/https?:\/\/\S*?(?=\))/,'')),'README'),[]);
+test('README names MontClip and credits the upstream',()=>{
+ for(const [f,credit,upstream] of [['README.md',/^Based on \[ronak-create\/FableCut\]\(https:\/\/github\.com\/ronak-create\/FableCut\) \(MIT\)\.$/m,'About the upstream project'],
+  ['docs/i18n/README.zh-CN.md',/^基于 \[ronak-create\/FableCut\]\(https:\/\/github\.com\/ronak-create\/FableCut\)（MIT 许可）。$/m,'关于上游']]){
+  const readme=read(f);
+  a.match(readme.split('\n').find(l=>l.startsWith('# '))||'',/MontClip/);
+  a.match(readme,credit,f+' attribution line');
+  // the upstream product name appears as a word only in the credit and JJ's "about the upstream" section
+  const rest=readme.split(/^(?=## )/m).filter(sec=>!sec.startsWith('## '+upstream)).join('').split('\n').filter(l=>!credit.test(l)).join('\n');
+  a.deepEqual(hits(rest.replace(/\[[^\]]*\]\((https?:\/\/[^)]*)\)/g,(m)=>m.replace(/https?:\/\/\S*?(?=\))/,'')),f),[]);
+ }
 });
 
 test('package and bundle metadata say MontClip',()=>{
@@ -38,11 +41,11 @@ test('editor, server, CLI and MCP descriptions name MontClip where a person read
 });
 
 test('the docs site home and download entry name MontClip',()=>{
- for(const f of ['docs/index.html','docs/start/index.html'])if(fs.existsSync(path.join(root,f))){
-  // third-party quotes about the upstream project stay as they were said
-  const page=read(f).replace(/<script[\s\S]*?<\/script>/g,'').replace(/<!--[\s\S]*?-->/g,'').replace(/<blockquote>[\s\S]*?<\/blockquote>/g,'');
+ for(const f of ['docs/index.html','docs/start/index.html','docs/en/index.html','docs/en/start/index.html']){
+  // JJ's copy names the upstream in the credit, the "about the upstream" section, the footer and the FAQ; those carry data-upstream
+  const page=read(f).replace(/<script[\s\S]*?<\/script>/g,'').replace(/<!--[\s\S]*?-->/g,'').replace(/<(section|p|footer|details|span)\b[^>]*data-upstream[^>]*>[\s\S]*?<\/\1>/g,'');
   a.match(page,/<title>[^<]*MontClip/,f);
-  a.deepEqual(hits(page.replace(/https?:\/\/[^"'\s<>]+/g,''),f).filter(h=>!/基于|based on/i.test(h)),[]);
+  a.deepEqual(hits(page.replace(/https?:\/\/[^"'\s<>]+/g,''),f),[]);
  }
 });
 
@@ -54,7 +57,6 @@ test('no inherited promises: sponsor, free/no paid tier, zero-dependency/no-inst
   for(const bad of [/SDRFABLECUT|Sidrune/i,/no paid tier/i,/Is MontClip free/i,/zero npm dependencies/i,/Nothing to install/i,/runs entirely in your\s+browser/i])a.ok(!bad.test(src),name+' still has '+bad);
  }
  a.ok(!/^## Features$/m.test(readme),'README upstream feature list removed');a.ok(!/^## Sponsors$/m.test(readme));
- a.match(readme,/基于 \[ronak-create\/FableCut\]/,'attribution kept');
  const ld=home.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1];
  const doc=JSON.parse(ld);
  for(const k of ['@id','url','downloadUrl','codeRepository'])a.ok(!doc[k]||doc[k].startsWith('https://github.com/good-night-oppie/MontClip'),k+' points to MontClip');
@@ -64,6 +66,5 @@ test('no inherited promises: sponsor, free/no paid tier, zero-dependency/no-inst
  a.ok(!/"featureList"/.test(ld),'no copied feature list in structured data');
  a.ok(!/id="mentions"/.test(home),'third-party testimonials removed');a.ok(!/id="sponsor"/.test(home));
  a.ok(!/<link rel="canonical" href="https:\/\/fablecut\.space/.test(home)&&!/og:url" content="https:\/\/fablecut\.space/.test(home));
- a.ok(!/exports go to <code class="ic">~\/FableCut<\/code>/.test(start),'start page names the default data folder, not the old product');
- a.match(start,/default data folder/);
+ a.ok(!/~\/FableCut/.test(start),'start page does not name the old product folder');
 });
