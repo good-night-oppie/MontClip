@@ -70,7 +70,7 @@ test('desktop and server hand the page masked results only',()=>{
  const main=fs.readFileSync(path.join(ROOT,'desktop/main.js'),'utf8');
  for(const op of ['get','choose']){const at=main.indexOf('ipcMain.handle("montclip:ffmpeg:'+op+'"');const body=main.slice(at,main.indexOf('ipcMain.handle(',at+10));a.match(body,/External\.forPage\(/,op+' masks what it returns');}
  // every reason the server forwards from the local check is masked
- const shown=server.match(/[\w.(]*ext\.reason\)?(?!\s*[!=]==)/g)||[];a.ok(shown.length>=3);
+ const shown=server.match(/[\w.(]*ext\.reason\)?(?!\s*[!=]==)/g)||[];a.ok(shown.length>=2);
  for(const u of shown)a.equal(u,'X.maskUserPath(ext.reason)','a forwarded reason is masked: '+u);
 });
 

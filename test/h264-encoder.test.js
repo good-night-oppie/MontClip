@@ -32,7 +32,7 @@ test('the local FFmpeg is only a file the user chose: no PATH, no names, no disc
  const src=fs.readFileSync(path.join(ROOT,'external-ffmpeg.js'),'utf8');
  a.ok(!/process\.env\.PATH|["']which["']|["']where(\.exe)?["']|\$PATH/.test(src),'never searches PATH');
  const ext=X.createExternal({settingsFile:null,run:async()=>{throw new Error('must not run');}});
- a.deepEqual(await ext.current(),{ok:false,reason:'none'});
+ a.deepEqual(await ext.current(),{ok:false,code:'none',reason:'none'});
 });
 
 function tmp(t){const d=fs.mkdtempSync(path.join(os.tmpdir(),'mc-x264-'));t.after(()=>fs.rmSync(d,{recursive:true,force:true}));return d;}
@@ -85,10 +85,10 @@ test('server: without a local FFmpeg, libx264 profiles are refused in plain word
  const dir=makeDataDir(t,seedProject({revision:1}));
  const {base}=await startServer(t,dir,{FABLECUT_NO_FS_WATCH:'1',MONTCLIP_EXTERNAL_FFMPEG_SETTINGS:path.join(dir,'no-setting.json')});
  const st=await (await fetch(base+'/api/export/h264')).json();
- a.deepEqual(st.external,{ok:false,reason:'none'});a.ok(!st.encoders.includes('libx264'));
- if(st.encoder)a.equal(st.reason,null);else a.match(st.reason,/H\.264/);
+ a.deepEqual(st.external,{ok:false,code:'none'});a.ok(!st.encoders.includes('libx264'));
+ if(st.encoder)a.equal(st.reason,null);else a.match(st.reason.code,/^h264None(Win|Other)$/);
  const r=await fetch(base+'/api/export/begin',{method:'POST',body:JSON.stringify({fps:30,name:'x',profile:'draft',hasAudio:false})});
- a.equal(r.status,400);a.match((await r.json()).error,/libx264 is only available from your own FFmpeg/);
+ a.equal(r.status,400);const j=await r.json();a.match(j.error,/libx264 is only available from your own FFmpeg/);a.equal(j.code,'extNeeded');
 });
 
 test('desktop: the path comes only from the main-process file dialog and is stored by the main process',()=>{

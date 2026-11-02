@@ -62,7 +62,7 @@ test('every reason code reads in the interface language; zh-CN has no English se
  }
  a.equal(V.h264Message('zh-CN',{code:'h264NoneWin',featurePack:true}),JJ.h264NoneWin+JJ.h264NeedFeaturePack);
  a.equal(V.h264Message('zh-CN',{code:'frameTooSmall',params:{w:120,h:40}}),'导出的画面太小（120×40），这台电脑的显卡编码器处理不了。请把导出尺寸调大一点，或者换一种格式。');
- a.equal(V.h264Message('zh-CN',{code:'extNotUsedNote',params:{reason:'extGone',encoder:'h264_mf'}}),'这次没用你选的 FFmpeg（'+JJ.extGone+'），改用了 Windows 自带编码。');
+ a.equal(V.h264Message('zh-CN',{code:'extNotUsedNote',params:{reason:'extGone',encoder:'h264_mf'}}),'这次没用你选的 FFmpeg（'+JJ.extGone.replace(/。$/,'')+'），改用了 Windows 自带编码。','the reason inside the brackets drops its final full stop');
  a.equal(V.h264Message('zh-CN',{code:'nonsense'}),null,'an unknown code is not shown as text');
  for(const k of ['h264Title','h264Using','h264None','h264External','h264ExternalFailed','h264Hint','h264Choose','h264Clear'])a.equal(englishIn(zh[k].replace(/\{\w+\}/g,'')),null,'zh.'+k+': '+zh[k]);
 });
@@ -91,8 +91,8 @@ test('server: H.264 status and export refusals carry codes; the page shows them 
  a.match(server,/\{ error: String\(e\.message \|\| e\), code: e\.code, params: e\.params \}|code: e\.code/);
  a.ok(!/FFMPEG_MISSING \}/.test(server),'every "ffmpeg missing" answer also carries its code');
  // the page: settings and export use the codes
- const r=app.slice(app.indexOf('async function renderH264Settings'),app.indexOf('$("btnH264Choose")'));
- a.match(r,/MontClipView\.h264Message\(/);a.match(r,/MontClipView\.h264Encoder\(/);a.ok(!/ext\.reason|st\.reason\)/.test(r),'no English reason in the settings text');
+ const r=app.slice(app.indexOf('async function renderH264Settings'),app.indexOf('$("btnH264Choose")?.addEventListener'));
+ a.match(r,/MontClipView\.h264Message\(/);a.match(r,/MontClipView\.h264Encoder\(/);a.ok(!/ext\.reason|\(st && st\.reason\) \|\|/.test(r),'no English reason in the settings text');
  a.ok((app.match(/h264Message\(mcView\.get\(\)\.language, begin\)/g)||[]).length>=2,'both export paths say a refusal in the interface language');
  a.ok(!app.includes('"MontClip\'s bundled FFmpeg is not available — export needs it"'),'the queue says it by code too');
 });
