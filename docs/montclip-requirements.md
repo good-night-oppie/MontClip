@@ -81,3 +81,5 @@ Clean PR2 follow-up prepared directly from its public 8f461b9 head: narrowly rem
 
 2026-11-01 follow-up: QQ approved PR9 19377acd and PR10 5b14ffd0 within their recorded scopes, not release approval. Long FLV frame-scan performance, packet/frame gap equivalence, owned rejected-upload cleanup, explicit user-only dual consent, build glob input restriction and pinned Electron archive checksum remain gates; see docs/validation/2026-11-01-flv-clean-core.md. Concurrent upload exclusive-create fix is separate and not yet reviewed.
 2026-11-01 Agent Pane foundation: local session/draft UI plus shared locale and whitelisted desktop width store. Provider/approved payload/proposal lifecycle and real-window acceptance incomplete; no actual model traffic. See validation/2026-11-01-agent-pane-foundation.md.
+
+2026-11-01 Agent Pane SPEC hash verified and ADR adopted. Explicit local project/caption/range references and keyboard composition/layer protection implemented; no external payload approval or persistence completion. Full tool/provider/session restore/window gates remain open. See validation/2026-11-01-agent-pane-context.md.
