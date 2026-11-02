@@ -60,3 +60,9 @@ test('every library in the build has its license text collected and classified, 
  a.deepEqual(audit.auditLicenses([{name:'x',ref:'1',files:[{saved:'a'}],kinds:['?'],reviewed:'MIT (read by hand)'}]),[],'a hand review settles it');
  a.match(fs.readFileSync(path.join(__dirname,'..','.github','scripts','release-check.js'),'utf8'),/auditLicenses\(/);
 });
+test('every licence text is stored byte for byte (its SHA-256 matches the inventory)',()=>{
+ const base=path.join(__dirname,'..','licenses','ffmpeg'),list=JSON.parse(fs.readFileSync(path.join(base,'inventory.json'),'utf8'));
+ const crypto=require('node:crypto');
+ for(const e of list)for(const f of e.files)a.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(base,'texts',f.saved),'utf8')).digest('hex'),f.sha256,f.saved);
+ a.match(fs.readFileSync(path.join(__dirname,'..','.gitattributes'),'utf8'),/licenses\/ffmpeg\/texts\/\*\* -text/);
+});
