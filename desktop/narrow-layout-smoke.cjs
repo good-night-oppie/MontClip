@@ -13,7 +13,7 @@ const electron=require('electron'),{app,BrowserWindow}=electron,fs=require('node
 const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
 if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke required');
-const out=process.env.MONTCLIP_LAYOUT_OUT||null;if(out&&!path.isAbsolute(out))throw Error('MONTCLIP_LAYOUT_OUT must be an absolute folder');const SIZES=[[1270,800],[804,535],[630,452]];
+const out=process.env.MONTCLIP_LAYOUT_OUT||null;if(out&&!path.isAbsolute(out))throw Error('MONTCLIP_LAYOUT_OUT must be an absolute folder');const SIZES=[[1270,800],[804,535],[630,460]];
 const MEASURE=`(async()=>{
  const r=e=>e.getBoundingClientRect(),vis=e=>!!e&&e.offsetParent!==null&&getComputedStyle(e).visibility!=="hidden";
  const frame=()=>new Promise(res=>requestAnimationFrame(()=>requestAnimationFrame(res)));
@@ -41,16 +41,36 @@ const MEASURE=`(async()=>{
  const tr=r(document.querySelector("#monitorPanel .transport"));
  const overlap=Math.max(0,Math.min(tr.bottom,panel.bottom)-Math.max(tr.top,panel.top))*Math.max(0,Math.min(tr.right,panel.right)-Math.max(tr.left,panel.left));
  const player=[...document.querySelectorAll("#monitorPanel .transport-btns button")].filter(e=>!e.classList.contains("hidden")).map(e=>({id:e.id,ok:hit(e)}));
+ // elementsFromPoint: with the monitor More menu open, each item's centre must have the item on top (not #preview)
+ const monitorMenu=await(async()=>{const b=document.getElementById("btnMonMore"),m=document.getElementById("monMoreMenu");if(b.hidden)return{shown:false,items:0,covered:[]};
+  b.click();await frame();const items=tools(m),covered=[];
+  for(const e of items){const k=r(e),top=document.elementsFromPoint(k.left+k.width/2,k.top+k.height/2)[0];if(!top||!(top===e||e.contains(top)))covered.push((e.id||e.className)+" under "+(top?(top.id||top.className||top.tagName):"nothing"));}
+  b.click();await frame();return{shown:true,items:items.length,covered};})();
+ // the transcript's caption row: every button reachable at its top edge, centre and bottom edge, after scrolling it into view
+ const transcriptRow=await(async()=>{setSideTab("transcript");await frame();const btn=document.querySelector("[data-tr-sentences]");if(!btn){setSideTab("inspector");return{ok:false,missed:["missing"]};}
+  const row=btn.closest(".tr-row");
+  // as a person can: containers that clip without a scrollbar go back to the top (scrollIntoView would move them), and
+  // only the nearest container a person can scroll (overflow auto/scroll, with something to scroll) brings the row in
+  for(let p=row.parentElement;p&&p!==document.body;p=p.parentElement)if(getComputedStyle(p).overflowY==="hidden")p.scrollTop=0;
+  let sc=null;for(let p=row.parentElement;p&&p!==document.body&&!sc;p=p.parentElement){const o=getComputedStyle(p).overflowY;if((o==="auto"||o==="scroll")&&p.scrollHeight>p.clientHeight+1)sc=p;}
+  if(sc){const k=r(row),c=r(sc);if(k.bottom>c.bottom)sc.scrollTop+=k.bottom-c.bottom;if(r(row).top<c.top)sc.scrollTop-=c.top-r(row).top;}await frame();
+  const missed=[];for(const e of [...row.querySelectorAll("button")].filter(vis)){const k=r(e),x=k.left+k.width/2;
+   for(const y of [k.top+2,k.top+k.height/2,k.bottom-2]){const top=document.elementsFromPoint(x,y)[0];if(!top||!(top===e||e.contains(top))){missed.push(e.textContent.trim().slice(0,16));break;}}}
+  setSideTab("inspector");await frame();return{ok:!missed.length,missed};})();
  const rows=[...tl.rows,...mon.rows,...top.rows,...bin.rows];
  return {lang:document.documentElement.lang,mode:mcView.get().mode,preview:{w:Math.round(shown.w),h:Math.round(shown.h)},transportOverTimeline:Math.round(overlap),
   unreachable:rows.filter(x=>!x.ok).map(x=>x.where+":"+x.id),playerUnreachable:player.filter(x=>!x.ok).map(x=>x.id),overlaps:[...tl.overlaps,...mon.overlaps,...top.overlaps,...bin.overlaps],tabsUnreachable:tabs.filter(x=>!x.ok).map(x=>x.id),tabs:tabs.length,
   inMore:rows.filter(x=>x.inMore).map(x=>x.where+":"+x.id),tools:rows.length,
+  monitorMenu,transcriptRow,
   snap:(tl.rows.find(x=>x.id==="btnSnap")||{}),overflowX:document.documentElement.scrollWidth-innerWidth,overflowY:document.documentElement.scrollHeight-innerHeight};})()`;
 const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...args){await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=ms=>new Promise(r=>setTimeout(r,ms));
  const results=[];
  try{await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));})()`);
-  for(const [w,h] of SIZES){win.setContentSize(w,h);await wait(700);
+  win.setMinimumSize(200,200);
+  for(const [w,h] of SIZES){win.setContentSize(w,h);await wait(400);
+   for(let i=0;i<5;i++){const [iw,ih]=await read(`[innerWidth,innerHeight]`),[cw,ch]=win.getContentSize();if(iw===w&&ih===h)break;win.setContentSize(Math.round(cw*w/iw),Math.round(ch*h/ih));await wait(400);}
+   await wait(300);
    for(const language of ['zh-CN','en'])for(const mode of ['simple','advanced']){
     await read(`updateMontClipView({language:${JSON.stringify(language)},mode:${JSON.stringify(mode)}});true`);await wait(450);
     const m=await read(MEASURE),name=`${language}-${mode}-${w}x${h}`;results.push({size:[w,h],...m});
@@ -62,7 +82,10 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
       if(opened){await wait(250);fs.writeFileSync(path.join(out,name+".more.page.png"),(await win.webContents.capturePage()).toPNG());await read(`document.getElementById("btnTlMore").click();true`);await wait(150);}}
     }}}
   if(out)fs.writeFileSync(path.join(out,'layout.json'),JSON.stringify(results,null,1)+'\n');
-  const bad=results.filter(m=>!(m.preview.w>0&&m.preview.h>0)||m.transportOverTimeline>0||m.unreachable.length||m.playerUnreachable.length||m.tabsUnreachable.length||m.overlaps.length||m.overflowX>0||m.overflowY>0);
+  const bad=results.filter(m=>m.monitorMenu.covered.length||!m.transcriptRow.ok||!(m.preview.w>0&&m.preview.h>0)||m.transportOverTimeline>0||m.unreachable.length||m.playerUnreachable.length||m.tabsUnreachable.length||m.overlaps.length||m.overflowX>0||m.overflowY>0);
+  const menuBad=results.filter(m=>m.monitorMenu.covered.length),rowBad=results.filter(m=>!m.transcriptRow.ok);
+  process.stdout.write((menuBad.length?'LAYOUT_MONITOR_MENU_FAIL '+menuBad.length+' of ':'LAYOUT_MONITOR_MENU_PASS ')+results.length+' cases\n');
+  process.stdout.write((rowBad.length?'LAYOUT_TRANSCRIPT_ROW_FAIL '+rowBad.length+' of ':'LAYOUT_TRANSCRIPT_ROW_PASS ')+results.length+' cases\n');
   process.stdout.write((bad.length?'LAYOUT_FAIL '+bad.length+' of ':'LAYOUT_PASS ')+results.length+' cases\n');
   process.stdout.write('LAYOUT_COMPLETE\n');
  }catch(e){process.stdout.write('LAYOUT_FAIL '+e.message+'\n');}finally{setTimeout(()=>app.exit(0),300);}};
