@@ -9,7 +9,8 @@ const { createFlvImports } = require("../desktop/flv-import");
 
 const sha = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
 function setup(t, { compatible = true, range = { maxGap: 0, needsConsent: false }, prepare } = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-flv-中文-"));
+  // the long form of the temp path: on CI it is 8.3 (RUNNER~1), and the import resolves the real path
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "montclip-flv-中文-")));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const media = path.join(root, "media"), src = path.join(root, "录播 原片");
   fs.mkdirSync(media); fs.mkdirSync(src);
