@@ -80,7 +80,7 @@ test('rule 1: the pages carry nothing but the copy (no upstream pitch, quotes, s
  const NAV=['MontClip','English','简体中文'];
  for(const lang of ['zh','en'])for(const page of ['home','start']){
   const f=PAGES[lang][page];let rest=' '+visible(read(f))+' ';
-  const ps=pieces(copy[page][lang]).map(p=>p.text).sort((x,y)=>y.length-x.length);
+  const ps=pieces(copy[page][lang]).map(p=>p.text).concat(!AI_MERGED&&page==='start'?[AI_PLANNED_A3[lang]]:[]).sort((x,y)=>y.length-x.length);
   for(const t of ps)rest=rest.split(t).join(' ');for(const n of NAV)rest=rest.split(n).join(' ');
   a.equal(rest.replace(/[\s·|←→:：,，.。]/g,''),'',f+' has text outside the copy');
  }
