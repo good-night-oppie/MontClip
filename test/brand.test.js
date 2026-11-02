@@ -93,7 +93,8 @@ test('no inherited promises: sponsor, free/no paid tier, zero-dependency/no-inst
 test('CI validates only JSON files that exist (server.json is gone with option A)', () => {
   const ci = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'ci.yml'), 'utf8');
   const step = ci.slice(ci.indexOf('- name: Validate JSON files'), ci.indexOf('done', ci.indexOf('- name: Validate JSON files')));
-  const files = (step.match(/for f in ([\s\S]*?); do/) || [])[1].replace(/\\n/g, ' ').split(/\s+/).filter(Boolean);
+  // the shell's line continuations (a lone backslash) are not file names
+  const files = (step.match(/for f in ([\s\S]*?); do/) || [])[1].split(/\s+/).filter((t) => t && t !== '\\');
   a.ok(files.length >= 3, files.join(' '));
   for (const f of files) a.ok(fs.existsSync(path.join(__dirname, '..', f)), 'CI validates a file that is not there: ' + f);
 });
