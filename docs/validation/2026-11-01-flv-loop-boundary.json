@@ -1,0 +1,19 @@
+{
+  "command": [
+    "-v",
+    "error",
+    "-read_intervals",
+    "9%+2",
+    "-select_streams",
+    "v:0",
+    "-show_frames",
+    "-show_entries",
+    "frame=best_effort_timestamp_time,pkt_duration_time,duration_time",
+    "-of",
+    "json",
+    "<fixture>/two-hours.flv"
+  ],
+  "frames": 60,
+  "gaps": [],
+  "scope": "additional two-second decoded video window only; not another full scan"
+}

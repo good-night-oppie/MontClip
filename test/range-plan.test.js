@@ -44,3 +44,24 @@ test("later native caption timing changes refuse stale provenance; markers follo
   assert.throws(() => C.sourceMap(p.project), /timing changed/);
   assert.throws(() => R.create(p.project, [{ from: 0, to: 1 }]), /timing changed/);
 });
+
+test('container-time selections retain a nonzero first-video timestamp and caption offset', () => {
+  // Synthetic container clock: audio begins at 0, first video presentation at .020.
+  // This checks downstream arithmetic, not FLV remux/browser timestamp discovery.
+  const doc = {revision:1, media:[{id:'prepared',src:'/media/compat.mp4',originalSrc:'/media/source.flv',duration:2}], clips:[
+    {id:'v',kind:'video',track:'V1',mediaId:'prepared',start:0,duration:2,in:0},
+    {id:'a',kind:'audio',track:'A1',mediaId:'prepared',start:0,duration:2,in:0},
+    C.clip({start:.020,end:.520,text:'非零首帧 / container time'},{id:'s',track:'V2'})
+  ]};
+  const before=JSON.stringify(doc);
+  const whole=R.create(doc,[{from:0,to:1}]);
+  assert.equal(C.parse(C.toSRT(C.fromClips(whole.project.clips)))[0].start,.020);
+  const cut=R.create(doc,[{from:.020,to:1.020}]);
+  const map=C.sourceMap(cut.project);
+  assert.deepEqual(map.segments.map(s=>s.source),[{start:.020,end:1.020},{start:.020,end:1.020}]);
+  assert.deepEqual(map.captions[0].original,{start:.020,end:.520});
+  assert.deepEqual(map.captions[0].intersection,{start:.020,end:.520});
+  assert.deepEqual(map.captions[0].output,{start:0,end:.5});
+  assert.equal(C.parse(C.toSRT(C.fromClips(cut.project.clips)))[0].start,0);
+  assert.equal(JSON.stringify(doc),before);
+});
