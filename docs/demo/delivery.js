@@ -252,8 +252,21 @@
   /** Encoders to choose from for a codec, best first: software unless the
    *  caller asked for hardware. `available` (a Set of ffmpeg encoder names)
    *  filters to what this ffmpeg has; null = assume all. */
+  /* Never chosen, whatever the build lists (release blocker, docs/decisions/2026-11-02-h264-encoder.md):
+     a build that still links libopenh264 must not make MontClip use it. */
+  const NEVER_ENCODERS = ["libopenh264"];
+  /** A forbidden encoder anywhere in raw ffmpeg args, in any case, or null. ffmpeg accepts many spellings of
+   *  the codec option (-c, -codec, -c:v, -c:v:0, -c:V, -vcodec, …), so the option is not looked at at all:
+   *  the name appearing anywhere refuses the args (QQ, 2026-11-02). */
+  function forbiddenEncoder(args) {
+    for (const arg of args || []) {
+      const s = String(arg).toLowerCase();
+      if (NEVER_ENCODERS.some((e) => s.includes(e))) return String(arg);
+    }
+    return null;
+  }
   function encodersFor(codec, available) {
-    const list = (CODECS[codec] || CODECS.h264).encoders;
+    const list = (CODECS[codec] || CODECS.h264).encoders.filter((e) => !NEVER_ENCODERS.includes(e));
     return available ? list.filter((e) => available.has(e)) : list.slice();
   }
 
@@ -433,6 +446,7 @@
     "libaom-av1": { fast: ["-cpu-used", "8"], balanced: ["-cpu-used", "6"], best: ["-cpu-used", "4"] },
     libsvtav1: { fast: ["-preset", "10"], balanced: ["-preset", "8"], best: ["-preset", "5"] },
   };
+  const MF_SOFTWARE_BOOST = 10;
   const PRORES_PROFILE = { proxy: "0", lt: "1", standard: "2", hq: "3", 4444: "4", "4444xq": "5" };
 
   function videoArgs(spec, fps) {
@@ -457,7 +471,9 @@
       else if (E.hw === "videotoolbox") out.push("-q:v", String(Math.max(1, Math.min(100, Math.round((51 - v.crf) * 100 / 51)))));
       else if (E.hw === "qsv") out.push("-global_quality", String(v.crf));
       else if (E.hw === "amf") out.push("-rc", "cqp", "-qp_i", String(v.crf), "-qp_p", String(v.crf), ...(v.codec === "h264" ? ["-qp_b", String(v.crf)] : []));
-      else if (E.hw === "mf") out.push("-rate_control", "quality", "-quality", String(Math.max(1, Math.min(100, Math.round((51 - v.crf) * 100 / 51)))));
+      // Windows' software MFT (MontClip never sets -hw_encoding): the plain CRF scale + 10, so CRF 18 is
+      // quality 75 — about x264's picture at 6.6 Mb/s and 187 fps (VV, 2026-11-02; 80 halves the speed)
+      else if (E.hw === "mf") out.push("-rate_control", "quality", "-quality", String(Math.max(1, Math.min(100, Math.round((51 - v.crf) * 100 / 51) + MF_SOFTWARE_BOOST))));
       if (max && E.hw !== "amf") {
         if (enc === "libsvtav1") out.push("-svtav1-params", `mbr=${max}`);
         else out.push("-maxrate", k(max), "-bufsize", k(max * 2));
@@ -516,6 +532,7 @@
    *  0.1 s synthetic picture of the canvas size, to check the settings
    *  before anything is rendered. */
   function ffmpegArgs(spec, o) {
+    if (NEVER_ENCODERS.includes(spec.video && spec.video.encoder)) throw new Error(`MontClip never encodes with ${spec.video.encoder}`);
     const rate = fpsRational(o.fps);
     const args = ["-y", "-hide_banner"];
     const rgba = o.input === "rgba";
@@ -799,7 +816,7 @@
   return {
     CONTAINERS, CODECS, ENCODERS, AUDIO, COLORS, PRESETS, PRESET_IDS, DEFAULT_PRESET,
     FPS_CHOICES, RESOLUTIONS, SPEEDS, SAMPLE_RATES, META_KEYS, FILENAME_TOKENS,
-    normalize, encodersFor, reframe, ffmpegArgs, videoFilter, frameInput, jpegQuality, fpsRational,
+    NEVER_ENCODERS, forbiddenEncoder, normalize, encodersFor, reframe, ffmpegArgs, videoFilter, frameInput, jpegQuality, fpsRational,
     renderFilename, projectFilename, describe, estimateSize, checks, presetGroups, presetId, savedPresets, parseEncoders,
     PLATFORM_LOUDNESS, LOUDNESS_TARGETS, LOUDNESS_ARGS, LOUDNORM_ARGS, parseLoudnorm, loudnormFilter, parseEbur128, verify,
     fmtBytes, fmtDur,

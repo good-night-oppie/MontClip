@@ -1,0 +1,30 @@
+{"status":1,"profile":"MontClip-timeline-fix-lremMu"}
+
+
+  FableCut running →  http://localhost:48120
+
+  project file : <user>\AppData\Local\Temp\MontClip-timeline-fix-lremMu\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-timeline-fix-lremMu\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-timeline-fix-lremMu\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+MONTCLIP_TIMELINE_CASE {"mode":"simple","open":false,"width":1272,"height":738,"preview":{"x":318.7268371582031,"y":129.7106475830078,"w":515.1388549804688,"h":289.7569274902344},"timeline":{"x":5.995370388031006,"y":496.20367431640625,"w":1260.601806640625,"h":236.31944274902344},"tracks":[{"id":"V1","height":57.997684478759766,"visible":57.993045806884766,"clipHeight":51.261573791503906,"clipVisible":51.261573791503906},{"id":"A1","height":41.99073791503906,"visible":41.99073791503906,"clipHeight":35.2546272277832,"clipVisible":35.2546272277832}],"overflow":[0,0],"hits":{"#btnPlay":true,"#btnExport":true,"#mcUndo":true,"#mcRedo":true,"#mcAssistant":true}}
+MONTCLIP_TIMELINE_CASE {"mode":"simple","open":true,"width":1272,"height":738,"preview":{"x":303.7268371582031,"y":129.7106475830078,"w":515.1388549804688,"h":289.7569274902344},"timeline":{"x":5.995370388031006,"y":496.20367431640625,"w":1260.601806640625,"h":236.31944274902344},"tracks":[{"id":"V1","height":57.997684478759766,"visible":57.993045806884766,"clipHeight":51.261573791503906,"clipVisible":51.261573791503906},{"id":"A1","height":41.99073791503906,"visible":41.99073791503906,"clipHeight":35.2546272277832,"clipVisible":35.2546272277832}],"overflow":[0,0],"hits":{"#btnPlay":true,"#btnExport":true,"#mcUndo":true,"#mcRedo":true,"[data-draft]":true,"[data-action=send]":true,"[data-action=cancel]":true,"#mcAssistantClose":true}}
+MONTCLIP_TIMELINE_CASE {"mode":"advanced","open":false,"width":1272,"height":738,"preview":{"x":318.7268371582031,"y":129.7106475830078,"w":515.1388549804688,"h":289.7569274902344},"timeline":{"x":5.995370388031006,"y":496.20367431640625,"w":1260.601806640625,"h":236.31944274902344},"tracks":[{"id":"V1","height":57.997684478759766,"visible":57.993045806884766,"clipHeight":51.261573791503906,"clipVisible":51.261573791503906},{"id":"A1","height":41.99073791503906,"visible":41.99073791503906,"clipHeight":35.2546272277832,"clipVisible":35.2546272277832}],"overflow":[0,0],"hits":{"#btnPlay":true,"#btnExport":true,"#mcUndo":true,"#mcRedo":true,"#mcAssistant":true}}
+AssertionError [ERR_ASSERTION]: render stole scroll
++ actual - expected
+
++ 116.29629516601562
+- 0
+
+    at BrowserWindow.loadURL (<repo>\desktop\timeline-content-smoke.cjs:29:97)
+    at async start (<repo>\desktop\main.js:124:3) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 116.29629516601562,
+  expected: 0,
+  operator: 'strictEqual',
+  diff: 'simple'
+}

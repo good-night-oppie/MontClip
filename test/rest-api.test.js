@@ -291,9 +291,14 @@ test("POST /api/export/frame accepts concatenated RGBA frames", async (t) => {
 });
 
 test("Fast JPEG image2pipe does not duplicate unique frames", async (t) => {
-  // make the frames first: a slow ffmpeg start (a large static binary on a slow disk) between
-  // two requests can outlast the server's keep-alive and break the next fetch
-  if (!require("../ffmpeg-path").available("ffmpeg")) return t.skip("bundled ffmpeg not installed");
+  /* Make the frames before the server starts. Twelve synchronous ffmpeg runs
+     freeze this process; under load that outlasted the server's 5 s
+     keep-alive, the server closed the idle connection left by the previous
+     request, fetch could not see it close while frozen, and /api/export/begin
+     went out on the dead socket (ECONNRESET, "fetch failed").
+     Reproduction: docs/validation/2026-11-02-keepalive-race.md. */
+  if (!require("../ffmpeg-path").available("ffmpeg")) { t.skip("bundled ffmpeg not installed"); return; }
+
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "fc-jpeg-"));
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 

@@ -1,0 +1,38 @@
+{
+ "steps": [
+  {
+   "name": "configured",
+   "provider": "deepseek",
+   "model": "deepseek-flash",
+   "configured": true
+  },
+  {
+   "name": "review",
+   "domain": "api.deepseek.com · deepseek-flash",
+   "formatNote": true,
+   "raw": true
+  },
+  {
+   "name": "reply",
+   "ms": 1828,
+   "text": "助手已生成提案：保留 2 句，成片约 00:04。请先查看再应用。",
+   "button": true,
+   "noProposal": false,
+   "notice": ""
+  },
+  {
+   "name": "proposal-dialog",
+   "ranges": "1,3.2\n3.2,5"
+  },
+  {
+   "name": "applied",
+   "changed": true,
+   "clips": 2
+  },
+  {
+   "name": "undone",
+   "restored": true
+  }
+ ],
+ "passed": true
+}

@@ -1,4 +1,4 @@
-/* Release readiness — what npm, the MCP registry and Glama will see, checked on
+/* Release readiness — what a release (and, once published, npm and the MCP registry) will see, checked on
    every pull request instead of after a release.
 
      node .github/scripts/release-check.js                 # the repo checkout
@@ -36,33 +36,32 @@ const section = (s) => console.log("\n" + s);
 section("Versions");
 const pkg = readJSON("package.json");
 const V = pkg.version;
-const server = readJSON("server.json");
-const npmPkg = (server.packages || []).find((p) => p.registryType === "npm");
-const mcpb = (server.packages || []).find((p) => p.registryType === "mcpb");
 const mcpSrc = fs.readFileSync(path.join(ROOT, "mcp-server.js"), "utf8");
 const serverInfo = /serverInfo:\s*\{\s*name:\s*"[^"]*",\s*version:\s*"([^"]+)"/.exec(mcpSrc);
 const versions = {
   "package.json": V,
-  "server.json version": server.version,
-  "server.json npm package": npmPkg && npmPkg.version,
   "manifest.json": readJSON("manifest.json").version,
   ".claude-plugin/plugin.json": readJSON(".claude-plugin/plugin.json").version,
   "mcp-server.js serverInfo": serverInfo && serverInfo[1],
 };
 for (const [where, v] of Object.entries(versions)) check(v === V, `${where} = ${V}`, `${where} is ${v}, package.json is ${V} — bump every version place together`);
-if (mcpb) check(mcpb.identifier.includes(`/v${V}/`), "server.json mcpb URL points at this release", `server.json mcpb identifier ${mcpb.identifier} is not the v${V} release`);
 
-/* ── Registry and Glama metadata ── */
-section("Registry / Glama metadata");
-check(npmPkg && npmPkg.identifier === pkg.name, `server.json npm identifier = ${pkg.name}`, "server.json has no npm package entry matching package.json name");
-check(typeof server.name === "string" && /^io\.github\.[^/]+\/.+/.test(server.name), `server.json name ${server.name}`, "server.json name must look like io.github.<owner>/<name>");
-check(pkg.mcpName === undefined || pkg.mcpName === server.name, "package.json mcpName matches server.json", `package.json mcpName ${pkg.mcpName} ≠ server.json name ${server.name}`);
-check((server.description || "").length > 0 && server.description.length <= 100, "server.json description fits the registry (≤ 100 chars)", `server.json description is ${(server.description || "").length} chars (registry max 100)`);
+/* ── Not published (docs/decisions/2026-11-02-brand-montclip.md) ──
+   MontClip goes to neither npm nor the MCP registry until the owner registers
+   `montclip` and `io.github.good-night-oppie/montclip`; then the registry
+   manifest and these checks come back together. */
+section("Not published");
+check(pkg.private === true, "package.json private: true (npm refuses to publish it)", "package.json must be private until the owner registers the npm name");
+check(pkg.mcpName === undefined, "package.json has no mcpName", `package.json mcpName ${pkg.mcpName} names a registry entry nobody registered`);
+check(!fs.existsSync(path.join(ROOT, "server.json")), "no MCP registry manifest", "the MCP registry manifest is back without a registered name");
+
+/* ── Metadata ── */
+section("Metadata");
 const glama = readJSON("glama.json");
 check(typeof glama.$schema === "string" && Array.isArray(glama.maintainers) && glama.maintainers.length > 0, "glama.json has $schema and maintainers", "glama.json needs $schema and a non-empty maintainers list");
 check(fs.existsSync(path.join(ROOT, "LICENSE")) && pkg.license, `LICENSE present (${pkg.license})`, "LICENSE file or package.json license missing");
 check(pkg.bin && pkg.bin.fablecut && fs.existsSync(path.join(ROOT, pkg.bin.fablecut)), "package.json bin exists", "package.json bin points at a missing file");
-for (const f of ["package.json", "server.json", "manifest.json", "glama.json", ".mcp.json", ".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) {
+for (const f of ["package.json", "manifest.json", "glama.json", ".mcp.json", ".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) {
   try { readJSON(f); ok(`${f} parses`); } catch (e) { fail(`${f}: ${e.message}`); }
 }
 

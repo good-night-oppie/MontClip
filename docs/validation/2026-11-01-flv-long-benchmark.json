@@ -1,0 +1,193 @@
+{
+  "source": "19377acd3dea9e0ff7df49cde62f020869c10580",
+  "platform": "win32",
+  "node": "v22.15.1",
+  "cpu": "11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz",
+  "logicalCpus": 16,
+  "memoryBytes": 68406370304,
+  "fixture": {
+    "duration": 7200,
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "content": "10-second static blue H264 loop plus continuous synthesized silent AAC; structural test only",
+    "maxBytes": 268435456
+  },
+  "commands": [
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=blue:s=1920x1080:r=30",
+        "-t",
+        "10",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-crf",
+        "35",
+        "-bf",
+        "2",
+        "-g",
+        "60",
+        "-pix_fmt",
+        "yuv420p",
+        "-an",
+        "<fixture>\\seed.mp4"
+      ],
+      "elapsedMs": 469.39829999999995,
+      "code": 0,
+      "signal": null,
+      "stderr": ""
+    },
+    {
+      "tool": "ffmpeg",
+      "args": [
+        "-v",
+        "error",
+        "-nostdin",
+        "-n",
+        "-stream_loop",
+        "-1",
+        "-i",
+        "<fixture>\\seed.mp4",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=r=48000:cl=mono",
+        "-t",
+        "7200",
+        "-map",
+        "0:v:0",
+        "-map",
+        "1:a:0",
+        "-c:v",
+        "copy",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "32k",
+        "-fs",
+        "268435456",
+        "-f",
+        "flv",
+        "<fixture>\\two-hours.flv"
+      ],
+      "elapsedMs": 9893.665700000001,
+      "code": 0,
+      "signal": null,
+      "stderr": ""
+    },
+    {
+      "tool": "ffprobe",
+      "args": [
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_format",
+        "-of",
+        "json",
+        "<fixture>\\two-hours.flv"
+      ],
+      "elapsedMs": 52.063500000000204,
+      "code": 0,
+      "signal": null,
+      "stderr": ""
+    },
+    {
+      "phase": "production-probe",
+      "tool": "ffprobe",
+      "args": [
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_format",
+        "-of",
+        "json",
+        "<fixture>\\two-hours.flv"
+      ],
+      "elapsedMs": 47.05419999999867,
+      "code": 0
+    },
+    {
+      "phase": "production-scan",
+      "tool": "ffprobe",
+      "args": [
+        "-v",
+        "error",
+        "-show_frames",
+        "-show_entries",
+        "frame=media_type,best_effort_timestamp_time,pts_time,duration_time,pkt_duration_time,nb_samples",
+        "-of",
+        "compact=p=0",
+        "<fixture>\\two-hours.flv"
+      ],
+      "elapsedMs": 195237.0049,
+      "code": 0,
+      "signal": null
+    }
+  ],
+  "modules": {
+    "prepare-media.js": "babaf2a5edba0bf6bffcb1db07c0609eb60ea810728952fe80e5a955dfba9a47",
+    "flv-readable-range.js": "2c833e1a931bc304f7df42ce61adade2dc7f9cbbfddbd2fe307b7a09844dd9aa"
+  },
+  "freeBefore": 41637724160,
+  "peakOwnedBytes": 37156354,
+  "minFreeBytes": 41578979328,
+  "ffmpeg": {
+    "version": "ffmpeg version 9.0.1-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+    "sha256": "57c56e369d5b4873b4d93fc1a1d833cb7cd8bc9325c14b05c34ce60b22842d8a"
+  },
+  "ffprobe": {
+    "version": "ffprobe version 9.0.1-full_build-www.gyan.dev Copyright (c) 2007-2026 the FFmpeg developers",
+    "sha256": "afe05347caaabe479b3c4eae71992b6ec1e11c57266a1d665deb0f9fe9847208"
+  },
+  "input": {
+    "sha256": "1c51c1dcb56f688ab7b8cb2c3f9cc2b2462ad20b866b84c25034a5b3650af467",
+    "bytes": 37106309,
+    "duration": 7200.2,
+    "streams": [
+      {
+        "type": "video",
+        "codec": "h264",
+        "start": "0.067000",
+        "rate": "30/1",
+        "hasBFrames": 2
+      },
+      {
+        "type": "audio",
+        "codec": "aac",
+        "start": "0.046000",
+        "rate": "0/0"
+      }
+    ],
+    "hashAfter": "1c51c1dcb56f688ab7b8cb2c3f9cc2b2462ad20b866b84c25034a5b3650af467"
+  },
+  "inspect": {
+    "result": {
+      "compatible": true,
+      "range": {
+        "start": 0.046,
+        "end": 7200.200000000001,
+        "duration": 7200.154,
+        "frames": 553503,
+        "tolerance": 0.10200000000000001,
+        "maxGap": 0.06700000000000728,
+        "estimatedTail": false,
+        "declaredDuration": 7200.2,
+        "needsConsent": false,
+        "decodeWarnings": false
+      }
+    },
+    "elapsedMs": 195288.01069999998
+  },
+  "completed": true,
+  "freeAfter": 41578979328
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "fault": "json",
+    "profile": "MontClip-session-checked-BnGgNH",
+    "exit": 0,
+    "log": "\r\n\n  FableCut running →  http://localhost:64056\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-session-checked-BnGgNH\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-session-checked-BnGgNH\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-session-checked-BnGgNH\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nMONTCLIP_SESSION_CLOSE_COMPLETE {\"fault\":\"json\",\"prompts\":0,\"defaultWait\":false,\"explicitForce\":false,\"originalPreserved\":true,\"notice\":\"没能读取已存的会话。本次会话和草稿只在这次打开期间保留，关闭前请复制要留的内容。原有会话文件未改动。\",\"retryHidden\":true,\"assistantFlush\":true}\n"
+  },
+  {
+    "fault": "schema",
+    "profile": "MontClip-session-checked-lAivfj",
+    "exit": 0,
+    "log": "\r\n\n  FableCut running →  http://localhost:45195\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-session-checked-lAivfj\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-session-checked-lAivfj\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-session-checked-lAivfj\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nMONTCLIP_SESSION_CLOSE_COMPLETE {\"fault\":\"schema\",\"prompts\":0,\"defaultWait\":false,\"explicitForce\":false,\"originalPreserved\":true,\"notice\":\"没能读取已存的会话。本次会话和草稿只在这次打开期间保留，关闭前请复制要留的内容。原有会话文件未改动。\",\"retryHidden\":true,\"assistantFlush\":true}\n"
+  },
+  {
+    "fault": "read",
+    "profile": "MontClip-session-checked-RfrRgw",
+    "exit": 0,
+    "log": "\r\n\n  FableCut running →  http://localhost:52953\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-session-checked-RfrRgw\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-session-checked-RfrRgw\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-session-checked-RfrRgw\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nMONTCLIP_SESSION_CLOSE_COMPLETE {\"fault\":\"read\",\"prompts\":0,\"defaultWait\":false,\"explicitForce\":false,\"originalPreserved\":true,\"notice\":\"没能读取已存的会话。本次会话和草稿只在这次打开期间保留，关闭前请复制要留的内容。原有会话文件未改动。\",\"retryHidden\":true,\"assistantFlush\":true}\n"
+  },
+  {
+    "fault": "project",
+    "profile": "MontClip-session-checked-rrGNZJ",
+    "exit": 0,
+    "log": "\r\n\n  FableCut running →  http://localhost:16723\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-session-checked-rrGNZJ\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-session-checked-rrGNZJ\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-session-checked-rrGNZJ\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nMONTCLIP_SESSION_CLOSE_COMPLETE {\"fault\":\"project\",\"prompts\":2,\"defaultWait\":true,\"explicitForce\":true,\"originalPreserved\":true,\"notice\":\"没能读取已存的会话。本次会话和草稿只在这次打开期间保留，关闭前请复制要留的内容。原有会话文件未改动。\",\"retryHidden\":true,\"assistantFlush\":true}\n"
+  },
+  {
+    "fault": "write",
+    "profile": "MontClip-session-checked-RAfMyZ",
+    "exit": 0,
+    "log": "\r\n\n  FableCut running →  http://localhost:17896\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-session-checked-RAfMyZ\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-session-checked-RAfMyZ\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-session-checked-RAfMyZ\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nMONTCLIP_SESSION_CLOSE_COMPLETE {\"fault\":\"write\",\"prompts\":2,\"defaultWait\":true,\"explicitForce\":true,\"originalPreserved\":true,\"notice\":\"有项目身份的会话、草稿和明确引用保存在本机；未命名目标仅本次窗口保留。不会自动发送。\",\"retryHidden\":false,\"assistantFlush\":false}\n"
+  }
+]

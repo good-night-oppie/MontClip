@@ -1,3 +1,6 @@
 * text=auto eol=lf
 # Licence texts are kept byte for byte: their SHA-256 is recorded in licenses/ffmpeg/inventory.json
 licenses/ffmpeg/texts/** -text
+
+# Preserve official upstream source bytes for provenance verification.
+agent-ui/upstream/** -text

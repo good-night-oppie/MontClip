@@ -1961,6 +1961,8 @@ input[type=range] {
 
 #zoomSlider {
   width: 130px;
+  min-width: 48px;
+  flex: 0 1 130px;   /* gives way first when longer zh-CN labels need the room */
 }
 
 .timeline {
@@ -4526,3 +4528,156 @@ body { background: var(--bg); }
 .sentence-dialog label { display: flex; align-items: start; gap: 8px; padding: 8px 0; }
 .sentence-dialog p { line-height: 1.5; }
 .sentence-dialog .tr-row { flex-wrap: wrap; }
+.tiny-label { white-space:nowrap; }
+
+
+/* One right page region; header and timeline always span the workbench. */
+body { display:block; overflow:hidden; }
+.app { min-width:0; }
+.app .upper { grid-template-columns:minmax(150px,200px) minmax(260px,1fr) minmax(260px,320px); min-height:140px; }
+.app.agent-open .upper { grid-template-columns:minmax(150px,190px) minmax(280px,1fr) minmax(280px,min(var(--agent-pane-width,340px),34vw)); }
+body[data-mc-mode] .upper > .bin { grid-column:1; grid-row:1; }
+body[data-mc-mode] .upper > .monitor { grid-column:2; grid-row:1; }
+body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
+.app .timeline-panel { flex-basis:clamp(180px,var(--timeline-h,180px),32vh); min-height:180px; }
+.track[hidden],.track-head[hidden] { display:none; }
+.app .upper > .inspector { display:flex; flex-direction:column; min-height:0; }
+.side-tabs { flex-shrink:0; overflow-x:auto; }
+.side-tabs button { flex-shrink:0; }
+.upper .mc-assistant { position:static; width:auto; height:100%; min-height:0; max-height:none; padding:6px; overflow:hidden; display:flex; flex-direction:column; z-index:auto; border:0; }
+.mc-assistant.hidden { display:none; }
+#mcAssistantClose { align-self:flex-end; flex-shrink:0; }
+#mcAssistantStatus,#mcAssistantPending { display:none; }
+#mcAgentContent { display:flex; flex-direction:column; min-height:0; overflow:auto; gap:4px; }
+#mcAgentContent .agent-toolbar { display:flex; gap:4px; flex-wrap:wrap; flex-shrink:0; }
+#mcAgentContent p { margin:0; font-size:11px; }
+#mcAgentContent input,#mcAgentContent textarea,#mcAgentContent select { color:var(--text); background:var(--panel-2); border:1px solid var(--border); border-radius:5px; padding:4px 6px; font:inherit; min-width:0; user-select:text; }
+#mcAgentContent textarea { width:100%; min-height:44px; height:56px; resize:vertical; flex-shrink:0; }
+#mcAgentContent [data-sessions] { display:flex; gap:4px; overflow:auto; flex-shrink:0; max-height:32px; }
+#mcAgentContent [data-sessions] button { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:160px; flex-shrink:0; }
+#mcAgentContent [data-references],#mcAgentContent [data-messages] { overflow:auto; max-height:80px; flex-shrink:0; }
+#mcAgentContent [data-config] { overflow:auto; }
+#mcAgentContent [data-config] label { display:block; }
+.app .topbar { flex-wrap:wrap; height:auto; flex-basis:auto; min-height:46px; gap:6px; padding:4px 6px; }
+.topbar-center { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.topbar-right { flex-wrap:wrap; gap:4px; }
+@media(max-width:1100px) {
+ .app .upper,.app.agent-open .upper { grid-template-columns:minmax(260px,1fr) minmax(250px,32vw); }
+ body[data-mc-mode] .upper > .bin, .app.ws-color .upper > .scopes { display:none; }
+ body[data-mc-mode] .upper > .monitor { grid-column:1; }
+ body[data-mc-mode] .upper > .inspector { grid-column:2; }
+ .monitor .panel-head { flex-wrap:wrap; max-height:48px; overflow:auto; }
+ .transport { display:flex; flex-wrap:wrap; justify-content:center; gap:3px; padding:3px; min-height:36px; }
+ .transport-end { gap:3px; }
+ .transport > .tc { display:none; }
+ #mcAgentContent [data-messages]:empty { display:none; }
+ .layout-tools { display:none; }
+}
+@media(max-height:600px) {
+ .app { gap:3px; padding:3px; }
+ #mcAgentContent { gap:2px; }
+ #mcAgentContent [data-key=paneTools] { display:none; }
+ #mcAgentContent [data-sessions] { max-height:24px; }
+ #mcAgentContent [data-messages] { max-height:24px; }
+ #mcAgentContent input[type=search] { height:24px; }
+ .upper .mc-assistant { padding:3px; }
+}
+.mc-media-toggle { display:none; }
+@media(max-width:1100px) {
+ .mc-media-toggle { display:inline-flex; }
+ body[data-mc-mode] .app.media-open .upper > .bin { display:flex; grid-column:2; grid-row:1; }
+ .app.media-open .upper > .inspector { display:none; }
+}
+#mcAgentContent { flex:1; overflow:hidden; }
+#mcAgentContent .agent-scroll { flex:1; min-height:0; overflow:auto; display:flex; flex-direction:column; gap:4px; }
+#mcAgentContent > textarea,#mcAgentContent > .agent-toolbar { flex-shrink:0; }
+@media(max-height:600px) { #mcAgentContent > textarea { height:40px; min-height:40px; } }
+@media(max-width:700px) {
+ .monitor .panel-head { max-height:28px; min-height:28px; padding-top:2px; padding-bottom:2px; }
+ .monitor-stage { margin:1px; }
+ .transport { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px; padding:2px; }
+ .transport-btns { grid-column:1 / -1; grid-row:1; justify-content:center; }
+ .transport > .tc-playhead { grid-column:1; grid-row:2; min-width:0; }
+ .transport-end { grid-column:2; grid-row:2; max-width:100%; overflow-x:auto; }
+ .transport-end .tc-io.idle { display:none; }
+}
+#mcAgentContent [hidden] { display:none !important; }
+/* Official Cindy component island: scoped host tokens; no second right sidebar. */
+.cindy-port {display:flex;flex-direction:column;min-height:0;height:100%;gap:4px;overflow:hidden;--chat-input-bg:var(--panel);--chat-input-border:var(--border);--chat-input-border-focus:var(--accent);--send-btn-bg:var(--accent);--send-btn-icon:white;--send-btn-hover-bg:var(--accent);--send-btn-pressed-bg:var(--accent);}
+.cindy-port button,.cindy-port input,.cindy-port select,.cindy-port textarea {font:inherit;color:inherit;background:var(--panel);border:1px solid var(--border);border-radius:5px;max-width:100%;}
+.cindy-port button {cursor:pointer;padding:4px 6px;}
+.cindy-port button:focus-visible,.cindy-port input:focus-visible,.cindy-port textarea:focus-visible {outline:2px solid var(--accent);outline-offset:1px;}
+.cindy-thread {flex:1 1 0;min-height:0;overflow:auto;overflow-wrap:anywhere;}
+.cindy-message {display:flex;flex-direction:column;white-space:pre-wrap;padding:6px;border-bottom:1px solid var(--border);}
+.cindy-composer {flex:none;border:1px solid var(--border);border-radius:8px;position:relative;padding:4px;display:grid;grid-template-columns:minmax(0,1fr) 30px;align-items:end;}
+.cindy-composer textarea {width:100%;min-height:42px;max-height:100px;resize:vertical;box-sizing:border-box;}
+.cindy-send {display:flex;justify-content:flex-end;}
+.cindy-send button {width:30px;height:30px;position:relative;background:var(--accent);}
+.cindy-send svg {width:16px;height:16px;}
+.cindy-send .block {display:block;width:10px;height:10px;background:currentColor;}
+.cindy-send .opacity-0 {display:none;}
+.cindy-send .grid {display:grid;place-items:center;}
+.cindy-send .row-start-1 {grid-row-start:1;grid-column-start:1;}
+.cindy-config {max-height:45%;overflow:auto;border:1px solid var(--border);padding:4px;flex-shrink:0;}
+.cindy-config label {display:flex;flex-direction:column;gap:2px;}
+.cindy-references {max-height:60px;overflow:auto;overflow-wrap:anywhere;}
+.cindy-confirm {max-width:min(620px,90vw);max-height:85vh;color:var(--text);background:var(--panel);}
+.cindy-confirm pre {white-space:pre-wrap;overflow-wrap:anywhere;max-height:55vh;overflow:auto;}
+.cindy-port p {margin:2px 0;font-size:11px;}
+
+/* Review is a centered themed modal; reply actions stay outside the scrolling history. */
+.cindy-confirm {position:fixed;inset:0;margin:auto;width:min(620px,90vw);box-sizing:border-box;padding:16px;border:1px solid var(--border);border-radius:8px;overflow:auto;background:var(--panel);color:var(--text);}
+.cindy-confirm::backdrop {background:rgba(0,0,0,.45);}
+.cindy-review-text {max-height:30vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;}
+.cindy-chip {display:block;border:1px solid var(--border);border-radius:4px;padding:2px 4px;overflow-wrap:anywhere;}
+.cindy-proposal-actions {flex:none;display:flex;gap:4px;flex-wrap:wrap;}
+.cindy-config {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:3px;max-height:60%;}
+.cindy-config p,.cindy-config [role=alert] {grid-column:1 / -1;}
+
+@media (max-height:560px) {
+ .cindy-port {gap:2px;}
+ .cindy-composer textarea {height:42px;min-height:42px;max-height:60px;}
+ .cindy-proposal-actions button {padding:2px 4px;font-size:11px;}
+ .cindy-port > .agent-toolbar {flex-shrink:0;}
+}
+
+@media (max-width:700px) and (max-height:560px) {
+ #mcAgentContent .cindy-composer textarea {height:28px;min-height:28px;max-height:42px;}
+ .cindy-port {gap:1px;}
+ .cindy-port > .agent-toolbar button,.cindy-proposal-actions button {padding:1px 3px;font-size:11px;}
+ .cindy-composer {padding:2px;}
+}
+
+/* Assistant on short panes (VV 630x452): references sit beside the composer, notes and
+   sessions fold into “More”, and “Collapse” shares the toolbar row instead of its own. */
+.cindy-more {flex:0 1 auto;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:2px;}
+/* VV 2026-11-02: More is sized to its content (no percentage cap, whose edge cut a row and the
+   storage note at 630); kept small so it fits: two session rows (one when compact), the note on one
+   line, an opened format note scrolling inside itself. It can still shrink, so the composer stays. */
+.cindy-more > * {flex:none;}
+.cindy-more > p {white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0;}
+.cindy-more > details[open] {max-height:6em;overflow:auto;}
+/* 630×452: the whole pane is 139px; compact More keeps search + sessions only. The storage note
+   moves to the More button tooltip; the format note is the first section of every review dialog. */
+.cindy-port.compact .cindy-more > p, .cindy-port.compact .cindy-more > details {display:none;}
+/* VV 2026-11-02: only the session list scrolls, by whole rows, so its edge never cuts a row in half */
+.cindy-session-list {--row:22px;--gap:4px;flex:0 1 auto;min-height:var(--row);overflow-y:auto;scroll-snap-type:y mandatory;align-content:flex-start;max-height:calc(var(--row) * 2 + var(--gap));gap:var(--gap);}
+/* the pane sits in #mcAgentContent, whose .agent-toolbar gap would otherwise win and break the row maths */
+#mcAgentContent .cindy-session-list {gap:var(--gap);}
+.cindy-session-list > button {height:var(--row);box-sizing:border-box;scroll-snap-align:start;}
+.cindy-port.compact .cindy-session-list {max-height:calc(var(--row) * 1);}
+.cindy-ref-actions {flex:none;}
+.cindy-references {flex:0 1 auto;min-height:0;}
+.cindy-port [role=status]:empty {display:none;}
+.cindy-port.compact .cindy-references {max-height:36px;}
+.cindy-port.compact .cindy-message {padding:2px 4px;}
+.cindy-port.compact .agent-toolbar {gap:2px;}
+.cindy-port.compact button {padding:1px 4px;font-size:11px;}
+.upper .mc-assistant {position:relative;inset:auto;}
+@media (max-height:560px) {
+ .upper .mc-assistant #mcAssistantClose {position:absolute;top:3px;right:3px;z-index:1;padding:1px 4px;}
+ .upper .mc-assistant .cindy-port > .agent-toolbar:first-child {padding-right:44px;}
+}
+.cindy-port.compact .cindy-message {display:block;font-size:11px;line-height:1.35;}
+.cindy-port.compact .cindy-message > strong {margin-right:4px;}
+.cindy-port.compact .cindy-composer {padding:2px;}

@@ -11,9 +11,9 @@ drive the editor.
 
 ## MCP connection (preferred — works from any session, any directory)
 
-Register the MCP server once at user scope as `fablecut`:
-`claude mcp add -s user fablecut -- npx -y fablecut mcp` (from npm, no path needed),
-or from a clone `claude mcp add -s user fablecut -- node "<path-to>/fablecut/mcp-server.js"`.
+Register the MCP server once at user scope as `fablecut`, from a clone:
+`claude mcp add -s user fablecut -- node "<path-to>/MontClip/mcp-server.js"`.
+(MontClip is not published to npm; see `docs/decisions/2026-11-02-brand-montclip.md`.)
 Every Claude Code session then has these tools:
 
 - `fablecut_status` — auto-starts the editor server, returns URL + project summary. Call first.
@@ -147,17 +147,13 @@ asks to overwrite conflicting changes. `fablecut_import_media` only appends a
 new media entry and always merges safely — no conflict check needed.
 
 For Claude Desktop, add to its MCP config:
-`{"mcpServers":{"fablecut":{"command":"npx","args":["-y","fablecut","mcp"]}}}`
-(or `"command":"node","args":["<path-to>/fablecut/mcp-server.js"]` from a clone)
+`{"mcpServers":{"fablecut":{"command":"node","args":["<path-to>/MontClip/mcp-server.js"]}}}`
 Direct file editing of `project.json` (below) works too and is equivalent.
-
-Installing as a Claude Code plugin (`/plugin marketplace add ronak-create/FableCut`,
-then `/plugin install fablecut@fablecut`) does the registration for you.
 
 ### Where the files are
 
 `project.json`, `projects/`, `media/`, `exports/`, `analysis/` and `library/` normally sit in
-the repo next to `server.js`; installed from npm (`npx fablecut`) they sit in
+the repo next to `server.js`; when the code sits under `node_modules` they sit in
 `~/FableCut`. Set **`FABLECUT_DATA_DIR`** to move all six
 somewhere else; the code and the static app files stay in the install directory
 either way. The plugin sets this so a plugin update can replace the install
@@ -195,7 +191,7 @@ Raw encoding profiles that use libx264 need that local FFmpeg. With no H.264 enc
 export says why in plain words. See `docs/decisions/2026-11-02-h264-encoder.md`, `LICENSES.md`.
 
 ```
-node server.js        # → http://localhost:7777   (from npm: npx -y fablecut)
+node server.js        # → http://localhost:7777
 ```
 
 Files: `index.html` + `style.css` + `app.js` (editor UI), `server.js` (API + hosting),
@@ -2783,3 +2779,70 @@ Assistant panel states that no AI service is connected; it sends nothing.
 FLV import, broader localization and interactive chat are separate changes.
 
 Desktop view preferences (simple/advanced and zh-CN/en) use the fixed userData/view-settings.json file, independent of the random local server port. The sandboxed preload exposes only get/set for these two enum settings; main validates sender, top frame and exact origin. Browser use retains localStorage. This does not save project edits.
+
+## Guarded local FLV preparation (clean core split)
+
+Local FLV uploads and fablecut_import_media share prepare-media.js. Compatible
+single-video H.264 4:2:0 plus optional AAC streams are remuxed; other codecs need
+boolean allowTranscode:true. Decoded timestamp gaps above5ms are refused with
+FLV_TIMELINE_GAP before any MP4 allocation; this is clock quantization, not an
+AV quality guarantee. Multiple video/audio streams are refused. Source bytes
+are retained; output is a distinct MP4 and metadata carries originalSrc and
+preparation (remux/transcode), preserved by renderer serialization.
+
+Uncertain decoded tails/header lengths/warnings require acceptReadable:true,
+separately from codec consent. REST upload returns409 with
+FLV_READABLE_CONSENT_REQUIRED, originalSrc and decoded range. POST
+/api/prepare-media accepts {src, acceptReadable, allowTranscode}; src must resolve
+to a local /media/ FLV. Booleans must be true, not strings. MCP accepts the same
+two booleans on fablecut_import_media. Callers must show the detected limitation
+before accepting; these flags do not make source timing verified or authorize gaps.
+
+Legacy upload/MCP copies are already stored before probing and remain on refusal;
+this is not native zero-allocation consent. Repeated MCP attempts can retain extra
+source copies. The simple browser entry imports only unambiguous compatible FLV;
+when authorization is required it reports refusal, does not create a transient
+blob, and does not yet offer the deferred native consent UI. Source registration
+is guarded against project changes after metadata. These tests do not explain the
+historical browser disk-revision1 incident. No automatic subtitle/danmaku shift.
+
+This split uses the existing development child_process/PATH tools, parameter
+arrays, timeout and owned partial-output cleanup. It is not the packaged tool
+resolver or a portable/offline release. System GPLv3 FFmpeg is a development test
+tool only, not an approved LGPL distribution candidate. Native IPC/hash snapshot/
+close cleanup and its diagnostic harness will be a separate clean change. No
+AI/model/runtime dependency is added by this core split.
+
+MontClip Agent Pane foundation: one pane is shared across view modes. Session search/new/select and bounded drafts are local to the open window and project/sequence; no provider or tool execution is connected. Sending reports unconfigured and retains draft; no synthetic assistant reply. Model selector intentionally has only an unavailable option. Desktop IPC montclip:pane:get/set accepts only width280–480 through the existing sender/frame/origin guard, storing agent-pane-settings.json under userData; no credentials, paths, messages or project data accepted. UI strings share MontClipView locale keys. The assistant shares the existing right-side page area with inspector tabs; the timeline spans the full workspace. Simple view hides empty non-main tracks while keeping occupied tracks and V1/A1. Advanced view retains every track with scrolling. New project/sequence or occupied-track changes initially reveal content; routine redraws preserve manual scrolling. View filtering does not change project tracks, clips or undo. Same-head visible-window review and full workspace acceptance remain pending.
+
+Agent Pane reference increment: explicit project identity, selected caption text/current clip/source caption ID and timeline work-range chips. References are local draft data, not approved external payload or guaranteed current revision. Removing a chip removes it from the current session. No arbitrary attachment upload. IME-composing Enter is ignored by send; Shift+Enter keeps newline; Escape leaves an open native dialog alone, otherwise closes pane settings before hiding pane and focusing its launcher. Real keyboard/window verification pending.
+
+Workspace preference now uses three fixed desktop IPC operations (get/set/migrate), strict {version:1,workspace:"edit"|"color"} in workspace-settings-v1.json. Original mode/language API remains exactly two keys. Migration reads only the currently accessible legacy origin if new file absent; it cannot recover inaccessible old random-port origins, overwrite an existing selection, or replace corrupted storage silently. Browser keeps origin-local fallback. Simple starts in Edit; Color→simple exits view state without writing project/undo, and nested/export blocks mode changes.
+
+## Local Agent session storage (desktop)
+
+The fixed `montclip:sessions:get/set` IPC uses the same sender/frame/exact-origin guard as view settings. `agent-sessions-v1.json` is main-owned; no path or generic key argument is accepted. Version1 stores identified project/sequence scopes, active session, draft, text-only user/assistant message history and explicit reference chips. It is not project content, a credential store, an authorized outbound payload, or a tool receipt journal. Unknown generation is explicitly null; restored references must be revalidated and approved before any future service/proposal use. No provider is configured by this change.
+
+Maximum50 sessions across scopes,100 messages/session,20 references/session,16000 characters/text and524288 serialized characters. Set carries an expected content token; stale differing snapshots fail, identical retries read back successfully. Failed saves retain memory edits and block normal desktop close until confirmed. OS crash/forced termination can lose unconfirmed edits. Anonymous targets and browser-only mode remain window-local. A corrupt initial store is not overwritten automatically. Main-owned temporary output is exclusively opened; only owned output is cleaned after write/rename failure. No fsync/crash-proof or multi-process filesystem CAS guarantee is claimed.
+
+Agent default identity adoption is internal to verified pjLoad: preserve anonymous same-generation/same-sequence sessions when snapshot/header identity checks succeed, without automatically changing reference ownership. The assistant uses the existing right-side page area. Existing close controller continues to offer default keep-open and explicit force-close when session saving fails; force can discard unconfirmed edits.
+
+Agent pane capacity feedback distinguishes session, current-project, text and reference limits. Returning from a capacity-blocked project restores its existing project sessions; no restart is recommended to free capacity.
+
+If session storage cannot be read at initialization, the Agent pane explicitly uses window-only sessions. Copy drafts before closing; the original session file is not changed. This temporary mode does not block normal project close/save checks. A write failure after successful loading remains unconfirmed and retains the existing close protection.
+
+## Experimental official Cindy composer integration
+
+The desktop assistant reuses pinned Apache-2.0 Cindy components, bundled locally. Open **AI service** in the assistant, select OpenAI or DeepSeek, enter a model ID and your own key, then save. Configuration alone sends no request. Before sending, review the full outgoing JSON including prior messages and explicitly selected references. Keys are encrypted by Electron safeStorage in this MontClip profile and are not returned to the page. The key is briefly present in its write-only input before save. Session text is local plaintext; do not treat the profile as encrypted message storage.
+
+Only text chat is available through this adapter. Sentence proposals require explicitly quoted whole subtitles and strict keep_sentences JSON. Review/preview do not edit; Apply uses the existing range engine, and Undo restores it. Invalid or stale suggestions are refused. No shell, arbitrary URL, media upload or automatic edit tool is exposed. Live provider acceptance is pending; tests use a clearly labelled injected transport. This is a partial official-component port, not full Cindy compatibility or a packaged release. See [provenance and limits](docs/decisions/2026-11-01-official-cindy-port.md).
+
+Host-only bridge: montclipAgentService.get/configure/send/cancel; no REST/MCP key endpoint. send requires version1, requestId, projectId, sequenceId, revision, gen and bounded user/assistant messages. Proposal schema is {type:"keep_sentences",ranges:[{clipId,sourceCaptionId,from,to}]}; timestamps are timeline seconds and every boundary must equal the explicitly referenced whole sentence. Existing MCP/REST operations are unchanged.
+
+**Remove this connection** (删除这个连接) in AI service asks for confirmation, then the main process cancels a running request and deletes the saved connection file, which holds the sealed key, together with any write temporaries and reset backups. Only when the file is confirmed gone does the state return to not configured; sending is then refused. A failed delete is reported and still shows what remains saved. The fixed `montclip:agent:deleteConnection` IPC takes no argument.
+
+The experimental official Agent Pane offers an explicit reset for unreadable connection settings. The fixed `montclip:agent:reset` IPC backs up the damaged connection file in a newly owned local directory before accepting replacement settings; backup failure leaves the original untouched. No arbitrary file/path IPC is exposed. Confirmation of outgoing text is renderer-side, not a second main-process authorization prompt.
+
+The official proposal card offers Undo this apply only while its application is the current shared undo stack top; later edits hide the button. It calls the same global undo() and follows global Redo. The local operation tag lives only in undo snapshots, not exported project data.
+
+Official-pane history presentation separates validated trailing reference envelopes into text and chips without changing stored/sent history. Confirmation lists human-readable messages and references; the exact HTTP request is available in collapsed details. A bounded proposal summary is presentation only: application still revalidates the live project. Stale replies can create a new draft with empty history/references, never automatically send.

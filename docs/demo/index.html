@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FableCut playground</title>
+<title>MontClip playground</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
 <meta name="theme-color" content="#0e0e10">
@@ -21,38 +21,39 @@
     </span>
     <select id="mcLanguage" aria-label="界面语言"><option value="zh-CN">中文</option><option value="en">English</option></select>
     <button class="btn tiny" id="mcAssistant" type="button">助手</button>
-    <button type="button" class="btn tiny hidden" id="btnProjectsDash" title="Projects (Ctrl/Cmd+O): open, create, duplicate, archive">Projects</button>
+    <button type="button" class="btn tiny hidden" id="btnProjectsDash" title="Projects (Ctrl/Cmd+O): open, create, duplicate, archive" data-i18n="term.projects">Projects</button>
     <div class="topbar-center" id="projectName">Untitled Project</div>
     <div class="topbar-right">
-      <span class="btn-group ws-switch" id="wsSwitch" role="tablist" title="Workspace">
-        <button type="button" class="btn tiny on" data-ws="edit" title="Edit workspace: media bin, inspector, mixer">Edit</button>
-        <button type="button" class="btn tiny" data-ws="color" title="Color workspace: scopes, wheels and the grade of the selected clip">Color</button>
+      <span class="btn-group ws-switch" id="wsSwitch" role="tablist" title="Workspace" data-i18n-title="term.workspace">
+        <button type="button" class="btn tiny on" data-ws="edit" title="Edit workspace: media bin, inspector, mixer" data-i18n-title="term.edit-workspace-media-bin-inspector-mixer" data-i18n="term.edit">Edit</button>
+        <button type="button" class="btn tiny" data-ws="color" title="Color workspace: scopes, wheels and the grade of the selected clip" data-i18n="term.color">Color</button>
       </span>
       <span class="layout-tools">
-        <button type="button" class="btn tiny" id="btnLayoutReset" title="Restore default layout">⊡ Layout</button>
-        <span class="btn-group" id="trackSizeGroup" title="Timeline track height">
-          <button type="button" class="btn tiny" data-track-size="s" title="Compact tracks (no thumbnails)">S</button>
-          <button type="button" class="btn tiny" data-track-size="m" title="Medium tracks">M</button>
-          <button type="button" class="btn tiny" data-track-size="l" title="Large tracks">L</button>
+        <button type="button" class="btn tiny" id="btnLayoutReset" title="Restore default layout" data-i18n-title="term.restore-default-layout" data-i18n="term.layout">⊡ Layout</button>
+        <span class="btn-group" id="trackSizeGroup" title="Timeline track height" data-i18n-title="term.timeline-track-height">
+          <button type="button" class="btn tiny" data-track-size="s" title="Compact tracks (no thumbnails)" data-i18n-title="term.compact-tracks-no-thumbnails">S</button>
+          <button type="button" class="btn tiny" data-track-size="m" title="Medium tracks" data-i18n-title="term.medium-tracks">M</button>
+          <button type="button" class="btn tiny" data-track-size="l" title="Large tracks" data-i18n-title="term.large-tracks">L</button>
         </span>
       </span>
-      <button class="btn ghost" id="btnSettings" title="Settings" aria-label="Settings">
+      <button class="btn ghost" id="btnSettings" title="Settings" aria-label="Settings" data-i18n-title="term.settings" data-i18n-aria-label="term.settings">
         <svg class="ico" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
           <path fill="currentColor" fill-rule="evenodd" d="M6.71 2.81L6.88.94L9.12.94L9.29 2.81L10.76 3.41L12.2 2.22L13.78 3.8L12.59 5.24L13.19 6.71L15.06 6.88L15.06 9.12L13.19 9.29L12.59 10.76L13.78 12.2L12.2 13.78L10.76 12.59L9.29 13.19L9.12 15.06L6.88 15.06L6.71 13.19L5.24 12.59L3.8 13.78L2.22 12.2L3.41 10.76L2.81 9.29L.94 9.12L.94 6.88L2.81 6.71L3.41 5.24L2.22 3.8L3.8 2.22L5.24 3.41Z M5.15 8a2.85 2.85 0 1 0 5.7 0a2.85 2.85 0 1 0-5.7 0"/>
         </svg>
       </button>
-      <button class="btn ghost" id="btnHelp" title="Keyboard shortcuts">?</button>
-      <button class="btn primary" id="btnExport">⬇ Export</button>
+      <button class="btn ghost" id="btnHelp" title="Keyboard shortcuts" data-i18n-title="term.keyboard-shortcuts">?</button>
+      <button class="btn primary" id="btnExport" data-i18n="term.export-2">⬇ Export</button>
     </div>
   </header>
 
+  <button class="btn tiny mc-media-toggle" id="mcMediaToggle" type="button">素材</button>
   <div class="mc-history" role="group" aria-label="Undo / Redo">
     <button class="btn tiny" id="mcUndo" type="button">撤销</button>
     <button class="btn tiny" id="mcRedo" type="button">重做</button>
   </div>
   <section id="mcAssistantPanel" class="panel mc-assistant hidden" aria-label="助手">
     <button class="btn tiny" id="mcAssistantClose" type="button">收起</button>
-    <p id="mcAssistantStatus"></p><p id="mcAssistantPending"></p>
+    <p id="mcAssistantStatus"></p><p id="mcAssistantPending"></p><div id="mcAgentContent"></div>
   </section>
   <!-- ══════════ UPPER PANELS ══════════ -->
   <div class="upper">
@@ -61,36 +62,36 @@
     <aside class="panel bin">
       <div class="panel-head">
         <span class="panel-head-actions bin-actions">
-          <button type="button" class="btn tiny" id="btnTitle" title="Add a title card at the playhead">+ Title</button>
-          <button type="button" class="btn tiny" id="btnAdjust" title="Add an adjustment layer (grades everything below it)">+ Adjust</button>
-          <label class="btn tiny accent" id="btnImport" for="fileInput" title="Import media files">+ Import</label>
-          <button type="button" class="btn tiny" id="btnImportUrl" title="Download media from an HTTPS URL into the project">+ URL</button>
+          <button type="button" class="btn tiny" id="btnTitle" title="Add a title card at the playhead" data-i18n-title="term.add-a-title-card-at-the-playhead" data-i18n="own.add-title">+ Title</button>
+          <button type="button" class="btn tiny" id="btnAdjust" title="Add an adjustment layer (grades everything below it)" data-i18n-title="own.add-adjust-title" data-i18n="own.add-adjust">+ Adjust</button>
+          <label class="btn tiny accent" id="btnImport" for="fileInput" title="Import media files" data-i18n-title="term.import-media-files" data-i18n="own.add-import">+ Import</label>
+          <button type="button" class="btn tiny" id="btnImportUrl" title="Download media from an HTTPS URL into the project" data-i18n-title="own.import-url-title" data-i18n="own.add-url">+ URL</button>
         </span>
       </div>
       <div class="bin-tabs" id="binTabs">
-        <button type="button" data-tab="project" class="on" title="Media used by this project — right-click for New folder">Project</button>
-        <button type="button" data-tab="elements" title="Overlay art from library/elements">Elements</button>
-        <button type="button" data-tab="sfx" title="Sound effects from library/sfx">SFX</button>
-        <button type="button" data-tab="svg" title="Vector animations from library/svg">SVG</button>
-        <button type="button" data-tab="shapes" title="Shape layers and null objects">Shapes</button>
-        <button type="button" data-tab="templates" title="Lower thirds, logo animations and social layouts — with fields you edit in the Inspector">Templates</button>
+        <button type="button" data-tab="project" class="on" title="Media used by this project — right-click for New folder" data-i18n="term.project">Project</button>
+        <button type="button" data-tab="elements" title="Overlay art from library/elements" data-i18n-title="term.overlay-art-from-library-elements" data-i18n="term.elements">Elements</button>
+        <button type="button" data-tab="sfx" title="Sound effects from library/sfx" data-i18n-title="term.sound-effects-from-library-sfx" data-i18n="term.sfx">SFX</button>
+        <button type="button" data-tab="svg" title="Vector animations from library/svg" data-i18n-title="term.vector-animations-from-library-svg">SVG</button>
+        <button type="button" data-tab="shapes" title="Shape layers and null objects" data-i18n-title="term.shape-layers-and-null-objects" data-i18n="term.shapes">Shapes</button>
+        <button type="button" data-tab="templates" title="Lower thirds, logo animations and social layouts — with fields you edit in the Inspector" data-i18n="term.templates">Templates</button>
       </div>
       <div class="bin-tools" id="binTools">
-        <input type="search" id="binSearch" class="bin-search" placeholder="Search name, #tag, codec, 4k…" aria-label="Search the Project bin" spellcheck="false" autocomplete="off">
-        <select id="binFilter" class="bin-filter" title="Show only…" aria-label="Show"></select>
-        <select id="binSort" class="bin-sort" title="Sort by" aria-label="Sort by">
-          <option value="name">Name</option><option value="kind">Kind</option><option value="duration">Duration</option>
-          <option value="resolution">Resolution</option><option value="fps">Frame rate</option><option value="codec">Codec</option>
-          <option value="audio">Audio channels</option><option value="size">File size</option><option value="usage">Times used</option>
+        <input type="search" id="binSearch" class="bin-search" placeholder="Search name, #tag, codec, 4k…" aria-label="Search the Project bin" spellcheck="false" autocomplete="off" data-i18n-placeholder="term.search-name-tag-codec-4k" data-i18n-aria-label="term.search-the-project-bin">
+        <select id="binFilter" class="bin-filter" title="Show only…" aria-label="Show" data-i18n-title="term.show-only" data-i18n-aria-label="term.show"></select>
+        <select id="binSort" class="bin-sort" title="Sort by" aria-label="Sort by" data-i18n-title="term.sort-by" data-i18n-aria-label="term.sort-by">
+          <option value="name" data-i18n="term.name">Name</option><option value="kind" data-i18n="term.kind">Kind</option><option value="duration" data-i18n="term.duration">Duration</option>
+          <option value="resolution" data-i18n="term.resolution">Resolution</option><option value="fps" data-i18n="term.frame-rate">Frame rate</option><option value="codec" data-i18n="term.codec">Codec</option>
+          <option value="audio" data-i18n="term.audio-channels">Audio channels</option><option value="size" data-i18n="term.file-size">File size</option><option value="usage" data-i18n="term.times-used">Times used</option>
         </select>
-        <button type="button" class="btn tiny" id="binSortDir" title="Ascending — click for descending">↑</button>
-        <button type="button" class="btn tiny" id="binViewBtn" title="List view: metadata columns">☰</button>
+        <button type="button" class="btn tiny" id="binSortDir" title="Ascending — click for descending" data-i18n-title="term.ascending-click-for-descending">↑</button>
+        <button type="button" class="btn tiny" id="binViewBtn" title="List view: metadata columns" data-i18n-title="term.list-view-metadata-columns">☰</button>
       </div>
       <input type="file" id="fileInput" class="sr-only" multiple accept="video/*,audio/*,image/*,.mp4,.mov,.webm,.mkv,.mp3,.wav,.m4a,.png,.jpg,.jpeg,.gif,.webp,.svg">
       <div class="bin-list" id="binList">
         <div class="bin-empty" id="binEmpty">
           <div class="bin-empty-icon">🎬</div>
-          <p>Drop video, audio or images here<br>or click <b>+ Import</b> / <b>+ URL</b></p>
+          <p><span data-i18n="term.drop-video-audio-or-images-here">Drop video, audio or images here</span><br><span data-i18n="own.or-click">or click</span> <b data-i18n="own.add-import">+ Import</b> / <b data-i18n="own.add-url">+ URL</b></p>
           <p class="hint">Double-click to open in Source, or drag onto the timeline.</p>
         </div>
       </div>
@@ -99,7 +100,7 @@
 
     <!-- Single monitor (Source / Program — Avid-style toggle) -->
     <!-- Scopes (Color workspace) -->
-    <aside class="panel scopes" id="scopesPanel" aria-label="Scopes">
+    <aside class="panel scopes" id="scopesPanel" aria-label="Scopes" data-i18n-aria-label="term.scopes">
       <div class="scope-slot" data-slot="0"></div>
       <div class="scope-slot" data-slot="1"></div>
     </aside>
@@ -108,20 +109,20 @@
       <div class="panel-head">
         <span class="panel-head-title">
           <span class="btn-group monitor-mode" id="monitorModeGroup" title="Source = loaded clip · Program = timeline">
-            <button type="button" class="btn tiny" data-monitor-mode="source" id="btnMonSource">Source</button>
-            <button type="button" class="btn tiny on" data-monitor-mode="program" id="btnMonProgram">Program</button>
+            <button type="button" class="btn tiny" data-monitor-mode="source" id="btnMonSource" data-i18n="term.source">Source</button>
+            <button type="button" class="btn tiny on" data-monitor-mode="program" id="btnMonProgram" data-i18n="term.program">Program</button>
           </span>
           <span class="monitor-clip-name dim" id="monitorClipName"></span>
-          <button class="btn tiny hidden" id="btnZoom100" title="Reset monitor view to fit stage"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="square" d="M1.5 5V1.5H5M11 1.5h3.5V5M14.5 11v3.5H11M5 14.5H1.5V11"/><path fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round" d="M3.2 3.2l2.6 2.6M12.8 3.2l-2.6 2.6M12.8 12.8l-2.6-2.6M3.2 12.8l2.6-2.6"/></svg> Fit</button>
+          <button class="btn tiny hidden" id="btnZoom100" title="Reset monitor view to fit stage" data-i18n-title="term.reset-monitor-view-to-fit-stage"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="square" d="M1.5 5V1.5H5M11 1.5h3.5V5M14.5 11v3.5H11M5 14.5H1.5V11"/><path fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round" d="M3.2 3.2l2.6 2.6M12.8 3.2l-2.6 2.6M12.8 12.8l-2.6-2.6M3.2 12.8l2.6-2.6"/></svg> Fit</button>
         </span>
         <span class="panel-head-actions">
-          <select id="aspectSel" class="head-select" title="Canvas aspect preset"></select>
-          <select id="fpsSel" class="head-select" title="Project frame rate"></select>
+          <select id="aspectSel" class="head-select" title="Canvas aspect preset" data-i18n-title="term.canvas-aspect-preset"></select>
+          <select id="fpsSel" class="head-select" title="Project frame rate" data-i18n-title="term.project-frame-rate"></select>
           <select id="exportFrameSel" class="head-select" title="Delivery export frame — crop inside the canvas for reframing"></select>
-          <button class="btn tiny toggle" id="btnExportFrame" title="Toggle export frame overlay (drag handle to reframe)">⬒ Frame</button>
+          <button class="btn tiny toggle" id="btnExportFrame" title="Toggle export frame overlay (drag handle to reframe)" data-i18n="term.frame">⬒ Frame</button>
           <button type="button" class="btn tiny toggle hidden" id="btnExportFrameDim" aria-pressed="true" title="Lights off — crop to the export frame"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><g class="ef-bulb-rays" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 .4v1.05M1.7 3.45l.85.65M14.3 3.45l-.85.65"/></g><path class="ef-bulb-glass" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linejoin="round" d="M8 1.7A4.1 4.1 0 0 0 3.9 5.8c0 1.62.86 2.72 1.8 3.5.38.32.62.68.62 1.15v.35h4.36v-.35c0-.47.24-.83.62-1.15.94-.78 1.8-1.88 1.8-3.5A4.1 4.1 0 0 0 8 1.7z"/><path fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="square" d="M6.25 12.85h3.5M6.7 14.35h2.6"/></svg></button>
-          <button class="btn tiny toggle" id="btnGuides" title="Toggle safe-area guides">▦ Safe</button>
-          <button class="btn tiny toggle proxy-btn" id="btnProxy" title="Play proxies while editing (export always uses the originals)">Proxy</button>
+          <button class="btn tiny toggle" id="btnGuides" title="Toggle safe-area guides" data-i18n-title="term.toggle-safe-area-guides" data-i18n="term.safe">▦ Safe</button>
+          <button class="btn tiny toggle proxy-btn" id="btnProxy" title="Play proxies while editing (export always uses the originals)" data-i18n="term.proxy">Proxy</button>
           <span class="dim" id="monitorRes"></span>
         </span>
       </div>
@@ -138,18 +139,18 @@
             <div id="exportFrameOverlay" class="hidden">
               <div class="ef-shade"></div>
               <button type="button" class="ef-handle"
-                aria-label="Export frame — drag or arrow keys to reposition (Shift for 10px steps)">Export frame</button>
-              <div class="ef-edge ef-edge-t" title="Drag to reposition export frame" aria-hidden="true"></div>
-              <div class="ef-edge ef-edge-b" title="Drag to reposition export frame" aria-hidden="true"></div>
-              <div class="ef-edge ef-edge-l" title="Drag to reposition export frame" aria-hidden="true"></div>
-              <div class="ef-edge ef-edge-r" title="Drag to reposition export frame" aria-hidden="true"></div>
+                aria-label="Export frame — drag or arrow keys to reposition (Shift for 10px steps)" data-i18n="term.export-frame">Export frame</button>
+              <div class="ef-edge ef-edge-t" title="Drag to reposition export frame" aria-hidden="true" data-i18n-title="term.drag-to-reposition-export-frame"></div>
+              <div class="ef-edge ef-edge-b" title="Drag to reposition export frame" aria-hidden="true" data-i18n-title="term.drag-to-reposition-export-frame"></div>
+              <div class="ef-edge ef-edge-l" title="Drag to reposition export frame" aria-hidden="true" data-i18n-title="term.drag-to-reposition-export-frame"></div>
+              <div class="ef-edge ef-edge-r" title="Drag to reposition export frame" aria-hidden="true" data-i18n-title="term.drag-to-reposition-export-frame"></div>
             </div>
           </div>
         </div>
         <div class="kf-graphs" id="kfGraphs" hidden></div>
         <div class="vu-meter" id="vuMeter" title="Click to switch RMS / LUFS / Peak"></div>
       </div>
-      <div class="source-scrub hidden" id="sourceScrub" title="Scrub source · drag to seek">
+      <div class="source-scrub hidden" id="sourceScrub" title="Scrub source · drag to seek" data-i18n-title="term.scrub-source-drag-to-seek">
         <div class="source-scrub-track" id="sourceScrubTrack">
           <div class="source-scrub-range" id="sourceScrubRange"></div>
           <div class="source-scrub-mark in" id="sourceScrubIn" hidden></div>
@@ -158,44 +159,44 @@
         </div>
       </div>
       <div class="transport">
-        <span class="tc-playhead" title="Playhead / sequence duration">
+        <span class="tc-playhead" title="Playhead / sequence duration" data-i18n-title="term.playhead-sequence-duration">
           <span class="timecode" id="tcCurrent" title="Playhead — click (or type a digit) to enter a time">00:00:00</span>
           <span class="tc-slash">/</span>
           <span class="timecode dim" id="tcTotal">00:00:00</span>
         </span>
         <div class="transport-btns">
           <button class="btn icon" id="btnMarkIn" title="Mark In (I) — Source marks when Source is active; timeline work area in Program">I</button>
-          <button class="btn icon" id="btnHome" title="Go to start (Home)">⏮</button>
-          <button class="btn icon" id="btnBack" title="Back 1 frame (←)">◀︎</button>
-          <button class="btn icon big" id="btnPlay" title="Play / Pause (Space)">▶</button>
-          <button class="btn icon" id="btnFwd" title="Forward 1 frame (→)">▶︎</button>
-          <button class="btn icon" id="btnEnd" title="Go to end (End)">⏭</button>
+          <button class="btn icon" id="btnHome" title="Go to start (Home)" data-i18n-title="term.go-to-start-home">⏮</button>
+          <button class="btn icon" id="btnBack" title="Back 1 frame (←)" data-i18n-title="term.back-1-frame">◀︎</button>
+          <button class="btn icon big" id="btnPlay" title="Play / Pause (Space)" data-i18n-title="term.play-pause-space">▶</button>
+          <button class="btn icon" id="btnFwd" title="Forward 1 frame (→)" data-i18n-title="term.forward-1-frame">▶︎</button>
+          <button class="btn icon" id="btnEnd" title="Go to end (End)" data-i18n-title="term.go-to-end-end">⏭</button>
           <button class="btn icon" id="btnMarkOut" title="Mark Out (O) — Source marks when Source is active; timeline work area in Program">O</button>
           <button class="btn icon toggle" id="btnSpeed" title="Preview speed — click to cycle 1×/1.5×/2×/4×. L forward · J reverse (tap again = faster) · K stop. Preview only, not export.">1×</button>
         </div>
         <div class="transport-end">
-          <button type="button" class="btn icon hidden" id="btnInsert" title="Insert Source In→Out at the timeline playhead (,)" aria-label="Insert">
+          <button type="button" class="btn icon hidden" id="btnInsert" title="Insert Source In→Out at the timeline playhead (,)" aria-label="Insert" data-i18n-aria-label="term.insert">
             <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
               <path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" d="M0.75 5H3.5V11H0.75M15.25 5H12.5V11h2.75"/>
               <path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M8 4.2v5.4M5.55 7.35L8 9.9L10.45 7.35"/>
             </svg>
           </button>
-          <button type="button" class="btn icon hidden" id="btnReplace" title="Replace (overwrite) Source In→Out at the timeline playhead (.)" aria-label="Replace">
+          <button type="button" class="btn icon hidden" id="btnReplace" title="Replace (overwrite) Source In→Out at the timeline playhead (.)" aria-label="Replace" data-i18n-aria-label="term.replace">
             <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
               <path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" d="M0.75 5H3.5V11H0.75M15.25 5H12.5V11h2.75"/>
               <rect x="5.35" y="5" width="5.3" height="6" rx="0.4" fill="currentColor"/>
             </svg>
           </button>
           <div class="tc-io idle" id="tcIo" aria-hidden="true">
-            <span class="tc-io-item in" title="IN point">
+            <span class="tc-io-item in" title="IN point" data-i18n-title="term.in-point">
               <span class="tc-io-lab">IN</span>
               <span class="timecode unset" id="tcIn">00:00:00</span>
             </span>
-            <span class="tc-io-item dur" title="Marked duration">
-              <span class="tc-io-lab">DUR</span>
+            <span class="tc-io-item dur" title="Marked duration" data-i18n-title="term.marked-duration">
+              <span class="tc-io-lab" data-i18n="term.dur">DUR</span>
               <span class="timecode unset" id="tcDur">00:00:00</span>
             </span>
-            <span class="tc-io-item out" title="OUT point">
+            <span class="tc-io-item out" title="OUT point" data-i18n-title="term.out-point">
               <span class="tc-io-lab">OUT</span>
               <span class="timecode unset" id="tcOut">00:00:00</span>
             </span>
@@ -207,13 +208,14 @@
     <!-- Inspector -->
     <aside class="panel inspector">
       <div class="bin-tabs side-tabs" id="sideTabs" role="tablist">
-        <button type="button" data-side="inspector" class="on" title="Selected clip: transform, effects &amp; audio">Inspector</button>
-        <button type="button" data-side="mixer" title="Track and master faders, pan, mute / solo, meters">Mixer</button>
-        <button type="button" data-side="color" title="Grade the selected clip: wheels, exposure, white balance, tone">Color</button>
-        <button type="button" data-side="transcript" title="The words spoken on the timeline: transcribe, find, and cut by text">Transcript</button>
+        <button type="button" data-side="assistant" id="mcAssistantTab">助手</button>
+        <button type="button" data-side="inspector" class="on" title="Selected clip: transform, effects &amp; audio" data-i18n-title="term.selected-clip-transform-effects-audio" data-i18n="term.inspector">Inspector</button>
+        <button type="button" data-side="mixer" title="Track and master faders, pan, mute / solo, meters" data-i18n="term.mixer">Mixer</button>
+        <button type="button" data-side="color" title="Grade the selected clip: wheels, exposure, white balance, tone" data-i18n="term.color">Color</button>
+        <button type="button" data-side="transcript" title="The words spoken on the timeline: transcribe, find, and cut by text" data-i18n="term.transcript">Transcript</button>
       </div>
       <div class="inspector-body" id="inspector">
-        <div class="inspector-empty">Select a clip to edit its<br>transform, effects &amp; audio.</div>
+        <div class="inspector-empty" data-i18n="own.inspector-empty">Select a clip to edit its<br>transform, effects &amp; audio.</div>
       </div>
       <div class="mixer hidden" id="mixer"></div>
       <div class="color-page hidden" id="colorPage"></div>
@@ -221,36 +223,36 @@
     </aside>
   </div>
 
-  <div class="v-split" id="splitUpperTimeline" role="separator" aria-orientation="horizontal" title="Drag to resize · double-click to reset"></div>
+  <div class="v-split" id="splitUpperTimeline" role="separator" aria-orientation="horizontal" title="Drag to resize · double-click to reset" data-i18n-title="term.drag-to-resize-double-click-to-reset"></div>
 
   <!-- ══════════ TIMELINE ══════════ -->
   <section class="panel timeline-panel" id="timelinePanel">
     <div class="timeline-toolbar">
-      <button type="button" class="btn tiny seq-btn" id="btnSequences" aria-haspopup="menu" title="Sequences"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" d="M1.75 3.25h12.5M1.75 8h8.5M1.75 12.75h10.5"/></svg> <span class="seq-name">Main</span><span class="seq-count"></span> ▾</button>
-      <span class="comp-crumb hidden" id="compCrumb" aria-label="Open composition"></span>
-      <button class="btn tiny hidden" id="btnTrimIO" title="Trim clips to IN/OUT (⇧T)"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="square" d="M1.25 4.5H12M4.5 1.25V12M4.5 12H14.75M12 4.5V14.75"/></svg> Trim</button>
-      <button class="btn tiny toggle hidden" id="btnWorkAreaPlay" title="Limit playback to IN/OUT (Home/End jump to markers; playhead outside = override)"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="square" stroke-linejoin="miter" d="M1.5 2.5V13.5M14.5 2.5V13.5M4.25 8H11.75M9.35 5.6L12 8L9.35 10.4"/></svg> Limit</button>
-      <span class="tool-seg" role="group" aria-label="Edit tool"><button type="button" class="btn tiny on" data-edit-tool="select" aria-pressed="true" title="Selection tool (V) — move and trim clips"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 1.5v11.2l3-2.9 1.9 4.6 1.8-.8-1.9-4.4h4.2z"/></svg></button><button type="button" class="btn tiny" data-edit-tool="ripple" aria-pressed="false" title="Ripple edit (B) — drag a clip edge; everything after it moves with it"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M5 2.5v11M5 8h8.5M11 5.5 13.5 8 11 10.5"/></svg></button><button type="button" class="btn tiny" data-edit-tool="roll" aria-pressed="false" title="Rolling edit (R) — drag a cut; the clips on both sides trim, nothing else moves"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M8 2v12M1.5 8h4M10.5 8h4M3.5 6 1.5 8l2 2M12.5 6l2 2-2 2"/></svg></button><button type="button" class="btn tiny" data-edit-tool="slip" aria-pressed="false" title="Slip (Y) — drag a clip to change which part of the source it shows"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M2.5 3v10M13.5 3v10M5 8h6M6.8 6.2 5 8l1.8 1.8M9.2 6.2 11 8l-1.8 1.8"/></svg></button><button type="button" class="btn tiny" data-edit-tool="slide" aria-pressed="false" title="Slide (U) — drag a clip along the track; its neighbours trim to make room"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><rect fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" x="5" y="4" width="6" height="8" rx="1"/><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M1 8h2.5M12.5 8H15M2.3 6.7 1 8l1.3 1.3M13.7 6.7 15 8l-1.3 1.3"/></svg></button></span>
-      <button class="btn tiny" id="btnSplit" title="Split at playhead on targeted tracks (S)">✂ Split</button>
-      <button class="btn tiny" id="btnCloseGap" title="Close gap at playhead (⇧G)"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" style="vertical-align:-3px" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" d="M0.75 4.5H3.5V11.5H0.75M15.25 4.5H12.5V11.5H15.25"/><path fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" d="M6.35 5.85L9.65 10.15M9.65 5.85L6.35 10.15"/></svg> Close gap</button>
-      <button class="btn tiny" id="btnNextGap" title="Find gap (G)"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" style="vertical-align:-3px" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" d="M0.75 4.5H3.5V11.5H0.75M15.25 4.5H12.5V11.5H15.25"/><text x="8" y="11.1" text-anchor="middle" fill="currentColor" font-size="9.5" font-family="Segoe UI, system-ui, sans-serif" font-weight="700">?</text></svg> Find gap</button>
-      <button class="btn tiny" id="btnDelete" title="Delete selected (Del)"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M5.5 1.5h5v1.25H14v1.5H2v-1.5h3.5V1.5zM3.75 5.5h8.5v8.25a1.5 1.5 0 0 1-1.5 1.5h-5.5a1.5 1.5 0 0 1-1.5-1.5V5.5zm2 2v5h1.25v-5H5.75zm3.25 0v5H10.25v-5H9z"/></svg> Delete</button>
-      <button class="btn tiny" id="btnRippleDelete" title="Ripple delete selection (⇧Del) — closes gap on targeted tracks"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" style="vertical-align:-3px" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" d="M0.75 4.5H3.5V11.5H0.75M15.25 4.5H12.5V11.5H15.25"/><path fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" d="M6.8 6.2L9.2 8.6M9.2 6.2L6.8 8.6"/><path fill="currentColor" d="M7.35 9.55h1.3v1.05h-1.3V9.55zm0 1.55h1.3v1.05h-1.3v-1.05z"/></svg> Ripple delete</button>
-      <button class="btn tiny" id="btnLift" title="Lift (;) — remove IN→OUT on targeted tracks, leave the gap">Lift</button>
-      <button class="btn tiny" id="btnExtract" title="Extract (') — remove IN→OUT on targeted tracks and close the gap">Extract</button>
-      <span class="snap-seg"><button class="btn tiny toggle on" id="btnSnap" title="Toggle snapping (N)"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" style="vertical-align:-3px" aria-hidden="true"><g transform="rotate(270 8 7)"><path fill="none" stroke="currentColor" stroke-width="3.25" stroke-linecap="butt" d="M4 10.25V7a4 4 0 0 1 8 0v3.25"/><path fill="currentColor" d="M2.375 10.75h3.25v2.5h-3.25zm8 0h3.25v2.5h-3.25z"/></g></svg> Snap</button><button type="button" class="btn tiny" id="btnSnapMenu" title="Snap targets — clip edges, playhead, markers, IN/OUT, keyframes, frame grid" aria-label="Snap targets">▾</button></span>
-      <button type="button" class="btn tiny" id="btnMarkers" title="Markers — list, jump, rename, recolour (M add · ⇧M next · Alt+⇧M previous)"><svg class="ico" viewBox="0 0 16 16" width="12" height="12" style="vertical-align:-2px" aria-hidden="true"><path fill="currentColor" d="M8 1.5 13.5 7 8 12.5 2.5 7z"/></svg> Markers</button>
-      <button class="btn tiny toggle" id="btnAudioHold" title="Audio Hold — while paused, loop one frame of audio at the playhead. Play/Stop turns it off."><svg class="ico" viewBox="0 0 16 16" width="13" height="13" style="vertical-align:-3px" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="square" d="M1.75 2.75V13.25M14.25 2.75V13.25"/><path fill="currentColor" d="M5.2 5.85h1.15v4.3H5.2V5.85zM7.05 5.85h0.55l2.85-2.2v8.7l-2.85-2.2H7.05V5.85z"/></svg> Audio hold</button>
+      <button type="button" class="btn tiny seq-btn" id="btnSequences" aria-haspopup="menu" title="Sequences" data-i18n-title="term.sequences"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" d="M1.75 3.25h12.5M1.75 8h8.5M1.75 12.75h10.5"/></svg> <span class="seq-name" data-i18n="term.main">Main</span><span class="seq-count"></span> ▾</button>
+      <span class="comp-crumb hidden" id="compCrumb" aria-label="Open composition" data-i18n-aria-label="term.open-composition"></span>
+      <button class="btn tiny hidden" id="btnTrimIO" title="Trim clips to IN/OUT (⇧T)" data-i18n-title="term.trim-clips-to-in-out-t"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="square" d="M1.25 4.5H12M4.5 1.25V12M4.5 12H14.75M12 4.5V14.75"/></svg> Trim</button>
+      <button class="btn tiny toggle hidden" id="btnWorkAreaPlay" title="Limit playback to IN/OUT (Home/End jump to markers; playhead outside = override)" data-i18n-tail="term.limit"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="square" stroke-linejoin="miter" d="M1.5 2.5V13.5M14.5 2.5V13.5M4.25 8H11.75M9.35 5.6L12 8L9.35 10.4"/></svg> Limit</button>
+      <span class="tool-seg" role="group" aria-label="Edit tool" data-i18n-aria-label="term.edit-tool"><button type="button" class="btn tiny on" data-edit-tool="select" aria-pressed="true" title="Selection tool (V) — move and trim clips"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 1.5v11.2l3-2.9 1.9 4.6 1.8-.8-1.9-4.4h4.2z"/></svg></button><button type="button" class="btn tiny" data-edit-tool="ripple" aria-pressed="false" title="Ripple edit (B) — drag a clip edge; everything after it moves with it"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M5 2.5v11M5 8h8.5M11 5.5 13.5 8 11 10.5"/></svg></button><button type="button" class="btn tiny" data-edit-tool="roll" aria-pressed="false" title="Rolling edit (R) — drag a cut; the clips on both sides trim, nothing else moves"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M8 2v12M1.5 8h4M10.5 8h4M3.5 6 1.5 8l2 2M12.5 6l2 2-2 2"/></svg></button><button type="button" class="btn tiny" data-edit-tool="slip" aria-pressed="false" title="Slip (Y) — drag a clip to change which part of the source it shows"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M2.5 3v10M13.5 3v10M5 8h6M6.8 6.2 5 8l1.8 1.8M9.2 6.2 11 8l-1.8 1.8"/></svg></button><button type="button" class="btn tiny" data-edit-tool="slide" aria-pressed="false" title="Slide (U) — drag a clip along the track; its neighbours trim to make room"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><rect fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" x="5" y="4" width="6" height="8" rx="1"/><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M1 8h2.5M12.5 8H15M2.3 6.7 1 8l1.3 1.3M13.7 6.7 15 8l-1.3 1.3"/></svg></button></span>
+      <button class="btn tiny" id="btnSplit" title="Split at playhead on targeted tracks (S)" data-i18n-title="term.split-at-playhead-on-targeted-tracks-s" data-i18n="term.split">✂ Split</button>
+      <button class="btn tiny" id="btnCloseGap" title="Close gap at playhead (⇧G)" data-i18n-title="term.close-gap-at-playhead-g" data-i18n-tail="term.close-gap"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" style="vertical-align:-3px" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" d="M0.75 4.5H3.5V11.5H0.75M15.25 4.5H12.5V11.5H15.25"/><path fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" d="M6.35 5.85L9.65 10.15M9.65 5.85L6.35 10.15"/></svg> Close gap</button>
+      <button class="btn tiny" id="btnNextGap" title="Find gap (G)" data-i18n-title="term.find-gap-g" data-i18n-tail="term.find-gap"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" style="vertical-align:-3px" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" d="M0.75 4.5H3.5V11.5H0.75M15.25 4.5H12.5V11.5H15.25"/><text x="8" y="11.1" text-anchor="middle" fill="currentColor" font-size="9.5" font-family="Segoe UI, system-ui, sans-serif" font-weight="700">?</text></svg> Find gap</button>
+      <button class="btn tiny" id="btnDelete" title="Delete selected (Del)" data-i18n-title="term.delete-selected-del" data-i18n-tail="term.delete"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M5.5 1.5h5v1.25H14v1.5H2v-1.5h3.5V1.5zM3.75 5.5h8.5v8.25a1.5 1.5 0 0 1-1.5 1.5h-5.5a1.5 1.5 0 0 1-1.5-1.5V5.5zm2 2v5h1.25v-5H5.75zm3.25 0v5H10.25v-5H9z"/></svg> Delete</button>
+      <button class="btn tiny" id="btnRippleDelete" title="Ripple delete selection (⇧Del) — closes gap on targeted tracks" data-i18n-tail="term.ripple-delete"><svg class="ico" viewBox="0 0 16 16" width="14" height="14" style="vertical-align:-3px" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter" d="M0.75 4.5H3.5V11.5H0.75M15.25 4.5H12.5V11.5H15.25"/><path fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" d="M6.8 6.2L9.2 8.6M9.2 6.2L6.8 8.6"/><path fill="currentColor" d="M7.35 9.55h1.3v1.05h-1.3V9.55zm0 1.55h1.3v1.05h-1.3v-1.05z"/></svg> Ripple delete</button>
+      <button class="btn tiny" id="btnLift" title="Lift (;) — remove IN→OUT on targeted tracks, leave the gap" data-i18n-title="own.lift-title" data-i18n="term.lift">Lift</button>
+      <button class="btn tiny" id="btnExtract" title="Extract (') — remove IN→OUT on targeted tracks and close the gap" data-i18n-title="own.extract-title" data-i18n="term.extract">Extract</button>
+      <span class="snap-seg"><button class="btn tiny toggle on" id="btnSnap" title="Toggle snapping (N)" data-i18n-title="term.toggle-snapping-n" data-i18n-tail="term.snap"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" style="vertical-align:-3px" aria-hidden="true"><g transform="rotate(270 8 7)"><path fill="none" stroke="currentColor" stroke-width="3.25" stroke-linecap="butt" d="M4 10.25V7a4 4 0 0 1 8 0v3.25"/><path fill="currentColor" d="M2.375 10.75h3.25v2.5h-3.25zm8 0h3.25v2.5h-3.25z"/></g></svg> Snap</button><button type="button" class="btn tiny" id="btnSnapMenu" title="Snap targets — clip edges, playhead, markers, IN/OUT, keyframes, frame grid" aria-label="Snap targets" data-i18n-aria-label="term.snap-targets">▾</button></span>
+      <button type="button" class="btn tiny" id="btnMarkers" title="Markers — list, jump, rename, recolour (M add · ⇧M next · Alt+⇧M previous)" data-i18n-tail="term.markers"><svg class="ico" viewBox="0 0 16 16" width="12" height="12" style="vertical-align:-2px" aria-hidden="true"><path fill="currentColor" d="M8 1.5 13.5 7 8 12.5 2.5 7z"/></svg> Markers</button>
+      <button class="btn tiny toggle" id="btnAudioHold" title="Audio Hold — while paused, loop one frame of audio at the playhead. Play/Stop turns it off." data-i18n-tail="term.audio-hold"><svg class="ico" viewBox="0 0 16 16" width="13" height="13" style="vertical-align:-3px" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="square" d="M1.75 2.75V13.25M14.25 2.75V13.25"/><path fill="currentColor" d="M5.2 5.85h1.15v4.3H5.2V5.85zM7.05 5.85h0.55l2.85-2.2v8.7l-2.85-2.2H7.05V5.85z"/></svg> Audio hold</button>
       <span class="flex-spacer"></span>
-      <span class="dim tiny-label">Zoom</span>
+      <span class="dim tiny-label" data-i18n="term.zoom">Zoom</span>
       <input type="range" id="zoomSlider" min="1" max="300" value="60">
-      <button class="btn tiny" id="btnZoomFit" title="Zoom timeline to fit (⇧Z)"><span class="fit-icon">│<span class="fit-arrow">↔</span>│</span> Fit</button>
+      <button class="btn tiny" id="btnZoomFit" title="Zoom timeline to fit (⇧Z)" data-i18n-title="term.zoom-timeline-to-fit-z" data-i18n-tail="own.fit"><span class="fit-icon">│<span class="fit-arrow">↔</span>│</span> Fit</button>
     </div>
     <div class="timeline">
       <div class="track-headers" id="trackHeaders">
         <div class="track-head-tools" id="trackHeadTools">
-          <button type="button" class="btn tiny" id="btnAddV" title="Add video track">+V</button>
-          <button type="button" class="btn tiny" id="btnAddA" title="Add audio track">+A</button>
+          <button type="button" class="btn tiny" id="btnAddV" title="Add video track" data-i18n-title="term.add-video-track">+V</button>
+          <button type="button" class="btn tiny" id="btnAddA" title="Add audio track" data-i18n-title="term.add-audio-track">+A</button>
         </div>
         <div id="trackHeadInner"></div>
       </div>
@@ -271,17 +273,17 @@
 <!-- ══════════ IMPORT URL ══════════ -->
 <div class="overlay hidden" id="importUrlOverlay">
   <div class="dialog" id="importUrlDialog" role="dialog" aria-modal="true" aria-labelledby="importUrlTitle">
-    <h2 id="importUrlTitle">Import from URL</h2>
+    <h2 id="importUrlTitle" data-i18n="term.import-from-url">Import from URL</h2>
     <p class="dim">Downloads an HTTPS video, audio or image into the project media folder. The file is stored locally — the URL is not used as the playback source. Remote SVGs are not imported (they can run script if opened as a document).</p>
     <label class="import-url-field">
-      <span class="sr-only">Media URL</span>
+      <span class="sr-only" data-i18n="term.media-url">Media URL</span>
       <input type="url" id="importUrlInput" placeholder="https://…" autocomplete="off" spellcheck="false">
     </label>
-    <p class="dim import-url-status hidden" id="importUrlStatus">Downloading…</p>
+    <p class="dim import-url-status hidden" id="importUrlStatus" data-i18n="term.downloading">Downloading…</p>
     <div class="progress hidden" id="importUrlProgress"><div class="progress-fill indeterminate"></div></div>
     <div class="dialog-actions">
-      <button class="btn" id="btnCancelImportUrl">Cancel</button>
-      <button class="btn primary" id="btnDoImportUrl">Import</button>
+      <button class="btn" id="btnCancelImportUrl" data-i18n="term.cancel">Cancel</button>
+      <button class="btn primary" id="btnDoImportUrl" data-i18n="term.import">Import</button>
     </div>
   </div>
 </div>
@@ -290,20 +292,20 @@
 <div class="overlay hidden" id="projectsOverlay">
   <div class="dialog projects-dialog" id="projectsDialog" role="dialog" aria-modal="true" aria-labelledby="projectsTitle" tabindex="-1">
     <div class="pj-head">
-      <h2 id="projectsTitle">Projects</h2>
+      <h2 id="projectsTitle" data-i18n="term.projects">Projects</h2>
       <span class="btn-group pj-views" role="tablist">
-        <button type="button" class="btn tiny on" data-pj-view="active">All projects</button>
-        <button type="button" class="btn tiny" data-pj-view="archived">Archived</button>
+        <button type="button" class="btn tiny on" data-pj-view="active" data-i18n="term.all-projects">All projects</button>
+        <button type="button" class="btn tiny" data-pj-view="archived" data-i18n="term.archived">Archived</button>
       </span>
-      <input type="search" id="pjSearch" class="pj-search" placeholder="Search name, notes, #tag" aria-label="Search projects" spellcheck="false" autocomplete="off">
-      <select id="pjSort" class="pj-sort" aria-label="Sort by" title="Sort by">
-        <option value="opened">Last opened</option><option value="modified">Last modified</option>
-        <option value="created">Created</option><option value="name">Name</option>
+      <input type="search" id="pjSearch" class="pj-search" placeholder="Search name, notes, #tag" aria-label="Search projects" spellcheck="false" autocomplete="off" data-i18n-placeholder="term.search-name-notes-tag" data-i18n-aria-label="term.search-projects">
+      <select id="pjSort" class="pj-sort" aria-label="Sort by" title="Sort by" data-i18n-title="term.sort-by" data-i18n-aria-label="term.sort-by">
+        <option value="opened" data-i18n="term.last-opened">Last opened</option><option value="modified" data-i18n="term.last-modified">Last modified</option>
+        <option value="created" data-i18n="term.created">Created</option><option value="name" data-i18n="term.name">Name</option>
       </select>
-      <label class="btn tiny" for="pjImportFile" title="Add a project file (.json): an old backup, or one from another machine">Import…</label>
+      <label class="btn tiny" for="pjImportFile" title="Add a project file (.json): an old backup, or one from another machine" data-i18n="term.import-2">Import…</label>
       <input type="file" id="pjImportFile" class="sr-only" accept=".json,application/json">
       <button type="button" class="btn tiny accent" id="pjNewBtn">+ New project</button>
-      <button type="button" class="btn ghost pj-close" id="pjClose" aria-label="Close" title="Close (Esc)">✕</button>
+      <button type="button" class="btn ghost pj-close" id="pjClose" aria-label="Close" title="Close (Esc)" data-i18n-title="term.close-esc" data-i18n-aria-label="term.close">✕</button>
     </div>
     <div class="pj-body">
       <div class="pj-grid" id="pjGrid"></div>
@@ -315,69 +317,69 @@
 <!-- ══════════ EXPORT SETUP ══════════ -->
 <div class="overlay hidden" id="exportSetup">
   <div class="dialog export-dialog" role="dialog" aria-modal="true" aria-labelledby="exportSetupTitle">
-    <h2 id="exportSetupTitle">Export</h2>
+    <h2 id="exportSetupTitle" data-i18n="term.export">Export</h2>
     <div class="export-body">
     <div class="export-profile-row" id="exportRangeRow">
-      <label class="export-profile-label" for="exportRangeSel">Range</label>
+      <label class="export-profile-label" for="exportRangeSel" data-i18n="term.range">Range</label>
       <select class="export-profile-sel" id="exportRangeSel" aria-describedby="exportRangeNote">
-        <option value="entire">Entire timeline</option>
+        <option value="entire" data-i18n="term.entire-timeline">Entire timeline</option>
         <option value="in-out">IN–OUT</option>
       </select>
       <p class="dim export-profile-note" id="exportRangeNote"></p>
     </div>
     <label class="engine-opt">
       <input type="radio" name="engine" id="engineFast">
-      <span><b>Fast (ffmpeg)</b><br><span class="dim" id="engineFastNote">Frame-accurate ffmpeg encode. Keeps rendering if you switch tabs.</span></span>
+      <span><b data-i18n="term.fast-ffmpeg">Fast (ffmpeg)</b><br><span class="dim" id="engineFastNote">Frame-accurate ffmpeg encode. Keeps rendering if you switch tabs.</span></span>
     </label>
     <label class="engine-opt">
       <input type="radio" name="engine" id="engineRealtime">
-      <span><b>WebCodecs (HW encode)</b><br><span class="dim" id="engineWebCodecsNote">Frame-accurate. Browser encodes H.264; server muxes. Needs a modern Chromium and ffmpeg.</span></span>
+      <span><b data-i18n="term.webcodecs-hw-encode">WebCodecs (HW encode)</b><br><span class="dim" id="engineWebCodecsNote">Frame-accurate. Browser encodes H.264; server muxes. Needs a modern Chromium and ffmpeg.</span></span>
     </label>
     <div class="export-profile-row dlv" id="exportProfileRow">
       <div class="dlv-preset-line">
-        <label class="export-profile-label" for="exportProfileSel">Preset</label>
+        <label class="export-profile-label" for="exportProfileSel" data-i18n="term.preset">Preset</label>
         <span class="dlv-preset-actions">
-          <button type="button" class="btn tiny" id="dlvSaveBtn" title="Save these settings as a preset for every project">Save preset…</button>
-          <button type="button" class="btn tiny hidden" id="dlvDeleteBtn" title="Delete this saved preset">Delete</button>
+          <button type="button" class="btn tiny" id="dlvSaveBtn" title="Save these settings as a preset for every project" data-i18n="term.save-preset">Save preset…</button>
+          <button type="button" class="btn tiny hidden" id="dlvDeleteBtn" title="Delete this saved preset" data-i18n-title="term.delete-this-saved-preset" data-i18n="term.delete">Delete</button>
         </span>
       </div>
       <select class="export-profile-sel" id="exportProfileSel" aria-describedby="exportProfileNote exportProfileHint"></select>
       <div class="dlv-save-row hidden" id="dlvSaveRow">
-        <input type="text" id="dlvSaveName" maxlength="60" placeholder="Preset name, e.g. Client 4K" aria-label="Preset name">
-        <button type="button" class="btn tiny primary" id="dlvSaveOk">Save</button>
-        <button type="button" class="btn tiny" id="dlvSaveCancel">Cancel</button>
+        <input type="text" id="dlvSaveName" maxlength="60" placeholder="Preset name, e.g. Client 4K" aria-label="Preset name" data-i18n-placeholder="term.preset-name-e-g-client-4k" data-i18n-aria-label="term.preset-name">
+        <button type="button" class="btn tiny primary" id="dlvSaveOk" data-i18n="term.save">Save</button>
+        <button type="button" class="btn tiny" id="dlvSaveCancel" data-i18n="term.cancel">Cancel</button>
       </div>
       <p class="dim export-profile-note" id="exportProfileNote"></p>
       <p class="dim export-profile-hint" id="exportProfileHint"></p>
       <div class="dlv-body" id="dlvBody">
         <details class="dlv-sec" id="dlvVideoSec" open>
-          <summary>Video</summary>
+          <summary data-i18n="term.video">Video</summary>
           <div class="dlv-grid">
             <label class="dlv-f">Resolution<select id="dlvRes"></select></label>
             <label class="dlv-f dlv-wh hidden" id="dlvWhField">Width × height
-              <span class="dlv-wh-in"><input type="number" id="dlvW" min="16" max="8192" step="2" aria-label="Width"><span>×</span><input type="number" id="dlvH" min="16" max="8192" step="2" aria-label="Height"></span></label>
+              <span class="dlv-wh-in"><input type="number" id="dlvW" min="16" max="8192" step="2" aria-label="Width" data-i18n-aria-label="term.width"><span>×</span><input type="number" id="dlvH" min="16" max="8192" step="2" aria-label="Height" data-i18n-aria-label="term.height"></span></label>
             <label class="dlv-f" id="dlvReframeField">Reframe<select id="dlvReframe">
-              <option value="fill">Fill (crop to fit)</option>
-              <option value="fit">Fit (black bars)</option>
-              <option value="stretch">Stretch</option>
+              <option value="fill" data-i18n="term.fill-crop-to-fit">Fill (crop to fit)</option>
+              <option value="fit" data-i18n="term.fit-black-bars">Fit (black bars)</option>
+              <option value="stretch" data-i18n="term.stretch">Stretch</option>
             </select></label>
             <label class="dlv-f">Frame rate<select id="dlvFps"></select></label>
             <label class="dlv-f">Codec<select id="dlvCodec"></select></label>
             <label class="dlv-f" id="dlvEncoderField">Encoder<select id="dlvEncoder"></select></label>
             <label class="dlv-f" id="dlvProfileField">Profile<select id="dlvProfile"></select></label>
             <label class="dlv-f" id="dlvRateField">Rate control<select id="dlvRate">
-              <option value="crf">CRF (constant quality)</option>
-              <option value="vbr">VBR (variable bitrate)</option>
-              <option value="cbr">CBR (constant bitrate)</option>
+              <option value="crf" data-i18n="term.crf-constant-quality">CRF (constant quality)</option>
+              <option value="vbr" data-i18n="term.vbr-variable-bitrate">VBR (variable bitrate)</option>
+              <option value="cbr" data-i18n="term.cbr-constant-bitrate">CBR (constant bitrate)</option>
             </select></label>
-            <label class="dlv-f" id="dlvCrfField">CRF<input type="number" id="dlvCrf" min="0" max="63" step="1" title="Lower = better quality, bigger file"></label>
+            <label class="dlv-f" id="dlvCrfField">CRF<input type="number" id="dlvCrf" min="0" max="63" step="1" title="Lower = better quality, bigger file" data-i18n-title="term.lower-better-quality-bigger-file"></label>
             <label class="dlv-f" id="dlvBitrateField">Bitrate (Mb/s)<input type="number" id="dlvBitrate" min="0.1" max="400" step="0.5"></label>
             <label class="dlv-f" id="dlvMaxrateField">Max rate (Mb/s)<input type="number" id="dlvMaxrate" min="0.1" max="800" step="0.5" placeholder="none"></label>
-            <label class="dlv-f" id="dlvKeyintField">Keyframe every (s)<input type="number" id="dlvKeyint" min="0" max="20" step="0.5" title="0 = the encoder's default"></label>
+            <label class="dlv-f" id="dlvKeyintField">Keyframe every (s)<input type="number" id="dlvKeyint" min="0" max="20" step="0.5" title="0 = the encoder's default" data-i18n-title="term.0-the-encoder-s-default"></label>
             <label class="dlv-f" id="dlvSpeedField">Encoder speed<select id="dlvSpeed">
-              <option value="fast">Fast</option>
-              <option value="balanced">Balanced</option>
-              <option value="best">Best quality (slow)</option>
+              <option value="fast" data-i18n="term.fast">Fast</option>
+              <option value="balanced" data-i18n="term.balanced">Balanced</option>
+              <option value="best" data-i18n="term.best-quality-slow">Best quality (slow)</option>
             </select></label>
             <label class="dlv-f">Pixel format<select id="dlvPixFmt"></select></label>
             <label class="dlv-f">Color<select id="dlvColor"></select></label>
@@ -385,7 +387,7 @@
           </div>
         </details>
         <details class="dlv-sec" id="dlvAudioSec" open>
-          <summary>Audio</summary>
+          <summary data-i18n="term.audio">Audio</summary>
           <div class="dlv-grid">
             <label class="dlv-f">Codec<select id="dlvACodec"></select></label>
             <label class="dlv-f" id="dlvABitrateField">Bitrate (kb/s)<select id="dlvABitrate"></select></label>
@@ -394,15 +396,15 @@
               <option value="44100">44.1 kHz</option>
             </select></label>
             <label class="dlv-f" id="dlvAChField">Channels<select id="dlvACh">
-              <option value="2">Stereo</option>
-              <option value="1">Mono</option>
+              <option value="2" data-i18n="term.stereo">Stereo</option>
+              <option value="1" data-i18n="term.mono">Mono</option>
             </select></label>
             <label class="dlv-f" id="dlvLoudField">Loudness<select id="dlvLoud" title="Turn the whole mix up or down to an integrated loudness, with a true-peak limiter"></select></label>
             <label class="dlv-f" id="dlvTpField">True peak (dBTP)<input type="number" id="dlvTp" min="-9" max="0" step="0.5"></label>
           </div>
         </details>
         <details class="dlv-sec" id="dlvFileSec">
-          <summary>File name and metadata</summary>
+          <summary data-i18n="term.file-name-and-metadata">File name and metadata</summary>
           <label class="dlv-f dlv-wide">File name
             <input type="text" id="dlvFilename" maxlength="160" spellcheck="false" aria-describedby="dlvFilePreview dlvTokens"></label>
           <p class="dim dlv-file-preview" id="dlvFilePreview"></p>
@@ -433,7 +435,7 @@
     <div class="export-wc-opts hidden" id="exportWcOpts">
       <label class="export-wc-field" for="exportWcBitrate">Bitrate
         <select id="exportWcBitrate" class="export-wc-sel">
-          <option value="auto">Auto (from resolution)</option>
+          <option value="auto" data-i18n="term.auto-from-resolution">Auto (from resolution)</option>
           <option value="2">2 Mbps</option>
           <option value="4">4 Mbps</option>
           <option value="6">6 Mbps</option>
@@ -447,8 +449,8 @@
       </label>
       <label class="export-wc-field" for="exportWcMode">Rate control
         <select id="exportWcMode" class="export-wc-sel">
-          <option value="variable">VBR (variable)</option>
-          <option value="constant">CBR (constant)</option>
+          <option value="variable" data-i18n="term.vbr-variable">VBR (variable)</option>
+          <option value="constant" data-i18n="term.cbr-constant">CBR (constant)</option>
         </select>
       </label>
       <p class="dim export-wc-hint">WebCodecs has no CRF — quality is driven by bitrate. VBR spends bits on hard frames; CBR holds a steady rate.</p>
@@ -457,11 +459,11 @@
     <div class="export-track-warn hidden" id="exportTrackWarn" role="status"></div>
     </div>
     <div class="dialog-actions">
-      <button class="btn dlv-queue-open" id="btnOpenQueue" title="Show the export queue">Queue</button>
-      <button class="btn" id="btnCancelSetup">Cancel</button>
-      <button class="btn" id="btnBatchExport" title="Queue every checked batch output and start">Export checked</button>
-      <button class="btn" id="btnQueueExport" title="Add these settings to the export queue">Add to queue</button>
-      <button class="btn primary" id="btnStartExport">Export</button>
+      <button class="btn dlv-queue-open" id="btnOpenQueue" title="Show the export queue" data-i18n-title="term.show-the-export-queue" data-i18n="term.queue">Queue</button>
+      <button class="btn" id="btnCancelSetup" data-i18n="term.cancel">Cancel</button>
+      <button class="btn" id="btnBatchExport" title="Queue every checked batch output and start" data-i18n-title="term.queue-every-checked-batch-output-and-start" data-i18n="term.export-checked">Export checked</button>
+      <button class="btn" id="btnQueueExport" title="Add these settings to the export queue" data-i18n-title="term.add-these-settings-to-the-export-queue" data-i18n="term.add-to-queue">Add to queue</button>
+      <button class="btn primary" id="btnStartExport" data-i18n="term.export">Export</button>
     </div>
   </div>
 </div>
@@ -469,12 +471,12 @@
 <!-- ══════════ EXPORT QUEUE ══════════ -->
 <div class="overlay hidden" id="exportQueue">
   <div class="dialog export-dialog" role="dialog" aria-modal="true" aria-labelledby="exportQueueTitle">
-    <h2 id="exportQueueTitle">Export queue</h2>
+    <h2 id="exportQueueTitle" data-i18n="term.export-queue">Export queue</h2>
     <p class="dim" id="exportQueueNote"></p>
     <div class="export-body"><ol class="xq-list" id="exportQueueList"></ol></div>
     <div class="dialog-actions">
-      <button class="btn" id="btnQueueClear">Clear finished</button>
-      <button class="btn" id="btnQueueClose">Close</button>
+      <button class="btn" id="btnQueueClear" data-i18n="term.clear-finished">Clear finished</button>
+      <button class="btn" id="btnQueueClose" data-i18n="term.close">Close</button>
       <button class="btn primary" id="btnQueueStart">Start</button>
     </div>
   </div>
@@ -486,21 +488,21 @@
     <h2 id="exportTitle">Exporting…</h2>
     <p class="dim" id="exportNote">Rendering your sequence in real time. Keep this tab focused.</p>
     <div class="progress"><div class="progress-fill" id="exportProgress"></div></div>
-    <div class="dialog-actions"><button class="btn" id="btnCancelExport">Cancel</button></div>
+    <div class="dialog-actions"><button class="btn" id="btnCancelExport" data-i18n="term.cancel">Cancel</button></div>
   </div>
 </div>
 
 <!-- ══════════ SETTINGS OVERLAY ══════════ -->
 <div class="overlay hidden" id="settingsOverlay">
   <div class="dialog settings" id="settingsDialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" tabindex="-1">
-    <h2 id="settingsTitle">Settings</h2>
-    <p class="dim settings-intro">Preferences are stored in this browser only.</p>
+    <h2 id="settingsTitle" data-i18n="term.settings">Settings</h2>
+    <p class="dim settings-intro" data-i18n="term.preferences-are-stored-in-this-browser-only">Preferences are stored in this browser only.</p>
     <div class="settings-section">
-      <h3>Selection</h3>
+      <h3 data-i18n="term.selection">Selection</h3>
       <label class="settings-row">
         <input type="checkbox" id="setLinkSelect">
         <span>
-          <span class="settings-label">Link timeline and Project bin selection</span>
+          <span class="settings-label" data-i18n="term.link-timeline-and-project-bin-selection">Link timeline and Project bin selection</span>
           <span class="settings-hint">Selecting a timeline clip highlights its media in Project, and the reverse. Off by default.</span>
         </span>
       </label>
@@ -513,7 +515,7 @@
         <button class="btn" id="btnH264Clear" type="button"></button>
       </div>
     </div>
-    <div class="dialog-actions"><button class="btn primary" id="btnCloseSettings">Close</button></div>
+    <div class="dialog-actions"><button class="btn primary" id="btnCloseSettings" data-i18n="term.close">Close</button></div>
   </div>
 </div>
 
@@ -521,12 +523,12 @@
 <div class="overlay hidden" id="helpOverlay">
   <div class="dialog help">
     <div class="help-head">
-      <h2>Keyboard shortcuts</h2>
-      <input type="search" id="helpFilter" class="help-filter" placeholder="Filter — e.g. marker, trim, mask" aria-label="Filter shortcuts" autocomplete="off" spellcheck="false">
+      <h2 data-i18n="term.keyboard-shortcuts">Keyboard shortcuts</h2>
+      <input type="search" id="helpFilter" class="help-filter" placeholder="Filter — e.g. marker, trim, mask" aria-label="Filter shortcuts" autocomplete="off" spellcheck="false" data-i18n-placeholder="term.filter-e-g-marker-trim-mask" data-i18n-aria-label="term.filter-shortcuts">
     </div>
     <div class="keys-cols" id="helpKeys">
       <section class="keys-sec">
-        <h3>Playback</h3>
+        <h3 data-i18n="term.playback">Playback</h3>
         <table class="keys">
           <tr><td><kbd>Space</kbd></td><td>Play / pause (Source or Program — whichever is active)</td></tr>
           <tr><td><kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd></td><td>Shuttle — <kbd>L</kbd> plays forward, <kbd>J</kbd> in reverse (silent); tap again for 1.5× · 2× · 4×, the other key turns around; <kbd>K</kbd> stops</td></tr>
@@ -539,7 +541,7 @@
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Source monitor</h3>
+        <h3 data-i18n="term.source-monitor">Source monitor</h3>
         <table class="keys">
           <tr><td>Dbl-click bin / clip</td><td>Load into the Source monitor</td></tr>
           <tr><td><kbd>,</kbd></td><td>Insert Source In→Out at the timeline playhead (ripples later clips)</td></tr>
@@ -563,7 +565,7 @@
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Selection</h3>
+        <h3 data-i18n="term.selection">Selection</h3>
         <table class="keys">
           <tr><td>Drag empty area</td><td>Marquee-select clips</td></tr>
           <tr><td><kbd>Ctrl</kbd>+click clip</td><td>Add to / remove from the selection</td></tr>
@@ -572,7 +574,7 @@
         </table>
       </section>
       <section class="keys-sec">
-        <h3>IN / OUT and markers</h3>
+        <h3 data-i18n="term.in-out-and-markers">IN / OUT and markers</h3>
         <table class="keys">
           <tr><td><kbd>I</kbd> / <kbd>O</kbd></td><td>Set Source In / Out (Source mode) or the timeline work area (Program; also bounds Export)</td></tr>
           <tr><td><kbd>⇧</kbd>+<kbd>I</kbd> / <kbd>⇧</kbd>+<kbd>O</kbd></td><td>Clear Source or timeline IN / OUT</td></tr>
@@ -581,11 +583,11 @@
           <tr><td><kbd>;</kbd> / <kbd>'</kbd></td><td>Lift / Extract IN→OUT on targeted tracks (Extract closes the gap)</td></tr>
           <tr><td><kbd>M</kbd></td><td>Add / remove a marker at the playhead</td></tr>
           <tr><td><kbd>⇧</kbd>+<kbd>M</kbd> / <kbd>Alt</kbd>+<kbd>⇧</kbd>+<kbd>M</kbd></td><td>Go to the next / previous marker</td></tr>
-          <tr><td>Marker on ruler</td><td>Drag to move · click to jump · double-click or right-click to name / colour / delete · <b>Markers</b> lists them all</td></tr>
+          <tr><td>Marker on ruler</td><td>Drag to move · click to jump · double-click or right-click to name / colour / delete · <b data-i18n="term.markers">Markers</b> lists them all</td></tr>
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Timeline view and tracks</h3>
+        <h3 data-i18n="term.timeline-view-and-tracks">Timeline view and tracks</h3>
         <table class="keys">
           <tr><td><kbd>+</kbd> / <kbd>-</kbd></td><td>Zoom the timeline</td></tr>
           <tr><td><kbd>Ctrl</kbd>+wheel</td><td>Zoom at the cursor</td></tr>
@@ -600,37 +602,37 @@
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Keyframes, presets and Inspector</h3>
+        <h3 data-i18n="term.keyframes-presets-and-inspector">Keyframes, presets and Inspector</h3>
         <table class="keys">
           <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>←</kbd> / <kbd>→</kbd></td><td>Go to the previous / next keyframe (the Inspector follows)</td></tr>
           <tr><td><kbd>Ctrl/Cmd</kbd>+click inspector label or slider</td><td>Reset a property and clear all its keyframes</td></tr>
           <tr><td><kbd>⇧</kbd>+click label</td><td>Reset the value at the playhead, or remove that keyframe</td></tr>
-          <tr><td>Motion → Presets</td><td>In · Out · At playhead · Loop menus key a ready-made animation onto the selected clips · <b>Save as preset</b> keeps this clip's keyframes for every project</td></tr>
+          <tr><td>Motion → Presets</td><td>In · Out · At playhead · Loop menus key a ready-made animation onto the selected clips · <b data-i18n="term.save-as-preset">Save as preset</b> keeps this clip's keyframes for every project</td></tr>
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Audio</h3>
+        <h3 data-i18n="term.audio">Audio</h3>
         <table class="keys">
           <tr><td>Volume line</td><td>Drag to change the level · <kbd>Ctrl/Cmd</kbd>+click adds a keyframe · <kbd>Alt</kbd>+click or double-click removes one · corner grips drag fades</td></tr>
           <tr><td><kbd>⇧</kbd>+<kbd>D</kbd></td><td>Crossfade the audio cut next to the selected clip (or at the playhead)</td></tr>
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Bin, compositions and templates</h3>
+        <h3 data-i18n="term.bin-compositions-and-templates">Bin, compositions and templates</h3>
         <table class="keys">
           <tr><td><kbd>Ctrl</kbd>+click bin</td><td>Import media files</td></tr>
-          <tr><td>Right-click <b>Project</b> tab</td><td>New folder · New composition</td></tr>
+          <tr><td>Right-click <b data-i18n="term.project">Project</b> tab</td><td>New folder · New composition</td></tr>
           <tr><td>Bin search</td><td>Name, kind, codec, <code>2160p</code> or a tag; <code>#tag</code> matches tags only · <kbd>Esc</kbd> clears</td></tr>
           <tr><td>Right-click a bin file</td><td>Find timeline instances · Media info · favorites · Tags · collections</td></tr>
           <tr><td>☆ / uses badge on a bin file</td><td>Star it · list where it is used (click one to jump there)</td></tr>
           <tr><td>☰ in the bin</td><td>List view with metadata columns · click a heading to sort</td></tr>
-          <tr><td>Right-click a clip</td><td><b>Reveal in project</b> — show its file in the bin</td></tr>
-          <tr><td>Right-click a bin file</td><td><b>Relink…</b> — point it at the footage where it is now · <b>Replace file…</b> — a new file for every clip that uses it</td></tr>
-          <tr><td>Right-click a bin video</td><td><b>Create proxy</b> — a light copy to edit with (right-click the Project tab for all of them) · <b>Proxy</b> above the monitor plays proxies on / off; export always uses the originals</td></tr>
+          <tr><td>Right-click a clip</td><td><b data-i18n="term.reveal-in-project">Reveal in project</b> — show its file in the bin</td></tr>
+          <tr><td>Right-click a bin file</td><td><b data-i18n="term.relink">Relink…</b> — point it at the footage where it is now · <b data-i18n="term.replace-file">Replace file…</b> — a new file for every clip that uses it</td></tr>
+          <tr><td>Right-click a bin video</td><td><b data-i18n="term.create-proxy">Create proxy</b> — a light copy to edit with (right-click the Project tab for all of them) · <b data-i18n="term.proxy">Proxy</b> above the monitor plays proxies on / off; export always uses the originals</td></tr>
           <tr><td>Comp clip / bin comp</td><td>Double-click to open it on the timeline · drag a bin comp onto the timeline to place it · the breadcrumb above the timeline steps back out</td></tr>
-          <tr><td>Right-click clips</td><td><b>Precompose</b> — move the selection into a new comp</td></tr>
+          <tr><td>Right-click clips</td><td><b data-i18n="term.precompose">Precompose</b> — move the selection into a new comp</td></tr>
           <tr><td><kbd>Esc</kbd> inside a comp</td><td>Back out one level (once nothing is selected)</td></tr>
-          <tr><td><b>Templates</b> tab</td><td>Drag a lower third, logo animation or social layout onto the timeline (or click ＋) · fill in its fields in the Inspector's <b>Template</b> section · right-click a comp → <b>Save as template</b></td></tr>
+          <tr><td><b data-i18n="term.templates">Templates</b> tab</td><td>Drag a lower third, logo animation or social layout onto the timeline (or click ＋) · fill in its fields in the Inspector's <b data-i18n="term.template">Template</b> section · right-click a comp → <b data-i18n="term.save-as-template">Save as template</b></td></tr>
         </table>
       </section>
       <section class="keys-sec">
@@ -638,25 +640,25 @@
         <table class="keys">
           <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>O</kbd></td><td>Open the Projects dashboard (or click the project name)</td></tr>
           <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>S</kbd></td><td>Save a version of the open project (every edit is saved anyway; a version is a point to come back to)</td></tr>
-          <tr><td>Project → <b>Versions…</b></td><td>Compare a version with now · <b>Restore…</b> (click twice; what is there is saved as a version first) · mark the final cut</td></tr>
-          <tr><td>Timeline toolbar → <b>sequence menu</b></td><td>Open another sequence of this project · <b>New sequence…</b> (any canvas, empty or a copy) · <b>Duplicate</b> · <b>Rename…</b> · <b>Delete…</b> (click twice; kept as a version first)</td></tr>
+          <tr><td>Project → <b data-i18n="term.versions">Versions…</b></td><td>Compare a version with now · <b data-i18n="term.restore">Restore…</b> (click twice; what is there is saved as a version first) · mark the final cut</td></tr>
+          <tr><td>Timeline toolbar → <b>sequence menu</b></td><td>Open another sequence of this project · <b data-i18n="term.new-sequence">New sequence…</b> (any canvas, empty or a copy) · <b data-i18n="term.duplicate">Duplicate</b> · <b data-i18n="term.rename">Rename…</b> · <b data-i18n="term.delete-2">Delete…</b> (click twice; kept as a version first)</td></tr>
           <tr><td>Project card</td><td>Click to see its details, notes and tags · double-click to open it</td></tr>
           <tr><td><kbd>Enter</kbd> on a card</td><td>Open that project</td></tr>
-          <tr><td><kbd>Esc</kbd></td><td>Back out of <b>New project</b>, then close the dashboard</td></tr>
-          <tr><td><b>Delete…</b> (Archived)</td><td>Click twice — only archived projects can be deleted</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Back out of <b data-i18n="term.new-project">New project</b>, then close the dashboard</td></tr>
+          <tr><td><b data-i18n="term.delete-2">Delete…</b> (Archived)</td><td>Click twice — only archived projects can be deleted</td></tr>
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Color workspace</h3>
+        <h3 data-i18n="term.color-workspace">Color workspace</h3>
         <table class="keys">
           <tr><td>Colour wheel</td><td>Drag to tint (<kbd>⇧</kbd> = fine) · double-click resets the colour · double-click a label or slider name to reset it</td></tr>
           <tr><td>WB pick / Pick</td><td>Click the monitor to balance, to mark a colour on the curves, or to select it in a layer's qualifier · <kbd>Esc</kbd> cancels</td></tr>
           <tr><td>Curves</td><td>Click adds a point on the curve · drag moves it · double-click removes it</td></tr>
-          <tr><td>Layer mask on monitor</td><td>Drag inside to move · handles resize · the knob rotates (<kbd>⇧</kbd> snaps to 15°) · poly / bezier: <kbd>Ctrl/Cmd</kbd>+click adds a point, double-click removes one · <b>Draw</b>: drag a free-hand outline</td></tr>
+          <tr><td>Layer mask on monitor</td><td>Drag inside to move · handles resize · the knob rotates (<kbd>⇧</kbd> snaps to 15°) · poly / bezier: <kbd>Ctrl/Cmd</kbd>+click adds a point, double-click removes one · <b data-i18n="term.draw">Draw</b>: drag a free-hand outline</td></tr>
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Masks <span>Inspector → Masks</span></h3>
+        <h3>Masks <span data-i18n="term.inspector-masks">Inspector → Masks</span></h3>
         <table class="keys">
           <tr><td>Pen</td><td>Click to place points, drag while placing to pull curve handles · click the first point or <kbd>Enter</kbd> closes · <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Backspace</kbd> removes the last point, <kbd>Ctrl</kbd>+<kbd>⇧</kbd>+<kbd>Z</kbd> puts it back · <kbd>Esc</kbd> cancels</td></tr>
           <tr><td>Draw</td><td>Drag a free-hand outline — it becomes an editable bezier</td></tr>
@@ -681,15 +683,15 @@
       <section class="keys-sec">
         <h3>Transcript <span>side panel → Transcript</span></h3>
         <table class="keys">
-          <tr><td>Click a word</td><td>Go to it · <kbd>⇧</kbd>+click or drag selects a run of words</td></tr>
+          <tr><td data-i18n="term.click-a-word">Click a word</td><td>Go to it · <kbd>⇧</kbd>+click or drag selects a run of words</td></tr>
           <tr><td><kbd>Del</kbd></td><td>Cut the selected words and the pause after them (extract on the targeted tracks) · <kbd>Esc</kbd> clears the selection</td></tr>
-          <tr><td>Find words</td><td><kbd>Enter</kbd> / <kbd>⇧</kbd>+<kbd>Enter</kbd> go to the next / previous match · <b>Cut</b> extracts every match</td></tr>
-          <tr><td>Captions</td><td>Pick a style, then <b>Add captions</b> (one undo step; replaces the captions there) · <b>SRT</b> / <b>VTT</b> download them · <b>Import…</b> places a subtitle file's captions</td></tr>
+          <tr><td>Find words</td><td><kbd>Enter</kbd> / <kbd>⇧</kbd>+<kbd>Enter</kbd> go to the next / previous match · <b data-i18n="term.cut">Cut</b> extracts every match</td></tr>
+          <tr><td>Captions</td><td>Pick a style, then <b data-i18n="term.add-captions">Add captions</b> (one undo step; replaces the captions there) · <b>SRT</b> / <b>VTT</b> download them · <b data-i18n="term.import-2">Import…</b> places a subtitle file's captions</td></tr>
         </table>
       </section>
-      <p class="help-empty hidden" id="helpEmpty">No shortcut matches that.</p>
+      <p class="help-empty hidden" id="helpEmpty" data-i18n="term.no-shortcut-matches-that">No shortcut matches that.</p>
     </div>
-    <div class="dialog-actions"><button class="btn primary" id="btnCloseHelp">Close</button></div>
+    <div class="dialog-actions"><button class="btn primary" id="btnCloseHelp" data-i18n="term.close">Close</button></div>
   </div>
 </div>
 
@@ -716,7 +718,15 @@
 <script src="media-lib.js"></script>
 <script src="delivery.js"></script>
 <script src="mp4-demux.js"></script>
+<script src="ui-terms.js"></script>
 <script src="ui-preferences.js"></script>
+<script src="agent-session-schema.js"></script>
+<script src="agent-pane.js"></script>
+<script src="agent-format.js"></script>
+<script src="agent-conversation.js"></script>
+<script src="chat-proposal.js"></script>
+<script src="cindy-official.js"></script>
+<script src="workspace-preferences.js"></script>
 <script src="static-shim.js"></script>
 <script src="app.js"></script>
 </body>

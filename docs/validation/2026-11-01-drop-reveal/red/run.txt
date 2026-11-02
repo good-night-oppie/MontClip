@@ -1,0 +1,14 @@
+
+
+  FableCut running →  http://localhost:63671
+
+  project file : <user>\AppData\Local\Temp\MontClip-drop-reveal-QIS2av\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-drop-reveal-QIS2av\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-drop-reveal-QIS2av\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+REVEAL_DROP {"size":[804,535],"before":{"scrollTop":153.3333282470703,"a2":1},"after":{"track":"A2","scrollTop":116.29629516601562,"dropped":0.066,"undo":2}}
+REVEAL_FAIL dropped clip fully visible: 0.066
+MONTCLIP_SMOKE {"nodeUnavailable":true,"projectLoaded":true,"apiStatus":200,"externalBlocked":true,"compositor":true,"saved":true}

@@ -1,9 +1,10 @@
 /* Desktop host for the existing editor and compositor. No renderer Node API. */
 "use strict";
-const { app, BrowserWindow, dialog, session, utilityProcess, ipcMain } = require("electron");
+const { app, BrowserWindow, dialog, session, utilityProcess, ipcMain, safeStorage } = require("electron");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { createStore, allowed: settingsAllowed } = require("./view-settings");
+const { nativeText, languageOf } = require("./native-text");
 const { createCloseController } = require("./close-controller");
 const External = require("../external-ffmpeg");
 const fs = require("node:fs");
@@ -43,8 +44,8 @@ async function start() {
   worker.stdout?.on("data", (data) => { if (!app.isPackaged) process.stdout.write(data); });
   worker.stderr?.on("data", (data) => { if (!app.isPackaged) process.stderr.write(data); });
   const origin = await new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("启动本地编辑服务超时。")), 30000);
-    worker.once("exit", () => { clearTimeout(timeout); reject(new Error("本地编辑服务已退出。")); });
+    const timeout = setTimeout(() => reject(Object.assign(new Error("serviceStartTimeout"), { textKey: "serviceStartTimeout" })), 30000);
+    worker.once("exit", () => { clearTimeout(timeout); reject(Object.assign(new Error("serviceExitedAtStart"), { textKey: "serviceExitedAtStart" })); });
     worker.on("message", (msg) => {
       if (msg?.type !== "montclip-ready" || !/^http:\/\/127\.0\.0\.1:\d+$/.test(msg.origin)) return;
       clearTimeout(timeout); resolve(msg.origin);
@@ -110,6 +111,28 @@ async function start() {
     if (!settingsAllowed(event, win, origin)) return forbidden;
     try { fs.rmSync(externalFile, { force: true }); return { ok: false, code: "none" }; } catch { return { ok: false, code: "extRemoveFailed" }; }
   });
+  const paneSettings = createStore(app.getPath("userData"), {pane:true});
+  for (const operation of ["get", "set"]) ipcMain.on("montclip:pane:" + operation, (event, value) => {
+    event.returnValue = settingsAllowed(event, win, origin)
+      ? paneSettings[operation](value) : {ok:false,code:"VIEW_SETTINGS_FORBIDDEN"};
+  });
+  const workspaceSettings = require('./workspace-settings').createStore(app.getPath('userData'));
+  for (const operation of ['get','set','migrate']) ipcMain.on('montclip:workspace:'+operation,(event,value)=>{
+    event.returnValue=settingsAllowed(event,win,origin)?workspaceSettings[operation](value):{ok:false,code:'WORKSPACE_FORBIDDEN'};
+  });
+  const agentSessions = require('./agent-session-store').createStore(app.getPath('userData'));
+  const AgentService = require('./agent-service');
+  // OpenRouter only for tests: development builds, or the main process's own launch switch (never the page)
+  const agentService = AgentService.createDiskService(app.getPath('userData'),safeStorage,undefined,{providers:AgentService.testProvidersEnabled({isPackaged:app.isPackaged,argv:process.argv,env:process.env})?AgentService.ALL_PROVIDERS:AgentService.PUBLIC_PROVIDERS});
+  for(const operation of ['get','configure','reset','deleteConnection','send','cancel']) ipcMain.handle('montclip:agent:'+operation,(event,value)=>{
+    if(!settingsAllowed(event,win,origin))return {ok:false,code:'AGENT_FORBIDDEN'};
+    return agentService[operation](value);
+  });
+  win.webContents.on('render-process-gone',()=>agentService.dispose());
+  win.on('closed',()=>agentService.dispose());
+  for(const operation of ['get','set']) ipcMain.on('montclip:sessions:'+operation,(event,value)=>{
+    event.returnValue=settingsAllowed(event,win,origin)?agentSessions[operation](value):{ok:false,code:'SESSION_FORBIDDEN'};
+  });
   let rendererFault = null, prompts = 0;
   const closeController = createCloseController({
     save: (attempt) => {
@@ -121,16 +144,17 @@ async function start() {
         return win.webContents.executeJavaScript(`typeof cancelCloseSave === 'function' && cancelCloseSave(${attempt})`);
     },
     prompt: async (reason) => {
+      // in the interface language the user chose, read now (it may have changed since the window opened)
+      const t = nativeText(languageOf(settings.get()));
       if (faultTest) {
         prompts++;
-        process.stdout.write("MONTCLIP_CLOSE_PROMPT " + JSON.stringify({ reason, prompts, default: 0, choice: prompts === 1 ? 0 : 1 }) + "\n");
+        process.stdout.write("MONTCLIP_CLOSE_PROMPT " + JSON.stringify({ reason, prompts, default: 0, choice: prompts === 1 ? 0 : 1,
+          title: t.closeTitle, buttons: [t.closeKeepWaiting, t.closeForce] }) + "\n");
         if (prompts === 1) setTimeout(() => { win.close(); win.close(); }, 50);
         return prompts === 1 ? 0 : 1;
       }
-      const result = await dialog.showMessageBox(win, { type: "warning", title: "保存尚未确认 / Save not confirmed",
-        message: "页面可能未响应，最近修改尚未确认保存。\nThe editor may be unresponsive; recent changes are not confirmed saved.",
-        detail: "继续等：保持窗口打开，恢复后可重试关闭。强制关闭：最近修改可能丢失。\nKeep waiting: leave the window open and retry closing after recovery. Force close: recent changes may be lost.",
-        buttons: ["继续等 / Keep waiting", "强制关闭（最近修改可能丢失） / Force close (may lose changes)"], defaultId: 0, cancelId: 0, noLink: true });
+      const result = await dialog.showMessageBox(win, { type: "warning", title: t.closeTitle, message: t.closeMessage, detail: t.closeDetail,
+        buttons: [t.closeKeepWaiting, t.closeForce], defaultId: 0, cancelId: 0, noLink: true });
       return result.response;
     },
     close: () => { closing = true; win.destroy(); },
@@ -145,7 +169,12 @@ async function start() {
   win.on("responsive", () => { if (rendererFault === "unresponsive") rendererFault = null; });
   win.webContents.on("render-process-gone", () => { rendererFault = "crashed"; closeController.fault(rendererFault); });
   worker.on("exit", () => {
-    if (!stopping) dialog.showErrorBox("MontClip", "本地编辑服务意外退出。请保留窗口中的修改，重新启动后检查项目。 / The local editor service stopped unexpectedly.");
+    if (stopping) return;
+    // start() only runs once the app is ready, so a message box can show here
+    const t = nativeText(languageOf(settings.get()));
+    const options = { type: "error", title: t.serviceStoppedTitle, message: t.serviceStopped, buttons: [t.ok], noLink: true };
+    // over the editor window while it is open, so the box cannot end up behind it
+    if (win && !win.isDestroyed()) dialog.showMessageBox(win, options); else dialog.showMessageBox(options);
   });
   await win.loadURL(origin);
   if (faultTest) {
@@ -156,6 +185,9 @@ async function start() {
     return;
   }
   if (smoke) {
+    if (process.argv.includes("--agent-layout-check")) await require("./agent-layout-smoke").run(win);
+    if (process.argv.includes("--sessions-check")) await require("./agent-session-smoke").run(win);
+    if (process.argv.includes("--workspace-check")) await require("./workspace-smoke").run(win);
     if (process.argv.includes("--view-check")) await require("./view-smoke").run(win);
     if (process.argv.includes("--m0")) await require("./m0-smoke").run(win, origin, token, env.FABLECUT_DATA_DIR);
     const result = await win.webContents.executeJavaScript(`(async () => {
@@ -190,8 +222,19 @@ app.on("before-quit", (event) => {
 });
 // Electron does not consistently propagate process.exitCode through app.quit().
 app.on("will-quit", (event) => { if (smoke && process.exitCode) { event.preventDefault(); app.exit(process.exitCode); } });
-app.whenReady().then(start).catch((error) => {
-  if (smoke) { console.error(error); process.exitCode = 1; }
-  else dialog.showErrorBox("MontClip 启动失败", `${error.message}\n请关闭后重试，并检查工作目录是否可写。`);
-  closing = true; app.quit();
+app.whenReady().then(start).catch(async (error) => {
+  try {
+    if (smoke) { console.error(error); process.exitCode = 1; }
+    else {
+      // the interface language from view-settings.json (Chinese when it cannot be read); the box is
+      // awaited: a message box does not block, and quitting would close it at once
+      let t; try { t = nativeText(languageOf(createStore(app.getPath("userData")).get())); } catch { t = nativeText("zh-CN"); }
+      await dialog.showMessageBox({ type: "error", title: t.startFailedTitle,
+        message: `${(error && error.textKey && t[error.textKey]) || String((error && error.message) || error)}\n${t.startFailedHint}`,
+        buttons: [t.ok], noLink: true });
+    }
+  } finally {
+    // quit even when the box could not be shown
+    closing = true; app.quit();
+  }
 });

@@ -1,0 +1,32 @@
+{
+ "when": "2026-11-02T02:27:37.746Z",
+ "provider": "openrouter",
+ "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+ "results": [
+  {
+   "name": "plain-keep",
+   "model": "google/gemma-4-31b-it:free",
+   "result": "skipped",
+   "reason": "429 rate limited by OpenRouter/upstream",
+   "ms": 340
+  },
+  {
+   "name": "ordinary-question",
+   "model": "google/gemma-4-31b-it:free",
+   "result": "skipped",
+   "reason": "429 rate limited by OpenRouter/upstream",
+   "ms": 169
+  },
+  {
+   "name": "wrong-key",
+   "model": "google/gemma-4-31b-it:free",
+   "result": "passed",
+   "ms": 102,
+   "code": "AUTH"
+  }
+ ],
+ "counts": {
+  "passed": 1,
+  "skipped": 2
+ }
+}
