@@ -1600,6 +1600,8 @@ function applyProject(data, opts = {}) {
     outputs: Array.isArray(data.outputs) ? data.outputs.filter((o) => o && typeof o === "object") : null,
     master: normalizeMaster(data.master),
     buses: normalizeBuses(data.buses),
+    // the songs found in each file (P2 songs.js); checked again when saved
+    songs: data.songs && typeof data.songs === "object" && !Array.isArray(data.songs) ? data.songs : null,
     // the recording's danmaku, kept as it is (null when this project has none, so nothing is left from the last one)
     danmaku: normalizeDanmaku(data.danmaku),
     // the sequences that aren't open, kept as they are (see sequences.js); the open one is this document
@@ -1687,7 +1689,7 @@ function scheduleSave() {
 }
 async function saveNow() {
   project.revision++;
-  const body = JSON.stringify(projectJSON(), null, 2);
+  const body = JSON.stringify({ ...projectJSON(), agentLog: eventLog().toJSON() }, null, 2);   // the event log is kept in the project (summaries)
   try {
     const headers = { "Content-Type": "application/json" };
     if (runtime.projectId) headers["X-FableCut-Project"] = runtime.projectId;   // the project this edit belongs to
@@ -1700,6 +1702,7 @@ async function saveNow() {
       return loaded === true;   // the newer document on disk is now what this tab shows
     }
     runtime.saveFailed = !res.ok;
+    if (res.ok) eventLog().settle(project.revision);
     return res.ok;
   } catch { runtime.saveFailed = true; return false; }
 }
@@ -1820,6 +1823,9 @@ function projectJSONHere() {
   const buses = normalizeBuses(project.buses);
   if (buses.length) out.buses = buses;
   if (project.comps && project.comps.length) out.comps = project.comps.map((cp) => ({ ...cp, clips: (cp.clips || []).map(serializeClip) }));
+  // the songs found in each file (P2 songs.js): kept, checked, for files still in the project
+  const songs = typeof MontClipSongs !== "undefined" ? MontClipSongs.clean(project.songs, out.media) : null;
+  if (songs) out.songs = songs;
   const danmaku = normalizeDanmaku(project.danmaku);
   if (danmaku) out.danmaku = danmaku;
   if (project.sequences) {
@@ -1898,6 +1904,7 @@ async function syncFromServer(force) {
     const pid = res.headers.get("X-FableCut-Project");
     const switched = !!(pid && runtime.projectId && pid !== runtime.projectId);
     if (pid) runtime.projectId = pid;
+    if ((switched || !runtime.eventLog) && typeof MontClipEvents !== "undefined") runtime.eventLog = MontClipEvents.createLog(data.agentLog);
     if (switched) {
       onProjectSwitched();
       applyProject(data);
@@ -1928,7 +1935,7 @@ async function syncFromServer(force) {
     }
     applyProject(data);
     const step = before && outsideEditStep(before, undoSnapshot(), mediaBefore, project.media);
-    if (step) pushUndo(step);
+    if (step) pushUndo(step, { noEvent: true });
     if (clash) toast(step ? "The project was changed from outside while you were editing. Ctrl+Z puts your version back."
       : "Project was updated externally — your last change may need redoing.");
     syncCompCrumb();   // the top bar shows the project's name
@@ -3985,7 +3992,13 @@ function undoSnapshot() {
 }
 /** Record an undo step — `snap` lets an edit snapshot first and record only
  *  once it knows it changed something. */
-function pushUndo(snap = undoSnapshot()) {
+function pushUndo(snap = undoSnapshot(), { eventId = null, capability = "manual_edit", args = {}, noEvent = false } = {}) {
+  if (!eventId && !noEvent) {
+    try { eventId = eventLog().append({ id: crypto.randomUUID(), runId: crypto.randomUUID(), step: 1, capability, args, actor: "streamer",
+      risk: "undoable", state: "applied", revisionBefore: project.revision ?? null, revisionAfter: null, at: new Date().toISOString() }).id; }
+    catch { eventId = null; }   // a step is never refused for its log entry
+  }
+  if (eventId) snap = withEventId(snap, eventId);
   runtime.undo.push(snap);
   if (runtime.undo.length > 100) runtime.undo.shift();
   runtime.redo.length = 0;
@@ -4005,6 +4018,7 @@ function restoreSnapshot(json) {
     for (const [id, clips] of Object.entries(snap.seqClips)) { const sq = SeqLib.find(seqRoot(), id); if (sq && id !== open) sq.clips = clips; }
   }
   if (Array.isArray(snap)) project.clips = snap;
+  else if (Array.isArray(snap.clipsOnly)) project.clips = snap.clipsOnly;   // a gesture's clips-only step with its event id
   else {
     project.clips = snap.clips; project.markers = snap.markers; if (snap.comps) project.comps = snap.comps;
     if (snap.rangeState) Object.assign(project, snap.rangeState);
@@ -4040,10 +4054,39 @@ function outsideEditStep(before, after, mediaBefore = null, mediaAfter = null) {
   return '{"outside":true,' + snap.slice(1);
 }
 const isOutsideStep = (snap) => typeof snap === "string" && snap.startsWith('{"outside":true,');
+/* Editor events (agent-events.js): each undo step carries the id of its event at the start of its snapshot. */
+/** The project's event log; without agent-events.js (a page or test without it) a log that keeps nothing. */
+function eventLog() {
+  if (runtime.eventLog) return runtime.eventLog;
+  if (typeof MontClipEvents !== "undefined") return (runtime.eventLog = MontClipEvents.createLog());
+  const none = () => { throw new Error("EVENT_LOG_UNAVAILABLE"); };
+  return { append: none, move: none, get: () => null, settle() {}, list: () => [], toJSON: () => undefined, undoPlan: () => ({ ok: false, code: "RUN_EMPTY" }) };
+}
+function eventIdOf(snap) { const m = typeof snap === "string" && /^{"eventId":"([A-Za-z0-9_-]{1,128})"/.exec(snap); return m ? m[1] : null; }
+function withEventId(snap, id) {
+  if (typeof snap !== "string" || eventIdOf(snap)) return snap;
+  if (snap.startsWith("[")) return '{"eventId":' + JSON.stringify(id) + ',"clipsOnly":' + snap + "}";   // a gesture's clips-only step
+  if (!snap.startsWith("{")) return snap;
+  return '{"eventId":' + JSON.stringify(id) + (snap === "{}" ? "}" : "," + snap.slice(1));
+}
+function moveEvent(id, to, extra = {}) { try { return eventLog().move(id, to, { at: new Date().toISOString(), ...extra }); } catch { return null; } }
+/** Undo one event: only when it is the newest undo step (otherwise something came after it). */
+function undoEvent(id) {
+  if (eventIdOf(runtime.undo.at(-1)) !== id) return { ok: false, code: "EVENT_NOT_LAST" };
+  undo(); return { ok: true, events: [id] };
+}
+/** Undo a whole run (every applied step of one AI run) at once, while they are the newest undo steps. */
+function undoRun(runId) {
+  const plan = eventLog().undoPlan(runId, runtime.undo.map(eventIdOf));
+  if (!plan.ok) return plan;
+  for (let i = 0; i < plan.events.length; i++) undo();
+  return plan;
+}
 function undo() {
   if (!runtime.undo.length) return;
-  const snap = runtime.undo.pop();
-  runtime.redo.push(counterSnapshot(snap));
+  const snap = runtime.undo.pop(), id = eventIdOf(snap);
+  runtime.redo.push(id ? withEventId(counterSnapshot(snap), id) : counterSnapshot(snap));
+  if (id) moveEvent(id, "undone");
   restoreSnapshot(snap);
   pruneSelection();
   scheduleSave(); renderInspector();
@@ -4051,8 +4094,12 @@ function undo() {
 }
 function redo() {
   if (!runtime.redo.length) return;
-  const snap = runtime.redo.pop();
-  runtime.undo.push(counterSnapshot(snap));
+  const snap = runtime.redo.pop(), of = eventIdOf(snap);
+  // a redone step is a new event (events only move forward); it points at the one it redoes
+  let id = null;
+  if (of) try { id = eventLog().append({ id: crypto.randomUUID(), runId: eventLog().get(of)?.runId || crypto.randomUUID(), step: 1, capability: "redo", args: { of },
+    actor: "streamer", risk: "undoable", state: "applied", revisionBefore: project.revision ?? null, revisionAfter: null, at: new Date().toISOString() }).id; } catch { id = null; }
+  runtime.undo.push(id ? withEventId(counterSnapshot(snap), id) : counterSnapshot(snap));
   restoreSnapshot(snap);
   pruneSelection();
   scheduleSave(); renderInspector();
@@ -4862,7 +4909,9 @@ function playRange() {
    Mode comes from the Export dialog (Entire timeline / IN–OUT). */
 /** An agent's export job picks its range instead of the dialog. */
 let exportRangeForced = null;
+/** "entire", "in-out", or "range" while the queue renders a slice (exportRangeForced = {start, end}, timeline seconds). */
 function exportRangeMode() {
+  if (exportRangeForced && typeof exportRangeForced === "object") return "range";
   const sel = $("exportRangeSel");
   const v = exportRangeForced || (sel && sel.value === "in-out" ? "in-out" : "entire");
   if (v === "in-out" && !hasWorkArea()) return "entire";
@@ -4873,7 +4922,10 @@ function exportRange(fpsOverride) {
   const fps = fpsOverride || projectFps();
   const span = Math.max(projDur(), 0);
   let start = 0, end = span;
-  if (exportRangeMode() === "in-out") {
+  if (exportRangeMode() === "range") {
+    start = Math.min(Math.max(0, exportRangeForced.start), span);
+    end = Math.min(Math.max(start, exportRangeForced.end), span);
+  } else if (exportRangeMode() === "in-out") {
     const r = playRange();
     start = Math.min(Math.max(0, r.start), span);
     end = Math.min(Math.max(0, r.end), span);
@@ -5985,9 +6037,7 @@ function startTrimToolGesture(e, c, mode) {
     hideTrimReadout();
     state.gesture = false;
     if (moved && Math.abs(applied) > 1e-9) {
-      runtime.undo.push(snapshot);
-      if (runtime.undo.length > 100) runtime.undo.shift();
-      runtime.redo.length = 0;
+      pushUndo(snapshot);
       scheduleSave();
     } else if (moved) restore();
     state.dirtyTimeline = true;
@@ -6225,9 +6275,7 @@ function startClipGesture(e, c, mode, collapseOnClick) {
     state.dirtyTimeline = true;
     if (!cancelled && moved) {
       syncTimelineTrackView.dropped = [c.id, ...[...groupIds].filter(id => id !== c.id)];
-      runtime.undo.push(snapshot);
-      if (runtime.undo.length > 100) runtime.undo.shift();
-      runtime.redo.length = 0;
+      pushUndo(snapshot);
       scheduleSave();
     } else if (!cancelled && collapseOnClick) {
       selectClip(c.id);
@@ -6360,9 +6408,7 @@ function onRulerPointerDown(e) {
     window.removeEventListener("pointerup", onUp);
     state.gesture = false;
     if (moved && mk.t !== t0) {
-      runtime.undo.push(snapshot);
-      if (runtime.undo.length > 100) runtime.undo.shift();
-      runtime.redo.length = 0;
+      pushUndo(snapshot);
       project.markers.sort((a, b) => a.t - b.t);
       scheduleSave();
     } else if (!moved) seekToMarker(mk);
@@ -9898,6 +9944,8 @@ async function showHighlightCandidates() {
   if (!dialog.isConnected) return;
   if (!sig || !current()) { status.textContent = uiText("own.hl-changed"); return; }
   const cards = MontClipHighlights.candidates(sig);
+  // the assistant may be told these (numbers only) while the timeline stays as it was when they were found
+  runtime.highlightFacts = { signature, cards: cards.map((c) => ({ from: c.from, to: c.to, score: c.score })) };
   if (!cards.length) { status.textContent = uiText("own.hl-empty-" + MontClipHighlights.emptyReason(sig)); return; }
   status.textContent = uiText("own.hl-found", { n: cards.length });
   back.textContent = uiText("own.hl-back", { n: cards.length });
@@ -9923,7 +9971,8 @@ async function showHighlightCandidates() {
   });
 }
 /** SRT sentence selection: preview a read-only plan, apply on a clone as one undo step. */
-async function showSentenceSelection(suggestion = null, onApplied = null) {
+async function showSentenceSelection(suggestion = null, onApplied = null, onCancelled = null) {
+  let applied = false;
   const busy=()=>state.exporting||state.gesture||state.compCtx||runtime.activeImports||runtime.activeTranscriptions||runtime.desktopExportPending||runtime.saveRequests||runtime.saveTimer||runtime.saveFailed||(typeof closeSaveTransaction!=='undefined'&&closeSaveTransaction);
   const proposalContext=()=>({...agentProjectContext(),generation:agentProjectContext().gen});
   if (state.exporting || state.gesture || state.compCtx || suggestion&&busy()) { toast(uiText(suggestion&&busy()?"own.sd-busy-save":"own.sd-busy")); return; }
@@ -9931,20 +9980,25 @@ async function showSentenceSelection(suggestion = null, onApplied = null) {
   else if (!(await flushSaveBeforeSwitch())) return;
   const doc = projectJSON(), signature = JSON.stringify(doc), projectId = runtime.projectId, projectGen=runtime.projectGen, sequenceId=SeqLib.activeId(seqRoot());
   const captions = doc.clips.filter((c) => FableCutCaptions.isCaption(c) && !c.disabled && !(doc.disabledTracks || []).includes(c.track)).sort((a, b) => a.start - b.start);
-  if (!captions.length) { toast(uiText("own.sd-no-captions")); return; }
+  // #71: an assistant's keep_ranges proposal (by time; one file, or one clip per range) opens this same dialog
+  const byTime = suggestion?.type === "keep_ranges", slices = byTime && suggestion.outputMode === "per_range";
+  const sliceNames = slices ? MontClipProposal.sliceNames(suggestion.labels, project.name, Delivery.fileSafeName) : null;
+  if (!captions.length && !byTime) { toast(uiText("own.sd-no-captions")); return; }
   pause();
   const dialog = document.createElement("dialog");
   dialog.className = "sentence-dialog";
-  // one language at a time (own.sd-*); a planner error is said by its code (own.rp-*)
-  const say = (key) => escapeHtml(uiText(key));
-  dialog.innerHTML = `<form method="dialog"><h3>${say("own.sd-title")}</h3>
-    <p>${say("own.sd-intro")}</p>
-    <label>${say("own.sd-ranges")}
+  // one language at a time (own.sd-*, and own.ssel-* for the by-time wording, JJ's review of #71); a planner error is
+  // said by its code (own.rp-*)
+  const say = (key, vars) => escapeHtml(uiText(key, vars));
+  dialog.innerHTML = `<form method="dialog"><h3>${say(byTime ? (slices ? "own.ssel-title-slices" : "own.ssel-title-ranges") : "own.sd-title")}</h3>
+    <p>${byTime ? (slices ? say("own.ssel-intro-slices", { n: suggestion.keep.length }) : say("own.ssel-intro-ranges")) : say("own.sd-intro")}</p>
+    <label>${say(byTime ? "own.ssel-label-time" : "own.sd-ranges")}
     <textarea data-ranges rows="2" placeholder="9,12&#10;1,4"></textarea></label>
     <div data-sentences></div><p data-summary role="status"></p>
     <div class="tr-row"><button type="button" class="btn" data-preview>${say("own.sd-preview")}</button>
     <button type="button" class="btn primary" data-apply>${say("own.sd-apply")}</button>
     <button class="btn" value="cancel">${say("own.sd-cancel")}</button></div></form>`;
+  // both dialogs say a refusal with #36's final words (JJ, 8 PRs: one set of words for this dialog)
   const ownError = (error) => (error && error.code && uiText("own.rp-" + error.code)) || error.message;
   const list = dialog.querySelector("[data-sentences]"), summary = dialog.querySelector("[data-summary]");
   if(suggestion){dialog.querySelector('[data-ranges]').value=suggestion.keep.map(r=>r.from+','+r.to).join('\n');dialog.querySelector('[data-ranges]').readOnly=true;list.hidden=true;}
@@ -9968,8 +10022,14 @@ async function showSentenceSelection(suggestion = null, onApplied = null) {
       }) : [...selected].map(id => captions.find(c => c.id === id)).map(c => ({ from: c.start, to: c.start+c.duration }));
       plan = FableCutRangePlan.create(doc, keep); plan.keep = keep;
       const cut = plan.captions.filter((c) => c.status === "visible" && c.truncated).length;
-      summary.textContent = uiText("own.sd-summary", { ranges: keep.map((r) => `${fmt(r.from)}–${fmt(r.to)}`).join(" → "), duration: MontClipView.durationText(plan.duration) }) +
-        (cut ? " " + uiText(cut === 1 ? "own.sd-partial" : "own.sd-partial-many", { n: cut }) : "");
+      const clock = MontClipHighlights.clock;
+      summary.textContent = slices
+        ? keep.map((r, i) => uiText("own.ssel-sum-slice", { name: sliceNames[i], from: clock(r.from), to: clock(r.to), len: MontClipHighlights.seconds(r.to - r.from) })).join(uiText("own.ssel-sum-slice-sep"))
+        : byTime
+          ? uiText("own.ssel-sum-ranges", { ranges: keep.map((r) => `${clock(r.from)}–${clock(r.to)}`).join(" → "), duration: clock(Math.round(plan.duration)) })
+            + (cut ? " " + uiText(cut === 1 ? "own.ssel-sum-cut-one" : "own.ssel-sum-cut", { cut }) : "")
+          : uiText("own.sd-summary", { ranges: keep.map((r) => `${fmt(r.from)}–${fmt(r.to)}`).join(" → "), duration: MontClipView.durationText(plan.duration) }) +
+            (cut ? " " + uiText(cut === 1 ? "own.sd-partial" : "own.sd-partial-many", { n: cut }) : "");
     } catch (error) { plan = null; summary.textContent = ownError(error); }
     dialog.querySelector("[data-apply]").disabled = !plan;
     dialog.querySelector("[data-preview]").disabled = !plan;
@@ -10010,11 +10070,17 @@ async function showSentenceSelection(suggestion = null, onApplied = null) {
       const snap = JSON.stringify({ ...JSON.parse(undoSnapshot()), ...(applyToken ? {agentApplyId:applyToken} : {}), rangeState: {
         inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
       } });
-      applyProject(next); pushUndo(snap); if(onApplied)onApplied(applyToken); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
-      dialog.close(); toast(uiText("own.sd-done"));
+      // the step is its event: the AI's (applied now; the save writes its revision), or the streamer's own use of the same capability
+      if (suggestion?.eventId) moveEvent(suggestion.eventId, "applied", { revision: null });
+      applyProject(next);
+      pushUndo(snap, suggestion?.eventId ? { eventId: suggestion.eventId } : { capability: "keep_sentences", args: { timelineRanges: plan.keep.map((r) => ({ from: r.from, to: r.to })) } });
+      applied = true; if(onApplied)onApplied(applyToken); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
+      dialog.close();
+      if (slices) { queueSlices(plan.segments, sliceNames); toast(uiText("own.ssel-done-slices", { n: plan.segments.length })); }
+      else toast(uiText(byTime ? "own.ssel-done-ranges" : "own.sd-done"));
     } catch (error) { summary.textContent = ownError(error); }
   });
-  dialog.addEventListener("close", () => { stopPreview(); dialog.remove(); });
+  dialog.addEventListener("close", () => { stopPreview(); dialog.remove(); if (!applied && onCancelled) onCancelled(); });
   document.body.append(dialog); refresh(); dialog.showModal();
 }
 function downloadSourceMap() {
@@ -18309,6 +18375,20 @@ function queueAdd(spec, name) {
   });
   renderQueue();
 }
+/** Slices from an applied keep_ranges per_range proposal: one queue item per range, each its own file. An item
+ *  remembers the timeline it was made from and refuses to render once the timeline is different (Undo, an edit). */
+function queueSlices(segments, names) {
+  const choice = exportChoice();
+  const spec = normalizeDelivery(choice.kind === "delivery" ? choice.spec : Delivery.DEFAULT_PRESET).spec;
+  const guard = JSON.stringify(project.clips);
+  segments.forEach((s, i) => exportQueue.push({
+    id: "q" + Math.random().toString(36).slice(2, 8), label: queueLabel(spec), spec, name: names[i],
+    range: { start: s.output.start, end: s.output.end }, guard, status: "pending", progress: 0,
+  }));
+  renderQueue();
+  openQueue();
+}
+const queueRangeKey = (r) => (r && typeof r === "object" ? r.start + "-" + r.end : String(r));
 function openQueue() {
   renderQueue();
   $("exportQueue").classList.remove("hidden");
@@ -18349,7 +18429,7 @@ function renderQueue() {
       q.status !== "running" ? `<button type="button" class="btn tiny" data-q-remove="${q.id}" title="Remove from the queue">✕</button>` : "",
     ].join("");
     return `<li class="${q.status}" data-q="${q.id}"><div class="xq-main"><b>${escapeHtml(q.label)} — ${escapeHtml(q.name + ext)}</b>` +
-      `<span class="xq-sub">${escapeHtml(Delivery.describe(q.spec, { width: fr.outW, height: fr.outH, fps }))} · ${q.range === "in-out" ? "IN–OUT" : "entire timeline"}</span>` +
+      `<span class="xq-sub">${escapeHtml(Delivery.describe(q.spec, { width: fr.outW, height: fr.outH, fps }))} · ${q.range && typeof q.range === "object" ? `${fmt(q.range.start)}–${fmt(q.range.end)}` : q.range === "in-out" ? "IN–OUT" : "entire timeline"}</span>` +
       (q.status === "running" ? `<div class="progress"><div class="progress-fill" style="width:${(q.progress * 100).toFixed(1)}%"></div></div>` : "") +
       `<span class="xq-status">${escapeHtml(status)}</span>` +
       (q.report ? `<span class="xq-report${q.report.ok ? "" : " warn"}">${q.report.ok ? "✓ " : ""}${escapeHtml(q.report.line)}</span>` : "") +
@@ -18376,10 +18456,15 @@ async function runQueue() {
       const first = exportQueue.find((q) => q.status === "pending");
       if (!first) break;
       const fps = first.spec.fps || projectFps();
-      const group = exportQueue.filter((q) => q.status === "pending" && (q.spec.fps || projectFps()) === fps && q.range === first.range).slice(0, 8);
+      const clips = JSON.stringify(project.clips);
+      if (first.guard && first.guard !== clips) {
+        Object.assign(first, { status: "failed", error: uiText("own.ssel-queue-changed") });
+        renderQueue(); continue;
+      }
+      const group = exportQueue.filter((q) => q.status === "pending" && (q.spec.fps || projectFps()) === fps && queueRangeKey(q.range) === queueRangeKey(first.range) && (q.guard || null) === (first.guard || null)).slice(0, 8);
       for (const q of group) { q.status = "running"; q.progress = 0; q.error = null; }
       renderQueue();
-      exportRangeForced = first.range === "in-out" && hasWorkArea() ? "in-out" : "entire";
+      exportRangeForced = first.range && typeof first.range === "object" ? first.range : first.range === "in-out" && hasWorkArea() ? "in-out" : "entire";
       let res;
       try {
         res = await fastExport({
@@ -21316,6 +21401,14 @@ function agentProjectContext(){
  return {projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen??0,revision:project.revision};
 }
 const officialProposalApplications=new WeakMap();
+/* The assistant's proposals are editor events in the project's log (agent-events.js): has_result when reviewed, applied
+   with the undo step, rejected when the review closes unapplied, undone with its undo step. Before the first step of a
+   run the host keeps an agent version of the project. */
+const agentRuns=new WeakMap();
+function recordAgentEvent(e){try{return eventLog().append(e);}catch{return null;}}
+async function versionBeforeAgent(){
+ try{if(!await flushSave())return;await fetch('/api/versions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'before_agent',name:uiText('own.before-ai')})});}catch{}
+}
 function canUndoOfficialProposal(result){
  const entry=result&&officialProposalApplications.get(result),c=agentProjectContext();
  if(!entry||entry.projectId!==c.projectId||entry.sequenceId!==c.sequenceId||entry.gen!==c.gen)return false;
@@ -21332,12 +21425,20 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  onHide:()=>{setSideTab("inspector");document.getElementById("mcAssistant").focus();},
  getProjectName:id=>id===runtime.projectId?project.name:null,
  canUndoProposal:canUndoOfficialProposal,
- onUndo:result=>{if(canUndoOfficialProposal(result))undo();},
+ getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[]});},
+ onUndo:result=>{if(canUndoOfficialProposal(result)){const entry=officialProposalApplications.get(result);if(!entry?.eventId||!undoEvent(entry.eventId).ok)undo();}},
  onProposal:(response,result)=>{
    const c=agentProjectContext();
    if(JSON.stringify(result.context)!==JSON.stringify(c))throw Error('STALE');
-   const proposal=MontClipProposal.prepare(response,{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});
-   showSentenceSelection(proposal,token=>officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen}));
+   if(!agentRuns.has(result)){agentRuns.set(result,crypto.randomUUID());void versionBeforeAgent();}
+   const meta={id:crypto.randomUUID(),runId:agentRuns.get(result),step:1,actor:'ai',at:new Date().toISOString(),revision:project.revision};
+   let proposal;
+   try{proposal=MontClipProposal.prepare(response,{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});}
+   catch(error){recordAgentEvent(MontClipProposal.failedEvent(error,{...meta,capability:response&&response.type}));throw error;}
+   const ev=recordAgentEvent(MontClipProposal.event(proposal,meta));
+   if(ev)proposal.eventId=ev.id;
+   showSentenceSelection(proposal,token=>{officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});},
+    ()=>{if(ev)moveEvent(ev.id,'rejected');});
  },
  getReferences:kind=>MontClipAgentPane.referenceChips(kind,{...agentProjectContext(),
  start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(FableCutCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
