@@ -3015,3 +3015,12 @@ The experimental official Agent Pane offers an explicit reset for unreadable con
 The official proposal card offers Undo this apply only while its application is the current shared undo stack top; later edits hide the button. It calls the same global undo() and follows global Redo. The local operation tag lives only in undo snapshots, not exported project data.
 
 Official-pane history presentation separates validated trailing reference envelopes into text and chips without changing stored/sent history. Confirmation lists human-readable messages and references; the exact HTTP request is available in collapsed details. A bounded proposal summary is presentation only: application still revalidates the live project. Stale replies can create a new draft with empty history/references, never automatically send.
+
+### Correct captions from the lyrics (MontClip)
+
+In the Transcript tab's caption row, **Fix captions using lyrics** (按歌词校准字幕) aligns the transcript of the selected
+captions' part (else IN–OUT) to lyrics the streamer pastes, character by character, on this computer — nothing is sent.
+The times stay the transcript's; misheard characters become the lyrics' ones; one lyric line is one caption. Each line
+shows what was heard and what it becomes; lines that align poorly are marked 「可能不对」 and not ticked. Nothing changes
+until the streamer applies; then the part's captions are replaced in one undo step. See
+`docs/decisions/2026-11-03-lyrics-captions.md`.
