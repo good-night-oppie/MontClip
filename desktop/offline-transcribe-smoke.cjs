@@ -75,7 +75,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
       ...score, words: res.words.length, failed: res.failed, memoryAtStartMB: before, memoryPeakMB: peak,
       requests: { total: requests.length, external: external.length, externalSample: external.slice(0, 5),
         assets: requests.filter((r) => r.url.includes('/transcribe-assets/')).map((r) => r.url.replace(/^https?:\/\/[^/]+/, '')).filter((u, i, a) => a.indexOf(u) === i) },
-      textSample: text.slice(0, 200) };
+      textSample: text.slice(0, 200), text };
     fs.writeFileSync(OUT, JSON.stringify(record, null, 2) + '\n');
     ok = res.done === 1 && res.words.length > 0 && external.length === 0;
     out(ok ? 'ASR_PASS' : 'ASR_FAIL', { model: MODEL, cer: Math.round(score.cer * 1000) / 10, transcribeMs: res.ms, audioSeconds: res.duration, memoryPeakMB: peak, requests: record.requests.total, external: external.length });
