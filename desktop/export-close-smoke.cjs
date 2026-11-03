@@ -116,19 +116,25 @@ BrowserWindow.prototype.loadURL = async function (...args) {
         "$f=[IO.File]::Open('" + target + "','Open','Read','None'); [Console]::Out.WriteLine('LOCKED'); [Console]::In.ReadLine() | Out-Null; $f.Close()"],
         { stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
       await new Promise((r) => lock.stdout.on('data', (d) => { if (String(d).includes('LOCKED')) r(); }));
+      let failures = 0;
       answer = async (o) => {
         if (o.buttons.length === 3) return ExportClose.UNSAVED.DELETE;
-        // the failure prompt: still open, the right count; then the player lets go and 再试一次
         check('删不掉: the window is still open', !win.isDestroyed());
-        check('删不掉: 有 1 个视频删不掉, with its name', o.message === '有 1 个视频删不掉，可能正被别的软件打开着。' && o.detail.split('\n')[0] === f2, [o.message, o.detail]);
-        check('删不掉: f1 deleted, f2 still there', !fs.existsSync(path.join(exportsDir, f1)) && fs.existsSync(path.join(exportsDir, f2)), there());
-        lock.stdin.write('\n'); await new Promise((r) => lock.once('exit', r));
-        return ExportClose.FAILED.RETRY;
+        if (++failures === 1) {
+          // f2 is held by a player; the unrelated file is refused by the server (not this session's): both named (Deja)
+          check('删不掉: 有 2 个视频删不掉, both named', o.message === '有 2 个视频删不掉，可能正被别的软件打开着。' && o.detail.split('\n').slice(0, 2).join('|') === f2 + '|' + other, [o.message, o.detail]);
+          check('删不掉: f1 deleted, f2 still there', !fs.existsSync(path.join(exportsDir, f1)) && fs.existsSync(path.join(exportsDir, f2)), there());
+          lock.stdin.write('\n'); await new Promise((r) => lock.once('exit', r));
+          return ExportClose.FAILED.RETRY;
+        }
+        // after 再试一次: f2 is gone; the refused file is still named, and the window still waits for an answer
+        check('再试一次: f2 deleted, the refused file named alone', o.message === '有 1 个视频删不掉，可能正被别的软件打开着。' && o.detail.split('\n')[0] === other && !fs.existsSync(path.join(exportsDir, f2)), [o.message, o.detail]);
+        return ExportClose.FAILED.GIVE_UP;
       };
       app.once('quit', () => {
         check('the copies this session exported are gone', !fs.existsSync(path.join(exportsDir, f1)) && !fs.existsSync(path.join(exportsDir, f2)), there());
         check('the unrelated file is still there', fs.existsSync(path.join(exportsDir, other)));
-        check('prompts: unsaved, 先去保存; unsaved, delete; one failure', prompts.length === 3, prompts.map((p) => p.message));
+        check('prompts: unsaved, 先去保存; unsaved, delete; two failures', prompts.length === 4, prompts.map((p) => p.message));
         const pass = checks.every((c) => c.ok);
         out(pass ? 'CLOSE_PASS' : 'CLOSE_FAIL', { case: CASE, checks });
         process.exitCode = pass ? 0 : 1; app.exit(pass ? 0 : 1);

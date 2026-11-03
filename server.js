@@ -664,7 +664,7 @@ function cleanupExport(id) {
 }
 /** Paths an export cleanup could not delete, kept in DATA_DIR/logs/export-cleanup.log (local only). */
 function logCleanupLeft(left) {
-  const line = left.map((p) => `${new Date().toISOString()} not removed: ${p}`).join("\n") + "\n";
+  const line = left.map((p) => `${new Date().toISOString()} not removed: ${X.maskUserPath(p)}`).join("\n") + "\n";   // no user name (QQ)
   console.error(line.trim());
   try { fs.mkdirSync(path.join(DATA_DIR, "logs"), { recursive: true }); fs.appendFileSync(path.join(DATA_DIR, "logs", "export-cleanup.log"), line); } catch {}
 }

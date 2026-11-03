@@ -9,7 +9,7 @@ const UNSAVED = { DELETE: 0, KEEP: 1, SAVE: 2 }, FAILED = { RETRY: 0, GIVE_UP: 1
 
 /** Queue entries exported but not saved yet: the queue lives only in the page, their copies stay in exports/. */
 function unsavedCount(queue) {
-  return (Array.isArray(queue) ? queue : []).filter((q) => q && q.status === 'done' && !q.saved).length;
+  return (Array.isArray(queue) ? queue : []).filter((q) => q && q.status === 'done' && !q.saved && !q.saving).length;
 }
 
 /** The native message box: 「继续导出」 is the default, and Enter and Esc both mean it. */
@@ -55,7 +55,8 @@ async function decideClose({ language, state, ask, deleteFiles, openQueue }) {
   let left = files;
   for (;;) {
     const r = await deleteFiles(left);
-    left = (r && Array.isArray(r.failed)) ? r.failed : [];
+    // refused (not a copy this session exported) is not deleted either: it is named, never closed over as if gone (Deja)
+    left = r ? [...(Array.isArray(r.failed) ? r.failed : []), ...(Array.isArray(r.refused) ? r.refused : [])] : left;
     if (!left.length) return true;
     if ((await ask(deleteFailedOptions(language, left))) === FAILED.GIVE_UP) return true;
   }
