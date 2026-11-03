@@ -51,7 +51,39 @@ test("empty or nothing left: the fallback", () => {
   a.equal(D.fileSafeName("", "export"), "export");
   a.equal(D.fileSafeName("   ", "captions"), "captions");
   a.equal(D.fileSafeName(null), "export");
-  a.equal(D.fileSafeName("///", "export"), "-");
+});
+
+// VV's checks on e80a77d (Deja, 2026-11-03): direction controls and zero-width characters are removed, not replaced —
+// with them 「录像‮gnp.exe」 shows in Explorer as a name ending in .exe; and a name that is only "-", spaces and dots
+// after cleaning counts as empty, so the caller's fallback is used.
+test("direction controls are removed: an RLO name cannot pose as another extension", () => {
+  a.equal(D.fileSafeName("录像‮gnp.exe"), "录像gnp.exe");
+  for (const c of ["‪", "‫", "‬", "‭", "‮", "⁦", "⁧", "⁨", "⁩", "‎", "‏"])
+    a.equal(D.fileSafeName("直播" + c + "切片"), "直播切片", "U+" + c.charCodeAt(0).toString(16));
+});
+
+test("zero-width characters are removed", () => {
+  a.equal(D.fileSafeName("直​播‌切‍片"), "直播切片");
+  a.equal(D.fileSafeName("a​b"), "ab", "removed, not replaced with -");
+});
+
+test("a BOM at the start (or anywhere) is removed", () => {
+  a.equal(D.fileSafeName("﻿周五杂谈"), "周五杂谈");
+  a.equal(D.fileSafeName("周五﻿杂谈"), "周五杂谈");
+});
+
+test("「???」 leaves only - : the caller's fallback", () => {
+  a.equal(D.fileSafeName("???"), "export");
+  a.equal(D.fileSafeName("???", "直播切片 11-02"), "直播切片 11-02");
+  a.equal(D.fileSafeName("///", "export"), "export");
+  a.equal(D.fileSafeName("‮​", "export"), "export", "nothing but invisible characters");
+});
+
+test("「- -」 (only -, spaces and dots) is empty too", () => {
+  a.equal(D.fileSafeName("- -"), "export");
+  a.equal(D.fileSafeName("- -", "直播切片 11-02"), "直播切片 11-02");
+  a.equal(D.fileSafeName(" . - . "), "export");
+  a.equal(D.fileSafeName("-a-"), "-a-", "a real character keeps the name");
 });
 
 test("the delivery template names files by the same rule (one rule, written once)", () => {
