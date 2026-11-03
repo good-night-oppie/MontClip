@@ -73,3 +73,13 @@ test("packaging copies the checked vendor/transcribe folder into resources/trans
   a.match(pkg, /extraResource: \[ffStage, trStage\]/);
   a.match(pkg, /verify\(path\.join\(appDir, 'resources', 'transcribe'\)\)/, "and checked again inside the package");
 });
+
+test("the licences of what is bundled are recorded, and copied into the package", () => {
+  const md = read("LICENSES.md");
+  a.match(md, /## On-device transcription/);
+  for (const s of ["transformers.js 4.3.1", "Apache-2.0", "onnxruntime-web 1.31.0-dev.20260914-8d85527a0", "MIT", "openai/whisper-base", "openai/whisper-small"]) a.ok(md.includes(s), s);
+  for (const f of ["transformers.js-LICENSE.txt", "onnxruntime-web-LICENSE.txt", "whisper-weights-Apache-2.0.txt"])
+    a.ok(fs.statSync(path.join(ROOT, "licenses", "transcribe", f)).size > 900, f);
+  a.match(read("licenses/transcribe/onnxruntime-web-LICENSE.txt"), /MIT License[\s\S]*Copyright \(c\) Microsoft Corporation/);
+  a.match(read("desktop/package-win.cjs"), /path\.join\(src, 'licenses', 'transcribe'\)/);
+});
