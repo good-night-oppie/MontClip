@@ -704,8 +704,25 @@
       n: ctx.index != null ? String(ctx.index) : "1",
     };
     let s = String(template || "{project}").replace(/\{(\w+)\}/g, (m, k) => (k in vals ? String(vals[k]) : m));
-    s = s.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "_").replace(/\s+/g, " ").trim().replace(/^\.+/, "");
-    return s.slice(0, 120) || "export";
+    return fileSafeName(s, "export");
+  }
+  /** A file name Windows accepts, keeping every other character (Chinese included) — the one rule for every exported
+   *  file name (Deja, 2026-11-03; VV's list; JJ's full-width rule). Every format character (\p{Cf}: direction controls,
+   *  zero-width characters, the BOM, word joiners, soft hyphens…) is removed first, so a name cannot pose as another
+   *  extension in Explorer (VV, QQ); a ZWJ is one of them, so a ZWJ emoji sequence falls apart into its emoji. Whitespace runs become one space; : ? * " < > | become their full-width forms (FULL_WIDTH below), so a
+   *  title such as 「周五杂谈：唱歌」 reads as written; only / and \ and control characters become "-"; no leading dots, no
+   *  trailing dots or spaces; Windows' reserved names (CON PRN AUX NUL COM1-9 LPT1-9 CONIN$ CONOUT$, with an extension too) get a "-"
+   *  after the name; at most opts.max characters (default 120) counted as characters, never cutting a surrogate pair,
+   *  less opts.reserve for a suffix the caller adds (" 竖屏 (2)"). Empty, or only "-", spaces and dots left → fallback. */
+  const FULL_WIDTH = { ":": "：", "?": "？", "*": "＊", "\"": "＂", "<": "＜", ">": "＞", "|": "｜" };
+  function fileSafeName(name, fallback = "export", opts = {}) {
+    const max = Math.max(1, (opts.max || 120) - (opts.reserve || 0));
+    let s = String(name == null ? "" : name).replace(/\p{Cf}+/gu, "").replace(/\s+/g, " ")
+      .replace(/[\\/\u0000-\u001f\u007f]+/g, "-").replace(/[:?*"<>|]/g, (c) => FULL_WIDTH[c]).trim()
+      .replace(/^\.+/, "").replace(/[. ]+$/, "");
+    s = s.replace(/^(conin\$|conout\$|con|prn|aux|nul|com[1-9]|lpt[1-9])(?=\.|$)/i, "$1-");
+    s = Array.from(s).slice(0, max).join("").replace(/[. ]+$/, "");
+    return /^[-. ]*$/.test(s) ? fallback : s;
   }
   /** The file name an output gets in a project (its size, export frame and fps). */
   function projectFilename(spec, proj = {}) {
@@ -817,7 +834,7 @@
     CONTAINERS, CODECS, ENCODERS, AUDIO, COLORS, PRESETS, PRESET_IDS, DEFAULT_PRESET,
     FPS_CHOICES, RESOLUTIONS, SPEEDS, SAMPLE_RATES, META_KEYS, FILENAME_TOKENS,
     NEVER_ENCODERS, forbiddenEncoder, normalize, encodersFor, reframe, ffmpegArgs, videoFilter, frameInput, jpegQuality, fpsRational,
-    renderFilename, projectFilename, describe, estimateSize, checks, presetGroups, presetId, savedPresets, parseEncoders,
+    renderFilename, projectFilename, fileSafeName, describe, estimateSize, checks, presetGroups, presetId, savedPresets, parseEncoders,
     PLATFORM_LOUDNESS, LOUDNESS_TARGETS, LOUDNESS_ARGS, LOUDNORM_ARGS, parseLoudnorm, loudnormFilter, parseEbur128, verify,
     fmtBytes, fmtDur,
   };

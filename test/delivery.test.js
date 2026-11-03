@@ -179,7 +179,7 @@ test("renderFilename fills tokens and strips what a file name cannot hold", () =
   const d = new Date(2026, 9, 18, 9, 5);
   assert.equal(D.renderFilename("{project}_{preset}_{res}_{fps}", sp, { project: "My film", width: 1920, height: 1080, fps: 29.97, date: d }), "My film_youtube_1080p_29_97");
   assert.equal(D.renderFilename("{project}_{w}x{h}_{date}_{time}", sp, { project: "a", width: 1080, height: 1920, date: d }), "a_1080x1920_2026-10-18_0905");
-  assert.equal(D.renderFilename("../{project}:{nope}", sp, { project: "x" }), "_x_{nope}");
+  assert.equal(D.renderFilename("../{project}:{nope}", sp, { project: "x" }), "-x：{nope}");   // one rule for every file name (Deja, 2026-11-03): / and \ become -, : ? * " < > | full-width (JJ)
   assert.equal(D.renderFilename("{res}", sp, { width: 1080, height: 1080 }), "1080sq");
 });
 
