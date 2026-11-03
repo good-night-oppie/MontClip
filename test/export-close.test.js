@@ -309,3 +309,29 @@ test("the server deletes only copies this session exported, by base name; unrela
   a.ok(fs.existsSync(other), "the unrelated file is still there");
   a.deepEqual((await del([one])).refused, [one], "a deleted copy is no longer on the list");
 });
+
+// QQ (28b23bf review) and Deja (2026-11-03): a copy the desktop is still writing to where the streamer chose is not
+// "not saved" (deleting it would leave half a file); a file the server refuses to delete is not deleted either — it
+// is named and the window stays; local paths in the cleanup log and stderr are masked.
+test("a copy being saved (q.saving) is not counted as not saved, in the page and in the main process", () => {
+  const queue = [{ status: "done", file: "a.mp4" }, { status: "done", file: "b.mp4", saving: true }, { status: "done", file: "c.mp4", saved: true }];
+  a.equal(Close.unsavedCount(queue), 1);
+  const app = read("app.js"), i = app.indexOf("function exportCloseState()"), fn = app.slice(i, app.indexOf("\n}", i) + 2);
+  const state = new Function("exportQueue", "state", fn + "return exportCloseState();")(queue, { exporting: false });
+  a.deepEqual(state, { exporting: false, unsaved: 1, files: ["a.mp4"] });
+});
+test("a file the server refuses to delete counts as not deleted: it is named, the window stays until the streamer answers", async () => {
+  const r = await flow(U, [Close.UNSAVED.DELETE, Close.FAILED.GIVE_UP], [{ deleted: [U.files[0]], failed: [], refused: [U.files[1]] }]);
+  a.equal(r.asked.length, 2, "asked again instead of closing as if all were deleted");
+  a.equal(r.asked[1].message, "有 1 个视频删不掉，可能正被别的软件打开着。");
+  a.equal(r.asked[1].detail.split("\n")[0], U.files[1], "names the file that was not deleted");
+  a.equal(r.close, true);
+  const k = await flow(U, [Close.UNSAVED.DELETE, Close.FAILED.RETRY, Close.FAILED.GIVE_UP], [{ deleted: [], failed: [U.files[0]], refused: [U.files[1]] }, { deleted: [U.files[0]], failed: [], refused: [U.files[1]] }]);
+  a.deepEqual(k.deleted, [U.files, U.files], "the retry tries both again");
+  a.equal(k.asked[2].detail.split("\n")[0], U.files[1], "still named while it is refused");
+});
+test("the cleanup log and stderr show no user name: paths are masked", () => {
+  const server = read("server.js"), i = server.indexOf("function logCleanupLeft("), fn = server.slice(i, server.indexOf("\n}", i) + 2);
+  a.match(fn, /X\.maskUserPath\(p\)/, "each path is masked before it is written or printed");
+  a.ok(!/not removed: \$\{p\}/.test(fn));
+});
