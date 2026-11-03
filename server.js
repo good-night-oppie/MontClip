@@ -181,7 +181,9 @@ const signals = require("./signals").createSignals({ dir: path.join(ANALYSIS_DIR
 // P2 songs: each file read in segments, each kept as it is read (analysis/songs/), so a stopped scan carries on
 const Songs = require("./songs");
 const songScan = require("./song-scan").createSongScan({ dir: path.join(ANALYSIS_DIR, "songs"), ffmpeg: FF.path("ffmpeg") });
-const songJobs = new Map();   // src → {state, done, total, ctrl, error}
+const songJobs = new Map();   // src → {state, done, total, ctrl, error, code}
+// the drive the song analysis is written to ("C" on Windows), for 「{drive} 盘空间不够」 — never the path
+const songDrive = () => { const root = path.parse(path.resolve(ANALYSIS_DIR)).root; return /^[A-Za-z]:/.test(root) ? root[0].toUpperCase() : root; };
 async function startSongScan(src, file, again) {
   const old = songJobs.get(src);
   if (old && old.state === "running") return old;
@@ -193,7 +195,7 @@ async function startSongScan(src, file, again) {
   const tell = () => broadcast("songs", JSON.stringify({ src, state: job.state, done: job.done, total: job.total }));
   songScan.scan(file, { signal: job.ctrl.signal, onSegment: (i) => { job.done = i + 1; tell(); } })
     .then((r) => { job.state = r.complete ? "done" : "stopped"; job.done = songScan.cached(file).done; })
-    .catch((e) => { job.state = e.code === "SONGS_STOPPED" ? "stopped" : "failed"; job.error = X.maskUserPath(String(e.message)); })
+    .catch((e) => { job.state = e.code === "SONGS_STOPPED" ? "stopped" : "failed"; job.error = X.maskUserPath(String(e.message)); job.code = e.code === "ENOSPC" ? "ENOSPC" : "SONGS_FAILED"; })
     .finally(tell);
   return job;
 }
@@ -947,8 +949,8 @@ const server = http.createServer(async (req, res) => {
       const state = job && job.state === "running" ? "running" : have.complete ? "done" : job ? job.state : have.done ? "stopped" : "none";
       sendJSON(res, 200, { src, key: have.key, state, done: have.done, total: job ? job.total : null, complete: have.complete, scanned: have.scanned,
         songs: have.rows.length ? Songs.find(have.rows.map((r) => r[0]), { step: have.step, complete: have.complete }) : [],
-        ...(job && job.state === "failed" ? { error: job.error } : {}) });
-    } catch (e) { sendJSON(res, 422, { error: X.maskUserPath(e.message), code: e.code || "SONGS_FAILED" }); }
+        ...(job && job.state === "failed" ? { error: job.error, code: job.code, ...(job.code === "ENOSPC" ? { drive: songDrive() } : {}) } : {}) });
+    } catch (e) { sendJSON(res, 422, { error: X.maskUserPath(e.message), code: e.code || "SONGS_FAILED", ...(e.code === "ENOSPC" ? { drive: songDrive() } : {}) }); }
     return;
   }
   if (p === "/api/media-info" && (req.method === "GET" || req.method === "POST")) {
