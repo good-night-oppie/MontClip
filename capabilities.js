@@ -56,23 +56,38 @@
     fablecut_proxy: ["undoable", "做或删掉预览用的小文件，让预览更流畅", "Make or delete small preview files so the preview plays smoothly"],
     fablecut_export: ["sensitive", "把时间线导出成视频文件", "Export the timeline to a video file"],
     fablecut_scopes: ["read", "测量画面的亮度和色彩", "Measure the picture's levels and colour"],
+    // the sends the host makes itself (not MCP tools); P4: each external capability carries its caps (LIMITS below)
+    assistant_request: ["external", "把聊天消息发给 AI 服务", "Send the chat to the AI service"],
+    song_lookup: ["external", "按歌词联网查歌名（只发两三句歌词）", "Look up the song's name online from two or three lyric lines"],
+    cloud_transcribe: ["external", "把录音分段发到云端听写", "Send the recording in parts to a cloud service to transcribe"],
     fablecut_track: ["undoable", "跟着画面里的人或物体动，让马赛克、贴纸也跟着它走", "Follow a person or thing in the picture, so a mosaic or sticker moves with it"],
   };
+  // External caps (Deja, 2026-11-03, on #83): per capability, fixed here with the risk levels, in bytes. perSend is one send
+  // (for audio: one part); perScope is everything sent in one scope — a chat, or a project while it is open. Over either cap
+  // a send is refused, saying by how much; it is never cut down to fit. cloud_transcribe's caps hold its place: not wired yet.
+  const TEXT = { kind: "text", perSend: 131072, perScope: 4194304, scope: "chat" };
+  const AUDIO = { kind: "audio", perSend: 26214400, perScope: 2147483648, scope: "project-open" };
+  const LIMITS = { assistant_request: TEXT, song_lookup: TEXT, fablecut_import_media: TEXT, cloud_transcribe: AUDIO };
+  const HOST = ["assistant_request", "song_lookup", "cloud_transcribe"];
   const freeze = (o) => { if (o && typeof o === "object" && !Object.isFrozen(o)) { Object.freeze(o); for (const v of Object.values(o)) freeze(v); } return o; };
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const table = new Map();
   for (const t of TOOLS) if (SPEC[t.name]) table.set(t.name, { source: "mcp", schema: clone(t.inputSchema) });
   for (const [name, schema] of Object.entries(PROPOSALS)) table.set(name, { source: "proposal", schema: clone(schema) });
+  for (const name of HOST) table.set(name, { source: "host", schema: { type: "object" } });
   for (const [name, entry] of table) {
     const [risk, zh, en] = SPEC[name];
-    table.set(name, freeze({ name, source: entry.source, risk, summary: { "zh-CN": zh, en }, schema: entry.schema }));
+    if (risk === "external" && !LIMITS[name]) throw new Error("capabilities: " + name + " sends out but has no caps");
+    table.set(name, freeze({ name, source: entry.source, risk, summary: { "zh-CN": zh, en }, schema: entry.schema, limits: risk === "external" ? { ...LIMITS[name] } : null }));
   }
   const get = (name) => (typeof name === "string" && table.has(name) ? table.get(name) : null);
   const riskOf = (name) => (get(name) ? get(name).risk : "blocked");
   const list = () => [...table.values()];
+  /** An external capability's caps ({kind, perSend, perScope, scope}, frozen); null for any other name. */
+  const limits = (name) => (get(name) ? get(name).limits : null);
   /** What the approval box and the plan list show for a capability (JJ, 2026-11-03): its plain sentence in the interface
    *  language (English for any other), never its internal name — also for a name the table does not have. */
   const UNKNOWN = Object.freeze({ "zh-CN": "AI 想做一件软件不认识的操作，已经拦下，什么都没改。", en: "The AI asked for an action MontClip doesn't know. It was blocked; nothing changed." });
   const label = (name, language) => { const c = get(name), l = language === "zh-CN" ? "zh-CN" : "en"; return c ? c.summary[l] : UNKNOWN[l]; };
-  return Object.freeze({ RISKS, BLOCKED, get, riskOf, list, label });
+  return Object.freeze({ RISKS, BLOCKED, get, riskOf, list, label, limits });
 });

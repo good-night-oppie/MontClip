@@ -583,6 +583,9 @@
     "ap-sum-ranges": ["Keep {count} ranges joined into one video, about {duration}.", "保留 {count} 段，拼成一条，大约 {duration}。"],
     "ap-sum-slices": ["Cut {count} separate clips, one file each, about {duration} in total.", "切出 {count} 条切片，每条一个文件，一共大约 {duration}。"],
     "ap-undo": ["Undo", "撤销"],
+    // over an external cap (Deja on #83): refused with by how much, never cut down to fit
+    "ap-too-large": ["This send is {size}; the most at a time is {limit}, so it is {over} over. Nothing was sent, and it won't be cut down to fit.", "这次要发出去的有 {size}，每次最多 {limit}，超了 {over}。没有发送，也不会截短了再发。"],
+    "ap-scope-limit": ["This chat has already sent {used}; {size} more would pass its {limit} cap by {over}. Nothing was sent, and it won't be cut down to fit.", "这个聊天已经发出去 {used}，再发这 {size} 就超过 {limit} 的上限，超了 {over}。没有发送，也不会截短了再发。"],
     "ap-invalid": ["This suggested edit doesn't fit the project as it is, so nothing was done.", "这条剪辑建议和现在的项目对不上，所以没有做。"],
   };
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }
