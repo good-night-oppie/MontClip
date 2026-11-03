@@ -98,5 +98,6 @@ test('the monitor More menu floats in <body> above the panels; the transcript to
   a.match(app, /MontClipNarrow\.attach\(document\.querySelector\("#monitorPanel \.panel-head-actions"\), \$\("btnMonMore"\), \$\("monMoreMenu"\), \{ floating: true \}\);/);
   a.match(css, /\.more-menu\.more-menu-floating \{\n  position: fixed;\n  right: auto;\n  z-index: 1000;/);
   a.match(css, /\.tr-head \{[^}]*max-height: 60%;\n  overflow-y: auto;\n\}/);
-  a.match(app, /<div class="tr-row">\n        <button type="button" class="btn tiny" data-tr-sentences>[^\n]*\n        <button type="button" class="btn tiny" data-tr-mapping>[^\n]*\n      <\/div>/);
+  // main (#52) put the entries in a row of their own at the top of the transcript head: the sentence row stands alone there
+  a.match(app, /<div class="tr-row tr-entries">\n        <button type="button" class="btn tiny" data-tr-highlights>[^\n]*\n        <button type="button" class="btn tiny" data-tr-sentences>[^\n]*\n        <button type="button" class="btn tiny" data-tr-mapping>[^\n]*\n      <\/div>/);
 });

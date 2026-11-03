@@ -1,0 +1,145 @@
+{
+ "source": "testsrc2 1920x1080 30 fps 10 s + moving mandelbrot overlay (synthetic)",
+ "cpu": "11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz",
+ "platform": "win32 10.0.26300",
+ "results": [
+  {
+   "encoder": "h264_nvenc",
+   "label": "NVIDIA NVENC",
+   "mode": "quality",
+   "ok": true,
+   "seconds": 1.58,
+   "fpsx": 189.3,
+   "sizeMB": 15.98,
+   "kbps": 12785,
+   "ssim": 0.996732,
+   "psnr": 46.511054
+  },
+  {
+   "encoder": "h264_nvenc",
+   "label": "NVIDIA NVENC",
+   "mode": "6 Mb/s",
+   "ok": true,
+   "seconds": 1.48,
+   "fpsx": 203,
+   "sizeMB": 7.67,
+   "kbps": 6139,
+   "ssim": 0.988245,
+   "psnr": 39.967615
+  },
+  {
+   "encoder": "h264_qsv",
+   "label": "Intel Quick Sync",
+   "mode": "quality",
+   "ok": true,
+   "seconds": 4.34,
+   "fpsx": 69.1,
+   "sizeMB": 12.82,
+   "kbps": 10259,
+   "ssim": 0.994965,
+   "psnr": 43.798272
+  },
+  {
+   "encoder": "h264_qsv",
+   "label": "Intel Quick Sync",
+   "mode": "6 Mb/s",
+   "ok": true,
+   "seconds": 4.29,
+   "fpsx": 69.9,
+   "sizeMB": 7.84,
+   "kbps": 6271,
+   "ssim": 0.988785,
+   "psnr": 40.209531
+  },
+  {
+   "encoder": "h264_amf",
+   "label": "AMD AMF",
+   "mode": "quality",
+   "ok": false,
+   "seconds": 0.08,
+   "fpsx": null,
+   "error": "[vost#0:0/h264_amf @ 000001733bb400c0] Terminating thread with return code -22 (Invalid argument)\r [out#0/mp4 @ 0000017339a4d800] Nothing was written into output file, because at least one of its streams received no packets."
+  },
+  {
+   "encoder": "h264_amf",
+   "label": "AMD AMF",
+   "mode": "6 Mb/s",
+   "ok": false,
+   "seconds": 0.08,
+   "fpsx": null,
+   "error": "[vost#0:0/h264_amf @ 0000015246c67ac0] Terminating thread with return code -22 (Invalid argument)\r [out#0/mp4 @ 0000015244bac040] Nothing was written into output file, because at least one of its streams received no packets."
+  },
+  {
+   "encoder": "h264_mf",
+   "label": "Windows Media Foundation (software MFT)",
+   "mode": "quality",
+   "ok": true,
+   "seconds": 1.26,
+   "fpsx": 237.5,
+   "sizeMB": 13.76,
+   "kbps": 11006,
+   "ssim": 0.984258,
+   "psnr": 41.741229
+  },
+  {
+   "encoder": "h264_mf",
+   "label": "Windows Media Foundation (software MFT)",
+   "mode": "6 Mb/s",
+   "ok": true,
+   "seconds": 1.28,
+   "fpsx": 235.1,
+   "sizeMB": 8.03,
+   "kbps": 6425,
+   "ssim": 0.973143,
+   "psnr": 37.751863
+  },
+  {
+   "encoder": "h264_mf",
+   "label": "Windows Media Foundation (hw_encoding)",
+   "mode": "quality",
+   "ok": true,
+   "seconds": 1.69,
+   "fpsx": 178,
+   "sizeMB": 12.34,
+   "kbps": 9871,
+   "ssim": 0.993833,
+   "psnr": 43.342263
+  },
+  {
+   "encoder": "h264_mf",
+   "label": "Windows Media Foundation (hw_encoding)",
+   "mode": "6 Mb/s",
+   "ok": true,
+   "seconds": 1.72,
+   "fpsx": 174.4,
+   "sizeMB": 7.84,
+   "kbps": 6270,
+   "ssim": 0.987764,
+   "psnr": 40.112334
+  },
+  {
+   "encoder": "libx264",
+   "label": "x264 via your local FFmpeg (reference)",
+   "mode": "quality",
+   "ok": true,
+   "seconds": 3.12,
+   "fpsx": 96.3,
+   "sizeMB": 10.53,
+   "kbps": 8426,
+   "ssim": 0.994102,
+   "psnr": 43.064862
+  },
+  {
+   "encoder": "libx264",
+   "label": "x264 via your local FFmpeg (reference)",
+   "mode": "6 Mb/s",
+   "ok": true,
+   "seconds": 3.12,
+   "fpsx": 96.2,
+   "sizeMB": 7.8,
+   "kbps": 6240,
+   "ssim": 0.989961,
+   "psnr": 40.595665
+  }
+ ]
+}

@@ -2,6 +2,7 @@
 const {contextBridge,ipcRenderer}=require('electron');
 contextBridge.exposeInMainWorld('montclipAgentService',Object.freeze({
  reset:()=>ipcRenderer.invoke('montclip:agent:reset'),
+ deleteConnection:()=>ipcRenderer.invoke('montclip:agent:deleteConnection'),
  get:()=>ipcRenderer.invoke('montclip:agent:get'),
  configure:value=>ipcRenderer.invoke('montclip:agent:configure',value),
  send:value=>ipcRenderer.invoke('montclip:agent:send',value),
@@ -11,6 +12,13 @@ contextBridge.exposeInMainWorld('montclipAgentService',Object.freeze({
 contextBridge.exposeInMainWorld('montclipViewSettings',Object.freeze({
  get:()=>ipcRenderer.sendSync('montclip:view:get'),
  set:value=>ipcRenderer.sendSync('montclip:view:set',value)
+}));
+// The user's own FFmpeg for H.264 export (libx264). The page can only ask the main
+// process to show its file dialog, read the status or forget the choice; no path is sent.
+contextBridge.exposeInMainWorld('montclipExternalFfmpeg',Object.freeze({
+ get:()=>ipcRenderer.invoke('montclip:ffmpeg:get'),
+ choose:()=>ipcRenderer.invoke('montclip:ffmpeg:choose'),
+ clear:()=>ipcRenderer.invoke('montclip:ffmpeg:clear')
 }));
 
 contextBridge.exposeInMainWorld('montclipPaneSettings',Object.freeze({
