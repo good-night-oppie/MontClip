@@ -16,7 +16,8 @@ const FORMAT_NOTE=[
  '{"type":"keep_ranges","output_mode":"<one_file or per_range>","ranges":[{"clipId":"<clipId from facts.clips>","from":<seconds>,"to":<seconds>,"label":"<short name, optional>"}]}',
  'from and to are seconds of that clip\'s recording and must lie inside its from and to in facts; ranges must not overlap; each lasts at least half a second; at most 100 ranges, in the order to keep them.',
  'output_mode one_file joins the ranges into one video; per_range makes each range its own clip and file, named by its label (for example one clip per song).',
- 'For any other question, answer briefly in the user\'s language without JSON.'
+ 'For any other question, answer briefly in the user\'s language without JSON.',
+ 'Never write field names such as clipId, sourceCaptionId, start, end, from, to, output_mode or facts in a reply meant for the user; refer to a sentence by its text and to a part of the recording by its time.'
 ].join('\n');
 function withFormat(messages){return [{role:'system',content:FORMAT_NOTE}].concat(messages);}
 // The request body. The review dialog shows body(model, withFormat(messages)) and the service
