@@ -354,7 +354,7 @@
     // desktop FLV import (for JJ to review)
     flvTitle: "导入 FLV", flvCancel: "取消", flvContinue: "继续导入",
     flvPhaseInspect: "正在检查原片…", flvPhaseHash: "正在核对原片… {pct}%", flvPhaseCopy: "正在复制到项目… {pct}%",
-    flvPhaseVerify: "正在核对复制出的文件… {pct}%", flvPhasePrepare: "正在生成兼容副本…",
+    flvPhaseVerify: "正在核对复制出的文件… {pct}%", flvPhasePrepare: "正在转成能剪的格式…",
     flvAskTranscode: "这个 FLV 要转成兼容的 MP4 才能剪，可能会改变画质，需要等一会儿。原片不会改动。",
     flvAskReadable: "MontClip 没能确认这个 FLV 的结尾是完整的（可能还在录，或者录制中断过）。继续的话，只导入能读到的部分。原片不会改动。",
     flvSourceChanged: "原片在检查之后变了（可能还在录制），这次没导入，复制出的文件已删除。录完后再试。",
@@ -373,7 +373,7 @@
     flvComponentMissing: "MontClip is missing the component that handles FLV, so the file was not imported. Reinstall MontClip.",
     flvTitle: "Import FLV", flvCancel: "Cancel", flvContinue: "Continue",
     flvPhaseInspect: "Checking the original…", flvPhaseHash: "Checking the original… {pct}%", flvPhaseCopy: "Copying into the project… {pct}%",
-    flvPhaseVerify: "Checking the copy… {pct}%", flvPhasePrepare: "Making a compatible copy…",
+    flvPhaseVerify: "Checking the copy… {pct}%", flvPhasePrepare: "Converting to a format you can edit…",
     flvAskTranscode: "This FLV has to be converted to a compatible MP4 before it can be edited. The picture may change a little, and it takes a while. The original is not changed.",
     flvAskReadable: "MontClip could not confirm that this FLV ends properly (it may still be recording, or the recording was interrupted). If you continue, only the part that can be read is imported. The original is not changed.",
     flvSourceChanged: "The original changed after it was checked (it may still be recording), so it was not imported and the copy was removed. Try again once the recording is finished.",
