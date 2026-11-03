@@ -61,6 +61,14 @@ test("drop-reveal and zh-terms smokes run in a hidden, offscreen window: no show
   }
 });
 
+// VV (2026-11-02): REVEAL_COMPLETE said "visible":false, which reads like "the clip is not visible". It is the
+// window's visibility (false now that the window is offscreen), so it is called windowVisible.
+test("drop-reveal reports the window's visibility as windowVisible, not a bare visible", () => {
+  const s = fs.readFileSync(path.join(ROOT, "desktop/drop-reveal-smoke.cjs"), "utf8");
+  a.match(s, /log\('REVEAL_COMPLETE',\{saved:[^}]*windowVisible:win\.isVisible\(\)\}\)/);
+  a.doesNotMatch(s, /[{,]visible:win\.isVisible\(\)/);
+});
+
 // QQ (2026-11-02): the rule covers every script that starts the app, not only those two smokes. Nothing
 // shows, raises or focuses a window; desktop/main.js is the app itself (it shows its window outside smoke mode).
 const WINDOW_TAKEOVER = /\b(?:win|w|bw|window|mainWindow)\.(?:show|showInactive|focus|moveTop)\(|setAlwaysOnTop|--official-visible/;

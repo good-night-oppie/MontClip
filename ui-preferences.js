@@ -89,6 +89,20 @@
     "add-adjust-title": ["Add an adjustment layer (grades everything below it)", "添加调节层（调节它下面的所有画面）"],
     "add-import": ["+ Import", "+ 导入"],
     "add-url": ["+ URL", "+ 网址"],
+    // the Transcript tab's sentence button, one language at a time (for JJ to review)
+    "tr-sentences": ["Select sentences", "按句选段"],
+    // the Save dialog's outcome in the desktop app (VV, 012ba18; for JJ to review)
+    "save-canceled": ["Not saved. Click again if you need it.", "没有保存。需要的话再点一次。"],
+    "save-failed": ["The save did not finish. Try another location, or check that it has enough space.", "没有保存成功。请换个位置再试，或者看看那里的空间够不够。"],
+    // the export queue and what a cancel says (JJ's final wording, 2026-11-02)
+    "q-save": ["Save", "保存"],
+    "q-list": ["Export queue", "导出队列"],
+    "q-list-n": ["Export queue · {n}", "导出队列 · {n}"],
+    "q-saved": ["Saved", "已保存"],
+    "export-save-cancelled": ["Not saved. The exported video is still here: open the export queue and click Save on this item to save it again.", "没有保存。导出的视频还在，打开『导出队列』，在这一条后面点『保存』就能再存一次。"],
+    "captions-save-cancelled": ["Captions not saved. Click export captions again to save them.", "字幕没有保存。可以再点一次导出字幕。"],
+    "save-busy": ["Close the save window that is already open first.", "先关掉上一个保存窗口"],
+    "export-save-failed": ["The save did not finish. The exported video is still here: open the export queue and click Save on this item to try again. If it still fails, choose another location or check that it has enough space.", "没有保存成功。导出的视频还在，打开『导出队列』，在这一条后面点『保存』再试一次；还不行的话，换个位置保存，或者看看那里的空间够不够。"],
     "import-url-title": ["Download media from an HTTPS URL into the project", "从 HTTPS 网址下载素材到项目"],
     "fit": ["Fit", "适配"],
     "or-click": ["or click", "或点击"],
@@ -181,6 +195,77 @@
     "hl-r-loudness-peak-detail": ["The loudest moment is {peak} dB above the usual level", "最响处比平时高 {peak} 分贝"],
     "hl-r-danmaku": ["{count} danmaku, {ratio}× the usual rate", "弹幕 {count} 条，是平时的 {ratio} 倍"],
     "hl-r-speech": ["Talking faster than usual (about {ratio}×)", "说话比平时快（约 {ratio} 倍）"],
+    // Chinese batch 3: JJ's final copy v2 (2026-11-03), P0 rows. The English is what the page said before.
+    "pj-new": ["+ New project", "+ 新建项目"],
+    "pj-open": ["Open", "打开"],
+    "pj-currently-open": ["Currently open", "当前已打开"],
+    "pj-open-now": ["open now", "当前已打开"],
+    "pj-canvas": ["Canvas", "画面"],
+    "pj-length": ["Length", "时长"],
+    "pj-length-value": ["{dur} · {clips} clips · {media} media", "{dur} · {clips} 个片段 · {media} 个素材"],
+    "pj-length-value-1": ["{dur} · {clips} clip · {media} media", "{dur} · {clips} 个片段 · {media} 个素材"],
+    "pj-modified": ["Modified", "修改时间"],
+    "pj-opened": ["Opened", "打开时间"],
+    "pj-created": ["Created", "创建时间"],
+    "pj-notes": ["Notes", "备注"],
+    "pj-tags": ["Tags", "标签"],
+    "pj-duplicate": ["Duplicate", "复制一份"],
+    "pj-save-template": ["Save as template", "存成模板"],
+    "pj-archive": ["Archive", "归档"],
+    "pj-versions": ["Versions…", "历史版本…"],
+    "pj-download-backup": ["Download backup", "下载备份"],
+    "pj-when-opened": ["Opened {when}", "{when}打开过"],
+    "pj-when-modified": ["Modified {when}", "{when}修改过"],
+    "pj-when-created": ["Created {when}", "{when}创建"],
+    "ago-now": ["just now", "刚刚"],
+    "ago-min": ["{n} min ago", "{n} 分钟前"],
+    "ago-hour": ["{n} h ago", "{n} 小时前"],
+    "ago-yesterday": ["yesterday", "昨天"],
+    "settings-link-hint": ["Selecting a timeline clip highlights its media in Project, and the reverse. Off by default.", "选中时间线上的片段时，素材区里对应的素材也会高亮，反过来也一样。默认关闭。"],
+    "clip-disable": ["Disable clip", "停用片段"],
+    "clip-lock": ["Lock clip", "锁定片段"],
+    "clip-parent-null": ["Parent to a new null", "绑定到新的空对象"],
+    "meter-rms": ["RMS", "音量"],
+    "media-kind-video": ["video", "视频"],
+    "fps-value": ["{n} fps", "{n} 帧/秒"],
+    "export-range-full": ["Full timeline · {from} → {to}", "整条时间线 · {from} → {to}"],
+    "engine-fast-note": ["Frame-accurate. Server encodes from JPEG frames. Keeps going if you switch tabs.", "逐帧准确。由本机程序一帧帧编码，切到别的页面也会继续导出。"],
+    "engine-webcodecs": ["WebCodecs (HW encode)", "显卡加速编码"],
+    // 「快速（ffmpeg）」 is the Fast radio's own Chinese label (term.fast-ffmpeg)
+    "engine-webcodecs-note": ["Frame-accurate. Browser HW-encodes H.264; server muxes with audio. Faster upload than Fast.", "逐帧准确。用显卡编码，比「快速（ffmpeg）」那一项更快。"],
+    // delivery.js keeps the English note for agents; the dialog shows this one
+    "dlv-note-master": ["Project size · H.264 CRF 16 · AAC 320k", "和项目一样大 · 高画质（H.264 CRF 16 · AAC 320k）"],
+    "dlv-resolution": ["Resolution", "分辨率"],
+    "dlv-frame-rate": ["Frame rate", "帧率"],
+    "dlv-codec": ["Codec", "视频编码"],
+    "dlv-encoder": ["Encoder", "编码器"],
+    "dlv-rate-control": ["Rate control", "码率控制"],
+    "dlv-maxrate": ["Max rate (Mb/s)", "最高码率 (Mb/s)"],
+    "dlv-keyint": ["Keyframe every (s)", "关键帧间隔（秒）"],
+    "dlv-speed": ["Encoder speed", "编码速度"],
+    "dlv-pixfmt": ["Pixel format", "像素格式"],
+    "dlv-container": ["Container", "文件格式"],
+    "dlv-abitrate": ["Bitrate (kb/s)", "码率 (kb/s)"],
+    "dlv-sample-rate": ["Sample rate", "采样率"],
+    "dlv-channels": ["Channels", "声道"],
+    "dlv-loudness": ["Loudness", "响度"],
+    "dlv-file-name": ["File name", "文件名"],
+    "dlv-file-preview": ["→ exports/{file}", "文件名：{file}（导出后会让你选保存位置）"],
+    "dlv-tokens": ["Tokens: {tokens}", "可用的占位符：{tokens}"],
+    "dlv-meta-title": ["Title", "标题"],
+    "dlv-meta-artist": ["Artist / author", "作者"],
+    "dlv-meta-copyright": ["Copyright", "版权"],
+    "dlv-meta-date": ["Date", "日期"],
+    "dlv-meta-description": ["Description", "简介"],
+    "dlv-meta-keywords": ["Keywords", "关键词"],
+    "dlv-batch-outputs": ["Batch outputs", "一次导出多个版本"],
+    "dlv-batch-add": ["+ Add these settings", "+ 加上这套设置"],
+    "dlv-batch-typical": ["+ Typical set", "+ 常用组合"],
+    "dlv-batch-hint": ["One render, several files: every checked output is encoded from the same frames. Saved with the project.", "渲染一次，导出多个文件：勾上的版本都用同一份画面。会跟项目一起保存。"],
+    "dlv-batch-empty": ["No batch outputs yet — add the settings above, or a typical set", "还没有要一起导出的版本：把上面的设置加进来，或者选「常用组合」。"],
+    "export-checked": ["Export checked", "导出勾选的版本"],
+    "export-checked-n": ["Export checked ({n})", "导出勾选的版本（{n}）"],
+    "export-failed-prefix": ["Export failed: ", "导出失败："],
   };
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
@@ -195,6 +280,28 @@
   function t(language, key, vars) {
     const s = (text[language] && text[language][key]) ?? text.en[key] ?? "";
     return vars ? s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : s;
+  }
+  /** How long ago `then` was, seen from `now` (default: now), in the interface language:
+      刚刚 / {n} 分钟前 / {n} 小时前 / 昨天 / {月}-{日} (with the year when it is another year).
+      A time in the future reads as its date; an unreadable one as "". */
+  function ago(language, then, now) {
+    const a = new Date(then), b = now == null ? new Date() : new Date(now);
+    if (isNaN(a) || isNaN(b)) return "";
+    const s = (b - a) / 1000, say = (key, vars) => t(language, "own." + key, vars);
+    if (s >= 0 && s < 60) return say("ago-now");
+    if (s >= 60 && s < 3600) return say("ago-min", { n: Math.floor(s / 60) });
+    if (s >= 3600 && s < 86400) return say("ago-hour", { n: Math.floor(s / 3600) });
+    const y = new Date(b.getFullYear(), b.getMonth(), b.getDate() - 1);
+    if (s >= 86400 && a.getFullYear() === y.getFullYear() && a.getMonth() === y.getMonth() && a.getDate() === y.getDate()) return say("ago-yesterday");
+    const same = a.getFullYear() === b.getFullYear(), p = (n) => String(n).padStart(2, "0");
+    if (lang(language) === "zh-CN") return (same ? "" : a.getFullYear() + "-") + p(a.getMonth() + 1) + "-" + p(a.getDate());
+    return a.toLocaleDateString("en-US", same ? { month: "short", day: "numeric" } : { year: "numeric", month: "short", day: "numeric" });
+  }
+  /** ago() for the 「{when}打开过 / 修改过 / 创建」 sentences: in Chinese a date is followed by a space (「11-02 打开过」),
+   *  while 刚刚, 昨天 and 「3 分钟前」 run straight on (JJ, 2026-11-03). English is unchanged. */
+  function when(language, then, now) {
+    const s = ago(language, then, now);
+    return lang(language) === "zh-CN" && /\d$/.test(s) ? s + " " : s;
   }
   /** Rewrite only elements that carry data-i18n markers; nothing else on the page. */
   const MARKS = [["[data-i18n]", "i18n", null], ["[data-i18n-title]", "i18nTitle", "title"],
@@ -245,10 +352,10 @@
   Object.assign(text.en,{paneLocalTemporary:'Saved sessions could not be read. Sessions and drafts from this window will not be saved; copy anything you want to keep before closing. The existing session file was not changed.',paneLocalPolicy:'Local storage applies to sessions, drafts and explicit references with a project ID; content without a project ID lasts only in this window. This describes storage scope, not confirmation that the current content was saved. Nothing is sent automatically.',paneSessionFailed:'Session saving is unconfirmed. Edits remain in this window. Keep your draft and retry; a newer stored snapshot will not be overwritten.',paneRetry:'Retry saving sessions',paneUser:'You',paneAssistant:'Assistant'});
 
   // Official-source port strings share the workbench locale and stable namespace.
-  const officialPaneText={en:{undoLast:'Undo last edit (same as toolbar)',new:'New session',config:'AI service',save:'Save connection',provider:'Provider',model:'Model ID',key:'API key (leave blank to retain)',review:'Review exact outgoing messages',confirm:'Send these messages',cancel:'Cancel',draft:'Message',search:'Search sessions',close:'Collapse assistant',pending:'Request in progress…',failed:'Request failed or cancelled. Your draft is retained.',unconfigured:'No service configured. Nothing was sent.',saved:'Connection saved locally. No request was sent.',local:'Sessions are stored locally for this project. This is a policy, not a save receipt.',temporary:'Session storage could not be read. Drafts stay in this window only; copy what you need before closing.',unsaved:'Session save is not confirmed. Keep this window open and retry.',retry:'Retry save',proposal:'Review editing proposal',invalid:'No valid sentence proposal in this reply.',reference:'Selected subtitles',range:'Selected range',project:'Project identity',remove:'Remove',limit:'Text or session capacity exceeded; shorten the text or return to an existing session.',scope:'Open or create a project before sending.',configured:'Configured (connection not tested)',configFailed:'Configuration was not saved. Existing settings retained.',format:'For an editing proposal, request JSON: {"type":"keep_sentences","ranges":[{"clipId":"…","sourceCaptionId":"…","from":0,"to":1}]}. Only explicitly quoted whole subtitles are accepted.',cancelUnknown:'The request status is not confirmed. Already sent requests cannot be recalled.',cancelled:'Generation cancelled; any already sent request cannot be recalled.'},
-'zh-CN':{undoLast:'撤销上一步（与顶部撤销相同）',new:'新会话',config:'AI 服务',save:'保存连接配置',provider:'服务商',model:'模型 ID',key:'API 密钥（留空保留已有密钥）',review:'核对本次实际发送内容',confirm:'发送以上内容',cancel:'取消',draft:'输入消息',search:'搜索会话',close:'收起助手',pending:'正在请求…',failed:'请求失败或已取消，草稿仍保留。',unconfigured:'尚未配置服务，没有发送。',saved:'连接配置已保存在本机，没有发起请求。',local:'此项目的会话保存在本机。这是保存规则，不代表本次保存已确认。',temporary:'会话文件读取失败，本次草稿只在这个窗口保留。关闭前请复制要留的内容。',unsaved:'会话保存尚未确认。请保留窗口并重试。',retry:'重试保存',proposal:'查看剪辑提案',invalid:'回复中没有可接受的句级提案。',reference:'引用选中字幕',range:'引用所选范围',project:'引用项目身份',remove:'移除',limit:'文字或会话数量已到上限，请删减文字或返回已有会话。',scope:'请先打开或创建项目，再发送。',configured:'已配置（连接尚未验证）',configFailed:'配置未保存，原有设置保留。',format:'剪辑提案可要求返回 JSON：{"type":"keep_sentences","ranges":[{"clipId":"…","sourceCaptionId":"…","from":0,"to":1}]}。只接受明确引用的完整字幕句段。',cancelUnknown:'请求状态尚未确认，已发给服务的请求无法撤回。',cancelled:'已取消后续生成；已发给服务的请求无法撤回。'}};
-  Object.assign(officialPaneText.en,{"notSent":"Chat content contains only the text shown above. No audio, video or screenshots are attached, and no file paths or account details are added automatically. Any such details you included in the text or history will still be sent. Your API key is used to authenticate with the service.","format":"For an editing suggestion you can apply, say which subtitle sentences you want to keep. After a reply, use “Review editing proposal” below to check whether it can be applied.","model":"Model name","project":"Reference current project","currentProject":"Current project","otherProject":"Original project","invalid":"This reply has no editing suggestion that can be applied directly.","fees":"Your own AI account is responsible for service charges.","user":"You","assistant":"Assistant","formatTitle":"How to request an editing suggestion"});
-  Object.assign(officialPaneText['zh-CN'],{"notSent":"聊天内容只包含上面显示的文字。不附加声音、画面和截图，不自动附加文件路径和账号。你写进文字或历史的这类信息仍会发送。API 密钥用于向服务验证身份。","format":"想要能直接套用的剪辑建议，就在聊天里说清要保留哪几句；收到回复后，可点下面的「查看剪辑提案」检查是否能直接使用。","model":"模型名称","project":"引用当前项目","currentProject":"当前项目","otherProject":"原项目","invalid":"这条回复里没有可以直接用的剪辑建议。","fees":"费用由你自己的 AI 账号承担。","user":"你","assistant":"助手","formatTitle":"如何提出剪辑建议"});
+  const officialPaneText={en:{undoLast:'Undo last edit (same as toolbar)',new:'New session',config:'AI service',save:'Save connection',provider:'Provider',model:'Model ID',key:'API key (leave blank to retain)',review:'Review exact outgoing messages',confirm:'Send these messages',cancel:'Cancel',draft:'Message',search:'Search sessions',close:'Collapse assistant',pending:'Request in progress…',failed:'Request failed or cancelled. Your draft is retained.',unconfigured:'No service configured. Nothing was sent.',saved:'Connection saved locally. No request was sent.',local:'Sessions are stored locally for this project. This is a policy, not a save receipt.',temporary:'Session storage could not be read. Drafts stay in this window only; copy what you need before closing.',unsaved:'Session save is not confirmed. Keep this window open and retry.',retry:'Retry save',proposal:'Review suggested edit',reference:'Quote selected captions',range:'Selected range',project:'Project identity',remove:'Remove',limit:'Text or session capacity exceeded; shorten the text or return to an existing session.',scope:'Open or create a project before sending.',configured:'Configured (connection not tested)',configFailed:'Configuration was not saved. Existing settings retained.',cancelUnknown:'The request status is not confirmed. Already sent requests cannot be recalled.',cancelled:'Generation cancelled; any already sent request cannot be recalled.'},
+'zh-CN':{undoLast:'撤销上一步（与顶部撤销相同）',new:'新会话',config:'AI 服务',save:'保存连接配置',provider:'服务商',model:'模型 ID',key:'API 密钥（留空保留已有密钥）',review:'核对本次实际发送内容',confirm:'发送以上内容',cancel:'取消',draft:'输入消息',search:'搜索会话',close:'收起助手',pending:'正在请求…',failed:'请求失败或已取消，草稿仍保留。',unconfigured:'尚未配置服务，没有发送。',saved:'连接配置已保存在本机，没有发起请求。',local:'此项目的会话保存在本机。这是保存规则，不代表本次保存已确认。',temporary:'会话文件读取失败，本次草稿只在这个窗口保留。关闭前请复制要留的内容。',unsaved:'会话保存尚未确认。请保留窗口并重试。',retry:'重试保存',proposal:'查看剪辑建议',reference:'引用选中字幕',range:'引用所选范围',project:'引用项目身份',remove:'移除',limit:'文字或会话数量已到上限，请删减文字或返回已有会话。',scope:'请先打开或创建项目，再发送。',configured:'已配置（连接尚未验证）',configFailed:'配置未保存，原有设置保留。',cancelUnknown:'请求状态尚未确认，已发给服务的请求无法撤回。',cancelled:'已取消后续生成；已发给服务的请求无法撤回。'}};
+  Object.assign(officialPaneText.en,{"notSent":"Chat content contains only the text shown above. No audio, video or screenshots are attached, and no file paths or account details are added automatically. Any such details you included in the text or history will still be sent. Your API key is used to authenticate with the service.","format":"In the chat, say which sentences to keep. It works best to select the captions on the timeline and click \"{reference}\" so whole sentences are quoted. Only whole quoted captions can be applied; half a sentence or a description from memory can't.","formatNext":"After the reply, click \"{proposal}\" below to check whether it can be applied.","formatTech":"For the technically minded: the AI's reply uses this format: {\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"…\",\"sourceCaptionId\":\"…\",\"from\":0,\"to\":1}]}","model":"Model name","project":"Reference current project","currentProject":"Current project","otherProject":"Original project","invalid":"This reply has no suggested edit that can be applied directly.","fees":"Your own AI account is responsible for service charges.","user":"You","assistant":"Assistant","formatTitle":"How to get a suggestion you can apply"});
+  Object.assign(officialPaneText['zh-CN'],{"notSent":"聊天内容只包含上面显示的文字。不附加声音、画面和截图，不自动附加文件路径和账号。你写进文字或历史的这类信息仍会发送。API 密钥用于向服务验证身份。","format":"在聊天里说清楚要保留哪几句。最好先在时间线上选中字幕，点「{reference}」，把整句引用进来。只有整句引用的字幕，才能直接套用；只引用半句，或者凭记忆描述的，都套用不了。","formatNext":"收到回复后，点下面的「{proposal}」，看看能不能直接用。","formatTech":"给懂技术的人：AI 的回复要用这个格式：{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"…\",\"sourceCaptionId\":\"…\",\"from\":0,\"to\":1}]}","model":"模型名称","project":"引用当前项目","currentProject":"当前项目","otherProject":"原项目","invalid":"这条回复里没有能直接套用的剪辑建议。","fees":"费用由你自己的 AI 账号承担。","user":"你","assistant":"助手","formatTitle":"怎样让 AI 给出能直接套用的建议"});
   Object.assign(officialPaneText['zh-CN'],{removeConnection:'删除这个连接',removeConfirm:'删除后，这台电脑上保存的密钥会被清掉，AI 助手要重新设置才能用。剪辑不受影响。',connectionRemoved:'连接已删除，这台电脑上保存的密钥已清掉。AI 助手要重新设置才能用。',connectionRemoveFailed:'连接没能删除，密钥可能还在这台电脑上。请看看软件的设置文件夹是不是被占用或不能写入，然后再试。'});
   Object.assign(officialPaneText.en,{removeConnection:'Remove this connection',removeConfirm:'This clears the key saved on this computer. You will need to set up the AI service again to use the assistant. Editing is not affected.',connectionRemoved:'Connection removed. The key saved on this computer is cleared; set up the AI service again to use the assistant.',connectionRemoveFailed:'The connection could not be removed, so the key may still be on this computer. Check that the app\'s settings folder is not in use or read-only, then try again.'});
   Object.assign(officialPaneText['zh-CN'],{noCaptionSelected:'先在时间线上选中字幕'});
@@ -257,8 +364,8 @@
   Object.assign(officialPaneText['zh-CN'],{resetConnection:'重新设置连接',configUnreadable:'原来的连接配置读不出来。点「重新设置连接」，软件会先把旧配置备份好，再让你重新填写。',configBackedUp:'原来的配置已备份，现在需要重新填写连接配置。',configBackupFailed:'原来的配置没能备份，未被替换。请看看软件的设置文件夹是不是被占用或不能写入，然后再试。'});
   Object.assign(officialPaneText.en,{notSent:'Only the text shown above is sent. No audio, video or screenshots are attached; the app does not add file paths or account details by itself, but any such details you typed into the text or history will be sent as written. Your API key is used only to authenticate with the service.',undoLast:'Undo this apply (same as toolbar Undo)',captionLabel:'Subtitles',rangeLabel:'Range',projectLabel:'Project'});
   Object.assign(officialPaneText['zh-CN'],{notSent:'这次发送的只有上面显示的文字。不附带声音、画面和截图；软件不会自动加上文件路径和账号，但你自己写进文字或历史里的这类信息会照样发出。API 密钥只用来向服务验证身份。',undoLast:'撤销这次应用（和顶部撤销相同）',captionLabel:'字幕',rangeLabel:'范围',projectLabel:'项目'});
-  Object.assign(officialPaneText.en,{reviewSummary:'This will send a fixed formatting note, your message, {captions} quoted subtitles, and {history} earlier messages (including their quotes).',rawRequest:'View exact request',proposalSummary:'Proposal: keep {count} sentences, about {duration} in the final cut. Review before applying.',goConfig:'Go to settings',staleProposal:'The project changed after this reply. This proposal can no longer be applied.',reask:'Ask again using the current project',reaskReady:'A new draft is ready with no history or references. Select current subtitles and review before sending. The original conversation is still in the session list.'});
-  Object.assign(officialPaneText['zh-CN'],{reviewSummary:'这次会发送一段固定的格式说明、消息文字、引用的 {captions} 条字幕，以及之前的 {history} 条消息（包含其中的引用）。',rawRequest:'查看原始请求',proposalSummary:'已生成提案：保留 {count} 句，成片约 {duration}。请先查看再应用。',goConfig:'去设置',staleProposal:'项目在回复之后改过了，这个提案不能用了。',reask:'按现在的项目重新问',reaskReady:'已新建草稿，不带历史和引用。请重新选择当前字幕，确认后再发送。原来的对话还在会话列表里。'});
+  Object.assign(officialPaneText.en,{reviewSummary:'This will send a fixed formatting note, your message, {captions} quoted subtitles, and {history} earlier messages (including their quotes).',rawRequest:'View exact request',proposalSummary:'Suggested edit: keep {count} sentences, about {duration} in the final cut. Look it over before applying.',goConfig:'Go to settings',staleProposal:'The project changed after this reply, so this suggested edit can no longer be used.',reask:'Ask again using the current project',reaskReady:'A new draft is ready with no history or references. Select current subtitles and review before sending. The original conversation is still in the session list.'});
+  Object.assign(officialPaneText['zh-CN'],{reviewSummary:'这次会发送一段固定的格式说明、消息文字、引用的 {captions} 条字幕，以及之前的 {history} 条消息（包含其中的引用）。',rawRequest:'查看原始请求',proposalSummary:'已生成剪辑建议：保留 {count} 句，成片大约 {duration}。请先看一遍再应用。',goConfig:'去设置',staleProposal:'项目在回复之后改过了，这条剪辑建议不能用了。',reask:'按现在的项目重新问',reaskReady:'已新建草稿，不带历史和引用。请重新选择当前字幕，确认后再发送。原来的对话还在会话列表里。'});
   // VV real-model test (2026-11-02): the format note that goes with every request, a reply without a usable proposal, and errors told apart
   Object.assign(officialPaneText.en,{errModel:'The model name is wrong. Check it in settings. Your draft is kept.',formatNote:'Format note sent with every request',formatNoteExplain:'The text below is a fixed note MontClip adds to every request. It only tells the AI how to format editing suggestions. It contains none of your recordings, subtitles or project content.',noProposal:'This reply is not an editing suggestion. To have it cut for you, say which sentences to keep.',errAuth:'The key is wrong or has no access. Check it in settings. Your draft is kept.',errRateLimit:'The service is limiting requests for now. Try again in a little while. Your draft is kept.',errTimeout:'The service did not answer in time. Check your connection and try again. Your draft is kept.',errNetwork:'Could not reach the service. Check your internet connection, then try again. Your draft is kept.',errUpstream:'The service is having trouble right now. Try again later, or choose another model in settings. Your draft is kept.'});
   Object.assign(officialPaneText['zh-CN'],{errModel:'模型名称不对，请去设置里检查。草稿仍保留。',formatNote:'每次请求都会附带的格式说明',formatNoteExplain:'下面这段英文是 MontClip 每次自动附上的固定说明，只是告诉 AI 怎么写剪辑建议。里面没有你的录像、字幕或项目内容，你不用看懂。',noProposal:'这条回复不是剪辑建议。想让它直接剪，可以说清要保留哪几句。',errAuth:'密钥不对或没有权限，请去设置里检查。草稿仍保留。',errRateLimit:'服务暂时限流，请过一会再试。草稿仍保留。',errTimeout:'服务没有及时回应，请检查网络后再试。草稿仍保留。',errNetwork:'连不上服务，请检查网络连接后再试。草稿仍保留。',errUpstream:'服务那边暂时出了问题，请稍后再试，或去设置里换一个模型。草稿仍保留。'});
@@ -273,6 +380,13 @@
   Object.assign(text.en,{workspaceSaveFailed:'Workspace setting was not saved; the next launch may use the default.',workspaceReadFailed:'Workspace settings could not be read. Using Edit for this window.',modeBlocked:'Finish exporting or leave nested editing before switching modes.',colorExited:'Simple mode is active. Color effects remain; switch to Advanced to adjust them.'});
   Object.assign(text['zh-CN'], {'agent.state.disconnected.brief':'还没有连接 AI 服务。剪辑照常用，聊天先发不出去。','agent.state.sendFailedNoProvider.brief':'这条没有发出去：还没有连接 AI 服务。','agent.input.newSession':'新建会话','agent.input.send':'发送','agent.ref.remove':'移除这条引用','agent.settings.models.title':'模型'});
   Object.assign(text.en, {'agent.state.disconnected.brief':"No AI service connected yet. Editing works as usual; chat can't send.",'agent.state.sendFailedNoProvider.brief':"This message wasn't sent: no AI service is connected.",'agent.input.newSession':'New conversation','agent.input.send':'Send','agent.ref.remove':'Remove this reference','agent.settings.models.title':'Models'});
+  /** The assistant's format collapsible body: the format note, then what to do after the reply, with the quote and review
+   *  buttons named by their own text ({reference}, {proposal}) — renaming a button renames it here (JJ, 2026-11-03). */
+  function formatBody(language) {
+    const T = text[language === "en" ? "en" : "zh-CN"];
+    return T.officialPane_format.split("{reference}").join(T.officialPane_reference) + (language === "en" ? " " : "") +
+      T.officialPane_formatNext.split("{proposal}").join(T.officialPane_proposal);
+  }
   function create(storage) {
     let saved; try { saved = JSON.parse(storage.getItem(KEY)); } catch {}
     let value = { mode: saved?.mode === "advanced" ? "advanced" : "simple", language: saved?.language === "en" ? "en" : "zh-CN" };
@@ -290,5 +404,12 @@
     return { getItem() { const r=bridge.get(); if(!r?.ok) throw Error('View settings unavailable'); return JSON.stringify(r.value); },
       setItem(_key, raw) { if(!bridge.set(JSON.parse(raw))?.ok) throw Error('View settings not saved'); } };
   }
-  return { create, desktopStorage, text, KEY, t, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder };
+  /** A new project's name (Deja, 第四批): 未命名项目, Untitled Project in English. Chinese first when the language is unknown. */
+  const defaultProjectName = (language) => (language === "en" ? "Untitled Project" : "未命名项目");
+  const isDefaultProjectName = (name) => name === "未命名项目" || name === "Untitled Project";
+  /** The file name used when a project's name leaves nothing usable (all slashes): 直播切片 {月-日} in Chinese, the old
+   *  English word (export, captions…) in English. */
+  const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
+    : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
+  return { create, desktopStorage, text, formatBody, KEY, t, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback };
 });
