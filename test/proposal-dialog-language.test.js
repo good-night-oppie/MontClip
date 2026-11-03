@@ -7,14 +7,15 @@ const { test } = require('node:test'), a = require('node:assert/strict'), fs = r
 const root = path.join(__dirname, '..'), read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
 const View = require('../ui-preferences'), Plan = require('../range-plan');
 const CJK = /[　-〿㐀-鿿＀-￯]/;
-// English words in a Chinese string: anything but the placeholders and SRT
-const latin = (s) => s.replace(/\{\w+\}/g, '').replace(/\bSRT\b/g, '').match(/[A-Za-z]{2,}/g);
+// English words in a Chinese string: anything but the placeholders, SRT and AI (main's own.sd-busy-save says 「AI 的建议」)
+const latin = (s) => s.replace(/\{\w+\}/g, '').replace(/\b(SRT|AI)\b/g, '').match(/[A-Za-z]{2,}/g);
 const body = (src, head) => { const at = src.indexOf(head); a.ok(at >= 0, head); let depth = 0, i = src.indexOf('{', at);
   for (; i < src.length; i++) { if (src[i] === '{') depth++; else if (src[i] === '}' && --depth === 0) break; } return src.slice(at, i + 1); };
-const KEYS = Object.keys(View.text.en).filter((k) => k.startsWith('own.ssel-'));
+// main (#36) says the sentence dialog in own.sd-* and range-plan refusals in own.rp-*; #71 adds the by-time wording (own.ssel-*)
+const KEYS = Object.keys(View.text.en).filter((k) => /^own\.(ssel|sd|rp)-/.test(k));
 
 test('the dialog keys exist in both languages; the Chinese has no English words, the English no Chinese', () => {
-  a.ok(KEYS.length >= 20, 'dialog keys: ' + KEYS.length);
+  a.ok(KEYS.filter((k) => k.startsWith('own.ssel-')).length >= 10 && KEYS.length >= 30, 'dialog keys: ' + KEYS.length);
   for (const k of KEYS) {
     const zh = View.text['zh-CN'][k], en = View.text.en[k];
     a.ok(zh && en, k);
@@ -27,8 +28,9 @@ test('the dialog writes no sentence of its own: no Chinese literal, no 「 / 」
     const src = read(f), fn = body(src, 'async function showSentenceSelection(');
     a.ok(!CJK.test(fn.replace(/\/\/[^\n]*/g, '')), f + ': a Chinese literal is left in showSentenceSelection');
     a.ok(!/"[^"\n]* \/ [^"\n]*"|`[^`\n]* \/ [^`\n]*`/.test(fn), f + ': a 「中文 / English」 string is left');
-    for (const k of ['ssel-title', 'ssel-title-ranges', 'ssel-title-slices', 'ssel-label-time', 'ssel-sum-ranges', 'ssel-sum-cut', 'ssel-changed', 'ssel-done-ranges'])
-      a.ok(fn.includes('"' + k + '"') || fn.includes("'" + k + "'"), f + ' uses ' + k);
+    for (const k of ['sd-title', 'ssel-title-ranges', 'ssel-title-slices', 'ssel-label-time', 'ssel-sum-ranges', 'ssel-sum-cut', 'sd-changed', 'ssel-done-ranges'])
+      a.ok(fn.includes('"own.' + k + '"'), f + ' uses ' + k);
+    a.match(fn, /uiText\("own\.rp-" \+ error\.code\)/, f + ': refusals by their code');
     const queue = body(src, 'async function runQueue(');
     a.ok(!CJK.test(queue), f + ': the queue refusal is a key too');
     a.match(queue, /uiText\("own\.ssel-queue-changed"\)/, f);
@@ -50,7 +52,7 @@ test('JJ\'s wording', () => {
 test('the joined length reads 0:32, not 12.34 s', () => {
   const fn = body(read('app.js'), 'async function showSentenceSelection(');
   a.ok(!/toFixed\(2\)\} s/.test(fn), 'no "12.34 s"');
-  a.match(fn, /duration: MontClipHighlights\.clock\(Math\.round\(plan\.duration\)\)/);
+  a.match(fn, /duration: clock\(Math\.round\(plan\.duration\)\)/);
 });
 test('range-plan refusals carry a code, and each code has its sentence in both languages', () => {
   const doc = { clips: [{ id: 'v', kind: 'video', mediaId: 'm', track: 'V1', start: 0, in: 0, duration: 10, props: {} }], media: [{ id: 'm', duration: 10 }] };
@@ -61,9 +63,9 @@ test('range-plan refusals carry a code, and each code has its sentence in both l
     code({ ...doc, lockedTracks: ['V1'] }, [{ from: 0, to: 2 }]),
     code({ ...doc, clips: [{ ...doc.clips[0], kind: 'comp' }] }, [{ from: 0, to: 2 }]),
   ];
-  a.deepEqual(seen, ['RANGES_INVALID', 'RANGES_PAST_END', 'RANGES_LOCKED', 'RANGES_NESTED']);
-  for (const c of [...seen, 'RANGES_TOO_SHORT', 'RANGES_LINE', 'RANGES_OTHER']) {
-    const k = 'own.ssel-err-' + c.toLowerCase().replace(/_/g, '-');
+  a.deepEqual(seen, ['invalid', 'exceeds', 'locked', 'nested'], "main's codes (#36)");
+  for (const c of [...seen, 'short-media']) {
+    const k = 'own.rp-' + c;
     a.ok(View.text.en[k] && View.text['zh-CN'][k], k);
   }
 });

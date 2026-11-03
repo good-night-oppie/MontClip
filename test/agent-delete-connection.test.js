@@ -108,19 +108,22 @@ test('the page cannot delete by itself: one fixed, guarded IPC with no argument,
  assert.match(svc,/deleteConnection\(\)\{/,'the service method takes no argument');
 });
 
-// JJ (2026-11-02 release notes, "落地前必须确认" item 1): the button and the confirmation, word for word
+// JJ (2026-11-02 release notes, "落地前必须确认" item 1): the button and the confirmation, word for word.
+// QQ (#49): the confirmation also says the chat history stays (the sessions are a separate store); wording for JJ.
 test('the button and the confirmation use JJ\'s wording in both languages',()=>{
  const view=require('../ui-preferences');
- const want={'zh-CN':{removeConnection:'删除这个连接',removeConfirm:'删除后，这台电脑上保存的密钥会被清掉，AI 助手要重新设置才能用。剪辑不受影响。'},
-  en:{removeConnection:'Remove this connection',removeConfirm:'This clears the key saved on this computer. You will need to set up the AI service again to use the assistant. Editing is not affected.'}};
+ const want={'zh-CN':{removeConnection:'删除这个连接',removeConfirm:'删除后，这台电脑上保存的密钥会被清掉，AI 助手要重新设置才能用。剪辑不受影响，聊天记录也还在。'},
+  en:{removeConnection:'Remove this connection',removeConfirm:'This clears the key saved on this computer. You will need to set up the AI service again to use the assistant. Editing is not affected, and your chat history stays.'}};
  for(const l of ['zh-CN','en']){for(const [k,v] of Object.entries(want[l]))assert.equal(view.text[l]['officialPane_'+k],v,l+' '+k);
   for(const k of ['connectionRemoved','connectionRemoveFailed'])assert.ok(view.text[l]['officialPane_'+k],l+' '+k);}
 });
 
 test('the pane asks first: the button only opens the confirmation, and only its confirm button deletes',()=>{
  const pane=read('agent-ui/pane.tsx');
- const button=pane.match(/<button data-remove-connection onClick=\{([^}]*)\}>/);assert.ok(button,'the remove button');
+ const button=pane.match(/<button data-remove-connection onClick=\{(.*?)\}>/);assert.ok(button,'the remove button');
  assert.doesNotMatch(button[1],/deleteConnection/);assert.match(button[1],/removeDialog\.current\?\.showModal\(\)/);
+ // VV (#49): Cancel has the focus when it opens, so Enter does not delete
+ assert.match(button[1],/showModal\(\);removeDialog\.current\?\.querySelector<HTMLButtonElement>\('\[data-remove-cancel\]'\)\?\.focus\(\)/);
  assert.equal((pane.match(/deleteConnection\(\)/g)||[]).length,1,'one call');
  assert.match(pane,/<button data-remove-confirm onClick=\{async\(\)=>\{removeDialog\.current\?\.close\(\);const result=await W\.montclipAgentService\?\.deleteConnection\(\);/);
  assert.match(pane,/\(cfg\?\.configured\|\|cfg\?\.code==='CONFIG_READ_FAILED'\)&&<button data-remove-connection/,'shown while a connection is saved or unreadable');
