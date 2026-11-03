@@ -1994,6 +1994,11 @@ input[type=range] {
   box-sizing: border-box;
 }
 
+.track-head-tools .tracks-above {font-size:10px;padding:1px 3px;white-space:nowrap;}
+/* a hidden attribute alone loses to the .btn display rule; keep the hint off screen when it is hidden */
+#btnTracksAbove[hidden] {display:none;}
+/* while lanes are folded above, the corner says so; +V / +A step aside for it */
+.track-head-tools:has(.tracks-above:not([hidden])) > :not(.tracks-above) {display:none;}
 .track-head-tools .btn {
   padding: 1px 4px;
   font-size: 10px;
@@ -3681,6 +3686,10 @@ body.file-drag::after {
 }
 
 .tr-head {
+  /* never taller than most of the panel: the rest scrolls, the entry row stays first (VV, #52) */
+  flex-shrink: 0;
+  max-height: 60%;
+  overflow-y: auto;
   padding: 10px 10px 6px;
   border-bottom: 1px solid var(--border);
   display: flex;
@@ -4633,6 +4642,13 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .cindy-proposal-actions {flex:none;display:flex;gap:4px;flex-wrap:wrap;}
 .cindy-config {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:3px;max-height:60%;}
 .cindy-config p,.cindy-config [role=alert] {grid-column:1 / -1;}
+/* VV 2026-11-02: in a short pane the open settings get the room; the conversation and draft come back on close. */
+#mcAgentContent .cindy-port.compact.config-open > :is(.cindy-thread,.cindy-ref-actions,.cindy-references,.cindy-composer,.cindy-proposal-actions) {display:none;}
+#mcAgentContent .cindy-port.compact.config-open > .cindy-config {max-height:none;flex:1 1 auto;min-height:0;}
+/* VV 2026-11-02 (630×460, the smallest window): compact labels and fields so the key and Save fit without scrolling */
+#mcAgentContent .cindy-port.compact.config-open > .cindy-config {gap:2px;padding:3px;}
+#mcAgentContent .cindy-port.compact.config-open > .cindy-config label {font-size:10px;line-height:12px;gap:1px;}
+#mcAgentContent .cindy-port.compact.config-open > .cindy-config :is(select,input) {height:24px;min-height:24px;padding-top:0;padding-bottom:0;font-size:11px;}
 
 @media (max-height:560px) {
  .cindy-port {gap:2px;}
@@ -4681,3 +4697,21 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .cindy-port.compact .cindy-message {display:block;font-size:11px;line-height:1.35;}
 .cindy-port.compact .cindy-message > strong {margin-right:4px;}
 .cindy-port.compact .cindy-composer {padding:2px;}
+
+/* P2 highlight cards: shaped like the sentence dialog */
+.highlight-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(620px, 90vw); max-height: 85vh; padding: 20px; margin: auto; }
+.highlight-dialog::backdrop { background: #0009; }
+.highlight-dialog [data-hl-list] { max-height: 52vh; overflow: auto; }
+.highlight-dialog .hl-card { border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; margin: 6px 0; }
+.highlight-dialog .hl-card label { display: flex; align-items: center; gap: 8px; }
+.highlight-dialog .hl-card ul { margin: 4px 0 6px 18px; padding: 0; font-size: 12px; }
+.highlight-dialog .hl-text { margin: 2px 0; font-size: 12px; opacity: .85; }
+.highlight-dialog .tr-row { flex-wrap: wrap; }
+/* the list folded after Go to: a button over the timeline corner, never over the picture */
+.hl-return { position: fixed; right: 12px; bottom: 12px; z-index: 2000; box-shadow: 0 6px 18px #0008; }
+.hl-return[hidden] { display: none; }
+
+.highlight-dialog .hl-keep-note { margin: 6px 0; opacity: .85; font-size: 12px; }
+
+/* + URL is hidden in the desktop app; .btn would otherwise win over [hidden] */
+#btnImportUrl[hidden] { display: none; }

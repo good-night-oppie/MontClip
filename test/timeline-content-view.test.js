@@ -8,6 +8,9 @@ function setup(){
  const headers=rows.map(r=>({dataset:r.dataset}));let mode='simple',seq='a';
  const ctx={state:{gesture:false},project:{clips:[{track:'V1'},{track:'A1'}]},runtime:{projectGen:1},TRACKS:tracks,RULER_H:26,SeqLib:{activeId:()=>seq},seqRoot:()=>({}),mcView:{get:()=>({mode})},els:{tracks:{children:rows},timelineScroll:scroll},$:()=>({children:headers})};
  vm.runInNewContext(source.match(/function syncTimelineTrackView\(\) \{[\s\S]*?\n\}/)[0],ctx);
+ // the helpers it calls (VV 630: lanes folded above, and the hint that says so); no hint button in this harness
+ Object.assign(ctx,{document:{getElementById:()=>null},uiText:k=>k,FableCutCaptions:{isCaption:c=>!!c.caption||c.kind==='text'}});
+ for(const name of ['captionOnlyTrack','foldTrackRow','updateTracksAboveHint'])vm.runInNewContext(source.match(new RegExp('function '+name+'\\([^\\n]*\\) \\{[\\s\\S]*?\\n\\}'))[0],ctx);
  return{ctx,rows,headers,scroll,run:()=>ctx.syncTimelineTrackView(),mode:v=>{mode=v;},seq:v=>{seq=v;}};
 }
 test('simple shows occupied and main tracks; advanced retains all tracks without editing project',()=>{const s=setup(),before=JSON.stringify(s.ctx.project);s.run();assert.deepEqual(s.rows.map(r=>r.hidden),[true,true,false,false,true]);assert.deepEqual(s.headers.map(r=>r.hidden),s.rows.map(r=>r.hidden));s.mode('advanced');s.run();assert.ok(s.rows.every(r=>!r.hidden));assert.equal(s.scroll.scrollTop,116);assert.equal(JSON.stringify(s.ctx.project),before);});
@@ -43,7 +46,10 @@ test('pointer cancel, Escape and blur restore the clip snapshot with no undo or 
 
 test('simple V2/A1 content hides the empty V1 placeholder without editing project or undo',()=>{const s=setup();s.ctx.project.clips=[{track:'V2'},{track:'A1'}];const before=JSON.stringify(s.ctx.project);s.run();assert.deepEqual(s.rows.map(r=>r.hidden),[true,false,true,false,true]);assert.equal(JSON.stringify(s.ctx.project),before);});
 
-test('subtitle above video does not push actual video/audio content below short viewport',()=>{for(const mode of ['simple','advanced']){const s=setup();s.mode(mode);s.ctx.project.clips=[{id:'caption',kind:'text',track:'V3'},{id:'video',kind:'video',track:'V1'},{id:'audio',kind:'audio',track:'A1'}];const before=JSON.stringify(s.ctx.project);s.ctx.runtime.undo=['unchanged'];s.run();for(const id of ['V1','A1']){const r=s.rows.find(r=>r.dataset.track===id),rect=r.getBoundingClientRect();assert.equal(r.hidden,false);assert.ok(rect.top>=26&&rect.bottom<=180,id+' must be entirely visible');}assert.equal(JSON.stringify(s.ctx.project),before);assert.deepEqual(s.ctx.runtime.undo,['unchanged']);s.scroll.scrollTop=0;s.run();assert.equal(s.scroll.scrollTop,0);s.ctx.state.gesture=true;s.ctx.runtime.projectGen++;s.run();assert.equal(s.scroll.scrollTop,0);s.ctx.state.gesture=false;s.run();assert.ok(s.scroll.scrollTop>0);}});
+test('subtitle above video does not push actual video/audio content below short viewport',()=>{for(const mode of ['simple','advanced']){const s=setup();s.mode(mode);s.ctx.project.clips=[{id:'caption',kind:'text',track:'V3'},{id:'video',kind:'video',track:'V1'},{id:'audio',kind:'audio',track:'A1'}];const before=JSON.stringify(s.ctx.project);s.ctx.runtime.undo=['unchanged'];s.run();for(const id of ['V1','A1']){const r=s.rows.find(r=>r.dataset.track===id),rect=r.getBoundingClientRect();assert.equal(r.hidden,false);assert.ok(rect.top>=26&&rect.bottom<=180,id+' must be entirely visible');}assert.equal(JSON.stringify(s.ctx.project),before);assert.deepEqual(s.ctx.runtime.undo,['unchanged']);s.scroll.scrollTop=0;s.run();assert.equal(s.scroll.scrollTop,0);s.ctx.state.gesture=true;s.ctx.runtime.projectGen++;s.run();assert.equal(s.scroll.scrollTop,0);s.ctx.state.gesture=false;s.run();
+ // VV 2026-11-02: in simple mode a caption lane that does not fit is folded (V3 hidden, V1 right under the ruler);
+ // advanced keeps every lane and scrolls past it
+ if(mode==='advanced')assert.ok(s.scroll.scrollTop>0);else{assert.equal(s.rows[0].hidden,true,'V3 folded');assert.equal(s.scroll.scrollTop,0);}}});
 
 // VV real window: dragging A1 onto an empty A2 re-focused the timeline and left the
 // dropped clip 35% visible; narrowing the window left A1 57% visible.
@@ -78,3 +84,11 @@ test('a window resize re-focuses the content once, but never during a drag',()=>
  s.ctx.timelineResizeRefocus();assert.equal(s.scroll.scrollTop,after);assert.equal(JSON.stringify(s.ctx.project),before);
 });
 
+
+// VV 2026-11-02 (630): only caption-only lanes fold; a lane with other clips keeps its row even when it does not fit.
+test('a lane above with video is never folded, a caption-only lane is',()=>{
+ const s=setup();s.ctx.project.clips=[{id:'over',kind:'video',track:'V2'},{id:'video',kind:'video',track:'V1'},{id:'audio',kind:'audio',track:'A1'}];s.run();
+ assert.equal(s.rows[1].hidden,false,'V2 with video stays');assert.equal(s.ctx.syncTimelineTrackView.folded.size,0);
+ const t=setup();t.ctx.project.clips=[{id:'cap',kind:'text',caption:true,track:'V2'},{id:'video',kind:'video',track:'V1'},{id:'audio',kind:'audio',track:'A1'}];t.run();
+ assert.equal(t.rows[1].hidden,true,'caption-only V2 folds');assert.deepEqual([...t.ctx.syncTimelineTrackView.folded],['V2']);
+});

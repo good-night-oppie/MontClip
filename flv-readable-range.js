@@ -1,5 +1,6 @@
 "use strict";
 const {spawn}=require("node:child_process");
+const FF=require("./ffmpeg-path"); // the bundled ffprobe, never PATH (#28)
 const readline=require("node:readline");
 const ratio=value=>{const [a,b=1]=String(value||0).split('/').map(Number);return b && Number.isFinite(a/b)?a/b:0;};
 function accumulator(streams, declaredDuration) {
@@ -39,7 +40,7 @@ function accumulator(streams, declaredDuration) {
 async function scanReadableRange(file,streams,declaredDuration,{signal}={}) {
   const acc=accumulator(streams,declaredDuration);
   return new Promise((resolve,reject)=>{
-    const child=spawn('ffprobe',['-v','error','-show_frames','-show_entries','frame=media_type,best_effort_timestamp_time,pts_time,duration_time,pkt_duration_time,nb_samples','-of','compact=p=0',file],{windowsHide:true,signal,stdio:['ignore','pipe','pipe']});
+    const child=spawn(FF.path('ffprobe'),['-v','error','-show_frames','-show_entries','frame=media_type,best_effort_timestamp_time,pts_time,duration_time,pkt_duration_time,nb_samples','-of','compact=p=0',file],{windowsHide:true,signal,stdio:['ignore','pipe','pipe']});
     let errors=false,spawnError;
     child.stderr.on('data',()=>{errors=true;});
     const lines=readline.createInterface({input:child.stdout});lines.on('line',line=>acc.frame(line));
