@@ -1,0 +1,19 @@
+{
+  "version": "n9.0.2-42-gd7643a0fe3",
+  "license": "LGPL-3.0-or-later",
+  "builder": "good-night-oppie/MontClip .github/workflows/build-ffmpeg.yml, Actions run 41397853139: BtbN/FFmpeg-Builds 5ece628 (image by digest) with --disable-libopenh264; see docs/decisions/2026-11-02-h264-encoder.md",
+  "source": "https://github.com/FFmpeg/FFmpeg/commit/d7643a0fe3",
+  "builds": {
+    "win32-x64": {
+      "url": "https://github.com/good-night-oppie/MontClip/releases/download/ffmpeg-lgpl-n9.0.2-montclip1/ffmpeg-n9.0.2-42-gd7643a0fe3-win64-lgpl-9.0.zip",
+      "sha256": "67c30e30206b5bddcc2af9ea4f0215bbbcd2519533316997945a0fd9602a2f96",
+      "root": "ffmpeg-n9.0.2-42-gd7643a0fe3-win64-lgpl-9.0"
+    },
+    "linux-x64": {
+      "url": "https://github.com/good-night-oppie/MontClip/releases/download/ffmpeg-lgpl-n9.0.2-montclip1/ffmpeg-n9.0.2-42-gd7643a0fe3-linux64-lgpl-9.0.tar.xz",
+      "sha256": "69a9690a4c0eb7e7059f2141de54b4ec57100741a95a04809734c6adc9a0b8ae",
+      "root": "ffmpeg-n9.0.2-42-gd7643a0fe3-linux64-lgpl-9.0"
+    }
+  },
+  "openh264": false
+}

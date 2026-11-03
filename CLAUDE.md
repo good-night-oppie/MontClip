@@ -179,6 +179,17 @@ Desktop task requests reject `where: "headless"` with HTTP 409 and code
 export, transcription, scopes and tracking, including the shared job queue.
 It is not yet a portable release or offline transcription distribution.
 
+MontClip runs only its bundled LGPL FFmpeg (`ffmpeg-path.js`), never `ffmpeg`
+on `PATH`: packaged, `resources/ffmpeg/`; in development, `vendor/ffmpeg/<platform>-<arch>/`
+(`node desktop/fetch-ffmpeg.cjs`) or `MONTCLIP_FFMPEG` / `MONTCLIP_FFPROBE` full paths.
+Where this manual says "needs ffmpeg on PATH", read "needs the bundled FFmpeg".
+The LGPL build has no libx264. H.264 export and proxies use a graphics-card encoder
+(NVENC / Quick Sync / AMF), else Windows' own `h264_mf`; `GET /api/export/h264` says which.
+A user may choose their own FFmpeg with libx264 in Settings (desktop): it is used only for
+H.264 export, never for preview, decoding or proxies, and is never searched for on PATH.
+Raw encoding profiles that use libx264 need that local FFmpeg. With no H.264 encoder at all,
+export says why in plain words. See `docs/decisions/2026-11-02-h264-encoder.md`, `LICENSES.md`.
+
 ```
 node server.js        # → http://localhost:7777
 ```
@@ -2757,6 +2768,10 @@ array; `{profile:"hq"}` returns one profile. `fablecut_status` shows the effecti
 ### Caption import text preservation
 
 SRT/WebVTT parsing preserves the full normalized cue body instead of truncating it at 500 UTF-16 code units. Existing tag normalization and cue timestamps are unchanged; this does not create word timing. This parser fix does not change UI/MCP fitting behavior or claim long-text layout acceptance.
+
+### Highlight candidate cards (P2, MontClip)
+
+The Transcript tab's **高光候选 / Highlight candidates** reads local signals only and runs no model. The signals are the timeline's sentences (caption clips), the loudness of each sounding clip's file (read once by the server through ffmpeg as a stream, 8 kHz mono, 0.5 s bins, cached in `analysis/signals/` per file version — `GET /api/signals/loudness?src=` — and mapped onto the timeline through start, in point, speed, volume and gain; without a server, the mix itself in 60 s pieces), and `project.danmaku` (`[{t}]`) when present. It shows up to 12 candidate ranges, best first, each with reasons that name the signal, the value, the baseline and the window. `highlight-candidates.js` holds the pure logic. **Go to** only moves the playhead; **Keep the ticked ones** keeps the ranges through the range engine as one undo step. With nothing to go on, it says why. Design and clean-room exception: `docs/decisions/2026-11-02-p2-highlight-cards.md`.
 
 ### MontClip view preferences
 

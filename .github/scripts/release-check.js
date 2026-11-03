@@ -65,6 +65,52 @@ for (const f of ["package.json", "manifest.json", "glama.json", ".mcp.json", ".c
   try { readJSON(f); ok(`${f} parses`); } catch (e) { fail(`${f}: ${e.message}`); }
 }
 
+/* ── Bundled FFmpeg: pinned LGPL builds, packaged with their license ── */
+section("Bundled FFmpeg");
+{
+  const man = readJSON("desktop/ffmpeg-manifest.json");
+  const lic = fs.existsSync(path.join(ROOT, "LICENSES.md")) ? fs.readFileSync(path.join(ROOT, "LICENSES.md"), "utf8") : "";
+  check(/^LGPL/.test(man.license || ""), `FFmpeg manifest license ${man.license}`, "desktop/ffmpeg-manifest.json must pin an LGPL build");
+  for (const plat of ["win32-x64", "linux-x64"]) {
+    const b = (man.builds || {})[plat] || {};
+    check(/^https:\/\//.test(b.url || "") && /lgpl/.test(b.url) && !/-gpl/.test(b.url) && /^[0-9a-f]{64}$/.test(b.sha256 || ""),
+      `${plat}: LGPL archive pinned by SHA-256`, `${plat}: needs an https LGPL archive URL and a SHA-256 in desktop/ffmpeg-manifest.json`);
+    check(lic.includes(b.sha256 || "-") && lic.includes(b.url || "-"), `${plat}: LICENSES.md lists its source and SHA-256`, `${plat}: LICENSES.md must list the archive URL and SHA-256`);
+  }
+  const res = (readJSON("desktop/package.json").build || {}).extraResources || [];
+  check(res.some((r) => r && r.to === "ffmpeg" && /vendor\/ffmpeg\/\$\{platform\}-\$\{arch\}/.test(r.from || "")),
+    "desktop packaging copies vendor/ffmpeg/<platform>-<arch> to resources/ffmpeg", "desktop/package.json build.extraResources must copy vendor/ffmpeg/${platform}-${arch} to ffmpeg");
+}
+
+/* ── The bundled FFmpeg itself: no GPL or non-free code in the package ── */
+section("Bundled FFmpeg build (no GPL)");
+{
+  // GPL / non-free and libopenh264 are release blockers (Deja 2026-11-02); the rules live in one module
+  const { auditBuild, auditManifest, auditLicenses } = require("../../desktop/ffmpeg-audit");
+  const manProblems = auditManifest(readJSON("desktop/ffmpeg-manifest.json"));
+  check(!manProblems.length, "FFmpeg manifest: our own build without libopenh264 (openh264: false)",
+    "FFmpeg manifest: " + manProblems.map((p) => p.detail).join("; "));
+  // every library in the build: its licence text at the pinned ref, classified (LICENSES.md)
+  const licProblems = auditLicenses(readJSON("licenses/ffmpeg/inventory.json"));
+  check(!licProblems.length, "FFmpeg libraries: every licence text collected and classified",
+    "FFmpeg libraries: " + licProblems.map((p) => p.detail).join("; "));
+  const plat = `${process.platform}-${process.arch}`;
+  const vendor = path.join(ROOT, "vendor", "ffmpeg", plat), exe = path.join(vendor, process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
+  if (!fs.existsSync(exe)) ok(`vendor/ffmpeg/${plat} not fetched here — run node desktop/fetch-ffmpeg.cjs to check the build itself`);
+  else {
+    const v = spawnSync(exe, ["-hide_banner", "-version"], { encoding: "utf8", timeout: 60000 });
+    const e = spawnSync(exe, ["-hide_banner", "-encoders"], { encoding: "utf8", timeout: 60000 });
+    const configuration = (v.stdout || "").split(/\r?\n/).find((l) => l.startsWith("configuration:")) || "";
+    const problems = v.status === 0 ? auditBuild({ configuration, encoders: e.stdout || "" }) : [{ detail: "could not run it" }];
+    check(!problems.length, `${plat}: bundled ffmpeg is LGPL with no GPL, non-free or libopenh264 component`,
+      `${plat}: bundled ffmpeg: ${problems.map((p) => p.detail).join("; ")}`);
+  }
+  const res = (readJSON("desktop/package.json").build || {}).extraResources || [];
+  const ffRes = res.find((r) => r && r.to === "ffmpeg") || {};
+  check(Array.isArray(ffRes.filter) && ffRes.filter.every((f) => /^(ffmpeg|ffprobe)(\.exe)?$|^LICENSE\.txt$|^SOURCE\.json$/.test(f)),
+    "packaging copies only the bundled ffmpeg/ffprobe, its license and its source record", "desktop/package.json ffmpeg extraResources must copy only ffmpeg, ffprobe, LICENSE.txt and SOURCE.json");
+}
+
 /* ── Every root script parses ── */
 section("Syntax");
 const rootJs = fs.readdirSync(ROOT).filter((f) => f.endsWith(".js"));
