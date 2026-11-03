@@ -51,3 +51,9 @@ test('MCP fablecut_import_media copies a local file under its Chinese name',asyn
  a.ok(fs.existsSync(path.join(dir,'media','直播 录像.svg')),fs.readdirSync(path.join(dir,'media')).join(','));
  const m=readProject(dir).media.at(-1);a.equal(decodeURIComponent(m.src),'/media/直播 录像.svg');
 });
+test('the reference video copied into media/ and the music taken from it keep Chinese names too',()=>{
+ const old=/\[\^\w\.\- \(\)\\[\\]\]\+\/g, "_"/;
+ a.ok(!old.test(read('analyze.js')),'analyze.js: the extracted music');
+ a.ok(!old.test(read('mcp-server.js')),'mcp-server.js: the reference copied into media/');
+ a.match(read('analyze.js'),/Delivery\.fileSafeName\(path\.basename\(file, path\.extname\(file\)\), "media"\)/);
+});
