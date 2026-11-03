@@ -7006,6 +7006,103 @@ function captionQuickTargets(scope) {
   const caps = project.clips.filter((c) => FableCutCaptions.isCaption(c) && (scope === "all" || state.selIds.has(c.id)));
   return caps.filter((c) => !isClipLocked(c));
 }
+/* P6a: correct captions from the lyrics (lyrics-align.js; ADR 本机能力边界 补记「用歌词校准听写字幕」). On this computer only:
+   the streamer pastes the lyrics, the transcript's words in the song's part are aligned to them, and each line shows what was
+   heard and what it becomes. Nothing changes until 〔应用勾选的〕 / 〔全部应用〕; then the song's captions are replaced, one
+   per lyric line (ticked lines as the lyrics, the rest as heard), in one undo step. The part is the selected captions, else
+   the unlocked captions in IN–OUT; only those change, the others not by a single character (QQ on #85, Deja 2026-11-03):
+   the words come from those captions only, and every new caption lies inside the one it replaces (MontClipLyrics.plan). */
+function lyricsTargets() {
+  const caps = project.clips.filter((c) => FableCutCaptions.isCaption(c));
+  const s = MontClipLyrics.scope({
+    captions: caps.map((c) => ({ id: c.id, start: c.start, end: c.start + c.duration, locked: isClipLocked(c) })),
+    selected: caps.filter((c) => state.selIds.has(c.id)).map((c) => c.id),
+    inPoint: project.inPoint, outPoint: project.outPoint, words: transcriptWords(),
+  });
+  return s && { caps: s.caps, clips: s.caps.map((c) => getClip(c.id)), words: s.words };
+}
+function openLyricsAlign() {
+  const t = lyricsTargets();
+  if (!t) { toast(uiText("own.ly-pick-range")); return; }
+  if (!t.words.length) { toast(uiText("own.ly-no-words")); return; }
+  if (t.clips.some(isClipLocked)) { toastLocked(); return; }
+  const signature = JSON.stringify(projectJSON());
+  const say = (k, v) => escapeHtml(uiText("own." + k, v));
+  const dialog = document.createElement("dialog");
+  dialog.className = "ly-dialog"; dialog.setAttribute("data-ly-dialog", "");
+  dialog.innerHTML = `<form method="dialog"><h3>${say("ly-title")}</h3><p>${say("ly-intro")}</p>
+    <label>${say("ly-paste")}<textarea data-ly-text rows="6" placeholder="${say("ly-placeholder")}"></textarea></label>
+    <div class="tr-row"><button type="button" class="btn" data-ly-align>${say("ly-align")}</button></div>
+    <p data-ly-summary role="status"></p><ol class="ly-lines" data-ly-lines></ol><p class="ly-outside" data-ly-outside role="status"></p>
+    <div class="tr-row"><button type="button" class="btn primary" data-ly-apply disabled>${say("ly-apply")}</button>
+    <button type="button" class="btn" data-ly-apply-all disabled>${say("ly-apply-all")}</button>
+    <button class="btn" value="cancel">${say("ly-cancel")}</button></div></form>`;
+  const list = dialog.querySelector("[data-ly-lines]"), summary = dialog.querySelector("[data-ly-summary]");
+  let result = null;
+  const ticked = () => [...list.querySelectorAll("[data-ly-pick]")].filter((b) => b.checked).map((b) => +b.dataset.lyPick);
+  const allSure = () => (result ? result.lines.map((l, i) => (l.sure ? i : -1)).filter((i) => i >= 0) : []);
+  // under the comparison: lines that answer to captions not picked, and picked captions left as they were — for the ticks now
+  const outside = dialog.querySelector("[data-ly-outside]");
+  const buttons = () => {
+    dialog.querySelector("[data-ly-apply]").disabled = !result || !ticked().length; dialog.querySelector("[data-ly-apply-all]").disabled = !result || !result.lines.some((l) => l.sure);
+    const p = result ? MontClipLyrics.plan(result, ticked(), t.caps) : null;
+    outside.textContent = p ? [p.outside.length ? uiText("own.ly-outside", { n: p.outside.length }) : "", p.held.length ? uiText("own.ly-held", { n: p.held.length }) : ""].filter(Boolean).join("\n") : "";
+  };
+  dialog.querySelector("[data-ly-align]").addEventListener("click", () => {
+    const r = MontClipLyrics.align(t.words, dialog.querySelector("[data-ly-text]").value);
+    list.textContent = ""; result = null;
+    if (!r.ok) { summary.textContent = uiText({ NO_LYRICS: "own.ly-no-lyrics", TOO_LONG: "own.ly-too-long" }[r.code] || "own.ly-no-words"); buttons(); return; }
+    result = r;
+    r.lines.forEach((l, i) => {
+      const li = document.createElement("li"), box = document.createElement("input"), was = document.createElement("span"), now = document.createElement("span");
+      li.dataset.lySure = l.sure ? "1" : "0";
+      box.type = "checkbox"; box.dataset.lyPick = String(i); box.checked = l.sure; box.disabled = l.start == null;
+      box.setAttribute("aria-label", uiText("own.ly-pick-line", { n: i + 1 }));
+      box.addEventListener("change", buttons);
+      was.className = "ly-was"; was.textContent = uiText("own.ly-was") + (l.original || "—");
+      now.className = "ly-now"; now.textContent = uiText("own.ly-now") + l.text;
+      li.append(box, was, now);
+      if (l.start == null) { const tag = document.createElement("span"); tag.className = "ly-tag"; tag.textContent = uiText("own.ly-no-time"); li.append(tag); }
+      else if (!l.sure) { const tag = document.createElement("span"); tag.className = "ly-tag"; tag.dataset.lyUnsure = ""; tag.textContent = uiText("own.ly-unsure"); li.append(tag); }
+      list.append(li);
+    });
+    const sure = r.lines.filter((l) => l.sure).length;
+    summary.textContent = uiText("own.ly-summary", { sure, unsure: r.lines.length - sure });
+    buttons();
+  });
+  const apply = (picked) => {
+    if (!result || !picked.length) return;
+    // the CAS: nothing changed since this window opened
+    if (JSON.stringify(projectJSON()) !== signature) { summary.textContent = uiText("own.ly-changed"); return; }
+    // only the picked captions that get new ones are replaced; each new caption takes the track, style, size and place of
+    // the caption it lies in
+    const p = MontClipLyrics.plan(result, picked, t.caps);
+    if (!p.cues.length) return;
+    const C = FableCutCaptions, was = new Map(t.clips.map((c) => [c.id, c]));
+    const snap = undoSnapshot();
+    const gone = new Set(p.replace);
+    project.clips = project.clips.filter((c) => !gone.has(c.id));
+    for (const id of gone) state.selIds.delete(id);
+    if (gone.has(state.selId)) state.selId = [...state.selIds].pop() ?? null;
+    for (const q of p.cues) {
+      const old = was.get(q.capId), style = old.props?.captionStyle || C.DEFAULT_STYLE;
+      const clip = { ...C.clip(q, { style, width: project.width, height: project.height, track: old.track }), id: "c_" + uid() };
+      // the size and place the streamer gave these captions stay
+      if (Number.isFinite(old.props?.fontSize)) clip.props.fontSize = old.props.fontSize;
+      if (Number.isFinite(old.props?.y)) clip.props.y = old.props.y;
+      project.clips.push(clip);
+    }
+    pushUndo(snap);
+    const depth = runtime.undo.length, n = p.cues.filter((q) => q.lyrics).length;
+    state.dirtyTimeline = true; scheduleSave(); renderTranscript(true); renderInspector(); drawFrame();
+    dialog.close();
+    toastAction(uiText("own.ly-done", { n }), uiText("own.as-undo"), () => { if (runtime.undo.length === depth) undo(); });
+  };
+  dialog.querySelector("[data-ly-apply]").addEventListener("click", () => apply(ticked()));
+  dialog.querySelector("[data-ly-apply-all]").addEventListener("click", () => apply(allSure()));
+  dialog.addEventListener("close", () => dialog.remove());
+  document.body.append(dialog); dialog.showModal(); dialog.querySelector("[data-ly-text]").focus();
+}
 function captionQuickHtml(scope) {
   const list = captionQuickTargets(scope);
   if (!list.length) return "";
@@ -9712,6 +9809,7 @@ function buildTranscriptPage() {
         <select data-tr-cap-style title="The look: subtitle on a dark bar, karaoke (words light up as said), highlight (the word being said in colour), word pop (a few big words at a time)">${Object.entries(FableCutCaptions.STYLES).map(([k, st]) =>
           `<option value="${k}" ${k === (set.captionStyle || FableCutCaptions.DEFAULT_STYLE) ? "selected" : ""}>${st.label}</option>`).join("")}</select>
         <button type="button" class="btn tiny" data-tr-cap-quick${captionQuickTargets("all").length ? "" : " hidden"} data-i18n="own.cq-open">${escapeHtml(uiText("own.cq-open"))}</button>
+        <button type="button" class="btn tiny" data-tr-cap-lyrics title="${escapeHtml(uiText("own.ly-open-title"))}" data-i18n="own.ly-open" data-i18n-title="own.ly-open-title">${escapeHtml(uiText("own.ly-open"))}</button>
         ${listen ? `<button type="button" class="btn tiny" data-tr-cap-add title="Make captions from these words, timed word by word, on a video lane above the edit (replaces the captions there; one undo step)" data-i18n="term.add-captions">${uiText("term.add-captions")}</button>` : ""}
         <button type="button" class="btn tiny" data-tr-cap-file="srt" title="Download the timeline's captions as a SubRip file">SRT</button>
         <button type="button" class="btn tiny" data-tr-cap-file="vtt" title="Download the timeline's captions as a WebVTT file">VTT</button>
@@ -9752,6 +9850,7 @@ function buildTranscriptPage() {
   q("[data-tr-copy]").addEventListener("click", copyTranscript);
   q("[data-tr-cap-style]").addEventListener("change", (e) => saveTranscribeSettings({ captionStyle: e.target.value }));
   q("[data-tr-cap-quick]").addEventListener("click", () => openCaptionQuick());
+  q("[data-tr-cap-lyrics]").addEventListener("click", () => openLyricsAlign());
   q("[data-tr-cap-add]")?.addEventListener("click", () => addCaptionsFromTranscript(q("[data-tr-cap-style]").value));
   root.querySelectorAll("[data-tr-cap-file]").forEach((b) => b.addEventListener("click", () => downloadCaptions(b.dataset.trCapFile)));
   const capInput = q("[data-tr-cap-input]");
@@ -10453,17 +10552,21 @@ function autoReviewHtml() {
   const dur = st.recs.reduce((x, r) => x + r.duration, 0), dm = st.recs.reduce((x, r) => x + (r.danmaku || 0), 0);
   const head = !found ? autoSay("as-found-none") : on === found ? autoSay("as-found-all", { found }) : autoSay("as-found-head", { found, on });
   const evidence = dm ? autoSay("as-evidence", { count: dm.toLocaleString(), dur: autoDur(dur), n: found }) : autoSay("as-evidence-nodm", { dur: autoDur(dur), n: found });
+  // v12 (frozen; JJ's visual review): what every card used to repeat is said once — the name hint on the first card, the
+  // 估的 note under the first overview, above the first card (also the tooltip of every 估的 tag)
+  const guessed = st.clips.some((c) => c.on && ["s", "e"].some((w) => MontClipAutoSlices.edgeLevel(c, w) === "estimated"));
+  const note = guessed ? `<p class="as-guess-note" data-as-guess-note>${autoSay("as-guess-note")}</p>` : "";
   let no = 0;
   const cards = st.recs.map((rec) => {
     const mine = st.clips.filter((c) => c.mediaId === rec.mediaId);
     if (!mine.length) return "";
-    const start = no + 1, html = autoOverviewHtml(rec, mine, start) + mine.map((c) => autoCardHtml(c, no++)).join("");
+    const start = no + 1, html = autoOverviewHtml(rec, mine, start) + (no === 0 ? note : "") + mine.map((c) => autoCardHtml(c, no++)).join("");
     return html;
   }).join("");
   return `<div class="as-row"><div><h1>${head}</h1><p class="as-sub">${autoSay(found ? "as-review-sub" : "as-found-none-next", { name: names })}</p></div>
       <button type="button" class="btn" data-as-act="back-start">${autoSay("as-back-start")}</button></div>
-    <div class="as-evidence">${evidence}</div>
-    ${st.ask ? `<section class="as-card-box" data-as-ask><b>${autoSay("as-ask-title")}</b><p class="as-small">${autoSay("as-ask-sub")}</p>
+    <div class="as-evidence${dm ? "" : " warn"}">${evidence}</div>
+    ${st.ask ? `<section class="as-askline" data-as-ask><b>${autoSay("as-ask-title")}</b><span class="as-small as-askwhy">${autoSay("as-ask-sub")}</span>
       <div class="as-seg"><button type="button" data-as-act="ask" data-as-v="sing">${autoSay("as-ask-sing")}</button><button type="button" data-as-act="ask" data-as-v="chat">${autoSay("as-ask-chat")}</button><button type="button" data-as-act="ask" data-as-v="auto">${autoSay("as-ask-both")}</button></div></section>` : ""}
     ${st.few ? `<section class="as-card-box"><b>${autoSay("as-few", st.few)}</b><p class="as-small">${autoSay("as-few-sub", { signals: uiText(dm ? "own.as-sig-both" : "own.as-sig-sound") })}</p></section>` : ""}
     <div data-as-cards>${cards}</div>
@@ -10493,31 +10596,30 @@ function autoWave(c, w) {
   return `<svg class="as-mini" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(" ")}"/></svg>`;
 }
 function autoEdgeHtml(c, w) {
-  // v8: a level beside each time — 比较可能 (grey hint), 估的 (yellow hint), 你调过 (grey, no hint) while moved
+  // v8: a level beside each time — 比较可能, 估的, 你调过 while moved. v12: only the tag on the card, what it means is its
+  // tooltip (估的: the note said once above the cards; 你调过: none); the ± buttons on the row of the time
   const lbl = w === "s" ? "start" : "end", t = w === "s" ? c.s : c.e, level = MontClipAutoSlices.edgeLevel(c, w);
-  const hint = level === "estimated" ? `<p class="as-guess" data-as-hint="${w}">${autoSay("as-guess-" + lbl)}</p>`
-    : level === "likely" ? `<p class="as-likely" data-as-hint="${w}">${autoSay("as-likely-" + lbl)}</p>` : "";
+  const tip = level === "estimated" ? autoSay("as-guess-note") : level === "likely" ? autoSay("as-likely-" + lbl) : "";
   const nb = (d) => `<button type="button" class="btn tiny" data-as-act="nudge" data-as-w="${w}" data-as-d="${d}">${d > 0 ? "+" : "−"}${autoSay("as-sec", { d: Math.abs(d) })}</button>`;
-  return `<div class="as-edge" data-as-edge="${w}"><div class="as-lbl">${autoSay("as-" + lbl)} <b data-as-tc>${escapeHtml(MontClipAutoSlices.hms(t))}</b> <span class="as-tag as-tag-${level}" data-as-level="${level}">${autoSay("as-tag-" + level)}</span></div>
-    <div class="as-strip" data-as-act="drag" data-as-w="${w}" title="${autoSay("as-drag-" + lbl)}">${autoWave(c, w)}<i class="as-hand"></i><span class="as-strip-l">${autoSay("as-early")}</span><span class="as-strip-r">${autoSay("as-late")}</span></div>
-    <div class="as-nudges">${nb(-5)}${nb(-1)}${nb(1)}${nb(5)}<button type="button" class="btn tiny" data-as-act="listen" data-as-w="${w}">${autoSay("as-listen-" + lbl)}</button></div>
-    ${hint}</div>`;
+  return `<div class="as-edge" data-as-edge="${w}"><div class="as-edge-row"><div class="as-lbl">${autoSay("as-" + lbl)} <b data-as-tc>${escapeHtml(MontClipAutoSlices.hms(t))}</b> <span class="as-tag as-tag-${level}" data-as-level="${level}"${tip ? ` title="${tip}"` : ""}>${autoSay("as-tag-" + level)}</span></div>
+    <div class="as-nudges">${nb(-5)}${nb(-1)}${nb(1)}${nb(5)}<button type="button" class="btn tiny" data-as-act="listen" data-as-w="${w}">${autoSay("as-listen-" + lbl)}</button></div></div>
+    <div class="as-strip" data-as-act="drag" data-as-w="${w}" title="${autoSay("as-drag-" + lbl)}">${autoWave(c, w)}<i class="as-hand"></i><span class="as-strip-l">${autoSay("as-early")}</span><span class="as-strip-r">${autoSay("as-late")}</span></div></div>`;
 }
 function autoCardHtml(c, i) {
   const song = c.kind === "song", why = c.reasons.map((r) => highlightReasonText(r).text).join(" · ");
+  // v12: the subtitle line is the tooltip of 〔按歌词校准字幕〕, with why it cannot be pressed yet
+  const subs = song && autoState().subs && autoSubMode() === "local" && autoSubCount(c) != null ? autoSay("as-sub-line", { n: autoSubCount(c) }) : "";
   // a song card is 「{time} 那段 · 可能在唱歌」 until songs.js reaches the naming gate (Deja; auto-slices.js)
   return `<article class="as-clip${c.on ? "" : " off"}" data-as-card="${escapeHtml(c.id)}">
     <div class="as-clip-h"><input type="checkbox" data-as-act="toggle"${c.on ? " checked" : ""} aria-label="${autoSay("as-tick")}">
-      <div class="as-clip-main"><div class="as-clip-title"><span class="as-muted">${i + 1}.</span> <input type="text" data-as-act="rename" value="${escapeHtml(autoName(c))}" aria-label="${autoSay("as-rename")}">${c.on ? "" : `<span class="as-tag">${autoSay("as-spare")}</span>`}</div>
-        <div class="as-small">${autoSay(song && !c.title ? "as-song-name-hint" : "as-filename")}</div>
-        <div class="as-small">${autoSay(song ? "as-maybe-singing" : "as-a-moment")} · ${escapeHtml(autoDur(c.e - c.s))}</div>
-        ${why ? `<p class="as-why">${autoSay("as-why")}<b>${escapeHtml(why)}</b></p>` : ""}
-        ${song && autoState().subs && autoSubMode() === "local" && autoSubCount(c) != null ? `<span class="as-small as-subline" data-as-sub-line>${autoSay("as-sub-line", { n: autoSubCount(c) })}</span><span class="as-muted"> · </span>` : ""}
-        ${song ? `<div class="as-lyrics"><button type="button" class="btn tiny" data-as-lyrics disabled title="${autoSay("as-lyrics-soon")}">${autoSay(autoSongKey("as-lyrics"))}</button></div>` : ""}</div></div>
+      <div class="as-clip-main"><div class="as-clip-title"><span class="as-muted">${i + 1}.</span> <input type="text" data-as-act="rename" value="${escapeHtml(autoName(c))}" aria-label="${autoSay("as-rename")}" title="${autoSay("as-rename-tip")}">${c.on ? "" : `<span class="as-tag">${autoSay("as-spare")}</span>`}<span class="as-small as-kindline" data-as-kind-line>${autoSay(song ? "as-maybe-singing" : "as-a-moment")} · ${escapeHtml(autoDur(c.e - c.s))}</span></div>
+        ${i === 0 ? `<div class="as-small" data-as-name-hint>${autoSay("as-song-name-hint")}</div>` : ""}
+        ${why ? `<p class="as-why">${autoSay("as-why")}<b>${escapeHtml(why)}</b></p>` : ""}</div></div>
     ${c.on ? `<div class="as-trim">${autoEdgeHtml(c, "s")}${autoEdgeHtml(c, "e")}</div>` : `<p class="as-small">${autoSay("as-tick-to-adjust")}</p>`}
-    <div class="as-actions"><button type="button" class="btn tiny" data-as-act="play">${autoSay("as-play")}</button>
+    <div class="as-actions"><button type="button" class="btn tiny as-play" data-as-act="play">${autoSay("as-play")}</button>
       <button type="button" class="btn tiny" data-as-act="fine">${autoSay("as-fine")}</button>
-      <button type="button" class="btn tiny" data-as-act="drop">${autoSay("as-drop")}</button></div></article>`;
+      ${song ? `<button type="button" class="btn tiny" data-as-lyrics${subs ? " data-as-sub-line" : ""} disabled title="${[subs, autoSay("as-lyrics-soon")].filter(Boolean).join("\n")}">${autoSay(autoSongKey("as-lyrics"))}</button>` : ""}
+      <button type="button" class="as-drop" data-as-act="drop">${autoSay("as-drop")}</button></div></article>`;
 }
 function autoFooter() {
   const st = autoState(), f = AUTO.el && AUTO.el.querySelector("[data-as-footer]");

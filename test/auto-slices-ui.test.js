@@ -20,8 +20,8 @@ test("JJ's words for the bottom bar and what placing says",()=>{
  a.equal(zh('as-placed',{n:3}),'已把 3 条放到时间线上，可以接着细剪。');a.equal(zh('as-undo'),'撤销');
  a.deepEqual(['as-step-start','as-step-run','as-step-review','as-step-done'].map(k=>zh(k)),['选录像','找高光','看一遍','导出']);
  a.equal(zh('as-keep'),'关掉不会丢，下次接着看');a.equal(zh('as-start-title'),'从哪场直播出切片？');a.equal(zh('as-go'),'开始找高光');
- a.equal(zh('as-guess-start'),'开头是估的，可能差几秒到十几秒。点「▶ 听开头」听一下，不对就用旁边的 ± 秒挪一下');
- a.equal(zh('as-guess-end'),'结尾是估的，可能差几秒到十几秒。点「▶ 听结尾」听一下，不对就用旁边的 ± 秒挪一下');
+ // the two per-edge 估的 notes became one note above the cards (JJ's v11 visual review; see the last test)
+ a.equal(zh('as-guess-start'),'');a.equal(zh('as-guess-end'),'');
  a.equal(zh('as-found-head',{found:5,on:3}),'找到 5 条，先帮你勾了最好的 3 条');
 });
 test('every 自动出切片 string has English too, and the English is not the Chinese',()=>{
@@ -74,7 +74,9 @@ test('v9 (JJ final; Deja): below the gate every promise of telling songs apart s
  a.equal(zh('as-kind-hint-sing-maybe'),'会找可能在唱歌的段落，每段单独出一条。');a.equal(zh('as-kind-hint-sing'),'会一首歌一首歌地找，每首歌单独出一条。');
  a.equal(zh('as-len-hint-song-maybe'),'可能在唱歌的段落，每段出一条。');a.match(zh('as-len-hint-song'),/一首歌出一条/);
  a.equal(zh('as-run-songs-maybe'),'找哪几段可能在唱歌');a.equal(zh('as-run-songs'),'找每首歌大概从哪开始');
- a.equal(zh('as-song-name-hint'),'点上面的名字可以改，比如改成歌名。导出的文件就叫这个名字（名字不会出现在画面里）。');
+ // v12 (frozen, VV; Deja 2026-11-03): the hint beside the first name, and every name's tooltip
+ a.equal(zh('as-song-name-hint'),'点名字可以改，比如改成歌名。导出的文件就叫这个名字，名字不会出现在画面里。');
+ a.equal(zh('as-rename-tip'),'点了可以改。这是导出的文件名，不会出现在画面里。');a.equal(zh('as-filename'),'');
  for(const k of ['as-kind-hint-sing-maybe','as-len-hint-song-maybe','as-run-songs-maybe','as-lyrics-maybe'])a.ok(!/一首歌|第 ?\d+ ?首|每首/.test(zh(k)),k);
  const app=read('app.js'),i=app.indexOf('function autoSongKey(');a.ok(i>0);
  const gate=new Function('MontClipAutoSlices',app.slice(i,app.indexOf('\n}',i)+2)+'return autoSongKey;');
@@ -82,4 +84,35 @@ test('v9 (JJ final; Deja): below the gate every promise of telling songs apart s
  // JJ's re-review: the kind hint goes through autoKindHintKey (no danmaku → no 弹幕), which still asks the gate
  a.match(app,/autoSay\(autoKindHintKey\(st\.kind, pickedDm\)\)/);a.match(app,/autoSongKey\("as-kind-hint-" \+ kind\)/);a.match(app,/autoSay\(autoSongKey\("as-len-hint-" \+ st\.len\)\)/);
  a.match(app,/autoSay\(autoSongKey\("as-run-" \+ s\)\)/);a.match(app,/autoSay\(autoSongKey\("as-lyrics"\)\)/);
+});
+
+// JJ's v11 visual review (Deja, 2026-11-03): the long note under the strips is said once, above the cards, in JJ's words;
+// what the real window shows is checked by desktop/slice-cards-smoke.cjs
+test("JJ's v11 visual review: the 估的 note once, above the cards; the cards keep only their tags",()=>{
+ a.equal(zh('as-guess-note'),'标着「估的」的开头结尾，先点「▶ 听开头 / 听结尾」听一下再定。');
+ a.ok(en('as-guess-note')&&en('as-guess-note')!=='own.as-guess-note');
+ const app=read('app.js'),edge=app.slice(app.indexOf('function autoEdgeHtml'),app.indexOf('function autoCardHtml'));
+ a.ok(!/data-as-hint|class="as-guess"|class="as-likely"/.test(edge),'no note written under the strip');
+ a.match(read('desktop/slice-cards-smoke.cjs'),/SLICE_CARDS_PASS/);
+});
+
+// v12 (frozen: 原型-v12.html d289ff06…, 交互说明-v12.md d59748f7…): the card layout; the real window is checked by
+// desktop/slice-cards-smoke.cjs
+test('v12: a pencil on hovering a name, 〔▶ 试看〕 stronger, the lyrics button in the button row with the subtitle line as its tooltip',()=>{
+ const css=read('style.css'),app=read('app.js');
+ a.match(css,/\.auto-slices \.as-clip-title:hover::after \{[^}]*content: "✎"/);
+ a.match(css,/\.auto-slices \.as-play \{[^}]*font-weight: 600/);
+ const card=app.slice(app.indexOf('function autoCardHtml'),app.indexOf('function autoFooter'));
+ const actions=card.slice(card.indexOf('<div class="as-actions">'));
+ a.ok(actions.includes('data-as-lyrics')&&actions.indexOf('data-as-lyrics')<actions.indexOf('data-as-act="drop"'),'〔按歌词校准字幕〕 in the button row, before 不要这条');
+ a.ok(!/<span class="as-small as-subline"/.test(card),'no subtitle line of its own');
+});
+// Deja (2026-11-03): the software cannot hear laughter; nothing the streamer sees may say it found any — every string of the
+// interface in both languages, the page, the editor and the 自动出切片 modules (code comments in the string table and the
+// agent-facing MCP descriptions are not shown to the streamer)
+test('no wording the streamer sees mentions laughter (笑声)',()=>{
+ const walk=(v,out)=>{if(typeof v==='string')out.push(v);else if(v&&typeof v==='object')for(const x of Object.values(v))walk(x,out);return out;};
+ const strings=walk(V.text,[]);a.ok(strings.length>500,'the whole string table');
+ a.deepEqual(strings.filter(x=>/笑声|laugh/i.test(x)),[]);
+ for(const f of ['index.html','app.js','auto-slices.js','highlight-candidates.js','cindy-official.js'])a.ok(!/笑声|laugh/i.test(read(f)),f);
 });
