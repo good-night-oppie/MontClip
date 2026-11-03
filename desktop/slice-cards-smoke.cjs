@@ -107,13 +107,27 @@ BrowserWindow.prototype.loadURL=async function(...args){
     const ev=getComputedStyle(d.querySelector('.as-evidence')),ask=d.querySelector('[data-as-ask]'),as=getComputedStyle(ask),askBtn=ask.querySelector('button'),askTitle=ask.querySelector('b');
     const r={kindInTitle:!!kind&&title.contains(kind)&&same(kind,title.querySelector('input')),nudgesBeside:!!nb&&same(lbl,nb),
      play:Number(getComputedStyle(card.querySelector('[data-as-act=play]')).fontWeight)>=600,
-     lyrics:[...d.querySelectorAll('[data-as-card]')].filter(c=>autoClip(c.dataset.asCard).kind==='song').every(c=>!!c.querySelector('.as-actions [data-as-lyrics]')),
+     lyrics:d.querySelectorAll('[data-as-lyrics]').length===0,
      evidence:ev.borderLeftWidth==='2px'&&ev.borderLeftStyle==='solid'&&ev.color===getComputedStyle(d).color,
      ask:as.borderTopWidth==='1px'&&as.borderBottomWidth==='1px'&&as.borderLeftWidth==='0px'&&same(askTitle,askBtn),
      laugh:/笑声/.test(d.innerText)};
     st.ask=false;autoRender('review');return r;})()`);
   report.v12=v12;
   assert.deepEqual(v12,{kindInTitle:true,nudgesBeside:true,play:true,lyrics:true,evidence:true,ask:true,laugh:false});
+  // VV / Deja: 〔按歌词校准字幕〕 not in the page until the card can use it (checked above); once it can (stubbed here), the
+  // short words on the button and the long sentence in its tooltip, pressable
+  const lyr=await read(`(()=>{const keep=autoLyricsAvailable;autoLyricsAvailable=()=>true;autoRender('review');
+    const b=[...document.querySelectorAll('[data-as-card]')].filter(c=>autoClip(c.dataset.asCard).kind==='song').map(c=>c.querySelector('.as-actions [data-as-lyrics]'));
+    const r={all:b.length>0&&b.every(Boolean),text:b[0]&&b[0].textContent,title:b[0]&&b[0].title,disabled:!!b[0]&&b[0].disabled};
+    autoLyricsAvailable=keep;autoRender('review');r.goneAgain=document.querySelectorAll('[data-as-lyrics]').length===0;return r;})()`);
+  report.lyrics=lyr;
+  assert.deepEqual([lyr.all,lyr.text,lyr.title.includes(zh(require('../auto-slices').songsTrusted()?'as-lyrics':'as-lyrics-maybe')),lyr.disabled,lyr.goneAgain],[true,zh('as-lyrics'),true,false,true]);
+  // every disabled button of the dialog looks disabled: greyed, no hand cursor (nothing ticked: 放到时间线上 / 直接导出)
+  const dis=await read(`(()=>{const st=autoState(),keep=st.clips.map(c=>c.on);st.clips.forEach(c=>c.on=false);autoRender('review');
+    const d=document.querySelector('dialog.auto-slices'),out=[...d.querySelectorAll('button:disabled')].map(b=>{const s=getComputedStyle(b);return{name:b.dataset.asAct||b.textContent.trim().slice(0,12),opacity:+s.opacity,cursor:s.cursor};});
+    st.clips.forEach((c,i)=>c.on=keep[i]);autoRender('review');return out;})()`);
+  report.disabled=dis;
+  assert.ok(dis.length>=2&&dis.every(x=>x.opacity<=0.6&&x.cursor!=='pointer'),'disabled looks disabled: '+JSON.stringify(dis));
   // 4. blue: on the review page too
   report.blueReview=await read(BLUE);
   assert.deepEqual(report.blueStart,[],'start page: '+report.blueStart.join(' | '));

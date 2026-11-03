@@ -83,7 +83,7 @@ test('v9 (JJ final; Deja): below the gate every promise of telling songs apart s
  a.equal(gate({songsTrusted:()=>false})('as-kind-hint-sing'),'as-kind-hint-sing-maybe');a.equal(gate({songsTrusted:()=>true})('as-kind-hint-sing'),'as-kind-hint-sing');
  // JJ's re-review: the kind hint goes through autoKindHintKey (no danmaku → no 弹幕), which still asks the gate
  a.match(app,/autoSay\(autoKindHintKey\(st\.kind, pickedDm\)\)/);a.match(app,/autoSongKey\("as-kind-hint-" \+ kind\)/);a.match(app,/autoSay\(autoSongKey\("as-len-hint-" \+ st\.len\)\)/);
- a.match(app,/autoSay\(autoSongKey\("as-run-" \+ s\)\)/);a.match(app,/autoSay\(autoSongKey\("as-lyrics"\)\)/);
+ a.match(app,/autoSay\(autoSongKey\("as-run-" \+ s\)\)/);a.match(app,/autoSay\("as-lyrics"\)/);
 });
 
 // JJ's v11 visual review (Deja, 2026-11-03): the long note under the strips is said once, above the cards, in JJ's words;
@@ -105,6 +105,8 @@ test('v12: a pencil on hovering a name, 〔▶ 试看〕 stronger, the lyrics bu
  const card=app.slice(app.indexOf('function autoCardHtml'),app.indexOf('function autoFooter'));
  const actions=card.slice(card.indexOf('<div class="as-actions">'));
  a.ok(actions.includes('data-as-lyrics')&&actions.indexOf('data-as-lyrics')<actions.indexOf('data-as-act="drop"'),'〔按歌词校准字幕〕 in the button row, before 不要这条');
+ // VV / Deja: no button that looks pressable and does nothing — the lyrics button only while the card can use it
+ a.match(actions,/song && autoLyricsAvailable\(\) \?/);
  a.ok(!/<span class="as-small as-subline"/.test(card),'no subtitle line of its own');
 });
 // Deja (2026-11-03): the software cannot hear laughter; nothing the streamer sees may say it found any — every string of the
@@ -149,4 +151,14 @@ test('the name hint and the name tooltip in JJ\'s English; "in the video", never
  a.equal(en('as-song-name-hint'),"Click the name to change it, for example to the song title. The exported file is named after it; the name doesn't appear in the video.");
  a.equal(en('as-rename-tip'),"Click to rename. This is the exported file's name; it doesn't appear in the video.");
  a.deepEqual(Object.keys(V.text.en).filter(k=>k.startsWith('own.as-')&&/in the picture/i.test(V.text.en[k])),[]);
+});
+
+// VV on eef8a5b / Deja (2026-11-03): the card's 〔按歌词校准字幕〕 was disabled yet looked pressable. Until the card can calibrate
+// (the Transcript tab can, #85; the card is not wired to it), there is no button; once it can, the button says only
+// 按歌词校准字幕 and the long sentence is its tooltip. In this dialog nothing disabled looks pressable.
+test('the card\'s lyrics button: none until the card can use it; then short, the long sentence in its tooltip; disabled looks disabled',()=>{
+ const app=read('app.js'),css=read('style.css');
+ a.match(app,/function autoLyricsAvailable\(\) \{\s*return false;/);
+ a.equal(zh('as-lyrics'),'按歌词校准字幕');
+ a.match(css,/\.auto-slices button:disabled \{[^}]*opacity: \.45;[^}]*cursor: default;/);
 });
