@@ -61,12 +61,13 @@ const omittedShown=n=>{
  const pane=read('agent-ui/pane.tsx'),line=pane.indexOf('<p data-facts-omitted>');
  a.ok(line>0,'the line is in the review box');
  a.ok(line>pane.indexOf('</details>',pane.indexOf('<details data-facts-note>')),'outside the fold: seen without opening it');
- a.match(pane,/\{factsOmitted>0&&<p data-facts-omitted>\{t\.factsOmitted\.replace\('\{n\}',String\(factsOmitted\)\)\}<\/p>\}/);
+ // one clip: its own sentence (factsOmittedOne), as the strings with -one do elsewhere
+ a.match(pane,/\{factsOmitted>0&&<p data-facts-omitted>\{factsOmitted===1\?t\.factsOmittedOne:t\.factsOmitted\.replace\('\{n\}',String\(factsOmitted\)\)\}<\/p>\}/);
  a.match(pane,/setFactsOmitted\(options\.getFactsOmitted\?\.\(\)\|\|0\)/,'counted when the box opens');
  a.match(read('app.js'),/getFactsOmitted:\(\)=>MontClipFacts\.omitted\(projectJSON\(\)\)/);
  a.match(read('cindy-official.js'),/data-facts-omitted/,'the bundle was rebuilt');
- a.equal(View.text['zh-CN'].officialPane_factsOmitted.replace('{n}',String(n)),`有 ${n} 个片段的编号不认识，没有附上`);
- a.ok(View.text.en.officialPane_factsOmitted.includes('{n}'));
+ a.equal(View.text['zh-CN'].officialPane_factsOmitted.replace('{n}',String(n)),`有 ${n} 个片段这次没附上时间信息，AI 看不到它们在哪。不影响发送。`);
+ a.equal(View.text.en.officialPane_factsOmitted.replace('{n}',String(n)),`Timing for ${n} clips wasn't included, so the AI won't see where they are. Sending still works.`);
 };
 test('an id that is a path or a web address: not in the facts, and the box says how many were left out',()=>{
  const bad=['C:/Users/主播/Videos/a.flv','D:\录像\b.mp4','/media/私密/c.mp4','../media/d.mp4','https://example.com/v/e.mp4','file:///C:/f.mov'];
@@ -95,4 +96,15 @@ test('the facts and the proposals check ids by the same rule',()=>{
  a.equal(Facts.SHORT_ID.source,'^[A-Za-z0-9_-]{1,128}$');
  a.match(read('capabilities.js'),/clipId: \{ type: "string", pattern: "\^\[A-Za-z0-9_-\]\{1,128\}\$" \}/);
  a.ok(read('chat-proposal.js').includes('/'+Facts.SHORT_ID.source+'/.test(v)'),'chat-proposal.js identity()');
+});
+
+// JJ's final words (2026-11-03), as written; n = 1 in English says "it" (Deja's change for agreement). No 「编号」 / "IDs":
+// the streamer does not know clips have ids
+test('the left-out line in JJ\'s final words: one clip and several, in Chinese and English, never 编号 / IDs',()=>{
+ const zh=View.text['zh-CN'],en=View.text.en;
+ a.equal(zh.officialPane_factsOmittedOne,'有 1 个片段这次没附上时间信息，AI 看不到它在哪。不影响发送。');
+ a.equal(zh.officialPane_factsOmitted,'有 {n} 个片段这次没附上时间信息，AI 看不到它们在哪。不影响发送。');
+ a.equal(en.officialPane_factsOmittedOne,"Timing for 1 clip wasn't included, so the AI won't see where it is. Sending still works.");
+ a.equal(en.officialPane_factsOmitted,"Timing for {n} clips wasn't included, so the AI won't see where they are. Sending still works.");
+ for(const s of [zh.officialPane_factsOmittedOne,zh.officialPane_factsOmitted,en.officialPane_factsOmittedOne,en.officialPane_factsOmitted])a.ok(!/编号|IDs?\b/.test(s),s);
 });
