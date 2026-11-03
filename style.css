@@ -4853,7 +4853,7 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .auto-slices .as-head { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .auto-slices .as-stepper { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; font-size: 12px; }
 .auto-slices .as-stepper li { padding: 2px 8px; border-radius: 10px; color: var(--dim); }
-.auto-slices .as-stepper li.on { background: var(--panel-2); color: var(--text); font-weight: 600; }
+.auto-slices .as-stepper li.on { background: #7b6cff2e; color: var(--accent); font-weight: 600; }
 .auto-slices .as-stepper li.done { color: var(--text); }
 .auto-slices .as-spacer { flex: 1; }
 .auto-slices .as-keep, .auto-slices .as-small, .auto-slices .as-muted { color: var(--dim); font-size: 12px; }
@@ -4883,7 +4883,13 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .auto-slices .as-bar { height: 6px; border-radius: 3px; background: var(--well); margin-top: 10px; overflow: hidden; }
 .auto-slices .as-bar i { display: block; height: 100%; background: var(--dim); transition: width .3s; }
 .auto-slices .as-warn { color: #f4a261; }
-.auto-slices .as-evidence { font-size: 12px; color: var(--dim); margin: 6px 0; }
+/* v12: the evidence with a thin grey line on its left (orange, on a light ground, when there was no danmaku) */
+.auto-slices .as-evidence { font-size: 13px; color: var(--text); margin: 8px 0; padding: 2px 12px; border-left: 2px solid var(--dim); }
+.auto-slices .as-evidence.warn { border-left-color: #f4a261; background: var(--panel-2); }
+/* v12: the question on one line between two thin lines */
+.auto-slices .as-askline { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 10px 0; padding: 8px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.auto-slices .as-askline .as-askwhy { flex: 1 1 200px; }
+.auto-slices .as-askline .as-seg button { padding: 3px 12px; font-size: 13px; }
 .auto-slices .as-ov { margin: 10px 0; }
 .auto-slices .as-ov-svg { width: 100%; height: 70px; display: block; background: var(--well); border-radius: 4px; }
 .auto-slices .as-ov-loud { fill: #8b8b9340; stroke: #8b8b93; stroke-width: .6; vector-effect: non-scaling-stroke; }
@@ -4902,7 +4908,11 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .auto-slices .as-clip.focus { box-shadow: 0 0 0 2px var(--accent); }
 .auto-slices .as-clip-h { display: flex; gap: 10px; align-items: flex-start; }
 .auto-slices .as-clip-main { flex: 1; min-width: 0; }
-.auto-slices .as-clip-title input[type=text] { font-size: 14px; font-weight: 600; background: transparent; color: var(--text); border: 1px solid transparent; border-radius: 4px; padding: 2px 4px; width: min(420px, 70%); }
+/* v12: the kind line in the name row; a pencil while the name is under the pointer */
+.auto-slices .as-clip-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; }
+.auto-slices .as-clip-title:hover::after { content: "✎"; color: var(--dim); font-size: 13px; }
+.auto-slices .as-kindline { font-weight: 400; }
+.auto-slices .as-clip-title input[type=text] { font-size: 14px; font-weight: 600; background: transparent; color: var(--text); border: 1px solid transparent; border-radius: 4px; padding: 2px 4px; field-sizing: content; min-width: 4em; max-width: 100%; }
 .auto-slices .as-clip-title input[type=text]:hover, .auto-slices .as-clip-title input[type=text]:focus { border-color: var(--border); }
 .auto-slices .as-tag { font-size: 11px; border: 1px solid var(--border); border-radius: 8px; padding: 0 6px; margin-left: 6px; color: var(--dim); }
 .auto-slices .as-why { margin: 4px 0 0; font-size: 12px; }
@@ -4915,13 +4925,16 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .auto-slices .as-strip-l, .auto-slices .as-strip-r { position: absolute; bottom: 1px; font-size: 10px; color: var(--dim); }
 .auto-slices .as-strip-l { left: 4px; }
 .auto-slices .as-strip-r { right: 4px; }
-.auto-slices .as-nudges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+/* v12: the ± buttons on the row of the time, the strip under them */
+.auto-slices .as-edge-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; margin-bottom: 4px; }
+.auto-slices .as-nudges { display: flex; flex-wrap: wrap; gap: 4px; }
+.auto-slices .as-play { font-weight: 600; border-color: var(--dim); }
 .auto-slices .as-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
 /* JJ's v11 visual review: 不要这条 apart from the others — at the right edge, grey text */
 .auto-slices .as-drop { margin-left: auto; background: transparent; border: 0; padding: 2px 4px; color: var(--dim); font-size: 12px; cursor: pointer; }
 .auto-slices .as-drop:hover, .auto-slices .as-drop:focus-visible { color: var(--text); text-decoration: underline; }
-/* the 估的 note, once above the cards: a thin line on the left, body text */
-.auto-slices .as-guess-note { margin: 6px 0; padding-left: 8px; border-left: 2px solid #f4a261; font-size: 12px; color: var(--text); }
+/* the 估的 note, once under the overview, above the first card */
+.auto-slices .as-guess-note { margin: 10px 0 8px; font-size: 12px; color: var(--dim); }
 .auto-slices .as-clip.off .as-clip-title input { color: var(--dim); }
 .auto-slices .as-footer { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-top: 1px solid var(--border); background: var(--panel-head); flex-wrap: wrap; }
 .auto-slices .as-footer[hidden] { display: none; }
@@ -4937,14 +4950,11 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 #toast.has-action { pointer-events: auto; display: flex; align-items: center; gap: 10px; }
 .mc-auto-slices { white-space: nowrap; }
 .auto-slices .as-tag-estimated { color: #f4a261; border-color: #f4a261; }
-.auto-slices .as-tag-likely { color: #7ec249; border-color: #7ec249; }
-.auto-slices .as-lyrics { margin-top: 4px; }
+.auto-slices .as-tag-likely { color: var(--dim); border-color: var(--border); }
 .auto-slices .as-tag-adjusted { color: var(--dim); border-color: var(--border); }
 
 /* v10: subtitles in 自动出切片 */
 .auto-slices .as-check { display: inline-flex; gap: 6px; align-items: center; }
-.auto-slices .as-subline { margin-right: 2px; }
-.auto-slices .as-subline + .as-muted + .as-lyrics { display: inline-block; }
 
 /* P5: caption size and position in one go (app.js captionQuick*): the Inspector's top and the 〔字幕大小〕 dialog */
 .cq-panel { border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; margin: 0 0 10px; }

@@ -10552,22 +10552,21 @@ function autoReviewHtml() {
   const dur = st.recs.reduce((x, r) => x + r.duration, 0), dm = st.recs.reduce((x, r) => x + (r.danmaku || 0), 0);
   const head = !found ? autoSay("as-found-none") : on === found ? autoSay("as-found-all", { found }) : autoSay("as-found-head", { found, on });
   const evidence = dm ? autoSay("as-evidence", { count: dm.toLocaleString(), dur: autoDur(dur), n: found }) : autoSay("as-evidence-nodm", { dur: autoDur(dur), n: found });
-  // v11 visual review (JJ): what every card used to repeat is said once — the name hint on the first card (the other cards
-  // keep it as the tooltip of the name), the 估的 note above the cards (also the tooltip of every 估的 tag)
-  const nameHint = autoSay(st.clips.some((c) => c.kind === "song" && !c.title) ? "as-song-name-hint" : "as-filename");
+  // v12 (frozen; JJ's visual review): what every card used to repeat is said once — the name hint on the first card, the
+  // 估的 note under the first overview, above the first card (also the tooltip of every 估的 tag)
   const guessed = st.clips.some((c) => c.on && ["s", "e"].some((w) => MontClipAutoSlices.edgeLevel(c, w) === "estimated"));
+  const note = guessed ? `<p class="as-guess-note" data-as-guess-note>${autoSay("as-guess-note")}</p>` : "";
   let no = 0;
   const cards = st.recs.map((rec) => {
     const mine = st.clips.filter((c) => c.mediaId === rec.mediaId);
     if (!mine.length) return "";
-    const start = no + 1, html = autoOverviewHtml(rec, mine, start) + mine.map((c) => autoCardHtml(c, no++, nameHint)).join("");
+    const start = no + 1, html = autoOverviewHtml(rec, mine, start) + (no === 0 ? note : "") + mine.map((c) => autoCardHtml(c, no++)).join("");
     return html;
   }).join("");
   return `<div class="as-row"><div><h1>${head}</h1><p class="as-sub">${autoSay(found ? "as-review-sub" : "as-found-none-next", { name: names })}</p></div>
       <button type="button" class="btn" data-as-act="back-start">${autoSay("as-back-start")}</button></div>
-    <div class="as-evidence">${evidence}</div>
-    ${guessed ? `<p class="as-guess-note" data-as-guess-note>${autoSay("as-guess-note")}</p>` : ""}
-    ${st.ask ? `<section class="as-card-box" data-as-ask><b>${autoSay("as-ask-title")}</b><p class="as-small">${autoSay("as-ask-sub")}</p>
+    <div class="as-evidence${dm ? "" : " warn"}">${evidence}</div>
+    ${st.ask ? `<section class="as-askline" data-as-ask><b>${autoSay("as-ask-title")}</b><span class="as-small as-askwhy">${autoSay("as-ask-sub")}</span>
       <div class="as-seg"><button type="button" data-as-act="ask" data-as-v="sing">${autoSay("as-ask-sing")}</button><button type="button" data-as-act="ask" data-as-v="chat">${autoSay("as-ask-chat")}</button><button type="button" data-as-act="ask" data-as-v="auto">${autoSay("as-ask-both")}</button></div></section>` : ""}
     ${st.few ? `<section class="as-card-box"><b>${autoSay("as-few", st.few)}</b><p class="as-small">${autoSay("as-few-sub", { signals: uiText(dm ? "own.as-sig-both" : "own.as-sig-sound") })}</p></section>` : ""}
     <div data-as-cards>${cards}</div>
@@ -10597,29 +10596,29 @@ function autoWave(c, w) {
   return `<svg class="as-mini" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(" ")}"/></svg>`;
 }
 function autoEdgeHtml(c, w) {
-  // v8: a level beside each time — 比较可能, 估的, 你调过 while moved. v11 visual review (JJ): only the tag on the card; what
-  // it means is its tooltip (估的: the note said once above the cards; 你调过: none)
+  // v8: a level beside each time — 比较可能, 估的, 你调过 while moved. v12: only the tag on the card, what it means is its
+  // tooltip (估的: the note said once above the cards; 你调过: none); the ± buttons on the row of the time
   const lbl = w === "s" ? "start" : "end", t = w === "s" ? c.s : c.e, level = MontClipAutoSlices.edgeLevel(c, w);
   const tip = level === "estimated" ? autoSay("as-guess-note") : level === "likely" ? autoSay("as-likely-" + lbl) : "";
   const nb = (d) => `<button type="button" class="btn tiny" data-as-act="nudge" data-as-w="${w}" data-as-d="${d}">${d > 0 ? "+" : "−"}${autoSay("as-sec", { d: Math.abs(d) })}</button>`;
-  return `<div class="as-edge" data-as-edge="${w}"><div class="as-lbl">${autoSay("as-" + lbl)} <b data-as-tc>${escapeHtml(MontClipAutoSlices.hms(t))}</b> <span class="as-tag as-tag-${level}" data-as-level="${level}"${tip ? ` title="${tip}"` : ""}>${autoSay("as-tag-" + level)}</span></div>
-    <div class="as-strip" data-as-act="drag" data-as-w="${w}" title="${autoSay("as-drag-" + lbl)}">${autoWave(c, w)}<i class="as-hand"></i><span class="as-strip-l">${autoSay("as-early")}</span><span class="as-strip-r">${autoSay("as-late")}</span></div>
-    <div class="as-nudges">${nb(-5)}${nb(-1)}${nb(1)}${nb(5)}<button type="button" class="btn tiny" data-as-act="listen" data-as-w="${w}">${autoSay("as-listen-" + lbl)}</button></div></div>`;
+  return `<div class="as-edge" data-as-edge="${w}"><div class="as-edge-row"><div class="as-lbl">${autoSay("as-" + lbl)} <b data-as-tc>${escapeHtml(MontClipAutoSlices.hms(t))}</b> <span class="as-tag as-tag-${level}" data-as-level="${level}"${tip ? ` title="${tip}"` : ""}>${autoSay("as-tag-" + level)}</span></div>
+    <div class="as-nudges">${nb(-5)}${nb(-1)}${nb(1)}${nb(5)}<button type="button" class="btn tiny" data-as-act="listen" data-as-w="${w}">${autoSay("as-listen-" + lbl)}</button></div></div>
+    <div class="as-strip" data-as-act="drag" data-as-w="${w}" title="${autoSay("as-drag-" + lbl)}">${autoWave(c, w)}<i class="as-hand"></i><span class="as-strip-l">${autoSay("as-early")}</span><span class="as-strip-r">${autoSay("as-late")}</span></div></div>`;
 }
-function autoCardHtml(c, i, nameHint) {
+function autoCardHtml(c, i) {
   const song = c.kind === "song", why = c.reasons.map((r) => highlightReasonText(r).text).join(" · ");
+  // v12: the subtitle line is the tooltip of 〔按歌词校准字幕〕, with why it cannot be pressed yet
+  const subs = song && autoState().subs && autoSubMode() === "local" && autoSubCount(c) != null ? autoSay("as-sub-line", { n: autoSubCount(c) }) : "";
   // a song card is 「{time} 那段 · 可能在唱歌」 until songs.js reaches the naming gate (Deja; auto-slices.js)
   return `<article class="as-clip${c.on ? "" : " off"}" data-as-card="${escapeHtml(c.id)}">
     <div class="as-clip-h"><input type="checkbox" data-as-act="toggle"${c.on ? " checked" : ""} aria-label="${autoSay("as-tick")}">
-      <div class="as-clip-main"><div class="as-clip-title"><span class="as-muted">${i + 1}.</span> <input type="text" data-as-act="rename" value="${escapeHtml(autoName(c))}" aria-label="${autoSay("as-rename")}" title="${nameHint}">${c.on ? "" : `<span class="as-tag">${autoSay("as-spare")}</span>`}</div>
-        ${i === 0 ? `<div class="as-small" data-as-name-hint>${nameHint}</div>` : ""}
-        <div class="as-small">${autoSay(song ? "as-maybe-singing" : "as-a-moment")} · ${escapeHtml(autoDur(c.e - c.s))}</div>
-        ${why ? `<p class="as-why">${autoSay("as-why")}<b>${escapeHtml(why)}</b></p>` : ""}
-        ${song && autoState().subs && autoSubMode() === "local" && autoSubCount(c) != null ? `<span class="as-small as-subline" data-as-sub-line>${autoSay("as-sub-line", { n: autoSubCount(c) })}</span><span class="as-muted"> · </span>` : ""}
-        ${song ? `<div class="as-lyrics"><button type="button" class="btn tiny" data-as-lyrics disabled title="${autoSay("as-lyrics-soon")}">${autoSay(autoSongKey("as-lyrics"))}</button></div>` : ""}</div></div>
+      <div class="as-clip-main"><div class="as-clip-title"><span class="as-muted">${i + 1}.</span> <input type="text" data-as-act="rename" value="${escapeHtml(autoName(c))}" aria-label="${autoSay("as-rename")}" title="${autoSay("as-rename-tip")}">${c.on ? "" : `<span class="as-tag">${autoSay("as-spare")}</span>`}<span class="as-small as-kindline" data-as-kind-line>${autoSay(song ? "as-maybe-singing" : "as-a-moment")} · ${escapeHtml(autoDur(c.e - c.s))}</span></div>
+        ${i === 0 ? `<div class="as-small" data-as-name-hint>${autoSay("as-song-name-hint")}</div>` : ""}
+        ${why ? `<p class="as-why">${autoSay("as-why")}<b>${escapeHtml(why)}</b></p>` : ""}</div></div>
     ${c.on ? `<div class="as-trim">${autoEdgeHtml(c, "s")}${autoEdgeHtml(c, "e")}</div>` : `<p class="as-small">${autoSay("as-tick-to-adjust")}</p>`}
-    <div class="as-actions"><button type="button" class="btn tiny" data-as-act="play">${autoSay("as-play")}</button>
+    <div class="as-actions"><button type="button" class="btn tiny as-play" data-as-act="play">${autoSay("as-play")}</button>
       <button type="button" class="btn tiny" data-as-act="fine">${autoSay("as-fine")}</button>
+      ${song ? `<button type="button" class="btn tiny" data-as-lyrics${subs ? " data-as-sub-line" : ""} disabled title="${[subs, autoSay("as-lyrics-soon")].filter(Boolean).join("\n")}">${autoSay(autoSongKey("as-lyrics"))}</button>` : ""}
       <button type="button" class="as-drop" data-as-act="drop">${autoSay("as-drop")}</button></div></article>`;
 }
 function autoFooter() {
