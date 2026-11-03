@@ -108,6 +108,8 @@ function createProjects({ dataDir, projectFile, libraryDir }) {
     writeJSON(projectFile, { ...doc, revision: Math.max(cur.revision || 0, doc.revision || 0) + 1 });
   };
 
+  // width / height / fps come from the project file, which an agent, another tool or a backup can write: numbers only (QQ)
+  const positive = (x) => { const n = Number(x); return x !== null && x !== "" && Number.isFinite(n) && n > 0 ? n : null; };
   function summary(id, active) {
     const meta = readMeta(id) || { id };
     let doc = null, modified = null;
@@ -116,10 +118,10 @@ function createProjects({ dataDir, projectFile, libraryDir }) {
     let thumb = null;
     try { thumb = Math.round(fs.statSync(thumbFile(id)).mtimeMs); } catch { }
     return {
-      id, name: doc?.name || "Untitled Project", active: id === active,
+      id, name: doc?.name || "未命名项目", active: id === active,
       archived: !!meta.archived, notes: meta.notes || "", tags: meta.tags || [],
       created: meta.created || null, opened: meta.opened || null, modified,
-      width: doc?.width ?? null, height: doc?.height ?? null, fps: doc?.fps ?? null,
+      width: positive(doc?.width), height: positive(doc?.height), fps: positive(doc?.fps),
       duration: doc ? +timelineEnd(doc).toFixed(2) : null,
       clips: doc?.clips?.length ?? 0, media: doc?.media?.length ?? 0,
       thumb, unreadable: !doc,
@@ -164,7 +166,7 @@ function createProjects({ dataDir, projectFile, libraryDir }) {
   function add(doc, { name, notes, tags, template } = {}) {
     const id = newId();
     const now = new Date().toISOString();
-    const out = { ...doc, name: cleanName(name) || doc.name || "Untitled Project", revision: 0 };
+    const out = { ...doc, name: cleanName(name) || doc.name || "未命名项目", revision: 0 };
     writeJSON(docFile(id), out);
     const meta = { id, created: now, opened: null, archived: false, notes: String(notes || "").slice(0, MAX_NOTES), tags: cleanTags(tags) };
     if (template) meta.template = template;
@@ -195,7 +197,7 @@ function createProjects({ dataDir, projectFile, libraryDir }) {
       if (!Number.isInteger(v) || v < 16 || v > 8192 || v % 2) throw new Error(`${k} must be an even number of pixels, 16…8192`);
       doc[k] = v;
     }
-    const id = add(doc, { name: cleanName(name) || "Untitled Project", notes, tags, template: t.id });
+    const id = add(doc, { name: cleanName(name) || "未命名项目", notes, tags, template: t.id });
     return andOpen ? open(id) : { id, project: summary(id, activeId()) };
   }
 
@@ -203,7 +205,7 @@ function createProjects({ dataDir, projectFile, libraryDir }) {
     mustExist(id);
     const src = readDoc(id);
     const meta = readMeta(id) || {};
-    const nid = add(structuredClone(src), { name: cleanName(name) || `${src.name || "Untitled Project"} copy`, notes: meta.notes, tags: meta.tags });
+    const nid = add(structuredClone(src), { name: cleanName(name) || `${src.name || "未命名项目"} copy`, notes: meta.notes, tags: meta.tags });
     try { fs.copyFileSync(thumbFile(id), thumbFile(nid)); } catch { }
     return andOpen ? open(nid) : { id: nid, project: summary(nid, activeId()) };
   }

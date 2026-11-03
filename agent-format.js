@@ -10,7 +10,8 @@ const FORMAT_NOTE=[
  'When the user asks to keep, cut down to or choose some of those sentences, reply with only this JSON and nothing else (no code fence, no explanation):',
  '{"type":"keep_sentences","ranges":[{"clipId":"<clipId>","sourceCaptionId":"<sourceCaptionId>","from":<start>,"to":<end>}]}',
  'Use one range per sentence to keep, in the order the user wants; copy clipId, sourceCaptionId, start (as from) and end (as to) exactly from that sentence in references; never invent or change values.',
- 'For any other question, answer briefly in the user\'s language without that JSON.'
+ 'For any other question, answer briefly in the user\'s language without that JSON.',
+ 'Never write field names such as clipId, sourceCaptionId, start, end, from or to in a reply meant for the user; refer to a sentence by its text.'
 ].join('\n');
 function withFormat(messages){return [{role:'system',content:FORMAT_NOTE}].concat(messages);}
 // The request body. The review dialog shows body(model, withFormat(messages)) and the service
