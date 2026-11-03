@@ -5,12 +5,18 @@
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.MontClipFormat=factory();})(typeof globalThis!=='undefined'?globalThis:this,function(){
 'use strict';
 const FORMAT_NOTE=[
- 'You help edit a video by its subtitles in MontClip.',
- 'The user message may end with a JSON object {"references":[...]} listing subtitle sentences the user selected; each has clipId, sourceCaptionId, start, end and text.',
- 'When the user asks to keep, cut down to or choose some of those sentences, reply with only this JSON and nothing else (no code fence, no explanation):',
+ 'You help edit a video in MontClip.',
+ 'The user message may end with a JSON object {"references":[...],"facts":{...}}.',
+ 'references lists subtitle sentences or a time range the user selected; a sentence has clipId, sourceCaptionId, start, end and text.',
+ 'facts describes the timeline with numbers only: clips (clipId, kind, mediaDuration, from and to = the part of the recording the clip shows, start = where it begins on the timeline) and, when known, highlights (clipId, from, to, score). Their times are seconds of the recording, not of the timeline.',
+ 'When the user asks to keep, cut down to or choose some of the referenced sentences, reply with only this JSON and nothing else (no code fence, no explanation):',
  '{"type":"keep_sentences","ranges":[{"clipId":"<clipId>","sourceCaptionId":"<sourceCaptionId>","from":<start>,"to":<end>}]}',
  'Use one range per sentence to keep, in the order the user wants; copy clipId, sourceCaptionId, start (as from) and end (as to) exactly from that sentence in references; never invent or change values.',
- 'For any other question, answer briefly in the user\'s language without that JSON.'
+ 'When the user asks to keep parts of the recording by time (a total length, every song, the highlights), reply with only this JSON and nothing else:',
+ '{"type":"keep_ranges","output_mode":"<one_file or per_range>","ranges":[{"clipId":"<clipId from facts.clips>","from":<seconds>,"to":<seconds>,"label":"<short name, optional>"}]}',
+ 'from and to are seconds of that clip\'s recording and must lie inside its from and to in facts; ranges must not overlap; each lasts at least half a second; at most 100 ranges, in the order to keep them.',
+ 'output_mode one_file joins the ranges into one video; per_range makes each range its own clip and file, named by its label (for example one clip per song).',
+ 'For any other question, answer briefly in the user\'s language without JSON.'
 ].join('\n');
 function withFormat(messages){return [{role:'system',content:FORMAT_NOTE}].concat(messages);}
 // The request body. The review dialog shows body(model, withFormat(messages)) and the service

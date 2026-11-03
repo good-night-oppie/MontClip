@@ -12,7 +12,7 @@ function referenceChips(kind,context){
 function displayMessage(value){
  const fallback={text:value,references:[]};if(typeof value!=='string')return fallback;
  const at=value.lastIndexOf('\n\n');if(at<0)return fallback;
- try{const v=JSON.parse(value.slice(at+2));if(!v||Object.keys(v).join(',')!=='references'||!Array.isArray(v.references)||v.references.length>20||!v.references.every(r=>r&&typeof r.projectId==='string'&&r.projectId.length>0&&schema.reference(r,r)))return fallback;return{text:value.slice(0,at),references:v.references};}catch{return fallback;}
+ try{const v=JSON.parse(value.slice(at+2)),k=v&&typeof v==='object'?Object.keys(v).join(','):'';if(!v||k!=='references'&&!(k==='references,facts'&&v.facts&&typeof v.facts==='object'&&!Array.isArray(v.facts))||!Array.isArray(v.references)||v.references.length>20||!v.references.every(r=>r&&typeof r.projectId==='string'&&r.projectId.length>0&&schema.reference(r,r)))return fallback;return{text:value.slice(0,at),references:v.references};}catch{return fallback;}
 }
 function create({storage}={}){const scopes=new Map();let scope=null,next=0,count=0,token=null,dirty=false,persisted={ok:true,code:'VOLATILE'};
  if(storage){try{const r=storage.get();if(!r.ok||typeof r.token!=='string'||!r.token||!schema.valid(r.value))throw Error();token=r.token;for(const s of r.value.scopes){scopes.set(JSON.stringify([s.projectId,null,s.sequenceId]),JSON.parse(JSON.stringify(s)));count+=s.sessions.length;for(const item of s.sessions)next=Math.max(next,Number(item.id));}persisted={ok:true,code:'SAVED'};}catch{persisted={ok:false,code:'SESSION_READ_FAILED'};}}
