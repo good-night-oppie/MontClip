@@ -27,12 +27,20 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
      sections:sections.map(s=>({formatNote:s.hasAttribute('data-format-note'),label:(s.querySelector('summary')||s.querySelector('strong')).textContent,text:(s.querySelector('pre')||s.querySelector('p')).textContent})),
      explain:(()=>{const e=d.querySelector('[data-format-explain]');return e?{text:e.textContent,visible:e.offsetHeight>0}:null;})(),
      folded:!d.querySelector('[data-format-details]')?.open,
-     raw,expectedNote:MontClipFormat.FORMAT_NOTE};})()`);
+     raw,expectedNote:MontClipFormat.FORMAT_NOTE,
+     // what a message reads as in the box: the text without the trailing {"references","facts"} JSON (#71, ce86d17), which
+     // the box names in its facts note instead; the exact JSON is in the raw request
+     shown:raw.messages.map(m=>MontClipAgentPane.displayMessage(m.content).text),facts:MontClipAgentPane.messageFacts(raw.messages.at(-1).content),
+     factsNote:!!d.querySelector('[data-facts-note]')};})()`);
    if(!r)throw Error('review dialog did not open');
    const checks={
     sameCount:r.sections.length===r.raw.messages.length,
     noteFirst:r.sections[0].formatNote&&r.raw.messages[0].role==='system'&&r.raw.messages[0].content===r.expectedNote&&r.sections[0].text===r.expectedNote,
-    messagesInOrder:r.raw.messages.slice(1).every((m,i)=>m.role==='user'&&r.sections[i+1].text.trim()===m.content.trim()),
+    messagesInOrder:r.raw.messages.slice(1).every((m,i)=>m.role==='user'&&r.sections[i+1].text.trim()===r.shown[i+1].trim()),
+    // and nothing else is hidden: what is left out of the text is the JSON at the end, and the box says it is sent
+    onlyEnvelopeHidden:r.raw.messages.slice(1).every((m,i)=>{const t=r.shown[i+1];if(m.content===t)return true;const rest=m.content.slice(m.content.indexOf(t)+t.length).trim();
+      try{const o=JSON.parse(rest);return m.content.startsWith(t)&&Object.keys(o).every(k=>k==='references'||k==='facts');}catch{return false;}}),
+    factsNamed:!r.facts||r.factsNote,
     // QQ 2026-11-02: the summary names the format note; the earlier-message count it states is the real one
     summaryNamesNote:/格式说明|formatting note/i.test(r.summary)&&r.summary.includes(String(r.raw.messages.length-2)),
     rawFields:JSON.stringify(Object.keys(r.raw).sort())==='["max_tokens","messages","model","stream"]'&&r.raw.model==='vendor/model-x:free'&&r.raw.stream===false&&r.raw.max_tokens===2048,
