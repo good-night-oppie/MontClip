@@ -32,6 +32,8 @@ test('off: nothing is kept and nothing is used; on again, the old ones are back;
  s.setEnabled(true);a.equal(s.records().length,2);
  a.equal(s.clear().ok,true);a.deepEqual(s.status(),{enabled:true,count:0});a.deepEqual(s.records(),[]);
  a.deepEqual(Store.create({dir}).status(),{enabled:true,count:0},'emptied on disk too');
+ // 〔清空〕 deletes the record files themselves (Deja): only the on/off switch is left
+ a.deepEqual(fs.readdirSync(path.join(dir,'corrections')),['settings.json']);
 });
 
 test('bounded: the newest are kept',()=>{

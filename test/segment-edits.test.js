@@ -22,6 +22,8 @@ test('set_segment_kind: the card’s kind changes, nothing else; undone, the car
  a.deepEqual(r.cards.map(c=>c.kind),['other','moment']);a.equal(r.cards[0].s,100);
  a.deepEqual(r.event,{capability:'set_segment_kind',args:{id:'m1_s1',kind:'other'}});
  a.deepEqual(r.correction,{type:'kind',from:'song',to:'other'});
+ // made 唱歌: its start and end stay where they are (Deja)
+ const s=E.setKind(before,{id:'m1_m50',kind:'song'});a.deepEqual([s.cards[1].s,s.cards[1].e,s.cards[1].kind],[50,80,'song']);
  a.deepEqual(E.undo(r.cards,r.undo),before);
  a.deepEqual(before,cards(),'the input is not changed');
  a.equal(E.setKind(before,{id:'nope',kind:'song'}).code,'SEGMENT_UNKNOWN');
