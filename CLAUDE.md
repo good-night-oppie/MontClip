@@ -2244,7 +2244,9 @@ Request bodies are limited: 1 MB, except `PUT /api/project` (64 MB), `POST /api/
 - `GET  /api/presets` · `GET /api/templates` — the saved presets / templates, validated (bad files skipped);
   `POST /api/presets {preset}` · `POST /api/templates {template}` — validate one and save it as
   `library/presets/<id>.json` / `library/templates/<id>.json`, returning `{id, name, file}`
-- `POST /api/upload?name=foo.mp4` — raw body saved into ./media, returns `{src}`.
+- `POST /api/upload?name=foo.mp4` — raw body saved into ./media, returns `{src}`. The file keeps its name,
+  Chinese included; only what Windows refuses changes (`Delivery.mediaFileName`, the rule exported files follow), and
+  a name already taken gets `_1`, `_2`, …. URL imports and `fablecut_import_media` name their files the same way.
   MP4/MOV/M4V uploads are auto-remuxed with `+faststart` (needs ffmpeg on PATH).
   Files copied straight into ./media by external tools skip this — remux big ones
   yourself (`ffmpeg -i in.mp4 -c copy -movflags +faststart out.mp4`) or playback stalls.
@@ -2776,7 +2778,7 @@ SRT/WebVTT parsing preserves the full normalized cue body instead of truncating 
 
 ### Highlight candidate cards (P2, MontClip)
 
-The Transcript tab's **高光候选 / Highlight candidates** reads local signals only and runs no model. The signals are the timeline's sentences (caption clips), the loudness of each sounding clip's file (read once by the server through ffmpeg as a stream, 8 kHz mono, 0.5 s bins, cached in `analysis/signals/` per file version — `GET /api/signals/loudness?src=` — and mapped onto the timeline through start, in point, speed, volume and gain; without a server, the mix itself in 60 s pieces), and `project.danmaku` (`[{t}]`) when present. It shows up to 12 candidate ranges, best first, each with reasons that name the signal, the value, the baseline and the window. `highlight-candidates.js` holds the pure logic. **Go to** only moves the playhead; **Keep the ticked ones** keeps the ranges through the range engine as one undo step. With nothing to go on, it says why. Design and clean-room exception: `docs/decisions/2026-11-02-p2-highlight-cards.md`.
+The Transcript tab's **高光候选 / Highlight candidates** reads local signals only and runs no model. The signals are the timeline's sentences (caption clips), the loudness of each sounding clip's file (read once by the server through ffmpeg as a stream, 8 kHz mono, 0.5 s bins, cached in `analysis/signals/` per file version — `GET /api/signals/loudness?src=` — and mapped onto the timeline through start, in point, speed, volume and gain; without a server, the mix itself in 60 s pieces), and `project.danmaku` (`[{t}]`) when present — the editor keeps `project.danmaku` as it is through load and save (every field of every entry). It shows up to 12 candidate ranges, best first, each with reasons that name the signal, the value, the baseline and the window. `highlight-candidates.js` holds the pure logic. **Go to** only moves the playhead; **Keep the ticked ones** keeps the ranges through the range engine as one undo step. With nothing to go on, it says why. Design and clean-room exception: `docs/decisions/2026-11-02-p2-highlight-cards.md`.
 
 ### MontClip view preferences
 
