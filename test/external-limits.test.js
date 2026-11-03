@@ -59,3 +59,14 @@ test('the page gets the caps read-only with the table',()=>{
  const main=require('node:fs').readFileSync(require('node:path').join(__dirname,'..','desktop','main.js'),'utf8');
  a.match(main,/risk: c\.risk, summary: c\.summary, schema: c\.schema, limits: Capabilities\.limits\(c\.name\)/);
 });
+
+test('the refusal says by how much, in both languages; the page never shortens what it sends',()=>{
+ const View=require('../ui-preferences'),src=require('node:fs').readFileSync(require('node:path').join(__dirname,'..','app.js'),'utf8');
+ const i=src.indexOf('function byteText'),body=src.slice(i,src.indexOf('/** The plain summary of a proposal',i));
+ const run=new Function('uiText',body+'return {byteText,agentRefusalText};')((k,v)=>View.t('zh-CN',k,v));
+ a.equal(run.byteText(131072),'128 KB');a.equal(run.byteText(4194304),'4 MB');a.equal(run.byteText(26214400),'25 MB');a.equal(run.byteText(10),'1 KB');
+ a.equal(run.agentRefusalText({code:'SEND_TOO_LARGE',limit:131072,over:10240},141312),'这次要发出去的有 138 KB，每次最多 128 KB，超了 10 KB。没有发送，也不会截短了再发。');
+ a.equal(run.agentRefusalText({code:'SCOPE_LIMIT',limit:4194304,over:2048,used:4194304-1024},3072),'这个聊天已经发出去 4 MB，再发这 3 KB 就超过 4 MB 的上限，超了 2 KB。没有发送，也不会截短了再发。');
+ for(const k of ['ap-too-large','ap-scope-limit'])a.ok(!/[一-鿿]/.test(View.t('en','own.'+k)),k);
+ a.ok(!/\.slice\(|substring\(|truncat/i.test(body),'no cutting down');
+});

@@ -6,7 +6,7 @@ const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('no
 const Cap=require('../capabilities'),TOOLS=require('../mcp-tools');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 
-test('every MCP tool, both proposal shapes and the host's three sends are in the table, nothing else',()=>{
+test('every MCP tool, both proposal shapes and the host’s three sends are in the table, nothing else',()=>{
  const names=Cap.list().map(c=>c.name).sort();
  // the sends the host makes itself, each with its caps (Deja, #83): the assistant, the song lookup, cloud transcription
  a.deepEqual(names,[...TOOLS.map(t=>t.name),'keep_ranges','keep_sentences','assistant_request','song_lookup','cloud_transcribe'].sort());

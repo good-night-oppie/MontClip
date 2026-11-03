@@ -71,7 +71,7 @@ test('external: content and target shown in every mode; Yolo still shows it, and
  a.equal(d('yolo',UNDO).showContent,false);
 });
 
-test('external caps: per send and per scope, the capability's own (capabilities.js), in every mode, Yolo too',()=>{
+test('external caps: per send and per scope, the capability’s own (capabilities.js), in every mode, Yolo too',()=>{
  const L=Cap.limits(EXT);
  for(const mode of P.MODES){
   a.equal(d(mode,EXT,{bytes:L.perSend+1}).code,'SEND_TOO_LARGE',mode);
