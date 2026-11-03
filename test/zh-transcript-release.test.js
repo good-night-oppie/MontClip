@@ -28,9 +28,9 @@ test("JJ's review: captions last", () => {
 });
 
 // #70 (Deja, 2026-11-03): on-device transcription is in this release now, so the empty panel no longer says it is being developed
-test("(b) the empty-panel line (new copy, for JJ)", () => {
-  a.equal(zh['own.tr-empty'], '先听写，或者导入 SRT 字幕文件，文稿就会显示在这里。');
-  a.equal(en['own.tr-empty'], 'Transcribe, or import an SRT subtitle file, and the transcript will show here.');
+test("(b) the empty-panel line (JJ v2)", () => {
+  a.equal(zh['own.tr-empty'], '还没有文稿。点「听写选中的」，把选中的片段听写成文字。');   // JJ v2 (听写文案定稿)
+  a.equal(en['own.tr-empty'], 'No transcript yet. Click "Transcribe selected" to turn the selected clips into text.');
 });
 
 test("JJ's review: the transcript feature did not load", () => {

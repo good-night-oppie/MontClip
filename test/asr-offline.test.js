@@ -104,3 +104,30 @@ test('the real engine on the model\'s own public test sentence (only where deskt
   a.ok(r.words.every((w, i) => w[2] >= w[1] && (!i || w[1] >= r.words[i - 1][1])));
 });
 
+// JJ's final copy (documents/2026-11-03-MontClip-听写文案定稿-JJ.md, v2) for what #70 shows: the model line of the
+// Transcript tab, the download states and the empty panel. The first-run page with three choices, the cloud choice and
+// 设置 › 听写 are not in #70.
+test('JJ v2: the download states and the empty panel, word for word', () => {
+  const V = require('../ui-preferences'), zh = (k, v) => V.t('zh-CN', 'own.' + k, v);
+  a.equal(zh('asr-missing'), '第一次要联网下载一个听写模型，大约 230 MB，只下载这一次。下载完以后，听写全程在这台电脑上做，声音不会发出去。');
+  a.equal(zh('asr-download'), '下载并使用（约 230 MB）');
+  a.equal(zh('asr-downloading', { got: '12 MB' }), '正在下载听写模型：12 MB / 约 230 MB。可以先去剪辑，下载完会告诉你。');
+  a.equal(zh('asr-download-cancel'), '取消下载');
+  a.equal(zh('asr-ready'), '听写模型装好了。以后听写都在这台电脑上做，不用再联网。');
+  a.equal(zh('asr-interrupted'), '听写模型没下载完，已经下载的部分会留着。检查一下网络，再点「接着下载」。');
+  a.equal(zh('asr-resume'), '接着下载'); a.equal(zh('asr-later'), '以后再说');
+  a.equal(zh('asr-no-space', { drive: 'C', free: '120 MB' }), 'C 盘空间不够，下载听写模型需要大约 230 MB，现在只剩 120 MB。腾出空间以后再点「接着下载」。');
+  a.equal(zh('asr-check-failed'), '下载的文件不完整，已删掉，请再下载一次。');
+  a.equal(zh('asr-again'), '再下载一次');
+  a.equal(zh('tr-empty'), '还没有文稿。点「听写选中的」，把选中的片段听写成文字。');
+  for (const k of ['asr-missing', 'asr-download', 'asr-downloading', 'asr-ready', 'asr-interrupted', 'asr-no-space', 'asr-check-failed', 'asr-resume', 'asr-later', 'asr-again', 'asr-download-cancel', 'tr-empty'])
+    a.ok(V.text.en['own.' + k] && !/[一-鿿]/.test(V.text.en['own.' + k]), k + ' in English');
+  const app = read('app.js');
+  a.ok(!/data-tr-asr-punct/.test(app), 'no punctuation download in this version (JJ: 这一版的字幕不带标点)');
+  a.match(app, /data-tr-asr-cancel/); a.match(app, /data-tr-asr-later/);
+});
+test('the page can stop a download; the part is kept for 「接着下载」', () => {
+  const main = read('desktop/main.js'), pre = read('desktop/view-preload.js');
+  a.match(main, /ipcMain\.handle\("montclip:asr:cancel", async \(event\) =>/);
+  a.match(pre, /cancel:\(\)=>ipcRenderer\.invoke\('montclip:asr:cancel'\)/);
+});

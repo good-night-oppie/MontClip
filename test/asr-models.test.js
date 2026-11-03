@@ -127,3 +127,96 @@ test('the real downloader follows redirects only to listed https hosts', () => {
     a.throws(() => D.nextUrl('https://hf-mirror.com/a', loc, fake.hosts), (e) => e.code === 'ASR_HOST_REFUSED', loc);
 });
 
+// Deja (2026-11-03): downloads resume (HTTP Range); a file is checked against its SHA-256 before it is renamed into
+// place; a file that fails the check is deleted ("下载的文件不完整，已删掉，请再下载一次"); an interrupted download
+// keeps what it has ("已经下载的部分会留着"); no room on the disk is said before anything is fetched.
+test('an interrupted download keeps its part, and the next attempt resumes from it into the same file', async () => {
+  const user = tmp();
+  try {
+    const one = { ...fake, models: { asr: { ...fake.models.asr, sources: [fake.models.asr.sources[0]] }, punct: fake.models.punct } };
+    const seen = [];
+    let cut = true;
+    const fetchFile = async (url, dest) => {
+      const name = url.split('/').pop(), want = name === 'tokens.txt' ? bytes.tokens : bytes.model;
+      const have = fs.existsSync(dest) ? fs.statSync(dest).size : 0;
+      seen.push({ name, have, dest });
+      if (cut && name === 'model.int8.onnx') { fs.writeFileSync(dest, want.subarray(0, 50)); cut = false; throw new Error('network gone'); }
+      fs.appendFileSync(dest, want.subarray(have));
+    };
+    const store = M.createStore({ manifest: one, roots: [], userDir: user, extract: async () => {} });
+    // the retry inside one attempt resumes: 50 bytes were there
+    const r = await store.download('asr', { fetchFile });
+    a.equal(r.source, 'hf-mirror.com');
+    const model = seen.filter((s) => s.name === 'model.int8.onnx');
+    a.deepEqual(model.map((s) => s.have), [0, 50], 'the second request starts from the 50 bytes already there');
+    a.equal(model[0].dest, model[1].dest, 'the same part file');
+    a.equal(store.status().asr.ready, true);
+    a.ok(!fs.existsSync(path.join(user, '.partial')) || !fs.readdirSync(path.join(user, '.partial')).length, 'no part left once it is in place');
+  } finally { fs.rmSync(user, { recursive: true, force: true }); }
+});
+test('a download that stops twice is "interrupted": the part stays, and the next download goes on from it', async () => {
+  const user = tmp();
+  try {
+    const one = { ...fake, models: { asr: { ...fake.models.asr, sources: [fake.models.asr.sources[0]] }, punct: fake.models.punct } };
+    const store = M.createStore({ manifest: one, roots: [], userDir: user, extract: async () => {} });
+    const half = async (url, dest) => { fs.appendFileSync(dest, bytes.model.subarray(0, 20)); throw new Error('network gone'); };
+    await a.rejects(store.download('asr', { fetchFile: half }), (e) => e.code === 'ASR_DOWNLOAD_INTERRUPTED');
+    const parts = fs.readdirSync(path.join(user, '.partial'));
+    a.equal(parts.length, 1); a.equal(fs.statSync(path.join(user, '.partial', parts[0])).size, 40, 'two tries, 20 bytes each, kept');
+    const resumedFrom = [];
+    const rest = async (url, dest) => { const name = url.split('/').pop(), want = name === 'tokens.txt' ? bytes.tokens : bytes.model, have = fs.existsSync(dest) ? fs.statSync(dest).size : 0; resumedFrom.push(have); fs.appendFileSync(dest, want.subarray(have)); };
+    // (the part holds 40 bytes that are not the first 40 of the model: the check fails, the part is deleted)
+    await a.rejects(store.download('asr', { fetchFile: rest }), (e) => e.code === 'ASR_CHECK_FAILED');
+    a.equal(resumedFrom[0], 40, 'it went on from the part');
+    a.ok(!fs.existsSync(path.join(user, '.partial')) || !fs.readdirSync(path.join(user, '.partial')).length, 'a file that fails the check is deleted');
+    a.equal(store.status().asr.ready, false);
+    await store.download('asr', { fetchFile: rest });
+    a.equal(store.status().asr.ready, true, 'downloading again works');
+  } finally { fs.rmSync(user, { recursive: true, force: true }); }
+});
+test('not enough room on the disk is said before anything is fetched, with the drive, what is needed and what is free', async () => {
+  const user = tmp();
+  try {
+    const store = M.createStore({ manifest: fake, roots: [], userDir: user, extract: async () => {}, freeBytes: () => 100 });
+    let asked = 0;
+    await a.rejects(store.download('asr', { fetchFile: async () => { asked++; } }),
+      (e) => e.code === 'ASR_NO_SPACE' && e.needBytes > 100 && e.freeBytes === 100 && typeof e.drive === 'string');
+    a.equal(asked, 0);
+  } finally { fs.rmSync(user, { recursive: true, force: true }); }
+});
+test('the downloader resumes with Range, appends on 206, starts again on 200, and keeps the part when the connection drops', async () => {
+  const D = require('../asr-download'), EventEmitter = require('node:events'), { PassThrough } = require('node:stream');
+  const dir = tmp(), dest = path.join(dir, 'x.part'), body = Buffer.from('0123456789abcdefghij');
+  const fakeGet = (mode) => (url, opts, cb) => {
+    const req = new EventEmitter(); req.destroy = (e) => req.emit('error', e || new Error('destroyed'));
+    const range = opts.headers.Range, from = range ? +/bytes=(\d+)-/.exec(range)[1] : 0;
+    setImmediate(() => {
+      const res = new PassThrough();
+      if (mode === 'drop') { res.statusCode = 200; res.headers = {}; cb(res); res.write(body.subarray(0, 7)); setImmediate(() => res.destroy(new Error('reset'))); return; }
+      if (mode === '206' && from) { res.statusCode = 206; res.headers = { 'content-range': `bytes ${from}-${body.length - 1}/${body.length}` }; cb(res); res.end(body.subarray(from)); return; }
+      res.statusCode = 200; res.headers = {}; cb(res); res.end(body);
+    });
+    return req;
+  };
+  try {
+    await a.rejects(D.fetchFile('https://hf-mirror.com/x', dest, { get: fakeGet('drop'), hosts: fake.hosts }));
+    a.equal(fs.readFileSync(dest).toString(), '0123456', 'what came is kept');
+    const sent = [];
+    const spy = (mode) => { const g = fakeGet(mode); return (u, o, cb) => { sent.push(o.headers.Range || null); return g(u, o, cb); }; };
+    await D.fetchFile('https://hf-mirror.com/x', dest, { get: spy('206'), hosts: fake.hosts });
+    a.deepEqual(sent, ['bytes=7-']); a.equal(fs.readFileSync(dest).toString(), body.toString(), '206: appended');
+    fs.writeFileSync(dest, 'zzz');
+    await D.fetchFile('https://hf-mirror.com/x', dest, { get: spy('200'), hosts: fake.hosts });
+    a.equal(fs.readFileSync(dest).toString(), body.toString(), '200 to a Range request: started again from 0');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+test('the main process writes its download hosts down itself: hf-mirror.com first, github.com second', () => {
+  const main = fs.readFileSync(path.join(__dirname, '..', 'desktop', 'main.js'), 'utf8');
+  const m = /const ASR_HOSTS = Object\.freeze\((\[[^\]]*\])\);/.exec(main);
+  a.ok(m, 'a literal list in main.js');
+  const hosts = JSON.parse(m[1]);
+  a.deepEqual(hosts.slice(0, 2), ['hf-mirror.com', 'github.com']);
+  a.deepEqual([...hosts].sort(), [...M.manifest.hosts].sort(), 'the same as the manifest');
+  a.match(main, /fetchFile: \(url, dest, o\) => AsrDownload\.fetchFile\(url, dest, \{ \.\.\.o, hosts: ASR_HOSTS \}\)/);
+  a.match(main, /hosts: ASR_HOSTS/);
+});
