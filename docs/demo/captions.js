@@ -58,19 +58,31 @@
   }
 
   const sentenceEnd = (t) => /[.!?…。！？]["')\]]?$/.test(t) && !/^(\p{L}\.)+$/u.test(t);
-  const softEnd = (t) => /[,;:—–]["')\]]?$/.test(t);
+  const softEnd = (t) => /[,;:—–，、；：]["')\]]?$/.test(t);
+  /** Words read as text (as transcribe.js join): no space next to Chinese (or Japanese) script or full-width punctuation. */
+  const TIGHT = /[぀-ヿ㐀-鿿豈-﫿　-〿＀-￯]/;
+  function join(list) {
+    let out = "";
+    for (const w of list) {
+      const t = String(w == null ? "" : w);
+      if (!t) continue;
+      if (out && !TIGHT.test(out[out.length - 1]) && !TIGHT.test(t[0])) out += " ";
+      out += t;
+    }
+    return out;
+  }
   const wordOf = (w) => (w.w != null ? w.w : w[0]);
   const startOf = (w) => (w.s != null ? w.s : w[1]);
   const endOf = (w) => (w.e != null ? w.e : w[2]);
 
   /** Break words into at most `lines` lines of about `chars` characters, as even as it can. */
   function wrap(words, chars, lines) {
-    const text = words.join(" ");
+    const text = join(words);
     if (lines <= 1 || words.length < 2 || text.length <= chars) return [words.slice()];   // one word stays whole, however long
     // the split that keeps the longest line shortest
     let best = null;
     for (let k = 1; k < words.length; k++) {
-      const a = words.slice(0, k).join(" ").length, b = words.slice(k).join(" ").length;
+      const a = join(words.slice(0, k)).length, b = join(words.slice(k)).length;
       const worst = Math.max(a, b);
       if (!best || worst < best.worst || (worst === best.worst && a >= b)) best = { k, worst };
     }
@@ -93,7 +105,7 @@
       if (!t) continue;
       const word = { w: t, s: startOf(w), e: endOf(w) };
       if (cur.length) {
-        const prev = cur[cur.length - 1], len = cur.map((x) => x.w).join(" ").length + 1 + t.length;
+        const prev = cur[cur.length - 1], len = join([...cur.map((x) => x.w), t]).length;
         if (word.s - prev.e >= gap || len > room || cur.length >= maxWords || word.e - cur[0].s > maxDur ||
           (sentenceEnd(prev.w) && cur.length >= 2) || (softEnd(prev.w) && (cur.length >= 3 || len > room * 0.5))) flush();
       }
@@ -102,7 +114,7 @@
     flush();
     const out = groups.map((g) => {
       const ls = wrap(g.map((x) => x.w), chars, lines);
-      return { start: g[0].s, end: g[g.length - 1].e, text: ls.map((l) => l.join(" ")).join("\n"), words: g };
+      return { start: g[0].s, end: g[g.length - 1].e, text: ls.map((l) => join(l)).join("\n"), words: g };
     });
     // on frames; linger after the last word and stretch short ones, never into the next cue
     for (let k = 0; k < out.length; k++) {
@@ -297,5 +309,5 @@
       })) };
   }
 
-  return { STYLES, DEFAULT_STYLE, DEFAULT_TRACKS, style, metrics, wrap, fit, cues, wordTimes, clip, fromClips, toSRT, toVTT, parse, readStamp, isCaption, trackFor, selectionPlan, sourceMap };
+  return { STYLES, DEFAULT_STYLE, DEFAULT_TRACKS, style, metrics, join, wrap, fit, cues, wordTimes, clip, fromClips, toSRT, toVTT, parse, readStamp, isCaption, trackFor, selectionPlan, sourceMap };
 });

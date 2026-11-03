@@ -17,6 +17,8 @@
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), crypto = require('node:crypto');
 const { execFileSync, spawnSync } = require('node:child_process');
 const ROOT = path.join(__dirname, '..');
+/** A path under vendor/asr/<dir> (fs.cpSync's filter sees full paths). */
+const isUnder = (file, dir) => path.relative(require('./fetch-asr.cjs').VENDOR, file).split(path.sep)[0] === dir;
 const arg = (k) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : null; };
 const sha = (f) => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
 const git = (...a) => execFileSync('git', a, { cwd: ROOT, encoding: 'utf8' }).trim();
@@ -78,12 +80,21 @@ async function main() {
     const ffStage = path.join(work, 'ffmpeg'); fs.mkdirSync(ffStage);
     for (const f of ['ffmpeg.exe', 'ffprobe.exe', 'LICENSE.txt', 'SOURCE.json']) fs.copyFileSync(path.join(ffSrc, f), path.join(ffStage, f));
 
+    // resources/asr: the checked vendor/asr folder (desktop/fetch-asr.cjs) — the speech engine and the VAD always; the
+    // speech and punctuation models only in the 完整版 package (--full); the engine test's sentence never
+    const full = process.argv.includes('--full');
+    const Asr = require('./fetch-asr.cjs'), asrCheck = Asr.verify({ models: full });
+    if (!asrCheck.ok) fail('vendor/asr does not match asr-manifest.json (run node desktop/fetch-asr.cjs' + (full ? ' --models asr,punct' : '') + '): ' + asrCheck.bad.join('; '));
+    const asrKeep = (f) => !isUnder(f, 'test_wavs') && (full || !isUnder(f, 'models'));
+    const asrStage = path.join(work, 'asr'); fs.cpSync(Asr.VENDOR, asrStage, { recursive: true, filter: asrKeep });
+
     const zipDir = arg('--electron-zip-dir');
     const built = await packager({ dir: stage, out: path.join(work, 'out'), name: 'MontClip', executableName: 'MontClip',
       platform: 'win32', arch: 'x64', electronVersion, ...(zipDir ? { electronZipDir: zipDir } : {}),
-      asar: false, prune: true, overwrite: true, extraResource: [ffStage], appVersion: rootPkg.version,
+      asar: false, prune: true, overwrite: true, extraResource: [ffStage, asrStage], appVersion: rootPkg.version,
       win32metadata: { ProductName: 'MontClip', FileDescription: 'MontClip', CompanyName: 'good-night-oppie' } });
     const appDir = built[0];
+    { const r = Asr.verify({ dir: path.join(appDir, 'resources', 'asr'), models: full }); if (!r.ok) fail('resources/asr changed while packaging: ' + r.bad.join('; ')); }
 
     // licences beside the program
     const lic = path.join(appDir, 'licenses'); fs.mkdirSync(lic);
@@ -92,6 +103,8 @@ async function main() {
     for (const f of iconv.filter((f) => /--(COPYING\.LIB|README)$/.test(f))) fs.copyFileSync(path.join(src, 'licenses', 'ffmpeg', 'texts', f), path.join(lic, f.replace(/^libiconv@[0-9a-f]+--/, 'libiconv-') + '.txt'));
     if (!fs.existsSync(path.join(lic, 'libiconv-COPYING.LIB.txt'))) fail('libiconv COPYING.LIB missing');
     fs.copyFileSync(path.join(src, 'LICENSES.md'), path.join(lic, 'LICENSES.md'));
+    // on-device transcription: sherpa-onnx (Apache-2.0), onnxruntime (MIT), Paraformer and CT-Transformer (Apache-2.0), silero VAD (MIT)
+    for (const f of fs.readdirSync(path.join(src, 'licenses', 'asr'))) fs.copyFileSync(path.join(src, 'licenses', 'asr', f), path.join(lic, f));
     fs.copyFileSync(path.join(src, 'LICENSE'), path.join(lic, 'MontClip-LICENSE.txt'));
 
     // JJ's notes for testers, in the zip's root (desktop/package-readme/render.js): placeholders filled, UTF-8 with a BOM
@@ -128,7 +141,7 @@ async function main() {
 
     // zip + sha256
     fs.mkdirSync(out, { recursive: true });
-    const top = `MontClip-internal-win-x64-${buildId}`, zipName = top + '.zip', zip = path.join(out, zipName);
+    const top = `MontClip-internal-win-x64${full ? '-full' : ''}-${buildId}`, zipName = top + '.zip', zip = path.join(out, zipName);
     if (fs.existsSync(zip)) fail(zipName + ' already exists in ' + out);
     fs.renameSync(appDir, path.join(path.dirname(appDir), top));
     // entries named with '/' and UTF-8 (desktop/zip-dir.cjs); a failed zip is removed, never left half-written
