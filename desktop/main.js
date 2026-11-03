@@ -5,6 +5,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { createStore, allowed: settingsAllowed } = require("./view-settings");
 const { nativeText, languageOf } = require("./native-text");
+const { transcribeEnabled } = require("./features");
 const { createCloseController } = require("./close-controller");
 const External = require("../external-ffmpeg");
 const fs = require("node:fs");
@@ -70,11 +71,23 @@ async function start() {
     }
     callback({ responseHeaders: headers });
   });
+  // the exports the editor page is about to download (its own export flow, not Open in the queue); one each
+  const expectedExports = new Set(), exportDownloads = new Set();   // · the export files being downloaded now
+  ipcMain.on("montclip:downloads:expect", (event, name) => { if (settingsAllowed(event, win, origin) && typeof name === "string" && name.length > 0 && name.length <= 255 && !/[\\/]/.test(name)) expectedExports.add(name); });
   ses.on("will-download", (event, item, contents) => {
     // Editor-owned exports only. Native save dialog remains the user's destination choice.
     const url = item.getURL();
     if (!win || contents !== win.webContents ||
-        !(url.startsWith("blob:" + origin + "/") || local(url) && new URL(url).pathname.startsWith("/exports/"))) event.preventDefault();
+        !(url.startsWith("blob:" + origin + "/") || local(url) && new URL(url).pathname.startsWith("/exports/"))) { event.preventDefault(); return; }
+    // A plain title and file name in the interface language; this session's export loses its copy once it is saved.
+    // one download of an export at a time: a second of the same file while the first is open is cancelled
+    if (!require("./export-downloads").attach(item, { origin, exportsDir: path.join(env.FABLECUT_DATA_DIR, "exports"), language: languageOf(settings.get()), downloadsDir: app.getPath("downloads"),
+      busy: exportDownloads, take: (n) => expectedExports.delete(n),
+      claim: async (n) => { const r = await fetch(origin + "/api/export/claim?name=" + encodeURIComponent(n), { method: "POST", headers: { "X-MontClip-Session": token } }); return r.ok && (await r.json()).fresh === true; },
+      onDone: (v) => { if (win && !win.isDestroyed()) win.webContents.send("montclip:download:done", { state: v.state, name: v.name, removed: v.removed }); } })) {
+      event.preventDefault();
+      if (win && !win.isDestroyed()) win.webContents.send("montclip:download:done", { state: "refused", name: item.getFilename(), removed: false });
+    }
   });
   win = new BrowserWindow({ width: 1280, height: 820, minWidth: 640, minHeight: 480,
     title: "MontClip", show: false, webPreferences: { session: ses, sandbox: true,
@@ -84,6 +97,11 @@ async function start() {
   for (const operation of ["get", "set"]) ipcMain.on("montclip:view:" + operation, (event, value) => {
     event.returnValue = settingsAllowed(event, win, origin)
       ? settings[operation](value) : {ok:false,code:"VIEW_SETTINGS_FORBIDDEN"};
+  });
+  // read-only feature switches for the page (desktop/features.js); no channel sets them
+  const features = { transcribe: transcribeEnabled({ isPackaged: app.isPackaged, argv: process.argv, env: process.env }) };
+  ipcMain.on("montclip:features:get", (event) => {
+    event.returnValue = settingsAllowed(event, win, origin) ? { transcribe: features.transcribe } : { transcribe: false };
   });
   const externalFile = path.join(app.getPath("userData"), "external-ffmpeg.json");
   const externalStatus = async () => {

@@ -4815,3 +4815,6 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .hl-return[hidden] { display: none; }
 
 .highlight-dialog .hl-keep-note { margin: 6px 0; opacity: .85; font-size: 12px; }
+
+/* + URL is hidden in the desktop app; .btn would otherwise win over [hidden] */
+#btnImportUrl[hidden] { display: none; }

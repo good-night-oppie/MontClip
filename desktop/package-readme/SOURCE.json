@@ -1,7 +1,7 @@
 {
   "author": "JJ",
-  "document": "2026-11-03-MontClip内部试用包-使用说明-中英.md (v4)",
-  "sha256": "1c3b5515e8efff619b1bab7f2044521c033d5ba1af14f83f3a7bb5914efe1407",
+  "document": "2026-11-03-MontClip内部试用包-使用说明-中英.md (v6)",
+  "sha256": "7d52fc1d9e378b06dde75edbf3fe041778bd7fa014dd8de3cb223df53ccc994e",
   "taken": [
     "## 中文",
     "## English"
@@ -13,5 +13,5 @@
     "{repo}": "https://github.com/good-night-oppie/MontClip (not used in the v2 body)"
   },
   "encoding": "written into the zip as UTF-8 with BOM, CRLF",
-  "confirmedBy": "Deja, 2026-11-02: v4 (1c3b5515) replaces v3 (22048c9b); only the export line under 现在能做的 / What works now changed"
+  "confirmedBy": "Deja, 2026-11-02: v6 (7d52fc1d) replaces v5 (2e58ccd7, withdrawn); step 1 names the SHA256SUMS.txt that comes with the zip, and the last networking line says to ask whoever sent the package"
 }

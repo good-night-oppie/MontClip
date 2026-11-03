@@ -103,6 +103,15 @@ async function main() {
       const t = fs.readFileSync(path.join(appDir, n), 'utf8');
       assert.ok(t.includes(hides ? ALT[lang].to : ALT[lang].from) && !t.includes(hides ? ALT[lang].from : ALT[lang].to), n + ': the URL line matches the app');
     }
+    // the export-copy line matches it too: gone when the packaged app has the fix that removes each export's copy
+    const COPY = require('./package-readme/exports-fixed.json'), pkgRead = (f) => { try { return fs.readFileSync(path.join(appDir, 'resources', 'app', 'desktop', f), 'utf8'); } catch { return ''; } };
+    const appRead = (f) => { try { return fs.readFileSync(path.join(appDir, 'resources', 'app', f), 'utf8'); } catch { return ''; } };
+    const copyGone = pkgRead('main.js').includes(COPY.marker) && pkgRead('main.js').includes(COPY.expects) && pkgRead('export-downloads.js').includes(COPY.removes) && appRead('server.js').includes(COPY.registers);
+    out.readmeCopyLine = copyGone ? (!COPY['zh-CN'].to ? 'removed (app keeps no export copy)' : "JJ's replacement (app keeps no export copy)") : 'as written (app keeps export copies)';
+    for (const [n, lang] of [['先看我-使用说明.txt', 'zh-CN'], ['README-first.txt', 'en']]) {
+      const lines = fs.readFileSync(path.join(appDir, n), 'utf8').replace(/^\uFEFF/, '').split('\r\n'), has = lines.includes(COPY[lang].from);
+      assert.ok(copyGone ? !has && (!COPY[lang].to || lines.includes(COPY[lang].to)) : has, n + ': the export-copy line matches the app');
+    }
     out.unpackedTo = 'a new folder under %TEMP% named "MontClip 包测试 …"';
     // a synthetic MP4, made with the packaged ffmpeg: 24 s, 320×180 at 30 fps, H.264 by Media Foundation + AAC; a 440 Hz tone,
     // quiet except 12–16 s (+25 dB), so the highlight candidates have a louder stretch to find

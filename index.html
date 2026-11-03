@@ -22,7 +22,7 @@
     <select id="mcLanguage" aria-label="界面语言"><option value="zh-CN">中文</option><option value="en">English</option></select>
     <button class="btn tiny" id="mcAssistant" type="button">助手</button>
     <button type="button" class="btn tiny hidden" id="btnProjectsDash" title="Projects (Ctrl/Cmd+O): open, create, duplicate, archive" data-i18n="term.projects">Projects</button>
-    <div class="topbar-center" id="projectName">Untitled Project</div>
+    <div class="topbar-center" id="projectName">未命名项目</div>
     <div class="topbar-right">
       <span data-more-rank="3" class="btn-group ws-switch" id="wsSwitch" role="tablist" title="Workspace" data-i18n-title="term.workspace">
         <button type="button" class="btn tiny on" data-ws="edit" title="Edit workspace: media bin, inspector, mixer" data-i18n-title="term.edit-workspace-media-bin-inspector-mixer" data-i18n="term.edit">Edit</button>
@@ -313,7 +313,7 @@
       </select>
       <label class="btn tiny" for="pjImportFile" title="Add a project file (.json): an old backup, or one from another machine" data-i18n="term.import-2">Import…</label>
       <input type="file" id="pjImportFile" class="sr-only" accept=".json,application/json">
-      <button type="button" class="btn tiny accent" id="pjNewBtn">+ New project</button>
+      <button type="button" class="btn tiny accent" id="pjNewBtn" data-i18n="own.pj-new">+ New project</button>
       <button type="button" class="btn ghost pj-close" id="pjClose" aria-label="Close" title="Close (Esc)" data-i18n-title="term.close-esc" data-i18n-aria-label="term.close">✕</button>
     </div>
     <div class="pj-body">
@@ -342,7 +342,7 @@
     </label>
     <label class="engine-opt">
       <input type="radio" name="engine" id="engineRealtime">
-      <span><b data-i18n="term.webcodecs-hw-encode">WebCodecs (HW encode)</b><br><span class="dim" id="engineWebCodecsNote">Frame-accurate. Browser encodes H.264; server muxes. Needs a modern Chromium and ffmpeg.</span></span>
+      <span><b data-i18n="own.engine-webcodecs">WebCodecs (HW encode)</b><br><span class="dim" id="engineWebCodecsNote">Frame-accurate. Browser encodes H.264; server muxes. Needs a modern Chromium and ffmpeg.</span></span>
     </label>
     <div class="export-profile-row dlv" id="exportProfileRow">
       <div class="dlv-preset-line">
@@ -364,7 +364,7 @@
         <details class="dlv-sec" id="dlvVideoSec" open>
           <summary data-i18n="term.video">Video</summary>
           <div class="dlv-grid">
-            <label class="dlv-f">Resolution<select id="dlvRes"></select></label>
+            <label class="dlv-f"><span data-i18n="own.dlv-resolution">Resolution</span><select id="dlvRes"></select></label>
             <label class="dlv-f dlv-wh hidden" id="dlvWhField">Width × height
               <span class="dlv-wh-in"><input type="number" id="dlvW" min="16" max="8192" step="2" aria-label="Width" data-i18n-aria-label="term.width"><span>×</span><input type="number" id="dlvH" min="16" max="8192" step="2" aria-label="Height" data-i18n-aria-label="term.height"></span></label>
             <label class="dlv-f" id="dlvReframeField">Reframe<select id="dlvReframe">
@@ -372,59 +372,59 @@
               <option value="fit" data-i18n="term.fit-black-bars">Fit (black bars)</option>
               <option value="stretch" data-i18n="term.stretch">Stretch</option>
             </select></label>
-            <label class="dlv-f">Frame rate<select id="dlvFps"></select></label>
-            <label class="dlv-f">Codec<select id="dlvCodec"></select></label>
-            <label class="dlv-f" id="dlvEncoderField">Encoder<select id="dlvEncoder"></select></label>
+            <label class="dlv-f"><span data-i18n="own.dlv-frame-rate">Frame rate</span><select id="dlvFps"></select></label>
+            <label class="dlv-f"><span data-i18n="own.dlv-codec">Codec</span><select id="dlvCodec"></select></label>
+            <label class="dlv-f" id="dlvEncoderField"><span data-i18n="own.dlv-encoder">Encoder</span><select id="dlvEncoder"></select></label>
             <label class="dlv-f" id="dlvProfileField">Profile<select id="dlvProfile"></select></label>
-            <label class="dlv-f" id="dlvRateField">Rate control<select id="dlvRate">
+            <label class="dlv-f" id="dlvRateField"><span data-i18n="own.dlv-rate-control">Rate control</span><select id="dlvRate">
               <option value="crf" data-i18n="term.crf-constant-quality">CRF (constant quality)</option>
               <option value="vbr" data-i18n="term.vbr-variable-bitrate">VBR (variable bitrate)</option>
               <option value="cbr" data-i18n="term.cbr-constant-bitrate">CBR (constant bitrate)</option>
             </select></label>
             <label class="dlv-f" id="dlvCrfField">CRF<input type="number" id="dlvCrf" min="0" max="63" step="1" title="Lower = better quality, bigger file" data-i18n-title="term.lower-better-quality-bigger-file"></label>
             <label class="dlv-f" id="dlvBitrateField">Bitrate (Mb/s)<input type="number" id="dlvBitrate" min="0.1" max="400" step="0.5"></label>
-            <label class="dlv-f" id="dlvMaxrateField">Max rate (Mb/s)<input type="number" id="dlvMaxrate" min="0.1" max="800" step="0.5" placeholder="none"></label>
-            <label class="dlv-f" id="dlvKeyintField">Keyframe every (s)<input type="number" id="dlvKeyint" min="0" max="20" step="0.5" title="0 = the encoder's default" data-i18n-title="term.0-the-encoder-s-default"></label>
-            <label class="dlv-f" id="dlvSpeedField">Encoder speed<select id="dlvSpeed">
+            <label class="dlv-f" id="dlvMaxrateField"><span data-i18n="own.dlv-maxrate">Max rate (Mb/s)</span><input type="number" id="dlvMaxrate" min="0.1" max="800" step="0.5" placeholder="none"></label>
+            <label class="dlv-f" id="dlvKeyintField"><span data-i18n="own.dlv-keyint">Keyframe every (s)</span><input type="number" id="dlvKeyint" min="0" max="20" step="0.5" title="0 = the encoder's default" data-i18n-title="term.0-the-encoder-s-default"></label>
+            <label class="dlv-f" id="dlvSpeedField"><span data-i18n="own.dlv-speed">Encoder speed</span><select id="dlvSpeed">
               <option value="fast" data-i18n="term.fast">Fast</option>
               <option value="balanced" data-i18n="term.balanced">Balanced</option>
               <option value="best" data-i18n="term.best-quality-slow">Best quality (slow)</option>
             </select></label>
-            <label class="dlv-f">Pixel format<select id="dlvPixFmt"></select></label>
+            <label class="dlv-f"><span data-i18n="own.dlv-pixfmt">Pixel format</span><select id="dlvPixFmt"></select></label>
             <label class="dlv-f">Color<select id="dlvColor"></select></label>
-            <label class="dlv-f">Container<select id="dlvContainer"></select></label>
+            <label class="dlv-f"><span data-i18n="own.dlv-container">Container</span><select id="dlvContainer"></select></label>
           </div>
         </details>
         <details class="dlv-sec" id="dlvAudioSec" open>
           <summary data-i18n="term.audio">Audio</summary>
           <div class="dlv-grid">
             <label class="dlv-f">Codec<select id="dlvACodec"></select></label>
-            <label class="dlv-f" id="dlvABitrateField">Bitrate (kb/s)<select id="dlvABitrate"></select></label>
-            <label class="dlv-f" id="dlvARateField">Sample rate<select id="dlvARate">
+            <label class="dlv-f" id="dlvABitrateField"><span data-i18n="own.dlv-abitrate">Bitrate (kb/s)</span><select id="dlvABitrate"></select></label>
+            <label class="dlv-f" id="dlvARateField"><span data-i18n="own.dlv-sample-rate">Sample rate</span><select id="dlvARate">
               <option value="48000">48 kHz</option>
               <option value="44100">44.1 kHz</option>
             </select></label>
-            <label class="dlv-f" id="dlvAChField">Channels<select id="dlvACh">
+            <label class="dlv-f" id="dlvAChField"><span data-i18n="own.dlv-channels">Channels</span><select id="dlvACh">
               <option value="2" data-i18n="term.stereo">Stereo</option>
               <option value="1" data-i18n="term.mono">Mono</option>
             </select></label>
-            <label class="dlv-f" id="dlvLoudField">Loudness<select id="dlvLoud" title="Turn the whole mix up or down to an integrated loudness, with a true-peak limiter"></select></label>
+            <label class="dlv-f" id="dlvLoudField"><span data-i18n="own.dlv-loudness">Loudness</span><select id="dlvLoud" title="Turn the whole mix up or down to an integrated loudness, with a true-peak limiter"></select></label>
             <label class="dlv-f" id="dlvTpField">True peak (dBTP)<input type="number" id="dlvTp" min="-9" max="0" step="0.5"></label>
           </div>
         </details>
         <details class="dlv-sec" id="dlvFileSec">
           <summary data-i18n="term.file-name-and-metadata">File name and metadata</summary>
-          <label class="dlv-f dlv-wide">File name
+          <label class="dlv-f dlv-wide"><span data-i18n="own.dlv-file-name">File name</span>
             <input type="text" id="dlvFilename" maxlength="160" spellcheck="false" aria-describedby="dlvFilePreview dlvTokens"></label>
           <p class="dim dlv-file-preview" id="dlvFilePreview"></p>
           <p class="dim dlv-tokens" id="dlvTokens"></p>
           <div class="dlv-grid dlv-meta">
-            <label class="dlv-f">Title<input type="text" id="dlvMetaTitle" maxlength="300"></label>
-            <label class="dlv-f">Artist / author<input type="text" id="dlvMetaArtist" maxlength="300"></label>
-            <label class="dlv-f">Copyright<input type="text" id="dlvMetaCopyright" maxlength="300"></label>
-            <label class="dlv-f">Date<input type="text" id="dlvMetaDate" maxlength="40" placeholder="2026-10-18"></label>
-            <label class="dlv-f dlv-wide">Description<textarea id="dlvMetaDescription" rows="2" maxlength="2000"></textarea></label>
-            <label class="dlv-f dlv-wide">Keywords<input type="text" id="dlvMetaKeywords" maxlength="300" placeholder="comma, separated"></label>
+            <label class="dlv-f"><span data-i18n="own.dlv-meta-title">Title</span><input type="text" id="dlvMetaTitle" maxlength="300"></label>
+            <label class="dlv-f"><span data-i18n="own.dlv-meta-artist">Artist / author</span><input type="text" id="dlvMetaArtist" maxlength="300"></label>
+            <label class="dlv-f"><span data-i18n="own.dlv-meta-copyright">Copyright</span><input type="text" id="dlvMetaCopyright" maxlength="300"></label>
+            <label class="dlv-f"><span data-i18n="own.dlv-meta-date">Date</span><input type="text" id="dlvMetaDate" maxlength="40" placeholder="2026-10-18"></label>
+            <label class="dlv-f dlv-wide"><span data-i18n="own.dlv-meta-description">Description</span><textarea id="dlvMetaDescription" rows="2" maxlength="2000"></textarea></label>
+            <label class="dlv-f dlv-wide"><span data-i18n="own.dlv-meta-keywords">Keywords</span><input type="text" id="dlvMetaKeywords" maxlength="300" placeholder="comma, separated"></label>
           </div>
         </details>
         <p class="dim dlv-summary" id="dlvSummary"></p>
@@ -432,13 +432,13 @@
     </div>
     <div class="export-profile-row dlv-batch" id="dlvBatch">
       <div class="dlv-preset-line">
-        <span class="export-profile-label">Batch outputs <span class="dim" id="dlvBatchCount"></span></span>
+        <span class="export-profile-label"><span data-i18n="own.dlv-batch-outputs">Batch outputs</span> <span class="dim" id="dlvBatchCount"></span></span>
         <span class="dlv-preset-actions">
-          <button type="button" class="btn tiny" id="dlvBatchAdd" title="Add the settings above to this project's outputs">+ Add these settings</button>
-          <button type="button" class="btn tiny" id="dlvBatchTypical" title="Master, YouTube 1080p, Reel 1080×1920, Square 1080 and a 720p preview">+ Typical set</button>
+          <button type="button" class="btn tiny" id="dlvBatchAdd" title="Add the settings above to this project's outputs" data-i18n="own.dlv-batch-add">+ Add these settings</button>
+          <button type="button" class="btn tiny" id="dlvBatchTypical" title="Master, YouTube 1080p, Reel 1080×1920, Square 1080 and a 720p preview" data-i18n="own.dlv-batch-typical">+ Typical set</button>
         </span>
       </div>
-      <p class="dim export-profile-hint" id="dlvBatchHint">One render, several files: every checked output is encoded from the same frames. Saved with the project.</p>
+      <p class="dim export-profile-hint" id="dlvBatchHint" data-i18n="own.dlv-batch-hint">One render, several files: every checked output is encoded from the same frames. Saved with the project.</p>
       <ul class="dlv-batch-list" id="dlvBatchList"></ul>
     </div>
     <div class="export-wc-opts hidden" id="exportWcOpts">
@@ -456,7 +456,7 @@
           <option value="50">50 Mbps</option>
         </select>
       </label>
-      <label class="export-wc-field" for="exportWcMode">Rate control
+      <label class="export-wc-field" for="exportWcMode"><span data-i18n="own.dlv-rate-control">Rate control</span>
         <select id="exportWcMode" class="export-wc-sel">
           <option value="variable" data-i18n="term.vbr-variable">VBR (variable)</option>
           <option value="constant" data-i18n="term.cbr-constant">CBR (constant)</option>
@@ -468,9 +468,9 @@
     <div class="export-track-warn hidden" id="exportTrackWarn" role="status"></div>
     </div>
     <div class="dialog-actions">
-      <button class="btn dlv-queue-open" id="btnOpenQueue" title="Show the export queue" data-i18n-title="term.show-the-export-queue" data-i18n="term.queue">Queue</button>
+      <button class="btn dlv-queue-open" id="btnOpenQueue" title="Show the export queue" data-i18n-title="term.show-the-export-queue" data-i18n="own.q-list">导出队列</button>
       <button class="btn" id="btnCancelSetup" data-i18n="term.cancel">Cancel</button>
-      <button class="btn" id="btnBatchExport" title="Queue every checked batch output and start" data-i18n-title="term.queue-every-checked-batch-output-and-start" data-i18n="term.export-checked">Export checked</button>
+      <button class="btn" id="btnBatchExport" title="Queue every checked batch output and start" data-i18n-title="term.queue-every-checked-batch-output-and-start" data-i18n="own.export-checked">Export checked</button>
       <button class="btn" id="btnQueueExport" title="Add these settings to the export queue" data-i18n-title="term.add-these-settings-to-the-export-queue" data-i18n="term.add-to-queue">Add to queue</button>
       <button class="btn primary" id="btnStartExport" data-i18n="term.export">Export</button>
     </div>
@@ -512,7 +512,7 @@
         <input type="checkbox" id="setLinkSelect">
         <span>
           <span class="settings-label" data-i18n="term.link-timeline-and-project-bin-selection">Link timeline and Project bin selection</span>
-          <span class="settings-hint">Selecting a timeline clip highlights its media in Project, and the reverse. Off by default.</span>
+          <span class="settings-hint" data-i18n="own.settings-link-hint">Selecting a timeline clip highlights its media in Project, and the reverse. Off by default.</span>
         </span>
       </label>
     </div>

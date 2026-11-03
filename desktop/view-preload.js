@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('montclipViewSettings',Object.freeze({
  get:()=>ipcRenderer.sendSync('montclip:view:get'),
  set:value=>ipcRenderer.sendSync('montclip:view:set',value)
 }));
+// Feature switches the main process decides (desktop/features.js), read once; the page cannot set them.
+contextBridge.exposeInMainWorld('montclipFeatures',Object.freeze({transcribe:!!(ipcRenderer.sendSync('montclip:features:get')||{}).transcribe}));
 // The user's own FFmpeg for H.264 export (libx264). The page can only ask the main
 // process to show its file dialog, read the status or forget the choice; no path is sent.
 contextBridge.exposeInMainWorld('montclipExternalFfmpeg',Object.freeze({
@@ -32,4 +34,7 @@ contextBridge.exposeInMainWorld('montclipWorkspaceSettings',Object.freeze({
  migrate:value=>ipcRenderer.sendSync('montclip:workspace:migrate',value)
 }));
 
+// how each of the editor's downloads ended (completed / cancelled / interrupted), its file name and whether its export
+// copy was removed; and, before its own export's download, which file that is
+contextBridge.exposeInMainWorld('montclipDownloads',Object.freeze({onDone:cb=>{ipcRenderer.on('montclip:download:done',(_e,v)=>cb({state:String(v&&v.state),name:String(v&&v.name),removed:v&&v.removed===true}));},expect:name=>ipcRenderer.send('montclip:downloads:expect',String(name))}));
 contextBridge.exposeInMainWorld('montclipAgentSessions',Object.freeze({get:()=>ipcRenderer.sendSync('montclip:sessions:get'),set:value=>ipcRenderer.sendSync('montclip:sessions:set',value)}));
