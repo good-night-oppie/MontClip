@@ -116,6 +116,15 @@ test('no wording the streamer sees mentions laughter (笑声)',()=>{
  a.deepEqual(strings.filter(x=>/笑声|laugh/i.test(x)),[]);
  for(const f of ['index.html','app.js','auto-slices.js','highlight-candidates.js','cindy-official.js'])a.ok(!/笑声|laugh/i.test(read(f)),f);
 });
+// Deja (2026-11-03): nor what the AI reads — an AI told "a laugh" might tell the streamer it found laughter; the software only
+// hears loudness. Every MCP tool's description (and the descriptions inside its arguments), and the manual fablecut_docs serves
+test('nothing the AI reads says the software hears laughter: the MCP tools and the manual',()=>{
+ const walk=(v,out)=>{if(v&&typeof v==='object')for(const [k,x] of Object.entries(v)){if(k==='description'&&typeof x==='string')out.push(x);else walk(x,out);}return out;};
+ const tools=require('../mcp-tools');a.ok(tools.length>20);
+ a.deepEqual(tools.filter(t=>walk(t,[]).some(d=>/笑声|laugh/i.test(d))).map(t=>t.name),[]);
+ a.match(tools.find(t=>t.name==='fablecut_highlights').description,/a moment that is clearly louder than the seconds around it/);
+ a.ok(!/笑声|laugh/i.test(read('CLAUDE.md')),'CLAUDE.md (fablecut_docs)');
+});
 
 // JJ's rule (2026-11-03): English uses curly quotes “ ”, Chinese keeps 「」; JJ's final English for the 估的 note, as written
 test('English 自动出切片 strings quote with “ ”, never 「」; the 估的 note in JJ\'s words',()=>{
