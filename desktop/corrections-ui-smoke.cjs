@@ -70,6 +70,24 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await undoToast();assert.equal((await status()).count,0);
   await read(`(async()=>{document.querySelectorAll('[data-as-card]')[1].querySelector('[data-as-act=drop]').click();await new Promise(r=>setTimeout(r,300));return true;})()`);
   assert.deepEqual((await status()).byType,{trim:0,remove:1,kind:0,add:0});await undoToast();assert.equal((await status()).count,0);
+  // VV on 12f4f21 (screenshots 05, 08): after 〔撤销〕 or Ctrl+Z, the card (its times, kind, tags) and the footer's total are
+  // exactly as before the edit — a move of the start (−5 s) and 这段不是唱歌, each undone both ways. Ctrl+Z is a real key
+  // press to the page (sendInputEvent), wherever the focus went when the card was drawn again.
+  const view=`((id)=>{const card=document.querySelector('[data-as-card="'+id+'"]');if(!card)return null;return{tc:[...card.querySelectorAll('[data-as-tc]')].map(x=>x.textContent),
+    kind:card.querySelector('[data-as-kind-line]').textContent,tags:[...card.querySelectorAll('.as-tag')].map(x=>x.textContent),text:card.textContent,foot:document.querySelector('[data-as-footer]').textContent};})`;
+  const ctrlZ=async()=>{for(const type of ['keyDown','char','keyUp'])win.webContents.sendInputEvent({type,keyCode:'z',modifiers:['control']});await wait(600);};
+  report.undoViews=[];
+  for(const how of ['toast','ctrl-z'])for(const what of ['nudge','kind']){
+   const id=await read(`autoState().clips.find(x=>x.kind==='song').id`),before=await read(`(${view})(${JSON.stringify(id)})`);
+   await read(`(async()=>{const card=document.querySelector('[data-as-card="'+${JSON.stringify(id)}+'"]'),b=card.querySelector(${JSON.stringify(what==='nudge'?'[data-as-act=nudge][data-as-w=s][data-as-d="-5"]':'[data-as-act=set-kind]')});b.focus();b.click();await new Promise(r=>setTimeout(r,300));return true;})()`);
+   const mid=await read(`(${view})(${JSON.stringify(id)})`);
+   if(how==='toast')await read(`(async()=>{document.querySelector('[data-as-toast-undo]').click();await new Promise(r=>setTimeout(r,600));return true;})()`);else await ctrlZ();
+   const after=await read(`(${view})(${JSON.stringify(id)})`);
+   report.undoViews.push({how,what,changed:JSON.stringify(mid)!==JSON.stringify(before),same:JSON.stringify(after)===JSON.stringify(before)});
+   assert.notDeepEqual(mid,before,how+' '+what+': the edit shows');
+   assert.deepEqual(after,before,how+' '+what+': undone, the card and the footer as before');
+   assert.equal((await status()).count,0,how+' '+what+': its correction taken back');
+  }
   // 3. 补一段: grey without IN–OUT, and says how; with IN–OUT (400–430 s of the recording, on the timeline from 0) the dialog:
   //    the recording on its own line, unbroken; 唱歌、互动、聊天、整活、别的; 补上 grey until a kind is picked
   const add0=await read(`(()=>{const b=document.querySelector('[data-as-act=add]'),h=document.querySelector('[data-as-add-hint]');return{disabled:b.disabled,label:b.textContent,hint:h.textContent};})()`);
