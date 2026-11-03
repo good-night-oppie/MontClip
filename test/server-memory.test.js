@@ -111,3 +111,19 @@ test("the export audio is streamed to disk too; uploads and audio no longer go t
   const serve = server.slice(server.indexOf("function serveFile("), server.indexOf("/* ── Server ── */"));
   a.doesNotMatch(serve, /\.pipe\(res\)/, "file responses use stream.pipeline");
 });
+
+// QQ (review of 4849c16): starting must not empty .uploads — another server on the same DATA_DIR may be receiving an
+// upload there. Only .part files older than 24 hours are removed (left over from a crash); anything else stays.
+test("at start only .part files older than 24 hours are removed from .uploads", async (t) => {
+  const dir = makeDataDir(t);
+  const up = path.join(dir, ".uploads");
+  fs.mkdirSync(up, { recursive: true });
+  const old = path.join(up, "old.part"), fresh = path.join(up, "fresh.part"), other = path.join(up, "note.txt");
+  for (const f of [old, fresh, other]) fs.writeFileSync(f, "x");
+  const day = Date.now() / 1000 - 25 * 3600;
+  fs.utimesSync(old, day, day); fs.utimesSync(other, day, day);
+  await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1" });
+  a.equal(fs.existsSync(old), false, "a .part older than 24 h goes");
+  a.equal(fs.existsSync(fresh), true, "a .part another server may still be writing stays");
+  a.equal(fs.existsSync(other), true, "only .part files are touched");
+});
