@@ -154,3 +154,141 @@ test("the server: /api/export/active counts running exports; shutdown stops ffmp
   a.ok(Date.now() - t0 < 4000, "within before-quit's 4 s");
   a.deepEqual(fs.readdirSync(exportsDir).filter((f) => f.includes(".part") || f.startsWith("fablecut-")), []);
 });
+
+// Not exporting, but videos in the queue were exported and not saved (Deja, 2026-11-03; VV §5 and image 16; JJ's
+// 「预备稿 4」 and its one-video forms): closing asks [删掉它们并关闭] [不删，直接关闭] [先去保存]. 先去保存 is the default and the
+// Enter/Esc answer: the window stays and the export queue opens. Deleting asks nothing more and deletes only the copies this
+// session exported (the server's own list, matched by base name; nothing else in exports/ is looked at). A copy that cannot
+// be deleted keeps the window open: 有 {k} 个视频删不掉… [关掉它再试] (only those again) [不删了，直接关闭]. Asked in the
+// window's close event, before any quit, so a failed delete can keep the window.
+test("the unsaved prompt: JJ's 预备稿 4 copy, 先去保存 the default and the Enter/Esc answer", () => {
+  const o = Close.unsavedDialogOptions("zh-CN", 2);
+  a.equal(o.message, "还有 2 个视频没保存，现在关掉吗？");
+  a.equal(o.detail, "这些视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它们了，但它们还占着 C 盘空间。");
+  a.deepEqual(o.buttons, ["删掉它们并关闭", "不删，直接关闭", "先去保存"]);
+  a.equal(o.buttons[o.defaultId], "先去保存"); a.equal(o.buttons[o.cancelId], "先去保存");
+  const one = Close.unsavedDialogOptions("zh-CN", 1);
+  a.equal(one.message, "还有 1 个视频没保存，现在关掉吗？");
+  a.equal(one.detail, "这个视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它了，但它还占着 C 盘空间。");
+  a.deepEqual(one.buttons, ["删掉它并关闭", "不删，直接关闭", "先去保存"]);
+  const en = Close.unsavedDialogOptions("en", 3);
+  a.doesNotMatch([en.message, en.detail, ...en.buttons].join(" "), /[一-鿿]/);
+});
+
+test("a copy that cannot be deleted: 有 {k} 个视频删不掉… [关掉它再试] [不删了，直接关闭]", () => {
+  const o = Close.deleteFailedOptions("zh-CN", 2);
+  a.equal(o.message, "有 2 个视频删不掉，可能正被别的软件打开着。");
+  a.deepEqual(o.buttons, ["关掉它再试", "不删了，直接关闭"]);
+  a.equal(o.buttons[o.defaultId], "关掉它再试"); a.equal(o.cancelId, o.defaultId, "Esc does not close the window");
+  a.doesNotMatch(Close.deleteFailedOptions("en", 1).message, /[一-鿿]/);
+});
+
+// decideClose with the boxes and the deleting injected: what each answer does
+function flow(state, answers, deletes = []) {
+  const asked = [], deleted = []; let opened = 0;
+  const done = Close.decideClose({ language: "zh-CN", state,
+    ask: async (o) => { asked.push(o); const r = answers.shift(); if (r === undefined) throw Error("asked once too often: " + o.message); return r; },
+    deleteFiles: async (files) => { deleted.push(files.slice()); return deletes.shift() || { deleted: files, failed: [], refused: [] }; },
+    openQueue: async () => { opened++; } });
+  return done.then((close) => ({ close, asked, deleted, opened }));
+}
+const U = { exporting: false, unsaved: 2, files: ["直播切片 11-02.mp4", "直播切片 11-02 竖屏.mp4"] };
+
+test("先去保存 (also Enter and Esc): the window stays and the export queue opens; nothing is deleted", async () => {
+  const r = await flow(U, [Close.UNSAVED.SAVE]);
+  a.equal(r.close, false); a.equal(r.opened, 1); a.deepEqual(r.deleted, []);
+  a.equal(r.asked[0].message, "还有 2 个视频没保存，现在关掉吗？");
+});
+
+test("不删，直接关闭: closes, nothing is deleted", async () => {
+  const r = await flow(U, [Close.UNSAVED.KEEP]);
+  a.equal(r.close, true); a.deepEqual(r.deleted, []); a.equal(r.opened, 0);
+});
+
+test("删掉它们并关闭: deletes the queue's unsaved copies, asks nothing more, closes", async () => {
+  const r = await flow(U, [Close.UNSAVED.DELETE]);
+  a.equal(r.close, true); a.deepEqual(r.deleted, [U.files]); a.equal(r.asked.length, 1);
+});
+
+test("a delete fails: the window stays, the count is right, 关掉它再试 retries only that one, then closes", async () => {
+  const r = await flow(U, [Close.UNSAVED.DELETE, Close.FAILED.RETRY], [{ deleted: [U.files[0]], failed: [U.files[1]], refused: [] }]);
+  a.equal(r.asked[1].message, "有 1 个视频删不掉，可能正被别的软件打开着。");
+  a.deepEqual(r.deleted, [U.files, [U.files[1]]], "the retry only tries the one that failed");
+  a.equal(r.close, true);
+  // giving up closes without deleting again
+  const g = await flow(U, [Close.UNSAVED.DELETE, Close.FAILED.GIVE_UP], [{ deleted: [], failed: U.files, refused: [] }]);
+  a.equal(g.close, true); a.equal(g.deleted.length, 1); a.equal(g.asked[1].message, "有 2 个视频删不掉，可能正被别的软件打开着。");
+  // while the failure prompt is up the window is not closed (decideClose has not answered)
+  let release; const hold = new Promise((r2) => { release = r2; });
+  let answered = false;
+  const pending = Close.decideClose({ language: "zh-CN", state: U, openQueue: async () => {},
+    ask: async (o) => o.buttons.length === 3 ? Close.UNSAVED.DELETE : (await hold, Close.FAILED.GIVE_UP),
+    deleteFiles: async (files) => ({ deleted: [], failed: files, refused: [] }) }).then((c) => { answered = true; return c; });
+  await new Promise((r2) => setTimeout(r2, 50));
+  a.equal(answered, false, "the window waits on the failure prompt");
+  release(); a.equal(await pending, true);
+});
+
+test("nothing unsaved and not exporting: no prompt; exporting: the export prompt, not this one", async () => {
+  const none = await flow({ exporting: false, unsaved: 0, files: [] }, []);
+  a.equal(none.close, true); a.equal(none.asked.length, 0);
+  const exp = await flow({ exporting: true, unsaved: 2, files: U.files }, [Close.KEEP]);
+  a.equal(exp.close, false); a.equal(exp.asked[0].message, "还在导出，现在关掉吗？");
+  const stop = await flow({ exporting: true, unsaved: 2, files: U.files }, [Close.STOP]);
+  a.equal(stop.close, true); a.deepEqual(stop.deleted, [], "stopping an export never deletes the finished copies");
+});
+
+test("main.js decides the close with decideClose, in the window's close event (before any quit)", () => {
+  const main = read("desktop/main.js");
+  a.match(main, /ExportClose\.decideClose\(/);
+  a.match(main, /\/api\/export\/delete-unsaved/);
+  a.match(main, /openQueue\(\)/);
+  const close = main.slice(main.indexOf('win.on("close"'), main.indexOf('win.on("closed"'));
+  a.match(close, /event\.preventDefault\(\);/);
+});
+
+test("the server deletes only copies this session exported, by base name; unrelated files stay; a locked one is reported", async (t) => {
+  const dir = makeDataDir(t);
+  const { api } = await desktopServer(t, dir);
+  const h264 = await (await api("/api/export/h264")).json();
+  if (!h264.encoder) return t.skip("no H.264 encoder on this machine: " + h264.reason);
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "mc-close-d-")); t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+  const jpg = path.join(tmp, "f.jpg");
+  require("node:child_process").execFileSync(FF.path("ffmpeg"), ["-y", "-v", "error", "-f", "lavfi", "-i", "color=c=blue:s=320x180", "-frames:v", "1", jpg]);
+  const exportOne = async (name) => {
+    const b = await (await api("/api/export/begin", { method: "POST", body: JSON.stringify({ fps: 30, name, hasAudio: false, duration: 0.2,
+      delivery: { preset: "custom", width: 320, height: 180 }, canvasW: 320, canvasH: 180 }) })).json();
+    a.ok(b.id, b.error);
+    await api("/api/export/frame?id=" + b.id, { method: "POST", body: Buffer.concat(Array(6).fill(fs.readFileSync(jpg))) });
+    const e = await (await api("/api/export/end?id=" + b.id, { method: "POST" })).json();
+    a.ok(e.src, e.error); return decodeURIComponent(e.src.split("/").pop());
+  };
+  const one = await exportOne("直播切片 11-02"), two = await exportOne("直播切片 11-02 竖屏");
+  const exportsDir = path.join(dir, "exports");
+  const other = path.join(exportsDir, "别的软件放的.mp4"); fs.writeFileSync(other, "not ours");
+  const del = async (files) => (await api("/api/export/delete-unsaved", { method: "POST", body: JSON.stringify({ files }) })).json();
+  // not exported by this session, a path, a half-finished name: refused, untouched
+  const r0 = await del(["别的软件放的.mp4", "../project.json", "sub/" + one, one.replace(".mp4", ".part.mp4")]);
+  a.deepEqual(r0.deleted, []); a.equal(r0.refused.length, 4);
+  a.ok(fs.existsSync(other)); a.ok(fs.existsSync(path.join(dir, "project.json")));
+  if (process.platform === "win32") {
+    // a player holding the file: Windows will not delete it
+    const target = path.join(exportsDir, two).split("'").join("''");
+    const lock = spawn("powershell", ["-NoProfile", "-Command",
+      "$f=[IO.File]::Open('" + target + "','Open','Read','None'); [Console]::Out.WriteLine('LOCKED'); [Console]::In.ReadLine() | Out-Null; $f.Close()"],
+      { stdio: ["pipe", "pipe", "ignore"], windowsHide: true });
+    t.after(() => { try { lock.kill(); } catch {} });
+    await new Promise((r) => lock.stdout.on("data", (d) => { if (String(d).includes("LOCKED")) r(); }));
+    const r1 = await del([one, two]);
+    a.deepEqual(r1.deleted, [one]); a.deepEqual(r1.failed, [two]);
+    a.ok(!fs.existsSync(path.join(exportsDir, one))); a.ok(fs.existsSync(path.join(exportsDir, two)));
+    lock.stdin.write("\n"); await new Promise((r) => lock.once("exit", r));
+    const r2 = await del([two]);
+    a.deepEqual(r2.deleted, [two]); a.deepEqual(r2.failed, []);
+  } else {
+    a.deepEqual((await del([one, two])).deleted, [one, two]);
+  }
+  a.ok(!fs.existsSync(path.join(exportsDir, two)));
+  a.ok(fs.existsSync(other), "the unrelated file is still there");
+  a.deepEqual((await del([one])).refused, [one], "a deleted copy is no longer on the list");
+});
