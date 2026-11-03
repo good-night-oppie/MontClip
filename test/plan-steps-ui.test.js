@@ -64,8 +64,8 @@ test('one clip per range: still decided by the main process; the box says how ma
  const run=fn('async function runAgentPlanStep(');
  // the box's lines are worked out from the checked proposal, before asking
  a.match(run,/const lines=proposal\.type==='keep_ranges'&&proposal\.outputMode==='per_range'\?planSliceLines\(proposal\):null;/);
- a.match(run,/askAgentApproval\(d,\{summary:[^}]*,lines\}\)/);
- a.ok(run.indexOf('const lines=')>run.indexOf('MontClipProposal.prepare(')&&run.indexOf('const lines=')<run.indexOf('if(!await ask'));
+ a.match(run,/askAgentApproval\(d,\{summary:.*,lines\}\)/);
+ a.ok(run.indexOf('const lines=')>run.indexOf('MontClipProposal.prepare(')&&run.indexOf('const lines=')<run.indexOf('if(!await ask(lines))'));
  const box=fn('function askAgentApproval(');
  a.match(box,/lines=null/);a.match(box,/<ol data-ap-lines>/);
  a.match(fn('function planSliceLines('),/uiText\('own\.ssel-sum-slice',\{name:names\[i\],from:clock\(r\.from\),to:clock\(r\.to\)/);

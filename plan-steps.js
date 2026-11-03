@@ -72,5 +72,14 @@
     };
     return walk(JSON.parse(JSON.stringify(args)));
   }
-  return Object.freeze({ DOABLE, FINDS, MIN_RANGE, windowOf, rangesFromSongs, rangesFromHighlights, resolve });
+  /** While the plan's exports render (run), the streamer's own waiting exports wait: their status is "held" (the queue
+   *  renders only "pending"), in place — nothing moves, nothing is removed — and goes back to "pending" when run ends,
+   *  however it ends (done, failed, stopped or an error). What the streamer does meanwhile wins: an item removed stays
+   *  removed, one whose status changed keeps it. mine: the plan's own ids. Deja, 2026-11-03. */
+  async function withQueueHeld(queue, mine, run) {
+    const own = new Set(mine || []), held = queue.filter((q) => q.status === "pending" && !own.has(q.id));
+    for (const q of held) q.status = "held";
+    try { return await run(); } finally { for (const q of held) if (q.status === "held") q.status = "pending"; }
+  }
+  return Object.freeze({ DOABLE, FINDS, MIN_RANGE, windowOf, rangesFromSongs, rangesFromHighlights, resolve, withQueueHeld });
 });

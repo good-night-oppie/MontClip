@@ -4951,6 +4951,7 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .agent-approval { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(560px, 90vw); max-height: 85vh; padding: 20px; overflow: auto; }
 .agent-approval pre { white-space: pre-wrap; word-break: break-word; max-height: 40vh; overflow: auto; background: var(--bg, #111); padding: 8px; border-radius: 4px; }
 .agent-approval .tr-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.agent-approval [data-ap-lines] { margin: 2px 0 8px; padding-left: 1.6em; }
 /* in a small assistant with the AI settings open, the switch and the pane's Yolo mark step aside (the rule with .cindy-thread above); the top bar's Yolo mark stays */
 /* P4, second half: the plan list in the assistant */
 .cindy-plan { flex-shrink: 0; max-height: 40%; overflow: auto; border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; }
@@ -4959,6 +4960,8 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .cindy-plan li[data-step-state="doing"] { font-weight: 600; }
 .cindy-plan li[data-step-state="failed"] .cindy-plan-state { color: var(--danger); }
 .cindy-plan-state, .cindy-plan-reason { color: var(--muted, #9aa0aa); font-size: 12px; margin-left: 4px; }
+.cindy-plan-files { margin: 2px 0 4px 18px; padding: 0; font-size: 12px; color: var(--muted, #9aa0aa); }
+.cindy-plan-files li[data-file-ok="0"] { color: var(--warn, #c98a2b); }
 .cindy-plan p { margin: 2px 0; font-size: 12px; }
 
 /* P5: caption size and position in one go (app.js captionQuick*): the Inspector's top and the 〔字幕大小〕 dialog */

@@ -6,10 +6,13 @@
 // real model's behaviour. The system's Save window is never shown: this smoke answers each save with setSavePath (into the
 // profile), the way the window would; pressing Save / Cancel in the real window is VV's check. Checks:
 //  - the plan shows each step's plain sentence, never internal names;
-//  - 自动: finding and keeping run without asking; the export (sensitive) asks; 〔只批准这次〕;
+//  - 手动 (Deja's guards): every step goes through the host's box; one clip per range asks the first time with three choices
+//    and lists each clip's times; the export (sensitive) asks with two;
 //  - the songs found become one clip each on the timeline (one undo step of the plan's run) and one file each, every file
-//    saved through a Save window (its title, the parts named 「{time} 那段」 while songs.js is below Deja's gate), nothing
-//    written anywhere else, the session's copies gone once saved;
+//    through its own Save window (its title, the parts named 「{time} 那段」 while songs.js is below Deja's gate): the first
+//    is cancelled — that file only is 没做成：你取消了保存, the next one still asks and is saved; nothing written anywhere
+//    else; the saved file's session copy goes, the cancelled one stays in the queue with 〔保存〕;
+//  - an export the streamer had waiting in the queue stays waiting, in its place, never rendered;
 //  - 〔撤销整个计划〕 takes the edit back.
 //   electron desktop/plan-steps-smoke.cjs --montclip-smoke --user-data-dir=<fresh>     → PLAN_STEPS_PASS / PLAN_STEPS_FAIL
 const electron=require('electron'),{app,BrowserWindow}=electron,assert=require('node:assert/strict');
@@ -49,9 +52,9 @@ BrowserWindow.prototype.loadURL=async function(...args){
    doc.clips.push({id:'c_rec',mediaId:'m_rec',kind:'audio',track:'A1',start:0,in:0,duration:480,props:{}});applyProject(doc);scheduleSave();if(!await flushSave())throw Error('SAVE');})()`);
   await read(`updateMontClipView({language:'zh-CN'});setSideTab('assistant');mcAgent.render();true`);await wait();
   assert.equal((await read(`montclipAgentService.configure({provider:'openrouter',model:'synthetic-model',apiKey:'synthetic-test-key-not-real'})`)).configured,true);
-  await read(`document.querySelector('[data-mode="auto"]').click();true`);await wait();
+  assert.equal(await read(`agentPolicy.mode`),'manual','the default');
   const clips=()=>read(`project.clips.filter(c=>c.kind==='audio').map(c=>c.id+':'+c.in+'+'+c.duration).join(',')`);
-  const view=()=>read(`(()=>{const p=document.querySelector('[data-plan]');if(!p)return null;return{text:p.textContent,steps:[...p.querySelectorAll('li')].map(li=>({label:li.querySelector('[data-step-label]').textContent,state:li.querySelector('[data-step-state-text]').textContent,reason:li.querySelector('[data-step-reason]')?.textContent||''})),undo:!!p.querySelector('[data-plan-undo]'),note:p.querySelector('[data-plan-note]')?.textContent||''};})()`);
+  const view=()=>read(`(()=>{const p=document.querySelector('[data-plan]');if(!p)return null;return{text:p.textContent,steps:[...p.querySelectorAll(':scope > ol > li')].map(li=>({label:li.querySelector('[data-step-label]').textContent,state:li.querySelector('[data-step-state-text]').textContent,reason:li.querySelector('[data-step-reason]')?.textContent||''})),undo:!!p.querySelector('[data-plan-undo]'),note:p.querySelector('[data-plan-note]')?.textContent||''};})()`);
   const box=()=>read(`(()=>{const d=document.querySelector('[data-agent-approval][open]');return d?{label:d.querySelector('[data-ap-label]').textContent,summary:d.querySelector('[data-ap-summary]').textContent,choices:[...d.querySelectorAll('[data-choice]')].map(b=>b.dataset.choice)}:null;})()`);
   // 1. the plan
   reply={type:'plan',steps:[{capability:'find_songs',args:{}},{capability:'keep_ranges',args:{output_mode:'per_range',ranges:{$step:1}}},{capability:'export_files',args:{}}]};
@@ -63,37 +66,58 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.deepEqual(v1.steps.map(s=>s.label),['find_songs','keep_ranges','export_files'].map(n=>Cap.label(n,'zh-CN')));
   assert.ok(!/find_songs|keep_ranges|export_files|\$step|"type"/.test(v1.text),'no internal names, no JSON');
   await shot('steps-todo');
-  // 2. 〔开始〕 in 自动: find and keep run; the export asks
+  // 2. an export the streamer queued earlier, waiting (not started)
+  await read(`queueAdd(normalizeDelivery(Delivery.DEFAULT_PRESET).spec,'主播自己排的');exportQueue[0].id='q_own';renderQueue();true`);
+  // 3. 〔开始〕 in 手动: each step through the host's box
   const before=await clips();
-  // every save answered the way the Save window would be: into Saved/, and what it offered is kept
-  const ses=win.webContents.session,dialogs=[];
-  ses.on('will-download',(event,item)=>{if(event.defaultPrevented)return;const o=item.getSaveDialogOptions();dialogs.push({title:o.title,name:path.basename(o.defaultPath||''),dir:path.dirname(o.defaultPath||'')});item.setSavePath(path.join(saved,item.getFilename()));});
+  // every save answered the way the Save window would be: the first cancelled (a save path so no window opens, then
+  // cancelled before any byte), the others into Saved/; what each window offered is kept
+  const ses=win.webContents.session,dialogs=[],cancelled=path.join(profile,'Cancelled');fs.mkdirSync(cancelled,{recursive:true});
+  ses.on('will-download',(event,item)=>{if(event.defaultPrevented)return;const o=item.getSaveDialogOptions();dialogs.push({title:o.title,name:path.basename(o.defaultPath||''),dir:path.dirname(o.defaultPath||'')});
+   if(dialogs.length===1){item.setSavePath(path.join(cancelled,item.getFilename()));item.cancel();}else item.setSavePath(path.join(saved,item.getFilename()));});
+  const answer=async(label,choice,ms)=>{const b=await until(box,ms);assert.ok(b,label+' asks');await read(`document.querySelector('[data-agent-approval][open] [data-choice="${choice}"]').click();true`);await wait(200);return b;};
   await read(`document.querySelector('[data-plan-start]').click();true`);
-  const b=await until(box,240000);report.box=b;
-  assert.ok(b,'the export asks');assert.equal(b.label,Cap.label('export_files','zh-CN'));assert.match(b.summary,/第 3 步，共 3 步/);
-  const mid=await view();report.mid=mid.steps.map(s=>s.state);assert.deepEqual(report.mid,['做完了','做完了','正在做'],'finding and keeping did not ask');
+  const b1=await answer('finding','once',10000);report.box1=b1;assert.equal(b1.label,Cap.label('find_songs','zh-CN'));
+  // one clip per range: asked the first time, three choices, each clip's times listed
+  const b2=await until(box,240000);
+  const lines=await read(`(()=>{const d=document.querySelector('[data-agent-approval][open]');return {head:d.querySelector('[data-ap-lines-head]')?.textContent||'',items:[...d.querySelectorAll('[data-ap-lines] li')].map(li=>li.textContent)};})()`);
+  report.box2={...b2,lines};
+  assert.equal(b2.label,Cap.label('keep_ranges','zh-CN'));assert.deepEqual(b2.choices,['once','session','deny'],'undoable, first time: three choices');
+  assert.equal(lines.head,'这一步会切成 2 条，每条一个文件：');assert.equal(lines.items.length,2);
+  for(const t of lines.items)assert.match(t,/那段.*\d+:\d\d.*\d+:\d\d/,'each clip with its times: '+t);
+  await shot('steps-box-slices');
+  assert.equal(await clips(),before,'nothing cut before the answer');
+  await read(`document.querySelector('[data-agent-approval][open] [data-choice="once"]').click();true`);await wait(200);
+  const b3=await answer('the export','once',20000);report.box3=b3;
+  assert.equal(b3.label,Cap.label('export_files','zh-CN'));assert.deepEqual(b3.choices,['once','deny'],'sensitive: every time, two choices');
   const cut=await clips();report.cut=cut;
   assert.notEqual(cut,before);assert.equal(cut.split(',').length,2,'one clip per song');
-  await shot('steps-export-box');
-  await read(`document.querySelector('[data-agent-approval][open] [data-choice="once"]').click();true`);
-  const done=await until(async()=>{const v=await view();return v&&v.steps.every(s=>s.state==='做完了')?v:(v&&v.steps.some(s=>s.state==='没做成'||s.reason)?v:null);},420000);
+  // while the plan's files render, the streamer's own waits in its place
+  const during=await until(()=>read(`queueRunning?exportQueue.map(q=>q.id==='q_own'?'own:'+q.status:q.status).join(' '):null`),20000);report.during=during;
+  assert.match(during,/^own:held /,'the streamer’s own export waits, first in the queue');
+  const done=await until(async()=>{const v=await view();return v&&v.steps[2].state!=='正在做'?v:null;},420000);
   report.done=done&&{states:done.steps.map(s=>s.state),reasons:done.steps.map(s=>s.reason),note:done.note};
-  assert.ok(done&&done.steps.every(s=>s.state==='做完了'),'every step done');
+  assert.deepEqual(report.done.states,['做完了','做完了','做完了'],'one file saved: the step is done');
+  const files=await read(`[...document.querySelectorAll('[data-plan] [data-step-files] li')].map(li=>({ok:li.dataset.fileOk,text:li.textContent}))`);report.files=files;
+  assert.equal(files.length,2);
+  assert.equal(files[0].ok,'0');assert.match(files[0].text,/那段.*：没做成：你取消了保存$/,'that file only');
+  assert.equal(files[1].ok,'1');assert.match(files[1].text,/那段.*：存好了$/,'the next one still asked and was saved');
   await shot('steps-done');
-  // 3. the files: one per song, each through a Save window, nothing else written
+  // 4. the files: each through its own Save window, nothing written anywhere else
   report.dialogs=dialogs;report.saved=fs.readdirSync(saved);
-  assert.equal(dialogs.length,2);
+  assert.equal(dialogs.length,2,'every file asked');
   for(const d of dialogs){assert.equal(d.title,'保存导出的视频');assert.equal(d.dir,downloads);assert.match(d.name,/那段/);assert.ok(!/首歌/.test(d.name),'below the gate: no song numbers');}
-  assert.equal(report.saved.length,2);for(const f of report.saved)assert.ok(fs.statSync(path.join(saved,f)).size>1000,f);
+  assert.equal(report.saved.length,1);assert.ok(fs.statSync(path.join(saved,report.saved[0])).size>1000);
   assert.deepEqual(fs.readdirSync(downloads),[],'nothing in Downloads');
-  const q=await read(`exportQueue.map(q=>({status:q.status,saved:!!q.saved}))`);report.queue=q;
-  assert.deepEqual(q,[{status:'done',saved:true},{status:'done',saved:true}]);
+  const q=await read(`exportQueue.map(q=>({id:q.id==='q_own'?'own':'plan',status:q.status,saved:!!q.saved,src:!!q.src}))`);report.queue=q;
+  assert.deepEqual(q,[{id:'own',status:'pending',saved:false,src:false},{id:'plan',status:'done',saved:false,src:true},{id:'plan',status:'done',saved:true,src:true}],
+   'the streamer’s own still waiting, first, never rendered; the cancelled file kept in the queue to save later; the saved one saved');
   const exportsLeft=fs.readdirSync(path.join(app.getPath('userData'),'workspace','exports')).filter(f=>/\.(mp4|mov|mkv|webm)$/.test(f));
-  report.exportsLeft=exportsLeft.length;assert.equal(exportsLeft.length,0,'the session’s copies go once saved');
+  report.exportsLeft=exportsLeft.length;assert.equal(exportsLeft.length,1,'the saved file’s copy goes; the cancelled one’s stays for its 〔保存〕');
   const run=await read(`(()=>{const e=eventLog().list().filter(e=>e.actor==='ai'&&e.runId);const last=e.at(-1);return e.filter(x=>x.runId===last.runId).map(x=>({step:x.step,capability:x.capability,state:x.state}));})()`);
   report.events=run;
   assert.deepEqual(run.map(e=>[e.step,e.capability]),[[1,'find_songs'],[2,'keep_ranges'],[3,'export_files']]);
-  // 4. 〔撤销整个计划〕: the edit back (the saved files are the streamer's now)
+  // 5. 〔撤销整个计划〕: the edit back (the saved files are the streamer's now)
   await read(`document.querySelector('[data-plan-undo]').click();true`);await wait(400);
   assert.equal(await clips(),before,'the edit undone');
   report.requests=requests;report.transport='mock-test-only';

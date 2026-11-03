@@ -43,3 +43,20 @@ the queue with 〔保存〕.
 - The format note tells the model the new steps; a real model's plans are not measured (mock transport in the smoke).
 - New words for JJ: `own.pl-empty`, `own.pl-nothing-found`, `own.pl-find-failed`, `own.pl-export-failed`,
   `own.pl-save-cancelled`, and the three capabilities' plain sentences.
+
+## Deja's three guards (2026-11-03)
+
+1. One clip per range inside a plan opens no sentence dialog, but the main process still decides the step: in 手动 the
+   first undoable step asks, with three choices; in 自动 it is applied after the CAS. The box lists the clips it makes:
+   「这一步会切成 {n} 条，每条一个文件：」 and each one's name and times (`planSliceLines`).
+2. The streamer's own waiting exports: `MontClipPlanSteps.withQueueHeld` marks them "held" in place while the plan's
+   exports render and puts them back however that ends — done, failed, stopped or an error; nothing moves, nothing is
+   removed, and what the streamer does meanwhile wins (tested: order, every item, each ending).
+3. Every file through its own Save window. A cancelled one is skipped and recorded 「{name}：没做成：你取消了保存」; the next
+   file still asks. The plan list shows each file. The step is done when at least one file was saved; with none saved it
+   is 没做成, with the reason. A cancelled file stays in the export queue with its 〔保存〕.
+
+(This replaces the earlier note that every Save window being closed stops the plan.)
+
+New words for JJ: `own.pl-slices`, `own.pl-file-saved`, `own.pl-file-cancelled`, `own.pl-file-save-failed`,
+`own.pl-file-failed`, and `own.pl-save-cancelled` reworded to 「你取消了保存。…」.

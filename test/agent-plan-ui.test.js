@@ -20,7 +20,7 @@ test('every step goes through the host’s decision and its own check when its t
  a.match(body,/MontClipProposal\.current\(proposal,projectJSON\(\),/,'the CAS before applying');
  // one clip per range: applied, then queued for the plan's export step (test/plan-steps-ui.test.js); the export step is
  // sensitive and saves each file through the system's Save window, so the edit itself no longer opens the dialog
- a.ok(body.indexOf('commitRangePlan(')<body.indexOf("outputMode==='per_range'"),'queued after the edit');
+ a.ok(body.indexOf('commitRangePlan(')<body.indexOf('queueSlices('),'queued after the edit');
  a.match(body,/if\(!MontClipPlanSteps\.DOABLE\.includes\(s\.capability\)\)return \{ok:false,code:'NO_EXECUTOR'\};/);
  a.match(body,/await versionBeforeAgent\(\);/,'the agent version before the first step');
  a.match(body,/const r=undoRun\(entry\.runId\);/);

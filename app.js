@@ -1271,6 +1271,8 @@ let toastTimer = null;
    once saved its copy in exports/ may go (desktop/export-downloads.js); a cancel keeps it and says where it is, and
    its queue row then says it was saved. The browser shows the message as before. */
 const pendingSaves = new Map(), pendingExports = new Set(), pendingKinds = new Map();   // name → success message · exports · kind
+// how each save of an export ended (completed / cancelled / failed), by file name: the plan's export step reads it
+const saveOutcomes = new Map();
 function saveDownload(href, name, { savedMsg, exportFile = false, kind = null } = {}) {
   const a = document.createElement("a");
   a.href = href; a.download = name;
@@ -1288,6 +1290,7 @@ window.montclipDownloads?.onDone(({ state, name, removed }) => {
   const msg = pendingSaves.get(name), wasExport = pendingExports.has(name), kind = pendingKinds.get(name);
   pendingSaves.delete(name); pendingExports.delete(name); pendingKinds.delete(name);
   for (const q of exportQueue) if (q.file === name) { q.saving = false; if (removed) q.saved = true; }
+  saveOutcomes.set(name, state);
   renderQueue();
   if (state === "completed") { if (msg) toast(msg); }
   else if (state === "cancelled") toast(uiText(wasExport ? "own.export-save-cancelled" : kind === "captions" ? "own.captions-save-cancelled" : "own.save-canceled"));
@@ -22257,18 +22260,20 @@ async function setAgentMode(mode){
 function paintAgentMode(){const mark=document.getElementById('mcYoloMark');if(mark)mark.hidden=agentPolicy.mode!=='yolo';if(typeof mcAgent!=='undefined'&&mcAgent)mcAgent.render();}
 /** The host's approval box (QQ 4: only the host shows it). It shows the capability's plain sentence (never its internal
  *  name), what it changes or where it sends, and for an external step what is sent. Resolves to once | session | deny. */
-function askAgentApproval(d,{summary='',content=null}={}){
+function askAgentApproval(d,{summary='',content=null,lines=null}={}){
  return new Promise((resolve)=>{
   const dialog=document.createElement('dialog');dialog.className='agent-approval';dialog.setAttribute('data-agent-approval','');
   const say=(k,v)=>escapeHtml(uiText(k,v)),choice=(c)=>'<button type="button" class="btn'+(c==='deny'?'':' primary')+'" data-choice="'+c+'">'+say('own.ap-'+c)+'</button>';
   dialog.innerHTML='<form method="dialog"><h3>'+say('own.ap-title')+'</h3><p data-ap-label></p><p data-ap-summary></p><p data-ap-target></p>'
    +(content!=null?'<p>'+say('own.ap-content')+'</p><pre data-ap-content></pre>':'')
+   +(lines?'<p data-ap-lines-head>'+say('own.pl-slices',{n:lines.length})+'</p><ol data-ap-lines></ol>':'')
    +(d.choices.includes('session')?'':'<p data-ap-every-time>'+say('own.ap-every-time')+'</p>')
    +'<div class="tr-row">'+d.choices.map(choice).join('')+'</div></form>';
   dialog.querySelector('[data-ap-label]').textContent=d.label;
   dialog.querySelector('[data-ap-summary]').textContent=summary;
   dialog.querySelector('[data-ap-target]').textContent=d.risk==='external'?uiText('own.ap-sends-to',{domain:d.target}):uiText('own.ap-project',{name:project.name||''});
   if(content!=null)dialog.querySelector('[data-ap-content]').textContent=content;
+  if(lines)for(const t of lines){const li=document.createElement('li');li.textContent=t;dialog.querySelector('[data-ap-lines]').append(li);}
   let answer='deny';
   for(const b of dialog.querySelectorAll('[data-choice]'))b.addEventListener('click',()=>{answer=b.dataset.choice;dialog.close();});
   dialog.addEventListener('close',()=>{dialog.remove();resolve(answer);});
@@ -22331,7 +22336,7 @@ async function onAgentReply(result){
 const agentPlans=new WeakMap();
 function agentPlanOf(result){
  if(!result||typeof result.text!=='string'||typeof MontClipPlan==='undefined')return null;
- if(!agentPlans.has(result)){const p=MontClipPlan.parse(result.text);if(!p||!p.ok)return null;agentPlans.set(result,{run:MontClipPlan.create(p.steps),runId:crypto.randomUUID(),busy:false,applied:0,note:'',outputs:[],queued:new Set()});}
+ if(!agentPlans.has(result)){const p=MontClipPlan.parse(result.text);if(!p||!p.ok)return null;agentPlans.set(result,{run:MontClipPlan.create(p.steps),runId:crypto.randomUUID(),busy:false,applied:0,note:'',outputs:[],queued:new Set(),files:[]});}
  return agentPlans.get(result);
 }
 // why a step stopped, in plain words (the codes stay internal)
@@ -22342,7 +22347,9 @@ const planReason=(code)=>code?uiText(PLAN_REASON[code]||'own.pl-stale'):'';
 function agentPlanView(result){
  const entry=agentPlanOf(result);if(!entry)return null;
  const lang=mcView.get().language,status=entry.run.status();
- return {status,steps:entry.run.list().map((s)=>({label:MontClipPlan.stepLabel(s,lang),state:s.state,stateText:MontClipPlan.stateLabel(s.state,lang),reason:planReason(s.code)})),
+ const fileText=(f)=>uiText(f.ok?'own.pl-file-saved':f.code==='SAVE_CANCELLED'?'own.pl-file-cancelled':f.code==='SAVE_FAILED'?'own.pl-file-save-failed':'own.pl-file-failed',{name:f.name});
+ return {status,steps:entry.run.list().map((s,i)=>({label:MontClipPlan.stepLabel(s,lang),state:s.state,stateText:MontClipPlan.stateLabel(s.state,lang),reason:planReason(s.code),
+   files:(entry.files[i]||[]).map((f)=>({ok:f.ok,text:fileText(f)}))})),
   canStart:status==='ready'&&!entry.busy&&agentPolicy.mode!=='plan',
   note:entry.note||(status==='ready'&&agentPolicy.mode==='plan'?uiText('own.pl-plan-mode'):status==='discarded'?uiText('own.pl-discarded'):status==='done'?uiText('own.pl-done'):status==='stopped'?uiText('own.pl-stopped'):''),
   canUndo:!entry.busy&&entry.applied>0&&(status==='done'||status==='stopped')};
@@ -22386,24 +22393,35 @@ async function planFindHighlights(args){
  return MontClipPlanSteps.rangesFromHighlights(found,project.clips,{count,name:planPartName('moment')});
 }
 /** Render this plan's queued files (else the whole timeline), then save each through the system's Save window. */
-async function planExport(entry){
+async function planExport(entry,s){
  if(!(state.connected&&state.ffmpeg))return {ok:false,code:'EXPORT_FAILED'};
  if(queueRunning||state.exporting)return {ok:false,code:'BUSY'};
  let mine=exportQueue.filter(q=>entry.queued.has(q.id)&&q.status==='pending');
  if(!mine.length){const before=new Set(exportQueue.map(q=>q.id));const choice=exportChoice();queueAdd(normalizeDelivery(choice.kind==='delivery'?choice.spec:Delivery.DEFAULT_PRESET).spec);mine=exportQueue.filter(q=>!before.has(q.id));}
- // the streamer's own waiting items wait for them, not for the plan
- const held=exportQueue.filter(q=>q.status==='pending'&&!mine.includes(q));for(const q of held)q.status='held';
- try{await runQueue();}finally{for(const q of held)if(q.status==='held')q.status='pending';renderQueue();}
- const done=mine.filter(q=>q.status==='done'&&q.src);
- if(!done.length)return {ok:false,code:'EXPORT_FAILED'};
- let saved=0;
- for(const q of done){
-  saveDownload(q.src,q.file||decodeURIComponent(q.src.split('/').pop()),{exportFile:true});
+ // the streamer's own waiting exports wait for the plan's, in place, and are put back however this ends (plan-steps.js)
+ try{await MontClipPlanSteps.withQueueHeld(exportQueue,mine.map(q=>q.id),runQueue);}finally{renderQueue();}
+ // every file through its own Save window; a cancelled one is skipped (没做成：你取消了保存) and the next still asks
+ const files=[];let saved=0;
+ for(const q of mine){
+  if(q.status!=='done'||!q.src){files.push({name:q.name,ok:false,code:'EXPORT_FAILED'});continue;}
+  const name=q.file||decodeURIComponent(q.src.split('/').pop());
+  saveOutcomes.delete(name);
+  saveDownload(q.src,name,{exportFile:true});
   for(const end=Date.now()+30*60000;q.saving&&Date.now()<end;)await new Promise(r=>setTimeout(r,250));
-  if(q.saved)saved++;
+  const how=saveOutcomes.get(name);
+  if(how==='completed'){saved++;files.push({name,ok:true});}
+  else if(how==='cancelled')files.push({name,ok:false,code:'SAVE_CANCELLED'});
+  else files.push({name,ok:false,code:'SAVE_FAILED'});
+  entry.files[s.index]=files.slice();mcAgent.render();
  }
+ entry.files[s.index]=files;
  entry.exported=(entry.exported||0)+saved;
- return saved?{ok:true}:{halt:'SAVE_CANCELLED'};
+ return saved?{ok:true}:{ok:false,code:files.some(f=>f.code==='SAVE_CANCELLED')?'SAVE_CANCELLED':'EXPORT_FAILED'};
+}
+/** The clips one clip per range makes, for the approval box: each one's name and its times on the timeline. */
+function planSliceLines(proposal){
+ const names=MontClipProposal.sliceNames(proposal.labels,project.name,Delivery.fileSafeName),clock=MontClipHighlights.clock;
+ return proposal.keep.map((r,i)=>uiText('own.ssel-sum-slice',{name:names[i],from:clock(r.from),to:clock(r.to),len:MontClipHighlights.seconds(r.to-r.from)}));
 }
 async function runAgentPlanStep(s,entry,result){
  let d;try{d=await window.montclipAgentPolicy.decide({sessionId:result.sessionId,capability:s.capability,args:s.args,target:{kind:'project',value:runtime.projectId}});}catch{d=null;}
@@ -22413,13 +22431,13 @@ async function runAgentPlanStep(s,entry,result){
  if(!MontClipPlanSteps.DOABLE.includes(s.capability))return {ok:false,code:'NO_EXECUTOR'};
  let args;try{args=MontClipPlanSteps.resolve(s.args,entry.outputs,s.index+1);}catch(e){return {ok:false,code:e.message==='STEP_EMPTY'?'EMPTY':'STALE'};}
  const c=agentProjectContext(),meta={id:crypto.randomUUID(),runId:entry.runId,step:s.index+1,actor:'ai',at:new Date().toISOString(),revision:project.revision};
- const ask=async()=>{if(d.action!=='ask')return true;const choice=await askAgentApproval(d,{summary:uiText('own.pl-step-of',{n:s.index+1,total:entry.run.list().length})});
+ const ask=async(lines=null)=>{if(d.action!=='ask')return true;const choice=await askAgentApproval(d,{summary:uiText('own.pl-step-of',{n:s.index+1,total:entry.run.list().length}),lines});
   let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}return !!(a&&a.ok&&a.run);};
  if(MontClipPlanSteps.FINDS.includes(s.capability)||s.capability==='export_files'){
   if(!await ask())return {halt:'DENIED'};
   const {revision:_r,...base}=meta,ev=recordAgentEvent({...base,capability:s.capability,args:null,risk:d.risk,state:'running',revisionBefore:project.revision??null,revisionAfter:null});
   try{
-   if(s.capability==='export_files'){const r=await planExport(entry);if(ev)moveEvent(ev.id,r.ok?'has_result':'failed');return r;}
+   if(s.capability==='export_files'){const r=await planExport(entry,s);if(ev)moveEvent(ev.id,r.ok?'has_result':'failed');return r;}
    const ranges=s.capability==='find_songs'?await planFindSongs(args):await planFindHighlights(args);
    entry.outputs[s.index]={ranges};
    if(ev)moveEvent(ev.id,'has_result');
@@ -22430,7 +22448,9 @@ async function runAgentPlanStep(s,entry,result){
  try{proposal=MontClipProposal.prepare({...args,type:s.capability},{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});}
  catch(error){recordAgentEvent(MontClipProposal.failedEvent(error,{...meta,capability:s.capability}));return {ok:false,code:'STALE'};}
  const ev=recordAgentEvent(MontClipProposal.event(proposal,meta));if(ev)proposal.eventId=ev.id;
- if(!await ask()){if(ev)moveEvent(ev.id,'rejected');return {halt:'DENIED'};}
+ // one clip per range: the box says how many and each one's times (Deja); the main process still decides the step
+ const lines=proposal.type==='keep_ranges'&&proposal.outputMode==='per_range'?planSliceLines(proposal):null;
+ if(!await ask(lines)){if(ev)moveEvent(ev.id,'rejected');return {halt:'DENIED'};}
  // the CAS: nobody changed the project while the box was open
  if(!MontClipProposal.current(proposal,projectJSON(),{...agentProjectContext(),generation:agentProjectContext().gen})){if(ev)moveEvent(ev.id,'rejected');return {ok:false,code:'STALE'};}
  if(rangeEditBusy()){if(ev)moveEvent(ev.id,'rejected');return {ok:false,code:'BUSY'};}

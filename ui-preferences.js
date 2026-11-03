@@ -604,7 +604,13 @@
     "pl-nothing-found": ["Nothing found.", "什么都没找到。"],
     "pl-find-failed": ["Couldn't read the recording.", "没能读完录像。"],
     "pl-export-failed": ["The export didn't work.", "导出没成功。"],
-    "pl-save-cancelled": ["You closed the Save window, so nothing was saved. The exported videos are still in the export queue; click Save there to save them.", "你关掉了保存窗口，什么都没保存。导出的视频还在导出队列里，在那里点『保存』就能存。"],
+    "pl-save-cancelled": ["You cancelled the save. The exported videos are still in the export queue; click Save there to save them.", "你取消了保存。导出的视频还在导出队列里，在那里点『保存』就能存。"],
+    // the approval box for one clip per range, and each exported file in the plan list (new, for JJ)
+    "pl-slices": ["This step cuts {n} clips, one file each:", "这一步会切成 {n} 条，每条一个文件："],
+    "pl-file-saved": ["{name}: saved", "{name}：存好了"],
+    "pl-file-cancelled": ["{name}: not done: you cancelled the save", "{name}：没做成：你取消了保存"],
+    "pl-file-save-failed": ["{name}: not done: it wasn't saved; the video is still in the export queue", "{name}：没做成：没存成，视频还在导出队列里"],
+    "pl-file-failed": ["{name}: not done: the export didn't work", "{name}：没做成：导出没成功"],
     "pl-undo-none": ["There is nothing of this plan left to undo.", "这个计划没有可以撤销的了。"],
     // over an external cap (Deja on #83): refused with by how much, never cut down to fit
     "ap-too-large": ["This send is {size}; the most at a time is {limit}, so it is {over} over. Nothing was sent, and it won't be cut down to fit.", "这次要发出去的有 {size}，每次最多 {limit}，超了 {over}。没有发送，也不会截短了再发。"],
