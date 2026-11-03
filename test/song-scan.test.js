@@ -80,9 +80,11 @@ test('the patch op setSongs keeps one checked entry per file; null removes it; u
  a.throws(()=>Ops.applyPatch(seedProject(),[{op:'setSongs',mediaId:'m_a',songs:{...entry,songs:[{from:9,to:1,confidence:'sure',marks:[]}]}}]),/SONGS_INVALID/);
  Ops.applyPatch(doc,[{op:'setSongs',mediaId:'m_a',songs:null}]);a.equal(doc.songs,undefined);
 });
-test('the editor keeps project.songs when it saves, and loads songs.js before app.js',()=>{
+test('the editor keeps project.songs when it loads a project and when it saves (real window: desktop/songs-smoke.cjs), and loads songs.js before app.js',()=>{
  const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
  a.match(read('app.js'),/MontClipSongs\.clean\(project\.songs, out\.media\)/);
+ const load=read('app.js').match(/function applyProject\([\s\S]*?\n  \}\);/);
+ a.ok(load&&/\n    songs: /.test(load[0]),'applyProject keeps songs (it copies only the fields it knows)');
  const html=read('index.html');a.ok(html.indexOf('songs.js')>0&&html.indexOf('songs.js')<html.indexOf('app.js'));
 });
 test('the capability table has fablecut_songs: it changes the project and can be undone',()=>{
