@@ -141,9 +141,39 @@
     "tr-transcribing-of": ["Transcribing {name} ({i} of {n})… {pct}%", "正在听写 {name}（第 {i} 个，共 {n} 个）… {pct}%"],
     "tr-selection": ["{n} words · {s} s · “{text}”", "已选 {s} 秒 · “{text}”"],
     "tr-selection-one": ["1 word · {s} s · “{text}”", "已选 {s} 秒 · “{text}”"],
+    // the sentence dialog (JJ to review): one language at a time; the Chinese is the dialog's old wording
+    "sd-busy": ["MontClip is busy with something else, such as exporting, importing, transcribing or saving. When it's done, click Select sentences again. If a save just failed, deal with that message first.", "软件正在忙别的事，比如导出、导入、听写或保存。等它做完，再点一次「按句选段」。如果刚才保存没成功，先处理那条提示。"],
+    "sd-busy-save": ["Can't select sentences as the AI suggested yet: MontClip is busy with something else, such as exporting, importing, transcribing or saving. When it's done, click this suggestion again. If a save just failed, deal with that message first.", "现在还不能照 AI 的建议选段：软件正在忙别的事，比如导出、导入、听写或保存。等它做完，再点一次这条建议。如果刚才保存没成功，先处理那条提示。"],
+    "sd-no-captions": ["Import an SRT or add captions first.", "按句选段要用到字幕：先导入 SRT 字幕文件，或者先加字幕。"],
+    "sd-title": ["Select sentences", "按句选段"],
+    "sd-intro": ["Only the checked sentences are kept, joined in order; the gaps and other media are removed from the edit. Source files stay unchanged, and one Undo restores it.", "只把勾选的句子接起来，其余部分从剪辑里去掉。原录像不会被改动，点一次撤销就能恢复。"],
+    "sd-ranges": ["Or ordered ranges in seconds, one start,end per line (overrides the checks)", "或者按先后顺序填时间段（单位：秒，每行一段，写成 起点,终点）。填了就不看勾选。"],
+    "sd-preview": ["Preview", "试听选段"],
+    "sd-apply": ["Apply", "保留选段"],
+    "sd-cancel": ["Cancel", "取消"],
+    "sd-range-line": ["Enter start,end in seconds on each line.", "每行写一段：起点,终点（单位：秒）。"],
+    "sd-summary": ["{ranges} → about {duration} in the final cut, in selection order.", "{ranges} → 成片大约 {duration}，按勾选的顺序接起来。"],
+    "sd-partial": ["{n} sentence keeps only part of its sound: check its caption and where it starts and ends.", "这一句只保留了一部分声音，请检查这一句的字幕和开头结尾。"],
+    "sd-partial-many": ["{n} sentences keep only part of their sound: check their captions and where they start and end.", "{n} 句只保留了一部分声音，请检查这几句的字幕和开头结尾。"],
+    "sd-changed": ["The project has changed: close this and select again.", "项目刚改过。请关掉这个窗口，重新选一次。"],
+    "sd-done": ["Sentences joined. Undo is available.", "已经接好了。不满意可以撤销。"],
+    "rp-invalid": ["Select valid ordered ranges.", "时间段不对：请按先后顺序填写，每段的起点要小于终点。"],
+    "rp-exceeds": ["The selection goes past the end of the timeline.", "选的时间超出了时间线的结尾。"],
+    "rp-locked": ["Unlock clips and tracks first.", "有片段或轨道锁住了，先解锁再试。"],
+    "rp-nested": ["Nested, parented or speed-ramped clips need editing by hand.", "这里有嵌套片段、绑定关系或变速，按句选段处理不了，请手动剪。"],
+    "rp-short-media": ["The selected piece is too short to cut. Move the start and end further apart.", "选中的片段太短，剪不出来。请把起点和终点拉开一点。"],
+    "rp-source-changed": ["The subtitle timing changed after you selected. Close this and select again.", "选好之后字幕的时间又变了。请关掉这个窗口，重新选一次。"],
+    "rp-source-invalid": ["A clip's timing doesn't match its file. Check the clip, then select again.", "有片段的时间和它的文件对不上，请检查后重新选择。"],
+    "rp-source-loop": ["A clip runs past the end of its file; selecting sentences doesn't support that yet.", "有片段比它的原文件还长，按句选段暂时处理不了。"],
+    // refusals the server sends as a code (JJ to review); the Chinese is the old message's Chinese half
+    "err-offline": ["Offline mode: import a local file.", "这一版不联网，不能从网址下载。请导入电脑里的文件。"],
+    "err-headless-disabled": ["Background browser tasks are turned off in the desktop app.", "桌面版不能在后台打开浏览器做这件事。"],
+    "err-editor-not-ready": ["The editor is not ready yet. Open it, then try again.", "编辑窗口还没准备好。先打开 MontClip 的编辑窗口，再试一次。"],
+    "err-editor-no-accept": ["The editor did not take the task. Wait until it is ready, then try again.", "编辑窗口没接到这个任务。等它准备好，再试一次。"],
+    "map-no-media": ["This project has no audio or video, so there is no time mapping to export.", "这个项目里没有音视频，导不出时间对照表。"],
     "connected": ["Ready", "就绪"],
     "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],
-    "tl-above-captions": ["Captions above", "字幕轨在上方"],
+    "tl-above-captions": ["Captions above, click to show", "上方有字幕轨，点这里显示"],
     // P2 highlight cards (for JJ to review)
     "hl-open": ["Highlight candidates", "高光候选"],
     "hl-title": ["Highlight candidates (worked out on this computer; no AI)", "高光候选（只在本机判断，不调用 AI）"],
@@ -263,14 +293,6 @@
     // JJ (#74): the version kept before the AI's edits, named in the interface language only
     "before-ai": ["Before AI changes", "AI 改之前"],
     // JJ (#71): the selection / proposal dialog in the interface language only, never 「中文 / English」 together
-    "ssel-busy": ["Finish editing and exporting, and confirm saving, first.", "请先结束编辑、导出并确认保存。"],
-    "ssel-no-captions": ["Import an SRT file or add captions first.", "先导入 SRT 或添加字幕。"],
-    "ssel-title": ["Keep sentences", "按句选择保留片段"],
-    "ssel-intro": ["Join checked ranges only. Remove gaps and other media from the edit. Source files stay unchanged; one Undo takes it back.", "只保留勾选的句段，移除中间间隙和其余音视频。原片不变，一步撤销。"],
-    "ssel-label": ["Or ordered ranges in seconds, one start,end per line (overrides the checks)", "或按顺序输入明确区间（秒，每行 起点,终点；填写后替代勾选）"],
-    "ssel-preview": ["Preview", "试听选段"],
-    "ssel-apply": ["Apply", "保留选段"],
-    "ssel-cancel": ["Cancel", "取消"],
     "ssel-title-ranges": ["Keep a few ranges by time, joined into one", "按时间保留几段，拼成一条"],
     "ssel-title-slices": ["Separate clips by time", "按时间切成多条"],
     "ssel-intro-ranges": ["Keep these ranges by time, joined into one video. Source files stay unchanged; Undo is available.", "按时间保留这些片段，拼成一条。原片不变，可以撤销。"],
@@ -281,22 +303,20 @@
     "ssel-sum-cut-one": ["1 caption is only partly inside the cut; listen to its start and end.", "有 1 句字幕只剪进去一半，请听一下开头和结尾。"],
     "ssel-sum-slice": ["{name}: {from}–{to} ({len} s)", "{name}：{from}–{to}（{len} 秒）"],
     "ssel-sum-slice-sep": ["; ", "；"],
-    "ssel-changed": ["The project changed. Close this and select again.", "项目已变化，请关闭后重新选择。"],
-    "ssel-done-sentences": ["Joined the selected sentences. Undo is available.", "已拼接选段，可撤销。"],
     "ssel-done-ranges": ["Joined these ranges. Undo is available.", "已拼接这些片段，可撤销。"],
     "ssel-done-slices": ["Kept {n} ranges and added them to the export queue. Undo is available.", "已留下 {n} 段，并加进导出队列，可撤销。"],
     "ssel-queue-changed": ["The timeline changed after this clip was queued, so it was not exported. Ask the assistant for a new suggested edit based on the current timeline.", "时间线在加入队列之后改过了，这条切片没有导出。请让助手按现在的时间线再给一次剪辑建议。"],
-    "ssel-err-ranges-line": ["Enter start,end in seconds on each line.", "每行填写 起点,终点（秒）。"],
-    "ssel-err-ranges-invalid": ["Select valid ordered ranges.", "请选择有效的有序区间。"],
-    "ssel-err-ranges-past-end": ["The selection runs past the end of the timeline.", "选区超出时间线。"],
-    "ssel-err-ranges-locked": ["Unlock the clips and tracks first.", "请先解锁片段和轨道。"],
-    "ssel-err-ranges-nested": ["Nested, parented or speed-ramped clips need editing by hand first.", "嵌套、父子关联或变速曲线请先手动处理。"],
-    "ssel-err-ranges-too-short": ["A range covers too little of a clip for the editor to keep.", "音视频交集短于当前编辑器支持长度。"],
-    "ssel-err-ranges-other": ["These ranges can't be cut as the timeline is now. Nothing was changed.", "按现在的时间线剪不了这几段，时间线没有改动。"],
   };
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
   /** Keyed lookup: the language's string, else the English one, else "" (never the key). */
+  /** A length as mm:ss, h:mm:ss from an hour; "" for none. The same as the Agent pane's durationText (agent-conversation.js, #26). */
+  function clock(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) return "";
+    const n = Math.floor(seconds), h = Math.floor(n / 3600), m = Math.floor(n / 60) % 60, s = n % 60;
+    return (h ? h + ":" : "") + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+  }
+  function durationText(seconds) { return Number.isFinite(seconds) && seconds > 0 ? clock(Math.max(1, Math.round(seconds))) : ""; }
   function t(language, key, vars) {
     const s = (text[language] && text[language][key]) ?? text.en[key] ?? "";
     return vars ? s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : s;
@@ -376,10 +396,10 @@
 'zh-CN':{undoLast:'撤销上一步（与顶部撤销相同）',new:'新会话',config:'AI 服务',save:'保存连接配置',provider:'服务商',model:'模型 ID',key:'API 密钥（留空保留已有密钥）',review:'核对本次实际发送内容',confirm:'发送以上内容',cancel:'取消',draft:'输入消息',search:'搜索会话',close:'收起助手',pending:'正在请求…',failed:'请求失败或已取消，草稿仍保留。',unconfigured:'尚未配置服务，没有发送。',saved:'连接配置已保存在本机，没有发起请求。',local:'此项目的会话保存在本机。这是保存规则，不代表本次保存已确认。',temporary:'会话文件读取失败，本次草稿只在这个窗口保留。关闭前请复制要留的内容。',unsaved:'会话保存尚未确认。请保留窗口并重试。',retry:'重试保存',proposal:'查看剪辑建议',reference:'引用选中字幕',range:'引用所选范围',project:'引用项目身份',remove:'移除',limit:'文字或会话数量已到上限，请删减文字或返回已有会话。',scope:'请先打开或创建项目，再发送。',configured:'已配置（连接尚未验证）',configFailed:'配置未保存，原有设置保留。',cancelUnknown:'请求状态尚未确认，已发给服务的请求无法撤回。',cancelled:'已取消后续生成；已发给服务的请求无法撤回。'}};
   Object.assign(officialPaneText.en,{"notSent":"Chat content contains only the text shown above. No audio, video or screenshots are attached, and no file paths or account details are added automatically. Any such details you included in the text or history will still be sent. Your API key is used to authenticate with the service.","format":"In the chat, say which sentences to keep. It works best to select the captions on the timeline and click \"{reference}\" so whole sentences are quoted. Only whole quoted captions can be applied; half a sentence or a description from memory can't.","formatNext":"After the reply, click \"{proposal}\" below to check whether it can be applied.","formatTech":"For the technically minded: the AI's reply uses this format: {\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"…\",\"sourceCaptionId\":\"…\",\"from\":0,\"to\":1}]}","model":"Model name","project":"Reference current project","currentProject":"Current project","otherProject":"Original project","invalid":"This reply has no suggested edit that can be applied directly.","fees":"Your own AI account is responsible for service charges.","user":"You","assistant":"Assistant","formatTitle":"How to get a suggestion you can apply"});
   Object.assign(officialPaneText['zh-CN'],{"notSent":"聊天内容只包含上面显示的文字。不附加声音、画面和截图，不自动附加文件路径和账号。你写进文字或历史的这类信息仍会发送。API 密钥用于向服务验证身份。","format":"在聊天里说清楚要保留哪几句。最好先在时间线上选中字幕，点「{reference}」，把整句引用进来。只有整句引用的字幕，才能直接套用；只引用半句，或者凭记忆描述的，都套用不了。","formatNext":"收到回复后，点下面的「{proposal}」，看看能不能直接用。","formatTech":"给懂技术的人：AI 的回复要用这个格式：{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"…\",\"sourceCaptionId\":\"…\",\"from\":0,\"to\":1}]}","model":"模型名称","project":"引用当前项目","currentProject":"当前项目","otherProject":"原项目","invalid":"这条回复里没有能直接套用的剪辑建议。","fees":"费用由你自己的 AI 账号承担。","user":"你","assistant":"助手","formatTitle":"怎样让 AI 给出能直接套用的建议"});
-  Object.assign(officialPaneText['zh-CN'],{removeConnection:'删除这个连接',removeConfirm:'删除后，这台电脑上保存的密钥会被清掉，AI 助手要重新设置才能用。剪辑不受影响。',connectionRemoved:'连接已删除，这台电脑上保存的密钥已清掉。AI 助手要重新设置才能用。',connectionRemoveFailed:'连接没能删除，密钥可能还在这台电脑上。请看看软件的设置文件夹是不是被占用或不能写入，然后再试。'});
-  Object.assign(officialPaneText.en,{removeConnection:'Remove this connection',removeConfirm:'This clears the key saved on this computer. You will need to set up the AI service again to use the assistant. Editing is not affected.',connectionRemoved:'Connection removed. The key saved on this computer is cleared; set up the AI service again to use the assistant.',connectionRemoveFailed:'The connection could not be removed, so the key may still be on this computer. Check that the app\'s settings folder is not in use or read-only, then try again.'});
-  Object.assign(officialPaneText['zh-CN'],{noCaptionSelected:'先在时间线上选中字幕'});
-  Object.assign(officialPaneText.en,{noCaptionSelected:'Select captions on the timeline first'});
+  Object.assign(officialPaneText['zh-CN'],{removeConnection:'删除这个连接',removeConfirm:'删除后，这台电脑上保存的密钥会被清掉，AI 助手要重新设置才能用。剪辑不受影响，聊天记录也还在。',connectionRemoved:'连接已删除，这台电脑上保存的密钥已清掉。AI 助手要重新设置才能用。',connectionRemoveFailed:'连接没能删除，密钥可能还在这台电脑上。请看看软件的设置文件夹是不是被占用或不能写入，然后再试。'});
+  Object.assign(officialPaneText.en,{removeConnection:'Remove this connection',removeConfirm:'This clears the key saved on this computer. You will need to set up the AI service again to use the assistant. Editing is not affected, and your chat history stays.',connectionRemoved:'Connection removed. The key saved on this computer is cleared; set up the AI service again to use the assistant.',connectionRemoveFailed:'The connection could not be removed, so the key may still be on this computer. Check that the app\'s settings folder is not in use or read-only, then try again.'});
+  Object.assign(officialPaneText['zh-CN'],{noCaptionSelected:'先在时间线上选中字幕。'});
+  Object.assign(officialPaneText.en,{noCaptionSelected:'Select captions on the timeline first.'});
   Object.assign(officialPaneText.en,{resetConnection:'Set up connection again',configUnreadable:'The saved connection could not be read. Click "Set up connection again"; the app backs up the old settings first, then lets you enter new ones.',configBackedUp:'The old connection settings have been backed up. Enter your connection settings again.',configBackupFailed:'The old connection settings could not be backed up. They have not been replaced. Check whether the settings folder for the app is in use or cannot be written to, then try again.'});
   Object.assign(officialPaneText['zh-CN'],{resetConnection:'重新设置连接',configUnreadable:'原来的连接配置读不出来。点「重新设置连接」，软件会先把旧配置备份好，再让你重新填写。',configBackedUp:'原来的配置已备份，现在需要重新填写连接配置。',configBackupFailed:'原来的配置没能备份，未被替换。请看看软件的设置文件夹是不是被占用或不能写入，然后再试。'});
   Object.assign(officialPaneText.en,{notSent:'Only the text shown above is sent. No audio, video or screenshots are attached; the app does not add file paths or account details by itself, but any such details you typed into the text or history will be sent as written. Your API key is used only to authenticate with the service.',undoLast:'Undo this apply (same as toolbar Undo)',captionLabel:'Subtitles',rangeLabel:'Range',projectLabel:'Project'});
@@ -431,5 +451,5 @@
    *  English word (export, captions…) in English. */
   const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
-  return { create, desktopStorage, text, formatBody, KEY, t, ago, when, applyI18n, flvImportMessage, h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback };
+  return { create, desktopStorage, text, formatBody, KEY, t, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback };
 });
