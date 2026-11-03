@@ -115,6 +115,8 @@
     "encoding-pct": ["Encoding… {pct}%", "正在编码… {pct}%"],
     "mixing-audio": ["Mixing audio…", "正在混音…"],
     "finishing": ["Finishing…", "正在收尾…"],
+    // narrow windows: tools that do not fit a bar (JJ to review)
+    "more": ["More", "更多"],
     // batch 2: the Transcript panel and the top bar status (JJ to review). Chinese transcripts
     // carry sentence times only, so the Chinese never counts or cuts words.
     "transcribe": ["Transcribe", "听写"],
