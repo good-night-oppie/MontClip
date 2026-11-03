@@ -4942,3 +4942,15 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .auto-slices .as-check { display: inline-flex; gap: 6px; align-items: center; }
 .auto-slices .as-subline { margin-right: 2px; }
 .auto-slices .as-subline + .as-muted + .as-lyrics { display: inline-block; }
+
+/* P5: caption size and position in one go (app.js captionQuick*): the Inspector's top and the 〔字幕大小〕 dialog */
+.cq-panel { border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; margin: 0 0 10px; }
+.cq-panel .cq-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.cq-panel .cq-lbl { width: 3em; opacity: 0.75; font-size: 12px; }
+.cq-panel .cq-pills { display: inline-flex; gap: 4px; }
+.cq-panel .cq-pills .btn.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.cq-panel .cq-mixed { color: var(--warn, #c98a2b); font-size: 12px; }
+.cq-panel .cq-desc { margin: 6px 0 0; font-size: 12px; opacity: 0.75; }
+.cq-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; width: min(440px, 92vw); padding: 14px 16px; }
+.cq-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+.cq-dialog .dialog-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
