@@ -76,11 +76,23 @@ async function start() {
     }
     callback({ responseHeaders: headers });
   });
+  // the exports the editor page is about to download (its own export flow, not Open in the queue); one each
+  const expectedExports = new Set(), exportDownloads = new Set();   // · the export files being downloaded now
+  ipcMain.on("montclip:downloads:expect", (event, name) => { if (settingsAllowed(event, win, origin) && typeof name === "string" && name.length > 0 && name.length <= 255 && !/[\\/]/.test(name)) expectedExports.add(name); });
   ses.on("will-download", (event, item, contents) => {
     // Editor-owned exports only. Native save dialog remains the user's destination choice.
     const url = item.getURL();
     if (!win || contents !== win.webContents ||
-        !(url.startsWith("blob:" + origin + "/") || local(url) && new URL(url).pathname.startsWith("/exports/"))) event.preventDefault();
+        !(url.startsWith("blob:" + origin + "/") || local(url) && new URL(url).pathname.startsWith("/exports/"))) { event.preventDefault(); return; }
+    // A plain title and file name in the interface language; this session's export loses its copy once it is saved.
+    // one download of an export at a time: a second of the same file while the first is open is cancelled
+    if (!require("./export-downloads").attach(item, { origin, exportsDir: path.join(env.FABLECUT_DATA_DIR, "exports"), language: languageOf(settings.get()), downloadsDir: app.getPath("downloads"),
+      busy: exportDownloads, take: (n) => expectedExports.delete(n),
+      claim: async (n) => { const r = await fetch(origin + "/api/export/claim?name=" + encodeURIComponent(n), { method: "POST", headers: { "X-MontClip-Session": token } }); return r.ok && (await r.json()).fresh === true; },
+      onDone: (v) => { if (win && !win.isDestroyed()) win.webContents.send("montclip:download:done", { state: v.state, name: v.name, removed: v.removed }); } })) {
+      event.preventDefault();
+      if (win && !win.isDestroyed()) win.webContents.send("montclip:download:done", { state: "refused", name: item.getFilename(), removed: false });
+    }
   });
   win = new BrowserWindow({ width: 1280, height: 820, minWidth: 640, minHeight: 480,
     title: "MontClip", show: false, webPreferences: { session: ses, sandbox: true,
