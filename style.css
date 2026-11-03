@@ -4972,3 +4972,6 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .cq-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; width: min(440px, 92vw); padding: 14px 16px; }
 .cq-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
 .cq-dialog .dialog-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
+/* the page's `* { margin: 0 }` would pin a modal dialog to the top-left corner: the approval box centres itself (Win11 shots) */
+.agent-approval { margin: auto; }
+.agent-approval::backdrop { background: #0009; }
