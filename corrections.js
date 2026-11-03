@@ -4,6 +4,7 @@
    A record holds numbers and its fixed words only — a card's kind changed, a part added, how far a start and end were
    moved, a card taken out, the recording's length, and the part's length, usual level and how often it pauses. Never
    the recording, its sound, subtitle text or a file name: anything else is refused, not trimmed.
+   互动 (interaction) is a kind like the others: no rule finds it; only the streamer's own moves shift its start and end.
    They are never sent: the assistant, the song-name lookup and cloud transcription do not read them (Deja, ADR 补记
    fb2e6964; test/corrections-private.test.js).
    The rules are fixed (no model is trained), and each is a habit — the same kind, the same direction, HABIT_MIN of the
@@ -19,7 +20,7 @@
   else root.MontClipCorrections = factory();
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
-  const KINDS = Object.freeze(["song", "moment", "other"]), TYPES = Object.freeze(["kind", "add", "trim", "remove"]);
+  const KINDS = Object.freeze(["song", "interaction", "moment", "other"]), TYPES = Object.freeze(["kind", "add", "trim", "remove"]);
   // Deja's numbers (ADR 补记 fb2e6964): a move of at most 5 s; a habit is 4 of the last 5
   const MAX_SHIFT = 5, HABIT_WINDOW = 5, HABIT_MIN = 4, PAUSE_DB = 14, MIN_LEN = 5;
   // the singing bar starts where songs.js has it (DEFAULTS.PAUSE) and moves at most half of that either way

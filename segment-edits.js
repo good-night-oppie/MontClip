@@ -8,7 +8,8 @@
   else root.MontClipSegmentEdits = factory();
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
-  const KINDS = Object.freeze(["song", "moment", "other"]), MIN_LEN = 5;
+  // 互动 right after 唱歌 (ADR 39a05471): the order the interface shows them in
+  const KINDS = Object.freeze(["song", "interaction", "moment", "other"]), MIN_LEN = 5;
   const r3 = (x) => Math.round(x * 1000) / 1000;
   const copy = (cards) => JSON.parse(JSON.stringify(Array.isArray(cards) ? cards : []));
   const no = (code) => ({ ok: false, code });

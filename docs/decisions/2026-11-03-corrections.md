@@ -6,7 +6,8 @@ interface (设置 › 自动出切片 › 「记住我的修改，下次找得�
 
 ## Two card edits (`segment-edits.js`)
 
-- `set_segment_kind {id, kind}` — a 「自动出切片」 card's kind: `song` 唱歌 / `moment` 普通高光 / `other` 其他. Only the kind
+- `set_segment_kind {id, kind}` — a 「自动出切片」 card's kind: `song` 唱歌 / `interaction` 互动 / `moment` 普通高光 / `other`
+  其他, in that order (互动 right after 唱歌, ADR 39a05471; the interface shows 〔互动〕). Only the kind
   changes; made 唱歌, the card keeps its start and end.
 - `add_segment {mediaId, from, to, kind}` — a new card from IN–OUT, inside its recording, at least 5 s, after the other
   cards (their best-first order is not touched).
@@ -41,6 +42,8 @@ Constants: `MAX_SHIFT` 5 s, `HABIT_WINDOW` 5, `HABIT_MIN` 4, `BAR_BASE` 0.12 (so
 - `bar` — 「不是唱歌」 (a song made another kind) 4 of the last 5 kind changes involving 唱歌: the singing bar goes up (songs.js
   PAUSE down to the median pause of those parts); 「是唱歌」 4 of 5: it goes down (PAUSE up). Never past half of 0.12 either
   way. The search gets it through `songOptions(rules)`.
+- 互动 has its own habits like every kind; no rule finds 互动 parts — only the streamer's own moves shift their start and
+  end. A song made 互动 counts as 「不是唱歌」; 互动 ↔ 普通高光 does not touch the singing bar.
 - Every card lists the rules that touched it (`card.rules`: `shift-start:song`, `shift-end:song`, `song-bar`).
 - No rules (off, or nothing kept): exactly the cards and the search the app had (tested: the same JSON, the same songs).
 
@@ -64,6 +67,10 @@ scores the left-out streamer with corrections off and on:
 | the shift alone | 482 | 0.67 | 0.12 | 3.0 s (60 matched) |
 | the bar alone | 355 | 0.48 | 0.14 | 4.5 s (49 matched) |
 
+- 互动, scored apart: the golden set has 16 互动 labels, all in one recording (so no fold ever gets 互动 corrections from
+  another streamer: a 互动 habit formed in 0 of 13 folds), none with an end, and none has a highlight candidate within
+  15 s of its start to stand for the streamer's card — nothing to score yet. The script prints the line, so it measures
+  once there is data.
 - The end error cannot be scored: the golden labels have an end for 4 of 226 parts, none of them matched.
 - The start shift (about −4 s in every fold) helps: starts a second closer, recall a little up.
 - The bar went to its floor (0.06) in every fold: most simulated corrections are 「不是唱歌」 (precision is 0.12), so the
