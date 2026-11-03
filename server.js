@@ -17,6 +17,7 @@
 "use strict";
 const http = require("http");
 const crypto = require("crypto");
+const stream = require("stream");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -49,6 +50,17 @@ const {
   APP_DIR, DATA_DIR, MEDIA_DIR, EXPORTS_DIR, ANALYSIS_DIR, LIBRARY_DIR,
   PROJECT_FILE, LIBRARY_SUBDIRS, FRAMES_DIR, PROXIES_DIR, ensureDirs, readSaved, writeSaved,
 } = require("./paths");
+/** Uploads arrive here first (same volume as media/; a dot folder, so never served). At start only .part files older than
+ *  24 hours are removed (left over from a crash): another server on the same DATA_DIR may be receiving an upload (QQ). */
+const UPLOADS_DIR = path.join(DATA_DIR, ".uploads");
+try {
+  const stale = Date.now() - 24 * 3600 * 1000;
+  for (const f of fs.readdirSync(UPLOADS_DIR)) {
+    if (!f.endsWith(".part")) continue;
+    const file = path.join(UPLOADS_DIR, f);
+    try { if (fs.statSync(file).mtimeMs < stale) fs.rmSync(file, { force: true }); } catch {}
+  }
+} catch {}
 const Templates = require("./templates");
 const { probeFile } = require("./media-probe");
 const MediaLib = require("./media-lib");
@@ -184,6 +196,8 @@ if (process.env.FABLECUT_NO_FS_WATCH !== "1") {
 }
 
 /* ── Helpers ── */
+/* An exported file's name keeps Chinese (Delivery.fileSafeName); other names stay as safeName makes them. */
+function exportName(name) { return Delivery.fileSafeName(String(name || ""), "export"); }
 function safeName(name) {
   return name.replace(/[^\w.\- ()\[\]]+/g, "_").slice(0, 120) || "file";
 }
@@ -191,6 +205,17 @@ function sendJSON(res, code, obj) {
   const body = JSON.stringify(obj);
   res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" });
   res.end(body);
+}
+/** Writes a request body straight to a file as it arrives (uploads, the export audio), instead of holding it in memory
+ *  like readBody: a multi-GB recording used to cost the server about twice its size (Deja, 2026-11-03: a server.js that
+ *  ran 9 hours held 54 GB). Resolves with the byte count; on a dropped request or a write error the file is removed. */
+function bodyToFile(req, file) {
+  let bytes = 0;
+  req.on("data", (c) => { bytes += c.length; });
+  return stream.promises.pipeline(req, fs.createWriteStream(file, { flags: "wx" })).then(() => bytes, (e) => {
+    try { fs.rmSync(file, { force: true }); } catch {}
+    throw e;
+  });
 }
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -407,7 +432,7 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
   const duration = Number.isFinite(+extra.duration) && +extra.duration > 0 ? +extra.duration : null;
   for (const o of outs) {
     const ext = Delivery.CONTAINERS[o.spec.container].ext;
-    Object.assign(o, reserveExportPaths(EXPORTS_DIR, safeName(o.name || "export"), ext), { proc: null, stderr: "", done: null, failed: null });
+    Object.assign(o, reserveExportPaths(EXPORTS_DIR, exportName(o.name || "export"), ext), { proc: null, stderr: "", done: null, failed: null });
     o.err = () => o.stderr.trim().split("\n").filter(Boolean).slice(-3).map((l) => l.trim()).join(" · ");
   }
   const sess = {
@@ -485,7 +510,7 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
   }
   if (m === "jpeg" && (extra.delivery || extra.deliveries)) return beginDeliveryExport(rate, name, hasAudio, extra);
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-  const safe = safeName(name || "export");
+  const safe = exportName(name || "export");
   // Same filesystem as the finished file so renameSync(partPath, out) cannot EXDEV.
   const dir = fs.mkdtempSync(path.join(EXPORTS_DIR, "fablecut-"));
 
@@ -656,13 +681,13 @@ function serveFile(req, res, filePath) {
         "Content-Range": `bytes ${start}-${end}/${st.size}`,
         "Content-Length": end - start + 1, ...extra,
       });
-      fs.createReadStream(filePath, { start, end }).pipe(res);
+      stream.pipeline(fs.createReadStream(filePath, { start, end }), res, () => {});
     } else {
       res.writeHead(200, {
         "Content-Type": type, "Content-Length": st.size,
         "Accept-Ranges": "bytes", "Cache-Control": "no-cache", ...extra,
       });
-      fs.createReadStream(filePath).pipe(res);
+      stream.pipeline(fs.createReadStream(filePath), res, () => {});
     }
   });
 }
@@ -1007,15 +1032,25 @@ const server = http.createServer(async (req, res) => {
       let target = path.join(MEDIA_DIR, name);
       let i = 1;
       const ext = path.extname(name), base = path.basename(name, ext);
-      const body = await readBody(req);
-      // Reserve only after receiving the body, and never overwrite another upload.
-      for (;;) {
-        try { fs.writeFileSync(target, body, { flag: "wx" }); break; }
-        catch (error) {
-          if (error.code !== "EEXIST") throw error;
-          target = path.join(MEDIA_DIR, `${base}_${i++}${ext}`);
+      // Streamed to a staging file first (never held in memory), then claimed under a free name: the link fails on an
+      // existing name instead of replacing it, so another upload is never overwritten. A dropped upload leaves nothing.
+      const staging = path.join(UPLOADS_DIR, crypto.randomBytes(8).toString("hex") + ".part");
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+      await bodyToFile(req, staging);
+      try {
+        for (;;) {
+          try { fs.linkSync(staging, target); break; }
+          catch (error) {
+            if (error.code === "EEXIST") { target = path.join(MEDIA_DIR, `${base}_${i++}${ext}`); continue; }
+            // a file system without hard links: an exclusive copy keeps the same no-overwrite rule
+            if (["EPERM", "ENOTSUP", "EXDEV", "EINVAL"].includes(error.code)) {
+              try { fs.copyFileSync(staging, target, fs.constants.COPYFILE_EXCL); break; }
+              catch (e2) { if (e2.code === "EEXIST") { target = path.join(MEDIA_DIR, `${base}_${i++}${ext}`); continue; } throw e2; }
+            }
+            throw error;
+          }
         }
-      }
+      } finally { try { fs.rmSync(staging, { force: true }); } catch {} }
       await faststart(target);
       sendJSON(res, 200, { ok: true, ...await prepareMedia(target) });
     } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
@@ -1273,7 +1308,8 @@ const server = http.createServer(async (req, res) => {
     if (!sess) { sendJSON(res, 404, { error: "no such export session" }); return; }
     try {
       const wavPath = path.join(sess.dir, "audio.wav");
-      fs.writeFileSync(wavPath, await readBody(req));
+      try { fs.rmSync(wavPath, { force: true }); } catch {}
+      await bodyToFile(req, wavPath);   // streamed: a long mix is not held in memory
       // outputs that normalize loudness need the mix measured (loudnorm pass one) before ffmpeg starts
       const byTarget = new Map();
       for (const o of sess.outputs || []) {
