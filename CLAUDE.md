@@ -74,6 +74,8 @@ Every Claude Code session then has these tools:
   always the open one. See "Projects" below.
 - `fablecut_versions` — a project's saved versions: save one before big edits, compare
   a version with now, restore one (never destructive), mark the final cut. See "Versions" below.
+- `fablecut_danmaku` — import a Bilibili recording's danmaku XML (录播姬 or Bilibili's own) for one
+  recording, list or remove them. See "Danmaku (Bilibili recordings)" below.
 
 ### Token-efficient editing (important for agents)
 
@@ -332,6 +334,8 @@ Examples in `library/svg/`: `sparkles.svg` (loop), `lower-third.svg`,
   "collections": [ { "id": "col_sel", "name": "Selects", "media": [ "m_abc" ] } ],
   // ^ optional — Project-bin collections: media grouped across folders; see "Media management"
   "comps": [ { "id": "lt", "name": "Lower third", "width": 1280, "height": 720, "duration": 5, "clips": [ /* … */ ] } ],
+  "danmaku": [ { "id": "dm_x", "mediaId": "m_abc", "name": "rec.xml", "format": "bililive-recorder", "count": 2, "fields": ["t","dur","sent","mode","color","text"], "items": [ [1.5, 8, 1761998401500, 1, 16777215, "…"] ] } ],
+  // ^ optional — Bilibili danmaku per recording; see "Danmaku (Bilibili recordings)"
   // ^ optional — compositions (nested sequences), placed with kind:"comp" clips; see "Compositions (nested sequences)"
   "sequence": "main", "sequences": [ { "id": "main", "name": "Main" }, { "id": "seq_v9", "name": "Reel 9:16", "width": 1080, "height": 1920, "clips": [ /* … */ ] } ],
   // ^ optional — several timelines in one project; the open one is this top level; see "Sequences"
@@ -2816,7 +2820,34 @@ SRT/WebVTT parsing preserves the full normalized cue body instead of truncating 
 
 ### Highlight candidate cards (P2, MontClip)
 
-The Transcript tab's **高光候选 / Highlight candidates** reads local signals only and runs no model. The signals are the timeline's sentences (caption clips), the loudness of each sounding clip's file (read once by the server through ffmpeg as a stream, 8 kHz mono, 0.5 s bins, cached in `analysis/signals/` per file version — `GET /api/signals/loudness?src=` — and mapped onto the timeline through start, in point, speed, volume and gain; without a server, the mix itself in 60 s pieces), and `project.danmaku` (`[{t}]`) when present — the editor keeps `project.danmaku` as it is through load and save (every field of every entry). It shows up to 12 candidate ranges, best first, each with reasons that name the signal, the value, the baseline and the window. `highlight-candidates.js` holds the pure logic. **Go to** only moves the playhead; **Keep the ticked ones** keeps the ranges through the range engine as one undo step. With nothing to go on, it says why. Design and clean-room exception: `docs/decisions/2026-11-02-p2-highlight-cards.md`.
+The Transcript tab's **高光候选 / Highlight candidates** reads local signals only and runs no model. The signals are the timeline's sentences (caption clips), the loudness of each sounding clip's file (read once by the server through ffmpeg as a stream, 8 kHz mono, 0.5 s bins, cached in `analysis/signals/` per file version — `GET /api/signals/loudness?src=` — and mapped onto the timeline through start, in point, speed, volume and gain; without a server, the mix itself in 60 s pieces), and imported danmaku (`project.danmaku`, mapped onto the timeline through each clip that plays its recording, and kept by the editor as it is through load and save) when present. It shows up to 12 candidate ranges, best first, each with reasons that name the signal, the value, the baseline and the window. `highlight-candidates.js` holds the pure logic. **Go to** only moves the playhead; **Keep the ticked ones** keeps the ranges through the range engine as one undo step. With nothing to go on, it says why. Design and clean-room exception: `docs/decisions/2026-11-02-p2-highlight-cards.md`.
+
+### Danmaku (Bilibili recordings)
+
+A recording's danmaku come from the XML beside it: the one 录播姬 (BililiveRecorder) writes, or Bilibili's own
+video danmaku XML. Each `<d p="…">` becomes one row. They are kept in `project.danmaku`, one entry per recording
+(`mediaId`), apart from the transcript and the captions, in the recording's own seconds:
+
+| field | meaning |
+|---|---|
+| `t` · `dur` | when it shows: from `t` (the first field of p) for `dur` seconds — MontClip's display length, 8 s scrolling, 4 s top / bottom |
+| `sent` | when it was sent: epoch milliseconds (the fifth field: milliseconds in 录播姬's files, seconds in Bilibili's), or null |
+| `mode` · `color` · `text` | 1–6 (scrolling, bottom 4, top 5); 0xRRGGBB; at most 100 characters |
+
+Rows are `[t, dur, sent, mode, color, text]` (`fields` names them), sorted by `t`. User names and ids, the
+streamer's name and 录播姬's stylesheet are not kept; gifts, super chats and guard events are only counted
+(`skipped`), and so are positioned / code / BAS danmaku (modes 7–9). A file is read in pieces (the editor reads its
+File as a stream, the MCP tool reads the path with a stream decoder), so its size doesn't matter and a Chinese path
+is fine. More than 400 000 danmaku in one file is refused, not cut short. Importing again for a recording replaces
+its danmaku; removing the recording drops them. They are not part of undo.
+
+- **In the editor:** Transcript tab → **导入弹幕… / Import danmaku…**. The recording is the selected clip's file, else
+  the file of the same name (`rec.flv` beside `rec.xml`), else the only recording on the timeline. The bin's
+  right-click menu on that file has **移除弹幕 / Remove danmaku**.
+- **Agents:** `fablecut_danmaku {path, mediaId}` imports (mediaId may be left out when the project has one video or
+  audio file), `{mediaId, remove:true}` removes, `{}` lists.
+- **Highlight candidates** map them onto the timeline (start, in point, speed; linked stems count once; speed ramps
+  left out) and give a card a danmaku reason where they burst.
 
 ### Songs in a recording (MontClip)
 

@@ -1623,7 +1623,7 @@ function applyProject(data, opts = {}) {
     // the songs found in each file (P2 songs.js); checked again when saved
     songs: data.songs && typeof data.songs === "object" && !Array.isArray(data.songs) ? data.songs : null,
     // the recording's danmaku, kept as it is (null when this project has none, so nothing is left from the last one)
-    danmaku: normalizeDanmaku(data.danmaku),
+    danmaku: normalizeDanmaku(data.danmaku, (data.media || []).map((m) => m.id)),
     // the sequences that aren't open, kept as they are (see sequences.js); the open one is this document
     sequences: Array.isArray(data.sequences) && data.sequences.length ? data.sequences : null,
     sequence: Array.isArray(data.sequences) && data.sequences.length ? SeqLib.activeId(data) : null,
@@ -1797,9 +1797,15 @@ function projectJSON() {
 }
 /** project.danmaku as the editor keeps it: the list as it is — every field of every entry, whichever shape — as a
  *  JSON copy; null when it is not a list, is empty, or is larger than any recording's danmaku (400000 entries). */
-function normalizeDanmaku(list) {
+function normalizeDanmaku(list, mediaIds) {
   if (!Array.isArray(list) || !list.length || list.length > 400000) return null;
-  try { return JSON.parse(JSON.stringify(list)); } catch { return null; }
+  try {
+    if (typeof MontClipDanmaku !== "undefined" && list.every((e) => e && typeof e === "object" && typeof e.mediaId === "string" && Array.isArray(e.items))) {
+      const n = MontClipDanmaku.normalize(list, mediaIds);
+      return n.length ? JSON.parse(JSON.stringify(n)) : null;
+    }
+    return JSON.parse(JSON.stringify(list));
+  } catch { return null; }
 }
 /** The project as it is loaded right now (an open comp's stand-in project, or the root). */
 function projectJSONHere() {
@@ -1846,7 +1852,7 @@ function projectJSONHere() {
   // the songs found in each file (P2 songs.js): kept, checked, for files still in the project
   const songs = typeof MontClipSongs !== "undefined" ? MontClipSongs.clean(project.songs, out.media) : null;
   if (songs) out.songs = songs;
-  const danmaku = normalizeDanmaku(project.danmaku);
+  const danmaku = normalizeDanmaku(project.danmaku, out.media.map((m) => m.id));
   if (danmaku) out.danmaku = danmaku;
   if (project.sequences) {
     out.sequences = project.sequences.map((sq) => (sq.id === project.sequence ? { id: sq.id, name: sq.name } : sq));
@@ -2805,6 +2811,8 @@ function showMediaMenu(x, y, m) {
     const col = newCollection(name, [m.id]);
     toast(`Added ${m.name} to the collection “${col.name}”`);
   }, { placeholder: "Selects, Interviews…", ok: "Create" }));
+  const dm = (project.danmaku || []).find((e) => e.mediaId === m.id);
+  if (dm) { sep(); item(uiText("own.dm-remove", { n: dm.count }), () => removeDanmaku(m)); }
   sep();
   item("Remove from project", () => removeMediaFromBin(m));
   document.body.appendChild(menu);
@@ -9618,6 +9626,7 @@ function buildTranscriptPage() {
   root.innerHTML = `<div class="tr-head">
       <div class="tr-row tr-entries">
         <button type="button" class="btn tiny" data-tr-highlights data-i18n="own.hl-open">${escapeHtml(uiText("own.hl-open"))}</button>
+        <button type="button" class="btn tiny" data-tr-danmaku data-i18n="own.dm-import" data-i18n-title="own.dm-import-title" title="${escapeHtml(uiText("own.dm-import-title"))}">${escapeHtml(uiText("own.dm-import"))}</button>
         <button type="button" class="btn tiny" data-tr-sentences data-i18n="own.tr-sentences">${escapeHtml(uiText("own.tr-sentences"))}</button>
         <button type="button" class="btn tiny" data-tr-mapping data-i18n="own.mapping">${escapeHtml(uiText("own.mapping"))}</button>
       </div>
@@ -9646,6 +9655,7 @@ function buildTranscriptPage() {
         <button type="button" class="btn tiny" data-tr-cap-file="vtt" title="Download the timeline's captions as a WebVTT file">VTT</button>
         <button type="button" class="btn tiny" data-tr-cap-import title="Place the captions of an SRT or WebVTT file" data-i18n="term.import-2">${uiText("term.import-2")}</button>
         <input type="file" accept=".srt,.vtt,text/vtt,application/x-subrip" data-tr-cap-input hidden>
+        <input type="file" accept=".xml,text/xml,application/xml" data-tr-danmaku-input hidden>
       </div>
       <div class="tr-note" data-i18n="own.caption-last">${uiText("own.caption-last")}</div>
     </div>
@@ -9686,6 +9696,13 @@ function buildTranscriptPage() {
   q("[data-tr-sentences]").addEventListener("click", () => showSentenceSelection());
   q("[data-tr-mapping]").addEventListener("click", downloadSourceMap);
   q("[data-tr-highlights]").addEventListener("click", () => showHighlightCandidates());
+  const dmInput = q("[data-tr-danmaku-input]");
+  q("[data-tr-danmaku]").addEventListener("click", () => dmInput.click());
+  dmInput.addEventListener("change", () => {
+    const f = dmInput.files && dmInput.files[0];
+    dmInput.value = "";
+    if (f) importDanmakuFile(f);
+  });
   capInput.addEventListener("change", async () => {
     const f = capInput.files && capInput.files[0];
     capInput.value = "";
@@ -9952,6 +9969,47 @@ function watchCaptions(now) {
     }
   }
 }
+/* Danmaku import (Deja, 2026-11-02): a 录播姬 / Bilibili danmaku XML for one recording, read in pieces (the file is
+   never held whole), kept in project.danmaku in the recording's own seconds. The recording is the selected clip's
+   file, else the file of the same name (录播姬 writes name.flv beside name.xml), else the only recording on the
+   timeline. Importing again for the same recording replaces its danmaku. */
+function danmakuTarget(fileName) {
+  const sel = selectedClips().find((c) => (c.kind === "video" || c.kind === "audio") && c.mediaId);
+  if (sel) return getMedia(sel.mediaId);
+  const stem = (s) => String(s || "").split(/[\\/]/).pop().replace(/\.[^.]+$/, "").normalize("NFC").toLowerCase();
+  const want = stem(fileName), av = project.media.filter((m) => m.kind === "video" || m.kind === "audio");
+  const named = av.filter((m) => stem(m.name) === want || stem(m.src) === want || (m.originalSrc && stem(m.originalSrc) === want));
+  if (named.length === 1) return named[0];
+  const used = [...new Set(project.clips.filter((c) => c.kind === "video" || c.kind === "audio").map((c) => c.mediaId))].map(getMedia).filter(Boolean);
+  return used.length === 1 ? used[0] : null;
+}
+async function importDanmakuFile(file) {
+  if (state.exporting || state.compCtx) { toast(uiText("own.hl-busy")); return null; }
+  const m = danmakuTarget(file.name);
+  if (!m) { toast(uiText("own.dm-pick-clip")); return null; }
+  const gen = runtime.projectId;
+  toast(uiText("own.dm-reading", { name: file.name }));
+  let parsed;
+  try {
+    const parser = MontClipDanmaku.createParser(), reader = file.stream().pipeThrough(new TextDecoderStream("utf-8")).getReader();
+    for (;;) { const { done, value } = await reader.read(); if (done) break; parser.push(value); }
+    parsed = parser.end();
+  } catch (e) {
+    toast(uiText(e && e.code === "DANMAKU_TOO_MANY" ? "own.dm-too-many" : "own.dm-bad", { n: MontClipDanmaku.MAX_ITEMS }));
+    return null;
+  }
+  if (runtime.projectId !== gen || !getMedia(m.id)) { toast(uiText("own.hl-changed")); return null; }
+  const e = MontClipDanmaku.entry({ id: "dm_" + uid(), mediaId: m.id, name: file.name, parsed });
+  project.danmaku = (project.danmaku || []).filter((x) => x.mediaId !== m.id).concat([e]);
+  scheduleSave();
+  toast(uiText("own.dm-imported", { n: e.count, name: m.name }));
+  return { mediaId: m.id, count: e.count, format: e.format };
+}
+function removeDanmaku(m) {
+  const before = (project.danmaku || []).length;
+  project.danmaku = (project.danmaku || []).filter((x) => x.mediaId !== m.id);
+  if (project.danmaku.length !== before) { scheduleSave(); toast(uiText("own.dm-removed", { name: m.name })); }
+}
 /* P2 (owner, 2026-11-02): highlight candidates from local signals only — the timeline's sentences, the loudness
    of its own sound mix (rendered here in 60 s pieces) and, when the project has any, danmaku. Nothing is
    sent anywhere and no model runs. Go to moves the playhead; Keep goes through the range engine as one undo step. */
@@ -9998,7 +10056,10 @@ async function highlightSignals(isCurrent = () => true) {
     }
     loudness = { step, values };
   }
-  const danmaku = Array.isArray(project.danmaku) ? project.danmaku : [];
+  // imported danmaku are in their recording's seconds: onto the timeline through each clip that plays it (or timeline-second entries [{t}])
+  const danmaku = Array.isArray(project.danmaku) && project.danmaku.some((e) => e && Array.isArray(e.items))
+    ? MontClipDanmaku.toTimeline(project.danmaku, mediaClips().filter((c) => (c.kind === "video" || c.kind === "audio") && clipRenders(c)))
+    : (Array.isArray(project.danmaku) ? project.danmaku : []);
   return { duration, sentences, loudness, danmaku };
 }
 /** A reason on a card: {text, title} — the words, and the numbers behind them for the tooltip. Loudness with only
@@ -12612,7 +12673,7 @@ function commitCompCtx() {
   const comps = (cur.comps || []).map((c) => (c.id === id
     ? { ...c, clips: cur.clips, tracks: cur.tracks, disabledTracks: cur.disabledTracks && cur.disabledTracks.length ? cur.disabledTracks : undefined, markers: cur.markers && cur.markers.length ? cur.markers : undefined, background: c.background }
     : c));
-  x.root = { ...x.root, media: cur.media, folders: cur.folders, collections: cur.collections, fps: cur.fps, master: cur.master, buses: cur.buses, revision: cur.revision, comps };
+  x.root = { ...x.root, media: cur.media, folders: cur.folders, collections: cur.collections, danmaku: cur.danmaku, fps: cur.fps, master: cur.master, buses: cur.buses, revision: cur.revision, comps };
   return x.root;
 }
 function enterComp(compId, viaClip) {

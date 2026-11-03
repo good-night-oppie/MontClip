@@ -22,6 +22,6 @@ test('normalizeDanmaku keeps every field of every entry, as a copy; not an array
  a.equal(normalizeDanmaku([{t:1,f(){}}])[0].f,undefined,'only JSON survives');
 });
 test('the load keeps it (and clears a value left from the project before); the save writes it back',()=>{
- const load=fn('applyProject');a.match(load,/\n    danmaku: normalizeDanmaku\(data\.danmaku\),/);
- const save=fn('projectJSONHere');a.match(save,/const danmaku = normalizeDanmaku\(project\.danmaku\);\n  if \(danmaku\) out\.danmaku = danmaku;/);
+ const load=fn('applyProject');a.match(load,/\n    danmaku: normalizeDanmaku\(data\.danmaku/);
+ const save=fn('projectJSONHere');a.match(save,/const danmaku = normalizeDanmaku\(project\.danmaku[\s\S]*?\n  if \(danmaku\) out\.danmaku = danmaku;/);
 });
