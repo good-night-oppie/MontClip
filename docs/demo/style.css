@@ -45,6 +45,16 @@ body[data-mc-mode="simple"] .upper > .bin { grid-column: 3; grid-row: 1; }
   user-select: none;
 }
 
+/* A modal <dialog> is centred by the browser's own margin: auto, which the reset above takes away: put it back for every
+   one, and darken the page behind it (a dialog's own ::backdrop may darken it more). test/dialog-center.test.js keeps any
+   dialog's own rule from taking the centring away again; desktop/dialogs-smoke.cjs measures each one in a real window. */
+dialog:modal {
+  margin: auto;
+}
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
 html,
 body {
   height: 100%;
@@ -4806,7 +4816,9 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 [data-edit-tool][hidden] {display:none;}
 
 /* desktop FLV import dialog */
-.flv-import-dialog { max-width: min(460px, 92vw); }
+.flv-import-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; width: min(460px, 92vw); padding: 14px 16px; }
+.flv-import-dialog h3 { margin: 0 0 6px; font-size: 15px; }
+.flv-import-dialog p { margin: 0 0 8px; }
 .flv-import-dialog .flv-import-name { word-break: break-all; opacity: .8; }
 .flv-import-dialog [data-flv-ask] { white-space: pre-line; line-height: 1.5; }
 .flv-import-dialog .flv-import-row { display: flex; gap: 8px; justify-content: flex-end; }

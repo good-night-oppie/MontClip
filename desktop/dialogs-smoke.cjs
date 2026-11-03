@@ -25,14 +25,13 @@ BrowserWindow.prototype.loadURL=async function(...args){
  const shot=async(name)=>{if(!shotsDir)return;await wait(250);fs.writeFileSync(path.join(shotsDir,name+'.png'),(await win.webContents.capturePage()).toPNG());};
  // how bright the top bar's Export button is, from this window's own pixels: the page behind a dialog is darkened when
  // that drops against the same button with nothing open
- const EXPORT_AT={x:1185,y:10,width:80,height:34};
+ let EXPORT_AT=null;
  const brightness=async()=>{await wait(250);const b=(await win.webContents.capturePage(EXPORT_AT)).toBitmap();let t=0;for(let i=0;i<b.length;i+=4)t+=(b[i]+b[i+1]+b[i+2])/3;return t/(b.length/4);};
  let base=null;const dimmed=async()=>Math.round((1-(await brightness())/base)*100)/100;
- let ok=false;const report={dialogs:{},overlays:{}};
- const watchdog=setTimeout(()=>{out('DIALOGS_FAIL',{watchdog:'4 min',...report});app.exit(1);},240000);
+ let ok=false;const report={sizes:{}};let sized=null,size='';
+ const watchdog=setTimeout(()=>{out('DIALOGS_FAIL',{watchdog:'7 min',...report});app.exit(1);},420000);
  try{
   for(let i=0;i<150&&!await read(`state.connected`);i++)await wait(100);
-  win.setContentSize(1280,800);await wait(300);
   await read(MEASURE);
   await read(`(async()=>{if(!await flushSaveBeforeSwitch())throw Error('SAVE');await pjPost({action:'new',name:'对话框 smoke',open:true});if(!await syncFromServer(true))throw Error('CREATE');})()`);
   // a synthetic recording and two caption sentences (nothing is read from disk)
@@ -42,21 +41,25 @@ BrowserWindow.prototype.loadURL=async function(...args){
     {id:'cap2',kind:'text',mediaId:null,track:'V2',start:5,in:0,duration:3,props:{text:'第二句字幕',caption:true}});
    applyProject(doc);scheduleSave();if(!await flushSave())throw Error('SAVE');})()`);
   await read(`updateMontClipView({language:'zh-CN'});true`);await wait(300);
-  base=await brightness();report.exportButtonBrightness=Math.round(base);
   const open=()=>read(`[...document.querySelectorAll('dialog[open]')].map(d=>d.className)`);
+  for(const [w,h] of [[1280,800],[630,460]]){
+  size=w+'x'+h;sized=report.sizes[size]={dialogs:{},overlays:{}};
+  win.setContentSize(w,h);await wait(500);
+  EXPORT_AT=await read(`(()=>{const r=document.getElementById('btnExport').getBoundingClientRect();return {x:Math.round(r.left)+4,y:Math.round(r.top)+4,width:Math.round(r.width)-8,height:Math.round(r.height)-8};})()`);
+  base=await brightness();sized.exportButtonBrightness=Math.round(base);
   // one <dialog>: open it with `js`, find it by its class, measure, capture, close it
   const dialog=async(name,cls,js)=>{
    await read(`(()=>{${js}})();true`);
    let m=null;for(let i=0;i<40&&!m;i++){await wait(100);m=await read(`(()=>{const d=document.querySelector('dialog.${cls}[open]');return d?__dlgMeasure(d):null;})()`);}
-   report.dialogs[name]=m||{missing:true,open:await open()};
-   if(m){m.dimmed=await dimmed();await shot('dialog-'+name);}
+   sized.dialogs[name]=m||{missing:true,open:await open()};
+   if(m){m.dimmed=await dimmed();await shot(size+'-dialog-'+name);}
    await read(`for(const d of document.querySelectorAll('dialog[open]'))d.close();true`);await wait(200);
   };
   // the FLV import box closes as soon as the main process turns the synthetic file down: it is measured in the same turn
   // it opens, and a copy of it (the same markup) is shown for the capture
   await dialog('flv-import','flv-import-dialog',`desktopFlvImport({name:'合成.flv',size:0,path:''}).catch(()=>{});const d=document.querySelector('dialog.flv-import-dialog[open]');
    if(d){window.__flvSeen=__dlgMeasure(d);const c=d.cloneNode(true);c.removeAttribute('open');d.after(c);setTimeout(()=>{try{c.showModal();}catch(e){window.__flvErr=String(e);}},0);}`);
-  report.dialogs['flv-import-as-opened']=await read(`window.__flvSeen||{missing:true}`);report.flvCopyError=await read(`window.__flvErr||null`);
+  sized.dialogs['flv-import-as-opened']=await read(`window.__flvSeen||{missing:true}`);report.flvCopyError=await read(`window.__flvErr||null`);await read(`window.__flvSeen=null;true`);
   await dialog('caption-size','cq-dialog',`setSelection(['cap1']);openCaptionQuick()`);
   await dialog('asr-setup','asr-setup',`openAsrSetup()`);
   await dialog('highlights','highlight-dialog',`showHighlightCandidates()`);
@@ -72,8 +75,8 @@ BrowserWindow.prototype.loadURL=async function(...args){
    await read(`(()=>{${js}})();true`);
    let m=null;for(let i=0;i<40&&!m;i++){await wait(100);m=await read(`(()=>{const o=document.getElementById(${JSON.stringify(id)});if(!o||o.classList.contains('hidden'))return null;const d=o.querySelector('.dialog')||o.firstElementChild;const r=o.getBoundingClientRect();return {...__dlgMeasure(d,o),cover:Math.round(r.width)===innerWidth&&Math.round(r.height)===innerHeight};})()`);}
    await wait(200);
-   report.overlays[name]=m||{missing:true};
-   if(m){m.dimmed=await dimmed();await shot('overlay-'+name);}
+   sized.overlays[name]=m||{missing:true};
+   if(m){m.dimmed=await dimmed();await shot(size+'-overlay-'+name);}
    await read(`document.getElementById(${JSON.stringify(id)}).classList.add('hidden');true`);await wait(150);
   };
   await overlay('export','exportSetup',`document.getElementById('btnExport').click()`);
@@ -82,10 +85,12 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await overlay('settings','settingsOverlay',`document.getElementById('btnSettings').click()`);
   await overlay('help','helpOverlay',`document.getElementById('btnHelp').click()`);
   await overlay('import-url','importUrlOverlay',`document.getElementById('importUrlOverlay').classList.remove('hidden')`);
+  }
   // centred within 2 px each way (a box taller than the window is pinned to the top by the browser, so only dx then);
   // the page behind it darkened at least 30 %
   const bad=[];
-  for(const group of ['dialogs','overlays'])for(const [name,m] of Object.entries(report[group])){
+  for(const [size,got] of Object.entries(report.sizes))for(const group of ['dialogs','overlays'])for(const [n,m] of Object.entries(got[group])){
+   const name=size+' '+n;
    if(m.missing){bad.push(name+': did not open');continue;}
    if(Math.abs(m.dx)>2||(m.h<m.vh&&Math.abs(m.dy)>2))bad.push(`${name}: off centre (dx ${m.dx}, dy ${m.dy})`);
    if(m.alpha<0.3)bad.push(`${name}: backdrop ${m.backdrop}`);
