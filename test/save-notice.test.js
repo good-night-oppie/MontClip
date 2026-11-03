@@ -67,3 +67,11 @@ test("VV on 71cd650: the queue's Save is greyed while its save is open; a saved 
   a.match(app, /<button type="button" class="btn tiny" data-q-save="\$\{q\.id\}"\$\{q\.saving \? " disabled" : ""\}>/);
   a.match(app, /: q\.status === "done" \? \(q\.saved \? "" : `Done → exports\/\$\{q\.file \|\| q\.name \+ ext\}`\)/, 'no path for a saved item');
 });
+
+test('VV on 2333c24: Save is greyed while any save of that export is open, with the reason; a refused one says so', () => {
+  const app = read('app.js'), ui = read('ui-preferences.js');
+  a.ok(ui.includes('"save-busy": ["Close the save window that is already open first.", "先关掉上一个保存窗口"]'));
+  a.match(app, /if \(exportFile\) \{ window\.montclipDownloads\.expect\(name\); pendingExports\.add\(name\); for \(const q of exportQueue\) if \(q\.file === name\) q\.saving = true; renderQueue\(\); \}/, 'the export flow\'s own save greys the row too');
+  a.match(app, /if \(state === "refused"\) \{ toast\(uiText\("own\.save-busy"\)\); return; \}/);
+  a.match(app, /\$\{q\.saving \? ` disabled title="\$\{escapeHtml\(uiText\("own\.save-busy"\)\)\}"` : ""\}/);
+});

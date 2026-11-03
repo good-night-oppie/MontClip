@@ -154,3 +154,51 @@ test('a cancelled or failed download frees the file for the next try', async (t)
     a.equal(busy.size, 0, state);
   }
 });
+
+// VV (2333c24): saving over a file another program holds open left the download stuck — Chromium reports a resumable
+// interruption through 'updated', never 'done' — so the page never heard anything and Save stayed grey.
+test('every download ends exactly once: an interruption reported through updated ends it as interrupted (the copy stays)', async (t) => {
+  const exportsDir = dir(t), name = 'locked.mp4', copy = path.join(exportsDir, name); fs.writeFileSync(copy, 'v');
+  const it = item(ORIGIN + '/exports/' + name, name), outcomes = [], busy = new Set();
+  let cancelled = 0; it.cancel = () => { cancelled++; it.emit('done', {}, 'cancelled'); };
+  it.getState = () => 'interrupted';
+  X.attach(it, { origin: ORIGIN, exportsDir, language: 'en', busy, take: () => true, claim: async () => true, onDone: (v) => outcomes.push(v) });
+  it.savePath = path.join(dir(t), 'target.mp4');
+  it.emit('updated', {}, 'interrupted');
+  await new Promise((r) => setTimeout(r, 50));
+  a.deepEqual(outcomes, [{ state: 'interrupted', name, removed: false }], 'one outcome, interrupted');
+  a.equal(cancelled, 1, 'the stuck download is cancelled so nothing is left half written');
+  a.equal(fs.existsSync(copy), true); a.equal(busy.size, 0, 'free for the next try');
+});
+
+test('a download that stops moving after its save path is set ends as interrupted (watchdog); one that keeps moving does not', async (t) => {
+  const exportsDir = dir(t), name = 'stall.mp4'; fs.writeFileSync(path.join(exportsDir, name), 'v');
+  const mk = () => { const it = item(ORIGIN + '/exports/' + name, name); it.cancel = () => it.emit('done', {}, 'cancelled'); it.getState = () => 'progressing'; return it; };
+  // stalls: the save path is set, then nothing for longer than the limit
+  const stall = mk(), out1 = [];
+  X.attach(stall, { origin: ORIGIN, exportsDir, language: 'en', onDone: (v) => out1.push(v), stallMs: 120, checkMs: 20 });
+  stall.savePath = path.join(dir(t), 'a.mp4');
+  await new Promise((r) => setTimeout(r, 400));
+  a.deepEqual(out1.map((o) => o.state), ['interrupted']);
+  // keeps receiving: an update every 50 ms for 400 ms, then completes
+  const busy = mk(), out2 = [];
+  X.attach(busy, { origin: ORIGIN, exportsDir, language: 'en', onDone: (v) => out2.push(v), stallMs: 120, checkMs: 20 });
+  busy.savePath = path.join(dir(t), 'b.mp4');
+  for (let i = 0; i < 8; i++) { await new Promise((r) => setTimeout(r, 50)); busy.emit('updated', {}, 'progressing'); }
+  busy.emit('done', {}, 'completed'); await new Promise((r) => setTimeout(r, 50));
+  a.deepEqual(out2.map((o) => o.state), ['completed'], 'progress keeps it alive');
+  // while the save window is open (no save path yet) the watchdog does not run
+  const open = mk(), out3 = [];
+  X.attach(open, { origin: ORIGIN, exportsDir, language: 'en', onDone: (v) => out3.push(v), stallMs: 60, checkMs: 20 });
+  await new Promise((r) => setTimeout(r, 250));
+  a.deepEqual(out3, [], 'no save path yet: the user is still choosing');
+  open.emit('done', {}, 'cancelled'); await new Promise((r) => setTimeout(r, 30));
+  a.deepEqual(out3.map((o) => o.state), ['cancelled']);
+});
+
+test('main reports a refused download to the page (state refused), and the stall limit is generous', () => {
+  const main = fs.readFileSync(path.join(__dirname, '..', 'desktop', 'main.js'), 'utf8');
+  a.match(main, /win\.webContents\.send\("montclip:download:done", \{ state: "refused", name: item\.getFilename\(\), removed: false \}\)/);
+  const src = fs.readFileSync(path.join(__dirname, '..', 'desktop', 'export-downloads.js'), 'utf8');
+  a.match(src, /stallMs = 120000/, 'two minutes without any progress after the save path is set');
+});

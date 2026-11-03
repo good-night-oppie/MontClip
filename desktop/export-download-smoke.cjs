@@ -141,11 +141,33 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   assert.equal(doneState,'completed');assert.equal(out.heldDone.bytes,48*1024*1024,'the open save is whole');
   out.afterHeld=await read(`(()=>{const b=document.querySelector('#exportQueueList [data-q-save="q3"]');return{disabled:!!b&&b.disabled}})()`);
   assert.deepEqual(out.afterHeld,{disabled:false},'Save is usable again once its save ended (an older file stays)');
+  // 7b. VV on 2333c24: saving over a file another program holds open. The download must end (here: Chromium reports the
+  //     interruption through 'updated'), the page says export-save-failed, Save is usable again and the export stays.
+  out.step='locked';
+  const src4=await exportNow('第三次 导出'),name4=decodeURIComponent(src4.split('/').pop());
+  await read(`exportQueue.push({id:'q4',label:'smoke',spec:normalizeDelivery('master').spec,name:'w',range:'entire',status:'done',progress:1,src:${JSON.stringify(src4)},file:${JSON.stringify(name4)},report:null});renderQueue();true`);
+  const lockedTarget=path.join(saved,'locked by another program.mp4');fs.writeFileSync(lockedTarget,'someone else\'s file');
+  const locker=require('node:child_process').spawn('powershell.exe',['-NoProfile','-NonInteractive','-Command','$f=[IO.File]::Open($env:MC_LOCK,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None);[Console]::Out.WriteLine(\'LOCKED\');[Console]::Out.Flush();Start-Sleep -Seconds 90'],{windowsHide:true,env:{...process.env,MC_LOCK:lockedTarget}});
+  try{
+   await new Promise((resolve,reject)=>{const t=setTimeout(()=>reject(Error('no lock')),20000);locker.stdout.on('data',(d)=>{if(/LOCKED/.test(String(d))){clearTimeout(t);resolve();}});});
+   const on=(_e,item)=>{ses.removeListener('will-download',on);item.setSavePath(lockedTarget);};ses.on('will-download',on);
+   await lang('zh-CN');
+   await read(`document.getElementById('toast').textContent='';document.querySelector('#exportQueueList [data-q-save="q4"]').click();true`);
+   out.lockedSaving=await read(`!!document.querySelector('#exportQueueList [data-q-save="q4"]').disabled`);
+   let r;for(let i=0;i<120;i++){await wait(250);r=await read(`({toast:document.getElementById('toast').textContent,disabled:!!document.querySelector('#exportQueueList [data-q-save="q4"]')?.disabled})`);if(r.toast)break;}
+   out.locked={...r,copyLeft:has(name4),target:fs.readFileSync(lockedTarget,'utf8')};
+   assert.equal(out.locked.toast,'没有保存成功。导出的视频还在，打开『导出队列』，在这一条后面点『保存』再试一次；还不行的话，换个位置保存，或者看看那里的空间够不够。','the failure is said');
+   assert.equal(out.locked.disabled,false,'Save is usable again');
+   assert.equal(out.locked.copyLeft,true,'the export stays');
+   assert.equal(out.locked.target,'someone else\'s file','the other program\'s file is untouched');
+  }finally{locker.kill();}
+  await wait(500);
+  await lang('en');
   // 8. the queue's Save on this session's export, saved: now the copy goes, and the row shows only Saved, no path
   out.step='qsave';out.queueSave=await download(`document.querySelector('#exportQueueList [data-q-save="q2"]').click()`,saveTo('from-queue.mp4'));
   assert.equal(out.queueSave.state,'completed');assert.equal(out.queueSave.copyLeft,false,'saved from the queue: the copy goes');
   out.queueAfter=await queueView();
-  assert.deepEqual(out.queueAfter.rows.map(r=>[r.id,r.save,r.saved,r.links]),[['qsmoke',null,'Saved',0],['q2',null,'Saved',0],['q3','Save',null,0]]);
+  assert.deepEqual(out.queueAfter.rows.map(r=>[r.id,r.save,r.saved,r.links]),[['qsmoke',null,'Saved',0],['q2',null,'Saved',0],['q3','Save',null,0],['q4','Save',null,0]]);
   out.statusText=await read(`[...document.querySelectorAll('#exportQueueList [data-q] .xq-status')].map(x=>x.textContent)`);
   assert.deepEqual(out.statusText.slice(0,2),['',''],'a saved item shows no path to the removed file');
 
@@ -153,7 +175,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   out.downloadsLeft=fs.readdirSync(downloads);
   assert.deepEqual(out.downloadsLeft,[],'nothing left in Downloads after the cancels');
   out.exportsLeft=fs.readdirSync(exportsDir).sort();
-  assert.deepEqual(out.exportsLeft,['big recording.mp4','older export.mp4'],'only the saved exports\' copies went');
+  assert.deepEqual(out.exportsLeft,['_ _ _.mp4','big recording.mp4','older export.mp4'].sort(),'only the saved exports\' copies went');
   process.stdout.write('EXPORT_DOWNLOAD_COMPLETE '+JSON.stringify(out)+'\n');
  }catch(e){process.stdout.write('EXPORT_DOWNLOAD_FAIL '+(e&&e.stack)+' '+JSON.stringify(out)+'\n');}
  finally{setTimeout(()=>app.exit(0),300);}
