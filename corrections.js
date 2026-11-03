@@ -33,10 +33,12 @@
   /** A record to keep: {type, …} → {v:1, at, type, …} with only its own fields; anything else throws CORRECTION_INVALID. */
   function record(input) {
     if (!input || typeof input !== "object" || Array.isArray(input) || !TYPES.includes(input.type)) fail();
-    const own = FIELDS[input.type], extra = ["type", "duration", "at", "v"];
+    const own = FIELDS[input.type], extra = ["type", "duration", "at", "v", "id"];
     for (const k of Object.keys(input)) if (!own.includes(k) && !extra.includes(k)) fail();
     if (!num(input.duration, 0, 86400 * 7)) fail();
     const out = { v: 1, at: num(input.at, 0, 1e15) ? Math.round(input.at) : Date.now(), type: input.type, duration: r2(input.duration) };
+    // the store's own id for a record, so undoing an edit can take its record back
+    if ("id" in input) { if (typeof input.id !== "string" || !/^[a-f0-9]{16}$/.test(input.id)) fail(); out.id = input.id; }
     for (const k of own) {
       const v = input[k];
       if (k === "features") { if (v != null) out.features = features0(v); continue; }
@@ -66,10 +68,12 @@
   const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
   const mean = (xs) => xs.reduce((t, x) => t + x, 0) / xs.length;
   const median = (xs) => xs.slice().sort((x, y) => x - y)[xs.length >> 1];
-  /** A habit among the last HABIT_WINDOW values: HABIT_MIN or more the same sign → those values; else null. */
+  /** A habit among the last HABIT_WINDOW values: HABIT_MIN or more the same sign → {values: those, n: how many were
+   *  looked at}; else null. The card says 「你以前 n 首里有 of 首…」. */
   function habit(values) {
     const last = values.slice(-HABIT_WINDOW), up = last.filter((v) => v > 0), down = last.filter((v) => v < 0);
-    return up.length >= HABIT_MIN ? up : down.length >= HABIT_MIN ? down : null;
+    const same = up.length >= HABIT_MIN ? up : down.length >= HABIT_MIN ? down : null;
+    return same && { values: same, n: last.length };
   }
   /** The fixed rules from the records: {shift: {kind: {start?: {by, of}, end?: {by, of}}}, bar?: {dir, PAUSE, of}}. */
   function rules(records) {
@@ -78,7 +82,7 @@
       const t = list.filter((x) => x.type === "trim" && x.kind === k), one = {};
       for (const [edge, key] of [["start", "startShift"], ["end", "endShift"]]) {
         const h = habit(t.map((x) => x[key]));
-        if (h) one[edge] = { by: r2(clamp(mean(h), -MAX_SHIFT, MAX_SHIFT)), of: h.length };
+        if (h) one[edge] = { by: r2(clamp(mean(h.values), -MAX_SHIFT, MAX_SHIFT)), of: h.values.length, n: h.n };
       }
       if (one.start || one.end) out.shift[k] = one;
     }
@@ -86,10 +90,10 @@
     const kinds = list.filter((x) => x.type === "kind" && (x.from === "song") !== (x.to === "song"));
     const h = habit(kinds.map((x) => (x.from === "song" ? 1 : -1)));
     if (h) {
-      const dir = h[0] > 0 ? "up" : "down", same = kinds.slice(-HABIT_WINDOW).filter((x) => (x.from === "song") === (dir === "up") && x.features);
+      const dir = h.values[0] > 0 ? "up" : "down", same = kinds.slice(-HABIT_WINDOW).filter((x) => (x.from === "song") === (dir === "up") && x.features);
       if (same.length) {
         const p = median(same.map((x) => x.features.pause));
-        out.bar = { dir, PAUSE: r3(dir === "up" ? clamp(p, BAR_RANGE[0], BAR_BASE) : clamp(p, BAR_BASE, BAR_RANGE[1])), of: h.length };
+        out.bar = { dir, PAUSE: r3(dir === "up" ? clamp(p, BAR_RANGE[0], BAR_BASE) : clamp(p, BAR_BASE, BAR_RANGE[1])), of: h.values.length, n: h.n };
       }
     }
     return out;
@@ -110,8 +114,16 @@
       const sh = r.shift[c.kind] || {}, max = opts.duration && Number.isFinite(opts.duration[c.mediaId]) ? opts.duration[c.mediaId] : Infinity;
       if (sh.start) { const ns = r3(Math.max(0, s + sh.start.by)); if (ns !== s && e - ns >= MIN_LEN) { s = ns; used.push("shift-start:" + c.kind); } }
       if (sh.end) { const ne = r3(Math.min(max, e + sh.end.by)); if (ne !== e && ne - s >= MIN_LEN) { e = ne; used.push("shift-end:" + c.kind); } }
-      return { ...c, s, e, rules: used };
+      // a card moved by a habit keeps where it was, for 〔这次不用〕 (v11)
+      return s !== c.s || e !== c.e ? { ...c, s, e, rules: used, was: { s: c.s, e: c.e } } : { ...c, s, e, rules: used };
     });
   }
-  return Object.freeze({ KINDS, TYPES, MAX_SHIFT, HABIT_WINDOW, HABIT_MIN, BAR_BASE, BAR_RANGE, record, features, rules, songOptions, apply });
+  /** 〔这次不用〕: a card moved by a habit back where the search put it, its rules dropped; any other card as it is. */
+  function revert(card) {
+    const c = JSON.parse(JSON.stringify(card));
+    if (!c.was) return c;
+    const { was, ...rest } = c;
+    return { ...rest, s: was.s, e: was.e, rules: [], notThisTime: true };
+  }
+  return Object.freeze({ KINDS, TYPES, MAX_SHIFT, HABIT_WINDOW, HABIT_MIN, BAR_BASE, BAR_RANGE, record, features, rules, songOptions, apply, revert });
 });

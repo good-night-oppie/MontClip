@@ -1,13 +1,15 @@
 # The streamer's corrections, kept on this computer (backend)
 
 Date: 2026-11-03. Asked by the owner: 「补上三样：卡片加『这段不是唱歌』、弹窗加『补一段』、主播的修改记在本机用来让下次更准
-（不外发）。」 Spec: Deja's ADR 补记 (sha fb2e6964…), which takes precedence over the first message. Backend only; the
-interface (设置 › 自动出切片 › 「记住我的修改，下次找得更准」: the switch, how many are kept, 〔清空〕) waits for v12.
+（不外发）。」 Spec: Deja's ADR 补记 (sha fb2e6964…, then 39a05471…), which takes precedence over the first message. Backend only; the interface follows
+the frozen v11 (原型-v11.html 11b0ce34…, 交互说明-v11.md 6e564931…) and comes after this backend: the setting is
+「记住我的剪辑习惯」 (the switch, how many of each kind of change, 〔清空〕); a card a habit moved says 「按你以前的习惯调过 ·
+去设置」 and offers 〔这次不用〕.
 
 ## Two card edits (`segment-edits.js`)
 
 - `set_segment_kind {id, kind}` — a 「自动出切片」 card's kind: `song` 唱歌 / `interaction` 互动 / `moment` 普通高光 / `other`
-  其他, in that order (互动 right after 唱歌, ADR 39a05471; the interface shows 〔互动〕). Only the kind
+  其他, in that order (互动 right after 唱歌, ADR 39a05471; the interface shows 〔互动〕: 连麦、PK、读 SC). Only the kind
   changes; made 唱歌, the card keeps its start and end.
 - `add_segment {mediaId, from, to, kind}` — a new card from IN–OUT, inside its recording, at least 5 s, after the other
   cards (their best-first order is not touched).
@@ -26,6 +28,9 @@ interface (设置 › 自动出切片 › 「记住我的修改，下次找得�
 - **Never sent.** The AI assistant, the song-name lookup and cloud transcription do not read them (the earlier
   「a numbers-only summary when the streamer agrees」 is void). Locked by `test/corrections-private.test.js`: no code outside
   their own files names them, and a request built as the assistant builds it holds none of their fields.
+- Each record has the store's id; undoing an edit takes its record back (`undo(id)`, a sixth channel) — an undone change
+  is not a habit (v11). `status()` also counts each kind of change for the settings page (挪开头结尾 · 不要这条 · 改类型 ·
+  补一段).
 - Off: nothing is kept and nothing is used. 〔清空〕 deletes the record files (tested: only the on/off switch is left).
   `status()` says how many.
 - One streamer's file: MontClip has no streamer identity and the page does not know where a recording came from, so for
@@ -44,7 +49,9 @@ Constants: `MAX_SHIFT` 5 s, `HABIT_WINDOW` 5, `HABIT_MIN` 4, `BAR_BASE` 0.12 (so
   way. The search gets it through `songOptions(rules)`.
 - 互动 has its own habits like every kind; no rule finds 互动 parts — only the streamer's own moves shift their start and
   end. A song made 互动 counts as 「不是唱歌」; 互动 ↔ 普通高光 does not touch the singing bar.
-- Every card lists the rules that touched it (`card.rules`: `shift-start:song`, `shift-end:song`, `song-bar`).
+- Every card lists the rules that touched it (`card.rules`: `shift-start:song`, `shift-end:song`, `song-bar`); a habit
+  says how many of how many (`of`, `n`: 「你以前 5 首歌里有 4 首…」). A moved card keeps where it was (`was`), and
+  `revert(card)` is 〔这次不用〕 for that card.
 - No rules (off, or nothing kept): exactly the cards and the search the app had (tested: the same JSON, the same songs).
 
 ## The evaluation stays clean

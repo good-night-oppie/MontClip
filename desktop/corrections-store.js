@@ -4,7 +4,8 @@
    server's context, never sent. The page reaches them through fixed channels (desktop/main.js), with no path.
    - append(record): checked by corrections.js and kept, newest last, at most `max` (the oldest go); refused when off;
    - records(): the kept ones when on, null when off (so the search uses nothing);
-   - status(): {enabled, count}; setEnabled(on): remembered; clear(): every scope emptied in one go.
+   - status(): {enabled, count, byType}; undo(id): one record taken back; setEnabled(on): remembered; clear(): every
+     scope's records deleted in one go.
    A scope is one streamer's file. MontClip has no streamer of its own yet, so the page uses one scope, "default", until a
    way to tell streamers apart is decided; a scope is a short id or a hex digest, never a path. */
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
@@ -27,13 +28,23 @@ function create({ dir, scope = 'default', max = 5000 } = {}) {
   // only what corrections.js accepts is read back: a damaged or hand-edited file adds nothing
   const kept = () => { const v = readJson(file, null); return v && v.v === 1 && Array.isArray(v.records) ? v.records.filter((r) => { try { Corrections.record(r); return true; } catch { return false; } }) : []; };
   return {
-    status: () => ({ enabled: enabled(), count: kept().length }),
+    // the settings page: how many, and how many of each kind of change (挪开头结尾 · 不要这条 · 改类型 · 补一段)
+    status: () => { const k = kept(), byType = {}; for (const t of ["trim", "remove", "kind", "add"]) byType[t] = k.filter((r) => r.type === t).length; return { enabled: enabled(), count: k.length, byType }; },
     records: () => (enabled() ? kept() : null),
     append(input) {
       if (!enabled()) return { ok: false, code: 'CORRECTIONS_OFF' };
-      let r; try { r = Corrections.record(input); } catch { return { ok: false, code: 'CORRECTION_INVALID' }; }
+      const id = crypto.randomBytes(8).toString('hex');
+      let r; try { r = Corrections.record(input && typeof input === 'object' && !Array.isArray(input) ? { ...input, id } : input); } catch { return { ok: false, code: 'CORRECTION_INVALID' }; }
       const list = kept(); list.push(r);
       write(file, { v: 1, records: list.slice(-max) });
+      return { ok: true, id };
+    },
+    // undoing an edit takes its record back (v11): by the id append gave
+    undo(id) {
+      if (typeof id !== 'string' || !/^[a-f0-9]{16}$/.test(id)) return { ok: false, code: 'CORRECTION_UNKNOWN' };
+      const list = kept(), left = list.filter((r) => r.id !== id);
+      if (left.length === list.length) return { ok: false, code: 'CORRECTION_UNKNOWN' };
+      write(file, { v: 1, records: left });
       return { ok: true };
     },
     setEnabled(on) { write(settings, { enabled: on === true }); return { ok: true, enabled: on === true }; },

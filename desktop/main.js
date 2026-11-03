@@ -110,11 +110,12 @@ async function start() {
       ? settings[operation](value) : {ok:false,code:"VIEW_SETTINGS_FORBIDDEN"};
   });
   // The streamer's corrections to the 「自动出切片」 cards (desktop/corrections-store.js): on this computer only, under
-  // userData; five fixed operations, no path from the page; never in the project, the MCP server or a request
+  // userData; six fixed operations, no path from the page; never in the project, the MCP server or a request
   const corrections = require("./corrections-store").create({ dir: app.getPath("userData") });
   ipcMain.on("montclip:corrections:status", (event) => { event.returnValue = settingsAllowed(event, win, origin) ? corrections.status() : { ok: false, code: "CORRECTIONS_FORBIDDEN" }; });
   ipcMain.on("montclip:corrections:records", (event) => { event.returnValue = settingsAllowed(event, win, origin) ? corrections.records() : null; });
   ipcMain.on("montclip:corrections:append", (event, record) => { event.returnValue = settingsAllowed(event, win, origin) ? corrections.append(record) : { ok: false, code: "CORRECTIONS_FORBIDDEN" }; });
+  ipcMain.on("montclip:corrections:undo", (event, id) => { event.returnValue = settingsAllowed(event, win, origin) ? corrections.undo(id) : { ok: false, code: "CORRECTIONS_FORBIDDEN" }; });
   ipcMain.on("montclip:corrections:setEnabled", (event, on) => { event.returnValue = settingsAllowed(event, win, origin) && typeof on === "boolean" ? corrections.setEnabled(on) : { ok: false, code: "CORRECTIONS_FORBIDDEN" }; });
   ipcMain.on("montclip:corrections:clear", (event) => { event.returnValue = settingsAllowed(event, win, origin) ? corrections.clear() : { ok: false, code: "CORRECTIONS_FORBIDDEN" }; });
   ipcMain.on("montclip:capabilities:get", (event) => {

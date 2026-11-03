@@ -9,11 +9,12 @@ contextBridge.exposeInMainWorld('montclipAgentService',Object.freeze({
  cancel:id=>ipcRenderer.invoke('montclip:agent:cancel',id)
 }));
 // Two fixed settings only. No file/path/channel/Node interface reaches the page.
-// The streamer's corrections, kept by the main process on this computer: five fixed operations, no path, nothing sent.
+// The streamer's corrections, kept by the main process on this computer: six fixed operations, no path, nothing sent.
 contextBridge.exposeInMainWorld('montclipCorrections',Object.freeze({
  status:()=>ipcRenderer.sendSync('montclip:corrections:status'),
  records:()=>ipcRenderer.sendSync('montclip:corrections:records'),
  append:record=>ipcRenderer.sendSync('montclip:corrections:append',record),
+ undo:id=>ipcRenderer.sendSync('montclip:corrections:undo',id),
  setEnabled:on=>ipcRenderer.sendSync('montclip:corrections:setEnabled',on===true),
  clear:()=>ipcRenderer.sendSync('montclip:corrections:clear')
 }));
