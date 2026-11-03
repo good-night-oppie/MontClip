@@ -98,3 +98,15 @@ test('the default service and model are one constant in one line',()=>{
  a.equal(S.DEFAULT_PROVIDER,S.DEFAULT_SERVICE.provider);a.deepEqual(S.DEFAULT_MODELS,{[S.DEFAULT_SERVICE.provider]:S.DEFAULT_SERVICE.model});
  a.equal((src.match(/deepseek-v4\.1-flash/g)||[]).length,1,'the model id is written once');
 });
+
+// JJ (8 PRs) asked Deja to confirm: "default" only preselects OpenRouter. With no key saved nothing is sent — not on
+// creating the service, not on reading its state, not on a send — and no model list is fetched (the model id is fixed).
+test('OpenRouter preselected without a key: no request at all until a key is saved', async () => {
+ const {s,calls}=svc();
+ a.equal(s.get().provider,'openrouter');a.equal(s.get().configured,false);
+ a.equal((await s.send(payload())).code,'UNCONFIGURED');
+ a.equal(s.configure({provider:'openrouter',model:'deepseek/deepseek-v4.1-flash-1017',apiKey:''}).code,'KEY_REQUIRED');
+ a.equal((await s.send(payload())).code,'UNCONFIGURED');
+ a.equal(calls.length,0,'no request without a key');
+ for(const f of ['desktop/agent-service.js','desktop/main.js','agent-ui/pane.tsx','app.js'])a.ok(!/api\/v1\/models|\/models['"`]/.test(read(f).replace(/\/\/[^\n]*/g,'')),f+' fetches a model list');
+});
