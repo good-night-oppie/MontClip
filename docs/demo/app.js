@@ -42,6 +42,12 @@ const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
 /** On-device transcription: on in development and the browser editor; a packaged desktop build has it
  *  off unless the main process turned it on (desktop/features.js). Off means no entry and no download. */
 function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
+/** A server refusal's reason code, said in the interface language; "" when the code has no text of its own. */
+const CODE_TEXT = { NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready", EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept" };
+function codeText(error) {
+  const code = error && (error.code || error.errorCode);
+  return typeof code === "string" && CODE_TEXT[code] ? uiText(CODE_TEXT[code]) : "";
+}
 function renderMontClipView() {
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
   document.getElementById("mcAssistantTab").textContent=t.assistant;document.getElementById("mcMediaToggle").textContent=mcView.get().language==="en"?"Media":"素材";
@@ -1592,6 +1598,8 @@ function applyProject(data, opts = {}) {
     outputs: Array.isArray(data.outputs) ? data.outputs.filter((o) => o && typeof o === "object") : null,
     master: normalizeMaster(data.master),
     buses: normalizeBuses(data.buses),
+    // the recording's danmaku, kept as it is (null when this project has none, so nothing is left from the last one)
+    danmaku: normalizeDanmaku(data.danmaku),
     // the sequences that aren't open, kept as they are (see sequences.js); the open one is this document
     sequences: Array.isArray(data.sequences) && data.sequences.length ? data.sequences : null,
     sequence: Array.isArray(data.sequences) && data.sequences.length ? SeqLib.activeId(data) : null,
@@ -1763,6 +1771,12 @@ function projectJSON() {
   const root = commitCompCtx();
   return { ...root, revision: project.revision };
 }
+/** project.danmaku as the editor keeps it: the list as it is — every field of every entry, whichever shape — as a
+ *  JSON copy; null when it is not a list, is empty, or is larger than any recording's danmaku (400000 entries). */
+function normalizeDanmaku(list) {
+  if (!Array.isArray(list) || !list.length || list.length > 400000) return null;
+  try { return JSON.parse(JSON.stringify(list)); } catch { return null; }
+}
 /** The project as it is loaded right now (an open comp's stand-in project, or the root). */
 function projectJSONHere() {
   const { name, width, height, fps, background, revision, folders, media, clips, markers, inPoint, outPoint, disabledTracks, encodeProfile, delivery, outputs } = project;
@@ -1805,6 +1819,8 @@ function projectJSONHere() {
   const buses = normalizeBuses(project.buses);
   if (buses.length) out.buses = buses;
   if (project.comps && project.comps.length) out.comps = project.comps.map((cp) => ({ ...cp, clips: (cp.clips || []).map(serializeClip) }));
+  const danmaku = normalizeDanmaku(project.danmaku);
+  if (danmaku) out.danmaku = danmaku;
   if (project.sequences) {
     out.sequences = project.sequences.map((sq) => (sq.id === project.sequence ? { id: sq.id, name: sq.name } : sq));
     out.sequence = project.sequence;
@@ -2175,7 +2191,7 @@ async function importFromUrl(url) {
       signal: runtime.importUrlAbort.signal,
     });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || "import failed (" + res.status + ")");
+    if (!res.ok) throw Object.assign(new Error(body.error || "import failed (" + res.status + ")"), { code: body.code });
     const kind = libKind(body.name);
     if (!kind) throw new Error("unsupported file type: " + (body.name || ""));
     const folderId = runtime.importFolderId && getFolder(runtime.importFolderId)
@@ -2195,7 +2211,7 @@ async function importFromUrl(url) {
   } catch (e) {
     if (e && e.name === "AbortError") return;
     setImportUrlBusy(false);
-    toast(e && e.message ? e.message : "Couldn't import URL");
+    toast(codeText(e) || (e && e.message ? e.message : "Couldn't import URL"));
   } finally {
     runtime.importUrlAbort = null;
   }
@@ -9399,7 +9415,7 @@ function buildTranscriptPage() {
       <div class="tr-row tr-entries">
         <button type="button" class="btn tiny" data-tr-highlights data-i18n="own.hl-open">${escapeHtml(uiText("own.hl-open"))}</button>
         <button type="button" class="btn tiny" data-tr-sentences data-i18n="own.tr-sentences">${escapeHtml(uiText("own.tr-sentences"))}</button>
-        <button type="button" class="btn tiny" data-tr-mapping data-i18n="own.mapping">${uiText("own.mapping")}</button>
+        <button type="button" class="btn tiny" data-tr-mapping data-i18n="own.mapping">${escapeHtml(uiText("own.mapping"))}</button>
       </div>
       <div class="tr-row">
         ${listen ? `<button type="button" class="btn primary" data-tr-go></button>` : ""}
@@ -9850,36 +9866,34 @@ async function showHighlightCandidates() {
   });
 }
 /** SRT sentence selection: preview a read-only plan, apply on a clone as one undo step. */
-/** A range-plan refusal in the interface language (the plan's own message stays bilingual for MCP callers). */
-function rangeError(error) {
-  const key = "own.ssel-err-" + String(error && error.code || "").toLowerCase().replace(/_/g, "-");
-  return (error && error.code && uiText(key)) || uiText("own.ssel-err-ranges-other");
-}
 async function showSentenceSelection(suggestion = null, onApplied = null, onCancelled = null) {
   let applied = false;
   const busy=()=>state.exporting||state.gesture||state.compCtx||runtime.activeImports||runtime.activeTranscriptions||runtime.desktopExportPending||runtime.saveRequests||runtime.saveTimer||runtime.saveFailed||(typeof closeSaveTransaction!=='undefined'&&closeSaveTransaction);
   const proposalContext=()=>({...agentProjectContext(),generation:agentProjectContext().gen});
-  // JJ (#71): every sentence in the interface language only
-  const say = (key, vars) => uiText("own." + key, vars);
-  if (state.exporting || state.gesture || state.compCtx || suggestion&&busy()) { toast(say("ssel-busy")); return; }
+  if (state.exporting || state.gesture || state.compCtx || suggestion&&busy()) { toast(uiText(suggestion&&busy()?"own.sd-busy-save":"own.sd-busy")); return; }
   if (suggestion) {if(!MontClipProposal.current(suggestion,projectJSON(),proposalContext())){console.warn("showSentenceSelection: the suggestion is not valid for the current project; nothing opened");return;}}
   else if (!(await flushSaveBeforeSwitch())) return;
   const doc = projectJSON(), signature = JSON.stringify(doc), projectId = runtime.projectId, projectGen=runtime.projectGen, sequenceId=SeqLib.activeId(seqRoot());
   const captions = doc.clips.filter((c) => FableCutCaptions.isCaption(c) && !c.disabled && !(doc.disabledTracks || []).includes(c.track)).sort((a, b) => a.start - b.start);
+  // #71: an assistant's keep_ranges proposal (by time; one file, or one clip per range) opens this same dialog
   const byTime = suggestion?.type === "keep_ranges", slices = byTime && suggestion.outputMode === "per_range";
   const sliceNames = slices ? MontClipProposal.sliceNames(suggestion.labels, project.name, Delivery.fileSafeName) : null;
-  if (!captions.length && !byTime) { toast(say("ssel-no-captions")); return; }
+  if (!captions.length && !byTime) { toast(uiText("own.sd-no-captions")); return; }
   pause();
   const dialog = document.createElement("dialog");
   dialog.className = "sentence-dialog";
-  dialog.innerHTML = `<form method="dialog"><h3>${escapeHtml(say(byTime ? (slices ? "ssel-title-slices" : "ssel-title-ranges") : "ssel-title"))}</h3>
-    <p>${escapeHtml(byTime ? (slices ? say("ssel-intro-slices", { n: suggestion.keep.length }) : say("ssel-intro-ranges")) : say("ssel-intro"))}</p>
-    <label>${escapeHtml(say(byTime ? "ssel-label-time" : "ssel-label"))}
+  // one language at a time (own.sd-*, and own.ssel-* for the by-time wording, JJ's review of #71); a planner error is
+  // said by its code (own.rp-*)
+  const say = (key, vars) => escapeHtml(uiText(key, vars));
+  dialog.innerHTML = `<form method="dialog"><h3>${say(byTime ? (slices ? "own.ssel-title-slices" : "own.ssel-title-ranges") : "own.sd-title")}</h3>
+    <p>${byTime ? (slices ? say("own.ssel-intro-slices", { n: suggestion.keep.length }) : say("own.ssel-intro-ranges")) : say("own.sd-intro")}</p>
+    <label>${say(byTime ? "own.ssel-label-time" : "own.sd-ranges")}
     <textarea data-ranges rows="2" placeholder="9,12&#10;1,4"></textarea></label>
     <div data-sentences></div><p data-summary role="status"></p>
-    <div class="tr-row"><button type="button" class="btn" data-preview>${escapeHtml(say("ssel-preview"))}</button>
-    <button type="button" class="btn primary" data-apply>${escapeHtml(say("ssel-apply"))}</button>
-    <button class="btn" value="cancel">${escapeHtml(say("ssel-cancel"))}</button></div></form>`;
+    <div class="tr-row"><button type="button" class="btn" data-preview>${say("own.sd-preview")}</button>
+    <button type="button" class="btn primary" data-apply>${say("own.sd-apply")}</button>
+    <button class="btn" value="cancel">${say("own.sd-cancel")}</button></div></form>`;
+  const ownError = (error) => (error && error.code && uiText("own.rp-" + error.code)) || error.message;
   const list = dialog.querySelector("[data-sentences]"), summary = dialog.querySelector("[data-summary]");
   if(suggestion){dialog.querySelector('[data-ranges]').value=suggestion.keep.map(r=>r.from+','+r.to).join('\n');dialog.querySelector('[data-ranges]').readOnly=true;list.hidden=true;}
   const selected = new Set();
@@ -9897,17 +9911,20 @@ async function showSentenceSelection(suggestion = null, onApplied = null, onCanc
       const explicit = dialog.querySelector("[data-ranges]").value.trim();
       const keep = explicit ? explicit.split(/\r?\n/).map(line => {
         const pair = line.split(",").map(s => s.trim());
-        if (pair.length !== 2 || pair.some(s => !s)) throw Object.assign(new Error("RANGES_LINE"), { code: "RANGES_LINE" });
+        if (pair.length !== 2 || pair.some(s => !s)) throw new Error(uiText("own.sd-range-line"));
         return { from: Number(pair[0]), to: Number(pair[1]) };
       }) : [...selected].map(id => captions.find(c => c.id === id)).map(c => ({ from: c.start, to: c.start+c.duration }));
       plan = FableCutRangePlan.create(doc, keep); plan.keep = keep;
-      const cut = plan.captions.filter(c => c.truncated).length;
+      const cut = plan.captions.filter((c) => c.status === "visible" && c.truncated).length;
       const clock = MontClipHighlights.clock;
       summary.textContent = slices
-        ? keep.map((r, i) => say("ssel-sum-slice", { name: sliceNames[i], from: clock(r.from), to: clock(r.to), len: MontClipHighlights.seconds(r.to - r.from) })).join(say("ssel-sum-slice-sep"))
-        : say("ssel-sum-ranges", { ranges: keep.map((r) => `${clock(r.from)}–${clock(r.to)}`).join(" → "), duration: MontClipHighlights.clock(Math.round(plan.duration)) })
-          + (cut ? " " + say(cut === 1 ? "ssel-sum-cut-one" : "ssel-sum-cut", { cut }) : "");
-    } catch (error) { plan = null; summary.textContent = rangeError(error); }
+        ? keep.map((r, i) => uiText("own.ssel-sum-slice", { name: sliceNames[i], from: clock(r.from), to: clock(r.to), len: MontClipHighlights.seconds(r.to - r.from) })).join(uiText("own.ssel-sum-slice-sep"))
+        : byTime
+          ? uiText("own.ssel-sum-ranges", { ranges: keep.map((r) => `${clock(r.from)}–${clock(r.to)}`).join(" → "), duration: clock(Math.round(plan.duration)) })
+            + (cut ? " " + uiText(cut === 1 ? "own.ssel-sum-cut-one" : "own.ssel-sum-cut", { cut }) : "")
+          : uiText("own.sd-summary", { ranges: keep.map((r) => `${fmt(r.from)}–${fmt(r.to)}`).join(" → "), duration: MontClipView.durationText(plan.duration) }) +
+            (cut ? " " + uiText(cut === 1 ? "own.sd-partial" : "own.sd-partial-many", { n: cut }) : "");
+    } catch (error) { plan = null; summary.textContent = ownError(error); }
     dialog.querySelector("[data-apply]").disabled = !plan;
     dialog.querySelector("[data-preview]").disabled = !plan;
   };
@@ -9920,7 +9937,7 @@ async function showSentenceSelection(suggestion = null, onApplied = null, onCanc
   }
   dialog.querySelector("[data-ranges]").addEventListener("input", refresh);
   const current = () => JSON.stringify(projectJSON()) === signature && runtime.projectId === projectId && runtime.projectGen===projectGen && SeqLib.activeId(seqRoot())===sequenceId && (!suggestion||!busy()&&MontClipProposal.current(suggestion,projectJSON(),proposalContext()));
-  const changed = () => { stopPreview(); summary.textContent = say("ssel-changed"); };
+  const changed = () => { stopPreview(); summary.textContent = uiText("own.sd-changed"); };
   dialog.querySelector("[data-preview]").addEventListener("click", () => {
     if (!plan) return;
     if (!current()) { changed(); return; }
@@ -9953,9 +9970,9 @@ async function showSentenceSelection(suggestion = null, onApplied = null, onCanc
       pushUndo(snap, suggestion?.eventId ? { eventId: suggestion.eventId } : { capability: "keep_sentences", args: { timelineRanges: plan.keep.map((r) => ({ from: r.from, to: r.to })) } });
       applied = true; if(onApplied)onApplied(applyToken); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
       dialog.close();
-      if (slices) { queueSlices(plan.segments, sliceNames); toast(say("ssel-done-slices", { n: plan.segments.length })); }
-      else toast(say(byTime ? "ssel-done-ranges" : "ssel-done-sentences"));
-    } catch (error) { summary.textContent = rangeError(error); }
+      if (slices) { queueSlices(plan.segments, sliceNames); toast(uiText("own.ssel-done-slices", { n: plan.segments.length })); }
+      else toast(uiText(byTime ? "own.ssel-done-ranges" : "own.sd-done"));
+    } catch (error) { summary.textContent = ownError(error); }
   });
   dialog.addEventListener("close", () => { stopPreview(); dialog.remove(); if (!applied && onCancelled) onCancelled(); });
   document.body.append(dialog); refresh(); dialog.showModal();
@@ -9963,7 +9980,7 @@ async function showSentenceSelection(suggestion = null, onApplied = null, onCanc
 function downloadSourceMap() {
   let map;
   try { map = FableCutCaptions.sourceMap(projectJSON()); } catch (error) { toast(error.message); return; }
-  if (!map.segments.length) { toast("没有可映射的音视频 / No source media to map"); return; }
+  if (!map.segments.length) { toast(uiText("own.map-no-media")); return; }
   const url = URL.createObjectURL(new Blob([JSON.stringify(map, null, 2)], { type: "application/json" }));
   saveDownload(url, "MontClip.mapping.json"); setTimeout(() => URL.revokeObjectURL(url), 2000);
 }

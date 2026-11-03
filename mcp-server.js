@@ -1518,7 +1518,7 @@ async function callTool(name, args, attempt = 0) {
       if (path.dirname(path.resolve(file)).toLowerCase() !== MEDIA_DIR.toLowerCase()) {
         if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR);
         const ext = path.extname(file);
-        const stem = path.basename(file, ext).replace(/[^\w.\- ()\[\]]+/g, "_");
+        const stem = Delivery.fileSafeName(path.basename(file, ext), "media");   // Chinese kept (Deja)
         let target = path.join(MEDIA_DIR, stem + ext);
         let i = 1;
         while (fs.existsSync(target)) target = path.join(MEDIA_DIR, `${stem}_${i++}${ext}`);
@@ -1575,7 +1575,7 @@ async function callTool(name, args, attempt = 0) {
         kind = KIND_BY_EXT[ext];
         if (!kind) throw new Error(`Unsupported extension ${ext}`);
         if (!fs.existsSync(MEDIA_DIR)) fs.mkdirSync(MEDIA_DIR);
-        let base = path.basename(src).replace(/[^\w.\- ()\[\]]+/g, "_");
+        let base = Delivery.mediaFileName(path.basename(src));   // Chinese kept (Deja)
         target = path.join(MEDIA_DIR, base);
         let i = 1;
         const stem = path.basename(base, ext);
