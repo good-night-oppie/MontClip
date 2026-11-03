@@ -28,6 +28,8 @@ test("the extra sentence appears only with unsaved videos in the queue, with the
   a.ok(!Close.dialogOptions("zh-CN", 0).detail.includes("导出队列"));
   a.equal(Close.dialogOptions("zh-CN", 1).detail.split("\n")[1],
     "导出队列里还有 1 个没保存的视频，关掉以后它不会再出现在队列里，但还占着 C 盘空间。");
+  a.equal(Close.dialogOptions("zh-CN", 2).detail.split("\n")[1],
+    "导出队列里还有 2 个没保存的视频，关掉以后它们不会再出现在队列里，但还占着 C 盘空间。");
   a.equal(Close.dialogOptions("zh-CN", 3).detail.split("\n")[1],
     "导出队列里还有 3 个没保存的视频，关掉以后它们不会再出现在队列里，但还占着 C 盘空间。");
 });
@@ -167,14 +169,12 @@ test("the unsaved prompt: JJ's 预备稿 4 copy, 先去保存 the default and th
   a.equal(o.detail, "这些视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它们了，但它们还占着 C 盘空间。");
   a.deepEqual(o.buttons, ["删掉它们并关闭", "不删，直接关闭", "先去保存"]);
   a.equal(o.buttons[o.defaultId], "先去保存"); a.equal(o.buttons[o.cancelId], "先去保存");
-  // one video: JJ has not settled its wording yet (Deja, 2026-11-03), so it is the {n} form for now; the one-video keys
-  // stay in the text table, ready for her copy
+  // one video: JJ's final copy (预备稿 4 补充, 2026-11-03); the same button order as for several (VV's image 16)
   const one = Close.unsavedDialogOptions("zh-CN", 1);
   a.equal(one.message, "还有 1 个视频没保存，现在关掉吗？");
-  a.equal(one.detail, "这些视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它们了，但它们还占着 C 盘空间。");
-  a.deepEqual(one.buttons, ["删掉它们并关闭", "不删，直接关闭", "先去保存"]);
-  const prefs = read("ui-preferences.js");
-  for (const k of ["export-unsaved-title-1", "export-unsaved-body-1", "export-unsaved-delete-1"]) a.match(prefs, new RegExp(`"${k}": \\[`), k);
+  a.equal(one.detail, "这个视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它了，但它还占着 C 盘空间。");
+  a.deepEqual(one.buttons, ["删掉它并关闭", "不删，直接关闭", "先去保存"]);
+  a.equal(one.defaultId, o.defaultId); a.equal(one.cancelId, o.cancelId);
   const en = Close.unsavedDialogOptions("en", 3);
   a.doesNotMatch([en.message, en.detail, ...en.buttons].join(" "), /[一-鿿]/);
 });
