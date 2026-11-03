@@ -8,10 +8,10 @@ const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
 if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const out = (k, v) => process.stdout.write(k + ' ' + JSON.stringify(v) + '\n');
 const WANT = {
-  'zh-CN advanced': '波纹删除所选（⇧Del）：删掉以后，目标轨道上后面的片段往前移，补上空隙',
-  'zh-CN simple': '波纹删除所选：删掉以后，目标轨道上后面的片段往前移，补上空隙',
-  'en advanced': 'Ripple delete selection (⇧Del) — closes gap on targeted tracks',
-  'en simple': 'Ripple delete selection — closes gap on targeted tracks',
+  'zh-CN advanced': '波纹删除（⇧Del）：删掉选中的片段，同一条轨道上后面的片段自动往前挪，不留空隙。',
+  'zh-CN simple': '波纹删除：删掉选中的片段，同一条轨道上后面的片段自动往前挪，不留空隙。',
+  'en advanced': 'Ripple delete (⇧Del): delete the selected clips; later clips on the same track move up to close the gap.',
+  'en simple': 'Ripple delete: delete the selected clips; later clips on the same track move up to close the gap.',
 };
 const original = BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL = async function (...args) {

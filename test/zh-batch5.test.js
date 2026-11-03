@@ -4,20 +4,20 @@
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const V = require('../ui-preferences');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const EN = 'Ripple delete selection (⇧Del) — closes gap on targeted tracks';
-const ZH = '波纹删除所选（⇧Del）：删掉以后，目标轨道上后面的片段往前移，补上空隙';
+const EN = 'Ripple delete (⇧Del): delete the selected clips; later clips on the same track move up to close the gap.';
+const ZH = '波纹删除（⇧Del）：删掉选中的片段，同一条轨道上后面的片段自动往前挪，不留空隙。';
 
 test('btnRippleDelete has a translated tooltip, both languages', () => {
   const tag = /<button[^>]*id="btnRippleDelete"[^>]*>/.exec(html)[0];
-  a.match(tag, /\stitle="Ripple delete selection \(⇧Del\) — closes gap on targeted tracks"/, 'the English title stays');
+  a.match(tag, /\stitle="Ripple delete \(⇧Del\): delete the selected clips; later clips on the same track move up to close the gap\."/, 'the English title stays');
   a.match(tag, /\sdata-i18n-title="term\.ripple-delete-selection-del"/);
   a.equal(V.t('en', 'term.ripple-delete-selection-del'), EN);
   a.equal(V.t('zh-CN', 'term.ripple-delete-selection-del'), ZH);
 });
 
 test('simple mode drops the held-back (⇧Del) from it in both languages, and keeps the rest', () => {
-  a.equal(V.stripBlockedHints(EN), 'Ripple delete selection — closes gap on targeted tracks');
-  a.equal(V.stripBlockedHints(ZH), '波纹删除所选：删掉以后，目标轨道上后面的片段往前移，补上空隙');
+  a.equal(V.stripBlockedHints(EN), 'Ripple delete: delete the selected clips; later clips on the same track move up to close the gap.');
+  a.equal(V.stripBlockedHints(ZH), '波纹删除：删掉选中的片段，同一条轨道上后面的片段自动往前挪，不留空隙。');
 });
 
 test('no button with a title is left without its Chinese', () => {
