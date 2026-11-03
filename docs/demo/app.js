@@ -22275,6 +22275,15 @@ function askAgentApproval(d,{summary='',content=null}={}){
   document.body.append(dialog);dialog.showModal();dialog.querySelector('[data-choice="deny"]').focus();
  });
 }
+/** Bytes for the streamer: KB under a megabyte, else MB, one decimal at most (1 KB = 1024 bytes). */
+function byteText(n){const mb=n/1048576;return mb>=1?(Math.round(mb*10)/10)+' MB':Math.max(1,Math.round(n/1024))+' KB';}
+/** Why a step was refused, in plain words; over a cap it says by how much (Deja on #83: never cut down to fit). */
+function agentRefusalText(d,bytes=0){
+ if(d.code==='BLOCKED')return uiText('own.ap-refused');
+ if(d.code==='SEND_TOO_LARGE')return uiText('own.ap-too-large',{size:byteText(bytes),limit:byteText(d.limit),over:byteText(d.over)});
+ if(d.code==='SCOPE_LIMIT')return uiText('own.ap-scope-limit',{used:byteText(d.used),size:byteText(bytes),limit:byteText(d.limit),over:byteText(d.over)});
+ return uiText('own.ap-refused-mode');
+}
 /** The plain summary of a proposal for the approval box. */
 function agentProposalText(result){
  const p=MontClipConversation.proposalSummary(result.text,result.references||[]);if(!p)return '';
@@ -22292,7 +22301,7 @@ async function onAgentReply(result){
  if(!d||!d.ok){toast(uiText('own.ap-refused-mode'));return;}
  if(MontClipPolicy.MODES.includes(d.mode)&&d.mode!==agentPolicy.mode){agentPolicy.mode=d.mode;paintAgentMode();}
  if(d.action==='list'){toast(uiText('own.ap-listed'));return;}
- if(d.action==='refuse'){toast(uiText(d.code==='BLOCKED'?'own.ap-refused':'own.ap-refused-mode'));return;}
+ if(d.action==='refuse'){toast(agentRefusalText(d));return;}
  let step;try{step=agentProposalStep(response,result);}catch(error){toast(uiText(error.message==='STALE'?'own.ap-stale':'own.ap-invalid'));return;}
  if(d.action==='ask'){
   const choice=await askAgentApproval(d,{summary:agentProposalText(result)});

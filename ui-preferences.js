@@ -600,6 +600,9 @@
     "pl-undone": ["Undid every step of this plan.", "已撤销这个计划的每一步。"],
     "pl-undo-interleaved": ["Can't undo the plan at once: something was changed after it. Use Undo step by step.", "没法一次撤销整个计划：计划之后又改过别的。请用「撤销」一步一步撤。"],
     "pl-undo-none": ["There is nothing of this plan left to undo.", "这个计划没有可以撤销的了。"],
+    // over an external cap (Deja on #83): refused with by how much, never cut down to fit
+    "ap-too-large": ["This send is {size}; the most at a time is {limit}, so it is {over} over. Nothing was sent, and it won't be cut down to fit.", "这次要发出去的有 {size}，每次最多 {limit}，超了 {over}。没有发送，也不会截短了再发。"],
+    "ap-scope-limit": ["This chat has already sent {used}; {size} more would pass its {limit} cap by {over}. Nothing was sent, and it won't be cut down to fit.", "这个聊天已经发出去 {used}，再发这 {size} 就超过 {limit} 的上限，超了 {over}。没有发送，也不会截短了再发。"],
     "ap-invalid": ["This suggested edit doesn't fit the project as it is, so nothing was done.", "这条剪辑建议和现在的项目对不上，所以没有做。"],
   };
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }

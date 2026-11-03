@@ -13,10 +13,13 @@ function createPolicyHost({ confirmYolo, external = () => ({ enabled: false, all
   let mode = Policy.DEFAULT_MODE, switching = null;
   const approvals = new Set(), tickets = new Map(), totals = new Map();
   const key = (sessionId, capability, target) => JSON.stringify([sessionId, capability, target]);
-  const count = (sessionId, bytes) => {
+  // what was let out, per scope and per capability (each has its own caps); the scope is the caller's sessionId: a chat,
+  // a flow run, or a project while it is open
+  const count = (sessionId, capability, bytes) => {
     if (!bytes) return;
-    if (!totals.has(sessionId) && totals.size >= MAX_SESSIONS) totals.delete(totals.keys().next().value);
-    totals.set(sessionId, (totals.get(sessionId) || 0) + bytes);
+    const k = JSON.stringify([sessionId, capability]);
+    if (!totals.has(k) && totals.size >= MAX_SESSIONS) totals.delete(totals.keys().next().value);
+    totals.set(k, (totals.get(k) || 0) + bytes);
   };
   return {
     getMode: () => ({ ok: true, mode }),
@@ -41,9 +44,9 @@ function createPolicyHost({ confirmYolo, external = () => ({ enabled: false, all
       const ext = external() || {}, lang = language();
       const allowlisted = Array.isArray(ext.allowlist) && ext.allowlist.some((o) => { try { return Policy.target('origin', o) === target; } catch { return false; } });
       const d = Policy.decide({ mode, capability, language: lang, approved: approvals.has(key(sessionId, capability, target)),
-        external: { enabled: ext.enabled === true, allowlisted }, bytes, chatBytes: totals.get(sessionId) || 0 });
+        external: { enabled: ext.enabled === true, allowlisted }, bytes, scopeBytes: totals.get(JSON.stringify([sessionId, capability])) || 0 });
       const shown = { ok: true, mode, ...d, target: Policy.targetText(target) };
-      if (d.action === 'run' && d.risk === 'external') count(sessionId, bytes);
+      if (d.action === 'run' && d.risk === 'external') count(sessionId, capability, bytes);
       if (d.action !== 'ask') return shown;
       if (tickets.size >= MAX_TICKETS) tickets.delete(tickets.keys().next().value);
       const ticket = newId();
@@ -58,7 +61,7 @@ function createPolicyHost({ confirmYolo, external = () => ({ enabled: false, all
       tickets.delete(ticket);
       if (choice === 'deny') return { ok: true, run: false };
       if (choice === 'session' && approvals.size < MAX_APPROVALS) approvals.add(key(t.sessionId, t.capability, t.target));
-      if (t.risk === 'external') count(t.sessionId, t.bytes);
+      if (t.risk === 'external') count(t.sessionId, t.capability, t.bytes);
       return { ok: true, run: true };
     },
   };

@@ -8,7 +8,8 @@
      Yolo   | run                          | run                      | run                    | run, if the switch is on and the domain allowlisted
    The blacklist and every name not in the table are refused in every mode. An external step always shows what it sends
    and where (QQ's revision 1, the owner's ruling 11): 「都批准」 spares the click only. External sends are capped per send
-   and per chat in every mode, Yolo too (QQ 8). Pure: the main process (desktop/agent-policy-host.js) keeps the mode and
+   and per scope in every mode, Yolo too (QQ 8), by the capability's own caps in the table (Deja on #83: text and audio
+   differ); over a cap the send is refused with by how much, never cut down to fit. Pure: the main process (desktop/agent-policy-host.js) keeps the mode and
    the approvals, in memory. */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory(require("./capabilities"));
@@ -20,22 +21,23 @@
   const NAMES = Object.freeze({ "zh-CN": { plan: "计划", manual: "手动", auto: "自动", yolo: "Yolo" }, en: { plan: "Plan", manual: "Manual", auto: "Auto", yolo: "Yolo" } });
   // read-only steps 手动 runs without asking (only looking at the project's own summary); the rest ask the first time
   const DEFAULT_WHITELIST = Object.freeze(["fablecut_status", "fablecut_docs", "fablecut_get_project", "fablecut_encode_profiles"]);
-  // external caps (QQ 8): bytes of one send, and of everything one chat sends
-  const LIMITS = Object.freeze({ sendBytes: 131072, chatBytes: 4194304 });
   const ALL = Object.freeze(["once", "session", "deny"]), EVERY_TIME = Object.freeze(["once", "deny"]);
 
   const modeLabel = (mode, language) => NAMES[language === "zh-CN" ? "zh-CN" : "en"][mode] || "";
   const refuse = (code, risk, label) => ({ action: "refuse", code, risk, label, showContent: false, choices: [] });
 
   /** One step's fate. Reads only these keys: anything else (the AI's reply, its args) is never looked at. */
-  function decide({ mode, capability, language, whitelist = DEFAULT_WHITELIST, approved, external, bytes = 0, chatBytes = 0 } = {}) {
+  function decide({ mode, capability, language, whitelist = DEFAULT_WHITELIST, approved, external, bytes = 0, scopeBytes = 0 } = {}) {
     const risk = Cap.riskOf(capability), label = Cap.label(capability, language), ok = approved === true;
     if (risk === "blocked") return refuse("BLOCKED", risk, label);
     if (!MODES.includes(mode)) return refuse("MODE_UNKNOWN", risk, label);
     const out = (action, choices = []) => ({ action, code: null, risk, label, showContent: risk === "external", choices: action === "ask" ? choices : [] });
     if (risk === "external") {
-      if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > LIMITS.sendBytes) return { ...refuse("SEND_TOO_LARGE", risk, label), showContent: true };
-      if (!Number.isSafeInteger(chatBytes) || chatBytes < 0 || chatBytes + bytes > LIMITS.chatBytes) return { ...refuse("CHAT_LIMIT", risk, label), showContent: true };
+      const L = Cap.limits(capability), over = (code, limit, more) => ({ ...refuse(code, risk, label), showContent: true, ...more, limit });
+      if (!L) return over("NO_LIMITS", 0, {});
+      if (!Number.isSafeInteger(bytes) || bytes < 0 || !Number.isSafeInteger(scopeBytes) || scopeBytes < 0) return over("SEND_INVALID", L.perSend, {});
+      if (bytes > L.perSend) return over("SEND_TOO_LARGE", L.perSend, { over: bytes - L.perSend });
+      if (scopeBytes + bytes > L.perScope) return over("SCOPE_LIMIT", L.perScope, { over: scopeBytes + bytes - L.perScope, used: scopeBytes });
       if (mode === "plan") return out("list");
       if (mode === "yolo") {
         if (!external || external.enabled !== true) return { ...refuse("EXTERNAL_OFF", risk, label), showContent: true };
@@ -66,5 +68,5 @@
   /** What the approval box shows for a target: the domain (and a port other than 443); a project shows its name. */
   const targetText = (t) => (typeof t === "string" && t.startsWith("https://") ? t.slice(8) : "");
 
-  return Object.freeze({ MODES, DEFAULT_MODE, DEFAULT_WHITELIST, LIMITS, CHOICES: ALL, decide, target, targetText, modeLabel });
+  return Object.freeze({ MODES, DEFAULT_MODE, DEFAULT_WHITELIST, CHOICES: ALL, decide, target, targetText, modeLabel });
 });

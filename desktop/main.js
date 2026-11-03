@@ -111,7 +111,7 @@ async function start() {
   });
   ipcMain.on("montclip:capabilities:get", (event) => {
     event.returnValue = settingsAllowed(event, win, origin)
-      ? { ok: true, capabilities: Capabilities.list().map((c) => ({ name: c.name, source: c.source, risk: c.risk, summary: c.summary, schema: c.schema })) }
+      ? { ok: true, capabilities: Capabilities.list().map((c) => ({ name: c.name, source: c.source, risk: c.risk, summary: c.summary, schema: c.schema, limits: Capabilities.limits(c.name) })) }
       : { ok: false, code: "CAPABILITIES_FORBIDDEN" };
   });
   // read-only feature switches for the page (desktop/features.js); no channel sets them
