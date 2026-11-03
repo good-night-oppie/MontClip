@@ -83,24 +83,26 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await read(`document.getElementById('btnAutoSlices').click();true`);
   assert.equal(await read(`document.getElementById('btnAutoSlices').textContent`),'✨ 自动出切片');
   const rv=await read(`(()=>{const st=autoState();return{cards:st.clips.map(c=>({kind:c.kind,s:c.s,e:c.e,on:c.on,levels:[MontClipAutoSlices.edgeLevel(c,'s'),MontClipAutoSlices.edgeLevel(c,'e')]})),
-    labels:[...document.querySelectorAll('[data-as-level]')].map(e=>e.textContent),hints:[...document.querySelectorAll('[data-as-hint]')].map(e=>e.className+':'+e.textContent),
+    labels:[...document.querySelectorAll('[data-as-level]')].map(e=>e.textContent),hints:[...document.querySelectorAll('[data-as-hint]')].map(e=>e.className+':'+e.textContent),tips:[...document.querySelectorAll('[data-as-level]')].map(e=>e.title),
     head:document.querySelector('.auto-slices h1').textContent,place:document.querySelector('[data-as-act=place]').textContent,exp:document.querySelector('[data-as-act=export]').textContent};})()`);
   report.review=rv;
   const songs=rv.cards.filter(c=>c.kind==='song');
-  // v8 (frozen, JJ-approved): a level beside every start and end; nothing was guessed in these two, so 比较可能 with its grey hint
+  // v8 (frozen, JJ-approved): a level beside every start and end; nothing was guessed in these two, so 比较可能; JJ's v11
+  // visual review: the hint is no longer written under the strip, it is the tag's tooltip
   assert.equal(songs.length,2,'two parts that may be singing');assert.ok(songs.every(c=>c.levels.every(l=>l==='likely')),JSON.stringify(songs));
   assert.deepEqual(rv.labels,['比较可能','比较可能','比较可能','比较可能']);
-  assert.ok(rv.hints.length===4&&rv.hints.every(h=>/^as-likely:(开头|结尾)比较可能在这里，还是点「▶ 听(开头|结尾)」听一下再定。$/.test(h)),rv.hints.join('|'));
+  assert.equal(rv.hints.length,0,'nothing written under the strips');
+  assert.ok(rv.tips.length===4&&rv.tips.every(h=>/^(开头|结尾)比较可能在这里，还是点「▶ 听(开头|结尾)」听一下再定。$/.test(h)),rv.tips.join('|'));
   // Deja over the frozen design: below the naming gate no 第 n 首 anywhere; song cards 「{time} 那段 · 可能在唱歌」
   const naming=await read(`(()=>{const d=document.querySelector('dialog.auto-slices'),t=d.innerText+[...d.querySelectorAll('input[type=text]')].map(i=>i.value).join(' ');
     return{noNth:!/第\\s*\\d+\\s*首|一首歌|每首歌/.test(t),maybe:(t.match(/可能在唱歌/g)||[]).length,
     lyrics:[...d.querySelectorAll('.as-lyrics')].map(e=>e.textContent.replace(/\\s+/g,' ').trim()),trusted:MontClipAutoSlices.songsTrusted()};})()`);
   report.naming=naming;assert.equal(naming.trusted,false);assert.equal(naming.noNth,true,'no 第 n 首 below the gate');assert.equal(naming.maybe,2);
   assert.ok(naming.lyrics.every(x=>x==='如果这段是唱歌，可以按歌词校准字幕'),naming.lyrics.join('|'));
-  // moved: 你调过 (grey) and no hint; undone: its own level and hint again
+  // moved: 你调过 (grey) and no tooltip; undone: its own level and tooltip again
   const moved=await read(`(()=>{const card=document.querySelector('[data-as-card]'),id=card.dataset.asCard;card.querySelector('[data-as-act=nudge][data-as-w=s][data-as-d="-1"]').click();
-    const el=()=>document.querySelector('[data-as-card="'+id+'"] [data-as-edge=s]');const a={label:el().querySelector('[data-as-level]').textContent,hint:!!el().querySelector('[data-as-hint]')};
-    autoUndo();const b={label:el().querySelector('[data-as-level]').textContent,hint:!!el().querySelector('[data-as-hint]')};return{a,b};})()`);
+    const el=()=>document.querySelector('[data-as-card="'+id+'"] [data-as-edge=s]');const a={label:el().querySelector('[data-as-level]').textContent,hint:!!el().querySelector('[data-as-level]').title};
+    autoUndo();const b={label:el().querySelector('[data-as-level]').textContent,hint:!!el().querySelector('[data-as-level]').title};return{a,b};})()`);
   report.moved=moved;assert.deepEqual(moved.a,{label:'你调过',hint:false});assert.deepEqual(moved.b,{label:'比较可能',hint:true});
   const n=rv.cards.filter(c=>c.on).length;
   assert.equal(rv.place,`放到时间线上（${n} 条）`);assert.equal(rv.exp,`直接导出这 ${n} 条`);

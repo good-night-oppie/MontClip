@@ -83,3 +83,13 @@ test('v9 (JJ final; Deja): below the gate every promise of telling songs apart s
  a.match(app,/autoSay\(autoKindHintKey\(st\.kind, pickedDm\)\)/);a.match(app,/autoSongKey\("as-kind-hint-" \+ kind\)/);a.match(app,/autoSay\(autoSongKey\("as-len-hint-" \+ st\.len\)\)/);
  a.match(app,/autoSay\(autoSongKey\("as-run-" \+ s\)\)/);a.match(app,/autoSay\(autoSongKey\("as-lyrics"\)\)/);
 });
+
+// JJ's v11 visual review (Deja, 2026-11-03): the long note under the strips is said once, above the cards, in JJ's words;
+// what the real window shows is checked by desktop/slice-cards-smoke.cjs
+test("JJ's v11 visual review: the 估的 note once, above the cards; the cards keep only their tags",()=>{
+ a.equal(zh('as-guess-note'),'标着「估的」的开头结尾，先点「▶ 听开头 / 听结尾」听一下再定。');
+ a.ok(en('as-guess-note')&&en('as-guess-note')!=='own.as-guess-note');
+ const app=read('app.js'),edge=app.slice(app.indexOf('function autoEdgeHtml'),app.indexOf('function autoCardHtml'));
+ a.ok(!/data-as-hint|class="as-guess"|class="as-likely"/.test(edge),'no note written under the strip');
+ a.match(read('desktop/slice-cards-smoke.cjs'),/SLICE_CARDS_PASS/);
+});
