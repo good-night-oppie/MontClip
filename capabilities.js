@@ -70,7 +70,7 @@
   const list = () => [...table.values()];
   /** What the approval box and the plan list show for a capability (JJ, 2026-11-03): its plain sentence in the interface
    *  language (English for any other), never its internal name — also for a name the table does not have. */
-  const UNKNOWN = Object.freeze({ "zh-CN": "一项不认识的操作，已拦下", en: "An unknown action, blocked" });
+  const UNKNOWN = Object.freeze({ "zh-CN": "AI 想做一件软件不认识的操作，已经拦下，什么都没改。", en: "The AI asked for an action MontClip doesn't know. It was blocked; nothing changed." });
   const label = (name, language) => { const c = get(name), l = language === "zh-CN" ? "zh-CN" : "en"; return c ? c.summary[l] : UNKNOWN[l]; };
   return Object.freeze({ RISKS, BLOCKED, get, riskOf, list, label });
 });
