@@ -15,7 +15,8 @@ test("the editor and the worker load transformers.js, the wasm and the models fr
   const w = read("transcribe-worker.js");
   a.match(w, /T\.env\.allowRemoteModels = false;/);
   a.match(w, /T\.env\.allowLocalModels = true;/);
-  a.match(w, /T\.env\.localModelPath = new URL\(m\.assets \+ "models\/", self\.location\.href\)\.href;/);
+  // a path, not an http URL: transformers.js 4.3.1 checks a local file exists (the tokenizer) only for paths without a protocol
+  a.match(w, /T\.env\.localModelPath = m\.assets \+ "models\/";/);
   a.match(w, /T\.env\.useBrowserCache = false;/);
   a.match(w, /T\.env\.backends\.onnx\.wasm\.wasmPaths = \{ mjs: new URL\(m\.assets \+ "ort\/ort-wasm-simd-threaded\.jsep\.mjs"/);
   a.doesNotMatch(read("app.js"), /check the internet connection \(it is needed the first time\)/, "no message about downloading the model");
@@ -68,6 +69,7 @@ test("the desktop window may compile wasm (and still nothing else changes in its
 
 test("packaging copies the checked vendor/transcribe folder into resources/transcribe", () => {
   const pkg = read("desktop/package-win.cjs");
-  a.match(pkg, /require\('\.\/fetch-transcribe\.cjs'\)\.verify\(\)/);
-  a.match(pkg, /path\.join\(out, 'resources', 'transcribe'\)/);
+  a.match(pkg, /const Transcribe = require\('\.\/fetch-transcribe\.cjs'\), trCheck = Transcribe\.verify\(\);\s*if \(!trCheck\.ok\) fail\(/);
+  a.match(pkg, /extraResource: \[ffStage, trStage\]/);
+  a.match(pkg, /verify\(path\.join\(appDir, 'resources', 'transcribe'\)\)/, "and checked again inside the package");
 });

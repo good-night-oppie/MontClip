@@ -38,6 +38,8 @@ async function start() {
     delete env.MONTCLIP_FFPROBE;
     env.MONTCLIP_FFMPEG_PACKAGED = "1";
     env.MONTCLIP_FFMPEG_DIR = path.join(process.resourcesPath, "ffmpeg");
+    // on-device transcription: transformers.js, the ONNX Runtime wasm and the models, all in the package
+    env.MONTCLIP_TRANSCRIBE_DIR = path.join(process.resourcesPath, "transcribe");
   }
   worker = utilityProcess.fork(path.join(__dirname, "..", "server.js"), [], { env, stdio: "pipe" });
   worker.once("exit", () => { workerExited = true; });
@@ -66,7 +68,7 @@ async function start() {
   ses.webRequest.onHeadersReceived((details, callback) => {
     const headers = { ...details.responseHeaders };
     if (local(details.url) && details.resourceType === "mainFrame") {
-      headers["Content-Security-Policy"] = ["default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"];
+      headers["Content-Security-Policy"] = ["default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"];
     }
     callback({ responseHeaders: headers });
   });

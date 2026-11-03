@@ -121,7 +121,11 @@ const MIME = {
   ".gif": "image/gif", ".webp": "image/webp", ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
   ".ttf": "font/ttf", ".otf": "font/otf", ".woff": "font/woff", ".woff2": "font/woff2",
+  ".wasm": "application/wasm", ".mjs": "text/javascript; charset=utf-8", ".onnx": "application/octet-stream",
 };
+/** The bundled transcription files (transformers.js, ONNX Runtime wasm, Whisper models): the package's
+ *  resources/transcribe (MONTCLIP_TRANSCRIBE_DIR, set by desktop/main.js), else vendor/transcribe in a checkout. */
+const TRANSCRIBE_DIR = path.resolve(process.env.MONTCLIP_TRANSCRIBE_DIR || path.join(APP_DIR, "vendor", "transcribe"));
 
 ensureDirs();
 const projects = createProjects({ dataDir: DATA_DIR, projectFile: PROJECT_FILE, libraryDir: LIBRARY_DIR });
@@ -1535,6 +1539,14 @@ const server = http.createServer(async (req, res) => {
   /* Finished exports */
   if (p.startsWith("/exports/")) {
     serveFile(req, res, path.join(EXPORTS_DIR, path.basename(p)));
+    return;
+  }
+
+  /* Bundled transcription files: served only from TRANSCRIBE_DIR */
+  if (p.startsWith("/transcribe-assets/")) {
+    const file = path.normalize(path.join(TRANSCRIBE_DIR, p.slice("/transcribe-assets/".length)));
+    if (!file.startsWith(TRANSCRIBE_DIR + path.sep)) { res.writeHead(403); res.end(); return; }
+    serveFile(req, res, file);
     return;
   }
 

@@ -9120,7 +9120,7 @@ function transcribeWorker() {
     trPending.delete(m.id);
     if (m.type === "done") p.resolve(m.chunks || []);
     else p.reject(new Error(/dynamically imported module|Failed to fetch|NetworkError|Load failed/i.test(m.error || "")
-      ? "couldn't download the speech model — check the internet connection (it is needed the first time)"
+      ? "the speech model files that come with MontClip could not be loaded — unzip the package again (nothing is downloaded)"
       : m.error || "transcription failed"));
   };
   trWorker.onerror = (e) => {
@@ -9139,7 +9139,7 @@ function whisperPiece(pcm, model, language) {
   return new Promise((resolve, reject) => {
     const id = ++trSeq;
     trPending.set(id, { resolve, reject });
-    transcribeWorker().postMessage({ type: "run", id, lib: FableCutTranscribe.LIBRARY, model: FableCutTranscribe.MODELS[model].id, pcm, language }, [pcm.buffer]);
+    transcribeWorker().postMessage({ type: "run", id, lib: FableCutTranscribe.LIBRARY, assets: FableCutTranscribe.ASSETS, model: FableCutTranscribe.MODELS[model].id, pcm, language }, [pcm.buffer]);
   });
 }
 function onModelProgress(m) {

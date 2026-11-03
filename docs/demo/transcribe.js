@@ -5,7 +5,10 @@
    words with the same `extract` ops.
 
    Speech is turned into words in the browser (transcribe-worker.js runs
-   Whisper with transformers.js, fetched from a CDN the first time and cached).
+   Whisper with transformers.js). The library, the ONNX Runtime wasm and the
+   models ship with MontClip and load from the app (/transcribe-assets/, served
+   from vendor/transcribe or the package's resources/transcribe): nothing is
+   fetched from the network (owner, 2026-11-03).
    Here: plan (where to split long audio, at its quietest moments) → joinChunks
    (Whisper's word pieces → [text, start, end] in file seconds) → a transcript
    document per file → clipWords / layout (onto the timeline through each
@@ -20,14 +23,16 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  /** Whisper models with word timestamps (cross-attention alignment), 8-bit, from Hugging Face. */
+  /** Whisper models with word timestamps (cross-attention alignment), 8-bit; bundled (desktop/transcribe-manifest.json). */
   const MODELS = {
     base: { id: "onnx-community/whisper-base_timestamped", label: "Base", mb: 77 },
     small: { id: "onnx-community/whisper-small_timestamped", label: "Small", mb: 250 },
   };
   const DEFAULT_MODEL = "base";
-  /** transformers.js, pinned. Fetched by the worker only when something is transcribed. */
-  const LIBRARY = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1/dist/transformers.min.js";
+  /** Where the bundled transcription files are served (server.js /transcribe-assets/). */
+  const ASSETS = "/transcribe-assets/";
+  /** transformers.js 4.3.1, bundled. Loaded by the worker only when something is transcribed. */
+  const LIBRARY = ASSETS + "transformers/transformers.min.js";
   /** Whisper listens at 16 kHz, mono. */
   const RATE = 16000;
   /** Languages offered by name (Whisper knows more; any of its codes works). */
@@ -287,7 +292,7 @@
   const total = (spans) => r4(spans.reduce((n, s) => n + (s.to - s.from), 0));
 
   return {
-    MODELS, DEFAULT_MODEL, LIBRARY, RATE, LANGUAGES, MIN_CUT,
+    MODELS, DEFAULT_MODEL, LIBRARY, ASSETS, RATE, LANGUAGES, MIN_CUT,
     model, language, plan, quiet, joinChunks, validate, ramped, clipWords, layout, norm, find, union,
     cutSpans, cutOps, text, segments, total,
   };

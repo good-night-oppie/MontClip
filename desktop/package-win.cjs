@@ -78,12 +78,18 @@ async function main() {
     const ffStage = path.join(work, 'ffmpeg'); fs.mkdirSync(ffStage);
     for (const f of ['ffmpeg.exe', 'ffprobe.exe', 'LICENSE.txt', 'SOURCE.json']) fs.copyFileSync(path.join(ffSrc, f), path.join(ffStage, f));
 
+    // resources/transcribe: the checked vendor/transcribe folder (desktop/fetch-transcribe.cjs)
+    const Transcribe = require('./fetch-transcribe.cjs'), trCheck = Transcribe.verify();
+    if (!trCheck.ok) fail('vendor/transcribe does not match transcribe-manifest.json (run node desktop/fetch-transcribe.cjs): ' + trCheck.bad.join('; '));
+    const trStage = path.join(work, 'transcribe'); fs.cpSync(Transcribe.VENDOR, trStage, { recursive: true });
+
     const zipDir = arg('--electron-zip-dir');
     const built = await packager({ dir: stage, out: path.join(work, 'out'), name: 'MontClip', executableName: 'MontClip',
       platform: 'win32', arch: 'x64', electronVersion, ...(zipDir ? { electronZipDir: zipDir } : {}),
-      asar: false, prune: true, overwrite: true, extraResource: [ffStage], appVersion: rootPkg.version,
+      asar: false, prune: true, overwrite: true, extraResource: [ffStage, trStage], appVersion: rootPkg.version,
       win32metadata: { ProductName: 'MontClip', FileDescription: 'MontClip', CompanyName: 'good-night-oppie' } });
     const appDir = built[0];
+    { const r = require('./fetch-transcribe.cjs').verify(path.join(appDir, 'resources', 'transcribe')); if (!r.ok) fail('resources/transcribe changed while packaging: ' + r.bad.join('; ')); }
 
     // licences beside the program
     const lic = path.join(appDir, 'licenses'); fs.mkdirSync(lic);
