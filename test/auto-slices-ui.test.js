@@ -57,7 +57,7 @@ test('desktop: the notification comes from the main process over one fixed chann
 test("Deja's song-card words until JJ's final copy: a time, 可能在唱歌, three tags, the lyrics button kept with 如果这段是唱歌",()=>{
  a.equal(zh('as-moment-name',{time:'1:12:04'}),'1:12:04 那段');a.equal(zh('as-maybe-singing'),'可能在唱歌');
  a.deepEqual(['as-tag-estimated','as-tag-likely','as-tag-adjusted'].map(k=>zh(k)),['估的','比较可能','你调过']);
- a.equal(zh('as-lyrics'),'按歌词校准字幕');a.equal(zh('as-lyrics-if'),'如果这段是唱歌');
+ a.equal(zh('as-lyrics'),'按歌词校准字幕');a.equal(zh('as-lyrics-maybe'),'如果这段是唱歌，可以按歌词校准字幕');
  const app=read('app.js');a.match(app,/MontClipAutoSlices\.title\(c\)/);a.ok(!/uiText\("own\.as-song-name"/.test(app),'第 n 首歌 only through the gate');
  a.ok(!/"own\.as-a-song"/.test(app)&&!/as-a-song/.test(read('ui-preferences.js')),'no 一首歌 · length');
 });
@@ -69,4 +69,16 @@ test('v8 (frozen, JJ-approved): a level beside each start and end time; the like
  a.match(edge,/MontClipAutoSlices\.edgeLevel\(c, w\)/);a.match(edge,/data-as-level=/);
  const card=app.slice(app.indexOf('function autoCardHtml('),app.indexOf('\n}',app.indexOf('function autoCardHtml('))+2);
  a.ok(!/MontClipAutoSlices\.tag\(/.test(card),'the level sits by each time, not once on the card');
+});
+test('v9 (JJ final; Deja): below the gate every promise of telling songs apart says 可能在唱歌 — the singing hint, the length hint, the search step, the lyrics button; at the gate the song wording comes back',()=>{
+ a.equal(zh('as-kind-hint-sing-maybe'),'会找可能在唱歌的段落，每段单独出一条。');a.equal(zh('as-kind-hint-sing'),'会一首歌一首歌地找，每首歌单独出一条。');
+ a.equal(zh('as-len-hint-song-maybe'),'可能在唱歌的段落，每段出一条。');a.match(zh('as-len-hint-song'),/一首歌出一条/);
+ a.equal(zh('as-run-songs-maybe'),'找哪几段可能在唱歌');a.equal(zh('as-run-songs'),'找每首歌大概从哪开始');
+ a.equal(zh('as-song-name-hint'),'点上面的名字可以改，比如改成歌名。导出的文件就叫这个名字（名字不会出现在画面里）。');
+ for(const k of ['as-kind-hint-sing-maybe','as-len-hint-song-maybe','as-run-songs-maybe','as-lyrics-maybe'])a.ok(!/一首歌|第 ?\d+ ?首|每首/.test(zh(k)),k);
+ const app=read('app.js'),i=app.indexOf('function autoSongKey(');a.ok(i>0);
+ const gate=new Function('MontClipAutoSlices',app.slice(i,app.indexOf('\n}',i)+2)+'return autoSongKey;');
+ a.equal(gate({songsTrusted:()=>false})('as-kind-hint-sing'),'as-kind-hint-sing-maybe');a.equal(gate({songsTrusted:()=>true})('as-kind-hint-sing'),'as-kind-hint-sing');
+ a.match(app,/autoSay\(autoSongKey\("as-kind-hint-" \+ st\.kind\)\)/);a.match(app,/autoSay\(autoSongKey\("as-len-hint-" \+ st\.len\)\)/);
+ a.match(app,/autoSay\(autoSongKey\("as-run-" \+ s\)\)/);a.match(app,/autoSay\(autoSongKey\("as-lyrics"\)\)/);
 });

@@ -58,7 +58,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
     return{noNth:!/第\\s*\\d+\\s*首/.test(t),maybe:(t.match(/可能在唱歌/g)||[]).length,
     lyrics:[...d.querySelectorAll('.as-lyrics')].map(e=>e.textContent.replace(/\\s+/g,' ').trim()),trusted:MontClipAutoSlices.songsTrusted()};})()`);
   report.naming=naming;assert.equal(naming.trusted,false);assert.equal(naming.noNth,true,'no 第 n 首 below the gate');assert.equal(naming.maybe,2);
-  assert.ok(naming.lyrics.every(x=>x==='按歌词校准字幕 如果这段是唱歌'),naming.lyrics.join('|'));
+  assert.ok(naming.lyrics.every(x=>x==='如果这段是唱歌，可以按歌词校准字幕'),naming.lyrics.join('|'));
   // moved: 你调过 (grey) and no hint; undone: its own level and hint again
   const moved=await read(`(()=>{const card=document.querySelector('[data-as-card]'),id=card.dataset.asCard;card.querySelector('[data-as-act=nudge][data-as-w=s][data-as-d="-1"]').click();
     const el=()=>document.querySelector('[data-as-card="'+id+'"] [data-as-edge=s]');const a={label:el().querySelector('[data-as-level]').textContent,hint:!!el().querySelector('[data-as-hint]')};
