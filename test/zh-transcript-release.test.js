@@ -1,6 +1,6 @@
 'use strict';
 // JJ, review of #34 0315cbd/4dc47cc (2026-11-02):
-// (a) the top bar must not read as "AI connected": 本机服务正常 / 仅本地会话;
+// (a) the top bar must not read as "AI connected": 就绪 / 本机程序没响应，请重开 MontClip (JJ, 2026-11-03; was 本机服务正常 / 仅本地会话);
 // (b) on-device Chinese transcription is not in this release: a packaged build shows no transcribe
 //     button, no model choice and no download hint, and starts no transcription or download; a
 //     development build, or the main process's own switch, turns it back on;

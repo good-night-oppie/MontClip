@@ -57,3 +57,17 @@ Open questions for JJ:
 2. In Chinese, the selection footer drops the word count: 「已选 3.2 秒 · “…”」. A count would be of words, which Chinese transcripts don't have. Fine?
 3. 「字幕最后再加：…」 (caption-last) is rephrased so that it does not mention word timing.
 4. The toasts and undo-step names these buttons raise ("No captions on the timeline yet…", "N words") are still English. Same batch, or later?
+
+## JJ's copy review (2026-11-03) — applied
+
+| key | English | 中文 |
+|---|---|---|
+| own.cut-all | Cut all out | 全部剪掉 |
+| own.cut-n | Cut out {n} | 剪掉 {n} 处 |
+| own.caption-last | Add captions last: once the edit changes, captions already added don't follow it, so add them again. | 字幕最后再加：剪辑改了以后，已经加好的字幕不会跟着对齐，要重新加一次。 |
+| own.tr-empty | Import an SRT subtitle file and the transcript will show here. Chinese transcription on this computer is still being developed. | 先导入 SRT 字幕文件，文稿就会显示在这里。本机中文听写还在开发中。 |
+| own.tr-module-missing | The transcript feature didn't load. Close MontClip and open it again. | 文稿功能没加载出来。请关掉 MontClip 再重新打开。 |
+| own.connected | Ready | 就绪 |
+| own.local-session | The local program isn't responding. Reopen MontClip | 本机程序没响应，请重开 MontClip |
+
+The tables above keep the earlier wording as it was reviewed; these rows replace it. The English is ours, for JJ to check.
