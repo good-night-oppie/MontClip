@@ -48,10 +48,13 @@
     for (let i = 1; i <= n; i++) {
       cur[0] = i; step[i * W] = 1;
       for (let j = 1; j <= m; j++) {
-        const diag = prev[j - 1] + (heard[i - 1].c === sung[j - 1].c ? 0 : 1), del = prev[j] + 1, ins = cur[j - 1] + 1;
-        if (diag <= del && diag <= ins) { cur[j] = diag; step[i * W + j] = 0; }
-        else if (del <= ins) { cur[j] = del; step[i * W + j] = 1; }
-        else { cur[j] = ins; step[i * W + j] = 2; }
+        const same = heard[i - 1].c === sung[j - 1].c, diag = prev[j - 1] + (same ? 0 : 1), del = prev[j] + 1, ins = cur[j - 1] + 1;
+        // on a tie, a match first, then a sung character left unheard, then a substitution: walking back from the end,
+        // lyric lines nobody sang stay unheard instead of taking the last heard characters as wrong ones
+        if (same && diag <= del && diag <= ins) { cur[j] = diag; step[i * W + j] = 0; }
+        else if (ins <= diag && ins <= del) { cur[j] = ins; step[i * W + j] = 2; }
+        else if (diag <= del) { cur[j] = diag; step[i * W + j] = 0; }
+        else { cur[j] = del; step[i * W + j] = 1; }
       }
       [prev, cur] = [cur, prev];
     }
@@ -82,10 +85,21 @@
         const lw = L.text.split(/\s+/).filter(Boolean).map((w) => ({ w, s: null, e: null }));
         sung.forEach((x, j) => { if (x.li !== li || pair[j] < 0) return; const h = heard[pair[j]], t = lw[x.wi];
           t.s = t.s == null ? h.s : Math.min(t.s, h.s); t.e = t.e == null ? h.e : Math.max(t.e, h.e); });
-        return { text: L.text, original: join(wordIds.map((wi) => String(words[wi].w != null ? words[wi].w : words[wi][0]))), start, end,
+        const heardWords = wordIds.map((wi) => { const w = words[wi]; return { w: String(w.w != null ? w.w : w[0]), s: r4(+(w.s != null ? w.s : w[1])), e: r4(+(w.e != null ? w.e : w[2])) }; });
+        return { text: L.text, original: join(heardWords.map((w) => w.w)), heard: heardWords, start, end,
           score: r4(score), sure: start != null && score >= MIN_SCORE, words: lw };
       }),
     };
   }
-  return Object.freeze({ MIN_SCORE, MAX_CHARS, MAX_LINES, lines, align });
+  /** The captions to put in place of the old ones, one per line in order: a picked line (with a time) as the lyrics, any
+   *  other as it was heard (its own words and times). A line with nothing heard under it has no caption. */
+  function cues(result, picked) {
+    const take = new Set(Array.isArray(picked) ? picked : []), out = [];
+    (result && result.ok ? result.lines : []).forEach((l, i) => {
+      if (take.has(i) && l.start != null) out.push({ start: l.start, end: l.end, text: l.text, words: l.words.map((w) => ({ ...w })) });
+      else if (l.heard.length) out.push({ start: Math.min(...l.heard.map((w) => w.s)), end: Math.max(...l.heard.map((w) => w.e)), text: l.original, words: l.heard.map((w) => ({ ...w })) });
+    });
+    return out;
+  }
+  return Object.freeze({ MIN_SCORE, MAX_CHARS, MAX_LINES, lines, align, cues });
 });

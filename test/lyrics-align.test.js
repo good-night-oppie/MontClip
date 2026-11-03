@@ -65,3 +65,21 @@ test('nothing to align, or too much, is refused, never guessed',()=>{
 test('pure: the input is not changed',()=>{
  const ws=words('天空好想夏雨'),copy=JSON.stringify(ws);L.align(ws,'天空好想下雨');a.equal(JSON.stringify(ws),copy);
 });
+
+test('the captions to apply: picked lines as the lyrics, the others as heard, one caption per line, times untouched',()=>{
+ const r=L.align(words('天空好想夏雨谢谢我好想住你个笔'),'天空好想下雨\n我好想住你隔壁\n这句没有唱');
+ const all=L.cues(r,[0,1]),one=L.cues(r,[1]),none=L.cues(r,[]);
+ a.deepEqual(all.map(c=>c.text),['天空好想下雨','我好想住你隔壁'],'a line with nothing heard has no caption');
+ a.deepEqual(one.map(c=>c.text),['天空好想夏雨谢谢','我好想住你隔壁'],'line 1 as heard, line 2 as the lyrics');
+ a.deepEqual(none.map(c=>c.text),['天空好想夏雨谢谢','我好想住你个笔']);
+ a.equal(all[0].start,10);a.equal(one[0].start,10);a.equal(all[1].start,one[1].start);
+ for(const list of [all,one,none])for(let i=1;i<list.length;i++)a.ok(list[i].start>=list[i-1].end,'no overlap');
+ // a line as heard ends where its last heard word ends (the talking after it included)
+ a.equal(one[0].end,+(10+7*0.3+0.25).toFixed(3));
+ a.deepEqual(L.cues(r,[2]).map(c=>c.text),['天空好想夏雨谢谢','我好想住你个笔'],'picking a line with no time changes nothing');
+});
+test('English: a picked line keeps each word’s time, so word-by-word captions still follow the singing',()=>{
+ const ws=[['Never',0,0.4],['gona',0.5,0.9],['give',1,1.3],['you',1.4,1.6],['up',1.7,2]].map(([w,s,e])=>({w,s,e}));
+ const [c]=L.cues(L.align(ws,'Never gonna give you up'),[0]);
+ a.equal(c.text,'Never gonna give you up');a.deepEqual(c.words.map(w=>[w.s,w.e]),[[0,0.4],[0.5,0.9],[1,1.3],[1.4,1.6],[1.7,2]]);
+});
