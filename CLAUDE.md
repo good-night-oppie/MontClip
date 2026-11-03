@@ -2790,7 +2790,7 @@ The Transcript tab's **高光候选 / Highlight candidates** reads local signals
 ### Songs in a recording (MontClip)
 
 `fablecut_songs` finds where each song in a long recording (a livestream replay with singing between talk) starts
-and ends, from the sound alone: no transcript, no model, nothing leaves the machine. Until song finding meets its accuracy gate (precision@15 ≥ 0.6 and recall@10 ≥ 0.6; it measures 0.12 and 0.38 now), when you talk to the streamer call what it finds 「可能在唱歌的段落」 (parts that are possibly singing): never 「第几首歌」 (song numbers), and never a song's name. Singing holds its level; talk
+and ends, from the sound alone: no transcript, no model, nothing leaves the machine. Until song finding meets its accuracy gate (precision@15 ≥ 0.6 and recall@10 ≥ 0.6; it measures 0.12 and 0.38 now), when you talk to the streamer call what it finds 「可能在唱歌的段落」 (parts that are possibly singing): never 「第几首歌」 (song numbers), and never a song's name unless the streamer named it herself. Singing holds its level; talk
 pauses between words. `song-scan.js` has ffmpeg's `astats` and `aspectralstats` read the file's sound (mono, 16 kHz,
 one row per 0.5 s: RMS level, spectral flatness, centroid, entropy, zero-crossing rate) in 300 s segments, and keeps
 each segment as soon as it is read in `analysis/songs/<file version>/` (name, size, modification time): a stopped

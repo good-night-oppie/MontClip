@@ -10451,7 +10451,9 @@ async function showSentenceSelection(suggestion = null, onApplied = null, onCanc
     <div class="tr-row"><button type="button" class="btn" data-preview>${say("own.sd-preview")}</button>
     <button type="button" class="btn primary" data-apply>${say("own.sd-apply")}</button>
     <button class="btn" value="cancel">${say("own.sd-cancel")}</button></div></form>`;
-  const ownError = (error) => (error && error.code && uiText("own.rp-" + error.code)) || error.message;
+  // the by-time dialog has its own plain refusals (JJ's re-review of #71); anything else (locked, …) is main's own.rp-*
+  const byTimeError = { invalid: "own.ssel-err-ranges-invalid", exceeds: "own.ssel-err-ranges-past-end", nested: "own.ssel-err-ranges-nested", "short-media": "own.ssel-err-ranges-too-short" };
+  const ownError = (error) => (error && error.code && uiText((byTime && byTimeError[error.code]) || "own.rp-" + error.code)) || error.message;
   const list = dialog.querySelector("[data-sentences]"), summary = dialog.querySelector("[data-summary]");
   if(suggestion){dialog.querySelector('[data-ranges]').value=suggestion.keep.map(r=>r.from+','+r.to).join('\n');dialog.querySelector('[data-ranges]').readOnly=true;list.hidden=true;}
   const selected = new Set();
@@ -10469,7 +10471,7 @@ async function showSentenceSelection(suggestion = null, onApplied = null, onCanc
       const explicit = dialog.querySelector("[data-ranges]").value.trim();
       const keep = explicit ? explicit.split(/\r?\n/).map(line => {
         const pair = line.split(",").map(s => s.trim());
-        if (pair.length !== 2 || pair.some(s => !s)) throw new Error(uiText("own.sd-range-line"));
+        if (pair.length !== 2 || pair.some(s => !s)) throw new Error(uiText(byTime ? "own.ssel-err-ranges-line" : "own.sd-range-line"));
         return { from: Number(pair[0]), to: Number(pair[1]) };
       }) : [...selected].map(id => captions.find(c => c.id === id)).map(c => ({ from: c.start, to: c.start+c.duration }));
       plan = FableCutRangePlan.create(doc, keep); plan.keep = keep;
@@ -10495,7 +10497,7 @@ async function showSentenceSelection(suggestion = null, onApplied = null, onCanc
   }
   dialog.querySelector("[data-ranges]").addEventListener("input", refresh);
   const current = () => JSON.stringify(projectJSON()) === signature && runtime.projectId === projectId && runtime.projectGen===projectGen && SeqLib.activeId(seqRoot())===sequenceId && (!suggestion||!busy()&&MontClipProposal.current(suggestion,projectJSON(),proposalContext()));
-  const changed = () => { stopPreview(); summary.textContent = uiText("own.sd-changed"); };
+  const changed = () => { stopPreview(); summary.textContent = uiText(byTime ? "own.ssel-changed" : "own.sd-changed"); };
   dialog.querySelector("[data-preview]").addEventListener("click", () => {
     if (!plan) return;
     if (!current()) { changed(); return; }
