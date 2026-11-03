@@ -6,10 +6,11 @@ const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('no
 const Cap=require('../capabilities'),TOOLS=require('../mcp-tools');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 
-test('every MCP tool, both proposal shapes and the host’s three sends are in the table, nothing else',()=>{
+test('every MCP tool, both proposal shapes, the host’s three sends and the plan’s three steps are in the table, nothing else',()=>{
  const names=Cap.list().map(c=>c.name).sort();
- // the sends the host makes itself, each with its caps (Deja, #83): the assistant, the song lookup, cloud transcription
- a.deepEqual(names,[...TOOLS.map(t=>t.name),'keep_ranges','keep_sentences','assistant_request','song_lookup','cloud_transcribe'].sort());
+ // the sends the host makes itself, each with its caps (Deja, #83): the assistant, the song lookup, cloud transcription;
+ // the steps a plan does in the page (Deja, 2026-11-03): find the songs, find the highlights, export through the Save window
+ a.deepEqual(names,[...TOOLS.map(t=>t.name),'keep_ranges','keep_sentences','assistant_request','song_lookup','cloud_transcribe','find_songs','find_highlights','export_files'].sort());
  a.equal(TOOLS.length,26);   // 25 in #74, plus #53's fablecut_danmaku
 });
 test('the MCP server serves the same tool definitions it always had (moved to mcp-tools.js, unchanged)',()=>{
@@ -36,6 +37,10 @@ test('risk levels follow the draft: reading is read, edits are undoable, files w
  a.equal(Cap.riskOf('fablecut_import_media',{path:'https://example.com/a.mp4'}),'blocked');
  a.equal(Cap.riskOf('fablecut_import_media',{path:'C:/a.mp4'}),'undoable');
  for(const n of ['assistant_request','song_lookup','cloud_transcribe'])a.equal(r(n),'external',n);
+ // finding changes nothing (read); export writes files, each where the streamer picks in the Save window (sensitive)
+ a.equal(r('find_songs'),'read');a.equal(r('find_highlights'),'read');a.equal(r('export_files'),'sensitive');
+ a.equal(Cap.get('find_songs').source,'host');a.equal(Cap.get('export_files').source,'host');
+ a.match(Cap.label('export_files','zh-CN'),/保存窗口/);a.match(Cap.label('find_highlights','en'),/nothing/i);
 });
 test('unknown names are blocked; the table cannot be changed from outside',()=>{
  a.equal(Cap.riskOf('rm_rf'),'blocked');a.equal(Cap.riskOf('__proto__'),'blocked');a.equal(Cap.riskOf(''),'blocked');

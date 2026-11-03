@@ -5,8 +5,10 @@ const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('no
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 const View=require('../ui-preferences'),F=require('../agent-format');
 
-test('the format note tells the model the plan shape: steps of the two edits, at most 30, no example numbers',()=>{
- a.match(F.FORMAT_NOTE,/\{"type":"plan","steps":\[\{"capability":"<keep_sentences or keep_ranges>","args":/);
+test('the format note tells the model the plan shape: steps it can do, at most 30, no example numbers',()=>{
+ // the two edits, and (plan-steps, Deja 2026-11-03) finding songs and highlights and exporting through the Save window
+ a.match(F.FORMAT_NOTE,/\{"type":"plan","steps":\[\{"capability":"<keep_sentences, keep_ranges, find_songs, find_highlights or export_files>","args":/);
+ a.match(F.FORMAT_NOTE,/"ranges":\{"\$step":<that step's number>\}/);
  a.match(F.FORMAT_NOTE,/At most 30 steps/);
  a.ok(!/"from"\s*:\s*\d|"to"\s*:\s*\d/.test(F.FORMAT_NOTE));
 });
@@ -16,8 +18,10 @@ test('every step goes through the host’s decision and its own check when its t
  a.ok(body.indexOf('montclipAgentPolicy.decide(')<body.indexOf('MontClipProposal.prepare('),'decided first');
  a.match(body,/runId:entry\.runId,step:s\.index\+1/,'each step an event of the plan’s run');
  a.match(body,/MontClipProposal\.current\(proposal,projectJSON\(\),/,'the CAS before applying');
- a.ok(body.indexOf("outputMode==='per_range'")<body.indexOf('commitRangePlan('),'slices through the dialog');
- a.match(body,/if\(s\.capability!=='keep_sentences'&&s\.capability!=='keep_ranges'\)return \{ok:false,code:'NO_EXECUTOR'\};/);
+ // one clip per range: applied, then queued for the plan's export step (test/plan-steps-ui.test.js); the export step is
+ // sensitive and saves each file through the system's Save window, so the edit itself no longer opens the dialog
+ a.ok(body.indexOf('commitRangePlan(')<body.indexOf("outputMode==='per_range'"),'queued after the edit');
+ a.match(body,/if\(!MontClipPlanSteps\.DOABLE\.includes\(s\.capability\)\)return \{ok:false,code:'NO_EXECUTOR'\};/);
  a.match(body,/await versionBeforeAgent\(\);/,'the agent version before the first step');
  a.match(body,/const r=undoRun\(entry\.runId\);/);
  // the plan starts only on the streamer's 〔开始〕, never on its own

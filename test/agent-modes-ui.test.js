@@ -32,7 +32,9 @@ test('the page asks only with the capability and the project: the reply’s word
  // the plan's steps (P4, second half) ask the same way: two answers, each the box's answer to its ticket
  a.equal((app.match(/montclipAgentPolicy\.answer\(/g)||[]).length,2);
  a.equal((app.match(/montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/g)||[]).length,2);
- a.match(app,/window\.montclipAgentPolicy\.decide\(\{sessionId:result\.sessionId,capability:s\.capability,target:\{kind:'project',value:runtime\.projectId\}\}\)/);
+ // a plan step also passes its args: the main process reads them only for a risk that depends on them (Capabilities.riskOf,
+ // e.g. a web address for fablecut_import_media is blocked) — never for an approval (plan-steps, Deja 2026-11-03)
+ a.match(app,/window\.montclipAgentPolicy\.decide\(\{sessionId:result\.sessionId,capability:s\.capability,args:s\.args,target:\{kind:'project',value:runtime\.projectId\}\}\)/);
 });
 
 test('the approval box shows the plain sentence and the domain or project, never an internal name',()=>{
