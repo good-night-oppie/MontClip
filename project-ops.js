@@ -29,10 +29,10 @@
   const api = factory(dep("./audio-fx", "FableCutFx"), dep("./edit-ops", "FableCutEdit"), dep("./color", "FableCutColor"),
     dep("./mask", "FableCutMask"), dep("./tracker", "FableCutTracker"), dep("./motion", "FableCutMotion"),
     dep("./comp", "FableCutComp"), dep("./templates", "FableCutTemplates"), dep("./media-lib", "FableCutMedia"),
-    dep("./delivery", "FableCutDelivery"), dep("./sequences", "FableCutSeq"));
+    dep("./delivery", "FableCutDelivery"), dep("./sequences", "FableCutSeq"), dep("./songs", "MontClipSongs"));
   if (node) module.exports = api;
   else root.FableCutProjectOps = api;
-})(typeof self !== "undefined" ? self : this, function (FX, EditOps, Color, Mask, Tracker, Motion, CompLib, Templates, MediaLib, Delivery, SeqLib) {
+})(typeof self !== "undefined" ? self : this, function (FX, EditOps, Color, Mask, Tracker, Motion, CompLib, Templates, MediaLib, Delivery, SeqLib, Songs) {
   "use strict";
 
   const DEFAULT_TRACKS = EditOps.DEFAULT_TRACKS;
@@ -500,7 +500,22 @@
           proj.media = proj.media.filter((x) => x.id !== op.id);
           if (proj.media.length === n) throw new Error("removeMedia: no media " + op.id);
           if (proj.collections) proj.collections = MediaLib.normalizeCollections(proj.collections, proj.media);
+          if (proj.songs && proj.songs[op.id]) { delete proj.songs[op.id]; if (!Object.keys(proj.songs).length) delete proj.songs; }
           notes.push("-" + op.id);
+          break;
+        }
+        case "setSongs": {
+          // {op:"setSongs", mediaId, songs:{key, complete, scanned, songs:[{from, to, confidence, marks}]} | null}
+          // the songs found in one file (P2, songs.js), in file seconds; null forgets them
+          if (!proj.media.some((m) => m.id === op.mediaId)) throw new Error("setSongs: no media " + op.mediaId);
+          if (op.songs === null) {
+            if (proj.songs) { delete proj.songs[op.mediaId]; if (!Object.keys(proj.songs).length) delete proj.songs; }
+            notes.push("songs -" + op.mediaId);
+            break;
+          }
+          const e = Songs.entry(op.songs);
+          proj.songs = { ...(proj.songs && typeof proj.songs === "object" && !Array.isArray(proj.songs) ? proj.songs : {}), [op.mediaId]: e };
+          notes.push(`songs ${op.mediaId}: ${e.songs.length}${e.complete ? "" : " (read up to " + e.scanned + " s)"}`);
           break;
         }
         case "setFx": {

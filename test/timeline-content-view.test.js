@@ -7,6 +7,7 @@ function setup(){
  const rows=tracks.map((t,i)=>({dataset:{track:t.id},hidden:false,getBoundingClientRect(){const top=26+tracks.slice(0,i).reduce((n,t,j)=>n+(rows[j].hidden?0:t.h),0)-scroll.scrollTop;return{top,bottom:top+(this.hidden?0:t.h)};}}));
  const headers=rows.map(r=>({dataset:r.dataset}));let mode='simple',seq='a';
  const ctx={state:{gesture:false},project:{clips:[{track:'V1'},{track:'A1'}]},runtime:{projectGen:1},TRACKS:tracks,RULER_H:26,SeqLib:{activeId:()=>seq},seqRoot:()=>({}),mcView:{get:()=>({mode})},els:{tracks:{children:rows},timelineScroll:scroll},$:()=>({children:headers})};
+ ctx.pushUndo=(snap)=>{ctx.runtime.undo.push(snap);if(ctx.runtime.undo.length>100)ctx.runtime.undo.shift();ctx.runtime.redo.length=0;}; // app.js: gestures record their step through pushUndo (P1 events)
  vm.runInNewContext(source.match(/function syncTimelineTrackView\(\) \{[\s\S]*?\n\}/)[0],ctx);
  // the helpers it calls (VV 630: lanes folded above, and the hint that says so); no hint button in this harness
  Object.assign(ctx,{document:{getElementById:()=>null},uiText:k=>k,FableCutCaptions:{isCaption:c=>!!c.caption||c.kind==='text'}});

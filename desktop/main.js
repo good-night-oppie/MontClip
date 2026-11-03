@@ -8,6 +8,7 @@ const { nativeText, languageOf } = require("./native-text");
 const { transcribeEnabled } = require("./features");
 const { createCloseController } = require("./close-controller");
 const External = require("../external-ffmpeg");
+const Capabilities = require("../capabilities");   // risk levels are fixed here; the page gets a read-only copy
 const fs = require("node:fs");
 let worker, win, stopping = false, closing = false, workerExited = false;
 const smoke = !app.isPackaged && process.argv.includes("--montclip-smoke");
@@ -97,6 +98,11 @@ async function start() {
   for (const operation of ["get", "set"]) ipcMain.on("montclip:view:" + operation, (event, value) => {
     event.returnValue = settingsAllowed(event, win, origin)
       ? settings[operation](value) : {ok:false,code:"VIEW_SETTINGS_FORBIDDEN"};
+  });
+  ipcMain.on("montclip:capabilities:get", (event) => {
+    event.returnValue = settingsAllowed(event, win, origin)
+      ? { ok: true, capabilities: Capabilities.list().map((c) => ({ name: c.name, source: c.source, risk: c.risk, summary: c.summary, schema: c.schema })) }
+      : { ok: false, code: "CAPABILITIES_FORBIDDEN" };
   });
   // read-only feature switches for the page (desktop/features.js); no channel sets them
   const features = { transcribe: transcribeEnabled({ isPackaged: app.isPackaged, argv: process.argv, env: process.env }) };
