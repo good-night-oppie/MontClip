@@ -17,7 +17,6 @@ body[data-mc-mode="simple"] .upper > .bin { grid-column: 3; grid-row: 1; }
   .bin-tabs { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
   .bin-tabs button { flex: 1 0 auto; padding-left: 6px; padding-right: 6px; }
   .panel-head-actions.bin-actions { position: relative; }
-  .panel-head > .panel-head-actions.bin-actions > .btn { flex: 1 0 auto; }   /* beats the flex: 1 / min-width: 0 rule below */
 }
 :root {
   /* surfaces, darkest at the back: app → panels → header bars → controls */
@@ -456,6 +455,8 @@ body.track-size-s .clip.selected {
   text-align: center;
   white-space: nowrap;
 }
+/* at every width: a button keeps its whole label and what does not fit goes into More (VV: + Adjust squeezed under + Import at 1270) */
+.panel-head > .panel-head-actions.bin-actions > .btn { flex: 1 0 auto; }
 
 .upper {
   display: grid;
@@ -4683,7 +4684,6 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
  .transport-end { gap:3px; }
  .transport > .tc { display:none; }
  #mcAgentContent [data-messages]:empty { display:none; }
- .layout-tools { display:none; }
 }
 @media(max-height:600px) {
  .app { gap:3px; padding:3px; }

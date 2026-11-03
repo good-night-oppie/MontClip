@@ -113,3 +113,6 @@ test('the bin header buttons keep their labels at every width: they never shrink
   const css = read('style.css'), outside = css.replace(/@media[^{]*\{[\s\S]*?\n\}/g, '');
   a.match(outside, /\.panel-head > \.panel-head-actions\.bin-actions > \.btn \{[^}]*flex: 1 0 auto/);
 });
+test('the bin More menu floats above the panels (at 1270 its items were drawn inside the bin and could not be clicked)', () => {
+  a.match(read('app.js'), /attach\(document\.querySelector\("\.bin-actions"\), \$\("btnBinMore"\), \$\("binMoreMenu"\), \{ floating: true \}\)/);
+});

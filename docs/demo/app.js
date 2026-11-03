@@ -21050,7 +21050,7 @@ initPanelSplit();
 MontClipNarrow.attach(document.querySelector(".timeline-toolbar"), $("btnTlMore"), $("tlMoreMenu"));
 MontClipNarrow.attach(document.querySelector("#monitorPanel .panel-head-actions"), $("btnMonMore"), $("monMoreMenu"), { floating: true });
 MontClipNarrow.attach(document.querySelector(".topbar-right"), $("btnTopMore"), $("topMoreMenu"));
-MontClipNarrow.attach(document.querySelector(".bin-actions"), $("btnBinMore"), $("binMoreMenu"));
+MontClipNarrow.attach(document.querySelector(".bin-actions"), $("btnBinMore"), $("binMoreMenu"), { floating: true });
 // A narrow side panel scrolls its tab strip: a mouse wheel moves it sideways, and the open tab stays in view.
 for (const strip of document.querySelectorAll(".bin-tabs")) {
   strip.addEventListener("wheel", (e) => {
