@@ -4790,7 +4790,9 @@ function playRange() {
    Mode comes from the Export dialog (Entire timeline / IN–OUT). */
 /** An agent's export job picks its range instead of the dialog. */
 let exportRangeForced = null;
+/** "entire", "in-out", or "range" while the queue renders a slice (exportRangeForced = {start, end}, timeline seconds). */
 function exportRangeMode() {
+  if (exportRangeForced && typeof exportRangeForced === "object") return "range";
   const sel = $("exportRangeSel");
   const v = exportRangeForced || (sel && sel.value === "in-out" ? "in-out" : "entire");
   if (v === "in-out" && !hasWorkArea()) return "entire";
@@ -4801,7 +4803,10 @@ function exportRange(fpsOverride) {
   const fps = fpsOverride || projectFps();
   const span = Math.max(projDur(), 0);
   let start = 0, end = span;
-  if (exportRangeMode() === "in-out") {
+  if (exportRangeMode() === "range") {
+    start = Math.min(Math.max(0, exportRangeForced.start), span);
+    end = Math.min(Math.max(start, exportRangeForced.end), span);
+  } else if (exportRangeMode() === "in-out") {
     const r = playRange();
     start = Math.min(Math.max(0, r.start), span);
     end = Math.min(Math.max(0, r.end), span);
@@ -9679,6 +9684,8 @@ async function showHighlightCandidates() {
   if (!dialog.isConnected) return;
   if (!sig || !current()) { status.textContent = uiText("own.hl-changed"); return; }
   const cards = MontClipHighlights.candidates(sig);
+  // the assistant may be told these (numbers only) while the timeline stays as it was when they were found
+  runtime.highlightFacts = { signature, cards: cards.map((c) => ({ from: c.from, to: c.to, score: c.score })) };
   if (!cards.length) { status.textContent = uiText("own.hl-empty-" + MontClipHighlights.emptyReason(sig)); return; }
   status.textContent = uiText("own.hl-found", { n: cards.length });
   back.textContent = uiText("own.hl-back", { n: cards.length });
@@ -9712,7 +9719,9 @@ async function showSentenceSelection(suggestion = null, onApplied = null) {
   else if (!(await flushSaveBeforeSwitch())) return;
   const doc = projectJSON(), signature = JSON.stringify(doc), projectId = runtime.projectId, projectGen=runtime.projectGen, sequenceId=SeqLib.activeId(seqRoot());
   const captions = doc.clips.filter((c) => FableCutCaptions.isCaption(c) && !c.disabled && !(doc.disabledTracks || []).includes(c.track)).sort((a, b) => a.start - b.start);
-  if (!captions.length) { toast("先导入 SRT 或添加字幕 / Import SRT or add captions first"); return; }
+  const byTime = suggestion?.type === "keep_ranges", slices = byTime && suggestion.outputMode === "per_range";
+  const sliceNames = slices ? MontClipProposal.sliceNames(suggestion.labels, project.name, Delivery.fileSafeName) : null;
+  if (!captions.length && !byTime) { toast("先导入 SRT 或添加字幕 / Import SRT or add captions first"); return; }
   pause();
   const dialog = document.createElement("dialog");
   dialog.className = "sentence-dialog";
@@ -9726,6 +9735,13 @@ async function showSentenceSelection(suggestion = null, onApplied = null) {
     <button class="btn" value="cancel">取消 / Cancel</button></div></form>`;
   const list = dialog.querySelector("[data-sentences]"), summary = dialog.querySelector("[data-summary]");
   if(suggestion){dialog.querySelector('[data-ranges]').value=suggestion.keep.map(r=>r.from+','+r.to).join('\n');dialog.querySelector('[data-ranges]').readOnly=true;list.hidden=true;}
+  if (byTime) {
+    dialog.querySelector("h3").textContent = slices ? "按时间切成多条 / Separate clips by time" : "按时间保留片段 / Keep ranges by time";
+    dialog.querySelector("h3 + p").textContent = slices
+      ? `每段单独成一条切片、一个文件。应用后时间线上只留下这些片段（可以撤销），再把 ${suggestion.keep.length} 条切片加进导出队列，由你点「开始」。原片不变。 / Each range becomes its own clip and file. Applying keeps only these ranges on the timeline (Undo is available) and adds ${suggestion.keep.length} clips to the export queue; you press Start. Source files stay unchanged.`
+      : "按时间保留这些片段，拼成一条。原片不变，可以撤销。 / Keep these ranges by time, joined into one video. Source files stay unchanged; Undo is available.";
+    dialog.querySelector("[data-ranges]").closest("label").firstChild.textContent = "时间线上的区间（秒） / Timeline ranges (seconds) ";
+  }
   const selected = new Set();
   let previewTimer, plan;
   let previewSettings;
@@ -9746,7 +9762,9 @@ async function showSentenceSelection(suggestion = null, onApplied = null) {
       }) : [...selected].map(id => captions.find(c => c.id === id)).map(c => ({ from: c.start, to: c.start+c.duration }));
       plan = FableCutRangePlan.create(doc, keep); plan.keep = keep;
       const cut = plan.captions.filter(c => c.truncated).length;
-      summary.textContent = `${keep.map((r) => `${fmt(r.from)}–${fmt(r.to)}`).join(" → ")} → ${plan.duration.toFixed(2)} s。按勾选顺序 / In selection order. ${cut ? `${cut} 句只保留了一部分声音，请检查字幕和开头结尾。 / Boundary captions need checking.` : ""}`;
+      summary.textContent = slices
+        ? keep.map((r, i) => `${sliceNames[i]}：${MontClipHighlights.clock(r.from)}–${MontClipHighlights.clock(r.to)}（${MontClipHighlights.seconds(r.to - r.from)} 秒）`).join("；") + ` / ${keep.length} clips, ${MontClipHighlights.seconds(plan.duration)} s in total.`
+        : `${keep.map((r) => `${fmt(r.from)}–${fmt(r.to)}`).join(" → ")} → ${plan.duration.toFixed(2)} s。按勾选顺序 / In selection order. ${cut ? `${cut} 句只保留了一部分声音，请检查字幕和开头结尾。 / Boundary captions need checking.` : ""}`;
     } catch (error) { plan = null; summary.textContent = error.message; }
     dialog.querySelector("[data-apply]").disabled = !plan;
     dialog.querySelector("[data-preview]").disabled = !plan;
@@ -9788,7 +9806,9 @@ async function showSentenceSelection(suggestion = null, onApplied = null) {
         inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
       } });
       applyProject(next); pushUndo(snap); if(onApplied)onApplied(applyToken); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
-      dialog.close(); toast("已拼接选段，可撤销 / Joined selected sentences; Undo is available");
+      dialog.close();
+      if (slices) { queueSlices(plan.segments, sliceNames); toast(`已留下 ${plan.segments.length} 段，并加进导出队列，可撤销 / Kept ${plan.segments.length} ranges and queued them; Undo is available`); }
+      else toast(byTime ? "已拼接这些片段，可撤销 / Joined these ranges; Undo is available" : "已拼接选段，可撤销 / Joined selected sentences; Undo is available");
     } catch (error) { summary.textContent = error.message; }
   });
   dialog.addEventListener("close", () => { stopPreview(); dialog.remove(); });
@@ -18075,6 +18095,20 @@ function queueAdd(spec, name) {
   });
   renderQueue();
 }
+/** Slices from an applied keep_ranges per_range proposal: one queue item per range, each its own file. An item
+ *  remembers the timeline it was made from and refuses to render once the timeline is different (Undo, an edit). */
+function queueSlices(segments, names) {
+  const choice = exportChoice();
+  const spec = normalizeDelivery(choice.kind === "delivery" ? choice.spec : Delivery.DEFAULT_PRESET).spec;
+  const guard = JSON.stringify(project.clips);
+  segments.forEach((s, i) => exportQueue.push({
+    id: "q" + Math.random().toString(36).slice(2, 8), label: queueLabel(spec), spec, name: names[i],
+    range: { start: s.output.start, end: s.output.end }, guard, status: "pending", progress: 0,
+  }));
+  renderQueue();
+  openQueue();
+}
+const queueRangeKey = (r) => (r && typeof r === "object" ? r.start + "-" + r.end : String(r));
 function openQueue() {
   renderQueue();
   $("exportQueue").classList.remove("hidden");
@@ -18114,7 +18148,7 @@ function renderQueue() {
       q.status !== "running" ? `<button type="button" class="btn tiny" data-q-remove="${q.id}" title="Remove from the queue">✕</button>` : "",
     ].join("");
     return `<li class="${q.status}" data-q="${q.id}"><div class="xq-main"><b>${escapeHtml(q.label)} — ${escapeHtml(q.name + ext)}</b>` +
-      `<span class="xq-sub">${escapeHtml(Delivery.describe(q.spec, { width: fr.outW, height: fr.outH, fps }))} · ${q.range === "in-out" ? "IN–OUT" : "entire timeline"}</span>` +
+      `<span class="xq-sub">${escapeHtml(Delivery.describe(q.spec, { width: fr.outW, height: fr.outH, fps }))} · ${q.range && typeof q.range === "object" ? `${fmt(q.range.start)}–${fmt(q.range.end)}` : q.range === "in-out" ? "IN–OUT" : "entire timeline"}</span>` +
       (q.status === "running" ? `<div class="progress"><div class="progress-fill" style="width:${(q.progress * 100).toFixed(1)}%"></div></div>` : "") +
       `<span class="xq-status">${escapeHtml(status)}</span>` +
       (q.report ? `<span class="xq-report${q.report.ok ? "" : " warn"}">${q.report.ok ? "✓ " : ""}${escapeHtml(q.report.line)}</span>` : "") +
@@ -18141,10 +18175,15 @@ async function runQueue() {
       const first = exportQueue.find((q) => q.status === "pending");
       if (!first) break;
       const fps = first.spec.fps || projectFps();
-      const group = exportQueue.filter((q) => q.status === "pending" && (q.spec.fps || projectFps()) === fps && q.range === first.range).slice(0, 8);
+      const clips = JSON.stringify(project.clips);
+      if (first.guard && first.guard !== clips) {
+        Object.assign(first, { status: "failed", error: "时间线在加入队列之后改过了，这条切片没有导出。请重新生成。 / The timeline changed after this clip was queued; it was not exported." });
+        renderQueue(); continue;
+      }
+      const group = exportQueue.filter((q) => q.status === "pending" && (q.spec.fps || projectFps()) === fps && queueRangeKey(q.range) === queueRangeKey(first.range) && (q.guard || null) === (first.guard || null)).slice(0, 8);
       for (const q of group) { q.status = "running"; q.progress = 0; q.error = null; }
       renderQueue();
-      exportRangeForced = first.range === "in-out" && hasWorkArea() ? "in-out" : "entire";
+      exportRangeForced = first.range && typeof first.range === "object" ? first.range : first.range === "in-out" && hasWorkArea() ? "in-out" : "entire";
       let res;
       try {
         res = await fastExport({
@@ -21063,6 +21102,7 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  onHide:()=>{setSideTab("inspector");document.getElementById("mcAssistant").focus();},
  getProjectName:id=>id===runtime.projectId?project.name:null,
  canUndoProposal:canUndoOfficialProposal,
+ getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[]});},
  onUndo:result=>{if(canUndoOfficialProposal(result))undo();},
  onProposal:(response,result)=>{
    const c=agentProjectContext();

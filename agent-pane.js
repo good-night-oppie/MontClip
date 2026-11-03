@@ -14,6 +14,8 @@ function displayMessage(value){
  const at=value.lastIndexOf('\n\n');if(at<0)return fallback;
  try{const v=JSON.parse(value.slice(at+2)),k=v&&typeof v==='object'?Object.keys(v).join(','):'';if(!v||k!=='references'&&!(k==='references,facts'&&v.facts&&typeof v.facts==='object'&&!Array.isArray(v.facts))||!Array.isArray(v.references)||v.references.length>20||!v.references.every(r=>r&&typeof r.projectId==='string'&&r.projectId.length>0&&schema.reference(r,r)))return fallback;return{text:value.slice(0,at),references:v.references};}catch{return fallback;}
 }
+/** The numbers-only facts block at the end of a sent message (agent-facts.js), or null. */
+function messageFacts(value){if(typeof value!=='string')return null;const at=value.lastIndexOf('\n\n');if(at<0)return null;try{const v=JSON.parse(value.slice(at+2));return v&&Object.keys(v).join(',')==='references,facts'&&v.facts&&typeof v.facts==='object'&&!Array.isArray(v.facts)?v.facts:null;}catch{return null;}}
 function create({storage}={}){const scopes=new Map();let scope=null,next=0,count=0,token=null,dirty=false,persisted={ok:true,code:'VOLATILE'};
  if(storage){try{const r=storage.get();if(!r.ok||typeof r.token!=='string'||!r.token||!schema.valid(r.value))throw Error();token=r.token;for(const s of r.value.scopes){scopes.set(JSON.stringify([s.projectId,null,s.sequenceId]),JSON.parse(JSON.stringify(s)));count+=s.sessions.length;for(const item of s.sessions)next=Math.max(next,Number(item.id));}persisted={ok:true,code:'SAVED'};}catch{persisted={ok:false,code:'SESSION_READ_FAILED'};}}
  function changed(){if(token!==null){dirty=true;save();}}
@@ -62,5 +64,5 @@ function mount({panel,getContext,getLanguage,settings,sessionStorage,getReferenc
  $('[data-width]').onchange=e=>{width=Number(e.target.value);try{if(!settings?.set({width})?.ok)status='paneSaveFailed';}catch{status='paneSaveFailed';}render();};
  render();return {render,identify(c){return state.identify(c);},flush(){const ok=state.flush();if(!ok)render();return ok;},sync(){if(sync())render();}};
 }
-return {create,mount,displayMessage,referenceChips,text:view.text};
+return {create,mount,displayMessage,messageFacts,referenceChips,text:view.text};
 });
