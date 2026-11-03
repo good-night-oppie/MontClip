@@ -99,8 +99,8 @@ test('the monitor More menu floats in <body> above the panels; the transcript to
   a.match(css, /\.more-menu\.more-menu-floating \{\n  position: fixed;\n  right: auto;\n  z-index: 1000;/);
   a.match(css, /\.tr-head \{[^}]*max-height: 60%;\n  overflow-y: auto;\n\}/);
   // main (#52) put the entries in a row of their own at the top of the transcript head: the sentence row stands alone there
-  // (#34 then gave each entry a data-i18n attribute; P3 put ✨ 自动出切片 beside 高光候选)
-  a.match(app, /<div class="tr-row tr-entries">\n        <button type="button" class="btn tiny" data-tr-highlights[ >][^\n]*\n(        <button type="button" class="btn tiny" data-tr-auto[ >][^\n]*\n)?        <button type="button" class="btn tiny" data-tr-sentences[ >][^\n]*\n        <button type="button" class="btn tiny" data-tr-mapping[ >][^\n]*\n      <\/div>/);
+  // (#34 then gave each entry a data-i18n attribute; P3 put ✨ 自动出切片 beside 高光候选, and #53 导入弹幕… after it)
+  a.match(app, /<div class="tr-row tr-entries">\n        <button type="button" class="btn tiny" data-tr-highlights[ >][^\n]*\n(        <button type="button" class="btn tiny" data-tr-auto[ >][^\n]*\n)?(        <button type="button" class="btn tiny" data-tr-danmaku[ >][^\n]*\n)?        <button type="button" class="btn tiny" data-tr-sentences[ >][^\n]*\n        <button type="button" class="btn tiny" data-tr-mapping[ >][^\n]*\n      <\/div>/);
 });
 
 // VV on b4a733e: at 804 and 630 the top bar's Layout and S/M/L were gone with no More button (a rule hid them below 1100px,

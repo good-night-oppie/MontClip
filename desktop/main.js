@@ -10,7 +10,7 @@ const { createCloseController } = require("./close-controller");
 const External = require("../external-ffmpeg");
 const Capabilities = require("../capabilities");   // risk levels are fixed here; the page gets a read-only copy
 const fs = require("node:fs");
-let worker, win, stopping = false, closing = false, workerExited = false;
+let worker, win, stopping = false, closing = false, workerExited = false, flvImports = null, flvShutdown = null;
 const smoke = !app.isPackaged && process.argv.includes("--montclip-smoke");
 const faultTest = smoke && (process.argv.includes("--close-crash") ? "crash" : process.argv.includes("--close-timeout") ? "timeout" : null);
 
@@ -40,7 +40,13 @@ async function start() {
     delete env.MONTCLIP_FFPROBE;
     env.MONTCLIP_FFMPEG_PACKAGED = "1";
     env.MONTCLIP_FFMPEG_DIR = path.join(process.resourcesPath, "ffmpeg");
+    // the FLV import runs prepareMedia here in the main process: the same FFmpeg, never PATH
+    delete process.env.MONTCLIP_FFMPEG;
+    delete process.env.MONTCLIP_FFPROBE;
+    process.env.MONTCLIP_FFMPEG_PACKAGED = "1";
+    process.env.MONTCLIP_FFMPEG_DIR = env.MONTCLIP_FFMPEG_DIR;
   }
+  flvImports = require("./flv-import").createFlvImports({ mediaDir: path.join(env.FABLECUT_DATA_DIR, "media") });
   worker = utilityProcess.fork(path.join(__dirname, "..", "server.js"), [], { env, stdio: "pipe" });
   worker.once("exit", () => { workerExited = true; });
   worker.stdout?.on("data", (data) => { if (!app.isPackaged) process.stdout.write(data); });
@@ -163,6 +169,28 @@ async function start() {
     if(!settingsAllowed(event,win,origin))return {ok:false,code:'AGENT_FORBIDDEN'};
     return agentService[operation](value);
   });
+  // Desktop FLV import: the page hands over the file the user picked; the path is read by the preload and never
+  // returned to the page. Fixed operations, same sender / frame / origin guard as the settings.
+  const FLV_CODES = new Set(["FLV_NOT_FOUND", "FLV_NOT_FLV", "FLV_IMPORT_EXPIRED", "FLV_IMPORT_BUSY", "FLV_IMPORT_CANCELED", "FLV_SOURCE_CHANGED", "FLV_COPY_MISMATCH", "FLV_CLEANUP_FAILED"]);
+  const { publicPreparationError } = require("../prepare-media");
+  for (const op of ["inspect", "prepare", "status", "cancel", "finish"]) ipcMain.handle("montclip:flv:" + op, async (event, value) => {
+    if (!settingsAllowed(event, win, origin)) return { ok: false, code: "FLV_FORBIDDEN" };
+    try {
+      if (op === "inspect") {
+        if (typeof value !== "string" || !value) return { ok: false, code: "FLV_NOT_FOUND" };
+        return { ok: true, ...(await flvImports.inspect(value)) };
+      }
+      const id = value && typeof value.id === "string" ? value.id : null;
+      if (!id) return { ok: false, code: "FLV_IMPORT_EXPIRED" };
+      if (op === "prepare") return { ok: true, ...(await flvImports.prepare(id, { allowTranscode: value.allowTranscode === true, acceptReadable: value.acceptReadable === true })) };
+      if (op === "status") return { ok: true, status: flvImports.status(id) };
+      flvImports[op](id);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, code: FLV_CODES.has(error.code) ? error.code : publicPreparationError(error).code };
+    }
+  });
+  win.webContents.on("render-process-gone", () => { flvImports.shutdown().catch(() => {}); });
   win.webContents.on('render-process-gone',()=>agentService.dispose());
   win.on('closed',()=>agentService.dispose());
   for(const operation of ['get','set']) ipcMain.on('montclip:sessions:'+operation,(event,value)=>{
@@ -268,6 +296,14 @@ async function start() {
 app.on("window-all-closed", () => app.quit());
 app.on("before-quit", (event) => {
   if (win && !win.isDestroyed() && !closing) { event.preventDefault(); win.close(); return; }
+  // unfinished FLV imports remove their own files before the app goes; a second quit while it is still running waits
+  if (flvImports && !flvShutdown) {
+    event.preventDefault();
+    const p = flvImports.shutdown().catch(() => {}).finally(() => { flvShutdown = true; app.quit(); });
+    flvShutdown = p;
+    return;
+  }
+  if (flvShutdown && flvShutdown !== true) { event.preventDefault(); return; }
   // until the service has exited: a second quit (window-all-closed right after the first) must not cut its shutdown
   // short — it stops running exports and deletes their half-finished files (export-cleanup.js)
   if (worker && !workerExited) {

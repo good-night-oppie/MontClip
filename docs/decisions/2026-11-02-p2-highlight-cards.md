@@ -47,8 +47,9 @@ takes a few seconds per minute of timeline, then it shows up to 12 cards, best f
     start, in point, speed, volume and gain, adding the clips that sound at once in power. Effects, faders and volume
     keyframes are not applied: it shows where the timeline is louder, not the export mix. Without a server (the web
     demo), or when the server cannot read a file, the timeline's own mix is rendered in 60 s pieces instead.
-  - **Danmaku:** `project.danmaku` (`[{t}]`, timeline seconds) when the project has any. MontClip has no danmaku
-    import yet, so today this signal is absent and no card cites it.
+  - **Danmaku:** imported danmaku (`project.danmaku`, one entry per recording, in the recording's seconds — see
+    `danmaku.js` and "Danmaku (Bilibili recordings)" in CLAUDE.md), mapped onto the timeline through each clip that
+    plays the recording.
   - **No beat** (JJ, 2026-11-02): the beat analysis is not a signal for highlights; see "No beat" under Score.
 - **Candidates** (`highlight-candidates.js`, pure, tested):
   - With sentences, consecutive sentences are grouped, a pause of 1.2 s or more starts a new group, and groups run
@@ -105,7 +106,8 @@ as it is.
 ## Not covered (stated, not claimed)
 
 - Real (not synthetic) long recordings, and machines slower than the one measured.
-- Danmaku: there is no import yet, so the danmaku reason is tested in the module only.
+- Danmaku: the reason is checked in the real editor with synthetic XML only (`desktop/danmaku-smoke.cjs`), not with
+  a real stream's danmaku.
 - Shot changes and motion (which `highlights.js` uses for `fablecut_highlights`) are not signals here.
 - No model ranks or describes the cards; P3 brings the cards into the chat.
 - Wording is for JJ, and the real window is for VV.
