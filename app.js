@@ -10359,7 +10359,7 @@ function autoDanmaku(m) {
 }
 /** A string that promises telling songs apart: below the gate (auto-slices.js SONG_GATE) its 可能在唱歌 form. */
 function autoSongKey(key) {
-  const gated = new Set(["as-kind-hint-sing", "as-len-song", "as-len-hint-song", "as-len-hint-hook", "as-run-songs", "as-lyrics", "as-unit-song"]);
+  const gated = new Set(["as-kind-hint-sing", "as-len-song", "as-len-hint-song", "as-len-hint-hook", "as-run-songs", "as-lyrics"]);
   return gated.has(key) && !MontClipAutoSlices.songsTrusted() ? key + "-maybe" : key;
 }
 /** The kind hint: with no live danmaku in the chosen recordings, chat / game / watch don't mention it (JJ: 没弹幕不提弹幕). */
@@ -10709,7 +10709,7 @@ function autoHabitLineHtml(c) {
     const h = sh[w];
     if (!h || !(c.rules || []).includes(`shift-${w}:${c.kind}`)) continue;
     const later = h.by > 0, key = w === "start" ? (later ? "as-habit-start-later" : "as-habit-start-earlier") : (later ? "as-habit-end-later" : "as-habit-end-earlier");
-    parts.push(autoSay(key, { d: n1(h.by) }) + autoSay("as-habit-why", { n: h.n, of: h.of, unit: uiText("own." + (c.kind === "song" ? autoSongKey("as-unit-song") : "as-unit-" + c.kind)), unit2: uiText(c.kind === "song" && MontClipAutoSlices.songsTrusted() ? "own.as-unit2-song" : "own.as-unit2-part"),
+    parts.push(autoSay(key, { d: n1(h.by) }) + autoSay("as-habit-why", { n: h.n, of: h.of, kind: uiText("own.as-habit-kind-" + c.kind),
       edge: uiText("own.as-habit-edge-" + w), dir: uiText(later ? "own.as-habit-dir-later" : "own.as-habit-dir-earlier") }));
   }
   if (!parts.length) return "";
