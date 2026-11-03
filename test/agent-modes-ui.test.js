@@ -80,3 +80,9 @@ test('JJ’s final words (5d360cd7) for the changed lines; the Yolo box follows 
  a.deepEqual(yoloText('zh-CN').buttons,['取消','打开 Yolo']);a.deepEqual(yoloText('en').buttons,['Cancel','Turn on Yolo']);
  a.match(read('desktop/main.js'),/const t = yoloText\(languageOf\(settings\.get\(\)\)\);/,'the box takes the interface language');
 });
+
+test('the approval box is centred over a dimmed page (the page resets every margin to 0)',()=>{
+ const css=read('style.css');
+ a.match(css,/^\* \{[^}]*margin: 0;/m);
+ a.match(css,/\.agent-approval \{ margin: auto; \}/);a.match(css,/\.agent-approval::backdrop \{ background: #0009; \}/);
+});
