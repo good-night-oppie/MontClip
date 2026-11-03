@@ -9807,7 +9807,7 @@ function downloadCaptions(kind) {
   const blob = new Blob([kind === "vtt" ? C.toVTT(list) : C.toSRT(list)], { type: kind === "vtt" ? "text/vtt" : "application/x-subrip" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `${String(project.name || "captions").replace(/[^\w\- ]+/g, "_").trim() || "captions"}.${kind}`;
+  a.download = `${exportBaseName("captions")}.${kind}`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -16620,10 +16620,12 @@ function deliveryFrame(spec) {
   const cv = deliveryCanvas();
   return Delivery.reframe(spec, cv.w, cv.h, cv.region);
 }
+/** The project's name as a file name: Chinese kept, only what Windows cannot have replaced. */
+const exportBaseName = (fallback) => Delivery.fileSafeName(project.name, fallback);
 function deliveryFileName(spec, fps) {
   const fr = deliveryFrame(spec);
   return Delivery.renderFilename(spec.filename, spec, {
-    project: project.name.replace(/[^\w\- ]+/g, "").trim() || "export",
+    project: exportBaseName("export"),
     width: fr.outW, height: fr.outH, fps: fps || spec.fps || projectFps(), range: exportRangeMode(),
   });
 }
@@ -17916,7 +17918,7 @@ async function fastExport(opts = {}) {
         canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav,
       } : {
         fps,
-        name: project.name.replace(/[^\w\- ]+/g, "") || "export",
+        name: exportBaseName("export"),
         profile: profileId,
         hasAudio: !!wav,
       }),
@@ -18607,7 +18609,7 @@ async function webCodecsExport() {
       method: "POST",
       body: JSON.stringify({
         fps,
-        name: project.name.replace(/[^\w\- ]+/g, "") || "export",
+        name: exportBaseName("export"),
         mode: "annexb",
         hasAudio: !!wav,
       }),
@@ -18754,7 +18756,7 @@ async function startExport() {
     const blob = new Blob(recChunks, { type: mime.split(";")[0] });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = (project.name.replace(/[^\w\- ]+/g, "") || "export") + "." + ext;
+    a.download = exportBaseName("export") + "." + ext;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 30_000);
   };
