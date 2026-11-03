@@ -4802,6 +4802,13 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .cindy-port.compact .cindy-message > strong {margin-right:4px;}
 .cindy-port.compact .cindy-composer {padding:2px;}
 
+/* desktop FLV import dialog */
+.flv-import-dialog { max-width: min(460px, 92vw); }
+.flv-import-dialog .flv-import-name { word-break: break-all; opacity: .8; }
+.flv-import-dialog [data-flv-ask] { white-space: pre-line; line-height: 1.5; }
+.flv-import-dialog .flv-import-row { display: flex; gap: 8px; justify-content: flex-end; }
+.flv-import-dialog [hidden] { display: none; }
+
 /* P2 highlight cards: shaped like the sentence dialog */
 .highlight-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(620px, 90vw); max-height: 85vh; padding: 20px; margin: auto; }
 .highlight-dialog::backdrop { background: #0009; }

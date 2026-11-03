@@ -2,10 +2,16 @@
 // Fixed destinations chosen by the user. Model output cannot select a host or tool.
 const ENDPOINTS=Object.freeze({openai:'https://api.openai.com/v1/chat/completions',deepseek:'https://api.deepseek.com/chat/completions',openrouter:'https://openrouter.ai/api/v1/chat/completions'});
 const Format=require('../agent-format');
-// Who may be chosen (Deja 2026-11-02, #26). A release offers OpenAI and DeepSeek. OpenRouter is for
-// testing the product's real request path: development builds, or a release started by the main
-// process with --montclip-test-providers or MONTCLIP_TEST_PROVIDERS=1. The page cannot change this.
-const PUBLIC_PROVIDERS=Object.freeze(['openai','deepseek']),TEST_PROVIDERS=Object.freeze(['openrouter']);
+// Who may be chosen. The owner (2026-11-02, relayed by Deja): OpenRouter with DeepSeek's Flash model is the
+// default and listed first; DeepSeek and OpenAI follow. (Until then OpenRouter was for tests only, #26; the
+// test switch below remains but no longer changes the list.) The page cannot change the list.
+const PUBLIC_PROVIDERS=Object.freeze(['openrouter','deepseek','openai']),TEST_PROVIDERS=Object.freeze([]);
+// The default service and model, in one line (Deja, 2026-11-02: OpenRouter or DeepSeek direct is still the owner's
+// call). The OpenRouter id is the one Rea's catalogue lists for DeepSeek V4.1 Flash (openrouter-flash-catalogue.json,
+// sha256 c477d643…, from openrouter.ai/api/v1/models on 2026-11-02); not a "~…-latest" alias, which can move to
+// another model without a MontClip release. DeepSeek direct would be {provider:'deepseek',model:<its Flash id>}.
+const DEFAULT_SERVICE=Object.freeze({provider:'openrouter',model:'deepseek/deepseek-v4.1-flash-1017'});
+const DEFAULT_PROVIDER=DEFAULT_SERVICE.provider,DEFAULT_MODELS=Object.freeze({[DEFAULT_SERVICE.provider]:DEFAULT_SERVICE.model});
 const ALL_PROVIDERS=Object.freeze([...PUBLIC_PROVIDERS,...TEST_PROVIDERS]);
 const testProvidersEnabled=({isPackaged,argv=[],env={}})=>!isPackaged||argv.includes('--montclip-test-providers')||env.MONTCLIP_TEST_PROVIDERS==='1';
 // Provider failures the pane explains in plain words (anything else is REQUEST_FAILED).
@@ -37,7 +43,7 @@ function createService({read,write,backup,erase,seal,unseal,providers=PUBLIC_PRO
  let config=null,bad=false,original;const jobs=new Map();
  try{const raw=read();original=raw;if(raw){if(raw.length>40000)throw Error();const v=JSON.parse(raw);if(!v||Object.keys(v).sort().join(',')!=='model,provider,secret,version'||v.version!==1||!Object.hasOwn(ENDPOINTS,v.provider)||typeof v.model!=='string'||!/^[a-zA-Z0-9_.:/-]{1,100}$/.test(v.model)||typeof v.secret!=='string'||!v.secret||v.secret.length>32768)throw Error();config=providers.includes(v.provider)?v:null;}}catch{bad=true;}
  return {
- get(){return{ok:!bad,configured:!!config,provider:config?.provider||'openai',model:config?.model||'',providers:[...providers],code:bad?'CONFIG_READ_FAILED':null};},
+ get(){return{ok:!bad,configured:!!config,provider:config?.provider||DEFAULT_PROVIDER,model:config?.model||'',providers:[...providers],recommended:DEFAULT_PROVIDER,defaultModels:{...DEFAULT_MODELS},code:bad?'CONFIG_READ_FAILED':null};},
  reset(){if(!bad)return fail('RESET_NOT_REQUIRED');try{if(typeof original!=='string'||typeof backup!=='function')throw Error();backup(original);bad=false;config=null;original=undefined;return{...this.get(),code:'CONFIG_BACKED_UP'};}catch{return fail('CONFIG_BACKUP_FAILED');}},
  // Deja 2026-11-02: removes the saved key and connection settings. A running request is cancelled first.
  // Only once the connection file is confirmed gone does the state read "not configured"; a failure is reported as one.
@@ -70,4 +76,4 @@ function createDiskService(root,safeStorage,fs=require('node:fs'),{providers=PUB
  write(raw){const tmp=file+'.'+randomUUID()+'.tmp';let owned=false;try{fs.writeFileSync(tmp,raw,{flag:'wx',mode:0o600});owned=true;fs.renameSync(tmp,file);owned=false;}finally{if(owned)try{fs.unlinkSync(tmp);}catch{}}},
  seal(key){if(!safeStorage.isEncryptionAvailable())throw Error();return safeStorage.encryptString(key).toString('base64');},unseal(secret){return safeStorage.decryptString(Buffer.from(secret,'base64'));}
  });}
-module.exports={createService,createDiskService,validPayload,httpsRequest,ENDPOINTS,RESPONSE_LIMIT_BYTES,PUBLIC_PROVIDERS,TEST_PROVIDERS,ALL_PROVIDERS,testProvidersEnabled};
+module.exports={createService,createDiskService,validPayload,httpsRequest,ENDPOINTS,RESPONSE_LIMIT_BYTES,PUBLIC_PROVIDERS,TEST_PROVIDERS,ALL_PROVIDERS,DEFAULT_SERVICE,DEFAULT_PROVIDER,DEFAULT_MODELS,testProvidersEnabled};

@@ -377,6 +377,16 @@
     flvNeedsConvert: "这个 FLV 这次没导进来：它的编码 MontClip 现在不能直接用。先把它转成 MP4 再导入。",
     flvUploadFailed: "这个 FLV 没导进来：MontClip 处理这个文件时出了问题。再试一次；还不行就先把它转成 MP4 再导入。",
     flvComponentMissing: "MontClip 缺少处理 FLV 的组件，这个文件没导进来。请重新安装 MontClip。",
+    // desktop FLV import (for JJ to review)
+    flvTitle: "导入 FLV", flvCancel: "取消", flvContinue: "继续导入",
+    flvPhaseInspect: "正在检查原片…", flvPhaseHash: "正在核对原片… {pct}%", flvPhaseCopy: "正在复制到项目… {pct}%",
+    flvPhaseVerify: "正在核对复制出的文件… {pct}%", flvPhasePrepare: "正在转成能剪的格式…",
+    flvAskTranscode: "这个 FLV 要转成兼容的 MP4 才能剪，可能会改变画质，需要等一会儿。原片不会改动。",
+    flvAskReadable: "MontClip 没能确认这个 FLV 的结尾是完整的（可能还在录，或者录制中断过）。继续的话，只导入能读到的部分。原片不会改动。",
+    flvSourceChanged: "原片在检查之后变了（可能还在录制），这次没导入，复制出的文件已删除。录完后再试。",
+    flvCopyMismatch: "复制出的文件和原片对不上，这次没导入，复制出的文件已删除。再试一次。",
+    flvCanceled: "已取消。这次导入建的文件都已删除，原片没有改动。",
+    flvCleanupFailed: "这次导入建的文件有一部分没能删除，可能正被占用。关掉 MontClip 时会再删一次。",
     // #28: the bundled FFmpeg has no x264, so converting needs this computer's own encoder (for JJ to review)
     flvNoEncoder: "这个 FLV 需要转换格式才能用，但这台电脑上找不到能用的 H.264 编码器（显卡编码器和 Windows 自带的编码器都用不了）。先把它转成 MP4 再导入。",
   });
@@ -387,13 +397,23 @@
     flvNeedsConvert: "This FLV was not imported: MontClip cannot use its encoding directly yet. Convert it to MP4 first.",
     flvUploadFailed: "This FLV was not imported: something went wrong while MontClip was handling it. Try again; if it still fails, convert it to MP4 first.",
     flvComponentMissing: "MontClip is missing the component that handles FLV, so the file was not imported. Reinstall MontClip.",
+    flvTitle: "Import FLV", flvCancel: "Cancel", flvContinue: "Continue",
+    flvPhaseInspect: "Checking the original…", flvPhaseHash: "Checking the original… {pct}%", flvPhaseCopy: "Copying into the project… {pct}%",
+    flvPhaseVerify: "Checking the copy… {pct}%", flvPhasePrepare: "Converting to a format you can edit…",
+    flvAskTranscode: "This FLV has to be converted to a compatible MP4 before it can be edited. The picture may change a little, and it takes a while. The original is not changed.",
+    flvAskReadable: "MontClip could not confirm that this FLV ends properly (it may still be recording, or the recording was interrupted). If you continue, only the part that can be read is imported. The original is not changed.",
+    flvSourceChanged: "The original changed after it was checked (it may still be recording), so it was not imported and the copy was removed. Try again once the recording is finished.",
+    flvCopyMismatch: "The copy did not match the original, so it was not imported and the copy was removed. Try again.",
+    flvCanceled: "Canceled. The files this import made were removed; the original is unchanged.",
+    flvCleanupFailed: "Some files this import made could not be removed; they may be in use. MontClip tries again when it closes.",
     flvNoEncoder: "This FLV needs converting before it can be used, but this computer has no H.264 encoder MontClip can use (no graphics-card encoder answered and Windows' built-in encoder is unavailable). Convert it to MP4 first.",
   });
   // A readable-range or timestamp problem is "timing unverified": the consent screens are deferred, so
   // nothing here asks for permission the user has nowhere to give. Unknown codes read as a failed import.
   const FLV_REASONS = { FLV_TIMELINE_GAP: "flvTimingUnverified", FLV_READABLE_CONSENT_REQUIRED: "flvTimingUnverified",
     FLV_DISK_FULL: "flvDiskFull", NO_SERVER: "flvNeedsDesktop", FLV_TRANSCODE_REQUIRED: "flvNeedsConvert",
-    FLV_STREAMS_UNSUPPORTED: "flvNeedsConvert", FLV_COMPONENT_MISSING: "flvComponentMissing", FLV_ENCODER_MISSING: "flvNoEncoder" };
+    FLV_STREAMS_UNSUPPORTED: "flvNeedsConvert", FLV_COMPONENT_MISSING: "flvComponentMissing", FLV_ENCODER_MISSING: "flvNoEncoder",
+    FLV_SOURCE_CHANGED: "flvSourceChanged", FLV_COPY_MISMATCH: "flvCopyMismatch", FLV_IMPORT_CANCELED: "flvCanceled", FLV_CLEANUP_FAILED: "flvCleanupFailed" };
   function flvImportMessage(language, code) {
     const t = text[language] || text.en;
     return t[Object.hasOwn(FLV_REASONS, code) ? FLV_REASONS[code] : "flvUploadFailed"];
@@ -408,8 +428,8 @@
   Object.assign(officialPaneText['zh-CN'],{"notSent":"聊天内容只包含上面显示的文字。不附加声音、画面和截图，不自动附加文件路径和账号。你写进文字或历史的这类信息仍会发送。API 密钥用于向服务验证身份。","format":"在聊天里说清楚要保留哪几句。最好先在时间线上选中字幕，点「{reference}」，把整句引用进来。只有整句引用的字幕，才能直接套用；只引用半句，或者凭记忆描述的，都套用不了。","formatNext":"收到回复后，点下面的「{proposal}」，看看能不能直接用。","formatTech":"给懂技术的人：AI 的回复要用这个格式：{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"…\",\"sourceCaptionId\":\"…\",\"from\":0,\"to\":1}]}","model":"模型名称","project":"引用当前项目","currentProject":"当前项目","otherProject":"原项目","invalid":"这条回复里没有能直接套用的剪辑建议。","fees":"费用由你自己的 AI 账号承担。","user":"你","assistant":"助手","formatTitle":"怎样让 AI 给出能直接套用的建议"});
   Object.assign(officialPaneText['zh-CN'],{removeConnection:'删除这个连接',removeConfirm:'删除后，这台电脑上保存的密钥会被清掉，AI 助手要重新设置才能用。剪辑不受影响，聊天记录也还在。',connectionRemoved:'连接已删除，这台电脑上保存的密钥已清掉。AI 助手要重新设置才能用。',connectionRemoveFailed:'连接没能删除，密钥可能还在这台电脑上。请看看软件的设置文件夹是不是被占用或不能写入，然后再试。'});
   Object.assign(officialPaneText.en,{removeConnection:'Remove this connection',removeConfirm:'This clears the key saved on this computer. You will need to set up the AI service again to use the assistant. Editing is not affected, and your chat history stays.',connectionRemoved:'Connection removed. The key saved on this computer is cleared; set up the AI service again to use the assistant.',connectionRemoveFailed:'The connection could not be removed, so the key may still be on this computer. Check that the app\'s settings folder is not in use or read-only, then try again.'});
-  Object.assign(officialPaneText['zh-CN'],{noCaptionSelected:'先在时间线上选中字幕。'});
-  Object.assign(officialPaneText.en,{noCaptionSelected:'Select captions on the timeline first.'});
+  Object.assign(officialPaneText['zh-CN'],{recommended:'（推荐）',retention:'服务商可能会保存你发送的文字。',noCaptionSelected:'先在时间线上选中字幕。'});
+  Object.assign(officialPaneText.en,{recommended:' (recommended)',retention:'The provider may keep the text you send.',noCaptionSelected:'Select captions on the timeline first.'});
   Object.assign(officialPaneText.en,{resetConnection:'Set up connection again',configUnreadable:'The saved connection could not be read. Click "Set up connection again"; the app backs up the old settings first, then lets you enter new ones.',configBackedUp:'The old connection settings have been backed up. Enter your connection settings again.',configBackupFailed:'The old connection settings could not be backed up. They have not been replaced. Check whether the settings folder for the app is in use or cannot be written to, then try again.'});
   Object.assign(officialPaneText['zh-CN'],{resetConnection:'重新设置连接',configUnreadable:'原来的连接配置读不出来。点「重新设置连接」，软件会先把旧配置备份好，再让你重新填写。',configBackedUp:'原来的配置已备份，现在需要重新填写连接配置。',configBackupFailed:'原来的配置没能备份，未被替换。请看看软件的设置文件夹是不是被占用或不能写入，然后再试。'});
   Object.assign(officialPaneText.en,{notSent:'Only the text shown above is sent. No audio, video or screenshots are attached; the app does not add file paths or account details by itself, but any such details you typed into the text or history will be sent as written. Your API key is used only to authenticate with the service.',undoLast:'Undo this apply (same as toolbar Undo)',captionLabel:'Subtitles',rangeLabel:'Range',projectLabel:'Project'});
