@@ -4,6 +4,12 @@
    a model copies them. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.MontClipFormat=factory();})(typeof globalThis!=='undefined'?globalThis:this,function(){
 'use strict';
+// the plan shape (P4): also shown, as is, in the small print for the technically minded (JJ, 5d360cd7)
+const PLAN_LINES=Object.freeze([
+ 'When the user asks for several such edits in one message, to be done one after another, reply with only this JSON and nothing else:',
+ '{"type":"plan","steps":[{"capability":"<keep_sentences or keep_ranges>","args":{<the fields of that reply except type>}}]}',
+ 'At most 30 steps, in the order to do them; each step is checked against the project as it is when its turn comes. For a single edit, reply with that edit\'s JSON, not a plan.'
+]);
 const FORMAT_NOTE=[
  'You help edit a video in MontClip.',
  'The user message may end with a JSON object {"references":[...],"facts":{...}}.',
@@ -16,9 +22,7 @@ const FORMAT_NOTE=[
  '{"type":"keep_ranges","output_mode":"<one_file or per_range>","ranges":[{"clipId":"<clipId from facts.clips>","from":<seconds>,"to":<seconds>,"label":"<short name, optional>"}]}',
  'from and to are seconds of that clip\'s recording and must lie inside its from and to in facts; ranges must not overlap; each lasts at least half a second; at most 100 ranges, in the order to keep them.',
  'output_mode one_file joins the ranges into one video; per_range makes each range its own clip and file, named by its label (for example one clip per song).',
- 'When the user asks for several such edits in one message, to be done one after another, reply with only this JSON and nothing else:',
- '{"type":"plan","steps":[{"capability":"<keep_sentences or keep_ranges>","args":{<the fields of that reply except type>}}]}',
- 'At most 30 steps, in the order to do them; each step is checked against the project as it is when its turn comes. For a single edit, reply with that edit\'s JSON, not a plan.',
+ ...PLAN_LINES,
  'For any other question, answer briefly in the user\'s language without JSON.',
  'Never write field names such as clipId, sourceCaptionId, start, end, from, to, output_mode or facts in a reply meant for the user; refer to a sentence by its text and to a part of the recording by its time.'
 ].join('\n');
@@ -26,5 +30,5 @@ function withFormat(messages){return [{role:'system',content:FORMAT_NOTE}].conca
 // The request body. The review dialog shows body(model, withFormat(messages)) and the service
 // sends body(model, <the same messages with the note>): one function, so the two cannot drift.
 function body(model,messages){return {model,messages,stream:false,max_tokens:2048};}
-return {FORMAT_NOTE,withFormat,body};
+return {FORMAT_NOTE,PLAN_LINES,withFormat,body};
 });

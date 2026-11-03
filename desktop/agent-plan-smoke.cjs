@@ -75,9 +75,9 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await read(`document.querySelector('[data-mode="auto"]').click();true`);await wait();
   await turn({type:'plan',steps:[keep('v1',0,115),keep('v1',0,100),keep('range0_v1',0,90)]});
   await read(`document.querySelector('[data-plan-start]').click();true`);
-  const stopped=await until(async()=>{const v=await view();return v&&v.steps.some(s=>s.state==='失败')?v:null;},10000);
+  const stopped=await until(async()=>{const v=await view();return v&&v.steps.some(s=>s.state==='没做成')?v:null;},10000);
   report.stopped=stopped&&stopped.steps;
-  assert.deepEqual(stopped.steps.map(s=>s.state),['做完了','失败','没开始']);
+  assert.deepEqual(stopped.steps.map(s=>s.state),['做完了','没做成','没开始']);
   assert.equal(stopped.steps[1].reason,'和现在的项目对不上。');assert.match(stopped.note,/计划停在了这一步/);
   assert.equal(await box(),null,'自动 did not ask');
   await read(`document.querySelector('[data-plan-undo]').click();true`);await wait(300);assert.equal(await clips(),before);
@@ -85,7 +85,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   // 5. a step the assistant can't do yet stops the plan, saying so
   await turn({type:'plan',steps:[{capability:'fablecut_scopes',args:{}},keep('v1',0,115)]});
   await read(`document.querySelector('[data-plan-start]').click();true`);
-  const cant=await until(async()=>{const v=await view();return v&&v.steps[0].state==='失败'?v:null;});
+  const cant=await until(async()=>{const v=await view();return v&&v.steps[0].state==='没做成'?v:null;});
   assert.equal(cant.steps[0].reason,'助手现在还做不了这一步。');assert.equal(cant.steps[1].state,'没开始');assert.equal(await clips(),before);
   // 6. 计划 mode: 〔开始〕 off; 〔整个不要〕 drops it, nothing done
   await read(`document.querySelector('[data-mode="plan"]').click();true`);await wait();

@@ -587,15 +587,15 @@
     "pl-step-of": ["Step {n} of {total} of the plan.", "计划的第 {n} 步，共 {total} 步。"],
     "pl-denied": ["You didn't allow it.", "你没有同意。"],
     "pl-listed": ["Plan mode: only listed.", "计划模式，只列出来。"],
-    "pl-refused": ["Not allowed.", "不允许做这一步。"],
+    "pl-refused": ["This step is never allowed.", "这一步任何时候都不允许做。"],
     "pl-no-executor": ["The assistant can't do this step yet.", "助手现在还做不了这一步。"],
-    "pl-busy": ["MontClip was busy with something else.", "软件正在忙别的事。"],
+    "pl-busy": ["MontClip was busy with something else. When it's done, ask the assistant to plan again.", "软件正在忙别的事。等它做完，再让助手重新排一次。"],
     "pl-cancelled": ["You closed the preview without applying.", "你关掉了预览，没有应用。"],
     "pl-stale": ["It doesn't fit the project as it is now.", "和现在的项目对不上。"],
     "pl-plan-mode": ["Plan mode only makes plans. To carry it out, switch to Manual, Auto or Yolo at the top of the assistant.", "计划模式只出计划。要执行的话，在助手顶部换成手动、自动或 Yolo。"],
     "pl-discarded": ["You dropped this plan. Nothing was done.", "这个计划不要了，什么都没做。"],
     "pl-done": ["Every step is done. You can undo the whole plan at once.", "每一步都做完了。可以一次撤销整个计划。"],
-    "pl-stopped": ["The plan stopped at this step; the steps after it were not done.", "计划停在了这一步，后面的步骤没有做。"],
+    "pl-stopped": ["The plan stopped at this step; the steps after it were not done. You can ask the assistant to plan again from the project as it is now.", "计划停在了这一步，后面的步骤没有做。可以让助手按现在的项目重新排一次计划。"],
     "pl-stale-plan": ["The project changed after this reply, so the plan was not started. Ask again.", "项目在回复之后改过了，所以没有开始这个计划。请重新问一次。"],
     "pl-undone": ["Undid every step of this plan.", "已撤销这个计划的每一步。"],
     "pl-undo-interleaved": ["Can't undo the plan at once: something was changed after it. Use Undo step by step.", "没法一次撤销整个计划：计划之后又改过别的。请用「撤销」一步一步撤。"],
@@ -732,10 +732,10 @@
   // P4: the mode switch at the top of the assistant (the AI cannot change it). New copy, for JJ.
   Object.assign(officialPaneText.en,{modes:'How the AI works',modePlan:'Plan',modeManual:'Manual',modeAuto:'Auto',modeYolo:'Yolo',
    modePlanTip:'Only plans; changes nothing',modeManualTip:'Asks before changing the project; asks every time for anything that can\'t be undone',modeAutoTip:'Does what can be undone; asks before what can\'t',modeYoloTip:'Does everything without asking; anything sent out is still shown to you first',
-   yoloOn:'Yolo is on: the AI does every step without asking you. Anything sent out is still shown first.',planTitle:'Plan',planSummary:'Made a plan of {count} steps. See the list below.',planInvalid:'This reply looks like a plan but can\'t be used. Nothing was done.',planRemove:'Delete',planStart:'Start',planDiscard:'Drop the plan',planUndo:'Undo the whole plan',modeDeclined:'Yolo was not turned on.',modeUnavailable:'The mode didn\'t change; it\'s still the one it was. Close MontClip, open it again and try once more.'});
+   yoloOn:'Yolo is on: the AI does every step without asking you. Anything sent out is still shown first.',planTitle:'Plan',planSummary:'Made a plan of {count} steps. See the list below.',planInvalid:'This reply looks like a plan but can\'t be used. Nothing was done.',planRemove:'Delete',planStart:'Start',planDiscard:'Drop this plan',formatPlan:'To have the AI do several steps at once, ask it to make a plan first: it lists every step; you look them over, delete the ones you don\'t want, then click "Start". Each step still asks you as the mode you chose says.',formatPlanTech:'Below is the format note for the AI; you don\'t need to read it.',planUndo:'Undo the whole plan',modeDeclined:'Yolo was not turned on.',modeUnavailable:'The mode didn\'t change; it\'s still the one it was. Close MontClip, open it again and try once more.'});
   Object.assign(officialPaneText['zh-CN'],{modes:'AI 怎么做',modePlan:'计划',modeManual:'手动',modeAuto:'自动',modeYolo:'Yolo',
    modePlanTip:'只出计划，不改项目',modeManualTip:'改项目前先问你；撤不回的每次都问',modeAutoTip:'能撤销的直接做，撤不回的先问你',modeYoloTip:'全都直接做，不再问你；往外发的内容照样先给你看',
-   yoloOn:'Yolo 开着：AI 的每一步都直接做，不再问你。往外发的内容照样先给你看。',planTitle:'计划',planSummary:'已排好计划，共 {count} 步，见下面的清单。',planInvalid:'这条回复像是计划，但用不了，什么都没做。',planRemove:'删掉',planStart:'开始',planDiscard:'整个不要',planUndo:'撤销整个计划',modeDeclined:'没有打开 Yolo。',modeUnavailable:'这次没换成，模式还是原来那个。关掉 MontClip 再打开，再试一次。'});
+   yoloOn:'Yolo 开着：AI 的每一步都直接做，不再问你。往外发的内容照样先给你看。',planTitle:'计划',planSummary:'已排好计划，共 {count} 步，见下面的清单。',planInvalid:'这条回复像是计划，但用不了，什么都没做。',planRemove:'删掉',planStart:'开始',planDiscard:'不要这个计划',formatPlan:'想让 AI 一次做好几步，可以让它先排一个计划：它会列出每一步，你看一遍、删掉不要的，再点「开始」。每一步还是按你选的模式来问你。',formatPlanTech:'以下是给 AI 的格式说明，不用看。',planUndo:'撤销整个计划',modeDeclined:'没有打开 Yolo。',modeUnavailable:'这次没换成，模式还是原来那个。关掉 MontClip 再打开，再试一次。'});
   for(const language of ['en','zh-CN']) for(const [key,value] of Object.entries(officialPaneText[language])) text[language]['officialPane_'+key]=value;
   Object.assign(text['zh-CN'], { paneNew:'新建会话', paneSearch:'搜索本项目会话', paneDraft:'输入消息', paneSend:'发送', paneCancel:'取消', paneConfig:'助手设置', paneModel:'模型', paneNone:'未配置服务', paneWidth:'面板宽度', paneEmpty:'暂无消息。', paneTools:'暂无工具执行', paneLocal:'会话和草稿仅保留到本次窗口关闭，不会自动附加项目内容。', paneLimitSessions:'这次打开的会话数到上限了，暂时不能新建。回到已有会话继续；要留的内容先复制出来。', paneScopeCapacity:'会话已满，当前项目无法新建会话。请返回已有会话的项目，选择会话并复制保存需要留存的草稿。', panePasteTooLong:'粘贴后会超过 16000 字符，这次没有粘贴，原草稿未改动。请把要粘贴的内容分成几段。', paneLimitChars:'这条太长了，发不出去。删掉一部分，或者分成几条。', paneReferenceLimit:'最多可引用 20 项，请移除部分引用后再添加。', paneActionFailed:'这次操作未完成，请检查当前会话后重试。', paneSaveFailed:'面板宽度未能记住，下次打开可能恢复默认。' });
   Object.assign(text.en, { paneNew:'New session', paneSearch:'Search project sessions', paneDraft:'Message', paneSend:'Send', paneCancel:'Cancel', paneConfig:'Assistant settings', paneModel:'Model', paneNone:'Service not configured', paneWidth:'Pane width', paneEmpty:'No messages.', paneTools:'No tool activity', paneLocal:'Sessions and drafts last until this window closes. Project content is not attached automatically.', paneLimitSessions:"This window has reached its session limit, so no new session can be created for now. Go back to an existing session; copy anything you want to keep first.", paneScopeCapacity:'Sessions are full; a session cannot be created for this project. Return to a project with existing sessions, select one and copy any drafts you need to keep.', panePasteTooLong:'This paste would exceed 16000 characters. Nothing was pasted and your draft was kept. Split the text into smaller parts.', paneLimitChars:'This message is too long to send. Shorten it or split it into a few messages.', paneReferenceLimit:'Up to 20 references are allowed. Remove some before adding more.', paneActionFailed:'This action did not complete. Check the current session and try again.', paneSaveFailed:'Pane width could not be saved; the next launch may use the default.' });
@@ -750,7 +750,9 @@
   function formatBody(language) {
     const T = text[language === "en" ? "en" : "zh-CN"];
     return T.officialPane_format.split("{reference}").join(T.officialPane_reference) + (language === "en" ? " " : "") +
-      T.officialPane_formatNext.split("{proposal}").join(T.officialPane_proposal);
+      T.officialPane_formatNext.split("{proposal}").join(T.officialPane_proposal) +
+      // P4 (JJ, 5d360cd7): plans, in plain words; their JSON is in the small print
+      (T.officialPane_formatPlan ? (language === "en" ? " " : "") + T.officialPane_formatPlan : "");
   }
   function create(storage) {
     let saved; try { saved = JSON.parse(storage.getItem(KEY)); } catch {}

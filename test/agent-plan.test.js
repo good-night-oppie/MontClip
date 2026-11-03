@@ -11,8 +11,8 @@ const text=(steps)=>JSON.stringify({type:'plan',steps});
 
 test('four states, in the streamer’s words',()=>{
  a.deepEqual(Plan.STATES,['todo','doing','done','failed']);
- a.deepEqual(Plan.STATES.map(s=>Plan.stateLabel(s,'zh-CN')),['没开始','正在做','做完了','失败']);
- a.deepEqual(Plan.STATES.map(s=>Plan.stateLabel(s,'en')),['Not started','Doing','Done','Failed']);
+ a.deepEqual(Plan.STATES.map(s=>Plan.stateLabel(s,'zh-CN')),['没开始','正在做','做完了','没做成']);
+ a.deepEqual(Plan.STATES.map(s=>Plan.stateLabel(s,'en')),['Not started','Doing','Done','Not done']);
  a.equal(Plan.MAX_STEPS,30);
 });
 

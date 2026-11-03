@@ -46,5 +46,23 @@ test('new words, both languages (for JJ)',()=>{
   const zh=View.t('zh-CN','own.'+k),en=View.t('en','own.'+k);a.ok(zh&&zh!=='own.'+k,k);a.ok(en&&!/[一-鿿]/.test(en),k);
  }
  for(const k of ['planTitle','planSummary','planInvalid','planRemove','planStart','planDiscard','planUndo'])for(const l of ['zh-CN','en'])a.ok(View.text[l]['officialPane_'+k],l+' '+k);
- a.deepEqual(['planStart','planDiscard','planUndo','planRemove'].map(k=>View.text['zh-CN']['officialPane_'+k]),['开始','整个不要','撤销整个计划','删掉']);
+ a.deepEqual(['planStart','planDiscard','planUndo','planRemove'].map(k=>View.text['zh-CN']['officialPane_'+k]),['开始','不要这个计划','撤销整个计划','删掉']);
+});
+
+test('JJ’s final words (5d360cd7); the help’s body has no internal names, the plan JSON is in the small print',()=>{
+ const zh=k=>View.text['zh-CN']['officialPane_'+k],en=k=>View.text.en['officialPane_'+k];
+ const Plan=require('../agent-plan');
+ a.equal(Plan.stateLabel('failed','zh-CN'),'没做成');a.equal(Plan.stateLabel('failed','en'),'Not done');
+ a.equal(View.t('zh-CN','own.pl-refused'),'这一步任何时候都不允许做。');
+ a.equal(View.t('zh-CN','own.pl-stopped'),'计划停在了这一步，后面的步骤没有做。可以让助手按现在的项目重新排一次计划。');
+ a.equal(View.t('zh-CN','own.pl-busy'),'软件正在忙别的事。等它做完，再让助手重新排一次。');
+ a.equal(zh('planDiscard'),'不要这个计划');a.equal(en('planDiscard'),'Drop this plan');
+ a.equal(zh('formatPlan'),'想让 AI 一次做好几步，可以让它先排一个计划：它会列出每一步，你看一遍、删掉不要的，再点「开始」。每一步还是按你选的模式来问你。');
+ a.equal(zh('formatPlanTech'),'以下是给 AI 的格式说明，不用看。');
+ for(const l of ['zh-CN','en']){const body=View.formatBody(l);a.ok(body.endsWith(View.text[l].officialPane_formatPlan),l);a.ok(!/keep_sentences|keep_ranges|fablecut_/.test(body),l+': no internal names in the body');}
+ const F=require('../agent-format');
+ for(const line of F.PLAN_LINES)a.ok(F.FORMAT_NOTE.includes(line),'the small print is the note’s own lines');
+ const pane=read('agent-ui/pane.tsx');
+ a.match(pane,/<p className="dim" data-format-plan-tech>\{t\.formatPlanTech\}<\/p><pre className="dim" data-format-plan>\{MontClipFormat\.PLAN_LINES\.join\('\\n'\)\}<\/pre><\/details>/);
+ a.ok(pane.indexOf('data-format-body')<pane.indexOf('data-format-plan'),'after the body, in the small print');
 });

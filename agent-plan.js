@@ -1,6 +1,6 @@
 /* The AI's plan (P4, second half; Deja, 2026-11-03, 「AI 拆任务、排计划、执行」, after Codex CLI's update_plan): one sentence
    becomes an ordered list of at most 30 steps, each one capability from the table (capabilities.js), shown in the assistant.
-   States, in the streamer's words: 没开始 / 正在做 / 做完了 / 失败, and at most one step 正在做. Before it starts the streamer
+   States, in the streamer's words: 没开始 / 正在做 / 做完了 / 没做成 (JJ), and at most one step 正在做. Before it starts the streamer
    can delete a step or drop the whole plan; a step that fails (or is declined, or only listed) stops the plan there. The
    model's plan is data: checked here, and each step again against the project when its turn comes (the page does that
    with the step's own check, e.g. chat-proposal.js). What happens to a step — run, ask, list, refuse — is the host's call
@@ -12,7 +12,7 @@
   "use strict";
   const STATES = Object.freeze(["todo", "doing", "done", "failed"]);
   const MAX_STEPS = 30, MAX_TEXT = 16000;
-  const NAMES = Object.freeze({ "zh-CN": { todo: "没开始", doing: "正在做", done: "做完了", failed: "失败" }, en: { todo: "Not started", doing: "Doing", done: "Done", failed: "Failed" } });
+  const NAMES = Object.freeze({ "zh-CN": { todo: "没开始", doing: "正在做", done: "做完了", failed: "没做成" }, en: { todo: "Not started", doing: "Doing", done: "Done", failed: "Not done" } });
   const stateLabel = (s, language) => NAMES[language === "zh-CN" ? "zh-CN" : "en"][s] || "";
   const plain = (o) => !!o && typeof o === "object" && !Array.isArray(o) && Object.getPrototypeOf(o) === Object.prototype;
   const clone = (o) => JSON.parse(JSON.stringify(o));
