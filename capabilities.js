@@ -61,6 +61,11 @@
     assistant_request: ["external", "把聊天消息发给 AI 服务", "Send the chat to the AI service"],
     song_lookup: ["external", "按歌词联网查歌名（只发两三句歌词）", "Look up the song's name online from two or three lyric lines"],
     cloud_transcribe: ["external", "把录音分段发到云端听写", "Send the recording in parts to a cloud service to transcribe"],
+    // the steps a plan does in the page (plan-steps.js; Deja, 2026-11-03): finding changes nothing; export writes files only
+    // where the streamer picks them in the system's Save window
+    find_songs: ["read", "找出录像里可能在唱歌的段落，不改项目", "Find the parts of the recordings that are possibly singing; nothing is changed"],
+    find_highlights: ["read", "找出录像里的精彩片段，不改项目", "Find the best moments in the recordings; nothing is changed"],
+    export_files: ["sensitive", "把片段导出成视频文件，每个都由你在保存窗口里选位置", "Export the clips to video files; you pick where each goes in the Save window"],
     fablecut_track: ["undoable", "跟着画面里的人或物体动，让马赛克、贴纸也跟着它走", "Follow a person or thing in the picture, so a mosaic or sticker moves with it"],
   };
   // External caps (Deja, 2026-11-03, on #83): per capability, fixed here with the risk levels, in bytes. perSend is one send
@@ -69,7 +74,7 @@
   const TEXT = { kind: "text", perSend: 131072, perScope: 4194304, scope: "chat" };
   const AUDIO = { kind: "audio", perSend: 26214400, perScope: 2147483648, scope: "project-open" };
   const LIMITS = { assistant_request: TEXT, song_lookup: TEXT, cloud_transcribe: AUDIO };
-  const HOST = ["assistant_request", "song_lookup", "cloud_transcribe"];
+  const HOST = ["assistant_request", "song_lookup", "cloud_transcribe", "find_songs", "find_highlights", "export_files"];
   const freeze = (o) => { if (o && typeof o === "object" && !Object.isFrozen(o)) { Object.freeze(o); for (const v of Object.values(o)) freeze(v); } return o; };
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const table = new Map();

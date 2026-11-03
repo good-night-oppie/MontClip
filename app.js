@@ -22331,11 +22331,12 @@ async function onAgentReply(result){
 const agentPlans=new WeakMap();
 function agentPlanOf(result){
  if(!result||typeof result.text!=='string'||typeof MontClipPlan==='undefined')return null;
- if(!agentPlans.has(result)){const p=MontClipPlan.parse(result.text);if(!p||!p.ok)return null;agentPlans.set(result,{run:MontClipPlan.create(p.steps),runId:crypto.randomUUID(),busy:false,applied:0,note:''});}
+ if(!agentPlans.has(result)){const p=MontClipPlan.parse(result.text);if(!p||!p.ok)return null;agentPlans.set(result,{run:MontClipPlan.create(p.steps),runId:crypto.randomUUID(),busy:false,applied:0,note:'',outputs:[],queued:new Set()});}
  return agentPlans.get(result);
 }
 // why a step stopped, in plain words (the codes stay internal)
-const PLAN_REASON={DENIED:'own.pl-denied',LISTED:'own.pl-listed',REFUSED:'own.pl-refused',NO_EXECUTOR:'own.pl-no-executor',BUSY:'own.pl-busy',CANCELLED:'own.pl-cancelled',STALE:'own.pl-stale'};
+const PLAN_REASON={DENIED:'own.pl-denied',LISTED:'own.pl-listed',REFUSED:'own.pl-refused',NO_EXECUTOR:'own.pl-no-executor',BUSY:'own.pl-busy',CANCELLED:'own.pl-cancelled',STALE:'own.pl-stale',
+ EMPTY:'own.pl-empty',NOTHING_FOUND:'own.pl-nothing-found',FIND_FAILED:'own.pl-find-failed',EXPORT_FAILED:'own.pl-export-failed',SAVE_CANCELLED:'own.pl-save-cancelled'};
 const planReason=(code)=>code?uiText(PLAN_REASON[code]||'own.pl-stale'):'';
 /** What the pane shows for a plan reply (null for any other reply). */
 function agentPlanView(result){
@@ -22347,32 +22348,99 @@ function agentPlanView(result){
   canUndo:!entry.busy&&entry.applied>0&&(status==='done'||status==='stopped')};
 }
 /** One step of a plan: the host's decision, the step's own check against the project now, then the step. */
+/* Steps that find things (plan-steps.js FINDS) and the export step (Deja, 2026-11-03): 「找出每首歌」 reads each recording
+   on the timeline through /api/songs, 「找高光」 through the loudness and danmaku signals (highlight-candidates.js); what
+   they find is the step's ranges, for a later {"$step": n}. They change nothing in the project. 「导出」 renders what this
+   plan queued (else the whole timeline) through the export queue, then saves each file through the system's Save window
+   — the streamer picks the place; nothing is written anywhere else. */
+function planRecordings(args){
+ const ids=Array.isArray(args&&args.mediaIds)?new Set(args.mediaIds.filter(x=>typeof x==='string')):null;
+ const used=new Set(project.clips.filter(c=>(c.kind==='video'||c.kind==='audio')&&!c.disabled).map(c=>c.mediaId));
+ return project.media.filter(m=>used.has(m.id)&&(!ids||ids.has(m.id))&&(m.kind==='video'||m.kind==='audio')&&typeof m.src==='string'&&m.src.startsWith('/media/')&&m.duration>0);
+}
+async function planFindSongs(args){
+ const found=[];
+ for(const m of planRecordings(args)){
+  const post=await fetch('/api/songs',{method:'POST',body:JSON.stringify({src:m.src})});
+  if(!post.ok)throw Error('FIND_FAILED');
+  for(let i=0;;i++){
+   const g=await (await fetch('/api/songs?src='+encodeURIComponent(m.src))).json();
+   if(g.state==='done'){found.push({mediaId:m.id,songs:g.songs||[]});break;}
+   if(g.state==='failed')throw Error('FIND_FAILED');
+   if(g.state==='stopped'||g.state==='none'){const again=await fetch('/api/songs',{method:'POST',body:JSON.stringify({src:m.src})});if(!again.ok)throw Error('FIND_FAILED');}
+   await new Promise(r=>setTimeout(r,400));
+  }
+ }
+ return MontClipPlanSteps.rangesFromSongs(found,project.clips,{name:planPartName('song')});
+}
+// the names the 「自动出切片」 dialog gives (auto-slices.js title): 「第 n 首歌」 only once songs.js passes Deja's gate, else 「{time} 那段」
+const planPartName=(kind)=>(n,r)=>{const t=MontClipAutoSlices.title({kind,no:n,at:r.from});return uiText('own.'+t.key,t.vars);};
+async function planFindHighlights(args){
+ const found=[];
+ for(const m of planRecordings(args)){
+  let loudness=null;try{const r=await fetch('/api/signals/loudness?src='+encodeURIComponent(m.src));if(r.ok)loudness=await r.json();}catch{loudness=null;}
+  if(!loudness)continue;
+  found.push({mediaId:m.id,cards:MontClipHighlights.candidates({duration:m.duration,sentences:[],loudness,danmaku:autoDanmaku(m).map(t=>({t}))})});
+ }
+ const count=Number.isInteger(args&&args.count)&&args.count>0&&args.count<=20?args.count:5;
+ return MontClipPlanSteps.rangesFromHighlights(found,project.clips,{count,name:planPartName('moment')});
+}
+/** Render this plan's queued files (else the whole timeline), then save each through the system's Save window. */
+async function planExport(entry){
+ if(!(state.connected&&state.ffmpeg))return {ok:false,code:'EXPORT_FAILED'};
+ if(queueRunning||state.exporting)return {ok:false,code:'BUSY'};
+ let mine=exportQueue.filter(q=>entry.queued.has(q.id)&&q.status==='pending');
+ if(!mine.length){const before=new Set(exportQueue.map(q=>q.id));const choice=exportChoice();queueAdd(normalizeDelivery(choice.kind==='delivery'?choice.spec:Delivery.DEFAULT_PRESET).spec);mine=exportQueue.filter(q=>!before.has(q.id));}
+ // the streamer's own waiting items wait for them, not for the plan
+ const held=exportQueue.filter(q=>q.status==='pending'&&!mine.includes(q));for(const q of held)q.status='held';
+ try{await runQueue();}finally{for(const q of held)if(q.status==='held')q.status='pending';renderQueue();}
+ const done=mine.filter(q=>q.status==='done'&&q.src);
+ if(!done.length)return {ok:false,code:'EXPORT_FAILED'};
+ let saved=0;
+ for(const q of done){
+  saveDownload(q.src,q.file||decodeURIComponent(q.src.split('/').pop()),{exportFile:true});
+  for(const end=Date.now()+30*60000;q.saving&&Date.now()<end;)await new Promise(r=>setTimeout(r,250));
+  if(q.saved)saved++;
+ }
+ entry.exported=(entry.exported||0)+saved;
+ return saved?{ok:true}:{halt:'SAVE_CANCELLED'};
+}
 async function runAgentPlanStep(s,entry,result){
- let d;try{d=await window.montclipAgentPolicy.decide({sessionId:result.sessionId,capability:s.capability,target:{kind:'project',value:runtime.projectId}});}catch{d=null;}
+ let d;try{d=await window.montclipAgentPolicy.decide({sessionId:result.sessionId,capability:s.capability,args:s.args,target:{kind:'project',value:runtime.projectId}});}catch{d=null;}
  if(!d||!d.ok||d.action==='refuse')return {ok:false,code:'REFUSED'};
  if(d.action==='list')return {halt:'LISTED'};
- // only the two edits by range can be done by the assistant yet; anything else stops the plan, saying so
- if(s.capability!=='keep_sentences'&&s.capability!=='keep_ranges')return {ok:false,code:'NO_EXECUTOR'};
+ // what the assistant can do (plan-steps.js); anything else stops the plan, saying so
+ if(!MontClipPlanSteps.DOABLE.includes(s.capability))return {ok:false,code:'NO_EXECUTOR'};
+ let args;try{args=MontClipPlanSteps.resolve(s.args,entry.outputs,s.index+1);}catch(e){return {ok:false,code:e.message==='STEP_EMPTY'?'EMPTY':'STALE'};}
  const c=agentProjectContext(),meta={id:crypto.randomUUID(),runId:entry.runId,step:s.index+1,actor:'ai',at:new Date().toISOString(),revision:project.revision};
+ const ask=async()=>{if(d.action!=='ask')return true;const choice=await askAgentApproval(d,{summary:uiText('own.pl-step-of',{n:s.index+1,total:entry.run.list().length})});
+  let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}return !!(a&&a.ok&&a.run);};
+ if(MontClipPlanSteps.FINDS.includes(s.capability)||s.capability==='export_files'){
+  if(!await ask())return {halt:'DENIED'};
+  const {revision:_r,...base}=meta,ev=recordAgentEvent({...base,capability:s.capability,args:null,risk:d.risk,state:'running',revisionBefore:project.revision??null,revisionAfter:null});
+  try{
+   if(s.capability==='export_files'){const r=await planExport(entry);if(ev)moveEvent(ev.id,r.ok?'has_result':'failed');return r;}
+   const ranges=s.capability==='find_songs'?await planFindSongs(args):await planFindHighlights(args);
+   entry.outputs[s.index]={ranges};
+   if(ev)moveEvent(ev.id,'has_result');
+   return ranges.length?{ok:true,found:ranges.length}:{ok:false,code:'NOTHING_FOUND'};
+  }catch{if(ev)moveEvent(ev.id,'failed');return {ok:false,code:'FIND_FAILED'};}
+ }
  let proposal;
- try{proposal=MontClipProposal.prepare({...s.args,type:s.capability},{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});}
+ try{proposal=MontClipProposal.prepare({...args,type:s.capability},{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});}
  catch(error){recordAgentEvent(MontClipProposal.failedEvent(error,{...meta,capability:s.capability}));return {ok:false,code:'STALE'};}
  const ev=recordAgentEvent(MontClipProposal.event(proposal,meta));if(ev)proposal.eventId=ev.id;
- if(d.action==='ask'){
-  const choice=await askAgentApproval(d,{summary:uiText('own.pl-step-of',{n:s.index+1,total:entry.run.list().length})});
-  let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}
-  if(!a||!a.ok||!a.run){if(ev)moveEvent(ev.id,'rejected');return {halt:'DENIED'};}
- }
+ if(!await ask()){if(ev)moveEvent(ev.id,'rejected');return {halt:'DENIED'};}
  // the CAS: nobody changed the project while the box was open
  if(!MontClipProposal.current(proposal,projectJSON(),{...agentProjectContext(),generation:agentProjectContext().gen})){if(ev)moveEvent(ev.id,'rejected');return {ok:false,code:'STALE'};}
+ if(rangeEditBusy()){if(ev)moveEvent(ev.id,'rejected');return {ok:false,code:'BUSY'};}
+ let plan;try{plan=FableCutRangePlan.create(projectJSON(),proposal.keep);plan.keep=proposal.keep;}catch{if(ev)moveEvent(ev.id,'failed');return {ok:false,code:'STALE'};}
+ commitRangePlan(plan,proposal);
+ // one clip per range: queued for the plan's export step (which saves them through the system's Save window)
  if(proposal.type==='keep_ranges'&&proposal.outputMode==='per_range'){
-  // slices add exports: the dialog, and the streamer's own 〔应用〕
-  const applied=await new Promise((resolve)=>{showSentenceSelection(proposal,()=>resolve(true),()=>{if(ev)moveEvent(ev.id,'rejected');resolve(false);}).then(()=>{if(!document.querySelector('.sentence-dialog[open]'))resolve(false);});});
-  if(!applied)return {halt:'CANCELLED'};
- } else {
-  if(rangeEditBusy()){if(ev)moveEvent(ev.id,'rejected');return {ok:false,code:'BUSY'};}
-  let plan;try{plan=FableCutRangePlan.create(projectJSON(),proposal.keep);plan.keep=proposal.keep;}catch{if(ev)moveEvent(ev.id,'failed');return {ok:false,code:'STALE'};}
-  commitRangePlan(plan,proposal);
+  const before=new Set(exportQueue.map(q=>q.id));
+  queueSlices(plan.segments,MontClipProposal.sliceNames(proposal.labels,project.name,Delivery.fileSafeName),{open:false});
+  for(const q of exportQueue)if(!before.has(q.id))entry.queued.add(q.id);
  }
  entry.applied++;
  // the next step is checked against the saved project

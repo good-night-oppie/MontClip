@@ -599,6 +599,12 @@
     "pl-stale-plan": ["The project changed after this reply, so the plan was not started. Ask again.", "项目在回复之后改过了，所以没有开始这个计划。请重新问一次。"],
     "pl-undone": ["Undid every step of this plan.", "已撤销这个计划的每一步。"],
     "pl-undo-interleaved": ["Can't undo the plan at once: something was changed after it. Use Undo step by step.", "没法一次撤销整个计划：计划之后又改过别的。请用「撤销」一步一步撤。"],
+    // what the plan's finding and export steps say when they stop (new, for JJ)
+    "pl-empty": ["The step before found nothing to use here.", "前面那一步什么都没找到，这一步没东西可用。"],
+    "pl-nothing-found": ["Nothing found.", "什么都没找到。"],
+    "pl-find-failed": ["Couldn't read the recording.", "没能读完录像。"],
+    "pl-export-failed": ["The export didn't work.", "导出没成功。"],
+    "pl-save-cancelled": ["You closed the Save window, so nothing was saved. The exported videos are still in the export queue; click Save there to save them.", "你关掉了保存窗口，什么都没保存。导出的视频还在导出队列里，在那里点『保存』就能存。"],
     "pl-undo-none": ["There is nothing of this plan left to undo.", "这个计划没有可以撤销的了。"],
     // over an external cap (Deja on #83): refused with by how much, never cut down to fit
     "ap-too-large": ["This send is {size}; the most at a time is {limit}, so it is {over} over. Nothing was sent, and it won't be cut down to fit.", "这次要发出去的有 {size}，每次最多 {limit}，超了 {over}。没有发送，也不会截短了再发。"],
