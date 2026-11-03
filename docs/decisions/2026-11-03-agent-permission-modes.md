@@ -52,6 +52,5 @@ through the system save dialog only is for the export step (later); overwriting 
   in 手动: asked the first time, three choices.
 - The caps: per capability, as above.
 
-## Open for Deja / JJ
-
-- Should the box have a 〔先看看〕 that opens the preview instead of applying at once?
+- No 〔先看看〕 in the box (Deja, 2026-11-03): the three buttons are the owner's own words; an undoable step can be undone,
+  and an external one already shows what it sends in the box.
