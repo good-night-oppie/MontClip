@@ -15,7 +15,9 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
  try{await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));})()`);
   win.setContentSize(1270,800);
   // one synthetic clip (no file is read), so the message carries timeline facts for the box to show
-  await read(`(()=>{const doc=projectJSON();doc.media.push({id:'m_syn',src:'/media/none.mp4',kind:'video',name:'合成.mp4',duration:120});doc.clips.push({id:'c_syn',kind:'video',mediaId:'m_syn',track:'V1',start:0,in:0,duration:120,props:{volume:0}});applyProject(doc);scheduleSave();})()`);
+  await read(`(()=>{const doc=projectJSON();doc.media.push({id:'m_syn',src:'/media/none.mp4',kind:'video',name:'合成.mp4',duration:120});doc.clips.push({id:'c_syn',kind:'video',mediaId:'m_syn',track:'V1',start:0,in:0,duration:120,props:{volume:0}});
+   // Deja (on #87): two clips whose ids are not short ids — a web address and Chinese; left out, and the box says so
+   doc.clips.push({id:'https://example.com/v/直播.mp4',kind:'audio',mediaId:'m_syn',track:'A3',start:0,in:0,duration:30,props:{}},{id:'片段二',kind:'audio',mediaId:'m_syn',track:'A4',start:40,in:0,duration:30,props:{}});applyProject(doc);scheduleSave();})()`);
   await read(`(async()=>{if(!await flushSave())throw Error('SAVE');return true;})()`);await wait(300);
   for(const language of ['zh-CN','en']){
    await read(`updateMontClipView({language:${JSON.stringify(language)}});setSideTab('assistant');mcAgent.render();true`);await wait(300);
@@ -35,6 +37,9 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
      // the box names in its facts note instead; the exact JSON is in the raw request
      shown:raw.messages.map(m=>MontClipAgentPane.displayMessage(m.content).text),facts:MontClipAgentPane.messageFacts(raw.messages.at(-1).content),
      factsNote:!!d.querySelector('[data-facts-note]'),
+     // read before the fold is opened: the line is seen without opening anything
+     omitted:(()=>{const e=d.querySelector('[data-facts-omitted]');return e?{text:e.textContent,visible:e.offsetHeight>0,inFold:!!e.closest('[data-facts-note]')}:null;})(),
+     rawText:d.querySelector('[data-raw-request] pre').textContent,
      // Deja (on #87): the owner wants what is sent shown first — one click on the facts sentence opens the facts' exact text
      factsOpen:(()=>{const n=d.querySelector('[data-facts-note]');if(!n)return null;const closed=!n.open;d.querySelector('[data-facts-note] summary').click();
       const pre=n.querySelector('[data-facts-raw]'),ex=n.querySelector('[data-facts-explain]');return {closed,open:n.open,visible:!!pre&&pre.offsetHeight>0,text:pre?pre.textContent:null,
@@ -51,6 +56,9 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
     factsExpand:!!r.facts&&!!r.factsOpen&&r.factsOpen.closed&&r.factsOpen.open&&r.factsOpen.visible&&r.factsOpen.text===JSON.stringify(r.facts,null,2),
     // JJ's words: the title, and the explanation above the facts once opened
     factsWords:!!r.factsOpen&&r.factsOpen.title===require("../ui-preferences").text[language].officialPane_factsTitle&&r.factsOpen.explain===require("../ui-preferences").text[language].officialPane_factsExplain&&r.factsOpen.explainFirst,
+    // Deja (on #87): the two left-out clips are counted in the box, in JJ's words, outside the fold; their ids are not sent
+    omittedShown:!!r.omitted&&r.omitted.visible&&!r.omitted.inFold&&r.omitted.text===require("../ui-preferences").text[language].officialPane_factsOmitted.replace('{n}','2'),
+    omittedNotSent:!/example.com|片段二|直播/.test(r.rawText)&&!/example.com|片段二/.test(JSON.stringify(r.facts)),
     // QQ 2026-11-02: the summary names the format note; the earlier-message count it states is the real one
     summaryNamesNote:/格式说明|formatting note/i.test(r.summary)&&r.summary.includes(String(r.raw.messages.length-2)),
     rawFields:JSON.stringify(Object.keys(r.raw).sort())==='["max_tokens","messages","model","stream"]'&&r.raw.model==='vendor/model-x:free'&&r.raw.stream===false&&r.raw.max_tokens===2048,

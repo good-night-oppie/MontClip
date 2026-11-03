@@ -52,3 +52,47 @@ test('the review box: the fold says what is sent, opens to the explanation and t
  a.equal(en.officialPane_factsExplain,'How long each recording is, which part each clip uses, and the start, end and score of the highlight candidates already found. No file names, subtitle text, pictures or sound. This is exactly what is sent:');
  a.equal(zh.officialPane_factsNote,undefined);a.equal(en.officialPane_factsNote,undefined);
 });
+
+// Deja (on #87): a clip left out for its id must not vanish silently — the review box says how many, in JJ's words
+// (「有 {n} 个片段的编号不认识，没有附上」, wording for JJ to settle). Two kinds of id that are not short ids:
+const shot=(id,start)=>({id,kind:'audio',mediaId:'m2',track:'A1',start,in:0,duration:10,props:{}});
+const withIds=ids=>({media:[{id:'m2',name:'b.wav',src:'/media/b.wav',kind:'audio',duration:120}],clips:[shot('c_ok',0),...ids.map((id,i)=>shot(id,20+i*20))]});
+const omittedShown=n=>{
+ const pane=read('agent-ui/pane.tsx'),line=pane.indexOf('<p data-facts-omitted>');
+ a.ok(line>0,'the line is in the review box');
+ a.ok(line>pane.indexOf('</details>',pane.indexOf('<details data-facts-note>')),'outside the fold: seen without opening it');
+ a.match(pane,/\{factsOmitted>0&&<p data-facts-omitted>\{t\.factsOmitted\.replace\('\{n\}',String\(factsOmitted\)\)\}<\/p>\}/);
+ a.match(pane,/setFactsOmitted\(options\.getFactsOmitted\?\.\(\)\|\|0\)/,'counted when the box opens');
+ a.match(read('app.js'),/getFactsOmitted:\(\)=>MontClipFacts\.omitted\(projectJSON\(\)\)/);
+ a.match(read('cindy-official.js'),/data-facts-omitted/,'the bundle was rebuilt');
+ a.equal(View.text['zh-CN'].officialPane_factsOmitted.replace('{n}',String(n)),`有 ${n} 个片段的编号不认识，没有附上`);
+ a.ok(View.text.en.officialPane_factsOmitted.includes('{n}'));
+};
+test('an id that is a path or a web address: not in the facts, and the box says how many were left out',()=>{
+ const bad=['C:/Users/主播/Videos/a.flv','D:\录像\b.mp4','/media/私密/c.mp4','../media/d.mp4','https://example.com/v/e.mp4','file:///C:/f.mov'];
+ const d=withIds(bad),json=JSON.stringify(Facts.build(d,{highlights:[{from:20,to:25,score:0.5}]}));
+ for(const s of bad)a.ok(!json.includes(s)&&!json.includes(JSON.stringify(s).slice(1,-1)),'leaked: '+s);
+ a.ok(!/https?:|file:|[\/]/.test(json),json);
+ a.deepEqual(JSON.parse(json).clips.map(c=>c.clipId),['c_ok']);
+ a.equal(JSON.parse(json).highlights,undefined,'a highlight inside a left-out clip is not placed on it');
+ a.equal(Facts.omitted(d),bad.length);
+ omittedShown(bad.length);
+});
+test('an id with Chinese in it: not in the facts, and the box says how many were left out',()=>{
+ const bad=['片段一','clip_一','高光-03','c１'];
+ const d=withIds(bad),json=JSON.stringify(Facts.build(d));
+ for(const s of bad)a.ok(!json.includes(s),'leaked: '+s);
+ a.ok(!/[^\x00-\x7f]/.test(json),json);
+ a.equal(Facts.omitted(d),bad.length);
+ omittedShown(bad.length);
+});
+test('nothing left out: no count; only clips that would have been sent count (captions, disabled, ramps do not)',()=>{
+ a.equal(Facts.omitted(withIds([])),0);
+ const d=withIds(['片段一']);d.clips.push({...shot('片段二',200),disabled:true},{id:'字幕',kind:'text',mediaId:null,track:'V2',start:0,in:0,duration:3,props:{text:'x',caption:true}});
+ a.equal(Facts.omitted(d),1);
+});
+test('the facts and the proposals check ids by the same rule',()=>{
+ a.equal(Facts.SHORT_ID.source,'^[A-Za-z0-9_-]{1,128}$');
+ a.match(read('capabilities.js'),/clipId: \{ type: "string", pattern: "\^\[A-Za-z0-9_-\]\{1,128\}\$" \}/);
+ a.ok(read('chat-proposal.js').includes('/'+Facts.SHORT_ID.source+'/.test(v)'),'chat-proposal.js identity()');
+});
