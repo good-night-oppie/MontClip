@@ -11,14 +11,14 @@ const start = SRC.indexOf(START), end = SRC.indexOf('window.addEventListener("re
 assert.ok(start >= 0 && end > start, "the main keydown handler");
 
 // Runs the real handler with every name it uses stubbed: a call records itself.
-function world(mode = "simple", { typing = false } = {}) {
+function world(mode = "simple", { typing = false, runtime = {} } = {}) {
   const calls = []; let handler;
   const fixed = {
     mcView: { get: () => ({ mode, language: "en" }) }, MontClipView: View,
     window: { addEventListener: (_n, fn) => { handler = fn; } },
     document: { activeElement: {} }, isTypingTarget: () => typing, clearFocusedTransition: () => false,
     $: () => ({ classList: { contains: () => false } }), els: { importUrlOverlay: null, btnSnap: { click: () => calls.push(["snap"]) } },
-    state: { pps: 20, time: 2, source: { time: 0 } }, runtime: {}, project: { clips: [] }, projectFps: () => 30, isSourceMode: () => false,
+    state: { pps: 20, time: 2, source: { time: 0 } }, runtime, uiText: (k) => k, project: { clips: [] }, projectFps: () => 30, isSourceMode: () => false,
     EDIT_TOOLS: { select: { key: "V" }, ripple: { key: "B" }, roll: { key: "R" }, slip: { key: "Y" }, slide: { key: "U" } },
   };
   const env = new Proxy(fixed, {
@@ -48,7 +48,8 @@ const ADVANCED = [
 test("simple mode: every advanced shortcut does nothing (and the browser default is held back)", () => {
   for (const [key, mods] of ADVANCED) {
     const w = world("simple"), e = w.key(key, mods);
-    assert.deepEqual(w.calls, [], JSON.stringify([key, mods]));
+    // nothing runs; the only call is the one-time hint (JJ, 8 PRs; tested below)
+    assert.deepEqual(w.calls, [["toast", "own.simple-advanced-key"]], JSON.stringify([key, mods]));
     assert.equal(e.prevented, true, JSON.stringify([key, mods]));
   }
 });
@@ -114,4 +115,25 @@ test("the tools: simple mode refuses B/R/Y/U, and going to simple mode goes back
     assert.equal(state.tool, "select", "a direct call is refused in simple mode");
     assert.equal(snap(), before, "project, selection and history unchanged");
   }
+});
+
+// JJ (8 PRs, documents/2026-11-03-MontClip-8个PR文案确认-JJ.md, sha256 3adc874a…) and Deja: in simple mode the first
+// advanced shortcut says why nothing happened, once per launch of the app; advanced mode never shows it.
+test("JJ (8 PRs): the hint's words", () => {
+  assert.equal(View.t("zh-CN", "own.simple-advanced-key"), "这个快捷键在「高级」模式里才能用。点顶栏的「高级」就能切过去。");
+  assert.equal(View.t("en", "own.simple-advanced-key"), "This shortcut works in Advanced mode. Click Advanced at the top to switch.");
+});
+test("simple mode: the first advanced shortcut shows the hint once; later ones in the same launch stay quiet", () => {
+  const runtime = {}, w = world("simple", { runtime });
+  w.key("b"); w.key("[", {}); w.key("E", { shiftKey: true });
+  assert.deepEqual(w.calls, [["toast", "own.simple-advanced-key"]], "one hint for three keys");
+  const again = world("simple", { runtime }); again.key("t");
+  assert.deepEqual(again.calls, [], "still the same launch: no hint");
+  const next = world("simple", { runtime: {} }); next.key("t");
+  assert.deepEqual(next.calls, [["toast", "own.simple-advanced-key"]], "a new launch: the hint once more");
+});
+test("simple mode: everyday keys never show the hint; advanced mode never shows it", () => {
+  const w = world("simple"); for (const k of ["v", "s", "i", "o"]) w.key(k);
+  assert.ok(!w.calls.some((c) => c[0] === "toast"), JSON.stringify(w.calls));
+  for (const [key, mods] of ADVANCED) { const a = world("advanced"); a.key(key, mods); assert.ok(!a.calls.some((c) => c[0] === "toast"), JSON.stringify([key, mods])); }
 });
