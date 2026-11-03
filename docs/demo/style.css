@@ -336,6 +336,9 @@ body.track-size-s .clip.selected {
   cursor: pointer;
   white-space: nowrap;
 }
+/* [hidden] means hidden: .btn and its variants (.btn.icon, .transport-btns .btn.icon, …) set display, which would otherwise
+   win over the browser's [hidden]; one rule at the root, important so no variant wins (Deja, 2026-11-03) */
+.btn[hidden] { display: none !important; }
 
 .btn:hover {
   background: #2c2c34;
