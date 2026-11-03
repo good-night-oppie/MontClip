@@ -21,11 +21,14 @@ const out = (k, v) => process.stdout.write(k + ' ' + JSON.stringify(v) + '\n');
 
 // a "U 盘": the model files renamed, inside a folder, beside a stray file
 const usb = fs.mkdtempSync(path.join(os.tmpdir(), 'montclip-usb-'));
-fs.mkdirSync(path.join(usb, '听写模型', '标点'), { recursive: true });
+fs.mkdirSync(path.join(usb, '听写模型'), { recursive: true });
+// the punctuation model on a second one, imported afterwards (Deja: Settings › 听写 offers it while it is missing)
+const usb2 = fs.mkdtempSync(path.join(os.tmpdir(), 'montclip-usb2-'));
+fs.mkdirSync(path.join(usb2, '标点'), { recursive: true });
 fs.copyFileSync(path.join(VENDOR, 'models', 'asr', 'model.int8.onnx'), path.join(usb, '听写模型', 'paraformer.onnx'));
 fs.copyFileSync(path.join(VENDOR, 'models', 'asr', 'tokens.txt'), path.join(usb, '听写模型', 'tokens 副本.txt'));
-fs.copyFileSync(path.join(VENDOR, 'models', 'punct', 'model.int8.onnx'), path.join(usb, '听写模型', '标点', 'punct.onnx'));
-fs.copyFileSync(path.join(VENDOR, 'models', 'punct', 'tokens.json'), path.join(usb, '听写模型', '标点', 'tokens.json'));
+fs.copyFileSync(path.join(VENDOR, 'models', 'punct', 'model.int8.onnx'), path.join(usb2, '标点', 'punct.onnx'));
+fs.copyFileSync(path.join(VENDOR, 'models', 'punct', 'tokens.json'), path.join(usb2, '标点', 'tokens.json'));
 fs.writeFileSync(path.join(usb, '说明.txt'), '这不是模型文件');
 process.env.MONTCLIP_SMOKE_ASR_IMPORT = usb;
 // the engine and the VAD as a package without models has them (a copy, so cleaning up never touches vendor/asr)
@@ -105,6 +108,15 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     // 3. import from the "U 盘"
     await read(`document.querySelector('[data-tr-asr-import]').click();true`);
     const until = Date.now() + 60000;
+    while (Date.now() < until && !(await read(`asrReady()`))) await wait(250);
+    // the speech model only: Settings › 听写 offers the punctuation model
+    await read(`openSettings();true`); await wait(300);
+    report.punctOffer = await read(`({shown:!document.getElementById('setAsrPunct').hidden,text:document.getElementById('setAsrPunctText').textContent,button:document.getElementById('btnAsrPunct').textContent})`);
+    await read(`closeSettings();true`);
+    if (!report.punctOffer.shown || report.punctOffer.text !== '字幕默认不带标点；另外装一个标点模型（约 76 MB）就有标点。' || report.punctOffer.button !== '装标点模型') throw Error('PUNCT_OFFER ' + JSON.stringify(report.punctOffer));
+    // then the punctuation model from the second "U 盘"
+    process.env.MONTCLIP_SMOKE_ASR_IMPORT = usb2;
+    await read(`asrImport();true`);
     while (Date.now() < until && !(await read(`asrReady()&&!!(asrState.status&&asrState.status.punct.ready)`))) await wait(250);
     report.imported = await read(`({note:asrState.note,text:document.querySelector('[data-tr-asr]').textContent})`);
     await wait(6500);
@@ -113,9 +125,9 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     report.modelFiles = fs.readdirSync(path.join(profile, 'asr-models', 'asr')).sort();
     if (report.modelFiles.join() !== 'model.int8.onnx,tokens.txt') throw Error('FILES ' + report.modelFiles);
     await read(`openSettings();true`); await wait(300);
-    report.settingsAfter = await read(`({status:document.getElementById('setAsrStatus').textContent,button:document.getElementById('btnAsrSetup').hidden})`);
+    report.settingsAfter = await read(`({status:document.getElementById('setAsrStatus').textContent,button:document.getElementById('btnAsrSetup').hidden,punctLine:!document.getElementById('setAsrPunct').hidden})`);
     await read(`closeSettings();true`);
-    if (report.settingsAfter.status !== '听写模型装好了。以后听写都在这台电脑上做，不用再联网。' || !report.settingsAfter.button) throw Error('SETTINGS_AFTER ' + JSON.stringify(report.settingsAfter));
+    if (report.settingsAfter.status !== '听写模型装好了。以后听写都在这台电脑上做，不用再联网。' || !report.settingsAfter.button || report.settingsAfter.punctLine) throw Error('SETTINGS_AFTER ' + JSON.stringify(report.settingsAfter));
     // 4. transcribe the model's own test sentence
     const t0 = Date.now();
     report.result = await read(`transcribeSrcs([${JSON.stringify(src)}]).then(async r=>{const d=await loadTranscript(${JSON.stringify(src)},true);return{done:r.done.length,failed:r.failed,words:d?d.words.length:0,text:d?FableCutTranscribe.join(d.words.map(w=>w[0])):'',first:d?d.words.slice(0,3):[],model:d&&d.model,language:d&&d.language}})`);
@@ -132,7 +144,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     ok = external.length === 0 && mainRequests.length === 0;
   } catch (e) { report.error = String((e && e.stack) || e).slice(0, 1500); }
   finally {
-    fs.rmSync(usb, { recursive: true, force: true });
+    fs.rmSync(usb, { recursive: true, force: true }); fs.rmSync(usb2, { recursive: true, force: true });
     try { fs.rmSync(asrDir, { recursive: true, force: true }); } catch { }   // the engine's .node may still be loaded by the server; the OS temp cleanup takes it then
     delete report.result;
     out(ok ? 'ASR_SMOKE_PASS' : 'ASR_SMOKE_FAIL', report);
