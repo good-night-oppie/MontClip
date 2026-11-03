@@ -10,7 +10,7 @@ test('browser FLV rejection never registers transient fallback or schedules an e
 test('browser metadata late after project change is not registered',async()=>{const w=world({late:true});await w.context.importFiles([{name:'source.flv',type:''}]);assert.equal(w.project.media.length,0);assert.equal(w.calls.saved,0);});
 test('browser registration and actual project serializer preserve source fields across JSON reload',async()=>{
  const w=world();await w.context.importFiles([{name:'中文 空格.flv',type:''}]);assert.equal(w.calls.saved,1);const m=w.project.media[0];assert.equal(m.originalSrc,'/media/source.flv');
- Object.assign(w.context,{MediaLib:require('../media-lib'),MontClipDanmaku:require('../danmaku'),serializeTracks:()=>[],serializeClip:x=>x,normalizeMarkers:()=>[],normalizeDisabledTracks:()=>[],getExportFrame:()=>null,normalizeMaster:()=>null,normalizeBuses:()=>[]});
+ Object.assign(w.context,{MediaLib:require('../media-lib'),MontClipDanmaku:require('../danmaku'),serializeTracks:()=>[],serializeClip:x=>x,normalizeMarkers:()=>[],normalizeDisabledTracks:()=>[],getExportFrame:()=>null,normalizeMaster:()=>null,normalizeBuses:()=>[],normalizeDanmaku:()=>null});
  vm.runInContext(source.slice(source.indexOf('function projectJSONHere()'),source.indexOf('function listenSSE()')),w.context);
  vm.runInContext(source.slice(source.indexOf('function normalizeMediaEntry('),source.indexOf('function folderChildren(')),w.context);
  const doc=JSON.parse(JSON.stringify(w.context.projectJSONHere()));const loaded=w.context.normalizeMediaEntry(doc.media[0]);assert.equal(loaded.src,m.src);assert.equal(loaded.originalSrc,m.originalSrc);assert.equal(loaded.preparation,'remux');assert.deepEqual(doc.clips,[]);

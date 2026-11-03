@@ -1583,8 +1583,6 @@ function applyProject(data, opts = {}) {
     collections: MediaLib.normalizeCollections(data.collections, data.media || []),
     clips: data.clips || [],
     captionOmissions: data.captionOmissions || [],
-    // danmaku per recording (danmaku.js), kept apart from the transcript; not part of undo (clips, markers, comps)
-    danmaku: MontClipDanmaku.normalize(data.danmaku, (data.media || []).map((m) => m.id)),
     markers: normalizeMarkers(data.markers),
     inPoint: wa.inPoint,
     outPoint: wa.outPoint,
@@ -1594,6 +1592,8 @@ function applyProject(data, opts = {}) {
     outputs: Array.isArray(data.outputs) ? data.outputs.filter((o) => o && typeof o === "object") : null,
     master: normalizeMaster(data.master),
     buses: normalizeBuses(data.buses),
+    // the recording's danmaku, kept as it is (null when this project has none, so nothing is left from the last one)
+    danmaku: normalizeDanmaku(data.danmaku, (data.media || []).map((m) => m.id)),
     // the sequences that aren't open, kept as they are (see sequences.js); the open one is this document
     sequences: Array.isArray(data.sequences) && data.sequences.length ? data.sequences : null,
     sequence: Array.isArray(data.sequences) && data.sequences.length ? SeqLib.activeId(data) : null,
@@ -1764,6 +1764,18 @@ function projectJSON() {
   const root = commitCompCtx();
   return { ...root, revision: project.revision };
 }
+/** project.danmaku as the editor keeps it: the list as it is — every field of every entry, whichever shape — as a
+ *  JSON copy; null when it is not a list, is empty, or is larger than any recording's danmaku (400000 entries). */
+function normalizeDanmaku(list, mediaIds) {
+  if (!Array.isArray(list) || !list.length || list.length > 400000) return null;
+  try {
+    if (typeof MontClipDanmaku !== "undefined" && list.every((e) => e && typeof e === "object" && typeof e.mediaId === "string" && Array.isArray(e.items))) {
+      const n = MontClipDanmaku.normalize(list, mediaIds);
+      return n.length ? JSON.parse(JSON.stringify(n)) : null;
+    }
+    return JSON.parse(JSON.stringify(list));
+  } catch { return null; }
+}
 /** The project as it is loaded right now (an open comp's stand-in project, or the root). */
 function projectJSONHere() {
   const { name, width, height, fps, background, revision, folders, media, clips, markers, inPoint, outPoint, disabledTracks, encodeProfile, delivery, outputs } = project;
@@ -1805,9 +1817,9 @@ function projectJSONHere() {
   if (master) out.master = master;
   const buses = normalizeBuses(project.buses);
   if (buses.length) out.buses = buses;
-  const danmaku = MontClipDanmaku.normalize(project.danmaku, out.media.map((m) => m.id));
-  if (danmaku.length) out.danmaku = danmaku;
   if (project.comps && project.comps.length) out.comps = project.comps.map((cp) => ({ ...cp, clips: (cp.clips || []).map(serializeClip) }));
+  const danmaku = normalizeDanmaku(project.danmaku, out.media.map((m) => m.id));
+  if (danmaku) out.danmaku = danmaku;
   if (project.sequences) {
     out.sequences = project.sequences.map((sq) => (sq.id === project.sequence ? { id: sq.id, name: sq.name } : sq));
     out.sequence = project.sequence;
@@ -9793,8 +9805,10 @@ async function highlightSignals(isCurrent = () => true) {
     }
     loudness = { step, values };
   }
-  // imported danmaku are in their recording's seconds: onto the timeline through each clip that plays it
-  const danmaku = MontClipDanmaku.toTimeline(project.danmaku, mediaClips().filter((c) => (c.kind === "video" || c.kind === "audio") && clipRenders(c)));
+  // imported danmaku are in their recording's seconds: onto the timeline through each clip that plays it (or timeline-second entries [{t}])
+  const danmaku = Array.isArray(project.danmaku) && project.danmaku.some((e) => e && Array.isArray(e.items))
+    ? MontClipDanmaku.toTimeline(project.danmaku, mediaClips().filter((c) => (c.kind === "video" || c.kind === "audio") && clipRenders(c)))
+    : (Array.isArray(project.danmaku) ? project.danmaku : []);
   return { duration, sentences, loudness, danmaku };
 }
 /** A reason on a card: {text, title} — the words, and the numbers behind them for the tooltip. Loudness with only
