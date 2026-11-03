@@ -1,7 +1,8 @@
 'use strict';
 // P5 in the real editor (frozen design v10 ④, Deja 11-03): caption size and position in one go, from both entries.
 // Fresh profile, hidden offscreen window, synthetic captions only (no media). For a landscape (1920×1080) and a
-// portrait (1080×1920) project: five captions, one with its own size and one with its own position, so the buttons
+// portrait (1080×1920) project: five captions, one with its own size, one with its own position and one whose size is
+// keyframed (skipped by a size change, Deja #81), so the buttons
 // first show nothing and say the sizes / positions differ. 〔字幕大小〕 beside the style menu works on all of them,
 // the Inspector's top on the selected ones. Each click is one undo step; undoing compares every clip with what it was.
 //   electron desktop/caption-quick-smoke.cjs --montclip-smoke --user-data-dir=<fresh dir>
@@ -23,7 +24,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
    assert.deepEqual(await read(`[project.width,project.height]`),[W,H]);
    // five synthetic captions; c1 has its own size, c3 its own position
    await read(`(async()=>{const doc=projectJSON();doc.clips=[0,1,2,3,4].map(i=>FableCutCaptions.clip({start:i*2,end:i*2+1.5,text:'合成字幕 '+i},{style:'subtitle',width:${W},height:${H},track:'V2',id:'cap'+i}));
-     doc.clips[1].props.fontSize=80;doc.clips[3].props.y=-100;applyProject(doc);scheduleSave();if(!await flushSave())throw Error('SAVE');})()`);
+     doc.clips[1].props.fontSize=80;doc.clips[3].props.y=-100;doc.clips[4].keyframes={fontSize:[{t:0,v:30},{t:1,v:60}]};applyProject(doc);scheduleSave();if(!await flushSave())throw Error('SAVE');})()`);
    const snapClips=`JSON.stringify(project.clips.map(c=>({id:c.id,props:c.props,start:c.start,duration:c.duration,track:c.track})))`;
    const before=await read(snapClips),depth0=await read('runtime.undo.length');
    // 1. 〔字幕大小〕 beside the style menu: all five
@@ -41,7 +42,8 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
    const sz=await read(`MontClipCaptionQuick.sizes(${W},${H})`),ps=await read(`MontClipCaptionQuick.positions(${W},${H})`);
    await read(`document.querySelector('.cq-dialog[open] [data-cq-k="size"][data-cq-v="big"]').click();true`);await wait();
    r.big=await read(`({sizes:project.clips.map(c=>c.props.fontSize),toast:document.getElementById('toast').querySelector('span')?.textContent,undo:runtime.undo.length,on:[...document.querySelectorAll('.cq-dialog[open] [data-cq-v].on')].map(b=>b.dataset.cqV)})`);
-   assert.deepEqual(r.big.sizes,Array(5).fill(sz.big));assert.equal(r.big.toast,'已把 5 条字幕的字号改成「大」。');assert.equal(r.big.undo,depth0+1,'one undo step');assert.deepEqual(r.big.on,['big']);
+   // cap4's fontSize is keyed (Deja, #81): it keeps its size, still counts in 全部 5 条, and the toast says so
+   assert.deepEqual(r.big.sizes,[sz.big,sz.big,sz.big,sz.big,JSON.parse(before)[4].props.fontSize]);assert.equal(r.big.toast,'已把 4 条字幕的字号改成「大」。有 1 条字幕设了动画，没改');assert.equal(r.big.undo,depth0+1,'one undo step');assert.deepEqual(r.big.on,['big']);
    await read(`document.querySelector('.cq-dialog[open] [data-cq-k="pos"][data-cq-v="top"]').click();true`);await wait();
    r.top=await read(`({ys:project.clips.map(c=>c.props.y),toast:document.getElementById('toast').querySelector('span')?.textContent,undo:runtime.undo.length})`);
    assert.deepEqual(r.top.ys,Array(5).fill(ps.top));assert.equal(r.top.toast,'已把 5 条字幕移到画面上面。');assert.equal(r.top.undo,depth0+2);

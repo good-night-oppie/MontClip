@@ -31,9 +31,9 @@ test('what the buttons show: one level when all match it, none (and "mixed") whe
 test('apply: every clip gets the size (or the position), the ones adjusted one by one too; nothing else changes', () => {
   const clips = [cap('a', 45, 410), cap('b', 80, -100, { color: '#ff0' }), cap('c', 30, 410)];
   const before = JSON.parse(JSON.stringify(clips));
-  a.equal(Q.apply(clips, 'size', 'big', 1920, 1080), 3);
+  a.deepEqual(Q.apply(clips, 'size', 'big', 1920, 1080), { changed: 3, skipped: 0 });
   a.deepEqual(clips.map((c) => c.props.fontSize), [59, 59, 59]);
-  a.equal(Q.apply(clips, 'pos', 'top', 1920, 1080), 3);
+  a.deepEqual(Q.apply(clips, 'pos', 'top', 1920, 1080), { changed: 3, skipped: 0 });
   a.deepEqual(clips.map((c) => c.props.y), [-410, -410, -410]);
   for (let i = 0; i < clips.length; i++) {
     const { fontSize, y, ...rest } = clips[i].props, { fontSize: f0, y: y0, ...rest0 } = before[i].props;
@@ -72,4 +72,29 @@ test('two entries, one operation: 〔字幕大小〕 beside the style menu (all 
   a.match(app, /function captionQuickTargets\(scope\) \{[\s\S]{0,400}!isClipLocked\(c\)/, 'locked captions are left alone');
   a.match(read('index.html'), /<script src="caption-quick\.js"><\/script>/);
   a.match(read('docs/demo/sync.js'), /"caption-quick\.js"/);
+});
+
+// Deja (11-03, #81): a caption whose fontSize (or y) is keyframed would not show the new value — the keys win. Such a
+// caption is skipped for that change and the toast says so; it still counts in 「选中的 / 全部 N 条」, but not in what
+// the buttons show. Per property: animated on y only, its size still changes.
+const kf = (c, k) => ({ ...c, keyframes: { [k]: [{ t: 0, v: 20 }, { t: 1, v: 60 }] } });
+test('keyframed captions: skipped for that property, left out of what the buttons show, counted in N', () => {
+  const s = Q.sizes(1920, 1080), p = Q.positions(1920, 1080);
+  const clips = [cap('a', s.mid, p.bottom), kf(cap('b', 80, -100), 'fontSize'), kf(cap('c', s.mid, p.bottom), 'y')];
+  // the animated ones do not make the buttons "mixed": a's and c's size agree (b's fontSize is keyed); a's and b's y differ
+  a.deepEqual(Q.current(clips, 1920, 1080), { size: 'mid', mixedSize: false, pos: null, mixedPos: true });
+  a.equal(Q.animated(clips[1], 'size'), true); a.equal(Q.animated(clips[1], 'pos'), false); a.equal(Q.animated(clips[2], 'pos'), true);
+  const before = JSON.parse(JSON.stringify(clips));
+  a.deepEqual(Q.apply(clips, 'size', 'big', 1920, 1080), { changed: 2, skipped: 1 });
+  a.deepEqual(clips.map((c) => c.props.fontSize), [s.big, 80, s.big], 'b keeps its size (its fontSize is keyed)');
+  a.deepEqual(Q.apply(clips, 'pos', 'top', 1920, 1080), { changed: 2, skipped: 1 });
+  a.deepEqual(clips.map((c) => c.props.y), [p.top, p.top, p.bottom], 'c keeps its y (its y is keyed)');
+  a.deepEqual(clips.map((c) => c.keyframes), before.map((c) => c.keyframes), 'keys untouched');
+  a.equal(zh('cq-animated', { n: 2 }), '有 2 条字幕设了动画，没改');
+  a.ok(en('cq-animated', { n: 2 }) && !/[一-鿿]/.test(en('cq-animated', { n: 2 })));
+  // the page: N counts them; the toast adds the sentence; nothing changed → no undo step
+  const app = read('app.js'), fn = app.slice(app.indexOf('function captionQuickApply('), app.indexOf('function captionQuickApply(') + 1800);
+  a.match(fn, /const \{ changed, skipped \} = MontClipCaptionQuick\.apply\(/);
+  a.match(fn, /"own\.cq-animated", \{ n: skipped \}/);
+  a.match(fn, /if \(!changed\) \{[^}]*toast\(/, 'nothing to change: only the sentence, no undo step');
 });
