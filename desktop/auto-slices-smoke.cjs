@@ -50,6 +50,16 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.review=rv;
   const songs=rv.cards.filter(c=>c.kind==='song');
   assert.equal(songs.length,2,'two songs');assert.ok(songs.every(c=>c.sg&&c.eg),'every song 估的 at both ends');assert.ok(rv.guessShown.length&&rv.guessShown.every(Boolean),'the 估的 hints are shown');
+  // Deja over the frozen design: below the naming gate no 第 n 首 anywhere; song cards 可能在唱歌 with a tag; 你调过 once moved
+  const naming=await read(`(()=>{const d=document.querySelector('dialog.auto-slices'),t=d.innerText+[...d.querySelectorAll('input[type=text]')].map(i=>i.value).join(' ');
+    return{noNth:!/第\\s*\\d+\\s*首/.test(t),maybe:(t.match(/可能在唱歌/g)||[]).length,tags:[...d.querySelectorAll('[data-as-tag]')].map(e=>e.textContent),
+    lyrics:[...d.querySelectorAll('.as-lyrics')].map(e=>e.textContent.replace(/\\s+/g,' ').trim()),trusted:MontClipAutoSlices.songsTrusted()};})()`);
+  report.naming=naming;assert.equal(naming.trusted,false);assert.equal(naming.noNth,true,'no 第 n 首 below the gate');assert.equal(naming.maybe,2);
+  assert.ok(naming.tags.length===2&&naming.tags.every(x=>x==='估的'||x==='比较可能'),naming.tags.join());
+  assert.ok(naming.lyrics.every(x=>x==='按歌词校准字幕 如果这段是唱歌'),naming.lyrics.join('|'));
+  const moved=await read(`(()=>{const card=document.querySelector('[data-as-card]');card.querySelector('[data-as-act=nudge][data-as-d="-1"]').click();
+    const again=document.querySelector('[data-as-card="'+card.dataset.asCard+'"]');const tag=again.querySelector('[data-as-tag]').textContent;autoUndo();return tag;})()`);
+  report.movedTag=moved;assert.equal(moved,'你调过');
   const n=rv.cards.filter(c=>c.on).length;
   assert.equal(rv.place,`放到时间线上（${n} 条）`);assert.equal(rv.exp,`直接导出这 ${n} 条`);
   await wait(300);report.notify=notes.slice();assert.equal(notes.length,1,'one notification asked');assert.equal(notes[0].found,rv.cards.length);
@@ -88,7 +98,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
     await new Promise(r=>setTimeout(r,800));const items=st.exportIds.map(id=>exportQueue.find(q=>q.id===id));
     return{items:items.map(q=>({name:q.name,status:q.status,error:q.error||null,src:!!q.src})),title:document.querySelector('.auto-slices h1').textContent,step:st.step};})()`);
   report.export=ex;
-  assert.equal(ex.items.length,1);assert.equal(ex.items[0].status,'done',JSON.stringify(ex.items[0]));assert.ok(ex.items[0].name.startsWith('01 '));
+  assert.equal(ex.items.length,1);assert.equal(ex.items[0].status,'done',JSON.stringify(ex.items[0]));assert.ok(/^01 \d+：\d\d 那段$/.test(ex.items[0].name),'named by its time: '+ex.items[0].name);
   assert.equal(ex.title,'导出好了，1 条');
   ok=true;
  }catch(e){report.error=String(e&&e.stack||e).slice(0,1500);}

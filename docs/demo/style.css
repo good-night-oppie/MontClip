@@ -4804,3 +4804,7 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .as-preview video, .as-preview audio { width: 100%; max-height: 60vh; background: #000; }
 #toast.has-action { pointer-events: auto; display: flex; align-items: center; gap: 10px; }
 .mc-auto-slices { white-space: nowrap; }
+.auto-slices .as-tag-estimated { color: #f4a261; border-color: #f4a261; }
+.auto-slices .as-tag-likely { color: #7ec249; border-color: #7ec249; }
+.auto-slices .as-tag-adjusted { color: var(--accent); border-color: var(--accent); }
+.auto-slices .as-lyrics { margin-top: 4px; }

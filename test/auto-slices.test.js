@@ -61,7 +61,7 @@ test('a song card gives why: it sings throughout, and it is louder than usual wh
 test('times: h:mm:ss over an hour, m:ss under; nudging an end keeps it inside the recording and 5 s long at least',()=>{
  a.equal(A.hms(4324),'1:12:04');a.equal(A.hms(75),'1:15');a.equal(A.hms(0),'0:00');
  const c={s:100,e:160,startGuess:true,endGuess:true};
- a.deepEqual(A.nudge(c,'s',-5,300),{...c,s:95,startGuess:false});
+ a.deepEqual(A.nudge(c,'s',-5,300),{...c,s:95,startGuess:false,moved:true});
  a.equal(A.nudge(c,'s',100,300).s,155,'at least 5 s');a.equal(A.nudge(c,'e',-100,300).e,105);
  a.equal(A.nudge(c,'s',-500,300).s,0);a.equal(A.nudge(c,'e',500,300).e,300);
 });

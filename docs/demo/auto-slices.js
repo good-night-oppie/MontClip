@@ -16,6 +16,24 @@
   const KINDS = ["auto", "sing", "chat", "game", "watch"], LENS = ["song", "hook", "short"], COUNTS = [3, 5, 8, 12];
   const DEFAULTS = Object.freeze({ kind: "auto", count: 5, checked: 3, len: "song", hookLen: 45, minLen: 5 });
   const LOUD_FULL = 24, LOUD_WEIGHT = 0.55, LOUD_MIN = 4;   // the highlight engine's loudness scale (highlight-candidates.js)
+  /* Naming a part 「第 n 首歌」 waits for songs.js to be right often enough (Deja, 2026-11-03): on the acceptance set,
+     precision@15 and recall@10 both at least 0.6. Until then a song card is 「{time} 那段」, 「可能在唱歌」. SONG_MEASURED is
+     the last measurement (real-tests/songs-golden.cjs: precision@15 on 15 recordings from 13 streamers, recall@10 on the
+     4 held-out recordings from 4 streamers); update it when a new measurement is made. */
+  const SONG_GATE = Object.freeze({ precision15: 0.6, recall10: 0.6 });
+  const SONG_MEASURED = Object.freeze({ precision15: 0.12, recall10: 0.38 });
+  const songsTrusted = (m = SONG_MEASURED) => m.precision15 >= SONG_GATE.precision15 && m.recall10 >= SONG_GATE.recall10;
+  /** The words for a card's name: {key, vars} for the page's string table. */
+  function title(c, { trusted = songsTrusted() } = {}) {
+    const time = hms(c.at);
+    return c.kind === "song" && trusted ? { key: "as-song-name", vars: { no: c.no, time } } : { key: "as-moment-name", vars: { time } };
+  }
+  /** A song card's tag: adjusted (你调过) once an end was moved, else likely (比较可能) or estimated (估的); null otherwise. */
+  function tag(c) {
+    if (c.kind !== "song") return null;
+    if (c.moved) return "adjusted";
+    return c.confidence === "likely" ? "likely" : "estimated";
+  }
   const r1 = (x) => Math.round(x * 10) / 10, r3 = (x) => Math.round(x * 1000) / 1000;
   const median = (xs) => { if (!xs.length) return null; const s = xs.slice().sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
   const valuesIn = (l, a, b) => (l && Array.isArray(l.values) ? l.values.slice(Math.max(0, Math.floor(a / l.step)), Math.max(0, Math.ceil(b / l.step))) : []);
@@ -50,7 +68,7 @@
         let [a, b] = [s.from, s.to];
         if (len !== "song") [a, b] = loudest(rec.loudness, s.from, s.to, DEFAULTS.hookLen);
         all.push({ id: rec.mediaId + "_s" + (i + 1), mediaId: rec.mediaId, kind: "song", no: i + 1, s: a, e: b, at: s.from, song: [s.from, s.to],
-          score: r3(Math.min(1, Math.max(0, above) / LOUD_FULL) * LOUD_WEIGHT), reasons, marks: s.marks || [], startGuess: true, endGuess: true });
+          score: r3(Math.min(1, Math.max(0, above) / LOUD_FULL) * LOUD_WEIGHT), reasons, marks: s.marks || [], confidence: s.confidence === "likely" ? "likely" : "estimated", startGuess: true, endGuess: true });
       });
       if (wantMoments) for (const h of rec.highlights || []) {
         const inside = songs.some((s) => Math.min(h.to, s.to) - Math.max(h.from, s.from) > (h.to - h.from) / 2);
@@ -71,8 +89,8 @@
   /** Move one end by d seconds: inside the recording, at least minLen long. A moved end is no longer a guess. */
   function nudge(c, which, d, duration) {
     const max = Number.isFinite(duration) && duration > 0 ? duration : Infinity;
-    if (which === "s") return { ...c, s: r3(Math.max(0, Math.min(c.e - DEFAULTS.minLen, c.s + d))), startGuess: false };
-    return { ...c, e: r3(Math.min(max, Math.max(c.s + DEFAULTS.minLen, c.e + d))), endGuess: false };
+    if (which === "s") return { ...c, s: r3(Math.max(0, Math.min(c.e - DEFAULTS.minLen, c.s + d))), startGuess: false, moved: true };
+    return { ...c, e: r3(Math.min(max, Math.max(c.s + DEFAULTS.minLen, c.e + d))), endGuess: false, moved: true };
   }
   /** The whole-stream overview in a 1000 × 100 box: the sound as an area (louder = higher), a box per card, ticks every
    *  half hour. */
@@ -99,5 +117,5 @@
   }
   /** File names in review order, numbered 01, 02, …; a colon cannot be in a Windows file name. */
   const numbered = (names) => names.map((n, i) => String(i + 1).padStart(2, "0") + " " + String(n).replace(/:/g, "："));
-  return { KINDS, LENS, COUNTS, DEFAULTS, build, hms, nudge, overview, totals, numbered };
+  return { KINDS, LENS, COUNTS, DEFAULTS, SONG_GATE, SONG_MEASURED, songsTrusted, title, tag, build, hms, nudge, overview, totals, numbered };
 });
