@@ -131,6 +131,19 @@
     "export-close-unsaved-n": ["{n} exported videos in the export queue aren't saved yet. After closing they won't be in the queue any more, but they still take up space on drive C.", "导出队列里还有 {n} 个没保存的视频，关掉以后它们不会再出现在队列里，但还占着 C 盘空间。"],
     "export-close-stop": ["Stop export and close", "停止导出并关闭"],
     "export-close-keep": ["Keep exporting", "继续导出"],
+    // Closing with exported videos not saved (JJ's 「预备稿 4」 and its one-video forms; English for JJ to review)
+    "export-unsaved-title-1": ["1 video isn't saved yet. Close now?", "还有 1 个视频没保存，现在关掉吗？"],
+    "export-unsaved-title-n": ["{n} videos aren't saved yet. Close now?", "还有 {n} 个视频没保存，现在关掉吗？"],
+    "export-unsaved-body-1": ["This video is exported but not yet saved where you choose. After closing it won't be in the export queue any more, but it still takes up space on drive C.", "这个视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它了，但它还占着 C 盘空间。"],
+    "export-unsaved-body-n": ["These videos are exported but not yet saved where you choose. After closing they won't be in the export queue any more, but they still take up space on drive C.", "这些视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它们了，但它们还占着 C 盘空间。"],
+    "export-unsaved-delete-1": ["Delete it and close", "删掉它并关闭"],
+    "export-unsaved-delete-n": ["Delete them and close", "删掉它们并关闭"],
+    "export-unsaved-keep": ["Close without deleting", "不删，直接关闭"],
+    "export-unsaved-save": ["Save first", "先去保存"],
+    "export-delete-failed-1": ["1 video could not be deleted. Another program may have it open.", "有 1 个视频删不掉，可能正被别的软件打开着。"],
+    "export-delete-failed-n": ["{k} videos could not be deleted. Another program may have them open.", "有 {k} 个视频删不掉，可能正被别的软件打开着。"],
+    "export-delete-retry": ["Close it and try again", "关掉它再试"],
+    "export-delete-giveup": ["Don't delete, just close", "不删了，直接关闭"],
   };
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }

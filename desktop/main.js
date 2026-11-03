@@ -169,9 +169,13 @@ async function start() {
       renderer: () => rendererFault || win.webContents.isDestroyed() ? null
         : win.webContents.executeJavaScript("typeof exportCloseState === 'function' ? exportCloseState() : null"),
     });
-    if (!state.exporting) return true;
-    const { response } = await dialog.showMessageBox(win, ExportClose.dialogOptions(languageOf(settings.get()), state.unsaved));
-    return response === ExportClose.STOP;
+    // asked here, in the close event: a copy that cannot be deleted can still keep the window open
+    return ExportClose.decideClose({ language: languageOf(settings.get()), state,
+      ask: async (options) => (await dialog.showMessageBox(win, options)).response,
+      deleteFiles: (files) => fetch(origin + "/api/export/delete-unsaved", { method: "POST",
+        headers: { "X-MontClip-Session": token, "Content-Type": "application/json" }, body: JSON.stringify({ files }) })
+        .then((r) => r.json()).catch(() => ({ deleted: [], failed: files, refused: [] })),
+      openQueue: () => win.webContents.executeJavaScript("typeof openQueue === 'function' && (openQueue(), true)").catch(() => false) });
   };
   win.on("close", (event) => {
     if (closing) return;

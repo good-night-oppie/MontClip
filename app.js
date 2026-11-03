@@ -18063,7 +18063,8 @@ const exportQueue = [];
 // Asked by the desktop close prompt (desktop/export-close.js): is an export running here, and how many exported videos in
 // the queue are not saved yet (status done and not saved; the queue lives only in this page, the copies stay in exports/).
 function exportCloseState() {
-  return { exporting: !!state.exporting, unsaved: exportQueue.filter((q) => q.status === "done" && !q.saved).length };
+  const unsaved = exportQueue.filter((q) => q.status === "done" && !q.saved);
+  return { exporting: !!state.exporting, unsaved: unsaved.length, files: unsaved.map((q) => q.file).filter(Boolean) };
 }
 let queueRunning = false, queueStop = false;
 function queueLabel(spec) {
