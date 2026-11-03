@@ -33,12 +33,17 @@ async function httpsRequest(config,payload,signal,{fetch:get=fetch,providers=PUB
  const data=JSON.parse(Buffer.concat(chunks).toString('utf8')),text=data.choices?.[0]?.message?.content;
  if(typeof text!=='string'||text.length>16000||!text.trim())throw Error('INVALID_RESPONSE');return{text};
 }
-function createService({read,write,backup,seal,unseal,providers=PUBLIC_PROVIDERS,request=(c,p,signal)=>httpsRequest(c,p,signal,{providers}),timeoutMs=60000}){
+function createService({read,write,backup,erase,seal,unseal,providers=PUBLIC_PROVIDERS,request=(c,p,signal)=>httpsRequest(c,p,signal,{providers}),timeoutMs=60000}){
  let config=null,bad=false,original;const jobs=new Map();
  try{const raw=read();original=raw;if(raw){if(raw.length>40000)throw Error();const v=JSON.parse(raw);if(!v||Object.keys(v).sort().join(',')!=='model,provider,secret,version'||v.version!==1||!Object.hasOwn(ENDPOINTS,v.provider)||typeof v.model!=='string'||!/^[a-zA-Z0-9_.:/-]{1,100}$/.test(v.model)||typeof v.secret!=='string'||!v.secret||v.secret.length>32768)throw Error();config=providers.includes(v.provider)?v:null;}}catch{bad=true;}
  return {
  get(){return{ok:!bad,configured:!!config,provider:config?.provider||'openai',model:config?.model||'',providers:[...providers],code:bad?'CONFIG_READ_FAILED':null};},
  reset(){if(!bad)return fail('RESET_NOT_REQUIRED');try{if(typeof original!=='string'||typeof backup!=='function')throw Error();backup(original);bad=false;config=null;original=undefined;return{...this.get(),code:'CONFIG_BACKED_UP'};}catch{return fail('CONFIG_BACKUP_FAILED');}},
+ // Deja 2026-11-02: removes the saved key and connection settings. A running request is cancelled first.
+ // Only once the connection file is confirmed gone does the state read "not configured"; a failure is reported as one.
+ deleteConnection(){for(const job of jobs.values())if(job.running){job.cancelled=true;job.controller.abort();}
+ try{if(typeof erase!=='function')throw Error();erase();}catch(e){if(e&&e.mainGone===true){config=null;bad=false;original=undefined;}return{ok:false,code:'CONFIG_DELETE_FAILED',configured:!!config};}
+ config=null;bad=false;original=undefined;return{...this.get(),code:'CONNECTION_DELETED'};},
  configure(v){if(bad)return fail('CONFIG_READ_FAILED');if(!v||Object.keys(v).sort().join(',')!=='apiKey,model,provider'||!Object.hasOwn(ENDPOINTS,v.provider)||!providers.includes(v.provider)||typeof v.model!=='string'||!/^[a-zA-Z0-9_.:/-]{1,100}$/.test(v.model)||typeof v.apiKey!=='string'||v.apiKey.length>4096||/[\r\n]/.test(v.apiKey))return fail('CONFIG_INVALID');
  try{const secret=v.apiKey?seal(v.apiKey):config?.provider===v.provider?config.secret:null;if(!secret)return fail('KEY_REQUIRED');const next={version:1,provider:v.provider,model:v.model,secret};write(JSON.stringify(next));config=next;return this.get();}catch{return fail('CONFIG_WRITE_FAILED');}},
  async send(payload){if(!validPayload(payload))return fail('PAYLOAD_INVALID');if(!config)return fail('UNCONFIGURED');if(jobs.has(payload.requestId))return fail('DUPLICATE');if(jobs.size>=2000)return fail('REQUEST_CAPACITY');if([...jobs.values()].some(j=>j.running))return fail('BUSY');
@@ -52,6 +57,15 @@ function createService({read,write,backup,seal,unseal,providers=PUBLIC_PROVIDERS
 }
 function createDiskService(root,safeStorage,fs=require('node:fs'),{providers=PUBLIC_PROVIDERS}={}){const path=require('node:path'),{randomUUID}=require('node:crypto');const file=path.join(root,'agent-connection-v1.json');return createService({providers,
  backup(expected){if(fs.readFileSync(file,'utf8')!==expected)throw Error('CHANGED');const dir=fs.mkdtempSync(path.join(root,'agent-connection-backup-'));fs.renameSync(file,path.join(dir,'agent-connection-v1.json'));},
+ // The connection file, then any temporary left by a write and any backup made by reset (each can hold a sealed
+ // key); nothing else in the profile is touched. Each removal is a single unlink, and the result is checked afterwards.
+ erase(){const base=path.basename(file),gone=p=>{try{fs.unlinkSync(p);}catch(e){if(e.code!=='ENOENT')throw e;}};
+ gone(file);if(fs.existsSync(file))throw Error('STILL_THERE');
+ try{for(const name of fs.readdirSync(root)){const p=path.join(root,name);
+ if(name.startsWith(base+'.')&&name.endsWith('.tmp'))gone(p);
+ else if(name.startsWith('agent-connection-backup-')){gone(path.join(p,base));fs.rmdirSync(p);}}
+ if(fs.readdirSync(root).some(name=>name.startsWith(base)||name.startsWith('agent-connection-backup-')))throw Error('STILL_THERE');}
+ catch{throw Object.assign(Error('PARTIAL'),{mainGone:true});}},
  read(){try{return fs.readFileSync(file,'utf8');}catch(e){if(e.code==='ENOENT')return null;throw e;}},
  write(raw){const tmp=file+'.'+randomUUID()+'.tmp';let owned=false;try{fs.writeFileSync(tmp,raw,{flag:'wx',mode:0o600});owned=true;fs.renameSync(tmp,file);owned=false;}finally{if(owned)try{fs.unlinkSync(tmp);}catch{}}},
  seal(key){if(!safeStorage.isEncryptionAvailable())throw Error();return safeStorage.encryptString(key).toString('base64');},unseal(secret){return safeStorage.decryptString(Buffer.from(secret,'base64'));}

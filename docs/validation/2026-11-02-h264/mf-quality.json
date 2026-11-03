@@ -1,0 +1,130 @@
+{
+ "date": "2026-11-02T06:36:59.736Z",
+ "ffmpeg": "",
+ "os": "Windows_NT 10.0.26300",
+ "cpu": "11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz",
+ "source": {
+  "seconds": 10,
+  "width": 1920,
+  "height": 1080,
+  "fps": 30
+ },
+ "regions": {
+  "whole": [
+   1920,
+   1080,
+   0,
+   0
+  ],
+  "skin": [
+   640,
+   480,
+   160,
+   300
+  ],
+  "subtitle": [
+   1920,
+   200,
+   0,
+   880
+  ]
+ },
+ "rows": [
+  {
+   "name": "sw-q65",
+   "label": "software MFT, quality 65 (old CRF 18)",
+   "extra": [
+    "-quality",
+    "65"
+   ],
+   "mft": "H264 Encoder MFT",
+   "fps": 205,
+   "mbps": 9.39,
+   "whole": {
+    "y": 44.095536,
+    "average": 44.214211
+   },
+   "skin": {
+    "y": 40.862827,
+    "average": 41.938701
+   },
+   "subtitle": {
+    "y": 42.456063,
+    "average": 43.899177
+   }
+  },
+  {
+   "name": "sw-q75",
+   "label": "software MFT, quality 75 (new CRF 18)",
+   "extra": [
+    "-quality",
+    "75"
+   ],
+   "mft": "H264 Encoder MFT",
+   "fps": 203,
+   "mbps": 13.13,
+   "whole": {
+    "y": 45.852793,
+    "average": 46.181895
+   },
+   "skin": {
+    "y": 41.198564,
+    "average": 42.24703
+   },
+   "subtitle": {
+    "y": 45.063963,
+    "average": 46.554106
+   }
+  },
+  {
+   "name": "hw-q65",
+   "label": "hardware MFT, quality 65",
+   "extra": [
+    "-hw_encoding",
+    "1",
+    "-quality",
+    "65"
+   ],
+   "mft": "NVIDIA H.264 Encoder MFT",
+   "fps": 159,
+   "mbps": 8.34,
+   "whole": {
+    "y": 44.805889,
+    "average": 44.990972
+   },
+   "skin": {
+    "y": 40.845675,
+    "average": 41.925822
+   },
+   "subtitle": {
+    "y": 42.878738,
+    "average": 44.303714
+   }
+  },
+  {
+   "name": "hw-q75",
+   "label": "hardware MFT, quality 75",
+   "extra": [
+    "-hw_encoding",
+    "1",
+    "-quality",
+    "75"
+   ],
+   "mft": "NVIDIA H.264 Encoder MFT",
+   "fps": 166,
+   "mbps": 10.9,
+   "whole": {
+    "y": 46.302333,
+    "average": 46.706911
+   },
+   "skin": {
+    "y": 41.008645,
+    "average": 42.079547
+   },
+   "subtitle": {
+    "y": 45.56298,
+    "average": 47.019556
+   }
+  }
+ ]
+}

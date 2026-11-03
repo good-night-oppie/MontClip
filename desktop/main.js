@@ -7,6 +7,8 @@ const { createStore, allowed: settingsAllowed } = require("./view-settings");
 const { nativeText, languageOf } = require("./native-text");
 const { transcribeEnabled } = require("./features");
 const { createCloseController } = require("./close-controller");
+const External = require("../external-ffmpeg");
+const fs = require("node:fs");
 let worker, win, stopping = false, closing = false, workerExited = false;
 const smoke = !app.isPackaged && process.argv.includes("--montclip-smoke");
 const faultTest = smoke && (process.argv.includes("--close-crash") ? "crash" : process.argv.includes("--close-timeout") ? "timeout" : null);
@@ -27,6 +29,17 @@ async function start() {
     MONTCLIP_SESSION_TOKEN: token, FABLECUT_DATA_DIR: path.join(app.getPath("userData"), "workspace") };
   delete env.NODE_OPTIONS;
   delete env.NODE_PATH;
+  // The server runs only the FFmpeg shipped in resources/ffmpeg once packaged
+  // (see ffmpeg-path.js); development keeps MONTCLIP_FFMPEG* or vendor/.
+  // the user's own FFmpeg (H.264 export only): chosen in Settings, stored here, read by the server
+  env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS = path.join(app.getPath("userData"), "external-ffmpeg.json");
+  delete env.MONTCLIP_FFMPEG_PACKAGED;
+  if (app.isPackaged) {
+    delete env.MONTCLIP_FFMPEG;
+    delete env.MONTCLIP_FFPROBE;
+    env.MONTCLIP_FFMPEG_PACKAGED = "1";
+    env.MONTCLIP_FFMPEG_DIR = path.join(process.resourcesPath, "ffmpeg");
+  }
   worker = utilityProcess.fork(path.join(__dirname, "..", "server.js"), [], { env, stdio: "pipe" });
   worker.once("exit", () => { workerExited = true; });
   worker.stdout?.on("data", (data) => { if (!app.isPackaged) process.stdout.write(data); });
@@ -78,6 +91,32 @@ async function start() {
   ipcMain.on("montclip:features:get", (event) => {
     event.returnValue = settingsAllowed(event, win, origin) ? { transcribe: features.transcribe } : { transcribe: false };
   });
+  const externalFile = path.join(app.getPath("userData"), "external-ffmpeg.json");
+  const externalStatus = async () => {
+    const saved = External.readSetting(externalFile);
+    if (!saved) return { ok: false, code: "none" };
+    if (saved.bad) return { ok: false, code: "extSettingBad" };
+    return External.check(saved.path);
+  };
+  const forbidden = { ok: false, code: "EXTERNAL_FFMPEG_FORBIDDEN" };
+  ipcMain.handle("montclip:ffmpeg:get", async (event) => settingsAllowed(event, win, origin) ? External.forPage(await externalStatus()) : forbidden);
+  ipcMain.handle("montclip:ffmpeg:choose", async (event) => {
+    if (!settingsAllowed(event, win, origin)) return forbidden;
+    // only a file the user picks in this dialog; nothing is searched or guessed
+    const pick = await dialog.showOpenDialog(win, { title: "FFmpeg (libx264)", properties: ["openFile"],
+      filters: process.platform === "win32" ? [{ name: "FFmpeg", extensions: ["exe"] }] : [] });
+    if (pick.canceled || !pick.filePaths[0]) return { ok: false, code: "CANCELLED" };
+    const result = await External.check(pick.filePaths[0]);
+    if (!result.ok) return External.forPage(result);
+    const temp = externalFile + "." + crypto.randomUUID() + ".tmp";
+    try { fs.writeFileSync(temp, JSON.stringify({ version: 1, path: result.path }), { flag: "wx" }); fs.renameSync(temp, externalFile); }
+    catch { try { fs.unlinkSync(temp); } catch { } return { ok: false, code: "extSaveFailed" }; }
+    return External.forPage(result);
+  });
+  ipcMain.handle("montclip:ffmpeg:clear", async (event) => {
+    if (!settingsAllowed(event, win, origin)) return forbidden;
+    try { fs.rmSync(externalFile, { force: true }); return { ok: false, code: "none" }; } catch { return { ok: false, code: "extRemoveFailed" }; }
+  });
   const paneSettings = createStore(app.getPath("userData"), {pane:true});
   for (const operation of ["get", "set"]) ipcMain.on("montclip:pane:" + operation, (event, value) => {
     event.returnValue = settingsAllowed(event, win, origin)
@@ -91,7 +130,7 @@ async function start() {
   const AgentService = require('./agent-service');
   // OpenRouter only for tests: development builds, or the main process's own launch switch (never the page)
   const agentService = AgentService.createDiskService(app.getPath('userData'),safeStorage,undefined,{providers:AgentService.testProvidersEnabled({isPackaged:app.isPackaged,argv:process.argv,env:process.env})?AgentService.ALL_PROVIDERS:AgentService.PUBLIC_PROVIDERS});
-  for(const operation of ['get','configure','reset','send','cancel']) ipcMain.handle('montclip:agent:'+operation,(event,value)=>{
+  for(const operation of ['get','configure','reset','deleteConnection','send','cancel']) ipcMain.handle('montclip:agent:'+operation,(event,value)=>{
     if(!settingsAllowed(event,win,origin))return {ok:false,code:'AGENT_FORBIDDEN'};
     return agentService[operation](value);
   });
