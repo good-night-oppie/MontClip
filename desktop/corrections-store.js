@@ -1,21 +1,20 @@
 'use strict';
 /* The streamer's corrections, on this computer (Deja, 2026-11-03; corrections.js says what a record holds). Main process
-   only: <userData>/corrections/<scope>.json and settings.json beside it. Never in the project file, never in the MCP
+   only: <userData>/corrections/default.json and settings.json beside it. Never in the project file, never in the MCP
    server's context, never sent. The page reaches them through fixed channels (desktop/main.js), with no path.
    - append(record): checked by corrections.js and kept, newest last, at most `max` (the oldest go); refused when off;
    - records(): the kept ones when on, null when off (so the search uses nothing);
    - status(): {enabled, count, byType}; undo(id): one record taken back; setEnabled(on): remembered; clear(): every
-     scope's records deleted in one go.
-   A scope is one streamer's file. MontClip has no streamer of its own yet, so the page uses one scope, "default", until a
-   way to tell streamers apart is decided; a scope is a short id or a hex digest, never a path. */
+     records deleted in one go.
+   One file per MontClip profile (Deja, 2026-11-03): a MontClip on a computer is one streamer's, so the corrections are not
+   split by folder or anything else. */
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const Corrections = require('../corrections');
-const SCOPE = /^(default|[a-f0-9]{8,64})$/;
 
-function create({ dir, scope = 'default', max = 5000 } = {}) {
+function create({ dir, max = 5000, ...rest } = {}) {
   if (!dir) throw Error('dir is required');
-  if (!SCOPE.test(scope)) throw Error('scope must be "default" or a hex digest');
-  const home = path.join(dir, 'corrections'), file = path.join(home, scope + '.json'), settings = path.join(home, 'settings.json');
+  if (Object.keys(rest).length) throw Error('one file per MontClip profile: no other option');
+  const home = path.join(dir, 'corrections'), file = path.join(home, 'default.json'), settings = path.join(home, 'settings.json');
   const readJson = (f, fallback) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return fallback; } };
   // written to a new file of its own, then put in place
   const write = (f, value) => {
@@ -55,4 +54,4 @@ function create({ dir, scope = 'default', max = 5000 } = {}) {
     },
   };
 }
-module.exports = { create, SCOPE };
+module.exports = { create };

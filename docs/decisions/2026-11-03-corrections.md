@@ -22,20 +22,21 @@ the frozen v11 (原型-v11.html 11b0ce34…, 交互说明-v11.md 6e564931…) an
 - A record holds numbers and fixed words only: the kind changed (from, to), a part added (kind), a start / end moved
   (seconds), a card taken out (kind); the recording's length; the part's length, usual level and how often it pauses.
   Anything else — a file name, a path, text, another key — is refused, not trimmed.
-- Kept by the main process under `<userData>/corrections/`, newest last, at most 5000. Five fixed channels
-  (`montclip:corrections:status|records|append|setEnabled|clear`), behind the same guard as the other settings; the page
+- Kept by the main process under `<userData>/corrections/`, newest last, at most 5000. Six fixed channels
+  (`montclip:corrections:status|records|append|undo|setEnabled|clear`), behind the same guard as the other settings; the page
   passes no path. Never in the project file; the server and the MCP server never read them.
 - **Never sent.** The AI assistant, the song-name lookup and cloud transcription do not read them (the earlier
   「a numbers-only summary when the streamer agrees」 is void). Locked by `test/corrections-private.test.js`: no code outside
-  their own files names them, and a request built as the assistant builds it holds none of their fields.
-- Each record has the store's id; undoing an edit takes its record back (`undo(id)`, a sixth channel) — an undone change
+  their own files names them, a request built as the assistant builds it holds none of their fields, and the outgoing
+  preview (the review box, its bundle, the pane) never names them.
+- Each record has the store's id; undoing an edit takes its record back (`undo(id)`) — an undone change
   is not a habit (v11). `status()` also counts each kind of change for the settings page (挪开头结尾 · 不要这条 · 改类型 ·
   补一段).
 - Off: nothing is kept and nothing is used. 〔清空〕 deletes the record files (tested: only the on/off switch is left).
   `status()` says how many.
-- One streamer's file: MontClip has no streamer identity and the page does not know where a recording came from, so for
-  now there is one scope, `default`, per MontClip profile; the store takes a scope (a short id or a hex digest, never a
-  path) for when streamers can be told apart. **Deja to decide.**
+- **One file per MontClip profile** (Deja, 2026-11-03): a MontClip on a computer is one streamer's, so the corrections are
+  `<userData>/corrections/default.json`, not split by folder, recording or anything else. The store takes no scope (a
+  scope option is refused, tested). Two streamers sharing one computer would use two MontClip profiles.
 
 ## The rules (fixed, no model)
 
@@ -60,7 +61,7 @@ Constants: `MAX_SHIFT` 5 s, `HABIT_WINDOW` 5, `HABIT_MIN` 4, `BAR_BASE` 0.12 (so
 the app kept) turns them on. They come from the same streamer as the golden recordings, so using them by default would
 leak the answers into hit_rate. `real-tests/corrections-loso.cjs` is the leave-one-streamer-out check below.
 
-## STATUS (2026-11-03, local golden set, numbers only)
+## STATUS (2026-11-03, local golden set, numbers only; re-run on 3e19498 (corrections.js as it is now) with the corrected spec: ±5 s, 4 of the last 5, both directions)
 
 There are no real corrections yet. `real-tests/corrections-loso.cjs` leaves one streamer out at a time (13 streamers: the
 recordings sharing a video id) and simulates corrections from every other streamer's recordings — a found song near a
@@ -79,7 +80,10 @@ scores the left-out streamer with corrections off and on:
   15 s of its start to stand for the streamer's card — nothing to score yet. The script prints the line, so it measures
   once there is data.
 - The end error cannot be scored: the golden labels have an end for 4 of 226 parts, none of them matched.
-- The start shift (about −4 s in every fold) helps: starts a second closer, recall a little up.
+- The start shift (about −4 s in every fold) helps: starts a second closer, recall a little up (0.65 → 0.67).
+- **The ±5 s cap does not cost recall.** The mean shift a habit asks for is −4 s in 11 folds and −4.4 / −4.62 s in the
+  other two, so the cap never bites on this data: the shift alone keeps all 482 found songs and lifts recall. The drop
+  with both rules on (0.65 → 0.55) is the bar's, not the cap's (the bar alone: 0.48).
 - The bar went to its floor (0.06) in every fold: most simulated corrections are 「不是唱歌」 (precision is 0.12), so the
   habit always forms; it buys a little precision for a large loss of recall. **For Deja: keep the bar as specified, narrow
   its range, or leave it off until real corrections exist.**
