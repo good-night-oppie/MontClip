@@ -335,3 +335,12 @@ test("the cleanup log and stderr show no user name: paths are masked", () => {
   a.match(fn, /X\.maskUserPath\(p\)/, "each path is masked before it is written or printed");
   a.ok(!/not removed: \$\{p\}/.test(fn));
 });
+
+// JJ (2026-11-03, review of #66): "not yet saved where you choose" reads oddly; "saved to a place you chose".
+test("the unsaved-export sentence says 'saved to a place you chose'", () => {
+  const View = require("../ui-preferences");
+  for (const k of ["own.export-unsaved-body-1", "own.export-unsaved-body-n"]) {
+    a.match(View.text.en[k], /not yet saved to a place you chose\./, k);
+    a.ok(!/where you choose/.test(View.text.en[k]), k);
+  }
+});
