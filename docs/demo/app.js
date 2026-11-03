@@ -4859,7 +4859,9 @@ function playRange() {
    Mode comes from the Export dialog (Entire timeline / IN–OUT). */
 /** An agent's export job picks its range instead of the dialog. */
 let exportRangeForced = null;
+/** "entire", "in-out", or "range" while the queue renders a slice (exportRangeForced = {start, end}, timeline seconds). */
 function exportRangeMode() {
+  if (exportRangeForced && typeof exportRangeForced === "object") return "range";
   const sel = $("exportRangeSel");
   const v = exportRangeForced || (sel && sel.value === "in-out" ? "in-out" : "entire");
   if (v === "in-out" && !hasWorkArea()) return "entire";
@@ -4870,7 +4872,10 @@ function exportRange(fpsOverride) {
   const fps = fpsOverride || projectFps();
   const span = Math.max(projDur(), 0);
   let start = 0, end = span;
-  if (exportRangeMode() === "in-out") {
+  if (exportRangeMode() === "range") {
+    start = Math.min(Math.max(0, exportRangeForced.start), span);
+    end = Math.min(Math.max(start, exportRangeForced.end), span);
+  } else if (exportRangeMode() === "in-out") {
     const r = playRange();
     start = Math.min(Math.max(0, r.start), span);
     end = Math.min(Math.max(0, r.end), span);
@@ -9798,6 +9803,8 @@ async function showHighlightCandidates() {
   if (!dialog.isConnected) return;
   if (!sig || !current()) { status.textContent = uiText("own.hl-changed"); return; }
   const cards = MontClipHighlights.candidates(sig);
+  // the assistant may be told these (numbers only) while the timeline stays as it was when they were found
+  runtime.highlightFacts = { signature, cards: cards.map((c) => ({ from: c.from, to: c.to, score: c.score })) };
   if (!cards.length) { status.textContent = uiText("own.hl-empty-" + MontClipHighlights.emptyReason(sig)); return; }
   status.textContent = uiText("own.hl-found", { n: cards.length });
   back.textContent = uiText("own.hl-back", { n: cards.length });
@@ -9823,7 +9830,8 @@ async function showHighlightCandidates() {
   });
 }
 /** SRT sentence selection: preview a read-only plan, apply on a clone as one undo step. */
-async function showSentenceSelection(suggestion = null, onApplied = null) {
+async function showSentenceSelection(suggestion = null, onApplied = null, onCancelled = null) {
+  let applied = false;
   const busy=()=>state.exporting||state.gesture||state.compCtx||runtime.activeImports||runtime.activeTranscriptions||runtime.desktopExportPending||runtime.saveRequests||runtime.saveTimer||runtime.saveFailed||(typeof closeSaveTransaction!=='undefined'&&closeSaveTransaction);
   const proposalContext=()=>({...agentProjectContext(),generation:agentProjectContext().gen});
   if (state.exporting || state.gesture || state.compCtx || suggestion&&busy()) { toast(uiText(suggestion&&busy()?"own.sd-busy-save":"own.sd-busy")); return; }
@@ -9831,20 +9839,25 @@ async function showSentenceSelection(suggestion = null, onApplied = null) {
   else if (!(await flushSaveBeforeSwitch())) return;
   const doc = projectJSON(), signature = JSON.stringify(doc), projectId = runtime.projectId, projectGen=runtime.projectGen, sequenceId=SeqLib.activeId(seqRoot());
   const captions = doc.clips.filter((c) => FableCutCaptions.isCaption(c) && !c.disabled && !(doc.disabledTracks || []).includes(c.track)).sort((a, b) => a.start - b.start);
-  if (!captions.length) { toast(uiText("own.sd-no-captions")); return; }
+  // #71: an assistant's keep_ranges proposal (by time; one file, or one clip per range) opens this same dialog
+  const byTime = suggestion?.type === "keep_ranges", slices = byTime && suggestion.outputMode === "per_range";
+  const sliceNames = slices ? MontClipProposal.sliceNames(suggestion.labels, project.name, Delivery.fileSafeName) : null;
+  if (!captions.length && !byTime) { toast(uiText("own.sd-no-captions")); return; }
   pause();
   const dialog = document.createElement("dialog");
   dialog.className = "sentence-dialog";
-  // one language at a time (own.sd-*); a planner error is said by its code (own.rp-*)
-  const say = (key) => escapeHtml(uiText(key));
-  dialog.innerHTML = `<form method="dialog"><h3>${say("own.sd-title")}</h3>
-    <p>${say("own.sd-intro")}</p>
-    <label>${say("own.sd-ranges")}
+  // one language at a time (own.sd-*, and own.ssel-* for the by-time wording, JJ's review of #71); a planner error is
+  // said by its code (own.rp-*)
+  const say = (key, vars) => escapeHtml(uiText(key, vars));
+  dialog.innerHTML = `<form method="dialog"><h3>${say(byTime ? (slices ? "own.ssel-title-slices" : "own.ssel-title-ranges") : "own.sd-title")}</h3>
+    <p>${byTime ? (slices ? say("own.ssel-intro-slices", { n: suggestion.keep.length }) : say("own.ssel-intro-ranges")) : say("own.sd-intro")}</p>
+    <label>${say(byTime ? "own.ssel-label-time" : "own.sd-ranges")}
     <textarea data-ranges rows="2" placeholder="9,12&#10;1,4"></textarea></label>
     <div data-sentences></div><p data-summary role="status"></p>
     <div class="tr-row"><button type="button" class="btn" data-preview>${say("own.sd-preview")}</button>
     <button type="button" class="btn primary" data-apply>${say("own.sd-apply")}</button>
     <button class="btn" value="cancel">${say("own.sd-cancel")}</button></div></form>`;
+  // both dialogs say a refusal with #36's final words (JJ, 8 PRs: one set of words for this dialog)
   const ownError = (error) => (error && error.code && uiText("own.rp-" + error.code)) || error.message;
   const list = dialog.querySelector("[data-sentences]"), summary = dialog.querySelector("[data-summary]");
   if(suggestion){dialog.querySelector('[data-ranges]').value=suggestion.keep.map(r=>r.from+','+r.to).join('\n');dialog.querySelector('[data-ranges]').readOnly=true;list.hidden=true;}
@@ -9868,8 +9881,14 @@ async function showSentenceSelection(suggestion = null, onApplied = null) {
       }) : [...selected].map(id => captions.find(c => c.id === id)).map(c => ({ from: c.start, to: c.start+c.duration }));
       plan = FableCutRangePlan.create(doc, keep); plan.keep = keep;
       const cut = plan.captions.filter((c) => c.status === "visible" && c.truncated).length;
-      summary.textContent = uiText("own.sd-summary", { ranges: keep.map((r) => `${fmt(r.from)}–${fmt(r.to)}`).join(" → "), duration: MontClipView.durationText(plan.duration) }) +
-        (cut ? " " + uiText(cut === 1 ? "own.sd-partial" : "own.sd-partial-many", { n: cut }) : "");
+      const clock = MontClipHighlights.clock;
+      summary.textContent = slices
+        ? keep.map((r, i) => uiText("own.ssel-sum-slice", { name: sliceNames[i], from: clock(r.from), to: clock(r.to), len: MontClipHighlights.seconds(r.to - r.from) })).join(uiText("own.ssel-sum-slice-sep"))
+        : byTime
+          ? uiText("own.ssel-sum-ranges", { ranges: keep.map((r) => `${clock(r.from)}–${clock(r.to)}`).join(" → "), duration: clock(Math.round(plan.duration)) })
+            + (cut ? " " + uiText(cut === 1 ? "own.ssel-sum-cut-one" : "own.ssel-sum-cut", { cut }) : "")
+          : uiText("own.sd-summary", { ranges: keep.map((r) => `${fmt(r.from)}–${fmt(r.to)}`).join(" → "), duration: MontClipView.durationText(plan.duration) }) +
+            (cut ? " " + uiText(cut === 1 ? "own.sd-partial" : "own.sd-partial-many", { n: cut }) : "");
     } catch (error) { plan = null; summary.textContent = ownError(error); }
     dialog.querySelector("[data-apply]").disabled = !plan;
     dialog.querySelector("[data-preview]").disabled = !plan;
@@ -9910,11 +9929,13 @@ async function showSentenceSelection(suggestion = null, onApplied = null) {
       const snap = JSON.stringify({ ...JSON.parse(undoSnapshot()), ...(applyToken ? {agentApplyId:applyToken} : {}), rangeState: {
         inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
       } });
-      applyProject(next); pushUndo(snap); if(onApplied)onApplied(applyToken); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
-      dialog.close(); toast(uiText("own.sd-done"));
+      applyProject(next); pushUndo(snap); applied = true; if(onApplied)onApplied(applyToken); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
+      dialog.close();
+      if (slices) { queueSlices(plan.segments, sliceNames); toast(uiText("own.ssel-done-slices", { n: plan.segments.length })); }
+      else toast(uiText(byTime ? "own.ssel-done-ranges" : "own.sd-done"));
     } catch (error) { summary.textContent = ownError(error); }
   });
-  dialog.addEventListener("close", () => { stopPreview(); dialog.remove(); });
+  dialog.addEventListener("close", () => { stopPreview(); dialog.remove(); if (!applied && onCancelled) onCancelled(); });
   document.body.append(dialog); refresh(); dialog.showModal();
 }
 function downloadSourceMap() {
@@ -18209,6 +18230,20 @@ function queueAdd(spec, name) {
   });
   renderQueue();
 }
+/** Slices from an applied keep_ranges per_range proposal: one queue item per range, each its own file. An item
+ *  remembers the timeline it was made from and refuses to render once the timeline is different (Undo, an edit). */
+function queueSlices(segments, names) {
+  const choice = exportChoice();
+  const spec = normalizeDelivery(choice.kind === "delivery" ? choice.spec : Delivery.DEFAULT_PRESET).spec;
+  const guard = JSON.stringify(project.clips);
+  segments.forEach((s, i) => exportQueue.push({
+    id: "q" + Math.random().toString(36).slice(2, 8), label: queueLabel(spec), spec, name: names[i],
+    range: { start: s.output.start, end: s.output.end }, guard, status: "pending", progress: 0,
+  }));
+  renderQueue();
+  openQueue();
+}
+const queueRangeKey = (r) => (r && typeof r === "object" ? r.start + "-" + r.end : String(r));
 function openQueue() {
   renderQueue();
   $("exportQueue").classList.remove("hidden");
@@ -18249,7 +18284,7 @@ function renderQueue() {
       q.status !== "running" ? `<button type="button" class="btn tiny" data-q-remove="${q.id}" title="Remove from the queue">✕</button>` : "",
     ].join("");
     return `<li class="${q.status}" data-q="${q.id}"><div class="xq-main"><b>${escapeHtml(q.label)} — ${escapeHtml(q.name + ext)}</b>` +
-      `<span class="xq-sub">${escapeHtml(Delivery.describe(q.spec, { width: fr.outW, height: fr.outH, fps }))} · ${q.range === "in-out" ? "IN–OUT" : "entire timeline"}</span>` +
+      `<span class="xq-sub">${escapeHtml(Delivery.describe(q.spec, { width: fr.outW, height: fr.outH, fps }))} · ${q.range && typeof q.range === "object" ? `${fmt(q.range.start)}–${fmt(q.range.end)}` : q.range === "in-out" ? "IN–OUT" : "entire timeline"}</span>` +
       (q.status === "running" ? `<div class="progress"><div class="progress-fill" style="width:${(q.progress * 100).toFixed(1)}%"></div></div>` : "") +
       `<span class="xq-status">${escapeHtml(status)}</span>` +
       (q.report ? `<span class="xq-report${q.report.ok ? "" : " warn"}">${q.report.ok ? "✓ " : ""}${escapeHtml(q.report.line)}</span>` : "") +
@@ -18276,10 +18311,15 @@ async function runQueue() {
       const first = exportQueue.find((q) => q.status === "pending");
       if (!first) break;
       const fps = first.spec.fps || projectFps();
-      const group = exportQueue.filter((q) => q.status === "pending" && (q.spec.fps || projectFps()) === fps && q.range === first.range).slice(0, 8);
+      const clips = JSON.stringify(project.clips);
+      if (first.guard && first.guard !== clips) {
+        Object.assign(first, { status: "failed", error: uiText("own.ssel-queue-changed") });
+        renderQueue(); continue;
+      }
+      const group = exportQueue.filter((q) => q.status === "pending" && (q.spec.fps || projectFps()) === fps && queueRangeKey(q.range) === queueRangeKey(first.range) && (q.guard || null) === (first.guard || null)).slice(0, 8);
       for (const q of group) { q.status = "running"; q.progress = 0; q.error = null; }
       renderQueue();
-      exportRangeForced = first.range === "in-out" && hasWorkArea() ? "in-out" : "entire";
+      exportRangeForced = first.range && typeof first.range === "object" ? first.range : first.range === "in-out" && hasWorkArea() ? "in-out" : "entire";
       let res;
       try {
         res = await fastExport({
@@ -21213,6 +21253,12 @@ function agentProjectContext(){
  return {projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen??0,revision:project.revision};
 }
 const officialProposalApplications=new WeakMap();
+/* Editor events for the assistant's proposals (owner, 2026-11-03; the event log is the next PR): one event per reviewed
+   proposal, moved to applied (with the revision the save wrote), rejected (the review closed without applying) or undone
+   (the card's undo). In memory for now, the newest 200. */
+const agentEvents=[],agentRuns=new WeakMap();runtime.agentEvents=agentEvents;
+function recordAgentEvent(e){const i=agentEvents.findIndex(x=>x.id===e.id);if(i>=0)agentEvents[i]=e;else{agentEvents.push(e);if(agentEvents.length>200)agentEvents.shift();}return e;}
+function moveAgentEvent(id,to,extra={}){const e=agentEvents.find(x=>x.id===id);if(!e)return null;try{return recordAgentEvent(MontClipProposal.transition(e,to,{at:new Date().toISOString(),...extra}));}catch{return null;}}
 function canUndoOfficialProposal(result){
  const entry=result&&officialProposalApplications.get(result),c=agentProjectContext();
  if(!entry||entry.projectId!==c.projectId||entry.sequenceId!==c.sequenceId||entry.gen!==c.gen)return false;
@@ -21229,12 +21275,21 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  onHide:()=>{setSideTab("inspector");document.getElementById("mcAssistant").focus();},
  getProjectName:id=>id===runtime.projectId?project.name:null,
  canUndoProposal:canUndoOfficialProposal,
- onUndo:result=>{if(canUndoOfficialProposal(result))undo();},
+ getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[]});},
+ onUndo:result=>{if(canUndoOfficialProposal(result)){const entry=officialProposalApplications.get(result);undo();if(entry?.eventId)moveAgentEvent(entry.eventId,'undone');}},
  onProposal:(response,result)=>{
    const c=agentProjectContext();
    if(JSON.stringify(result.context)!==JSON.stringify(c))throw Error('STALE');
-   const proposal=MontClipProposal.prepare(response,{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});
-   showSentenceSelection(proposal,token=>officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen}));
+   if(!agentRuns.has(result))agentRuns.set(result,crypto.randomUUID());
+   const meta={id:crypto.randomUUID(),runId:agentRuns.get(result),step:1,actor:'ai',at:new Date().toISOString(),revision:project.revision};
+   let proposal;
+   try{proposal=MontClipProposal.prepare(response,{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});}
+   catch(error){recordAgentEvent(MontClipProposal.failedEvent(error,{...meta,capability:response&&response.type}));throw error;}
+   const ev=recordAgentEvent(MontClipProposal.event(proposal,meta));
+   showSentenceSelection(proposal,token=>{officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev.id});
+     // applied with the revision its save writes (the save is flushed right after the edit)
+     Promise.resolve().then(()=>flushSave()).then(ok=>{if(ok)moveAgentEvent(ev.id,'applied',{revision:project.revision});});},
+    ()=>moveAgentEvent(ev.id,'rejected'));
  },
  getReferences:kind=>MontClipAgentPane.referenceChips(kind,{...agentProjectContext(),
  start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(FableCutCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
