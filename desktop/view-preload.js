@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('montclipViewSettings',Object.freeze({
  get:()=>ipcRenderer.sendSync('montclip:view:get'),
  set:value=>ipcRenderer.sendSync('montclip:view:set',value)
 }));
+// Feature switches the main process decides (desktop/features.js), read once; the page cannot set them.
+contextBridge.exposeInMainWorld('montclipFeatures',Object.freeze({transcribe:!!(ipcRenderer.sendSync('montclip:features:get')||{}).transcribe}));
 // The user's own FFmpeg for H.264 export (libx264). The page can only ask the main
 // process to show its file dialog, read the status or forget the choice; no path is sent.
 contextBridge.exposeInMainWorld('montclipExternalFfmpeg',Object.freeze({

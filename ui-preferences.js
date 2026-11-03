@@ -115,6 +115,34 @@
     "encoding-pct": ["Encoding… {pct}%", "正在编码… {pct}%"],
     "mixing-audio": ["Mixing audio…", "正在混音…"],
     "finishing": ["Finishing…", "正在收尾…"],
+    // narrow windows: tools that do not fit a bar (JJ to review)
+    "more": ["More", "更多"],
+    // batch 2: the Transcript panel and the top bar status (JJ to review). Chinese transcripts
+    // carry sentence times only, so the Chinese never counts or cuts words.
+    "transcribe": ["Transcribe", "听写"],
+    "transcribe-selected": ["Transcribe selected ({n})", "听写所选（{n}）"],
+    "transcribe-file": ["Transcribe {n} file", "听写 {n} 个文件"],
+    "transcribe-files": ["Transcribe {n} files", "听写 {n} 个文件"],
+    "found": ["{n} found", "找到 {n} 处"],
+    "cut-all": ["Cut all out", "全部剪掉"],
+    "cut-n": ["Cut out {n}", "剪掉 {n} 处"],
+    "copy": ["Copy", "复制"],
+    "select-sentences": ["Select sentences", "按句选段"],
+    "mapping": ["Mapping", "时间映射"],
+    "caption-last": ["Add captions last: once the edit changes, captions already added don't follow it, so add them again.", "字幕最后再加：剪辑改了以后，已经加好的字幕不会跟着对齐，要重新加一次。"],
+    "tr-empty": ["Import an SRT subtitle file and the transcript will show here. Chinese transcription on this computer is still being developed.", "先导入 SRT 字幕文件，文稿就会显示在这里。本机中文听写还在开发中。"],
+    "tr-missing": ["No transcript yet: {names}", "还没有文稿：{names}"],
+    "tr-more": [" +{n} more", " 等 {n} 个"],
+    "loading": ["Loading…", "加载中…"],
+    "tr-no-words": ["No words in these clips.", "这些片段里没有听写出文字。"],
+    "tr-module-missing": ["The transcript feature didn't load. Close MontClip and open it again.", "文稿功能没加载出来。请关掉 MontClip 再重新打开。"],
+    "tr-downloading-model": ["Downloading the speech model (once)… {pct}%", "正在下载语音模型（只需一次）… {pct}%"],
+    "tr-transcribing": ["Transcribing {name}… {pct}%", "正在听写 {name}… {pct}%"],
+    "tr-transcribing-of": ["Transcribing {name} ({i} of {n})… {pct}%", "正在听写 {name}（第 {i} 个，共 {n} 个）… {pct}%"],
+    "tr-selection": ["{n} words · {s} s · “{text}”", "已选 {s} 秒 · “{text}”"],
+    "tr-selection-one": ["1 word · {s} s · “{text}”", "已选 {s} 秒 · “{text}”"],
+    "connected": ["Ready", "就绪"],
+    "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],
     "tl-above-captions": ["Captions above", "字幕轨在上方"],
     // P2 highlight cards (for JJ to review)
     "hl-open": ["Highlight candidates", "高光候选"],
@@ -139,6 +167,99 @@
     "hl-r-loudness-peak-detail": ["The loudest moment is {peak} dB above the usual level", "最响处比平时高 {peak} 分贝"],
     "hl-r-danmaku": ["{count} danmaku, {ratio}× the usual rate", "弹幕 {count} 条，是平时的 {ratio} 倍"],
     "hl-r-speech": ["Talking faster than usual (about {ratio}×)", "说话比平时快（约 {ratio} 倍）"],
+    // Closing during an export (desktop/export-close.js; JJ's final copy 「追加 3」, one video per 「预备稿 4 补充」; English for JJ to review)
+    "export-close-title": ["Still exporting. Close now?", "还在导出，现在关掉吗？"],
+    "export-close-body": ["Closing MontClip stops the export. The half-finished video won't be kept; next time you'll need to export it again from the start.", "关掉 MontClip 会停止导出。导到一半的视频不会留下，下次要从头再导。"],
+    "export-close-unsaved-1": ["1 exported video in the export queue isn't saved yet. After closing it won't be in the queue any more, but it still takes up space on drive C.", "导出队列里还有 1 个没保存的视频，关掉以后它不会再出现在队列里，但还占着 C 盘空间。"],
+    "export-close-unsaved-n": ["{n} exported videos in the export queue aren't saved yet. After closing they won't be in the queue any more, but they still take up space on drive C.", "导出队列里还有 {n} 个没保存的视频，关掉以后它们不会再出现在队列里，但还占着 C 盘空间。"],
+    "export-close-stop": ["Stop export and close", "停止导出并关闭"],
+    "export-close-keep": ["Keep exporting", "继续导出"],
+    // Closing with exported videos not saved (JJ's 「预备稿 4」 and its one-video forms; English for JJ to review)
+    "export-unsaved-title-1": ["1 video isn't saved yet. Close now?", "还有 1 个视频没保存，现在关掉吗？"],
+    "export-unsaved-title-n": ["{n} videos aren't saved yet. Close now?", "还有 {n} 个视频没保存，现在关掉吗？"],
+    "export-unsaved-body-1": ["This video is exported but not yet saved where you choose. After closing it won't be in the export queue any more, but it still takes up space on drive C.", "这个视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它了，但它还占着 C 盘空间。"],
+    "export-unsaved-body-n": ["These videos are exported but not yet saved where you choose. After closing they won't be in the export queue any more, but they still take up space on drive C.", "这些视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它们了，但它们还占着 C 盘空间。"],
+    "export-unsaved-delete-1": ["Delete it and close", "删掉它并关闭"],
+    "export-unsaved-delete-n": ["Delete them and close", "删掉它们并关闭"],
+    "export-unsaved-keep": ["Close without deleting", "不删，直接关闭"],
+    "export-unsaved-save": ["Save first", "先去保存"],
+    "export-delete-failed-1": ["1 video could not be deleted. Another program may have it open.", "有 1 个视频删不掉，可能正被别的软件打开着。"],
+    "export-delete-failed-n": ["{k} videos could not be deleted. Another program may have them open.", "有 {k} 个视频删不掉，可能正被别的软件打开着。"],
+    "export-delete-retry": ["Try again", "再试一次"],
+    "export-delete-hint-1": ["Close the program that has it open (such as a player), then click Try again.", "先关掉正在用它的软件（比如播放器），再点「再试一次」。"],
+    "export-delete-hint-n": ["Close the programs that have them open (such as a player), then click Try again.", "先关掉正在用它们的软件（比如播放器），再点「再试一次」。"],
+    "export-delete-giveup": ["Don't delete, just close", "不删了，直接关闭"],
+    // Chinese batch 3: JJ's final copy v2 (2026-11-03), P0 rows. The English is what the page said before.
+    "pj-new": ["+ New project", "+ 新建项目"],
+    "pj-open": ["Open", "打开"],
+    "pj-currently-open": ["Currently open", "当前已打开"],
+    "pj-open-now": ["open now", "当前已打开"],
+    "pj-canvas": ["Canvas", "画面"],
+    "pj-length": ["Length", "时长"],
+    "pj-length-value": ["{dur} · {clips} clips · {media} media", "{dur} · {clips} 个片段 · {media} 个素材"],
+    "pj-length-value-1": ["{dur} · {clips} clip · {media} media", "{dur} · {clips} 个片段 · {media} 个素材"],
+    "pj-modified": ["Modified", "修改时间"],
+    "pj-opened": ["Opened", "打开时间"],
+    "pj-created": ["Created", "创建时间"],
+    "pj-notes": ["Notes", "备注"],
+    "pj-tags": ["Tags", "标签"],
+    "pj-duplicate": ["Duplicate", "复制一份"],
+    "pj-save-template": ["Save as template", "存成模板"],
+    "pj-archive": ["Archive", "归档"],
+    "pj-versions": ["Versions…", "历史版本…"],
+    "pj-download-backup": ["Download backup", "下载备份"],
+    "pj-when-opened": ["Opened {when}", "{when}打开过"],
+    "pj-when-modified": ["Modified {when}", "{when}修改过"],
+    "pj-when-created": ["Created {when}", "{when}创建"],
+    "ago-now": ["just now", "刚刚"],
+    "ago-min": ["{n} min ago", "{n} 分钟前"],
+    "ago-hour": ["{n} h ago", "{n} 小时前"],
+    "ago-yesterday": ["yesterday", "昨天"],
+    "settings-link-hint": ["Selecting a timeline clip highlights its media in Project, and the reverse. Off by default.", "选中时间线上的片段时，素材区里对应的素材也会高亮，反过来也一样。默认关闭。"],
+    "clip-disable": ["Disable clip", "停用片段"],
+    "clip-lock": ["Lock clip", "锁定片段"],
+    "clip-parent-null": ["Parent to a new null", "绑定到新的空对象"],
+    "meter-rms": ["RMS", "音量"],
+    "media-kind-video": ["video", "视频"],
+    "fps-value": ["{n} fps", "{n} 帧/秒"],
+    "export-range-full": ["Full timeline · {from} → {to}", "整条时间线 · {from} → {to}"],
+    "engine-fast-note": ["Frame-accurate. Server encodes from JPEG frames. Keeps going if you switch tabs.", "逐帧准确。由本机程序一帧帧编码，切到别的页面也会继续导出。"],
+    "engine-webcodecs": ["WebCodecs (HW encode)", "显卡加速编码"],
+    // 「快速（ffmpeg）」 is the Fast radio's own Chinese label (term.fast-ffmpeg)
+    "engine-webcodecs-note": ["Frame-accurate. Browser HW-encodes H.264; server muxes with audio. Faster upload than Fast.", "逐帧准确。用显卡编码，比「快速（ffmpeg）」那一项更快。"],
+    // delivery.js keeps the English note for agents; the dialog shows this one
+    "dlv-note-master": ["Project size · H.264 CRF 16 · AAC 320k", "和项目一样大 · 高画质（H.264 CRF 16 · AAC 320k）"],
+    "dlv-resolution": ["Resolution", "分辨率"],
+    "dlv-frame-rate": ["Frame rate", "帧率"],
+    "dlv-codec": ["Codec", "视频编码"],
+    "dlv-encoder": ["Encoder", "编码器"],
+    "dlv-rate-control": ["Rate control", "码率控制"],
+    "dlv-maxrate": ["Max rate (Mb/s)", "最高码率 (Mb/s)"],
+    "dlv-keyint": ["Keyframe every (s)", "关键帧间隔（秒）"],
+    "dlv-speed": ["Encoder speed", "编码速度"],
+    "dlv-pixfmt": ["Pixel format", "像素格式"],
+    "dlv-container": ["Container", "文件格式"],
+    "dlv-abitrate": ["Bitrate (kb/s)", "码率 (kb/s)"],
+    "dlv-sample-rate": ["Sample rate", "采样率"],
+    "dlv-channels": ["Channels", "声道"],
+    "dlv-loudness": ["Loudness", "响度"],
+    "dlv-file-name": ["File name", "文件名"],
+    "dlv-file-preview": ["→ exports/{file}", "文件名：{file}（导出后会让你选保存位置）"],
+    "dlv-tokens": ["Tokens: {tokens}", "可用的占位符：{tokens}"],
+    "dlv-meta-title": ["Title", "标题"],
+    "dlv-meta-artist": ["Artist / author", "作者"],
+    "dlv-meta-copyright": ["Copyright", "版权"],
+    "dlv-meta-date": ["Date", "日期"],
+    "dlv-meta-description": ["Description", "简介"],
+    "dlv-meta-keywords": ["Keywords", "关键词"],
+    "dlv-batch-outputs": ["Batch outputs", "一次导出多个版本"],
+    "dlv-batch-add": ["+ Add these settings", "+ 加上这套设置"],
+    "dlv-batch-typical": ["+ Typical set", "+ 常用组合"],
+    "dlv-batch-hint": ["One render, several files: every checked output is encoded from the same frames. Saved with the project.", "渲染一次，导出多个文件：勾上的版本都用同一份画面。会跟项目一起保存。"],
+    "dlv-batch-empty": ["No batch outputs yet — add the settings above, or a typical set", "还没有要一起导出的版本：把上面的设置加进来，或者选「常用组合」。"],
+    "export-checked": ["Export checked", "导出勾选的版本"],
+    "export-checked-n": ["Export checked ({n})", "导出勾选的版本（{n}）"],
+    "export-failed-prefix": ["Export failed: ", "导出失败："],
   };
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
@@ -146,6 +267,28 @@
   function t(language, key, vars) {
     const s = (text[language] && text[language][key]) ?? text.en[key] ?? "";
     return vars ? s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : s;
+  }
+  /** How long ago `then` was, seen from `now` (default: now), in the interface language:
+      刚刚 / {n} 分钟前 / {n} 小时前 / 昨天 / {月}-{日} (with the year when it is another year).
+      A time in the future reads as its date; an unreadable one as "". */
+  function ago(language, then, now) {
+    const a = new Date(then), b = now == null ? new Date() : new Date(now);
+    if (isNaN(a) || isNaN(b)) return "";
+    const s = (b - a) / 1000, say = (key, vars) => t(language, "own." + key, vars);
+    if (s >= 0 && s < 60) return say("ago-now");
+    if (s >= 60 && s < 3600) return say("ago-min", { n: Math.floor(s / 60) });
+    if (s >= 3600 && s < 86400) return say("ago-hour", { n: Math.floor(s / 3600) });
+    const y = new Date(b.getFullYear(), b.getMonth(), b.getDate() - 1);
+    if (s >= 86400 && a.getFullYear() === y.getFullYear() && a.getMonth() === y.getMonth() && a.getDate() === y.getDate()) return say("ago-yesterday");
+    const same = a.getFullYear() === b.getFullYear(), p = (n) => String(n).padStart(2, "0");
+    if (lang(language) === "zh-CN") return (same ? "" : a.getFullYear() + "-") + p(a.getMonth() + 1) + "-" + p(a.getDate());
+    return a.toLocaleDateString("en-US", same ? { month: "short", day: "numeric" } : { year: "numeric", month: "short", day: "numeric" });
+  }
+  /** ago() for the 「{when}打开过 / 修改过 / 创建」 sentences: in Chinese a date is followed by a space (「11-02 打开过」),
+   *  while 刚刚, 昨天 and 「3 分钟前」 run straight on (JJ, 2026-11-03). English is unchanged. */
+  function when(language, then, now) {
+    const s = ago(language, then, now);
+    return lang(language) === "zh-CN" && /\d$/.test(s) ? s + " " : s;
   }
   /** Rewrite only elements that carry data-i18n markers; nothing else on the page. */
   const MARKS = [["[data-i18n]", "i18n", null], ["[data-i18n-title]", "i18nTitle", "title"],
@@ -255,5 +398,5 @@
    *  English word (export, captions…) in English. */
   const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
-  return { create, desktopStorage, text, formatBody, KEY, t, applyI18n, flvImportMessage, h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback };
+  return { create, desktopStorage, text, formatBody, KEY, t, ago, when, applyI18n, flvImportMessage, h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback };
 });
