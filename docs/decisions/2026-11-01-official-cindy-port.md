@@ -66,30 +66,30 @@ Confirmation is centered/themed, lists counts and actual readable content (inclu
 
 Known remaining UI work: at630x452 the compact message viewport is about29px; long replies require scrolling within that viewport, while reply end/action/composer/core editor remain reachable. Visible VV must judge usability. Legacy sentence proposal dialog bilingual/time formatting is deferred. Three populated V3/V1/A1 track visibility is explicitly a separate follow-up, not fixed here.
 
-## Providers offered: OpenRouter for tests only (Deja, 2026-11-02)
+## Providers offered: OpenRouter with DeepSeek Flash by default (owner, 2026-11-02)
 
-The owner asked for integration and unit tests to run on OpenRouter's free vision models, and for the
-e2e test to use DeepSeek Flash. That is about testing; it does not open OpenRouter to streamers.
+The owner decided (relayed by Deja, 2026-11-02): rely on OpenRouter's DeepSeek Flash first. This replaces the
+earlier "OpenRouter for tests only" (#26).
 
-- **A release offers OpenAI and DeepSeek only.** `desktop/agent-service.js` keeps OpenRouter's fixed
-  endpoint so the integration tests go through the product's real request path. Three things make it
-  unreachable from a release:
-  - `get().providers` does not list it, and the settings menu is built from that list;
-  - `configure` refuses it;
-  - `httpsRequest` throws `PROVIDER_UNAVAILABLE` before any network call.
-
-  A connection saved by a development build reads as "not configured" in a release, not as a broken file.
-- **When it is listed:**
-  - in a development build (`!app.isPackaged`);
-  - in a release started with `--montclip-test-providers`;
-  - in a release started with `MONTCLIP_TEST_PROVIDERS=1`.
-
-  Only the main process reads these, at start-up. No IPC channel or page setting can change the list.
-- **Opening OpenRouter to streamers later: the owner decides.** Before that, QQ reviews the privacy side:
-  free models may retain or train on the conversation. The interface must not call it "free" (the test
-  checks every interface string).
-- **If it is opened** (QQ, 2026-11-02, not blocking this PR): the settings page adds the line
-  「免费模型的服务商可能会保存你发送的文字」 (en: "The provider of a free model may keep the text you send."),
-  worded with JJ.
+- **A release lists OpenRouter first, marked recommended, then DeepSeek and OpenAI.** An unconfigured pane starts
+  on OpenRouter with the model filled in: `deepseek/deepseek-v4.1-flash-1017`. That is the entry Rea's catalogue
+  lists as OpenRouter's counterpart of DeepSeek V4.1 Flash (`openrouter-flash-catalogue.json`, sha256 `c477d643…`,
+  from `openrouter.ai/api/v1/models`, 2026-11-02). The cheaper `deepseek/deepseek-v4.1-flash` entry is not assumed
+  to be the same weights, provider or quality (Rea's report). Not a `~…-latest` alias, which can move to another
+  model without a MontClip release.
+- **The default is one constant** (`DEFAULT_SERVICE` in `desktop/agent-service.js`): OpenRouter or DeepSeek direct
+  is still the owner's call (Deja, 2026-11-02). Rea's mainland research: whether streamers in mainland China can
+  reach OpenRouter directly is unknown; DeepSeek's own price for its Flash model is the clearest. Switching is a
+  one-line change. The user still enters their own OpenRouter key; nothing
+  is sent until it is saved and a message is reviewed and sent, as before.
+- Still exactly three fixed endpoints (`ENDPOINTS`); an unknown provider is refused before any network call.
+  The page cannot change the list. The old test switch (`--montclip-test-providers`, `MONTCLIP_TEST_PROVIDERS=1`)
+  remains but no longer changes it.
+- **Never "free".** The test checks every interface string. The settings show the line
+  「服务商可能会保存你发送的文字。」 (en: "The provider may keep the text you send."), which QQ asked for
+  before OpenRouter was opened; it applies to every provider. The wording is for JJ, and the privacy and
+  outbound-list side is for QQ.
+- Mainland China access to OpenRouter and DeepSeek, and the models used in CapCut / 剪映, are a separate research
+  item (the owner asked for it); nothing here depends on it.
 - Tests: `test/agent-providers.test.js`. The real-model tests (`real-tests/`, off unless
   `MONTCLIP_REAL_MODELS=1`, never in CI) construct the service with the test providers explicitly.
