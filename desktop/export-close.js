@@ -22,20 +22,24 @@ function dialogOptions(language, unsaved) {
     buttons: [t('export-close-stop'), t('export-close-keep')], defaultId: KEEP, cancelId: KEEP, noLink: true };
 }
 
+/** The one-video wording (the export-unsaved-*-1 keys) waits for JJ (Deja, 2026-11-03): until then every count uses
+ *  the {n} wording. Turn this on once her copy is in the -1 keys. */
+const ONE_VIDEO_WORDING = false;
+
 /** Not exporting, n videos exported and not saved: 先去保存 is the default, and Enter and Esc both mean it. */
 function unsavedDialogOptions(language, unsaved) {
   const t = (key, vars) => View.t(language, 'own.' + key, vars);
-  const n = Math.max(1, Math.floor(Number(unsaved) || 0)), f = n === 1 ? '1' : 'n';
+  const n = Math.max(1, Math.floor(Number(unsaved) || 0)), f = ONE_VIDEO_WORDING && n === 1 ? '1' : 'n';
   return { type: 'warning', title: 'MontClip', message: t('export-unsaved-title-' + f, { n }), detail: t('export-unsaved-body-' + f),
     buttons: [t('export-unsaved-delete-' + f), t('export-unsaved-keep'), t('export-unsaved-save')],
     defaultId: UNSAVED.SAVE, cancelId: UNSAVED.SAVE, noLink: true };
 }
 
-/** k copies could not be deleted: the window stays; Enter and Esc try again (not close). */
-function deleteFailedOptions(language, failed) {
+/** Copies that could not be deleted (their names, one per line): the window stays; Enter and Esc try again (not close). */
+function deleteFailedOptions(language, names) {
   const t = (key, vars) => View.t(language, 'own.' + key, vars);
-  const k = Math.max(1, Math.floor(Number(failed) || 0));
-  return { type: 'warning', title: 'MontClip', message: t('export-delete-failed-' + (k === 1 ? '1' : 'n'), { k }),
+  const list = (Array.isArray(names) ? names : []).map(String), k = Math.max(1, list.length);
+  return { type: 'warning', title: 'MontClip', message: t('export-delete-failed-' + (k === 1 ? '1' : 'n'), { k }), detail: list.join('\n'),
     buttons: [t('export-delete-retry'), t('export-delete-giveup')], defaultId: FAILED.RETRY, cancelId: FAILED.RETRY, noLink: true };
 }
 
@@ -55,7 +59,7 @@ async function decideClose({ language, state, ask, deleteFiles, openQueue }) {
     const r = await deleteFiles(left);
     left = (r && Array.isArray(r.failed)) ? r.failed : [];
     if (!left.length) return true;
-    if ((await ask(deleteFailedOptions(language, left.length))) === FAILED.GIVE_UP) return true;
+    if ((await ask(deleteFailedOptions(language, left))) === FAILED.GIVE_UP) return true;
   }
 }
 
