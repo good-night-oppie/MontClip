@@ -54,3 +54,10 @@ test('desktop: the notification comes from the main process over one fixed chann
  a.match(pre,/montclipNotify/);a.match(pre,/ipcRenderer\.send\("montclip:notify:found", Number\(found\)\)/);
  a.equal(V.t('zh-CN','own.as-notify-title'),'MontClip：找完了');a.equal(V.t('zh-CN','own.as-notify-body',{found:5}),'找到 5 条，打开「✨ 自动出切片」看一遍。');
 });
+test("Deja's song-card words until JJ's final copy: a time, 可能在唱歌, three tags, the lyrics button kept with 如果这段是唱歌",()=>{
+ a.equal(zh('as-moment-name',{time:'1:12:04'}),'1:12:04 那段');a.equal(zh('as-maybe-singing'),'可能在唱歌');
+ a.deepEqual(['as-tag-estimated','as-tag-likely','as-tag-adjusted'].map(k=>zh(k)),['估的','比较可能','你调过']);
+ a.equal(zh('as-lyrics'),'按歌词校准字幕');a.equal(zh('as-lyrics-if'),'如果这段是唱歌');
+ const app=read('app.js');a.match(app,/MontClipAutoSlices\.title\(c\)/);a.ok(!/uiText\("own\.as-song-name"/.test(app),'第 n 首歌 only through the gate');
+ a.ok(!/"own\.as-a-song"/.test(app)&&!/as-a-song/.test(read('ui-preferences.js')),'no 一首歌 · length');
+});

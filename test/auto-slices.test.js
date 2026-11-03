@@ -83,3 +83,23 @@ test('a recording with nothing found, or no sound read: nothing to show, no cras
  a.deepEqual(r.clips,[]);a.deepEqual(r.few,{found:0,count:5});
  a.deepEqual(A.build({recordings:[]}).clips,[]);
 });
+// Deja 2026-11-03 (over the frozen design): until songs.js reaches the gate on the acceptance set, a song card is a part
+// that may be singing — named by its time, never 「第 n 首歌」 — with one of three tags.
+test('the naming gate: precision@15 ≥ 0.6 and recall@10 ≥ 0.6; below it a song card is named by its time',()=>{
+ a.deepEqual({...A.SONG_GATE},{precision15:0.6,recall10:0.6});a.ok(Object.isFrozen(A.SONG_GATE));
+ a.ok(A.SONG_MEASURED.precision15<0.6||A.SONG_MEASURED.recall10<0.6,'not reached yet');
+ a.equal(A.songsTrusted(),false);
+ a.equal(A.songsTrusted({precision15:0.6,recall10:0.6}),true);a.equal(A.songsTrusted({precision15:0.9,recall10:0.59}),false);
+ const s=A.build({recordings:[REC],kind:'sing'}).clips[0];
+ a.deepEqual(A.title(s),{key:'as-moment-name',vars:{time:A.hms(s.at)}});
+ a.deepEqual(A.title(s,{trusted:true}),{key:'as-song-name',vars:{no:s.no,time:A.hms(s.at)}});
+ const m=A.build({recordings:[REC],kind:'chat'}).clips[0];a.deepEqual(A.title(m),{key:'as-moment-name',vars:{time:A.hms(m.at)}});
+});
+test('a song card carries one of three tags: estimated (估的), likely (比较可能), adjusted (你调过) once an end is moved',()=>{
+ const rec={...REC,songs:[{from:1000,to:1240,confidence:'estimated',marks:[{at:'end',t:1240,why:'split'}]},song(4000,4260)]};
+ const r=A.build({recordings:[rec],kind:'sing',count:5});
+ const est=r.clips.find(c=>c.s===1000),lik=r.clips.find(c=>c.s===4000);
+ a.equal(A.tag(est),'estimated');a.equal(A.tag(lik),'likely');
+ a.equal(A.tag(A.nudge(lik,'s',-1,10800)),'adjusted');a.equal(A.tag(A.nudge(est,'e',2,10800)),'adjusted');
+ a.equal(A.tag(A.build({recordings:[REC],kind:'chat'}).clips[0]),null,'a highlight has no song tag');
+});
