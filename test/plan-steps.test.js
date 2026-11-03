@@ -52,3 +52,31 @@ test('which steps the assistant can do, and which only read',()=>{
  // every step is in the capability table, so the main process decides it like any other
  const Cap=require('../capabilities');for(const n of S.DOABLE)a.ok(Cap.get(n),n);
 });
+
+// Deja (2026-11-03): the streamer's own waiting exports wait while the plan's render — same order, none lost, put back
+// however the export ends (done, failed, stopped, or an error)
+const queue=()=>[{id:'s1',status:'pending'},{id:'p1',status:'pending'},{id:'s2',status:'done'},{id:'s3',status:'pending'},{id:'p2',status:'pending'},{id:'s4',status:'failed'}];
+const view=(q)=>q.map(x=>x.id+':'+x.status).join(' ');
+test('the streamer’s waiting exports are held while the plan’s render, in place, then put back — the order and every item kept',async()=>{
+ const q=queue(),same=[...q];
+ let seen;
+ const r=await S.withQueueHeld(q,['p1','p2'],async()=>{seen=view(q);for(const x of q)if(x.status==='pending')x.status='done';return 'ran';});
+ a.equal(r,'ran');
+ a.equal(seen,'s1:held p1:pending s2:done s3:held p2:pending s4:failed','only the streamer’s waiting ones are held; the queue renders only pending');
+ a.equal(view(q),'s1:pending p1:done s2:done s3:pending p2:done s4:failed','put back: still waiting, never rendered');
+ a.equal(q.length,6);q.forEach((x,i)=>a.equal(x,same[i],'the same items, in the same order'));
+});
+test('put back when the plan’s export fails, is stopped, or throws',async()=>{
+ for(const end of ['failed','cancelled']){
+  const q=queue();await S.withQueueHeld(q,['p1','p2'],async()=>{for(const x of q)if(x.status==='pending')x.status=end;});
+  a.equal(view(q),`s1:pending p1:${end} s2:done s3:pending p2:${end} s4:failed`,end);
+ }
+ const q=queue();
+ await a.rejects(S.withQueueHeld(q,['p1'],async()=>{throw Error('boom');}),/boom/);
+ a.equal(view(q),'s1:pending p1:pending s2:done s3:pending p2:pending s4:failed','an error puts them back too');
+});
+test('what the streamer does meanwhile wins: an item removed stays removed, one changed keeps its change',async()=>{
+ const q=queue();
+ await S.withQueueHeld(q,['p1'],async()=>{q.splice(q.findIndex(x=>x.id==='s3'),1);q.find(x=>x.id==='s1').status='cancelled';});
+ a.equal(view(q),'s1:cancelled p1:pending s2:done p2:pending s4:failed');
+});
