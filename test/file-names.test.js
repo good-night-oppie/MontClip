@@ -16,9 +16,14 @@ const read = (f) => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 test("fileSafeName keeps Chinese, and replaces only what Windows cannot have — with -", () => {
   a.equal(D.fileSafeName("未命名项目"), "未命名项目");
   a.equal(D.fileSafeName("周五杂谈 11-02 竖屏 (2)"), "周五杂谈 11-02 竖屏 (2)");
-  a.equal(D.fileSafeName('a\\b/c:d*e?f"g<h>i|j'), "a-b-c-d-e-f-g-h-i-j");
+  // JJ (2026-11-03): : ? * " < > | become their full-width forms, so 「周五杂谈：唱歌」 reads as written; only / and \
+  // (and control characters) become "-"
+  a.equal(D.fileSafeName('a\\b/c:d*e?f"g<h>i|j'), "a-b-c：d＊e？f＂g＜h＞i｜j");
   a.equal(D.fileSafeName("a\u0000b\u001fc\u007fd"), "a-b-c-d", "control characters too");
-  a.equal(D.fileSafeName("周五:杂谈?"), "周五-杂谈-", "every forbidden character, the last one too");
+  a.equal(D.fileSafeName("周五:杂谈?"), "周五：杂谈？", "the last one too");
+  a.equal(D.fileSafeName("周五杂谈：唱歌"), "周五杂谈：唱歌", "full-width already: kept as is");
+  a.equal(D.fileSafeName("周五杂谈:唱歌"), "周五杂谈：唱歌");
+  a.equal(D.fileSafeName("A/B\\C"), "A-B-C", "/ and \\ become -");
 });
 
 test("spaces collapse; no trailing spaces or dots; no leading dots", () => {
@@ -72,10 +77,11 @@ test("a BOM at the start (or anywhere) is removed", () => {
   a.equal(D.fileSafeName("周五﻿杂谈"), "周五杂谈");
 });
 
-test("「???」 leaves only - : the caller's fallback", () => {
-  a.equal(D.fileSafeName("???"), "export");
-  a.equal(D.fileSafeName("???", "直播切片 11-02"), "直播切片 11-02");
-  a.equal(D.fileSafeName("///", "export"), "export");
+test("「///」 leaves only - : the caller's fallback; 「???」 is now 「？？？」, a name", () => {
+  a.equal(D.fileSafeName("///"), "export");
+  a.equal(D.fileSafeName("///", "直播切片 11-02"), "直播切片 11-02");
+  a.equal(D.fileSafeName("\\/ \\"), "export");
+  a.equal(D.fileSafeName("???"), "？？？", "changed with the full-width rule (was the fallback)");
   a.equal(D.fileSafeName("‮​", "export"), "export", "nothing but invisible characters");
 });
 
@@ -83,14 +89,17 @@ test("「- -」 (only -, spaces and dots) is empty too", () => {
   a.equal(D.fileSafeName("- -"), "export");
   a.equal(D.fileSafeName("- -", "直播切片 11-02"), "直播切片 11-02");
   a.equal(D.fileSafeName(" . - . "), "export");
+  a.equal(D.fileSafeName("名字. . "), "名字", "trailing spaces and dots still go");
+  a.equal(D.fileSafeName("nul.mp4"), "nul-.mp4", "reserved names still get -");
   a.equal(D.fileSafeName("-a-"), "-a-", "a real character keeps the name");
 });
 
 test("the delivery template names files by the same rule (one rule, written once)", () => {
   const src = read("delivery.js");
-  a.equal((src.match(/\\\\\/:\*\?"<>\|/g) || []).length, 1, "the forbidden characters are listed in one place");
+  a.equal((src.match(/function fileSafeName\(/g) || []).length, 1, "one rule");
+  a.equal((src.match(/＊/g) || []).length, 1, "the full-width forms are listed in one place");
   const spec = D.normalize("master").spec;
-  a.equal(D.renderFilename("{project}_{preset}", spec, { project: "周五:杂谈" }), "周五-杂谈_master");
+  a.equal(D.renderFilename("{project}_{preset}", spec, { project: "周五:杂谈" }), "周五：杂谈_master");
 });
 
 test("every place that names an exported file uses it: export, captions, mapping, the page's downloads", () => {
