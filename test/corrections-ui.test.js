@@ -14,7 +14,7 @@ test("v12's words on the card, the line and 补一段",()=>{
  a.equal(zh('as-learn-on'),'你在这里的修改会记在这台电脑上，下次找的时候参考，不会发出去。');a.equal(zh('as-learn-on-btn'),'查看、清空或关掉');
  a.equal(zh('as-learn-off'),'「记住我的剪辑习惯」关着：这里的修改不会记下来，下次找也不参考以前记的。');a.equal(zh('as-learn-off-btn'),'打开');
  a.equal(zh('as-habit-lead'),'按你以前的习惯，');a.equal(zh('as-habit-end-later',{d:2}),'结尾多留了 2 秒');a.equal(zh('as-habit-start-earlier',{d:3}),'开头提前了 3 秒');
- a.equal(zh('as-habit-why',{n:5,unit:'首歌',of:4,unit2:'首',edge:'结尾',dir:'后'}),'（你以前 5 首歌里有 4 首把结尾往后挪）');
+ a.equal(zh('as-habit-why',{n:5,kind:'唱歌',of:4,edge:'结尾',dir:'后'}),'（你以前挪了 5 次唱歌片段的结尾，4 次往后挪）');
  a.equal(zh('as-habit-not-now'),'这次不用');a.equal(zh('as-habit-settings'),'去设置');
  a.equal(zh('as-evidence-habits',{n:23,k:3}),' 还参考了你以前的 23 次修改：有 3 条按你的习惯调了开头或结尾，卡片上写着，不想要就点那条的「这次不用」。');
  a.equal(zh('as-add-btn'),'＋ 补一段');a.equal(zh('as-add'),'补一段');a.equal(zh('as-add-rec',{name:'11 月 2 日周六晚上'}),'在 11 月 2 日周六晚上这场');
@@ -49,4 +49,43 @@ test('inside the page only the 自动出切片 code reads the corrections — ne
  const outside=app.slice(0,from)+app.slice(to);
  a.deepEqual(outside.match(/.*(montclipCorrections|MontClipCorrections).*/g)||[],[],'only the block names them; the rest calls its functions');
  for(const f of ['agent-facts.js','agent-conversation.js','agent-format.js','agent-pane.js','cindy-official.js'])a.ok(!/orrections/.test(read(f)),f);
+});
+
+// JJ's final copy for 12f4f21 (Deja, 2026-11-03), as written
+test("JJ's final words: 改成唱歌, 补一段's 唱歌 hint, and the way back to 补一段",()=>{
+ a.equal(zh('as-kind-to-song',{name:'第一首'}),'「第一首」改成唱歌了。开头结尾没动，用下面的拖动条挪到唱歌开始和结束的地方。');
+ a.equal(en('as-kind-to-song',{name:'Song 1'}),'“Song 1” is now marked as singing. Its start and end stay where they were; use the strips below to move them to where the singing starts and stops.');
+ a.equal(zh('as-add-hint-song'),'按唱歌处理，开头结尾就用你设好的。');
+ a.equal(en('as-add-hint-song'),'Treated as singing; the start and end you set are kept.');
+ // the toast names the buttons as the English interface labels them, read from their own keys
+ a.equal(en('as-add-goto-toast'),`Once the start (I) and end (O) are set, click “${en('as-open')}” at the top, then “${en('as-add')}”.`);
+ a.equal(zh('as-add-goto-toast'),'设好开头（I）和结尾（O）以后，点上面的「✨ 自动出切片」，再点「补一段」。');
+});
+// the habit's reason, one whole sentence in each language for each of the six kinds; a card that may be singing is 唱歌 too;
+// no 首 anywhere in it, and no unit spliced in
+test("the habit's reason: JJ's whole sentence for every kind, in Chinese and English; never 首",()=>{
+ const ZH={song:'唱歌',moment:'热闹',interaction:'互动',chat:'聊天',stunt:'整活',other:'其他'};
+ const EN={song:'singing',moment:'lively',interaction:'interaction',chat:'chat',stunt:'stunt',other:'other'};
+ for(const k of Object.keys(ZH)){
+  a.equal(zh('as-habit-kind-'+k),ZH[k],k);a.equal(en('as-habit-kind-'+k),EN[k],k);
+  const z=zh('as-habit-why',{n:5,kind:zh('as-habit-kind-'+k),of:4,edge:zh('as-habit-edge-end'),dir:zh('as-habit-dir-later')});
+  a.equal(z,`（你以前挪了 5 次${ZH[k]}片段的结尾，4 次往后挪）`);a.ok(!/首/.test(z),z);
+  // the leading space joins it to the phrase before it, as before
+  a.equal(en('as-habit-why',{n:5,kind:en('as-habit-kind-'+k),of:4,edge:en('as-habit-edge-end'),dir:en('as-habit-dir-later')}),` (you moved the end of ${EN[k]} parts 5 times, 4 of them later)`);
+  a.equal(zh('as-habit-why',{n:3,kind:ZH[k],of:3,edge:zh('as-habit-edge-start'),dir:zh('as-habit-dir-earlier')}),`（你以前挪了 3 次${ZH[k]}片段的开头，3 次往前挪）`);
+  a.equal(en('as-habit-why',{n:3,kind:EN[k],of:3,edge:en('as-habit-edge-start'),dir:en('as-habit-dir-earlier')}),` (you moved the start of ${EN[k]} parts 3 times, 3 of them earlier)`);
+ }
+ a.ok(!/\{unit/.test(zh('as-habit-why'))&&!/\{unit/.test(en('as-habit-why')),'no unit spliced in');
+ for(const k of ['as-unit2-song','as-unit2-part','as-unit-song','as-unit-song-maybe','as-unit-moment','as-unit-interaction','as-unit-chat','as-unit-stunt','as-unit-other'])
+  a.equal(V.text['zh-CN']['own.'+k],undefined,k+' is gone');
+ const app=read('app.js');a.ok(!/as-unit/.test(app),'app.js uses no as-unit key');
+ // the card a possible song is on says 唱歌: the kind word comes from the card's kind, never gated
+ a.match(app,/"own\.as-habit-kind-" \+ c\.kind/);
+});
+// JJ's rule from #89 covers this interface's strings too: English quotes with “ ”, says "in the video"
+test("this interface's English follows #89's rule: “ ”, never 「」, never \"in the picture\"",()=>{
+ const mine=['as-learn-off','as-habit-reverted','as-evidence-habits','as-add-hint-off','as-added','as-add-goto-toast','as-kind-to-song','as-add-name'];
+ for(const k of mine){const e=V.text.en['own.'+k];a.ok(e,k);a.ok(!/[「」]/.test(e)&&!/in the picture/i.test(e),k+': '+e);}
+ for(const k of mine.slice(0,7))a.ok(/“[^”]+”/.test(V.text.en['own.'+k]),k+' quotes with “ ”');
+ a.match(V.text.en['own.as-add-name'],/doesn't appear in the video/);
 });
