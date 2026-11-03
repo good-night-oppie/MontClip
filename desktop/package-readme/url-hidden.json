@@ -1,0 +1,12 @@
+{
+  "why": "JJ's alternative for when the desktop app hides + URL (#58): only this one line of 「还不能做的」 / [Not in this build] changes; everything else stays as v3.",
+  "marker": "if (window.montclipViewSettings) { const urlButton = $(\"btnImportUrl\"); if (urlButton) urlButton.hidden = true; }",
+  "zh-CN": {
+    "from": "- 「+ 网址」（从网址导入）这一版用不了，会提示「当前为离线模式」。请导入电脑里的文件。",
+    "to": "- 这一版不能从网址导入素材，请导入电脑里的文件。"
+  },
+  "en": {
+    "from": "- \"+ URL\" (Import from URL) does not work in this build; it says offline mode. Import files from your computer instead.",
+    "to": "- This build cannot import media from a URL. Import files from your computer instead."
+  }
+}

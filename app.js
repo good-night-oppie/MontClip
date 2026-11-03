@@ -2650,7 +2650,7 @@ function showMediaMenu(x, y, m) {
   item(uiText("term.replace-file"), () => replaceMediaFile(m), state.connected ? null : uiText("own.needs-server"));
   if (m.kind === "video") {
     const ps = proxyStatus.get(m.id);
-    const why = !state.connected ? uiText("own.needs-server") : !state.ffmpeg ? "Needs ffmpeg on the server's PATH" : isMediaOffline(m.id) ? "The file is offline" : null;
+    const why = !state.connected ? uiText("own.needs-server") : !state.ffmpeg ? "Needs MontClip's bundled FFmpeg" : isMediaOffline(m.id) ? "The file is offline" : null;
     if (ps && (ps.state === "ready" || ps.state === "running" || ps.state === "queued")) item(ps.state === "ready" ? "Delete proxy" : "Stop making the proxy", () => deleteProxies([m]));
     else {
       item("Create proxy (540p)", () => createProxies([m], 540), why);
@@ -3130,7 +3130,7 @@ function proxyLabel(m) {
 async function createProxies(list, height) {
   list = list.filter((m) => m.kind === "video" && !m.transient && isLocalSrc(m.src) && !isMediaOffline(m.id));
   if (!list.length) { toast("No video to make proxies of"); return; }
-  if (!state.ffmpeg) { toast("Proxies need ffmpeg on the server's PATH"); return; }
+  if (!state.ffmpeg) { toast("Proxies need MontClip's bundled FFmpeg"); return; }
   (runtime.proxyAsked ||= new Set());
   for (const m of list) runtime.proxyAsked.add(m.id);
   try {
@@ -6952,7 +6952,7 @@ function renderInspector(lite) {
         <button type="button" class="btn tiny" data-norm-run title="Measure the selected clips and set their gain to hit this target (linked stems share one gain)">Apply</button></span>`)}
       ${row("Noise", `<span class="insp-ctrls"><select data-denoise title="${state.connected && state.ffmpeg
         ? "Noise reduction (ffmpeg FFT denoiser) — renders a cleaned copy of the file; Off switches back to the original"
-        : "Noise reduction needs the server with ffmpeg on PATH"}" ${state.connected && state.ffmpeg ? "" : "disabled"}>${["off", ...DENOISE_LEVELS].map((v) =>
+        : "Noise reduction needs the server with MontClip's bundled FFmpeg"}" ${state.connected && state.ffmpeg ? "" : "disabled"}>${["off", ...DENOISE_LEVELS].map((v) =>
         `<option value="${v}" ${v === clipDenoise(c) ? "selected" : ""}>${v[0].toUpperCase() + v.slice(1)}</option>`).join("")}</select></span>`)}
       ${slider("volume", 0, 2, 0.01, p.volume)}
       ${slider("pan", -1, 1, 0.01, p.pan)}
@@ -9280,6 +9280,11 @@ function buildTranscriptPage() {
   // a packaged build without on-device transcription shows no transcribe entry, model choice or download progress
   const listen = transcribeAvailable();
   root.innerHTML = `<div class="tr-head">
+      <div class="tr-row tr-entries">
+        <button type="button" class="btn tiny" data-tr-highlights data-i18n="own.hl-open">${escapeHtml(uiText("own.hl-open"))}</button>
+        <button type="button" class="btn tiny" data-tr-sentences data-i18n="own.select-sentences">${uiText("own.select-sentences")}</button>
+        <button type="button" class="btn tiny" data-tr-mapping data-i18n="own.mapping">${uiText("own.mapping")}</button>
+      </div>
       <div class="tr-row">
         ${listen ? `<button type="button" class="btn primary" data-tr-go></button>` : ""}
         ${listen ? `<select data-tr-model title="Speech model. Base is quick; Small is more accurate and slower. Each downloads once, then stays in this browser">${Object.entries(T.MODELS).map(([k, m]) =>
@@ -9304,8 +9309,6 @@ function buildTranscriptPage() {
         <button type="button" class="btn tiny" data-tr-cap-file="srt" title="Download the timeline's captions as a SubRip file">SRT</button>
         <button type="button" class="btn tiny" data-tr-cap-file="vtt" title="Download the timeline's captions as a WebVTT file">VTT</button>
         <button type="button" class="btn tiny" data-tr-cap-import title="Place the captions of an SRT or WebVTT file" data-i18n="term.import-2">${uiText("term.import-2")}</button>
-        <button type="button" class="btn tiny" data-tr-sentences data-i18n="own.select-sentences">${uiText("own.select-sentences")}</button>
-        <button type="button" class="btn tiny" data-tr-mapping data-i18n="own.mapping">${uiText("own.mapping")}</button>
         <input type="file" accept=".srt,.vtt,text/vtt,application/x-subrip" data-tr-cap-input hidden>
       </div>
       <div class="tr-note" data-i18n="own.caption-last">${uiText("own.caption-last")}</div>
@@ -9341,6 +9344,7 @@ function buildTranscriptPage() {
   q("[data-tr-cap-import]").addEventListener("click", () => capInput.click());
   q("[data-tr-sentences]").addEventListener("click", () => showSentenceSelection());
   q("[data-tr-mapping]").addEventListener("click", downloadSourceMap);
+  q("[data-tr-highlights]").addEventListener("click", () => showHighlightCandidates());
   capInput.addEventListener("change", async () => {
     const f = capInput.files && capInput.files[0];
     capInput.value = "";
@@ -9611,6 +9615,121 @@ function watchCaptions(now) {
       return;
     }
   }
+}
+/* P2 (owner, 2026-11-02): highlight candidates from local signals only — the timeline's sentences, the loudness
+   of its own sound mix (rendered here in 60 s pieces) and, when the project has any, danmaku. Nothing is
+   sent anywhere and no model runs. Go to moves the playhead; Keep goes through the range engine as one undo step. */
+async function highlightSignals(isCurrent = () => true) {
+  const duration = projDur();
+  const sentences = project.clips.filter((c) => FableCutCaptions.isCaption(c) && !c.disabled && !(project.disabledTracks || []).includes(c.track))
+    .map((c) => ({ id: c.id, start: c.start, end: c.start + c.duration, text: (c.props && c.props.text) || "" }));
+  let loudness = null;
+  const audible = mediaClips().filter((c) => clipRenders(c) && (c.kind === "audio" || (c.kind === "video" && ((c.props && c.props.volume) ?? 1) > 0)));
+  // the server reads each file's sound once, as a stream, and keeps it (a 2-hour recording decoded whole in the page
+  // took 705 s and 3.1 GB, and failed); the page maps it onto the timeline. Effects, faders and volume keyframes are
+  // not applied here: this is a guide to where the timeline is louder, not the export mix.
+  if (duration > 0 && audible.length && state.connected) {
+    const perMedia = {};
+    try {
+      for (const id of new Set(audible.map((c) => c.mediaId))) {
+        if (!isCurrent()) return null;
+        const m = getMedia(id); if (!m || !m.src) continue;
+        const r = await fetch("/api/signals/loudness?src=" + encodeURIComponent(m.src));
+        if (r.ok) perMedia[id] = await r.json();
+      }
+      const clips = audible.filter((c) => perMedia[c.mediaId]).map((c) => ({ mediaId: c.mediaId, start: c.start, in: c.in || 0, duration: c.duration,
+        speed: (c.props && c.props.speed) || 1, volume: (c.props && c.props.volume) ?? 1, gain: (c.props && c.props.gain) || 0 }));
+      if (clips.length) loudness = MontClipHighlights.mapLoudness(clips, perMedia, { duration, step: 0.5 });
+    } catch { loudness = null; }
+  }
+  // without the server (the web demo), or when it could not read the files: the mix itself, in 60 s pieces.
+  // No beat analysis for highlights any more (JJ, #52); beats.js only folds the channels here.
+  const mixNeeded = duration > 0 && audible.length && !loudness;
+  if (mixNeeded) {
+    const step = 0.5, values = [];
+    for (let t0 = 0; t0 < duration; t0 += 60) {
+      if (!isCurrent()) return null;
+      const t1 = Math.min(duration, t0 + 60), buf = await renderAudioMix(t0, t1, { raw: true });
+      const bins = Math.ceil((t1 - t0) / step - 1e-9);
+      if (!buf) { for (let i = 0; i < bins; i++) values.push(-90); continue; }
+      const chs = []; for (let ch = 0; ch < buf.numberOfChannels; ch++) chs.push(buf.getChannelData(ch));
+      const mono = FableCutBeats.mono(chs), per = Math.round(step * buf.sampleRate);
+      for (let i = 0; i < bins; i++) {
+        let acc = 0, n = 0;
+        for (let k = i * per; k < Math.min(mono.length, (i + 1) * per); k++) { acc += mono[k] * mono[k]; n++; }
+        values.push(n ? Math.max(-90, 10 * Math.log10(acc / n + 1e-12)) : -90);
+      }
+    }
+    loudness = { step, values };
+  }
+  const danmaku = Array.isArray(project.danmaku) ? project.danmaku : [];
+  return { duration, sentences, loudness, danmaku };
+}
+/** A reason on a card: {text, title} — the words, and the numbers behind them for the tooltip. Loudness with only
+ *  its peak above the usual level (value 0) has its own sentence. */
+function highlightReasonText(r) {
+  const v = { db: r.value, peak: r.peak, ratio: r.value, count: r.count };
+  const key = r.signal === "loudness" && !(r.value > 0) ? "own.hl-r-loudness-peak" : "own.hl-r-" + r.signal;
+  const detail = uiText(key + "-detail", v), when = MontClipHighlights.clock(r.window[0]) + "–" + MontClipHighlights.clock(r.window[1]);
+  return { text: uiText(key, v), title: detail ? detail + " · " + when : when };
+}
+/** Keep the given timeline ranges (in this order) with the range engine, as one undo step. */
+function keepHighlightRanges(ranges) {
+  const doc = projectJSON(), plan = FableCutRangePlan.create(doc, ranges);
+  const snap = JSON.stringify({ ...JSON.parse(undoSnapshot()), rangeState: {
+    inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
+  } });
+  applyProject(plan.project); pushUndo(snap); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
+  return plan;
+}
+async function showHighlightCandidates() {
+  if (state.exporting || state.gesture || state.compCtx) { toast(uiText("own.hl-busy")); return; }
+  const say = (key, vars) => escapeHtml(uiText(key, vars));
+  const dialog = document.createElement("dialog");
+  dialog.className = "highlight-dialog";
+  dialog.innerHTML = `<form method="dialog"><h3>${say("own.hl-title")}</h3>
+    <p data-hl-status role="status">${say("own.hl-reading")}</p><div data-hl-list></div>
+    <p class="hl-keep-note" data-hl-keep-note>${say("own.hl-keep-note")}</p>
+    <div class="tr-row"><button type="button" class="btn primary" data-hl-keep disabled>${say("own.hl-keep")}</button>
+    <button class="btn" value="cancel" data-hl-close>${say("own.hl-close")}</button></div></form>`;
+  // Go to folds the list into a small button off the picture, so the streamer sees the moment play (Deja, #52)
+  const back = document.createElement("button");
+  back.type = "button"; back.className = "btn hl-return"; back.dataset.hlReturn = ""; back.hidden = true;
+  back.addEventListener("click", () => { pause(); back.hidden = true; dialog.showModal(); });
+  let folding = false;
+  document.body.append(dialog, back); dialog.showModal();
+  dialog.addEventListener("close", () => { if (folding) { folding = false; return; } dialog.remove(); back.remove(); });
+  const status = dialog.querySelector("[data-hl-status]"), list = dialog.querySelector("[data-hl-list]"), keep = dialog.querySelector("[data-hl-keep]");
+  const signature = JSON.stringify(projectJSON()), projectId = runtime.projectId;
+  const current = () => dialog.isConnected && JSON.stringify(projectJSON()) === signature && runtime.projectId === projectId;
+  let sig;
+  try { sig = await highlightSignals(current); } catch { sig = null; }
+  if (!dialog.isConnected) return;
+  if (!sig || !current()) { status.textContent = uiText("own.hl-changed"); return; }
+  const cards = MontClipHighlights.candidates(sig);
+  if (!cards.length) { status.textContent = uiText("own.hl-empty-" + MontClipHighlights.emptyReason(sig)); return; }
+  status.textContent = uiText("own.hl-found", { n: cards.length });
+  back.textContent = uiText("own.hl-back", { n: cards.length });
+  const picked = new Set();
+  cards.forEach((c, i) => {
+    const card = document.createElement("div");
+    card.className = "hl-card"; card.dataset.hlCard = String(i); card.dataset.hlRange = c.from + "-" + c.to;
+    // m:ss.t and the length (VV, #52: 00:09:05 read as nine minutes five seconds)
+    const when = MontClipHighlights.clock(c.from) + "–" + MontClipHighlights.clock(c.to) + uiText("own.hl-dur", { s: MontClipHighlights.seconds(c.to - c.from) });
+    card.innerHTML = `<label><input type="checkbox" data-hl-pick> <strong>${escapeHtml(when)}</strong></label>
+      ${c.text ? `<p class="hl-text">${escapeHtml(c.text.length > 120 ? c.text.slice(0, 120) + "…" : c.text)}</p>` : ""}
+      <ul>${c.reasons.map((r) => { const t = highlightReasonText(r); return `<li data-hl-reason="${escapeHtml(r.signal)}" title="${escapeHtml(t.title)}">${escapeHtml(t.text)}</li>`; }).join("")}</ul>
+      <button type="button" class="btn tiny" data-hl-jump>${say("own.hl-jump")}</button>`;
+    card.querySelector("[data-hl-jump]").addEventListener("click", () => { folding = true; dialog.close(); back.hidden = false; pause(); setTime(c.from); play(); });
+    card.querySelector("[data-hl-pick]").addEventListener("change", (e) => { e.target.checked ? picked.add(i) : picked.delete(i); keep.disabled = !picked.size; });
+    list.append(card);
+  });
+  keep.addEventListener("click", () => {
+    if (!current()) { status.textContent = uiText("own.hl-changed"); return; }
+    const ranges = [...picked].map((i) => cards[i]).sort((x, y) => x.from - y.from).map((c) => ({ from: c.from, to: c.to }));
+    try { keepHighlightRanges(ranges); dialog.close(); toast(uiText("own.hl-kept", { n: ranges.length })); }
+    catch (error) { status.textContent = (error && error.code && uiText("own.rp-" + error.code)) || error.message; }
+  });
 }
 /** SRT sentence selection: preview a read-only plan, apply on a clone as one undo step. */
 async function showSentenceSelection(suggestion = null, onApplied = null) {
@@ -16807,8 +16926,8 @@ async function openExportSetup() {
     ? (ef ? "Exports the " + ef.w + "×" + ef.h + " delivery frame (cropped). Keeps rendering if you switch tabs."
       : "Frame-accurate. Server encodes from JPEG frames. Keeps going if you switch tabs.")
     : (ef
-      ? "Needs the server + ffmpeg on PATH to export a cropped delivery frame."
-      : "Needs the server + ffmpeg on PATH.");
+      ? "Needs the server + MontClip's bundled FFmpeg to export a cropped delivery frame."
+      : "Needs the server + MontClip's bundled FFmpeg.");
   const wcNote = $("engineWebCodecsNote");
   if (wcNote) {
     if (wcOk) wcNote.textContent = "Frame-accurate. Browser HW-encodes H.264; server muxes with audio. Faster upload than Fast.";
@@ -16883,6 +17002,7 @@ function startChosenExport() {
     const c = selectedExportChoice();
     setSetting("exportKind", c.kind);
     if (c.kind === "delivery") {
+      if (!dlvSpec) { const n = normalizeDelivery(c.id); dlvSpec = n.spec; dlvNotes = n.notes; }   // never the raw x264 profile
       setSetting("delivery", dlvSpec);
       fastExport({ delivery: dlvSpec });
     } else fastExport({ profile: c.id });
@@ -17694,7 +17814,7 @@ function encodeWAV(buf) {
    (clip chains → track buses → master fader), honoring volume / pan keyframes
    and fades. t0/t1 are timeline seconds (export window); mix time 0 is t0. */
 const FX_AUTOMATION_STEP = 0.02; // export automation resolution, seconds
-async function renderAudioMix(t0, t1) {
+async function renderAudioMix(t0, t1, opts = {}) {
   const jobs = [];
   for (const c of mediaClips()) {
     if (c.kind !== "audio" && c.kind !== "video") continue;
@@ -17773,7 +17893,8 @@ async function renderAudioMix(t0, t1) {
       off.suspend(when).then(() => { for (const run of animated) run(t0 + when); off.resume(); });
     }
   }
-  return encodeWAV(await off.startRendering());
+  const rendered = await off.startRendering();
+  return opts.raw ? rendered : encodeWAV(rendered);   // raw: the AudioBuffer itself (highlight signals)
 }
 /* Frame-exact asset prep for the fast exporter: rasterize the SVG frame for
    this exact time, and refresh AI person masks synchronously. */
@@ -17833,7 +17954,7 @@ async function fastExport(opts = {}) {
       }),
       signal,
     }).then((r) => r.json());
-    if (!begin.id) throw new Error(begin.error || "export begin failed");
+    if (!begin.id) throw new Error(MontClipView.h264Message(mcView.get().language, begin) || begin.error || "export begin failed");
     sessId = begin.id;
     const jpegQ = delivery ? begin.jpegQuality ?? 0.95 : exportProfileMeta(profileId).jpegQuality ?? 0.95;
     const rgba = begin.input === "rgba";
@@ -18178,7 +18299,7 @@ async function runExportJob(ticket) {
     const j = await fetch("/api/export/ffmpeg").then((r) => r.json()).catch(() => ({}));
     state.ffmpeg = !!j.available;
   }
-  if (!state.ffmpeg) return fail("ffmpeg not found on PATH — export needs it");
+  if (!state.ffmpeg) return fail(MontClipView.h264Message(mcView.get().language, { code: "ffmpegMissing" }));
   if (!project.clips.length) return fail("the timeline is empty");
   await fetchEncodeProfiles();
   await probeMissingMeta();
@@ -18524,7 +18645,7 @@ async function webCodecsExport() {
       }),
       signal,
     }).then((r) => r.json());
-    if (!begin.id) throw new Error(begin.error || "export begin failed");
+    if (!begin.id) throw new Error(MontClipView.h264Message(mcView.get().language, begin) || begin.error || "export begin failed");
     sessId = begin.id;
     if (wav) {
       const r = await fetch("/api/export/audio?id=" + sessId, { method: "POST", body: wav, signal });
@@ -18919,6 +19040,7 @@ function openSettings() {
   overlay.addEventListener("keydown", onSettingsTabTrap);
   const dialog = $("settingsDialog");
   (cb || dialog)?.focus();
+  renderH264Settings();
 }
 function closeSettings() {
   const overlay = $("settingsOverlay");
@@ -18926,6 +19048,40 @@ function closeSettings() {
   overlay.classList.add("hidden");
   $("btnSettings")?.focus();
 }
+/* Settings → H.264 export (desktop only): which encoder H.264 export uses here, and the
+   optional local FFmpeg with libx264. The path is chosen in the main process's file
+   dialog and never passes through the page. */
+async function renderH264Settings(result) {
+  const box = $("setH264"), bridge = window.montclipExternalFfmpeg;
+  if (!box) return;
+  if (!bridge) { box.classList.add("hidden"); return; }
+  box.classList.remove("hidden");
+  const t = MontClipView.text[mcView.get().language] || MontClipView.text.en;
+  const fill = (s, v) => s.replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m));
+  $("setH264Title").textContent = t.h264Title;
+  $("btnH264Choose").textContent = t.h264Choose;
+  $("btnH264Clear").textContent = t.h264Clear;
+  let st = null;
+  try { st = await (await fetch("/api/export/h264", { cache: "no-store" })).json(); } catch { }
+  const ext = result || await bridge.get().catch(() => null);
+  // the server and the main process send reason codes; MontClipView says them in this language
+  const lang = mcView.get().language, say = (r) => MontClipView.h264Message(lang, r);
+  const failed = ext && !ext.ok && ext.code && ext.code !== "none" && ext.code !== "CANCELLED";
+  const lines = [];
+  if (ext && ext.ok) lines.push(fill(t.h264External, { path: ext.path }));
+  else if (failed) lines.push(fill(t.h264ExternalFailed, { reason: say(ext) || t.h264None }));
+  if (st && st.encoder) lines.push(fill(t.h264Using, { encoder: MontClipView.h264Encoder(lang, st.encoder) }));
+  else lines.push((st && st.reason && say(st.reason)) || t.h264None);
+  lines.push(t.h264Hint);
+  $("setH264Status").textContent = lines.join(" ");
+  $("btnH264Clear").disabled = !(ext && (ext.ok || failed));
+}
+$("btnH264Choose")?.addEventListener("click", async () => {
+  const r = await window.montclipExternalFfmpeg?.choose();
+  if (!r || r.code === "CANCELLED") return;
+  renderH264Settings(r);
+});
+$("btnH264Clear")?.addEventListener("click", async () => { await window.montclipExternalFfmpeg?.clear(); renderH264Settings(); });
 $("btnSettings").addEventListener("click", openSettings);
 $("btnCloseSettings").addEventListener("click", closeSettings);
 $("settingsOverlay").addEventListener("click", (e) => {

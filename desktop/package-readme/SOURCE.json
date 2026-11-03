@@ -1,0 +1,17 @@
+{
+  "author": "JJ",
+  "document": "2026-11-03-MontClip内部试用包-使用说明-中英.md (v4)",
+  "sha256": "1c3b5515e8efff619b1bab7f2044521c033d5ba1af14f83f3a7bb5914efe1407",
+  "taken": [
+    "## 中文",
+    "## English"
+  ],
+  "left_out": "## 落地前要实施侧确认 (internal, not shipped)",
+  "placeholders": {
+    "{version}": "<UTC date>-<short commit>, filled by desktop/package-win.cjs",
+    "{exe}": "MontClip.exe",
+    "{repo}": "https://github.com/good-night-oppie/MontClip (not used in the v2 body)"
+  },
+  "encoding": "written into the zip as UTF-8 with BOM, CRLF",
+  "confirmedBy": "Deja, 2026-11-02: v4 (1c3b5515) replaces v3 (22048c9b); only the export line under 现在能做的 / What works now changed"
+}

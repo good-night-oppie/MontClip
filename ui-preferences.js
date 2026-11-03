@@ -9,6 +9,78 @@
     "zh-CN": { simple: "简单", advanced: "高级", language: "界面语言", undo: "撤销", redo: "重做", assistant: "助手", close: "收起", unavailable: "尚未连接 AI 服务。手动剪辑不受影响。", pending: "AI 服务接入尚未完成，当前不会发送任何内容。", mode: "编辑模式" },
     en: { simple: "Simple", advanced: "Advanced", language: "Interface language", undo: "Undo", redo: "Redo", assistant: "Assistant", close: "Hide", unavailable: "No AI service connected. Manual editing is available.", pending: "AI service integration is not ready. Nothing is sent.", mode: "Editing mode" },
   };
+  // H.264 export (Settings): the bundled LGPL FFmpeg has no libx264; a user may pick their own FFmpeg.
+  // The server and the desktop main process send reason codes; these say them (JJ, 2026-11-02).
+  Object.assign(text["zh-CN"], {
+    h264Title: "H.264 导出",
+    h264Using: "现在用：{encoder}。",
+    h264None: "这台电脑上没有可用的 H.264 编码器。",
+    h264External: "已使用你选的本机 FFmpeg（x264）：{path}",
+    h264ExternalFailed: "你选的本机 FFmpeg 不能用，已改回内置编码：{reason}",
+    h264Hint: "默认会用你的显卡或 Windows 自带的编码器导出，不用设置也能正常导出。想要画质更好，可以另外选一个你电脑上带 x264 的 FFmpeg：它只用来导出 H.264，预览和其他格式还用内置的。MontClip 不会去网上下载，也不会自己到处找。",
+    h264Choose: "选择本机 FFmpeg…",
+    h264Clear: "不再使用这个 FFmpeg",
+    h264NoneWin: "这台电脑上找不到能用的 H.264 编码器：显卡编码器没有响应，Windows 自带的编码器也用不了。你可以在下面选一个带 x264 的 FFmpeg，或者导出时换一种格式。",
+    h264NoneOther: "这台电脑上找不到能用的 H.264 编码器。你可以在下面选一个带 x264 的 FFmpeg，或者导出时换一种格式。",
+    h264NeedFeaturePack: "你的 Windows 好像是不带媒体组件的「N 版」。请在 Windows 设置 › 应用 › 可选功能里安装「媒体功能包」（Media Feature Pack），然后重新打开 MontClip。",
+    extNotFullPath: "请选 FFmpeg 程序文件本身（ffmpeg.exe）。",
+    extGone: "之前选的 FFmpeg 已经不在原来的位置了。请重新选一次，或者点「不再使用这个 FFmpeg」。",
+    extNotFfmpeg: "选的程序打不开，或者它不是 FFmpeg。请重新选。",
+    extNoX264: "这个 FFmpeg 里没有 x264，用它导出画质不会更好。可以换一个带 x264 的，或者直接用内置编码。",
+    extSettingBad: "之前保存的 FFmpeg 设置读不出来了。请在设置里重新选一次。",
+    frameTooSmall: "导出的画面太小（{w}×{h}），这台电脑的显卡编码器处理不了。请把导出尺寸调大一点，或者换一种格式。",
+    extNotUsedNote: "这次没用你选的 FFmpeg（{reason}），改用了 {encoder}。",
+    ffmpegMissing: "MontClip 自带的 FFmpeg 找不到了，导出和预览用不了。请重新安装 MontClip。",
+    // not in JJ's list: for JJ to review
+    extNeeded: "这个导出设置要用 x264，需要先在设置里选一个带 x264 的 FFmpeg。也可以改用导出预设，用显卡或 Windows 自带的编码器。",
+    extSaveFailed: "这次的选择没能保存，请再选一次。",
+    extRemoveFailed: "没能停用这个 FFmpeg，请再试一次。",
+  });
+  Object.assign(text.en, {
+    h264Title: "H.264 export",
+    h264Using: "Now using: {encoder}.",
+    h264None: "This computer has no H.264 encoder MontClip can use.",
+    h264External: "Using the FFmpeg you chose (x264): {path}",
+    h264ExternalFailed: "The FFmpeg you chose cannot be used, so the built-in encoders are used instead: {reason}",
+    h264Hint: "By default MontClip exports with your graphics card or Windows' built-in encoder, so export works without any setup. For better quality you can also choose an FFmpeg on this computer that has x264: it is used only for H.264 export, and preview and other formats keep the built-in one. MontClip does not download anything or search for it.",
+    h264Choose: "Choose local FFmpeg…",
+    h264Clear: "Stop using this FFmpeg",
+    h264NoneWin: "This computer has no H.264 encoder MontClip can use: no graphics-card encoder answered, and Windows' built-in encoder is not available. You can choose an FFmpeg with x264 below, or export in another format.",
+    h264NoneOther: "This computer has no H.264 encoder MontClip can use. You can choose an FFmpeg with x264 below, or export in another format.",
+    h264NeedFeaturePack: " Your Windows looks like an \"N\" edition without media components. Install the Media Feature Pack in Windows Settings › Apps › Optional features, then open MontClip again.",
+    extNotFullPath: "Choose the FFmpeg program file itself (ffmpeg.exe).",
+    extGone: "The FFmpeg you chose is no longer where it was. Choose it again, or click \"Stop using this FFmpeg\".",
+    extNotFfmpeg: "The chosen program could not be started, or it is not FFmpeg. Choose again.",
+    extNoX264: "This FFmpeg has no x264, so exporting with it would not improve quality. Choose one with x264, or use the built-in encoders.",
+    extSettingBad: "The saved FFmpeg setting could not be read. Choose it again in Settings.",
+    frameTooSmall: "The exported picture is too small ({w}×{h}) for this computer's graphics-card encoder. Export a larger size, or choose another format.",
+    extNotUsedNote: "The FFmpeg you chose was not used this time ({reason}); {encoder} was used instead.",
+    ffmpegMissing: "MontClip's built-in FFmpeg cannot be found, so export and preview are unavailable. Reinstall MontClip.",
+    extNeeded: "This export setting uses x264: first choose an FFmpeg with x264 in Settings, or use a delivery preset, which exports with your graphics card or Windows' built-in encoder.",
+    extSaveFailed: "The choice could not be saved. Choose again.",
+    extRemoveFailed: "Could not stop using this FFmpeg. Try again.",
+  });
+  // encoders by name: plain words in Chinese, the technical names (delivery.js labels) in English
+  const ENCODER_NAMES = {
+    "zh-CN": { h264_nvenc: "显卡编码（NVIDIA）", h264_mf: "Windows 自带编码", h264_qsv: "显卡编码（Intel）", h264_amf: "显卡编码（AMD）",
+      libx264: "你选的 FFmpeg（x264）", h264_videotoolbox: "硬件编码（Apple）" },
+    en: { h264_nvenc: "NVIDIA NVENC", h264_mf: "Windows Media Foundation", h264_qsv: "Intel Quick Sync", h264_amf: "AMD AMF",
+      libx264: "x264 (your FFmpeg)", h264_videotoolbox: "Apple Silicon VideoToolbox" },
+  };
+  const lang = (l) => (text[l] ? l : "en");
+  function h264Encoder(language, id) { return ENCODER_NAMES[lang(language)][id] || id; }
+  const fill = (s, v) => s.replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m));
+  /** A reason code from the server or the desktop main process, in the interface language; null when unknown. */
+  function h264Message(language, r) {
+    const t = text[lang(language)];
+    if (!r || typeof r.code !== "string" || !/^(h264|ext|frame|ffmpeg)[A-Za-z0-9]+$/.test(r.code) || typeof t[r.code] !== "string") return null;
+    const p = r.params || {};
+    let s = t[r.code];
+    if (r.code === "extNotUsedNote") s = fill(s, { reason: (h264Message(language, { code: p.reason }) || "").replace(/[。.]$/, ""), encoder: h264Encoder(language, p.encoder) });
+    else s = fill(s, Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])));
+    if (/^h264None/.test(r.code) && r.featurePack) s += t.h264NeedFeaturePack;
+    return s;
+  }
   // MontClip's own wording for keyed strings the terms SPEC does not cover.
   const own = {
     "needs-server": ["Needs the MontClip server", "需要 MontClip 服务"],
@@ -85,6 +157,29 @@
     "map-no-media": ["This project has no audio or video, so there is no time mapping to export.", "这个项目里没有音视频，导不出时间对照表。"],
     "connected": ["local service running", "本机服务正常"],
     "local-session": ["local session only", "仅本地会话"],
+    // P2 highlight cards (for JJ to review)
+    "hl-open": ["Highlight candidates", "高光候选"],
+    "hl-title": ["Highlight candidates (worked out on this computer; no AI)", "高光候选（只在本机判断，不调用 AI）"],
+    "hl-reading": ["Reading the timeline's sound and sentences…", "正在读取时间线的声音和字幕…"],
+    "hl-found": ["{n} candidates. Go to one to check it; tick the ones to keep.", "找到 {n} 个候选。可以先点「跳转」看一看，再勾选要保留的。"],
+    "hl-jump": ["Go to", "跳转"],
+    "hl-back": ["Highlight candidates ({n}) — back to the list", "高光候选（{n}）· 回到列表"],
+    "hl-keep": ["Keep only the ticked ones", "只留勾选的片段"],
+    "hl-keep-note": ["Everything not ticked is cut from the timeline. The source files stay as they are, and Undo brings it back.", "没勾选的部分会从时间线上剪掉；原片不变，可以撤销。"],
+    "hl-dur": [" ({s} s)", "（{s} 秒）"],
+    "hl-close": ["Close", "关闭"],
+    "hl-kept": ["Kept only {n} highlights; the rest was cut from the timeline. Undo brings it back.", "已只留 {n} 段高光，其余部分已从时间线上剪掉。可以撤销。"],
+    "hl-busy": ["Finish the export or leave the nested edit first.", "请先结束导出或退出嵌套编辑。"],
+    "hl-changed": ["The project changed while reading: close this and try again.", "读取时项目有变化，请关闭后重新打开。"],
+    "hl-empty-no-media": ["There is nothing on the timeline yet. Import a recording, drag it onto the timeline, then click Highlight candidates.", "时间线上还没有素材。先导入录像并拖到时间线上，再点「高光候选」。"],
+    "hl-empty-no-signals": ["Nothing to go on: no subtitles on the timeline and no sound to read.", "没有能用来判断的内容：时间线上没有字幕，也读不到声音。"],
+    "hl-empty-nothing-stands-out": ["No clear highlight: nothing is louder than usual, and no burst of danmaku.", "没有找到明显的高光：没有哪一段比平常更响，弹幕也没有突然变多。"],
+    "hl-r-loudness": ["Louder than usual", "比平时响"],
+    "hl-r-loudness-detail": ["{db} dB above the usual level of the whole timeline (the loudest moment {peak} dB above)", "比整场平时的音量高 {db} 分贝（最响处高 {peak} 分贝）"],
+    "hl-r-loudness-peak": ["One moment is much louder", "有一下特别响"],
+    "hl-r-loudness-peak-detail": ["The loudest moment is {peak} dB above the usual level", "最响处比平时高 {peak} 分贝"],
+    "hl-r-danmaku": ["{count} danmaku, {ratio}× the usual rate", "弹幕 {count} 条，是平时的 {ratio} 倍"],
+    "hl-r-speech": ["Talking faster than usual (about {ratio}×)", "说话比平时快（约 {ratio} 倍）"],
   };
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
@@ -124,6 +219,8 @@
     flvNeedsConvert: "这个 FLV 这次没导进来：它的编码 MontClip 现在不能直接用。先把它转成 MP4 再导入。",
     flvUploadFailed: "这个 FLV 没导进来：MontClip 处理这个文件时出了问题。再试一次；还不行就先把它转成 MP4 再导入。",
     flvComponentMissing: "MontClip 缺少处理 FLV 的组件，这个文件没导进来。请重新安装 MontClip。",
+    // #28: the bundled FFmpeg has no x264, so converting needs this computer's own encoder (for JJ to review)
+    flvNoEncoder: "这个 FLV 需要转换格式才能用，但这台电脑上找不到能用的 H.264 编码器（显卡编码器和 Windows 自带的编码器都用不了）。先把它转成 MP4 再导入。",
   });
   Object.assign(text.en, {
     flvTimingUnverified: "This FLV was not imported: MontClip could not confirm its timing is complete. Try a fully recorded file, or convert it to MP4 first.",
@@ -132,12 +229,13 @@
     flvNeedsConvert: "This FLV was not imported: MontClip cannot use its encoding directly yet. Convert it to MP4 first.",
     flvUploadFailed: "This FLV was not imported: something went wrong while MontClip was handling it. Try again; if it still fails, convert it to MP4 first.",
     flvComponentMissing: "MontClip is missing the component that handles FLV, so the file was not imported. Reinstall MontClip.",
+    flvNoEncoder: "This FLV needs converting before it can be used, but this computer has no H.264 encoder MontClip can use (no graphics-card encoder answered and Windows' built-in encoder is unavailable). Convert it to MP4 first.",
   });
   // A readable-range or timestamp problem is "timing unverified": the consent screens are deferred, so
   // nothing here asks for permission the user has nowhere to give. Unknown codes read as a failed import.
   const FLV_REASONS = { FLV_TIMELINE_GAP: "flvTimingUnverified", FLV_READABLE_CONSENT_REQUIRED: "flvTimingUnverified",
     FLV_DISK_FULL: "flvDiskFull", NO_SERVER: "flvNeedsDesktop", FLV_TRANSCODE_REQUIRED: "flvNeedsConvert",
-    FLV_STREAMS_UNSUPPORTED: "flvNeedsConvert", FLV_COMPONENT_MISSING: "flvComponentMissing" };
+    FLV_STREAMS_UNSUPPORTED: "flvNeedsConvert", FLV_COMPONENT_MISSING: "flvComponentMissing", FLV_ENCODER_MISSING: "flvNoEncoder" };
   function flvImportMessage(language, code) {
     const t = text[language] || text.en;
     return t[Object.hasOwn(FLV_REASONS, code) ? FLV_REASONS[code] : "flvUploadFailed"];
@@ -150,6 +248,8 @@
 'zh-CN':{undoLast:'撤销上一步（与顶部撤销相同）',new:'新会话',config:'AI 服务',save:'保存连接配置',provider:'服务商',model:'模型 ID',key:'API 密钥（留空保留已有密钥）',review:'核对本次实际发送内容',confirm:'发送以上内容',cancel:'取消',draft:'输入消息',search:'搜索会话',close:'收起助手',pending:'正在请求…',failed:'请求失败或已取消，草稿仍保留。',unconfigured:'尚未配置服务，没有发送。',saved:'连接配置已保存在本机，没有发起请求。',local:'此项目的会话保存在本机。这是保存规则，不代表本次保存已确认。',temporary:'会话文件读取失败，本次草稿只在这个窗口保留。关闭前请复制要留的内容。',unsaved:'会话保存尚未确认。请保留窗口并重试。',retry:'重试保存',proposal:'查看剪辑提案',invalid:'回复中没有可接受的句级提案。',reference:'引用选中字幕',range:'引用所选范围',project:'引用项目身份',remove:'移除',limit:'文字或会话数量已到上限，请删减文字或返回已有会话。',scope:'请先打开或创建项目，再发送。',configured:'已配置（连接尚未验证）',configFailed:'配置未保存，原有设置保留。',format:'剪辑提案可要求返回 JSON：{"type":"keep_sentences","ranges":[{"clipId":"…","sourceCaptionId":"…","from":0,"to":1}]}。只接受明确引用的完整字幕句段。',cancelUnknown:'请求状态尚未确认，已发给服务的请求无法撤回。',cancelled:'已取消后续生成；已发给服务的请求无法撤回。'}};
   Object.assign(officialPaneText.en,{"notSent":"Chat content contains only the text shown above. No audio, video or screenshots are attached, and no file paths or account details are added automatically. Any such details you included in the text or history will still be sent. Your API key is used to authenticate with the service.","format":"For an editing suggestion you can apply, say which subtitle sentences you want to keep. After a reply, use “Review editing proposal” below to check whether it can be applied.","model":"Model name","project":"Reference current project","currentProject":"Current project","otherProject":"Original project","invalid":"This reply has no editing suggestion that can be applied directly.","fees":"Your own AI account is responsible for service charges.","user":"You","assistant":"Assistant","formatTitle":"How to request an editing suggestion"});
   Object.assign(officialPaneText['zh-CN'],{"notSent":"聊天内容只包含上面显示的文字。不附加声音、画面和截图，不自动附加文件路径和账号。你写进文字或历史的这类信息仍会发送。API 密钥用于向服务验证身份。","format":"想要能直接套用的剪辑建议，就在聊天里说清要保留哪几句；收到回复后，可点下面的「查看剪辑提案」检查是否能直接使用。","model":"模型名称","project":"引用当前项目","currentProject":"当前项目","otherProject":"原项目","invalid":"这条回复里没有可以直接用的剪辑建议。","fees":"费用由你自己的 AI 账号承担。","user":"你","assistant":"助手","formatTitle":"如何提出剪辑建议"});
+  Object.assign(officialPaneText['zh-CN'],{removeConnection:'删除这个连接',removeConfirm:'删除后，这台电脑上保存的密钥会被清掉，AI 助手要重新设置才能用。剪辑不受影响。',connectionRemoved:'连接已删除，这台电脑上保存的密钥已清掉。AI 助手要重新设置才能用。',connectionRemoveFailed:'连接没能删除，密钥可能还在这台电脑上。请看看软件的设置文件夹是不是被占用或不能写入，然后再试。'});
+  Object.assign(officialPaneText.en,{removeConnection:'Remove this connection',removeConfirm:'This clears the key saved on this computer. You will need to set up the AI service again to use the assistant. Editing is not affected.',connectionRemoved:'Connection removed. The key saved on this computer is cleared; set up the AI service again to use the assistant.',connectionRemoveFailed:'The connection could not be removed, so the key may still be on this computer. Check that the app\'s settings folder is not in use or read-only, then try again.'});
   Object.assign(officialPaneText.en,{resetConnection:'Set up connection again',configUnreadable:'The saved connection could not be read. Click "Set up connection again"; the app backs up the old settings first, then lets you enter new ones.',configBackedUp:'The old connection settings have been backed up. Enter your connection settings again.',configBackupFailed:'The old connection settings could not be backed up. They have not been replaced. Check whether the settings folder for the app is in use or cannot be written to, then try again.'});
   Object.assign(officialPaneText['zh-CN'],{resetConnection:'重新设置连接',configUnreadable:'原来的连接配置读不出来。点「重新设置连接」，软件会先把旧配置备份好，再让你重新填写。',configBackedUp:'原来的配置已备份，现在需要重新填写连接配置。',configBackupFailed:'原来的配置没能备份，未被替换。请看看软件的设置文件夹是不是被占用或不能写入，然后再试。'});
   Object.assign(officialPaneText.en,{notSent:'Only the text shown above is sent. No audio, video or screenshots are attached; the app does not add file paths or account details by itself, but any such details you typed into the text or history will be sent as written. Your API key is used only to authenticate with the service.',undoLast:'Undo this apply (same as toolbar Undo)',captionLabel:'Subtitles',rangeLabel:'Range',projectLabel:'Project'});
@@ -187,5 +287,5 @@
     return { getItem() { const r=bridge.get(); if(!r?.ok) throw Error('View settings unavailable'); return JSON.stringify(r.value); },
       setItem(_key, raw) { if(!bridge.set(JSON.parse(raw))?.ok) throw Error('View settings not saved'); } };
   }
-  return { create, desktopStorage, text, KEY, t, applyI18n, durationText, flvImportMessage };
+  return { create, desktopStorage, text, KEY, t, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder };
 });

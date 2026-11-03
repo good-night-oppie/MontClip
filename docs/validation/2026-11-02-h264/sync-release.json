@@ -1,0 +1,55 @@
+{
+ "date": "2026-11-02T15:48:16.880Z",
+ "minutes": 10,
+ "fps": 30,
+ "size": "1280×720",
+ "encoder": "h264_mf",
+ "renderSeconds": 40,
+ "expectedEvents": 300,
+ "flashes": 300,
+ "beeps": 300,
+ "streams": [
+  {
+   "codec_type": "video",
+   "start_time": "0.000000",
+   "duration": "600.000000"
+  },
+  {
+   "codec_type": "audio",
+   "start_time": "0.000000",
+   "duration": "600.000000"
+  }
+ ],
+ "maxAbsOffsetMs": 0.1,
+ "meanOffsetMs": 0.1,
+ "first": [
+  {
+   "t": 0.5,
+   "offsetMs": 0.1
+  },
+  {
+   "t": 2.5,
+   "offsetMs": 0.1
+  },
+  {
+   "t": 4.5,
+   "offsetMs": 0.1
+  }
+ ],
+ "last": [
+  {
+   "t": 594.5,
+   "offsetMs": 0.1
+  },
+  {
+   "t": 596.5,
+   "offsetMs": 0.1
+  },
+  {
+   "t": 598.5,
+   "offsetMs": 0.1
+  }
+ ],
+ "pass": true,
+ "report": "1280×720 · 30 fps · 18000 frames · h264 · color bt709 · aac 48 kHz stereo · 10:00.00 · -15.0 LUFS · -1.8 dBTP · 4.4 MB"
+}
