@@ -17,6 +17,7 @@ const { spawn } = require("child_process");
 const FF = require("./ffmpeg-path");
 const Stats = require("./frame-stats");
 const Beats = require("./beats");
+const Delivery = require("./delivery");
 
 const SR = 22050;      // analysis sample rate
 const HOP = 512;       // onset-envelope hop size (~23 ms)
@@ -95,7 +96,7 @@ function analyzeAudio(pcm) {
 
 /* ── Extract the reference's music track into its own audio file ── */
 async function extractMusic(file, outDir) {
-  const stem = path.basename(file, path.extname(file)).replace(/[^\w.\- ()\[\]]+/g, "_");
+  const stem = Delivery.fileSafeName(path.basename(file, path.extname(file)), "media");   // Chinese kept (Deja)
   let out = path.join(outDir, stem + "-music.m4a");
   let i = 1;
   while (fs.existsSync(out)) out = path.join(outDir, `${stem}-music_${i++}.m4a`);
