@@ -49,3 +49,24 @@ Data: [`2026-11-02-av-sync-sentence-ranges.json`](2026-11-02-av-sync-sentence-ra
 - One frame rate (30 fps) and one source. The low-fps refusal (fps 5 and 1) is covered by
   `test/range-plan-low-fps.test.js`, not by an export.
 - Not a packaged build: this ran from source in Electron 45.2.1.
+
+## Re-run on 2c06786 (after merging main, 2026-11-03)
+
+The same source, timeline, ranges and measure as above, on this PR's head after main (#28's bundled FFmpeg, #57 …)
+was merged in. Main's `delivery.js` now accepts Windows' own `h264_mf`, so both H.264 paths were measured.
+
+| encoder | flash ↔ beep pairs | worst offset | flashes where expected | verdict |
+|---|---|---|---|---|
+| `h264_nvenc` | 7 of 7 | **0.1 ms** | 7 of 7 | **pass** (≤ 40 ms) |
+| `h264_mf` | 7 of 7 | **0.1 ms** | 7 of 7 | **pass** |
+| negative control (`h264_mf`, sound 50 ms late) | 7 of 7 | 50.1 ms | 7 of 7 | **fail**, as it must |
+
+- Source: `node desktop/make-flash-beep.cjs <out>\flash-beep.mp4 --ffmpeg vendor\ffmpeg\win32-x64\ffmpeg.exe` → sha256
+  `18d9c7ec…`, 38 888 bytes (identical to the first run).
+- Run: `MONTCLIP_AV_INPUT=<…\flash-beep.mp4> MONTCLIP_AV_OUT=<folder> MONTCLIP_AV_ENCODER=h264_nvenc|h264_mf electron
+  desktop/av-sync-smoke.cjs --montclip-smoke --user-data-dir=<fresh>`; the control adds `MONTCLIP_AV_CONTROL_SHIFT=0.05`.
+  Fresh profile, hidden offscreen window, Electron 45.2.1, from source (not a packaged build).
+- The export (h264_mf): 320×180, 30 fps, 105 frames, H.264, AAC 48 kHz, 3.50 s; beeps measured at x.2000625 s for flashes
+  at x.2 s.
+- Data: `2026-11-03-av-sync-sentence-ranges-2c06786-nvenc.json`, `…-mf.json`, `…-control.json`.
+- Still not covered: QSV and AMF, other frame rates, a packaged build.
