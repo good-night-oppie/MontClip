@@ -83,6 +83,8 @@
   }
   // MontClip's own wording for keyed strings the terms SPEC does not cover.
   const own = {
+    // simple mode, the first advanced shortcut of a launch (JJ, 8 PRs)
+    "simple-advanced-key": ["This shortcut works in Advanced mode. Click Advanced at the top to switch.", "这个快捷键在「高级」模式里才能用。点顶栏的「高级」就能切过去。"],
     "needs-server": ["Needs the MontClip server", "需要 MontClip 服务"],
     "add-title": ["+ Title", "+ 标题"],
     "add-adjust": ["+ Adjust", "+ 调节层"],

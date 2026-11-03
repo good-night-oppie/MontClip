@@ -19708,8 +19708,12 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   if (isTypingTarget(document.activeElement)) return;
-  // simple mode: the advanced shortcuts do nothing (ui-preferences.js lists them)
-  if (mcView.get().mode === "simple" && MontClipView.advancedShortcut(e)) { e.preventDefault(); return; }
+  // simple mode: the advanced shortcuts do nothing (ui-preferences.js lists them); the first one of a launch says why (JJ)
+  if (mcView.get().mode === "simple" && MontClipView.advancedShortcut(e)) {
+    e.preventDefault();
+    if (!runtime.simpleKeyHinted) { runtime.simpleKeyHinted = true; toast(uiText("own.simple-advanced-key")); }
+    return;
+  }
   if (k === " ") { e.preventDefault(); toggleTransportPlay(); }
   // JKL shuttle — bare keys only, so Cmd/Ctrl+J/K/L stay with the browser.
   // K stops; hold K and tap J / L to step a frame, hold both to crawl.

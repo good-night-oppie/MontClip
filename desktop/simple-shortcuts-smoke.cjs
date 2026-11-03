@@ -31,7 +31,12 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   await read(`project.inPoint=0.5;project.outPoint=3.5;true`);const withIO=await read(edit);
   const keys=[['t',{altKey:true}],['E',{shiftKey:true}],['D',{shiftKey:true}],['l',{ctrlKey:true}],['[',{}],[']',{}],['b',{}],['r',{}],['y',{}],['u',{}],['z',{altKey:true,code:'KeyZ'}],['t',{}],['T',{shiftKey:true}],['Delete',{shiftKey:true}]];
   const held=[];
-  for(const [k,m] of keys){held.push(await press(k,m));await wait(40);}
+  // JJ (8 PRs): the first advanced shortcut of a launch says why nothing happened; the rest stay quiet
+  const toastText=`(()=>{const t=document.getElementById('toast');return t.querySelector('span')?.textContent||t.textContent;})()`;
+  await read(`document.getElementById('toast').textContent='';true`);
+  for(const [i,[k,m]] of keys.entries()){held.push(await press(k,m));await wait(40);
+    if(i===0){assert.equal(await read(toastText),'这个快捷键在「高级」模式里才能用。点顶栏的「高级」就能切过去。','the hint, once');await read(`document.getElementById('toast').textContent='';true`);}}
+  assert.equal(await read(toastText),'','no second hint in the same launch');
   assert.ok(held.every(Boolean),'every advanced shortcut is held back '+JSON.stringify(held));
   assert.equal(await read(edit),withIO,'none of them changed the project, selection or history');
   assert.equal(await read(`state.tool`),'select');
@@ -42,7 +47,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   await read(`project.inPoint=null;project.outPoint=null;updateMontClipView({mode:'advanced'});setSelection(['t0']);true`);await wait();
   await press('Delete',{shiftKey:true});
   assert.deepEqual(await read(`project.clips.map(c=>[c.id,c.start])`),[['t1',0],['t2',2]],'advanced: Shift+Delete ripple-deletes');
-  process.stdout.write('SIMPLE_KEYS_COMPLETE '+JSON.stringify({held:held.length})+'\n');
+  process.stdout.write('SIMPLE_KEYS_COMPLETE '+JSON.stringify({held:held.length,hint:'once'})+'\n');
  }catch(e){process.stdout.write('SIMPLE_KEYS_FAIL '+(e&&e.stack)+'\n');}
  finally{setTimeout(()=>app.exit(0),300);}
 };
