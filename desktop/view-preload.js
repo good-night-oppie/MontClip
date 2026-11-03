@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('montclipAgentService',Object.freeze({
  cancel:id=>ipcRenderer.invoke('montclip:agent:cancel',id)
 }));
 // Two fixed settings only. No file/path/channel/Node interface reaches the page.
+contextBridge.exposeInMainWorld('montclipCapabilities',Object.freeze({get:()=>ipcRenderer.sendSync('montclip:capabilities:get')}));
 contextBridge.exposeInMainWorld('montclipViewSettings',Object.freeze({
  get:()=>ipcRenderer.sendSync('montclip:view:get'),
  set:value=>ipcRenderer.sendSync('montclip:view:set',value)
