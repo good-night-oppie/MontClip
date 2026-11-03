@@ -2920,6 +2920,18 @@ desktop's main process shows one local notification (`montclip:notify:found`, a 
 permissions stay denied. Not yet: the part bar for songs, song names, 直接说, multiple recordings shown apart,
 keeping ticks and edits when picking again, and the rest of the frozen design (see the P3 pull request's table).
 
+#### 记住我的剪辑习惯 (MontClip desktop)
+
+The streamer's corrections in the 自动出切片 review (frozen v12; ADR docs/decisions/2026-11-03-corrections.md). Each
+card's kind line has 这段不是唱歌 / 这段是唱歌 (and 你改的 / 你补的); 补一段 adds a card from the main timeline's IN–OUT
+(唱歌、互动、聊天、整活、别的); a move, 不要这条, a kind change and 补一段 are each kept as one correction by the desktop main
+process (`window.montclipCorrections`, `<userData>/corrections/default.json`), and 〔撤销〕 takes the edit and its correction
+back. The next search moves the cards by a habit (the same kind, the same direction, 4 of the last 5, at most ±5 s),
+says so on each card (↺ … · 这次不用 · 去设置) and in the evidence, and leaves out a song card more than half inside a
+part marked 不是唱歌 in the same recording. The singing-bar rule is off. The line under the cards and 设置 › 自动出切片 open
+the page 记住我的剪辑习惯 (the switch, the counts, 清空记录). Corrections are never sent: only one block of app.js reads
+them, never the assistant's context or request. Without the desktop store the edits work and nothing is kept.
+
 ### MontClip view preferences
 
 The shared editor DOM has Simple/Advanced layout controls, Chinese/English labels

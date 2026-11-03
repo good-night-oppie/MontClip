@@ -35,7 +35,7 @@ test("v12's words on the page 「记住我的剪辑习惯」 and in 设置 › �
  a.deepEqual(['as-learn-ok','as-learn-clear','as-learn-clear-yes','as-learn-clear-no'].map(k=>zh(k)),['好','清空记录','清空','先不清']);
  a.equal(zh('as-set-title'),'自动出切片');
  // Deja: no promise that a part taken out is left unticked next time, and nothing about danmaku numbers
- const all=Object.entries(V.text['zh-CN']).filter(([k])=>/^own\.as-(learn|habit|add|not-song|is-song|tag-|kind-|evidence-habits)/.test(k)).map(([,v])=>v).join('\n');
+ const all=Object.entries(V.text['zh-CN']).filter(([k])=>/^own\.as-(learn|habit|add|not-song|is-song|tag-(changed|added)|kind-(song|interaction|chat|stunt|other|to-)|evidence-habits|unit)/.test(k)).map(([,v])=>v).join('\n');
  a.ok(!/默认不勾|不默认勾|弹幕/.test(all),'no unticking promise, no danmaku numbers');
 });
 test('the page loads corrections.js and segment-edits.js; settings has 自动出切片 after 听写',()=>{

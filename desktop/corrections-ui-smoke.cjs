@@ -96,15 +96,19 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await read(`(async()=>{for(let i=0;i<5;i++)await window.montclipCorrections.append({type:'trim',kind:'song',startShift:-4,endShift:0,duration:480});return true;})()`);
   await search();
   const habit=await read(`(()=>{const st=autoState(),songs=st.clips.filter(c=>c.kind==='song');return{moved:songs.filter(c=>c.was).length,songs:songs.length,
-    lines:[...document.querySelectorAll('[data-as-habit]')].map(x=>x.textContent),evidence:document.querySelector('.as-evidence').textContent};})()`);
+    lines:[...document.querySelectorAll('[data-as-habit]')].map(x=>x.textContent),evidence:document.querySelector('.as-evidence').textContent,
+    levels:songs.filter(c=>c.was).map(c=>document.querySelector('[data-as-card="'+c.id+'"] [data-as-edge=s] [data-as-level]').dataset.asLevel)};})()`);
+  // 你调过 is the streamer's own move: an end the habit moved keeps its own level
+  assert.ok(habit.levels.length&&habit.levels.every(l=>l!=='adjusted'),habit.levels.join());
+  // below the song gate (songs.js not yet trusted) the habit counts 「段可能在唱歌的部分」, never 首歌
   report.habit={moved:habit.moved,songs:habit.songs,line:habit.lines[0]};
   assert.ok(habit.moved>=1&&habit.moved===habit.songs,'every song card moved');assert.equal(habit.lines.length,habit.moved);
-  assert.equal(habit.lines[0],'↺'+zh('as-habit-lead')+zh('as-habit-start-earlier',{d:4})+zh('as-habit-why',{n:5,unit:'首歌',of:5,unit2:'首',edge:'开头',dir:'前'})+' · '+zh('as-habit-not-now')+' · '+zh('as-habit-settings'));
+  assert.equal(habit.lines[0],'↺'+zh('as-habit-lead')+zh('as-habit-start-earlier',{d:4})+zh('as-habit-why',{n:5,unit:zh('as-unit-song-maybe'),of:5,unit2:'段',edge:'开头',dir:'前'})+' · '+zh('as-habit-not-now')+' · '+zh('as-habit-settings'));
   assert.ok(habit.evidence.endsWith(zh('as-evidence-habits',{n:5,k:habit.moved})),habit.evidence);
   await shot('corrections-habit.png');
   const notNow=await read(`(async()=>{const c=autoState().clips.find(x=>x.was),was=c.was;document.querySelector('[data-as-card="'+c.id+'"] [data-as-act=not-now]').click();await new Promise(r=>setTimeout(r,200));
-    const x=autoClip(c.id);return{back:x.s===was.s&&x.e===was.e,line:!!document.querySelector('[data-as-card="'+c.id+'"] [data-as-habit]')};})()`);
-  assert.deepEqual(notNow,{back:true,line:false});
+    const x=autoClip(c.id);return{back:x.s===was.s&&x.e===was.e,line:!!document.querySelector('[data-as-card="'+c.id+'"] [data-as-habit]'),level:document.querySelector('[data-as-card="'+c.id+'"] [data-as-edge=s] [data-as-level]').dataset.asLevel!=='adjusted'};})()`);
+  assert.deepEqual(notNow,{back:true,line:false,level:true});
   // 去设置 opens the page: the switch, the counts, what is kept
   const page=await read(`(async()=>{document.querySelector('[data-as-act=learn-settings]').click();await new Promise(r=>setTimeout(r,300));const d=document.querySelector('dialog.as-learn[open]');if(!d)return null;
     return{title:d.querySelector('h2').textContent,sub:d.querySelector('[data-learn-sub]').textContent,label:d.querySelector('[data-learn-switch]').closest('label').textContent.trim(),on:d.querySelector('[data-learn-switch]').checked,
