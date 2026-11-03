@@ -3,6 +3,8 @@
 //  A. a toast with 〔撤销〕 stays 8 seconds, and not at all while the pointer is on it or its button has the focus (the time
 //     starts again once it leaves): at 6 s it is still there, after 10 s hovered it is still there, and 〔撤销〕 undoes —
 //     the 自动出切片 toast and the editor's own; a toast without 〔撤销〕 is unchanged;
+//  B. on the start page, 更多设置 stays open when an option of 每条多长 is picked (VV reproduced it with CDP: picking
+//     〔只要最好听的一部分〕 closed it), and the picked option is selected and in view — at 1280×800 and at 630×460.
 // With MONTCLIP_SHOTS_OUT (an absolute folder) it saves pictures of its own window (capturePage), 1280×800 and 630×460.
 //   electron desktop/toast-more-smoke.cjs --montclip-smoke --user-data-dir=<fresh>     → TOAST_MORE_PASS / TOAST_MORE_FAIL
 const electron=require('electron'),{app,BrowserWindow}=electron,assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
@@ -30,6 +32,20 @@ BrowserWindow.prototype.loadURL=async function(...args){
    doc.clips.push({id:'c_rec',mediaId:'m_rec',kind:'audio',track:'A1',start:0,in:0,duration:480,props:{}});applyProject(doc);scheduleSave();if(!await flushSave())throw Error('SAVE');})()`);
   await read(`(()=>{document.getElementById('btnAutoSlices').click();return true;})()`);
   await until(`!!document.querySelector('dialog.auto-slices[open]')`);
+  // B. 更多设置 open, each 每条多长 option picked in turn: still open, the picked one selected and in view
+  const pickAll=()=>read(`(async()=>{const d=document.querySelector('dialog.auto-slices'),more=()=>d.querySelector('details.as-more');
+    if(!more().open)more().querySelector('summary').click();await new Promise(r=>setTimeout(r,100));const out=[];
+    for(const v of MontClipAutoSlices.LENS){const b=d.querySelector('[data-as-act=len][data-as-v='+v+']');b.scrollIntoView({block:'center'});b.click();await new Promise(r=>setTimeout(r,150));
+      const on=d.querySelector('[data-as-act=len][data-as-v='+v+']'),body=d.querySelector('[data-as-body]').getBoundingClientRect(),r=on.getBoundingClientRect();
+      out.push({v,open:more().open,selected:on.classList.contains('on'),inView:r.height>0&&r.top>=body.top-1&&r.bottom<=body.bottom+1});}
+    return out;})()`);
+  report.more1280=await pickAll();
+  await shot('more-settings-1280x800.png');
+  win.setContentSize(630,460);await wait(400);
+  report.more630=await pickAll();
+  await shot('more-settings-630x460.png');
+  win.setContentSize(1280,800);await wait(300);
+  for(const r of [...report.more1280,...report.more630])assert.deepEqual([r.open,r.selected,r.inView],[true,true,true],'更多设置 after picking '+r.v+': '+JSON.stringify(r));
   // A. the 自动出切片 toast after an edit: still there at 6 s; hovered 10 s still there; 〔撤销〕 undoes
   await read(`(()=>{document.querySelector('[data-as-act=go]').click();return true;})()`);
   await until(`autoState().step==='review'&&!autoState().run`,180000);
@@ -39,6 +55,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   const shown=()=>read(`(()=>{const t=document.querySelector('[data-as-toast]');return !t.hidden&&getComputedStyle(t).display!=='none';})()`);
   await wait(6000);report.at6=await shown();
   await shot('toast-undo-1280x800.png');
+  win.setContentSize(630,460);await wait(400);await shot('toast-undo-630x460.png');win.setContentSize(1280,800);await wait(300);
   await read(`(()=>{document.querySelector('[data-as-toast]').dispatchEvent(new MouseEvent('mouseenter'));return true;})()`);
   await wait(10000);report.hovered10=await shown();
   await read(`(()=>{document.querySelector('[data-as-toast]').dispatchEvent(new MouseEvent('mouseleave'));return true;})()`);
