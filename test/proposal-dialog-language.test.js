@@ -49,33 +49,23 @@ test('JJ\'s wording', () => {
   a.ok(!zh('ssel-queue-changed').includes('请重新生成'));
   a.equal(zh('ssel-intro-slices', { n: 3 }), '每段单独成一条切片、一个文件。应用后时间线上只留下这些片段（可以撤销），再把 3 条切片加进导出队列，由你点「开始」。原片不变。');
 });
-// JJ's re-review (documents/2026-11-03-MontClip-PR71-74-75-77-复审-JJ.md): the by-time dialog's refusals in plain words.
-// After main's #36 the sentence dialog says these with own.sd-* / own.rp-* (JJ's #36 final, which mentions 按句选段), so the
-// by-time dialog has its own six; 按句选段 keeps #36's. Locked stays rp-locked (JJ: 可以保留).
-const BY_TIME = {
-  'ssel-err-ranges-line': '每行写一段：开始秒数,结束秒数，比如 12,30。',
-  'ssel-err-ranges-invalid': '这几段的时间不对：每段的结束要比开始晚，段和段不能重叠。',
-  'ssel-err-ranges-past-end': '有一段超过了时间线的结尾，请改短一点。',
-  'ssel-err-ranges-nested': '这几段里有套在一起、绑在一起或调过速度的片段，自动剪不了，请先手动剪。',
-  'ssel-err-ranges-too-short': '有一段太短，剪不出来，请把它拉长一点。',
-  'ssel-changed': '项目刚改过，请关掉这个窗口，再选一次。',
-};
-test("JJ's re-review: the by-time dialog's six refusals", () => {
-  for (const [k, zh] of Object.entries(BY_TIME)) {
-    a.equal(View.t('zh-CN', 'own.' + k), zh, k);
-    const en = View.t('en', 'own.' + k);
-    a.ok(en && !CJK.test(en) && !/按句|Select sentences/i.test(en), k + ' (en): ' + en);
-  }
+// JJ (documents/2026-11-03-MontClip-8个PR文案确认-JJ.md, sha256 3adc874a…) and Deja (11-03): one set of words for this
+// dialog. The by-time dialog says its refusals with #36's final keys — own.sd-range-line, own.sd-changed, own.rp-* — and
+// keeps own.ssel-* only for what #71 adds (the by-time title / intro / label, summaries, done, queue-changed). The six
+// ssel-err-* / ssel-changed sentences of the earlier re-review are withdrawn.
+test("JJ (8 PRs): the by-time dialog reuses #36's refusals; no ssel-err-* / ssel-changed of its own", () => {
+  for (const l of ['zh-CN', 'en']) for (const k of Object.keys(View.text[l]))
+    a.ok(!/^own\.ssel-(err-|changed$)/.test(k), k + ' should be gone (' + l + ')');
   for (const f of ['app.js', 'docs/demo/app.js']) {
     const fn = body(read(f), 'async function showSentenceSelection(');
-    for (const k of Object.keys(BY_TIME)) a.ok(fn.includes('"own.' + k + '"'), f + ' uses ' + k);
-    // the sentence dialog keeps #36's keys
-    for (const k of ['sd-range-line', 'sd-changed']) a.ok(fn.includes('"own.' + k + '"'), f + ' keeps ' + k);
+    a.ok(!/ssel-err-|"own\.ssel-changed"|byTimeError/.test(fn), f + ': a second set of refusals is left');
+    for (const k of ['sd-range-line', 'sd-changed']) a.ok(fn.includes('uiText("own.' + k + '")'), f + ' says ' + k + ' for both dialogs');
+    a.match(fn, /const ownError = \(error\) => \(error && error\.code && uiText\("own\.rp-" \+ error\.code\)\) \|\| error\.message;/, f);
   }
-  // each code the by-time dialog can meet maps to its sentence; the rest (locked, source-loop …) to main's own.rp-*
-  const fn = body(read('app.js'), 'async function showSentenceSelection(');
-  for (const [code, k] of [['invalid', 'invalid'], ['exceeds', 'past-end'], ['nested', 'nested'], ['short-media', 'too-short']])
-    a.match(fn, new RegExp('"?' + code + '"?: "own\\.ssel-err-ranges-' + k + '"'), code);
+  // the ssel-* that stay are the by-time additions only
+  const left = Object.keys(View.text['zh-CN']).filter((k) => k.startsWith('own.ssel-')).map((k) => k.slice(9)).sort();
+  a.deepEqual(left, ['done-ranges', 'done-slices', 'intro-ranges', 'intro-slices', 'label-time', 'queue-changed', 'sum-cut', 'sum-cut-one',
+    'sum-ranges', 'sum-slice', 'sum-slice-sep', 'title-ranges', 'title-slices']);
 });
 
 test('the joined length reads 0:32, not 12.34 s', () => {
