@@ -56,6 +56,9 @@
     fablecut_proxy: ["undoable", "做或删掉预览用的小文件，让预览更流畅", "Make or delete small preview files so the preview plays smoothly"],
     fablecut_export: ["sensitive", "把时间线导出成视频文件", "Export the timeline to a video file"],
     fablecut_scopes: ["read", "测量画面的亮度和色彩", "Measure the picture's levels and colour"],
+    // the 「自动出切片」 card edits (the owner / Deja, 2026-11-03): the streamer's buttons and the AI, the same capabilities
+    set_segment_kind: ["undoable", "改一张候选卡的类型：唱歌、普通高光或其他", "Change a candidate card's kind: singing, highlight or other"],
+    add_segment: ["undoable", "用 IN–OUT 补一张候选卡，带上类型", "Add a candidate card from IN–OUT, with its kind"],
     fablecut_track: ["undoable", "跟着画面里的人或物体动，让马赛克、贴纸也跟着它走", "Follow a person or thing in the picture, so a mosaic or sticker moves with it"],
   };
   const freeze = (o) => { if (o && typeof o === "object" && !Object.isFrozen(o)) { Object.freeze(o); for (const v of Object.values(o)) freeze(v); } return o; };
@@ -63,6 +66,15 @@
   const table = new Map();
   for (const t of TOOLS) if (SPEC[t.name]) table.set(t.name, { source: "mcp", schema: clone(t.inputSchema) });
   for (const [name, schema] of Object.entries(PROPOSALS)) table.set(name, { source: "proposal", schema: clone(schema) });
+  // the host's own capabilities (segment-edits.js), with their argument shapes
+  const KIND = { type: "string", enum: ["song", "moment", "other"] };
+  const HOST = {
+    set_segment_kind: { type: "object", additionalProperties: false, required: ["id", "kind"],
+      properties: { id: { type: "string", pattern: "^[A-Za-z0-9_.-]{1,160}$" }, kind: KIND } },
+    add_segment: { type: "object", additionalProperties: false, required: ["mediaId", "from", "to", "kind"],
+      properties: { mediaId: { type: "string", pattern: "^[A-Za-z0-9_.-]{1,128}$" }, from: { type: "number", minimum: 0 }, to: { type: "number", minimum: 0 }, kind: KIND } },
+  };
+  for (const [name, schema] of Object.entries(HOST)) table.set(name, { source: "host", schema: clone(schema) });
   for (const [name, entry] of table) {
     const [risk, zh, en] = SPEC[name];
     table.set(name, freeze({ name, source: entry.source, risk, summary: { "zh-CN": zh, en }, schema: entry.schema }));

@@ -29,12 +29,12 @@ test('set_segment_kind: the card’s kind changes, nothing else; undone, the car
  a.equal(E.setKind(before,{id:'m1_s1',kind:'song'}).code,'SEGMENT_SAME','no change, no event');
 });
 
-test('add_segment: a card from IN–OUT inside the recording, in time order; undone, it is gone',()=>{
+test('add_segment: a card from IN–OUT inside the recording, after the others (their order untouched); undone, it is gone',()=>{
  const before=cards(),r=E.add(before,{mediaId:'m1',from:300,to:345.5,kind:'song'},{duration:{m1:3600}});
  a.equal(r.ok,true);
  const c=r.cards.find(x=>x.id===r.id);
  a.deepEqual({kind:c.kind,s:c.s,e:c.e,mediaId:c.mediaId,added:c.added},{kind:'song',s:300,e:345.5,mediaId:'m1',added:true});
- a.deepEqual(r.cards.map(x=>x.s),[50,100,300]);
+ a.deepEqual(r.cards.map(x=>x.s),[100,50,300],'the cards are best first, not by time: the new one goes last');
  a.deepEqual(r.event,{capability:'add_segment',args:{mediaId:'m1',from:300,to:345.5,kind:'song'}});
  a.deepEqual(r.correction,{type:'add',kind:'song'});
  a.deepEqual(E.undo(r.cards,r.undo),before);
