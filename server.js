@@ -17,6 +17,7 @@
 "use strict";
 const http = require("http");
 const crypto = require("crypto");
+const stream = require("stream");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -49,6 +50,17 @@ const {
   APP_DIR, DATA_DIR, MEDIA_DIR, EXPORTS_DIR, ANALYSIS_DIR, LIBRARY_DIR,
   PROJECT_FILE, LIBRARY_SUBDIRS, FRAMES_DIR, PROXIES_DIR, ensureDirs, readSaved, writeSaved,
 } = require("./paths");
+/** Uploads arrive here first (same volume as media/; a dot folder, so never served). At start only .part files older than
+ *  24 hours are removed (left over from a crash): another server on the same DATA_DIR may be receiving an upload (QQ). */
+const UPLOADS_DIR = path.join(DATA_DIR, ".uploads");
+try {
+  const stale = Date.now() - 24 * 3600 * 1000;
+  for (const f of fs.readdirSync(UPLOADS_DIR)) {
+    if (!f.endsWith(".part")) continue;
+    const file = path.join(UPLOADS_DIR, f);
+    try { if (fs.statSync(file).mtimeMs < stale) fs.rmSync(file, { force: true }); } catch {}
+  }
+} catch {}
 const Templates = require("./templates");
 const { probeFile } = require("./media-probe");
 const MediaLib = require("./media-lib");
@@ -142,7 +154,7 @@ if (fs.existsSync(PROJECT_FILE)) {
 }
 if (!fs.existsSync(PROJECT_FILE)) {
   fs.writeFileSync(PROJECT_FILE, JSON.stringify({
-    name: "Untitled Project", width: 1280, height: 720, fps: 30,
+    name: "未命名项目", width: 1280, height: 720, fps: 30,
     revision: 0, media: [], clips: [],
   }, null, 2));
 }
@@ -188,19 +200,60 @@ if (process.env.FABLECUT_NO_FS_WATCH !== "1") {
 }
 
 /* ── Helpers ── */
+/* An exported file's name keeps Chinese (Delivery.fileSafeName); other names stay as safeName makes them. */
+function exportName(name) { return Delivery.fileSafeName(String(name || ""), "export"); }
 function safeName(name) {
   return name.replace(/[^\w.\- ()\[\]]+/g, "_").slice(0, 120) || "file";
 }
 function sendJSON(res, code, obj) {
+  const req = res.req;
+  if (req && req.tooLarge) {
+    code = 413; obj = { error: "request body too large", code: "BODY_TOO_LARGE", limit: req.bodyLimit || MAX_BODY };
+    // answer once the rest of the body has been read (and dropped): closing earlier resets the connection while the
+    // client is still sending, and it never sees the 413
+    if (!req.complete) { req.resume(); if (!req.tooLargeAnswer) { req.tooLargeAnswer = true; req.once("end", () => sendJSON(res, code, obj)); } return; }
+  }
   const body = JSON.stringify(obj);
   res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" });
   res.end(body);
 }
+/** Writes a request body straight to a file as it arrives (uploads, the export audio), instead of holding it in memory
+ *  like readBody: a multi-GB recording used to cost the server about twice its size (Deja, 2026-11-03: a server.js that
+ *  ran 9 hours held 54 GB). Resolves with the byte count; on a dropped request or a write error the file is removed. */
+function bodyToFile(req, file) {
+  let bytes = 0;
+  req.on("data", (c) => { bytes += c.length; });
+  return stream.promises.pipeline(req, fs.createWriteStream(file, { flags: "wx" })).then(() => bytes, (e) => {
+    try { fs.rmSync(file, { force: true }); } catch {}
+    throw e;
+  });
+}
+/* Request bodies held in memory (readBody) are limited (QQ/Deja after #67: one large POST to a small JSON route could take
+   the server's memory with it). 1 MB, except the routes that really carry more. Uploads and the export audio stream to
+   disk instead (bodyToFile) and have no such limit. */
+const MAX_BODY = 1024 * 1024;
+const BODY_LIMITS = {
+  "PUT /api/project": 64 * 1048576,              // the project document
+  "POST /api/projects": 128 * 1048576,           // an imported project or backup, with its versions
+  "POST /api/transcript": 16 * 1048576,          // the words of a long recording
+  "POST /api/export/frame": 8192 * 8192 * 4 + MAX_BODY, // one raw RGBA frame of the largest canvas (with what came before it)
+};
+const STREAMED = new Set(["POST /api/upload", "POST /api/export/audio"]); // bodyToFile: straight to disk
+const bodyLimit = (req, p) => (STREAMED.has(req.method + " " + p) ? Infinity : BODY_LIMITS[req.method + " " + p] || MAX_BODY);
+/** Refused for size: 413 with code BODY_TOO_LARGE. sendJSON gives that answer for a request marked tooLarge, whatever the
+ *  route's own catch asked for, so every caller of readBody answers 413 without its own handling. */
 function readBody(req) {
+  const limit = req.bodyLimit || MAX_BODY;
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on("data", (c) => chunks.push(c));
-    req.on("end", () => resolve(Buffer.concat(chunks)));
+    let size = 0;
+    req.on("data", (c) => {
+      if (req.tooLarge) return;                 // drained, not kept
+      size += c.length;
+      if (size > limit) { req.tooLarge = true; chunks.length = 0; reject(Object.assign(new Error("request body too large"), { code: "BODY_TOO_LARGE" })); return; }
+      chunks.push(c);
+    });
+    req.on("end", () => { if (!req.tooLarge) resolve(Buffer.concat(chunks)); });
     req.on("error", reject);
   });
 }
@@ -411,7 +464,7 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
   const duration = Number.isFinite(+extra.duration) && +extra.duration > 0 ? +extra.duration : null;
   for (const o of outs) {
     const ext = Delivery.CONTAINERS[o.spec.container].ext;
-    Object.assign(o, reserveExportPaths(EXPORTS_DIR, safeName(o.name || "export"), ext), { proc: null, stderr: "", done: null, failed: null });
+    Object.assign(o, reserveExportPaths(EXPORTS_DIR, exportName(o.name || "export"), ext), { proc: null, stderr: "", done: null, failed: null });
     o.err = () => o.stderr.trim().split("\n").filter(Boolean).slice(-3).map((l) => l.trim()).join(" · ");
   }
   const sess = {
@@ -489,7 +542,7 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
   }
   if (m === "jpeg" && (extra.delivery || extra.deliveries)) return beginDeliveryExport(rate, name, hasAudio, extra);
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-  const safe = safeName(name || "export");
+  const safe = exportName(name || "export");
   // Same filesystem as the finished file so renameSync(partPath, out) cannot EXDEV.
   const dir = fs.mkdtempSync(path.join(EXPORTS_DIR, "fablecut-"));
 
@@ -627,6 +680,10 @@ function stopExportSweep() {
   exportSweepTimer = null;
 }
 
+/* The files /api/export/end made since this server started, until the desktop app claims one (after its Save dialog
+   saved it): only these may lose their copy in exports/ (QQ, 0a2c13b). */
+const freshExports = new Set();
+
 /* Agent-requested exports: handed to an open editor tab over SSE, or to a
    headless browser the server starts (export-jobs.js). */
 const exportJobs = createExportJobs({
@@ -660,13 +717,13 @@ function serveFile(req, res, filePath) {
         "Content-Range": `bytes ${start}-${end}/${st.size}`,
         "Content-Length": end - start + 1, ...extra,
       });
-      fs.createReadStream(filePath, { start, end }).pipe(res);
+      stream.pipeline(fs.createReadStream(filePath, { start, end }), res, () => {});
     } else {
       res.writeHead(200, {
         "Content-Type": type, "Content-Length": st.size,
         "Accept-Ranges": "bytes", "Cache-Control": "no-cache", ...extra,
       });
-      fs.createReadStream(filePath).pipe(res);
+      stream.pipeline(fs.createReadStream(filePath), res, () => {});
     }
   });
 }
@@ -679,6 +736,11 @@ const server = http.createServer(async (req, res) => {
   }
   const url = new URL(req.url, "http://localhost");
   const p = decodeURIComponent(url.pathname);
+  req.bodyLimit = bodyLimit(req, p);
+  if (Number(req.headers["content-length"]) > req.bodyLimit) {
+    req.tooLarge = true;                         // known too large before reading: refused, what arrives is dropped
+    sendJSON(res, 413, {}); return;
+  }
   // never serve dotfiles/dot-directories (.git, .gitignore, …)
   if (p.split(/[\\/]/).some((seg) => seg.startsWith("."))) { res.writeHead(403); res.end(); return; }
 
@@ -1011,15 +1073,25 @@ const server = http.createServer(async (req, res) => {
       let target = path.join(MEDIA_DIR, name);
       let i = 1;
       const ext = path.extname(name), base = path.basename(name, ext);
-      const body = await readBody(req);
-      // Reserve only after receiving the body, and never overwrite another upload.
-      for (;;) {
-        try { fs.writeFileSync(target, body, { flag: "wx" }); break; }
-        catch (error) {
-          if (error.code !== "EEXIST") throw error;
-          target = path.join(MEDIA_DIR, `${base}_${i++}${ext}`);
+      // Streamed to a staging file first (never held in memory), then claimed under a free name: the link fails on an
+      // existing name instead of replacing it, so another upload is never overwritten. A dropped upload leaves nothing.
+      const staging = path.join(UPLOADS_DIR, crypto.randomBytes(8).toString("hex") + ".part");
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+      await bodyToFile(req, staging);
+      try {
+        for (;;) {
+          try { fs.linkSync(staging, target); break; }
+          catch (error) {
+            if (error.code === "EEXIST") { target = path.join(MEDIA_DIR, `${base}_${i++}${ext}`); continue; }
+            // a file system without hard links: an exclusive copy keeps the same no-overwrite rule
+            if (["EPERM", "ENOTSUP", "EXDEV", "EINVAL"].includes(error.code)) {
+              try { fs.copyFileSync(staging, target, fs.constants.COPYFILE_EXCL); break; }
+              catch (e2) { if (e2.code === "EEXIST") { target = path.join(MEDIA_DIR, `${base}_${i++}${ext}`); continue; } throw e2; }
+            }
+            throw error;
+          }
         }
-      }
+      } finally { try { fs.rmSync(staging, { force: true }); } catch {} }
       await faststart(target);
       sendJSON(res, 200, { ok: true, ...await prepareMedia(target) });
     } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
@@ -1277,7 +1349,8 @@ const server = http.createServer(async (req, res) => {
     if (!sess) { sendJSON(res, 404, { error: "no such export session" }); return; }
     try {
       const wavPath = path.join(sess.dir, "audio.wav");
-      fs.writeFileSync(wavPath, await readBody(req));
+      try { fs.rmSync(wavPath, { force: true }); } catch {}
+      await bodyToFile(req, wavPath);   // streamed: a long mix is not held in memory
       // outputs that normalize loudness need the mix measured (loudnorm pass one) before ffmpeg starts
       const byTarget = new Map();
       for (const o of sess.outputs || []) {
@@ -1290,6 +1363,13 @@ const server = http.createServer(async (req, res) => {
       touchExport(sess);
       sendJSON(res, 200, { ok: true });
     } catch (e) { sendJSON(res, 500, { error: String(e) }); }
+    return;
+  }
+  /* {fresh:true} once for a file this session exported (then forgotten); {fresh:false} for anything else */
+  if (p === "/api/export/claim") {
+    if (req.method !== "POST") { sendJSON(res, 405, { error: "POST only" }); return; }
+    const name = url.searchParams.get("name") || "";
+    sendJSON(res, 200, { fresh: freshExports.delete(name) });
     return;
   }
   if (p === "/api/export/end" && req.method === "POST") {
@@ -1314,6 +1394,7 @@ const server = http.createServer(async (req, res) => {
           try { fs.renameSync(o.partPath, o.outPath); }
           catch (e) { return { file, ok: false, error: "could not save the file: " + (e.message || e) }; }
           o.partPath = null; // renamed — cleanup must not delete the finished file
+          freshExports.add(file);
           const report = await verifyDeliveryOutput(sess, o, o.outPath);
           return { file, ok: true, src: "/exports/" + encodeURIComponent(file), ...(report ? { report } : {}),
             ...(o.loudnorm ? { mixLoudness: o.loudnorm.input_i } : {}) };
@@ -1330,6 +1411,7 @@ const server = http.createServer(async (req, res) => {
       const out = sess.outPath;
       fs.renameSync(sess.partPath, out);
       sess.partPath = null; // renamed — cleanup must not delete the finished file
+      freshExports.add(path.basename(out));
       cleanupExport(id);
       sendJSON(res, 200, { ok: true, src: "/exports/" + encodeURIComponent(path.basename(out)) });
     } catch (e) { cleanupExport(id); sendJSON(res, 500, { error: String(e) }); }

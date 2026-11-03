@@ -1994,6 +1994,11 @@ input[type=range] {
   box-sizing: border-box;
 }
 
+.track-head-tools .tracks-above {font-size:10px;padding:1px 3px;white-space:nowrap;}
+/* a hidden attribute alone loses to the .btn display rule; keep the hint off screen when it is hidden */
+#btnTracksAbove[hidden] {display:none;}
+/* while lanes are folded above, the corner says so; +V / +A step aside for it */
+.track-head-tools:has(.tracks-above:not([hidden])) > :not(.tracks-above) {display:none;}
 .track-head-tools .btn {
   padding: 1px 4px;
   font-size: 10px;
@@ -4637,6 +4642,13 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .cindy-proposal-actions {flex:none;display:flex;gap:4px;flex-wrap:wrap;}
 .cindy-config {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:3px;max-height:60%;}
 .cindy-config p,.cindy-config [role=alert] {grid-column:1 / -1;}
+/* VV 2026-11-02: in a short pane the open settings get the room; the conversation and draft come back on close. */
+#mcAgentContent .cindy-port.compact.config-open > :is(.cindy-thread,.cindy-ref-actions,.cindy-references,.cindy-composer,.cindy-proposal-actions) {display:none;}
+#mcAgentContent .cindy-port.compact.config-open > .cindy-config {max-height:none;flex:1 1 auto;min-height:0;}
+/* VV 2026-11-02 (630×460, the smallest window): compact labels and fields so the key and Save fit without scrolling */
+#mcAgentContent .cindy-port.compact.config-open > .cindy-config {gap:2px;padding:3px;}
+#mcAgentContent .cindy-port.compact.config-open > .cindy-config label {font-size:10px;line-height:12px;gap:1px;}
+#mcAgentContent .cindy-port.compact.config-open > .cindy-config :is(select,input) {height:24px;min-height:24px;padding-top:0;padding-bottom:0;font-size:11px;}
 
 @media (max-height:560px) {
  .cindy-port {gap:2px;}
@@ -4700,3 +4712,6 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .hl-return[hidden] { display: none; }
 
 .highlight-dialog .hl-keep-note { margin: 6px 0; opacity: .85; font-size: 12px; }
+
+/* + URL is hidden in the desktop app; .btn would otherwise win over [hidden] */
+#btnImportUrl[hidden] { display: none; }
