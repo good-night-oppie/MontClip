@@ -38,7 +38,8 @@
     fablecut_set_project: ["undoable", "整份替换当前项目（先存一个版本）", "Replace the open project as a whole (a version is kept first)"],
     fablecut_frame: ["read", "看某一时刻的画面", "Look at the picture at a moment"],
     fablecut_analyze_reference: ["undoable", "分析参考视频的节奏，并把它的音乐加进素材", "Analyse a reference video's pace and add its music to the media"],
-    fablecut_import_media: ["external", "导入本机文件，或从网址下载素材", "Import a local file, or download media from a web address"],
+    // undoable for a file on this computer; a web address is blocked (riskOf reads the arguments, Deja on #83)
+    fablecut_import_media: ["undoable", "从这台电脑导入素材文件", "Import a media file from this computer"],
     fablecut_encode_profiles: ["read", "查看导出设置", "List the export settings"],
     fablecut_normalize_audio: ["undoable", "把几段的音量调得一样大", "Make several clips equally loud"],
     fablecut_auto_duck: ["undoable", "有人说话时自动压低音乐", "Lower the music while someone speaks"],
@@ -67,7 +68,7 @@
   // a send is refused, saying by how much; it is never cut down to fit. cloud_transcribe's caps hold its place: not wired yet.
   const TEXT = { kind: "text", perSend: 131072, perScope: 4194304, scope: "chat" };
   const AUDIO = { kind: "audio", perSend: 26214400, perScope: 2147483648, scope: "project-open" };
-  const LIMITS = { assistant_request: TEXT, song_lookup: TEXT, fablecut_import_media: TEXT, cloud_transcribe: AUDIO };
+  const LIMITS = { assistant_request: TEXT, song_lookup: TEXT, cloud_transcribe: AUDIO };
   const HOST = ["assistant_request", "song_lookup", "cloud_transcribe"];
   const freeze = (o) => { if (o && typeof o === "object" && !Object.isFrozen(o)) { Object.freeze(o); for (const v of Object.values(o)) freeze(v); } return o; };
   const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -81,7 +82,20 @@
     table.set(name, freeze({ name, source: entry.source, risk, summary: { "zh-CN": zh, en }, schema: entry.schema, limits: risk === "external" ? { ...LIMITS[name] } : null }));
   }
   const get = (name) => (typeof name === "string" && table.has(name) ? table.get(name) : null);
-  const riskOf = (name) => (get(name) ? get(name).risk : "blocked");
+  /* A capability whose risk depends on what it is asked to do (Deja, 2026-11-03, on #83): fablecut_import_media downloads
+     when its path is a web address (any "scheme://"), or reads a network share (\\server or //server) — not among the
+     network exceptions the owner approved, so blocked in every mode — and imports a file from this computer otherwise.
+     Arguments it cannot read are blocked. */
+  const BY_ARGS = {
+    fablecut_import_media(args) {
+      if (!args || typeof args !== "object" || Array.isArray(args) || "url" in args) return "blocked";
+      const p = args.path;
+      if (typeof p !== "string" || !p.trim()) return "blocked";
+      return /^[a-z][a-z0-9+.-]*:\/\//i.test(p.trim()) || /^(\\\\|\/\/)/.test(p.trim()) ? "blocked" : "undoable";
+    },
+  };
+  /** The risk of a capability (for one that depends on its arguments, of this call); "blocked" for anything else. */
+  const riskOf = (name, args) => (!get(name) ? "blocked" : BY_ARGS[name] ? BY_ARGS[name](args) : get(name).risk);
   const list = () => [...table.values()];
   /** An external capability's caps ({kind, perSend, perScope, scope}, frozen); null for any other name. */
   const limits = (name) => (get(name) ? get(name).limits : null);

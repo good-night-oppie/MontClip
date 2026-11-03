@@ -43,7 +43,7 @@ function createPolicyHost({ confirmYolo, external = () => ({ enabled: false, all
       try { target = Policy.target(input.target.kind, input.target.value); } catch { return fail('TARGET_INVALID'); }
       const ext = external() || {}, lang = language();
       const allowlisted = Array.isArray(ext.allowlist) && ext.allowlist.some((o) => { try { return Policy.target('origin', o) === target; } catch { return false; } });
-      const d = Policy.decide({ mode, capability, language: lang, approved: approvals.has(key(sessionId, capability, target)),
+      const d = Policy.decide({ mode, capability, args: input.args, language: lang, approved: approvals.has(key(sessionId, capability, target)),
         external: { enabled: ext.enabled === true, allowlisted }, bytes, scopeBytes: totals.get(JSON.stringify([sessionId, capability])) || 0 });
       const shown = { ok: true, mode, ...d, target: Policy.targetText(target) };
       if (d.action === 'run' && d.risk === 'external') count(sessionId, capability, bytes);
