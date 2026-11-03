@@ -32,7 +32,10 @@ test('risk levels follow the draft: reading is read, edits are undoable, files w
  for(const n of ['fablecut_status','fablecut_docs','fablecut_get_project','fablecut_frame','fablecut_scopes','fablecut_encode_profiles'])a.equal(r(n),'read',n);
  for(const n of ['keep_ranges','keep_sentences','fablecut_patch_project','fablecut_silence','fablecut_beats','fablecut_reframe'])a.equal(r(n),'undoable',n);
  for(const n of ['fablecut_export','fablecut_projects','fablecut_versions','fablecut_captions'])a.equal(r(n),'sensitive',n);
- a.equal(r('fablecut_import_media'),'external','it can download from a URL');
+ // Deja on #83: a download from a web address is blocked; a file on this computer is undoable (test/import-media-risk.test.js)
+ a.equal(Cap.riskOf('fablecut_import_media',{path:'https://example.com/a.mp4'}),'blocked');
+ a.equal(Cap.riskOf('fablecut_import_media',{path:'C:/a.mp4'}),'undoable');
+ for(const n of ['assistant_request','song_lookup','cloud_transcribe'])a.equal(r(n),'external',n);
 });
 test('unknown names are blocked; the table cannot be changed from outside',()=>{
  a.equal(Cap.riskOf('rm_rf'),'blocked');a.equal(Cap.riskOf('__proto__'),'blocked');a.equal(Cap.riskOf(''),'blocked');

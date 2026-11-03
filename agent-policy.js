@@ -27,8 +27,9 @@
   const refuse = (code, risk, label) => ({ action: "refuse", code, risk, label, showContent: false, choices: [] });
 
   /** One step's fate. Reads only these keys: anything else (the AI's reply, its args) is never looked at. */
-  function decide({ mode, capability, language, whitelist = DEFAULT_WHITELIST, approved, external, bytes = 0, scopeBytes = 0 } = {}) {
-    const risk = Cap.riskOf(capability), label = Cap.label(capability, language), ok = approved === true;
+  function decide({ mode, capability, args, language, whitelist = DEFAULT_WHITELIST, approved, external, bytes = 0, scopeBytes = 0 } = {}) {
+    // args are read only where the table says the risk depends on them (fablecut_import_media: a web address is blocked)
+    const risk = Cap.riskOf(capability, args), label = Cap.label(capability, language), ok = approved === true;
     if (risk === "blocked") return refuse("BLOCKED", risk, label);
     if (!MODES.includes(mode)) return refuse("MODE_UNKNOWN", risk, label);
     const out = (action, choices = []) => ({ action, code: null, risk, label, showContent: risk === "external", choices: action === "ask" ? choices : [] });

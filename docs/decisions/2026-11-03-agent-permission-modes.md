@@ -23,8 +23,7 @@ Date: 2026-11-03. Spec: Deja's architecture draft (sha256 cccbc16f…), sections
 - Blacklist (`Capabilities.BLOCKED`, incl. overwriting an existing file) and every name not in the table: refused in every mode.
 - External always shows what is sent and where; 「都批准」 spares the click only (owner, 2026-11-03).
 - External caps, every mode including Yolo, **per capability** in `capabilities.js` (fixed in the main process with the
-  risk levels; Deja, 2026-11-03): text sends (`assistant_request`, `song_lookup`, and `fablecut_import_media`, which sends
-  only an address) 128 KiB a send and 4 MiB a chat; audio (`cloud_transcribe`, the field only, not wired) 25 MiB a part and
+  risk levels; Deja, 2026-11-03): text sends (`assistant_request`, `song_lookup`) 128 KiB a send and 4 MiB a chat; audio (`cloud_transcribe`, the field only, not wired) 25 MiB a part and
   2 GiB a project while it is open. The main process keeps a total per scope and per capability. Over a cap the send is
   refused and the streamer is told by how much (「超了 …」); it is never cut down and sent anyway. `assistant_request` and
   `song_lookup` are in the table now; the chat send itself is not routed through the policy yet (it keeps its review box
@@ -46,6 +45,11 @@ table). No AI step sends anything out yet, so the external rules are tested in t
 through the system save dialog only is for the export step (later); overwriting is blacklisted already.
 
 ## Decided by Deja (2026-11-03)
+
+- `fablecut_import_media` by its arguments: a web address (any `scheme://`) or a network share (`\\server`, `//server`) is a
+  download the owner never approved as a network exception, so it is blocked in every mode, Yolo too; a file on this
+  computer is undoable. Arguments the host can't read are blocked. `Capabilities.riskOf(name, args)` decides it, in the
+  main process and for events alike.
 
 - 手动 × sensitive / can't be undone (export, delete): asked every time, 〔只批准这次〕〔不同意〕 only. External is not in this
   group: three choices in every mode, and 「都批准」 only spares the click — the content is shown every time. Undoable steps
