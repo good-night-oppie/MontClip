@@ -327,6 +327,8 @@ function createHistory({ projects, autoMinutes = 10, keepAuto = 30 }) {
     switch (a.action || "list") {
       case "list": return list(pid);
       case "save": return save(pid, { name: a.name, note: a.note, final: !!a.final });
+      // before the AI changes the project: one agent version (none when the project is already saved as it is)
+      case "before_agent": return { version: beforeAgent(typeof a.name === "string" ? a.name.slice(0, 80) : "Before the AI run") };
       case "restore": return restore(pid, a.version);
       case "diff": return diff(pid, a.version, a.to || "current");
       case "update": return update(pid, a.version, a);

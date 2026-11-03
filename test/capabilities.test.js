@@ -41,7 +41,7 @@ test('unknown names are blocked; the table cannot be changed from outside',()=>{
  for(const b of ['delete_or_rewrite_source','send_outside_allowlist','write_outside_workspace','overwrite_existing_file'])a.ok(Cap.BLOCKED.includes(b),b);
 });
 test('the desktop main process holds the table and gives the page a read-only copy',()=>{
- const main=read('desktop/main.js'),pre=read('desktop/preload.js');
+ const main=read('desktop/main.js'),pre=read('desktop/view-preload.js');
  a.match(main,/require\(["']\.\.\/capabilities["']\)/);
  a.match(main,/montclip:capabilities:get/);
  a.match(pre,/montclipCapabilities/);
