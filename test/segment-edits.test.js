@@ -13,10 +13,13 @@ test('both are undoable capabilities in the table, with a plain sentence each',(
  for(const n of ['set_segment_kind','add_segment']){const c=Cap.get(n);a.ok(c,n);a.equal(c.risk,'undoable');a.equal(c.source,'host');
   a.ok(c.summary['zh-CN']&&c.summary.en);a.equal(c.schema.type,'object');}
  a.deepEqual(Cap.get('set_segment_kind').schema.required,['id','kind']);
- // 互动 right after 唱歌 (ADR 39a05471): the order the interface shows them in
- a.deepEqual(Cap.get('set_segment_kind').schema.properties.kind.enum,['song','interaction','moment','other']);
- a.deepEqual(Cap.get('add_segment').schema.properties.kind.enum,['song','interaction','moment','other']);
- a.deepEqual([...E.KINDS],['song','interaction','moment','other']);
+ // 互动 right after 唱歌 (ADR 39a05471), then 聊天 and 整活 (Deja, from v12: 补一段 offers 唱歌、互动、聊天、整活、别的)
+ a.deepEqual(Cap.get('set_segment_kind').schema.properties.kind.enum,['song','interaction','chat','stunt','moment','other']);
+ a.deepEqual(Cap.get('add_segment').schema.properties.kind.enum,['song','interaction','chat','stunt','moment','other']);
+ a.deepEqual([...E.KINDS],['song','interaction','chat','stunt','moment','other']);
+ a.deepEqual([...E.ADD_ORDER],['song','interaction','chat','stunt','other'],'补一段 in v12 order');
+ a.match(Cap.get('set_segment_kind').summary['zh-CN'],/唱歌、互动、聊天、整活、普通高光或其他/);
+ a.match(Cap.get('set_segment_kind').summary.en,/singing, interaction, chat, stunt, highlight or other/);
 });
 
 test('set_segment_kind: the card’s kind changes, nothing else; undone, the cards are as they were',()=>{
@@ -51,4 +54,12 @@ test('add_segment: a card from IN–OUT inside the recording, after the others (
   {mediaId:'m2',from:0,to:30,kind:'song'},{mediaId:'m1',from:0,to:30,kind:'x'}])
   a.equal(E.add(before,bad,{duration:{m1:3600}}).ok,false,JSON.stringify(bad));
  a.equal(E.add(before,{mediaId:'m1',from:300,to:302,kind:'song'},{duration:{m1:3600}}).code,'SEGMENT_TOO_SHORT');
+});
+
+// Deja (2026-11-03, from v12): 聊天 (chat) and 整活 (stunt) are kinds a card can be set to or added as
+test('chat and stunt: a card set to them, a part added as them, each teaching its own correction',()=>{
+ const before=cards();
+ const c=E.setKind(before,{id:'m1_m50',kind:'chat'});a.equal(c.ok,true);a.deepEqual(c.correction,{type:'kind',from:'moment',to:'chat'});
+ const s=E.add(before,{mediaId:'m1',from:400,to:430,kind:'stunt'},{duration:{m1:3600}});a.equal(s.ok,true);a.equal(s.cards.at(-1).kind,'stunt');a.deepEqual(s.correction,{type:'add',kind:'stunt'});
+ a.equal(E.setKind(before,{id:'m1_m50',kind:'dance'}).code,'SEGMENT_INVALID');
 });

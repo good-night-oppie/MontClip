@@ -57,7 +57,7 @@ test('a shift is a habit: the same kind and the same direction, 4 of the last 5;
 
 // 互动 (ADR 39a05471): its own habits, like every kind; no rule finds it, only the streamer's moves shift it
 test('互动 has its own start and end habits, and never moves the singing bar',()=>{
- a.deepEqual([...C.KINDS],['song','interaction','moment','other']);
+ a.deepEqual([...C.KINDS],['song','interaction','chat','stunt','moment','other']);
  const r=C.rules([[-3,4],[-2,5],[-4,3],[-3,4]].map(([s,e])=>trim('interaction',s,e)));
  a.deepEqual(r.shift.interaction,{start:{by:-3,of:4,n:4},end:{by:4,of:4,n:4}});a.equal(r.shift.song,undefined,'per kind');a.equal(r.bar,undefined);
  const [x]=C.apply([card({id:'i',kind:'interaction',s:600,e:660})],r,{duration:{m1:3600}});
@@ -148,4 +148,17 @@ test('the same recording searched again: a part marked 不是唱歌 is not a son
  a.deepEqual(C.rules([isSong]).notSong,undefined);
  // off, or the record undone (not kept): the cards as the search gave them
  a.equal(JSON.stringify(C.apply(cards,C.rules([]),{recKey:{m1:k}})),JSON.stringify(cards));
+});
+
+// Deja (2026-11-03, from v12): 聊天 and 整活 are kinds like 互动 — their own habits, no rule finds them, the bar untouched
+test('chat and stunt: kept, their own habits per kind, never found by a rule, a song made chat or stunt is 不是唱歌',()=>{
+ for(const k of ['chat','stunt']){
+  a.equal(C.record({type:'add',kind:k,duration:600}).kind,k);a.equal(C.record({type:'kind',from:'moment',to:k,duration:600}).to,k);
+  const r=C.rules([[-2,3],[-3,2],[-2,2],[-4,3]].map(([s,e])=>trim(k,s,e)));
+  a.deepEqual(Object.keys(r.shift),[k],'only its own kind');a.equal(r.shift[k].start.of,4);
+  const [x,y]=C.apply([card({id:'x',kind:k,s:600,e:660}),card({id:'y',kind:'moment',s:600,e:660})],r,{duration:{m1:3600}});
+  a.deepEqual([x.kind,x.s,x.e],[k,597.25,662.5]);a.deepEqual([y.s,y.e,y.kind],[600,660,'moment'],'no rule turns a card into it');
+  a.equal(C.rules([0.05,0.06,0.07,0.05].map(p=>kind('song',k,p)),{bar:true}).bar.dir,'up','a song made '+k+' is 不是唱歌');
+  a.equal(C.rules([0.05,0.06,0.07,0.05].map(p=>kind('moment',k,p)),{bar:true}).bar,undefined,'not about singing');
+ }
 });
