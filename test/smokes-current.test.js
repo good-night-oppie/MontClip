@@ -49,11 +49,13 @@ test('the smoke list names every desktop smoke; agent-paste as 已停用：会�
 // the review box; one click on that sentence opens their exact text.
 test('the review box’s facts sentence opens to the facts themselves, one click',()=>{
  const pane=read('agent-ui/pane.tsx');
- a.match(pane,/<details data-facts-note><summary>\{t\.factsNote\}<\/summary><pre data-facts-raw>\{JSON\.stringify\(MontClipAgentPane\.messageFacts\(review\?\.messages\?\.at\(-1\)\?\.content\|\|''\),null,2\)\}<\/pre><\/details>/);
+ a.match(pane,/<details data-facts-note><summary>\{t\.factsTitle\}<\/summary><p data-facts-explain>\{t\.factsExplain\}<\/p><pre data-facts-raw>\{JSON\.stringify\(MontClipAgentPane\.messageFacts\(review\?\.messages\?\.at\(-1\)\?\.content\|\|''\),null,2\)\}<\/pre><\/details>/);
  a.ok(!/<p data-facts-note>/.test(pane));
  a.match(read('cindy-official.js'),/data-facts-raw/,'the bundle was rebuilt');
  const s=read('desktop/review-body-smoke.cjs');
  a.match(s,/factsOpen:/);a.match(s,/\[data-facts-note\] summary'\)\.click\(\)/);
+ // JJ's explanation shows above the facts once opened (agent-facts-content.test.js has the words)
+ a.match(s,/explain:n\.querySelector\('\[data-facts-explain\]'\)/);
 });
 // found while comparing main and this head: review-body printed REVIEW_FAIL and still exited 0
 test('review-body exits 1 when it fails, 0 only when it passes',()=>{
