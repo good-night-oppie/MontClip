@@ -20,8 +20,8 @@ test("JJ's words for the bottom bar and what placing says",()=>{
  a.equal(zh('as-placed',{n:3}),'已把 3 条放到时间线上，可以接着细剪。');a.equal(zh('as-undo'),'撤销');
  a.deepEqual(['as-step-start','as-step-run','as-step-review','as-step-done'].map(k=>zh(k)),['选录像','找高光','看一遍','导出']);
  a.equal(zh('as-keep'),'关掉不会丢，下次接着看');a.equal(zh('as-start-title'),'从哪场直播出切片？');a.equal(zh('as-go'),'开始找高光');
- a.equal(zh('as-guess-start'),'开头是估的，可能差几秒到十几秒。点「▶ 听开头」听一下，不对就用旁边的 ± 秒挪一下');
- a.equal(zh('as-guess-end'),'结尾是估的，可能差几秒到十几秒。点「▶ 听结尾」听一下，不对就用旁边的 ± 秒挪一下');
+ // the two per-edge 估的 notes became one note above the cards (JJ's v11 visual review; see the last test)
+ a.equal(zh('as-guess-start'),'');a.equal(zh('as-guess-end'),'');
  a.equal(zh('as-found-head',{found:5,on:3}),'找到 5 条，先帮你勾了最好的 3 条');
 });
 test('every 自动出切片 string has English too, and the English is not the Chinese',()=>{

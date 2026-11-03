@@ -2900,9 +2900,9 @@ the dialog keeps it going), **看一遍** (cards best first, the best 3 ticked; 
 its start and end over 40 s with the sound drawn under it, ±1 / ±5 s, ▶ hear the start or the end, ▶ preview, take it
 out and put it back; an overview of the whole recording with a box per card) and **导出**. `songs.js` is not accurate
 enough yet to call any song right, so a song card is 「1:12:04 那段」, typed 「可能在唱歌」. Beside each start and end
-time is its level (design v8): 比较可能 (grey hint: listen before deciding), 估的 (yellow hint; where `songs.js` marked
-that end as guessed, or the best part of a song), or 你调过 (grey, no hint) while the streamer has moved it — undone or
-moved back, it shows its own level again; a highlight's ends are 比较可能. The same gate holds every other promise of
+time is its level (design v8): 比较可能 (listen before deciding), 估的 (where `songs.js` marked
+that end as guessed, or the best part of a song), or 你调过 (grey) while the streamer has moved it — undone or
+moved back, it shows its own level again; a highlight's ends are 比较可能. Since JJ's v11 visual review a card shows only the tag; what it means is its tooltip, and the 估的 note (标着「估的」的开头结尾，先点「▶ 听开头 / 听结尾」听一下再定。) is written once above the cards. The name hint is written once, on the first card, and 不要这条 is a grey text button at the right end of the card; blue is only on the primary button and selected things. The same gate holds every other promise of
 telling songs apart — the singing hint (会找可能在唱歌的段落，每段单独出一条。), the length hint, the search step (找哪几段
 可能在唱歌) and the lyrics button (如果这段是唱歌，可以按歌词校准字幕) — and a card is never given a song title by itself:
 only the streamer renames it (design v9). 「第 n 首歌」 and the song wording come back only when the

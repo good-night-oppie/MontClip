@@ -64,12 +64,12 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.equal(likely.hints,0,'no long note under any strip');
   assert.ok(likely.tags.length>0&&likely.tags.every(([t,title])=>t==='比较可能'&&/^(开头|结尾)比较可能在这里，还是点「▶ 听(开头|结尾)」听一下再定。$/.test(title)),JSON.stringify(likely.tags.slice(0,2)));
   assert.equal(likely.note,0,'nothing estimated: no note above the cards');
-  // the estimated parts (the best 45 s of each song): every edge tagged 「估的」, the note once, above the cards
+  // the estimated parts (the best 45 s of each song); the long note they used to carry ('开头是估的，可能差几秒到十几秒…') is gone: every edge tagged 「估的」, the note once, above the cards
   const est=await read(`(()=>{const st=autoState(),r=MontClipAutoSlices.build({recordings:st.recs,kind:'sing',count:5,len:'hook'});st.clips=r.clips.map((c,i)=>({...c,on:true}));autoRender('review');
     const d=document.querySelector('dialog.auto-slices'),n=d.querySelectorAll('[data-as-guess-note]'),cards=d.querySelector('[data-as-cards]'),N=${JSON.stringify(note)};
     return{cards:d.querySelectorAll('[data-as-card]').length,edges:d.querySelectorAll('[data-as-card] [data-as-edge]').length,tags:[...d.querySelectorAll('[data-as-card] [data-as-level]')].map(e=>[e.textContent,e.title]),
      notes:n.length,text:n[0]&&n[0].textContent,count:d.innerText.split(N).length-1,above:!!n[0]&&!n[0].closest('[data-as-card]')&&!!(n[0].compareDocumentPosition(cards)&Node.DOCUMENT_POSITION_FOLLOWING),
-     long:d.innerText.split(${JSON.stringify(zh('as-guess-start'))}).length-1+d.innerText.split(${JSON.stringify(zh('as-guess-end'))}).length-1,hints:d.querySelectorAll('[data-as-hint],.as-guess,.as-likely').length};})()`);
+     long:(d.innerText.match(/(开头|结尾)是估的，可能差几秒到十几秒/g)||[]).length,hints:d.querySelectorAll('[data-as-hint],.as-guess,.as-likely').length};})()`);
   report.estimated={cards:est.cards,edges:est.edges,notes:est.notes,count:est.count,above:est.above,long:est.long};
   assert.ok(est.cards>=2,'estimated cards');
   assert.equal(est.tags.length,est.edges,'a tag beside every start and end');
