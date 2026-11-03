@@ -97,7 +97,7 @@ test("the tools: simple mode refuses B/R/Y/U, and going to simple mode goes back
   const store = new Map(), pref = View.create({ getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) });
   const nodes = ["select", "ripple", "roll", "slip", "slide"].map((name) => ({ dataset: { editTool: name }, classList: { toggle() {} }, setAttribute(k, v) { this[k] = v; } }));
   const state = { tool: "select", selIds: new Set(["one"]) }, project = { clips: [{ id: "one", start: 1 }] }, runtime = { undo: ["u1"], redo: [] };
-  const fixed = { mcView: pref, MontClipView: View, state, project, runtime, colorState: { ws: "edit" }, setWorkspace() {}, renderMontClipView() {}, refreshLocalizedViews() {}, toast() {},
+  const fixed = { mcView: pref, MontClipView: View, state, project, runtime, colorState: { ws: "edit" }, setWorkspace() {}, renderMontClipView() {}, refreshLanguageText() {}, refreshLocalizedViews() {}, toast() {},
     document: { querySelectorAll: () => nodes }, els: { tracksContent: { dataset: {} } } };
   const env = new Proxy(fixed, { has: () => true, get: (t, n) => (n === Symbol.unscopables ? undefined : n in t ? t[n] : globalThis[n]), set: (t, n, v) => { t[n] = v; return true; } });
   Object.assign(fixed, new Function("env", "with (env) {" + SRC.slice(toolStart, toolEnd) + SRC.slice(upStart, upEnd) + "; return { setEditTool, updateMontClipView }; }")(env));
