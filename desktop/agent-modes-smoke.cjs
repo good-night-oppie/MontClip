@@ -16,6 +16,10 @@ const electron=require('electron'),{app,BrowserWindow}=electron,assert=require('
 if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke required');
 const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
 if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
+const shotsDir=process.env.MONTCLIP_SHOTS_OUT||null;if(shotsDir&&!require('node:path').isAbsolute(shotsDir))throw Error('MONTCLIP_SHOTS_OUT must be an absolute folder');
+// evidence for the PR (Deja): MONTCLIP_SHOTS_OUT=<absolute folder> saves the hidden offscreen window's own page as PNGs (capturePage of
+// this window only; nothing on the desktop is captured)
+const shotOf=(win)=>async(name)=>{if(!shotsDir)return;await new Promise(r=>setTimeout(r,150));require('node:fs').writeFileSync(require('node:path').join(shotsDir,name+'.png'),(await win.webContents.capturePage()).toPNG());};
 const Cap=require('../capabilities');
 const out=(k,v)=>process.stdout.write(k+' '+JSON.stringify(v)+'\n');
 delete process.env.MONTCLIP_SMOKE_YOLO_CONSENT;
@@ -29,7 +33,7 @@ service.createDiskService=(...args)=>{const real=originalService(...args);return
 }};};
 const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...args){
- await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=(ms=150)=>new Promise(r=>setTimeout(r,ms));
+ await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=(ms=150)=>new Promise(r=>setTimeout(r,ms)),shot=shotOf(win);
  page=read;
  let ok=false;const report={};
  try{
@@ -62,6 +66,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.ok(!/keep_ranges|fablecut_/.test(b1.text),'never the internal name');
   assert.deepEqual(b1.choices,[['once','只批准这次'],['session','这个聊天中都批准'],['deny','不同意']]);
   assert.equal(b1.focus,'deny','不同意 has the focus');
+  await shot('approval-manual');
   await choose('deny');
   assert.equal(await clips(),before,'不同意: nothing changed');
   report.denied={event:await read(`eventLog().list().filter(e=>e.actor==='ai').at(-1).state`)};assert.equal(report.denied.event,'rejected');
@@ -111,6 +116,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await read(`document.querySelector('[data-mode="yolo"]').click();true`);await wait(300);
   delete process.env.MONTCLIP_SMOKE_YOLO_CONSENT;
   const y=await read(`({mode:agentPolicy.mode,mark:!document.getElementById('mcYoloMark').hidden,markText:document.getElementById('mcYoloMark').textContent,pane:document.querySelector('[data-yolo-on]')?.textContent})`);
+  await shot('yolo-on');
   report.yolo=y;assert.equal(y.mode,'yolo');assert.equal(y.mark,true);assert.equal(y.markText,'Yolo 开着');assert.match(y.pane,/^Yolo 开着/);
   await read(`flushSave()`);await wait();
   const y0=await clips();await turn('剪掉最后 5 秒');
