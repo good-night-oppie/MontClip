@@ -49,6 +49,9 @@ test("the server exports 未命名项目 as 未命名项目.mp4 and serves it un
   const end = await (await fetch(base + "/api/export/end?id=" + sess.id, { method: "POST" })).json();
   a.equal(end.src, "/exports/" + encodeURIComponent("未命名项目.mp4"), end.error);
   a.ok(fs.existsSync(path.join(dir, "exports", "未命名项目.mp4")));
+  // the check after the export (ffprobe and loudness on the Chinese path) ran and passed
+  const o = (end.outputs || [])[0] || {};
+  a.equal(o.ok, true); a.equal(o.report && o.report.ok, true, JSON.stringify(o.report));
   const got = await fetch(base + end.src);
   a.equal(got.status, 200); await got.arrayBuffer();
 });

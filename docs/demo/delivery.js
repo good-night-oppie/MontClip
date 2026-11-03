@@ -707,6 +707,15 @@
     s = s.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "_").replace(/\s+/g, " ").trim().replace(/^\.+/, "");
     return s.slice(0, 120) || "export";
   }
+  /** A file name Windows accepts, keeping every other character (Chinese included): only \ / : * ? " < > | and
+   *  control characters are replaced, leading dots and trailing dots or spaces go, reserved device names get a "_",
+   *  and it is at most 120 characters. Empty → fallback. */
+  function fileSafeName(name, fallback = "export") {
+    let s = String(name == null ? "" : name).replace(/[\\/:*?"<>|\u0000-\u001f\u007f]+/g, "_").replace(/\s+/g, " ").trim()
+      .replace(/^\.+/, "").replace(/[. ]+$/, "");
+    if (/^(con|prn|aux|nul|com\d|lpt\d)(\..*)?$/i.test(s)) s = "_" + s;
+    return s.slice(0, 120).replace(/[. ]+$/, "") || fallback;
+  }
   /** The file name an output gets in a project (its size, export frame and fps). */
   function projectFilename(spec, proj = {}) {
     const fr = reframe(spec, proj.width || 1920, proj.height || 1080, proj.exportFrame || null);
@@ -817,7 +826,7 @@
     CONTAINERS, CODECS, ENCODERS, AUDIO, COLORS, PRESETS, PRESET_IDS, DEFAULT_PRESET,
     FPS_CHOICES, RESOLUTIONS, SPEEDS, SAMPLE_RATES, META_KEYS, FILENAME_TOKENS,
     NEVER_ENCODERS, forbiddenEncoder, normalize, encodersFor, reframe, ffmpegArgs, videoFilter, frameInput, jpegQuality, fpsRational,
-    renderFilename, projectFilename, describe, estimateSize, checks, presetGroups, presetId, savedPresets, parseEncoders,
+    renderFilename, projectFilename, fileSafeName, describe, estimateSize, checks, presetGroups, presetId, savedPresets, parseEncoders,
     PLATFORM_LOUDNESS, LOUDNESS_TARGETS, LOUDNESS_ARGS, LOUDNORM_ARGS, parseLoudnorm, loudnormFilter, parseEbur128, verify,
     fmtBytes, fmtDur,
   };

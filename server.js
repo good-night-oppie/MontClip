@@ -184,6 +184,8 @@ if (process.env.FABLECUT_NO_FS_WATCH !== "1") {
 }
 
 /* ── Helpers ── */
+/* An exported file's name keeps Chinese (Delivery.fileSafeName); other names stay as safeName makes them. */
+function exportName(name) { return Delivery.fileSafeName(String(name || ""), "export"); }
 function safeName(name) {
   return name.replace(/[^\w.\- ()\[\]]+/g, "_").slice(0, 120) || "file";
 }
@@ -407,7 +409,7 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
   const duration = Number.isFinite(+extra.duration) && +extra.duration > 0 ? +extra.duration : null;
   for (const o of outs) {
     const ext = Delivery.CONTAINERS[o.spec.container].ext;
-    Object.assign(o, reserveExportPaths(EXPORTS_DIR, safeName(o.name || "export"), ext), { proc: null, stderr: "", done: null, failed: null });
+    Object.assign(o, reserveExportPaths(EXPORTS_DIR, exportName(o.name || "export"), ext), { proc: null, stderr: "", done: null, failed: null });
     o.err = () => o.stderr.trim().split("\n").filter(Boolean).slice(-3).map((l) => l.trim()).join(" · ");
   }
   const sess = {
@@ -485,7 +487,7 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
   }
   if (m === "jpeg" && (extra.delivery || extra.deliveries)) return beginDeliveryExport(rate, name, hasAudio, extra);
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-  const safe = safeName(name || "export");
+  const safe = exportName(name || "export");
   // Same filesystem as the finished file so renameSync(partPath, out) cannot EXDEV.
   const dir = fs.mkdtempSync(path.join(EXPORTS_DIR, "fablecut-"));
 
