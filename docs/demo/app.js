@@ -10773,8 +10773,7 @@ function autoAddOpen(kind) {
   d.innerHTML = `<h2>${autoSay("as-add")}</h2><p>${autoSay("as-add-from")}<b>${escapeHtml(hms(sp.s))} → ${escapeHtml(hms(sp.e))}</b>${autoSay("as-add-total", { len: autoDur(sp.e - sp.s) })}<span class="as-add-rec" data-as-add-rec>${autoSay("as-add-rec", { name: m ? m.name : "" })}</span></p>
     <div class="as-small">${autoSay("as-add-what")}</div><div class="as-seg">${MontClipSegmentEdits.ADD_ORDER.map((k) => `<button type="button" data-as-add-kind="${k}"${k === kind ? ' class="on"' : ""}>${autoKindName(k)}</button>`).join("")}</div>
     <p class="as-small">${autoSay(hintKey)}</p>
-    <label class="as-small" for="asAddName">${autoSay("as-add-name")}</label>
-    <input type="text" id="asAddName" data-as-add-name maxlength="80" placeholder="${escapeHtml(autoName({ kind: "moment", s: sp.s, e: sp.e, at: sp.s, no: null }))}">
+    <label class="dlv-f as-add-namefield"><span>${autoSay("as-add-name")}</span><input type="text" id="asAddName" data-as-add-name maxlength="80" placeholder="${escapeHtml(autoName({ kind: "moment", s: sp.s, e: sp.e, at: sp.s, no: null }))}"></label>
     <div class="as-row"><button type="button" class="btn primary" data-as-add-ok${kind ? "" : " disabled"}>${autoSay(kind ? "as-add-ok" : "as-add-pick-first")}</button><button type="button" class="btn" data-as-add-no>${autoSay("as-add-cancel")}</button></div>`;
   d.querySelector("[data-as-add-name]").value = name;
   if (!d.open) d.showModal();
