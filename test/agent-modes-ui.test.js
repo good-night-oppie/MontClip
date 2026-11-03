@@ -66,3 +66,17 @@ test('the switch sits at the top of the assistant; the Yolo mark is in the pane 
  a.match(html,/<span class="mc-yolo-mark" id="mcYoloMark" role="status" hidden data-i18n="own\.ap-yolo-on">/);
  a.match(read('cindy-official.js'),/data-agent-modes/,'the bundle was rebuilt');
 });
+
+test('JJ’s final words (5d360cd7) for the changed lines; the Yolo box follows the interface language',()=>{
+ const T=(l,k)=>View.text[l]['officialPane_'+k];
+ a.equal(T('zh-CN','modeManualTip'),'改项目前先问你；撤不回的每次都问');
+ a.equal(T('en','modeManualTip'),"Asks before changing the project; asks every time for anything that can't be undone");
+ a.equal(t('zh-CN','own.ap-refused-mode'),'助手现在没有选模式，所以什么都没做。请在助手顶部选一种模式。');
+ // shown when the main process refused the switch or the channel failed (the switch exists in the desktop app only)
+ a.equal(T('zh-CN','modeUnavailable'),'这次没换成，模式还是原来那个。关掉 MontClip 再打开，再试一次。');
+ a.equal(T('en','modeUnavailable'),"The mode didn't change; it's still the one it was. Close MontClip, open it again and try once more.");
+ a.equal(T('zh-CN','modeYolo'),'Yolo','the owner’s own name for it');
+ const {yoloText}=require('../desktop/agent-mode-text');
+ a.deepEqual(yoloText('zh-CN').buttons,['取消','打开 Yolo']);a.deepEqual(yoloText('en').buttons,['Cancel','Turn on Yolo']);
+ a.match(read('desktop/main.js'),/const t = yoloText\(languageOf\(settings\.get\(\)\)\);/,'the box takes the interface language');
+});
