@@ -220,3 +220,19 @@ test('the main process writes its download hosts down itself: hf-mirror.com firs
   a.match(main, /fetchFile: \(url, dest, o\) => AsrDownload\.fetchFile\(url, dest, \{ \.\.\.o, hosts: ASR_HOSTS \}\)/);
   a.match(main, /hosts: ASR_HOSTS/);
 });
+
+// Windows CI (ee012c6): a file rewritten with other bytes of the same size within the same millisecond kept its old
+// result — the cache was keyed by size and mtimeMs. Every rewrite must be seen, good and bad alike.
+test('a file rewritten at once with other bytes of the same size is checked again (never a stale result)', () => {
+  const user = tmp();
+  try {
+    const store = M.createStore({ manifest: fake, roots: [], userDir: user });
+    put(user, 'asr/model.int8.onnx', bytes.model);
+    for (let i = 0; i < 40; i++) {
+      put(user, 'asr/tokens.txt', Buffer.from('tokenz'));
+      a.deepEqual(store.status().asr.bad, ['tokens.txt'], 'round ' + i + ': the wrong bytes');
+      put(user, 'asr/tokens.txt', bytes.tokens);
+      a.equal(store.status().asr.ready, true, 'round ' + i + ': the right bytes');
+    }
+  } finally { fs.rmSync(user, { recursive: true, force: true }); }
+});
