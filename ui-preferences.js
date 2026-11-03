@@ -305,6 +305,13 @@
     "ssel-sum-slice-sep": ["; ", "；"],
     "ssel-done-ranges": ["Joined these ranges. Undo is available.", "已拼接这些片段，可撤销。"],
     "ssel-done-slices": ["Kept {n} ranges and added them to the export queue. Undo is available.", "已留下 {n} 段，并加进导出队列，可撤销。"],
+    // the by-time dialog's refusals (JJ's re-review of #71); 按句选段 says these with own.sd-* / own.rp-* (#36)
+    "ssel-err-ranges-line": ["Write one range per line: start seconds,end seconds, for example 12,30.", "每行写一段：开始秒数,结束秒数，比如 12,30。"],
+    "ssel-err-ranges-invalid": ["These ranges don't work: each one must end after it starts, and they can't overlap.", "这几段的时间不对：每段的结束要比开始晚，段和段不能重叠。"],
+    "ssel-err-ranges-past-end": ["A range runs past the end of the timeline. Make it shorter.", "有一段超过了时间线的结尾，请改短一点。"],
+    "ssel-err-ranges-nested": ["These ranges hold clips that are nested, linked to a parent or speed-changed. They can't be cut automatically; cut them by hand first.", "这几段里有套在一起、绑在一起或调过速度的片段，自动剪不了，请先手动剪。"],
+    "ssel-err-ranges-too-short": ["A range is too short to cut. Make it a little longer.", "有一段太短，剪不出来，请把它拉长一点。"],
+    "ssel-changed": ["The project just changed. Close this window and choose again.", "项目刚改过，请关掉这个窗口，再选一次。"],
     "ssel-queue-changed": ["The timeline changed after this clip was queued, so it was not exported. Ask the assistant for a new suggested edit based on the current timeline.", "时间线在加入队列之后改过了，这条切片没有导出。请让助手按现在的时间线再给一次剪辑建议。"],
   };
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }
