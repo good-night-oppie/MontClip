@@ -17,6 +17,8 @@ if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke requir
 const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
 if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const {wav}=require('../test/songs-synth');
+// #70 is here: an empty folder for the speech engine and models, so the app starts with transcription not installed
+const asrEmpty=require('node:fs').mkdtempSync(require('node:path').join(require('node:os').tmpdir(),'montclip-noasr-'));process.env.MONTCLIP_ASR_DIR=asrEmpty;
 const PLAN=[['talk',60],['song',140],['talk',80],['song',150],['talk',50]];
 const out=(k,v)=>process.stdout.write(k+' '+JSON.stringify(v)+'\n');
 // the main process prints the notification it would show; collect those lines
@@ -71,7 +73,9 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.jj2.drag=drag;assert.deepEqual(drag,{during:{toast:'',open:false},after:{toast:'',open:true}});
   // v10: 更多设置 › 字幕 shows the state only; without the on-device model: 还没装听写, and step 2 says it is skipped
   const subs=await read(`(()=>{const d=document.querySelector('dialog.auto-slices');d.querySelector('details.as-more').open=true;return{label:d.querySelector('[data-as-subs-label]').textContent,hint:d.querySelector('[data-as-subs-hint]').textContent,go:!!d.querySelector('[data-as-act=sub-go]'),checked:d.querySelector('[data-as-subs]').checked,step:autoRunHtml().includes('听写成文字：这台电脑还没装听写，先跳过，不影响找高光')};})()`);
-  report.subs=subs;assert.deepEqual(subs,{label:'加字幕（还没装听写）',hint:'找高光照样能用，只是这次不出字幕。',go:false,checked:true,step:true});
+  // 〔去装〕 opens #70's setup page, so it is there exactly when that page is
+  const canInstall=await read(`typeof openAsrSetup==='function'`);
+  report.subs=subs;assert.deepEqual(subs,{label:'加字幕（还没装听写）',hint:'找高光照样能用，只是这次不出字幕。',go:canInstall,checked:true,step:true});
   // started, then the dialog closed: the search goes on, and the top-bar button says it is done
   await read(`document.querySelector('[data-as-act=go]').click();AUTO.el.close();true`);
   await until(`autoState().step==='review'&&!autoState().run`,180000);
@@ -141,7 +145,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   // v10, the model installed (#70's asrReady stands in here) and a transcript of the recording: the song card says how many
   // sentences; placing adds captions over the placed slices only, in the same undo step
   const words=[];for(let t=0;t<478;t+=0.5){const ch='大家好今天一起唱歌'[Math.round(t*2)%9];words.push([ch+(Math.round(t*2)%9===8?'。':''),t,t+0.4]);}
-  const local=await read(`(async()=>{window.asrReady=()=>true;const m=project.media.find(x=>x.id==='m_rec');
+  const local=await read(`(async()=>{window.asrReady=()=>true;if(typeof asrState==='object'&&asrState)asrState.status={engine:{ready:true},vad:{ready:true},asr:{ready:true},punct:{ready:false}};const m=project.media.find(x=>x.id==='m_rec');
     await fetch('/api/transcript?src='+encodeURIComponent(m.src),{method:'POST',body:JSON.stringify({src:m.src,model:'paraformer-zh',language:'zh',duration:480,words:${JSON.stringify(words)}})});
     await loadTranscript(m.src,true);const st=autoState();st.subs=true;const r=MontClipAutoSlices.build({recordings:st.recs,kind:'sing',count:5,len:'song'});st.clips=r.clips.map((c,i)=>({...c,on:i===0}));
     document.getElementById('btnAutoSlices').click();autoRender('review');const line=document.querySelector('[data-as-sub-line]');
@@ -153,7 +157,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.ok(local.caps>0,'captions placed');assert.equal(local.inside,true,'only over the placed slices');assert.equal(local.undo,1,'the same undo step');assert.equal(local.back,true);
   ok=true;
  }catch(e){report.error=String(e&&e.stack||e).slice(0,1500);}
- finally{out(ok?'AUTO_SLICES_PASS':'AUTO_SLICES_FAIL',report);process.exitCode=ok?0:1;app.exit(ok?0:1);}
+ finally{try{require('node:fs').rmSync(asrEmpty,{recursive:true,force:true});}catch{}out(ok?'AUTO_SLICES_PASS':'AUTO_SLICES_FAIL',report);process.exitCode=ok?0:1;app.exit(ok?0:1);}
  await new Promise(()=>{});
 };
 {const Module=require('node:module'),load=Module._load;Module._load=function(id,...args){if(id==='electron'){Module._load=load;return{...electron,BrowserWindow:class extends BrowserWindow{constructor(o){super({...o,show:false,webPreferences:{...o.webPreferences,offscreen:true,backgroundThrottling:false}});}}};}return load.call(this,id,...args);};}
