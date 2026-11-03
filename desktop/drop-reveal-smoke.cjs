@@ -55,7 +55,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   win.setContentSize(804,535);await wait(700);const during=await read('els.timelineScroll.scrollTop');mouse('mouseUp',p.x+4,p.y);await wait(500);
   log('REVEAL_RESIZE_DURING_DRAG',{manual,gesture,during,afterUp:await read('els.timelineScroll.scrollTop')});await shoot('resize-during-drag-804x535');
   assert.equal(gesture,true,'drag started');assert.equal(during,manual,'no re-focus during the drag');}
- log('REVEAL_COMPLETE',{saved:await read('flushSave()'),visible:win.isVisible()});
+ log('REVEAL_COMPLETE',{saved:await read('flushSave()'),windowVisible:win.isVisible()});
  }catch(e){process.stdout.write('REVEAL_FAIL '+(e&&e.message)+'\n');}
  finally{setTimeout(()=>app.exit(0),300);}
 };
