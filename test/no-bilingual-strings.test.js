@@ -7,7 +7,8 @@ const ROOT = path.join(__dirname, '..');
 const FILES = ['app.js', 'desktop/main.js', 'export-jobs.js', 'server.js', 'index.html', 'ui-preferences.js', 'ui-terms.js'];
 const LIT = /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g;
 // Allowed, with the reason:
-const KEY_NAMES = /\b(IN|OUT|In|Out|SRT|FLV|MP4|MontClip|H\.264|FFmpeg|x264|AI|API)\b/g;   // key labels and proper names, not sentences
+// key labels and proper names, not sentences (Windows, its Media Feature Pack and ffmpeg.exe: main's #28 texts)
+const KEY_NAMES = /\b(IN|OUT|In|Out|SRT|FLV|MP4|MontClip|H\.264|FFmpeg|ffmpeg\.exe|x264|AI|API|Windows|Media Feature Pack)\b/g;
 // desktop/main.js's native dialogs are fixed in #37 (desktop/native-text.js); until that is merged into this branch, its
 // six known strings are the only exception, and the exception ends by itself once native-text.js is here.
 const PENDING_37 = !fs.existsSync(path.join(ROOT, 'desktop', 'native-text.js'))
