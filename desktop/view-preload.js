@@ -1,5 +1,5 @@
 'use strict';
-const {contextBridge,ipcRenderer}=require('electron');
+const {contextBridge,ipcRenderer,webUtils}=require('electron');
 contextBridge.exposeInMainWorld('montclipAgentService',Object.freeze({
  reset:()=>ipcRenderer.invoke('montclip:agent:reset'),
  deleteConnection:()=>ipcRenderer.invoke('montclip:agent:deleteConnection'),
@@ -33,6 +33,16 @@ contextBridge.exposeInMainWorld('montclipWorkspaceSettings',Object.freeze({
  get:()=>ipcRenderer.sendSync('montclip:workspace:get'),
  set:value=>ipcRenderer.sendSync('montclip:workspace:set',value),
  migrate:value=>ipcRenderer.sendSync('montclip:workspace:migrate',value)
+}));
+
+// Desktop FLV import: the page passes the File the user picked; only its path goes to the main process (read here),
+// and no path comes back to the page.
+contextBridge.exposeInMainWorld('montclipFlv',Object.freeze({
+ inspect:file=>{let p='';try{p=webUtils.getPathForFile(file);}catch{}return ipcRenderer.invoke('montclip:flv:inspect',p);},
+ prepare:value=>ipcRenderer.invoke('montclip:flv:prepare',value),
+ status:id=>ipcRenderer.invoke('montclip:flv:status',{id}),
+ cancel:id=>ipcRenderer.invoke('montclip:flv:cancel',{id}),
+ finish:id=>ipcRenderer.invoke('montclip:flv:finish',{id})
 }));
 
 // how each of the editor's downloads ended (completed / cancelled / interrupted), its file name and whether its export
