@@ -18190,6 +18190,13 @@ async function fastExport(opts = {}) {
    range go out in ONE render: the frames are drawn once and every output's
    ffmpeg encodes them (up to 8 at a time). Lives in this tab only. */
 const exportQueue = [];
+// Asked by the desktop close prompt (desktop/export-close.js): is an export running here, and how many exported videos in
+// the queue are not saved yet (status done and not saved; the queue lives only in this page, the copies stay in exports/).
+function exportCloseState() {
+  // a copy still being written to where the streamer chose is not "not saved": deleting it would leave half a file (QQ)
+  const unsaved = exportQueue.filter((q) => q.status === "done" && !q.saved && !q.saving);
+  return { exporting: !!state.exporting, unsaved: unsaved.length, files: unsaved.map((q) => q.file).filter(Boolean) };
+}
 let queueRunning = false, queueStop = false;
 function queueLabel(spec) {
   const p = Delivery.PRESETS[spec.preset] || deliveryInfo.saved[spec.preset];
@@ -19865,15 +19872,23 @@ window.addEventListener("resize", () => { state.dirtyTimeline = true; clampTimel
 
 /* ── Resizable upper / timeline split ── */
 const TL_H_KEY = "fablecut-timeline-h";
-const TL_H_MIN = 180;
-const UPPER_MIN = 140;
+const TL_H_MIN = MontClipNarrow.TIMELINE_MIN;
+/* Measured, not assumed: the top bar wraps on narrow windows and the undo/redo row
+   is a row of its own, so every in-flow row other than the upper area and the
+   timeline counts, with a gap between each pair (VV, 2026-11-02: at 804×535 the
+   old fixed sum left the preview 0×0). */
 function availableTimelineMax() {
-  const app = $("app").getBoundingClientRect();
-  const topbar = document.querySelector(".topbar")?.getBoundingClientRect();
-  const topbarH = topbar ? topbar.height : 46;
-  const split = 6;
-  const gaps = 18; // three 6px flex gaps between four children
-  return Math.floor(app.height - topbarH - UPPER_MIN - split - gaps);
+  const app = $("app"), cs = getComputedStyle(app);
+  const rows = [...app.children].filter((e) => e.offsetParent !== null && !/^(absolute|fixed)$/.test(getComputedStyle(e).position));
+  const fixed = rows.filter((e) => !e.classList.contains("upper") && e.id !== "timelinePanel").map((e) => e.getBoundingClientRect().height);
+  return MontClipNarrow.timelineMax({
+    appHeight: app.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom),
+    fixed, gaps: Math.max(0, rows.length - 1), gap: parseFloat(cs.rowGap || cs.gap) || 0,
+    upperMin: MontClipNarrow.upperNeed({
+      head: document.querySelector("#monitorPanel > .panel-head")?.getBoundingClientRect().height || 0,
+      transport: document.querySelector("#monitorPanel .transport")?.getBoundingClientRect().height || 0,
+    }),
+  });
 }
 window.addEventListener("keyup", (e) => {
   const k = e.key.toLowerCase();
@@ -21144,6 +21159,28 @@ for (const b of document.querySelectorAll("#wsSwitch [data-ws]"))
   b.addEventListener("click", () => setWorkspace(b.dataset.ws));
 
 initPanelSplit();
+// Tools that do not fit go into the bar's More menu instead of being cut off (Snap last).
+MontClipNarrow.attach(document.querySelector(".timeline-toolbar"), $("btnTlMore"), $("tlMoreMenu"));
+MontClipNarrow.attach(document.querySelector("#monitorPanel .panel-head-actions"), $("btnMonMore"), $("monMoreMenu"), { floating: true });
+MontClipNarrow.attach(document.querySelector(".topbar-right"), $("btnTopMore"), $("topMoreMenu"));
+MontClipNarrow.attach(document.querySelector(".bin-actions"), $("btnBinMore"), $("binMoreMenu"), { floating: true });
+// A narrow side panel scrolls its tab strip: a mouse wheel moves it sideways, and the open tab stays in view.
+for (const strip of document.querySelectorAll(".bin-tabs")) {
+  strip.addEventListener("wheel", (e) => {
+    if (strip.scrollWidth <= strip.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    strip.scrollLeft += e.deltaY; e.preventDefault();
+  }, { passive: false });
+  strip.addEventListener("click", (e) => { e.target.closest("button")?.scrollIntoView({ block: "nearest", inline: "nearest" }); });
+}
+// The timeline's room depends on rows that settle after a resize (the top bar, the two-row
+// player of a narrow monitor), so re-clamp once they have, not only on the resize event.
+{
+  let queued = false;
+  const reclamp = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; clampTimelineHeight(); }); };
+  const ro = new ResizeObserver(reclamp);
+  for (const el of [$("app"), document.querySelector(".topbar"), document.querySelector(".mc-history"),
+    document.querySelector("#monitorPanel > .panel-head"), document.querySelector("#monitorPanel .transport")]) if (el) ro.observe(el);
+}
 buildTrackDOM();
 rebuildClips();
 renderBin();
