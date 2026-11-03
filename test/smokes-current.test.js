@@ -59,5 +59,6 @@ test('the review box’s facts sentence opens to the facts themselves, one click
 test('review-body exits 1 when it fails, 0 only when it passes',()=>{
  const s=read('desktop/review-body-smoke.cjs');
  a.ok(!/app\.exit\(0\)/.test(s),'never a fixed 0');
- a.match(s,/app\.exit\(passed\?0:1\)/);a.match(s,/passed=ok;/);
+ // app.exit alone left the process at 0 when the page threw (checked against main's page); the exit code is set first
+ a.match(s,/process\.exitCode=passed\?0:1;setTimeout\(\(\)=>app\.exit\(passed\?0:1\)/);a.match(s,/passed=ok;/);
 });

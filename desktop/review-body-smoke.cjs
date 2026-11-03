@@ -11,7 +11,7 @@ if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error(
 const out=process.env.MONTCLIP_REVIEW_OUT||null;if(out&&!path.isAbsolute(out))throw Error('MONTCLIP_REVIEW_OUT must be an absolute folder');
 const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...args){await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=ms=>new Promise(r=>setTimeout(r,ms));
- const result={};
+ const result={};let passed=false;
  try{await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));})()`);
   win.setContentSize(1270,800);
   // one synthetic clip (no file is read), so the message carries timeline facts for the box to show
@@ -61,6 +61,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   }
   const ok=Object.values(result).every(x=>Object.values(x.checks).every(Boolean));
   if(out)fs.writeFileSync(path.join(out,'review-dialog.json'),JSON.stringify(result,null,1)+'\n');
+  passed=ok;
   process.stdout.write((ok?'REVIEW_PASS':'REVIEW_FAIL')+'\n');
- }catch(e){process.stdout.write('REVIEW_FAIL '+e.message+'\n');}finally{setTimeout(()=>app.exit(0),300);}};
+ }catch(e){process.stdout.write('REVIEW_FAIL '+e.message+'\n');}finally{process.exitCode=passed?0:1;setTimeout(()=>app.exit(passed?0:1),300);}};
 require('./main');
