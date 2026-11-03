@@ -61,9 +61,9 @@ async function transcript(file) {
   let r, skipped = 0;
   try { r = await asr.transcribe(file); }
   catch (e) {
-    // asr-local.js gives up on the whole file when one VAD segment makes the recognizer throw (seen on europa:
-    // basic_string::_S_create on 1 segment of 1485; ADR §10). Here the same engine, VAD and word code, one segment at a
-    // time, skipping a segment that throws; the count is reported.
+    // asr-local.js gives up on the whole file when one VAD segment makes the recognizer throw (seen on the Linux test
+    // server: basic_string::_S_create on 1 segment of 1485; ADR §10). Here the same engine, VAD and word code, one
+    // segment at a time, skipping a segment that throws; the count is reported.
     process.stderr.write("product transcription failed, segment by segment instead\n");
     ({ r, skipped } = await bySegment(file));
   }
