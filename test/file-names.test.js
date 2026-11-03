@@ -10,16 +10,55 @@ const D = require("../delivery");
 const { makeDataDir, startServer } = require("./helpers");
 const read = (f) => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 
-test("fileSafeName keeps Chinese, and replaces only what Windows cannot have", () => {
+// One rule for every exported file name (Deja, 2026-11-03, option b; VV's list): what Windows cannot have becomes "-",
+// spaces collapse, no trailing dots or spaces, Windows' reserved names are avoided (with an extension too), and a long
+// name is cut by characters — never through a surrogate pair — leaving room for a suffix such as " 竖屏 (2)".
+test("fileSafeName keeps Chinese, and replaces only what Windows cannot have — with -", () => {
   a.equal(D.fileSafeName("未命名项目"), "未命名项目");
   a.equal(D.fileSafeName("周五杂谈 11-02 竖屏 (2)"), "周五杂谈 11-02 竖屏 (2)");
-  a.equal(D.fileSafeName('a\\b/c:d*e?f"g<h>i|j'), "a_b_c_d_e_f_g_h_i_j");
-  a.equal(D.fileSafeName("  名字. . "), "名字", "no trailing dots or spaces (Windows drops them)");
-  a.equal(D.fileSafeName("..隐藏"), "隐藏", "no leading dots");
-  a.equal(D.fileSafeName("CON"), "_CON"); a.equal(D.fileSafeName("com1.txt"), "_com1.txt");
-  a.equal(D.fileSafeName("", "export"), "export"); a.equal(D.fileSafeName("///", "export"), "_");
+  a.equal(D.fileSafeName('a\\b/c:d*e?f"g<h>i|j'), "a-b-c-d-e-f-g-h-i-j");
+  a.equal(D.fileSafeName("a\u0000b\u001fc\u007fd"), "a-b-c-d", "control characters too");
+  a.equal(D.fileSafeName("周五:杂谈?"), "周五-杂谈", "a trailing replaced character goes with the end");
+});
+
+test("spaces collapse; no trailing spaces or dots; no leading dots", () => {
+  a.equal(D.fileSafeName("  周五   杂谈\t 11-02  "), "周五 杂谈 11-02");
+  a.equal(D.fileSafeName("名字. . "), "名字");
+  a.equal(D.fileSafeName("..隐藏"), "隐藏");
+});
+
+test("Windows' reserved names are avoided, with or without an extension; COM0 / LPT0 and longer names are not reserved", () => {
+  for (const n of ["CON", "prn", "Aux", "NUL", "COM1", "com9", "LPT1", "lpt9", "con.mp4", "COM3.srt", "nul.tar.gz"])
+    a.notEqual(D.fileSafeName(n).toLowerCase().split(".")[0], n.toLowerCase().split(".")[0], n);
+  a.equal(D.fileSafeName("CON"), "CON-");
+  a.equal(D.fileSafeName("con.mp4"), "con-.mp4");
+  for (const n of ["COM0", "LPT0", "CONSOLE", "console.mp4", "com10"]) a.equal(D.fileSafeName(n), n, n);
+});
+
+test("long names are cut by characters, never through a surrogate pair, leaving room for a suffix", () => {
   a.equal(D.fileSafeName("x".repeat(300)).length, 120);
-  a.equal(D.fileSafeName("a\u0000b\u001fc"), "a_b_c");
+  a.equal(Array.from(D.fileSafeName("直".repeat(300))).length, 120);
+  const emoji = "😀".repeat(200), cut = D.fileSafeName(emoji);
+  a.equal(Array.from(cut).length, 120); a.ok(!/[\uD800-\uDBFF]$/.test(cut), "no lone high surrogate at the end");
+  a.ok(!/^[\uDC00-\uDFFF]/.test(cut));
+  const room = " 竖屏 (2)", base = D.fileSafeName("直".repeat(300), "export", { reserve: Array.from(room).length });
+  a.equal(Array.from(base + room).length, 120, "the suffix fits within the limit");
+  a.equal(D.fileSafeName("名字很长".repeat(40), "export", { max: 10 }), "名字很长名字很长名字");
+  a.equal(D.fileSafeName("abc    ".repeat(30), "export", { max: 6 }), "abc ab".trim(), "and no trailing space after the cut");
+});
+
+test("empty or nothing left: the fallback", () => {
+  a.equal(D.fileSafeName("", "export"), "export");
+  a.equal(D.fileSafeName("   ", "captions"), "captions");
+  a.equal(D.fileSafeName(null), "export");
+  a.equal(D.fileSafeName("///", "export"), "-");
+});
+
+test("the delivery template names files by the same rule (one rule, written once)", () => {
+  const src = read("delivery.js");
+  a.equal((src.match(/\\\\\/:\*\?"<>\|/g) || []).length, 1, "the forbidden characters are listed in one place");
+  const spec = D.normalize("master").spec;
+  a.equal(D.renderFilename("{project}_{preset}", spec, { project: "周五:杂谈" }), "周五-杂谈_master");
 });
 
 test("every place that names an exported file uses it: export, captions, mapping, the page's downloads", () => {
