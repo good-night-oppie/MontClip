@@ -124,6 +124,13 @@
     "hl-r-loudness-peak-detail": ["The loudest moment is {peak} dB above the usual level", "最响处比平时高 {peak} 分贝"],
     "hl-r-danmaku": ["{count} danmaku, {ratio}× the usual rate", "弹幕 {count} 条，是平时的 {ratio} 倍"],
     "hl-r-speech": ["Talking faster than usual (about {ratio}×)", "说话比平时快（约 {ratio} 倍）"],
+    // Closing during an export (desktop/export-close.js; JJ's final copy 「追加 3」, one video per 「预备稿 4 补充」; English for JJ to review)
+    "export-close-title": ["Still exporting. Close now?", "还在导出，现在关掉吗？"],
+    "export-close-body": ["Closing MontClip stops the export. The half-finished video won't be kept; next time the export starts over.", "关掉 MontClip 会停止导出。导到一半的视频不会留下，下次要从头再导。"],
+    "export-close-unsaved-1": ["1 exported video in the export queue isn't saved yet. After closing it won't be in the queue any more, but it still takes up space on drive C.", "导出队列里还有 1 个没保存的视频，关掉以后它不会再出现在队列里，但还占着 C 盘空间。"],
+    "export-close-unsaved-n": ["{n} exported videos in the export queue aren't saved yet. After closing they won't be in the queue any more, but they still take up space on drive C.", "导出队列里还有 {n} 个没保存的视频，关掉以后它们不会再出现在队列里，但还占着 C 盘空间。"],
+    "export-close-stop": ["Stop export and close", "停止导出并关闭"],
+    "export-close-keep": ["Keep exporting", "继续导出"],
   };
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }

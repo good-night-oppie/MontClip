@@ -70,6 +70,11 @@ test("main.js asks on every close (× and Alt+F4 are the same window close) befo
   a.match(read("app.js"), /function exportCloseState\(\) \{/);
 });
 
+test("main.js holds every quit until the service has exited (a second quit used to cut its cleanup short)", () => {
+  const main = read("desktop/main.js");
+  a.match(main, /if \(worker && !workerExited\) \{\s*event\.preventDefault\(\);\s*if \(stopping\) return;/);
+});
+
 // ffmpeg holding the half-finished file open: on Windows it cannot be deleted until ffmpeg has exited, which is why
 // the old cleanup (kill, then delete at once) could leave it behind.
 function liveEncode(dir) {

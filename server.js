@@ -55,6 +55,7 @@ const MediaLib = require("./media-lib");
 const { createProxies } = require("./proxy");
 const { createTranscripts } = require("./transcripts");
 const Delivery = require("./delivery");
+const ExportCleanup = require("./export-cleanup");
 const { createProjects } = require("./projects");
 const { createHistory } = require("./history");
 
@@ -595,17 +596,21 @@ function startAnnexbEncoder(sess) {
   attachProc(sess, spawn(FF.path("ffmpeg"), args, { stdio: ["pipe", "ignore", "pipe"] }));
   return sess.proc;
 }
+/* Stops a session's ffmpeg and deletes its half-finished files and fablecut-XXXX folder (export-cleanup.js: what
+   ffmpeg still holds open is deleted once it has exited, for up to 5 s). shutdown() waits for these. */
+const pendingCleanups = new Set();
 function cleanupExport(id) {
   const s = exportSessions.get(id);
   if (!s) return;
   exportSessions.delete(id);
-  try { s.proc?.kill(); } catch {}
-  for (const o of s.outputs || []) {
-    try { o.proc?.kill(); } catch {}
-    if (o.partPath) try { fs.rmSync(o.partPath, { force: true }); } catch {}
-  }
-  try { fs.rmSync(s.dir, { recursive: true, force: true }); } catch {}
-  if (s.partPath) try { fs.rmSync(s.partPath, { force: true }); } catch {}
+  const job = ExportCleanup.stopSessions([s], { timeoutMs: 5000, log: logCleanupLeft });
+  pendingCleanups.add(job); job.finally(() => pendingCleanups.delete(job));
+}
+/** Paths an export cleanup could not delete, kept in DATA_DIR/logs/export-cleanup.log (local only). */
+function logCleanupLeft(left) {
+  const line = left.map((p) => `${new Date().toISOString()} not removed: ${p}`).join("\n") + "\n";
+  console.error(line.trim());
+  try { fs.mkdirSync(path.join(DATA_DIR, "logs"), { recursive: true }); fs.appendFileSync(path.join(DATA_DIR, "logs", "export-cleanup.log"), line); } catch {}
 }
 function sweepIdleExports() {
   const now = Date.now();
@@ -1227,6 +1232,8 @@ const server = http.createServer(async (req, res) => {
     } catch (e) { sendJSON(res, 400, { error: String(e.message || e) }); }
     return;
   }
+  // the desktop close prompt (desktop/export-close.js) asks this: is an export session open (begun, not ended)?
+  if (p === "/api/export/active" && req.method === "GET") { sendJSON(res, 200, { active: exportSessions.size }); return; }
   if (p === "/api/export/begin" && req.method === "POST") {
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
@@ -1585,15 +1592,21 @@ server.listen(PORT, HOST, () => {
 });
 
 let shuttingDown = false;
-function shutdown() {
+/* Quitting (desktop: before-quit gives this 4 s, then kills the process): running exports are stopped — ffmpeg
+   first, then their half-finished files and fablecut-XXXX folders — within 3 s; what could not be deleted is
+   logged, and the process exits either way. Exported files that were not saved yet are not touched. */
+async function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
+  setTimeout(() => process.exit(0), 3700).unref?.();
   stopExportSweep();
-  for (const id of [...exportSessions.keys()]) cleanupExport(id);
+  const sessions = [...exportSessions.values()];
+  exportSessions.clear();
   exportJobs.shutdown();
   ownedProcesses?.stop();
+  try { await Promise.all([ExportCleanup.stopSessions(sessions, { timeoutMs: 3000, log: logCleanupLeft }), ...pendingCleanups]); } catch {}
   server.close(() => process.exit(0));
-  setTimeout(() => process.exit(0), 2000).unref?.();
+  setTimeout(() => process.exit(0), 200).unref?.();
 }
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
