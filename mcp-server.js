@@ -1085,7 +1085,7 @@ async function captionsTool(args) {
     const proj = readProject(), map = C.sourceMap(proj);
     if (!map.segments.length) throw new Error("No source media clips to map");
     fs.mkdirSync(EXPORTS_DIR, { recursive: true });
-    const base = Delivery.fileSafeName(String(proj.name || ""), "captions").slice(0, 80);
+    const base = Delivery.fileSafeName(String(proj.name || ""), "captions", { max: 80 });
     let file = path.join(EXPORTS_DIR, `${base}.mapping.json`);
     for (let n = 2; fs.existsSync(file); n++) file = path.join(EXPORTS_DIR, `${base} ${n}.mapping.json`);
     fs.writeFileSync(file, JSON.stringify(map, null, 2));
@@ -1096,7 +1096,7 @@ async function captionsTool(args) {
     const proj = readProject(), list = C.fromClips(proj.clips, proj.disabledTracks);
     if (!list.length) throw new Error("there are no captions on the timeline to export — make them first (fablecut_captions {})");
     fs.mkdirSync(EXPORTS_DIR, { recursive: true });
-    const base = Delivery.fileSafeName(String(proj.name || ""), "captions").slice(0, 80);
+    const base = Delivery.fileSafeName(String(proj.name || ""), "captions", { max: 80 });
     let file = path.join(EXPORTS_DIR, `${base}.${args.export}`);
     for (let n = 2; fs.existsSync(file); n++) file = path.join(EXPORTS_DIR, `${base} ${n}.${args.export}`);
     fs.writeFileSync(file, args.export === "srt" ? C.toSRT(list) : C.toVTT(list));
