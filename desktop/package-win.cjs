@@ -98,6 +98,8 @@ async function main() {
     for (const f of iconv.filter((f) => /--(COPYING\.LIB|README)$/.test(f))) fs.copyFileSync(path.join(src, 'licenses', 'ffmpeg', 'texts', f), path.join(lic, f.replace(/^libiconv@[0-9a-f]+--/, 'libiconv-') + '.txt'));
     if (!fs.existsSync(path.join(lic, 'libiconv-COPYING.LIB.txt'))) fail('libiconv COPYING.LIB missing');
     fs.copyFileSync(path.join(src, 'LICENSES.md'), path.join(lic, 'LICENSES.md'));
+    // on-device transcription: transformers.js (Apache-2.0), onnxruntime-web (MIT), the Whisper weights (Apache-2.0)
+    for (const f of fs.readdirSync(path.join(src, 'licenses', 'transcribe'))) fs.copyFileSync(path.join(src, 'licenses', 'transcribe', f), path.join(lic, f));
     fs.copyFileSync(path.join(src, 'LICENSE'), path.join(lic, 'MontClip-LICENSE.txt'));
 
     // JJ's notes for testers, in the zip's root (desktop/package-readme/render.js): placeholders filled, UTF-8 with a BOM

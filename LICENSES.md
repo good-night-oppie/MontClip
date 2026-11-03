@@ -177,6 +177,24 @@ Open items before a release (not resolved by this entry):
 - This LGPL build has no libx264/libx265: H.264 export uses graphics-card encoders
   or Windows' `h264_mf` (ADR `docs/decisions/2026-11-02-h264-encoder.md`).
 
+## On-device transcription (bundled transformers.js, ONNX Runtime and Whisper)
+
+Speech is turned into words on this computer, with nothing fetched from the network (owner, 2026-11-03;
+ADR `docs/decisions/2026-11-03-bundle-offline-transcribe.md`). The files are pinned in
+`desktop/transcribe-manifest.json` (version, source, SHA-256), fetched into `vendor/transcribe/` by
+`desktop/fetch-transcribe.cjs` and copied by packaging into `resources/transcribe/`. Texts in `licenses/transcribe/`.
+
+| Component | Version / revision | Licence | Text |
+|---|---|---|---|
+| transformers.js (`@huggingface/transformers`), `dist/transformers.min.js` | transformers.js 4.3.1 | Apache-2.0 | `licenses/transcribe/transformers.js-LICENSE.txt` (the package's own LICENSE) |
+| ONNX Runtime Web (`onnxruntime-web`), `ort-wasm-simd-threaded.jsep.{mjs,wasm}` | onnxruntime-web 1.31.0-dev.20260914-8d85527a0 | MIT | `licenses/transcribe/onnxruntime-web-LICENSE.txt` (microsoft/onnxruntime LICENSE; the npm package itself carries no LICENSE file, its package.json says MIT) |
+| Whisper base weights, ONNX 8-bit conversion `onnx-community/whisper-base_timestamped` @ `608c49e6` | from openai/whisper-base | Apache-2.0 (the openai/whisper-base model card; the conversion states no other licence) | `licenses/transcribe/whisper-weights-Apache-2.0.txt` |
+| Whisper small weights, ONNX 8-bit conversion `onnx-community/whisper-small_timestamped` @ `65caa70f` | from openai/whisper-small | Apache-2.0 (the openai/whisper-small model card; the conversion states no other licence) | `licenses/transcribe/whisper-weights-Apache-2.0.txt` |
+
+- `transformers.min.js` is a bundle: it also contains the JavaScript of ONNX Runtime Web and of transformers.js's
+  own dependencies (`@huggingface/jinja`, `@huggingface/tokenizers`), as published by Hugging Face in the npm package.
+- Which Whisper model the package ships (base, small or both) is not decided yet; the table lists both until it is.
+
 ## Third-party code in the official Cindy integration
 
 MontClip host code retains the repository's MIT LICENSE. Imported components retain their own terms.
