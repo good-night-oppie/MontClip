@@ -95,11 +95,15 @@ test('the naming gate: precision@15 ≥ 0.6 and recall@10 ≥ 0.6; below it a so
  a.deepEqual(A.title(s,{trusted:true}),{key:'as-song-name',vars:{no:s.no,time:A.hms(s.at)}});
  const m=A.build({recordings:[REC],kind:'chat'}).clips[0];a.deepEqual(A.title(m),{key:'as-moment-name',vars:{time:A.hms(m.at)}});
 });
-test('a song card carries one of three tags: estimated (估的), likely (比较可能), adjusted (你调过) once an end is moved',()=>{
+test('each start and each end has its level (v8): estimated (估的) where songs.js marked it, likely (比较可能) otherwise, adjusted (你调过) while it is moved',()=>{
  const rec={...REC,songs:[{from:1000,to:1240,confidence:'estimated',marks:[{at:'end',t:1240,why:'split'}]},song(4000,4260)]};
  const r=A.build({recordings:[rec],kind:'sing',count:5});
  const est=r.clips.find(c=>c.s===1000),lik=r.clips.find(c=>c.s===4000);
- a.equal(A.tag(est),'estimated');a.equal(A.tag(lik),'likely');
- a.equal(A.tag(A.nudge(lik,'s',-1,10800)),'adjusted');a.equal(A.tag(A.nudge(est,'e',2,10800)),'adjusted');
- a.equal(A.tag(A.build({recordings:[REC],kind:'chat'}).clips[0]),null,'a highlight has no song tag');
+ // v8 (frozen, JJ-approved): the level is per end — the start and the end each carry one
+ a.equal(A.edgeLevel(est,'s'),'likely','nothing was guessed at its start');a.equal(A.edgeLevel(est,'e'),'estimated','its end was split');
+ a.equal(A.edgeLevel(lik,'s'),'likely');a.equal(A.edgeLevel(lik,'e'),'likely');
+ const moved=A.nudge(lik,'s',-1,10800);a.equal(A.edgeLevel(moved,'s'),'adjusted');a.equal(A.edgeLevel(moved,'e'),'likely');
+ a.equal(A.edgeLevel(A.nudge(moved,'s',1,10800),'s'),'likely','moved back where it was: its own level again');
+ a.equal(A.edgeLevel(A.nudge(est,'e',2,10800),'e'),'adjusted');
+ const m=A.build({recordings:[REC],kind:'chat'}).clips[0];a.equal(A.edgeLevel(m,'s'),'likely');a.equal(A.edgeLevel(A.nudge(m,'e',5,10800),'e'),'adjusted');
 });

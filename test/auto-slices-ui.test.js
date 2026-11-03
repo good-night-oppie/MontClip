@@ -61,3 +61,12 @@ test("Deja's song-card words until JJ's final copy: a time, 可能在唱歌, thr
  const app=read('app.js');a.match(app,/MontClipAutoSlices\.title\(c\)/);a.ok(!/uiText\("own\.as-song-name"/.test(app),'第 n 首歌 only through the gate');
  a.ok(!/"own\.as-a-song"/.test(app)&&!/as-a-song/.test(read('ui-preferences.js')),'no 一首歌 · length');
 });
+test('v8 (frozen, JJ-approved): a level beside each start and end time; the likely hint; 你调过 grey with no hint; 不确定, not 拿不准',()=>{
+ a.equal(zh('as-likely-start'),'开头比较可能在这里，还是点「▶ 听开头」听一下再定。');a.equal(zh('as-likely-end'),'结尾比较可能在这里，还是点「▶ 听结尾」听一下再定。');
+ a.equal(zh('as-kind-hint-auto'),'它会自己判断。不确定时会在找完以后问你一句。');a.match(zh('as-ask-sub'),/我不确定/);
+ for(const k of ['as-kind-hint-auto','as-ask-sub'])a.ok(!/拿不准/.test(zh(k)),k);
+ const app=read('app.js'),edge=app.slice(app.indexOf('function autoEdgeHtml('),app.indexOf('\n}',app.indexOf('function autoEdgeHtml('))+2);
+ a.match(edge,/MontClipAutoSlices\.edgeLevel\(c, w\)/);a.match(edge,/data-as-level=/);
+ const card=app.slice(app.indexOf('function autoCardHtml('),app.indexOf('\n}',app.indexOf('function autoCardHtml('))+2);
+ a.ok(!/MontClipAutoSlices\.tag\(/.test(card),'the level sits by each time, not once on the card');
+});
