@@ -58,12 +58,15 @@ function diskFree(dir) {
 const driveOf = (dir) => { const r = path.parse(path.resolve(dir)).root; return /^[A-Za-z]:/.test(r) ? r[0].toUpperCase() : r; };
 
 function createStore({ manifest: m = manifest, roots = [], userDir, extract = systemExtract, freeBytes = diskFree } = {}) {
-  const known = new Map();     // file path → {size, mtimeMs, sha}: a file is hashed once per version
+  // file path → {size, mtimeMs, at, sha}: a file is hashed once per version. A version is only trusted when the file had
+  // not changed for RACY_MS before it was hashed (git's "racy" rule): a rewrite inside the same clock tick keeps size and
+  // mtime, so a file that was still fresh is hashed again rather than given its old result.
+  const RACY_MS = 2000, known = new Map();
   const hashOf = (file, st) => {
     const k = known.get(file);
-    if (k && k.size === st.size && k.mtimeMs === st.mtimeMs) return k.sha;
-    const sha = sha256Sync(file);
-    known.set(file, { size: st.size, mtimeMs: st.mtimeMs, sha });
+    if (k && k.size === st.size && k.mtimeMs === st.mtimeMs && k.at - st.mtimeMs > RACY_MS) return k.sha;
+    const at = Date.now(), sha = sha256Sync(file);
+    known.set(file, { size: st.size, mtimeMs: st.mtimeMs, at, sha });
     return sha;
   };
   const check = (root, key) => {
