@@ -64,6 +64,7 @@ function updateMontClipView(patch) {
     if(patch.mode==='simple'&&wasColor)toast(MontClipView.text[mcView.get().language].colorExited);
   }
   const saved = mcView.set(patch); renderMontClipView();
+  try { renderQueue(); } catch { /* not built yet */ }
   state.dirtyTimeline = true;
   if (!saved) toast(mcView.get().language === "en" ? "View preference could not be saved." : "界面偏好未能保存。");
 }
@@ -562,7 +563,7 @@ function setSetting(key, value) {
 
 /* ── State ─────────────────────────────────────────────────────────────── */
 const project = {
-  name: "Untitled Project",
+  name: "未命名项目",
   width: 1280, height: 720, fps: 30, // overwritten by project.json / applyProject
   background: "#000000",
   revision: 0,
@@ -1216,6 +1217,33 @@ function localTimeForMedia(c, mediaTarget) {
   return (i - 1 + frac) * step;
 }
 let toastTimer = null;
+/* The editor's own downloads. In the desktop app the Save dialog decides: the success message waits until the file
+   is saved (VV, 012ba18: Cancel still read "Exported … checks passed"). An export's download names itself first, so
+   once saved its copy in exports/ may go (desktop/export-downloads.js); a cancel keeps it and says where it is, and
+   its queue row then says it was saved. The browser shows the message as before. */
+const pendingSaves = new Map(), pendingExports = new Set(), pendingKinds = new Map();   // name → success message · exports · kind
+function saveDownload(href, name, { savedMsg, exportFile = false, kind = null } = {}) {
+  const a = document.createElement("a");
+  a.href = href; a.download = name;
+  if (window.montclipDownloads) {
+    if (savedMsg) pendingSaves.set(name, savedMsg);
+    if (kind) pendingKinds.set(name, kind);
+    if (exportFile) { window.montclipDownloads.expect(name); pendingExports.add(name); for (const q of exportQueue) if (q.file === name) q.saving = true; renderQueue(); }
+  }
+  else if (savedMsg) toast(savedMsg);
+  document.body.appendChild(a); a.click(); a.remove();
+}
+window.montclipDownloads?.onDone(({ state, name, removed }) => {
+  // another save of this file is open: main refused this one; that one keeps its state
+  if (state === "refused") { toast(uiText("own.save-busy")); return; }
+  const msg = pendingSaves.get(name), wasExport = pendingExports.has(name), kind = pendingKinds.get(name);
+  pendingSaves.delete(name); pendingExports.delete(name); pendingKinds.delete(name);
+  for (const q of exportQueue) if (q.file === name) { q.saving = false; if (removed) q.saved = true; }
+  renderQueue();
+  if (state === "completed") { if (msg) toast(msg); }
+  else if (state === "cancelled") toast(uiText(wasExport ? "own.export-save-cancelled" : kind === "captions" ? "own.captions-save-cancelled" : "own.save-canceled"));
+  else toast(uiText(wasExport ? "own.export-save-failed" : "own.save-failed"));
+});
 function toast(msg) {
   if (!els.toast) return;
   els.toast.textContent = msg;
@@ -1522,7 +1550,7 @@ function applyProject(data, opts = {}) {
   if (!state.compCtx) noteOpenSequence(data);
   const wa = normalizeWorkArea(data.inPoint, data.outPoint);
   Object.assign(project, {
-    name: data.name || "Untitled Project",
+    name: data.name || MontClipView.defaultProjectName(mcView.get().language),
     width: data.width || 1280, height: data.height || 720,
     fps: (Number(data.fps) > 0 ? Number(data.fps) : project.fps),
     background: data.background || "#000000",
@@ -3500,7 +3528,7 @@ function pjNewHtml() {
     </button>`;
   const saved = tpls.filter((x) => !x.builtin);
   return `<h3>New project</h3>
-    <label class="pj-field"><span>Name</span><input type="text" id="pjNewName" value="Untitled Project" maxlength="120" spellcheck="false"></label>
+    <label class="pj-field"><span>Name</span><input type="text" id="pjNewName" value="${escapeHtml(MontClipView.defaultProjectName(mcView.get().language))}" maxlength="120" spellcheck="false"></label>
     <div class="pj-field"><span>Start from</span>
       <div class="pj-tpls">${tpls.filter((x) => x.builtin).map(row).join("")}</div>
       ${saved.length ? `<span class="pj-sub">Saved templates</span><div class="pj-tpls">${saved.map(row).join("")}</div>` : ""}
@@ -3540,7 +3568,7 @@ async function pjAction(act, btn) {
   if (act === "new-create") {
     if (pj.busy) return;
     if (state.exporting) { toast("Wait for the export to finish before switching projects"); return; }
-    const name = ($("pjNewName")?.value || "").trim() || "Untitled Project";
+    const name = ($("pjNewName")?.value || "").trim() || MontClipView.defaultProjectName(mcView.get().language);
     const fps = $("pjNewFps")?.value;
     pj.busy = true;
     try {
@@ -3601,7 +3629,7 @@ async function pjImport(file) {
   let doc;
   try { doc = JSON.parse((await file.text()).replace(/^﻿/, "")); }
   catch { toast(`${file.name} isn't JSON`); return; }
-  const name = doc && doc.name && doc.name !== "Untitled Project" ? doc.name : file.name.replace(/\.json$/i, "");
+  const name = doc && doc.name && !MontClipView.isDefaultProjectName(doc.name) ? doc.name : file.name.replace(/\.json$/i, "");
   const out = await pjPost({ action: "import", project: doc, name });
   if (!out) return;
   pj.view = "active"; pj.mode = "detail"; pj.sel = out.id;
@@ -9344,7 +9372,7 @@ function buildTranscriptPage() {
   root.innerHTML = `<div class="tr-head">
       <div class="tr-row tr-entries">
         <button type="button" class="btn tiny" data-tr-highlights>${escapeHtml(uiText("own.hl-open"))}</button>
-        <button type="button" class="btn tiny" data-tr-sentences>按句选段 / Select sentences</button>
+        <button type="button" class="btn tiny" data-tr-sentences data-i18n="own.tr-sentences">${escapeHtml(uiText("own.tr-sentences"))}</button>
         <button type="button" class="btn tiny" data-tr-mapping>时间映射 / Mapping</button>
       </div>
       <div class="tr-row">
@@ -9902,21 +9930,16 @@ function downloadSourceMap() {
   let map;
   try { map = FableCutCaptions.sourceMap(projectJSON()); } catch (error) { toast(error.message); return; }
   if (!map.segments.length) { toast("没有可映射的音视频 / No source media to map"); return; }
-  const a = document.createElement("a"), url = URL.createObjectURL(new Blob([JSON.stringify(map, null, 2)], { type: "application/json" }));
-  a.href = url; a.download = "MontClip.mapping.json"; a.click(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+  const url = URL.createObjectURL(new Blob([JSON.stringify(map, null, 2)], { type: "application/json" }));
+  saveDownload(url, "MontClip.mapping.json"); setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 function downloadCaptions(kind) {
   const C = FableCutCaptions, list = C.fromClips(project.clips, [...state.disabledTracks]);
   if (!list.length) { toast("No captions on the timeline yet — Add captions first"); return; }
   const blob = new Blob([kind === "vtt" ? C.toVTT(list) : C.toSRT(list)], { type: kind === "vtt" ? "text/vtt" : "application/x-subrip" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `${exportBaseName("captions")}.${kind}`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  toast(`Saved ${list.length} caption${list.length === 1 ? "" : "s"} as ${a.download}`);
+  const url = URL.createObjectURL(blob), name = `${exportBaseName("captions")}.${kind}`;
+  saveDownload(url, name, { kind: "captions", savedMsg: `Saved ${list.length} caption${list.length === 1 ? "" : "s"} as ${name}` });
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 /* fablecut_transcribe: transcribe the job's files in this tab, save them, report. */
 async function runTranscribeJob(ticket, fail) {
@@ -16725,7 +16748,7 @@ function deliveryFrame(spec) {
   return Delivery.reframe(spec, cv.w, cv.h, cv.region);
 }
 /** The project's name as a file name: Chinese kept, only what Windows cannot have replaced. */
-const exportBaseName = (fallback) => Delivery.fileSafeName(project.name, fallback);
+const exportBaseName = (fallback) => Delivery.fileSafeName(project.name, MontClipView.exportFallback(mcView.get().language, fallback));
 function deliveryFileName(spec, fps) {
   const fr = deliveryFrame(spec);
   return Delivery.renderFilename(spec.filename, spec, {
@@ -18128,18 +18151,10 @@ async function fastExport(opts = {}) {
         name: String(o.file || "").replace(/\.[^.]+$/, ""), range: exportRangeMode(), status: "done", progress: 1,
         src: o.src, file: o.file, report: o.report || null });
       renderQueue();
-      toast(o.report && !o.report.ok ? `Exported ${o.file} — check: ${o.report.checks.filter((c) => !c.ok).map((c) => c.text).join("; ")} (Export → Queue)` : `Exported ${o.file}${o.report ? " — checks passed" : ""}`);
-      const a = document.createElement("a");
-      a.href = end.src;
-      a.download = decodeURIComponent(end.src.split("/").pop());
-      a.click();
+      saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true, savedMsg:
+        o.report && !o.report.ok ? `Exported ${o.file} — check: ${o.report.checks.filter((c) => !c.ok).map((c) => c.text).join("; ")} (Export → Queue)` : `Exported ${o.file}${o.report ? " — checks passed" : ""}` });
     }
-    else {
-      const a = document.createElement("a");
-      a.href = end.src;
-      a.download = decodeURIComponent(end.src.split("/").pop());
-      a.click();
-    }
+    else saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true });
   } catch (e) {
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
     const msg = e?.name === "AbortError" ? "cancelled" : String(e.message || e);
@@ -18212,7 +18227,7 @@ function renderQueue() {
     ? "Exporting — outputs with the same frame rate and range share one render."
     : exportQueue.length ? `${pending} waiting · ${done} done` : "Nothing queued — pick settings in Export and press Add to queue.";
   const btnOpen = $("btnOpenQueue");
-  if (btnOpen) btnOpen.textContent = exportQueue.length ? `Queue · ${pending || exportQueue.length}` : "Queue";
+  if (btnOpen) btnOpen.textContent = exportQueue.length ? uiText("own.q-list-n", { n: pending || exportQueue.length }) : uiText("own.q-list");
   const start = $("btnQueueStart");
   start.textContent = queueRunning ? "Stop" : "Start";
   start.disabled = !queueRunning && !pending;
@@ -18223,11 +18238,12 @@ function renderQueue() {
     const ext = Delivery.CONTAINERS[q.spec.container].ext;
     const fr = deliveryFrame(q.spec), fps = q.spec.fps || projectFps();
     const status = q.status === "running" ? `Rendering… ${Math.round(q.progress * 100)}%`
-      : q.status === "done" ? `Done → exports/${q.file || q.name + ext}`
+      : q.status === "done" ? (q.saved ? "" : `Done → exports/${q.file || q.name + ext}`)
         : q.status === "failed" ? `Failed: ${q.error || "unknown error"}`
           : q.status === "cancelled" ? "Stopped" : "Waiting";
     const actions = [
-      q.status === "done" && q.src ? `<a class="btn tiny" href="${escapeHtml(q.src)}" target="_blank" rel="noopener" download>Open</a>` : "",
+      // 保存 opens the save window again; once a save went through, 已保存
+      q.status === "done" && q.src ? (q.saved ? `<span class="dlv-q-saved">${escapeHtml(uiText("own.q-saved"))}</span>` : `<button type="button" class="btn tiny" data-q-save="${q.id}"${q.saving ? ` disabled title="${escapeHtml(uiText("own.save-busy"))}"` : ""}>${escapeHtml(uiText("own.q-save"))}</button>`) : "",
       q.status === "failed" || q.status === "cancelled" ? `<button type="button" class="btn tiny" data-q-retry="${q.id}">Retry</button>` : "",
       q.status !== "running" ? `<button type="button" class="btn tiny" data-q-remove="${q.id}" title="Remove from the queue">✕</button>` : "",
     ].join("");
@@ -18822,10 +18838,7 @@ async function webCodecsExport() {
     encoder = null;
     const end = await fetch("/api/export/end?id=" + sessId, { method: "POST", signal }).then((r) => r.json());
     if (!end.src) throw new Error(end.error || "mux failed");
-    const a = document.createElement("a");
-    a.href = end.src;
-    a.download = decodeURIComponent(end.src.split("/").pop());
-    a.click();
+    saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true });
   } catch (e) {
     try { encoder?.close(); } catch { }
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
@@ -18877,11 +18890,9 @@ async function startExport() {
     if (recDiscard || !recChunks.length) return;
     const ext = mime.startsWith("video/mp4") ? "mp4" : "webm";
     const blob = new Blob(recChunks, { type: mime.split(";")[0] });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = exportBaseName("export") + "." + ext;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 30_000);
+    const url = URL.createObjectURL(blob);
+    saveDownload(url, exportBaseName("export") + "." + ext);
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
   };
   els.exportOverlay.classList.remove("hidden");
   els.exportProgress.style.width = "0%";
@@ -18909,6 +18920,9 @@ function finishExport(keep) {
 /* ═══════════════════════════ WIRING ═══════════════════════════ */
 els.fileInput.addEventListener("change", () => { importFiles(els.fileInput.files); els.fileInput.value = ""; });
 $("btnImportUrl")?.addEventListener("click", openImportUrl);
+// The desktop app works offline: its service refuses URL imports (403 NETWORK_DISABLED), so the button is not shown
+// there. The web demo has no desktop preload and keeps it.
+if (window.montclipViewSettings) { const urlButton = $("btnImportUrl"); if (urlButton) urlButton.hidden = true; }
 $("btnCancelImportUrl")?.addEventListener("click", closeImportUrl);
 $("btnDoImportUrl")?.addEventListener("click", () => importFromUrl(els.importUrlInput?.value));
 els.importUrlInput?.addEventListener("keydown", (e) => {
@@ -19008,9 +19022,11 @@ $("btnQueueClear")?.addEventListener("click", () => {
   renderQueue();
 });
 $("exportQueueList")?.addEventListener("click", (e) => {
-  const r = e.target.dataset.qRetry, x = e.target.dataset.qRemove;
-  const q = exportQueue.find((v) => v.id === (r || x));
+  const r = e.target.dataset.qRetry, x = e.target.dataset.qRemove, s = e.target.dataset.qSave;
+  const q = exportQueue.find((v) => v.id === (r || x || s));
   if (!q) return;
+  // save this export again: it names itself, so the copy goes only once a save completes
+  if (s) { if (q.saving) return; q.saving = true; renderQueue(); saveDownload(q.src, q.file || decodeURIComponent(q.src.split("/").pop()), { exportFile: true }); return; }
   if (r) { q.status = "pending"; q.error = null; q.progress = 0; }
   else exportQueue.splice(exportQueue.indexOf(q), 1);
   renderQueue();
@@ -19269,7 +19285,8 @@ function syncAspectSel() {
   const i = ASPECT_PRESETS.findIndex((a) => a.w === project.width && a.h === project.height);
   els.aspectSel.innerHTML =
     ASPECT_PRESETS.map((a, j) => `<option value="${j}" ${j === i ? "selected" : ""}>${a.label}</option>`).join("") +
-    (i < 0 ? `<option value="custom" selected>Custom · ${project.width}×${project.height}</option>` : "");
+    // the size comes from project.json, which an agent, another tool or a backup can write: escaped (as the project cards, #68)
+    (i < 0 ? `<option value="custom" selected>${escapeHtml(`Custom · ${project.width}×${project.height}`)}</option>` : "");
 }
 function syncFpsSel() {
   if (!els.fpsSel) return;

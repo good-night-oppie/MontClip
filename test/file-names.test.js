@@ -139,7 +139,8 @@ test("every place that names an exported file uses it: export, captions, mapping
   const app = read("app.js"), server = read("server.js"), mcp = read("mcp-server.js");
   a.doesNotMatch(app, /replace\(\/\[\^\\w\\- \]\+\/g/, "app.js: no name reduced to [A-Za-z0-9_- ]");
   a.doesNotMatch(mcp, /replace\(\/\[\^\\w\\- \]\+\/g/, "mcp-server.js: captions and mapping keep Chinese");
-  a.match(app, /const exportBaseName = \(fallback\) => Delivery\.fileSafeName\(project\.name, fallback\);/);
+  // the fallback for a name with nothing usable is 直播切片 {月-日} in Chinese (第四批, test/default-names.test.js)
+  a.match(app, /const exportBaseName = \(fallback\) => Delivery\.fileSafeName\(project\.name, MontClipView\.exportFallback\(mcView\.get\(\)\.language, fallback\)\);/);
   a.match(server, /function exportName\(name\) \{ return Delivery\.fileSafeName\(String\(name \|\| ""\), "export"\); \}/);
   a.match(server, /reserveExportPaths\(EXPORTS_DIR, exportName\(o\.name \|\| "export"\), ext\)/);
   a.match(server, /const safe = exportName\(name \|\| "export"\);/);
