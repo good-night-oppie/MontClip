@@ -710,13 +710,16 @@
    *  file name (Deja, 2026-11-03; VV's list). Whitespace runs become one space; \ / : * ? " < > | and control characters
    *  become "-"; no leading dots, no trailing dots or spaces; Windows' reserved names (CON PRN AUX NUL COM1-9 LPT1-9,
    *  with an extension too) get a "-" after the name; at most opts.max characters (default 120) counted as characters,
-   *  never cutting a surrogate pair, less opts.reserve for a suffix the caller adds (" 竖屏 (2)"). Empty → fallback. */
+   *  never cutting a surrogate pair, less opts.reserve for a suffix the caller adds (" 竖屏 (2)"). Direction controls and
+   *  zero-width characters (U+200B–200F, U+202A–202E, U+2066–2069, U+FEFF) are removed first, so a name cannot pose as
+   *  another extension in Explorer (VV). Empty, or only "-", spaces and dots left (「???」) → fallback. */
   function fileSafeName(name, fallback = "export", opts = {}) {
     const max = Math.max(1, (opts.max || 120) - (opts.reserve || 0));
-    let s = String(name == null ? "" : name).replace(/\s+/g, " ").replace(/[\\/:*?"<>|\u0000-\u001f\u007f]+/g, "-").trim()
+    let s = String(name == null ? "" : name).replace(/[​-‏‪-‮⁦-⁩﻿]+/g, "").replace(/\s+/g, " ").replace(/[\\/:*?"<>|\u0000-\u001f\u007f]+/g, "-").trim()
       .replace(/^\.+/, "").replace(/[. ]+$/, "");
     s = s.replace(/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?=\.|$)/i, "$1-");
-    return Array.from(s).slice(0, max).join("").replace(/[. ]+$/, "") || fallback;
+    s = Array.from(s).slice(0, max).join("").replace(/[. ]+$/, "");
+    return /^[-. ]*$/.test(s) ? fallback : s;
   }
   /** The file name an output gets in a project (its size, export frame and fps). */
   function projectFilename(spec, proj = {}) {
