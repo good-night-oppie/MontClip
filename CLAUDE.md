@@ -2795,10 +2795,13 @@ window is not a quiet room; joins runs across breaks of up to 8 s, splits a run 
 or more) at a quiet gap at least 150 s in and 90 s before its end, and drops runs under 90 s. A song's start backs
 up to where its sound begins, its end runs on to where the sound stops (each at most 12 s). Spectral entropy is not
 used. These parameters come from the prototype's grid search over a local golden set, which is not in the repo
-(`node real-tests/songs-golden.cjs <dir>` evaluates against one and prints numbers only).
+(`node real-tests/songs-golden.cjs <dir>` evaluates against one and prints numbers only). **Not accurate enough to
+trust yet**: on that set (15 recordings from 13 streamers) precision@15 is 0.12, and on its 4 held-out recordings
+(4 streamers) recall@10 is 0.38. Treat every song as a guess to check; the editor shows them all as 「估的」.
 
-Each song is `{from, to, confidence, marks}` in seconds of the file. `confidence` is `sure`, or `estimated`
-(「估的」) with `marks` saying where and why: `split` (start or end — two songs with no clear gap between them were
+Each song is `{from, to, confidence, marks}` in seconds of the file. `confidence` has two levels only: `likely`
+(「较可能」 — nothing was guessed; not a promise that the song is right) or `estimated` (「估的」), with `marks` saying
+where and why: `split` (start or end — two songs with no clear gap between them were
 split at the quietest gap), `merged` (inside — a break was bridged; it may be two songs), `edge` (it runs to the
 start or end of the recording), `unread` (it runs into the part of the file not read yet), `limit` (its start or end
 ran 12 s without the sound beginning or stopping). The songs are kept in the project as `project.songs`

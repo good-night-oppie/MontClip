@@ -12,7 +12,7 @@
      edge   — it starts or ends with the recording
      unread — it runs into the part of the file not read yet
      limit  — its start or end ran out of room before the sound began or stopped
-   find(rms, {complete}) → [{from, to, confidence: "sure"|"estimated", marks: [{at: "start"|"end"|"inside", t, why}]}],
+   find(rms, {complete}) → [{from, to, confidence: "likely"|"estimated", marks: [{at: "start"|"end"|"inside", t, why}]}],
    times in seconds of the file. entry()/clean() check what is kept in the project (project.songs). */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
@@ -95,7 +95,7 @@
       if (s.splitEnd) marks.push({ at: "end", t: to, why: "split" });
       else if (s.to >= n) marks.push({ at: "end", t: to, why: complete ? "edge" : "unread" });
       else if (s.endLimit) marks.push({ at: "end", t: to, why: "limit" });
-      return { from: r1(from), to: r1(to), confidence: marks.length ? "estimated" : "sure", marks };
+      return { from: r1(from), to: r1(to), confidence: marks.length ? "estimated" : "likely", marks };
     });
   }
 
@@ -106,7 +106,7 @@
   function song(s) {
     if (!plain(s) || Object.keys(s).sort().join() !== "confidence,from,marks,to") fail("a song is {from, to, confidence, marks}");
     if (!num(s.from) || !num(s.to) || s.to <= s.from) fail("from < to, seconds");
-    if (s.confidence !== "sure" && s.confidence !== "estimated") fail("confidence is sure or estimated");
+    if (s.confidence !== "likely" && s.confidence !== "estimated") fail("confidence is likely or estimated");
     if (!Array.isArray(s.marks) || s.marks.length > MAX_MARKS) fail("marks");
     const marks = s.marks.map((m) => {
       if (!plain(m) || Object.keys(m).sort().join() !== "at,t,why" || !AT.includes(m.at) || !WHY.includes(m.why) || !num(m.t)) fail("a mark is {at, t, why}");

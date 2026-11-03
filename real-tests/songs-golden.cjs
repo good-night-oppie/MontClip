@@ -6,7 +6,7 @@
    <golden dir>/cases/<case>/labels.json          {labels:[{start_sec, category, unaligned?}]}   singing / dancing count
    <golden dir>/split.json (optional)             {train:[…], holdout:[…]}   — reported apart, by count only
    recall@10: labelled song starts with a found start within 10 s. precision@15: found songs with a labelled start
-   within 15 s. Offsets: found start − labelled start, for matches within 15 s, split by sure / estimated. */
+   within 15 s. Offsets: found start − labelled start, for matches within 15 s, split by likely / estimated. */
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -40,7 +40,7 @@ function line(label, rs) {
     offSure: a.offSure.concat(r.offSure), offEst: a.offEst.concat(r.offEst) }), { n: 0, hit10: 0, pred: 0, tp15: 0, est: 0, offSure: [], offEst: [] });
   const abs = (v) => v.map(Math.abs);
   console.log(`${label} cases ${rs.length} labelled ${s.n} found ${s.pred} recall@10 ${f(s.hit10 / s.n)} precision@15 ${f(s.tp15 / s.pred)}` +
-    ` estimated ${s.est}/${s.pred} median|start offset| sure ${f(median(abs(s.offSure)), 1)} s (${s.offSure.length})` +
+    ` estimated ${s.est}/${s.pred} median|start offset| likely ${f(median(abs(s.offSure)), 1)} s (${s.offSure.length})` +
     ` start-estimated ${f(median(abs(s.offEst)), 1)} s (${s.offEst.length})`);
 }
 const names = fs.readdirSync(path.join(root, "cases")).filter((c) => fs.existsSync(path.join(root, "cases", c, "audio-features.json")) && fs.existsSync(path.join(root, "cases", c, "labels.json"))).sort();
