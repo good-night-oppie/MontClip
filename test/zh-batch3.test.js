@@ -146,3 +146,19 @@ test('relative time: 刚刚 / {n} 分钟前 / {n} 小时前 / 昨天 / {月}-{�
  a.equal(z('not a date'),'','an unreadable time says nothing');
  a.ok(/function pjAgo\(iso\)[\s\S]{0,200}MontClipView\.ago\(/.test(app),'the dashboard uses it');
 });
+
+// JJ (2026-11-03): in 「{when}打开过 / 修改过 / 创建」 a date is followed by a space (「11-02 打开过」); 刚刚, 昨天 and
+// 「3 分钟前」 stay as they are
+test('{when} sentences: a space after a date, none after 刚刚 / 昨天 / N 分钟前', () => {
+ const now=new Date(2026,10,2,15,0,0),w=(t,l='zh-CN')=>view.when(l,t,now),zh=(k,v)=>view.t('zh-CN','own.'+k,v);
+ a.equal(typeof view.when,'function');
+ a.equal(zh('pj-when-opened',{when:w(new Date(2026,9,31,9,0,0))}),'10-31 打开过');
+ a.equal(zh('pj-when-modified',{when:w(new Date(2026,9,31,9,0,0))}),'10-31 修改过');
+ a.equal(zh('pj-when-created',{when:w(new Date(2025,10,2,9,0,0))}),'2025-11-02 创建');
+ a.equal(zh('pj-when-opened',{when:w(new Date(2026,10,2,14,59,40))}),'刚刚打开过');
+ a.equal(zh('pj-when-opened',{when:w(new Date(2026,10,2,14,57,0))}),'3 分钟前打开过');
+ a.equal(zh('pj-when-opened',{when:w(new Date(2026,10,1,9,0,0))}),'昨天打开过');
+ a.equal(view.t('en','own.pj-when-opened',{when:w(new Date(2026,9,31,9,0,0),'en')}),'Opened Oct 31','English unchanged');
+ a.ok(/own\.pj-when-created", \{ when: pjWhen\(p\.created\) \}/.test(app),'the cards use it');
+ a.ok(!/own\.pj-when-[a-z]+", \{ when: pjAgo\(/.test(app),'no {when} sentence takes the bare time');
+});
