@@ -13,7 +13,10 @@ test('both are undoable capabilities in the table, with a plain sentence each',(
  for(const n of ['set_segment_kind','add_segment']){const c=Cap.get(n);a.ok(c,n);a.equal(c.risk,'undoable');a.equal(c.source,'host');
   a.ok(c.summary['zh-CN']&&c.summary.en);a.equal(c.schema.type,'object');}
  a.deepEqual(Cap.get('set_segment_kind').schema.required,['id','kind']);
- a.deepEqual(Cap.get('set_segment_kind').schema.properties.kind.enum,['song','moment','other']);
+ // 互动 right after 唱歌 (ADR 39a05471): the order the interface shows them in
+ a.deepEqual(Cap.get('set_segment_kind').schema.properties.kind.enum,['song','interaction','moment','other']);
+ a.deepEqual(Cap.get('add_segment').schema.properties.kind.enum,['song','interaction','moment','other']);
+ a.deepEqual([...E.KINDS],['song','interaction','moment','other']);
 });
 
 test('set_segment_kind: the card’s kind changes, nothing else; undone, the cards are as they were',()=>{
@@ -29,6 +32,10 @@ test('set_segment_kind: the card’s kind changes, nothing else; undone, the car
  a.equal(E.setKind(before,{id:'nope',kind:'song'}).code,'SEGMENT_UNKNOWN');
  a.equal(E.setKind(before,{id:'m1_s1',kind:'唱歌'}).code,'SEGMENT_INVALID');
  a.equal(E.setKind(before,{id:'m1_s1',kind:'song'}).code,'SEGMENT_SAME','no change, no event');
+ // 互动: a kind like the others; its start and end stay
+ const i=E.setKind(before,{id:'m1_m50',kind:'interaction'});a.deepEqual([i.cards[1].kind,i.cards[1].s,i.cards[1].e],['interaction',50,80]);
+ a.deepEqual(i.correction,{type:'kind',from:'moment',to:'interaction'});
+ a.equal(E.add(before,{mediaId:'m1',from:400,to:430,kind:'interaction'},{duration:{m1:3600}}).ok,true);
 });
 
 test('add_segment: a card from IN–OUT inside the recording, after the others (their order untouched); undone, it is gone',()=>{

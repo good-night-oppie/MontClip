@@ -55,6 +55,17 @@ test('a shift is a habit: the same kind and the same direction, 4 of the last 5;
  a.equal(C.rules([-4,-4,-4,-4].map(s=>trim('moment',s,0))).shift.song,undefined,'per kind');
 });
 
+// 互动 (ADR 39a05471): its own habits, like every kind; no rule finds it, only the streamer's moves shift it
+test('互动 has its own start and end habits, and never moves the singing bar',()=>{
+ a.deepEqual([...C.KINDS],['song','interaction','moment','other']);
+ const r=C.rules([[-3,4],[-2,5],[-4,3],[-3,4]].map(([s,e])=>trim('interaction',s,e)));
+ a.deepEqual(r.shift.interaction,{start:{by:-3,of:4},end:{by:4,of:4}});a.equal(r.shift.song,undefined,'per kind');a.equal(r.bar,undefined);
+ const [x]=C.apply([card({id:'i',kind:'interaction',s:600,e:660})],r,{duration:{m1:3600}});
+ a.deepEqual([x.s,x.e,x.rules],[597,664,['shift-start:interaction','shift-end:interaction']]);
+ // a song made 互动 is 「不是唱歌」; 互动 ↔ 普通高光 is not about singing
+ a.equal(C.rules([0.05,0.06,0.07,0.05].map(p=>kind('song','interaction',p))).bar.dir,'up');
+ a.equal(C.rules([0.05,0.06,0.07,0.05].map(p=>kind('moment','interaction',p))).bar,undefined);
+});
 test('the singing bar moves both ways, only on a habit, at most half its first value',()=>{
  const down=C.rules([0.05,0.08,0.06,0.07].map(p=>kind('song','other',p)));
  a.equal(down.bar.dir,'up','「不是唱歌」 4 of 5: the bar goes up (stricter)');a.ok(down.bar.PAUSE<C.BAR_BASE&&down.bar.PAUSE>=C.BAR_RANGE[0]);
