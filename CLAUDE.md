@@ -2783,6 +2783,15 @@ Encoding profiles are listed at the bottom of the Export dialog's Preset list.
 **MCP:** `fablecut_encode_profiles` lists profiles; `{detail:true}` includes each `args`
 array; `{profile:"hq"}` returns one profile. `fablecut_status` shows the effective profile.
 
+### Caption size and position in one go (MontClip P5)
+
+In the editor, 〔字幕大小〕 beside the caption style menu in the Transcript tab changes all captions, and the same panel at
+the top of the Inspector changes the selected ones (locked captions stay as they are): 字号 小 / 中 / 大 and 位置 上面 / 下面.
+中 = round(0.042 × the canvas's short side), 大 = round(中 × 1.3), 小 = round(中 × 0.8); 上面 / 下面 put `y` at
+∓round(0.38 × the canvas height). Only `props.fontSize` and `props.y` change — nothing is generated again — and each
+click is one undo step. When the captions differ, no button is on and the panel says so. Agents get the same result
+with `updateClip` on each caption id. The numbers are in `caption-quick.js`.
+
 ### Caption import text preservation
 
 SRT/WebVTT parsing preserves the full normalized cue body instead of truncating it at 500 UTF-16 code units. Existing tag normalization and cue timestamps are unchanged; this does not create word timing. This parser fix does not change UI/MCP fitting behavior or claim long-text layout acceptance.
