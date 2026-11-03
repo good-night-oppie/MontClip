@@ -1065,7 +1065,7 @@ const server = http.createServer(async (req, res) => {
   /* API: upload → saved into ./media */
   if (p === "/api/upload" && req.method === "POST") {
     try {
-      let name = safeName(url.searchParams.get("name") || "upload.bin");
+      let name = Delivery.mediaFileName(url.searchParams.get("name") || "upload.bin");   // Chinese kept (Deja)
       let target = path.join(MEDIA_DIR, name);
       let i = 1;
       const ext = path.extname(name), base = path.basename(name, ext);

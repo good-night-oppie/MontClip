@@ -2241,7 +2241,9 @@ Request bodies are limited: 1 MB, except `PUT /api/project` (64 MB), `POST /api/
 - `GET  /api/presets` · `GET /api/templates` — the saved presets / templates, validated (bad files skipped);
   `POST /api/presets {preset}` · `POST /api/templates {template}` — validate one and save it as
   `library/presets/<id>.json` / `library/templates/<id>.json`, returning `{id, name, file}`
-- `POST /api/upload?name=foo.mp4` — raw body saved into ./media, returns `{src}`.
+- `POST /api/upload?name=foo.mp4` — raw body saved into ./media, returns `{src}`. The file keeps its name,
+  Chinese included; only what Windows refuses changes (`Delivery.mediaFileName`, the rule exported files follow), and
+  a name already taken gets `_1`, `_2`, …. URL imports and `fablecut_import_media` name their files the same way.
   MP4/MOV/M4V uploads are auto-remuxed with `+faststart` (needs ffmpeg on PATH).
   Files copied straight into ./media by external tools skip this — remux big ones
   yourself (`ffmpeg -i in.mp4 -c copy -movflags +faststart out.mp4`) or playback stalls.
