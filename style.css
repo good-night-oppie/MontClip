@@ -4802,6 +4802,9 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .cindy-port.compact .cindy-message > strong {margin-right:4px;}
 .cindy-port.compact .cindy-composer {padding:2px;}
 
+/* simple mode hides the B / R / Y / U tools; .btn would otherwise win over [hidden] */
+[data-edit-tool][hidden] {display:none;}
+
 /* desktop FLV import dialog */
 .flv-import-dialog { max-width: min(460px, 92vw); }
 .flv-import-dialog .flv-import-name { word-break: break-all; opacity: .8; }
