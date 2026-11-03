@@ -3687,6 +3687,10 @@ body.file-drag::after {
 }
 
 .tr-head {
+  /* never taller than most of the panel: the rest scrolls, the entry row stays first (VV, #52) */
+  flex-shrink: 0;
+  max-height: 60%;
+  overflow-y: auto;
   padding: 10px 10px 6px;
   border-bottom: 1px solid var(--border);
   display: flex;
@@ -4694,3 +4698,21 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .cindy-port.compact .cindy-message {display:block;font-size:11px;line-height:1.35;}
 .cindy-port.compact .cindy-message > strong {margin-right:4px;}
 .cindy-port.compact .cindy-composer {padding:2px;}
+
+/* P2 highlight cards: shaped like the sentence dialog */
+.highlight-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(620px, 90vw); max-height: 85vh; padding: 20px; margin: auto; }
+.highlight-dialog::backdrop { background: #0009; }
+.highlight-dialog [data-hl-list] { max-height: 52vh; overflow: auto; }
+.highlight-dialog .hl-card { border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; margin: 6px 0; }
+.highlight-dialog .hl-card label { display: flex; align-items: center; gap: 8px; }
+.highlight-dialog .hl-card ul { margin: 4px 0 6px 18px; padding: 0; font-size: 12px; }
+.highlight-dialog .hl-text { margin: 2px 0; font-size: 12px; opacity: .85; }
+.highlight-dialog .tr-row { flex-wrap: wrap; }
+/* the list folded after Go to: a button over the timeline corner, never over the picture */
+.hl-return { position: fixed; right: 12px; bottom: 12px; z-index: 2000; box-shadow: 0 6px 18px #0008; }
+.hl-return[hidden] { display: none; }
+
+.highlight-dialog .hl-keep-note { margin: 6px 0; opacity: .85; font-size: 12px; }
+
+/* + URL is hidden in the desktop app; .btn would otherwise win over [hidden] */
+#btnImportUrl[hidden] { display: none; }

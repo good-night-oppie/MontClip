@@ -1,0 +1,61 @@
+{
+ "date": "2026-11-02T09:15:51.292Z",
+ "minutes": 10,
+ "fps": 30,
+ "size": "1280×720",
+ "encoder": "h264_mf",
+ "renderSeconds": 42,
+ "expectedEvents": 300,
+ "flashes": 300,
+ "beeps": 300,
+ "streams": [
+  {
+   "codec_type": "video",
+   "start_time": "0.000000",
+   "duration": "600.000000"
+  },
+  {
+   "codec_type": "audio",
+   "start_time": "0.000000",
+   "duration": "600.000000"
+  }
+ ],
+ "maxAbsOffsetMs": 0.1,
+ "meanOffsetMs": 0.1,
+ "first": [
+  {
+   "t": 0.5,
+   "offsetMs": 0.1
+  },
+  {
+   "t": 2.5,
+   "offsetMs": 0.1
+  },
+  {
+   "t": 4.5,
+   "offsetMs": 0.1
+  }
+ ],
+ "last": [
+  {
+   "t": 594.5,
+   "offsetMs": 0.1
+  },
+  {
+   "t": 596.5,
+   "offsetMs": 0.1
+  },
+  {
+   "t": 598.5,
+   "offsetMs": 0.1
+  }
+ ],
+ "pass": true,
+ "report": "1280×720 · 30 fps · 18000 frames · h264 · color bt709 · aac 48 kHz stereo · 10:00.00 · -15.0 LUFS · -1.8 dBTP · 4.4 MB",
+ "ffmpeg": "ffmpeg version n9.0.2-42-gd7643a0fe3-20261102 Copyright (c) 2000-2026 the FFmpeg developers",
+ "archive": {
+  "file": "ffmpeg-n9.0.2-42-gd7643a0fe3-win64-lgpl-9.0.zip",
+  "sha256": "67c30e30206b5bddcc2af9ea4f0215bbbcd2519533316997945a0fd9602a2f96",
+  "run": "41397853139"
+ }
+}

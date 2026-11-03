@@ -57,7 +57,9 @@
      profile / spec, no bitrate or CRF). crf: [min, max, default]. */
   const CODECS = {
     h264: {
-      label: "H.264", encoders: ["libx264", "h264_videotoolbox", "h264_nvenc", "h264_qsv", "h264_amf"],
+      // libx264 only ever comes from a local FFmpeg the user chose (external-ffmpeg.js); the
+      // bundled LGPL build has hardware encoders and Windows' own h264_mf, tried in this order.
+      label: "H.264", encoders: ["libx264", "h264_videotoolbox", "h264_nvenc", "h264_qsv", "h264_amf", "h264_mf"],
       containers: ["mp4", "mov", "mkv"], rate: ["crf", "vbr", "cbr"], crf: [0, 51, 18],
       pixFmts: ["yuv420p", "yuv422p", "yuv444p", "yuv420p10le", "yuv422p10le"],
     },
@@ -100,9 +102,10 @@
      generic name (yuv420p10le); hardware encoders get their own (p010le). */
   const HW_PIX = { yuv420p: "nv12", yuv420p10le: "p010le", yuv444p: "yuv444p" };
   const ENCODERS = {
-    libx264: { label: "x264 (software)" },
+    libx264: { label: "x264 (your FFmpeg)" },
     h264_videotoolbox: { label: "Apple Silicon VideoToolbox", hw: "videotoolbox", pix: ["yuv420p"] },
-    h264_nvenc: { label: "NVIDIA NVENC", hw: "nvenc", pix: ["yuv420p", "yuv444p", "yuv420p10le"] },
+    h264_nvenc: { label: "NVIDIA NVENC", hw: "nvenc", pix: ["yuv420p", "yuv444p", "yuv420p10le"], min: [145, 49] },
+    h264_mf: { label: "Windows Media Foundation", hw: "mf", pix: ["yuv420p"] },
     h264_qsv: { label: "Intel Quick Sync", hw: "qsv", pix: ["yuv420p"] },
     h264_amf: { label: "AMD AMF", hw: "amf", pix: ["yuv420p"] },
     libx265: { label: "x265 (software)" },
@@ -249,8 +252,21 @@
   /** Encoders to choose from for a codec, best first: software unless the
    *  caller asked for hardware. `available` (a Set of ffmpeg encoder names)
    *  filters to what this ffmpeg has; null = assume all. */
+  /* Never chosen, whatever the build lists (release blocker, docs/decisions/2026-11-02-h264-encoder.md):
+     a build that still links libopenh264 must not make MontClip use it. */
+  const NEVER_ENCODERS = ["libopenh264"];
+  /** A forbidden encoder anywhere in raw ffmpeg args, in any case, or null. ffmpeg accepts many spellings of
+   *  the codec option (-c, -codec, -c:v, -c:v:0, -c:V, -vcodec, …), so the option is not looked at at all:
+   *  the name appearing anywhere refuses the args (QQ, 2026-11-02). */
+  function forbiddenEncoder(args) {
+    for (const arg of args || []) {
+      const s = String(arg).toLowerCase();
+      if (NEVER_ENCODERS.some((e) => s.includes(e))) return String(arg);
+    }
+    return null;
+  }
   function encodersFor(codec, available) {
-    const list = (CODECS[codec] || CODECS.h264).encoders;
+    const list = (CODECS[codec] || CODECS.h264).encoders.filter((e) => !NEVER_ENCODERS.includes(e));
     return available ? list.filter((e) => available.has(e)) : list.slice();
   }
 
@@ -298,7 +314,9 @@
     const codec = CODECS[v.codec] ? v.codec : "h264";
     if (v.codec && !CODECS[v.codec]) notes.push(`unknown codec "${v.codec}" — using H.264`);
     const C = CODECS[codec];
-    const avail = encodersFor(codec, opts.available);
+    // an encoder with a minimum frame size (NVENC) is skipped for outputs smaller than it
+    const fits = (e) => !(ENCODERS[e] && ENCODERS[e].min && w != null && (w < ENCODERS[e].min[0] || h < ENCODERS[e].min[1]));
+    const avail = encodersFor(codec, opts.available).filter(fits);
     let encoder = v.encoder && C.encoders.includes(v.encoder) ? v.encoder : null;
     if (v.encoder && !encoder) notes.push(`encoder "${v.encoder}" does not make ${C.label}`);
     if (encoder && opts.available && !opts.available.has(encoder)) { notes.push(`this ffmpeg has no ${encoder}`); encoder = null; }
@@ -428,6 +446,7 @@
     "libaom-av1": { fast: ["-cpu-used", "8"], balanced: ["-cpu-used", "6"], best: ["-cpu-used", "4"] },
     libsvtav1: { fast: ["-preset", "10"], balanced: ["-preset", "8"], best: ["-preset", "5"] },
   };
+  const MF_SOFTWARE_BOOST = 10;
   const PRORES_PROFILE = { proxy: "0", lt: "1", standard: "2", hq: "3", 4444: "4", "4444xq": "5" };
 
   function videoArgs(spec, fps) {
@@ -452,6 +471,9 @@
       else if (E.hw === "videotoolbox") out.push("-q:v", String(Math.max(1, Math.min(100, Math.round((51 - v.crf) * 100 / 51)))));
       else if (E.hw === "qsv") out.push("-global_quality", String(v.crf));
       else if (E.hw === "amf") out.push("-rc", "cqp", "-qp_i", String(v.crf), "-qp_p", String(v.crf), ...(v.codec === "h264" ? ["-qp_b", String(v.crf)] : []));
+      // Windows' software MFT (MontClip never sets -hw_encoding): the plain CRF scale + 10, so CRF 18 is
+      // quality 75 — about x264's picture at 6.6 Mb/s and 187 fps (VV, 2026-11-02; 80 halves the speed)
+      else if (E.hw === "mf") out.push("-rate_control", "quality", "-quality", String(Math.max(1, Math.min(100, Math.round((51 - v.crf) * 100 / 51) + MF_SOFTWARE_BOOST))));
       if (max && E.hw !== "amf") {
         if (enc === "libsvtav1") out.push("-svtav1-params", `mbr=${max}`);
         else out.push("-maxrate", k(max), "-bufsize", k(max * 2));
@@ -460,10 +482,12 @@
       const peak = max || Math.round(br * 1.5);
       if (E.hw === "nvenc") out.push("-rc", "vbr");
       if (E.hw === "amf") out.push("-rc", "vbr_peak");
+      if (E.hw === "mf") out.push("-rate_control", "u_vbr");
       out.push("-b:v", k(br), "-maxrate", k(peak), "-bufsize", k(peak * 2));
     } else if (v.rate === "cbr") {
       if (E.hw === "nvenc") out.push("-rc", "cbr");
       if (E.hw === "amf") out.push("-rc", "cbr");
+      if (E.hw === "mf") out.push("-rate_control", "cbr");
       if (E.hw === "videotoolbox") out.push("-constant_bit_rate", "1");
       out.push("-b:v", k(br), "-minrate", k(br), "-maxrate", k(br), "-bufsize", k(br));
       if (enc === "libx264") out.push("-x264-params", "nal-hrd=cbr");
@@ -508,6 +532,7 @@
    *  0.1 s synthetic picture of the canvas size, to check the settings
    *  before anything is rendered. */
   function ffmpegArgs(spec, o) {
+    if (NEVER_ENCODERS.includes(spec.video && spec.video.encoder)) throw new Error(`MontClip never encodes with ${spec.video.encoder}`);
     const rate = fpsRational(o.fps);
     const args = ["-y", "-hide_banner"];
     const rgba = o.input === "rgba";
@@ -679,8 +704,25 @@
       n: ctx.index != null ? String(ctx.index) : "1",
     };
     let s = String(template || "{project}").replace(/\{(\w+)\}/g, (m, k) => (k in vals ? String(vals[k]) : m));
-    s = s.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "_").replace(/\s+/g, " ").trim().replace(/^\.+/, "");
-    return s.slice(0, 120) || "export";
+    return fileSafeName(s, "export");
+  }
+  /** A file name Windows accepts, keeping every other character (Chinese included) — the one rule for every exported
+   *  file name (Deja, 2026-11-03; VV's list; JJ's full-width rule). Every format character (\p{Cf}: direction controls,
+   *  zero-width characters, the BOM, word joiners, soft hyphens…) is removed first, so a name cannot pose as another
+   *  extension in Explorer (VV, QQ); a ZWJ is one of them, so a ZWJ emoji sequence falls apart into its emoji. Whitespace runs become one space; : ? * " < > | become their full-width forms (FULL_WIDTH below), so a
+   *  title such as 「周五杂谈：唱歌」 reads as written; only / and \ and control characters become "-"; no leading dots, no
+   *  trailing dots or spaces; Windows' reserved names (CON PRN AUX NUL COM1-9 LPT1-9 CONIN$ CONOUT$, with an extension too) get a "-"
+   *  after the name; at most opts.max characters (default 120) counted as characters, never cutting a surrogate pair,
+   *  less opts.reserve for a suffix the caller adds (" 竖屏 (2)"). Empty, or only "-", spaces and dots left → fallback. */
+  const FULL_WIDTH = { ":": "：", "?": "？", "*": "＊", "\"": "＂", "<": "＜", ">": "＞", "|": "｜" };
+  function fileSafeName(name, fallback = "export", opts = {}) {
+    const max = Math.max(1, (opts.max || 120) - (opts.reserve || 0));
+    let s = String(name == null ? "" : name).replace(/\p{Cf}+/gu, "").replace(/\s+/g, " ")
+      .replace(/[\\/\u0000-\u001f\u007f]+/g, "-").replace(/[:?*"<>|]/g, (c) => FULL_WIDTH[c]).trim()
+      .replace(/^\.+/, "").replace(/[. ]+$/, "");
+    s = s.replace(/^(conin\$|conout\$|con|prn|aux|nul|com[1-9]|lpt[1-9])(?=\.|$)/i, "$1-");
+    s = Array.from(s).slice(0, max).join("").replace(/[. ]+$/, "");
+    return /^[-. ]*$/.test(s) ? fallback : s;
   }
   /** The file name an output gets in a project (its size, export frame and fps). */
   function projectFilename(spec, proj = {}) {
@@ -791,8 +833,8 @@
   return {
     CONTAINERS, CODECS, ENCODERS, AUDIO, COLORS, PRESETS, PRESET_IDS, DEFAULT_PRESET,
     FPS_CHOICES, RESOLUTIONS, SPEEDS, SAMPLE_RATES, META_KEYS, FILENAME_TOKENS,
-    normalize, encodersFor, reframe, ffmpegArgs, videoFilter, frameInput, jpegQuality, fpsRational,
-    renderFilename, projectFilename, describe, estimateSize, checks, presetGroups, presetId, savedPresets, parseEncoders,
+    NEVER_ENCODERS, forbiddenEncoder, normalize, encodersFor, reframe, ffmpegArgs, videoFilter, frameInput, jpegQuality, fpsRational,
+    renderFilename, projectFilename, fileSafeName, describe, estimateSize, checks, presetGroups, presetId, savedPresets, parseEncoders,
     PLATFORM_LOUDNESS, LOUDNESS_TARGETS, LOUDNESS_ARGS, LOUDNORM_ARGS, parseLoudnorm, loudnormFilter, parseEbur128, verify,
     fmtBytes, fmtDur,
   };

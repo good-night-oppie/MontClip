@@ -1,0 +1,17 @@
+{
+  "author": "JJ",
+  "document": "2026-11-03-MontClip内部试用包-使用说明-中英.md (v6)",
+  "sha256": "7d52fc1d9e378b06dde75edbf3fe041778bd7fa014dd8de3cb223df53ccc994e",
+  "taken": [
+    "## 中文",
+    "## English"
+  ],
+  "left_out": "## 落地前要实施侧确认 (internal, not shipped)",
+  "placeholders": {
+    "{version}": "<UTC date>-<short commit>, filled by desktop/package-win.cjs",
+    "{exe}": "MontClip.exe",
+    "{repo}": "https://github.com/good-night-oppie/MontClip (not used in the v2 body)"
+  },
+  "encoding": "written into the zip as UTF-8 with BOM, CRLF",
+  "confirmedBy": "Deja, 2026-11-02: v6 (7d52fc1d) replaces v5 (2e58ccd7, withdrawn); step 1 names the SHA256SUMS.txt that comes with the zip, and the last networking line says to ask whoever sent the package"
+}

@@ -64,8 +64,19 @@ function updateMontClipView(patch) {
     if(patch.mode==='simple'&&wasColor)toast(MontClipView.text[mcView.get().language].colorExited);
   }
   const saved = mcView.set(patch); renderMontClipView();
+  try { renderQueue(); } catch { /* not built yet */ }
+  refreshLocalizedViews();
   state.dirtyTimeline = true;
   if (!saved) toast(mcView.get().language === "en" ? "View preference could not be saved." : "界面偏好未能保存。");
+}
+/** Texts built in code (not data-i18n markers) for the views that are on screen, after a language switch. */
+function refreshLocalizedViews() {
+  renderBin();
+  if (meterState.modeBtn) meterState.modeBtn.textContent = meterModeLabel(meterState.mode);
+  if (projectsOpen()) renderProjects();
+  if (els.exportSetup && !els.exportSetup.classList.contains("hidden")) {
+    renderExportEngineText(); syncExportRangeUi(); refreshDeliveryNotes(); renderDeliveryTokens(); renderBatchList();
+  }
 }
 document.getElementById("mcMode").addEventListener("click", e => {
   const b = e.target.closest("[data-mc-mode]"); if (b) updateMontClipView({ mode: b.dataset.mcMode });
@@ -469,9 +480,9 @@ function showClipCtxMenu(clientX, clientY, c) {
   const anyEnabled = group.some((x) => x.disabled !== true);
   const anyUnlocked = group.some((x) => x.locked !== true);
   const locked = group.some(isClipLocked);
-  item(anyEnabled ? "Disable clip" : "Enable clip", "Shift+E", toggleClipsDisabled,
+  item(anyEnabled ? uiText("own.clip-disable") : "Enable clip", "Shift+E", toggleClipsDisabled,
     locked ? "Locked — unlock to change" : null);
-  item(anyUnlocked ? "Lock clip" : "Unlock clip", "", toggleClipsLocked);
+  item(anyUnlocked ? uiText("own.clip-lock") : "Unlock clip", "", toggleClipsLocked);
   if (group.some((x) => x.kind === "audio")) {
     item("Crossfade with neighbours", "Shift+D", () => crossfadeSelected(), locked ? "Locked — unlock to change" : null);
     item("Auto-duck under other tracks", "", () => autoDuckClips(selectedClips()), locked ? "Locked — unlock to change" : null);
@@ -479,7 +490,7 @@ function showClipCtxMenu(clientX, clientY, c) {
   if (group.some((x) => x.kind === "audio" || x.kind === "video"))
     item("Find silences", "", () => findSilences(selectedClips()));
   if (selectedClips().some((x) => isVisualClip(x) && x.kind !== "null"))
-    item("Parent to a new null", "", parentSelectionToNull, locked ? "Locked — unlock to change" : null);
+    item(uiText("own.clip-parent-null"), "", parentSelectionToNull, locked ? "Locked — unlock to change" : null);
   item(uiText("term.precompose"), "", precomposeSelection, locked ? "Locked — unlock to change" : null);
   if (c.kind === "comp") item(uiText("term.open-composition"), "", () => enterComp(c.compId, c));
   if (c.mediaId || c.kind === "comp") item(uiText("term.reveal-in-project"), "", () => revealInProject(c));
@@ -562,7 +573,7 @@ function setSetting(key, value) {
 
 /* ── State ─────────────────────────────────────────────────────────────── */
 const project = {
-  name: "Untitled Project",
+  name: "未命名项目",
   width: 1280, height: 720, fps: 30, // overwritten by project.json / applyProject
   background: "#000000",
   revision: 0,
@@ -1216,6 +1227,33 @@ function localTimeForMedia(c, mediaTarget) {
   return (i - 1 + frac) * step;
 }
 let toastTimer = null;
+/* The editor's own downloads. In the desktop app the Save dialog decides: the success message waits until the file
+   is saved (VV, 012ba18: Cancel still read "Exported … checks passed"). An export's download names itself first, so
+   once saved its copy in exports/ may go (desktop/export-downloads.js); a cancel keeps it and says where it is, and
+   its queue row then says it was saved. The browser shows the message as before. */
+const pendingSaves = new Map(), pendingExports = new Set(), pendingKinds = new Map();   // name → success message · exports · kind
+function saveDownload(href, name, { savedMsg, exportFile = false, kind = null } = {}) {
+  const a = document.createElement("a");
+  a.href = href; a.download = name;
+  if (window.montclipDownloads) {
+    if (savedMsg) pendingSaves.set(name, savedMsg);
+    if (kind) pendingKinds.set(name, kind);
+    if (exportFile) { window.montclipDownloads.expect(name); pendingExports.add(name); for (const q of exportQueue) if (q.file === name) q.saving = true; renderQueue(); }
+  }
+  else if (savedMsg) toast(savedMsg);
+  document.body.appendChild(a); a.click(); a.remove();
+}
+window.montclipDownloads?.onDone(({ state, name, removed }) => {
+  // another save of this file is open: main refused this one; that one keeps its state
+  if (state === "refused") { toast(uiText("own.save-busy")); return; }
+  const msg = pendingSaves.get(name), wasExport = pendingExports.has(name), kind = pendingKinds.get(name);
+  pendingSaves.delete(name); pendingExports.delete(name); pendingKinds.delete(name);
+  for (const q of exportQueue) if (q.file === name) { q.saving = false; if (removed) q.saved = true; }
+  renderQueue();
+  if (state === "completed") { if (msg) toast(msg); }
+  else if (state === "cancelled") toast(uiText(wasExport ? "own.export-save-cancelled" : kind === "captions" ? "own.captions-save-cancelled" : "own.save-canceled"));
+  else toast(uiText(wasExport ? "own.export-save-failed" : "own.save-failed"));
+});
 function toast(msg) {
   if (!els.toast) return;
   els.toast.textContent = msg;
@@ -1522,7 +1560,7 @@ function applyProject(data, opts = {}) {
   if (!state.compCtx) noteOpenSequence(data);
   const wa = normalizeWorkArea(data.inPoint, data.outPoint);
   Object.assign(project, {
-    name: data.name || "Untitled Project",
+    name: data.name || MontClipView.defaultProjectName(mcView.get().language),
     width: data.width || 1280, height: data.height || 720,
     fps: (Number(data.fps) > 0 ? Number(data.fps) : project.fps),
     background: data.background || "#000000",
@@ -2245,7 +2283,7 @@ function renderBin() {
         <span class="bin-cell num c-usage">${usesHtml}</span>
         <span class="bin-del" title="Remove (and its clips)">✕</span>`;
     } else {
-      const sub = [folder ? "📁 " + folder.name : "", m.kind, m.duration ? fmt(m.duration) : "", MediaLib.fmtRes(m), m.fps ? MediaLib.fmtFps(m.fps) + " fps" : ""]
+      const sub = [folder ? "📁 " + folder.name : "", m.kind === "video" ? uiText("own.media-kind-video") : m.kind, m.duration ? fmt(m.duration) : "", MediaLib.fmtRes(m), m.fps ? uiText("own.fps-value", { n: MediaLib.fmtFps(m.fps) }) : ""]
         .filter(Boolean).join(" · ");
       item.innerHTML = `
         <div class="bin-thumb"></div>
@@ -2633,7 +2671,7 @@ function showMediaMenu(x, y, m) {
   item(uiText("term.replace-file"), () => replaceMediaFile(m), state.connected ? null : uiText("own.needs-server"));
   if (m.kind === "video") {
     const ps = proxyStatus.get(m.id);
-    const why = !state.connected ? uiText("own.needs-server") : !state.ffmpeg ? "Needs ffmpeg on the server's PATH" : isMediaOffline(m.id) ? "The file is offline" : null;
+    const why = !state.connected ? uiText("own.needs-server") : !state.ffmpeg ? "Needs MontClip's bundled FFmpeg" : isMediaOffline(m.id) ? "The file is offline" : null;
     if (ps && (ps.state === "ready" || ps.state === "running" || ps.state === "queued")) item(ps.state === "ready" ? "Delete proxy" : "Stop making the proxy", () => deleteProxies([m]));
     else {
       item("Create proxy (540p)", () => createProxies([m], 540), why);
@@ -3113,7 +3151,7 @@ function proxyLabel(m) {
 async function createProxies(list, height) {
   list = list.filter((m) => m.kind === "video" && !m.transient && isLocalSrc(m.src) && !isMediaOffline(m.id));
   if (!list.length) { toast("No video to make proxies of"); return; }
-  if (!state.ffmpeg) { toast("Proxies need ffmpeg on the server's PATH"); return; }
+  if (!state.ffmpeg) { toast("Proxies need MontClip's bundled FFmpeg"); return; }
   (runtime.proxyAsked ||= new Set());
   for (const m of list) runtime.proxyAsked.add(m.id);
   try {
@@ -3328,17 +3366,18 @@ const pjFmtDur = (s) => {
   const m = Math.floor(s / 60), r = Math.floor(s % 60);
   return m >= 60 ? `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}:${String(r).padStart(2, "0")}` : `${m}:${String(r).padStart(2, "0")}`;
 };
+/** The time inside 「{when}打开过 / 修改过 / 创建」: a date gets a space after it in Chinese (MontClipView.when). */
+function pjWhen(iso) {
+  if (!iso) return "never";
+  return MontClipView.when(mcView.get().language, iso);
+}
 function pjAgo(iso) {
   if (!iso) return "never";
-  const s = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (!(s >= 0)) return new Date(iso).toLocaleDateString();
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
-  if (s < 86400 * 7) return `${Math.floor(s / 86400)} d ago`;
-  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  return MontClipView.ago(mcView.get().language, iso);   // 刚刚 / {n} 分钟前 / {n} 小时前 / 昨天 / {月}-{日}
 }
 const pjFps = (f) => (f ? `${+(+f).toFixed(3)} fps` : "");
+/** A card's size and frame rate, escaped: the values come from the project file (QQ). */
+function pjCanvas(p) { return escapeHtml(`${p.width}×${p.height} · ${pjFps(p.fps)}`); }
 async function pjPost(body) {
   try {
     const res = await fetch("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -3419,7 +3458,7 @@ function pjThumbHtml(p, big) {
   const ar = p.width > 0 && p.height > 0 ? `${p.width} / ${p.height}` : "16 / 9";
   const inner = p.thumb
     ? `<img src="/api/projects/thumb?id=${encodeURIComponent(p.id)}&v=${p.thumb}" alt="" loading="lazy" draggable="false">`
-    : `<span>${p.width ? `${p.width}×${p.height}` : "?"}</span>`;
+    : `<span>${p.width ? escapeHtml(`${p.width}×${p.height}`) : "?"}</span>`;
   return `<div class="pj-thumb${big ? " big" : ""}"><div class="pj-frame" style="aspect-ratio:${ar}">${inner}</div></div>`;
 }
 function renderProjects() {
@@ -3439,11 +3478,11 @@ function renderProjectGrid() {
   if (pj.verOf) { grid.innerHTML = pjVersionsHtml(); return; }
   const rows = pjVisible();
   grid.innerHTML = rows.length ? rows.map((p) => `
-    <button type="button" class="pj-card${p.id === pj.sel && pj.mode === "detail" ? " sel" : ""}${p.active ? " open" : ""}" data-pj="${escapeHtml(p.id)}" title="${p.active ? "Currently open" : "Double-click to open"}">
+    <button type="button" class="pj-card${p.id === pj.sel && pj.mode === "detail" ? " sel" : ""}${p.active ? " open" : ""}" data-pj="${escapeHtml(p.id)}" title="${p.active ? escapeHtml(uiText("own.pj-currently-open")) : "Double-click to open"}">
       ${pjThumbHtml(p)}
-      <span class="pj-card-name">${escapeHtml(p.name)}${p.active ? ` <span class="pj-badge">Open</span>` : ""}</span>
-      <span class="pj-card-meta">${p.unreadable ? "file unreadable" : `${p.width}×${p.height} · ${pjFps(p.fps)} · ${pjFmtDur(p.duration)}`}</span>
-      <span class="pj-card-when dim">${pj.sort === "created" ? "Created " + pjAgo(p.created) : pj.sort === "modified" || !p.opened ? "Modified " + pjAgo(p.modified) : "Opened " + pjAgo(p.opened)}</span>
+      <span class="pj-card-name">${escapeHtml(p.name)}${p.active ? ` <span class="pj-badge">${escapeHtml(uiText("own.pj-open"))}</span>` : ""}</span>
+      <span class="pj-card-meta">${p.unreadable ? "file unreadable" : `${pjCanvas(p)} · ${pjFmtDur(p.duration)}`}</span>
+      <span class="pj-card-when dim">${escapeHtml(pj.sort === "created" ? uiText("own.pj-when-created", { when: pjWhen(p.created) }) : pj.sort === "modified" || !p.opened ? uiText("own.pj-when-modified", { when: pjWhen(p.modified) }) : uiText("own.pj-when-opened", { when: pjWhen(p.opened) }))}</span>
     </button>`).join("")
     : `<div class="pj-empty dim">${pj.list.length ? "No project matches the search." : pj.view === "archived" ? "Nothing archived. Archive a project to keep it out of the list without deleting it." : "Loading…"}</div>`;
 }
@@ -3454,27 +3493,27 @@ function pjDetailHtml(p) {
   return `${pjThumbHtml(p, true)}
     <label class="pj-field"><span>Name</span><input type="text" id="pjName" value="${escapeHtml(p.name)}" maxlength="120" spellcheck="false"></label>
     <dl class="pj-facts">
-      ${fact("Canvas", p.unreadable ? "—" : `${p.width}×${p.height} · ${pjFps(p.fps)}`)}
-      ${fact("Length", `${pjFmtDur(p.duration)} · ${p.clips} clip${p.clips === 1 ? "" : "s"} · ${p.media} media`)}
-      ${fact("Modified", pjAgo(p.modified))}
-      ${fact("Opened", p.active ? "open now" : pjAgo(p.opened))}
-      ${fact("Created", pjAgo(p.created))}
+      ${fact(escapeHtml(uiText("own.pj-canvas")), p.unreadable ? "—" : pjCanvas(p))}
+      ${fact(escapeHtml(uiText("own.pj-length")), escapeHtml((p.clips === 1 ? uiText("own.pj-length-value-1", { dur: pjFmtDur(p.duration), clips: 1, media: p.media }) : uiText("own.pj-length-value", { dur: pjFmtDur(p.duration), clips: p.clips, media: p.media }))))}
+      ${fact(escapeHtml(uiText("own.pj-modified")), escapeHtml(pjAgo(p.modified)))}
+      ${fact(escapeHtml(uiText("own.pj-opened")), p.active ? uiText("own.pj-open-now") : escapeHtml(pjAgo(p.opened)))}
+      ${fact(escapeHtml(uiText("own.pj-created")), escapeHtml(pjAgo(p.created)))}
       ${tpl ? fact("Template", escapeHtml(tpl.name)) : ""}
     </dl>
-    <label class="pj-field"><span>Notes</span><textarea id="pjNotes" rows="4" maxlength="4000" placeholder="Brief, client, deadline, what's left to do…">${escapeHtml(p.notes || "")}</textarea></label>
-    <label class="pj-field"><span>Tags</span><input type="text" id="pjTags" value="${escapeHtml((p.tags || []).join(", "))}" placeholder="client, reel, draft" spellcheck="false"></label>
+    <label class="pj-field"><span>${escapeHtml(uiText("own.pj-notes"))}</span><textarea id="pjNotes" rows="4" maxlength="4000" placeholder="Brief, client, deadline, what's left to do…">${escapeHtml(p.notes || "")}</textarea></label>
+    <label class="pj-field"><span>${escapeHtml(uiText("own.pj-tags"))}</span><input type="text" id="pjTags" value="${escapeHtml((p.tags || []).join(", "))}" placeholder="client, reel, draft" spellcheck="false"></label>
     <div class="pj-actions">
       ${p.archived
         ? `<button type="button" class="btn primary" data-pj-act="unarchive">Unarchive</button>
            <button type="button" class="btn danger-ghost" data-pj-act="delete" title="Deletes the project file. Its media stay in media/.">Delete…</button>`
-        : `<button type="button" class="btn primary" data-pj-act="open"${p.active ? " disabled" : ""}>${p.active ? "Currently open" : "Open"}</button>
-           <button type="button" class="btn" data-pj-act="duplicate" title="A copy of the whole project (the footage is shared, not copied)">Duplicate</button>
-           <button type="button" class="btn" data-pj-act="template" title="Start new projects from this one: its canvas, tracks, clips and media">Save as template</button>
-           <button type="button" class="btn" data-pj-act="archive"${p.active ? ` disabled title="Open another project first"` : ` title="Hide it from the list; nothing is deleted"`}>Archive</button>`}
+        : `<button type="button" class="btn primary" data-pj-act="open"${p.active ? " disabled" : ""}>${p.active ? escapeHtml(uiText("own.pj-currently-open")) : escapeHtml(uiText("own.pj-open"))}</button>
+           <button type="button" class="btn" data-pj-act="duplicate" title="A copy of the whole project (the footage is shared, not copied)">${escapeHtml(uiText("own.pj-duplicate"))}</button>
+           <button type="button" class="btn" data-pj-act="template" title="Start new projects from this one: its canvas, tracks, clips and media">${escapeHtml(uiText("own.pj-save-template"))}</button>
+           <button type="button" class="btn" data-pj-act="archive"${p.active ? ` disabled title="Open another project first"` : ` title="Hide it from the list; nothing is deleted"`}>${escapeHtml(uiText("own.pj-archive"))}</button>`}
     </div>
     <div class="pj-actions">
-      <button type="button" class="btn" data-pj-act="versions" title="Saved versions of this project: compare, restore, mark the final cut">Versions…</button>
-      <a class="btn" href="/api/projects/backup?id=${encodeURIComponent(p.id)}" download${p.active ? " data-pj-backup" : ""} title="The project and all its versions as one file. Import… restores it">Download backup</a>
+      <button type="button" class="btn" data-pj-act="versions" title="Saved versions of this project: compare, restore, mark the final cut">${escapeHtml(uiText("own.pj-versions"))}</button>
+      <a class="btn" href="/api/projects/backup?id=${encodeURIComponent(p.id)}" download${p.active ? " data-pj-backup" : ""} title="The project and all its versions as one file. Import… restores it">${escapeHtml(uiText("own.pj-download-backup"))}</a>
     </div>
     <div class="pj-inline hidden" id="pjTplRow">
       <input type="text" id="pjTplName" value="${escapeHtml(p.name)}" maxlength="120" aria-label="Template name" spellcheck="false">
@@ -3496,7 +3535,7 @@ function pjNewHtml() {
     </button>`;
   const saved = tpls.filter((x) => !x.builtin);
   return `<h3>New project</h3>
-    <label class="pj-field"><span>Name</span><input type="text" id="pjNewName" value="Untitled Project" maxlength="120" spellcheck="false"></label>
+    <label class="pj-field"><span>Name</span><input type="text" id="pjNewName" value="${escapeHtml(MontClipView.defaultProjectName(mcView.get().language))}" maxlength="120" spellcheck="false"></label>
     <div class="pj-field"><span>Start from</span>
       <div class="pj-tpls">${tpls.filter((x) => x.builtin).map(row).join("")}</div>
       ${saved.length ? `<span class="pj-sub">Saved templates</span><div class="pj-tpls">${saved.map(row).join("")}</div>` : ""}
@@ -3536,7 +3575,7 @@ async function pjAction(act, btn) {
   if (act === "new-create") {
     if (pj.busy) return;
     if (state.exporting) { toast("Wait for the export to finish before switching projects"); return; }
-    const name = ($("pjNewName")?.value || "").trim() || "Untitled Project";
+    const name = ($("pjNewName")?.value || "").trim() || MontClipView.defaultProjectName(mcView.get().language);
     const fps = $("pjNewFps")?.value;
     pj.busy = true;
     try {
@@ -3597,7 +3636,7 @@ async function pjImport(file) {
   let doc;
   try { doc = JSON.parse((await file.text()).replace(/^﻿/, "")); }
   catch { toast(`${file.name} isn't JSON`); return; }
-  const name = doc && doc.name && doc.name !== "Untitled Project" ? doc.name : file.name.replace(/\.json$/i, "");
+  const name = doc && doc.name && !MontClipView.isDefaultProjectName(doc.name) ? doc.name : file.name.replace(/\.json$/i, "");
   const out = await pjPost({ action: "import", project: doc, name });
   if (!out) return;
   pj.view = "active"; pj.mode = "detail"; pj.sel = out.id;
@@ -6975,7 +7014,7 @@ function renderInspector(lite) {
         <button type="button" class="btn tiny" data-norm-run title="Measure the selected clips and set their gain to hit this target (linked stems share one gain)">Apply</button></span>`)}
       ${row("Noise", `<span class="insp-ctrls"><select data-denoise title="${state.connected && state.ffmpeg
         ? "Noise reduction (ffmpeg FFT denoiser) — renders a cleaned copy of the file; Off switches back to the original"
-        : "Noise reduction needs the server with ffmpeg on PATH"}" ${state.connected && state.ffmpeg ? "" : "disabled"}>${["off", ...DENOISE_LEVELS].map((v) =>
+        : "Noise reduction needs the server with MontClip's bundled FFmpeg"}" ${state.connected && state.ffmpeg ? "" : "disabled"}>${["off", ...DENOISE_LEVELS].map((v) =>
         `<option value="${v}" ${v === clipDenoise(c) ? "selected" : ""}>${v[0].toUpperCase() + v.slice(1)}</option>`).join("")}</select></span>`)}
       ${slider("volume", 0, 2, 0.01, p.volume)}
       ${slider("pan", -1, 1, 0.01, p.pan)}
@@ -9299,6 +9338,11 @@ function transcriptSig() {
 function buildTranscriptPage() {
   const T = FableCutTranscribe, root = els.transcriptPage, set = transcribeSettings();
   root.innerHTML = `<div class="tr-head">
+      <div class="tr-row tr-entries">
+        <button type="button" class="btn tiny" data-tr-highlights>${escapeHtml(uiText("own.hl-open"))}</button>
+        <button type="button" class="btn tiny" data-tr-sentences data-i18n="own.tr-sentences">${escapeHtml(uiText("own.tr-sentences"))}</button>
+        <button type="button" class="btn tiny" data-tr-mapping>时间映射 / Mapping</button>
+      </div>
       <div class="tr-row">
         <button type="button" class="btn primary" data-tr-go></button>
         <select data-tr-model title="Speech model. Base is quick; Small is more accurate and slower. Each downloads once, then stays in this browser">${Object.entries(T.MODELS).map(([k, m]) =>
@@ -9323,8 +9367,6 @@ function buildTranscriptPage() {
         <button type="button" class="btn tiny" data-tr-cap-file="srt" title="Download the timeline's captions as a SubRip file">SRT</button>
         <button type="button" class="btn tiny" data-tr-cap-file="vtt" title="Download the timeline's captions as a WebVTT file">VTT</button>
         <button type="button" class="btn tiny" data-tr-cap-import title="Place the captions of an SRT or WebVTT file">Import…</button>
-        <button type="button" class="btn tiny" data-tr-sentences>按句选段 / Select sentences</button>
-        <button type="button" class="btn tiny" data-tr-mapping>时间映射 / Mapping</button>
         <input type="file" accept=".srt,.vtt,text/vtt,application/x-subrip" data-tr-cap-input hidden>
       </div>
       <div class="tr-note">Caption last: a cut through a caption doesn't re-time its words, so add captions again after changing the edit.</div>
@@ -9358,6 +9400,7 @@ function buildTranscriptPage() {
   q("[data-tr-cap-import]").addEventListener("click", () => capInput.click());
   q("[data-tr-sentences]").addEventListener("click", () => showSentenceSelection());
   q("[data-tr-mapping]").addEventListener("click", downloadSourceMap);
+  q("[data-tr-highlights]").addEventListener("click", () => showHighlightCandidates());
   capInput.addEventListener("change", async () => {
     const f = capInput.files && capInput.files[0];
     capInput.value = "";
@@ -9625,6 +9668,121 @@ function watchCaptions(now) {
     }
   }
 }
+/* P2 (owner, 2026-11-02): highlight candidates from local signals only — the timeline's sentences, the loudness
+   of its own sound mix (rendered here in 60 s pieces) and, when the project has any, danmaku. Nothing is
+   sent anywhere and no model runs. Go to moves the playhead; Keep goes through the range engine as one undo step. */
+async function highlightSignals(isCurrent = () => true) {
+  const duration = projDur();
+  const sentences = project.clips.filter((c) => FableCutCaptions.isCaption(c) && !c.disabled && !(project.disabledTracks || []).includes(c.track))
+    .map((c) => ({ id: c.id, start: c.start, end: c.start + c.duration, text: (c.props && c.props.text) || "" }));
+  let loudness = null;
+  const audible = mediaClips().filter((c) => clipRenders(c) && (c.kind === "audio" || (c.kind === "video" && ((c.props && c.props.volume) ?? 1) > 0)));
+  // the server reads each file's sound once, as a stream, and keeps it (a 2-hour recording decoded whole in the page
+  // took 705 s and 3.1 GB, and failed); the page maps it onto the timeline. Effects, faders and volume keyframes are
+  // not applied here: this is a guide to where the timeline is louder, not the export mix.
+  if (duration > 0 && audible.length && state.connected) {
+    const perMedia = {};
+    try {
+      for (const id of new Set(audible.map((c) => c.mediaId))) {
+        if (!isCurrent()) return null;
+        const m = getMedia(id); if (!m || !m.src) continue;
+        const r = await fetch("/api/signals/loudness?src=" + encodeURIComponent(m.src));
+        if (r.ok) perMedia[id] = await r.json();
+      }
+      const clips = audible.filter((c) => perMedia[c.mediaId]).map((c) => ({ mediaId: c.mediaId, start: c.start, in: c.in || 0, duration: c.duration,
+        speed: (c.props && c.props.speed) || 1, volume: (c.props && c.props.volume) ?? 1, gain: (c.props && c.props.gain) || 0 }));
+      if (clips.length) loudness = MontClipHighlights.mapLoudness(clips, perMedia, { duration, step: 0.5 });
+    } catch { loudness = null; }
+  }
+  // without the server (the web demo), or when it could not read the files: the mix itself, in 60 s pieces.
+  // No beat analysis for highlights any more (JJ, #52); beats.js only folds the channels here.
+  const mixNeeded = duration > 0 && audible.length && !loudness;
+  if (mixNeeded) {
+    const step = 0.5, values = [];
+    for (let t0 = 0; t0 < duration; t0 += 60) {
+      if (!isCurrent()) return null;
+      const t1 = Math.min(duration, t0 + 60), buf = await renderAudioMix(t0, t1, { raw: true });
+      const bins = Math.ceil((t1 - t0) / step - 1e-9);
+      if (!buf) { for (let i = 0; i < bins; i++) values.push(-90); continue; }
+      const chs = []; for (let ch = 0; ch < buf.numberOfChannels; ch++) chs.push(buf.getChannelData(ch));
+      const mono = FableCutBeats.mono(chs), per = Math.round(step * buf.sampleRate);
+      for (let i = 0; i < bins; i++) {
+        let acc = 0, n = 0;
+        for (let k = i * per; k < Math.min(mono.length, (i + 1) * per); k++) { acc += mono[k] * mono[k]; n++; }
+        values.push(n ? Math.max(-90, 10 * Math.log10(acc / n + 1e-12)) : -90);
+      }
+    }
+    loudness = { step, values };
+  }
+  const danmaku = Array.isArray(project.danmaku) ? project.danmaku : [];
+  return { duration, sentences, loudness, danmaku };
+}
+/** A reason on a card: {text, title} — the words, and the numbers behind them for the tooltip. Loudness with only
+ *  its peak above the usual level (value 0) has its own sentence. */
+function highlightReasonText(r) {
+  const v = { db: r.value, peak: r.peak, ratio: r.value, count: r.count };
+  const key = r.signal === "loudness" && !(r.value > 0) ? "own.hl-r-loudness-peak" : "own.hl-r-" + r.signal;
+  const detail = uiText(key + "-detail", v), when = MontClipHighlights.clock(r.window[0]) + "–" + MontClipHighlights.clock(r.window[1]);
+  return { text: uiText(key, v), title: detail ? detail + " · " + when : when };
+}
+/** Keep the given timeline ranges (in this order) with the range engine, as one undo step. */
+function keepHighlightRanges(ranges) {
+  const doc = projectJSON(), plan = FableCutRangePlan.create(doc, ranges);
+  const snap = JSON.stringify({ ...JSON.parse(undoSnapshot()), rangeState: {
+    inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
+  } });
+  applyProject(plan.project); pushUndo(snap); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
+  return plan;
+}
+async function showHighlightCandidates() {
+  if (state.exporting || state.gesture || state.compCtx) { toast(uiText("own.hl-busy")); return; }
+  const say = (key, vars) => escapeHtml(uiText(key, vars));
+  const dialog = document.createElement("dialog");
+  dialog.className = "highlight-dialog";
+  dialog.innerHTML = `<form method="dialog"><h3>${say("own.hl-title")}</h3>
+    <p data-hl-status role="status">${say("own.hl-reading")}</p><div data-hl-list></div>
+    <p class="hl-keep-note" data-hl-keep-note>${say("own.hl-keep-note")}</p>
+    <div class="tr-row"><button type="button" class="btn primary" data-hl-keep disabled>${say("own.hl-keep")}</button>
+    <button class="btn" value="cancel" data-hl-close>${say("own.hl-close")}</button></div></form>`;
+  // Go to folds the list into a small button off the picture, so the streamer sees the moment play (Deja, #52)
+  const back = document.createElement("button");
+  back.type = "button"; back.className = "btn hl-return"; back.dataset.hlReturn = ""; back.hidden = true;
+  back.addEventListener("click", () => { pause(); back.hidden = true; dialog.showModal(); });
+  let folding = false;
+  document.body.append(dialog, back); dialog.showModal();
+  dialog.addEventListener("close", () => { if (folding) { folding = false; return; } dialog.remove(); back.remove(); });
+  const status = dialog.querySelector("[data-hl-status]"), list = dialog.querySelector("[data-hl-list]"), keep = dialog.querySelector("[data-hl-keep]");
+  const signature = JSON.stringify(projectJSON()), projectId = runtime.projectId;
+  const current = () => dialog.isConnected && JSON.stringify(projectJSON()) === signature && runtime.projectId === projectId;
+  let sig;
+  try { sig = await highlightSignals(current); } catch { sig = null; }
+  if (!dialog.isConnected) return;
+  if (!sig || !current()) { status.textContent = uiText("own.hl-changed"); return; }
+  const cards = MontClipHighlights.candidates(sig);
+  if (!cards.length) { status.textContent = uiText("own.hl-empty-" + MontClipHighlights.emptyReason(sig)); return; }
+  status.textContent = uiText("own.hl-found", { n: cards.length });
+  back.textContent = uiText("own.hl-back", { n: cards.length });
+  const picked = new Set();
+  cards.forEach((c, i) => {
+    const card = document.createElement("div");
+    card.className = "hl-card"; card.dataset.hlCard = String(i); card.dataset.hlRange = c.from + "-" + c.to;
+    // m:ss.t and the length (VV, #52: 00:09:05 read as nine minutes five seconds)
+    const when = MontClipHighlights.clock(c.from) + "–" + MontClipHighlights.clock(c.to) + uiText("own.hl-dur", { s: MontClipHighlights.seconds(c.to - c.from) });
+    card.innerHTML = `<label><input type="checkbox" data-hl-pick> <strong>${escapeHtml(when)}</strong></label>
+      ${c.text ? `<p class="hl-text">${escapeHtml(c.text.length > 120 ? c.text.slice(0, 120) + "…" : c.text)}</p>` : ""}
+      <ul>${c.reasons.map((r) => { const t = highlightReasonText(r); return `<li data-hl-reason="${escapeHtml(r.signal)}" title="${escapeHtml(t.title)}">${escapeHtml(t.text)}</li>`; }).join("")}</ul>
+      <button type="button" class="btn tiny" data-hl-jump>${say("own.hl-jump")}</button>`;
+    card.querySelector("[data-hl-jump]").addEventListener("click", () => { folding = true; dialog.close(); back.hidden = false; pause(); setTime(c.from); play(); });
+    card.querySelector("[data-hl-pick]").addEventListener("change", (e) => { e.target.checked ? picked.add(i) : picked.delete(i); keep.disabled = !picked.size; });
+    list.append(card);
+  });
+  keep.addEventListener("click", () => {
+    if (!current()) { status.textContent = uiText("own.hl-changed"); return; }
+    const ranges = [...picked].map((i) => cards[i]).sort((x, y) => x.from - y.from).map((c) => ({ from: c.from, to: c.to }));
+    try { keepHighlightRanges(ranges); dialog.close(); toast(uiText("own.hl-kept", { n: ranges.length })); }
+    catch (error) { status.textContent = (error && error.code && uiText("own.rp-" + error.code)) || error.message; }
+  });
+}
 /** SRT sentence selection: preview a read-only plan, apply on a clone as one undo step. */
 async function showSentenceSelection(suggestion = null, onApplied = null) {
   const busy=()=>state.exporting||state.gesture||state.compCtx||runtime.activeImports||runtime.activeTranscriptions||runtime.desktopExportPending||runtime.saveRequests||runtime.saveTimer||runtime.saveFailed||(typeof closeSaveTransaction!=='undefined'&&closeSaveTransaction);
@@ -9720,21 +9878,16 @@ function downloadSourceMap() {
   let map;
   try { map = FableCutCaptions.sourceMap(projectJSON()); } catch (error) { toast(error.message); return; }
   if (!map.segments.length) { toast("没有可映射的音视频 / No source media to map"); return; }
-  const a = document.createElement("a"), url = URL.createObjectURL(new Blob([JSON.stringify(map, null, 2)], { type: "application/json" }));
-  a.href = url; a.download = "MontClip.mapping.json"; a.click(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+  const url = URL.createObjectURL(new Blob([JSON.stringify(map, null, 2)], { type: "application/json" }));
+  saveDownload(url, "MontClip.mapping.json"); setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 function downloadCaptions(kind) {
   const C = FableCutCaptions, list = C.fromClips(project.clips, [...state.disabledTracks]);
   if (!list.length) { toast("No captions on the timeline yet — Add captions first"); return; }
   const blob = new Blob([kind === "vtt" ? C.toVTT(list) : C.toSRT(list)], { type: kind === "vtt" ? "text/vtt" : "application/x-subrip" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `${String(project.name || "captions").replace(/[^\w\- ]+/g, "_").trim() || "captions"}.${kind}`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  toast(`Saved ${list.length} caption${list.length === 1 ? "" : "s"} as ${a.download}`);
+  const url = URL.createObjectURL(blob), name = `${exportBaseName("captions")}.${kind}`;
+  saveDownload(url, name, { kind: "captions", savedMsg: `Saved ${list.length} caption${list.length === 1 ? "" : "s"} as ${name}` });
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 /* fablecut_transcribe: transcribe the job's files in this tab, save them, report. */
 async function runTranscribeJob(ticket, fail) {
@@ -10400,6 +10553,8 @@ function meterMarkTopPct(db) {
 }
 const METER_MODES = ["rms", "lufs", "peak"];
 const METER_MODE_LABEL = { rms: "RMS", lufs: "LUFS", peak: "PEAK" };
+/** The meter button's label: RMS reads 音量 in Chinese; LUFS and PEAK stay as they are. */
+const meterModeLabel = (mode) => (mode === "rms" ? uiText("own.meter-rms") : METER_MODE_LABEL[mode]);
 /* Each channel's segment ladder is one <canvas>  - index 0 = bottom = quietest. */
 const METER_SEG_W = 10, METER_SEG_H = 10, METER_SEG_GAP = 1;
 const METER_COL_W = METER_SEG_W;
@@ -10544,7 +10699,7 @@ function cycleMeterMode(ev) {
   const i = METER_MODES.indexOf(meterState.mode);
   meterState.mode = METER_MODES[(i + 1) % METER_MODES.length];
   try { localStorage.setItem("fablecut-meter-mode", meterState.mode); } catch {}
-  if (meterState.modeBtn) meterState.modeBtn.textContent = METER_MODE_LABEL[meterState.mode];
+  if (meterState.modeBtn) meterState.modeBtn.textContent = meterModeLabel(meterState.mode);
   const root = $("vuMeter");
   if (root) root.title = `Mode: ${METER_MODE_LABEL[meterState.mode]} — click to switch`;
   // Reset ballistics so the bar doesn't linger from the previous scale reading
@@ -10750,7 +10905,7 @@ function buildMeterDOM() {
   const modeBtn = document.createElement("button");
   modeBtn.type = "button";
   modeBtn.className = "vu-mode";
-  modeBtn.textContent = METER_MODE_LABEL[meterState.mode];
+  modeBtn.textContent = meterModeLabel(meterState.mode);
   modeBtn.title = "Cycle RMS → LUFS → Peak";
   modeBtn.addEventListener("click", cycleMeterMode);
   masterStack.appendChild(modeBtn);
@@ -16542,10 +16697,12 @@ function deliveryFrame(spec) {
   const cv = deliveryCanvas();
   return Delivery.reframe(spec, cv.w, cv.h, cv.region);
 }
+/** The project's name as a file name: Chinese kept, only what Windows cannot have replaced. */
+const exportBaseName = (fallback) => Delivery.fileSafeName(project.name, MontClipView.exportFallback(mcView.get().language, fallback));
 function deliveryFileName(spec, fps) {
   const fr = deliveryFrame(spec);
   return Delivery.renderFilename(spec.filename, spec, {
-    project: project.name.replace(/[^\w\- ]+/g, "").trim() || "export",
+    project: exportBaseName("export"),
     width: fr.outW, height: fr.outH, fps: fps || spec.fps || projectFps(), range: exportRangeMode(),
   });
 }
@@ -16632,7 +16789,10 @@ function fillDeliveryControls() {
     const el = $("dlvMeta" + k[0].toUpperCase() + k.slice(1));
     if (el && document.activeElement !== el) el.value = sp.metadata[k] || "";
   }
-  $("dlvTokens").textContent = "Tokens: " + Delivery.FILENAME_TOKENS.map((t) => `{${t}}`).join(" ");
+  renderDeliveryTokens();
+}
+function renderDeliveryTokens() {
+  $("dlvTokens").textContent = uiText("own.dlv-tokens", { tokens: Delivery.FILENAME_TOKENS.map((t) => `{${t}}`).join(" ") });
 }
 let dlvCustomRes = false;
 /** The controls → a spec. `changed`: the control the user touched. */
@@ -16699,7 +16859,9 @@ function refreshDeliveryNotes() {
   const sp = dlvSpec, fr = deliveryFrame(sp), fps = sp.fps || projectFps();
   const preset = Delivery.PRESETS[sp.preset] || deliveryInfo.saved[sp.preset];
   const modified = deliveryModified();
-  if (els.exportProfileNote) els.exportProfileNote.textContent = preset?.note || "";
+  // the built-in master note is said in the interface language; delivery.js keeps it in English for agents
+  const note = sp.preset === "master" && preset === Delivery.PRESETS.master ? uiText("own.dlv-note-master") : preset?.note || "";
+  if (els.exportProfileNote) els.exportProfileNote.textContent = note;
   if (els.exportProfileHint) {
     els.exportProfileHint.textContent = dlvSource === "project"
       ? "Project default (delivery in project.json) — agents export with it too."
@@ -16710,7 +16872,7 @@ function refreshDeliveryNotes() {
   const size = Delivery.estimateSize(sp, { duration: range.dur, width: fr.outW, height: fr.outH, fps });
   $("dlvSummary").textContent = `${Delivery.describe(sp, { width: fr.outW, height: fr.outH, fps })}` +
     (size ? ` · about ${Delivery.fmtBytes(size)}` : "");
-  $("dlvFilePreview").textContent = "→ exports/" + deliveryFileName(sp, fps) + Delivery.CONTAINERS[sp.container].ext;
+  $("dlvFilePreview").textContent = uiText("own.dlv-file-preview", { file: deliveryFileName(sp, fps) + Delivery.CONTAINERS[sp.container].ext });
   const cv = deliveryCanvas();
   const warn = [...dlvNotes.map((n) => n[0].toUpperCase() + n.slice(1)),
     ...Delivery.checks(sp, { duration: range.dur, fps, canvasW: cv.w, canvasH: cv.h, region: cv.region })];
@@ -16789,6 +16951,33 @@ function webCodecsBitrate(w, h, fps) {
   // ~0.1 bit/pixel/frame, clamped — same heuristic as before
   return Math.min(20_000_000, Math.max(2_000_000, Math.round(w * h * fps * 0.1)));
 }
+/** The two engine radios' notes and the second radio's label, in the interface language. */
+function renderExportEngineText() {
+  const ef = getExportFrame();
+  const fastOk = state.connected && state.ffmpeg;
+  const wcOk = fastOk && state.webCodecs && !ef;
+  $("engineFastNote").textContent = fastOk
+    ? (ef ? "Exports the " + ef.w + "×" + ef.h + " delivery frame (cropped). Keeps rendering if you switch tabs."
+      : uiText("own.engine-fast-note"))
+    : (ef
+      ? "Needs the server + MontClip's bundled FFmpeg to export a cropped delivery frame."
+      : "Needs the server + MontClip's bundled FFmpeg.");
+  const wcNote = $("engineWebCodecsNote");
+  if (wcNote) {
+    if (wcOk) wcNote.textContent = uiText("own.engine-webcodecs-note");
+    else if (ef) wcNote.textContent = fastOk
+      ? "Unavailable while an export frame is set — use Fast export."
+      : "Unavailable while an export frame is set. Install ffmpeg, or clear the export frame to use Realtime.";
+    else if (!state.connected || !state.ffmpeg) wcNote.textContent = "Needs the server + ffmpeg. Falling back to in-browser MediaRecorder when selected.";
+    else wcNote.textContent = "This browser does not support VideoEncoder Annex-B H.264. Falling back to MediaRecorder when selected.";
+  }
+  // Relabel the radio when WebCodecs is unavailable but MediaRecorder still works
+  const label = els.engineRealtime?.closest("label")?.querySelector("b");
+  if (label) {
+    if (wcOk) { label.dataset.i18n = "own.engine-webcodecs"; label.textContent = uiText("own.engine-webcodecs"); }
+    else { delete label.dataset.i18n; label.textContent = "Realtime (in-browser)"; }
+  }
+}
 async function openExportSetup() {
   if (state.exporting) return;
   if (!project.clips.length) { alert("Timeline is empty — add some clips first."); return; }
@@ -16812,24 +17001,7 @@ async function openExportSetup() {
     els.engineFast.checked = true;
     els.engineRealtime.checked = false;
   }
-  $("engineFastNote").textContent = fastOk
-    ? (ef ? "Exports the " + ef.w + "×" + ef.h + " delivery frame (cropped). Keeps rendering if you switch tabs."
-      : "Frame-accurate. Server encodes from JPEG frames. Keeps going if you switch tabs.")
-    : (ef
-      ? "Needs the server + ffmpeg on PATH to export a cropped delivery frame."
-      : "Needs the server + ffmpeg on PATH.");
-  const wcNote = $("engineWebCodecsNote");
-  if (wcNote) {
-    if (wcOk) wcNote.textContent = "Frame-accurate. Browser HW-encodes H.264; server muxes with audio. Faster upload than Fast.";
-    else if (ef) wcNote.textContent = fastOk
-      ? "Unavailable while an export frame is set — use Fast export."
-      : "Unavailable while an export frame is set. Install ffmpeg, or clear the export frame to use Realtime.";
-    else if (!state.connected || !state.ffmpeg) wcNote.textContent = "Needs the server + ffmpeg. Falling back to in-browser MediaRecorder when selected.";
-    else wcNote.textContent = "This browser does not support VideoEncoder Annex-B H.264. Falling back to MediaRecorder when selected.";
-  }
-  // Relabel the radio when WebCodecs is unavailable but MediaRecorder still works
-  const label = els.engineRealtime?.closest("label")?.querySelector("b");
-  if (label) label.textContent = wcOk ? "WebCodecs (HW encode)" : "Realtime (in-browser)";
+  renderExportEngineText();
   fillExportWcOpts();
   syncExportWcOpts();
   const warn = $("exportTrackWarn");
@@ -16892,6 +17064,7 @@ function startChosenExport() {
     const c = selectedExportChoice();
     setSetting("exportKind", c.kind);
     if (c.kind === "delivery") {
+      if (!dlvSpec) { const n = normalizeDelivery(c.id); dlvSpec = n.spec; dlvNotes = n.notes; }   // never the raw x264 profile
       setSetting("delivery", dlvSpec);
       fastExport({ delivery: dlvSpec });
     } else fastExport({ profile: c.id });
@@ -16920,7 +17093,7 @@ function exportRangeNoteText() {
   const mode = exportRangeMode();
   const { start, dur, frames } = exportRange();
   const end = start + dur;
-  if (mode === "entire") return `Full timeline · ${fmt(start)} → ${fmt(end)}`;
+  if (mode === "entire") return uiText("own.export-range-full", { from: fmt(start), to: fmt(end) });
   if (frames < 1) return "IN–OUT is empty — markers are at or past the end of the timeline.";
   const inn = project.inPoint != null, out = project.outPoint != null;
   if (inn && out) return `IN–OUT · ${fmt(start)} → ${fmt(end)}`;
@@ -17703,7 +17876,7 @@ function encodeWAV(buf) {
    (clip chains → track buses → master fader), honoring volume / pan keyframes
    and fades. t0/t1 are timeline seconds (export window); mix time 0 is t0. */
 const FX_AUTOMATION_STEP = 0.02; // export automation resolution, seconds
-async function renderAudioMix(t0, t1) {
+async function renderAudioMix(t0, t1, opts = {}) {
   const jobs = [];
   for (const c of mediaClips()) {
     if (c.kind !== "audio" && c.kind !== "video") continue;
@@ -17782,7 +17955,8 @@ async function renderAudioMix(t0, t1) {
       off.suspend(when).then(() => { for (const run of animated) run(t0 + when); off.resume(); });
     }
   }
-  return encodeWAV(await off.startRendering());
+  const rendered = await off.startRendering();
+  return opts.raw ? rendered : encodeWAV(rendered);   // raw: the AudioBuffer itself (highlight signals)
 }
 /* Frame-exact asset prep for the fast exporter: rasterize the SVG frame for
    this exact time, and refresh AI person masks synchronously. */
@@ -17836,13 +18010,13 @@ async function fastExport(opts = {}) {
         canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav,
       } : {
         fps,
-        name: project.name.replace(/[^\w\- ]+/g, "") || "export",
+        name: exportBaseName("export"),
         profile: profileId,
         hasAudio: !!wav,
       }),
       signal,
     }).then((r) => r.json());
-    if (!begin.id) throw new Error(begin.error || "export begin failed");
+    if (!begin.id) throw new Error(MontClipView.h264Message(mcView.get().language, begin) || begin.error || "export begin failed");
     sessId = begin.id;
     const jpegQ = delivery ? begin.jpegQuality ?? 0.95 : exportProfileMeta(profileId).jpegQuality ?? 0.95;
     const rgba = begin.input === "rgba";
@@ -17942,24 +18116,16 @@ async function fastExport(opts = {}) {
         name: String(o.file || "").replace(/\.[^.]+$/, ""), range: exportRangeMode(), status: "done", progress: 1,
         src: o.src, file: o.file, report: o.report || null });
       renderQueue();
-      toast(o.report && !o.report.ok ? `Exported ${o.file} — check: ${o.report.checks.filter((c) => !c.ok).map((c) => c.text).join("; ")} (Export → Queue)` : `Exported ${o.file}${o.report ? " — checks passed" : ""}`);
-      const a = document.createElement("a");
-      a.href = end.src;
-      a.download = decodeURIComponent(end.src.split("/").pop());
-      a.click();
+      saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true, savedMsg:
+        o.report && !o.report.ok ? `Exported ${o.file} — check: ${o.report.checks.filter((c) => !c.ok).map((c) => c.text).join("; ")} (Export → Queue)` : `Exported ${o.file}${o.report ? " — checks passed" : ""}` });
     }
-    else {
-      const a = document.createElement("a");
-      a.href = end.src;
-      a.download = decodeURIComponent(end.src.split("/").pop());
-      a.click();
-    }
+    else saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true });
   } catch (e) {
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
     const msg = e?.name === "AbortError" ? "cancelled" : String(e.message || e);
     result = { error: msg, cancelled: msg === "cancelled" };
     if (job) await reportExportJob(job, { status: "failed", error: msg }, true);
-    else if (msg !== "cancelled" && !opts.silent) alert("Export failed: " + msg);
+    else if (msg !== "cancelled" && !opts.silent) alert(uiText("own.export-failed-prefix") + msg);
   } finally {
     exportAbort = null;
     exportFullCanvas = false;
@@ -18012,7 +18178,7 @@ function renderQueue() {
     ? "Exporting — outputs with the same frame rate and range share one render."
     : exportQueue.length ? `${pending} waiting · ${done} done` : "Nothing queued — pick settings in Export and press Add to queue.";
   const btnOpen = $("btnOpenQueue");
-  if (btnOpen) btnOpen.textContent = exportQueue.length ? `Queue · ${pending || exportQueue.length}` : "Queue";
+  if (btnOpen) btnOpen.textContent = exportQueue.length ? uiText("own.q-list-n", { n: pending || exportQueue.length }) : uiText("own.q-list");
   const start = $("btnQueueStart");
   start.textContent = queueRunning ? "Stop" : "Start";
   start.disabled = !queueRunning && !pending;
@@ -18023,11 +18189,12 @@ function renderQueue() {
     const ext = Delivery.CONTAINERS[q.spec.container].ext;
     const fr = deliveryFrame(q.spec), fps = q.spec.fps || projectFps();
     const status = q.status === "running" ? `Rendering… ${Math.round(q.progress * 100)}%`
-      : q.status === "done" ? `Done → exports/${q.file || q.name + ext}`
+      : q.status === "done" ? (q.saved ? "" : `Done → exports/${q.file || q.name + ext}`)
         : q.status === "failed" ? `Failed: ${q.error || "unknown error"}`
           : q.status === "cancelled" ? "Stopped" : "Waiting";
     const actions = [
-      q.status === "done" && q.src ? `<a class="btn tiny" href="${escapeHtml(q.src)}" target="_blank" rel="noopener" download>Open</a>` : "",
+      // 保存 opens the save window again; once a save went through, 已保存
+      q.status === "done" && q.src ? (q.saved ? `<span class="dlv-q-saved">${escapeHtml(uiText("own.q-saved"))}</span>` : `<button type="button" class="btn tiny" data-q-save="${q.id}"${q.saving ? ` disabled title="${escapeHtml(uiText("own.save-busy"))}"` : ""}>${escapeHtml(uiText("own.q-save"))}</button>`) : "",
       q.status === "failed" || q.status === "cancelled" ? `<button type="button" class="btn tiny" data-q-retry="${q.id}">Retry</button>` : "",
       q.status !== "running" ? `<button type="button" class="btn tiny" data-q-remove="${q.id}" title="Remove from the queue">✕</button>` : "",
     ].join("");
@@ -18121,8 +18288,8 @@ function renderBatchList() {
   const on = list.filter((o) => o.on !== false).length;
   $("dlvBatchCount").textContent = list.length ? `· ${on} of ${list.length} checked` : "";
   const be = $("btnBatchExport");
-  if (be) { be.disabled = !on; be.textContent = on ? `Export checked (${on})` : "Export checked"; }
-  if (!list.length) { ul.innerHTML = `<li class="bo-empty">No batch outputs yet — add the settings above, or a typical set</li>`; return; }
+  if (be) { be.disabled = !on; be.textContent = on ? uiText("own.export-checked-n", { n: on }) : uiText("own.export-checked"); }
+  if (!list.length) { ul.innerHTML = `<li class="bo-empty">${escapeHtml(uiText("own.dlv-batch-empty"))}</li>`; return; }
   ul.innerHTML = list.map((o) => {
     const sp = normalizeDelivery(o).spec, fr = deliveryFrame(sp), fps = sp.fps || projectFps();
     return `<li class="${o.on === false ? "off" : ""}" data-o="${escapeHtml(o.id)}">` +
@@ -18187,7 +18354,7 @@ async function runExportJob(ticket) {
     const j = await fetch("/api/export/ffmpeg").then((r) => r.json()).catch(() => ({}));
     state.ffmpeg = !!j.available;
   }
-  if (!state.ffmpeg) return fail("ffmpeg not found on PATH — export needs it");
+  if (!state.ffmpeg) return fail(MontClipView.h264Message(mcView.get().language, { code: "ffmpegMissing" }));
   if (!project.clips.length) return fail("the timeline is empty");
   await fetchEncodeProfiles();
   await probeMissingMeta();
@@ -18527,13 +18694,13 @@ async function webCodecsExport() {
       method: "POST",
       body: JSON.stringify({
         fps,
-        name: project.name.replace(/[^\w\- ]+/g, "") || "export",
+        name: exportBaseName("export"),
         mode: "annexb",
         hasAudio: !!wav,
       }),
       signal,
     }).then((r) => r.json());
-    if (!begin.id) throw new Error(begin.error || "export begin failed");
+    if (!begin.id) throw new Error(MontClipView.h264Message(mcView.get().language, begin) || begin.error || "export begin failed");
     sessId = begin.id;
     if (wav) {
       const r = await fetch("/api/export/audio?id=" + sessId, { method: "POST", body: wav, signal });
@@ -18617,15 +18784,12 @@ async function webCodecsExport() {
     encoder = null;
     const end = await fetch("/api/export/end?id=" + sessId, { method: "POST", signal }).then((r) => r.json());
     if (!end.src) throw new Error(end.error || "mux failed");
-    const a = document.createElement("a");
-    a.href = end.src;
-    a.download = decodeURIComponent(end.src.split("/").pop());
-    a.click();
+    saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true });
   } catch (e) {
     try { encoder?.close(); } catch { }
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
     const msg = e?.name === "AbortError" ? "cancelled" : String(e.message || e);
-    if (msg !== "cancelled") alert("Export failed: " + msg);
+    if (msg !== "cancelled") alert(uiText("own.export-failed-prefix") + msg);
   } finally {
     exportAbort = null;
     exportDecodeEnd();
@@ -18672,11 +18836,9 @@ async function startExport() {
     if (recDiscard || !recChunks.length) return;
     const ext = mime.startsWith("video/mp4") ? "mp4" : "webm";
     const blob = new Blob(recChunks, { type: mime.split(";")[0] });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = (project.name.replace(/[^\w\- ]+/g, "") || "export") + "." + ext;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 30_000);
+    const url = URL.createObjectURL(blob);
+    saveDownload(url, exportBaseName("export") + "." + ext);
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
   };
   els.exportOverlay.classList.remove("hidden");
   els.exportProgress.style.width = "0%";
@@ -18704,6 +18866,9 @@ function finishExport(keep) {
 /* ═══════════════════════════ WIRING ═══════════════════════════ */
 els.fileInput.addEventListener("change", () => { importFiles(els.fileInput.files); els.fileInput.value = ""; });
 $("btnImportUrl")?.addEventListener("click", openImportUrl);
+// The desktop app works offline: its service refuses URL imports (403 NETWORK_DISABLED), so the button is not shown
+// there. The web demo has no desktop preload and keeps it.
+if (window.montclipViewSettings) { const urlButton = $("btnImportUrl"); if (urlButton) urlButton.hidden = true; }
 $("btnCancelImportUrl")?.addEventListener("click", closeImportUrl);
 $("btnDoImportUrl")?.addEventListener("click", () => importFromUrl(els.importUrlInput?.value));
 els.importUrlInput?.addEventListener("keydown", (e) => {
@@ -18803,9 +18968,11 @@ $("btnQueueClear")?.addEventListener("click", () => {
   renderQueue();
 });
 $("exportQueueList")?.addEventListener("click", (e) => {
-  const r = e.target.dataset.qRetry, x = e.target.dataset.qRemove;
-  const q = exportQueue.find((v) => v.id === (r || x));
+  const r = e.target.dataset.qRetry, x = e.target.dataset.qRemove, s = e.target.dataset.qSave;
+  const q = exportQueue.find((v) => v.id === (r || x || s));
   if (!q) return;
+  // save this export again: it names itself, so the copy goes only once a save completes
+  if (s) { if (q.saving) return; q.saving = true; renderQueue(); saveDownload(q.src, q.file || decodeURIComponent(q.src.split("/").pop()), { exportFile: true }); return; }
   if (r) { q.status = "pending"; q.error = null; q.progress = 0; }
   else exportQueue.splice(exportQueue.indexOf(q), 1);
   renderQueue();
@@ -18928,6 +19095,7 @@ function openSettings() {
   overlay.addEventListener("keydown", onSettingsTabTrap);
   const dialog = $("settingsDialog");
   (cb || dialog)?.focus();
+  renderH264Settings();
 }
 function closeSettings() {
   const overlay = $("settingsOverlay");
@@ -18935,6 +19103,40 @@ function closeSettings() {
   overlay.classList.add("hidden");
   $("btnSettings")?.focus();
 }
+/* Settings → H.264 export (desktop only): which encoder H.264 export uses here, and the
+   optional local FFmpeg with libx264. The path is chosen in the main process's file
+   dialog and never passes through the page. */
+async function renderH264Settings(result) {
+  const box = $("setH264"), bridge = window.montclipExternalFfmpeg;
+  if (!box) return;
+  if (!bridge) { box.classList.add("hidden"); return; }
+  box.classList.remove("hidden");
+  const t = MontClipView.text[mcView.get().language] || MontClipView.text.en;
+  const fill = (s, v) => s.replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m));
+  $("setH264Title").textContent = t.h264Title;
+  $("btnH264Choose").textContent = t.h264Choose;
+  $("btnH264Clear").textContent = t.h264Clear;
+  let st = null;
+  try { st = await (await fetch("/api/export/h264", { cache: "no-store" })).json(); } catch { }
+  const ext = result || await bridge.get().catch(() => null);
+  // the server and the main process send reason codes; MontClipView says them in this language
+  const lang = mcView.get().language, say = (r) => MontClipView.h264Message(lang, r);
+  const failed = ext && !ext.ok && ext.code && ext.code !== "none" && ext.code !== "CANCELLED";
+  const lines = [];
+  if (ext && ext.ok) lines.push(fill(t.h264External, { path: ext.path }));
+  else if (failed) lines.push(fill(t.h264ExternalFailed, { reason: say(ext) || t.h264None }));
+  if (st && st.encoder) lines.push(fill(t.h264Using, { encoder: MontClipView.h264Encoder(lang, st.encoder) }));
+  else lines.push((st && st.reason && say(st.reason)) || t.h264None);
+  lines.push(t.h264Hint);
+  $("setH264Status").textContent = lines.join(" ");
+  $("btnH264Clear").disabled = !(ext && (ext.ok || failed));
+}
+$("btnH264Choose")?.addEventListener("click", async () => {
+  const r = await window.montclipExternalFfmpeg?.choose();
+  if (!r || r.code === "CANCELLED") return;
+  renderH264Settings(r);
+});
+$("btnH264Clear")?.addEventListener("click", async () => { await window.montclipExternalFfmpeg?.clear(); renderH264Settings(); });
 $("btnSettings").addEventListener("click", openSettings);
 $("btnCloseSettings").addEventListener("click", closeSettings);
 $("settingsOverlay").addEventListener("click", (e) => {
@@ -19029,7 +19231,8 @@ function syncAspectSel() {
   const i = ASPECT_PRESETS.findIndex((a) => a.w === project.width && a.h === project.height);
   els.aspectSel.innerHTML =
     ASPECT_PRESETS.map((a, j) => `<option value="${j}" ${j === i ? "selected" : ""}>${a.label}</option>`).join("") +
-    (i < 0 ? `<option value="custom" selected>Custom · ${project.width}×${project.height}</option>` : "");
+    // the size comes from project.json, which an agent, another tool or a backup can write: escaped (as the project cards, #68)
+    (i < 0 ? `<option value="custom" selected>${escapeHtml(`Custom · ${project.width}×${project.height}`)}</option>` : "");
 }
 function syncFpsSel() {
   if (!els.fpsSel) return;
