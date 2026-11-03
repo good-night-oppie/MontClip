@@ -22305,9 +22305,9 @@ async function onAgentReply(result){
   showSentenceSelection(proposal,token=>{officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});},()=>{if(ev)moveEvent(ev.id,'rejected');});
   return;
  }
- if(rangeEditBusy()){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.sd-busy-save'));return;}
  // the CAS: the project and its revision are still the reply's
  if(!MontClipProposal.current(proposal,projectJSON(),{...agentProjectContext(),generation:agentProjectContext().gen})||project.revision!==result.context.revision){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.ap-stale'));return;}
+ if(rangeEditBusy()){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.sd-busy-save'));return;}
  let plan;try{plan=FableCutRangePlan.create(projectJSON(),proposal.keep);plan.keep=proposal.keep;}catch{if(ev)moveEvent(ev.id,'failed');toast(uiText('own.ap-invalid'));return;}
  const token=commitRangePlan(plan,proposal);
  officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});
