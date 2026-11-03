@@ -6,7 +6,7 @@ const root=path.join(__dirname,'..');
 function world({gap=true,compatible=false,scanFailure=false,uncertain=false}={}){
  const calls={encode:0,scan:0,writes:0,copies:0,register:0},files=new Map();
  const streams=[{codec_type:'video',codec_name:compatible?'h264':'flv1',pix_fmt:'yuv420p',avg_frame_rate:'30/1',time_base:'1/1000'}];
- const fakeFs={existsSync:f=>files.has(f),statSync:()=>({size:12,isFile:()=>true}),mkdirSync(){},writeFileSync(f,b){calls.writes++;files.set(f,b);},copyFileSync(a,b){calls.copies++;files.set(b,files.get(a));},renameSync(){},rmSync(){throw Error('must not delete original');}};
+ const fakeFs={existsSync:f=>files.has(f),statSync:()=>({size:12,isFile:()=>true}),mkdirSync(){},writeFileSync(f,b){calls.writes++;files.set(f,b);},copyFileSync(a,b){calls.copies++;files.set(b,files.get(a));},renameSync(){},linkSync(a,b){if(files.has(b))throw Object.assign(Error('exists'),{code:'EEXIST'});files.set(b,files.get(a));},rmSync(f){if(!String(f).includes('staging'))throw Error('must not delete original');files.delete(f);}};
  const processes={execFile(cmd,args,opts,cb){assert.ok(['ffmpeg','ffprobe'].includes(cmd));assert.ok(Array.isArray(args));assert.notEqual(opts.shell,true);if(cmd==='ffmpeg')calls.encode++;cb(null,JSON.stringify({streams,format:{duration:0.1}}));return{once(){}};}};
  const mediaProcess=createMediaProcess({processes,io:fakeFs});
  const mod={exports:{}};
@@ -30,7 +30,7 @@ test('production REST upload and reprepare preserve gap code and original; never
  const begin=source.indexOf('  if (p === "/api/upload"'),end=source.indexOf('  /* API: download an HTTPS URL',begin);
  for(const route of ['/api/upload','/api/prepare-media']){
   const w=world(),responses=[],file=path.join('/media','source.flv');w.files.set(file,Buffer.from('original'));
-  const context={...w,fs:w.fakeFs,path,p:route,req:{method:'POST'},res:{},MEDIA_DIR:'/media',url:new URL('http://local?name=new.flv'),safeName:x=>x,resolveSrc:()=>file,readBody:async()=>Buffer.from(route==='/api/upload'?'uploaded original':JSON.stringify({src:'/media/source.flv',allowTranscode:true})),faststart:async()=>{},sendJSON:(_res,status,body)=>responses.push({status,body})};
+  const context={...w,fs:w.fakeFs,path,p:route,req:{method:'POST'},res:{},MEDIA_DIR:'/media',url:new URL('http://local?name=new.flv'),safeName:x=>x,resolveSrc:()=>file,readBody:async()=>Buffer.from(route==='/api/upload'?'uploaded original':JSON.stringify({src:'/media/source.flv',allowTranscode:true})),bodyToFile:async(_req,f)=>{w.calls.writes++;w.files.set(f,Buffer.from('uploaded original'));},UPLOADS_DIR:'/staging',crypto:require('node:crypto'),faststart:async()=>{},sendJSON:(_res,status,body)=>responses.push({status,body})};
   vm.createContext(context);await vm.runInContext('(async()=>{'+source.slice(begin,end)+'})()',context);
   assert.equal(responses.length,1);assert.equal(responses[0].body.code,'FLV_TIMELINE_GAP');assert.notEqual(responses[0].status,200);assert.equal(w.calls.encode,0);assert.equal(w.files.get(file).toString(),'original');
   if(route==='/api/upload'){assert.equal(w.calls.writes,1);assert.equal(w.files.get(path.join('/media','new.flv')).toString(),'uploaded original');}else assert.equal(w.calls.writes,0);

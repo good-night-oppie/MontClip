@@ -75,10 +75,10 @@ test("an upload is written to disk as it arrives, not held in memory", { skip: !
   const start = stats(child.pid).privateMB;
   let peak = start;
   const timer = setInterval(() => { try { peak = Math.max(peak, stats(child.pid).privateMB); } catch {} }, 150);
-  const r = await upload(port, "大录像.bin", 384);
+  const r = await upload(port, "big-recording.bin", 384);
   clearInterval(timer);
   a.equal(r.status, 200, r.body);
-  const file = path.join(dir, "media", "大录像.bin");
+  const file = path.join(dir, "media", "big-recording.bin");
   a.equal(fs.statSync(file).size, 384 * 1048576, "every byte arrived");
   a.ok(peak - start < 160, `a 384 MB upload raised the server's memory by ${Math.round(peak - start)} MB`);
 });
