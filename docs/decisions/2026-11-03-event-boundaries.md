@@ -438,11 +438,11 @@ VV 的参数都写成可以调的默认值，等实测以后再改。
    - **完整报错与调用栈**：
      - 异步 `await rec.decodeAsync(s)`：N-API AsyncWorker 把 C++ `std::length_error` 转成 JS `Error`，message 为 `"basic_string::_S_create"`，stack 为 `"Error: basic_string::_S_create"`（无 JS 帧）。
      - 同步 `rec.decode(s)`：C++ 未捕获异常直接终止进程：`terminate called after throwing an instance of 'std::length_error'\n  what():  basic_string::_S_create`。
-     - C++ 崩溃调用点（反汇编 `libsherpa-onnx-c-api.so` 定位）：`SherpaOnnxDecodeOfflineStream` → `sherpa_onnx::OfflineRecognizerParaformerImpl::DecodeStreams(sherpa_onnx::OfflineStream**, int) const`（偏移 `0xf6566`–`0xf65dc`）。
+     - C++ 崩溃调用点：`SherpaOnnxDecodeOfflineStream` → `sherpa_onnx::OfflineRecognizerParaformerImpl::DecodeStreams(sherpa_onnx::OfflineStream**, int) const`。
    - **根因（100% 确定）**：
      - Paraformer 词表 `tokens.txt` 含有英文 BPE 词尾标记 `@@`（如 `and@@ 3`），**同时第 7252 行有一个单独的 `@` token（`@ 7251`）**。
-     - `sherpa-onnx` C++ 在拼接 token 时检查末尾字符是否为 `'@'`（`cmp BYTE PTR [rsi+rax-1], 0x40`），若末尾是 `'@'` 且字符串长度 ≤ 2（`cmp rax, 0x2; jbe`），直接无条件执行 `sub rdx, 0x2` 并调用 `std::string(char const*, size_t)`（`basic_string::_S_create`）。
-     - 当模型解码出长度为 1 的 token `"@"`（id `7251`）时，`1 - 2 = (size_t)-1 = 0xffffffffffffffff`，触发 `std::length_error("basic_string::_S_create")`。把 `tokens.txt` 里的 `@ 7251` 改成全角 `＠ 7251` 后，同一段 75872 采样音频立即成功解码出 16 个 token（第 15 个就是 `＠`）。
+     - `sherpa-onnx` 在拼接 token 时检查末尾字符是否为 `'@'`，当 token 长度 ≤ 2 时直接把长度减去 2 再构造 `std::string`。
+     - 当模型解码出长度为 1 的 token `"@"`（id `7251`）时，`1 - 2` 无符号长度下溢，触发 `std::length_error("basic_string::_S_create")`。把 `tokens.txt` 里的 `@ 7251` 改成全角 `＠ 7251` 后，同一段 75872 采样音频立即成功解码出 16 个 token（第 15 个就是 `＠`）。
    - **合成信号复现命令（零私人数据，100% 必现）**：
      - 75872 采样的纯静音（`new Float32Array(75872)`）、440Hz 正弦波、白噪声在原词表下不会解码出 token `7251`（纯静音固定解码出 token `"嗯"` / `"没"` / `"有"`，其中 0.5 秒纯静音 `new Float32Array(8000)` 稳定解码出单个 token `"嗯"`，id `1635`）。
      - 因此，单元测试无需任何真实录音，只需下面两条纯合成方式之一即可 100% 复现一模一样的 `Error: basic_string::_S_create`：
