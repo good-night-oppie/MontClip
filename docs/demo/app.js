@@ -9868,10 +9868,40 @@ const AUTO = { el: null, st: null };
 function autoState() {
   if (!AUTO.st || AUTO.st.projectId !== runtime.projectId)
     AUTO.st = { projectId: runtime.projectId, step: "start", picked: null, kind: "auto", count: MontClipAutoSlices.DEFAULTS.count,
-      len: MontClipAutoSlices.DEFAULTS.len, run: null, recs: [], clips: [], dropped: [], few: null, ask: false, hist: [], exportIds: null };
+      len: MontClipAutoSlices.DEFAULTS.len, subs: true, run: null, recs: [], clips: [], dropped: [], few: null, ask: false, hist: [], exportIds: null };
   return AUTO.st;
 }
 const autoSay = (key, vars) => escapeHtml(uiText("own." + key, vars));
+/* v10 (frozen design; JJ v2 section two): subtitles. How they would be made now — "local" when #70's on-device model is
+   installed, else "none" (cloud transcription does not exist yet). The way is chosen on #70's setup page and in
+   Settings › 听写, never here; 〔去装〕 opens that page where #70 is present. */
+function autoSubMode() { return typeof asrReady === "function" && asrReady() ? "local" : "none"; }
+const autoCanInstall = () => typeof openAsrSetup === "function";
+/** How many sentences the transcript has inside a card's part of its recording (null: no transcript). */
+function autoSubCount(c) {
+  const m = autoMedia(c.mediaId), d = m && typeof transcriptOf === "function" ? transcriptOf(m.src) : null;
+  if (!d) return null;
+  return FableCutTranscribe.segments(d.words.filter((w) => (w[1] + w[2]) / 2 >= c.s && (w[1] + w[2]) / 2 < c.e)).length;
+}
+/** Captions over the placed slices only (the timeline words of the placed clips), in the caller's undo step; captions
+ *  elsewhere stay. Returns how many were added. */
+function autoPlaceCaptions(placed, at0, end) {
+  const C = FableCutCaptions, T = FableCutTranscribe, entries = [];
+  for (const p of placed) {
+    const clip = p.clip && getClip(p.clip), m = clip && getMedia(clip.mediaId), d = m && transcriptOf(m.src);
+    if (d) entries.push({ clip, words: d.words });
+  }
+  const words = T.layout(entries).filter((w) => w.s >= at0 - 1e-6 && w.e <= end + 1e-6);
+  if (!words.length) return 0;
+  const style = (typeof transcribeSettings === "function" && transcribeSettings().captionStyle) || C.DEFAULT_STYLE, mt = C.metrics(style, project.width, project.height);
+  const cues = C.cues(words, { chars: mt.chars, lines: mt.lines, words: mt.words, maxDur: mt.maxDur, fps: projectFps() }).filter((q) => q.start >= at0 - 1e-6);
+  if (!cues.length) return 0;
+  const lane = C.trackFor({ ...project, tracks: serializeTracks() }, at0, end);
+  let track = lane.track;
+  if (lane.add) { const t = addTimelineTrack("video"); if (!t) return 0; track = t.id; }
+  for (const q of cues) project.clips.push({ ...C.clip({ ...q, end: Math.min(q.end, end) }, { style, width: project.width, height: project.height, track }), id: "c_" + uid() });
+  return cues.length;
+}
 function autoRecordings() {
   return project.media.filter((m) => (m.kind === "video" || m.kind === "audio") && !m.derivedFrom && !m.transient && typeof m.src === "string" && m.src.startsWith("/media/") && m.duration > 0);
 }
@@ -9974,6 +10004,10 @@ function autoStartHtml() {
         <span class="as-small">${autoSay("as-count-hint")}</span></div></div>
       <div class="as-opt"><span>${autoSay("as-len")}</span><div><div class="as-seg">${seg("len", MontClipAutoSlices.LENS, st.len)}</div>
         <p class="as-small">${autoSay(autoSongKey("as-len-hint-" + st.len))}</p></div></div>
+      <div class="as-opt"><span>${autoSay("as-subs")}</span><div><label class="as-check"><input type="checkbox" data-as-subs${st.subs ? " checked" : ""}>
+        <span data-as-subs-label>${autoSay(autoSubMode() === "local" ? "as-sub-local" : "as-sub-none")}</span></label>
+        ${autoSubMode() === "none" && autoCanInstall() ? `<button type="button" class="btn tiny" data-as-act="sub-go">${autoSay("as-sub-go")}</button>` : ""}
+        <p class="as-small" data-as-subs-hint>${autoSubMode() === "none" ? autoSay("as-sub-none-hint") : ""}</p></div></div>
     </details>
     <div class="as-cta"><button type="button" class="btn primary" data-as-act="go"${st.picked.size ? "" : " disabled"}>${autoSay(st.picked.size > 1 ? "as-go-n" : "as-go", { n: st.picked.size })}</button>
       <span class="as-small">${autoSay("as-go-hint")}</span></div>`;
@@ -9983,9 +10017,10 @@ function autoStartHtml() {
 function autoRunHtml() {
   const st = autoState(), r = st.run || { phase: 0, frac: 0 }, recs = (r.recs || []).map(autoMedia).filter(Boolean);
   const name = recs.map((m) => m.name).join("、"), dur = recs.reduce((x, m) => x + m.duration, 0);
-  const steps = ["read", "hot", "songs", "pick"];
+  const steps = ["read", "listen", "hot", "songs", "pick"];
+  const listenKey = !st.subs ? "as-run-listen-off" : autoSubMode() === "none" ? "as-run-listen-none" : "as-run-listen";
   return `<h1>${autoSay("as-run-title")}</h1><p class="as-sub">${autoSay("as-run-sub", { name, dur: autoDur(dur) })}</p>
-    <section class="as-card-box"><ul class="as-steps">${steps.map((s, k) => `<li class="${k < r.phase ? "done" : k === r.phase ? "now" : ""}"><span class="as-dot">${k < r.phase ? "✓" : ""}</span>${autoSay(autoSongKey("as-run-" + s))}</li>`).join("")}</ul>
+    <section class="as-card-box"><ul class="as-steps">${steps.map((s, k) => `<li class="${k < r.phase ? "done" : k === r.phase ? "now" : ""}"><span class="as-dot">${k < r.phase ? "✓" : ""}</span>${s === "listen" ? autoSay(listenKey) : autoSay(autoSongKey("as-run-" + s))}</li>`).join("")}</ul>
       <div class="as-bar"><i data-as-bar style="width:${Math.round(((r.phase + r.frac) / steps.length) * 100)}%"></i></div>
       ${r.error ? `<p class="as-warn" role="alert">${escapeHtml(r.error)}</p>` : ""}</section>
     <div class="as-cta"><button type="button" class="btn" data-as-act="stop">${autoSay("as-stop")}</button><span class="as-small">${autoSay("as-stop-hint")}</span></div>`;
@@ -10005,8 +10040,14 @@ async function autoRun() {
       if (run.stop) throw Object.assign(new Error("stopped"), { stopped: true });
       const danmaku = autoDanmaku(m);
       run.phase = 1; tick();
-      const highlights = loudness ? MontClipHighlights.candidates({ duration: m.duration, sentences: [], loudness, danmaku: danmaku.map((t) => ({ t })) }) : [];
+      // 听写成文字: with subtitles on and the model installed, a recording without a transcript is transcribed (#70)
+      if (st.subs && autoSubMode() === "local" && !(await loadTranscript(m.src))) {
+        try { await transcribeSrcs([m.src]); } catch { }
+        if (run.stop) throw Object.assign(new Error("stopped"), { stopped: true });
+      }
       run.phase = 2; tick();
+      const highlights = loudness ? MontClipHighlights.candidates({ duration: m.duration, sentences: [], loudness, danmaku: danmaku.map((t) => ({ t })) }) : [];
+      run.phase = 3; tick();
       let songs = [];
       if (wantSongs) {
         run.src = m.src;
@@ -10024,7 +10065,7 @@ async function autoRun() {
       }
       out.push({ mediaId: m.id, duration: m.duration, songs, loudness, highlights, danmaku: danmaku.length });
     }
-    run.phase = 3; tick();
+    run.phase = 4; tick();
     const r = MontClipAutoSlices.build({ recordings: out, kind: st.kind, count: st.count, len: st.len });
     st.recs = out; st.clips = r.clips; st.few = r.few; st.dropped = []; st.hist = []; st.exportIds = null;
     st.ask = st.kind === "auto" && r.clips.some((c) => c.kind === "song") && r.clips.some((c) => c.kind === "moment");
@@ -10112,6 +10153,7 @@ function autoCardHtml(c, i) {
         <div class="as-small">${autoSay(song && !c.title ? "as-song-name-hint" : "as-filename")}</div>
         <div class="as-small">${autoSay(song ? "as-maybe-singing" : "as-a-moment")} · ${escapeHtml(autoDur(c.e - c.s))}</div>
         ${why ? `<p class="as-why">${autoSay("as-why")}<b>${escapeHtml(why)}</b></p>` : ""}
+        ${song && autoState().subs && autoSubMode() === "local" && autoSubCount(c) != null ? `<span class="as-small as-subline" data-as-sub-line>${autoSay("as-sub-line", { n: autoSubCount(c) })}</span><span class="as-muted"> · </span>` : ""}
         ${song ? `<div class="as-lyrics"><button type="button" class="btn tiny" data-as-lyrics disabled title="${autoSay("as-lyrics-soon")}">${autoSay(autoSongKey("as-lyrics"))}</button></div>` : ""}</div></div>
     ${c.on ? `<div class="as-trim">${autoEdgeHtml(c, "s")}${autoEdgeHtml(c, "e")}</div>` : `<p class="as-small">${autoSay("as-tick-to-adjust")}</p>`}
     <div class="as-actions"><button type="button" class="btn tiny" data-as-act="play">${autoSay("as-play")}</button>
@@ -10154,6 +10196,7 @@ function autoClick(e) {
   if (act === "rec") { const id = b.dataset.asId; st.picked.has(id) ? st.picked.delete(id) : st.picked.add(id); autoRender("start"); return; }
   if (act === "kind" || act === "len") { st[act] = b.dataset.asV; autoRender("start"); return; }
   if (act === "go") { autoRun(); return; }
+  if (act === "sub-go") { if (autoCanInstall()) openAsrSetup(); return; }
   if (act === "stop") { if (st.run) st.run.stop = true; return; }
   if (act === "back-start") { autoRender("start"); return; }
   if (act === "ask") {
@@ -10192,6 +10235,7 @@ function autoClick(e) {
 function autoChange(e) {
   const t = e.target, st = autoState();
   if (t.matches("[data-as-count]")) { st.count = Number(t.value); return; }
+  if (t.matches("[data-as-subs]")) { st.subs = t.checked; return; }
   const card = t.closest("[data-as-card]"), c = card ? autoClip(card.dataset.asCard) : null;
   if (!c) return;
   if (t.dataset.asAct === "toggle") { autoSnap(); c.on = t.checked; autoRender("review"); autoFocusCard(c.id, false); return; }
@@ -10280,6 +10324,8 @@ function placeAutoSlices(clips, { select = null } = {}) {
     placed.push({ card: c.id, clip: r && r.clip ? r.clip.id : null });
     at = Math.round((at + dur) * 1000) / 1000;
   }
+  // v10: subtitles over the placed slices, in this same undo step
+  if (autoState().subs && autoSubMode() === "local") autoPlaceCaptions(placed, at0, at);
   const first = (select && placed.find((p) => p.card === select.id)) || placed[0];
   if (first && first.clip) selectClip(first.clip);
   setSideTab("inspector");
@@ -10322,6 +10368,7 @@ function autoExportConfirm() {
   body.innerHTML = `<section class="as-card-box as-ex"><h2>${autoSay("as-ex-title", { n: on.length })}</h2>
     <ul>${on.map((c) => `<li>${escapeHtml(autoName(c))} <span class="as-muted">· ${escapeHtml(autoDur(c.e - c.s))}</span></li>`).join("")}</ul>
     <p class="as-small">${autoSay("as-ex-info")}</p>
+    ${st.subs && autoSubMode() === "none" ? `<p class="as-small as-warn" data-as-ex-nosub>${autoSay("as-ex-nosub")}</p>` : ""}
     <div class="as-row"><button type="button" class="btn primary" data-as-act="ex-go">${autoSay("as-ex-go")}</button><button type="button" class="btn" data-as-act="ex-cancel">${autoSay("as-ex-cancel")}</button></div></section>`;
   AUTO.el.querySelector("[data-as-footer]").hidden = true;
 }
