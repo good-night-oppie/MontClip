@@ -37,19 +37,16 @@ test('fewer good ones than asked: all of them, all ticked, and it says how many 
  const r=A.build({recordings:[REC],kind:'sing',count:5});
  a.equal(r.clips.length,3);a.ok(r.clips.every(c=>c.on));a.deepEqual(r.few,{found:3,count:5});
 });
-test('every song card is 估的 at both ends; a highlight is not; songs are numbered by their place in the recording',()=>{
+test('each end starts at its found level (v8: songs with nothing guessed and highlights 比较可能); songs are numbered by their place in the recording',()=>{
  const r=A.build({recordings:[REC],kind:'auto',count:12});
- for(const c of r.clips){
-  if(c.kind==='song'){a.equal(c.startGuess,true);a.equal(c.endGuess,true);}
-  else{a.equal(c.startGuess,false);a.equal(c.endGuess,false);}
- }
+ for(const c of r.clips)for(const w of ['s','e'])a.equal(A.edgeLevel(c,w),'likely',c.id+w);
  a.deepEqual(r.clips.filter(c=>c.kind==='song').map(c=>[c.s,c.no]).sort((x,y)=>x[0]-y[0]),[[1000,1],[4000,2],[8000,3]]);
 });
 test('only the best part (hook) and 30 s – 1 min (short): a song becomes its loudest 45 s, inside the song',()=>{
  for(const len of ['hook','short']){
   const r=A.build({recordings:[REC],kind:'sing',len}),s=r.clips.find(c=>c.no===2);
   a.equal(s.e-s.s,45,len);a.ok(s.s>=4000&&s.e<=4260);a.ok(s.s<=4100&&s.e>=4145,'over the loud part 4100–4145');
-  a.equal(s.startGuess,true);
+  a.equal(A.edgeLevel(s,'s'),'estimated','the best part of a song is picked, so its ends are 估的');
  }
  a.equal(A.build({recordings:[REC],kind:'sing',len:'song'}).clips.find(c=>c.no===2).e,4260);
 });
@@ -60,8 +57,8 @@ test('a song card gives why: it sings throughout, and it is louder than usual wh
 });
 test('times: h:mm:ss over an hour, m:ss under; nudging an end keeps it inside the recording and 5 s long at least',()=>{
  a.equal(A.hms(4324),'1:12:04');a.equal(A.hms(75),'1:15');a.equal(A.hms(0),'0:00');
- const c={s:100,e:160,startGuess:true,endGuess:true};
- a.deepEqual(A.nudge(c,'s',-5,300),{...c,s:95,startGuess:false,moved:true});
+ const c={s:100,e:160,s0:100,e0:160};
+ a.deepEqual(A.nudge(c,'s',-5,300),{...c,s:95});
  a.equal(A.nudge(c,'s',100,300).s,155,'at least 5 s');a.equal(A.nudge(c,'e',-100,300).e,105);
  a.equal(A.nudge(c,'s',-500,300).s,0);a.equal(A.nudge(c,'e',500,300).e,300);
 });

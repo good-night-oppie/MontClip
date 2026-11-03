@@ -10088,19 +10088,22 @@ function autoWave(c, w) {
   return `<svg class="as-mini" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(" ")}"/></svg>`;
 }
 function autoEdgeHtml(c, w) {
-  const lbl = w === "s" ? "start" : "end", t = w === "s" ? c.s : c.e, guess = w === "s" ? c.startGuess : c.endGuess;
+  // v8: a level beside each time — 比较可能 (grey hint), 估的 (yellow hint), 你调过 (grey, no hint) while moved
+  const lbl = w === "s" ? "start" : "end", t = w === "s" ? c.s : c.e, level = MontClipAutoSlices.edgeLevel(c, w);
+  const hint = level === "estimated" ? `<p class="as-guess" data-as-hint="${w}">${autoSay("as-guess-" + lbl)}</p>`
+    : level === "likely" ? `<p class="as-likely" data-as-hint="${w}">${autoSay("as-likely-" + lbl)}</p>` : "";
   const nb = (d) => `<button type="button" class="btn tiny" data-as-act="nudge" data-as-w="${w}" data-as-d="${d}">${d > 0 ? "+" : "−"}${autoSay("as-sec", { d: Math.abs(d) })}</button>`;
-  return `<div class="as-edge" data-as-edge="${w}"><div class="as-lbl">${autoSay("as-" + lbl)} <b data-as-tc>${escapeHtml(MontClipAutoSlices.hms(t))}</b></div>
+  return `<div class="as-edge" data-as-edge="${w}"><div class="as-lbl">${autoSay("as-" + lbl)} <b data-as-tc>${escapeHtml(MontClipAutoSlices.hms(t))}</b> <span class="as-tag as-tag-${level}" data-as-level="${level}">${autoSay("as-tag-" + level)}</span></div>
     <div class="as-strip" data-as-act="drag" data-as-w="${w}" title="${autoSay("as-drag-" + lbl)}">${autoWave(c, w)}<i class="as-hand"></i><span class="as-strip-l">${autoSay("as-early")}</span><span class="as-strip-r">${autoSay("as-late")}</span></div>
     <div class="as-nudges">${nb(-5)}${nb(-1)}${nb(1)}${nb(5)}<button type="button" class="btn tiny" data-as-act="listen" data-as-w="${w}">${autoSay("as-listen-" + lbl)}</button></div>
-    ${guess ? `<p class="as-guess" data-as-guess="${w}">${autoSay("as-guess-" + lbl)}</p>` : ""}</div>`;
+    ${hint}</div>`;
 }
 function autoCardHtml(c, i) {
-  const song = c.kind === "song", why = c.reasons.map((r) => highlightReasonText(r).text).join(" · "), tag = MontClipAutoSlices.tag(c);
-  // a song card is 「可能在唱歌」 with one of three tags until songs.js reaches the naming gate (Deja; auto-slices.js)
+  const song = c.kind === "song", why = c.reasons.map((r) => highlightReasonText(r).text).join(" · ");
+  // a song card is 「{time} 那段 · 可能在唱歌」 until songs.js reaches the naming gate (Deja; auto-slices.js)
   return `<article class="as-clip${c.on ? "" : " off"}" data-as-card="${escapeHtml(c.id)}">
     <div class="as-clip-h"><input type="checkbox" data-as-act="toggle"${c.on ? " checked" : ""} aria-label="${autoSay("as-tick")}">
-      <div class="as-clip-main"><div class="as-clip-title"><span class="as-muted">${i + 1}.</span> <input type="text" data-as-act="rename" value="${escapeHtml(autoName(c))}" aria-label="${autoSay("as-rename")}">${tag ? `<span class="as-tag as-tag-${tag}" data-as-tag="${tag}">${autoSay("as-tag-" + tag)}</span>` : ""}${c.on ? "" : `<span class="as-tag">${autoSay("as-spare")}</span>`}</div>
+      <div class="as-clip-main"><div class="as-clip-title"><span class="as-muted">${i + 1}.</span> <input type="text" data-as-act="rename" value="${escapeHtml(autoName(c))}" aria-label="${autoSay("as-rename")}">${c.on ? "" : `<span class="as-tag">${autoSay("as-spare")}</span>`}</div>
         <div class="as-small">${autoSay(song ? "as-song-name-hint" : "as-filename")}</div>
         <div class="as-small">${song ? autoSay("as-maybe-singing") : `${autoSay("as-a-moment")} · ${escapeHtml(autoDur(c.e - c.s))}`}</div>
         ${why ? `<p class="as-why">${autoSay("as-why")}<b>${escapeHtml(why)}</b></p>` : ""}

@@ -44,22 +44,26 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.doneButton=await read(`document.getElementById('btnAutoSlices').textContent`);assert.equal(report.doneButton,'✨ 自动出切片 · 找完了');
   await read(`document.getElementById('btnAutoSlices').click();true`);
   assert.equal(await read(`document.getElementById('btnAutoSlices').textContent`),'✨ 自动出切片');
-  const rv=await read(`(()=>{const st=autoState();return{cards:st.clips.map(c=>({kind:c.kind,s:c.s,e:c.e,on:c.on,sg:c.startGuess,eg:c.endGuess})),
-    guessShown:[...document.querySelectorAll('[data-as-card]')].filter(el=>autoClip(el.dataset.asCard).kind==='song'&&autoClip(el.dataset.asCard).on).map(el=>!!el.querySelector('[data-as-guess=s]')&&!!el.querySelector('[data-as-guess=e]')),
+  const rv=await read(`(()=>{const st=autoState();return{cards:st.clips.map(c=>({kind:c.kind,s:c.s,e:c.e,on:c.on,levels:[MontClipAutoSlices.edgeLevel(c,'s'),MontClipAutoSlices.edgeLevel(c,'e')]})),
+    labels:[...document.querySelectorAll('[data-as-level]')].map(e=>e.textContent),hints:[...document.querySelectorAll('[data-as-hint]')].map(e=>e.className+':'+e.textContent),
     head:document.querySelector('.auto-slices h1').textContent,place:document.querySelector('[data-as-act=place]').textContent,exp:document.querySelector('[data-as-act=export]').textContent};})()`);
   report.review=rv;
   const songs=rv.cards.filter(c=>c.kind==='song');
-  assert.equal(songs.length,2,'two songs');assert.ok(songs.every(c=>c.sg&&c.eg),'every song 估的 at both ends');assert.ok(rv.guessShown.length&&rv.guessShown.every(Boolean),'the 估的 hints are shown');
-  // Deja over the frozen design: below the naming gate no 第 n 首 anywhere; song cards 可能在唱歌 with a tag; 你调过 once moved
+  // v8 (frozen, JJ-approved): a level beside every start and end; nothing was guessed in these two, so 比较可能 with its grey hint
+  assert.equal(songs.length,2,'two parts that may be singing');assert.ok(songs.every(c=>c.levels.every(l=>l==='likely')),JSON.stringify(songs));
+  assert.deepEqual(rv.labels,['比较可能','比较可能','比较可能','比较可能']);
+  assert.ok(rv.hints.length===4&&rv.hints.every(h=>/^as-likely:(开头|结尾)比较可能在这里，还是点「▶ 听(开头|结尾)」听一下再定。$/.test(h)),rv.hints.join('|'));
+  // Deja over the frozen design: below the naming gate no 第 n 首 anywhere; song cards 「{time} 那段 · 可能在唱歌」
   const naming=await read(`(()=>{const d=document.querySelector('dialog.auto-slices'),t=d.innerText+[...d.querySelectorAll('input[type=text]')].map(i=>i.value).join(' ');
-    return{noNth:!/第\\s*\\d+\\s*首/.test(t),maybe:(t.match(/可能在唱歌/g)||[]).length,tags:[...d.querySelectorAll('[data-as-tag]')].map(e=>e.textContent),
+    return{noNth:!/第\\s*\\d+\\s*首/.test(t),maybe:(t.match(/可能在唱歌/g)||[]).length,
     lyrics:[...d.querySelectorAll('.as-lyrics')].map(e=>e.textContent.replace(/\\s+/g,' ').trim()),trusted:MontClipAutoSlices.songsTrusted()};})()`);
   report.naming=naming;assert.equal(naming.trusted,false);assert.equal(naming.noNth,true,'no 第 n 首 below the gate');assert.equal(naming.maybe,2);
-  assert.ok(naming.tags.length===2&&naming.tags.every(x=>x==='估的'||x==='比较可能'),naming.tags.join());
   assert.ok(naming.lyrics.every(x=>x==='按歌词校准字幕 如果这段是唱歌'),naming.lyrics.join('|'));
-  const moved=await read(`(()=>{const card=document.querySelector('[data-as-card]');card.querySelector('[data-as-act=nudge][data-as-d="-1"]').click();
-    const again=document.querySelector('[data-as-card="'+card.dataset.asCard+'"]');const tag=again.querySelector('[data-as-tag]').textContent;autoUndo();return tag;})()`);
-  report.movedTag=moved;assert.equal(moved,'你调过');
+  // moved: 你调过 (grey) and no hint; undone: its own level and hint again
+  const moved=await read(`(()=>{const card=document.querySelector('[data-as-card]'),id=card.dataset.asCard;card.querySelector('[data-as-act=nudge][data-as-w=s][data-as-d="-1"]').click();
+    const el=()=>document.querySelector('[data-as-card="'+id+'"] [data-as-edge=s]');const a={label:el().querySelector('[data-as-level]').textContent,hint:!!el().querySelector('[data-as-hint]')};
+    autoUndo();const b={label:el().querySelector('[data-as-level]').textContent,hint:!!el().querySelector('[data-as-hint]')};return{a,b};})()`);
+  report.moved=moved;assert.deepEqual(moved.a,{label:'你调过',hint:false});assert.deepEqual(moved.b,{label:'比较可能',hint:true});
   const n=rv.cards.filter(c=>c.on).length;
   assert.equal(rv.place,`放到时间线上（${n} 条）`);assert.equal(rv.exp,`直接导出这 ${n} 条`);
   await wait(300);report.notify=notes.slice();assert.equal(notes.length,1,'one notification asked');assert.equal(notes[0].found,rv.cards.length);

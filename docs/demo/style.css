@@ -4806,5 +4806,6 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .mc-auto-slices { white-space: nowrap; }
 .auto-slices .as-tag-estimated { color: #f4a261; border-color: #f4a261; }
 .auto-slices .as-tag-likely { color: #7ec249; border-color: #7ec249; }
-.auto-slices .as-tag-adjusted { color: var(--accent); border-color: var(--accent); }
 .auto-slices .as-lyrics { margin-top: 4px; }
+.auto-slices .as-likely { color: var(--dim); font-size: 12px; margin: 4px 0 0; }
+.auto-slices .as-tag-adjusted { color: var(--dim); border-color: var(--border); }

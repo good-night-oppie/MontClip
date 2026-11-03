@@ -2821,8 +2821,10 @@ highlight engine and, unless the stream is not singing, its songs through `/api/
 the dialog keeps it going), **看一遍** (cards best first, the best 3 ticked; each with why it was picked, a strip to drag
 its start and end over 40 s with the sound drawn under it, ±1 / ±5 s, ▶ hear the start or the end, ▶ preview, take it
 out and put it back; an overview of the whole recording with a box per card) and **导出**. `songs.js` is not accurate
-enough yet to call any song right, so a song card is 「1:12:04 那段」, typed 「可能在唱歌」, with one tag — 估的, 比较可能,
-or 你调过 once the streamer moved an end — and its ends carry the 估的 hints; 「第 n 首歌」 comes back only when the
+enough yet to call any song right, so a song card is 「1:12:04 那段」, typed 「可能在唱歌」. Beside each start and end
+time is its level (design v8): 比较可能 (grey hint: listen before deciding), 估的 (yellow hint; where `songs.js` marked
+that end as guessed, or the best part of a song), or 你调过 (grey, no hint) while the streamer has moved it — undone or
+moved back, it shows its own level again; a highlight's ends are 比较可能. 「第 n 首歌」 comes back only when the
 measured accuracy reaches `MontClipAutoSlices.SONG_GATE` (precision@15 and recall@10 at least 0.6 on the acceptance set;
 `SONG_MEASURED` holds the last measurement). A song card also shows 按歌词校准字幕 (如果这段是唱歌), not working yet
 (P6a). `auto-slices.js` holds the pure logic.

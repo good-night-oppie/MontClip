@@ -28,11 +28,17 @@
     const time = hms(c.at);
     return c.kind === "song" && trusted ? { key: "as-song-name", vars: { no: c.no, time } } : { key: "as-moment-name", vars: { time } };
   }
-  /** A song card's tag: adjusted (你调过) once an end was moved, else likely (比较可能) or estimated (估的); null otherwise. */
-  function tag(c) {
-    if (c.kind !== "song") return null;
-    if (c.moved) return "adjusted";
-    return c.confidence === "likely" ? "likely" : "estimated";
+  /** The level of one end (v8, frozen and JJ-approved): adjusted (你调过) while the streamer has it somewhere else than
+   *  where it was found (undone or moved back → its own level again); estimated (估的) where songs.js marked that end
+   *  as guessed, or for the best part of a song (hook / short); likely (比较可能) otherwise — a highlight's ends follow
+   *  its sentences or silences. */
+  function edgeLevel(c, w) {
+    const now = w === "s" ? c.s : c.e, was = w === "s" ? c.s0 : c.e0;
+    if (Number.isFinite(was) && Math.abs(now - was) > 1e-6) return "adjusted";
+    if (c.kind !== "song") return "likely";
+    if (c.hook) return "estimated";
+    const at = w === "s" ? "start" : "end";
+    return (c.marks || []).some((m) => m.at === at) ? "estimated" : "likely";
   }
   const r1 = (x) => Math.round(x * 10) / 10, r3 = (x) => Math.round(x * 1000) / 1000;
   const median = (xs) => { if (!xs.length) return null; const s = xs.slice().sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
@@ -68,13 +74,13 @@
         let [a, b] = [s.from, s.to];
         if (len !== "song") [a, b] = loudest(rec.loudness, s.from, s.to, DEFAULTS.hookLen);
         all.push({ id: rec.mediaId + "_s" + (i + 1), mediaId: rec.mediaId, kind: "song", no: i + 1, s: a, e: b, at: s.from, song: [s.from, s.to],
-          score: r3(Math.min(1, Math.max(0, above) / LOUD_FULL) * LOUD_WEIGHT), reasons, marks: s.marks || [], confidence: s.confidence === "likely" ? "likely" : "estimated", startGuess: true, endGuess: true });
+          score: r3(Math.min(1, Math.max(0, above) / LOUD_FULL) * LOUD_WEIGHT), reasons, marks: s.marks || [], confidence: s.confidence === "likely" ? "likely" : "estimated", s0: a, e0: b, hook: len !== "song" });
       });
       if (wantMoments) for (const h of rec.highlights || []) {
         const inside = songs.some((s) => Math.min(h.to, s.to) - Math.max(h.from, s.from) > (h.to - h.from) / 2);
         if (inside) continue;
         all.push({ id: rec.mediaId + "_m" + Math.round(h.from * 10), mediaId: rec.mediaId, kind: "moment", no: null, s: h.from, e: h.to, at: h.from,
-          score: h.score, reasons: h.reasons || [], marks: [], startGuess: false, endGuess: false });
+          score: h.score, reasons: h.reasons || [], marks: [], s0: h.from, e0: h.to });
       }
     }
     all.sort((x, y) => y.score - x.score || x.at - y.at);
@@ -86,11 +92,11 @@
     const x = Math.max(0, Math.round(t)), h = Math.floor(x / 3600), m = Math.floor((x % 3600) / 60), s = x % 60;
     return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(s).padStart(2, "0");
   }
-  /** Move one end by d seconds: inside the recording, at least minLen long. A moved end is no longer a guess. */
+  /** Move one end by d seconds: inside the recording, at least minLen long (edgeLevel then says 你调过). */
   function nudge(c, which, d, duration) {
     const max = Number.isFinite(duration) && duration > 0 ? duration : Infinity;
-    if (which === "s") return { ...c, s: r3(Math.max(0, Math.min(c.e - DEFAULTS.minLen, c.s + d))), startGuess: false, moved: true };
-    return { ...c, e: r3(Math.min(max, Math.max(c.s + DEFAULTS.minLen, c.e + d))), endGuess: false, moved: true };
+    if (which === "s") return { ...c, s: r3(Math.max(0, Math.min(c.e - DEFAULTS.minLen, c.s + d))) };
+    return { ...c, e: r3(Math.min(max, Math.max(c.s + DEFAULTS.minLen, c.e + d))) };
   }
   /** The whole-stream overview in a 1000 × 100 box: the sound as an area (louder = higher), a box per card, ticks every
    *  half hour. */
@@ -117,5 +123,5 @@
   }
   /** File names in review order, numbered 01, 02, …; a colon cannot be in a Windows file name. */
   const numbered = (names) => names.map((n, i) => String(i + 1).padStart(2, "0") + " " + String(n).replace(/:/g, "："));
-  return { KINDS, LENS, COUNTS, DEFAULTS, SONG_GATE, SONG_MEASURED, songsTrusted, title, tag, build, hms, nudge, overview, totals, numbered };
+  return { KINDS, LENS, COUNTS, DEFAULTS, SONG_GATE, SONG_MEASURED, songsTrusted, title, edgeLevel, build, hms, nudge, overview, totals, numbered };
 });
