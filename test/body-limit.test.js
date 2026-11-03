@@ -36,6 +36,19 @@ test("a JSON route refuses a body over 1 MB with 413, with or without Content-Le
   a.equal((await post(port, "/api/media-info", JSON.stringify({ srcs: [] }))).status, 200);
 });
 
+test("every route that reads a JSON body answers 413 to a chunked 2 MB body (whatever its own error handling)", async (t) => {
+  const { port } = await startServer(t, makeDataDir(t), { FABLECUT_NO_FS_WATCH: "1" });
+  const routes = ["/api/versions", "/api/projects/thumb?id=p_x", "/api/media-info", "/api/relink/candidates", "/api/transcript/status", "/api/transcribe/request",
+    "/api/proxy/delete", "/api/templates", "/api/presets", "/api/prepare-media", "/api/import-url", "/api/export/request", "/api/scopes/request", "/api/track/request",
+    "/api/export/presets/delete", "/api/export/begin", "/api/export/job/report?id=x"];
+  // /api/analyze and /api/denoise answer before reading any body when ffmpeg is missing (as here); with a length they get 413 first
+  for (const route of ["/api/analyze", "/api/denoise"]) a.equal((await post(port, route, big(2))).status, 413, route);
+  for (const route of routes) {
+    const r = await post(port, route, big(2), { chunked: true, method: route.startsWith("/api/projects/thumb") ? "PUT" : "POST" });
+    a.equal(r.status, 413, route + ": " + r.body.slice(0, 120));
+  }
+});
+
 test("the project document may be larger than 1 MB (its own limit)", async (t) => {
   const dir = makeDataDir(t);
   const { port } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1" });
