@@ -83,7 +83,7 @@ test('v9 (JJ final; Deja): below the gate every promise of telling songs apart s
  a.equal(gate({songsTrusted:()=>false})('as-kind-hint-sing'),'as-kind-hint-sing-maybe');a.equal(gate({songsTrusted:()=>true})('as-kind-hint-sing'),'as-kind-hint-sing');
  // JJ's re-review: the kind hint goes through autoKindHintKey (no danmaku → no 弹幕), which still asks the gate
  a.match(app,/autoSay\(autoKindHintKey\(st\.kind, pickedDm\)\)/);a.match(app,/autoSongKey\("as-kind-hint-" \+ kind\)/);a.match(app,/autoSay\(autoSongKey\("as-len-hint-" \+ st\.len\)\)/);
- a.match(app,/autoSay\(autoSongKey\("as-run-" \+ s\)\)/);a.match(app,/autoSay\(autoSongKey\("as-lyrics"\)\)/);
+ a.match(app,/autoSay\(autoSongKey\("as-run-" \+ s\)\)/);a.match(app,/autoSay\("as-lyrics"\)/);
 });
 
 // JJ's v11 visual review (Deja, 2026-11-03): the long note under the strips is said once, above the cards, in JJ's words;
@@ -105,6 +105,8 @@ test('v12: a pencil on hovering a name, 〔▶ 试看〕 stronger, the lyrics bu
  const card=app.slice(app.indexOf('function autoCardHtml'),app.indexOf('function autoFooter'));
  const actions=card.slice(card.indexOf('<div class="as-actions">'));
  a.ok(actions.includes('data-as-lyrics')&&actions.indexOf('data-as-lyrics')<actions.indexOf('data-as-act="drop"'),'〔按歌词校准字幕〕 in the button row, before 不要这条');
+ // VV / Deja: no button that looks pressable and does nothing — the lyrics button only while the card can use it
+ a.match(actions,/song && autoLyricsAvailable\(\) \?/);
  a.ok(!/<span class="as-small as-subline"/.test(card),'no subtitle line of its own');
 });
 // Deja (2026-11-03): the software cannot hear laughter; nothing the streamer sees may say it found any — every string of the
@@ -115,4 +117,48 @@ test('no wording the streamer sees mentions laughter (笑声)',()=>{
  const strings=walk(V.text,[]);a.ok(strings.length>500,'the whole string table');
  a.deepEqual(strings.filter(x=>/笑声|laugh/i.test(x)),[]);
  for(const f of ['index.html','app.js','auto-slices.js','highlight-candidates.js','cindy-official.js'])a.ok(!/笑声|laugh/i.test(read(f)),f);
+});
+// Deja (2026-11-03): nor what the AI reads — an AI told "a laugh" might tell the streamer it found laughter; the software only
+// hears loudness. Every MCP tool's description (and the descriptions inside its arguments), and the manual fablecut_docs serves
+test('nothing the AI reads says the software hears laughter: the MCP tools and the manual',()=>{
+ const walk=(v,out)=>{if(v&&typeof v==='object')for(const [k,x] of Object.entries(v)){if(k==='description'&&typeof x==='string')out.push(x);else walk(x,out);}return out;};
+ const tools=require('../mcp-tools');a.ok(tools.length>20);
+ a.deepEqual(tools.filter(t=>walk(t,[]).some(d=>/笑声|laugh/i.test(d))).map(t=>t.name),[]);
+ a.match(tools.find(t=>t.name==='fablecut_highlights').description,/a moment that is clearly louder than the seconds around it/);
+ a.ok(!/笑声|laugh/i.test(read('CLAUDE.md')),'CLAUDE.md (fablecut_docs)');
+});
+
+// JJ's rule (2026-11-03): English uses curly quotes “ ”, Chinese keeps 「」; JJ's final English for the 估的 note, as written
+test('English 自动出切片 strings quote with “ ”, never 「」; the 估的 note in JJ\'s words',()=>{
+ const keys=Object.keys(V.text.en).filter(k=>k.startsWith('own.as-'));
+ a.ok(keys.length>100);
+ a.deepEqual(keys.filter(k=>/[「」]/.test(V.text.en[k])),[],'「」 in English');
+ a.equal(en('as-guess-note'),'Where a start or end is marked “Estimated”, click “▶ Hear the start” or “▶ Hear the end” and listen before you decide.');
+ a.ok(/「/.test(zh('as-guess-note'))&&/「/.test(zh('as-likely-start')),'Chinese keeps 「」');
+});
+// the buttons the notes name are the buttons on the card: the quoted words are exactly those buttons' English labels
+test('the notes name the card\'s own buttons, word for word',()=>{
+ const quoted=s=>[...s.matchAll(/“([^”]+)”/g)].map(m=>m[1]);
+ const tag=en('as-tag-estimated'),start=en('as-listen-start'),end=en('as-listen-end');
+ a.deepEqual(quoted(en('as-guess-note')),[tag,start,end]);
+ a.deepEqual(quoted(en('as-likely-start')),[start]);
+ a.deepEqual(quoted(en('as-likely-end')),[end]);
+});
+
+// JJ's final English (2026-11-03), as written; JJ's rule: whether words appear in the finished clip is "in the video",
+// never "in the picture"
+test('the name hint and the name tooltip in JJ\'s English; "in the video", never "in the picture"',()=>{
+ a.equal(en('as-song-name-hint'),"Click the name to change it, for example to the song title. The exported file is named after it; the name doesn't appear in the video.");
+ a.equal(en('as-rename-tip'),"Click to rename. This is the exported file's name; it doesn't appear in the video.");
+ a.deepEqual(Object.keys(V.text.en).filter(k=>k.startsWith('own.as-')&&/in the picture/i.test(V.text.en[k])),[]);
+});
+
+// VV on eef8a5b / Deja (2026-11-03): the card's 〔按歌词校准字幕〕 was disabled yet looked pressable. Until the card can calibrate
+// (the Transcript tab can, #85; the card is not wired to it), there is no button; once it can, the button says only
+// 按歌词校准字幕 and the long sentence is its tooltip. In this dialog nothing disabled looks pressable.
+test('the card\'s lyrics button: none until the card can use it; then short, the long sentence in its tooltip; disabled looks disabled',()=>{
+ const app=read('app.js'),css=read('style.css');
+ a.match(app,/function autoLyricsAvailable\(\) \{\s*return false;/);
+ a.equal(zh('as-lyrics'),'按歌词校准字幕');
+ a.match(css,/\.auto-slices button:disabled \{[^}]*opacity: \.45;[^}]*cursor: default;/);
 });

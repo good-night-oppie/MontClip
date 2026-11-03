@@ -150,7 +150,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   const local=await read(`(async()=>{window.asrReady=()=>true;if(typeof asrState==='object'&&asrState)asrState.status={engine:{ready:true},vad:{ready:true},asr:{ready:true},punct:{ready:false}};const m=project.media.find(x=>x.id==='m_rec');
     await fetch('/api/transcript?src='+encodeURIComponent(m.src),{method:'POST',body:JSON.stringify({src:m.src,model:'paraformer-zh',language:'zh',duration:480,words:${JSON.stringify(words)}})});
     await loadTranscript(m.src,true);const st=autoState();st.subs=true;const r=MontClipAutoSlices.build({recordings:st.recs,kind:'sing',count:5,len:'song'});st.clips=r.clips.map((c,i)=>({...c,on:i===0}));
-    document.getElementById('btnAutoSlices').click();autoRender('review');const line=document.querySelector('[data-as-sub-line]');
+    const keepLyr=autoLyricsAvailable;autoLyricsAvailable=()=>true;document.getElementById('btnAutoSlices').click();autoRender('review');const line=document.querySelector('[data-as-sub-line]');autoLyricsAvailable=keepLyr;
     const capsBefore=project.clips.filter(FableCutCaptions.isCaption).length,before=JSON.stringify(project.clips),depth=runtime.undo.length;
     document.querySelector('[data-as-act=place]').click();const on=st.clips.filter(c=>c.on),at0=Math.max(...JSON.parse(before).map(c=>c.start+c.duration)),len=on.reduce((n,c)=>n+c.e-c.s,0);
     const caps=project.clips.filter(FableCutCaptions.isCaption);const inside=caps.every(c=>c.start>=at0-1e-6&&c.start+c.duration<=at0+len+0.5);
