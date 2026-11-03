@@ -99,6 +99,7 @@
     "split-at-playhead-on-targeted-tracks-s": ["Split at playhead on targeted tracks (S)", "在播放头处分割目标轨道（S）", "B"],
     "delete-selected-del": ["Delete selected (Del)", "删除所选（Del）", "B"],
     "ripple-delete": ["Ripple delete", "波纹删除", "B"],
+    "ripple-delete-selection-del": ["Ripple delete selection (⇧Del) — closes gap on targeted tracks", "波纹删除所选（⇧Del）：删掉以后，目标轨道上后面的片段往前移，补上空隙", "own", "zh batch 5 (2026-11-03), for JJ"],
     "trim-clips-to-in-out-t": ["Trim clips to IN/OUT (⇧T)", "裁剪片段到 IN/OUT（⇧T）", "B"],
     "clear-source-or-timeline-in-out": ["Clear Source or timeline IN / OUT", "清除源或时间线的 IN / OUT", "B"],
     "in-out-and-markers": ["IN / OUT and markers", "IN / OUT 与标记", "B"],
