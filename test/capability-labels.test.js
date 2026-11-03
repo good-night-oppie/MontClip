@@ -15,6 +15,7 @@ test('JJ\'s plain sentences', () => {
   a.equal(zh('fablecut_track'), '跟着画面里的人或物体动，让马赛克、贴纸也跟着它走');
   a.equal(zh('fablecut_beats'), '找出音乐的节拍，按拍子剪');
   a.equal(zh('fablecut_normalize_audio'), '把几段的音量调得一样大');
+  a.equal(zh('fablecut_danmaku'), '给一场录像导入录播姬或 B 站的弹幕文件，也可以移除已经导入的弹幕');
 });
 test('label() gives the plain sentence in the interface language, never an internal name', () => {
   for (const c of Cap.list()) for (const language of ['zh-CN', 'en']) {
