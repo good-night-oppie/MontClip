@@ -7024,7 +7024,7 @@ function captionQuickApply(scope, kind, level) {
   const snap = undoSnapshot();
   // a caption keyed on this property keeps it (its keys would win) and is named in the toast (Deja, #81)
   const { changed, skipped } = MontClipCaptionQuick.apply(list, kind, level, project.width, project.height);
-  const animatedNote = skipped ? uiText("own.cq-animated", { n: skipped }) : "";
+  const animatedNote = !skipped ? "" : skipped === 1 ? uiText("own.cq-animated-one") : uiText("own.cq-animated-many", { n: skipped });
   if (!changed) { toast(animatedNote); return; }
   pushUndo(snap);
   const depth = runtime.undo.length, n = changed;

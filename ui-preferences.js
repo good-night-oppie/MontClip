@@ -338,8 +338,8 @@
     "as-tick-first": ["Tick the ones you want first", "先勾选要导出的"],
     "as-placed": ["Put {n} on the timeline; you can keep editing them.", "已把 {n} 条放到时间线上，可以接着细剪。"],
     "as-undo": ["Undo", "撤销"],
-    // caption size and position in one go (P5; v10 ④, JJ's words of v7.4; the English is for JJ to review)
-    "cq-open": ["Caption size", "字幕大小"],
+    // caption size and position in one go (P5; v10 ④, JJ's words of v7.4 and her final #81 changes)
+    "cq-open": ["Caption size & position", "字幕大小和位置"],
     "cq-who-selected": ["The {n} selected captions", "选中的 {n} 条字幕"],
     "cq-who-all": ["All {n} captions", "全部 {n} 条字幕"],
     "cq-size": ["Size", "字号"],
@@ -349,13 +349,14 @@
     "cq-pos": ["Position", "位置"],
     "cq-top": ["Top", "上面"],
     "cq-bottom": ["Bottom", "下面"],
-    "cq-desc": ["Changes the size and position of these {n} captions in one go; their words stay. Captions adjusted one by one get the same, and you can undo it.", "一次改掉这 {n} 条字幕的字号和位置，字幕的字不动。单独调过的也会改成一样，改完可以撤销。"],
+    "cq-desc": ["Changes the size and position of these {n} captions in one go; the words stay the same. Captions you adjusted one by one are changed too (except animated ones). You can undo it.", "一次改掉这 {n} 条字幕的字号和位置，字幕的字不动。单独调过的也会改成一样（带动画的除外），改完可以撤销。"],
     "cq-mixed-size": ["The sizes differ now; click one to make them all the same", "现在大小不一样，点一下就统一"],
     "cq-mixed-pos": ["The positions differ now; click one to make them all the same", "现在位置不一样，点一下就统一"],
     "cq-done-size": ["Set the size of {n} captions to “{size}”.", "已把 {n} 条字幕的字号改成「{size}」。"],
     "cq-done-top": ["Moved {n} captions to the top of the picture.", "已把 {n} 条字幕移到画面上面。"],
-    // a caption keyed on the property is skipped (Deja, #81); the Chinese until JJ's final wording
-    "cq-animated": ["{n} captions are animated, so they were not changed", "有 {n} 条字幕设了动画，没改"],
+    // a caption keyed on the property is skipped (Deja, #81; JJ's final words, one caption or several)
+    "cq-animated-one": ["1 caption is animated (its size or position changes over time), so it was left as it is. To change it, select it and adjust it in the Inspector.", "有 1 条字幕带动画（字会变大变小或移动），这次没改它。要改的话，选中它，到「属性面板」里调。"],
+    "cq-animated-many": ["{n} captions are animated (their size or position changes over time), so they were left as they are. To change them, select each one and adjust it in the Inspector.", "有 {n} 条字幕带动画（字会变大变小或移动），这次没改它们。要改的话，选中它们，到「属性面板」里一条条调。"],
     "cq-done-bottom": ["Moved {n} captions to the bottom of the picture.", "已把 {n} 条字幕移到画面下面。"],
     "as-place-failed": ["Nothing was put on the timeline: {why}", "没放上去：{why}"],
     "as-no-lane": ["no track is targeted for this recording. Click a track name on the left (such as V1) to target it (unlock it first if it's locked), then try again.", "没有可以放的轨道。点一下左边的轨道名（比如 V1）选中它（锁着的先解锁），再试一次。"],

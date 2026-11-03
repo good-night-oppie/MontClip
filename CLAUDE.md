@@ -2785,7 +2785,7 @@ array; `{profile:"hq"}` returns one profile. `fablecut_status` shows the effecti
 
 ### Caption size and position in one go (MontClip P5)
 
-In the editor, 〔字幕大小〕 beside the caption style menu in the Transcript tab changes all captions, and the same panel at
+In the editor, 〔字幕大小和位置〕 beside the caption style menu in the Transcript tab changes all captions, and the same panel at
 the top of the Inspector changes the selected ones (locked captions stay as they are): 字号 小 / 中 / 大 and 位置 上面 / 下面.
 中 = round(0.042 × the canvas's short side), 大 = round(中 × 1.3), 小 = round(中 × 0.8); 上面 / 下面 put `y` at
 ∓round(0.38 × the canvas height). Only `props.fontSize` and `props.y` change — nothing is generated again — and each
