@@ -45,6 +45,9 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.gated={kind:gated.kind,len:gated.len,step:gated.step};
   assert.equal(gated.kind,'会找可能在唱歌的段落，每段单独出一条。');assert.equal(gated.len,'可能在唱歌的段落，每段出一条。');assert.equal(gated.step,true);
   assert.ok(!/一首歌|每首歌|第\s*\d+\s*首/.test(gated.text),'no promise of songs one by one');
+  // v10: 更多设置 › 字幕 shows the state only; without the on-device model: 还没装听写, and step 2 says it is skipped
+  const subs=await read(`(()=>{const d=document.querySelector('dialog.auto-slices');d.querySelector('details.as-more').open=true;return{label:d.querySelector('[data-as-subs-label]').textContent,hint:d.querySelector('[data-as-subs-hint]').textContent,go:!!d.querySelector('[data-as-act=sub-go]'),checked:d.querySelector('[data-as-subs]').checked,step:autoRunHtml().includes('听写成文字：这台电脑还没装听写，先跳过，不影响找高光')};})()`);
+  report.subs=subs;assert.deepEqual(subs,{label:'加字幕（还没装听写）',hint:'找高光照样能用，只是这次不出字幕。',go:false,checked:true,step:true});
   // started, then the dialog closed: the search goes on, and the top-bar button says it is done
   await read(`document.querySelector('[data-as-act=go]').click();AUTO.el.close();true`);
   await until(`autoState().step==='review'&&!autoState().run`,180000);
@@ -104,13 +107,26 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.fine=fine;assert.equal(fine.selIn,fine.cardIn,'the card it was asked on is the one selected');assert.ok(fine.toast.startsWith('在时间线上选中了「'));assert.equal(fine.back,true);
   // 4. 直接导出: the best 45 s of one song, one file
   const ex=await read(`(async()=>{const st=autoState();st.len='hook';const r=MontClipAutoSlices.build({recordings:st.recs,kind:'sing',count:5,len:'hook'});st.clips=r.clips.map((c,i)=>({...c,on:i===0}));
-    document.getElementById('btnAutoSlices').click();autoRender('review');document.querySelector('[data-as-act=export]').click();document.querySelector('[data-as-act=ex-go]').click();
+    document.getElementById('btnAutoSlices').click();autoRender('review');document.querySelector('[data-as-act=export]').click();const nosub=document.querySelector('.as-ex').textContent.includes('这次没有字幕：这台电脑还没装听写。成片照样能导出。要字幕的话，到「设置 › 听写」装上（要联网下载一次，约 230 MB），再回来导出。');if(!nosub)throw Error('NOSUB');document.querySelector('[data-as-act=ex-go]').click();
     const end=Date.now()+240000;while(Date.now()<end){const items=(st.exportIds||[]).map(id=>exportQueue.find(q=>q.id===id));if(items.length&&items.every(q=>q&&(q.status==='done'||q.status==='failed')))break;await new Promise(r=>setTimeout(r,300));}
     await new Promise(r=>setTimeout(r,800));const items=st.exportIds.map(id=>exportQueue.find(q=>q.id===id));
     return{items:items.map(q=>({name:q.name,status:q.status,error:q.error||null,src:!!q.src})),title:document.querySelector('.auto-slices h1').textContent,step:st.step};})()`);
   report.export=ex;
   assert.equal(ex.items.length,1);assert.equal(ex.items[0].status,'done',JSON.stringify(ex.items[0]));assert.ok(/^01 \d+：\d\d 那段$/.test(ex.items[0].name),'named by its time: '+ex.items[0].name);
   assert.equal(ex.title,'导出好了，1 条');
+  // v10, the model installed (#70's asrReady stands in here) and a transcript of the recording: the song card says how many
+  // sentences; placing adds captions over the placed slices only, in the same undo step
+  const words=[];for(let t=0;t<478;t+=0.5){const ch='大家好今天一起唱歌'[Math.round(t*2)%9];words.push([ch+(Math.round(t*2)%9===8?'。':''),t,t+0.4]);}
+  const local=await read(`(async()=>{window.asrReady=()=>true;const m=project.media.find(x=>x.id==='m_rec');
+    await fetch('/api/transcript?src='+encodeURIComponent(m.src),{method:'POST',body:JSON.stringify({src:m.src,model:'paraformer-zh',language:'zh',duration:480,words:${JSON.stringify(words)}})});
+    await loadTranscript(m.src,true);const st=autoState();st.subs=true;const r=MontClipAutoSlices.build({recordings:st.recs,kind:'sing',count:5,len:'song'});st.clips=r.clips.map((c,i)=>({...c,on:i===0}));
+    document.getElementById('btnAutoSlices').click();autoRender('review');const line=document.querySelector('[data-as-sub-line]');
+    const capsBefore=project.clips.filter(FableCutCaptions.isCaption).length,before=JSON.stringify(project.clips),depth=runtime.undo.length;
+    document.querySelector('[data-as-act=place]').click();const on=st.clips.filter(c=>c.on),at0=Math.max(...JSON.parse(before).map(c=>c.start+c.duration)),len=on.reduce((n,c)=>n+c.e-c.s,0);
+    const caps=project.clips.filter(FableCutCaptions.isCaption);const inside=caps.every(c=>c.start>=at0-1e-6&&c.start+c.duration<=at0+len+0.5);
+    const r2={line:line&&line.textContent,caps:caps.length-capsBefore,inside,undo:runtime.undo.length-depth};undo();r2.back=JSON.stringify(project.clips)===before;delete window.asrReady;return r2;})()`);
+  report.local=local;assert.ok(/^字幕：[0-9]+ 句，是听写出来的，唱歌部分可能有错字$/.test(local.line),local.line);
+  assert.ok(local.caps>0,'captions placed');assert.equal(local.inside,true,'only over the placed slices');assert.equal(local.undo,1,'the same undo step');assert.equal(local.back,true);
   ok=true;
  }catch(e){report.error=String(e&&e.stack||e).slice(0,1500);}
  finally{out(ok?'AUTO_SLICES_PASS':'AUTO_SLICES_FAIL',report);process.exitCode=ok?0:1;app.exit(ok?0:1);}
