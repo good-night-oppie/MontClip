@@ -4747,7 +4747,7 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .cindy-config {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:3px;max-height:60%;}
 .cindy-config p,.cindy-config [role=alert] {grid-column:1 / -1;}
 /* VV 2026-11-02: in a short pane the open settings get the room; the conversation and draft come back on close. */
-#mcAgentContent .cindy-port.compact.config-open > :is(.cindy-thread,.cindy-ref-actions,.cindy-references,.cindy-composer,.cindy-proposal-actions) {display:none;}
+#mcAgentContent .cindy-port.compact.config-open > :is(.cindy-thread,.cindy-ref-actions,.cindy-references,.cindy-composer,.cindy-proposal-actions,.agent-modes,.agent-yolo-on) {display:none;}
 #mcAgentContent .cindy-port.compact.config-open > .cindy-config {max-height:none;flex:1 1 auto;min-height:0;}
 /* VV 2026-11-02 (630×460, the smallest window): compact labels and fields so the key and Save fit without scrolling */
 #mcAgentContent .cindy-port.compact.config-open > .cindy-config {gap:2px;padding:3px;}
@@ -4951,3 +4951,4 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .agent-approval { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(560px, 90vw); max-height: 85vh; padding: 20px; overflow: auto; }
 .agent-approval pre { white-space: pre-wrap; word-break: break-word; max-height: 40vh; overflow: auto; background: var(--bg, #111); padding: 8px; border-radius: 4px; }
 .agent-approval .tr-row { display: flex; flex-wrap: wrap; gap: 8px; }
+/* in a small assistant with the AI settings open, the switch and the pane's Yolo mark step aside (the rule with .cindy-thread above); the top bar's Yolo mark stays */
