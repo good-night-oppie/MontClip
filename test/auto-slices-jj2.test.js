@@ -23,7 +23,7 @@ const WORDS = {
   'as-busy-comp': '你现在在合成片段里面。点时间线上方最左边的主序列名字，回到主序列再点这里。',
   'as-no-lane': '没有可以放的轨道。点一下左边的轨道名（比如 V1）选中它（锁着的先解锁），再试一次。',
   'as-kind-hint-game-nodm': '会找声音突然变大的段落。',
-  'as-kind-hint-watch-nodm': '会找你反应最大的段落。',
+  'as-kind-hint-watch-nodm': '会找你声音最大的段落',   // JJ's final wording (last test below)
 };
 test("JJ's re-review: the Chinese word for word, an English for each", () => {
   for (const [k, s] of Object.entries(WORDS)) {
@@ -139,4 +139,15 @@ test('the kind hints never mention danmaku when the chosen recordings have none'
   a.equal(key('sing', 0), 'as-kind-hint-sing');
   // and the step list says loudness only
   a.ok(!/弹幕/.test(zh('as-run-hot-nodm')) && !/danmaku/i.test(en('as-run-hot-nodm')));
+});
+
+// JJ approved #77 at 4184aac with four sentences to change word for word (Deja, 11-03)
+test("JJ's last four sentences for #77", () => {
+  const four = {
+    'as-kind-hint-watch-nodm': ['会找你声音最大的段落', 'It finds where you are loudest.'],
+    'as-fail-why-space': ['存视频的那个盘空间不够了', 'The drive it saves to is out of space'],
+    'as-fail-why-changed': ['加进导出以后，时间线又改过了，所以没导', "The timeline changed after it was queued, so it wasn't exported"],
+    'as-fail-why-other': ['导出到一半停下了', 'The export stopped partway'],
+  };
+  for (const [k, [z, e]] of Object.entries(four)) { a.equal(zh(k), z, k); a.equal(en(k), e, k); }
 });
