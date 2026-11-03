@@ -45,3 +45,12 @@ test('placing is one undo step for the whole batch, an editor event like any oth
 test('the module loads in the page before app.js',()=>{
  const html=read('index.html');a.ok(html.indexOf('src="auto-slices.js"')>0&&html.indexOf('src="auto-slices.js"')<html.indexOf('src="app.js"'));
 });
+test('desktop: the notification comes from the main process over one fixed channel that takes a count only (web permissions stay denied)',()=>{
+ const main=read('desktop/main.js'),pre=read('desktop/view-preload.js');
+ a.match(main,/ipcMain\.on\("montclip:notify:found", \(event, found\) =>/);
+ const fn=main.slice(main.indexOf('"montclip:notify:found"'),main.indexOf('});',main.indexOf('"montclip:notify:found"')));
+ a.match(fn,/settingsAllowed\(event, win, origin\)/);a.match(fn,/Number\.isSafeInteger\(found\)/);a.match(fn,/new Notification\(/);
+ a.match(main,/ses\.setPermissionRequestHandler\(\(_, __, callback\) => callback\(false\)\);/,'web permissions still denied');
+ a.match(pre,/montclipNotify/);a.match(pre,/ipcRenderer\.send\("montclip:notify:found", Number\(found\)\)/);
+ a.equal(V.t('zh-CN','own.as-notify-title'),'MontClip：找完了');a.equal(V.t('zh-CN','own.as-notify-body',{found:5}),'找到 5 条，打开「✨ 自动出切片」看一遍。');
+});
