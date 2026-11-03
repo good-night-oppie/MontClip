@@ -41,9 +41,10 @@ function sha256Sync(file) {
 }
 
 /** The system tar (Windows 10+ ships bsdtar, which reads .tar.bz2) unpacks an archive into `into`. */
-function systemExtract(archive, into) {
+/** Unpack an archive into a folder: only `members` when given (the model's own files, which is what the room check counts). */
+function systemExtract(archive, into, members = []) {
   const tar = process.platform === "win32" ? path.join(process.env.SystemRoot || "C:\\Windows", "System32", "tar.exe") : "tar";
-  return new Promise((resolve, reject) => execFile(tar, ["-xjf", archive, "-C", into], { windowsHide: true, timeout: 600000 },
+  return new Promise((resolve, reject) => execFile(tar, ["-xjf", archive, "-C", into, ...members], { windowsHide: true, timeout: 600000 },
     (err) => (err ? reject(new Error("could not unpack " + path.basename(archive) + ": " + err.message)) : resolve())));
 }
 
@@ -104,7 +105,7 @@ function createStore({ manifest: m = manifest, roots = [], userDir, extract = sy
     const bySize = new Map();
     for (const [key, model] of Object.entries(m.models)) {
       for (const [name, f] of Object.entries(model.files)) (bySize.get(f.size) || bySize.set(f.size, []).get(f.size)).push({ type: "file", key, name, sha256: f.sha256 });
-      for (const s of model.sources || []) if (s.kind === "archive") (bySize.get(s.size) || bySize.set(s.size, []).get(s.size)).push({ type: "archive", key, sha256: s.sha256 });
+      for (const s of model.sources || []) if (s.kind === "archive") (bySize.get(s.size) || bySize.set(s.size, []).get(s.size)).push({ type: "archive", key, sha256: s.sha256, source: s });
     }
     return bySize;
   };
@@ -148,7 +149,7 @@ function createStore({ manifest: m = manifest, roots = [], userDir, extract = sy
       } else {
         const work = fs.mkdtempSync(path.join(userDir, ".unpack-"));
         try {
-          await extract(file, work);
+          await extract(file, work, membersOf(m.models[hit.key], hit.source));
           const inner = await importPaths([work]);
           res.imported.push(...inner.imported); res.already += inner.already; res.rejected += inner.rejected;
         } finally { fs.rmSync(work, { recursive: true, force: true }); }
@@ -179,6 +180,8 @@ function createStore({ manifest: m = manifest, roots = [], userDir, extract = sy
     known.delete(to);
     if ((await sha256(to)) !== sha) { fs.rmSync(to, { force: true }); throw Object.assign(new Error(name + " changed while it was moved into place"), { code: "ASR_CHECK_FAILED" }); }
   }
+  /** The archive members that are this model's files: "<dir>/<name>" for each. */
+  const membersOf = (model, s) => Object.keys(model.files).map((name) => (s.dir || "") + name);
   /** What a source still has to fetch, in bytes (parts already here count as fetched). */
   function remaining(model, s) {
     if (s.kind === "archive") return Math.max(0, s.size - sizeOf(partOf(s.sha256))) + Object.values(model.files).reduce((n, f) => n + f.size, 0);
@@ -200,8 +203,9 @@ function createStore({ manifest: m = manifest, roots = [], userDir, extract = sy
         return opts.fetchFile(url, dest, o);
       }
     };
-    // room for the first source's download (later sources need no more than it; the archive also needs its unpacked files)
-    const need = Math.min(...(model.sources || []).map((s) => remaining(model, s))) + 16 * 1048576;
+    // room for the source that needs the most — any of them may be the one used (hf-mirror is often passed on, then the
+    // GitHub archive is) — counting an archive's download and its unpacked files, plus a margin (Deja, 11-03)
+    const need = Math.max(0, ...(model.sources || []).map((s) => remaining(model, s))) + 16 * 1048576;
     const free = freeBytes(userDir);
     if (free != null && free < need)
       throw Object.assign(new Error(`not enough room on ${driveOf(userDir)}: about ${Math.round(need / 1048576)} MB needed, ${Math.round(free / 1048576)} MB free`),
@@ -225,7 +229,7 @@ function createStore({ manifest: m = manifest, roots = [], userDir, extract = sy
           await finished(part, s.size, s.sha256, label + " from " + host);
           const work = fs.mkdtempSync(path.join(userDir, ".unpack-"));
           try {
-            await extract(part, work);
+            await extract(part, work, membersOf(model, s));
             for (const [name, f] of Object.entries(model.files)) await finished(path.join(work, s.dir || "", name), f.size, f.sha256, name + " in " + label);
             for (const [name, f] of Object.entries(model.files)) await moveIn(path.join(work, s.dir || "", name), key, name, f.sha256);
           } finally { fs.rmSync(work, { recursive: true, force: true }); }

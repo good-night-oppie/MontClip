@@ -50,6 +50,10 @@
    - **先核对，再改名**：下完先核对大小和 sha256，通过了才改名放到正式位置。
      - 没通过就删掉这个文件，界面提示「下载的文件不完整，已删掉，请再下载一次」（`ASR_CHECK_FAILED`）。
    - 下载前先看硬盘空间。不够就不下，提示是哪个盘、要多少、还剩多少（`ASR_NO_SPACE`）。
+     - 算法（Deja 11-03）：下载包加上解压后的文件，再留 16 MB 余量。几个下载源里，按最占空间的那个算，因为哪个都可能用上：hf-mirror 常被转走，最后用的是 GitHub 压缩包。
+     - 例子：标点模型要 62 MB 压缩包 + 约 76 MB 解压后的文件；听写模型按 GitHub 压缩包算，234 MB + 约 244 MB。
+     - 解压时只取模型自己的文件（tar 按成员名解出来），用掉的空间和预检算的一致。
+     - 已用真的两个 k2-fsa 压缩包验证过：从下载、按成员名解压，到核对 sha256 都通过。
    - 网断了：已下载的部分留着，提示「接着下载」（`ASR_DOWNLOAD_INTERRUPTED`）。〔取消下载〕也一样，已下载的部分留着。
    - 白名单写死在主进程 `desktop/main.js` 的 `ASR_HOSTS` 里：hf-mirror.com、github.com，加上 github 下载会跳到的 release-assets / objects.githubusercontent.com。
      - manifest 里有同样一份；测试断言两份一致。
