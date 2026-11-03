@@ -141,6 +141,36 @@
     "tr-transcribing-of": ["Transcribing {name} ({i} of {n})… {pct}%", "正在听写 {name}（第 {i} 个，共 {n} 个）… {pct}%"],
     "tr-selection": ["{n} words · {s} s · “{text}”", "已选 {s} 秒 · “{text}”"],
     "tr-selection-one": ["1 word · {s} s · “{text}”", "已选 {s} 秒 · “{text}”"],
+    // the sentence dialog (JJ to review): one language at a time; the Chinese is the dialog's old wording
+    "sd-busy": ["MontClip is busy with something else, such as exporting, importing, transcribing or saving. When it's done, click Select sentences again. If a save just failed, deal with that message first.", "软件正在忙别的事，比如导出、导入、听写或保存。等它做完，再点一次「按句选段」。如果刚才保存没成功，先处理那条提示。"],
+    "sd-busy-save": ["Can't select sentences as the AI suggested yet: MontClip is busy with something else, such as exporting, importing, transcribing or saving. When it's done, click this suggestion again. If a save just failed, deal with that message first.", "现在还不能照 AI 的建议选段：软件正在忙别的事，比如导出、导入、听写或保存。等它做完，再点一次这条建议。如果刚才保存没成功，先处理那条提示。"],
+    "sd-no-captions": ["Import an SRT or add captions first.", "按句选段要用到字幕：先导入 SRT 字幕文件，或者先加字幕。"],
+    "sd-title": ["Select sentences", "按句选段"],
+    "sd-intro": ["Only the checked sentences are kept, joined in order; the gaps and other media are removed from the edit. Source files stay unchanged, and one Undo restores it.", "只把勾选的句子接起来，其余部分从剪辑里去掉。原录像不会被改动，点一次撤销就能恢复。"],
+    "sd-ranges": ["Or ordered ranges in seconds, one start,end per line (overrides the checks)", "或者按先后顺序填时间段（单位：秒，每行一段，写成 起点,终点）。填了就不看勾选。"],
+    "sd-preview": ["Preview", "试听选段"],
+    "sd-apply": ["Apply", "保留选段"],
+    "sd-cancel": ["Cancel", "取消"],
+    "sd-range-line": ["Enter start,end in seconds on each line.", "每行写一段：起点,终点（单位：秒）。"],
+    "sd-summary": ["{ranges} → about {duration} in the final cut, in selection order.", "{ranges} → 成片大约 {duration}，按勾选的顺序接起来。"],
+    "sd-partial": ["{n} sentence keeps only part of its sound: check its caption and where it starts and ends.", "这一句只保留了一部分声音，请检查这一句的字幕和开头结尾。"],
+    "sd-partial-many": ["{n} sentences keep only part of their sound: check their captions and where they start and end.", "{n} 句只保留了一部分声音，请检查这几句的字幕和开头结尾。"],
+    "sd-changed": ["The project has changed: close this and select again.", "项目刚改过。请关掉这个窗口，重新选一次。"],
+    "sd-done": ["Sentences joined. Undo is available.", "已经接好了。不满意可以撤销。"],
+    "rp-invalid": ["Select valid ordered ranges.", "时间段不对：请按先后顺序填写，每段的起点要小于终点。"],
+    "rp-exceeds": ["The selection goes past the end of the timeline.", "选的时间超出了时间线的结尾。"],
+    "rp-locked": ["Unlock clips and tracks first.", "有片段或轨道锁住了，先解锁再试。"],
+    "rp-nested": ["Nested, parented or speed-ramped clips need editing by hand.", "这里有嵌套片段、绑定关系或变速，按句选段处理不了，请手动剪。"],
+    "rp-short-media": ["The selected piece is too short to cut. Move the start and end further apart.", "选中的片段太短，剪不出来。请把起点和终点拉开一点。"],
+    "rp-source-changed": ["The subtitle timing changed after you selected. Close this and select again.", "选好之后字幕的时间又变了。请关掉这个窗口，重新选一次。"],
+    "rp-source-invalid": ["A clip's timing doesn't match its file. Check the clip, then select again.", "有片段的时间和它的文件对不上，请检查后重新选择。"],
+    "rp-source-loop": ["A clip runs past the end of its file; selecting sentences doesn't support that yet.", "有片段比它的原文件还长，按句选段暂时处理不了。"],
+    // refusals the server sends as a code (JJ to review); the Chinese is the old message's Chinese half
+    "err-offline": ["Offline mode: import a local file.", "这一版不联网，不能从网址下载。请导入电脑里的文件。"],
+    "err-headless-disabled": ["Background browser tasks are turned off in the desktop app.", "桌面版不能在后台打开浏览器做这件事。"],
+    "err-editor-not-ready": ["The editor is not ready yet. Open it, then try again.", "编辑窗口还没准备好。先打开 MontClip 的编辑窗口，再试一次。"],
+    "err-editor-no-accept": ["The editor did not take the task. Wait until it is ready, then try again.", "编辑窗口没接到这个任务。等它准备好，再试一次。"],
+    "map-no-media": ["This project has no audio or video, so there is no time mapping to export.", "这个项目里没有音视频，导不出时间对照表。"],
     "connected": ["Ready", "就绪"],
     "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],
     "tl-above-captions": ["Captions above, click to show", "上方有字幕轨，点这里显示"],
@@ -274,6 +304,13 @@
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
   /** Keyed lookup: the language's string, else the English one, else "" (never the key). */
+  /** A length as mm:ss, h:mm:ss from an hour; "" for none. The same as the Agent pane's durationText (agent-conversation.js, #26). */
+  function clock(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) return "";
+    const n = Math.floor(seconds), h = Math.floor(n / 3600), m = Math.floor(n / 60) % 60, s = n % 60;
+    return (h ? h + ":" : "") + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+  }
+  function durationText(seconds) { return Number.isFinite(seconds) && seconds > 0 ? clock(Math.max(1, Math.round(seconds))) : ""; }
   function t(language, key, vars) {
     const s = (text[language] && text[language][key]) ?? text.en[key] ?? "";
     return vars ? s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : s;
@@ -408,5 +445,5 @@
    *  English word (export, captions…) in English. */
   const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
-  return { create, desktopStorage, text, formatBody, KEY, t, ago, when, applyI18n, flvImportMessage, h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback };
+  return { create, desktopStorage, text, formatBody, KEY, t, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback };
 });

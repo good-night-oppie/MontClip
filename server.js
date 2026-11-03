@@ -1120,7 +1120,7 @@ const server = http.createServer(async (req, res) => {
      project media — the client / MCP tool does that, matching /api/upload. */
   if (p === "/api/import-url" && req.method === "POST") {
     if (DESKTOP) {
-      sendJSON(res, 403, { code: "NETWORK_DISABLED", error: "当前为离线模式，请导入本地文件。 / Offline mode: import a local file." });
+      sendJSON(res, 403, { code: "NETWORK_DISABLED", error: "Offline mode: import a local file." });
       return;
     }
     try {

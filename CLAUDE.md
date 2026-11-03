@@ -776,8 +776,11 @@ array of `{from,to}` half-open timeline intervals in seconds. Both require the
 exact `baseRevision` and must be separate from import/export/remove. Applying
 reuses the native trimming engine across tracks in one revision; locks refuse.
 Nested/parented clips, speed ramps and unsupported short media intersections
-refuse rather than approximate. The editor's sentence dialog previews a plan
-and applies it in one undo step. These are development features, not M0 package acceptance.
+refuse rather than approximate. A boundary within half a frame (at least 1.5 ms) counts as the
+same boundary: a range that is exactly a sentence is not reported as truncated, and a media overlap
+that small (rounding, e.g. a range taken from a millisecond-rounded caption) is dropped, not refused.
+The editor's sentence dialog previews a plan and applies it in one undo step, in the interface
+language. These are development features, not M0 package acceptance.
 
 Boundary captions retain their whole text and use the intersection display time.
 `props.captionSource` records source caption ID, original/intersection/output
