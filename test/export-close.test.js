@@ -167,20 +167,25 @@ test("the unsaved prompt: JJ's 预备稿 4 copy, 先去保存 the default and th
   a.equal(o.detail, "这些视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它们了，但它们还占着 C 盘空间。");
   a.deepEqual(o.buttons, ["删掉它们并关闭", "不删，直接关闭", "先去保存"]);
   a.equal(o.buttons[o.defaultId], "先去保存"); a.equal(o.buttons[o.cancelId], "先去保存");
+  // one video: JJ has not settled its wording yet (Deja, 2026-11-03), so it is the {n} form for now; the one-video keys
+  // stay in the text table, ready for her copy
   const one = Close.unsavedDialogOptions("zh-CN", 1);
   a.equal(one.message, "还有 1 个视频没保存，现在关掉吗？");
-  a.equal(one.detail, "这个视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它了，但它还占着 C 盘空间。");
-  a.deepEqual(one.buttons, ["删掉它并关闭", "不删，直接关闭", "先去保存"]);
+  a.equal(one.detail, "这些视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它们了，但它们还占着 C 盘空间。");
+  a.deepEqual(one.buttons, ["删掉它们并关闭", "不删，直接关闭", "先去保存"]);
+  const prefs = read("ui-preferences.js");
+  for (const k of ["export-unsaved-title-1", "export-unsaved-body-1", "export-unsaved-delete-1"]) a.match(prefs, new RegExp(`"${k}": \\[`), k);
   const en = Close.unsavedDialogOptions("en", 3);
   a.doesNotMatch([en.message, en.detail, ...en.buttons].join(" "), /[一-鿿]/);
 });
 
-test("a copy that cannot be deleted: 有 {k} 个视频删不掉… [关掉它再试] [不删了，直接关闭]", () => {
-  const o = Close.deleteFailedOptions("zh-CN", 2);
+test("a copy that cannot be deleted: 有 {k} 个视频删不掉… with their names; [关掉它再试] [不删了，直接关闭]", () => {
+  const o = Close.deleteFailedOptions("zh-CN", ["直播切片 11-02.mp4", "直播切片 11-02 竖屏.mp4"]);
   a.equal(o.message, "有 2 个视频删不掉，可能正被别的软件打开着。");
+  a.deepEqual(o.detail.split("\n"), ["直播切片 11-02.mp4", "直播切片 11-02 竖屏.mp4"], "the names of the ones that could not be deleted");
   a.deepEqual(o.buttons, ["关掉它再试", "不删了，直接关闭"]);
   a.equal(o.buttons[o.defaultId], "关掉它再试"); a.equal(o.cancelId, o.defaultId, "Esc does not close the window");
-  a.doesNotMatch(Close.deleteFailedOptions("en", 1).message, /[一-鿿]/);
+  a.doesNotMatch(Close.deleteFailedOptions("en", ["a.mp4"]).message, /[一-鿿]/);
 });
 
 // decideClose with the boxes and the deleting injected: what each answer does
@@ -213,7 +218,8 @@ test("删掉它们并关闭: deletes the queue's unsaved copies, asks nothing mo
 test("a delete fails: the window stays, the count is right, 关掉它再试 retries only that one, then closes", async () => {
   const r = await flow(U, [Close.UNSAVED.DELETE, Close.FAILED.RETRY], [{ deleted: [U.files[0]], failed: [U.files[1]], refused: [] }]);
   a.equal(r.asked[1].message, "有 1 个视频删不掉，可能正被别的软件打开着。");
-  a.deepEqual(r.deleted, [U.files, [U.files[1]]], "the retry only tries the one that failed");
+  a.equal(r.asked[1].detail, U.files[1], "names the one that could not be deleted");
+  a.deepEqual(r.deleted,[U.files, [U.files[1]]], "the retry only tries the one that failed");
   a.equal(r.close, true);
   // giving up closes without deleting again
   const g = await flow(U, [Close.UNSAVED.DELETE, Close.FAILED.GIVE_UP], [{ deleted: [], failed: U.files, refused: [] }]);

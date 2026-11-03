@@ -120,7 +120,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
         if (o.buttons.length === 3) return ExportClose.UNSAVED.DELETE;
         // the failure prompt: still open, the right count; then the player lets go and 关掉它再试
         check('删不掉: the window is still open', !win.isDestroyed());
-        check('删不掉: 有 1 个视频删不掉', o.message === '有 1 个视频删不掉，可能正被别的软件打开着。', o.message);
+        check('删不掉: 有 1 个视频删不掉, with its name', o.message === '有 1 个视频删不掉，可能正被别的软件打开着。' && o.detail === f2, [o.message, o.detail]);
         check('删不掉: f1 deleted, f2 still there', !fs.existsSync(path.join(exportsDir, f1)) && fs.existsSync(path.join(exportsDir, f2)), there());
         lock.stdin.write('\n'); await new Promise((r) => lock.once('exit', r));
         return ExportClose.FAILED.RETRY;
