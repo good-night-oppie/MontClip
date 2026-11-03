@@ -10605,9 +10605,14 @@ function autoEdgeHtml(c, w) {
     <div class="as-nudges">${nb(-5)}${nb(-1)}${nb(1)}${nb(5)}<button type="button" class="btn tiny" data-as-act="listen" data-as-w="${w}">${autoSay("as-listen-" + lbl)}</button></div></div>
     <div class="as-strip" data-as-act="drag" data-as-w="${w}" title="${autoSay("as-drag-" + lbl)}">${autoWave(c, w)}<i class="as-hand"></i><span class="as-strip-l">${autoSay("as-early")}</span><span class="as-strip-r">${autoSay("as-late")}</span></div></div>`;
 }
+/** Can a card calibrate its subtitles from the lyrics? Not yet: the Transcript tab can (#85), the card is not wired to it.
+ *  Until then the card shows no such button at all — never a disabled one that looks pressable (VV / Deja, 2026-11-03). */
+function autoLyricsAvailable() {
+  return false;
+}
 function autoCardHtml(c, i) {
   const song = c.kind === "song", why = c.reasons.map((r) => highlightReasonText(r).text).join(" · ");
-  // v12: the subtitle line is the tooltip of 〔按歌词校准字幕〕, with why it cannot be pressed yet
+  // v12: the subtitle line is the tooltip of 〔按歌词校准字幕〕 (once the card can use it)
   const subs = song && autoState().subs && autoSubMode() === "local" && autoSubCount(c) != null ? autoSay("as-sub-line", { n: autoSubCount(c) }) : "";
   // a song card is 「{time} 那段 · 可能在唱歌」 until songs.js reaches the naming gate (Deja; auto-slices.js)
   return `<article class="as-clip${c.on ? "" : " off"}" data-as-card="${escapeHtml(c.id)}">
@@ -10618,7 +10623,7 @@ function autoCardHtml(c, i) {
     ${c.on ? `<div class="as-trim">${autoEdgeHtml(c, "s")}${autoEdgeHtml(c, "e")}</div>` : `<p class="as-small">${autoSay("as-tick-to-adjust")}</p>`}
     <div class="as-actions"><button type="button" class="btn tiny as-play" data-as-act="play">${autoSay("as-play")}</button>
       <button type="button" class="btn tiny" data-as-act="fine">${autoSay("as-fine")}</button>
-      ${song ? `<button type="button" class="btn tiny" data-as-lyrics${subs ? " data-as-sub-line" : ""} disabled title="${[subs, autoSay("as-lyrics-soon")].filter(Boolean).join("\n")}">${autoSay(autoSongKey("as-lyrics"))}</button>` : ""}
+      ${song && autoLyricsAvailable() ? `<button type="button" class="btn tiny" data-as-lyrics${subs ? " data-as-sub-line" : ""} title="${[subs, autoSongKey("as-lyrics") !== "as-lyrics" ? autoSay(autoSongKey("as-lyrics")) : ""].filter(Boolean).join("\n")}">${autoSay("as-lyrics")}</button>` : ""}
       <button type="button" class="as-drop" data-as-act="drop">${autoSay("as-drop")}</button></div></article>`;
 }
 function autoFooter() {
