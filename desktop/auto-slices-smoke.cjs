@@ -154,7 +154,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
     const capsBefore=project.clips.filter(FableCutCaptions.isCaption).length,before=JSON.stringify(project.clips),depth=runtime.undo.length;
     document.querySelector('[data-as-act=place]').click();const on=st.clips.filter(c=>c.on),at0=Math.max(...JSON.parse(before).map(c=>c.start+c.duration)),len=on.reduce((n,c)=>n+c.e-c.s,0);
     const caps=project.clips.filter(FableCutCaptions.isCaption);const inside=caps.every(c=>c.start>=at0-1e-6&&c.start+c.duration<=at0+len+0.5);
-    const r2={line:line&&line.textContent,caps:caps.length-capsBefore,inside,undo:runtime.undo.length-depth};undo();r2.back=JSON.stringify(project.clips)===before;delete window.asrReady;return r2;})()`);
+    const r2={line:line&&line.title.split('\n')[0],caps:caps.length-capsBefore,inside,undo:runtime.undo.length-depth};undo();r2.back=JSON.stringify(project.clips)===before;delete window.asrReady;return r2;})()`);
   report.local=local;assert.ok(/^字幕：[0-9]+ 句，是听写出来的，唱歌部分可能有错字$/.test(local.line),local.line);
   assert.ok(local.caps>0,'captions placed');assert.equal(local.inside,true,'only over the placed slices');assert.equal(local.undo,1,'the same undo step');assert.equal(local.back,true);
   ok=true;
