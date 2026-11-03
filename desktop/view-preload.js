@@ -32,4 +32,7 @@ contextBridge.exposeInMainWorld('montclipWorkspaceSettings',Object.freeze({
  migrate:value=>ipcRenderer.sendSync('montclip:workspace:migrate',value)
 }));
 
+// how each of the editor's downloads ended (completed / cancelled / interrupted), its file name and whether its export
+// copy was removed; and, before its own export's download, which file that is
+contextBridge.exposeInMainWorld('montclipDownloads',Object.freeze({onDone:cb=>{ipcRenderer.on('montclip:download:done',(_e,v)=>cb({state:String(v&&v.state),name:String(v&&v.name),removed:v&&v.removed===true}));},expect:name=>ipcRenderer.send('montclip:downloads:expect',String(name))}));
 contextBridge.exposeInMainWorld('montclipAgentSessions',Object.freeze({get:()=>ipcRenderer.sendSync('montclip:sessions:get'),set:value=>ipcRenderer.sendSync('montclip:sessions:set',value)}));

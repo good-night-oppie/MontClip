@@ -1,0 +1,23 @@
+{
+  "head": "88169ceefc2d46707edec3a91d217caf914b4997",
+  "tree": "d196909bd586aad17966bd30b2bd931db37733be",
+  "ancestor": "a455d6d925ce7d069e8ce11cd7c08bbc0bec3dea",
+  "harnessSha256": "d78eceeb623a361d43de44f6470b6986ee5525eb6a9df4730603116a9fe36e1b",
+  "electronSha256": "32e357fc856feadd1e51531f47811d2621483e5a58815eb4999154d7c9baea3b",
+  "cases": [
+    {
+      "fault": "json",
+      "profile": "json-XFhGca",
+      "exit": 0,
+      "complete": true,
+      "log": "\r\n\n  FableCut running →  http://localhost:37025\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-close-proof-MH2rZh\\json-XFhGca\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-close-proof-MH2rZh\\json-XFhGca\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-close-proof-MH2rZh\\json-XFhGca\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nMONTCLIP_SESSION_CLOSE_COMPLETE {\"fault\":\"json\",\"prompts\":0,\"defaultWait\":false,\"explicitForce\":false,\"originalPreserved\":true,\"badFileBefore\":\"2eeaeea0f900074f31e7f6163c957eed9c5f5028b1c0c9d1ada708353f6b8a65\",\"badFileAfter\":\"2eeaeea0f900074f31e7f6163c957eed9c5f5028b1c0c9d1ada708353f6b8a65\",\"projectProof\":{\"savedRevision\":1,\"savedClips\":1,\"savedHash\":\"9735a90f1be00894aa6d1164d955d4097c952a442491f49af1062cfd1b107d35\"},\"notice\":\"没能读取已存的会话。本次会话和草稿只在这次打开期间保留，关闭前请复制要留的内容。原有会话文件未改动。\",\"retryHidden\":true,\"assistantFlush\":true}\n\n"
+    },
+    {
+      "fault": "project",
+      "profile": "project-rf6feY",
+      "exit": 0,
+      "complete": true,
+      "log": "\r\n\n  FableCut running →  http://localhost:53194\n\n  project file : <user>\\AppData\\Local\\Temp\\MontClip-close-proof-MH2rZh\\project-rf6feY\\workspace\\project.json\n  media folder : <user>\\AppData\\Local\\Temp\\MontClip-close-proof-MH2rZh\\project-rf6feY\\workspace\\media\n  library      : <user>\\AppData\\Local\\Temp\\MontClip-close-proof-MH2rZh\\project-rf6feY\\workspace\\library (sfx, elements, svg, fonts, presets, templates)\n  app files    : <repo>\n  ffmpeg       : found (fast export + faststart remux on)\n  encode prof. : <repo>\\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)\n\nMONTCLIP_REAL_SAVE_FAILURE {\"responses\":[{\"status\":400,\"error\":\"Error: EPERM: operation not permitted, rename '<user>\\\\AppData\\\\Local\\\\Temp\\\\MontClip-close-proof-MH2rZh\\\\project-rf6feY\\\\workspace\\\\project.json.tmp' -> '<user>\\\\AppData\\\\Local\\\\Temp\\\\MontClip-close-proof-MH2rZh\\\\project-rf6feY\\\\workspace\\\\project.json'\"}],\"failed\":true}\nMONTCLIP_SESSION_CLOSE_COMPLETE {\"fault\":\"project\",\"prompts\":2,\"defaultWait\":true,\"explicitForce\":true,\"originalPreserved\":true,\"badFileBefore\":\"2eeaeea0f900074f31e7f6163c957eed9c5f5028b1c0c9d1ada708353f6b8a65\",\"badFileAfter\":\"2eeaeea0f900074f31e7f6163c957eed9c5f5028b1c0c9d1ada708353f6b8a65\",\"projectProof\":{\"savedRevision\":1,\"savedClips\":1,\"savedHash\":\"900e8968554ffe4caddf5fedd77b919b237042634cc9572089a5b85fc51388bb\"},\"notice\":\"没能读取已存的会话。本次会话和草稿只在这次打开期间保留，关闭前请复制要留的内容。原有会话文件未改动。\",\"retryHidden\":true,\"assistantFlush\":true}\n\n"
+    }
+  ]
+}
