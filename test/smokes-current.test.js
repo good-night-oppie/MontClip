@@ -29,3 +29,29 @@ test('agent-paste stays retired: it never touches the clipboard and says so',()=
  a.match(s,/MONTCLIP_PASTE_HARNESS_DISABLED/);
  a.ok(!/clipboard\.(write|read)|require\(['"]electron['"]\)/.test(s));
 });
+
+// Deja (2026-11-03, on #87): a retired smoke must not look broken. agent-paste exits 0 and says it is skipped, and the
+// smoke list says why; it still touches nothing.
+test('agent-paste is shown as retired, not red: exit 0, SKIPPED, nothing touched',()=>{
+ const {spawnSync}=require('node:child_process');
+ const r=spawnSync(process.execPath,[path.join(__dirname,'..','desktop','agent-paste-smoke.cjs')],{encoding:'utf8'});
+ a.equal(r.status,0,'exit code 0');
+ a.match(r.stdout,/^MONTCLIP_PASTE_HARNESS_DISABLED \(SKIPPED\)/m);
+ const s=read('desktop/agent-paste-smoke.cjs');
+ a.ok(!/clipboard|require\(|process\.exitCode\s*=\s*1/.test(s),'no clipboard, no module, no failure code');
+});
+test('the smoke list names every desktop smoke; agent-paste as 已停用：会动系统剪贴板',()=>{
+ const list=read('desktop/SMOKES.md');
+ for(const f of fs.readdirSync(path.join(__dirname,'..','desktop')).filter(f=>f.endsWith('-smoke.cjs')))a.ok(list.includes('`'+f+'`'),f);
+ a.match(list,/`agent-paste-smoke\.cjs`[^\n]*已停用：会动系统剪贴板/);
+});
+// Deja (2026-11-03, on #87): the owner wants what is sent shown before it is sent. The facts are named in one sentence in
+// the review box; one click on that sentence opens their exact text.
+test('the review box’s facts sentence opens to the facts themselves, one click',()=>{
+ const pane=read('agent-ui/pane.tsx');
+ a.match(pane,/<details data-facts-note><summary>\{t\.factsNote\}<\/summary><pre data-facts-raw>\{JSON\.stringify\(MontClipAgentPane\.messageFacts\(review\?\.messages\?\.at\(-1\)\?\.content\|\|''\),null,2\)\}<\/pre><\/details>/);
+ a.ok(!/<p data-facts-note>/.test(pane));
+ a.match(read('cindy-official.js'),/data-facts-raw/,'the bundle was rebuilt');
+ const s=read('desktop/review-body-smoke.cjs');
+ a.match(s,/factsOpen:/);a.match(s,/\[data-facts-note\] summary'\)\.click\(\)/);
+});
