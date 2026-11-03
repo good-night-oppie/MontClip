@@ -8,8 +8,12 @@ const electron=require('electron'),{app,BrowserWindow}=electron,assert=require('
 if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke required');
 const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
 if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
+const shotsDir=process.env.MONTCLIP_SHOTS_OUT||null;if(shotsDir&&!require('node:path').isAbsolute(shotsDir))throw Error('MONTCLIP_SHOTS_OUT must be an absolute folder');
+// evidence for the PR (Deja): MONTCLIP_SHOTS_OUT=<absolute folder> saves the hidden offscreen window's own page as PNGs (capturePage of
+// this window only; nothing on the desktop is captured)
+const shotOf=(win)=>async(name)=>{if(!shotsDir)return;await new Promise(r=>setTimeout(r,150));require('node:fs').writeFileSync(require('node:path').join(shotsDir,name+'.png'),(await win.webContents.capturePage()).toPNG());};
 const original=BrowserWindow.prototype.loadURL;
-BrowserWindow.prototype.loadURL=async function(...args){await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=(ms=200)=>new Promise(r=>setTimeout(r,ms));
+BrowserWindow.prototype.loadURL=async function(...args){await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=(ms=200)=>new Promise(r=>setTimeout(r,ms)),shot=shotOf(win);
  const results={};
  try{
   await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
@@ -61,6 +65,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
    assert.equal(box.key,true,language+': the API key box is visible '+JSON.stringify(box));
    assert.equal(box.save,true,language+': the save button is visible '+JSON.stringify(box));
    results[language].config=box;
+   await shot('narrow-630-settings-'+language);
    await read(`(()=>{const b=[...document.querySelectorAll('.cindy-port button')].find(b=>b.textContent===${JSON.stringify(T.config)});b.click();return true;})()`);await wait(300);
    const back=await read(`!!document.querySelector('.cindy-port .cindy-composer')&&getComputedStyle(document.querySelector('.cindy-port .cindy-composer')).display!=='none'`);
    assert.equal(back,true,language+': closing the settings brings the composer back');
