@@ -1,0 +1,560 @@
+[
+ {
+  "size": [
+   1270,
+   800
+  ],
+  "lang": "zh-CN",
+  "mode": "simple",
+  "preview": {
+   "w": 298,
+   "h": 168
+  },
+  "transportOverTimeline": 0,
+  "unreachable": [],
+  "playerUnreachable": [],
+  "overlaps": [],
+  "tabsUnreachable": [],
+  "tabs": 10,
+  "inMore": [
+   "timeline:btnMarkers",
+   "timeline:btnAudioHold",
+   "timeline:btnZoomFit",
+   "monitor:exportFrameSel"
+  ],
+  "tools": 37,
+  "snap": {
+   "id": "btnSnap",
+   "where": "timeline",
+   "inMore": false,
+   "ok": true
+  },
+  "overflowX": 0,
+  "overflowY": 0
+ },
+ {
+  "size": [
+   1270,
+   800
+  ],
+  "lang": "zh-CN",
+  "mode": "advanced",
+  "preview": {
+   "w": 298,
+   "h": 168
+  },
+  "transportOverTimeline": 0,
+  "unreachable": [],
+  "playerUnreachable": [],
+  "overlaps": [],
+  "tabsUnreachable": [],
+  "tabs": 10,
+  "inMore": [
+   "timeline:btnMarkers",
+   "timeline:btnAudioHold",
+   "timeline:btnZoomFit",
+   "monitor:exportFrameSel"
+  ],
+  "tools": 37,
+  "snap": {
+   "id": "btnSnap",
+   "where": "timeline",
+   "inMore": false,
+   "ok": true
+  },
+  "overflowX": 0,
+  "overflowY": 0
+ },
+ {
+  "size": [
+   1270,
+   800
+  ],
+  "lang": "en",
+  "mode": "simple",
+  "preview": {
+   "w": 298,
+   "h": 168
+  },
+  "transportOverTimeline": 0,
+  "unreachable": [],
+  "playerUnreachable": [],
+  "overlaps": [],
+  "tabsUnreachable": [],
+  "tabs": 10,
+  "inMore": [
+   "timeline:btnMarkers",
+   "timeline:btnAudioHold",
+   "monitor:exportFrameSel",
+   "monitor:btnGuides"
+  ],
+  "tools": 37,
+  "snap": {
+   "id": "btnSnap",
+   "where": "timeline",
+   "inMore": false,
+   "ok": true
+  },
+  "overflowX": 0,
+  "overflowY": 0
+ },
+ {
+  "size": [
+   1270,
+   800
+  ],
+  "lang": "en",
+  "mode": "advanced",
+  "preview": {
+   "w": 298,
+   "h": 168
+  },
+  "transportOverTimeline": 0,
+  "unreachable": [],
+  "playerUnreachable": [],
+  "overlaps": [],
+  "tabsUnreachable": [],
+  "tabs": 10,
+  "inMore": [
+   "timeline:btnMarkers",
+   "timeline:btnAudioHold",
+   "monitor:exportFrameSel",
+   "monitor:btnGuides"
+  ],
+  "tools": 37,
+  "snap": {
+   "id": "btnSnap",
+   "where": "timeline",
+   "inMore": false,
+   "ok": true
+  },
+  "overflowX": 0,
+  "overflowY": 0
+ },
+ {
+  "size": [
+   804,
+   535
+  ],
+  "lang": "zh-CN",
+  "mode": "simple",
+  "preview": {
+   "w": 131,
+   "h": 73
+  },
+  "transportOverTimeline": 0,
+  "unreachable": [],
+  "playerUnreachable": [],
+  "overlaps": [],
+  "tabsUnreachable": [],
+  "tabs": 10,
+  "inMore": [
+   "timeline:btnCloseGap",
+   "timeline:btnNextGap",
+   "timeline:btnLift",
+   "timeline:btnMarkers",
+   "timeline:btnAudioHold",
+   "timeline:zoomSlider",
+   "timeline:btnZoomFit",
+   "monitor:fpsSel",
+   "monitor:exportFrameSel",
+   "monitor:btnExportFrame",
+   "monitor:btnGuides",
+   "monitor:btnProxy",
+   "topbar:btnLayoutReset",
+   "topbar:btn tiny",
+   "topbar:btn tiny",
+   "topbar:btn tiny on",
+   "bin:btnTitle",
+   "bin:btnAdjust",
+   "bin:btnImportUrl"
+  ],
+  "tools": 37,
+  "snap": {
+   "id": "btnSnap",
+   "where": "timeline",
+   "inMore": false,
+   "ok": true
+  },
+  "overflowX": 0,
+  "overflowY": 0
+ },
+ {
+  "size": [
+   804,
+   535
+  ],
+  "lang": "zh-CN",
+  "mode": "advanced",
+  "preview": {
+   "w": 131,
+   "h": 73
+  },
+  "transportOverTimeline": 0,
+  "unreachable": [],
+  "playerUnreachable": [],
+  "overlaps": [],
+  "tabsUnreachable": [],
+  "tabs": 10,
+  "inMore": [
+   "timeline:btnCloseGap",
+   "timeline:btnNextGap",
+   "timeline:btnLift",
+   "timeline:btnMarkers",
+   "timeline:btnAudioHold",
+   "timeline:zoomSlider",
+   "timeline:btnZoomFit",
+   "monitor:fpsSel",
+   "monitor:exportFrameSel",
+   "monitor:btnExportFrame",
+   "monitor:btnGuides",
+   "monitor:btnProxy",
+   "topbar:btnLayoutReset",
+   "topbar:btn tiny",
+   "topbar:btn tiny",
+   "topbar:btn tiny on",
+   "bin:btnTitle",
+   "bin:btnAdjust",
+   "bin:btnImportUrl"
+  ],
+  "tools": 37,
+  "snap": {
+   "id": "btnSnap",
+   "where": "timeline",
+   "inMore": false,
+   "ok": true
+  },
+  "overflowX": 0,
+  "overflowY": 0
+ },
+ {
+  "size": [
+   804,
+   535
+  ],
+  "lang": "en",
+  "mode": "simple",
+  "preview": {
+   "w": 131,
+   "h": 73
+  },
+  "transportOverTimeline": 0,
+  "unreachable": [],
+  "playerUnreachable": [],
+  "overlaps": [],
+  "tabsUnreachable": [],
+  "tabs": 10,
+  "inMore": [
+   "timeline:btnCloseGap",
+   "timeline:btnNextGap",
+   "timeline:btnMarkers",
+   "timeline:btnAudioHold",
+   "timeline:zoomSlider",
+   "timeline:btnZoomFit",
+   "monitor:fpsSel",
+   "monitor:exportFrameSel",
+   "monitor:btnExportFrame",
+   "monitor:btnGuides",
+   "monitor:btnProxy",
+   "topbar:btn tiny on",
+   "topbar:btn tiny",
+   "topbar:btnLayoutReset",
+   "topbar:btn tiny",
+   "topbar:btn tiny",
+   "topbar:btn tiny on",
+   "bin:btnTitle",
+   "bin:btnAdjust",
+   "bin:btnImportUrl"
+  ],
+  "tools": 37,
+  "snap": {
+   "id": "btnSnap",
+   "where": "timeline",
+   "inMore": false,
+   "ok": true
+  },
+  "overflowX": 0,
+  "overflowY": 0
+ },
+ {
+  "size": [
+   804,
+   535
+  ],
+  "lang": "en",
+  "mode": "advanced",
+  "preview": {
+   "w": 131,
+   "h": 73
+  },
+  "transportOverTimeline": 0,
+  "unreachable": [],
+  "playerUnreachable": [],
+  "overlaps": [],
+  "tabsUnreachable": [],
+  "tabs": 10,
+  "inMore": [
+   "timeline:btnCloseGap",
+   "timeline:btnNextGap",
+   "timeline:btnMarkers",
+   "timeline:btnAudioHold",
+   "timeline:zoomSlider",
+   "timeline:btnZoomFit",
+   "monitor:fpsSel",
+   "monitor:exportFrameSel",
+   "monitor:btnExportFrame",
+   "monitor:btnGuides",
+   "monitor:btnProxy",
+   "topbar:btn tiny on",
+   "topbar:btn tiny",
+   "topbar:btnLayoutReset",
+   "topbar:btn tiny",
+   "topbar:btn tiny",
+   "topbar:btn tiny on",
+   "bin:btnTitle",
+   "bin:btnAdjust",
+   "bin:btnImportUrl"
+  ],
+  "tools": 37,
+  "snap": {
+   "id": "btnSnap",
+   "where": "timeline",
+   "inMore": false,
+   "ok": true
+  },
+  "overflowX": 0,
+  "overflowY": 0
+ },
+ {
+  "size": [
+   630,
+   452
+  ],
+  "lang": "zh-CN",
+  "mode": "simple",
+  "preview": {
+   "w": 102,
+   "h": 57
+  },
+  "transportOverTimeline": 0,
+  "unreachable": [],
+  "playerUnreachable": [],
+  "overlaps": [],
+  "tabsUnreachable": [],
+  "tabs": 10,
+  "inMore": [
+   "timeline:select",
+   "timeline:ripple",
+   "timeline:roll",
+   "timeline:slip",
+   "timeline:slide",
+   "timeline:btnCloseGap",
+   "timeline:btnNextGap",
+   "timeline:btnLift",
+   "timeline:btnExtract",
+   "timeline:btnMarkers",
+   "timeline:btnAudioHold",
+   "timeline:zoomSlider",
+   "timeline:btnZoomFit",
+   "monitor:aspectSel",
+   "monitor:fpsSel",
+   "monitor:exportFrameSel",
+   "monitor:btnExportFrame",
+   "monitor:btnGuides",
+   "monitor:btnProxy",
+   "topbar:btn tiny on",
+   "topbar:btn tiny",
+   "topbar:btnLayoutReset",
+   "topbar:btn tiny",
+   "topbar:btn tiny",
+   "topbar:btn tiny on",
+   "bin:btnTitle",
+   "bin:btnAdjust",
+   "bin:btnImportUrl"
+  ],
+  "tools": 37,
+  "snap": {
+   "id": "btnSnap",
+   "where": "timeline",
+   "inMore": false,
+   "ok": true
+  },
+  "overflowX": 0,
+  "overflowY": 0
+ },
+ {
+  "size": [
+   630,
+   452
+  ],
+  "lang": "zh-CN",
+  "mode": "advanced",
+  "preview": {
+   "w": 102,
+   "h": 57
+  },
+  "transportOverTimeline": 0,
+  "unreachable": [],
+  "playerUnreachable": [],
+  "overlaps": [],
+  "tabsUnreachable": [],
+  "tabs": 10,
+  "inMore": [
+   "timeline:select",
+   "timeline:ripple",
+   "timeline:roll",
+   "timeline:slip",
+   "timeline:slide",
+   "timeline:btnCloseGap",
+   "timeline:btnNextGap",
+   "timeline:btnLift",
+   "timeline:btnExtract",
+   "timeline:btnMarkers",
+   "timeline:btnAudioHold",
+   "timeline:zoomSlider",
+   "timeline:btnZoomFit",
+   "monitor:aspectSel",
+   "monitor:fpsSel",
+   "monitor:exportFrameSel",
+   "monitor:btnExportFrame",
+   "monitor:btnGuides",
+   "monitor:btnProxy",
+   "topbar:btn tiny on",
+   "topbar:btn tiny",
+   "topbar:btnLayoutReset",
+   "topbar:btn tiny",
+   "topbar:btn tiny",
+   "topbar:btn tiny on",
+   "bin:btnTitle",
+   "bin:btnAdjust",
+   "bin:btnImportUrl"
+  ],
+  "tools": 37,
+  "snap": {
+   "id": "btnSnap",
+   "where": "timeline",
+   "inMore": false,
+   "ok": true
+  },
+  "overflowX": 0,
+  "overflowY": 0
+ },
+ {
+  "size": [
+   630,
+   452
+  ],
+  "lang": "en",
+  "mode": "simple",
+  "preview": {
+   "w": 102,
+   "h": 57
+  },
+  "transportOverTimeline": 0,
+  "unreachable": [],
+  "playerUnreachable": [],
+  "overlaps": [],
+  "tabsUnreachable": [],
+  "tabs": 10,
+  "inMore": [
+   "timeline:select",
+   "timeline:ripple",
+   "timeline:roll",
+   "timeline:slip",
+   "timeline:slide",
+   "timeline:btnCloseGap",
+   "timeline:btnNextGap",
+   "timeline:btnLift",
+   "timeline:btnExtract",
+   "timeline:btnMarkers",
+   "timeline:btnAudioHold",
+   "timeline:zoomSlider",
+   "timeline:btnZoomFit",
+   "monitor:aspectSel",
+   "monitor:fpsSel",
+   "monitor:exportFrameSel",
+   "monitor:btnExportFrame",
+   "monitor:btnGuides",
+   "monitor:btnProxy",
+   "topbar:btn tiny on",
+   "topbar:btn tiny",
+   "topbar:btnLayoutReset",
+   "topbar:btn tiny",
+   "topbar:btn tiny",
+   "topbar:btn tiny on",
+   "topbar:btnSettings",
+   "topbar:btnHelp",
+   "bin:btnTitle",
+   "bin:btnAdjust",
+   "bin:btnImportUrl"
+  ],
+  "tools": 37,
+  "snap": {
+   "id": "btnSnap",
+   "where": "timeline",
+   "inMore": false,
+   "ok": true
+  },
+  "overflowX": 0,
+  "overflowY": 0
+ },
+ {
+  "size": [
+   630,
+   452
+  ],
+  "lang": "en",
+  "mode": "advanced",
+  "preview": {
+   "w": 102,
+   "h": 57
+  },
+  "transportOverTimeline": 0,
+  "unreachable": [],
+  "playerUnreachable": [],
+  "overlaps": [],
+  "tabsUnreachable": [],
+  "tabs": 10,
+  "inMore": [
+   "timeline:select",
+   "timeline:ripple",
+   "timeline:roll",
+   "timeline:slip",
+   "timeline:slide",
+   "timeline:btnCloseGap",
+   "timeline:btnNextGap",
+   "timeline:btnLift",
+   "timeline:btnExtract",
+   "timeline:btnMarkers",
+   "timeline:btnAudioHold",
+   "timeline:zoomSlider",
+   "timeline:btnZoomFit",
+   "monitor:aspectSel",
+   "monitor:fpsSel",
+   "monitor:exportFrameSel",
+   "monitor:btnExportFrame",
+   "monitor:btnGuides",
+   "monitor:btnProxy",
+   "topbar:btn tiny on",
+   "topbar:btn tiny",
+   "topbar:btnLayoutReset",
+   "topbar:btn tiny",
+   "topbar:btn tiny",
+   "topbar:btn tiny on",
+   "topbar:btnSettings",
+   "topbar:btnHelp",
+   "bin:btnTitle",
+   "bin:btnAdjust",
+   "bin:btnImportUrl"
+  ],
+  "tools": 37,
+  "snap": {
+   "id": "btnSnap",
+   "where": "timeline",
+   "inMore": false,
+   "ok": true
+  },
+  "overflowX": 0,
+  "overflowY": 0
+ }
+]
