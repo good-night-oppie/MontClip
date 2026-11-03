@@ -22,8 +22,9 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
  try{
   await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
   assert.equal(await read(`!!window.montclipViewSettings`),true,'the desktop preload is there');
-  // visible text of an element: text nodes that are rendered, outside selects, inputs and text areas
-  await read(`window.__z3Text=(el)=>{const out=[],w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode())){const p=n.parentElement;if(!p||p.closest('select,option,textarea,input'))continue;if(!p.getClientRects().length)continue;const s=n.data.trim();if(s)out.push(s);}return out.join(' | ');};true`);
+  // visible text of an element: text nodes that are rendered, outside selects, inputs and text areas; the Queue
+  // button belongs to the export-queue copy (another change), which renderQueue() says in English for now
+  await read(`window.__z3Text=(el)=>{const out=[],w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode())){const p=n.parentElement;if(!p||p.closest('select,option,textarea,input,#btnOpenQueue'))continue;if(!p.getClientRects().length)continue;const s=n.data.trim();if(s)out.push(s);}return out.join(' | ');};true`);
   await read(`updateMontClipView({language:'zh-CN'});true`);await wait();
   // a clip, so the export dialog opens
   await read(`document.getElementById('btnTitle').click();true`);await wait();
