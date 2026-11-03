@@ -2855,6 +2855,15 @@ blob, and does not yet offer the deferred native consent UI. Source registration
 is guarded against project changes after metadata. These tests do not explain the
 historical browser disk-revision1 incident. No automatic subtitle/danmaku shift.
 
+**Desktop FLV import.** In the desktop app a picked FLV goes through the main process (`desktop/flv-import.js`,
+fixed IPC `montclip:flv:inspect|prepare|status|cancel|finish` behind the settings guard; the preload reads the
+File's path and no path returns to the page). It is checked where it is (probe and readable range; a timeline gap
+is refused) and hashed (sha256) before anything is copied. A re-encode or an unconfirmed ending asks first, Cancel
+focused. Then it is copied into `media/` as a stream into a new exclusive file, the copy's hash must equal the
+original's (`FLV_SOURCE_CHANGED` / `FLV_COPY_MISMATCH` otherwise), and `prepareMedia` makes the compatible MP4
+from the copy. Cancel, failure, a project switch or quitting removes only the files that import made; nothing else
+in `media/` is touched. The browser path (`/api/upload`) is unchanged.
+
 This split uses the existing development child_process/PATH tools, parameter
 arrays, timeout and owned partial-output cleanup. It is not the packaged tool
 resolver or a portable/offline release. System GPLv3 FFmpeg is a development test
