@@ -52,6 +52,8 @@ Every Claude Code session then has these tools:
   on that canvas whose shots follow the subject. See "Sequences" below.
 - `fablecut_highlights` — the best moments of long footage cut into a short edit, in a new
   sequence. See "Sequences" below.
+- `fablecut_songs` — where each song in a long recording starts and ends, from the sound
+  alone, with the guessed spots marked; kept in the project. See "Songs in a recording" below.
 - `fablecut_transcribe` — turn speech into words with times (Whisper, in the browser),
   read them on the timeline, find a phrase and cut it out. See "Transcripts and
   text-based editing" below.
@@ -2268,6 +2270,11 @@ Request bodies are limited: 1 MB, except `PUT /api/project` (64 MB), `POST /api/
   `POST /api/transcribe/request {transcribe:{srcs, model?, language?, again?}, where?}` queues a transcription
   on the export-job queue (poll `GET /api/export/job?id=`); the tab saves each transcript, and the job's
   `result` lists `done`, `skipped` and `failed`. See "Transcripts and text-based editing".
+- `POST /api/songs {src, again?}` → 202 `{src, state, done, total}` starts reading a file for songs, or carries
+  on from the first segment not read yet (`again:true` forgets what was read) · `GET /api/songs?src=` →
+  `{src, key, state, done, total, complete, scanned, songs}` (songs in file seconds; state `running` · `done` ·
+  `stopped` · `failed` · `none`) · `POST /api/songs/cancel {src}` stops it, keeping what was read. SSE event
+  `songs` (`{src, state, done, total}`) after each segment. See "Songs in a recording".
 - `POST /api/denoise` — body `{src:"/media/…", amount:"light"|"medium"|"strong"}`: writes a
   noise-reduced FLAC of the whole file into `./media/` (reused if it exists) and returns
   `{src, name, duration, channels}`. Does not touch `project.json` (see "Audio mix").
@@ -2780,6 +2787,35 @@ SRT/WebVTT parsing preserves the full normalized cue body instead of truncating 
 
 The Transcript tab's **高光候选 / Highlight candidates** reads local signals only and runs no model. The signals are the timeline's sentences (caption clips), the loudness of each sounding clip's file (read once by the server through ffmpeg as a stream, 8 kHz mono, 0.5 s bins, cached in `analysis/signals/` per file version — `GET /api/signals/loudness?src=` — and mapped onto the timeline through start, in point, speed, volume and gain; without a server, the mix itself in 60 s pieces), and `project.danmaku` (`[{t}]`) when present — the editor keeps `project.danmaku` as it is through load and save (every field of every entry). It shows up to 12 candidate ranges, best first, each with reasons that name the signal, the value, the baseline and the window. `highlight-candidates.js` holds the pure logic. **Go to** only moves the playhead; **Keep the ticked ones** keeps the ranges through the range engine as one undo step. With nothing to go on, it says why. Design and clean-room exception: `docs/decisions/2026-11-02-p2-highlight-cards.md`.
 
+### Songs in a recording (MontClip)
+
+`fablecut_songs` finds where each song in a long recording (a livestream replay with singing between talk) starts
+and ends, from the sound alone: no transcript, no model, nothing leaves the machine. Until song finding meets its accuracy gate (precision@15 ≥ 0.6 and recall@10 ≥ 0.6; it measures 0.12 and 0.38 now), when you talk to the streamer call what it finds 「可能在唱歌的段落」 (parts that are possibly singing): never 「第几首歌」 (song numbers), and never a song's name unless the streamer named it herself. Singing holds its level; talk
+pauses between words. `song-scan.js` has ffmpeg's `astats` and `aspectralstats` read the file's sound (mono, 16 kHz,
+one row per 0.5 s: RMS level, spectral flatness, centroid, entropy, zero-crossing rate) in 300 s segments, and keeps
+each segment as soon as it is read in `analysis/songs/<file version>/` (name, size, modification time): a stopped
+call carries on from the first segment not read yet, and a replaced file is read again. `songs.js` then marks each
+moment as singing when, in the 30 s around it, at most 12% of it drops 14 dB below that window's median and the
+window is not a quiet room; joins runs across breaks of up to 8 s, splits a run long enough to be two songs (240 s
+or more) at a quiet gap at least 150 s in and 90 s before its end, and drops runs under 90 s. A song's start backs
+up to where its sound begins, its end runs on to where the sound stops (each at most 12 s). Spectral entropy is not
+used. These parameters come from the prototype's grid search over a local golden set, which is not in the repo
+(`node real-tests/songs-golden.cjs <dir>` evaluates against one and prints numbers only). **Not accurate enough to
+trust yet**: on that set (15 recordings from 13 streamers) precision@15 is 0.12, and on its 4 held-out recordings
+(4 streamers) recall@10 is 0.38. Treat every song as a guess to check; the editor shows them all as 「估的」.
+
+Each song is `{from, to, confidence, marks}` in seconds of the file. `confidence` has two levels only: `likely`
+(「比较可能」 — nothing was guessed; not a promise that the song is right) or `estimated` (「估的」), with `marks` saying
+where and why: `split` (start or end — two songs with no clear gap between them were
+split at the quietest gap), `merged` (inside — a break was bridged; it may be two songs), `edge` (it runs to the
+start or end of the recording), `unread` (it runs into the part of the file not read yet), `limit` (its start or end
+ran 12 s without the sound beginning or stopping). The songs are kept in the project as `project.songs`
+(`{<mediaId>: {v:1, key, complete, scanned, songs}}`, `key` = the file version read), checked on every write; the
+editor keeps them when it saves, for files still in the project. Agents: `fablecut_songs {mediaIds?, again?, store?}`
+reads (default: every video / audio file used on the open timeline), keeps them in one revision, and lists each
+song; the patch op `{op:"setSongs", mediaId, songs:{key, complete, scanned, songs} | null}` writes or forgets one
+file's entry. REST: `/api/songs` (see "REST API").
+
 ### MontClip view preferences
 
 The shared editor DOM has Simple/Advanced layout controls, Chinese/English labels
@@ -2857,9 +2893,11 @@ If session storage cannot be read at initialization, the Agent pane explicitly u
 
 The desktop assistant reuses pinned Apache-2.0 Cindy components, bundled locally. Open **AI service** in the assistant, select OpenAI or DeepSeek, enter a model ID and your own key, then save. Configuration alone sends no request. Before sending, review the full outgoing JSON including prior messages and explicitly selected references. Keys are encrypted by Electron safeStorage in this MontClip profile and are not returned to the page. The key is briefly present in its write-only input before save. Session text is local plaintext; do not treat the profile as encrypted message storage.
 
-Only text chat is available through this adapter. Sentence proposals require explicitly quoted whole subtitles and strict keep_sentences JSON. Review/preview do not edit; Apply uses the existing range engine, and Undo restores it. Invalid or stale suggestions are refused. No shell, arbitrary URL, media upload or automatic edit tool is exposed. Live provider acceptance is pending; tests use a clearly labelled injected transport. This is a partial official-component port, not full Cindy compatibility or a packaged release. See [provenance and limits](docs/decisions/2026-11-01-official-cindy-port.md).
+Only text chat is available through this adapter. Two proposal shapes are accepted: keep_sentences (explicitly quoted whole subtitles) and keep_ranges (source-second ranges of a media clip, `output_mode` one_file or per_range; see below). Review/preview do not edit; Apply uses the existing range engine, and Undo restores it. Invalid or stale suggestions are refused. No shell, arbitrary URL, media upload or automatic edit tool is exposed. Live provider acceptance is pending; tests use a clearly labelled injected transport. This is a partial official-component port, not full Cindy compatibility or a packaged release. See [provenance and limits](docs/decisions/2026-11-01-official-cindy-port.md).
 
-Host-only bridge: montclipAgentService.get/configure/send/cancel; no REST/MCP key endpoint. send requires version1, requestId, projectId, sequenceId, revision, gen and bounded user/assistant messages. Proposal schema is {type:"keep_sentences",ranges:[{clipId,sourceCaptionId,from,to}]}; timestamps are timeline seconds and every boundary must equal the explicitly referenced whole sentence. Existing MCP/REST operations are unchanged.
+**Editor events and the capability table (P1).** `capabilities.js` lists what the buttons, the AI and MCP may do: every MCP tool (definitions in `mcp-tools.js`, which `mcp-server.js` serves) plus keep_ranges / keep_sentences, each with its input schema, one plain sentence (zh-CN / en) and a risk level fixed in the program — read, undoable, sensitive (writes, deletes or replaces files, switches projects) or external (network). Unknown names are blocked; `BLOCKED` lists what no mode may allow. The desktop main process holds the table and gives the page a read-only copy (`montclipCapabilities.get()`). `agent-events.js` is the event log: every undo step is an event `{id, runId, step, capability, args, actor: streamer|ai|recipe, risk, state, revisionBefore, revisionAfter, at}` — the streamer's edits as `manual_edit` (or the capability they used), the AI's reviewed proposals, a redo as a new event; the host sets the risk from the table. Each undo snapshot starts with its event id; Undo moves the event to undone; `undoRun(runId)` undoes a whole AI run while its steps are the newest undo steps (else `RUN_INTERLEAVED`, nothing undone). Edits that arrive from outside (an agent, another tab) stay undo steps but are not logged here. Before an AI run the host saves an agent version (`POST /api/versions {action:"before_agent"}`). The log is saved in project.json as `agentLog` (the newest 500 events, args over 2 KB kept as a size note; never pictures, sound or recordings) and is not part of the document proposals are checked against. Smoke: `electron desktop/events-smoke.cjs --montclip-smoke --user-data-dir=<fresh>`. Decisions: docs/decisions/2026-11-03-unified-backend-architecture.md, 2026-11-03-local-capability-boundary.md.
+
+Host-only bridge: montclipAgentService.get/configure/send/cancel; no REST/MCP key endpoint. send requires version1, requestId, projectId, sequenceId, revision, gen and bounded user/assistant messages. Proposal schema is {type:"keep_sentences",ranges:[{clipId,sourceCaptionId,from,to}]}; timestamps are timeline seconds and every boundary must equal the explicitly referenced whole sentence. Or {type:"keep_ranges",output_mode:"one_file"|"per_range",ranges:[{clipId,from,to,label?}]}: from/to are seconds of the clip's media, inside both the media (0 ≤ from < to ≤ duration) and the part the clip shows; no overlap; each ≥ 0.5 s; ≤ 100 ranges; ≤ 32 KB; the clip must be an enabled video/audio clip on an enabled track; label ≤ 80 characters without control characters. Every key is checked (chat-proposal.js); the reply is never run. one_file joins the ranges like keep_sentences; per_range applies the same cut (one undo step) and adds one export-queue item per range, named fileSafeName(label or project name)-NN; a queued slice refuses to render once the timeline differs from the one it was queued from. Each request also carries a numbers-only `facts` block (agent-facts.js: each shot's clipId, kind, media length, the part it shows and where it starts; highlight candidates found in this session, in source seconds) — no file names, paths, caption text, pictures or sound; the review dialog says so. Song sections are not sent yet (projects have no song data). Each reviewed proposal is also an editor event `{id, runId, step, capability, args, actor, risk, state, revisionBefore, revisionAfter, at}` (chat-proposal.js `event` / `failedEvent` / `transition`; states planned → awaiting_confirmation → running → has_result → applied / rejected / undone / failed, forward only): has_result when reviewed, applied with the revision its save wrote, rejected when the review closes unapplied, undone by the card's undo, failed with the refusal code. args holds checked values only. Kept in memory (newest 200) until the event log lands. Smoke: `MONTCLIP_FFMPEG_DIR=<bundled> electron desktop/keep-ranges-smoke.cjs --montclip-smoke --user-data-dir=<fresh>` (mock reply, three slices, lengths and A/V sync ≤ 40 ms). Existing MCP/REST operations are unchanged.
 
 **Remove this connection** (删除这个连接) in AI service asks for confirmation, then the main process cancels a running request and deletes the saved connection file, which holds the sealed key, together with any write temporaries and reset backups. Only when the file is confirmed gone does the state return to not configured; sending is then refused. A failed delete is reported and still shows what remains saved. The fixed `montclip:agent:deleteConnection` IPC takes no argument.
 
