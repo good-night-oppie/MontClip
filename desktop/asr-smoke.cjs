@@ -13,8 +13,8 @@
 // Needs vendor/asr with the models (node desktop/fetch-asr.cjs --models asr,punct). Prints ASR_SMOKE_PASS / ASR_SMOKE_FAIL.
 const electron = require('electron'), { app, BrowserWindow, session } = electron, fs = require('node:fs'), os = require('node:os'), path = require('node:path'), https = require('node:https');
 if (!process.argv.includes('--montclip-smoke')) throw Error('Explicit smoke required');
-const profileArg = process.argv.find((a) => a.startsWith('--user-data-dir='));
-if (!profileArg || !profileArg.slice('--user-data-dir='.length).trim()) throw Error('A fresh --user-data-dir is required');
+const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
+if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const profile = profileArg.slice('--user-data-dir='.length).trim();
 const ROOT = path.join(__dirname, '..'), VENDOR = path.join(ROOT, 'vendor', 'asr');
 const out = (k, v) => process.stdout.write(k + ' ' + JSON.stringify(v) + '\n');
@@ -28,6 +28,11 @@ fs.copyFileSync(path.join(VENDOR, 'models', 'punct', 'model.int8.onnx'), path.jo
 fs.copyFileSync(path.join(VENDOR, 'models', 'punct', 'tokens.json'), path.join(usb, '听写模型', '标点', 'tokens.json'));
 fs.writeFileSync(path.join(usb, '说明.txt'), '这不是模型文件');
 process.env.MONTCLIP_SMOKE_ASR_IMPORT = usb;
+// the engine and the VAD as a package without models has them (a copy, so cleaning up never touches vendor/asr)
+const asrDir = fs.mkdtempSync(path.join(os.tmpdir(), 'montclip-asr-'));
+fs.cpSync(path.join(VENDOR, 'engine'), path.join(asrDir, 'engine'), { recursive: true });
+fs.copyFileSync(path.join(VENDOR, 'silero_vad.onnx'), path.join(asrDir, 'silero_vad.onnx'));
+process.env.MONTCLIP_ASR_DIR = asrDir;
 delete process.env.MONTCLIP_SMOKE_ASR_CONSENT;   // the download question is answered "Cancel"
 
 // every request the window makes, with main.js's decision; every https request of the main process
@@ -60,7 +65,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     await read(`setSideTab('transcript');true`); await wait(300);
     await read(`loadAsrStatus()`); await wait(200);
     report.before = await read(`({text:document.querySelector('[data-tr-asr]').textContent,download:!document.querySelector('[data-tr-asr-download]').hidden,import:!document.querySelector('[data-tr-asr-import]').hidden,go:document.querySelector('[data-tr-go]').disabled})`);
-    if (!report.before.text.startsWith('还没有听写模型') || !report.before.download || !report.before.import) throw Error('BEFORE ' + JSON.stringify(report.before));
+    if (!report.before.text.startsWith('第一次要联网下载一个听写模型') || !report.before.download || !report.before.import) throw Error('BEFORE ' + JSON.stringify(report.before));
     report.missing = await read(`transcribeSrcs([${JSON.stringify(src)}]).then(r=>r.failed.map(f=>f.code))`);
     if (report.missing[0] !== 'ASR_MODEL_MISSING') throw Error('MISSING ' + JSON.stringify(report.missing));
     // 2. download declined: nothing sent
@@ -73,7 +78,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     report.imported = await read(`({note:asrState.note,text:document.querySelector('[data-tr-asr]').textContent})`);
     await wait(6500);
     report.after = await read(`document.querySelector('[data-tr-asr]').textContent`);
-    if (report.after !== '听写模型已就绪。听写全在这台电脑上做，不往外发。') throw Error('AFTER ' + JSON.stringify(report));
+    if (report.after !== '听写模型装好了。以后听写都在这台电脑上做，不用再联网。') throw Error('AFTER ' + JSON.stringify(report));
     report.modelFiles = fs.readdirSync(path.join(profile, 'asr-models', 'asr')).sort();
     if (report.modelFiles.join() !== 'model.int8.onnx,tokens.txt') throw Error('FILES ' + report.modelFiles);
     // 4. transcribe the model's own test sentence
@@ -93,6 +98,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
   } catch (e) { report.error = String((e && e.stack) || e).slice(0, 1500); }
   finally {
     fs.rmSync(usb, { recursive: true, force: true });
+    try { fs.rmSync(asrDir, { recursive: true, force: true }); } catch { }   // the engine's .node may still be loaded by the server; the OS temp cleanup takes it then
     delete report.result;
     out(ok ? 'ASR_SMOKE_PASS' : 'ASR_SMOKE_FAIL', report);
     process.exitCode = ok ? 0 : 1; app.exit(ok ? 0 : 1);

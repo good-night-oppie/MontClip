@@ -109,13 +109,13 @@ test('download: the first source that works; a wrong byte means the next source;
     a.ok(!fs.readdirSync(user).some((f) => /tmp|part/i.test(f)), 'temporary downloads removed');
   } finally { fs.rmSync(user, { recursive: true, force: true }); }
 });
-test('download: every source failing is an error naming each; a source host outside the list is never asked', async () => {
+test('download: every source failing is an error naming each (network errors: interrupted, the parts stay); a source host outside the list is never asked', async () => {
   const user = tmp();
   try {
     const bad = { ...fake, models: { ...fake.models, asr: { ...fake.models.asr, sources: [{ kind: 'files', base: 'https://huggingface.co/x/' }, ...fake.models.asr.sources] } } };
     const asked = [];
     const store = M.createStore({ manifest: bad, roots: [], userDir: user, extract: async () => {} });
-    await a.rejects(store.download('asr', { fetchFile: async (url) => { asked.push(url); throw new Error('offline'); } }), (e) => e.code === 'ASR_DOWNLOAD_FAILED' && e.failed.length === 3);
+    await a.rejects(store.download('asr', { fetchFile: async (url) => { asked.push(url); throw new Error('offline'); } }), (e) => e.code === 'ASR_DOWNLOAD_INTERRUPTED' && e.failed.length === 3 && e.failed[0].code === 'ASR_HOST_REFUSED');
     a.ok(!asked.some((u) => u.includes('huggingface.co')), 'a host not in the list is refused before any request');
   } finally { fs.rmSync(user, { recursive: true, force: true }); }
 });

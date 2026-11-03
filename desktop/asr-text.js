@@ -5,7 +5,8 @@ const { manifest } = require('../asr-models');
 
 const mbOf = (which) => {
   const m = manifest.models[which];
-  return Math.round(Math.max(...m.sources.map((s) => s.size || Object.values(m.files).reduce((n, f) => n + f.size, 0))) / 1e6);
+  // MiB, to the nearest 10, as JJ writes it (约 230 MB)
+  return Math.round(Math.max(...m.sources.map((s) => s.size || Object.values(m.files).reduce((n, f) => n + f.size, 0))) / 1048576 / 10) * 10;
 };
 const hostsOf = (which) => [...new Set(manifest.models[which].sources.map((s) => new URL(s.base || s.url).hostname))];
 

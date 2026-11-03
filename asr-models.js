@@ -47,7 +47,17 @@ function systemExtract(archive, into) {
     (err) => (err ? reject(new Error("could not unpack " + path.basename(archive) + ": " + err.message)) : resolve())));
 }
 
-function createStore({ manifest: m = manifest, roots = [], userDir, extract = systemExtract } = {}) {
+/** Free bytes on the disk that holds `dir` (or the nearest folder above it that exists), null when it cannot be told. */
+function diskFree(dir) {
+  for (let d = path.resolve(dir); ; d = path.dirname(d)) {
+    try { const st = fs.statfsSync(d); return st.bavail * st.bsize; } catch { }
+    if (path.dirname(d) === d) return null;
+  }
+}
+/** "C" for a folder on C:, else the folder's root. */
+const driveOf = (dir) => { const r = path.parse(path.resolve(dir)).root; return /^[A-Za-z]:/.test(r) ? r[0].toUpperCase() : r; };
+
+function createStore({ manifest: m = manifest, roots = [], userDir, extract = systemExtract, freeBytes = diskFree } = {}) {
   const known = new Map();     // file path → {size, mtimeMs, sha}: a file is hashed once per version
   const hashOf = (file, st) => {
     const k = known.get(file);
@@ -145,54 +155,91 @@ function createStore({ manifest: m = manifest, roots = [], userDir, extract = sy
     return res;
   }
 
+  /* Downloads resume (Deja, 2026-11-03): each file (or archive) is fetched into userDir/.partial/<its pinned SHA-256>.part,
+     which stays when the connection drops, so the next attempt asks only for the rest. Once whole it is checked; a part
+     that does not match is deleted (ASR_CHECK_FAILED), one that matches is renamed into place. */
+  const partDir = () => path.join(userDir, ".partial");
+  const partOf = (sha) => path.join(partDir(), sha + ".part");
+  const sizeOf = (file) => { try { return fs.statSync(file).size; } catch { return 0; } };
+  const dropEmptyPartDir = () => { try { if (!fs.readdirSync(partDir()).length) fs.rmdirSync(partDir()); } catch { } };
+  async function finished(part, size, sha, what) {
+    if (sizeOf(part) !== size || (await sha256(part)) !== sha) {
+      fs.rmSync(part, { force: true });
+      throw Object.assign(new Error(what + " does not match its SHA-256; it was deleted"), { code: "ASR_CHECK_FAILED" });
+    }
+  }
+  async function moveIn(file, key, name, sha) {
+    const to = path.join(userDir, key, name);
+    fs.mkdirSync(path.dirname(to), { recursive: true });
+    fs.rmSync(to, { force: true });
+    fs.renameSync(file, to);
+    known.delete(to);
+    if ((await sha256(to)) !== sha) { fs.rmSync(to, { force: true }); throw Object.assign(new Error(name + " changed while it was moved into place"), { code: "ASR_CHECK_FAILED" }); }
+  }
+  /** What a source still has to fetch, in bytes (parts already here count as fetched). */
+  function remaining(model, s) {
+    if (s.kind === "archive") return Math.max(0, s.size - sizeOf(partOf(s.sha256))) + Object.values(model.files).reduce((n, f) => n + f.size, 0);
+    return Object.values(model.files).reduce((n, f) => n + Math.max(0, f.size - sizeOf(partOf(f.sha256))), 0);
+  }
+
   async function download(key, opts = {}) {
-    const { onProgress = () => {}, signal } = opts;
+    const { onProgress = () => {}, signal, hosts = m.hosts } = opts;
     const model = m.models[key];
     if (!model) throw new Error("unknown model " + key);
     if (!userDir) throw new Error("no folder to keep models in");
-    fs.mkdirSync(userDir, { recursive: true });
+    fs.mkdirSync(partDir(), { recursive: true });
     const failed = [];
-    // a network error is tried once more (a 65 MB download once stalled for a minute and then went through); a file
-    // with the wrong bytes, a refused host or a cancel is not
-    const fetchFile = async (...args) => {
-      try { return await opts.fetchFile(...args); } catch (e) {
-        if ((signal && signal.aborted) || e.code === "ASR_HOST_REFUSED") throw e;
-        return opts.fetchFile(...args);
+    const cancelled = () => Object.assign(new Error("cancelled"), { code: "ASR_DOWNLOAD_CANCELLED" });
+    // a network error is tried once more, from where it stopped; a refused host or a cancel is not
+    const fetchFile = async (url, dest, o) => {
+      try { return await opts.fetchFile(url, dest, o); } catch (e) {
+        if ((signal && signal.aborted) || e.code === "ASR_HOST_REFUSED" || e.code === "ASR_DOWNLOAD_CANCELLED") throw e;
+        return opts.fetchFile(url, dest, o);
       }
     };
+    // room for the first source's download (later sources need no more than it; the archive also needs its unpacked files)
+    const need = Math.min(...(model.sources || []).map((s) => remaining(model, s))) + 16 * 1048576;
+    const free = freeBytes(userDir);
+    if (free != null && free < need)
+      throw Object.assign(new Error(`not enough room on ${driveOf(userDir)}: about ${Math.round(need / 1048576)} MB needed, ${Math.round(free / 1048576)} MB free`),
+        { code: "ASR_NO_SPACE", needBytes: need, freeBytes: free, drive: driveOf(userDir) });
     for (const s of model.sources || []) {
       const host = (() => { try { return new URL(s.base || s.url).hostname; } catch { return String(s.base || s.url); } })();
-      const work = fs.mkdtempSync(path.join(userDir, ".download-"));
       try {
         if (s.kind === "files") {
           for (const [name, f] of Object.entries(model.files)) {
             const url = s.base + name;
-            if (!allowedUrl(url, m.hosts)) throw Object.assign(new Error("not a listed host: " + host), { code: "ASR_HOST_REFUSED" });
-            const tmp = path.join(work, name);
-            await fetchFile(url, tmp, { onProgress: (n) => onProgress({ host, file: name, loaded: n, total: f.size }), signal });
-            if (fs.statSync(tmp).size !== f.size || (await sha256(tmp)) !== f.sha256) throw new Error(name + " from " + host + " does not match its SHA-256");
+            if (!allowedUrl(url, hosts)) throw Object.assign(new Error("not a listed host: " + host), { code: "ASR_HOST_REFUSED" });
+            const part = partOf(f.sha256);
+            if (sizeOf(part) < f.size) await fetchFile(url, part, { hosts, signal, onProgress: (n) => onProgress({ host, file: name, loaded: n, total: f.size }) });
+            await finished(part, f.size, f.sha256, name + " from " + host);
           }
-          for (const [name, f] of Object.entries(model.files)) await place(path.join(work, name), key, name, f.sha256);
+          for (const [name, f] of Object.entries(model.files)) await moveIn(partOf(f.sha256), key, name, f.sha256);
         } else if (s.kind === "archive") {
-          if (!allowedUrl(s.url, m.hosts)) throw Object.assign(new Error("not a listed host: " + host), { code: "ASR_HOST_REFUSED" });
-          const tmp = path.join(work, path.basename(new URL(s.url).pathname));
-          await fetchFile(s.url, tmp, { onProgress: (n) => onProgress({ host, file: path.basename(tmp), loaded: n, total: s.size }), signal });
-          if (fs.statSync(tmp).size !== s.size || (await sha256(tmp)) !== s.sha256) throw new Error(path.basename(tmp) + " from " + host + " does not match its SHA-256");
-          const into = path.join(work, "x"); fs.mkdirSync(into);
-          await extract(tmp, into);
-          for (const [name, f] of Object.entries(model.files)) {
-            const file = path.join(into, s.dir || "", name);
-            if (!fs.existsSync(file) || fs.statSync(file).size !== f.size || (await sha256(file)) !== f.sha256) throw new Error(name + " in the archive from " + host + " does not match its SHA-256");
-          }
-          for (const [name, f] of Object.entries(model.files)) await place(path.join(into, s.dir || "", name), key, name, f.sha256);
+          if (!allowedUrl(s.url, hosts)) throw Object.assign(new Error("not a listed host: " + host), { code: "ASR_HOST_REFUSED" });
+          const part = partOf(s.sha256), label = path.basename(new URL(s.url).pathname);
+          if (sizeOf(part) < s.size) await fetchFile(s.url, part, { hosts, signal, onProgress: (n) => onProgress({ host, file: label, loaded: n, total: s.size }) });
+          await finished(part, s.size, s.sha256, label + " from " + host);
+          const work = fs.mkdtempSync(path.join(userDir, ".unpack-"));
+          try {
+            await extract(part, work);
+            for (const [name, f] of Object.entries(model.files)) await finished(path.join(work, s.dir || "", name), f.size, f.sha256, name + " in " + label);
+            for (const [name, f] of Object.entries(model.files)) await moveIn(path.join(work, s.dir || "", name), key, name, f.sha256);
+          } finally { fs.rmSync(work, { recursive: true, force: true }); }
+          fs.rmSync(part, { force: true });
         } else throw new Error("unknown source kind " + s.kind);
+        dropEmptyPartDir();
         return { source: host, failed };
       } catch (e) {
-        if (signal && signal.aborted) throw Object.assign(new Error("cancelled"), { code: "ASR_DOWNLOAD_CANCELLED" });
-        failed.push({ source: host, error: String((e && e.message) || e) });
-      } finally { fs.rmSync(work, { recursive: true, force: true }); }
+        if ((signal && signal.aborted) || e.code === "ASR_DOWNLOAD_CANCELLED") throw cancelled();
+        failed.push({ source: host, code: e.code || "ASR_NETWORK", error: String((e && e.message) || e) });
+      }
     }
-    throw Object.assign(new Error("the model could not be downloaded: " + failed.map((f) => f.source + ": " + f.error).join("; ")), { code: "ASR_DOWNLOAD_FAILED", failed });
+    // what to tell the streamer: a file that failed its check was deleted (download again); otherwise the parts stay
+    const code = failed.some((f) => f.code === "ASR_CHECK_FAILED") ? "ASR_CHECK_FAILED"
+      : failed.some((f) => f.code === "ASR_NETWORK") ? "ASR_DOWNLOAD_INTERRUPTED" : "ASR_DOWNLOAD_FAILED";
+    dropEmptyPartDir();
+    throw Object.assign(new Error("the model could not be downloaded: " + failed.map((f) => f.source + ": " + f.error).join("; ")), { code, failed });
   }
 
   return { status, dir, importPaths, download };

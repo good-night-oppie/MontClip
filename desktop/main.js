@@ -112,7 +112,10 @@ async function start() {
   // folder the streamer picks (a U 盘). Every file is checked against desktop/asr-manifest.json. The page passes no
   // path and no address: only which model.
   const AsrModels = require("../asr-models"), AsrDownload = require("../asr-download"), { asrDownloadText, asrImportTitle } = require("./asr-text");
-  const asrStore = AsrModels.createStore({ roots: [app.isPackaged ? path.join(process.resourcesPath, "asr", "models") : path.join(__dirname, "..", "vendor", "asr", "models")],
+  // the only sites a model is downloaded from (Deja, 2026-11-03), hf-mirror.com first, github.com second, and the hosts
+  // GitHub's release downloads redirect to; written here, not read from a file
+  const ASR_HOSTS = Object.freeze(["hf-mirror.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com"]);
+  const asrStore = AsrModels.createStore({ roots: [path.join(env.MONTCLIP_ASR_DIR || path.join(__dirname, "..", "vendor", "asr"), "models")],
     userDir: env.MONTCLIP_ASR_MODELS_DIR });
   let asrBusy = null;
   app.once("before-quit", () => { if (asrBusy) asrBusy.abort(); });
@@ -127,11 +130,20 @@ async function start() {
     if (answer.response !== 1) return { ok: false, declined: true };
     asrBusy = new AbortController();
     try {
-      const r = await asrStore.download(which, { signal: asrBusy.signal, fetchFile: AsrDownload.fetchFile,
-        onProgress: (p) => { if (win && !win.isDestroyed() && p.total) win.webContents.send("montclip:asr:progress", { which, frac: Math.min(1, p.loaded / p.total) }); } });
+      const r = await asrStore.download(which, { signal: asrBusy.signal, hosts: ASR_HOSTS,
+        fetchFile: (url, dest, o) => AsrDownload.fetchFile(url, dest, { ...o, hosts: ASR_HOSTS }),
+        onProgress: (p) => { if (win && !win.isDestroyed() && p.total) win.webContents.send("montclip:asr:progress", { which, loaded: p.loaded, total: p.total }); } });
       return { ok: true, source: r.source };
-    } catch (e) { return { ok: false, code: e.code || "ASR_DOWNLOAD_FAILED", error: e.failed ? e.failed.map((f) => f.source + ": " + f.error).join("; ") : String(e.message || e) }; }
-    finally { asrBusy = null; }
+    } catch (e) {
+      return { ok: false, code: e.code || "ASR_DOWNLOAD_FAILED", needBytes: e.needBytes, freeBytes: e.freeBytes, drive: e.drive,
+        error: e.failed ? e.failed.map((f) => f.source + ": " + f.error).join("; ") : String(e.message || e) };
+    } finally { asrBusy = null; }
+  });
+  // 〔取消下载〕: what came stays for 「接着下载」
+  ipcMain.handle("montclip:asr:cancel", async (event) => {
+    if (!settingsAllowed(event, win, origin)) return { ok: false, code: "ASR_FORBIDDEN" };
+    if (asrBusy) asrBusy.abort();
+    return { ok: true };
   });
   ipcMain.handle("montclip:asr:import", async (event) => {
     if (!settingsAllowed(event, win, origin) || !features.transcribe) return { ok: false, code: "ASR_FORBIDDEN" };

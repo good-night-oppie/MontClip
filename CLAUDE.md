@@ -716,7 +716,12 @@ SHA-256 and size; a file that does not match is never used):
 - the **完整版** package carries both models (`resources/asr/models`);
 - otherwise the Transcript tab offers **Download** — the desktop main process asks
   first (size and sites), then fetches from hf-mirror.com (pinned commit), else the
-  k2-fsa GitHub release, following redirects only to the listed hosts — or **Import
+  k2-fsa GitHub release, following redirects only to the hosts written in
+  `desktop/main.js` (`ASR_HOSTS`). Downloads resume with HTTP Range from
+  `asr-models/.partial/<sha256>.part`; a finished file is checked before it is renamed
+  into place, and one that fails is deleted (`ASR_CHECK_FAILED`); a dropped
+  connection or **Cancel download** keeps the part (`ASR_DOWNLOAD_INTERRUPTED`);
+  too little disk space is said first (`ASR_NO_SPACE`) — or **Import
   from a USB drive or a file**: pick a folder; model files (and the official
   `.tar.bz2` archives) are recognised by their SHA-256, whatever their names.
   Downloaded and imported models live in the app's user data (`asr-models/`).

@@ -40,6 +40,15 @@
    - 备用：GitHub release k2-fsa/sherpa-onnx asr-models 里的 tar.bz2，先核对整包 sha256 再解包，解开后逐个文件再核对。
    - 只连 manifest 里列出的域名；重定向也一样，跳到名单外的域名就不跟，换下一个源。
    - 网络出错会重试一次。文件对不上 sha256 就不重试，直接换下一个源。
+   - **断点续传**（Deja 11-03）：每个文件（或压缩包）先下载到 `asr-models/.partial/<它的 sha256>.part`。
+     - 断了，已下载的部分留着，下次用 HTTP Range 从断开的地方接着下。服务器回 206 就接在后面，回 200 就从头下。
+     - 已在 github 的 release 上实测过：从第 100 KB 接着下完，sha256 对得上。
+   - **先核对，再改名**：下完先核对大小和 sha256，通过了才改名放到正式位置。
+     - 没通过就删掉这个文件，界面提示「下载的文件不完整，已删掉，请再下载一次」（`ASR_CHECK_FAILED`）。
+   - 下载前先看硬盘空间。不够就不下，提示是哪个盘、要多少、还剩多少（`ASR_NO_SPACE`）。
+   - 网断了：已下载的部分留着，提示「接着下载」（`ASR_DOWNLOAD_INTERRUPTED`）。〔取消下载〕也一样，已下载的部分留着。
+   - 白名单写死在主进程 `desktop/main.js` 的 `ASR_HOSTS` 里：hf-mirror.com、github.com，加上 github 下载会跳到的 release-assets / objects.githubusercontent.com。
+     - manifest 里有同样一份；测试断言两份一致。
    - ModelScope 上只有个人转存，不用。
 3. **从 U 盘或文件导入**：主播选一个文件夹，比如 U 盘。
    - 文件夹里的模型文件，以及官方的 tar.bz2，都靠「大小 + sha256」认出来，不看文件名。
@@ -58,6 +67,18 @@
 
 - 打包版默认打开听写（`desktop/features.js`）。
 - 用 `--montclip-no-transcribe` 或 `MONTCLIP_NO_TRANSCRIBE=1` 可以关掉。
+
+## 界面文案
+
+- 以 JJ 的定稿 v2 为准：JJ workspace 下的 `documents/2026-11-03-MontClip-听写文案定稿-JJ.md`。
+  - 用到的是文稿页的模型一行和下载的各个状态（下载中、装好了、没下载完、空间不够、校验不过），以及空文稿那一句。
+  - 一律逐字照搬，测试也逐字断言。
+- 这一版界面上不提供标点模型的下载（JJ 写的是「这一版的字幕不带标点」）。
+  - 标点模型放在「完整版」里，或者导入后，照样会加标点。
+- JJ 设计里还有这几样，不在 #70 里：
+  - 首次打开时的三选一设置页；
+  - 云端听写；
+  - 「设置 › 听写」。
 
 ## 已知不足
 

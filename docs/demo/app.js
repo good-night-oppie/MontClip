@@ -9204,7 +9204,7 @@ function onTranscriptEvent(data) {
    silero VAD. The page asks for one file at a time and hears progress as SSE "asr". The model is downloaded or imported
    only by the desktop main process (window.montclipAsr), which asks the streamer first; the page never holds a model
    address. */
-const asrState = { status: null, asking: null, downloading: null, note: "" };
+const asrState = { status: null, asking: null, downloading: null, phase: null, why: "", space: null, note: "" };
 /** What the server has: {model, engine, vad, asr: {ready, where, missing, bad}, punct: {…}}. */
 function loadAsrStatus() {
   if (asrState.asking) return asrState.asking;
@@ -9222,34 +9222,50 @@ function onAsrEvent(data) {
   paintTranscribeBusy();
   b.beat?.();
 }
-/** The model line of the Transcript tab: ready, or missing with the two ways to get it (desktop only). */
+const mbText = (bytes) => `${Math.max(0, Math.round(bytes / 1048576))} MB`;
+/** The model line of the Transcript tab (JJ v2): not installed (download or import), downloading (cancel), interrupted /
+ *  no room / a file that failed its check (go on, or later), installed. Download and import are the desktop app's. */
 function paintAsrStatus() {
   const E = trState.el;
   if (!E || !E.asr) return;
-  const s = asrState.status, desk = !!window.montclipAsr;
-  let text, need = false, punct = false;
+  const s = asrState.status, desk = !!window.montclipAsr, d = asrState.downloading, ph = asrState.phase;
+  let text, get = null, imp = false, cancel = false, later = false;
   if (!s) text = uiText("own.asr-checking");
   else if (!s.engine.ready || !s.vad.ready) text = uiText("own.asr-engine-missing");
-  else if (asrState.downloading) text = uiText("own.asr-downloading", { what: uiText(asrState.downloading.which === "punct" ? "own.asr-punct-name" : "own.asr-model-name"), pct: asrState.downloading.pct });
-  else if (!s.asr.ready) { need = true; text = uiText(s.asr.bad.length ? "own.asr-bad" : "own.asr-missing", { mb: FableCutTranscribe.MODELS[FableCutTranscribe.DEFAULT_MODEL].mb }); }
-  else { text = uiText(s.punct.ready ? "own.asr-ready" : "own.asr-ready-no-punct"); punct = !s.punct.ready; }
+  else if (d) { text = uiText("own.asr-downloading", { got: mbText(d.loaded) }); cancel = true; }
+  else if (ph === "interrupted") { text = uiText("own.asr-interrupted"); get = "own.asr-resume"; later = true; }
+  else if (ph === "no-space") { text = uiText("own.asr-no-space", { drive: asrState.space.drive, free: mbText(asrState.space.free) }); get = "own.asr-resume"; later = true; }
+  else if (ph === "check-failed") { text = uiText("own.asr-check-failed"); get = "own.asr-again"; later = true; }
+  else if (ph === "failed") { text = uiText("own.asr-download-failed", { why: asrState.why || "?" }); get = "own.asr-again"; later = true; }
+  else if (s.asr.ready) text = uiText("own.asr-ready");
+  else { text = uiText(s.asr.bad.length ? "own.asr-bad" : "own.asr-missing"); get = "own.asr-download"; imp = true; }
   E.asr.textContent = asrState.note || text;
-  E.asrDownload.hidden = !desk || !need || !!asrState.downloading;
-  E.asrImport.hidden = !desk || (!need && !punct) || !!asrState.downloading;
-  E.asrPunct.hidden = !desk || !punct || !!asrState.downloading;
+  E.asrDownload.hidden = !desk || !get;
+  if (get) { E.asrDownload.textContent = uiText(get); E.asrDownload.dataset.i18n = get; }
+  E.asrImport.hidden = !desk || !imp;
+  E.asrCancel.hidden = !desk || !cancel;
+  E.asrLater.hidden = !desk || !later;
 }
-async function asrGet(which) {
+/** 下载并使用 / 接着下载 / 再下载一次: the main process asks, downloads (resuming what is there) and checks. */
+async function asrGet() {
   if (!window.montclipAsr || asrState.downloading) return;
-  asrState.note = ""; asrState.downloading = { which, pct: 0 };
-  const off = window.montclipAsr.onProgress((p) => { if (asrState.downloading && p && p.which === which) { asrState.downloading.pct = Math.round(100 * p.frac) || 0; paintAsrStatus(); } });
+  Object.assign(asrState, { note: "", phase: null, why: "", downloading: { loaded: 0 } });
+  const off = window.montclipAsr.onProgress((p) => { if (asrState.downloading && p && p.which === "asr") { asrState.downloading.loaded = p.loaded; paintAsrStatus(); } });
   paintAsrStatus();
   let r = null;
-  try { r = await window.montclipAsr.download(which); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
+  try { r = await window.montclipAsr.download("asr"); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
   off?.();
   asrState.downloading = null;
-  asrState.note = r && r.ok ? "" : r && r.declined ? "" : uiText("own.asr-download-failed", { why: (r && r.error) || "?" });
+  if (r && r.ok) toast(uiText("own.asr-ready"));
+  else if (r && (r.declined || r.code === "ASR_DOWNLOAD_CANCELLED")) asrState.phase = r.code === "ASR_DOWNLOAD_CANCELLED" ? "interrupted" : null;
+  else if (r && r.code === "ASR_NO_SPACE") { asrState.phase = "no-space"; asrState.space = { drive: r.drive || "?", free: r.freeBytes || 0 }; }
+  else if (r && r.code === "ASR_CHECK_FAILED") asrState.phase = "check-failed";
+  else if (r && r.code === "ASR_DOWNLOAD_INTERRUPTED") asrState.phase = "interrupted";
+  else { asrState.phase = "failed"; asrState.why = (r && r.error) || "?"; }
   await loadAsrStatus();
 }
+function asrCancel() { if (window.montclipAsr && asrState.downloading) window.montclipAsr.cancel(); }
+function asrLater() { asrState.phase = null; asrState.why = ""; paintAsrStatus(); }
 async function asrImport() {
   if (!window.montclipAsr || asrState.downloading) return;
   asrState.note = "";
@@ -9360,7 +9376,8 @@ function buildTranscriptPage() {
       ${listen ? `<div class="tr-row tr-asr"><span class="tr-asr-text" data-tr-asr role="status"></span>
         <button type="button" class="btn tiny" data-tr-asr-download hidden data-i18n="own.asr-download">${escapeHtml(uiText("own.asr-download"))}</button>
         <button type="button" class="btn tiny" data-tr-asr-import hidden data-i18n="own.asr-import">${escapeHtml(uiText("own.asr-import"))}</button>
-        <button type="button" class="btn tiny" data-tr-asr-punct hidden data-i18n="own.asr-download-punct">${escapeHtml(uiText("own.asr-download-punct"))}</button></div>` : ""}
+        <button type="button" class="btn tiny" data-tr-asr-cancel hidden data-i18n="own.asr-download-cancel">${escapeHtml(uiText("own.asr-download-cancel"))}</button>
+        <button type="button" class="btn tiny" data-tr-asr-later hidden data-i18n="own.asr-later">${escapeHtml(uiText("own.asr-later"))}</button></div>` : ""}
       ${listen ? `<div class="tr-busy hidden" data-tr-busy><span data-tr-busy-text></span><span class="tr-bar"><i data-tr-bar></i></span>
         <button type="button" class="btn tiny" data-tr-cancel title="Stop transcribing (what is done is kept)" data-i18n="term.cancel">${uiText("term.cancel")}</button></div>` : ""}
       <div class="tr-row">
@@ -9388,13 +9405,14 @@ function buildTranscriptPage() {
   trState.el = { go: q("[data-tr-go]"), busy: q("[data-tr-busy]"), busyText: q("[data-tr-busy-text]"), bar: q("[data-tr-bar]"),
     find: q("[data-tr-find]"), count: q("[data-tr-count]"), cutFound: q("[data-tr-cut-found]"), body: q("[data-tr-body]"),
     foot: q("[data-tr-foot]"), selText: q("[data-tr-sel]"),
-    asr: q("[data-tr-asr]"), asrDownload: q("[data-tr-asr-download]"), asrImport: q("[data-tr-asr-import]"), asrPunct: q("[data-tr-asr-punct]") };
+    asr: q("[data-tr-asr]"), asrDownload: q("[data-tr-asr-download]"), asrImport: q("[data-tr-asr-import]"), asrCancel: q("[data-tr-asr-cancel]"), asrLater: q("[data-tr-asr-later]") };
   const E = trState.el;
   if (listen) {
     E.go.addEventListener("click", transcribeFromTab);
     q("[data-tr-cancel]").addEventListener("click", cancelTranscribe);
-    E.asrDownload.addEventListener("click", () => asrGet("asr"));
-    E.asrPunct.addEventListener("click", () => asrGet("punct"));
+    E.asrDownload.addEventListener("click", asrGet);
+    E.asrCancel.addEventListener("click", asrCancel);
+    E.asrLater.addEventListener("click", asrLater);
     E.asrImport.addEventListener("click", asrImport);
     paintAsrStatus();
     loadAsrStatus();
