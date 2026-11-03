@@ -63,17 +63,25 @@ test('互动 has its own start and end habits, and never moves the singing bar',
  const [x]=C.apply([card({id:'i',kind:'interaction',s:600,e:660})],r,{duration:{m1:3600}});
  a.deepEqual([x.s,x.e,x.rules],[597,664,['shift-start:interaction','shift-end:interaction']]);
  // a song made 互动 is 「不是唱歌」; 互动 ↔ 普通高光 is not about singing
- a.equal(C.rules([0.05,0.06,0.07,0.05].map(p=>kind('song','interaction',p))).bar.dir,'up');
+ a.equal(C.rules([0.05,0.06,0.07,0.05].map(p=>kind('song','interaction',p)),{bar:true}).bar.dir,'up');
  a.equal(C.rules([0.05,0.06,0.07,0.05].map(p=>kind('moment','interaction',p))).bar,undefined);
 });
-test('the singing bar moves both ways, only on a habit, at most half its first value',()=>{
- const down=C.rules([0.05,0.08,0.06,0.07].map(p=>kind('song','other',p)));
+// Deja (2026-11-03, from the LOSO numbers): the bar is off by default — 0.19 of recall for 0.02 of precision is not worth it.
+// Its code and tests stay (with {bar:true}); it is decided again once real corrections exist
+test('the singing bar is off by default: no bar, the search keeps PAUSE 0.12',()=>{
+ a.equal(C.BAR_ON,false);a.equal(Songs.DEFAULTS.PAUSE,0.12);
+ const notSong=[0.05,0.08,0.06,0.07,0.05].map(p=>kind('song','other',p)),isSong=[0.15,0.2,0.16,0.18].map(p=>kind('moment','song',p));
+ for(const recs of [notSong,isSong]){const r=C.rules(recs);a.equal(r.bar,undefined);a.deepEqual(C.songOptions(r),{},'PAUSE stays 0.12');a.ok(C.rules(recs,{bar:true}).bar,'on when asked');}
+ const [x]=C.apply([card({})],C.rules(notSong),{});a.ok(!x.rules.includes('song-bar'));
+});
+test('the singing bar moves both ways, only on a habit, at most half its first value (with the bar on)',()=>{
+ const down=C.rules([0.05,0.08,0.06,0.07].map(p=>kind('song','other',p)),{bar:true});
  a.equal(down.bar.dir,'up','「不是唱歌」 4 of 5: the bar goes up (stricter)');a.ok(down.bar.PAUSE<C.BAR_BASE&&down.bar.PAUSE>=C.BAR_RANGE[0]);
- const up=C.rules([0.15,0.2,0.16,0.18].map(p=>kind('moment','song',p)));
+ const up=C.rules([0.15,0.2,0.16,0.18].map(p=>kind('moment','song',p)),{bar:true});
  a.equal(up.bar.dir,'down','「是唱歌」 4 of 5: the bar goes down');a.ok(up.bar.PAUSE>C.BAR_BASE&&up.bar.PAUSE<=C.BAR_RANGE[1]);
- a.equal(C.rules([0.01,0.01,0.01,0.01].map(p=>kind('song','other',p))).bar.PAUSE,C.BAR_RANGE[0],'never past half');
- a.equal(C.rules([0.9,0.9,0.9,0.9].map(p=>kind('other','song',p))).bar.PAUSE,C.BAR_RANGE[1]);
- a.equal(C.rules([kind('song','other',0.05),kind('other','song',0.2),kind('song','other',0.05),kind('other','song',0.2),kind('song','other',0.05)]).bar,undefined,'mixed: no habit');
+ a.equal(C.rules([0.01,0.01,0.01,0.01].map(p=>kind('song','other',p)),{bar:true}).bar.PAUSE,C.BAR_RANGE[0],'never past half');
+ a.equal(C.rules([0.9,0.9,0.9,0.9].map(p=>kind('other','song',p)),{bar:true}).bar.PAUSE,C.BAR_RANGE[1]);
+ a.equal(C.rules([kind('song','other',0.05),kind('other','song',0.2),kind('song','other',0.05),kind('other','song',0.2),kind('song','other',0.05)],{bar:true}).bar,undefined,'mixed: no habit');
  // the search with the bar: songs.js options; none without a rule
  a.deepEqual(C.songOptions(down),{PAUSE:down.bar.PAUSE});a.deepEqual(C.songOptions(C.rules([])),{});a.deepEqual(C.songOptions(null),{});
 });
@@ -84,7 +92,7 @@ test('applied: each card moved by its kind’s habit, inside the recording, and 
  a.equal(x.s,95.5);a.equal(x.e,220);a.deepEqual(x.rules,['shift-start:song']);
  a.deepEqual(y.rules,[],'no rule for moments');
  a.equal(C.apply([card({s:2,e:300})],rules,{duration:{m1:3600}})[0].s,0,'kept inside the recording');
- const bar=C.rules([0.05,0.08,0.06,0.07].map(p=>kind('song','other',p)));
+ const bar=C.rules([0.05,0.08,0.06,0.07].map(p=>kind('song','other',p)),{bar:true});
  a.deepEqual(C.apply([card({}),card({id:'m',kind:'moment'})],bar,{})[0].rules,['song-bar']);
 });
 
@@ -108,4 +116,36 @@ test('off, or nothing kept: exactly what the search gave',()=>{
 
 test('nothing here is for sending: no summary for the assistant',()=>{
  a.equal(C.summary,undefined);
+});
+
+// Deja (2026-11-03): 「不是唱歌」 counts with the bar off — the same recording searched again does not bring that part back
+// as a song (a song card more than half inside a part marked 不是唱歌). The same recording is known by its length and a
+// hash of its sound, never its path.
+const K=(d,v)=>C.recordingKey(d,{step:0.5,values:v});
+const sound=Array.from({length:7200},(_,i)=>-20-(i%37)/3);
+test('a recording is known by its length and a hash of its sound: 16 hex digits, never a path',()=>{
+ const k=K(3600,sound);a.match(k,/^[a-f0-9]{16}$/);a.equal(K(3600,sound.slice()),k,'the same recording, the same key');
+ a.notEqual(K(3601,sound),k,'another length');const v=sound.slice();v[100]+=3;a.notEqual(K(3600,v),k,'another sound');
+ a.equal(C.recordingKey(3600,null),null);a.equal(C.recordingKey(3600,{step:0.5,values:[]}),null);a.equal(C.recordingKey(NaN,{step:0.5,values:sound}),null);
+});
+test('a 不是唱歌 record may carry the recording key and the part, numbers only',()=>{
+ const k=K(3600,sound),r=C.record({type:'kind',from:'song',to:'other',duration:3600,rec:k,s:100,e:220});
+ a.deepEqual([r.rec,r.s,r.e],[k,100,220]);
+ for(const bad of [{rec:'C:/录像/a.flv',s:100,e:220},{rec:k},{rec:k,s:100},{rec:k,s:220,e:100},{rec:k,s:100,e:4000},{rec:k.toUpperCase(),s:100,e:220},{s:100,e:220}])
+  a.throws(()=>C.record({type:'kind',from:'song',to:'other',duration:3600,...bad}),/CORRECTION_INVALID/,JSON.stringify(bad));
+});
+test('the same recording searched again: a part marked 不是唱歌 is not a song card again — one mark is enough, the bar off',()=>{
+ const k=K(3600,sound),k2=K(1800,sound.slice(0,3600));
+ const marked=C.record({type:'kind',from:'song',to:'interaction',duration:3600,rec:k,s:100,e:220});
+ const r=C.rules([marked]);a.equal(r.bar,undefined);a.deepEqual(r.notSong,[{rec:k,s:100,e:220}]);
+ const cards=[card({id:'a',s:110,e:230}),card({id:'b',s:200,e:320}),card({id:'c',kind:'moment',s:100,e:220}),card({id:'d',mediaId:'m2',s:100,e:220}),card({id:'e',mediaId:'m3',s:100,e:220})];
+ const out=C.apply(cards,r,{duration:{m1:3600,m2:1800,m3:3600},recKey:{m1:k,m2:k2}});
+ a.deepEqual(out.map(c=>c.id),['b','c','d','e'],'a: 110 of its 120 s marked; b: 20 of 120 s, kept; c: not a song; d: another recording; e: no key');
+ // exactly half is not more than half
+ a.deepEqual(C.apply([card({id:'h',s:160,e:280})],r,{recKey:{m1:k}}).map(c=>c.id),['h']);
+ // 「是唱歌」 marks nothing away
+ const isSong=C.record({type:'kind',from:'other',to:'song',duration:3600,rec:k,s:100,e:220});
+ a.deepEqual(C.rules([isSong]).notSong,undefined);
+ // off, or the record undone (not kept): the cards as the search gave them
+ a.equal(JSON.stringify(C.apply(cards,C.rules([]),{recKey:{m1:k}})),JSON.stringify(cards));
 });
