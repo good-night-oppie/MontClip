@@ -236,3 +236,46 @@ test('a file rewritten at once with other bytes of the same size is checked agai
     }
   } finally { fs.rmSync(user, { recursive: true, force: true }); }
 });
+
+// Deja (11-03): the room needed is the download and the unpacked files, with a margin — for the source that needs the
+// most, since any of them may be the one used (hf-mirror is often passed on, then the GitHub archive is used). Room for
+// the download alone must not start a download that fails while unpacking.
+const MB = 1048576;
+const sized = (files, sources) => ({ hosts: fake.hosts, models: { m: { id: 'm', required: false, sources,
+  files: Object.fromEntries(Object.entries(files).map(([n, s]) => [n, { size: s, sha256: sha(Buffer.from(n)) }])) } } });
+async function roomFor(manifest, free) {
+  const user = tmp();
+  try {
+    let asked = 0, err = null;
+    const store = M.createStore({ manifest, roots: [], userDir: user, extract: async () => {}, freeBytes: () => free });
+    try { await store.download('m', { fetchFile: async () => { asked++; throw Object.assign(new Error('stop'), { code: 'ASR_DOWNLOAD_CANCELLED' }); } }); } catch (e) { err = e; }
+    return { asked, code: err && err.code, need: err && err.needBytes };
+  } finally { fs.rmSync(user, { recursive: true, force: true }); }
+}
+test('room: the punctuation model (archive only) needs its 62 MB download and its 76 MB unpacked, before anything is fetched', async () => {
+  const punct = sized({ 'model.int8.onnx': 72 * MB, 'tokens.json': 4 * MB },
+    [{ kind: 'archive', url: 'https://github.com/k2-fsa/p.tar.bz2', size: 62 * MB, sha256: sha(Buffer.from('P')), dir: 'p/' }]);
+  const onlyDownload = await roomFor(punct, 62 * MB + 20 * MB);
+  a.equal(onlyDownload.code, 'ASR_NO_SPACE', 'room for the download alone is not enough');
+  a.equal(onlyDownload.asked, 0, 'nothing fetched');
+  a.ok(onlyDownload.need >= (62 + 76) * MB, 'needs download + unpacked: ' + onlyDownload.need / MB);
+  const enough = await roomFor(punct, (62 + 76 + 64) * MB);
+  a.notEqual(enough.code, 'ASR_NO_SPACE'); a.equal(enough.asked, 1);
+});
+test('room: the speech model is checked for its biggest source (the GitHub archive + unpacked), not the smallest (hf-mirror files)', async () => {
+  const asr = sized({ 'model.int8.onnx': 243 * MB, 'tokens.txt': 1 * MB }, [
+    { kind: 'files', base: 'https://hf-mirror.com/x/resolve/abc/' },
+    { kind: 'archive', url: 'https://github.com/k2-fsa/x.tar.bz2', size: 234 * MB, sha256: sha(Buffer.from('A')), dir: 'x/' }]);
+  const forFiles = await roomFor(asr, 300 * MB);   // enough for hf-mirror's files, not for the archive and its unpacking
+  a.equal(forFiles.code, 'ASR_NO_SPACE');
+  a.equal(forFiles.asked, 0);
+  a.ok(forFiles.need >= (234 + 244) * MB, String(forFiles.need / MB));
+});
+test('unpacking takes only the model\'s own files out of an archive (what the room check counts)', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'asr-models.js'), 'utf8');
+  a.match(src, /function systemExtract\(archive, into, members = \[\]\)/);
+  a.match(src, /\["-xjf", archive, "-C", into, \.\.\.members\]/);
+  const calls = src.match(/await extract\([^\n]*\);/g);
+  a.ok(calls && calls.length >= 2, 'both unpack sites');
+  for (const call of calls) a.match(call, /membersOf\(/, call);
+});
