@@ -18169,6 +18169,13 @@ async function fastExport(opts = {}) {
    range go out in ONE render: the frames are drawn once and every output's
    ffmpeg encodes them (up to 8 at a time). Lives in this tab only. */
 const exportQueue = [];
+// Asked by the desktop close prompt (desktop/export-close.js): is an export running here, and how many exported videos in
+// the queue are not saved yet (status done and not saved; the queue lives only in this page, the copies stay in exports/).
+function exportCloseState() {
+  // a copy still being written to where the streamer chose is not "not saved": deleting it would leave half a file (QQ)
+  const unsaved = exportQueue.filter((q) => q.status === "done" && !q.saved && !q.saving);
+  return { exporting: !!state.exporting, unsaved: unsaved.length, files: unsaved.map((q) => q.file).filter(Boolean) };
+}
 let queueRunning = false, queueStop = false;
 function queueLabel(spec) {
   const p = Delivery.PRESETS[spec.preset] || deliveryInfo.saved[spec.preset];
