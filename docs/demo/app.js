@@ -6999,6 +6999,65 @@ function clipStatusBar(c) {
       linked ? "Video and audio move together — click to unlink (Ctrl/Cmd+L)" : "Click to relink with its audio (select both, Ctrl/Cmd+L)") : "") +
     `</div>`;
 }
+/* P5: caption size and position in one go (caption-quick.js; frozen design v10 ④, Deja 11-03). Two entries, one
+   operation: 〔字幕大小〕 beside the caption style menu works on all captions, the Inspector's top on the selected ones.
+   Only fontSize and y change, nothing is generated again; each click is one undo step; locked captions stay as they are. */
+function captionQuickTargets(scope) {
+  const caps = project.clips.filter((c) => FableCutCaptions.isCaption(c) && (scope === "all" || state.selIds.has(c.id)));
+  return caps.filter((c) => !isClipLocked(c));
+}
+function captionQuickHtml(scope) {
+  const list = captionQuickTargets(scope);
+  if (!list.length) return "";
+  const Q = MontClipCaptionQuick, cur = Q.current(list, project.width, project.height), n = list.length;
+  const say = (k, v) => escapeHtml(uiText("own." + k, v));
+  const pill = (k, v) => `<button type="button" class="btn tiny${cur[k] === v ? " on" : ""}" data-cq-k="${k}" data-cq-v="${v}" aria-pressed="${cur[k] === v}">${say("cq-" + v)}</button>`;
+  const mixed = (on, k) => (on ? `<span class="cq-mixed" data-cq-mixed>${say(k)}</span>` : "");
+  return `<div class="cq-panel" data-cq-panel data-cq-scope="${scope}"><b data-cq-who>${say(scope === "all" ? "cq-who-all" : "cq-who-selected", { n })}</b>
+    <div class="cq-row"><span class="cq-lbl">${say("cq-size")}</span><span class="cq-pills">${Q.SIZES.map((v) => pill("size", v)).join("")}</span>${mixed(cur.mixedSize, "cq-mixed-size")}</div>
+    <div class="cq-row"><span class="cq-lbl">${say("cq-pos")}</span><span class="cq-pills">${Q.POSITIONS.map((v) => pill("pos", v)).join("")}</span>${mixed(cur.mixedPos, "cq-mixed-pos")}</div>
+    <p class="cq-desc" data-cq-desc>${say("cq-desc", { n })}</p></div>`;
+}
+function bindCaptionQuick(root, scope) {
+  root.querySelectorAll("[data-cq-panel] [data-cq-k]").forEach((b) => b.addEventListener("click", () => captionQuickApply(scope, b.dataset.cqK, b.dataset.cqV)));
+}
+function captionQuickApply(scope, kind, level) {
+  const list = captionQuickTargets(scope);
+  if (!list.length) return;
+  const snap = undoSnapshot();
+  // a caption keyed on this property keeps it (its keys would win) and is named in the toast (Deja, #81)
+  const { changed, skipped } = MontClipCaptionQuick.apply(list, kind, level, project.width, project.height);
+  const animatedNote = !skipped ? "" : skipped === 1 ? uiText("own.cq-animated-one") : uiText("own.cq-animated-many", { n: skipped });
+  if (!changed) { toast(animatedNote); return; }
+  pushUndo(snap);
+  const depth = runtime.undo.length, n = changed;
+  state.dirtyTimeline = true;
+  scheduleSave(); renderInspector(); drawFrame(); repaintCaptionQuick();
+  const msg = (kind === "size" ? uiText("own.cq-done-size", { n, size: uiText("own.cq-" + level) }) : uiText(level === "top" ? "own.cq-done-top" : "own.cq-done-bottom", { n })) + animatedNote;
+  // 〔撤销〕 takes back this change only: if something else was done since, it does nothing
+  toastAction(msg, uiText("own.as-undo"), () => { if (runtime.undo.length === depth) { undo(); repaintCaptionQuick(); } });
+}
+let captionQuickDialog = null;
+/** 〔字幕大小〕 in the transcript tab: the same panel, for all captions, in a small dialog. */
+function openCaptionQuick() {
+  if (!captionQuickTargets("all").length) return;
+  if (!captionQuickDialog) {
+    captionQuickDialog = document.createElement("dialog");
+    captionQuickDialog.className = "cq-dialog";
+    captionQuickDialog.addEventListener("click", (e) => { if (e.target.closest && e.target.closest("[data-cq-close]")) captionQuickDialog.close(); });
+    document.body.append(captionQuickDialog);
+  }
+  repaintCaptionQuick();
+  if (!captionQuickDialog.open) captionQuickDialog.showModal();
+}
+function repaintCaptionQuick() {
+  const d = captionQuickDialog;
+  if (!d) return;
+  const html = captionQuickHtml("all");
+  if (!html) { if (d.open) d.close(); return; }
+  d.innerHTML = html + `<div class="dialog-actions"><button type="button" class="btn" data-cq-close>${escapeHtml(uiText("term.close"))}</button></div>`;
+  bindCaptionQuick(d, "all");
+}
 function renderInspector(lite) {
   if (colorState.open && !lite) renderColorPage();
   const c = getClip(state.selId);
@@ -7053,7 +7112,7 @@ function renderInspector(lite) {
       `<input type="range" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${shown}" title="Ctrl/Cmd-click: reset to default">
        <span class="val" data-val="${k}" data-unit="${unit}">${shown}${unit}</span>`, k);
   };
-  let html = (state.selIds.size > 1
+  let html = captionQuickHtml("selected") + (state.selIds.size > 1
     ? `<div class="insp-multi">${state.selIds.size} clips selected — drag moves them together, Del deletes all. Fields below edit the primary (white-outlined) clip.</div>`
     : "") + clipStatusBar(c) + `<div class="insp-section"><h3>Clip — ${c.kind}</h3>
     ${row("Name", `<input type="text" data-k="name" value="${escapeHtml(c.name || "")}">`)}
@@ -7310,6 +7369,7 @@ function renderInspector(lite) {
     </div>`;
   }
   els.inspector.innerHTML = html;
+  bindCaptionQuick(els.inspector, "selected");
   inspSyncStamp = inspStampNow(); // full rebuild already reflects this state
   els.inspector.querySelectorAll("label.insp-reset[data-reset]").forEach((lab) => {
     lab.addEventListener("click", (e) => {
@@ -9651,6 +9711,7 @@ function buildTranscriptPage() {
         <span class="tr-lbl" data-i18n="term.captions">${uiText("term.captions")}</span>
         <select data-tr-cap-style title="The look: subtitle on a dark bar, karaoke (words light up as said), highlight (the word being said in colour), word pop (a few big words at a time)">${Object.entries(FableCutCaptions.STYLES).map(([k, st]) =>
           `<option value="${k}" ${k === (set.captionStyle || FableCutCaptions.DEFAULT_STYLE) ? "selected" : ""}>${st.label}</option>`).join("")}</select>
+        <button type="button" class="btn tiny" data-tr-cap-quick${captionQuickTargets("all").length ? "" : " hidden"} data-i18n="own.cq-open">${escapeHtml(uiText("own.cq-open"))}</button>
         ${listen ? `<button type="button" class="btn tiny" data-tr-cap-add title="Make captions from these words, timed word by word, on a video lane above the edit (replaces the captions there; one undo step)" data-i18n="term.add-captions">${uiText("term.add-captions")}</button>` : ""}
         <button type="button" class="btn tiny" data-tr-cap-file="srt" title="Download the timeline's captions as a SubRip file">SRT</button>
         <button type="button" class="btn tiny" data-tr-cap-file="vtt" title="Download the timeline's captions as a WebVTT file">VTT</button>
@@ -9690,6 +9751,7 @@ function buildTranscriptPage() {
   });
   q("[data-tr-copy]").addEventListener("click", copyTranscript);
   q("[data-tr-cap-style]").addEventListener("change", (e) => saveTranscribeSettings({ captionStyle: e.target.value }));
+  q("[data-tr-cap-quick]").addEventListener("click", () => openCaptionQuick());
   q("[data-tr-cap-add]")?.addEventListener("click", () => addCaptionsFromTranscript(q("[data-tr-cap-style]").value));
   root.querySelectorAll("[data-tr-cap-file]").forEach((b) => b.addEventListener("click", () => downloadCaptions(b.dataset.trCapFile)));
   const capInput = q("[data-tr-cap-input]");
