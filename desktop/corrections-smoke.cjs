@@ -15,24 +15,26 @@ BrowserWindow.prototype.loadURL=async function(...args){
  try{
   await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
   const C=(js)=>read(`(()=>{const c=window.montclipCorrections;return ${js};})()`);
-  report.first=await C(`c.status()`);assert.deepEqual(report.first,{enabled:true,count:0});
-  assert.deepEqual(await C(`c.append({type:'trim',kind:'song',startShift:-4,endShift:3,duration:3600})`),{ok:true});
-  assert.deepEqual(await C(`c.append({type:'kind',from:'song',to:'other',duration:3600,features:{len:120,level:-25,pause:0.3}})`),{ok:true});
+  report.first=await C(`c.status()`);assert.deepEqual(report.first,{enabled:true,count:0,byType:{trim:0,remove:0,kind:0,add:0}});
+  const first=await C(`c.append({type:'trim',kind:'song',startShift:-4,endShift:3,duration:3600})`);assert.equal(first.ok,true);
+  assert.equal((await C(`c.append({type:'kind',from:'song',to:'other',duration:3600,features:{len:120,level:-25,pause:0.3}})`)).ok,true);
+  // undoing an edit takes its record back (v11)
+  const added=await C(`c.append({type:'add',kind:'interaction',duration:3600})`);assert.deepEqual(await C(`c.undo(${JSON.stringify(added.id)})`),{ok:true});
   assert.equal((await C(`c.append({type:'trim',kind:'song',startShift:-4,endShift:3,duration:3600,name:'我的直播.mp4'})`)).code,'CORRECTION_INVALID');
   assert.equal((await C(`c.append('C:/录像/a.flv')`)).code,'CORRECTION_INVALID');
-  report.kept=await C(`c.status()`);assert.deepEqual(report.kept,{enabled:true,count:2});
+  report.kept=await C(`c.status()`);assert.deepEqual(report.kept,{enabled:true,count:2,byType:{trim:1,remove:0,kind:1,add:0}});
   assert.equal((await C(`c.records()`)).length,2);
   const dir=path.join(app.getPath('userData'),'corrections');
   for(const f of fs.readdirSync(dir)){const raw=fs.readFileSync(path.join(dir,f),'utf8');assert.ok(!/\.(mp4|flv)|[\\/]|[一-鿿]/.test(raw),f);}
   // the page has no other way in: no path, no file
-  assert.deepEqual(await C(`Object.keys(c).sort()`),['append','clear','records','setEnabled','status']);
+  assert.deepEqual(await C(`Object.keys(c).sort()`),['append','clear','records','setEnabled','status','undo']);
   // off: nothing kept, nothing used; on again; emptied
   assert.deepEqual(await C(`c.setEnabled(false)`),{ok:true,enabled:false});
   assert.equal((await C(`c.append({type:'remove',kind:'moment',duration:600})`)).code,'CORRECTIONS_OFF');
   assert.equal(await C(`c.records()`),null);
-  assert.deepEqual(await C(`c.status()`),{enabled:false,count:2});
+  assert.deepEqual(await C(`[c.status().enabled,c.status().count]`),[false,2]);
   await C(`c.setEnabled(true)`);assert.deepEqual(await C(`c.clear()`),{ok:true});
-  report.cleared=await C(`c.status()`);assert.deepEqual(report.cleared,{enabled:true,count:0});
+  report.cleared=await C(`c.status()`);assert.deepEqual([report.cleared.enabled,report.cleared.count],[true,0]);
   // never in the project the page saves
   assert.ok(!/corrections|startShift|songBar/.test(await read(`JSON.stringify(projectJSON())`)));
   ok=true;

@@ -44,14 +44,14 @@ test('the sound of a part, in numbers: length, usual level, how often it pauses'
 
 test('a shift is a habit: the same kind and the same direction, 4 of the last 5; then the mean of those, at most ±5 s',()=>{
  const r=C.rules([trim('song',-4,3),trim('song',-6,5),trim('song',-5,-1),trim('song',-3,4),trim('song',2,0)]);
- a.deepEqual(r.shift.song.start,{by:-4.5,of:4});
+ a.deepEqual(r.shift.song.start,{by:-4.5,of:4,n:5});
  a.equal(r.shift.song.end,undefined,'the ends went up 3 times of 5: no habit');
  a.equal(C.rules([trim('song',-4,1),trim('song',-6,1),trim('song',-5,1)]).shift.song,undefined,'3 are not 4');
- a.deepEqual(C.rules([trim('song',-4,1),trim('song',-6,1),trim('song',-5,1),trim('song',-2,1)]).shift.song.start,{by:-4.25,of:4},'4 of the last 4');
+ a.deepEqual(C.rules([trim('song',-4,1),trim('song',-6,1),trim('song',-5,1),trim('song',-2,1)]).shift.song.start,{by:-4.25,of:4,n:4},'4 of the last 4');
  // only the last 5 count: an old habit that stopped is gone
  const old=[...[-4,-4,-4,-4,-4].map(s=>trim('song',s,0)),...[3,-3,3,-3,1].map(s=>trim('song',s,0))];
  a.equal(C.rules(old).shift.song,undefined);
- a.deepEqual(C.rules([-30,-40,-50,-20,-10].map(s=>trim('song',s,0))).shift.song.start,{by:-5,of:5},'capped at 5 s');
+ a.deepEqual(C.rules([-30,-40,-50,-20,-10].map(s=>trim('song',s,0))).shift.song.start,{by:-5,of:5,n:5},'capped at 5 s');
  a.equal(C.rules([-4,-4,-4,-4].map(s=>trim('moment',s,0))).shift.song,undefined,'per kind');
 });
 
@@ -59,7 +59,7 @@ test('a shift is a habit: the same kind and the same direction, 4 of the last 5;
 test('互动 has its own start and end habits, and never moves the singing bar',()=>{
  a.deepEqual([...C.KINDS],['song','interaction','moment','other']);
  const r=C.rules([[-3,4],[-2,5],[-4,3],[-3,4]].map(([s,e])=>trim('interaction',s,e)));
- a.deepEqual(r.shift.interaction,{start:{by:-3,of:4},end:{by:4,of:4}});a.equal(r.shift.song,undefined,'per kind');a.equal(r.bar,undefined);
+ a.deepEqual(r.shift.interaction,{start:{by:-3,of:4,n:4},end:{by:4,of:4,n:4}});a.equal(r.shift.song,undefined,'per kind');a.equal(r.bar,undefined);
  const [x]=C.apply([card({id:'i',kind:'interaction',s:600,e:660})],r,{duration:{m1:3600}});
  a.deepEqual([x.s,x.e,x.rules],[597,664,['shift-start:interaction','shift-end:interaction']]);
  // a song made 互动 is 「不是唱歌」; 互动 ↔ 普通高光 is not about singing
@@ -88,6 +88,15 @@ test('applied: each card moved by its kind’s habit, inside the recording, and 
  a.deepEqual(C.apply([card({}),card({id:'m',kind:'moment'})],bar,{})[0].rules,['song-bar']);
 });
 
+// v11 (交互说明 6e564931): a card moved by a habit keeps where it was, so 〔这次不用〕 puts that one back
+test('a card moved by a habit keeps where it was; 〔这次不用〕 puts it back, without its rules',()=>{
+ const rules=C.rules([-4,-6,-5,-3].map(s=>trim('song',s,0)));
+ const [x,y]=C.apply([card({id:'a'}),card({id:'b',kind:'moment',s:50,e:80})],rules,{duration:{m1:3600}});
+ a.deepEqual(x.was,{s:100,e:220});a.equal(y.was,undefined,'not moved, nothing kept');
+ const back=C.revert(x);
+ a.deepEqual([back.s,back.e,back.rules,back.was,back.notThisTime],[100,220,[],undefined,true]);
+ a.deepEqual(C.revert(y),y,'a card not moved stays as it is');
+});
 test('off, or nothing kept: exactly what the search gave',()=>{
  const cards=[card({id:'a'}),card({id:'b',kind:'moment',s:50,e:80,reasons:[{signal:'loudness',value:6}]})],copy=JSON.stringify(cards);
  a.equal(JSON.stringify(C.apply(cards,null,{duration:{m1:3600}})),copy,'off');
