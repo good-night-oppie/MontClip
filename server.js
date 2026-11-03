@@ -67,6 +67,7 @@ const MediaLib = require("./media-lib");
 const { createProxies } = require("./proxy");
 const { createTranscripts } = require("./transcripts");
 const Delivery = require("./delivery");
+const ExportCleanup = require("./export-cleanup");
 const { createProjects } = require("./projects");
 const { createHistory } = require("./history");
 
@@ -667,17 +668,24 @@ function startAnnexbEncoder(sess) {
   attachProc(sess, spawn(FF.path("ffmpeg"), args, { stdio: ["pipe", "ignore", "pipe"] }));
   return sess.proc;
 }
+/* Stops a session's ffmpeg and deletes its half-finished files and fablecut-XXXX folder (export-cleanup.js: what
+   ffmpeg still holds open is deleted once it has exited, for up to 5 s). shutdown() waits for these. */
+const pendingCleanups = new Set();
+/** Base names of the files /api/export/end put in exports/ while this server runs: the only ones
+ *  /api/export/delete-unsaved may delete (the close prompt's 删掉它们并关闭). */
+const exportedThisRun = new Set();
 function cleanupExport(id) {
   const s = exportSessions.get(id);
   if (!s) return;
   exportSessions.delete(id);
-  try { s.proc?.kill(); } catch {}
-  for (const o of s.outputs || []) {
-    try { o.proc?.kill(); } catch {}
-    if (o.partPath) try { fs.rmSync(o.partPath, { force: true }); } catch {}
-  }
-  try { fs.rmSync(s.dir, { recursive: true, force: true }); } catch {}
-  if (s.partPath) try { fs.rmSync(s.partPath, { force: true }); } catch {}
+  const job = ExportCleanup.stopSessions([s], { timeoutMs: 5000, log: logCleanupLeft });
+  pendingCleanups.add(job); job.finally(() => pendingCleanups.delete(job));
+}
+/** Paths an export cleanup could not delete, kept in DATA_DIR/logs/export-cleanup.log (local only). */
+function logCleanupLeft(left) {
+  const line = left.map((p) => `${new Date().toISOString()} not removed: ${X.maskUserPath(p)}`).join("\n") + "\n";   // no user name (QQ)
+  console.error(line.trim());
+  try { fs.mkdirSync(path.join(DATA_DIR, "logs"), { recursive: true }); fs.appendFileSync(path.join(DATA_DIR, "logs", "export-cleanup.log"), line); } catch {}
 }
 function sweepIdleExports() {
   const now = Date.now();
@@ -1353,6 +1361,26 @@ const server = http.createServer(async (req, res) => {
     } catch (e) { sendJSON(res, 400, { error: String(e.message || e) }); }
     return;
   }
+  // the desktop close prompt (desktop/export-close.js) asks this: is an export session open (begun, not ended)?
+  if (p === "/api/export/active" && req.method === "GET") { sendJSON(res, 200, { active: exportSessions.size }); return; }
+  /* The close prompt's 删掉它们并关闭: deletes exported copies that were not saved. Only a bare file name that this server
+     itself exported (exportedThisRun) is deleted, from exports/ and nowhere else — no folder is scanned, no other file is
+     looked at. A name that is not such a file is refused and left alone; one that cannot be deleted (a player has it
+     open) is reported as failed and stays on the list, so it can be tried again. */
+  if (p === "/api/export/delete-unsaved" && req.method === "POST") {
+    let files;
+    try { files = JSON.parse((await readBody(req)).toString("utf8") || "{}").files; } catch { files = null; }
+    if (!Array.isArray(files) || files.length > 200) { sendJSON(res, 400, { error: "files: a list of exported file names" }); return; }
+    const out = { deleted: [], failed: [], refused: [] };
+    for (const name of files) {
+      const ok = typeof name === "string" && name === path.basename(name) && name !== "." && name !== ".." && exportedThisRun.has(name);
+      if (!ok) { out.refused.push(String(name)); continue; }
+      try { fs.rmSync(path.join(EXPORTS_DIR, name), { force: true }); exportedThisRun.delete(name); out.deleted.push(name); }
+      catch { out.failed.push(name); }
+    }
+    sendJSON(res, 200, out);
+    return;
+  }
   if (p === "/api/export/begin" && req.method === "POST") {
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
@@ -1444,6 +1472,7 @@ const server = http.createServer(async (req, res) => {
           try { fs.renameSync(o.partPath, o.outPath); }
           catch (e) { return { file, ok: false, error: "could not save the file: " + (e.message || e) }; }
           o.partPath = null; // renamed — cleanup must not delete the finished file
+          exportedThisRun.add(file);
           freshExports.add(file);
           const report = await verifyDeliveryOutput(sess, o, o.outPath);
           return { file, ok: true, src: "/exports/" + encodeURIComponent(file), ...(report ? { report } : {}),
@@ -1461,6 +1490,7 @@ const server = http.createServer(async (req, res) => {
       const out = sess.outPath;
       fs.renameSync(sess.partPath, out);
       sess.partPath = null; // renamed — cleanup must not delete the finished file
+      exportedThisRun.add(path.basename(out));
       freshExports.add(path.basename(out));
       cleanupExport(id);
       sendJSON(res, 200, { ok: true, src: "/exports/" + encodeURIComponent(path.basename(out)) });
@@ -1721,15 +1751,21 @@ server.listen(PORT, HOST, () => {
 });
 
 let shuttingDown = false;
-function shutdown() {
+/* Quitting (desktop: before-quit gives this 4 s, then kills the process): running exports are stopped — ffmpeg
+   first, then their half-finished files and fablecut-XXXX folders — within 3 s; what could not be deleted is
+   logged, and the process exits either way. Exported files that were not saved yet are not touched. */
+async function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
+  setTimeout(() => process.exit(0), 3700).unref?.();
   stopExportSweep();
-  for (const id of [...exportSessions.keys()]) cleanupExport(id);
+  const sessions = [...exportSessions.values()];
+  exportSessions.clear();
   exportJobs.shutdown();
   ownedProcesses?.stop();
+  try { await Promise.all([ExportCleanup.stopSessions(sessions, { timeoutMs: 3000, log: logCleanupLeft }), ...pendingCleanups]); } catch {}
   server.close(() => process.exit(0));
-  setTimeout(() => process.exit(0), 2000).unref?.();
+  setTimeout(() => process.exit(0), 200).unref?.();
 }
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);

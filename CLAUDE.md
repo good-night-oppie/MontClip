@@ -2800,7 +2800,7 @@ trust yet**: on that set (15 recordings from 13 streamers) precision@15 is 0.12,
 (4 streamers) recall@10 is 0.38. Treat every song as a guess to check; the editor shows them all as 「估的」.
 
 Each song is `{from, to, confidence, marks}` in seconds of the file. `confidence` has two levels only: `likely`
-(「较可能」 — nothing was guessed; not a promise that the song is right) or `estimated` (「估的」), with `marks` saying
+(「比较可能」 — nothing was guessed; not a promise that the song is right) or `estimated` (「估的」), with `marks` saying
 where and why: `split` (start or end — two songs with no clear gap between them were
 split at the quietest gap), `merged` (inside — a break was bridged; it may be two songs), `edge` (it runs to the
 start or end of the recording), `unread` (it runs into the part of the file not read yet), `limit` (its start or end

@@ -13,7 +13,7 @@ test('the parameters are the prototype grid2 result, entropy unused',()=>{
  a.ok(!('ENT' in S.DEFAULTS),'spectral entropy is not used');
  a.ok(Object.isFrozen(S.DEFAULTS));
 });
-test('held singing between talk: each song found, start and end within ±2 s, likely (较可能)',()=>{
+test('held singing between talk: each song found, start and end within ±2 s, likely (比较可能)',()=>{
  const {rms,songs}=track([['talk',60],['song',140],['talk',80],['song',150],['talk',50]]);
  const got=S.find(rms,{complete:true});
  a.equal(got.length,2,JSON.stringify(got));
@@ -74,7 +74,7 @@ test('stored in the project: one entry per file, checked; bad entries refused, d
  const kept=S.clean({m_a:e,m_gone:e,m_bad:{v:1,key:'k',songs:'x'}},[{id:'m_a'}]);
  a.deepEqual(Object.keys(kept),['m_a']);a.equal(S.clean({m_bad:{}},[{id:'m_bad'}]),null);
 });
-test('two levels only, 「估的」 and 「较可能」 (Deja: the measured precision is not good enough to call any song 准): "sure" is refused, and no description says it',()=>{
+test('two levels only, 「估的」 and 「比较可能」 (Deja: the measured precision is not good enough to call any song 准): "sure" is refused, and no description says it',()=>{
  const song={from:60,to:200,marks:[]};
  a.throws(()=>S.entry({key:'k',complete:true,scanned:1,songs:[{...song,confidence:'sure'}]}),/SONGS_INVALID/);
  a.equal(S.entry({key:'k',complete:true,scanned:1,songs:[{...song,confidence:'likely'}]}).songs[0].confidence,'likely');
@@ -83,5 +83,6 @@ test('two levels only, 「估的」 and 「较可能」 (Deja: the measured prec
  a.ok(!/\bsure\b/.test(tool)&&/likely/.test(tool),'the MCP description says likely, never sure');
  a.ok(!/准/.test(require('../capabilities').get('fablecut_songs').summary['zh-CN']));
  const doc=read('CLAUDE.md');const sec=doc.slice(doc.indexOf('### Songs in a recording'),doc.indexOf('\n## ',doc.indexOf('### Songs in a recording')));
- a.ok(sec.length>100&&!/`sure`/.test(sec)&&/`likely`/.test(sec)&&/较可能/.test(sec));
+ a.ok(sec.length>100&&!/`sure`/.test(sec)&&/`likely`/.test(sec)&&/「比较可能」/.test(sec)&&!/「较可能」/.test(sec),'JJ final: 比较可能');
+ a.ok(/「比较可能」/.test(tool)&&!/「较可能」/.test(tool),'the MCP description in JJ final words too');
 });

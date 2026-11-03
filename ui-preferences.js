@@ -115,6 +115,8 @@
     "encoding-pct": ["Encoding… {pct}%", "正在编码… {pct}%"],
     "mixing-audio": ["Mixing audio…", "正在混音…"],
     "finishing": ["Finishing…", "正在收尾…"],
+    // narrow windows: tools that do not fit a bar (JJ to review)
+    "more": ["More", "更多"],
     // batch 2: the Transcript panel and the top bar status (JJ to review). Chinese transcripts
     // carry sentence times only, so the Chinese never counts or cuts words.
     "transcribe": ["Transcribe", "听写"],
@@ -315,6 +317,28 @@
     "as-dur-hm": ["{h} h {m} min", "{h} 小时 {m} 分"],
     "as-dur-ms": ["{m} min {s} s", "{m} 分 {s} 秒"],
     "as-dur-s": ["{s} s", "{s} 秒"],
+    // Closing during an export (desktop/export-close.js; JJ's final copy 「追加 3」, one video per 「预备稿 4 补充」; English for JJ to review)
+    "export-close-title": ["Still exporting. Close now?", "还在导出，现在关掉吗？"],
+    "export-close-body": ["Closing MontClip stops the export. The half-finished video won't be kept; next time you'll need to export it again from the start.", "关掉 MontClip 会停止导出。导到一半的视频不会留下，下次要从头再导。"],
+    "export-close-unsaved-1": ["1 exported video in the export queue isn't saved yet. After closing it won't be in the queue any more, but it still takes up space on drive C.", "导出队列里还有 1 个没保存的视频，关掉以后它不会再出现在队列里，但还占着 C 盘空间。"],
+    "export-close-unsaved-n": ["{n} exported videos in the export queue aren't saved yet. After closing they won't be in the queue any more, but they still take up space on drive C.", "导出队列里还有 {n} 个没保存的视频，关掉以后它们不会再出现在队列里，但还占着 C 盘空间。"],
+    "export-close-stop": ["Stop export and close", "停止导出并关闭"],
+    "export-close-keep": ["Keep exporting", "继续导出"],
+    // Closing with exported videos not saved (JJ's 「预备稿 4」 and its one-video forms; English for JJ to review)
+    "export-unsaved-title-1": ["1 video isn't saved yet. Close now?", "还有 1 个视频没保存，现在关掉吗？"],
+    "export-unsaved-title-n": ["{n} videos aren't saved yet. Close now?", "还有 {n} 个视频没保存，现在关掉吗？"],
+    "export-unsaved-body-1": ["This video is exported but not yet saved where you choose. After closing it won't be in the export queue any more, but it still takes up space on drive C.", "这个视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它了，但它还占着 C 盘空间。"],
+    "export-unsaved-body-n": ["These videos are exported but not yet saved where you choose. After closing they won't be in the export queue any more, but they still take up space on drive C.", "这些视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它们了，但它们还占着 C 盘空间。"],
+    "export-unsaved-delete-1": ["Delete it and close", "删掉它并关闭"],
+    "export-unsaved-delete-n": ["Delete them and close", "删掉它们并关闭"],
+    "export-unsaved-keep": ["Close without deleting", "不删，直接关闭"],
+    "export-unsaved-save": ["Save first", "先去保存"],
+    "export-delete-failed-1": ["1 video could not be deleted. Another program may have it open.", "有 1 个视频删不掉，可能正被别的软件打开着。"],
+    "export-delete-failed-n": ["{k} videos could not be deleted. Another program may have them open.", "有 {k} 个视频删不掉，可能正被别的软件打开着。"],
+    "export-delete-retry": ["Try again", "再试一次"],
+    "export-delete-hint-1": ["Close the program that has it open (such as a player), then click Try again.", "先关掉正在用它的软件（比如播放器），再点「再试一次」。"],
+    "export-delete-hint-n": ["Close the programs that have them open (such as a player), then click Try again.", "先关掉正在用它们的软件（比如播放器），再点「再试一次」。"],
+    "export-delete-giveup": ["Don't delete, just close", "不删了，直接关闭"],
     // Chinese batch 3: JJ's final copy v2 (2026-11-03), P0 rows. The English is what the page said before.
     "pj-new": ["+ New project", "+ 新建项目"],
     "pj-open": ["Open", "打开"],
