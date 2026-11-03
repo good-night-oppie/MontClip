@@ -2,15 +2,31 @@
 
 Date: 2026-11-03. Asked by the owner: 「补上三样：卡片加『这段不是唱歌』、弹窗加『补一段』、主播的修改记在本机用来让下次更准
 （不外发）。」 Spec: Deja's ADR 补记 (sha fb2e6964…, then 39a05471…), which takes precedence over the first message. Backend only; the interface follows
-the frozen v11 (原型-v11.html 11b0ce34…, 交互说明-v11.md 6e564931…) and comes after this backend: the setting is
-「记住我的剪辑习惯」 (the switch, how many of each kind of change, 〔清空〕); a card a habit moved says 「按你以前的习惯调过 ·
-去设置」 and offers 〔这次不用〕.
+the frozen v12 (原型-v12.html d289ff06…, 交互说明-v12.md d59748f7…; v11 is void) and comes after this backend: the setting
+is 「记住我的剪辑习惯」 in 设置 › 自动出切片 (the switch, how many of each kind of change, 〔清空记录〕); a card a habit moved says
+「↺ 按你以前的习惯…· 这次不用 · 去设置」.
+
+## Deja's decisions (2026-11-03)
+
+- **Kinds: 聊天 (`chat`) and 整活 (`stunt`) are added.** From v12: 补一段 offers 唱歌、互动、聊天、整活、别的, and habits are
+  counted per kind. Both capability schemas, the records and the LOSO's per-kind scoring carry them; no rule finds a chat
+  or stunt part — like 互动, only the streamer's own moves shift their start and end.
+- **「不要这条」 twice → not ticked by default: not done.** v12 does not have it, and the search has no kind fine enough to
+  tell the parts apart (e.g. a countdown before a lottery). What stays is the same-recording rule below. The interface and
+  this record make no promise that a taken-out kind is left unticked next time; decided again once real 「不要这条」 records
+  exist.
+- **Danmaku density in the records: deferred.** v12's frozen wording says only a few numbers about the sound are kept
+  (「只存几个声音统计数字」); danmaku numbers would not match it, and nothing shows yet that they make the search closer.
+  Decided again, with the wording, once real data and the LOSO show it helps (QQ to review then).
+- **The singing bar: off** (below), **the shift: on**, **the same recording: a part marked 不是唱歌 does not come back**,
+  **one file per MontClip profile** (`default`).
 
 ## Two card edits (`segment-edits.js`)
 
-- `set_segment_kind {id, kind}` — a 「自动出切片」 card's kind: `song` 唱歌 / `interaction` 互动 / `moment` 普通高光 / `other`
-  其他, in that order (互动 right after 唱歌, ADR 39a05471; the interface shows 〔互动〕: 连麦、PK、读 SC). Only the kind
-  changes; made 唱歌, the card keeps its start and end.
+- `set_segment_kind {id, kind}` — a 「自动出切片」 card's kind: `song` 唱歌 / `interaction` 互动 / `chat` 聊天 / `stunt` 整活 /
+  `moment` 普通高光 / `other` 其他, in that order (互动 right after 唱歌, ADR 39a05471, the interface shows 〔互动〕: 连麦、PK、读
+  SC; 聊天 and 整活 from v12). Only the kind changes; made 唱歌, the card keeps its start and end. 补一段 offers
+  `ADD_ORDER`: 唱歌、互动、聊天、整活、别的 (v12).
 - `add_segment {mediaId, from, to, kind}` — a new card from IN–OUT, inside its recording, at least 5 s, after the other
   cards (their best-first order is not touched).
 - Both are host capabilities in `capabilities.js`, `undoable`, with argument schemas; the streamer's buttons and the AI
@@ -58,8 +74,9 @@ Constants: `MAX_SHIFT` 5 s, `HABIT_WINDOW` 5, `HABIT_MIN` 4, `BAR_BASE` 0.12 (so
   start and end (seconds); the key is `recordingKey(duration, loudness)` — the length and the loudness bins (0.1 dB),
   hashed (FNV-1a, 64 bits, 16 hex digits). No path, no file name. 「是唱歌」 marks nothing away. To the streamer: what they
   marked does not come back.
-- 互动 has its own habits like every kind; no rule finds 互动 parts — only the streamer's own moves shift their start and
-  end. A song made 互动 counts as 「不是唱歌」; 互动 ↔ 普通高光 does not touch the singing bar.
+- 互动, 聊天 and 整活 have their own habits like every kind; no rule finds their parts — only the streamer's own moves
+  shift their start and end. A song made one of them counts as 「不是唱歌」; between them and 普通高光 the singing bar is not
+  touched.
 - Every card lists the rules that touched it (`card.rules`: `shift-start:song`, `shift-end:song`, `song-bar`); a habit
   says how many of how many (`of`, `n`: 「你以前 5 首歌里有 4 首…」). A moved card keeps where it was (`was`), and
   `revert(card)` is 〔这次不用〕 for that card.
@@ -100,10 +117,16 @@ it ships:
   sees: the search is deterministic, so every marked card goes (482 → 61 found, precision 0.12 → 0.98) and no labelled
   song is lost (recall 0.65 both times).
 
-- 互动, scored apart: the golden set has 16 互动 labels, all in one recording (so no fold ever gets 互动 corrections from
-  another streamer: a 互动 habit formed in 0 of 13 folds), none with an end, and none has a highlight candidate within
-  15 s of its start to stand for the streamer's card — nothing to score yet. The script prints the line, so it measures
-  once there is data.
+- 互动, 聊天 and 整活, each scored apart (a label in both 整活 and 互动 counts as 互动):
+
+  | kind | labels | matched to a highlight candidate within 15 s | folds with a habit | median start error off / on |
+  |---|---|---|---|---|
+  | 互动 | 16 (all in one recording) | 0 | 0 of 13 | – |
+  | 聊天 | 0 | 0 | 0 of 13 | – |
+  | 整活 | 26 | 2 | 0 of 13 | 14.0 s / 14.0 s |
+
+  Too few to form a habit (4 of the last 5 are needed): nothing to measure yet. The script prints these lines, so it
+  measures once there is data.
 - **The end error cannot be scored**: only 4 parts in the golden set have a labelled end time (4 of 226), and none of them
   was matched.
 - The start shift (about −4 s in every fold) helps: starts a second closer, recall a little up (0.65 → 0.67).

@@ -8,8 +8,10 @@
   else root.MontClipSegmentEdits = factory();
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
-  // 互动 right after 唱歌 (ADR 39a05471): the order the interface shows them in
-  const KINDS = Object.freeze(["song", "interaction", "moment", "other"]), MIN_LEN = 5;
+  // 互动 right after 唱歌 (ADR 39a05471), then 聊天 and 整活 (Deja, from v12); 普通高光 is what the search finds. ADD_ORDER is
+  // what 补一段 offers, in v12's order: 唱歌、互动、聊天、整活、别的
+  const KINDS = Object.freeze(["song", "interaction", "chat", "stunt", "moment", "other"]), MIN_LEN = 5;
+  const ADD_ORDER = Object.freeze(["song", "interaction", "chat", "stunt", "other"]);
   const r3 = (x) => Math.round(x * 1000) / 1000;
   const copy = (cards) => JSON.parse(JSON.stringify(Array.isArray(cards) ? cards : []));
   const no = (code) => ({ ok: false, code });
@@ -47,5 +49,5 @@
     if (u && u.op === "remove") return list.filter((x) => x.id !== u.id);
     return list;
   }
-  return Object.freeze({ KINDS, MIN_LEN, setKind, add, undo });
+  return Object.freeze({ KINDS, ADD_ORDER, MIN_LEN, setKind, add, undo });
 });

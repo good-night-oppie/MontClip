@@ -24,6 +24,8 @@ const SONG = /演唱|舞蹈/;
 const median = (v) => { if (!v.length) return NaN; const s = v.slice().sort((a, b) => a - b); return s[s.length >> 1]; };
 const f = (x, d = 2) => (Number.isFinite(x) ? x.toFixed(d) : "-");
 
+// 互动, 聊天 and 整活 (ADR 39a05471; Deja from v12): no rule finds them; each scored apart. A label in both 整活 and 互动 is 互动
+const TYPED = [["interaction", "互动", (k) => /互动/.test(k)], ["chat", "聊天", (k) => /聊天/.test(k)], ["stunt", "整活", (k) => /整活/.test(k) && !/互动/.test(k)]];
 const nearest = (list, t, key) => list.reduce((b, x) => (!b || Math.abs(x[key] - t) < Math.abs(b[key] - t) ? x : b), null);
 const cases = fs.readdirSync(path.join(root, "cases")).sort().map((name) => {
   const dir = path.join(root, "cases", name);
@@ -33,18 +35,18 @@ const cases = fs.readdirSync(path.join(root, "cases")).sort().map((name) => {
   // most labels have a start only (end_sec null): an end is used where there is one
   const labels = L.labels.filter((l) => SONG.test(String(l.category)) && !l.unaligned && Number.isFinite(l.start_sec))
     .map((l) => ({ s: l.start_sec, e: Number.isFinite(l.end_sec) ? l.end_sec : null }));
-  // 互动 (ADR 39a05471): no rule finds it; the streamer marks a highlight candidate 互动 and moves its ends. Simulated: the
-  // candidate nearest each 互动 label (within 15 s) is that card
-  const inter = L.labels.filter((l) => /互动/.test(String(l.category)) && !l.unaligned && Number.isFinite(l.start_sec)).map((l) => ({ s: l.start_sec, e: Number.isFinite(l.end_sec) ? l.end_sec : null }));
+  // 互动 / 聊天 / 整活: no rule finds them; the streamer marks a highlight candidate as one and moves its ends. Simulated: the
+  // candidate nearest each such label (within 15 s) is that card
+  const typed = TYPED.map(([kind, , is]) => ({ kind, labels: L.labels.filter((l) => is(String(l.category)) && !l.unaligned && Number.isFinite(l.start_sec)).map((l) => ({ s: l.start_sec, e: Number.isFinite(l.end_sec) ? l.end_sec : null })) }));
   let cards = [];
-  if (inter.length && fs.existsSync(path.join(dir, "loudness.json"))) {
+  if (typed.some((t) => t.labels.length) && fs.existsSync(path.join(dir, "loudness.json"))) {
     const loudness = JSON.parse(fs.readFileSync(path.join(dir, "loudness.json"), "utf8"));
     const dm = fs.existsSync(path.join(dir, "danmaku.json")) ? (JSON.parse(fs.readFileSync(path.join(dir, "danmaku.json"), "utf8")).times || []).map((t) => ({ t })) : [];
     cards = H.candidates({ duration: rms.length * step, sentences: [], loudness, danmaku: dm }).map((c) => ({ s: c.from, e: c.to }));
   }
-  const interCards = inter.map((l) => { const x = nearest(cards, l.s, "s"); return x && Math.abs(x.s - l.s) <= 15 ? { label: l, card: x } : null; }).filter(Boolean);
+  for (const t of typed) t.cards = t.labels.map((l) => { const x = nearest(cards, l.s, "s"); return x && Math.abs(x.s - l.s) <= 15 ? { label: l, card: x } : null; }).filter(Boolean);
   const duration = rms.length * step;
-  return { streamer: String(L.bvid), rms, step, duration, key: C.recordingKey(duration, { step, values: rms }), labels, inter, interCards };
+  return { streamer: String(L.bvid), rms, step, duration, key: C.recordingKey(duration, { step, values: rms }), labels, typed };
 }).filter(Boolean);
 
 function search(c, rules) {
@@ -64,9 +66,9 @@ function simulate(c) {
     // the labelled part's sound; with no labelled end, from its start over songs.js's shortest song (90 s)
     if (!x || Math.abs(x.s - l.s) > 15) { const ft = C.features({ s: l.s, e: l.e == null ? l.s + Songs.DEFAULTS.MIN_SONG : l.e }, loud); if (ft) out.push({ t: l.s, r: C.record({ type: "kind", from: "other", to: "song", duration: c.duration, features: ft }) }); }
   }
-  for (const { label, card } of c.interCards) {
-    out.push({ t: card.s, r: C.record({ type: "kind", from: "moment", to: "interaction", duration: c.duration }) });
-    out.push({ t: card.s + 0.001, r: C.record({ type: "trim", kind: "interaction", startShift: label.s - card.s, endShift: label.e == null ? 0 : label.e - card.e, duration: c.duration }) });
+  for (const t of c.typed) for (const { label, card } of t.cards) {
+    out.push({ t: card.s, r: C.record({ type: "kind", from: "moment", to: t.kind, duration: c.duration }) });
+    out.push({ t: card.s + 0.001, r: C.record({ type: "trim", kind: t.kind, startShift: label.s - card.s, endShift: label.e == null ? 0 : label.e - card.e, duration: c.duration }) });
   }
   return out.sort((a, b) => a.t - b.t).map((x) => x.r);
 }
@@ -87,7 +89,7 @@ const line = (label, s) => console.log(`${label} labelled ${s.n} found ${s.pred}
 
 const streamers = [...new Set(cases.map((c) => c.streamer))];
 // each rule alone too, to see what each does
-const off = [], on = [], shiftOnly = [], barOnly = [], both = [], inter = { labels: 0, matched: 0, off: [], on: [], folds: 0 };
+const off = [], on = [], shiftOnly = [], barOnly = [], both = [], typed = Object.fromEntries(TYPED.map(([k]) => [k, { labels: 0, matched: 0, off: [], on: [], folds: 0 }]));
 let withRules = 0;
 streamers.forEach((who, i) => {
   const held = cases.filter((c) => c.streamer === who), rest = cases.filter((c) => c.streamer !== who);
@@ -99,13 +101,14 @@ streamers.forEach((who, i) => {
   shiftOnly.push(sum(held.map((c) => score(c, search(c, { shift: rules.shift })))));
   barOnly.push(sum(held.map((c) => score(c, search(c, { shift: {}, bar: withBar.bar })))));
   both.push(sum(held.map((c) => score(c, search(c, { shift: withBar.shift, bar: withBar.bar })))));
-  // 互动: the start error of the held-out streamer's 互动 cards, before and after their kind's habit
-  if (rules.shift.interaction) inter.folds++;
-  for (const c of held) {
-    inter.labels += c.inter.length; inter.matched += c.interCards.length;
-    for (const { label, card } of c.interCards) {
-      const [x] = C.apply([{ id: "i", mediaId: "x", kind: "interaction", s: card.s, e: card.e }], rules, { duration: { x: c.duration } });
-      inter.off.push(Math.abs(card.s - label.s)); inter.on.push(Math.abs(x.s - label.s));
+  // 互动 / 聊天 / 整活: the start error of the held-out streamer's cards of each kind, before and after that kind's habit
+  for (const [kind] of TYPED) if (rules.shift[kind]) typed[kind].folds++;
+  for (const c of held) for (const t of c.typed) {
+    const out = typed[t.kind];
+    out.labels += t.labels.length; out.matched += t.cards.length;
+    for (const { label, card } of t.cards) {
+      const [x] = C.apply([{ id: "i", mediaId: "x", kind: t.kind, s: card.s, e: card.e }], rules, { duration: { x: c.duration } });
+      out.off.push(Math.abs(card.s - label.s)); out.on.push(Math.abs(x.s - label.s));
     }
   }
   console.log(`fold ${String(i + 1).padStart(2)} recordings ${held.length} rules ${JSON.stringify({ shift: rules.shift, bar: withBar.bar || null })}`);
@@ -119,4 +122,5 @@ line("the shift and the bar", sum(both));
 // the same recording searched again, with only its own 不是唱歌 marks (no other rule): what the streamer sees on a re-search
 const again = sum(cases.map((c) => { const marks = simulate(c).filter((r) => r.type === "kind" && r.from === "song"); return score(c, search(c, { shift: {}, notSong: C.rules(marks).notSong || [] })); }));
 line("searched again, its own 不是唱歌 marks", again);
-console.log(`互动 labelled ${inter.labels} matched to a candidate ${inter.matched} median|start error| off ${f(median(inter.off), 1)} s on ${f(median(inter.on), 1)} s; folds with a 互动 habit ${inter.folds} of ${streamers.length}`);
+for (const [kind, name] of TYPED) { const t = typed[kind];
+  console.log(`${name} labelled ${t.labels} matched to a candidate ${t.matched} median|start error| off ${f(median(t.off), 1)} s on ${f(median(t.on), 1)} s; folds with a ${name} habit ${t.folds} of ${streamers.length}`); }

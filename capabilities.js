@@ -57,7 +57,7 @@
     fablecut_export: ["sensitive", "把时间线导出成视频文件", "Export the timeline to a video file"],
     fablecut_scopes: ["read", "测量画面的亮度和色彩", "Measure the picture's levels and colour"],
     // the 「自动出切片」 card edits (the owner / Deja, 2026-11-03): the streamer's buttons and the AI, the same capabilities
-    set_segment_kind: ["undoable", "改一张候选卡的类型：唱歌、互动、普通高光或其他", "Change a candidate card's kind: singing, interaction, highlight or other"],
+    set_segment_kind: ["undoable", "改一张候选卡的类型：唱歌、互动、聊天、整活、普通高光或其他", "Change a candidate card's kind: singing, interaction, chat, stunt, highlight or other"],
     add_segment: ["undoable", "用 IN–OUT 补一张候选卡，带上类型", "Add a candidate card from IN–OUT, with its kind"],
     fablecut_track: ["undoable", "跟着画面里的人或物体动，让马赛克、贴纸也跟着它走", "Follow a person or thing in the picture, so a mosaic or sticker moves with it"],
   };
@@ -67,7 +67,7 @@
   for (const t of TOOLS) if (SPEC[t.name]) table.set(t.name, { source: "mcp", schema: clone(t.inputSchema) });
   for (const [name, schema] of Object.entries(PROPOSALS)) table.set(name, { source: "proposal", schema: clone(schema) });
   // the host's own capabilities (segment-edits.js), with their argument shapes
-  const KIND = { type: "string", enum: ["song", "interaction", "moment", "other"] };
+  const KIND = { type: "string", enum: ["song", "interaction", "chat", "stunt", "moment", "other"] };
   const HOST = {
     set_segment_kind: { type: "object", additionalProperties: false, required: ["id", "kind"],
       properties: { id: { type: "string", pattern: "^[A-Za-z0-9_.-]{1,160}$" }, kind: KIND } },
