@@ -21,7 +21,8 @@ test('desktop/asr-manifest.json is in the package (the e8d0c16 start failure)',(
 });
 
 test('every repository file the shipped code reads is in the package',()=>{
- const reads=P.repoReads(ROOT,files.filter((f)=>/\.(c?js)$/.test(f)&&tracked.includes(f)),tracked);
+ // smoke modules run only in development (main.js loads them with --montclip-smoke); their fixtures are not shipped
+ const reads=P.repoReads(ROOT,files.filter((f)=>/\.(c?js)$/.test(f)&&!/-smoke\.c?js$/.test(f)&&tracked.includes(f)),tracked);
  a.ok(reads.some((r)=>r.target==='desktop/asr-manifest.json'&&r.from==='asr-models.js'),'the scan sees asr-models.js reading the manifest');
  const missing=reads.filter((r)=>!inPackage(r.target)).map((r)=>r.from+' → '+r.target);
  a.deepEqual(missing,[]);

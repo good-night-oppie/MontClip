@@ -45,6 +45,35 @@ function desktopFiles(stage) {
   return [...seen].filter((f) => f.startsWith(path.join(stage, 'desktop') + path.sep)).map((f) => path.relative(stage, f).split(path.sep).join('/'));
 }
 
+/** Files the shipped code reads from its own folders — fs.readFileSync / readFile / readdirSync / existsSync /
+ *  createReadStream / statSync of path.join(__dirname | ROOT | APP_DIR, "literal", …) — as [{from, target}], repository
+ *  paths, for the targets that are tracked files (VV / Deja 2026-11-03: asr-models.js reads desktop/asr-manifest.json, which
+ *  no require() names, so the e8d0c16 package failed at start). ROOT / APP_DIR are the install folder (paths.js, server.js). */
+function repoReads(base, jsFiles, tracked) {
+  const out = [], have = new Set(tracked);
+  const call = /\b(?:readFileSync|readFile|readdirSync|existsSync|createReadStream|statSync)\(\s*path\.(?:join|resolve)\(\s*(__dirname|ROOT|APP_DIR)\s*((?:,\s*(?:"[^"\n]*"|'[^'\n]*')\s*)+)\)/g;
+  for (const from of jsFiles) {
+    const src = fs.readFileSync(path.join(base, from), 'utf8');
+    for (const m of src.matchAll(call)) {
+      const parts = [...m[2].matchAll(/"([^"\n]*)"|'([^'\n]*)'/g)].map((p) => p[1] ?? p[2]);
+      const dir = m[1] === '__dirname' ? path.posix.dirname(from) : '';
+      const target = path.posix.normalize(path.posix.join(dir, ...parts));
+      if (have.has(target)) out.push({ from, target });
+    }
+  }
+  return out;
+}
+/** Everything the app takes from the commit, as repository paths (a directory ends with "/"): the root files, the folders
+ *  and extras, the desktop main process with what it requires, and every tracked file the shipped code reads. */
+function packagedFiles(src, tracked) {
+  const list = [...ROOT_FILES(tracked), ...ROOT_DIRS, ...ROOT_EXTRA, ...desktopFiles(src)];
+  const has = (rel) => list.some((f) => rel === f || (f.endsWith('/') && rel.startsWith(f)));
+  // a smoke module runs only in development (main.js loads it with --montclip-smoke, never when packaged): its fixtures stay out
+  const js = list.filter((f) => /\.c?js$/.test(f) && !/-smoke\.c?js$/.test(f) && tracked.includes(f));
+  for (const r of repoReads(src, js, tracked)) if (!has(r.target)) list.push(r.target);
+  return list;
+}
+
 async function main() {
   const out = arg('--out') || fail('--out <dir> is required');
   if (process.platform !== 'win32') fail('build on Windows');
@@ -68,11 +97,9 @@ async function main() {
     const tracked = git('ls-files').split('\n');
     const stage = path.join(work, 'app'); fs.mkdirSync(stage);
     const take = (rel) => { const from = path.join(src, rel), to = path.join(stage, rel); if (!fs.existsSync(from)) fail('missing ' + rel); fs.mkdirSync(path.dirname(to), { recursive: true }); fs.cpSync(from, to, { recursive: true }); };
-    for (const f of ROOT_FILES(tracked)) take(f);
-    for (const d of ROOT_DIRS) take(d);
-    for (const f of ROOT_EXTRA) take(f);
-    const desk = desktopFiles(src);
-    for (const f of desk) take(f);
+    // the files the program needs, including those it reads but never require()s (desktop/asr-manifest.json)
+    for (const f of packagedFiles(src, tracked)) take(f);
+    if (!fs.existsSync(path.join(stage, 'desktop', 'asr-manifest.json'))) fail('desktop/asr-manifest.json is not in the package');
     const rootPkg = JSON.parse(fs.readFileSync(path.join(src, 'package.json'), 'utf8'));
     fs.writeFileSync(path.join(stage, 'package.json'), JSON.stringify({ name: 'montclip', productName: 'MontClip', version: rootPkg.version,
       description: 'MontClip internal test build', main: 'desktop/main.js', license: rootPkg.license, private: true }, null, 2));
@@ -156,4 +183,5 @@ async function main() {
       ffmpegExe: source.files['ffmpeg.exe'], ffprobeExe: source.files['ffprobe.exe'], electronZipDir: zipDir ? 'given' : 'downloaded' }) + '\n');
   } finally { fs.rmSync(work, { recursive: true, force: true }); }
 }
-main().catch((e) => { console.error(e.message); process.exitCode = 1; });
+if (require.main === module) main().catch((e) => { console.error(e.message); process.exitCode = 1; });
+module.exports = { ROOT_FILES, ROOT_DIRS, ROOT_EXTRA, desktopFiles, repoReads, packagedFiles };
