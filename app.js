@@ -19189,7 +19189,8 @@ function syncAspectSel() {
   const i = ASPECT_PRESETS.findIndex((a) => a.w === project.width && a.h === project.height);
   els.aspectSel.innerHTML =
     ASPECT_PRESETS.map((a, j) => `<option value="${j}" ${j === i ? "selected" : ""}>${a.label}</option>`).join("") +
-    (i < 0 ? `<option value="custom" selected>Custom · ${project.width}×${project.height}</option>` : "");
+    // the size comes from project.json, which an agent, another tool or a backup can write: escaped (as the project cards, #68)
+    (i < 0 ? `<option value="custom" selected>${escapeHtml(`Custom · ${project.width}×${project.height}`)}</option>` : "");
 }
 function syncFpsSel() {
   if (!els.fpsSel) return;
