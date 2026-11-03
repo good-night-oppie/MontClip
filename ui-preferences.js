@@ -234,5 +234,12 @@
     return { getItem() { const r=bridge.get(); if(!r?.ok) throw Error('View settings unavailable'); return JSON.stringify(r.value); },
       setItem(_key, raw) { if(!bridge.set(JSON.parse(raw))?.ok) throw Error('View settings not saved'); } };
   }
-  return { create, desktopStorage, text, formatBody, KEY, t, applyI18n, flvImportMessage, h264Message, h264Encoder };
+  /** A new project's name (Deja, 第四批): 未命名项目, Untitled Project in English. Chinese first when the language is unknown. */
+  const defaultProjectName = (language) => (language === "en" ? "Untitled Project" : "未命名项目");
+  const isDefaultProjectName = (name) => name === "未命名项目" || name === "Untitled Project";
+  /** The file name used when a project's name leaves nothing usable (all slashes): 直播切片 {月-日} in Chinese, the old
+   *  English word (export, captions…) in English. */
+  const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
+    : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
+  return { create, desktopStorage, text, formatBody, KEY, t, applyI18n, flvImportMessage, h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback };
 });
