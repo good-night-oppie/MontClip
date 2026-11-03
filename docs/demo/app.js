@@ -7022,12 +7022,15 @@ function captionQuickApply(scope, kind, level) {
   const list = captionQuickTargets(scope);
   if (!list.length) return;
   const snap = undoSnapshot();
-  MontClipCaptionQuick.apply(list, kind, level, project.width, project.height);
+  // a caption keyed on this property keeps it (its keys would win) and is named in the toast (Deja, #81)
+  const { changed, skipped } = MontClipCaptionQuick.apply(list, kind, level, project.width, project.height);
+  const animatedNote = skipped ? uiText("own.cq-animated", { n: skipped }) : "";
+  if (!changed) { toast(animatedNote); return; }
   pushUndo(snap);
-  const depth = runtime.undo.length, n = list.length;
+  const depth = runtime.undo.length, n = changed;
   state.dirtyTimeline = true;
   scheduleSave(); renderInspector(); drawFrame(); repaintCaptionQuick();
-  const msg = kind === "size" ? uiText("own.cq-done-size", { n, size: uiText("own.cq-" + level) }) : uiText(level === "top" ? "own.cq-done-top" : "own.cq-done-bottom", { n });
+  const msg = (kind === "size" ? uiText("own.cq-done-size", { n, size: uiText("own.cq-" + level) }) : uiText(level === "top" ? "own.cq-done-top" : "own.cq-done-bottom", { n })) + animatedNote;
   // 〔撤销〕 takes back this change only: if something else was done since, it does nothing
   toastAction(msg, uiText("own.as-undo"), () => { if (runtime.undo.length === depth) { undo(); repaintCaptionQuick(); } });
 }

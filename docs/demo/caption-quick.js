@@ -23,8 +23,12 @@
   }
   const fontSizeOf = (c) => (c.props && Number.isFinite(c.props.fontSize) ? c.props.fontSize : DEFAULT_FONT_SIZE);
   const yOf = (c) => (c.props && Number.isFinite(c.props.y) ? c.props.y : DEFAULT_Y);
+  // keyframes on the property win over its value: such a caption is skipped for that change (Deja, #81)
+  const KEY = { size: "fontSize", pos: "y" };
+  const animated = (c, kind) => !!(c.keyframes && Array.isArray(c.keyframes[KEY[kind]]) && c.keyframes[KEY[kind]].length);
 
-  /** What the buttons show for these clips: the level they all have (or null), and whether they differ. */
+  /** What the buttons show for these clips: the level they all have (or null), and whether they differ. A caption keyed
+   *  on a property is left out for that property: the change would not show on it. */
   function current(clips, width, height) {
     const s = sizes(width, height), p = positions(width, height);
     const one = (values, table, names) => {
@@ -32,21 +36,24 @@
       if (!values.length || !same) return { level: null, mixed: values.length > 1 && !same };
       return { level: names.find((k) => table[k] === values[0]) || null, mixed: false };
     };
-    const a = one(clips.map(fontSizeOf), s, SIZES), b = one(clips.map(yOf), p, POSITIONS);
+    const a = one(clips.filter((c) => !animated(c, "size")).map(fontSizeOf), s, SIZES), b = one(clips.filter((c) => !animated(c, "pos")).map(yOf), p, POSITIONS);
     return { size: a.level, mixedSize: a.mixed, pos: b.level, mixedPos: b.mixed };
   }
 
-  /** Give every clip the size ("size": small | mid | big) or the position ("pos": top | bottom). Returns how many. */
+  /** Give every clip the size ("size": small | mid | big) or the position ("pos": top | bottom), except those keyed on
+   *  it. Returns {changed, skipped}. */
   function apply(clips, kind, level, width, height) {
-    if (kind === "size" && SIZES.includes(level)) {
-      const v = sizes(width, height)[level];
-      for (const c of clips) c.props = { ...(c.props || {}), fontSize: v };
-    } else if (kind === "pos" && POSITIONS.includes(level)) {
-      const v = positions(width, height)[level];
-      for (const c of clips) c.props = { ...(c.props || {}), y: v };
-    } else throw new Error("caption quick: unknown " + kind + " " + level);
-    return clips.length;
+    let v;
+    if (kind === "size" && SIZES.includes(level)) v = sizes(width, height)[level];
+    else if (kind === "pos" && POSITIONS.includes(level)) v = positions(width, height)[level];
+    else throw new Error("caption quick: unknown " + kind + " " + level);
+    let changed = 0, skipped = 0;
+    for (const c of clips) {
+      if (animated(c, kind)) { skipped++; continue; }
+      c.props = { ...(c.props || {}), [KEY[kind]]: v }; changed++;
+    }
+    return { changed, skipped };
   }
 
-  return { SIZES, POSITIONS, sizes, positions, current, apply };
+  return { SIZES, POSITIONS, sizes, positions, current, apply, animated };
 });

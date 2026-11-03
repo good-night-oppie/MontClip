@@ -354,6 +354,8 @@
     "cq-mixed-pos": ["The positions differ now; click one to make them all the same", "现在位置不一样，点一下就统一"],
     "cq-done-size": ["Set the size of {n} captions to “{size}”.", "已把 {n} 条字幕的字号改成「{size}」。"],
     "cq-done-top": ["Moved {n} captions to the top of the picture.", "已把 {n} 条字幕移到画面上面。"],
+    // a caption keyed on the property is skipped (Deja, #81); the Chinese until JJ's final wording
+    "cq-animated": ["{n} captions are animated, so they were not changed", "有 {n} 条字幕设了动画，没改"],
     "cq-done-bottom": ["Moved {n} captions to the bottom of the picture.", "已把 {n} 条字幕移到画面下面。"],
     "as-place-failed": ["Nothing was put on the timeline: {why}", "没放上去：{why}"],
     "as-no-lane": ["no track is targeted for this recording. Click a track name on the left (such as V1) to target it (unlock it first if it's locked), then try again.", "没有可以放的轨道。点一下左边的轨道名（比如 V1）选中它（锁着的先解锁），再试一次。"],

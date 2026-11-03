@@ -2789,7 +2789,9 @@ In the editor, 〔字幕大小〕 beside the caption style menu in the Transcrip
 the top of the Inspector changes the selected ones (locked captions stay as they are): 字号 小 / 中 / 大 and 位置 上面 / 下面.
 中 = round(0.042 × the canvas's short side), 大 = round(中 × 1.3), 小 = round(中 × 0.8); 上面 / 下面 put `y` at
 ∓round(0.38 × the canvas height). Only `props.fontSize` and `props.y` change — nothing is generated again — and each
-click is one undo step. When the captions differ, no button is on and the panel says so. Agents get the same result
+click is one undo step. When the captions differ, no button is on and the panel says so. A caption whose
+`fontSize` (or `y`) is keyframed keeps it for that change — its keys would win — and the toast says how many were
+left; it still counts in the panel's N but not in which button is on. Agents get the same result
 with `updateClip` on each caption id. The numbers are in `caption-quick.js`.
 
 ### Caption import text preservation
