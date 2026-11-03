@@ -11,7 +11,7 @@
 //     the exported copy is still there.
 //   MONTCLIP_CLOSE_CASE=unsaved  … not exporting, two copies this session exported plus an unrelated file in the queue:
 //     close → 「先去保存」 → the window stays and the queue opens; close again → 「删掉它们并关闭」 with one copy held open
-//     (PowerShell, no sharing) → 「有 1 个视频删不掉…」, the window still open → released, 「关掉它再试」 → the app quits;
+//     (PowerShell, no sharing) → 「有 1 个视频删不掉…」, the window still open → released, 「再试一次」 → the app quits;
 //     both copies gone, the unrelated file still there.
 //   MONTCLIP_CLOSE_CASE=unsaved-keep  … close → 「不删，直接关闭」 → the app quits; the copies are still there.
 // ffmpeg: MONTCLIP_FFMPEG_DIR (MontClip's own build). Prints CLOSE_PASS / CLOSE_FAIL.
@@ -118,9 +118,10 @@ BrowserWindow.prototype.loadURL = async function (...args) {
       await new Promise((r) => lock.stdout.on('data', (d) => { if (String(d).includes('LOCKED')) r(); }));
       answer = async (o) => {
         if (o.buttons.length === 3) return ExportClose.UNSAVED.DELETE;
-        // the failure prompt: still open, the right count; then the player lets go and 关掉它再试
+        // the failure prompt: still open, the right count; then the player lets go and 再试一次
         check('删不掉: the window is still open', !win.isDestroyed());
-        check('删不掉: 有 1 个视频删不掉, with its name', o.message === '有 1 个视频删不掉，可能正被别的软件打开着。' && o.detail === f2, [o.message, o.detail]);
+        check('删不掉: 有 1 个视频删不掉, with its name', o.message === '有 1 个视频删不掉，可能正被别的软件打开着。' && o.detail.split('
+')[0] === f2, [o.message, o.detail]);
         check('删不掉: f1 deleted, f2 still there', !fs.existsSync(path.join(exportsDir, f1)) && fs.existsSync(path.join(exportsDir, f2)), there());
         lock.stdin.write('\n'); await new Promise((r) => lock.once('exit', r));
         return ExportClose.FAILED.RETRY;

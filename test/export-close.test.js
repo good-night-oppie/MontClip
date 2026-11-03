@@ -161,7 +161,7 @@ test("the server: /api/export/active counts running exports; shutdown stops ffmp
 // 「预备稿 4」 and its one-video forms): closing asks [删掉它们并关闭] [不删，直接关闭] [先去保存]. 先去保存 is the default and the
 // Enter/Esc answer: the window stays and the export queue opens. Deleting asks nothing more and deletes only the copies this
 // session exported (the server's own list, matched by base name; nothing else in exports/ is looked at). A copy that cannot
-// be deleted keeps the window open: 有 {k} 个视频删不掉… [关掉它再试] (only those again) [不删了，直接关闭]. Asked in the
+// be deleted keeps the window open: 有 {k} 个视频删不掉… [再试一次] (only those again) [不删了，直接关闭]. Asked in the
 // window's close event, before any quit, so a failed delete can keep the window.
 test("the unsaved prompt: JJ's 预备稿 4 copy, 先去保存 the default and the Enter/Esc answer", () => {
   const o = Close.unsavedDialogOptions("zh-CN", 2);
@@ -179,13 +179,24 @@ test("the unsaved prompt: JJ's 预备稿 4 copy, 先去保存 the default and th
   a.doesNotMatch([en.message, en.detail, ...en.buttons].join(" "), /[一-鿿]/);
 });
 
-test("a copy that cannot be deleted: 有 {k} 个视频删不掉… with their names; [关掉它再试] [不删了，直接关闭]", () => {
+// JJ (2026-11-03): [再试一次] [不删了，直接关闭]; under the names, what to do first
+test("a copy that cannot be deleted: 有 {k} 个视频删不掉… with their names and what to do; [再试一次] [不删了，直接关闭]", () => {
   const o = Close.deleteFailedOptions("zh-CN", ["直播切片 11-02.mp4", "直播切片 11-02 竖屏.mp4"]);
   a.equal(o.message, "有 2 个视频删不掉，可能正被别的软件打开着。");
-  a.deepEqual(o.detail.split("\n"), ["直播切片 11-02.mp4", "直播切片 11-02 竖屏.mp4"], "the names of the ones that could not be deleted");
-  a.deepEqual(o.buttons, ["关掉它再试", "不删了，直接关闭"]);
-  a.equal(o.buttons[o.defaultId], "关掉它再试"); a.equal(o.cancelId, o.defaultId, "Esc does not close the window");
-  a.doesNotMatch(Close.deleteFailedOptions("en", ["a.mp4"]).message, /[一-鿿]/);
+  a.deepEqual(o.detail.split("\n"), ["直播切片 11-02.mp4", "直播切片 11-02 竖屏.mp4", "先关掉正在用它们的软件（比如播放器），再点「再试一次」。"]);
+  a.deepEqual(o.buttons, ["再试一次", "不删了，直接关闭"]);
+  a.equal(o.buttons[o.defaultId], "再试一次"); a.equal(o.cancelId, o.defaultId, "Esc does not close the window");
+  const one = Close.deleteFailedOptions("zh-CN", ["直播切片 11-02.mp4"]);
+  a.deepEqual(one.detail.split("\n"), ["直播切片 11-02.mp4", "先关掉正在用它的软件（比如播放器），再点「再试一次」。"]);
+  const en = Close.deleteFailedOptions("en", ["a.mp4"]);
+  a.doesNotMatch([en.message, en.detail.split("\n").slice(1).join(" "), ...en.buttons].join(" "), /[一-鿿]/);
+  a.deepEqual(en.buttons, ["Try again", "Don't delete, just close"]);
+  a.equal(en.detail.split("\n")[1], "Close the program that has it open (such as a player), then click Try again.");
+});
+
+test("JJ: the English body of the export prompt ends with exporting it again from the start", () => {
+  a.equal(Close.dialogOptions("en", 0).detail,
+    "Closing MontClip stops the export. The half-finished video won't be kept; next time you'll need to export it again from the start.");
 });
 
 // decideClose with the boxes and the deleting injected: what each answer does
@@ -215,10 +226,11 @@ test("删掉它们并关闭: deletes the queue's unsaved copies, asks nothing mo
   a.equal(r.close, true); a.deepEqual(r.deleted, [U.files]); a.equal(r.asked.length, 1);
 });
 
-test("a delete fails: the window stays, the count is right, 关掉它再试 retries only that one, then closes", async () => {
+test("a delete fails: the window stays, the count is right, 关掉它再试 (再试一次) retries only that one, then closes", async () => {
   const r = await flow(U, [Close.UNSAVED.DELETE, Close.FAILED.RETRY], [{ deleted: [U.files[0]], failed: [U.files[1]], refused: [] }]);
   a.equal(r.asked[1].message, "有 1 个视频删不掉，可能正被别的软件打开着。");
-  a.equal(r.asked[1].detail, U.files[1], "names the one that could not be deleted");
+  a.equal(r.asked[1].detail.split("
+")[0], U.files[1], "names the one that could not be deleted");
   a.deepEqual(r.deleted,[U.files, [U.files[1]]], "the retry only tries the one that failed");
   a.equal(r.close, true);
   // giving up closes without deleting again
