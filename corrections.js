@@ -4,20 +4,26 @@
    A record holds numbers and its fixed words only — a card's kind changed, a part added, how far a start and end were
    moved, a card taken out, the recording's length, and the part's length, usual level and how often it pauses. Never
    the recording, its sound, subtitle text or a file name: anything else is refused, not trimmed.
-   The rules are fixed (no model is trained):
-     shift   — per kind, the mean start / end shift of three or more trims of that kind, each at most ±MAX_SHIFT s;
-     songBar — three or more parts marked 「不是唱歌」 (a song changed to another kind): a song that pauses at least as often
-               as the upper quartile of them is called a 普通高光 instead (the least, or the median, cost recall on the
-               golden set's held-out part; the upper quartile did not).
-   Each card lists the rules that changed it (card.rules). With no rules (off, or nothing kept) the cards are returned
-   exactly as given. */
+   They are never sent: the assistant, the song-name lookup and cloud transcription do not read them (Deja, ADR 补记
+   fb2e6964; test/corrections-private.test.js).
+   The rules are fixed (no model is trained), and each is a habit — the same kind, the same direction, HABIT_MIN of the
+   last HABIT_WINDOW:
+     shift — a kind's start (or end) moved the same way: cards of that kind move by the mean of those moves, at most
+             ±MAX_SHIFT s;
+     bar   — 「不是唱歌」 (a song made another kind) raises the singing bar, 「是唱歌」 (made a song) lowers it: songs.js
+             PAUSE moves to the median pause of those parts, never past half of its first value either way (BAR_RANGE).
+   Each card lists the rules that touched it (card.rules). With no rules (off, or nothing kept) the cards come back exactly
+   as given, and the search gets no options. */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.MontClipCorrections = factory();
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
   const KINDS = Object.freeze(["song", "moment", "other"]), TYPES = Object.freeze(["kind", "add", "trim", "remove"]);
-  const MAX_SHIFT = 10, MIN_SAMPLES = 3, PAUSE_DB = 14, MIN_LEN = 5, MIN_BAR = 0.02;
+  // Deja's numbers (ADR 补记 fb2e6964): a move of at most 5 s; a habit is 4 of the last 5
+  const MAX_SHIFT = 5, HABIT_WINDOW = 5, HABIT_MIN = 4, PAUSE_DB = 14, MIN_LEN = 5;
+  // the singing bar starts where songs.js has it (DEFAULTS.PAUSE) and moves at most half of that either way
+  const BAR_BASE = 0.12, BAR_RANGE = Object.freeze([BAR_BASE / 2, BAR_BASE * 1.5]);
   const FIELDS = { kind: ["from", "to", "features"], add: ["kind", "features"], trim: ["kind", "startShift", "endShift"], remove: ["kind", "features"] };
   const r2 = (x) => Math.round(x * 100) / 100, r3 = (x) => Math.round(x * 1000) / 1000;
   const num = (x, lo, hi) => typeof x === "number" && Number.isFinite(x) && x >= lo && x <= hi;
@@ -56,52 +62,55 @@
     return { len: r2(part.e - part.s), level: r2(med), pause: r3(xs.filter((x) => x < med - PAUSE_DB).length / xs.length) };
   }
 
-  const clamp = (x) => Math.max(-MAX_SHIFT, Math.min(MAX_SHIFT, x));
-  const mean = (xs) => xs.reduce((s, x) => s + x, 0) / xs.length;
-  /** The fixed rules from the records: {shift: {kind: {start, end, n}}, songBar?: {pause, n}}. */
+  const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+  const mean = (xs) => xs.reduce((t, x) => t + x, 0) / xs.length;
+  const median = (xs) => xs.slice().sort((x, y) => x - y)[xs.length >> 1];
+  /** A habit among the last HABIT_WINDOW values: HABIT_MIN or more the same sign → those values; else null. */
+  function habit(values) {
+    const last = values.slice(-HABIT_WINDOW), up = last.filter((v) => v > 0), down = last.filter((v) => v < 0);
+    return up.length >= HABIT_MIN ? up : down.length >= HABIT_MIN ? down : null;
+  }
+  /** The fixed rules from the records: {shift: {kind: {start?: {by, of}, end?: {by, of}}}, bar?: {dir, PAUSE, of}}. */
   function rules(records) {
     const list = Array.isArray(records) ? records : [], out = { shift: {} };
     for (const k of KINDS) {
-      const t = list.filter((r) => r.type === "trim" && r.kind === k);
-      if (t.length >= MIN_SAMPLES) out.shift[k] = { start: r2(clamp(mean(t.map((r) => r.startShift)))), end: r2(clamp(mean(t.map((r) => r.endShift)))), n: t.length };
+      const t = list.filter((x) => x.type === "trim" && x.kind === k), one = {};
+      for (const [edge, key] of [["start", "startShift"], ["end", "endShift"]]) {
+        const h = habit(t.map((x) => x[key]));
+        if (h) one[edge] = { by: r2(clamp(mean(h), -MAX_SHIFT, MAX_SHIFT)), of: h.length };
+      }
+      if (one.start || one.end) out.shift[k] = one;
     }
-    const notSong = list.filter((r) => r.type === "kind" && r.from === "song" && r.to !== "song" && r.features);
-    if (notSong.length >= MIN_SAMPLES) {
-      // the upper quartile, not the least: one quiet rejected part must not make every song look like talk
-      const p = notSong.map((r) => r.features.pause).sort((x, y) => x - y);
-      out.songBar = { pause: Math.max(MIN_BAR, p[Math.min(p.length - 1, Math.floor(0.75 * p.length))]), n: notSong.length };
+    // 「不是唱歌」 (+1: the bar up, stricter) and 「是唱歌」 (−1: the bar down), the last of them in order
+    const kinds = list.filter((x) => x.type === "kind" && (x.from === "song") !== (x.to === "song"));
+    const h = habit(kinds.map((x) => (x.from === "song" ? 1 : -1)));
+    if (h) {
+      const dir = h[0] > 0 ? "up" : "down", same = kinds.slice(-HABIT_WINDOW).filter((x) => (x.from === "song") === (dir === "up") && x.features);
+      if (same.length) {
+        const p = median(same.map((x) => x.features.pause));
+        out.bar = { dir, PAUSE: r3(dir === "up" ? clamp(p, BAR_RANGE[0], BAR_BASE) : clamp(p, BAR_BASE, BAR_RANGE[1])), of: h.length };
+      }
     }
     return out;
   }
-  const none = (r) => !r || (!Object.keys(r.shift || {}).length && !r.songBar);
+  const none = (r) => !r || (!Object.keys(r.shift || {}).length && !r.bar);
+  /** songs.js options for the search: the moved bar, or nothing. */
+  const songOptions = (r) => (r && r.bar ? { PAUSE: r.bar.PAUSE } : {});
 
-  /** The cards with the rules applied; opts: {duration: {mediaId: s}, loudness: {mediaId: {step, values}}}. With no
-   *  rules the very same cards (a copy) come back, without a rules field. */
+  /** The cards with the rules applied; opts: {duration: {mediaId: s}}. With no rules the very same cards (a copy) come
+   *  back, without a rules field. A song card found with a moved bar says so (song-bar). */
   function apply(cards, r, opts = {}) {
     const list = JSON.parse(JSON.stringify(Array.isArray(cards) ? cards : []));
     if (none(r)) return list;
     return list.map((c) => {
       const used = [];
-      let kind = c.kind, s = c.s, e = c.e;
-      if (kind === "song" && r.songBar) {
-        const f = features(c, opts.loudness && opts.loudness[c.mediaId]);
-        if (f && f.pause >= r.songBar.pause) { kind = "moment"; used.push("song-bar"); }
-      }
-      const sh = r.shift[kind], max = opts.duration && Number.isFinite(opts.duration[c.mediaId]) ? opts.duration[c.mediaId] : Infinity;
-      if (sh) {
-        const ns = r3(Math.max(0, s + sh.start)), ne = r3(Math.min(max, e + sh.end));
-        if (sh.start && ns !== s && ne - ns >= MIN_LEN) { s = ns; used.push("shift-start:" + kind); }
-        if (sh.end && ne !== e && ne - s >= MIN_LEN) { e = ne; used.push("shift-end:" + kind); }
-      }
-      return { ...c, kind, s, e, rules: used };
+      let s = c.s, e = c.e;
+      if (c.kind === "song" && r.bar) used.push("song-bar");
+      const sh = r.shift[c.kind] || {}, max = opts.duration && Number.isFinite(opts.duration[c.mediaId]) ? opts.duration[c.mediaId] : Infinity;
+      if (sh.start) { const ns = r3(Math.max(0, s + sh.start.by)); if (ns !== s && e - ns >= MIN_LEN) { s = ns; used.push("shift-start:" + c.kind); } }
+      if (sh.end) { const ne = r3(Math.min(max, e + sh.end.by)); if (ne !== e && ne - s >= MIN_LEN) { e = ne; used.push("shift-end:" + c.kind); } }
+      return { ...c, s, e, rules: used };
     });
   }
-
-  /** Numbers only, for the assistant — sent only when the streamer opens it and agrees (not wired yet). */
-  function summary(records) {
-    const list = Array.isArray(records) ? records : [], r = rules(list), byType = {};
-    for (const t of TYPES) byType[t] = list.filter((x) => x.type === t).length;
-    return { count: list.length, byType, shift: r.shift, songBar: r.songBar || null };
-  }
-  return Object.freeze({ KINDS, TYPES, MAX_SHIFT, MIN_SAMPLES, record, features, rules, apply, summary });
+  return Object.freeze({ KINDS, TYPES, MAX_SHIFT, HABIT_WINDOW, HABIT_MIN, BAR_BASE, BAR_RANGE, record, features, rules, songOptions, apply });
 });

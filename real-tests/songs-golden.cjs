@@ -34,12 +34,11 @@ function evaluate(name) {
   const labels = JSON.parse(fs.readFileSync(path.join(dir, "labels.json"), "utf8")).labels
     .filter((l) => SONG.test(String(l.category)) && !l.unaligned && Number.isFinite(l.start_sec)).map((l) => l.start_sec);
   const rms = F.rows.map((r) => r[k]), step = F.step || 0.5;
-  let found = Songs.find(rms, { step, complete: true });
+  // with corrections: the search with the moved singing bar, then each song moved by the song habit
+  let found = Songs.find(rms, { step, complete: true, ...Corrections.songOptions(correctionRules) });
   if (correctionRules) {
-    // the fixed rules on the songs found: a song moved by the song shift, or no longer called a song by the bar
-    const cards = Corrections.apply(found.map((s, i) => ({ id: "s" + i, mediaId: "x", kind: "song", s: s.from, e: s.to })), correctionRules,
-      { loudness: { x: { step, values: rms } }, duration: { x: rms.length * step } });
-    found = cards.filter((c) => c.kind === "song").map((c) => ({ ...found[+c.id.slice(1)], from: c.s, to: c.e }));
+    const cards = Corrections.apply(found.map((s, i) => ({ id: "s" + i, mediaId: "x", kind: "song", s: s.from, e: s.to })), correctionRules, { duration: { x: rms.length * step } });
+    found = cards.map((c) => ({ ...found[+c.id.slice(1)], from: c.s, to: c.e }));
   }
   const nearest = (t) => found.reduce((best, s) => (Math.abs(s.from - t) < Math.abs(best ? best.from - t : Infinity) ? s : best), null);
   const r = { n: labels.length, hit10: 0, pred: found.length, tp15: 0, est: found.filter((s) => s.confidence === "estimated").length, offSure: [], offEst: [] };
