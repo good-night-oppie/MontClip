@@ -116,3 +116,20 @@ test('no wording the streamer sees mentions laughter (笑声)',()=>{
  a.deepEqual(strings.filter(x=>/笑声|laugh/i.test(x)),[]);
  for(const f of ['index.html','app.js','auto-slices.js','highlight-candidates.js','cindy-official.js'])a.ok(!/笑声|laugh/i.test(read(f)),f);
 });
+
+// JJ's rule (2026-11-03): English uses curly quotes “ ”, Chinese keeps 「」; JJ's final English for the 估的 note, as written
+test('English 自动出切片 strings quote with “ ”, never 「」; the 估的 note in JJ\'s words',()=>{
+ const keys=Object.keys(V.text.en).filter(k=>k.startsWith('own.as-'));
+ a.ok(keys.length>100);
+ a.deepEqual(keys.filter(k=>/[「」]/.test(V.text.en[k])),[],'「」 in English');
+ a.equal(en('as-guess-note'),'Where a start or end is marked “Estimated”, click “▶ Hear the start” or “▶ Hear the end” and listen before you decide.');
+ a.ok(/「/.test(zh('as-guess-note'))&&/「/.test(zh('as-likely-start')),'Chinese keeps 「」');
+});
+// the buttons the notes name are the buttons on the card: the quoted words are exactly those buttons' English labels
+test('the notes name the card\'s own buttons, word for word',()=>{
+ const quoted=s=>[...s.matchAll(/“([^”]+)”/g)].map(m=>m[1]);
+ const tag=en('as-tag-estimated'),start=en('as-listen-start'),end=en('as-listen-end');
+ a.deepEqual(quoted(en('as-guess-note')),[tag,start,end]);
+ a.deepEqual(quoted(en('as-likely-start')),[start]);
+ a.deepEqual(quoted(en('as-likely-end')),[end]);
+});
