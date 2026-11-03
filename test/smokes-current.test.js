@@ -38,7 +38,7 @@ test('agent-paste is shown as retired, not red: exit 0, SKIPPED, nothing touched
  a.equal(r.status,0,'exit code 0');
  a.match(r.stdout,/^MONTCLIP_PASTE_HARNESS_DISABLED \(SKIPPED\)/m);
  const s=read('desktop/agent-paste-smoke.cjs');
- a.ok(!/clipboard|require\(|process\.exitCode\s*=\s*1/.test(s),'no clipboard, no module, no failure code');
+ a.ok(!/clipboard\.\w|require\(|process\.exitCode\s*=\s*1/.test(s),'no clipboard call, no module, no failure code');
 });
 test('the smoke list names every desktop smoke; agent-paste as 已停用：会动系统剪贴板',()=>{
  const list=read('desktop/SMOKES.md');

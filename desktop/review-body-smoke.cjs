@@ -14,6 +14,9 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
  const result={};
  try{await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));})()`);
   win.setContentSize(1270,800);
+  // one synthetic clip (no file is read), so the message carries timeline facts for the box to show
+  await read(`(()=>{const doc=projectJSON();doc.media.push({id:'m_syn',src:'/media/none.mp4',kind:'video',name:'合成.mp4',duration:120});doc.clips.push({id:'c_syn',kind:'video',mediaId:'m_syn',track:'V1',start:0,in:0,duration:120,props:{volume:0}});applyProject(doc);scheduleSave();})()`);
+  await read(`(async()=>{if(!await flushSave())throw Error('SAVE');return true;})()`);await wait(300);
   for(const language of ['zh-CN','en']){
    await read(`updateMontClipView({language:${JSON.stringify(language)}});setSideTab('assistant');mcAgent.render();true`);await wait(300);
    const conf=await read(`montclipAgentService.configure({provider:'openrouter',model:'vendor/model-x:free',apiKey:'sk-dummy-not-a-key'})`);
@@ -31,7 +34,10 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
      // what a message reads as in the box: the text without the trailing {"references","facts"} JSON (#71, ce86d17), which
      // the box names in its facts note instead; the exact JSON is in the raw request
      shown:raw.messages.map(m=>MontClipAgentPane.displayMessage(m.content).text),facts:MontClipAgentPane.messageFacts(raw.messages.at(-1).content),
-     factsNote:!!d.querySelector('[data-facts-note]')};})()`);
+     factsNote:!!d.querySelector('[data-facts-note]'),
+     // Deja (on #87): the owner wants what is sent shown first — one click on the facts sentence opens the facts' exact text
+     factsOpen:(()=>{const n=d.querySelector('[data-facts-note]');if(!n)return null;const closed=!n.open;d.querySelector('[data-facts-note] summary').click();
+      const pre=n.querySelector('[data-facts-raw]');return {closed,open:n.open,visible:!!pre&&pre.offsetHeight>0,text:pre?pre.textContent:null};})()};})()`);
    if(!r)throw Error('review dialog did not open');
    const checks={
     sameCount:r.sections.length===r.raw.messages.length,
@@ -41,6 +47,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
     onlyEnvelopeHidden:r.raw.messages.slice(1).every((m,i)=>{const t=r.shown[i+1];if(m.content===t)return true;const rest=m.content.slice(m.content.indexOf(t)+t.length).trim();
       try{const o=JSON.parse(rest);return m.content.startsWith(t)&&Object.keys(o).every(k=>k==='references'||k==='facts');}catch{return false;}}),
     factsNamed:!r.facts||r.factsNote,
+    factsExpand:!!r.facts&&!!r.factsOpen&&r.factsOpen.closed&&r.factsOpen.open&&r.factsOpen.visible&&r.factsOpen.text===JSON.stringify(r.facts,null,2),
     // QQ 2026-11-02: the summary names the format note; the earlier-message count it states is the real one
     summaryNamesNote:/格式说明|formatting note/i.test(r.summary)&&r.summary.includes(String(r.raw.messages.length-2)),
     rawFields:JSON.stringify(Object.keys(r.raw).sort())==='["max_tokens","messages","model","stream"]'&&r.raw.model==='vendor/model-x:free'&&r.raw.stream===false&&r.raw.max_tokens===2048,
