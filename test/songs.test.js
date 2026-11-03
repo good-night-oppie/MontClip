@@ -99,7 +99,8 @@ test('the capability says 可能在唱歌, and the AI is told to say 可能在�
   for (const [where, s] of [['MCP description', tool], ['CLAUDE.md', sec]]) {
     a.match(s, /talk(ing)? to the streamer[^.]*「可能在唱歌的段落」/, where);
     a.match(s, /never 「第几首歌」/, where);
-    a.match(s, /never a song's name/, where);
+    // JJ's re-review: a slice the streamer renamed keeps her own name
+    a.match(s, /never a song's name unless the streamer named it herself/, where);
     a.match(s, /precision@15 ≥ 0\.6 and recall@10 ≥ 0\.6/, where);
   }
 });
