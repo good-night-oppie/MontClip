@@ -18,7 +18,7 @@ test("fileSafeName keeps Chinese, and replaces only what Windows cannot have —
   a.equal(D.fileSafeName("周五杂谈 11-02 竖屏 (2)"), "周五杂谈 11-02 竖屏 (2)");
   a.equal(D.fileSafeName('a\\b/c:d*e?f"g<h>i|j'), "a-b-c-d-e-f-g-h-i-j");
   a.equal(D.fileSafeName("a\u0000b\u001fc\u007fd"), "a-b-c-d", "control characters too");
-  a.equal(D.fileSafeName("周五:杂谈?"), "周五-杂谈", "a trailing replaced character goes with the end");
+  a.equal(D.fileSafeName("周五:杂谈?"), "周五-杂谈-", "every forbidden character, the last one too");
 });
 
 test("spaces collapse; no trailing spaces or dots; no leading dots", () => {

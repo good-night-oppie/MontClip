@@ -704,17 +704,19 @@
       n: ctx.index != null ? String(ctx.index) : "1",
     };
     let s = String(template || "{project}").replace(/\{(\w+)\}/g, (m, k) => (k in vals ? String(vals[k]) : m));
-    s = s.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "_").replace(/\s+/g, " ").trim().replace(/^\.+/, "");
-    return s.slice(0, 120) || "export";
+    return fileSafeName(s, "export");
   }
-  /** A file name Windows accepts, keeping every other character (Chinese included): only \ / : * ? " < > | and
-   *  control characters are replaced, leading dots and trailing dots or spaces go, reserved device names get a "_",
-   *  and it is at most 120 characters. Empty → fallback. */
-  function fileSafeName(name, fallback = "export") {
-    let s = String(name == null ? "" : name).replace(/[\\/:*?"<>|\u0000-\u001f\u007f]+/g, "_").replace(/\s+/g, " ").trim()
+  /** A file name Windows accepts, keeping every other character (Chinese included) — the one rule for every exported
+   *  file name (Deja, 2026-11-03; VV's list). Whitespace runs become one space; \ / : * ? " < > | and control characters
+   *  become "-"; no leading dots, no trailing dots or spaces; Windows' reserved names (CON PRN AUX NUL COM1-9 LPT1-9,
+   *  with an extension too) get a "-" after the name; at most opts.max characters (default 120) counted as characters,
+   *  never cutting a surrogate pair, less opts.reserve for a suffix the caller adds (" 竖屏 (2)"). Empty → fallback. */
+  function fileSafeName(name, fallback = "export", opts = {}) {
+    const max = Math.max(1, (opts.max || 120) - (opts.reserve || 0));
+    let s = String(name == null ? "" : name).replace(/\s+/g, " ").replace(/[\\/:*?"<>|\u0000-\u001f\u007f]+/g, "-").trim()
       .replace(/^\.+/, "").replace(/[. ]+$/, "");
-    if (/^(con|prn|aux|nul|com\d|lpt\d)(\..*)?$/i.test(s)) s = "_" + s;
-    return s.slice(0, 120).replace(/[. ]+$/, "") || fallback;
+    s = s.replace(/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?=\.|$)/i, "$1-");
+    return Array.from(s).slice(0, max).join("").replace(/[. ]+$/, "") || fallback;
   }
   /** The file name an output gets in a project (its size, export frame and fps). */
   function projectFilename(spec, proj = {}) {
