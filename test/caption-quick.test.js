@@ -44,10 +44,11 @@ test('apply: every clip gets the size (or the position), the ones adjusted one b
 });
 
 test("JJ's words; no px anywhere the streamer reads", () => {
-  a.equal(zh('cq-open'), '字幕大小');
+  a.equal(zh('cq-open'), '字幕大小和位置'); a.equal(en('cq-open'), 'Caption size & position');   // JJ's final (#81)
   a.equal(zh('cq-who-selected', { n: 23 }), '选中的 23 条字幕');
   a.equal(zh('cq-who-all', { n: 23 }), '全部 23 条字幕');
-  a.equal(zh('cq-desc', { n: 23 }), '一次改掉这 23 条字幕的字号和位置，字幕的字不动。单独调过的也会改成一样，改完可以撤销。');
+  a.equal(zh('cq-desc', { n: 23 }), '一次改掉这 23 条字幕的字号和位置，字幕的字不动。单独调过的也会改成一样（带动画的除外），改完可以撤销。');
+  a.equal(en('cq-desc', { n: 23 }), "Changes the size and position of these 23 captions in one go; the words stay the same. Captions you adjusted one by one are changed too (except animated ones). You can undo it.");
   a.deepEqual(['cq-size', 'cq-small', 'cq-mid', 'cq-big', 'cq-pos', 'cq-top', 'cq-bottom'].map((k) => zh(k)), ['字号', '小', '中', '大', '位置', '上面', '下面']);
   a.equal(zh('cq-mixed-size'), '现在大小不一样，点一下就统一');
   a.equal(zh('cq-mixed-pos'), '现在位置不一样，点一下就统一');
@@ -90,11 +91,14 @@ test('keyframed captions: skipped for that property, left out of what the button
   a.deepEqual(Q.apply(clips, 'pos', 'top', 1920, 1080), { changed: 2, skipped: 1 });
   a.deepEqual(clips.map((c) => c.props.y), [p.top, p.top, p.bottom], 'c keeps its y (its y is keyed)');
   a.deepEqual(clips.map((c) => c.keyframes), before.map((c) => c.keyframes), 'keys untouched');
-  a.equal(zh('cq-animated', { n: 2 }), '有 2 条字幕设了动画，没改');
-  a.ok(en('cq-animated', { n: 2 }) && !/[一-鿿]/.test(en('cq-animated', { n: 2 })));
+  // JJ's final words (#81): one caption, or several
+  a.equal(zh('cq-animated-one'), '有 1 条字幕带动画（字会变大变小或移动），这次没改它。要改的话，选中它，到「属性面板」里调。');
+  a.equal(zh('cq-animated-many', { n: 2 }), '有 2 条字幕带动画（字会变大变小或移动），这次没改它们。要改的话，选中它们，到「属性面板」里一条条调。');
+  a.equal(en('cq-animated-one'), "1 caption is animated (its size or position changes over time), so it was left as it is. To change it, select it and adjust it in the Inspector.");
+  a.equal(en('cq-animated-many', { n: 2 }), "2 captions are animated (their size or position changes over time), so they were left as they are. To change them, select each one and adjust it in the Inspector.");
   // the page: N counts them; the toast adds the sentence; nothing changed → no undo step
   const app = read('app.js'), fn = app.slice(app.indexOf('function captionQuickApply('), app.indexOf('function captionQuickApply(') + 1800);
   a.match(fn, /const \{ changed, skipped \} = MontClipCaptionQuick\.apply\(/);
-  a.match(fn, /"own\.cq-animated", \{ n: skipped \}/);
+  a.match(fn, /skipped === 1 \? uiText\("own\.cq-animated-one"\) : uiText\("own\.cq-animated-many", \{ n: skipped \}\)/, "one or several");
   a.match(fn, /if \(!changed\) \{[^}]*toast\(/, 'nothing to change: only the sentence, no undo step');
 });
