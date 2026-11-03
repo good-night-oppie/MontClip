@@ -32,13 +32,13 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
      const partly=rows.filter(r=>r.top<under-0.5&&r.bottom>under+0.5).map(r=>r.track);
      const whole=rows.filter(r=>r.top>=under-0.5&&r.bottom<=bottom+0.5).map(r=>r.track);
      const hint=document.getElementById('btnTracksAbove');
-     return{partly,whole,hidden:[...els.tracks.children].filter(r=>r.hidden&&project.clips.some(c=>c.track===r.dataset.track)).map(r=>r.dataset.track),hint:hint&&hint.getClientRects().length?hint.textContent:null,hintCut:!!hint&&hint.getClientRects().length>0&&(hint.scrollWidth>hint.clientWidth+0.5||hint.getBoundingClientRect().right>document.getElementById('trackHeadTools').getBoundingClientRect().right+0.5)};})()`;
+     return{partly,whole,hidden:[...els.tracks.children].filter(r=>r.hidden&&project.clips.some(c=>c.track===r.dataset.track)).map(r=>r.dataset.track),hint:hint&&hint.getClientRects().length?hint.textContent:null,hintCut:!!hint&&hint.getClientRects().length>0&&(()=>{const box=document.getElementById('trackHeadTools').getBoundingClientRect(),b=hint.getBoundingClientRect(),rg=document.createRange();rg.selectNodeContents(hint);const t=rg.getBoundingClientRect();/* the button inside the corner, and its text (measured with a Range: Chromium buttons over-report scrollHeight) inside the button, both ways */window.__hintRects=JSON.stringify({box:[box.left,box.top,box.right,box.bottom],b:[b.left,b.top,b.right,b.bottom],t:[t.left,t.top,t.right,t.bottom]},(k,v)=>typeof v==='number'?Math.round(v*10)/10:v);return b.left<box.left-0.5||b.right>box.right+0.5||b.top<box.top-0.5||b.bottom>box.bottom+0.5||t.left<b.left-0.5||t.right>b.right+0.5||t.top<b.top-0.5||t.bottom>b.bottom+0.5;})()};})()`;
    const before=await read(lanes);
    assert.deepEqual(before.partly,[],language+': no visible lane is partly behind the ruler '+JSON.stringify(before));
    if(!before.whole.includes('V3')){
     assert.deepEqual(before.hidden,['V3'],language+': V3 is folded away, not left behind the ruler');
     assert.equal(before.hint,T.above,language+': the hint says the caption lane is above');
-    assert.equal(before.hintCut,false,language+': the hint is not cut off');
+    assert.equal(before.hintCut,false,language+': the hint is not cut off '+await read('window.__hintRects'));
     await read(`document.getElementById('btnTracksAbove').click();true`);await wait(300);
     const after=await read(lanes);
     assert.ok(after.whole.includes('V3'),language+': after the hint, V3 is shown whole '+JSON.stringify(after));

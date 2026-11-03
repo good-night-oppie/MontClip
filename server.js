@@ -1079,7 +1079,7 @@ const server = http.createServer(async (req, res) => {
   /* API: upload → saved into ./media */
   if (p === "/api/upload" && req.method === "POST") {
     try {
-      let name = safeName(url.searchParams.get("name") || "upload.bin");
+      let name = Delivery.mediaFileName(url.searchParams.get("name") || "upload.bin");   // Chinese kept (Deja)
       let target = path.join(MEDIA_DIR, name);
       let i = 1;
       const ext = path.extname(name), base = path.basename(name, ext);
@@ -1126,7 +1126,7 @@ const server = http.createServer(async (req, res) => {
      project media — the client / MCP tool does that, matching /api/upload. */
   if (p === "/api/import-url" && req.method === "POST") {
     if (DESKTOP) {
-      sendJSON(res, 403, { code: "NETWORK_DISABLED", error: "当前为离线模式，请导入本地文件。 / Offline mode: import a local file." });
+      sendJSON(res, 403, { code: "NETWORK_DISABLED", error: "Offline mode: import a local file." });
       return;
     }
     try {

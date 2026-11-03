@@ -1,0 +1,248 @@
+{
+  "input": {
+    "sha256": "18d9c7ecbc71a9bde1d00e338c4a3e562e8d6affaacb6738f3270041f4ae5ca7",
+    "bytes": 38888
+  },
+  "ranges": [
+    [
+      1,
+      2
+    ],
+    [
+      4,
+      5.5
+    ],
+    [
+      7,
+      8
+    ]
+  ],
+  "audioClips": [
+    {
+      "id": "range0_a1",
+      "kind": "audio",
+      "track": "A1",
+      "start": 0,
+      "in": 1,
+      "duration": 1
+    },
+    {
+      "id": "range1_a2",
+      "kind": "audio",
+      "track": "A1",
+      "start": 1.01,
+      "in": 4.01,
+      "duration": 1.49
+    },
+    {
+      "id": "range2_a2",
+      "kind": "audio",
+      "track": "A1",
+      "start": 2.5,
+      "in": 7,
+      "duration": 1
+    }
+  ],
+  "boundary": {
+    "at": 4,
+    "audioEdge": 4.01,
+    "offsetMs": 10
+  },
+  "plan": [
+    {
+      "id": "range0_v",
+      "kind": "video",
+      "track": "V1",
+      "start": 0,
+      "in": 1,
+      "duration": 1
+    },
+    {
+      "id": "range0_a1",
+      "kind": "audio",
+      "track": "A1",
+      "start": 0,
+      "in": 1,
+      "duration": 1
+    },
+    {
+      "id": "range0_s0",
+      "kind": "text",
+      "track": "V2",
+      "start": 0,
+      "in": null,
+      "duration": 1
+    },
+    {
+      "id": "range1_v",
+      "kind": "video",
+      "track": "V1",
+      "start": 1,
+      "in": 4,
+      "duration": 1.5
+    },
+    {
+      "id": "range1_a2",
+      "kind": "audio",
+      "track": "A1",
+      "start": 1.01,
+      "in": 4.01,
+      "duration": 1.49
+    },
+    {
+      "id": "range1_s1",
+      "kind": "text",
+      "track": "V2",
+      "start": 1,
+      "in": null,
+      "duration": 1.5
+    },
+    {
+      "id": "range2_v",
+      "kind": "video",
+      "track": "V1",
+      "start": 2.5,
+      "in": 7,
+      "duration": 1
+    },
+    {
+      "id": "range2_a2",
+      "kind": "audio",
+      "track": "A1",
+      "start": 2.5,
+      "in": 7,
+      "duration": 1
+    },
+    {
+      "id": "range2_s2",
+      "kind": "text",
+      "track": "V2",
+      "start": 2.5,
+      "in": null,
+      "duration": 1
+    }
+  ],
+  "export": {
+    "file": "AV sync.mp4",
+    "sha256": "49e410b7d55f4ca1a4a94433895c4eb7e8b8c13290aeb9b5e6fa2b8b7dcfc748",
+    "bytes": 26221,
+    "report": "320×180 · 30 fps · 105 frames · h264 · color bt709 · aac 48 kHz stereo · 0:03.50 · -18.0 LUFS · -4.7 dBTP · 26 KB"
+  },
+  "encoder": "h264_mf",
+  "controlShift": 0,
+  "ffmpeg": "ffmpeg version n9.0.2-42-gd7643a0fe3-20261102 Copyright (c) 2000-2026 the FFmpeg developers",
+  "measured": {
+    "fps": 30,
+    "duration": 3.5,
+    "frames": 105,
+    "flashes": [
+      0.2,
+      0.7,
+      1.2,
+      1.7,
+      2.2,
+      2.7,
+      3.2
+    ],
+    "beeps": [
+      0.2000625,
+      0.7000625,
+      1.2000625,
+      1.7000625,
+      2.2000625,
+      2.7000625,
+      3.2000625
+    ],
+    "limit": 0.04,
+    "pairs": [
+      {
+        "flash": 0.2,
+        "beep": 0.2000625,
+        "offset": 0.00006249999999999312
+      },
+      {
+        "flash": 0.7,
+        "beep": 0.7000625,
+        "offset": 0.00006250000000007638
+      },
+      {
+        "flash": 1.2,
+        "beep": 1.2000625,
+        "offset": 0.00006250000000007638
+      },
+      {
+        "flash": 1.7,
+        "beep": 1.7000625,
+        "offset": 0.00006250000000007638
+      },
+      {
+        "flash": 2.2,
+        "beep": 2.2000625,
+        "offset": 0.00006249999999985434
+      },
+      {
+        "flash": 2.7,
+        "beep": 2.7000625,
+        "offset": 0.00006249999999985434
+      },
+      {
+        "flash": 3.2,
+        "beep": 3.2000625,
+        "offset": 0.00006249999999985434
+      }
+    ],
+    "unpaired": {
+      "flashes": [],
+      "beeps": []
+    },
+    "worst": 0.00006250000000007638,
+    "ok": true,
+    "expected": [
+      0.2,
+      0.7,
+      1.2,
+      1.7,
+      2.2,
+      2.7,
+      3.2
+    ],
+    "placement": [
+      {
+        "expected": 0.2,
+        "flash": 0.2,
+        "error": 0
+      },
+      {
+        "expected": 0.7,
+        "flash": 0.7,
+        "error": 0
+      },
+      {
+        "expected": 1.2,
+        "flash": 1.2,
+        "error": 0
+      },
+      {
+        "expected": 1.7,
+        "flash": 1.7,
+        "error": 0
+      },
+      {
+        "expected": 2.2,
+        "flash": 2.2,
+        "error": 0
+      },
+      {
+        "expected": 2.7,
+        "flash": 2.7,
+        "error": 0
+      },
+      {
+        "expected": 3.2,
+        "flash": 3.2,
+        "error": 0
+      }
+    ],
+    "placementOk": true
+  }
+}

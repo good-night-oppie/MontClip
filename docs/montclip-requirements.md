@@ -30,7 +30,7 @@ All rows remain **not released** until the Windows package and review gates pass
 | N20 | Recording marks | Import with original time/source/notes needed | Pending |
 | N21 | Segment type | Conservative classification with unknown state needed | Pending |
 | N22 | Cover candidates | Existing frame extraction; ratios and picker needed | Pending |
-| N23 | Titles/file naming | Windows-safe naming and collision tests needed | Pending |
+| N23 | Titles/file naming | Windows-safe naming and collision tests needed. Gap 2026-11-03: uploaded/imported media lost Chinese names (「合成 演唱.wav」 → 「_ _.wav」); every media path now uses `Delivery.mediaFileName` (fileSafeName rule, extension kept) — PR #78 | Pending; PR #78: unit tests + `MEDIA_NAMES_PASS` (upload, read, play), awaiting review |
 | N24 | Danmaku output | Independent annotation layer needed | Pending |
 | N25 | Export follows source | Existing delivery presets; exact rate and readback needed | Pending |
 | N26 | Multiple speakers/virtual camera | Existing transforms; simplified operation needed | Pending |
@@ -40,7 +40,7 @@ All rows remain **not released** until the Windows package and review gates pass
 | N30 | Rights/credits | Upstream MIT retained; actual component inventory needed | Pending package audit |
 | R01 | Real before/after demo | Synthetic real-media package scenario needed | Pending |
 | R02 | Faster candidate review | Candidate rows with reasons and zero-results state needed | Pending |
-| R03 | Danmaku as separate evidence | Do not mix danmaku into speech transcript | Pending |
+| R03 | Danmaku as separate evidence | Do not mix danmaku into speech transcript. Gap 2026-11-03: the editor dropped the whole `project.danmaku` field on load (and deleted it on the next save), so highlight cards never saw danmaku; now kept as it is — PR #79 | Pending; PR #79: unit tests + `DANMAKU_KEEP_PASS` (FAIL on the code before), awaiting review |
 | R04 | Explain heuristics/manual approve | Editable proposed boundaries needed | Pending |
 | R05 | OpenAI-compatible text-only model | Explicit payload consent and adapter needed | No model connected; no AI claim |
 | R06 | SRT import/trim/rebase | Removed invented word timing; source/output mapping needed | Caption unit tests pass; end-to-end pending |

@@ -724,6 +724,14 @@
     s = Array.from(s).slice(0, max).join("").replace(/[. ]+$/, "");
     return /^[-. ]*$/.test(s) ? fallback : s;
   }
+  /** A media file's name on disk — an upload, a URL import, an MCP import (Deja, 2026-11-03: 「合成 演唱.wav」 had become
+   *  「_ _.wav」): fileSafeName's rule for the name, and the extension kept whole (a long name never loses it). */
+  function mediaFileName(name) {
+    const s = String(name == null ? "" : name).replace(/\p{Cf}+/gu, "");
+    const dot = s.lastIndexOf("."), raw = dot >= 0 ? s.slice(dot) : "", ext = /^\.[A-Za-z0-9]{1,10}$/.test(raw) ? raw : "";
+    const stem = ext ? s.slice(0, dot) : s;
+    return fileSafeName(stem, "file", { reserve: ext.length }) + ext;
+  }
   /** The file name an output gets in a project (its size, export frame and fps). */
   function projectFilename(spec, proj = {}) {
     const fr = reframe(spec, proj.width || 1920, proj.height || 1080, proj.exportFrame || null);
@@ -834,7 +842,7 @@
     CONTAINERS, CODECS, ENCODERS, AUDIO, COLORS, PRESETS, PRESET_IDS, DEFAULT_PRESET,
     FPS_CHOICES, RESOLUTIONS, SPEEDS, SAMPLE_RATES, META_KEYS, FILENAME_TOKENS,
     NEVER_ENCODERS, forbiddenEncoder, normalize, encodersFor, reframe, ffmpegArgs, videoFilter, frameInput, jpegQuality, fpsRational,
-    renderFilename, projectFilename, fileSafeName, describe, estimateSize, checks, presetGroups, presetId, savedPresets, parseEncoders,
+    renderFilename, projectFilename, fileSafeName, mediaFileName, describe, estimateSize, checks, presetGroups, presetId, savedPresets, parseEncoders,
     PLATFORM_LOUDNESS, LOUDNESS_TARGETS, LOUDNESS_ARGS, LOUDNORM_ARGS, parseLoudnorm, loudnormFilter, parseEbur128, verify,
     fmtBytes, fmtDur,
   };

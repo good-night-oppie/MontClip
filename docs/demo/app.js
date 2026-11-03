@@ -42,6 +42,12 @@ const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
 /** On-device transcription: on in development and the browser editor; a packaged desktop build has it
  *  off unless the main process turned it on (desktop/features.js). Off means no entry and no download. */
 function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
+/** A server refusal's reason code, said in the interface language; "" when the code has no text of its own. */
+const CODE_TEXT = { NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready", EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept" };
+function codeText(error) {
+  const code = error && (error.code || error.errorCode);
+  return typeof code === "string" && CODE_TEXT[code] ? uiText(CODE_TEXT[code]) : "";
+}
 function renderMontClipView() {
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
   document.getElementById("mcAssistantTab").textContent=t.assistant;document.getElementById("mcMediaToggle").textContent=mcView.get().language==="en"?"Media":"素材";
@@ -1594,6 +1600,8 @@ function applyProject(data, opts = {}) {
     outputs: Array.isArray(data.outputs) ? data.outputs.filter((o) => o && typeof o === "object") : null,
     master: normalizeMaster(data.master),
     buses: normalizeBuses(data.buses),
+    // the recording's danmaku, kept as it is (null when this project has none, so nothing is left from the last one)
+    danmaku: normalizeDanmaku(data.danmaku),
     // the sequences that aren't open, kept as they are (see sequences.js); the open one is this document
     sequences: Array.isArray(data.sequences) && data.sequences.length ? data.sequences : null,
     sequence: Array.isArray(data.sequences) && data.sequences.length ? SeqLib.activeId(data) : null,
@@ -1764,6 +1772,12 @@ function projectJSON() {
   const root = commitCompCtx();
   return { ...root, revision: project.revision };
 }
+/** project.danmaku as the editor keeps it: the list as it is — every field of every entry, whichever shape — as a
+ *  JSON copy; null when it is not a list, is empty, or is larger than any recording's danmaku (400000 entries). */
+function normalizeDanmaku(list) {
+  if (!Array.isArray(list) || !list.length || list.length > 400000) return null;
+  try { return JSON.parse(JSON.stringify(list)); } catch { return null; }
+}
 /** The project as it is loaded right now (an open comp's stand-in project, or the root). */
 function projectJSONHere() {
   const { name, width, height, fps, background, revision, folders, media, clips, markers, inPoint, outPoint, disabledTracks, encodeProfile, delivery, outputs } = project;
@@ -1806,6 +1820,8 @@ function projectJSONHere() {
   const buses = normalizeBuses(project.buses);
   if (buses.length) out.buses = buses;
   if (project.comps && project.comps.length) out.comps = project.comps.map((cp) => ({ ...cp, clips: (cp.clips || []).map(serializeClip) }));
+  const danmaku = normalizeDanmaku(project.danmaku);
+  if (danmaku) out.danmaku = danmaku;
   if (project.sequences) {
     out.sequences = project.sequences.map((sq) => (sq.id === project.sequence ? { id: sq.id, name: sq.name } : sq));
     out.sequence = project.sequence;
@@ -2176,7 +2192,7 @@ async function importFromUrl(url) {
       signal: runtime.importUrlAbort.signal,
     });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || "import failed (" + res.status + ")");
+    if (!res.ok) throw Object.assign(new Error(body.error || "import failed (" + res.status + ")"), { code: body.code });
     const kind = libKind(body.name);
     if (!kind) throw new Error("unsupported file type: " + (body.name || ""));
     const folderId = runtime.importFolderId && getFolder(runtime.importFolderId)
@@ -2196,7 +2212,7 @@ async function importFromUrl(url) {
   } catch (e) {
     if (e && e.name === "AbortError") return;
     setImportUrlBusy(false);
-    toast(e && e.message ? e.message : "Couldn't import URL");
+    toast(codeText(e) || (e && e.message ? e.message : "Couldn't import URL"));
   } finally {
     runtime.importUrlAbort = null;
   }
@@ -9458,7 +9474,7 @@ function buildTranscriptPage() {
       <div class="tr-row tr-entries">
         <button type="button" class="btn tiny" data-tr-highlights data-i18n="own.hl-open">${escapeHtml(uiText("own.hl-open"))}</button>
         <button type="button" class="btn tiny" data-tr-sentences data-i18n="own.tr-sentences">${escapeHtml(uiText("own.tr-sentences"))}</button>
-        <button type="button" class="btn tiny" data-tr-mapping data-i18n="own.mapping">${uiText("own.mapping")}</button>
+        <button type="button" class="btn tiny" data-tr-mapping data-i18n="own.mapping">${escapeHtml(uiText("own.mapping"))}</button>
       </div>
       <div class="tr-row">
         ${listen ? `<button type="button" class="btn primary" data-tr-go></button>` : ""}
@@ -9910,23 +9926,26 @@ async function showHighlightCandidates() {
 async function showSentenceSelection(suggestion = null, onApplied = null) {
   const busy=()=>state.exporting||state.gesture||state.compCtx||runtime.activeImports||runtime.activeTranscriptions||runtime.desktopExportPending||runtime.saveRequests||runtime.saveTimer||runtime.saveFailed||(typeof closeSaveTransaction!=='undefined'&&closeSaveTransaction);
   const proposalContext=()=>({...agentProjectContext(),generation:agentProjectContext().gen});
-  if (state.exporting || state.gesture || state.compCtx || suggestion&&busy()) { toast("请先结束编辑、导出并确认保存 / Finish editing/export and confirm saving first"); return; }
+  if (state.exporting || state.gesture || state.compCtx || suggestion&&busy()) { toast(uiText(suggestion&&busy()?"own.sd-busy-save":"own.sd-busy")); return; }
   if (suggestion) {if(!MontClipProposal.current(suggestion,projectJSON(),proposalContext())){console.warn("showSentenceSelection: the suggestion is not valid for the current project; nothing opened");return;}}
   else if (!(await flushSaveBeforeSwitch())) return;
   const doc = projectJSON(), signature = JSON.stringify(doc), projectId = runtime.projectId, projectGen=runtime.projectGen, sequenceId=SeqLib.activeId(seqRoot());
   const captions = doc.clips.filter((c) => FableCutCaptions.isCaption(c) && !c.disabled && !(doc.disabledTracks || []).includes(c.track)).sort((a, b) => a.start - b.start);
-  if (!captions.length) { toast("先导入 SRT 或添加字幕 / Import SRT or add captions first"); return; }
+  if (!captions.length) { toast(uiText("own.sd-no-captions")); return; }
   pause();
   const dialog = document.createElement("dialog");
   dialog.className = "sentence-dialog";
-  dialog.innerHTML = `<form method="dialog"><h3>按句选择保留片段 / Keep sentences</h3>
-    <p>只保留勾选的句段，移除中间间隙和其余音视频。原片不变，一步撤销。<br>Join checked ranges only. Remove gaps and other media from the edit. Source files stay unchanged.</p>
-    <label>或按顺序输入明确区间（秒，每行 起点,终点；填写后替代勾选） / Or ordered ranges in seconds, one start,end per line (overrides checks)
+  // one language at a time (own.sd-*); a planner error is said by its code (own.rp-*)
+  const say = (key) => escapeHtml(uiText(key));
+  dialog.innerHTML = `<form method="dialog"><h3>${say("own.sd-title")}</h3>
+    <p>${say("own.sd-intro")}</p>
+    <label>${say("own.sd-ranges")}
     <textarea data-ranges rows="2" placeholder="9,12&#10;1,4"></textarea></label>
     <div data-sentences></div><p data-summary role="status"></p>
-    <div class="tr-row"><button type="button" class="btn" data-preview>试听选段 / Preview</button>
-    <button type="button" class="btn primary" data-apply>保留选段 / Apply</button>
-    <button class="btn" value="cancel">取消 / Cancel</button></div></form>`;
+    <div class="tr-row"><button type="button" class="btn" data-preview>${say("own.sd-preview")}</button>
+    <button type="button" class="btn primary" data-apply>${say("own.sd-apply")}</button>
+    <button class="btn" value="cancel">${say("own.sd-cancel")}</button></div></form>`;
+  const ownError = (error) => (error && error.code && uiText("own.rp-" + error.code)) || error.message;
   const list = dialog.querySelector("[data-sentences]"), summary = dialog.querySelector("[data-summary]");
   if(suggestion){dialog.querySelector('[data-ranges]').value=suggestion.keep.map(r=>r.from+','+r.to).join('\n');dialog.querySelector('[data-ranges]').readOnly=true;list.hidden=true;}
   const selected = new Set();
@@ -9944,13 +9963,14 @@ async function showSentenceSelection(suggestion = null, onApplied = null) {
       const explicit = dialog.querySelector("[data-ranges]").value.trim();
       const keep = explicit ? explicit.split(/\r?\n/).map(line => {
         const pair = line.split(",").map(s => s.trim());
-        if (pair.length !== 2 || pair.some(s => !s)) throw new Error("每行填写 起点,终点（秒） / Enter start,end seconds on each line");
+        if (pair.length !== 2 || pair.some(s => !s)) throw new Error(uiText("own.sd-range-line"));
         return { from: Number(pair[0]), to: Number(pair[1]) };
       }) : [...selected].map(id => captions.find(c => c.id === id)).map(c => ({ from: c.start, to: c.start+c.duration }));
       plan = FableCutRangePlan.create(doc, keep); plan.keep = keep;
-      const cut = plan.captions.filter(c => c.truncated).length;
-      summary.textContent = `${keep.map((r) => `${fmt(r.from)}–${fmt(r.to)}`).join(" → ")} → ${plan.duration.toFixed(2)} s。按勾选顺序 / In selection order. ${cut ? `${cut} 句只保留了一部分声音，请检查字幕和开头结尾。 / Boundary captions need checking.` : ""}`;
-    } catch (error) { plan = null; summary.textContent = error.message; }
+      const cut = plan.captions.filter((c) => c.status === "visible" && c.truncated).length;
+      summary.textContent = uiText("own.sd-summary", { ranges: keep.map((r) => `${fmt(r.from)}–${fmt(r.to)}`).join(" → "), duration: MontClipView.durationText(plan.duration) }) +
+        (cut ? " " + uiText(cut === 1 ? "own.sd-partial" : "own.sd-partial-many", { n: cut }) : "");
+    } catch (error) { plan = null; summary.textContent = ownError(error); }
     dialog.querySelector("[data-apply]").disabled = !plan;
     dialog.querySelector("[data-preview]").disabled = !plan;
   };
@@ -9963,7 +9983,7 @@ async function showSentenceSelection(suggestion = null, onApplied = null) {
   }
   dialog.querySelector("[data-ranges]").addEventListener("input", refresh);
   const current = () => JSON.stringify(projectJSON()) === signature && runtime.projectId === projectId && runtime.projectGen===projectGen && SeqLib.activeId(seqRoot())===sequenceId && (!suggestion||!busy()&&MontClipProposal.current(suggestion,projectJSON(),proposalContext()));
-  const changed = () => { stopPreview(); summary.textContent = "项目已变化，请关闭后重新选择 / Project changed; reopen selection"; };
+  const changed = () => { stopPreview(); summary.textContent = uiText("own.sd-changed"); };
   dialog.querySelector("[data-preview]").addEventListener("click", () => {
     if (!plan) return;
     if (!current()) { changed(); return; }
@@ -9991,8 +10011,8 @@ async function showSentenceSelection(suggestion = null, onApplied = null) {
         inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
       } });
       applyProject(next); pushUndo(snap); if(onApplied)onApplied(applyToken); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
-      dialog.close(); toast("已拼接选段，可撤销 / Joined selected sentences; Undo is available");
-    } catch (error) { summary.textContent = error.message; }
+      dialog.close(); toast(uiText("own.sd-done"));
+    } catch (error) { summary.textContent = ownError(error); }
   });
   dialog.addEventListener("close", () => { stopPreview(); dialog.remove(); });
   document.body.append(dialog); refresh(); dialog.showModal();
@@ -10000,7 +10020,7 @@ async function showSentenceSelection(suggestion = null, onApplied = null) {
 function downloadSourceMap() {
   let map;
   try { map = FableCutCaptions.sourceMap(projectJSON()); } catch (error) { toast(error.message); return; }
-  if (!map.segments.length) { toast("没有可映射的音视频 / No source media to map"); return; }
+  if (!map.segments.length) { toast(uiText("own.map-no-media")); return; }
   const url = URL.createObjectURL(new Blob([JSON.stringify(map, null, 2)], { type: "application/json" }));
   saveDownload(url, "MontClip.mapping.json"); setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
