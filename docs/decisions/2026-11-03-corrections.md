@@ -70,7 +70,8 @@ Constants: `MAX_SHIFT` 5 s, `HABIT_WINDOW` 5, `HABIT_MIN` 4, `BAR_BASE` 0.12 (so
   way. The search gets it through `songOptions(rules)`.
 - **The same recording** (not a habit: one mark is enough, the bar off or on): a part marked 「不是唱歌」 is not a song card
   again when the same recording is searched again — a song card more than half of whose length lies inside the marked
-  part is left out (`apply(cards, rules, {recKey})`). The 「不是唱歌」 record carries the recording's key and the part's
+  part is left out (`apply(cards, rules, {recKey})`). **Measured against the card's own length** (Deja, decided), and
+  exactly half does not count: a long card is not taken out whole because a short marked part lies inside it. The 「不是唱歌」 record carries the recording's key and the part's
   start and end (seconds); the key is `recordingKey(duration, loudness)` — the length and the loudness bins (0.1 dB),
   hashed (FNV-1a, 64 bits, 16 hex digits). No path, no file name. 「是唱歌」 marks nothing away. To the streamer: what they
   marked does not come back.
@@ -115,7 +116,8 @@ it ships:
   cannot act across folds. It is scored apart on the last line: each recording searched a second time with the
   不是唱歌 marks simulated from its own first search. That is the upper bound of what a streamer who marks every wrong card
   sees: the search is deterministic, so every marked card goes (482 → 61 found, precision 0.12 → 0.98) and no labelled
-  song is lost (recall 0.65 both times).
+  song is lost (recall 0.65 both times). **This is an upper bound, not the effect to expect**: the simulation marks every
+  wrong card, which a streamer will not do; real marks cover only some of them.
 
 - 互动, 聊天 and 整活, each scored apart (a label in both 整活 and 互动 counts as 互动):
 
