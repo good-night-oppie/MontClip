@@ -29,7 +29,10 @@ test('the page asks only with the capability and the project: the reply’s word
  a.match(app,/window\.montclipAgentPolicy\.decide\(\{sessionId:result\.sessionId,capability:response\.type,target:\{kind:'project',value:runtime\.projectId\}\}\)/);
  // an approval is the host box's answer through its ticket, nothing else
  a.match(app,/window\.montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/);
- a.equal((app.match(/montclipAgentPolicy\.answer\(/g)||[]).length,1);
+ // the plan's steps (P4, second half) ask the same way: two answers, each the box's answer to its ticket
+ a.equal((app.match(/montclipAgentPolicy\.answer\(/g)||[]).length,2);
+ a.equal((app.match(/montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/g)||[]).length,2);
+ a.match(app,/window\.montclipAgentPolicy\.decide\(\{sessionId:result\.sessionId,capability:s\.capability,target:\{kind:'project',value:runtime\.projectId\}\}\)/);
 });
 
 test('the approval box shows the plain sentence and the domain or project, never an internal name',()=>{
