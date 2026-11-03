@@ -1,0 +1,39 @@
+{
+  "model": "base",
+  "language": "en",
+  "audioSeconds": 23.875,
+  "transcribeMs": 8336,
+  "secondsPerAudioHour": 1257,
+  "cer": 0,
+  "refChars": 292,
+  "hypChars": 292,
+  "edits": 0,
+  "words": 61,
+  "failed": [],
+  "memoryAtStartMB": {
+    "privateMB": 413,
+    "workingSetMB": 554
+  },
+  "memoryPeakMB": {
+    "privateMB": 1289,
+    "workingSetMB": 1482
+  },
+  "requests": {
+    "total": 93,
+    "external": 0,
+    "externalSample": [],
+    "assets": [
+      "/transcribe-assets/transformers/transformers.min.js",
+      "/transcribe-assets/models/onnx-community/whisper-base_timestamped/config.json",
+      "/transcribe-assets/models/onnx-community/whisper-base_timestamped/tokenizer_config.json",
+      "/transcribe-assets/models/onnx-community/whisper-base_timestamped/preprocessor_config.json",
+      "/transcribe-assets/models/onnx-community/whisper-base_timestamped/onnx/encoder_model_quantized.onnx",
+      "/transcribe-assets/models/onnx-community/whisper-base_timestamped/onnx/decoder_model_merged_quantized.onnx",
+      "/transcribe-assets/models/onnx-community/whisper-base_timestamped/generation_config.json",
+      "/transcribe-assets/models/onnx-community/whisper-base_timestamped/tokenizer.json",
+      "/transcribe-assets/ort/ort-wasm-simd-threaded.jsep.wasm",
+      "/transcribe-assets/ort/ort-wasm-simd-threaded.jsep.mjs"
+    ]
+  },
+  "textSample": "Today we are testing an offline speech recognizer. The editor runs on this computer and never connects to the internet. We record a short message, then the program turns the speech into words with tim"
+}
