@@ -105,6 +105,12 @@ BrowserWindow.prototype.loadURL=async function(...args){
     const d=document.querySelector('dialog.as-add[open]');if(!d)return{hint:h,open:false};const recl=d.querySelector('[data-as-add-rec]');
     return{hint:h,open:true,title:d.querySelector('h2').textContent,rec:recl.textContent,nowrap:getComputedStyle(recl).whiteSpace,kinds:[...d.querySelectorAll('[data-as-add-kind]')].map(x=>x.textContent),ok:d.querySelector('[data-as-add-ok]').disabled,okText:d.querySelector('[data-as-add-ok]').textContent};})()`);
   report.addDialog=dlg;await checkDisabled('add dialog',1);
+  // VV on 12f4f21 (screenshots 06, 16): the name box looks like the editor's other text boxes (the Export dialog's), not a
+  // white box without padding on the dark theme
+  const box=await read(`(()=>{const pick=(el)=>{const s=getComputedStyle(el);return{bg:s.backgroundColor,color:s.color,border:s.borderTopWidth+' '+s.borderTopStyle+' '+s.borderTopColor,radius:s.borderTopLeftRadius,pad:s.paddingLeft+' '+s.paddingTop};};
+    return{name:pick(document.querySelector('dialog.as-add[open] [data-as-add-name]')),house:pick(document.getElementById('dlvMetaTitle'))};})()`);
+  report.nameBox=box;
+  assert.notEqual(box.name.bg,'rgb(255, 255, 255)','not a white box');assert.deepEqual(box.name,box.house,'the editor\'s own text box');
   assert.ok(dlg.hint.startsWith(zh('as-add-hint-on',{from:'6:40',to:'7:10',len:'30 秒'}).slice(0,10)),dlg.hint);assert.equal(dlg.open,true);
   assert.equal(dlg.title,zh('as-add'));assert.equal(dlg.rec,zh('as-add-rec',{name:'11 月 2 日 合成录像'}));assert.equal(dlg.nowrap,'nowrap');
   assert.deepEqual(dlg.kinds,['唱歌','互动','聊天','整活','别的']);assert.equal(dlg.ok,true);assert.equal(dlg.okText,zh('as-add-pick-first'));
