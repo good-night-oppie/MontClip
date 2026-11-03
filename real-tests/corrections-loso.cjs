@@ -9,6 +9,9 @@
    and end moved to the label's (trim); a found song with none → 「不是唱歌」; a labelled song nothing was found for →
    「是唱歌」 (with the sound of the labelled part). Recordings are taken in the order of their folders. As in the app, only
    the last HABIT_WINDOW of each kind of correction make a habit.
+   As shipped (Deja, 2026-11-03): the shift on, the singing bar off (BAR_ON), and a part marked 不是唱歌 not a song card
+   again when the same recording is searched again. Across streamers no recording is shared, so that mark cannot act in a
+   fold; "searched again" scores it apart: each recording searched a second time with only its own 不是唱歌 marks.
    recall@10: labelled song starts with a found start within 10 s; precision@15: found songs with a labelled start within
    15 s; start / end error: |found − labelled| for songs matched by start within 15 s (an end only where it is labelled —
    few are). */
@@ -40,20 +43,21 @@ const cases = fs.readdirSync(path.join(root, "cases")).sort().map((name) => {
     cards = H.candidates({ duration: rms.length * step, sentences: [], loudness, danmaku: dm }).map((c) => ({ s: c.from, e: c.to }));
   }
   const interCards = inter.map((l) => { const x = nearest(cards, l.s, "s"); return x && Math.abs(x.s - l.s) <= 15 ? { label: l, card: x } : null; }).filter(Boolean);
-  return { streamer: String(L.bvid), rms, step, duration: rms.length * step, labels, inter, interCards };
+  const duration = rms.length * step;
+  return { streamer: String(L.bvid), rms, step, duration, key: C.recordingKey(duration, { step, values: rms }), labels, inter, interCards };
 }).filter(Boolean);
 
 function search(c, rules) {
   const found = Songs.find(c.rms, { step: c.step, complete: true, ...C.songOptions(rules) }).map((s) => ({ s: s.from, e: s.to }));
   if (!rules) return found;
-  return C.apply(found.map((x, i) => ({ id: "s" + i, mediaId: "x", kind: "song", ...x })), rules, { duration: { x: c.duration } }).map((x) => ({ s: x.s, e: x.e }));
+  return C.apply(found.map((x, i) => ({ id: "s" + i, mediaId: "x", kind: "song", ...x })), rules, { duration: { x: c.duration }, recKey: { x: c.key } }).map((x) => ({ s: x.s, e: x.e }));
 }
 function simulate(c) {
   const out = [], found = search(c, null), loud = { step: c.step, values: c.rms };
   for (const x of found) {
     const l = nearest(c.labels, x.s, "s");
     if (l && Math.abs(l.s - x.s) <= 15) out.push({ t: x.s, r: C.record({ type: "trim", kind: "song", startShift: l.s - x.s, endShift: l.e == null ? 0 : l.e - x.e, duration: c.duration }) });
-    else { const ft = C.features(x, loud); if (ft) out.push({ t: x.s, r: C.record({ type: "kind", from: "song", to: "other", duration: c.duration, features: ft }) }); }
+    else { const ft = C.features(x, loud); if (ft) out.push({ t: x.s, r: C.record({ type: "kind", from: "song", to: "other", duration: c.duration, features: ft, rec: c.key, s: x.s, e: x.e }) }); }
   }
   for (const l of c.labels) {
     const x = nearest(found, l.s, "s");
@@ -83,17 +87,18 @@ const line = (label, s) => console.log(`${label} labelled ${s.n} found ${s.pred}
 
 const streamers = [...new Set(cases.map((c) => c.streamer))];
 // each rule alone too, to see what each does
-const off = [], on = [], shiftOnly = [], barOnly = [], inter = { labels: 0, matched: 0, off: [], on: [], folds: 0 };
+const off = [], on = [], shiftOnly = [], barOnly = [], both = [], inter = { labels: 0, matched: 0, off: [], on: [], folds: 0 };
 let withRules = 0;
 streamers.forEach((who, i) => {
   const held = cases.filter((c) => c.streamer === who), rest = cases.filter((c) => c.streamer !== who);
-  const rules = C.rules(rest.flatMap(simulate));
-  const used = Object.keys(rules.shift).length || rules.bar;
+  const records = rest.flatMap(simulate), rules = C.rules(records), withBar = C.rules(records, { bar: true });
+  const used = Object.keys(rules.shift).length;
   if (used) withRules++;
   const a = sum(held.map((c) => score(c, search(c, null)))), b = sum(held.map((c) => score(c, search(c, rules))));
   off.push(a); on.push(b);
   shiftOnly.push(sum(held.map((c) => score(c, search(c, { shift: rules.shift })))));
-  barOnly.push(sum(held.map((c) => score(c, search(c, { shift: {}, bar: rules.bar })))));
+  barOnly.push(sum(held.map((c) => score(c, search(c, { shift: {}, bar: withBar.bar })))));
+  both.push(sum(held.map((c) => score(c, search(c, { shift: withBar.shift, bar: withBar.bar })))));
   // 互动: the start error of the held-out streamer's 互动 cards, before and after their kind's habit
   if (rules.shift.interaction) inter.folds++;
   for (const c of held) {
@@ -103,11 +108,15 @@ streamers.forEach((who, i) => {
       inter.off.push(Math.abs(card.s - label.s)); inter.on.push(Math.abs(x.s - label.s));
     }
   }
-  console.log(`fold ${String(i + 1).padStart(2)} recordings ${held.length} rules ${JSON.stringify({ shift: rules.shift, bar: rules.bar || null })}`);
+  console.log(`fold ${String(i + 1).padStart(2)} recordings ${held.length} rules ${JSON.stringify({ shift: rules.shift, bar: withBar.bar || null })}`);
 });
 console.log(`corrections: simulated, ${streamers.length} streamers left out one at a time; rules in ${withRules} folds`);
 line("off", sum(off));
-line("on ", sum(on));
-line("on, the shift alone", sum(shiftOnly));
-line("on, the bar alone  ", sum(barOnly));
+line("on, as shipped (the shift; the bar off)", sum(on));
+line("the shift alone", sum(shiftOnly));
+line("the bar alone (off as shipped)", sum(barOnly));
+line("the shift and the bar", sum(both));
+// the same recording searched again, with only its own 不是唱歌 marks (no other rule): what the streamer sees on a re-search
+const again = sum(cases.map((c) => { const marks = simulate(c).filter((r) => r.type === "kind" && r.from === "song"); return score(c, search(c, { shift: {}, notSong: C.rules(marks).notSong || [] })); }));
+line("searched again, its own 不是唱歌 marks", again);
 console.log(`互动 labelled ${inter.labels} matched to a candidate ${inter.matched} median|start error| off ${f(median(inter.off), 1)} s on ${f(median(inter.on), 1)} s; folds with a 互动 habit ${inter.folds} of ${streamers.length}`);

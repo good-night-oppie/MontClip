@@ -72,7 +72,7 @@ test('the singing bar is off by default: no bar, the search keeps PAUSE 0.12',()
  a.equal(C.BAR_ON,false);a.equal(Songs.DEFAULTS.PAUSE,0.12);
  const notSong=[0.05,0.08,0.06,0.07,0.05].map(p=>kind('song','other',p)),isSong=[0.15,0.2,0.16,0.18].map(p=>kind('moment','song',p));
  for(const recs of [notSong,isSong]){const r=C.rules(recs);a.equal(r.bar,undefined);a.deepEqual(C.songOptions(r),{},'PAUSE stays 0.12');a.ok(C.rules(recs,{bar:true}).bar,'on when asked');}
- const [x]=C.apply([card({})],C.rules(notSong),{});a.ok(!x.rules.includes('song-bar'));
+ const [x]=C.apply([card({})],C.rules(notSong),{});a.equal(x.rules,undefined,'no rule at all: the card as the search gave it');
 });
 test('the singing bar moves both ways, only on a habit, at most half its first value (with the bar on)',()=>{
  const down=C.rules([0.05,0.08,0.06,0.07].map(p=>kind('song','other',p)),{bar:true});

@@ -20,10 +20,13 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.equal((await C(`c.append({type:'kind',from:'song',to:'other',duration:3600,features:{len:120,level:-25,pause:0.3}})`)).ok,true);
   // undoing an edit takes its record back (v11)
   const added=await C(`c.append({type:'add',kind:'interaction',duration:3600})`);assert.deepEqual(await C(`c.undo(${JSON.stringify(added.id)})`),{ok:true});
+  // 「不是唱歌」 with which recording (a hash, never a path) and the part: kept; a path in its place: refused
+  assert.equal((await C(`c.append({type:'kind',from:'song',to:'interaction',duration:3600,rec:${JSON.stringify(require('../corrections').recordingKey(3600,{step:0.5,values:[-20,-21,-30]}))},s:100,e:220})`)).ok,true);
+  assert.equal((await C(`c.append({type:'kind',from:'song',to:'other',duration:3600,rec:'C:/录像/a.flv',s:100,e:220})`)).code,'CORRECTION_INVALID');
   assert.equal((await C(`c.append({type:'trim',kind:'song',startShift:-4,endShift:3,duration:3600,name:'我的直播.mp4'})`)).code,'CORRECTION_INVALID');
   assert.equal((await C(`c.append('C:/录像/a.flv')`)).code,'CORRECTION_INVALID');
-  report.kept=await C(`c.status()`);assert.deepEqual(report.kept,{enabled:true,count:2,byType:{trim:1,remove:0,kind:1,add:0}});
-  assert.equal((await C(`c.records()`)).length,2);
+  report.kept=await C(`c.status()`);assert.deepEqual(report.kept,{enabled:true,count:3,byType:{trim:1,remove:0,kind:2,add:0}});
+  assert.equal((await C(`c.records()`)).length,3);
   const dir=path.join(app.getPath('userData'),'corrections');
   for(const f of fs.readdirSync(dir)){const raw=fs.readFileSync(path.join(dir,f),'utf8');assert.ok(!/\.(mp4|flv)|[\\/]|[一-鿿]/.test(raw),f);}
   // the page has no other way in: no path, no file
@@ -32,7 +35,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.deepEqual(await C(`c.setEnabled(false)`),{ok:true,enabled:false});
   assert.equal((await C(`c.append({type:'remove',kind:'moment',duration:600})`)).code,'CORRECTIONS_OFF');
   assert.equal(await C(`c.records()`),null);
-  assert.deepEqual(await C(`[c.status().enabled,c.status().count]`),[false,2]);
+  assert.deepEqual(await C(`[c.status().enabled,c.status().count]`),[false,3]);
   await C(`c.setEnabled(true)`);assert.deepEqual(await C(`c.clear()`),{ok:true});
   report.cleared=await C(`c.status()`);assert.deepEqual([report.cleared.enabled,report.cleared.count],[true,0]);
   // never in the project the page saves

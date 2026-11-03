@@ -13,6 +13,11 @@
              ±MAX_SHIFT s;
      bar   — 「不是唱歌」 (a song made another kind) raises the singing bar, 「是唱歌」 (made a song) lowers it: songs.js
              PAUSE moves to the median pause of those parts, never past half of its first value either way (BAR_RANGE).
+             OFF by default (BAR_ON; Deja, 2026-11-03, from the LOSO numbers: 0.19 of recall for 0.02 of precision); kept,
+             with its tests, for when real corrections exist.
+   One rule is not a habit: a part marked 「不是唱歌」 in a recording is not a song card again when that same recording is
+   searched again (a song card more than half inside it). The recording is known by recordingKey — its length and a hash
+   of its sound — never by its path.
    Each card lists the rules that touched it (card.rules). With no rules (off, or nothing kept) the cards come back exactly
    as given, and the search gets no options. */
 (function (root, factory) {
@@ -25,7 +30,9 @@
   const MAX_SHIFT = 5, HABIT_WINDOW = 5, HABIT_MIN = 4, PAUSE_DB = 14, MIN_LEN = 5;
   // the singing bar starts where songs.js has it (DEFAULTS.PAUSE) and moves at most half of that either way
   const BAR_BASE = 0.12, BAR_RANGE = Object.freeze([BAR_BASE / 2, BAR_BASE * 1.5]);
-  const FIELDS = { kind: ["from", "to", "features"], add: ["kind", "features"], trim: ["kind", "startShift", "endShift"], remove: ["kind", "features"] };
+  // the singing bar is off: with it off the search keeps songs.js PAUSE (0.12)
+  const BAR_ON = false;
+  const FIELDS = { kind: ["from", "to", "features", "rec", "s", "e"], add: ["kind", "features"], trim: ["kind", "startShift", "endShift"], remove: ["kind", "features"] };
   const r2 = (x) => Math.round(x * 100) / 100, r3 = (x) => Math.round(x * 1000) / 1000;
   const num = (x, lo, hi) => typeof x === "number" && Number.isFinite(x) && x >= lo && x <= hi;
   const fail = () => { throw new Error("CORRECTION_INVALID"); };
@@ -39,8 +46,13 @@
     const out = { v: 1, at: num(input.at, 0, 1e15) ? Math.round(input.at) : Date.now(), type: input.type, duration: r2(input.duration) };
     // the store's own id for a record, so undoing an edit can take its record back
     if ("id" in input) { if (typeof input.id !== "string" || !/^[a-f0-9]{16}$/.test(input.id)) fail(); out.id = input.id; }
+    // a kind change may say which recording and which part (rec, s, e: all three or none)
+    const where = ["rec", "s", "e"].filter((k) => k in input);
+    if (where.length && (where.length !== 3 || typeof input.rec !== "string" || !/^[a-f0-9]{16}$/.test(input.rec)
+      || !num(input.s, 0, out.duration) || !num(input.e, 0, out.duration) || input.e <= input.s)) fail();
     for (const k of own) {
       const v = input[k];
+      if (k === "rec" || k === "s" || k === "e") { if (where.length) out[k] = k === "rec" ? v : r2(v); continue; }
       if (k === "features") { if (v != null) out.features = features0(v); continue; }
       if (k === "startShift" || k === "endShift") { if (!num(v, -86400, 86400)) fail(); out[k] = r2(v); continue; }
       if (!KINDS.includes(v)) fail();
@@ -56,6 +68,15 @@
     return { len: r2(f.len), level: r2(f.level), pause: r3(f.pause) };
   }
 
+  /** Which recording, without its path: its length and its sound (the loudness bins, to 0.1 dB), hashed (FNV-1a, 64 bits)
+   *  → 16 hex digits; null without them. The same file gives the same key; another file, another length or sound, another. */
+  function recordingKey(duration, loudness) {
+    if (!Number.isFinite(duration) || !loudness || !Array.isArray(loudness.values) || !loudness.values.length || !(loudness.step > 0)) return null;
+    const text = r2(duration) + "|" + loudness.step + "|" + loudness.values.map((x) => (Number.isFinite(x) ? Math.round(x * 10) : "n")).join(",");
+    let h = 0xcbf29ce484222325n;
+    for (let i = 0; i < text.length; i++) h = BigInt.asUintN(64, (h ^ BigInt(text.charCodeAt(i))) * 0x100000001b3n);
+    return h.toString(16).padStart(16, "0");
+  }
   /** A part's sound in numbers: its length, its usual (median) level and how often it drops PAUSE_DB below that. */
   function features(part, loudness) {
     if (!loudness || !Array.isArray(loudness.values) || !(loudness.step > 0)) return null;
@@ -75,8 +96,9 @@
     const same = up.length >= HABIT_MIN ? up : down.length >= HABIT_MIN ? down : null;
     return same && { values: same, n: last.length };
   }
-  /** The fixed rules from the records: {shift: {kind: {start?: {by, of}, end?: {by, of}}}, bar?: {dir, PAUSE, of}}. */
-  function rules(records) {
+  /** The fixed rules from the records: {shift: {kind: {start?: {by, of}, end?: {by, of}}}, bar?: {dir, PAUSE, of},
+   *  notSong?: [{rec, s, e}]}. opts.bar turns the singing bar on (default BAR_ON, off). */
+  function rules(records, { bar = BAR_ON } = {}) {
     const list = Array.isArray(records) ? records : [], out = { shift: {} };
     for (const k of KINDS) {
       const t = list.filter((x) => x.type === "trim" && x.kind === k), one = {};
@@ -88,7 +110,9 @@
     }
     // 「不是唱歌」 (+1: the bar up, stricter) and 「是唱歌」 (−1: the bar down), the last of them in order
     const kinds = list.filter((x) => x.type === "kind" && (x.from === "song") !== (x.to === "song"));
-    const h = habit(kinds.map((x) => (x.from === "song" ? 1 : -1)));
+    const marked = kinds.filter((x) => x.from === "song" && x.rec).map((x) => ({ rec: x.rec, s: x.s, e: x.e }));
+    if (marked.length) out.notSong = marked;
+    const h = bar && habit(kinds.map((x) => (x.from === "song" ? 1 : -1)));
     if (h) {
       const dir = h.values[0] > 0 ? "up" : "down", same = kinds.slice(-HABIT_WINDOW).filter((x) => (x.from === "song") === (dir === "up") && x.features);
       if (same.length) {
@@ -98,16 +122,20 @@
     }
     return out;
   }
-  const none = (r) => !r || (!Object.keys(r.shift || {}).length && !r.bar);
+  const none = (r) => !r || (!Object.keys(r.shift || {}).length && !r.bar && !(r.notSong && r.notSong.length));
   /** songs.js options for the search: the moved bar, or nothing. */
   const songOptions = (r) => (r && r.bar ? { PAUSE: r.bar.PAUSE } : {});
 
-  /** The cards with the rules applied; opts: {duration: {mediaId: s}}. With no rules the very same cards (a copy) come
-   *  back, without a rules field. A song card found with a moved bar says so (song-bar). */
+  /** The cards with the rules applied; opts: {duration: {mediaId: s}, recKey: {mediaId: recordingKey}}. With no rules
+   *  the very same cards (a copy) come back, without a rules field. A song card found with a moved bar says so
+   *  (song-bar). A song card more than half inside a part marked 不是唱歌 in the same recording is left out. */
   function apply(cards, r, opts = {}) {
     const list = JSON.parse(JSON.stringify(Array.isArray(cards) ? cards : []));
     if (none(r)) return list;
-    return list.map((c) => {
+    const marks = r.notSong || [], keyOf = opts.recKey || {};
+    const markedAway = (c) => c.kind === "song" && keyOf[c.mediaId] && c.e > c.s
+      && marks.some((m) => m.rec === keyOf[c.mediaId] && Math.min(c.e, m.e) - Math.max(c.s, m.s) > (c.e - c.s) / 2);
+    return list.filter((c) => !markedAway(c)).map((c) => {
       const used = [];
       let s = c.s, e = c.e;
       if (c.kind === "song" && r.bar) used.push("song-bar");
@@ -125,5 +153,5 @@
     const { was, ...rest } = c;
     return { ...rest, s: was.s, e: was.e, rules: [], notThisTime: true };
   }
-  return Object.freeze({ KINDS, TYPES, MAX_SHIFT, HABIT_WINDOW, HABIT_MIN, BAR_BASE, BAR_RANGE, record, features, rules, songOptions, apply, revert });
+  return Object.freeze({ KINDS, TYPES, MAX_SHIFT, HABIT_WINDOW, HABIT_MIN, BAR_BASE, BAR_RANGE, BAR_ON, record, recordingKey, features, rules, songOptions, apply, revert });
 });

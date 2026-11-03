@@ -21,6 +21,7 @@ the frozen v11 (原型-v11.html 11b0ce34…, 交互说明-v11.md 6e564931…) an
 
 - A record holds numbers and fixed words only: the kind changed (from, to), a part added (kind), a start / end moved
   (seconds), a card taken out (kind); the recording's length; the part's length, usual level and how often it pauses.
+  A 「不是唱歌」 may also carry which recording (its 16-hex `recordingKey`) and the part's start and end, in seconds.
   Anything else — a file name, a path, text, another key — is refused, not trimmed.
 - Kept by the main process under `<userData>/corrections/`, newest last, at most 5000. Six fixed channels
   (`montclip:corrections:status|records|append|undo|setEnabled|clear`), behind the same guard as the other settings; the page
@@ -45,9 +46,18 @@ Constants: `MAX_SHIFT` 5 s, `HABIT_WINDOW` 5, `HABIT_MIN` 4, `BAR_BASE` 0.12 (so
 
 - `shift` — a kind's start (or end) moved the same way 4 of the last 5 times: cards of that kind move by the mean of
   those moves, at most ±5 s.
-- `bar` — 「不是唱歌」 (a song made another kind) 4 of the last 5 kind changes involving 唱歌: the singing bar goes up (songs.js
+- `bar` — **off** (`BAR_ON` false; Deja, 2026-11-03, from the numbers below: 0.19 of recall for 0.02 of precision is not
+  worth it). With it off the search keeps songs.js PAUSE 0.12. Its code and tests stay (`rules(records, {bar: true})`),
+  and it is decided again once JJ's and VV's real use has left real corrections to run the LOSO on. What it does when on:
+  「不是唱歌」 (a song made another kind) 4 of the last 5 kind changes involving 唱歌: the singing bar goes up (songs.js
   PAUSE down to the median pause of those parts); 「是唱歌」 4 of 5: it goes down (PAUSE up). Never past half of 0.12 either
   way. The search gets it through `songOptions(rules)`.
+- **The same recording** (not a habit: one mark is enough, the bar off or on): a part marked 「不是唱歌」 is not a song card
+  again when the same recording is searched again — a song card more than half of whose length lies inside the marked
+  part is left out (`apply(cards, rules, {recKey})`). The 「不是唱歌」 record carries the recording's key and the part's
+  start and end (seconds); the key is `recordingKey(duration, loudness)` — the length and the loudness bins (0.1 dB),
+  hashed (FNV-1a, 64 bits, 16 hex digits). No path, no file name. 「是唱歌」 marks nothing away. To the streamer: what they
+  marked does not come back.
 - 互动 has its own habits like every kind; no rule finds 互动 parts — only the streamer's own moves shift their start and
   end. A song made 互动 counts as 「不是唱歌」; 互动 ↔ 普通高光 does not touch the singing bar.
 - Every card lists the rules that touched it (`card.rules`: `shift-start:song`, `shift-end:song`, `song-bar`); a habit
@@ -61,29 +71,45 @@ Constants: `MAX_SHIFT` 5 s, `HABIT_WINDOW` 5, `HABIT_MIN` 4, `BAR_BASE` 0.12 (so
 the app kept) turns them on. They come from the same streamer as the golden recordings, so using them by default would
 leak the answers into hit_rate. `real-tests/corrections-loso.cjs` is the leave-one-streamer-out check below.
 
-## STATUS (2026-11-03, local golden set, numbers only; re-run on 3e19498 (corrections.js as it is now) with the corrected spec: ±5 s, 4 of the last 5, both directions)
+## STATUS (2026-11-03, local golden set, numbers only)
 
 There are no real corrections yet. `real-tests/corrections-loso.cjs` leaves one streamer out at a time (13 streamers: the
 recordings sharing a video id) and simulates corrections from every other streamer's recordings — a found song near a
 labelled start trimmed to it, a found song with none 「不是唱歌」, a labelled song nothing was found for 「是唱歌」 — then
-scores the left-out streamer with corrections off and on:
+scores the left-out streamer with corrections off and on. The corrected spec (±5 s, 4 of the last 5, both directions):
 
 | | found | recall@10 | precision@15 | median start error |
 |---|---|---|---|---|
 | off | 482 | 0.65 | 0.12 | 4.0 s (60 matched) |
-| on (both rules) | 355 | 0.55 | 0.14 | 4.1 s (51 matched) |
+| the shift and the bar | 355 | 0.55 | 0.14 | 4.1 s (51 matched) |
 | the shift alone | 482 | 0.67 | 0.12 | 3.0 s (60 matched) |
 | the bar alone | 355 | 0.48 | 0.14 | 4.5 s (49 matched) |
+
+**Final configuration** (Deja, 2026-11-03: the shift on, the bar off, the same-recording mark on), re-run with the code as
+it ships:
+
+| | found | recall@10 | precision@15 | median start error |
+|---|---|---|---|---|
+| off | 482 | 0.65 | 0.12 | 4.0 s (60 matched) |
+| **on, as shipped** | 482 | **0.67** | 0.12 | **3.0 s** (60 matched) |
+| the same recording searched again, with its own 不是唱歌 marks only | 61 | 0.65 | 0.98 | 4.0 s (60 matched) |
+
+- As shipped equals the shift alone: no left-out streamer shares a recording with the others, so the same-recording mark
+  cannot act across folds. It is scored apart on the last line: each recording searched a second time with the
+  不是唱歌 marks simulated from its own first search. That is the upper bound of what a streamer who marks every wrong card
+  sees: the search is deterministic, so every marked card goes (482 → 61 found, precision 0.12 → 0.98) and no labelled
+  song is lost (recall 0.65 both times).
 
 - 互动, scored apart: the golden set has 16 互动 labels, all in one recording (so no fold ever gets 互动 corrections from
   another streamer: a 互动 habit formed in 0 of 13 folds), none with an end, and none has a highlight candidate within
   15 s of its start to stand for the streamer's card — nothing to score yet. The script prints the line, so it measures
   once there is data.
-- The end error cannot be scored: the golden labels have an end for 4 of 226 parts, none of them matched.
+- **The end error cannot be scored**: only 4 parts in the golden set have a labelled end time (4 of 226), and none of them
+  was matched.
 - The start shift (about −4 s in every fold) helps: starts a second closer, recall a little up (0.65 → 0.67).
 - **The ±5 s cap does not cost recall.** The mean shift a habit asks for is −4 s in 11 folds and −4.4 / −4.62 s in the
   other two, so the cap never bites on this data: the shift alone keeps all 482 found songs and lifts recall. The drop
   with both rules on (0.65 → 0.55) is the bar's, not the cap's (the bar alone: 0.48).
 - The bar went to its floor (0.06) in every fold: most simulated corrections are 「不是唱歌」 (precision is 0.12), so the
-  habit always forms; it buys a little precision for a large loss of recall. **For Deja: keep the bar as specified, narrow
-  its range, or leave it off until real corrections exist.**
+  habit always forms; it buys a little precision for a large loss of recall. **Decided (Deja): off until real corrections
+  exist.**
