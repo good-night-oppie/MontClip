@@ -270,7 +270,7 @@
     for (const c of (doc.clips || []).filter(isCaption)) {
       const saved = c.props.captionSource?.output;
       if (saved && (Math.abs(saved.start-c.start) > 1e-6 || Math.abs(saved.end-c.start-c.duration) > 1e-6))
-        throw new Error("Caption timing changed after the range plan; source mapping needs rebuilding / 选段后字幕时间已改变，请重新建立源时间映射");
+        throw Object.assign(new Error("Caption timing changed after the range plan; source mapping needs rebuilding / 选段后字幕时间已改变，请重新建立源时间映射"), { code: "source-changed" });
     }
     const off = new Set(doc.disabledTracks || []), segments = [];
     for (const c of doc.clips || []) {
@@ -281,10 +281,10 @@
       const m = (doc.media || []).find((m) => m.id === c.mediaId);
       const speed = Math.max(0.1, Math.min(8, Number(c.props?.speed) || 1)), inn = c.in == null ? 0 : c.in;
       if (!m || !num(inn) || inn < 0 || !num(c.start) || c.start < 0 || !num(c.duration) || c.duration <= 0)
-        throw new Error("Invalid source mapping for clip " + c.id);
+        throw Object.assign(new Error("Invalid source mapping for clip " + c.id), { code: "source-invalid" });
       const end = r4(inn + c.duration * speed);
       if (num(m.duration) && end > m.duration + 0.001)
-        throw new Error("Clip exceeds source duration; looping mapping is not supported yet: " + c.id);
+        throw Object.assign(new Error("Clip exceeds source duration; looping mapping is not supported yet: " + c.id), { code: "source-loop" });
       segments.push({ clipId: c.id, mediaId: c.mediaId, track: c.track,
         source: { start: inn, end }, output: { start: c.start, end: r4(c.start + c.duration) }, speed });
     }
