@@ -202,6 +202,13 @@ function safeName(name) {
   return name.replace(/[^\w.\- ()\[\]]+/g, "_").slice(0, 120) || "file";
 }
 function sendJSON(res, code, obj) {
+  const req = res.req;
+  if (req && req.tooLarge) {
+    code = 413; obj = { error: "request body too large", code: "BODY_TOO_LARGE", limit: req.bodyLimit || MAX_BODY };
+    // answer once the rest of the body has been read (and dropped): closing earlier resets the connection while the
+    // client is still sending, and it never sees the 413
+    if (!req.complete) { req.resume(); if (!req.tooLargeAnswer) { req.tooLargeAnswer = true; req.once("end", () => sendJSON(res, code, obj)); } return; }
+  }
   const body = JSON.stringify(obj);
   res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" });
   res.end(body);
@@ -217,11 +224,32 @@ function bodyToFile(req, file) {
     throw e;
   });
 }
+/* Request bodies held in memory (readBody) are limited (QQ/Deja after #67: one large POST to a small JSON route could take
+   the server's memory with it). 1 MB, except the routes that really carry more. Uploads and the export audio stream to
+   disk instead (bodyToFile) and have no such limit. */
+const MAX_BODY = 1024 * 1024;
+const BODY_LIMITS = {
+  "PUT /api/project": 64 * 1048576,              // the project document
+  "POST /api/projects": 128 * 1048576,           // an imported project or backup, with its versions
+  "POST /api/transcript": 16 * 1048576,          // the words of a long recording
+  "POST /api/export/frame": 8192 * 8192 * 4 + MAX_BODY, // one raw RGBA frame of the largest canvas (with what came before it)
+};
+const STREAMED = new Set(["POST /api/upload", "POST /api/export/audio"]); // bodyToFile: straight to disk
+const bodyLimit = (req, p) => (STREAMED.has(req.method + " " + p) ? Infinity : BODY_LIMITS[req.method + " " + p] || MAX_BODY);
+/** Refused for size: 413 with code BODY_TOO_LARGE. sendJSON gives that answer for a request marked tooLarge, whatever the
+ *  route's own catch asked for, so every caller of readBody answers 413 without its own handling. */
 function readBody(req) {
+  const limit = req.bodyLimit || MAX_BODY;
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on("data", (c) => chunks.push(c));
-    req.on("end", () => resolve(Buffer.concat(chunks)));
+    let size = 0;
+    req.on("data", (c) => {
+      if (req.tooLarge) return;                 // drained, not kept
+      size += c.length;
+      if (size > limit) { req.tooLarge = true; chunks.length = 0; reject(Object.assign(new Error("request body too large"), { code: "BODY_TOO_LARGE" })); return; }
+      chunks.push(c);
+    });
+    req.on("end", () => { if (!req.tooLarge) resolve(Buffer.concat(chunks)); });
     req.on("error", reject);
   });
 }
@@ -700,6 +728,11 @@ const server = http.createServer(async (req, res) => {
   }
   const url = new URL(req.url, "http://localhost");
   const p = decodeURIComponent(url.pathname);
+  req.bodyLimit = bodyLimit(req, p);
+  if (Number(req.headers["content-length"]) > req.bodyLimit) {
+    req.tooLarge = true;                         // known too large before reading: refused, what arrives is dropped
+    sendJSON(res, 413, {}); return;
+  }
   // never serve dotfiles/dot-directories (.git, .gitignore, …)
   if (p.split(/[\\/]/).some((seg) => seg.startsWith("."))) { res.writeHead(403); res.end(); return; }
 

@@ -2193,6 +2193,8 @@ obvious cuts were missed, raise it if motion is being misread as cuts.
 
 ## REST API (alternative to file editing)
 
+Request bodies are limited: 1 MB, except `PUT /api/project` (64 MB), `POST /api/projects` (128 MB, imports and backups), `POST /api/transcript` (16 MB) and `POST /api/export/frame` (one raw frame of the largest canvas). A larger body gets **413** `{code:"BODY_TOO_LARGE", limit}` and is not kept. `POST /api/upload` and `/api/export/audio` stream to disk and have no such limit.
+
 - `GET  /api/project` — current project JSON
 - `PUT  /api/project` — replace project JSON (body = full document).
   **Conflict-safe**: if the body's `revision` ≤ the revision currently on disk,
