@@ -20,7 +20,10 @@ const readPane = `(async () => {
   const ref = [...document.querySelectorAll('[data-reference-actions] button')].map((b) => b.textContent)[0] || null;
   return { language: mcView.get().language, summary: d.querySelector('summary').textContent, body: d.querySelector('[data-format-body]').textContent,
     tech: d.querySelector('[data-format-tech]').textContent, referenceButton: ref,
-    expected: { summary: T.officialPane_formatTitle, body: T.officialPane_format.split('{reference}').join(T.officialPane_reference), tech: T.officialPane_formatTech } };
+    proposalNamed: d.querySelector('[data-format-body]').textContent.includes(T.officialPane_proposal),
+    renamed: await (async () => { const keep = T.officialPane_proposal; T.officialPane_proposal = '改名测试按钮'; mcAgent.render(); await wait(200);
+      const b = document.querySelector('[data-format-body]').textContent; T.officialPane_proposal = keep; mcAgent.render(); await wait(200); return b.includes('改名测试按钮'); })(),
+    expected: { summary: T.officialPane_formatTitle, body: MontClipView.formatBody(mcView.get().language), tech: T.officialPane_formatTech } };
 })()`;
 
 const original = BrowserWindow.prototype.loadURL;
@@ -37,8 +40,8 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     }
     const checks = res.map((r) => ({ language: r.language, error: r.error,
       summary: r.summary === r.expected?.summary, body: r.body === r.expected?.body, tech: r.tech === r.expected?.tech,
-      bodyNamesButton: !!r.referenceButton && r.body?.includes(r.referenceButton), noPlaceholder: !/\{reference\}/.test(r.body || '') }));
-    ok = checks.every((c) => !c.error && c.summary && c.body && c.tech && c.bodyNamesButton && c.noPlaceholder);
+      bodyNamesButton: !!r.referenceButton && r.body?.includes(r.referenceButton), proposalNamed: r.proposalNamed, followsRename: r.renamed, noPlaceholder: !/\{reference\}|\{proposal\}/.test(r.body || '') }));
+    ok = checks.every((c) => !c.error && c.summary && c.body && c.tech && c.bodyNamesButton && c.proposalNamed && c.followsRename && c.noPlaceholder);
     out(ok ? 'ZH4_PASS' : 'ZH4_FAIL', { checks, rendered: res.map(({ expected, ...r }) => r) });
   } catch (e) { out('ZH4_FAIL', { error: String(e && e.message || e) }); }
   finally { process.exitCode = ok ? 0 : 1; app.exit(ok ? 0 : 1); }
