@@ -9275,7 +9275,7 @@ function buildTranscriptPage() {
   const listen = transcribeAvailable();
   root.innerHTML = `<div class="tr-head">
       <div class="tr-row tr-entries">
-        <button type="button" class="btn tiny" data-tr-highlights>${escapeHtml(uiText("own.hl-open"))}</button>
+        <button type="button" class="btn tiny" data-tr-highlights data-i18n="own.hl-open">${escapeHtml(uiText("own.hl-open"))}</button>
         <button type="button" class="btn tiny" data-tr-sentences data-i18n="own.select-sentences">${uiText("own.select-sentences")}</button>
         <button type="button" class="btn tiny" data-tr-mapping data-i18n="own.mapping">${uiText("own.mapping")}</button>
       </div>
