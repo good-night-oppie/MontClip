@@ -142,3 +142,11 @@ test('the notes name the card\'s own buttons, word for word',()=>{
  a.deepEqual(quoted(en('as-likely-start')),[start]);
  a.deepEqual(quoted(en('as-likely-end')),[end]);
 });
+
+// JJ's final English (2026-11-03), as written; JJ's rule: whether words appear in the finished clip is "in the video",
+// never "in the picture"
+test('the name hint and the name tooltip in JJ\'s English; "in the video", never "in the picture"',()=>{
+ a.equal(en('as-song-name-hint'),"Click the name to change it, for example to the song title. The exported file is named after it; the name doesn't appear in the video.");
+ a.equal(en('as-rename-tip'),"Click to rename. This is the exported file's name; it doesn't appear in the video.");
+ a.deepEqual(Object.keys(V.text.en).filter(k=>k.startsWith('own.as-')&&/in the picture/i.test(V.text.en[k])),[]);
+});
