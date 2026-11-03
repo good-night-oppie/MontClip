@@ -3339,6 +3339,8 @@ function pjAgo(iso) {
   return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 const pjFps = (f) => (f ? `${+(+f).toFixed(3)} fps` : "");
+/** A card's size and frame rate, escaped: the values come from the project file (QQ). */
+function pjCanvas(p) { return escapeHtml(`${p.width}×${p.height} · ${pjFps(p.fps)}`); }
 async function pjPost(body) {
   try {
     const res = await fetch("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -3419,7 +3421,7 @@ function pjThumbHtml(p, big) {
   const ar = p.width > 0 && p.height > 0 ? `${p.width} / ${p.height}` : "16 / 9";
   const inner = p.thumb
     ? `<img src="/api/projects/thumb?id=${encodeURIComponent(p.id)}&v=${p.thumb}" alt="" loading="lazy" draggable="false">`
-    : `<span>${p.width ? `${p.width}×${p.height}` : "?"}</span>`;
+    : `<span>${p.width ? escapeHtml(`${p.width}×${p.height}`) : "?"}</span>`;
   return `<div class="pj-thumb${big ? " big" : ""}"><div class="pj-frame" style="aspect-ratio:${ar}">${inner}</div></div>`;
 }
 function renderProjects() {
@@ -3442,7 +3444,7 @@ function renderProjectGrid() {
     <button type="button" class="pj-card${p.id === pj.sel && pj.mode === "detail" ? " sel" : ""}${p.active ? " open" : ""}" data-pj="${escapeHtml(p.id)}" title="${p.active ? "Currently open" : "Double-click to open"}">
       ${pjThumbHtml(p)}
       <span class="pj-card-name">${escapeHtml(p.name)}${p.active ? ` <span class="pj-badge">Open</span>` : ""}</span>
-      <span class="pj-card-meta">${p.unreadable ? "file unreadable" : `${p.width}×${p.height} · ${pjFps(p.fps)} · ${pjFmtDur(p.duration)}`}</span>
+      <span class="pj-card-meta">${p.unreadable ? "file unreadable" : `${pjCanvas(p)} · ${pjFmtDur(p.duration)}`}</span>
       <span class="pj-card-when dim">${pj.sort === "created" ? "Created " + pjAgo(p.created) : pj.sort === "modified" || !p.opened ? "Modified " + pjAgo(p.modified) : "Opened " + pjAgo(p.opened)}</span>
     </button>`).join("")
     : `<div class="pj-empty dim">${pj.list.length ? "No project matches the search." : pj.view === "archived" ? "Nothing archived. Archive a project to keep it out of the list without deleting it." : "Loading…"}</div>`;
@@ -3454,7 +3456,7 @@ function pjDetailHtml(p) {
   return `${pjThumbHtml(p, true)}
     <label class="pj-field"><span>Name</span><input type="text" id="pjName" value="${escapeHtml(p.name)}" maxlength="120" spellcheck="false"></label>
     <dl class="pj-facts">
-      ${fact("Canvas", p.unreadable ? "—" : `${p.width}×${p.height} · ${pjFps(p.fps)}`)}
+      ${fact("Canvas", p.unreadable ? "—" : pjCanvas(p))}
       ${fact("Length", `${pjFmtDur(p.duration)} · ${p.clips} clip${p.clips === 1 ? "" : "s"} · ${p.media} media`)}
       ${fact("Modified", pjAgo(p.modified))}
       ${fact("Opened", p.active ? "open now" : pjAgo(p.opened))}

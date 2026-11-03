@@ -108,6 +108,8 @@ function createProjects({ dataDir, projectFile, libraryDir }) {
     writeJSON(projectFile, { ...doc, revision: Math.max(cur.revision || 0, doc.revision || 0) + 1 });
   };
 
+  // width / height / fps come from the project file, which an agent, another tool or a backup can write: numbers only (QQ)
+  const positive = (x) => { const n = Number(x); return x !== null && x !== "" && Number.isFinite(n) && n > 0 ? n : null; };
   function summary(id, active) {
     const meta = readMeta(id) || { id };
     let doc = null, modified = null;
@@ -119,7 +121,7 @@ function createProjects({ dataDir, projectFile, libraryDir }) {
       id, name: doc?.name || "Untitled Project", active: id === active,
       archived: !!meta.archived, notes: meta.notes || "", tags: meta.tags || [],
       created: meta.created || null, opened: meta.opened || null, modified,
-      width: doc?.width ?? null, height: doc?.height ?? null, fps: doc?.fps ?? null,
+      width: positive(doc?.width), height: positive(doc?.height), fps: positive(doc?.fps),
       duration: doc ? +timelineEnd(doc).toFixed(2) : null,
       clips: doc?.clips?.length ?? 0, media: doc?.media?.length ?? 0,
       thumb, unreadable: !doc,
