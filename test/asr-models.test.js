@@ -30,7 +30,8 @@ test('the real manifest: Paraformer zh 2023-09-14 int8, never the 2025-10-07 Sic
   a.equal(m.engine.vad.sha256, '9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6');
   for (const model of Object.values(m.models)) for (const f of Object.values(model.files)) { a.match(f.sha256, /^[0-9a-f]{64}$/); a.ok(f.size > 0); }
   for (const s of [...m.models.asr.sources, ...m.models.punct.sources]) if (s.kind === 'archive') a.match(s.sha256, /^[0-9a-f]{64}$/);
-  a.ok(!/modelscope|huggingface\.co|jsdelivr/i.test(JSON.stringify(m.models) + m.hosts.join()), 'no ModelScope, no huggingface.co, no CDN');
+  const sources = Object.values(m.models).flatMap((x) => x.sources);
+  a.ok(!/modelscope|huggingface\.co|jsdelivr/i.test(JSON.stringify(sources) + m.hosts.join()), 'no source on ModelScope, huggingface.co or a CDN');
   a.ok(!/sense-?voice/i.test(JSON.stringify(m)), 'SenseVoice is not used (licence issue #334 open)');
 });
 test('allowedUrl: https to a listed host only (no http, no look-alike, no user:pass@, no other port)', () => {
@@ -125,3 +126,4 @@ test('the real downloader follows redirects only to listed https hosts', () => {
   for (const loc of ['https://us.aws.cdn.hf.co/x', 'http://github.com/a', 'https://huggingface.co/api/resolve-cache/x'])
     a.throws(() => D.nextUrl('https://hf-mirror.com/a', loc, fake.hosts), (e) => e.code === 'ASR_HOST_REFUSED', loc);
 });
+

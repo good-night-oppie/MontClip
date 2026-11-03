@@ -52,7 +52,8 @@ test('(b) one path to the speech engine, behind the switch; downloads only throu
     'the switch is checked before anything is transcribed');
   a.ok(body.indexOf('if (!transcribeAvailable()) throw') < body.indexOf('trState.busy = '));
   a.equal(count(/trState\.busy = \{/g), 1);
-  a.ok(!/https?:\/\/[^"'\s]*(hf-mirror|github|huggingface|jsdelivr)/.test(app), 'no model address in the page');
+  // (the one CDN address left in app.js is MediaPipe's portrait cut-out, which the desktop session blocks anyway)
+  a.ok(!/https?:\/\/[^"'\s]*(hf-mirror|github|huggingface|paraformer|sherpa|whisper|transformers)/i.test(app), 'no speech model address in the page');
   a.match(app, /window\.montclipAsr\.download\(/); a.match(app, /window\.montclipAsr\.import\(/);
   a.match(read('desktop/main.js'), /ses\.webRequest\.onBeforeRequest\(\(details, callback\) => \{\s*const embedded = \/\^\(blob:\|data:\)\/\.test\(details\.url\);\s*callback\(\{ cancel: !local\(details\.url\) && !embedded \}\);/);
 });

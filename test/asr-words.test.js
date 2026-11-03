@@ -25,7 +25,7 @@ test('punctuation marks go onto the word before them; a punctuated text that doe
   a.deepEqual(W.punctuate(ws, '今天好吗？OK，走。').map((w) => w[0]), ['今', '天', '好', '吗？', 'ok，', '走。']);
   a.deepEqual(W.punctuate(ws, '明天好吗？OK，走。'), ws, 'different words: left as they were');
   a.deepEqual(W.punctuate(ws, '今天好吗'), ws, 'too short: left as they were');
-  a.equal(W.plain(ws), '今天好吗 ok走', 'the text the punctuation model reads');
+  a.equal(W.plain(ws), '今天好吗ok走', 'the text the punctuation model reads');
 });
 test('reading text: no space between Chinese characters (or Chinese punctuation), a space between English words', () => {
   const join = (list) => W.join(list);

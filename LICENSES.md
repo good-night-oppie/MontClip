@@ -177,23 +177,23 @@ Open items before a release (not resolved by this entry):
 - This LGPL build has no libx264/libx265: H.264 export uses graphics-card encoders
   or Windows' `h264_mf` (ADR `docs/decisions/2026-11-02-h264-encoder.md`).
 
-## On-device transcription (bundled transformers.js, ONNX Runtime and Whisper)
+## On-device transcription (sherpa-onnx, Paraformer zh, CT-Transformer, silero VAD)
 
-Speech is turned into words on this computer, with nothing fetched from the network (owner, 2026-11-03;
-ADR `docs/decisions/2026-11-03-bundle-offline-transcribe.md`). The files are pinned in
-`desktop/transcribe-manifest.json` (version, source, SHA-256), fetched into `vendor/transcribe/` by
-`desktop/fetch-transcribe.cjs` and copied by packaging into `resources/transcribe/`. Texts in `licenses/transcribe/`.
+Speech is turned into words on this computer by the local server with sherpa-onnx-node 2.0.1 (#70, Deja 2026-11-03; ADR
+`docs/decisions/2026-11-03-bundle-offline-transcribe.md`). Every file is pinned in `desktop/asr-manifest.json`
+(version or SHA-256, size, sources). `desktop/fetch-asr.cjs` fills `vendor/asr/` and packaging copies it into
+`resources/asr/`. Texts in `licenses/asr/`.
 
-| Component | Version / revision | Licence | Text |
-|---|---|---|---|
-| transformers.js (`@huggingface/transformers`), `dist/transformers.min.js` | transformers.js 4.3.1 | Apache-2.0 | `licenses/transcribe/transformers.js-LICENSE.txt` (the package's own LICENSE) |
-| ONNX Runtime Web (`onnxruntime-web`), `ort-wasm-simd-threaded.jsep.{mjs,wasm}` | onnxruntime-web 1.31.0-dev.20260914-8d85527a0 | MIT | `licenses/transcribe/onnxruntime-web-LICENSE.txt` (microsoft/onnxruntime LICENSE; the npm package itself carries no LICENSE file, its package.json says MIT) |
-| Whisper base weights, ONNX 8-bit conversion `onnx-community/whisper-base_timestamped` @ `608c49e6` | from openai/whisper-base | Apache-2.0 (the openai/whisper-base model card; the conversion states no other licence) | `licenses/transcribe/whisper-weights-Apache-2.0.txt` |
-| Whisper small weights, ONNX 8-bit conversion `onnx-community/whisper-small_timestamped` @ `65caa70f` | from openai/whisper-small | Apache-2.0 (the openai/whisper-small model card; the conversion states no other licence) | `licenses/transcribe/whisper-weights-Apache-2.0.txt` |
+| Component | Version / file | Licence | In which package | Text |
+|---|---|---|---|---|
+| sherpa-onnx-node (JavaScript) and sherpa-onnx-win-x64 (`sherpa-onnx.node`, `sherpa-onnx-c-api.dll`, `sherpa-onnx-cxx-api.dll`) | 2.0.1 (npm, pinned integrity) | Apache-2.0 | every package | `licenses/asr/sherpa-onnx-Apache-2.0.txt` (the npm packages carry no LICENSE file; package.json says Apache-2.0) |
+| ONNX Runtime (`onnxruntime.dll`, `onnxruntime_providers_shared.dll`, inside sherpa-onnx-win-x64) | as built by sherpa-onnx 2.0.1 | MIT | every package | `licenses/asr/onnxruntime-MIT.txt` |
+| silero VAD `silero_vad.onnx` | SHA-256 9e2449e1… (k2-fsa asr-models release) | MIT | every package | `licenses/asr/silero-vad-MIT.txt` |
+| Paraformer-large zh, int8 (`sherpa-onnx-paraformer-zh-2023-09-14`: `model.int8.onnx`, `tokens.txt`) | SHA-256 f36a0433… / 59aba887… | Apache-2.0 (model card) | the 完整版 package; otherwise downloaded or imported by the user | `licenses/asr/paraformer-zh-Apache-2.0.txt` |
+| CT-Transformer punctuation, int8 (`sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8`) | SHA-256 65a3fb9f… / c960ab87… | Apache-2.0 (model card) | the 完整版 package; otherwise downloaded or imported by the user (optional) | `licenses/asr/ct-transformer-Apache-2.0.txt` |
 
-- `transformers.min.js` is a bundle: it also contains the JavaScript of ONNX Runtime Web and of transformers.js's
-  own dependencies (`@huggingface/jinja`, `@huggingface/tokenizers`), as published by Hugging Face in the npm package.
-- Which Whisper model the package ships (base, small or both) is not decided yet; the table lists both until it is.
+- Not used: SenseVoice (its licence question, QwenAudio/SenseVoice issue #334, was reopened on 2026-08-29 and has no
+  answer from the licensor), and `sherpa-onnx-paraformer-zh-int8-2025-10-07` (a Sichuan-dialect model).
 
 ## Third-party code in the official Cindy integration
 

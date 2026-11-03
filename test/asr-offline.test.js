@@ -32,7 +32,12 @@ test('the desktop window: no wasm in the script policy any more; the session sti
   a.match(main, /ses\.webRequest\.onBeforeRequest\(\(details, callback\) => \{\s*const embedded = \/\^\(blob:\|data:\)\/\.test\(details\.url\);\s*callback\(\{ cancel: !local\(details\.url\) && !embedded \}\);/);
 });
 test('the server: model status, one transcription at a time, cancel; it reads models only from its own folders', async (t) => {
-  const dataDir = makeDataDir(t), s = await startServer(t, dataDir, { MONTCLIP_ASR_DIR: path.join(ROOT, 'no-such-asr-dir'), MONTCLIP_ASR_MODELS_DIR: path.join(dataDir, 'no-models') });
+  const dataDir = makeDataDir(t);
+  // a stand-in engine folder: status() only looks for the engine's package.json and a VAD file of the pinned size
+  const asrDir = path.join(dataDir, 'asr'); fs.mkdirSync(path.join(asrDir, 'engine', 'node_modules', 'sherpa-onnx-node'), { recursive: true });
+  fs.writeFileSync(path.join(asrDir, 'engine', 'node_modules', 'sherpa-onnx-node', 'package.json'), '{}');
+  fs.writeFileSync(path.join(asrDir, 'silero_vad.onnx'), Buffer.alloc(643854));
+  const s = await startServer(t, dataDir, { MONTCLIP_ASR_DIR: asrDir, MONTCLIP_ASR_MODELS_DIR: path.join(dataDir, 'no-models') });
   const st = await (await fetch(s.base + '/api/asr/status')).json();
   a.equal(st.asr.ready, false); a.deepEqual(st.asr.missing, ['model.int8.onnx', 'tokens.txt']);
   a.equal(st.punct.ready, false); a.equal(typeof st.engine.ready, 'boolean');
@@ -52,7 +57,8 @@ test('packaging: the engine and the VAD always; the models only in the 完整版
   a.match(pkg, /const full = process\.argv\.includes\('--full'\)/);
   a.match(pkg, /Asr\.verify\(\{ models: full \}\)/);
   a.match(pkg, /Asr\.verify\(\{ dir: path\.join\(appDir, 'resources', 'asr'\), models: full \}\)/);
-  a.match(pkg, /MontClip-\$\{rootPkg\.version\}-win-x64\$\{full \? '-full' : ''\}/, 'the 完整版 zip has its own name');
+  a.match(pkg, /MontClip-internal-win-x64\$\{full \? '-full' : ''\}-\$\{buildId\}/, 'the 完整版 zip has its own name');
+  a.ok(pkg.includes("const asrKeep = (f) => !isUnder(f, 'test_wavs') && (full || !isUnder(f, 'models'));") && pkg.includes('filter: asrKeep'), 'no test sentence; models only in the 完整版');
   const fetchAsr = read('desktop/fetch-asr.cjs');
   a.match(fetchAsr, /integrityOk\(/); a.match(fetchAsr, /--models/);
   const main = read('desktop/main.js');
@@ -71,8 +77,12 @@ test('downloading and importing a model are the main process\'s: it asks first (
   a.match(main, /ipcMain\.handle\("montclip:asr:download", async \(event, which\) =>/);
   a.match(main, /ipcMain\.handle\("montclip:asr:import", async \(event\) =>/);
   a.match(main, /settingsAllowed\(event, win, origin\)[\s\S]{0,200}montclip:asr:download|montclip:asr:download[\s\S]{0,400}settingsAllowed\(event, win, origin\)/);
-  a.match(main, /dialog\.showMessageBox\(win, \{[\s\S]{0,600}asrDownloadText\(/, 'a host-made question before anything is sent');
-  a.match(main, /dialog\.showOpenDialog\(win, \{[\s\S]{0,300}properties: \["openFile", "openDirectory", "multiSelections"\]/);
+  a.match(main, /const t = asrDownloadText\(languageOf\(settings\.get\(\)\), which\);[\s\S]{0,300}dialog\.showMessageBox\(win, \{ type: "question", title: t\.title, message: t\.message, detail: t\.detail, buttons: t\.buttons, defaultId: 0, cancelId: 0/,
+    'a host-made question before anything is sent; Cancel is the default');
+  a.match(main, /if \(answer\.response !== 1\) return \{ ok: false, declined: true \};\s*asrBusy = new AbortController\(\);/);
+  // a folder (the U 盘, or a folder on it): Windows cannot pick files and folders in one dialog; inside it, model files and
+  // the official archives are recognised by their SHA-256 (asr-models.js importPaths)
+  a.match(main, /dialog\.showOpenDialog\(win, \{[\s\S]{0,300}properties: \["openDirectory"\]/);
   a.match(main, /AsrDownload\.fetchFile/);
   a.match(pre, /montclipAsr/);
   a.ok(!/montclip:asr:(download|import)'\s*,\s*[a-z]/i.test(pre.replace(/which/g, '')), 'the page sends no path or URL');
@@ -93,3 +103,4 @@ test('the real engine on the model\'s own public test sentence (only where deskt
   a.ok(r.words.length > 5, 'words: ' + r.words.length);
   a.ok(r.words.every((w, i) => w[2] >= w[1] && (!i || w[1] >= r.words[i - 1][1])));
 });
+

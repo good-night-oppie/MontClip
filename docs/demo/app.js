@@ -1816,6 +1816,7 @@ function listenSSE() {
   es.addEventListener("change", () => { noteActivity(); syncFromServer(); scheduleOfflineCheck(); });
   es.addEventListener("proxy", (e) => onProxyEvent(e.data));
   es.addEventListener("transcript", (e) => onTranscriptEvent(e.data));
+  es.addEventListener("asr", (e) => onAsrEvent(e.data));
   es.addEventListener("versions", (e) => {
     let d = {};
     try { d = JSON.parse(e.data); } catch { }
@@ -9151,8 +9152,8 @@ function cutSilences() {
   toast(`Cut ${cut} silence${cut === 1 ? "" : "s"} · ${secs.toFixed(1)} s shorter`);
 }
 
-/* ── Transcripts (transcribe.js, transcribe-worker.js): speech → words in this
-   browser with Whisper, kept per file by the server (analysis/transcripts/).
+/* ── Transcripts (transcribe.js; the words come from the local server, asr-local.js —
+   sherpa-onnx Paraformer zh after the silero VAD), kept per file by the server (analysis/transcripts/).
    The Transcript tab shows the timeline's words: click one to go there, select
    some and press Delete (or Cut) to extract them, find a phrase and cut every
    time it is said — the same spans and extract ops as fablecut_transcribe. ── */
@@ -9199,86 +9200,83 @@ function onTranscriptEvent(data) {
   loadTranscript(src, true).then(() => renderTranscript(true));
 }
 
-/* The worker: one at a time, each piece of audio answered in turn. */
-let trWorker = null, trSeq = 0, trIdleTimer = 0;
-const trPending = new Map();
-function transcribeWorker() {
-  if (trWorker) return trWorker;
-  trWorker = new Worker("transcribe-worker.js", { type: "module" });
-  trWorker.onmessage = (e) => {
-    const m = e.data || {};
-    if (m.type === "progress") { onModelProgress(m); return; }
-    const p = trPending.get(m.id);
-    if (!p) return;
-    trPending.delete(m.id);
-    if (m.type === "done") p.resolve(m.chunks || []);
-    else p.reject(new Error(/dynamically imported module|Failed to fetch|NetworkError|Load failed/i.test(m.error || "")
-      ? "the speech model files that come with MontClip could not be loaded — unzip the package again (nothing is downloaded)"
-      : m.error || "transcription failed"));
-  };
-  trWorker.onerror = (e) => {
-    for (const p of trPending.values()) p.reject(new Error(e.message || "the speech worker failed to start"));
-    trPending.clear();
-    trWorker = null;
-  };
-  return trWorker;
+/* The speech engine is the local server's (asr-local.js, #70): sherpa-onnx with the Paraformer zh model, after the
+   silero VAD. The page asks for one file at a time and hears progress as SSE "asr". The model is downloaded or imported
+   only by the desktop main process (window.montclipAsr), which asks the streamer first; the page never holds a model
+   address. */
+const asrState = { status: null, asking: null, downloading: null, note: "" };
+/** What the server has: {model, engine, vad, asr: {ready, where, missing, bad}, punct: {…}}. */
+function loadAsrStatus() {
+  if (asrState.asking) return asrState.asking;
+  asrState.asking = fetch("/api/asr/status").then((r) => (r.ok ? r.json() : null)).catch(() => null)
+    .then((s) => { asrState.status = s; asrState.asking = null; paintAsrStatus(); renderTranscript(true); return s; });
+  return asrState.asking;
 }
-function stopTranscribeWorker() {
-  if (trWorker) { trWorker.terminate(); trWorker = null; }
-  for (const p of trPending.values()) p.reject(new Error("cancelled"));
-  trPending.clear();
-}
-function whisperPiece(pcm, model, language) {
-  return new Promise((resolve, reject) => {
-    const id = ++trSeq;
-    trPending.set(id, { resolve, reject });
-    transcribeWorker().postMessage({ type: "run", id, lib: FableCutTranscribe.LIBRARY, assets: FableCutTranscribe.ASSETS, model: FableCutTranscribe.MODELS[model].id, pcm, language }, [pcm.buffer]);
-  });
-}
-function onModelProgress(m) {
+const asrReady = () => !!(asrState.status && asrState.status.engine.ready && asrState.status.vad.ready && asrState.status.asr.ready);
+function onAsrEvent(data) {
+  let m = null;
+  try { m = JSON.parse(data); } catch { }
   const b = trState.busy;
-  if (!b || !m.file) return;
-  if (m.status === "done") { const f = b.dl.get(m.file); if (f) f.loaded = f.total; }
-  else if (m.total > 0) b.dl.set(m.file, { loaded: m.loaded, total: m.total });
-  b.beat?.();
+  if (!m || !b || b.srcs[b.i] !== m.src || !(m.frac >= 0)) return;
+  b.frac = Math.min(1, m.frac);
   paintTranscribeBusy();
+  b.beat?.();
 }
-/** A file's sound as Whisper hears it: mono, 16 kHz. */
-async function speechPcm(m) {
-  const buf = await getAudioBuffer(m);
-  const R = FableCutTranscribe.RATE;
-  const oc = new OfflineAudioContext(1, Math.max(1, Math.ceil(buf.duration * R)), R);
-  const node = oc.createBufferSource();
-  node.buffer = buf;
-  node.connect(oc.destination);
-  node.start();
-  return { pcm: (await oc.startRendering()).getChannelData(0), duration: buf.duration };
+/** The model line of the Transcript tab: ready, or missing with the two ways to get it (desktop only). */
+function paintAsrStatus() {
+  const E = trState.el;
+  if (!E || !E.asr) return;
+  const s = asrState.status, desk = !!window.montclipAsr;
+  let text, need = false, punct = false;
+  if (!s) text = uiText("own.asr-checking");
+  else if (!s.engine.ready || !s.vad.ready) text = uiText("own.asr-engine-missing");
+  else if (asrState.downloading) text = uiText("own.asr-downloading", { what: uiText(asrState.downloading.which === "punct" ? "own.asr-punct-name" : "own.asr-model-name"), pct: asrState.downloading.pct });
+  else if (!s.asr.ready) { need = true; text = uiText(s.asr.bad.length ? "own.asr-bad" : "own.asr-missing", { mb: FableCutTranscribe.MODELS[FableCutTranscribe.DEFAULT_MODEL].mb }); }
+  else { text = uiText(s.punct.ready ? "own.asr-ready" : "own.asr-ready-no-punct"); punct = !s.punct.ready; }
+  E.asr.textContent = asrState.note || text;
+  E.asrDownload.hidden = !desk || !need || !!asrState.downloading;
+  E.asrImport.hidden = !desk || (!need && !punct) || !!asrState.downloading;
+  E.asrPunct.hidden = !desk || !punct || !!asrState.downloading;
 }
-/** Transcribe one file and save it on the server. Resolves to {doc, saved}. */
-async function transcribeFile(src, { model, language, onProgress, cancelled }) {
-  const T = FableCutTranscribe, R = T.RATE;
-  const m = project.media.find((x) => x.src === src) || { src };
-  const { pcm, duration } = await speechPcm(m);
-  const pieces = T.plan(pcm, R), words = [];
-  for (let k = 0; k < pieces.length; k++) {
-    if (cancelled()) throw new Error("cancelled");
-    const [a, b] = pieces[k];
-    if (!T.quiet(pcm, a, b)) words.push(...T.joinChunks(await whisperPiece(pcm.slice(a, b), model, language), a / R, b / R));
-    onProgress((k + 1) / pieces.length);
-  }
-  const doc = T.validate({ src, model, language: language || "auto", duration, created: new Date().toISOString(), words });
-  let saved = false;
-  try { saved = (await fetch("/api/transcript?src=" + encodeURIComponent(src), { method: "POST", body: JSON.stringify(doc) })).ok; } catch { }
-  transcriptCache.set(src, doc);
+async function asrGet(which) {
+  if (!window.montclipAsr || asrState.downloading) return;
+  asrState.note = ""; asrState.downloading = { which, pct: 0 };
+  const off = window.montclipAsr.onProgress((p) => { if (asrState.downloading && p && p.which === which) { asrState.downloading.pct = Math.round(100 * p.frac) || 0; paintAsrStatus(); } });
+  paintAsrStatus();
+  let r = null;
+  try { r = await window.montclipAsr.download(which); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
+  off?.();
+  asrState.downloading = null;
+  asrState.note = r && r.ok ? "" : r && r.declined ? "" : uiText("own.asr-download-failed", { why: (r && r.error) || "?" });
+  await loadAsrStatus();
+}
+async function asrImport() {
+  if (!window.montclipAsr || asrState.downloading) return;
+  asrState.note = "";
+  let r = null;
+  try { r = await window.montclipAsr.import(); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
+  if (r && r.ok) asrState.note = r.imported ? uiText("own.asr-imported", { n: r.imported }) : uiText(r.already ? "own.asr-import-already" : "own.asr-import-none");
+  else if (r && !r.cancelled) asrState.note = uiText("own.asr-import-failed", { why: (r && r.error) || "?" });
+  await loadAsrStatus();
+  setTimeout(() => { asrState.note = ""; paintAsrStatus(); }, 6000);
+}
+/** Transcribe one file in the local server, which saves its transcript. Resolves to {doc, saved}. */
+async function transcribeFile(src) {
+  const r = await fetch("/api/asr/transcribe", { method: "POST", body: JSON.stringify({ src }) });
+  let j = {};
+  try { j = await r.json(); } catch { }
+  if (!r.ok) throw Object.assign(new Error(j.error || "transcription failed"), { code: j.code });
+  const doc = await loadTranscript(src, true);
+  if (!doc) throw new Error("the transcript was not saved");
   transcriptGen++;
-  return { doc, saved };
+  return { doc, saved: true };
 }
 /** Transcribe files one after another. `beat(fraction)` hears about progress (an agent's job). */
 async function transcribeSrcs(srcs, opts = transcribeSettings(), beat = null) {
-  // off in a packaged build: no worker, no model download, from the panel or from an agent job
+  // off when the main process turned it off: no request to the engine, from the panel or from an agent job
   if (!transcribeAvailable()) throw Object.assign(new Error("on-device transcription is not available in this build"), { code: "TRANSCRIBE_DISABLED" });
   if (trState.busy) throw new Error("this tab is already transcribing — wait for it, or cancel it");
-  const busy = trState.busy = { srcs, i: 0, frac: 0, cancel: false, dl: new Map(), beat: () => beat?.((busy.i + busy.frac) / srcs.length) };
+  const busy = trState.busy = { srcs, i: 0, frac: 0, cancel: false, beat: () => beat?.((busy.i + busy.frac) / srcs.length) };
   const out = { done: [], failed: [], cancelled: false };
   renderTranscript(true);
   try {
@@ -9287,29 +9285,25 @@ async function transcribeSrcs(srcs, opts = transcribeSettings(), beat = null) {
       paintTranscribeBusy();
       busy.beat();
       try {
-        const r = await transcribeFile(srcs[i], {
-          ...opts, cancelled: () => busy.cancel,
-          onProgress: (f) => { busy.frac = f; paintTranscribeBusy(); busy.beat(); },
-        });
+        const r = await transcribeFile(srcs[i]);
         out.done.push({ src: srcs[i], words: r.doc.words.length, language: r.doc.language, saved: r.saved });
       } catch (e) {
-        if (busy.cancel) { out.cancelled = true; break; }
-        out.failed.push({ src: srcs[i], error: String((e && e.message) || e) });
+        if (busy.cancel || e.code === "ASR_CANCELLED") { out.cancelled = true; break; }
+        out.failed.push({ src: srcs[i], error: String((e && e.message) || e), code: e.code || null });
+        if (e.code === "ASR_MODEL_MISSING" || e.code === "ASR_ENGINE_MISSING") break;   // the rest would fail the same way
       }
     }
   } finally {
     trState.busy = null;
     renderTranscript(true);
-    // the model holds a few hundred MB: let it go after a quiet minute (the browser keeps the download)
-    clearTimeout(trIdleTimer);
-    trIdleTimer = setTimeout(() => { if (!trState.busy) stopTranscribeWorker(); }, 60000);
+    loadAsrStatus();
   }
   return out;
 }
 function cancelTranscribe() {
   if (!trState.busy) return;
   trState.busy.cancel = true;
-  stopTranscribeWorker();
+  fetch("/api/asr/cancel", { method: "POST" }).catch(() => {});
 }
 
 /** Each linked group that sounds (its audio stems, else the clip), as on the timeline. */
@@ -9362,12 +9356,11 @@ function buildTranscriptPage() {
       </div>
       <div class="tr-row">
         ${listen ? `<button type="button" class="btn primary" data-tr-go></button>` : ""}
-        ${listen ? `<select data-tr-model title="Speech model. Base is quick; Small is more accurate and slower. Each downloads once, then stays in this browser">${Object.entries(T.MODELS).map(([k, m]) =>
-          `<option value="${k}" ${k === set.model ? "selected" : ""}>${m.label} · ${m.mb} MB</option>`).join("")}</select>` : ""}
-        ${listen ? `<select data-tr-lang title="The language spoken. Auto-detect works for most; pick it when a clip is short or mixes languages">
-          <option value="auto">Auto-detect</option>${Object.entries(T.LANGUAGES).sort((a, b) => a[1].localeCompare(b[1])).map(([k, n]) =>
-            `<option value="${k}" ${k === set.language ? "selected" : ""}>${n}</option>`).join("")}</select>` : ""}
       </div>
+      ${listen ? `<div class="tr-row tr-asr"><span class="tr-asr-text" data-tr-asr role="status"></span>
+        <button type="button" class="btn tiny" data-tr-asr-download hidden data-i18n="own.asr-download">${escapeHtml(uiText("own.asr-download"))}</button>
+        <button type="button" class="btn tiny" data-tr-asr-import hidden data-i18n="own.asr-import">${escapeHtml(uiText("own.asr-import"))}</button>
+        <button type="button" class="btn tiny" data-tr-asr-punct hidden data-i18n="own.asr-download-punct">${escapeHtml(uiText("own.asr-download-punct"))}</button></div>` : ""}
       ${listen ? `<div class="tr-busy hidden" data-tr-busy><span data-tr-busy-text></span><span class="tr-bar"><i data-tr-bar></i></span>
         <button type="button" class="btn tiny" data-tr-cancel title="Stop transcribing (what is done is kept)" data-i18n="term.cancel">${uiText("term.cancel")}</button></div>` : ""}
       <div class="tr-row">
@@ -9394,13 +9387,17 @@ function buildTranscriptPage() {
   const q = (s) => root.querySelector(s);
   trState.el = { go: q("[data-tr-go]"), busy: q("[data-tr-busy]"), busyText: q("[data-tr-busy-text]"), bar: q("[data-tr-bar]"),
     find: q("[data-tr-find]"), count: q("[data-tr-count]"), cutFound: q("[data-tr-cut-found]"), body: q("[data-tr-body]"),
-    foot: q("[data-tr-foot]"), selText: q("[data-tr-sel]") };
+    foot: q("[data-tr-foot]"), selText: q("[data-tr-sel]"),
+    asr: q("[data-tr-asr]"), asrDownload: q("[data-tr-asr-download]"), asrImport: q("[data-tr-asr-import]"), asrPunct: q("[data-tr-asr-punct]") };
   const E = trState.el;
   if (listen) {
     E.go.addEventListener("click", transcribeFromTab);
     q("[data-tr-cancel]").addEventListener("click", cancelTranscribe);
-    q("[data-tr-model]").addEventListener("change", (e) => saveTranscribeSettings({ model: e.target.value }));
-    q("[data-tr-lang]").addEventListener("change", (e) => saveTranscribeSettings({ language: e.target.value === "auto" ? null : e.target.value }));
+    E.asrDownload.addEventListener("click", () => asrGet("asr"));
+    E.asrPunct.addEventListener("click", () => asrGet("punct"));
+    E.asrImport.addEventListener("click", asrImport);
+    paintAsrStatus();
+    loadAsrStatus();
   }
   E.find.addEventListener("input", () => { trState.query = E.find.value; findTranscript(); });
   E.find.addEventListener("keydown", (e) => {
@@ -9488,8 +9485,8 @@ function renderTranscript(force = false) {
   const tgt = transcribeTargets();
   const n = tgt.srcs.length;
   if (E.go) E.go.textContent = tgt.selected ? uiText("own.transcribe-selected", { n }) : n ? uiText(n === 1 ? "own.transcribe-file" : "own.transcribe-files", { n }) : uiText("own.transcribe");
-  if (E.go) E.go.disabled = !!trState.busy || !tgt.srcs.length;
-  if (E.go) E.go.title = tgt.srcs.length ? "Turn the speech into words, in this browser (the model downloads once). Select clips to transcribe just those, or again"
+  if (E.go) E.go.disabled = !!trState.busy || !tgt.srcs.length || !asrReady();
+  if (E.go) E.go.title = tgt.srcs.length ? "Turn the speech into words, on this computer (nothing is sent anywhere). Select clips to transcribe just those, or again"
     : groups.length ? "Every file on the timeline has a transcript — select clips to transcribe them again" : "Put clips with speech on the timeline first";
   const missing = [...new Set(groups.map((g) => getMedia(g[0].mediaId)).filter((m) => transcriptCache.get(m.src) === false).map((m) => m.name || m.src))];
   let html = "";
@@ -9502,7 +9499,7 @@ function renderTranscript(force = false) {
     if (!words.length && !missing.length) html += `<div class="tr-empty">${uiText([...transcriptCache.values()].some((v) => v instanceof Promise) ? "own.loading" : "own.tr-no-words")}</div>`;
     for (const s of T.segments(words)) {
       let p = "";
-      for (let k = s.i; k <= s.j; k++) p += (k > s.i ? " " : "") + `<span class="tw" data-k="${k}">${escapeHtml(words[k].w)}</span>`;
+      for (let k = s.i; k <= s.j; k++) p += (k > s.i ? FableCutTranscribe.gap(words[k - 1].w, words[k].w) : "") + `<span class="tw" data-k="${k}">${escapeHtml(words[k].w)}</span>`;
       html += `<p class="tr-seg"><span class="tr-tc" data-t="${s.from}" title="Go to ${fmt(s.from)}">${fmt(s.from)}</span>${p}</p>`;
     }
   }
@@ -9524,14 +9521,9 @@ function paintTranscribeBusy() {
   if (!E || !E.busy) return;
   E.busy.classList.toggle("hidden", !b);
   if (!b) return;
-  let loaded = 0, total = 0, downloading = false;
-  for (const f of b.dl.values()) { loaded += f.loaded; total += f.total; if (f.loaded < f.total) downloading = true; }
   const name = (project.media.find((m) => m.src === b.srcs[b.i])?.name) || b.srcs[b.i].split("/").pop();
-  const frac = downloading && total ? loaded / total : (b.i + b.frac) / b.srcs.length;
-  E.busyText.textContent = downloading
-    ? uiText("own.tr-downloading-model", { pct: Math.round(100 * loaded / total) })
-    : uiText(b.srcs.length > 1 ? "own.tr-transcribing-of" : "own.tr-transcribing", { name, i: b.i + 1, n: b.srcs.length, pct: Math.round(100 * b.frac) });
-  E.bar.style.width = `${Math.round(100 * frac)}%`;
+  E.busyText.textContent = uiText(b.srcs.length > 1 ? "own.tr-transcribing-of" : "own.tr-transcribing", { name, i: b.i + 1, n: b.srcs.length, pct: Math.round(100 * b.frac) });
+  E.bar.style.width = `${Math.round(100 * (b.i + b.frac) / b.srcs.length)}%`;
 }
 function findTranscript(keepSel = false) {
   const E = trState.el;

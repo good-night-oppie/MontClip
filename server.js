@@ -134,11 +134,15 @@ const MIME = {
   ".gif": "image/gif", ".webp": "image/webp", ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
   ".ttf": "font/ttf", ".otf": "font/otf", ".woff": "font/woff", ".woff2": "font/woff2",
-  ".wasm": "application/wasm", ".mjs": "text/javascript; charset=utf-8", ".onnx": "application/octet-stream",
 };
-/** The bundled transcription files (transformers.js, ONNX Runtime wasm, Whisper models): the package's
- *  resources/transcribe (MONTCLIP_TRANSCRIBE_DIR, set by desktop/main.js), else vendor/transcribe in a checkout. */
-const TRANSCRIBE_DIR = path.resolve(process.env.MONTCLIP_TRANSCRIBE_DIR || path.join(APP_DIR, "vendor", "transcribe"));
+/** On-device transcription (#70, asr-local.js): the engine and the VAD in the package's resources/asr (MONTCLIP_ASR_DIR,
+ *  set by desktop/main.js), else vendor/asr in a checkout; the user's downloaded or imported models in
+ *  MONTCLIP_ASR_MODELS_DIR (userData/asr-models in the desktop app), else <data dir>/asr-models. */
+const ASR_DIR = path.resolve(process.env.MONTCLIP_ASR_DIR || path.join(APP_DIR, "vendor", "asr"));
+const ASR_MODELS_DIR = path.resolve(process.env.MONTCLIP_ASR_MODELS_DIR || path.join(DATA_DIR, "asr-models"));
+let asrLocal = null;
+const asr = () => asrLocal || (asrLocal = require("./asr-local").createAsr({ asrDir: ASR_DIR, modelsDir: ASR_MODELS_DIR, ffmpeg: FF.path("ffmpeg") }));
+const asrJob = { running: null };
 
 ensureDirs();
 const projects = createProjects({ dataDir: DATA_DIR, projectFile: PROJECT_FILE, libraryDir: LIBRARY_DIR });
@@ -697,8 +701,6 @@ const freshExports = new Set();
 const exportJobs = createExportJobs({
   allowHeadless: !DESKTOP,
   url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}`,
-  // a transcription's headless browser keeps its profile, so the speech model is downloaded once
-  keepProfile: (kind) => kind === "transcribe" ? path.join(ANALYSIS_DIR, "browser-profile") : null,
   broadcast,
   editors: () => sseClients.size,
 });
@@ -1654,11 +1656,43 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  /* Bundled transcription files: served only from TRANSCRIBE_DIR */
-  if (p.startsWith("/transcribe-assets/")) {
-    const file = path.normalize(path.join(TRANSCRIBE_DIR, p.slice("/transcribe-assets/".length)));
-    if (!file.startsWith(TRANSCRIBE_DIR + path.sep)) { res.writeHead(403); res.end(); return; }
-    serveFile(req, res, file);
+  /* API: on-device transcription (asr-local.js; #70). One file at a time; the transcript is saved like a tab's.
+       GET  /api/asr/status            → {model, engine, vad, asr, punct}   (asr / punct: {ready, where, missing, bad})
+       POST /api/asr/transcribe {src}  → {src, words, duration, speech, punctuated} once the transcript is saved;
+                                         progress as SSE "asr" ({src, frac}); 409 {code} when busy, when the model or the
+                                         engine is missing, or when cancelled. Nothing is downloaded here.
+       POST /api/asr/cancel            → {cancelled} */
+  if (p === "/api/asr/status" && req.method === "GET") { sendJSON(res, 200, asr().status()); return; }
+  if (p === "/api/asr/cancel" && req.method === "POST") {
+    const j = asrJob.running;
+    if (j) j.ac.abort();
+    sendJSON(res, 200, { cancelled: !!j });
+    return;
+  }
+  if (p === "/api/asr/transcribe" && req.method === "POST") {
+    let body;
+    try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "the body must be JSON: {src}" }); return; }
+    const src = typeof body.src === "string" ? body.src : "", file = src ? resolveSrc(src) : null;
+    if (!file || !fs.existsSync(file)) { sendJSON(res, 404, { error: "no such file: " + src }); return; }
+    if (asrJob.running) { sendJSON(res, 409, { code: "ASR_BUSY", error: "already transcribing " + asrJob.running.src }); return; }
+    const st = asr().status();
+    if (!st.engine.ready || !st.vad.ready) { sendJSON(res, 409, { code: "ASR_ENGINE_MISSING", error: "the speech engine is missing from this copy of MontClip" }); return; }
+    if (!st.asr.ready) { sendJSON(res, 409, { code: "ASR_MODEL_MISSING", error: "no speech model yet: the user downloads it or imports it (USB drive / a file) in the Transcript tab; MontClip never fetches it by itself", missing: st.asr.missing, bad: st.asr.bad }); return; }
+    const ac = new AbortController(), job = asrJob.running = { src, ac };
+    res.on("close", () => { if (!res.writableFinished) ac.abort(); });   // the page went away: stop
+    let last = 0;
+    try {
+      const info = await probeFile(file);
+      const r = await asr().transcribe(file, { signal: ac.signal, duration: info && info.duration,
+        onProgress: (frac) => { const now = Date.now(); if (now - last > 250) { last = now; broadcast("asr", JSON.stringify({ src, frac })); } } });
+      const TR = require("./transcribe.js");
+      const doc = transcripts.put(src, { src, model: TR.DEFAULT_MODEL, language: r.language, duration: r.duration, created: new Date().toISOString(), words: r.words });
+      broadcast("transcript", JSON.stringify({ src }));
+      sendJSON(res, 200, { src, words: doc.words.length, duration: doc.duration, speech: Math.round(r.speech * 10) / 10, punctuated: r.punctuated });
+    } catch (e) {
+      const code = e.code === "ASR_CANCELLED" || ac.signal.aborted ? "ASR_CANCELLED" : e.code || "ASR_FAILED";
+      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING)$/.test(code) ? 409 : 500, { code, error: String(e.message || e) });
+    } finally { if (asrJob.running === job) asrJob.running = null; }
     return;
   }
 

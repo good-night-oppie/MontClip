@@ -1,51 +1,79 @@
-# 本机听写打进安装包，全程离线
+# 本机听写：sherpa-onnx + Paraformer zh，模型三条路
 
 - 日期：2026-11-03
-- 状态：已定（主人 11-03 决定「这一版要带本机听写」，Deja 转达）；带哪个模型待 Deja 定
-- 取代：同日早些时候的「第一版不带本机听写」。那份 ADR 已在 #69 里撤回（`50a339c`）。
+- 状态：已定。听写选型由 Deja 定；这份 ADR 写的是 #70 怎么落实。
+- 取代：同一天早些时候本文件的旧版「Whisper（transformers.js）打进安装包」。那一版没合进 main，这次整份换掉。
+- 依据：
+  - europa 上的实测报告 `~/asr-bench/RESULT.md`（sha256 da5bc67f…），里面有复现命令和每个文件的 sha256；
+  - ADR `2026-11-03-local-capability-boundary.md` 第 6 行：听写不联网，加两条不联网的路。
 
 ## 决定
-- 这一版带本机听写，**全程离线**：安装包解压就能用，不连任何海外网站，国内主播不会因为连不上 jsdelivr 或 Hugging Face 而用不了。
-- 以前 `transcribe.js` 运行时从 jsdelivr 拉 transformers.js，从 Hugging Face 拉 Whisper 模型。这两条都去掉了。现在打进包里的有：
-  - transformers.js 4.3.1 的 `dist/transformers.min.js`（Apache-2.0）；
-  - onnxruntime-web 1.31.0-dev.20260914-8d85527a0 的 `ort-wasm-simd-threaded.jsep.{mjs,wasm}`（MIT），也就是 transformers.js 4.3.1 依赖的那个版本；
-  - Whisper 模型，8 位 ONNX、带逐词时间：`onnx-community/whisper-{base,small}_timestamped`，固定在某个提交，权重来自 openai/whisper-base 和 openai/whisper-small（Apache-2.0）。
-- 打包版的听写默认打开，并保留一个开发开关可以关掉。见下文「开关」。
 
-## 怎么做到离线
-- **来源固定**：`desktop/transcribe-manifest.json` 记下每个文件的版本、来源（npm tarball 的 integrity、Hugging Face 的提交号）、大小和 SHA-256。
-- **下载和校验**：`desktop/fetch-transcribe.cjs` 只在开发或出包时运行，把文件下载到 git 忽略的 `vendor/transcribe/`，逐个校验 SHA-256，对不上就失败，什么都不留。
-- **打包**：`desktop/package-win.cjs` 先校验 `vendor/transcribe/`，复制到包里的 `resources/transcribe/`，再在包里校验一遍；打包时不下载任何东西。
-- **服务**：`server.js` 只从 `MONTCLIP_TRANSCRIBE_DIR` 提供 `/transcribe-assets/`。这个目录在打包版里由 `desktop/main.js` 设成 `resources/transcribe`，在源码运行时是 `vendor/transcribe`。返回正确的 wasm 和 mjs 类型，目录外的路径一律拒绝。
-- **worker**（`transcribe-worker.js`）：
-  - 从 `/transcribe-assets/` 加载库；
-  - `env.allowRemoteModels = false`；
-  - `env.localModelPath = "/transcribe-assets/models/"`。这里必须写成不带协议的路径：transformers.js 4.3.1 只对不带协议的本地路径检查文件是否存在，写成 http 地址时会认为分词器不存在；
-  - `env.useBrowserCache = false`；
-  - `wasmPaths` 指向本地的 jsep 文件。
-- **桌面窗口**：
-  - CSP 的 `script-src` 只多加了 `'wasm-unsafe-eval'`，这是 ONNX Runtime 编译 wasm 必需的，没有放开一般的 `eval`。
-  - session 仍然拦掉所有不是本机服务的请求（`ses.webRequest.onBeforeRequest`）。所以即使哪里漏了一个远程地址，也发不出去。
+- **引擎**：`sherpa-onnx-node@2.0.1`，Apache-2.0。
+  - 由本机服务（`asr-local.js`，在 Electron 的 utilityProcess 里）来跑，不在浏览器里跑。
+  - 识别用 `decodeAsync`，所以服务在听写时照样能应答。
+- **默认模型**：`sherpa-onnx-paraformer-zh-2023-09-14`，int8。
+  - 大小 232 MB，Apache-2.0，带逐字时间戳。
+  - 在 europa 上测：4 线程 RTF 约 0.05；FLEURS 只算汉字的字错率 3.33%。
+  - **别拿错**：`sherpa-onnx-paraformer-zh-int8-2025-10-07` 是四川话版。manifest 里写明了不能用它，测试也断言它不会出现。
+- **VAD**：先过一遍 silero_vad。
+  - 参数和 RESULT.md 一样：阈值 0.5，最短语音 0.25 秒，最短静音 0.5 秒，一段最长 20 秒。
+  - VAD 文件只有 643 KB，许可证是 MIT，所以每个包都带上。
+- **标点**：sherpa-onnx 的 CT-Transformer 中文标点模型，作为可选的第二个文件。
+  - 用的是 int8 版：`sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8`，模型文件 76 MB。
+  - 许可证：模型卡写的是 Apache License 2.0（modelscope iic/punc_ct-transformer_zh-cn-common-vocab272727-pytorch）。
+  - Node 绑定支持（`OfflinePunctuation`），已经实测能用。
+  - 没装标点模型时，听写照样能用，只是没有标点。
+- **SenseVoice 不用**。它的许可证问题 issue #334 在 08-29 被重新打开，到现在没有定论。
+- **时间**：中文每个字算一个「词」，时间到这个字为止。英文按 `@@` 把拆开的部分拼回整词。标点加在它前面那个字上。
+  - 文稿和字幕里，汉字之间不加空格，英文词之间照常加空格（`FableCutTranscribe.join`）。
 
-## 「除了 AI 起名，其他都不联网」仍然成立
-- 桌面窗口和它的 worker 发出的每个请求都要经过 `desktop/main.js` 的 session 过滤：只放行本机 MontClip 服务、`blob:` 和 `data:`，其余全部取消。
-- 听写用到的文件现在都在本机，所以听写不再需要联网。
-- `desktop/offline-transcribe-smoke.cjs` 包装了 main.js 自己的过滤器，记下每个请求和放行或拦截的结果。实测对外请求为 0，见 PR。
-- AI 服务（包括起名）是主进程用用户自己的 key 发出的请求，不经过窗口，这一条不变。
-- 另外两项代码里写着远程地址的功能，在桌面版里本来就发不出请求：
-  - 按人像抠图（MediaPipe，jsdelivr）；
-  - 字幕里使用本机和 `library/fonts` 里都没有的 Google 字体。
+## 模型从哪来（三条路，每个文件都按 sha256 核对）
 
-  它们不会联网，只是在桌面版里用不了。这一点这次没改，列在 PR 里。
+`desktop/asr-manifest.json` 写死了每个文件的 sha256、大小和下载源。下载源按顺序试：
+
+1. **「完整版」包**：两个模型都在包里（`resources/asr/models`），会先用它。
+   - 打包命令：`node desktop/package-win.cjs --full`，包名多一个 `-full`。
+   - 打包前先核对一遍，打进包以后再核对一遍。
+2. **下载**：主播在文稿页点〔下载听写模型〕，由主进程弹出宿主自己的确认框，写明大小和网站。默认按钮是「取消」，点了「下载」才会发请求。
+   - 主源：hf-mirror.com/csukuangfj/sherpa-onnx-paraformer-zh-2023-09-14，固定到一个提交；
+   - 备用：GitHub release k2-fsa/sherpa-onnx asr-models 里的 tar.bz2，先核对整包 sha256 再解包，解开后逐个文件再核对。
+   - 只连 manifest 里列出的域名；重定向也一样，跳到名单外的域名就不跟，换下一个源。
+   - 网络出错会重试一次。文件对不上 sha256 就不重试，直接换下一个源。
+   - ModelScope 上只有个人转存，不用。
+3. **从 U 盘或文件导入**：主播选一个文件夹，比如 U 盘。
+   - 文件夹里的模型文件，以及官方的 tar.bz2，都靠「大小 + sha256」认出来，不看文件名。
+   - 对不上的文件一律不复制。
+
+下载和导入的模型放在用户数据目录的 `asr-models/` 里。页面只能说「要哪个模型」，传不了路径，也传不了网址。
+
+## 联网例外
+
+- 「下载听写模型」本来就在联网例外清单里。
+- 本机服务本身从不下载。
+- 窗口的 session 照样拦截所有不是本机服务的请求。
+- 旧版为 wasm 加的 CSP `'wasm-unsafe-eval'` 已经去掉。
 
 ## 开关
-- `desktop/features.js` 的 `transcribeEnabled` 在 #34 里，main 上还没有。
-- #34 现在的行为是：打包版默认关，只有 `--montclip-dev-transcribe` 或 `MONTCLIP_DEV_TRANSCRIBE=1` 才打开。
-- 本 ADR 的决定是反过来：打包版默认打开，保留一个开发开关可以关掉。具体改法在 PR 里说明（#34 合并后改它的默认值，并补测试）。
 
-## 带哪个模型
-由 Deja 定，看 PR 里的实测数据：中文字错率、每小时录像的听写耗时、内存峰值、安装包增量。定下来之前，清单里两个都登记了。只带一个时，`fetch-transcribe.cjs --models <名字>` 和打包脚本只放那一个，`transcribe.js` 的模型选项也要跟着收窄。
+- 打包版默认打开听写（`desktop/features.js`）。
+- 用 `--montclip-no-transcribe` 或 `MONTCLIP_NO_TRANSCRIBE=1` 可以关掉。
 
-## 没做的、要注意的
-- 没有真正打出安装包来验证。打包现在暂停（主人 11-03 的决定），所以「打包版」的验证是用源码运行加同一套 session 过滤做的，打包脚本只做了代码和测试上的改动。
-- 在线演示（`docs/demo/`）是静态网站，没有 `/transcribe-assets/`，在线演示里的听写会用不了。
+## 已知不足
+
+- **唱歌的段落错字多。** 在 europa 的歌回片段里，两首歌一秒只出 1.06 / 1.37 个字，主要的句子出得来，但错字多。后面的「按歌词校准字幕」就是补这一块的。
+- 中文字幕没有逐字动画：字幕按句子计时，和导入的 SRT 一样（#34 的规则）。字幕渲染是按空格分词的，中文要逐字做动画得另做。
+- 标点的 int8 模型只在 k2-fsa 的 GitHub release 上有。官方 HF 仓库只有 294 MB 的 fp32 版，所以标点模型没有 hf-mirror 这个源。
+- **国内能不能下载，没有实测。** 在这台机器（美国出口）上，hf-mirror 会把请求重定向到 huggingface.co 和 us.aws.cdn.hf.co。这两个都不在名单里，所以这里每次都是 GitHub 那个源成功。
+- 在线演示站（`docs/demo/`）没有本机服务，所以用不了听写。
+
+## 实测
+
+- 准确率直接引用 RESULT.md（europa，Xeon 8259CL，共享机器，测试时其他进程在跑）。这里不重测。
+- 本机 RTF：测试机 Win11，i7-11800H。用 europa 上同一段 10 分钟杂谈（GC11 1280–1880 秒，sha256 f1a1789d…，只放在临时目录，用完就删）。
+  - 走产品自己的路径（`asr-local.js`），跑了两次：10 分钟的录像 13.5–13.9 秒做完（含加载模型、VAD、标点）。
+    - 按录像长算 RTF 0.022–0.023，按语音长算 0.037–0.038；
+    - 内存峰值约 530 MB；
+    - 一小时的录像约 1.5 分钟。
+  - 在 Electron 45 的 utilityProcess 里也跑通了：识别 RTF 0.028，整段约 15 秒。
+  - 复现方法和数字见 `docs/validation/2026-11-03-asr-local/`。

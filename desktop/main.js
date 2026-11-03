@@ -34,13 +34,15 @@ async function start() {
   // the user's own FFmpeg (H.264 export only): chosen in Settings, stored here, read by the server
   env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS = path.join(app.getPath("userData"), "external-ffmpeg.json");
   delete env.MONTCLIP_FFMPEG_PACKAGED;
+  // on-device transcription (#70): the user's downloaded or imported speech models
+  env.MONTCLIP_ASR_MODELS_DIR = path.join(app.getPath("userData"), "asr-models");
   if (app.isPackaged) {
     delete env.MONTCLIP_FFMPEG;
     delete env.MONTCLIP_FFPROBE;
     env.MONTCLIP_FFMPEG_PACKAGED = "1";
     env.MONTCLIP_FFMPEG_DIR = path.join(process.resourcesPath, "ffmpeg");
-    // on-device transcription: transformers.js, the ONNX Runtime wasm and the models, all in the package
-    env.MONTCLIP_TRANSCRIBE_DIR = path.join(process.resourcesPath, "transcribe");
+    // the speech engine and the VAD (and, in the 完整版 package, the models) are in the package
+    env.MONTCLIP_ASR_DIR = path.join(process.resourcesPath, "asr");
   }
   worker = utilityProcess.fork(path.join(__dirname, "..", "server.js"), [], { env, stdio: "pipe" });
   worker.once("exit", () => { workerExited = true; });
@@ -69,7 +71,7 @@ async function start() {
   ses.webRequest.onHeadersReceived((details, callback) => {
     const headers = { ...details.responseHeaders };
     if (local(details.url) && details.resourceType === "mainFrame") {
-      headers["Content-Security-Policy"] = ["default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"];
+      headers["Content-Security-Policy"] = ["default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"];
     }
     callback({ responseHeaders: headers });
   });
@@ -104,6 +106,46 @@ async function start() {
   const features = { transcribe: transcribeEnabled({ isPackaged: app.isPackaged, argv: process.argv, env: process.env }) };
   ipcMain.on("montclip:features:get", (event) => {
     event.returnValue = settingsAllowed(event, win, origin) ? { transcribe: features.transcribe } : { transcribe: false };
+  });
+  // The speech model (#70; ADR 2026-11-03 local capability boundary, row 6): downloaded only here, after the streamer
+  // says yes in the host's own box (sizes and sites), from the listed hosts only (asr-download.js); or imported from a
+  // folder the streamer picks (a U 盘). Every file is checked against desktop/asr-manifest.json. The page passes no
+  // path and no address: only which model.
+  const AsrModels = require("../asr-models"), AsrDownload = require("../asr-download"), { asrDownloadText, asrImportTitle } = require("./asr-text");
+  const asrStore = AsrModels.createStore({ roots: [app.isPackaged ? path.join(process.resourcesPath, "asr", "models") : path.join(__dirname, "..", "vendor", "asr", "models")],
+    userDir: env.MONTCLIP_ASR_MODELS_DIR });
+  let asrBusy = null;
+  app.once("before-quit", () => { if (asrBusy) asrBusy.abort(); });
+  ipcMain.handle("montclip:asr:download", async (event, which) => {
+    if (!settingsAllowed(event, win, origin) || !features.transcribe) return { ok: false, code: "ASR_FORBIDDEN" };
+    if (which !== "asr" && which !== "punct") return { ok: false, code: "ASR_UNKNOWN_MODEL" };
+    if (asrBusy) return { ok: false, code: "ASR_BUSY" };
+    const t = asrDownloadText(languageOf(settings.get()), which);
+    const answer = smoke ? { response: process.env.MONTCLIP_SMOKE_ASR_CONSENT === "1" ? 1 : 0 }
+      : await dialog.showMessageBox(win, { type: "question", title: t.title, message: t.message, detail: t.detail, buttons: t.buttons, defaultId: 0, cancelId: 0, noLink: true });
+    if (smoke) process.stdout.write("MONTCLIP_ASR_CONSENT " + JSON.stringify({ which, title: t.title, message: t.message, detail: t.detail, answered: answer.response }) + "\n");
+    if (answer.response !== 1) return { ok: false, declined: true };
+    asrBusy = new AbortController();
+    try {
+      const r = await asrStore.download(which, { signal: asrBusy.signal, fetchFile: AsrDownload.fetchFile,
+        onProgress: (p) => { if (win && !win.isDestroyed() && p.total) win.webContents.send("montclip:asr:progress", { which, frac: Math.min(1, p.loaded / p.total) }); } });
+      return { ok: true, source: r.source };
+    } catch (e) { return { ok: false, code: e.code || "ASR_DOWNLOAD_FAILED", error: e.failed ? e.failed.map((f) => f.source + ": " + f.error).join("; ") : String(e.message || e) }; }
+    finally { asrBusy = null; }
+  });
+  ipcMain.handle("montclip:asr:import", async (event) => {
+    if (!settingsAllowed(event, win, origin) || !features.transcribe) return { ok: false, code: "ASR_FORBIDDEN" };
+    if (asrBusy) return { ok: false, code: "ASR_BUSY" };
+    const smokeDir = smoke && process.env.MONTCLIP_SMOKE_ASR_IMPORT;
+    const pick = smokeDir ? { canceled: false, filePaths: [smokeDir] }
+      : await dialog.showOpenDialog(win, { title: asrImportTitle(languageOf(settings.get())), properties: ["openDirectory"] });
+    if (pick.canceled || !pick.filePaths.length) return { ok: false, cancelled: true };
+    asrBusy = new AbortController();
+    try {
+      const r = await asrStore.importPaths(pick.filePaths);
+      return { ok: true, imported: r.imported.length, already: r.already, rejected: r.rejected };
+    } catch (e) { return { ok: false, error: String(e.message || e) }; }
+    finally { asrBusy = null; }
   });
   const externalFile = path.join(app.getPath("userData"), "external-ffmpeg.json");
   const externalStatus = async () => {

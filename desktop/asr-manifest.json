@@ -48,5 +48,8 @@
       "sourceNote": "The official Hugging Face repo (csukuangfj) has only the 294 MB fp32 model of this punctuation model; the int8 one is only in the k2-fsa GitHub release. ModelScope copies are personal re-uploads and are not used."
     }
   },
+  "devTest": { "file": "test_wavs/0.wav", "size": 179712, "sha256": "1a6bf94091d9c35e11aea5d494d05e3287b8f5c767f6de3bfd796d91b637500c",
+    "url": "https://hf-mirror.com/csukuangfj/sherpa-onnx-paraformer-zh-2023-09-14/resolve/def027084691107096b5ebba69785756d63de6c5/test_wavs/0.wav",
+    "note": "The model's own public test sentence (same repo, Apache-2.0), for test/asr-offline.test.js in a checkout only; never packaged." },
   "hosts": ["hf-mirror.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com"]
 }

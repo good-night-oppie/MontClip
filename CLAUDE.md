@@ -52,7 +52,7 @@ Every Claude Code session then has these tools:
   on that canvas whose shots follow the subject. See "Sequences" below.
 - `fablecut_highlights` — the best moments of long footage cut into a short edit, in a new
   sequence. See "Sequences" below.
-- `fablecut_transcribe` — turn speech into words with times (Whisper, in the browser),
+- `fablecut_transcribe` — turn speech into words with times (on this computer: sherpa-onnx Paraformer zh),
   read them on the timeline, find a phrase and cut it out. See "Transcripts and
   text-based editing" below.
 - `fablecut_captions` — caption clips from the transcript, timed word by word (subtitle,
@@ -696,20 +696,34 @@ edits the key under the playhead. Agents:
 ### Transcripts and text-based editing
 
 FableCut turns the speech in a clip into **words with times**, so an edit can be
-read, searched and cut like text. Transcription runs **in the browser**: Whisper
-(OpenAI's speech model, through transformers.js) in a background worker of the
-editor tab. The library and the model are fetched from a CDN the first time and
-kept by the browser after that; the audio never leaves the machine.
+read, searched and cut like text. Transcription runs **on this computer, in the
+editor's local server** (`asr-local.js`; MontClip #70, Deja 2026-11-03): ffmpeg reads
+the file's sound, the silero VAD finds the speech, and sherpa-onnx-node 2.0.1 runs
+the **Paraformer zh** model (`sherpa-onnx-paraformer-zh-2023-09-14`, int8, 232 MB) on
+each stretch of it, with per-character times; the **CT-Transformer** model adds
+punctuation when it is installed (optional, 76 MB). Nothing is sent anywhere.
 
-| model | download | |
-|---|---|---|
-| `base` (default) | 77 MB | quick: about 15 s per minute of speech on a fast desktop |
-| `small` | 250 MB | often more accurate (accents, noisy rooms, numbers); about twice as slow |
+The model hears Mandarin, with English words mixed in. Chinese words are single
+characters and read without spaces (`FableCutTranscribe.join`); English words keep
+their spaces. On the europa benchmark (`~/asr-bench/RESULT.md`, measured there, not
+here): FLEURS character error rate 3.33% on Chinese characters, 4-thread real-time
+factor about 0.05. On the Win11 test machine (i7-11800H) a 10-minute recording took
+about 15 s (decoding RTF 0.028). Singing is transcribed with many wrong characters.
 
-Whisper detects the language by itself; give it one (`en`, `es`, `hi`, `ja`, … any
-Whisper code) when a clip is short or mixes languages. Long files are split at
-their quietest moments into pieces of at most 28 s, and stretches of silence are
-skipped (Whisper invents words in silence).
+**Where the model comes from** (`desktop/asr-manifest.json` pins every file's
+SHA-256 and size; a file that does not match is never used):
+
+- the **完整版** package carries both models (`resources/asr/models`);
+- otherwise the Transcript tab offers **Download** — the desktop main process asks
+  first (size and sites), then fetches from hf-mirror.com (pinned commit), else the
+  k2-fsa GitHub release, following redirects only to the listed hosts — or **Import
+  from a USB drive or a file**: pick a folder; model files (and the official
+  `.tar.bz2` archives) are recognised by their SHA-256, whatever their names.
+  Downloaded and imported models live in the app's user data (`asr-models/`).
+
+The engine and the VAD are in every package. `GET /api/asr/status` says what is
+there; without the model, transcribing answers `ASR_MODEL_MISSING` and downloads
+nothing.
 
 **One transcript per file**, kept by the server in `analysis/transcripts/`:
 `{v, src, model, language, duration, created, words:[[text, start, end], …]}`,
@@ -734,34 +748,36 @@ edit. Find matches whole words and ignores case, accents, punctuation and spacin
 
 In the editor, the **Transcript** tab beside the Inspector:
 
+- The model line says whether the speech model is ready, with **Download** and
+  **Import from a USB drive or a file** when it is not (and **Download the
+  punctuation model** when only that is missing).
 - **Transcribe** works on the selected clips' files, else on every file on the
-  timeline that has no transcript yet. The model and the language are beside it.
-  Progress shows below (the first time, the model download), with **Cancel**.
+  timeline that has no transcript yet. Progress shows below, with **Cancel**.
 - The timeline's words, in paragraphs with timecodes. Click a word to go there;
   the word under the playhead is underlined and followed while playing. ⇧-click or
   drag to select a run of words, then press **Delete** (or **Cut**) to extract it.
 - **Find words** marks every match, Enter steps through them, and **Cut N**
   extracts them all. **Copy** copies the text with its timecodes.
 
-**Agents** use `fablecut_transcribe`. It transcribes in an open editor tab, else in
-headless Chrome / Edge, whose profile is kept in `analysis/browser-profile/` so the
-model downloads once:
+**Agents** use `fablecut_transcribe`. It transcribes through an open editor tab
+(else headless Chrome / Edge), which asks the local server:
 
 - `{}` transcribes every clip with sound that has no transcript yet, then returns
-  the timeline's words as timed lines: `[0:12.08] Open the demo, nothing to install.`
+  the timeline's words as timed lines: `[0:12.08] 打开演示，不用安装。`
   `clipIds` limits it to some clips; `from` / `to` limit the time (the reply stops
   at 300 lines); `mediaIds` reads whole files in file seconds instead.
-- `model:"small"`, `language:"es"`, and `again:true` (transcribe again, with another
-  model or language).
+- `again:true` transcribes again. (`model` is `paraformer-zh`, `language` is `zh`.)
+- When the speech model is not installed the reply says so: tell the user to
+  download or import it in the Transcript tab; never fetch it yourself.
 - `find:"phrase"` (or a list) reports each place it is said, with its span, the words
   around it and how much cutting them would remove; `cut:true` extracts them
   (`tracks` and `force` as for `fablecut_silence`). A version of the project is kept
-  before the cut.
+  before the cut. A Chinese phrase matches any run of characters.
 
-Whisper writes clean text: it often leaves out fillers ("um", "uh") and false
-starts, so find those by ear (`fablecut_silence` for the pauses), not by text. Word
-times are good to about a tenth of a second; listen to a cut that matters, or
-check it with `fablecut_frame`.
+The model writes clean text: it often leaves out fillers and false starts, so find
+those by ear (`fablecut_silence` for the pauses), not by text. Character times are
+good to about a tenth of a second; listen to a cut that matters, or check it with
+`fablecut_frame`.
 
 ### Captions
 
@@ -2263,6 +2279,11 @@ Request bodies are limited: 1 MB, except `PUT /api/project` (64 MB), `POST /api/
   `POST /api/transcribe/request {transcribe:{srcs, model?, language?, again?}, where?}` queues a transcription
   on the export-job queue (poll `GET /api/export/job?id=`); the tab saves each transcript, and the job's
   `result` lists `done`, `skipped` and `failed`. See "Transcripts and text-based editing".
+- `GET /api/asr/status` → `{model, engine:{ready}, vad:{ready}, asr:{ready, where, missing, bad}, punct:{…}}` ·
+  `POST /api/asr/transcribe {src}` → `{src, words, duration, speech, punctuated}` once the transcript is saved
+  (one file at a time; progress as SSE event `asr` `{src, frac}`; 409 `{code}` for `ASR_BUSY`,
+  `ASR_MODEL_MISSING`, `ASR_ENGINE_MISSING`, `ASR_CANCELLED`) · `POST /api/asr/cancel` → `{cancelled}`. The server
+  never downloads a model.
 - `POST /api/denoise` — body `{src:"/media/…", amount:"light"|"medium"|"strong"}`: writes a
   noise-reduced FLAC of the whole file into `./media/` (reused if it exists) and returns
   `{src, name, duration, channels}`. Does not touch `project.json` (see "Audio mix").

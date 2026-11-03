@@ -4,18 +4,16 @@
    the Transcript tab and `fablecut_transcribe` read, find and cut the same
    words with the same `extract` ops.
 
-   Speech is turned into words in the browser (transcribe-worker.js runs
-   Whisper with transformers.js). The library, the ONNX Runtime wasm and the
-   models ship with MontClip and load from the app (/transcribe-assets/, served
-   from vendor/transcribe or the package's resources/transcribe): nothing is
-   fetched from the network (owner, 2026-11-03).
-   Here: plan (where to split long audio, at its quietest moments) → joinChunks
-   (Whisper's word pieces → [text, start, end] in file seconds) → a transcript
-   document per file → clipWords / layout (onto the timeline through each
-   clip's in point and speed) → find (a phrase, matched on word boundaries,
-   case and punctuation ignored) → cutSpans (the time to cut: the words and
-   the pause after them, on whole frames) → cutOps (one extract per span, last
-   first, so earlier times stay put). */
+   Speech is turned into words by the local server (asr-local.js, #70 — Deja,
+   2026-11-03): sherpa-onnx with the Paraformer zh model, after the silero VAD,
+   punctuation added by the CT-Transformer model when it is installed. Nothing
+   runs in the browser and nothing is fetched while transcribing.
+   Here: a transcript document per file → clipWords / layout (onto the timeline
+   through each clip's in point and speed) → find (a phrase, matched on word
+   boundaries, case and punctuation ignored) → cutSpans (the time to cut: the
+   words and the pause after them, on whole frames) → cutOps (one extract per
+   span, last first, so earlier times stay put). Chinese words are single
+   characters; join() reads them without spaces. */
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
@@ -23,30 +21,12 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  /** Whisper models with word timestamps (cross-attention alignment), 8-bit; bundled (desktop/transcribe-manifest.json). */
-  const MODELS = {
-    base: { id: "onnx-community/whisper-base_timestamped", label: "Base", mb: 77 },
-    small: { id: "onnx-community/whisper-small_timestamped", label: "Small", mb: 250 },
-  };
-  const DEFAULT_MODEL = "base";
-  /** Where the bundled transcription files are served (server.js /transcribe-assets/). */
-  const ASSETS = "/transcribe-assets/";
-  /** transformers.js 4.3.1, bundled. Loaded by the worker only when something is transcribed. */
-  const LIBRARY = ASSETS + "transformers/transformers.min.js";
-  /** Whisper listens at 16 kHz, mono. */
+  /** The one speech model (desktop/asr-manifest.json): Paraformer-large zh, int8, 232 MB, Mandarin with some English. */
+  const MODELS = { "paraformer-zh": { id: "paraformer-zh-2023-09-14-int8", label: "Paraformer zh", mb: 232 } };
+  const DEFAULT_MODEL = "paraformer-zh";
+  /** The engine listens at 16 kHz, mono. */
   const RATE = 16000;
-  /** Languages offered by name (Whisper knows more; any of its codes works). */
-  const LANGUAGES = {
-    en: "English", es: "Spanish", fr: "French", de: "German", it: "Italian", pt: "Portuguese", nl: "Dutch",
-    sv: "Swedish", no: "Norwegian", da: "Danish", fi: "Finnish", pl: "Polish", cs: "Czech", sk: "Slovak",
-    ro: "Romanian", hu: "Hungarian", el: "Greek", bg: "Bulgarian", hr: "Croatian", sr: "Serbian",
-    uk: "Ukrainian", ru: "Russian", tr: "Turkish", ar: "Arabic", he: "Hebrew", fa: "Persian", ur: "Urdu",
-    hi: "Hindi", bn: "Bengali", pa: "Punjabi", gu: "Gujarati", mr: "Marathi", ta: "Tamil", te: "Telugu",
-    kn: "Kannada", ml: "Malayalam", zh: "Chinese", ja: "Japanese", ko: "Korean", vi: "Vietnamese",
-    th: "Thai", id: "Indonesian", ms: "Malay", tl: "Tagalog", sw: "Swahili",
-  };
-  /** Every language code Whisper takes. */
-  const WHISPER_LANGS = new Set(("en zh de es ru ko fr ja pt tr pl ca nl ar sv it id hi fi vi he uk el ms cs ro da hu ta no th ur hr bg lt la mi ml cy sk te fa lv bn sr az sl kn et mk br eu is hy ne mn bs kk sq sw gl mr pa si km sn yo so af oc ka be tg sd gu am yi lo uz fo ht ps tk nn mt sa lb my bo tl mg as tt haw ln ha ba jw su yue").split(" "));
+  const LANGUAGES = { zh: "Chinese (Mandarin)" };
   const MAX_WORDS = 200000;
   const MAX_WORD = 80;
   /** edit-ops.js MIN_DUR: extract refuses a range this short or shorter. */
@@ -62,70 +42,25 @@
     if (!MODELS[k]) throw new Error(`model must be ${Object.keys(MODELS).join(" or ")}`);
     return k;
   }
-  /** A language code for Whisper, or null to let it detect the language. */
+  /** The spoken language: the model hears Mandarin (English words mixed in are written too). */
   function language(l) {
-    if (l == null || l === "" || l === "auto") return null;
+    if (l == null || l === "" || l === "auto") return "zh";
     const k = String(l).trim().toLowerCase();
-    if (WHISPER_LANGS.has(k)) return k;
-    const byName = Object.keys(LANGUAGES).find((c) => LANGUAGES[c].toLowerCase() === k);
-    if (byName) return byName;
-    throw new Error(`language must be a Whisper language code such as en, es, hi or ja (or auto), not ${JSON.stringify(l)}`);
+    if (k === "zh" || k === "chinese" || k === "mandarin") return "zh";
+    throw new Error(`the speech model hears Mandarin Chinese (with some English mixed in): language must be zh or auto, not ${JSON.stringify(l)}`);
   }
 
-  /** Where to split `pcm` (mono samples at `rate`) into pieces Whisper takes in one go (≤ 30 s):
-   *  each piece ends at the quietest 50 ms between `min` and `max` seconds in, so no word is cut
-   *  in half. Returns [[startSample, endSample], …] covering the whole of it. */
-  function plan(pcm, rate = RATE, { min = 12, max = 28 } = {}) {
-    const n = pcm.length, hop = Math.max(1, Math.round(rate * 0.05));
-    const out = [];
-    let a = 0;
-    while (n - a > max * rate) {
-      const lo = a + Math.round(min * rate), hi = a + Math.round(max * rate) - hop;
-      let best = hi, bestE = Infinity;
-      for (let f = lo; f <= hi; f += hop) {
-        let e = 0;
-        for (let i = f; i < f + hop; i++) e += pcm[i] * pcm[i];
-        if (e <= bestE) { bestE = e; best = f; }   // ties go later: longer pieces, fewer calls
-      }
-      const b = best + (hop >> 1);
-      out.push([a, b]);
-      a = b;
-    }
-    if (n > a || !out.length) out.push([a, n]);
-    return out;
-  }
-  /** True when a piece is too quiet to hold speech (Whisper invents words in silence). */
-  function quiet(pcm, a = 0, b = pcm.length, floorDb = -55) {
-    if (b <= a) return true;
-    let e = 0;
-    for (let i = a; i < b; i++) e += pcm[i] * pcm[i];
-    const rms = Math.sqrt(e / (b - a));
-    return !(rms > 0) || 20 * Math.log10(rms) < floorDb;
-  }
-
-  const SCRIPT_NO_SPACES = /[぀-ヿ㐀-鿿豈-﫿฀-๿຀-໿က-႟ក-៿]/;
-  /** Whisper's word pieces ({text, timestamp:[s, e]}) → words [text, start, end] in file seconds
-   *  (`offset` added). A piece without a leading space continues the word before it
-   *  ("studio" ".fablecut" → "studio.fablecut"), except in scripts written without spaces. */
-  function joinChunks(chunks, offset = 0, end = Infinity) {
-    const out = [];
-    for (const ch of chunks || []) {
-      const raw = String(ch && ch.text != null ? ch.text : "");
-      const t = raw.trim().replace(/\s+/g, " ");
+  /** Chinese and Japanese script, and full-width punctuation: written without spaces. */
+  const TIGHT = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\u3000-\u303f\uff00-\uffef]/;
+  /** The space between two words as read: " ", or "" next to Chinese (or Japanese) script or punctuation. */
+  const gap = (a, b) => (a && b && !TIGHT.test(String(a).slice(-1)) && !TIGHT.test(String(b)[0]) ? " " : "");
+  /** Words read as text: a space between two words, except next to Chinese (or Japanese) script or punctuation. */
+  function join(list) {
+    let out = "";
+    for (const w of list) {
+      const t = String(w == null ? "" : w);
       if (!t) continue;
-      const ts = (ch && ch.timestamp) || [];
-      const last = out[out.length - 1];
-      let s = num(ts[0]) ? ts[0] + offset : last ? last[2] : offset;
-      if (last && s < last[1]) s = last[1];
-      let e = num(ts[1]) ? ts[1] + offset : s + 0.3;
-      e = Math.min(Math.max(e, s), end);
-      s = Math.min(s, e);
-      if (last && !/^\s/.test(raw) && !SCRIPT_NO_SPACES.test(t)) {
-        last[0] = (last[0] + t).slice(0, MAX_WORD);
-        last[2] = r3(Math.max(last[2], e));
-        continue;
-      }
-      out.push([t.slice(0, MAX_WORD), r3(s), r3(e)]);
+      out += gap(out, t) + t;
     }
     return out;
   }
@@ -268,7 +203,7 @@
   function text(words, i = 0, j = words.length - 1) {
     const out = [];
     for (let k = Math.max(0, i); k <= Math.min(j, words.length - 1); k++) out.push(words[k].w != null ? words[k].w : words[k][0]);
-    return out.join(" ");
+    return join(out);
   }
   /** A word that ends a sentence ("done." "why?"), but not an abbreviation like "A.I." or "U.S.". */
   const sentenceEnd = (t) => /[.!?…。！？]["')\]]?$/.test(t) && !/^(\p{L}\.)+$/u.test(t);
@@ -292,8 +227,8 @@
   const total = (spans) => r4(spans.reduce((n, s) => n + (s.to - s.from), 0));
 
   return {
-    MODELS, DEFAULT_MODEL, LIBRARY, ASSETS, RATE, LANGUAGES, MIN_CUT,
-    model, language, plan, quiet, joinChunks, validate, ramped, clipWords, layout, norm, find, union,
+    MODELS, DEFAULT_MODEL, RATE, LANGUAGES, MIN_CUT,
+    model, language, join, gap, validate, ramped, clipWords, layout, norm, find, union,
     cutSpans, cutOps, text, segments, total,
   };
 });
