@@ -83,7 +83,10 @@ async function start() {
     if (!require("./export-downloads").attach(item, { origin, exportsDir: path.join(env.FABLECUT_DATA_DIR, "exports"), language: languageOf(settings.get()), downloadsDir: app.getPath("downloads"),
       busy: exportDownloads, take: (n) => expectedExports.delete(n),
       claim: async (n) => { const r = await fetch(origin + "/api/export/claim?name=" + encodeURIComponent(n), { method: "POST", headers: { "X-MontClip-Session": token } }); return r.ok && (await r.json()).fresh === true; },
-      onDone: (v) => { if (win && !win.isDestroyed()) win.webContents.send("montclip:download:done", { state: v.state, name: v.name, removed: v.removed }); } })) event.preventDefault();
+      onDone: (v) => { if (win && !win.isDestroyed()) win.webContents.send("montclip:download:done", { state: v.state, name: v.name, removed: v.removed }); } })) {
+      event.preventDefault();
+      if (win && !win.isDestroyed()) win.webContents.send("montclip:download:done", { state: "refused", name: item.getFilename(), removed: false });
+    }
   });
   win = new BrowserWindow({ width: 1280, height: 820, minWidth: 640, minHeight: 480,
     title: "MontClip", show: false, webPreferences: { session: ses, sandbox: true,

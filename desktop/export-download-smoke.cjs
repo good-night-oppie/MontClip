@@ -155,13 +155,15 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
    await read(`document.getElementById('toast').textContent='';document.querySelector('#exportQueueList [data-q-save="q4"]').click();true`);
    out.lockedSaving=await read(`!!document.querySelector('#exportQueueList [data-q-save="q4"]').disabled`);
    let r;for(let i=0;i<120;i++){await wait(250);r=await read(`({toast:document.getElementById('toast').textContent,disabled:!!document.querySelector('#exportQueueList [data-q-save="q4"]')?.disabled})`);if(r.toast)break;}
-   out.locked={...r,copyLeft:has(name4),target:fs.readFileSync(lockedTarget,'utf8')};
+   out.locked={...r,copyLeft:has(name4)};
    assert.equal(out.locked.toast,'没有保存成功。导出的视频还在，打开『导出队列』，在这一条后面点『保存』再试一次；还不行的话，换个位置保存，或者看看那里的空间够不够。','the failure is said');
    assert.equal(out.locked.disabled,false,'Save is usable again');
    assert.equal(out.locked.copyLeft,true,'the export stays');
-   assert.equal(out.locked.target,'someone else\'s file','the other program\'s file is untouched');
   }finally{locker.kill();}
-  await wait(500);
+  await wait(800);
+  // read once the other program let go of it
+  out.lockedTarget=fs.readFileSync(lockedTarget,'utf8');
+  assert.equal(out.lockedTarget,'someone else\'s file','the other program\'s file is untouched');
   await lang('en');
   // 8. the queue's Save on this session's export, saved: now the copy goes, and the row shows only Saved, no path
   out.step='qsave';out.queueSave=await download(`document.querySelector('#exportQueueList [data-q-save="q2"]').click()`,saveTo('from-queue.mp4'));
@@ -175,7 +177,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   out.downloadsLeft=fs.readdirSync(downloads);
   assert.deepEqual(out.downloadsLeft,[],'nothing left in Downloads after the cancels');
   out.exportsLeft=fs.readdirSync(exportsDir).sort();
-  assert.deepEqual(out.exportsLeft,['_ _ _.mp4','big recording.mp4','older export.mp4'].sort(),'only the saved exports\' copies went');
+  assert.deepEqual(out.exportsLeft,[name4,'big recording.mp4','older export.mp4'].sort(),'only the saved exports\' copies went');
   process.stdout.write('EXPORT_DOWNLOAD_COMPLETE '+JSON.stringify(out)+'\n');
  }catch(e){process.stdout.write('EXPORT_DOWNLOAD_FAIL '+(e&&e.stack)+' '+JSON.stringify(out)+'\n');}
  finally{setTimeout(()=>app.exit(0),300);}

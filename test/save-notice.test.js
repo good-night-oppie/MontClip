@@ -36,7 +36,7 @@ test('the queue: its button, Save on each item and Saved come from the interface
   a.doesNotMatch(app, /download>Open<\/a>/, 'no hard-coded Open');
   a.doesNotMatch(app, /`Queue · \$\{/, 'no hard-coded Queue · n');
   a.match(app, /btnOpen\.textContent = exportQueue\.length \? uiText\("own\.q-list-n", \{ n: pending \|\| exportQueue\.length \}\) : uiText\("own\.q-list"\);/);
-  a.match(app, /<button type="button" class="btn tiny" data-q-save="\$\{q\.id\}"\$\{q\.saving \? " disabled" : ""\}>\$\{escapeHtml\(uiText\("own\.q-save"\)\)\}<\/button>/);
+  a.match(app, /<button type="button" class="btn tiny" data-q-save="\$\{q\.id\}"\$\{q\.saving \? ` disabled title="\$\{escapeHtml\(uiText\("own\.save-busy"\)\)\}"` : ""\}>\$\{escapeHtml\(uiText\("own\.q-save"\)\)\}<\/button>/);
   a.match(app, /<span class="dlv-q-saved">\$\{escapeHtml\(uiText\("own\.q-saved"\)\)\}<\/span>/);
   a.match(html, /id="btnOpenQueue"[^>]*data-i18n="own\.q-list"/);
   a.match(app, /renderMontClipView\(\);\s*try \{ renderQueue\(\); \} catch \{ \/\* not built yet \*\/ \}/, 'a language switch relabels the queue');
@@ -50,7 +50,7 @@ test("the queue's Save saves this export again: it names itself, so only a compl
 test('the page: success only once saved; a cancel says how to save again; captions say so too', () => {
   const app = read('app.js');
   const fn = app.slice(app.indexOf('function saveDownload('), app.indexOf('\n}\n', app.indexOf('function saveDownload(')));
-  a.match(fn, /if \(exportFile\) \{ window\.montclipDownloads\.expect\(name\); pendingExports\.add\(name\); \}/);
+  a.match(fn, /if \(exportFile\) \{ window\.montclipDownloads\.expect\(name\); pendingExports\.add\(name\);/);
   a.match(fn, /if \(kind\) pendingKinds\.set\(name, kind\);/);
   a.match(fn, /else if \(savedMsg\) toast\(savedMsg\);/, 'the browser keeps its old order');
   a.match(app, /state === "cancelled"\) toast\(uiText\(wasExport \? "own\.export-save-cancelled" : kind === "captions" \? "own\.captions-save-cancelled" : "own\.save-canceled"\)\)/);
@@ -64,7 +64,7 @@ test("VV on 71cd650: the queue's Save is greyed while its save is open; a saved 
   const app = read('app.js');
   a.match(app, /if \(s\) \{ if \(q\.saving\) return; q\.saving = true; renderQueue\(\); saveDownload\(/, 'a second click does nothing while the first save is open');
   a.match(app, /for \(const q of exportQueue\) if \(q\.file === name\) \{ q\.saving = false; if \(removed\) q\.saved = true; \}/, 'the end of that save frees the button');
-  a.match(app, /<button type="button" class="btn tiny" data-q-save="\$\{q\.id\}"\$\{q\.saving \? " disabled" : ""\}>/);
+  a.match(app, /<button type="button" class="btn tiny" data-q-save="\$\{q\.id\}"\$\{q\.saving \? ` disabled/);
   a.match(app, /: q\.status === "done" \? \(q\.saved \? "" : `Done → exports\/\$\{q\.file \|\| q\.name \+ ext\}`\)/, 'no path for a saved item');
 });
 

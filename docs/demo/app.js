@@ -1227,12 +1227,14 @@ function saveDownload(href, name, { savedMsg, exportFile = false, kind = null } 
   if (window.montclipDownloads) {
     if (savedMsg) pendingSaves.set(name, savedMsg);
     if (kind) pendingKinds.set(name, kind);
-    if (exportFile) { window.montclipDownloads.expect(name); pendingExports.add(name); }
+    if (exportFile) { window.montclipDownloads.expect(name); pendingExports.add(name); for (const q of exportQueue) if (q.file === name) q.saving = true; renderQueue(); }
   }
   else if (savedMsg) toast(savedMsg);
   document.body.appendChild(a); a.click(); a.remove();
 }
 window.montclipDownloads?.onDone(({ state, name, removed }) => {
+  // another save of this file is open: main refused this one; that one keeps its state
+  if (state === "refused") { toast(uiText("own.save-busy")); return; }
   const msg = pendingSaves.get(name), wasExport = pendingExports.has(name), kind = pendingKinds.get(name);
   pendingSaves.delete(name); pendingExports.delete(name); pendingKinds.delete(name);
   for (const q of exportQueue) if (q.file === name) { q.saving = false; if (removed) q.saved = true; }
@@ -18120,7 +18122,7 @@ function renderQueue() {
           : q.status === "cancelled" ? "Stopped" : "Waiting";
     const actions = [
       // 保存 opens the save window again; once a save went through, 已保存
-      q.status === "done" && q.src ? (q.saved ? `<span class="dlv-q-saved">${escapeHtml(uiText("own.q-saved"))}</span>` : `<button type="button" class="btn tiny" data-q-save="${q.id}"${q.saving ? " disabled" : ""}>${escapeHtml(uiText("own.q-save"))}</button>`) : "",
+      q.status === "done" && q.src ? (q.saved ? `<span class="dlv-q-saved">${escapeHtml(uiText("own.q-saved"))}</span>` : `<button type="button" class="btn tiny" data-q-save="${q.id}"${q.saving ? ` disabled title="${escapeHtml(uiText("own.save-busy"))}"` : ""}>${escapeHtml(uiText("own.q-save"))}</button>`) : "",
       q.status === "failed" || q.status === "cancelled" ? `<button type="button" class="btn tiny" data-q-retry="${q.id}">Retry</button>` : "",
       q.status !== "running" ? `<button type="button" class="btn tiny" data-q-remove="${q.id}" title="Remove from the queue">✕</button>` : "",
     ].join("");

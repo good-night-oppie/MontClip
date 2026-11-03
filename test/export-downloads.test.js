@@ -104,7 +104,7 @@ test('main.js: the page names its export before the download, the server is aske
   a.match(main, /take: \(n\) => expectedExports\.delete\(n\)/, 'one expectation per export, used up by its download');
   a.match(main, /busy: exportDownloads,/, 'one download of an export at a time');
   a.match(main, /if \(!require\("\.\/export-downloads"\)\.attach\(item, \{/, 'a refused download is cancelled');
-  a.match(main, /\}\)\) event\.preventDefault\(\);/);
+  a.match(main, /\}\)\) \{\n\s+event\.preventDefault\(\);/);
   a.match(main, /ipcMain\.on\("montclip:downloads:expect", \(event, name\) => \{ if \(settingsAllowed\(event, win, origin\) && /, 'only the editor page may ask');
   a.match(main, /fetch\(origin \+ "\/api\/export\/claim\?name=" \+ encodeURIComponent\(n\), \{ method: "POST", headers: \{ "X-MontClip-Session": token \} \}\)/);
   a.match(main, /win\.webContents\.send\("montclip:download:done", \{ state: v\.state, name: v\.name, removed: v\.removed \}\)/);
