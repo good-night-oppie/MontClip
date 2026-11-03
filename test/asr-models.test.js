@@ -279,3 +279,17 @@ test('unpacking takes only the model\'s own files out of an archive (what the ro
   a.ok(calls && calls.length >= 2, 'both unpack sites');
   for (const call of calls) a.match(call, /membersOf\(/, call);
 });
+test('systemExtract with members: a real .tar.bz2 made by the system tar gives back only the files asked for', async (t) => {
+  const cp = require('node:child_process'), work = tmp();
+  try {
+    const tar = process.platform === 'win32' ? path.join(process.env.SystemRoot || 'C:\Windows', 'System32', 'tar.exe') : 'tar';
+    put(work, 'src/x/model.int8.onnx', bytes.model); put(work, 'src/x/tokens.txt', bytes.tokens);
+    put(work, 'src/x/README.md', Buffer.from('readme')); put(work, 'src/x/test_wavs/0.wav', Buffer.alloc(4096, 7));
+    try { cp.execFileSync(tar, ['-cjf', path.join(work, 'a.tar.bz2'), '-C', path.join(work, 'src'), 'x'], { windowsHide: true }); }
+    catch { t.skip('no tar with bzip2 here'); return; }
+    fs.mkdirSync(path.join(work, 'out'));
+    await M.systemExtract(path.join(work, 'a.tar.bz2'), path.join(work, 'out'), ['x/model.int8.onnx', 'x/tokens.txt']);
+    a.deepEqual(fs.readdirSync(path.join(work, 'out', 'x')).sort(), ['model.int8.onnx', 'tokens.txt']);
+    a.equal(sha(fs.readFileSync(path.join(work, 'out', 'x', 'model.int8.onnx'))), sha(bytes.model));
+  } finally { fs.rmSync(work, { recursive: true, force: true }); }
+});
