@@ -93,7 +93,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.afterUndo=await read(`({status:exportQueue[0].status,error:exportQueue[0].error})`);assert.equal(report.afterUndo.status,'failed');
   assert.ok(report.afterUndo.error.endsWith('请让助手按现在的时间线再给一次剪辑建议。')&&latin(report.afterUndo.error)===null,report.afterUndo.error);
   // one_file: the joined length reads 0:08, in the order given
-  await read(`(()=>{const c=agentProjectContext();showSentenceSelection(MontClipProposal.prepare({type:'keep_ranges',output_mode:'one_file',ranges:[{clipId:'v1',from:2,to:6},{clipId:'v1',from:10,to:14}]},{doc:projectJSON(),context:{...c,generation:c.gen}}));})();true`);await wait();
+  await read(`(async()=>{if(!await flushSave())throw Error('SAVE');const c=agentProjectContext();await showSentenceSelection(MontClipProposal.prepare({type:'keep_ranges',output_mode:'one_file',ranges:[{clipId:'v1',from:2,to:6},{clipId:'v1',from:10,to:14}]},{doc:projectJSON(),context:{...c,generation:c.gen}}));})();true`);await wait();
   report.oneFile=await read(dialogText);
   assert.equal(report.oneFile.title,'按时间保留几段，拼成一条');assert.equal(report.oneFile.summary,'0:02–0:06 → 0:10–0:14 拼起来一共 0:08，按你勾选的顺序。');
   assert.equal(latin(report.oneFile.all),null,JSON.stringify(report.oneFile));
