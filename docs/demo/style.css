@@ -4942,3 +4942,12 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .auto-slices .as-check { display: inline-flex; gap: 6px; align-items: center; }
 .auto-slices .as-subline { margin-right: 2px; }
 .auto-slices .as-subline + .as-muted + .as-lyrics { display: inline-block; }
+/* P4: the assistant's permission modes — the switch at the top of the assistant, the Yolo mark (always visible while on,
+   in the assistant and in the top bar) and the host's approval box. */
+.cindy-port .agent-modes button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cindy-port .agent-yolo-on, .mc-yolo-mark { color: #fff; background: var(--danger); border-radius: 4px; padding: 2px 6px; margin: 0; font-size: 12px; }
+.mc-yolo-mark { white-space: nowrap; align-self: center; }
+.mc-yolo-mark[hidden] { display: none; }
+.agent-approval { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(560px, 90vw); max-height: 85vh; padding: 20px; overflow: auto; }
+.agent-approval pre { white-space: pre-wrap; word-break: break-word; max-height: 40vh; overflow: auto; background: var(--bg, #111); padding: 8px; border-radius: 4px; }
+.agent-approval .tr-row { display: flex; flex-wrap: wrap; gap: 8px; }
