@@ -2,7 +2,7 @@
    keep_sentences — only quoted whole sentences (the user's own references);
    keep_ranges    — source-second ranges of a media clip, one file or one slice per range.
    Every key and value is checked here; the cut itself is the existing range engine. */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./captions'),require('./range-plan'));else root.MontClipProposal=factory(root.FableCutCaptions,root.FableCutRangePlan);})(typeof self!=='undefined'?self:this,function(C,R){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./captions'),require('./range-plan'),require('./agent-events'));else root.MontClipProposal=factory(root.FableCutCaptions,root.FableCutRangePlan,root.MontClipEvents);})(typeof self!=='undefined'?self:this,function(C,R,Events){
 'use strict';
 const MAX_RANGES=100,MIN_RANGE=0.5,MAX_JSON=32768,MAX_LABEL=80,MODES=['one_file','per_range'];
 const fail=code=>{throw Error(code);};
@@ -82,8 +82,7 @@ function sliceNames(labels,projectName,safe){
    undone, a run can go all the way on its own). The event log itself comes in the next PR; a checked proposal already
    has the shape {id, runId, step, capability, args, actor, risk, state, revisionBefore, revisionAfter, at}.
    args holds the checked values only, never the model's reply. Events are not changed in place. */
-const STATES=['planned','awaiting_confirmation','running','has_result','applied','rejected','undone','failed'];
-const NEXT={planned:['awaiting_confirmation','running','rejected'],awaiting_confirmation:['running','rejected'],running:['has_result','failed'],has_result:['applied','rejected','failed'],applied:['undone'],rejected:[],undone:[],failed:[]};
+const {STATES,transition}=Events; // one definition: agent-events.js
 const CAPABILITIES=['keep_sentences','keep_ranges'];
 function shell(m,capability,state,args){return {id:String(m.id),runId:String(m.runId),step:m.step,capability,args,actor:m.actor||'ai',risk:'edit',state,revisionBefore:m.revision??null,revisionAfter:null,at:m.at};}
 function event(p,m){
@@ -95,11 +94,6 @@ function event(p,m){
 function failedEvent(error,m){
  const code=error&&/^PROPOSAL_[A-Z_]+$/.test(error.message)?error.message:'PROPOSAL_INVALID';
  return shell(m,CAPABILITIES.includes(m.capability)?m.capability:'unknown','failed',{error:code});
-}
-function transition(e,to,{revision,at}={}){
- if(!STATES.includes(to)||!(NEXT[e.state]||[]).includes(to))throw Error('EVENT_STATE');
- if(to==='applied'&&revision==null)throw Error('EVENT_REVISION');
- return {...e,state:to,revisionAfter:to==='applied'?revision:e.revisionAfter,at:at??e.at};
 }
 return {prepare,current,sliceNames,event,failedEvent,transition,STATES,MAX_RANGES,MIN_RANGE};
 });

@@ -44,5 +44,6 @@ test('the states move only forward: result → applied (with revisionAfter) → 
 });
 test('the page keeps one event per reviewed proposal and moves it on apply, cancel and undo',()=>{
  const app=require('node:fs').readFileSync(require('node:path').join(__dirname,'../app.js'),'utf8');
- for(const s of ["MontClipProposal.event(","MontClipProposal.failedEvent(","transition(","'applied'","'rejected'","'undone'"])assert.ok(app.includes(s),s);
+ // P1: the events live in the project's event log (agent-events.js); undo moves an event with its undo step
+ for(const s of ["MontClipProposal.event(","MontClipProposal.failedEvent(",'moveEvent(suggestion.eventId, "applied"',"moveEvent(ev.id,'rejected')",'if (id) moveEvent(id, "undone")'])assert.ok(app.includes(s),s);
 });

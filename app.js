@@ -1685,7 +1685,7 @@ function scheduleSave() {
 }
 async function saveNow() {
   project.revision++;
-  const body = JSON.stringify(projectJSON(), null, 2);
+  const body = JSON.stringify({ ...projectJSON(), agentLog: eventLog().toJSON() }, null, 2);   // the event log is kept in the project (summaries)
   try {
     const headers = { "Content-Type": "application/json" };
     if (runtime.projectId) headers["X-FableCut-Project"] = runtime.projectId;   // the project this edit belongs to
@@ -1698,6 +1698,7 @@ async function saveNow() {
       return loaded === true;   // the newer document on disk is now what this tab shows
     }
     runtime.saveFailed = !res.ok;
+    if (res.ok) eventLog().settle(project.revision);
     return res.ok;
   } catch { runtime.saveFailed = true; return false; }
 }
@@ -1895,6 +1896,7 @@ async function syncFromServer(force) {
     const pid = res.headers.get("X-FableCut-Project");
     const switched = !!(pid && runtime.projectId && pid !== runtime.projectId);
     if (pid) runtime.projectId = pid;
+    if ((switched || !runtime.eventLog) && typeof MontClipEvents !== "undefined") runtime.eventLog = MontClipEvents.createLog(data.agentLog);
     if (switched) {
       onProjectSwitched();
       applyProject(data);
@@ -1925,7 +1927,7 @@ async function syncFromServer(force) {
     }
     applyProject(data);
     const step = before && outsideEditStep(before, undoSnapshot(), mediaBefore, project.media);
-    if (step) pushUndo(step);
+    if (step) pushUndo(step, { noEvent: true });
     if (clash) toast(step ? "The project was changed from outside while you were editing. Ctrl+Z puts your version back."
       : "Project was updated externally — your last change may need redoing.");
     syncCompCrumb();   // the top bar shows the project's name
@@ -3982,7 +3984,13 @@ function undoSnapshot() {
 }
 /** Record an undo step — `snap` lets an edit snapshot first and record only
  *  once it knows it changed something. */
-function pushUndo(snap = undoSnapshot()) {
+function pushUndo(snap = undoSnapshot(), { eventId = null, capability = "manual_edit", args = {}, noEvent = false } = {}) {
+  if (!eventId && !noEvent) {
+    try { eventId = eventLog().append({ id: crypto.randomUUID(), runId: crypto.randomUUID(), step: 1, capability, args, actor: "streamer",
+      risk: "undoable", state: "applied", revisionBefore: project.revision ?? null, revisionAfter: null, at: new Date().toISOString() }).id; }
+    catch { eventId = null; }   // a step is never refused for its log entry
+  }
+  if (eventId) snap = withEventId(snap, eventId);
   runtime.undo.push(snap);
   if (runtime.undo.length > 100) runtime.undo.shift();
   runtime.redo.length = 0;
@@ -4002,6 +4010,7 @@ function restoreSnapshot(json) {
     for (const [id, clips] of Object.entries(snap.seqClips)) { const sq = SeqLib.find(seqRoot(), id); if (sq && id !== open) sq.clips = clips; }
   }
   if (Array.isArray(snap)) project.clips = snap;
+  else if (Array.isArray(snap.clipsOnly)) project.clips = snap.clipsOnly;   // a gesture's clips-only step with its event id
   else {
     project.clips = snap.clips; project.markers = snap.markers; if (snap.comps) project.comps = snap.comps;
     if (snap.rangeState) Object.assign(project, snap.rangeState);
@@ -4037,10 +4046,39 @@ function outsideEditStep(before, after, mediaBefore = null, mediaAfter = null) {
   return '{"outside":true,' + snap.slice(1);
 }
 const isOutsideStep = (snap) => typeof snap === "string" && snap.startsWith('{"outside":true,');
+/* Editor events (agent-events.js): each undo step carries the id of its event at the start of its snapshot. */
+/** The project's event log; without agent-events.js (a page or test without it) a log that keeps nothing. */
+function eventLog() {
+  if (runtime.eventLog) return runtime.eventLog;
+  if (typeof MontClipEvents !== "undefined") return (runtime.eventLog = MontClipEvents.createLog());
+  const none = () => { throw new Error("EVENT_LOG_UNAVAILABLE"); };
+  return { append: none, move: none, get: () => null, settle() {}, list: () => [], toJSON: () => undefined, undoPlan: () => ({ ok: false, code: "RUN_EMPTY" }) };
+}
+function eventIdOf(snap) { const m = typeof snap === "string" && /^{"eventId":"([A-Za-z0-9_-]{1,128})"/.exec(snap); return m ? m[1] : null; }
+function withEventId(snap, id) {
+  if (typeof snap !== "string" || eventIdOf(snap)) return snap;
+  if (snap.startsWith("[")) return '{"eventId":' + JSON.stringify(id) + ',"clipsOnly":' + snap + "}";   // a gesture's clips-only step
+  if (!snap.startsWith("{")) return snap;
+  return '{"eventId":' + JSON.stringify(id) + (snap === "{}" ? "}" : "," + snap.slice(1));
+}
+function moveEvent(id, to, extra = {}) { try { return eventLog().move(id, to, { at: new Date().toISOString(), ...extra }); } catch { return null; } }
+/** Undo one event: only when it is the newest undo step (otherwise something came after it). */
+function undoEvent(id) {
+  if (eventIdOf(runtime.undo.at(-1)) !== id) return { ok: false, code: "EVENT_NOT_LAST" };
+  undo(); return { ok: true, events: [id] };
+}
+/** Undo a whole run (every applied step of one AI run) at once, while they are the newest undo steps. */
+function undoRun(runId) {
+  const plan = eventLog().undoPlan(runId, runtime.undo.map(eventIdOf));
+  if (!plan.ok) return plan;
+  for (let i = 0; i < plan.events.length; i++) undo();
+  return plan;
+}
 function undo() {
   if (!runtime.undo.length) return;
-  const snap = runtime.undo.pop();
-  runtime.redo.push(counterSnapshot(snap));
+  const snap = runtime.undo.pop(), id = eventIdOf(snap);
+  runtime.redo.push(id ? withEventId(counterSnapshot(snap), id) : counterSnapshot(snap));
+  if (id) moveEvent(id, "undone");
   restoreSnapshot(snap);
   pruneSelection();
   scheduleSave(); renderInspector();
@@ -4048,8 +4086,12 @@ function undo() {
 }
 function redo() {
   if (!runtime.redo.length) return;
-  const snap = runtime.redo.pop();
-  runtime.undo.push(counterSnapshot(snap));
+  const snap = runtime.redo.pop(), of = eventIdOf(snap);
+  // a redone step is a new event (events only move forward); it points at the one it redoes
+  let id = null;
+  if (of) try { id = eventLog().append({ id: crypto.randomUUID(), runId: eventLog().get(of)?.runId || crypto.randomUUID(), step: 1, capability: "redo", args: { of },
+    actor: "streamer", risk: "undoable", state: "applied", revisionBefore: project.revision ?? null, revisionAfter: null, at: new Date().toISOString() }).id; } catch { id = null; }
+  runtime.undo.push(id ? withEventId(counterSnapshot(snap), id) : counterSnapshot(snap));
   restoreSnapshot(snap);
   pruneSelection();
   scheduleSave(); renderInspector();
@@ -5987,9 +6029,7 @@ function startTrimToolGesture(e, c, mode) {
     hideTrimReadout();
     state.gesture = false;
     if (moved && Math.abs(applied) > 1e-9) {
-      runtime.undo.push(snapshot);
-      if (runtime.undo.length > 100) runtime.undo.shift();
-      runtime.redo.length = 0;
+      pushUndo(snapshot);
       scheduleSave();
     } else if (moved) restore();
     state.dirtyTimeline = true;
@@ -6227,9 +6267,7 @@ function startClipGesture(e, c, mode, collapseOnClick) {
     state.dirtyTimeline = true;
     if (!cancelled && moved) {
       syncTimelineTrackView.dropped = [c.id, ...[...groupIds].filter(id => id !== c.id)];
-      runtime.undo.push(snapshot);
-      if (runtime.undo.length > 100) runtime.undo.shift();
-      runtime.redo.length = 0;
+      pushUndo(snapshot);
       scheduleSave();
     } else if (!cancelled && collapseOnClick) {
       selectClip(c.id);
@@ -6362,9 +6400,7 @@ function onRulerPointerDown(e) {
     window.removeEventListener("pointerup", onUp);
     state.gesture = false;
     if (moved && mk.t !== t0) {
-      runtime.undo.push(snapshot);
-      if (runtime.undo.length > 100) runtime.undo.shift();
-      runtime.redo.length = 0;
+      pushUndo(snapshot);
       project.markers.sort((a, b) => a.t - b.t);
       scheduleSave();
     } else if (!moved) seekToMarker(mk);
@@ -9929,7 +9965,11 @@ async function showSentenceSelection(suggestion = null, onApplied = null, onCanc
       const snap = JSON.stringify({ ...JSON.parse(undoSnapshot()), ...(applyToken ? {agentApplyId:applyToken} : {}), rangeState: {
         inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
       } });
-      applyProject(next); pushUndo(snap); applied = true; if(onApplied)onApplied(applyToken); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
+      // the step is its event: the AI's (applied now; the save writes its revision), or the streamer's own use of the same capability
+      if (suggestion?.eventId) moveEvent(suggestion.eventId, "applied", { revision: null });
+      applyProject(next);
+      pushUndo(snap, suggestion?.eventId ? { eventId: suggestion.eventId } : { capability: "keep_sentences", args: { timelineRanges: plan.keep.map((r) => ({ from: r.from, to: r.to })) } });
+      applied = true; if(onApplied)onApplied(applyToken); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
       dialog.close();
       if (slices) { queueSlices(plan.segments, sliceNames); toast(uiText("own.ssel-done-slices", { n: plan.segments.length })); }
       else toast(uiText(byTime ? "own.ssel-done-ranges" : "own.sd-done"));
@@ -21253,12 +21293,14 @@ function agentProjectContext(){
  return {projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen??0,revision:project.revision};
 }
 const officialProposalApplications=new WeakMap();
-/* Editor events for the assistant's proposals (owner, 2026-11-03; the event log is the next PR): one event per reviewed
-   proposal, moved to applied (with the revision the save wrote), rejected (the review closed without applying) or undone
-   (the card's undo). In memory for now, the newest 200. */
-const agentEvents=[],agentRuns=new WeakMap();runtime.agentEvents=agentEvents;
-function recordAgentEvent(e){const i=agentEvents.findIndex(x=>x.id===e.id);if(i>=0)agentEvents[i]=e;else{agentEvents.push(e);if(agentEvents.length>200)agentEvents.shift();}return e;}
-function moveAgentEvent(id,to,extra={}){const e=agentEvents.find(x=>x.id===id);if(!e)return null;try{return recordAgentEvent(MontClipProposal.transition(e,to,{at:new Date().toISOString(),...extra}));}catch{return null;}}
+/* The assistant's proposals are editor events in the project's log (agent-events.js): has_result when reviewed, applied
+   with the undo step, rejected when the review closes unapplied, undone with its undo step. Before the first step of a
+   run the host keeps an agent version of the project. */
+const agentRuns=new WeakMap();
+function recordAgentEvent(e){try{return eventLog().append(e);}catch{return null;}}
+async function versionBeforeAgent(){
+ try{if(!await flushSave())return;await fetch('/api/versions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'before_agent',name:uiText('own.before-ai')})});}catch{}
+}
 function canUndoOfficialProposal(result){
  const entry=result&&officialProposalApplications.get(result),c=agentProjectContext();
  if(!entry||entry.projectId!==c.projectId||entry.sequenceId!==c.sequenceId||entry.gen!==c.gen)return false;
@@ -21276,20 +21318,19 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  getProjectName:id=>id===runtime.projectId?project.name:null,
  canUndoProposal:canUndoOfficialProposal,
  getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[]});},
- onUndo:result=>{if(canUndoOfficialProposal(result)){const entry=officialProposalApplications.get(result);undo();if(entry?.eventId)moveAgentEvent(entry.eventId,'undone');}},
+ onUndo:result=>{if(canUndoOfficialProposal(result)){const entry=officialProposalApplications.get(result);if(!entry?.eventId||!undoEvent(entry.eventId).ok)undo();}},
  onProposal:(response,result)=>{
    const c=agentProjectContext();
    if(JSON.stringify(result.context)!==JSON.stringify(c))throw Error('STALE');
-   if(!agentRuns.has(result))agentRuns.set(result,crypto.randomUUID());
+   if(!agentRuns.has(result)){agentRuns.set(result,crypto.randomUUID());void versionBeforeAgent();}
    const meta={id:crypto.randomUUID(),runId:agentRuns.get(result),step:1,actor:'ai',at:new Date().toISOString(),revision:project.revision};
    let proposal;
    try{proposal=MontClipProposal.prepare(response,{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});}
    catch(error){recordAgentEvent(MontClipProposal.failedEvent(error,{...meta,capability:response&&response.type}));throw error;}
    const ev=recordAgentEvent(MontClipProposal.event(proposal,meta));
-   showSentenceSelection(proposal,token=>{officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev.id});
-     // applied with the revision its save writes (the save is flushed right after the edit)
-     Promise.resolve().then(()=>flushSave()).then(ok=>{if(ok)moveAgentEvent(ev.id,'applied',{revision:project.revision});});},
-    ()=>moveAgentEvent(ev.id,'rejected'));
+   if(ev)proposal.eventId=ev.id;
+   showSentenceSelection(proposal,token=>{officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});},
+    ()=>{if(ev)moveEvent(ev.id,'rejected');});
  },
  getReferences:kind=>MontClipAgentPane.referenceChips(kind,{...agentProjectContext(),
  start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(FableCutCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});

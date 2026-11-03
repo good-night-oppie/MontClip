@@ -290,6 +290,8 @@
     "export-checked": ["Export checked", "导出勾选的版本"],
     "export-checked-n": ["Export checked ({n})", "导出勾选的版本（{n}）"],
     "export-failed-prefix": ["Export failed: ", "导出失败："],
+    // JJ (#74): the version kept before the AI's edits, named in the interface language only
+    "before-ai": ["Before AI changes", "AI 改之前"],
     // JJ (#71): the selection / proposal dialog in the interface language only, never 「中文 / English」 together
     "ssel-title-ranges": ["Keep a few ranges by time, joined into one", "按时间保留几段，拼成一条"],
     "ssel-title-slices": ["Separate clips by time", "按时间切成多条"],
