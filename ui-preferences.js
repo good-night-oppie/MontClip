@@ -89,6 +89,20 @@
     "add-adjust-title": ["Add an adjustment layer (grades everything below it)", "添加调节层（调节它下面的所有画面）"],
     "add-import": ["+ Import", "+ 导入"],
     "add-url": ["+ URL", "+ 网址"],
+    // the Transcript tab's sentence button, one language at a time (for JJ to review)
+    "tr-sentences": ["Select sentences", "按句选段"],
+    // the Save dialog's outcome in the desktop app (VV, 012ba18; for JJ to review)
+    "save-canceled": ["Not saved. Click again if you need it.", "没有保存。需要的话再点一次。"],
+    "save-failed": ["The save did not finish. Try another location, or check that it has enough space.", "没有保存成功。请换个位置再试，或者看看那里的空间够不够。"],
+    // the export queue and what a cancel says (JJ's final wording, 2026-11-02)
+    "q-save": ["Save", "保存"],
+    "q-list": ["Export queue", "导出队列"],
+    "q-list-n": ["Export queue · {n}", "导出队列 · {n}"],
+    "q-saved": ["Saved", "已保存"],
+    "export-save-cancelled": ["Not saved. The exported video is still here: open the export queue and click Save on this item to save it again.", "没有保存。导出的视频还在，打开『导出队列』，在这一条后面点『保存』就能再存一次。"],
+    "captions-save-cancelled": ["Captions not saved. Click export captions again to save them.", "字幕没有保存。可以再点一次导出字幕。"],
+    "save-busy": ["Close the save window that is already open first.", "先关掉上一个保存窗口"],
+    "export-save-failed": ["The save did not finish. The exported video is still here: open the export queue and click Save on this item to try again. If it still fails, choose another location or check that it has enough space.", "没有保存成功。导出的视频还在，打开『导出队列』，在这一条后面点『保存』再试一次；还不行的话，换个位置保存，或者看看那里的空间够不够。"],
     "import-url-title": ["Download media from an HTTPS URL into the project", "从 HTTPS 网址下载素材到项目"],
     "fit": ["Fit", "适配"],
     "or-click": ["or click", "或点击"],

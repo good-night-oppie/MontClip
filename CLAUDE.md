@@ -2786,6 +2786,8 @@ FLV import, broader localization and interactive chat are separate changes.
 
 Desktop view preferences (simple/advanced and zh-CN/en) use the fixed userData/view-settings.json file, independent of the random local server port. The sandboxed preload exposes only get/set for these two enum settings; main validates sender, top frame and exact origin. Browser use retains localStorage. This does not save project edits.
 
+Desktop export downloads: the Save dialog is titled 保存导出的视频 / Save the exported video (保存字幕 / Save captions for SRT/VTT) in the interface language, with the file name in Downloads. Once the user saves the file, or cancels, the desktop app removes that export's own copy from workspace/exports; an interrupted save keeps it. The Export queue's Open then has no file to fetch: export again. Agent exports (fablecut_export) are not downloads and stay in exports/.
+
 ## Guarded local FLV preparation (clean core split)
 
 Local FLV uploads and fablecut_import_media share prepare-media.js. Compatible
