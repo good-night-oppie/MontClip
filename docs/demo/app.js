@@ -9503,6 +9503,7 @@ function buildTranscriptPage() {
   root.innerHTML = `<div class="tr-head">
       <div class="tr-row tr-entries">
         <button type="button" class="btn tiny" data-tr-highlights data-i18n="own.hl-open">${escapeHtml(uiText("own.hl-open"))}</button>
+        <button type="button" class="btn tiny" data-tr-auto data-i18n="own.as-open">${escapeHtml(uiText("own.as-open"))}</button>
         <button type="button" class="btn tiny" data-tr-danmaku data-i18n="own.dm-import" data-i18n-title="own.dm-import-title" title="${escapeHtml(uiText("own.dm-import-title"))}">${escapeHtml(uiText("own.dm-import"))}</button>
         <button type="button" class="btn tiny" data-tr-sentences data-i18n="own.tr-sentences">${escapeHtml(uiText("own.tr-sentences"))}</button>
         <button type="button" class="btn tiny" data-tr-mapping data-i18n="own.mapping">${escapeHtml(uiText("own.mapping"))}</button>
@@ -9568,6 +9569,7 @@ function buildTranscriptPage() {
   q("[data-tr-sentences]").addEventListener("click", () => showSentenceSelection());
   q("[data-tr-mapping]").addEventListener("click", downloadSourceMap);
   q("[data-tr-highlights]").addEventListener("click", () => showHighlightCandidates());
+  q("[data-tr-auto]").addEventListener("click", () => openAutoSlices());
   const dmInput = q("[data-tr-danmaku-input]");
   q("[data-tr-danmaku]").addEventListener("click", () => dmInput.click());
   dmInput.addEventListener("change", () => {
@@ -10006,6 +10008,585 @@ async function showHighlightCandidates() {
     try { keepHighlightRanges(ranges); dialog.close(); toast(uiText("own.hl-kept", { n: ranges.length })); }
     catch (error) { status.textContent = (error && error.code && uiText("own.rp-" + error.code)) || error.message; }
   });
+}
+/* ── 「✨ 自动出切片」 (P3; frozen design documents/2026-11-03-自动出切片-冻结设计/, v7 with v7.5 last) ──
+   A dialog of four steps — recordings, finding, review, export — over the project's own recordings. It reads each
+   recording's loudness (/api/signals/loudness), finds its songs (/api/songs, songs.js) and its lively parts
+   (highlight-candidates.js), and auto-slices.js picks and orders the cards. Nothing on the timeline changes until
+   〔放到时间线上〕 or 〔直接导出〕: then the ticked parts go after the end of the timeline as one undo step, the first one
+   selected on whatever track it landed on, and the toast's 〔撤销〕 takes the whole batch back. Closing the dialog keeps
+   it (关掉不会丢); a search keeps going, and when it ends with the window not in front the main process shows one
+   notification (montclip:notify:found). Every song card is 「估的」 at both ends (Deja: songs.js is not accurate yet). */
+const AUTO = { el: null, st: null };
+function autoState() {
+  if (!AUTO.st || AUTO.st.projectId !== runtime.projectId)
+    AUTO.st = { projectId: runtime.projectId, step: "start", picked: null, kind: "auto", count: MontClipAutoSlices.DEFAULTS.count,
+      len: MontClipAutoSlices.DEFAULTS.len, subs: true, run: null, recs: [], clips: [], dropped: [], few: null, ask: false, hist: [], exportIds: null };
+  return AUTO.st;
+}
+const autoSay = (key, vars) => escapeHtml(uiText("own." + key, vars));
+/* v10 (frozen design; JJ v2 section two): subtitles. How they would be made now — "local" when #70's on-device model is
+   installed, else "none" (cloud transcription does not exist yet). The way is chosen on #70's setup page and in
+   Settings › 听写, never here; 〔去装〕 opens that page where #70 is present. */
+function autoSubMode() { return typeof asrReady === "function" && asrReady() ? "local" : "none"; }
+const autoCanInstall = () => typeof openAsrSetup === "function";
+/** How many sentences the transcript has inside a card's part of its recording (null: no transcript). */
+function autoSubCount(c) {
+  const m = autoMedia(c.mediaId), d = m && typeof transcriptOf === "function" ? transcriptOf(m.src) : null;
+  if (!d) return null;
+  return FableCutTranscribe.segments(d.words.filter((w) => (w[1] + w[2]) / 2 >= c.s && (w[1] + w[2]) / 2 < c.e)).length;
+}
+/** Captions over the placed slices only (the timeline words of the placed clips), in the caller's undo step; captions
+ *  elsewhere stay. Returns how many were added. */
+function autoPlaceCaptions(placed, at0, end) {
+  const C = FableCutCaptions, T = FableCutTranscribe, entries = [];
+  for (const p of placed) {
+    const clip = p.clip && getClip(p.clip), m = clip && getMedia(clip.mediaId), d = m && transcriptOf(m.src);
+    if (d) entries.push({ clip, words: d.words });
+  }
+  const words = T.layout(entries).filter((w) => w.s >= at0 - 1e-6 && w.e <= end + 1e-6);
+  if (!words.length) return 0;
+  const style = (typeof transcribeSettings === "function" && transcribeSettings().captionStyle) || C.DEFAULT_STYLE, mt = C.metrics(style, project.width, project.height);
+  const cues = C.cues(words, { chars: mt.chars, lines: mt.lines, words: mt.words, maxDur: mt.maxDur, fps: projectFps() }).filter((q) => q.start >= at0 - 1e-6);
+  if (!cues.length) return 0;
+  const lane = C.trackFor({ ...project, tracks: serializeTracks() }, at0, end);
+  let track = lane.track;
+  if (lane.add) { const t = addTimelineTrack("video"); if (!t) return 0; track = t.id; }
+  for (const q of cues) project.clips.push({ ...C.clip({ ...q, end: Math.min(q.end, end) }, { style, width: project.width, height: project.height, track }), id: "c_" + uid() });
+  return cues.length;
+}
+function autoRecordings() {
+  return project.media.filter((m) => (m.kind === "video" || m.kind === "audio") && !m.derivedFrom && !m.transient && typeof m.src === "string" && m.src.startsWith("/media/") && m.duration > 0);
+}
+function autoDur(sec) {
+  const x = Math.max(0, Math.round(sec)), h = Math.floor(x / 3600), m = Math.floor((x % 3600) / 60), s = x % 60;
+  return h ? uiText("own.as-dur-hm", { h, m }) : m ? uiText("own.as-dur-ms", { m, s: String(s).padStart(2, "0") }) : uiText("own.as-dur-s", { s });
+}
+/** project.danmaku is in timeline seconds: the ones over a clip of this file, as seconds of the file. */
+function autoDanmaku(m) {
+  const times = (Array.isArray(project.danmaku) ? project.danmaku : []).map((d) => (typeof d === "number" ? d : d && d.t)).filter(Number.isFinite);
+  const out = [];
+  for (const c of project.clips) {
+    if (c.mediaId !== m.id || c.kind !== "video" && c.kind !== "audio" || hasSpeedRamp(c)) continue;
+    const sp = clipSpeed(c);
+    for (const t of times) if (t >= c.start && t < c.start + c.duration) out.push((c.in || 0) + (t - c.start) * sp);
+  }
+  return [...new Set(out.map((t) => Math.round(t * 10) / 10))].sort((a, b) => a - b);
+}
+/** A string that promises telling songs apart: below the gate (auto-slices.js SONG_GATE) its 可能在唱歌 form. */
+function autoSongKey(key) {
+  const gated = new Set(["as-kind-hint-sing", "as-len-song", "as-len-hint-song", "as-len-hint-hook", "as-run-songs", "as-lyrics"]);
+  return gated.has(key) && !MontClipAutoSlices.songsTrusted() ? key + "-maybe" : key;
+}
+/** The kind hint: with no live danmaku in the chosen recordings, chat / game / watch don't mention it (JJ: 没弹幕不提弹幕). */
+function autoKindHintKey(kind, dm) {
+  return dm || !["chat", "game", "watch"].includes(kind) ? autoSongKey("as-kind-hint-" + kind) : "as-kind-hint-" + kind + "-nodm";
+}
+/** For the log only: no paths, no file names (the recordings' names are project content). */
+function autoMask(text, names) {
+  let out = String(text == null ? "" : text).replace(/(?:[A-Za-z]:)?[\\/][^\s'"]+/g, "<path>");
+  for (const n of names || []) if (n) out = out.split(n).join("<name>");
+  return out;
+}
+function autoName(c) {
+  if (c.title) return c.title;
+  // 第 n 首歌 only once songs.js reaches the gate (MontClipAutoSlices.SONG_GATE); until then 「{time} 那段」
+  const t = MontClipAutoSlices.title(c);
+  return uiText("own." + t.key, t.vars);
+}
+function autoRec(id) { return autoState().recs.find((r) => r.mediaId === id) || null; }
+function autoMedia(id) { return project.media.find((m) => m.id === id) || null; }
+
+function openAutoSlices() {
+  if (state.exporting) { toast(uiText("own.as-busy-export")); return; }
+  if (state.compCtx) { toast(uiText("own.as-busy-comp")); return; }
+  // mid-drag: no message; it opens once the drag ends
+  if (state.gesture) { const wait = () => (state.gesture ? setTimeout(wait, 120) : openAutoSlices()); setTimeout(wait, 120); return; }
+  const st = autoState();
+  if (!AUTO.el || !AUTO.el.isConnected) autoBuild();
+  const b = $("btnAutoSlices"); if (b) b.textContent = uiText("own.as-open");
+  if (!AUTO.el.open) AUTO.el.showModal();
+  autoRender(st.step === "run" && !st.run ? "start" : st.step);
+}
+function autoBuild() {
+  const d = document.createElement("dialog");
+  d.className = "auto-slices"; d.setAttribute("aria-label", uiText("own.as-open"));
+  d.innerHTML = `<div class="as-head"><b>${autoSay("as-open")}</b>
+      <ol class="as-stepper">${["start", "run", "review", "done"].map((s) => `<li data-as-st="${s}">${autoSay("as-step-" + s)}</li>`).join("")}</ol>
+      <span class="as-spacer"></span><span class="as-keep">${autoSay("as-keep")}</span>
+      <button type="button" class="btn tiny" data-as-close>${autoSay("as-close")}</button></div>
+    <div class="as-body" data-as-body></div>
+    <footer class="as-footer" data-as-footer hidden></footer>
+    <div class="as-toast" data-as-toast hidden><span data-as-toast-msg></span> <button type="button" class="btn tiny" data-as-toast-undo>${autoSay("as-undo")}</button></div>
+    <audio data-as-audio preload="none"></audio>`;
+  document.body.append(d);
+  AUTO.el = d;
+  d.querySelector("[data-as-close]").addEventListener("click", () => d.close());
+  d.addEventListener("cancel", (e) => { e.preventDefault(); d.close(); });
+  d.addEventListener("close", () => { const a = d.querySelector("[data-as-audio]"); a.pause(); });
+  // the editor's shortcuts listen on window: none of them may act on the timeline behind the dialog
+  d.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z") && !isTypingTarget(document.activeElement)) { e.preventDefault(); autoUndo(); }
+    if (e.key !== "Escape") e.stopPropagation();
+  });
+  d.addEventListener("click", autoClick);
+  d.addEventListener("change", autoChange);
+  d.addEventListener("pointerdown", autoDragStart);
+  d.querySelector("[data-as-toast-undo]").addEventListener("click", () => autoUndo());
+}
+function autoRender(step) {
+  const st = autoState(), d = AUTO.el;
+  if (!d) return;
+  st.step = step;
+  const order = ["start", "run", "review", "done"], n = order.indexOf(step);
+  d.querySelectorAll("[data-as-st]").forEach((li) => { const k = order.indexOf(li.dataset.asSt); li.className = k === n ? "on" : k < n ? "done" : ""; });
+  const body = d.querySelector("[data-as-body]");
+  body.innerHTML = step === "start" ? autoStartHtml() : step === "run" ? autoRunHtml() : step === "review" ? autoReviewHtml() : autoDoneHtml();
+  body.scrollTop = 0;
+  autoFooter();
+}
+
+/* step 1: the recordings, what the stream is, how many, how long */
+function autoStartHtml() {
+  const st = autoState(), recs = autoRecordings();
+  if (!st.picked) {
+    const used = new Set(project.clips.map((c) => c.mediaId));
+    st.picked = new Set(recs.filter((m) => used.has(m.id)).map((m) => m.id));
+    if (!st.picked.size && recs[0]) st.picked.add(recs[0].id);
+  }
+  for (const id of [...st.picked]) if (!recs.some((m) => m.id === id)) st.picked.delete(id);
+  const recList = recs.length ? recs.map((m) => { const on = st.picked.has(m.id), dm = autoDanmaku(m).length;
+      return `<div class="as-rec${on ? " on" : ""}" role="checkbox" aria-checked="${on}" tabindex="0" data-as-act="rec" data-as-id="${escapeHtml(m.id)}">
+        <div class="as-t">${escapeHtml(m.name || m.src)}</div><div class="as-small">${escapeHtml(autoDur(m.duration))}</div>
+        <span class="as-chip ${dm ? "ok" : "warn"}">${autoSay(dm ? "as-dm-yes" : "as-dm-no")}</span></div>`; }).join("")
+    : `<p class="as-muted">${autoSay("as-no-recs")}</p>`;
+  const seg = (name, list, cur) => list.map((v) => `<button type="button" data-as-act="${name}" data-as-v="${v}" class="${cur === v ? "on" : ""}">${autoSay(autoSongKey("as-" + name + "-" + v))}</button>`).join("");
+  const pickedDm = recs.filter((m) => st.picked.has(m.id)).reduce((x, m) => x + autoDanmaku(m).length, 0);
+  return `<h1>${autoSay("as-start-title")}</h1><p class="as-sub">${autoSay("as-start-sub")}</p>
+    <section class="as-card-box"><h2>${autoSay("as-recs")}</h2><div class="as-recs">${recList}</div><p class="as-small">${autoSay("as-recs-multi")}</p></section>
+    <section class="as-card-box"><h2>${autoSay("as-kind-title")}</h2><div class="as-seg">${seg("kind", MontClipAutoSlices.KINDS, st.kind)}</div>
+      <p class="as-small" data-as-kind-hint>${autoSay(autoKindHintKey(st.kind, pickedDm))}</p></section>
+    <details class="as-more"><summary>${autoSay("as-more")}</summary>
+      <div class="as-opt"><span>${autoSay("as-count")}</span><div><select data-as-count>${MontClipAutoSlices.COUNTS.map((n) => `<option${n === st.count ? " selected" : ""}>${n}</option>`).join("")}</select>
+        <span class="as-small">${autoSay("as-count-hint")}</span></div></div>
+      <div class="as-opt"><span>${autoSay("as-len")}</span><div><div class="as-seg">${seg("len", MontClipAutoSlices.LENS, st.len)}</div>
+        <p class="as-small">${autoSay(autoSongKey("as-len-hint-" + st.len))}</p></div></div>
+      <div class="as-opt"><span>${autoSay("as-subs")}</span><div><label class="as-check"><input type="checkbox" data-as-subs${st.subs ? " checked" : ""}>
+        <span data-as-subs-label>${autoSay(autoSubMode() === "local" ? "as-sub-local" : "as-sub-none")}</span></label>
+        ${autoSubMode() === "none" && autoCanInstall() ? `<button type="button" class="btn tiny" data-as-act="sub-go">${autoSay("as-sub-go")}</button>` : ""}
+        <p class="as-small" data-as-subs-hint>${autoSubMode() === "none" ? autoSay("as-sub-none-hint") : ""}</p></div></div>
+    </details>
+    <div class="as-cta"><button type="button" class="btn primary" data-as-act="go"${st.picked.size ? "" : " disabled"}>${autoSay(st.picked.size > 1 ? "as-go-n" : "as-go", { n: st.picked.size })}</button>
+      <span class="as-small">${autoSay("as-go-hint")}</span></div>`;
+}
+
+/* step 2: finding */
+function autoRunHtml() {
+  const st = autoState(), r = st.run || { phase: 0, frac: 0 }, recs = (r.recs || []).map(autoMedia).filter(Boolean);
+  const name = recs.map((m) => m.name).join("、"), dur = recs.reduce((x, m) => x + m.duration, 0);
+  const steps = ["read", "listen", "hot", "songs", "pick"];
+  const listenKey = !st.subs ? "as-run-listen-off" : autoSubMode() === "none" ? "as-run-listen-none" : "as-run-listen";
+  const hotKey = recs.some((m) => autoDanmaku(m).length) ? "as-run-hot" : "as-run-hot-nodm";
+  return `<h1>${autoSay("as-run-title")}</h1><p class="as-sub">${autoSay("as-run-sub", { name, dur: autoDur(dur) })}</p>
+    <section class="as-card-box"><ul class="as-steps">${steps.map((s, k) => `<li class="${k < r.phase ? "done" : k === r.phase ? "now" : ""}"><span class="as-dot">${k < r.phase ? "✓" : ""}</span>${s === "listen" ? autoSay(listenKey) : s === "hot" ? autoSay(hotKey) : autoSay(autoSongKey("as-run-" + s))}</li>`).join("")}</ul>
+      <div class="as-bar"><i data-as-bar style="width:${Math.round(((r.phase + r.frac) / steps.length) * 100)}%"></i></div>
+      ${r.error ? `<p class="as-warn" role="alert">${escapeHtml(r.error)}</p>` : ""}</section>
+    <div class="as-cta"><button type="button" class="btn" data-as-act="stop">${autoSay("as-stop")}</button><span class="as-small">${autoSay("as-stop-hint")}</span></div>`;
+}
+async function autoRun() {
+  const st = autoState(), recs = autoRecordings().filter((m) => st.picked.has(m.id));
+  if (!recs.length) return;
+  const run = { recs: recs.map((m) => m.id), phase: 0, frac: 0, stop: false, error: null, src: null };
+  st.run = run; st.hist = []; autoRender("run");
+  const tick = () => { if (AUTO.el && AUTO.el.open && st.step === "run" && st.run === run) autoRender("run"); };
+  const wantSongs = st.kind === "auto" || st.kind === "sing", out = [];
+  let current = null;
+  try {
+    for (const m of recs) {
+      current = m;
+      run.phase = 0; run.frac = 0; tick();
+      let loudness = null;
+      try { const r = await fetch("/api/signals/loudness?src=" + encodeURIComponent(m.src)); if (r.ok) loudness = await r.json(); } catch { loudness = null; }
+      if (run.stop) throw Object.assign(new Error("stopped"), { stopped: true });
+      const danmaku = autoDanmaku(m);
+      run.phase = 1; tick();
+      // 听写成文字: with subtitles on and the model installed, a recording without a transcript is transcribed (#70)
+      if (st.subs && autoSubMode() === "local" && !(await loadTranscript(m.src))) {
+        try { await transcribeSrcs([m.src]); } catch { }
+        if (run.stop) throw Object.assign(new Error("stopped"), { stopped: true });
+      }
+      run.phase = 2; tick();
+      const highlights = loudness ? MontClipHighlights.candidates({ duration: m.duration, sentences: [], loudness, danmaku: danmaku.map((t) => ({ t })) }) : [];
+      run.phase = 3; tick();
+      let songs = [];
+      if (wantSongs) {
+        run.src = m.src;
+        const post = await fetch("/api/songs", { method: "POST", body: JSON.stringify({ src: m.src }) });
+        if (!post.ok) { const j = await post.json().catch(() => ({})); throw Object.assign(new Error(j.error || "HTTP " + post.status), { code: j.code, drive: j.drive }); }
+        for (;;) {
+          if (run.stop) { await fetch("/api/songs/cancel", { method: "POST", body: JSON.stringify({ src: m.src }) }).catch(() => {}); throw Object.assign(new Error("stopped"), { stopped: true }); }
+          const g = await (await fetch("/api/songs?src=" + encodeURIComponent(m.src))).json();
+          run.frac = g.total ? Math.min(1, g.done / g.total) : 0; tick();
+          if (g.state === "done") { songs = g.songs; break; }
+          if (g.state === "failed") throw Object.assign(new Error(g.error || "failed"), { code: g.code, drive: g.drive });
+          if (g.state === "stopped" || g.state === "none") { const again = await fetch("/api/songs", { method: "POST", body: JSON.stringify({ src: m.src }) }); if (!again.ok) throw new Error("HTTP " + again.status); }
+          await new Promise((r) => setTimeout(r, 400));
+        }
+      }
+      out.push({ mediaId: m.id, duration: m.duration, songs, loudness, highlights, danmaku: danmaku.length });
+    }
+    run.phase = 4; tick();
+    const r = MontClipAutoSlices.build({ recordings: out, kind: st.kind, count: st.count, len: st.len });
+    st.recs = out; st.clips = r.clips; st.few = r.few; st.dropped = []; st.hist = []; st.exportIds = null;
+    st.ask = st.kind === "auto" && r.clips.some((c) => c.kind === "song") && r.clips.some((c) => c.kind === "moment");
+    st.run = null;
+    if (AUTO.el && AUTO.el.open) autoRender("review");
+    else { st.step = "review"; const b = $("btnAutoSlices"); if (b) b.textContent = uiText("own.as-open-done"); }
+    autoSlicesNotify(r.clips.length);
+  } catch (e) {
+    if (st.run !== run) return;
+    st.run = null;
+    if (e && e.stopped) { if (AUTO.el && AUTO.el.open) autoRender("start"); else st.step = "start"; autoToast(uiText("own.as-stopped"), false); return; }
+    // JJ / Deja: the streamer reads what happened and what to do; the technical detail goes to the log, masked
+    console.warn("[auto-slices] the search failed:", autoMask(e && e.message, recs.map((m) => m.name)), (e && e.code) || "");
+    run.error = e && e.code === "ENOSPC" ? uiText("own.as-run-nospace", { drive: e.drive || "" })
+      : uiText("own.as-run-failed", { name: (current && current.name) || "" });
+    st.run = run; tick(); st.run = null;
+  }
+}
+/** Found while the window was not in front: one local notification (the desktop's main process shows it). */
+function autoSlicesNotify(found) {
+  if (document.hasFocus()) return;
+  if (window.montclipNotify) { window.montclipNotify.found(found); return; }
+  if ("Notification" in window && Notification.permission === "granted") new Notification(uiText("own.as-notify-title"), { body: uiText("own.as-notify-body", { found }) });
+}
+
+/* step 3: review */
+function autoReviewHtml() {
+  const st = autoState(), on = st.clips.filter((c) => c.on).length, found = st.clips.length;
+  const names = st.recs.map((r) => autoMedia(r.mediaId)).filter(Boolean).map((m) => m.name).join("、");
+  const dur = st.recs.reduce((x, r) => x + r.duration, 0), dm = st.recs.reduce((x, r) => x + (r.danmaku || 0), 0);
+  const head = !found ? autoSay("as-found-none") : on === found ? autoSay("as-found-all", { found }) : autoSay("as-found-head", { found, on });
+  const evidence = dm ? autoSay("as-evidence", { count: dm.toLocaleString(), dur: autoDur(dur), n: found }) : autoSay("as-evidence-nodm", { dur: autoDur(dur), n: found });
+  let no = 0;
+  const cards = st.recs.map((rec) => {
+    const mine = st.clips.filter((c) => c.mediaId === rec.mediaId);
+    if (!mine.length) return "";
+    const start = no + 1, html = autoOverviewHtml(rec, mine, start) + mine.map((c) => autoCardHtml(c, no++)).join("");
+    return html;
+  }).join("");
+  return `<div class="as-row"><div><h1>${head}</h1><p class="as-sub">${autoSay(found ? "as-review-sub" : "as-found-none-next", { name: names })}</p></div>
+      <button type="button" class="btn" data-as-act="back-start">${autoSay("as-back-start")}</button></div>
+    <div class="as-evidence">${evidence}</div>
+    ${st.ask ? `<section class="as-card-box" data-as-ask><b>${autoSay("as-ask-title")}</b><p class="as-small">${autoSay("as-ask-sub")}</p>
+      <div class="as-seg"><button type="button" data-as-act="ask" data-as-v="sing">${autoSay("as-ask-sing")}</button><button type="button" data-as-act="ask" data-as-v="chat">${autoSay("as-ask-chat")}</button><button type="button" data-as-act="ask" data-as-v="auto">${autoSay("as-ask-both")}</button></div></section>` : ""}
+    ${st.few ? `<section class="as-card-box"><b>${autoSay("as-few", st.few)}</b><p class="as-small">${autoSay("as-few-sub", { signals: uiText(dm ? "own.as-sig-both" : "own.as-sig-sound") })}</p></section>` : ""}
+    <div data-as-cards>${cards}</div>
+    ${st.dropped.length ? `<details class="as-more"><summary>${autoSay("as-dropped", { n: st.dropped.length })}</summary>
+      ${st.dropped.map((c) => `<div class="as-row as-dropped"><span>${escapeHtml(autoName(c))}</span><button type="button" class="btn tiny" data-as-act="put-back" data-as-id="${escapeHtml(c.id)}">${autoSay("as-put-back")}</button></div>`).join("")}</details>` : ""}`;
+}
+function autoOverviewHtml(rec, clips, startNo) {
+  const o = MontClipAutoSlices.overview(rec, clips, startNo), L = rec.duration;
+  const area = o.area.length ? `<polygon class="as-ov-loud" points="0,100 ${o.area.map(([x, y]) => x + "," + y).join(" ")} 1000,100"/>` : "";
+  const ticks = o.ticks.map((t) => `<line class="as-ov-tick" x1="${(t / L * 1000).toFixed(1)}" y1="0" x2="${(t / L * 1000).toFixed(1)}" y2="100"/>`).join("");
+  const boxes = o.boxes.map((b) => `<g class="as-ov-box${b.on ? " on" : ""}" data-as-act="focus" data-as-id="${escapeHtml(b.id)}"><rect x="${b.x}" y="2" width="${b.w}" height="96" rx="2"/><text x="${(b.x + b.w / 2).toFixed(1)}" y="13" text-anchor="middle">${b.no}</text></g>`).join("");
+  const m = autoMedia(rec.mediaId);
+  return `<div class="as-ov"><div class="as-ov-head"><b>${autoSay("as-overview")}</b> <span class="as-small">${escapeHtml(m ? m.name : "")} · ${autoSay("as-overview-hint")}</span></div>
+    <svg viewBox="0 0 1000 100" preserveAspectRatio="none" class="as-ov-svg" role="img" aria-label="${autoSay("as-overview")}">${ticks}${area}${boxes}</svg>
+    <div class="as-ov-axis">${o.ticks.map((t) => `<span style="left:${(t / L * 100).toFixed(2)}%">${escapeHtml(MontClipAutoSlices.hms(t))}</span>`).join("")}</div>
+    <div class="as-small as-ov-legend"><span><i class="as-lg-loud"></i>${autoSay("as-lg-sound")}</span><span><i class="as-lg-on"></i>${autoSay("as-lg-on")}</span><span><i class="as-lg-off"></i>${autoSay("as-lg-off")}</span></div></div>`;
+}
+function autoWave(c, w) {
+  const rec = autoRec(c.mediaId), l = rec && rec.loudness, t = w === "s" ? c.s : c.e;
+  if (!l || !Array.isArray(l.values)) return "";
+  const pts = [];
+  for (let i = 0; i <= 80; i++) {
+    const at = t - 20 + i * 0.5, v = l.values[Math.floor(at / l.step)];
+    const y = Number.isFinite(v) ? 30 - Math.max(0, Math.min(1, (v + 60) / 60)) * 26 : 30;
+    pts.push((i / 80 * 100).toFixed(1) + "," + y.toFixed(1));
+  }
+  return `<svg class="as-mini" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(" ")}"/></svg>`;
+}
+function autoEdgeHtml(c, w) {
+  // v8: a level beside each time — 比较可能 (grey hint), 估的 (yellow hint), 你调过 (grey, no hint) while moved
+  const lbl = w === "s" ? "start" : "end", t = w === "s" ? c.s : c.e, level = MontClipAutoSlices.edgeLevel(c, w);
+  const hint = level === "estimated" ? `<p class="as-guess" data-as-hint="${w}">${autoSay("as-guess-" + lbl)}</p>`
+    : level === "likely" ? `<p class="as-likely" data-as-hint="${w}">${autoSay("as-likely-" + lbl)}</p>` : "";
+  const nb = (d) => `<button type="button" class="btn tiny" data-as-act="nudge" data-as-w="${w}" data-as-d="${d}">${d > 0 ? "+" : "−"}${autoSay("as-sec", { d: Math.abs(d) })}</button>`;
+  return `<div class="as-edge" data-as-edge="${w}"><div class="as-lbl">${autoSay("as-" + lbl)} <b data-as-tc>${escapeHtml(MontClipAutoSlices.hms(t))}</b> <span class="as-tag as-tag-${level}" data-as-level="${level}">${autoSay("as-tag-" + level)}</span></div>
+    <div class="as-strip" data-as-act="drag" data-as-w="${w}" title="${autoSay("as-drag-" + lbl)}">${autoWave(c, w)}<i class="as-hand"></i><span class="as-strip-l">${autoSay("as-early")}</span><span class="as-strip-r">${autoSay("as-late")}</span></div>
+    <div class="as-nudges">${nb(-5)}${nb(-1)}${nb(1)}${nb(5)}<button type="button" class="btn tiny" data-as-act="listen" data-as-w="${w}">${autoSay("as-listen-" + lbl)}</button></div>
+    ${hint}</div>`;
+}
+function autoCardHtml(c, i) {
+  const song = c.kind === "song", why = c.reasons.map((r) => highlightReasonText(r).text).join(" · ");
+  // a song card is 「{time} 那段 · 可能在唱歌」 until songs.js reaches the naming gate (Deja; auto-slices.js)
+  return `<article class="as-clip${c.on ? "" : " off"}" data-as-card="${escapeHtml(c.id)}">
+    <div class="as-clip-h"><input type="checkbox" data-as-act="toggle"${c.on ? " checked" : ""} aria-label="${autoSay("as-tick")}">
+      <div class="as-clip-main"><div class="as-clip-title"><span class="as-muted">${i + 1}.</span> <input type="text" data-as-act="rename" value="${escapeHtml(autoName(c))}" aria-label="${autoSay("as-rename")}">${c.on ? "" : `<span class="as-tag">${autoSay("as-spare")}</span>`}</div>
+        <div class="as-small">${autoSay(song && !c.title ? "as-song-name-hint" : "as-filename")}</div>
+        <div class="as-small">${autoSay(song ? "as-maybe-singing" : "as-a-moment")} · ${escapeHtml(autoDur(c.e - c.s))}</div>
+        ${why ? `<p class="as-why">${autoSay("as-why")}<b>${escapeHtml(why)}</b></p>` : ""}
+        ${song && autoState().subs && autoSubMode() === "local" && autoSubCount(c) != null ? `<span class="as-small as-subline" data-as-sub-line>${autoSay("as-sub-line", { n: autoSubCount(c) })}</span><span class="as-muted"> · </span>` : ""}
+        ${song ? `<div class="as-lyrics"><button type="button" class="btn tiny" data-as-lyrics disabled title="${autoSay("as-lyrics-soon")}">${autoSay(autoSongKey("as-lyrics"))}</button></div>` : ""}</div></div>
+    ${c.on ? `<div class="as-trim">${autoEdgeHtml(c, "s")}${autoEdgeHtml(c, "e")}</div>` : `<p class="as-small">${autoSay("as-tick-to-adjust")}</p>`}
+    <div class="as-actions"><button type="button" class="btn tiny" data-as-act="play">${autoSay("as-play")}</button>
+      <button type="button" class="btn tiny" data-as-act="fine">${autoSay("as-fine")}</button>
+      <button type="button" class="btn tiny" data-as-act="drop">${autoSay("as-drop")}</button></div></article>`;
+}
+function autoFooter() {
+  const st = autoState(), f = AUTO.el && AUTO.el.querySelector("[data-as-footer]");
+  if (!f) return;
+  f.hidden = st.step !== "review";
+  if (f.hidden) return;
+  const t = MontClipAutoSlices.totals(st.clips);
+  f.innerHTML = `<span class="as-sum"><b>${autoSay("as-sum-n", { n: t.n })}</b> <span class="as-muted">${t.n ? autoSay("as-sum-total", { total: autoDur(t.seconds) }) : autoSay("as-sum-none")}</span></span>
+    <span class="as-spacer"></span>
+    <button type="button" class="btn primary" data-as-act="place" title="${autoSay("as-place-title")}"${t.n ? "" : " disabled"}>${t.n ? autoSay("as-place", { n: t.n }) : autoSay("as-tick-first")}</button>
+    <button type="button" class="btn" data-as-act="export"${t.n ? "" : " disabled"}>${t.n ? autoSay("as-export", { n: t.n }) : autoSay("as-tick-first")}</button>`;
+}
+/* the dialog's own undo: card edits (tick, move, rename, take out) — not the timeline's */
+function autoSnap() { const st = autoState(); st.hist.push(JSON.stringify({ clips: st.clips, dropped: st.dropped })); if (st.hist.length > 100) st.hist.shift(); }
+function autoUndo() {
+  const st = autoState();
+  if (st.step !== "review" || !st.hist.length) return;
+  const o = JSON.parse(st.hist.pop()); st.clips = o.clips; st.dropped = o.dropped;
+  autoRender("review"); autoToast(uiText("own.as-undone"), false);
+}
+let autoToastTimer = null;
+function autoToast(msg, undoable = true) {
+  const t = AUTO.el && AUTO.el.querySelector("[data-as-toast]");
+  if (!t || !AUTO.el.open) { toast(msg); return; }
+  t.querySelector("[data-as-toast-msg]").textContent = msg;
+  t.querySelector("[data-as-toast-undo]").hidden = !undoable;
+  t.hidden = false; clearTimeout(autoToastTimer);
+  autoToastTimer = setTimeout(() => { t.hidden = true; }, 5000);
+}
+function autoClip(id) { return autoState().clips.find((c) => c.id === id) || null; }
+function autoClick(e) {
+  const b = e.target.closest && e.target.closest("[data-as-act]");
+  if (!b || !AUTO.el.contains(b)) return;
+  const st = autoState(), act = b.dataset.asAct, card = b.closest("[data-as-card]"), c = card ? autoClip(card.dataset.asCard) : null;
+  if (act === "rec") { const id = b.dataset.asId; st.picked.has(id) ? st.picked.delete(id) : st.picked.add(id); autoRender("start"); return; }
+  if (act === "kind" || act === "len") { st[act] = b.dataset.asV; autoRender("start"); return; }
+  if (act === "go") { autoRun(); return; }
+  if (act === "sub-go") { if (autoCanInstall()) openAsrSetup(); return; }
+  if (act === "stop") { if (st.run) st.run.stop = true; return; }
+  if (act === "back-start") { autoRender("start"); return; }
+  if (act === "ask") {
+    st.ask = false; st.kind = b.dataset.asV;
+    const r = MontClipAutoSlices.build({ recordings: st.recs, kind: st.kind, count: st.count, len: st.len });
+    autoSnap(); st.clips = r.clips; st.few = r.few; autoRender("review"); return;
+  }
+  if (act === "focus") { autoFocusCard(b.dataset.asId); return; }
+  if (act === "put-back") {
+    const k = st.dropped.findIndex((x) => x.id === b.dataset.asId); if (k < 0) return;
+    autoSnap(); const [x] = st.dropped.splice(k, 1); x.on = true; st.clips.push(x); st.clips.sort((p, q) => q.score - p.score || p.at - q.at);
+    autoRender("review"); autoToast(uiText("own.as-put-back-one", { name: autoName(x) })); return;
+  }
+  if (act === "place") { autoPlace(st.clips.filter((x) => x.on)); return; }
+  if (act === "export") { autoExportConfirm(); return; }
+  if (act === "ex-go") { autoExport(); return; }
+  if (act === "ex-cancel") { autoRender("review"); return; }
+  if (act === "retry") { autoExportRun(); return; }
+  if (act === "open-queue") { AUTO.el.close(); openQueue(); return; }
+  if (act === "back-review") { autoRender("review"); return; }
+  if (act === "another") { st.clips = []; st.recs = []; st.dropped = []; autoRender("start"); return; }
+  if (!c) return;
+  if (act === "nudge") {
+    const d = +b.dataset.asD, w = b.dataset.asW, rec = autoRec(c.mediaId);
+    autoSnap(); Object.assign(c, MontClipAutoSlices.nudge(c, w, d, rec ? rec.duration : Infinity)); autoRender("review"); autoFocusCard(c.id, false);
+    autoToast(uiText(`own.as-moved-${w === "s" ? "start" : "end"}-${d > 0 ? "later" : "earlier"}`, { name: autoName(c), d: Math.abs(d) })); return;
+  }
+  if (act === "listen") { autoListen(c, b.dataset.asW); return; }
+  if (act === "play") { autoPreview(c); return; }
+  if (act === "drop") {
+    autoSnap(); st.clips = st.clips.filter((x) => x !== c); c.on = false; st.dropped.push(c);
+    autoRender("review"); autoToast(uiText("own.as-dropped-one", { name: autoName(c) })); return;
+  }
+  if (act === "fine") { autoPlace(st.clips.filter((x) => x.on || x === c), { select: c, fine: true }); return; }
+}
+function autoChange(e) {
+  const t = e.target, st = autoState();
+  if (t.matches("[data-as-count]")) { st.count = Number(t.value); return; }
+  if (t.matches("[data-as-subs]")) { st.subs = t.checked; return; }
+  const card = t.closest("[data-as-card]"), c = card ? autoClip(card.dataset.asCard) : null;
+  if (!c) return;
+  if (t.dataset.asAct === "toggle") { autoSnap(); c.on = t.checked; autoRender("review"); autoFocusCard(c.id, false); return; }
+  if (t.dataset.asAct === "rename") { autoSnap(); const v = t.value.trim(); if (v) c.title = v.slice(0, 80); else delete c.title; autoFooter(); }
+}
+function autoFocusCard(id, flash = true) {
+  const el = AUTO.el && AUTO.el.querySelector(`[data-as-card="${CSS.escape(id)}"]`);
+  if (!el) return;
+  el.scrollIntoView({ block: "center" });
+  if (flash) { el.classList.add("focus"); setTimeout(() => el.classList.remove("focus"), 1600); }
+}
+/* drag on a strip: the strip is 40 seconds wide, the change lands when the pointer is let go */
+let autoDrag = null;
+function autoDragStart(e) {
+  const strip = e.target.closest && e.target.closest("[data-as-act=drag]");
+  if (!strip) return;
+  const c = autoClip(strip.closest("[data-as-card]").dataset.asCard);
+  if (!c) return;
+  autoDrag = { strip, c, w: strip.dataset.asW, x0: e.clientX, px: strip.getBoundingClientRect().width / 40, d: 0 };
+  strip.setPointerCapture(e.pointerId); strip.classList.add("on");
+  const move = (ev) => {
+    autoDrag.d = Math.max(-20, Math.min(20, Math.round((ev.clientX - autoDrag.x0) / (autoDrag.px || 1))));
+    strip.querySelector(".as-hand").style.left = `calc(50% + ${autoDrag.d * autoDrag.px}px)`;
+    const tc = strip.parentElement.querySelector("[data-as-tc]"), t = (autoDrag.w === "s" ? c.s : c.e) + autoDrag.d;
+    tc.textContent = MontClipAutoSlices.hms(t) + (autoDrag.d ? ` (${autoDrag.d > 0 ? "+" : ""}${autoDrag.d})` : "");
+  };
+  const up = () => {
+    strip.removeEventListener("pointermove", move); strip.removeEventListener("pointerup", up); strip.removeEventListener("pointercancel", up);
+    const { d, w } = autoDrag; autoDrag = null;
+    if (d) {
+      const rec = autoRec(c.mediaId);
+      autoSnap(); Object.assign(c, MontClipAutoSlices.nudge(c, w, d, rec ? rec.duration : Infinity));
+      autoToast(uiText(`own.as-moved-${w === "s" ? "start" : "end"}-${d > 0 ? "later" : "earlier"}`, { name: autoName(c), d: Math.abs(d) }));
+    }
+    autoRender("review"); autoFocusCard(c.id, false);
+  };
+  strip.addEventListener("pointermove", move); strip.addEventListener("pointerup", up); strip.addEventListener("pointercancel", up);
+}
+/* hear 8 seconds at a start or an end; preview a whole card */
+function autoListen(c, w) {
+  const m = autoMedia(c.mediaId), a = AUTO.el.querySelector("[data-as-audio]");
+  if (!m) return;
+  const from = w === "s" ? c.s : Math.max(c.s, c.e - 8), to = w === "s" ? Math.min(c.e, c.s + 8) : c.e;
+  if (state.playing) pause();
+  if (a.getAttribute("src") !== m.src) a.src = m.src;
+  const stopAt = () => { if (a.currentTime >= to) { a.pause(); a.removeEventListener("timeupdate", stopAt); } };
+  a.addEventListener("timeupdate", stopAt);
+  const go = () => { a.currentTime = from; a.play().catch(() => {}); };
+  a.readyState >= 1 ? go() : a.addEventListener("loadedmetadata", go, { once: true });
+}
+function autoPreview(c) {
+  const m = autoMedia(c.mediaId);
+  if (!m) return;
+  if (state.playing) pause();
+  const d = document.createElement("dialog");
+  d.className = "as-preview";
+  d.innerHTML = `<div class="as-row"><h2>${autoSay("as-preview")} · ${escapeHtml(autoName(c))}</h2><button type="button" class="btn tiny" data-as-pv-close>${autoSay("as-preview-close")}</button></div>
+    ${m.kind === "video" ? `<video controls playsinline></video>` : `<audio controls></audio>`}`;
+  document.body.append(d);
+  const v = d.querySelector("video, audio");
+  v.src = m.src;
+  v.addEventListener("loadedmetadata", () => { v.currentTime = c.s; v.play().catch(() => {}); }, { once: true });
+  v.addEventListener("timeupdate", () => { if (v.currentTime >= c.e) v.pause(); });
+  d.addEventListener("keydown", (e) => { if (e.key !== "Escape") e.stopPropagation(); });
+  d.addEventListener("close", () => { v.pause(); d.remove(); });
+  d.querySelector("[data-as-pv-close]").addEventListener("click", () => d.close());
+  d.showModal();
+}
+
+/* 〔放到时间线上〕: the ticked parts after the end of the timeline, as ONE undo step; the first one selected on whatever
+   track it landed on; the toast's 〔撤销〕 takes the batch back and restores the selection. */
+function placeAutoSlices(clips, { select = null } = {}) {
+  const parts = clips.map((c) => ({ c, m: autoMedia(c.mediaId) })).filter((p) => p.m);
+  if (!parts.length) return { ok: false, why: "" };
+  if (parts.some((p) => !sourceEditTracks(p.m).some(Boolean))) return { ok: false, why: uiText("own.as-no-lane") };
+  if (state.playing) pause();
+  const prevSel = [...state.selIds], prevPrimary = state.selId;
+  const at0 = project.clips.reduce((x, c) => Math.max(x, c.start + c.duration), 0);
+  pushUndo(undoSnapshot(), { args: { label: "auto_slices_place", n: parts.length } });
+  const eventId = eventIdOf(runtime.undo.at(-1));
+  let at = at0;
+  const placed = [];
+  for (const { c, m } of parts) {
+    const dur = Math.round((c.e - c.s) * 1000) / 1000;
+    const r = EDIT.overwriteAt(m, c.s, dur, at);
+    placed.push({ card: c.id, clip: r && r.clip ? r.clip.id : null });
+    at = Math.round((at + dur) * 1000) / 1000;
+  }
+  // v10: subtitles over the placed slices, in this same undo step
+  if (autoState().subs && autoSubMode() === "local") autoPlaceCaptions(placed, at0, at);
+  const first = (select && placed.find((p) => p.card === select.id)) || placed[0];
+  if (first && first.clip) selectClip(first.clip);
+  setSideTab("inspector");
+  state.time = at0;
+  state.dirtyTimeline = true;
+  scheduleSave();
+  ensurePlayheadVisible();
+  return { ok: true, eventId, placed, prevSel, prevPrimary, at0 };
+}
+function undoAutoSlices(p) {
+  if (!p || !p.eventId || eventIdOf(runtime.undo.at(-1)) !== p.eventId) return false;
+  undo();
+  setSelection(p.prevSel.filter((id) => getClip(id)), p.prevPrimary && getClip(p.prevPrimary) ? p.prevPrimary : undefined);
+  return true;
+}
+function autoPlace(clips, { select = null, fine = false } = {}) {
+  const r = placeAutoSlices(clips, { select });
+  if (!r.ok) { autoToast(uiText("own.as-place-failed", { why: r.why }), false); return null; }
+  AUTO.el.close();
+  const name = select ? autoName(select) : "";
+  toastAction(fine ? uiText("own.as-fine-toast", { name }) : uiText("own.as-placed", { n: r.placed.length }), uiText("own.as-undo"), () => undoAutoSlices(r));
+  return r;
+}
+/** A toast with one button (the editor's toast is text only). The button acts once; the toast goes after 8 s. */
+function toastAction(msg, label, onClick) {
+  if (!els.toast) return;
+  els.toast.textContent = "";
+  const span = document.createElement("span"), btn = document.createElement("button");
+  span.textContent = msg; btn.type = "button"; btn.className = "btn tiny toast-action"; btn.textContent = label;
+  btn.addEventListener("click", () => { els.toast.classList.remove("show", "has-action"); onClick(); }, { once: true });
+  els.toast.append(span, " ", btn);
+  els.toast.classList.add("show", "has-action");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => els.toast.classList.remove("show", "has-action"), 8000);
+}
+
+/* step 4: export — the ticked parts put on the timeline (one undo step), then one file each through the export queue */
+function autoExportConfirm() {
+  const st = autoState(), on = st.clips.filter((c) => c.on), body = AUTO.el.querySelector("[data-as-body]");
+  body.innerHTML = `<section class="as-card-box as-ex"><h2>${autoSay("as-ex-title", { n: on.length })}</h2>
+    <ul>${on.map((c) => `<li>${escapeHtml(autoName(c))} <span class="as-muted">· ${escapeHtml(autoDur(c.e - c.s))}</span></li>`).join("")}</ul>
+    <p class="as-small">${autoSay("as-ex-info")}</p>
+    ${st.subs && autoSubMode() === "none" ? `<p class="as-small as-warn" data-as-ex-nosub>${autoSay("as-ex-nosub")}</p>` : ""}
+    <div class="as-row"><button type="button" class="btn primary" data-as-act="ex-go">${autoSay("as-ex-go")}</button><button type="button" class="btn" data-as-act="ex-cancel">${autoSay("as-ex-cancel")}</button></div></section>`;
+  AUTO.el.querySelector("[data-as-footer]").hidden = true;
+}
+function autoExport() {
+  const st = autoState(), on = st.clips.filter((c) => c.on);
+  const r = placeAutoSlices(on);
+  if (!r.ok) { autoToast(uiText("own.as-place-failed", { why: r.why }), false); autoRender("review"); return; }
+  const fallback = exportBaseName("Slice");
+  const names = MontClipAutoSlices.numbered(on.map(autoName)).map((n) => Delivery.fileSafeName(n, fallback));
+  let at = r.at0;
+  const segments = on.map((c) => { const d = Math.round((c.e - c.s) * 1000) / 1000, s = { output: { start: at, end: Math.round((at + d) * 1000) / 1000 } }; at = s.output.end; return s; });
+  const before = new Set(exportQueue.map((q) => q.id));
+  queueSlices(segments, names, { open: false });
+  st.exportIds = exportQueue.filter((q) => !before.has(q.id)).map((q) => q.id);
+  st.exportNames = on.map(autoName);
+  autoExportRun();
+}
+async function autoExportRun() {
+  const st = autoState();
+  for (const q of exportQueue) if (st.exportIds.includes(q.id) && q.status === "failed") { q.status = "pending"; q.progress = 0; }
+  autoRender("done");
+  // the page follows the queue while it runs (each file's percent), then shows what was made
+  const live = setInterval(() => { if (AUTO.el && AUTO.el.open && autoState().step === "done") autoRender("done"); }, 700);
+  try { if (!queueRunning) await runQueue(); } finally { clearInterval(live); }
+  if (AUTO.el && AUTO.el.open) autoRender("done");
+}
+/** Why exports failed, in plain words (the queue keeps the detail). */
+function autoFailWhy(failed) {
+  const errors = failed.map((q) => String(q.error || ""));
+  if (errors.some((e) => /ENOSPC|no space|disk is full|空间不够/i.test(e))) return "as-fail-why-space";
+  if (errors.some((e) => e === uiText("own.ssel-queue-changed"))) return "as-fail-why-changed";
+  return "as-fail-why-other";
+}
+function autoDoneHtml() {
+  const st = autoState(), items = (st.exportIds || []).map((id) => exportQueue.find((q) => q.id === id)).filter(Boolean);
+  const done = items.filter((q) => q.status === "done"), failed = items.filter((q) => q.status === "failed");
+  const busy = items.some((q) => q.status === "pending" || q.status === "running");
+  const title = busy ? autoSay("as-exporting", { n: items.length }) : failed.length ? autoSay("as-done-partial", { n: done.length, failed: failed.length }) : autoSay("as-done-title", { n: done.length });
+  return `<h1>${title}</h1><p class="as-sub">${busy ? "" : autoSay("as-done-sub")}</p>
+    <section class="as-card-box">${items.map((q) => `<div class="as-row"><span><b>${escapeHtml(q.name)}</b></span><span class="as-small">${q.status === "running" ? Math.round((q.progress || 0) * 100) + "%" : ""}</span></div>`).join("")}</section>
+    ${failed.length ? `<section class="as-card-box as-warn"><b>${autoSay("as-fail", { failed: failed.length, name: failed.slice(0, 3).map((q) => q.name).join("」「") + (failed.length > 3 ? "…" : ""), why: uiText("own." + autoFailWhy(failed)) })}</b>
+      <div class="as-row"><button type="button" class="btn primary" data-as-act="retry">${autoSay("as-retry")}</button></div></section>` : ""}
+    <div class="as-cta"><button type="button" class="btn primary" data-as-act="open-queue">${autoSay("as-open-queue")}</button>
+      <button type="button" class="btn" data-as-act="back-review">${autoSay("as-back-review")}</button><button type="button" class="btn" data-as-act="another">${autoSay("as-another")}</button></div>`;
 }
 /** SRT sentence selection: preview a read-only plan, apply on a clone as one undo step. */
 async function showSentenceSelection(suggestion = null, onApplied = null, onCancelled = null) {
@@ -18414,7 +18995,7 @@ function queueAdd(spec, name) {
 }
 /** Slices from an applied keep_ranges per_range proposal: one queue item per range, each its own file. An item
  *  remembers the timeline it was made from and refuses to render once the timeline is different (Undo, an edit). */
-function queueSlices(segments, names) {
+function queueSlices(segments, names, { open = true } = {}) {
   const choice = exportChoice();
   const spec = normalizeDelivery(choice.kind === "delivery" ? choice.spec : Delivery.DEFAULT_PRESET).spec;
   const guard = JSON.stringify(project.clips);
@@ -18423,7 +19004,7 @@ function queueSlices(segments, names) {
     range: { start: s.output.start, end: s.output.end }, guard, status: "pending", progress: 0,
   }));
   renderQueue();
-  openQueue();
+  if (open) openQueue();
 }
 const queueRangeKey = (r) => (r && typeof r === "object" ? r.start + "-" + r.end : String(r));
 function openQueue() {
@@ -19231,6 +19812,7 @@ $("btnBatchExport")?.addEventListener("click", () => {
 });
 $("btnOpenQueue")?.addEventListener("click", () => { els.exportSetup.classList.add("hidden"); openQueue(); });
 $("btnQueueStart")?.addEventListener("click", () => (queueRunning ? stopQueue() : runQueue()));
+$("btnAutoSlices")?.addEventListener("click", () => openAutoSlices());
 $("btnQueueClose")?.addEventListener("click", closeQueue);
 $("exportQueue")?.addEventListener("keydown", (e) => {
   if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeQueue(); }
