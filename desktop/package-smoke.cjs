@@ -159,18 +159,22 @@ async function main() {
     out.imported = await c.read(`(()=>{const m=project.media[0];return m?{name:m.name,src:m.src,kind:m.kind,duration:Math.round(m.duration*100)/100,transient:!!m.transient}:null;})()`);
     assert.ok(out.imported && out.imported.kind === 'video' && /^\/media\//.test(out.imported.src) && !out.imported.transient, 'imported into media/ ' + JSON.stringify(out.imported));
     await c.read(`(async()=>{const m=project.media[0],doc=projectJSON();doc.clips=[{id:'v',kind:'video',mediaId:m.id,track:'V1',start:0,in:0,duration:m.duration,props:{volume:1}}];applyProject(doc);scheduleSave();if(!await flushSave())throw Error('save');})()`);
-    // export, watching which ffmpeg runs
-    const seen = new Set(); let watching = true;
-    const watcher = (async () => { while (watching) { for (const p of ps(`Get-CimInstance Win32_Process -Filter "name='ffmpeg.exe'" | ForEach-Object { $_.ExecutablePath }`).split(/\r?\n/).map((s) => s.trim()).filter(Boolean)) seen.add(p); await wait(150); } })();
+    // export, watching which ffmpeg runs: each FFmpeg / FFprobe with its full path and its parents, so only the app's own
+    // count (another program's FFmpeg on this computer does not fail the smoke; the app's from PATH still does)
+    const seen = new Map(); let watching = true;
+    const WATCH = `Get-CimInstance Win32_Process -Filter "name='ffmpeg.exe' or name='ffprobe.exe'" | ForEach-Object { $a = @(); $q = $_.ParentProcessId; for ($i = 0; $i -lt 12 -and $q; $i++) { $a += $q; $p = Get-CimInstance Win32_Process -Filter "ProcessId=$q"; if (-not $p) { break }; $q = $p.ParentProcessId }; [pscustomobject]@{ pid = $_.ProcessId; path = $_.ExecutablePath; ancestors = $a } } | ConvertTo-Json -Compress -Depth 3`;
+    const watcher = (async () => { while (watching) { let list = []; try { const t = ps(WATCH).trim(); list = t ? [].concat(JSON.parse(t)) : []; } catch { list = []; }
+      for (const p of list) if (!seen.has(p.pid)) seen.set(p.pid, { pid: p.pid, path: p.path || null, ancestors: [].concat(p.ancestors || []) }); await wait(150); } })();
     const job = await c.read(`(async()=>{const r=await fetch('/api/export/request',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({where:'tab',range:'entire',preset:'master'})});const j=await r.json();if(!r.ok)throw Error('export request '+r.status+' '+JSON.stringify(j));
       let s;const until=Date.now()+180000;do{await new Promise(r=>setTimeout(r,300));s=await (await fetch('/api/export/job?id='+encodeURIComponent(j.id))).json();}while(!['done','failed','cancelled'].includes(s.status)&&Date.now()<until);return{status:s.status,src:s.src,error:s.error||null};})()`);
     watching = false; await watcher;
     out.export = job;
     assert.equal(job.status, 'done', 'export ' + JSON.stringify(job));
-    const ffExe = path.join(ffDir, 'ffmpeg.exe').toLowerCase();
-    out.ffmpegProcesses = [...seen].map((p) => (p.toLowerCase() === ffExe ? '<package>/resources/ffmpeg/ffmpeg.exe' : p));
-    assert.ok(seen.size > 0, 'an ffmpeg process was seen during the export');
-    assert.ok([...seen].every((p) => p.toLowerCase() === ffExe), 'every ffmpeg was the packaged one: ' + [...seen].join(', '));
+    const tree = NP.ffmpegInTree({ root: pid, packaged: [path.join(ffDir, 'ffmpeg.exe'), path.join(ffDir, 'ffprobe.exe')], procs: [...seen.values()] });
+    const pkgName = (p) => (p && p.toLowerCase().startsWith(ffDir.toLowerCase()) ? '<package>/resources/ffmpeg/' + path.basename(p) : p);
+    out.ffmpegProcesses = tree.ours.map(pkgName);
+    out.ffmpegOutsideTheApp = tree.others.length;   // another program's, at the same time: not judged (no paths printed)
+    assert.ok(tree.ok, tree.why);
     const exported = path.join(profile, 'workspace', decodeURIComponent(job.src.replace(/^\//, '')).split('/').join(path.sep));
     const probe = JSON.parse(spawnSync(path.join(ffDir, 'ffprobe.exe'), ['-v', 'error', '-show_entries', 'stream=codec_type,codec_name,width,height:stream_tags=encoder:format=format_name,duration:format_tags=encoder', '-of', 'json', exported], { encoding: 'utf8', windowsHide: true }).stdout || '{}');
     out.exportedFile = { name: path.basename(exported), bytes: fs.statSync(exported).size, format: probe.format?.format_name, duration: Number(probe.format?.duration), streams: (probe.streams || []).map((s) => [s.codec_type, s.codec_name, s.width, s.height].filter((x) => x != null).join(' ')) };
