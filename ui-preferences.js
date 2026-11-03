@@ -126,7 +126,7 @@
     "hl-r-speech": ["Talking faster than usual (about {ratio}×)", "说话比平时快（约 {ratio} 倍）"],
     // Closing during an export (desktop/export-close.js; JJ's final copy 「追加 3」, one video per 「预备稿 4 补充」; English for JJ to review)
     "export-close-title": ["Still exporting. Close now?", "还在导出，现在关掉吗？"],
-    "export-close-body": ["Closing MontClip stops the export. The half-finished video won't be kept; next time the export starts over.", "关掉 MontClip 会停止导出。导到一半的视频不会留下，下次要从头再导。"],
+    "export-close-body": ["Closing MontClip stops the export. The half-finished video won't be kept; next time you'll need to export it again from the start.", "关掉 MontClip 会停止导出。导到一半的视频不会留下，下次要从头再导。"],
     "export-close-unsaved-1": ["1 exported video in the export queue isn't saved yet. After closing it won't be in the queue any more, but it still takes up space on drive C.", "导出队列里还有 1 个没保存的视频，关掉以后它不会再出现在队列里，但还占着 C 盘空间。"],
     "export-close-unsaved-n": ["{n} exported videos in the export queue aren't saved yet. After closing they won't be in the queue any more, but they still take up space on drive C.", "导出队列里还有 {n} 个没保存的视频，关掉以后它们不会再出现在队列里，但还占着 C 盘空间。"],
     "export-close-stop": ["Stop export and close", "停止导出并关闭"],
@@ -142,7 +142,9 @@
     "export-unsaved-save": ["Save first", "先去保存"],
     "export-delete-failed-1": ["1 video could not be deleted. Another program may have it open.", "有 1 个视频删不掉，可能正被别的软件打开着。"],
     "export-delete-failed-n": ["{k} videos could not be deleted. Another program may have them open.", "有 {k} 个视频删不掉，可能正被别的软件打开着。"],
-    "export-delete-retry": ["Close it and try again", "关掉它再试"],
+    "export-delete-retry": ["Try again", "再试一次"],
+    "export-delete-hint-1": ["Close the program that has it open (such as a player), then click Try again.", "先关掉正在用它的软件（比如播放器），再点「再试一次」。"],
+    "export-delete-hint-n": ["Close the programs that have them open (such as a player), then click Try again.", "先关掉正在用它们的软件（比如播放器），再点「再试一次」。"],
     "export-delete-giveup": ["Don't delete, just close", "不删了，直接关闭"],
   };
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }

@@ -32,11 +32,12 @@ function unsavedDialogOptions(language, unsaved) {
     defaultId: UNSAVED.SAVE, cancelId: UNSAVED.SAVE, noLink: true };
 }
 
-/** Copies that could not be deleted (their names, one per line): the window stays; Enter and Esc try again (not close). */
+/** Copies that could not be deleted (their names, one per line, then what to do first — JJ): the window stays; Enter and
+ *  Esc try again (not close). */
 function deleteFailedOptions(language, names) {
   const t = (key, vars) => View.t(language, 'own.' + key, vars);
   const list = (Array.isArray(names) ? names : []).map(String), k = Math.max(1, list.length);
-  return { type: 'warning', title: 'MontClip', message: t('export-delete-failed-' + (k === 1 ? '1' : 'n'), { k }), detail: list.join('\n'),
+  return { type: 'warning', title: 'MontClip', message: t('export-delete-failed-' + (k === 1 ? '1' : 'n'), { k }), detail: [...list, t('export-delete-hint-' + (k === 1 ? '1' : 'n'))].join('\n'),
     buttons: [t('export-delete-retry'), t('export-delete-giveup')], defaultId: FAILED.RETRY, cancelId: FAILED.RETRY, noLink: true };
 }
 
