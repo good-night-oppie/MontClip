@@ -89,3 +89,15 @@ test("this interface's English follows #89's rule: “ ”, never 「」, never 
  for(const k of mine.slice(0,7))a.ok(/“[^”]+”/.test(V.text.en['own.'+k]),k+' quotes with “ ”');
  a.match(V.text.en['own.as-add-name'],/doesn't appear in the video/);
 });
+
+// VV on 12f4f21 / Deja: a disabled button looks disabled — one rule at the root for every .btn (.btn:disabled and
+// .btn[disabled]): faded (opacity ≤ 0.5), no hand cursor; no rule for one button at a time
+test('one root rule: every disabled .btn is faded, with no hand cursor; no per-button rules',()=>{
+ const css=read('style.css').replace(/\/\*[\s\S]*?\*\//g,'');
+ const rules=[...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map(m=>({sel:m[1].split(',').map(x=>x.trim()),body:m[2]}));
+ const root=rules.find(r=>r.sel.includes('.btn:disabled')&&r.sel.includes('.btn[disabled]'));
+ a.ok(root,'a rule for .btn:disabled and .btn[disabled]');
+ const op=/opacity:\s*([\d.]+)/.exec(root.body);a.ok(op&&+op[1]<=0.5,'opacity ≤ 0.5: '+root.body);
+ a.match(root.body,/cursor:\s*default/);
+ a.ok(!/\[data-as-add-ok\]:disabled|\[data-learn-clear\]:disabled/.test(css),'no rule for one button');
+});

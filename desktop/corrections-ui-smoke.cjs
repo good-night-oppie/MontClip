@@ -31,6 +31,12 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await read(`(()=>{const d=document.querySelector('dialog.auto-slices');if(!d.open)document.getElementById('btnAutoSlices').click();autoRender('review');return true;})()`);await wait(200);};
  const status=()=>read(`window.montclipCorrections.status()`);
  const toastText=()=>read(`document.querySelector('[data-as-toast-msg]').textContent`);
+  // every disabled .btn in the open dialogs and on the settings page (VV on 12f4f21 / Deja): faded, no hand cursor
+  const disabledLook=()=>read(`(()=>{const roots=[...document.querySelectorAll('dialog[open]'),document.getElementById('setSlices').closest('.settings-section').parentElement];
+    return [...new Set(roots.flatMap(r=>[...r.querySelectorAll('.btn:disabled, .btn[disabled]')]))].map(b=>{const s=getComputedStyle(b);return{name:b.dataset.asAct||b.id||b.textContent.trim().slice(0,12),opacity:+s.opacity,cursor:s.cursor};});})()`);
+  const checkDisabled=async(where,want)=>{const list=await disabledLook();(report.disabled||(report.disabled={}))[where]=list;
+    assert.ok(list.length>=want,where+': disabled buttons found '+JSON.stringify(list));
+    assert.ok(list.every(x=>x.opacity<=0.5&&x.cursor!=='pointer'),where+': disabled looks disabled '+JSON.stringify(list));};
  const undoToast=()=>read(`(async()=>{document.querySelector('[data-as-toast-undo]').click();await new Promise(r=>setTimeout(r,200));return true;})()`);
  try{
   await until(`state.connected`,15000);
@@ -94,11 +100,11 @@ BrowserWindow.prototype.loadURL=async function(...args){
   // 3. 补一段: grey without IN–OUT, and says how; with IN–OUT (400–430 s of the recording, on the timeline from 0) the dialog:
   //    the recording on its own line, unbroken; 唱歌、互动、聊天、整活、别的; 补上 grey until a kind is picked
   const add0=await read(`(()=>{const b=document.querySelector('[data-as-act=add]'),h=document.querySelector('[data-as-add-hint]');return{disabled:b.disabled,label:b.textContent,hint:h.textContent};})()`);
-  report.addOff=add0;assert.equal(add0.disabled,true);assert.equal(add0.label,zh('as-add-btn'));assert.ok(add0.hint.startsWith(zh('as-add-hint-off')),add0.hint);
+  report.addOff=add0;await checkDisabled('review',1);assert.equal(add0.disabled,true);assert.equal(add0.label,zh('as-add-btn'));assert.ok(add0.hint.startsWith(zh('as-add-hint-off')),add0.hint);
   const dlg=await read(`(async()=>{project.inPoint=400;project.outPoint=430;autoRender('review');const b=document.querySelector('[data-as-act=add]');const h=document.querySelector('[data-as-add-hint]').textContent;b.click();await new Promise(r=>setTimeout(r,200));
     const d=document.querySelector('dialog.as-add[open]');if(!d)return{hint:h,open:false};const recl=d.querySelector('[data-as-add-rec]');
     return{hint:h,open:true,title:d.querySelector('h2').textContent,rec:recl.textContent,nowrap:getComputedStyle(recl).whiteSpace,kinds:[...d.querySelectorAll('[data-as-add-kind]')].map(x=>x.textContent),ok:d.querySelector('[data-as-add-ok]').disabled,okText:d.querySelector('[data-as-add-ok]').textContent};})()`);
-  report.addDialog=dlg;
+  report.addDialog=dlg;await checkDisabled('add dialog',1);
   assert.ok(dlg.hint.startsWith(zh('as-add-hint-on',{from:'6:40',to:'7:10',len:'30 秒'}).slice(0,10)),dlg.hint);assert.equal(dlg.open,true);
   assert.equal(dlg.title,zh('as-add'));assert.equal(dlg.rec,zh('as-add-rec',{name:'11 月 2 日 合成录像'}));assert.equal(dlg.nowrap,'nowrap');
   assert.deepEqual(dlg.kinds,['唱歌','互动','聊天','整活','别的']);assert.equal(dlg.ok,true);assert.equal(dlg.okText,zh('as-add-pick-first'));
@@ -154,6 +160,11 @@ BrowserWindow.prototype.loadURL=async function(...args){
     d.querySelector('[data-learn-clear-yes]').click();await new Promise(r=>setTimeout(r,300));d=document.querySelector('dialog.as-learn[open]');
     const r={confirm,count:d.querySelector('[data-learn-count]').textContent};d.querySelector('[data-learn-ok]').click();return r;})()`);
   report.cleared=cleared;
+  await read(`(()=>{document.querySelector('#setSlices [data-learn-open]').disabled=true;return true;})()`);await checkDisabled('settings',1);
+  await read(`(()=>{document.querySelector('#setSlices [data-learn-open]').disabled=false;return true;})()`);
+  // the page with nothing kept: 清空记录 disabled
+  await read(`(async()=>{document.querySelector('[data-as-learn-line] [data-as-act=learn]').click();await new Promise(r=>setTimeout(r,300));return true;})()`);await checkDisabled('learn page',1);
+  await read(`(()=>{document.querySelector('dialog.as-learn [data-learn-ok]').click();return true;})()`);
   assert.equal(cleared.confirm,zh('as-learn-clear-confirm',{n:5}));assert.equal(cleared.count,zh('as-learn-none'));assert.deepEqual([(await status()).enabled,(await status()).count],[true,0]);
   // 5. the same recording searched again: a part marked 不是唱歌 does not come back as a song
   await search();
