@@ -1,0 +1,86 @@
+{
+ "date": "2026-11-02T06:38:53.201Z",
+ "seconds": 8,
+ "rows": [
+  {
+   "source": "grain",
+   "name": "tiktok",
+   "video": "-c:v h264_mf -rate_control quality -quality 73 -maxrate 20000k -bufsize 40000k -g 30 -pix_fmt nv12",
+   "size": "1080×1920",
+   "capMbps": 20,
+   "avgMbps": 34.72,
+   "peak1sMbps": 36.08,
+   "held": false
+  },
+  {
+   "source": "grain",
+   "name": "instagram-reels",
+   "video": "-c:v h264_mf -rate_control quality -quality 73 -maxrate 25000k -bufsize 50000k -g 30 -pix_fmt nv12",
+   "size": "1080×1920",
+   "capMbps": 25,
+   "avgMbps": 34.72,
+   "peak1sMbps": 36.08,
+   "held": false
+  },
+  {
+   "source": "grain",
+   "name": "youtube (no cap)",
+   "video": "-c:v h264_mf -rate_control quality -quality 75 -g 15 -pix_fmt nv12",
+   "size": "1920×1080",
+   "capMbps": null,
+   "avgMbps": 47.97,
+   "peak1sMbps": 48.72,
+   "held": null
+  },
+  {
+   "source": "grain",
+   "name": "custom CRF 18, cap 3 Mb/s",
+   "video": "-c:v h264_mf -rate_control quality -quality 75 -maxrate 3000k -bufsize 6000k -g 60 -pix_fmt nv12",
+   "size": "1920×1080",
+   "capMbps": 3,
+   "avgMbps": 47.6,
+   "peak1sMbps": 48.44,
+   "held": false
+  },
+  {
+   "source": "extreme",
+   "name": "tiktok",
+   "video": "-c:v h264_mf -rate_control quality -quality 73 -maxrate 20000k -bufsize 40000k -g 30 -pix_fmt nv12",
+   "size": "1080×1920",
+   "capMbps": 20,
+   "avgMbps": 136.3,
+   "peak1sMbps": 137.03,
+   "held": false
+  },
+  {
+   "source": "extreme",
+   "name": "instagram-reels",
+   "video": "-c:v h264_mf -rate_control quality -quality 73 -maxrate 25000k -bufsize 50000k -g 30 -pix_fmt nv12",
+   "size": "1080×1920",
+   "capMbps": 25,
+   "avgMbps": 136.3,
+   "peak1sMbps": 137.03,
+   "held": false
+  },
+  {
+   "source": "extreme",
+   "name": "youtube (no cap)",
+   "video": "-c:v h264_mf -rate_control quality -quality 75 -g 15 -pix_fmt nv12",
+   "size": "1920×1080",
+   "capMbps": null,
+   "avgMbps": 220.23,
+   "peak1sMbps": 221.41,
+   "held": null
+  },
+  {
+   "source": "extreme",
+   "name": "custom CRF 18, cap 3 Mb/s",
+   "video": "-c:v h264_mf -rate_control quality -quality 75 -maxrate 3000k -bufsize 6000k -g 60 -pix_fmt nv12",
+   "size": "1920×1080",
+   "capMbps": 3,
+   "avgMbps": 219.97,
+   "peak1sMbps": 221.2,
+   "held": false
+  }
+ ]
+}

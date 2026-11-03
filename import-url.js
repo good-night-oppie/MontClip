@@ -10,7 +10,8 @@ const dns = require("dns");
 const net = require("net");
 const fs = require("fs");
 const path = require("path");
-const { spawnSync, execFile } = require("child_process");
+const { execFile } = require("child_process");
+const FF = require("./ffmpeg-path");
 
 const MAX_BYTES = 2 * 1024 * 1024 * 1024; // 2 GiB
 const TIMEOUT_MS = 180_000;
@@ -268,8 +269,7 @@ async function downloadImportUrl(raw, destDir, opts = {}) {
 let hasFfmpeg = null;
 function ffmpegAvailable() {
   if (hasFfmpeg == null) {
-    try { hasFfmpeg = spawnSync("ffmpeg", ["-version"], { stdio: "ignore", timeout: 1500 }).status === 0; }
-    catch { hasFfmpeg = false; }
+    hasFfmpeg = FF.available("ffmpeg");
   }
   return hasFfmpeg;
 }
@@ -286,7 +286,7 @@ async function maybeFaststart(file) {
     if (fs.existsSync(tmp)) return { optimized: false, reason: "temporary-collision" };
     outputMayBeOwned = true;
     await new Promise((resolve, reject) => {
-      execFile("ffmpeg", ["-nostdin", "-n", "-i", file, "-c", "copy", "-movflags", "+faststart", tmp],
+      execFile(FF.path("ffmpeg"), ["-nostdin", "-n", "-i", file, "-c", "copy", "-movflags", "+faststart", tmp],
         { maxBuffer: 1 << 24, windowsHide: true }, (err) => {
           // A collision is not ours, even inside the directory we created.
           if (err?.code === "EEXIST" || /already exists/i.test(String(err?.message || ""))) outputMayBeOwned = false;

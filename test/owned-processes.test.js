@@ -36,7 +36,7 @@ test("shutdown interrupts a pending denoise probe without blocking the service",
         child = cp.execFile(process.execPath, ["-e", "setInterval(() => {}, 1000)"], options, callback);
         return child;
       },
-    } : require(name),
+    } : require(name.startsWith("./") ? require("node:path").join(__dirname, "..", name) : name),
   });
   try {
     const pending = module.exports.denoiseFile("missing-input.wav", "missing-output", "medium");

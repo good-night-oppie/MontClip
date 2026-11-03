@@ -1,0 +1,2797 @@
+[
+ {
+  "name": "mingw-std-threads",
+  "scripts": [
+   "10-mingw-std-threads.sh"
+  ],
+  "targets": [
+   "win64"
+  ],
+  "repo": "https://github.com/meganz/mingw-std-threads.git",
+  "ref": "c931bac289dd431f1dd30fc4a5d1a7be36668073",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "mingw-std-threads@c931bac289dd--LICENSE",
+    "sha256": "86c148320eb0acc26607ed347e0fde9f49a236d0ec5291d36dc6a7e0e1d26b9f",
+    "firstLine": "Copyright (c) 2016, Mega Limited"
+   }
+  ],
+  "kinds": [
+   "BSD-2"
+  ]
+ },
+ {
+  "name": "mingw",
+  "scripts": [
+   "10-mingw.sh"
+  ],
+  "targets": [
+   "win64"
+  ],
+  "repo": "https://git.code.sf.net/p/mingw-w64/mingw-w64.git",
+  "ref": "7213d719fe344553aa24fef7cc7dedee4940d594",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "mingw@7213d719fe34--COPYING",
+    "sha256": "99a69660981156c21336fdb5661f89341b013c94e4bf9e1c7467b4745718397f",
+    "firstLine": "With exception of certain parts that are prominently marked as being"
+   }
+  ],
+  "kinds": [
+   "BSD-3",
+   "PD"
+  ]
+ },
+ {
+  "name": "libiconv",
+  "scripts": [
+   "20-libiconv.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://git.savannah.gnu.org/git/libiconv.git",
+  "ref": "b5a1735e02bf43ee6e490fcf9395e8abc8d32432",
+  "files": [
+   {
+    "file": "COPYING.LIB",
+    "saved": "libiconv@b5a1735e02bf--COPYING.LIB",
+    "sha256": "b14c366c41cc9f62dc20ec1a0885f278cf9681076d98027012a910fca5e89639",
+    "firstLine": "GNU LESSER GENERAL PUBLIC LICENSE"
+   },
+   {
+    "file": "COPYING",
+    "saved": "libiconv@b5a1735e02bf--COPYING",
+    "sha256": "0b383d5a63da644f628d99c33976ea6487ed89aaa59f0b3257992deac1171e6b",
+    "firstLine": "GNU GENERAL PUBLIC LICENSE"
+   },
+   {
+    "file": "README",
+    "saved": "libiconv@b5a1735e02bf--README",
+    "sha256": "ee9455e8fb76cab4a28763d29399118fa63c130f8dd5508e0c108852cb5d484c",
+    "firstLine": "GNU LIBICONV - character set conversion library"
+   }
+  ],
+  "kinds": [
+   "LGPL-2.1",
+   "GPL-3"
+  ],
+  "fetchedFrom": "https://github.com/GitMirroring/libiconv.git (git.savannah.gnu.org unreachable; fetched by commit hash, so the content is that commit's)",
+  "reviewed": "LGPL-2.1-or-later for the libiconv/libcharset library FFmpeg links (README: \"The libiconv and libcharset libraries and their header files are under LGPL, see file COPYING.LIB\"); COPYING (GPL-3) covers the iconv program and the documentation, not linked"
+ },
+ {
+  "name": "zlib",
+  "scripts": [
+   "20-zlib.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/madler/zlib.git",
+  "ref": "9d314c341b2ce16e01ae44e27ec3dd2f32aa58fd",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "zlib@9d314c341b2c--LICENSE",
+    "sha256": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2",
+    "firstLine": "Copyright notice:"
+   }
+  ],
+  "kinds": [
+   "Zlib"
+  ]
+ },
+ {
+  "name": "fftw3",
+  "scripts": [
+   "25-fftw3.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/FFTW/fftw3.git",
+  "ref": "a7b679c528330cf6258253d6dcf5ec90552e6c93",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "fftw3@a7b679c52833--COPYING",
+    "sha256": "231f7edcc7352d7734a96eef0b8030f77982678c516876fcb81e25b32d68564c",
+    "firstLine": "GNU GENERAL PUBLIC LICENSE"
+   },
+   {
+    "file": "COPYRIGHT",
+    "saved": "fftw3@a7b679c52833--COPYRIGHT",
+    "sha256": "8a74b35d541d93fdf58a22a3d3baa48ae3edbf6d715edfeb6457c21968ae43ac",
+    "firstLine": "/*"
+   }
+  ],
+  "kinds": [
+   "LGPL-2",
+   "GPL-2"
+  ],
+  "reviewed": "GPL-2.0-or-later — built in BtbN's image but NOT linked: only rubberband (GPL-only, excluded from LGPL builds) uses it; 0 fftw strings in the linux64 ffmpeg and the win64 ffmpeg.exe"
+ },
+ {
+  "name": "fribidi",
+  "scripts": [
+   "25-fribidi.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/fribidi/fribidi.git",
+  "ref": "d2f3e1f4946e7cef9789e1c3ebdb4a60d4314c7f",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "fribidi@d2f3e1f4946e--COPYING",
+    "sha256": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95",
+    "firstLine": "GNU LESSER GENERAL PUBLIC LICENSE"
+   }
+  ],
+  "kinds": [
+   "LGPL-2.1"
+  ]
+ },
+ {
+  "name": "gmp",
+  "scripts": [
+   "25-gmp.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/BtbN/gmplib.git",
+  "ref": "5c3e9a9d52b697cab7b7d26a53972a3bf922d59a",
+  "files": [
+   {
+    "file": "COPYING.LESSERv3",
+    "saved": "gmp@5c3e9a9d52b6--COPYING.LESSERv3",
+    "sha256": "a853c2ffec17057872340eee242ae4d96cbf2b520ae27d903e1b2fef1a5f9d1c",
+    "firstLine": "GNU LESSER GENERAL PUBLIC LICENSE"
+   },
+   {
+    "file": "COPYINGv2",
+    "saved": "gmp@5c3e9a9d52b6--COPYINGv2",
+    "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+    "firstLine": "GNU GENERAL PUBLIC LICENSE"
+   },
+   {
+    "file": "COPYINGv3",
+    "saved": "gmp@5c3e9a9d52b6--COPYINGv3",
+    "sha256": "e6037104443f9a7829b2aa7c5370d0789a7bda3ca65a0b904cdc0c2e285d9195",
+    "firstLine": "GNU GENERAL PUBLIC LICENSE"
+   }
+  ],
+  "kinds": [
+   "LGPL-3",
+   "LGPL-2",
+   "GPL-3"
+  ],
+  "reviewed": "LGPL-3.0-or-later OR GPL-2.0-or-later (dual); FFmpeg is built --enable-version3, LGPL-3 applies"
+ },
+ {
+  "name": "libogg",
+  "scripts": [
+   "25-libogg.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/xiph/ogg.git",
+  "ref": "06a5e0262cdc28aa4ae6797627a783b5010440f0",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libogg@06a5e0262cdc--COPYING",
+    "sha256": "d2ab5758336489da61c12cc5bb757da5339c4ae9001f9bb0562b4370249af814",
+    "firstLine": "Copyright (c) 2002, Xiph.org Foundation"
+   }
+  ],
+  "kinds": [
+   "BSD-3"
+  ]
+ },
+ {
+  "name": "libpng",
+  "scripts": [
+   "25-libpng.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/glennrp/libpng.git",
+  "ref": "0b0876829d77db0827a8cc2c4326f63be22b2aa1",
+  "files": [
+   {
+    "file": "LICENSE.md",
+    "saved": "libpng@0b0876829d77--LICENSE.md",
+    "sha256": "bdb0a645ea18c60507d0368379b1ac5474b92255fcc2d115e07486a7672ba526",
+    "firstLine": "COPYRIGHT NOTICE, DISCLAIMER, and LICENSE"
+   }
+  ],
+  "kinds": [
+   "?"
+  ],
+  "reviewed": "libpng-2.0 (PNG Reference Library License v2)"
+ },
+ {
+  "name": "libxml2",
+  "scripts": [
+   "25-libxml2.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/GNOME/libxml2.git",
+  "ref": "c79c9612fcc77b06b0d16f35fd363d938bdbbf5e",
+  "files": [
+   {
+    "file": "Copyright",
+    "saved": "libxml2@c79c9612fcc7--Copyright",
+    "sha256": "5d4873884a890122a4b9b20ad56ac6f7da1d796a5bfcf04a427970ac96217626",
+    "firstLine": "Except where otherwise noted in the source code (e.g. the files dict.c and"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "openssl",
+  "scripts": [
+   "25-openssl.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/openssl/openssl.git",
+  "ref": "openssl-3.6.5",
+  "files": [
+   {
+    "file": "LICENSE.txt",
+    "saved": "openssl@openssl-3.6.5--LICENSE.txt",
+    "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+    "firstLine": "Apache License"
+   }
+  ],
+  "kinds": [
+   "Apache-2.0"
+  ]
+ },
+ {
+  "name": "xz",
+  "scripts": [
+   "25-xz.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/tukaani-project/xz.git",
+  "ref": "299eb5c3f597f107fd6019bf156885ac8bfaa5ea",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "xz@299eb5c3f597--COPYING",
+    "sha256": "616a3ad264ce29b8f1cb97e53037b139d406899ca8d1f799651e17bfa09830b8",
+    "firstLine": "XZ Utils Licensing"
+   }
+  ],
+  "kinds": [
+   "LGPL-3",
+   "PD"
+  ]
+ },
+ {
+  "name": "brotli",
+  "scripts": [
+   "45-brotli.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/google/brotli.git",
+  "ref": "2e2bcf17ae7115d84ef6588d9a3651cc987d73e7",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "brotli@2e2bcf17ae71--LICENSE",
+    "sha256": "3d180008e36922a4e8daec11c34c7af264fed5962d07924aea928c38e8663c94",
+    "firstLine": "Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors."
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "freetype",
+  "scripts": [
+   "45-fonts/25-freetype.sh",
+   "45-fonts/50-freetype.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/freetype/freetype.git",
+  "ref": "4ba7c3d82ab8b3cc80b869337d2c2b1913c5e415",
+  "files": [
+   {
+    "file": "LICENSE.TXT",
+    "saved": "freetype@4ba7c3d82ab8--LICENSE.TXT",
+    "sha256": "bd36c8b474855fa294c2ec5c184544478ef3720aad37d65a6296a4f264fd2d3b",
+    "firstLine": "FREETYPE LICENSES"
+   }
+  ],
+  "kinds": [
+   "PD"
+  ]
+ },
+ {
+  "name": "fontconfig",
+  "scripts": [
+   "45-fonts/35-fontconfig.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/fontconfig/fontconfig.git",
+  "ref": "b25ffeabd15b76f86c0c6736f6df2f1b89858010",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "fontconfig@b25ffeabd15b--COPYING",
+    "sha256": "51a51aa9823704fd90bccc616cdd17ebabb5b2b3e9cbde886ca02c7002288067",
+    "firstLine": "fontconfig/COPYING"
+   }
+  ],
+  "kinds": [
+   "MIT",
+   "PD"
+  ]
+ },
+ {
+  "name": "harfbuzz",
+  "scripts": [
+   "45-fonts/45-harfbuzz.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/harfbuzz/harfbuzz.git",
+  "ref": "75d8ac5d2313842550174eaab0cbaf653c8f2f77",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "harfbuzz@75d8ac5d2313--COPYING",
+    "sha256": "ba8f810f2455c2f08e2d56bb49b72f37fcf68f1f4fade38977cfd7372050ad64",
+    "firstLine": "HarfBuzz is licensed under the so-called \"Old MIT\" license.  Details follow."
+   }
+  ],
+  "kinds": [
+   "?"
+  ],
+  "reviewed": "MIT (\"Old MIT\")"
+ },
+ {
+  "name": "lcms2",
+  "scripts": [
+   "45-lcms2.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/mm2/Little-CMS.git",
+  "ref": "1112313b3784ced9297d8c0ee076aba17499827a",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "lcms2@1112313b3784--LICENSE",
+    "sha256": "6dbd60437f8ef91d8de1f08ad75882547fd4931bfcc3566a0735f28db1484d31",
+    "firstLine": "MIT License"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "libffi",
+  "scripts": [
+   "45-libffi.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/libffi/libffi.git",
+  "ref": "bc553867367246d140cd156f060bd0409f57f157",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "libffi@bc5538673672--LICENSE",
+    "sha256": "17b64dc60f3b6897a60f971e288b973f655c2edcdf08b25f3c3dd5549857881c",
+    "firstLine": "libffi - Copyright (c) 1996-2026  Anthony Green, Red Hat, Inc and others."
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "libsamplerate",
+  "scripts": [
+   "45-libsamplerate.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/libsndfile/libsamplerate.git",
+  "ref": "0844c208f683527c08ea8a80acc13b398aa9c8bf",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libsamplerate@0844c208f683--COPYING",
+    "sha256": "2c1f76ce2effdddb425018405d5690c0b1ab4e6976e35296b0a6db65c5e1a55d",
+    "firstLine": "Copyright (c) 2012-2016, Erik de Castro Lopo <erikd@mega-nerd.com>"
+   }
+  ],
+  "kinds": [
+   "BSD-2"
+  ]
+ },
+ {
+  "name": "libudfread",
+  "scripts": [
+   "45-libudfread.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://code.videolan.org/videolan/libudfread.git",
+  "ref": "b0bc6957e7e07d5f35391f210596d9eb71cffdd9",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libudfread@b0bc6957e7e0--COPYING",
+    "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551",
+    "firstLine": "GNU LESSER GENERAL PUBLIC LICENSE"
+   }
+  ],
+  "kinds": [
+   "LGPL-2.1"
+  ]
+ },
+ {
+  "name": "libunibreak",
+  "scripts": [
+   "45-libunibreak.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/adah1972/libunibreak.git",
+  "ref": "f8172fe771ef620112247cadfb876aecaa4f769e",
+  "files": [
+   {
+    "file": "LICENCE",
+    "saved": "libunibreak@f8172fe771ef--LICENCE",
+    "sha256": "0c57e2ec42ece17791a75d2f9b2f8e0663181be008667a507f765b3ef22522db",
+    "firstLine": "Copyright (C) Wu Yongwei <wuyongwei at gmail dot com>"
+   }
+  ],
+  "kinds": [
+   "Zlib"
+  ]
+ },
+ {
+  "name": "libvorbis",
+  "scripts": [
+   "45-libvorbis.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/xiph/vorbis.git",
+  "ref": "1b75110b5a2754ba1931d82dd83cb822b266a21d",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libvorbis@1b75110b5a27--COPYING",
+    "sha256": "ec1815db59fcd302846df949d7424876cb2e2dc5ed1606c5fb0b36787b1cf43a",
+    "firstLine": "Copyright (c) 2002-2020 Xiph.org Foundation"
+   }
+  ],
+  "kinds": [
+   "BSD-3"
+  ]
+ },
+ {
+  "name": "opencl",
+  "scripts": [
+   "45-opencl.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/KhronosGroup/OpenCL-Headers.git",
+  "ref": "82f60316cc142e7b21dc1d8983b26de18858fbd9",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "opencl@82f60316cc14--LICENSE",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "firstLine": "Apache License"
+   }
+  ],
+  "kinds": [
+   "Apache-2.0"
+  ]
+ },
+ {
+  "name": "pcre2",
+  "scripts": [
+   "45-pcre2.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/PCRE2Project/pcre2.git",
+  "ref": "be940c4eaec0bc4117e06e8f14e56bf82089be6b",
+  "files": [
+   {
+    "file": "LICENCE.md",
+    "saved": "pcre2@be940c4eaec0--LICENCE.md",
+    "sha256": "197d8a73ffee0d6b09adba2f9c677b5f5aede24edf89258a68e48248d010d811",
+    "firstLine": "PCRE2 Licence"
+   }
+  ],
+  "kinds": [
+   "BSD-3",
+   "PD"
+  ]
+ },
+ {
+  "name": "pixman",
+  "scripts": [
+   "45-pixman.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/pixman/pixman.git",
+  "ref": "e7fd44140fe6edef507d54bdbc25c09543ffc936",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "pixman@e7fd44140fe6--COPYING",
+    "sha256": "fac9270f0987b96ff4533fca3548c633e02083cbba4a0172a3b149b2e4019793",
+    "firstLine": "The following is the MIT license, agreed upon by most contributors."
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "vmaf",
+  "scripts": [
+   "45-vmaf.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/Netflix/vmaf.git",
+  "ref": "f712fa7564fe49b12991d83920b83573af2ae063",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "vmaf@f712fa7564fe--LICENSE",
+    "sha256": "a6fdb51d02b9dfe198e55534bb8047fe6d756eda117f4ff83de98f92c1952710",
+    "firstLine": "LICENSE - BSD+Patent"
+   }
+  ],
+  "kinds": [
+   "BSD-2"
+  ]
+ },
+ {
+  "name": "xxhash",
+  "scripts": [
+   "45-xxhash.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/Cyan4973/xxHash.git",
+  "ref": "61fd0fece2ebafc5bd9b573050e0c046c4e48d28",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "xxhash@61fd0fece2eb--LICENSE",
+    "sha256": "6ffedbc0f7878612d2b23589f1ff2ab15633e1df7963a5d9fc750ec5500c7e7a",
+    "firstLine": "xxHash Library"
+   }
+  ],
+  "kinds": [
+   "BSD-2"
+  ]
+ },
+ {
+  "name": "zstd",
+  "scripts": [
+   "45-zstd.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/facebook/zstd.git",
+  "ref": "49cf51799ea051457f57243527aa2058f999f005",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "zstd@49cf51799ea0--LICENSE",
+    "sha256": "7055266497633c9025b777c78eb7235af13922117480ed5c674677adc381c9d8",
+    "firstLine": "BSD License"
+   },
+   {
+    "file": "COPYING",
+    "saved": "zstd@49cf51799ea0--COPYING",
+    "sha256": "f9c375a1be4a41f7b70301dd83c91cb89e41567478859b77eef375a52d782505",
+    "firstLine": "GNU GENERAL PUBLIC LICENSE"
+   }
+  ],
+  "kinds": [
+   "BSD-3",
+   "LGPL-2"
+  ]
+ },
+ {
+  "name": "vulkan-headers",
+  "scripts": [
+   "47-vulkan/40-vulkan-headers.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/KhronosGroup/Vulkan-Headers.git",
+  "ref": "v1.4.366",
+  "files": [
+   {
+    "file": "LICENSE.md",
+    "saved": "vulkan-headers@v1.4.366--LICENSE.md",
+    "sha256": "95ad366d23fadf701d355bc45fb8b82ae2d700239471d35d41286ac3b08ff903",
+    "firstLine": "Copyright 2015-2026 The Khronos Group Inc."
+   }
+  ],
+  "kinds": [
+   "?"
+  ],
+  "reviewed": "Apache-2.0 OR MIT"
+ },
+ {
+  "name": "vulkan-loader",
+  "scripts": [
+   "47-vulkan/45-vulkan-loader.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/BtbN/Vulkan-Shim-Loader.git",
+  "ref": "65b3936528cd92eb4ea3de485d03f858a3850484",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "vulkan-loader@65b3936528cd--LICENSE",
+    "sha256": "8d4d279343d72e5b9e06bbe38c1ad8660fa8eabc217164a5b482ddf4ab0dba9d",
+    "firstLine": "MIT License"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "shaderc",
+  "scripts": [
+   "47-vulkan/50-shaderc.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/google/shaderc.git",
+  "ref": "2737994b552137a85545f956e303d620e6ff232c",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "shaderc@2737994b5521--LICENSE",
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "firstLine": "Apache License"
+   }
+  ],
+  "kinds": [
+   "Apache-2.0"
+  ]
+ },
+ {
+  "name": "spirv-cross",
+  "scripts": [
+   "47-vulkan/55-spirv-cross.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/KhronosGroup/SPIRV-Cross.git",
+  "ref": "300681bbcb8365a8d1eacdacdbdd0249bbf1d6b1",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "spirv-cross@300681bbcb83--LICENSE",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "firstLine": "Apache License"
+   }
+  ],
+  "kinds": [
+   "Apache-2.0"
+  ]
+ },
+ {
+  "name": "spirv-headers",
+  "scripts": [
+   "47-vulkan/60-spirv-headers.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/KhronosGroup/SPIRV-Headers.git",
+  "ref": "fbf86836a9b1966586faf7be7bb8a6440e156d62",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "spirv-headers@fbf86836a9b1--LICENSE",
+    "sha256": "ea43b1de38a6f90c488800d66dec1ed671e68cda530266bc96951fb5b6307613",
+    "firstLine": "Files: All files except for those called out below."
+   }
+  ],
+  "kinds": [
+   "MIT",
+   "PD"
+  ]
+ },
+ {
+  "name": "amf",
+  "scripts": [
+   "50-amf.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git",
+  "ref": "57ee0cfb0e1a08d9041f77435653794c1b012be0",
+  "files": [
+   {
+    "file": "LICENSE.txt",
+    "saved": "amf@57ee0cfb0e1a--LICENSE.txt",
+    "sha256": "eb297397aaa455b5668ab67d216b83828466152dab123fa92384c6ec16b74170",
+    "firstLine": "Notice Regarding Standards.  AMD does not provide a license or sublicense to"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "aom",
+  "scripts": [
+   "50-aom.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://aomedia.googlesource.com/aom",
+  "ref": "9ace39e02a34992b83fc7f7f2bfbbd2e79348c74",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "aom@9ace39e02a34--LICENSE",
+    "sha256": "4764a286d8b2faeaf42f4418e7d7a28d58fc8fd4d00a3d0a7f44b0a4099de7f2",
+    "firstLine": "Copyright (c) 2016, Alliance for Open Media. All rights reserved."
+   }
+  ],
+  "kinds": [
+   "BSD-2"
+  ]
+ },
+ {
+  "name": "chromaprint",
+  "scripts": [
+   "50-chromaprint.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/acoustid/chromaprint.git",
+  "ref": "3b38c100022bdfb49be7797c4828a476f1621d55",
+  "files": [
+   {
+    "file": "LICENSE.md",
+    "saved": "chromaprint@3b38c100022b--LICENSE.md",
+    "sha256": "562cfe59627e0c4e8e3b066f3ff2e9736f83811ffe4c6c2c7796595aa7595ebd",
+    "firstLine": "License"
+   }
+  ],
+  "kinds": [
+   "LGPL-2.1",
+   "MIT"
+  ]
+ },
+ {
+  "name": "dav1d",
+  "scripts": [
+   "50-dav1d.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://code.videolan.org/videolan/dav1d.git",
+  "ref": "b8b2d726b4b78a2fb174cb45baff441b5969672c",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "dav1d@b8b2d726b4b7--COPYING",
+    "sha256": "dd92c3c2247c5651606fc23a5e2d6a1ebc5ace9a3e49cbde0e12f05ad1cb1ee5",
+    "firstLine": "Copyright © 2018-2025, VideoLAN and dav1d authors"
+   }
+  ],
+  "kinds": [
+   "BSD-2"
+  ]
+ },
+ {
+  "name": "ffnvcodec",
+  "scripts": [
+   "50-ffnvcodec.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/FFmpeg/nv-codec-headers.git",
+  "ref": "f2053071ea93137255b6dcf42e9b4c9e0965a44e",
+  "files": [
+   {
+    "file": "include/ffnvcodec/nvEncodeAPI.h",
+    "saved": "ffnvcodec@f2053071ea93--include_ffnvcodec_nvEncodeAPI.h",
+    "sha256": "8f115901902ad05ce3a1ba48ae15393a1853ac0a3e7835ebe986cc80e1039b19",
+    "firstLine": "/*",
+    "note": "license comment at the top of each header (no separate license file)"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "gme",
+  "scripts": [
+   "50-gme.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/libgme/game-music-emu.git",
+  "ref": "f68963b1de0633149b05732113d3c3113c6f63a1",
+  "files": [
+   {
+    "file": "license.txt",
+    "saved": "gme@f68963b1de06--license.txt",
+    "sha256": "d2efc89fbb7533572a472d34e07964951810a3a4f8d3159ecc2dcaa1452c5c26",
+    "firstLine": "GNU LESSER GENERAL PUBLIC LICENSE"
+   }
+  ],
+  "kinds": [
+   "LGPL-2.1"
+  ]
+ },
+ {
+  "name": "kvazaar",
+  "scripts": [
+   "50-kvazaar.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/ultravideo/kvazaar.git",
+  "ref": "1f11f9ae33ef0cbe48a7d335b7144af1ecfe8092",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "kvazaar@1f11f9ae33ef--LICENSE",
+    "sha256": "3c1dc3d7f8a3d08c14f4fbe9942f45764d8a21a3296e8d83446f33fd65f21c38",
+    "firstLine": "Copyright (c) 2021, Tampere University, ITU/ISO/IEC, project contributors"
+   }
+  ],
+  "kinds": [
+   "BSD-3"
+  ]
+ },
+ {
+  "name": "lcevcdec",
+  "scripts": [
+   "50-lcevcdec.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/v-novaltd/LCEVCdec.git",
+  "ref": "741fb7c869cf61012f7dcebfcd9e56981198c78b",
+  "files": [
+   {
+    "file": "LICENSE.md",
+    "saved": "lcevcdec@741fb7c869cf--LICENSE.md",
+    "sha256": "14358b0ecf6e7036c211c10f0f25563c94483dee7b8c7c954e09e10f3771d0af",
+    "firstLine": "The Clear BSD License"
+   },
+   {
+    "file": "COPYING",
+    "saved": "lcevcdec@741fb7c869cf--COPYING",
+    "sha256": "3afa5369b4fb44e18280b6e0e275971f78bc6eaf5f53553f41f2483fd8b1267e",
+    "firstLine": "Copyright (c) V-Nova International Limited 2014-2026. All rights reserved."
+   }
+  ],
+  "kinds": [
+   "BSD-2",
+   "?"
+  ],
+  "reviewed": "BSD-3-Clause-Clear (no patent license granted)"
+ },
+ {
+  "name": "libaribb24",
+  "scripts": [
+   "50-libaribb24.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/nkoriyama/aribb24.git",
+  "ref": "5e9be272f96e00f15a2f3c5f8ba7e124862aec38",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libaribb24@5e9be272f96e--COPYING",
+    "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768",
+    "firstLine": "GNU LESSER GENERAL PUBLIC LICENSE"
+   }
+  ],
+  "kinds": [
+   "LGPL-3"
+  ]
+ },
+ {
+  "name": "libaribcaption",
+  "scripts": [
+   "50-libaribcaption.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/xqq/libaribcaption.git",
+  "ref": "37dde0f32652c32aa98bf92278944d1cfb2e7354",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "libaribcaption@37dde0f32652--LICENSE",
+    "sha256": "5149f1ce4fe89190d86bfb440456701a3a7406fc2b19ef0d8b57661f62b32c04",
+    "firstLine": "MIT License"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "libass",
+  "scripts": [
+   "50-libass.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/libass/libass.git",
+  "ref": "f61db567e6593df3470e91594bcd4ad2d0473aff",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libass@f61db567e659--COPYING",
+    "sha256": "f7e30699d02798351e7f839e3d3bfeb29ce65e44efa7735c225464c4fd7dfe9c",
+    "firstLine": "ISC License"
+   }
+  ],
+  "kinds": [
+   "ISC"
+  ]
+ },
+ {
+  "name": "libbluray",
+  "scripts": [
+   "50-libbluray.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://code.videolan.org/videolan/libbluray.git",
+  "ref": "f33a738fd7bb8b5e1148b0a5424778db7342450b",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libbluray@f33a738fd7bb--COPYING",
+    "sha256": "b3aa400aca6d2ba1f0bd03bd98d03d1fe7489a3bbb26969d72016360af8a5c9d",
+    "firstLine": "GNU LESSER GENERAL PUBLIC LICENSE"
+   }
+  ],
+  "kinds": [
+   "LGPL-2.1"
+  ]
+ },
+ {
+  "name": "libpsl",
+  "scripts": [
+   "50-libcurl/40-libpsl.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/rockdaboot/libpsl.git",
+  "ref": "620d51d13351e8f3cb724471032246592c9bbd69",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "libpsl@620d51d13351--LICENSE",
+    "sha256": "e7c9f0d8498d28a360a7e8293ea70fd7bd952955b636938322c13d60a03b5a45",
+    "firstLine": "Copyright (C) Tim Rühsen and Libpsl Contributors."
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "nghttp2",
+  "scripts": [
+   "50-libcurl/40-nghttp2.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/nghttp2/nghttp2.git",
+  "ref": "3baf9561e09f7ac8b0dce6e84132ce3909309ef0",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "nghttp2@3baf9561e09f--COPYING",
+    "sha256": "6b94f3abc1aabd0c72a7c7d92a77f79dda7c8a0cb3df839a97890b4116a2de2a",
+    "firstLine": "The MIT License"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "nghttp3",
+  "scripts": [
+   "50-libcurl/40-nghttp3.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/ngtcp2/nghttp3.git",
+  "ref": "ac11a456eb9d76e55fd6c1626727111cd29d5459",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "nghttp3@ac11a456eb9d--COPYING",
+    "sha256": "58cc3fc8c6d6cb2485ab35eb5918e849b5bf1e56522974e106d7a39a88d61dcd",
+    "firstLine": "The MIT License"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "ngtcp2",
+  "scripts": [
+   "50-libcurl/40-ngtcp2.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/ngtcp2/ngtcp2.git",
+  "ref": "20da63db12a3e7fd2a3ae1a9f15be3cadd3f2695",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "ngtcp2@20da63db12a3--COPYING",
+    "sha256": "542dd526d2ea23565f0571cc68df6f05ed11248a90ff0f32de19d8ba589db513",
+    "firstLine": "The MIT License"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "libjxl",
+  "scripts": [
+   "50-libjxl/50-libjxl.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/libjxl/libjxl.git",
+  "ref": "e47d2a2b5bb418f2947ce07f36cb048861db3820",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "libjxl@e47d2a2b5bb4--LICENSE",
+    "sha256": "8405932022a556380c2d8c272eff154a923feb197233f348ce5f7334fb0a5ede",
+    "firstLine": "Copyright (c) the JPEG XL Project Authors."
+   }
+  ],
+  "kinds": [
+   "BSD-3"
+  ]
+ },
+ {
+  "name": "libopus",
+  "scripts": [
+   "50-libopus.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/xiph/opus.git",
+  "ref": "a8b2545eec71e0f53ecead2d583e7b6baa42684d",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libopus@a8b2545eec71--COPYING",
+    "sha256": "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551",
+    "firstLine": "Copyright 2001-2023 Xiph.Org, Skype Limited, Octasic,"
+   }
+  ],
+  "kinds": [
+   "BSD-3"
+  ]
+ },
+ {
+  "name": "libplacebo",
+  "scripts": [
+   "50-libplacebo.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://code.videolan.org/videolan/libplacebo.git",
+  "ref": "275f7dea27924cdd34ab2e6c20e448b6bc4fab65",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "libplacebo@275f7dea2792--LICENSE",
+    "sha256": "b3aa400aca6d2ba1f0bd03bd98d03d1fe7489a3bbb26969d72016360af8a5c9d",
+    "firstLine": "GNU LESSER GENERAL PUBLIC LICENSE"
+   }
+  ],
+  "kinds": [
+   "LGPL-2.1"
+  ]
+ },
+ {
+  "name": "mbedtls",
+  "scripts": [
+   "50-librist/40-mbedtls.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/ARMmbed/mbedtls.git",
+  "ref": "v4.2.0",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "mbedtls@v4.2.0--LICENSE",
+    "sha256": "9b405ef4c89342f5eae1dd828882f931747f71001cfba7d114801039b52ad09b",
+    "firstLine": "Mbed TLS files are provided under a dual [Apache-2.0](https://spdx.org/licenses/Apache-2.0"
+   }
+  ],
+  "kinds": [
+   "Apache-2.0"
+  ]
+ },
+ {
+  "name": "librist",
+  "scripts": [
+   "50-librist/50-librist.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://code.videolan.org/rist/librist.git",
+  "ref": "47ad5513d1aa0adb692d78f635512e7fa123f06e",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "librist@47ad5513d1aa--COPYING",
+    "sha256": "b9841591a3452ee30033d8e3586c7b1244a0b2fc1dc6cb04576957c313cb2792",
+    "firstLine": "Copyright © 2019-2020, VideoLAN and librist authors"
+   }
+  ],
+  "kinds": [
+   "BSD-2"
+  ]
+ },
+ {
+  "name": "glib",
+  "scripts": [
+   "50-librsvg/10-glib.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/GNOME/glib.git",
+  "ref": "50b938a3e8f5154a25b5af3dd8b9dd8b2ccba7c3",
+  "files": [
+   {
+    "file": "LICENSES/LGPL-2.1-or-later.txt",
+    "saved": "glib@50b938a3e8f5--LICENSES_LGPL-2.1-or-later.txt",
+    "sha256": "fa6f36630bb1e0c571d34b2bbdf188d08495c9dbf58f28cac112f303fc1f58fb",
+    "firstLine": "GNU LESSER GENERAL PUBLIC LICENSE"
+   }
+  ],
+  "kinds": [
+   "LGPL-2.1"
+  ]
+ },
+ {
+  "name": "cairo",
+  "scripts": [
+   "50-librsvg/20-cairo.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/cairo/cairo.git",
+  "ref": "74755964edef651691d5cd36ff140108298e4e6e",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "cairo@74755964edef--COPYING",
+    "sha256": "67228a9f7c5f9b67c58f556f1be178f62da4d9e2e6285318d8c74d567255abdf",
+    "firstLine": "Cairo is free software."
+   }
+  ],
+  "kinds": [
+   "?"
+  ],
+  "reviewed": "LGPL-2.1 OR MPL-1.1"
+ },
+ {
+  "name": "pango",
+  "scripts": [
+   "50-librsvg/30-pango.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/GNOME/pango.git",
+  "ref": "68e981d243d50e03f3df12fb400f31647ef570d2",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "pango@68e981d243d5--COPYING",
+    "sha256": "d245807f90032872d1438d741ed21e2490e1175dc8aa3afa5ddb6c8e529b58e5",
+    "firstLine": "GNU LIBRARY GENERAL PUBLIC LICENSE"
+   }
+  ],
+  "kinds": [
+   "LGPL-2"
+  ]
+ },
+ {
+  "name": "librsvg",
+  "scripts": [
+   "50-librsvg/99-librsvg.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/GNOME/librsvg.git",
+  "ref": "0c074d0a25adefd65843067306f9bc1fb609f68f",
+  "files": [
+   {
+    "file": "COPYING.LIB",
+    "saved": "librsvg@0c074d0a25ad--COPYING.LIB",
+    "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551",
+    "firstLine": "GNU LESSER GENERAL PUBLIC LICENSE"
+   }
+  ],
+  "kinds": [
+   "LGPL-2.1"
+  ]
+ },
+ {
+  "name": "libssh",
+  "scripts": [
+   "50-libssh.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://gitlab.com/libssh/libssh-mirror.git",
+  "ref": "9de02f3d01ba16d06f46c0c4d27aa08d8deeecee",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libssh@9de02f3d01ba--COPYING",
+    "sha256": "1656186e951db1c010a8485481fa94587f7e53a26d24976bef97945ad0c4df5a",
+    "firstLine": "GNU LESSER GENERAL PUBLIC LICENSE"
+   }
+  ],
+  "kinds": [
+   "LGPL-2.1"
+  ]
+ },
+ {
+  "name": "libtheora",
+  "scripts": [
+   "50-libtheora.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/xiph/theora.git",
+  "ref": "28fd5ec77f0ad0e07a371cef1047828116f6bd8a",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "libtheora@28fd5ec77f0a--LICENSE",
+    "sha256": "2c902950c73a63cd285dc0c36573de9c5fefe66d49312949c51d941f33e92932",
+    "firstLine": "Please see the file COPYING for the copyright license for this software."
+   },
+   {
+    "file": "COPYING",
+    "saved": "libtheora@28fd5ec77f0a--COPYING",
+    "sha256": "8417fad7da775735564e209484a2e011e0fa201e94f01fdbee6e4977e478e6fc",
+    "firstLine": "Copyright (C) 2002-2009 Xiph.org Foundation"
+   }
+  ],
+  "kinds": [
+   "?",
+   "BSD-3"
+  ],
+  "reviewed": "BSD-3-Clause (Xiph), with On2 patent non-assertion"
+ },
+ {
+  "name": "libvpx",
+  "scripts": [
+   "50-libvpx.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://chromium.googlesource.com/webm/libvpx",
+  "ref": "900b2a52b69e9d4ab72eb855c365da1100c50eb1",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "libvpx@900b2a52b69e--LICENSE",
+    "sha256": "8267348d5af1262c11d1a08de2f5afc77457755f1ac658627dd9acf71011d615",
+    "firstLine": "Copyright (c) 2010, The WebM Project authors. All rights reserved."
+   }
+  ],
+  "kinds": [
+   "BSD-3"
+  ]
+ },
+ {
+  "name": "libwebp",
+  "scripts": [
+   "50-libwebp.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://chromium.googlesource.com/webm/libwebp",
+  "ref": "1844042d1ca751e62e61df7617dba19c98588339",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libwebp@1844042d1ca7--COPYING",
+    "sha256": "5aec868f669e384a22372a4e8a1a6cd7d44c64cd451f960ca69cc170d1e13acf",
+    "firstLine": "Copyright (c) 2010, Google Inc. All rights reserved."
+   }
+  ],
+  "kinds": [
+   "BSD-3"
+  ]
+ },
+ {
+  "name": "libzmq",
+  "scripts": [
+   "50-libzmq.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/zeromq/libzmq.git",
+  "ref": "46493370217ac135246617fa2f6ac819d8b61bfc",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "libzmq@46493370217a--LICENSE",
+    "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5",
+    "firstLine": "Mozilla Public License Version 2.0"
+   }
+  ],
+  "kinds": [
+   "GPL-3",
+   "MPL-2.0"
+  ],
+  "reviewed": "MPL-2.0 (the GPL match is the MPL text naming GPL as a secondary licence)"
+ },
+ {
+  "name": "lv2",
+  "scripts": [
+   "50-lilv/96-lv2.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/lv2/lv2.git",
+  "ref": "3c57dae600a5ad8d05acd53ee3490f7d91cb7be6",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "lv2@3c57dae600a5--COPYING",
+    "sha256": "1e6bb175e193608b767ff25a4ed68b82c4db599491cf0d2694435cf60e9a4841",
+    "firstLine": "Copyright 2006-2012 Steve Harris, David Robillard."
+   }
+  ],
+  "kinds": [
+   "ISC"
+  ]
+ },
+ {
+  "name": "serd",
+  "scripts": [
+   "50-lilv/96-serd.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/drobilla/serd.git",
+  "ref": "b621b0bc790d1e8102d3138ead16b974ddda8432",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "serd@b621b0bc790d--COPYING",
+    "sha256": "ae223adebe7cc1ee0716e0f926d1ecc8e42c6e4da7e1d7418c9c07fae244bbde",
+    "firstLine": "Copyright 2011-2026 David Robillard <d@drobilla.net>"
+   }
+  ],
+  "kinds": [
+   "ISC"
+  ]
+ },
+ {
+  "name": "zix",
+  "scripts": [
+   "50-lilv/96-zix.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/drobilla/zix.git",
+  "ref": "17d632393f5addb6fa24dda2927b96515407cca7",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "zix@17d632393f5a--COPYING",
+    "sha256": "1314cc14fb947491491c517c533ac7de4f6798585f922a472358082c25ac1881",
+    "firstLine": "Copyright 2011-2022 David Robillard <d@drobilla.net>"
+   }
+  ],
+  "kinds": [
+   "ISC"
+  ]
+ },
+ {
+  "name": "sord",
+  "scripts": [
+   "50-lilv/97-sord.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/drobilla/sord.git",
+  "ref": "4b5232bb91e7f2f1b84df384494d073fabbcd312",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "sord@4b5232bb91e7--COPYING",
+    "sha256": "ae223adebe7cc1ee0716e0f926d1ecc8e42c6e4da7e1d7418c9c07fae244bbde",
+    "firstLine": "Copyright 2011-2026 David Robillard <d@drobilla.net>"
+   }
+  ],
+  "kinds": [
+   "ISC"
+  ]
+ },
+ {
+  "name": "sratom",
+  "scripts": [
+   "50-lilv/98-sratom.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/lv2/sratom.git",
+  "ref": "9e8ee84eed502e6030ce8bb49694fd28542b08fc",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "sratom@9e8ee84eed50--COPYING",
+    "sha256": "1d968c655ecad113e128dbf4d4deabd9e30b931b42943b6a681c9cf11d7da5d4",
+    "firstLine": "Copyright 2012-2026 David Robillard <d@drobilla.net>"
+   }
+  ],
+  "kinds": [
+   "ISC"
+  ]
+ },
+ {
+  "name": "lilv",
+  "scripts": [
+   "50-lilv/99-lilv.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/lv2/lilv.git",
+  "ref": "4b8f30055fa5cb4134a2eb45fc1555bc04289314",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "lilv@4b8f30055fa5--COPYING",
+    "sha256": "ae223adebe7cc1ee0716e0f926d1ecc8e42c6e4da7e1d7418c9c07fae244bbde",
+    "firstLine": "Copyright 2011-2026 David Robillard <d@drobilla.net>"
+   }
+  ],
+  "kinds": [
+   "ISC"
+  ]
+ },
+ {
+  "name": "onevpl",
+  "scripts": [
+   "50-onevpl.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/intel/libvpl.git",
+  "ref": "674d015bcb294bc39fa276e99a652ea045423e82",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "onevpl@674d015bcb29--LICENSE",
+    "sha256": "bf1cfac2e2792b6e1e995ce103d70796aecaf2ec7e4c5fe5474f7acec7b4a677",
+    "firstLine": "MIT License"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "openal",
+  "scripts": [
+   "50-openal.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/kcat/openal-soft.git",
+  "ref": "4a52288b772d1722713675f71bb30f321e78fd80",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "openal@4a52288b772d--COPYING",
+    "sha256": "d808ce217e5b611854da622b57ec29fe545584c48bc5352fae72a4b6e5074a15",
+    "firstLine": "GNU LIBRARY GENERAL PUBLIC LICENSE"
+   }
+  ],
+  "kinds": [
+   "LGPL-2"
+  ]
+ },
+ {
+  "name": "openapv",
+  "scripts": [
+   "50-openapv.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/AcademySoftwareFoundation/openapv.git",
+  "ref": "b4ff69856b4c3e8849df431ee3db54fd535f9bf3",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "openapv@b4ff69856b4c--LICENSE",
+    "sha256": "7ad8e53c0c3e24e7ba64dbcad5e7706108f3dc67cf6515ef761adac0a39dab25",
+    "firstLine": "Copyright (c) 2022 Samsung Electronics Co., Ltd."
+   }
+  ],
+  "kinds": [
+   "BSD-3"
+  ]
+ },
+ {
+  "name": "opencore-amr",
+  "scripts": [
+   "50-opencore-amr.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://git.code.sf.net/p/opencore-amr/code",
+  "ref": "7dba8c32238418ce0b316a852b2224df586ca896",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "opencore-amr@7dba8c322384--LICENSE",
+    "sha256": "8b3f1762349248d444ab9acbafe73941254e36e1064954da56bb9ddbd5873ddb",
+    "firstLine": "Apache License"
+   }
+  ],
+  "kinds": [
+   "Apache-2.0"
+  ]
+ },
+ {
+  "name": "openjpeg",
+  "scripts": [
+   "50-openjpeg.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/uclouvain/openjpeg.git",
+  "ref": "8314119b067c0fc77834731168daaebd379fdb12",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "openjpeg@8314119b067c--LICENSE",
+    "sha256": "a6af136f3e15038a666b61f376612a07d9a4e48cb7c01adbf3e33b3f14ab49b6",
+    "firstLine": "/*"
+   }
+  ],
+  "kinds": [
+   "BSD-2"
+  ]
+ },
+ {
+  "name": "openmpt",
+  "scripts": [
+   "50-openmpt.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/OpenMPT/openmpt.git",
+  "ref": "3ee3c8000b45886703816fd027369ab6ad6fc6cb",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "openmpt@3ee3c8000b45--LICENSE",
+    "sha256": "2c999e99533c10a347916a72e075bacf10fcedeff793bd90d41d812b46161da2",
+    "firstLine": "Copyright (c) 2004-2026, OpenMPT Project Developers and Contributors"
+   }
+  ],
+  "kinds": [
+   "BSD-3"
+  ]
+ },
+ {
+  "name": "rav1e",
+  "scripts": [
+   "50-rav1e.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/xiph/rav1e.git",
+  "ref": "31435de9d76fddd38f6dcc31d4014574cebb2092",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "rav1e@31435de9d76f--LICENSE",
+    "sha256": "2dd0a109751e939dec3f80ddcfbc1ba91553f18c574399e85c159632182a2c0a",
+    "firstLine": "BSD 2-Clause License"
+   }
+  ],
+  "kinds": [
+   "BSD-2"
+  ]
+ },
+ {
+  "name": "sdl",
+  "scripts": [
+   "50-sdl.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/libsdl-org/SDL.git",
+  "ref": "8acf7cfc0f88717e5c036f60f0314bfcafe39189",
+  "files": [
+   {
+    "file": "LICENSE.txt",
+    "saved": "sdl@8acf7cfc0f88--LICENSE.txt",
+    "sha256": "1c040b8271b37e5076359f8fd54240e371114112924d2df81ef87c7d6a1dfdfd",
+    "firstLine": "Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>"
+   }
+  ],
+  "kinds": [
+   "Zlib"
+  ]
+ },
+ {
+  "name": "snappy",
+  "scripts": [
+   "50-snappy.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/google/snappy.git",
+  "ref": "946606459314e55d029c85f9a8c46f8809467f0f",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "snappy@946606459314--COPYING",
+    "sha256": "55172044f7e241207117448a4d9d6ba1d0925c8ad66b5d4c08c70adfa9cc3de6",
+    "firstLine": "Copyright 2011, Google Inc."
+   }
+  ],
+  "kinds": [
+   "BSD-3",
+   "PD"
+  ]
+ },
+ {
+  "name": "soxr",
+  "scripts": [
+   "50-soxr.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://git.code.sf.net/p/soxr/code",
+  "ref": "945b592b70470e29f917f4de89b4281fbbd540c0",
+  "files": [
+   {
+    "file": "LICENCE",
+    "saved": "soxr@945b592b7047--LICENCE",
+    "sha256": "dc98676341fdcd29d9f279c9679d6a75288785b174ded8d1b2e316c366166135",
+    "firstLine": "SoX Resampler Library       Copyright (c) 2007-18 robs@users.sourceforge.net"
+   },
+   {
+    "file": "COPYING.LGPL",
+    "saved": "soxr@945b592b7047--COPYING.LGPL",
+    "sha256": "f2f118b9029ec1871b953639ecc46651b2fc7b62e295e6cf3ef2ac4c9a058b33",
+    "firstLine": "GNU LESSER GENERAL PUBLIC LICENSE"
+   }
+  ],
+  "kinds": [
+   "LGPL-2.1"
+  ]
+ },
+ {
+  "name": "srt",
+  "scripts": [
+   "50-srt.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/Haivision/srt.git",
+  "ref": "9f2390232a8256ed4c72a5418c2b2777c49ad737",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "srt@9f2390232a82--LICENSE",
+    "sha256": "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85",
+    "firstLine": "Mozilla Public License Version 2.0"
+   }
+  ],
+  "kinds": [
+   "GPL-3",
+   "MPL-2.0"
+  ],
+  "reviewed": "MPL-2.0 (the GPL match is the MPL text naming GPL as a secondary licence)"
+ },
+ {
+  "name": "svtav1",
+  "scripts": [
+   "50-svtav1.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://gitlab.com/AOMediaCodec/SVT-AV1.git",
+  "ref": "f2c3fb78611d542b12b11c6d10d3744b31b754a0",
+  "files": [
+   {
+    "file": "LICENSE.md",
+    "saved": "svtav1@f2c3fb78611d--LICENSE.md",
+    "sha256": "0acc2fcb27472bdc9aaf8b71f37055bbdac4f54671b7d922f241bd7fcd0dd3e6",
+    "firstLine": "BSD 3-Clause Clear License"
+   }
+  ],
+  "kinds": [
+   "BSD-3"
+  ]
+ },
+ {
+  "name": "twolame",
+  "scripts": [
+   "50-twolame.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/njh/twolame.git",
+  "ref": "6fced852d4d5cfad58cf9dbe3ea619b08e87d398",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "twolame@6fced852d4d5--COPYING",
+    "sha256": "257a842724705950b07da76ce0e22ffa80ec77b3e9dfc6702522ac342409da0f",
+    "firstLine": "GNU LESSER GENERAL PUBLIC LICENSE"
+   }
+  ],
+  "kinds": [
+   "LGPL-2.1"
+  ]
+ },
+ {
+  "name": "uavs3d",
+  "scripts": [
+   "50-uavs3d.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/uavs3/uavs3d.git",
+  "ref": "0e20d2c291853f196c68922a264bcd8471d75b68",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "uavs3d@0e20d2c29185--COPYING",
+    "sha256": "5a8dcb7da222df8a81b6e334000f859248196335e2d28e1db9f3c552827d7cdf",
+    "firstLine": "Copyright (c) 2018-2022 [\"Peking University Shenzhen Graduate School\", \"Peng Cheng Laborat"
+   }
+  ],
+  "kinds": [
+   "BSD-3"
+  ]
+ },
+ {
+  "name": "libva",
+  "scripts": [
+   "50-vaapi/50-libva.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/intel/libva.git",
+  "ref": "f052e984e0c8bf10784198cc311b23c567b1367f",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libva@f052e984e0c8--COPYING",
+    "sha256": "c86a782ee845b52472dae9b9d79fb915d333628ac0efe49cdce63644814931de",
+    "firstLine": "Permission is hereby granted, free of charge, to any person obtaining a"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "vapoursynth",
+  "scripts": [
+   "50-vapoursynth.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/vapoursynth/vapoursynth.git",
+  "ref": "R81",
+  "files": [
+   {
+    "file": "COPYING.LESSER",
+    "saved": "vapoursynth@R81--COPYING.LESSER",
+    "sha256": "b634ab5640e258563c536e658cad87080553df6f34f62269a21d554844e58bfe",
+    "firstLine": "GNU LESSER GENERAL PUBLIC LICENSE"
+   }
+  ],
+  "kinds": [
+   "LGPL-2.1"
+  ]
+ },
+ {
+  "name": "vvenc",
+  "scripts": [
+   "50-vvenc.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/fraunhoferhhi/vvenc.git",
+  "ref": "0e7508b811bbea3cd510956ddb3193f3a4c93684",
+  "files": [
+   {
+    "file": "LICENSE.txt",
+    "saved": "vvenc@0e7508b811bb--LICENSE.txt",
+    "sha256": "88330a2cc59b9dd90674f8759900bc9c06e9efc8799dadda067609addefb49d1",
+    "firstLine": "The Clear BSD License"
+   }
+  ],
+  "kinds": [
+   "BSD-3"
+  ]
+ },
+ {
+  "name": "zimg",
+  "scripts": [
+   "50-zimg.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/sekrit-twc/zimg.git",
+  "ref": "67e0603271c080e22c8429856dd4a8a56587e61e",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "zimg@67e0603271c0--COPYING",
+    "sha256": "7637386b5f81e8a719ca336233149005e5fa28b5e6054ea7b67de49355b0ad40",
+    "firstLine": "DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE"
+   }
+  ],
+  "kinds": [
+   "WTFPL"
+  ]
+ },
+ {
+  "name": "zvbi",
+  "scripts": [
+   "50-zvbi.sh"
+  ],
+  "targets": [
+   "win64",
+   "linux64"
+  ],
+  "repo": "https://github.com/zapping-vbi/zvbi",
+  "ref": "34bb6f660c5c1bacd4a66cc7b22311e4ca3c1ab5",
+  "files": [
+   {
+    "file": "COPYING.md",
+    "saved": "zvbi@34bb6f660c5c--COPYING.md",
+    "sha256": "6d679539253897582d38fcd1eabfa670c01c0ece73d8cd3dc97869fcf723f106",
+    "firstLine": "**zvbi/libzvbi, https://github.com/zapping-vbi/zvbi**"
+   }
+  ],
+  "kinds": [
+   "LGPL-2"
+  ]
+ },
+ {
+  "name": "xorg-macros",
+  "scripts": [
+   "10-xorg-macros.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/xorg/util/macros.git",
+  "ref": "ea1e15a4909ac8b03b2c5a08ac3810b385985157",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "xorg-macros@ea1e15a4909a--COPYING",
+    "sha256": "7db0516389152a90c20ea910e8839d10204ebc25ccbc71fc7f5809dfb98e80ac",
+    "firstLine": "Copyright 2005 Red Hat, Inc."
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "pulseaudio",
+  "scripts": [
+   "45-pulseaudio.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/pulseaudio/pulseaudio.git",
+  "ref": "77d25a1e613095bdf87a1d13b65e7c330565077a",
+  "files": [
+   {
+    "file": "LICENSE",
+    "saved": "pulseaudio@77d25a1e6130--LICENSE",
+    "sha256": "a1064b9838b6b4feee61eaeb0925da4b4834c984b77716558860c4294ed6c015",
+    "firstLine": "All PulseAudio source files, except as noted below, are licensed under the GNU"
+   }
+  ],
+  "kinds": [
+   "?"
+  ],
+  "reviewed": "LGPL-2.1 (client library; GPL parts are optional server modules, not linked)"
+ },
+ {
+  "name": "xcbproto",
+  "scripts": [
+   "45-x11/10-xcbproto.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/xorg/proto/xcbproto.git",
+  "ref": "cf7e2581b613802f2f8ec2a4b50a6a20aad4bf52",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "xcbproto@cf7e2581b613--COPYING",
+    "sha256": "c5ffbfeaa501071ceeb97b7de2c0d703fdaa35de01c0fb6cbac1c28453a3e9fd",
+    "firstLine": "Copyright (C) 2001-2006 Bart Massey, Jamey Sharp, and Josh Triplett."
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "xproto",
+  "scripts": [
+   "45-x11/10-xproto.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/xorg/proto/xorgproto.git",
+  "ref": "6d3907b6d5dc4aa7d7ee6ee5d7d8714e7466630b",
+  "files": [
+   {
+    "file": "COPYING-applewmproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-applewmproto",
+    "sha256": "aacd931f191b610902aee1e526090c2858aabc07969441fa2537ffd3e7049555",
+    "firstLine": "/**************************************************************************"
+   },
+   {
+    "file": "COPYING-bigreqsproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-bigreqsproto",
+    "sha256": "dabc025f93129a0eb2d17f37c719dbe5ecbcb5bc8f7bc7f4ce89fe04576cc0c2",
+    "firstLine": "Copyright 1992, 1998  The Open Group"
+   },
+   {
+    "file": "COPYING-compositeproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-compositeproto",
+    "sha256": "3e980a770506b448897638632974bbcbdf2da3b99191dd0a03d3770097a46738",
+    "firstLine": "Copyright (c) 2006, Oracle and/or its affiliates."
+   },
+   {
+    "file": "COPYING-damageproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-damageproto",
+    "sha256": "f67a18cb46c4c203c5122b4a901cfcc3178b2a62f83f31ca5fef5bdca3966094",
+    "firstLine": "Copyright © 2001,2003 Keith Packard"
+   },
+   {
+    "file": "COPYING-dmxproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-dmxproto",
+    "sha256": "819e8dcd3dd2a44850c350331aa492230f86bccb0983dd739dec5ba36d7d2b8e",
+    "firstLine": "Copyright 2002-2004 Red Hat Inc., Durham, North Carolina."
+   },
+   {
+    "file": "COPYING-dri2proto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-dri2proto",
+    "sha256": "0c306691492c4d7a8cda1ec3847668b797887dddcd7e986b4c166ae27619af7d",
+    "firstLine": "Copyright © 2007 Red Hat, Inc."
+   },
+   {
+    "file": "COPYING-dri3proto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-dri3proto",
+    "sha256": "64a579d1a0b3347301d87c94698a58ea7933d0ae6ca7e8fdd702fde2ea376301",
+    "firstLine": "Copyright © 2013 Keith Packard"
+   },
+   {
+    "file": "COPYING-evieproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-evieproto",
+    "sha256": "9936421f7516f7a17ae560b6989636b493e55c01128b543c7e72441568c3cba4",
+    "firstLine": "Copyright (c) 2003, Oracle and/or its affiliates."
+   },
+   {
+    "file": "COPYING-fixesproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-fixesproto",
+    "sha256": "fb361c7c4322e4919ae193c5a20055d5190c23aa50480fd0a41f4d439cae2bc6",
+    "firstLine": "Copyright (c) 2006, Oracle and/or its affiliates."
+   },
+   {
+    "file": "COPYING-fontcacheproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-fontcacheproto",
+    "sha256": "1ab381e978bff63d68be2e4f235d51935f3f16f3ba3bebf83afa99a70c0484a2",
+    "firstLine": "Copyright (c) 1998-1999 Shunsuke Akiyama <akiyama@jp.FreeBSD.org>."
+   },
+   {
+    "file": "COPYING-fontsproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-fontsproto",
+    "sha256": "f4af05774b02ae149357cc26f7bf5ef1116c2e09373c2492081a3a1892c58417",
+    "firstLine": "Copyright 1990, 1991 Network Computing Devices;"
+   },
+   {
+    "file": "COPYING-glproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-glproto",
+    "sha256": "823deb4673d3f26aa8c90e704888299648f00be3262f9363eaeecedcd65b936d",
+    "firstLine": "SGI FREE SOFTWARE LICENSE B (Version 2.0, Sept. 18, 2008)"
+   },
+   {
+    "file": "COPYING-inputproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-inputproto",
+    "sha256": "5e083a2ace0215a6084c877c023a6079952ba803d692488203ba4269196debe3",
+    "firstLine": "Copyright 1989, 1998  The Open Group"
+   },
+   {
+    "file": "COPYING-kbproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-kbproto",
+    "sha256": "883f26ebeffb29f955c1e2becdee284bce16c7139b1410f6f7331d3bd59bfc78",
+    "firstLine": "Copyright (c) 1993 by Silicon Graphics Computer Systems, Inc."
+   },
+   {
+    "file": "COPYING-lg3dproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-lg3dproto",
+    "sha256": "2467132d97b75edba05d908604124be2f46ee113954f848c99bcd938055e8e4b",
+    "firstLine": "Copyright (c) 2004, Sun Microsystems, Inc."
+   },
+   {
+    "file": "COPYING-pmproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-pmproto",
+    "sha256": "8442b5f22f2fb13017a4302a906e7dedc899267b41f613558970941120170128",
+    "firstLine": "Copyright 1996, 1998  The Open Group"
+   },
+   {
+    "file": "COPYING-presentproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-presentproto",
+    "sha256": "64a579d1a0b3347301d87c94698a58ea7933d0ae6ca7e8fdd702fde2ea376301",
+    "firstLine": "Copyright © 2013 Keith Packard"
+   },
+   {
+    "file": "COPYING-printproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-printproto",
+    "sha256": "46f599055002bbf3e6ce244bde8d9ebe5ec24ae7906836db186773a9791d0b75",
+    "firstLine": "(c) Copyright 1996 Hewlett-Packard Company"
+   },
+   {
+    "file": "COPYING-randrproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-randrproto",
+    "sha256": "41c13dcd09147ed2440286f2fb8151df8ebee06deee4ed78ddf094601c216d3d",
+    "firstLine": "Copyright © 2000 Compaq Computer Corporation"
+   },
+   {
+    "file": "COPYING-recordproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-recordproto",
+    "sha256": "e37891ac36e827611d6e7ae51ddb14a9cc9ba56f6cc87c55b6ce3b6d76cd2bf4",
+    "firstLine": "Copyright 1995 Network Computing Devices"
+   },
+   {
+    "file": "COPYING-renderproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-renderproto",
+    "sha256": "e0ca4f1d27a95ef7552ccdfce7e95ddf1e8b10ac713a05b49e8bd82713d7914b",
+    "firstLine": "Copyright © 2000 SuSE, Inc."
+   },
+   {
+    "file": "COPYING-resourceproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-resourceproto",
+    "sha256": "403e7be948674530ad40669b1e3a31adeddb656502f3b0ef810d5d3cc35d0b52",
+    "firstLine": "Copyright (c) 2002  XFree86 Inc"
+   },
+   {
+    "file": "COPYING-scrnsaverproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-scrnsaverproto",
+    "sha256": "fcbd3c628bf4d28ee3e6032054bf44bbe58f3b1a944dad856a8d3eb6b37ea412",
+    "firstLine": "Copyright (c) 1992  X Consortium"
+   },
+   {
+    "file": "COPYING-trapproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-trapproto",
+    "sha256": "2c1807ecb78dddba1a9cd612a11bfdbc013b77144880ec3c268241495cb022dd",
+    "firstLine": "Copyright 1987, 1988, 1989, 1990, 1994 by Digital Equipment Corporation,"
+   },
+   {
+    "file": "COPYING-videoproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-videoproto",
+    "sha256": "f8f49bbad61967ebc890fb79fff5bfb7cfc1c341aa8f8dee13eb3fb534040b47",
+    "firstLine": "Copyright 1991 by Digital Equipment Corporation, Maynard, Massachusetts,"
+   },
+   {
+    "file": "COPYING-windowswmproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-windowswmproto",
+    "sha256": "eb183a00c61bb47992f096b6993ed7ec17518bea9c285fe87efff7f622cc6c12",
+    "firstLine": "Copyright (c) 2002 Apple Computer, Inc."
+   },
+   {
+    "file": "COPYING-x11proto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-x11proto",
+    "sha256": "da835951edc6e3b8d168d6afe7447c65d0b9a99937293cf3f288bba8244a9f86",
+    "firstLine": "Copyright (c) 1991, Oracle and/or its affiliates."
+   },
+   {
+    "file": "COPYING-xcmiscproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-xcmiscproto",
+    "sha256": "5531d18cfcc944dab39991f63f182cbbce3fe493ba0c7cf08a25c0d01ee84482",
+    "firstLine": "Copyright 1993, 1994, 1998  The Open Group"
+   },
+   {
+    "file": "COPYING-xextproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-xextproto",
+    "sha256": "9ce418e7d81cb230d8a53b07a7d9d705fc830dd095c104ba5d9405dc98be8357",
+    "firstLine": "Copyright 1989, 1998  The Open Group"
+   },
+   {
+    "file": "COPYING-xf86bigfontproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-xf86bigfontproto",
+    "sha256": "3591964e01a9cdfc9cc4149a847a431a3f3d98328cc9e5864c7a7831b29c4058",
+    "firstLine": "Permission is hereby granted, free of charge, to any person obtaining a copy"
+   },
+   {
+    "file": "COPYING-xf86dgaproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-xf86dgaproto",
+    "sha256": "3591964e01a9cdfc9cc4149a847a431a3f3d98328cc9e5864c7a7831b29c4058",
+    "firstLine": "Permission is hereby granted, free of charge, to any person obtaining a copy"
+   },
+   {
+    "file": "COPYING-xf86driproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-xf86driproto",
+    "sha256": "4a05d06752388d9db71ee1006f371d4fb2c316a821fc2fc272db90b3ef978334",
+    "firstLine": "Copyright 1998-1999 Precision Insight, Inc., Cedar Park, Texas."
+   },
+   {
+    "file": "COPYING-xf86miscproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-xf86miscproto",
+    "sha256": "3591964e01a9cdfc9cc4149a847a431a3f3d98328cc9e5864c7a7831b29c4058",
+    "firstLine": "Permission is hereby granted, free of charge, to any person obtaining a copy"
+   },
+   {
+    "file": "COPYING-xf86rushproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-xf86rushproto",
+    "sha256": "3591964e01a9cdfc9cc4149a847a431a3f3d98328cc9e5864c7a7831b29c4058",
+    "firstLine": "Permission is hereby granted, free of charge, to any person obtaining a copy"
+   },
+   {
+    "file": "COPYING-xf86vidmodeproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-xf86vidmodeproto",
+    "sha256": "942bb46a3503a708948491699171b00b9e0dfb47818d9268b160bccc5f51a4b9",
+    "firstLine": "Copyright 1995  Kaleb S. KEITHLEY"
+   },
+   {
+    "file": "COPYING-xineramaproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-xineramaproto",
+    "sha256": "b2d8cda803e900915ce10f0ba735ff2c033b39c7cc5a8a436667ca583d4066fa",
+    "firstLine": "Copyright 2003  The Open Group"
+   },
+   {
+    "file": "COPYING-xwaylandproto",
+    "saved": "xproto@6d3907b6d5dc--COPYING-xwaylandproto",
+    "sha256": "309bd89bc2b30c6e3d3eb78f5377fa576475499e0ba936a9c3cba50ba5d6375c",
+    "firstLine": "Copyright 2022 Red Hat, Inc."
+   }
+  ],
+  "kinds": [
+   "MIT",
+   "?",
+   "BSD-2"
+  ],
+  "reviewed": "MIT / X11-style (one file per protocol)"
+ },
+ {
+  "name": "xtrans",
+  "scripts": [
+   "45-x11/10-xtrans.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/xorg/lib/libxtrans.git",
+  "ref": "79f6b0bfe2170496e8c37626043d009f4cd3f1e1",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "xtrans@79f6b0bfe217--COPYING",
+    "sha256": "3fe68a84ab89e82947e560316ab70cf2d02a8b978ae5cf4fbdfd53fc5b917308",
+    "firstLine": "Copyright 1993, 1994, 1998, 2002  The Open Group"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "libxau",
+  "scripts": [
+   "45-x11/20-libxau.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/xorg/lib/libxau.git",
+  "ref": "be1daeb909f1d678e7859ac1555e90b4e768d5c4",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libxau@be1daeb909f1--COPYING",
+    "sha256": "56abe29bb1d9806a9e04fa9f80fed2c0f18027594df3f098148d814aef6bddfa",
+    "firstLine": "Copyright 1988, 1993, 1994, 1998  The Open Group"
+   }
+  ],
+  "kinds": [
+   "?"
+  ],
+  "reviewed": "MIT / X11-style"
+ },
+ {
+  "name": "libxcb",
+  "scripts": [
+   "45-x11/30-libxcb.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/xorg/lib/libxcb.git",
+  "ref": "d4e07bab5729c7d7cc3d2b95568cd9a661a53c4f",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libxcb@d4e07bab5729--COPYING",
+    "sha256": "c5ffbfeaa501071ceeb97b7de2c0d703fdaa35de01c0fb6cbac1c28453a3e9fd",
+    "firstLine": "Copyright (C) 2001-2006 Bart Massey, Jamey Sharp, and Josh Triplett."
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "libx11",
+  "scripts": [
+   "45-x11/40-libx11.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/xorg/lib/libx11.git",
+  "ref": "b8d5a7046a98a244ee8ca3c9c07fd617c800dde2",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libx11@b8d5a7046a98--COPYING",
+    "sha256": "eda0c2ed1cae0280c7fe79762eaad8ad31c044afc64e71e92ef2c6f3cd7bc395",
+    "firstLine": "The following is the 'standard copyright' agreed upon by most contributors,"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "libxext",
+  "scripts": [
+   "45-x11/50-libxext.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/xorg/lib/libxext.git",
+  "ref": "508f8adca2540ff8926ac8456cb1c553a8caae76",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libxext@508f8adca254--COPYING",
+    "sha256": "fd62910be4b13829d94e76c1447cf840953f0e225c4dc6c79349c84dd0557f22",
+    "firstLine": "Copyright 1986, 1987, 1988, 1989, 1994, 1998  The Open Group"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "libxfixes",
+  "scripts": [
+   "45-x11/50-libxfixes.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/xorg/lib/libxfixes.git",
+  "ref": "55bb2d1d57d43e0595ce45393f26eb433d75a7cc",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libxfixes@55bb2d1d57d4--COPYING",
+    "sha256": "a07d8a5a6972638a745a03983207a1052881c24eea29021fdca7794bea8d7774",
+    "firstLine": "Copyright © 2001,2003 Keith Packard"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "libxi",
+  "scripts": [
+   "45-x11/50-libxi.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/xorg/lib/libxi.git",
+  "ref": "9ea632ab9dce9ad6630ef7db9d1850ea3d0a2419",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libxi@9ea632ab9dce--COPYING",
+    "sha256": "9392174bc86e291369fd2f61f3ed325962735a5f5c585ce8d7ebd365e2a5639f",
+    "firstLine": "Copyright 1989, 1998  The Open Group"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "libxinerama",
+  "scripts": [
+   "45-x11/50-libxinerama.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/xorg/lib/libxinerama.git",
+  "ref": "d7162b962710bc724b41cabab4e7cea303c4b541",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libxinerama@d7162b962710--COPYING",
+    "sha256": "1d4e533646e02aa0e4192eb5355c1a9dd5d01b00412f01fb73856f0e7a638a84",
+    "firstLine": "Copyright (c) 2007, 2025, Oracle and/or its affiliates."
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "libxrender",
+  "scripts": [
+   "45-x11/50-libxrender.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/xorg/lib/libxrender.git",
+  "ref": "f30d654658ebf17d41141ed3ec2abf607d8a512e",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libxrender@f30d654658eb--COPYING",
+    "sha256": "bbe1db89c48816c48248796adac91defd8fbde1141b145f01511781ab87f29a1",
+    "firstLine": "Copyright © 2001,2003 Keith Packard"
+   }
+  ],
+  "kinds": [
+   "?"
+  ],
+  "reviewed": "MIT / X11-style"
+ },
+ {
+  "name": "libxscrnsaver",
+  "scripts": [
+   "45-x11/50-libxscrnsaver.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/xorg/lib/libxscrnsaver.git",
+  "ref": "3f753e7a4050db083474444ae91cc17a849eaa4d",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libxscrnsaver@3f753e7a4050--COPYING",
+    "sha256": "5cf3e16f5dd753a4c0853e8227134ab65f5562d9ef89b1a2d7681f5c8ac9feb5",
+    "firstLine": "Copyright (c) 1992  X Consortium"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "libxxf86vm",
+  "scripts": [
+   "45-x11/50-libxxf86vm.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/xorg/lib/libxxf86vm.git",
+  "ref": "c76fde6bffcc87e5dd98d8196bb01a299bdc3236",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libxxf86vm@c76fde6bffcc--COPYING",
+    "sha256": "f3da8eaed19e27e4f67e6f076d4ebdb8d649e15a8ad33a415fb65a23de1b6689",
+    "firstLine": "Copyright (c) 1995  Kaleb S. KEITHLEY"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "libglvnd",
+  "scripts": [
+   "45-x11/60-libglvnd.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/glvnd/libglvnd.git",
+  "ref": "c046a760d845416e98ac4128757b2b356c47fdaa",
+  "files": [
+   {
+    "file": "README.md",
+    "saved": "libglvnd@c046a760d845--README.md",
+    "sha256": "e0726e0f4c7dc48c63fced940207ecf228b8d2117f75036abe0ac45c1a349983",
+    "firstLine": "libglvnd itself (excluding components listed below) is licensed as follows:",
+    "note": "license section of README.md (no separate license file)"
+   }
+  ],
+  "kinds": [
+   "MIT",
+   "BSD-2"
+  ]
+ },
+ {
+  "name": "libxcursor",
+  "scripts": [
+   "45-x11/60-libxcursor.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/xorg/lib/libxcursor.git",
+  "ref": "15efad7ccd035f5d1ddc8d437e047569d1775fa7",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libxcursor@15efad7ccd03--COPYING",
+    "sha256": "ad2e9d279088c5d612fb0e506ea8bb7d9f01b411e7f4b97b64589c3cd48a68f1",
+    "firstLine": "Copyright © 2002 Keith Packard"
+   }
+  ],
+  "kinds": [
+   "?"
+  ],
+  "reviewed": "MIT / X11-style"
+ },
+ {
+  "name": "libxrandr",
+  "scripts": [
+   "45-x11/60-libxrandr.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/xorg/lib/libxrandr.git",
+  "ref": "8a4ba1974bcf07057cf891128d86ae1ab5303574",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libxrandr@8a4ba1974bcf--COPYING",
+    "sha256": "73777e5be1cef2827d843e4b186803f050c66db472cf8076d88e2b5f71696e67",
+    "firstLine": "Copyright © 2000, Compaq Computer Corporation,"
+   }
+  ],
+  "kinds": [
+   "?"
+  ],
+  "reviewed": "MIT / X11-style"
+ },
+ {
+  "name": "libxv",
+  "scripts": [
+   "45-x11/60-libxv.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/xorg/lib/libxv.git",
+  "ref": "f315ec50fcad9bdbaed46c3e78dc5e7fe209f933",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libxv@f315ec50fcad--COPYING",
+    "sha256": "4fac4d581d00f11c459d68b7cb970f3d4e5a5bbfb53784d85f59a90076280301",
+    "firstLine": "Copyright 1991 by Digital Equipment Corporation, Maynard, Massachusetts,"
+   }
+  ],
+  "kinds": [
+   "?"
+  ],
+  "reviewed": "MIT / X11-style"
+ },
+ {
+  "name": "libpciaccess",
+  "scripts": [
+   "50-vaapi/30-libpciaccess.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/xorg/lib/libpciaccess.git",
+  "ref": "38e6f15f839fba2c49982e7ad61cde681fd5d4d6",
+  "files": [
+   {
+    "file": "COPYING",
+    "saved": "libpciaccess@38e6f15f839f--COPYING",
+    "sha256": "f33f360f8905940dac01aa21597fe8a6727ca6f4ffa43b380e2116fd0666aa8a",
+    "firstLine": "(C) Copyright IBM Corporation 2006, 2007"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ },
+ {
+  "name": "libdrm",
+  "scripts": [
+   "50-vaapi/40-libdrm.sh"
+  ],
+  "targets": [
+   "linux64"
+  ],
+  "repo": "https://gitlab.freedesktop.org/mesa/drm.git",
+  "ref": "b97cbde15c5c3abfe44d78e8f57139e50f612fec",
+  "files": [
+   {
+    "file": "LICENSES/MIT.txt",
+    "saved": "libdrm@b97cbde15c5c--LICENSES_MIT.txt",
+    "sha256": "4af446c9157f0b0826ce5d83d1722a8b28cac398bff91e982f92951821827155",
+    "firstLine": "Permission is hereby granted, free of charge, to any person obtaining a"
+   }
+  ],
+  "kinds": [
+   "MIT"
+  ]
+ }
+]

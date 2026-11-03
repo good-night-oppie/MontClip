@@ -10,6 +10,7 @@
 const fs = require("fs");
 const path = require("path");
 const { spawn, execFile } = require("child_process");
+const FF = require("./ffmpeg-path");
 
 /* nr: how far the noise is pulled down, dB. The floor is measured per file —
    afftdn's own noise tracking (tn) left loud hiss untouched in testing. */
@@ -27,7 +28,7 @@ function denoiseName(srcName, amount) {
   return `${stem}.denoise-${amount}.flac`;
 }
 async function probe(file) {
-  const stdout = await new Promise((resolve, reject) => execFile("ffprobe", ["-v", "error", "-select_streams", "a:0",
+  const stdout = await new Promise((resolve, reject) => execFile(FF.path("ffprobe"), ["-v", "error", "-select_streams", "a:0",
     "-show_entries", "stream=channels:format=duration", "-of", "json", file],
     { encoding: "utf8", timeout: 30000, windowsHide: true },
     (error, stdout) => error ? reject(new Error("ffprobe failed — needed for noise reduction: " + error.message)) : resolve(stdout)));
@@ -42,7 +43,7 @@ async function probe(file) {
 function measureNoiseFloor(file) {
   return new Promise((resolve, reject) => {
     const SR = 16000, WIN = SR / 20;
-    const proc = spawn("ffmpeg", ["-v", "error", "-i", file, "-vn", "-map", "0:a:0", "-ac", "1", "-ar", String(SR), "-f", "f32le", "-"]);
+    const proc = spawn(FF.path("ffmpeg"), ["-v", "error", "-i", file, "-vn", "-map", "0:a:0", "-ac", "1", "-ar", String(SR), "-f", "f32le", "-"]);
     const levels = [];
     let sum = 0, n = 0, rest = Buffer.alloc(0);
     proc.stdout.on("data", (chunk) => {
@@ -56,7 +57,7 @@ function measureNoiseFloor(file) {
       rest = buf.subarray(count * 4);
     });
     proc.stderr.resume();
-    proc.on("error", () => reject(new Error("ffmpeg not found on PATH — needed for noise reduction")));
+    proc.on("error", () => reject(new Error(FF.why("ffmpeg", "for noise reduction"))));
     proc.on("close", () => {
       if (!levels.length) return resolve(-80);
       levels.sort((a, b) => a - b);
@@ -81,11 +82,11 @@ async function denoiseFile(file, outDir, amount) {
   const part = out + ".part.flac";
   return measureNoiseFloor(file).then((floor) => new Promise((resolve, reject) => {
     const nf = Math.round(Math.min(-20, Math.max(-80, floor + FLOOR_OFFSET_DB)) * 10) / 10;
-    const proc = spawn("ffmpeg", ["-v", "error", "-y", "-i", file, "-vn", "-map", "0:a:0",
+    const proc = spawn(FF.path("ffmpeg"), ["-v", "error", "-y", "-i", file, "-vn", "-map", "0:a:0",
       "-af", `afftdn=nr=${a.nr}:nf=${nf}`, "-c:a", "flac", part]);
     let err = "";
     proc.stderr.on("data", (d) => { err = (err + d).slice(-2000); });
-    proc.on("error", () => reject(new Error("ffmpeg not found on PATH — needed for noise reduction")));
+    proc.on("error", () => reject(new Error(FF.why("ffmpeg", "for noise reduction"))));
     proc.on("close", (code) => {
       if (code !== 0) {
         try { fs.rmSync(part, { force: true }); } catch {}

@@ -13,6 +13,13 @@ contextBridge.exposeInMainWorld('montclipViewSettings',Object.freeze({
  get:()=>ipcRenderer.sendSync('montclip:view:get'),
  set:value=>ipcRenderer.sendSync('montclip:view:set',value)
 }));
+// The user's own FFmpeg for H.264 export (libx264). The page can only ask the main
+// process to show its file dialog, read the status or forget the choice; no path is sent.
+contextBridge.exposeInMainWorld('montclipExternalFfmpeg',Object.freeze({
+ get:()=>ipcRenderer.invoke('montclip:ffmpeg:get'),
+ choose:()=>ipcRenderer.invoke('montclip:ffmpeg:choose'),
+ clear:()=>ipcRenderer.invoke('montclip:ffmpeg:clear')
+}));
 
 contextBridge.exposeInMainWorld('montclipPaneSettings',Object.freeze({
  get:()=>ipcRenderer.sendSync('montclip:pane:get'),
@@ -25,4 +32,7 @@ contextBridge.exposeInMainWorld('montclipWorkspaceSettings',Object.freeze({
  migrate:value=>ipcRenderer.sendSync('montclip:workspace:migrate',value)
 }));
 
+// how each of the editor's downloads ended (completed / cancelled / interrupted), its file name and whether its export
+// copy was removed; and, before its own export's download, which file that is
+contextBridge.exposeInMainWorld('montclipDownloads',Object.freeze({onDone:cb=>{ipcRenderer.on('montclip:download:done',(_e,v)=>cb({state:String(v&&v.state),name:String(v&&v.name),removed:v&&v.removed===true}));},expect:name=>ipcRenderer.send('montclip:downloads:expect',String(name))}));
 contextBridge.exposeInMainWorld('montclipAgentSessions',Object.freeze({get:()=>ipcRenderer.sendSync('montclip:sessions:get'),set:value=>ipcRenderer.sendSync('montclip:sessions:set',value)}));
