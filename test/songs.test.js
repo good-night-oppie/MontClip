@@ -2,7 +2,7 @@
 // P2 「找出每首歌」 (Deja, 2026-11-03): whole songs found from the sound alone. The prototype is Deja's songs.cjs (MIT):
 // ffmpeg's astats + aspectralstats every 0.5 s; singing is told from talk by how often the sound pauses (not by spectral
 // entropy); runs are merged across short gaps and long runs split at quiet gaps. Parameters from the prototype's grid2:
-// PAUSE 0.12, PAUSE_DB 14, W 30, MERGE 8, SPLIT_MIN 150, MIN_SONG 90. Each song carries how sure it is: 「估的」 where a
+// PAUSE 0.12, PAUSE_DB 14, W 30, MERGE 8, SPLIT_MIN 150, MIN_SONG 90. Each song carries how likely it is: 「估的」 where a
 // boundary or a join was guessed. Synthetic signals only: a held level is singing, a level with pauses is talk.
 const {test}=require('node:test'),a=require('node:assert/strict');
 const S=require('../songs');
@@ -13,14 +13,14 @@ test('the parameters are the prototype grid2 result, entropy unused',()=>{
  a.ok(!('ENT' in S.DEFAULTS),'spectral entropy is not used');
  a.ok(Object.isFrozen(S.DEFAULTS));
 });
-test('held singing between talk: each song found, start and end within ±2 s, sure',()=>{
+test('held singing between talk: each song found, start and end within ±2 s, likely (较可能)',()=>{
  const {rms,songs}=track([['talk',60],['song',140],['talk',80],['song',150],['talk',50]]);
  const got=S.find(rms,{complete:true});
  a.equal(got.length,2,JSON.stringify(got));
  got.forEach((g,i)=>{
   a.ok(Math.abs(g.from-songs[i][0])<=2,`song ${i} starts at ${g.from}, expected ${songs[i][0]}`);
   a.ok(Math.abs(g.to-songs[i][1])<=2,`song ${i} ends at ${g.to}, expected ${songs[i][1]}`);
-  a.equal(g.confidence,'sure');a.deepEqual(g.marks,[]);
+  a.equal(g.confidence,'likely');a.deepEqual(g.marks,[]);
   a.deepEqual(Object.keys(g).sort(),['confidence','from','marks','to']);
  });
 });
@@ -64,7 +64,7 @@ test('missing or silent values read as the floor; the result is the same every t
  a.deepEqual(S.find(rms.map(v=>v<-50?-Infinity:v),{complete:true}),S.find(rms.map(v=>v<-50?-90:v),{complete:true}));
 });
 test('stored in the project: one entry per file, checked; bad entries refused, damaged ones dropped when saved',()=>{
- const song={from:60,to:200,confidence:'sure',marks:[]};
+ const song={from:60,to:200,confidence:'likely',marks:[]};
  const e=S.entry({key:'k1',complete:true,scanned:400,songs:[song,{from:280,to:430,confidence:'estimated',marks:[{at:'end',t:430,why:'edge'}]}]});
  a.deepEqual(Object.keys(e).sort(),['complete','key','scanned','songs','v']);a.equal(e.v,1);a.equal(e.songs.length,2);
  for(const bad of [{key:'k',complete:true,scanned:1,songs:[{...song,from:300}]},{key:'k',complete:true,scanned:1,songs:[{...song,confidence:'maybe'}]},
@@ -73,4 +73,15 @@ test('stored in the project: one entry per file, checked; bad entries refused, d
   a.throws(()=>S.entry(bad),/SONGS_INVALID/,JSON.stringify(bad).slice(0,80));
  const kept=S.clean({m_a:e,m_gone:e,m_bad:{v:1,key:'k',songs:'x'}},[{id:'m_a'}]);
  a.deepEqual(Object.keys(kept),['m_a']);a.equal(S.clean({m_bad:{}},[{id:'m_bad'}]),null);
+});
+test('two levels only, 「估的」 and 「较可能」 (Deja: the measured precision is not good enough to call any song 准): "sure" is refused, and no description says it',()=>{
+ const song={from:60,to:200,marks:[]};
+ a.throws(()=>S.entry({key:'k',complete:true,scanned:1,songs:[{...song,confidence:'sure'}]}),/SONGS_INVALID/);
+ a.equal(S.entry({key:'k',complete:true,scanned:1,songs:[{...song,confidence:'likely'}]}).songs[0].confidence,'likely');
+ const read=f=>require('node:fs').readFileSync(require('node:path').join(__dirname,'..',f),'utf8');
+ const tool=require('../mcp-tools').find(t=>t.name==='fablecut_songs').description;
+ a.ok(!/\bsure\b/.test(tool)&&/likely/.test(tool),'the MCP description says likely, never sure');
+ a.ok(!/准/.test(require('../capabilities').get('fablecut_songs').summary['zh-CN']));
+ const doc=read('CLAUDE.md');const sec=doc.slice(doc.indexOf('### Songs in a recording'),doc.indexOf('\n## ',doc.indexOf('### Songs in a recording')));
+ a.ok(sec.length>100&&!/`sure`/.test(sec)&&/`likely`/.test(sec)&&/较可能/.test(sec));
 });

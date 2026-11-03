@@ -69,15 +69,15 @@ test('MCP fablecut_songs: scans the recordings on the timeline and keeps the son
  a.equal(r.isError,false,r.text);a.match(r.text,/2 songs/);
  const doc=readProject(dir);a.equal(doc.revision,2);
  const e=doc.songs.m_r;a.equal(e.v,1);a.equal(e.complete,true);near(e.songs,SONGS);
- a.ok(e.songs.every(s=>s.confidence==='sure'||s.confidence==='estimated'));
+ a.ok(e.songs.every(s=>s.confidence==='likely'||s.confidence==='estimated'));
 });
 test('the patch op setSongs keeps one checked entry per file; null removes it; unknown files and bad songs are refused',()=>{
  const Ops=require('../project-ops');
- const doc=seedProject();const entry={key:'k1',complete:true,scanned:10,songs:[{from:1,to:9,confidence:'sure',marks:[]}]};
+ const doc=seedProject();const entry={key:'k1',complete:true,scanned:10,songs:[{from:1,to:9,confidence:'likely',marks:[]}]};
  Ops.applyPatch(doc,[{op:'setSongs',mediaId:'m_a',songs:entry}]);
  a.equal(doc.songs.m_a.v,1);a.equal(doc.songs.m_a.songs.length,1);
  a.throws(()=>Ops.applyPatch(seedProject(),[{op:'setSongs',mediaId:'m_none',songs:entry}]),/m_none/);
- a.throws(()=>Ops.applyPatch(seedProject(),[{op:'setSongs',mediaId:'m_a',songs:{...entry,songs:[{from:9,to:1,confidence:'sure',marks:[]}]}}]),/SONGS_INVALID/);
+ a.throws(()=>Ops.applyPatch(seedProject(),[{op:'setSongs',mediaId:'m_a',songs:{...entry,songs:[{from:9,to:1,confidence:'likely',marks:[]}]}}]),/SONGS_INVALID/);
  Ops.applyPatch(doc,[{op:'setSongs',mediaId:'m_a',songs:null}]);a.equal(doc.songs,undefined);
 });
 test('the editor keeps project.songs when it loads a project and when it saves (real window: desktop/songs-smoke.cjs), and loads songs.js before app.js',()=>{
