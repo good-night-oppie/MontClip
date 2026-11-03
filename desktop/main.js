@@ -5,6 +5,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { createStore, allowed: settingsAllowed } = require("./view-settings");
 const { nativeText, languageOf } = require("./native-text");
+const { transcribeEnabled } = require("./features");
 const { createCloseController } = require("./close-controller");
 const External = require("../external-ffmpeg");
 const Capabilities = require("../capabilities");   // risk levels are fixed here; the page gets a read-only copy
@@ -102,6 +103,11 @@ async function start() {
     event.returnValue = settingsAllowed(event, win, origin)
       ? { ok: true, capabilities: Capabilities.list().map((c) => ({ name: c.name, source: c.source, risk: c.risk, summary: c.summary, schema: c.schema })) }
       : { ok: false, code: "CAPABILITIES_FORBIDDEN" };
+  });
+  // read-only feature switches for the page (desktop/features.js); no channel sets them
+  const features = { transcribe: transcribeEnabled({ isPackaged: app.isPackaged, argv: process.argv, env: process.env }) };
+  ipcMain.on("montclip:features:get", (event) => {
+    event.returnValue = settingsAllowed(event, win, origin) ? { transcribe: features.transcribe } : { transcribe: false };
   });
   const externalFile = path.join(app.getPath("userData"), "external-ffmpeg.json");
   const externalStatus = async () => {
