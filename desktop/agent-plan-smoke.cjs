@@ -14,6 +14,10 @@ const electron=require('electron'),{app,BrowserWindow}=electron,assert=require('
 if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke required');
 const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
 if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
+const shotsDir=process.env.MONTCLIP_SHOTS_OUT||null;if(shotsDir&&!require('node:path').isAbsolute(shotsDir))throw Error('MONTCLIP_SHOTS_OUT must be an absolute folder');
+// evidence for the PR (Deja): MONTCLIP_SHOTS_OUT=<absolute folder> saves the hidden offscreen window's own page as PNGs (capturePage of
+// this window only; nothing on the desktop is captured)
+const shotOf=(win)=>async(name)=>{if(!shotsDir)return;await new Promise(r=>setTimeout(r,150));require('node:fs').writeFileSync(require('node:path').join(shotsDir,name+'.png'),(await win.webContents.capturePage()).toPNG());};
 const Cap=require('../capabilities');
 const out=(k,v)=>process.stdout.write(k+' '+JSON.stringify(v)+'\n');
 delete process.env.MONTCLIP_SMOKE_YOLO_CONSENT;
@@ -23,7 +27,7 @@ service.createDiskService=(...args)=>{const real=originalService(...args);return
 const keep=(clipId,from,to)=>({capability:'keep_ranges',args:{output_mode:'one_file',ranges:[{clipId,from,to}]}});
 const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...args){
- await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=(ms=150)=>new Promise(r=>setTimeout(r,ms));
+ await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=(ms=150)=>new Promise(r=>setTimeout(r,ms)),shot=shotOf(win);
  let ok=false;const report={};
  try{
   await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
@@ -49,6 +53,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.deepEqual(v1.steps.map(s=>s.label),[Cap.label('keep_ranges','zh-CN'),Cap.label('keep_ranges','zh-CN'),Cap.label('fablecut_export','zh-CN')]);
   assert.deepEqual(v1.steps.map(s=>s.state),['没开始','没开始','没开始']);
   assert.ok(!/keep_ranges|fablecut_|"type"/.test(v1.text),'no internal names, no JSON');
+  await shot('plan-todo');
   assert.match(await read(`document.querySelector('[role=log] .cindy-message:last-child').textContent`),/已排好计划，共 3 步/);
   await read(`document.querySelectorAll('[data-plan] [data-step-remove]')[2].click();true`);await wait();
   assert.equal((await view()).steps.length,2,'deleted before it started');
@@ -57,11 +62,12 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await read(`document.querySelector('[data-plan-start]').click();true`);
   const b1=await until(box);report.box=b1;assert.ok(b1,'手动 asks for the first step');assert.equal(b1.label,Cap.label('keep_ranges','zh-CN'));assert.match(b1.summary,/第 1 步，共 2 步/);
   assert.deepEqual((await view()).steps.map(s=>s.state),['正在做','没开始'],'one step 正在做');
+  await shot('plan-doing');
   assert.equal(await read(`document.querySelector('[data-plan] [data-step-remove]')`),null,'no deleting once started');
   await read(`document.querySelector('[data-agent-approval][open] [data-choice="session"]').click();true`);
   const done=await until(async()=>{const v=await view();return v&&v.steps.every(s=>s.state==='做完了')&&v.undo?v:null;},10000);
   report.done=done&&{states:done.steps.map(s=>s.state),note:done.note};
-  assert.ok(done,'both steps done; the second without asking');assert.match(done.note,/每一步都做完了/);
+  assert.ok(done,'both steps done; the second without asking');await shot('plan-done');assert.match(done.note,/每一步都做完了/);
   const after=await clips();report.clips=[before,after];assert.equal(after,'range0_range0_v1:110');
   const run=await read(`(()=>{const e=eventLog().list().filter(e=>e.actor==='ai'&&e.capability==='keep_ranges');const last=e.at(-1);return e.filter(x=>x.runId===last.runId).map(x=>({step:x.step,state:x.state}));})()`);
   report.events=run;assert.deepEqual(run,[{step:1,state:'applied'},{step:2,state:'applied'}]);
@@ -78,7 +84,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   const stopped=await until(async()=>{const v=await view();return v&&v.steps.some(s=>s.state==='没做成')?v:null;},10000);
   report.stopped=stopped&&stopped.steps;
   assert.deepEqual(stopped.steps.map(s=>s.state),['做完了','没做成','没开始']);
-  assert.equal(stopped.steps[1].reason,'和现在的项目对不上。');assert.match(stopped.note,/计划停在了这一步/);
+  assert.equal(stopped.steps[1].reason,'和现在的项目对不上。');await shot('plan-failed');assert.match(stopped.note,/计划停在了这一步/);
   assert.equal(await box(),null,'自动 did not ask');
   await read(`document.querySelector('[data-plan-undo]').click();true`);await wait(300);assert.equal(await clips(),before);
   await read(`flushSave()`);await wait();
