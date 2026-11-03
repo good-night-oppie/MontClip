@@ -32,7 +32,10 @@ test("the project summary carries width, height and fps as numbers, or null", (t
 
 test("the dashboard escapes width, height and fps wherever it puts them in the page", () => {
   const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
-  assert.doesNotMatch(app, /\$\{p\.width\}×\$\{p\.height\}/, "no bare ${p.width}×${p.height}");
-  assert.doesNotMatch(app, /\$\{pjFps\(p\.fps\)\}/, "no bare ${pjFps(p.fps)}");
+  // every place that writes ${p.width}×${p.height} does it inside escapeHtml(`…`)
+  const uses = [...app.matchAll(/\$\{p\.width\}×\$\{p\.height\}/g)].map((m) => app.slice(Math.max(0, m.index - 12), m.index));
+  assert.ok(uses.length >= 2, "found " + uses.length);
+  for (const before of uses) assert.match(before, /escapeHtml\(`$/, before);
+  assert.doesNotMatch(app, /\$\{pjFps\(p\.fps\)\} · \$\{pjFmtDur/, "the card goes through pjCanvas");
   assert.match(app, /function pjCanvas\(p\) \{ return escapeHtml\(/);
 });
