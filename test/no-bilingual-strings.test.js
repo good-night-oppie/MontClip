@@ -14,8 +14,9 @@ const KEY_NAMES = /\b(IN|OUT|In|Out|SRT|FLV|MP4|MontClip|H\.264|FFmpeg|ffmpeg\.e
 const PENDING_37 = !fs.existsSync(path.join(ROOT, 'desktop', 'native-text.js'))
   ? ['保存尚未确认', '页面可能未响应', '继续等：', '继续等 /', '强制关闭（最近修改可能丢失） /', '本地编辑服务意外退出'] : [];
 
+// {name} placeholders (uiText vars, e.g. #70's {got}) are filled in, not words of either language
 function bilingual(t) {
-  const u = t.replace(/\$\{[^}]*\}/g, '').replace(KEY_NAMES, '');
+  const u = t.replace(/\$\{[^}]*\}/g, '').replace(/\{\w+\}/g, '').replace(KEY_NAMES, '');
   if (!/[一-鿿]/.test(u)) return false;
   return /[A-Za-z]{2,}[ ,;.:'’-]+[A-Za-z]{2,}/.test(u) || /[一-鿿][^\n]*\s\/\s*[A-Za-z]{2,}/.test(u) || /[A-Za-z]{2,}[^\n]*\s\/\s*[一-鿿]/.test(u);
 }
@@ -37,6 +38,6 @@ test('no user-facing string holds Chinese and English together', () => {
 test('the check itself catches the shapes it is for, and lets key names through', () => {
   for (const t of ['"没有可映射的音视频 / No source media to map"', '"页面可能未响应。\\nThe editor may be unresponsive."', '"Keep sentences / 按句选择"'])
     a.ok(bilingual(t), t);
-  for (const t of ['"清除源或时间线的 IN / OUT"', '"先导入 SRT 或添加字幕。"', '"导入 FLV 需要用 MontClip 桌面版打开。"', '"No source media to map"', '`${a} → ${b} 秒`'])
+  for (const t of ['"清除源或时间线的 IN / OUT"', '"先导入 SRT 或添加字幕。"', '"导入 FLV 需要用 MontClip 桌面版打开。"', '"No source media to map"', '`${a} → ${b} 秒`', '"正在下载听写模型：{got} / 约 230 MB。"'])
     a.ok(!bilingual(t), t);
 });
