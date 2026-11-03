@@ -10440,9 +10440,13 @@ function autoRender(step) {
   st.step = step;
   const order = ["start", "run", "review", "done"], n = order.indexOf(step);
   d.querySelectorAll("[data-as-st]").forEach((li) => { const k = order.indexOf(li.dataset.asSt); li.className = k === n ? "on" : k < n ? "done" : ""; });
-  const body = d.querySelector("[data-as-body]");
+  const body = d.querySelector("[data-as-body]"), same = body.dataset.step === step;
+  // the same page drawn again (an option picked): its folds stay as they were and it stays where it was scrolled (VV:
+  // picking a 每条多长 option closed 更多设置); another page starts at the top with its folds as designed
+  const open = same ? [...body.querySelectorAll("details")].map((x) => x.open) : [], top = body.scrollTop;
   body.innerHTML = step === "start" ? autoStartHtml() : step === "run" ? autoRunHtml() : step === "review" ? autoReviewHtml() : autoDoneHtml();
-  body.scrollTop = 0;
+  body.dataset.step = step;
+  if (same) { body.querySelectorAll("details").forEach((x, i) => { if (open[i]) x.open = true; }); body.scrollTop = top; } else body.scrollTop = 0;
   autoFooter();
 }
 
