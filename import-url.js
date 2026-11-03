@@ -12,6 +12,7 @@ const fs = require("fs");
 const path = require("path");
 const { execFile } = require("child_process");
 const FF = require("./ffmpeg-path");
+const Delivery = require("./delivery");
 
 const MAX_BYTES = 2 * 1024 * 1024 * 1024; // 2 GiB
 const TIMEOUT_MS = 180_000;
@@ -32,8 +33,9 @@ const EXT_BY_MIME = {
 };
 const FASTSTART_EXT = new Set([".mp4", ".mov", ".m4v"]);
 
+/* a downloaded file keeps the name it was given, Chinese included: the one media-name rule (delivery.js) */
 function safeName(name) {
-  return String(name).replace(/[^\w.\- ()\[\]]+/g, "_").slice(0, 120) || "file";
+  return Delivery.mediaFileName(String(name));
 }
 function kindFromName(name) {
   return KIND_BY_EXT[path.extname(name).toLowerCase()] || null;

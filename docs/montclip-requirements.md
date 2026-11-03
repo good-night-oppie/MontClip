@@ -30,7 +30,7 @@ All rows remain **not released** until the Windows package and review gates pass
 | N20 | Recording marks | Import with original time/source/notes needed | Pending |
 | N21 | Segment type | Conservative classification with unknown state needed | Pending |
 | N22 | Cover candidates | Existing frame extraction; ratios and picker needed | Pending |
-| N23 | Titles/file naming | Windows-safe naming and collision tests needed | Pending |
+| N23 | Titles/file naming | Windows-safe naming and collision tests needed. Gap 2026-11-03: uploaded/imported media lost Chinese names (「合成 演唱.wav」 → 「_ _.wav」); every media path now uses `Delivery.mediaFileName` (fileSafeName rule, extension kept) — PR #78 | Pending; PR #78: unit tests + `MEDIA_NAMES_PASS` (upload, read, play), awaiting review |
 | N24 | Danmaku output | Independent annotation layer needed | Pending |
 | N25 | Export follows source | Existing delivery presets; exact rate and readback needed | Pending |
 | N26 | Multiple speakers/virtual camera | Existing transforms; simplified operation needed | Pending |
