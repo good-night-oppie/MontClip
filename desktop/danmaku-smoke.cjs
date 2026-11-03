@@ -43,6 +43,11 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
     const imported=performance.now()-t0;if(now()===was)throw Error('not imported');
     const s0=performance.now();scheduleSave();if(!await flushSave())throw Error('save');return{imported:Math.round(imported),saved:Math.round(performance.now()-s0),bytes:xml.length};})()`);
   assert.equal(await read(`!!document.querySelector('[data-tr-danmaku]')&&document.querySelector('[data-tr-danmaku]').textContent`),await read(`uiText('own.dm-import')`),'the button is there');
+  // JJ (8 PRs): a file that is not danmaku says so, and which file to pick; nothing is imported
+  const bad=await read(`(async()=>{const dt=new DataTransfer();dt.items.add(new File(['<?xml version="1.0"?><note>合成</note>'],'合成 不是弹幕.xml',{type:'text/xml'}));
+    const inp=document.querySelector('[data-tr-danmaku-input]');inp.files=dt.files;const t=document.getElementById('toast');t.textContent='';inp.dispatchEvent(new Event('change'));
+    const say=()=>t.querySelector('span')?.textContent||t.textContent;for(let i=0;i<250&&(!say()||say().startsWith('正在读取'));i++)await new Promise(r=>setTimeout(r,20));return{toast:t.querySelector('span')?.textContent||t.textContent,danmaku:(project.danmaku||[]).length};})()`);
+  assert.deepEqual(bad,{toast:'这不是录播姬或 B 站的弹幕文件。录播姬的话，选录像旁边那个同名的 .xml 文件。',danmaku:0},JSON.stringify(bad));
   const small=await pick(JSON.stringify(recorderXml()),'合成 录播.xml');
   const saved=await read(`fetch('/api/project').then(r=>r.json())`);
   assert.equal(saved.danmaku.length,1);
