@@ -97,11 +97,11 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.oneFile=await read(dialogText);
   assert.equal(report.oneFile.title,'按时间保留几段，拼成一条');assert.equal(report.oneFile.summary,'0:02–0:06 → 0:10–0:14 拼起来一共 0:08，按你勾选的顺序。');
   assert.equal(latin(report.oneFile.all),null,JSON.stringify(report.oneFile));
-  // JJ's re-review: the project changes under the open by-time dialog → its own plain sentence (not 按句选段's)
+  // the project changes under the open by-time dialog → #36's sentence (JJ, 8 PRs: one set of words for this dialog)
   await read(`(()=>{project.markers=(project.markers||[]).concat([{t:1}]);document.querySelector('.sentence-dialog [data-preview]').click();return true;})()`);await wait();
   report.changed=await read(`document.querySelector('.sentence-dialog[open] [data-summary]').textContent`);
   await read(`(()=>{project.markers=project.markers.filter(m=>m.t!==1);return true;})()`);
-  assert.equal(report.changed,'项目刚改过，请关掉这个窗口，再选一次。',report.changed);
+  assert.equal(report.changed,'项目刚改过。请关掉这个窗口，重新选一次。',report.changed);   // #36's own.sd-changed (JJ, 8 PRs)
   await read(`document.querySelector('.sentence-dialog[open]').close();true`);
   ok=true;
  }catch(e){report.error=String(e&&e.stack||e).slice(0,1200);}
