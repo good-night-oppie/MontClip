@@ -229,8 +229,7 @@ test("删掉它们并关闭: deletes the queue's unsaved copies, asks nothing mo
 test("a delete fails: the window stays, the count is right, 关掉它再试 (再试一次) retries only that one, then closes", async () => {
   const r = await flow(U, [Close.UNSAVED.DELETE, Close.FAILED.RETRY], [{ deleted: [U.files[0]], failed: [U.files[1]], refused: [] }]);
   a.equal(r.asked[1].message, "有 1 个视频删不掉，可能正被别的软件打开着。");
-  a.equal(r.asked[1].detail.split("
-")[0], U.files[1], "names the one that could not be deleted");
+  a.equal(r.asked[1].detail.split("\n")[0], U.files[1], "names the one that could not be deleted");
   a.deepEqual(r.deleted,[U.files, [U.files[1]]], "the retry only tries the one that failed");
   a.equal(r.close, true);
   // giving up closes without deleting again
