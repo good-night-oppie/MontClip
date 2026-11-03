@@ -45,8 +45,8 @@ test('4. the failures say what to do next', () => {
 });
 
 test('3. punctuation (Apache branch): the sentence, shown only while the model is missing, and a way to install it', () => {
-  a.equal(zh('setup-local-punct'), '字幕默认不带标点；另外装一个标点模型（约 76 MB）就有标点。');
-  a.ok(en('setup-local-punct') && !CJK.test(en('setup-local-punct')) && /76 MB/.test(en('setup-local-punct')));
+  a.equal(zh('setup-local-punct'), '字幕默认不带标点；另外装一个标点模型（下载约 60 MB）就有标点。');
+  a.ok(en('setup-local-punct') && !CJK.test(en('setup-local-punct')) && /download of about 60 MB/.test(en('setup-local-punct')));
   const app = read('app.js');
   a.match(app, /function asrPunctReady\(\) \{ return !!\(asrState\.status && asrState\.status\.punct && asrState\.status\.punct\.ready\); \}/);
   // the setup page's line goes once the model is installed

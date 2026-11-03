@@ -16,7 +16,7 @@ test('JJ v2, section one, word for word', () => {
   a.equal(zh('setup-local-speed'), '1 小时的录像通常几分钟听写完，电脑越快越短。');
   a.equal(zh('setup-local-n', { n: 2 }), '（我们的测试电脑上大约 2 分钟）');
   a.equal(zh('setup-local-errors'), '普通说话每 100 个字大约错 3 个。唱歌的部分错字会多一些，可以用「按歌词校准字幕」改。');
-  a.equal(zh('setup-local-punct'), '字幕默认不带标点；另外装一个标点模型（约 76 MB）就有标点。');   // Deja, 11-03: the licence is Apache-2.0, so it can be installed (test/asr-jj3.test.js)
+  a.equal(zh('setup-local-punct'), '字幕默认不带标点；另外装一个标点模型（下载约 60 MB）就有标点。');   // Deja, 11-03: the licence is Apache-2.0, so it can be installed (test/asr-jj3.test.js)
   a.equal(zh('asr-download'), '下载并使用（约 230 MB）');
   a.equal(zh('setup-later-title'), '以后再说');
   a.equal(zh('setup-later'), '先不装。找高光、剪辑、导出都照常能用，只是不会自动出字幕；你也可以自己导入 SRT 字幕文件。');
@@ -28,7 +28,7 @@ test('JJ v2, section one, word for word', () => {
   a.equal(en('setup-title'), 'Make subtitles automatically?');
   a.equal(en('asr-download'), 'Download and use (about 230 MB)');
   a.equal(en('asr-later'), 'Not now');
-  a.equal(en('setup-local-punct'), 'Captions have no punctuation by default; install a punctuation model (about 76 MB) to get it.');
+  a.equal(en('setup-local-punct'), 'Captions have no punctuation by default; install a punctuation model (a download of about 60 MB) to get it.');
 });
 test('the page: three states of the choice and five of the download, from the same functions as the Transcript tab', () => {
   const app = read('app.js');

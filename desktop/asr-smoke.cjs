@@ -113,7 +113,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     await read(`openSettings();true`); await wait(300);
     report.punctOffer = await read(`({shown:!document.getElementById('setAsrPunct').hidden,text:document.getElementById('setAsrPunctText').textContent,button:document.getElementById('btnAsrPunct').textContent})`);
     await read(`closeSettings();true`);
-    if (!report.punctOffer.shown || report.punctOffer.text !== '字幕默认不带标点；另外装一个标点模型（约 76 MB）就有标点。' || report.punctOffer.button !== '装标点模型') throw Error('PUNCT_OFFER ' + JSON.stringify(report.punctOffer));
+    if (!report.punctOffer.shown || report.punctOffer.text !== '字幕默认不带标点；另外装一个标点模型（下载约 60 MB）就有标点。' || report.punctOffer.button !== '装标点模型') throw Error('PUNCT_OFFER ' + JSON.stringify(report.punctOffer));
     // then the punctuation model from the second "U 盘"
     process.env.MONTCLIP_SMOKE_ASR_IMPORT = usb2;
     await read(`asrImport();true`);
