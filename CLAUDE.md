@@ -3014,3 +3014,8 @@ main process keeps the mode and the approvals in memory only, so a restart is ba
 `capabilities.js`; the AI cannot change the mode or any list. The approval box offers 只批准这次 / 这个聊天中都批准 / 不同意;
 「都批准」 holds for one chat, one capability and one target. Anything sent out is always shown first, Yolo included, and is
 capped per send and per chat. MCP tools and the REST API are not affected. See `docs/decisions/2026-11-03-agent-permission-modes.md`.
+
+The assistant can also reply with a plan of up to 30 steps. It shows as a list (没开始 / 正在做 / 做完了 / 失败); the
+streamer can delete steps or drop the plan, then 〔开始〕 runs the steps one at a time, each decided by the mode as above.
+A step that fails or is declined stops the plan there, and 〔撤销整个计划〕 takes every applied step back at once. Only the
+two range edits can be done by the assistant yet. See `docs/decisions/2026-11-03-agent-plan-list.md`.

@@ -4951,3 +4951,11 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .agent-approval { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(560px, 90vw); max-height: 85vh; padding: 20px; overflow: auto; }
 .agent-approval pre { white-space: pre-wrap; word-break: break-word; max-height: 40vh; overflow: auto; background: var(--bg, #111); padding: 8px; border-radius: 4px; }
 .agent-approval .tr-row { display: flex; flex-wrap: wrap; gap: 8px; }
+/* P4, second half: the plan list in the assistant */
+.cindy-plan { flex-shrink: 0; max-height: 40%; overflow: auto; border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; }
+.cindy-plan ol { margin: 0; padding-left: 20px; }
+.cindy-plan li { margin: 2px 0; }
+.cindy-plan li[data-step-state="doing"] { font-weight: 600; }
+.cindy-plan li[data-step-state="failed"] .cindy-plan-state { color: var(--danger); }
+.cindy-plan-state, .cindy-plan-reason { color: var(--muted, #9aa0aa); font-size: 12px; margin-left: 4px; }
+.cindy-plan p { margin: 2px 0; font-size: 12px; }

@@ -22243,13 +22243,94 @@ async function onAgentReply(result){
   showSentenceSelection(proposal,token=>{officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});},()=>{if(ev)moveEvent(ev.id,'rejected');});
   return;
  }
- if(rangeEditBusy()){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.sd-busy-save'));return;}
  // the CAS: the project and its revision are still the reply's
  if(!MontClipProposal.current(proposal,projectJSON(),{...agentProjectContext(),generation:agentProjectContext().gen})||project.revision!==result.context.revision){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.ap-stale'));return;}
+ if(rangeEditBusy()){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.sd-busy-save'));return;}
  let plan;try{plan=FableCutRangePlan.create(projectJSON(),proposal.keep);plan.keep=proposal.keep;}catch{if(ev)moveEvent(ev.id,'failed');toast(uiText('own.ap-invalid'));return;}
  const token=commitRangePlan(plan,proposal);
  officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});
  toastAction(uiText('own.ap-applied',{mode:MontClipPolicy.modeLabel(agentPolicy.mode,mcView.get().language)}),uiText('own.ap-undo'),()=>{if(canUndoOfficialProposal(result)){if(!ev||!undoEvent(ev.id).ok)undo();}});
+ mcAgent.render();
+}
+/* P4, second half: the AI's plan (agent-plan.js). A reply that is a plan shows as a list in the assistant; the streamer can
+   delete steps or drop it, then 〔开始〕 runs the steps in order, one at a time. Each step is decided by the host like any AI
+   step (agent-policy.js: run / ask / list / refuse), checked against the project as it is when its turn comes, and is one
+   event of the plan's run (agent-events.js), so 〔撤销整个计划〕 takes every applied step back at once (undoRun). A step that
+   fails, is declined or only listed stops the plan there. The agent version is kept before the first step. */
+const agentPlans=new WeakMap();
+function agentPlanOf(result){
+ if(!result||typeof result.text!=='string'||typeof MontClipPlan==='undefined')return null;
+ if(!agentPlans.has(result)){const p=MontClipPlan.parse(result.text);if(!p||!p.ok)return null;agentPlans.set(result,{run:MontClipPlan.create(p.steps),runId:crypto.randomUUID(),busy:false,applied:0,note:''});}
+ return agentPlans.get(result);
+}
+// why a step stopped, in plain words (the codes stay internal)
+const PLAN_REASON={DENIED:'own.pl-denied',LISTED:'own.pl-listed',REFUSED:'own.pl-refused',NO_EXECUTOR:'own.pl-no-executor',BUSY:'own.pl-busy',CANCELLED:'own.pl-cancelled',STALE:'own.pl-stale'};
+const planReason=(code)=>code?uiText(PLAN_REASON[code]||'own.pl-stale'):'';
+/** What the pane shows for a plan reply (null for any other reply). */
+function agentPlanView(result){
+ const entry=agentPlanOf(result);if(!entry)return null;
+ const lang=mcView.get().language,status=entry.run.status();
+ return {status,steps:entry.run.list().map((s)=>({label:MontClipPlan.stepLabel(s,lang),state:s.state,stateText:MontClipPlan.stateLabel(s.state,lang),reason:planReason(s.code)})),
+  canStart:status==='ready'&&!entry.busy&&agentPolicy.mode!=='plan',
+  note:entry.note||(status==='ready'&&agentPolicy.mode==='plan'?uiText('own.pl-plan-mode'):status==='discarded'?uiText('own.pl-discarded'):status==='done'?uiText('own.pl-done'):status==='stopped'?uiText('own.pl-stopped'):''),
+  canUndo:!entry.busy&&entry.applied>0&&(status==='done'||status==='stopped')};
+}
+/** One step of a plan: the host's decision, the step's own check against the project now, then the step. */
+async function runAgentPlanStep(s,entry,result){
+ let d;try{d=await window.montclipAgentPolicy.decide({sessionId:result.sessionId,capability:s.capability,target:{kind:'project',value:runtime.projectId}});}catch{d=null;}
+ if(!d||!d.ok||d.action==='refuse')return {ok:false,code:'REFUSED'};
+ if(d.action==='list')return {halt:'LISTED'};
+ // only the two edits by range can be done by the assistant yet; anything else stops the plan, saying so
+ if(s.capability!=='keep_sentences'&&s.capability!=='keep_ranges')return {ok:false,code:'NO_EXECUTOR'};
+ const c=agentProjectContext(),meta={id:crypto.randomUUID(),runId:entry.runId,step:s.index+1,actor:'ai',at:new Date().toISOString(),revision:project.revision};
+ let proposal;
+ try{proposal=MontClipProposal.prepare({...s.args,type:s.capability},{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});}
+ catch(error){recordAgentEvent(MontClipProposal.failedEvent(error,{...meta,capability:s.capability}));return {ok:false,code:'STALE'};}
+ const ev=recordAgentEvent(MontClipProposal.event(proposal,meta));if(ev)proposal.eventId=ev.id;
+ if(d.action==='ask'){
+  const choice=await askAgentApproval(d,{summary:uiText('own.pl-step-of',{n:s.index+1,total:entry.run.list().length})});
+  let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}
+  if(!a||!a.ok||!a.run){if(ev)moveEvent(ev.id,'rejected');return {halt:'DENIED'};}
+ }
+ // the CAS: nobody changed the project while the box was open
+ if(!MontClipProposal.current(proposal,projectJSON(),{...agentProjectContext(),generation:agentProjectContext().gen})){if(ev)moveEvent(ev.id,'rejected');return {ok:false,code:'STALE'};}
+ if(proposal.type==='keep_ranges'&&proposal.outputMode==='per_range'){
+  // slices add exports: the dialog, and the streamer's own 〔应用〕
+  const applied=await new Promise((resolve)=>{showSentenceSelection(proposal,()=>resolve(true),()=>{if(ev)moveEvent(ev.id,'rejected');resolve(false);}).then(()=>{if(!document.querySelector('.sentence-dialog[open]'))resolve(false);});});
+  if(!applied)return {halt:'CANCELLED'};
+ } else {
+  if(rangeEditBusy()){if(ev)moveEvent(ev.id,'rejected');return {ok:false,code:'BUSY'};}
+  let plan;try{plan=FableCutRangePlan.create(projectJSON(),proposal.keep);plan.keep=proposal.keep;}catch{if(ev)moveEvent(ev.id,'failed');return {ok:false,code:'STALE'};}
+  commitRangePlan(plan,proposal);
+ }
+ entry.applied++;
+ // the next step is checked against the saved project
+ if(!await flushSave())return {ok:false,code:'BUSY'};
+ return {ok:true};
+}
+/** 〔开始〕: the steps in order, one at a time, until one stops the plan or all are done. */
+async function runAgentPlan(result){
+ const entry=agentPlanOf(result);if(!entry||entry.busy||!window.montclipAgentPolicy)return;
+ if(JSON.stringify(result.context)!==JSON.stringify(agentProjectContext())){entry.note=uiText('own.pl-stale-plan');mcAgent.render();return;}
+ if(!entry.run.start().ok)return;
+ entry.busy=true;mcAgent.render();
+ try{
+  await versionBeforeAgent();
+  for(let s=entry.run.next();s&&Number.isInteger(s.index);s=entry.run.next()){
+   mcAgent.render();
+   let r;try{r=await runAgentPlanStep(s,entry,result);}catch{r={ok:false,code:'STALE'};}
+   if(r.halt)entry.run.halt(s.index,r.halt);else entry.run.finish(s.index,r);
+   mcAgent.render();
+   if(entry.run.status()!=='running')break;
+  }
+ }finally{entry.busy=false;mcAgent.render();}
+}
+/** 〔撤销整个计划〕: every applied step of the plan's run at once, while they are the newest undo steps. */
+function undoAgentPlan(result){
+ const entry=agentPlanOf(result);if(!entry)return;
+ const r=undoRun(entry.runId);
+ if(r.ok){entry.applied=0;entry.note=uiText('own.pl-undone');}
+ else entry.note=uiText(r.code==='RUN_INTERLEAVED'?'own.pl-undo-interleaved':'own.pl-undo-none');
  mcAgent.render();
 }
 function canUndoOfficialProposal(result){
@@ -22269,7 +22350,9 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  getProjectName:id=>id===runtime.projectId?project.name:null,
  canUndoProposal:canUndoOfficialProposal,
  getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[]});},
- ...(window.montclipAgentPolicy?{getMode:()=>agentPolicy.mode,setMode:setAgentMode,onReply:result=>{void onAgentReply(result);}}:{}),
+ ...(window.montclipAgentPolicy?{getMode:()=>agentPolicy.mode,setMode:setAgentMode,onReply:result=>{void onAgentReply(result);},
+  getPlan:agentPlanView,planStart:runAgentPlan,planUndo:undoAgentPlan,
+  planRemove:(result,i)=>{agentPlanOf(result)?.run.remove(i);},planDiscard:(result)=>{agentPlanOf(result)?.run.discard();}}:{}),
  onUndo:result=>{if(canUndoOfficialProposal(result)){const entry=officialProposalApplications.get(result);if(!entry?.eventId||!undoEvent(entry.eventId).ok)undo();}},
  onProposal:(response,result)=>{
    const {proposal,ev,c}=agentProposalStep(response,result);
