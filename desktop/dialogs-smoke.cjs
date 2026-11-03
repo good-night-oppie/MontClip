@@ -18,7 +18,21 @@ const MEASURE=`window.__dlgMeasure=(el,behind)=>{const r=el.getBoundingClientRec
  const alpha=(c)=>{const m=/rgba?\\(([^)]+)\\)/.exec(c||'');if(!m)return 0;const p=m[1].split(',').map(s=>parseFloat(s));return p.length>3?p[3]:1;};
  const back=behind?getComputedStyle(behind).backgroundColor:getComputedStyle(el,'::backdrop').backgroundColor;
  return {left:Math.round(r.left),top:Math.round(r.top),w:Math.round(r.width),h:Math.round(r.height),vw,vh,
-  dx:Math.round(r.left-(vw-r.right)),dy:Math.round(r.top-(vh-r.bottom)),backdrop:back,alpha:alpha(back),modal:el.matches(':modal')};};true`;
+  dx:Math.round(r.left-(vw-r.right)),dy:Math.round(r.top-(vh-r.bottom)),backdrop:back,alpha:alpha(back),modal:el.matches(':modal'),
+  inside:r.top>=-1&&r.left>=-1&&r.bottom<=vh+1&&r.right<=vw+1,ends:__dlgEnds(el)};};
+// Deja (#88): the box whole inside the window, and its title and its last button (〔关闭〕 and the like) visible however
+// far its content is scrolled — buttons inside an inner scrolling list are content, not the box's own
+window.__dlgEnds=(el)=>{const vw=innerWidth,vh=innerHeight,b=el.getBoundingClientRect();
+ const seen=(n)=>{const r=n.getBoundingClientRect();return r.width>0&&r.top>=Math.max(0,b.top)-1&&r.bottom<=Math.min(vh,b.bottom)+1&&r.left>=-1&&r.right<=vw+1;};
+ const scrollers=[el,...el.querySelectorAll('*')].filter(n=>n.scrollHeight>n.clientHeight+1&&/auto|scroll/.test(getComputedStyle(n).overflowY));
+ const inner=scrollers.filter(n=>n!==el),inInner=(n)=>inner.some(x=>x!==n&&x.contains(n));
+ const head=[...el.querySelectorAll('h1,h2,h3')].find(h=>h.offsetParent!==null&&!inInner(h))||null;
+ const last=[...el.querySelectorAll('button')].filter(x=>x.offsetParent!==null&&!inInner(x)).pop()||null;
+ const keep=scrollers.map(n=>n.scrollTop);
+ for(const n of scrollers)n.scrollTop=n.scrollHeight;const headAtEnd=head?seen(head):null;
+ for(const n of scrollers)n.scrollTop=0;const lastAtTop=last?seen(last):null;
+ scrollers.forEach((n,i)=>{n.scrollTop=keep[i];});
+ return {scrolls:scrollers.length,head:head?head.textContent.trim().slice(0,30):null,last:last?last.textContent.trim().slice(0,20):null,headAtEnd,lastAtTop};};true`;
 const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...args){
  await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=(ms=200)=>new Promise(r=>setTimeout(r,ms));
@@ -93,6 +107,9 @@ BrowserWindow.prototype.loadURL=async function(...args){
    const name=size+' '+n;
    if(m.missing){bad.push(name+': did not open');continue;}
    if(Math.abs(m.dx)>2||(m.h<m.vh&&Math.abs(m.dy)>2))bad.push(`${name}: off centre (dx ${m.dx}, dy ${m.dy})`);
+   if(!m.inside)bad.push(`${name}: not whole inside the window (top ${m.top}, height ${m.h}, window ${m.vh})`);
+   if(m.ends&&m.ends.headAtEnd===false)bad.push(`${name}: its title scrolls away`);
+   if(m.ends&&m.ends.lastAtTop===false)bad.push(`${name}: its last button (${m.ends.last}) is out of sight`);
    if(m.alpha<0.3)bad.push(`${name}: backdrop ${m.backdrop}`);
    if(m.dimmed!==undefined&&m.dimmed<0.25)bad.push(`${name}: the page behind it is only ${Math.round(m.dimmed*100)} % darker`);
    if(group==='dialogs'&&!m.modal)bad.push(name+': not modal, so nothing behind it is darkened');
