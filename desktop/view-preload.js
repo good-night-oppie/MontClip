@@ -24,6 +24,16 @@ contextBridge.exposeInMainWorld('montclipExternalFfmpeg',Object.freeze({
  choose:()=>ipcRenderer.invoke('montclip:ffmpeg:choose'),
  clear:()=>ipcRenderer.invoke('montclip:ffmpeg:clear')
 }));
+// The speech model (#70): the main process asks the streamer, then downloads it from its listed sites, or imports it from
+// a folder the streamer picks. The page says only which model ('asr' | 'punct'); no path, no address.
+contextBridge.exposeInMainWorld('montclipAsr',Object.freeze({
+ download:which=>ipcRenderer.invoke('montclip:asr:download',which==='punct'?'punct':'asr'),
+ import:()=>ipcRenderer.invoke('montclip:asr:import'),
+ cancel:()=>ipcRenderer.invoke('montclip:asr:cancel'),
+ choice:()=>ipcRenderer.invoke('montclip:asr:choice'),
+ setChoice:v=>ipcRenderer.invoke('montclip:asr:choice',v==='later'?'later':'local'),
+ onProgress:fn=>{const h=(_,p)=>{try{fn({which:p&&p.which==='punct'?'punct':'asr',loaded:Number(p&&p.loaded)||0,total:Number(p&&p.total)||0});}catch{}};ipcRenderer.on('montclip:asr:progress',h);return()=>ipcRenderer.removeListener('montclip:asr:progress',h);}
+}));
 
 contextBridge.exposeInMainWorld('montclipPaneSettings',Object.freeze({
  get:()=>ipcRenderer.sendSync('montclip:pane:get'),

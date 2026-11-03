@@ -1,8 +1,8 @@
 /* Transcripts over the REST API and fablecut_transcribe. The test plays the
    editor tab (an SSE reader that claims the transcribe job and saves a
-   transcript, as the real tab does after running Whisper), so the protocol,
+   transcript, as the real tab does once the local server has transcribed), so the protocol,
    the timeline mapping, find and cut are covered without a browser or a model.
-   Whisper itself runs in the browser and is exercised by hand. */
+   The engine itself is covered by asr-offline.test.js and desktop/asr-smoke.cjs. */
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -125,17 +125,17 @@ test("fablecut_transcribe has a tab transcribe, then reads, finds and cuts words
   await mcp.request("initialize", { protocolVersion: "2025-11-25" });
 
   // the whole timeline by default; the music on A2 is a clip with sound too
-  const pending = mcp.callTool("fablecut_transcribe", { language: "en" });
+  const pending = mcp.callTool("fablecut_transcribe", { language: "zh" });
   const ticket = await tab.next();
   assert.equal(ticket.kind, "transcribe");
-  assert.deepEqual(ticket.transcribe, { srcs: ["/media/a.wav", "/media/music.wav"], model: "base", language: "en", again: false });
+  assert.deepEqual(ticket.transcribe, { srcs: ["/media/a.wav", "/media/music.wav"], model: "paraformer-zh", language: "zh", again: false });
   assert.equal((await post(base, "/api/export/job/claim?id=" + ticket.id)).status, 200);
   await post(base, "/api/transcript?src=/media/a.wav", { model: "base", language: "en", duration: 10, words: WORDS });
   await post(base, "/api/transcript?src=/media/music.wav", { model: "base", language: "en", duration: 10, words: [] });
   await post(base, "/api/export/job/report?id=" + ticket.id, { status: "done", result: { done: [{ src: "/media/a.wav", words: 5 }, { src: "/media/music.wav", words: 0 }], skipped: [], failed: [] } });
   const read = await pending;
   assert.equal(read.isError, false, read.text);
-  assert.match(read.text, /Transcribed 2 files \(base, en, in the open editor tab\)/);
+  assert.match(read.text, /Transcribed 2 files \(paraformer-zh, zh, in the open editor tab\)/);
   assert.match(read.text, /\[0:01\.00\] So um, this is great\./);
 
   // already transcribed: no job this time

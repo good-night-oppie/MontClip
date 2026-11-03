@@ -35,11 +35,15 @@ async function start() {
   // the user's own FFmpeg (H.264 export only): chosen in Settings, stored here, read by the server
   env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS = path.join(app.getPath("userData"), "external-ffmpeg.json");
   delete env.MONTCLIP_FFMPEG_PACKAGED;
+  // on-device transcription (#70): the user's downloaded or imported speech models
+  env.MONTCLIP_ASR_MODELS_DIR = path.join(app.getPath("userData"), "asr-models");
   if (app.isPackaged) {
     delete env.MONTCLIP_FFMPEG;
     delete env.MONTCLIP_FFPROBE;
     env.MONTCLIP_FFMPEG_PACKAGED = "1";
     env.MONTCLIP_FFMPEG_DIR = path.join(process.resourcesPath, "ffmpeg");
+    // the speech engine and the VAD (and, in the 完整版 package, the models) are in the package
+    env.MONTCLIP_ASR_DIR = path.join(process.resourcesPath, "asr");
     // the FLV import runs prepareMedia here in the main process: the same FFmpeg, never PATH
     delete process.env.MONTCLIP_FFMPEG;
     delete process.env.MONTCLIP_FFPROBE;
@@ -114,6 +118,74 @@ async function start() {
   const features = { transcribe: transcribeEnabled({ isPackaged: app.isPackaged, argv: process.argv, env: process.env }) };
   ipcMain.on("montclip:features:get", (event) => {
     event.returnValue = settingsAllowed(event, win, origin) ? { transcribe: features.transcribe } : { transcribe: false };
+  });
+  // The speech model (#70; ADR 2026-11-03 local capability boundary, row 6): downloaded only here, after the streamer
+  // says yes in the host's own box (sizes and sites), from the listed hosts only (asr-download.js); or imported from a
+  // folder the streamer picks (a U 盘). Every file is checked against desktop/asr-manifest.json. The page passes no
+  // path and no address: only which model.
+  const AsrModels = require("../asr-models"), AsrDownload = require("../asr-download"), { asrDownloadText, asrImportTitle } = require("./asr-text");
+  // the only sites a model is downloaded from (Deja, 2026-11-03), hf-mirror.com first, github.com second, and the hosts
+  // GitHub's release downloads redirect to; written here, not read from a file
+  const ASR_HOSTS = Object.freeze(["hf-mirror.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com"]);
+  const asrStore = AsrModels.createStore({ roots: [path.join(env.MONTCLIP_ASR_DIR || path.join(__dirname, "..", "vendor", "asr"), "models")],
+    userDir: env.MONTCLIP_ASR_MODELS_DIR });
+  let asrBusy = null;
+  app.once("before-quit", () => { if (asrBusy) asrBusy.abort(); });
+  ipcMain.handle("montclip:asr:download", async (event, which) => {
+    if (!settingsAllowed(event, win, origin) || !features.transcribe) return { ok: false, code: "ASR_FORBIDDEN" };
+    if (which !== "asr" && which !== "punct") return { ok: false, code: "ASR_UNKNOWN_MODEL" };
+    if (asrBusy) return { ok: false, code: "ASR_BUSY" };
+    const t = asrDownloadText(languageOf(settings.get()), which);
+    const answer = smoke ? { response: process.env.MONTCLIP_SMOKE_ASR_CONSENT === "1" ? 1 : 0 }
+      : await dialog.showMessageBox(win, { type: "question", title: t.title, message: t.message, detail: t.detail, buttons: t.buttons, defaultId: 0, cancelId: 0, noLink: true });
+    if (smoke) process.stdout.write("MONTCLIP_ASR_CONSENT " + JSON.stringify({ which, title: t.title, message: t.message, detail: t.detail, answered: answer.response }) + "\n");
+    if (answer.response !== 1) return { ok: false, declined: true };
+    asrBusy = new AbortController();
+    try {
+      const r = await asrStore.download(which, { signal: asrBusy.signal, hosts: ASR_HOSTS,
+        fetchFile: (url, dest, o) => AsrDownload.fetchFile(url, dest, { ...o, hosts: ASR_HOSTS }),
+        onProgress: (p) => { if (win && !win.isDestroyed() && p.total) win.webContents.send("montclip:asr:progress", { which, loaded: p.loaded, total: p.total }); } });
+      return { ok: true, source: r.source };
+    } catch (e) {
+      return { ok: false, code: e.code || "ASR_DOWNLOAD_FAILED", needBytes: e.needBytes, freeBytes: e.freeBytes, drive: e.drive,
+        error: e.failed ? e.failed.map((f) => f.source + ": " + f.error).join("; ") : String(e.message || e) };
+    } finally { asrBusy = null; }
+  });
+  // v10: what the streamer chose on the transcription setup page ("local" | "later"), kept here because the page's
+  // origin (a random port) changes each time MontClip opens; and whether a download stopped half-way (it opens on 「没下载完」)
+  const asrChoiceFile = path.join(app.getPath("userData"), "asr-choice.json");
+  ipcMain.handle("montclip:asr:choice", async (event, set) => {
+    if (!settingsAllowed(event, win, origin) || !features.transcribe) return { ok: false, code: "ASR_FORBIDDEN" };
+    if (set !== undefined) {
+      if (!(set === "local" || set === "later")) return { ok: false, code: "ASR_BAD_CHOICE" };
+      const tmp = asrChoiceFile + "." + crypto.randomUUID() + ".tmp";
+      try { fs.writeFileSync(tmp, JSON.stringify({ version: 1, choice: set }), { flag: "wx" }); fs.renameSync(tmp, asrChoiceFile); }
+      catch { try { fs.unlinkSync(tmp); } catch { } return { ok: false, code: "ASR_CHOICE_NOT_SAVED" }; }
+    }
+    let choice = null, partial = false;
+    try { const j = JSON.parse(fs.readFileSync(asrChoiceFile, "utf8")); if (j && (j.choice === "local" || j.choice === "later")) choice = j.choice; } catch { }
+    try { partial = fs.readdirSync(path.join(env.MONTCLIP_ASR_MODELS_DIR, ".partial")).some((f) => f.endsWith(".part")); } catch { }
+    return { ok: true, choice, partial };
+  });
+  // 〔取消下载〕: what came stays for 「接着下载」
+  ipcMain.handle("montclip:asr:cancel", async (event) => {
+    if (!settingsAllowed(event, win, origin)) return { ok: false, code: "ASR_FORBIDDEN" };
+    if (asrBusy) asrBusy.abort();
+    return { ok: true };
+  });
+  ipcMain.handle("montclip:asr:import", async (event) => {
+    if (!settingsAllowed(event, win, origin) || !features.transcribe) return { ok: false, code: "ASR_FORBIDDEN" };
+    if (asrBusy) return { ok: false, code: "ASR_BUSY" };
+    const smokeDir = smoke && process.env.MONTCLIP_SMOKE_ASR_IMPORT;
+    const pick = smokeDir ? { canceled: false, filePaths: [smokeDir] }
+      : await dialog.showOpenDialog(win, { title: asrImportTitle(languageOf(settings.get())), properties: ["openDirectory"] });
+    if (pick.canceled || !pick.filePaths.length) return { ok: false, cancelled: true };
+    asrBusy = new AbortController();
+    try {
+      const r = await asrStore.importPaths(pick.filePaths);
+      return { ok: true, imported: r.imported.length, already: r.already, rejected: r.rejected };
+    } catch (e) { return { ok: false, error: String(e.message || e) }; }
+    finally { asrBusy = null; }
   });
   // 「✨ 自动出切片」 finished while the window was not in front (P3): one local notification. The page sends a count
   // only; the words come from the shared table in the chosen language. Web notification permission stays denied.
