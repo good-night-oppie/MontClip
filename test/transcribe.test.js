@@ -1,4 +1,4 @@
-/* transcribe.js — Whisper's word pieces → words, words → the timeline, finding
+/* transcribe.js — words → the timeline, finding
    a phrase, and the spans and extract ops the Transcript tab and
    fablecut_transcribe cut with. */
 "use strict";
@@ -7,55 +7,8 @@ const assert = require("node:assert/strict");
 const T = require("../transcribe.js");
 const ProjectOps = require("../project-ops.js");
 
-test("model and language are defaulted and checked", () => {
-  assert.equal(T.model(), "base");
-  assert.equal(T.model("small"), "small");
-  assert.throws(() => T.model("large"), /model must be base or small/);
-  assert.equal(T.language(), null);
-  assert.equal(T.language("auto"), null);
-  assert.equal(T.language("EN"), "en");
-  assert.equal(T.language("Hindi"), "hi");
-  assert.equal(T.language("yue"), "yue");
-  assert.throws(() => T.language("klingon"), /Whisper language code/);
-});
-
-test("joinChunks glues pieces without a leading space onto the word before", () => {
-  const words = T.joinChunks([
-    { text: " Free", timestamp: [44.12, 44.52] }, { text: " at", timestamp: [44.52, 44.86] },
-    { text: " studio", timestamp: [44.86, 45.12] }, { text: ".fablecut", timestamp: [45.12, 46.02] },
-    { text: ".space.", timestamp: [46.02, 46.66] }, { text: "  ", timestamp: [47, 47.2] },
-  ], 10);
-  assert.deepEqual(words, [["Free", 54.12, 54.52], ["at", 54.52, 54.86], ["studio.fablecut.space.", 54.86, 56.66]]);
-});
-
-test("joinChunks mends missing or backwards times and keeps CJK characters apart", () => {
-  const w = T.joinChunks([{ text: " one", timestamp: [1, 1.5] }, { text: " two", timestamp: [0.9, null] }, { text: " three", timestamp: [null, 3] }]);
-  assert.deepEqual(w, [["one", 1, 1.5], ["two", 1, 1.3], ["three", 1.3, 3]]);
-  assert.equal(T.joinChunks([{ text: "你", timestamp: [0, 0.2] }, { text: "好", timestamp: [0.2, 0.4] }]).length, 2);
-  assert.deepEqual(T.joinChunks([{ text: " end", timestamp: [9, 12] }], 0, 10), [["end", 9, 10]]);
-});
-
-test("plan splits long audio at its quietest moment, short audio in one piece", () => {
-  const rate = 1000;
-  const pcm = new Float32Array(70 * rate).fill(0.5);
-  pcm.fill(0, 20 * rate, 20.2 * rate);   // a pause at 20 s
-  pcm.fill(0, 45 * rate, 45.2 * rate);   // and at 45 s
-  const p = T.plan(pcm, rate);
-  assert.equal(p[0][0], 0);
-  assert.equal(p[p.length - 1][1], pcm.length);
-  for (let k = 1; k < p.length; k++) assert.equal(p[k][0], p[k - 1][1]);
-  for (const [a, b] of p) assert.ok(b - a <= 28 * rate, "≤ 28 s each");
-  assert.ok(Math.abs(p[0][1] - 20.1 * rate) < 0.15 * rate, `first split in the pause (${p[0][1]})`);
-  assert.ok(Math.abs(p[1][1] - 45.1 * rate) < 0.15 * rate, `second split in the pause (${p[1][1]})`);
-  assert.deepEqual(T.plan(new Float32Array(5 * rate), rate), [[0, 5 * rate]]);
-  assert.deepEqual(T.plan(new Float32Array(0), rate), [[0, 0]]);
-});
-
-test("quiet() spots silence and leaves speech", () => {
-  assert.equal(T.quiet(new Float32Array(1000)), true);
-  assert.equal(T.quiet(new Float32Array(1000).fill(0.0005)), true);   // -66 dBFS
-  assert.equal(T.quiet(new Float32Array(1000).fill(0.05)), false);
-});
+// Whisper's model, language, joinChunks, plan and quiet went with it (#70, Deja 2026-11-03): the model and the language
+// are tested in asr-offline.test.js, the words the engine gives in asr-words.test.js.
 
 test("validate keeps a clean document and refuses a broken one", () => {
   const d = T.validate({ src: "/media/a.wav", model: "base", language: "en", duration: 5, words: [["hi", 0.5, 0.9], [" ", 1, 2], ["there", 0.4, 9]] });
