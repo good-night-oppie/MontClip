@@ -22,12 +22,10 @@ async function stopSessions(sessions, { timeoutMs = 3000, rm = (p) => fs.rmSync(
   const ended = Promise.all(procs.map((p) => exited(p) ? null : new Promise((r) => { try { p.once("exit", r); } catch { r(); } })));
   let left = paths;
   const sweep = () => { left = left.filter((p) => { try { rm(p); return fs.existsSync(p); } catch { return true; } }); };
+  // ffmpeg first: wait (up to the limit) until it has exited, so nothing is still writing when the files go
+  await Promise.race([ended, new Promise((r) => setTimeout(r, Math.max(0, deadline - Date.now())))]);
   sweep();
-  if (left.length) {
-    await Promise.race([ended, new Promise((r) => setTimeout(r, Math.max(0, deadline - Date.now())))]);
-    sweep();
-    while (left.length && Date.now() < deadline) { await new Promise((r) => setTimeout(r, 100)); sweep(); }
-  }
+  while (left.length && Date.now() < deadline) { await new Promise((r) => setTimeout(r, 100)); sweep(); }
   if (left.length) { try { log(left.slice()); } catch {} }
   return { left };
 }
