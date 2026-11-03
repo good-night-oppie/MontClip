@@ -1592,6 +1592,8 @@ function applyProject(data, opts = {}) {
     outputs: Array.isArray(data.outputs) ? data.outputs.filter((o) => o && typeof o === "object") : null,
     master: normalizeMaster(data.master),
     buses: normalizeBuses(data.buses),
+    // the recording's danmaku, kept as it is (null when this project has none, so nothing is left from the last one)
+    danmaku: normalizeDanmaku(data.danmaku),
     // the sequences that aren't open, kept as they are (see sequences.js); the open one is this document
     sequences: Array.isArray(data.sequences) && data.sequences.length ? data.sequences : null,
     sequence: Array.isArray(data.sequences) && data.sequences.length ? SeqLib.activeId(data) : null,
@@ -1762,6 +1764,12 @@ function projectJSON() {
   const root = commitCompCtx();
   return { ...root, revision: project.revision };
 }
+/** project.danmaku as the editor keeps it: the list as it is — every field of every entry, whichever shape — as a
+ *  JSON copy; null when it is not a list, is empty, or is larger than any recording's danmaku (400000 entries). */
+function normalizeDanmaku(list) {
+  if (!Array.isArray(list) || !list.length || list.length > 400000) return null;
+  try { return JSON.parse(JSON.stringify(list)); } catch { return null; }
+}
 /** The project as it is loaded right now (an open comp's stand-in project, or the root). */
 function projectJSONHere() {
   const { name, width, height, fps, background, revision, folders, media, clips, markers, inPoint, outPoint, disabledTracks, encodeProfile, delivery, outputs } = project;
@@ -1804,6 +1812,8 @@ function projectJSONHere() {
   const buses = normalizeBuses(project.buses);
   if (buses.length) out.buses = buses;
   if (project.comps && project.comps.length) out.comps = project.comps.map((cp) => ({ ...cp, clips: (cp.clips || []).map(serializeClip) }));
+  const danmaku = normalizeDanmaku(project.danmaku);
+  if (danmaku) out.danmaku = danmaku;
   if (project.sequences) {
     out.sequences = project.sequences.map((sq) => (sq.id === project.sequence ? { id: sq.id, name: sq.name } : sq));
     out.sequence = project.sequence;
