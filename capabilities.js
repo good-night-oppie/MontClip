@@ -46,7 +46,7 @@
     fablecut_beats: ["undoable", "找出音乐的节拍，按拍子剪", "Find the music's beat and cut on it"],
     fablecut_reframe: ["undoable", "做一份竖屏或方形的版本，画面跟着人走", "Make a vertical or square version where the picture follows the person"],
     fablecut_highlights: ["undoable", "从长录像里挑精彩片段，剪成一个新序列", "Cut the best moments of long footage into a new sequence"],
-    fablecut_songs: ["undoable", "找出录像里每首歌从哪开始、到哪结束，标出估的地方", "Find where each song in a recording starts and ends, marking the guessed spots"],
+    fablecut_songs: ["undoable", "找出录像里可能在唱歌的段落，标出估的地方", "Find the parts of a recording that are possibly singing, marking the guessed spots"],
     fablecut_transcribe: ["undoable", "把说话听写成带时间的文字，可按文字剪", "Turn speech into timed words; cut by text"],
     fablecut_captions: ["sensitive", "加字幕、导入字幕，或把字幕导出成文件", "Add or import captions, or export them as a file"],
     fablecut_denoise: ["undoable", "降低片段的背景噪音", "Reduce background noise on clips"],
