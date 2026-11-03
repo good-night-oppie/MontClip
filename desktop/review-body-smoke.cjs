@@ -37,7 +37,8 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
      factsNote:!!d.querySelector('[data-facts-note]'),
      // Deja (on #87): the owner wants what is sent shown first — one click on the facts sentence opens the facts' exact text
      factsOpen:(()=>{const n=d.querySelector('[data-facts-note]');if(!n)return null;const closed=!n.open;d.querySelector('[data-facts-note] summary').click();
-      const pre=n.querySelector('[data-facts-raw]');return {closed,open:n.open,visible:!!pre&&pre.offsetHeight>0,text:pre?pre.textContent:null};})()};})()`);
+      const pre=n.querySelector('[data-facts-raw]'),ex=n.querySelector('[data-facts-explain]');return {closed,open:n.open,visible:!!pre&&pre.offsetHeight>0,text:pre?pre.textContent:null,
+      explain:n.querySelector('[data-facts-explain]')?.textContent||null,explainFirst:!!ex&&!!pre&&!!(ex.compareDocumentPosition(pre)&Node.DOCUMENT_POSITION_FOLLOWING),title:n.querySelector('summary').textContent};})()};})()`);
    if(!r)throw Error('review dialog did not open');
    const checks={
     sameCount:r.sections.length===r.raw.messages.length,
@@ -48,6 +49,8 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
       try{const o=JSON.parse(rest);return m.content.startsWith(t)&&Object.keys(o).every(k=>k==='references'||k==='facts');}catch{return false;}}),
     factsNamed:!r.facts||r.factsNote,
     factsExpand:!!r.facts&&!!r.factsOpen&&r.factsOpen.closed&&r.factsOpen.open&&r.factsOpen.visible&&r.factsOpen.text===JSON.stringify(r.facts,null,2),
+    // JJ's words: the title, and the explanation above the facts once opened
+    factsWords:!!r.factsOpen&&r.factsOpen.title===require("../ui-preferences").text[language].officialPane_factsTitle&&r.factsOpen.explain===require("../ui-preferences").text[language].officialPane_factsExplain&&r.factsOpen.explainFirst,
     // QQ 2026-11-02: the summary names the format note; the earlier-message count it states is the real one
     summaryNamesNote:/格式说明|formatting note/i.test(r.summary)&&r.summary.includes(String(r.raw.messages.length-2)),
     rawFields:JSON.stringify(Object.keys(r.raw).sort())==='["max_tokens","messages","model","stream"]'&&r.raw.model==='vendor/model-x:free'&&r.raw.stream===false&&r.raw.max_tokens===2048,
