@@ -445,6 +445,34 @@
     if (shift && (k === "Delete" || k === "Backspace")) return true;
     return false;
   }
+  /** A written shortcut ("⇧T", "Shift+E", "Ctrl/Cmd+L", "⇧Del", "B") that simple mode holds back (Deja, #55). Anything
+   *  that doesn't read as one key with modifiers ("M add", "select both") is not a shortcut. */
+  function blockedHint(hint) {
+    let s = String(hint || "").trim(), shift = false, alt = false, ctrl = false;
+    const sym = (c) => (c === "⇧" ? (shift = true) : c === "⌥" ? (alt = true) : c === "⌘" ? (ctrl = true) : false);
+    const parts = s.split("+");
+    let key = parts.pop();
+    for (const p of parts) {
+      if (/^(shift|⇧)$/i.test(p)) shift = true; else if (/^(alt|option|⌥)$/i.test(p)) alt = true;
+      else if (/^(ctrl|cmd|ctrl\/cmd|cmd\/ctrl|control|command|⌘)$/i.test(p)) ctrl = true; else return false;
+    }
+    while (key.length > 1 && sym(key[0])) key = key.slice(1);
+    if (key === "Del") key = "Delete";
+    if (!(key.length === 1 || /^(Delete|Backspace)$/.test(key))) return false;
+    const letter = /^[a-z]$/i.test(key);
+    return advancedShortcut({ key: letter ? (shift ? key.toUpperCase() : key.toLowerCase()) : key, code: letter ? "Key" + key.toUpperCase() : "",
+      shiftKey: shift, altKey: alt, ctrlKey: ctrl, metaKey: false });
+  }
+  /** A tooltip without the shortcuts simple mode holds back: "(⇧T)" goes, "(select both, Ctrl/Cmd+L)" keeps its words. */
+  function stripBlockedHints(title) {
+    return String(title).replace(/\s*([（(])([^()（）]*)([)）])/g, (whole, open, inner, close) => {
+      const parts = inner.split(/\s*[,，·]\s*/), kept = parts.filter((p) => !blockedHint(p));
+      if (kept.length === parts.length) return whole;
+      if (!kept.length) return "";
+      const sep = inner.includes("·") ? " · " : inner.includes("，") ? "，" : ", ";
+      return whole.slice(0, whole.indexOf(open)) + open + kept.join(sep) + close;
+    });
+  }
   /** A new project's name (Deja, 第四批): 未命名项目, Untitled Project in English. Chinese first when the language is unknown. */
   const defaultProjectName = (language) => (language === "en" ? "Untitled Project" : "未命名项目");
   const isDefaultProjectName = (name) => name === "未命名项目" || name === "Untitled Project";
@@ -452,5 +480,5 @@
    *  English word (export, captions…) in English. */
   const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
-  return { create, desktopStorage, text, formatBody, KEY, t, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback, advancedShortcut };
+  return { create, desktopStorage, text, formatBody, KEY, t, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
 });

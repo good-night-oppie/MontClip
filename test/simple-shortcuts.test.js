@@ -184,7 +184,8 @@ test("syncShortcutTitles: simple strips, advanced restores, a new language's too
 test("tooltips and menus built later go through the same rule: the clip flags and the clip menu", () => {
   const flags = SRC.slice(SRC.indexOf('const b = (cmd, on, label, title, extra = "") =>'), SRC.indexOf("function renderInspector("));
   assert.match(flags, /title="\$\{shortcutTitle\(title\)\}"/);
-  const menu = SRC.slice(SRC.indexOf('menu.id = "trackCtxMenu";'), SRC.indexOf('menu.id = "trackCtxMenu";') + 600);
+  const at = SRC.indexOf('const item = (label, keys, run, disabledReason) => {'), menu = SRC.slice(at, at + 300);   // the clip menu
+  assert.ok(at >= 0);
   assert.match(menu, /shortcutKeys\(keys\)/);
   const start = SRC.indexOf("function shortcutTitle("), end = SRC.indexOf("function shortcutKeys(", start), end2 = SRC.indexOf("\n}\n", end) + 3;
   assert.ok(start >= 0 && end > start);

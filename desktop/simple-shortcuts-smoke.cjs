@@ -26,7 +26,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   assert.equal(await read(`state.tool`),'select','simple mode goes back to V');
   // Deja (#55): simple mode's tooltips don't offer the shortcuts it holds back
   const tipSimple=await read(`({trim:$('btnTrimIO').title,ripple:$('btnRippleDelete').title})`);
-  assert.ok(!/⇧T/.test(tipSimple.trim)&&!/⇧Del/.test(tipSimple.ripple)&&/IN/OUT/.test(tipSimple.trim),'simple: '+JSON.stringify(tipSimple));
+  assert.ok(!/⇧T/.test(tipSimple.trim)&&!/⇧Del/.test(tipSimple.ripple)&&tipSimple.trim.includes('IN/OUT'),'simple: '+JSON.stringify(tipSimple));
   assert.equal(await read(`document.querySelector('[data-edit-tool="select"]').getAttribute('aria-pressed')`),'true');
   assert.deepEqual(await read(tools),[['select',true],['ripple',false],['roll',false],['slip',false],['slide',false]],'simple: only V is shown');
   assert.equal(await read(edit),before,'project, selection and history unchanged by the switch');

@@ -48,6 +48,21 @@ function codeText(error) {
   const code = error && (error.code || error.errorCode);
   return typeof code === "string" && CODE_TEXT[code] ? uiText(CODE_TEXT[code]) : "";
 }
+/** Simple mode: no tooltip offers a shortcut it holds back (Deja, #55); advanced mode shows the full text again. The
+ *  full tooltip is kept beside the shown one, and a tooltip rewritten since (a new language) is taken as the full one. */
+function syncShortcutTitles(mode) {
+  for (const el of document.querySelectorAll("[title]")) {
+    const now = el.getAttribute("title"), full = el.dataset.mcStripped === now && el.dataset.mcFull != null ? el.dataset.mcFull : now;
+    const shown = mode === "simple" ? MontClipView.stripBlockedHints(full) : full;
+    if (shown !== now) el.setAttribute("title", shown);
+    if (shown !== full) { el.dataset.mcFull = full; el.dataset.mcStripped = shown; } else { delete el.dataset.mcFull; delete el.dataset.mcStripped; }
+  }
+}
+/** The same rule for tooltips and menu hints built later (the clip flags, the context menus). */
+function shortcutTitle(title) { return mcView.get().mode === "simple" ? MontClipView.stripBlockedHints(title) : title; }
+function shortcutKeys(keys) {
+  return keys && mcView.get().mode === "simple" && MontClipView.blockedHint(keys) ? "" : keys;
+}
 function renderMontClipView() {
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
   document.getElementById("mcAssistantTab").textContent=t.assistant;document.getElementById("mcMediaToggle").textContent=mcView.get().language==="en"?"Media":"素材";
@@ -56,6 +71,7 @@ function renderMontClipView() {
   document.documentElement.lang = language;
   for (const b of document.querySelectorAll('[data-edit-tool]:not([data-edit-tool="select"])')) b.hidden = mode === "simple";
   MontClipView.applyI18n(document, language);
+  syncShortcutTitles(mode);
   if (typeof syncTimelineTrackView === "function" && syncTimelineTrackView.folded) updateTracksAboveHint();
   document.body.dataset.mcMode = mode;
   document.getElementById("mcLanguage").value = language;
@@ -490,6 +506,7 @@ function showClipCtxMenu(clientX, clientY, c) {
   menu.className = "ctx-menu";
   menu.id = "trackCtxMenu";
   const item = (label, keys, run, disabledReason) => {
+    keys = shortcutKeys(keys);   // simple mode: no hint for a held-back shortcut
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "ctx-item";
@@ -2688,6 +2705,7 @@ function showMediaMenu(x, y, m) {
   menu.className = "ctx-menu";
   const uses = MediaLib.placements(usageDoc(), m.id).length;
   const item = (label, run, why, keys) => {
+    keys = shortcutKeys(keys);
     const b = document.createElement("button");
     b.type = "button"; b.className = "ctx-item";
     b.innerHTML = `<span>${escapeHtml(label)}</span>` + (keys ? `<kbd>${escapeHtml(keys)}</kbd>` : "");
@@ -6860,7 +6878,7 @@ function clipStatusBar(c) {
   const linked = !!(c.linkGroup || c.linkedId);
   const canLink = !linked && (c.kind === "video" || c.kind === "audio") && c.unlinked === true;
   const b = (cmd, on, label, title, extra = "") =>
-    `<button type="button" class="clip-flag${on ? " on" : ""}" data-clip-cmd="${cmd}" aria-pressed="${on}" title="${title}"${extra}>${label}</button>`;
+    `<button type="button" class="clip-flag${on ? " on" : ""}" data-clip-cmd="${cmd}" aria-pressed="${on}" title="${shortcutTitle(title)}"${extra}>${label}</button>`;
   return `<div class="clip-flags">` +
     b("disable", disabled, disabled ? "Disabled" : "Enabled",
       disabled ? "Hidden from preview and export — click to enable (Shift+E)" : "Click to disable: hide from preview and export without deleting (Shift+E)") +
