@@ -23,8 +23,10 @@ test('the page’s dialogs are all found',()=>{
 // Deja (#88): a box never taller than the window; where the content is taller, the title and the actions stay and the
 // middle scrolls (desktop/dialogs-smoke.cjs checks every box at 630×460)
 test('no box is taller than the window; the tall ones scroll their middle, not their title and actions',()=>{
- const modal=rules[at('dialog:modal')][1],box=rules[at('.dialog')][1];
+ // at no weight (:where), so a dialog's own max-height (the transcription setup's 86vh, …) still wins
+ const modal=rules[at(':where(dialog:modal)')][1],box=rules[at('.dialog')][1];
  for(const b of [modal,box])a.match(b,/max-height:\s*calc\(100vh - 24px\)/);
+ a.ok(!/max-height/.test(rules[at('dialog:modal')][1]),'not on the weighty dialog:modal rule');
  for(const sel of ['.dialog.settings','.asr-setup[open]'])
   a.ok(rules.some(([s,b])=>s.split(',').map(x=>x.trim()).includes(sel)&&/display:\s*flex/.test(b)&&/flex-direction:\s*column/.test(b)),sel+' is a column');
  const body=rules.find(([s])=>/\.dialog-body/.test(s));a.ok(body);a.match(body[1],/overflow:\s*auto/);a.match(body[1],/min-height:\s*0/);
