@@ -150,7 +150,7 @@ if (fs.existsSync(PROJECT_FILE)) {
 }
 if (!fs.existsSync(PROJECT_FILE)) {
   fs.writeFileSync(PROJECT_FILE, JSON.stringify({
-    name: "Untitled Project", width: 1280, height: 720, fps: 30,
+    name: "未命名项目", width: 1280, height: 720, fps: 30,
     revision: 0, media: [], clips: [],
   }, null, 2));
 }

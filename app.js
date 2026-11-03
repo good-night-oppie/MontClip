@@ -563,7 +563,7 @@ function setSetting(key, value) {
 
 /* ── State ─────────────────────────────────────────────────────────────── */
 const project = {
-  name: "Untitled Project",
+  name: "未命名项目",
   width: 1280, height: 720, fps: 30, // overwritten by project.json / applyProject
   background: "#000000",
   revision: 0,
@@ -1550,7 +1550,7 @@ function applyProject(data, opts = {}) {
   if (!state.compCtx) noteOpenSequence(data);
   const wa = normalizeWorkArea(data.inPoint, data.outPoint);
   Object.assign(project, {
-    name: data.name || "Untitled Project",
+    name: data.name || MontClipView.defaultProjectName(mcView.get().language),
     width: data.width || 1280, height: data.height || 720,
     fps: (Number(data.fps) > 0 ? Number(data.fps) : project.fps),
     background: data.background || "#000000",
@@ -3526,7 +3526,7 @@ function pjNewHtml() {
     </button>`;
   const saved = tpls.filter((x) => !x.builtin);
   return `<h3>New project</h3>
-    <label class="pj-field"><span>Name</span><input type="text" id="pjNewName" value="Untitled Project" maxlength="120" spellcheck="false"></label>
+    <label class="pj-field"><span>Name</span><input type="text" id="pjNewName" value="${escapeHtml(MontClipView.defaultProjectName(mcView.get().language))}" maxlength="120" spellcheck="false"></label>
     <div class="pj-field"><span>Start from</span>
       <div class="pj-tpls">${tpls.filter((x) => x.builtin).map(row).join("")}</div>
       ${saved.length ? `<span class="pj-sub">Saved templates</span><div class="pj-tpls">${saved.map(row).join("")}</div>` : ""}
@@ -3566,7 +3566,7 @@ async function pjAction(act, btn) {
   if (act === "new-create") {
     if (pj.busy) return;
     if (state.exporting) { toast("Wait for the export to finish before switching projects"); return; }
-    const name = ($("pjNewName")?.value || "").trim() || "Untitled Project";
+    const name = ($("pjNewName")?.value || "").trim() || MontClipView.defaultProjectName(mcView.get().language);
     const fps = $("pjNewFps")?.value;
     pj.busy = true;
     try {
@@ -3627,7 +3627,7 @@ async function pjImport(file) {
   let doc;
   try { doc = JSON.parse((await file.text()).replace(/^﻿/, "")); }
   catch { toast(`${file.name} isn't JSON`); return; }
-  const name = doc && doc.name && doc.name !== "Untitled Project" ? doc.name : file.name.replace(/\.json$/i, "");
+  const name = doc && doc.name && !MontClipView.isDefaultProjectName(doc.name) ? doc.name : file.name.replace(/\.json$/i, "");
   const out = await pjPost({ action: "import", project: doc, name });
   if (!out) return;
   pj.view = "active"; pj.mode = "detail"; pj.sel = out.id;
@@ -16687,7 +16687,7 @@ function deliveryFrame(spec) {
   return Delivery.reframe(spec, cv.w, cv.h, cv.region);
 }
 /** The project's name as a file name: Chinese kept, only what Windows cannot have replaced. */
-const exportBaseName = (fallback) => Delivery.fileSafeName(project.name, fallback);
+const exportBaseName = (fallback) => Delivery.fileSafeName(project.name, MontClipView.exportFallback(mcView.get().language, fallback));
 function deliveryFileName(spec, fps) {
   const fr = deliveryFrame(spec);
   return Delivery.renderFilename(spec.filename, spec, {
