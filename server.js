@@ -50,9 +50,17 @@ const {
   APP_DIR, DATA_DIR, MEDIA_DIR, EXPORTS_DIR, ANALYSIS_DIR, LIBRARY_DIR,
   PROJECT_FILE, LIBRARY_SUBDIRS, FRAMES_DIR, PROXIES_DIR, ensureDirs, readSaved, writeSaved,
 } = require("./paths");
-/** Uploads arrive here first (same volume as media/; a dot folder, so never served). Left-overs of a crash are cleared at start. */
+/** Uploads arrive here first (same volume as media/; a dot folder, so never served). At start only .part files older than
+ *  24 hours are removed (left over from a crash): another server on the same DATA_DIR may be receiving an upload (QQ). */
 const UPLOADS_DIR = path.join(DATA_DIR, ".uploads");
-try { fs.rmSync(UPLOADS_DIR, { recursive: true, force: true }); } catch {}
+try {
+  const stale = Date.now() - 24 * 3600 * 1000;
+  for (const f of fs.readdirSync(UPLOADS_DIR)) {
+    if (!f.endsWith(".part")) continue;
+    const file = path.join(UPLOADS_DIR, f);
+    try { if (fs.statSync(file).mtimeMs < stale) fs.rmSync(file, { force: true }); } catch {}
+  }
+} catch {}
 const Templates = require("./templates");
 const { probeFile } = require("./media-probe");
 const MediaLib = require("./media-lib");
