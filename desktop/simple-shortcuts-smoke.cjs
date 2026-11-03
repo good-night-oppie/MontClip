@@ -24,6 +24,9 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   const before=await read(edit);
   await read(`updateMontClipView({mode:'simple'});true`);await wait();
   assert.equal(await read(`state.tool`),'select','simple mode goes back to V');
+  // Deja (#55): simple mode's tooltips don't offer the shortcuts it holds back
+  const tipSimple=await read(`({trim:$('btnTrimIO').title,ripple:$('btnRippleDelete').title})`);
+  assert.ok(!/⇧T/.test(tipSimple.trim)&&!/⇧Del/.test(tipSimple.ripple)&&/IN/OUT/.test(tipSimple.trim),'simple: '+JSON.stringify(tipSimple));
   assert.equal(await read(`document.querySelector('[data-edit-tool="select"]').getAttribute('aria-pressed')`),'true');
   assert.deepEqual(await read(tools),[['select',true],['ripple',false],['roll',false],['slip',false],['slide',false]],'simple: only V is shown');
   assert.equal(await read(edit),before,'project, selection and history unchanged by the switch');
@@ -45,9 +48,11 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   await read(`undo();true`);
   // advanced mode is unchanged: Shift+Delete ripple-deletes
   await read(`project.inPoint=null;project.outPoint=null;updateMontClipView({mode:'advanced'});setSelection(['t0']);true`);await wait();
+  const tipAdvanced=await read(`({trim:$('btnTrimIO').title,ripple:$('btnRippleDelete').title})`);
+  assert.ok(/⇧T/.test(tipAdvanced.trim)&&/⇧Del/.test(tipAdvanced.ripple),'advanced: '+JSON.stringify(tipAdvanced));
   await press('Delete',{shiftKey:true});
   assert.deepEqual(await read(`project.clips.map(c=>[c.id,c.start])`),[['t1',0],['t2',2]],'advanced: Shift+Delete ripple-deletes');
-  process.stdout.write('SIMPLE_KEYS_COMPLETE '+JSON.stringify({held:held.length,hint:'once'})+'\n');
+  process.stdout.write('SIMPLE_KEYS_COMPLETE '+JSON.stringify({held:held.length,hint:'once',tips:{simple:tipSimple,advanced:tipAdvanced}})+'\n');
  }catch(e){process.stdout.write('SIMPLE_KEYS_FAIL '+(e&&e.stack)+'\n');}
  finally{setTimeout(()=>app.exit(0),300);}
 };

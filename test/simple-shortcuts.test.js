@@ -137,3 +137,61 @@ test("simple mode: everyday keys never show the hint; advanced mode never shows 
   assert.ok(!w.calls.some((c) => c[0] === "toast"), JSON.stringify(w.calls));
   for (const [key, mods] of ADVANCED) { const a = world("advanced"); a.key(key, mods); assert.ok(!a.calls.some((c) => c[0] === "toast"), JSON.stringify([key, mods])); }
 });
+
+// Deja (11-03, #55): in simple mode no tooltip or menu offers a shortcut it holds back — btnTrimIO's 「(⇧T)」, the
+// ripple-delete button's (⇧Del), the trim tools' (B) (R) (Y) (U), the clip's Shift+E / Ctrl/Cmd+L — and advanced mode
+// shows them again. Other hints (V, S, ⇧G, ⇧Z, Ctrl/Cmd+O, M …) stay.
+test("blockedHint reads a written shortcut the way advancedShortcut sees the key", () => {
+  for (const h of ["⇧T", "T", "Shift+E", "Shift+D", "Ctrl+L", "Ctrl/Cmd+L", "⇧Del", "B", "R", "Y", "U", "[", "]", "Alt+T", "Alt+Z", "⌥Z"])
+    assert.equal(View.blockedHint(h), true, h);
+  for (const h of ["V", "S", "⇧G", "⇧Z", "Ctrl/Cmd+O", "M", "⇧M", "Alt+⇧M", "M add", "select both", "", "Shift+E and more"])
+    assert.equal(View.blockedHint(h), false, h);
+});
+test("stripBlockedHints drops only the blocked hints from a tooltip", () => {
+  const s = View.stripBlockedHints;
+  assert.equal(s("Trim clips to IN/OUT (⇧T)"), "Trim clips to IN/OUT");
+  assert.equal(s("裁剪片段到 IN/OUT（⇧T）"), "裁剪片段到 IN/OUT");
+  assert.equal(s("Ripple delete selection (⇧Del) — closes gap on targeted tracks"), "Ripple delete selection — closes gap on targeted tracks");
+  assert.equal(s("Ripple edit (B) — drag a clip edge"), "Ripple edit — drag a clip edge");
+  assert.equal(s("Click to relink with its audio (select both, Ctrl/Cmd+L)"), "Click to relink with its audio (select both)");
+  assert.equal(s("Hidden from preview and export — click to enable (Shift+E)"), "Hidden from preview and export — click to enable");
+  for (const keep of ["Selection tool (V) — move and trim clips", "Split at playhead on targeted tracks (S)", "Close gap at playhead (⇧G)",
+    "Zoom timeline to fit (⇧Z)", "Projects (Ctrl/Cmd+O): open, create", "Markers — list, jump, rename, recolour (M add · ⇧M next · Alt+⇧M previous)", "No hint here"])
+    assert.equal(s(keep), keep);
+});
+test("every tooltip of the page, in both languages, keeps no blocked shortcut once stripped", () => {
+  const fs = require("node:fs"), path = require("node:path"), html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+  const titles = [...html.matchAll(/\stitle="([^"]*)"/g)].map((m) => m[1]);
+  for (const m of html.matchAll(/data-i18n-title="([^"]+)"/g)) for (const l of ["en", "zh-CN"]) { const t = View.t(l, m[1]); if (t) titles.push(t); }
+  assert.ok(titles.includes("Trim clips to IN/OUT (⇧T)") && titles.includes("裁剪片段到 IN/OUT（⇧T）"), "btnTrimIO in both languages");
+  const blockedIn = (t) => [...t.matchAll(/[（(]([^()（）]*)[)）]/g)].some((m) => m[1].split(/\s*[,，·]\s*/).some(View.blockedHint));
+  assert.ok(titles.filter(blockedIn).length >= 6, "the scan sees the blocked ones");
+  for (const t of titles) assert.equal(blockedIn(View.stripBlockedHints(t)), false, t);
+});
+test("syncShortcutTitles: simple strips, advanced restores, a new language's tooltip is taken as the full one", () => {
+  const start = SRC.indexOf("function syncShortcutTitles("), end = SRC.indexOf("\n}\n", start) + 3;
+  assert.ok(start >= 0, "syncShortcutTitles in app.js");
+  const el = { attrs: { title: "Trim clips to IN/OUT (⇧T)" }, dataset: {}, getAttribute(k) { return this.attrs[k]; }, setAttribute(k, v) { this.attrs[k] = v; } };
+  const sync = new Function("MontClipView", "document", SRC.slice(start, end) + "return syncShortcutTitles;")(View, { querySelectorAll: () => [el] });
+  sync("simple"); assert.equal(el.attrs.title, "Trim clips to IN/OUT");
+  sync("simple"); assert.equal(el.attrs.title, "Trim clips to IN/OUT", "twice is the same");
+  sync("advanced"); assert.equal(el.attrs.title, "Trim clips to IN/OUT (⇧T)", "back in advanced");
+  sync("simple"); el.attrs.title = "裁剪片段到 IN/OUT（⇧T）";   // the language changed: i18n wrote the full Chinese
+  sync("simple"); assert.equal(el.attrs.title, "裁剪片段到 IN/OUT");
+  sync("advanced"); assert.equal(el.attrs.title, "裁剪片段到 IN/OUT（⇧T）");
+  assert.match(SRC, /MontClipView\.applyI18n\(document, language\);\n[^\n]*\n?\s*syncShortcutTitles\(mode\);|MontClipView\.applyI18n\(document, language\);\s*syncShortcutTitles\(mode\);/, "after the language is applied");
+});
+test("tooltips and menus built later go through the same rule: the clip flags and the clip menu", () => {
+  const flags = SRC.slice(SRC.indexOf('const b = (cmd, on, label, title, extra = "") =>'), SRC.indexOf("function renderInspector("));
+  assert.match(flags, /title="\$\{shortcutTitle\(title\)\}"/);
+  const menu = SRC.slice(SRC.indexOf('menu.id = "trackCtxMenu";'), SRC.indexOf('menu.id = "trackCtxMenu";') + 600);
+  assert.match(menu, /shortcutKeys\(keys\)/);
+  const start = SRC.indexOf("function shortcutTitle("), end = SRC.indexOf("function shortcutKeys(", start), end2 = SRC.indexOf("\n}\n", end) + 3;
+  assert.ok(start >= 0 && end > start);
+  for (const [mode, title, keys] of [["simple", "Click to unlink", ""], ["advanced", "Click to unlink (Ctrl/Cmd+L)", "Shift+E"]]) {
+    const f = new Function("MontClipView", "mcView", SRC.slice(start, end2) + "return { shortcutTitle, shortcutKeys };")(View, { get: () => ({ mode }) });
+    assert.equal(f.shortcutTitle("Click to unlink (Ctrl/Cmd+L)"), title, mode);
+    assert.equal(f.shortcutKeys("Shift+E"), keys, mode);
+    assert.equal(f.shortcutKeys(""), "");
+  }
+});
