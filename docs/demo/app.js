@@ -46,6 +46,7 @@ function renderMontClipView() {
   document.querySelector(".mc-history").setAttribute("aria-label", t.undo + " / " + t.redo);
   document.documentElement.lang = language;
   MontClipView.applyI18n(document, language);
+  if (typeof syncTimelineTrackView === "function" && syncTimelineTrackView.folded) updateTracksAboveHint();
   document.body.dataset.mcMode = mode;
   document.getElementById("mcLanguage").value = language;
   const group = document.getElementById("mcMode"); group.setAttribute("aria-label", t.mode);
@@ -3366,6 +3367,8 @@ function pjAgo(iso) {
   return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 const pjFps = (f) => (f ? `${+(+f).toFixed(3)} fps` : "");
+/** A card's size and frame rate, escaped: the values come from the project file (QQ). */
+function pjCanvas(p) { return escapeHtml(`${p.width}×${p.height} · ${pjFps(p.fps)}`); }
 async function pjPost(body) {
   try {
     const res = await fetch("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -3446,7 +3449,7 @@ function pjThumbHtml(p, big) {
   const ar = p.width > 0 && p.height > 0 ? `${p.width} / ${p.height}` : "16 / 9";
   const inner = p.thumb
     ? `<img src="/api/projects/thumb?id=${encodeURIComponent(p.id)}&v=${p.thumb}" alt="" loading="lazy" draggable="false">`
-    : `<span>${p.width ? `${p.width}×${p.height}` : "?"}</span>`;
+    : `<span>${p.width ? escapeHtml(`${p.width}×${p.height}`) : "?"}</span>`;
   return `<div class="pj-thumb${big ? " big" : ""}"><div class="pj-frame" style="aspect-ratio:${ar}">${inner}</div></div>`;
 }
 function renderProjects() {
@@ -3469,7 +3472,7 @@ function renderProjectGrid() {
     <button type="button" class="pj-card${p.id === pj.sel && pj.mode === "detail" ? " sel" : ""}${p.active ? " open" : ""}" data-pj="${escapeHtml(p.id)}" title="${p.active ? "Currently open" : "Double-click to open"}">
       ${pjThumbHtml(p)}
       <span class="pj-card-name">${escapeHtml(p.name)}${p.active ? ` <span class="pj-badge">Open</span>` : ""}</span>
-      <span class="pj-card-meta">${p.unreadable ? "file unreadable" : `${p.width}×${p.height} · ${pjFps(p.fps)} · ${pjFmtDur(p.duration)}`}</span>
+      <span class="pj-card-meta">${p.unreadable ? "file unreadable" : `${pjCanvas(p)} · ${pjFmtDur(p.duration)}`}</span>
       <span class="pj-card-when dim">${pj.sort === "created" ? "Created " + pjAgo(p.created) : pj.sort === "modified" || !p.opened ? "Modified " + pjAgo(p.modified) : "Opened " + pjAgo(p.opened)}</span>
     </button>`).join("")
     : `<div class="pj-empty dim">${pj.list.length ? "No project matches the search." : pj.view === "archived" ? "Nothing archived. Archive a project to keep it out of the list without deleting it." : "Loading…"}</div>`;
@@ -3481,7 +3484,7 @@ function pjDetailHtml(p) {
   return `${pjThumbHtml(p, true)}
     <label class="pj-field"><span>Name</span><input type="text" id="pjName" value="${escapeHtml(p.name)}" maxlength="120" spellcheck="false"></label>
     <dl class="pj-facts">
-      ${fact("Canvas", p.unreadable ? "—" : `${p.width}×${p.height} · ${pjFps(p.fps)}`)}
+      ${fact("Canvas", p.unreadable ? "—" : pjCanvas(p))}
       ${fact("Length", `${pjFmtDur(p.duration)} · ${p.clips} clip${p.clips === 1 ? "" : "s"} · ${p.media} media`)}
       ${fact("Modified", pjAgo(p.modified))}
       ${fact("Opened", p.active ? "open now" : pjAgo(p.opened))}
@@ -5093,6 +5096,11 @@ function syncTimelineTrackView() {
   syncTimelineTrackView.pending = false;
   const occupied = new Set(project.clips.map(c => c.track));
   const simple = mcView.get().mode === "simple";
+  const key = JSON.stringify([runtime.projectGen, SeqLib.activeId(seqRoot()), simple,
+    TRACKS.filter(t => occupied.has(t.id)).map(t => t.id)]);
+  // Lanes folded away because they could not be shown whole (simple mode): kept until the tracks change.
+  if (syncTimelineTrackView.focusKey !== key) syncTimelineTrackView.folded = new Set();
+  const folded = syncTimelineTrackView.folded || (syncTimelineTrackView.folded = new Set());
   const occupiedKinds = new Set(TRACKS.filter(t => occupied.has(t.id)).map(t => t.kind));
   for (const container of [els.tracks, $("trackHeadInner")]) {
     if (!container) continue;
@@ -5100,11 +5108,10 @@ function syncTimelineTrackView() {
       const id = row.dataset.track;
       const placeholder = (id === "V1" && !occupiedKinds.has("video")) ||
         (id === "A1" && !occupiedKinds.has("audio"));
-      row.hidden = simple && !occupied.has(id) && !placeholder;
+      row.hidden = (simple && !occupied.has(id) && !placeholder) || folded.has(id);
     }
   }
-  const key = JSON.stringify([runtime.projectGen, SeqLib.activeId(seqRoot()), simple,
-    TRACKS.filter(t => occupied.has(t.id)).map(t => t.id)]);
+  updateTracksAboveHint();
   // A drop the user just made is never answered by re-focusing elsewhere: keep the
   // view, scrolling only as far as needed to show the dropped clips' rows whole.
   const dropped = syncTimelineTrackView.dropped;
@@ -5137,11 +5144,47 @@ function syncTimelineTrackView() {
     const gap = Math.abs(video.getBoundingClientRect().top - audio.getBoundingClientRect().top);
     if (gap < distance) { distance = gap; first = rows.indexOf(video) < rows.indexOf(audio) ? video : audio; }
   }
+  if (first && simple && syncTimelineTrackView.unfolded !== key) {
+    // VV 2026-11-02: a caption lane above the focused ones must not sit half behind the sticky ruler. Show every lane
+    // with clips whole when they fit under the ruler; otherwise fold the caption-only lanes above the focused one and
+    // say so. Lanes with other clips are never folded (a drag or an edit there keeps its row).
+    const shown = rows.filter(row => !row.hidden), withClips = shown.filter(row => occupied.has(row.dataset.track));
+    const room = els.timelineScroll.clientHeight - RULER_H;
+    const span = withClips.length ? withClips.at(-1).getBoundingClientRect().bottom - withClips[0].getBoundingClientRect().top : 0;
+    if (span <= room) first = withClips[0] || first;
+    else for (const row of shown.slice(0, shown.indexOf(first))) if (captionOnlyTrack(row.dataset.track)) foldTrackRow(row.dataset.track);
+    updateTracksAboveHint();
+  }
   if (first) {
     const scroller = els.timelineScroll;
     scroller.scrollTop += first.getBoundingClientRect().top - scroller.getBoundingClientRect().top - RULER_H;
   }
 }
+/** A lane whose clips are all captions (and that has some). */
+function captionOnlyTrack(id) {
+  const clips = project.clips.filter(c => c.track === id);
+  return clips.length > 0 && clips.every(c => FableCutCaptions.isCaption(c));
+}
+function foldTrackRow(id) {
+  syncTimelineTrackView.folded.add(id);
+  for (const container of [els.tracks, $("trackHeadInner")]) { const row = container && [...container.children].find(r => r.dataset.track === id); if (row) row.hidden = true; }
+}
+/** The corner above the track heads says when caption lanes are folded away above; a click shows them. */
+function updateTracksAboveHint() {
+  const hint = document.getElementById("btnTracksAbove"), folded = syncTimelineTrackView.folded;
+  if (!hint) return;
+  const ids = folded ? [...folded].filter(id => project.clips.some(c => c.track === id)) : [];
+  hint.hidden = !ids.length;
+  hint.textContent = uiText("own.tl-above-captions");
+}
+document.getElementById("btnTracksAbove").addEventListener("click", () => {
+  const ids = [...syncTimelineTrackView.folded];
+  syncTimelineTrackView.folded.clear();
+  syncTimelineTrackView.unfolded = syncTimelineTrackView.focusKey;
+  syncTimelineTrackView();
+  const top = [...els.tracks.children].find(row => !row.hidden && ids.includes(row.dataset.track));
+  if (top) els.timelineScroll.scrollTop += top.getBoundingClientRect().top - els.timelineScroll.getBoundingClientRect().top - RULER_H;
+});
 /* After the window changes size, focus the content once more (never mid-drag). */
 function timelineResizeRefocus() {
   if (state.gesture) return;
@@ -9833,7 +9876,7 @@ function downloadCaptions(kind) {
   const C = FableCutCaptions, list = C.fromClips(project.clips, [...state.disabledTracks]);
   if (!list.length) { toast("No captions on the timeline yet — Add captions first"); return; }
   const blob = new Blob([kind === "vtt" ? C.toVTT(list) : C.toSRT(list)], { type: kind === "vtt" ? "text/vtt" : "application/x-subrip" });
-  const url = URL.createObjectURL(blob), name = `${String(project.name || "captions").replace(/[^\w\- ]+/g, "_").trim() || "captions"}.${kind}`;
+  const url = URL.createObjectURL(blob), name = `${exportBaseName("captions")}.${kind}`;
   saveDownload(url, name, { kind: "captions", savedMsg: `Saved ${list.length} caption${list.length === 1 ? "" : "s"} as ${name}` });
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
@@ -16643,10 +16686,12 @@ function deliveryFrame(spec) {
   const cv = deliveryCanvas();
   return Delivery.reframe(spec, cv.w, cv.h, cv.region);
 }
+/** The project's name as a file name: Chinese kept, only what Windows cannot have replaced. */
+const exportBaseName = (fallback) => Delivery.fileSafeName(project.name, fallback);
 function deliveryFileName(spec, fps) {
   const fr = deliveryFrame(spec);
   return Delivery.renderFilename(spec.filename, spec, {
-    project: project.name.replace(/[^\w\- ]+/g, "").trim() || "export",
+    project: exportBaseName("export"),
     width: fr.outW, height: fr.outH, fps: fps || spec.fps || projectFps(), range: exportRangeMode(),
   });
 }
@@ -16993,6 +17038,7 @@ function startChosenExport() {
     const c = selectedExportChoice();
     setSetting("exportKind", c.kind);
     if (c.kind === "delivery") {
+      if (!dlvSpec) { const n = normalizeDelivery(c.id); dlvSpec = n.spec; dlvNotes = n.notes; }   // never the raw x264 profile
       setSetting("delivery", dlvSpec);
       fastExport({ delivery: dlvSpec });
     } else fastExport({ profile: c.id });
@@ -17938,7 +17984,7 @@ async function fastExport(opts = {}) {
         canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav,
       } : {
         fps,
-        name: project.name.replace(/[^\w\- ]+/g, "") || "export",
+        name: exportBaseName("export"),
         profile: profileId,
         hasAudio: !!wav,
       }),
@@ -18622,7 +18668,7 @@ async function webCodecsExport() {
       method: "POST",
       body: JSON.stringify({
         fps,
-        name: project.name.replace(/[^\w\- ]+/g, "") || "export",
+        name: exportBaseName("export"),
         mode: "annexb",
         hasAudio: !!wav,
       }),
@@ -18765,7 +18811,7 @@ async function startExport() {
     const ext = mime.startsWith("video/mp4") ? "mp4" : "webm";
     const blob = new Blob(recChunks, { type: mime.split(";")[0] });
     const url = URL.createObjectURL(blob);
-    saveDownload(url, (project.name.replace(/[^\w\- ]+/g, "") || "export") + "." + ext);
+    saveDownload(url, exportBaseName("export") + "." + ext);
     setTimeout(() => URL.revokeObjectURL(url), 30_000);
   };
   els.exportOverlay.classList.remove("hidden");
