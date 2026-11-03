@@ -5,7 +5,7 @@
 const {test}=require('node:test'),a=require('node:assert/strict');
 const P=require('../agent-policy'),Cap=require('../capabilities');
 
-const base={approved:false,external:{enabled:true,allowlisted:true},bytes:0,chatBytes:0};
+const base={approved:false,external:{enabled:true,allowlisted:true},bytes:0,scopeBytes:0};
 const d=(mode,capability,o={})=>P.decide({...base,mode,capability,...o});
 // one capability of each risk level, from the table (never named here by risk)
 const of=risk=>Cap.list().find(c=>c.risk===risk&&!P.DEFAULT_WHITELIST.includes(c.name)).name;
@@ -71,11 +71,12 @@ test('external: content and target shown in every mode; Yolo still shows it, and
  a.equal(d('yolo',UNDO).showContent,false);
 });
 
-test('external caps: per send and per chat, in every mode, Yolo too',()=>{
+test('external caps: per send and per scope, the capability's own (capabilities.js), in every mode, Yolo too',()=>{
+ const L=Cap.limits(EXT);
  for(const mode of P.MODES){
-  a.equal(d(mode,EXT,{bytes:P.LIMITS.sendBytes+1}).code,'SEND_TOO_LARGE',mode);
-  a.equal(d(mode,EXT,{bytes:10,chatBytes:P.LIMITS.chatBytes-9}).code,'CHAT_LIMIT',mode);
-  a.notEqual(d(mode,EXT,{bytes:10,chatBytes:P.LIMITS.chatBytes-10}).action,'refuse',mode);
+  a.equal(d(mode,EXT,{bytes:L.perSend+1}).code,'SEND_TOO_LARGE',mode);
+  a.equal(d(mode,EXT,{bytes:10,scopeBytes:L.perScope-9}).code,'SCOPE_LIMIT',mode);
+  a.notEqual(d(mode,EXT,{bytes:10,scopeBytes:L.perScope-10}).action,'refuse',mode);
  }
 });
 

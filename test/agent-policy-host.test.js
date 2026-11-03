@@ -86,7 +86,7 @@ test('the per-chat external total counts what was let through, and stops at the 
  const m=make();await m.h.setMode('yolo');
  const send=(bytes,s='s1')=>m.h.decide({sessionId:s,capability:EXT,target:{kind:'origin',value:'https://openrouter.ai'},bytes});
  for(let i=0;i<32;i++)a.equal(send(131072).action,'run',String(i));   // 32 × 128 KiB = 4 MiB
- a.equal(send(1).code,'CHAT_LIMIT');
+ a.equal(send(1).code,'SCOPE_LIMIT');
  a.equal(send(1,'s2').action,'run','another chat has its own total');
 });
 

@@ -6,9 +6,10 @@ const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('no
 const Cap=require('../capabilities'),TOOLS=require('../mcp-tools');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 
-test('every MCP tool and both proposal shapes are in the table, nothing else',()=>{
+test('every MCP tool, both proposal shapes and the host's three sends are in the table, nothing else',()=>{
  const names=Cap.list().map(c=>c.name).sort();
- a.deepEqual(names,[...TOOLS.map(t=>t.name),'keep_ranges','keep_sentences'].sort());
+ // the sends the host makes itself, each with its caps (Deja, #83): the assistant, the song lookup, cloud transcription
+ a.deepEqual(names,[...TOOLS.map(t=>t.name),'keep_ranges','keep_sentences','assistant_request','song_lookup','cloud_transcribe'].sort());
  a.equal(TOOLS.length,26);   // 25 in #74, plus #53's fablecut_danmaku
 });
 test('the MCP server serves the same tool definitions it always had (moved to mcp-tools.js, unchanged)',()=>{
