@@ -3336,6 +3336,11 @@ const pjFmtDur = (s) => {
   const m = Math.floor(s / 60), r = Math.floor(s % 60);
   return m >= 60 ? `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}:${String(r).padStart(2, "0")}` : `${m}:${String(r).padStart(2, "0")}`;
 };
+/** The time inside 「{when}打开过 / 修改过 / 创建」: a date gets a space after it in Chinese (MontClipView.when). */
+function pjWhen(iso) {
+  if (!iso) return "never";
+  return MontClipView.when(mcView.get().language, iso);
+}
 function pjAgo(iso) {
   if (!iso) return "never";
   return MontClipView.ago(mcView.get().language, iso);   // 刚刚 / {n} 分钟前 / {n} 小时前 / 昨天 / {月}-{日}
@@ -3445,7 +3450,7 @@ function renderProjectGrid() {
       ${pjThumbHtml(p)}
       <span class="pj-card-name">${escapeHtml(p.name)}${p.active ? ` <span class="pj-badge">${escapeHtml(uiText("own.pj-open"))}</span>` : ""}</span>
       <span class="pj-card-meta">${p.unreadable ? "file unreadable" : `${p.width}×${p.height} · ${pjFps(p.fps)} · ${pjFmtDur(p.duration)}`}</span>
-      <span class="pj-card-when dim">${escapeHtml(pj.sort === "created" ? uiText("own.pj-when-created", { when: pjAgo(p.created) }) : pj.sort === "modified" || !p.opened ? uiText("own.pj-when-modified", { when: pjAgo(p.modified) }) : uiText("own.pj-when-opened", { when: pjAgo(p.opened) }))}</span>
+      <span class="pj-card-when dim">${escapeHtml(pj.sort === "created" ? uiText("own.pj-when-created", { when: pjWhen(p.created) }) : pj.sort === "modified" || !p.opened ? uiText("own.pj-when-modified", { when: pjWhen(p.modified) }) : uiText("own.pj-when-opened", { when: pjWhen(p.opened) }))}</span>
     </button>`).join("")
     : `<div class="pj-empty dim">${pj.list.length ? "No project matches the search." : pj.view === "archived" ? "Nothing archived. Archive a project to keep it out of the list without deleting it." : "Loading…"}</div>`;
 }

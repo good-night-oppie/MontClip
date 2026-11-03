@@ -219,6 +219,12 @@
     if (lang(language) === "zh-CN") return (same ? "" : a.getFullYear() + "-") + p(a.getMonth() + 1) + "-" + p(a.getDate());
     return a.toLocaleDateString("en-US", same ? { month: "short", day: "numeric" } : { year: "numeric", month: "short", day: "numeric" });
   }
+  /** ago() for the 「{when}打开过 / 修改过 / 创建」 sentences: in Chinese a date is followed by a space (「11-02 打开过」),
+   *  while 刚刚, 昨天 and 「3 分钟前」 run straight on (JJ, 2026-11-03). English is unchanged. */
+  function when(language, then, now) {
+    const s = ago(language, then, now);
+    return lang(language) === "zh-CN" && /\d$/.test(s) ? s + " " : s;
+  }
   /** Rewrite only elements that carry data-i18n markers; nothing else on the page. */
   const MARKS = [["[data-i18n]", "i18n", null], ["[data-i18n-title]", "i18nTitle", "title"],
     ["[data-i18n-placeholder]", "i18nPlaceholder", "placeholder"], ["[data-i18n-aria-label]", "i18nAriaLabel", "aria-label"]];
@@ -311,5 +317,5 @@
     return { getItem() { const r=bridge.get(); if(!r?.ok) throw Error('View settings unavailable'); return JSON.stringify(r.value); },
       setItem(_key, raw) { if(!bridge.set(JSON.parse(raw))?.ok) throw Error('View settings not saved'); } };
   }
-  return { create, desktopStorage, text, KEY, t, ago, applyI18n, flvImportMessage, h264Message, h264Encoder };
+  return { create, desktopStorage, text, KEY, t, ago, when, applyI18n, flvImportMessage, h264Message, h264Encoder };
 });
