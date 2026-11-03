@@ -5,6 +5,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { createStore, allowed: settingsAllowed } = require("./view-settings");
 const { nativeText, languageOf } = require("./native-text");
+const { transcribeEnabled } = require("./features");
 const { createCloseController } = require("./close-controller");
 const External = require("../external-ffmpeg");
 const fs = require("node:fs");
@@ -97,6 +98,11 @@ async function start() {
     event.returnValue = settingsAllowed(event, win, origin)
       ? settings[operation](value) : {ok:false,code:"VIEW_SETTINGS_FORBIDDEN"};
   });
+  // read-only feature switches for the page (desktop/features.js); no channel sets them
+  const features = { transcribe: transcribeEnabled({ isPackaged: app.isPackaged, argv: process.argv, env: process.env }) };
+  ipcMain.on("montclip:features:get", (event) => {
+    event.returnValue = settingsAllowed(event, win, origin) ? { transcribe: features.transcribe } : { transcribe: false };
+  });
   const externalFile = path.join(app.getPath("userData"), "external-ffmpeg.json");
   const externalStatus = async () => {
     const saved = External.readSetting(externalFile);
@@ -171,10 +177,30 @@ async function start() {
     },
     close: () => { closing = true; win.destroy(); },
   });
+  // Closing during an export asks first (× and Alt+F4 alike); 「停止导出并关闭」 goes on to the usual save-and-close,
+  // and the server's shutdown in before-quit stops ffmpeg and deletes the half-finished files (export-cleanup.js).
+  const ExportClose = require("./export-close");
+  let exportAsking = false;
+  const confirmExportClose = async () => {
+    const state = await ExportClose.exportState({
+      server: () => fetch(origin + "/api/export/active", { headers: { "X-MontClip-Session": token } }).then((r) => r.json()).then((j) => j.active),
+      renderer: () => rendererFault || win.webContents.isDestroyed() ? null
+        : win.webContents.executeJavaScript("typeof exportCloseState === 'function' ? exportCloseState() : null"),
+    });
+    // asked here, in the close event: a copy that cannot be deleted can still keep the window open
+    return ExportClose.decideClose({ language: languageOf(settings.get()), state,
+      ask: async (options) => (await dialog.showMessageBox(win, options)).response,
+      deleteFiles: (files) => fetch(origin + "/api/export/delete-unsaved", { method: "POST",
+        headers: { "X-MontClip-Session": token, "Content-Type": "application/json" }, body: JSON.stringify({ files }) })
+        .then((r) => r.json()).catch(() => ({ deleted: [], failed: files, refused: [] })),
+      openQueue: () => win.webContents.executeJavaScript("typeof openQueue === 'function' && (openQueue(), true)").catch(() => false) });
+  };
   win.on("close", (event) => {
     if (closing) return;
     event.preventDefault();
-    closeController.request();
+    if (exportAsking) return;
+    exportAsking = true;
+    confirmExportClose().catch(() => true).then((go) => { exportAsking = false; if (go && !win.isDestroyed()) closeController.request(); });
   });
   win.on("closed", () => closeController.dispose());
   win.on("unresponsive", () => { rendererFault = "unresponsive"; closeController.fault(rendererFault); });
@@ -225,8 +251,12 @@ async function start() {
 app.on("window-all-closed", () => app.quit());
 app.on("before-quit", (event) => {
   if (win && !win.isDestroyed() && !closing) { event.preventDefault(); win.close(); return; }
-  if (worker && !workerExited && !stopping) {
-    event.preventDefault(); stopping = true;
+  // until the service has exited: a second quit (window-all-closed right after the first) must not cut its shutdown
+  // short — it stops running exports and deletes their half-finished files (export-cleanup.js)
+  if (worker && !workerExited) {
+    event.preventDefault();
+    if (stopping) return;
+    stopping = true;
     const timer = setTimeout(() => { worker.kill(); app.quit(); }, 4000);
     worker.once("exit", () => { clearTimeout(timer); app.quit(); });
     worker.postMessage({ type: "shutdown" });
