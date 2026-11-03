@@ -9,6 +9,11 @@ function referenceChips(kind,context){
  if(kind!=='captionRef')return [];
  return (context.captions||[]).slice(0,20).filter(c=>typeof c.id==='string'&&typeof c.text==='string'&&c.text.length<=16000&&valid(c.start,c.end)).map(c=>({...base,type:'caption',clipId:c.id,sourceCaptionId:typeof c.sourceCaptionId==='string'?c.sourceCaptionId:null,text:c.text,start:c.start,end:c.end}));
 }
+function displayMessage(value){
+ const fallback={text:value,references:[]};if(typeof value!=='string')return fallback;
+ const at=value.lastIndexOf('\n\n');if(at<0)return fallback;
+ try{const v=JSON.parse(value.slice(at+2));if(!v||Object.keys(v).join(',')!=='references'||!Array.isArray(v.references)||v.references.length>20||!v.references.every(r=>r&&typeof r.projectId==='string'&&r.projectId.length>0&&schema.reference(r,r)))return fallback;return{text:value.slice(0,at),references:v.references};}catch{return fallback;}
+}
 function create({storage}={}){const scopes=new Map();let scope=null,next=0,count=0,token=null,dirty=false,persisted={ok:true,code:'VOLATILE'};
  if(storage){try{const r=storage.get();if(!r.ok||typeof r.token!=='string'||!r.token||!schema.valid(r.value))throw Error();token=r.token;for(const s of r.value.scopes){scopes.set(JSON.stringify([s.projectId,null,s.sequenceId]),JSON.parse(JSON.stringify(s)));count+=s.sessions.length;for(const item of s.sessions)next=Math.max(next,Number(item.id));}persisted={ok:true,code:'SAVED'};}catch{persisted={ok:false,code:'SESSION_READ_FAILED'};}}
  function changed(){if(token!==null){dirty=true;save();}}
@@ -19,7 +24,8 @@ function create({storage}={}){const scopes=new Map();let scope=null,next=0,count
  identify(c){const from=JSON.stringify([null,c.gen,c.sequenceId??null]),to=JSON.stringify([c.projectId,null,c.sequenceId??null]);const prior=scopes.get(from);if(!c.projectId||!prior||scope!==prior)return false;const existing=scopes.get(to);if(existing){existing.sessions.push(...prior.sessions);existing.active=prior.active;scope=existing;}else{prior.projectId=c.projectId;scopes.set(to,prior);}scopes.delete(from);changed();return true;},
  current(){return JSON.parse(JSON.stringify(scope.sessions.find(s=>s.id===scope.active)));},
  draft(value){if(scope.active==='blocked')throw Error('SCOPE_CAPACITY');if(typeof value!=='string'||value.length>16000)throw Error('TEXT_LIMIT');scope.sessions.find(s=>s.id===scope.active).draft=value;if(scope.projectId){changed();}},
- list(query=''){return scope.sessions.filter(s=>s.draft.toLowerCase().includes(query.toLowerCase())).map(s=>({id:s.id,title:s.draft.slice(0,60)}));},
+ list(query=''){return scope.sessions.filter(s=>(s.draft+' '+s.messages.map(m=>displayMessage(m.text).text).join(' ')).toLowerCase().includes(query.toLowerCase())).map(s=>({id:s.id,title:(s.draft||displayMessage(s.messages[0]?.text||'').text).slice(0,60)}));},
+ complete(expected,input,answer){const s=scope.sessions.find(s=>s.id===scope.active);if(s.id!==expected.id||s.draft!==expected.draft||JSON.stringify(s.references)!==JSON.stringify(expected.references))throw Error('STALE');if(s.messages.length>98||input.length>16000||answer.length>16000)throw Error('HISTORY_LIMIT');s.messages.push({role:'user',text:input},{role:'assistant',text:answer});s.draft='';s.references=[];if(scope.projectId)changed();},
  newSession(){if(scope.active==='blocked')throw Error('SCOPE_CAPACITY');const s=fresh();scope.sessions.push(s);scope.active=s.id;if(scope.projectId){changed();}},select(id){if(!scope.sessions.some(s=>s.id===id))throw Error('UNKNOWN_SESSION');scope.active=id;if(scope.projectId){changed();}},
  references(items){if(scope.active==='blocked')throw Error('SCOPE_CAPACITY');if(!Array.isArray(items)||items.length>20)throw Error('REFERENCE_LIMIT');scope.sessions.find(s=>s.id===scope.active).references=JSON.parse(JSON.stringify(items));if(scope.projectId){changed();}},
  flush(){return !dirty||save().ok;},persistence(){return {...persisted,mode:storage&&token===null?'temporary':storage?'persistent':'volatile'};},retry(){return save();},send(){return {ok:false,code:'UNCONFIGURED'};},cancel(){return {ok:true,code:'NOT_SENT'};}};
@@ -56,5 +62,5 @@ function mount({panel,getContext,getLanguage,settings,sessionStorage,getReferenc
  $('[data-width]').onchange=e=>{width=Number(e.target.value);try{if(!settings?.set({width})?.ok)status='paneSaveFailed';}catch{status='paneSaveFailed';}render();};
  render();return {render,identify(c){return state.identify(c);},flush(){const ok=state.flush();if(!ok)render();return ok;},sync(){if(sync())render();}};
 }
-return {create,mount,referenceChips,text:view.text};
+return {create,mount,displayMessage,referenceChips,text:view.text};
 });

@@ -6,10 +6,29 @@
   "description": "MontClip desktop development shell",
   "scripts": {
     "start": "electron .",
+    "fetch-ffmpeg": "node fetch-ffmpeg.cjs",
     "package:tool-check": "node build-tool.js"
   },
   "devDependencies": {
     "@electron/packager": "20.3.0",
     "electron": "45.2.1"
+  },
+  "build": {
+    "appId": "dev.montclip.desktop",
+    "productName": "MontClip",
+    "extraResources": [
+      {
+        "from": "../vendor/ffmpeg/${platform}-${arch}",
+        "to": "ffmpeg",
+        "filter": [
+          "ffmpeg",
+          "ffmpeg.exe",
+          "ffprobe",
+          "ffprobe.exe",
+          "LICENSE.txt",
+          "SOURCE.json"
+        ]
+      }
+    ]
   }
 }

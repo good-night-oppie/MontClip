@@ -1,0 +1,17 @@
+
+
+  FableCut running →  http://localhost:33835
+
+  project file : <user>\AppData\Local\Temp\MontClip-official-pane-SJUV2B\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-official-pane-SJUV2B\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-official-pane-SJUV2B\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+OFFICIAL_CONFIG_ESCAPE focus-restored
+(electron) 'safeStorage.isEncryptionAvailable' is deprecated and will be removed. Please use 'safeStorage.isAsyncEncryptionAvailable' instead.
+(electron) 'safeStorage.encryptString' is deprecated and will be removed. Please use 'safeStorage.encryptStringAsync' instead.
+OFFICIAL_IME synthetic-composition-enter: zero review/send
+OFFICIAL_REVIEW {"projectId":"p_c320520555","revision":3,"draftLength":13,"status":[""],"sessionCount":1}
+[Error: Script failed to execute, this normally means an error was thrown. Check the renderer console for the error.]

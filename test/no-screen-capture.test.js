@@ -68,3 +68,18 @@ test("drop-reveal reports the window's visibility as windowVisible, not a bare v
   a.match(s, /log\('REVEAL_COMPLETE',\{saved:[^}]*windowVisible:win\.isVisible\(\)\}\)/);
   a.doesNotMatch(s, /[{,]visible:win\.isVisible\(\)/);
 });
+
+// QQ (2026-11-02): the rule covers every script that starts the app, not only those two smokes. Nothing
+// shows, raises or focuses a window; desktop/main.js is the app itself (it shows its window outside smoke mode).
+const WINDOW_TAKEOVER = /\b(?:win|w|bw|window|mainWindow)\.(?:show|showInactive|focus|moveTop)\(|setAlwaysOnTop|--official-visible/;
+test("no script that starts the app shows, raises or focuses a window (the app's own main.js aside)", () => {
+  const found = [];
+  for (const f of scripts()) {
+    if (f === "desktop/main.js") continue;
+    fs.readFileSync(path.join(ROOT, f), "utf8").split(/\r?\n/).forEach((l, i) => { const m = l.match(WINDOW_TAKEOVER); if (m) found.push(`${f}:${i + 1}: ${m[0]}`); });
+  }
+  a.deepEqual(found, []);
+  // the page's own controls may still be focused: that is not the window
+  a.ok(!WINDOW_TAKEOVER.test("document.querySelector('input').focus()") && !WINDOW_TAKEOVER.test("e.focus();"));
+  for (const bad of ["win.show();", "w.show()", "win.setAlwaysOnTop(true)", "win.focus();", "win.moveTop()"]) a.ok(WINDOW_TAKEOVER.test(bad), bad);
+});

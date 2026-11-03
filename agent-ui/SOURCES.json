@@ -1,0 +1,72 @@
+{
+  "repository": "https://github.com/makecindy/cindy",
+  "commit": "021923684f54129effbba6b72a8218526418fa45",
+  "files": [
+    {
+      "file": "ComposerCard.tsx",
+      "source": "apps/desktop/src/renderer/components/new-chat/ComposerCard.tsx",
+      "blob": "bdc93dc5ad34704251540d09bda2edeeba1c50c2",
+      "sha256": "6f0638bccc7c904987fd037d89e729e4886b6eb1f853f28ffc2408f49d4dadb6"
+    },
+    {
+      "file": "composerListContinuation.ts",
+      "source": "apps/desktop/src/renderer/lib/composerListContinuation.ts",
+      "blob": "879b5136929ea08582d1537e421b5e9af18e9ec1",
+      "sha256": "df6c1708bc73c68ca4b4c97e180c6ced4ebcb07efb6aee25e25796d845afe623"
+    },
+    {
+      "file": "composerListTextarea.ts",
+      "source": "apps/desktop/src/renderer/lib/composerListTextarea.ts",
+      "blob": "83983d38ea41d2618e3492c82881728eb1b13bb6",
+      "sha256": "f4464a03c4dc9a5b122c96b42973f0b31f6ad96a5e06a25fcff64cb2436f63e5"
+    },
+    {
+      "file": "LICENSE",
+      "source": "LICENSE",
+      "blob": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "file": "ListComposerTextarea.tsx",
+      "source": "apps/desktop/src/renderer/components/new-chat/ListComposerTextarea.tsx",
+      "blob": "d76d9cf020391156ca19ad070f92e8c55c13773b",
+      "sha256": "791d9545109049369c8a5962b423aba3de39acab571742d820980a9d1f305446"
+    },
+    {
+      "file": "NOTICE",
+      "source": "NOTICE",
+      "blob": "8a0a725caa23a95d89f25fdd6475d847c12501f3",
+      "sha256": "77ad73b2535cd4011ed8b509aa51d7c745ae5a6f411370d8f94337562c03cd97"
+    },
+    {
+      "file": "SendButton.tsx",
+      "source": "apps/desktop/src/renderer/components/new-chat/SendButton.tsx",
+      "blob": "573af2d5d06a8909064dcda7fadeb4e7fcd7500e",
+      "sha256": "6d00ee27b0dcb0ca206b3b6721f3488e595cd0f066fc5f57c1790251d32b2f58"
+    },
+    {
+      "file": "thinkingText.ts",
+      "source": "packages/maker-shared/src/thinkingText.ts",
+      "blob": "870c9cabd240b47ff4546abe1e2ae491d13847ec",
+      "sha256": "852a2ef96387448e0ba5f34a7644a9cd2057a5ff777b6951cdc5b06f0df259e4"
+    },
+    {
+      "file": "ThinkingText.tsx",
+      "source": "apps/desktop/src/renderer/components/chat/ThinkingText.tsx",
+      "blob": "51db901435a2f97a1af9c9aa6478dbee0c9cdbdc",
+      "sha256": "43a5960976fe6d0307631d46d04ecae35acbb145788d69afbb364cf107c4f0bf"
+    },
+    {
+      "file": "SettingsTextInput.tsx",
+      "source": "apps/desktop/src/renderer/components/settings/SettingsTextInput.tsx",
+      "blob": "d0b821a7db8b6bbafffcfbe631515fdf052a11e2",
+      "sha256": "fc25cad5aec84abd783904138d88448ec350795c15dd6e2b233c77832c088a57"
+    },
+    {
+      "file": "input.tsx",
+      "source": "apps/desktop/src/renderer/components/ui/input.tsx",
+      "blob": "c27f318badb05dc15cfb307d6cff5f6184c8286b",
+      "sha256": "cf91d99c589ef0f845d0ded9a4ae3480223ad48d83ad0d2e6f99eafbc803f6a2"
+    }
+  ]
+}
