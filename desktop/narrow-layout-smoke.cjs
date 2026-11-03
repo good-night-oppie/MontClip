@@ -5,6 +5,8 @@
 //  - whether the player controls (.transport) overlap the timeline panel;
 //  - every tool of the timeline toolbar, the monitor header and the top bar: reachable when fully inside
 //    its bar, hit at its centre, overlapping no neighbour and with its whole label, or hit at its centre inside the opened More menu;
+//  - 素材 counts only at 1100 px or less (above that the bin is on screen and 素材 is hidden on purpose); there the
+//    bin is opened with it before its header is measured;
 //  - every player button: hit at its centre;
 //  - every side-panel tab: hit at its centre once its strip is scrolled to it;
 // and saves a page capture (the app's own page; never the screen) for each case.
@@ -19,7 +21,7 @@ const MEASURE=`(async()=>{
  const frame=()=>new Promise(res=>requestAnimationFrame(()=>requestAnimationFrame(res)));
  const hit=e=>{const k=r(e);if(!(k.width>0&&k.height>0)||!vis(e))return false;if(k.left<0||k.top<0||k.right>innerWidth+0.5||k.bottom>innerHeight+0.5)return false;
   const h=document.elementFromPoint(k.left+k.width/2,k.top+k.height/2);return !!h&&(h===e||e.contains(h));};
- const tools=(root)=>[...root.querySelectorAll("button,input,select")].filter(e=>!e.classList.contains("more-btn")&&!e.classList.contains("hidden")&&!e.closest(".hidden")&&!e.hidden);
+ const tools=(root)=>[...root.querySelectorAll("button,input,select")].filter(e=>!e.classList.contains("more-btn")&&!e.classList.contains("hidden")&&!e.closest(".hidden")&&!e.hidden&&!(e.id==="mcMediaToggle"&&innerWidth>1100));
  async function bar(box,btn,menu,label){
   const bb=r(box),rows=[];
   for(const e of tools(box).filter(e=>!menu.contains(e))){const k=r(e),inside=k.left>=bb.left-0.5&&k.right<=bb.right+0.5;rows.push({id:e.id||e.dataset.editTool||e.className,where:label,inMore:false,ok:inside&&hit(e)});}
@@ -32,7 +34,9 @@ const MEASURE=`(async()=>{
  const tl=await bar(document.querySelector(".timeline-toolbar"),document.getElementById("btnTlMore"),document.getElementById("tlMoreMenu"),"timeline");
  const mon=await bar(document.querySelector("#monitorPanel .panel-head-actions"),document.getElementById("btnMonMore"),document.getElementById("monMoreMenu"),"monitor");
  const top=await bar(document.querySelector(".topbar-right"),document.getElementById("btnTopMore"),document.getElementById("topMoreMenu"),"topbar");
+ const narrow=innerWidth<=1100,appEl=document.getElementById("app");if(narrow){appEl.classList.add("media-open");await frame();await frame();}
  const bin=await bar(document.querySelector(".bin-actions"),document.getElementById("btnBinMore"),document.getElementById("binMoreMenu"),"bin");
+ if(narrow){appEl.classList.remove("media-open");await frame();}
  const tabs=[];for(const t of document.querySelectorAll("#sideTabs button,#binTabs button")){if(t.classList.contains("hidden")||t.hidden||t.offsetParent===null)continue;
   t.scrollIntoView({block:"nearest",inline:"nearest"});await frame();tabs.push({id:t.textContent.trim(),ok:hit(t)});}
  for(const s of document.querySelectorAll(".bin-tabs"))s.scrollLeft=0;

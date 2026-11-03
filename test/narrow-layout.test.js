@@ -101,3 +101,15 @@ test('the monitor More menu floats in <body> above the panels; the transcript to
   // main (#52) put the entries in a row of their own at the top of the transcript head: the sentence row stands alone there
   a.match(app, /<div class="tr-row tr-entries">\n        <button type="button" class="btn tiny" data-tr-highlights>[^\n]*\n        <button type="button" class="btn tiny" data-tr-sentences>[^\n]*\n        <button type="button" class="btn tiny" data-tr-mapping>[^\n]*\n      <\/div>/);
 });
+
+// VV on b4a733e: at 804 and 630 the top bar's Layout and S/M/L were gone with no More button (a rule hid them below 1100px,
+// and More only collects what is drawn); at 1270 the bin's + Adjust was squeezed under + Import (its buttons shrank).
+test('nothing in a bar with a More menu is hidden by width: it goes into More instead', () => {
+  const css = read('style.css');
+  for (const block of css.match(/@media\s*\(max-width:\s*\d+px\)\s*\{[\s\S]*?\n\}/g) || [])
+    a.ok(!/\.layout-tools\s*\{[^}]*display:\s*none/.test(block), 'the layout tools are not hidden on narrow windows');
+});
+test('the bin header buttons keep their labels at every width: they never shrink, they move into More', () => {
+  const css = read('style.css'), outside = css.replace(/@media[^{]*\{[\s\S]*?\n\}/g, '');
+  a.match(outside, /\.panel-head > \.panel-head-actions\.bin-actions > \.btn \{[^}]*flex: 1 0 auto/);
+});
