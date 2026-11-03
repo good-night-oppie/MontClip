@@ -726,6 +726,11 @@ SHA-256 and size; a file that does not match is never used):
   `.tar.bz2` archives) are recognised by their SHA-256, whatever their names.
   Downloaded and imported models live in the app's user data (`asr-models/`).
 
+The first time the desktop app opens without a model, a **setup page** asks: transcribe
+on this computer (download), or not now; it shows the download's states (downloading,
+done, network gone, no room, a file that failed its check). Settings › Transcription
+reopens it. The choice is kept by the main process (`asr-choice.json`).
+
 The engine and the VAD are in every package. `GET /api/asr/status` says what is
 there; without the model, transcribing answers `ASR_MODEL_MISSING` and downloads
 nothing.

@@ -4818,3 +4818,18 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 
 /* + URL is hidden in the desktop app; .btn would otherwise win over [hidden] */
 #btnImportUrl[hidden] { display: none; }
+
+/* v10: the transcription setup page (app.js openAsrSetup) */
+.asr-setup { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; width: min(640px, 92vw); max-height: 86vh; padding: 20px 22px; }
+.asr-setup::backdrop { background: rgba(0, 0, 0, 0.45); }
+.asr-setup h2 { margin: 0 0 6px; font-size: 17px; }
+.asr-setup .dim { margin: 0 0 12px; }
+.asr-setup .asr-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-top: 8px; }
+.asr-setup .asr-card-main { border-color: var(--accent); }
+.asr-setup .asr-card ul { margin: 6px 0 10px; padding-left: 18px; line-height: 1.55; }
+.asr-setup .asr-card p { margin: 6px 0 10px; }
+.asr-setup .asr-tag { font-size: 11px; padding: 1px 7px; border-radius: 9px; border: 1px solid var(--accent); color: var(--accent); }
+.asr-setup .asr-bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; margin: 10px 0; }
+.asr-setup .asr-bar > i { display: block; height: 100%; background: var(--accent); }
+.asr-setup .asr-warn { color: var(--warn, #c98a2b); }
+.asr-setup .dialog-actions { display: flex; gap: 8px; margin-top: 12px; }

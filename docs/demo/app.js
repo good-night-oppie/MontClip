@@ -1299,6 +1299,8 @@ async function connectServer() {
     runtime.projectId = res.headers.get("X-FableCut-Project");
     if (res.headers.get("X-FableCut-Projects")) initProjectsUi();
     listenSSE();
+    // v10: the transcription setup page, the first time (desktop app only; see maybeOpenAsrSetup)
+    if (window.montclipAsr) setTimeout(maybeOpenAsrSetup, 800);
     fetch("/api/export/ffmpeg").then((r) => r.json())
       .then((j) => { state.ffmpeg = !!j.available; }).catch(() => { });
     fetchEncodeProfiles();
@@ -9226,6 +9228,8 @@ const mbText = (bytes) => `${Math.max(0, Math.round(bytes / 1048576))} MB`;
 /** The model line of the Transcript tab (JJ v2): not installed (download or import), downloading (cancel), interrupted /
  *  no room / a file that failed its check (go on, or later), installed. Download and import are the desktop app's. */
 function paintAsrStatus() {
+  paintAsrSetup();
+  paintSettingsAsr();
   const E = trState.el;
   if (!E || !E.asr) return;
   const s = asrState.status, desk = !!window.montclipAsr, d = asrState.downloading, ph = asrState.phase;
@@ -9250,19 +9254,21 @@ function paintAsrStatus() {
 async function asrGet() {
   if (!window.montclipAsr || asrState.downloading) return;
   Object.assign(asrState, { note: "", phase: null, why: "", downloading: { loaded: 0 } });
-  const off = window.montclipAsr.onProgress((p) => { if (asrState.downloading && p && p.which === "asr") { asrState.downloading.loaded = p.loaded; paintAsrStatus(); } });
+  const off = window.montclipAsr.onProgress((p) => { if (asrState.downloading && p && p.which === "asr") { asrState.downloading.loaded = p.loaded; asrState.downloading.total = p.total; paintAsrStatus(); } });
   paintAsrStatus();
   let r = null;
   try { r = await window.montclipAsr.download("asr"); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
   off?.();
   asrState.downloading = null;
   if (r && r.ok) toast(uiText("own.asr-ready"));
-  else if (r && (r.declined || r.code === "ASR_DOWNLOAD_CANCELLED")) asrState.phase = r.code === "ASR_DOWNLOAD_CANCELLED" ? "interrupted" : null;
+  // declined in the host's box, or 〔取消下载〕: back to the choices (what came stays for next time)
+  else if (r && (r.declined || r.code === "ASR_DOWNLOAD_CANCELLED")) asrState.phase = null;
   else if (r && r.code === "ASR_NO_SPACE") { asrState.phase = "no-space"; asrState.space = { drive: r.drive || "?", free: r.freeBytes || 0 }; }
   else if (r && r.code === "ASR_CHECK_FAILED") asrState.phase = "check-failed";
   else if (r && r.code === "ASR_DOWNLOAD_INTERRUPTED") asrState.phase = "interrupted";
   else { asrState.phase = "failed"; asrState.why = (r && r.error) || "?"; }
   await loadAsrStatus();
+  return !!(r && r.ok);
 }
 function asrCancel() { if (window.montclipAsr && asrState.downloading) window.montclipAsr.cancel(); }
 function asrLater() { asrState.phase = null; asrState.why = ""; paintAsrStatus(); }
@@ -9275,6 +9281,90 @@ async function asrImport() {
   else if (r && !r.cancelled) asrState.note = uiText("own.asr-import-failed", { why: (r && r.error) || "?" });
   await loadAsrStatus();
   setTimeout(() => { asrState.note = ""; paintAsrStatus(); }, 6000);
+}
+/* v10 (frozen design; JJ v2 section one): the transcription setup page. It opens by itself the first time (desktop app,
+   transcription on, no model yet, not answered 「以后再说」), and from Settings › 听写 and P3's 〔去装〕. Three choices —
+   the cloud one stays hidden until cloud transcription exists — and five states while the model comes: downloading,
+   done, network gone, no room, a file that failed its check. The states follow asrState, like the Transcript tab. */
+const ASR_TEST_MINUTES = null;   // 「（我们的测试电脑上大约 {n} 分钟）」 shows once Deja gives the Win11 number
+let asrSetup = null;             // {dialog, state: null (the choices) | "done"}
+function openAsrSetup(state) {
+  if (!window.montclipAsr || !transcribeAvailable()) return;
+  if (!asrSetup) {
+    const d = document.createElement("dialog");
+    d.className = "asr-setup";
+    d.setAttribute("aria-labelledby", "asrSetupTitle");
+    d.addEventListener("close", () => { if (asrSetup && asrSetup.dialog === d) asrSetup = null; d.remove(); });
+    d.addEventListener("click", asrSetupClick);
+    document.body.append(d);
+    asrSetup = { dialog: d, state: null };
+    d.showModal();
+  }
+  asrSetup.state = state || null;
+  paintAsrSetup();
+}
+function paintAsrSetup() {
+  if (!asrSetup) return;
+  const h = (k, v) => escapeHtml(uiText("own." + k, v)), d = asrState.downloading;
+  const st = d ? "dl" : ({ interrupted: "net", "no-space": "space", "check-failed": "bad", failed: "bad" })[asrState.phase] || asrSetup.state;
+  const later = `<button type="button" class="btn" data-asr-setup="later">${h("asr-later")}</button>`;
+  let html;
+  if (!st) html = `<h2 id="asrSetupTitle">${h("setup-title")}</h2><p class="dim">${h("setup-intro")}</p>
+    <div class="asr-card asr-card-main"><b>${h("setup-local-title")}</b> <span class="asr-tag">${h("setup-recommended")}</span>
+      <ul><li>${h("asr-missing")}</li><li>${h("setup-local-speed")}${ASR_TEST_MINUTES ? h("setup-local-n", { n: ASR_TEST_MINUTES }) : ""}</li>
+        <li>${h("setup-local-errors")}</li><li>${h("setup-local-punct")}</li></ul>
+      <button type="button" class="btn primary" data-asr-setup="download">${h("asr-download")}</button></div>
+    <div class="asr-card"><b>${h("setup-later-title")}</b><p>${h("setup-later")}</p>${later}</div>`;
+  else if (st === "dl") html = `<h2 id="asrSetupTitle">${h("setup-dl-title")}</h2><p>${h("asr-downloading", { got: mbText(d.loaded) })}</p>
+    <div class="asr-bar"><i style="width:${d.total ? Math.min(100, Math.round(100 * d.loaded / d.total)) : 0}%"></i></div>
+    <div class="dialog-actions"><button type="button" class="btn" data-asr-setup="cancel">${h("asr-download-cancel")}</button></div>`;
+  else if (st === "done") html = `<h2 id="asrSetupTitle">${h("setup-done-title")}</h2><p>${h("asr-ready")}</p>
+    <div class="dialog-actions"><button type="button" class="btn primary" data-asr-setup="ok">${h("setup-ok")}</button></div>`;
+  else {
+    const [title, text, again] = { net: ["setup-net-title", h("asr-interrupted"), "asr-resume"],
+      space: ["setup-space-title", h("asr-no-space", { drive: asrState.space ? asrState.space.drive : "?", free: mbText(asrState.space ? asrState.space.free : 0) }), "asr-resume"],
+      bad: ["setup-bad-title", asrState.phase === "failed" ? h("asr-download-failed", { why: asrState.why || "?" }) : h("asr-check-failed"), "asr-again"] }[st];
+    html = `<h2 id="asrSetupTitle">${h(title)}</h2><p class="asr-warn">${text}</p>
+      <div class="dialog-actions"><button type="button" class="btn primary" data-asr-setup="download">${h(again)}</button>${later}</div>`;
+  }
+  asrSetup.dialog.innerHTML = html;
+}
+async function asrSetupClick(e) {
+  const b = e.target.closest("[data-asr-setup]");
+  if (!b) return;
+  const act = b.dataset.asrSetup;
+  if (act === "download") {
+    try { await window.montclipAsr.setChoice("local"); } catch { }
+    if (await asrGet() && asrSetup) { asrSetup.state = "done"; paintAsrSetup(); }
+  } else if (act === "later") {
+    try { await window.montclipAsr.setChoice("later"); } catch { }
+    asrLater();
+    asrSetup?.dialog.close();
+  } else if (act === "cancel") asrCancel();
+  else if (act === "ok") asrSetup?.dialog.close();
+}
+/** The first time: open the page when there is no model and the streamer has not said 「以后再说」. A download that
+ *  stopped half-way opens on 「没下载完」. */
+async function maybeOpenAsrSetup() {
+  if (!window.montclipAsr || !transcribeAvailable() || asrSetup) return;
+  const s = asrState.status || await loadAsrStatus();
+  if (!s || !s.engine.ready || !s.vad.ready || s.asr.ready) return;
+  let c = null;
+  try { c = await window.montclipAsr.choice(); } catch { }
+  if (!c || !c.ok || c.choice === "later") return;
+  if (c.partial && !asrState.phase) asrState.phase = "interrupted";
+  openAsrSetup();
+}
+/** Settings › 听写: the state; 〔去装〕 opens the page while there is no model. */
+function paintSettingsAsr() {
+  const box = $("setAsr");
+  if (!box) return;
+  const on = !!window.montclipAsr && transcribeAvailable();
+  box.classList.toggle("hidden", !on);
+  if (!on) return;
+  const ready = asrReady();
+  $("setAsrStatus").textContent = ready ? uiText("own.asr-ready") : uiText("own.asr-not-installed");
+  $("btnAsrSetup").hidden = ready;
 }
 /** Transcribe one file in the local server, which saves its transcript. Resolves to {doc, saved}. */
 async function transcribeFile(src) {
@@ -19136,6 +19226,8 @@ function openSettings() {
   const dialog = $("settingsDialog");
   (cb || dialog)?.focus();
   renderH264Settings();
+  paintSettingsAsr();
+  if (window.montclipAsr && !asrState.status) loadAsrStatus();
 }
 function closeSettings() {
   const overlay = $("settingsOverlay");
@@ -19178,6 +19270,7 @@ $("btnH264Choose")?.addEventListener("click", async () => {
 });
 $("btnH264Clear")?.addEventListener("click", async () => { await window.montclipExternalFfmpeg?.clear(); renderH264Settings(); });
 $("btnSettings").addEventListener("click", openSettings);
+$("btnAsrSetup").addEventListener("click", () => openAsrSetup());
 $("btnCloseSettings").addEventListener("click", closeSettings);
 $("settingsOverlay").addEventListener("click", (e) => {
   if (e.target === $("settingsOverlay")) closeSettings();

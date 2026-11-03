@@ -61,6 +61,37 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     const media = path.join(profile, 'workspace', 'media'); fs.mkdirSync(media, { recursive: true });
     fs.copyFileSync(path.join(VENDOR, 'test_wavs', '0.wav'), path.join(media, '语音 测试.wav'));
     const src = '/media/' + encodeURIComponent('语音 测试.wav').replace(/%20/g, ' ');
+    // 0. v10: the setup page opens by itself the first time
+    const setupOpen = async () => { const until = Date.now() + 8000; while (Date.now() < until) { if (await read(`!!document.querySelector('.asr-setup[open]')`)) return true; await wait(150); } return false; };
+    if (!(await setupOpen())) throw Error('SETUP did not open');
+    report.setup = await read(`(()=>{const d=document.querySelector('.asr-setup[open]');return{title:d.querySelector('h2').textContent,cloud:/选服务|云端/.test(d.textContent),n:/测试电脑/.test(d.textContent),buttons:[...d.querySelectorAll('button')].map(b=>b.textContent)};})()`);
+    if (report.setup.title !== '要不要自动出字幕？' || report.setup.cloud || report.setup.n || report.setup.buttons.join('|') !== '下载并使用（约 230 MB）|以后再说') throw Error('SETUP ' + JSON.stringify(report.setup));
+    await read(`document.querySelector('.asr-setup [data-asr-setup=download]').click();true`); await wait(800);
+    report.setupDeclined = await read(`(()=>{const d=document.querySelector('.asr-setup[open]');return d&&d.querySelector('h2').textContent;})()`);
+    if (report.setupDeclined !== '要不要自动出字幕？' || mainRequests.length) throw Error('SETUP_DECLINED ' + report.setupDeclined);
+    await read(`document.querySelector('.asr-setup [data-asr-setup=later]').click();true`); await wait(500);
+    report.later = await read(`(async()=>({open:!!document.querySelector('.asr-setup[open]'),choice:(await window.montclipAsr.choice()).choice}))()`);
+    if (report.later.open || report.later.choice !== 'later') throw Error('LATER ' + JSON.stringify(report.later));
+    await read(`openSettings();true`); await wait(400);
+    report.settings = await read(`({shown:!document.getElementById('setAsr').classList.contains('hidden'),status:document.getElementById('setAsrStatus').textContent,button:document.getElementById('btnAsrSetup').textContent})`);
+    if (!report.settings.shown || report.settings.status !== '还没装听写' || report.settings.button !== '去装') throw Error('SETTINGS ' + JSON.stringify(report.settings));
+    await read(`document.getElementById('btnAsrSetup').click();true`);
+    if (!(await setupOpen())) throw Error('SETUP from Settings did not open');
+    // the five states of the page, painted from the same state the download sets
+    report.states = await read(`(()=>{const out={},d=()=>document.querySelector('.asr-setup[open]'),look=()=>({title:d().querySelector('h2').textContent,text:d().querySelector('p').textContent,buttons:[...d().querySelectorAll('button')].map(b=>b.textContent)});
+      asrState.downloading={loaded:12*1048576,total:243371218};paintAsrSetup();out.dl=look();asrState.downloading=null;
+      asrSetup.state='done';paintAsrSetup();out.done=look();asrSetup.state=null;
+      for(const [k,ph] of [['net','interrupted'],['space','no-space'],['bad','check-failed']]){asrState.phase=ph;asrState.space={drive:'C',free:120*1048576};paintAsrSetup();out[k]=look();}
+      asrState.phase=null;asrState.space=null;paintAsrSetup();return out;})()`);
+    const S = report.states, want = {
+      dl: ['正在下载听写模型', '正在下载听写模型：12 MB / 约 230 MB。可以先去剪辑，下载完会告诉你。', '取消下载'],
+      done: ['听写模型装好了', '听写模型装好了。以后听写都在这台电脑上做，不用再联网。', '好'],
+      net: ['没下载完', '听写模型没下载完，已经下载的部分会留着。检查一下网络，再点「接着下载」。', '接着下载|以后再说'],
+      space: ['空间不够', 'C 盘空间不够，下载听写模型需要大约 230 MB，现在只剩 120 MB。腾出空间以后再点「接着下载」。', '接着下载|以后再说'],
+      bad: ['文件不完整', '下载的文件不完整，已删掉，请再下载一次。', '再下载一次|以后再说'] };
+    for (const [k, [title, text, buttons]] of Object.entries(want))
+      if (S[k].title !== title || S[k].text !== text || S[k].buttons.join('|') !== buttons) throw Error('STATE ' + k + ' ' + JSON.stringify(S[k]));
+    await read(`document.querySelector('.asr-setup[open]').close();closeSettings();true`); await wait(300);
     // 1. no model
     await read(`setSideTab('transcript');true`); await wait(300);
     await read(`loadAsrStatus()`); await wait(200);
@@ -81,6 +112,10 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     if (report.after !== '听写模型装好了。以后听写都在这台电脑上做，不用再联网。') throw Error('AFTER ' + JSON.stringify(report));
     report.modelFiles = fs.readdirSync(path.join(profile, 'asr-models', 'asr')).sort();
     if (report.modelFiles.join() !== 'model.int8.onnx,tokens.txt') throw Error('FILES ' + report.modelFiles);
+    await read(`openSettings();true`); await wait(300);
+    report.settingsAfter = await read(`({status:document.getElementById('setAsrStatus').textContent,button:document.getElementById('btnAsrSetup').hidden})`);
+    await read(`closeSettings();true`);
+    if (report.settingsAfter.status !== '听写模型装好了。以后听写都在这台电脑上做，不用再联网。' || !report.settingsAfter.button) throw Error('SETTINGS_AFTER ' + JSON.stringify(report.settingsAfter));
     // 4. transcribe the model's own test sentence
     const t0 = Date.now();
     report.result = await read(`transcribeSrcs([${JSON.stringify(src)}]).then(async r=>{const d=await loadTranscript(${JSON.stringify(src)},true);return{done:r.done.length,failed:r.failed,words:d?d.words.length:0,text:d?FableCutTranscribe.join(d.words.map(w=>w[0])):'',first:d?d.words.slice(0,3):[],model:d&&d.model,language:d&&d.language}})`);

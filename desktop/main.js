@@ -139,6 +139,22 @@ async function start() {
         error: e.failed ? e.failed.map((f) => f.source + ": " + f.error).join("; ") : String(e.message || e) };
     } finally { asrBusy = null; }
   });
+  // v10: what the streamer chose on the transcription setup page ("local" | "later"), kept here because the page's
+  // origin (a random port) changes each time MontClip opens; and whether a download stopped half-way (it opens on 「没下载完」)
+  const asrChoiceFile = path.join(app.getPath("userData"), "asr-choice.json");
+  ipcMain.handle("montclip:asr:choice", async (event, set) => {
+    if (!settingsAllowed(event, win, origin) || !features.transcribe) return { ok: false, code: "ASR_FORBIDDEN" };
+    if (set !== undefined) {
+      if (!(set === "local" || set === "later")) return { ok: false, code: "ASR_BAD_CHOICE" };
+      const tmp = asrChoiceFile + "." + crypto.randomUUID() + ".tmp";
+      try { fs.writeFileSync(tmp, JSON.stringify({ version: 1, choice: set }), { flag: "wx" }); fs.renameSync(tmp, asrChoiceFile); }
+      catch { try { fs.unlinkSync(tmp); } catch { } return { ok: false, code: "ASR_CHOICE_NOT_SAVED" }; }
+    }
+    let choice = null, partial = false;
+    try { const j = JSON.parse(fs.readFileSync(asrChoiceFile, "utf8")); if (j && (j.choice === "local" || j.choice === "later")) choice = j.choice; } catch { }
+    try { partial = fs.readdirSync(path.join(env.MONTCLIP_ASR_MODELS_DIR, ".partial")).some((f) => f.endsWith(".part")); } catch { }
+    return { ok: true, choice, partial };
+  });
   // 〔取消下载〕: what came stays for 「接着下载」
   ipcMain.handle("montclip:asr:cancel", async (event) => {
     if (!settingsAllowed(event, win, origin)) return { ok: false, code: "ASR_FORBIDDEN" };

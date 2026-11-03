@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld('montclipAsr',Object.freeze({
  download:which=>ipcRenderer.invoke('montclip:asr:download',which==='punct'?'punct':'asr'),
  import:()=>ipcRenderer.invoke('montclip:asr:import'),
  cancel:()=>ipcRenderer.invoke('montclip:asr:cancel'),
+ choice:()=>ipcRenderer.invoke('montclip:asr:choice'),
+ setChoice:v=>ipcRenderer.invoke('montclip:asr:choice',v==='later'?'later':'local'),
  onProgress:fn=>{const h=(_,p)=>{try{fn({which:p&&p.which==='punct'?'punct':'asr',loaded:Number(p&&p.loaded)||0,total:Number(p&&p.total)||0});}catch{}};ipcRenderer.on('montclip:asr:progress',h);return()=>ipcRenderer.removeListener('montclip:asr:progress',h);}
 }));
 
