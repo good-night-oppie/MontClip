@@ -1,0 +1,71 @@
+[
+ {
+  "lang": "zh-CN",
+  "texts": [
+   "转写所选（1）",
+   "找到 0 处",
+   "全部剪切",
+   "复制",
+   "字幕",
+   "添加字幕",
+   "SRT",
+   "VTT",
+   "导入…",
+   "按句选段",
+   "时间映射",
+   "字幕最后再加：剪辑穿过字幕时，字幕的时间不会跟着重排，改完剪辑后请重新添加字幕。",
+   "还没有文稿：讲话 样本.wav"
+  ],
+  "placeholder": "查找词",
+  "panel": "转写所选（1） 取消 找到 0 处 全部剪切 复制 字幕 添加字幕 SRT VTT 导入… 按句选段 时间映射 字幕最后再加：剪辑穿过字幕时，字幕的时间不会跟着重排，改完剪辑后请重新添加字幕。 还没有文稿：讲话 样本.wav 剪切",
+  "top": "Untitled Project  ·  🟢 已连接",
+  "latin": [],
+  "cjk": []
+ },
+ {
+  "lang": "en",
+  "texts": [
+   "Transcribe selected (1)",
+   "0 found",
+   "Cut all",
+   "Copy",
+   "Captions",
+   "Add captions",
+   "SRT",
+   "VTT",
+   "Import…",
+   "Select sentences",
+   "Mapping",
+   "Caption last: a cut through a caption doesn't re-time its words, so add captions again after changing the edit.",
+   "No transcript yet: 讲话 样本.wav"
+  ],
+  "placeholder": "Find words",
+  "panel": "Transcribe selected (1) Cancel 0 found Cut all Copy Captions Add captions SRT VTT Import… Select sentences Mapping Caption last: a cut through a caption doesn't re-time its words, so add captions again after changing the edit. No transcript yet: 讲话 样本.wav Cut",
+  "top": "Untitled Project  ·  🟢 connected",
+  "latin": [],
+  "cjk": []
+ },
+ {
+  "lang": "zh-CN",
+  "texts": [
+   "转写所选（1）",
+   "找到 0 处",
+   "全部剪切",
+   "复制",
+   "字幕",
+   "添加字幕",
+   "SRT",
+   "VTT",
+   "导入…",
+   "按句选段",
+   "时间映射",
+   "字幕最后再加：剪辑穿过字幕时，字幕的时间不会跟着重排，改完剪辑后请重新添加字幕。",
+   "还没有文稿：讲话 样本.wav"
+  ],
+  "placeholder": "查找词",
+  "panel": "转写所选（1） 取消 找到 0 处 全部剪切 复制 字幕 添加字幕 SRT VTT 导入… 按句选段 时间映射 字幕最后再加：剪辑穿过字幕时，字幕的时间不会跟着重排，改完剪辑后请重新添加字幕。 还没有文稿：讲话 样本.wav 剪切",
+  "top": "Untitled Project  ·  🟢 已连接",
+  "latin": [],
+  "cjk": []
+ }
+]

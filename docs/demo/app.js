@@ -39,6 +39,9 @@ let mcAgent = null;
 const mcView = MontClipView.create(window.montclipViewSettings ? MontClipView.desktopStorage(window.montclipViewSettings) : localStorage);
 /** Keyed interface text in the current language (ui-terms.js / ui-preferences.js). Never for user content. */
 const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
+/** On-device transcription: on in development and the browser editor; a packaged desktop build has it
+ *  off unless the main process turned it on (desktop/features.js). Off means no entry and no download. */
+function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
 function renderMontClipView() {
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
   document.getElementById("mcAssistantTab").textContent=t.assistant;document.getElementById("mcMediaToggle").textContent=mcView.get().language==="en"?"Media":"素材";
@@ -58,6 +61,15 @@ function renderMontClipView() {
   document.getElementById("mcLanguage").setAttribute("aria-label", t.language);
   document.getElementById("mcAssistantPanel").setAttribute("aria-label", t.assistant);
 }
+/** The project name (user content, never translated) and the connection status in the current language. */
+function projectStatusText() {
+  return project.name + (state.connected ? "  ·  🟢 " + uiText("own.connected") : "  ·  ⚪ " + uiText("own.local-session"));
+}
+/** Text computed from state (not data-i18n) after a language switch: the top bar status and the Transcript panel. */
+function refreshLanguageText() {
+  if (els.projectName) els.projectName.textContent = projectStatusText();
+  if (trState.built) renderTranscript(true);
+}
 function updateMontClipView(patch) {
   if(patch.mode && patch.mode!==mcView.get().mode){
     if(state.exporting||state.compCtx){toast(MontClipView.text[mcView.get().language].modeBlocked);return;}
@@ -66,6 +78,7 @@ function updateMontClipView(patch) {
   }
   const saved = mcView.set(patch); renderMontClipView();
   try { renderQueue(); } catch { /* not built yet */ }
+  refreshLanguageText();
   refreshLocalizedViews();
   // simple mode has the selection tool only: back to V; the project, selection and history stay as they are
   if (mcView.get().mode === "simple" && state.tool !== "select") setEditTool("select");
@@ -1285,7 +1298,7 @@ async function connectServer() {
     const data = await res.json();
     applyProject(data);
     state.connected = true;
-    els.projectName.textContent = project.name + "  ·  🟢 connected";
+    els.projectName.textContent = projectStatusText();
     runtime.projectId = res.headers.get("X-FableCut-Project");
     if (res.headers.get("X-FableCut-Projects")) initProjectsUi();
     listenSSE();
@@ -1295,7 +1308,7 @@ async function connectServer() {
     detectWebCodecs();
   } catch {
     state.connected = false;
-    els.projectName.textContent = project.name + "  ·  ⚪ local session";
+    els.projectName.textContent = projectStatusText();
   }
   initSequencesUi();
   await probeMissingMeta();
@@ -1582,6 +1595,8 @@ function applyProject(data, opts = {}) {
     outputs: Array.isArray(data.outputs) ? data.outputs.filter((o) => o && typeof o === "object") : null,
     master: normalizeMaster(data.master),
     buses: normalizeBuses(data.buses),
+    // the recording's danmaku, kept as it is (null when this project has none, so nothing is left from the last one)
+    danmaku: normalizeDanmaku(data.danmaku),
     // the sequences that aren't open, kept as they are (see sequences.js); the open one is this document
     sequences: Array.isArray(data.sequences) && data.sequences.length ? data.sequences : null,
     sequence: Array.isArray(data.sequences) && data.sequences.length ? SeqLib.activeId(data) : null,
@@ -1752,6 +1767,12 @@ function projectJSON() {
   const root = commitCompCtx();
   return { ...root, revision: project.revision };
 }
+/** project.danmaku as the editor keeps it: the list as it is — every field of every entry, whichever shape — as a
+ *  JSON copy; null when it is not a list, is empty, or is larger than any recording's danmaku (400000 entries). */
+function normalizeDanmaku(list) {
+  if (!Array.isArray(list) || !list.length || list.length > 400000) return null;
+  try { return JSON.parse(JSON.stringify(list)); } catch { return null; }
+}
 /** The project as it is loaded right now (an open comp's stand-in project, or the root). */
 function projectJSONHere() {
   const { name, width, height, fps, background, revision, folders, media, clips, markers, inPoint, outPoint, disabledTracks, encodeProfile, delivery, outputs } = project;
@@ -1794,6 +1815,8 @@ function projectJSONHere() {
   const buses = normalizeBuses(project.buses);
   if (buses.length) out.buses = buses;
   if (project.comps && project.comps.length) out.comps = project.comps.map((cp) => ({ ...cp, clips: (cp.clips || []).map(serializeClip) }));
+  const danmaku = normalizeDanmaku(project.danmaku);
+  if (danmaku) out.danmaku = danmaku;
   if (project.sequences) {
     out.sequences = project.sequences.map((sq) => (sq.id === project.sequence ? { id: sq.id, name: sq.name } : sq));
     out.sequence = project.sequence;
@@ -9266,6 +9289,8 @@ async function transcribeFile(src, { model, language, onProgress, cancelled }) {
 }
 /** Transcribe files one after another. `beat(fraction)` hears about progress (an agent's job). */
 async function transcribeSrcs(srcs, opts = transcribeSettings(), beat = null) {
+  // off in a packaged build: no worker, no model download, from the panel or from an agent job
+  if (!transcribeAvailable()) throw Object.assign(new Error("on-device transcription is not available in this build"), { code: "TRANSCRIBE_DISABLED" });
   if (trState.busy) throw new Error("this tab is already transcribing — wait for it, or cancel it");
   const busy = trState.busy = { srcs, i: 0, frac: 0, cancel: false, dl: new Map(), beat: () => beat?.((busy.i + busy.frac) / srcs.length) };
   const out = { done: [], failed: [], cancelled: false };
@@ -9341,52 +9366,56 @@ function transcriptSig() {
 
 function buildTranscriptPage() {
   const T = FableCutTranscribe, root = els.transcriptPage, set = transcribeSettings();
+  // a packaged build without on-device transcription shows no transcribe entry, model choice or download progress
+  const listen = transcribeAvailable();
   root.innerHTML = `<div class="tr-head">
       <div class="tr-row tr-entries">
-        <button type="button" class="btn tiny" data-tr-highlights>${escapeHtml(uiText("own.hl-open"))}</button>
+        <button type="button" class="btn tiny" data-tr-highlights data-i18n="own.hl-open">${escapeHtml(uiText("own.hl-open"))}</button>
         <button type="button" class="btn tiny" data-tr-sentences data-i18n="own.tr-sentences">${escapeHtml(uiText("own.tr-sentences"))}</button>
-        <button type="button" class="btn tiny" data-tr-mapping>时间映射 / Mapping</button>
+        <button type="button" class="btn tiny" data-tr-mapping data-i18n="own.mapping">${uiText("own.mapping")}</button>
       </div>
       <div class="tr-row">
-        <button type="button" class="btn primary" data-tr-go></button>
-        <select data-tr-model title="Speech model. Base is quick; Small is more accurate and slower. Each downloads once, then stays in this browser">${Object.entries(T.MODELS).map(([k, m]) =>
-          `<option value="${k}" ${k === set.model ? "selected" : ""}>${m.label} · ${m.mb} MB</option>`).join("")}</select>
-        <select data-tr-lang title="The language spoken. Auto-detect works for most; pick it when a clip is short or mixes languages">
+        ${listen ? `<button type="button" class="btn primary" data-tr-go></button>` : ""}
+        ${listen ? `<select data-tr-model title="Speech model. Base is quick; Small is more accurate and slower. Each downloads once, then stays in this browser">${Object.entries(T.MODELS).map(([k, m]) =>
+          `<option value="${k}" ${k === set.model ? "selected" : ""}>${m.label} · ${m.mb} MB</option>`).join("")}</select>` : ""}
+        ${listen ? `<select data-tr-lang title="The language spoken. Auto-detect works for most; pick it when a clip is short or mixes languages">
           <option value="auto">Auto-detect</option>${Object.entries(T.LANGUAGES).sort((a, b) => a[1].localeCompare(b[1])).map(([k, n]) =>
-            `<option value="${k}" ${k === set.language ? "selected" : ""}>${n}</option>`).join("")}</select>
+            `<option value="${k}" ${k === set.language ? "selected" : ""}>${n}</option>`).join("")}</select>` : ""}
       </div>
-      <div class="tr-busy hidden" data-tr-busy><span data-tr-busy-text></span><span class="tr-bar"><i data-tr-bar></i></span>
-        <button type="button" class="btn tiny" data-tr-cancel title="Stop transcribing (what is done is kept)">Cancel</button></div>
+      ${listen ? `<div class="tr-busy hidden" data-tr-busy><span data-tr-busy-text></span><span class="tr-bar"><i data-tr-bar></i></span>
+        <button type="button" class="btn tiny" data-tr-cancel title="Stop transcribing (what is done is kept)" data-i18n="term.cancel">${uiText("term.cancel")}</button></div>` : ""}
       <div class="tr-row">
-        <input type="search" data-tr-find placeholder="Find words…" spellcheck="false" title="A word or phrase; case and punctuation don't matter. Enter goes to the next one">
+        <input type="search" data-tr-find placeholder="${uiText("term.find-words")}" data-i18n-placeholder="term.find-words" spellcheck="false" title="A word or phrase; case and punctuation don't matter. Enter goes to the next one">
         <span class="tr-count" data-tr-count></span>
-        <button type="button" class="btn tiny" data-tr-cut-found disabled title="Extract every place it is said, on the targeted tracks (one undo step)">Cut all</button>
-        <button type="button" class="btn tiny" data-tr-copy title="Copy the transcript as text, with timecodes">Copy</button>
+        <button type="button" class="btn tiny" data-tr-cut-found disabled title="Extract every place it is said, on the targeted tracks (one undo step)">${uiText("own.cut-all")}</button>
+        <button type="button" class="btn tiny" data-tr-copy title="Copy the transcript as text, with timecodes" data-i18n="own.copy">${uiText("own.copy")}</button>
       </div>
       <div class="tr-row">
-        <span class="tr-lbl">Captions</span>
+        <span class="tr-lbl" data-i18n="term.captions">${uiText("term.captions")}</span>
         <select data-tr-cap-style title="The look: subtitle on a dark bar, karaoke (words light up as said), highlight (the word being said in colour), word pop (a few big words at a time)">${Object.entries(FableCutCaptions.STYLES).map(([k, st]) =>
           `<option value="${k}" ${k === (set.captionStyle || FableCutCaptions.DEFAULT_STYLE) ? "selected" : ""}>${st.label}</option>`).join("")}</select>
-        <button type="button" class="btn tiny" data-tr-cap-add title="Make captions from these words, timed word by word, on a video lane above the edit (replaces the captions there; one undo step)">Add captions</button>
+        ${listen ? `<button type="button" class="btn tiny" data-tr-cap-add title="Make captions from these words, timed word by word, on a video lane above the edit (replaces the captions there; one undo step)" data-i18n="term.add-captions">${uiText("term.add-captions")}</button>` : ""}
         <button type="button" class="btn tiny" data-tr-cap-file="srt" title="Download the timeline's captions as a SubRip file">SRT</button>
         <button type="button" class="btn tiny" data-tr-cap-file="vtt" title="Download the timeline's captions as a WebVTT file">VTT</button>
-        <button type="button" class="btn tiny" data-tr-cap-import title="Place the captions of an SRT or WebVTT file">Import…</button>
+        <button type="button" class="btn tiny" data-tr-cap-import title="Place the captions of an SRT or WebVTT file" data-i18n="term.import-2">${uiText("term.import-2")}</button>
         <input type="file" accept=".srt,.vtt,text/vtt,application/x-subrip" data-tr-cap-input hidden>
       </div>
-      <div class="tr-note">Caption last: a cut through a caption doesn't re-time its words, so add captions again after changing the edit.</div>
+      <div class="tr-note" data-i18n="own.caption-last">${uiText("own.caption-last")}</div>
     </div>
     <div class="tr-body" data-tr-body tabindex="0"></div>
     <div class="tr-foot hidden" data-tr-foot><span data-tr-sel></span>
-      <button type="button" class="btn tiny" data-tr-cut-sel title="Extract the selected words and the pause after them, on the targeted tracks (Delete)">Cut</button></div>`;
+      <button type="button" class="btn tiny" data-tr-cut-sel title="Extract the selected words and the pause after them, on the targeted tracks (Delete)" data-i18n="term.cut">${uiText("term.cut")}</button></div>`;
   const q = (s) => root.querySelector(s);
   trState.el = { go: q("[data-tr-go]"), busy: q("[data-tr-busy]"), busyText: q("[data-tr-busy-text]"), bar: q("[data-tr-bar]"),
     find: q("[data-tr-find]"), count: q("[data-tr-count]"), cutFound: q("[data-tr-cut-found]"), body: q("[data-tr-body]"),
     foot: q("[data-tr-foot]"), selText: q("[data-tr-sel]") };
   const E = trState.el;
-  E.go.addEventListener("click", transcribeFromTab);
-  q("[data-tr-cancel]").addEventListener("click", cancelTranscribe);
-  q("[data-tr-model]").addEventListener("change", (e) => saveTranscribeSettings({ model: e.target.value }));
-  q("[data-tr-lang]").addEventListener("change", (e) => saveTranscribeSettings({ language: e.target.value === "auto" ? null : e.target.value }));
+  if (listen) {
+    E.go.addEventListener("click", transcribeFromTab);
+    q("[data-tr-cancel]").addEventListener("click", cancelTranscribe);
+    q("[data-tr-model]").addEventListener("change", (e) => saveTranscribeSettings({ model: e.target.value }));
+    q("[data-tr-lang]").addEventListener("change", (e) => saveTranscribeSettings({ language: e.target.value === "auto" ? null : e.target.value }));
+  }
   E.find.addEventListener("input", () => { trState.query = E.find.value; findTranscript(); });
   E.find.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); nextTranscriptHit(e.shiftKey ? -1 : 1); }
@@ -9398,7 +9427,7 @@ function buildTranscriptPage() {
   });
   q("[data-tr-copy]").addEventListener("click", copyTranscript);
   q("[data-tr-cap-style]").addEventListener("change", (e) => saveTranscribeSettings({ captionStyle: e.target.value }));
-  q("[data-tr-cap-add]").addEventListener("click", () => addCaptionsFromTranscript(q("[data-tr-cap-style]").value));
+  q("[data-tr-cap-add]")?.addEventListener("click", () => addCaptionsFromTranscript(q("[data-tr-cap-style]").value));
   root.querySelectorAll("[data-tr-cap-file]").forEach((b) => b.addEventListener("click", () => downloadCaptions(b.dataset.trCapFile)));
   const capInput = q("[data-tr-cap-input]");
   q("[data-tr-cap-import]").addEventListener("click", () => capInput.click());
@@ -9456,7 +9485,7 @@ function buildTranscriptPage() {
 }
 function renderTranscript(force = false) {
   if (!trState.open || !els.transcriptPage) return;
-  if (typeof FableCutTranscribe === "undefined") { els.transcriptPage.innerHTML = `<div class="tr-empty">Transcript module missing — reload the editor.</div>`; return; }
+  if (typeof FableCutTranscribe === "undefined") { els.transcriptPage.innerHTML = `<div class="tr-empty">${uiText("own.tr-module-missing")}</div>`; return; }
   if (!trState.built) buildTranscriptPage();
   const groups = transcriptGroups();
   for (const g of groups) {
@@ -9471,16 +9500,20 @@ function renderTranscript(force = false) {
   const words = trState.words = transcriptWords();
   trState.wsig = transcriptWordsSig();
   const tgt = transcribeTargets();
-  E.go.textContent = tgt.selected ? `Transcribe selected (${tgt.srcs.length})` : tgt.srcs.length ? `Transcribe ${tgt.srcs.length} file${tgt.srcs.length === 1 ? "" : "s"}` : "Transcribe";
-  E.go.disabled = !!trState.busy || !tgt.srcs.length;
-  E.go.title = tgt.srcs.length ? "Turn the speech into words, in this browser (the model downloads once). Select clips to transcribe just those, or again"
+  const n = tgt.srcs.length;
+  if (E.go) E.go.textContent = tgt.selected ? uiText("own.transcribe-selected", { n }) : n ? uiText(n === 1 ? "own.transcribe-file" : "own.transcribe-files", { n }) : uiText("own.transcribe");
+  if (E.go) E.go.disabled = !!trState.busy || !tgt.srcs.length;
+  if (E.go) E.go.title = tgt.srcs.length ? "Turn the speech into words, in this browser (the model downloads once). Select clips to transcribe just those, or again"
     : groups.length ? "Every file on the timeline has a transcript — select clips to transcribe them again" : "Put clips with speech on the timeline first";
   const missing = [...new Set(groups.map((g) => getMedia(g[0].mediaId)).filter((m) => transcriptCache.get(m.src) === false).map((m) => m.name || m.src))];
   let html = "";
-  if (!groups.length) html = `<div class="tr-empty">Put clips with speech on the timeline, then transcribe them here. Speech becomes words in this browser; your audio never leaves it.</div>`;
+  if (!groups.length) html = `<div class="tr-empty">${uiText("own.tr-empty")}</div>`;
   else {
-    if (missing.length) html += `<div class="tr-note">No transcript yet: ${missing.slice(0, 6).map(escapeHtml).join(", ")}${missing.length > 6 ? ` +${missing.length - 6} more` : ""}</div>`;
-    if (!words.length && !missing.length) html += `<div class="tr-empty">${[...transcriptCache.values()].some((v) => v instanceof Promise) ? "Loading…" : "No words in these clips."}</div>`;
+    if (missing.length) {
+      const names = missing.slice(0, 6).map(escapeHtml).join(mcView.get().language === "zh-CN" ? "、" : ", ") + (missing.length > 6 ? escapeHtml(uiText("own.tr-more", { n: missing.length - 6 })) : "");
+      html += `<div class="tr-note">${escapeHtml(uiText("own.tr-missing", { names: "\u0000" })).replace("\u0000", names)}</div>`;
+    }
+    if (!words.length && !missing.length) html += `<div class="tr-empty">${uiText([...transcriptCache.values()].some((v) => v instanceof Promise) ? "own.loading" : "own.tr-no-words")}</div>`;
     for (const s of T.segments(words)) {
       let p = "";
       for (let k = s.i; k <= s.j; k++) p += (k > s.i ? " " : "") + `<span class="tw" data-k="${k}">${escapeHtml(words[k].w)}</span>`;
@@ -9502,7 +9535,7 @@ function goToTranscriptTime(t) {
 }
 function paintTranscribeBusy() {
   const E = trState.el, b = trState.busy;
-  if (!E) return;
+  if (!E || !E.busy) return;
   E.busy.classList.toggle("hidden", !b);
   if (!b) return;
   let loaded = 0, total = 0, downloading = false;
@@ -9510,8 +9543,8 @@ function paintTranscribeBusy() {
   const name = (project.media.find((m) => m.src === b.srcs[b.i])?.name) || b.srcs[b.i].split("/").pop();
   const frac = downloading && total ? loaded / total : (b.i + b.frac) / b.srcs.length;
   E.busyText.textContent = downloading
-    ? `Downloading the speech model (once)… ${Math.round(100 * loaded / total)}%`
-    : `Transcribing ${name}${b.srcs.length > 1 ? ` (${b.i + 1} of ${b.srcs.length})` : ""}… ${Math.round(100 * b.frac)}%`;
+    ? uiText("own.tr-downloading-model", { pct: Math.round(100 * loaded / total) })
+    : uiText(b.srcs.length > 1 ? "own.tr-transcribing-of" : "own.tr-transcribing", { name, i: b.i + 1, n: b.srcs.length, pct: Math.round(100 * b.frac) });
   E.bar.style.width = `${Math.round(100 * frac)}%`;
 }
 function findTranscript(keepSel = false) {
@@ -9519,9 +9552,9 @@ function findTranscript(keepSel = false) {
   if (!E) return;
   const q = trState.query.trim();
   trState.hits = q ? FableCutTranscribe.find(trState.words, q) : [];
-  E.count.textContent = q ? `${trState.hits.length} found` : "";
+  E.count.textContent = q ? uiText("own.found", { n: trState.hits.length }) : "";
   E.cutFound.disabled = !trState.hits.length;
-  E.cutFound.textContent = trState.hits.length ? `Cut ${trState.hits.length}` : "Cut all";
+  E.cutFound.textContent = trState.hits.length ? uiText("own.cut-n", { n: trState.hits.length }) : uiText("own.cut-all");
   if (!keepSel) trState.hitAt = -1;
   paintTranscriptMarks();
 }
@@ -9551,7 +9584,7 @@ function paintTranscriptMarks() {
   if (s) {
     const w = trState.words;
     const txt = FableCutTranscribe.text(w, s.i, s.j);
-    E.selText.textContent = `${s.j - s.i + 1} word${s.j === s.i ? "" : "s"} · ${(w[s.j].e - w[s.i].s).toFixed(1)} s · “${txt.length > 60 ? txt.slice(0, 57) + "…" : txt}”`;
+    E.selText.textContent = uiText(s.j === s.i ? "own.tr-selection-one" : "own.tr-selection", { n: s.j - s.i + 1, s: (w[s.j].e - w[s.i].s).toFixed(1), text: txt.length > 60 ? txt.slice(0, 57) + "…" : txt });
   }
 }
 function cutTranscriptSelection() {
@@ -12346,7 +12379,7 @@ function exitComp(levels = 1) {
 }
 function syncCompCrumb() {
   syncSequenceButton();
-  if (els.projectName) els.projectName.textContent = project.name + (state.connected ? "  ·  🟢 connected" : "  ·  ⚪ local session");
+  if (els.projectName) els.projectName.textContent = projectStatusText();
   const el = document.getElementById("compCrumb");
   if (!el) return;
   const x = state.compCtx;
@@ -18150,6 +18183,13 @@ async function fastExport(opts = {}) {
    range go out in ONE render: the frames are drawn once and every output's
    ffmpeg encodes them (up to 8 at a time). Lives in this tab only. */
 const exportQueue = [];
+// Asked by the desktop close prompt (desktop/export-close.js): is an export running here, and how many exported videos in
+// the queue are not saved yet (status done and not saved; the queue lives only in this page, the copies stay in exports/).
+function exportCloseState() {
+  // a copy still being written to where the streamer chose is not "not saved": deleting it would leave half a file (QQ)
+  const unsaved = exportQueue.filter((q) => q.status === "done" && !q.saved && !q.saving);
+  return { exporting: !!state.exporting, unsaved: unsaved.length, files: unsaved.map((q) => q.file).filter(Boolean) };
+}
 let queueRunning = false, queueStop = false;
 function queueLabel(spec) {
   const p = Delivery.PRESETS[spec.preset] || deliveryInfo.saved[spec.preset];
@@ -19808,15 +19848,23 @@ window.addEventListener("resize", () => { state.dirtyTimeline = true; clampTimel
 
 /* ── Resizable upper / timeline split ── */
 const TL_H_KEY = "fablecut-timeline-h";
-const TL_H_MIN = 180;
-const UPPER_MIN = 140;
+const TL_H_MIN = MontClipNarrow.TIMELINE_MIN;
+/* Measured, not assumed: the top bar wraps on narrow windows and the undo/redo row
+   is a row of its own, so every in-flow row other than the upper area and the
+   timeline counts, with a gap between each pair (VV, 2026-11-02: at 804×535 the
+   old fixed sum left the preview 0×0). */
 function availableTimelineMax() {
-  const app = $("app").getBoundingClientRect();
-  const topbar = document.querySelector(".topbar")?.getBoundingClientRect();
-  const topbarH = topbar ? topbar.height : 46;
-  const split = 6;
-  const gaps = 18; // three 6px flex gaps between four children
-  return Math.floor(app.height - topbarH - UPPER_MIN - split - gaps);
+  const app = $("app"), cs = getComputedStyle(app);
+  const rows = [...app.children].filter((e) => e.offsetParent !== null && !/^(absolute|fixed)$/.test(getComputedStyle(e).position));
+  const fixed = rows.filter((e) => !e.classList.contains("upper") && e.id !== "timelinePanel").map((e) => e.getBoundingClientRect().height);
+  return MontClipNarrow.timelineMax({
+    appHeight: app.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom),
+    fixed, gaps: Math.max(0, rows.length - 1), gap: parseFloat(cs.rowGap || cs.gap) || 0,
+    upperMin: MontClipNarrow.upperNeed({
+      head: document.querySelector("#monitorPanel > .panel-head")?.getBoundingClientRect().height || 0,
+      transport: document.querySelector("#monitorPanel .transport")?.getBoundingClientRect().height || 0,
+    }),
+  });
 }
 window.addEventListener("keyup", (e) => {
   const k = e.key.toLowerCase();
@@ -21087,6 +21135,28 @@ for (const b of document.querySelectorAll("#wsSwitch [data-ws]"))
   b.addEventListener("click", () => setWorkspace(b.dataset.ws));
 
 initPanelSplit();
+// Tools that do not fit go into the bar's More menu instead of being cut off (Snap last).
+MontClipNarrow.attach(document.querySelector(".timeline-toolbar"), $("btnTlMore"), $("tlMoreMenu"));
+MontClipNarrow.attach(document.querySelector("#monitorPanel .panel-head-actions"), $("btnMonMore"), $("monMoreMenu"), { floating: true });
+MontClipNarrow.attach(document.querySelector(".topbar-right"), $("btnTopMore"), $("topMoreMenu"));
+MontClipNarrow.attach(document.querySelector(".bin-actions"), $("btnBinMore"), $("binMoreMenu"), { floating: true });
+// A narrow side panel scrolls its tab strip: a mouse wheel moves it sideways, and the open tab stays in view.
+for (const strip of document.querySelectorAll(".bin-tabs")) {
+  strip.addEventListener("wheel", (e) => {
+    if (strip.scrollWidth <= strip.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    strip.scrollLeft += e.deltaY; e.preventDefault();
+  }, { passive: false });
+  strip.addEventListener("click", (e) => { e.target.closest("button")?.scrollIntoView({ block: "nearest", inline: "nearest" }); });
+}
+// The timeline's room depends on rows that settle after a resize (the top bar, the two-row
+// player of a narrow monitor), so re-clamp once they have, not only on the resize event.
+{
+  let queued = false;
+  const reclamp = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; clampTimelineHeight(); }); };
+  const ro = new ResizeObserver(reclamp);
+  for (const el of [$("app"), document.querySelector(".topbar"), document.querySelector(".mc-history"),
+    document.querySelector("#monitorPanel > .panel-head"), document.querySelector("#monitorPanel .transport")]) if (el) ro.observe(el);
+}
 buildTrackDOM();
 rebuildClips();
 renderBin();

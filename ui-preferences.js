@@ -115,7 +115,35 @@
     "encoding-pct": ["Encoding… {pct}%", "正在编码… {pct}%"],
     "mixing-audio": ["Mixing audio…", "正在混音…"],
     "finishing": ["Finishing…", "正在收尾…"],
-    "tl-above-captions": ["Captions above", "字幕轨在上方"],
+    // narrow windows: tools that do not fit a bar (JJ to review)
+    "more": ["More", "更多"],
+    // batch 2: the Transcript panel and the top bar status (JJ to review). Chinese transcripts
+    // carry sentence times only, so the Chinese never counts or cuts words.
+    "transcribe": ["Transcribe", "听写"],
+    "transcribe-selected": ["Transcribe selected ({n})", "听写所选（{n}）"],
+    "transcribe-file": ["Transcribe {n} file", "听写 {n} 个文件"],
+    "transcribe-files": ["Transcribe {n} files", "听写 {n} 个文件"],
+    "found": ["{n} found", "找到 {n} 处"],
+    "cut-all": ["Cut all out", "全部剪掉"],
+    "cut-n": ["Cut out {n}", "剪掉 {n} 处"],
+    "copy": ["Copy", "复制"],
+    "select-sentences": ["Select sentences", "按句选段"],
+    "mapping": ["Mapping", "时间映射"],
+    "caption-last": ["Add captions last: once the edit changes, captions already added don't follow it, so add them again.", "字幕最后再加：剪辑改了以后，已经加好的字幕不会跟着对齐，要重新加一次。"],
+    "tr-empty": ["Import an SRT subtitle file and the transcript will show here. Chinese transcription on this computer is still being developed.", "先导入 SRT 字幕文件，文稿就会显示在这里。本机中文听写还在开发中。"],
+    "tr-missing": ["No transcript yet: {names}", "还没有文稿：{names}"],
+    "tr-more": [" +{n} more", " 等 {n} 个"],
+    "loading": ["Loading…", "加载中…"],
+    "tr-no-words": ["No words in these clips.", "这些片段里没有听写出文字。"],
+    "tr-module-missing": ["The transcript feature didn't load. Close MontClip and open it again.", "文稿功能没加载出来。请关掉 MontClip 再重新打开。"],
+    "tr-downloading-model": ["Downloading the speech model (once)… {pct}%", "正在下载语音模型（只需一次）… {pct}%"],
+    "tr-transcribing": ["Transcribing {name}… {pct}%", "正在听写 {name}… {pct}%"],
+    "tr-transcribing-of": ["Transcribing {name} ({i} of {n})… {pct}%", "正在听写 {name}（第 {i} 个，共 {n} 个）… {pct}%"],
+    "tr-selection": ["{n} words · {s} s · “{text}”", "已选 {s} 秒 · “{text}”"],
+    "tr-selection-one": ["1 word · {s} s · “{text}”", "已选 {s} 秒 · “{text}”"],
+    "connected": ["Ready", "就绪"],
+    "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],
+    "tl-above-captions": ["Captions above, click to show", "上方有字幕轨，点这里显示"],
     // P2 highlight cards (for JJ to review)
     "hl-open": ["Highlight candidates", "高光候选"],
     "hl-title": ["Highlight candidates (worked out on this computer; no AI)", "高光候选（只在本机判断，不调用 AI）"],
@@ -139,6 +167,28 @@
     "hl-r-loudness-peak-detail": ["The loudest moment is {peak} dB above the usual level", "最响处比平时高 {peak} 分贝"],
     "hl-r-danmaku": ["{count} danmaku, {ratio}× the usual rate", "弹幕 {count} 条，是平时的 {ratio} 倍"],
     "hl-r-speech": ["Talking faster than usual (about {ratio}×)", "说话比平时快（约 {ratio} 倍）"],
+    // Closing during an export (desktop/export-close.js; JJ's final copy 「追加 3」, one video per 「预备稿 4 补充」; English for JJ to review)
+    "export-close-title": ["Still exporting. Close now?", "还在导出，现在关掉吗？"],
+    "export-close-body": ["Closing MontClip stops the export. The half-finished video won't be kept; next time you'll need to export it again from the start.", "关掉 MontClip 会停止导出。导到一半的视频不会留下，下次要从头再导。"],
+    "export-close-unsaved-1": ["1 exported video in the export queue isn't saved yet. After closing it won't be in the queue any more, but it still takes up space on drive C.", "导出队列里还有 1 个没保存的视频，关掉以后它不会再出现在队列里，但还占着 C 盘空间。"],
+    "export-close-unsaved-n": ["{n} exported videos in the export queue aren't saved yet. After closing they won't be in the queue any more, but they still take up space on drive C.", "导出队列里还有 {n} 个没保存的视频，关掉以后它们不会再出现在队列里，但还占着 C 盘空间。"],
+    "export-close-stop": ["Stop export and close", "停止导出并关闭"],
+    "export-close-keep": ["Keep exporting", "继续导出"],
+    // Closing with exported videos not saved (JJ's 「预备稿 4」 and its one-video forms; English for JJ to review)
+    "export-unsaved-title-1": ["1 video isn't saved yet. Close now?", "还有 1 个视频没保存，现在关掉吗？"],
+    "export-unsaved-title-n": ["{n} videos aren't saved yet. Close now?", "还有 {n} 个视频没保存，现在关掉吗？"],
+    "export-unsaved-body-1": ["This video is exported but not yet saved where you choose. After closing it won't be in the export queue any more, but it still takes up space on drive C.", "这个视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它了，但它还占着 C 盘空间。"],
+    "export-unsaved-body-n": ["These videos are exported but not yet saved where you choose. After closing they won't be in the export queue any more, but they still take up space on drive C.", "这些视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它们了，但它们还占着 C 盘空间。"],
+    "export-unsaved-delete-1": ["Delete it and close", "删掉它并关闭"],
+    "export-unsaved-delete-n": ["Delete them and close", "删掉它们并关闭"],
+    "export-unsaved-keep": ["Close without deleting", "不删，直接关闭"],
+    "export-unsaved-save": ["Save first", "先去保存"],
+    "export-delete-failed-1": ["1 video could not be deleted. Another program may have it open.", "有 1 个视频删不掉，可能正被别的软件打开着。"],
+    "export-delete-failed-n": ["{k} videos could not be deleted. Another program may have them open.", "有 {k} 个视频删不掉，可能正被别的软件打开着。"],
+    "export-delete-retry": ["Try again", "再试一次"],
+    "export-delete-hint-1": ["Close the program that has it open (such as a player), then click Try again.", "先关掉正在用它的软件（比如播放器），再点「再试一次」。"],
+    "export-delete-hint-n": ["Close the programs that have them open (such as a player), then click Try again.", "先关掉正在用它们的软件（比如播放器），再点「再试一次」。"],
+    "export-delete-giveup": ["Don't delete, just close", "不删了，直接关闭"],
     // Chinese batch 3: JJ's final copy v2 (2026-11-03), P0 rows. The English is what the page said before.
     "pj-new": ["+ New project", "+ 新建项目"],
     "pj-open": ["Open", "打开"],
@@ -293,10 +343,10 @@
 'zh-CN':{undoLast:'撤销上一步（与顶部撤销相同）',new:'新会话',config:'AI 服务',save:'保存连接配置',provider:'服务商',model:'模型 ID',key:'API 密钥（留空保留已有密钥）',review:'核对本次实际发送内容',confirm:'发送以上内容',cancel:'取消',draft:'输入消息',search:'搜索会话',close:'收起助手',pending:'正在请求…',failed:'请求失败或已取消，草稿仍保留。',unconfigured:'尚未配置服务，没有发送。',saved:'连接配置已保存在本机，没有发起请求。',local:'此项目的会话保存在本机。这是保存规则，不代表本次保存已确认。',temporary:'会话文件读取失败，本次草稿只在这个窗口保留。关闭前请复制要留的内容。',unsaved:'会话保存尚未确认。请保留窗口并重试。',retry:'重试保存',proposal:'查看剪辑建议',reference:'引用选中字幕',range:'引用所选范围',project:'引用项目身份',remove:'移除',limit:'文字或会话数量已到上限，请删减文字或返回已有会话。',scope:'请先打开或创建项目，再发送。',configured:'已配置（连接尚未验证）',configFailed:'配置未保存，原有设置保留。',cancelUnknown:'请求状态尚未确认，已发给服务的请求无法撤回。',cancelled:'已取消后续生成；已发给服务的请求无法撤回。'}};
   Object.assign(officialPaneText.en,{"notSent":"Chat content contains only the text shown above. No audio, video or screenshots are attached, and no file paths or account details are added automatically. Any such details you included in the text or history will still be sent. Your API key is used to authenticate with the service.","format":"In the chat, say which sentences to keep. It works best to select the captions on the timeline and click \"{reference}\" so whole sentences are quoted. Only whole quoted captions can be applied; half a sentence or a description from memory can't.","formatNext":"After the reply, click \"{proposal}\" below to check whether it can be applied.","formatTech":"For the technically minded: the AI's reply uses this format: {\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"…\",\"sourceCaptionId\":\"…\",\"from\":0,\"to\":1}]}","model":"Model name","project":"Reference current project","currentProject":"Current project","otherProject":"Original project","invalid":"This reply has no suggested edit that can be applied directly.","fees":"Your own AI account is responsible for service charges.","user":"You","assistant":"Assistant","formatTitle":"How to get a suggestion you can apply"});
   Object.assign(officialPaneText['zh-CN'],{"notSent":"聊天内容只包含上面显示的文字。不附加声音、画面和截图，不自动附加文件路径和账号。你写进文字或历史的这类信息仍会发送。API 密钥用于向服务验证身份。","format":"在聊天里说清楚要保留哪几句。最好先在时间线上选中字幕，点「{reference}」，把整句引用进来。只有整句引用的字幕，才能直接套用；只引用半句，或者凭记忆描述的，都套用不了。","formatNext":"收到回复后，点下面的「{proposal}」，看看能不能直接用。","formatTech":"给懂技术的人：AI 的回复要用这个格式：{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"…\",\"sourceCaptionId\":\"…\",\"from\":0,\"to\":1}]}","model":"模型名称","project":"引用当前项目","currentProject":"当前项目","otherProject":"原项目","invalid":"这条回复里没有能直接套用的剪辑建议。","fees":"费用由你自己的 AI 账号承担。","user":"你","assistant":"助手","formatTitle":"怎样让 AI 给出能直接套用的建议"});
-  Object.assign(officialPaneText['zh-CN'],{removeConnection:'删除这个连接',removeConfirm:'删除后，这台电脑上保存的密钥会被清掉，AI 助手要重新设置才能用。剪辑不受影响。',connectionRemoved:'连接已删除，这台电脑上保存的密钥已清掉。AI 助手要重新设置才能用。',connectionRemoveFailed:'连接没能删除，密钥可能还在这台电脑上。请看看软件的设置文件夹是不是被占用或不能写入，然后再试。'});
-  Object.assign(officialPaneText.en,{removeConnection:'Remove this connection',removeConfirm:'This clears the key saved on this computer. You will need to set up the AI service again to use the assistant. Editing is not affected.',connectionRemoved:'Connection removed. The key saved on this computer is cleared; set up the AI service again to use the assistant.',connectionRemoveFailed:'The connection could not be removed, so the key may still be on this computer. Check that the app\'s settings folder is not in use or read-only, then try again.'});
-  Object.assign(officialPaneText['zh-CN'],{noCaptionSelected:'先在时间线上选中字幕'});
-  Object.assign(officialPaneText.en,{noCaptionSelected:'Select captions on the timeline first'});
+  Object.assign(officialPaneText['zh-CN'],{removeConnection:'删除这个连接',removeConfirm:'删除后，这台电脑上保存的密钥会被清掉，AI 助手要重新设置才能用。剪辑不受影响，聊天记录也还在。',connectionRemoved:'连接已删除，这台电脑上保存的密钥已清掉。AI 助手要重新设置才能用。',connectionRemoveFailed:'连接没能删除，密钥可能还在这台电脑上。请看看软件的设置文件夹是不是被占用或不能写入，然后再试。'});
+  Object.assign(officialPaneText.en,{removeConnection:'Remove this connection',removeConfirm:'This clears the key saved on this computer. You will need to set up the AI service again to use the assistant. Editing is not affected, and your chat history stays.',connectionRemoved:'Connection removed. The key saved on this computer is cleared; set up the AI service again to use the assistant.',connectionRemoveFailed:'The connection could not be removed, so the key may still be on this computer. Check that the app\'s settings folder is not in use or read-only, then try again.'});
+  Object.assign(officialPaneText['zh-CN'],{noCaptionSelected:'先在时间线上选中字幕。'});
+  Object.assign(officialPaneText.en,{noCaptionSelected:'Select captions on the timeline first.'});
   Object.assign(officialPaneText.en,{resetConnection:'Set up connection again',configUnreadable:'The saved connection could not be read. Click "Set up connection again"; the app backs up the old settings first, then lets you enter new ones.',configBackedUp:'The old connection settings have been backed up. Enter your connection settings again.',configBackupFailed:'The old connection settings could not be backed up. They have not been replaced. Check whether the settings folder for the app is in use or cannot be written to, then try again.'});
   Object.assign(officialPaneText['zh-CN'],{resetConnection:'重新设置连接',configUnreadable:'原来的连接配置读不出来。点「重新设置连接」，软件会先把旧配置备份好，再让你重新填写。',configBackedUp:'原来的配置已备份，现在需要重新填写连接配置。',configBackupFailed:'原来的配置没能备份，未被替换。请看看软件的设置文件夹是不是被占用或不能写入，然后再试。'});
   Object.assign(officialPaneText.en,{notSent:'Only the text shown above is sent. No audio, video or screenshots are attached; the app does not add file paths or account details by itself, but any such details you typed into the text or history will be sent as written. Your API key is used only to authenticate with the service.',undoLast:'Undo this apply (same as toolbar Undo)',captionLabel:'Subtitles',rangeLabel:'Range',projectLabel:'Project'});
