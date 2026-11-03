@@ -9277,6 +9277,8 @@ function loadAsrStatus() {
   return asrState.asking;
 }
 const asrReady = () => !!(asrState.status && asrState.status.engine.ready && asrState.status.vad.ready && asrState.status.asr.ready);
+/** The optional punctuation model is installed (Deja: Apache-2.0, so the streamer may add it). */
+function asrPunctReady() { return !!(asrState.status && asrState.status.punct && asrState.status.punct.ready); }
 function onAsrEvent(data) {
   let m = null;
   try { m = JSON.parse(data); } catch { }
@@ -9374,7 +9376,7 @@ function paintAsrSetup() {
   if (!st) html = `<h2 id="asrSetupTitle">${h("setup-title")}</h2><p class="dim">${h("setup-intro")}</p>
     <div class="asr-card asr-card-main"><b>${h("setup-local-title")}</b> <span class="asr-tag">${h("setup-recommended")}</span>
       <ul><li>${h("asr-missing")}</li><li>${h("setup-local-speed")}${ASR_TEST_MINUTES ? h("setup-local-n", { n: ASR_TEST_MINUTES }) : ""}</li>
-        <li>${h("setup-local-errors")}</li><li>${h("setup-local-punct")}</li></ul>
+        <li>${h("setup-local-errors")}</li>${asrPunctReady() ? "" : `<li>${h("setup-local-punct")}</li>`}</ul>
       <button type="button" class="btn primary" data-asr-setup="download">${h("asr-download")}</button></div>
     <div class="asr-card"><b>${h("setup-later-title")}</b><p>${h("setup-later")}</p>${later}</div>`;
   else if (st === "dl") html = `<h2 id="asrSetupTitle">${h("setup-dl-title")}</h2><p>${h("asr-downloading", { got: mbText(d.loaded) })}</p>
@@ -9427,6 +9429,27 @@ function paintSettingsAsr() {
   const ready = asrReady();
   $("setAsrStatus").textContent = ready ? uiText("own.asr-ready") : uiText("own.asr-not-installed");
   $("btnAsrSetup").hidden = ready;
+  // the punctuation model: offered while the speech model is installed and it is not (Deja, #70)
+  const punctOpen = ready && !asrPunctReady();
+  $("setAsrPunct").hidden = !punctOpen;
+  if (punctOpen) {
+    $("setAsrPunctText").textContent = asrState.punctNote || uiText("own.setup-local-punct");
+    const b = $("btnAsrPunct");
+    b.disabled = !!asrState.punctBusy;
+    b.textContent = uiText(asrState.punctBusy ? "own.asr-punct-getting" : asrState.punctNote ? "own.asr-again" : "own.asr-punct-get");
+  }
+}
+/** Download the punctuation model: the host asks first (its own box), then it is checked file by file like the speech model. */
+async function asrGetPunct() {
+  if (!window.montclipAsr || asrState.punctBusy || asrState.downloading) return;
+  asrState.punctBusy = true; asrState.punctNote = ""; paintSettingsAsr();
+  let r = null;
+  try { r = await window.montclipAsr.download("punct"); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
+  asrState.punctBusy = false;
+  if (r && r.ok) toast(uiText("own.asr-punct-ready"));
+  else if (r && !(r.declined || r.code === "ASR_DOWNLOAD_CANCELLED")) asrState.punctNote = uiText("own.asr-download-failed", { why: r.error || r.code || "?" });
+  await loadAsrStatus();
+  paintSettingsAsr();
 }
 /** Transcribe one file in the local server, which saves its transcript. Resolves to {doc, saved}. */
 async function transcribeFile(src) {
@@ -19376,6 +19399,7 @@ $("btnH264Choose")?.addEventListener("click", async () => {
 $("btnH264Clear")?.addEventListener("click", async () => { await window.montclipExternalFfmpeg?.clear(); renderH264Settings(); });
 $("btnSettings").addEventListener("click", openSettings);
 $("btnAsrSetup").addEventListener("click", () => openAsrSetup());
+$("btnAsrPunct").addEventListener("click", () => asrGetPunct());
 $("btnCloseSettings").addEventListener("click", closeSettings);
 $("settingsOverlay").addEventListener("click", (e) => {
   if (e.target === $("settingsOverlay")) closeSettings();

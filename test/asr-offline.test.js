@@ -123,7 +123,7 @@ test('JJ v2: the download states and the empty panel, word for word', () => {
   for (const k of ['asr-missing', 'asr-download', 'asr-downloading', 'asr-ready', 'asr-interrupted', 'asr-no-space', 'asr-check-failed', 'asr-resume', 'asr-later', 'asr-again', 'asr-download-cancel', 'tr-empty'])
     a.ok(V.text.en['own.' + k] && !/[一-鿿]/.test(V.text.en['own.' + k]), k + ' in English');
   const app = read('app.js');
-  a.ok(!/data-tr-asr-punct/.test(app), 'no punctuation download in this version (JJ: 这一版的字幕不带标点)');
+  a.ok(!/data-tr-asr-punct/.test(app), 'the transcript tab offers no punctuation download (Settings › 听写 does: test/asr-jj3.test.js)');
   a.match(app, /data-tr-asr-cancel/); a.match(app, /data-tr-asr-later/);
 });
 test('the page can stop a download; the part is kept for 「接着下载」', () => {

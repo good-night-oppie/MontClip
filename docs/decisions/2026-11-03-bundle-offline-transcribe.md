@@ -21,7 +21,11 @@
   - VAD 文件只有 643 KB，许可证是 MIT，所以每个包都带上。
 - **标点**：sherpa-onnx 的 CT-Transformer 中文标点模型，作为可选的第二个文件。
   - 用的是 int8 版：`sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8`，模型文件 76 MB。
-  - 许可证：模型卡写的是 Apache License 2.0（modelscope iic/punc_ct-transformer_zh-cn-common-vocab272727-pytorch）。
+  - 许可证：Apache License 2.0。2026-11-03 按 Deja 的要求重新核对过：
+    - 两份官方模型卡都写 Apache-2.0：ModelScope `iic/punc_ct-transformer_zh-cn-common-vocab272727-pytorch`，以及 FunASR 自己在 Hugging Face 上的 `funasr/ct-punc`。
+    - FunASR 的 README 写明：模型权重的许可证看各自的模型卡；只有模型卡链接了 FunASR 模型协议（MODEL_LICENSE，§3 写的是 "reference and learning purposes only"）时，才适用那份协议。
+    - 这两份模型卡都没有链接 MODEL_LICENSE。SenseVoice 的官方模型卡链接了，所以 SenseVoice 不用，这个可以用。
+    - 来源和原文登记在 `LICENSES.md` 和 `licenses/asr/ct-transformer-Apache-2.0.txt`。
   - Node 绑定支持（`OfflinePunctuation`），已经实测能用。
   - 没装标点模型时，听写照样能用，只是没有标点。
 - **SenseVoice 不用**。它的许可证问题 issue #334 在 08-29 被重新打开，到现在没有定论。
@@ -73,8 +77,12 @@
 - 以 JJ 的定稿 v2 为准：JJ workspace 下的 `documents/2026-11-03-MontClip-听写文案定稿-JJ.md`。
   - 用到的是文稿页的模型一行和下载的各个状态（下载中、装好了、没下载完、空间不够、校验不过），以及空文稿那一句。
   - 一律逐字照搬，测试也逐字断言。
-- 这一版界面上不提供标点模型的下载（JJ 写的是「这一版的字幕不带标点」）。
-  - 标点模型放在「完整版」里，或者导入后，照样会加标点。
+- 标点模型（Deja 11-03 的决定，因为许可证是 Apache-2.0）：主播可以自己装。
+  - 设置页和「设置 › 听写」写「字幕默认不带标点；另外装一个标点模型（约 76 MB）就有标点。」；已经装好标点模型时，这一行不显示。
+  - 「设置 › 听写」在装好听写模型、还没有标点模型时，给一个〔装标点模型〕按钮。下载也是先由宿主弹出确认框，再逐个文件核对；也可以从 U 盘导入。
+  - 「完整版」里自带标点模型。
+  - 约 76 MB 是装好以后的大小；下载的压缩包大约 62 MB，所以确认框里写的是「约 60 MB」。
+  - 原来 JJ v2 的「这一版的字幕不带标点」不再用了。
 - **首次打开的听写设置页**（设计 v10，Deja 冻结：说明 sha256 a4c4e3d8…，原型 6cd20e5c…）：
   - 什么时候自己打开：在桌面版里、听写开着、还没有模型、主播也没选过「以后再说」。
   - 另外两个入口：「设置 › 听写」的〔去装〕，以及 P3 的〔去装〕。

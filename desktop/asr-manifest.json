@@ -35,7 +35,7 @@
     "punct": {
       "id": "ct-transformer-zh-en-vocab272727-2024-04-12-int8",
       "name": "sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8 (CT-Transformer punctuation)",
-      "license": "Apache-2.0 (model card: modelscope.cn/models/iic/punc_ct-transformer_zh-cn-common-vocab272727-pytorch)",
+      "license": "Apache-2.0 (model cards: modelscope.cn/models/iic/punc_ct-transformer_zh-cn-common-vocab272727-pytorch and huggingface.co/funasr/ct-punc; neither links FunASR's MODEL_LICENSE; checked 2026-11-03)",
       "required": false,
       "files": {
         "model.int8.onnx": { "size": 75519198, "sha256": "65a3fb9f5ad7bfb96bf69e0dc4481df97f6ee60513c1d94ce981ba6effd524b1" },

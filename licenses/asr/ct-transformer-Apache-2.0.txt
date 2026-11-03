@@ -1,5 +1,16 @@
-CT-Transformer punctuation (sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8), Apache License 2.0 per its model card:
-https://modelscope.cn/models/iic/punc_ct-transformer_zh-cn-common-vocab272727-pytorch
+CT-Transformer punctuation (sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8), k2-fsa's ONNX
+conversion (int8) of FunASR's punc_ct-transformer_zh-cn-common-vocab272727-pytorch. Apache License 2.0.
+
+Where this was checked (2026-11-03):
+- ModelScope, the original model card: https://modelscope.cn/models/iic/punc_ct-transformer_zh-cn-common-vocab272727-pytorch
+  — its README front matter says "license: Apache License 2.0", and the model's licence field says the same.
+- Hugging Face, FunASR's own copy: https://huggingface.co/funasr/ct-punc — "license: apache-2.0".
+- FunASR's README (github.com/modelscope/FunASR, section License): "Pretrained model weights are licensed separately.
+  Check the license shown on each model card; when a model card links to the FunASR Model Open Source License
+  Agreement (MODEL_LICENSE), those terms apply." Neither card above links MODEL_LICENSE; this model's card does not link
+  it. (SenseVoiceSmall's official card does, which is why SenseVoice is not used.)
+- The int8 files come from the k2-fsa/sherpa-onnx GitHub release "punctuation-models" (sherpa-onnx itself is
+  Apache-2.0); every file is checked against the SHA-256 in desktop/asr-manifest.json.
 
 
                                  Apache License
