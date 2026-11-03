@@ -163,7 +163,7 @@
     "setup-local-speed": ["An hour of recording usually takes a few minutes.", "1 小时的录像通常几分钟听写完，电脑越快越短。"],
     "setup-local-n": [" (about {n} minutes on our test computer)", "（我们的测试电脑上大约 {n} 分钟）"],
     "setup-local-errors": ["Ordinary speech: about 3 wrong characters in 100; singing has more, which you can fix with Fix captions using lyrics.", "普通说话每 100 个字大约错 3 个。唱歌的部分错字会多一些，可以用「按歌词校准字幕」改。"],
-    "setup-local-punct": ["Captions have no punctuation by default; install a punctuation model (about 76 MB) to get it.", "字幕默认不带标点；另外装一个标点模型（约 76 MB）就有标点。"],
+    "setup-local-punct": ["Captions have no punctuation by default; install a punctuation model (a download of about 60 MB) to get it.", "字幕默认不带标点；另外装一个标点模型（下载约 60 MB）就有标点。"],
     // the punctuation model (Deja: Apache-2.0, so the streamer may install it); the button and its states are new copy
     "asr-punct-get": ["Install the punctuation model", "装标点模型"],
     "asr-punct-getting": ["Downloading the punctuation model…", "正在下载标点模型…"],
