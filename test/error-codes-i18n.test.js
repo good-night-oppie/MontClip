@@ -10,7 +10,7 @@ test('each code has a key in both languages, one language each', () => {
   for (const k of Object.values(CODES).concat('map-no-media')) {
     const zh = V.text['zh-CN']['own.' + k], en = V.text.en['own.' + k];
     a.ok(zh && en, k);
-    a.equal(zh.match(/[A-Za-z]{2,}/), null, 'zh ' + k + ': ' + zh);
+    a.equal(zh.replace(/MontClip/g, '').match(/[A-Za-z]{2,}/), null, 'zh ' + k + ': ' + zh);
     a.ok(!/[一-鿿]/.test(en), 'en ' + k);
   }
 });

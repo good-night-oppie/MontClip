@@ -11,7 +11,7 @@ test("JJ's wording, verbatim", () => {
   a.equal(en['own.rp-short-media'], 'The selected piece is too short to cut. Move the start and end further apart.');
   a.equal(zh['own.rp-source-changed'], '选好之后字幕的时间又变了。请关掉这个窗口，重新选一次。');
   a.equal(en['own.rp-source-changed'], 'The subtitle timing changed after you selected. Close this and select again.');
-  a.equal(zh['own.sd-summary'], '{ranges} → 成片约 {duration}，按勾选顺序。');
+  a.equal(zh['own.sd-summary'], '{ranges} → 成片大约 {duration}，按勾选的顺序接起来。');   // JJ's PR36 file
   a.ok(/\{duration\}/.test(en['own.sd-summary']) && /\{ranges\}/.test(en['own.sd-summary']));
   a.equal(zh['own.map-no-media'], '这个项目里没有音视频，导不出时间对照表。');
   a.ok(en['own.map-no-media'] && !/[一-鿿]/.test(en['own.map-no-media']));
@@ -27,5 +27,5 @@ test('durationText: mm:ss under an hour, h:mm:ss from an hour (the Agent pane\'s
 test('the dialog summary uses durationText for {duration}', () => {
   const at = app.indexOf('async function showSentenceSelection('), body = app.slice(at, app.indexOf('\n}\n', at));
   a.match(body, /uiText\("own\.sd-summary", \{ ranges: [\s\S]*?, duration: MontClipView\.durationText\(plan\.duration\) \}\)/);
-  a.equal(V.t('zh-CN', 'own.sd-summary', { ranges: '00:00:04–00:01:05', duration: V.durationText(83.4) }), '00:00:04–00:01:05 → 成片约 01:23，按勾选顺序。');
+  a.equal(V.t('zh-CN', 'own.sd-summary', { ranges: '00:00:04–00:01:05', duration: V.durationText(83.4) }), '00:00:04–00:01:05 → 成片大约 01:23，按勾选的顺序接起来。');
 });

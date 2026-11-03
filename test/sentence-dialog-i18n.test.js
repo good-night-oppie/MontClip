@@ -21,12 +21,13 @@ test('each key exists in both languages; Chinese has no English sentence, Englis
   for (const k of KEYS) {
     const zh = V.text['zh-CN']['own.' + k], en = V.text.en['own.' + k];
     a.ok(zh && en, k);
-    a.equal(zh.replace(/SRT|\{\w+\}/g, '').match(/[A-Za-z]{2,}/), null, 'zh ' + k + ': ' + zh);
+    // SRT and AI stay as they are in Chinese (JJ's final copy, 「照 AI 的建议」)
+    a.equal(zh.replace(/SRT|AI|\{\w+\}/g, '').match(/[A-Za-z]{2,}/), null, 'zh ' + k + ': ' + zh);
     a.ok(!/[一-鿿]/.test(en), 'en ' + k + ': ' + en);
   }
-  // the old Chinese wording is kept where it was already right
-  a.equal(V.text['zh-CN']['own.sd-title'], '按句选择保留片段');
-  a.equal(V.text['zh-CN']['own.sd-partial'], '{n} 句只保留了一部分声音，请检查字幕和开头结尾。');
+  // JJ's final copy (PR36 file): the title is the button's name; one sentence reads 这一句
+  a.equal(V.text['zh-CN']['own.sd-title'], '按句选段');
+  a.equal(V.text['zh-CN']['own.sd-partial'], '这一句只保留了一部分声音，请检查这一句的字幕和开头结尾。');
 });
 
 test("the planner's errors carry a code; the message stays as it was for agents", () => {
