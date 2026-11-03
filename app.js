@@ -1541,6 +1541,8 @@ function applyProject(data, opts = {}) {
     outputs: Array.isArray(data.outputs) ? data.outputs.filter((o) => o && typeof o === "object") : null,
     master: normalizeMaster(data.master),
     buses: normalizeBuses(data.buses),
+    // the songs found in each file (P2 songs.js); checked again when saved
+    songs: data.songs && typeof data.songs === "object" && !Array.isArray(data.songs) ? data.songs : null,
     // the sequences that aren't open, kept as they are (see sequences.js); the open one is this document
     sequences: Array.isArray(data.sequences) && data.sequences.length ? data.sequences : null,
     sequence: Array.isArray(data.sequences) && data.sequences.length ? SeqLib.activeId(data) : null,
@@ -1754,6 +1756,9 @@ function projectJSONHere() {
   const buses = normalizeBuses(project.buses);
   if (buses.length) out.buses = buses;
   if (project.comps && project.comps.length) out.comps = project.comps.map((cp) => ({ ...cp, clips: (cp.clips || []).map(serializeClip) }));
+  // the songs found in each file (P2 songs.js): kept, checked, for files still in the project
+  const songs = typeof MontClipSongs !== "undefined" ? MontClipSongs.clean(project.songs, out.media) : null;
+  if (songs) out.songs = songs;
   if (project.sequences) {
     out.sequences = project.sequences.map((sq) => (sq.id === project.sequence ? { id: sq.id, name: sq.name } : sq));
     out.sequence = project.sequence;

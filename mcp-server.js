@@ -305,6 +305,43 @@ async function silenceTool(args) {
   return `Cut ${head} — timeline ${fmtDur(before)} → ${fmtDur(end(proj))} (revision ${proj.revision}). UI hot-reloaded.` +
     (verWarn || ` The project as it was is kept as a version (fablecut_versions lists it; restore undoes the cut).`);
 }
+/* fablecut_songs (P2 「找出每首歌」): song-scan.js reads each file in segments (kept as read, so a stopped call carries
+   on), songs.js finds the songs; they are kept in the project (setSongs, one revision). */
+async function songsTool(args) {
+  const Songs = require("./songs"), scanner = require("./song-scan").createSongScan({ dir: path.join(ANALYSIS_DIR, "songs"), ffmpeg: FF.path("ffmpeg") });
+  const doc = readProject(), readRev = doc.revision || 0;
+  const wanted = Array.isArray(args.mediaIds) ? args.mediaIds.map(String)
+    : [...new Set(doc.clips.filter((c) => c.kind === "video" || c.kind === "audio").map((c) => c.mediaId))];
+  const media = wanted.map((id) => doc.media.find((m) => m.id === id) || id);
+  const missing = media.filter((m) => typeof m === "string");
+  if (missing.length) throw new Error(`no media ${missing.join(", ")} in the project (fablecut_get_project {compact:true} lists them)`);
+  const files = media.filter((m) => m.kind === "video" || m.kind === "audio");
+  if (!files.length) throw new Error("no video or audio file to read — name the recordings with mediaIds");
+  const ops = [], lines = [];
+  for (const m of files) {
+    const file = mediaFile(m.src);
+    if (!file) { lines.push(`${m.id} "${m.name}": the file is missing (offline) — skipped`); continue; }
+    if (args.again === true) scanner.forget(file);
+    const r = await scanner.scan(file);
+    const songs = Songs.find(r.rows.map((x) => x[0]), { step: r.step, complete: r.complete });
+    ops.push({ op: "setSongs", mediaId: m.id, songs: { key: r.key, complete: r.complete, scanned: r.scanned, songs } });
+    const est = songs.filter((s) => s.confidence === "estimated").length;
+    lines.push(`${m.id} "${m.name}" (${fmtDur(r.scanned)} read): ${songs.length} song${songs.length === 1 ? "" : "s"}${est ? `, ${est} estimated` : ""}`);
+    for (const s of songs.slice(0, 80))
+      lines.push(`  ${fmtClock(s.from)} → ${fmtClock(s.to)}  (${fmtDur(s.to - s.from)})` +
+        (s.marks.length ? `  estimated: ${s.marks.map((k) => `${k.at} ${k.why}${k.at === "inside" ? " @" + fmtClock(k.t) : ""}`).join(", ")}` : ""));
+    if (songs.length > 80) lines.push(`  … +${songs.length - 80} more`);
+  }
+  if (args.store === false || !ops.length) return lines.join("\n") + (ops.length ? "\nNot kept in the project (store:false)." : "");
+  const proj = readProject();
+  if ((proj.revision || 0) !== readRev)
+    throw new Error(`the project changed while reading (revision ${readRev} → ${proj.revision}) — nothing kept; run fablecut_songs again (what was read is kept, so it is quick)`);
+  ProjectOps.applyPatch(proj, ops, { savedItems });
+  proj.revision = readRev + 1;
+  writeProject(proj);
+  lastReadRevision = proj.revision;
+  return lines.join("\n") + `\nKept in the project as project.songs (revision ${proj.revision}); times are seconds of each file.`;
+}
 /* fablecut_beats: beats.js on the music clip's sound, then its ops (markers, snap, retime). */
 const BEATS_MAX_SECS = 20 * 60;
 async function beatsTool(args) {
@@ -1235,6 +1272,8 @@ async function callTool(name, args, attempt = 0) {
       return reframeTool(args);
     case "fablecut_highlights":
       return highlightsTool(args);
+    case "fablecut_songs":
+      return songsTool(args);
     case "fablecut_transcribe":
       return transcribeTool(args);
     case "fablecut_captions":

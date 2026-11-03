@@ -169,6 +169,25 @@ const proxies = createProxies({ dir: PROXIES_DIR, resolveSrc, probe: probeFile, 
 const transcripts = createTranscripts({ dir: path.join(ANALYSIS_DIR, "transcripts"), resolveSrc });
 // P2 highlight signals: each file's loudness, read once by ffmpeg as a stream and cached per file version
 const signals = require("./signals").createSignals({ dir: path.join(ANALYSIS_DIR, "signals"), ffmpeg: FF.path("ffmpeg") });
+// P2 songs: each file read in segments, each kept as it is read (analysis/songs/), so a stopped scan carries on
+const Songs = require("./songs");
+const songScan = require("./song-scan").createSongScan({ dir: path.join(ANALYSIS_DIR, "songs"), ffmpeg: FF.path("ffmpeg") });
+const songJobs = new Map();   // src → {state, done, total, ctrl, error}
+async function startSongScan(src, file, again) {
+  const old = songJobs.get(src);
+  if (old && old.state === "running") return old;
+  if (again) songScan.forget(file);
+  let total = null;
+  try { const info = await probeFile(file); if (info && info.duration > 0) total = Math.max(1, Math.ceil(info.duration / songScan.SEGMENT)); } catch { /* unknown length */ }
+  const job = { state: "running", done: songScan.cached(file).done, total, ctrl: new AbortController(), error: null };
+  songJobs.set(src, job);
+  const tell = () => broadcast("songs", JSON.stringify({ src, state: job.state, done: job.done, total: job.total }));
+  songScan.scan(file, { signal: job.ctrl.signal, onSegment: (i) => { job.done = i + 1; tell(); } })
+    .then((r) => { job.state = r.complete ? "done" : "stopped"; job.done = songScan.cached(file).done; })
+    .catch((e) => { job.state = e.code === "SONGS_STOPPED" ? "stopped" : "failed"; job.error = X.maskUserPath(String(e.message)); })
+    .finally(tell);
+  return job;
+}
 let debounce = null;
 let profilesDebounce = null;
 function onFsChange() {
@@ -844,6 +863,41 @@ const server = http.createServer(async (req, res) => {
     if (!file) { sendJSON(res, 404, { error: "no such file under media/ or library/" }); return; }
     try { sendJSON(res, 200, await signals.loudness(file)); }
     catch (e) { sendJSON(res, 422, { error: X.maskUserPath(e.message), code: e.code || "SIGNALS_FAILED" }); }   // no local paths in the answer (QQ, #52)
+    return;
+  }
+  /* API: the songs in a file (P2 「找出每首歌」; song-scan.js reads, songs.js finds).
+       POST /api/songs {src, again?} → 202 {src, state, done, total} — starts the scan, or carries on from the first segment
+                                       not read yet; again:true forgets what was read
+       GET  /api/songs?src=          → {src, key, state, done, total, complete, scanned, songs} — songs in file seconds
+       POST /api/songs/cancel {src}  → {src, state} — stops the scan; what was read is kept
+     state: running · done · stopped (part read, nothing running) · failed · none. SSE event `songs` {src, state, done, total}. */
+  if ((p === "/api/songs" || p === "/api/songs/cancel") && (req.method === "POST" || (req.method === "GET" && p === "/api/songs"))) {
+    let src = url.searchParams.get("src") || "", body = {};
+    if (req.method === "POST") {
+      try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "the body is not JSON" }); return; }
+      if (!body || typeof body !== "object" || Array.isArray(body)) { sendJSON(res, 400, { error: "the body is {src}" }); return; }
+      src = String(body.src || "");
+    }
+    const file = resolveSrc(src);
+    if (!file || !fs.existsSync(file)) { sendJSON(res, 404, { error: "no such file under media/ or library/" }); return; }
+    try {
+      if (p === "/api/songs/cancel") {
+        const job = songJobs.get(src);
+        if (job && job.state === "running") job.ctrl.abort();
+        sendJSON(res, 200, { src, state: job ? job.state : "none" });
+        return;
+      }
+      if (req.method === "POST") {
+        const job = await startSongScan(src, file, body.again === true);
+        sendJSON(res, 202, { src, state: job.state, done: job.done, total: job.total });
+        return;
+      }
+      const have = songScan.load(file), job = songJobs.get(src);
+      const state = job && job.state === "running" ? "running" : have.complete ? "done" : job ? job.state : have.done ? "stopped" : "none";
+      sendJSON(res, 200, { src, key: have.key, state, done: have.done, total: job ? job.total : null, complete: have.complete, scanned: have.scanned,
+        songs: have.rows.length ? Songs.find(have.rows.map((r) => r[0]), { step: have.step, complete: have.complete }) : [],
+        ...(job && job.state === "failed" ? { error: job.error } : {}) });
+    } catch (e) { sendJSON(res, 422, { error: X.maskUserPath(e.message), code: e.code || "SONGS_FAILED" }); }
     return;
   }
   if (p === "/api/media-info" && (req.method === "GET" || req.method === "POST")) {

@@ -203,6 +203,18 @@ const TOOLS = [
     },
   },
   {
+    name: "fablecut_songs",
+    description: "Find each song in a long recording (a livestream replay with singing between talk): where every song starts and ends, from the sound alone — no transcript, no model, nothing leaves the machine. ffmpeg reads the file's sound every 0.5 s in 5-minute segments; each segment is kept as it is read (analysis/songs/), so a call that stops part-way carries on from where it stopped next time. Singing holds its level, talk pauses between words: a stretch is singing when it rarely drops well below its own level. Each song is sure, or estimated (「估的」) with the spots that were guessed: split (two songs with no clear gap, split at the quietest one), merged (a break inside was bridged), edge (it runs to the start or end of the recording), unread (it runs into the part not read yet), limit. The songs are kept in the project (project.songs, one entry per file, file seconds) in one revision, and the reply lists them. Default files: every video / audio file with clips on the open timeline. Needs ffmpeg.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        mediaIds: { type: "array", items: { type: "string" }, description: "The recordings to read (default: every video / audio file used on the open timeline)" },
+        again: { type: "boolean", description: "Read the files again from the start, forgetting what was read" },
+        store: { type: "boolean", description: "Keep the songs in the project (default true; false only reports them)" },
+      },
+    },
+  },
+  {
     name: "fablecut_transcribe",
     description: "What is said, word by word, with times — and text-based editing. Transcribes the clips' speech with Whisper in the editor (an open tab, else headless Chrome / Edge; the speech model downloads once, the audio never leaves the machine), keeps one transcript per file (analysis/transcripts/), and answers with the timeline's words as timed lines (timeline seconds), so you can read an interview, pick the good takes, or find where something is said. find:\"phrase\" (or a list) reports every place it is said — case, punctuation and spacing ignored, whole words only — with the exact span; cut:true then extracts each of them on the targeted tracks (or `tracks`), the words and the pause after them, last first, in one revision: later material moves up, linked stems stay in sync, locked clips stay put (lock the music bed first). A version is saved before a cut. Files already transcribed aren't done again unless again:true. Default clips: every video / audio clip with sound on the open timeline. mediaIds reads whole files instead (file seconds; no cut). The same as the editor's Transcript tab.",
     inputSchema: {

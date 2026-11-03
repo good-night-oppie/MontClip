@@ -1754,6 +1754,9 @@ function projectJSONHere() {
   const buses = normalizeBuses(project.buses);
   if (buses.length) out.buses = buses;
   if (project.comps && project.comps.length) out.comps = project.comps.map((cp) => ({ ...cp, clips: (cp.clips || []).map(serializeClip) }));
+  // the songs found in each file (P2 songs.js): kept, checked, for files still in the project
+  const songs = typeof MontClipSongs !== "undefined" ? MontClipSongs.clean(project.songs, out.media) : null;
+  if (songs) out.songs = songs;
   if (project.sequences) {
     out.sequences = project.sequences.map((sq) => (sq.id === project.sequence ? { id: sq.id, name: sq.name } : sq));
     out.sequence = project.sequence;
