@@ -399,5 +399,17 @@ const TOOLS = [
       required: ["clip"],
     },
   },
+  {
+    name: "fablecut_danmaku",
+    description: "Bilibili danmaku for a recording. {path, mediaId} reads a 录播姬 or Bilibili danmaku XML from a local path (read in pieces, any size; Chinese paths are fine) and keeps it in project.danmaku for that recording: each danmaku's display time and length in the recording's own seconds, and its send time, apart. User names and ids are not kept; gifts, super chats and guard events are only counted. Importing again replaces that recording's danmaku. mediaId may be left out when the project has one video or audio file. {mediaId, remove:true} removes them; {} lists them. The highlight candidates (P2) read them: a burst of danmaku is a reason on a card.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Absolute path to the danmaku .xml" },
+        mediaId: { type: "string", description: "The recording the danmaku belong to (a media id)" },
+        remove: { type: "boolean", description: "Remove this recording's danmaku" },
+      },
+    },
+  },
 ];
 module.exports = TOOLS;
