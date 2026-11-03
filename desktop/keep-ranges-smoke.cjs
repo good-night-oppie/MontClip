@@ -63,7 +63,11 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.deepEqual(report.timeline,[[0,2,4],[4,10,4],[8,20,4]]);assert.equal(await read('runtime.undo.length'),depth+1,'one undo step');
   report.queue=await read(`exportQueue.map(q=>({name:q.name,range:q.range,status:q.status}))`);
   assert.deepEqual(report.queue.map(q=>q.name),['第一首-01','第二首-02','第三首-03']);
-  await read(`(async()=>{if(!await flushSave())throw Error('SAVE');await runQueue();})()`);
+  await read(`(async()=>{if(!await flushSave())throw Error('SAVE');})()`);await wait(300);
+  report.eventApplied=await read(`(()=>{const e=runtime.agentEvents.at(-1);return e&&{capability:e.capability,actor:e.actor,risk:e.risk,state:e.state,revisionBefore:e.revisionBefore,revisionAfter:e.revisionAfter,args:e.args};})()`);
+  assert.equal(report.eventApplied.state,'applied',JSON.stringify(report.eventApplied));assert.ok(report.eventApplied.revisionAfter>report.eventApplied.revisionBefore);
+  assert.equal(report.eventApplied.capability,'keep_ranges');assert.equal(report.eventApplied.args.ranges.length,3);
+  await read(`(async()=>{await runQueue();})()`);
   report.done=await read(`exportQueue.map(q=>({name:q.name,status:q.status,file:q.file,error:q.error||null}))`);
   assert.ok(report.done.every(q=>q.status==='done'),JSON.stringify(report.done));
   const files=report.done.map(q=>path.join(profile,'workspace','exports',q.file));
@@ -73,6 +77,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   // Undo the apply: the timeline is the old one again, and a slice queued from the new one refuses to render
   await read(`mcAgent.render();true`);await wait();await read(`document.querySelector('[data-proposal-undo]').click();true`);await wait();
   assert.equal(await read('JSON.stringify(project.clips)'),before);
+  report.eventAfterUndo=await read(`runtime.agentEvents.at(-1).state`);assert.equal(report.eventAfterUndo,'undone');
   await read(`(async()=>{exportQueue[0].status='pending';await runQueue();})()`);
   report.afterUndo=await read(`({status:exportQueue[0].status,error:exportQueue[0].error})`);assert.equal(report.afterUndo.status,'failed');
   ok=true;

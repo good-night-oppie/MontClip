@@ -28,7 +28,7 @@ function sentences(response,{doc,context,references}){
  });
  noOverlap(keep);
  if(JSON.stringify(response).length>MAX_JSON)fail('PROPOSAL_TOO_LARGE');
- return result(response,doc,context,keep,{});
+ return result(response,doc,context,keep,{sentences:response.ranges.map(r=>({clipId:r.clipId,sourceCaptionId:r.sourceCaptionId,from:r.from,to:r.to}))});
 }
 /** A media clip the user can see and hear: not a caption/title, enabled, on an enabled track, with a known media length. */
 function mediaClip(doc,id){
@@ -78,5 +78,28 @@ function sliceNames(labels,projectName,safe){
  const fallback=safe(String(projectName||''),'切片');
  return labels.map((l,i)=>safe(typeof l==='string'?l:'',fallback)+'-'+String(i+1).padStart(2,'0'));
 }
-return {prepare,current,sliceNames,MAX_RANGES,MIN_RANGE};
+/* Editor events (owner, 2026-11-03: every step is an event; the AI stops to ask where the host says so, every step can be
+   undone, a run can go all the way on its own). The event log itself comes in the next PR; a checked proposal already
+   has the shape {id, runId, step, capability, args, actor, risk, state, revisionBefore, revisionAfter, at}.
+   args holds the checked values only, never the model's reply. Events are not changed in place. */
+const STATES=['planned','awaiting_confirmation','running','has_result','applied','rejected','undone','failed'];
+const NEXT={planned:['awaiting_confirmation','running','rejected'],awaiting_confirmation:['running','rejected'],running:['has_result','failed'],has_result:['applied','rejected','failed'],applied:['undone'],rejected:[],undone:[],failed:[]};
+const CAPABILITIES=['keep_sentences','keep_ranges'];
+function shell(m,capability,state,args){return {id:String(m.id),runId:String(m.runId),step:m.step,capability,args,actor:m.actor||'ai',risk:'edit',state,revisionBefore:m.revision??null,revisionAfter:null,at:m.at};}
+function event(p,m){
+ const args=p.type==='keep_ranges'
+  ?{output_mode:p.outputMode,ranges:p.source.map((r,i)=>p.labels[i]==null?{...r}:{...r,label:p.labels[i]})}
+  :{ranges:p.sentences.map(r=>({...r}))};
+ return shell(m,p.type,'has_result',args);
+}
+function failedEvent(error,m){
+ const code=error&&/^PROPOSAL_[A-Z_]+$/.test(error.message)?error.message:'PROPOSAL_INVALID';
+ return shell(m,CAPABILITIES.includes(m.capability)?m.capability:'unknown','failed',{error:code});
+}
+function transition(e,to,{revision,at}={}){
+ if(!STATES.includes(to)||!(NEXT[e.state]||[]).includes(to))throw Error('EVENT_STATE');
+ if(to==='applied'&&revision==null)throw Error('EVENT_REVISION');
+ return {...e,state:to,revisionAfter:to==='applied'?revision:e.revisionAfter,at:at??e.at};
+}
+return {prepare,current,sliceNames,event,failedEvent,transition,STATES,MAX_RANGES,MIN_RANGE};
 });

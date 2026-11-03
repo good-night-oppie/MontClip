@@ -9754,7 +9754,8 @@ async function showHighlightCandidates() {
   });
 }
 /** SRT sentence selection: preview a read-only plan, apply on a clone as one undo step. */
-async function showSentenceSelection(suggestion = null, onApplied = null) {
+async function showSentenceSelection(suggestion = null, onApplied = null, onCancelled = null) {
+  let applied = false;
   const busy=()=>state.exporting||state.gesture||state.compCtx||runtime.activeImports||runtime.activeTranscriptions||runtime.desktopExportPending||runtime.saveRequests||runtime.saveTimer||runtime.saveFailed||(typeof closeSaveTransaction!=='undefined'&&closeSaveTransaction);
   const proposalContext=()=>({...agentProjectContext(),generation:agentProjectContext().gen});
   if (state.exporting || state.gesture || state.compCtx || suggestion&&busy()) { toast("请先结束编辑、导出并确认保存 / Finish editing/export and confirm saving first"); return; }
@@ -9848,13 +9849,13 @@ async function showSentenceSelection(suggestion = null, onApplied = null) {
       const snap = JSON.stringify({ ...JSON.parse(undoSnapshot()), ...(applyToken ? {agentApplyId:applyToken} : {}), rangeState: {
         inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
       } });
-      applyProject(next); pushUndo(snap); if(onApplied)onApplied(applyToken); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
+      applyProject(next); pushUndo(snap); applied = true; if(onApplied)onApplied(applyToken); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
       dialog.close();
       if (slices) { queueSlices(plan.segments, sliceNames); toast(`已留下 ${plan.segments.length} 段，并加进导出队列，可撤销 / Kept ${plan.segments.length} ranges and queued them; Undo is available`); }
       else toast(byTime ? "已拼接这些片段，可撤销 / Joined these ranges; Undo is available" : "已拼接选段，可撤销 / Joined selected sentences; Undo is available");
     } catch (error) { summary.textContent = error.message; }
   });
-  dialog.addEventListener("close", () => { stopPreview(); dialog.remove(); });
+  dialog.addEventListener("close", () => { stopPreview(); dialog.remove(); if (!applied && onCancelled) onCancelled(); });
   document.body.append(dialog); refresh(); dialog.showModal();
 }
 function downloadSourceMap() {
@@ -21129,6 +21130,12 @@ function agentProjectContext(){
  return {projectId:runtime.projectId,sequenceId:SeqLib.activeId(seqRoot()),gen:runtime.projectGen??0,revision:project.revision};
 }
 const officialProposalApplications=new WeakMap();
+/* Editor events for the assistant's proposals (owner, 2026-11-03; the event log is the next PR): one event per reviewed
+   proposal, moved to applied (with the revision the save wrote), rejected (the review closed without applying) or undone
+   (the card's undo). In memory for now, the newest 200. */
+const agentEvents=[],agentRuns=new WeakMap();runtime.agentEvents=agentEvents;
+function recordAgentEvent(e){const i=agentEvents.findIndex(x=>x.id===e.id);if(i>=0)agentEvents[i]=e;else{agentEvents.push(e);if(agentEvents.length>200)agentEvents.shift();}return e;}
+function moveAgentEvent(id,to,extra={}){const e=agentEvents.find(x=>x.id===id);if(!e)return null;try{return recordAgentEvent(MontClipProposal.transition(e,to,{at:new Date().toISOString(),...extra}));}catch{return null;}}
 function canUndoOfficialProposal(result){
  const entry=result&&officialProposalApplications.get(result),c=agentProjectContext();
  if(!entry||entry.projectId!==c.projectId||entry.sequenceId!==c.sequenceId||entry.gen!==c.gen)return false;
@@ -21146,12 +21153,20 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  getProjectName:id=>id===runtime.projectId?project.name:null,
  canUndoProposal:canUndoOfficialProposal,
  getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[]});},
- onUndo:result=>{if(canUndoOfficialProposal(result))undo();},
+ onUndo:result=>{if(canUndoOfficialProposal(result)){const entry=officialProposalApplications.get(result);undo();if(entry?.eventId)moveAgentEvent(entry.eventId,'undone');}},
  onProposal:(response,result)=>{
    const c=agentProjectContext();
    if(JSON.stringify(result.context)!==JSON.stringify(c))throw Error('STALE');
-   const proposal=MontClipProposal.prepare(response,{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});
-   showSentenceSelection(proposal,token=>officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen}));
+   if(!agentRuns.has(result))agentRuns.set(result,crypto.randomUUID());
+   const meta={id:crypto.randomUUID(),runId:agentRuns.get(result),step:1,actor:'ai',at:new Date().toISOString(),revision:project.revision};
+   let proposal;
+   try{proposal=MontClipProposal.prepare(response,{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});}
+   catch(error){recordAgentEvent(MontClipProposal.failedEvent(error,{...meta,capability:response&&response.type}));throw error;}
+   const ev=recordAgentEvent(MontClipProposal.event(proposal,meta));
+   showSentenceSelection(proposal,token=>{officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev.id});
+     // applied with the revision its save writes (the save is flushed right after the edit)
+     Promise.resolve().then(()=>flushSave()).then(ok=>{if(ok)moveAgentEvent(ev.id,'applied',{revision:project.revision});});},
+    ()=>moveAgentEvent(ev.id,'rejected'));
  },
  getReferences:kind=>MontClipAgentPane.referenceChips(kind,{...agentProjectContext(),
  start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(FableCutCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
