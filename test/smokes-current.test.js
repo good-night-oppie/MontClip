@@ -55,3 +55,9 @@ test('the review box’s facts sentence opens to the facts themselves, one click
  const s=read('desktop/review-body-smoke.cjs');
  a.match(s,/factsOpen:/);a.match(s,/\[data-facts-note\] summary'\)\.click\(\)/);
 });
+// found while comparing main and this head: review-body printed REVIEW_FAIL and still exited 0
+test('review-body exits 1 when it fails, 0 only when it passes',()=>{
+ const s=read('desktop/review-body-smoke.cjs');
+ a.ok(!/app\.exit\(0\)/.test(s),'never a fixed 0');
+ a.match(s,/app\.exit\(passed\?0:1\)/);a.match(s,/passed=ok;/);
+});
