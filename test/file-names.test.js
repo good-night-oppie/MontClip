@@ -72,6 +72,39 @@ test("zero-width characters are removed", () => {
   a.equal(D.fileSafeName("a​b"), "ab", "removed, not replaced with -");
 });
 
+// QQ (review of b7a9e19): every format character goes (\p{Cf}), not a list of ranges — U+2060 WORD JOINER, U+061C,
+// U+2061–2064, U+206A–206F, U+00AD, U+180E and U+FFF9–FFFB stayed in the name before ("a\u2060b" came back as it was).
+// A ZWJ is one of them, so an emoji sequence joined with ZWJ falls apart into its single emoji (Deja: accepted, noted).
+test("every format character (\\p{Cf}) is removed, wherever it is", () => {
+  a.equal(D.fileSafeName("a\u2060b"), "ab");
+  for (const c of ["\u061C", "\u2061", "\u2064", "\u206A", "\u206F", "\u00AD", "\u180E", "\uFFF9", "\uFFFB"])
+    a.equal(D.fileSafeName("直播" + c + "切片"), "直播切片", "U+" + c.codePointAt(0).toString(16).toUpperCase());
+  let n = 0;
+  for (let cp = 0; cp <= 0x10FFFF; cp++) {
+    if (cp >= 0xD800 && cp <= 0xDFFF) continue;
+    const c = String.fromCodePoint(cp);
+    if (!/\p{Cf}/u.test(c)) continue;
+    n++;
+    const out = D.fileSafeName("a" + c + "b");
+    a.ok(!/\p{Cf}/u.test(out), "U+" + cp.toString(16).toUpperCase() + " left in " + JSON.stringify(out));
+    a.equal(out, "ab", "U+" + cp.toString(16).toUpperCase());
+  }
+  a.ok(n > 150, "the scan saw " + n + " format characters");
+  a.equal(D.fileSafeName("👩\u200D💻"), "👩💻", "a ZWJ sequence falls apart into its emoji");
+});
+
+test("CONIN$ and CONOUT$ are reserved too", () => {
+  a.equal(D.fileSafeName("CONIN$"), "CONIN$-");
+  a.equal(D.fileSafeName("conout$.mp4"), "conout$-.mp4");
+  a.equal(D.fileSafeName("CONIN$X"), "CONIN$X", "a longer name is not reserved");
+});
+
+test("the MCP captions and mapping names go through fileSafeName's own limit, not a cut afterwards", () => {
+  const mcp = read("mcp-server.js");
+  a.doesNotMatch(mcp, /fileSafeName\([^)]*\)\)?\.slice\(0, ?80\)/);
+  a.match(mcp, /Delivery\.fileSafeName\(String\(proj\.name \|\| ""\), "captions", \{ max: 80 \}\)/);
+});
+
 test("a BOM at the start (or anywhere) is removed", () => {
   a.equal(D.fileSafeName("﻿周五杂谈"), "周五杂谈");
   a.equal(D.fileSafeName("周五﻿杂谈"), "周五杂谈");
