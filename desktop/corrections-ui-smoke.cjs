@@ -76,7 +76,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   const view=`((id)=>{const card=document.querySelector('[data-as-card="'+id+'"]');if(!card)return null;return{tc:[...card.querySelectorAll('[data-as-tc]')].map(x=>x.textContent),
     kind:card.querySelector('[data-as-kind-line]').textContent,tags:[...card.querySelectorAll('.as-tag')].map(x=>x.textContent),text:card.textContent,foot:document.querySelector('[data-as-footer]').textContent};})`;
   const ctrlZ=async()=>{for(const type of ['keyDown','char','keyUp'])win.webContents.sendInputEvent({type,keyCode:'z',modifiers:['control']});await wait(600);};
-  report.undoViews=[];
+  report.undoViews=[];const timeline=await read(`JSON.stringify(projectJSON().clips)`);
   for(const how of ['toast','ctrl-z'])for(const what of ['nudge','kind']){
    const id=await read(`autoState().clips.find(x=>x.kind==='song').id`),before=await read(`(${view})(${JSON.stringify(id)})`);
    await read(`(async()=>{const card=document.querySelector('[data-as-card="'+${JSON.stringify(id)}+'"]'),b=card.querySelector(${JSON.stringify(what==='nudge'?'[data-as-act=nudge][data-as-w=s][data-as-d="-5"]':'[data-as-act=set-kind]')});b.focus();b.click();await new Promise(r=>setTimeout(r,300));return true;})()`);
@@ -87,6 +87,9 @@ BrowserWindow.prototype.loadURL=async function(...args){
    assert.notDeepEqual(mid,before,how+' '+what+': the edit shows');
    assert.deepEqual(after,before,how+' '+what+': undone, the card and the footer as before');
    assert.equal((await status()).count,0,how+' '+what+': its correction taken back');
+   // the focus stayed in the dialog: Ctrl+Z undid the card, never the timeline behind the dialog
+   assert.equal(await read(`JSON.stringify(projectJSON().clips)`),timeline,how+' '+what+': the timeline untouched');
+   assert.ok(await read(`AUTO.el.contains(document.activeElement)`),how+' '+what+': the focus in the dialog');
   }
   // 3. 补一段: grey without IN–OUT, and says how; with IN–OUT (400–430 s of the recording, on the timeline from 0) the dialog:
   //    the recording on its own line, unbroken; 唱歌、互动、聊天、整活、别的; 补上 grey until a kind is picked

@@ -10394,7 +10394,7 @@ function openAutoSlices() {
 }
 function autoBuild() {
   const d = document.createElement("dialog");
-  d.className = "auto-slices"; d.setAttribute("aria-label", uiText("own.as-open"));
+  d.className = "auto-slices"; d.setAttribute("aria-label", uiText("own.as-open")); d.tabIndex = -1;
   d.innerHTML = `<div class="as-head"><b>${autoSay("as-open")}</b>
       <ol class="as-stepper">${["start", "run", "review", "done"].map((s) => `<li data-as-st="${s}">${autoSay("as-step-" + s)}</li>`).join("")}</ol>
       <span class="as-spacer"></span><span class="as-keep">${autoSay("as-keep")}</span>
@@ -10424,10 +10424,21 @@ function autoRender(step) {
   st.step = step;
   const order = ["start", "run", "review", "done"], n = order.indexOf(step);
   d.querySelectorAll("[data-as-st]").forEach((li) => { const k = order.indexOf(li.dataset.asSt); li.className = k === n ? "on" : k < n ? "done" : ""; });
-  const body = d.querySelector("[data-as-body]");
+  const body = d.querySelector("[data-as-body]"), had = d.contains(document.activeElement), keep = autoFocusSelector(document.activeElement);
   body.innerHTML = step === "start" ? autoStartHtml() : step === "run" ? autoRunHtml() : step === "review" ? autoReviewHtml() : autoDoneHtml();
   body.scrollTop = 0;
   autoFooter();
+  // the focus stays in the dialog when it is drawn again: the same button if it is still there, else the dialog (VV on
+  // 12f4f21: it fell to the page, so Ctrl+Z went to the timeline behind the dialog instead of undoing the card)
+  if (had && d.open && !d.contains(document.activeElement)) { const el = keep && d.querySelector(keep); (el || d).focus({ preventScroll: true }); }
+}
+/** A selector that finds element el again after the dialog is drawn again: its card and its data-as-* attributes. */
+function autoFocusSelector(el) {
+  if (!el || !AUTO.el || !AUTO.el.contains(el) || el === AUTO.el) return null;
+  const own = [...el.attributes].filter((a) => a.name.startsWith("data-as-")).map((a) => `[${a.name}="${CSS.escape(a.value)}"]`).join("");
+  if (!own) return null;
+  const card = el.closest("[data-as-card]");
+  return (card && card !== el ? `[data-as-card="${CSS.escape(card.dataset.asCard)}"] ` : "") + el.tagName.toLowerCase() + own;
 }
 
 /* step 1: the recordings, what the stream is, how many, how long */
@@ -10674,8 +10685,12 @@ async function autoKeep(corr, c) {
 const autoKeepMove = (c, w, d) => (Math.abs(d) > 1e-6 ? autoKeep({ type: "trim", kind: c.kind, startShift: w === "s" ? d : 0, endShift: w === "e" ? d : 0 }, c) : Promise.resolve(""));
 /** The toast at once; once the correction is kept, the first time, it also says so. */
 function autoToastKept(msg, kept) { autoToast(msg); kept.then((told) => { if (told) autoToast(msg + told); }); }
-/** An undone step's corrections go too. */
-function autoForget(ids) { const s = autoStore(); if (s && ids) for (const id of ids) s.undo(id).catch(() => {}); }
+/** An undone step's corrections go too. The store answers at once (sendSync), not with a promise; a failure here never
+ *  stops the undo from drawing the cards again (VV on 12f4f21: `.catch` on its answer threw before autoRender). */
+function autoForget(ids) {
+  const s = autoStore();
+  if (s && ids) for (const id of ids) { try { Promise.resolve(s.undo(id)).catch(() => {}); } catch {} }
+}
 /** 这段不是唱歌 / 这段是唱歌 (set_segment_kind): the kind only; marked 不是唱歌, the record says which recording and part. */
 function autoSetKind(c, kind) {
   const st = autoState(), from = c.kind, s = c.s, e = c.e, r = MontClipSegmentEdits.setKind(st.clips, { id: c.id, kind });
@@ -10828,8 +10843,9 @@ function autoSnap() {
 function autoUndo() {
   const st = autoState();
   if (st.step !== "review" || !st.hist.length) return;
-  const o = JSON.parse(st.hist.pop()); st.clips = o.clips; st.dropped = o.dropped; autoForget(st.histKept.pop());
+  const o = JSON.parse(st.hist.pop()); st.clips = o.clips; st.dropped = o.dropped;
   autoRender("review"); autoToast(uiText("own.as-undone"), false);
+  autoForget(st.histKept.pop());
 }
 let autoToastTimer = null;
 function autoToast(msg, undoable = true) {
