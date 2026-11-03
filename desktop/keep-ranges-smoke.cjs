@@ -54,11 +54,22 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.sentFacts=sentFacts;assert.ok(!JSON.stringify(sentFacts).includes('合成')&&!JSON.stringify(sentFacts).includes('/media'),'no file names or paths in the facts');
   report.card=await read(`document.querySelector('.cindy-message.assistant:last-child')?.textContent||''`);assert.ok(report.card.includes('3 条切片'),report.card);
   const before=await read('JSON.stringify(project.clips)'),depth=await read('runtime.undo.length');
-  await read(`document.querySelector('[data-review-proposal]').click();true`);await wait();
-  report.dialog=await read(`(()=>{const d=document.querySelector('.sentence-dialog[open]');return d&&{title:d.querySelector('h3').textContent,summary:d.querySelector('[data-summary]').textContent};})()`);
+  // JJ (#71): one language at a time. The dialog in English has no Chinese and in Chinese no English (the slice names
+  // are the streamer's own words, so they are taken out before the check).
+  const NAMES=/第[一二三]首-0\d/g,CJK=/[　-〿㐀-鿿＀-￯]/,latin=s=>s.replace(NAMES,'').match(/[A-Za-z]{2,}/g);
+  const dialogText=`(()=>{const d=document.querySelector('.sentence-dialog[open]');return d&&{title:d.querySelector('h3').textContent,summary:d.querySelector('[data-summary]').textContent,all:d.textContent};})()`;
+  const reopen=async language=>{await read(`(()=>{document.querySelector('.sentence-dialog[open]')?.close();updateMontClipView({language:'${language}'});mcAgent.render();})();true`);await wait();
+   await read(`document.querySelector('[data-review-proposal]').click();true`);await wait();return read(dialogText);};
+  report.dialogEn=await reopen('en');
+  assert.ok(report.dialogEn&&!CJK.test(report.dialogEn.all.replace(NAMES,'')),'English dialog has no Chinese: '+JSON.stringify(report.dialogEn));
+  assert.ok(report.dialogEn.summary.startsWith('第一首-01: 0:02–0:06 (4 s)'),report.dialogEn.summary);
+  report.dialogZh=await reopen('zh-CN');
+  assert.equal(latin(report.dialogZh.all),null,'Chinese dialog has no English: '+JSON.stringify(report.dialogZh));
+  report.dialog=await read(dialogText);
   assert.ok(report.dialog&&report.dialog.title.startsWith('按时间切成多条'),JSON.stringify(report.dialog));
   assert.ok(report.dialog.summary.startsWith('第一首-01：0:02–0:06（4 秒）'),'times read as m:ss, with the length: '+report.dialog.summary);
   await read(`document.querySelector('.sentence-dialog [data-apply]').click();true`);await wait();
+  report.toast=await read(`document.getElementById('toast').textContent`);assert.equal(latin(report.toast),null,'toast in Chinese only: '+report.toast);
   report.timeline=await read(`project.clips.filter(c=>c.kind==='video').map(c=>[c.start,c.in,c.duration])`);
   assert.deepEqual(report.timeline,[[0,2,4],[4,10,4],[8,20,4]]);assert.equal(await read('runtime.undo.length'),depth+1,'one undo step');
   report.queue=await read(`exportQueue.map(q=>({name:q.name,range:q.range,status:q.status}))`);
@@ -80,6 +91,13 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.eventAfterUndo=await read(`runtime.eventLog.list().filter(e=>e.actor==='ai').at(-1).state`);assert.equal(report.eventAfterUndo,'undone');
   await read(`(async()=>{exportQueue[0].status='pending';await runQueue();})()`);
   report.afterUndo=await read(`({status:exportQueue[0].status,error:exportQueue[0].error})`);assert.equal(report.afterUndo.status,'failed');
+  assert.ok(report.afterUndo.error.endsWith('请让助手按现在的时间线再给一次剪辑建议。')&&latin(report.afterUndo.error)===null,report.afterUndo.error);
+  // one_file: the joined length reads 0:08, in the order given
+  await read(`(async()=>{if(!await flushSave())throw Error('SAVE');const c=agentProjectContext();await showSentenceSelection(MontClipProposal.prepare({type:'keep_ranges',output_mode:'one_file',ranges:[{clipId:'v1',from:2,to:6},{clipId:'v1',from:10,to:14}]},{doc:projectJSON(),context:{...c,generation:c.gen}}));})();true`);await wait();
+  report.oneFile=await read(dialogText);
+  assert.equal(report.oneFile.title,'按时间保留几段，拼成一条');assert.equal(report.oneFile.summary,'0:02–0:06 → 0:10–0:14 拼起来一共 0:08，按你勾选的顺序。');
+  assert.equal(latin(report.oneFile.all),null,JSON.stringify(report.oneFile));
+  await read(`document.querySelector('.sentence-dialog[open]').close();true`);
   ok=true;
  }catch(e){report.error=String(e&&e.stack||e).slice(0,1200);}
  finally{out(ok?'KEEP_RANGES_PASS':'KEEP_RANGES_FAIL',report);process.exitCode=ok?0:1;app.exit(ok?0:1);}

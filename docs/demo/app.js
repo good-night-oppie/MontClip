@@ -9850,38 +9850,38 @@ async function showHighlightCandidates() {
   });
 }
 /** SRT sentence selection: preview a read-only plan, apply on a clone as one undo step. */
+/** A range-plan refusal in the interface language (the plan's own message stays bilingual for MCP callers). */
+function rangeError(error) {
+  const key = "own.ssel-err-" + String(error && error.code || "").toLowerCase().replace(/_/g, "-");
+  return (error && error.code && uiText(key)) || uiText("own.ssel-err-ranges-other");
+}
 async function showSentenceSelection(suggestion = null, onApplied = null, onCancelled = null) {
   let applied = false;
   const busy=()=>state.exporting||state.gesture||state.compCtx||runtime.activeImports||runtime.activeTranscriptions||runtime.desktopExportPending||runtime.saveRequests||runtime.saveTimer||runtime.saveFailed||(typeof closeSaveTransaction!=='undefined'&&closeSaveTransaction);
   const proposalContext=()=>({...agentProjectContext(),generation:agentProjectContext().gen});
-  if (state.exporting || state.gesture || state.compCtx || suggestion&&busy()) { toast("请先结束编辑、导出并确认保存 / Finish editing/export and confirm saving first"); return; }
+  // JJ (#71): every sentence in the interface language only
+  const say = (key, vars) => uiText("own." + key, vars);
+  if (state.exporting || state.gesture || state.compCtx || suggestion&&busy()) { toast(say("ssel-busy")); return; }
   if (suggestion) {if(!MontClipProposal.current(suggestion,projectJSON(),proposalContext())){console.warn("showSentenceSelection: the suggestion is not valid for the current project; nothing opened");return;}}
   else if (!(await flushSaveBeforeSwitch())) return;
   const doc = projectJSON(), signature = JSON.stringify(doc), projectId = runtime.projectId, projectGen=runtime.projectGen, sequenceId=SeqLib.activeId(seqRoot());
   const captions = doc.clips.filter((c) => FableCutCaptions.isCaption(c) && !c.disabled && !(doc.disabledTracks || []).includes(c.track)).sort((a, b) => a.start - b.start);
   const byTime = suggestion?.type === "keep_ranges", slices = byTime && suggestion.outputMode === "per_range";
   const sliceNames = slices ? MontClipProposal.sliceNames(suggestion.labels, project.name, Delivery.fileSafeName) : null;
-  if (!captions.length && !byTime) { toast("先导入 SRT 或添加字幕 / Import SRT or add captions first"); return; }
+  if (!captions.length && !byTime) { toast(say("ssel-no-captions")); return; }
   pause();
   const dialog = document.createElement("dialog");
   dialog.className = "sentence-dialog";
-  dialog.innerHTML = `<form method="dialog"><h3>按句选择保留片段 / Keep sentences</h3>
-    <p>只保留勾选的句段，移除中间间隙和其余音视频。原片不变，一步撤销。<br>Join checked ranges only. Remove gaps and other media from the edit. Source files stay unchanged.</p>
-    <label>或按顺序输入明确区间（秒，每行 起点,终点；填写后替代勾选） / Or ordered ranges in seconds, one start,end per line (overrides checks)
+  dialog.innerHTML = `<form method="dialog"><h3>${escapeHtml(say(byTime ? (slices ? "ssel-title-slices" : "ssel-title-ranges") : "ssel-title"))}</h3>
+    <p>${escapeHtml(byTime ? (slices ? say("ssel-intro-slices", { n: suggestion.keep.length }) : say("ssel-intro-ranges")) : say("ssel-intro"))}</p>
+    <label>${escapeHtml(say(byTime ? "ssel-label-time" : "ssel-label"))}
     <textarea data-ranges rows="2" placeholder="9,12&#10;1,4"></textarea></label>
     <div data-sentences></div><p data-summary role="status"></p>
-    <div class="tr-row"><button type="button" class="btn" data-preview>试听选段 / Preview</button>
-    <button type="button" class="btn primary" data-apply>保留选段 / Apply</button>
-    <button class="btn" value="cancel">取消 / Cancel</button></div></form>`;
+    <div class="tr-row"><button type="button" class="btn" data-preview>${escapeHtml(say("ssel-preview"))}</button>
+    <button type="button" class="btn primary" data-apply>${escapeHtml(say("ssel-apply"))}</button>
+    <button class="btn" value="cancel">${escapeHtml(say("ssel-cancel"))}</button></div></form>`;
   const list = dialog.querySelector("[data-sentences]"), summary = dialog.querySelector("[data-summary]");
   if(suggestion){dialog.querySelector('[data-ranges]').value=suggestion.keep.map(r=>r.from+','+r.to).join('\n');dialog.querySelector('[data-ranges]').readOnly=true;list.hidden=true;}
-  if (byTime) {
-    dialog.querySelector("h3").textContent = slices ? "按时间切成多条 / Separate clips by time" : "按时间保留片段 / Keep ranges by time";
-    dialog.querySelector("h3 + p").textContent = slices
-      ? `每段单独成一条切片、一个文件。应用后时间线上只留下这些片段（可以撤销），再把 ${suggestion.keep.length} 条切片加进导出队列，由你点「开始」。原片不变。 / Each range becomes its own clip and file. Applying keeps only these ranges on the timeline (Undo is available) and adds ${suggestion.keep.length} clips to the export queue; you press Start. Source files stay unchanged.`
-      : "按时间保留这些片段，拼成一条。原片不变，可以撤销。 / Keep these ranges by time, joined into one video. Source files stay unchanged; Undo is available.";
-    dialog.querySelector("[data-ranges]").closest("label").firstChild.textContent = "时间线上的区间（秒） / Timeline ranges (seconds) ";
-  }
   const selected = new Set();
   let previewTimer, plan;
   let previewSettings;
@@ -9897,15 +9897,17 @@ async function showSentenceSelection(suggestion = null, onApplied = null, onCanc
       const explicit = dialog.querySelector("[data-ranges]").value.trim();
       const keep = explicit ? explicit.split(/\r?\n/).map(line => {
         const pair = line.split(",").map(s => s.trim());
-        if (pair.length !== 2 || pair.some(s => !s)) throw new Error("每行填写 起点,终点（秒） / Enter start,end seconds on each line");
+        if (pair.length !== 2 || pair.some(s => !s)) throw Object.assign(new Error("RANGES_LINE"), { code: "RANGES_LINE" });
         return { from: Number(pair[0]), to: Number(pair[1]) };
       }) : [...selected].map(id => captions.find(c => c.id === id)).map(c => ({ from: c.start, to: c.start+c.duration }));
       plan = FableCutRangePlan.create(doc, keep); plan.keep = keep;
       const cut = plan.captions.filter(c => c.truncated).length;
+      const clock = MontClipHighlights.clock;
       summary.textContent = slices
-        ? keep.map((r, i) => `${sliceNames[i]}：${MontClipHighlights.clock(r.from)}–${MontClipHighlights.clock(r.to)}（${MontClipHighlights.seconds(r.to - r.from)} 秒）`).join("；") + ` / ${keep.length} clips, ${MontClipHighlights.seconds(plan.duration)} s in total.`
-        : `${keep.map((r) => `${fmt(r.from)}–${fmt(r.to)}`).join(" → ")} → ${plan.duration.toFixed(2)} s。按勾选顺序 / In selection order. ${cut ? `${cut} 句只保留了一部分声音，请检查字幕和开头结尾。 / Boundary captions need checking.` : ""}`;
-    } catch (error) { plan = null; summary.textContent = error.message; }
+        ? keep.map((r, i) => say("ssel-sum-slice", { name: sliceNames[i], from: clock(r.from), to: clock(r.to), len: MontClipHighlights.seconds(r.to - r.from) })).join(say("ssel-sum-slice-sep"))
+        : say("ssel-sum-ranges", { ranges: keep.map((r) => `${clock(r.from)}–${clock(r.to)}`).join(" → "), duration: MontClipHighlights.clock(Math.round(plan.duration)) })
+          + (cut ? " " + say(cut === 1 ? "ssel-sum-cut-one" : "ssel-sum-cut", { cut }) : "");
+    } catch (error) { plan = null; summary.textContent = rangeError(error); }
     dialog.querySelector("[data-apply]").disabled = !plan;
     dialog.querySelector("[data-preview]").disabled = !plan;
   };
@@ -9918,7 +9920,7 @@ async function showSentenceSelection(suggestion = null, onApplied = null, onCanc
   }
   dialog.querySelector("[data-ranges]").addEventListener("input", refresh);
   const current = () => JSON.stringify(projectJSON()) === signature && runtime.projectId === projectId && runtime.projectGen===projectGen && SeqLib.activeId(seqRoot())===sequenceId && (!suggestion||!busy()&&MontClipProposal.current(suggestion,projectJSON(),proposalContext()));
-  const changed = () => { stopPreview(); summary.textContent = "项目已变化，请关闭后重新选择 / Project changed; reopen selection"; };
+  const changed = () => { stopPreview(); summary.textContent = say("ssel-changed"); };
   dialog.querySelector("[data-preview]").addEventListener("click", () => {
     if (!plan) return;
     if (!current()) { changed(); return; }
@@ -9951,9 +9953,9 @@ async function showSentenceSelection(suggestion = null, onApplied = null, onCanc
       pushUndo(snap, suggestion?.eventId ? { eventId: suggestion.eventId } : { capability: "keep_sentences", args: { timelineRanges: plan.keep.map((r) => ({ from: r.from, to: r.to })) } });
       applied = true; if(onApplied)onApplied(applyToken); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
       dialog.close();
-      if (slices) { queueSlices(plan.segments, sliceNames); toast(`已留下 ${plan.segments.length} 段，并加进导出队列，可撤销 / Kept ${plan.segments.length} ranges and queued them; Undo is available`); }
-      else toast(byTime ? "已拼接这些片段，可撤销 / Joined these ranges; Undo is available" : "已拼接选段，可撤销 / Joined selected sentences; Undo is available");
-    } catch (error) { summary.textContent = error.message; }
+      if (slices) { queueSlices(plan.segments, sliceNames); toast(say("ssel-done-slices", { n: plan.segments.length })); }
+      else toast(say(byTime ? "ssel-done-ranges" : "ssel-done-sentences"));
+    } catch (error) { summary.textContent = rangeError(error); }
   });
   dialog.addEventListener("close", () => { stopPreview(); dialog.remove(); if (!applied && onCancelled) onCancelled(); });
   document.body.append(dialog); refresh(); dialog.showModal();
@@ -18333,7 +18335,7 @@ async function runQueue() {
       const fps = first.spec.fps || projectFps();
       const clips = JSON.stringify(project.clips);
       if (first.guard && first.guard !== clips) {
-        Object.assign(first, { status: "failed", error: "时间线在加入队列之后改过了，这条切片没有导出。请重新生成。 / The timeline changed after this clip was queued; it was not exported." });
+        Object.assign(first, { status: "failed", error: uiText("own.ssel-queue-changed") });
         renderQueue(); continue;
       }
       const group = exportQueue.filter((q) => q.status === "pending" && (q.spec.fps || projectFps()) === fps && queueRangeKey(q.range) === queueRangeKey(first.range) && (q.guard || null) === (first.guard || null)).slice(0, 8);

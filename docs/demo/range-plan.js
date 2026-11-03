@@ -6,16 +6,18 @@
 })(typeof self !== "undefined" ? self : this, function (C, Edit) {
   "use strict";
   const clone = (x) => JSON.parse(JSON.stringify(x));
+  /** A refusal with a code, so the editor can say it in the interface language (the message stays for MCP callers). */
+  const fail = (code, message) => { const e = new Error(message); e.code = code; throw e; };
   const ms = (x) => Math.round((x + Number.EPSILON) * 1000) / 1000;
   function create(doc, ranges) {
     if (!Array.isArray(ranges) || !ranges.length || ranges.some(r => !Number.isFinite(r.from) || !Number.isFinite(r.to) || r.from < 0 || r.to <= r.from))
-      throw new Error("Select valid ordered ranges / 请选择有效的有序区间");
+      fail("RANGES_INVALID", "Select valid ordered ranges / 请选择有效的有序区间");
     const end = Math.max(0, ...doc.clips.map(c => c.start + c.duration));
-    if (ranges.some(r => r.to > end)) throw new Error("Selection exceeds timeline / 选区超出时间线");
+    if (ranges.some(r => r.to > end)) fail("RANGES_PAST_END", "Selection exceeds timeline / 选区超出时间线");
     if (doc.clips.some(c => c.locked || (doc.lockedTracks || []).includes(c.track)))
-      throw new Error("Unlock clips and tracks first / 请先解锁片段和轨道");
+      fail("RANGES_LOCKED", "Unlock clips and tracks first / 请先解锁片段和轨道");
     if (doc.clips.some(c => c.kind === "comp" || c.parentId || c.parent || c.keyframes?.speed?.length))
-      throw new Error("Nested, parented or speed-ramped clips need manual editing / 嵌套、父子关联或变速曲线请先手动处理");
+      fail("RANGES_NESTED", "Nested, parented or speed-ramped clips need manual editing / 嵌套、父子关联或变速曲线请先手动处理");
     const result = clone(doc), captions = [], clips = [], segments = [], markers = [];
     // Conservatively reject stale provenance after arbitrary timeline edits;
     // do not present old source intervals as if they described the current cue.
@@ -27,7 +29,7 @@
       // Do not silently drop a short non-caption intersection in the upstream
       // engine, whose minimum clip length is 50ms. Caption precision is separate.
       if (part.clips.some(c => { const n = Math.min(c.start+c.duration, range.to)-Math.max(c.start, range.from); return n > 0 && n < Edit.MIN_DUR; }))
-        throw new Error("Media intersection below supported clip duration / 音视频交集短于当前编辑器支持长度");
+        fail("RANGES_TOO_SHORT", "Media intersection below supported clip duration / 音视频交集短于当前编辑器支持长度");
       Edit.forDoc(part, { tracks: [...new Set(part.clips.map(c => c.track))] }).trimToRange(range.from, range.to);
       for (const c of part.clips) {
         c.id = `range${index}_${c.id}`;
