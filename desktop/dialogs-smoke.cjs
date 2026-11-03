@@ -18,11 +18,16 @@ const MEASURE=`window.__dlgMeasure=(el,behind)=>{const r=el.getBoundingClientRec
  const alpha=(c)=>{const m=/rgba?\\(([^)]+)\\)/.exec(c||'');if(!m)return 0;const p=m[1].split(',').map(s=>parseFloat(s));return p.length>3?p[3]:1;};
  const back=behind?getComputedStyle(behind).backgroundColor:getComputedStyle(el,'::backdrop').backgroundColor;
  return {left:Math.round(r.left),top:Math.round(r.top),w:Math.round(r.width),h:Math.round(r.height),vw,vh,
-  dx:Math.round(r.left-(vw-r.right)),dy:Math.round(r.top-(vh-r.bottom)),backdrop:back,alpha:alpha(back)};};true`;
+  dx:Math.round(r.left-(vw-r.right)),dy:Math.round(r.top-(vh-r.bottom)),backdrop:back,alpha:alpha(back),modal:el.matches(':modal')};};true`;
 const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...args){
  await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=(ms=200)=>new Promise(r=>setTimeout(r,ms));
  const shot=async(name)=>{if(!shotsDir)return;await wait(250);fs.writeFileSync(path.join(shotsDir,name+'.png'),(await win.webContents.capturePage()).toPNG());};
+ // how bright the top bar's Export button is, from this window's own pixels: the page behind a dialog is darkened when
+ // that drops against the same button with nothing open
+ const EXPORT_AT={x:1185,y:10,width:80,height:34};
+ const brightness=async()=>{await wait(250);const b=(await win.webContents.capturePage(EXPORT_AT)).toBitmap();let t=0;for(let i=0;i<b.length;i+=4)t+=(b[i]+b[i+1]+b[i+2])/3;return t/(b.length/4);};
+ let base=null;const dimmed=async()=>Math.round((1-(await brightness())/base)*100)/100;
  let ok=false;const report={dialogs:{},overlays:{}};
  const watchdog=setTimeout(()=>{out('DIALOGS_FAIL',{watchdog:'4 min',...report});app.exit(1);},240000);
  try{
@@ -37,20 +42,21 @@ BrowserWindow.prototype.loadURL=async function(...args){
     {id:'cap2',kind:'text',mediaId:null,track:'V2',start:5,in:0,duration:3,props:{text:'第二句字幕',caption:true}});
    applyProject(doc);scheduleSave();if(!await flushSave())throw Error('SAVE');})()`);
   await read(`updateMontClipView({language:'zh-CN'});true`);await wait(300);
+  base=await brightness();report.exportButtonBrightness=Math.round(base);
   const open=()=>read(`[...document.querySelectorAll('dialog[open]')].map(d=>d.className)`);
   // one <dialog>: open it with `js`, find it by its class, measure, capture, close it
   const dialog=async(name,cls,js)=>{
    await read(`(()=>{${js}})();true`);
    let m=null;for(let i=0;i<40&&!m;i++){await wait(100);m=await read(`(()=>{const d=document.querySelector('dialog.${cls}[open]');return d?__dlgMeasure(d):null;})()`);}
    report.dialogs[name]=m||{missing:true,open:await open()};
-   if(m)await shot('dialog-'+name);
+   if(m){m.dimmed=await dimmed();await shot('dialog-'+name);}
    await read(`for(const d of document.querySelectorAll('dialog[open]'))d.close();true`);await wait(200);
   };
   // the FLV import box closes as soon as the main process turns the synthetic file down: it is measured in the same turn
   // it opens, and a copy of it (the same markup) is shown for the capture
   await dialog('flv-import','flv-import-dialog',`desktopFlvImport({name:'合成.flv',size:0,path:''}).catch(()=>{});const d=document.querySelector('dialog.flv-import-dialog[open]');
-   if(d){window.__flvSeen=__dlgMeasure(d);const c=d.cloneNode(true);c.removeAttribute('open');d.after(c);setTimeout(()=>c.showModal(),0);}`);
-  report.dialogs['flv-import-as-opened']=await read(`window.__flvSeen||{missing:true}`);
+   if(d){window.__flvSeen=__dlgMeasure(d);const c=d.cloneNode(true);c.removeAttribute('open');d.after(c);setTimeout(()=>{try{c.showModal();}catch(e){window.__flvErr=String(e);}},0);}`);
+  report.dialogs['flv-import-as-opened']=await read(`window.__flvSeen||{missing:true}`);report.flvCopyError=await read(`window.__flvErr||null`);
   await dialog('caption-size','cq-dialog',`setSelection(['cap1']);openCaptionQuick()`);
   await dialog('asr-setup','asr-setup',`openAsrSetup()`);
   await dialog('highlights','highlight-dialog',`showHighlightCandidates()`);
@@ -67,7 +73,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
    let m=null;for(let i=0;i<40&&!m;i++){await wait(100);m=await read(`(()=>{const o=document.getElementById(${JSON.stringify(id)});if(!o||o.classList.contains('hidden'))return null;const d=o.querySelector('.dialog')||o.firstElementChild;const r=o.getBoundingClientRect();return {...__dlgMeasure(d,o),cover:Math.round(r.width)===innerWidth&&Math.round(r.height)===innerHeight};})()`);}
    await wait(200);
    report.overlays[name]=m||{missing:true};
-   if(m)await shot('overlay-'+name);
+   if(m){m.dimmed=await dimmed();await shot('overlay-'+name);}
    await read(`document.getElementById(${JSON.stringify(id)}).classList.add('hidden');true`);await wait(150);
   };
   await overlay('export','exportSetup',`document.getElementById('btnExport').click()`);
@@ -79,10 +85,12 @@ BrowserWindow.prototype.loadURL=async function(...args){
   // centred within 2 px each way (a box taller than the window is pinned to the top by the browser, so only dx then);
   // the page behind it darkened at least 30 %
   const bad=[];
-  for(const [group,list] of Object.entries(report))for(const [name,m] of Object.entries(list)){
+  for(const group of ['dialogs','overlays'])for(const [name,m] of Object.entries(report[group])){
    if(m.missing){bad.push(name+': did not open');continue;}
    if(Math.abs(m.dx)>2||(m.h<m.vh&&Math.abs(m.dy)>2))bad.push(`${name}: off centre (dx ${m.dx}, dy ${m.dy})`);
    if(m.alpha<0.3)bad.push(`${name}: backdrop ${m.backdrop}`);
+   if(m.dimmed!==undefined&&m.dimmed<0.25)bad.push(`${name}: the page behind it is only ${Math.round(m.dimmed*100)} % darker`);
+   if(group==='dialogs'&&!m.modal)bad.push(name+': not modal, so nothing behind it is darkened');
    if(group==='overlays'&&!m.cover)bad.push(name+': the dark layer does not cover the window');
   }
   report.bad=bad;ok=!bad.length;

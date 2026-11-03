@@ -39,3 +39,10 @@ test('a darkened backdrop for every dialog: its own, or the shared one',()=>{
  for(const c of classes){const own=rules.find(([s])=>s.split(',').map(x=>x.trim()).includes('.'+c+'::backdrop'));
   if(own)a.match(own[1],/background:\s*(rgba\(0,\s*0,\s*0,\s*0?\.[3-9]\d*\)|#000[89a-f]\b)/,c);}
 });
+// found by the captures: the FLV import box had no colours of its own (the browser's white box, no padding)
+test('every dialog wears the editor’s colours: its own text colour, panel background and border',()=>{
+ for(const c of classes){
+  const own=rules.filter(([s])=>s.split(',').map(x=>x.trim()).some(x=>x==='.'+c||x==='dialog.'+c)).map(([,b])=>b).join(';');
+  for(const p of ['color','background','border','padding'])a.match(own,new RegExp('(?:^|[;\\s{])'+p+'\\s*:'),`.${c} ${p}`);
+ }
+});
