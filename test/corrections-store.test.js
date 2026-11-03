@@ -68,3 +68,15 @@ test('the golden-set evaluation runs without corrections unless asked (they come
  a.match(g,/corrections: off/);
  a.ok(!/corrections-store|userData/.test(g),'never the streamer’s own store');
 });
+
+// Deja (2026-11-03): one streamer per MontClip profile — one file, default.json, not split by folder or anything else
+test('one file per MontClip profile: <userData>/corrections/default.json; no other scope',()=>{
+ const dir=tmp();
+ try{
+  const s=Store.create({dir});a.equal(s.append(rec()).ok,true);
+  a.deepEqual(fs.readdirSync(path.join(dir,'corrections')).sort(),['default.json']);
+  a.throws(()=>Store.create({dir,scope:'ab12cd34ef'}),/one file per MontClip profile/);
+  a.equal(Store.SCOPE,undefined,'no scope rule left to choose by');
+  a.ok(!/scope/.test(read('desktop/main.js').split('\n').filter(l=>/corrections/i.test(l)).join('\n')),'main.js passes no scope');
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});

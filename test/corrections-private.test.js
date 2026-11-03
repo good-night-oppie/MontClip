@@ -39,3 +39,9 @@ test('a request built as the assistant builds it holds none of their fields, wit
  a.ok(!FIELDS.test(sent)&&!/"pause"|"habit"|"bar"/.test(sent),sent.slice(0,300));
  a.equal(s.status().count,6,'the store was full while the request was built');
 });
+
+// Deja (2026-11-03): neither the assistant's context nor the outgoing preview (the review box, its raw request) shows them
+test('the outgoing preview never names them: the review box, its bundle and the pane store',()=>{
+ for(const f of ['agent-ui/pane.tsx','cindy-official.js','agent-pane.js','agent-conversation.js','agent-facts.js','agent-format.js'])
+  a.ok(!FIELDS.test(read(f)),f);
+});
