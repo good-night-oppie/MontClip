@@ -4,8 +4,8 @@
 //   electron desktop/zh-batch5-smoke.cjs --montclip-smoke --user-data-dir=<fresh>   → ZH5_PASS / ZH5_FAIL
 const electron = require('electron'), { app, BrowserWindow } = electron, assert = require('node:assert/strict');
 if (!process.argv.includes('--montclip-smoke')) throw Error('Explicit smoke required');
-const profileArg = process.argv.find((a) => a.startsWith('--user-data-dir='));
-if (!profileArg || !profileArg.slice('--user-data-dir='.length).trim()) throw Error('A fresh --user-data-dir is required');
+const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
+if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const out = (k, v) => process.stdout.write(k + ' ' + JSON.stringify(v) + '\n');
 const WANT = {
   'zh-CN advanced': '波纹删除所选（⇧Del）：删掉以后，目标轨道上后面的片段往前移，补上空隙',
