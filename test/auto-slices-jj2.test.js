@@ -91,12 +91,40 @@ test('nothing found says what to try next', () => {
   a.match(review, /"as-found-none-next"/);
 });
 
-test('busy: exporting and inside a precomposed clip each say their own sentence; a drag gets no message', () => {
-  const open = fnBody(read('app.js'), 'function openAutoSlices(');
-  a.match(open, /state\.exporting[^;]*"own\.as-busy-export"/);
-  a.match(open, /state\.compCtx[^;]*"own\.as-busy-comp"/);
-  a.ok(!/state\.gesture[^;\n]*toast/.test(open), 'no toast while dragging');
+// Deja (11-03): as-busy in three cases, one test each. openAutoSlices runs here against stand-ins: a toast that records,
+// a timer queue we run by hand, and an "opened" flag where the dialog would be built.
+function busyHarness(state) {
+  const toasts = [], timers = [], opened = [];
+  const src = fnBody(read('app.js'), 'function openAutoSlices(');
+  const env = { state, toasts, timers, opened };
+  const open = new Function('env', `const { state } = env;
+    const toast = (t) => env.toasts.push(t), uiText = (k) => k, setTimeout = (fn) => env.timers.push(fn);
+    const autoState = () => { env.opened.push(true); throw Object.assign(new Error('opened'), { opened: true }); };
+    ${src}; return () => { try { openAutoSlices(); } catch (e) { if (!e.opened) throw e; } };`)(env);
+  const run = (fn) => { try { fn(); } catch (e) { if (!e.opened) throw e; } };
+  const flush = () => { while (timers.length) run(timers.shift()); };
+  return { open, flush, step: () => timers.length && run(timers.shift()), toasts, opened };
+}
+test('busy, exporting: 正在导出，等导出完再点这里。 and the dialog stays shut', () => {
+  const h = busyHarness({ exporting: true, gesture: false, compCtx: null });
+  h.open(); h.flush();
+  a.deepEqual(h.toasts, ['own.as-busy-export']); a.equal(h.opened.length, 0);
+  a.equal(zh('as-busy-export'), '正在导出，等导出完再点这里。');
   a.equal(zh('as-busy'), undefined, 'the old one-sentence form is gone');
+});
+test('busy, inside a precomposed clip: 你现在在合成片段里面…回到主序列再点这里。 and the dialog stays shut', () => {
+  const h = busyHarness({ exporting: false, gesture: false, compCtx: { compId: 'c1' } });
+  h.open(); h.flush();
+  a.deepEqual(h.toasts, ['own.as-busy-comp']); a.equal(h.opened.length, 0);
+  a.equal(zh('as-busy-comp'), '你现在在合成片段里面。点时间线上方最左边的主序列名字，回到主序列再点这里。');
+});
+test('busy, mid-drag: no message; the click is answered once the drag ends', () => {
+  const state = { exporting: false, gesture: true, compCtx: null }, h = busyHarness(state);
+  h.open();
+  a.deepEqual(h.toasts, []); a.equal(h.opened.length, 0, 'not while dragging');
+  h.step(); a.equal(h.opened.length, 0, 'still dragging: it waits');
+  state.gesture = false; h.flush();
+  a.deepEqual(h.toasts, [], 'never a message'); a.equal(h.opened.length, 1, 'opened after the release');
 });
 
 test('the kind hints never mention danmaku when the chosen recordings have none', () => {

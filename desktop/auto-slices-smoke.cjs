@@ -60,6 +60,15 @@ BrowserWindow.prototype.loadURL=async function(...args){
     const r={toast:document.querySelector('#toast span')?.textContent||document.getElementById('toast').textContent,open:!!document.querySelector('dialog.auto-slices[open]')};state.exporting=false;
     document.getElementById('btnAutoSlices').click();return r;})()`);
   report.jj2.busy=busy;assert.deepEqual(busy,{toast:'正在导出，等导出完再点这里。',open:false});
+  // inside a precomposed clip: its own sentence (state.compCtx set only for this click)
+  const comp=await read(`(()=>{document.querySelector('dialog.auto-slices').close();const t=document.getElementById('toast');t.textContent='';const keep=state.compCtx;state.compCtx={compId:'smoke'};
+    document.getElementById('btnAutoSlices').click();state.compCtx=keep;return{toast:t.querySelector('span')?.textContent||t.textContent,open:!!document.querySelector('dialog.auto-slices[open]')};})()`);
+  report.jj2.comp=comp;assert.deepEqual(comp,{toast:'你现在在合成片段里面。点时间线上方最左边的主序列名字，回到主序列再点这里。',open:false});
+  // mid-drag: no message; the click opens the dialog once the drag ends
+  const drag=await read(`(async()=>{const t=document.getElementById('toast');t.textContent='';state.gesture=true;document.getElementById('btnAutoSlices').click();
+    await new Promise(r=>setTimeout(r,400));const during={toast:t.textContent,open:!!document.querySelector('dialog.auto-slices[open]')};state.gesture=false;
+    await new Promise(r=>setTimeout(r,400));return{during,after:{toast:t.textContent,open:!!document.querySelector('dialog.auto-slices[open]')}};})()`);
+  report.jj2.drag=drag;assert.deepEqual(drag,{during:{toast:'',open:false},after:{toast:'',open:true}});
   // v10: 更多设置 › 字幕 shows the state only; without the on-device model: 还没装听写, and step 2 says it is skipped
   const subs=await read(`(()=>{const d=document.querySelector('dialog.auto-slices');d.querySelector('details.as-more').open=true;return{label:d.querySelector('[data-as-subs-label]').textContent,hint:d.querySelector('[data-as-subs-hint]').textContent,go:!!d.querySelector('[data-as-act=sub-go]'),checked:d.querySelector('[data-as-subs]').checked,step:autoRunHtml().includes('听写成文字：这台电脑还没装听写，先跳过，不影响找高光')};})()`);
   report.subs=subs;assert.deepEqual(subs,{label:'加字幕（还没装听写）',hint:'找高光照样能用，只是这次不出字幕。',go:false,checked:true,step:true});
