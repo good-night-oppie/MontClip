@@ -94,12 +94,60 @@
   /** The captions to put in place of the old ones, one per line in order: a picked line (with a time) as the lyrics, any
    *  other as it was heard (its own words and times). A line with nothing heard under it has no caption. */
   function cues(result, picked) {
-    const take = new Set(Array.isArray(picked) ? picked : []), out = [];
-    (result && result.ok ? result.lines : []).forEach((l, i) => {
-      if (take.has(i) && l.start != null) out.push({ start: l.start, end: l.end, text: l.text, words: l.words.map((w) => ({ ...w })) });
-      else if (l.heard.length) out.push({ start: Math.min(...l.heard.map((w) => w.s)), end: Math.max(...l.heard.map((w) => w.e)), text: l.original, words: l.heard.map((w) => ({ ...w })) });
-    });
-    return out;
+    const take = new Set(Array.isArray(picked) ? picked : []);
+    return (result && result.ok ? result.lines : []).map((l, i) => cueOf(l, take.has(i))).filter(Boolean);
   }
-  return Object.freeze({ MIN_SCORE, MAX_CHARS, MAX_LINES, lines, align, cues });
+  function cueOf(l, picked) {
+    if (picked && l.start != null) return { start: l.start, end: l.end, text: l.text, words: l.words.map((w) => ({ ...w })) };
+    if (l.heard.length) return { start: Math.min(...l.heard.map((w) => w.s)), end: Math.max(...l.heard.map((w) => w.e)), text: l.original, words: l.heard.map((w) => ({ ...w })) };
+    return null;
+  }
+
+  /* What is changed (QQ on #85; Deja, 2026-11-03): the captions picked are the ones changed; the ones not picked do not
+     change by a single character. */
+  const EPS = 1e-3;
+  const mid = (w) => ((w.s != null ? +w.s : +w[1]) + (w.e != null ? +w.e : +w[2])) / 2;
+  /** The captions to work on and the transcript's words to align: the picked captions (selected ids), else every unlocked
+   *  caption whose middle is in IN–OUT; the words whose middle is inside one of them — never the words between them.
+   *  captions: [{id, start, end, locked}] (timeline seconds). → {caps:[{id, start, end}] in time order, words} or null. */
+  function scope({ captions, selected, inPoint, outPoint, words } = {}) {
+    const all = (captions || []).map((c) => ({ id: c.id, start: +c.start, end: +c.end, locked: !!c.locked }));
+    const sel = new Set(Array.isArray(selected) ? selected : []);
+    let take;
+    if (sel.size) take = all.filter((c) => sel.has(c.id));
+    else if (Number.isFinite(inPoint) && Number.isFinite(outPoint) && outPoint > inPoint)
+      take = all.filter((c) => !c.locked && (c.start + c.end) / 2 >= inPoint && (c.start + c.end) / 2 < outPoint);
+    else return null;
+    take.sort((x, y) => x.start - y.start);
+    const caps = take.map(({ id, start, end }) => ({ id, start, end }));
+    return { caps, words: (words || []).filter((w) => caps.some((c) => mid(w) >= c.start && mid(w) < c.end)).map((w) => ({ ...w })) };
+  }
+  /** The new captions for the picked lines (the others as heard), each inside one of caps, with the caption it replaces:
+   *  → {cues:[{start, end, text, words, capId, line, lyrics}], replace:[ids], outside:[line indexes], held:[ids]}; lyrics: the
+   *  caption is the lyric line (else the line as heard).
+   *  outside: lines that answer to time no picked caption covers — placed across or outside the picked captions, or with
+   *  nothing heard between lines placed in two different ones; they are not made. held: picked captions such a line
+   *  reaches into; they are left as they were (with the lines inside them), so no heard word is lost. replace: the picked
+   *  captions that get new ones; only those are removed. */
+  function plan(result, picked, caps) {
+    const take = new Set(Array.isArray(picked) ? picked : []), list = (caps || []).slice().sort((x, y) => x.start - y.start);
+    const lines = result && result.ok ? result.lines : [];
+    const within = (q) => list.find((c) => q.start >= c.start - EPS && q.end <= c.end + EPS) || null;
+    const per = lines.map((l, i) => { const q = cueOf(l, take.has(i)); return q ? { q, cap: within(q) } : null; });
+    const outside = [];
+    per.forEach((x, i) => {
+      if (x) { if (!x.cap) outside.push(i); return; }
+      let b = i - 1, f = i + 1;
+      while (b >= 0 && !per[b]) b--;
+      while (f < per.length && !per[f]) f++;
+      if (b >= 0 && f < per.length && (per[b].cap && per[b].cap.id) !== (per[f].cap && per[f].cap.id)) outside.push(i);
+    });
+    const spans = outside.map((i) => per[i] && per[i].q).filter(Boolean);
+    const held = list.filter((c) => spans.some((q) => q.start < c.end - EPS && q.end > c.start + EPS)).map((c) => c.id);
+    const cuesOut = [];
+    per.forEach((x, i) => { if (x && x.cap && !held.includes(x.cap.id) && !outside.includes(i)) cuesOut.push({ ...x.q, capId: x.cap.id, line: i, lyrics: take.has(i) && lines[i].start != null }); });
+    const replace = list.filter((c) => cuesOut.some((q) => q.capId === c.id)).map((c) => c.id);
+    return { cues: cuesOut, replace, outside, held };
+  }
+  return Object.freeze({ MIN_SCORE, MAX_CHARS, MAX_LINES, lines, align, cues, scope, plan });
 });

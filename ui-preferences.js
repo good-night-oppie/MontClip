@@ -372,6 +372,9 @@
     "ly-no-lyrics": ["Paste the lyrics first.", "先把歌词粘贴进来。"],
     "ly-too-long": ["The lyrics or this part's transcript is too long: at most 3000 characters at a time. Narrow it down to one song.", "歌词或这段的听写太长了，一次最多 3000 个字。请把范围缩小到一首歌。"],
     "ly-changed": ["The project changed after this window opened, so nothing was applied. Close it and open it again.", "项目在打开这个窗口之后改过了，所以没有应用。请关掉再打开一次。"],
+    // QQ on #85 / Deja (2026-11-03): only the picked captions change — said under the comparison (new, pending JJ)
+    "ly-outside": ["{n} lyric lines match captions you didn't select; they are left unchanged.", "有 {n} 行歌词对应的是你没选的字幕，没改"],
+    "ly-held": ["{n} selected captions are left unchanged: a lyric line runs past them.", "有 {n} 条选中的字幕没改：里面有歌词行跨出了这条字幕"],
     "as-lyrics-soon": ["Coming in a later version", "这个功能还在做，后面的版本才能用"],
     "as-a-moment": ["A lively part", "热闹的一段"],
     "as-why": ["Why: ", "为什么选："],

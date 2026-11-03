@@ -74,6 +74,41 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.toast=t;assert.equal(t.text,'已按歌词改好 2 行字幕，可以撤销。');assert.equal(t.button,'撤销');
   await read(`document.getElementById('toast').querySelector('.toast-action').click();true`);await wait();
   assert.deepEqual(await caps(),before,'〔撤销〕 puts the old captions back');
+  // 5. QQ's scene on #85 (Deja, 2026-11-03): A 「天空好想下雨」 and C 「我好想住你隔壁」 picked, B 「谢谢老板」 between them not;
+  //    the lyrics have all three lines. Only A and C change; B does not change by a single character; nothing is made over
+  //    B; the line for B is counted under the comparison; A and C leave the selection; 〔撤销〕 gives back A, B and C as they were.
+  const up2=await read(`(async()=>{const b=Uint8Array.from(atob(${JSON.stringify(b64)}),c=>c.charCodeAt(0));return (await fetch('/api/upload?name=song2.wav',{method:'POST',body:b})).json();})()`);
+  const said=(text,t0)=>[...text].map((w,i)=>[w,+(t0+i*0.3).toFixed(3),+(t0+i*0.3+0.25).toFixed(3)]);
+  const heard2=[...said('天空好想下雨',0),...said('谢谢老板',2.5),...said('我好想住你隔壁',4.5)];
+  await read(`(async()=>{const doc=projectJSON();doc.media.push({id:'m_song2',name:'合成录像 2',kind:'audio',src:${JSON.stringify(up2.src)},duration:30});
+   doc.clips.push({id:'c_song2',mediaId:'m_song2',kind:'audio',track:'A1',start:40,in:0,duration:30,props:{}});applyProject(doc);scheduleSave();if(!await flushSave())throw Error('SAVE');
+   await fetch('/api/transcript?src='+encodeURIComponent(${JSON.stringify(up2.src)}),{method:'POST',body:JSON.stringify({src:${JSON.stringify(up2.src)},model:'paraformer-zh',language:'zh',duration:30,words:${JSON.stringify(heard2)}})});
+   await loadTranscript(${JSON.stringify(up2.src)},true);
+   const C=FableCutCaptions,first=project.clips.find(C.isCaption),track=first.track,style=first.props.captionStyle||C.DEFAULT_STYLE;
+   const put=(id,text,s,e)=>{const ws=transcriptWords().filter(w=>(w.s+w.e)/2>=s&&(w.s+w.e)/2<e);project.clips.push({...C.clip({start:s,end:e,text,words:ws},{style,width:project.width,height:project.height,track}),id});};
+   pushUndo();put('cap_A','天空好想下雨',40,41.8);put('cap_B','谢谢老板',42.5,44);put('cap_C','我好想住你隔壁',44.5,46.6);
+   scheduleSave();if(!await flushSave())throw Error('SAVE');renderTranscript(true);})()`);await wait(400);
+  const all=()=>read(`JSON.stringify(project.clips.filter(FableCutCaptions.isCaption).sort((a,b)=>a.id<b.id?-1:1))`);
+  const ABC=await all(),B0=await read(`JSON.stringify(getClip('cap_B'))`);
+  await read(`project.inPoint=null;project.outPoint=null;setSelection(['cap_A','cap_C'],'cap_C');document.querySelector('[data-tr-cap-lyrics]').click();true`);await wait();
+  await read(`(()=>{const e=document.querySelector('[data-ly-text]');e.value='天空好想下雨\\n谢谢老板\\n我好想住你隔壁';document.querySelector('[data-ly-align]').click();})();true`);await wait();
+  const scene={lines:await read(`[...document.querySelectorAll('[data-ly-lines] li')].map(li=>({now:li.querySelector('.ly-now').textContent,ticked:li.querySelector('[data-ly-pick]').checked,tag:li.querySelector('.ly-tag')?.textContent||''}))`),
+   hint:await read(`document.querySelector('[data-ly-outside]').textContent`)};
+  assert.deepEqual(scene.lines.map(l=>l.now),['改成：天空好想下雨','改成：谢谢老板','改成：我好想住你隔壁']);
+  assert.equal(scene.hint,'有 1 行歌词对应的是你没选的字幕，没改','said under the comparison');
+  await read(`document.querySelector('[data-ly-apply-all]').click();true`);await wait(300);
+  const now=JSON.parse(await read(`JSON.stringify(project.clips.filter(c=>FableCutCaptions.isCaption(c)&&c.start>=39).sort((a,b)=>a.start-b.start).map(c=>({id:c.id,text:c.props.text,start:c.start,end:+(c.start+c.duration).toFixed(3)})))`));
+  scene.after=now;scene.selection=await read(`({ids:[...state.selIds],primary:state.selId})`);
+  assert.equal(await read(`JSON.stringify(getClip('cap_B'))`),B0,'B not changed by a single character');
+  assert.deepEqual(now.map(c=>c.text),['天空好想下雨','谢谢老板','我好想住你隔壁'],'no new 「谢谢老板」');
+  assert.equal(now.filter(c=>c.text==='谢谢老板').length,1);
+  for(const c of now)if(c.id!=='cap_B')assert.ok(c.end<=42.5+1e-6||c.start>=44-1e-6,'nothing over B: '+JSON.stringify(c));
+  assert.ok(now[0].start>=40-1e-6&&now[0].end<=41.8+1e-6&&now[2].start>=44.5-1e-6&&now[2].end<=46.6+1e-6,'each inside the caption it replaced');
+  assert.ok(!now.some(c=>c.id==='cap_A'||c.id==='cap_C'),'A and C replaced');
+  assert.ok(!scene.selection.ids.includes('cap_A')&&!scene.selection.ids.includes('cap_C')&&scene.selection.primary!=='cap_C','the removed ids left the selection');
+  await read(`document.getElementById('toast').querySelector('.toast-action').click();true`);await wait();
+  assert.equal(await all(),ABC,'〔撤销〕: A, B and C each as they were');
+  report.scene=scene;
   ok=true;
  }catch(e){report.error=String(e&&e.stack||e).slice(0,1500);}
  finally{out(ok?'LYRICS_PASS':'LYRICS_FAIL',report);process.exitCode=ok?0:1;app.exit(ok?0:1);}

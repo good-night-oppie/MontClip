@@ -4956,6 +4956,7 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .cq-dialog .dialog-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
 
 /* P6a: correct captions from the lyrics */
+.ly-outside { white-space: pre-line; color: var(--warn, #c98a2b); }
 .ly-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(640px, 92vw); max-height: 85vh; padding: 20px; overflow: auto; }
 .ly-dialog textarea { width: 100%; box-sizing: border-box; }
 .ly-dialog .tr-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; }

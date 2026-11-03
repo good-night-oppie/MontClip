@@ -66,12 +66,12 @@ test('IN–OUT, nothing picked: every unlocked caption in the range; a locked on
 });
 
 test('「可能不对」 lines stay unticked; picking only some keeps the others as heard, still each inside its caption',()=>{
- const ws=[...said('天空好想夏雨',0),...said('我说了别的话呀哈',4.5)];
+ const ws=[...said('天空好想夏雨',0),...said('我说了别的话呀',4.5)];
  const s=L.scope({captions:[A,C],selected:['A','C'],words:ws});
  const r=L.align(s.words,'天空好想下雨\n我好想住你隔壁');
  a.equal(r.lines[1].sure,false);
  const p=L.plan(r,[0],s.caps);
- a.deepEqual(p.cues.map(q=>[q.text,q.capId]),[['天空好想下雨','A'],['我说了别的话呀哈','C']]);
+ a.deepEqual(p.cues.map(q=>[q.text,q.capId]),[['天空好想下雨','A'],['我说了别的话呀','C']]);
 });
 
 test('a picked caption that would lose words to a dropped line is left as it was, and so are the lines in it',()=>{

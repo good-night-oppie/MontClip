@@ -55,6 +55,6 @@ test('apply replaces only what MontClipLyrics.plan says, each new caption in its
  a.match(body,/uiText\("own\.ly-held", \{ n: p\.held\.length \}\)/);
 });
 test('the two new sentences, both languages (for JJ)',()=>{
- for(const k of ['ly-outside','ly-held']){const zh=View.t('zh-CN','own.'+k),en=View.t('en','own.'+k);a.ok(zh&&zh!=='own.'+k&&zh.includes('{n}')===false,k);a.ok(en&&!/[一-鿿]/.test(en),k);}
+ for(const k of ['ly-outside','ly-held']){const zh=View.t('zh-CN','own.'+k),en=View.t('en','own.'+k);a.ok(zh&&zh!=='own.'+k&&zh.includes('{n}'),k);a.ok(en&&!/[一-鿿]/.test(en),k);}
  a.equal(View.t('zh-CN','own.ly-outside',{n:1}),'有 1 行歌词对应的是你没选的字幕，没改');
 });

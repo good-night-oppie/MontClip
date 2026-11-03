@@ -7010,23 +7010,22 @@ function captionQuickTargets(scope) {
    the streamer pastes the lyrics, the transcript's words in the song's part are aligned to them, and each line shows what was
    heard and what it becomes. Nothing changes until 〔应用勾选的〕 / 〔全部应用〕; then the song's captions are replaced, one
    per lyric line (ticked lines as the lyrics, the rest as heard), in one undo step. The part is the selected captions, else
-   IN–OUT. */
+   the unlocked captions in IN–OUT; only those change, the others not by a single character (QQ on #85, Deja 2026-11-03):
+   the words come from those captions only, and every new caption lies inside the one it replaces (MontClipLyrics.plan). */
 function lyricsTargets() {
-  const sel = project.clips.filter((c) => FableCutCaptions.isCaption(c) && state.selIds.has(c.id));
-  let from, to, caps;
-  if (sel.length) { from = Math.min(...sel.map((c) => c.start)); to = Math.max(...sel.map((c) => c.start + c.duration)); caps = sel; }
-  else if (Number.isFinite(project.inPoint) && Number.isFinite(project.outPoint) && project.outPoint > project.inPoint) {
-    from = project.inPoint; to = project.outPoint;
-    caps = project.clips.filter((c) => FableCutCaptions.isCaption(c) && c.start + c.duration / 2 >= from && c.start + c.duration / 2 < to);
-  } else return null;
-  const words = transcriptWords().filter((w) => (w.s + w.e) / 2 >= from && (w.s + w.e) / 2 < to);
-  return { from, to, caps, words };
+  const caps = project.clips.filter((c) => FableCutCaptions.isCaption(c));
+  const s = MontClipLyrics.scope({
+    captions: caps.map((c) => ({ id: c.id, start: c.start, end: c.start + c.duration, locked: isClipLocked(c) })),
+    selected: caps.filter((c) => state.selIds.has(c.id)).map((c) => c.id),
+    inPoint: project.inPoint, outPoint: project.outPoint, words: transcriptWords(),
+  });
+  return s && { caps: s.caps, clips: s.caps.map((c) => getClip(c.id)), words: s.words };
 }
 function openLyricsAlign() {
   const t = lyricsTargets();
   if (!t) { toast(uiText("own.ly-pick-range")); return; }
   if (!t.words.length) { toast(uiText("own.ly-no-words")); return; }
-  if (t.caps.some(isClipLocked)) { toastLocked(); return; }
+  if (t.clips.some(isClipLocked)) { toastLocked(); return; }
   const signature = JSON.stringify(projectJSON());
   const say = (k, v) => escapeHtml(uiText("own." + k, v));
   const dialog = document.createElement("dialog");
@@ -7034,14 +7033,21 @@ function openLyricsAlign() {
   dialog.innerHTML = `<form method="dialog"><h3>${say("ly-title")}</h3><p>${say("ly-intro")}</p>
     <label>${say("ly-paste")}<textarea data-ly-text rows="6" placeholder="${say("ly-placeholder")}"></textarea></label>
     <div class="tr-row"><button type="button" class="btn" data-ly-align>${say("ly-align")}</button></div>
-    <p data-ly-summary role="status"></p><ol class="ly-lines" data-ly-lines></ol>
+    <p data-ly-summary role="status"></p><ol class="ly-lines" data-ly-lines></ol><p class="ly-outside" data-ly-outside role="status"></p>
     <div class="tr-row"><button type="button" class="btn primary" data-ly-apply disabled>${say("ly-apply")}</button>
     <button type="button" class="btn" data-ly-apply-all disabled>${say("ly-apply-all")}</button>
     <button class="btn" value="cancel">${say("ly-cancel")}</button></div></form>`;
   const list = dialog.querySelector("[data-ly-lines]"), summary = dialog.querySelector("[data-ly-summary]");
   let result = null;
   const ticked = () => [...list.querySelectorAll("[data-ly-pick]")].filter((b) => b.checked).map((b) => +b.dataset.lyPick);
-  const buttons = () => { dialog.querySelector("[data-ly-apply]").disabled = !result || !ticked().length; dialog.querySelector("[data-ly-apply-all]").disabled = !result || !result.lines.some((l) => l.sure); };
+  const allSure = () => (result ? result.lines.map((l, i) => (l.sure ? i : -1)).filter((i) => i >= 0) : []);
+  // under the comparison: lines that answer to captions not picked, and picked captions left as they were — for the ticks now
+  const outside = dialog.querySelector("[data-ly-outside]");
+  const buttons = () => {
+    dialog.querySelector("[data-ly-apply]").disabled = !result || !ticked().length; dialog.querySelector("[data-ly-apply-all]").disabled = !result || !result.lines.some((l) => l.sure);
+    const p = result ? MontClipLyrics.plan(result, ticked(), t.caps) : null;
+    outside.textContent = p ? [p.outside.length ? uiText("own.ly-outside", { n: p.outside.length }) : "", p.held.length ? uiText("own.ly-held", { n: p.held.length }) : ""].filter(Boolean).join("\n") : "";
+  };
   dialog.querySelector("[data-ly-align]").addEventListener("click", () => {
     const r = MontClipLyrics.align(t.words, dialog.querySelector("[data-ly-text]").value);
     list.textContent = ""; result = null;
@@ -7068,28 +7074,32 @@ function openLyricsAlign() {
     if (!result || !picked.length) return;
     // the CAS: nothing changed since this window opened
     if (JSON.stringify(projectJSON()) !== signature) { summary.textContent = uiText("own.ly-changed"); return; }
-    const C = FableCutCaptions, first = t.caps[0], style = first?.props?.captionStyle || C.DEFAULT_STYLE;
-    let track = first?.track;
-    if (!track) { const lane = C.trackFor({ ...project, tracks: serializeTracks() }, t.from, t.to); track = lane.track; if (lane.add) { const tr = addTimelineTrack("video"); if (!tr) return; track = tr.id; } }
+    // only the picked captions that get new ones are replaced; each new caption takes the track, style, size and place of
+    // the caption it lies in
+    const p = MontClipLyrics.plan(result, picked, t.caps);
+    if (!p.cues.length) return;
+    const C = FableCutCaptions, was = new Map(t.clips.map((c) => [c.id, c]));
     const snap = undoSnapshot();
-    const gone = new Set(t.caps.map((c) => c.id));
+    const gone = new Set(p.replace);
     project.clips = project.clips.filter((c) => !gone.has(c.id));
-    const cues = MontClipLyrics.cues(result, picked);
-    for (const q of cues) {
-      const clip = { ...C.clip(q, { style, width: project.width, height: project.height, track }), id: "c_" + uid() };
+    for (const id of gone) state.selIds.delete(id);
+    if (gone.has(state.selId)) state.selId = [...state.selIds].pop() ?? null;
+    for (const q of p.cues) {
+      const old = was.get(q.capId), style = old.props?.captionStyle || C.DEFAULT_STYLE;
+      const clip = { ...C.clip(q, { style, width: project.width, height: project.height, track: old.track }), id: "c_" + uid() };
       // the size and place the streamer gave these captions stay
-      if (first && Number.isFinite(first.props?.fontSize)) clip.props.fontSize = first.props.fontSize;
-      if (first && Number.isFinite(first.props?.y)) clip.props.y = first.props.y;
+      if (Number.isFinite(old.props?.fontSize)) clip.props.fontSize = old.props.fontSize;
+      if (Number.isFinite(old.props?.y)) clip.props.y = old.props.y;
       project.clips.push(clip);
     }
     pushUndo(snap);
-    const depth = runtime.undo.length, n = picked.filter((i) => result.lines[i]?.start != null).length;
+    const depth = runtime.undo.length, n = p.cues.filter((q) => q.lyrics).length;
     state.dirtyTimeline = true; scheduleSave(); renderTranscript(true); renderInspector(); drawFrame();
     dialog.close();
     toastAction(uiText("own.ly-done", { n }), uiText("own.as-undo"), () => { if (runtime.undo.length === depth) undo(); });
   };
   dialog.querySelector("[data-ly-apply]").addEventListener("click", () => apply(ticked()));
-  dialog.querySelector("[data-ly-apply-all]").addEventListener("click", () => apply(result ? result.lines.map((l, i) => (l.sure ? i : -1)).filter((i) => i >= 0) : []));
+  dialog.querySelector("[data-ly-apply-all]").addEventListener("click", () => apply(allSure()));
   dialog.addEventListener("close", () => dialog.remove());
   document.body.append(dialog); dialog.showModal(); dialog.querySelector("[data-ly-text]").focus();
 }
