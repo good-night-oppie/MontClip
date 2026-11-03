@@ -61,3 +61,11 @@ test("the server's codes: disk full, consent-gated reasons and anything else", (
   a.equal(P.publicPreparationError(Object.assign(new Error('x'), { code: 'FLV_TIMELINE_GAP' })).code, 'FLV_TIMELINE_GAP');
   a.equal(P.publicPreparationError(Object.assign(new Error('x'), { code: 'EACCES' })).code, 'IMPORT_FAILED');
 });
+
+// JJ (8 PRs, documents/2026-11-03-MontClip-8个PR文案确认-JJ.md, sha256 3adc874a…): the preparing phase says what the
+// streamer gets, not 兼容副本
+test("JJ (8 PRs): 正在转成能剪的格式…", () => {
+  a.equal(V.t('zh-CN', 'flvPhasePrepare'), '正在转成能剪的格式…');
+  a.equal(V.t('en', 'flvPhasePrepare'), 'Converting to a format you can edit…');
+  for (const l of ['zh-CN', 'en']) for (const s of Object.values(V.text[l])) a.ok(typeof s !== 'string' || !s.includes('兼容副本'), s);
+});

@@ -2856,6 +2856,11 @@ undo history. Undo/redo buttons use the existing editor commands. The collapsibl
 Assistant panel states that no AI service is connected; it sends nothing.
 FLV import, broader localization and interactive chat are separate changes.
 
+Simple mode holds back the advanced shortcuts (Alt+T, Shift+E / Shift+D, Ctrl/Cmd+L, [ and ], B / R / Y / U, Alt+Z,
+T / Shift+T, Shift+Delete), hides the B / R / Y / U tool buttons and refuses to switch to those tools; going to
+simple mode returns to the selection tool (V). The project, the selection and the undo history are unchanged.
+Advanced mode keeps every shortcut. Buttons and menus that are shown in simple mode keep working.
+
 Desktop view preferences (simple/advanced and zh-CN/en) use the fixed userData/view-settings.json file, independent of the random local server port. The sandboxed preload exposes only get/set for these two enum settings; main validates sender, top frame and exact origin. Browser use retains localStorage. This does not save project edits.
 
 Desktop export downloads: the Save dialog is titled 保存导出的视频 / Save the exported video (保存字幕 / Save captions for SRT/VTT) in the interface language, with the file name in Downloads. Once the user saves the file, or cancels, the desktop app removes that export's own copy from workspace/exports; an interrupted save keeps it. The Export queue's Open then has no file to fetch: export again. Agent exports (fablecut_export) are not downloads and stay in exports/.
@@ -2886,6 +2891,15 @@ blob, and does not yet offer the deferred native consent UI. Source registration
 is guarded against project changes after metadata. These tests do not explain the
 historical browser disk-revision1 incident. No automatic subtitle/danmaku shift.
 
+**Desktop FLV import.** In the desktop app a picked FLV goes through the main process (`desktop/flv-import.js`,
+fixed IPC `montclip:flv:inspect|prepare|status|cancel|finish` behind the settings guard; the preload reads the
+File's path and no path returns to the page). It is checked where it is (probe and readable range; a timeline gap
+is refused) and hashed (sha256) before anything is copied. A re-encode or an unconfirmed ending asks first, Cancel
+focused. Then it is copied into `media/` as a stream into a new exclusive file, the copy's hash must equal the
+original's (`FLV_SOURCE_CHANGED` / `FLV_COPY_MISMATCH` otherwise), and `prepareMedia` makes the compatible MP4
+from the copy. Cancel, failure, a project switch or quitting removes only the files that import made; nothing else
+in `media/` is touched. The browser path (`/api/upload`) is unchanged.
+
 This split uses the existing development child_process/PATH tools, parameter
 arrays, timeout and owned partial-output cleanup. It is not the packaged tool
 resolver or a portable/offline release. System GPLv3 FFmpeg is a development test
@@ -2913,7 +2927,7 @@ If session storage cannot be read at initialization, the Agent pane explicitly u
 
 ## Experimental official Cindy composer integration
 
-The desktop assistant reuses pinned Apache-2.0 Cindy components, bundled locally. Open **AI service** in the assistant, select OpenAI or DeepSeek, enter a model ID and your own key, then save. Configuration alone sends no request. Before sending, review the full outgoing JSON including prior messages and explicitly selected references. Keys are encrypted by Electron safeStorage in this MontClip profile and are not returned to the page. The key is briefly present in its write-only input before save. Session text is local plaintext; do not treat the profile as encrypted message storage.
+The desktop assistant reuses pinned Apache-2.0 Cindy components, bundled locally. Open **AI service** in the assistant: OpenRouter is listed first and recommended, with DeepSeek Flash (`deepseek/deepseek-v4.1-flash-1017`) filled in; DeepSeek and OpenAI follow. Enter your own key (and change the model ID if you like), then save. The settings say the provider may keep the text you send. Configuration alone sends no request. Before sending, review the full outgoing JSON including prior messages and explicitly selected references. Keys are encrypted by Electron safeStorage in this MontClip profile and are not returned to the page. The key is briefly present in its write-only input before save. Session text is local plaintext; do not treat the profile as encrypted message storage.
 
 Only text chat is available through this adapter. Two proposal shapes are accepted: keep_sentences (explicitly quoted whole subtitles) and keep_ranges (source-second ranges of a media clip, `output_mode` one_file or per_range; see below). Review/preview do not edit; Apply uses the existing range engine, and Undo restores it. Invalid or stale suggestions are refused. No shell, arbitrary URL, media upload or automatic edit tool is exposed. Live provider acceptance is pending; tests use a clearly labelled injected transport. This is a partial official-component port, not full Cindy compatibility or a packaged release. See [provenance and limits](docs/decisions/2026-11-01-official-cindy-port.md).
 

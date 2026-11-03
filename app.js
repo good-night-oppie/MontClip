@@ -48,13 +48,30 @@ function codeText(error) {
   const code = error && (error.code || error.errorCode);
   return typeof code === "string" && CODE_TEXT[code] ? uiText(CODE_TEXT[code]) : "";
 }
+/** Simple mode: no tooltip offers a shortcut it holds back (Deja, #55); advanced mode shows the full text again. The
+ *  full tooltip is kept beside the shown one, and a tooltip rewritten since (a new language) is taken as the full one. */
+function syncShortcutTitles(mode) {
+  for (const el of document.querySelectorAll("[title]")) {
+    const now = el.getAttribute("title"), full = el.dataset.mcStripped === now && el.dataset.mcFull != null ? el.dataset.mcFull : now;
+    const shown = mode === "simple" ? MontClipView.stripBlockedHints(full) : full;
+    if (shown !== now) el.setAttribute("title", shown);
+    if (shown !== full) { el.dataset.mcFull = full; el.dataset.mcStripped = shown; } else { delete el.dataset.mcFull; delete el.dataset.mcStripped; }
+  }
+}
+/** The same rule for tooltips and menu hints built later (the clip flags, the context menus). */
+function shortcutTitle(title) { return mcView.get().mode === "simple" ? MontClipView.stripBlockedHints(title) : title; }
+function shortcutKeys(keys) {
+  return keys && mcView.get().mode === "simple" && MontClipView.blockedHint(keys) ? "" : keys;
+}
 function renderMontClipView() {
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
   document.getElementById("mcAssistantTab").textContent=t.assistant;document.getElementById("mcMediaToggle").textContent=mcView.get().language==="en"?"Media":"素材";
   mcAgent?.render();
   document.querySelector(".mc-history").setAttribute("aria-label", t.undo + " / " + t.redo);
   document.documentElement.lang = language;
+  for (const b of document.querySelectorAll('[data-edit-tool]:not([data-edit-tool="select"])')) b.hidden = mode === "simple";
   MontClipView.applyI18n(document, language);
+  syncShortcutTitles(mode);
   if (typeof syncTimelineTrackView === "function" && syncTimelineTrackView.folded) updateTracksAboveHint();
   document.body.dataset.mcMode = mode;
   document.getElementById("mcLanguage").value = language;
@@ -85,6 +102,8 @@ function updateMontClipView(patch) {
   try { renderQueue(); } catch { /* not built yet */ }
   refreshLanguageText();
   refreshLocalizedViews();
+  // simple mode has the selection tool only: back to V; the project, selection and history stay as they are
+  if (mcView.get().mode === "simple" && state.tool !== "select") setEditTool("select");
   state.dirtyTimeline = true;
   if (!saved) toast(mcView.get().language === "en" ? "View preference could not be saved." : "界面偏好未能保存。");
 }
@@ -487,6 +506,7 @@ function showClipCtxMenu(clientX, clientY, c) {
   menu.className = "ctx-menu";
   menu.id = "trackCtxMenu";
   const item = (label, keys, run, disabledReason) => {
+    keys = shortcutKeys(keys);   // simple mode: no hint for a held-back shortcut
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "ctx-item";
@@ -2105,6 +2125,48 @@ function mediaKindFromFile(file) {
   if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif"].includes(ext)) return "image";
   return null;
 }
+/* Desktop FLV import (Deja, replacing #7): the main process checks the picked file where it is and hashes it; a
+   re-encode or a file whose end could not be confirmed asks first (Cancel focused); only then is it copied into
+   media/ as a stream and the copy's hash checked. A dialog shows each step with a Cancel that removes only this
+   import's files. Returns {src, originalSrc, preparation, importId}, or null when nothing was imported. */
+async function desktopFlvImport(file) {
+  const bridge = globalThis.montclipFlv, T = (k, v) => MontClipView.t(mcView.get().language, k, v);
+  const dlg = document.createElement("dialog"), title = document.createElement("h3"), name = document.createElement("p"),
+    status = document.createElement("p"), ask = document.createElement("p"), row = document.createElement("div"),
+    cancel = document.createElement("button"), go = document.createElement("button");
+  dlg.className = "flv-import-dialog"; dlg.dataset.flvImport = "";
+  title.textContent = T("flvTitle"); name.textContent = file.name; name.className = "flv-import-name";
+  status.dataset.flvStatus = ""; status.setAttribute("role", "status");
+  ask.dataset.flvAsk = ""; ask.hidden = true;
+  cancel.className = "btn"; cancel.dataset.flvCancel = ""; cancel.textContent = T("flvCancel");
+  go.className = "btn primary"; go.dataset.flvContinue = ""; go.textContent = T("flvContinue"); go.hidden = true;
+  row.className = "flv-import-row"; row.append(cancel, go);
+  dlg.append(title, name, status, ask, row); document.body.append(dlg); dlg.showModal(); cancel.focus();
+  let id = null, canceled = false, answer = null;
+  const PHASE = { inspect: "flvPhaseInspect", hash: "flvPhaseHash", copy: "flvPhaseCopy", verify: "flvPhaseVerify", prepare: "flvPhasePrepare" };
+  const show = (st) => { if (st && PHASE[st.phase]) status.textContent = T(PHASE[st.phase], { pct: st.size ? Math.min(100, Math.floor(st.done / st.size * 100)) : 0 }); };
+  status.textContent = T("flvPhaseInspect");
+  const stop = () => { canceled = true; cancel.disabled = true; if (answer) answer(false); if (id) bridge.cancel(id); };
+  cancel.onclick = stop; dlg.addEventListener("cancel", (e) => { e.preventDefault(); stop(); });
+  const poll = setInterval(async () => { if (id && !canceled) { const r = await bridge.status(id); if (r && r.ok) show(r.status); } }, 250);
+  try {
+    const seen = await bridge.inspect(file);
+    if (!seen.ok) { toast(MontClipView.flvImportMessage(mcView.get().language, seen.code)); return null; }
+    id = seen.id;
+    if (canceled) { await bridge.cancel(id); toast(T("flvCanceled")); return null; }
+    if (!seen.compatible || seen.needsReadableConsent) {
+      ask.textContent = [!seen.compatible ? T("flvAskTranscode") : "", seen.needsReadableConsent ? T("flvAskReadable") : ""].filter(Boolean).join("\n\n");
+      ask.hidden = false; go.hidden = false; status.textContent = ""; cancel.focus();
+      const yes = await new Promise((resolve) => { answer = resolve; go.onclick = () => resolve(true); });
+      answer = null; ask.hidden = true; go.hidden = true;
+      if (!yes) { await bridge.cancel(id); toast(T("flvCanceled")); return null; }
+    }
+    status.textContent = T("flvPhaseCopy", { pct: 0 });
+    const out = await bridge.prepare({ id, allowTranscode: !seen.compatible, acceptReadable: seen.needsReadableConsent });
+    if (!out.ok) { toast(MontClipView.flvImportMessage(mcView.get().language, canceled ? "FLV_IMPORT_CANCELED" : out.code)); return null; }
+    return { src: out.src, originalSrc: out.originalSrc, preparation: out.preparation, importId: id };
+  } finally { clearInterval(poll); dlg.close(); dlg.remove(); }
+}
 async function importFiles(fileList) {
   const files = [...fileList];
   if (!files.length) return [];
@@ -2119,8 +2181,13 @@ async function importFiles(fileList) {
     const kind = mediaKindFromFile(file);
     if (!kind) { skipped++; continue; }
     const flv = /\.flv$/i.test(file.name);
-    let src, originalSrc, preparation, transient = false;
-    if (state.connected) {
+    let src, originalSrc, preparation, flvImport = null, transient = false;
+    if (flv && globalThis.montclipFlv) {
+      // desktop: checked where it is, copied only after the user agrees (desktopFlvImport)
+      const r = await desktopFlvImport(file);
+      if (!r) continue;
+      ({src, originalSrc, preparation} = r); flvImport = r.importId;
+    } else if (state.connected) {
       try {
         const res = await fetch("/api/upload?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
         if (!res.ok) { let code = ""; try { code = (await res.json()).code || ""; } catch {} throw Object.assign(new Error("upload " + res.status), { code }); }
@@ -2139,8 +2206,15 @@ async function importFiles(fileList) {
       await loadMediaMetadata(m);
       if (kind === "video") grabThumb(m).catch(() => { });
       ensureWave(m);
-    } catch { skipped++; continue; }
-    if (gen !== runtime.projectGen) { toast("Import stopped: another project was opened. The uploaded files are in media/"); break; }
+    } catch {
+      if (flvImport) { await globalThis.montclipFlv.cancel(flvImport); flvFailure("FLV_PREPARATION_FAILED"); continue; }
+      skipped++; continue;
+    }
+    if (gen !== runtime.projectGen) {
+      if (flvImport) await globalThis.montclipFlv.cancel(flvImport);
+      toast("Import stopped: another project was opened. The uploaded files are in media/"); break;
+    }
+    if (flvImport) await globalThis.montclipFlv.finish(flvImport);
     project.media.push(m);
     addedMedia.push(m);
     added++;
@@ -2695,6 +2769,7 @@ function showMediaMenu(x, y, m) {
   menu.className = "ctx-menu";
   const uses = MediaLib.placements(usageDoc(), m.id).length;
   const item = (label, run, why, keys) => {
+    keys = shortcutKeys(keys);
     const b = document.createElement("button");
     b.type = "button"; b.className = "ctx-item";
     b.innerHTML = `<span>${escapeHtml(label)}</span>` + (keys ? `<kbd>${escapeHtml(keys)}</kbd>` : "");
@@ -5943,6 +6018,7 @@ const EDIT_TOOLS = {
 };
 function setEditTool(name) {
   if (!EDIT_TOOLS[name]) return;
+  if (name !== "select" && mcView.get().mode === "simple") return;   // simple mode has the selection tool only
   state.tool = name;
   els.tracksContent.dataset.tool = name;
   for (const b of document.querySelectorAll("[data-edit-tool]")) {
@@ -6905,7 +6981,7 @@ function clipStatusBar(c) {
   const linked = !!(c.linkGroup || c.linkedId);
   const canLink = !linked && (c.kind === "video" || c.kind === "audio") && c.unlinked === true;
   const b = (cmd, on, label, title, extra = "") =>
-    `<button type="button" class="clip-flag${on ? " on" : ""}" data-clip-cmd="${cmd}" aria-pressed="${on}" title="${title}"${extra}>${label}</button>`;
+    `<button type="button" class="clip-flag${on ? " on" : ""}" data-clip-cmd="${cmd}" aria-pressed="${on}" title="${shortcutTitle(title)}"${extra}>${label}</button>`;
   return `<div class="clip-flags">` +
     b("disable", disabled, disabled ? "Disabled" : "Enabled",
       disabled ? "Hidden from preview and export — click to enable (Shift+E)" : "Click to disable: hide from preview and export without deleting (Shift+E)") +
@@ -19916,6 +19992,12 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   if (isTypingTarget(document.activeElement)) return;
+  // simple mode: the advanced shortcuts do nothing (ui-preferences.js lists them); the first one of a launch says why (JJ)
+  if (mcView.get().mode === "simple" && MontClipView.advancedShortcut(e)) {
+    e.preventDefault();
+    if (!runtime.simpleKeyHinted) { runtime.simpleKeyHinted = true; toast(uiText("own.simple-advanced-key")); }
+    return;
+  }
   if (k === " ") { e.preventDefault(); toggleTransportPlay(); }
   // JKL shuttle — bare keys only, so Cmd/Ctrl+J/K/L stay with the browser.
   // K stops; hold K and tap J / L to step a frame, hold both to crawl.
