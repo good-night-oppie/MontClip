@@ -327,8 +327,8 @@
     // Closing with exported videos not saved (JJ's 「预备稿 4」 and its one-video forms; English for JJ to review)
     "export-unsaved-title-1": ["1 video isn't saved yet. Close now?", "还有 1 个视频没保存，现在关掉吗？"],
     "export-unsaved-title-n": ["{n} videos aren't saved yet. Close now?", "还有 {n} 个视频没保存，现在关掉吗？"],
-    "export-unsaved-body-1": ["This video is exported but not yet saved where you choose. After closing it won't be in the export queue any more, but it still takes up space on drive C.", "这个视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它了，但它还占着 C 盘空间。"],
-    "export-unsaved-body-n": ["These videos are exported but not yet saved where you choose. After closing they won't be in the export queue any more, but they still take up space on drive C.", "这些视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它们了，但它们还占着 C 盘空间。"],
+    "export-unsaved-body-1": ["This video is exported but not yet saved to a place you chose. After closing it won't be in the export queue any more, but it still takes up space on drive C.", "这个视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它了，但它还占着 C 盘空间。"],
+    "export-unsaved-body-n": ["These videos are exported but not yet saved to a place you chose. After closing they won't be in the export queue any more, but they still take up space on drive C.", "这些视频已经导出好了，还没存到你选的地方。关掉以后，导出队列里就找不到它们了，但它们还占着 C 盘空间。"],
     "export-unsaved-delete-1": ["Delete it and close", "删掉它并关闭"],
     "export-unsaved-delete-n": ["Delete them and close", "删掉它们并关闭"],
     "export-unsaved-keep": ["Close without deleting", "不删，直接关闭"],
