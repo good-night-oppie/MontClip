@@ -21,7 +21,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
   await read(`(async()=>{if(!await flushSaveBeforeSwitch())throw Error('SAVE');await pjPost({action:'new',name:'事件 smoke',open:true});if(!await syncFromServer(true))throw Error('CREATE');})()`);await wait();
   const caps=await read(`montclipCapabilities.get()`);report.capabilities={ok:caps.ok,count:caps.capabilities.length,keep_ranges:caps.capabilities.find(c=>c.name==='keep_ranges').risk,export:caps.capabilities.find(c=>c.name==='fablecut_export').risk};
-  assert.equal(caps.ok,true);assert.equal(report.capabilities.count,26);
+  assert.equal(caps.ok,true);assert.equal(report.capabilities.count,require('../capabilities').list().length);
   // a synthetic 60 s recording on V1 (no file is read: nothing plays)
   await read(`(async()=>{const doc=projectJSON();Object.assign(doc,{media:[{id:'m1',src:'/media/none.mp4',kind:'video',name:'合成.mp4',duration:60}],clips:[{id:'v1',kind:'video',mediaId:'m1',track:'V1',start:0,in:0,duration:60,props:{volume:0}}]});applyProject(doc);scheduleSave();if(!await flushSave())throw Error('SAVE');})()`);
   // 1. by hand: a split is one undo step and one streamer event; the save writes its revision; project.json has it

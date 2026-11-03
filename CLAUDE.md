@@ -52,6 +52,8 @@ Every Claude Code session then has these tools:
   on that canvas whose shots follow the subject. See "Sequences" below.
 - `fablecut_highlights` — the best moments of long footage cut into a short edit, in a new
   sequence. See "Sequences" below.
+- `fablecut_songs` — where each song in a long recording starts and ends, from the sound
+  alone, with the guessed spots marked; kept in the project. See "Songs in a recording" below.
 - `fablecut_transcribe` — turn speech into words with times (Whisper, in the browser),
   read them on the timeline, find a phrase and cut it out. See "Transcripts and
   text-based editing" below.
@@ -2268,6 +2270,11 @@ Request bodies are limited: 1 MB, except `PUT /api/project` (64 MB), `POST /api/
   `POST /api/transcribe/request {transcribe:{srcs, model?, language?, again?}, where?}` queues a transcription
   on the export-job queue (poll `GET /api/export/job?id=`); the tab saves each transcript, and the job's
   `result` lists `done`, `skipped` and `failed`. See "Transcripts and text-based editing".
+- `POST /api/songs {src, again?}` → 202 `{src, state, done, total}` starts reading a file for songs, or carries
+  on from the first segment not read yet (`again:true` forgets what was read) · `GET /api/songs?src=` →
+  `{src, key, state, done, total, complete, scanned, songs}` (songs in file seconds; state `running` · `done` ·
+  `stopped` · `failed` · `none`) · `POST /api/songs/cancel {src}` stops it, keeping what was read. SSE event
+  `songs` (`{src, state, done, total}`) after each segment. See "Songs in a recording".
 - `POST /api/denoise` — body `{src:"/media/…", amount:"light"|"medium"|"strong"}`: writes a
   noise-reduced FLAC of the whole file into `./media/` (reused if it exists) and returns
   `{src, name, duration, channels}`. Does not touch `project.json` (see "Audio mix").
@@ -2779,6 +2786,35 @@ SRT/WebVTT parsing preserves the full normalized cue body instead of truncating 
 ### Highlight candidate cards (P2, MontClip)
 
 The Transcript tab's **高光候选 / Highlight candidates** reads local signals only and runs no model. The signals are the timeline's sentences (caption clips), the loudness of each sounding clip's file (read once by the server through ffmpeg as a stream, 8 kHz mono, 0.5 s bins, cached in `analysis/signals/` per file version — `GET /api/signals/loudness?src=` — and mapped onto the timeline through start, in point, speed, volume and gain; without a server, the mix itself in 60 s pieces), and `project.danmaku` (`[{t}]`) when present — the editor keeps `project.danmaku` as it is through load and save (every field of every entry). It shows up to 12 candidate ranges, best first, each with reasons that name the signal, the value, the baseline and the window. `highlight-candidates.js` holds the pure logic. **Go to** only moves the playhead; **Keep the ticked ones** keeps the ranges through the range engine as one undo step. With nothing to go on, it says why. Design and clean-room exception: `docs/decisions/2026-11-02-p2-highlight-cards.md`.
+
+### Songs in a recording (MontClip)
+
+`fablecut_songs` finds where each song in a long recording (a livestream replay with singing between talk) starts
+and ends, from the sound alone: no transcript, no model, nothing leaves the machine. Until song finding meets its accuracy gate (precision@15 ≥ 0.6 and recall@10 ≥ 0.6; it measures 0.12 and 0.38 now), when you talk to the streamer call what it finds 「可能在唱歌的段落」 (parts that are possibly singing): never 「第几首歌」 (song numbers), and never a song's name unless the streamer named it herself. Singing holds its level; talk
+pauses between words. `song-scan.js` has ffmpeg's `astats` and `aspectralstats` read the file's sound (mono, 16 kHz,
+one row per 0.5 s: RMS level, spectral flatness, centroid, entropy, zero-crossing rate) in 300 s segments, and keeps
+each segment as soon as it is read in `analysis/songs/<file version>/` (name, size, modification time): a stopped
+call carries on from the first segment not read yet, and a replaced file is read again. `songs.js` then marks each
+moment as singing when, in the 30 s around it, at most 12% of it drops 14 dB below that window's median and the
+window is not a quiet room; joins runs across breaks of up to 8 s, splits a run long enough to be two songs (240 s
+or more) at a quiet gap at least 150 s in and 90 s before its end, and drops runs under 90 s. A song's start backs
+up to where its sound begins, its end runs on to where the sound stops (each at most 12 s). Spectral entropy is not
+used. These parameters come from the prototype's grid search over a local golden set, which is not in the repo
+(`node real-tests/songs-golden.cjs <dir>` evaluates against one and prints numbers only). **Not accurate enough to
+trust yet**: on that set (15 recordings from 13 streamers) precision@15 is 0.12, and on its 4 held-out recordings
+(4 streamers) recall@10 is 0.38. Treat every song as a guess to check; the editor shows them all as 「估的」.
+
+Each song is `{from, to, confidence, marks}` in seconds of the file. `confidence` has two levels only: `likely`
+(「比较可能」 — nothing was guessed; not a promise that the song is right) or `estimated` (「估的」), with `marks` saying
+where and why: `split` (start or end — two songs with no clear gap between them were
+split at the quietest gap), `merged` (inside — a break was bridged; it may be two songs), `edge` (it runs to the
+start or end of the recording), `unread` (it runs into the part of the file not read yet), `limit` (its start or end
+ran 12 s without the sound beginning or stopping). The songs are kept in the project as `project.songs`
+(`{<mediaId>: {v:1, key, complete, scanned, songs}}`, `key` = the file version read), checked on every write; the
+editor keeps them when it saves, for files still in the project. Agents: `fablecut_songs {mediaIds?, again?, store?}`
+reads (default: every video / audio file used on the open timeline), keeps them in one revision, and lists each
+song; the patch op `{op:"setSongs", mediaId, songs:{key, complete, scanned, songs} | null}` writes or forgets one
+file's entry. REST: `/api/songs` (see "REST API").
 
 ### MontClip view preferences
 

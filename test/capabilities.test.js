@@ -9,7 +9,7 @@ const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 test('every MCP tool and both proposal shapes are in the table, nothing else',()=>{
  const names=Cap.list().map(c=>c.name).sort();
  a.deepEqual(names,[...TOOLS.map(t=>t.name),'keep_ranges','keep_sentences'].sort());
- a.equal(TOOLS.length,24);
+ a.equal(TOOLS.length,25);
 });
 test('the MCP server serves the same tool definitions it always had (moved to mcp-tools.js, unchanged)',()=>{
  const src=read('mcp-server.js');
