@@ -1,0 +1,42 @@
+{
+  "seconds": 600,
+  "encoder": "h264_mf",
+  "source": {
+    "sha256": "bd132583a57bcdc004d361bb6f4a857033c0893037f770a3e352b3692e0336ea",
+    "bytes": 2909605
+  },
+  "export": {
+    "bytes": 3236318,
+    "report": "320×180 · 30 fps · 18000 frames · h264 · color bt709 · aac 48 kHz stereo · 10:00.00 · -18.0 LUFS · -4.6 dBTP · 3.1 MB",
+    "ms": 63261
+  },
+  "ffmpeg": "ffmpeg version n9.0.2-42-gd7643a0fe3-20261102 Copyright (c) 2000-2026 the FFmpeg developers",
+  "pairs": 1200,
+  "events": 1200,
+  "worstMs": 0.1,
+  "placementOk": true,
+  "unpaired": {
+    "flashes": [],
+    "beeps": []
+  },
+  "lastPlacement": [
+    {
+      "expected": 598.7,
+      "errorMs": 0
+    },
+    {
+      "expected": 599.2,
+      "errorMs": 0
+    },
+    {
+      "expected": 599.7,
+      "errorMs": 0
+    }
+  ],
+  "lastPairsMs": [
+    0.1,
+    0.1,
+    0.1
+  ],
+  "ok": true
+}
