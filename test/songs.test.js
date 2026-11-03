@@ -86,3 +86,20 @@ test('two levels only, 「估的」 and 「比较可能」 (Deja: the measured p
  a.ok(sec.length>100&&!/`sure`/.test(sec)&&/`likely`/.test(sec)&&/「比较可能」/.test(sec)&&!/「较可能」/.test(sec),'JJ final: 比较可能');
  a.ok(/「比较可能」/.test(tool)&&!/「较可能」/.test(tool),'the MCP description in JJ final words too');
 });
+
+// JJ / Deja (2026-11-03, review of #75): the table says 「可能在唱歌」 like the cards, and the AI is told to talk that way
+// too: the AI repeats the words of its tool description to the streamer.
+test('the capability says 可能在唱歌, and the AI is told to say 可能在唱歌的段落, never song numbers or names, until the gate', () => {
+  const Cap = require('../capabilities'), c = Cap.get('fablecut_songs');
+  a.equal(c.summary['zh-CN'], '找出录像里可能在唱歌的段落，标出估的地方');
+  a.equal(c.summary.en, 'Find the parts of a recording that are possibly singing, marking the guessed spots');
+  const tool = require('../mcp-tools').find((t) => t.name === 'fablecut_songs').description;
+  const fs = require('node:fs'), path = require('node:path');
+  const sec = fs.readFileSync(path.join(__dirname, '..', 'CLAUDE.md'), 'utf8').split('### Songs in a recording (MontClip)')[1].split('\n## ')[0].split('\n### ')[0];
+  for (const [where, s] of [['MCP description', tool], ['CLAUDE.md', sec]]) {
+    a.match(s, /talk(ing)? to the streamer[^.]*「可能在唱歌的段落」/, where);
+    a.match(s, /never 「第几首歌」/, where);
+    a.match(s, /never a song's name/, where);
+    a.match(s, /precision@15 ≥ 0\.6 and recall@10 ≥ 0\.6/, where);
+  }
+});
