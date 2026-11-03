@@ -28,6 +28,12 @@ test('label() gives the plain sentence in the interface language, never an inter
     a.ok(s && !INTERNAL.test(s) && !(typeof name === 'string' && name && s.includes(name)), String(name) + ': ' + s);
   }
 });
+test("JJ's re-review: an unknown operation says the AI asked, it was blocked, nothing changed", () => {
+  for (const name of ['fablecut_not_a_tool', null]) {
+    a.equal(Cap.label(name, 'zh-CN'), 'AI 想做一件软件不认识的操作，已经拦下，什么都没改。');
+    a.equal(Cap.label(name, 'en'), "The AI asked for an action MontClip doesn't know. It was blocked; nothing changed.");
+  }
+});
 test('no interface text names a capability by its internal name', () => {
   for (const language of ['zh-CN', 'en']) for (const [k, s] of Object.entries(View.text[language]))
     a.ok(!/fablecut_/.test(s), k + ' (' + language + '): ' + s);
