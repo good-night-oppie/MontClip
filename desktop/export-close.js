@@ -22,14 +22,11 @@ function dialogOptions(language, unsaved) {
     buttons: [t('export-close-stop'), t('export-close-keep')], defaultId: KEEP, cancelId: KEEP, noLink: true };
 }
 
-/** The one-video wording (the export-unsaved-*-1 keys) waits for JJ (Deja, 2026-11-03): until then every count uses
- *  the {n} wording. Turn this on once her copy is in the -1 keys. */
-const ONE_VIDEO_WORDING = false;
-
-/** Not exporting, n videos exported and not saved: 先去保存 is the default, and Enter and Esc both mean it. */
+/** Not exporting, n videos exported and not saved: 先去保存 is the default, and Enter and Esc both mean it. One video has
+ *  its own wording (JJ's 预备稿 4 补充: 这个视频…它…, 删掉它并关闭); the buttons keep the same order (VV's image 16). */
 function unsavedDialogOptions(language, unsaved) {
   const t = (key, vars) => View.t(language, 'own.' + key, vars);
-  const n = Math.max(1, Math.floor(Number(unsaved) || 0)), f = ONE_VIDEO_WORDING && n === 1 ? '1' : 'n';
+  const n = Math.max(1, Math.floor(Number(unsaved) || 0)), f = n === 1 ? '1' : 'n';
   return { type: 'warning', title: 'MontClip', message: t('export-unsaved-title-' + f, { n }), detail: t('export-unsaved-body-' + f),
     buttons: [t('export-unsaved-delete-' + f), t('export-unsaved-keep'), t('export-unsaved-save')],
     defaultId: UNSAVED.SAVE, cancelId: UNSAVED.SAVE, noLink: true };
