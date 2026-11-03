@@ -79,6 +79,7 @@ test('v9 (JJ final; Deja): below the gate every promise of telling songs apart s
  const app=read('app.js'),i=app.indexOf('function autoSongKey(');a.ok(i>0);
  const gate=new Function('MontClipAutoSlices',app.slice(i,app.indexOf('\n}',i)+2)+'return autoSongKey;');
  a.equal(gate({songsTrusted:()=>false})('as-kind-hint-sing'),'as-kind-hint-sing-maybe');a.equal(gate({songsTrusted:()=>true})('as-kind-hint-sing'),'as-kind-hint-sing');
- a.match(app,/autoSay\(autoSongKey\("as-kind-hint-" \+ st\.kind\)\)/);a.match(app,/autoSay\(autoSongKey\("as-len-hint-" \+ st\.len\)\)/);
+ // JJ's re-review: the kind hint goes through autoKindHintKey (no danmaku → no 弹幕), which still asks the gate
+ a.match(app,/autoSay\(autoKindHintKey\(st\.kind, pickedDm\)\)/);a.match(app,/autoSongKey\("as-kind-hint-" \+ kind\)/);a.match(app,/autoSay\(autoSongKey\("as-len-hint-" \+ st\.len\)\)/);
  a.match(app,/autoSay\(autoSongKey\("as-run-" \+ s\)\)/);a.match(app,/autoSay\(autoSongKey\("as-lyrics"\)\)/);
 });

@@ -9938,8 +9938,18 @@ function autoDanmaku(m) {
 }
 /** A string that promises telling songs apart: below the gate (auto-slices.js SONG_GATE) its 可能在唱歌 form. */
 function autoSongKey(key) {
-  const gated = new Set(["as-kind-hint-sing", "as-len-hint-song", "as-run-songs", "as-lyrics"]);
+  const gated = new Set(["as-kind-hint-sing", "as-len-song", "as-len-hint-song", "as-len-hint-hook", "as-run-songs", "as-lyrics"]);
   return gated.has(key) && !MontClipAutoSlices.songsTrusted() ? key + "-maybe" : key;
+}
+/** The kind hint: with no live danmaku in the chosen recordings, chat / game / watch don't mention it (JJ: 没弹幕不提弹幕). */
+function autoKindHintKey(kind, dm) {
+  return dm || !["chat", "game", "watch"].includes(kind) ? autoSongKey("as-kind-hint-" + kind) : "as-kind-hint-" + kind + "-nodm";
+}
+/** For the log only: no paths, no file names (the recordings' names are project content). */
+function autoMask(text, names) {
+  let out = String(text == null ? "" : text).replace(/(?:[A-Za-z]:)?[\\/][^\s'"]+/g, "<path>");
+  for (const n of names || []) if (n) out = out.split(n).join("<name>");
+  return out;
 }
 function autoName(c) {
   if (c.title) return c.title;
@@ -9951,7 +9961,10 @@ function autoRec(id) { return autoState().recs.find((r) => r.mediaId === id) || 
 function autoMedia(id) { return project.media.find((m) => m.id === id) || null; }
 
 function openAutoSlices() {
-  if (state.exporting || state.gesture || state.compCtx) { toast(uiText("own.as-busy")); return; }
+  if (state.exporting) { toast(uiText("own.as-busy-export")); return; }
+  if (state.compCtx) { toast(uiText("own.as-busy-comp")); return; }
+  // mid-drag: no message; it opens once the drag ends
+  if (state.gesture) { const wait = () => (state.gesture ? setTimeout(wait, 120) : openAutoSlices()); setTimeout(wait, 120); return; }
   const st = autoState();
   if (!AUTO.el || !AUTO.el.isConnected) autoBuild();
   const b = $("btnAutoSlices"); if (b) b.textContent = uiText("own.as-open");
@@ -10010,11 +10023,12 @@ function autoStartHtml() {
         <div class="as-t">${escapeHtml(m.name || m.src)}</div><div class="as-small">${escapeHtml(autoDur(m.duration))}</div>
         <span class="as-chip ${dm ? "ok" : "warn"}">${autoSay(dm ? "as-dm-yes" : "as-dm-no")}</span></div>`; }).join("")
     : `<p class="as-muted">${autoSay("as-no-recs")}</p>`;
-  const seg = (name, list, cur) => list.map((v) => `<button type="button" data-as-act="${name}" data-as-v="${v}" class="${cur === v ? "on" : ""}">${autoSay("as-" + name + "-" + v)}</button>`).join("");
+  const seg = (name, list, cur) => list.map((v) => `<button type="button" data-as-act="${name}" data-as-v="${v}" class="${cur === v ? "on" : ""}">${autoSay(autoSongKey("as-" + name + "-" + v))}</button>`).join("");
+  const pickedDm = recs.filter((m) => st.picked.has(m.id)).reduce((x, m) => x + autoDanmaku(m).length, 0);
   return `<h1>${autoSay("as-start-title")}</h1><p class="as-sub">${autoSay("as-start-sub")}</p>
     <section class="as-card-box"><h2>${autoSay("as-recs")}</h2><div class="as-recs">${recList}</div><p class="as-small">${autoSay("as-recs-multi")}</p></section>
     <section class="as-card-box"><h2>${autoSay("as-kind-title")}</h2><div class="as-seg">${seg("kind", MontClipAutoSlices.KINDS, st.kind)}</div>
-      <p class="as-small" data-as-kind-hint>${autoSay(autoSongKey("as-kind-hint-" + st.kind))}</p></section>
+      <p class="as-small" data-as-kind-hint>${autoSay(autoKindHintKey(st.kind, pickedDm))}</p></section>
     <details class="as-more"><summary>${autoSay("as-more")}</summary>
       <div class="as-opt"><span>${autoSay("as-count")}</span><div><select data-as-count>${MontClipAutoSlices.COUNTS.map((n) => `<option${n === st.count ? " selected" : ""}>${n}</option>`).join("")}</select>
         <span class="as-small">${autoSay("as-count-hint")}</span></div></div>
@@ -10035,8 +10049,9 @@ function autoRunHtml() {
   const name = recs.map((m) => m.name).join("、"), dur = recs.reduce((x, m) => x + m.duration, 0);
   const steps = ["read", "listen", "hot", "songs", "pick"];
   const listenKey = !st.subs ? "as-run-listen-off" : autoSubMode() === "none" ? "as-run-listen-none" : "as-run-listen";
+  const hotKey = recs.some((m) => autoDanmaku(m).length) ? "as-run-hot" : "as-run-hot-nodm";
   return `<h1>${autoSay("as-run-title")}</h1><p class="as-sub">${autoSay("as-run-sub", { name, dur: autoDur(dur) })}</p>
-    <section class="as-card-box"><ul class="as-steps">${steps.map((s, k) => `<li class="${k < r.phase ? "done" : k === r.phase ? "now" : ""}"><span class="as-dot">${k < r.phase ? "✓" : ""}</span>${s === "listen" ? autoSay(listenKey) : autoSay(autoSongKey("as-run-" + s))}</li>`).join("")}</ul>
+    <section class="as-card-box"><ul class="as-steps">${steps.map((s, k) => `<li class="${k < r.phase ? "done" : k === r.phase ? "now" : ""}"><span class="as-dot">${k < r.phase ? "✓" : ""}</span>${s === "listen" ? autoSay(listenKey) : s === "hot" ? autoSay(hotKey) : autoSay(autoSongKey("as-run-" + s))}</li>`).join("")}</ul>
       <div class="as-bar"><i data-as-bar style="width:${Math.round(((r.phase + r.frac) / steps.length) * 100)}%"></i></div>
       ${r.error ? `<p class="as-warn" role="alert">${escapeHtml(r.error)}</p>` : ""}</section>
     <div class="as-cta"><button type="button" class="btn" data-as-act="stop">${autoSay("as-stop")}</button><span class="as-small">${autoSay("as-stop-hint")}</span></div>`;
@@ -10048,8 +10063,10 @@ async function autoRun() {
   st.run = run; st.hist = []; autoRender("run");
   const tick = () => { if (AUTO.el && AUTO.el.open && st.step === "run" && st.run === run) autoRender("run"); };
   const wantSongs = st.kind === "auto" || st.kind === "sing", out = [];
+  let current = null;
   try {
     for (const m of recs) {
+      current = m;
       run.phase = 0; run.frac = 0; tick();
       let loudness = null;
       try { const r = await fetch("/api/signals/loudness?src=" + encodeURIComponent(m.src)); if (r.ok) loudness = await r.json(); } catch { loudness = null; }
@@ -10068,13 +10085,13 @@ async function autoRun() {
       if (wantSongs) {
         run.src = m.src;
         const post = await fetch("/api/songs", { method: "POST", body: JSON.stringify({ src: m.src }) });
-        if (!post.ok) throw new Error((await post.json().catch(() => ({}))).error || "HTTP " + post.status);
+        if (!post.ok) { const j = await post.json().catch(() => ({})); throw Object.assign(new Error(j.error || "HTTP " + post.status), { code: j.code, drive: j.drive }); }
         for (;;) {
           if (run.stop) { await fetch("/api/songs/cancel", { method: "POST", body: JSON.stringify({ src: m.src }) }).catch(() => {}); throw Object.assign(new Error("stopped"), { stopped: true }); }
           const g = await (await fetch("/api/songs?src=" + encodeURIComponent(m.src))).json();
           run.frac = g.total ? Math.min(1, g.done / g.total) : 0; tick();
           if (g.state === "done") { songs = g.songs; break; }
-          if (g.state === "failed") throw new Error(uiText("own.as-run-failed", { name: m.name, error: g.error || "" }));
+          if (g.state === "failed") throw Object.assign(new Error(g.error || "failed"), { code: g.code, drive: g.drive });
           if (g.state === "stopped" || g.state === "none") { const again = await fetch("/api/songs", { method: "POST", body: JSON.stringify({ src: m.src }) }); if (!again.ok) throw new Error("HTTP " + again.status); }
           await new Promise((r) => setTimeout(r, 400));
         }
@@ -10093,7 +10110,11 @@ async function autoRun() {
     if (st.run !== run) return;
     st.run = null;
     if (e && e.stopped) { if (AUTO.el && AUTO.el.open) autoRender("start"); else st.step = "start"; autoToast(uiText("own.as-stopped"), false); return; }
-    run.error = (e && e.message) || String(e); st.run = run; tick(); st.run = null;
+    // JJ / Deja: the streamer reads what happened and what to do; the technical detail goes to the log, masked
+    console.warn("[auto-slices] the search failed:", autoMask(e && e.message, recs.map((m) => m.name)), (e && e.code) || "");
+    run.error = e && e.code === "ENOSPC" ? uiText("own.as-run-nospace", { drive: e.drive || "" })
+      : uiText("own.as-run-failed", { name: (current && current.name) || "" });
+    st.run = run; tick(); st.run = null;
   }
 }
 /** Found while the window was not in front: one local notification (the desktop's main process shows it). */
@@ -10117,7 +10138,7 @@ function autoReviewHtml() {
     const start = no + 1, html = autoOverviewHtml(rec, mine, start) + mine.map((c) => autoCardHtml(c, no++)).join("");
     return html;
   }).join("");
-  return `<div class="as-row"><div><h1>${head}</h1><p class="as-sub">${autoSay("as-review-sub", { name: names })}</p></div>
+  return `<div class="as-row"><div><h1>${head}</h1><p class="as-sub">${autoSay(found ? "as-review-sub" : "as-found-none-next", { name: names })}</p></div>
       <button type="button" class="btn" data-as-act="back-start">${autoSay("as-back-start")}</button></div>
     <div class="as-evidence">${evidence}</div>
     ${st.ask ? `<section class="as-card-box" data-as-ask><b>${autoSay("as-ask-title")}</b><p class="as-small">${autoSay("as-ask-sub")}</p>
@@ -10411,6 +10432,13 @@ async function autoExportRun() {
   try { if (!queueRunning) await runQueue(); } finally { clearInterval(live); }
   if (AUTO.el && AUTO.el.open) autoRender("done");
 }
+/** Why exports failed, in plain words (the queue keeps the detail). */
+function autoFailWhy(failed) {
+  const errors = failed.map((q) => String(q.error || ""));
+  if (errors.some((e) => /ENOSPC|no space|disk is full|空间不够/i.test(e))) return "as-fail-why-space";
+  if (errors.some((e) => e === uiText("own.ssel-queue-changed"))) return "as-fail-why-changed";
+  return "as-fail-why-other";
+}
 function autoDoneHtml() {
   const st = autoState(), items = (st.exportIds || []).map((id) => exportQueue.find((q) => q.id === id)).filter(Boolean);
   const done = items.filter((q) => q.status === "done"), failed = items.filter((q) => q.status === "failed");
@@ -10418,7 +10446,7 @@ function autoDoneHtml() {
   const title = busy ? autoSay("as-exporting", { n: items.length }) : failed.length ? autoSay("as-done-partial", { n: done.length, failed: failed.length }) : autoSay("as-done-title", { n: done.length });
   return `<h1>${title}</h1><p class="as-sub">${busy ? "" : autoSay("as-done-sub")}</p>
     <section class="as-card-box">${items.map((q) => `<div class="as-row"><span><b>${escapeHtml(q.name)}</b></span><span class="as-small">${q.status === "running" ? Math.round((q.progress || 0) * 100) + "%" : ""}</span></div>`).join("")}</section>
-    ${failed.length ? `<section class="as-card-box as-warn"><b>${autoSay("as-fail", { name: failed[0].name })}</b>${failed[0].error ? `<p class="as-small">${escapeHtml(failed[0].error)}</p>` : ""}
+    ${failed.length ? `<section class="as-card-box as-warn"><b>${autoSay("as-fail", { failed: failed.length, name: failed.slice(0, 3).map((q) => q.name).join("」「") + (failed.length > 3 ? "…" : ""), why: uiText("own." + autoFailWhy(failed)) })}</b>
       <div class="as-row"><button type="button" class="btn primary" data-as-act="retry">${autoSay("as-retry")}</button></div></section>` : ""}
     <div class="as-cta"><button type="button" class="btn primary" data-as-act="open-queue">${autoSay("as-open-queue")}</button>
       <button type="button" class="btn" data-as-act="back-review">${autoSay("as-back-review")}</button><button type="button" class="btn" data-as-act="another">${autoSay("as-another")}</button></div>`;

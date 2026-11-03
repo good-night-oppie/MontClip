@@ -45,6 +45,21 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.gated={kind:gated.kind,len:gated.len,step:gated.step};
   assert.equal(gated.kind,'会找可能在唱歌的段落，每段单独出一条。');assert.equal(gated.len,'可能在唱歌的段落，每段出一条。');assert.equal(gated.step,true);
   assert.ok(!/一首歌|每首歌|第\s*\d+\s*首/.test(gated.text),'no promise of songs one by one');
+  // JJ's re-review: every kind × every length, 更多设置 open — no 首歌 / 整首 before the gate; this recording has no
+  // danmaku, so no hint mentions it
+  const every=await read(`(()=>{const d=document.querySelector('dialog.auto-slices'),out=[];
+    for(const k of MontClipAutoSlices.KINDS)for(const l of MontClipAutoSlices.LENS){document.querySelector('[data-as-act=kind][data-as-v='+k+']').click();document.querySelector('[data-as-act=len][data-as-v='+l+']').click();
+      d.querySelector('details.as-more').open=true;out.push({k,l,hint:d.querySelector('[data-as-kind-hint]').textContent,text:d.innerText});}
+    document.querySelector('[data-as-act=kind][data-as-v=auto]').click();document.querySelector('[data-as-act=len][data-as-v=song]').click();return out;})()`);
+  for(const e of every){assert.ok(!/首歌|整首|第\s*\d+\s*首/.test(e.text),e.k+'/'+e.l+': '+e.text.match(/.{0,20}(首歌|整首).{0,20}/)?.[0]);
+    if(['chat','game','watch'].includes(e.k))assert.ok(!/弹幕/.test(e.hint),e.k+': '+e.hint);}
+  report.jj2={combos:every.length,hints:Object.fromEntries(every.filter(e=>e.l==='song').map(e=>[e.k,e.hint])),lenSong:every.find(e=>e.l==='song').text.includes('唱歌的段落整段出'),hook:every[0].text.includes('只要最好听的一部分（约 45 秒）')};
+  assert.equal(report.jj2.lenSong,true);assert.equal(report.jj2.hook,true);
+  // busy while exporting: its own sentence, the dialog stays shut
+  const busy=await read(`(()=>{document.querySelector('dialog.auto-slices').close();state.exporting=true;document.getElementById('btnAutoSlices').click();
+    const r={toast:document.querySelector('#toast span')?.textContent||document.getElementById('toast').textContent,open:!!document.querySelector('dialog.auto-slices[open]')};state.exporting=false;
+    document.getElementById('btnAutoSlices').click();return r;})()`);
+  report.jj2.busy=busy;assert.deepEqual(busy,{toast:'正在导出，等导出完再点这里。',open:false});
   // v10: 更多设置 › 字幕 shows the state only; without the on-device model: 还没装听写, and step 2 says it is skipped
   const subs=await read(`(()=>{const d=document.querySelector('dialog.auto-slices');d.querySelector('details.as-more').open=true;return{label:d.querySelector('[data-as-subs-label]').textContent,hint:d.querySelector('[data-as-subs-hint]').textContent,go:!!d.querySelector('[data-as-act=sub-go]'),checked:d.querySelector('[data-as-subs]').checked,step:autoRunHtml().includes('听写成文字：这台电脑还没装听写，先跳过，不影响找高光')};})()`);
   report.subs=subs;assert.deepEqual(subs,{label:'加字幕（还没装听写）',hint:'找高光照样能用，只是这次不出字幕。',go:false,checked:true,step:true});
