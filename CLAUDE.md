@@ -2824,7 +2824,10 @@ out and put it back; an overview of the whole recording with a box per card) and
 enough yet to call any song right, so a song card is 「1:12:04 那段」, typed 「可能在唱歌」. Beside each start and end
 time is its level (design v8): 比较可能 (grey hint: listen before deciding), 估的 (yellow hint; where `songs.js` marked
 that end as guessed, or the best part of a song), or 你调过 (grey, no hint) while the streamer has moved it — undone or
-moved back, it shows its own level again; a highlight's ends are 比较可能. 「第 n 首歌」 comes back only when the
+moved back, it shows its own level again; a highlight's ends are 比较可能. The same gate holds every other promise of
+telling songs apart — the singing hint (会找可能在唱歌的段落，每段单独出一条。), the length hint, the search step (找哪几段
+可能在唱歌) and the lyrics button (如果这段是唱歌，可以按歌词校准字幕) — and a card is never given a song title by itself:
+only the streamer renames it (design v9). 「第 n 首歌」 and the song wording come back only when the
 measured accuracy reaches `MontClipAutoSlices.SONG_GATE` (precision@15 and recall@10 at least 0.6 on the acceptance set;
 `SONG_MEASURED` holds the last measurement). A song card also shows 按歌词校准字幕 (如果这段是唱歌), not working yet
 (P6a). `auto-slices.js` holds the pure logic.

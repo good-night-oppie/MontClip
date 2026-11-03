@@ -9890,6 +9890,11 @@ function autoDanmaku(m) {
   }
   return [...new Set(out.map((t) => Math.round(t * 10) / 10))].sort((a, b) => a - b);
 }
+/** A string that promises telling songs apart: below the gate (auto-slices.js SONG_GATE) its 可能在唱歌 form. */
+function autoSongKey(key) {
+  const gated = new Set(["as-kind-hint-sing", "as-len-hint-song", "as-run-songs", "as-lyrics"]);
+  return gated.has(key) && !MontClipAutoSlices.songsTrusted() ? key + "-maybe" : key;
+}
 function autoName(c) {
   if (c.title) return c.title;
   // 第 n 首歌 only once songs.js reaches the gate (MontClipAutoSlices.SONG_GATE); until then 「{time} 那段」
@@ -9963,12 +9968,12 @@ function autoStartHtml() {
   return `<h1>${autoSay("as-start-title")}</h1><p class="as-sub">${autoSay("as-start-sub")}</p>
     <section class="as-card-box"><h2>${autoSay("as-recs")}</h2><div class="as-recs">${recList}</div><p class="as-small">${autoSay("as-recs-multi")}</p></section>
     <section class="as-card-box"><h2>${autoSay("as-kind-title")}</h2><div class="as-seg">${seg("kind", MontClipAutoSlices.KINDS, st.kind)}</div>
-      <p class="as-small" data-as-kind-hint>${autoSay("as-kind-hint-" + st.kind)}</p></section>
+      <p class="as-small" data-as-kind-hint>${autoSay(autoSongKey("as-kind-hint-" + st.kind))}</p></section>
     <details class="as-more"><summary>${autoSay("as-more")}</summary>
       <div class="as-opt"><span>${autoSay("as-count")}</span><div><select data-as-count>${MontClipAutoSlices.COUNTS.map((n) => `<option${n === st.count ? " selected" : ""}>${n}</option>`).join("")}</select>
         <span class="as-small">${autoSay("as-count-hint")}</span></div></div>
       <div class="as-opt"><span>${autoSay("as-len")}</span><div><div class="as-seg">${seg("len", MontClipAutoSlices.LENS, st.len)}</div>
-        <p class="as-small">${autoSay("as-len-hint-" + st.len)}</p></div></div>
+        <p class="as-small">${autoSay(autoSongKey("as-len-hint-" + st.len))}</p></div></div>
     </details>
     <div class="as-cta"><button type="button" class="btn primary" data-as-act="go"${st.picked.size ? "" : " disabled"}>${autoSay(st.picked.size > 1 ? "as-go-n" : "as-go", { n: st.picked.size })}</button>
       <span class="as-small">${autoSay("as-go-hint")}</span></div>`;
@@ -9980,7 +9985,7 @@ function autoRunHtml() {
   const name = recs.map((m) => m.name).join("、"), dur = recs.reduce((x, m) => x + m.duration, 0);
   const steps = ["read", "hot", "songs", "pick"];
   return `<h1>${autoSay("as-run-title")}</h1><p class="as-sub">${autoSay("as-run-sub", { name, dur: autoDur(dur) })}</p>
-    <section class="as-card-box"><ul class="as-steps">${steps.map((s, k) => `<li class="${k < r.phase ? "done" : k === r.phase ? "now" : ""}"><span class="as-dot">${k < r.phase ? "✓" : ""}</span>${autoSay("as-run-" + s)}</li>`).join("")}</ul>
+    <section class="as-card-box"><ul class="as-steps">${steps.map((s, k) => `<li class="${k < r.phase ? "done" : k === r.phase ? "now" : ""}"><span class="as-dot">${k < r.phase ? "✓" : ""}</span>${autoSay(autoSongKey("as-run-" + s))}</li>`).join("")}</ul>
       <div class="as-bar"><i data-as-bar style="width:${Math.round(((r.phase + r.frac) / steps.length) * 100)}%"></i></div>
       ${r.error ? `<p class="as-warn" role="alert">${escapeHtml(r.error)}</p>` : ""}</section>
     <div class="as-cta"><button type="button" class="btn" data-as-act="stop">${autoSay("as-stop")}</button><span class="as-small">${autoSay("as-stop-hint")}</span></div>`;
@@ -10104,10 +10109,10 @@ function autoCardHtml(c, i) {
   return `<article class="as-clip${c.on ? "" : " off"}" data-as-card="${escapeHtml(c.id)}">
     <div class="as-clip-h"><input type="checkbox" data-as-act="toggle"${c.on ? " checked" : ""} aria-label="${autoSay("as-tick")}">
       <div class="as-clip-main"><div class="as-clip-title"><span class="as-muted">${i + 1}.</span> <input type="text" data-as-act="rename" value="${escapeHtml(autoName(c))}" aria-label="${autoSay("as-rename")}">${c.on ? "" : `<span class="as-tag">${autoSay("as-spare")}</span>`}</div>
-        <div class="as-small">${autoSay(song ? "as-song-name-hint" : "as-filename")}</div>
-        <div class="as-small">${song ? autoSay("as-maybe-singing") : `${autoSay("as-a-moment")} · ${escapeHtml(autoDur(c.e - c.s))}`}</div>
+        <div class="as-small">${autoSay(song && !c.title ? "as-song-name-hint" : "as-filename")}</div>
+        <div class="as-small">${autoSay(song ? "as-maybe-singing" : "as-a-moment")} · ${escapeHtml(autoDur(c.e - c.s))}</div>
         ${why ? `<p class="as-why">${autoSay("as-why")}<b>${escapeHtml(why)}</b></p>` : ""}
-        ${song ? `<div class="as-lyrics"><button type="button" class="btn tiny" data-as-lyrics disabled title="${autoSay("as-lyrics-soon")}">${autoSay("as-lyrics")}</button> <span class="as-small">${autoSay("as-lyrics-if")}</span></div>` : ""}</div></div>
+        ${song ? `<div class="as-lyrics"><button type="button" class="btn tiny" data-as-lyrics disabled title="${autoSay("as-lyrics-soon")}">${autoSay(autoSongKey("as-lyrics"))}</button></div>` : ""}</div></div>
     ${c.on ? `<div class="as-trim">${autoEdgeHtml(c, "s")}${autoEdgeHtml(c, "e")}</div>` : `<p class="as-small">${autoSay("as-tick-to-adjust")}</p>`}
     <div class="as-actions"><button type="button" class="btn tiny" data-as-act="play">${autoSay("as-play")}</button>
       <button type="button" class="btn tiny" data-as-act="fine">${autoSay("as-fine")}</button>

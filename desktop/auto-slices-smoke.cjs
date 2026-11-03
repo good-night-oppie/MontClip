@@ -38,6 +38,13 @@ BrowserWindow.prototype.loadURL=async function(...args){
   // 1. the top-bar entry, the search, the review
   await read(`document.getElementById('btnAutoSlices').click();true`);
   report.opened=await read(`!!document.querySelector('dialog.auto-slices[open]')`);assert.ok(report.opened);
+  // v9 / Deja: below the song gate the first screen promises parts that may be singing, never songs one by one
+  const gated=await read(`(()=>{document.querySelector('[data-as-act=kind][data-as-v=sing]').click();const d=document.querySelector('dialog.auto-slices');d.querySelector('details.as-more').open=true;
+    const r={kind:d.querySelector('[data-as-kind-hint]').textContent,len:d.querySelector('.as-opt:nth-of-type(2) p.as-small').textContent,step:autoRunHtml().includes('找哪几段可能在唱歌'),
+      text:d.innerText};document.querySelector('[data-as-act=kind][data-as-v=auto]').click();return r;})()`);
+  report.gated={kind:gated.kind,len:gated.len,step:gated.step};
+  assert.equal(gated.kind,'会找可能在唱歌的段落，每段单独出一条。');assert.equal(gated.len,'可能在唱歌的段落，每段出一条。');assert.equal(gated.step,true);
+  assert.ok(!/一首歌|每首歌|第\s*\d+\s*首/.test(gated.text),'no promise of songs one by one');
   // started, then the dialog closed: the search goes on, and the top-bar button says it is done
   await read(`document.querySelector('[data-as-act=go]').click();AUTO.el.close();true`);
   await until(`autoState().step==='review'&&!autoState().run`,180000);
@@ -55,7 +62,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.ok(rv.hints.length===4&&rv.hints.every(h=>/^as-likely:(开头|结尾)比较可能在这里，还是点「▶ 听(开头|结尾)」听一下再定。$/.test(h)),rv.hints.join('|'));
   // Deja over the frozen design: below the naming gate no 第 n 首 anywhere; song cards 「{time} 那段 · 可能在唱歌」
   const naming=await read(`(()=>{const d=document.querySelector('dialog.auto-slices'),t=d.innerText+[...d.querySelectorAll('input[type=text]')].map(i=>i.value).join(' ');
-    return{noNth:!/第\\s*\\d+\\s*首/.test(t),maybe:(t.match(/可能在唱歌/g)||[]).length,
+    return{noNth:!/第\\s*\\d+\\s*首|一首歌|每首歌/.test(t),maybe:(t.match(/可能在唱歌/g)||[]).length,
     lyrics:[...d.querySelectorAll('.as-lyrics')].map(e=>e.textContent.replace(/\\s+/g,' ').trim()),trusted:MontClipAutoSlices.songsTrusted()};})()`);
   report.naming=naming;assert.equal(naming.trusted,false);assert.equal(naming.noNth,true,'no 第 n 首 below the gate');assert.equal(naming.maybe,2);
   assert.ok(naming.lyrics.every(x=>x==='如果这段是唱歌，可以按歌词校准字幕'),naming.lyrics.join('|'));
