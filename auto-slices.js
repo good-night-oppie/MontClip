@@ -1,0 +1,103 @@
+/* 「✨ 自动出切片」 (P3, Deja 2026-11-03; frozen design documents/2026-11-03-自动出切片-冻结设计/, v7 with v7.5 last):
+   what the dialog shows, worked out from each recording's found songs (songs.js), its loudness every 0.5 s and its
+   highlight candidates (highlight-candidates.js). Pure — no page, no server; app.js draws it.
+     build({recordings:[{mediaId, duration, songs, loudness, highlights}], kind, count, len}) → {clips, found, few}
+   kind: what the stream is mostly — auto (songs and highlights; a highlight inside a song is left out), sing (songs),
+   chat / game / watch (highlights). Best first, at most `count`, the best `checked` ticked. A song scores by how much
+   louder than the recording's usual level it is, on the highlight engine's loudness scale (24 dB = full), so songs
+   and highlights rank together. Every song card is 「估的」 at both ends (Deja: songs.js is not accurate enough to call
+   any song right); a highlight's ends follow its sentences or silences. len: song (whole songs), hook and short (a
+   song becomes its loudest 45 s). */
+(function (root, factory) {
+  if (typeof module === "object" && module.exports) module.exports = factory();
+  else root.MontClipAutoSlices = factory();
+})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  "use strict";
+  const KINDS = ["auto", "sing", "chat", "game", "watch"], LENS = ["song", "hook", "short"], COUNTS = [3, 5, 8, 12];
+  const DEFAULTS = Object.freeze({ kind: "auto", count: 5, checked: 3, len: "song", hookLen: 45, minLen: 5 });
+  const LOUD_FULL = 24, LOUD_WEIGHT = 0.55, LOUD_MIN = 4;   // the highlight engine's loudness scale (highlight-candidates.js)
+  const r1 = (x) => Math.round(x * 10) / 10, r3 = (x) => Math.round(x * 1000) / 1000;
+  const median = (xs) => { if (!xs.length) return null; const s = xs.slice().sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+  const valuesIn = (l, a, b) => (l && Array.isArray(l.values) ? l.values.slice(Math.max(0, Math.floor(a / l.step)), Math.max(0, Math.ceil(b / l.step))) : []);
+  const mean = (xs) => (xs.length ? xs.reduce((x, y) => x + y, 0) / xs.length : null);
+
+  /** The loudest `len` seconds inside [a, b] (by mean level); the middle when there is no sound to go on. */
+  function loudest(l, a, b, len) {
+    if (b - a <= len) return [a, b];
+    const step = l && l.step > 0 ? l.step : 0.5, xs = valuesIn(l, a, b), w = Math.round(len / step);
+    if (xs.length < w) { const m = (a + b - len) / 2; return [r3(m), r3(m + len)]; }
+    let sum = 0, best = -Infinity, at = 0;
+    for (let i = 0; i < xs.length; i++) {
+      sum += xs[i]; if (i >= w) sum -= xs[i - w];
+      if (i >= w - 1 && sum > best + 1e-9) { best = sum; at = i - w + 1; }
+    }
+    const s = Math.min(b - len, a + at * step);
+    return [r3(s), r3(s + len)];
+  }
+  function build({ recordings = [], kind = DEFAULTS.kind, count = DEFAULTS.count, len = DEFAULTS.len, checked = DEFAULTS.checked } = {}) {
+    if (!KINDS.includes(kind)) kind = DEFAULTS.kind;
+    if (!LENS.includes(len)) len = DEFAULTS.len;
+    count = Math.max(1, Math.floor(Number(count) || DEFAULTS.count));
+    const wantSongs = kind === "auto" || kind === "sing", wantMoments = kind !== "sing";
+    const all = [];
+    for (const rec of recordings) {
+      const usual = median((rec.loudness && rec.loudness.values) || []);
+      const songs = (wantSongs ? rec.songs || [] : []).slice().sort((x, y) => x.from - y.from);
+      songs.forEach((s, i) => {
+        const avg = mean(valuesIn(rec.loudness, s.from, s.to)), above = usual == null || avg == null ? 0 : r1(avg - usual);
+        const reasons = [{ signal: "singing", window: [s.from, s.to] }];
+        if (above >= LOUD_MIN) reasons.push({ signal: "loudness", value: above, peak: above, baseline: usual, window: [s.from, s.to] });
+        let [a, b] = [s.from, s.to];
+        if (len !== "song") [a, b] = loudest(rec.loudness, s.from, s.to, DEFAULTS.hookLen);
+        all.push({ id: rec.mediaId + "_s" + (i + 1), mediaId: rec.mediaId, kind: "song", no: i + 1, s: a, e: b, at: s.from, song: [s.from, s.to],
+          score: r3(Math.min(1, Math.max(0, above) / LOUD_FULL) * LOUD_WEIGHT), reasons, marks: s.marks || [], startGuess: true, endGuess: true });
+      });
+      if (wantMoments) for (const h of rec.highlights || []) {
+        const inside = songs.some((s) => Math.min(h.to, s.to) - Math.max(h.from, s.from) > (h.to - h.from) / 2);
+        if (inside) continue;
+        all.push({ id: rec.mediaId + "_m" + Math.round(h.from * 10), mediaId: rec.mediaId, kind: "moment", no: null, s: h.from, e: h.to, at: h.from,
+          score: h.score, reasons: h.reasons || [], marks: [], startGuess: false, endGuess: false });
+      }
+    }
+    all.sort((x, y) => y.score - x.score || x.at - y.at);
+    const clips = all.slice(0, count).map((c, i) => ({ ...c, on: i < checked }));
+    return { clips, found: clips.length, few: clips.length < count ? { found: clips.length, count } : null };
+  }
+  /** 1:12:04 over an hour, 12:04 under. */
+  function hms(t) {
+    const x = Math.max(0, Math.round(t)), h = Math.floor(x / 3600), m = Math.floor((x % 3600) / 60), s = x % 60;
+    return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(s).padStart(2, "0");
+  }
+  /** Move one end by d seconds: inside the recording, at least minLen long. A moved end is no longer a guess. */
+  function nudge(c, which, d, duration) {
+    const max = Number.isFinite(duration) && duration > 0 ? duration : Infinity;
+    if (which === "s") return { ...c, s: r3(Math.max(0, Math.min(c.e - DEFAULTS.minLen, c.s + d))), startGuess: false };
+    return { ...c, e: r3(Math.min(max, Math.max(c.s + DEFAULTS.minLen, c.e + d))), endGuess: false };
+  }
+  /** The whole-stream overview in a 1000 × 100 box: the sound as an area (louder = higher), a box per card, ticks every
+   *  half hour. */
+  function overview(rec, clips, startNo = 1) {
+    const L = rec.duration > 0 ? rec.duration : 1, area = [];
+    const l = rec.loudness;
+    if (l && Array.isArray(l.values) && l.values.length) {
+      const N = Math.min(200, l.values.length), per = l.values.length / N;
+      for (let i = 0; i < N; i++) {
+        const xs = l.values.slice(Math.floor(i * per), Math.max(Math.floor(i * per) + 1, Math.floor((i + 1) * per)));
+        const v = Math.max(...xs), y = 100 - Math.max(0, Math.min(1, (v + 60) / 60)) * 92;
+        area.push([r1(((i + 0.5) * per * l.step) / L * 1000), r1(y)]);
+      }
+    }
+    const boxes = clips.filter((c) => c.mediaId === rec.mediaId).map((c, k) => ({ id: c.id, no: startNo + k, on: !!c.on,
+      x: r3(c.s / L * 1000), w: r3(Math.max(9, (c.e - c.s) / L * 1000)) }));
+    const ticks = [];
+    for (let t = 0; t < L; t += 1800) ticks.push(t);
+    return { area, boxes, ticks };
+  }
+  function totals(clips) {
+    const on = clips.filter((c) => c.on);
+    return { n: on.length, seconds: r3(on.reduce((x, c) => x + (c.e - c.s), 0)) };
+  }
+  /** File names in review order, numbered 01, 02, …; a colon cannot be in a Windows file name. */
+  const numbered = (names) => names.map((n, i) => String(i + 1).padStart(2, "0") + " " + String(n).replace(/:/g, "："));
+  return { KINDS, LENS, COUNTS, DEFAULTS, build, hms, nudge, overview, totals, numbered };
+});

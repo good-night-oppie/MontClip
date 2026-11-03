@@ -2811,6 +2811,28 @@ reads (default: every video / audio file used on the open timeline), keeps them 
 song; the patch op `{op:"setSongs", mediaId, songs:{key, complete, scanned, songs} | null}` writes or forgets one
 file's entry. REST: `/api/songs` (see "REST API").
 
+### ✨ 自动出切片 (MontClip)
+
+**✨ 自动出切片** in the top bar (right of Projects) and beside **高光候选** in the Transcript tab opens a dialog of four
+steps over the project's own recordings (video / audio files in `media/`): **选录像** (which recordings, what the stream
+mostly is — let it look, singing, chatting, gaming, watching together — at most 3 / 5 / 8 / 12, and how long each:
+whole songs, the best part, or 30 s – 1 min), **找高光** (each recording's loudness, its lively parts through the
+highlight engine and, unless the stream is not singing, its songs through `/api/songs`; it can be stopped, and closing
+the dialog keeps it going), **看一遍** (cards best first, the best 3 ticked; each with why it was picked, a strip to drag
+its start and end over 40 s with the sound drawn under it, ±1 / ±5 s, ▶ hear the start or the end, ▶ preview, take it
+out and put it back; an overview of the whole recording with a box per card) and **导出**. Every song card is 「估的」 at
+both ends: `songs.js` is not accurate enough yet to call any song right. `auto-slices.js` holds the pure logic.
+
+Nothing on the timeline changes until **放到时间线上（N 条）**: the ticked parts go after the end of the timeline, back
+to back on the targeted tracks, as **one** undo step; the dialog closes, the first part is selected on whatever track
+it landed on, and the toast's **撤销** takes the whole batch back and restores the selection. **调一下** does the same
+and selects that card's part. **直接导出这 N 条** places them the same way and exports one file per part through the
+export queue (`01 name.mp4`, …). Card edits in the dialog have their own undo (Ctrl+Z inside the dialog). Closing the
+dialog keeps it as it is for the project (in memory, not saved). When a search ends with the window not in front, the
+desktop's main process shows one local notification (`montclip:notify:found`, a count only); the page's web
+permissions stay denied. Not yet: the part bar for songs, song names, 直接说, multiple recordings shown apart,
+keeping ticks and edits when picking again, and the rest of the frozen design (see the P3 pull request's table).
+
 ### MontClip view preferences
 
 The shared editor DOM has Simple/Advanced layout controls, Chinese/English labels

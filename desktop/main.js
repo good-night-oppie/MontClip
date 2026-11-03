@@ -1,6 +1,6 @@
 /* Desktop host for the existing editor and compositor. No renderer Node API. */
 "use strict";
-const { app, BrowserWindow, dialog, session, utilityProcess, ipcMain, safeStorage } = require("electron");
+const { app, BrowserWindow, dialog, session, utilityProcess, ipcMain, safeStorage, Notification } = require("electron");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { createStore, allowed: settingsAllowed } = require("./view-settings");
@@ -108,6 +108,17 @@ async function start() {
   const features = { transcribe: transcribeEnabled({ isPackaged: app.isPackaged, argv: process.argv, env: process.env }) };
   ipcMain.on("montclip:features:get", (event) => {
     event.returnValue = settingsAllowed(event, win, origin) ? { transcribe: features.transcribe } : { transcribe: false };
+  });
+  // 「✨ 自动出切片」 finished while the window was not in front (P3): one local notification. The page sends a count
+  // only; the words come from the shared table in the chosen language. Web notification permission stays denied.
+  ipcMain.on("montclip:notify:found", (event, found) => {
+    if (!settingsAllowed(event, win, origin) || !Number.isSafeInteger(found) || found < 0 || found > 1000 || !Notification.isSupported()) return;
+    const View = require("../ui-preferences"), language = languageOf(settings.get());
+    // a smoke never puts anything on the desktop: it reports what it would show
+    if (smoke) { process.stdout.write("MONTCLIP_NOTIFY " + JSON.stringify({ title: View.t(language, "own.as-notify-title"), found }) + "\n"); return; }
+    const note = new Notification({ title: View.t(language, "own.as-notify-title"), body: View.t(language, "own.as-notify-body", { found }), silent: false });
+    note.on("click", () => { if (win && !win.isDestroyed()) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } });
+    note.show();
   });
   const externalFile = path.join(app.getPath("userData"), "external-ffmpeg.json");
   const externalStatus = async () => {
