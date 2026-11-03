@@ -43,6 +43,13 @@ real 15-second deadline twice. Both inject dialog choices (wait, then force),
 assert only two prompts despite repeated close clicks, and wait for app exit.
 Fault injection is development-only and requires `--montclip-smoke`.
 
+The timeline smokes (`MONTCLIP_TIMELINE_INPUT`) and the drop-reveal and three-track
+runners take a synthetic 4-second clip made by `node make-fixture-av.cjs <out.mp4>`:
+320x180, 30 fps, VP9 with mono AAC, fixed arguments, MontClip's own ffmpeg
+(`vendor/ffmpeg`, or `--ffmpeg <path>` / `MONTCLIP_FFMPEG`; never the system PATH).
+It writes `<out.mp4>.json` with the SHA-256 and the ffmpeg version; the runners make
+the clip when it is missing and refuse one that does not match its record.
+
 Runtime selection: Electron 45.2.1, resolved from npm on 2026-11-01, pinned by
 `package-lock.json`; binary fetched by the official Electron installer, which uses
 the version's checksums. Initial cached 42.11.12 was rejected: [GHSA-jr5w-w6x2-84p9](https://github.com/electron/electron/security/advisories/GHSA-jr5w-w6x2-84p9)
@@ -53,3 +60,24 @@ that is not a complete security review. Electron's MIT and Chromium third-party
 licenses must accompany a future package.
 
 Security implementation follows [Electron's security checklist](https://www.electronjs.org/docs/latest/tutorial/security).
+
+## Bundled FFmpeg
+
+The server runs only the FFmpeg MontClip ships, never one found on `PATH`
+(`ffmpeg-path.js`). Once packaged, `main.js` points it at
+`resources/ffmpeg/` and ignores development overrides. In development, either
+run `node desktop/fetch-ffmpeg.cjs` (downloads the pinned LGPL build for this
+platform into `vendor/ffmpeg/<platform>-<arch>/`, checks its SHA-256 and that it
+is not a GPL build), or set `MONTCLIP_FFMPEG` and `MONTCLIP_FFPROBE` to full paths
+(or `MONTCLIP_FFMPEG_DIR` to a folder holding both). Without one of these,
+export, preview frames, proxies and noise reduction report that the bundled
+FFmpeg is missing. Packaging (`build.extraResources` in `package.json`) copies
+`vendor/ffmpeg/<platform>-<arch>` to `resources/ffmpeg`; no packager is
+configured in this repo yet. Source and checksums: `LICENSES.md`.
+
+Reuse, not re-download: `fetch-ffmpeg.cjs` does nothing when `vendor/ffmpeg/<platform>-<arch>`
+(or `MONTCLIP_FFMPEG_DIR`) already holds the pinned build with the program hashes it recorded
+at install. `--cache-dir <dir>` keeps the archive between runs (CI caches it under a key made
+from `desktop/ffmpeg-manifest.json`), checked against the pinned SHA-256 before every use.
+Packaging copies the checked vendor folder; it never downloads. CI never uses the runner's own
+ffmpeg, and never the local FFmpeg a user may choose for H.264 export.

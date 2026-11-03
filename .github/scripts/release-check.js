@@ -1,4 +1,4 @@
-/* Release readiness — what npm, the MCP registry and Glama will see, checked on
+/* Release readiness — what a release (and, once published, npm and the MCP registry) will see, checked on
    every pull request instead of after a release.
 
      node .github/scripts/release-check.js                 # the repo checkout
@@ -36,34 +36,79 @@ const section = (s) => console.log("\n" + s);
 section("Versions");
 const pkg = readJSON("package.json");
 const V = pkg.version;
-const server = readJSON("server.json");
-const npmPkg = (server.packages || []).find((p) => p.registryType === "npm");
-const mcpb = (server.packages || []).find((p) => p.registryType === "mcpb");
 const mcpSrc = fs.readFileSync(path.join(ROOT, "mcp-server.js"), "utf8");
 const serverInfo = /serverInfo:\s*\{\s*name:\s*"[^"]*",\s*version:\s*"([^"]+)"/.exec(mcpSrc);
 const versions = {
   "package.json": V,
-  "server.json version": server.version,
-  "server.json npm package": npmPkg && npmPkg.version,
   "manifest.json": readJSON("manifest.json").version,
   ".claude-plugin/plugin.json": readJSON(".claude-plugin/plugin.json").version,
   "mcp-server.js serverInfo": serverInfo && serverInfo[1],
 };
 for (const [where, v] of Object.entries(versions)) check(v === V, `${where} = ${V}`, `${where} is ${v}, package.json is ${V} — bump every version place together`);
-if (mcpb) check(mcpb.identifier.includes(`/v${V}/`), "server.json mcpb URL points at this release", `server.json mcpb identifier ${mcpb.identifier} is not the v${V} release`);
 
-/* ── Registry and Glama metadata ── */
-section("Registry / Glama metadata");
-check(npmPkg && npmPkg.identifier === pkg.name, `server.json npm identifier = ${pkg.name}`, "server.json has no npm package entry matching package.json name");
-check(typeof server.name === "string" && /^io\.github\.[^/]+\/.+/.test(server.name), `server.json name ${server.name}`, "server.json name must look like io.github.<owner>/<name>");
-check(pkg.mcpName === undefined || pkg.mcpName === server.name, "package.json mcpName matches server.json", `package.json mcpName ${pkg.mcpName} ≠ server.json name ${server.name}`);
-check((server.description || "").length > 0 && server.description.length <= 100, "server.json description fits the registry (≤ 100 chars)", `server.json description is ${(server.description || "").length} chars (registry max 100)`);
+/* ── Not published (docs/decisions/2026-11-02-brand-montclip.md) ──
+   MontClip goes to neither npm nor the MCP registry until the owner registers
+   `montclip` and `io.github.good-night-oppie/montclip`; then the registry
+   manifest and these checks come back together. */
+section("Not published");
+check(pkg.private === true, "package.json private: true (npm refuses to publish it)", "package.json must be private until the owner registers the npm name");
+check(pkg.mcpName === undefined, "package.json has no mcpName", `package.json mcpName ${pkg.mcpName} names a registry entry nobody registered`);
+check(!fs.existsSync(path.join(ROOT, "server.json")), "no MCP registry manifest", "the MCP registry manifest is back without a registered name");
+
+/* ── Metadata ── */
+section("Metadata");
 const glama = readJSON("glama.json");
 check(typeof glama.$schema === "string" && Array.isArray(glama.maintainers) && glama.maintainers.length > 0, "glama.json has $schema and maintainers", "glama.json needs $schema and a non-empty maintainers list");
 check(fs.existsSync(path.join(ROOT, "LICENSE")) && pkg.license, `LICENSE present (${pkg.license})`, "LICENSE file or package.json license missing");
 check(pkg.bin && pkg.bin.fablecut && fs.existsSync(path.join(ROOT, pkg.bin.fablecut)), "package.json bin exists", "package.json bin points at a missing file");
-for (const f of ["package.json", "server.json", "manifest.json", "glama.json", ".mcp.json", ".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) {
+for (const f of ["package.json", "manifest.json", "glama.json", ".mcp.json", ".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"]) {
   try { readJSON(f); ok(`${f} parses`); } catch (e) { fail(`${f}: ${e.message}`); }
+}
+
+/* ── Bundled FFmpeg: pinned LGPL builds, packaged with their license ── */
+section("Bundled FFmpeg");
+{
+  const man = readJSON("desktop/ffmpeg-manifest.json");
+  const lic = fs.existsSync(path.join(ROOT, "LICENSES.md")) ? fs.readFileSync(path.join(ROOT, "LICENSES.md"), "utf8") : "";
+  check(/^LGPL/.test(man.license || ""), `FFmpeg manifest license ${man.license}`, "desktop/ffmpeg-manifest.json must pin an LGPL build");
+  for (const plat of ["win32-x64", "linux-x64"]) {
+    const b = (man.builds || {})[plat] || {};
+    check(/^https:\/\//.test(b.url || "") && /lgpl/.test(b.url) && !/-gpl/.test(b.url) && /^[0-9a-f]{64}$/.test(b.sha256 || ""),
+      `${plat}: LGPL archive pinned by SHA-256`, `${plat}: needs an https LGPL archive URL and a SHA-256 in desktop/ffmpeg-manifest.json`);
+    check(lic.includes(b.sha256 || "-") && lic.includes(b.url || "-"), `${plat}: LICENSES.md lists its source and SHA-256`, `${plat}: LICENSES.md must list the archive URL and SHA-256`);
+  }
+  const res = (readJSON("desktop/package.json").build || {}).extraResources || [];
+  check(res.some((r) => r && r.to === "ffmpeg" && /vendor\/ffmpeg\/\$\{platform\}-\$\{arch\}/.test(r.from || "")),
+    "desktop packaging copies vendor/ffmpeg/<platform>-<arch> to resources/ffmpeg", "desktop/package.json build.extraResources must copy vendor/ffmpeg/${platform}-${arch} to ffmpeg");
+}
+
+/* ── The bundled FFmpeg itself: no GPL or non-free code in the package ── */
+section("Bundled FFmpeg build (no GPL)");
+{
+  // GPL / non-free and libopenh264 are release blockers (Deja 2026-11-02); the rules live in one module
+  const { auditBuild, auditManifest, auditLicenses } = require("../../desktop/ffmpeg-audit");
+  const manProblems = auditManifest(readJSON("desktop/ffmpeg-manifest.json"));
+  check(!manProblems.length, "FFmpeg manifest: our own build without libopenh264 (openh264: false)",
+    "FFmpeg manifest: " + manProblems.map((p) => p.detail).join("; "));
+  // every library in the build: its licence text at the pinned ref, classified (LICENSES.md)
+  const licProblems = auditLicenses(readJSON("licenses/ffmpeg/inventory.json"));
+  check(!licProblems.length, "FFmpeg libraries: every licence text collected and classified",
+    "FFmpeg libraries: " + licProblems.map((p) => p.detail).join("; "));
+  const plat = `${process.platform}-${process.arch}`;
+  const vendor = path.join(ROOT, "vendor", "ffmpeg", plat), exe = path.join(vendor, process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
+  if (!fs.existsSync(exe)) ok(`vendor/ffmpeg/${plat} not fetched here — run node desktop/fetch-ffmpeg.cjs to check the build itself`);
+  else {
+    const v = spawnSync(exe, ["-hide_banner", "-version"], { encoding: "utf8", timeout: 60000 });
+    const e = spawnSync(exe, ["-hide_banner", "-encoders"], { encoding: "utf8", timeout: 60000 });
+    const configuration = (v.stdout || "").split(/\r?\n/).find((l) => l.startsWith("configuration:")) || "";
+    const problems = v.status === 0 ? auditBuild({ configuration, encoders: e.stdout || "" }) : [{ detail: "could not run it" }];
+    check(!problems.length, `${plat}: bundled ffmpeg is LGPL with no GPL, non-free or libopenh264 component`,
+      `${plat}: bundled ffmpeg: ${problems.map((p) => p.detail).join("; ")}`);
+  }
+  const res = (readJSON("desktop/package.json").build || {}).extraResources || [];
+  const ffRes = res.find((r) => r && r.to === "ffmpeg") || {};
+  check(Array.isArray(ffRes.filter) && ffRes.filter.every((f) => /^(ffmpeg|ffprobe)(\.exe)?$|^LICENSE\.txt$|^SOURCE\.json$/.test(f)),
+    "packaging copies only the bundled ffmpeg/ffprobe, its license and its source record", "desktop/package.json ffmpeg extraResources must copy only ffmpeg, ffprobe, LICENSE.txt and SOURCE.json");
 }
 
 /* ── Every root script parses ── */

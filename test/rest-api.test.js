@@ -216,11 +216,11 @@ test("POST /api/export/begin validates the encoding profile", async (t) => {
 
   const ok = await fetch(base + "/api/export/begin", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fps: 30, name: "profile-test", profile: "draft", hasAudio: false }),
+    body: JSON.stringify({ fps: 30, name: "profile-test", profile: "prores422", hasAudio: false }),
   });
   const body = await ok.json();
   assert.equal(ok.status, 200, body.error);
-  assert.equal(body.profile, "draft");
+  assert.equal(body.profile, "prores422");
   assert.ok(body.id, "a valid profile starts a session");
   const end = await fetch(base + "/api/export/end?id=" + encodeURIComponent(body.id) + "&discard=1",
     { method: "POST" });
@@ -238,14 +238,11 @@ test("buildExportArgs uses raw RGBA when the client asks for it", () => {
 });
 
 test("the profile dry run probes a frame hardware encoders accept, and names the cause of a failure", async (t) => {
-  let encoders;
-  try { encoders = execFileSync("ffmpeg", ["-hide_banner", "-encoders"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }); }
-  catch { t.skip("ffmpeg not on PATH"); return; }
-  if (!/^\s*V\S*\s+libx264\s/m.test(encoders)) { t.skip("ffmpeg has no libx264 encoder"); return; }
+  if (!require("../ffmpeg-path").available("ffmpeg")) { t.skip("bundled ffmpeg not installed"); return; }
   const { dryRunProfile } = require("../encode-profiles");
   const base = { extension: ".mp4", color: { matrix: "bt709", primaries: "bt709", trc: "bt709", range: "tv" } };
   // NVENC refuses frames under ~145×49; a 200×100 crop stands in for that check without the hardware
-  const crop = await dryRunProfile({ ...base, args: ["-vf", "crop=200:100", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac"] });
+  const crop = await dryRunProfile({ ...base, args: ["-vf", "crop=200:100", "-c:v", "mpeg4", "-pix_fmt", "yuv420p", "-c:a", "aac"] });
   assert.equal(crop.ok, true, crop.error);
   const typo = await dryRunProfile({ ...base, args: ["-c:v", "libx264x", "-c:a", "aac"] });
   assert.equal(typo.ok, false);
@@ -273,7 +270,7 @@ test("POST /api/export/frame accepts concatenated RGBA frames", async (t) => {
   const begin = await fetch(base + "/api/export/begin", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      fps: 30, name: "batch-rgba", profile: "draft", hasAudio: false,
+      fps: 30, name: "batch-rgba", profile: "prores422", hasAudio: false,
       pixelFormat: "rgba", width: w, height: h,
     }),
   });
@@ -294,9 +291,13 @@ test("POST /api/export/frame accepts concatenated RGBA frames", async (t) => {
 });
 
 test("Fast JPEG image2pipe does not duplicate unique frames", async (t) => {
-  const { dir, base } = await boot(t);
-  const ffmpeg = await (await fetch(base + "/api/export/ffmpeg")).json();
-  if (!ffmpeg.available) return;
+  /* Make the frames before the server starts. Twelve synchronous ffmpeg runs
+     freeze this process; under load that outlasted the server's 5 s
+     keep-alive, the server closed the idle connection left by the previous
+     request, fetch could not see it close while frozen, and /api/export/begin
+     went out on the dead socket (ECONNRESET, "fetch failed").
+     Reproduction: docs/validation/2026-11-02-keepalive-race.md. */
+  if (!require("../ffmpeg-path").available("ffmpeg")) { t.skip("bundled ffmpeg not installed"); return; }
 
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "fc-jpeg-"));
   t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
@@ -307,17 +308,18 @@ test("Fast JPEG image2pipe does not duplicate unique frames", async (t) => {
     const jpg = path.join(tmp, `in${i}.jpg`);
     const hex = (v) => v.toString(16).padStart(2, "0");
     const c = `${hex(i * 18)}${hex(40)}${hex(255 - i * 12)}`;
-    execFileSync("ffmpeg", [
+    execFileSync(require("../ffmpeg-path").path("ffmpeg"), [
       "-y", "-hide_banner", "-loglevel", "error",
       "-f", "lavfi", "-i", `color=c=#${c}:s=64x64:d=0.04`,
       "-frames:v", "1", jpg,
     ]);
     parts.push(fs.readFileSync(jpg));
   }
+  const { dir, base } = await boot(t);
 
   const begin = await fetch(base + "/api/export/begin", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fps: 30, name: "unique-jpeg", profile: "draft", hasAudio: false }),
+    body: JSON.stringify({ fps: 30, name: "unique-jpeg", profile: "prores422", hasAudio: false }),
   });
   const sess = await begin.json();
   assert.equal(begin.status, 200, sess.error);
@@ -334,7 +336,7 @@ test("Fast JPEG image2pipe does not duplicate unique frames", async (t) => {
 
   const ex = path.join(tmp, "ex");
   fs.mkdirSync(ex);
-  execFileSync("ffmpeg", [
+  execFileSync(require("../ffmpeg-path").path("ffmpeg"), [
     "-y", "-hide_banner", "-loglevel", "error", "-i", file, path.join(ex, "f%02d.png"),
   ]);
   const pngs = fs.readdirSync(ex).filter((f) => f.endsWith(".png")).sort();

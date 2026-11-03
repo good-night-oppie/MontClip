@@ -1,0 +1,17 @@
+
+
+  FableCut running →  http://localhost:13650
+
+  project file : <user>\AppData\Local\Temp\MontClip-narrow-pane-QBlA8I\workspace\project.json
+  media folder : <user>\AppData\Local\Temp\MontClip-narrow-pane-QBlA8I\workspace\media
+  library      : <user>\AppData\Local\Temp\MontClip-narrow-pane-QBlA8I\workspace\library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : not found (real-time export only)
+  encode prof. : <repo>\encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+NARROW_START {"visible":true,"projectId":null}
+(electron) 'safeStorage.isEncryptionAvailable' is deprecated and will be removed. Please use 'safeStorage.isAsyncEncryptionAvailable' instead.
+(electron) 'safeStorage.encryptString' is deprecated and will be removed. Please use 'safeStorage.encryptStringAsync' instead.
+NARROW_SEND {"size":[630,452],"projectId":null,"status":"请先打开或创建项目，再发送。","dialogOpen":false,"chips":""}
+NARROW_FAIL send must open the review, got status: 请先打开或创建项目，再发送。
+MONTCLIP_SMOKE {"nodeUnavailable":true,"projectLoaded":true,"apiStatus":200,"externalBlocked":true,"compositor":true,"saved":true}

@@ -5,12 +5,13 @@
      probeFile(file) → Promise of {size, fps?, codec?, audioCodec?, audioChannels?,
                        sampleRate?, bitrate?, duration?, width?, height?, probe:"ffprobe"|"stat"}
                        or null when the file is not there.
-   Without ffprobe on PATH only `size` comes back (probe:"stat"). ffprobe runs
+   Without the bundled ffprobe only `size` comes back (probe:"stat"). ffprobe runs
    asynchronously, at most PROBE_CONCURRENCY at a time, so a project full of
    unprobed files never stalls the server's other requests. */
 "use strict";
 const fs = require("fs");
-const { execFile, spawnSync } = require("child_process");
+const { execFile } = require("child_process");
+const FF = require("./ffmpeg-path");
 const MediaLib = require("./media-lib");
 
 const PROBE_CONCURRENCY = 4;
@@ -18,7 +19,9 @@ const PROBE_CONCURRENCY = 4;
 let hasProbe = null;
 function ffprobeAvailable() {
   if (hasProbe == null) {
-    try { hasProbe = spawnSync("ffprobe", ["-version"], { stdio: "ignore", timeout: 1500 }).status === 0; } catch { hasProbe = false; }
+    // the bundled file being there is enough: a 100+ MB static ffprobe can take
+    // longer than any short "-version" timeout to start on a slow or busy disk
+    hasProbe = FF.available("ffprobe");
   }
   return hasProbe;
 }
@@ -38,7 +41,7 @@ function release() {
 }
 function runProbe(file) {
   return new Promise((resolve) => {
-    execFile("ffprobe", ["-v", "error", "-show_format", "-show_streams", "-of", "json", file],
+    execFile(FF.path("ffprobe"), ["-v", "error", "-show_format", "-show_streams", "-of", "json", file],
       { encoding: "utf8", timeout: 15_000, maxBuffer: 1 << 23, windowsHide: true },
       (err, stdout) => {
         if (err || !stdout) return resolve(null);

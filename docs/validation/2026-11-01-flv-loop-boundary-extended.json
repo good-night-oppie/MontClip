@@ -1,0 +1,27 @@
+{
+  "command": [
+    "-v",
+    "error",
+    "-read_intervals",
+    "9%+4",
+    "-show_frames",
+    "-show_entries",
+    "frame=media_type,best_effort_timestamp_time,pkt_duration_time,duration_time",
+    "-of",
+    "json",
+    "<fixture>/two-hours.flv"
+  ],
+  "frames": 308,
+  "first": {
+    "media_type": "audio",
+    "best_effort_timestamp_time": "8.003000",
+    "duration_time": "0.021000"
+  },
+  "last": {
+    "media_type": "video",
+    "best_effort_timestamp_time": "12.034000",
+    "duration_time": "0.033000"
+  },
+  "gaps": [],
+  "scope": "four-second window to include seek-preroll and first loop join; not a full scan"
+}

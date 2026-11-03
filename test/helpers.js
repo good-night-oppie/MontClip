@@ -200,4 +200,20 @@ function startMcp(t, dataDir, env = {}) {
   return api;
 }
 
-module.exports = { ROOT, seedProject, makeDataDir, readProject, writeProject, startServer, startMcp, rawGet };
+/* The bundled LGPL ffmpeg has no libx264: tests that need an H.264 file use the first of
+   its own H.264 encoders that works on this machine, or skip when there is none. */
+let h264 = undefined;
+function bundledH264() {
+  if (h264 !== undefined) return h264;
+  const FF = require("../ffmpeg-path");
+  h264 = null;
+  if (!FF.available("ffmpeg")) return h264;
+  for (const [enc, pix] of [["h264_mf", "nv12"], ["h264_nvenc", "yuv420p"], ["h264_qsv", "nv12"], ["h264_amf", "nv12"], ["h264_videotoolbox", "nv12"]]) {
+    const r = require("node:child_process").spawnSync(FF.path("ffmpeg"), ["-hide_banner", "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=256x144:r=30:d=0.1",
+      "-frames:v", "2", "-c:v", enc, "-pix_fmt", pix, "-f", "null", "-"], { stdio: "ignore", timeout: 30000 });
+    if (r.status === 0) { h264 = { encoder: enc, pix }; break; }
+  }
+  return h264;
+}
+
+module.exports = { ROOT, seedProject, makeDataDir, readProject, writeProject, startServer, startMcp, rawGet, bundledH264 };

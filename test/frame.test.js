@@ -15,7 +15,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { execFileSync } = require("node:child_process");
+const { execFileSync, spawn } = require("node:child_process");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -28,7 +28,7 @@ const { makeDataDir, startServer, startMcp, rawGet } = require("./helpers");
 const NO_WATCH = { FABLECUT_NO_FS_WATCH: "1" };
 
 const hasFfmpeg = () => {
-  try { execFileSync("ffmpeg", ["-version"], { stdio: "ignore" }); return true; }
+  try { execFileSync(require("../ffmpeg-path").path("ffmpeg"), ["-version"], { stdio: "ignore" }); return true; }
   catch { return false; }
 };
 const JPEG_SOI = (b) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8;
@@ -36,17 +36,36 @@ const JPEG_SOI = (b) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8;
 /* A short clip with real motion: three flat colours in sequence, so a frame at
    t≈0.3 and a frame at t≈0.9 cannot be the same picture. That is what makes
    "did the seek land on the right moment" a real assertion. */
-function fixture(dir, name, seconds = 3, w = 160, h = 90) {
+/* ffmpeg without blocking this process. A synchronous run between two requests
+   to the server freezes the event loop: under load that can outlast the
+   server's 5 s keep-alive, the server closes the idle connection, fetch cannot
+   see it close while frozen, and the next request goes out on the dead socket
+   (ECONNRESET, "fetch failed"). Awaited, fetch drops the idle socket itself in
+   time. Reproduction: docs/validation/2026-11-02-keepalive-race.md. */
+function runFfmpeg(args, input) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(require("../ffmpeg-path").path("ffmpeg"), args, { stdio: ["pipe", "pipe", "pipe"] });
+    const out = [], err = [];
+    child.stdout.on("data", (c) => out.push(c));
+    child.stderr.on("data", (c) => err.push(c));
+    child.on("error", reject);
+    child.on("close", (code) => code === 0 ? resolve(Buffer.concat(out))
+      : reject(new Error(`ffmpeg exited ${code}: ${Buffer.concat(err).toString().trim()}`)));
+    child.stdin.end(input);
+  });
+}
+
+async function fixture(dir, name, seconds = 3, w = 160, h = 90) {
   const file = path.join(dir, "media", name);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const seg = (seconds / 3).toFixed(3);
-  execFileSync("ffmpeg", [
+  await runFfmpeg([
     "-y", "-hide_banner", "-loglevel", "error",
     "-f", "lavfi", "-i", `color=c=red:s=${w}x${h}:d=${seg}`,
     "-f", "lavfi", "-i", `color=c=lime:s=${w}x${h}:d=${seg}`,
     "-f", "lavfi", "-i", `color=c=blue:s=${w}x${h}:d=${seg}`,
     "-filter_complex", `[0:v][1:v][2:v]concat=n=3:v=1:a=0[v]`,
-    "-map", "[v]", "-pix_fmt", "yuv420p", "-r", "25", file,
+    "-map", "[v]", "-c:v", "mpeg4", "-q:v", "3", "-pix_fmt", "yuv420p", "-r", "25", file,
   ]);
   return file;
 }
@@ -94,7 +113,7 @@ test("GET /api/frame refuses a src outside /media and /library", async (t) => {
 test("GET /api/frame rejects bad arguments with a 400, not a 500", async (t) => {
   const ffmpeg = hasFfmpeg();
   const { dir, base } = await boot(t);
-  if (ffmpeg) fixture(dir, "clip.mp4");
+  if (ffmpeg) await fixture(dir, "clip.mp4");
   const src = "/media/" + (ffmpeg ? "clip.mp4" : "missing.mp4");
 
   // cols/frames only mean anything together, so every sheet-mode case carries
@@ -108,9 +127,9 @@ test("GET /api/frame rejects bad arguments with a 400, not a 500", async (t) => 
   }
 });
 
-test("GET /api/frame returns one JPEG for a source timestamp", { skip: !hasFfmpeg() && "ffmpeg not on PATH" }, async (t) => {
+test("GET /api/frame returns one JPEG for a source timestamp", { skip: !hasFfmpeg() && "bundled ffmpeg not installed (node desktop/fetch-ffmpeg.cjs)" }, async (t) => {
   const { dir, base } = await boot(t);
-  fixture(dir, "clip.mp4");
+  await fixture(dir, "clip.mp4");
 
   const { res, buf } = await getFrame(base, "src=" + encodeURIComponent("/media/clip.mp4") + "&t=2");
   assert.equal(res.status, 200);
@@ -141,16 +160,15 @@ test("GET /api/frame returns one JPEG for a source timestamp", { skip: !hasFfmpe
    grab landed on. The fixture is red → lime → blue, so the colour identifies
    the second. */
 async function dominantRgb(buf) {
-  const raw = execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error",
+  const raw = await runFfmpeg(["-hide_banner", "-loglevel", "error",
     "-f", "image2pipe", "-c:v", "mjpeg", "-i", "pipe:0",
-    "-vf", "scale=1:1", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
-    { input: buf, maxBuffer: 1 << 20, encoding: "buffer" });
+    "-vf", "scale=1:1", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], buf);
   return { r: raw[0], g: raw[1], b: raw[2] };
 }
 
-test("a frame grab lands on the requested moment, not on the first frame", { skip: !hasFfmpeg() && "ffmpeg not on PATH" }, async (t) => {
+test("a frame grab lands on the requested moment, not on the first frame", { skip: !hasFfmpeg() && "bundled ffmpeg not installed (node desktop/fetch-ffmpeg.cjs)" }, async (t) => {
   const { dir, base } = await boot(t);
-  fixture(dir, "clip.mp4"); // red 0–1s · lime 1–2s · blue 2–3s
+  await fixture(dir, "clip.mp4"); // red 0–1s · lime 1–2s · blue 2–3s
 
   // The bug this pins: seeking is easy to get wrong in a way that still returns
   // a valid JPEG (frame 0 every time), so assert on pixels, not on the status.
@@ -170,9 +188,9 @@ test("a frame grab lands on the requested moment, not on the first frame", { ski
   assert.equal(new Set([hex(c0), hex(c1), hex(c2)]).size, 3, "each timestamp must show its own moment");
 });
 
-test("a contact sheet samples across the requested range, not just the head", { skip: !hasFfmpeg() && "ffmpeg not on PATH" }, async (t) => {
+test("a contact sheet samples across the requested range, not just the head", { skip: !hasFfmpeg() && "bundled ffmpeg not installed (node desktop/fetch-ffmpeg.cjs)" }, async (t) => {
   const { dir, base } = await boot(t);
-  fixture(dir, "clip.mp4"); // red 0–1s · lime 1–2s · blue 2–3s
+  await fixture(dir, "clip.mp4"); // red 0–1s · lime 1–2s · blue 2–3s
 
   // Survey the middle second only: every cell must be lime.
   const { res, buf } = await getFrame(base,
@@ -192,9 +210,9 @@ test("a contact sheet samples across the requested range, not just the head", { 
   assert.ok(ca.r + ca.g + ca.b > 60, `a 3-colour sheet should not average to a flat mid-tone, got rgb(${ca.r},${ca.g},${ca.b})`);
 });
 
-test("GET /api/frame?frames=N returns one contact sheet and labels its cells", { skip: !hasFfmpeg() && "ffmpeg not on PATH" }, async (t) => {
+test("GET /api/frame?frames=N returns one contact sheet and labels its cells", { skip: !hasFfmpeg() && "bundled ffmpeg not installed (node desktop/fetch-ffmpeg.cjs)" }, async (t) => {
   const { dir, base } = await boot(t);
-  fixture(dir, "clip.mp4");
+  await fixture(dir, "clip.mp4");
 
   const { res, buf } = await getFrame(base, "src=" + encodeURIComponent("/media/clip.mp4") + "&frames=6&cols=3&w=60");
   assert.equal(res.status, 200);
@@ -210,9 +228,9 @@ test("GET /api/frame?frames=N returns one contact sheet and labels its cells", {
   assert.ok(buf.length > one.buf.length, "a 6-up sheet should outweigh a single cell");
 });
 
-test("frame extraction is cached, and the cache follows the file's mtime", { skip: !hasFfmpeg() && "ffmpeg not on PATH" }, async (t) => {
+test("frame extraction is cached, and the cache follows the file's mtime", { skip: !hasFfmpeg() && "bundled ffmpeg not installed (node desktop/fetch-ffmpeg.cjs)" }, async (t) => {
   const { dir, base } = await boot(t);
-  const file = fixture(dir, "clip.mp4");
+  const file = await fixture(dir, "clip.mp4");
   const q = "src=" + encodeURIComponent("/media/clip.mp4") + "&t=1";
 
   const first = await getFrame(base, q);
@@ -232,9 +250,9 @@ test("frame extraction is cached, and the cache follows the file's mtime", { ski
     "touching the source must not serve the stale grab");
 });
 
-test("fablecut_frame returns an image the agent can look at", { skip: !hasFfmpeg() && "ffmpeg not on PATH" }, async (t) => {
+test("fablecut_frame returns an image the agent can look at", { skip: !hasFfmpeg() && "bundled ffmpeg not installed (node desktop/fetch-ffmpeg.cjs)" }, async (t) => {
   const dir = makeDataDir(t);
-  fixture(dir, "clip.mp4");
+  await fixture(dir, "clip.mp4");
   const { base } = await startServer(t, dir, NO_WATCH);
   const mcp = startMcp(t, dir, { FABLECUT_PORT: String(new URL(base).port) });
   await mcp.request("initialize", { protocolVersion: "2025-11-25" });
@@ -278,7 +296,7 @@ test("fablecut_frame without a path is a timeline render, and says so", async (t
   assert.deepEqual(pong.result, {});
 });
 
-test("a /library asset can be looked at without being copied into media", { skip: !hasFfmpeg() && "ffmpeg not on PATH" }, async (t) => {
+test("a /library asset can be looked at without being copied into media", { skip: !hasFfmpeg() && "bundled ffmpeg not installed (node desktop/fetch-ffmpeg.cjs)" }, async (t) => {
   const { dir, base } = await boot(t);
   // library/svg ships, so the resolveSrc branch is exercised against a real
   // file; a still of a still is only refused for lack of video by ffmpeg, not
@@ -294,12 +312,12 @@ test("a /library asset can be looked at without being copied into media", { skip
 });
 
 /* Looking at a clip must not change anything the user owns. */
-test("looking at a file outside media/ never writes into media/", { skip: !hasFfmpeg() && "ffmpeg not on PATH" }, async (t) => {
+test("looking at a file outside media/ never writes into media/", { skip: !hasFfmpeg() && "bundled ffmpeg not installed (node desktop/fetch-ffmpeg.cjs)" }, async (t) => {
   const { dir, base } = await boot(t);
   // A clip in a scratch folder, the way a user's footage actually arrives.
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "fc-outside-"));
   t.after(() => fs.rmSync(scratch, { recursive: true, force: true }));
-  const file = fixture(scratch, "elsewhere.mp4");
+  const file = await fixture(scratch, "elsewhere.mp4");
   assert.deepEqual(fs.readdirSync(path.join(dir, "media")), [], "media/ starts empty");
 
   const res = await fetch(base + "/api/frame?path=" + encodeURIComponent(file) + "&t=1", { headers: MCP_HEADER });
@@ -325,9 +343,9 @@ test("GET /api/frame?path rejects a path that is not a file", async (t) => {
 /* ── The text-only fallback ──────────────────────────────────────────────────
    A text-only agent must learn something about the footage, and must not be
    told a measurement is a description. */
-test("GET /api/frame?text=1 describes a frame instead of returning pixels", { skip: !hasFfmpeg() && "ffmpeg not on PATH" }, async (t) => {
+test("GET /api/frame?text=1 describes a frame instead of returning pixels", { skip: !hasFfmpeg() && "bundled ffmpeg not installed (node desktop/fetch-ffmpeg.cjs)" }, async (t) => {
   const { dir, base } = await boot(t);
-  fixture(dir, "clip.mp4"); // red 0–1s · lime 1–2s · blue 2–3s
+  await fixture(dir, "clip.mp4"); // red 0–1s · lime 1–2s · blue 2–3s
 
   const res = await fetch(base + "/api/frame?src=" + encodeURIComponent("/media/clip.mp4") + "&t=2&text=1");
   assert.equal(res.status, 200);
@@ -352,9 +370,9 @@ test("GET /api/frame?text=1 describes a frame instead of returning pixels", { sk
   assert.ok(!/data:image/.test(raw), "text mode must not smuggle an image through");
 });
 
-test("GET /api/frame?text=1 gives a contact sheet a line per cell", { skip: !hasFfmpeg() && "ffmpeg not on PATH" }, async (t) => {
+test("GET /api/frame?text=1 gives a contact sheet a line per cell", { skip: !hasFfmpeg() && "bundled ffmpeg not installed (node desktop/fetch-ffmpeg.cjs)" }, async (t) => {
   const { dir, base } = await boot(t);
-  fixture(dir, "clip.mp4");
+  await fixture(dir, "clip.mp4");
 
   const res = await fetch(base + "/api/frame?src=" + encodeURIComponent("/media/clip.mp4") + "&frames=6&cols=3&text=1");
   assert.equal(res.status, 200);
@@ -377,9 +395,9 @@ test("GET /api/frame?text=1 gives a contact sheet a line per cell", { skip: !has
   assert.equal(jumps, 2, `both colour changes should register, got motions ${body.stats.cells.map((c) => c.motion)}`);
 });
 
-test("fablecut_frame {text:true} returns no image and says what it cannot tell you", { skip: !hasFfmpeg() && "ffmpeg not on PATH" }, async (t) => {
+test("fablecut_frame {text:true} returns no image and says what it cannot tell you", { skip: !hasFfmpeg() && "bundled ffmpeg not installed (node desktop/fetch-ffmpeg.cjs)" }, async (t) => {
   const dir = makeDataDir(t);
-  fixture(dir, "clip.mp4");
+  await fixture(dir, "clip.mp4");
   const { base } = await startServer(t, dir, NO_WATCH);
   const mcp = startMcp(t, dir, { FABLECUT_PORT: String(new URL(base).port) });
   await mcp.request("initialize", { protocolVersion: "2025-11-25" });
@@ -447,9 +465,9 @@ test("GET /api/frame?path= needs the MCP client header", async (t) => {
   await srcMode.arrayBuffer();
 });
 
-test("omitting cols gives the squarest contact-sheet layout", { skip: !hasFfmpeg() && "ffmpeg not on PATH" }, async (t) => {
+test("omitting cols gives the squarest contact-sheet layout", { skip: !hasFfmpeg() && "bundled ffmpeg not installed (node desktop/fetch-ffmpeg.cjs)" }, async (t) => {
   const { dir, base } = await boot(t);
-  fixture(dir, "clip.mp4");
+  await fixture(dir, "clip.mp4");
 
   // 6 frames with no cols → 3×2, every cell a real frame, none black padding.
   const { res, buf } = await getFrame(base,

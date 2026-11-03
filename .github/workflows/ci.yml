@@ -1,10 +1,13 @@
 name: CI
 
+# Every PR runs, draft or not, whatever branch it targets (Deja 2026-11-02: #28 is a draft and
+# stacked PRs target other branches). Pushes to main run too, and it can be started by hand.
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -23,10 +26,66 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
+      # MontClip runs only its bundled LGPL FFmpeg, never one on PATH. Fetch the
+      # pinned build (SHA-256 and LGPL configuration are checked) so the tests that
+      # need ffmpeg run against it. H.264 tests skip here: the runner has no
+      # graphics-card encoder and no Windows h264_mf, and the LGPL build has no libx264.
+      # One source of truth: desktop/ffmpeg-manifest.json. The archive is cached under a
+      # key made from the manifest's hash, so it is downloaded again only when the pinned
+      # build changes; fetch-ffmpeg checks the SHA-256 of a cached copy before using it.
+      # A failed download fails the job: there is no fallback to the runner's ffmpeg.
+      - name: Cache the pinned FFmpeg archive (key = manifest hash)
+        id: ffmpeg-cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .cache/ffmpeg
+          key: ffmpeg-linux-x64-${{ hashFiles('desktop/ffmpeg-manifest.json') }}
+
+      - name: Fetch the bundled FFmpeg (pinned LGPL build)
+        run: |
+          echo "archive cache hit: ${{ steps.ffmpeg-cache.outputs.cache-hit }}"
+          start=$(date +%s)
+          node desktop/fetch-ffmpeg.cjs --platform linux-x64 --cache-dir .cache/ffmpeg
+          echo "fetch-ffmpeg took $(( $(date +%s) - start )) s"
+
       # No install step on purpose: FableCut has no runtime dependencies and the
       # suite uses only node:test. A missing `npm install` here is the feature.
       - name: Run the test suite
         run: npm test
+
+  test-windows:
+    # The H.264 export tests skip on the Linux runners (no graphics card, no h264_mf,
+    # and the LGPL build has no H.264 software encoder). Windows has h264_mf, so they
+    # run here against the bundled win32 build. MontClip is Windows-first.
+    name: Tests (Windows, Node 22)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Cache the pinned FFmpeg archive (key = manifest hash)
+        id: ffmpeg-cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: .cache/ffmpeg
+          key: ffmpeg-win32-x64-${{ hashFiles('desktop/ffmpeg-manifest.json') }}
+
+      - name: Fetch the bundled FFmpeg (pinned LGPL build)
+        run: |
+          echo "archive cache hit: ${{ steps.ffmpeg-cache.outputs.cache-hit }}"
+          node desktop/fetch-ffmpeg.cjs --platform win32-x64 --cache-dir .cache/ffmpeg
+
+      - name: Run the test suite (skips listed)
+        run: |
+          node --test --test-reporter=tap --test-reporter-destination=windows.tap --test-reporter=spec --test-reporter-destination=stdout
+          echo "skipped:"; grep '# SKIP' windows.tap | sed 's/.*# SKIP//' | sort | uniq -c || true
 
   check:
     name: Syntax & sanity
@@ -48,7 +107,7 @@ jobs:
 
       - name: Validate JSON files
         run: |
-          for f in package.json server.json manifest.json .mcp.json \
+          for f in package.json manifest.json .mcp.json \
                    .claude-plugin/plugin.json .claude-plugin/marketplace.json; do
             node -e "JSON.parse(require('fs').readFileSync('$f','utf8')); console.log('$f OK')"
           done
@@ -90,8 +149,9 @@ jobs:
           "
 
   release:
-    # What npm, the MCP registry and Glama will see — checked here, before a
-    # release, instead of after one. See .github/scripts/release-check.js.
+    # What a release will ship — checked here, before a release, instead of
+    # after one. MontClip is not published to npm or the MCP registry (see
+    # docs/decisions/2026-11-02-brand-montclip.md). See .github/scripts/release-check.js.
     name: Release readiness
     runs-on: ubuntu-latest
     steps:
@@ -113,9 +173,9 @@ jobs:
           npm pack --pack-destination "$out"
           cd "$out/app"
           npm init -y > /dev/null
-          npm install --no-audit --no-fund "$out"/fablecut-*.tgz
+          npm install --no-audit --no-fund "$out"/montclip-*.tgz
           cd "$GITHUB_WORKSPACE"
-          node .github/scripts/release-check.js --installed "$out/app/node_modules/fablecut"
+          node .github/scripts/release-check.js --installed "$out/app/node_modules/montclip"
 
       - name: Docs and playground are rebuilt from CLAUDE.md / the editor
         run: |
@@ -126,11 +186,3 @@ jobs:
             echo "::error::docs/ is stale — run node docs/docs/build.js and node docs/demo/sync.js, then commit"
             exit 1
           fi
-
-      # Last: it rewrites package.json in the runner. The dry run refuses a
-      # version that is already on npm — true between releases — so it packs a
-      # throwaway prerelease of the same version instead.
-      - name: npm publish dry run
-        run: |
-          npm version "$(node -p "require('./package.json').version")-ci.${GITHUB_RUN_NUMBER}" --no-git-tag-version
-          npm publish --dry-run --tag ci
