@@ -28,6 +28,24 @@ test('the format collapsible: title, body naming the quote button, and the small
   a.equal(zh('reference'), '引用选中字幕'); a.equal(en('reference'), 'Quote selected captions');
 });
 
+// JJ (on 96393ea): the body ends by naming the review button by its own text ({proposal}), before the technical line
+test('the body ends with what to do after the reply, naming the review button', () => {
+  a.equal(zh('formatNext'), '收到回复后，点下面的「{proposal}」，看看能不能直接用。');
+  a.equal(en('formatNext'), 'After the reply, click "{proposal}" below to check whether it can be applied.');
+  a.equal(V.formatBody('zh-CN'), zh('format').split('{reference}').join('引用选中字幕') + '收到回复后，点下面的「查看剪辑建议」，看看能不能直接用。');
+  a.ok(V.formatBody('en').endsWith(' After the reply, click "Review suggested edit" below to check whether it can be applied.'));
+});
+
+test('renaming the buttons renames them in the body too', () => {
+  const T = V.text['zh-CN'], keep = [T.officialPane_proposal, T.officialPane_reference];
+  try {
+    T.officialPane_proposal = '看看这条建议'; T.officialPane_reference = '把字幕引进来';
+    const body = V.formatBody('zh-CN');
+    a.ok(body.includes('点下面的「看看这条建议」'), body); a.ok(body.includes('点「把字幕引进来」'), body);
+    a.ok(!/\{proposal\}|\{reference\}/.test(body));
+  } finally { [T.officialPane_proposal, T.officialPane_reference] = keep; }
+});
+
 test('one copy of the format text: the dead first definition is gone', () => {
   const src = read('ui-preferences.js');
   a.equal((src.match(/[{,]\s*"?format"?\s*:/g) || []).length, 2, 'format: one per language');
@@ -37,6 +55,6 @@ test('one copy of the format text: the dead first definition is gone', () => {
 
 test('the pane renders the body with the quote button\'s own text, then the technical line', () => {
   const pane = read('agent-ui/pane.tsx');
-  a.match(pane, /<details data-format-help><summary>\{t\.formatTitle\}<\/summary><p data-format-body>\{t\.format\.split\('\{reference\}'\)\.join\(t\.reference\)\}<\/p><p className="dim" data-format-tech>\{t\.formatTech\}<\/p><\/details>/);
+  a.match(pane, /<details data-format-help><summary>\{t\.formatTitle\}<\/summary><p data-format-body>\{W\.MontClipView\.formatBody\(language\)\}<\/p><p className="dim" data-format-tech>\{t\.formatTech\}<\/p><\/details>/);
   a.ok(!/查看剪辑提案|Review editing proposal|如何提出剪辑建议/.test(read('ui-preferences.js')), 'no old wording left');
 });
