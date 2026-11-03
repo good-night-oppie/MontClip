@@ -21281,7 +21281,7 @@ const officialProposalApplications=new WeakMap();
 const agentRuns=new WeakMap();
 function recordAgentEvent(e){try{return eventLog().append(e);}catch{return null;}}
 async function versionBeforeAgent(){
- try{if(!await flushSave())return;await fetch('/api/versions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'before_agent',name:'AI 开始前 / Before the AI run'})});}catch{}
+ try{if(!await flushSave())return;await fetch('/api/versions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'before_agent',name:uiText('own.before-ai')})});}catch{}
 }
 function canUndoOfficialProposal(result){
  const entry=result&&officialProposalApplications.get(result),c=agentProjectContext();

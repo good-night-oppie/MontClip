@@ -260,6 +260,8 @@
     "export-checked": ["Export checked", "导出勾选的版本"],
     "export-checked-n": ["Export checked ({n})", "导出勾选的版本（{n}）"],
     "export-failed-prefix": ["Export failed: ", "导出失败："],
+    // JJ (#74): the version kept before the AI's edits, named in the interface language only
+    "before-ai": ["Before AI changes", "AI 改之前"],
     // JJ (#71): the selection / proposal dialog in the interface language only, never 「中文 / English」 together
     "ssel-busy": ["Finish editing and exporting, and confirm saving, first.", "请先结束编辑、导出并确认保存。"],
     "ssel-no-captions": ["Import an SRT file or add captions first.", "先导入 SRT 或添加字幕。"],
