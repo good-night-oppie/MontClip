@@ -1,0 +1,81 @@
+'use strict';
+// No H.264 encoder on this computer (europa, 2026-11-04: Linux, the bundled LGPL FFmpeg, no graphics card): 3 slices
+// failed only after ~147 s, because the page mixed each one's audio before /api/export/begin said no, and the queue did
+// that once per slice. ADR 2026-11-02 point 3 / Deja C: clicking export refuses at once, in plain words, before any
+// audio mix or frame is rendered. Exports that don't use H.264 still go out.
+const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
+const V = require('../ui-preferences'), X = require('../external-ffmpeg');
+const ROOT = path.join(__dirname, '..'), app = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8'), server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+const body = (src, head) => { const i = src.indexOf(head); a.ok(i >= 0, head); return src.slice(i, src.indexOf('\n}', i)); };
+
+test('the refusal is in export words, in both languages; other codes are said as before', () => {
+  for (const code of ['h264NoneWin', 'h264NoneOther']) {
+    const zh = V.h264Refusal('zh-CN', { code }), en = V.h264Refusal('en', { code });
+    a.match(zh, /^没有开始导出：/); a.match(en, /^Export did not start: /);
+    a.ok(!/在下面|below/.test(zh + en), 'not the Settings wording ("below")');
+    a.equal(zh.replace(/H\.264|MP4|FFmpeg|x264|Windows|MontClip/g, '').match(/[A-Za-z]{2,}/), null, 'zh ' + code + ': ' + zh);
+    a.ok(!/[一-鿿]/.test(en), 'en ' + code);
+  }
+  a.match(V.h264Refusal('zh-CN', { code: 'h264NoneWin' }), /Windows 自带的编码器也用不了/);
+  a.equal(V.h264Refusal('zh-CN', { code: 'h264NoneWin', featurePack: true }), V.text['zh-CN'].h264RefuseWin + V.text['zh-CN'].h264NeedFeaturePack);
+  a.equal(V.h264Refusal('zh-CN', { code: 'frameTooSmall', params: { w: 120, h: 40 } }), V.h264Message('zh-CN', { code: 'frameTooSmall', params: { w: 120, h: 40 } }));
+  a.equal(V.h264Refusal('en', { code: 'nonsense' }), null, 'an unknown code is not shown as text');
+});
+
+test('raw encoding profiles: which encode H.264', () => {
+  a.equal(X.argsUseH264(['-c:v', 'libx264', '-crf', '18']), true);
+  a.equal(X.argsUseH264(['-c:v', 'h264_nvenc']), true);
+  a.equal(X.argsUseH264(['-vcodec', 'h264_mf']), true);
+  a.equal(X.argsUseH264(['-c:v', 'prores_ks']), false);
+  a.equal(X.argsUseH264(['-c:v', 'hevc_nvenc']), false);
+  for (const p of Object.values(JSON.parse(fs.readFileSync(path.join(ROOT, 'encoding-profiles.json'), 'utf8')).profiles))
+    a.equal(X.argsUseH264(p.args), p.args.some((x) => /^(libx264|h264_)/.test(x)), p.label);
+});
+
+test('the page asks before the audio mix: the Export dialog, the export queue and 自动出切片', () => {
+  const fast = body(app, 'async function fastExport(');
+  const ask = fast.indexOf('await exportH264Refusal('), mix = fast.indexOf('renderAudioMix(');
+  a.ok(ask > 0 && ask < mix, 'fastExport asks before mixing the audio');
+  a.ok(fast.indexOf('fetch("/api/export/begin"') > mix, 'and so before /api/export/begin');
+  const helper = body(app, 'async function exportH264Refusal(');
+  a.match(helper, /fetch\("\/api\/export\/h264"/); a.match(helper, /MontClipView\.h264Refusal\(mcView\.get\(\)\.language, st\.reason\)/);
+  const queue = body(app, 'async function runQueue(');
+  const qAsk = queue.indexOf('exportH264Refusal('), loop = queue.indexOf('while (!queueStop)');
+  a.ok(qAsk > 0 && qAsk < loop, 'the queue refuses every waiting H.264 output once, before rendering any');
+  a.match(queue, /status: "failed", error: refused, noH264: true/);
+  a.match(queue, /if \(!quiet\) alert\(refused\)/, 'said once, not per file');
+  const confirm = body(app, 'function autoExportConfirm(');
+  a.match(confirm, /exportH264Refusal\(deliveryIsH264\(sliceDeliverySpec\(\)\)\)/); a.match(confirm, /go\.disabled = true/);
+  a.match(confirm, /data-as-ex-noh264 role="alert"/, 'a lasting line on the page, not a toast that flashes');
+  const ex = body(app, 'async function autoExport(');
+  a.ok(ex.indexOf('exportH264Refusal(') < ex.indexOf('placeAutoSlices('), 'nothing goes on the timeline when it cannot export');
+  a.match(body(app, 'async function autoExportRun('), /runQueue\(\{ quiet: true \}\)/, '自动出切片 says it on its own page');
+  a.match(body(app, 'function queueSlices('), /const spec = sliceDeliverySpec\(\);/, 'the check looks at the spec the slices are queued with');
+});
+
+test('server: every H.264 export path refuses with the same code before rendering', () => {
+  a.match(body(server, 'async function noH264Error('), /\.\.\.X\.noH264\(\{ mediaFoundation: hasMediaFoundation\(\) \}\)/);
+  a.match(body(server, 'async function beginDeliveryExport('), /await noH264Error\(\)/);
+  const raw = body(server, 'async function beginExport(');
+  a.ok(raw.indexOf('X.argsUseH264(profile.args) && await noH264Error()') < raw.indexOf('exportBinary('), 'a raw H.264 profile: no encoder at all comes before "choose your own FFmpeg"');
+});
+
+test('server, no H.264 encoder: H.264 refused at begin with a code, Archive (FFV1) still starts', async (t) => {
+  const { makeDataDir, seedProject, startServer } = require('./helpers');
+  if (!require('../ffmpeg-path').available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
+  const dir = makeDataDir(t, seedProject({ revision: 1 }));
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_TEST_NO_H264: '1', MONTCLIP_EXTERNAL_FFMPEG_SETTINGS: path.join(dir, 'no-setting.json') });
+  const st = await (await fetch(base + '/api/export/h264')).json();
+  a.equal(st.encoder, null); a.match(st.reason.code, /^h264None(Win|Other)$/);
+  const begin = (b) => fetch(base + '/api/export/begin', { method: 'POST', body: JSON.stringify(b) });
+  const canvas = { fps: 30, duration: 1, canvasW: 640, canvasH: 360, hasAudio: false };
+  for (const req of [{ ...canvas, deliveries: [{ delivery: { preset: 'youtube' }, name: 'a' }, { delivery: { preset: 'web' }, name: 'b' }] },
+    { fps: 30, name: 'x', profile: 'delivery', hasAudio: false }]) {
+    const r = await begin(req); a.equal(r.status, 400); const j = await r.json();
+    a.match(j.code, /^h264None(Win|Other)$/, JSON.stringify(j)); a.ok(!/[一-鿿]/.test(j.error), 'English for agents and logs');
+    a.match(V.h264Refusal('zh-CN', j), /^没有开始导出：/);
+  }
+  const r = await begin({ ...canvas, deliveries: [{ delivery: { preset: 'archive' }, name: 'c' }] });
+  const j = await r.json(); a.equal(r.status, 200, JSON.stringify(j)); a.ok(j.id);
+  await fetch(base + '/api/export/end?id=' + j.id + '&discard=1', { method: 'POST' });
+});

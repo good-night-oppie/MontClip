@@ -60,6 +60,16 @@
     extSaveFailed: "The choice could not be saved. Choose again.",
     extRemoveFailed: "Could not stop using this FFmpeg. Try again.",
   });
+  // No H.264 encoder at all, said when export is clicked, before anything renders (ADR 2026-11-02, point 3; Deja C,
+  // 2026-11-04). h264None* are worded for Settings ("below"); these are for the export itself. For JJ to review.
+  Object.assign(text["zh-CN"], {
+    h264RefuseWin: "没有开始导出：这台电脑上找不到能用的 H.264 编码器，导出 MP4 要用它。显卡编码器没有响应，Windows 自带的编码器也用不了。可以在「设置」里选一个带 x264 的 FFmpeg，或者导出时换一种不用 H.264 的格式。",
+    h264RefuseOther: "没有开始导出：这台电脑上找不到能用的 H.264 编码器，导出 MP4 要用它。可以在「设置」里选一个带 x264 的 FFmpeg，或者导出时换一种不用 H.264 的格式。",
+  });
+  Object.assign(text.en, {
+    h264RefuseWin: "Export did not start: this computer has no H.264 encoder MontClip can use, and MP4 export needs one. No graphics-card encoder answered, and Windows' built-in encoder is not available. You can choose an FFmpeg with x264 in Settings, or export in a format that does not use H.264.",
+    h264RefuseOther: "Export did not start: this computer has no H.264 encoder MontClip can use, and MP4 export needs one. You can choose an FFmpeg with x264 in Settings, or export in a format that does not use H.264.",
+  });
   // encoders by name: plain words in Chinese, the technical names (delivery.js labels) in English
   const ENCODER_NAMES = {
     "zh-CN": { h264_nvenc: "显卡编码（NVIDIA）", h264_mf: "Windows 自带编码", h264_qsv: "显卡编码（Intel）", h264_amf: "显卡编码（AMD）",
@@ -80,6 +90,12 @@
     else s = fill(s, Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])));
     if (/^h264None/.test(r.code) && r.featurePack) s += t.h264NeedFeaturePack;
     return s;
+  }
+  /** An export refused before it started: "no H.264 encoder" in export words, any other code as h264Message says it. */
+  function h264Refusal(language, r) {
+    const t = text[lang(language)];
+    if (r && (r.code === "h264NoneWin" || r.code === "h264NoneOther")) return t[r.code.replace("None", "Refuse")] + (r.featurePack ? t.h264NeedFeaturePack : "");
+    return h264Message(language, r);
   }
   // MontClip's own wording for keyed strings the terms SPEC does not cover.
   const own = {
@@ -972,5 +988,5 @@
    *  English word (export, captions…) in English. */
   const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
-  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
+  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Refusal, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
 });
