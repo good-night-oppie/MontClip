@@ -35,7 +35,7 @@ test("属性: the selected clip's timing, file and set props; null when nothing 
     clips: [{ id: "v", kind: "video", mediaId: "m", track: "V1", start: 2, in: 10, duration: 5, props: { volume: 0.5, speed: 1, x: undefined }, keyframes: { scale: [{ t: 0, v: 1 }], x: [] } }] };
   const f = M.clipFacts(p, "v");
   assert.deepEqual([f.name, f.start, f.end, f.in, f.locked, f.disabled], ["rec.mp4", 2, 7, 10, true, false]);
-  assert.deepEqual(f.props, [["音量", "50%"]], "plain names; speed 1 is the default, so it is not said");
+  assert.deepEqual(f.props, [["音量", "50%"], ["速度", "原速"]], "JJ's names; what the clip does not have is not shown");
   assert.deepEqual(f.keyframes, ["缩放"]);
   assert.equal(f.kindLabel, "视频");
   assert.deepEqual([f.media.width, f.media.fps, f.media.codec], [1920, 60, "h264"]);
@@ -103,19 +103,64 @@ test("属性: 素材起点 only for a clip with a file; a caption has none", () 
   assert.doesNotMatch(panel, /素材入点/);
 });
 
-test("属性: property names in plain words with their units; defaults and the title's own text are not shown", () => {
-  const rows = M.propRows({ text: "我是这耀眼的瞬间", volume: 0.8, gain: -3.5, speed: 1.5, pan: 0.25, scale: 1.2, x: 120, y: -40,
-    rotation: 15, opacity: 0.5, brightness: 110, contrast: 100, saturation: 80, font: "Inter", fontSize: 72, color: "#ffd166", filterPreset: "noir", textAnim: "word-pop" });
-  assert.deepEqual(rows, [["音量", "80%"], ["音量增减", "−3.5 分贝"], ["速度", "1.5 倍"], ["左右声道", "偏右 25%"], ["缩放", "120%"],
-    ["位置", "横 +120 · 竖 −40"], ["旋转", "+15°"], ["不透明度", "50%"], ["亮度", "110%"], ["饱和度", "80%"], ["字体", "Inter"], ["字号", "72"],
-    ["文字颜色", "#ffd166"], ["滤镜", "noir"], ["文字动画", "word-pop"]]);
-  assert.deepEqual(M.propRows({ volume: 1, gain: 0, speed: 1, pan: 0, scale: 1, x: 0, y: 0, rotation: 0, opacity: 1, brightness: 100,
-    contrast: 100, saturation: 100, filterPreset: "none", textAnim: "none" }), [], "the editor's defaults say nothing");
-  assert.deepEqual(M.propRows({ pan: -1, x: 0, y: 30 }), [["左右声道", "偏左 100%"], ["位置", "横 0 · 竖 +30"]]);
-  assert.deepEqual(M.propRows({ volume: 0.8, gain: 2, speed: 2, pan: 0 }, "en"), [["Volume", "80%"], ["Gain", "+2 dB"], ["Speed", "2×"]]);
-  assert.equal(M.propName("opacity"), "不透明度");
-  assert.equal(M.propName("y"), "位置");
-  assert.equal(M.propName("hue"), "hue", "a channel not in the list keeps its key");
+/* JJ's final words for the 15 properties (2026-11-04), word for word */
+const DEFAULTS = { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1, volume: 1, pan: 0, gain: 0, speed: 1, filterPreset: "none",
+  text: "Title", fontSize: 72, color: "#ffffff", font: "Segoe UI", textAnim: "none" };   // what the editor gives every clip
+
+test("属性: the 15 properties in JJ's words, Chinese and English", () => {
+  const titled = { ...DEFAULTS, text: "我是这耀眼的瞬间", font: "Inter", fontSize: 88, color: "#ffd166", scale: 1.2, x: 120, y: -40, rotation: 15, opacity: 0.8, textAnim: "word-pop" };
+  assert.deepEqual(M.propRows(titled, "zh-CN", "text", "一个标题"), [
+    ["文字内容", "我是这耀眼的瞬间"], ["字体", "Inter"], ["字号", "88"], ["颜色", "#ffd166", "#ffd166"],
+    ["缩放", "120%"], ["位置", "横 120，竖 −40"], ["旋转", "15°"], ["不透明度", "80%"], ["文字动画", "word-pop"]]);
+  assert.deepEqual(M.propRows(titled, "en", "text", "A title"), [
+    ["Text", "我是这耀眼的瞬间"], ["Font", "Inter"], ["Size", "88"], ["Color", "#ffd166", "#ffd166"],
+    ["Scale", "120%"], ["Position", "X 120, Y −40"], ["Rotation", "15°"], ["Opacity", "80%"], ["Text animation", "word-pop"]]);
+  const loud = { ...DEFAULTS, volume: 0.8, gain: 3, speed: 1.5, pan: -0.3, filterPreset: "noir" };
+  assert.deepEqual(M.propRows(loud, "zh-CN", "video"), [
+    ["音量", "80%"], ["音量增减", "+3 分贝"], ["速度", "1.5 倍"], ["左右声道", "偏左 30%"],
+    ["缩放", "100%"], ["位置", "横 0，竖 0"], ["旋转", "0°"], ["不透明度", "100%"], ["滤镜", "noir"]]);
+  assert.deepEqual(M.propRows(loud, "en", "video"), [
+    ["Volume", "80%"], ["Gain", "+3 dB"], ["Speed", "1.5×"], ["Pan", "Left 30%"],
+    ["Scale", "100%"], ["Position", "X 0, Y 0"], ["Rotation", "0°"], ["Opacity", "100%"], ["Filter", "noir"]]);
+});
+
+test("属性: the values JJ named — 不变 / 0 dB, 原速, 居中, 偏右, −2 分贝, 1 as 100%", () => {
+  const row = (props, lang, key) => M.propRows({ ...DEFAULTS, ...props }, lang, "audio").find((r) => r[0] === key)[1];
+  assert.equal(row({}, "zh-CN", "音量增减"), "不变");
+  assert.equal(row({}, "en", "Gain"), "0 dB");
+  assert.equal(row({ gain: -2 }, "zh-CN", "音量增减"), "−2 分贝");
+  assert.equal(row({ gain: -2 }, "en", "Gain"), "−2 dB");
+  assert.equal(row({}, "zh-CN", "速度"), "原速");
+  assert.equal(row({}, "zh-CN", "音量"), "100%");
+  assert.equal(row({}, "zh-CN", "左右声道"), "居中");
+  assert.equal(row({}, "en", "Pan"), "Center");
+  assert.equal(row({ pan: 0.3 }, "zh-CN", "左右声道"), "偏右 30%");
+  assert.equal(row({ pan: 0.3 }, "en", "Pan"), "Right 30%");
+  assert.equal(M.propRows({ ...DEFAULTS, opacity: 0.8 }, "zh-CN", "image").find((r) => r[0] === "不透明度")[1], "80%");
+});
+
+test("属性: each kind shows what means something for it; the text is not repeated when it is the name", () => {
+  const names = (kind, name) => M.propRows(DEFAULTS, "zh-CN", kind, name).map((r) => r[0]);
+  assert.deepEqual(names("audio"), ["音量", "音量增减", "速度", "左右声道"], "a sound clip: sound only, no Title / Segoe UI");
+  assert.deepEqual(names("video"), ["音量", "音量增减", "速度", "左右声道", "缩放", "位置", "旋转", "不透明度", "滤镜"]);
+  assert.deepEqual(names("image"), ["缩放", "位置", "旋转", "不透明度", "滤镜"]);
+  assert.deepEqual(names("text", "Title"), ["字体", "字号", "颜色", "缩放", "位置", "旋转", "不透明度", "文字动画"], "the name already says the text");
+  assert.ok(names("text", "片头").includes("文字内容"), "a title named otherwise shows its text");
+  const p = { media: [], clips: [text("t", 0, 3, "我是这耀眼的瞬间", { props: { ...DEFAULTS, text: "我是这耀眼的瞬间", caption: true } })] };
+  assert.ok(!M.clipFacts(p, "t").props.some((r) => r[0] === "文字内容"), "a caption named by its own words: not repeated");
+});
+
+test("属性: the 关键帧 row uses the same names; no key such as opacity or scale reaches the page", () => {
+  const p = { media: [], clips: [{ id: "v", kind: "image", track: "V1", start: 0, in: 0, duration: 4, props: { ...DEFAULTS },
+    keyframes: { opacity: [{ t: 0, v: 0 }], scale: [{ t: 0, v: 1 }], x: [{ t: 0, v: 0 }], y: [{ t: 0, v: 0 }], rotation: [] } }] };
+  assert.deepEqual(M.clipFacts(p, "v").keyframes, ["不透明度", "缩放", "位置"]);
+  assert.deepEqual(M.clipFacts(p, "v", "en").keyframes, ["Opacity", "Scale", "Position"]);
+  const f = M.clipFacts(p, "v");
+  const shown = JSON.stringify([f.props, f.keyframes, f.kindLabel]);
+  for (const key of ["opacity", "scale", "volume", "rotation", "fontSize", "filterPreset", "textAnim"]) assert.ok(!shown.includes(`"${key}"`), key);
+  // 颜色 shows a swatch, then the value
+  const panel = fs.readFileSync(path.join(PLUGIN, "embed", "panel.js"), "utf8");
+  assert.match(panel, /chip\.className = "swatch"; chip\.style\.background = swatch;/);
 });
 
 test("文稿 and the editor being closed: JJ's sentences", () => {

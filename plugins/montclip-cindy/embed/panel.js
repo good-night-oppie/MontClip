@@ -67,13 +67,19 @@
     if (f.in !== null) rows.push(["素材起点", M.formatTime(f.in)]);
     if (f.media) rows.push(["素材", f.media.name], ["素材信息", [f.media.width && f.media.height ? `${f.media.width}×${f.media.height}` : "",
       f.media.fps ? f.media.fps + " fps" : "", f.media.codec || "", f.media.duration ? M.formatTime(f.media.duration) : ""].filter(Boolean).join(" · ")]);
-    for (const [k, v] of f.props) rows.push([k, v]);
+    for (const [k, v, swatch] of f.props) rows.push([k, v, swatch]);
     if (f.keyframes.length) rows.push(["关键帧", f.keyframes.join("、")]);
     if (f.locked) rows.push(["锁定", "是"]);
     if (f.disabled) rows.push(["停用", "是"]);
-    for (const [k, v] of rows) {
+    for (const [k, v, swatch] of rows) {
       const dt = document.createElement("dt"); dt.textContent = k;
-      const dd = document.createElement("dd"); dd.textContent = v;
+      const dd = document.createElement("dd");
+      if (swatch) {   // 颜色: a swatch, then the value
+        const chip = document.createElement("span");
+        chip.className = "swatch"; chip.style.background = swatch;
+        dd.appendChild(chip);
+      }
+      dd.appendChild(document.createTextNode(v));
       dl.append(dt, dd);
     }
   }
