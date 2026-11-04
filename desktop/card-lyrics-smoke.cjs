@@ -125,6 +125,24 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.again=await read(`(()=>{const d=document.querySelector('dialog[data-ly-dialog]'),v=d.querySelector('[data-ly-text]').value;d.close();return v;})()`);
   assert.equal(report.again,LYRICS,'the lyrics pasted last time');
   await until(`!document.querySelector('dialog[data-ly-dialog]')`);
+  // R02c (Deja, 2026-11-04; VV on #105 74d8486): calibrated twice with different lyrics, undone twice, reopened → the second paste
+  // (the card was calibrated once more just above: that is the first round here)
+  const LYRICS2='天空好蓝。\n我想飞翔！';
+  await read(`document.querySelector('[data-as-card="${first.id}"] [data-as-act=lyrics]').click();true`);
+  await until(`!!document.querySelector('dialog[data-ly-dialog][open]')`);
+  await read(`(()=>{const d=document.querySelector('dialog[data-ly-dialog]');d.querySelector('[data-ly-text]').value=${JSON.stringify(LYRICS2)};d.querySelector('[data-ly-align]').click();d.querySelector('[data-ly-apply-all]').click();return true;})()`);
+  await until(`!document.querySelector('dialog[data-ly-dialog]')&&!!autoClip(${JSON.stringify(first.id)}).lyricCues`);
+  await wait(300);
+  for(let i=0;i<2;i++){for(const type of ['keyDown','keyUp'])win.webContents.sendInputEvent({type,keyCode:'Z',modifiers:['control']});await wait(400);}
+  report.twice=await read(`(()=>{const c=autoClip(${JSON.stringify(first.id)});return{cues:c.lyricCues||null,button:document.querySelector('[data-as-card="'+c.id+'"] [data-as-act=lyrics]').textContent};})()`);
+  assert.deepEqual(report.twice,{cues:null,button:zh('as-lyrics')},'both calibrations undone');
+  await read(`document.querySelector('[data-as-card="${first.id}"] [data-as-act=lyrics]').click();true`);
+  await until(`!!document.querySelector('dialog[data-ly-dialog][open]')`);
+  report.twiceText=await read(`(()=>{const d=document.querySelector('dialog[data-ly-dialog]'),v=d.querySelector('[data-ly-text]').value;d.close();return v;})()`);
+  assert.equal(report.twiceText,LYRICS2,'undone twice: the lyrics pasted the second time');
+  await until(`!document.querySelector('dialog[data-ly-dialog]')`);
+  // the lyrics are still in this window only: not in the project file
+  assert.ok(!(await read(`JSON.stringify(projectJSON())`)).includes('我想飞翔！'),'not in the project file');
   // VV on #100 aeb81e7: at 630×460 the toast after applying does not lie over the card's own lyrics button
   win.setMinimumSize(320,320);win.setContentSize(630,460);await wait(500);
   await read(`document.querySelector('[data-as-card="${first.id}"] [data-as-act=lyrics]').click();true`);

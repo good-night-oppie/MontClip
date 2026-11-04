@@ -99,7 +99,8 @@ test("uploads keep their rules: never overwrite, the bytes intact, a dropped upl
   await upload(port, "dropped.bin", 64, { abortAt: 8 });
   await new Promise((r2) => setTimeout(r2, 500));
   a.deepEqual(fs.readdirSync(media).sort(), before, "no file from a dropped upload");
-  const staging = fs.readdirSync(dir).filter((f) => f.startsWith("."));
+  // the dot folders uploads stage in (a dot file such as .montclip-writer.lock is not one)
+  const staging = fs.readdirSync(dir).filter((f) => f.startsWith(".") && fs.statSync(path.join(dir, f)).isDirectory());
   for (const s of staging) a.deepEqual(fs.readdirSync(path.join(dir, s)), [], "nothing left in " + s);
 });
 

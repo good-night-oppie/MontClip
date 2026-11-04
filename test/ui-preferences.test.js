@@ -16,7 +16,9 @@ test("unavailable preference storage leaves current view usable and reports fail
   const view = View.create({ getItem() { throw Error("denied"); }, setItem() { throw Error("full"); } });
   assert.equal(view.set({ mode: "advanced" }), false);
   assert.equal(view.get().mode, "advanced");
-  assert.deepEqual(Object.keys(View.text.en).sort(), Object.keys(View.text["zh-CN"]).sort());
+  // plural forms are per language (en: _one / _other; zh: one form, MontClipView.tp): parity is of the keys without them
+  const keys = (t) => [...new Set(Object.keys(t).map((k) => k.replace(/(_(zero|one|two|few|many|other))+$/, "")))].sort();
+  assert.deepEqual(keys(View.text.en), keys(View.text["zh-CN"]));
 });
 
 test('desktop bridge defaults on read failure and reports write failure without changing editor data', () => {

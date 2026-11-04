@@ -384,6 +384,9 @@
     "ly-cancel": ["Cancel", "取消"],
     "ly-done": ["Fixed {n} caption lines from the lyrics. Undo is available.", "已按歌词改好 {n} 行字幕，可以撤销。"],
     "ly-pick-range": ["First select the song's captions on the timeline, or mark the song with IN and OUT, then click Fix captions using lyrics.", "先在时间线上选中这首歌的字幕，或者用 IN 和 OUT 框出这首歌，再点「按歌词校准字幕」。"],
+    // 〔加字幕〕 (N3d, Deja 2026-11-04); the replacing one is for JJ
+    "cap-added": ["Added {n} captions on {track}", "已在 {track} 加了 {n} 句字幕"],
+    "cap-added-replaced": ["Added {n} captions on {track}, replacing the {m} that were there", "已在 {track} 加了 {n} 句字幕，换掉了原来的 {m} 句"],
     "ly-no-words": ["This part has no transcript. Transcribe it first, then fix the captions.", "这段没有听写的文字。先听写，再按歌词校准。"],
     "ly-no-lyrics": ["Paste the lyrics first.", "先把歌词粘贴进来。"],
     "ly-too-long": ["The lyrics or this part's transcript is too long: at most 3000 characters at a time. Narrow it down to one song.", "歌词或这段的听写太长了，一次最多 3000 个字。请把范围缩小到一首歌。"],
@@ -736,6 +739,16 @@
   };
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
+  // English by number (JJ, 2026-11-04; MontClipView.tp): 〔加字幕〕, by the captions added, then by the ones replaced. The
+  // Chinese sentences have one form; the keys without a form stay as the fallback.
+  Object.assign(text.en, {
+    "own.cap-added_one": "Added {n} caption on {track}",
+    "own.cap-added_other": "Added {n} captions on {track}",
+    "own.cap-added-replaced_one_one": "Added {n} caption on {track}, replacing the one that was there",
+    "own.cap-added-replaced_one_other": "Added {n} caption on {track}, replacing the {m} that were there",
+    "own.cap-added-replaced_other_one": "Added {n} captions on {track}, replacing the one that was there",
+    "own.cap-added-replaced_other_other": "Added {n} captions on {track}, replacing the {m} that were there",
+  });
   /** Keyed lookup: the language's string, else the English one, else "" (never the key). */
   /** A length as mm:ss, h:mm:ss from an hour; "" for none. The same as the Agent pane's durationText (agent-conversation.js, #26). */
   function clock(seconds) {
@@ -746,6 +759,15 @@
   function durationText(seconds) { return Number.isFinite(seconds) && seconds > 0 ? clock(Math.max(1, Math.round(seconds))) : ""; }
   function t(language, key, vars) {
     const s = (text[language] && text[language][key]) ?? text.en[key] ?? "";
+    return vars ? s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : s;
+  }
+  /** t with plural forms (JJ, 2026-11-04): the key's form for each count, in order — key_one / key_other, or with two
+   *  counts key_one_other … (Intl.PluralRules of the language). A language without that form uses its key without one
+   *  (Chinese has one form), then English's form, then English's key. */
+  function tp(language, key, counts, vars) {
+    const l = text[language] ? language : "en", rules = new Intl.PluralRules(l === "en" ? "en" : "zh-CN"), en = new Intl.PluralRules("en");
+    const form = (r) => key + Object.values(counts).map((c) => "_" + r.select(Number(c))).join("");
+    const s = text[l][form(rules)] ?? text[l][key] ?? text.en[form(en)] ?? text.en[key] ?? "";
     return vars ? s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m)) : s;
   }
   /** How long ago `then` was, seen from `now` (default: now), in the interface language:
@@ -860,11 +882,11 @@
   Object.assign(officialPaneText['zh-CN'],{more:'更多',projectNotReady:'这个项目还没保存好，所以没有发送。你的剪辑都还在。请点「保存项目」后再试。',saveProject:'保存项目'});
   // P4: the mode switch at the top of the assistant (the AI cannot change it). New copy, for JJ.
   Object.assign(officialPaneText.en,{modes:'How the AI works',modePlan:'Plan',modeManual:'Manual',modeAuto:'Auto',modeYolo:'Yolo',
-   modePlanTip:'Only plans; changes nothing',modeManualTip:'Asks before changing the project; asks every time for anything that can\'t be undone',modeAutoTip:'Does what can be undone; asks before what can\'t',modeYoloTip:'Does every step without asking you; anything sent out is still shown to you first',
-   yoloOn:'Yolo is on: the AI does every step without asking you; anything sent out is still shown to you first.',planTitle:'Plan',planSummary:'Made a plan of {count} steps. See the list below.',planInvalid:'This reply looks like a plan but can\'t be used. Nothing was done.',planRemove:'Delete',planStart:'Start',planDiscard:'Drop this plan',formatPlan:'To have the AI do several steps at once, ask it to make a plan first: it lists every step; you look them over, delete the ones you don\'t want, then click "Start". Each step still asks you as the mode you chose says.',formatPlanTech:'Below is the format note for the AI; you don\'t need to read it.',planUndo:'Undo the whole plan',modeDeclined:'Yolo was not turned on.',modeUnavailable:'The mode didn\'t change; it\'s still the one it was. Close MontClip, open it again and try once more.'});
+   modePlanTip:'Only plans; changes nothing.',modeManualTip:'Asks before changing the project; asks every time for anything that can\'t be undone. This is the default.',modeAutoTip:'Does what can be undone; asks before what can\'t.',modeYoloTip:'Does every step without asking you; anything sent out is still shown to you first. You\'ll be asked once more before it turns on.',
+   yoloOn:'Yolo is on: the AI does every step without asking you; anything sent out is still shown to you first.',planTitle:'Plan',planSummary_one:'Made a plan of {count} step. See the list below.',planSummary_other:'Made a plan of {count} steps. See the list below.',planInvalid:'This reply looks like a plan but can\'t be used. Nothing was done.',planRemove:'Delete',planStart:'Start',planDiscard:'Drop this plan',formatPlan:'To have the AI do several steps at once, ask it to make a plan first: it lists every step; you look them over, delete the ones you don\'t want, then click "Start". Each step still follows the mode you chose.',formatPlanTech:'Below is the format note for the AI; you don\'t need to read it.',planUndo:'Undo the whole plan',modeDeclined:'Yolo was not turned on.',modeUnavailable:'The mode didn\'t change; it\'s still the one it was. Close MontClip, open it again and try once more.'});
   Object.assign(officialPaneText['zh-CN'],{modes:'AI 怎么做',modePlan:'计划',modeManual:'手动',modeAuto:'自动',modeYolo:'Yolo',
-   modePlanTip:'只出计划，不改项目',modeManualTip:'改项目前先问你；撤不回的每次都问',modeAutoTip:'能撤销的直接做，撤不回的先问你',modeYoloTip:'每一步都直接做，不问你；往外发的内容照样先给你看',
-   yoloOn:'Yolo 开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。',planTitle:'计划',planSummary:'已排好计划，共 {count} 步，见下面的清单。',planInvalid:'这条回复像是计划，但用不了，什么都没做。',planRemove:'删掉',planStart:'开始',planDiscard:'不要这个计划',formatPlan:'想让 AI 一次做好几步，可以让它先排一个计划：它会列出每一步，你看一遍、删掉不要的，再点「开始」。每一步还是按你选的模式来问你。',formatPlanTech:'以下是给 AI 的格式说明，不用看。',planUndo:'撤销整个计划',modeDeclined:'没有打开 Yolo。',modeUnavailable:'这次没换成，模式还是原来那个。关掉 MontClip 再打开，再试一次。'});
+   modePlanTip:'只出计划，不改项目。',modeManualTip:'改项目前先问你；撤不回的每次都问。默认是这个。',modeAutoTip:'能撤销的直接做，撤不回的先问你。',modeYoloTip:'每一步都直接做，不问你；往外发的内容照样先给你看。打开前会再确认一次。',
+   yoloOn:'Yolo 开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。',planTitle:'计划',planSummary:'已排好计划，共 {count} 步，见下面的清单。',planInvalid:'这条回复像是计划，但用不了，什么都没做。',planRemove:'删掉',planStart:'开始',planDiscard:'不要这个计划',formatPlan:'想让 AI 一次做好几步，可以让它先排一个计划：它会列出每一步，你看一遍、删掉不要的，再点「开始」。每一步怎么做，还是看你选的模式。',formatPlanTech:'以下是给 AI 的格式说明，不用看。',planUndo:'撤销整个计划',modeDeclined:'没有打开 Yolo。',modeUnavailable:'这次没换成，模式还是原来那个。关掉 MontClip 再打开，再试一次。'});
   for(const language of ['en','zh-CN']) for(const [key,value] of Object.entries(officialPaneText[language])) text[language]['officialPane_'+key]=value;
   Object.assign(text['zh-CN'], { paneNew:'新建会话', paneSearch:'搜索本项目会话', paneDraft:'输入消息', paneSend:'发送', paneCancel:'取消', paneConfig:'助手设置', paneModel:'模型', paneNone:'未配置服务', paneWidth:'面板宽度', paneEmpty:'暂无消息。', paneTools:'暂无工具执行', paneLocal:'会话和草稿仅保留到本次窗口关闭，不会自动附加项目内容。', paneLimitSessions:'这次打开的会话数到上限了，暂时不能新建。回到已有会话继续；要留的内容先复制出来。', paneScopeCapacity:'会话已满，当前项目无法新建会话。请返回已有会话的项目，选择会话并复制保存需要留存的草稿。', panePasteTooLong:'粘贴后会超过 16000 字符，这次没有粘贴，原草稿未改动。请把要粘贴的内容分成几段。', paneLimitChars:'这条太长了，发不出去。删掉一部分，或者分成几条。', paneReferenceLimit:'最多可引用 20 项，请移除部分引用后再添加。', paneActionFailed:'这次操作未完成，请检查当前会话后重试。', paneSaveFailed:'面板宽度未能记住，下次打开可能恢复默认。' });
   Object.assign(text.en, { paneNew:'New session', paneSearch:'Search project sessions', paneDraft:'Message', paneSend:'Send', paneCancel:'Cancel', paneConfig:'Assistant settings', paneModel:'Model', paneNone:'Service not configured', paneWidth:'Pane width', paneEmpty:'No messages.', paneTools:'No tool activity', paneLocal:'Sessions and drafts last until this window closes. Project content is not attached automatically.', paneLimitSessions:"This window has reached its session limit, so no new session can be created for now. Go back to an existing session; copy anything you want to keep first.", paneScopeCapacity:'Sessions are full; a session cannot be created for this project. Return to a project with existing sessions, select one and copy any drafts you need to keep.', panePasteTooLong:'This paste would exceed 16000 characters. Nothing was pasted and your draft was kept. Split the text into smaller parts.', paneLimitChars:'This message is too long to send. Shorten it or split it into a few messages.', paneReferenceLimit:'Up to 20 references are allowed. Remove some before adding more.', paneActionFailed:'This action did not complete. Check the current session and try again.', paneSaveFailed:'Pane width could not be saved; the next launch may use the default.' });
@@ -950,5 +972,5 @@
    *  English word (export, captions…) in English. */
   const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
-  return { create, desktopStorage, text, formatBody, KEY, t, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
+  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
 });

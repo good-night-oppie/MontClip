@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Engine groundwork for the Cindy plugin (one engine, two shells): `mcp-server.js` can be required as a module
+  (`{TOOLS, callTool, ensureUIServer}`), `POST /api/ui/command` asks the open editor tab to undo / redo / seek /
+  report its state, the editor's undo history is kept per project (`/api/ui/undo-stack`) so a reloaded tab gets
+  it back, one engine per data folder (`.montclip-writer.lock`), and `fablecut_import_media {link:true}` hard-links
+  a local recording instead of copying it.
 - Partial official Apache-2.0 Cindy composer/configuration component port, local session restoration, explicit full-payload confirmation, fixed-provider desktop transport and guarded sentence proposal preview/apply/undo. Live-provider and visible-window acceptance remain pending.
 
 ### Fixed
