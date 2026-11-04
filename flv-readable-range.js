@@ -4,17 +4,32 @@ const fs=require("node:fs");
 const FF=require("./ffmpeg-path"); // the bundled ffprobe, never PATH (#28)
 const readline=require("node:readline");
 const ratio=value=>{const [a,b=1]=String(value||0).split('/').map(Number);return b && Number.isFinite(a/b)?a/b:0;};
-// A break in the recording: more than clock quantization between one packet's end and the next one's start.
-const GAP=0.005;
+// What is listed (and marked faintly) as a break at all: more than clock quantization between one packet's end and
+// the next one's start. It decides nothing about importing: only BIG_GAP and MAX_DRIFT below do.
+const MARK=0.005;
+/* Deja, 2026-11-04 (VV measured five real recordings: up to 29 picture drops of ~100 ms, sound holes of 58–65 ms — all
+   to be imported as they are): a recording is imported as it is unless a break is longer than BIG_GAP in either stream,
+   or picture and sound sit more than MAX_DRIFT apart by their packet times (DRIFT, below); then it is converted
+   (〔帮我转〕; an H.264/AAC recording is remuxed with its own timestamps, prepare-media.js). Lengths are compared in whole
+   milliseconds (FLV's clock unit), so a 0.500 s break is never "over 0.5 s" (Rea's G-gap0.500s). How many small drops
+   there are, or how long they add up to, does not matter: players keep picture and sound together by their timestamps,
+   and a dropped frame moves nothing. Small drops are only marked faintly on the timeline and logged. */
+const BIG_GAP=0.5, MAX_DRIFT=0.04;
+const ms=(s)=>Math.round(s*1000);
 /* Reads packet lines (codec_type, pts/dts, duration) — or decoded frame lines (media_type), as before. Packets come in
-   decode order: with B-frames pts jumps around, so breaks are measured on the decode clock (dts). A break counts on the
-   audio when there is audio: a video packet that is late with the sound running on is a dropped or longer frame, which
-   an MP4 keeps as it is. Without audio the video decides. */
+   decode order: with B-frames pts jumps around, so breaks are measured on the decode clock (dts), per stream.
+   DRIFT, how far apart picture and sound sit by their packet times, is the largest of:
+   - at the same moment: a break in one stream alone is content lost while the clock ran on (a dropped frame, a hole in
+     the sound) and leaves both on the same clock; where both break at once (their breaks overlap in time) the clock
+     jumped, by the same amount in both if they are to stay together. The running sum of what they did not (picture
+     minus sound), largest absolute value in file order;
+   - at the start: how far apart the first picture and the first sound are;
+   - at the end: how far apart the last picture and the last sound end, less the longer of the two last packets (each
+     stream can end up to one packet short of the other: a frame is 33 ms, an AAC packet 21–23 ms). */
 function accumulator(streams, declaredDuration) {
   const tick=Math.max(...streams.map(s=>ratio(s.time_base)),0);
-  const lead=streams.some(s=>s.codec_type==='audio')?'audio':'video';
   let start=Infinity,end=-Infinity,count=0,uncertain=false;
-  const tails=new Map(),clocks=new Map(),tracks={},breaks=[];
+  const tails=new Map(),clocks=new Map(),tracks={},breaks=[],totals={video:0,audio:0};
   let maxGap=0;
   return {
     frame(line) {
@@ -34,7 +49,8 @@ function accumulator(streams, declaredDuration) {
       const dts=Number(f.dts_time),clock=Number.isFinite(dts)?dts:pts;
       if(clocks.has(type)) {
         const gap=clock-clocks.get(type);
-        if(type===lead) { maxGap=Math.max(maxGap,gap); if(gap>GAP) breaks.push({at:clocks.get(type),length:gap}); }
+        maxGap=Math.max(maxGap,gap);
+        if(gap>MARK) { breaks.push({at:clocks.get(type),len:gap,stream:type}); totals[type]+=gap; }
       }
       clocks.set(type,Math.max(clocks.get(type) ?? -Infinity,clock+duration));
       start=Math.min(start,pts);end=Math.max(end,pts+duration);count++;
@@ -48,16 +64,35 @@ function accumulator(streams, declaredDuration) {
       // Header clocks may start at zero; allow start offset, terminal blocks and
       // endpoint quantization, never the size of a PTS hole or a percentage cutoff.
       const tolerance=Math.max(0,start)+[...tails.values()].reduce((sum,t)=>sum+t.duration,0)+2*tick;
-      // where each break is in the file as a player shows it (from its first picture or sound), and how long
-      const gaps=breaks.map(b=>({at:Math.max(0,b.at-start),length:b.length}));
-      return {start,end,duration,frames:count,tolerance,maxGap,gaps,tracks,estimatedTail:uncertain,
+      // each break where a player shows it (from the file's first picture or sound), how long, in which stream, and
+      // whether it is big (> 0.5 s: converted, labelled on the timeline) or a small drop (a faint mark)
+      breaks.sort((a,b)=>a.at-b.at||(a.stream<b.stream?-1:1));
+      const gaps=breaks.map(b=>({stream:b.stream,at:Math.max(0,b.at-start),len:b.len,big:ms(b.len)>ms(BIG_GAP)}));
+      // the clock jumps both streams share: each video break with the audio breaks that overlap it
+      const audio=breaks.filter(b=>b.stream==='audio');
+      let run=0,drift=0;
+      for(const v of breaks.filter(b=>b.stream==='video')) {
+        const paired=audio.filter(a=>a.at<=v.at+v.len && v.at<=a.at+a.len);
+        if(!paired.length) continue;
+        run+=v.len-paired.reduce((s,a)=>s+a.len,0); drift=Math.max(drift,Math.abs(run));
+      }
+      const tv=tracks.video,ta=tracks.audio;
+      if(tv && ta) drift=Math.max(drift,Math.abs(tv.start-ta.start),
+        Math.abs(tv.end-ta.end)-Math.max(tails.get('video').duration,tails.get('audio').duration));
+      // why it has to be converted (empty: imported as it is)
+      const fix=[];
+      if(gaps.some(g=>g.big)) fix.push('break');
+      if(ms(drift)>ms(MAX_DRIFT)) fix.push('drift');
+      return {start,end,duration,frames:count,tolerance,maxGap,gaps,totals,drift,fix,tracks,estimatedTail:uncertain,
         declaredDuration:Number.isFinite(declared)&&declared>0?declared:null,
         needsConsent:uncertain || Number.isFinite(declared)&&declared>0&&Math.abs(declared-duration)>tolerance};
     },
   };
 }
 /* Packet headers only (`-show_entries packet=…`): nothing is decoded, so a 2-hour recording takes seconds, not the
-   13 minutes decoding every frame took (VV, 2026-11-04). `onProgress(fraction)` follows the packets' byte position. */
+   13 minutes decoding every frame took (VV, 2026-11-04). `onProgress(fraction)` follows the packets' byte position.
+   Packets whose bytes are damaged but whose timestamps are fine are not seen here: a conversion decodes the whole
+   recording and fails on them (prepare-media.js), and an export stops on them (app.js ExportFrameSource). */
 async function scanReadableRange(file,streams,declaredDuration,{signal,onProgress}={}) {
   const acc=accumulator(streams,declaredDuration);
   let size=0;try{size=fs.statSync(file).size;}catch{/* ffprobe reports a missing file */}
@@ -79,4 +114,4 @@ async function scanReadableRange(file,streams,declaredDuration,{signal,onProgres
     });
   });
 }
-module.exports={accumulator,scanReadableRange,GAP};
+module.exports={accumulator,scanReadableRange,MARK,BIG_GAP,MAX_DRIFT};

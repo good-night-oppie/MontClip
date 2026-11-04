@@ -51,13 +51,14 @@ function createFlvImports({ mediaDir, inspect = (file, o) => inspectFlv(file, { 
         enter(job, "hash");
         job.hash = await hashFile(real, job.controller.signal, (n) => { job.done += n; });
         if (aborted(job)) throw fail("FLV_IMPORT_CANCELED");
-        // a recording with breaks is not refused: the user is asked to have it converted on the original's clock
-        const gaps = (range && range.gaps) || [];
-        Object.assign(job, { compatible: !!compatible, needsReadableConsent: !!(range && range.needsConsent), gaps, range, busy: false });
+        // a recording with breaks is not refused: small drops import as they are; when range.fix says why (a break over
+        // 0.5 s, too many, or the sound drifting) the user is asked to have it converted on the original's clock
+        const gaps = (range && range.gaps) || [], fix = (range && range.fix) || [];
+        Object.assign(job, { compatible: !!compatible, needsReadableConsent: !!(range && range.needsConsent), gaps, fix, range, busy: false });
         enter(job, "ready");
         arm(id, job);
         return { id, name: path.basename(real), size: st.size, sha256: job.hash, compatible: job.compatible,
-          needsReadableConsent: job.needsReadableConsent, gaps, ...(range ? { range } : {}) };
+          needsReadableConsent: job.needsReadableConsent, gaps, fix, ...(range ? { range } : {}) };
       } catch (error) {
         jobs.delete(id);
         throw aborted(job) ? fail("FLV_IMPORT_CANCELED", error) : error;
@@ -67,7 +68,7 @@ function createFlvImports({ mediaDir, inspect = (file, o) => inspectFlv(file, { 
       const job = get(id);
       if (job.busy || job.result) throw fail("FLV_IMPORT_BUSY");
       // the user's answer comes first: nothing is copied without it
-      if (job.gaps.length && fixGaps !== true) throw fail("FLV_TIMELINE_GAP");
+      if (job.fix.length && fixGaps !== true) throw fail("FLV_TIMELINE_GAP");
       if (!job.compatible && allowTranscode !== true) throw fail("FLV_TRANSCODE_REQUIRED");
       if (job.needsReadableConsent && acceptReadable !== true) throw fail("FLV_READABLE_CONSENT_REQUIRED");
       job.busy = true; clearTimeout(job.timer);

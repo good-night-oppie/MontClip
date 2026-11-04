@@ -24,6 +24,7 @@ const {
 } = require("./paths");
 const { downloadImportUrl, kindFromName, maybeFaststart } = require("./import-url");
 const { prepareMedia } = require("./prepare-media");
+const MediaLib = require("./media-lib");
 const Danmaku = require("./danmaku");
 const { readDanmakuFile } = require("./danmaku-file");
 const FX = require("./audio-fx");
@@ -1671,6 +1672,9 @@ async function callTool(name, args, attempt = 0) {
         duration: kind === "image" || kind === "svg" ? undefined : ffprobeDuration(target),
       };
       if (prepared.originalSrc) Object.assign(entry, {originalSrc: prepared.originalSrc, preparation: prepared.preparation});
+      // where the recording broke, for the timeline's marks (prepare-media.js; faint: small drop, labelled: converted)
+      const gaps = MediaLib.normalizeGaps(prepared.gaps);
+      if (gaps.length) entry.gaps = gaps;
       Object.assign(entry, infoForEntry(await probeFile(target), entry));
       const proj = readProject();
       // import only appends a media entry (never touches clips), so it merges

@@ -2984,19 +2984,30 @@ Desktop export downloads: the Save dialog is titled 保存导出的视频 / Save
 Local FLV uploads and fablecut_import_media share prepare-media.js. Compatible
 single-video H.264 4:2:0 plus optional AAC streams are remuxed; other codecs need
 boolean allowTranscode:true. The check reads packet headers only (ffprobe
-packets, no decoding: seconds for a 2-hour recording). A break in the recording
-(the sound — or, without sound, the picture — stops for more than 5 ms) answers
-FLV_TIMELINE_GAP (REST: 409) with `gaps:[{at, length}]` (seconds as a player
-shows the file) before any MP4 allocation. With fixGaps:true it is converted on
-the original's clock: video copied (or transcoded), audio re-encoded to AAC with
-silence across each break, so later times and danmaku keep their place; the MP4
-is then scanned and must match the original's readable length within 1 s and
-sound against picture within 40 ms, else FLV_FIX_UNVERIFIED with `check`
-{durationDiff, avOffset}. A late picture with the sound running on (dropped
-frames, variable frame rate) is not a break. Multiple video/audio streams are
-refused. Source bytes are retained; output is a distinct MP4 and metadata
-carries originalSrc and preparation (remux/transcode/convert), preserved by
-renderer serialization.
+packets, no decoding: seconds for a 2-hour recording). A break is more than 5 ms
+between one packet's end and the next one's start, per stream, measured in whole
+milliseconds. Every break of 0.5 s or less (exactly 0.5 s included), however
+many, imports as it is without a question: an H.264/AAC file stays a plain
+remux, the break is logged and marked faintly on the timeline. A break over
+0.5 s, or picture and sound more than 40 ms apart by their packet times (clocks
+jumping by different amounts where both break, or starts or ends not lining up)
+answer FLV_TIMELINE_GAP (REST: 409) with `gaps` and `fix` (`break` / `drift`)
+before any MP4 is written. With fixGaps:true or allowTranscode:true it is
+converted: an H.264/AAC file with a big break is remuxed keeping its timestamps
+(both streams copied; the picture holds its last frame, no sound across the
+break), while drift, other codecs and a failed check are re-encoded with the
+encoders that work here (silence across the break). The MP4 is then scanned
+and must match the original's readable length within 1 s and keep sound against
+picture within 40 ms; a remux that fails is re-encoded once, then
+FLV_FIX_UNVERIFIED with `check` {durationDiff, avOffset}. A conversion decodes the
+whole recording strictly: damaged bytes behind normal timestamps fail it with
+FLV_SOURCE_DAMAGED and leave no file (an export stops with
+EXPORT_SOURCE_DAMAGED when its decoder reports damage). Multiple video/audio
+streams are refused. Source bytes are retained; output is a distinct MP4 and
+metadata carries originalSrc, preparation (remux/transcode) and `gaps`
+`[{stream:"video"|"audio", at, len, big}]` (seconds from the file's first packet;
+big = over 0.5 s), preserved by renderer serialization; prepareMedia also returns
+gapsHeld:true when it converted breaks.
 
 Uncertain decoded tails/header lengths/warnings require acceptReadable:true,
 separately from codec consent. REST upload returns409 with

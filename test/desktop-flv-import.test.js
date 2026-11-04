@@ -76,14 +76,24 @@ test("an incompatible or uncertain file needs the user's yes before anything is 
 });
 
 test("a recording with breaks is not refused: they are reported, and converting them needs the user's yes before any copy", async (t) => {
-  const gaps = [{ at: 62.5, length: 8 }];
-  const w = setup(t, { range: { maxGap: 8, gaps, needsConsent: false } });
+  const gaps = [{ stream: "video", at: 62.5, len: 8, big: true }, { stream: "audio", at: 62.5, len: 8, big: true }];
+  const w = setup(t, { range: { maxGap: 8, gaps, fix: ["break"], needsConsent: false } });
   const r = await w.service.inspect(w.file);
   assert.deepEqual(r.gaps, gaps);
+  assert.deepEqual(r.fix, ["break"]);
   await assert.rejects(w.service.prepare(r.id, {}), { code: "FLV_TIMELINE_GAP" });
   assert.deepEqual(w.others(), [], "refused before copying");
   await w.service.prepare(r.id, { fixGaps: true });
   assert.equal(w.seen.prepare[0].opts.fixGaps, true, "the conversion is asked of prepareMedia");
+});
+
+test("small drops import without asking: no fix, nothing to agree to", async (t) => {
+  const gaps = [{ stream: "video", at: 30, len: 0.034, big: false }];
+  const w = setup(t, { range: { maxGap: 0.034, gaps, fix: [], needsConsent: false } });
+  const r = await w.service.inspect(w.file);
+  assert.deepEqual(r.gaps, gaps);
+  await w.service.prepare(r.id, {});
+  assert.equal(w.seen.prepare[0].opts.fixGaps, false);
 });
 
 test("progress: the check follows the packets' position, every step says how long it still needs, and the page can name the import", async (t) => {

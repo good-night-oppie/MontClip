@@ -7,22 +7,36 @@ const test = require('node:test'), a = require('node:assert/strict'), fs = requi
 const V = require('../ui-preferences'), P = require('../prepare-media');
 const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 
+// JJ v2, 2026-11-04: europa ~/montclip-labels/jj/2026-11-04-错误白话表-默认条数-发到手机-JJ.md, sha256
+// d99c25d114f865bd6388bc98822b04308f6ca96c3e3ac02a802dd92cc736cb13 (v1, 68f8f88e…, kept beside it). The streamer cannot
+// convert a file herself: where MontClip can, it says so and offers 〔帮我转〕〔先不转〕. Verbatim.
 const JJ = {
   'zh-CN': {
-    flvTimingUnverified: '这个 FLV 这次没导进来：MontClip 没法确认它的时间是否完整。换一个录完整的文件，或者先把它转成 MP4 再导入。',
+    flvTimingUnverified: '这场录像中间断过（可能断过网，或者录制停过），要先转一下才能剪，MontClip 可以替你转。转好的是一份新文件，原片不动；要等几分钟。',
+    flvNeedsConvert: '这个录像要先转一下格式才能剪，MontClip 可以替你转。转好的是一份新文件，原片不动；画质基本不变，要等几分钟。',
+    flvNoEncoder: '这台电脑上找不到 MontClip 能用的视频编码器，所以这次没能转换。可以先更新显卡驱动再试。',
+    flvConverted: '已经转好了。这里录像断了约 {N} 秒，已经接上。',
+    flvConvertedMany: '已经转好了。录像一共断了 {k} 处，加起来约 {N} 秒，都已经接上。',
+    flvConvert: '帮我转', flvNotNow: '先不转',
     flvNeedsDesktop: '导入 FLV 需要用 MontClip 桌面版打开。',
     flvDiskFull: '电脑空间不够，这个文件没导进来。清理一些空间后再试。',
   },
   en: {
-    flvTimingUnverified: 'This FLV was not imported: MontClip could not confirm its timing is complete. Try a fully recorded file, or convert it to MP4 first.',
+    flvTimingUnverified: 'This recording has a break in it (the stream or the recorder may have stopped for a moment), so it needs converting before you can edit it, and MontClip can do it for you. The result is a new file and the original stays as it is; it takes a few minutes.',
+    flvNeedsConvert: 'This recording needs converting before you can edit it, and MontClip can do it for you. The result is a new file and the original stays as it is. The picture stays about the same; it takes a few minutes.',
+    flvNoEncoder: "This computer has no video encoder MontClip can use, so it couldn't convert this time. Update the graphics driver and try again.",
+    flvConverted: "Converted. The recording had a break of about {N} s here; it's joined up now.",
+    flvConvertedMany: "Converted. The recording had {k} breaks, about {N} s in total; they're joined up now.",
     flvNeedsDesktop: 'Importing FLV needs the MontClip desktop app.',
   },
 };
 const CASES = {
-  // Deja, 2026-11-04: a break in the recording is converted to MP4 on the user's yes, so it is not "timing unverified"
-  FLV_TIMELINE_GAP: 'flvGapRefused', FLV_FIX_UNVERIFIED: 'flvFixUnverified', FLV_READABLE_CONSENT_REQUIRED: 'flvTimingUnverified',
+  // a break, an unconfirmed end and a codec MontClip cannot cut are converted on her yes (JJ v2)
+  FLV_TIMELINE_GAP: 'flvTimingUnverified', FLV_FIX_UNVERIFIED: 'flvFixUnverified', FLV_READABLE_CONSENT_REQUIRED: 'flvTimingUnverified',
   FLV_DISK_FULL: 'flvDiskFull', NO_SERVER: 'flvNeedsDesktop',
-  FLV_TRANSCODE_REQUIRED: 'flvNeedsConvert', FLV_STREAMS_UNSUPPORTED: 'flvNeedsConvert',
+  // more than one picture or sound track: the conversion does not handle it, so 「现在导不进来」 and why
+  FLV_TRANSCODE_REQUIRED: 'flvNeedsConvert', FLV_STREAMS_UNSUPPORTED: 'flvStreamsUnsupported', FLV_ENCODER_MISSING: 'flvNoEncoder',
+  FLV_SOURCE_DAMAGED: 'flvSourceDamaged',
   FLV_COMPONENT_MISSING: 'flvComponentMissing',
   UPLOAD_FAILED: 'flvUploadFailed', IMPORT_FAILED: 'flvUploadFailed', FLV_PROBE_FAILED: 'flvUploadFailed',
   FLV_PREPARATION_FAILED: 'flvUploadFailed', SOMETHING_NEW: 'flvUploadFailed', '': 'flvUploadFailed',
@@ -31,6 +45,22 @@ const CASES = {
 test("JJ's wording, verbatim, with English for every key", () => {
   for (const [lang, keys] of Object.entries(JJ)) for (const [k, v] of Object.entries(keys)) a.equal(V.text[lang][k], v, lang + ' ' + k);
   for (const k of new Set(Object.values(CASES))) for (const lang of ['zh-CN', 'en']) a.ok(V.text[lang][k], lang + ' ' + k);
+});
+
+test('JJ v2: nothing tells the streamer to convert the file herself; JJ’s two removed v1 sentences are not there', () => {
+  for (const lang of ['zh-CN', 'en']) for (const [k, s] of Object.entries(V.text[lang])) if (typeof s === 'string' && /^flv|^export/.test(k)) {
+    a.ok(!/先把它转成 MP4|先转成 MP4 再导入|convert it to MP4 first|Convert it to MP4 first/.test(s), `${lang} ${k}: ${s}`);
+    a.ok(!/媒体功能包|Media Feature Pack|同一场.*(分成|其他)文件/.test(s) || k.startsWith('h264'), `${lang} ${k}`);
+  }
+  a.match(V.t('zh-CN', 'flvStreamsUnsupported'), /^这个录像现在导不进来：/, 'what MontClip cannot convert says so');
+  a.equal(V.flvConvertedMessage('zh-CN', [{ stream: 'video', at: 30, len: 2 }, { stream: 'audio', at: 30, len: 2 }]), '已经转好了。这里录像断了约 2 秒，已经接上。', 'one break both streams share is one');
+  a.equal(V.flvConvertedMessage('zh-CN', [{ stream: 'video', at: 3, len: 0.6 }, { stream: 'video', at: 40, len: 1.25 }]), '已经转好了。录像一共断了 2 处，加起来约 1.9 秒，都已经接上。');
+  a.equal(V.flvConvertedMessage('en', [{ stream: 'video', at: 3, len: 0.6 }]), "Converted. The recording had a break of about 0.6 s here; it's joined up now.");
+});
+
+test('zh-CN FLV and export strings: no English word of three letters or more except names', () => {
+  for (const [k, s] of Object.entries(V.text['zh-CN'])) if (typeof s === 'string' && /^(flv|exportSource)/.test(k))
+    a.equal(s.replace(/\{\w+\}|MontClip|FLV|MP4|H\.264/g, '').match(/[A-Za-z]{3,}/), null, k + ': ' + s);
 });
 
 test('each reason has its own key; upload failure, disk full and timing are told apart', () => {

@@ -2735,6 +2735,11 @@ body.track-size-s .clip .fade-grip {
 }
 
 /* transition wedges — width from transition duration × pps (see transitionMarksHtml) */
+/* where an FLV recording broke (gapMarksHtml): faint for a small drop, a labelled band for a converted break */
+.clip .gap-mark { position: absolute; top: 0; bottom: 0; pointer-events: none; z-index: 2; }
+.clip .gap-mark.small { width: 1px; background: rgba(255, 255, 255, .28); }
+.clip .gap-mark.big { background: rgba(255, 176, 64, .2); border-left: 1px solid rgba(255, 176, 64, .75); }
+.clip .gap-mark.big span { position: absolute; left: 3px; bottom: 2px; font-size: 10px; line-height: 1; white-space: nowrap; color: #ffd08a; }
 .clip .trans-mark {
   position: absolute;
   top: 0;

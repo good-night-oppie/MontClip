@@ -9,16 +9,18 @@ function world({ok=true,late=false}={}){
  context.flvNotice=async(m,o)=>{calls.notice=m;calls.noticeOptions=o;return false;};return{context,calls,project};
 }
 test('browser FLV rejection never registers transient fallback or schedules an empty save',async()=>{const w=world({ok:false});await w.context.importFiles([{name:'source.flv',type:'video/x-flv'}]);assert.equal(w.project.media.length,0);assert.equal(w.calls.blobs,0);assert.equal(w.calls.saved,0);assert.equal(w.calls.toast,undefined,'not a passing toast');assert.ok(/没导进来/.test(w.calls.notice)&&!/[A-Za-z]{4,}/.test(w.calls.notice.replace(/FLV|MP4|MontClip/g,'')),'said in Chinese: '+w.calls.notice);});
-test('browser: a recording with breaks is offered as a conversion; "Convert to MP4 and import" asks the server with fixGaps',async()=>{
- const w=world(),sent=[],gaps=[{at:62.5,length:8}];
+test('browser: a recording with breaks is offered as a conversion; 〔帮我转〕 asks the server with fixGaps; the breaks go on the media',async()=>{
+ const w=world(),sent=[],notes=[],gaps=[{stream:'video',at:62.5,len:8,big:true},{stream:'audio',at:62.5,len:8,big:true}];
  w.context.fetch=async(url,init)=>{sent.push({url,body:init&&init.body});
-  return url.startsWith('/api/upload')?{ok:false,status:409,json:async()=>({code:'FLV_TIMELINE_GAP',originalSrc:'/media/source.flv',gaps})}
-   :{ok:true,status:200,json:async()=>({src:'/media/compat.mp4',originalSrc:'/media/source.flv',preparation:'convert',gaps})};};
- w.context.flvNotice=async(m,o)=>{w.calls.notice=m;w.calls.noticeOptions=o;return true;};
+  return url.startsWith('/api/upload')?{ok:false,status:409,json:async()=>({code:'FLV_TIMELINE_GAP',originalSrc:'/media/source.flv',gaps,fix:['break']})}
+   :{ok:true,status:200,json:async()=>({src:'/media/compat.mp4',originalSrc:'/media/source.flv',preparation:'remux',gapsHeld:true,gaps})};};
+ w.context.flvNotice=async(m,o)=>{notes.push([m,o]);return true;};
  await w.context.importFiles([{name:'断过.flv',type:''}]);
- assert.match(w.calls.notice,/转成 MP4/);assert.equal(w.calls.noticeOptions.convert,true);assert.deepEqual(w.calls.noticeOptions.gaps,gaps,'the breaks are listed');
- assert.equal(sent[1].url,'/api/prepare-media');assert.deepEqual(JSON.parse(sent[1].body),{src:'/media/source.flv',fixGaps:true,allowTranscode:true});
- assert.equal(w.project.media.length,1);assert.equal(w.project.media[0].preparation,'convert');
+ assert.equal(notes[0][0],w.context.MontClipView.t('zh-CN','flvTimingUnverified'),"JJ's sentence");assert.equal(notes[0][1].convert,true);
+ assert.equal(sent[1].url,'/api/prepare-media');assert.deepEqual(JSON.parse(sent[1].body),{src:'/media/source.flv',fixGaps:true,acceptReadable:true,allowTranscode:true});
+ assert.equal(notes[1][0],'已经转好了。这里录像断了约 8 秒，已经接上。','one break both streams share is said once');
+ assert.equal(w.project.media.length,1);assert.equal(w.project.media[0].preparation,'remux');
+ assert.deepEqual(w.project.media[0].gaps,gaps,'the timeline marks come from here');
 });
 test('browser: declining the conversion imports nothing',async()=>{
  const w=world();w.context.fetch=async()=>({ok:false,status:409,json:async()=>({code:'FLV_TIMELINE_GAP',originalSrc:'/media/source.flv',gaps:[]})});
@@ -30,5 +32,7 @@ test('browser registration and actual project serializer preserve source fields 
  Object.assign(w.context,{MediaLib:require('../media-lib'),MontClipDanmaku:require('../danmaku'),serializeTracks:()=>[],serializeClip:x=>x,normalizeMarkers:()=>[],normalizeDisabledTracks:()=>[],getExportFrame:()=>null,normalizeMaster:()=>null,normalizeBuses:()=>[],normalizeDanmaku:()=>null});
  vm.runInContext(source.slice(source.indexOf('function projectJSONHere()'),source.indexOf('function listenSSE()')),w.context);
  vm.runInContext(source.slice(source.indexOf('function normalizeMediaEntry('),source.indexOf('function folderChildren(')),w.context);
- const doc=JSON.parse(JSON.stringify(w.context.projectJSONHere()));const loaded=w.context.normalizeMediaEntry(doc.media[0]);assert.equal(loaded.src,m.src);assert.equal(loaded.originalSrc,m.originalSrc);assert.equal(loaded.preparation,'remux');assert.deepEqual(doc.clips,[]);
+ m.gaps=[{stream:'video',at:30.0234,len:0.0341,big:false},{stream:'audio',at:-1,len:2}];   // the second is not a gap: dropped
+ const doc=JSON.parse(JSON.stringify(w.context.projectJSONHere()));const loaded=w.context.normalizeMediaEntry(doc.media[0]);
+ assert.deepEqual(loaded.gaps,[{stream:'video',at:30.023,len:0.034,big:false}],'the breaks survive a save and a load, rounded to the millisecond');assert.equal(loaded.src,m.src);assert.equal(loaded.originalSrc,m.originalSrc);assert.equal(loaded.preparation,'remux');assert.deepEqual(doc.clips,[]);
 });

@@ -1441,6 +1441,8 @@ function normalizeMediaEntry(m) {
   const tags = MediaLib.normalizeTags(m.tags);
   if (tags.length) out.tags = tags; else delete out.tags;
   if (out.favorite !== true) delete out.favorite;
+  const gaps = MediaLib.normalizeGaps(m.gaps);
+  if (gaps.length) out.gaps = gaps; else delete out.gaps;
   return out;
 }
 function folderChildren(parentId) {
@@ -1845,6 +1847,8 @@ function projectJSONHere() {
       if (m.tags && m.tags.length) mo.tags = m.tags.slice();
       if (derivedFrom) { mo.derivedFrom = derivedFrom; if (denoise) mo.denoise = denoise; }
       if (m.originalSrc) { mo.originalSrc = m.originalSrc; mo.preparation = m.preparation; }
+      const gaps = MediaLib.normalizeGaps(m.gaps);
+      if (gaps.length) mo.gaps = gaps;
       return mo;
     }),
     clips: clips.map(serializeClip),
@@ -2165,18 +2169,17 @@ function mediaKindFromFile(file) {
 async function desktopFlvImport(file, { convert = false } = {}) {
   const bridge = globalThis.montclipFlv, lang = () => mcView.get().language, T = (k, v) => MontClipView.t(lang(), k, v);
   const dlg = document.createElement("dialog"), title = document.createElement("h3"), name = document.createElement("p"),
-    status = document.createElement("p"), ask = document.createElement("p"), gapList = document.createElement("ul"),
-    row = document.createElement("div"), cancel = document.createElement("button"), go = document.createElement("button");
+    status = document.createElement("p"), ask = document.createElement("p"), row = document.createElement("div"),
+    cancel = document.createElement("button"), go = document.createElement("button");
   dlg.className = "flv-import-dialog"; dlg.dataset.flvImport = "";
   title.textContent = T("flvTitle"); name.textContent = file.name; name.className = "flv-import-name";
   status.dataset.flvStatus = ""; status.setAttribute("role", "status");
   ask.dataset.flvAsk = ""; ask.hidden = true;
-  gapList.dataset.flvGaps = ""; gapList.className = "flv-import-gaps"; gapList.hidden = true;
   cancel.className = "btn"; cancel.dataset.flvCancel = ""; cancel.textContent = T("flvCancel");
-  go.className = "btn primary"; go.dataset.flvContinue = ""; go.textContent = T("flvContinue"); go.hidden = true;
+  go.className = "btn primary"; go.dataset.flvContinue = ""; go.textContent = T("flvConvert"); go.hidden = true;
   row.className = "flv-import-row"; row.append(cancel, go);
-  dlg.append(title, name, status, ask, gapList, row); document.body.append(dlg); dlg.showModal(); cancel.focus();
-  let id = null, canceled = false, answer = null, failed = null;
+  dlg.append(title, name, status, ask, row); document.body.append(dlg); dlg.showModal(); cancel.focus();
+  let id = null, canceled = false, answer = null, failed = null, converted = "";
   const PHASE = { inspect: "flvPhaseInspect", hash: "flvPhaseHash", copy: "flvPhaseCopy", verify: "flvPhaseVerify", prepare: "flvPhasePrepare", check: "flvPhaseCheck" };
   const show = (st) => {
     if (!st || !PHASE[st.phase]) return;
@@ -2195,17 +2198,16 @@ async function desktopFlvImport(file, { convert = false } = {}) {
     if (!seen.ok) { failed = seen; return null; }
     id = seen.id;
     if (canceled) { await bridge.cancel(id); toast(T("flvCanceled")); return null; }
-    const gaps = Array.isArray(seen.gaps) ? seen.gaps : [];
-    const fix = convert || gaps.length > 0;
-    if (!seen.compatible || seen.needsReadableConsent || gaps.length) {
-      ask.textContent = [gaps.length ? MontClipView.tp(lang(), "flvAskGaps", { n: gaps.length }, { n: gaps.length }) : "",
-        !seen.compatible ? T("flvAskTranscode") : "", seen.needsReadableConsent ? T("flvAskReadable") : ""].filter(Boolean).join("\n\n");
-      gapList.replaceChildren(...MontClipView.flvGapLines(lang(), gaps).map((line) => Object.assign(document.createElement("li"), { textContent: line })));
-      gapList.hidden = !gaps.length;
-      go.textContent = T(fix ? "flvConvert" : "flvContinue");
+    // small drops import as they are (marked faintly on the timeline); seen.fix says why it has to be converted
+    const gaps = Array.isArray(seen.gaps) ? seen.gaps : [], broken = Array.isArray(seen.fix) && seen.fix.length > 0;
+    const fix = convert || broken;
+    if (!seen.compatible || seen.needsReadableConsent || broken) {
+      // JJ v2: one sentence for the reason, then 〔帮我转〕〔先不转〕; a break or an unconfirmed end says the break sentence
+      ask.textContent = T(broken || seen.needsReadableConsent ? "flvAskReadable" : "flvAskTranscode");
+      cancel.textContent = T("flvNotNow");
       ask.hidden = false; go.hidden = false; status.textContent = ""; cancel.focus();
       const yes = await new Promise((resolve) => { answer = resolve; go.onclick = () => resolve(true); });
-      answer = null; ask.hidden = true; gapList.hidden = true; go.hidden = true;
+      answer = null; ask.hidden = true; go.hidden = true; cancel.textContent = T("flvCancel");
       if (!yes) { await bridge.cancel(id); toast(T("flvCanceled")); return null; }
     }
     status.textContent = T("flvPhaseCopy", { pct: 0 });
@@ -2215,10 +2217,12 @@ async function desktopFlvImport(file, { convert = false } = {}) {
       failed = { ...out, convert: !fix && out.code === "FLV_PREPARATION_FAILED" };
       return null;
     }
-    return { src: out.src, originalSrc: out.originalSrc, preparation: out.preparation, importId: id };
+    if (fix) converted = MontClipView.flvConvertedMessage(lang(), gaps);
+    return { src: out.src, originalSrc: out.originalSrc, preparation: out.preparation, importId: id, gaps: out.gaps || gaps };
   } finally {
     clearInterval(poll); dlg.close(); dlg.remove();
-    // said after the progress dialog has closed, so the reason stays on screen until the user answers
+    // said after the progress dialog has closed, so it stays on screen until the user answers
+    if (converted) flvNotice(converted, { name: file.name, done: true });   // where it broke (JJ v2); the import goes on
     if (failed && failed.code === "FLV_IMPORT_CANCELED") toast(T("flvCanceled"));
     else if (failed && await flvNotice(MontClipView.flvImportMessage(lang(), failed.code), { name: file.name, check: failed.check, convert: failed.convert })) {
       return desktopFlvImport(file, { convert: true });   // from the start: the failed import removed its files
@@ -2226,27 +2230,26 @@ async function desktopFlvImport(file, { convert = false } = {}) {
   }
 }
 /* A refused or failed FLV import, said in a dialog that stays until the user answers (Deja, 2026-11-04: VV saw the
-   reason flash past in a toast). `convert` adds "Convert to MP4 and import" (resolves true); OK / Esc resolve false.
-   `check` is how far a converted MP4 was off its original, `gaps` the breaks of a recording. */
-function flvNotice(message, { name = "", check = null, gaps = null, convert = false } = {}) {
+   reason flash past in a toast). `convert` adds 〔帮我转〕 (resolves true) beside 〔先不转〕; 〔知道了〕 / Esc resolve
+   false. `check` is how far a converted MP4 was off its original; `done` marks the note after a conversion. */
+function flvNotice(message, { name = "", check = null, convert = false, done: finished = false } = {}) {
   const lang = mcView.get().language, T = (k, v) => MontClipView.t(lang, k, v);
   const dlg = document.createElement("dialog"), title = document.createElement("h3"), file = document.createElement("p"),
-    why = document.createElement("p"), list = document.createElement("ul"), row = document.createElement("div"),
+    why = document.createElement("p"), row = document.createElement("div"),
     ok = document.createElement("button"), go = document.createElement("button");
   dlg.className = "flv-import-dialog"; dlg.dataset.flvNotice = "";
   title.textContent = T("flvTitle"); file.textContent = name; file.className = "flv-import-name"; file.hidden = !name;
-  why.dataset.flvReason = ""; why.setAttribute("role", "alert");
+  why.dataset.flvReason = ""; why.setAttribute("role", finished ? "status" : "alert");
   const by = check && Number.isFinite(check.durationDiff) ? " " + T("flvFixBy", {
     sec: (Math.round(check.durationDiff * 10) / 10).toString(),
     ms: Number.isFinite(check.avOffset) ? String(Math.round(check.avOffset * 1000)) : "—" }) : "";
-  why.textContent = message + by + (convert && !gaps ? " " + T("flvRetryConvert") : "");
-  list.className = "flv-import-gaps"; list.dataset.flvGaps = "";
-  list.replaceChildren(...MontClipView.flvGapLines(lang, gaps || []).map((line) => Object.assign(document.createElement("li"), { textContent: line })));
-  list.hidden = !list.children.length;
-  ok.className = "btn"; ok.dataset.flvOk = ""; ok.textContent = T(convert ? "flvCancel" : "flvGotIt");
+  // a failed import MontClip can still convert says so when its own sentence does not (JJ's v2 sentences do)
+  const offer = convert && !/MontClip (可以替你转|can do it for you)/.test(message) ? " " + T("flvRetryConvert") : "";
+  why.textContent = message + by + offer;
+  ok.className = "btn"; ok.dataset.flvOk = ""; ok.textContent = T(convert ? "flvNotNow" : "flvGotIt");
   go.className = "btn primary"; go.dataset.flvConvert = ""; go.textContent = T("flvConvert"); go.hidden = !convert;
   row.className = "flv-import-row"; row.append(ok, go);
-  dlg.append(title, file, why, list, row); document.body.append(dlg); dlg.showModal(); ok.focus();
+  dlg.append(title, file, why, row); document.body.append(dlg); dlg.showModal(); (convert ? go : ok).focus();
   return new Promise((resolve) => {
     const done = (yes) => { dlg.close(); dlg.remove(); resolve(yes); };
     ok.onclick = () => done(false); go.onclick = () => done(true);
@@ -2269,12 +2272,12 @@ async function importFiles(fileList) {
     const kind = mediaKindFromFile(file);
     if (!kind) { skipped++; continue; }
     const flv = /\.flv$/i.test(file.name);
-    let src, originalSrc, preparation, flvImport = null, transient = false;
+    let src, originalSrc, preparation, gaps, flvImport = null, transient = false;
     if (flv && globalThis.montclipFlv) {
       // desktop: checked where it is, copied only after the user agrees (desktopFlvImport)
       const r = await desktopFlvImport(file);
       if (!r) continue;
-      ({src, originalSrc, preparation} = r); flvImport = r.importId;
+      ({src, originalSrc, preparation, gaps} = r); flvImport = r.importId;
     } else if (state.connected) {
       // the server's refusal: its code, and for a recording with breaks where they are (the original stays in media/)
       const refused = async (res) => { let body = {}; try { body = await res.json(); } catch {}
@@ -2282,18 +2285,20 @@ async function importFiles(fileList) {
       try {
         const res = await fetch("/api/upload?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
         if (!res.ok) throw await refused(res);
-        ({src, originalSrc, preparation} = await res.json());
+        ({src, originalSrc, preparation, gaps} = await res.json());
       } catch (error) {
         if (!flv) { src = URL.createObjectURL(file); transient = true; }
         else {
           const code = typeof error?.code === "string" && error.code ? error.code : "UPLOAD_FAILED";
-          // a break in the recording or a re-encode can be done here: "Convert to MP4 and import" asks the server for it
-          const convert = ["FLV_TIMELINE_GAP", "FLV_TRANSCODE_REQUIRED"].includes(code) && typeof error.originalSrc === "string";
-          if (!(await flvFailure(code, { name: file.name, gaps: error.gaps, check: error.check, convert }))) continue;
+          // MontClip converts what it can (JJ v2: 〔帮我转〕〔先不转〕): a break, an unconfirmed end, a codec it cannot cut
+          const convert = ["FLV_TIMELINE_GAP", "FLV_READABLE_CONSENT_REQUIRED", "FLV_TRANSCODE_REQUIRED"].includes(code) && typeof error.originalSrc === "string";
+          if (!(await flvFailure(code, { name: file.name, check: error.check, convert }))) continue;
           try {
-            const res = await fetch("/api/prepare-media", { method: "POST", body: JSON.stringify({ src: error.originalSrc, fixGaps: code === "FLV_TIMELINE_GAP", allowTranscode: true }) });
+            const res = await fetch("/api/prepare-media", { method: "POST", body: JSON.stringify({ src: error.originalSrc, fixGaps: code === "FLV_TIMELINE_GAP", acceptReadable: true, allowTranscode: true }) });
             if (!res.ok) throw await refused(res);
-            ({src, originalSrc, preparation} = await res.json());
+            ({src, originalSrc, preparation, gaps} = await res.json());
+            const done = code === "FLV_TIMELINE_GAP" && MontClipView.flvConvertedMessage(mcView.get().language, gaps || error.gaps);
+            if (done) flvNotice(done, { name: file.name, done: true });   // where it broke (JJ v2); the import goes on
           } catch (again) { await flvFailure(again?.code || "UPLOAD_FAILED", { name: file.name, check: again?.check }); continue; }
         }
       }
@@ -2303,6 +2308,9 @@ async function importFiles(fileList) {
     }
     const m = { id: "m_" + uid(), name: file.name, kind, src, transient, folderId };
     if (originalSrc) Object.assign(m, {originalSrc, preparation});
+    // where the recording broke, for the timeline's marks (faint: a small drop; labelled: a break that was converted)
+    const marks = MediaLib.normalizeGaps(gaps);
+    if (marks.length) m.gaps = marks;
     try {
       await loadMediaMetadata(m);
       if (kind === "video") grabThumb(m).catch(() => { });
@@ -5373,6 +5381,23 @@ function clipBorderRadius() {
   return state.trackSize === "s" ? 2 : 5;
 }
 /* Top-edge SVG wedges — width from transition duration × pps. */
+/* Where the recording behind a clip broke (media.gaps, from its FLV import; Deja, 2026-11-04): a small drop imported as
+   is is a faint line, a break MontClip converted is a labelled band as long as the break. A clip shows its own stream's
+   breaks (a picture clip the picture's, a sound clip the sound's); a clip whose speed is keyed shows none. */
+function gapMarksHtml(c) {
+  const m = (c.kind === "video" || c.kind === "audio") && c.mediaId ? getMedia(c.mediaId) : null;
+  if (!m || !Array.isArray(m.gaps) || !m.gaps.length || c.keyframes?.speed?.length) return "";
+  const speed = Number(c.props?.speed) > 0 ? Number(c.props.speed) : 1, lang = mcView.get().language, inSrc = c.in || 0;
+  let html = "";
+  for (const g of m.gaps) {
+    if (g.stream !== c.kind || g.at + g.len < inSrc || g.at > inSrc + c.duration * speed) continue;
+    const x = Math.max(0, (g.at - inSrc) / speed * state.pps), words = escapeHtml(MontClipView.flvGapMark(lang, g));
+    html += g.big
+      ? `<div class="gap-mark big" style="left:${x}px;width:${Math.max(2, g.len / speed * state.pps)}px" title="${words}"><span>${words}</span></div>`
+      : `<div class="gap-mark small" style="left:${x}px" title="${words}"></div>`;
+  }
+  return html;
+}
 function transitionMarksHtml(c, trackH) {
   let html = "";
   const clipH = Math.max(8, trackH - 6);
@@ -5602,7 +5627,7 @@ function rebuildClips() {
     }
     body += clipKeyframesHtml(c);
     let inner = `<div class="clip-body">${body}</div>`;
-    inner += transitionMarksHtml(c, tr.h);
+    inner += transitionMarksHtml(c, tr.h) + gapMarksHtml(c);
     if (c.kind === "audio") inner += volBandHtml(c, tr.h) + fadeGripsHtml(c);
     inner += `<div class="handle l"></div><div class="handle r"></div>`;
     div.innerHTML = inner;
@@ -19482,7 +19507,15 @@ async function exportDecodeFrame(c, t) {
   try {
     runtime.exportFrames.set(c.id, await src.frameAt(mediaTimeAt(c, t)));
     return true;
-  } catch (e) {   // a decode error: this clip falls back to its element for the rest of the export
+  } catch (e) {
+    // damaged bytes in the source (the decoder's EncodingError; Rea's rule ⑥): the export stops and says where — the
+    // element would only conceal the damage as garbled picture. The export's own failure path discards the half file.
+    if (e && e.name === "EncodingError") {
+      const m = getMedia(c.mediaId);
+      throw Object.assign(new Error(MontClipView.t(mcView.get().language, "exportSourceDamaged", { name: (m && m.name) || c.name || "", at: fmt(t) })),
+        { code: "EXPORT_SOURCE_DAMAGED" });
+    }
+    // any other decode error: this clip falls back to its element for the rest of the export
     console.warn("[MontClip] export decode failed, using the video element:", e && e.message);
     src.close(); d.sources.set(c.id, null); runtime.exportFrames.delete(c.id);
     return false;

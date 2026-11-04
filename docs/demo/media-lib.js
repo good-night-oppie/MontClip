@@ -134,6 +134,23 @@
     return true;
   }
 
+  /* ── where a recording broke (FLV import, Deja 2026-11-04) ──
+     gaps: [{stream:"video"|"audio", at, len, big}] in seconds of the media (prepare-media.js); big = longer than 0.5 s
+     in whole milliseconds (converted, labelled on the timeline), else a small drop imported as is (a faint mark).
+     Rounded to the millisecond, at most 500. */
+  function normalizeGaps(v) {
+    if (!Array.isArray(v)) return [];
+    const out = [];
+    for (const g of v) {
+      const at = Number(g && g.at), len = Number(g && g.len);
+      if (!(at >= 0) || !(len > 0) || !Number.isFinite(at + len)) continue;
+      out.push({ stream: g.stream === "audio" ? "audio" : "video", at: Math.round(at * 1000) / 1000, len: Math.round(len * 1000) / 1000,
+        big: g.big === true || Math.round(len * 1000) > 500 });
+      if (out.length >= 500) break;
+    }
+    return out;
+  }
+
   /* ── tags and collections ── */
   function normalizeTags(v) {
     const list = Array.isArray(v) ? v : typeof v === "string" ? v.split(",") : [];
@@ -324,7 +341,7 @@
     srcName, relinkScore, kindFromName,
     parseProbe, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
     STANDARD_FPS, standardFps, sourceCanvas, canvasFollowsSource,
-    normalizeTags, allTags, normalizeCollections,
+    normalizeTags, allTags, normalizeCollections, normalizeGaps,
     placements, usageCounts,
     matchesQuery, matchesFilter, sortValue, sortMedia, query,
   };
