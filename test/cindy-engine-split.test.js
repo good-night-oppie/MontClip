@@ -242,21 +242,21 @@ function editorWorld({ clips, stack = null, sequence = "main" }) {
   const project = { clips, markers: [], comps: [], media: [], revision: 5 };
   const runtime = { undo: [], redo: [], projectId: "p_one", projectGen: 1 };
   const state = { connected: true, compCtx: null, time: 0 };
-  const sent = [];
+  const sent = [], toasts = [];
   const fetch = async (url, opts = {}) => {
     sent.push({ url, method: opts.method || "GET", body: opts.body ? JSON.parse(opts.body) : null });
     return { json: async () => ({ stack }) };
   };
   const env = {
-    project, runtime, state, fetch, toast() {}, pruneSelection() {}, scheduleSave() {}, renderInspector() {},
+    project, runtime, state, fetch, toast: (m) => toasts.push(m), uiText: (k) => require("../ui-preferences").t("zh-CN", k), pruneSelection() {}, scheduleSave() {}, renderInspector() {},
     SeqLib: { others: () => [], activeId: () => sequence, find: () => null }, seqRoot: () => project,
     reloadMediaSource() {}, renderBin() {}, scheduleOfflineCheck() {},
     setTime: (t) => { state.time = t; }, projDur: () => 600,
   };
   const names = Object.keys(env);
   const fns = new Function(...names, `${SRC.slice(i, j)}
-    return { undoSnapshot, pushUndo, undo, redo, persistUndoSoon, restoreUndoStack, onUiCommand };`)(...names.map((k) => env[k]));
-  return { ...fns, project, runtime, state, sent };
+    return { undoSnapshot, pushUndo, undo, redo, persistUndoSoon, restoreUndoStack, onUiCommand, outsideEditStep };`)(...names.map((k) => env[k]));
+  return { ...fns, project, runtime, state, sent, toasts };
 }
 const tclip = (id, text) => ({ id, kind: "text", track: "V1", start: 0, duration: 3, props: { text } });
 
@@ -322,4 +322,77 @@ test("editor: ui commands run the tab's own undo and answer with its state", asy
   assert.equal(w.project.clips[0].props.text, "x");
   assert.deepEqual([answers[1].undo, answers[1].redo], [0, 1]);
   assert.equal(answers[2].time, 42);
+});
+
+/* VV's offscreen review of #111 (fe865b7): split a recording at 60 s, delete the second half, reload. Loading relinks
+   the picture to its audio stems with fresh linkGroup ids (edit-ops.js relinkClips), so the timeline the stack was
+   kept for looked "changed from outside": the reload added an empty undo step with an English toast. */
+function recordingWorld() {
+  const EditOps = require("../edit-ops");
+  const clips = [
+    { id: "v1", mediaId: "m1", kind: "video", track: "V1", start: 0, in: 0, duration: 120, props: { volume: 0 } },
+    { id: "a1", mediaId: "m1", kind: "audio", track: "A1", start: 0, in: 0, duration: 120, props: { audioChannel: 0, pan: -1 } },
+    { id: "a2", mediaId: "m1", kind: "audio", track: "A2", start: 0, in: 0, duration: 120, props: { audioChannel: 1, pan: 1 } },
+  ];
+  const w = editorWorld({ clips });
+  w.project.media = [{ id: "m1", name: "rec.mp4", kind: "video", src: "/media/rec.mp4", duration: 120 }];
+  let n = 0;
+  const ops = () => EditOps.forDoc(w.project, { uid: () => "u" + ++n + Math.random().toString(36).slice(2, 6) });
+  ops().relinkClips();
+  return { w, ops };
+}
+/** The editor's split at 60 s and delete of the right half (both linked stems go with it), each one undo step. */
+function splitAndDelete({ w, ops }) {
+  w.pushUndo(); const o = ops(); o.splitAt(60); o.relinkClips();
+  w.pushUndo(); ops().removeClips(w.project.clips.filter((c) => c.start >= 59));
+  assert.deepEqual(w.project.clips.map((c) => [c.track, c.start, c.duration]).sort(), [["A1", 0, 60], ["A2", 0, 60], ["V1", 0, 60]]);
+}
+/** What the tab kept (persistUndoSoon's body), then a fresh page loading the saved document: relinkClips runs again. */
+function reload({ w, ops }, change) {
+  const kept = { sequence: "main", revision: w.project.revision, current: w.undoSnapshot(), media: w.project.media, undo: w.runtime.undo.slice(), redo: w.runtime.redo.slice(), time: 0 };
+  const saved = JSON.parse(JSON.stringify(w.project.clips));
+  const fresh = editorWorld({ clips: saved, stack: kept });
+  fresh.project.media = w.project.media;
+  if (change) { change(fresh.project); fresh.project.revision = kept.revision + 1; }
+  require("../edit-ops").forDoc(fresh.project, { uid: () => "r" + Math.random().toString(36).slice(2, 8) }).relinkClips();
+  return { fresh, kept };
+}
+
+test("a reload adds no undo step: the first Ctrl+Z after it brings the deleted half back (VV #111, linked stems)", async () => {
+  const rec = recordingWorld();
+  splitAndDelete(rec);
+  const { fresh, kept } = reload(rec);
+  assert.notEqual(fresh.undoSnapshot(), kept.current, "loading gave the stems new linkGroup ids (the trigger)");
+  await fresh.restoreUndoStack();
+  assert.equal(fresh.runtime.undo.length, kept.undo.length, "as many steps after the reload as before it");
+  fresh.undo();
+  assert.deepEqual(fresh.project.clips.filter((c) => c.track === "V1").map((c) => [c.start, c.duration]).sort((a, b) => a[0] - b[0]), [[0, 60], [60, 60]],
+    "the first Ctrl+Z brings the second half back");
+  assert.deepEqual(fresh.toasts, [], "no outside-edit toast");
+});
+
+test("a real change made while the tab was away is still its own undo step after the reload", async () => {
+  const rec = recordingWorld();
+  splitAndDelete(rec);
+  const { fresh, kept } = reload(rec, (p) => { for (const c of p.clips) c.duration = 30; });   // an agent trimmed it to 30 s
+  await fresh.restoreUndoStack();
+  assert.equal(fresh.runtime.undo.length, kept.undo.length + 1);
+  fresh.undo();
+  assert.deepEqual(fresh.project.clips.map((c) => c.duration), [60, 60, 60], "the first Ctrl+Z takes back the outside change");
+  assert.equal(fresh.toasts.at(-1), "撤回了刚才在别处（AI 或另一个窗口）做的修改。", "and says so in Chinese");
+});
+
+test("an outside write that only relinks the stems (new linkGroup ids) is not an undo step", () => {
+  const rec = recordingWorld();
+  const before = rec.w.undoSnapshot();
+  rec.ops().relinkClips();
+  assert.notEqual(rec.w.undoSnapshot(), before);
+  assert.equal(rec.w.outsideEditStep(before, rec.w.undoSnapshot()), null);
+});
+
+test("the outside-edit toast is plain words in both languages (VV's draft, pending JJ)", () => {
+  const UI = require("../ui-preferences");
+  assert.equal(UI.t("zh-CN", "own.undo-outside"), "撤回了刚才在别处（AI 或另一个窗口）做的修改。");
+  assert.equal(UI.t("en", "own.undo-outside"), "Undid the change just made somewhere else (by the AI or in another window).");
+  assert.doesNotMatch(require("node:fs").readFileSync(require("node:path").join(ROOT, "app.js"), "utf8"), /Undid a change made outside this tab/);
 });

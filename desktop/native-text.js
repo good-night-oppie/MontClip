@@ -17,6 +17,11 @@ const TEXT = {
     serviceExitedAtStart: 'MontClip 的内部服务已退出。',
     serviceStoppedTitle: 'MontClip 出错了',
     ok: '确定',
+    // another MontClip has this data folder (VV's draft for #111, JJ to review)
+    dataDirInUseTitle: 'MontClip 没打开',
+    dataDirInUse: '另一个 MontClip 正在用这些项目（可能是 Cindy 里的 MontClip）。两个同时改，会互相盖掉。',
+    dataDirInUseHint: '先把那边的 MontClip 关掉，再打开这里。',
+    dataDirInUseOk: '好',
   },
   en: {
     closeTitle: 'Save not confirmed',
@@ -31,6 +36,10 @@ const TEXT = {
     serviceExitedAtStart: "MontClip's internal service stopped while starting.",
     serviceStoppedTitle: 'MontClip ran into a problem',
     ok: 'OK',
+    dataDirInUseTitle: "MontClip didn't open",
+    dataDirInUse: 'Another MontClip is using these projects (maybe the MontClip in Cindy). If both change them at once, they overwrite each other.',
+    dataDirInUseHint: 'Close the other MontClip first, then open this one.',
+    dataDirInUseOk: 'OK',
   },
 };
 /** The language in a view-settings read ({ok, value:{language}}); Chinese when it can't be told. */

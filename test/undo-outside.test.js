@@ -6,6 +6,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { SRC } = require("./timeline-sandbox");
+const UI = require("../ui-preferences");
 
 function slice(a, b) {
   const i = SRC.indexOf(a), j = SRC.indexOf(b, i);
@@ -18,7 +19,7 @@ function world(clips) {
   const runtime = { undo: [], redo: [] };
   const toasts = [];
   const env = {
-    project, runtime, toast: (m) => toasts.push(m), pruneSelection() {}, scheduleSave() {}, renderInspector() {},
+    project, runtime, toast: (m) => toasts.push(m), uiText: (k) => UI.t("zh-CN", k), pruneSelection() {}, scheduleSave() {}, renderInspector() {},
     SeqLib: { others: () => [], activeId: () => "main", find: () => null }, seqRoot: () => project,
     reloadMediaSource() {}, renderBin() {}, scheduleOfflineCheck() {},
   };
@@ -48,7 +49,7 @@ test("Ctrl+Z after an agent edit takes back the agent's edit, then the user's", 
   w.undo();
   assert.equal(text(w, "b"), "original", "the agent's edit is taken back");
   assert.equal(text(w, "a"), "user edit", "the user's edit stays");
-  assert.match(w.toasts.at(-1), /outside this tab/);
+  assert.equal(w.toasts.at(-1), "撤回了刚才在别处（AI 或另一个窗口）做的修改。");
   w.undo();
   assert.equal(text(w, "a"), "user", "the next Ctrl+Z takes back the user's edit");
   assert.equal(w.toasts.length, 1, "only the outside step says so");
@@ -90,7 +91,7 @@ function synced(clips) {
   const toasts = [];
   let disk = null;
   const env = {
-    project, runtime, state, toast: (m) => toasts.push(m), pruneSelection() {}, scheduleSave() {}, renderInspector() {},
+    project, runtime, state, toast: (m) => toasts.push(m), uiText: (k) => UI.t("zh-CN", k), pruneSelection() {}, scheduleSave() {}, renderInspector() {},
     SeqLib: { others: () => [], activeId: () => "main", find: () => null }, seqRoot: () => project,
     reloadMediaSource() {}, renderBin() {}, scheduleOfflineCheck() {},
     fetchSaved: () => Promise.resolve(), fetchLibrary: () => Promise.resolve(), renderLibrary() {}, renderTemplatesTab() {},
@@ -121,7 +122,7 @@ test("syncFromServer: an agent's edit becomes an undo step of its own; undo and 
   assert.equal(w.runtime.undo.length, 2, "and recorded as a step");
   w.undo();
   assert.deepEqual([text(w, "a"), text(w, "b")], ["user edit", "original"], "Ctrl+Z takes back the agent's edit only");
-  assert.match(w.toasts.at(-1), /outside this tab/);
+  assert.equal(w.toasts.at(-1), "撤回了刚才在别处（AI 或另一个窗口）做的修改。");
   w.undo();
   assert.equal(text(w, "a"), "user");
   w.redo(); w.redo();
