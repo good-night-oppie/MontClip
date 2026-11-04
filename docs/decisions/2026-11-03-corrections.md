@@ -83,6 +83,13 @@ Constants: `MAX_SHIFT` 5 s, `HABIT_WINDOW` 5, `HABIT_MIN` 4, `BAR_BASE` 0.12 (so
   on that card afterwards does not cancel the mark (only a song made another kind carries the part).
   The card is not cut down to a 1-minute clip with the other cards: it has no danmaku peak to centre one on, so it keeps
   the part as marked (Deja: intended).
+- **A part added with 补一段 comes back** (VV on 12f4f21 / Deja): the add record carries the recording's key and the part,
+  so when the same recording is searched again (for example after 〔换一场 / 改设置〕) the card is there after the others:
+  its kind, where it was added (not moved by a habit), 你补的. Another recording never gets it. A later 不要这条 on that
+  card takes it away for good (the same recording, more than half of each inside the other; a bigger card taken out
+  around it is another card). **The name is not kept in the record**: it is text the streamer typed, and a record holds
+  numbers and fixed words only. The page holds the names while MontClip runs, so the name comes back within the session;
+  after MontClip restarts the card comes back with its default name.
 - 互动, 聊天 and 整活 have their own habits like every kind; no rule finds their parts — only the streamer's own moves
   shift their start and end. A song made one of them counts as 「不是唱歌」; between them and 普通高光 the singing bar is not
   touched.

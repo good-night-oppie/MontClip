@@ -10647,7 +10647,7 @@ function autoCardHtml(c, i) {
    the fixed rules, segment-edits.js the two card edits. This block is the only page code that reads them
    (test/corrections-ui.test.js); the assistant's context and request never do. Without the desktop store (the browser)
    the edits still work and nothing is kept. ── */
-const KEPT = { told: false, on: null };
+const KEPT = { told: false, on: null, names: new Map() };
 const autoStore = () => window.montclipCorrections || null;
 /** The search's cards with what was kept applied: the shift habits, and the parts marked 不是唱歌 in the same recording
  *  (the singing bar is off). Off, or nothing kept: the cards as found. Also gives each recording its key. */
@@ -10665,6 +10665,8 @@ async function autoApplyKept(cards, recs) {
   // 你调过 is the streamer's own move: where a habit moved a card, its found ends move too, so each end keeps its level
   for (const c of out) if (c.was) { c.found = { s0: c.s0, e0: c.e0 }; if (Number.isFinite(c.s0)) c.s0 = c.s; if (Number.isFinite(c.e0)) c.e0 = c.e; }
   // a part marked 不是唱歌 comes back as the streamer's kind, at their start and end: their change (你改的), with its reason
+  // a card added with 补一段 back in the same recording: ticked, its name if the page still has it
+  for (const c of out) if (c.added && c.keptId) { c.on = true; c.reasons = []; if (KEPT.names.has(c.keptId)) c.title = KEPT.names.get(c.keptId); }
   for (const c of out) if (c.changedFrom) { c.kindBy = true; if (Number.isFinite(c.s0)) c.s0 = c.s; if (Number.isFinite(c.e0)) c.e0 = c.e; }
   st.habitUsed = out.filter((c) => c.was).length; st.keptN = kept.length; st.habitRules = rules;
   return out;
@@ -10681,6 +10683,7 @@ async function autoKeep(corr, c) {
   if (!r || !r.ok) { if (r && r.code === "CORRECTIONS_OFF") KEPT.on = false; return ""; }
   KEPT.on = true;
   if (step) step.push(r.id);
+  if (corr.type === "add") { c.keptId = r.id; if (c.title) KEPT.names.set(r.id, c.title); }
   if (KEPT.told) return "";
   KEPT.told = true; return uiText("own.as-learn-told");
 }
@@ -10789,7 +10792,7 @@ function autoAddDo(d) {
   d.querySelector("[data-as-add-name]").value = ""; d.close();
   autoSnap(); st.clips = r.cards; const x = autoClip(r.id); x.on = true; x.reasons = []; if (title) x.title = title;
   autoRender("review"); autoFocusCard(x.id);
-  autoToastKept(uiText("own.as-added", { name: autoName(x) }), autoKeep(r.correction, x));
+  autoToastKept(uiText("own.as-added", { name: autoName(x) }), autoKeep({ ...r.correction, ...(rec.key ? { rec: rec.key, s: x.s, e: x.e } : {}) }, x));
 }
 /** The page 「记住我的剪辑习惯」 (from the line under the cards, 去设置 and 设置 › 自动出切片). */
 async function autoLearnOpen(confirm = false) {
@@ -10916,7 +10919,7 @@ function autoChange(e) {
   const card = t.closest("[data-as-card]"), c = card ? autoClip(card.dataset.asCard) : null;
   if (!c) return;
   if (t.dataset.asAct === "toggle") { autoSnap(); c.on = t.checked; autoRender("review"); autoFocusCard(c.id, false); return; }
-  if (t.dataset.asAct === "rename") { autoSnap(); const v = t.value.trim(); if (v) c.title = v.slice(0, 80); else delete c.title; autoFooter(); }
+  if (t.dataset.asAct === "rename") { autoSnap(); const v = t.value.trim(); if (v) c.title = v.slice(0, 80); else delete c.title; if (c.keptId) { if (c.title) KEPT.names.set(c.keptId, c.title); else KEPT.names.delete(c.keptId); } autoFooter(); }
 }
 function autoFocusCard(id, flash = true) {
   const el = AUTO.el && AUTO.el.querySelector(`[data-as-card="${CSS.escape(id)}"]`);

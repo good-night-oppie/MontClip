@@ -207,6 +207,12 @@ test('a part added with 补一段 comes back when the same recording is searched
  // taken out afterwards (不要这条 on it): not back
  const rm=C.record({type:'remove',kind:'stunt',duration:3600,rec:k,s:400,e:430});
  a.deepEqual(C.apply([],C.rules([add,rm]),{recKey:{m1:k}}),[]);
+ // a bigger card around it taken out — before it was added, or after — is another card: the added part still comes back
+ // (the smoke caught this: a part marked 不是唱歌 and taken out, 280–431 s, held the part added at 400–430 s)
+ const big=C.record({type:'remove',kind:'moment',duration:3600,rec:k,s:280,e:431});
+ for(const recs of [[big,add],[add,big]])a.deepEqual(C.apply([],C.rules(recs),{recKey:{m1:k}}).map(c=>[c.s,c.e]),[[400,430]]);
+ // taken out before it was added: still added
+ a.deepEqual(C.apply([],C.rules([rm,add]),{recKey:{m1:k}}).map(c=>[c.s,c.e]),[[400,430]]);
  // an add without its recording (an older record): nothing comes back
  a.deepEqual(C.apply([],C.rules([C.record({type:'add',kind:'stunt',duration:3600})]),{recKey:{m1:k}}),[]);
 });
