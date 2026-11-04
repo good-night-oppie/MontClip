@@ -12,7 +12,7 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 const fs = require("node:fs");
 const { ROOT } = require("./helpers");
-const FableCutEdit = require("../edit-ops.js");
+const MontClipEdit = require("../edit-ops.js");
 
 const SRC = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
 
@@ -88,7 +88,7 @@ function world({
     ensureWave() {}, reconcileAudioChannels() {}, pause() {}, pauseSource() {},
     ensurePlayheadVisible() {}, toastSourceWindowMissing() {},
     defaultPanForChannel: (ch) => (ch === 0 ? -1 : ch === 1 ? 1 : 0),
-    FableCutEdit, shiftKF: FableCutEdit.shiftKF, undoSnapshot: () => null,
+    MontClipEdit, shiftKF: MontClipEdit.shiftKF, undoSnapshot: () => null,
     pushUndo: () => { calls.undo++; },
     toast: (msg) => { calls.toast.push(msg); },
     applySourceWindowToClip: () => { calls.applyWindow++; },

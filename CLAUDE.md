@@ -1,4 +1,4 @@
-# FableCut — browser video editor, drivable by Claude Code
+# MontClip — browser video editor, drivable by Claude Code
 
 A production-style non-linear video editor (Premiere-style) that runs in the
 browser. An AI agent edits videos by **editing `project.json`** (or calling the
@@ -723,7 +723,7 @@ edits the key under the playhead. Agents:
 
 ### Transcripts and text-based editing
 
-FableCut turns the speech in a clip into **words with times**, so an edit can be
+MontClip turns the speech in a clip into **words with times**, so an edit can be
 read, searched and cut like text. Transcription runs **on this computer, in the
 editor's local server** (`asr-local.js`; MontClip #70, Deja 2026-11-03): ffmpeg reads
 the file's sound, the silero VAD finds the speech, and sherpa-onnx-node 2.0.1 runs
@@ -732,7 +732,7 @@ each stretch of it, with per-character times; the **CT-Transformer** model adds
 punctuation when it is installed (optional, 76 MB). Nothing is sent anywhere.
 
 The model hears Mandarin, with English words mixed in. Chinese words are single
-characters and read without spaces (`FableCutTranscribe.join`); English words keep
+characters and read without spaces (`MontClipTranscribe.join`); English words keep
 their spaces. On the europa benchmark (`~/asr-bench/RESULT.md`, measured there, not
 here): FLEURS character error rate 3.33% on Chinese characters, 4-thread real-time
 factor about 0.05. On the Win11 test machine (i7-11800H) a 10-minute recording took
@@ -1807,7 +1807,7 @@ proxy only changes how smoothly the preview runs, never the result.
 
 ### Projects
 
-One FableCut keeps any number of projects. **`./project.json` is always the
+One MontClip keeps any number of projects. **`./project.json` is always the
 open project**: the editor, every MCP tool, the REST API and scripts read and
 edit that file as before. The others wait in `projects/`, and opening one
 swaps it in:
@@ -2203,7 +2203,7 @@ tab, else a headless browser, like `fablecut_export`.
 
 ## Remake a reference video (analyze → blueprint → rebuild)
 
-Given a reference edit (a reel/montage the user likes), FableCut can analyze it
+Given a reference edit (a reel/montage the user likes), MontClip can analyze it
 and hand back an **edit blueprint** so the same idea can be rebuilt with
 different footage over the same music.
 

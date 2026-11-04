@@ -4,7 +4,7 @@ description: Analyze a reference video (a reel, montage, or ad the user likes) i
 
 # Remaking a reference edit
 
-Given a video the user likes, FableCut extracts what is *measurable* about the
+Given a video the user likes, MontClip extracts what is *measurable* about the
 edit — where the cuts land, where the beats are, how energy moves — and hands it
 back as a blueprint. The structure is deterministic; the creative mapping onto
 new footage is yours.

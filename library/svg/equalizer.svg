@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
-  <!-- FableCut animated SVG · loops · audio equalizer bars (music sections / podcast) -->
+  <!-- MontClip animated SVG · loops · audio equalizer bars (music sections / podcast) -->
   <style>
     .bar { transform-box: fill-box; transform-origin: center bottom;
            animation: eq 0.8s ease-in-out infinite; }

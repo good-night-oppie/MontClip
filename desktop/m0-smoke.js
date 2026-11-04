@@ -29,7 +29,7 @@ async function exercise({ src, srt }) {
     clips: [
       { id: "m0v", kind: "video", mediaId: "m0", track: "V1", start: 0, in: 0, duration: 16, props: { volume: 0 } },
       { id: "m0a", kind: "audio", mediaId: "m0", track: "A1", start: 0, in: 0, duration: 16, props: { volume: 1 } },
-      ...FableCutCaptions.parse(srt).map((cue, i) => FableCutCaptions.clip(cue, { id: "m0s"+i, track: "V2", width: 320, height: 180 })),
+      ...MontClipCaptions.parse(srt).map((cue, i) => MontClipCaptions.clip(cue, { id: "m0s"+i, track: "V2", width: 320, height: 180 })),
     ],
   });
   applyProject(doc); scheduleSave(); if (!await flushSave()) throw new Error("Imported project save failed");
@@ -56,6 +56,6 @@ async function exercise({ src, srt }) {
   setTime(0); await fetchEncodeProfiles();
   const exported = await fastExport({ silent: true });
   if (!exported?.outputs?.length || exported.outputs.some(o => !o.ok)) throw new Error("Actual compositor export failed: " + JSON.stringify(exported));
-  return { export: exported, srt: FableCutCaptions.toSRT(FableCutCaptions.fromClips(project.clips)), map: FableCutCaptions.sourceMap(projectJSON()), undoRedo: true, savedReloaded: true };
+  return { export: exported, srt: MontClipCaptions.toSRT(MontClipCaptions.fromClips(project.clips)), map: MontClipCaptions.sourceMap(projectJSON()), undoRedo: true, savedReloaded: true };
 }
 module.exports = { run };
