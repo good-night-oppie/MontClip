@@ -48,8 +48,11 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   step('settings',settings);assert.ok(settings.option&&settings.option.startsWith('Meta（Muse Spark） · api.meta.ai'),settings.option);assert.equal(settings.model,'muse-spark-1.1','the model is filled in');
   if(MODEL!==settings.model)await setValue(`document.querySelectorAll('.cindy-config input')[0]`,MODEL);
   await setValue(`document.querySelectorAll('.cindy-config input')[1]`,KEY);await wait(200);
-  await click(`document.querySelector('.cindy-config button')`);
-  const conf=await read('montclipAgentService.get()');step('configured',{provider:conf.provider,model:conf.model,configured:conf.configured});
+  // 保存连接 by its words: the mode buttons come first in the settings
+  await click(`Array.from(document.querySelectorAll('.cindy-config button')).find(b=>b.textContent==='保存连接')`);await wait(300);
+  const conf=await read('montclipAgentService.get()'),mode=await read(`document.querySelector('[data-agent-modes] [aria-pressed=true]')?.dataset.mode||null`);
+  step('configured',{provider:conf.provider,model:conf.model,configured:conf.configured,code:conf.code,mode,notice:await read(`Array.from(document.querySelectorAll('.cindy-port [role=status]')).map(e=>e.textContent).join(' | ')`)});
+  assert.equal(mode,'manual','手动, the default mode');
   assert.equal(conf.configured,true);assert.equal(conf.provider,'meta');
   await click(byText('AI 服务'));
   assert.equal(await read(`!!document.querySelector('.cindy-config')`),false,'settings closed before any screenshot');
