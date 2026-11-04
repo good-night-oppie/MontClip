@@ -15,13 +15,13 @@ const V = require(path.join(PLUGIN, "main-view-model.js"));
 
 // objects made inside the sandbox have its own prototypes: compare them as data
 const plain = (x) => (x === undefined ? x : JSON.parse(JSON.stringify(x)));
-function logicPage({ editorOpen = false } = {}) {
+function logicPage({ editorOpen = false, ffmpeg = "missing", taskView = null } = {}) {
   const calls = [], sent = [], views = [], channels = [];
   let handler = null;
   const cindy = {
     node: { request: async (r) => {
       calls.push([r.method, plain(r.params)]);
-      if (r.method === "montclip/start") return { ok: true, result: { origin: "http://127.0.0.1:1", url: "http://127.0.0.1:1/?host=cindy&token=" + "a".repeat(64), ffmpeg: "missing" } };
+      if (r.method === "montclip/start") return { ok: true, result: { origin: "http://127.0.0.1:1", url: "http://127.0.0.1:1/?host=cindy&token=" + "a".repeat(64), ffmpeg } };
       if (r.method === "montclip/ui") return { ok: true, result: editorOpen ? { status: 200, undo: 1 } : { status: 409, code: "NO_EDITOR" } };
       if (r.method === "montclip/bind") return { ok: true, result: { project: "p_1", name: "任务的项目" } };
       if (r.method === "montclip/tools") return { ok: true, result: { tools: [{ name: "fablecut_get_project", inputSchema: {} }] } };
@@ -31,7 +31,7 @@ function logicPage({ editorOpen = false } = {}) {
     } },
     send: async (m) => { sent.push(plain(m)); return { ok: true }; },
     onHostMessage: (fn) => { handler = fn; },
-    taskView: async (o) => { views.push(plain(o)); return { ok: true, sessionId: o.sessionId }; },
+    taskView: async (o) => { views.push(plain(o)); return taskView || { ok: true, sessionId: o.sessionId }; },
   };
   class BroadcastChannel { constructor() { channels.push(this); this.posted = []; } postMessage(m) { this.posted.push(plain(m)); } }
   vm.runInNewContext(fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8"), { cindy, BroadcastChannel, setTimeout, clearTimeout, console, Map, Promise });
@@ -140,4 +140,59 @@ test("file sizes: bytes under 1 KB, then KB, MB, GB — never 0.0 MB", () => {
   assert.deepEqual([0, 512, 900 * 1024, 1.5 * 1048576, 2.3 * 1073741824].map(V.size), ["0 字节", "512 字节", "900 KB", "1.5 MB", "2.3 GB"]);
   assert.deepEqual([1023, 1024, 1048575, 1048576, 1073741824].map(V.size), ["1023 字节", "1 KB", "1.0 MB", "1.0 MB", "1.0 GB"]);
   assert.equal(V.exportRows({ exports: [{ name: "a.srt", bytes: 2048 }] })[0].meta, "2 KB", "an exported subtitle file is not 0.0 MB");
+});
+
+/* JJ's final words for the overview and the status card (2026-11-04), word for word */
+const shown = (html) => html.replace(/<[^>]+>/g, "\n").split("\n").map((x) => x.trim()).filter(Boolean);
+
+test("main view in JJ's words: the lead, no projects yet, where the exports are", () => {
+  const page = fs.readFileSync(path.join(PLUGIN, "main-view.html"), "utf8");
+  assert.ok(page.includes('<p class="lead">每个任务有自己的剪辑项目：在任务里打开剪辑器，它就在聊天旁边。这里列出所有任务的项目和导出的文件。</p>'));
+  assert.ok(page.includes(">还没有项目。在一个任务里跟 AI 说「打开剪辑器」就行。</p>"));
+  assert.ok(page.includes("<span>左侧导航「更多」→「自定义」，把 MontClip 拖到导航上。以后从导航一点就到这里。</span>"), "the pin hint: unchanged");
+  assert.equal(V.exportsWhere("C:\\Users\\me\\FableCut"),
+    "导出的文件都在 MontClip 自己的导出文件夹里：C:\\Users\\me\\FableCut\\exports。在聊天里让 AI 导出时，会先请你选一个文件夹，再另存一份到那里。");
+  assert.equal(V.exportsWhere("/home/me/FableCut/"),
+    "导出的文件都在 MontClip 自己的导出文件夹里：/home/me/FableCut/exports。在聊天里让 AI 导出时，会先请你选一个文件夹，再另存一份到那里。", "the folder's own separator");
+  assert.equal(V.exportsWhere(""), "");
+});
+
+test("main view failures in JJ's words: the error on a small line of its own, and no second half without one", () => {
+  assert.deepEqual(V.FAILED.load("EACCES: permission denied"),
+    { text: "MontClip 没能读取项目。关掉这页再打开试试；还不行，把下面这行发给我们：", detail: "EACCES: permission denied" });
+  assert.deepEqual(V.FAILED.load(""), { text: "MontClip 没能读取项目。关掉这页再打开试试。", detail: "" });
+  assert.deepEqual(V.FAILED.openTask("SESSION_NOT_FOUND"),
+    { text: "没能打开这个任务。这个任务可能已经删掉了；还不行，把下面这行发给我们：", detail: "SESSION_NOT_FOUND" });
+  assert.deepEqual(V.FAILED.openTask(undefined), { text: "没能打开这个任务。这个任务可能已经删掉了。", detail: "" });
+  const js = fs.readFileSync(path.join(PLUGIN, "main-view.js"), "utf8");
+  assert.match(js, /if \(o\.error\) \{ fail\(V\.FAILED\.load\(o\.error\)\); return; \}/);
+  assert.match(js, /if \(!r\.ok\) fail\(V\.FAILED\.openTask\(r\.message \|\| r\.errorCode \|\| r\.error\)\);/);
+  assert.match(js, /\$\('statusDetail'\)\.textContent = f\.detail; \$\('statusDetail'\)\.hidden = !f\.detail;/, "the error as text, never as HTML");
+  for (const keep of ["'在任务中打开'", "' · 没有对应的任务'"]) assert.ok(js.includes(keep), keep);
+});
+
+test("status card in JJ's words: 导出组件（ffmpeg） and its three states", async () => {
+  const states = { missing: "还没装（导出、降噪要用）", downloaded: "已装好", changed: "文件被改过，建议重新安装" };
+  for (const [ffmpeg, words] of Object.entries(states)) {
+    const p = logicPage({ ffmpeg });
+    await p.tool("montclip_status");
+    const lines = shown(p.sent.find((m) => m.type === "card-update").html);
+    const i = lines.indexOf("导出组件（ffmpeg）");
+    assert.deepEqual(lines.slice(i, i + 2), ["导出组件（ffmpeg）", words]);
+    assert.ok(lines.includes("在这个任务里打开剪辑器"));
+  }
+});
+
+test("status card button: opened, or JJ's failure words with the error on a small line, escaped", async () => {
+  const ok = logicPage();
+  await ok.event({ name: "card-action", actionId: "open-editor", callId: "c", sessionId: "task-a" });
+  assert.deepEqual(shown(ok.sent.at(-1).html), ["剪辑器已在右侧栏打开。"]);
+  const bad = logicPage({ taskView: { ok: false, errorCode: "TASK_VIEW_UNAVAILABLE", message: '<b>"gone"</b>' } });
+  await bad.event({ name: "card-action", actionId: "open-editor", callId: "c", sessionId: "task-a" });
+  const html = bad.sent.at(-1).html;
+  assert.deepEqual(shown(html), ["没能打开剪辑器。再点一次试试；还不行，把下面这行发给我们：", "&lt;b&gt;&quot;gone&quot;&lt;/b&gt;"]);
+  assert.match(html, /font-size:12px/, "the error is the small line");
+  const none = logicPage({ taskView: { ok: false } });
+  await none.event({ name: "card-action", actionId: "open-editor", callId: "c", sessionId: "task-a" });
+  assert.deepEqual(shown(none.sent.at(-1).html), ["没能打开剪辑器。再点一次试试。"]);
 });

@@ -153,12 +153,19 @@ async function forTask(msg) {
   return session ? node('montclip/bind', { session }) : null;
 }
 /* The status card: what is ready, and — when this task has no editor tab — a button that opens it. */
+/* The card button could not open the editor (JJ's words): with an error, the error on a small line of its own. */
+function openEditorFailed(error) {
+  const raw = String(error == null ? '' : error).trim();
+  return raw ? '没能打开剪辑器。再点一次试试；还不行，把下面这行发给我们：' +
+    '<div style="margin-top:6px;font-size:12px;color:var(--text-secondary,#6b6b66);overflow-wrap:anywhere">' + esc(raw) + '</div>'
+    : '没能打开剪辑器。再点一次试试。';
+}
 function statusCard(s, editorOpen) {
-  const row = (k, v) => '<div style="display:flex;gap:10px"><span style="color:var(--text-secondary,#6b6b66);min-width:5em">' + esc(k) + '</span><span>' + esc(v) + '</span></div>';
-  const ff = { downloaded: '已装好', changed: '文件和装时不一样，建议重新安装', missing: '还没装（导出、降噪要用）' }[s.ffmpeg] || s.ffmpeg;
+  const row = (k, v) => '<div style="display:flex;gap:10px"><span style="color:var(--text-secondary,#6b6b66);min-width:8.5em">' + esc(k) + '</span><span>' + esc(v) + '</span></div>';
+  const ff = { downloaded: '已装好', changed: '文件被改过，建议重新安装', missing: '还没装（导出、降噪要用）' }[s.ffmpeg] || s.ffmpeg;
   return '<div style="padding:12px 14px;color:var(--text-primary,#1a1a1a);font:13px/1.5 system-ui,sans-serif">' +
     '<div style="font-weight:600;margin-bottom:6px">MontClip</div>' +
-    row('项目', s.project || '—') + row('剪辑器', editorOpen ? '已在这个任务里打开' : '没有打开') + row('ffmpeg', ff) +
+    row('项目', s.project || '—') + row('剪辑器', editorOpen ? '已在这个任务里打开' : '没有打开') + row('导出组件（ffmpeg）', ff) +
     (editorOpen ? '' : '<div style="margin-top:10px"><button data-ghost-action="open-editor" style="font:inherit;padding:5px 12px;border-radius:6px;border:0;background:var(--accent,#4b3fd6);color:#fff">在这个任务里打开剪辑器</button></div>') +
     '</div>';
 }
@@ -265,9 +272,9 @@ cindy.onHostMessage(async function (msg) {
   // the status card's button: a real click in the card, in its own task
   if (msg.type === 'event' && msg.name === 'card-action' && msg.actionId === 'open-editor') {
     const r = typeof cindy.taskView === 'function' ? await cindy.taskView(msg.sessionId ? { sessionId: msg.sessionId } : {}) : { ok: false, errorCode: 'HOST_TOO_OLD' };
-    cindy.send({ type: 'card-update', callId: msg.callId, v: 2, height: 90,
+    cindy.send({ type: 'card-update', callId: msg.callId, v: 2, height: r && r.ok ? 90 : 130,
       html: '<div style="padding:12px 14px;color:var(--text-primary,#1a1a1a);font:13px/1.5 system-ui,sans-serif">' +
-        (r && r.ok ? '剪辑器已在右侧栏打开。' : '没能打开剪辑器：' + esc((r && (r.message || r.errorCode)) || '')) + '</div>' });
+        (r && r.ok ? '剪辑器已在右侧栏打开。' : openEditorFailed((r && (r.message || r.errorCode)) || '')) + '</div>' });
     return;
   }
   if (msg.type !== 'tool-call') return;

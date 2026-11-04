@@ -28,11 +28,16 @@
     if (button) el.appendChild(button);
     return el;
   }
+  // a failure: the sentence, then the raw error on a small line of its own (none without an error)
+  function fail(f) {
+    $('status').textContent = f.text; $('status').className = 'status error';
+    $('statusDetail').textContent = f.detail; $('statusDetail').hidden = !f.detail;
+  }
   async function load() {
     const o = await ask('overview');
     const status = $('status');
-    if (o.error) { status.textContent = 'MontClip 没能读取项目：' + o.error; status.className = 'status error'; return; }
-    status.textContent = ''; status.className = 'status';
+    if (o.error) { fail(V.FAILED.load(o.error)); return; }
+    status.textContent = ''; status.className = 'status'; $('statusDetail').hidden = true;
     const projects = V.projectRows(o), exportsList = V.exportRows(o);
     $('projects').textContent = '';
     for (const p of projects) {
@@ -41,7 +46,7 @@
         b = document.createElement('button'); b.type = 'button'; b.textContent = '在任务中打开';
         b.addEventListener('click', async () => {
           const r = await ask('open-task', { session: p.task });
-          if (!r.ok) { status.textContent = '没能打开这个任务：' + (r.message || r.errorCode || r.error || ''); status.className = 'status error'; }
+          if (!r.ok) fail(V.FAILED.openTask(r.message || r.errorCode || r.error));
         });
       }
       $('projects').appendChild(li(p.name, p.meta + (p.task ? '' : ' · 没有对应的任务'), b));
@@ -50,7 +55,7 @@
     $('exports').textContent = '';
     for (const e of exportsList) $('exports').appendChild(li(e.name, e.meta));
     $('exportsEmpty').hidden = exportsList.length > 0;
-    $('exportsWhere').textContent = o.dataDir ? '在 ' + o.dataDir + ' 的 exports 文件夹里（用 montclip_export 导出时，还会存一份到你选的文件夹）。' : '';
+    $('exportsWhere').textContent = V.exportsWhere(o.dataDir);
   }
   (async () => { try { await fetch('/wake'); } catch (e) { } load(); })();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') load(); });

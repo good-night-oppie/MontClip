@@ -1,8 +1,8 @@
 /* Team rule 3: what the streamer reads never names an internal tool (montclip_…, fablecut_…). Every string the plugin's
    pages and chat cards show is collected — the HTML text and its labels, the string literals of the page scripts, and
    the cards and page answers main.js builds — and none may name one. Tool descriptions and the category RULES are for
-   the agent, not the streamer, and are not collected. The few that still do wait for JJ's words: they are listed in
-   PENDING_JJ and the test fails on any other, and on a listed one that is gone (then take it off the list). */
+   the agent, not the streamer, and are not collected; nor is what a tool returns to the AI (the export's hint how to
+   follow a job that is still running). */
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -47,9 +47,12 @@ function mainJsShown(src) {
   const part = (from, to) => { const i = src.indexOf(from), j = src.indexOf(to, i + 1); assert.ok(i >= 0 && j > i, from); return src.slice(i, j); };
   return [
     part("const DATA_DIR_IN_USE_TEXT", "function engineError("),
-    part("function exportCard(", "function sendCard("),
+    part("const EXPORT_TEXT", "function sendCard("),
+    part("function openEditorFailed(", "\n}\n"),
     part("function statusCard(", "\n}\n"),
-    part("async montclip_export(", "\n  },\n"),
+    // the export tool: what it shows (the folder dialog, the card), not what it returns to the AI
+    ...part("async montclip_export(", "\n  },\n").split("\n").map((l) => { const m = /sendCard\(|cindy\.pick\(/.exec(l); return m ? l.slice(m.index) : ""; })
+      .filter(Boolean).map((l) => l.slice(0, l.indexOf(");") + 2)),
     part("msg.actionId === 'open-editor'", "return;\n  }"),
   ].flatMap(literals);
 }
@@ -65,27 +68,18 @@ function shownStrings() {
   return out;
 }
 
-/* Waiting for JJ's words (2026-11-04): each still names a tool. */
-const PENDING_JJ = [
-  { file: "main-view.js", has: "montclip_export" },             // where the exported files are
-  { file: "main-view.html", has: "montclip_open_task_view" },   // the overview with no projects yet
-  { file: "main.js", has: "fablecut_export" },                  // the export card while the export is still running
-];
-
 test("the collector finds the strings the streamer reads (a check that the check works)", () => {
   const all = shownStrings().map((x) => x.s);
-  for (const s of ["把 MontClip 固定到左侧导航", "在这个任务里打开剪辑器", "导出完成", "剪辑器没有打开，所以没跳过去。先打开右侧栏的「MontClip 剪辑器」，再点一次。"])
+  for (const s of ["把 MontClip 固定到左侧导航", "在这个任务里打开剪辑器", "导出完成", "剪辑器没有打开，所以没跳过去。先打开右侧栏的「MontClip 剪辑器」，再点一次。",
+    "还没有项目。在一个任务里跟 AI 说「打开剪辑器」就行。", "导出的文件都在 MontClip 自己的导出文件夹里：", "导出组件（ffmpeg）", "没能打开剪辑器。再点一次试试。",
+    "选择 MontClip 导出到哪个文件夹", "still", "copyFailed"])
     assert.ok(all.some((x) => x.includes(s)), s);
   assert.ok(!all.some((x) => x.includes("Times are seconds on the timeline")), "the agent's RULES are not collected");
   assert.ok(!all.some((x) => x.includes("starts only from its button")), "comments are not collected");
+  assert.ok(!all.some((x) => x.includes("The export is still running")), "what the export returns to the AI is not collected");
 });
 
-test("no string the streamer reads names an internal tool (montclip_…, fablecut_…), except those waiting for JJ", () => {
+test("no string the streamer reads names an internal tool (montclip_…, fablecut_…)", () => {
   const found = shownStrings().filter((x) => TOOL_NAME.test(x.s)).map((x) => ({ file: x.file, has: TOOL_NAME.exec(x.s)[0] }));
-  const pending = (f) => PENDING_JJ.some((p) => p.file === f.file && p.has === f.has);
-  assert.deepEqual(found.filter((f) => !pending(f)), [], "a tool name where the streamer reads it");
-  for (const p of PENDING_JJ)
-    assert.ok(found.some((f) => f.file === p.file && f.has === p.has), `${p.file} no longer names ${p.has}: take it off PENDING_JJ`);
+  assert.deepEqual(found, [], "a tool name where the streamer reads it");
 });
-
-test.todo("JJ's words for the three strings that still name a tool (main-view.js, main-view.html, the export card)");

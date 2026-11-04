@@ -8,7 +8,7 @@
 <body>
 <main>
   <h1>MontClip</h1>
-  <p class="lead">剪辑在任务里进行：在一个任务里打开剪辑器，它和聊天并排，这个任务有自己的项目。这里列出所有任务的项目和导出的文件。</p>
+  <p class="lead">每个任务有自己的剪辑项目：在任务里打开剪辑器，它就在聊天旁边。这里列出所有任务的项目和导出的文件。</p>
   <aside class="pin" id="pin">
     <strong>把 MontClip 固定到左侧导航</strong>
     <span>左侧导航「更多」→「自定义」，把 MontClip 拖到导航上。以后从导航一点就到这里。</span>
@@ -16,7 +16,7 @@
   </aside>
   <section>
     <h2>项目</h2>
-    <p class="empty" id="projectsEmpty" hidden>还没有项目。在任务里说「打开剪辑器」，或让聊天调用 montclip_open_task_view。</p>
+    <p class="empty" id="projectsEmpty" hidden>还没有项目。在一个任务里跟 AI 说「打开剪辑器」就行。</p>
     <ul class="list" id="projects"></ul>
   </section>
   <section>
@@ -26,6 +26,7 @@
     <ul class="list" id="exports"></ul>
   </section>
   <p class="status" id="status">正在读取…</p>
+  <p class="detail" id="statusDetail" hidden></p>
 </main>
 <script src="main-view-model.js"></script>
 <script src="main-view.js"></script>
