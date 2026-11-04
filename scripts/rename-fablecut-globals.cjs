@@ -39,6 +39,9 @@ const EXCLUDE_DIRS = ['docs/validation/', 'docs/decisions/', 'docs/backlog/', '.
 const EXCLUDE_FILES = new Set([
   SELF,
   '.mcp.json',
+  // Release history: entries for 1.18.0 and earlier are the upstream's own and
+  // keep its name; MontClip's newer entries already say MontClip.
+  'CHANGELOG.md',
   // Brand-guard tests: they assert the old name is *absent*; do not rename them.
   'test/brand.test.js',
   'test/ui-terms-page.test.js',
@@ -69,6 +72,8 @@ const PROTECT = [
   // The upstream's hosted product (studio.fablecut.space) — only where docs name it.
   ['FableCut Studio', '@@STUDIO@@', (f) => f.startsWith('docs/')],
   ['upstream FableCut', '@@UPSTREAM_NAME@@'],
+  ['Upstream FableCut', '@@UPSTREAM_NAME_CAP@@'],
+  ['based on FableCut by ronak-create', '@@BASED_ON@@'],
   ['FableCut\\\\', '@@BS_PATH@@'], // two backslashes: a Windows data-dir path in test fixtures
   ['os.homedir(), "FableCut"', '@@DD_HOME@@'],
   ['path.join(home, "FableCut"', '@@DD_JOIN@@'],

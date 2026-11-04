@@ -61,10 +61,11 @@ recommended) **ffmpeg on PATH** for fast export and upload remuxing.
 
 ## Shipping a feature: the checklist
 
-MontClip is published in several places (npm, the MCP registry, the `.mcpb`
-bundle, the Claude Code plugin, Glama, the website and its playground), and
-an agent reads the same manual a person does. A feature is done when all of
-these agree. CI's **Release readiness** job checks the starred (★) items for you.
+Upstream FableCut is published in several places (npm, the MCP registry, the
+`.mcpb` bundle, the Claude Code plugin, Glama, the website and its playground);
+MontClip is not published there yet. The checklist below comes from upstream
+and applies when MontClip publishes. An agent reads the same manual a person
+does, so a feature is done when all of these agree. CI's **Release readiness** job checks the starred (★) items for you.
 
 **The code**
 - Preview and export go through the same compositor path; check both by hand.

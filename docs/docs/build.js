@@ -25,7 +25,7 @@ const SRC = fs.readFileSync(path.join(ROOT, "CLAUDE.md"), "utf8").replace(/\r\n/
 const PAGES = [
   {
     slug: "", nav: "Overview", title: "MontClip docs", group: "Start",
-    lede: "The manual for MontClip, built from `CLAUDE.md` in the repo: the same text your agent reads through the `fablecut_docs` tool, so what you read here is what it knows.",
+    lede: "The manual for MontClip (based on FableCut by ronak-create), built from `CLAUDE.md` in the repo: the same text your agent reads through the `fablecut_docs` tool (tool names keep the upstream `fablecut_` prefix), so what you read here is what it knows.",
     parts: [["Run"], ["How Claude Code edits a video"]],
   },
   {
