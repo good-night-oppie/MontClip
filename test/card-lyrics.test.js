@@ -86,7 +86,7 @@ test('after applying: the focus on the card\'s button, the card in view; undone:
   const app = read('app.js'), open = app.slice(app.indexOf('function autoLyricsOpen('), app.indexOf('function autoCardHtml('));
   a.match(open, /autoRender\("review"\); autoLyricFocus\(card\.id\);/);
   a.match(app, /function autoLyricFocus\(id\) \{[\s\S]*?autoFocusCard\(id\);[\s\S]*?data-as-act="lyrics"[\s\S]*?\.focus\(\{ preventScroll: true \}\)/);
-  const undo = app.slice(app.indexOf('function autoUndo('), app.indexOf('function autoUndo(') + 900);
+  const undo = app.slice(app.indexOf('function autoUndo('), app.indexOf('\n}\n', app.indexOf('function autoUndo(')));
   a.match(undo, /autoLyricFocus\(/, 'an undone calibration puts the focus back on its button');
 });
 test('calibrated, the button\'s tooltip says so (placeholder key), not the transcript line', () => {
@@ -103,7 +103,12 @@ test('the lyrics pasted last time: on the card in this window only, in no record
   a.match(open, /card\.lyricText = text;/);
   a.match(app, /function lyricsDialog\(\{ words, caps, stale, onApply, text = "" \}\)/);
   // only autoLyricsOpen reads or writes it; the project file, the AI's facts and the chat never see it
-  a.equal((app.match(/lyricText/g) || []).length, 3);
+  // only autoLyricsOpen keeps it, and autoUndo carries it over an undone calibration (VV on #100 aeb81e7: undone, the lyrics
+  // pasted are still there, as the tooltip says)
+  const fn = (name) => app.slice(app.indexOf('function ' + name + '('), app.indexOf('\n}\n', app.indexOf('function ' + name + '(')));
+  const inside = (fn('autoLyricsOpen').match(/lyricText/g) || []).length + (fn('autoUndo').match(/lyricText/g) || []).length;
+  a.equal((app.match(/lyricText/g) || []).length - (app.slice(app.indexOf('/** 〔按歌词校准字幕〕 on a card'), app.indexOf('function autoLyricsOpen(')).match(/lyricText/g) || []).length, inside, 'nowhere else');
+  a.match(fn('autoUndo'), /lyricText/);
   const save = app.slice(app.indexOf('function projectJSONHere('), app.indexOf('function projectJSONHere(') + 4000);
   a.ok(!/autoState|lyricText|lyricCues/.test(save), 'not in the project file');
   for (const f of ['agent-facts.js', 'agent-conversation.js', 'agent-pane.js', 'cindy-official.js', 'chat-proposal.js', 'agent-format.js'])
