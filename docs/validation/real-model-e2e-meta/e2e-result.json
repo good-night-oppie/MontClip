@@ -1,0 +1,168 @@
+{
+ "model": "muse-spark-1.1",
+ "prompt": "把 3 到 5 秒删掉",
+ "checks": {
+  "badKey": {
+   "code": "AUTH",
+   "ms": 342
+  },
+  "badModel": {
+   "code": "MODEL_INVALID",
+   "ms": 249
+  }
+ },
+ "steps": [
+  {
+   "name": "settings",
+   "option": "Meta（Muse Spark） · api.meta.ai",
+   "options": [
+    "openrouter",
+    "meta",
+    "deepseek",
+    "openai"
+   ],
+   "model": "muse-spark-1.1"
+  },
+  {
+   "name": "fields",
+   "inputs": [
+    "text",
+    "password"
+   ],
+   "keyLength": true,
+   "model": "muse-spark-1.1"
+  },
+  {
+   "name": "safeStorage",
+   "available": true,
+   "backend": "gnome_libsecret"
+  },
+  {
+   "name": "configured",
+   "provider": "meta",
+   "model": "muse-spark-1.1",
+   "configured": true,
+   "code": null,
+   "mode": "manual",
+   "notice": "连接配置已保存在本机，没有发起请求。"
+  },
+  {
+   "name": "sentences-quoted",
+   "captions": 2
+  },
+  {
+   "name": "sentences-review",
+   "domain": "api.meta.ai · muse-spark-1.1",
+   "formatNote": true,
+   "raw": true
+  },
+  {
+   "name": "sentences-reply",
+   "ms": 1914,
+   "text": "助手已生成剪辑建议：保留 2 句，成片大约 00:08。请先看一遍再应用。",
+   "notice": "",
+   "approval": "AI 想做这一步保留 2 句只保留选中的几句字幕对应的片段保留 2 句，成片大约 00:08。改的是项目：未命名项目只批准这次这个聊天中都批准不同意"
+  },
+  {
+   "name": "sentences-applied",
+   "clips": [
+    [
+     0,
+     0,
+     3
+    ],
+    [
+     3,
+     5,
+     5
+    ]
+   ],
+   "overlapWith3to5": 0,
+   "keptSeconds": 8,
+   "undoSteps": 1,
+   "event": {
+    "capability": "keep_sentences",
+    "state": "applied",
+    "args": {
+     "ranges": [
+      {
+       "clipId": "e2e_c0",
+       "sourceCaptionId": "e2e_c0",
+       "from": 0,
+       "to": 3
+      },
+      {
+       "clipId": "e2e_c2",
+       "sourceCaptionId": "e2e_c2",
+       "from": 5,
+       "to": 10
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "sentences-undone",
+   "restored": true,
+   "event": "undone"
+  },
+  {
+   "name": "ranges-review",
+   "domain": "api.meta.ai · muse-spark-1.1",
+   "formatNote": true,
+   "raw": true
+  },
+  {
+   "name": "ranges-reply",
+   "ms": 2335,
+   "text": "助手已生成剪辑建议：保留 2 段，拼成一条，大约 00:08。请先看一遍再应用。",
+   "notice": "",
+   "approval": "AI 想做这一步保留 0:00–0:03、0:05–0:10按时间保留几段录像，拼成一条或各成一条切片保留 2 段，拼成一条，大约 00:08。改的是项目：未命名项目只批准这次这个聊天中都批准不同意"
+  },
+  {
+   "name": "ranges-applied",
+   "clips": [
+    [
+     0,
+     0,
+     3
+    ],
+    [
+     3,
+     5,
+     5
+    ]
+   ],
+   "overlapWith3to5": 0,
+   "keptSeconds": 8,
+   "undoSteps": 1,
+   "event": {
+    "capability": "keep_ranges",
+    "state": "applied",
+    "args": {
+     "output_mode": "one_file",
+     "ranges": [
+      {
+       "clipId": "v1",
+       "from": 0,
+       "to": 3
+      },
+      {
+       "clipId": "v1",
+       "from": 5,
+       "to": 10
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "ranges-undone",
+   "restored": true,
+   "event": "undone"
+  }
+ ],
+ "sentences": "keep_sentences",
+ "ranges": "keep_ranges",
+ "passed": true
+}

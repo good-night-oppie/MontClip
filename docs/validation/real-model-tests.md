@@ -41,3 +41,17 @@ Only synthetic subtitles were sent.
   new project with a synthetic 10 s recording and three subtitles, Meta chosen in the settings; (1) two subtitles
   quoted, 「只保留这两句」 → keep_sentences, (2) 「把 3 到 5 秒删掉」 → keep_ranges; each: review (names api.meta.ai),
   approval in 手动, the timeline cut as one undo step, Undo. Evidence: `real-model-e2e-meta/` (no key in it; checked).
+
+Run on 2026-11-04 (europa, Linux, xvfb + the session keyring), `muse-spark-1.1`, commit bf2b73c: **passed**.
+
+| Check | Result |
+|---|---|
+| made-up key → product code | AUTH (「密钥不对或没有权限…」) |
+| made-up model `muse-spark-does-not-exist` → product code | MODEL_INVALID (「模型名称不对…」) |
+| settings | 「Meta（Muse Spark） · api.meta.ai」 listed second, `muse-spark-1.1` filled in, saved, mode 手动 |
+| (1) two subtitles quoted, 「只保留这两句」 | review: api.meta.ai · muse-spark-1.1; reply in 1.9 s: keep_sentences 0–3 s + 5–10 s; approval → applied, timeline 10 s → 8 s, one undo step; Undo restored it |
+| (2) 「把 3 到 5 秒删掉」 | reply in 2.3 s: keep_ranges 0–3 + 5–10 (one_file); approval → applied, 3–5 s gone, one undo step; Undo restored it |
+
+Evidence (`real-model-e2e-meta/`, no key in any file — checked against the key and its first 12 characters): `e2e-result.json`,
+`run.txt`, and five screenshots per request (`*-1-draft`, `-2-review`, `-3-reply-approval`, `-4-applied`, `-5-undone`).
+No screenshot is taken while the settings (with the key field) are open.
