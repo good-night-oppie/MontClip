@@ -25,3 +25,47 @@ ordinary question got an ordinary answer; a wrong key is reported as AUTH; in th
 review showed the format note and api.deepseek.com, the reply showed the proposal button, the
 proposal applied through the existing sentence dialog and undo restored the clips.
 Only synthetic subtitles were sent.
+
+## Meta (Muse Spark), 2026-11-04
+
+- **Unit** (`node --test`, CI): `test/agent-meta-provider.test.js` — a local HTTP server stands in for
+  `api.meta.ai`. Configured as Meta, the product posts to `/v1/chat/completions` with `model: muse-spark-1.1`,
+  `Authorization: Bearer <key>` and the format note first; the reply (a keep_ranges edit for 「把 3 到 5 秒删掉」)
+  is applied by the editor's own `commitRangePlan` as one undo step and undone. 401 → AUTH (「密钥不对或没有权限…」),
+  a wrong model name (400/404 "model … does not exist") → MODEL_INVALID (「模型名称不对…」). Made-up keys only.
+  `test/meta-key-file.test.js` — the key-file rules below.
+- **e2e**: `MONTCLIP_REAL_MODELS=1 xvfb-run -a npm run test:e2e:meta` on europa (`real-tests/run-meta-e2e.cjs`).
+  Key only from `~/.meta-montclip`, mode 600, the owner's own file (`real-tests/meta-key-file.cjs`, the rules of
+  #124: wider than 600, another user's, or Windows → not read, skipped with the reason). First two checks through
+  the product's request path (a made-up key must read AUTH; a made-up model MODEL_INVALID), then the real app:
+  new project with a synthetic 10 s recording and three subtitles, Meta chosen in the settings; (1) two subtitles
+  quoted, 「只保留这两句」 → keep_sentences, (2) 「把 3 到 5 秒删掉」 → keep_ranges; each: review (names api.meta.ai),
+  approval in 手动, the timeline cut as one undo step, Undo. Evidence: `real-model-e2e-meta/` (no key in it; checked).
+
+Run on 2026-11-04 (europa, Linux, xvfb + the session keyring), `muse-spark-1.1`, commit bf2b73c: **passed**.
+
+| Check | Result |
+|---|---|
+| made-up key → product code | AUTH (「密钥不对或没有权限…」) |
+| made-up model `muse-spark-does-not-exist` → product code | MODEL_INVALID (「模型名称不对…」) |
+| settings | 「Meta（Muse Spark） · api.meta.ai」 listed second, `muse-spark-1.1` filled in, saved, mode 手动 |
+| (1) two subtitles quoted, 「只保留这两句」 | review: api.meta.ai · muse-spark-1.1; reply in 1.9 s: keep_sentences 0–3 s + 5–10 s; approval → applied, timeline 10 s → 8 s, one undo step; Undo restored it |
+| (2) 「把 3 到 5 秒删掉」 | reply in 2.3 s: keep_ranges 0–3 + 5–10 (one_file); approval → applied, 3–5 s gone, one undo step; Undo restored it |
+
+Evidence (`real-model-e2e-meta/`, no key in any file — checked against the key and its first 12 characters): `e2e-result.json`,
+`run.txt`, and five screenshots per request (`*-1-draft`, `-2-review`, `-3-reply-approval`, `-4-applied`, `-5-undone`).
+No screenshot is taken while the settings (with the key field) are open.
+
+### keep_sentences format, how steady (2026-11-04, europa, `muse-spark-1.1`)
+
+`MONTCLIP_REAL_MODELS=1 node real-tests/meta-format-stability.cjs` — each run one request through the product's path
+(format note first, the quoted subtitles as references), read as the pane reads it and checked as Apply checks it.
+
+| Request (subtitles quoted) | Runs | Usable keep_sentences | Kept what was asked | Code fence | Median |
+|---|---|---|---|---|---|
+| 「只保留这两句」 (1 and 3) | 5 | 5 | 5 | 0 | 1.3 s |
+| 「这三句里，删掉说错的那一句，其他的留着」 (all three) | 5 | 5 | 5 | 0 | 1.2 s |
+| 「只要第一句」 (all three) | 5 | 5 | 5 | 0 | 1.3 s |
+
+15 of 15 replies were bare keep_sentences JSON that Apply accepted, each keeping the sentences asked for. Report:
+`meta-format-stability.json` (replies included; no key). The product flow was not changed for this.
