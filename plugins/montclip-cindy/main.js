@@ -20,17 +20,27 @@ const RULES = {
 const categoryOf = (name) => Object.keys(CATEGORIES).find((c) => CATEGORIES[c].includes(name)) || 'other';
 
 let toolsCache = null;
-/* The Windows app has the same projects open (writer-lock.js): the engine refuses to start. Said in plain words, to the
-   page and to the chat: JJ's final words (2026-11-04), the desktop app's own box with "MontClip 桌面版" in it. The
-   plugin's pages are Chinese for now; the English is kept with it (messageEn) for when they follow Cindy's language. */
+/* Another MontClip has the same projects open (writer-lock.js): the engine refuses to start. Said in plain words, to the
+   page and to the chat, by who it is — JJ's final words (2026-11-04); no pid, no port. The plugin's pages are Chinese
+   for now; the English is kept with it (messageEn) for when they follow Cindy's language. */
 const DATA_DIR_IN_USE_TEXT = {
-  zh: 'MontClip 桌面版正在用这些项目。两边同时改，会互相盖掉。\n先把那边的 MontClip 关掉，再打开这里。找不到那边的窗口，就重启电脑再试。',
-  en: "The MontClip desktop app is using these projects. If both edit at once, one overwrites the other.\nClose the other MontClip first, then open this one. If you can't find it, restart the computer and try again.",
+  desktop: {
+    zh: 'MontClip 桌面版正在用这些项目。两边同时改，会互相盖掉。先把桌面版关掉，再打开这里。找不到桌面版的窗口，就重启电脑再试。',
+    en: "The MontClip desktop app is using these projects. If both edit at once, one overwrites the other. Close the MontClip desktop app first, then open this one. If you can't find it, restart the computer and try again.",
+  },
+  // anything else (a server started by hand, or a holder that cannot be told): the desktop app's own words for it
+  other: {
+    zh: '另一个 MontClip 窗口正在用这些项目。两边同时改，会互相盖掉。先把那边的 MontClip 关掉，再打开这里。找不到那边的窗口，就重启电脑再试。',
+    en: "Another MontClip window is using these projects. If both edit at once, one overwrites the other. Close the other MontClip first, then open this one. If you can't find it, restart the computer and try again.",
+  },
 };
 function engineError(r) {
   const message = String(r.message || 'MontClip engine failed');
-  if (/DATA_DIR_IN_USE|Another MontClip \(/.test(message))
-    return Object.assign(new Error(DATA_DIR_IN_USE_TEXT.zh), { code: 'DATA_DIR_IN_USE', messageEn: DATA_DIR_IN_USE_TEXT.en });
+  if (/DATA_DIR_IN_USE|Another MontClip \(/.test(message)) {
+    const who = /Another MontClip \(([\w-]+),/.exec(message);
+    const t = DATA_DIR_IN_USE_TEXT[who && who[1] === 'desktop' ? 'desktop' : 'other'];
+    return Object.assign(new Error(t.zh), { code: 'DATA_DIR_IN_USE', messageEn: t.en });
+  }
   return Object.assign(new Error(message), { code: r.errorCode || 'NODE_REQUEST_FAILED' });
 }
 async function node(method, params, extra) {

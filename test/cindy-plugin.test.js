@@ -238,11 +238,12 @@ test("worker: a data folder the Windows app already has is refused, with the rea
 
 /* VV's review of #111: the Windows app first, then the plugin on the same projects. The engine refuses
    (DATA_DIR_IN_USE); the plugin says so in plain words, to the chat and on the editor tab, with a retry. */
-test("the Windows app has the projects open: the chat and the editor tab get plain words, not the engine's English", async () => {
+/* The engine refused to start: another MontClip has these projects (DATA_DIR_IN_USE). JJ's final words (2026-11-04),
+   word for word, by who has them; no pid, no port. main.js runs in a sandbox with a stand-in cindy. */
+function refusedLogicPage(refusal) {
   const vm = require("node:vm");
   const sent = [], channels = [];
   let handler = null;
-  const refusal = "Another MontClip (desktop, pid 31832 on port 10493) is already editing C:/Users/x/MontClip-Cindy. Close it first, or give this one its own data folder (FABLECUT_DATA_DIR).";
   const cindy = {
     node: { request: async () => ({ ok: false, errorCode: "NODE_REQUEST_FAILED", message: refusal }) },
     send: async (m) => { sent.push(JSON.parse(JSON.stringify(m))); return { ok: true }; },
@@ -250,24 +251,55 @@ test("the Windows app has the projects open: the chat and the editor tab get pla
   };
   class BroadcastChannel { constructor() { channels.push(this); this.posted = []; } postMessage(m) { this.posted.push(JSON.parse(JSON.stringify(m))); } }
   vm.runInNewContext(fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8"), { cindy, BroadcastChannel, setTimeout, console, Map, Promise });
-  // JJ's final words (2026-11-04), word for word: the desktop app's box, with "MontClip 桌面版" / "The MontClip desktop app"
-  const plain = "MontClip 桌面版正在用这些项目。两边同时改，会互相盖掉。\n先把那边的 MontClip 关掉，再打开这里。找不到那边的窗口，就重启电脑再试。";
-  const plainEn = "The MontClip desktop app is using these projects. If both edit at once, one overwrites the other.\nClose the other MontClip first, then open this one. If you can't find it, restart the computer and try again.";
-  await handler({ type: "tool-call", callId: "c1", tool: "montclip_status", args: {} });
-  const r = sent.find((m) => m.type === "tool-result");
-  assert.deepEqual([r.ok, r.errorCode, r.message], [false, "DATA_DIR_IN_USE", plain]);
-  await channels[0].onmessage({ data: { reqId: "e1", type: "editor" } });
-  assert.deepEqual([channels[0].posted.at(-1).code, channels[0].posted.at(-1).error, channels[0].posted.at(-1).errorEn], ["DATA_DIR_IN_USE", plain, plainEn]);
-  // the same lines as the desktop app's own box, with the other one named
-  const N = require("../desktop/native-text");
-  for (const [lang, text, who] of [["zh-CN", plain, "MontClip 桌面版"], ["en", plainEn, "The MontClip desktop app"]]) {
-    const t = N.nativeText(lang);
-    // the Chinese swap leaves no space between 桌面版 and 正在 (the original's space sits between MontClip and 正在)
-    const swapped = lang === "en" ? t.dataDirInUseCindy.replace("The MontClip inside Cindy", who) : t.dataDirInUseCindy.replace("Cindy 里的 MontClip ", who);
-    assert.equal(text, swapped + "\n" + t.dataDirInUseHint);
+  return {
+    status: async () => { await handler({ type: "tool-call", callId: "c1", tool: "montclip_status", args: {} }); return sent.find((m) => m.type === "tool-result"); },
+    editor: async () => { await channels[0].onmessage({ data: { reqId: "e1", type: "editor" } }); return channels[0].posted.at(-1); },
+  };
+}
+const refusalBy = (shell) => `Another MontClip (${shell}, pid 31832 on port 10493) is already editing C:/Users/x/MontClip-Cindy. Close it first, or give this one its own data folder (FABLECUT_DATA_DIR).`;
+const IN_USE = {
+  desktop: ["MontClip 桌面版正在用这些项目。两边同时改，会互相盖掉。先把桌面版关掉，再打开这里。找不到桌面版的窗口，就重启电脑再试。",
+    "The MontClip desktop app is using these projects. If both edit at once, one overwrites the other. Close the MontClip desktop app first, then open this one. If you can't find it, restart the computer and try again."],
+  other: ["另一个 MontClip 窗口正在用这些项目。两边同时改，会互相盖掉。先把那边的 MontClip 关掉，再打开这里。找不到那边的窗口，就重启电脑再试。",
+    "Another MontClip window is using these projects. If both edit at once, one overwrites the other. Close the other MontClip first, then open this one. If you can't find it, restart the computer and try again."],
+};
+
+test("the MontClip desktop app has the projects open: the chat and the editor tab get JJ's words, no pid or port", async () => {
+  const page = refusedLogicPage(refusalBy("desktop"));
+  const r = await page.status();
+  assert.deepEqual([r.ok, r.errorCode, r.message], [false, "DATA_DIR_IN_USE", IN_USE.desktop[0]]);
+  const a = await page.editor();
+  assert.deepEqual([a.code, a.error, a.errorEn], ["DATA_DIR_IN_USE", ...IN_USE.desktop]);
+  for (const text of [r.message, a.error, a.errorEn]) assert.doesNotMatch(text, /pid|port|31832|10493/);
+});
+
+test("another holder (a server started by hand, or one that cannot be told): the desktop app's words for another window", async () => {
+  for (const refusal of [refusalBy("server"), "DATA_DIR_IN_USE"]) {
+    const a = await refusedLogicPage(refusal).editor();
+    assert.deepEqual([a.code, a.error, a.errorEn], ["DATA_DIR_IN_USE", ...IN_USE.other]);
   }
-  // the editor tab shows the words as they are, with 重试
+  // the editor tab shows them as they are, with 重试
   const frame = fs.readFileSync(path.join(PLUGIN, "frame.js"), "utf8");
-  assert.match(frame, /show\(inUse\(a\) \? a\.error : 'MontClip 没能启动：' \+ \(a\.error \|\| '没有地址'\), true, inUse\(a\)\)/);
+  assert.match(frame, /if \(inUse\(a\)\) show\(a\.error, true, true\);/);
   assert.match(frame, /b\.textContent = '重试';/);
+});
+
+test("the editor tab's two failure lines: plain words first, the raw error after in small print, only when there is one", () => {
+  const frame = fs.readFileSync(path.join(PLUGIN, "frame.js"), "utf8");
+  const failureText = new Function(frame.slice(frame.indexOf("function failureText("), frame.indexOf("/* The task view:")) + "\nreturn failureText;")();
+  assert.deepEqual(failureText("MontClip 没能打开这个任务的项目。", "could not open the task's project: {\"error\":\"x\"}"),
+    { text: "MontClip 没能打开这个任务的项目。关掉这个页签再打开试试；还不行，把下面这行发给我们：", detail: "could not open the task's project: {\"error\":\"x\"}" });
+  assert.deepEqual(failureText("MontClip 没能启动。", "the MontClip engine did not start"),
+    { text: "MontClip 没能启动。关掉这个页签再打开试试；还不行，把下面这行发给我们：", detail: "the MontClip engine did not start" });
+  for (const none of [undefined, null, "", "  "])
+    assert.deepEqual(failureText("MontClip 没能启动。", none), { text: "MontClip 没能启动。关掉这个页签再打开试试。", detail: "" });
+  assert.match(frame, /failureText\('MontClip 没能打开这个任务的项目。', b\.error\)/);
+  assert.match(frame, /failureText\('MontClip 没能启动。', a\.error\)/);
+  assert.match(frame, /d\.className = 'detail'; d\.textContent = detail;/, "small print, as text");
+});
+
+test("the plugin's description: JJ's final words", () => {
+  const m = JSON.parse(fs.readFileSync(path.join(PLUGIN, "ghost.json"), "utf8"));
+  assert.equal(m.description, "在 Cindy 任务里打开 MontClip 剪辑器，跟聊天并排。直接跟 AI 说怎么剪本机的录像和音频：删一段、剪掉停顿、加字幕、调音量、降噪、导出 MP4。每一步都能撤销、重做，也能回到以前的版本。MontClip 在这台电脑上运行，会读写这台电脑上的文件。");
+  assert.equal(m.whenToUse, "需要剪辑本机录像或音频时：删掉某段、剪掉停顿、按文字剪、加字幕、调音量、降噪、按节拍剪、导出 MP4；撤销或重做剪辑；查看或回到 MontClip 项目的某个版本；在这个任务里打开 MontClip 剪辑器。", "whenToUse unchanged");
 });

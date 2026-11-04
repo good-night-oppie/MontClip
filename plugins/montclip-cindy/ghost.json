@@ -3,7 +3,7 @@
   "minCindyVersion": "0.1.122",
   "id": "montclip",
   "name": "MontClip",
-  "description": "在 Cindy 任务里打开 MontClip 剪辑器，跟聊天同屏；在聊天里用自然语言剪辑本机录像和音频（删段、降噪、字幕、导出等 fablecut 操作），可撤销、重做，并能列出版本、回到某一版。插件带一个本机 Node 进程运行 MontClip 引擎，可读写本机文件。",
+  "description": "在 Cindy 任务里打开 MontClip 剪辑器，跟聊天并排。直接跟 AI 说怎么剪本机的录像和音频：删一段、剪掉停顿、加字幕、调音量、降噪、导出 MP4。每一步都能撤销、重做，也能回到以前的版本。MontClip 在这台电脑上运行，会读写这台电脑上的文件。",
   "whenToUse": "需要剪辑本机录像或音频时：删掉某段、剪掉停顿、按文字剪、加字幕、调音量、降噪、按节拍剪、导出 MP4；撤销或重做剪辑；查看或回到 MontClip 项目的某个版本；在这个任务里打开 MontClip 剪辑器。",
   "version": "0.2.0",
   "entry": "main.js",
