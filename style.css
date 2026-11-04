@@ -45,6 +45,20 @@ body[data-mc-mode="simple"] .upper > .bin { grid-column: 3; grid-row: 1; }
   user-select: none;
 }
 
+/* A modal <dialog> is centred by the browser's own margin: auto, which the reset above takes away: put it back for every
+   one, and darken the page behind it (a dialog's own ::backdrop may darken it more). test/dialog-center.test.js keeps any
+   dialog's own rule from taking the centring away again; desktop/dialogs-smoke.cjs measures each one in a real window. */
+dialog:modal {
+  margin: auto;
+}
+/* no taller than the window (Deja, #88); at no weight, so a dialog's own max-height still wins */
+:where(dialog:modal) {
+  max-height: calc(100vh - 24px);
+}
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
 html,
 body {
   height: 100%;
@@ -2992,6 +3006,7 @@ body.track-size-s .clip.c-comp .comp-open-hint {
   border-radius: 12px;
   padding: 24px 28px;
   width: 420px;
+  max-height: calc(100vh - 24px);
   box-shadow: 0 20px 60px #000a;
 }
 
@@ -3311,6 +3326,17 @@ body.track-size-s .clip.c-comp .comp-open-hint {
 
 .dialog.settings {
   width: min(440px, 92vw);
+  display: flex;
+  flex-direction: column;
+}
+/* a box taller than the window (Deja, #88): its title and its actions stay, the middle scrolls */
+.dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.dialog.settings > h2, .dialog.settings > .dialog-actions, .asr-setup > h2, .asr-setup > .dialog-actions {
+  flex: none;
 }
 
 .dialog.settings .settings-intro {
@@ -4806,7 +4832,9 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 [data-edit-tool][hidden] {display:none;}
 
 /* desktop FLV import dialog */
-.flv-import-dialog { max-width: min(460px, 92vw); }
+.flv-import-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; width: min(460px, 92vw); padding: 14px 16px; }
+.flv-import-dialog h3 { margin: 0 0 6px; font-size: 15px; }
+.flv-import-dialog p { margin: 0 0 8px; }
 .flv-import-dialog .flv-import-name { word-break: break-all; opacity: .8; }
 .flv-import-dialog [data-flv-ask] { white-space: pre-line; line-height: 1.5; }
 .flv-import-dialog .flv-import-row { display: flex; gap: 8px; justify-content: flex-end; }
@@ -4832,6 +4860,7 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 
 /* v10: the transcription setup page (app.js openAsrSetup) */
 .asr-setup { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; width: min(640px, 92vw); max-height: 86vh; padding: 20px 22px; }
+.asr-setup[open] { display: flex; flex-direction: column; overflow: hidden; }
 .asr-setup::backdrop { background: rgba(0, 0, 0, 0.45); }
 .asr-setup h2 { margin: 0 0 6px; font-size: 17px; }
 .asr-setup .dim { margin: 0 0 12px; }
@@ -4853,7 +4882,7 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .auto-slices .as-head { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .auto-slices .as-stepper { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; font-size: 12px; }
 .auto-slices .as-stepper li { padding: 2px 8px; border-radius: 10px; color: var(--dim); }
-.auto-slices .as-stepper li.on { background: var(--accent); color: #fff; }
+.auto-slices .as-stepper li.on { background: #7b6cff2e; color: var(--accent); font-weight: 600; }
 .auto-slices .as-stepper li.done { color: var(--text); }
 .auto-slices .as-spacer { flex: 1; }
 .auto-slices .as-keep, .auto-slices .as-small, .auto-slices .as-muted { color: var(--dim); font-size: 12px; }
@@ -4881,12 +4910,18 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .auto-slices .as-steps li.done { color: var(--text); }
 .auto-slices .as-dot { display: inline-block; width: 18px; }
 .auto-slices .as-bar { height: 6px; border-radius: 3px; background: var(--well); margin-top: 10px; overflow: hidden; }
-.auto-slices .as-bar i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+.auto-slices .as-bar i { display: block; height: 100%; background: var(--dim); transition: width .3s; }
 .auto-slices .as-warn { color: #f4a261; }
-.auto-slices .as-evidence { font-size: 12px; color: var(--dim); margin: 6px 0; }
+/* v12: the evidence with a thin grey line on its left (orange, on a light ground, when there was no danmaku) */
+.auto-slices .as-evidence { font-size: 13px; color: var(--text); margin: 8px 0; padding: 2px 12px; border-left: 2px solid var(--dim); }
+.auto-slices .as-evidence.warn { border-left-color: #f4a261; background: var(--panel-2); }
+/* v12: the question on one line between two thin lines */
+.auto-slices .as-askline { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 10px 0; padding: 8px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.auto-slices .as-askline .as-askwhy { flex: 1 1 200px; }
+.auto-slices .as-askline .as-seg button { padding: 3px 12px; font-size: 13px; }
 .auto-slices .as-ov { margin: 10px 0; }
 .auto-slices .as-ov-svg { width: 100%; height: 70px; display: block; background: var(--well); border-radius: 4px; }
-.auto-slices .as-ov-loud { fill: #4f8cff55; stroke: #4f8cff; stroke-width: .6; vector-effect: non-scaling-stroke; }
+.auto-slices .as-ov-loud { fill: #8b8b9340; stroke: #8b8b93; stroke-width: .6; vector-effect: non-scaling-stroke; }
 .auto-slices .as-ov-tick { stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .auto-slices .as-ov-box rect { fill: #ffd16622; stroke: #ffd166; stroke-dasharray: 3 2; vector-effect: non-scaling-stroke; cursor: pointer; }
 .auto-slices .as-ov-box.on rect { stroke-dasharray: none; fill: #ffd16644; }
@@ -4895,14 +4930,18 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .auto-slices .as-ov-axis span { position: absolute; transform: translateX(-50%); }
 .auto-slices .as-ov-legend { display: flex; gap: 12px; }
 .auto-slices .as-ov-legend i { display: inline-block; width: 10px; height: 8px; margin-right: 4px; }
-.auto-slices .as-lg-loud { background: #4f8cff88; }
+.auto-slices .as-lg-loud { background: #8b8b9388; }
 .auto-slices .as-lg-on { background: #ffd16688; }
 .auto-slices .as-lg-off { border: 1px dashed #ffd166; }
 .auto-slices .as-clip { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 10px 0; }
 .auto-slices .as-clip.focus { box-shadow: 0 0 0 2px var(--accent); }
 .auto-slices .as-clip-h { display: flex; gap: 10px; align-items: flex-start; }
 .auto-slices .as-clip-main { flex: 1; min-width: 0; }
-.auto-slices .as-clip-title input[type=text] { font-size: 14px; font-weight: 600; background: transparent; color: var(--text); border: 1px solid transparent; border-radius: 4px; padding: 2px 4px; width: min(420px, 70%); }
+/* v12: the kind line in the name row; a pencil while the name is under the pointer */
+.auto-slices .as-clip-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; }
+.auto-slices .as-clip-title:hover::after { content: "✎"; color: var(--dim); font-size: 13px; }
+.auto-slices .as-kindline { font-weight: 400; }
+.auto-slices .as-clip-title input[type=text] { font-size: 14px; font-weight: 600; background: transparent; color: var(--text); border: 1px solid transparent; border-radius: 4px; padding: 2px 4px; field-sizing: content; min-width: 4em; max-width: 100%; }
 .auto-slices .as-clip-title input[type=text]:hover, .auto-slices .as-clip-title input[type=text]:focus { border-color: var(--border); }
 .auto-slices .as-tag { font-size: 11px; border: 1px solid var(--border); border-radius: 8px; padding: 0 6px; margin-left: 6px; color: var(--dim); }
 .auto-slices .as-why { margin: 4px 0 0; font-size: 12px; }
@@ -4910,14 +4949,23 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .auto-slices .as-strip { position: relative; height: 34px; background: var(--well); border-radius: 4px; cursor: ew-resize; touch-action: none; user-select: none; }
 .auto-slices .as-strip.on { outline: 1px solid var(--accent); }
 .auto-slices .as-mini { position: absolute; inset: 0; width: 100%; height: 100%; }
-.auto-slices .as-mini polyline { fill: none; stroke: #4f8cff; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.auto-slices .as-mini polyline { fill: none; stroke: #8b8b93; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .auto-slices .as-hand { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: #ffd166; }
 .auto-slices .as-strip-l, .auto-slices .as-strip-r { position: absolute; bottom: 1px; font-size: 10px; color: var(--dim); }
 .auto-slices .as-strip-l { left: 4px; }
 .auto-slices .as-strip-r { right: 4px; }
-.auto-slices .as-nudges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-.auto-slices .as-guess { color: #f4a261; font-size: 12px; margin: 4px 0 0; }
-.auto-slices .as-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+/* v12: the ± buttons on the row of the time, the strip under them */
+.auto-slices .as-edge-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; margin-bottom: 4px; }
+.auto-slices .as-nudges { display: flex; flex-wrap: wrap; gap: 4px; }
+.auto-slices .as-play { font-weight: 600; border-color: var(--dim); }
+.auto-slices .as-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+/* JJ's v11 visual review: 不要这条 apart from the others — at the right edge, grey text */
+/* nothing disabled in this dialog looks pressable (VV / Deja, 2026-11-03) */
+.auto-slices button:disabled { opacity: .45; cursor: default; }
+.auto-slices .as-drop { margin-left: auto; background: transparent; border: 0; padding: 2px 4px; color: var(--dim); font-size: 12px; cursor: pointer; }
+.auto-slices .as-drop:hover, .auto-slices .as-drop:focus-visible { color: var(--text); text-decoration: underline; }
+/* the 估的 note, once under the overview, above the first card */
+.auto-slices .as-guess-note { margin: 10px 0 8px; font-size: 12px; color: var(--dim); }
 .auto-slices .as-clip.off .as-clip-title input { color: var(--dim); }
 .auto-slices .as-footer { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-top: 1px solid var(--border); background: var(--panel-head); flex-wrap: wrap; }
 .auto-slices .as-footer[hidden] { display: none; }
@@ -4933,15 +4981,11 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 #toast.has-action { pointer-events: auto; display: flex; align-items: center; gap: 10px; }
 .mc-auto-slices { white-space: nowrap; }
 .auto-slices .as-tag-estimated { color: #f4a261; border-color: #f4a261; }
-.auto-slices .as-tag-likely { color: #7ec249; border-color: #7ec249; }
-.auto-slices .as-lyrics { margin-top: 4px; }
-.auto-slices .as-likely { color: var(--dim); font-size: 12px; margin: 4px 0 0; }
+.auto-slices .as-tag-likely { color: var(--dim); border-color: var(--border); }
 .auto-slices .as-tag-adjusted { color: var(--dim); border-color: var(--border); }
 
 /* v10: subtitles in 自动出切片 */
 .auto-slices .as-check { display: inline-flex; gap: 6px; align-items: center; }
-.auto-slices .as-subline { margin-right: 2px; }
-.auto-slices .as-subline + .as-muted + .as-lyrics { display: inline-block; }
 
 /* P5: caption size and position in one go (app.js captionQuick*): the Inspector's top and the 〔字幕大小〕 dialog */
 .cq-panel { border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; margin: 0 0 10px; }
