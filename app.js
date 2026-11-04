@@ -1293,10 +1293,26 @@ window.montclipDownloads?.onDone(({ state, name, removed }) => {
   else if (state === "cancelled") toast(uiText(wasExport ? "own.export-save-cancelled" : kind === "captions" ? "own.captions-save-cancelled" : "own.save-canceled"));
   else toast(uiText(wasExport ? "own.export-save-failed" : "own.save-failed"));
 });
+/** A toast with 〔撤销〕 (VV / Deja, 2026-11-03): it stays UNDO_TOAST_MS, and the time stops while the pointer is on it or
+ *  focus is inside it; once it leaves, the full time starts again. → {start, stop} for that toast element. */
+const UNDO_TOAST_MS = 8000;
+function holdToast(el, hide) {
+  // the pointer: its own events; the focus: where it is now (focus events do not always come, e.g. an unfocused window)
+  let timer = null, hover = false, since = 0;
+  el.addEventListener("mouseenter", () => { hover = true; }); el.addEventListener("mouseleave", () => { hover = false; });
+  const stop = () => { clearTimeout(timer); timer = null; };
+  const tick = () => {
+    if (hover || el.contains(document.activeElement)) since = Date.now();   // held: the time starts again once it leaves
+    else if (Date.now() - since >= UNDO_TOAST_MS) { stop(); hide(); return; }
+    timer = setTimeout(tick, 250);
+  };
+  return { start: () => { stop(); since = Date.now(); timer = setTimeout(tick, 250); }, stop };
+}
 function toast(msg) {
   if (!els.toast) return;
   els.toast.textContent = msg;
   els.toast.classList.add("show");
+  if (toastHold) toastHold.stop();
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => els.toast.classList.remove("show"), 3200);
 }
@@ -10468,9 +10484,13 @@ function autoRender(step) {
   st.step = step;
   const order = ["start", "run", "review", "done"], n = order.indexOf(step);
   d.querySelectorAll("[data-as-st]").forEach((li) => { const k = order.indexOf(li.dataset.asSt); li.className = k === n ? "on" : k < n ? "done" : ""; });
-  const body = d.querySelector("[data-as-body]");
+  const body = d.querySelector("[data-as-body]"), same = body.dataset.step === step;
+  // the same page drawn again (an option picked): its folds stay as they were and it stays where it was scrolled (VV:
+  // picking a 每条多长 option closed 更多设置); another page starts at the top with its folds as designed
+  const open = same ? [...body.querySelectorAll("details")].map((x) => x.open) : [], top = body.scrollTop;
   body.innerHTML = step === "start" ? autoStartHtml() : step === "run" ? autoRunHtml() : step === "review" ? autoReviewHtml() : autoDoneHtml();
-  body.scrollTop = 0;
+  body.dataset.step = step;
+  if (same) { body.querySelectorAll("details").forEach((x, i) => { if (open[i]) x.open = true; }); body.scrollTop = top; } else body.scrollTop = 0;
   autoFooter();
 }
 
@@ -10696,7 +10716,10 @@ function autoToast(msg, undoable = true) {
   t.querySelector("[data-as-toast-msg]").textContent = msg;
   t.querySelector("[data-as-toast-undo]").hidden = !undoable;
   t.hidden = false; clearTimeout(autoToastTimer);
-  autoToastTimer = setTimeout(() => { t.hidden = true; }, 5000);
+  if (!t.holdToast) t.holdToast = holdToast(t, () => { t.hidden = true; });
+  t.holdToast.stop();
+  // with 〔撤销〕: 8 s, held while hovered or focused; without: 5 s as before
+  if (undoable) t.holdToast.start(); else autoToastTimer = setTimeout(() => { t.hidden = true; }, 5000);
 }
 function autoClip(id) { return autoState().clips.find((c) => c.id === id) || null; }
 function autoClick(e) {
@@ -10860,6 +10883,7 @@ function autoPlace(clips, { select = null, fine = false } = {}) {
   return r;
 }
 /** A toast with one button (the editor's toast is text only). The button acts once; the toast goes after 8 s. */
+let toastHold = null;
 function toastAction(msg, label, onClick) {
   if (!els.toast) return;
   els.toast.textContent = "";
@@ -10869,7 +10893,8 @@ function toastAction(msg, label, onClick) {
   els.toast.append(span, " ", btn);
   els.toast.classList.add("show", "has-action");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => els.toast.classList.remove("show", "has-action"), 8000);
+  if (!toastHold) toastHold = holdToast(els.toast, () => { if (els.toast.classList.contains("has-action")) els.toast.classList.remove("show", "has-action"); });
+  toastHold.start();
 }
 
 /* step 4: export — the ticked parts put on the timeline (one undo step), then one file each through the export queue */

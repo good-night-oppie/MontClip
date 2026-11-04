@@ -32,6 +32,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `export-download-smoke.cjs` | `EXPORT_DOWNLOAD_COMPLETE` | 在用 |
 | `flv-native-smoke.cjs` | `FLV_NATIVE_COMPLETE` | 在用 |
 | `highlights-smoke.cjs` | `HIGHLIGHTS_COMPLETE` | 在用 |
+| `hidden-smoke.cjs` | `HIDDEN_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `keep-ranges-smoke.cjs` | `KEEP_RANGES_PASS` | 在用 |
 | `lyrics-smoke.cjs` | `LYRICS_PASS` | 在用 |
 | `media-names-smoke.cjs` | `MEDIA_NAMES_PASS` | 在用 |
@@ -52,6 +53,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `three-track-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
 | `timeline-content-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
 | `timeline-drag-smoke.cjs` | `MONTCLIP_DRAG_COMPLETE` | 在用 |
+| `toast-more-smoke.cjs` | `TOAST_MORE_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `url-sentence-smoke.cjs` | `URL_SENTENCE_COMPLETE` | 在用 |
 | `zh-batch3-smoke.cjs` | `ZH3_COMPLETE` | 在用 |
 | `zh-batch4-smoke.cjs` | `ZH4_PASS` | 在用 |

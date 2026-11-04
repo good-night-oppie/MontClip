@@ -102,8 +102,10 @@ BrowserWindow.prototype.loadURL=async function(...args){
   // moved: 你调过 (grey) and no tooltip; undone: its own level and tooltip again
   const moved=await read(`(()=>{const card=document.querySelector('[data-as-card]'),id=card.dataset.asCard;card.querySelector('[data-as-act=nudge][data-as-w=s][data-as-d="-1"]').click();
     const el=()=>document.querySelector('[data-as-card="'+id+'"] [data-as-edge=s]');const a={label:el().querySelector('[data-as-level]').textContent,hint:!!el().querySelector('[data-as-level]').title};
-    autoUndo();const b={label:el().querySelector('[data-as-level]').textContent,hint:!!el().querySelector('[data-as-level]').title};return{a,b};})()`);
-  report.moved=moved;assert.deepEqual(moved.a,{label:'你调过',hint:false});assert.deepEqual(moved.b,{label:'比较可能',hint:true});
+    autoUndo();const b={label:el().querySelector('[data-as-level]').textContent,hint:!!el().querySelector('[data-as-level]').title};
+    // Deja: after 〔撤销〕 the toast says 已撤销 and its 〔撤销〕 button is not shown
+    const ub=document.querySelector('[data-as-toast-undo]'),undone={msg:document.querySelector('[data-as-toast-msg]').textContent,shown:!!ub&&document.contains(ub)&&getComputedStyle(ub).display!=='none'};return{a,b,undone};})()`);
+  report.moved=moved;assert.deepEqual(moved.undone,{msg:'已撤销',shown:false},'the undo button after an undo');assert.deepEqual(moved.a,{label:'你调过',hint:false});assert.deepEqual(moved.b,{label:'比较可能',hint:true});
   const n=rv.cards.filter(c=>c.on).length;
   assert.equal(rv.place,`放到时间线上（${n} 条）`);assert.equal(rv.exp,`直接导出这 ${n} 条`);
   await wait(300);report.notify=notes.slice();assert.equal(notes.length,1,'one notification asked');assert.equal(notes[0].found,rv.cards.length);
