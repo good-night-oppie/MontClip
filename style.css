@@ -4938,8 +4938,6 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .auto-slices .as-play { font-weight: 600; border-color: var(--dim); }
 .auto-slices .as-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
 /* JJ's v11 visual review: 不要这条 apart from the others — at the right edge, grey text */
-/* nothing disabled in this dialog looks pressable (VV / Deja, 2026-11-03) */
-.auto-slices button:disabled { opacity: .45; cursor: default; }
 .auto-slices .as-drop { margin-left: auto; background: transparent; border: 0; padding: 2px 4px; color: var(--dim); font-size: 12px; cursor: pointer; }
 .auto-slices .as-drop:hover, .auto-slices .as-drop:focus-visible { color: var(--text); text-decoration: underline; }
 /* v12 记住我的剪辑习惯: small links in body text, 你改的 / 你补的 neutral, the habit line grey with ↺, 补一段 and the line under it */
