@@ -1,6 +1,6 @@
-/* FableCut audio effects — the data side: what each effect is, its
+/* MontClip audio effects — the data side: what each effect is, its
    parameters and ranges, validation, and the named presets. Zero
-   dependencies. Loaded by the editor as a plain script (global `FableCutFx`)
+   dependencies. Loaded by the editor as a plain script (global `MontClipFx`)
    and required by the MCP server, so `setFx` from an agent and the editor's
    effects panel accept exactly the same chains. The audio nodes themselves
    are built in app.js (buildFxChain) and fx-worklet.js (gate, limiter, pitch).
@@ -18,7 +18,7 @@
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else root.FableCutFx = api;
+  else root.MontClipFx = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 

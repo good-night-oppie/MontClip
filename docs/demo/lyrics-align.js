@@ -24,7 +24,7 @@
       .filter((l) => units(l).length).slice(0, MAX_LINES);
   }
 
-  /** words: [{w, s, e}] in time order (FableCutTranscribe.layout); lyrics: the pasted text.
+  /** words: [{w, s, e}] in time order (MontClipTranscribe.layout); lyrics: the pasted text.
    *  → {ok, lines:[{text, original, start, end, score, sure, words:[{w, s, e}|{w, s:null, e:null}]}]} or {ok:false, code}. */
   function align(words, lyrics) {
     const ls = lines(lyrics);

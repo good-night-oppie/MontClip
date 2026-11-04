@@ -1,6 +1,6 @@
-/* FableCut transcribe — words with times, from speech, onto the timeline.
+/* MontClip transcribe — words with times, from speech, onto the timeline.
    Zero dependencies; loaded by the editor as a plain script (global
-   `FableCutTranscribe`) and required by the server and the MCP server, so
+   `MontClipTranscribe`) and required by the server and the MCP server, so
    the Transcript tab and `fablecut_transcribe` read, find and cut the same
    words with the same `extract` ops.
 
@@ -17,7 +17,7 @@
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else root.FableCutTranscribe = api;
+  else root.MontClipTranscribe = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 

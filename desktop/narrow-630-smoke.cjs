@@ -27,8 +27,8 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
    const T=await read(`(()=>{const t=MontClipView.text[${JSON.stringify(language)}];return{above:uiText('own.tl-above-captions'),noCaption:t.officialPane_noCaptionSelected,config:t.officialPane_config,save:t.officialPane_save,caption:t.officialPane_reference};})()`);
    // 1. the caption lane and the ruler (a missing file keeps V1/A1 occupied without reading any media)
    await read(`(()=>{project.media=[{id:'m_v',name:'v.mp4',kind:'video',src:'/media/synthetic-missing.mp4',duration:10,width:320,height:180}];
-    const cues=FableCutCaptions.parse('1\\n00:00:01,000 --> 00:00:03,000\\n合成句子\\n');
-    project.clips=[{id:'v1',mediaId:'m_v',kind:'video',track:'V1',start:0,in:0,duration:10,props:{}},{id:'a1',mediaId:'m_v',kind:'audio',track:'A1',start:0,in:0,duration:10,props:{}},...cues.map((c,i)=>FableCutCaptions.clip(c,{id:'cap'+i,track:'V3'}))];
+    const cues=MontClipCaptions.parse('1\\n00:00:01,000 --> 00:00:03,000\\n合成句子\\n');
+    project.clips=[{id:'v1',mediaId:'m_v',kind:'video',track:'V1',start:0,in:0,duration:10,props:{}},{id:'a1',mediaId:'m_v',kind:'audio',track:'A1',start:0,in:0,duration:10,props:{}},...cues.map((c,i)=>MontClipCaptions.clip(c,{id:'cap'+i,track:'V3'}))];
     syncTimelineTrackView.focusKey=null;syncTimelineTrackView.unfolded=null;setSelection([]);rebuildClips();scheduleSave();return true;})()`);
    await read(`(async()=>{if(!await flushSave())throw Error('SAVE');})()`);await wait(500);
    const lanes=`(()=>{const sc=els.timelineScroll.getBoundingClientRect(),under=sc.top+RULER_H,bottom=sc.top+els.timelineScroll.clientHeight;

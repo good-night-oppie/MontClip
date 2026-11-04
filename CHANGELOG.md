@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to FableCut are documented here.
+All notable changes to MontClip are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -130,7 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.16.0] - 2026-10-21
 
 ### Added
-- **Projects.** One FableCut keeps many projects; `./project.json` stays the
+- **Projects.** One MontClip keeps many projects; `./project.json` stays the
   open one, so tools and scripts are unchanged. The **Projects** dashboard
   (top bar) lists them with a picture, size, frame rate and length, and
   opens, creates (from Landscape, Vertical, Square, Portrait, 4K and 720p
@@ -395,7 +395,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **npm package.** `npx -y fablecut` starts the editor and `npx -y fablecut mcp`
-  runs the MCP server, so registering FableCut no longer needs a clone or a
+  runs the MCP server, so registering MontClip no longer needs a clone or a
   file path: `claude mcp add -s user fablecut -- npx -y fablecut mcp`.
   Installed from npm, projects, media and exports live in `~/FableCut`
   (`FABLECUT_DATA_DIR` still overrides), so updates never touch them.
@@ -627,7 +627,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   edits on the others.
 - The media bin's **+ Title / + Adjust / + Import / + URL** buttons share one
   row; the "Assets" heading beside them is gone.
-- The editor's browser tab reads "FableCut - Video Editor".
+- The editor's browser tab reads "MontClip - Video Editor".
 
 ### Fixed
 - Exports are now tagged with their colour primaries and transfer (BT.709 by
@@ -766,7 +766,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.7.0] - 2026-08-25
 
 The community release — 20 merged pull requests. Audio gets real tracks and real
-metering, the monitor gets zoom, the Project tab gets folders, and FableCut
+metering, the monitor gets zoom, the Project tab gets folders, and MontClip
 installs as a Claude Code plugin.
 
 ### Added
@@ -825,7 +825,7 @@ installs as a Claude Code plugin.
 - Two-column help dialog (thanks @PlkMarudny, #33)
 - Word-timestamp auto-caption example (thanks @madebysaira, #53)
 - Multi-agent MCP setup documentation (thanks @madebysaira, #54)
-- MCP registry metadata — `server.json` plus an MCPB manifest, so FableCut is
+- MCP registry metadata — `server.json` plus an MCPB manifest, so MontClip is
   installable as a one-click `.mcpb` bundle.
 
 ### Fixed
@@ -926,7 +926,7 @@ the report in [#1](https://github.com/ronak-create/FableCut/issues/1) — thanks
 ## [1.3.0] - 2026-07-09
 
 ### Added
-- **Reference-remake pipeline** — give FableCut a reference video and get back an
+- **Reference-remake pipeline** — give MontClip a reference video and get back an
   *edit blueprint* to rebuild the same idea with different footage over the same
   music. New zero-dependency analyzer (`analyze.js`, needs ffmpeg): shot-boundary
   detection with adaptive threshold, music beat + BPM detection (onset envelope +

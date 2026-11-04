@@ -1,6 +1,6 @@
-/* FableCut loudness measurement — ITU-R BS.1770-4 integrated loudness (LUFS,
+/* MontClip loudness measurement — ITU-R BS.1770-4 integrated loudness (LUFS,
    EBU R128 gating) and sample peak. Zero dependencies. Loaded by the editor as
-   a plain script (global `FableCutLoudness`) and required by the MCP server,
+   a plain script (global `MontClipLoudness`) and required by the MCP server,
    so Normalize in the UI and `fablecut_normalize_audio` measure identically.
 
    A clip is measured AFTER its channel routing (audioChannel / channelMode)
@@ -9,7 +9,7 @@
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else root.FableCutLoudness = api;
+  else root.MontClipLoudness = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 

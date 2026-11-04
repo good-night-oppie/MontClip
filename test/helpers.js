@@ -1,4 +1,4 @@
-/* Shared harness for the FableCut test suite.
+/* Shared harness for the MontClip test suite.
 
    Every test runs against a throwaway FABLECUT_DATA_DIR and a private port, so
    the suite never touches the developer's real project.json or collides with an

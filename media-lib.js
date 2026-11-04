@@ -1,6 +1,6 @@
-/* FableCut media management — the Project bin's metadata, search, filters,
+/* MontClip media management — the Project bin's metadata, search, filters,
    sorting, tags, collections and usage. Zero dependencies. Loaded by the
-   editor as a plain script (global `FableCutMedia`) and required by the
+   editor as a plain script (global `MontClipMedia`) and required by the
    server, the MCP server and the tests.
 
    A media entry may carry, beside id/name/kind/src/duration/width/height:
@@ -20,7 +20,7 @@
   const node = typeof module === "object" && module.exports;
   const api = factory();
   if (node) module.exports = api;
-  else root.FableCutMedia = api;
+  else root.MontClipMedia = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 

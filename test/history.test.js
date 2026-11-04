@@ -106,7 +106,7 @@ test("backup carries the versions; importing it brings them back", (t) => {
   const vs = H.list(out.id).versions;
   assert.deepEqual(vs.map((e) => [e.v, e.name, e.final]), [[2, "B", true], [1, "A", false]]);
   assert.equal(P.list().projects.find((p) => p.id === out.id).name, "Restored copy");
-  assert.throws(() => H.importBackup({ hello: 1 }), /not a FableCut backup/);
+  assert.throws(() => H.importBackup({ hello: 1 }), /not a MontClip backup/);
 });
 
 test("diffDocs reads project settings too", () => {

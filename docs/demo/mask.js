@@ -1,6 +1,6 @@
-/* FableCut masks — a clip's mask stack: the shapes, their validation, their
+/* MontClip masks — a clip's mask stack: the shapes, their validation, their
    keyframes and the matte they cut. Zero dependencies. Loaded by the editor
-   as a plain script (global `FableCutMask`) and required by the MCP server and
+   as a plain script (global `MontClipMask`) and required by the MCP server and
    the tests, so the editor, an agent's `setMask` op and the tests agree on
    what a mask is.
 
@@ -35,7 +35,7 @@
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else root.FableCutMask = api;
+  else root.MontClipMask = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
