@@ -19,7 +19,8 @@ const SECONDS=10,PROMPT='把 3 到 5 秒删掉';
 function makeSource(file){
  const dir=process.env.MONTCLIP_FFMPEG_DIR,ffmpeg=dir?path.join(dir,'ffmpeg'+(process.platform==='win32'?'.exe':'')):'ffmpeg';
  const r=cp.spawnSync(ffmpeg,['-hide_banner','-nostdin','-loglevel','error','-n','-f','lavfi','-i',`testsrc2=size=320x180:rate=30:duration=${SECONDS}`,'-f','lavfi','-i',`sine=frequency=440:sample_rate=48000:duration=${SECONDS}`,
-  '-map','0:v','-map','1:a','-c:v','mpeg4','-q:v','5','-pix_fmt','yuv420p','-c:a','aac','-b:a','96k','-movflags','+faststart',file],{windowsHide:true});
+  // VP9, as desktop/keep-ranges-smoke.cjs: the editor's player shows it (it does not play MPEG-4 Part 2)
+  '-map','0:v','-map','1:a','-c:v','libvpx-vp9','-b:v','0','-crf','32','-deadline','good','-cpu-used','4','-pix_fmt','yuv420p','-c:a','aac','-b:a','96k','-movflags','+faststart',file],{windowsHide:true});
  if(r.status!==0)throw Error('SOURCE_FAILED '+String(r.stderr).slice(0,300));
 }
 const original=BrowserWindow.prototype.loadURL;
