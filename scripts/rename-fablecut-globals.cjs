@@ -54,9 +54,10 @@ const EXCLUDE_FILES = new Set([
 
 const TEXT_RE = /\.(js|cjs|mjs|py|html|css|md|json|yml|yaml|svg|txt|sh|xml)$/;
 
-// [original, placeholder] — the placeholder must not appear in source and must
-// not contain "FableCut"/"MontClip", so the middle replacement leaves it alone.
-// Order among these does not matter (none is a substring of another).
+// [original, placeholder, onlyIf?] — the placeholder must not appear in source
+// and must not contain "FableCut"/"MontClip", so the middle replacement leaves
+// it alone. Order among these does not matter (none is a substring of another).
+// `onlyIf(file)` limits a rule to some files.
 const PROTECT = [
   ['ronak-create/FableCut', '@@UPSTREAM@@'],
   ['ronak-create\\/FableCut', '@@UPSTREAM_ESC@@'], // the escaped-slash form in regexes
@@ -65,7 +66,8 @@ const PROTECT = [
   ['FableCut project folder', '@@PJ_FOLDER@@'],
   ['FableCut data folder', '@@DATA_FOLDER@@'],
   ['FableCut folder', '@@FOLDER@@'],
-  ['FableCut Studio', '@@STUDIO@@'],
+  // The upstream's hosted product (studio.fablecut.space) — only where docs name it.
+  ['FableCut Studio', '@@STUDIO@@', (f) => f.startsWith('docs/')],
   ['upstream FableCut', '@@UPSTREAM_NAME@@'],
   ['FableCut\\\\', '@@BS_PATH@@'], // two backslashes: a Windows data-dir path in test fixtures
   ['os.homedir(), "FableCut"', '@@DD_HOME@@'],
@@ -81,12 +83,13 @@ function renameTree() {
     const full = path.join(ROOT, f);
     const src = fs.readFileSync(full, 'utf8');
     if (!src.includes('FableCut')) continue;
+    const rules = PROTECT.filter(([, , onlyIf]) => !onlyIf || onlyIf(f));
     let text = src;
-    for (const [from, ph] of PROTECT) text = text.split(from).join(ph);
+    for (const [from, ph] of rules) text = text.split(from).join(ph);
     const count = (text.match(/FableCut/g) || []).length;
     if (!count) continue; // every occurrence was a protected one — nothing to rename
     text = text.split('FableCut').join('MontClip');
-    for (const [from, ph] of PROTECT) text = text.split(ph).join(from);
+    for (const [from, ph] of rules) text = text.split(ph).join(from);
     if (text === src) continue;
     fs.writeFileSync(full, text);
     changed += 1;
