@@ -164,3 +164,14 @@ test('the card\'s lyrics button: none until the card can use it; then short, the
  a.match(css,/\.btn:disabled,\s*\.btn\[disabled\] \{[^}]*opacity: \.45;[^}]*cursor: default;/);
  a.ok(!/\.auto-slices button:disabled/.test(css),'no rule of the dialog\'s own');
 });
+
+// VV / JJ / Deja (2026-11-03): three states of the review that are not the same and must not read the same — nothing
+// found, every card taken out, nothing ticked. "All taken out" in JJ's words; "nothing ticked" and the start page's
+// reason for a greyed 〔开始找高光〕 are placeholders until JJ words them
+test('the review\'s three empty states have their own titles; the start page says why 〔开始找高光〕 is grey',()=>{
+ const en=(k,v)=>V.t('en','own.'+k,v);
+ a.equal(zh('as-found-all-out',{found:2}),'找到 2 条，你都拿掉了');a.equal(en('as-found-all-out',{found:2}),'Found 2, and you took them all out');
+ const titles=[zh('as-found-none'),zh('as-found-all-out',{found:2}),zh('as-found-none-ticked',{found:2})];
+ a.equal(new Set(titles).size,3,titles.join(' | '));a.ok(!/没有找到/.test(titles[1]));a.ok(!/0 条/.test(titles[2]));
+ for(const k of ['as-found-none-ticked','as-go-why-none'])a.ok(zh(k,{found:2})&&en(k,{found:2})&&!/[一-鿿]/.test(en(k,{found:2})),k);
+});

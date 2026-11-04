@@ -128,6 +128,29 @@ BrowserWindow.prototype.loadURL=async function(...args){
     st.clips.forEach((c,i)=>c.on=keep[i]);autoRender('review');return out;})()`);
   report.disabled=dis;
   assert.ok(dis.length>=2&&dis.every(x=>x.opacity<=0.6&&x.cursor!=='pointer'),'disabled looks disabled: '+JSON.stringify(dis));
+  // VV / JJ / Deja: the three empty states of the review, each with its own title — nothing found (as before), every card
+  // taken out (JJ: 「找到 {found} 条，你都拿掉了」, no 「没有找到」, neither 「圈出 0 段」 nor 「够好的只有」), nothing ticked
+  // (never 「先帮你勾了最好的 0 条」)
+  const states=await read(`(()=>{const st=autoState(),keep={clips:st.clips,dropped:st.dropped,few:st.few};const d=document.querySelector('dialog.auto-slices');
+    const look=()=>({title:d.querySelector('[data-as-body] h1').textContent,evidence:!!d.querySelector('.as-evidence'),few:/够好的只有/.test(d.querySelector('[data-as-body]').textContent),text:d.querySelector('[data-as-body]').textContent});
+    const out={};
+    st.clips=keep.clips.map(c=>({...c,on:false}));st.dropped=[];autoRender('review');out.noneTicked=look();
+    st.dropped=keep.clips.map(c=>({...c,on:false}));st.clips=[];autoRender('review');out.allOut=look();
+    st.clips=[];st.dropped=[];autoRender('review');out.noneFound=look();
+    st.clips=keep.clips;st.dropped=keep.dropped;st.few=keep.few;autoRender('review');out.n=keep.clips.length;return out;})()`);
+  report.states={noneTicked:states.noneTicked.title,allOut:states.allOut.title,noneFound:states.noneFound.title};
+  assert.equal(states.noneFound.title,zh('as-found-none'),'nothing found: as before');
+  assert.equal(states.allOut.title,zh('as-found-all-out',{found:states.n}));
+  assert.ok(!/没有找到/.test(states.allOut.text),'all taken out: never 没有找到');
+  assert.ok(!/圈出 0 段/.test(states.allOut.text)&&!states.allOut.few,'all taken out: neither 圈出 0 段 nor 够好的只有');
+  assert.equal(states.noneTicked.title,zh('as-found-none-ticked',{found:states.n}));
+  assert.ok(!/最好的 0 条/.test(states.noneTicked.title));
+  assert.equal(new Set(Object.values(report.states)).size,3,'three titles');
+  // the start page with no recording picked: 〔开始找高光〕 grey, and beside it why
+  const start=await read(`(()=>{const st=autoState(),keep=st.picked;st.picked=new Set();autoRender('start');const d=document.querySelector('dialog.auto-slices'),go=d.querySelector('[data-as-act=go]'),why=d.querySelector('[data-as-go-why]');
+    const r={disabled:go.disabled,why:why&&why.textContent,beside:!!why&&go.parentElement.contains(why)};st.picked=keep;autoRender('review');return r;})()`);
+  report.startWhy=start;
+  assert.deepEqual(start,{disabled:true,why:zh('as-go-why-none'),beside:true});
   // 4. blue: on the review page too
   report.blueReview=await read(BLUE);
   assert.deepEqual(report.blueStart,[],'start page: '+report.blueStart.join(' | '));
