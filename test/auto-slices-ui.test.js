@@ -165,3 +165,84 @@ test('the card\'s lyrics button: none until the card can use it; then short, the
  a.match(css,/\.btn:disabled,\s*\.btn\[disabled\] \{[^}]*opacity: \.45;[^}]*cursor: default;/);
  a.ok(!/\.auto-slices button:disabled/.test(css),'no rule of the dialog\'s own');
 });
+
+// VV / JJ / Deja (2026-11-03): the review's title follows what is ticked, at once — JJ's words. Nothing found; every card
+// taken out; nothing ticked; ticked as the search ticked them (as before); ticked otherwise by the streamer. Whether
+// it is "as the search ticked them" is the set of cards, not the count (auto-slices.js reviewHead)
+test('the review\'s title: JJ\'s words, and the ticked set against the search\'s, not the count',()=>{
+ const en=(k,v)=>V.t('en','own.'+k,v);
+ a.equal(zh('as-found-all-out',{found:2}),'找到 2 条，你都拿掉了');a.equal(en('as-found-all-out',{found:2}),'Found 2, and you took them all out');
+ a.equal(zh('as-found-none-ticked',{found:3}),'找到 3 条，现在一条都没勾');a.equal(en('as-found-none-ticked',{found:3}),'Found 3, none ticked right now');
+ a.equal(zh('as-found-ticked',{found:5,on:2}),'找到 5 条，勾了 2 条');a.equal(en('as-found-ticked',{found:5,on:2}),'Found 5, 2 ticked');
+ a.equal(zh('as-found-head',{found:5,on:3}),'找到 5 条，先帮你勾了最好的 3 条','as before');
+ a.equal(zh('as-go-why-none'),'先在上面勾一场录像');a.equal(en('as-go-why-none'),'Tick a recording above first');
+ const S=require('../auto-slices'),h=S.reviewHead,c=(id,picked,on)=>({id,picked,on});
+ a.deepEqual(h([],[]),{key:'none',found:0,on:0});
+ a.deepEqual(h([],[c('a',true,false),c('b',false,false)]),{key:'all-out',found:2,on:0});
+ a.deepEqual(h([c('a',true,false),c('b',false,false)],[]),{key:'none-ticked',found:2,on:0});
+ a.deepEqual(h([c('a',true,true),c('b',true,true),c('x',false,false)],[]),{key:'head',found:3,on:2},'as the search ticked them');
+ a.deepEqual(h([c('a',true,true),c('b',true,true)],[]),{key:'all',found:2,on:2},'all of them, as the search did');
+ a.deepEqual(h([c('a',true,true),c('b',true,false),c('x',false,true)],[]),{key:'ticked',found:3,on:2},'the same count, another set');
+ a.deepEqual(h([c('a',true,true)],[c('b',true,false)]),{key:'ticked',found:2,on:1},'one the search ticked taken out: still found 2 (VV on e31d808)');
+ a.deepEqual(h([c('a',true,true),c('x',false,true)],[]),{key:'ticked',found:2,on:2},'all ticked, but not as the search did');
+ // the search's own cards say which it ticked
+ a.match(fs.readFileSync(require('path').join(__dirname,'..','auto-slices.js'),'utf8'),/on: i < checked, picked: i < checked/);
+});
+
+// VV on #96 e31d808 (Deja): 「找到 N 条」 and 「圈出 N 段」 are what this search found — the cards taken out included, as
+// 「找到 2 条，你都拿掉了」 already says — so taking one out or putting one back never changes N. A part you added yourself
+// (补一段) was not found by the search: it is not counted in the title (the footer counts what goes out).
+test('found and 圈出 count every card the search found, the ones taken out too; zh and en',()=>{
+ const S=require('../auto-slices'),c=(id,picked,on)=>({id,picked,on}),en=(k,v)=>V.t('en','own.'+k,v);
+ const KEY={none:'as-found-none','all-out':'as-found-all-out','none-ticked':'as-found-none-ticked',all:'as-found-all',head:'as-found-head',ticked:'as-found-ticked'};
+ const title=(lang,clips,dropped)=>{const h=S.reviewHead(clips,dropped);return V.t(lang,'own.'+KEY[h.key],h);};
+ // found 2, one taken out
+ a.equal(title('zh-CN',[c('a',true,true)],[c('b',true,false)]),'找到 2 条，勾了 1 条');
+ a.equal(title('en',[c('a',true,true)],[c('b',true,false)]),'Found 2, 1 ticked');
+ // every one taken out, then one put back (unticked): still 2, and 拿掉的 holds the other
+ const back=[c('a',true,false)],left=[c('b',true,false)];
+ a.equal(title('zh-CN',back,left),'找到 2 条，现在一条都没勾');a.equal(title('en',back,left),'Found 2, none ticked right now');
+ a.equal(S.reviewHead(back,left).found-back.length,left.length,'found − on the page = what is under 拿掉的');
+ a.equal(title('zh-CN',[],[c('a',true,false),c('b',true,false)]),'找到 2 条，你都拿掉了');
+ // put back ticked: as the search ticked it, the first title again
+ a.deepEqual(S.reviewHead([c('a',true,true),c('b',true,true)],[]),{key:'all',found:2,on:2});
+ // a part added by hand: not something the search found
+ a.deepEqual(S.reviewHead([c('a',true,true),{id:'z',added:true,on:true}],[c('b',true,false)]),{key:'ticked',found:2,on:1});
+ // 圈出 N 段 says the same N as the title
+ a.ok(read('app.js').includes('autoSay("as-evidence", { count: dm.toLocaleString(), dur: autoDur(dur), n: h.found })'));
+ a.ok(read('app.js').includes('autoSay("as-evidence-nodm", { dur: autoDur(dur), n: h.found })'));
+});
+
+// the footer's words (JJ): the empty states' reason on the left, the buttons keep their words with 0; a phone-wide window's
+// short words (v12: 「放到时间线上（3）」, 「导出 3 条」); 「先勾选要导出的」 is gone
+test('the footer: the empty states in JJ\'s words, the short words for a narrow window; 先勾选要导出的 gone',()=>{
+ const en=(k,v)=>V.t('en','own.'+k,v);
+ a.equal(zh('as-foot-all-out'),'0 条 · 先从「拿掉的」里放回要用的');a.equal(en('as-foot-all-out'),'0 · put back the ones you want from “Taken out” first');
+ a.equal(zh('as-foot-none-ticked'),'0 条 · 先勾上要用的');a.equal(en('as-foot-none-ticked'),'0 · tick the ones you want first');
+ a.equal(zh('as-place',{n:0}),'放到时间线上（0 条）');a.equal(en('as-place',{n:0}),'Put on the timeline (0)');
+ a.equal(zh('as-place-short',{n:3}),'放到时间线上（3）');a.equal(zh('as-export-short',{n:3}),'导出 3 条');
+ for(const k of ['as-place-short','as-export-short'])a.ok(en(k,{n:3})&&!/[一-鿿]/.test(en(k,{n:3})),k);
+ a.equal(V.text['zh-CN']['own.as-tick-first'],undefined);a.ok(!/as-tick-first/.test(read('app.js')));
+});
+
+// VV on #90 b76bbe3: 设置 › 自动出切片 says whether 「记住我的剪辑习惯」 is on (Deja's words: 开着 / 关着, On / Off)
+test('设置 › 自动出切片: 开着 / 关着 beside 〔记住我的剪辑习惯〕',()=>{
+ const en=(k,v)=>V.t('en','own.'+k,v);
+ a.deepEqual([zh('as-learn-state-on'),zh('as-learn-state-off'),en('as-learn-state-on'),en('as-learn-state-off')],['开着','关着','On','Off']);
+ a.match(read('index.html'),/id="setSlices"[\s\S]*?data-learn-open[\s\S]*?data-learn-state/);
+});
+
+// JJ's final words for the line under 「全拿掉」 (Deja, 2026-11-03): the names it quotes are the screen's own words, read from
+// their keys — the fold (its words before the bracket), the toast's 〔撤销〕, 〔换一场 / 改设置〕
+test('the line under 全拿掉 in JJ\'s words; every name it quotes is the screen\'s own',()=>{
+ const en=(k,v)=>V.t('en','own.'+k,v);
+ const foldZh=zh('as-dropped',{n:'{n}'}).split('（')[0],foldEn=en('as-dropped',{n:'{n}'}).split(' (')[0];
+ a.equal(foldZh,'拿掉的 {n} 条');a.equal(foldEn,'Taken out: {n}');
+ const sub=(l)=>V.t(l,'own.as-all-out-sub',{n:'{n}'});
+ a.equal(sub('zh-CN'),`拿掉的都在下面「${foldZh}」里，点开就能放回来；刚拿掉的，也可以点提示里的「${zh('as-undo')}」或按 Ctrl+Z。想换一批，点「${zh('as-back-start')}」重新找。`);
+ a.equal(sub('en'),`Everything you took out is under “${foldEn}” below; open it to put them back. For the one you just took out, click “${en('as-undo')}” in the notice or press Ctrl+Z. For a new batch, click “${en('as-back-start')}” and search again.`);
+ a.equal(zh('as-all-out-sub',{n:3}).includes('拿掉的 3 条'),true,'the count filled in');
+ // the secondary button keeps its key's words with 0
+ a.equal(zh('as-export',{n:0}),'直接导出这 0 条');a.equal(en('as-export',{n:0}),'Export these 0 now');
+ a.match(read('app.js'),/"as-all-out-sub"[^\n]*n: st\.dropped\.length/);
+});

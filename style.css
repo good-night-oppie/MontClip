@@ -3375,6 +3375,9 @@ body.track-size-s .clip.c-comp .comp-open-hint {
   background: var(--panel-2);
 }
 
+/* a button with a word beside it (设置 › 自动出切片: 〔记住我的剪辑习惯〕 开着): level with each other (VV on #96 e31d808) */
+.settings-row-mid { align-items: center; }
+
 .settings-row:hover {
   border-color: #454552;
 }
@@ -4900,7 +4903,8 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .auto-slices .as-spacer { flex: 1; }
 .auto-slices .as-keep, .auto-slices .as-small, .auto-slices .as-muted { color: var(--dim); font-size: 12px; }
 .auto-slices .as-body { flex: 1; overflow: auto; padding: 14px 18px 24px; }
-.auto-slices .as-sub { color: var(--dim); margin: 0 0 12px; }
+/* no last character alone on a line (VV on #96 e31d808: the line under 全拿掉 at 1280) */
+.auto-slices .as-sub { color: var(--dim); margin: 0 0 12px; text-wrap: pretty; }
 .auto-slices .as-card-box { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 10px 0; background: var(--panel-2); }
 .auto-slices .as-recs { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
 .auto-slices .as-rec { border: 1px solid var(--border); border-radius: 6px; padding: 8px; cursor: pointer; }
@@ -4993,7 +4997,9 @@ dialog.as-add .as-seg button.on { border-color: var(--accent); background: var(-
 dialog.as-add .as-add-namefield { margin: 8px 0 12px; }
 dialog.as-add .as-small, dialog.as-learn .as-small { color: var(--dim); font-size: 12px; }
 dialog.as-add .as-row, dialog.as-learn .as-row { display: flex; gap: 8px; }
-dialog.as-learn .as-learn-count { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin: 10px 0; }
+/* VV on #90: room under the sub line; 已记 N 条 is plain grey text */
+dialog.as-learn [data-learn-sub] { margin: 0 0 12px; }
+dialog.as-learn .as-learn-count { color: var(--dim); margin: 10px 0; }
 dialog.as-learn ul { padding-left: 18px; margin: 0 0 12px; }
 dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 /* the 估的 note, once under the overview, above the first card */
@@ -5003,9 +5009,22 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 .auto-slices .as-footer[hidden] { display: none; }
 .auto-slices .as-toast { position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%); background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 12px; box-shadow: 0 8px 30px #000a; max-width: 80%; }
 .auto-slices .as-toast[hidden] { display: none; }
+/* v12: the dialog's title on one line; 整场一览 a fold; the footer's short words for a narrow window — the app's
+   narrowest window (minWidth 640: about 644 px inside) and a phone */
+.auto-slices .as-head b { white-space: nowrap; }
+.auto-slices summary.as-ov-head { cursor: pointer; }
 @media (max-width: 640px) {
   .auto-slices .as-trim { grid-template-columns: 1fr; }
   .auto-slices .as-opt { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  /* the first screen shows the first card: 够好的只有 one short line, the footer one line */
+  .auto-slices .as-few { padding: 6px 10px; margin: 6px 0; }
+  .auto-slices .as-few .as-small { display: none; }
+  .auto-slices .as-footer { flex-wrap: nowrap; gap: 8px; padding: 8px 12px; }
+  .auto-slices .as-sum-some { display: none; }
+  .auto-slices .as-long { display: none; }
+  .auto-slices [data-short]::after { content: attr(data-short); }
 }
 .as-preview { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(720px, 92vw); padding: 14px; }
 .as-preview::backdrop { background: #000a; }

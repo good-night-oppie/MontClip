@@ -128,6 +128,61 @@ BrowserWindow.prototype.loadURL=async function(...args){
     st.clips.forEach((c,i)=>c.on=keep[i]);autoRender('review');return out;})()`);
   report.disabled=dis;
   assert.ok(dis.length>=2&&dis.every(x=>x.opacity<=0.6&&x.cursor!=='pointer'),'disabled looks disabled: '+JSON.stringify(dis));
+  // VV / JJ / Deja: the three empty states of the review, each with its own title — nothing found (as before), every card
+  // taken out (JJ: 「找到 {found} 条，你都拿掉了」, no 「没有找到」, neither 「圈出 0 段」 nor 「够好的只有」), nothing ticked
+  // (never 「先帮你勾了最好的 0 条」)
+  // the title follows the ticks at once (the cards' own tick boxes), JJ's words: every one unticked; ticked back as the
+  // search ticked them; one only; then every card taken out (in the state, as 不要这条 leaves it), and nothing found
+  const states=await read(`(async()=>{const st=autoState(),keep={clips:JSON.parse(JSON.stringify(st.clips)),dropped:st.dropped,few:st.few,hist:st.hist.length};const d=document.querySelector('dialog.auto-slices');
+    const title=()=>d.querySelector('[data-as-body] h1').textContent,tick=async(i,on)=>{const b=d.querySelectorAll('[data-as-card] input[data-as-act=toggle]')[i];if(b.checked!==on){b.checked=on;b.dispatchEvent(new Event('change',{bubbles:true}));}await new Promise(r=>setTimeout(r,50));};
+    const n=st.clips.length,out={n,start:title()};
+    for(let i=0;i<n;i++)await tick(i,false);out.noneTicked=title();
+    for(let i=0;i<n;i++)await tick(i,keep.clips[i].picked);out.back=title();
+    for(let i=0;i<n;i++)await tick(i,i===n-1);out.own=title();out.on=st.clips.filter(c=>c.on).length;
+    st.dropped=keep.clips.map(c=>({...c,on:false}));st.clips=[];autoRender('review');out.allOut=title();out.allOutSub=d.querySelector('[data-as-body] .as-sub').textContent;out.allOutText=d.querySelector('[data-as-body]').textContent;out.evidence=!!d.querySelector('.as-evidence');
+    st.clips=[];st.dropped=[];autoRender('review');out.noneFound=title();
+    st.clips=keep.clips;st.dropped=keep.dropped;st.few=keep.few;st.hist.length=keep.hist;autoRender('review');return out;})()`);
+  report.states=states;
+  assert.equal(states.start,states.back,'ticked back as the search did: the first title again');
+  assert.ok(states.start===zh('as-found-all',{found:states.n})||states.start===zh('as-found-head',{found:states.n,on:states.n}),states.start);
+  assert.equal(states.noneTicked,zh('as-found-none-ticked',{found:states.n}));
+  assert.equal(states.own,zh('as-found-ticked',{found:states.n,on:1}),'one the streamer ticked');
+  assert.equal(states.allOut,zh('as-found-all-out',{found:states.n}));
+  assert.equal(states.allOutSub,zh('as-all-out-sub',{n:states.n}),'JJ\'s line under it, with how many are under 拿掉的');
+  assert.ok(!/没有找到/.test(states.allOutText)&&!/圈出 0 段/.test(states.allOutText)&&!/够好的只有/.test(states.allOutText)&&!states.evidence,'all taken out: never 没有找到, 圈出 0 段 or 够好的只有');
+  assert.equal(states.noneFound,zh('as-found-none'),'nothing found: as before');
+  assert.equal(new Set([states.start,states.noneTicked,states.own,states.allOut,states.noneFound]).size,5,'five titles, none the same');
+  // VV on e31d808 (Deja): 「找到 N 条」 and 「圈出 N 段」 are what the search found, the cards taken out included — through
+  // the cards' own 〔不要这条〕 and the dialog's undo, in Chinese and in English
+  const counts=await read(`(async()=>{const st=autoState(),keep={clips:JSON.parse(JSON.stringify(st.clips)),dropped:st.dropped.slice(),hist:st.hist.length,kept:(st.histKept||[]).length};
+    const d=document.querySelector('dialog.auto-slices'),wait=(ms)=>new Promise(r=>setTimeout(r,ms));
+    const look=()=>({title:d.querySelector('[data-as-body] h1').textContent,evidence:(d.querySelector('.as-evidence')||{}).textContent||'',fold:(d.querySelector('[data-as-body] details.as-more summary')||{}).textContent||'',cards:d.querySelectorAll('[data-as-card]').length,dropped:st.dropped.length,on:st.clips.filter(c=>c.on).length});
+    const out={n:st.clips.length};
+    for(const lang of ['zh-CN','en']){updateMontClipView({language:lang});autoRender('review');await wait(100);const r={};
+     d.querySelector('[data-as-card] [data-as-act=drop]').click();await wait(100);r.one=look();
+     while(d.querySelector('[data-as-card] [data-as-act=drop]')){d.querySelector('[data-as-card] [data-as-act=drop]').click();await wait(60);}
+     r.all=look();autoUndo();await wait(100);r.undoOne=look();
+     out[lang]=r;st.clips=JSON.parse(JSON.stringify(keep.clips));st.dropped=keep.dropped.slice();st.hist.length=keep.hist;autoRender('review');}
+    updateMontClipView({language:'zh-CN'});const t=d.querySelector('[data-as-toast]');if(t)t.hidden=true;autoRender('review');return out;})()`);
+  report.counts=counts;
+  const N=counts.n,T=(lang,k,v)=>V.t(lang,'own.'+k,v);
+  for(const lang of ['zh-CN','en']){const r=counts[lang];
+   const ticked=(x)=>x.on?T(lang,'as-found-ticked',{found:N,on:x.on}):T(lang,'as-found-none-ticked',{found:N});
+   assert.equal(r.one.title,ticked(r.one),lang+': one taken out, still found '+N);
+   assert.ok(r.one.evidence.includes(lang==='en'?'marked '+N+' parts':'圈出 '+N+' 段'),lang+': 圈出 '+N+' — '+r.one.evidence);
+   assert.equal(r.all.title,T(lang,'as-found-all-out',{found:N}));
+   // every one taken out, one put back by undo (the search had ticked it): found N, and N − 1 under 拿掉的
+   assert.equal(r.undoOne.cards,1);assert.equal(r.undoOne.dropped,N-1);
+   assert.equal(r.undoOne.title,ticked(r.undoOne),lang+': '+r.undoOne.title);
+   assert.equal(r.undoOne.fold,T(lang,'as-dropped',{n:N-1}),'the fold says the other '+(N-1));}
+  // the start page: the recording's own tick — off: 〔开始找高光〕 grey and JJ's line beside it; on again: the line as before
+  const start=await read(`(async()=>{autoRender('start');const d=document.querySelector('dialog.auto-slices'),rec=()=>d.querySelector('[data-as-act=rec]');
+    const look=()=>{const go=d.querySelector('[data-as-act=go]'),why=d.querySelector('[data-as-go-why]');return{disabled:go.disabled,why:why&&why.textContent,beside:!!why&&go.parentElement.contains(why),line:go.parentElement.querySelector('.as-small').textContent};};
+    const on=look();rec().click();await new Promise(r=>setTimeout(r,50));const off=look();rec().click();await new Promise(r=>setTimeout(r,50));const again=look();autoRender('review');return{on,off,again};})()`);
+  report.startWhy=start;
+  assert.deepEqual([start.on.disabled,start.on.line],[false,zh('as-go-hint')]);
+  assert.deepEqual([start.off.disabled,start.off.why,start.off.beside],[true,zh('as-go-why-none'),true]);
+  assert.deepEqual([start.again.disabled,start.again.line,start.again.why],[false,zh('as-go-hint'),null]);
   // 4. blue: on the review page too
   report.blueReview=await read(BLUE);
   assert.deepEqual(report.blueStart,[],'start page: '+report.blueStart.join(' | '));
@@ -138,6 +193,26 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.narrow=await read(`(()=>{const d=document.querySelector('dialog.auto-slices'),n=d.querySelector('[data-as-guess-note]'),b=d.querySelector('[data-as-card] [data-as-act=drop]'),card=b.closest('[data-as-card]');
     return{note:!!n&&n.getBoundingClientRect().width>0,dropInside:b.getBoundingClientRect().right<=card.getBoundingClientRect().right+0.5,overflow:d.querySelector('.as-body').scrollWidth<=d.querySelector('.as-body').clientWidth+1};})()`);
   assert.deepEqual(report.narrow,{note:true,dropInside:true,overflow:true});
+  // VV could not make 「一条都没找到」: a recording that is silent all through, no danmaku — the real search, its title as
+  // before (as-found-none), the hint under it; a picture for the PR
+  win.setContentSize(1280,800);await wait(300);
+  const quiet=wav([['quiet',300]]).toString('base64');
+  await read(`(async()=>{AUTO.el.close();if(!await flushSaveBeforeSwitch())throw Error('SAVE');await pjPost({action:'new',name:'一条都没找到 smoke',open:true});if(!await syncFromServer(true))throw Error('CREATE');
+    const b=Uint8Array.from(atob(${JSON.stringify(quiet)}),c=>c.charCodeAt(0));const up=await (await fetch('/api/upload?name=quiet.wav',{method:'POST',body:b})).json();
+    const doc=projectJSON();doc.media.push({id:'m_q',name:'全程静音 合成录像',kind:'audio',src:up.src,duration:300});doc.clips.push({id:'c_q',mediaId:'m_q',kind:'audio',track:'A1',start:0,in:0,duration:300,props:{}});
+    applyProject(doc);scheduleSave();if(!await flushSave())throw Error('SAVE');return true;})()`);
+  await read(`document.getElementById('btnAutoSlices').click();true`);
+  await until(`!!document.querySelector('dialog.auto-slices[open] [data-as-act=go]')`);
+  await read(`document.querySelector('[data-as-act=go]').click();true`);
+  await until(`autoState().step==='review'&&!autoState().run`,180000);
+  await read(`(()=>{const d=document.querySelector('dialog.auto-slices');if(!d.open)document.getElementById('btnAutoSlices').click();autoRender('review');return true;})()`);
+  const none=await read(`(()=>{const d=document.querySelector('dialog.auto-slices'),st=autoState();return{clips:st.clips.length,dropped:st.dropped.length,title:d.querySelector('[data-as-body] h1').textContent,
+    sub:d.querySelector('[data-as-body] .as-sub').textContent,cards:d.querySelectorAll('[data-as-card]').length,text:d.querySelector('[data-as-body]').textContent};})()`);
+  await shot('none-found-1280x800.png');
+  report.noneFound={clips:none.clips,dropped:none.dropped,title:none.title,sub:none.sub,cards:none.cards};
+  assert.deepEqual([none.clips,none.dropped,none.cards],[0,0,0],'the search found nothing in silence');
+  assert.equal(none.title,zh('as-found-none'),'its title, as before');assert.equal(none.sub,zh('as-found-none-next'));
+  assert.ok(!/你都拿掉了/.test(none.text));report.noneFound.evidence=(none.text.match(/[^。]*圈出[^。]*。/)||[''])[0];
   ok=true;
  }catch(e){report.error=String(e&&e.stack||e).slice(0,1500);}
  finally{try{fs.rmSync(asrEmpty,{recursive:true,force:true});}catch{}out(ok?'SLICE_CARDS_PASS':'SLICE_CARDS_FAIL',report);process.exitCode=ok?0:1;app.exit(ok?0:1);}

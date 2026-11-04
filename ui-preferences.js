@@ -321,6 +321,12 @@
     "as-found-head": ["Found {found}; the best {on} are ticked", "找到 {found} 条，先帮你勾了最好的 {on} 条"],
     "as-found-all": ["Found {found}, all ticked", "找到 {found} 条，都勾上了"],
     "as-found-none": ["Nothing stood out", "没有找到够好的段落"],
+    // every card taken out, nothing ticked, ticked by the streamer, and why 〔开始找高光〕 is grey (JJ's words)
+    "as-found-all-out": ["Found {found}, and you took them all out", "找到 {found} 条，你都拿掉了"],
+    "as-all-out-sub": ["Everything you took out is under “Taken out: {n}” below; open it to put them back. For the one you just took out, click “Undo” in the notice or press Ctrl+Z. For a new batch, click “Another stream / settings” and search again.", "拿掉的都在下面「拿掉的 {n} 条」里，点开就能放回来；刚拿掉的，也可以点提示里的「撤销」或按 Ctrl+Z。想换一批，点「换一场 / 改设置」重新找。"],
+    "as-found-none-ticked": ["Found {found}, none ticked right now", "找到 {found} 条，现在一条都没勾"],
+    "as-found-ticked": ["Found {found}, {on} ticked", "找到 {found} 条，勾了 {on} 条"],
+    "as-go-why-none": ["Tick a recording above first", "先在上面勾一场录像"],
     "as-found-none-next": ["Try another recording, or change how long each clip is under More settings, then search again.", "可以换一场录像，或者在「更多设置」里改一下每条多长，再找一次。"],
     "as-review-sub": ["{name}. Unticked ones are spares; tick any you like. Look them over, then use the buttons below.", "{name}。没勾的是备选，觉得好也可以勾上。看一遍再点下面的按钮。"],
     "as-back-start": ["Another stream / settings", "换一场 / 改设置"],
@@ -464,6 +470,9 @@
     "as-added": ["Added “{name}”; its card says “Added by you”.", "已补上「{name}」，卡片上标了「你补的」。"],
     "as-added-why": ["Added from the start and end set on the timeline", "用时间线上设好的开头和结尾补的"],
     "as-add-failed": ["That part cannot be added: it must lie inside the recording and be at least 5 seconds long.", "这段补不上：要在这场录像里面，而且至少 5 秒。"],
+    // 设置 › 自动出切片: whether 记住我的剪辑习惯 is on, beside its button (VV on #90; Deja's words)
+    "as-learn-state-on": ["On", "开着"],
+    "as-learn-state-off": ["Off", "关着"],
     "as-learn-title": ["Remember my editing habits", "记住我的剪辑习惯"],
     "as-learn-sub": ["This page also opens from “Settings › Auto slices”.", "在「设置 › 自动出切片」里也能打开这一页。"],
     "as-learn-switch": ["Remember my changes, to find closer next time", "记住我的修改，下次找得更准"],
@@ -496,7 +505,12 @@
     "as-place": ["Put on the timeline ({n})", "放到时间线上（{n} 条）"],
     "as-place-title": ["Put them on the main timeline to keep editing or export them", "放到主界面时间线上，接着细剪或导出"],
     "as-export": ["Export these {n} now", "直接导出这 {n} 条"],
-    "as-tick-first": ["Tick the ones you want first", "先勾选要导出的"],
+    // the footer of the empty states (JJ's words): the buttons keep their words with 0; the reason on the left
+    "as-foot-all-out": ["0 · put back the ones you want from “Taken out” first", "0 条 · 先从「拿掉的」里放回要用的"],
+    "as-foot-none-ticked": ["0 · tick the ones you want first", "0 条 · 先勾上要用的"],
+    // a narrow window's footer (v12: one line): the short words (English: placeholder until JJ words it)
+    "as-place-short": ["Put on the timeline ({n})", "放到时间线上（{n}）"],
+    "as-export-short": ["Export {n}", "导出 {n} 条"],
     // N25: the canvas taken from the first recording (JJ's words, on #97)
     "canvas-follow": ["Video size and frame rate set from this recording: {w}×{h}, {fps} fps.", "已按这场录像设置画面大小和帧率：{w}×{h}，每秒 {fps} 帧。"],
     "canvas-follow-odd": ["Video size set from this recording: {w}×{h}. Its frame rate (about {src} fps) is unusual, so 30 fps is used for now; you can change it in the frame rate menu above the preview.", "已按这场录像设置画面大小：{w}×{h}。它的帧率（约每秒 {src} 帧）不常见，先用每秒 30 帧；想改的话，在预览上方的帧率那里改。"],

@@ -10536,9 +10536,19 @@ function autoBuild() {
   // the editor's shortcuts listen on window: none of them may act on the timeline behind the dialog
   d.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z") && !isTypingTarget(document.activeElement)) { e.preventDefault(); autoUndo(); }
+    // Tab stays in the dialog: past the last control it comes back to the first, and the other way round (VV, #96)
+    if (e.key === "Tab" && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      const f = [...d.querySelectorAll('button, input, select, textarea, summary, [href], [tabindex]:not([tabindex="-1"])')]
+        .filter((x) => !x.disabled && x.getClientRects().length && !x.closest("[hidden], [inert]"));
+      const i = f.indexOf(document.activeElement);
+      if (f.length && !e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); }
+      else if (f.length && e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
+    }
     if (e.key !== "Escape") e.stopPropagation();
   });
   d.addEventListener("click", autoClick);
+  // 整场一览 opened or folded by the streamer (its summary clicked — a fold drawn open fires toggle too): so it stays
+  d.addEventListener("click", (e) => { const sm = e.target.closest && e.target.closest("summary.as-ov-head"); if (sm) autoState().ovOpen = !sm.parentElement.open; }, true);
   d.addEventListener("change", autoChange);
   d.addEventListener("pointerdown", autoDragStart);
   d.querySelector("[data-as-toast-undo]").addEventListener("click", () => autoUndo());
@@ -10555,7 +10565,8 @@ function autoRender(step) {
   const open = same ? [...body.querySelectorAll("details")].map((x) => x.open) : [], top = body.scrollTop;
   body.innerHTML = step === "start" ? autoStartHtml() : step === "run" ? autoRunHtml() : step === "review" ? autoReviewHtml() : autoDoneHtml();
   body.dataset.step = step;
-  if (same) { body.querySelectorAll("details").forEach((x, i) => { if (open[i]) x.open = true; }); body.scrollTop = top; } else body.scrollTop = 0;
+  // 整场一览 is not among them: it follows the window width until the streamer opens or closes it (autoOverviewHtml, st.ovOpen)
+  if (same) { body.querySelectorAll("details").forEach((x, i) => { if (open[i] && !x.matches("[data-as-ov]")) x.open = true; }); body.scrollTop = top; } else body.scrollTop = 0;
   autoFooter();
   // the focus stays in the dialog when it is drawn again: the same button if it is still there, else the dialog (VV on
   // 12f4f21: it fell to the page, so Ctrl+Z went to the timeline behind the dialog instead of undoing the card)
@@ -10601,7 +10612,7 @@ function autoStartHtml() {
         <p class="as-small" data-as-subs-hint>${autoSubMode() === "none" ? autoSay("as-sub-none-hint") : ""}</p></div></div>
     </details>
     <div class="as-cta"><button type="button" class="btn primary" data-as-act="go"${st.picked.size ? "" : " disabled"}>${autoSay(st.picked.size > 1 ? "as-go-n" : "as-go", { n: st.picked.size })}</button>
-      <span class="as-small">${autoSay("as-go-hint")}</span></div>`;
+      ${st.picked.size ? `<span class="as-small">${autoSay("as-go-hint")}</span>` : `<span class="as-small" data-as-go-why>${autoSay("as-go-why-none")}</span>`}</div>`;
 }
 
 /* step 2: finding */
@@ -10693,8 +10704,12 @@ function autoReviewHtml() {
   const st = autoState(), on = st.clips.filter((c) => c.on).length, found = st.clips.length;
   const names = st.recs.map((r) => autoMedia(r.mediaId)).filter(Boolean).map((m) => m.name).join("、");
   const dur = st.recs.reduce((x, r) => x + r.duration, 0), dm = st.recs.reduce((x, r) => x + (r.danmaku || 0), 0);
-  const head = !found ? autoSay("as-found-none") : on === found ? autoSay("as-found-all", { found }) : autoSay("as-found-head", { found, on });
-  const evidence = (dm ? autoSay("as-evidence", { count: dm.toLocaleString(), dur: autoDur(dur), n: found }) : autoSay("as-evidence-nodm", { dur: autoDur(dur), n: found }))
+  // the title follows the ticks (VV / JJ / Deja): nothing found, every card taken out (they are under 拿掉的), none
+  // ticked, ticked as the search ticked them, or the streamer's own ticks (auto-slices.js reviewHead)
+  const h = MontClipAutoSlices.reviewHead(st.clips, st.dropped), allOut = h.key === "all-out";
+  const head = autoSay({ none: "as-found-none", "all-out": "as-found-all-out", "none-ticked": "as-found-none-ticked", all: "as-found-all", head: "as-found-head", ticked: "as-found-ticked" }[h.key], h);
+  // 圈出 N 段: what the search found, the same N as the title (the cards taken out included)
+  const evidence = (dm ? autoSay("as-evidence", { count: dm.toLocaleString(), dur: autoDur(dur), n: h.found }) : autoSay("as-evidence-nodm", { dur: autoDur(dur), n: h.found }))
     + (st.habitUsed ? autoSay("as-evidence-habits", { n: st.keptN, k: st.habitUsed }) : "");
   // v12 (frozen; JJ's visual review): what every card used to repeat is said once — the name hint on the first card, the
   // 估的 note under the first overview, above the first card (also the tooltip of every 估的 tag)
@@ -10707,12 +10722,12 @@ function autoReviewHtml() {
     const start = no + 1, html = autoOverviewHtml(rec, mine, start) + (no === 0 ? note : "") + mine.map((c) => autoCardHtml(c, no++)).join("");
     return html;
   }).join("");
-  return `<div class="as-row"><div><h1>${head}</h1><p class="as-sub">${autoSay(found ? "as-review-sub" : "as-found-none-next", { name: names })}</p></div>
+  return `<div class="as-row"><div><h1>${head}</h1><p class="as-sub">${allOut ? autoSay("as-all-out-sub", { n: st.dropped.length }) : autoSay(found ? "as-review-sub" : "as-found-none-next", { name: names })}</p></div>
       <button type="button" class="btn" data-as-act="back-start">${autoSay("as-back-start")}</button></div>
-    <div class="as-evidence${dm ? "" : " warn"}">${evidence}</div>
+    ${allOut ? "" : `<div class="as-evidence${dm ? "" : " warn"}">${evidence}</div>`}
     ${st.ask ? `<section class="as-askline" data-as-ask><b>${autoSay("as-ask-title")}</b><span class="as-small as-askwhy">${autoSay("as-ask-sub")}</span>
       <div class="as-seg"><button type="button" data-as-act="ask" data-as-v="sing">${autoSay("as-ask-sing")}</button><button type="button" data-as-act="ask" data-as-v="chat">${autoSay("as-ask-chat")}</button><button type="button" data-as-act="ask" data-as-v="auto">${autoSay("as-ask-both")}</button></div></section>` : ""}
-    ${st.few ? `<section class="as-card-box"><b>${autoSay("as-few", st.few)}</b><p class="as-small">${autoSay("as-few-sub", { signals: uiText(dm ? "own.as-sig-both" : "own.as-sig-sound") })}</p></section>` : ""}
+    ${st.few && !allOut ? `<section class="as-card-box as-few"><b>${autoSay("as-few", st.few)}</b><p class="as-small">${autoSay("as-few-sub", { signals: uiText(dm ? "own.as-sig-both" : "own.as-sig-sound") })}</p></section>` : ""}
     <div data-as-cards>${cards}</div>
     ${st.dropped.length ? `<details class="as-more"><summary>${autoSay("as-dropped", { n: st.dropped.length })}</summary>
       ${st.dropped.map((c) => `<div class="as-row as-dropped"><span>${escapeHtml(autoName(c))}</span><button type="button" class="btn tiny" data-as-act="put-back" data-as-id="${escapeHtml(c.id)}">${autoSay("as-put-back")}</button></div>`).join("")}</details>` : ""}
@@ -10724,10 +10739,11 @@ function autoOverviewHtml(rec, clips, startNo) {
   const ticks = o.ticks.map((t) => `<line class="as-ov-tick" x1="${(t / L * 1000).toFixed(1)}" y1="0" x2="${(t / L * 1000).toFixed(1)}" y2="100"/>`).join("");
   const boxes = o.boxes.map((b) => `<g class="as-ov-box${b.on ? " on" : ""}" data-as-act="focus" data-as-id="${escapeHtml(b.id)}"><rect x="${b.x}" y="2" width="${b.w}" height="96" rx="2"/><text x="${(b.x + b.w / 2).toFixed(1)}" y="13" text-anchor="middle">${b.no}</text></g>`).join("");
   const m = autoMedia(rec.mediaId);
-  return `<div class="as-ov"><div class="as-ov-head"><b>${autoSay("as-overview")}</b> <span class="as-small">${escapeHtml(m ? m.name : "")} · ${autoSay("as-overview-hint")}</span></div>
+  const st = autoState(), open = st.ovOpen != null ? st.ovOpen : window.innerWidth > 700;
+  return `<details class="as-ov" data-as-ov${open ? " open" : ""}><summary class="as-ov-head"><b>${autoSay("as-overview")}</b> <span class="as-small">${escapeHtml(m ? m.name : "")} · ${autoSay("as-overview-hint")}</span></summary>
     <svg viewBox="0 0 1000 100" preserveAspectRatio="none" class="as-ov-svg" role="img" aria-label="${autoSay("as-overview")}">${ticks}${area}${boxes}</svg>
     <div class="as-ov-axis">${o.ticks.map((t) => `<span style="left:${(t / L * 100).toFixed(2)}%">${escapeHtml(MontClipAutoSlices.hms(t))}</span>`).join("")}</div>
-    <div class="as-small as-ov-legend"><span><i class="as-lg-loud"></i>${autoSay("as-lg-sound")}</span><span><i class="as-lg-on"></i>${autoSay("as-lg-on")}</span><span><i class="as-lg-off"></i>${autoSay("as-lg-off")}</span></div></div>`;
+    <div class="as-small as-ov-legend"><span><i class="as-lg-loud"></i>${autoSay("as-lg-sound")}</span><span><i class="as-lg-on"></i>${autoSay("as-lg-on")}</span><span><i class="as-lg-off"></i>${autoSay("as-lg-off")}</span></div></details>`;
 }
 function autoWave(c, w) {
   const rec = autoRec(c.mediaId), l = rec && rec.loudness, t = w === "s" ? c.s : c.e;
@@ -10826,7 +10842,7 @@ async function autoApplyKept(cards, recs) {
   for (const c of out) if (c.was) { c.found = { s0: c.s0, e0: c.e0 }; if (Number.isFinite(c.s0)) c.s0 = c.s; if (Number.isFinite(c.e0)) c.e0 = c.e; }
   // a part marked 不是唱歌 comes back as the streamer's kind, at their start and end: their change (你改的), with its reason
   // a card added with 补一段 back in the same recording: ticked, its name if the page still has it
-  for (const c of out) if (c.added && c.keptId) { c.on = true; c.reasons = []; if (KEPT.names.has(c.keptId)) c.title = KEPT.names.get(c.keptId); }
+  for (const c of out) if (c.added && c.keptId) { c.on = true; c.picked = true; c.reasons = []; if (KEPT.names.has(c.keptId)) c.title = KEPT.names.get(c.keptId); }
   for (const c of out) if (c.changedFrom) { c.kindBy = true; if (Number.isFinite(c.s0)) c.s0 = c.s; if (Number.isFinite(c.e0)) c.e0 = c.e; }
   st.habitUsed = out.filter((c) => c.was).length; st.keptN = kept.length; st.habitRules = rules;
   return out;
@@ -10922,11 +10938,16 @@ function autoLearnLineHtml() {
 }
 /** 〔打开〕 on the line (JJ's (b), Deja 2026-11-03): the page's own switch, on at once; one undo step (〔撤销〕 or Ctrl+Z)
  *  turns it off again. Nothing changed while it was off is kept afterwards. The page follows if it is open. */
+/** 设置 › 自动出切片: 开着 / 关着 beside 〔记住我的剪辑习惯〕, as the switch is (VV on #90 b76bbe3). */
+function autoLearnStateShow() {
+  const el = document.querySelector("#setSlices [data-learn-state]");
+  if (el) el.textContent = KEPT.on === false ? uiText("own.as-learn-state-off") : uiText("own.as-learn-state-on");
+}
 function autoLearnSet(on) {
   const s = autoStore();
   if (!s) return false;
   try { s.setEnabled(on); } catch { return false; }
-  KEPT.on = on;
+  KEPT.on = on; autoLearnStateShow();
   if (document.querySelector("dialog.as-learn[open]")) autoLearnOpen();
   return true;
 }
@@ -10974,13 +10995,13 @@ async function autoLearnOpen(confirm = false) {
   const s = autoStore();
   if (!s) return;
   let now; try { now = await s.status(); } catch { return; }
-  KEPT.on = now.enabled;
+  KEPT.on = now.enabled; autoLearnStateShow();
   let d = document.querySelector("dialog.as-learn");
   if (!d) {
     d = document.createElement("dialog"); d.className = "as-learn"; document.body.append(d);
     d.addEventListener("change", async (e) => {
       if (!e.target.matches("[data-learn-switch]")) return;
-      const on = e.target.checked; await s.setEnabled(on); KEPT.on = on;
+      const on = e.target.checked; await s.setEnabled(on); KEPT.on = on; autoLearnStateShow();
       toast(uiText(on ? "own.as-learn-turned-on" : "own.as-learn-turned-off")); autoLearnRefresh();
     });
     d.addEventListener("click", async (e) => {
@@ -11001,18 +11022,30 @@ async function autoLearnOpen(confirm = false) {
 }
 function autoLearnRefresh() { if (AUTO.el && AUTO.el.open && autoState().step === "review") autoRender("review"); }
 { const box = $("setSlices"), b = box && box.querySelector("[data-learn-open]");
-  if (box && autoStore()) { box.classList.remove("hidden"); b.addEventListener("click", () => autoLearnOpen()); } }
+  if (box && autoStore()) {
+    box.classList.remove("hidden"); b.addEventListener("click", () => autoLearnOpen());
+    try { KEPT.on = !!autoStore().status().enabled; } catch { }
+    autoLearnStateShow();
+    $("btnSettings")?.addEventListener("click", autoLearnStateShow);   // in the language shown now
+  } }
 /* ── end 记住我的剪辑习惯 ── */
 function autoFooter() {
   const st = autoState(), f = AUTO.el && AUTO.el.querySelector("[data-as-footer]");
   if (!f) return;
   f.hidden = st.step !== "review";
   if (f.hidden) return;
-  const t = MontClipAutoSlices.totals(st.clips);
-  f.innerHTML = `<span class="as-sum"><b>${autoSay("as-sum-n", { n: t.n })}</b> <span class="as-muted">${t.n ? autoSay("as-sum-total", { total: autoDur(t.seconds) }) : autoSay("as-sum-none")}</span></span>
+  const t = MontClipAutoSlices.totals(st.clips), h = MontClipAutoSlices.reviewHead(st.clips, st.dropped);
+  // nothing to put out: the buttons keep their words with 0 (grey), the reason on the left (JJ); a narrow window shows
+  // one line — the short words, and no summary when there is something (the title says how many; v12)
+  const why = !t.n && h.key === "all-out" ? autoSay("as-foot-all-out") : !t.n && h.key === "none-ticked" ? autoSay("as-foot-none-ticked") : "";
+  const sum = why ? `<span class="as-sum">${why}</span>`
+    : `<span class="as-sum${t.n ? " as-sum-some" : ""}"><b>${autoSay("as-sum-n", { n: t.n })}</b> <span class="as-muted">${t.n ? autoSay("as-sum-total", { total: autoDur(t.seconds) }) : autoSay("as-sum-none")}</span></span>`;
+  // the short words are the button's ::after on a narrow window (so its text stays the long words, for readers and tests)
+  const words = (k, n) => `<span class="as-long">${autoSay(k, { n })}</span>`, short = (k, n) => ` data-short="${escapeHtml(uiText("own." + k + "-short", { n }))}"`;
+  f.innerHTML = `${sum}
     <span class="as-spacer"></span>
-    <button type="button" class="btn primary" data-as-act="place" title="${autoSay("as-place-title")}"${t.n ? "" : " disabled"}>${t.n ? autoSay("as-place", { n: t.n }) : autoSay("as-tick-first")}</button>
-    <button type="button" class="btn" data-as-act="export"${t.n ? "" : " disabled"}>${t.n ? autoSay("as-export", { n: t.n }) : autoSay("as-tick-first")}</button>`;
+    <button type="button" class="btn primary" data-as-act="place" title="${autoSay("as-place-title")}"${short("as-place", t.n)}${t.n ? "" : " disabled"}>${words("as-place", t.n)}</button>
+    <button type="button" class="btn" data-as-act="export"${short("as-export", t.n)}${t.n ? "" : " disabled"}>${words("as-export", t.n)}</button>`;
 }
 /* the dialog's own undo: card edits (tick, move, rename, take out) — not the timeline's */
 function autoSnap(extra) {
