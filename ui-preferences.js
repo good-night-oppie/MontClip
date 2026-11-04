@@ -184,6 +184,10 @@
     "asr-go-install": ["Install", "去装"],
     "tr-missing": ["No transcript yet: {names}", "还没有文稿：{names}"],
     "tr-more": [" +{n} more", " 等 {n} 个"],
+    // a transcription with parts the engine could not read (asr-local.js gaps). Placeholder words: JJ words them
+    "tr-gaps-toast": ["Only partly transcribed: {n} part(s) could not be transcribed ({dur} in all) and have no subtitles. Jump to each from the Transcript panel.", "只听写出了一部分：有 {n} 段没听写出来（共 {dur}），这几段没有字幕。在文稿面板里可以跳到每一段去看。"],
+    "tr-gaps-note": ["{n} part(s) could not be transcribed ({dur} in all) and have no subtitles:", "有 {n} 段没听写出来（共 {dur}），这几段没有字幕："],
+    "tr-gaps-more": ["and {more} more", "还有 {more} 段"],
     "loading": ["Loading…", "加载中…"],
     "tr-no-words": ["No words in these clips.", "这些片段里没有听写出文字。"],
     "tr-module-missing": ["The transcript feature didn't load. Close MontClip and open it again.", "文稿功能没加载出来。请关掉 MontClip 再重新打开。"],

@@ -9718,7 +9718,9 @@ async function transcribeSrcs(srcs, opts = transcribeSettings(), beat = null) {
       busy.beat();
       try {
         const r = await transcribeFile(srcs[i]);
-        out.done.push({ src: srcs[i], words: r.doc.words.length, language: r.doc.language, saved: r.saved });
+        const gaps = r.doc.gaps || [];
+        out.done.push({ src: srcs[i], words: r.doc.words.length, language: r.doc.language, saved: r.saved,
+          status: gaps.length ? "partial" : "complete", gaps: gaps.length, gapSeconds: Math.round(gaps.reduce((t, g) => t + g[1] - g[0], 0) * 10) / 10 });
       } catch (e) {
         if (busy.cancel || e.code === "ASR_CANCELLED") { out.cancelled = true; break; }
         out.failed.push({ src: srcs[i], error: String((e && e.message) || e), code: e.code || null });
@@ -9915,6 +9917,35 @@ function buildTranscriptPage() {
   });
   trState.built = true;
 }
+/** "31 秒" / "2 分 05 秒" for the length of the gaps. */
+function trGapDur(s) {
+  const zh = mcView.get().language === "zh-CN", t = Math.round(s);
+  if (t < 60) return zh ? `${t} 秒` : `${t} s`;
+  const m = Math.floor(t / 60), r = String(t % 60).padStart(2, "0");
+  return zh ? `${m} 分 ${r} 秒` : `${m} min ${r} s`;
+}
+/** The parts of the timeline's files the engine could not read (their transcript's gaps), placed on the timeline
+ *  through each clip that plays them: how many, how long, and each one a place to jump to (.tr-tc). They have no words,
+ *  so no subtitles: the note says so rather than leaving them quietly short. */
+function trGapsHtml(groups) {
+  const spots = [];
+  let total = 0;
+  for (const g of groups) {
+    const c = g[0], m = getMedia(c.mediaId), doc = m && transcriptOf(m.src);
+    if (!doc || !Array.isArray(doc.gaps) || !doc.gaps.length) continue;
+    const sp = +(c.props && c.props.speed) > 0 ? +c.props.speed : 1, a = +c.in || 0, b = a + (+c.duration || 0) * sp;
+    for (const [s, e] of doc.gaps) {
+      const from = Math.max(s, a), to = Math.min(e, b);
+      if (to <= from) continue;
+      spots.push({ t: (+c.start || 0) + (from - a) / sp, u: (+c.start || 0) + (to - a) / sp }); total += (to - from) / sp;
+    }
+  }
+  if (!spots.length) return "";
+  spots.sort((x, y) => x.t - y.t);
+  const shown = spots.slice(0, 20).map((x) => `<span class="tr-tc" data-t="${x.t}" title="${escapeHtml(fmt(x.t))}">${escapeHtml(fmt(x.t))}–${escapeHtml(fmt(x.u))}</span>`).join(" ");
+  const more = spots.length > 20 ? " " + escapeHtml(uiText("own.tr-gaps-more", { more: spots.length - 20 })) : "";
+  return `<div class="tr-note tr-gaps" data-tr-gaps>${escapeHtml(uiText("own.tr-gaps-note", { n: spots.length, dur: trGapDur(total) }))} ${shown}${more}</div>`;
+}
 function renderTranscript(force = false) {
   if (!trState.open || !els.transcriptPage) return;
   if (typeof FableCutTranscribe === "undefined") { els.transcriptPage.innerHTML = `<div class="tr-empty">${uiText("own.tr-module-missing")}</div>`; return; }
@@ -9945,6 +9976,7 @@ function renderTranscript(force = false) {
       const names = missing.slice(0, 6).map(escapeHtml).join(mcView.get().language === "zh-CN" ? "、" : ", ") + (missing.length > 6 ? escapeHtml(uiText("own.tr-more", { n: missing.length - 6 })) : "");
       html += `<div class="tr-note">${escapeHtml(uiText("own.tr-missing", { names: "\u0000" })).replace("\u0000", names)}</div>`;
     }
+    html += trGapsHtml(groups);
     if (!words.length && !missing.length) html += `<div class="tr-empty">${uiText([...transcriptCache.values()].some((v) => v instanceof Promise) ? "own.loading" : "own.tr-no-words")}</div>`;
     for (const s of T.segments(words)) {
       let p = "";
@@ -10051,6 +10083,9 @@ async function transcribeFromTab() {
   try { out = await transcribeSrcs(srcs); } catch (e) { toast(e.message); return; }
   const unsaved = out.done.filter((d) => !d.saved).length;
   const words = out.done.reduce((n, d) => n + d.words, 0);
+  // some parts could not be read: say so (how many, how long, where to find them), never that it is done
+  const gaps = out.done.reduce((n, d) => n + (d.gaps || 0), 0), gapSeconds = out.done.reduce((t, d) => t + (d.gapSeconds || 0), 0);
+  if (gaps && !out.cancelled) { toast(uiText("own.tr-gaps-toast", { n: gaps, dur: trGapDur(gapSeconds) })); return; }
   toast(out.cancelled ? `Stopped — ${out.done.length} file${out.done.length === 1 ? "" : "s"} transcribed`
     : out.failed.length && !out.done.length ? `Couldn't transcribe: ${out.failed[0].error}`
     : `Transcribed ${out.done.length} file${out.done.length === 1 ? "" : "s"}, ${words} words` +

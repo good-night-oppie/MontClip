@@ -4,6 +4,13 @@
    times, and the CT-Transformer model adds punctuation when it is installed. The sound streams through, so a
    three-hour recording never sits in memory whole. Nothing here touches the network.
 
+   One segment the engine cannot read never fails the recording (Deja, 2026-11-03, from Rea on #93: one of 1485
+   segments of a 3.8-hour stream made sherpa-onnx throw basic_string::_S_create, and the whole transcription failed).
+   A failing segment is tried again as its two halves, once; a part that still fails is a gap {start, end, reason}
+   and the transcription goes on. The result is complete, partial (with gaps), or failed (ASR_FAILED: nothing at all
+   could be read). Why that segment fails is not known yet; if it turns out to be its length, the VAD gets a shorter
+   longest segment.
+
    asrDir   the engine and the VAD (resources/asr in the package, vendor/asr in a checkout):
               engine/node_modules/sherpa-onnx-node, engine/node_modules/sherpa-onnx-<platform>-<arch>, silero_vad.onnx,
               models/ (the 完整版 package's models, or a checkout's)
@@ -19,12 +26,42 @@ const RATE = 16000, WINDOW = 512;
 /** The VAD as measured on europa (RESULT.md §1): segments of at most 20 s. */
 const VAD = { threshold: 0.5, minSpeechDuration: 0.25, minSilenceDuration: 0.5, maxSpeechDuration: 20, windowSize: WINDOW };
 
-function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store } = {}) {
+/** One VAD segment's words: decoded whole; if the engine throws, its two halves once each (with at least MIN_PART s of
+ *  sound each). A part that cannot be read is a gap {start, end, reason}. → {words, gaps, read} (read: any part read). */
+const MIN_PART = 0.25;
+async function segmentWords(r, audio, start, p) {
+  const words = [], gaps = [];
+  let read = false;
+  const one = async (part, at) => {
+    const s = r.createStream();
+    s.acceptWaveform({ sampleRate: RATE, samples: part });
+    const res = await r.decodeAsync(s);
+    let ws = W.words(res, { offset: at, end: at + part.length / RATE });
+    if (p && ws.length) { try { ws = W.punctuate(ws, p.addPunct(W.plain(ws))); } catch { } }
+    words.push(...ws); read = true;
+  };
+  const why = (e) => String((e && e.message) || e || "error").slice(0, 200);
+  const gap = (n, at, e) => gaps.push({ start: r3(at), end: r3(at + n / RATE), reason: why(e) });
+  try { await one(audio, start); }
+  catch (e) {
+    const half = Math.floor(audio.length / 2);
+    if (half < MIN_PART * RATE) gap(audio.length, start, e);
+    else for (const [from, to] of [[0, half], [half, audio.length]]) {
+      const at = start + from / RATE;
+      try { await one(audio.subarray(from, to), at); } catch (e2) { gap(to - from, at, e2); }
+    }
+  }
+  return { words, gaps, read };
+}
+const r3 = (x) => Math.round(x * 1000) / 1000;
+
+function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engineModule = null } = {}) {
   asrDir = path.resolve(asrDir); if (modelsDir) modelsDir = path.resolve(modelsDir);
   store = store || createStore({ roots: [path.join(asrDir, "models")], userDir: modelsDir });
   const engineDir = path.join(asrDir, "engine", "node_modules", "sherpa-onnx-node");
   const vadFile = path.join(asrDir, manifest.engine.vad.file);
-  let sherpa = null, rec = null, recDir = null, punct = null, punctDir = null, idle = 0;
+  // sherpa: the engine module itself (tests give a stand-in; otherwise it is loaded from engineDir)
+  let sherpa = engineModule, rec = null, recDir = null, punct = null, punctDir = null, idle = 0;
 
   function status() {
     let vadOk = false;
@@ -75,18 +112,15 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store } = {}) {
     const stop = () => { try { proc.kill(); } catch { } };
     if (signal) { if (signal.aborted) stop(); else signal.addEventListener("abort", stop, { once: true }); }
 
-    const words = [];
-    let samples = 0, speech = 0, segments = 0, carry = null, pending = new Float32Array(0);
+    const words = [], gaps = [];
+    let samples = 0, speech = 0, segments = 0, read = 0, carry = null, pending = new Float32Array(0);
     const decodeReady = async () => {
       while (!vad.isEmpty()) {
         const seg = vad.front(false), start = seg.start / RATE, audio = Float32Array.from(seg.samples);
         vad.pop();
-        const s = r.createStream();
-        s.acceptWaveform({ sampleRate: RATE, samples: audio });
-        const res = await r.decodeAsync(s);
-        let ws = W.words(res, { offset: start, end: start + audio.length / RATE });
-        if (p && ws.length) { try { ws = W.punctuate(ws, p.addPunct(W.plain(ws))); } catch { } }
-        words.push(...ws);
+        const one = await segmentWords(r, audio, start, p);
+        words.push(...one.words); gaps.push(...one.gaps);
+        if (one.read) read++;
         speech += audio.length / RATE; segments++;
       }
     };
@@ -113,11 +147,13 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store } = {}) {
       vad.flush();
       await decodeReady();
     } finally { stop(); rest(); }
-    words.sort((x, y) => x[1] - y[1]);
-    return { words, duration: samples / RATE, speech, segments, model: manifest.models.asr.id, language: "zh", punctuated: !!p };
+    words.sort((x, y) => x[1] - y[1]); gaps.sort((x, y) => x.start - y.start);
+    // nothing at all could be read: failed, not a transcript of silence
+    if (gaps.length && !read) throw Object.assign(new Error("no segment of the sound could be transcribed: " + gaps[0].reason), { code: "ASR_FAILED", gaps });
+    return { status: gaps.length ? "partial" : "complete", gaps, words, duration: samples / RATE, speech, segments, model: manifest.models.asr.id, language: "zh", punctuated: !!p };
   }
 
   return { status, transcribe, store };
 }
 
-module.exports = { createAsr, VAD };
+module.exports = { createAsr, VAD, segmentWords };
