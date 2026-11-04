@@ -22937,7 +22937,8 @@ async function onAgentReply(result){
  if(d.action==='list'){toast(uiText('own.ap-listed'));return;}
  if(d.action==='refuse'){toast(agentRefusalText(d));return;}
  let step;try{step=agentProposalStep(response,result);}catch(error){toast(uiText(error.message==='STALE'?'own.ap-stale':'own.ap-invalid'));return;}
- // asked: the streamer said yes in the approval box, so the toast must not say it ran without asking (QQ, 2026-11-04)
+ // the toast after applying says why it ran (JJ's words, 2026-11-04): asked now and approved; allowed earlier for this chat
+ // (d.byApproval, 「这个聊天中都批准」); or run by 自动 / Yolo without asking
  const asked=d.action==='ask';
  if(asked){
   const choice=await askAgentApproval(d,{summary:agentProposalText(result),detail:MontClipPlan.stepDetail({capability:response.type,args:response},mcView.get().language)});
@@ -22956,7 +22957,7 @@ async function onAgentReply(result){
  let plan;try{plan=MontClipRangePlan.create(projectJSON(),proposal.keep);plan.keep=proposal.keep;}catch{if(ev)moveEvent(ev.id,'failed');toast(uiText('own.ap-invalid'));return;}
  const token=commitRangePlan(plan,proposal);
  officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});
- toastAction(asked?uiText('own.ap-applied-approved'):uiText('own.ap-applied',{mode:MontClipPolicy.modeLabel(agentPolicy.mode,mcView.get().language)}),uiText('own.ap-undo'),()=>{if(canUndoOfficialProposal(result)){if(!ev||!undoEvent(ev.id).ok)undo();}});
+ toastAction(asked?uiText('own.ap-applied-approved'):d.byApproval?uiText('own.ap-applied-allowed'):uiText('own.ap-applied',{mode:MontClipPolicy.modeLabel(agentPolicy.mode,mcView.get().language)}),uiText('own.ap-undo'),()=>{if(canUndoOfficialProposal(result)){if(!ev||!undoEvent(ev.id).ok)undo();}});
  mcAgent.render();
 }
 /* P4, second half: the AI's plan (agent-plan.js). A reply that is a plan shows as a list in the assistant; the streamer can
