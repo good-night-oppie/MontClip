@@ -21,6 +21,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `auto-slices-smoke.cjs` | `AUTO_SLICES_PASS` | 在用 |
 | `av-sync-smoke.cjs` | `AV_SYNC_PASS` | 在用；需要 `MONTCLIP_AV_INPUT` 指向一段闪光加蜂鸣的测试视频 |
 | `caption-quick-smoke.cjs` | `CAPTION_QUICK_PASS` | 在用 |
+| `card-lyrics-smoke.cjs` | `CARD_LYRICS_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `chinese-names-smoke.cjs` | `CN_NAMES_COMPLETE` | 在用 |
 | `corrections-smoke.cjs` | `CORRECTIONS_PASS` | 在用 |
 | `corrections-ui-smoke.cjs` | `CORRECTIONS_UI_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |

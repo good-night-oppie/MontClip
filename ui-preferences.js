@@ -357,6 +357,12 @@
     "as-tag-estimated": ["Estimated", "估的"],
     "as-tag-likely": ["Fairly likely", "比较可能"],
     "as-tag-adjusted": ["You adjusted it", "你调过"],
+    // the card's button once calibrated (v12's words; a placeholder key until JJ words it)
+    // the tooltip of 〔再对一遍歌词〕 once calibrated (JJ's words, on #100)
+    "as-lyrics-again-title": ["{n} subtitle lines were corrected from the lyrics. Click again to check them against the lyrics you pasted last time; one Undo takes you back to before.", "字幕已按歌词改过 {n} 句。再点一次会带上你上次贴的歌词，可以再对一遍；想回到改之前，撤销一步就行。"],
+    "as-lyrics-again": ["Match the lyrics again ({n} changed)", "再对一遍歌词（已改 {n} 句）"],
+    // the card calibrated: nothing on the timeline yet (JJ's words, on #100)
+    "as-lyrics-done": ["Corrected {n} lines from the lyrics. Once this part is on the timeline, these subtitles are used.", "已按歌词改好 {n} 句。放到时间线上以后，用的就是改好的字幕。"],
     "as-lyrics": ["Correct the subtitles from the lyrics", "按歌词校准字幕"],
     "as-lyrics-maybe": ["If this part is singing, you can correct its subtitles from the lyrics", "如果这段是唱歌，可以按歌词校准字幕"],
     // P6a: correct captions from the lyrics. New copy, for JJ.

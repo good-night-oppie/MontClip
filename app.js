@@ -7075,6 +7075,34 @@ function openLyricsAlign() {
   if (!t.words.length) { toast(uiText("own.ly-no-words")); return; }
   if (t.clips.some(isClipLocked)) { toastLocked(); return; }
   const signature = JSON.stringify(projectJSON());
+  lyricsDialog({ words: t.words, caps: t.caps, stale: () => JSON.stringify(projectJSON()) !== signature, onApply: (p) => {
+    // only the picked captions that get new ones are replaced; each new caption takes the track, style, size and place of
+    // the caption it lies in
+    const C = FableCutCaptions, was = new Map(t.clips.map((c) => [c.id, c]));
+    const snap = undoSnapshot();
+    const gone = new Set(p.replace);
+    project.clips = project.clips.filter((c) => !gone.has(c.id));
+    for (const id of gone) state.selIds.delete(id);
+    if (gone.has(state.selId)) state.selId = [...state.selIds].pop() ?? null;
+    for (const q of p.cues) {
+      const old = was.get(q.capId), style = old.props?.captionStyle || C.DEFAULT_STYLE;
+      const clip = { ...C.clip(q, { style, width: project.width, height: project.height, track: old.track }), id: "c_" + uid() };
+      // the size and place the streamer gave these captions stay
+      if (Number.isFinite(old.props?.fontSize)) clip.props.fontSize = old.props.fontSize;
+      if (Number.isFinite(old.props?.y)) clip.props.y = old.props.y;
+      project.clips.push(clip);
+    }
+    pushUndo(snap);
+    const depth = runtime.undo.length, n = p.cues.filter((q) => q.lyrics).length;
+    state.dirtyTimeline = true; scheduleSave(); renderTranscript(true); renderInspector(); drawFrame();
+    toastAction(uiText("own.ly-done", { n }), uiText("own.as-undo"), () => { if (runtime.undo.length === depth) undo(); });
+  } });
+}
+/** The lyrics dialog, shared by the Transcript tab (openLyricsAlign) and a 自动出切片 card (autoLyricsOpen): words and
+ *  caps as MontClipLyrics.scope gives them; stale() says the target changed since it opened (then nothing is applied);
+ *  onApply(plan) makes the change. Nothing changes before 〔应用勾选的〕 / 〔全部应用〕. */
+function lyricsDialog({ words, caps, stale, onApply, text = "" }) {
+  const t = { words, caps };
   const say = (k, v) => escapeHtml(uiText("own." + k, v));
   const dialog = document.createElement("dialog");
   dialog.className = "ly-dialog"; dialog.setAttribute("data-ly-dialog", "");
@@ -7121,34 +7149,17 @@ function openLyricsAlign() {
   const apply = (picked) => {
     if (!result || !picked.length) return;
     // the CAS: nothing changed since this window opened
-    if (JSON.stringify(projectJSON()) !== signature) { summary.textContent = uiText("own.ly-changed"); return; }
-    // only the picked captions that get new ones are replaced; each new caption takes the track, style, size and place of
-    // the caption it lies in
+    if (stale()) { summary.textContent = uiText("own.ly-changed"); return; }
     const p = MontClipLyrics.plan(result, picked, t.caps);
     if (!p.cues.length) return;
-    const C = FableCutCaptions, was = new Map(t.clips.map((c) => [c.id, c]));
-    const snap = undoSnapshot();
-    const gone = new Set(p.replace);
-    project.clips = project.clips.filter((c) => !gone.has(c.id));
-    for (const id of gone) state.selIds.delete(id);
-    if (gone.has(state.selId)) state.selId = [...state.selIds].pop() ?? null;
-    for (const q of p.cues) {
-      const old = was.get(q.capId), style = old.props?.captionStyle || C.DEFAULT_STYLE;
-      const clip = { ...C.clip(q, { style, width: project.width, height: project.height, track: old.track }), id: "c_" + uid() };
-      // the size and place the streamer gave these captions stay
-      if (Number.isFinite(old.props?.fontSize)) clip.props.fontSize = old.props.fontSize;
-      if (Number.isFinite(old.props?.y)) clip.props.y = old.props.y;
-      project.clips.push(clip);
-    }
-    pushUndo(snap);
-    const depth = runtime.undo.length, n = p.cues.filter((q) => q.lyrics).length;
-    state.dirtyTimeline = true; scheduleSave(); renderTranscript(true); renderInspector(); drawFrame();
+    const pasted = dialog.querySelector("[data-ly-text]").value;
     dialog.close();
-    toastAction(uiText("own.ly-done", { n }), uiText("own.as-undo"), () => { if (runtime.undo.length === depth) undo(); });
+    onApply(p, pasted);
   };
   dialog.querySelector("[data-ly-apply]").addEventListener("click", () => apply(ticked()));
   dialog.querySelector("[data-ly-apply-all]").addEventListener("click", () => apply(allSure()));
   dialog.addEventListener("close", () => dialog.remove());
+  if (text) dialog.querySelector("[data-ly-text]").value = text;
   document.body.append(dialog); dialog.showModal(); dialog.querySelector("[data-ly-text]").focus();
 }
 function captionQuickHtml(scope) {
@@ -9947,6 +9958,11 @@ function buildTranscriptPage() {
     placeCaptions(FableCutCaptions.fit(list, m.chars, m.lines), st, `from ${f.name}`);
   });
   q("[data-tr-cut-sel]").addEventListener("click", cutTranscriptSelection);
+  // a gap's time (trGapsHtml): click or Enter
+  E.body.addEventListener("click", (e) => {
+    const gap = e.target.closest(".tr-gap-go");
+    if (gap) goToTranscriptTime(+gap.dataset.t);
+  });
   E.body.addEventListener("mousedown", (e) => {
     const tc = e.target.closest(".tr-tc");
     if (tc) { goToTranscriptTime(+tc.dataset.t); return; }
@@ -10010,7 +10026,9 @@ function trGapsHtml(groups) {
   }
   if (!spots.length) return "";
   spots.sort((x, y) => x.t - y.t);
-  const shown = spots.slice(0, 20).map((x) => `<span class="tr-tc" data-t="${x.t}" title="${escapeHtml(fmt(x.t))}">${escapeHtml(fmt(x.t))}–${escapeHtml(fmt(x.u))}</span>`).join(" ");
+  // the 自动出切片 cards' time format (0:15–0:22), not the tab's frame timecode, which reads as minutes; a button each, so Tab
+  // reaches it and Enter goes there (VV on #95 d95ab21)
+  const shown = spots.slice(0, 20).map((x) => `<button type="button" class="tr-gap-go" data-t="${x.t}">${escapeHtml(MontClipAutoSlices.hms(x.t))}–${escapeHtml(MontClipAutoSlices.hms(x.u))}</button>`).join(" ");
   const more = spots.length > 20 ? " " + escapeHtml(uiText("own.tr-gaps-more", { more: spots.length - 20 })) : "";
   return `<div class="tr-note tr-gaps" data-tr-gaps>${escapeHtml(uiText("own.tr-gaps-note", { n: spots.length, dur: trGapDur(total) }))} ${shown}${more}</div>`;
 }
@@ -10426,15 +10444,19 @@ function autoSubCount(c) {
 /** Captions over the placed slices only (the timeline words of the placed clips), in the caller's undo step; captions
  *  elsewhere stay. Returns how many were added. */
 function autoPlaceCaptions(placed, at0, end) {
-  const C = FableCutCaptions, T = FableCutTranscribe, entries = [];
+  const C = FableCutCaptions, T = FableCutTranscribe, entries = [], sung = [];
   for (const p of placed) {
     const clip = p.clip && getClip(p.clip), m = clip && getMedia(clip.mediaId), d = m && transcriptOf(m.src);
+    // a card calibrated from the lyrics: its lines, on the timeline with its clip and inside it (auto-slices.js lyricCuesOn)
+    const card = p.card && autoClip(p.card);
+    if (clip && card && Array.isArray(card.lyricCues)) { sung.push(...MontClipAutoSlices.lyricCuesOn(card.lyricCues, clip)); continue; }
     if (d) entries.push({ clip, words: d.words });
   }
   const words = T.layout(entries).filter((w) => w.s >= at0 - 1e-6 && w.e <= end + 1e-6);
-  if (!words.length) return 0;
+  if (!words.length && !sung.length) return 0;
   const style = (typeof transcribeSettings === "function" && transcribeSettings().captionStyle) || C.DEFAULT_STYLE, mt = C.metrics(style, project.width, project.height);
-  const cues = C.cues(words, { chars: mt.chars, lines: mt.lines, words: mt.words, maxDur: mt.maxDur, fps: projectFps() }).filter((q) => q.start >= at0 - 1e-6);
+  const cues = (words.length ? C.cues(words, { chars: mt.chars, lines: mt.lines, words: mt.words, maxDur: mt.maxDur, fps: projectFps() }).filter((q) => q.start >= at0 - 1e-6) : [])
+    .concat(sung).sort((x, y) => x.start - y.start);
   if (!cues.length) return 0;
   const lane = C.trackFor({ ...project, tracks: serializeTracks() }, at0, end);
   let track = lane.track;
@@ -10744,10 +10766,41 @@ function autoEdgeHtml(c, w) {
     <div class="as-nudges">${nb(-5)}${nb(-1)}${nb(1)}${nb(5)}<button type="button" class="btn tiny" data-as-act="listen" data-as-w="${w}">${autoSay("as-listen-" + lbl)}</button></div></div>
     <div class="as-strip" data-as-act="drag" data-as-w="${w}" title="${autoSay("as-drag-" + lbl)}">${autoWave(c, w)}<i class="as-hand"></i><span class="as-strip-l">${autoSay("as-early")}</span><span class="as-strip-r">${autoSay("as-late")}</span></div></div>`;
 }
-/** Can a card calibrate its subtitles from the lyrics? Not yet: the Transcript tab can (#85), the card is not wired to it.
- *  Until then the card shows no such button at all — never a disabled one that looks pressable (VV / Deja, 2026-11-03). */
-function autoLyricsAvailable() {
-  return false;
+/** Can this card calibrate its subtitles from the lyrics? A song card whose part of the recording has transcript words
+ *  (docs/decisions/2026-11-03-card-lyrics.md). Otherwise it shows no such button at all — never a disabled one that looks
+ *  pressable (VV / Deja, 2026-11-03). */
+function autoLyricWords(c) {
+  const m = autoMedia(c.mediaId), d = m && typeof transcriptOf === "function" ? transcriptOf(m.src) : null;
+  return d ? MontClipAutoSlices.lyricScope(d.words, c).words : [];
+}
+/** After calibrating, or undoing it (VV on #100): the card in view and flashed (#89's autoFocusCard), and the focus on its own
+ *  lyrics button — inside the dialog, so Ctrl+Z reaches the dialog and never the timeline behind it. */
+function autoLyricFocus(id) {
+  autoFocusCard(id);
+  const b = AUTO.el && AUTO.el.querySelector(`[data-as-card="${CSS.escape(id)}"] [data-as-act="lyrics"]`);
+  if (b) b.focus({ preventScroll: true });
+}
+function autoLyricsAvailable(c) {
+  return !!c && c.kind === "song" && autoLyricWords(c).length > 0;
+}
+/** 〔按歌词校准字幕〕 on a card: the lyrics dialog over the part of the recording the card covers; applied, the lines are
+ *  kept on the card (c.lyricCues, recording seconds — in this window only, like the card) in one step that 〔撤销〕 / Ctrl+Z
+ *  takes back, and they are the captions of the card when it is placed (autoPlaceCaptions). The timeline does not change.
+ *  The lyrics pasted are kept on the card too (c.lyricText, this window only: never in the project file, a record or
+ *  anything sent), so 〔再对一遍歌词〕 opens with them (VV on #100). */
+function autoLyricsOpen(c) {
+  const sc = MontClipAutoSlices.lyricScope(autoLyricWords(c), c);
+  if (!sc.words.length) { autoToast(uiText("own.ly-no-words"), false); return; }
+  const at = JSON.stringify([c.id, c.s, c.e]);
+  lyricsDialog({ words: sc.words, caps: sc.caps, text: c.lyricText || "", stale: () => { const x = autoClip(c.id); return !x || JSON.stringify([x.id, x.s, x.e]) !== at; }, onApply: (p, text) => {
+    const card = autoClip(c.id);
+    if (!card) return;
+    autoSnap();
+    card.lyricCues = p.cues.map(({ start, end, text, words, lyrics }) => ({ start, end, text, words, lyrics }));
+    card.lyricN = p.cues.filter((q) => q.lyrics).length;
+    card.lyricText = text;
+    autoRender("review"); autoLyricFocus(card.id); autoToast(uiText("own.as-lyrics-done", { n: card.lyricN }));
+  } });
 }
 function autoCardHtml(c, i) {
   const song = c.kind === "song", why = MontClipAutoSlices.cardReasons(c).map((r) => highlightReasonText(r).text).join(" · ");
@@ -10762,7 +10815,7 @@ function autoCardHtml(c, i) {
     ${c.on ? `<div class="as-trim">${autoEdgeHtml(c, "s")}${autoEdgeHtml(c, "e")}</div>` : `<p class="as-small">${autoSay("as-tick-to-adjust")}</p>`}
     <div class="as-actions"><button type="button" class="btn tiny as-play" data-as-act="play">${autoSay("as-play")}</button>
       <button type="button" class="btn tiny" data-as-act="fine">${autoSay("as-fine")}</button>
-      ${song && autoLyricsAvailable() ? `<button type="button" class="btn tiny" data-as-lyrics${subs ? " data-as-sub-line" : ""} title="${[subs, autoSongKey("as-lyrics") !== "as-lyrics" ? autoSay(autoSongKey("as-lyrics")) : ""].filter(Boolean).join("\n")}">${autoSay("as-lyrics")}</button>` : ""}
+      ${song && autoLyricsAvailable(c) ? `<button type="button" class="btn tiny" data-as-act="lyrics" data-as-lyrics${subs ? " data-as-sub-line" : ""} title="${c.lyricCues ? autoSay("as-lyrics-again-title", { n: c.lyricN || 0 }) : [subs, autoSongKey("as-lyrics") !== "as-lyrics" ? autoSay(autoSongKey("as-lyrics")) : ""].filter(Boolean).join("\n")}">${c.lyricCues ? autoSay("as-lyrics-again", { n: c.lyricN || 0 }) : autoSay("as-lyrics")}</button>` : ""}
       <button type="button" class="as-drop" data-as-act="drop">${autoSay("as-drop")}</button></div></article>`;
 }
 /* ── 记住我的剪辑习惯 (frozen v12; Deja, 2026-11-03): the streamer's corrections, kept on this computer by the main process
@@ -11002,9 +11055,13 @@ function autoSnap(extra) {
 function autoUndo() {
   const st = autoState();
   if (st.step !== "review" || !st.hist.length) return;
+  const lyr = (cs) => new Map(cs.map((c) => [c.id, JSON.stringify(c.lyricCues || null)]));
+  const was = lyr(st.clips);
   const o = JSON.parse(st.hist.pop()); st.clips = o.clips; st.dropped = o.dropped;
   if (o.learnOn) autoLearnSet(false);   // 〔打开〕 undone: off again
   autoRender("review"); autoToast(uiText("own.as-undone"), false);
+  const back = st.clips.find((c) => was.has(c.id) && was.get(c.id) !== JSON.stringify(c.lyricCues || null));
+  if (back) autoLyricFocus(back.id);
   autoForget(st.histKept.pop());
 }
 let autoToastTimer = null;
@@ -11068,6 +11125,7 @@ function autoClick(e) {
     const rec = autoRec(c.mediaId), where = rec && rec.key ? { rec: rec.key, s: c.s, e: c.e } : {};
     autoRender("review"); autoToastKept(uiText("own.as-dropped-one", { name: autoName(c) }), autoKeep({ type: "remove", kind: c.kind, ...where }, c)); return;
   }
+  if (act === "lyrics") { autoLyricsOpen(c); return; }
   if (act === "fine") { autoPlace(st.clips.filter((x) => x.on || x === c), { select: c, fine: true }); return; }
   if (act === "set-kind") { autoSetKind(c, c.kind === "song" ? "moment" : "song"); return; }
   if (act === "not-now") { autoNotNow(c); return; }
