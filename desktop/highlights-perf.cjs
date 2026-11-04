@@ -19,7 +19,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
    const r=await fetch('/api/media-info?src='+encodeURIComponent('/media/'+${JSON.stringify(name)}));const j=await r.json();return j.info;})()`);
   const duration=Math.round(info.duration);
   await read(`(async()=>{const doc=projectJSON(),D=${duration},sentences=[];
-   for(let t=0;t+5<=D;t+=6)sentences.push(FableCutCaptions.clip({start:t,end:t+5,text:'合成句子'+t},{id:'s'+t,track:'V2',width:1280,height:720}));
+   for(let t=0;t+5<=D;t+=6)sentences.push(MontClipCaptions.clip({start:t,end:t+5,text:'合成句子'+t},{id:'s'+t,track:'V2',width:1280,height:720}));
    Object.assign(doc,{media:[{id:'m',src:'/media/'+${JSON.stringify(name)},kind:'video',name:${JSON.stringify(name)},duration:D,width:160,height:90}],
     clips:[{id:'v',kind:'video',mediaId:'m',track:'V1',start:0,in:0,duration:D,props:{volume:0}},{id:'a',kind:'audio',mediaId:'m',track:'A1',start:0,in:0,duration:D,props:{volume:1}},...sentences]});
    applyProject(doc);scheduleSave();if(!await flushSave())throw Error('save');})()`);

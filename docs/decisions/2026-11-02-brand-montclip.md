@@ -1,5 +1,7 @@
 # ADR 2026-11-02: user-visible product name is MontClip
 
+> 部分被 [2026-11-04-rename-internal-globals.md](2026-11-04-rename-internal-globals.md) 取代（内部全局对象 `FableCutXxx` 已改名 `MontClipXxx`；其余「保留的内部标识符」仍有效）。
+
 Status: proposed (QQ review).
 
 ## Decision

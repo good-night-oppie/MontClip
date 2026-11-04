@@ -43,15 +43,22 @@ const MEASURE = String.raw`(() => {
   return { texts: out, skipped };
 })()`;
 
-async function cdpTarget(port, url) {
-  const deadline = Date.now() + 15000;
+/* The browser picks its own debugging port and writes it to <profile>/DevToolsActivePort once it listens (a random
+   port of ours could be taken). A cold browser on a CI runner can take well over 15 s to get there, and Edge may open
+   its own first-run tab instead of ours, so: wait for the port (up to 60 s), take the first page there, and navigate
+   it to `url` ourselves. */
+async function cdpPage(prof) {
+  const deadline = Date.now() + 60000;
   while (Date.now() < deadline) {
     try {
-      const list = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
-      const page = list.find((t) => t.type === "page" && t.url.startsWith(url.split("?")[0]));
-      if (page) return page.webSocketDebuggerUrl;
+      const port = Number(fs.readFileSync(path.join(prof, "DevToolsActivePort"), "utf8").split(/\r?\n/)[0]);
+      if (port > 0) {
+        const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+        const page = list.find((t) => t.type === "page" && t.webSocketDebuggerUrl);
+        if (page) return page.webSocketDebuggerUrl;
+      }
     } catch { /* not up yet */ }
-    await new Promise((r) => setTimeout(r, 200));
+    await new Promise((r) => setTimeout(r, 250));
   }
   throw new Error("the headless browser did not open the page");
 }
@@ -60,15 +67,16 @@ async function cdpTarget(port, url) {
  *  `states` ({name, run}: an expression that puts the page in that state). → {texts, skipped} | {[name]: {texts, skipped}} */
 async function measureContrast({ browser, url, width = 1280, height = 800, settleMs = 3000, before = "", states = null }) {
   const prof = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-contrast-"));
-  const port = 9200 + Math.floor(Math.random() * 700);
-  const b = spawn(browser, ["--headless=new", "--no-first-run", "--disable-extensions", "--hide-scrollbars", `--user-data-dir=${prof}`,
-    `--remote-debugging-port=${port}`, `--window-size=${width},${height}`, url], { stdio: "ignore" });
+  const b = spawn(browser, ["--headless=new", "--no-first-run", "--no-default-browser-check", "--disable-extensions", "--hide-scrollbars",
+    `--user-data-dir=${prof}`, "--remote-debugging-port=0", `--window-size=${width},${height}`, "about:blank"], { stdio: "ignore" });
   try {
-    const ws = new WebSocket(await cdpTarget(port, url));
+    const ws = new WebSocket(await cdpPage(prof));
     await new Promise((r, j) => { ws.addEventListener("open", r); ws.addEventListener("error", j); });
     let n = 0; const pend = new Map();
     ws.addEventListener("message", (e) => { const m = JSON.parse(e.data); pend.get(m.id)?.(m); });
-    const evaluate = (expression) => new Promise((r) => { const k = ++n; pend.set(k, (m) => r(m.result?.result?.value)); ws.send(JSON.stringify({ id: k, method: "Runtime.evaluate", params: { expression, returnByValue: true, awaitPromise: true } })); });
+    const send = (method, params) => new Promise((r) => { const k = ++n; pend.set(k, r); ws.send(JSON.stringify({ id: k, method, params })); });
+    const evaluate = (expression) => send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true }).then((m) => m.result?.result?.value);
+    await send("Page.navigate", { url });
     // the editor has drawn when its track headers are there (a loaded machine takes longer than settleMs alone)
     for (const until = Date.now() + 20000; Date.now() < until;) {
       if (await evaluate(`document.readyState === "complete" && document.querySelectorAll(".track-head").length > 0`)) break;

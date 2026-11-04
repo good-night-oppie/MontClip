@@ -1,4 +1,4 @@
-/* FableCut project operations: what `fablecut_patch_project` does to a
+/* MontClip project operations: what `fablecut_patch_project` does to a
    project document, the compact project view, and `fablecut_set_project`'s
    checks. No I/O: the MCP server reads and writes project.json around them,
    and the module runs unchanged anywhere else a document needs the same ops,
@@ -21,17 +21,17 @@
      describeScopes(job) · describeScopeLines(stats) · TEXT_ONLY_NOTE · describeTrack(result)
                        → what fablecut_scopes, fablecut_frame and fablecut_track say
 
-   In a browser it loads as a plain script (global `FableCutProjectOps`)
+   In a browser it loads as a plain script (global `MontClipProjectOps`)
    after the modules it uses, the same way edit-ops.js does. */
 (function (root, factory) {
   const node = typeof module === "object" && module.exports;
   const dep = (file, name) => (node ? require(file) : root[name]);
-  const api = factory(dep("./audio-fx", "FableCutFx"), dep("./edit-ops", "FableCutEdit"), dep("./color", "FableCutColor"),
-    dep("./mask", "FableCutMask"), dep("./tracker", "FableCutTracker"), dep("./motion", "FableCutMotion"),
-    dep("./comp", "FableCutComp"), dep("./templates", "FableCutTemplates"), dep("./media-lib", "FableCutMedia"),
-    dep("./delivery", "FableCutDelivery"), dep("./sequences", "FableCutSeq"), dep("./songs", "MontClipSongs"));
+  const api = factory(dep("./audio-fx", "MontClipFx"), dep("./edit-ops", "MontClipEdit"), dep("./color", "MontClipColor"),
+    dep("./mask", "MontClipMask"), dep("./tracker", "MontClipTracker"), dep("./motion", "MontClipMotion"),
+    dep("./comp", "MontClipComp"), dep("./templates", "MontClipTemplates"), dep("./media-lib", "MontClipMedia"),
+    dep("./delivery", "MontClipDelivery"), dep("./sequences", "MontClipSeq"), dep("./songs", "MontClipSongs"));
   if (node) module.exports = api;
-  else root.FableCutProjectOps = api;
+  else root.MontClipProjectOps = api;
 })(typeof self !== "undefined" ? self : this, function (FX, EditOps, Color, Mask, Tracker, Motion, CompLib, Templates, MediaLib, Delivery, SeqLib, Songs) {
   "use strict";
 

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450">
-  <!-- FableCut animated SVG · loops · twinkling sparkles overlay -->
+  <!-- MontClip animated SVG · loops · twinkling sparkles overlay -->
   <style>
     .sp { transform-box: fill-box; transform-origin: center; animation: tw 1.6s ease-in-out infinite; }
     @keyframes tw {

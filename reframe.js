@@ -1,6 +1,6 @@
-/* FableCut reframe — follow the subject when a shot is shown on a canvas of
+/* MontClip reframe — follow the subject when a shot is shown on a canvas of
    another shape (a 16:9 edit made 9:16, 1:1 or 4:5). Zero dependencies; loaded
-   by the editor as a plain script (global `FableCutReframe`) and required by
+   by the editor as a plain script (global `MontClipReframe`) and required by
    the MCP server, so the editor, fablecut_reframe and Studio frame the same.
 
    subjectTrack: small RGB frames sampled through a clip → where the subject is
@@ -13,7 +13,7 @@
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else root.FableCutReframe = api;
+  else root.MontClipReframe = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
