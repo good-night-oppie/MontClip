@@ -186,7 +186,9 @@ function createExportJobs(opts) {
     report(id, { progress, status, src, result, error } = {}) {
       const j = jobs.get(id);
       if (!j) return null;
-      // cancelled, or ended for it (it stopped answering): the tab stops, and what it sends late is not taken
+      // cancelled, or ended for it (it stopped answering): the tab stops, and what it sends late is not taken.
+      // Ended by the queue, it is also told why, so it can say so to whoever is at it (app.js showProblem).
+      if (j.status === "failed" && j.errorCode) return { cancel: true, code: j.errorCode, error: j.error };
       if (j.status === "cancelled" || j.status === "failed") return { cancel: true };
       if (j.status !== "running") return { cancel: false };
       j.updated = clock();   // any report counts; an empty one ({}) is the tab's heartbeat

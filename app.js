@@ -11348,6 +11348,29 @@ function toastAction(msg, label, onClick) {
   if (!toastHold) toastHold = holdToast(els.toast, () => { if (els.toast.classList.contains("has-action")) els.toast.classList.remove("show", "has-action"); });
   toastHold.start();
 }
+/** Something went wrong (JJ v2, section 1, rule 2): the raw line goes to the console; the page says, in plain words,
+ *  what happened and what to do (the code's own sentence, else the catch-all), with 〔复制问题信息〕, which copies the
+ *  line with the code and the raw error, scrubbed of paths and keys (problem-details.js), and the small print. */
+function showProblem(problem) {
+  console.warn(MontClipProblem.logLine(problem));
+  if (!els.toast) return;
+  const words = codeText(problem) || uiText("own.err-unexpected");
+  els.toast.textContent = "";
+  const span = document.createElement("span"), btn = document.createElement("button"), small = document.createElement("small");
+  span.textContent = words;
+  btn.type = "button"; btn.className = "btn tiny toast-action"; btn.textContent = uiText("own.copy-problem");
+  small.className = "toast-small"; small.textContent = uiText("own.copy-problem-note");
+  btn.addEventListener("click", () => {
+    const done = (key) => { span.textContent = uiText(key); };
+    try { navigator.clipboard.writeText(MontClipProblem.copyLine(problem)).then(() => done("own.copy-problem-done"), () => done("own.copy-problem-failed")); }
+    catch { done("own.copy-problem-failed"); }
+  });
+  els.toast.append(span, btn, small);
+  els.toast.classList.add("show", "has-action", "has-problem");
+  clearTimeout(toastTimer);
+  if (!toastHold) toastHold = holdToast(els.toast, () => { if (els.toast.classList.contains("has-action")) els.toast.classList.remove("show", "has-action"); });
+  toastHold.start();
+}
 
 /* step 4: export — the ticked parts put on the timeline (one undo step), then one file each through the export queue */
 function autoExportConfirm() {
@@ -11548,7 +11571,7 @@ async function runTranscribeJob(ticket, fail) {
     srcs.push(src);
   }
   const report = (body, force) => fetch("/api/export/job/report?id=" + encodeURIComponent(ticket.id), { method: "POST", body: JSON.stringify(body) })
-    .then((r) => r.json()).then((r) => { if (r?.cancel) cancelTranscribe(); }).catch(() => { });
+    .then((r) => r.json()).then((r) => { if (r?.cancel) { jobProblem(ticket.id, r); cancelTranscribe(); } }).catch(() => { });
   if (!srcs.length) return report({ status: "done", result: { done: [], skipped, failed: [] } });
   let last = 0;
   const out = await transcribeSrcs(srcs, { model: MontClipTranscribe.model(spec.model), language: spec.language || null }, (f) => {
@@ -20011,8 +20034,16 @@ async function reportExportJob(id, body, force = false) {
     const r = await fetch("/api/export/job/report?id=" + encodeURIComponent(id), {
       method: "POST", body: JSON.stringify(body),
     }).then((x) => x.json());
-    if (r?.cancel) { renderCancelled = true; exportAbort?.abort(); }
+    if (r?.cancel) { jobProblem(id, r); renderCancelled = true; exportAbort?.abort(); }
   } catch { }
+}
+/* The queue ended this tab's job for it (it stopped answering, export-jobs.js) and said why: tell whoever is at the
+   tab, once per job. A cancel the agent asked for carries no code and says nothing here. */
+const jobProblemShown = new Set();
+function jobProblem(id, reply) {
+  if (!reply || !reply.code || jobProblemShown.has(id)) return;
+  jobProblemShown.add(id);
+  showProblem({ code: reply.code, error: reply.error });
 }
 /* While this tab runs a job it says so every JOB_HEARTBEAT_MS, apart from its progress (a scope reading has none, an
    export has none while it mixes the sound). The queue ends a tab job that stays quiet for 20 s (export-jobs.js
@@ -20029,6 +20060,7 @@ async function runExportJob(ticket) {
     fetch("/api/export/job/report?id=" + encodeURIComponent(ticket.id), { method: "POST", body: "{}" })
       .then((r) => r.json()).then((r) => {
         if (!r?.cancel || !running) return;
+        jobProblem(ticket.id, r);
         if (ticket.kind === "transcribe") cancelTranscribe();
         else if (ticket.kind !== "scopes") { renderCancelled = true; exportAbort?.abort(); }
       }).catch(() => { });

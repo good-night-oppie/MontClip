@@ -68,8 +68,10 @@ test("a tab that keeps answering keeps its job; the limit runs from its last rep
     q.tick(J.TAB_SILENT_MS + 1);
     q.jobs.sweep();
     assert.equal(q.jobs.get(j.id).status, "failed");
-    assert.deepEqual(q.jobs.report(j.id, { progress: 0.2 }), { cancel: true }, "a tab that wakes up later is told to stop");
-    assert.deepEqual(q.jobs.report(j.id, { status: "done", src: "/exports/late.mp4" }), { cancel: true });
+    const late = q.jobs.report(j.id, { progress: 0.2 });
+    assert.equal(late.cancel, true, "a tab that wakes up later is told to stop…");
+    assert.equal(late.code, "EDITOR_STOPPED_ANSWERING", "…and why");
+    assert.equal(q.jobs.report(j.id, { status: "done", src: "/exports/late.mp4" }).cancel, true);
     assert.equal(q.jobs.get(j.id).status, "failed", "and its late result does not overwrite the reason");
   } finally { q.done(); }
 });

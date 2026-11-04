@@ -225,11 +225,19 @@
     "err-headless-disabled": ["Background browser tasks are turned off in the desktop app.", "桌面版不能在后台打开浏览器做这件事。"],
     "err-editor-not-ready": ["The editor is not ready yet. Open it, then try again.", "编辑窗口还没准备好。先打开 MontClip 的编辑窗口，再试一次。"],
     "err-editor-no-accept": ["The editor did not take the task. Wait until it is ready, then try again.", "编辑窗口没接到这个任务。等它准备好，再试一次。"],
-    // the job queue's busy refusal and a tab job that went quiet (export-jobs.js; drafts for JJ to finalise)
-    "err-job-busy": ["The previous task isn't finished, so a new one can't start yet. Bring the MontClip editor window to the front and try again in half a minute. If it still doesn't work, ask the assistant to cancel the previous task.",
-      "上一个任务还没做完，新的现在开始不了。把 MontClip 的编辑窗口切到前面，等半分钟再试。还不行的话，让助手把上一个任务取消。"],
-    "err-editor-stopped": ["The editor didn't respond for 20 seconds, so the task was stopped. Bring the MontClip editor window to the front (don't minimize it), then try again.",
-      "编辑窗口有 20 秒没有回应，这个任务已经停下了。把 MontClip 的编辑窗口切到前面（不要最小化），再试一次。"],
+    // the job queue's busy refusal and a tab job that went quiet (export-jobs.js): drafts, waiting for JJ to finalise
+    "err-job-busy": ["The previous task isn't finished yet, so this one can't start until it is. Bring the MontClip editor window to the front and try again in half a minute. If it still doesn't work, use \"Copy problem details\" and send it to us.",
+      "上一个任务还没做完，这个要等它做完才能开始。把 MontClip 的编辑窗口切到前面，过半分钟再试一次；还不行，点「复制问题信息」发给我们。"],
+    "err-editor-stopped": ["The editor didn't respond for 20 seconds, so this task stopped. The original is unchanged. Bring the MontClip editor window to the front (don't minimize it) and try again; if it still fails, use \"Copy problem details\" and send it to us.",
+      "编辑窗口有 20 秒没有回应，这个任务停下了。原片没有改动。把 MontClip 的编辑窗口切到前面（不要最小化），再试一次；还不行，点「复制问题信息」发给我们。"],
+    // JJ v2 (2026-11-04), finalised: anything not listed, and the copy button with its small print
+    "err-unexpected": ["This didn't finish because of a problem we didn't expect. The original is unchanged. Try again; if it still fails, use \"Copy problem details\" and send it to us.",
+      "这次没有做完，出了个我们没预料到的问题。原片没有改动。再试一次；还不行，点「复制问题信息」发给我们。"],
+    "copy-problem": ["Copy problem details", "复制问题信息"],
+    "copy-problem-note": ["What's copied leaves out your folder paths, keys and viewer details.", "复制的内容不含你的文件夹路径、密钥和观众信息。"],
+    // drafts, waiting for JJ to finalise
+    "copy-problem-done": ["Copied. Paste it in a message to us.", "已经复制好了，粘贴到发给我们的消息里就行。"],
+    "copy-problem-failed": ["It couldn't be copied this time. Try the button again.", "这次没能复制，再点一次按钮试试。"],
     "map-no-media": ["This project has no audio or video, so there is no time mapping to export.", "这个项目里没有音视频，导不出时间对照表。"],
     "connected": ["Ready", "就绪"],
     "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],
