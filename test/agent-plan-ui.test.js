@@ -47,7 +47,7 @@ test('new words, both languages (for JJ)',()=>{
  for(const k of ['pl-step-of','pl-denied','pl-listed','pl-refused','pl-no-executor','pl-busy','pl-cancelled','pl-stale','pl-plan-mode','pl-discarded','pl-done','pl-stopped','pl-stale-plan','pl-undone','pl-undo-interleaved','pl-undo-none']){
   const zh=View.t('zh-CN','own.'+k),en=View.t('en','own.'+k);a.ok(zh&&zh!=='own.'+k,k);a.ok(en&&!/[一-鿿]/.test(en),k);
  }
- for(const k of ['planTitle','planSummary','planInvalid','planRemove','planStart','planDiscard','planUndo'])for(const l of ['zh-CN','en'])a.ok(View.text[l]['officialPane_'+k],l+' '+k);
+ for(const k of ['planTitle','planSummary','planInvalid','planRemove','planStart','planDiscard','planUndo'])for(const l of ['zh-CN','en'])a.ok(View.tp(l,'officialPane_'+k,{count:2}),l+' '+k);/* planSummary has plural forms in English (plan-copy.test.js) */
  a.deepEqual(['planStart','planDiscard','planUndo','planRemove'].map(k=>View.text['zh-CN']['officialPane_'+k]),['开始','不要这个计划','撤销整个计划','删掉']);
 });
 
@@ -59,7 +59,7 @@ test('JJ’s final words (5d360cd7); the help’s body has no internal names, th
  a.equal(View.t('zh-CN','own.pl-stopped'),'计划停在了这一步，后面的步骤没有做。可以让助手按现在的项目重新排一次计划。');
  a.equal(View.t('zh-CN','own.pl-busy'),'软件正在忙别的事。等它做完，再让助手重新排一次。');
  a.equal(zh('planDiscard'),'不要这个计划');a.equal(en('planDiscard'),'Drop this plan');
- a.equal(zh('formatPlan'),'想让 AI 一次做好几步，可以让它先排一个计划：它会列出每一步，你看一遍、删掉不要的，再点「开始」。每一步还是按你选的模式来问你。');
+ a.equal(zh('formatPlan'),'想让 AI 一次做好几步，可以让它先排一个计划：它会列出每一步，你看一遍、删掉不要的，再点「开始」。每一步怎么做，还是看你选的模式。');/* JJ, 2026-11-04 */
  a.equal(zh('formatPlanTech'),'以下是给 AI 的格式说明，不用看。');
  for(const l of ['zh-CN','en']){const body=View.formatBody(l);a.ok(body.endsWith(View.text[l].officialPane_formatPlan),l);a.ok(!/keep_sentences|keep_ranges|fablecut_/.test(body),l+': no internal names in the body');}
  const F=require('../agent-format');

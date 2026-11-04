@@ -22888,14 +22888,17 @@ async function setAgentMode(mode){
 function paintAgentMode(){const mark=document.getElementById('mcYoloMark');if(mark)mark.hidden=agentPolicy.mode!=='yolo';if(typeof mcAgent!=='undefined'&&mcAgent)mcAgent.render();}
 /** The host's approval box (QQ 4: only the host shows it). It shows the capability's plain sentence (never its internal
  *  name), what it changes or where it sends, and for an external step what is sent. Resolves to once | session | deny. */
-function askAgentApproval(d,{summary='',content=null}={}){
+function askAgentApproval(d,{summary='',content=null,detail=''}={}){
  return new Promise((resolve)=>{
   const dialog=document.createElement('dialog');dialog.className='agent-approval';dialog.setAttribute('data-agent-approval','');
   const say=(k,v)=>escapeHtml(uiText(k,v)),choice=(c)=>'<button type="button" class="btn'+(c==='once'?' primary':'')+'" data-choice="'+c+'">'+say('own.ap-'+c)+'</button>';
-  dialog.innerHTML='<form method="dialog"><h3>'+say('own.ap-title')+'</h3><p data-ap-label></p><p data-ap-summary></p><p data-ap-target></p>'
+  // v7.2 (VV on #84): first what this step changes (MontClipPlan.stepDetail, 「保留 0:00–1:55」), the plain sentence under it, small;
+  // a step with nothing concrete to say (an export) keeps the plain sentence first
+  dialog.innerHTML='<form method="dialog"><h3>'+say('own.ap-title')+'</h3>'+(detail?'<p class="agent-approval-detail" data-ap-detail></p>':'')+'<p data-ap-label'+(detail?' class="agent-approval-what"':'')+'></p><p data-ap-summary></p><p data-ap-target></p>'
    +(content!=null?'<p>'+say('own.ap-content')+'</p><pre data-ap-content></pre>':'')
    +(d.choices.includes('session')?'':'<p data-ap-every-time>'+say('own.ap-every-time')+'</p>')
    +'<div class="tr-row">'+d.choices.map(choice).join('')+'</div></form>';
+  if(detail)dialog.querySelector('[data-ap-detail]').textContent=detail;
   dialog.querySelector('[data-ap-label]').textContent=d.label;
   dialog.querySelector('[data-ap-summary]').textContent=summary;
   dialog.querySelector('[data-ap-target]').textContent=d.risk==='external'?uiText('own.ap-sends-to',{domain:d.target}):uiText('own.ap-project',{name:project.name||''});
@@ -22935,7 +22938,7 @@ async function onAgentReply(result){
  if(d.action==='refuse'){toast(agentRefusalText(d));return;}
  let step;try{step=agentProposalStep(response,result);}catch(error){toast(uiText(error.message==='STALE'?'own.ap-stale':'own.ap-invalid'));return;}
  if(d.action==='ask'){
-  const choice=await askAgentApproval(d,{summary:agentProposalText(result)});
+  const choice=await askAgentApproval(d,{summary:agentProposalText(result),detail:MontClipPlan.stepDetail({capability:response.type,args:response},mcView.get().language)});
   let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}
   if(!a||!a.ok||!a.run){if(step.ev)moveEvent(step.ev.id,'rejected');toast(uiText('own.ap-denied'));return;}
  }
@@ -22990,7 +22993,7 @@ async function runAgentPlanStep(s,entry,result){
  catch(error){recordAgentEvent(MontClipProposal.failedEvent(error,{...meta,capability:s.capability}));return {ok:false,code:'STALE'};}
  const ev=recordAgentEvent(MontClipProposal.event(proposal,meta));if(ev)proposal.eventId=ev.id;
  if(d.action==='ask'){
-  const choice=await askAgentApproval(d,{summary:uiText('own.pl-step-of',{n:s.index+1,total:entry.run.list().length})});
+  const choice=await askAgentApproval(d,{summary:uiText('own.pl-step-of',{n:s.index+1,total:entry.run.list().length}),detail:MontClipPlan.stepDetail(s,mcView.get().language)});
   let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}
   if(!a||!a.ok||!a.run){if(ev)moveEvent(ev.id,'rejected');return {halt:'DENIED'};}
  }
