@@ -5,3 +5,6 @@ licenses/ffmpeg/texts/** -text
 # Preserve official upstream source bytes for provenance verification.
 agent-ui/upstream/** -text
 agent-ui/cindy-43001ea/** -text
+
+# The model repo LICENSE files of the optional Omnilingual ASR models are kept byte for byte: desktop/asr-optional-manifest.json pins their SHA-256
+licenses/asr/omnilingual-asr-LICENSE.txt -text

@@ -1,0 +1,27 @@
+{
+  "comment": "Optional speech models (Deja, 2026-11-04; ADR 2026-11-04 SenseVoice §6). Never in a package. Downloaded only after the streamer read the licence in the host's box and picked a site (asr-optional.js); every file is checked against its size and SHA-256, the folder is moved into place in one step, and a consent record is kept on this computer. Evaluation: docs/validation/2026-11-04-omnilingual-asr/README.md. Sources are pinned to a commit, never a branch. The hosts are the only ones contacted, redirects included (desktop/main.js ASR_OPTIONAL_HOSTS says the same).",
+  "hosts": ["hf-mirror.com", "huggingface.co", "us.aws.cdn.hf.co"],
+  "models": {
+    "omnilingual-ctc-300m-int8": {
+      "engine": "omnilingual",
+      "name": "Meta Omnilingual ASR 300M (CTC, int8)",
+      "family": "Meta Omnilingual ASR",
+      "params": "300M",
+      "revision": "6abf1ece20cd2308bdb7d13cd78ec1c44fa4c094",
+      "upstream": "facebookresearch/omnilingual-asr omniASR_CTC_300M; ONNX int8 conversion by k2-fsa (csukuangfj/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12)",
+      "languages": "1600+ languages, no language hint (CTC)",
+      "recommend": "multilingual",
+      "ramMB": 1200,
+      "license": { "name": "Apache License 2.0", "spdx": "Apache-2.0", "file": "licenses/asr/omnilingual-asr-LICENSE.txt", "sha256": "a70a523bafbb595c2844104feb313d204904dac91c3d186c05f22a10a71c7a94" },
+      "files": {
+        "model.int8.onnx": { "size": 365352120, "sha256": "e7c4e54ee4c4c47829cc6667d5d00ed8ea7bef1dcfeef0fce766f77752a2726c" },
+        "tokens.txt": { "size": 86423, "sha256": "a7a044c52cb29cbe8b0dc1953e92cefd4ca16b0ed968177b6beab21f9a7d0b31" },
+        "LICENSE": { "size": 581, "sha256": "a70a523bafbb595c2844104feb313d204904dac91c3d186c05f22a10a71c7a94" }
+      },
+      "sources": [
+        { "kind": "files", "base": "https://hf-mirror.com/csukuangfj/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/resolve/6abf1ece20cd2308bdb7d13cd78ec1c44fa4c094/" },
+        { "kind": "files", "base": "https://huggingface.co/csukuangfj/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/resolve/6abf1ece20cd2308bdb7d13cd78ec1c44fa4c094/" }
+      ]
+    }
+  }
+}

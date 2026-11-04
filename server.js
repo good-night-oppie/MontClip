@@ -143,6 +143,16 @@ const ASR_MODELS_DIR = path.resolve(process.env.MONTCLIP_ASR_MODELS_DIR || path.
 let asrLocal = null;
 const asr = () => asrLocal || (asrLocal = require("./asr-local").createAsr({ asrDir: ASR_DIR, modelsDir: ASR_MODELS_DIR, ffmpeg: FF.path("ffmpeg"), cacheDir: path.join(DATA_DIR, "asr-cache") }));
 const asrJob = { running: null };
+/** Optional speech models (asr-optional.js; ADR 2026-11-04 §6): only after the streamer agreed in the desktop host's own
+ *  box and every file matched its SHA-256. While one is in use, transcription runs it in a process of its own
+ *  (asr-optional-engine.js), so it can fail without taking this server or the default engine with it. Nothing here
+ *  agrees, downloads or switches: the API only reports, and says the streamer has to choose it in Settings. */
+let asrOptStore = null, asrOptEngine = null;
+const asrOptional = () => asrOptStore || (asrOptStore = require("./asr-optional").createOptional({ userDir: ASR_MODELS_DIR }));
+const asrOptionalEngine = () => asrOptEngine || (asrOptEngine = require("./asr-optional-engine").createOptionalAsr({ asrDir: ASR_DIR, optional: asrOptional(), ffmpeg: FF.path("ffmpeg") }));
+/** The optional model in use, or null (also when the optional models cannot be read at all: the default is used). */
+const asrOptionalActive = () => { try { return asrOptional().active(); } catch { return null; } };
+const asrOptionalSummary = () => { try { const o = asrOptional(); return { active: o.active(), models: o.list() }; } catch (e) { return { active: null, models: [], error: String(e.message || e) }; } };
 
 ensureDirs();
 /* One engine writes a data folder (writer-lock.js): the Windows app and the Cindy plugin share this
@@ -1776,8 +1786,24 @@ const server = http.createServer(async (req, res) => {
                                          be read, kept with the transcript); 500 {code: ASR_FAILED} when nothing could;
                                          progress as SSE "asr" ({src, frac}); 409 {code} when busy, when the model or the
                                          engine is missing, or when cancelled. Nothing is downloaded here.
-       POST /api/asr/cancel            → {cancelled} */
-  if (p === "/api/asr/status" && req.method === "GET") { sendJSON(res, 200, asr().status()); return; }
+       POST /api/asr/cancel            → {cancelled}
+       GET  /api/asr/optional          → {active, models:[{id, name, installed, consented, ready, …}]}   (asr-optional.js)
+       POST /api/asr/optional          → never switches: 409 {code: ASR_CONSENT_REQUIRED, waiting: "streamer"} — only the
+                                         streamer chooses an optional model, in Settings › 听写, after reading its licence;
+                                         a body with an agree field is refused (400 ASR_AGREE_NOT_ACCEPTED).
+       While an optional model is in use, /api/asr/transcribe runs it (engine: "optional") instead of the default. */
+  if (p === "/api/asr/status" && req.method === "GET") { sendJSON(res, 200, { ...asr().status(), optional: asrOptionalSummary() }); return; }
+  if (p === "/api/asr/optional" && req.method === "GET") { sendJSON(res, 200, asrOptionalSummary()); return; }
+  if (p === "/api/asr/optional" && req.method === "POST") {
+    let body = {};
+    try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}") || {}; } catch { }
+    if (body && typeof body === "object" && ["agree", "agreed", "consent", "accept", "accepted"].some((k) => Object.prototype.hasOwnProperty.call(body, k))) {
+      sendJSON(res, 400, { code: "ASR_AGREE_NOT_ACCEPTED", error: "nobody can agree to a model licence for the streamer: the streamer reads it and agrees in Settings › 听写. Nothing was changed." });
+      return;
+    }
+    sendJSON(res, 409, { code: "ASR_CONSENT_REQUIRED", waiting: "streamer", error: "only the streamer can choose an optional speech model: Settings › 听写, where MontClip shows its licence and asks. Nothing was changed.", active: asrOptionalActive() });
+    return;
+  }
   if (p === "/api/asr/cancel" && req.method === "POST") {
     const j = asrJob.running;
     if (j) j.ac.abort();
@@ -1790,25 +1816,27 @@ const server = http.createServer(async (req, res) => {
     const src = typeof body.src === "string" ? body.src : "", file = src ? resolveSrc(src) : null;
     if (!file || !fs.existsSync(file)) { sendJSON(res, 404, { error: "no such file: " + src }); return; }
     if (asrJob.running) { sendJSON(res, 409, { code: "ASR_BUSY", error: "already transcribing " + asrJob.running.src }); return; }
-    const st = asr().status();
+    const st = asr().status(), optionalId = asrOptionalActive();
     if (!st.engine.ready || !st.vad.ready) { sendJSON(res, 409, { code: "ASR_ENGINE_MISSING", error: "the speech engine is missing from this copy of MontClip" }); return; }
-    if (!st.asr.ready) { sendJSON(res, 409, { code: "ASR_MODEL_MISSING", error: "no speech model yet: the user downloads it or imports it (USB drive / a file) in the Transcript tab; MontClip never fetches it by itself", missing: st.asr.missing, bad: st.asr.bad }); return; }
+    if (!optionalId && !st.asr.ready) { sendJSON(res, 409, { code: "ASR_MODEL_MISSING", error: "no speech model yet: the user downloads it or imports it (USB drive / a file) in the Transcript tab; MontClip never fetches it by itself", missing: st.asr.missing, bad: st.asr.bad }); return; }
     const ac = new AbortController(), job = asrJob.running = { src, ac };
     res.on("close", () => { if (!res.writableFinished) ac.abort(); });   // the page went away: stop
     let last = 0;
     try {
       const info = await probeFile(file);
-      const r = await asr().transcribe(file, { signal: ac.signal, duration: info && info.duration,
+      const r = await (optionalId ? asrOptionalEngine() : asr()).transcribe(file, { signal: ac.signal, duration: info && info.duration,
         onProgress: (frac) => { const now = Date.now(); if (now - last > 250) { last = now; broadcast("asr", JSON.stringify({ src, frac })); } } });
       const TR = require("./transcribe.js");
-      const doc = transcripts.put(src, { src, model: TR.DEFAULT_MODEL, language: r.language, duration: r.duration, created: new Date().toISOString(), words: r.words,
+      const doc = transcripts.put(src, { src, model: optionalId || TR.DEFAULT_MODEL, language: r.language, duration: r.duration, created: new Date().toISOString(), words: r.words,
         gaps: r.gaps.map((g) => [g.start, g.end, g.reason]) });
       broadcast("transcript", JSON.stringify({ src }));
       const gapSeconds = Math.round(doc.gaps.reduce((t, g) => t + g[1] - g[0], 0) * 10) / 10;
-      sendJSON(res, 200, { src, status: TR.status(doc), gaps: doc.gaps.length, gapSeconds, skippedSegments: r.skippedSegments, words: doc.words.length, duration: doc.duration, speech: Math.round(r.speech * 10) / 10, punctuated: r.punctuated });
+      sendJSON(res, 200, { src, status: TR.status(doc), gaps: doc.gaps.length, gapSeconds, skippedSegments: r.skippedSegments, words: doc.words.length, duration: doc.duration, speech: Math.round(r.speech * 10) / 10, punctuated: r.punctuated,
+        ...(optionalId ? { engine: "optional", model: optionalId } : {}) });
     } catch (e) {
       const code = e.code === "ASR_CANCELLED" || ac.signal.aborted ? "ASR_CANCELLED" : e.code || "ASR_FAILED";
-      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING)$/.test(code) ? 409 : 500, { code, error: String(e.message || e) });
+      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING|OPTIONAL_NOT_READY|OPTIONAL_NO_MEMORY)$/.test(code) ? 409 : 500,
+        { code, error: String(e.message || e), ...(optionalId ? { engine: "optional", model: optionalId, needMB: e.needMB, freeMB: e.freeMB } : {}) });
     } finally { if (asrJob.running === job) asrJob.running = null; }
     return;
   }

@@ -48,7 +48,15 @@ contextBridge.exposeInMainWorld('montclipAsr',Object.freeze({
  cancel:()=>ipcRenderer.invoke('montclip:asr:cancel'),
  choice:()=>ipcRenderer.invoke('montclip:asr:choice'),
  setChoice:v=>ipcRenderer.invoke('montclip:asr:choice',v==='later'?'later':'local'),
- onProgress:fn=>{const h=(_,p)=>{try{fn({which:p&&p.which==='punct'?'punct':'asr',loaded:Number(p&&p.loaded)||0,total:Number(p&&p.total)||0});}catch{}};ipcRenderer.on('montclip:asr:progress',h);return()=>ipcRenderer.removeListener('montclip:asr:progress',h);}
+ onProgress:fn=>{const h=(_,p)=>{try{fn({which:p&&p.which==='punct'?'punct':'asr',loaded:Number(p&&p.loaded)||0,total:Number(p&&p.total)||0});}catch{}};ipcRenderer.on('montclip:asr:progress',h);return()=>ipcRenderer.removeListener('montclip:asr:progress',h);},
+ // optional models (asr-optional.js): the page names a model id only; the main process shows the licence, asks for the
+ // site, downloads and checks. There is no way to agree from here.
+ optional:Object.freeze({
+  list:()=>ipcRenderer.invoke('montclip:asr:optional:list'),
+  select:id=>ipcRenderer.invoke('montclip:asr:optional:select',String(id)),
+  revoke:id=>ipcRenderer.invoke('montclip:asr:optional:revoke',String(id)),
+  onProgress:fn=>{const h=(_,p)=>{try{fn({id:String(p&&p.id||''),loaded:Number(p&&p.loaded)||0,total:Number(p&&p.total)||0});}catch{}};ipcRenderer.on('montclip:asr:optional:progress',h);return()=>ipcRenderer.removeListener('montclip:asr:optional:progress',h);}
+ })
 }));
 
 contextBridge.exposeInMainWorld('montclipPaneSettings',Object.freeze({

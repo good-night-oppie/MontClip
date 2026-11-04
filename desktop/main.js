@@ -196,6 +196,61 @@ async function start() {
     } catch (e) { return { ok: false, error: String(e.message || e) }; }
     finally { asrBusy = null; }
   });
+  // Optional speech models (asr-optional.js; ADR 2026-11-04 §6): the page names a model id, nothing else. The licence
+  // (the text shipped with MontClip) is shown in the host's own box, then the streamer picks the site; nothing is
+  // requested before both answers. Only a click here agrees: no channel, tool or setting carries an "agree".
+  const AsrOptional = require("../asr-optional"), { optionalLicenseText, optionalSourceText, optionalRevokeText } = require("./asr-optional-text");
+  // the only sites an optional model comes from (Deja, 2026-11-04): hf-mirror.com first, huggingface.co, and the host
+  // huggingface.co passes large files to; written here, not read from a file (a test checks the manifest says the same)
+  const ASR_OPTIONAL_HOSTS = Object.freeze(["hf-mirror.com", "huggingface.co", "us.aws.cdn.hf.co"]);
+  const asrOptional = AsrOptional.createOptional({ userDir: env.MONTCLIP_ASR_MODELS_DIR, version: app.getVersion() });
+  const optionalId = (id) => (typeof id === "string" && Object.prototype.hasOwnProperty.call(asrOptional.manifest.models, id) ? id : null);
+  const smokeAnswer = (name, fallback) => { const v = process.env["MONTCLIP_SMOKE_ASR_OPTIONAL_" + name]; return v == null ? fallback : Number(v); };
+  ipcMain.handle("montclip:asr:optional:list", async (event) => {
+    if (!settingsAllowed(event, win, origin) || !features.transcribe) return { ok: false, code: "ASR_FORBIDDEN" };
+    try { return { ok: true, active: asrOptional.active(), models: asrOptional.list() }; } catch (e) { return { ok: false, error: String(e.message || e) }; }
+  });
+  ipcMain.handle("montclip:asr:optional:select", async (event, which) => {
+    if (!settingsAllowed(event, win, origin) || !features.transcribe) return { ok: false, code: "ASR_FORBIDDEN" };
+    const id = optionalId(which);
+    if (!id) return { ok: false, code: "ASR_UNKNOWN_MODEL" };
+    if (asrBusy) return { ok: false, code: "ASR_BUSY" };
+    const lang = languageOf(settings.get());
+    asrBusy = new AbortController();
+    try {
+      return await asrOptional.select(id, { signal: asrBusy.signal,
+        fetchFile: (url, dest, o) => AsrDownload.fetchFile(url, dest, { ...o, hosts: ASR_OPTIONAL_HOSTS }),
+        onProgress: (p) => { if (win && !win.isDestroyed() && p.total) win.webContents.send("montclip:asr:optional:progress", { id, loaded: p.loaded, total: p.total }); },
+        ask: {
+          license: async (q) => {
+            const t = optionalLicenseText(lang, q);
+            const answer = smoke ? { response: smokeAnswer("LICENSE", 0) }
+              : await dialog.showMessageBox(win, { type: "question", title: t.title, message: t.message, detail: t.detail, buttons: t.buttons, defaultId: 0, cancelId: 0, noLink: true });
+            if (smoke) process.stdout.write("MONTCLIP_ASR_OPTIONAL_LICENSE " + JSON.stringify({ id, title: t.title, answered: answer.response }) + "\n");
+            return answer.response === 1;
+          },
+          source: async (q) => {
+            const t = optionalSourceText(lang, { ...q, hosts: ASR_OPTIONAL_HOSTS.slice() });
+            const answer = smoke ? { response: smokeAnswer("SOURCE", 0) }
+              : await dialog.showMessageBox(win, { type: "question", title: t.title, message: t.message, detail: t.detail, buttons: t.buttons, defaultId: 0, cancelId: 0, noLink: true });
+            if (smoke) process.stdout.write("MONTCLIP_ASR_OPTIONAL_SOURCE " + JSON.stringify({ id, title: t.title, detail: t.detail, answered: answer.response }) + "\n");
+            return answer.response >= 1 ? answer.response - 1 : null;
+          },
+        } });
+    } catch (e) { return { ok: false, code: e.code || "ASR_DOWNLOAD_FAILED", error: String(e.message || e) }; }
+    finally { asrBusy = null; }
+  });
+  ipcMain.handle("montclip:asr:optional:revoke", async (event, which) => {
+    if (!settingsAllowed(event, win, origin) || !features.transcribe) return { ok: false, code: "ASR_FORBIDDEN" };
+    const id = optionalId(which);
+    if (!id) return { ok: false, code: "ASR_UNKNOWN_MODEL" };
+    if (asrBusy) return { ok: false, code: "ASR_BUSY" };
+    const t = optionalRevokeText(languageOf(settings.get()), { name: asrOptional.manifest.models[id].name });
+    const answer = smoke ? { response: smokeAnswer("REVOKE", 0) }
+      : await dialog.showMessageBox(win, { type: "question", title: t.title, message: t.message, detail: t.detail, buttons: t.buttons, defaultId: 0, cancelId: 0, noLink: true });
+    if (answer.response !== 1) return { ok: false, declined: true };
+    try { return asrOptional.revoke(id); } catch (e) { return { ok: false, error: String(e.message || e) }; }
+  });
   // 「✨ 自动出切片」 finished while the window was not in front (P3): one local notification. The page sends a count
   // only; the words come from the shared table in the chosen language. Web notification permission stays denied.
   ipcMain.on("montclip:notify:found", (event, found) => {
