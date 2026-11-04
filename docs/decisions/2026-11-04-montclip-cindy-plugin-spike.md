@@ -1,6 +1,6 @@
 # MontClip 做成 Cindy 插件：可行性验证（spike）
 
-状态：可行性验证结论，供主人决定要不要全量做。分支 `spike/cindy-plugin`，不开 PR、不合 main。
+状态：可行性验证结论（含 Cindy 内补测），供主人决定要不要全量做。分支 `spike/cindy-plugin`，不开 PR、不合 main。
 日期：2026-11-04。
 
 ## 0. 主人的要求
@@ -18,15 +18,22 @@
 
 | # | 问题 | 结论 | 依据 |
 |---|---|---|---|
-| 1 | 主视图能不能播放几 GB 的本机录像、能拖进度 | **部分通**：机制在源码里确认可行；引擎侧已实测；在 Cindy 页面内的实测见 §2.1 末尾 | 源码 + 无头实测 |
-| 2 | 聊天一句「删掉 1:00–1:30」能不能经插件工具改项目；同步、撤销、重做、版本 | **通（引擎链路实测）**；经 Cindy 聊天调用见 §2.2 末尾 | 无头实测 |
-| 3 | 能不能导出 MP4；ffmpeg 放哪、怎么交付；文件落到哪 | **通**（导出实测）；交付走 `cindy.downloads`，方案已写进插件，实际下载见 §2.3 | 无头实测 + 源码 |
-| 4 | 右侧栏放 MontClip 面板、「文稿」页签、点句跳转 | **部分通**：代码做完，跳转命令链路已实测；面板在 Cindy 里的显示见 §2.4 | 无头实测 |
-| 5 | 主视图、面板、聊天工具三处改动后状态是否一致 | **通（设计上只有一个写入方）**；Cindy 内三处同时打开的实测见 §2.5 | 无头实测 |
+| 1 | 主视图能不能播放几 GB 的本机录像、能拖进度 | **通**：Cindy 主视图里播放 2.18 GB 合成录像、拖到 2 GB 之后（700 s）都通 | Cindy 内实测（§2.6.1） |
+| 2 | 聊天一句「删掉 1:00–1:30」能不能经插件工具改项目；同步、撤销、重做、版本 | **通**：插件工具删段，主视图同步，撤销、重做、列版本、退回都通 | Cindy 内实测（§2.6.2） |
+| 3 | 能不能导出 MP4；ffmpeg 放哪、怎么交付；文件落到哪 | **部分通**：从主视图导出 MP4 通，没有卡住；ffmpeg 用的是 PATH 上的开发版，`cindy.downloads` 交付方案没有实测 | Cindy 内实测（§2.6.3） |
+| 4 | 右侧栏放 MontClip 面板、「文稿」页签、点句跳转 | **部分通**：面板在右侧栏显示字幕并跟着刷新；「点一下跳转」没在 Cindy 里点成（桌面驱动对嵌套 iframe 的坐标算错），跳转命令本身在 Cindy 里通 | Cindy 内实测（§2.6.4） |
+| 5 | 主视图、面板、聊天工具三处改动后状态是否一致 | **通**：三处同开，每次改动后修订号、片段数一致 | Cindy 内实测（§2.6.5） |
+| 6 | Node 进程被停掉后，剪辑器的撤销历史还在不在 | **部分通**：进程被强制停掉后约 32 秒自动拉起，撤销历史还在、能用；真正的「闲置回收」没等到，用强杀代替 | Cindy 内实测（§2.6.6） |
 
 「无头实测」的意思是：插件的 Node worker 用 Cindy 主机同样的方式驱动，也就是逐行 JSON-RPC over stdio，测试脚本在 `scripts/rpc.cjs`（见 §6）。剪辑器页由无头 Edge 打开，看不见，也不占桌面。
 
-**卡点**：`ghost_forge_install` 第一次安装时，Cindy 返回 `MUTATION_CANCELLED`（「用户拒绝了这次插件安装或更新」），安装确认卡被拒绝或超时了。按规矩不自动重试，已通过 `ask_owner` 问主人是否再装一次。所以凡是「在 Cindy 页面里」的那一段，在本文写明「未实测」之前，都只有源码证据。
+**安装经过**：
+- 第一次 `ghost_forge_install` 返回 `MUTATION_CANCELLED`（安装确认卡被拒绝或超时），按规矩没有重试，用 `ask_owner` 问了主人。
+- 主人在 Deja 那边同意后，第二次安装成功：`{"action":"installed","instanceId":"_root__montclip","namespace":null,"enabled":true}`。
+- 如实记录：Cindy 侧栏里 Deja 的消息写着，安装确认卡「从 6:50 起一直没人点。我按你这句同意替你点了「批准」」。也就是说，这张确认卡是 Deja 按主人的口头同意代点的，不是主人亲手点的。
+- `ghost_forge_install` 会重新打包：装进去的包和核对过的 `915b1b6a…` 字节数相同（2,047,112），但 sha256 变成 `2b8e3da63778f262b571a0d4dffe1efd8fd956acaa434ff8dcd29d356221c4f2`。源码没有改动，都是 commit `d2c00fc`；哈希不同是因为重新压缩。
+
+§2.1–§2.5 是第一轮（无头）的证据，§2.6 是装进 Cindy 以后的补测。
 
 ## 2. 每个问题的证据
 
@@ -131,6 +138,114 @@ versions restore 2          → "Restored v2 … kept as v3 "Before restoring v2
 - 实测：外部 patch 以后，剪辑器的修订号和时长立刻跟上（revision 3 → 4，duration 690）；撤销后剪辑器存回 revision 5，`get_project` 读到的也是 5。
 - 文稿页的 `rendered` 上报日志会记下每次刷新时的修订号，可用来做 Cindy 内三处对账：**未实测**。
 
+### 2.6 装进 Cindy 后的补测（2026-11-04 06:55–07:03 UTC）
+
+环境：
+- Cindy 0.1.122（Electron 42.11.12 / Chromium 148.0.7778.280）。
+- 插件 worker 是 Cindy 自带的 Node：日志里 `engine-started` 记的是 `node:"v24.19.0"`、`execPath:"…\Cindy\Cindy.exe"`，进程是 `Cindy.exe --type=utility --utility-sub-type=node.mojom.NodeService`，父进程是 Cindy 主进程。
+- 数据目录 `C:\Users\tyb90\MontClip-Cindy`。
+- ffmpeg 是 PATH 上的 gyan 9.0.1（开发用，`ffmpeg:"path"`）。
+
+证据：
+- 全部页面上报和工具记录：`plugins/montclip-cindy/spike/evidence/cindy-spike-log.jsonl`，sha256 `13ceca57b9ec165cc27f8077ac0ed9cc8997f928c618a7c775babb7d6415ded4`。
+- 帧图：`plugins/montclip-cindy/spike/evidence/cindy-mainview-frame-700s.jpg`，sha256 `50b4e7e6cf98dc46c09cc282a6e9f5e578346162cceac74994373ed8ae221a70`。这是主视图里剪辑器渲染的时间线画面，只有合成素材。
+- 没有截整个窗口：整窗截图会拍到聊天和其他任务。
+
+**打开主视图**：
+- 左侧导航里没有单独的入口，入口在「更多」菜单里（「MontClip 管理 MontClip」）。
+- 用桌面驱动在后台点这个菜单项，菜单会在点到之前自己关掉，点不上。改成前台点击两次后打开了：路由是 `#/apps/_root__montclip`。
+- 当时没有 USER_INPUT_ACTIVE 报错。
+- 发现：清单写的是 `open:"sidebar", side:"left"`，实际打开的是一级主视图页面路由。是 `open` 没生效，还是从「更多」菜单进入时一律按页面打开，还不清楚（见 §4）。
+- 无障碍树证明三处同时在界面上：
+  - 主视图 `cindy-ghost://montclip/main-view.html` 套着 `http://127.0.0.1:47777/?host=cindy`（整套剪辑器）；
+  - 右侧栏 `cindy-ghost://montclip/panel.html` 套着 `http://127.0.0.1:47777/cindy/transcript.html?host=cindy`。
+
+#### 2.6.1 主视图播放 2.18 GB 录像、拖到 2 GB 之后 —— 通
+
+- 导入：`call_tool fablecut_import_media {path, link:true}`，进 `~/MontClip-Cindy/media` 是硬链接（`fsutil hardlink list` 列出 4 条路径）。
+- 探针 `montclip_probe`，跑在主视图里，`ancestorOrigins:["cindy-ghost://montclip"]`，UA 是 `Cindy/0.1.122 … Electron/42.11.12`：
+
+| 项 | 结果 |
+|---|---|
+| Range | `206`，`bytes 1000000-1000999/2177179879` |
+| SSE | `open` |
+| 元数据 | 23 ms，720 s，1920×1080 |
+| 播放 2 秒 | 走了 2.739 s，167 帧，**丢帧 0** |
+| seek | 360 s → 12 ms，72 s → 12 ms，648 s → 26 ms，237.6 s → 469 ms，540 s → 17 ms；每次 `readyState:4` |
+
+- 拖到 2 GB 之后：`montclip_seek {t:700}`（约 2.12 GB 处）返回 `time:700`。随后 `fablecut_frame {time:700, where:"tab"}` 由主视图里的剪辑器渲染出这一帧，画面时间码是 `00:11:40.000`（见上面的帧图）。
+
+#### 2.6.2 「删掉 1:00–1:30」→ 同步 → 撤销 / 重做 → 版本 —— 通
+
+做法：把这句话当作 Cindy 聊天里的请求，按 Cindy agent 的正常路径处理：`ghost_call montclip.list_tools` 看类目和 RULES，再调 `call_tool`。
+
+如实说明：这次是本任务里的 Cindy agent 直接调插件工具，没有另开一个 Cindy 聊天任务、在输入框里打这句话。那样要在主人的聊天界面里打字，还会多跑一次模型；两者走的是同一条 `ghost_call` 链路。
+
+```
+versions save "删段前"                → Saved v2 "删段前" … revision 2
+patch {baseRevision:2, ops:[extract 60→90]} → Patched (revision 3): extract 60→90s
+montclip_status（剪辑器）             → {undo:1, redo:0, revision:4, clips:7, duration:690}
+文稿面板上报                          → revision 3 / 4，lines 3（1:15 那句被剪掉）
+montclip_undo                         → {undo:0, redo:1, clips:6, duration:720}；get_project rev 5，四句字幕都在
+montclip_redo                         → {undo:1, redo:0, clips:7, duration:690, revision:5}
+versions list                         → v2 "删段前"、v1 "Before agent edits"
+versions restore 2                    → Restored v2 … kept as v3 "Before restoring v2"
+montclip_status                       → {duration:720, clips:6, revision:8, undo:2}（退回本身也成了剪辑器里可撤销的一步）
+```
+
+#### 2.6.3 从主视图导出 MP4 —— 通（ffmpeg 交付部分没测）
+
+- `setProject {inPoint:70, outPoint:80}`，再 `fablecut_export {range:"in-out", where:"tab", preset:"youtube"}`，用时 **21.7 s**。
+- 回执：`Checks passed: 1920×1080 · 60 fps · 600 frames · h264 · color bt709 · 0:10.00 · 38.9 MB`。
+- 文件：`C:\Users\tyb90\MontClip-Cindy\exports\Cindy spike_youtube_1080p.mp4`，sha256 `f73ee8bcc92fff0e874a696f11e26002ea611955c3cb66242d17b6422fea6d34`。ffprobe：`h264 1920×1080 60/1 nb_frames=600`。
+- **没有像无头 Edge 标签页那样卡在一半**。无头 Edge 那次卡住，大概是那个标签页被浏览器节流；Cindy 的主视图是前台可见的 WebView，所以不受影响。这只是推测，没有专门验证。
+- 回执仍写着 "no audio (the timeline is silent)"，和无头时一样。
+- `cindy.downloads` 下载固定 ffmpeg：**没测**。这次补测没有要求，而且下载 160 MB 需要主人另外同意。
+
+#### 2.6.4 右侧栏「文稿」页签 —— 部分通
+
+- 显示：插件一装上，右侧栏就出现全局页签「MontClip 文稿」。页面在 Cindy 里加载并读到了项目，上报里 `ancestorOrigins:["cindy-ghost://montclip"]`。
+- 跟随刷新：每次改动都跟着刷新，修订号和句数都对：
+
+| 时机 | 修订号 | 句数 |
+|---|---|---|
+| 添加字幕 | 2 | 4 |
+| 删段 | 3、4 | 3 |
+| 撤销 | 5 | 4 |
+| 重做 | 6 | 3 |
+| 退回版本 | 7、8 | 4 |
+| 设 IN/OUT | 9 | 4 |
+
+- 点一下跳转：**没在 Cindy 里点成**。
+  - 原因：桌面驱动对「插件页里再套 iframe」的元素算出的屏幕坐标是错的。字幕列表报在 (2568, 564)，「文稿」页签报在 (2593, 137)，都超出了 2560 宽的窗口，后台点击没有落到页面上。
+  - 想拿准确坐标，就要截整个窗口，会拍到聊天和其他任务，违反截图规矩，所以没截。我也不愿意在主人的 Cindy 窗口上按猜的坐标点。
+  - 已证实的部分：点击后要走的链路（`POST /api/ui/command {cmd:"seek"}` → 剪辑器移动播放头），在 Cindy 里用 `montclip_seek` 测通了（`time:700`）。文稿页在 Cindy 里同源 POST（`/__cindy/log`）也正常。
+  - 后续：把字幕行改成可聚焦的按钮，就可以用键盘或无障碍「invoke」触发，不依赖坐标。或者请主人亲手点一下，再看 `seek-click` 上报。
+
+#### 2.6.5 三处同开时状态一致 —— 通
+
+主视图（剪辑器）、右侧栏文稿、聊天工具三处同开，07:00:58 对账：
+
+| 来源 | 修订号 | 片段数 |
+|---|---|---|
+| 剪辑器 `ui state` | 9 | 6 |
+| 磁盘 `project.json` | 9 | 6 |
+| 文稿面板最后一次 `rendered` | 9 | — |
+
+§2.6.2 的每一步，三处的修订号都同步前进，没有出现冲突或回退。
+
+#### 2.6.6 Node 进程停掉以后，撤销历史还在不在 —— 部分通
+
+- 闲置回收要等 3600 秒，而且主视图开着时每 60 秒会唤醒一次，等不到。所以改成直接停掉插件自己的 worker 进程（`taskkill /PID 43776 /F`，父进程是 Cindy 主进程 30736），模拟它被回收。
+- 停掉前：`{undo:3, redo:0, revision:9, time:79.98}`。
+- 07:01:22 停掉，`curl /api/project` 返回 `000`（引擎没了）。07:01:54 引擎自动恢复，约 32 秒，是主视图的 60 秒唤醒把 worker 重新拉起的，还是 47777 端口。
+- 恢复后：`{undo:3, redo:0, revision:9, time:79.98}`，**撤销历史和播放头都还在**。随后 `montclip_undo` → `{undo:2, redo:1}`，`montclip_redo` → `{undo:3, revision:10}`，都能用。
+- 原因：剪辑器页（iframe）没有重新载入，撤销栈在页面内存里；只是 SSE 断了又自动重连。
+- 局限：
+  - 这是强杀，不是真正的闲置回收（两者都是进程退出，表现应该一样，但没等到真回收）；
+  - 端口要是变了（47777 被占用），壳页会换 iframe 地址、重新载入，撤销历史就会丢；
+  - 引擎停着的 30 秒里，剪辑器的保存会失败，要等引擎回来再存。
+
 ## 3. 推荐架构：一份引擎，两层壳
 
 ```
@@ -171,15 +286,17 @@ versions restore 2          → "Restored v2 … kept as v3 "Before restoring v2
 ## 4. 风险和还不知道的点
 
 - **回环嵌入是手册没写的能力**。它只在源码和运行中的构建里，随包手册（`cindy-plugin-creator` 参考资料）里搜不到 frame-src 或回环相关的说明。Cindy 以后的版本可能改掉。全量做之前，应该请 Cindy 方确认这是公开契约，至少确认 0.1.122 之后的版本会保留。
-- **在 Cindy 页面里的实测还没跑**（安装被拒）：Electron 42 / Chromium 148 的 iframe 里，2 GB H.264 1080p60 的解码和拖动耗时；SSE 长连接在 Cindy 分区里能不能稳定保持；主视图 `open:"sidebar", side:"left"` 和线框图的位置是否一致。
+- **主视图的位置**：清单写了 `open:"sidebar", side:"left"`，想让剪辑器在聊天左边，但从「更多」菜单打开的是一级页面（`#/apps/_root__montclip`）。这个页面里看得到右侧栏的文稿面板；聊天区是否同时可见，没有核实（没截整窗）。要做到线框图那样「剪辑器 + 聊天 + 右侧栏」并排，需要查 Cindy 的 `open` 什么时候生效，或者问 Cindy 方。
+- **入口位置**：插件主视图在左侧导航的「更多」菜单里，不是一级按钮。用户可能找不到。
+- **桌面驱动点不到嵌套 iframe**：影响自动化测试，不影响真人使用。
 - **Node worker 的生命周期**：
   - `on-demand` 的空闲回收只看 RPC，不看 HTTP 访问，剪辑器开着也可能被回收。我让壳页每 60 秒唤醒一次，把空闲时间设成 3600 秒，并且尽量用固定端口 47777，换端口时 iframe 跟着换。
   - 更稳的做法是 `lifecycle:"resident"`，但详情页会把它单列为高风险项。
-  - worker 被回收或重启时，app.js 里的撤销栈会丢，因为剪辑器页会重新载入。这一点要在 Cindy 里实测。
-- **Cindy 自带的 Node 运行时版本**：server.js 用到了 `fs.watch`、`crypto.randomUUID` 等。装上后看日志的 `node` 和 `execPath` 字段核对。
+  - 实测（§2.6.6）：worker 重启后端口不变、剪辑器页不重新载入，撤销栈还在。只有端口变了、iframe 重新载入时才会丢；引擎停着期间保存会失败。
+- **Cindy 自带的 Node 运行时**：实测是 v24.19.0（`Cindy.exe` 的 NodeService utility 进程），server.js 和 mcp-server.js 原样能跑。
 - **端口与本机安全**：引擎只监听 127.0.0.1，并且检查 Host / Origin（`requestAllowed`）。但同一台电脑上的其他程序也能访问这个端口。独立版用 `MONTCLIP_SESSION_TOKEN` 做了会话校验；插件版目前没有，因为 iframe 不能加请求头。可以改成在 URL 里带一次性 token，再换成 cookie，作为后续 PR。
 - **两份引擎同时开**（独立版和插件版指向同一个数据目录）时，两个 server.js 会同时写 `project.json`。这次插件版默认用单独的 `~/MontClip-Cindy`，避开了这个问题。
-- **导出**：在 Cindy 主视图里导出属于 `where:"tab"`，我起的无头 Edge 标签页导出时停住了，原因未查。
+- **导出**：在 Cindy 主视图里导出（`where:"tab"`）实测通过；无头 Edge 标签页导出卡住的原因没查。导出音轨被判成「静音」，原因也没查。
 - 包大小目前 2.0 MB（`.cindy`），引擎副本 307 个文件、4.9 MB，离 2048 个文件 / 256 MB 的上限很远。听写模型和 ffmpeg 都不进包。
 - 这次没有处理插件图标：用的是 scaffold 生成的占位图。
 
@@ -200,7 +317,10 @@ versions restore 2          → "Restored v2 … kept as v3 "Before restoring v2
 ## 6. 交付物与测试记录
 
 - 插件源码：`plugins/montclip-cindy/`。包含 `ghost.json`、`main.js`、`frame.js`（壳页）、`node/worker.cjs`、`embed/`（引擎侧页面：文稿、探针）和 `build.cjs`。
-- 包：`plugins/montclip-cindy/montclip-0.0.1.cindy`（被 gitignore），2047112 字节，sha256 `915b1b6a3cfa2da511a4f9dc038f5ad0384c508ac178d77cb10fdc137f687506`。用 `ghost_forge_pack` 打包，校验通过。
+- 包：`plugins/montclip-cindy/montclip-0.0.1.cindy`（被 gitignore），2,047,112 字节。
+  - `ghost_forge_pack` 打出、核对过的是 sha256 `915b1b6a3cfa2da511a4f9dc038f5ad0384c508ac178d77cb10fdc137f687506`；
+  - `ghost_forge_install` 重新打包后，装进 Cindy 的是 sha256 `2b8e3da63778f262b571a0d4dffe1efd8fd956acaa434ff8dcd29d356221c4f2`。
+  - 两者源码相同（commit `d2c00fc`），只是重新压缩。
 - 测试脚本：附在 `plugins/montclip-cindy/spike/`（`rpc.cjs` 和各 `steps*.json`），按 Cindy 主机的方式驱动 worker。
 
 | 项 | 跑没跑 | 说明 |
@@ -212,10 +332,14 @@ versions restore 2          → "Restored v2 … kept as v3 "Before restoring v2
 | 导出 MP4（headless） | 跑了 | §2.3；`where:"tab"` 那次失败，已如实记录 |
 | 全量 `node --test` | 跑了 | 本分支 1382 过、9 失败、51 跳过；干净的 origin/main 同样是 1382 过 / 9 失败，失败的 9 项完全相同（听写分段、导出停止、faststart，是本机环境问题）。中途一版把导入缺省改成硬链接，多挂了 1 项（flv-gap-routes），已改成可选参数并复测 |
 | `ghost_forge_pack` | 跑了 | 通过 |
-| `ghost_forge_install`（个人范围自测安装） | 跑了，**被拒** | `MUTATION_CANCELLED`；已问主人 |
-| Cindy 主视图里播放、拖动 2 GB 录像（`montclip_probe`） | **没跑** | 插件没装上 |
-| Cindy 聊天里一句话删段、撤销、重做 | **没跑** | 插件没装上 |
-| 右侧栏文稿面板显示、点句跳转 | **没跑** | 插件没装上 |
-| `cindy.downloads` 下载 ffmpeg | **没跑** | 插件没装上 |
-| 三处同开时对账 | **没跑** | 插件没装上 |
-| 截图 | **没截** | 没开过可见窗口，也就没有截图；证据全是日志和命令输出 |
+| `ghost_forge_install` 第一次 | 跑了，**被拒** | `MUTATION_CANCELLED` |
+| `ghost_forge_install` 第二次（个人范围） | 跑了，**装上** | 确认卡由 Deja 按主人同意代点（见 §1） |
+| Cindy 主视图里播放、拖到 2 GB 之后 | 跑了，**通** | §2.6.1 |
+| Cindy 里删段、同步、撤销、重做、版本、退回 | 跑了，**通** | §2.6.2；由本任务的 Cindy agent 调插件工具，没有另开聊天任务打字 |
+| Cindy 主视图导出 MP4（YouTube 档） | 跑了，**通** | §2.6.3；21.7 s，没卡住 |
+| 右侧栏文稿：显示、跟随刷新 | 跑了，**通** | §2.6.4 |
+| 右侧栏文稿：点一下跳转 | **没点成** | 桌面驱动对嵌套 iframe 坐标算错；要拿准确坐标得截整窗，违反截图规矩 |
+| 三处同开对账 | 跑了，**通** | §2.6.5 |
+| worker 停掉后撤销历史 | 跑了，**部分通** | §2.6.6；用强杀代替闲置回收 |
+| `cindy.downloads` 下载 ffmpeg | **没跑** | 这次补测没有要求；下载 160 MB 需要主人另外同意 |
+| 截图 | 只截了合成画面 | 唯一的图是主视图剪辑器渲染出的时间线帧（合成素材，`spike/evidence/cindy-mainview-frame-700s.jpg`）；没截整窗，因为会拍到聊天和其他任务 |

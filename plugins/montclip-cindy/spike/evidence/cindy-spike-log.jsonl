@@ -1,0 +1,43 @@
+{"at":"2026-11-04T06:55:54.364Z","event":"engine-started","origin":"http://127.0.0.1:47777","ffmpeg":"path","node":"v24.19.0","execPath":"C:\\Users\\tyb90\\AppData\\Local\\Programs\\Cindy\\Cindy.exe","pid":43776}
+{"at":"2026-11-04T06:55:54.441Z","from":"page","kind":"transcript","event":"rendered","why":"open","revision":0,"lines":0,"ancestorOrigins":["cindy-ghost://montclip"]}
+{"at":"2026-11-04T06:56:05.880Z","event":"ui-command","cmd":"state","status":409,"body":{"error":"no editor tab is open to run it","code":"NO_EDITOR"}}
+{"at":"2026-11-04T06:56:11.852Z","event":"tool","name":"fablecut_import_media","ms":120}
+{"at":"2026-11-04T06:56:12.352Z","from":"page","kind":"transcript","event":"rendered","why":"change","revision":1,"lines":0,"ancestorOrigins":["cindy-ghost://montclip"]}
+{"at":"2026-11-04T06:56:19.476Z","event":"tool","name":"fablecut_patch_project","ms":67}
+{"at":"2026-11-04T06:56:19.970Z","from":"page","kind":"transcript","event":"rendered","why":"change","revision":2,"lines":4,"ancestorOrigins":["cindy-ghost://montclip"]}
+{"at":"2026-11-04T06:57:31.889Z","event":"ui-command","cmd":"state","status":409,"body":{"error":"no editor tab is open to run it","code":"NO_EDITOR"}}
+{"at":"2026-11-04T06:58:20.391Z","event":"ui-command","cmd":"state","status":200,"body":{"id":"d4c9a281-dcdc-4c58-9a66-7248767163a1","ok":true,"cmd":"state","time":0,"undo":0,"redo":0,"revision":2,"clips":6,"duration":720}}
+{"at":"2026-11-04T06:58:24.728Z","from":"page","kind":"probe-start","src":"/media/synthetic-1080p60-12min.mp4","href":"http://127.0.0.1:47777/cindy/probe.html?src=%2Fmedia%2Fsynthetic-1080p60-12min.mp4&where=cindy-ghost%3A%2F%2Fmontclip%2Fmain-view.html","where":"cindy-ghost://montclip/main-view.html","ancestorOrigins":["cindy-ghost://montclip"],"ua":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Cindy/0.1.122 Chrome/148.0.7778.280 Electron/42.11.12 Safari/537.36"}
+{"at":"2026-11-04T06:58:24.737Z","from":"page","kind":"range","src":"/media/synthetic-1080p60-12min.mp4","status":206,"contentRange":"bytes 1000000-1000999/2177179879","bytes":1000}
+{"at":"2026-11-04T06:58:24.744Z","from":"page","kind":"sse","src":"/media/synthetic-1080p60-12min.mp4","state":"open"}
+{"at":"2026-11-04T06:58:24.771Z","from":"page","kind":"metadata","src":"/media/synthetic-1080p60-12min.mp4","ms":23,"duration":720,"w":1920,"h":1080}
+{"at":"2026-11-04T06:58:27.583Z","from":"page","kind":"play","src":"/media/synthetic-1080p60-12min.mp4","advancedSeconds":2.739,"wallMs":2808,"frames":{"total":167,"dropped":0}}
+{"at":"2026-11-04T06:58:28.125Z","from":"page","kind":"seeks","src":"/media/synthetic-1080p60-12min.mp4","seeks":[{"to":360,"ms":12,"readyState":4,"at":360},{"to":72,"ms":12,"readyState":4,"at":72},{"to":648,"ms":26,"readyState":4,"at":648},{"to":237.6,"ms":469,"readyState":4,"at":237.6},{"to":540,"ms":17,"readyState":4,"at":540}]}
+{"at":"2026-11-04T06:58:28.130Z","from":"page","kind":"probe-done","src":"/media/synthetic-1080p60-12min.mp4","ok":true}
+{"at":"2026-11-04T06:58:36.084Z","event":"ui-command","cmd":"seek","status":200,"body":{"id":"26165568-f4dd-460b-a97c-88b9621d8913","ok":true,"cmd":"seek","time":700,"undo":0,"redo":0,"revision":2,"clips":6,"duration":720}}
+{"at":"2026-11-04T06:58:36.991Z","event":"tool","name":"fablecut_frame","ms":320}
+{"at":"2026-11-04T06:58:51.459Z","event":"tool","name":"fablecut_versions","ms":33}
+{"at":"2026-11-04T06:58:53.097Z","event":"tool","name":"fablecut_patch_project","ms":13}
+{"at":"2026-11-04T06:58:53.268Z","from":"page","kind":"transcript","event":"rendered","why":"change","revision":3,"lines":3,"ancestorOrigins":["cindy-ghost://montclip"]}
+{"at":"2026-11-04T06:58:53.886Z","from":"page","kind":"transcript","event":"rendered","why":"change","revision":4,"lines":3,"ancestorOrigins":["cindy-ghost://montclip"]}
+{"at":"2026-11-04T06:58:57.548Z","event":"ui-command","cmd":"state","status":200,"body":{"id":"322c7770-519b-4e57-ba8c-cdbabe597ad3","ok":true,"cmd":"state","time":700,"undo":1,"redo":0,"revision":4,"clips":7,"duration":690}}
+{"at":"2026-11-04T06:59:06.260Z","event":"ui-command","cmd":"undo","status":200,"body":{"id":"11c1d282-379a-4b60-b65a-092b1f336623","ok":true,"cmd":"undo","time":700,"undo":0,"redo":1,"revision":4,"clips":6,"duration":720}}
+{"at":"2026-11-04T06:59:06.849Z","from":"page","kind":"transcript","event":"rendered","why":"change","revision":5,"lines":4,"ancestorOrigins":["cindy-ghost://montclip"]}
+{"at":"2026-11-04T06:59:08.828Z","event":"tool","name":"fablecut_get_project","ms":21}
+{"at":"2026-11-04T06:59:10.885Z","event":"ui-command","cmd":"redo","status":200,"body":{"id":"0fd69aaf-9958-43c3-bc6e-dba98c3647c5","ok":true,"cmd":"redo","time":700,"undo":1,"redo":0,"revision":5,"clips":7,"duration":690}}
+{"at":"2026-11-04T06:59:12.557Z","event":"tool","name":"fablecut_versions","ms":30}
+{"at":"2026-11-04T06:59:12.592Z","from":"page","kind":"transcript","event":"rendered","why":"change","revision":6,"lines":3,"ancestorOrigins":["cindy-ghost://montclip"]}
+{"at":"2026-11-04T06:59:17.083Z","event":"tool","name":"fablecut_versions","ms":27}
+{"at":"2026-11-04T06:59:17.253Z","from":"page","kind":"transcript","event":"rendered","why":"change","revision":7,"lines":4,"ancestorOrigins":["cindy-ghost://montclip"]}
+{"at":"2026-11-04T06:59:18.639Z","event":"ui-command","cmd":"state","status":200,"body":{"id":"ad12b555-f238-4dfb-8089-cf2de32f4e10","ok":true,"cmd":"state","time":700,"undo":2,"redo":0,"revision":8,"clips":6,"duration":720}}
+{"at":"2026-11-04T06:59:18.781Z","from":"page","kind":"transcript","event":"rendered","why":"change","revision":8,"lines":4,"ancestorOrigins":["cindy-ghost://montclip"]}
+{"at":"2026-11-04T07:00:35.655Z","event":"tool","name":"fablecut_patch_project","ms":9}
+{"at":"2026-11-04T07:00:35.842Z","from":"page","kind":"transcript","event":"rendered","why":"change","revision":9,"lines":4,"ancestorOrigins":["cindy-ghost://montclip"]}
+{"at":"2026-11-04T07:00:58.169Z","event":"tool","name":"fablecut_export","ms":21660}
+{"at":"2026-11-04T07:01:13.245Z","event":"ui-command","cmd":"state","status":200,"body":{"id":"85588c7e-b5b7-4f33-87ea-01770b3fbb27","ok":true,"cmd":"state","time":79.98333333333333,"undo":3,"redo":0,"revision":9,"clips":6,"duration":720}}
+{"at":"2026-11-04T07:01:54.782Z","event":"engine-started","origin":"http://127.0.0.1:47777","ffmpeg":"path","node":"v24.19.0","execPath":"C:\\Users\\tyb90\\AppData\\Local\\Programs\\Cindy\\Cindy.exe","pid":32740}
+{"at":"2026-11-04T07:01:59.415Z","event":"ui-command","cmd":"state","status":200,"body":{"id":"d300d3b0-0996-40f6-9923-ba686658bd19","ok":true,"cmd":"state","time":79.98333333333333,"undo":3,"redo":0,"revision":9,"clips":6,"duration":720}}
+{"at":"2026-11-04T07:02:05.089Z","event":"ui-command","cmd":"undo","status":200,"body":{"id":"ec230427-8a33-432e-a172-7558d4708075","ok":true,"cmd":"undo","time":79.98333333333333,"undo":2,"redo":1,"revision":9,"clips":6,"duration":720}}
+{"at":"2026-11-04T07:02:05.606Z","event":"ui-command","cmd":"redo","status":200,"body":{"id":"32722404-f918-4957-b049-9d3aed6eef5b","ok":true,"cmd":"redo","time":79.98333333333333,"undo":3,"redo":0,"revision":10,"clips":6,"duration":720}}
+{"at":"2026-11-04T07:02:05.769Z","from":"page","kind":"transcript","event":"rendered","why":"change","revision":10,"lines":4,"ancestorOrigins":["cindy-ghost://montclip"]}
+{"at":"2026-11-04T07:02:06.168Z","from":"page","kind":"transcript","event":"rendered","why":"change","revision":11,"lines":4,"ancestorOrigins":["cindy-ghost://montclip"]}
