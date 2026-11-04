@@ -9642,7 +9642,13 @@ function loadAsrStatus() {
     .then((s) => { asrState.status = s; asrState.asking = null; paintAsrStatus(); renderTranscript(true); return s; });
   return asrState.asking;
 }
-const asrReady = () => !!(asrState.status && asrState.status.engine.ready && asrState.status.vad.ready && asrState.status.asr.ready);
+/** Which speech model the Transcript tab uses (the owner, 2026-11-04): "asr" (Paraformer, the default) or "asrMeta" (Meta's
+ *  Omnilingual ASR, optional). Kept in this browser; the server is told per transcription. */
+const ASR_MODEL_KEY = "montclip.asrModel";
+function asrKey() { try { return localStorage.getItem(ASR_MODEL_KEY) === "asrMeta" ? "asrMeta" : "asr"; } catch { return "asr"; } }
+function setAsrKey(k) { try { localStorage.setItem(ASR_MODEL_KEY, k === "asrMeta" ? "asrMeta" : "asr"); } catch { } paintAsrStatus(); renderTranscript(true); }
+const asrModelStatus = (s) => (s && s[asrKey()]) || { ready: false, where: null, missing: [], bad: [] };
+const asrReady = () => !!(asrState.status && asrState.status.engine.ready && asrState.status.vad.ready && asrModelStatus(asrState.status).ready);
 /** The optional punctuation model is installed (Deja: Apache-2.0, so the streamer may add it). */
 function asrPunctReady() { return !!(asrState.status && asrState.status.punct && asrState.status.punct.ready); }
 function onAsrEvent(data) {
@@ -9671,11 +9677,12 @@ function paintAsrStatus() {
   else if (ph === "no-space") { text = uiText("own.asr-no-space", { drive: asrState.space.drive, free: mbText(asrState.space.free) }); get = "own.asr-resume"; later = true; }
   else if (ph === "check-failed") { text = uiText("own.asr-check-failed"); get = "own.asr-again"; later = true; }
   else if (ph === "failed") { text = uiText("own.asr-download-failed", { why: asrState.why || "?" }); get = "own.asr-again"; later = true; }
-  else if (s.asr.ready) text = uiText("own.asr-ready");
-  else { text = uiText(s.asr.bad.length ? "own.asr-bad" : "own.asr-missing"); get = "own.asr-download"; imp = true; }
+  else if (asrModelStatus(s).ready) text = uiText("own.asr-ready");
+  else { const meta = asrKey() === "asrMeta"; text = uiText(asrModelStatus(s).bad.length ? "own.asr-bad" : meta ? "own.asr-missing-meta" : "own.asr-missing"); get = meta ? "own.asr-download-meta" : "own.asr-download"; imp = true; }
   E.asr.textContent = asrState.note || text;
   E.asrDownload.hidden = !desk || !get;
   if (get) { E.asrDownload.textContent = uiText(get); E.asrDownload.dataset.i18n = get; }
+  if (E.asrModel) { E.asrModel.value = asrKey(); E.asrModel.disabled = !!d || !!trState.busy; }
   E.asrImport.hidden = !desk || !imp;
   E.asrCancel.hidden = !desk || !cancel;
   E.asrLater.hidden = !desk || !later;
@@ -9684,10 +9691,11 @@ function paintAsrStatus() {
 async function asrGet() {
   if (!window.montclipAsr || asrState.downloading) return;
   Object.assign(asrState, { note: "", phase: null, why: "", downloading: { loaded: 0 } });
-  const off = window.montclipAsr.onProgress((p) => { if (asrState.downloading && p && p.which === "asr") { asrState.downloading.loaded = p.loaded; asrState.downloading.total = p.total; paintAsrStatus(); } });
+  const which = asrKey();
+  const off = window.montclipAsr.onProgress((p) => { if (asrState.downloading && p && p.which === which) { asrState.downloading.loaded = p.loaded; asrState.downloading.total = p.total; paintAsrStatus(); } });
   paintAsrStatus();
   let r = null;
-  try { r = await window.montclipAsr.download("asr"); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
+  try { r = await window.montclipAsr.download(which); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
   off?.();
   asrState.downloading = null;
   if (r && r.ok) toast(uiText("own.asr-ready"));
@@ -9839,7 +9847,7 @@ async function asrGetPunct() {
 }
 /** Transcribe one file in the local server, which saves its transcript. Resolves to {doc, saved}. */
 async function transcribeFile(src) {
-  const r = await fetch("/api/asr/transcribe", { method: "POST", body: JSON.stringify({ src }) });
+  const r = await fetch("/api/asr/transcribe", { method: "POST", body: JSON.stringify(asrKey() === "asrMeta" ? { src, model: "meta" } : { src }) });
   let j = {};
   try { j = await r.json(); } catch { }
   if (!r.ok) throw Object.assign(new Error(j.error || "transcription failed"), { code: j.code });
@@ -9938,6 +9946,8 @@ function buildTranscriptPage() {
       <div class="tr-row">
         ${listen ? `<button type="button" class="btn primary" data-tr-go></button>` : ""}
       </div>
+      ${listen ? `<div class="tr-row tr-asr-model"><span class="tr-lbl" data-i18n="own.asr-model">${escapeHtml(uiText("own.asr-model"))}</span>
+        <select data-tr-asr-model><option value="asr" data-i18n="own.asr-model-paraformer">${escapeHtml(uiText("own.asr-model-paraformer"))}</option><option value="asrMeta" data-i18n="own.asr-model-meta">${escapeHtml(uiText("own.asr-model-meta"))}</option></select></div>` : ""}
       ${listen ? `<div class="tr-row tr-asr"><span class="tr-asr-text" data-tr-asr role="status"></span>
         <button type="button" class="btn tiny" data-tr-asr-download hidden data-i18n="own.asr-download">${escapeHtml(uiText("own.asr-download"))}</button>
         <button type="button" class="btn tiny" data-tr-asr-import hidden data-i18n="own.asr-import">${escapeHtml(uiText("own.asr-import"))}</button>
@@ -9973,7 +9983,7 @@ function buildTranscriptPage() {
   trState.el = { go: q("[data-tr-go]"), busy: q("[data-tr-busy]"), busyText: q("[data-tr-busy-text]"), bar: q("[data-tr-bar]"),
     find: q("[data-tr-find]"), count: q("[data-tr-count]"), cutFound: q("[data-tr-cut-found]"), body: q("[data-tr-body]"),
     foot: q("[data-tr-foot]"), selText: q("[data-tr-sel]"),
-    asr: q("[data-tr-asr]"), asrDownload: q("[data-tr-asr-download]"), asrImport: q("[data-tr-asr-import]"), asrCancel: q("[data-tr-asr-cancel]"), asrLater: q("[data-tr-asr-later]") };
+    asr: q("[data-tr-asr]"), asrDownload: q("[data-tr-asr-download]"), asrImport: q("[data-tr-asr-import]"), asrCancel: q("[data-tr-asr-cancel]"), asrLater: q("[data-tr-asr-later]"), asrModel: q("[data-tr-asr-model]") };
   const E = trState.el;
   if (listen) {
     E.go.addEventListener("click", transcribeFromTab);
@@ -9982,6 +9992,7 @@ function buildTranscriptPage() {
     E.asrCancel.addEventListener("click", asrCancel);
     E.asrLater.addEventListener("click", asrLater);
     E.asrImport.addEventListener("click", asrImport);
+    E.asrModel.addEventListener("change", () => setAsrKey(E.asrModel.value));
     paintAsrStatus();
     loadAsrStatus();
   }

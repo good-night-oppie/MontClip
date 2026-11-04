@@ -728,6 +728,21 @@ here): FLEURS character error rate 3.33% on Chinese characters, 4-thread real-ti
 factor about 0.05. On the Win11 test machine (i7-11800H) a 10-minute recording took
 about 15 s (decoding RTF 0.028). Singing is transcribed with many wrong characters.
 
+**Meta's open model, as a second choice** (the owner, 2026-11-04; Paraformer stays the
+default and is unchanged). The Transcript tab's **Speech model** menu offers
+**Meta Omnilingual (1,600+ languages)**: Meta's Omnilingual ASR CTC 300M (Apache-2.0),
+in sherpa-onnx's int8 export (`sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12`,
+365 MB model, 280 MB download from the k2-fsa GitHub release), read by the same engine
+(`modelConfig.omnilingual`). It is downloaded or imported like Paraformer, checked the
+same way, and chosen per transcription (`POST /api/asr/transcribe {src, model:"meta"}`;
+the transcript's model is `omnilingual-meta`, its language `auto`). It gives one token
+per character: letters run into a word up to a space, Chinese characters are a word each
+(`asr-words.js` `letterWords`). Each VAD segment gets 0.25 s of silence on both sides
+(without it the model reads nothing from a cut that starts on a word). On europa
+(4 threads) it read English, German, French and a Mandarin sentence correctly, slower
+than Paraformer (about 2× real time with the model already loaded); on Mandarin
+Paraformer is the better choice. See docs/validation/asr-meta-omnilingual.md.
+
 **Where the model comes from** (`desktop/asr-manifest.json` pins every file's
 SHA-256 and size; a file that does not match is never used):
 

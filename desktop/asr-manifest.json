@@ -32,6 +32,22 @@
           "size": 234051698, "sha256": "9c49fd9c6fb63de8e18c1054cf3d100f804741b7e608e187923cd8ff09fa9f03", "dir": "sherpa-onnx-paraformer-zh-2023-09-14/" }
       ]
     },
+    "asrMeta": {
+      "id": "omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12",
+      "name": "sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12 (Meta Omnilingual ASR CTC 300M, int8)",
+      "license": "Apache-2.0 (Copyright 2025 Meta Platforms, Inc.; the archive's LICENSE, sha256 a70a523bafbb595c…; model: github.com/facebookresearch/omnilingual-asr; ONNX export: k2-fsa/sherpa-onnx; checked 2026-11-04)",
+      "required": false,
+      "engine": "omnilingual",
+      "note": "Optional, chosen in the Transcript tab (the owner, 2026-11-04: Paraformer stays the default, unchanged). One CTC model for 1600+ languages; sherpa-onnx-node 2.0.1 reads it (modelConfig.omnilingual). europa 2026-11-04, 4 threads: the archive's en.wav (3.9 s) in 3.3 s, Paraformer's 0.wav (5.6 s, Mandarin) in 4.7 s; one token per character, each with its time; no punctuation of its own.",
+      "files": {
+        "model.int8.onnx": { "size": 365352120, "sha256": "e7c4e54ee4c4c47829cc6667d5d00ed8ea7bef1dcfeef0fce766f77752a2726c" },
+        "tokens.txt": { "size": 86423, "sha256": "a7a044c52cb29cbe8b0dc1953e92cefd4ca16b0ed968177b6beab21f9a7d0b31" }
+      },
+      "sources": [
+        { "kind": "archive", "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12.tar.bz2",
+          "size": 292571207, "sha256": "cdcd0559c7c73efed54209a926e321afc914d046c5fdbf3665f00dc78180e5ed", "dir": "sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/" }
+      ]
+    },
     "punct": {
       "id": "ct-transformer-zh-en-vocab272727-2024-04-12-int8",
       "name": "sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8 (CT-Transformer punctuation)",

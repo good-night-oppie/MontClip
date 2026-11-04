@@ -13,7 +13,7 @@ const hostsOf = (which) => [...new Set(manifest.models[which].sources.map((s) =>
 function asrDownloadText(language, which) {
   // where a GitHub download may be passed on: GitHub's own file servers, and only those (JJ)
   const zh = language !== 'en', mb = mbOf(which), hosts = hostsOf(which), more = manifest.hosts.filter((h) => h.endsWith('.githubusercontent.com'));
-  const what = which === 'punct' ? (zh ? '标点模型' : 'the punctuation model') : (zh ? '听写模型' : 'the speech model');
+  const what = which === 'punct' ? (zh ? '标点模型' : 'the punctuation model') : which === 'asrMeta' ? (zh ? 'Meta 的多语言听写模型' : "Meta's multilingual speech model (Omnilingual ASR)") : (zh ? '听写模型' : 'the speech model');
   return zh ? {
     title: '下载' + what,
     message: `要下载${what}，大约 ${mb} MB。`,

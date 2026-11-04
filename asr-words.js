@@ -56,4 +56,30 @@ function punctuate(ws, punctuated) {
   return i === want.length ? out : ws;
 }
 
-module.exports = { words, join, plain, punctuate };
+/** Meta Omnilingual ASR (CTC, sherpa-onnx): one token per character, a " " token between words. Letters run together
+ *  into a word until a space; Chinese and Japanese characters are a word each, as Paraformer gives them. Same shape as
+ *  words(): [text, start, end] in file seconds; a word ends where the next starts, at most `maxChar` after its last
+ *  character, and never after the segment. */
+const CJK = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/;
+function letterWords(result, { offset = 0, end = Infinity, maxChar = 0.5 } = {}) {
+  const tokens = (result && result.tokens) || [], ts = (result && result.timestamps) || [];
+  if (!tokens.length || ts.length !== tokens.length) return [];
+  const pieces = [];
+  let cur = null;
+  const close = () => { if (cur) { pieces.push(cur); cur = null; } };
+  for (let i = 0; i < tokens.length; i++) {
+    const t = String(tokens[i]);
+    if (!t.trim() || /^<.*>$/.test(t)) { close(); continue; }
+    if (CJK.test(t)) { close(); pieces.push({ text: t, s: ts[i], last: ts[i] }); continue; }
+    if (cur) cur.text += t; else cur = { text: t, s: ts[i], last: ts[i] };
+    cur.last = ts[i];
+  }
+  close();
+  return pieces.map((p, k) => {
+    const s = offset + p.s, nx = pieces[k + 1];
+    const e = Math.min(nx ? offset + nx.s : end, offset + p.last + maxChar, end);
+    return [p.text, r3(s), r3(Math.max(s, e))];
+  });
+}
+
+module.exports = { words, letterWords, join, plain, punctuate };

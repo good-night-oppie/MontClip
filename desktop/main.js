@@ -142,7 +142,7 @@ async function start() {
   app.once("before-quit", () => { if (asrBusy) asrBusy.abort(); });
   ipcMain.handle("montclip:asr:download", async (event, which) => {
     if (!settingsAllowed(event, win, origin) || !features.transcribe) return { ok: false, code: "ASR_FORBIDDEN" };
-    if (which !== "asr" && which !== "punct") return { ok: false, code: "ASR_UNKNOWN_MODEL" };
+    if (which !== "asr" && which !== "asrMeta" && which !== "punct") return { ok: false, code: "ASR_UNKNOWN_MODEL" };
     if (asrBusy) return { ok: false, code: "ASR_BUSY" };
     const t = asrDownloadText(languageOf(settings.get()), which);
     const answer = smoke ? { response: process.env.MONTCLIP_SMOKE_ASR_CONSENT === "1" ? 1 : 0 }
