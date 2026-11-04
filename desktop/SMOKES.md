@@ -17,11 +17,13 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `agent-no-key-network-smoke.cjs` | `AGENT_NO_KEY_NETWORK_PASS` | 在用 |
 | `agent-plan-smoke.cjs` | `PLAN_PASS` | 在用 |
 | `agent-paste-smoke.cjs` | `MONTCLIP_PASTE_HARNESS_DISABLED (SKIPPED)`，退出码 0 | 已停用：会动系统剪贴板（138514e 起停用，没有开关能打开） |
+| `asr-gaps-smoke.cjs` | `ASR_GAPS_PASS` | 在用 |
 | `asr-smoke.cjs` | `ASR_SMOKE_PASS` | 在用 |
 | `auto-slices-smoke.cjs` | `AUTO_SLICES_PASS` | 在用 |
 | `av-sync-smoke.cjs` | `AV_SYNC_PASS` | 在用；需要 `MONTCLIP_AV_INPUT` 指向一段闪光加蜂鸣的测试视频 |
 | `caption-quick-smoke.cjs` | `CAPTION_QUICK_PASS` | 在用 |
 | `chinese-names-smoke.cjs` | `CN_NAMES_COMPLETE` | 在用 |
+| `corrections-smoke.cjs` | `CORRECTIONS_PASS` | 在用 |
 | `danmaku-keep-smoke.cjs` | `DANMAKU_KEEP_PASS` | 在用 |
 | `danmaku-smoke.cjs` | `DANMAKU_COMPLETE` | 在用 |
 | `dialogs-smoke.cjs` | `DIALOGS_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
@@ -32,6 +34,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `export-download-smoke.cjs` | `EXPORT_DOWNLOAD_COMPLETE` | 在用 |
 | `flv-native-smoke.cjs` | `FLV_NATIVE_COMPLETE` | 在用 |
 | `highlights-smoke.cjs` | `HIGHLIGHTS_COMPLETE` | 在用 |
+| `hidden-smoke.cjs` | `HIDDEN_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `keep-ranges-smoke.cjs` | `KEEP_RANGES_PASS` | 在用 |
 | `lyrics-smoke.cjs` | `LYRICS_PASS` | 在用 |
 | `media-names-smoke.cjs` | `MEDIA_NAMES_PASS` | 在用 |
@@ -52,6 +55,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `three-track-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
 | `timeline-content-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
 | `timeline-drag-smoke.cjs` | `MONTCLIP_DRAG_COMPLETE` | 在用 |
+| `toast-more-smoke.cjs` | `TOAST_MORE_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `url-sentence-smoke.cjs` | `URL_SENTENCE_COMPLETE` | 在用 |
 | `zh-batch3-smoke.cjs` | `ZH3_COMPLETE` | 在用 |
 | `zh-batch4-smoke.cjs` | `ZH4_PASS` | 在用 |
