@@ -10487,7 +10487,7 @@ function autoStartHtml() {
         <p class="as-small" data-as-subs-hint>${autoSubMode() === "none" ? autoSay("as-sub-none-hint") : ""}</p></div></div>
     </details>
     <div class="as-cta"><button type="button" class="btn primary" data-as-act="go"${st.picked.size ? "" : " disabled"}>${autoSay(st.picked.size > 1 ? "as-go-n" : "as-go", { n: st.picked.size })}</button>
-      <span class="as-small">${autoSay("as-go-hint")}</span></div>`;
+      ${st.picked.size ? `<span class="as-small">${autoSay("as-go-hint")}</span>` : `<span class="as-small" data-as-go-why>${autoSay("as-go-why-none")}</span>`}</div>`;
 }
 
 /* step 2: finding */
@@ -10579,7 +10579,11 @@ function autoReviewHtml() {
   const st = autoState(), on = st.clips.filter((c) => c.on).length, found = st.clips.length;
   const names = st.recs.map((r) => autoMedia(r.mediaId)).filter(Boolean).map((m) => m.name).join("、");
   const dur = st.recs.reduce((x, r) => x + r.duration, 0), dm = st.recs.reduce((x, r) => x + (r.danmaku || 0), 0);
-  const head = !found ? autoSay("as-found-none") : on === found ? autoSay("as-found-all", { found }) : autoSay("as-found-head", { found, on });
+  // three states that read differently (VV / JJ / Deja): nothing found; every card taken out (they are under 拿掉的);
+  // cards there but none ticked
+  const allOut = !found && st.dropped.length > 0;
+  const head = allOut ? autoSay("as-found-all-out", { found: st.dropped.length }) : !found ? autoSay("as-found-none")
+    : !on ? autoSay("as-found-none-ticked", { found }) : on === found ? autoSay("as-found-all", { found }) : autoSay("as-found-head", { found, on });
   const evidence = (dm ? autoSay("as-evidence", { count: dm.toLocaleString(), dur: autoDur(dur), n: found }) : autoSay("as-evidence-nodm", { dur: autoDur(dur), n: found }))
     + (st.habitUsed ? autoSay("as-evidence-habits", { n: st.keptN, k: st.habitUsed }) : "");
   // v12 (frozen; JJ's visual review): what every card used to repeat is said once — the name hint on the first card, the
@@ -10593,12 +10597,12 @@ function autoReviewHtml() {
     const start = no + 1, html = autoOverviewHtml(rec, mine, start) + (no === 0 ? note : "") + mine.map((c) => autoCardHtml(c, no++)).join("");
     return html;
   }).join("");
-  return `<div class="as-row"><div><h1>${head}</h1><p class="as-sub">${autoSay(found ? "as-review-sub" : "as-found-none-next", { name: names })}</p></div>
+  return `<div class="as-row"><div><h1>${head}</h1><p class="as-sub">${autoSay(allOut ? "as-all-out-sub" : found ? "as-review-sub" : "as-found-none-next", { name: names })}</p></div>
       <button type="button" class="btn" data-as-act="back-start">${autoSay("as-back-start")}</button></div>
-    <div class="as-evidence${dm ? "" : " warn"}">${evidence}</div>
+    ${allOut ? "" : `<div class="as-evidence${dm ? "" : " warn"}">${evidence}</div>`}
     ${st.ask ? `<section class="as-askline" data-as-ask><b>${autoSay("as-ask-title")}</b><span class="as-small as-askwhy">${autoSay("as-ask-sub")}</span>
       <div class="as-seg"><button type="button" data-as-act="ask" data-as-v="sing">${autoSay("as-ask-sing")}</button><button type="button" data-as-act="ask" data-as-v="chat">${autoSay("as-ask-chat")}</button><button type="button" data-as-act="ask" data-as-v="auto">${autoSay("as-ask-both")}</button></div></section>` : ""}
-    ${st.few ? `<section class="as-card-box"><b>${autoSay("as-few", st.few)}</b><p class="as-small">${autoSay("as-few-sub", { signals: uiText(dm ? "own.as-sig-both" : "own.as-sig-sound") })}</p></section>` : ""}
+    ${st.few && !allOut ? `<section class="as-card-box"><b>${autoSay("as-few", st.few)}</b><p class="as-small">${autoSay("as-few-sub", { signals: uiText(dm ? "own.as-sig-both" : "own.as-sig-sound") })}</p></section>` : ""}
     <div data-as-cards>${cards}</div>
     ${st.dropped.length ? `<details class="as-more"><summary>${autoSay("as-dropped", { n: st.dropped.length })}</summary>
       ${st.dropped.map((c) => `<div class="as-row as-dropped"><span>${escapeHtml(autoName(c))}</span><button type="button" class="btn tiny" data-as-act="put-back" data-as-id="${escapeHtml(c.id)}">${autoSay("as-put-back")}</button></div>`).join("")}</details>` : ""}
