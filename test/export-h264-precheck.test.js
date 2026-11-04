@@ -8,16 +8,16 @@ const V = require('../ui-preferences'), X = require('../external-ffmpeg');
 const ROOT = path.join(__dirname, '..'), app = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8'), server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
 const body = (src, head) => { const i = src.indexOf(head); a.ok(i >= 0, head); return src.slice(i, src.indexOf('\n}', i)); };
 
-test('the refusal is in export words, in both languages; other codes are said as before', () => {
-  for (const code of ['h264NoneWin', 'h264NoneOther']) {
-    const zh = V.h264Refusal('zh-CN', { code }), en = V.h264Refusal('en', { code });
-    a.match(zh, /^没有开始导出：/); a.match(en, /^Export did not start: /);
-    a.ok(!/在下面|below/.test(zh + en), 'not the Settings wording ("below")');
-    a.equal(zh.replace(/H\.264|MP4|FFmpeg|x264|Windows|MontClip/g, '').match(/[A-Za-z]{2,}/), null, 'zh ' + code + ': ' + zh);
-    a.ok(!/[一-鿿]/.test(en), 'en ' + code);
+// JJ, europa-aws ~/montclip-labels/jj/2026-11-04-错误白话表-默认条数-发到手机-JJ.md v2 (sha256 d99c25d1…),
+// row 「FLV_ENCODER_MISSING，以及导出时没有可用的编码器」, the export variant. One sentence on every platform.
+const JJ_ZH = '这台电脑上找不到 MontClip 能用的视频编码器，所以这次没能导出。可以先更新显卡驱动再试。';
+const JJ_EN = "This computer has no video encoder MontClip can use, so it couldn't export this time. Update the graphics driver and try again.";
+
+test('the refusal is JJ\'s sentence, word for word, in both languages; other codes are said as before', () => {
+  for (const r of [{ code: 'h264NoneWin' }, { code: 'h264NoneOther' }, { code: 'h264NoneWin', featurePack: true }]) {
+    a.equal(V.h264Refusal('zh-CN', r), JJ_ZH, JSON.stringify(r));
+    a.equal(V.h264Refusal('en', r), JJ_EN, JSON.stringify(r));
   }
-  a.match(V.h264Refusal('zh-CN', { code: 'h264NoneWin' }), /Windows 自带的编码器也用不了/);
-  a.equal(V.h264Refusal('zh-CN', { code: 'h264NoneWin', featurePack: true }), V.text['zh-CN'].h264RefuseWin + V.text['zh-CN'].h264NeedFeaturePack);
   a.equal(V.h264Refusal('zh-CN', { code: 'frameTooSmall', params: { w: 120, h: 40 } }), V.h264Message('zh-CN', { code: 'frameTooSmall', params: { w: 120, h: 40 } }));
   a.equal(V.h264Refusal('en', { code: 'nonsense' }), null, 'an unknown code is not shown as text');
 });
@@ -73,7 +73,7 @@ test('server, no H.264 encoder: H.264 refused at begin with a code, Archive (FFV
     { fps: 30, name: 'x', profile: 'delivery', hasAudio: false }]) {
     const r = await begin(req); a.equal(r.status, 400); const j = await r.json();
     a.match(j.code, /^h264None(Win|Other)$/, JSON.stringify(j)); a.ok(!/[一-鿿]/.test(j.error), 'English for agents and logs');
-    a.match(V.h264Refusal('zh-CN', j), /^没有开始导出：/);
+    a.equal(V.h264Refusal('zh-CN', j), JJ_ZH);
   }
   const r = await begin({ ...canvas, deliveries: [{ delivery: { preset: 'archive' }, name: 'c' }] });
   const j = await r.json(); a.equal(r.status, 200, JSON.stringify(j)); a.ok(j.id);

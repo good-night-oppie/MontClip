@@ -61,14 +61,13 @@
     extRemoveFailed: "Could not stop using this FFmpeg. Try again.",
   });
   // No H.264 encoder at all, said when export is clicked, before anything renders (ADR 2026-11-02, point 3; Deja C,
-  // 2026-11-04). h264None* are worded for Settings ("below"); these are for the export itself. For JJ to review.
+  // 2026-11-04). h264None* are worded for Settings ("below"); this one is for the export itself, one sentence on every
+  // platform. JJ, 2026-11-04 错误白话表 v2 (FLV_ENCODER_MISSING row, export variant).
   Object.assign(text["zh-CN"], {
-    h264RefuseWin: "没有开始导出：这台电脑上找不到能用的 H.264 编码器，导出 MP4 要用它。显卡编码器没有响应，Windows 自带的编码器也用不了。可以在「设置」里选一个带 x264 的 FFmpeg，或者导出时换一种不用 H.264 的格式。",
-    h264RefuseOther: "没有开始导出：这台电脑上找不到能用的 H.264 编码器，导出 MP4 要用它。可以在「设置」里选一个带 x264 的 FFmpeg，或者导出时换一种不用 H.264 的格式。",
+    h264Refuse: "这台电脑上找不到 MontClip 能用的视频编码器，所以这次没能导出。可以先更新显卡驱动再试。",
   });
   Object.assign(text.en, {
-    h264RefuseWin: "Export did not start: this computer has no H.264 encoder MontClip can use, and MP4 export needs one. No graphics-card encoder answered, and Windows' built-in encoder is not available. You can choose an FFmpeg with x264 in Settings, or export in a format that does not use H.264.",
-    h264RefuseOther: "Export did not start: this computer has no H.264 encoder MontClip can use, and MP4 export needs one. You can choose an FFmpeg with x264 in Settings, or export in a format that does not use H.264.",
+    h264Refuse: "This computer has no video encoder MontClip can use, so it couldn't export this time. Update the graphics driver and try again.",
   });
   // encoders by name: plain words in Chinese, the technical names (delivery.js labels) in English
   const ENCODER_NAMES = {
@@ -94,7 +93,7 @@
   /** An export refused before it started: "no H.264 encoder" in export words, any other code as h264Message says it. */
   function h264Refusal(language, r) {
     const t = text[lang(language)];
-    if (r && (r.code === "h264NoneWin" || r.code === "h264NoneOther")) return t[r.code.replace("None", "Refuse")] + (r.featurePack ? t.h264NeedFeaturePack : "");
+    if (r && (r.code === "h264NoneWin" || r.code === "h264NoneOther")) return t.h264Refuse;
     return h264Message(language, r);
   }
   // MontClip's own wording for keyed strings the terms SPEC does not cover.
