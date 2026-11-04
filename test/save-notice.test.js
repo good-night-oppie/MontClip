@@ -54,9 +54,10 @@ test('the page: success only once saved; a cancel says how to save again; captio
   a.match(fn, /if \(kind\) pendingKinds\.set\(name, kind\);/);
   a.match(fn, /else if \(savedMsg\) toast\(savedMsg\);/, 'the browser keeps its old order');
   a.match(app, /state === "cancelled"\) toast\(uiText\(wasExport \? "own\.export-save-cancelled" : kind === "captions" \? "own\.captions-save-cancelled" : "own\.save-canceled"\)\)/);
-  a.match(app, /else toast\(uiText\(wasExport \? "own\.export-save-failed" : "own\.save-failed"\)\);/, 'a failed save: the export line for an export, the general one otherwise');
+  // an export's failed save: JJ's table v2 (#116 row, with 〔换个文件夹〕; test/error-text.test.js); the general one otherwise
+  a.match(app, /else if \(wasExport\) \{[^]*?toastAction\(uiText\("exportSaveFolderFailed"\)[^]*?else toast\(uiText\("own\.save-failed"\)\);/, 'a failed save: the export line for an export, the general one otherwise');
   a.match(app, /saveDownload\(url, name, \{ kind: "captions", savedMsg:/);
-  a.equal((app.match(/exportFile: true/g) || []).length, 4, 'three export paths and the queue\'s Save');
+  a.equal((app.match(/exportFile: true/g) || []).length, 5, 'three export paths, the queue\'s Save and 〔换个文件夹〕 after a failed save');
   a.doesNotMatch(app, /toast\(o\.report && !o\.report\.ok \? `Exported/);
 });
 

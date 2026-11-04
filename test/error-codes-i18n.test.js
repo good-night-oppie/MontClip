@@ -33,6 +33,6 @@ test('the page says the code in the interface language', () => {
   for (const [code, key] of Object.entries(CODES)) a.equal(V.errorText('en', { errorCode: code }).text, V.text.en['own.' + key], code);
   a.match(app, /function sayError\(error/);
   const at = app.indexOf('async function importFromUrl') >= 0 ? app.indexOf('async function importFromUrl') : app.indexOf('fetch("/api/import-url"');
-  a.match(app.slice(at, at + 2600), /toast\(sayError\(e, "import-url"\)\.text\)/, 'a refused URL import is said by code');
+  a.match(app.slice(at, at + 2600), /toastProblem\(sayError\(e, "import-url"\)\)/, 'a refused URL import is said by code');
   a.match(app, /toast\(uiText\("own\.map-no-media"\)\)/);
 });

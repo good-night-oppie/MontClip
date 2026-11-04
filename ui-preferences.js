@@ -559,11 +559,6 @@
     "as-sub-line": ["Subtitles: {n} sentences, transcribed; the singing may have wrong words", "字幕：{n} 句，是听写出来的，唱歌部分可能有错字"],
     "as-exporting": ["Exporting {n}…", "正在导出 {n} 条…"],
     "as-done-sub": ["They are in the export queue; save each one where you like.", "都在导出队列里，可以逐条存到你想放的地方。"],
-    "as-fail": ["{failed} didn't export: “{name}”. {why}. Your edits are all still here. Click Try again, or open the export queue to see why.", "有 {failed} 条没导出来：「{name}」。{why}。你的剪辑都还在，点「再试一次」，或者打开导出队列看原因。"],
-    "as-fail-why-space": ["The drive it saves to is out of space", "存视频的那个盘空间不够了"],
-    "as-fail-why-changed": ["The timeline changed after it was queued, so it wasn't exported", "加进导出以后，时间线又改过了，所以没导"],
-    "as-fail-why-other": ["The export stopped partway", "导出到一半停下了"],
-    "as-retry": ["Try again", "再试一次"],
     "as-open-queue": ["Open the export queue", "打开导出队列"],
     "as-back-review": ["Back to review", "回去再改改"],
     "as-another": ["Another stream", "再切一场"],
@@ -855,85 +850,85 @@
     const t = text[language] || text.en;
     return t[Object.hasOwn(FLV_REASONS, code) ? FLV_REASONS[code] : "flvUploadFailed"];
   }
-  // Deja, 2026-11-04 (decision B): every failure the streamer sees goes through errorText — a code becomes plain words,
-  // what happened and what to do. The raw error is for the log; only when no sentence fits does it come back as
-  // `detail`, small print after the words (as the plugin's ffmpeg-banner does). New copy, for JJ.
+  // Every failure the streamer sees goes through errorText (Deja, decision B), in JJ's final words (错误白话表 v2,
+  // 2026-11-04, sha256 d99c25d1…): first what happened, then what she can do now; whether the original was touched.
+  // The raw error, codes and English go to the log only; 〔复制问题信息〕 copies that line with viewers, keys and user
+  // folders taken out (problem-redact.js). Nothing raw is shown.
   Object.assign(text["zh-CN"], {
-    errUnknown: "这一步没做成。再试一次。",
-    errDetail: "还不行的话，把这行发给我们：",
-    errDiskFull: "这台电脑的盘空间不够了。删掉一些不要的文件，再试一次。",
-    errExportFailed: "导出到一半停下了。再试一次；还不行的话，换一种导出格式。",
-    errExportChanged: "加进导出以后，时间线又改过了，所以这条没导。重新出一次切片，再导出。",
-    errExportBusy: "已经有一个导出在进行。等它导完，再试一次。",
-    errExportNeedsServer: "MontClip 自己的导出程序现在连不上。关掉 MontClip 再打开，然后再试。",
-    errImportFailed: "这个文件没导进来。再试一次；还不行的话，先把它转成 MP4 再导入。",
-    errNoEditor: "编辑窗口没打开，这一步做不了。先打开 MontClip 的编辑窗口，再试一次。",
-    errTooLarge: "这次要处理的内容太大，没有做。分成小一点的几次再试。",
-    errFlvSourceRequired: "这里只能处理已经导入项目的 FLV。先把它导入项目，再试一次。",
-    errAsrBusy: "正在听写别的文件。等它听写完，再试这个。",
-    errAsrEngineMissing: "这份 MontClip 里缺了听写组件。请重新安装 MontClip。",
-    errAsrModelMissing: "这台电脑还没装听写模型。先在「文稿」里下载或导入一次，再试。",
-    flvNotFound: "找不到这个文件了，可能被移走或删掉了。重新选一次文件。",
-    flvNotFlv: "选的不是 FLV 文件。请重新选。",
-    flvExpired: "这次导入等得太久，已经取消了。重新导入一次。",
-    flvBusy: "这个文件正在导入，等它导完。",
-    exAll: "{n} 条导出好了", exSome: "{n} 条导出好了，{failed} 条没导出来", exNone: "{failed} 条都没导出来", exNoneOne: "这条没导出来",
-    exWarned: "（其中 {n} 条的检查有提醒）", exWhy: "：{why}",
-    qFailed: "没导出来：", qRendering: "正在导出… {pct}%", qDone: "导好了 → exports/{file}", qStopped: "已停下", qWaiting: "等着导出", qRetry: "再试一次",
+    flvUnreadable: "这个录像读不了，可能还没录完，或者文件坏了。原片没有改动。如果是还在录的，录完以后再导入。",
+    flvBusy: "上一个文件还在导入，等它做完再导这个。",
+    flvExpired: "这次导入停太久已经失效了，重新导入一次就行。原片没有改动。",
+    errDiskFullSize: "电脑空间不够，这次没有做完。要空出大约 {size}，空出来以后点重试。原片没有改动。",
+    // v2's sentence without 「要空出大约 {需要的大小}，」: MontClip does not know the size yet (for JJ)
+    errDiskFull: "电脑空间不够，这次没有做完。空出来以后点重试。原片没有改动。",
+    errOther: "这次没有做完，出了个我们没预料到的问题。原片没有改动。再试一次；还不行，点「复制问题信息」发给我们。",
+    exAll: "{n} 条导出好了", exSome: "{n} 条导出好了，{failed} 条没导出来", exNone: "这次一条都没导出来：{why}。你的剪辑都还在，没有丢。",
+    exWarned: "（其中 {n} 条的检查有提醒）",
+    // #116: without 「（{一句原因}）」 (the save window does not say why); the folder named 「MontClip导出」 (Deja)
+    exportSaveFolderFailed: "视频已经导出好了，但没能存进你选的文件夹。文件还在 MontClip 自己的导出文件夹「MontClip导出」里，可以换一个文件夹再导出一次。",
+    btnCopyProblem: "复制问题信息", copyProblemNote: "复制的内容不含你的文件夹路径、密钥和观众信息。",
+    btnRetry: "重试", btnRetryThis: "重试这条", btnOtherFolder: "换个文件夹",
+    // not in the v2 table, for JJ to check: what the copy button says after a copy, and the statuses of the queue
+    copyProblemDone: "已复制，可以粘贴发给我们。", copyProblemFailed: "没能复制，再点一次试试。",
+    qFailed: "没导出来：", qRendering: "正在导出… {pct}%", qDone: "导好了：{file}", qStopped: "已停下", qWaiting: "等着导出",
   });
   Object.assign(text.en, {
-    errUnknown: "This didn't work. Try again.",
-    errDetail: "If it still fails, send us this line: ",
-    errDiskFull: "This computer's drive is out of space. Delete some files you don't need, then try again.",
-    errExportFailed: "The export stopped partway. Try again; if it still fails, choose another export format.",
-    errExportChanged: "The timeline changed after this was queued, so it wasn't exported. Make the clips again, then export.",
-    errExportBusy: "Another export is running. Wait until it finishes, then try again.",
-    errExportNeedsServer: "MontClip's own export program can't be reached right now. Close MontClip, open it again, then try again.",
-    errImportFailed: "This file wasn't imported. Try again; if it still fails, convert it to MP4 first.",
-    errNoEditor: "The editor window isn't open, so this can't be done. Open MontClip's editor window, then try again.",
-    errTooLarge: "This was too large to handle at once, so nothing was done. Try again in smaller parts.",
-    errFlvSourceRequired: "Only an FLV already imported into the project can be handled here. Import it first, then try again.",
-    errAsrBusy: "Another file is being transcribed. Wait until it finishes, then try this one.",
-    errAsrEngineMissing: "This copy of MontClip is missing its transcription component. Reinstall MontClip.",
-    errAsrModelMissing: "This computer has no transcription model yet. Download or import it once in the Transcript tab, then try again.",
-    flvNotFound: "The file can't be found any more; it may have been moved or deleted. Choose it again.",
-    flvNotFlv: "The chosen file is not an FLV. Choose again.",
-    flvExpired: "This import waited too long and was cancelled. Import it again.",
-    flvBusy: "This file is being imported. Wait until it finishes.",
-    exAll: "{n} exported", exSome: "{n} exported, {failed} didn't", exNone: "None of the {failed} exported", exNoneOne: "It didn't export",
-    exWarned: " ({n} with check warnings)", exWhy: ": {why}",
-    qFailed: "Didn't export: ", qRendering: "Exporting… {pct}%", qDone: "Done → exports/{file}", qStopped: "Stopped", qWaiting: "Waiting", qRetry: "Try again",
+    flvUnreadable: "This recording can't be read. It may still be recording, or the file is damaged. The original is unchanged. If it's still recording, import it once it's done.",
+    flvBusy: "The previous file is still importing. Import this one once it's done.",
+    flvExpired: "This import waited too long and expired. Import it again; the original is unchanged.",
+    errDiskFullSize: "There isn't enough space on this computer, so this didn't finish. Free up about {size}, then try again. The original is unchanged.",
+    errDiskFull: "There isn't enough space on this computer, so this didn't finish. Free up some space, then try again. The original is unchanged.",
+    errOther: "This didn't finish because of a problem we didn't expect. The original is unchanged. Try again; if it still fails, use \"Copy problem details\" and send it to us.",
+    exAll: "{n} exported", exSome: "{n} exported, {failed} didn't", exNone: "Nothing was exported this time: {why}. Your edits are all still there.",
+    exWarned: " ({n} with check warnings)",
+    exportSaveFolderFailed: "The video was exported, but it couldn't be saved to the folder you picked. It's in MontClip's own exports folder, \"MontClip导出\"; you can export again to another folder.",
+    btnCopyProblem: "Copy problem details", copyProblemNote: "What's copied leaves out your folder paths, keys and viewer details.",
+    btnRetry: "Retry", btnRetryThis: "Retry this one", btnOtherFolder: "Another folder",
+    copyProblemDone: "Copied. Paste it to send it to us.", copyProblemFailed: "Couldn't copy. Try again.",
+    qFailed: "Didn't export: ", qRendering: "Exporting… {pct}%", qDone: "Done → exports/{file}", qStopped: "Stopped", qWaiting: "Waiting",
   });
-  Object.assign(FLV_REASONS, { FLV_NOT_FOUND: "flvNotFound", FLV_NOT_FLV: "flvNotFlv", FLV_IMPORT_EXPIRED: "flvExpired", FLV_IMPORT_BUSY: "flvBusy" });
-  /** Codes with a sentence of their own (the h264 / FLV families have theirs above). */
+  // v2's own rows for these codes (PROBE_FAILED used to fall to flvUploadFailed); a code it doesn't list is its last row
+  Object.assign(FLV_REASONS, { FLV_PROBE_FAILED: "flvUnreadable", FLV_NOT_FLV: "flvUnreadable", FLV_NOT_FOUND: "flvUnreadable",
+    FLV_IMPORT_BUSY: "flvBusy", FLV_IMPORT_EXPIRED: "flvExpired", FLV_DISK_FULL: "errDiskFull" });
+  for (const l of ["zh-CN", "en"]) text[l].flvUploadFailed = text[l].errOther;
+  /** Codes with a sentence of their own besides the h264 and FLV families (the others are v2's last row). */
   const ERROR_TEXT = { NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready",
-    EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept", NO_EDITOR: "errNoEditor", BODY_TOO_LARGE: "errTooLarge", IMPORT_FAILED: "errImportFailed",
-    FLV_SOURCE_REQUIRED: "errFlvSourceRequired", ASR_BUSY: "errAsrBusy", ASR_ENGINE_MISSING: "errAsrEngineMissing", ASR_MODEL_MISSING: "errAsrModelMissing",
-    DISK_FULL: "errDiskFull", EXPORT_FAILED: "errExportFailed", EXPORT_TIMELINE_CHANGED: "errExportChanged", EXPORT_BUSY: "errExportBusy",
-    EXPORT_NEEDS_SERVER: "errExportNeedsServer" };
+    EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept", DISK_FULL: "errDiskFull" };
+  /** The codes whose sentence is one of v2's rows: a batch says only these as a reason, anything else as the last row. */
+  const TABLE_REASONS = new Set(["DISK_FULL", "FLV_DISK_FULL", "FLV_ENCODER_MISSING", "FLV_COMPONENT_MISSING", "h264NoneWin", "h264NoneOther", "ffmpegMissing",
+    "FLV_PROBE_FAILED", "FLV_NOT_FLV", "FLV_NOT_FOUND", "FLV_IMPORT_BUSY", "FLV_IMPORT_EXPIRED"]);
   const DISK_FULL = /ENOSPC|no space left|disk is full|not enough space/i;
-  /** A failure in plain words: {code, text, detail, label}. `error` is an Error, a server answer ({code | errorCode,
-   *  error, params, featurePack}) or a string. `detail` is the raw error, "" whenever a sentence fits; `label` heads it.
-   *  `fallback` (a code) says what was being done when the error has no sentence of its own (EXPORT_FAILED for an export):
-   *  its sentence, with the raw error as `detail`. */
-  function errorText(language, error, fallback) {
+  /** A failure in plain words: {code, text, known, log}. `error` is an Error, a server answer ({code | errorCode, error,
+   *  params, featurePack}) or a string. `known`: a sentence of its own (else v2's last row). `log` is the raw error, for
+   *  the log and 〔复制问题信息〕 only — never shown. */
+  function errorText(language, error) {
     const l = lang(language), t = text[l], e = error && typeof error === "object" ? error : {};
-    const raw = String(typeof error === "string" ? error : e.message || (typeof e.error === "string" ? e.error : "") || "").trim();
+    const log = String(typeof error === "string" ? error : e.message || (typeof e.error === "string" ? e.error : "") || "").trim();
     let code = [e.code, e.errorCode].find((c) => typeof c === "string" && c) || "";
-    if (!code && DISK_FULL.test(raw)) code = "DISK_FULL";
+    if (!code && DISK_FULL.test(log)) code = "DISK_FULL";
     let s = code ? h264Message(l, { code, params: e.params, featurePack: e.featurePack }) : null;
+    if (!s && /DISK_FULL$/.test(code) && e.params && e.params.size) s = fill(t.errDiskFullSize, { size: String(e.params.size) });
     if (!s && Object.hasOwn(ERROR_TEXT, code)) s = t[ERROR_TEXT[code]];
-    if (!s && (/^FLV_/.test(code) || Object.hasOwn(FLV_REASONS, code))) s = flvImportMessage(l, code);   // an FLV code without its own sentence: the import failed
-    if (s) return { code, text: s, detail: "", label: t.errDetail };
-    const general = Object.hasOwn(ERROR_TEXT, fallback) ? t[ERROR_TEXT[fallback]] : t.errUnknown;
-    return { code: code || "UNKNOWN", text: general, detail: raw, label: t.errDetail };
+    if (!s && Object.hasOwn(FLV_REASONS, code)) s = flvImportMessage(l, code);
+    return { code: code || "UNKNOWN", text: s || t.errOther, known: !!s, log };
   }
-  /** An export run in one line: 「N 条导出好了」, 「N 条导出好了，M 条没导出来」, 「M 条都没导出来」, with the reason when given. */
+  /** One item's reason in a batch: v2's sentence for its code when the table has one, else v2's last row. Never the
+   *  Media Feature Pack line (JJ took it out of v2 until it is checked). */
+  function batchReason(language, error) {
+    const e = error && typeof error === "object" ? { ...error, featurePack: false } : error, r = errorText(language, e);
+    return TABLE_REASONS.has(r.code) ? r.text : text[lang(language)].errOther;
+  }
+  /** An export run: 「{N} 条导出好了」, 「{N} 条导出好了，{M} 条没导出来」, or v2's 「这次一条都没导出来：{第一个原因}。…」
+   *  (`why`: batchReason of the first that failed). */
   function exportResult(language, { done = 0, failed = 0, warned = 0, why = "" } = {}) {
-    const t = text[lang(language)], f = (s, v) => fill(s, v);
-    let s = !failed ? f(t.exAll, { n: done }) : done ? f(t.exSome, { n: done, failed }) : failed === 1 ? t.exNoneOne : f(t.exNone, { failed });
-    if (warned) s += f(t.exWarned, { n: warned });
-    if (failed && why) s += f(t.exWhy, { why });
+    const l = lang(language), t = text[l];
+    if (failed && !done) {
+      let w = String(why || t.errOther).replace(/[。.]$/, "");
+      if (l === "en") w = w.charAt(0).toLowerCase() + w.slice(1);
+      return fill(t.exNone, { why: w });
+    }
+    let s = failed ? fill(t.exSome, { n: done, failed }) : fill(t.exAll, { n: done });
+    if (warned) s += fill(t.exWarned, { n: warned });
     return s;
   }
   Object.assign(text['zh-CN'],{paneLocalTemporary:'没能读取已存的会话。本次会话和草稿只在这次打开期间保留，关闭前请复制要留的内容。原有会话文件未改动。',paneLocalPolicy:'本机保存适用于已有项目 ID 的会话、草稿和明确引用；尚无项目 ID 的内容仅在本次窗口保留。这是保存范围说明，不表示本次内容已保存。不会自动发送。',paneSessionFailed:'会话保存尚未确认，当前编辑仍在此窗口。请保留草稿后重试；不会覆盖另一份更新的记录。',paneRetry:'重试保存会话',paneUser:'你',paneAssistant:'助手'});
@@ -1051,5 +1046,5 @@
    *  English word (export, captions…) in English. */
   const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
-  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, errorText, exportResult, ERROR_CODES: Object.keys(ERROR_TEXT), h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
+  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, errorText, batchReason, exportResult, ERROR_CODES: Object.keys(ERROR_TEXT).concat(Object.keys(FLV_REASONS)), h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
 });

@@ -42,13 +42,29 @@ const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
 /** On-device transcription: on in development and the browser editor; a packaged desktop build has it
  *  off unless the main process turned it on (desktop/features.js). Off means no entry and no download. */
 function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
-/** Any failure for the streamer (Deja, 2026-11-04): plain words from MontClipView.errorText; the raw error goes to the log.
- *  {text, detail, label}: show `detail` only as small print after the words (the export queue's .xq-detail). */
+/** Any failure for the streamer (Deja, decision B; JJ's table v2): plain words from MontClipView.errorText. The raw error
+ *  goes to the log only, never on screen; r.line is that log line, for 〔复制问题信息〕 (copyProblem). */
 function sayError(error, where = "error") {
   const r = MontClipView.errorText(mcView.get().language, error);
-  const raw = error && typeof error === "object" ? error.message || error.error : error;
-  if (raw) console.warn("[" + where + "]", r.code, String(raw));
+  r.line = "[" + where + "] " + r.code + (r.log ? ": " + r.log : "");
+  if (r.log) console.warn(r.line);
   return r;
+}
+/** 〔复制问题信息〕: the log line with viewers, keys and user folders taken out (problem-redact.js) — by the server, which
+ *  knows the home folder; by the same rules here when the server can't be reached. */
+async function copyProblem(r) {
+  let out = null;
+  try {
+    const res = await fetch("/api/problem-details", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: r.line || "" }) });
+    if (res.ok) out = (await res.json()).text;
+  } catch { /* offline: the page's copy of the rules */ }
+  if (typeof out !== "string") out = MontClipRedact.redactProblem(r.line || "", { platform: /win/i.test(navigator.platform || "") ? "win32" : "" });
+  try { await navigator.clipboard.writeText(out); toast(uiText("copyProblemDone")); } catch { toast(uiText("copyProblemFailed")); }
+}
+/** A failure in a toast: the words, and for one without its own sentence 〔复制问题信息〕 with JJ's small print under it. */
+function toastProblem(r, prefix = "") {
+  if (r.known) toast(prefix + r.text);
+  else toastAction(prefix + r.text, uiText("btnCopyProblem"), () => copyProblem(r), uiText("copyProblemNote"));
 }
 /** Simple mode: no tooltip offers a shortcut it holds back (Deja, #55); advanced mode shows the full text again. The
  *  full tooltip is kept beside the shown one, and a tooltip rewritten since (a new language) is taken as the full one. */
@@ -1293,7 +1309,12 @@ window.montclipDownloads?.onDone(({ state, name, removed }) => {
   renderQueue();
   if (state === "completed") { if (msg) toast(msg); }
   else if (state === "cancelled") toast(uiText(wasExport ? "own.export-save-cancelled" : kind === "captions" ? "own.captions-save-cancelled" : "own.save-canceled"));
-  else toast(uiText(wasExport ? "own.export-save-failed" : "own.save-failed"));
+  else if (wasExport) {
+    const q = exportQueue.find((x) => x.file === name && x.src);
+    if (q) toastAction(uiText("exportSaveFolderFailed"), uiText("btnOtherFolder"), () => { if (!q.saving) saveDownload(q.src, name, { exportFile: true }); });
+    else toast(uiText("exportSaveFolderFailed"));
+  }
+  else toast(uiText("own.save-failed"));
 });
 /** A toast with 〔撤销〕 (VV / Deja, 2026-11-03): it stays UNDO_TOAST_MS, and the time stops while the pointer is on it or
  *  focus is inside it; once it leaves, the full time starts again. → {start, stop} for that toast element. */
@@ -2329,7 +2350,7 @@ async function importFromUrl(url) {
   } catch (e) {
     if (e && e.name === "AbortError") return;
     setImportUrlBusy(false);
-    toast(sayError(e, "import-url").text);
+    toastProblem(sayError(e, "import-url"));
   } finally {
     runtime.importUrlAbort = null;
   }
@@ -11196,6 +11217,8 @@ function autoClick(e) {
   if (act === "ex-go") { autoExport(); return; }
   if (act === "ex-cancel") { autoRender("review"); return; }
   if (act === "retry") { autoExportRun(); return; }
+  if (act === "retry-one") { autoExportRun(b.dataset.q); return; }
+  if (act === "copy-problem") { const q = autoDoneItems().find((x) => x.status === "failed"); if (q) copyProblem(sayError(q, "auto-slices")); return; }
   if (act === "open-queue") { AUTO.el.close(); openQueue(); return; }
   if (act === "back-review") { autoRender("review"); return; }
   if (act === "another") { st.clips = []; st.recs = []; st.dropped = []; autoRender("start"); return; }
@@ -11340,13 +11363,14 @@ function autoPlace(clips, { select = null, fine = false } = {}) {
 }
 /** A toast with one button (the editor's toast is text only). The button acts once; the toast goes after 8 s. */
 let toastHold = null;
-function toastAction(msg, label, onClick) {
+function toastAction(msg, label, onClick, note = "") {
   if (!els.toast) return;
   els.toast.textContent = "";
   const span = document.createElement("span"), btn = document.createElement("button");
   span.textContent = msg; btn.type = "button"; btn.className = "btn tiny toast-action"; btn.textContent = label;
   btn.addEventListener("click", () => { els.toast.classList.remove("show", "has-action"); onClick(); }, { once: true });
   els.toast.append(span, " ", btn);
+  if (note) { const small = document.createElement("small"); small.className = "toast-note"; small.textContent = note; els.toast.append(small); }
   els.toast.classList.add("show", "has-action");
   clearTimeout(toastTimer);
   if (!toastHold) toastHold = holdToast(els.toast, () => { if (els.toast.classList.contains("has-action")) els.toast.classList.remove("show", "has-action"); });
@@ -11377,34 +11401,31 @@ function autoExport() {
   st.exportNames = on.map(autoName);
   autoExportRun();
 }
-async function autoExportRun() {
+async function autoExportRun(only = null) {
   const st = autoState();
-  for (const q of exportQueue) if (st.exportIds.includes(q.id) && q.status === "failed") { q.status = "pending"; q.progress = 0; }
+  for (const q of exportQueue) if (st.exportIds.includes(q.id) && q.status === "failed" && (!only || q.id === only)) { q.status = "pending"; q.progress = 0; }
   autoRender("done");
   // the page follows the queue while it runs (each file's percent), then shows what was made
   const live = setInterval(() => { if (AUTO.el && AUTO.el.open && autoState().step === "done") autoRender("done"); }, 700);
   try { if (!queueRunning) await runQueue(); } finally { clearInterval(live); }
   if (AUTO.el && AUTO.el.open) autoRender("done");
 }
-/** Why exports failed, in plain words without the final full stop (the queue keeps the detail). The codes as-fail
- *  already says the next step for keep their short reason; any other code says its own sentence (errorText). */
-function autoFailWhy(failed) {
-  const lang = mcView.get().language, said = failed.map((q) => MontClipView.errorText(lang, q, "EXPORT_FAILED"));
-  if (said.some((r) => r.code === "DISK_FULL")) return uiText("own.as-fail-why-space");
-  if (said.some((r) => r.code === "EXPORT_TIMELINE_CHANGED")) return uiText("own.as-fail-why-changed");
-  const own = said.find((r) => !r.detail && r.code !== "EXPORT_FAILED");
-  return own ? own.text.replace(/[。.]$/, "") : uiText("own.as-fail-why-other");
-}
+const autoDoneItems = () => (autoState().exportIds || []).map((id) => exportQueue.find((q) => q.id === id)).filter(Boolean);
+/** The end page (table v2 by JJ, rule 4): 「{N} 条导出好了，{M} 条没导出来」, each failed one with the reason from v2 and
+ *  〔重试这条〕; none made it: 「这次一条都没导出来：{第一个原因}。你的剪辑都还在，没有丢。」 with 〔重试〕〔复制问题信息〕. */
 function autoDoneHtml() {
-  const st = autoState(), items = (st.exportIds || []).map((id) => exportQueue.find((q) => q.id === id)).filter(Boolean);
+  const items = autoDoneItems(), lang = mcView.get().language;
   const done = items.filter((q) => q.status === "done"), failed = items.filter((q) => q.status === "failed");
   const busy = items.some((q) => q.status === "pending" || q.status === "running");
-  // 「N 条导出好了」「N 条导出好了，M 条没导出来」「M 条都没导出来」: never 「导出好了」 when nothing was (Deja, 2026-11-04)
-  const title = busy ? autoSay("as-exporting", { n: items.length }) : escapeHtml(MontClipView.exportResult(mcView.get().language, { done: done.length, failed: failed.length }));
+  const title = busy ? autoSay("as-exporting", { n: items.length })
+    : escapeHtml(MontClipView.exportResult(lang, { done: done.length, failed: failed.length, why: failed.length ? MontClipView.batchReason(lang, failed[0]) : "" }));
+  const say = (k) => escapeHtml(uiText(k));
   return `<h1>${title}</h1><p class="as-sub">${busy || !done.length ? "" : autoSay("as-done-sub")}</p>
     <section class="as-card-box">${items.map((q) => `<div class="as-row"><span><b>${escapeHtml(q.name)}</b></span><span class="as-small">${q.status === "running" ? Math.round((q.progress || 0) * 100) + "%" : ""}</span></div>`).join("")}</section>
-    ${failed.length ? `<section class="as-card-box as-warn"><b>${autoSay("as-fail", { failed: failed.length, name: failed.slice(0, 3).map((q) => q.name).join("」「") + (failed.length > 3 ? "…" : ""), why: autoFailWhy(failed) })}</b>
-      <div class="as-row"><button type="button" class="btn primary" data-as-act="retry">${autoSay("as-retry")}</button></div></section>` : ""}
+    ${!busy && failed.length && done.length ? `<section class="as-card-box as-warn" data-as-failed>${failed.map((q) => `<div class="as-row"><span><b>${escapeHtml(q.name)}</b>：${escapeHtml(MontClipView.batchReason(lang, q))}</span>
+      <button type="button" class="btn" data-as-act="retry-one" data-q="${q.id}">${say("btnRetryThis")}</button></div>`).join("")}</section>` : ""}
+    ${!busy && failed.length && !done.length ? `<section class="as-card-box as-warn" data-as-failed><div class="as-row"><button type="button" class="btn primary" data-as-act="retry">${say("btnRetry")}</button>
+      <button type="button" class="btn" data-as-act="copy-problem">${say("btnCopyProblem")}</button></div><p class="as-small">${say("copyProblemNote")}</p></section>` : ""}
     <div class="as-cta"><button type="button" class="btn primary" data-as-act="open-queue">${autoSay("as-open-queue")}</button>
       <button type="button" class="btn" data-as-act="back-review">${autoSay("as-back-review")}</button><button type="button" class="btn" data-as-act="another">${autoSay("as-another")}</button></div>`;
 }
@@ -19628,11 +19649,8 @@ async function prepareFrameAssets(t) {
     }
   }
 }
-/** A failed export, said in plain words; the raw error (when no sentence fits) after a blank line. */
-function alertExportFailure(e) {
-  const r = sayError(e, "export");
-  alert(uiText("own.export-failed-prefix") + r.text + (r.detail ? "\n\n" + r.label + r.detail : ""));
-}
+/** A failed export, said in plain words (导出失败：…), with 〔复制问题信息〕 when it has no sentence of its own. */
+function sayExportFailure(e) { toastProblem(sayError(e, "export"), uiText("own.export-failed-prefix")); }
 /** opts.job: an agent's export job id — progress and the result go back to
  *  the server instead of an alert / download (nobody may be watching).
  *  opts.profile: encoding profile id for this run.
@@ -19788,7 +19806,7 @@ async function fastExport(opts = {}) {
     const msg = e?.name === "AbortError" ? "cancelled" : String(e.message || e);
     result = { error: msg, code: e && e.code, params: e && e.params, featurePack: e && e.featurePack, cancelled: msg === "cancelled" };
     if (job) await reportExportJob(job, { status: "failed", error: msg }, true);
-    else if (msg !== "cancelled" && !opts.silent) alertExportFailure(e);
+    else if (msg !== "cancelled" && !opts.silent) sayExportFailure(e);
   } finally {
     exportAbort = null;
     exportFullCanvas = false;
@@ -19872,23 +19890,22 @@ function renderQueue() {
   list.innerHTML = exportQueue.map((q) => {
     const ext = Delivery.CONTAINERS[q.spec.container].ext;
     const fr = deliveryFrame(q.spec), fps = q.spec.fps || projectFps();
-    // a failure in plain words (errorText); the raw error, when no sentence fits, is the small line under it
-    const why = q.status === "failed" ? MontClipView.errorText(mcView.get().language, q, "EXPORT_FAILED") : null;
+    // a failure in plain words: v2's sentence for its code, else its last row (MontClipView.batchReason); nothing raw
+    const why = q.status === "failed" ? MontClipView.batchReason(mcView.get().language, q) : null;
     const status = q.status === "running" ? uiText("qRendering", { pct: Math.round(q.progress * 100) })
       : q.status === "done" ? (q.saved ? "" : uiText("qDone", { file: q.file || q.name + ext }))
-        : why ? uiText("qFailed") + why.text
+        : why ? uiText("qFailed") + why
           : q.status === "cancelled" ? uiText("qStopped") : uiText("qWaiting");
     const actions = [
       // 保存 opens the save window again; once a save went through, 已保存
       q.status === "done" && q.src ? (q.saved ? `<span class="dlv-q-saved">${escapeHtml(uiText("own.q-saved"))}</span>` : `<button type="button" class="btn tiny" data-q-save="${q.id}"${q.saving ? ` disabled title="${escapeHtml(uiText("own.save-busy"))}"` : ""}>${escapeHtml(uiText("own.q-save"))}</button>`) : "",
-      q.status === "failed" || q.status === "cancelled" ? `<button type="button" class="btn tiny" data-q-retry="${q.id}">${escapeHtml(uiText("qRetry"))}</button>` : "",
+      q.status === "failed" || q.status === "cancelled" ? `<button type="button" class="btn tiny" data-q-retry="${q.id}">${escapeHtml(uiText("btnRetryThis"))}</button>` : "",
       q.status !== "running" ? `<button type="button" class="btn tiny" data-q-remove="${q.id}" title="Remove from the queue">✕</button>` : "",
     ].join("");
     return `<li class="${q.status}" data-q="${q.id}"><div class="xq-main"><b>${escapeHtml(q.label)} — ${escapeHtml(q.name + ext)}</b>` +
       `<span class="xq-sub">${escapeHtml(Delivery.describe(q.spec, { width: fr.outW, height: fr.outH, fps }))} · ${q.range && typeof q.range === "object" ? `${fmt(q.range.start)}–${fmt(q.range.end)}` : q.range === "in-out" ? "IN–OUT" : "entire timeline"}</span>` +
       (q.status === "running" ? `<div class="progress"><div class="progress-fill" style="width:${(q.progress * 100).toFixed(1)}%"></div></div>` : "") +
       `<span class="xq-status">${escapeHtml(status)}</span>` +
-      (why && why.detail ? `<small class="xq-detail">${escapeHtml(why.label + why.detail)}</small>` : "") +
       (q.report ? `<span class="xq-report${q.report.ok ? "" : " warn"}">${q.report.ok ? "✓ " : ""}${escapeHtml(q.report.line)}</span>` : "") +
       `</div><div class="xq-actions">${actions}</div></li>`;
   }).join("");
@@ -19905,7 +19922,7 @@ function renderQueueProgress() {
 }
 async function runQueue() {
   if (queueRunning || state.exporting) return;
-  if (!(state.connected && state.ffmpeg)) { alert(sayError({ code: "EXPORT_NEEDS_SERVER" }).text); return; }
+  if (!(state.connected && state.ffmpeg)) { toastProblem(sayError({ code: "EXPORT_NEEDS_SERVER", error: "the export queue needs the server and ffmpeg" }, "export-queue")); return; }
   queueRunning = true; queueStop = false;
   renderQueue();
   try {
@@ -19946,9 +19963,11 @@ async function runQueue() {
   }
   const done = exportQueue.filter((q) => q.status === "done").length, failed = exportQueue.filter((q) => q.status === "failed").length;
   const warned = exportQueue.filter((q) => q.status === "done" && q.report && !q.report.ok).length;
-  const firstFailed = exportQueue.find((q) => q.status === "failed");
-  if (done || failed) toast(MontClipView.exportResult(mcView.get().language, { done, failed, warned,
-    why: firstFailed && !done ? MontClipView.errorText(mcView.get().language, firstFailed, "EXPORT_FAILED").text : "" }));
+  const lang = mcView.get().language, firstFailed = exportQueue.find((q) => q.status === "failed");
+  const msg = MontClipView.exportResult(lang, { done, failed, warned, why: firstFailed ? MontClipView.batchReason(lang, firstFailed) : "" });
+  // none made it: v2's sentence with the copy button for the first one
+  if (failed && !done) toastAction(msg, uiText("btnCopyProblem"), () => copyProblem(sayError(firstFailed, "export-queue")), uiText("copyProblemNote"));
+  else if (done || failed) toast(msg);
 }
 function stopQueue() {
   queueStop = true;
@@ -20486,7 +20505,7 @@ async function webCodecsExport() {
     try { encoder?.close(); } catch { }
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
     const msg = e?.name === "AbortError" ? "cancelled" : String(e.message || e);
-    if (msg !== "cancelled") alertExportFailure(e);
+    if (msg !== "cancelled") sayExportFailure(e);
   } finally {
     exportAbort = null;
     exportDecodeEnd();

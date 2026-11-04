@@ -22,22 +22,10 @@ const os = require("os");
 const { execFile } = require("child_process");
 
 /* A path can carry the user's name (C:\Users\<name>\…). What reaches the page, an export note
-   or a log says %USERPROFILE% (Windows) or ~ instead; only the main process keeps the real path. */
-const SHARED_PROFILES = /^(public|default|default user|all users)$/i;
-const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-function maskUserPath(s) {
-  if (typeof s !== "string") return s;
-  let out = s;
-  const home = os.homedir();
-  if (home && home.length > 3) {
-    const pattern = home.split(/[\\/]/).map(escapeRe).join("[\\\\/]") + "(?=[\\\\/]|$|\\s)";
-    out = out.replace(new RegExp(pattern, process.platform === "win32" ? "gi" : "g"), process.platform === "win32" ? "%USERPROFILE%" : "~");
-  }
-  out = out.replace(/\b[A-Za-z]:([\\/])Users[\\/]([^\\/:*?"<>|\r\n]+)(?=[\\/]|$)/gi,
-    (m, sep, name) => (SHARED_PROFILES.test(name) ? m : "%USERPROFILE%"));
-  out = out.replace(/(^|[\s("'=])\/(?:home|Users)\/[^/\s]+(?=\/|$)/g, "$1~");
-  return out;
-}
+   or a log says %USERPROFILE% (Windows) or ~ instead; only the main process keeps the real path. The rule is shared with
+   the page's 〔复制问题信息〕 (problem-redact.js). */
+const Redact = require("./problem-redact");
+const maskUserPath = (s) => Redact.maskUserPath(s, { home: os.homedir(), platform: process.platform });
 /** A check result as the page may see it: ok, the reason code, and the path masked; no English reason. */
 function forPage(r) {
   if (!r || typeof r !== "object") return r;

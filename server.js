@@ -26,6 +26,7 @@ const ownedProcesses = process.env.MONTCLIP_DESKTOP === "1"
 const { spawn, spawnSync, execFile } = require("child_process");
 const FF = require("./ffmpeg-path");
 const X = require("./external-ffmpeg");
+const Redact = require("./problem-redact");   // 〔复制问题信息〕: viewers, keys and user folders out
 /* A local FFmpeg the user chose for libx264, H.264 export only (external-ffmpeg.js). */
 const externalFfmpeg = X.createExternal();
 
@@ -1506,6 +1507,14 @@ const server = http.createServer(async (req, res) => {
       touchExport(sess);
       sendJSON(res, 200, { ok: true });
     } catch (e) { sendJSON(res, 500, { error: String(e) }); }
+    return;
+  }
+  /* 〔复制问题信息〕 (JJ's table v2): {text} → the same text with viewers, keys and user folders taken out, by the rules
+     the page has too (problem-redact.js), with this computer's home folder. */
+  if (p === "/api/problem-details" && req.method === "POST") {
+    let body;
+    try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "the body must be JSON: {text}" }); return; }
+    sendJSON(res, 200, { text: Redact.redactProblem(String(body.text || "").slice(0, 8000), { home: os.homedir(), platform: process.platform }) });
     return;
   }
   /* {fresh:true} once for a file this session exported (then forgotten); {fresh:false} for anything else */

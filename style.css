@@ -4401,8 +4401,6 @@ input[type="range"].cq-hue {
 .xq-list .xq-status { font-size: 11px; color: var(--muted, #9a9aaa); word-break: break-word; }
 .xq-list li.done .xq-status { color: #8fd6ae; }
 .xq-list li.failed .xq-status { color: #ff9a9e; }
-/* the raw error, when no plain sentence fits: small print under the words (errorText) */
-.xq-list .xq-detail { display: block; font-size: 10px; color: var(--muted, #9a9aaa); opacity: .8; word-break: break-word; user-select: text; }
 .xq-list .xq-report { font-size: 11px; color: #8fd6ae; word-break: break-word; }
 .xq-list .xq-report.warn { color: #f0c14a; }
 .xq-list .xq-actions { display: flex; gap: 6px; flex: none; }
@@ -5033,7 +5031,8 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 .as-preview { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(720px, 92vw); padding: 14px; }
 .as-preview::backdrop { background: #000a; }
 .as-preview video, .as-preview audio { width: 100%; max-height: 60vh; background: #000; }
-#toast.has-action { pointer-events: auto; display: flex; align-items: center; gap: 10px; }
+#toast.has-action { pointer-events: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
+#toast .toast-note { flex-basis: 100%; font-size: 11px; opacity: .75; }
 .mc-auto-slices { white-space: nowrap; }
 .auto-slices .as-tag-estimated { color: #f4a261; border-color: #f4a261; }
 .auto-slices .as-tag-likely { color: var(--dim); border-color: var(--border); }
