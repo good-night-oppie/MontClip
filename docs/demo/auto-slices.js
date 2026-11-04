@@ -84,7 +84,8 @@
       }
     }
     all.sort((x, y) => y.score - x.score || x.at - y.at);
-    const clips = all.slice(0, count).map((c, i) => ({ ...c, on: i < checked }));
+    // picked: the search ticked it — the review's title tells "as the search ticked them" from the streamer's own ticks
+    const clips = all.slice(0, count).map((c, i) => ({ ...c, on: i < checked, picked: i < checked }));
     return { clips, found: clips.length, few: clips.length < count ? { found: clips.length, count } : null };
   }
   /** 1:12:04 over an hour, 12:04 under. */
@@ -123,5 +124,42 @@
   }
   /** File names in review order, numbered 01, 02, …; a colon cannot be in a Windows file name. */
   const numbered = (names) => names.map((n, i) => String(i + 1).padStart(2, "0") + " " + String(n).replace(/:/g, "："));
-  return { KINDS, LENS, COUNTS, DEFAULTS, SONG_GATE, SONG_MEASURED, songsTrusted, title, edgeLevel, build, hms, nudge, overview, totals, numbered };
+  /** The review's title, from the cards and the ones taken out (VV / JJ / Deja, 2026-11-03): none (nothing found),
+   *  all-out (every card taken out), none-ticked, all / head (ticked exactly as the search ticked them: all of them, or
+   *  its best), ticked (the streamer's own ticks). "As the search ticked them" is the set of cards, not the count: a
+   *  card is as the search had it when its tick is its picked, and one the search ticked that was taken out is not. */
+  function reviewHead(clips, dropped = []) {
+    const list = Array.isArray(clips) ? clips : [], gone = Array.isArray(dropped) ? dropped : [];
+    // found: every card this search found, the ones taken out included (VV on #96 e31d808), so taking one out or putting
+    // one back never changes it; a part added by hand (补一段) was not found, and is not counted, ticked or not
+    const searched = (c) => !c.added;
+    const found = list.filter(searched).length + gone.filter(searched).length, on = list.filter((c) => c.on && searched(c)).length;
+    if (!list.length) return gone.length ? { key: "all-out", found, on: 0 } : { key: "none", found: 0, on: 0 };
+    if (!on) return { key: "none-ticked", found, on };
+    const same = list.every((c) => !!c.on === !!c.picked) && !gone.some((c) => c.picked);
+    return same ? { key: on === found ? "all" : "head", found, on } : { key: "ticked", found, on };
+  }
+  /** The reasons a card shows: a reason that only holds for singing (signal singing) only on a song card — one made
+   *  another kind keeps its sound and danmaku reasons (VV on #90 b76bbe3). The card keeps them all, so made a song again
+   *  (or the change undone) it shows it again. */
+  const cardReasons = (c) => ((c && c.reasons) || []).filter((r) => c.kind === "song" || r.signal !== "singing");
+  /* The card's 〔按歌词校准字幕〕 (docs/decisions/2026-11-03-card-lyrics.md): a card has no captions until it is placed, so
+     it is calibrated on the card — one part, the card itself, and the transcript's words whose middle is inside it
+     (recording seconds; lyrics-align.js aligns them). words: the transcript's [text, start, end] or {w, s, e}. */
+  const wmid = (w) => ((w.s != null ? +w.s : +w[1]) + (w.e != null ? +w.e : +w[2])) / 2;
+  function lyricScope(words, card) {
+    return { caps: [{ id: card.id, start: card.s, end: card.e }],
+      words: (Array.isArray(words) ? words : []).filter((w) => { const m = wmid(w); return m >= card.s && m < card.e; }) };
+  }
+  /** The card's lines (recording seconds) on the timeline, with the clip it was placed as ({start, in, duration}; speed 1):
+   *  moved by start − in, cut to the clip's part; a line wholly outside it goes, and so do its words. */
+  function lyricCuesOn(cues, clip) {
+    const off = clip.start - (clip.in || 0), lo = clip.start, hi = clip.start + clip.duration, r3 = (x) => Math.round(x * 1000) / 1000;
+    const move = (x) => r3(Math.min(hi, Math.max(lo, x + off)));
+    return (Array.isArray(cues) ? cues : []).filter((q) => q.end + off > lo + 1e-6 && q.start + off < hi - 1e-6).map((q) => ({
+      ...q, start: move(q.start), end: move(q.end),
+      words: (q.words || []).filter((w) => w.s != null && w.e + off > lo + 1e-6 && w.s + off < hi - 1e-6).map((w) => ({ ...w, s: move(w.s), e: move(w.e) })),
+    }));
+  }
+  return { KINDS, LENS, COUNTS, DEFAULTS, SONG_GATE, SONG_MEASURED, songsTrusted, title, edgeLevel, build, hms, nudge, overview, totals, numbered, reviewHead, cardReasons, lyricScope, lyricCuesOn };
 });

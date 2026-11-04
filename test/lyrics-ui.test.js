@@ -10,15 +10,21 @@ test('on this computer only: the alignment module and the window send nothing',(
 });
 
 test('nothing changes before 〔应用〕; then one undo step, after a CAS on the project',()=>{
- const app=read('app.js'),i=app.indexOf('function openLyricsAlign'),body=app.slice(i,app.indexOf('function captionQuickHtml',i));
- const apply=body.indexOf('const apply =');
- a.ok(apply>0);
- a.ok(!/project\.clips\s*=|pushUndo\(/.test(body.slice(0,apply)),'aligning and showing the lines change nothing');
- a.match(body,/if \(JSON\.stringify\(projectJSON\(\)\) !== signature\) \{ summary\.textContent = uiText\("own\.ly-changed"\); return; \}/);
+ // the dialog is shared with the 自动出切片 card (lyricsDialog, docs/decisions/2026-11-03-card-lyrics.md): it changes
+ // nothing itself; 〔应用〕 checks stale() (the CAS) and only then calls the caller's onApply
+ const app=read('app.js'),k=app.indexOf('function lyricsDialog('),dlg=app.slice(k,app.indexOf('function captionQuickHtml',k));
+ a.ok(!/project\.clips\s*=|pushUndo\(|autoSnap\(/.test(dlg),'the dialog itself changes nothing');
+ const apply=dlg.slice(dlg.indexOf('const apply ='));
+ a.match(apply,/if \(stale\(\)\) \{ summary\.textContent = uiText\("own\.ly-changed"\); return; \}[\s\S]*onApply\(p, pasted\);/);
+ // the Transcript tab: the CAS is the whole project; its change is one undo step, inside onApply
+ const i=app.indexOf('function openLyricsAlign'),body=app.slice(i,k);
+ a.match(body,/const signature = JSON\.stringify\(projectJSON\(\)\);/);
+ a.match(body,/stale: \(\) => JSON\.stringify\(projectJSON\(\)\) !== signature, onApply: \(p\) => \{/);
+ a.ok(!/project\.clips\s*=|pushUndo\(/.test(body.slice(0,body.indexOf('onApply: (p) =>'))),'nothing before 〔应用〕');
  a.equal((body.match(/pushUndo\(/g)||[]).length,1);
  // unsure lines are not ticked, and lines with nothing heard can't be
- a.match(body,/box\.checked = l\.sure; box\.disabled = l\.start == null;/);
- a.match(body,/result\.lines\.map\(\(l, i\) => \(l\.sure \? i : -1\)\)/,'apply all leaves the unsure lines out');
+ a.match(dlg,/box\.checked = l\.sure; box\.disabled = l\.start == null;/);
+ a.match(dlg,/result\.lines\.map\(\(l, i\) => \(l\.sure \? i : -1\)\)/,'apply all leaves the unsure lines out');
 });
 
 test('the button is in the Transcript tab’s caption row; the module loads with the page',()=>{
@@ -57,4 +63,18 @@ test('apply replaces only what MontClipLyrics.plan says, each new caption in its
 test('the two new sentences, both languages (for JJ)',()=>{
  for(const k of ['ly-outside','ly-held']){const zh=View.t('zh-CN','own.'+k),en=View.t('en','own.'+k);a.ok(zh&&zh!=='own.'+k&&zh.includes('{n}'),k);a.ok(en&&!/[一-鿿]/.test(en),k);}
  a.equal(View.t('zh-CN','own.ly-outside',{n:1}),'有 1 行歌词对应的是你没选的字幕，没改');
+});
+
+// VV on #100 (Deja): the lyrics box was the browser's own (white, a monospace font, no room around it); it is a field like
+// the export dialog's (.dlv-f): the label above it, the editor's colours, font and border
+test('the lyrics box is an editor field (.dlv-f), not the browser\'s own', () => {
+  const app = read('app.js'), css = read('style.css');
+  a.match(app, /<label class="dlv-f ly-paste">\$\{say\("ly-paste"\)\}<textarea data-ly-text rows="6"/);
+  a.match(css, /\.dlv-f select, \.dlv-f input, \.dlv-f textarea, \.dlv-save-row input \{/);
+  a.match(css, /\.ly-dialog \.ly-paste \{[^}]*margin: 10px 0 6px;/);
+});
+
+// VV on #104 (Deja): the lyrics box's text at 14px, not the field's 12px — lyrics are read and corrected there
+test('the lyrics box reads at 14px', () => {
+  a.match(read('style.css'), /.ly-dialog .ly-paste textarea {[^}]*font-size: 14px;/);
 });
