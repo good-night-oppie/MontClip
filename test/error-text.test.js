@@ -137,6 +137,20 @@ test('the Chinese interface: no English word of three letters or more, beyond pr
   for (const k of Object.keys(KNOWN)) a.ok(found[k], k + ' is fixed now: drop it from KNOWN');
 });
 
+// The same rule for index.html as the zh-CN page shows it (VV: the help layer's shortcuts are still English). The text is
+// not fixed here: every place that breaks the rule is in test/fixtures/zh-index-english.json — "help:<section>/<keys>" for
+// a shortcut row (for JJ, then a PR of its own), "html:<id>" for the rest — and this test fails on a new one, and on one
+// that is fixed but still listed. Key caps and code samples are not prose; "English" in the language menu, the logo split
+// in two spans (Mont / Clip) and the units (kHz, Mbps) are listed too, so Deja / JJ see everything that is left.
+test('the Chinese interface of index.html (help layer included): English left in it is only the listed exceptions', () => {
+  const found = require('./zh-shown').englishShown(ALLOWED), known = require('./fixtures/zh-index-english.json');
+  a.ok(Object.keys(found).some((k) => k.startsWith('help:')), 'the help layer is read');
+  a.equal(found['help:playback/Space'], 'Play,pause,Source,Program,whichever,active', 'VV\'s example');
+  a.ok(!found['html:helpOverlay'] || !/Keyboard/.test(found['html:helpOverlay']), 'data-i18n headings come out in Chinese');
+  for (const [k, w] of Object.entries(found)) a.equal(known[k], w, `zh-CN ${k} shows ${w}`);
+  for (const k of Object.keys(known)) a.ok(found[k], k + ' is fixed now: drop it from test/fixtures/zh-index-english.json');
+});
+
 test('〔复制问题信息〕: no viewer name or uid, no key, user folders as maskUserPath has them', () => {
   // synthetic lines in the shapes viewers reach a log in: 录播姬 danmaku / gift / super chat XML, Bilibili live JSON,
   // key=value, Chinese labels; with a Windows and a home path and keys
