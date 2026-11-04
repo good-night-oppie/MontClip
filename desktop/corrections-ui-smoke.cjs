@@ -189,6 +189,25 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await read(`(async()=>{document.querySelector('[data-as-card="'+${JSON.stringify(back.id)}+'"] [data-as-act=drop]').click();await new Promise(r=>setTimeout(r,300));return true;})()`);
   await search();
   assert.equal(await read(`autoState().clips.filter(c=>Math.min(c.e,${marked.e})-Math.max(c.s,${marked.s})>(c.e-c.s)/2).length`),0,'marked and taken out: not found again');
+  // 6. VV on 12f4f21 / Deja: a card added with 补一段 in 看一遍 is still there after 〔换一场 / 改设置〕 and searching the same
+  //    recording again — its kind, its times, its name, 你补的; searching another recording does not bring it
+  await read(`(async()=>{project.inPoint=400;project.outPoint=430;autoRender('review');document.querySelector('[data-as-act=add]').click();await new Promise(r=>setTimeout(r,200));
+    const d=document.querySelector('dialog.as-add[open]');[...d.querySelectorAll('[data-as-add-kind]')].find(x=>x.textContent==='整活').click();await new Promise(r=>setTimeout(r,100));
+    const dd=document.querySelector('dialog.as-add[open]');dd.querySelector('[data-as-add-name]').value='被骗去跳舞';dd.querySelector('[data-as-add-ok]').click();await new Promise(r=>setTimeout(r,300));
+    project.inPoint=null;project.outPoint=null;document.querySelector('[data-as-act=back-start]').click();return true;})()`);
+  await search();
+  const kept=await read(`(()=>{const c=autoState().clips.find(x=>x.added&&x.s===400&&x.e===430);if(!c)return null;const card=document.querySelector('[data-as-card="'+c.id+'"]');
+    return{kind:c.kind,name:autoName(c),line:card.querySelector('[data-as-kind-line]').textContent};})()`);
+  report.keptAdd=kept;
+  assert.ok(kept,'the added card is back');assert.deepEqual([kept.kind,kept.name],['stunt','被骗去跳舞']);assert.ok(kept.line.startsWith('整活'+zh('as-tag-added')),kept.line);
+  // another recording (another sound, so another key): not there
+  const b64b=wav([['talk',90],['song',150],['talk',60],['song',120],['talk',60]]).toString('base64');
+  const up2=await read(`(async()=>{const b=Uint8Array.from(atob(${JSON.stringify(b64b)}),c=>c.charCodeAt(0));return (await fetch('/api/upload?name=rec2.wav',{method:'POST',body:b})).json();})()`);
+  await read(`(async()=>{const doc=projectJSON();doc.media.push({id:'m_rec2',name:'11 月 3 日 合成录像',kind:'audio',src:${JSON.stringify(up2.src)},duration:480});
+   doc.clips.push({id:'c_rec2',mediaId:'m_rec2',kind:'audio',track:'A2',start:0,in:0,duration:480,props:{}});applyProject(doc);scheduleSave();if(!await flushSave())throw Error('SAVE');
+   autoState().picked=new Set(['m_rec2']);return true;})()`);
+  await search();
+  assert.equal(await read(`autoState().clips.filter(c=>c.added).length`),0,'another recording: no added card');
   ok=true;
  }catch(e){report.error=String(e&&e.stack||e).slice(0,1500);}
  finally{try{fs.rmSync(asrEmpty,{recursive:true,force:true});}catch{}out(ok?'CORRECTIONS_UI_PASS':'CORRECTIONS_UI_FAIL',report);process.exitCode=ok?0:1;app.exit(ok?0:1);}

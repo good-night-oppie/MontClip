@@ -185,3 +185,28 @@ test('a part marked 不是唱歌 and taken out (不要这条) stays away when th
  // a plain taking-out (no kind change) changes nothing on the next search
  a.deepEqual(C.apply([card({id:'a',s:110,e:230})],C.rules([rm]),{recKey:{m1:k}}).map(c=>[c.id,c.kind]),[['a','song']]);
 });
+
+// VV on 12f4f21 / Deja: a card the streamer added (补一段) is back when the same recording is searched again — its kind,
+// its start and end, 你补的; another recording does not get it. The record says which recording and part (numbers only);
+// the name the streamer typed is text and is never kept in a record (the page holds it while it runs)
+test('a part added with 补一段 comes back when the same recording is searched again, where it was, as its kind; never in another recording',()=>{
+ const k=K(3600,sound),k2=K(1800,sound.slice(0,3600));
+ const add=C.record({type:'add',kind:'stunt',duration:3600,rec:k,s:400,e:430,id:'00000000000000a1'});a.deepEqual([add.rec,add.s,add.e,add.id],[k,400,430,'00000000000000a1']);
+ for(const bad of [{rec:k},{rec:k,s:400},{rec:'C:/a.flv',s:400,e:430},{s:400,e:430},{rec:k,s:400,e:430,name:'被骗去跳舞'},{rec:k,s:400,e:430,title:'x'}])
+  a.throws(()=>C.record({type:'add',kind:'stunt',duration:3600,...bad}),/CORRECTION_INVALID/,JSON.stringify(bad));
+ const r=C.rules([add]);a.deepEqual(r.added,[{rec:k,s:400,e:430,kind:'stunt',id:'00000000000000a1'}]);
+ const found=[card({id:'m1_s1',s:100,e:220}),card({id:'m2_s1',mediaId:'m2',s:100,e:220})];
+ const out=C.apply(found,r,{duration:{m1:3600,m2:1800},recKey:{m1:k,m2:k2}});
+ a.deepEqual(out.map(c=>[c.mediaId,c.kind,c.s,c.e,!!c.added]),[['m1','song',100,220,false],['m2','song',100,220,false],['m1','stunt',400,430,true]]);
+ const x=out[2];a.equal(x.keptId,'00000000000000a1');a.deepEqual(x.rules,['added']);a.ok(!out.slice(0,2).some(c=>c.id===x.id),'its own id');
+ // another recording only: not there
+ a.deepEqual(C.apply(found.slice(1),r,{recKey:{m2:k2}}).map(c=>c.mediaId),['m2']);
+ // not moved by a habit of its kind: where the streamer put it
+ const habit=[1,2,3,4,5].map(()=>trim('stunt',-4,0));
+ a.deepEqual(C.apply([],C.rules([...habit,add]),{recKey:{m1:k}}).map(c=>[c.s,c.e]),[[400,430]]);
+ // taken out afterwards (不要这条 on it): not back
+ const rm=C.record({type:'remove',kind:'stunt',duration:3600,rec:k,s:400,e:430});
+ a.deepEqual(C.apply([],C.rules([add,rm]),{recKey:{m1:k}}),[]);
+ // an add without its recording (an older record): nothing comes back
+ a.deepEqual(C.apply([],C.rules([C.record({type:'add',kind:'stunt',duration:3600})]),{recKey:{m1:k}}),[]);
+});
