@@ -19,7 +19,8 @@ const JJ = {
   },
 };
 const CASES = {
-  FLV_TIMELINE_GAP: 'flvTimingUnverified', FLV_READABLE_CONSENT_REQUIRED: 'flvTimingUnverified',
+  // Deja, 2026-11-04: a break in the recording is converted to MP4 on the user's yes, so it is not "timing unverified"
+  FLV_TIMELINE_GAP: 'flvGapRefused', FLV_FIX_UNVERIFIED: 'flvFixUnverified', FLV_READABLE_CONSENT_REQUIRED: 'flvTimingUnverified',
   FLV_DISK_FULL: 'flvDiskFull', NO_SERVER: 'flvNeedsDesktop',
   FLV_TRANSCODE_REQUIRED: 'flvNeedsConvert', FLV_STREAMS_UNSUPPORTED: 'flvNeedsConvert',
   FLV_COMPONENT_MISSING: 'flvComponentMissing',

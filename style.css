@@ -4857,6 +4857,7 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .flv-import-dialog [data-flv-ask] { white-space: pre-line; line-height: 1.5; }
 .flv-import-dialog .flv-import-row { display: flex; gap: 8px; justify-content: flex-end; }
 .flv-import-dialog [hidden] { display: none; }
+.flv-import-dialog .flv-import-gaps { margin: 0 0 10px; padding-left: 18px; line-height: 1.5; max-height: 9em; overflow: auto; }
 
 /* P2 highlight cards: shaped like the sentence dialog */
 .highlight-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(620px, 90vw); max-height: 85vh; padding: 20px; margin: auto; }

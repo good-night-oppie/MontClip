@@ -1660,7 +1660,7 @@ async function callTool(name, args, attempt = 0) {
         else fs.copyFileSync(src, target);
       }
       if (!kind) throw new Error("Unsupported media type");
-      const prepared = await prepareMedia(target, { allowTranscode: args.allowTranscode, acceptReadable: args.acceptReadable });
+      const prepared = await prepareMedia(target, { allowTranscode: args.allowTranscode, acceptReadable: args.acceptReadable, fixGaps: args.fixGaps });
       const originalName = path.basename(target);
       if (prepared.originalSrc) target = path.join(MEDIA_DIR, decodeURIComponent(prepared.src.slice(7)));
       const entry = {

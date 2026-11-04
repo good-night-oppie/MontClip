@@ -2983,19 +2983,28 @@ Desktop export downloads: the Save dialog is titled 保存导出的视频 / Save
 
 Local FLV uploads and fablecut_import_media share prepare-media.js. Compatible
 single-video H.264 4:2:0 plus optional AAC streams are remuxed; other codecs need
-boolean allowTranscode:true. Decoded timestamp gaps above5ms are refused with
-FLV_TIMELINE_GAP before any MP4 allocation; this is clock quantization, not an
-AV quality guarantee. Multiple video/audio streams are refused. Source bytes
-are retained; output is a distinct MP4 and metadata carries originalSrc and
-preparation (remux/transcode), preserved by renderer serialization.
+boolean allowTranscode:true. The check reads packet headers only (ffprobe
+packets, no decoding: seconds for a 2-hour recording). A break in the recording
+(the sound — or, without sound, the picture — stops for more than 5 ms) answers
+FLV_TIMELINE_GAP (REST: 409) with `gaps:[{at, length}]` (seconds as a player
+shows the file) before any MP4 allocation. With fixGaps:true it is converted on
+the original's clock: video copied (or transcoded), audio re-encoded to AAC with
+silence across each break, so later times and danmaku keep their place; the MP4
+is then scanned and must match the original's readable length within 1 s and
+sound against picture within 40 ms, else FLV_FIX_UNVERIFIED with `check`
+{durationDiff, avOffset}. A late picture with the sound running on (dropped
+frames, variable frame rate) is not a break. Multiple video/audio streams are
+refused. Source bytes are retained; output is a distinct MP4 and metadata
+carries originalSrc and preparation (remux/transcode/convert), preserved by
+renderer serialization.
 
 Uncertain decoded tails/header lengths/warnings require acceptReadable:true,
 separately from codec consent. REST upload returns409 with
 FLV_READABLE_CONSENT_REQUIRED, originalSrc and decoded range. POST
-/api/prepare-media accepts {src, acceptReadable, allowTranscode}; src must resolve
+/api/prepare-media accepts {src, acceptReadable, allowTranscode, fixGaps}; src must resolve
 to a local /media/ FLV. Booleans must be true, not strings. MCP accepts the same
-two booleans on fablecut_import_media. Callers must show the detected limitation
-before accepting; these flags do not make source timing verified or authorize gaps.
+three booleans on fablecut_import_media. Callers must show the detected limitation
+before accepting; acceptReadable and allowTranscode do not make source timing verified or authorize gaps (only fixGaps converts them).
 
 Legacy upload/MCP copies are already stored before probing and remain on refusal;
 this is not native zero-allocation consent. Repeated MCP attempts can retain extra

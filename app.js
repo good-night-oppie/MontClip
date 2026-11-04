@@ -2158,44 +2158,100 @@ function mediaKindFromFile(file) {
 /* Desktop FLV import (Deja, replacing #7): the main process checks the picked file where it is and hashes it; a
    re-encode or a file whose end could not be confirmed asks first (Cancel focused); only then is it copied into
    media/ as a stream and the copy's hash checked. A dialog shows each step with a Cancel that removes only this
-   import's files. Returns {src, originalSrc, preparation, importId}, or null when nothing was imported. */
-async function desktopFlvImport(file) {
-  const bridge = globalThis.montclipFlv, T = (k, v) => MontClipView.t(mcView.get().language, k, v);
+   import's files. Returns {src, originalSrc, preparation, importId}, or null when nothing was imported.
+   Decision A (Deja, 2026-11-04): each step shows how far it is and about how long it still takes; a recording with
+   breaks lists them and offers to convert it to MP4 (`convert` also asks for that by hand after a failed remux); a
+   refusal or failure is said in a dialog (flvNotice), never only a toast. */
+async function desktopFlvImport(file, { convert = false } = {}) {
+  const bridge = globalThis.montclipFlv, lang = () => mcView.get().language, T = (k, v) => MontClipView.t(lang(), k, v);
   const dlg = document.createElement("dialog"), title = document.createElement("h3"), name = document.createElement("p"),
-    status = document.createElement("p"), ask = document.createElement("p"), row = document.createElement("div"),
-    cancel = document.createElement("button"), go = document.createElement("button");
+    status = document.createElement("p"), ask = document.createElement("p"), gapList = document.createElement("ul"),
+    row = document.createElement("div"), cancel = document.createElement("button"), go = document.createElement("button");
   dlg.className = "flv-import-dialog"; dlg.dataset.flvImport = "";
   title.textContent = T("flvTitle"); name.textContent = file.name; name.className = "flv-import-name";
   status.dataset.flvStatus = ""; status.setAttribute("role", "status");
   ask.dataset.flvAsk = ""; ask.hidden = true;
+  gapList.dataset.flvGaps = ""; gapList.className = "flv-import-gaps"; gapList.hidden = true;
   cancel.className = "btn"; cancel.dataset.flvCancel = ""; cancel.textContent = T("flvCancel");
   go.className = "btn primary"; go.dataset.flvContinue = ""; go.textContent = T("flvContinue"); go.hidden = true;
   row.className = "flv-import-row"; row.append(cancel, go);
-  dlg.append(title, name, status, ask, row); document.body.append(dlg); dlg.showModal(); cancel.focus();
-  let id = null, canceled = false, answer = null;
-  const PHASE = { inspect: "flvPhaseInspect", hash: "flvPhaseHash", copy: "flvPhaseCopy", verify: "flvPhaseVerify", prepare: "flvPhasePrepare" };
-  const show = (st) => { if (st && PHASE[st.phase]) status.textContent = T(PHASE[st.phase], { pct: st.size ? Math.min(100, Math.floor(st.done / st.size * 100)) : 0 }); };
+  dlg.append(title, name, status, ask, gapList, row); document.body.append(dlg); dlg.showModal(); cancel.focus();
+  let id = null, canceled = false, answer = null, failed = null;
+  const PHASE = { inspect: "flvPhaseInspect", hash: "flvPhaseHash", copy: "flvPhaseCopy", verify: "flvPhaseVerify", prepare: "flvPhasePrepare", check: "flvPhaseCheck" };
+  const show = (st) => {
+    if (!st || !PHASE[st.phase]) return;
+    const pct = st.size ? Math.min(100, Math.floor(st.done / st.size * 100)) : 0, s = T(PHASE[st.phase], { pct });
+    // the check after converting has no progress of its own; the other steps without a {pct} get one
+    status.textContent = s + (st.phase === "check" || /%/.test(s) ? "" : T("flvPct", { pct })) + MontClipView.flvEta(lang(), st.remaining);
+  };
   status.textContent = T("flvPhaseInspect");
-  const stop = () => { canceled = true; cancel.disabled = true; if (answer) answer(false); if (id) bridge.cancel(id); };
+  // the import is named here, so the check's progress shows (and Cancel works) while it runs
+  const pending = crypto.randomUUID();
+  const stop = () => { canceled = true; cancel.disabled = true; if (answer) answer(false); bridge.cancel(id || pending); };
   cancel.onclick = stop; dlg.addEventListener("cancel", (e) => { e.preventDefault(); stop(); });
-  const poll = setInterval(async () => { if (id && !canceled) { const r = await bridge.status(id); if (r && r.ok) show(r.status); } }, 250);
+  const poll = setInterval(async () => { if (!canceled) { const r = await bridge.status(id || pending); if (r && r.ok) show(r.status); } }, 250);
   try {
-    const seen = await bridge.inspect(file);
-    if (!seen.ok) { toast(MontClipView.flvImportMessage(mcView.get().language, seen.code)); return null; }
+    const seen = await bridge.inspect(file, pending);
+    if (!seen.ok) { failed = seen; return null; }
     id = seen.id;
     if (canceled) { await bridge.cancel(id); toast(T("flvCanceled")); return null; }
-    if (!seen.compatible || seen.needsReadableConsent) {
-      ask.textContent = [!seen.compatible ? T("flvAskTranscode") : "", seen.needsReadableConsent ? T("flvAskReadable") : ""].filter(Boolean).join("\n\n");
+    const gaps = Array.isArray(seen.gaps) ? seen.gaps : [];
+    const fix = convert || gaps.length > 0;
+    if (!seen.compatible || seen.needsReadableConsent || gaps.length) {
+      ask.textContent = [gaps.length ? MontClipView.tp(lang(), "flvAskGaps", { n: gaps.length }, { n: gaps.length }) : "",
+        !seen.compatible ? T("flvAskTranscode") : "", seen.needsReadableConsent ? T("flvAskReadable") : ""].filter(Boolean).join("\n\n");
+      gapList.replaceChildren(...MontClipView.flvGapLines(lang(), gaps).map((line) => Object.assign(document.createElement("li"), { textContent: line })));
+      gapList.hidden = !gaps.length;
+      go.textContent = T(fix ? "flvConvert" : "flvContinue");
       ask.hidden = false; go.hidden = false; status.textContent = ""; cancel.focus();
       const yes = await new Promise((resolve) => { answer = resolve; go.onclick = () => resolve(true); });
-      answer = null; ask.hidden = true; go.hidden = true;
+      answer = null; ask.hidden = true; gapList.hidden = true; go.hidden = true;
       if (!yes) { await bridge.cancel(id); toast(T("flvCanceled")); return null; }
     }
     status.textContent = T("flvPhaseCopy", { pct: 0 });
-    const out = await bridge.prepare({ id, allowTranscode: !seen.compatible, acceptReadable: seen.needsReadableConsent });
-    if (!out.ok) { toast(MontClipView.flvImportMessage(mcView.get().language, canceled ? "FLV_IMPORT_CANCELED" : out.code)); return null; }
+    const out = await bridge.prepare({ id, allowTranscode: !seen.compatible, acceptReadable: seen.needsReadableConsent, fixGaps: fix });
+    if (!out.ok) {
+      if (canceled) { toast(T("flvCanceled")); return null; }
+      failed = { ...out, convert: !fix && out.code === "FLV_PREPARATION_FAILED" };
+      return null;
+    }
     return { src: out.src, originalSrc: out.originalSrc, preparation: out.preparation, importId: id };
-  } finally { clearInterval(poll); dlg.close(); dlg.remove(); }
+  } finally {
+    clearInterval(poll); dlg.close(); dlg.remove();
+    // said after the progress dialog has closed, so the reason stays on screen until the user answers
+    if (failed && failed.code === "FLV_IMPORT_CANCELED") toast(T("flvCanceled"));
+    else if (failed && await flvNotice(MontClipView.flvImportMessage(lang(), failed.code), { name: file.name, check: failed.check, convert: failed.convert })) {
+      return desktopFlvImport(file, { convert: true });   // from the start: the failed import removed its files
+    }
+  }
+}
+/* A refused or failed FLV import, said in a dialog that stays until the user answers (Deja, 2026-11-04: VV saw the
+   reason flash past in a toast). `convert` adds "Convert to MP4 and import" (resolves true); OK / Esc resolve false.
+   `check` is how far a converted MP4 was off its original, `gaps` the breaks of a recording. */
+function flvNotice(message, { name = "", check = null, gaps = null, convert = false } = {}) {
+  const lang = mcView.get().language, T = (k, v) => MontClipView.t(lang, k, v);
+  const dlg = document.createElement("dialog"), title = document.createElement("h3"), file = document.createElement("p"),
+    why = document.createElement("p"), list = document.createElement("ul"), row = document.createElement("div"),
+    ok = document.createElement("button"), go = document.createElement("button");
+  dlg.className = "flv-import-dialog"; dlg.dataset.flvNotice = "";
+  title.textContent = T("flvTitle"); file.textContent = name; file.className = "flv-import-name"; file.hidden = !name;
+  why.dataset.flvReason = ""; why.setAttribute("role", "alert");
+  const by = check && Number.isFinite(check.durationDiff) ? " " + T("flvFixBy", {
+    sec: (Math.round(check.durationDiff * 10) / 10).toString(),
+    ms: Number.isFinite(check.avOffset) ? String(Math.round(check.avOffset * 1000)) : "—" }) : "";
+  why.textContent = message + by + (convert && !gaps ? " " + T("flvRetryConvert") : "");
+  list.className = "flv-import-gaps"; list.dataset.flvGaps = "";
+  list.replaceChildren(...MontClipView.flvGapLines(lang, gaps || []).map((line) => Object.assign(document.createElement("li"), { textContent: line })));
+  list.hidden = !list.children.length;
+  ok.className = "btn"; ok.dataset.flvOk = ""; ok.textContent = T(convert ? "flvCancel" : "flvGotIt");
+  go.className = "btn primary"; go.dataset.flvConvert = ""; go.textContent = T("flvConvert"); go.hidden = !convert;
+  row.className = "flv-import-row"; row.append(ok, go);
+  dlg.append(title, file, why, list, row); document.body.append(dlg); dlg.showModal(); ok.focus();
+  return new Promise((resolve) => {
+    const done = (yes) => { dlg.close(); dlg.remove(); resolve(yes); };
+    ok.onclick = () => done(false); go.onclick = () => done(true);
+    dlg.addEventListener("cancel", (e) => { e.preventDefault(); done(false); });
+  });
 }
 async function importFiles(fileList) {
   const files = [...fileList];
@@ -2207,8 +2263,8 @@ async function importFiles(fileList) {
   const addedMedia = [], gen = runtime.projectGen;
   // N25: an empty project whose canvas nobody chose takes the first recording's (followSourceCanvas)
   const follow = !state.compCtx && MediaLib.canvasFollowsSource(project);
-  // an FLV that could not be imported: the server's reason code, said in the interface language
-  const flvFailure = (code) => toast(MontClipView.flvImportMessage(mcView.get().language, code));
+  // an FLV that could not be imported: the server's reason code, said in the interface language, in a dialog
+  const flvFailure = (code, more) => flvNotice(MontClipView.flvImportMessage(mcView.get().language, code), more);
   for (const file of files) {
     const kind = mediaKindFromFile(file);
     if (!kind) { skipped++; continue; }
@@ -2220,16 +2276,29 @@ async function importFiles(fileList) {
       if (!r) continue;
       ({src, originalSrc, preparation} = r); flvImport = r.importId;
     } else if (state.connected) {
+      // the server's refusal: its code, and for a recording with breaks where they are (the original stays in media/)
+      const refused = async (res) => { let body = {}; try { body = await res.json(); } catch {}
+        return Object.assign(new Error("upload " + res.status), { code: body.code || "", originalSrc: body.originalSrc, gaps: body.gaps, check: body.check }); };
       try {
         const res = await fetch("/api/upload?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
-        if (!res.ok) { let code = ""; try { code = (await res.json()).code || ""; } catch {} throw Object.assign(new Error("upload " + res.status), { code }); }
+        if (!res.ok) throw await refused(res);
         ({src, originalSrc, preparation} = await res.json());
       } catch (error) {
-        if (flv) { flvFailure(typeof error?.code === "string" && error.code ? error.code : "UPLOAD_FAILED"); continue; }
-        src = URL.createObjectURL(file); transient = true;
+        if (!flv) { src = URL.createObjectURL(file); transient = true; }
+        else {
+          const code = typeof error?.code === "string" && error.code ? error.code : "UPLOAD_FAILED";
+          // a break in the recording or a re-encode can be done here: "Convert to MP4 and import" asks the server for it
+          const convert = ["FLV_TIMELINE_GAP", "FLV_TRANSCODE_REQUIRED"].includes(code) && typeof error.originalSrc === "string";
+          if (!(await flvFailure(code, { name: file.name, gaps: error.gaps, check: error.check, convert }))) continue;
+          try {
+            const res = await fetch("/api/prepare-media", { method: "POST", body: JSON.stringify({ src: error.originalSrc, fixGaps: code === "FLV_TIMELINE_GAP", allowTranscode: true }) });
+            if (!res.ok) throw await refused(res);
+            ({src, originalSrc, preparation} = await res.json());
+          } catch (again) { await flvFailure(again?.code || "UPLOAD_FAILED", { name: file.name, check: again?.check }); continue; }
+        }
       }
     } else {
-      if (flv) { flvFailure("NO_SERVER"); continue; }
+      if (flv) { await flvFailure("NO_SERVER"); continue; }
       src = URL.createObjectURL(file); transient = true;
     }
     const m = { id: "m_" + uid(), name: file.name, kind, src, transient, folderId };
@@ -2239,7 +2308,7 @@ async function importFiles(fileList) {
       if (kind === "video") grabThumb(m).catch(() => { });
       ensureWave(m);
     } catch {
-      if (flvImport) { await globalThis.montclipFlv.cancel(flvImport); flvFailure("FLV_PREPARATION_FAILED"); continue; }
+      if (flvImport) { await globalThis.montclipFlv.cancel(flvImport); await flvFailure("FLV_PREPARATION_FAILED", { name: file.name }); continue; }
       skipped++; continue;
     }
     if (gen !== runtime.projectGen) {

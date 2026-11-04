@@ -1217,7 +1217,7 @@ const server = http.createServer(async (req, res) => {
       } finally { try { fs.rmSync(staging, { force: true }); } catch {} }
       await faststart(target);
       sendJSON(res, 200, { ok: true, ...await prepareMedia(target) });
-    } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
+    } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED","FLV_TIMELINE_GAP"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
     return;
   }
 
@@ -1229,8 +1229,8 @@ const server = http.createServer(async (req, res) => {
         sendJSON(res, 400, { code:"FLV_SOURCE_REQUIRED", error:"FLV_SOURCE_REQUIRED" });
         return;
       }
-      sendJSON(res, 200, { ok: true, ...await prepareMedia(file, {allowTranscode: body.allowTranscode, acceptReadable: body.acceptReadable}) });
-    } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
+      sendJSON(res, 200, { ok: true, ...await prepareMedia(file, {allowTranscode: body.allowTranscode, acceptReadable: body.acceptReadable, fixGaps: body.fixGaps}) });
+    } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED","FLV_TIMELINE_GAP"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
     return;
   }
 
