@@ -95,7 +95,7 @@ async function main() {
     const q = (s) => "'" + s.replace(/'/g, "''") + "'";
     const ex = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `Expand-Archive -LiteralPath ${q(zip)} -DestinationPath ${q(root)}`], { encoding: 'utf8', windowsHide: true });
     assert.equal(ex.status, 0, 'unpack: ' + ex.stderr);
-    const top = fs.readdirSync(root).find((d) => d.startsWith('MontClip-internal-win-x64-'));
+    const top = fs.readdirSync(root).find((d) => /^MontClip-(internal|private)-win-x64-/.test(d));
     const appDir = path.join(root, top), exe = path.join(appDir, 'MontClip.exe'), ffDir = path.join(appDir, 'resources', 'ffmpeg');
     // JJ's notes in the root: UTF-8 with a BOM, CRLF, placeholders filled, no internal checklist
     out.readme = ['先看我-使用说明.txt', 'README-first.txt'].map((n) => { const b = fs.readFileSync(path.join(appDir, n)), s = b.toString('utf8');
