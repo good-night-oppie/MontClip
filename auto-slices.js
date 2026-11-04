@@ -130,8 +130,11 @@
    *  card is as the search had it when its tick is its picked, and one the search ticked that was taken out is not. */
   function reviewHead(clips, dropped = []) {
     const list = Array.isArray(clips) ? clips : [], gone = Array.isArray(dropped) ? dropped : [];
-    const found = list.length, on = list.filter((c) => c.on).length;
-    if (!found) return gone.length ? { key: "all-out", found: gone.length, on: 0 } : { key: "none", found: 0, on: 0 };
+    // found: every card this search found, the ones taken out included (VV on #96 e31d808), so taking one out or putting
+    // one back never changes it; a part added by hand (补一段) was not found, and is not counted, ticked or not
+    const searched = (c) => !c.added;
+    const found = list.filter(searched).length + gone.filter(searched).length, on = list.filter((c) => c.on && searched(c)).length;
+    if (!list.length) return gone.length ? { key: "all-out", found, on: 0 } : { key: "none", found: 0, on: 0 };
     if (!on) return { key: "none-ticked", found, on };
     const same = list.every((c) => !!c.on === !!c.picked) && !gone.some((c) => c.picked);
     return same ? { key: on === found ? "all" : "head", found, on } : { key: "ticked", found, on };
