@@ -185,6 +185,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.again={marked,songs:again.length,back};
   assert.ok(back,'the marked part is a card again');assert.equal(back.kind,'moment');
   assert.ok(back.line.startsWith(zh('as-a-moment')+zh('as-tag-changed')),back.line);assert.equal(back.why,zh('as-marked-why'));
+  await read(`(()=>{autoFocusCard(${JSON.stringify(back.id)},false);return true;})()`);await shot('corrections-not-song-back.png');
   // 不要这条 on it as well: searched again, it stays away
   await read(`(async()=>{document.querySelector('[data-as-card="'+${JSON.stringify(back.id)}+'"] [data-as-act=drop]').click();await new Promise(r=>setTimeout(r,300));return true;})()`);
   await search();
@@ -200,6 +201,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
     return{kind:c.kind,name:autoName(c),line:card.querySelector('[data-as-kind-line]').textContent};})()`);
   report.keptAdd=kept;
   assert.ok(kept,'the added card is back');assert.deepEqual([kept.kind,kept.name],['stunt','被骗去跳舞']);assert.ok(kept.line.startsWith('整活'+zh('as-tag-added')),kept.line);
+  await read(`(()=>{autoFocusCard(autoState().clips.find(x=>x.added).id,false);return true;})()`);await shot('corrections-added-back.png');
   // another recording (another sound, so another key): not there
   const b64b=wav([['talk',90],['song',150],['talk',60],['song',120],['talk',60]]).toString('base64');
   const up2=await read(`(async()=>{const b=Uint8Array.from(atob(${JSON.stringify(b64b)}),c=>c.charCodeAt(0));return (await fetch('/api/upload?name=rec2.wav',{method:'POST',body:b})).json();})()`);
