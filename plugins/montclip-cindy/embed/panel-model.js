@@ -50,45 +50,53 @@
     return t[c.kind] && c.kind !== "caption" && c.kind !== "other" ? t[c.kind] : t.other;
   }
   const pct = (v) => Math.round(v * 100) + "%";
-  const num = (v) => String(Math.round(v * 100) / 100);
-  const signed = (v) => (v > 0 ? "+" : v < 0 ? "−" : "") + num(Math.abs(v));
-  /* each shown property: its name, how its value reads, and the value that needs no saying (the editor's default) */
+  const num = (v) => String(Math.round(Math.abs(v) * 100) / 100);
+  const minus = (v) => (v < 0 ? "−" : "") + num(v);              // 120 · −40 (a true minus sign, no plus)
+  const plusMinus = (v) => (v > 0 ? "+" : v < 0 ? "−" : "") + num(v);   // +3 · −2
+  const zh = (l) => l !== "en";
+  /* The 15 properties 属性 shows (JJ's final words, 2026-11-04), in this order. Which ones a clip shows depends on its
+     kind: the editor gives every clip every default (a recording's props hold text "Title" too), so a property is shown
+     only where it means something — sound for video and audio, text for titles, picture for what is drawn. */
+  const SOUND = ["video", "audio"], PICTURE = ["video", "image", "svg", "text", "shape", "comp", "adjust"], TEXT = ["text"];
   const PROPS = [
-    { key: "volume", zh: "音量", en: "Volume", value: (v) => pct(v), quiet: 1 },
-    { key: "gain", zh: "音量增减", en: "Gain", value: (v, l) => signed(v) + (l === "en" ? " dB" : " 分贝"), quiet: 0 },
-    { key: "speed", zh: "速度", en: "Speed", value: (v, l) => num(v) + (l === "en" ? "×" : " 倍"), quiet: 1 },
-    { key: "pan", zh: "左右声道", en: "Pan", quiet: 0,
-      value: (v, l) => (Math.abs(v) < 0.005 ? (l === "en" ? "Center" : "居中") : (v < 0 ? (l === "en" ? "Left " : "偏左 ") : (l === "en" ? "Right " : "偏右 ")) + pct(Math.abs(v))) },
-    { key: "scale", zh: "缩放", en: "Scale", value: (v) => pct(v), quiet: 1 },
-    { key: "position", zh: "位置", en: "Position", from: ["x", "y"], quiet: [0, 0],
-      value: ([x, y], l) => (l === "en" ? `X ${signed(x)} · Y ${signed(y)}` : `横 ${signed(x)} · 竖 ${signed(y)}`) },
-    { key: "rotation", zh: "旋转", en: "Rotation", value: (v) => signed(v) + "°", quiet: 0 },
-    { key: "opacity", zh: "不透明度", en: "Opacity", value: (v) => pct(v), quiet: 1 },
-    { key: "brightness", zh: "亮度", en: "Brightness", value: (v) => num(v) + "%", quiet: 100 },
-    { key: "contrast", zh: "对比度", en: "Contrast", value: (v) => num(v) + "%", quiet: 100 },
-    { key: "saturation", zh: "饱和度", en: "Saturation", value: (v) => num(v) + "%", quiet: 100 },
-    { key: "font", zh: "字体", en: "Font", value: (v) => String(v) },
-    { key: "fontSize", zh: "字号", en: "Font size", value: (v) => num(v) },
-    { key: "color", zh: "文字颜色", en: "Text colour", value: (v) => String(v) },
-    { key: "filterPreset", zh: "滤镜", en: "Filter", value: (v) => String(v), quiet: "none" },
-    { key: "textAnim", zh: "文字动画", en: "Text animation", value: (v) => String(v), quiet: "none" },
+    { key: "text", zh: "文字内容", en: "Text", kinds: TEXT, value: (v) => String(v) },
+    { key: "font", zh: "字体", en: "Font", kinds: TEXT, value: (v) => String(v) },
+    { key: "fontSize", zh: "字号", en: "Size", kinds: TEXT, value: (v) => num(v) },
+    { key: "color", zh: "颜色", en: "Color", kinds: TEXT, value: (v) => String(v), swatch: true },
+    { key: "volume", zh: "音量", en: "Volume", kinds: SOUND, value: (v) => pct(v) },
+    { key: "gain", zh: "音量增减", en: "Gain", kinds: SOUND,
+      value: (v, l) => (v === 0 ? (zh(l) ? "不变" : "0 dB") : plusMinus(v) + (zh(l) ? " 分贝" : " dB")) },
+    { key: "speed", zh: "速度", en: "Speed", kinds: SOUND, value: (v, l) => (v === 1 && zh(l) ? "原速" : num(v) + (zh(l) ? " 倍" : "×")) },
+    { key: "pan", zh: "左右声道", en: "Pan", kinds: SOUND,
+      value: (v, l) => (Math.abs(v) < 0.005 ? (zh(l) ? "居中" : "Center") : (v < 0 ? (zh(l) ? "偏左 " : "Left ") : (zh(l) ? "偏右 " : "Right ")) + pct(Math.abs(v))) },
+    { key: "scale", zh: "缩放", en: "Scale", kinds: PICTURE, value: (v) => pct(v) },
+    { key: "position", zh: "位置", en: "Position", kinds: PICTURE, from: ["x", "y"],
+      value: ([x, y], l) => (zh(l) ? `横 ${minus(x)}，竖 ${minus(y)}` : `X ${minus(x)}, Y ${minus(y)}`) },
+    { key: "rotation", zh: "旋转", en: "Rotation", kinds: PICTURE, value: (v) => minus(v) + "°" },
+    { key: "opacity", zh: "不透明度", en: "Opacity", kinds: PICTURE, value: (v) => pct(v) },
+    // the main interface names filters and text animations by their ids only: shown as they are (状态表: 未排)
+    { key: "filterPreset", zh: "滤镜", en: "Filter", kinds: ["video", "image", "svg", "adjust"], value: (v) => String(v) },
+    { key: "textAnim", zh: "文字动画", en: "Text animation", kinds: TEXT, value: (v) => String(v) },
   ];
-  /** A keyframed channel's plain name (the 关键帧 row); one not in the list keeps its key. */
+  /** A keyframed channel's plain name (the 关键帧 row; x and y are 位置); one not among the 15 keeps its key. */
   function propName(key, lang = "zh-CN") {
     const p = PROPS.find((x) => x.key === key || (x.from && x.from.includes(key)));
-    return p ? (lang === "en" ? p.en : p.zh) : key;
+    return p ? (zh(lang) ? p.zh : p.en) : key;
   }
-  /** [[name, value], …] for the properties set to something other than the editor's default; the title's own text is
-   *  not among them (it is the clip's name). */
-  function propRows(props, lang = "zh-CN") {
+  /** [[name, value, swatch?], …] for the clip's kind, in JJ's order. `name` is what the 名称 row already says: the
+   *  text is not repeated when it is that. */
+  function propRows(props, lang = "zh-CN", kind = "text", name = null) {
     const rows = [];
     const set = (v) => v !== undefined && v !== null && v !== "";
     for (const p of PROPS) {
+      if (!p.kinds.includes(kind)) continue;
       const v = p.from ? p.from.map((k) => (props ? props[k] : undefined)) : props ? props[p.key] : undefined;
       if (p.from ? !v.some(set) : !set(v)) continue;
-      if (p.from ? v.every((x, i) => !set(x) || x === p.quiet[i]) : p.quiet !== undefined && v === p.quiet) continue;
-      const val = p.from ? v.map((x) => (set(x) ? +x : 0)) : v;
-      rows.push([lang === "en" ? p.en : p.zh, p.value(val, lang)]);
+      if (p.key === "text" && String(v) === String(name)) continue;
+      const val = p.from ? v.map((x) => (set(x) ? +x : 0)) : typeof v === "string" || p.key === "text" ? v : +v;
+      const row = [zh(lang) ? p.zh : p.en, p.value(val, lang)];
+      if (p.swatch && /^#[0-9a-f]{3,8}$/i.test(String(v))) row.push(String(v));
+      rows.push(row);
     }
     return rows;
   }
@@ -104,7 +112,7 @@
       in: m ? round(c.in || 0) : null,
       locked: !!c.locked || (project.lockedTracks || []).includes(c.track), disabled: !!c.disabled,
       keyframes: [...new Set(Object.keys(c.keyframes || {}).filter((k) => (c.keyframes[k] || []).length).map((k) => propName(k, lang)))],
-      props: propRows(c.props, lang),
+      props: propRows(c.props, lang, c.kind, c.name || m?.name || c.props?.text || c.id),
       media: m ? { name: m.name, kind: m.kind, duration: m.duration ?? null, width: m.width ?? null, height: m.height ?? null,
         fps: m.fps ?? null, codec: m.codec ?? null, audioChannels: m.audioChannels ?? null } : null,
     };
