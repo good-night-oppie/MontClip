@@ -8,8 +8,9 @@ const FILES = ['app.js', 'desktop/main.js', 'export-jobs.js', 'server.js', 'inde
 const LIT = /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g;
 // Allowed, with the reason:
 // key labels and proper names, not sentences (Windows, its Media Feature Pack and ffmpeg.exe: main's #28 texts)
-// and a key on the keyboard (JJ's line under 全拿掉: 「…或按 Ctrl+Z。想换一批，点「换一场 / 改设置」…」)
-const KEY_NAMES = /\b(IN|OUT|In|Out|SRT|FLV|MP4|MontClip|H\.264|FFmpeg|ffmpeg\.exe|x264|AI|API|Windows|Media Feature Pack|Ctrl)\b/g;
+// and a key on the keyboard (JJ's line under 全拿掉: 「…或按 Ctrl+Z。想换一批，点「换一场 / 改设置」…」);
+// the optional speech model's product name (Meta Omnilingual: asr-optional.js, Settings › 听写)
+const KEY_NAMES = /\b(IN|OUT|In|Out|SRT|FLV|MP4|MontClip|H\.264|FFmpeg|ffmpeg\.exe|x264|AI|API|Windows|Media Feature Pack|Ctrl|Meta Omnilingual)\b/g;
 // desktop/main.js's native dialogs are fixed in #37 (desktop/native-text.js); until that is merged into this branch, its
 // six known strings are the only exception, and the exception ends by itself once native-text.js is here.
 const PENDING_37 = !fs.existsSync(path.join(ROOT, 'desktop', 'native-text.js'))

@@ -9824,6 +9824,63 @@ function paintSettingsAsr() {
     b.disabled = !!asrState.punctBusy;
     b.textContent = uiText(asrState.punctBusy ? "own.asr-punct-getting" : asrState.punctNote ? "own.asr-again" : "own.asr-punct-get");
   }
+  paintAsrOptional();
+}
+/* Settings › 听写: the optional model (asr-optional.js; ADR 2026-11-04 §6) — Meta Omnilingual, for English and other
+   languages, never the default. 〔选用…〕: the desktop host shows its licence, then asks for the site, then downloads and
+   checks; the page only names the model. 〔撤销〕: the files and the consent record go, the default model is used again. */
+const asrOpt = { list: null, loading: false, busy: null, note: "" };
+async function loadAsrOptional() {
+  const api = window.montclipAsr && window.montclipAsr.optional;
+  if (!api || asrOpt.loading) return;
+  asrOpt.loading = true;
+  let r = null;
+  try { r = await api.list(); } catch { }
+  asrOpt.loading = false;
+  asrOpt.list = r && r.ok ? r : { models: [] };
+  paintAsrOptional();
+}
+function paintAsrOptional() {
+  const box = $("setAsrOpt");
+  if (!box) return;
+  if (!asrOpt.list) { box.hidden = true; loadAsrOptional(); return; }
+  const m = asrOpt.list.models[0];   // one optional model for now
+  box.hidden = !m;
+  if (!m) return;
+  let text, label = null;
+  if (asrOpt.busy) text = uiText("own.asr-opt-getting", { got: mbText(asrOpt.busy.loaded || 0), mb: m.mb });
+  else if (m.ready) { text = uiText("own.asr-opt-active"); label = "own.asr-opt-revoke"; }
+  else if (m.consented) { text = uiText("own.asr-opt-bad"); label = "own.asr-opt-revoke"; }   // agreed, but a file is missing or changed: not used
+  else { text = uiText("own.asr-opt-about", { mb: m.mb }); label = "own.asr-opt-use"; }
+  $("setAsrOptText").textContent = asrOpt.note || text;
+  const b = $("btnAsrOpt");
+  b.hidden = !label;
+  if (label) { b.textContent = uiText(label); b.dataset.i18n = label; }
+  $("btnAsrOptCancel").hidden = !asrOpt.busy;
+}
+async function asrOptionalClick() {
+  const api = window.montclipAsr && window.montclipAsr.optional, m = asrOpt.list && asrOpt.list.models[0];
+  if (!api || !m || asrOpt.busy || asrState.downloading || asrState.punctBusy) return;
+  asrOpt.note = "";
+  let r = null;
+  if (m.ready || m.consented) {
+    try { r = await api.revoke(m.id); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
+    if (r && r.ok) toast(uiText("own.asr-opt-revoked"));
+  } else {
+    asrOpt.busy = { loaded: 0 };
+    const off = api.onProgress((p) => { if (asrOpt.busy && p.id === m.id) { asrOpt.busy.loaded = p.loaded; paintAsrOptional(); } });
+    paintAsrOptional();
+    try { r = await api.select(m.id); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
+    off?.();
+    asrOpt.busy = null;
+    if (r && r.ok) toast(uiText("own.asr-opt-active"));
+    else if (r && r.code === "ASR_CHECK_FAILED") asrOpt.note = uiText("own.asr-check-failed");
+    else if (r && r.code === "ASR_NO_SPACE") asrOpt.note = uiText("own.asr-opt-no-space", { need: mbText(r.needBytes || 0), free: mbText(r.freeBytes || 0) });
+    else if (r && !r.declined) asrOpt.note = uiText("own.asr-opt-failed", { why: r.error || r.code || "?" });
+  }
+  asrOpt.list = null;
+  await loadAsrOptional();
+  loadAsrStatus();
 }
 /** Download the punctuation model: the host asks first (its own box), then it is checked file by file like the speech model. */
 async function asrGetPunct() {
@@ -9837,12 +9894,20 @@ async function asrGetPunct() {
   await loadAsrStatus();
   paintSettingsAsr();
 }
+/** The optional engine's failures in plain words (asr-optional-engine.js): only it failed; the default is untouched. */
+function asrOptionalWords(j) {
+  if (!j || j.engine !== "optional") return null;
+  if (j.code === "ASR_OPTIONAL_CRASHED") return uiText("own.asr-opt-crashed");
+  if (j.code === "ASR_OPTIONAL_NO_MEMORY") return uiText("own.asr-opt-no-memory", { need: `${j.needMB || "?"} MB`, free: `${j.freeMB ?? "?"} MB` });
+  if (j.code === "ASR_OPTIONAL_NOT_READY" || j.code === "ASR_OPTIONAL_MODEL_BROKEN") return uiText("own.asr-opt-bad");
+  return null;
+}
 /** Transcribe one file in the local server, which saves its transcript. Resolves to {doc, saved}. */
 async function transcribeFile(src) {
   const r = await fetch("/api/asr/transcribe", { method: "POST", body: JSON.stringify({ src }) });
   let j = {};
   try { j = await r.json(); } catch { }
-  if (!r.ok) throw Object.assign(new Error(j.error || "transcription failed"), { code: j.code });
+  if (!r.ok) throw Object.assign(new Error(asrOptionalWords(j) || j.error || "transcription failed"), { code: j.code });
   const doc = await loadTranscript(src, true);
   if (!doc) throw new Error("the transcript was not saved");
   transcriptGen++;
@@ -9869,7 +9934,7 @@ async function transcribeSrcs(srcs, opts = transcribeSettings(), beat = null) {
       } catch (e) {
         if (busy.cancel || e.code === "ASR_CANCELLED") { out.cancelled = true; break; }
         out.failed.push({ src: srcs[i], error: String((e && e.message) || e), code: e.code || null });
-        if (e.code === "ASR_MODEL_MISSING" || e.code === "ASR_ENGINE_MISSING") break;   // the rest would fail the same way
+        if (e.code === "ASR_MODEL_MISSING" || e.code === "ASR_ENGINE_MISSING" || /^ASR_OPTIONAL_/.test(e.code || "")) break;   // the rest would fail the same way
       }
     }
   } finally {
@@ -20819,6 +20884,8 @@ $("btnH264Clear")?.addEventListener("click", async () => { await window.montclip
 $("btnSettings").addEventListener("click", openSettings);
 $("btnAsrSetup").addEventListener("click", () => openAsrSetup());
 $("btnAsrPunct").addEventListener("click", () => asrGetPunct());
+$("btnAsrOpt").addEventListener("click", () => asrOptionalClick());
+$("btnAsrOptCancel").addEventListener("click", () => { if (window.montclipAsr && asrOpt.busy) window.montclipAsr.cancel(); });
 $("btnCloseSettings").addEventListener("click", closeSettings);
 $("settingsOverlay").addEventListener("click", (e) => {
   if (e.target === $("settingsOverlay")) closeSettings();

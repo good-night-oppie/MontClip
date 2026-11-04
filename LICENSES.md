@@ -195,6 +195,20 @@ Speech is turned into words on this computer by the local server with sherpa-onn
 - Not used: SenseVoice (its licence question, QwenAudio/SenseVoice issue #334, was reopened on 2026-08-29 and has no
   answer from the licensor), and `sherpa-onnx-paraformer-zh-int8-2025-10-07` (a Sichuan-dialect model).
 
+### Optional model: Meta Omnilingual ASR (draft, 2026-11-04)
+
+Never in any package. Downloaded only after the user reads its licence in the desktop host's own box, agrees, and picks
+the site (`asr-optional.js`; ADR 2026-11-04 §6). Every file is pinned in `desktop/asr-optional-manifest.json` (commit,
+size, SHA-256); evaluation and reasons in `docs/validation/2026-11-04-omnilingual-asr/README.md`. Runs on the same
+sherpa-onnx-node 2.0.1 engine as above (its `omnilingual` model type), in a process of its own.
+
+| Component | Version / file | Licence | In which package | Text |
+|---|---|---|---|---|
+| Omnilingual ASR CTC 300M, int8 (`csukuangfj/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12` at commit 6abf1ece…: `model.int8.onnx`, `tokens.txt`, `LICENSE`), k2-fsa's ONNX int8 conversion of Meta's `omniASR_CTC_300M` | SHA-256 e7c4e54e… / a7a044c5… / a70a523b… | Apache-2.0. Meta's repo (github.com/facebookresearch/omnilingual-asr): "Omnilingual ASR code and models are released under the Apache 2.0." Model card huggingface.co/facebook/omniASR-CTC-1B: "License: apache-2.0". The converted repo's own LICENSE file reads "Copyright 2025 (c) Meta Platforms, Inc. and affiliates. Licensed under the Apache License, Version 2.0"; it is downloaded with the model and kept byte for byte in MontClip. The converted repo's model card has no `license:` field (checked 2026-11-04). Checked 2026-11-04 | none: optional download after consent | `licenses/asr/omnilingual-asr-LICENSE.txt` (shown in the consent box), `licenses/asr/omnilingual-asr-Apache-2.0.txt` (full text) |
+
+- Not used: Meta's SeamlessM4T (CC BY-NC 4.0, non-commercial). Meta's hosted Model API is a separate cloud service;
+  nothing here uses it, and it is not assumed to host Omnilingual ASR or to speak the OpenAI API.
+
 ## Third-party code in the official Cindy integration
 
 MontClip host code retains the repository's MIT LICENSE. Imported components retain their own terms.

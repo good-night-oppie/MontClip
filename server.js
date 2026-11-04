@@ -1798,10 +1798,10 @@ const server = http.createServer(async (req, res) => {
     let body = {};
     try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}") || {}; } catch { }
     if (body && typeof body === "object" && ["agree", "agreed", "consent", "accept", "accepted"].some((k) => Object.prototype.hasOwnProperty.call(body, k))) {
-      sendJSON(res, 400, { code: "ASR_AGREE_NOT_ACCEPTED", error: "nobody can agree to a model licence for the streamer: the streamer reads it and agrees in Settings › 听写. Nothing was changed." });
+      sendJSON(res, 400, { code: "ASR_AGREE_NOT_ACCEPTED", error: "nobody can agree to a model licence for the streamer: the streamer reads it and agrees in Settings › Transcription. Nothing was changed." });
       return;
     }
-    sendJSON(res, 409, { code: "ASR_CONSENT_REQUIRED", waiting: "streamer", error: "only the streamer can choose an optional speech model: Settings › 听写, where MontClip shows its licence and asks. Nothing was changed.", active: asrOptionalActive() });
+    sendJSON(res, 409, { code: "ASR_CONSENT_REQUIRED", waiting: "streamer", error: "only the streamer can choose an optional speech model: Settings › Transcription, where MontClip shows its licence and asks. Nothing was changed.", active: asrOptionalActive() });
     return;
   }
   if (p === "/api/asr/cancel" && req.method === "POST") {

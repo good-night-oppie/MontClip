@@ -3,7 +3,7 @@
 // broken model, a crash or too little memory fails only that engine, in plain words: the server and the default engine
 // (asr-local.js, Paraformer) go on. Its words follow MontClip's rules: one Chinese character is one word, other scripts
 // are put back into whole words. Stand-in runners here; the real engine where vendor/asr has it (a damaged model), and
-// the real model only when MONTCLIP_TEST_OMNI_DIR points at one (synthetic speech: Windows' own TTS, never a person).
+// the real model only when MONTCLIP_TEST_OMNI_DIR points at one (synthetic speech: Windows' TTS or ffmpeg's lavfi flite, never a person).
 const { test } = require('node:test'), a = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os');
 const { execFileSync } = require('node:child_process');
@@ -121,10 +121,14 @@ test('the real engine and a damaged model: the optional engine fails in plain wo
 });
 
 const OMNI = process.env.MONTCLIP_TEST_OMNI_DIR;
-/** Synthetic English speech from Windows' own TTS (no person's voice). null where there is none. */
+/** Synthetic English speech (no person's voice): Windows' own TTS, else ffmpeg's lavfi flite voice where ffmpeg has
+ *  it (Linux builds with libflite). null where there is neither. */
 function tts(dir, text) {
-  if (process.platform !== 'win32') return null;
   const out = path.join(dir, 'tts.wav');
+  if (process.platform !== 'win32') {
+    try { execFileSync(ffmpeg(), ['-v', 'error', '-f', 'lavfi', '-i', `flite=text='${text.replace(/[':\\]/g, ' ')}':voice=slt`, '-ar', '16000', '-y', out], { stdio: 'ignore', timeout: 60000 }); } catch { return null; }
+    return fs.existsSync(out) && fs.statSync(out).size > 10000 ? out : null;
+  }
   const ps = `Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Rate = -1; $s.SetOutputToWaveFile('${out.replace(/'/g, "''")}'); $s.Speak('${text}'); $s.Dispose()`;
   try { execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], { stdio: 'ignore', timeout: 60000 }); } catch { return null; }
   return fs.existsSync(out) && fs.statSync(out).size > 10000 ? out : null;
