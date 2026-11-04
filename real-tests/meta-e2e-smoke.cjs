@@ -30,8 +30,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
  try{
   await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
   win.setContentSize(1270,800);await wait(500);
-  // a new project with the synthetic recording on V1 and its sound on A1
-  await read(`(async()=>{if(!await flushSaveBeforeSwitch())throw Error('SAVE');await pjPost({action:'new',name:'Meta e2e',open:true});if(!await syncFromServer(true))throw Error('CREATE');})()`);await wait();
+  // the default project of the fresh profile, with the synthetic recording on V1 and its sound on A1
   const media=path.join(profile,'workspace','media');fs.mkdirSync(media,{recursive:true});makeSource(path.join(media,'合成.mp4'));
   await read(`(async()=>{const doc=projectJSON();Object.assign(doc,{width:320,height:180,fps:30,media:[{id:'m1',src:'/media/合成.mp4',kind:'video',name:'合成.mp4',duration:${SECONDS},width:320,height:180}],
    clips:[{id:'v1',kind:'video',mediaId:'m1',track:'V1',start:0,in:0,duration:${SECONDS},props:{volume:0},linkGroup:'g1'},{id:'a1',kind:'audio',mediaId:'m1',track:'A1',start:0,in:0,duration:${SECONDS},props:{volume:1},linkGroup:'g1'}]});
