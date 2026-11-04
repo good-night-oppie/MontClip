@@ -68,3 +68,15 @@ test('an agent setting the canvas or the rate is a choice too', () => {
   a.equal(run({ width: 1080, height: 1920 }).canvasUser, true);
   a.equal(run({ name: 'x' }).canvasUser, undefined);
 });
+
+// JJ's final words (Deja, on #97), whole sentences in both languages; the odd one points at the frame rate menu above the
+// preview (#fpsSel in the program monitor's head, which sets the project's frame rate: checked in source-follow-smoke)
+test('the two toasts in JJ\'s words', () => {
+  const V = require('../ui-preferences');
+  a.equal(V.t('zh-CN', 'own.canvas-follow', { w: 1920, h: 1080, fps: 60 }), '已按这场录像设置画面大小和帧率：1920×1080，每秒 60 帧。');
+  a.equal(V.t('en', 'own.canvas-follow', { w: 1920, h: 1080, fps: 60 }), 'Video size and frame rate set from this recording: 1920×1080, 60 fps.');
+  a.equal(V.t('zh-CN', 'own.canvas-follow-odd', { w: 640, h: 360, src: 45 }), '已按这场录像设置画面大小：640×360。它的帧率（约每秒 45 帧）不常见，先用每秒 30 帧；想改的话，在预览上方的帧率那里改。');
+  a.equal(V.t('en', 'own.canvas-follow-odd', { w: 640, h: 360, src: 45 }), 'Video size set from this recording: 640×360. Its frame rate (about 45 fps) is unusual, so 30 fps is used for now; you can change it in the frame rate menu above the preview.');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  a.match(html, /<select[^>]*id="fpsSel"[^>]*title="Project frame rate"/);
+});

@@ -124,6 +124,12 @@ BrowserWindow.prototype.loadURL=async function(...args){
   // 3b. 45 fps, no standard rate near: 30, and the toast says why
   const s7=make(path.join(dir,'怪 45 帧.mp4'),{w:640,h:360,num:45,den:1,seconds:2,first:5,every:20,container:'mp4'});
   await fresh('跟随 3b');report.p3b=await imported(s7.file);
+  // the toast says to change it in the frame rate menu above the preview: that menu is there, above the preview, and it sets
+  // the project's frame rate
+  report.fpsMenu=await read(`(()=>{const s=document.getElementById('fpsSel'),p=document.getElementById('preview'),r=s.getBoundingClientRect(),q=p.getBoundingClientRect();
+    const shown=r.width>0&&getComputedStyle(s).visibility!=='hidden';const i=[...s.options].findIndex(o=>/^25\\b/.test(o.textContent));s.value=String(i);s.dispatchEvent(new Event('change'));
+    return{shown,above:r.bottom<=q.top+1,fps:project.fps};})()`);
+  assert.deepEqual(report.fpsMenu,{shown:true,above:true,fps:25},'the frame rate menu above the preview sets the project\'s rate');
   // 4. the streamer chose 9:16: kept
   await fresh('跟随 4');
   await read(`(()=>{const i=ASPECT_PRESETS.findIndex(a=>a.w===1080&&a.h===1920);els.aspectSel.value=String(i);els.aspectSel.dispatchEvent(new Event('change'));return true;})()`);
