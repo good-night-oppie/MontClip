@@ -22,6 +22,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `chinese-names-smoke.cjs` | `CN_NAMES_COMPLETE` | 在用 |
 | `danmaku-keep-smoke.cjs` | `DANMAKU_KEEP_PASS` | 在用 |
 | `danmaku-smoke.cjs` | `DANMAKU_COMPLETE` | 在用 |
+| `dialogs-smoke.cjs` | `DIALOGS_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `drop-reveal-smoke.cjs` | `REVEAL_COMPLETE` | 在用 |
 | `events-smoke.cjs` | `EVENTS_PASS` | 在用 |
 | `export-av-sync-smoke.cjs` | `AV_EXPORT_PASS` | 在用 |
@@ -45,6 +46,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `sentence-dialog-smoke.cjs` | `SD_PASS` | 在用 |
 | `simple-primary-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
 | `simple-shortcuts-smoke.cjs` | `SIMPLE_KEYS_COMPLETE` | 在用 |
+| `slice-cards-smoke.cjs` | `SLICE_CARDS_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `songs-smoke.cjs` | `SONGS_PASS` | 在用 |
 | `three-track-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
 | `timeline-content-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
@@ -53,5 +55,6 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `url-sentence-smoke.cjs` | `URL_SENTENCE_COMPLETE` | 在用 |
 | `zh-batch3-smoke.cjs` | `ZH3_COMPLETE` | 在用 |
 | `zh-batch4-smoke.cjs` | `ZH4_PASS` | 在用 |
+| `zh-batch5-smoke.cjs` | `ZH5_PASS` | 在用 |
 | `zh-terms-smoke.cjs` | `TERMS_COMPLETE` | 在用 |
 | `zh-transcript-smoke.cjs` | `TR_PASS` | 在用 |
