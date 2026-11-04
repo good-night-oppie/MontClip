@@ -1,0 +1,116 @@
+{
+ "pathFfmpeg": null,
+ "defaultCanvas": {
+  "w": 1920,
+  "h": 1080,
+  "fps": 30
+ },
+ "p1": {
+  "w": 1920,
+  "h": 1080,
+  "fps": 30,
+  "media": {
+   "fps": 60,
+   "width": 1920,
+   "height": 1080,
+   "sampleRate": 48000
+  }
+ },
+ "e1": {
+  "width": 1920,
+  "height": 1080,
+  "avgFps": 30,
+  "frames": 150,
+  "expectFrames": 300,
+  "sampleRate": 48000,
+  "firstFrames": [
+   0,
+   2,
+   4,
+   6,
+   8,
+   10
+  ],
+  "repeats": 0,
+  "skips": 149,
+  "syncWorstMs": 0.1,
+  "syncOk": true,
+  "placementOk": true,
+  "bytes": 83671
+ },
+ "s2probe": {
+  "avg_frame_rate": "959/16",
+  "r_frame_rate": "60000/1001",
+  "start_time": "0.021000"
+ },
+ "p2": {
+  "w": 1920,
+  "h": 1080,
+  "fps": 30,
+  "media": {
+   "fps": 59.92,
+   "width": 1280,
+   "height": 720,
+   "sampleRate": 48000
+  }
+ },
+ "e2": {
+  "width": 1920,
+  "height": 1080,
+  "avgFps": 30,
+  "frames": 120,
+  "expectFrames": 240,
+  "sampleRate": 48000,
+  "firstFrames": [
+   58,
+   60,
+   62,
+   64,
+   66,
+   68
+  ],
+  "repeats": 0,
+  "skips": 119,
+  "syncWorstMs": 10.8,
+  "syncOk": true,
+  "placementOk": true,
+  "bytes": 79614
+ },
+ "droppedFrameFlv": {
+  "imported": 0,
+  "toast": "这个 FLV 这次没导进来：MontClip 没法确认它的时间是否完整。换一个录完整的文件，或者先把它转成 MP4 再导入。"
+ },
+ "p3": {
+  "w": 1920,
+  "h": 1080,
+  "fps": 30,
+  "media": {
+   "fps": 25,
+   "width": 1280,
+   "height": 720,
+   "sampleRate": 48000
+  }
+ },
+ "p4": {
+  "w": 1080,
+  "h": 1920,
+  "fps": 30,
+  "media": {
+   "fps": 60,
+   "width": 1920,
+   "height": 1080,
+   "sampleRate": 48000
+  }
+ },
+ "p5": {
+  "w": 1920,
+  "h": 1080,
+  "fps": 30,
+  "media": {
+   "fps": 60,
+   "width": 1920,
+   "height": 1080,
+   "sampleRate": 48000
+  }
+ }
+}
