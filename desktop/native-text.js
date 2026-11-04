@@ -17,10 +17,11 @@ const TEXT = {
     serviceExitedAtStart: 'MontClip 的内部服务已退出。',
     serviceStoppedTitle: 'MontClip 出错了',
     ok: '确定',
-    // another MontClip has this data folder (VV's draft for #111, JJ to review)
+    // another MontClip has this data folder (JJ's final words, 2026-11-04): who, from the writer lock's shell
     dataDirInUseTitle: 'MontClip 没打开',
-    dataDirInUse: '另一个 MontClip 正在用这些项目（可能是 Cindy 里的 MontClip）。两个同时改，会互相盖掉。',
-    dataDirInUseHint: '先把那边的 MontClip 关掉，再打开这里。',
+    dataDirInUseCindy: 'Cindy 里的 MontClip 正在用这些项目。两边同时改，会互相盖掉。',
+    dataDirInUseDesktop: '另一个 MontClip 窗口正在用这些项目。两边同时改，会互相盖掉。',
+    dataDirInUseHint: '先把那边的 MontClip 关掉，再打开这里。找不到那边的窗口，就重启电脑再试。',
     dataDirInUseOk: '好',
   },
   en: {
@@ -37,8 +38,9 @@ const TEXT = {
     serviceStoppedTitle: 'MontClip ran into a problem',
     ok: 'OK',
     dataDirInUseTitle: "MontClip didn't open",
-    dataDirInUse: 'Another MontClip is using these projects (maybe the MontClip in Cindy). If both change them at once, they overwrite each other.',
-    dataDirInUseHint: 'Close the other MontClip first, then open this one.',
+    dataDirInUseCindy: 'The MontClip inside Cindy is using these projects. If both edit at once, one overwrites the other.',
+    dataDirInUseDesktop: 'Another MontClip window is using these projects. If both edit at once, one overwrites the other.',
+    dataDirInUseHint: "Close the other MontClip first, then open this one. If you can't find it, restart the computer and try again.",
     dataDirInUseOk: 'OK',
   },
 };
