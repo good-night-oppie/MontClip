@@ -24,6 +24,10 @@
 | 4 | 右侧栏放 MontClip 面板、「文稿」页签、点句跳转 | **部分通**：面板在右侧栏显示字幕并跟着刷新；「点一下跳转」没在 Cindy 里点成（桌面驱动对嵌套 iframe 的坐标算错），跳转命令本身在 Cindy 里通 | Cindy 内实测（§2.6.4） |
 | 5 | 主视图、面板、聊天工具三处改动后状态是否一致 | **通**：三处同开，每次改动后修订号、片段数一致 | Cindy 内实测（§2.6.5） |
 | 6 | Node 进程被停掉后，剪辑器的撤销历史还在不在 | **部分通**：进程被强制停掉后约 32 秒自动拉起，撤销历史还在、能用；真正的「闲置回收」没等到，用强杀代替 | Cindy 内实测（§2.6.6） |
+| 7 | 布局 A：mainView 整页 | **部分通**：整页能用，但同一屏有没有聊天没核实（很可能没有）；`open:"sidebar"` 不生效，是因为「更多」菜单入口一律整页打开（源码 `SidebarTopNav.tsx` L255–267） | 源码 + Cindy 内无障碍树（§2.7.1） |
+| 8 | 布局 B：taskView | **没在 Cindy 里实测**：0.0.2 更新被取消；绑定逻辑无头测通 | §2.7.2 |
+| 9 | `cindy.downloads` 下载真 ffmpeg，并从主视图导出 | **部分通**：下载、校验、解压通，约 14 秒；从主视图导出还没跑（要切主人窗口，已问） | §2.7.3 |
+| 10 | 文稿点一下跳转（测试钩子） | **没测**：钩子在 0.0.2 里，没装上 | §2.7.4 |
 
 「无头实测」的意思是：插件的 Node worker 用 Cindy 主机同样的方式驱动，也就是逐行 JSON-RPC over stdio，测试脚本在 `scripts/rpc.cjs`（见 §6）。剪辑器页由无头 Edge 打开，看不见，也不占桌面。
 
@@ -246,6 +250,90 @@ montclip_status                       → {duration:720, clips:6, revision:8, un
   - 端口要是变了（47777 被占用），壳页会换 iframe 地址、重新载入，撤销历史就会丢；
   - 引擎停着的 30 秒里，剪辑器的保存会失败，要等引擎回来再存。
 
+### 2.7 第三轮：布局、真 ffmpeg、文稿点击（2026-11-04 15:2x UTC）
+
+主人定了两件事：先定布局再全面开工；同意在这台电脑上实际下载一次 ffmpeg。这一轮因此测三件事：布局 A / B、用 `cindy.downloads` 下载真 ffmpeg 并导出、文稿页点一下跳转。
+
+**卡点**：为了测 B 方案和文稿点击钩子，插件要从 0.0.1 升到 0.0.2（多一个 `taskView`、`montclip_open_task_view`、`montclip_test_click`）。`ghost_forge_install` 更新时返回 `MUTATION_CANCELLED`。按要求没有重试。所以 B 方案和点击钩子**都没在 Cindy 里实测**。0.0.2 的源码已提交，并在无头环境测过（见下文）；装上的仍是 0.0.1。
+
+#### 2.7.1 布局 A：mainView 整页
+
+**`open:"sidebar"` 为什么没生效（源码，tag `v0.1.122-beta` = `49fbcc4d07a737d72c18c2abcedf51fe62fa5ee6`，并已在本机运行的 `app.asar` 渲染包里核对到同样的逻辑）**：
+
+- 左侧导航里**固定显示**的插件入口：`apps/desktop/src/renderer/components/sidebar/GhostMainViewNavEntries.tsx` L74–79，`open()` 先 `focusExistingPluginTab`，再看 `resolvePluginOpenTarget(item.installedGhost)`，`'sidebar'` 就 `openPluginInSidebar`，`'window'` 就 `openPluginInWindow`，否则 `openPage()`。这条路径**认** `mainView.open`。
+  - 运行中的构建里对应 `r5e()`：先看用户的放置记忆，再看 `manifest.mainView.open`，缺省是 `"page"`。
+  - 同一个入口的右键菜单还有「在页面中打开 / 在侧边栏中打开 / 在独立窗口中打开」。
+- 左侧导航**「更多」菜单**里的插件入口（没有固定到导航上的，`hiddenIds`）：`apps/desktop/src/renderer/components/sidebar/SidebarTopNav.tsx` L255–267，`onSelect` 直接 `navigate(openDetails ? '/settings?tab=ghosts&ghost=…' : '/apps/<id>')`。这条路径**不看** `mainView.open`，一律整页打开。
+- 新装的 MontClip 落在「更多」里，所以从那里点开永远是整页 `#/apps/_root__montclip`。这不是清单写错了，是 Cindy 0.1.122 这个入口的行为。
+- 让 `open:"sidebar"` 生效的办法：
+  1. 用户用「更多 → 自定义」把 MontClip 固定到左侧导航，再从固定入口点开（只用源码确认，没有实测：要改主人的导航设置）；
+  2. 请 Cindy 方让「更多」菜单也走 `resolvePluginOpenTarget`。
+
+**整页打开时，同一屏能不能看到并使用聊天**：**没核实**。
+
+- 第二轮开着整页时取的无障碍树都带了查询条件（`cindy-ghost`、`第三句`、`文稿`），只列出匹配的元素，所以「树里没有聊天输入框」不能当证据。
+- 能确认的只有：整页路由是 `#/apps/_root__montclip`，主内容区是 `Group "MontClip"`，右侧栏仍在（文稿面板在）。
+- 从源码看，整页打开的是一级路由，不是任务页面。按 Cindy 的结构，任务的对话区属于任务路由，所以整页时**很可能**没有聊天。但这是推断，不是实测。
+- 补测办法：开着整页时取一次不带查询条件的树（或者按「发送消息」查询），再记下尺寸日志。这一轮主人正停在「设置 → 共享任务」，我没有切走主人的窗口，已用 `ask_owner` 问是否可以切。
+
+#### 2.7.2 布局 B：taskView（任务页签，和聊天并排）—— 没在 Cindy 里实测
+
+- 为什么值得做（手册 §4.22 + 源码同一套沙箱规则）：
+  - taskView 是每个任务自己右侧栏里的页签（和文件、终端同组），聊天留在中间，不会被盖住。可以拖到别的边、最大化、弹成独立窗口。
+  - 回环嵌入的条件是 `panel || mainView || taskView`，再加 `node` 和 `preview.hosts`（`ghost.ts` L1355），所以 taskView 里同样能套整套剪辑器。
+- 0.0.2 已做好、没装上的部分：
+  - `task-view.html` 和主视图同一个壳（`frame.js`，`data-view="task"`），用 URL 里的 `session` 绑定**这个任务自己的项目**：worker 的 `montclip/bind`，映射存在 `sessions.json`。页面打开或任务切回台前（`visibilitychange`）时重新绑定。第一个绑定的任务接手当前打开的项目，之后的任务各自新建一个。
+  - 页面会上报尺寸日志：`innerWidth / innerHeight / dpr / screenX / visible`，打开、拖宽、切换可见时各报一次，用来不截图也能证明「能拖宽、能最大化」。
+  - `montclip_open_task_view` 调 `cindy.taskView()`，在台前任务里打开或聚焦这个页签。
+- 无头实测（`spike/steps4.json`，原样）：
+
+```
+bind aaaa1111-test → project p_9d4db80c85, created:false, switched:false   （接手当前项目）
+bind bbbb2222-test → project p_95af729d81, created:true,  switched:true    （新任务新项目）
+bind aaaa1111-test → project p_9d4db80c85, created:false, switched:true    （切回来对上原项目）
+```
+
+- 还不知道（要装上 0.0.2 才能测）：taskView 里能不能最大化、拖宽；切换任务时页签里的 iframe 会不会被销毁重建（那样撤销栈会丢）；播放、拖动、撤销在 B 里重跑。
+- 已知的设计约束：引擎同一时刻只开一个项目。两个任务的剪辑器页同时活着时，后绑定的那个会把项目切走，另一个页签也跟着换项目；切回台前时会再绑回来。这对「一个人一次剪一个任务」够用，但要把它写进方案。
+
+#### 2.7.3 用 `cindy.downloads` 下载真 ffmpeg —— 通；从主视图导出 —— 还没跑
+
+- 调用：`montclip_install_ffmpeg`，即 `cindy.downloads.start({url:<manifest 里固定的 win64 LGPL zip>, sha256:"67c30e30…2f96", bytes:167488790})`，再把 `downloadTokens:{archive}` 交给 worker 解压。下载源只有已声明的 `github.com` 和 `release-assets.githubusercontent.com`（GitHub 302 跳到后者）。
+- 结果（原样）：`download:{bytes:167488790, sha256:"67c30e30206b5bddcc2af9ea4f0215bbbcd2519533316997945a0fd9602a2f96", fromCache:false}`。解压后：
+  - `ffmpeg.exe` sha256 `393413629e4cd237ab6c18c2e0724fd4d7d4cdd41a94f0bea6c393a1f8768fee`
+  - `ffprobe.exe` sha256 `d6ba076e938628433207a418a24d40e981ba8f43a5bb473a7bd0e5f4c8742fc9`
+  - 版本 `ffmpeg version n9.0.2-42-gd7643a0fe3-20261102`
+  - `-L` 报 GNU Lesser General Public License。
+- 用时：下载、Cindy 校验和 worker 解压合计约 **14 秒**（15:27:54 → 15:28:08，下载部分没有单独计时）。
+- 位置：
+  - zip 在 Cindy 的下载缓存里（主机管理，插件拿不到路径，只经 token 交给 worker）；
+  - 解出的两个程序放在插件的数据目录 `C:\Users\tyb90\MontClip-Cindy\ffmpeg\win32-x64\`。
+  - 这个目录是 worker 自己选的；Cindy 给插件的 `fs root:'data'` 目录 worker 不知道路径，正式版要再定。
+- 引擎重启后用的就是这份：`montclip_status` 返回 `ffmpeg:"downloaded"`，不再是 PATH 上的开发版。
+- 这份 LGPL 构建没有 libx264。能用的 H.264 编码器：`h264_mf`（Windows 自带）、`h264_nvenc`、`h264_amf`、`h264_qsv`。YouTube 档会改用其中一个。
+- 从主视图导出：**还没跑**。主视图要开着，导出才能在剪辑器页里跑。
+- 新发现：退一步试 `where:"headless"`，引擎回 `no editor tab is open and no Chrome / Edge was found to export headless`。第一轮在系统 Node 下 headless 是成功的。可能的原因：MontClip 找浏览器靠的是 `PROGRAMFILES` / `LOCALAPPDATA` 环境变量（`export-jobs.js` L21–31），而 Cindy 的 NodeService worker 可能拿不到这些变量。0.0.1 没有记录环境变量，所以这只是推测。
+- 结论：**插件里导出只能走主视图（或任务页签）里的剪辑器**，正式版应在 worker 里显式找浏览器，或者不依赖 headless。
+
+#### 2.7.4 文稿页点一下跳转 —— 没测
+
+- 桌面驱动对嵌套 iframe 的坐标仍然是错的（见 §2.6.4），没有盲点主人的窗口。
+- 测试用点击钩子在 0.0.2 里：文稿页订阅 `/__cindy/test/events`；`montclip_test_click {line}` 让它点第 N 句，走同一个点击处理函数，上报里带 `isTrusted:false`。
+- 0.0.2 没装上，所以**没测**。
+
+#### 2.7.5 推荐
+
+- **推荐 B（taskView）做剪辑器，panel（position right）放文稿 / 属性等面板。**
+- 理由：
+  - B 是按 Cindy 的设计就和聊天并排的形态。整页 mainView 是一级路由，很可能占掉聊天的位置（§2.7.1，未核实）；sidebar 方式的 mainView 只在固定导航入口点开时才生效，而且放置位置由用户记忆决定。
+  - taskView 跟着任务走：一个任务对应一个录像项目，正好是「一场录像一个任务」的用法；切任务时项目跟着切（bind）。
+  - 和 mainView 同一套沙箱与回环嵌入规则，第二轮在 mainView 里实测通过的播放、拖动、撤销、导出，原样适用。但仍要装上 0.0.2 实测确认。
+- 入口建议：
+  - 主入口：任务里由 agent 调 `montclip_open_task_view`（「打开剪辑器」），或者在插件的聊天卡片上放一个「在这个任务里打开剪辑器」按钮。
+  - 保留 mainView 当「项目总览 / 管理」页（跨任务列出项目、版本、导出），不用来剪辑。
+  - 左侧导航：建议引导用户把 MontClip 固定到导航（不要留在「更多」里），这样 `open` 才生效。
+  - 待办：请 Cindy 方确认 taskView 能否默认放在聊天右边并且够宽，以及「更多」菜单不认 `mainView.open` 是否有意为之。
+
 ## 3. 推荐架构：一份引擎，两层壳
 
 ```
@@ -321,6 +409,7 @@ montclip_status                       → {duration:720, clips:6, revision:8, un
   - `ghost_forge_pack` 打出、核对过的是 sha256 `915b1b6a3cfa2da511a4f9dc038f5ad0384c508ac178d77cb10fdc137f687506`；
   - `ghost_forge_install` 重新打包后，装进 Cindy 的是 sha256 `2b8e3da63778f262b571a0d4dffe1efd8fd956acaa434ff8dcd29d356221c4f2`。
   - 两者源码相同（commit `d2c00fc`），只是重新压缩。
+- 0.0.2 包（加了 taskView 和测试钩子，**没装上**，更新被取消）：`plugins/montclip-cindy/montclip-0.0.2.cindy`，2,078,672 字节，sha256 `a483df933284a0f981444ad1c04f79ace7b8527097b2dd13ef4384c9382bfbc4`。
 - 测试脚本：附在 `plugins/montclip-cindy/spike/`（`rpc.cjs` 和各 `steps*.json`），按 Cindy 主机的方式驱动 worker。
 
 | 项 | 跑没跑 | 说明 |
@@ -341,5 +430,10 @@ montclip_status                       → {duration:720, clips:6, revision:8, un
 | 右侧栏文稿：点一下跳转 | **没点成** | 桌面驱动对嵌套 iframe 坐标算错；要拿准确坐标得截整窗，违反截图规矩 |
 | 三处同开对账 | 跑了，**通** | §2.6.5 |
 | worker 停掉后撤销历史 | 跑了，**部分通** | §2.6.6；用强杀代替闲置回收 |
-| `cindy.downloads` 下载 ffmpeg | **没跑** | 这次补测没有要求；下载 160 MB 需要主人另外同意 |
+| `cindy.downloads` 下载 ffmpeg | 跑了，**通** | §2.7.3；167,488,790 字节，sha256 一致，约 14 s |
+| `ghost_forge_install` 更新到 0.0.2 | 跑了，**被取消** | `MUTATION_CANCELLED`；没有重试 |
+| 布局 B（taskView）：最大化、拖宽、切任务、播放、拖动、撤销 | **没跑** | 0.0.2 没装上 |
+| 文稿点击钩子 | **没跑** | 0.0.2 没装上 |
+| 用下载的 ffmpeg 从主视图导出 | **没跑** | 主人正在用设置页，没切窗口；已用 `ask_owner` 询问 |
+| headless 导出（Cindy worker 内） | 跑了，**不通** | 找不到 Chrome / Edge（§2.7.3） |
 | 截图 | 只截了合成画面 | 唯一的图是主视图剪辑器渲染出的时间线帧（合成素材，`spike/evidence/cindy-mainview-frame-700s.jpg`）；没截整窗，因为会拍到聊天和其他任务 |

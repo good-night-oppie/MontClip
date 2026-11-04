@@ -4,6 +4,8 @@
 (function () {
   const status = document.getElementById('status');
   const path = document.body.dataset.enginePath || '/';
+  const view = document.body.dataset.view || 'page';          // main / panel / task
+  const session = new URLSearchParams(location.search).get('session') || '';   // task view: its task
   const channel = new BroadcastChannel('montclip');
   const show = (text, error) => { status.textContent = text; status.className = error ? 'error' : ''; status.hidden = false; };
 
@@ -37,8 +39,30 @@
     }
     frame.src = origin + path + (path.includes('?') ? '&' : '?') + 'host=cindy';
   }
+  /* Spike evidence: where and how big this page is (the logic page forwards it to the engine's log). */
+  let layoutTimer = null;
+  function layout(why) {
+    clearTimeout(layoutTimer);
+    layoutTimer = setTimeout(() => channel.postMessage({ type: 'layout', entry: {
+      event: 'layout', why, view, session, w: innerWidth, h: innerHeight, dpr: devicePixelRatio,
+      screenX, screenY, outerW: outerWidth, outerH: outerHeight, visible: document.visibilityState } }), why === 'resize' ? 400 : 0);
+  }
+  addEventListener('resize', () => layout('resize'));
+  /* A task view shows its own task's project: bind it when the page opens and whenever the task comes
+     back to the front (another task's view may have opened a different project meanwhile). */
+  async function bind(why) {
+    if (view !== 'task' || !session) return;
+    const b = await ask('bind', { session });
+    channel.postMessage({ type: 'layout', entry: { event: 'bound', why, view, session, project: b.project, switched: b.switched, error: b.error } });
+  }
+  document.addEventListener('visibilitychange', () => {
+    layout('visibility');
+    if (document.visibilityState === 'visible') bind('visible');
+  });
   async function boot() {
+    layout('open');
     try { await fetch('/wake'); } catch (e) { /* a page of a stopped plugin: the asks below simply wait */ }
+    await bind('open');
     const a = await ask('origin');
     if (a.error || !a.origin) { show('MontClip 没能启动：' + (a.error || '没有地址'), true); return; }
     place(a.origin);
@@ -55,7 +79,7 @@
   if (document.body.dataset.probe) {
     channel.addEventListener('message', (e) => {
       const m = e.data || {};
-      if (m.type !== 'run-probe' || !m.origin) return;
+      if (m.type !== 'run-probe' || !m.origin || (m.view || 'main') !== view) return;
       const old = document.querySelector('iframe.probe');
       if (old) old.remove();
       const p = document.createElement('iframe');

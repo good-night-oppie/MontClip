@@ -62,10 +62,26 @@ function freePort(port = PREFERRED_PORT) {
 /* Spike evidence: the framed pages report what they measured (playback, seeking, sync) here.
    /__cindy/* is answered before the engine sees the request; everything else is the engine's. */
 const probeLog = [];
+function logEntry(entry) {
+  probeLog.push({ at: new Date().toISOString(), ...entry });
+  if (probeLog.length > 500) probeLog.shift();
+  note({ from: "page", ...entry });
+}
+/* Test-only click hook: the transcript page listens on /__cindy/test/events and clicks the line it is
+   told to (montclip/test-click). It exists because the desktop driver mis-places clicks inside nested
+   frames; the page reports the click it ran (isTrusted:false) like a real one. */
+const testClients = new Set();
 function wrapCreateServer() {
   const real = http.createServer;
   http.createServer = function (handler) {
     return real.call(http, async (req, res) => {
+      if (req.url.startsWith("/__cindy/test/events")) {
+        res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-store" });
+        res.write("data: hello\n\n");
+        testClients.add(res);
+        req.on("close", () => testClients.delete(res));
+        return;
+      }
       if (req.url.startsWith("/__cindy/log")) {
         if (req.method === "POST") {
           let body = "";
@@ -73,9 +89,7 @@ function wrapCreateServer() {
           req.on("end", () => {
             let entry;
             try { entry = JSON.parse(body); } catch { entry = { raw: body.slice(0, 2000) }; }
-            probeLog.push({ at: new Date().toISOString(), ...entry });
-            if (probeLog.length > 500) probeLog.shift();
-            note({ from: "page", ...entry });
+            logEntry(entry);
             res.writeHead(204); res.end();
           });
           return;
@@ -179,6 +193,46 @@ const METHODS = {
     return { status: r.status, ...r.body };
   },
   async "montclip/probe-log"() { await start(); return { entries: probeLog.slice(-200) }; },
+  // what the plugin's own pages (main view, task view, panel) measured: sizes, visibility, binding
+  async "montclip/log"(p) { logEntry({ kind: "page", ...(p.entry || {}) }); return { ok: true }; },
+  async "montclip/test-click"(p) {
+    await start();
+    const msg = JSON.stringify({ line: Number(p.line) || 0 });
+    for (const c of testClients) c.write(`data: ${msg}\n\n`);
+    return { sent: testClients.size };
+  },
+  /* A task view belongs to one Cindy task: each task keeps its own MontClip project (sessions.json).
+     Binding opens that task's project when it is not the open one; the editor tabs reload with it. */
+  async "montclip/bind"(p) {
+    await start();
+    const session = String(p.session || "");
+    if (!session) throw new Error("no session");
+    const file = path.join(DATA, "sessions.json");
+    let map = {};
+    try { map = JSON.parse(fs.readFileSync(file, "utf8")); } catch { }
+    const list = (await api("GET", "/api/projects")).body || {};
+    let id = map[session];
+    if (id && !(list.projects || []).some((x) => x.id === id)) id = null;
+    let created = false;
+    if (!id) {
+      // the first task to bind takes the project that is open now; later tasks get a new one
+      const taken = new Set(Object.values(map));
+      if (list.active && !taken.has(list.active)) id = list.active;
+      else {
+        const r = await api("POST", "/api/projects", { action: "new", name: "任务 " + session.slice(0, 8), open: false });
+        id = r.body && r.body.id;
+        created = true;
+      }
+      map[session] = id;
+      fs.writeFileSync(file, JSON.stringify(map, null, 2));
+    }
+    let switched = false;
+    if (list.active !== id) { await api("POST", "/api/projects", { action: "open", id }); switched = true; }
+    const proj = (await api("GET", "/api/project")).body || {};
+    const out = { session, project: id, created, switched, name: proj.name, revision: proj.revision, clips: (proj.clips || []).length };
+    logEntry({ kind: "bind", ...out });
+    return out;
+  },
   /* The pinned FFmpeg, fetched by cindy.downloads (sha256 + byte count checked by Cindy) — this only
      unpacks it: params.downloads.archive is the host's file, read before this request ends. */
   async "montclip/ffmpeg-install"(p) {

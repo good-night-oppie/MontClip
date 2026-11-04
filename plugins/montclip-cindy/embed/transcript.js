@@ -36,8 +36,19 @@
     const r = await fetch('/api/ui/command', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cmd: 'seek', t }) });
     const a = await r.json().catch(() => ({}));
     if (r.status === 409) say('剪辑器没打开：从左侧导航打开 MontClip 后再点');
-    report({ event: 'seek-click', t, status: r.status, editorTime: a.time });
+    report({ event: 'seek-click', t, status: r.status, editorTime: a.time, isTrusted: e.isTrusted });
   });
+  /* Test-only hook (spike): the plugin's montclip_test_click tool asks this page to click line N, because
+     the desktop driver cannot place a click inside this nested frame. The click runs the same handler;
+     the report carries isTrusted:false so it is never mistaken for a person's click. */
+  const test = new EventSource('/__cindy/test/events');
+  test.onmessage = (e) => {
+    let m = null;
+    try { m = JSON.parse(e.data); } catch (err) { return; }
+    if (!m || typeof m.line !== 'number') return;
+    const li = list.children[m.line];
+    if (li) li.click(); else report({ event: 'test-click-missing', line: m.line, lines: list.children.length });
+  };
   const es = new EventSource('/api/events');
   es.addEventListener('change', () => load('change').catch(() => {}));
   load('open').catch((e) => { meta.textContent = '读不到项目：' + e.message; });

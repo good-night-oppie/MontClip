@@ -85,7 +85,7 @@ const HANDLERS = {
   async montclip_probe(args) {
     const s = await node('montclip/start');
     const before = (await node('montclip/probe-log')).entries.length;
-    pageRequest({ type: 'run-probe', src: String(args.src || ''), origin: s.origin });
+    pageRequest({ type: 'run-probe', src: String(args.src || ''), origin: s.origin, view: args.view === 'task' ? 'task' : 'main' });
     const deadline = Date.now() + Math.min(Math.max(Number(args.waitMs) || 45000, 5000), 110000);
     while (Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 1500));
@@ -96,6 +96,14 @@ const HANDLERS = {
     return { origin: s.origin, results: (await node('montclip/probe-log')).entries.slice(before), note: 'no probe-done yet: is the MontClip main view open?' };
   },
   async montclip_probe_log() { return node('montclip/probe-log'); },
+  /* Open (or focus) the editor as this task's own tab in the task's right sidebar. */
+  async montclip_open_task_view(args) {
+    if (typeof cindy.taskView !== 'function') return { error: 'This Cindy has no taskView; update Cindy.' };
+    const peek = await cindy.taskView({ peek: true });
+    const opened = await cindy.taskView(args.sessionId ? { sessionId: String(args.sessionId) } : {});
+    return { peek, opened };
+  },
+  async montclip_test_click(args) { return node('montclip/test-click', { line: Number(args.line) || 0 }); },
 };
 
 cindy.onHostMessage(async function (msg) {
@@ -117,12 +125,14 @@ const answered = new Map();
 function pageRequest(m) { channel.postMessage(m); }
 channel.onmessage = async (e) => {
   const m = e.data || {};
+  if (m.type === 'layout') { node('montclip/log', { entry: m.entry }).catch(() => {}); return; }
   if (!m.reqId || m.answer) return;
   if (answered.has(m.reqId)) { const a = answered.get(m.reqId); if (a) channel.postMessage(a); return; }
   answered.set(m.reqId, null);
   let a;
   try {
     if (m.type === 'origin') a = { origin: (await node('montclip/start')).origin };
+    else if (m.type === 'bind') a = await node('montclip/bind', { session: String(m.session || '') });
     else a = { error: 'unknown request ' + m.type };
   } catch (err) { a = { error: String(err.message || err) }; }
   a = Object.assign({ reqId: m.reqId, answer: true }, a);

@@ -1,0 +1,1 @@
+[{"method":"montclip/bind","params":{"session":"aaaa1111-test"}},{"method":"montclip/bind","params":{"session":"bbbb2222-test"}},{"method":"montclip/bind","params":{"session":"aaaa1111-test"}},{"method":"montclip/test-click","params":{"line":1}},{"method":"montclip/log","params":{"entry":{"event":"layout","w":800}}}]
