@@ -116,17 +116,22 @@ const EXPORT_TEXT = {
     openFailed: (why) => '没能打开文件夹（' + why + '）。',
     why: { NO_FOLDER: '选的文件夹找不到了，可能被删了或拔掉了 U 盘', ENOSPC: '空间不够', EACCES: '没有写入权限', EPERM: '没有写入权限',
       FOLDER_NOT_ALLOWED: '只能打开导出用的文件夹', OTHER: '出了点问题' },
-    // why an export did not finish (QQ on 8461005; drafts waiting for JJ): one plain sentence, then 你的剪辑都还在。
+    // why an export did not finish (JJ v2, 2026-11-04): plain words only — never the raw error, which goes to the log
+    // and to the AI (the card cannot copy: Cindy gives plugins no text clipboard). JJ v2 finalised: tool, encoder,
+    // kept; the rest are drafts waiting for JJ.
     failedWhy: {
-      tool: '导出工具还没装好：先在剪辑器上方的横幅里点「下载并安装」，装好再导出。',
-      editor: '剪辑器没有接这次导出：先打开右侧栏的「MontClip 剪辑器」，等时间线出来，再导出一次。',
-      busy: '上一个导出还没做完：等它做完，再导出这一次。',
-      noAnswer: 'MontClip 没有回应：关掉剪辑器再打开，再导出一次。',
-      disk: '存视频的那个盘空间不够了：腾出一些空间，再导出一次。',
-      stopped: '导出到一半停下了：再导出一次试试。',
-      notStarted: '导出没有开始：再导出一次试试。',
+      tool: '缺一个处理视频的工具，这次没有做完。点下面的按钮装上（约 160 MB，只装一次），装好以后会接着做。',
+      encoder: '这台电脑上找不到 MontClip 能用的视频编码器，所以这次没能导出。可以先更新显卡驱动再试。',
+      disk: '电脑空间不够，这次没有做完。空出一些地方以后点重试。原片没有改动。',
+      editor: '剪辑器这次没有接手导出，所以没有做完。打开右侧栏的「MontClip 剪辑器」，等时间线出来，再点重试。原片没有改动。',
+      busy: '上一个任务还没做完，这个要等它做完才能开始。把 MontClip 剪辑器切到前面，过半分钟再点重试。',
+      noAnswer: 'MontClip 这次没有回应，所以没有做完。关掉剪辑器再打开，再点重试。原片没有改动。',
+      stopped: '导出到一半停下了，这次没有做完。原片没有改动。再点重试。',
+      other: '这次没有做完，出了个我们没预料到的问题。原片没有改动。再点重试；还不行，在聊天里跟 AI 说「把问题信息给我」。',
     },
-    kept: '你的剪辑都还在。', sendUs: '还不行，把下面这行发给我们：',
+    kept: '你的剪辑都还在，没有丢。',
+    retry: '重试', install: '下载并安装', pickAgain: '换个文件夹',   // JJ v2 buttons
+    installFailed: '导出工具这次没装上，再点一次试试。',          // draft
   },
   en: {
     pick: 'Waiting for you to choose a folder…', start: 'Starting the export…', running: (p) => 'Exporting ' + p + '%', copy: (f) => 'Saving to “' + f + '”…',
@@ -142,15 +147,18 @@ const EXPORT_TEXT = {
       EACCES: 'no permission to write there', EPERM: 'no permission to write there', FOLDER_NOT_ALLOWED: 'only the export folders can be opened',
       OTHER: 'something went wrong' },
     failedWhy: {
-      tool: 'The export tool isn\'t installed yet: click "Download and install" in the bar above the editor, then export again.',
-      editor: 'The editor didn\'t take this export: open "MontClip editor" in the right sidebar, wait for the timeline, then export again.',
-      busy: 'The last export hasn\'t finished yet: wait for it, then export this one.',
-      noAnswer: 'MontClip didn\'t answer: close the editor, open it again, then export again.',
-      disk: 'The drive the video is saved on is full: free some space, then export again.',
-      stopped: 'The export stopped halfway: try exporting again.',
-      notStarted: 'The export didn\'t start: try exporting again.',
+      tool: 'A video tool is missing, so this didn\'t finish. Install it with the button below (about 160 MB, once); MontClip carries on after that.',
+      encoder: 'This computer has no video encoder MontClip can use, so it couldn\'t export this time. Update the graphics driver and try again.',
+      disk: 'There isn\'t enough space on this computer, so this didn\'t finish. Free up some space, then click Retry. The original is unchanged.',
+      editor: 'The editor didn\'t take this export, so it didn\'t finish. Open "MontClip editor" in the right sidebar, wait for the timeline, then click Retry. The original is unchanged.',
+      busy: 'The previous task isn\'t finished yet, so this one can\'t start until it is. Bring the MontClip editor to the front and click Retry in half a minute.',
+      noAnswer: 'MontClip didn\'t answer this time, so it didn\'t finish. Close the editor, open it again, then click Retry. The original is unchanged.',
+      stopped: 'The export stopped halfway, so it didn\'t finish. The original is unchanged. Click Retry.',
+      other: 'This didn\'t finish because of a problem we didn\'t expect. The original is unchanged. Click Retry; if it still fails, ask the AI in the chat for the problem details.',
     },
-    kept: 'Your edit is all still there.', sendUs: "If that doesn't help, send us the line below:",
+    kept: 'Your edits are all still there.',
+    retry: 'Retry', install: 'Download and install', pickAgain: 'Choose another folder',
+    installFailed: 'The export tool didn\'t install this time. Click again to try.',
   },
 };
 /** A file size: bytes under 1 KB (字节), then KB, MB, GB — as the main view says it. */
@@ -161,27 +169,37 @@ function sizeText(b, lang) {
   if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
   return (b / 1073741824).toFixed(1) + ' GB';
 }
-/** Why something failed, in words: the reason for a known code, else a plain one (never the raw message: that
- *  goes on a small line of its own, see rawLine). */
+/** Why something failed, in words: the reason for a known code, else a plain one (never the raw message). */
 function whyText(code, message, lang) {
   const t = EXPORT_TEXT[lang === 'en' ? 'en' : 'zh'];
   return t.why[code] || t.why.OTHER;
 }
-/** A raw error for the small line, without what is only this computer's business: paths, local ports, pids. */
-function scrub(raw) {
-  return String(raw == null ? '' : raw)
-    .replace(/\b[A-Za-z]:[\\/][^\s'"）)]*/g, '…')                                  // C:\Users\… · D:/…
-    .replace(/(^|[\s('"=])\/(?:[^\s/'"]+\/)+[^\s'"）)]*/g, '$1…')                    // /home/…/x
-    .replace(/\b(?:127\.0\.0\.1|localhost|0\.0\.0\.0|\[::1\]):\d+/gi, '…')       // 127.0.0.1:7777
-    .replace(/\b(pid|port)\b[\s=:#]*\d+/gi, '$1 …')
-    .trim().slice(0, 300);
+/* The problem line for us (JJ v2): the code and the raw error, with user paths cut to the file name and no keys or
+   tokens — the same as problem-details.js's copyLine (this logic page cannot load that file; a test keeps them alike).
+   The card cannot copy it, so it goes to the log and back to the AI in the tool result. */
+const PROBLEM_SEG = "[^\\\\/:*?\"<>|;,%\\r\\n]*";
+const PROBLEM_WIN_DIR = new RegExp(`(?:(?<![A-Za-z0-9])[A-Za-z]:|%[A-Za-z_]+%|\\\\\\\\${PROBLEM_SEG})[\\\\/](?:${PROBLEM_SEG}[\\\\/])*`, "g");
+const PROBLEM_POSIX_DIR = /(^|[\s("'=,;])(?:~|\/(?:home|Users|root|tmp|var|private|mnt|media|Volumes|opt|data|srv|run))\/(?:[^/\s"'<>]*\/)*/g;
+function problemScrub(text) {
+  let s = String(text == null ? '' : text);
+  s = s.replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [removed]');
+  s = s.replace(/\bsk-[A-Za-z0-9_-]{6,}/g, '[removed]');
+  s = s.replace(/\b(token|access_token|api_key|apikey|api-key|key|secret|password|session|sig|signature)=([^&\s"'#]+)/gi, '$1=[removed]');
+  s = s.replace(/\b[0-9a-fA-F]{64}\b/g, '[removed]');
+  s = s.replace(PROBLEM_WIN_DIR, '');
+  s = s.replace(PROBLEM_POSIX_DIR, '$1');
+  return s;
 }
-/** The raw error as the last, small line (after 还不行，把下面这行发给我们：), or nothing when there is none. */
-function rawLine(raw, lang, style) {
-  const t = EXPORT_TEXT[lang === 'en' ? 'en' : 'zh'], r = scrub(raw);
-  return r ? '<p style="' + style + '">' + t.sendUs + '</p><p style="' + style + ';margin-top:2px;overflow-wrap:anywhere">' + esc(r) + '</p>' : '';
+function problemLine(code, error, at) {
+  return '[MontClip] ' + (at instanceof Date ? at : new Date()).toISOString() + ' ' + (code || 'UNKNOWN') + ': ' + problemScrub(error);
 }
-/** Why an export did not finish: tool · editor · busy · noAnswer · disk · stopped · notStarted. `stage` says where it
+/** The log gets the whole of it; the AI gets the scrubbed line, for her to send us if she asks. */
+function problemFor(code, error) {
+  if (error == null || !String(error).trim()) return null;
+  console.warn('[MontClip] ' + new Date().toISOString() + ' ' + (code || 'UNKNOWN') + ': ' + String(error));
+  return problemLine(code, error);
+}
+/** Why an export did not finish: tool · encoder · editor · busy · noAnswer · disk · stopped · other. `stage` says where it
  *  failed: starting it (the engine's code) or the job (its English error, and how far it got). */
 function failedReason(c) {
   const code = String(c.code || ''), m = String(c.reason || '');
@@ -190,9 +208,17 @@ function failedReason(c) {
     /no editor tab|never picked up|did not accept|headless browser|Chrome \/ Edge/i.test(m)) return 'editor';
   if (/is still (pending|running)/i.test(m)) return 'busy';
   if (/^(TIMEOUT|PROCESS_EXITED|NODE_REQUEST_FAILED|CANCELLED)$/.test(code)) return 'noAnswer';
+  if (/^h264None(Win|Other)$/.test(code) || /no H\.264 encoder/i.test(m)) return 'encoder';
   if (/no space left|ENOSPC|disk (is )?full/i.test(code + ' ' + m)) return 'disk';
-  if (c.stage === 'job') return 'stopped';
-  return 'notStarted';
+  if (c.stage === 'job' && (c.progress > 0 || /stopped reporting progress|exited before the export finished|crashed/i.test(m))) return 'stopped';
+  return 'other';
+}
+/** A row of card buttons: [[actionId, label, primary], …] (Cindy sends the click back as a card-action). */
+function buttons(list) {
+  return '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px">' + list.map(([id, label, primary]) =>
+    '<button data-ghost-action="' + id + '" style="font:inherit;padding:5px 12px;border-radius:6px;' +
+    (primary ? 'border:0;background:var(--accent,#4b3fd6);color:#fff' : 'border:1px solid var(--border-default,#d4d4cf);background:transparent;color:inherit') +
+    '">' + label + '</button>').join('') + '</div>';
 }
 function exportCard(c, lang) {
   const t = EXPORT_TEXT[lang === 'en' ? 'en' : 'zh'];
@@ -208,19 +234,19 @@ function exportCard(c, lang) {
   const where = c.phase === 'done' ? '<p style="margin:8px 0 0">' + (c.folder ? t.savedTo(esc(c.folder)) : t.savedDefault) + '</p>' : '';
   const body = c.phase === 'still' ? '<p style="' + small + '">' + t.stillNote + '</p>'
     : c.phase === 'cancelled' ? '<p style="' + small + '">' + t.noFolder + '</p>'
-    : c.phase === 'copyFailed' ? '<p style="margin:0">' + t.copyFailed(esc(whyText(c.code, c.reason, lang))) + '</p>' +
-      (t.why[c.code] ? '' : rawLine(c.reason, lang, small))
-    // 导出没有完成: why, in one plain sentence; 你的剪辑都还在。; the raw error last, small (QQ on 8461005)
+    : c.phase === 'copyFailed' ? '<p style="margin:0">' + t.copyFailed(esc(whyText(c.code, c.reason, lang))) + '</p>'
+    // 导出没有完成: why, in plain words; 你的剪辑都还在，没有丢。 — never the raw error (JJ v2)
     : c.phase === 'failed' ? (c.code === 'DATA_DIR_IN_USE' ? '<p style="margin:8px 0 0">' + esc(c.reason) + '</p>'
-      : '<p style="margin:8px 0 0">' + t.failedWhy[failedReason(c)] + t.kept + (scrub(c.reason) ? t.sendUs : '') + '</p>' +
-        (scrub(c.reason) ? '<p style="' + small + ';margin-top:2px;overflow-wrap:anywhere">' + esc(scrub(c.reason)) + '</p>' : '')) : '';
-  // 打开文件夹: the folder she chose, when the files went there; else 打开导出文件夹 (a failed copy leaves them in exports)
+      : '<p style="margin:8px 0 0">' + t.failedWhy[failedReason(c)] + t.kept + '</p>' +
+        (c.installFailed ? '<p style="' + small + '">' + t.installFailed + '</p>' : '') +
+        buttons([failedReason(c) === 'tool' ? ['install-ffmpeg', t.install, true] : ['retry', t.retry, true]])) : '';
+  // 打开文件夹: the folder she chose, when the files went there; else 打开导出文件夹 (a failed copy leaves them in
+  // exports), and after a failed copy 换个文件夹 too (JJ v2)
   const picked = c.phase === 'done' && !!c.dir;
   const open = c.phase === 'done' || c.phase === 'copyFailed'
-    ? '<div style="margin-top:10px"><button data-ghost-action="open-folder:' + (picked ? 'picked' : 'exports') +
-      '" style="font:inherit;padding:5px 12px;border-radius:6px;border:1px solid var(--border-default,#d4d4cf);background:transparent;color:inherit">' + (picked ? t.openFolder : t.openExports) + '</button></div>' +
-      (c.openFailed ? '<p style="' + small + '">' + t.openFailed(esc(whyText(c.openFailed.code, c.openFailed.message, lang))) + '</p>' +
-        (t.why[c.openFailed.code] ? '' : rawLine(c.openFailed.message, lang, small)) : '')
+    ? buttons([['open-folder:' + (picked ? 'picked' : 'exports'), picked ? t.openFolder : t.openExports, false]]
+        .concat(c.phase === 'copyFailed' && c.job ? [['pick-again', t.pickAgain, false]] : [])) +
+      (c.openFailed ? '<p style="' + small + '">' + t.openFailed(esc(whyText(c.openFailed.code, c.openFailed.message, lang))) + '</p>' : '')
     : '';
   const note = c.note ? '<p style="margin:8px 0 0;color:' + (c.phase === 'failed' ? 'var(--text-danger,#b42318)' : 'var(--text-secondary,#6b6b66)') + '">' + esc(c.note) + '</p>' : '';
   return '<div style="padding:12px 14px;color:var(--text-primary,#1a1a1a);font:13px/1.45 system-ui,sans-serif">' +
@@ -234,7 +260,7 @@ function sendCard(callId, c) {
   exportCards.delete(callId); exportCards.set(callId, c);
   while (exportCards.size > 50) exportCards.delete(exportCards.keys().next().value);
   const done = ['done', 'failed', 'cancelled', 'still', 'copyFailed'].includes(c.phase);
-  return cindy.send({ type: 'card-update', callId, v: 2, state: done ? 'done' : 'working', html: exportCard(c), height: c.phase === 'done' || c.phase === 'copyFailed' ? 200 : done ? 150 : 110 });
+  return cindy.send({ type: 'card-update', callId, v: 2, state: done ? 'done' : 'working', html: exportCard(c), height: c.phase === 'failed' ? 230 : c.phase === 'done' || c.phase === 'copyFailed' ? 210 : done ? 150 : 110 });
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -275,6 +301,7 @@ const HANDLERS = {
      MontClip data folder's exports/). Progress shows on this call's card. */
   async montclip_export(args, msg) {
     const callId = msg.callId;
+    const again = { args, msg: { args: msg.args, session_context: msg.session_context } };   // 重试 runs the same export
     let folder = null, dir = null;
     if (args.folder !== 'default') {
       if (typeof cindy.pick !== 'function') return { error: 'This Cindy cannot show a folder dialog for plugins; update Cindy, or pass folder:"default".', code: 'HOST_TOO_OLD' };
@@ -291,7 +318,7 @@ const HANDLERS = {
     sendCard(callId, { phase: 'start', folder });
     let job;
     try { job = await node('montclip/export-start', { range: args.range, preset: args.preset, profile: args.profile, outputs: args.outputs }); }
-    catch (e) { await sleep(1000); sendCard(callId, { phase: 'failed', stage: 'start', code: e.code, reason: e.message }); return { error: e.message, code: e.code }; }
+    catch (e) { await sleep(1000); sendCard(callId, { phase: 'failed', stage: 'start', code: e.code, reason: e.message, again }); return { error: e.message, code: e.code, problem: problemFor(e.code, e.message) }; }
     const t0 = Date.now();
     while ((job.status === 'pending' || job.status === 'running') && Date.now() - t0 < 14 * 60000) {
       await sleep(1500);
@@ -305,8 +332,8 @@ const HANDLERS = {
         sendCard(callId, { phase: 'still' });
         return { job: job.id, status: job.status, hint: 'The export is still running. Check it with call_tool fablecut_export {job:"' + job.id + '"}; when it is done the file is in the MontClip data folder\'s exports/.' };
       }
-      sendCard(callId, job.status === 'cancelled' ? { phase: 'cancelled' } : { phase: 'failed', stage: 'job', progress: job.progress, reason: job.error || job.status });
-      return { job: job.id, status: job.status, error: job.error || null };
+      sendCard(callId, job.status === 'cancelled' ? { phase: 'cancelled' } : { phase: 'failed', stage: 'job', code: job.code, progress: job.progress, reason: job.error || job.status, again });
+      return { job: job.id, status: job.status, error: job.error || null, problem: problemFor(job.code || 'EXPORT_FAILED', job.error) };
     }
     const outs = job.result && Array.isArray(job.result.outputs) ? job.result.outputs : [];
     const report = outs.map((o) => o.report && o.report.line).filter(Boolean);
@@ -314,7 +341,7 @@ const HANDLERS = {
     if (dir) {
       sendCard(callId, { phase: 'copy', folder });
       try { files = (await node('montclip/export-deliver', { id: job.id, dir }, { timeoutMs: 60000, maxTotalMs: 900000 })).files; }
-      catch (e) { await sleep(1000); sendCard(callId, { phase: 'copyFailed', code: e.code, reason: e.message }); return { job: job.id, status: 'done', copied: false, error: e.message, code: e.code }; }
+      catch (e) { await sleep(1000); sendCard(callId, { phase: 'copyFailed', code: e.code, reason: e.message, job: job.id }); return { job: job.id, status: 'done', copied: false, error: e.message, code: e.code, problem: problemFor(e.code, e.message) }; }
     } else files = outs.filter((o) => o.ok).map((o) => ({ name: o.file })).concat(outs.length ? [] : [{ name: String(job.src || '').split('/').pop() }]);
     await sleep(1000);
     sendCard(callId, { phase: 'done', folder, dir, job: job.id, files, note: report.join(' · ') });
@@ -333,6 +360,31 @@ const HANDLERS = {
 cindy.onHostMessage(async function (msg) {
   if (msg.type === 'event' && msg.name === 'download-progress') { onDownloadProgress(msg.data); return; }
   // 打开文件夹 on an export card: the worker opens it, and only the exports folder or the folder that export went into
+  // 重试 / 下载并安装 / 换个文件夹 on an export card (JJ v2's buttons): real clicks in the card, in its own task
+  if (msg.type === 'event' && msg.name === 'card-action' && ['retry', 'install-ffmpeg', 'pick-again'].includes(String(msg.actionId))) {
+    const c = exportCards.get(msg.callId);
+    if (!c) return;
+    try {
+      if (msg.actionId === 'install-ffmpeg') {
+        const r = await installFfmpeg();
+        if (r.error) { sendCard(msg.callId, Object.assign({}, c, { installFailed: true })); return; }   // the log has it
+      }
+      if ((msg.actionId === 'retry' || msg.actionId === 'install-ffmpeg') && c.again)   // 装好以后会接着做
+        await HANDLERS.montclip_export(c.again.args, Object.assign({}, c.again.msg, { callId: msg.callId }));
+      if (msg.actionId === 'pick-again' && c.job) {
+        const picked = await cindy.pick({ mode: 'directory', title: '选择 MontClip 导出到哪个文件夹', callId: msg.callId });
+        if (!picked || !picked.ok || !picked.path) { sendCard(msg.callId, c); return; }   // closed: the card as it was
+        const folder = picked.name || 'folder';
+        sendCard(msg.callId, { phase: 'copy', folder });
+        try {
+          const files = (await node('montclip/export-deliver', { id: c.job, dir: picked.path }, { timeoutMs: 60000, maxTotalMs: 900000 })).files;
+          await sleep(1000);
+          sendCard(msg.callId, { phase: 'done', folder, dir: picked.path, job: c.job, files });
+        } catch (e) { problemFor(e.code, e.message); await sleep(1000); sendCard(msg.callId, { phase: 'copyFailed', code: e.code, reason: e.message, job: c.job }); }
+      }
+    } catch (e) { problemFor(e.code, e.message); sendCard(msg.callId, c); }
+    return;
+  }
   if (msg.type === 'event' && msg.name === 'card-action' && /^open-folder:(picked|exports)$/.test(String(msg.actionId))) {
     const c = exportCards.get(msg.callId);
     if (!c) return;
@@ -342,7 +394,7 @@ cindy.onHostMessage(async function (msg) {
     try {
       if (!ask) throw Object.assign(new Error('this export was not saved into a folder of its own'), { code: 'NO_FOLDER' });
       await node('montclip/open-folder', ask);
-    } catch (e) { openFailed = { code: e.code, message: e.message }; }
+    } catch (e) { openFailed = { code: e.code, message: e.message }; problemFor(e.code, e.message); }
     sendCard(msg.callId, Object.assign({}, c, { openFailed }));
     return;
   }
