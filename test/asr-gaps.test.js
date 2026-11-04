@@ -53,7 +53,7 @@ test('one segment that throws: its halves are tried once; they read, so nothing 
   const {sherpa,calls}=fakeSherpa({lengths:plan(),poison:new Set([POISON])});
   const asr=require('../asr-local').createAsr({asrDir:S.dir,store:S.store,ffmpeg:ffmpeg(),sherpa});
   const r=await asr.transcribe(S.file,{});
-  a.equal(r.status,'complete');a.deepEqual(r.gaps,[]);
+  a.equal(r.status,'complete');a.deepEqual(r.gaps,[]);a.equal(r.skippedSegments,0);
   a.ok(calls.includes(Math.floor(POISON/2))&&calls.includes(POISON-Math.floor(POISON/2)),'both halves tried');
   const s5=12,e5=12+POISON/RATE;a.ok(r.words.some(w=>w[1]>=s5&&w[1]<e5),'words from the segment that threw');
  }finally{S.done();}
@@ -72,6 +72,8 @@ test('a segment that still fails as halves is a gap; the segments after it are t
   a.ok(r.words.some(w=>w[1]>=g.end&&w[1]<12+POISON/RATE),'the second half read');
   a.ok(r.words.some(w=>w[1]>=15.2),'the segments after it read');
   a.ok(r.words.some(w=>w[1]<12),'and the ones before');
+  // QQ / Deja: with the gaps, a count of the segments not read whole
+  a.equal(r.skippedSegments,1);
  }finally{S.done();}
 });
 
@@ -107,7 +109,7 @@ test('the page: partial is never told as done; the gaps are listed and can be ju
  for(const k of ['tr-gaps-toast','tr-gaps-note','tr-gaps-more'])for(const l of ['zh-CN','en'])a.ok(V.t(l,'own.'+k,{n:2,dur:'31 秒',more:3}),k+' '+l);
  const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8');
  a.match(app,/data-tr-gaps/);a.match(app,/own\.tr-gaps-toast/);
- const srv=fs.readFileSync(path.join(ROOT,'server.js'),'utf8');a.match(srv,/gaps: r\.gaps/);
+ const srv=fs.readFileSync(path.join(ROOT,'server.js'),'utf8');a.match(srv,/gaps: r\.gaps/);a.match(srv,/skippedSegments: r\.skippedSegments/);
 });
 
 // Rea (2026-11-03): the segment that failed is at 3603.7 s and 4.74 s long, the only one of 1485 — not a long segment.
