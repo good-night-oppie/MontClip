@@ -248,7 +248,7 @@ async function forTask(msg) {
 /* The status card: what is ready, and — when this task has no editor tab — a button that opens it. */
 /* The card button could not open the editor (JJ's words): with an error, the error on a small line of its own. */
 function openEditorFailed(error) {
-  const raw = String(error == null ? '' : error).trim();
+  const raw = scrub(error);   // no paths, local ports or pids on the small line
   return raw ? '没能打开剪辑器。再点一次试试；还不行，把下面这行发给我们：' +
     '<div style="margin-top:6px;font-size:12px;color:var(--text-secondary,#6b6b66);overflow-wrap:anywhere">' + esc(raw) + '</div>'
     : '没能打开剪辑器。再点一次试试。';

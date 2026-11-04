@@ -156,10 +156,11 @@ test("main view in JJ's words: the lead, no projects yet, where the exports are"
    hover text. */
 test("main view: where the exports are — a sentence, 打开文件夹, the full path in its hover text only", () => {
   const sentence = "导出的文件都存在 MontClip 自己的导出文件夹里。在聊天里让 AI 导出时，会先请你选一个文件夹，再另存一份到那里。";
-  assert.deepEqual(V.exportsWhere("C:\\Users\\me\\FableCut"), { text: sentence, path: "C:\\Users\\me\\FableCut\\exports" });
-  assert.deepEqual(V.exportsWhere("/home/me/FableCut/"), { text: sentence, path: "/home/me/FableCut/exports" }, "the folder's own separator");
+  // example folders only (no product name in them, so the rename script never touches this test)
+  assert.deepEqual(V.exportsWhere("C:\\Users\\me\\clips-data"), { text: sentence, path: "C:\\Users\\me\\clips-data\\exports" });
+  assert.deepEqual(V.exportsWhere("/home/me/clips-data/"), { text: sentence, path: "/home/me/clips-data/exports" }, "the folder's own separator");
   assert.deepEqual(V.exportsWhere(""), { text: "", path: "" });
-  assert.doesNotMatch(V.exportsWhere("C:\\Users\\me\\FableCut").text, /Users|FableCut|exports/, "no path in the sentence");
+  assert.doesNotMatch(V.exportsWhere("C:\\Users\\me\\clips-data").text, /Users|clips-data|exports/, "no path in the sentence");
   const page = fs.readFileSync(path.join(PLUGIN, "main-view.html"), "utf8");
   assert.match(page, /<p class="hint" id="exportsWhere"><\/p>\n\s+<button type="button" id="openExports" hidden>打开文件夹<\/button>/);
   const js = fs.readFileSync(path.join(PLUGIN, "main-view.js"), "utf8");
@@ -213,4 +214,21 @@ test("status card button: opened, or JJ's failure words with the error on a smal
   const none = logicPage({ taskView: { ok: false } });
   await none.event({ name: "card-action", actionId: "open-editor", callId: "c", sessionId: "task-a" });
   assert.deepEqual(shown(none.sent.at(-1).html), ["没能打开剪辑器。再点一次试试。"]);
+});
+
+/* QQ: the raw error on a small line never carries paths, local ports or pids — the overview's and the status card's
+   small lines too, the same way as the export card's. */
+test("the overview's and the status card's small lines: no paths, local ports or pids", async () => {
+  const raw = "EACCES: permission denied, open 'C:/Users/me/clips-data/projects/index.json' at 127.0.0.1:7777 (pid 4242)";
+  const f = V.FAILED.load(raw);
+  assert.equal(f.text, "MontClip 没能读取项目。关掉这页再打开试试；还不行，把下面这行发给我们：");
+  assert.equal(f.detail, "EACCES: permission denied, open '…' at … (pid …)");
+  const main = fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8");
+  const i = main.indexOf("function esc("), j = main.indexOf("function sendCard(");
+  const cardScrub = new Function(main.slice(i, j) + "\nreturn scrub;")();
+  assert.equal(cardScrub(raw), V.scrub(raw), "the same scrub as the export card's");
+  const bad = logicPage({ taskView: { ok: false, message: raw } });
+  await bad.event({ name: "card-action", actionId: "open-editor", callId: "c", sessionId: "task-a" });
+  const small = shown(bad.sent.at(-1).html).at(-1);
+  for (const leak of ["Users", "clips-data", "7777", "4242"]) assert.ok(!small.includes(leak), leak + " in " + small);
 });

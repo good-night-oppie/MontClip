@@ -34,8 +34,18 @@
   }
   /** A failure in JJ's words: what went wrong and what to try; with an error, "还不行，把下面这行发给我们：" and the
    *  error on a small line of its own; without one, the sentence ends at what to try. */
+  /** The raw error for the small line, without what is only this computer's business: paths, local ports, pids
+   *  (the same as main.js's scrub, which the export card uses). */
+  function scrub(raw) {
+    return String(raw == null ? "" : raw)
+      .replace(/\b[A-Za-z]:[\\/][^\s'"）)]*/g, "…")
+      .replace(/(^|[\s('"=])\/(?:[^\s/'"]+\/)+[^\s'"）)]*/g, "$1…")
+      .replace(/\b(?:127\.0\.0\.1|localhost|0\.0\.0\.0|\[::1\]):\d+/gi, "…")
+      .replace(/\b(pid|port)\b[\s=:#]*\d+/gi, "$1 …")
+      .trim().slice(0, 300);
+  }
   function failure(head, tryThis, error) {
-    const raw = error == null ? "" : String(error).trim();
+    const raw = scrub(error);
     return raw ? { text: head + tryThis + "；还不行，把下面这行发给我们：", detail: raw } : { text: head + tryThis + "。", detail: "" };
   }
   const FAILED = {
@@ -43,5 +53,5 @@
     openTask: (e) => failure("没能打开这个任务。", "这个任务可能已经删掉了", e),
     openFolder: (e) => failure("没能打开导出文件夹。", "再点一次试试", e),   // waiting for JJ
   };
-  return { projectRows, exportRows, size, exportsWhere, failure, FAILED };
+  return { projectRows, exportRows, size, exportsWhere, failure, scrub, FAILED };
 });
