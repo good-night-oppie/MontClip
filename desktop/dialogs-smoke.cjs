@@ -89,6 +89,12 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await dialog('asr-setup','asr-setup',`openAsrSetup()`);
   // its Esc is 〔以后再说〕 (VV on #88): the choice is kept, as the button keeps it
   sized.asrChoiceAfterEsc=await read(`window.montclipAsr.choice().then(c=>c&&c.choice||null)`);
+  // VV on #102 404db85: opened, the focus is on its first button — not on the box itself (the box "contains" itself) —
+  // and Esc from there is still 〔以后再说〕
+  await read(`window.montclipAsr.setChoice('').catch(()=>{});openAsrSetup();true`);await wait(300);
+  sized.asrFocus=await read(`(()=>{const a=document.activeElement;return a&&a.matches('dialog.asr-setup .dialog-actions button')&&a===document.querySelector('dialog.asr-setup .dialog-actions button')?a.dataset.asrSetup:(a?a.tagName+'.'+a.className:null);})()`);
+  await escape();sized.asrFocusEsc={open:await read(`!!document.querySelector('dialog.asr-setup[open]')`),choice:await read(`window.montclipAsr.choice().then(c=>c&&c.choice||null)`)};
+  await read(`for(const d of document.querySelectorAll('dialog[open]'))d.close();true`);await wait(200);
   await dialog('highlights','highlight-dialog',`showHighlightCandidates()`);
   await dialog('auto-slices','auto-slices',`openAutoSlices()`);
   await dialog('auto-slices-preview','as-preview',`autoPreview({mediaId:'m_syn',s:0,e:5,kind:'moment',at:0})`);
@@ -132,6 +138,9 @@ BrowserWindow.prototype.loadURL=async function(...args){
    if(group==='dialogs'&&!m.modal)bad.push(name+': not modal, so nothing behind it is darkened');
    if(group==='overlays'&&!m.cover)bad.push(name+': the dark layer does not cover the window');
   }
+  for(const [size,got] of Object.entries(report.sizes)){
+   if(got.asrFocus!=='download')bad.push(size+' asr-setup: opened, the focus is on '+got.asrFocus+', not its first button');
+   if(!got.asrFocusEsc||got.asrFocusEsc.open||got.asrFocusEsc.choice!=='later')bad.push(size+' asr-setup: Esc from its first button is not 以后再说 '+JSON.stringify(got.asrFocusEsc));}
   for(const [size,got] of Object.entries(report.sizes))if(got.asrChoiceAfterEsc!=='later')bad.push(size+' asr-setup: Esc is not 以后再说 (choice '+got.asrChoiceAfterEsc+')');
   report.bad=bad;ok=!bad.length;
  }catch(e){report.error=String(e&&e.stack||e).slice(0,1500);}
