@@ -379,7 +379,7 @@ test("a real change made while the tab was away is still its own undo step after
   assert.equal(fresh.runtime.undo.length, kept.undo.length + 1);
   fresh.undo();
   assert.deepEqual(fresh.project.clips.map((c) => c.duration), [60, 60, 60], "the first Ctrl+Z takes back the outside change");
-  assert.equal(fresh.toasts.at(-1), "撤回了刚才在别处（AI 或另一个窗口）做的修改。", "and says so in Chinese");
+  assert.equal(fresh.toasts.at(-1), "撤销的这一步是 AI 或另一个窗口改的，不是你在这里改的。撤错了，点「重做」就能改回来。", "and says so in Chinese");
 });
 
 test("an outside write that only relinks the stems (new linkGroup ids) is not an undo step", () => {
@@ -390,9 +390,9 @@ test("an outside write that only relinks the stems (new linkGroup ids) is not an
   assert.equal(rec.w.outsideEditStep(before, rec.w.undoSnapshot()), null);
 });
 
-test("the outside-edit toast is plain words in both languages (VV's draft, pending JJ)", () => {
+test("the outside-edit toast: JJ's final words, in both languages", () => {
   const UI = require("../ui-preferences");
-  assert.equal(UI.t("zh-CN", "own.undo-outside"), "撤回了刚才在别处（AI 或另一个窗口）做的修改。");
-  assert.equal(UI.t("en", "own.undo-outside"), "Undid the change just made somewhere else (by the AI or in another window).");
+  assert.equal(UI.t("zh-CN", "own.undo-outside"), "撤销的这一步是 AI 或另一个窗口改的，不是你在这里改的。撤错了，点「重做」就能改回来。");
+  assert.equal(UI.t("en", "own.undo-outside"), "Undid a change made by the AI or in another window, not here. If that was a mistake, click Redo to bring it back.");
   assert.doesNotMatch(require("node:fs").readFileSync(require("node:path").join(ROOT, "app.js"), "utf8"), /Undid a change made outside this tab/);
 });
