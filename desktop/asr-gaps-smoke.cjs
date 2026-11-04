@@ -43,7 +43,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.equal(report.toast,zh('tr-gaps-toast',{n:1,dur:'7 秒'}));
   assert.ok(!/Transcribed|听写完/.test(report.toast),'never told as done');
   // the tab: the gap where it is on the timeline (10 + 5 … 10 + 12), and a click goes there
-  await read(`(()=>{trState.open=true;renderTranscript(true);return true;})()`);
+  await read(`(async()=>{document.querySelector('[data-side=transcript]').click();await new Promise(r=>setTimeout(r,300));renderTranscript(true);return trState.open;})()`);
   report.note=await read(`(()=>{const n=document.querySelector('[data-tr-gaps]');return n&&{text:n.textContent,spots:[...n.querySelectorAll('.tr-tc')].map(x=>[x.textContent,+x.dataset.t])};})()`);
   assert.ok(report.note,'the gaps are listed');
   assert.ok(report.note.text.startsWith(zh('tr-gaps-note',{n:1,dur:'7 秒'})),report.note.text);
