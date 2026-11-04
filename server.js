@@ -1714,7 +1714,7 @@ const server = http.createServer(async (req, res) => {
 
   /* API: on-device transcription (asr-local.js; #70). One file at a time; the transcript is saved like a tab's.
        GET  /api/asr/status            → {model, engine, vad, asr, punct}   (asr / punct: {ready, where, missing, bad})
-       POST /api/asr/transcribe {src}  → {src, status, gaps, gapSeconds, words, duration, speech, punctuated} once the
+       POST /api/asr/transcribe {src}  → {src, status, gaps, gapSeconds, skippedSegments, words, duration, speech, punctuated} once the
                                          transcript is saved; status complete or partial (gaps: how many parts could not
                                          be read, kept with the transcript); 500 {code: ASR_FAILED} when nothing could;
                                          progress as SSE "asr" ({src, frac}); 409 {code} when busy, when the model or the
@@ -1748,7 +1748,7 @@ const server = http.createServer(async (req, res) => {
         gaps: r.gaps.map((g) => [g.start, g.end, g.reason]) });
       broadcast("transcript", JSON.stringify({ src }));
       const gapSeconds = Math.round(doc.gaps.reduce((t, g) => t + g[1] - g[0], 0) * 10) / 10;
-      sendJSON(res, 200, { src, status: TR.status(doc), gaps: doc.gaps.length, gapSeconds, words: doc.words.length, duration: doc.duration, speech: Math.round(r.speech * 10) / 10, punctuated: r.punctuated });
+      sendJSON(res, 200, { src, status: TR.status(doc), gaps: doc.gaps.length, gapSeconds, skippedSegments: r.skippedSegments, words: doc.words.length, duration: doc.duration, speech: Math.round(r.speech * 10) / 10, punctuated: r.punctuated });
     } catch (e) {
       const code = e.code === "ASR_CANCELLED" || ac.signal.aborted ? "ASR_CANCELLED" : e.code || "ASR_FAILED";
       if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING)$/.test(code) ? 409 : 500, { code, error: String(e.message || e) });

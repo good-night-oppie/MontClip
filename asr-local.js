@@ -113,7 +113,7 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
     if (signal) { if (signal.aborted) stop(); else signal.addEventListener("abort", stop, { once: true }); }
 
     const words = [], gaps = [];
-    let samples = 0, speech = 0, segments = 0, read = 0, carry = null, pending = new Float32Array(0);
+    let samples = 0, speech = 0, segments = 0, read = 0, skipped = 0, carry = null, pending = new Float32Array(0);
     const decodeReady = async () => {
       while (!vad.isEmpty()) {
         const seg = vad.front(false), start = seg.start / RATE, audio = Float32Array.from(seg.samples);
@@ -121,6 +121,7 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
         const one = await segmentWords(r, audio, start, p);
         words.push(...one.words); gaps.push(...one.gaps);
         if (one.read) read++;
+        if (one.gaps.length) skipped++;
         speech += audio.length / RATE; segments++;
       }
     };
@@ -150,7 +151,7 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
     words.sort((x, y) => x[1] - y[1]); gaps.sort((x, y) => x.start - y.start);
     // nothing at all could be read: failed, not a transcript of silence
     if (gaps.length && !read) throw Object.assign(new Error("no segment of the sound could be transcribed: " + gaps[0].reason), { code: "ASR_FAILED", gaps });
-    return { status: gaps.length ? "partial" : "complete", gaps, words, duration: samples / RATE, speech, segments, model: manifest.models.asr.id, language: "zh", punctuated: !!p };
+    return { status: gaps.length ? "partial" : "complete", gaps, skippedSegments: skipped, words, duration: samples / RATE, speech, segments, model: manifest.models.asr.id, language: "zh", punctuated: !!p };
   }
 
   return { status, transcribe, store };
