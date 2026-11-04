@@ -168,4 +168,12 @@ async function deliverFiles(files, dir, tick = () => { }) {
   return out;
 }
 
-module.exports = { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg, exportFiles, freeName, deliverFiles };
+/** tar's own words for why it could not unpack, as the code the banner explains: no room, no permission, or neither. */
+function unpackCode(stderr) {
+  const m = String(stderr || "");
+  if (/no space left|ENOSPC|not enough space|disk (is )?full/i.test(m)) return "ENOSPC";
+  if (/permission denied|access is denied|EACCES|EPERM|cannot open: .*denied/i.test(m)) return "EACCES";
+  return "UNPACK_FAILED";
+}
+
+module.exports = { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg, unpackCode, exportFiles, freeName, deliverFiles };

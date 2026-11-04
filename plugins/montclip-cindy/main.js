@@ -41,7 +41,8 @@ function engineError(r) {
     const t = DATA_DIR_IN_USE_TEXT[who && who[1] === 'desktop' ? 'desktop' : 'other'];
     return Object.assign(new Error(t.zh), { code: 'DATA_DIR_IN_USE', messageEn: t.en });
   }
-  return Object.assign(new Error(message), { code: r.errorCode || 'NODE_REQUEST_FAILED' });
+  // a worker's own code (or Node's errno code) comes back in the JSON-RPC error's data (nodeRuntimeBroker.ts L1122)
+  return Object.assign(new Error(message), { code: (r.data && typeof r.data.code === 'string' && r.data.code) || r.errorCode || 'NODE_REQUEST_FAILED' });
 }
 async function node(method, params, extra) {
   const r = await cindy.node.request(Object.assign({ method, params: params || {}, timeoutMs: 120000 }, extra || {}));
@@ -69,14 +70,18 @@ function installFfmpeg() {
       return { error: 'This Cindy cannot download files for plugins; update Cindy.', code: 'HOST_TOO_OLD' };
     channel.postMessage({ type: 'ffmpeg-progress', phase: 'queued' });
     const d = await cindy.downloads.start({ id: 'ffmpeg-' + spec.platform, url: spec.url, sha256: spec.sha256, bytes: spec.bytes });
-    if (!d.ok) { channel.postMessage({ type: 'ffmpeg-progress', phase: 'failed', message: d.message || d.errorCode }); return { error: d.message || d.errorCode || 'download failed', code: d.errorCode || 'DOWNLOAD_FAILED' }; }
+    if (!d.ok) {
+      const code = d.errorCode || 'DOWNLOAD_FAILED';   // Cindy reports a failed download without a code (downloadSlot.ts L309–316)
+      channel.postMessage({ type: 'ffmpeg-progress', phase: 'failed', code, message: d.message || d.errorCode });
+      return { error: d.message || d.errorCode || 'download failed', code };
+    }
     channel.postMessage({ type: 'ffmpeg-progress', phase: 'installing' });
     try {
       const out = await node('montclip/ffmpeg-install', {}, { downloadTokens: { archive: d.token }, timeoutMs: 120000 });
       channel.postMessage({ type: 'ffmpeg-progress', phase: 'installed', version: out.version });
       return { download: { bytes: d.bytes, sha256: d.sha256, fromCache: d.fromCache }, install: out };
     } catch (e) {
-      channel.postMessage({ type: 'ffmpeg-progress', phase: 'failed', message: String(e.message || e) });
+      channel.postMessage({ type: 'ffmpeg-progress', phase: 'failed', code: e.code || 'INSTALL_FAILED', message: String(e.message || e) });
       return { error: String(e.message || e), code: e.code || 'INSTALL_FAILED' };
     }
   })().finally(() => { installing = null; });
