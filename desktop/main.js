@@ -5,6 +5,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { createStore, allowed: settingsAllowed } = require("./view-settings");
 const { nativeText, languageOf } = require("./native-text");
+const { dataDirInUse, exitedAtStart, startFailureBox } = require("./startup-failure");
 const { transcribeEnabled } = require("./features");
 const { createCloseController } = require("./close-controller");
 const External = require("../external-ffmpeg");
@@ -51,16 +52,21 @@ async function start() {
     process.env.MONTCLIP_FFMPEG_DIR = env.MONTCLIP_FFMPEG_DIR;
   }
   flvImports = require("./flv-import").createFlvImports({ mediaDir: path.join(env.FABLECUT_DATA_DIR, "media") });
+  // another MontClip (the one in Cindy) editing this data folder: say so, instead of a service that "stopped"
+  const inUse = dataDirInUse(env.FABLECUT_DATA_DIR, require("../writer-lock").holder);
+  if (inUse) throw inUse;
   worker = utilityProcess.fork(path.join(__dirname, "..", "server.js"), [], { env, stdio: "pipe" });
   worker.once("exit", () => { workerExited = true; });
+  let startErr = "";   // what the server said before it was ready (the last 8 KB): why it stopped, if it does
   worker.stdout?.on("data", (data) => { if (!app.isPackaged) process.stdout.write(data); });
-  worker.stderr?.on("data", (data) => { if (!app.isPackaged) process.stderr.write(data); });
+  worker.stderr?.on("data", (data) => { if (startErr !== null) startErr = (startErr + data).slice(-8192); if (!app.isPackaged) process.stderr.write(data); });
   const origin = await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(Object.assign(new Error("serviceStartTimeout"), { textKey: "serviceStartTimeout" })), 30000);
-    worker.once("exit", () => { clearTimeout(timeout); reject(Object.assign(new Error("serviceExitedAtStart"), { textKey: "serviceExitedAtStart" })); });
+    // stderr may still be arriving when the process is reported gone: read it a moment later
+    worker.once("exit", () => { clearTimeout(timeout); setTimeout(() => reject(exitedAtStart(startErr)), 100); });
     worker.on("message", (msg) => {
       if (msg?.type !== "montclip-ready" || !/^http:\/\/127\.0\.0\.1:\d+$/.test(msg.origin)) return;
-      clearTimeout(timeout); resolve(msg.origin);
+      clearTimeout(timeout); startErr = null; resolve(msg.origin);
     });
   });
   const ses = session.fromPartition("persist:montclip");
@@ -424,9 +430,7 @@ app.whenReady().then(start).catch(async (error) => {
       // the interface language from view-settings.json (Chinese when it cannot be read); the box is
       // awaited: a message box does not block, and quitting would close it at once
       let t; try { t = nativeText(languageOf(createStore(app.getPath("userData")).get())); } catch { t = nativeText("zh-CN"); }
-      await dialog.showMessageBox({ type: "error", title: t.startFailedTitle,
-        message: `${(error && error.textKey && t[error.textKey]) || String((error && error.message) || error)}\n${t.startFailedHint}`,
-        buttons: [t.ok], noLink: true });
+      await dialog.showMessageBox({ type: "error", ...startFailureBox(error, t), noLink: true });
     }
   } finally {
     // quit even when the box could not be shown
