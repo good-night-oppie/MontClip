@@ -1,6 +1,7 @@
 // node plugins/montclip-cindy/test-tools/panel-play-e2e.cjs <repo root> <folder with the pinned ffmpeg.exe>   (after build.cjs; Chrome or Edge)
-// VV's two open items on #114: (1) while the editor plays, the panel's highlight follows the playing line; (2) the panel
-// follows Cindy's light theme (?theme=light, then a theme message). A generated 16 s test pattern with a tone and four
+// VV's open items on #114: (1) while the editor plays, the panel's highlight follows the playing line; (2) the panel
+// follows Cindy's light theme (?theme=light, then a theme message); (3) with the editor in a background tab, the
+// panel keeps its highlight. A generated 16 s test pattern with a tone and four
 // captions; temp data and browser profile, removed afterwards.
 const { spawn, spawnSync } = require("child_process"), fs = require("fs"), os = require("os"), path = require("path");
 const [ROOT, FFDIR] = process.argv.slice(2);
@@ -61,6 +62,12 @@ async function cdp(wsUrl) {
     out.samples.push({ editorTime: t[0], playing: t[1], panelLine: line });
   }
   await editor.eval(`state.playing && pause()`);
+  // (3) VV on #114: the editor stops on line 2 and sits in a background tab (its timers slowed) with the panel in front;
+  // the panel keeps the highlight
+  await editor.eval(`setTime(5)`); await sleep(500);
+  await panel.send("Page.bringToFront");
+  out.background = [];
+  for (let i = 0; i < 8; i++) { await sleep(1500); out.background.push({ at: (i + 1) * 1.5, editor: await editor.eval(`document.visibilityState`), panelLine: await panel.eval(`[...document.querySelectorAll('#lines li')].findIndex(li => li.classList.contains('now'))`) }); }
   console.log(JSON.stringify(out));
   panel.close(); editor.close(); b.kill(); w.kill();
   setTimeout(() => { try { fs.rmSync(prof, { recursive: true, force: true }); fs.rmSync(data, { recursive: true, force: true }); } catch {} process.exit(0); }, 1500);

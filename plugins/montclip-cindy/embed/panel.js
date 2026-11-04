@@ -99,7 +99,9 @@
     $("offline").hidden = true;
     if (revChanged) load(); else { follow(); if (selChanged) renderProps(); }
   };
-  setInterval(() => { if (editor && Date.now() - editorSeen > 3000) { editor = null; follow(); renderProps(); } }, 1000);
+  /* No timeout on the editor's state: a background tab's timers are slowed (VV, #114: the highlight went after 3 s),
+     so silence is not the editor going away. The last highlight and selection stay until the editor says otherwise;
+     a click still checks (seek: the channel when it was heard from lately, else /api/ui/command). */
   new EventSource("/api/events").addEventListener("change", load);
   if (ch) ch.postMessage({ type: "hello" });
   load();
