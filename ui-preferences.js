@@ -225,6 +225,11 @@
     "err-headless-disabled": ["Background browser tasks are turned off in the desktop app.", "桌面版不能在后台打开浏览器做这件事。"],
     "err-editor-not-ready": ["The editor is not ready yet. Open it, then try again.", "编辑窗口还没准备好。先打开 MontClip 的编辑窗口，再试一次。"],
     "err-editor-no-accept": ["The editor did not take the task. Wait until it is ready, then try again.", "编辑窗口没接到这个任务。等它准备好，再试一次。"],
+    // the job queue's busy refusal and a tab job that went quiet (export-jobs.js; drafts for JJ to finalise)
+    "err-job-busy": ["The previous task isn't finished, so a new one can't start yet. Bring the MontClip editor window to the front and try again in half a minute. If it still doesn't work, ask the assistant to cancel the previous task.",
+      "上一个任务还没做完，新的现在开始不了。把 MontClip 的编辑窗口切到前面，等半分钟再试。还不行的话，让助手把上一个任务取消。"],
+    "err-editor-stopped": ["The editor didn't respond for 20 seconds, so the task was stopped. Bring the MontClip editor window to the front (don't minimize it), then try again.",
+      "编辑窗口有 20 秒没有回应，这个任务已经停下了。把 MontClip 的编辑窗口切到前面（不要最小化），再试一次。"],
     "map-no-media": ["This project has no audio or video, so there is no time mapping to export.", "这个项目里没有音视频，导不出时间对照表。"],
     "connected": ["Ready", "就绪"],
     "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],

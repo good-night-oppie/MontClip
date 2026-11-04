@@ -43,7 +43,8 @@ const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
  *  off unless the main process turned it on (desktop/features.js). Off means no entry and no download. */
 function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
 /** A server refusal's reason code, said in the interface language; "" when the code has no text of its own. */
-const CODE_TEXT = { NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready", EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept" };
+const CODE_TEXT = { NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready", EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept",
+  JOB_BUSY: "own.err-job-busy", EDITOR_STOPPED_ANSWERING: "own.err-editor-stopped" };
 function codeText(error) {
   const code = error && (error.code || error.errorCode);
   return typeof code === "string" && CODE_TEXT[code] ? uiText(CODE_TEXT[code]) : "";
@@ -20013,11 +20014,28 @@ async function reportExportJob(id, body, force = false) {
     if (r?.cancel) { renderCancelled = true; exportAbort?.abort(); }
   } catch { }
 }
+/* While this tab runs a job it says so every JOB_HEARTBEAT_MS, apart from its progress (a scope reading has none, an
+   export has none while it mixes the sound). The queue ends a tab job that stays quiet for 20 s (export-jobs.js
+   TAB_SILENT_MS), so a tab the browser has throttled in the background, minimized or paused frees the queue for the
+   next job instead of holding it. A cancel can arrive as the reply. */
+const JOB_HEARTBEAT_MS = 5000;
 async function runExportJob(ticket) {
   if (!ticket?.id || state.exporting) return; // a busy tab leaves it for another
   const claimed = await fetch("/api/export/job/claim?id=" + encodeURIComponent(ticket.id), { method: "POST" })
     .then((r) => r.ok).catch(() => false);
   if (!claimed) return;
+  let running = true;
+  const beat = setInterval(() => {
+    fetch("/api/export/job/report?id=" + encodeURIComponent(ticket.id), { method: "POST", body: "{}" })
+      .then((r) => r.json()).then((r) => {
+        if (!r?.cancel || !running) return;
+        if (ticket.kind === "transcribe") cancelTranscribe();
+        else if (ticket.kind !== "scopes") { renderCancelled = true; exportAbort?.abort(); }
+      }).catch(() => { });
+  }, JOB_HEARTBEAT_MS);
+  try { await runClaimedJob(ticket); } finally { running = false; clearInterval(beat); }
+}
+async function runClaimedJob(ticket) {
   const fail = (error) => reportExportJob(ticket.id, { status: "failed", error }, true);
   // The agent's last edit may still be on its way here over SSE.
   for (let i = 0; i < 150 && ticket.revision != null && (project.revision || 0) < ticket.revision; i++)

@@ -1120,7 +1120,7 @@ const server = http.createServer(async (req, res) => {
       catch (e) { sendJSON(res, 400, { error: e.message }); return; }
       sendJSON(res, 200, exportJobs.request({ kind: "transcribe", where: opts.where, transcribe: spec }));
     } catch (e) {
-      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e) });
+      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e), busy: e.busy });
     }
     return;
   }
@@ -1268,7 +1268,9 @@ const server = http.createServer(async (req, res) => {
 
   /* API: agent-requested export jobs (see export-jobs.js).
      POST /api/export/request {range?, profile?, where?} → job; GET /api/export/job?id=
-     polls it; the editor tab claims, reports and finishes it. */
+     polls it; the editor tab claims, reports and finishes it. One job at a time on this queue (all four request
+     endpoints): another unfinished one answers 409 {code:"JOB_BUSY", busy:{id, kind, status, …}, error} with the
+     cancel call in error. */
   if (p === "/api/export/request" && req.method === "POST") {
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
@@ -1310,7 +1312,7 @@ const server = http.createServer(async (req, res) => {
         : delivery ? { ...job, delivery: Delivery.describe(delivery), notes } : job);
     } catch (e) {
       const code = e.code === 409 || e.code === 400 ? e.code : /^Unknown encoding profile/.test(e.message || "") ? 400 : 500;
-      sendJSON(res, code, { code: e.errorCode, error: String(e.message || e) });
+      sendJSON(res, code, { code: e.errorCode, error: String(e.message || e), busy: e.busy });
     }
     return;
   }
@@ -1335,7 +1337,7 @@ const server = http.createServer(async (req, res) => {
       }
       sendJSON(res, 200, exportJobs.request({ kind: "scopes", time, where: opts.where, revision, matte: m || null, mask: mk || null, image: opts.image === true }));
     } catch (e) {
-      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e) });
+      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e), busy: e.busy });
     }
     return;
   }
@@ -1353,7 +1355,7 @@ const server = http.createServer(async (req, res) => {
       if (body.length > 8192) { sendJSON(res, 400, { error: "track spec too large" }); return; }
       sendJSON(res, 200, exportJobs.request({ kind: "track", where: opts.where, revision, track: JSON.parse(body) }));
     } catch (e) {
-      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e) });
+      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e), busy: e.busy });
     }
     return;
   }
