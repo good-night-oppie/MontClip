@@ -5,6 +5,8 @@
 // never printed, logged, written or shown in a screenshot. Model: MONTCLIP_E2E_MODEL, else muse-spark-1.1 (the product's
 // default for Meta). Before the app, two checks through the product's own request path (desktop/agent-service.js):
 // a made-up key must read as AUTH, a made-up model name as MODEL_INVALID.
+// On Linux (xvfb, no keyring) the app runs with --password-store=basic: safeStorage then seals the key with Chromium's
+// fixed basic key, in the throwaway profile that is deleted when the run ends.
 // Exit 0 = passed, 2 = skipped (reason printed), 1 = failed.
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),cp=require('node:child_process');
 const K=require('./meta-key-file.cjs'),S=require('../desktop/agent-service');
@@ -27,7 +29,7 @@ async function code(config){const t0=Date.now();try{await S.httpsRequest(config,
  const profile=fs.mkdtempSync(path.join(os.tmpdir(),'MontClip-meta-e2e-'));
  const env={...process.env,MONTCLIP_E2E_OUT:out,MONTCLIP_E2E_KEY_FILE:found.file,MONTCLIP_E2E_MODEL:MODEL,MONTCLIP_E2E_CHECKS:JSON.stringify(checks)};delete env.ELECTRON_RUN_AS_NODE;
  const electron=path.join(root,'desktop','node_modules','electron','dist',process.platform==='win32'?'electron.exe':process.platform==='darwin'?'Electron.app/Contents/MacOS/Electron':'electron');
- const child=cp.spawn(electron,[path.join(__dirname,'meta-e2e-smoke.cjs'),'--montclip-smoke','--user-data-dir='+profile,...(process.platform==='linux'?['--no-sandbox']:[])],{env});
+ const child=cp.spawn(electron,[path.join(__dirname,'meta-e2e-smoke.cjs'),'--montclip-smoke','--user-data-dir='+profile,...(process.platform==='linux'?['--no-sandbox','--password-store=basic']:[])],{env});
  let text='';
  for(const s of [child.stdout,child.stderr])s.on('data',b=>{text+=b;process.stdout.write(scrub(b.toString()));});
  const timer=setTimeout(()=>child.kill(),300000);
