@@ -20,9 +20,17 @@ const RULES = {
 const categoryOf = (name) => Object.keys(CATEGORIES).find((c) => CATEGORIES[c].includes(name)) || 'other';
 
 let toolsCache = null;
+/* The Windows app has the same projects open (writer-lock.js): the engine refuses to start. Said in plain words, to the
+   page and to the chat (VV's review of #111; JJ to review). */
+const DATA_DIR_IN_USE_TEXT = '另一个 MontClip 正在用这些项目（可能是电脑上单独打开的 MontClip）。两个同时改，会互相盖掉。先把那边的 MontClip 关掉，再回到这里重试。';
+function engineError(r) {
+  const message = String(r.message || 'MontClip engine failed');
+  if (/DATA_DIR_IN_USE|Another MontClip \(/.test(message)) return Object.assign(new Error(DATA_DIR_IN_USE_TEXT), { code: 'DATA_DIR_IN_USE' });
+  return Object.assign(new Error(message), { code: r.errorCode || 'NODE_REQUEST_FAILED' });
+}
 async function node(method, params, extra) {
   const r = await cindy.node.request(Object.assign({ method, params: params || {}, timeoutMs: 120000 }, extra || {}));
-  if (!r.ok) throw Object.assign(new Error(r.message || 'MontClip engine failed'), { code: r.errorCode || 'NODE_REQUEST_FAILED' });
+  if (!r.ok) throw engineError(r);
   return r.result;
 }
 async function engineTools() {
