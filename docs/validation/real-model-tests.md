@@ -38,5 +38,6 @@ Only synthetic subtitles were sent.
   Key only from `~/.meta-montclip`, mode 600, the owner's own file (`real-tests/meta-key-file.cjs`, the rules of
   #124: wider than 600, another user's, or Windows → not read, skipped with the reason). First two checks through
   the product's request path (a made-up key must read AUTH; a made-up model MODEL_INVALID), then the real app:
-  new project with a synthetic 10 s recording, Meta chosen in the settings, 「把 3 到 5 秒删掉」, review (names
-  api.meta.ai), approval in 手动, the timeline cut, Undo. Evidence: `real-model-e2e-meta/` (no key in it; checked).
+  new project with a synthetic 10 s recording and three subtitles, Meta chosen in the settings; (1) two subtitles
+  quoted, 「只保留这两句」 → keep_sentences, (2) 「把 3 到 5 秒删掉」 → keep_ranges; each: review (names api.meta.ai),
+  approval in 手动, the timeline cut as one undo step, Undo. Evidence: `real-model-e2e-meta/` (no key in it; checked).

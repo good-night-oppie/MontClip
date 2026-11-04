@@ -1,8 +1,9 @@
 'use strict';
 // End-to-end with a real model (Meta Muse Spark) in the real desktop app: fresh profile, a new project with a synthetic
-// 10 s recording, the connection set up through the AI service settings (Meta（Muse Spark）, model filled in), a plain
-// Chinese request「把 3 到 5 秒删掉」, the review (it names api.meta.ai), the real reply, the approval in 手动, the cut
-// on the timeline, and Undo. Run only through real-tests/run-meta-e2e.cjs. The key is typed into the password field
+// 10 s recording and three subtitles, the connection set up through the AI service settings (Meta（Muse Spark）, model
+// filled in); then twice: (1) the two subtitles to keep quoted,「只保留这两句」→ keep_sentences, (2)「把 3 到 5 秒删掉」→
+// keep_ranges. Each: the review (it names api.meta.ai), the real reply, the approval in 手动, the cut on the timeline
+// (one undo step), and Undo. Run only through real-tests/run-meta-e2e.cjs. The key is typed into the password field
 // like a user would; it is never printed, and no screenshot is taken while the settings are open.
 const electron=require('electron'),{app,BrowserWindow}=electron,assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
 if(!process.argv.includes('--montclip-smoke')||process.env.MONTCLIP_REAL_MODELS!=='1')throw Error('Explicit smoke with MONTCLIP_REAL_MODELS=1 required');
@@ -35,6 +36,8 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   await read(`(async()=>{const doc=projectJSON();Object.assign(doc,{width:320,height:180,fps:30,media:[{id:'m1',src:'/media/合成.mp4',kind:'video',name:'合成.mp4',duration:${SECONDS},width:320,height:180}],
    clips:[{id:'v1',kind:'video',mediaId:'m1',track:'V1',start:0,in:0,duration:${SECONDS},props:{volume:0},linkGroup:'g1'},{id:'a1',kind:'audio',mediaId:'m1',track:'A1',start:0,in:0,duration:${SECONDS},props:{volume:1},linkGroup:'g1'}]});
    applyProject(doc);scheduleSave();if(!await flushSave())throw Error('SAVE');})()`);
+  // three synthetic subtitles over it: 0–3 s, 3–5 s (the one to drop), 5–10 s
+  await read(`(async()=>{const cues=MontClipCaptions.parse('1\\n00:00:00,000 --> 00:00:03,000\\n大家好，今天讲三个剪辑技巧。\\n\\n2\\n00:00:03,000 --> 00:00:05,000\\n嗯，这句我说错了，不要。\\n\\n3\\n00:00:05,000 --> 00:00:10,000\\n第一个技巧是删掉停顿。\\n');project.clips=project.clips.concat(cues.map((c,i)=>MontClipCaptions.clip(c,{id:'e2e_c'+i,track:'V2'})));rebuildClips();scheduleSave();if(!await flushSave())throw Error('SAVE');})()`);
   await read(`updateMontClipView({language:'zh-CN'});setSideTab('assistant');mcAgent.render();true`);await wait(300);
   const byText=t=>`Array.from(document.querySelectorAll('.cindy-port button')).find(b=>b.textContent===${JSON.stringify(t)})`;
   const click=async sel=>{const ok=await read(`(()=>{const e=${sel};if(!e)return false;e.click();return true;})()`);assert.ok(ok,'missing '+sel);await wait(250);};
@@ -51,31 +54,42 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   assert.equal(conf.configured,true);assert.equal(conf.provider,'meta');
   await click(byText('AI 服务'));
   assert.equal(await read(`!!document.querySelector('.cindy-config')`),false,'settings closed before any screenshot');
-  const before=await read(videoClips),depth=await read('runtime.undo.length');
-  await setValue(`document.querySelector('[data-cindy-draft]')`,PROMPT);
-  await click(`document.querySelector('.cindy-send button')`);await wait(500);
-  const review=await read(`(()=>{const d=document.querySelector('.cindy-confirm[open]');return d?{domain:d.querySelector('p').textContent,formatNote:!!d.querySelector('[data-format-note]'),raw:d.querySelector('[data-raw-request] pre').textContent.includes('"role": "system"')}:null;})()`);
-  step('review',review||{});assert.ok(review&&review.formatNote&&review.raw&&review.domain.includes('api.meta.ai'),'the review names api.meta.ai');
-  await shot('meta-review');
-  const t0=Date.now();await click(`document.querySelector('.cindy-confirm[open] button')`);
-  for(let i=0;i<240;i++){await wait(500);const s=JSON.parse(await read(`JSON.stringify({replies:document.querySelectorAll('[role=log] .cindy-message.assistant').length,approval:!!document.querySelector('[data-agent-approval][open]'),notice:Array.from(document.querySelectorAll('.cindy-port [role=status]')).map(e=>e.textContent).join(' | ')})`));if(s.approval||s.replies>0&&i>6||/限流|密钥|没有及时|连不上|出了问题|请求失败|模型名称/.test(s.notice))break;}
-  const reply=await read(`(()=>{const m=Array.from(document.querySelectorAll('[role=log] .cindy-message.assistant')).at(-1);return{text:m?m.textContent:'',notice:Array.from(document.querySelectorAll('.cindy-port [role=status]')).map(e=>e.textContent).join(' | '),approval:document.querySelector('[data-agent-approval][open]')?.textContent||null};})()`);
-  step('reply',{ms:Date.now()-t0,...reply});await shot('meta-reply');
-  if(/限流|没有及时|连不上|出了问题/.test(reply.notice)&&!reply.text){result.skipped='provider unavailable: '+reply.notice;throw Object.assign(new Error('SKIP'),{skip:true});}
-  assert.ok(reply.approval,'手动 asks before the AI edits; reply: '+reply.text.slice(0,300)+' notice: '+reply.notice);
-  await click(`document.querySelector('[data-agent-approval][open] [data-choice="once"]')`);await wait(800);
-  const after=await read(videoClips),clips=JSON.parse(after);
-  // what was kept, in source seconds: nothing of 3–5 s may remain (a tenth of a second of slack), and the other 8 s stay
-  const kept=clips.map(([,from,dur])=>[from,from+dur]),overlap=kept.reduce((n,[f,t])=>n+Math.max(0,Math.min(t,5)-Math.max(f,3)),0),total=kept.reduce((n,[f,t])=>n+t-f,0);
-  const steps=(await read('runtime.undo.length'))-depth;
-  step('applied',{clips,overlapWith3to5:+overlap.toFixed(3),keptSeconds:+total.toFixed(3),undoSteps:steps});
-  assert.notEqual(after,before,'the timeline changed');assert.ok(overlap<=0.1,'3–5 s is gone');assert.ok(total>=7.8&&total<=8.1,'the other 8 s are kept');
-  assert.equal(steps,1,'one undo step');
-  result.event=await read(`(()=>{const e=runtime.eventLog.list().filter(e=>e.actor==='ai').at(-1);return e&&{capability:e.capability,state:e.state,args:e.args};})()`);
-  await shot('meta-applied');
-  await read('undo();true');await wait(400);
-  const undone=await read(videoClips);step('undone',{restored:undone===before});assert.equal(undone,before);
-  result.eventAfterUndo=await read(`runtime.eventLog.list().filter(e=>e.actor==='ai').at(-1)?.state||null`);
+  // One request through the product's own path: (quote the selected subtitles) → draft → review (names api.meta.ai) →
+  // send → the real reply → 手动's approval → applied as one undo step → undone. Screenshots of each step are demo material.
+  const scenario=async(tag,prompt,select)=>{
+   const before=await read(videoClips),depth=await read('runtime.undo.length'),replies0=await read(`document.querySelectorAll('[role=log] .cindy-message.assistant').length`);
+   if(select){await read(`setSelection(${JSON.stringify(select)});true`);await wait(200);await click(byText('引用选中字幕'));step(tag+'-quoted',{captions:select.length});}
+   await setValue(`document.querySelector('[data-cindy-draft]')`,prompt);await shot(tag+'-1-draft');
+   await click(`document.querySelector('.cindy-send button')`);await wait(500);
+   const review=await read(`(()=>{const d=document.querySelector('.cindy-confirm[open]');return d?{domain:d.querySelector('p').textContent,formatNote:!!d.querySelector('[data-format-note]'),raw:d.querySelector('[data-raw-request] pre').textContent.includes('"role": "system"')}:null;})()`);
+   step(tag+'-review',review||{});assert.ok(review&&review.formatNote&&review.raw&&review.domain.includes('api.meta.ai'),'the review names api.meta.ai');
+   await shot(tag+'-2-review');
+   const t0=Date.now();await click(`document.querySelector('.cindy-confirm[open] button')`);
+   for(let i=0;i<240;i++){await wait(500);const s=JSON.parse(await read(`JSON.stringify({replies:document.querySelectorAll('[role=log] .cindy-message.assistant').length,approval:!!document.querySelector('[data-agent-approval][open]'),notice:Array.from(document.querySelectorAll('.cindy-port [role=status]')).map(e=>e.textContent).join(' | ')})`));if(s.approval||s.replies>replies0&&i>6||/限流|密钥|没有及时|连不上|出了问题|请求失败|模型名称/.test(s.notice))break;}
+   const reply=await read(`(()=>{const m=Array.from(document.querySelectorAll('[role=log] .cindy-message.assistant')).at(-1);return{text:m?m.textContent:'',notice:Array.from(document.querySelectorAll('.cindy-port [role=status]')).map(e=>e.textContent).join(' | '),approval:document.querySelector('[data-agent-approval][open]')?.textContent||null};})()`);
+   step(tag+'-reply',{ms:Date.now()-t0,...reply});await shot(tag+'-3-reply-approval');
+   if(/限流|没有及时|连不上|出了问题/.test(reply.notice)&&!reply.approval){result.skipped='provider unavailable: '+reply.notice;throw Object.assign(new Error('SKIP'),{skip:true});}
+   assert.ok(reply.approval,'手动 asks before the AI edits; reply: '+reply.text.slice(0,300)+' notice: '+reply.notice);
+   await click(`document.querySelector('[data-agent-approval][open] [data-choice="once"]')`);await wait(900);
+   const after=await read(videoClips),clips=JSON.parse(after);
+   // what was kept, in source seconds: nothing of 3–5 s may remain (a tenth of a second of slack), and the other 8 s stay
+   const kept=clips.map(([,from,dur])=>[from,from+dur]),overlap=kept.reduce((n,[f,t])=>n+Math.max(0,Math.min(t,5)-Math.max(f,3)),0),total=kept.reduce((n,[f,t])=>n+t-f,0);
+   const steps=(await read('runtime.undo.length'))-depth,event=await read(`(()=>{const e=runtime.eventLog.list().filter(e=>e.actor==='ai').at(-1);return e&&{capability:e.capability,state:e.state,args:e.args};})()`);
+   step(tag+'-applied',{clips,overlapWith3to5:+overlap.toFixed(3),keptSeconds:+total.toFixed(3),undoSteps:steps,event});
+   await shot(tag+'-4-applied');
+   assert.notEqual(after,before,'the timeline changed');assert.ok(overlap<=0.1,'3–5 s is gone');assert.ok(total>=7.8&&total<=8.1,'the other 8 s are kept');
+   assert.equal(steps,1,'one undo step');assert.equal(event.state,'applied');
+   await read('undo();true');await wait(500);
+   const undone=await read(videoClips),evAfter=await read(`runtime.eventLog.list().filter(e=>e.actor==='ai').at(-1)?.state||null`);
+   step(tag+'-undone',{restored:undone===before,event:evAfter});await shot(tag+'-5-undone');
+   assert.equal(undone,before);assert.equal(evAfter,'undone');
+   return event.capability;
+  };
+  // 1. the product's main path: quote two subtitles, keep_sentences
+  result.sentences=await scenario('sentences','只保留这两句',['e2e_c0','e2e_c2']);
+  assert.equal(result.sentences,'keep_sentences');
+  // 2. by time, no subtitle quoted: keep_ranges
+  result.ranges=await scenario('ranges',PROMPT,null);
   result.passed=true;
  }catch(e){if(!e.skip){result.failed=hide(String(e.message||e));}}
  finally{fs.writeFileSync(path.join(out,'e2e-result.json'),hide(JSON.stringify(result,null,1))+'\n');log('E2E_DONE',{passed:!!result.passed,skipped:result.skipped||null,failed:result.failed||null});setTimeout(()=>app.exit(0),300);}
