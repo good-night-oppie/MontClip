@@ -1654,7 +1654,10 @@ async function callTool(name, args, attempt = 0) {
         let i = 1;
         const stem = path.basename(base, ext);
         while (fs.existsSync(target)) target = path.join(MEDIA_DIR, `${stem}_${i++}${ext}`);
-        fs.copyFileSync(src, target);
+        // link:true — a hard link when the file is on the same drive, so a several-GB recording is in media/
+        // at once with no second copy of disk space (another drive, or no links: copied). Default: a copy.
+        if (args.link === true) { try { fs.linkSync(src, target); } catch { fs.copyFileSync(src, target); } }
+        else fs.copyFileSync(src, target);
       }
       if (!kind) throw new Error("Unsupported media type");
       const prepared = await prepareMedia(target, { allowTranscode: args.allowTranscode, acceptReadable: args.acceptReadable });
@@ -1767,15 +1770,21 @@ async function handle(msg) {
 }
 
 let buf = "", pending = 0, stdinClosed = false;
-process.stdin.setEncoding("utf8");
-process.stdin.on("data", (chunk) => {
-  buf += chunk;
-  let nl;
-  while ((nl = buf.indexOf("\n")) >= 0) {
-    const line = buf.slice(0, nl).trim();
-    buf = buf.slice(nl + 1);
-    if (!line) continue;
-    try { handle(JSON.parse(line)); } catch { /* skip malformed line */ }
-  }
-});
-process.stdin.on("end", () => { stdinClosed = true; if (pending === 0) process.exit(0); });
+/* Run as a program (`node mcp-server.js`, the Claude Code / Desktop registration): MCP over stdio.
+   Required by another shell (the Cindy plugin's Node worker) it only hands over the same tools —
+   that shell speaks its own protocol on stdio and calls them in-process. */
+if (require.main === module) {
+  process.stdin.setEncoding("utf8");
+  process.stdin.on("data", (chunk) => {
+    buf += chunk;
+    let nl;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line) continue;
+      try { handle(JSON.parse(line)); } catch { /* skip malformed line */ }
+    }
+  });
+  process.stdin.on("end", () => { stdinClosed = true; if (pending === 0) process.exit(0); });
+}
+module.exports = { TOOLS, callTool, ensureUIServer };
