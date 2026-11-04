@@ -117,7 +117,9 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     assert.doesNotMatch(shown.ThinkingCard.text, /Thinking|\d+[ms]\b/);
     report.dots = await read(`[...document.querySelectorAll('#partBox_ThinkingCard .thinking-dot')].map(e=>{const c=getComputedStyle(e);return c.width+' '+c.animationName;})`);
     assert.deepEqual(report.dots, ['4px thinking-dot-wave', '4px thinking-dot-wave', '4px thinking-dot-wave'], 'the three dots of 正在想…');
-    assert.match(shown.WorkGroupBlock.text, /已工作 58 秒/);
+    assert.match(shown.WorkGroupBlock.text, /用了 58 秒/);
+    report.thoughtDone = (await show('ThinkingCard', `()=>({content:'看了项目和字幕',isStreaming:false,durationMs:58000,blockKey:'think-2'})`)).text.replace(/\s+/g, ' ');
+    assert.match(report.thoughtDone, /想了 58 秒/, 'the finished thinking card (JJ)');
     assert.doesNotMatch(shown.WorkGroupBlock.text, /\d+s\b/);
     assert.match(shown.AskUserQuestionPrompt.text, /这段要不要留/);
     report.voiceButton = await read(`(()=>{const b=document.querySelector('#partBox_AskUserQuestionPrompt [data-testid="ask-user-voice"]');return b?getComputedStyle(b).display:'absent';})()`);
@@ -132,7 +134,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     for (const name of report.names.filter((n) => n !== 'PermissionSelector')) shown[name + '_en'] = await show(name, sample[name], 'en');
     report.shownEn = { ThinkingCard: shown.ThinkingCard_en.text.replace(/\s+/g, ' '), WorkGroupBlock: shown.WorkGroupBlock_en.text.replace(/\s+/g, ' ').slice(0, 60) };
     assert.match(report.shownEn.ThinkingCard, /^Thinking\s*1m 2\ds/, "English as in Cindy");
-    assert.match(report.shownEn.WorkGroupBlock, /Worked for 58s/);
+    assert.match(report.shownEn.WorkGroupBlock, /Took 58s/);
     report.missingKeys = await read(`MontClipCindyParts.missingKeys()`);
     assert.deepEqual(report.missingKeys, [], 'every string a part asked for is there');
     report.pageErrors = await read(`__partErrors`);

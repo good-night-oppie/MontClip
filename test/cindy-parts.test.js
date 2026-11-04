@@ -80,7 +80,7 @@ test("the strings: Cindy's own for zh-CN and en, at 43001ea, the same keys in bo
   assert.ok(keys(strings['zh-CN']).length > 100);
   assert.deepEqual(keys(own['zh-CN']).sort(), keys(own.en).sort());
   // the mode switch words, and the two words the build puts in ThinkingCard's JSX (PATCHES)
-  assert.ok(keys(own['zh-CN']).every((k) => k.startsWith('newChat.permissionSelector.') || ['chat.thinking.inProgress', 'chat.thinking.hidden'].includes(k)), 'MontClip replaces only the mode switch words here');
+  assert.ok(keys(own['zh-CN']).every((k) => k.startsWith('newChat.permissionSelector.') || ['chat.thinking.inProgress', 'chat.thinking.hidden', 'chat.thinking.completed', 'chat.workGroup.worked'].includes(k)), 'MontClip replaces only the mode switch words here');
   assert.equal(own['zh-CN'].newChat.permissionSelector.modes['claude-code'].bypassPermissions.label, 'Yolo');
   assert.equal(own['zh-CN'].newChat.permissionSelector.modes['claude-code'].ask.label, '手动');
 });
@@ -149,9 +149,17 @@ test('how long the AI took: words in Chinese (58 秒, 1 分 29 秒), Cindy\'s ow
   assert.equal(durationZh(90_000_000), '1 天 1 小时 0 分');
   // what the cards say with it: Cindy's own strings around the time
   const z = strings['zh-CN'].chat, fill = (s, d) => s.replace('{{duration}}', d);
-  assert.equal(fill(z.workGroup.worked, durationZh(58000)), '已工作 58 秒');
-  assert.equal(fill(z.thinking.completed, durationZh(58000)), '思考 58 秒');
-  assert.equal(fill(strings.en.chat.workGroup.worked, '58s'), 'Worked for 58s');
+  // JJ (2026-11-04): the whole reply's row says 用了 / Took, the finished thinking card 想了 / Thought for — montclip-strings.json over
+  // Cindy's 已工作 / 思考 (cindy-strings.json is Cindy's own and stays). Each key is used in one place only.
+  const own = require('../agent-ui/montclip-strings.json'), M = (l) => own[l].chat;
+  assert.equal(M('zh-CN').workGroup.worked, '用了 {{duration}}'); assert.equal(M('en').workGroup.worked, 'Took {{duration}}');
+  assert.equal(M('zh-CN').thinking.completed, '想了 {{duration}}'); assert.equal(M('en').thinking.completed, 'Thought for {{duration}}');
+  assert.equal(fill(M('zh-CN').workGroup.worked, durationZh(58000)), '用了 58 秒');
+  assert.equal(fill(M('zh-CN').thinking.completed, durationZh(58000)), '想了 58 秒');
+  assert.equal(fill(M('en').workGroup.worked, '58s'), 'Took 58s');
+  assert.equal(z.workGroup.worked, '已工作 {{duration}}', "Cindy's own file unchanged");
+  const R = path.join(ROOT, 'apps/desktop/src/renderer/components/chat'), uses = (k) => ['WorkGroupBlock.tsx', 'ThinkingCard.tsx'].filter((f) => fs.readFileSync(path.join(R, f), 'utf8').includes("'" + k + "'"));
+  assert.deepEqual(uses('chat.workGroup.worked'), ['WorkGroupBlock.tsx']); assert.deepEqual(uses('chat.thinking.completed'), ['ThinkingCard.tsx']);
   // the stand-in: Chinese window → durationWords; otherwise Cindy's formatDuration, unchanged
   const standIn = fs.readFileSync(path.join(UI, 'stand-ins/sessionDurationFormat.ts'), 'utf8');
   assert.match(standIn, /import \{ formatDuration \} from '@cindy\/maker-shared\/message-render';/);
