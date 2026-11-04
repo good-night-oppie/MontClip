@@ -45,6 +45,20 @@ body[data-mc-mode="simple"] .upper > .bin { grid-column: 3; grid-row: 1; }
   user-select: none;
 }
 
+/* A modal <dialog> is centred by the browser's own margin: auto, which the reset above takes away: put it back for every
+   one, and darken the page behind it (a dialog's own ::backdrop may darken it more). test/dialog-center.test.js keeps any
+   dialog's own rule from taking the centring away again; desktop/dialogs-smoke.cjs measures each one in a real window. */
+dialog:modal {
+  margin: auto;
+}
+/* no taller than the window (Deja, #88); at no weight, so a dialog's own max-height still wins */
+:where(dialog:modal) {
+  max-height: calc(100vh - 24px);
+}
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
 html,
 body {
   height: 100%;
@@ -2999,6 +3013,7 @@ body.track-size-s .clip.c-comp .comp-open-hint {
   border-radius: 12px;
   padding: 24px 28px;
   width: 420px;
+  max-height: calc(100vh - 24px);
   box-shadow: 0 20px 60px #000a;
 }
 
@@ -3318,6 +3333,17 @@ body.track-size-s .clip.c-comp .comp-open-hint {
 
 .dialog.settings {
   width: min(440px, 92vw);
+  display: flex;
+  flex-direction: column;
+}
+/* a box taller than the window (Deja, #88): its title and its actions stay, the middle scrolls */
+.dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.dialog.settings > h2, .dialog.settings > .dialog-actions, .asr-setup > h2, .asr-setup > .dialog-actions {
+  flex: none;
 }
 
 .dialog.settings .settings-intro {
@@ -4813,7 +4839,9 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 [data-edit-tool][hidden] {display:none;}
 
 /* desktop FLV import dialog */
-.flv-import-dialog { max-width: min(460px, 92vw); }
+.flv-import-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; width: min(460px, 92vw); padding: 14px 16px; }
+.flv-import-dialog h3 { margin: 0 0 6px; font-size: 15px; }
+.flv-import-dialog p { margin: 0 0 8px; }
 .flv-import-dialog .flv-import-name { word-break: break-all; opacity: .8; }
 .flv-import-dialog [data-flv-ask] { white-space: pre-line; line-height: 1.5; }
 .flv-import-dialog .flv-import-row { display: flex; gap: 8px; justify-content: flex-end; }
@@ -4839,6 +4867,7 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 
 /* v10: the transcription setup page (app.js openAsrSetup) */
 .asr-setup { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; width: min(640px, 92vw); max-height: 86vh; padding: 20px 22px; }
+.asr-setup[open] { display: flex; flex-direction: column; overflow: hidden; }
 .asr-setup::backdrop { background: rgba(0, 0, 0, 0.45); }
 .asr-setup h2 { margin: 0 0 6px; font-size: 17px; }
 .asr-setup .dim { margin: 0 0 12px; }
