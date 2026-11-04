@@ -10593,7 +10593,8 @@ function autoReviewHtml() {
   // ticked, ticked as the search ticked them, or the streamer's own ticks (auto-slices.js reviewHead)
   const h = MontClipAutoSlices.reviewHead(st.clips, st.dropped), allOut = h.key === "all-out";
   const head = autoSay({ none: "as-found-none", "all-out": "as-found-all-out", "none-ticked": "as-found-none-ticked", all: "as-found-all", head: "as-found-head", ticked: "as-found-ticked" }[h.key], h);
-  const evidence = (dm ? autoSay("as-evidence", { count: dm.toLocaleString(), dur: autoDur(dur), n: found }) : autoSay("as-evidence-nodm", { dur: autoDur(dur), n: found }))
+  // 圈出 N 段: what the search found, the same N as the title (the cards taken out included)
+  const evidence = (dm ? autoSay("as-evidence", { count: dm.toLocaleString(), dur: autoDur(dur), n: h.found }) : autoSay("as-evidence-nodm", { dur: autoDur(dur), n: h.found }))
     + (st.habitUsed ? autoSay("as-evidence-habits", { n: st.keptN, k: st.habitUsed }) : "");
   // v12 (frozen; JJ's visual review): what every card used to repeat is said once — the name hint on the first card, the
   // 估的 note under the first overview, above the first card (also the tooltip of every 估的 tag)
