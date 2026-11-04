@@ -319,7 +319,7 @@
     "as-found-none": ["Nothing stood out", "没有找到够好的段落"],
     // every card taken out, nothing ticked, ticked by the streamer, and why 〔开始找高光〕 is grey (JJ's words)
     "as-found-all-out": ["Found {found}, and you took them all out", "找到 {found} 条，你都拿掉了"],
-    "as-all-out-sub": ["Everything you took out is below; open it to put them back.", "拿掉的都在下面，点开就能放回来。"],
+    "as-all-out-sub": ["Everything you took out is under “Taken out: {n}” below; open it to put them back. For the one you just took out, click “Undo” in the notice or press Ctrl+Z. For a new batch, click “Another stream / settings” and search again.", "拿掉的都在下面「拿掉的 {n} 条」里，点开就能放回来；刚拿掉的，也可以点提示里的「撤销」或按 Ctrl+Z。想换一批，点「换一场 / 改设置」重新找。"],
     "as-found-none-ticked": ["Found {found}, none ticked right now", "找到 {found} 条，现在一条都没勾"],
     "as-found-ticked": ["Found {found}, {on} ticked", "找到 {found} 条，勾了 {on} 条"],
     "as-go-why-none": ["Tick a recording above first", "先在上面勾一场录像"],

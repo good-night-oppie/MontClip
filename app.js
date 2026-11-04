@@ -10606,7 +10606,7 @@ function autoReviewHtml() {
     const start = no + 1, html = autoOverviewHtml(rec, mine, start) + (no === 0 ? note : "") + mine.map((c) => autoCardHtml(c, no++)).join("");
     return html;
   }).join("");
-  return `<div class="as-row"><div><h1>${head}</h1><p class="as-sub">${autoSay(allOut ? "as-all-out-sub" : found ? "as-review-sub" : "as-found-none-next", { name: names })}</p></div>
+  return `<div class="as-row"><div><h1>${head}</h1><p class="as-sub">${allOut ? autoSay("as-all-out-sub", { n: st.dropped.length }) : autoSay(found ? "as-review-sub" : "as-found-none-next", { name: names })}</p></div>
       <button type="button" class="btn" data-as-act="back-start">${autoSay("as-back-start")}</button></div>
     ${allOut ? "" : `<div class="as-evidence${dm ? "" : " warn"}">${evidence}</div>`}
     ${st.ask ? `<section class="as-askline" data-as-ask><b>${autoSay("as-ask-title")}</b><span class="as-small as-askwhy">${autoSay("as-ask-sub")}</span>
