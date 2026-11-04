@@ -300,7 +300,7 @@
     "as-len-hint-short": ["Every part is cut to 30 s – 1 min; songs are shortened too.", "所有段落都按 30 秒–1 分钟切。唱歌的段落也会被截短。"],
     "as-go": ["Start finding", "开始找高光"],
     "as-go-n": ["Start finding ({n} streams)", "开始找高光（{n} 场）"],
-    "as-go-hint": ["You can close this window and edit something else; when it is done, the top-right button changes to 「✨ Auto clips · done」.", "可以关掉这个窗口去剪别的；找完了，右上角的按钮会变成「✨ 自动出切片 · 找完了」。"],
+    "as-go-hint": ["You can close this window and edit something else; when it is done, the top-right button changes to “✨ Auto clips · done”.", "可以关掉这个窗口去剪别的；找完了，右上角的按钮会变成「✨ 自动出切片 · 找完了」。"],
     "as-run-title": ["Finding highlights", "正在找高光"],
     "as-run-sub": ["{name} · {dur}. This page turns into the results when it is done; closing the window keeps it going.", "{name} · {dur}。找完这一页会自动换成结果；关掉窗口也会接着找。"],
     "as-run-read": ["Read the recording and the live danmaku", "读录像和直播弹幕"],
@@ -312,7 +312,7 @@
     "as-stop": ["Stop", "停下"],
     "as-stop-hint": ["What is found so far is kept; you can carry on.", "停下以后，已经找到的不会丢，可以接着找。"],
     "as-stopped": ["Stopped. What was found so far is kept; Start finding carries on.", "已停下。找到一半的结果留着，下次点「开始找高光」会接着找。"],
-    "as-run-failed": ["Couldn't read the sound of 「{name}」. The file may be damaged, have no sound, or have been moved. Try another stream.", "「{name}」的声音没读出来，可能是文件坏了、没有声音，或者被移走了。可以换一场试试。"],
+    "as-run-failed": ["Couldn't read the sound of “{name}”. The file may be damaged, have no sound, or have been moved. Try another stream.", "「{name}」的声音没读出来，可能是文件坏了、没有声音，或者被移走了。可以换一场试试。"],
     "as-run-nospace": ["Drive {drive} is full, so the results can't be saved. Free up some space and try again.", "{drive} 盘空间不够，分析结果存不下。腾出一些空间再试。"],
     "as-found-head": ["Found {found}; the best {on} are ticked", "找到 {found} 条，先帮你勾了最好的 {on} 条"],
     "as-found-all": ["Found {found}, all ticked", "找到 {found} 条，都勾上了"],
@@ -337,8 +337,8 @@
     "as-lg-on": ["Ticked", "勾上的"],
     "as-lg-off": ["Spare", "备选"],
     "as-spare": ["Spare", "备选"],
-    "as-filename": ["This is the file name; it doesn't appear in the picture.", "这是文件名，不会出现在画面里。"],
-    "as-song-name-hint": ["You can change the name above, to the song title for example. The exported file gets this name (the name does not appear in the picture).", "点上面的名字可以改，比如改成歌名。导出的文件就叫这个名字（名字不会出现在画面里）。"],
+        "as-song-name-hint": ["Click the name to change it, for example to the song title. The exported file is named after it; the name doesn't appear in the video.", "点名字可以改，比如改成歌名。导出的文件就叫这个名字，名字不会出现在画面里。"],
+    "as-rename-tip": ["Click to rename. This is the exported file's name; it doesn't appear in the video.", "点了可以改。这是导出的文件名，不会出现在画面里。"],
     "as-song-name": ["Song {no} (at {time} in the recording)", "第 {no} 首歌（在录像 {time}）"],
     "as-moment-name": ["The part at {time}", "{time} 那段"],
     "as-rename": ["Name: click to change it; this is the file name", "名字，点了可以改，这是文件名"],
@@ -387,20 +387,19 @@
     "as-sec": ["{d} s", "{d} 秒"],
     "as-listen-start": ["▶ Hear the start", "▶ 听开头"],
     "as-listen-end": ["▶ Hear the end", "▶ 听结尾"],
-    "as-guess-start": ["The start is estimated and may be off by a few seconds to over ten. Click 「▶ Hear the start」; if it's wrong, move it with the ± buttons beside it", "开头是估的，可能差几秒到十几秒。点「▶ 听开头」听一下，不对就用旁边的 ± 秒挪一下"],
-    "as-guess-end": ["The end is estimated and may be off by a few seconds to over ten. Click 「▶ Hear the end」; if it's wrong, move it with the ± buttons beside it", "结尾是估的，可能差几秒到十几秒。点「▶ 听结尾」听一下，不对就用旁边的 ± 秒挪一下"],
-    "as-likely-start": ["The start is fairly likely here; still, click 「▶ Hear the start」 before deciding.", "开头比较可能在这里，还是点「▶ 听开头」听一下再定。"],
-    "as-likely-end": ["The end is fairly likely here; still, click 「▶ Hear the end」 before deciding.", "结尾比较可能在这里，还是点「▶ 听结尾」听一下再定。"],
+    "as-guess-note": ["Where a start or end is marked “Estimated”, click “▶ Hear the start” or “▶ Hear the end” and listen before you decide.", "标着「估的」的开头结尾，先点「▶ 听开头 / 听结尾」听一下再定。"],
+    "as-likely-start": ["The start is fairly likely here; still, click “▶ Hear the start” before deciding.", "开头比较可能在这里，还是点「▶ 听开头」听一下再定。"],
+    "as-likely-end": ["The end is fairly likely here; still, click “▶ Hear the end” before deciding.", "结尾比较可能在这里，还是点「▶ 听结尾」听一下再定。"],
     "as-tick-to-adjust": ["Tick it to adjust its start and end.", "勾上以后可以调开头结尾。"],
     "as-play": ["▶ Preview", "▶ 试看"],
     "as-fine": ["Adjust", "调一下"],
     "as-drop": ["Not this one", "不要这条"],
-    "as-moved-start-later": ["The start of 「{name}」 moved {d} s later", "「{name}」开头往后挪了 {d} 秒"],
-    "as-moved-start-earlier": ["The start of 「{name}」 moved {d} s earlier", "「{name}」开头往前挪了 {d} 秒"],
-    "as-moved-end-later": ["The end of 「{name}」 moved {d} s later", "「{name}」结尾往后挪了 {d} 秒"],
-    "as-moved-end-earlier": ["The end of 「{name}」 moved {d} s earlier", "「{name}」结尾往前挪了 {d} 秒"],
-    "as-dropped-one": ["Took out 「{name}」", "已拿掉「{name}」"],
-    "as-put-back-one": ["Put back 「{name}」", "已放回「{name}」"],
+    "as-moved-start-later": ["The start of “{name}” moved {d} s later", "「{name}」开头往后挪了 {d} 秒"],
+    "as-moved-start-earlier": ["The start of “{name}” moved {d} s earlier", "「{name}」开头往前挪了 {d} 秒"],
+    "as-moved-end-later": ["The end of “{name}” moved {d} s later", "「{name}」结尾往后挪了 {d} 秒"],
+    "as-moved-end-earlier": ["The end of “{name}” moved {d} s earlier", "「{name}」结尾往前挪了 {d} 秒"],
+    "as-dropped-one": ["Took out “{name}”", "已拿掉「{name}」"],
+    "as-put-back-one": ["Put back “{name}”", "已放回「{name}」"],
     "as-undone": ["Undone", "已撤销"],
     "as-dropped": ["Taken out: {n} (open to put them back)", "拿掉的 {n} 条（点开可以放回来）"],
     "as-put-back": ["Put back", "放回来"],
@@ -438,7 +437,7 @@
     "cq-done-bottom": ["Moved {n} captions to the bottom of the picture.", "已把 {n} 条字幕移到画面下面。"],
     "as-place-failed": ["Nothing was put on the timeline: {why}", "没放上去：{why}"],
     "as-no-lane": ["no track is targeted for this recording. Click a track name on the left (such as V1) to target it (unlock it first if it's locked), then try again.", "没有可以放的轨道。点一下左边的轨道名（比如 V1）选中它（锁着的先解锁），再试一次。"],
-    "as-fine-toast": ["Selected 「{name}」 on the timeline. Adjust it to the frame on the right; when done, 「✨ Auto clips」 at the top right brings you back.", "在时间线上选中了「{name}」。右边可以精确到帧调；调好以后点右上角「✨ 自动出切片」接着看。"],
+    "as-fine-toast": ["Selected “{name}” on the timeline. Adjust it to the frame on the right; when done, “✨ Auto clips” at the top right brings you back.", "在时间线上选中了「{name}」。右边可以精确到帧调；调好以后点右上角「✨ 自动出切片」接着看。"],
     "as-ex-title": ["Export {n}?", "开始导出 {n} 条？"],
     "as-ex-info": ["One file each, with this project's export settings. When they are done, save them from the export queue.", "每条导出一个文件，用这个项目的导出设置。导出好以后，在导出队列里保存。"],
     "as-ex-go": ["Export", "导出"],
@@ -458,7 +457,7 @@
     "as-done-title": ["Exported: {n}", "导出好了，{n} 条"],
     "as-done-partial": ["Exported {n}; {failed} didn't", "导出好了 {n} 条，{failed} 条没成功"],
     "as-done-sub": ["They are in the export queue; save each one where you like.", "都在导出队列里，可以逐条存到你想放的地方。"],
-    "as-fail": ["{failed} didn't export: 「{name}」. {why}. Your edits are all still here. Click Try again, or open the export queue to see why.", "有 {failed} 条没导出来：「{name}」。{why}。你的剪辑都还在，点「再试一次」，或者打开导出队列看原因。"],
+    "as-fail": ["{failed} didn't export: “{name}”. {why}. Your edits are all still here. Click Try again, or open the export queue to see why.", "有 {failed} 条没导出来：「{name}」。{why}。你的剪辑都还在，点「再试一次」，或者打开导出队列看原因。"],
     "as-fail-why-space": ["The drive it saves to is out of space", "存视频的那个盘空间不够了"],
     "as-fail-why-changed": ["The timeline changed after it was queued, so it wasn't exported", "加进导出以后，时间线又改过了，所以没导"],
     "as-fail-why-other": ["The export stopped partway", "导出到一半停下了"],
@@ -710,8 +709,8 @@
   Object.assign(officialPaneText['zh-CN'],{resetConnection:'重新设置连接',configUnreadable:'原来的连接配置读不出来。点「重新设置连接」，软件会先把旧配置备份好，再让你重新填写。',configBackedUp:'原来的配置已备份，现在需要重新填写连接配置。',configBackupFailed:'原来的配置没能备份，未被替换。请看看软件的设置文件夹是不是被占用或不能写入，然后再试。'});
   Object.assign(officialPaneText.en,{notSent:'Only the text shown above is sent. No audio, video or screenshots are attached; the app does not add file paths or account details by itself, but any such details you typed into the text or history will be sent as written. Your API key is used only to authenticate with the service.',undoLast:'Undo this apply (same as toolbar Undo)',captionLabel:'Subtitles',rangeLabel:'Range',projectLabel:'Project'});
   Object.assign(officialPaneText['zh-CN'],{notSent:'这次发送的只有上面显示的文字。不附带声音、画面和截图；软件不会自动加上文件路径和账号，但你自己写进文字或历史里的这类信息会照样发出。API 密钥只用来向服务验证身份。',undoLast:'撤销这次应用（和顶部撤销相同）',captionLabel:'字幕',rangeLabel:'范围',projectLabel:'项目'});
-  Object.assign(officialPaneText.en,{reviewSummary:'This will send a fixed formatting note, your message, {captions} quoted subtitles, and {history} earlier messages (including their quotes).',rawRequest:'View exact request',proposalSummary:'Suggested edit: keep {count} sentences, about {duration} in the final cut. Look it over before applying.',proposalRanges:'Suggested edit: keep {count} ranges joined into one video, about {duration}. Look it over before applying.',proposalSlices:'Suggested edit: {count} separate clips, one file each, about {duration} in total. Look it over before applying.',factsNote:'It also includes numbers about the timeline: how long each recording is and which part each clip uses, and the start, end and score of highlight candidates already found. No file names, subtitle text, pictures or sound.',goConfig:'Go to settings',staleProposal:'The project changed after this reply, so this suggested edit can no longer be used.',reask:'Ask again using the current project',reaskReady:'A new draft is ready with no history or references. Select current subtitles and review before sending. The original conversation is still in the session list.'});
-  Object.assign(officialPaneText['zh-CN'],{reviewSummary:'这次会发送一段固定的格式说明、消息文字、引用的 {captions} 条字幕，以及之前的 {history} 条消息（包含其中的引用）。',rawRequest:'查看原始请求',proposalSummary:'已生成剪辑建议：保留 {count} 句，成片大约 {duration}。请先看一遍再应用。',proposalRanges:'已生成剪辑建议：保留 {count} 段，拼成一条，大约 {duration}。请先看一遍再应用。',proposalSlices:'已生成剪辑建议：切出 {count} 条切片，每条一个文件，一共大约 {duration}。请先看一遍再应用。',factsNote:'还会附上时间线的数字信息：每段录像有多长、每个片段用到哪一部分，以及已经找到的高光候选的起止和分数。不含文件名、字幕文字、画面和声音。',goConfig:'去设置',staleProposal:'项目在回复之后改过了，这条剪辑建议不能用了。',reask:'按现在的项目重新问',reaskReady:'已新建草稿，不带历史和引用。请重新选择当前字幕，确认后再发送。原来的对话还在会话列表里。'});
+  Object.assign(officialPaneText.en,{reviewSummary:'This will send a fixed formatting note, your message, {captions} quoted subtitles, and {history} earlier messages (including their quotes).',rawRequest:'View exact request',proposalSummary:'Suggested edit: keep {count} sentences, about {duration} in the final cut. Look it over before applying.',proposalRanges:'Suggested edit: keep {count} ranges joined into one video, about {duration}. Look it over before applying.',proposalSlices:'Suggested edit: {count} separate clips, one file each, about {duration} in total. Look it over before applying.',factsOmittedOne:"Timing for 1 clip wasn't included, so the AI won't see where it is. Sending still works.",factsOmitted:"Timing for {n} clips wasn't included, so the AI won't see where they are. Sending still works.",factsTitle:'Timeline numbers are also sent · click to see them',factsExplain:'How long each recording is, which part each clip uses, and the start, end and score of the highlight candidates already found. No file names, subtitle text, pictures or sound. This is exactly what is sent:',goConfig:'Go to settings',staleProposal:'The project changed after this reply, so this suggested edit can no longer be used.',reask:'Ask again using the current project',reaskReady:'A new draft is ready with no history or references. Select current subtitles and review before sending. The original conversation is still in the session list.'});
+  Object.assign(officialPaneText['zh-CN'],{reviewSummary:'这次会发送一段固定的格式说明、消息文字、引用的 {captions} 条字幕，以及之前的 {history} 条消息（包含其中的引用）。',rawRequest:'查看原始请求',proposalSummary:'已生成剪辑建议：保留 {count} 句，成片大约 {duration}。请先看一遍再应用。',proposalRanges:'已生成剪辑建议：保留 {count} 段，拼成一条，大约 {duration}。请先看一遍再应用。',proposalSlices:'已生成剪辑建议：切出 {count} 条切片，每条一个文件，一共大约 {duration}。请先看一遍再应用。',factsOmittedOne:'有 1 个片段这次没附上时间信息，AI 看不到它在哪。不影响发送。',factsOmitted:'有 {n} 个片段这次没附上时间信息，AI 看不到它们在哪。不影响发送。',factsTitle:'还会附上时间线的数字 · 点开看原文',factsExplain:'每段录像有多长、每个片段用到哪一部分，以及已经找到的高光候选的起止和分数。不含文件名、字幕文字、画面和声音。下面就是原样发出去的内容：',goConfig:'去设置',staleProposal:'项目在回复之后改过了，这条剪辑建议不能用了。',reask:'按现在的项目重新问',reaskReady:'已新建草稿，不带历史和引用。请重新选择当前字幕，确认后再发送。原来的对话还在会话列表里。'});
   // VV real-model test (2026-11-02): the format note that goes with every request, a reply without a usable proposal, and errors told apart
   Object.assign(officialPaneText.en,{errModel:'The model name is wrong. Check it in settings. Your draft is kept.',formatNote:'Format note sent with every request',formatNoteExplain:'The text below is a fixed note MontClip adds to every request. It only tells the AI how to format editing suggestions. It contains none of your recordings, subtitles or project content.',noProposal:'This reply is not an editing suggestion. To have it cut for you, say which sentences to keep.',errAuth:'The key is wrong or has no access. Check it in settings. Your draft is kept.',errRateLimit:'The service is limiting requests for now. Try again in a little while. Your draft is kept.',errTimeout:'The service did not answer in time. Check your connection and try again. Your draft is kept.',errNetwork:'Could not reach the service. Check your internet connection, then try again. Your draft is kept.',errUpstream:'The service is having trouble right now. Try again later, or choose another model in settings. Your draft is kept.'});
   Object.assign(officialPaneText['zh-CN'],{errModel:'模型名称不对，请去设置里检查。草稿仍保留。',formatNote:'每次请求都会附带的格式说明',formatNoteExplain:'下面这段英文是 MontClip 每次自动附上的固定说明，只是告诉 AI 怎么写剪辑建议。里面没有你的录像、字幕或项目内容，你不用看懂。',noProposal:'这条回复不是剪辑建议。想让它直接剪，可以说清要保留哪几句。',errAuth:'密钥不对或没有权限，请去设置里检查。草稿仍保留。',errRateLimit:'服务暂时限流，请过一会再试。草稿仍保留。',errTimeout:'服务没有及时回应，请检查网络后再试。草稿仍保留。',errNetwork:'连不上服务，请检查网络连接后再试。草稿仍保留。',errUpstream:'服务那边暂时出了问题，请稍后再试，或去设置里换一个模型。草稿仍保留。'});
