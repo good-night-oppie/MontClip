@@ -107,7 +107,7 @@
   function describe(code, message, opts, lang) {
     const w = t(lang), need = opts && opts.need;
     const reason = reasonOf(code, message);
-    const raw = String(message == null ? "" : message).trim();
+    const raw = scrub(message);   // the small line: no paths, local ports or pids
     switch (reason) {
       case "checksum": return { reason, text: w.checksum + w.again, detail: "", button: "retry" };
       case "interrupted": return { reason, text: w.interrupted + w.again, detail: "", button: "retry" };
@@ -121,5 +121,15 @@
         : { reason, text: w.other + w.again, detail: "", button: "retry" };
     }
   }
-  return { reasonOf, describe, progressText, aboutSize, TEXT, REASONS };
+  /** The raw error for the small line, without what is only this computer's business: paths, local ports, pids (the
+   *  same scrub as frame.js's and the export card's). */
+  function scrub(raw) {
+    return String(raw == null ? "" : raw)
+      .replace(/\b[A-Za-z]:[\\/][^\s'"）)]*/g, "…")
+      .replace(/(^|[\s('"=])\/(?:[^\s/'"]+\/)+[^\s'"）)]*/g, "$1…")
+      .replace(/\b(?:127\.0\.0\.1|localhost|0\.0\.0\.0|\[::1\]):\d+/gi, "…")
+      .replace(/\b(pid|port)\b[\s=:#]*\d+/gi, "$1 …")
+      .trim().slice(0, 300);
+  }
+  return { reasonOf, describe, progressText, aboutSize, scrub, TEXT, REASONS };
 });

@@ -246,3 +246,25 @@ test("the worker's code (and the amount to free) reaches the banner through main
   const js = fs.readFileSync(path.join(PLUGIN, "frame.js"), "utf8");
   assert.match(js, /progress\(\{ phase: 'failed', code: r\.code, need: r\.need, message: r\.error \}\)/);
 });
+
+/* Rea (2026-11-04): a raw error never shows as it came. The page's two failures (frame.js: the task's project, the
+   start) and the banner's 没装上 keep #112's way — plain words, then the line to send us in small print — and that small
+   line drops paths, local ports and pids; the whole error goes to the log (console.warn). */
+test("the page's and the banner's small line: no paths, local ports or pids; the whole error in the log", () => {
+  const src = fs.readFileSync(path.join(PLUGIN, "frame.js"), "utf8");
+  const logged = [];
+  const { failureText, scrub } = new Function("console", src.slice(0, src.indexOf("(function () {")) + "\nreturn { failureText, scrub };")({ warn: (...a) => logged.push(a.join(" ")) });
+  const raw = "EACCES: permission denied, open 'C:\\Users\\me\\clips-data\\project.json' at 127.0.0.1:7777 pid 4242 /home/me/clips-data/x";
+  const f = failureText("MontClip 没能启动。", raw);
+  assert.equal(f.text, "MontClip 没能启动。关掉这个页签再打开试试；还不行，把下面这行发给我们：");
+  assert.equal(f.detail, "EACCES: permission denied, open '…' at … pid … …");
+  assert.ok(logged.some((l) => l.includes(raw)), "the whole error is in the log");
+  assert.deepEqual(failureText("MontClip 没能启动。", ""), { text: "MontClip 没能启动。关掉这个页签再打开试试。", detail: "" });
+  // the banner's 没装上: the same scrub
+  assert.equal(B.describe("INSTALL_FAILED", "the staged ffmpeg failed its check at C:\\Users\\me\\clips-data\\ffmpeg (pid 4242)").detail,
+    "the staged ffmpeg failed its check at … (pid …)");
+  assert.equal(B.scrub(raw), scrub(raw), "frame.js and ffmpeg-banner.js scrub alike");
+  assert.match(src, /console\.warn\('\[MontClip\] export tool install:', m\.code \|\| '', String\(m\.message\)\);/);
+  // the two page failures go through failureText (no "：" + raw error glued to the sentence)
+  assert.doesNotMatch(src, /没能(启动|打开这个任务的项目)：' \+/);
+});
