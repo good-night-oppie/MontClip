@@ -4968,9 +4968,22 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 .auto-slices .as-footer[hidden] { display: none; }
 .auto-slices .as-toast { position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%); background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 12px; box-shadow: 0 8px 30px #000a; max-width: 80%; }
 .auto-slices .as-toast[hidden] { display: none; }
+/* v12: the dialog's title on one line; 整场一览 a fold; the footer's short words for a narrow window — the app's
+   narrowest window (minWidth 640: about 644 px inside) and a phone */
+.auto-slices .as-head b { white-space: nowrap; }
+.auto-slices summary.as-ov-head { cursor: pointer; }
 @media (max-width: 640px) {
   .auto-slices .as-trim { grid-template-columns: 1fr; }
   .auto-slices .as-opt { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  /* the first screen shows the first card: 够好的只有 one short line, the footer one line */
+  .auto-slices .as-few { padding: 6px 10px; margin: 6px 0; }
+  .auto-slices .as-few .as-small { display: none; }
+  .auto-slices .as-footer { flex-wrap: nowrap; gap: 8px; padding: 8px 12px; }
+  .auto-slices .as-sum-some { display: none; }
+  .auto-slices .as-long { display: none; }
+  .auto-slices [data-short]::after { content: attr(data-short); }
 }
 .as-preview { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(720px, 92vw); padding: 14px; }
 .as-preview::backdrop { background: #000a; }

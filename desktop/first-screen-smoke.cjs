@@ -25,17 +25,20 @@ BrowserWindow.prototype.loadURL=async function(...args){
  let ok=false;const report={};
  const until=async(expr,ms=60000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await read(expr))return true;await wait(100);}throw Error('TIMEOUT '+expr);};
  const shot=async(name)=>{if(!shots)return;await wait(300);fs.writeFileSync(path.join(shots,name),(await win.webContents.capturePage()).toPNG());};
- const size=async(w,h)=>{win.setContentSize(w,h);await wait(400);await read(`(()=>{autoRender('review');document.querySelector('dialog.auto-slices [data-as-body]').scrollTop=0;return true;})()`);await wait(200);};
+ // the app's window is at least 640 wide (main.js minWidth; about 644 px inside): this test window may be narrower, so
+ // 630 is 630 and a phone-wide 390×844 is 390 (the narrow rules hold up to 700 px, the app's narrowest window included)
+ const size=async(w,h)=>{win.setMinimumSize(320,320);win.setContentSize(w,h);await wait(400);await read(`(()=>{autoRender('review');document.querySelector('dialog.auto-slices [data-as-body]').scrollTop=0;return true;})()`);await wait(200);};
  // where things are, in the window's pixels
  const measure=()=>read(`(()=>{const d=document.querySelector('dialog.auto-slices'),r=(e)=>e&&e.getBoundingClientRect(),f=d.querySelector('[data-as-footer]'),card=d.querySelector('[data-as-card]');
    const title=d.querySelector('.as-head b'),few=[...d.querySelectorAll('.as-card-box')].find(x=>/够好的只有/.test(x.textContent));
    const lines=(e)=>{const rg=document.createRange();rg.selectNodeContents(e);return new Set([...rg.getClientRects()].map(x=>Math.round(x.top))).size;};
+   // what a button shows: its words, or on a narrow window its short words (its ::after)
+   const shown=(b)=>{const l=b.querySelector('.as-long'),af=getComputedStyle(b,'::after').content;return l&&getComputedStyle(l).display==='none'&&af&&af!=='none'?JSON.parse(af):b.textContent.trim();};
    const vis=(e)=>!!e&&e.getClientRects().length>0&&getComputedStyle(e).display!=='none'&&getComputedStyle(e).visibility!=='hidden';
-   return{footerTop:r(f).top,footerH:r(f).height,footerLines:new Set([...f.children].filter(vis).map(x=>Math.round(r(x).top))).size,
+   return{footerTop:r(f).top,footerH:r(f).height,footerLines:[...f.children].filter(x=>vis(x)&&!x.matches('.as-spacer')).map(x=>r(x).top+r(x).height/2).sort((p,q)=>p-q).filter((y,i,ys)=>!i||y-ys[i-1]>8).length,
     cardTop:r(card).top,nameBottom:r(card.querySelector('.as-clip-title')).bottom,whyBottom:r(card.querySelector('.as-why')||card.querySelector('.as-clip-title')).bottom,
     titleLines:lines(title),titleWrap:getComputedStyle(title).whiteSpace,fewH:few?r(few).height:0,
-    place:(()=>{const b=f.querySelector('[data-as-act=place]');return [...b.querySelectorAll('span')].filter(vis).map(x=>x.textContent).join('')||b.textContent;})(),
-    exp:(()=>{const b=f.querySelector('[data-as-act=export]');return [...b.querySelectorAll('span')].filter(vis).map(x=>x.textContent).join('')||b.textContent;})(),
+    place:shown(f.querySelector('[data-as-act=place]')),exp:shown(f.querySelector('[data-as-act=export]')),
     sum:vis(f.querySelector('.as-sum'))?f.querySelector('.as-sum').textContent.trim():''};})()`);
  try{
   await until(`state.connected`,15000);
@@ -75,8 +78,9 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.equal(back.place,zh('as-place',{n}));assert.ok(back.sum.startsWith(zh('as-sum-n',{n})));
   // the empty states' footer (JJ): the buttons keep their words with 0, grey and faded; the reason on the left
   const foot=await read(`(()=>{const st=autoState(),keep={clips:st.clips,dropped:st.dropped};const d=document.querySelector('dialog.auto-slices'),f=()=>d.querySelector('[data-as-footer]');
+    const shown=(b)=>b.textContent.trim();
     const look=()=>{const p=f().querySelector('[data-as-act=place]'),e=f().querySelector('[data-as-act=export]'),s=(b)=>getComputedStyle(b);
-     return{sum:f().querySelector('.as-sum').textContent.trim(),place:p.textContent.trim(),exp:e.textContent.trim(),disabled:p.disabled&&e.disabled,faded:+s(p).opacity<=0.5&&+s(e).opacity<=0.5};};
+     return{sum:f().querySelector('.as-sum').textContent.trim(),place:shown(p),exp:shown(e),disabled:p.disabled&&e.disabled,faded:+s(p).opacity<=0.5&&+s(e).opacity<=0.5};};
     const out={};
     st.clips=keep.clips.map(c=>({...c,on:false}));autoRender('review');out.noneTicked=look();
     st.dropped=keep.clips.map(c=>({...c,on:false}));st.clips=[];autoRender('review');out.allOut=look();

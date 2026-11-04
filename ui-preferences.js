@@ -492,7 +492,12 @@
     "as-place": ["Put on the timeline ({n})", "放到时间线上（{n} 条）"],
     "as-place-title": ["Put them on the main timeline to keep editing or export them", "放到主界面时间线上，接着细剪或导出"],
     "as-export": ["Export these {n} now", "直接导出这 {n} 条"],
-    "as-tick-first": ["Tick the ones you want first", "先勾选要导出的"],
+    // the footer of the empty states (JJ's words): the buttons keep their words with 0; the reason on the left
+    "as-foot-all-out": ["0 · put back the ones you want from “Taken out” first", "0 条 · 先从「拿掉的」里放回要用的"],
+    "as-foot-none-ticked": ["0 · tick the ones you want first", "0 条 · 先勾上要用的"],
+    // a narrow window's footer (v12: one line): the short words (English: placeholder until JJ words it)
+    "as-place-short": ["Put on the timeline ({n})", "放到时间线上（{n}）"],
+    "as-export-short": ["Export {n}", "导出 {n} 条"],
     "as-placed": ["Put {n} on the timeline; you can keep editing them.", "已把 {n} 条放到时间线上，可以接着细剪。"],
     "as-undo": ["Undo", "撤销"],
     // caption size and position in one go (P5; v10 ④, JJ's words of v7.4 and her final #81 changes)

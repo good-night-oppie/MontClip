@@ -10429,6 +10429,8 @@ function autoBuild() {
     if (e.key !== "Escape") e.stopPropagation();
   });
   d.addEventListener("click", autoClick);
+  // 整场一览 opened or folded by the streamer (its summary clicked — a fold drawn open fires toggle too): so it stays
+  d.addEventListener("click", (e) => { const sm = e.target.closest && e.target.closest("summary.as-ov-head"); if (sm) autoState().ovOpen = !sm.parentElement.open; }, true);
   d.addEventListener("change", autoChange);
   d.addEventListener("pointerdown", autoDragStart);
   d.querySelector("[data-as-toast-undo]").addEventListener("click", () => autoUndo());
@@ -10601,7 +10603,7 @@ function autoReviewHtml() {
     ${allOut ? "" : `<div class="as-evidence${dm ? "" : " warn"}">${evidence}</div>`}
     ${st.ask ? `<section class="as-askline" data-as-ask><b>${autoSay("as-ask-title")}</b><span class="as-small as-askwhy">${autoSay("as-ask-sub")}</span>
       <div class="as-seg"><button type="button" data-as-act="ask" data-as-v="sing">${autoSay("as-ask-sing")}</button><button type="button" data-as-act="ask" data-as-v="chat">${autoSay("as-ask-chat")}</button><button type="button" data-as-act="ask" data-as-v="auto">${autoSay("as-ask-both")}</button></div></section>` : ""}
-    ${st.few && !allOut ? `<section class="as-card-box"><b>${autoSay("as-few", st.few)}</b><p class="as-small">${autoSay("as-few-sub", { signals: uiText(dm ? "own.as-sig-both" : "own.as-sig-sound") })}</p></section>` : ""}
+    ${st.few && !allOut ? `<section class="as-card-box as-few"><b>${autoSay("as-few", st.few)}</b><p class="as-small">${autoSay("as-few-sub", { signals: uiText(dm ? "own.as-sig-both" : "own.as-sig-sound") })}</p></section>` : ""}
     <div data-as-cards>${cards}</div>
     ${st.dropped.length ? `<details class="as-more"><summary>${autoSay("as-dropped", { n: st.dropped.length })}</summary>
       ${st.dropped.map((c) => `<div class="as-row as-dropped"><span>${escapeHtml(autoName(c))}</span><button type="button" class="btn tiny" data-as-act="put-back" data-as-id="${escapeHtml(c.id)}">${autoSay("as-put-back")}</button></div>`).join("")}</details>` : ""}
@@ -10613,10 +10615,11 @@ function autoOverviewHtml(rec, clips, startNo) {
   const ticks = o.ticks.map((t) => `<line class="as-ov-tick" x1="${(t / L * 1000).toFixed(1)}" y1="0" x2="${(t / L * 1000).toFixed(1)}" y2="100"/>`).join("");
   const boxes = o.boxes.map((b) => `<g class="as-ov-box${b.on ? " on" : ""}" data-as-act="focus" data-as-id="${escapeHtml(b.id)}"><rect x="${b.x}" y="2" width="${b.w}" height="96" rx="2"/><text x="${(b.x + b.w / 2).toFixed(1)}" y="13" text-anchor="middle">${b.no}</text></g>`).join("");
   const m = autoMedia(rec.mediaId);
-  return `<div class="as-ov"><div class="as-ov-head"><b>${autoSay("as-overview")}</b> <span class="as-small">${escapeHtml(m ? m.name : "")} · ${autoSay("as-overview-hint")}</span></div>
+  const st = autoState(), open = st.ovOpen != null ? st.ovOpen : window.innerWidth > 700;
+  return `<details class="as-ov" data-as-ov${open ? " open" : ""}><summary class="as-ov-head"><b>${autoSay("as-overview")}</b> <span class="as-small">${escapeHtml(m ? m.name : "")} · ${autoSay("as-overview-hint")}</span></summary>
     <svg viewBox="0 0 1000 100" preserveAspectRatio="none" class="as-ov-svg" role="img" aria-label="${autoSay("as-overview")}">${ticks}${area}${boxes}</svg>
     <div class="as-ov-axis">${o.ticks.map((t) => `<span style="left:${(t / L * 100).toFixed(2)}%">${escapeHtml(MontClipAutoSlices.hms(t))}</span>`).join("")}</div>
-    <div class="as-small as-ov-legend"><span><i class="as-lg-loud"></i>${autoSay("as-lg-sound")}</span><span><i class="as-lg-on"></i>${autoSay("as-lg-on")}</span><span><i class="as-lg-off"></i>${autoSay("as-lg-off")}</span></div></div>`;
+    <div class="as-small as-ov-legend"><span><i class="as-lg-loud"></i>${autoSay("as-lg-sound")}</span><span><i class="as-lg-on"></i>${autoSay("as-lg-on")}</span><span><i class="as-lg-off"></i>${autoSay("as-lg-off")}</span></div></details>`;
 }
 function autoWave(c, w) {
   const rec = autoRec(c.mediaId), l = rec && rec.loudness, t = w === "s" ? c.s : c.e;
@@ -10866,11 +10869,18 @@ function autoFooter() {
   if (!f) return;
   f.hidden = st.step !== "review";
   if (f.hidden) return;
-  const t = MontClipAutoSlices.totals(st.clips);
-  f.innerHTML = `<span class="as-sum"><b>${autoSay("as-sum-n", { n: t.n })}</b> <span class="as-muted">${t.n ? autoSay("as-sum-total", { total: autoDur(t.seconds) }) : autoSay("as-sum-none")}</span></span>
+  const t = MontClipAutoSlices.totals(st.clips), h = MontClipAutoSlices.reviewHead(st.clips, st.dropped);
+  // nothing to put out: the buttons keep their words with 0 (grey), the reason on the left (JJ); a narrow window shows
+  // one line — the short words, and no summary when there is something (the title says how many; v12)
+  const why = !t.n && h.key === "all-out" ? autoSay("as-foot-all-out") : !t.n && h.key === "none-ticked" ? autoSay("as-foot-none-ticked") : "";
+  const sum = why ? `<span class="as-sum">${why}</span>`
+    : `<span class="as-sum${t.n ? " as-sum-some" : ""}"><b>${autoSay("as-sum-n", { n: t.n })}</b> <span class="as-muted">${t.n ? autoSay("as-sum-total", { total: autoDur(t.seconds) }) : autoSay("as-sum-none")}</span></span>`;
+  // the short words are the button's ::after on a narrow window (so its text stays the long words, for readers and tests)
+  const words = (k, n) => `<span class="as-long">${autoSay(k, { n })}</span>`, short = (k, n) => ` data-short="${escapeHtml(uiText("own." + k + "-short", { n }))}"`;
+  f.innerHTML = `${sum}
     <span class="as-spacer"></span>
-    <button type="button" class="btn primary" data-as-act="place" title="${autoSay("as-place-title")}"${t.n ? "" : " disabled"}>${t.n ? autoSay("as-place", { n: t.n }) : autoSay("as-tick-first")}</button>
-    <button type="button" class="btn" data-as-act="export"${t.n ? "" : " disabled"}>${t.n ? autoSay("as-export", { n: t.n }) : autoSay("as-tick-first")}</button>`;
+    <button type="button" class="btn primary" data-as-act="place" title="${autoSay("as-place-title")}"${short("as-place", t.n)}${t.n ? "" : " disabled"}>${words("as-place", t.n)}</button>
+    <button type="button" class="btn" data-as-act="export"${short("as-export", t.n)}${t.n ? "" : " disabled"}>${words("as-export", t.n)}</button>`;
 }
 /* the dialog's own undo: card edits (tick, move, rename, take out) — not the timeline's */
 function autoSnap(extra) {
