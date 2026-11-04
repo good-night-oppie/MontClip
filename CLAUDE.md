@@ -24,6 +24,8 @@ Every Claude Code session then has these tools:
   set project fields, add and open sequences) without round-tripping the document. **Prefer this for edits.**
 - `fablecut_import_media` — copy a local file (or download an `https://` URL)
   into `./media/` and register it. The stored `src` is always `/media/…`.
+  `link:true` hard-links a local file on the same drive instead of copying it
+  (a several-GB recording imports at once; another drive falls back to a copy).
 - `fablecut_analyze_reference` — turn a reference video into an edit blueprint
   (shots, beats, BPM, energy, drop) + extract its music. See "Remake a reference video".
 - `fablecut_frame` — **look at** a moment and get back an actual image.
@@ -164,6 +166,16 @@ either way. The plugin sets this so a plugin update can replace the install
 directory without touching anyone's timeline or footage. **Don't assume
 `project.json` is beside `mcp-server.js`** — call `fablecut_status`, which
 reports the real paths.
+
+**One engine writes a data folder.** The first `server.js` to start holds
+`<data dir>/.montclip-writer.lock` (`{pid, shell, port, started}`; `shell` is
+`MONTCLIP_SHELL`, else `desktop` or `server`). Another one started on the same
+folder — the Windows app and the Cindy plugin pointed at one folder, say —
+refuses to start and names the first. A lock whose process is gone is taken over.
+
+`mcp-server.js` run as a program speaks MCP on stdio; required as a module (the
+Cindy plugin's Node worker does) it only hands over `{TOOLS, callTool,
+ensureUIServer}` and leaves stdin alone.
 
 Tests (and nothing else) may set **`FABLECUT_NO_FS_WATCH=1`** to skip `fs.watch`.
 On Windows, libuv can abort the process when a file is created under a temp
@@ -2228,7 +2240,7 @@ obvious cuts were missed, raise it if motion is being misread as cuts.
 
 ## REST API (alternative to file editing)
 
-Request bodies are limited: 1 MB, except `PUT /api/project` (64 MB), `POST /api/projects` (128 MB, imports and backups), `POST /api/transcript` (16 MB) and `POST /api/export/frame` (one raw frame of the largest canvas). A larger body gets **413** `{code:"BODY_TOO_LARGE", limit}` and is not kept. `POST /api/upload` and `/api/export/audio` stream to disk and have no such limit.
+Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/undo-stack` (64 MB), `POST /api/projects` (128 MB, imports and backups), `POST /api/transcript` (16 MB) and `POST /api/export/frame` (one raw frame of the largest canvas). A larger body gets **413** `{code:"BODY_TOO_LARGE", limit}` and is not kept. `POST /api/upload` and `/api/export/audio` stream to disk and have no such limit.
 
 - `GET  /api/project` — current project JSON
 - `PUT  /api/project` — replace project JSON (body = full document).
@@ -2333,6 +2345,23 @@ Request bodies are limited: 1 MB, except `PUT /api/project` (64 MB), `POST /api/
 - `POST /api/scopes/request` also takes `{"image":true}`, which makes the editor
   return the measured still as a JPEG data URL in `result.image` — how
   `fablecut_frame {time}` shows an agent the composed program picture.
+- `POST /api/ui/command {cmd, t?}` — ask the open editor tab to run `undo`, `redo`,
+  `seek` (`t` seconds) or report its `state`. The undo stack lives in the tab, so
+  this is how something outside it (an agent, a side panel) undoes. The tabs get SSE
+  event `ui-command` `{id, cmd, t?}`; the first to answer on
+  `POST /api/ui/command/result {id, ok, code?, time, undo, redo, revision, clips, duration}`
+  wins and its answer is the reply (`ok:false` with `NOTHING_TO_UNDO`, `NOTHING_TO_REDO`
+  or `UNKNOWN_CMD`). No tab within 4 s → **409** `{code:"NO_EDITOR"}`: use versions.
+- `GET /api/ui/undo-stack?project=` → `{stack}` · `PUT /api/ui/undo-stack?project=`
+  `{sequence, revision, current, media, undo, redo, time}` (64 MB) ·
+  `POST /api/ui/undo-stack/time?project= {t}` — the editor tab's undo history, kept
+  per project (`analysis/undo/<id>.json`, at most 100 steps each way; `project` is
+  the `X-FableCut-Project` id, `default` before projects are used). The editor writes
+  it after each save and each outside edit, and a page that loads or switches to the
+  project puts it back — Cindy reloads a task's editor tab when the task comes back.
+  `current` is the timeline the steps lead to: when it differs from what is on disk
+  (an agent edited while no tab was open), that change becomes an undo step of its own.
+  The playhead is kept as the page goes away. Deleting the project deletes it.
 - `GET  /api/events`  — SSE: named event `change` when project.json, ./media or
   ./library changes; named event `profiles` when `encoding-profiles.json` changes
   (UI refreshes the export-profile list only — no project reload); named event

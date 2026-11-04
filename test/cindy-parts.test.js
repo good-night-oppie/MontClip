@@ -85,24 +85,28 @@ test("the strings: Cindy's own for zh-CN and en, at 43001ea, the same keys in bo
   assert.equal(own['zh-CN'].newChat.permissionSelector.modes['claude-code'].ask.label, '手动');
 });
 
-test('the mode capsule says each mode in v7.2 §3 words, the same sentence as the rest of MontClip (Deja, 2026-11-04)', () => {
+test("the mode capsule says each mode in JJ's final words (c604fd65 MODES): word for word the mode tips, zh-CN and en (Deja, 2026-11-04)", () => {
   const own = require('../agent-ui/montclip-strings.json'), View = require('../ui-preferences');
   const desc = (l, id) => own[l].newChat.permissionSelector.modes['claude-code'][id].description;
-  // v7.2 §3, word for word, full stops included
+  // the same four sentences as the mode buttons' tips (ui-preferences.js officialPane_mode*Tip, #110). Change one, this fails.
+  for (const l of ['zh-CN', 'en']) {
+    const T = (k) => View.text[l]['officialPane_' + k];
+    assert.equal(desc(l, 'plan'), T('modePlanTip'), l + ' plan');
+    assert.equal(desc(l, 'ask'), T('modeManualTip'), l + ' manual');
+    assert.equal(desc(l, 'auto'), T('modeAutoTip'), l + ' auto');
+    assert.equal(desc(l, 'bypassPermissions'), T('modeYoloTip'), l + ' Yolo');
+  }
+  // which are JJ's, full stops included
   assert.equal(desc('zh-CN', 'plan'), '只出计划，不改项目。');
   assert.equal(desc('zh-CN', 'ask'), '改项目前先问你；撤不回的每次都问。默认是这个。');
   assert.equal(desc('zh-CN', 'auto'), '能撤销的直接做，撤不回的先问你。');
-  assert.equal(desc('zh-CN', 'bypassPermissions'), '每一步都直接做，不问你；往外发的内容照样先给你看。');
-  // …and the sentence MontClip already says for that mode (#84: the mode buttons' tips, the Yolo bar). Change one, this fails.
-  for (const [l, stop, def] of [['zh-CN', '。', '默认是这个。'], ['en', '.', 'This is the default.']]) {
-    const T = (k) => View.text[l]['officialPane_' + k];
-    assert.equal(desc(l, 'plan'), T('modePlanTip') + stop, l + ' plan');
-    assert.equal(desc(l, 'ask'), T('modeManualTip') + stop + (l === 'en' ? ' ' : '') + def, l + ' manual');
-    assert.equal(desc(l, 'auto'), T('modeAutoTip') + stop, l + ' auto');
-    assert.equal(desc(l, 'bypassPermissions'), T('modeYoloTip') + stop, l + ' Yolo');
-  }
-  assert.equal('Yolo 开着：AI ' + desc('zh-CN', 'bypassPermissions'), View.text['zh-CN'].officialPane_yoloOn, 'the Yolo bar says the same');
-  assert.equal(desc('en', 'bypassPermissions'), 'Does every step without asking you; anything sent out is still shown to you first.');
+  assert.equal(desc('zh-CN', 'bypassPermissions'), '每一步都直接做，不问你；往外发的内容照样先给你看。打开前会再确认一次。');
+  assert.equal(desc('en', 'plan'), 'Only plans; changes nothing.');
+  assert.equal(desc('en', 'ask'), "Asks before changing the project; asks every time for anything that can't be undone. This is the default.");
+  assert.equal(desc('en', 'auto'), "Does what can be undone; asks before what can't.");
+  assert.equal(desc('en', 'bypassPermissions'), "Does every step without asking you; anything sent out is still shown to you first. You'll be asked once more before it turns on.");
+  // the Yolo bar is its own sentence, unchanged
+  assert.equal(View.text['zh-CN'].officialPane_yoloOn, 'Yolo 开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。');
   // the old wording is gone
   assert.ok(!JSON.stringify(own).includes('全都直接做'));
 });

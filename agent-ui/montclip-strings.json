@@ -1,5 +1,5 @@
 {
- "about": "MontClip's own words for Cindy keys whose Cindy wording does not fit MontClip, laid over cindy-strings.json. The four permission modes are MontClip's, in 助手面板 v7.2 §3 words (#83's, with their full stops; the same sentences as the mode tips and the Yolo bar, test/cindy-parts.test.js); the stand-in useAgentCapabilities gives them under Cindy's ids plan / ask / auto / bypassPermissions. chat.thinking.inProgress / hidden are not Cindy keys: Cindy writes Thinking / Thinking hidden in ThinkingCard's JSX, and the build puts these two t() calls in their place (cindy-resolve.cjs PATCHES; VV on f3df7db).",
+ "about": "MontClip's own words for Cindy keys whose Cindy wording does not fit MontClip, laid over cindy-strings.json. The four permission modes are MontClip's, in JJ's final words from the frozen prototype c604fd65 (MODES), full stops included: word for word the mode tips of ui-preferences.js (officialPane_mode*Tip, #110), test/cindy-parts.test.js; the stand-in useAgentCapabilities gives them under Cindy's ids plan / ask / auto / bypassPermissions. chat.thinking.inProgress / hidden are not Cindy keys: Cindy writes Thinking / Thinking hidden in ThinkingCard's JSX, and the build puts these two t() calls in their place (cindy-resolve.cjs PATCHES; VV on f3df7db).",
  "zh-CN": {
   "newChat": {
    "permissionSelector": {
@@ -21,7 +21,7 @@
       },
       "bypassPermissions": {
        "label": "Yolo",
-       "description": "每一步都直接做，不问你；往外发的内容照样先给你看。"
+       "description": "每一步都直接做，不问你；往外发的内容照样先给你看。打开前会再确认一次。"
       }
      }
     }
@@ -55,7 +55,7 @@
       },
       "bypassPermissions": {
        "label": "Yolo",
-       "description": "Does every step without asking you; anything sent out is still shown to you first."
+       "description": "Does every step without asking you; anything sent out is still shown to you first. You'll be asked once more before it turns on."
       }
      }
     }

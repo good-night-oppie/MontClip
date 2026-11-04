@@ -1339,6 +1339,9 @@ async function connectServer() {
     state.connected = true;
     els.projectName.textContent = projectStatusText();
     runtime.projectId = res.headers.get("X-FableCut-Project");
+    await restoreUndoStack();   // a reloaded page gets its undo history back
+    window.addEventListener("pagehide", keepPlayheadOnLeave);
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") keepPlayheadOnLeave(); });
     if (res.headers.get("X-FableCut-Projects")) initProjectsUi();
     listenSSE();
     // v10: the transcription setup page, the first time (desktop app only; see maybeOpenAsrSetup)
@@ -1740,7 +1743,7 @@ async function saveNow() {
       return loaded === true;   // the newer document on disk is now what this tab shows
     }
     runtime.saveFailed = !res.ok;
-    if (res.ok) eventLog().settle(project.revision);
+    if (res.ok) { eventLog().settle(project.revision); persistUndoSoon(); }
     return res.ok;
   } catch { runtime.saveFailed = true; return false; }
 }
@@ -1886,6 +1889,7 @@ function listenSSE() {
   es.addEventListener("proxy", (e) => onProxyEvent(e.data));
   es.addEventListener("transcript", (e) => onTranscriptEvent(e.data));
   es.addEventListener("asr", (e) => onAsrEvent(e.data));
+  es.addEventListener("ui-command", (e) => onUiCommand(e.data));
   es.addEventListener("versions", (e) => {
     let d = {};
     try { d = JSON.parse(e.data); } catch { }
@@ -1958,6 +1962,7 @@ async function syncFromServer(force) {
         for (const src of [...runtime.audioBufs.keys()]) if (!srcs.has(src)) runtime.audioBufs.delete(src);
       }
       setTime(0);
+      await restoreUndoStack();   // this project's own undo history, as its tab left it
       syncCompCrumb();
       if (!pj.selfSwitch) toast(`Switched to “${project.name}”`);
       if (projectsOpen()) pjLoad();
@@ -1980,7 +1985,7 @@ async function syncFromServer(force) {
     }
     applyProject(data);
     const step = before && outsideEditStep(before, undoSnapshot(), mediaBefore, project.media);
-    if (step) pushUndo(step, { noEvent: true });
+    if (step) { pushUndo(step, { noEvent: true }); persistUndoSoon(); }
     if (clash) toast(step ? "The project was changed from outside while you were editing. Ctrl+Z puts your version back."
       : "Project was updated externally — your last change may need redoing.");
     syncCompCrumb();   // the top bar shows the project's name
@@ -4234,6 +4239,67 @@ function redo() {
   restoreSnapshot(snap);
   pruneSelection();
   scheduleSave(); renderInspector();
+}
+
+/** A command for this tab from outside it (POST /api/ui/command — an agent in Cindy, the transcript panel):
+ *  undo / redo run the tab's own undo stack, seek moves the playhead, state only reports. The answer goes back
+ *  on /api/ui/command/result; the first tab to answer wins. */
+function onUiCommand(data) {
+  let c = {};
+  try { c = JSON.parse(data); } catch { return; }
+  if (!c.id) return;
+  let ok = true, code = null;
+  if (c.cmd === "undo") { if (runtime.undo.length) undo(); else { ok = false; code = "NOTHING_TO_UNDO"; } }
+  else if (c.cmd === "redo") { if (runtime.redo.length) redo(); else { ok = false; code = "NOTHING_TO_REDO"; } }
+  else if (c.cmd === "seek") setTime(+c.t || 0);
+  else if (c.cmd !== "state") { ok = false; code = "UNKNOWN_CMD"; }
+  fetch("/api/ui/command/result", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+    id: c.id, ok, ...(code ? { code } : {}), cmd: c.cmd, time: state.time, undo: runtime.undo.length, redo: runtime.redo.length,
+    revision: project.revision ?? null, clips: project.clips.length, duration: projDur(),
+  }) }).catch(() => {});
+}
+
+/* The undo history outlives the page (undo-stacks.js on the server, one per project): written after each save and each
+   outside edit, read back when the page loads or switches to the project. Cindy reloads a task's editor tab whenever
+   the task comes back to the front; without this the tab would come back with nothing to undo. A comp that is open
+   has a stack of its own, which is not kept. */
+function undoStackUrl(sub = "") { return "/api/ui/undo-stack" + sub + "?project=" + encodeURIComponent(runtime.projectId || "default"); }
+function persistUndoSoon() {
+  if (!state.connected || state.compCtx) return;
+  clearTimeout(runtime.undoPersistTimer);
+  runtime.undoPersistTimer = setTimeout(() => {
+    runtime.undoPersistTimer = null;
+    if (state.compCtx) return;
+    fetch(undoStackUrl(), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+      sequence: SeqLib.activeId(project) ?? null, revision: project.revision ?? null, current: undoSnapshot(), media: project.media,
+      undo: runtime.undo, redo: runtime.redo, time: state.time,
+    }) }).catch(() => { });
+  }, 300);
+}
+/** Put back the undo history this project's page left (only into an empty stack, for the sequence it was kept for).
+ *  When the timeline changed since (an agent edited while no tab was open), that change becomes an undo step of its
+ *  own, as it does for a tab that is open. */
+async function restoreUndoStack() {
+  if (!state.connected || state.compCtx || runtime.undo.length || runtime.redo.length) return false;
+  const gen = runtime.projectGen, pid = runtime.projectId;
+  let stack = null;
+  try { stack = (await (await fetch(undoStackUrl(), { cache: "no-store" })).json()).stack; } catch { return false; }
+  if (!stack || gen !== runtime.projectGen || pid !== runtime.projectId || runtime.undo.length || runtime.redo.length) return false;
+  if ((stack.sequence ?? null) !== (SeqLib.activeId(project) ?? null)) return false;
+  runtime.undo.splice(0, runtime.undo.length, ...(stack.undo || []));
+  runtime.redo.splice(0, runtime.redo.length, ...(stack.redo || []));
+  const now = undoSnapshot();
+  if (stack.current && stack.current !== now) {
+    const step = outsideEditStep(stack.current, now, stack.media, project.media);
+    if (step) pushUndo(step, { noEvent: true });
+  }
+  if (stack.time > 0) setTime(Math.min(stack.time, projDur()));
+  return true;
+}
+/* the page is going away (Cindy switching tasks, a reload): keep where the playhead was (connectServer listens) */
+function keepPlayheadOnLeave() {
+  if (!state.connected || state.compCtx) return;
+  try { fetch(undoStackUrl("/time"), { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: state.time }) }).catch(() => { }); } catch { }
 }
 
 function defaultTrackFor(kind) {
@@ -10233,7 +10299,10 @@ function placeCaptions(list, styleKey, from) {
   state.dirtyTimeline = true;
   scheduleSave();
   renderInspector();
-  toast(`${list.length} caption${list.length === 1 ? "" : "s"} on ${track}${from ? " " + from : ""}${old.length ? ` · replaced ${old.length}` : ""}`);
+  // 〔加字幕〕 in the interface language (N3d); an imported file still says where it came from, in English, as before
+  if (from) toast(`${list.length} caption${list.length === 1 ? "" : "s"} on ${track} ${from}${old.length ? ` · replaced ${old.length}` : ""}`);
+  else toast(old.length ? MontClipView.tp(mcView.get().language, "own.cap-added-replaced", { n: list.length, m: old.length }, { n: list.length, track, m: old.length })
+    : MontClipView.tp(mcView.get().language, "own.cap-added", { n: list.length }, { n: list.length, track }));
 }
 /** A cut, split or trim that shortens a caption leaves its words timed to the old cut: say so, for a moment. */
 const capWatch = { durs: null, at: 0, said: 0 };
@@ -11070,10 +11139,9 @@ function autoUndo() {
   if (st.step !== "review" || !st.hist.length) return;
   const lyr = (cs) => new Map(cs.map((c) => [c.id, JSON.stringify(c.lyricCues || null)]));
   const was = lyr(st.clips);
-  // the lyrics pasted stay on their card: an undo takes back a calibration, not what the streamer pasted (VV on #100)
-  const pasted = new Map(st.clips.concat(st.dropped).filter((c) => c.lyricText).map((c) => [c.id, c.lyricText]));
-  const o = JSON.parse(st.hist.pop()); st.clips = o.clips; st.dropped = o.dropped;
-  for (const c of st.clips.concat(st.dropped)) if (pasted.has(c.id) && !c.lyricText) c.lyricText = pasted.get(c.id);
+  // the lyrics pasted stay on their card, the last paste (MontClipAutoSlices.keepPasted): an undo takes back a calibration,
+  // not what the streamer pasted (VV on #100, #105)
+  const o = MontClipAutoSlices.keepPasted(st, JSON.parse(st.hist.pop())); st.clips = o.clips; st.dropped = o.dropped;
   if (o.learnOn) autoLearnSet(false);   // 〔打开〕 undone: off again
   autoRender("review"); autoToast(uiText("own.as-undone"), false);
   const back = st.clips.find((c) => was.has(c.id) && was.get(c.id) !== JSON.stringify(c.lyricCues || null));
@@ -22820,14 +22888,17 @@ async function setAgentMode(mode){
 function paintAgentMode(){const mark=document.getElementById('mcYoloMark');if(mark)mark.hidden=agentPolicy.mode!=='yolo';if(typeof mcAgent!=='undefined'&&mcAgent)mcAgent.render();}
 /** The host's approval box (QQ 4: only the host shows it). It shows the capability's plain sentence (never its internal
  *  name), what it changes or where it sends, and for an external step what is sent. Resolves to once | session | deny. */
-function askAgentApproval(d,{summary='',content=null}={}){
+function askAgentApproval(d,{summary='',content=null,detail=''}={}){
  return new Promise((resolve)=>{
   const dialog=document.createElement('dialog');dialog.className='agent-approval';dialog.setAttribute('data-agent-approval','');
   const say=(k,v)=>escapeHtml(uiText(k,v)),choice=(c)=>'<button type="button" class="btn'+(c==='once'?' primary':'')+'" data-choice="'+c+'">'+say('own.ap-'+c)+'</button>';
-  dialog.innerHTML='<form method="dialog"><h3>'+say('own.ap-title')+'</h3><p data-ap-label></p><p data-ap-summary></p><p data-ap-target></p>'
+  // v7.2 (VV on #84): first what this step changes (MontClipPlan.stepDetail, 「保留 0:00–1:55」), the plain sentence under it, small;
+  // a step with nothing concrete to say (an export) keeps the plain sentence first
+  dialog.innerHTML='<form method="dialog"><h3>'+say('own.ap-title')+'</h3>'+(detail?'<p class="agent-approval-detail" data-ap-detail></p>':'')+'<p data-ap-label'+(detail?' class="agent-approval-what"':'')+'></p><p data-ap-summary></p><p data-ap-target></p>'
    +(content!=null?'<p>'+say('own.ap-content')+'</p><pre data-ap-content></pre>':'')
    +(d.choices.includes('session')?'':'<p data-ap-every-time>'+say('own.ap-every-time')+'</p>')
    +'<div class="tr-row">'+d.choices.map(choice).join('')+'</div></form>';
+  if(detail)dialog.querySelector('[data-ap-detail]').textContent=detail;
   dialog.querySelector('[data-ap-label]').textContent=d.label;
   dialog.querySelector('[data-ap-summary]').textContent=summary;
   dialog.querySelector('[data-ap-target]').textContent=d.risk==='external'?uiText('own.ap-sends-to',{domain:d.target}):uiText('own.ap-project',{name:project.name||''});
@@ -22867,7 +22938,7 @@ async function onAgentReply(result){
  if(d.action==='refuse'){toast(agentRefusalText(d));return;}
  let step;try{step=agentProposalStep(response,result);}catch(error){toast(uiText(error.message==='STALE'?'own.ap-stale':'own.ap-invalid'));return;}
  if(d.action==='ask'){
-  const choice=await askAgentApproval(d,{summary:agentProposalText(result)});
+  const choice=await askAgentApproval(d,{summary:agentProposalText(result),detail:MontClipPlan.stepDetail({capability:response.type,args:response},mcView.get().language)});
   let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}
   if(!a||!a.ok||!a.run){if(step.ev)moveEvent(step.ev.id,'rejected');toast(uiText('own.ap-denied'));return;}
  }
@@ -22922,7 +22993,7 @@ async function runAgentPlanStep(s,entry,result){
  catch(error){recordAgentEvent(MontClipProposal.failedEvent(error,{...meta,capability:s.capability}));return {ok:false,code:'STALE'};}
  const ev=recordAgentEvent(MontClipProposal.event(proposal,meta));if(ev)proposal.eventId=ev.id;
  if(d.action==='ask'){
-  const choice=await askAgentApproval(d,{summary:uiText('own.pl-step-of',{n:s.index+1,total:entry.run.list().length})});
+  const choice=await askAgentApproval(d,{summary:uiText('own.pl-step-of',{n:s.index+1,total:entry.run.list().length}),detail:MontClipPlan.stepDetail(s,mcView.get().language)});
   let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}
   if(!a||!a.ok||!a.run){if(ev)moveEvent(ev.id,'rejected');return {halt:'DENIED'};}
  }
