@@ -135,3 +135,9 @@ test("worker overview: every project with the task it belongs to, and the export
   assert.deepEqual([task[a.project], task[b.project]], ["task-one", "task-two"]);
   assert.deepEqual(o.exports.map((e) => [e.name, e.bytes]), [["cut.mp4", 1024]], "half-copied files are not listed");
 });
+
+test("file sizes: bytes under 1 KB, then KB, MB, GB — never 0.0 MB", () => {
+  assert.deepEqual([0, 512, 900 * 1024, 1.5 * 1048576, 2.3 * 1073741824].map(V.size), ["0 字节", "512 字节", "900 KB", "1.5 MB", "2.3 GB"]);
+  assert.deepEqual([1023, 1024, 1048575, 1048576, 1073741824].map(V.size), ["1023 字节", "1 KB", "1.0 MB", "1.0 MB", "1.0 GB"]);
+  assert.equal(V.exportRows({ exports: [{ name: "a.srt", bytes: 2048 }] })[0].meta, "2 KB", "an exported subtitle file is not 0.0 MB");
+});
