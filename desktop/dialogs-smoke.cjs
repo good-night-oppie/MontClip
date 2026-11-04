@@ -89,6 +89,10 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await dialog('asr-setup','asr-setup',`openAsrSetup()`);
   // its Esc is 〔以后再说〕 (VV on #88): the choice is kept, as the button keeps it
   sized.asrChoiceAfterEsc=await read(`window.montclipAsr.choice().then(c=>c&&c.choice||null)`);
+  // the 先不装 card as it is drawn (JJ's words, on #102): its title once, then its text — no word said twice
+  await read(`openAsrSetup();true`);await wait(300);
+  sized.laterCard=await read(`(()=>{const c=[...document.querySelectorAll('dialog.asr-setup .asr-card')].find(x=>!x.matches('.asr-card-main'));return c&&{title:c.querySelector('b').textContent,text:c.querySelector('p').textContent,all:c.textContent.replace(/\\s+/g,'')};})()`);
+  await read(`for(const d of document.querySelectorAll('dialog[open]'))d.close();true`);await wait(200);
   // VV on #102 404db85: opened, the focus is on its first button — not on the box itself (the box "contains" itself) —
   // and Esc from there is still 〔以后再说〕
   await read(`window.montclipAsr.setChoice('').catch(()=>{});openAsrSetup();true`);await wait(300);
@@ -139,6 +143,8 @@ BrowserWindow.prototype.loadURL=async function(...args){
    if(group==='overlays'&&!m.cover)bad.push(name+': the dark layer does not cover the window');
   }
   for(const [size,got] of Object.entries(report.sizes)){
+   const lc=got.laterCard;
+   if(!lc||lc.title!=='先不装'||lc.text!=='找高光、剪辑、导出都照常能用，只是不会自动出字幕；你也可以自己导入 SRT 字幕文件。'||lc.all!==('先不装找高光、剪辑、导出都照常能用，只是不会自动出字幕；你也可以自己导入 SRT 字幕文件。').replace(/\s+/g,'')||lc.all.split('先不装').length!==2||lc.all.includes('以后再说'))bad.push(size+' asr-setup: the 先不装 card reads '+JSON.stringify(lc));
    if(got.asrFocus!=='download')bad.push(size+' asr-setup: opened, the focus is on '+got.asrFocus+', not its first button');
    if(!got.asrFocusEsc||got.asrFocusEsc.open||got.asrFocusEsc.choice!=='later')bad.push(size+' asr-setup: Esc from its first button is not 以后再说 '+JSON.stringify(got.asrFocusEsc));}
   for(const [size,got] of Object.entries(report.sizes))if(got.asrChoiceAfterEsc!=='later')bad.push(size+' asr-setup: Esc is not 以后再说 (choice '+got.asrChoiceAfterEsc+')');
