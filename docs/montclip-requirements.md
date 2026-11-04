@@ -40,6 +40,7 @@ All rows remain **not released** until the Windows package and review gates pass
 | N30 | Rights/credits | Upstream MIT retained; actual component inventory needed | Pending package audit |
 | R01 | Real before/after demo | Synthetic real-media package scenario needed | Pending |
 | R02 | Faster candidate review | Candidate rows with reasons and zero-results state needed | Pending |
+| R02a | 自动出切片 results kept with the project | Today the cards (and what is on them: a 补一段 name, a calibration of the lyrics) live in the open window only; the habits come back after a restart, the names do not (known limitation, docs/decisions/2026-11-03-corrections.md; nothing in the interface says so) | **未排** (not scheduled; Deja: decide after real use) |
 | R03 | Danmaku as separate evidence | Do not mix danmaku into speech transcript. Gap 2026-11-03: the editor dropped the whole `project.danmaku` field on load (and deleted it on the next save), so highlight cards never saw danmaku; now kept as it is — PR #79 | Pending; PR #79: unit tests + `DANMAKU_KEEP_PASS` (FAIL on the code before), awaiting review |
 | R04 | Explain heuristics/manual approve | Editable proposed boundaries needed | Pending |
 | R05 | OpenAI-compatible text-only model | Explicit payload consent and adapter needed | No model connected; no AI claim |

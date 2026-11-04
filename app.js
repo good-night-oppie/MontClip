@@ -9623,6 +9623,14 @@ function openAsrSetup(state) {
   asrSetup.state = state || null;
   paintAsrSetup();
 }
+/** A box taller than the window (Deja, #88): everything between its title and its actions goes into a .dialog-body that
+ *  scrolls, so the title and the actions stay in sight. */
+function wrapDialogBody(dialog) {
+  const body = document.createElement("div");
+  body.className = "dialog-body";
+  for (const n of [...dialog.childNodes]) if (!(n.nodeType === 1 && (n.matches("h2") || n.matches(".dialog-actions")))) body.append(n);
+  dialog.insertBefore(body, dialog.querySelector(":scope > .dialog-actions"));
+}
 function paintAsrSetup() {
   if (!asrSetup) return;
   const h = (k, v) => escapeHtml(uiText("own." + k, v)), d = asrState.downloading;
@@ -9648,6 +9656,7 @@ function paintAsrSetup() {
       <div class="dialog-actions"><button type="button" class="btn primary" data-asr-setup="download">${h(again)}</button>${later}</div>`;
   }
   asrSetup.dialog.innerHTML = html;
+  wrapDialogBody(asrSetup.dialog);
 }
 async function asrSetupClick(e) {
   const b = e.target.closest("[data-asr-setup]");
@@ -22627,6 +22636,7 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  getProjectName:id=>id===runtime.projectId?project.name:null,
  canUndoProposal:canUndoOfficialProposal,
  getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[]});},
+ getFactsOmitted:()=>MontClipFacts.omitted(projectJSON()),
  onUndo:result=>{if(canUndoOfficialProposal(result)){const entry=officialProposalApplications.get(result);if(!entry?.eventId||!undoEvent(entry.eventId).ok)undo();}},
  onProposal:(response,result)=>{
    const c=agentProjectContext();
