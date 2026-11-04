@@ -4317,7 +4317,8 @@ async function restoreUndoStack() {
 }
 /* Inside Cindy the plugin's side panel (Transcript, Properties) is another page of this origin: this tab tells it where
    the playhead is and what is selected, and takes its seeks, over BroadcastChannel("montclip-editor"). Messages:
-   editor → {type:"editor-state", time, playing, selId, revision, projectId}; panel → {type:"seek", t} | {type:"hello"}. */
+   editor → {type:"editor-state", time, playing, selId, revision, projectId} (on a change, and at least once a second);
+   panel → {type:"seek", t} | {type:"hello"}. */
 function startHostChannel() {
   if (typeof BroadcastChannel !== "function" || runtime.hostChannel) return;
   const ch = runtime.hostChannel = new BroadcastChannel("montclip-editor");
@@ -4333,7 +4334,9 @@ function startHostChannel() {
     if (m.type === "seek" && Number.isFinite(+m.t) && +m.t >= 0) { setTime(Math.min(+m.t, projDur())); post(true); }
     else if (m.type === "hello") post(true);
   };
-  setInterval(() => post(false), 250);
+  // a change goes out at once; with nothing changing, once a second anyway, so the panel knows the editor is still open
+  let beat = 0;
+  setInterval(() => { beat = (beat + 1) % 4; post(beat === 0); }, 250);
   post(true);
 }
 /* the page is going away (Cindy switching tasks, a reload): keep where the playhead was (connectServer listens) */
