@@ -5,7 +5,7 @@
   "name": "MontClip",
   "description": "在 Cindy 任务里打开 MontClip 剪辑器，跟聊天同屏；在聊天里用自然语言剪辑本机录像和音频（删段、降噪、字幕、导出等 fablecut 操作），可撤销、重做，并能列出版本、回到某一版。插件带一个本机 Node 进程运行 MontClip 引擎，可读写本机文件。",
   "whenToUse": "需要剪辑本机录像或音频时：删掉某段、剪掉停顿、按文字剪、加字幕、调音量、降噪、按节拍剪、导出 MP4；撤销或重做剪辑；查看或回到 MontClip 项目的某个版本；在这个任务里打开 MontClip 剪辑器。",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "entry": "main.js",
   "command": "剪辑",
   "icon": "assets/icon.png",
@@ -13,14 +13,22 @@
     {
       "name": "montclip_status",
       "description": "启动（如未启动）MontClip 引擎，返回引擎状态、ffmpeg 是否已装、数据目录，以及这个任务的剪辑器页是否已打开（撤销/重做需要它打开）。先调这个。",
-      "parameters": { "type": "object", "properties": {} }
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
     },
     {
       "name": "list_tools",
       "description": "列出 MontClip 引擎的剪辑操作（fablecut_*）。不传 category 返回类目概览；传 category 返回该类目每个操作的名称、说明、参数 schema 和该类目 RULES。类目：project（读/改时间线，删段用这里）、versions（版本）、audio、speech（听写/字幕）、export、other。",
       "parameters": {
         "type": "object",
-        "properties": { "category": { "type": "string", "description": "类目名，来自概览" } }
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "类目名，来自概览"
+          }
+        }
       }
     },
     {
@@ -29,29 +37,50 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "name": { "type": "string", "description": "操作名，例如 fablecut_patch_project" },
-          "args": { "type": "object", "description": "操作参数；不确定时传 {}，失败结果会附正确的 schema" }
+          "name": {
+            "type": "string",
+            "description": "操作名，例如 fablecut_patch_project"
+          },
+          "args": {
+            "type": "object",
+            "description": "操作参数；不确定时传 {}，失败结果会附正确的 schema"
+          }
         },
-        "required": ["name"]
+        "required": [
+          "name"
+        ]
       }
     },
     {
       "name": "montclip_undo",
       "description": "撤销剪辑器里最近的一步（人改的和 Agent 改的在同一条撤销栈里）。需要剪辑器页已打开；没打开时返回 NO_EDITOR。返回撤销后的撤销/重做步数和修订号。",
-      "parameters": { "type": "object", "properties": {} }
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
     },
     {
       "name": "montclip_redo",
       "description": "重做剪辑器里刚撤销的一步。需要剪辑器页已打开。",
-      "parameters": { "type": "object", "properties": {} }
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
     },
     {
       "name": "montclip_seek",
       "description": "把剪辑器的播放头移到时间线上的某个时间（秒）。需要剪辑器页已打开。",
       "parameters": {
         "type": "object",
-        "properties": { "t": { "type": "number", "description": "时间线时间，秒" } },
-        "required": ["t"]
+        "properties": {
+          "t": {
+            "type": "number",
+            "description": "时间线时间，秒"
+          }
+        },
+        "required": [
+          "t"
+        ]
       }
     },
     {
@@ -59,7 +88,12 @@
       "description": "在这个任务的右侧栏打开（或切到）MontClip 剪辑器页签，跟聊天并排。每个任务对应自己的 MontClip 项目。",
       "parameters": {
         "type": "object",
-        "properties": { "sessionId": { "type": "string", "description": "可选：要打开到哪个任务；缺省是台前的任务" } }
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "可选：要打开到哪个任务；缺省是台前的任务"
+          }
+        }
       }
     }
   ],
@@ -67,8 +101,15 @@
     "title": "MontClip 剪辑器",
     "html": "task-view.html"
   },
+  "panel": {
+    "title": "MontClip 面板",
+    "html": "panel.html",
+    "position": "right"
+  },
   "preview": {
-    "hosts": ["127.0.0.1"]
+    "hosts": [
+      "127.0.0.1"
+    ]
   },
   "node": {
     "entry": "node/worker.cjs",

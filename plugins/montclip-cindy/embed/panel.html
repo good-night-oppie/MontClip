@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>MontClip 面板</title>
+<link rel="stylesheet" href="panel.css">
+<script src="/host-embed.js"></script>
+</head>
+<body>
+<div class="tabs" role="tablist" aria-label="MontClip 面板">
+  <button type="button" role="tab" id="tabLines" aria-controls="pageLines" aria-selected="true">文稿</button>
+  <button type="button" role="tab" id="tabProps" aria-controls="pageProps" aria-selected="false" tabindex="-1">属性</button>
+</div>
+<section id="pageLines" role="tabpanel" aria-labelledby="tabLines">
+  <ol id="lines" class="lines" aria-label="文稿"></ol>
+  <p id="linesEmpty" class="empty" hidden>还没有字幕。在剪辑器里听写或加字幕后，这里会按时间列出每一句，点一句跳过去。</p>
+</section>
+<section id="pageProps" role="tabpanel" aria-labelledby="tabProps" hidden>
+  <dl id="props" class="props"></dl>
+  <p id="propsEmpty" class="empty">在剪辑器里选中一个片段，这里显示它的属性。要修改，请在剪辑器里改，或在聊天里说。</p>
+</section>
+<p id="offline" class="offline" hidden>剪辑器没有打开：点一句只会在剪辑器打开后生效。</p>
+<script src="panel-model.js"></script>
+<script src="panel.js"></script>
+</body>
+</html>

@@ -4,7 +4,9 @@
    once; the engine trades it for a cookie and drops it from the address. */
 (function () {
   const status = document.getElementById('status');
-  const view = document.body.dataset.view || 'task';
+  const view = document.body.dataset.view || 'task';              // task (the editor) · panel (文稿 / 属性)
+  const enginePath = document.body.dataset.enginePath || '/';     // the engine page this view frames
+  const at = (u) => { const x = new URL(u); x.pathname = enginePath; return x.href; };
   const session = new URLSearchParams(location.search).get('session') || '';   // the task this page belongs to
   const channel = new BroadcastChannel('montclip');
   const show = (text, error) => { status.textContent = text; status.className = error ? 'error' : ''; status.hidden = false; };
@@ -72,14 +74,14 @@
     if (!(await bind())) return;
     const a = await ask('editor');
     if (a.error || !a.url) { show('MontClip 没能启动：' + (a.error || '没有地址'), true); return; }
-    place(a.url);
+    place(at(a.url));
     /* While the page is open the engine must stay up: asking keeps the worker from going idle, and when it was
        restarted (another port or a new token) the frame follows it — the editor keeps its undo history on the
        engine, so the reload loses nothing. */
     setInterval(async () => {
       try { await fetch('/wake'); } catch (e) { }
       const b = await ask('editor');
-      if (b.url && b.url !== url) place(b.url);
+      if (b.url && at(b.url) !== url) place(at(b.url));
     }, 60000);
   }
   boot();

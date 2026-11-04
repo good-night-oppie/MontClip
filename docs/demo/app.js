@@ -1341,6 +1341,7 @@ async function connectServer() {
     runtime.projectId = res.headers.get("X-FableCut-Project");
     await restoreUndoStack();   // a reloaded page gets its undo history back
     window.addEventListener("pagehide", keepPlayheadOnLeave);
+    if (typeof MontClipHost !== "undefined" && MontClipHost.embedded) startHostChannel();
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") keepPlayheadOnLeave(); });
     if (res.headers.get("X-FableCut-Projects")) initProjectsUi();
     listenSSE();
@@ -4295,6 +4296,27 @@ async function restoreUndoStack() {
   }
   if (stack.time > 0) setTime(Math.min(stack.time, projDur()));
   return true;
+}
+/* Inside Cindy the plugin's side panel (Transcript, Properties) is another page of this origin: this tab tells it where
+   the playhead is and what is selected, and takes its seeks, over BroadcastChannel("montclip-editor"). Messages:
+   editor → {type:"editor-state", time, playing, selId, revision, projectId}; panel → {type:"seek", t} | {type:"hello"}. */
+function startHostChannel() {
+  if (typeof BroadcastChannel !== "function" || runtime.hostChannel) return;
+  const ch = runtime.hostChannel = new BroadcastChannel("montclip-editor");
+  let last = "";
+  const post = (force) => {
+    const msg = { type: "editor-state", time: Math.round(state.time * 100) / 100, playing: !!state.playing, selId: state.selId ?? null,
+      revision: project.revision ?? null, projectId: runtime.projectId || null };
+    const key = JSON.stringify(msg);
+    if (force || key !== last) { last = key; ch.postMessage(msg); }
+  };
+  ch.onmessage = (e) => {
+    const m = e.data || {};
+    if (m.type === "seek" && Number.isFinite(+m.t) && +m.t >= 0) { setTime(Math.min(+m.t, projDur())); post(true); }
+    else if (m.type === "hello") post(true);
+  };
+  setInterval(() => post(false), 250);
+  post(true);
 }
 /* the page is going away (Cindy switching tasks, a reload): keep where the playhead was (connectServer listens) */
 function keepPlayheadOnLeave() {

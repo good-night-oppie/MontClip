@@ -182,6 +182,9 @@ the same variables). Everything else gets 403.
 The editor page opened with `?host=cindy` (host-embed.js) hides its built-in
 assistant — Cindy's chat takes its place — and follows Cindy's theme: `?theme=light|dark`
 at load, then `postMessage({type:"montclip-host-theme", scheme})` from the framing page.
+Embedded, it also shares its playhead and selection with the plugin's side panel over
+`BroadcastChannel("montclip-editor")` (`{type:"editor-state", time, playing, selId, revision, projectId}`
+four times a second when they change) and takes `{type:"seek", t}` from it.
 
 `mcp-server.js` run as a program speaks MCP on stdio; required as a module (the
 Cindy plugin's Node worker does) it only hands over `{TOOLS, callTool,

@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Cindy plugin right-sidebar panel: 文稿 lists the timeline's lines, follows the playhead and moves the editor on a
+  click; 属性 shows the selected clip. Inside Cindy the editor tab shares its playhead and selection with the panel
+  over `BroadcastChannel("montclip-editor")`.
 - Embedded editor (`?host=cindy`, `host-embed.js`): the built-in assistant is hidden inside Cindy (its chat takes
   that place) and the editor follows Cindy's light / dark theme; the plugin's task view sends the theme in.
 - Cindy plugin shell `plugins/montclip-cindy` (0.1.0): the editor in a task view beside the chat, one MontClip

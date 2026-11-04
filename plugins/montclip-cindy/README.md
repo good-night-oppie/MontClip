@@ -8,6 +8,8 @@ The second shell around the one MontClip engine (the repository root). The first
 | `ghost.json` | the plugin manifest (schema v3): tools, `taskView`, `preview.hosts`, `node` |
 | `main.js` | the logic page (Cindy's browser sandbox): tool calls → the Node worker; answers the task view |
 | `task-view.html`, `frame.js`, `frame.css` | the task view: binds the task's project and frames the editor at `http://127.0.0.1:<port>/` |
+| `panel.html` | the right-sidebar panel shell (global, not per task): frames the engine's `/cindy/panel.html` |
+| `embed/` | pages the engine serves at `/cindy/` (build.cjs copies them): the panel's 文稿 (Transcript) and 属性 (Properties) |
 | `node/worker.cjs` | the Node worker (JSON-RPC over stdio): runs `app/server.js` and calls `app/mcp-server.js`'s tools in-process |
 | `node/lib.cjs` | the worker's testable parts: Windows environment, session token, task → project binding, tool output |
 | `build.cjs` | copies the engine into `node/app/` for packing (gitignored; never edit the copy) |
@@ -24,6 +26,11 @@ The second shell around the one MontClip engine (the repository root). The first
   `MONTCLIP_EMBED_TOKEN`. The frame's first load carries the token once (`/?host=cindy&token=…`); the engine answers
   with an HttpOnly cookie and sends the frame on without the token. The worker's own calls send
   `X-MontClip-Session`. Everything else gets 403. The token never goes into a tool result.
+- **The panel.** 文稿 lists the timeline's captions (else its titles) by time, marks the one being shown and moves
+  the editor to a line on click (or Enter: each line is a button). 属性 shows the selected clip, read-only. The panel
+  and the editor are pages of the same engine origin in Cindy's plugin partition and talk over
+  `BroadcastChannel("montclip-editor")` (playhead, selection, seek); with no editor tab, a click falls back to
+  `POST /api/ui/command` (NO_EDITOR).
 - **Undo.** One stack, in the editor page. The chat's `montclip_undo` / `montclip_redo` ask that page
   (`POST /api/ui/command`). Cindy reloads a task's tab when the task comes back; the engine keeps the stack per
   project (`/api/ui/undo-stack`), so it comes back too.
