@@ -28,9 +28,11 @@ test('the server and the job queue answer in English with a code', () => {
 });
 
 test('the page says the code in the interface language', () => {
-  a.match(app, /function codeText\(error\)/);
-  for (const [code, key] of Object.entries(CODES)) a.ok(app.includes(`${code}: "own.${key}"`), code);
+  // one function for every failure (Deja, 2026-11-04; test/error-text.test.js): MontClipView.errorText
+  for (const [code, key] of Object.entries(CODES)) a.equal(V.errorText('zh-CN', { code }).text, V.text['zh-CN']['own.' + key], code);
+  for (const [code, key] of Object.entries(CODES)) a.equal(V.errorText('en', { errorCode: code }).text, V.text.en['own.' + key], code);
+  a.match(app, /function sayError\(error/);
   const at = app.indexOf('async function importFromUrl') >= 0 ? app.indexOf('async function importFromUrl') : app.indexOf('fetch("/api/import-url"');
-  a.match(app.slice(at, at + 2600), /toast\(codeText\(e\) \|\|/, 'a refused URL import is said by code');
+  a.match(app.slice(at, at + 2600), /toast\(sayError\(e, "import-url"\)\.text\)/, 'a refused URL import is said by code');
   a.match(app, /toast\(uiText\("own\.map-no-media"\)\)/);
 });

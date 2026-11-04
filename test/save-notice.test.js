@@ -65,7 +65,7 @@ test("VV on 71cd650: the queue's Save is greyed while its save is open; a saved 
   a.match(app, /if \(s\) \{ if \(q\.saving\) return; q\.saving = true; renderQueue\(\); saveDownload\(/, 'a second click does nothing while the first save is open');
   a.match(app, /for \(const q of exportQueue\) if \(q\.file === name\) \{ q\.saving = false; if \(removed\) q\.saved = true; \}/, 'the end of that save frees the button');
   a.match(app, /<button type="button" class="btn tiny" data-q-save="\$\{q\.id\}"\$\{q\.saving \? ` disabled/);
-  a.match(app, /: q\.status === "done" \? \(q\.saved \? "" : `Done → exports\/\$\{q\.file \|\| q\.name \+ ext\}`\)/, 'no path for a saved item');
+  a.match(app, /: q\.status === "done" \? \(q\.saved \? "" : uiText\("qDone", \{ file: q\.file \|\| q\.name \+ ext \}\)\)/, 'no path for a saved item');
 });
 
 test('VV on 2333c24: Save is greyed while any save of that export is open, with the reason; a refused one says so', () => {

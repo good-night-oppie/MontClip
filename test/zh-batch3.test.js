@@ -123,7 +123,9 @@ test('static labels carry data-i18n markers and dynamic strings go through uiTex
  for(const s of ['item(anyEnabled ? "Disable clip"','item(anyUnlocked ? "Lock clip"','item("Parent to a new null"','alert("Export failed: "','"→ exports/" +','"Tokens: " +',
   '`Full timeline ·','"Frame-accurate. Server encodes','"Frame-accurate. Browser HW-encodes','No batch outputs yet','"Currently open"','"open now"',' min ago`','fact("Canvas"','>Download backup<'])
   a.ok(!app.includes(s),'no literal: '+s);
- a.equal((app.match(/uiText\("own\.export-failed-prefix"\) \+ msg/g)||[]).length,2,'both export paths say 导出失败：');
+ // both export paths say 导出失败：, then the failure in plain words (Deja, 2026-11-04: MontClipView.errorText), never the raw message
+ a.equal((app.match(/ alertExportFailure\(e\);/g)||[]).length,2,'both export paths say 导出失败：');
+ a.match(app,/alert\(uiText\("own\.export-failed-prefix"\) \+ r\.text/);
  a.ok(/function refreshLocalizedViews\(\)/.test(app)&&/refreshLocalizedViews\(\)/.test(app.slice(app.indexOf('function updateMontClipView'))),'a language switch re-renders the dynamic texts');
 });
 

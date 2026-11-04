@@ -42,11 +42,13 @@ const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
 /** On-device transcription: on in development and the browser editor; a packaged desktop build has it
  *  off unless the main process turned it on (desktop/features.js). Off means no entry and no download. */
 function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
-/** A server refusal's reason code, said in the interface language; "" when the code has no text of its own. */
-const CODE_TEXT = { NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready", EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept" };
-function codeText(error) {
-  const code = error && (error.code || error.errorCode);
-  return typeof code === "string" && CODE_TEXT[code] ? uiText(CODE_TEXT[code]) : "";
+/** Any failure for the streamer (Deja, 2026-11-04): plain words from MontClipView.errorText; the raw error goes to the log.
+ *  {text, detail, label}: show `detail` only as small print after the words (the export queue's .xq-detail). */
+function sayError(error, where = "error") {
+  const r = MontClipView.errorText(mcView.get().language, error);
+  const raw = error && typeof error === "object" ? error.message || error.error : error;
+  if (raw) console.warn("[" + where + "]", r.code, String(raw));
+  return r;
 }
 /** Simple mode: no tooltip offers a shortcut it holds back (Deja, #55); advanced mode shows the full text again. The
  *  full tooltip is kept beside the shown one, and a tooltip rewritten since (a new language) is taken as the full one. */
@@ -2327,7 +2329,7 @@ async function importFromUrl(url) {
   } catch (e) {
     if (e && e.name === "AbortError") return;
     setImportUrlBusy(false);
-    toast(codeText(e) || (e && e.message ? e.message : "Couldn't import URL"));
+    toast(sayError(e, "import-url").text);
   } finally {
     runtime.importUrlAbort = null;
   }
@@ -10493,6 +10495,9 @@ async function showHighlightCandidates() {
    notification (montclip:notify:found). Every song card is 「估的」 at both ends (Deja: songs.js is not accurate yet). */
 const AUTO = { el: null, st: null };
 function autoState() {
+  // a project that only now gets its id is the same project (placing slices saves a version, which starts the project
+  // list): keep the page, or a finished export reads 「导出好了，0 条」 (VV, 2026-11-04)
+  if (AUTO.st && !AUTO.st.projectId && runtime.projectId && runtime.projectId !== "?") AUTO.st.projectId = runtime.projectId;
   if (!AUTO.st || AUTO.st.projectId !== runtime.projectId)
     AUTO.st = { projectId: runtime.projectId, step: "start", picked: null, kind: "auto", count: MontClipAutoSlices.DEFAULTS.count,
       len: MontClipAutoSlices.DEFAULTS.len, subs: true, run: null, recs: [], clips: [], dropped: [], few: null, ask: false, hist: [], histKept: [], exportIds: null };
@@ -11381,21 +11386,24 @@ async function autoExportRun() {
   try { if (!queueRunning) await runQueue(); } finally { clearInterval(live); }
   if (AUTO.el && AUTO.el.open) autoRender("done");
 }
-/** Why exports failed, in plain words (the queue keeps the detail). */
+/** Why exports failed, in plain words without the final full stop (the queue keeps the detail). The codes as-fail
+ *  already says the next step for keep their short reason; any other code says its own sentence (errorText). */
 function autoFailWhy(failed) {
-  const errors = failed.map((q) => String(q.error || ""));
-  if (errors.some((e) => /ENOSPC|no space|disk is full|空间不够/i.test(e))) return "as-fail-why-space";
-  if (errors.some((e) => e === uiText("own.ssel-queue-changed"))) return "as-fail-why-changed";
-  return "as-fail-why-other";
+  const lang = mcView.get().language, said = failed.map((q) => MontClipView.errorText(lang, q, "EXPORT_FAILED"));
+  if (said.some((r) => r.code === "DISK_FULL")) return uiText("own.as-fail-why-space");
+  if (said.some((r) => r.code === "EXPORT_TIMELINE_CHANGED")) return uiText("own.as-fail-why-changed");
+  const own = said.find((r) => !r.detail && r.code !== "EXPORT_FAILED");
+  return own ? own.text.replace(/[。.]$/, "") : uiText("own.as-fail-why-other");
 }
 function autoDoneHtml() {
   const st = autoState(), items = (st.exportIds || []).map((id) => exportQueue.find((q) => q.id === id)).filter(Boolean);
   const done = items.filter((q) => q.status === "done"), failed = items.filter((q) => q.status === "failed");
   const busy = items.some((q) => q.status === "pending" || q.status === "running");
-  const title = busy ? autoSay("as-exporting", { n: items.length }) : failed.length ? autoSay("as-done-partial", { n: done.length, failed: failed.length }) : autoSay("as-done-title", { n: done.length });
-  return `<h1>${title}</h1><p class="as-sub">${busy ? "" : autoSay("as-done-sub")}</p>
+  // 「N 条导出好了」「N 条导出好了，M 条没导出来」「M 条都没导出来」: never 「导出好了」 when nothing was (Deja, 2026-11-04)
+  const title = busy ? autoSay("as-exporting", { n: items.length }) : escapeHtml(MontClipView.exportResult(mcView.get().language, { done: done.length, failed: failed.length }));
+  return `<h1>${title}</h1><p class="as-sub">${busy || !done.length ? "" : autoSay("as-done-sub")}</p>
     <section class="as-card-box">${items.map((q) => `<div class="as-row"><span><b>${escapeHtml(q.name)}</b></span><span class="as-small">${q.status === "running" ? Math.round((q.progress || 0) * 100) + "%" : ""}</span></div>`).join("")}</section>
-    ${failed.length ? `<section class="as-card-box as-warn"><b>${autoSay("as-fail", { failed: failed.length, name: failed.slice(0, 3).map((q) => q.name).join("」「") + (failed.length > 3 ? "…" : ""), why: uiText("own." + autoFailWhy(failed)) })}</b>
+    ${failed.length ? `<section class="as-card-box as-warn"><b>${autoSay("as-fail", { failed: failed.length, name: failed.slice(0, 3).map((q) => q.name).join("」「") + (failed.length > 3 ? "…" : ""), why: autoFailWhy(failed) })}</b>
       <div class="as-row"><button type="button" class="btn primary" data-as-act="retry">${autoSay("as-retry")}</button></div></section>` : ""}
     <div class="as-cta"><button type="button" class="btn primary" data-as-act="open-queue">${autoSay("as-open-queue")}</button>
       <button type="button" class="btn" data-as-act="back-review">${autoSay("as-back-review")}</button><button type="button" class="btn" data-as-act="another">${autoSay("as-another")}</button></div>`;
@@ -19620,15 +19628,20 @@ async function prepareFrameAssets(t) {
     }
   }
 }
+/** A failed export, said in plain words; the raw error (when no sentence fits) after a blank line. */
+function alertExportFailure(e) {
+  const r = sayError(e, "export");
+  alert(uiText("own.export-failed-prefix") + r.text + (r.detail ? "\n\n" + r.label + r.detail : ""));
+}
 /** opts.job: an agent's export job id — progress and the result go back to
  *  the server instead of an alert / download (nobody may be watching).
  *  opts.profile: encoding profile id for this run.
  *  opts.delivery: a delivery spec (delivery.js) instead of a profile.
  *  opts.deliveries: [{delivery, name?}] — several files from one render (same fps).
  *  opts.silent: no overlay, alert or download (the export queue shows it);
- *  opts.onProgress(0…1). Resolves {outputs:[{file, ok, src?, error?}]} or {error, cancelled}. */
+ *  opts.onProgress(0…1). Resolves {outputs:[{file, ok, src?, error?}]} or {error, code?, cancelled}. */
 async function fastExport(opts = {}) {
-  if (state.exporting) return { error: "an export is already running" };
+  if (state.exporting) return { error: "an export is already running", code: "EXPORT_BUSY" };
   const job = opts.job || null;
   pause();
   state.exporting = true; state.rendering = true; renderCancelled = false;
@@ -19666,7 +19679,7 @@ async function fastExport(opts = {}) {
       }),
       signal,
     }).then((r) => r.json());
-    if (!begin.id) throw new Error(MontClipView.h264Message(mcView.get().language, begin) || begin.error || "export begin failed");
+    if (!begin.id) throw Object.assign(new Error(MontClipView.h264Message(mcView.get().language, begin) || begin.error || "export begin failed"), { code: begin.code, params: begin.params, featurePack: begin.featurePack });
     sessId = begin.id;
     const jpegQ = delivery ? begin.jpegQuality ?? 0.95 : exportProfileMeta(profileId).jpegQuality ?? 0.95;
     const rgba = begin.input === "rgba";
@@ -19773,9 +19786,9 @@ async function fastExport(opts = {}) {
   } catch (e) {
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
     const msg = e?.name === "AbortError" ? "cancelled" : String(e.message || e);
-    result = { error: msg, cancelled: msg === "cancelled" };
+    result = { error: msg, code: e && e.code, params: e && e.params, featurePack: e && e.featurePack, cancelled: msg === "cancelled" };
     if (job) await reportExportJob(job, { status: "failed", error: msg }, true);
-    else if (msg !== "cancelled" && !opts.silent) alert(uiText("own.export-failed-prefix") + msg);
+    else if (msg !== "cancelled" && !opts.silent) alertExportFailure(e);
   } finally {
     exportAbort = null;
     exportFullCanvas = false;
@@ -19859,20 +19872,23 @@ function renderQueue() {
   list.innerHTML = exportQueue.map((q) => {
     const ext = Delivery.CONTAINERS[q.spec.container].ext;
     const fr = deliveryFrame(q.spec), fps = q.spec.fps || projectFps();
-    const status = q.status === "running" ? `Rendering… ${Math.round(q.progress * 100)}%`
-      : q.status === "done" ? (q.saved ? "" : `Done → exports/${q.file || q.name + ext}`)
-        : q.status === "failed" ? `Failed: ${q.error || "unknown error"}`
-          : q.status === "cancelled" ? "Stopped" : "Waiting";
+    // a failure in plain words (errorText); the raw error, when no sentence fits, is the small line under it
+    const why = q.status === "failed" ? MontClipView.errorText(mcView.get().language, q, "EXPORT_FAILED") : null;
+    const status = q.status === "running" ? uiText("qRendering", { pct: Math.round(q.progress * 100) })
+      : q.status === "done" ? (q.saved ? "" : uiText("qDone", { file: q.file || q.name + ext }))
+        : why ? uiText("qFailed") + why.text
+          : q.status === "cancelled" ? uiText("qStopped") : uiText("qWaiting");
     const actions = [
       // 保存 opens the save window again; once a save went through, 已保存
       q.status === "done" && q.src ? (q.saved ? `<span class="dlv-q-saved">${escapeHtml(uiText("own.q-saved"))}</span>` : `<button type="button" class="btn tiny" data-q-save="${q.id}"${q.saving ? ` disabled title="${escapeHtml(uiText("own.save-busy"))}"` : ""}>${escapeHtml(uiText("own.q-save"))}</button>`) : "",
-      q.status === "failed" || q.status === "cancelled" ? `<button type="button" class="btn tiny" data-q-retry="${q.id}">Retry</button>` : "",
+      q.status === "failed" || q.status === "cancelled" ? `<button type="button" class="btn tiny" data-q-retry="${q.id}">${escapeHtml(uiText("qRetry"))}</button>` : "",
       q.status !== "running" ? `<button type="button" class="btn tiny" data-q-remove="${q.id}" title="Remove from the queue">✕</button>` : "",
     ].join("");
     return `<li class="${q.status}" data-q="${q.id}"><div class="xq-main"><b>${escapeHtml(q.label)} — ${escapeHtml(q.name + ext)}</b>` +
       `<span class="xq-sub">${escapeHtml(Delivery.describe(q.spec, { width: fr.outW, height: fr.outH, fps }))} · ${q.range && typeof q.range === "object" ? `${fmt(q.range.start)}–${fmt(q.range.end)}` : q.range === "in-out" ? "IN–OUT" : "entire timeline"}</span>` +
       (q.status === "running" ? `<div class="progress"><div class="progress-fill" style="width:${(q.progress * 100).toFixed(1)}%"></div></div>` : "") +
       `<span class="xq-status">${escapeHtml(status)}</span>` +
+      (why && why.detail ? `<small class="xq-detail">${escapeHtml(why.label + why.detail)}</small>` : "") +
       (q.report ? `<span class="xq-report${q.report.ok ? "" : " warn"}">${q.report.ok ? "✓ " : ""}${escapeHtml(q.report.line)}</span>` : "") +
       `</div><div class="xq-actions">${actions}</div></li>`;
   }).join("");
@@ -19884,12 +19900,12 @@ function renderQueueProgress() {
     if (!li) continue;
     const fill = li.querySelector(".progress-fill"), st = li.querySelector(".xq-status");
     if (fill) fill.style.width = (q.progress * 100).toFixed(1) + "%";
-    if (st) st.textContent = `Rendering… ${Math.round(q.progress * 100)}%`;
+    if (st) st.textContent = uiText("qRendering", { pct: Math.round(q.progress * 100) });
   }
 }
 async function runQueue() {
   if (queueRunning || state.exporting) return;
-  if (!(state.connected && state.ffmpeg)) { alert("The export queue needs the server and ffmpeg (Fast export)."); return; }
+  if (!(state.connected && state.ffmpeg)) { alert(sayError({ code: "EXPORT_NEEDS_SERVER" }).text); return; }
   queueRunning = true; queueStop = false;
   renderQueue();
   try {
@@ -19899,11 +19915,11 @@ async function runQueue() {
       const fps = first.spec.fps || projectFps();
       const clips = JSON.stringify(project.clips);
       if (first.guard && first.guard !== clips) {
-        Object.assign(first, { status: "failed", error: uiText("own.ssel-queue-changed") });
+        Object.assign(first, { status: "failed", code: "EXPORT_TIMELINE_CHANGED", error: uiText("own.ssel-queue-changed") });
         renderQueue(); continue;
       }
       const group = exportQueue.filter((q) => q.status === "pending" && (q.spec.fps || projectFps()) === fps && queueRangeKey(q.range) === queueRangeKey(first.range) && (q.guard || null) === (first.guard || null)).slice(0, 8);
-      for (const q of group) { q.status = "running"; q.progress = 0; q.error = null; }
+      for (const q of group) { q.status = "running"; q.progress = 0; q.error = null; q.code = q.params = q.featurePack = null; }
       renderQueue();
       exportRangeForced = first.range && typeof first.range === "object" ? first.range : first.range === "in-out" && hasWorkArea() ? "in-out" : "entire";
       let res;
@@ -19917,7 +19933,10 @@ async function runQueue() {
         const o = res && res.outputs && res.outputs[i];
         if (o && o.ok) Object.assign(q, { status: "done", src: o.src, file: o.file, progress: 1, report: o.report || null });
         else if (res && res.cancelled) q.status = "cancelled";
-        else Object.assign(q, { status: "failed", error: (o && o.error) || (res && res.error) || "export failed" });
+        // a refusal of the whole render (no encoder, a bad setting) has a code; one output that failed has its own error
+        else Object.assign(q, { status: "failed", error: (o && o.error) || (res && res.error) || "export failed",
+          ...(o || !res ? {} : { code: res.code, params: res.params, featurePack: res.featurePack }) });
+        if (q.status === "failed") sayError(q, "export-queue");
       });
       renderQueue();
     }
@@ -19927,7 +19946,9 @@ async function runQueue() {
   }
   const done = exportQueue.filter((q) => q.status === "done").length, failed = exportQueue.filter((q) => q.status === "failed").length;
   const warned = exportQueue.filter((q) => q.status === "done" && q.report && !q.report.ok).length;
-  if (done || failed) toast(`Export queue: ${done} done${failed ? `, ${failed} failed` : ""}${warned ? ` — ${warned} with warnings` : ""}`);
+  const firstFailed = exportQueue.find((q) => q.status === "failed");
+  if (done || failed) toast(MontClipView.exportResult(mcView.get().language, { done, failed, warned,
+    why: firstFailed && !done ? MontClipView.errorText(mcView.get().language, firstFailed, "EXPORT_FAILED").text : "" }));
 }
 function stopQueue() {
   queueStop = true;
@@ -20376,7 +20397,7 @@ async function webCodecsExport() {
       }),
       signal,
     }).then((r) => r.json());
-    if (!begin.id) throw new Error(MontClipView.h264Message(mcView.get().language, begin) || begin.error || "export begin failed");
+    if (!begin.id) throw Object.assign(new Error(MontClipView.h264Message(mcView.get().language, begin) || begin.error || "export begin failed"), { code: begin.code, params: begin.params, featurePack: begin.featurePack });
     sessId = begin.id;
     if (wav) {
       const r = await fetch("/api/export/audio?id=" + sessId, { method: "POST", body: wav, signal });
@@ -20465,7 +20486,7 @@ async function webCodecsExport() {
     try { encoder?.close(); } catch { }
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
     const msg = e?.name === "AbortError" ? "cancelled" : String(e.message || e);
-    if (msg !== "cancelled") alert(uiText("own.export-failed-prefix") + msg);
+    if (msg !== "cancelled") alertExportFailure(e);
   } finally {
     exportAbort = null;
     exportDecodeEnd();

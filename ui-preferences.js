@@ -558,8 +558,6 @@
     "as-ex-nosub": ["No subtitles this time: transcription is not installed on this computer. The videos export as usual. For subtitles, install it in Settings › Transcription (one download, about 230 MB), then come back and export.", "这次没有字幕：这台电脑还没装听写。成片照样能导出。要字幕的话，到「设置 › 听写」装上（要联网下载一次，约 230 MB），再回来导出。"],
     "as-sub-line": ["Subtitles: {n} sentences, transcribed; the singing may have wrong words", "字幕：{n} 句，是听写出来的，唱歌部分可能有错字"],
     "as-exporting": ["Exporting {n}…", "正在导出 {n} 条…"],
-    "as-done-title": ["Exported: {n}", "导出好了，{n} 条"],
-    "as-done-partial": ["Exported {n}; {failed} didn't", "导出好了 {n} 条，{failed} 条没成功"],
     "as-done-sub": ["They are in the export queue; save each one where you like.", "都在导出队列里，可以逐条存到你想放的地方。"],
     "as-fail": ["{failed} didn't export: “{name}”. {why}. Your edits are all still here. Click Try again, or open the export queue to see why.", "有 {failed} 条没导出来：「{name}」。{why}。你的剪辑都还在，点「再试一次」，或者打开导出队列看原因。"],
     "as-fail-why-space": ["The drive it saves to is out of space", "存视频的那个盘空间不够了"],
@@ -857,6 +855,87 @@
     const t = text[language] || text.en;
     return t[Object.hasOwn(FLV_REASONS, code) ? FLV_REASONS[code] : "flvUploadFailed"];
   }
+  // Deja, 2026-11-04 (decision B): every failure the streamer sees goes through errorText — a code becomes plain words,
+  // what happened and what to do. The raw error is for the log; only when no sentence fits does it come back as
+  // `detail`, small print after the words (as the plugin's ffmpeg-banner does). New copy, for JJ.
+  Object.assign(text["zh-CN"], {
+    errUnknown: "这一步没做成。再试一次。",
+    errDetail: "还不行的话，把这行发给我们：",
+    errDiskFull: "这台电脑的盘空间不够了。删掉一些不要的文件，再试一次。",
+    errExportFailed: "导出到一半停下了。再试一次；还不行的话，换一种导出格式。",
+    errExportChanged: "加进导出以后，时间线又改过了，所以这条没导。重新出一次切片，再导出。",
+    errExportBusy: "已经有一个导出在进行。等它导完，再试一次。",
+    errExportNeedsServer: "MontClip 自己的导出程序现在连不上。关掉 MontClip 再打开，然后再试。",
+    errImportFailed: "这个文件没导进来。再试一次；还不行的话，先把它转成 MP4 再导入。",
+    errNoEditor: "编辑窗口没打开，这一步做不了。先打开 MontClip 的编辑窗口，再试一次。",
+    errTooLarge: "这次要处理的内容太大，没有做。分成小一点的几次再试。",
+    errFlvSourceRequired: "这里只能处理已经导入项目的 FLV。先把它导入项目，再试一次。",
+    errAsrBusy: "正在听写别的文件。等它听写完，再试这个。",
+    errAsrEngineMissing: "这份 MontClip 里缺了听写组件。请重新安装 MontClip。",
+    errAsrModelMissing: "这台电脑还没装听写模型。先在「文稿」里下载或导入一次，再试。",
+    flvNotFound: "找不到这个文件了，可能被移走或删掉了。重新选一次文件。",
+    flvNotFlv: "选的不是 FLV 文件。请重新选。",
+    flvExpired: "这次导入等得太久，已经取消了。重新导入一次。",
+    flvBusy: "这个文件正在导入，等它导完。",
+    exAll: "{n} 条导出好了", exSome: "{n} 条导出好了，{failed} 条没导出来", exNone: "{failed} 条都没导出来", exNoneOne: "这条没导出来",
+    exWarned: "（其中 {n} 条的检查有提醒）", exWhy: "：{why}",
+    qFailed: "没导出来：", qRendering: "正在导出… {pct}%", qDone: "导好了 → exports/{file}", qStopped: "已停下", qWaiting: "等着导出", qRetry: "再试一次",
+  });
+  Object.assign(text.en, {
+    errUnknown: "This didn't work. Try again.",
+    errDetail: "If it still fails, send us this line: ",
+    errDiskFull: "This computer's drive is out of space. Delete some files you don't need, then try again.",
+    errExportFailed: "The export stopped partway. Try again; if it still fails, choose another export format.",
+    errExportChanged: "The timeline changed after this was queued, so it wasn't exported. Make the clips again, then export.",
+    errExportBusy: "Another export is running. Wait until it finishes, then try again.",
+    errExportNeedsServer: "MontClip's own export program can't be reached right now. Close MontClip, open it again, then try again.",
+    errImportFailed: "This file wasn't imported. Try again; if it still fails, convert it to MP4 first.",
+    errNoEditor: "The editor window isn't open, so this can't be done. Open MontClip's editor window, then try again.",
+    errTooLarge: "This was too large to handle at once, so nothing was done. Try again in smaller parts.",
+    errFlvSourceRequired: "Only an FLV already imported into the project can be handled here. Import it first, then try again.",
+    errAsrBusy: "Another file is being transcribed. Wait until it finishes, then try this one.",
+    errAsrEngineMissing: "This copy of MontClip is missing its transcription component. Reinstall MontClip.",
+    errAsrModelMissing: "This computer has no transcription model yet. Download or import it once in the Transcript tab, then try again.",
+    flvNotFound: "The file can't be found any more; it may have been moved or deleted. Choose it again.",
+    flvNotFlv: "The chosen file is not an FLV. Choose again.",
+    flvExpired: "This import waited too long and was cancelled. Import it again.",
+    flvBusy: "This file is being imported. Wait until it finishes.",
+    exAll: "{n} exported", exSome: "{n} exported, {failed} didn't", exNone: "None of the {failed} exported", exNoneOne: "It didn't export",
+    exWarned: " ({n} with check warnings)", exWhy: ": {why}",
+    qFailed: "Didn't export: ", qRendering: "Exporting… {pct}%", qDone: "Done → exports/{file}", qStopped: "Stopped", qWaiting: "Waiting", qRetry: "Try again",
+  });
+  Object.assign(FLV_REASONS, { FLV_NOT_FOUND: "flvNotFound", FLV_NOT_FLV: "flvNotFlv", FLV_IMPORT_EXPIRED: "flvExpired", FLV_IMPORT_BUSY: "flvBusy" });
+  /** Codes with a sentence of their own (the h264 / FLV families have theirs above). */
+  const ERROR_TEXT = { NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready",
+    EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept", NO_EDITOR: "errNoEditor", BODY_TOO_LARGE: "errTooLarge", IMPORT_FAILED: "errImportFailed",
+    FLV_SOURCE_REQUIRED: "errFlvSourceRequired", ASR_BUSY: "errAsrBusy", ASR_ENGINE_MISSING: "errAsrEngineMissing", ASR_MODEL_MISSING: "errAsrModelMissing",
+    DISK_FULL: "errDiskFull", EXPORT_FAILED: "errExportFailed", EXPORT_TIMELINE_CHANGED: "errExportChanged", EXPORT_BUSY: "errExportBusy",
+    EXPORT_NEEDS_SERVER: "errExportNeedsServer" };
+  const DISK_FULL = /ENOSPC|no space left|disk is full|not enough space/i;
+  /** A failure in plain words: {code, text, detail, label}. `error` is an Error, a server answer ({code | errorCode,
+   *  error, params, featurePack}) or a string. `detail` is the raw error, "" whenever a sentence fits; `label` heads it.
+   *  `fallback` (a code) says what was being done when the error has no sentence of its own (EXPORT_FAILED for an export):
+   *  its sentence, with the raw error as `detail`. */
+  function errorText(language, error, fallback) {
+    const l = lang(language), t = text[l], e = error && typeof error === "object" ? error : {};
+    const raw = String(typeof error === "string" ? error : e.message || (typeof e.error === "string" ? e.error : "") || "").trim();
+    let code = [e.code, e.errorCode].find((c) => typeof c === "string" && c) || "";
+    if (!code && DISK_FULL.test(raw)) code = "DISK_FULL";
+    let s = code ? h264Message(l, { code, params: e.params, featurePack: e.featurePack }) : null;
+    if (!s && Object.hasOwn(ERROR_TEXT, code)) s = t[ERROR_TEXT[code]];
+    if (!s && (/^FLV_/.test(code) || Object.hasOwn(FLV_REASONS, code))) s = flvImportMessage(l, code);   // an FLV code without its own sentence: the import failed
+    if (s) return { code, text: s, detail: "", label: t.errDetail };
+    const general = Object.hasOwn(ERROR_TEXT, fallback) ? t[ERROR_TEXT[fallback]] : t.errUnknown;
+    return { code: code || "UNKNOWN", text: general, detail: raw, label: t.errDetail };
+  }
+  /** An export run in one line: 「N 条导出好了」, 「N 条导出好了，M 条没导出来」, 「M 条都没导出来」, with the reason when given. */
+  function exportResult(language, { done = 0, failed = 0, warned = 0, why = "" } = {}) {
+    const t = text[lang(language)], f = (s, v) => fill(s, v);
+    let s = !failed ? f(t.exAll, { n: done }) : done ? f(t.exSome, { n: done, failed }) : failed === 1 ? t.exNoneOne : f(t.exNone, { failed });
+    if (warned) s += f(t.exWarned, { n: warned });
+    if (failed && why) s += f(t.exWhy, { why });
+    return s;
+  }
   Object.assign(text['zh-CN'],{paneLocalTemporary:'没能读取已存的会话。本次会话和草稿只在这次打开期间保留，关闭前请复制要留的内容。原有会话文件未改动。',paneLocalPolicy:'本机保存适用于已有项目 ID 的会话、草稿和明确引用；尚无项目 ID 的内容仅在本次窗口保留。这是保存范围说明，不表示本次内容已保存。不会自动发送。',paneSessionFailed:'会话保存尚未确认，当前编辑仍在此窗口。请保留草稿后重试；不会覆盖另一份更新的记录。',paneRetry:'重试保存会话',paneUser:'你',paneAssistant:'助手'});
   Object.assign(text.en,{paneLocalTemporary:'Saved sessions could not be read. Sessions and drafts from this window will not be saved; copy anything you want to keep before closing. The existing session file was not changed.',paneLocalPolicy:'Local storage applies to sessions, drafts and explicit references with a project ID; content without a project ID lasts only in this window. This describes storage scope, not confirmation that the current content was saved. Nothing is sent automatically.',paneSessionFailed:'Session saving is unconfirmed. Edits remain in this window. Keep your draft and retry; a newer stored snapshot will not be overwritten.',paneRetry:'Retry saving sessions',paneUser:'You',paneAssistant:'Assistant'});
 
@@ -972,5 +1051,5 @@
    *  English word (export, captions…) in English. */
   const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
-  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
+  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, errorText, exportResult, ERROR_CODES: Object.keys(ERROR_TEXT), h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
 });
