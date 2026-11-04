@@ -23,6 +23,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `caption-quick-smoke.cjs` | `CAPTION_QUICK_PASS` | 在用 |
 | `chinese-names-smoke.cjs` | `CN_NAMES_COMPLETE` | 在用 |
 | `corrections-smoke.cjs` | `CORRECTIONS_PASS` | 在用 |
+| `corrections-ui-smoke.cjs` | `CORRECTIONS_UI_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `danmaku-keep-smoke.cjs` | `DANMAKU_KEEP_PASS` | 在用 |
 | `danmaku-smoke.cjs` | `DANMAKU_COMPLETE` | 在用 |
 | `dialogs-smoke.cjs` | `DIALOGS_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |

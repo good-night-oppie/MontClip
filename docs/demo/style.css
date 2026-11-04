@@ -363,6 +363,13 @@ body.track-size-s .clip.selected {
   transform: translateY(1px);
 }
 
+/* a disabled button looks disabled, wherever it is (VV / Deja, 2026-11-03): faded, no hand cursor */
+.btn:disabled,
+.btn[disabled] {
+  opacity: .45;
+  cursor: default;
+}
+
 .btn.primary {
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   border: none;
@@ -4963,10 +4970,29 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .auto-slices .as-play { font-weight: 600; border-color: var(--dim); }
 .auto-slices .as-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
 /* JJ's v11 visual review: 不要这条 apart from the others — at the right edge, grey text */
-/* nothing disabled in this dialog looks pressable (VV / Deja, 2026-11-03) */
-.auto-slices button:disabled { opacity: .45; cursor: default; }
 .auto-slices .as-drop { margin-left: auto; background: transparent; border: 0; padding: 2px 4px; color: var(--dim); font-size: 12px; cursor: pointer; }
 .auto-slices .as-drop:hover, .auto-slices .as-drop:focus-visible { color: var(--text); text-decoration: underline; }
+/* v12 记住我的剪辑习惯: small links in body text, 你改的 / 你补的 neutral, the habit line grey with ↺, 补一段 and the line under it */
+.auto-slices .as-link, dialog.as-add .as-link { background: none; border: 0; padding: 0; color: var(--text); text-decoration: underline; cursor: pointer; font: inherit; }
+.auto-slices .as-tag-you { color: var(--text); border-color: var(--border); }
+.auto-slices .as-habit { color: var(--dim); margin: 4px 0 0; }
+.auto-slices .as-habit > span { margin-right: 4px; }
+.auto-slices .as-addseg { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 12px 0 4px; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 8px; }
+.auto-slices .as-learnline { margin: 6px 0 10px; }
+.auto-slices .as-learnline .as-link { margin-left: 4px; }
+dialog.as-add, dialog.as-learn { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; width: min(460px, 92vw); padding: 16px 18px; }
+dialog.as-add::backdrop, dialog.as-learn::backdrop { background: #0009; }
+dialog.as-add h2, dialog.as-learn h2 { margin: 0 0 10px; font-size: 16px; }
+dialog.as-add .as-add-rec { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--dim); font-size: 12px; margin-top: 2px; }
+dialog.as-add .as-seg { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0; }
+dialog.as-add .as-seg button { border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 14px; padding: 4px 12px; cursor: pointer; }
+dialog.as-add .as-seg button.on { border-color: var(--accent); background: var(--accent); color: #fff; }
+dialog.as-add .as-add-namefield { margin: 8px 0 12px; }
+dialog.as-add .as-small, dialog.as-learn .as-small { color: var(--dim); font-size: 12px; }
+dialog.as-add .as-row, dialog.as-learn .as-row { display: flex; gap: 8px; }
+dialog.as-learn .as-learn-count { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin: 10px 0; }
+dialog.as-learn ul { padding-left: 18px; margin: 0 0 12px; }
+dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 /* the 估的 note, once under the overview, above the first card */
 .auto-slices .as-guess-note { margin: 10px 0 8px; font-size: 12px; color: var(--dim); }
 .auto-slices .as-clip.off .as-clip-title input { color: var(--dim); }

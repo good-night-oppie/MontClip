@@ -10408,7 +10408,7 @@ const AUTO = { el: null, st: null };
 function autoState() {
   if (!AUTO.st || AUTO.st.projectId !== runtime.projectId)
     AUTO.st = { projectId: runtime.projectId, step: "start", picked: null, kind: "auto", count: MontClipAutoSlices.DEFAULTS.count,
-      len: MontClipAutoSlices.DEFAULTS.len, subs: true, run: null, recs: [], clips: [], dropped: [], few: null, ask: false, hist: [], exportIds: null };
+      len: MontClipAutoSlices.DEFAULTS.len, subs: true, run: null, recs: [], clips: [], dropped: [], few: null, ask: false, hist: [], histKept: [], exportIds: null };
   return AUTO.st;
 }
 const autoSay = (key, vars) => escapeHtml(uiText("own." + key, vars));
@@ -10497,7 +10497,7 @@ function openAutoSlices() {
 }
 function autoBuild() {
   const d = document.createElement("dialog");
-  d.className = "auto-slices"; d.setAttribute("aria-label", uiText("own.as-open"));
+  d.className = "auto-slices"; d.setAttribute("aria-label", uiText("own.as-open")); d.tabIndex = -1;
   d.innerHTML = `<div class="as-head"><b>${autoSay("as-open")}</b>
       <ol class="as-stepper">${["start", "run", "review", "done"].map((s) => `<li data-as-st="${s}">${autoSay("as-step-" + s)}</li>`).join("")}</ol>
       <span class="as-spacer"></span><span class="as-keep">${autoSay("as-keep")}</span>
@@ -10527,7 +10527,7 @@ function autoRender(step) {
   st.step = step;
   const order = ["start", "run", "review", "done"], n = order.indexOf(step);
   d.querySelectorAll("[data-as-st]").forEach((li) => { const k = order.indexOf(li.dataset.asSt); li.className = k === n ? "on" : k < n ? "done" : ""; });
-  const body = d.querySelector("[data-as-body]"), same = body.dataset.step === step;
+  const body = d.querySelector("[data-as-body]"), same = body.dataset.step === step, had = d.contains(document.activeElement), keep = autoFocusSelector(document.activeElement);
   // the same page drawn again (an option picked): its folds stay as they were and it stays where it was scrolled (VV:
   // picking a 每条多长 option closed 更多设置); another page starts at the top with its folds as designed
   const open = same ? [...body.querySelectorAll("details")].map((x) => x.open) : [], top = body.scrollTop;
@@ -10535,6 +10535,17 @@ function autoRender(step) {
   body.dataset.step = step;
   if (same) { body.querySelectorAll("details").forEach((x, i) => { if (open[i]) x.open = true; }); body.scrollTop = top; } else body.scrollTop = 0;
   autoFooter();
+  // the focus stays in the dialog when it is drawn again: the same button if it is still there, else the dialog (VV on
+  // 12f4f21: it fell to the page, so Ctrl+Z went to the timeline behind the dialog instead of undoing the card)
+  if (had && d.open && !d.contains(document.activeElement)) { const el = keep && d.querySelector(keep); (el || d).focus({ preventScroll: true }); }
+}
+/** A selector that finds element el again after the dialog is drawn again: its card and its data-as-* attributes. */
+function autoFocusSelector(el) {
+  if (!el || !AUTO.el || !AUTO.el.contains(el) || el === AUTO.el) return null;
+  const own = [...el.attributes].filter((a) => a.name.startsWith("data-as-")).map((a) => `[${a.name}="${CSS.escape(a.value)}"]`).join("");
+  if (!own) return null;
+  const card = el.closest("[data-as-card]");
+  return (card && card !== el ? `[data-as-card="${CSS.escape(card.dataset.asCard)}"] ` : "") + el.tagName.toLowerCase() + own;
 }
 
 /* step 1: the recordings, what the stream is, how many, how long */
@@ -10588,7 +10599,7 @@ async function autoRun() {
   const st = autoState(), recs = autoRecordings().filter((m) => st.picked.has(m.id));
   if (!recs.length) return;
   const run = { recs: recs.map((m) => m.id), phase: 0, frac: 0, stop: false, error: null, src: null };
-  st.run = run; st.hist = []; autoRender("run");
+  st.run = run; st.hist = []; st.histKept = []; autoRender("run");
   const tick = () => { if (AUTO.el && AUTO.el.open && st.step === "run" && st.run === run) autoRender("run"); };
   const wantSongs = st.kind === "auto" || st.kind === "sing", out = [];
   let current = null;
@@ -10628,7 +10639,10 @@ async function autoRun() {
     }
     run.phase = 4; tick();
     const r = MontClipAutoSlices.build({ recordings: out, kind: st.kind, count: st.count, len: st.len });
-    st.recs = out; st.clips = r.clips; st.few = r.few; st.dropped = []; st.hist = []; st.exportIds = null;
+    // v12: the kept corrections — the habits move the cards, a part marked 不是唱歌 in this recording does not come back
+    const clips = await autoApplyKept(r.clips, out);
+    if (st.run !== run) return;
+    st.recs = out; st.clips = clips; st.few = r.few; st.dropped = []; st.hist = []; st.histKept = []; st.exportIds = null;
     st.ask = st.kind === "auto" && r.clips.some((c) => c.kind === "song") && r.clips.some((c) => c.kind === "moment");
     st.run = null;
     if (AUTO.el && AUTO.el.open) autoRender("review");
@@ -10658,7 +10672,8 @@ function autoReviewHtml() {
   const names = st.recs.map((r) => autoMedia(r.mediaId)).filter(Boolean).map((m) => m.name).join("、");
   const dur = st.recs.reduce((x, r) => x + r.duration, 0), dm = st.recs.reduce((x, r) => x + (r.danmaku || 0), 0);
   const head = !found ? autoSay("as-found-none") : on === found ? autoSay("as-found-all", { found }) : autoSay("as-found-head", { found, on });
-  const evidence = dm ? autoSay("as-evidence", { count: dm.toLocaleString(), dur: autoDur(dur), n: found }) : autoSay("as-evidence-nodm", { dur: autoDur(dur), n: found });
+  const evidence = (dm ? autoSay("as-evidence", { count: dm.toLocaleString(), dur: autoDur(dur), n: found }) : autoSay("as-evidence-nodm", { dur: autoDur(dur), n: found }))
+    + (st.habitUsed ? autoSay("as-evidence-habits", { n: st.keptN, k: st.habitUsed }) : "");
   // v12 (frozen; JJ's visual review): what every card used to repeat is said once — the name hint on the first card, the
   // 估的 note under the first overview, above the first card (also the tooltip of every 估的 tag)
   const guessed = st.clips.some((c) => c.on && ["s", "e"].some((w) => MontClipAutoSlices.edgeLevel(c, w) === "estimated"));
@@ -10678,7 +10693,8 @@ function autoReviewHtml() {
     ${st.few ? `<section class="as-card-box"><b>${autoSay("as-few", st.few)}</b><p class="as-small">${autoSay("as-few-sub", { signals: uiText(dm ? "own.as-sig-both" : "own.as-sig-sound") })}</p></section>` : ""}
     <div data-as-cards>${cards}</div>
     ${st.dropped.length ? `<details class="as-more"><summary>${autoSay("as-dropped", { n: st.dropped.length })}</summary>
-      ${st.dropped.map((c) => `<div class="as-row as-dropped"><span>${escapeHtml(autoName(c))}</span><button type="button" class="btn tiny" data-as-act="put-back" data-as-id="${escapeHtml(c.id)}">${autoSay("as-put-back")}</button></div>`).join("")}</details>` : ""}`;
+      ${st.dropped.map((c) => `<div class="as-row as-dropped"><span>${escapeHtml(autoName(c))}</span><button type="button" class="btn tiny" data-as-act="put-back" data-as-id="${escapeHtml(c.id)}">${autoSay("as-put-back")}</button></div>`).join("")}</details>` : ""}
+    ${autoAddRowHtml()}${autoLearnLineHtml()}`;
 }
 function autoOverviewHtml(rec, clips, startNo) {
   const o = MontClipAutoSlices.overview(rec, clips, startNo), L = rec.duration;
@@ -10718,21 +10734,222 @@ function autoLyricsAvailable() {
   return false;
 }
 function autoCardHtml(c, i) {
-  const song = c.kind === "song", why = c.reasons.map((r) => highlightReasonText(r).text).join(" · ");
+  const song = c.kind === "song", why = MontClipAutoSlices.cardReasons(c).map((r) => highlightReasonText(r).text).join(" · ");
   // v12: the subtitle line is the tooltip of 〔按歌词校准字幕〕 (once the card can use it)
   const subs = song && autoState().subs && autoSubMode() === "local" && autoSubCount(c) != null ? autoSay("as-sub-line", { n: autoSubCount(c) }) : "";
   // a song card is 「{time} 那段 · 可能在唱歌」 until songs.js reaches the naming gate (Deja; auto-slices.js)
   return `<article class="as-clip${c.on ? "" : " off"}" data-as-card="${escapeHtml(c.id)}">
     <div class="as-clip-h"><input type="checkbox" data-as-act="toggle"${c.on ? " checked" : ""} aria-label="${autoSay("as-tick")}">
-      <div class="as-clip-main"><div class="as-clip-title"><span class="as-muted">${i + 1}.</span> <input type="text" data-as-act="rename" value="${escapeHtml(autoName(c))}" aria-label="${autoSay("as-rename")}" title="${autoSay("as-rename-tip")}">${c.on ? "" : `<span class="as-tag">${autoSay("as-spare")}</span>`}<span class="as-small as-kindline" data-as-kind-line>${autoSay(song ? "as-maybe-singing" : "as-a-moment")} · ${escapeHtml(autoDur(c.e - c.s))}</span></div>
+      <div class="as-clip-main"><div class="as-clip-title"><span class="as-muted">${i + 1}.</span> <input type="text" data-as-act="rename" value="${escapeHtml(autoName(c))}" aria-label="${autoSay("as-rename")}" title="${autoSay("as-rename-tip")}">${c.on ? "" : `<span class="as-tag">${autoSay("as-spare")}</span>`}${autoKindLineHtml(c)}</div>
         ${i === 0 ? `<div class="as-small" data-as-name-hint>${autoSay("as-song-name-hint")}</div>` : ""}
-        ${why ? `<p class="as-why">${autoSay("as-why")}<b>${escapeHtml(why)}</b></p>` : ""}</div></div>
+        ${c.added ? `<p class="as-why"><b>${autoSay("as-added-why")}</b></p>` : c.changedFrom ? `<p class="as-why"><b>${autoSay("as-marked-why")}</b></p>` : why ? `<p class="as-why">${autoSay("as-why")}<b>${escapeHtml(why)}</b></p>` : ""}${autoHabitLineHtml(c)}</div></div>
     ${c.on ? `<div class="as-trim">${autoEdgeHtml(c, "s")}${autoEdgeHtml(c, "e")}</div>` : `<p class="as-small">${autoSay("as-tick-to-adjust")}</p>`}
     <div class="as-actions"><button type="button" class="btn tiny as-play" data-as-act="play">${autoSay("as-play")}</button>
       <button type="button" class="btn tiny" data-as-act="fine">${autoSay("as-fine")}</button>
       ${song && autoLyricsAvailable() ? `<button type="button" class="btn tiny" data-as-lyrics${subs ? " data-as-sub-line" : ""} title="${[subs, autoSongKey("as-lyrics") !== "as-lyrics" ? autoSay(autoSongKey("as-lyrics")) : ""].filter(Boolean).join("\n")}">${autoSay("as-lyrics")}</button>` : ""}
       <button type="button" class="as-drop" data-as-act="drop">${autoSay("as-drop")}</button></div></article>`;
 }
+/* ── 记住我的剪辑习惯 (frozen v12; Deja, 2026-11-03): the streamer's corrections, kept on this computer by the main process
+   (desktop/corrections-store.js, window.montclipCorrections) and never sent — corrections.js says what a record holds and
+   the fixed rules, segment-edits.js the two card edits. This block is the only page code that reads them
+   (test/corrections-ui.test.js); the assistant's context and request never do. Without the desktop store (the browser)
+   the edits still work and nothing is kept. ── */
+const KEPT = { told: false, on: null, names: new Map() };
+const autoStore = () => window.montclipCorrections || null;
+/** The search's cards with what was kept applied: the shift habits, and the parts marked 不是唱歌 in the same recording
+ *  (the singing bar is off). Off, or nothing kept: the cards as found. Also gives each recording its key. */
+async function autoApplyKept(cards, recs) {
+  const st = autoState();
+  for (const r of recs) r.key = MontClipCorrections.recordingKey(r.duration, r.loudness);
+  st.habitUsed = 0; st.keptN = 0; st.habitRules = null;
+  const s = autoStore();
+  if (!s) return cards;
+  let kept = null; try { kept = await s.records(); } catch { return cards; }
+  KEPT.on = kept !== null;
+  if (!kept || !kept.length) return cards;
+  const rules = MontClipCorrections.rules(kept);
+  const out = MontClipCorrections.apply(cards, rules, { duration: Object.fromEntries(recs.map((r) => [r.mediaId, r.duration])), recKey: Object.fromEntries(recs.map((r) => [r.mediaId, r.key])) });
+  // 你调过 is the streamer's own move: where a habit moved a card, its found ends move too, so each end keeps its level
+  for (const c of out) if (c.was) { c.found = { s0: c.s0, e0: c.e0 }; if (Number.isFinite(c.s0)) c.s0 = c.s; if (Number.isFinite(c.e0)) c.e0 = c.e; }
+  // a part marked 不是唱歌 comes back as the streamer's kind, at their start and end: their change (你改的), with its reason
+  // a card added with 补一段 back in the same recording: ticked, its name if the page still has it
+  for (const c of out) if (c.added && c.keptId) { c.on = true; c.reasons = []; if (KEPT.names.has(c.keptId)) c.title = KEPT.names.get(c.keptId); }
+  for (const c of out) if (c.changedFrom) { c.kindBy = true; if (Number.isFinite(c.s0)) c.s0 = c.s; if (Number.isFinite(c.e0)) c.e0 = c.e; }
+  st.habitUsed = out.filter((c) => c.was).length; st.keptN = kept.length; st.habitRules = rules;
+  return out;
+}
+/** Keep one correction (corrections.js record) for card c: its recording's length, and the part's sound where the kind
+ *  matters; its id goes with the undo step. → the words saying it is kept, the first time only, or "". */
+async function autoKeep(corr, c) {
+  const s = autoStore(), st = autoState(), rec = autoRec(c.mediaId);
+  if (!s || !rec) return "";
+  const body = { ...corr, duration: rec.duration };
+  if (corr.type !== "trim") { const f = MontClipCorrections.features(c, rec.loudness); if (f) body.features = f; }
+  const step = st.histKept[st.histKept.length - 1];
+  let r = null; try { r = await s.append(body); } catch { return ""; }
+  if (!r || !r.ok) { if (r && r.code === "CORRECTIONS_OFF") KEPT.on = false; return ""; }
+  KEPT.on = true;
+  if (step) step.push(r.id);
+  if (corr.type === "add") { c.keptId = r.id; if (c.title) KEPT.names.set(r.id, c.title); }
+  if (KEPT.told) return "";
+  KEPT.told = true; return uiText("own.as-learn-told");
+}
+const autoKeepMove = (c, w, d) => (Math.abs(d) > 1e-6 ? autoKeep({ type: "trim", kind: c.kind, startShift: w === "s" ? d : 0, endShift: w === "e" ? d : 0 }, c) : Promise.resolve(""));
+/** The toast at once; once the correction is kept, the first time, it also says so. */
+function autoToastKept(msg, kept) { autoToast(msg); kept.then((told) => { if (told) autoToast(msg + told); }); }
+/** An undone step's corrections go too. The store answers at once (sendSync), not with a promise; a failure here never
+ *  stops the undo from drawing the cards again (VV on 12f4f21: `.catch` on its answer threw before autoRender). */
+function autoForget(ids) {
+  const s = autoStore();
+  if (s && ids) for (const id of ids) { try { Promise.resolve(s.undo(id)).catch(() => {}); } catch {} }
+}
+/** 这段不是唱歌 / 这段是唱歌 (set_segment_kind): the kind only; marked 不是唱歌, the record says which recording and part. */
+function autoSetKind(c, kind) {
+  const st = autoState(), from = c.kind, s = c.s, e = c.e, r = MontClipSegmentEdits.setKind(st.clips, { id: c.id, kind });
+  if (!r.ok) return;
+  autoSnap(); st.clips = r.cards; const x = autoClip(c.id); x.kindBy = true;
+  autoRender("review"); autoFocusCard(x.id, false);
+  const rec = autoRec(x.mediaId), where = from === "song" && rec && rec.key ? { rec: rec.key, s, e } : {};
+  autoToastKept(uiText(kind === "song" ? "own.as-kind-to-song" : "own.as-kind-to-moment", { name: autoName(x) }), autoKeep({ ...r.correction, ...where }, x));
+}
+/** 这次不用: this card back where the search put it. */
+function autoNotNow(c) {
+  const st = autoState(), k = st.clips.indexOf(c);
+  if (k < 0 || !c.was) return;
+  const x = MontClipCorrections.revert(c);
+  if (x.found) { x.s0 = x.found.s0; x.e0 = x.found.e0; delete x.found; }
+  autoSnap(); st.clips[k] = x; autoRender("review"); autoFocusCard(c.id, false);
+  autoToast(uiText("own.as-habit-reverted", { name: autoName(c) }));
+}
+const autoKindName = (k) => (k === "song" ? autoSay("as-kind-song") : k === "moment" ? autoSay("as-a-moment") : autoSay("as-kind-" + k));
+function autoKindLineHtml(c) {
+  const song = c.kind === "song", lbl = song && !c.kindBy && !c.added ? autoSay("as-maybe-singing") : autoKindName(c.kind);
+  const tag = c.added ? `<span class="as-tag as-tag-you">${autoSay("as-tag-added")}</span>` : c.kindBy ? `<span class="as-tag as-tag-you">${autoSay("as-tag-changed")}</span>` : "";
+  return `<span class="as-small as-kindline" data-as-kind-line>${lbl}${tag} · ${escapeHtml(autoDur(c.e - c.s))} · <button type="button" class="as-link" data-as-act="set-kind">${autoSay(song ? "as-not-song" : "as-is-song")}</button></span>`;
+}
+/** ↺ 按你以前的习惯，开头提前了 4 秒（你以前 5 首歌里有 4 首把开头往前挪）· 这次不用 · 去设置 */
+function autoHabitLineHtml(c) {
+  const sh = c.was && autoState().habitRules && autoState().habitRules.shift[c.kind];
+  if (!sh) return "";
+  const n1 = (x) => String(Math.round(Math.abs(x) * 10) / 10), parts = [];
+  for (const w of ["start", "end"]) {
+    const h = sh[w];
+    if (!h || !(c.rules || []).includes(`shift-${w}:${c.kind}`)) continue;
+    const later = h.by > 0, key = w === "start" ? (later ? "as-habit-start-later" : "as-habit-start-earlier") : (later ? "as-habit-end-later" : "as-habit-end-earlier");
+    parts.push(autoSay(key, { d: n1(h.by) }) + autoSay("as-habit-why", { n: h.n, of: h.of, kind: uiText("own.as-habit-kind-" + c.kind),
+      edge: uiText("own.as-habit-edge-" + w), dir: uiText(later ? "own.as-habit-dir-later" : "own.as-habit-dir-earlier") }));
+  }
+  if (!parts.length) return "";
+  return `<p class="as-small as-habit" data-as-habit><span aria-hidden="true">↺</span>${autoSay("as-habit-lead")}${parts.join("，")} · <button type="button" class="as-link" data-as-act="not-now">${autoSay("as-habit-not-now")}</button> · <button type="button" class="as-link" data-as-act="learn-settings">${autoSay("as-habit-settings")}</button></p>`;
+}
+/** 补一段: the IN–OUT of the main timeline, inside one clip of a searched recording (speed 1) → that recording's part. */
+function autoAddSpan() {
+  const st = autoState(), i = project.inPoint, o = project.outPoint;
+  if (!Number.isFinite(i) || !Number.isFinite(o) || o - i < MontClipSegmentEdits.MIN_LEN) return null;
+  for (const c of project.clips) {
+    const rec = st.recs.find((r) => r.mediaId === c.mediaId);
+    if (!rec || c.disabled || (c.props && c.props.speed && c.props.speed !== 1) || (c.keyframes && c.keyframes.speed && c.keyframes.speed.length)) continue;
+    if (i >= c.start - 1e-6 && o <= c.start + c.duration + 1e-6) {
+      const s = Math.round((i - c.start + (c.in || 0)) * 1000) / 1000, e = Math.round((o - c.start + (c.in || 0)) * 1000) / 1000;
+      if (s >= 0 && e <= rec.duration) return { mediaId: c.mediaId, s, e };
+    }
+  }
+  return null;
+}
+function autoAddRowHtml() {
+  const sp = autoAddSpan(), hms = MontClipAutoSlices.hms;
+  const hint = sp ? autoSay("as-add-hint-on", { from: hms(sp.s), to: hms(sp.e), len: autoDur(sp.e - sp.s) })
+    : autoSay("as-add-hint-off") + `<button type="button" class="as-link" data-as-act="add-goto">${autoSay("as-add-goto")}</button>`;
+  return `<div class="as-addseg"><button type="button" class="btn" data-as-act="add"${sp ? "" : " disabled"}>${autoSay("as-add-btn")}</button><span class="as-small" data-as-add-hint>${hint}</span></div>`;
+}
+function autoLearnLineHtml() {
+  if (!autoStore()) return "";
+  const on = KEPT.on !== false;
+  return `<p class="as-small as-learnline" data-as-learn-line>${autoSay(on ? "as-learn-on" : "as-learn-off")}<button type="button" class="as-link" data-as-act="${on ? "learn" : "learn-on"}">${autoSay(on ? "as-learn-on-btn" : "as-learn-off-btn")}</button></p>`;
+}
+/** 〔打开〕 on the line (JJ's (b), Deja 2026-11-03): the page's own switch, on at once; one undo step (〔撤销〕 or Ctrl+Z)
+ *  turns it off again. Nothing changed while it was off is kept afterwards. The page follows if it is open. */
+function autoLearnSet(on) {
+  const s = autoStore();
+  if (!s) return false;
+  try { s.setEnabled(on); } catch { return false; }
+  KEPT.on = on;
+  if (document.querySelector("dialog.as-learn[open]")) autoLearnOpen();
+  return true;
+}
+function autoLearnTurnOn() {
+  if (!autoLearnSet(true)) return;
+  autoSnap({ learnOn: true });
+  autoRender("review"); autoToast(uiText("own.as-learn-on-here"));
+}
+function autoAddOpen(kind) {
+  const sp = autoAddSpan(), rec = sp && autoRec(sp.mediaId), m = sp && autoMedia(sp.mediaId);
+  if (!sp || !rec) return;
+  let d = document.querySelector("dialog.as-add");
+  const name = d ? (d.querySelector("[data-as-add-name]") || {}).value || "" : "";
+  if (!d) {
+    d = document.createElement("dialog"); d.className = "as-add"; document.body.append(d);
+    d.addEventListener("click", (e) => {
+      const k = e.target.closest("[data-as-add-kind]"); if (k) { autoAddOpen(k.dataset.asAddKind); return; }
+      if (e.target.closest("[data-as-add-no]")) { d.querySelector("[data-as-add-name]").value = ""; d.close(); return; }
+      if (e.target.closest("[data-as-add-ok]")) autoAddDo(d);
+    });
+  }
+  const hms = MontClipAutoSlices.hms, hintKey = !kind ? "as-add-hint-none" : kind === "song" ? "as-add-hint-song" : kind === "interaction" ? "as-add-hint-interaction" : "as-add-hint-moment";
+  d.dataset.kind = kind || "";
+  d.innerHTML = `<h2>${autoSay("as-add")}</h2><p>${autoSay("as-add-from")}<b>${escapeHtml(hms(sp.s))} → ${escapeHtml(hms(sp.e))}</b>${autoSay("as-add-total", { len: autoDur(sp.e - sp.s) })}<span class="as-add-rec" data-as-add-rec>${autoSay("as-add-rec", { name: m ? m.name : "" })}</span></p>
+    <div class="as-small">${autoSay("as-add-what")}</div><div class="as-seg">${MontClipSegmentEdits.ADD_ORDER.map((k) => `<button type="button" data-as-add-kind="${k}"${k === kind ? ' class="on"' : ""}>${autoKindName(k)}</button>`).join("")}</div>
+    <p class="as-small">${autoSay(hintKey)}</p>
+    <label class="dlv-f as-add-namefield"><span>${autoSay("as-add-name")}</span><input type="text" id="asAddName" data-as-add-name maxlength="80" placeholder="${escapeHtml(autoName({ kind: "moment", s: sp.s, e: sp.e, at: sp.s, no: null }))}"></label>
+    <div class="as-row"><button type="button" class="btn primary" data-as-add-ok${kind ? "" : " disabled"}>${autoSay(kind ? "as-add-ok" : "as-add-pick-first")}</button><button type="button" class="btn" data-as-add-no>${autoSay("as-add-cancel")}</button></div>`;
+  d.querySelector("[data-as-add-name]").value = name;
+  if (!d.open) d.showModal();
+}
+function autoAddDo(d) {
+  const st = autoState(), kind = d.dataset.kind, sp = autoAddSpan(), rec = sp && autoRec(sp.mediaId);
+  if (!kind || !sp || !rec) return;
+  const r = MontClipSegmentEdits.add(st.clips, { mediaId: sp.mediaId, from: sp.s, to: sp.e, kind }, { duration: { [sp.mediaId]: rec.duration } });
+  if (!r.ok) { autoToast(uiText("own.as-add-failed"), false); return; }
+  const title = d.querySelector("[data-as-add-name]").value.trim().slice(0, 80);
+  d.querySelector("[data-as-add-name]").value = ""; d.close();
+  autoSnap(); st.clips = r.cards; const x = autoClip(r.id); x.on = true; x.reasons = []; if (title) x.title = title;
+  autoRender("review"); autoFocusCard(x.id);
+  autoToastKept(uiText("own.as-added", { name: autoName(x) }), autoKeep({ ...r.correction, ...(rec.key ? { rec: rec.key, s: x.s, e: x.e } : {}) }, x));
+}
+/** The page 「记住我的剪辑习惯」 (from the line under the cards, 去设置 and 设置 › 自动出切片). */
+async function autoLearnOpen(confirm = false) {
+  const s = autoStore();
+  if (!s) return;
+  let now; try { now = await s.status(); } catch { return; }
+  KEPT.on = now.enabled;
+  let d = document.querySelector("dialog.as-learn");
+  if (!d) {
+    d = document.createElement("dialog"); d.className = "as-learn"; document.body.append(d);
+    d.addEventListener("change", async (e) => {
+      if (!e.target.matches("[data-learn-switch]")) return;
+      const on = e.target.checked; await s.setEnabled(on); KEPT.on = on;
+      toast(uiText(on ? "own.as-learn-turned-on" : "own.as-learn-turned-off")); autoLearnRefresh();
+    });
+    d.addEventListener("click", async (e) => {
+      if (e.target.closest("[data-learn-ok]")) { d.close(); autoLearnRefresh(); return; }
+      if (e.target.closest("[data-learn-clear]")) { autoLearnOpen(true); return; }
+      if (e.target.closest("[data-learn-clear-no]")) { autoLearnOpen(); return; }
+      if (e.target.closest("[data-learn-clear-yes]")) { await s.clear(); toast(uiText("own.as-learn-cleared")); autoLearnOpen(); }
+    });
+  }
+  const b = now.byType || {};
+  d.innerHTML = `<h2>${autoSay("as-learn-title")}</h2><p class="as-small" data-learn-sub>${autoSay("as-learn-sub")}</p>
+    <label class="as-check"><input type="checkbox" data-learn-switch${now.enabled ? " checked" : ""}> ${autoSay("as-learn-switch")}</label>
+    <div class="as-learn-count" data-learn-count>${now.count ? autoSay("as-learn-count", { n: now.count, trim: b.trim || 0, remove: b.remove || 0, kind: b.kind || 0, add: b.add || 0 }) : autoSay("as-learn-none")}</div>
+    <ul class="as-small" data-learn-bullets><li>${autoSay("as-learn-b1")}</li><li>${autoSay("as-learn-b2")}</li><li>${autoSay("as-learn-b3")}</li></ul>
+    ${confirm ? `<p class="as-warn" data-learn-confirm>${autoSay("as-learn-clear-confirm", { n: now.count })}</p><div class="as-row"><button type="button" class="btn primary" data-learn-clear-yes>${autoSay("as-learn-clear-yes")}</button><button type="button" class="btn" data-learn-clear-no>${autoSay("as-learn-clear-no")}</button></div>`
+      : `<div class="as-row"><button type="button" class="btn primary" data-learn-ok>${autoSay("as-learn-ok")}</button><button type="button" class="btn" data-learn-clear${now.count ? "" : " disabled"}>${autoSay("as-learn-clear")}</button></div>`}`;
+  if (!d.open) d.showModal();
+}
+function autoLearnRefresh() { if (AUTO.el && AUTO.el.open && autoState().step === "review") autoRender("review"); }
+{ const box = $("setSlices"), b = box && box.querySelector("[data-learn-open]");
+  if (box && autoStore()) { box.classList.remove("hidden"); b.addEventListener("click", () => autoLearnOpen()); } }
+/* ── end 记住我的剪辑习惯 ── */
 function autoFooter() {
   const st = autoState(), f = AUTO.el && AUTO.el.querySelector("[data-as-footer]");
   if (!f) return;
@@ -10745,12 +10962,17 @@ function autoFooter() {
     <button type="button" class="btn" data-as-act="export"${t.n ? "" : " disabled"}>${t.n ? autoSay("as-export", { n: t.n }) : autoSay("as-tick-first")}</button>`;
 }
 /* the dialog's own undo: card edits (tick, move, rename, take out) — not the timeline's */
-function autoSnap() { const st = autoState(); st.hist.push(JSON.stringify({ clips: st.clips, dropped: st.dropped })); if (st.hist.length > 100) st.hist.shift(); }
+function autoSnap(extra) {
+  const st = autoState(); st.hist.push(JSON.stringify({ clips: st.clips, dropped: st.dropped, ...extra })); st.histKept.push([]);
+  if (st.hist.length > 100) { st.hist.shift(); st.histKept.shift(); }
+}
 function autoUndo() {
   const st = autoState();
   if (st.step !== "review" || !st.hist.length) return;
   const o = JSON.parse(st.hist.pop()); st.clips = o.clips; st.dropped = o.dropped;
+  if (o.learnOn) autoLearnSet(false);   // 〔打开〕 undone: off again
   autoRender("review"); autoToast(uiText("own.as-undone"), false);
+  autoForget(st.histKept.pop());
 }
 let autoToastTimer = null;
 function autoToast(msg, undoable = true) {
@@ -10778,9 +11000,13 @@ function autoClick(e) {
   if (act === "ask") {
     st.ask = false; st.kind = b.dataset.asV;
     const r = MontClipAutoSlices.build({ recordings: st.recs, kind: st.kind, count: st.count, len: st.len });
-    autoSnap(); st.clips = r.clips; st.few = r.few; autoRender("review"); return;
+    autoApplyKept(r.clips, st.recs).then((clips) => { autoSnap(); st.clips = clips; st.few = r.few; autoRender("review"); }); return;
   }
   if (act === "focus") { autoFocusCard(b.dataset.asId); return; }
+  if (act === "learn" || act === "learn-settings") { autoLearnOpen(); return; }
+  if (act === "learn-on") { autoLearnTurnOn(); return; }
+  if (act === "add") { autoAddOpen(null); return; }
+  if (act === "add-goto") { AUTO.el.close(); toast(uiText("own.as-add-goto-toast")); return; }
   if (act === "put-back") {
     const k = st.dropped.findIndex((x) => x.id === b.dataset.asId); if (k < 0) return;
     autoSnap(); const [x] = st.dropped.splice(k, 1); x.on = true; st.clips.push(x); st.clips.sort((p, q) => q.score - p.score || p.at - q.at);
@@ -10797,16 +11023,21 @@ function autoClick(e) {
   if (!c) return;
   if (act === "nudge") {
     const d = +b.dataset.asD, w = b.dataset.asW, rec = autoRec(c.mediaId);
+    const was = w === "s" ? c.s : c.e;
     autoSnap(); Object.assign(c, MontClipAutoSlices.nudge(c, w, d, rec ? rec.duration : Infinity)); autoRender("review"); autoFocusCard(c.id, false);
-    autoToast(uiText(`own.as-moved-${w === "s" ? "start" : "end"}-${d > 0 ? "later" : "earlier"}`, { name: autoName(c), d: Math.abs(d) })); return;
+    const msg = uiText(`own.as-moved-${w === "s" ? "start" : "end"}-${d > 0 ? "later" : "earlier"}`, { name: autoName(c), d: Math.abs(d) });
+    autoToastKept(msg, autoKeepMove(c, w, (w === "s" ? c.s : c.e) - was)); return;
   }
   if (act === "listen") { autoListen(c, b.dataset.asW); return; }
   if (act === "play") { autoPreview(c); return; }
   if (act === "drop") {
     autoSnap(); st.clips = st.clips.filter((x) => x !== c); c.on = false; st.dropped.push(c);
-    autoRender("review"); autoToast(uiText("own.as-dropped-one", { name: autoName(c) })); return;
+    const rec = autoRec(c.mediaId), where = rec && rec.key ? { rec: rec.key, s: c.s, e: c.e } : {};
+    autoRender("review"); autoToastKept(uiText("own.as-dropped-one", { name: autoName(c) }), autoKeep({ type: "remove", kind: c.kind, ...where }, c)); return;
   }
   if (act === "fine") { autoPlace(st.clips.filter((x) => x.on || x === c), { select: c, fine: true }); return; }
+  if (act === "set-kind") { autoSetKind(c, c.kind === "song" ? "moment" : "song"); return; }
+  if (act === "not-now") { autoNotNow(c); return; }
 }
 function autoChange(e) {
   const t = e.target, st = autoState();
@@ -10815,7 +11046,7 @@ function autoChange(e) {
   const card = t.closest("[data-as-card]"), c = card ? autoClip(card.dataset.asCard) : null;
   if (!c) return;
   if (t.dataset.asAct === "toggle") { autoSnap(); c.on = t.checked; autoRender("review"); autoFocusCard(c.id, false); return; }
-  if (t.dataset.asAct === "rename") { autoSnap(); const v = t.value.trim(); if (v) c.title = v.slice(0, 80); else delete c.title; autoFooter(); }
+  if (t.dataset.asAct === "rename") { autoSnap(); const v = t.value.trim(); if (v) c.title = v.slice(0, 80); else delete c.title; if (c.keptId) { if (c.title) KEPT.names.set(c.keptId, c.title); else KEPT.names.delete(c.keptId); } autoFooter(); }
 }
 function autoFocusCard(id, flash = true) {
   const el = AUTO.el && AUTO.el.querySelector(`[data-as-card="${CSS.escape(id)}"]`);
@@ -10843,8 +11074,10 @@ function autoDragStart(e) {
     const { d, w } = autoDrag; autoDrag = null;
     if (d) {
       const rec = autoRec(c.mediaId);
+      const was = w === "s" ? c.s : c.e;
       autoSnap(); Object.assign(c, MontClipAutoSlices.nudge(c, w, d, rec ? rec.duration : Infinity));
-      autoToast(uiText(`own.as-moved-${w === "s" ? "start" : "end"}-${d > 0 ? "later" : "earlier"}`, { name: autoName(c), d: Math.abs(d) }));
+      const msg = uiText(`own.as-moved-${w === "s" ? "start" : "end"}-${d > 0 ? "later" : "earlier"}`, { name: autoName(c), d: Math.abs(d) });
+      autoToastKept(msg, autoKeepMove(c, w, (w === "s" ? c.s : c.e) - was));
     }
     autoRender("review"); autoFocusCard(c.id, false);
   };

@@ -160,5 +160,7 @@ test('the card\'s lyrics button: none until the card can use it; then short, the
  const app=read('app.js'),css=read('style.css');
  a.match(app,/function autoLyricsAvailable\(\) \{\s*return false;/);
  a.equal(zh('as-lyrics'),'按歌词校准字幕');
- a.match(css,/\.auto-slices button:disabled \{[^}]*opacity: \.45;[^}]*cursor: default;/);
+ // one rule for the whole app (#90, Deja): .btn:disabled / .btn[disabled]; this dialog no longer has its own
+ a.match(css,/\.btn:disabled,\s*\.btn\[disabled\] \{[^}]*opacity: \.45;[^}]*cursor: default;/);
+ a.ok(!/\.auto-slices button:disabled/.test(css),'no rule of the dialog\'s own');
 });
