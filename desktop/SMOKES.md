@@ -45,6 +45,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `simple-primary-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
 | `simple-shortcuts-smoke.cjs` | `SIMPLE_KEYS_COMPLETE` | 在用 |
 | `songs-smoke.cjs` | `SONGS_PASS` | 在用 |
+| `source-follow-smoke.cjs` | `SOURCE_FOLLOW_PASS` | 在用；需要 `MONTCLIP_FFMPEG_DIR`，PATH 上不能有 ffmpeg；`MONTCLIP_SF_TIMING=1` 另量 30 / 60 帧导出耗时 |
 | `three-track-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
 | `timeline-content-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
 | `timeline-drag-smoke.cjs` | `MONTCLIP_DRAG_COMPLETE` | 在用 |
