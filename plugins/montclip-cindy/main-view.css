@@ -16,4 +16,6 @@ button { font: inherit; padding: 4px 10px; border-radius: 6px; border: 1px solid
   background: transparent; color: inherit; cursor: pointer; }
 button:focus-visible { outline: 2px solid var(--accent, #4b3fd6); outline-offset: 1px; }
 .status.error { color: var(--text-danger, #b42318); }
+.where { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 8px; }
+.where .hint { flex: 1 1 240px; margin: 0; }
 .detail { margin: 0 0 8px; font-size: 12px; color: var(--text-secondary, #6b6b66); overflow-wrap: anywhere; }

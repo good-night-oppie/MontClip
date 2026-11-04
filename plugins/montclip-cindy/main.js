@@ -347,6 +347,8 @@ channel.onmessage = async (e) => {
     // the main view's button: open that task's editor tab and go to the task (Cindy checks it follows a real click)
     else if (m.type === 'open-task') a = typeof cindy.taskView === 'function' ? await cindy.taskView({ sessionId: String(m.session || ''), focus: true }) : { ok: false, errorCode: 'HOST_TOO_OLD' };
     else if (m.type === 'ffmpeg-install') a = await installFfmpeg();   // the banner's button: the user's own click
+    // the main view's 打开文件夹: always MontClip's exports folder — a page never names a path
+    else if (m.type === 'open-folder') a = await node('montclip/open-folder', { folder: 'exports' });
     else a = { error: 'unknown request ' + m.type };
   } catch (err) { a = { error: String(err.message || err), code: err.code || null, ...(err.messageEn ? { errorEn: err.messageEn } : {}) }; }
   a = Object.assign({ reqId: m.reqId, answer: true }, a);

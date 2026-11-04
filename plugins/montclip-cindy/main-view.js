@@ -55,8 +55,16 @@
     $('exports').textContent = '';
     for (const e of exportsList) $('exports').appendChild(li(e.name, e.meta));
     $('exportsEmpty').hidden = exportsList.length > 0;
-    $('exportsWhere').textContent = V.exportsWhere(o.dataDir);
+    const where = V.exportsWhere(o.dataDir);
+    $('exportsWhere').textContent = where.text;
+    $('openExports').hidden = !where.path;
+    $('openExports').title = where.path;      // the full path: in the hover text, not on the page
   }
+  // 打开文件夹: the logic page asks the worker to open MontClip's exports folder (the only folder this page can name)
+  $('openExports').addEventListener('click', async () => {
+    const r = await ask('open-folder');
+    if (r.error) fail(V.FAILED.openFolder(r.error));
+  });
   (async () => { try { await fetch('/wake'); } catch (e) { } load(); })();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') load(); });
 })();

@@ -150,11 +150,29 @@ test("main view in JJ's words: the lead, no projects yet, where the exports are"
   assert.ok(page.includes('<p class="lead">每个任务有自己的剪辑项目：在任务里打开剪辑器，它就在聊天旁边。这里列出所有任务的项目和导出的文件。</p>'));
   assert.ok(page.includes(">还没有项目。在一个任务里跟 AI 说「打开剪辑器」就行。</p>"));
   assert.ok(page.includes("<span>左侧导航「更多」→「自定义」，把 MontClip 拖到导航上。以后从导航一点就到这里。</span>"), "the pin hint: unchanged");
-  assert.equal(V.exportsWhere("C:\\Users\\me\\FableCut"),
-    "导出的文件都在 MontClip 自己的导出文件夹里：C:\\Users\\me\\FableCut\\exports。在聊天里让 AI 导出时，会先请你选一个文件夹，再另存一份到那里。");
-  assert.equal(V.exportsWhere("/home/me/FableCut/"),
-    "导出的文件都在 MontClip 自己的导出文件夹里：/home/me/FableCut/exports。在聊天里让 AI 导出时，会先请你选一个文件夹，再另存一份到那里。", "the folder's own separator");
-  assert.equal(V.exportsWhere(""), "");
+});
+
+/* VV (2026-11-04): where the exports are is a sentence and 打开文件夹; the full path is only in the button's hover
+   text. Whether the sentence names the path waits for JJ (for now JJ's sentence without it). */
+test("main view: where the exports are — a sentence, 打开文件夹, the full path in its hover text only", () => {
+  const sentence = "导出的文件都在 MontClip 自己的导出文件夹里。在聊天里让 AI 导出时，会先请你选一个文件夹，再另存一份到那里。";
+  assert.deepEqual(V.exportsWhere("C:\\Users\\me\\FableCut"), { text: sentence, path: "C:\\Users\\me\\FableCut\\exports" });
+  assert.deepEqual(V.exportsWhere("/home/me/FableCut/"), { text: sentence, path: "/home/me/FableCut/exports" }, "the folder's own separator");
+  assert.deepEqual(V.exportsWhere(""), { text: "", path: "" });
+  assert.doesNotMatch(V.exportsWhere("C:\\Users\\me\\FableCut").text, /Users|FableCut|exports/, "no path in the sentence");
+  const page = fs.readFileSync(path.join(PLUGIN, "main-view.html"), "utf8");
+  assert.match(page, /<p class="hint" id="exportsWhere"><\/p>\n\s+<button type="button" id="openExports" hidden>打开文件夹<\/button>/);
+  const js = fs.readFileSync(path.join(PLUGIN, "main-view.js"), "utf8");
+  assert.match(js, /\$\('openExports'\)\.title = where\.path;/);
+  assert.match(js, /const r = await ask\('open-folder'\);\n\s+if \(r\.error\) fail\(V\.FAILED\.openFolder\(r\.error\)\);/);
+  assert.deepEqual(V.FAILED.openFolder("FOLDER_NOT_ALLOWED"), { text: "没能打开导出文件夹。再点一次试试；还不行，把下面这行发给我们：", detail: "FOLDER_NOT_ALLOWED" });
+});
+
+test("main view: 打开文件夹 asks the worker for MontClip's exports folder, whatever the page sends", async () => {
+  const p = logicPage();
+  await p.page({ reqId: "o1", type: "open-folder" });
+  await p.page({ reqId: "o2", type: "open-folder", folder: "C:\\Windows" });
+  assert.deepEqual(p.calls.filter((c) => c[0] === "montclip/open-folder").map((c) => c[1]), [{ folder: "exports" }, { folder: "exports" }]);
 });
 
 test("main view failures in JJ's words: the error on a small line of its own, and no second half without one", () => {

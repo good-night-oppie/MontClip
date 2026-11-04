@@ -24,12 +24,14 @@
   function exportRows(overview) {
     return (overview.exports || []).map((e) => ({ name: e.name, meta: [size(e.bytes || 0), day(e.modified)].filter(Boolean).join(" · ") }));
   }
-  /** Where the exported files are (JJ's words): the data folder's exports, with the folder's own separator. */
+  /** Where the exported files are: a sentence, with 打开文件夹 beside it; the full path only in its hover text (VV).
+   *  The path's separator is the data folder's own. Whether the sentence names the path waits for JJ: for now it
+   *  does not (JJ's sentence of ec99242e, without the path). */
   function exportsWhere(dataDir) {
-    if (!dataDir) return "";
+    if (!dataDir) return { text: "", path: "" };
     const sep = String(dataDir).includes("\\") ? "\\" : "/";
-    return "导出的文件都在 MontClip 自己的导出文件夹里：" + String(dataDir).replace(/[\\/]+$/, "") + sep + "exports。" +
-      "在聊天里让 AI 导出时，会先请你选一个文件夹，再另存一份到那里。";
+    return { text: "导出的文件都在 MontClip 自己的导出文件夹里。在聊天里让 AI 导出时，会先请你选一个文件夹，再另存一份到那里。",
+      path: String(dataDir).replace(/[\\/]+$/, "") + sep + "exports" };
   }
   /** A failure in JJ's words: what went wrong and what to try; with an error, "还不行，把下面这行发给我们：" and the
    *  error on a small line of its own; without one, the sentence ends at what to try. */
@@ -40,6 +42,7 @@
   const FAILED = {
     load: (e) => failure("MontClip 没能读取项目。", "关掉这页再打开试试", e),
     openTask: (e) => failure("没能打开这个任务。", "这个任务可能已经删掉了", e),
+    openFolder: (e) => failure("没能打开导出文件夹。", "再点一次试试", e),   // waiting for JJ
   };
   return { projectRows, exportRows, size, exportsWhere, failure, FAILED };
 });
