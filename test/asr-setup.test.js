@@ -18,8 +18,14 @@ test('JJ v2, section one, word for word', () => {
   a.equal(zh('setup-local-errors'), '普通说话每 100 个字大约错 3 个。唱歌的部分错字会多一些，可以用「按歌词校准字幕」改。');
   a.equal(zh('setup-local-punct'), '字幕默认不带标点；另外装一个标点模型（下载约 60 MB）就有标点。');   // Deja, 11-03: the licence is Apache-2.0, so it can be installed (test/asr-jj3.test.js)
   a.equal(zh('asr-download'), '下载并使用（约 230 MB）');
-  a.equal(zh('setup-later-title'), '以后再说');
-  a.equal(zh('setup-later'), '先不装。找高光、剪辑、导出都照常能用，只是不会自动出字幕；你也可以自己导入 SRT 字幕文件。');
+  // JJ's final words for the card (Deja, on #102): its title no longer repeats the button's 以后再说, and the text under it
+  // no longer starts with the title again; the button keeps 以后再说 / Not now
+  a.equal(zh('setup-later-title'), '先不装');
+  a.equal(zh('setup-later'), '找高光、剪辑、导出都照常能用，只是不会自动出字幕；你也可以自己导入 SRT 字幕文件。');
+  a.equal(en('setup-later-title'), 'Skip for now');
+  a.equal(en('setup-later'), "Highlights, editing and export all still work; you just won't get automatic subtitles. You can also import an SRT file.");
+  a.ok(!zh('setup-later').includes('先不装') && !en('setup-later').includes('Skip for now'), 'the text does not say the title again');
+  a.equal(en('asr-later'), 'Not now');
   a.equal(zh('asr-later'), '以后再说');
   a.equal(zh('setup-dl-title'), '正在下载听写模型');
   a.equal(zh('setup-done-title'), '听写模型装好了'); a.equal(zh('setup-ok'), '好');

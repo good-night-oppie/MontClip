@@ -4,6 +4,18 @@
    times, and the CT-Transformer model adds punctuation when it is installed. The sound streams through, so a
    three-hour recording never sits in memory whole. Nothing here touches the network.
 
+   One segment the engine cannot read never fails the recording (Deja, 2026-11-03, from Rea on #93: one of 1485
+   segments of a 3.8-hour stream made sherpa-onnx throw basic_string::_S_create, and the whole transcription failed).
+   A failing segment is tried again as its two halves, once; a part that still fails is a gap {start, end, reason}
+   and the transcription goes on. The result is complete, partial (with gaps), or failed (ASR_FAILED: nothing at all
+   could be read). Every decode is on a new stream, so a stream the engine broke is never used again. Rea: the failing
+   segment is at 3603.7 s and 4.74 s long, the only one of 1485 — not a long segment, so the VAD keeps its 20 s maximum.
+   The root (Rea, #93 ADR §10): the model's tokens.txt has a token that is exactly "@" (line 7252, "@ 7251"), and
+   sherpa-onnx 2.0.1 (gitSha1 af2d8d81) takes 2 off the length of a token ending in "@" — for "@" alone that underflows
+   (std::length_error: basic_string::_S_create, "string too long" on MSVC). The recognizer reads a copy of tokens.txt
+   with that token as the full-width 「＠」 (safeTokens), and 「＠」 is taken out of the words. Only decodeAsync is ever
+   called: the synchronous decode() aborts the whole process on this. The segment guard stays for anything else.
+
    asrDir   the engine and the VAD (resources/asr in the package, vendor/asr in a checkout):
               engine/node_modules/sherpa-onnx-node, engine/node_modules/sherpa-onnx-<platform>-<arch>, silero_vad.onnx,
               models/ (the 完整版 package's models, or a checkout's)
@@ -15,16 +27,69 @@ const { spawn } = require("node:child_process");
 const { manifest, createStore } = require("./asr-models");
 const W = require("./asr-words");
 
+const crypto = require("node:crypto");
+const os = require("node:os");
+
 const RATE = 16000, WINDOW = 512;
+/** tokens.txt without a token that is exactly "@": that line's token becomes the full-width 「＠」 (its id unchanged) in a
+ *  copy in cacheDir, named by the source's SHA-256, so a changed source gets a new copy; the source is never changed.
+ *  → the file the recognizer reads (the source itself when there is nothing to fix). */
+function safeTokens(file, cacheDir) {
+  let bytes;
+  try { bytes = fs.readFileSync(file); } catch { return file; }   // unreadable: the engine says so itself
+  const text = bytes.toString("utf8");
+  if (!/^@ \d+\r?$/m.test(text)) return file;
+  const out = path.join(cacheDir, "tokens-" + crypto.createHash("sha256").update(bytes).digest("hex") + ".txt");
+  if (!fs.existsSync(out)) {
+    fs.mkdirSync(cacheDir, { recursive: true });
+    const tmp = out + "." + process.pid + ".tmp";
+    fs.writeFileSync(tmp, text.replace(/^@( \d+\r?)$/gm, "＠$1"));
+    fs.renameSync(tmp, out);
+  }
+  return out;
+}
 /** The VAD as measured on europa (RESULT.md §1): segments of at most 20 s. */
 const VAD = { threshold: 0.5, minSpeechDuration: 0.25, minSilenceDuration: 0.5, maxSpeechDuration: 20, windowSize: WINDOW };
 
-function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store } = {}) {
+/** One VAD segment's words: decoded whole; if the engine throws, its two halves once each (with at least MIN_PART s of
+ *  sound each). A part that cannot be read is a gap {start, end, reason}. → {words, gaps, read} (read: any part read). */
+const MIN_PART = 0.25;
+async function segmentWords(r, audio, start, p) {
+  const words = [], gaps = [];
+  let read = false;
+  const one = async (part, at) => {
+    const s = r.createStream();
+    s.acceptWaveform({ sampleRate: RATE, samples: part });
+    const res = await r.decodeAsync(s);
+    // 「＠」 is the "@" token of safeTokens: never a word
+    let ws = W.words(res, { offset: at, end: at + part.length / RATE }).map((w) => [w[0].replace(/＠/g, ""), w[1], w[2]]).filter((w) => w[0]);
+    if (p && ws.length) { try { ws = W.punctuate(ws, p.addPunct(W.plain(ws))); } catch { } }
+    words.push(...ws); read = true;
+  };
+  const why = (e) => String((e && e.message) || e || "error").slice(0, 200);
+  const gap = (n, at, e) => gaps.push({ start: r3(at), end: r3(at + n / RATE), reason: why(e) });
+  try { await one(audio, start); }
+  catch (e) {
+    const half = Math.floor(audio.length / 2);
+    if (half < MIN_PART * RATE) gap(audio.length, start, e);
+    else for (const [from, to] of [[0, half], [half, audio.length]]) {
+      const at = start + from / RATE;
+      try { await one(audio.subarray(from, to), at); } catch (e2) { gap(to - from, at, e2); }
+    }
+  }
+  return { words, gaps, read };
+}
+const r3 = (x) => Math.round(x * 1000) / 1000;
+
+function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engineModule = null, cacheDir = null } = {}) {
+  // where the safe tokens copy goes (the server gives one in its data folder, userData in the desktop app)
+  cacheDir = path.resolve(cacheDir || path.join(os.tmpdir(), "montclip-asr-cache"));
   asrDir = path.resolve(asrDir); if (modelsDir) modelsDir = path.resolve(modelsDir);
   store = store || createStore({ roots: [path.join(asrDir, "models")], userDir: modelsDir });
   const engineDir = path.join(asrDir, "engine", "node_modules", "sherpa-onnx-node");
   const vadFile = path.join(asrDir, manifest.engine.vad.file);
-  let sherpa = null, rec = null, recDir = null, punct = null, punctDir = null, idle = 0;
+  // sherpa: the engine module itself (tests give a stand-in; otherwise it is loaded from engineDir)
+  let sherpa = engineModule, rec = null, recDir = null, punct = null, punctDir = null, idle = 0;
 
   function status() {
     let vadOk = false;
@@ -38,7 +103,7 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store } = {}) {
   async function recognizer(dir) {
     if (rec && recDir === dir) return rec;
     rec = await engine().OfflineRecognizer.createAsync({ featConfig: { sampleRate: RATE, featureDim: 80 },
-      modelConfig: { paraformer: { model: path.join(dir, "model.int8.onnx") }, tokens: path.join(dir, "tokens.txt"), numThreads: threads, provider: "cpu", debug: 0 } });
+      modelConfig: { paraformer: { model: path.join(dir, "model.int8.onnx") }, tokens: safeTokens(path.join(dir, "tokens.txt"), cacheDir), numThreads: threads, provider: "cpu", debug: 0 } });
     recDir = dir;
     return rec;
   }
@@ -75,18 +140,16 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store } = {}) {
     const stop = () => { try { proc.kill(); } catch { } };
     if (signal) { if (signal.aborted) stop(); else signal.addEventListener("abort", stop, { once: true }); }
 
-    const words = [];
-    let samples = 0, speech = 0, segments = 0, carry = null, pending = new Float32Array(0);
+    const words = [], gaps = [];
+    let samples = 0, speech = 0, segments = 0, read = 0, skipped = 0, carry = null, pending = new Float32Array(0);
     const decodeReady = async () => {
       while (!vad.isEmpty()) {
         const seg = vad.front(false), start = seg.start / RATE, audio = Float32Array.from(seg.samples);
         vad.pop();
-        const s = r.createStream();
-        s.acceptWaveform({ sampleRate: RATE, samples: audio });
-        const res = await r.decodeAsync(s);
-        let ws = W.words(res, { offset: start, end: start + audio.length / RATE });
-        if (p && ws.length) { try { ws = W.punctuate(ws, p.addPunct(W.plain(ws))); } catch { } }
-        words.push(...ws);
+        const one = await segmentWords(r, audio, start, p);
+        words.push(...one.words); gaps.push(...one.gaps);
+        if (one.read) read++;
+        if (one.gaps.length) skipped++;
         speech += audio.length / RATE; segments++;
       }
     };
@@ -113,11 +176,13 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store } = {}) {
       vad.flush();
       await decodeReady();
     } finally { stop(); rest(); }
-    words.sort((x, y) => x[1] - y[1]);
-    return { words, duration: samples / RATE, speech, segments, model: manifest.models.asr.id, language: "zh", punctuated: !!p };
+    words.sort((x, y) => x[1] - y[1]); gaps.sort((x, y) => x.start - y.start);
+    // nothing at all could be read: failed, not a transcript of silence
+    if (gaps.length && !read) throw Object.assign(new Error("no segment of the sound could be transcribed: " + gaps[0].reason), { code: "ASR_FAILED", gaps });
+    return { status: gaps.length ? "partial" : "complete", gaps, skippedSegments: skipped, words, duration: samples / RATE, speech, segments, model: manifest.models.asr.id, language: "zh", punctuated: !!p };
   }
 
   return { status, transcribe, store };
 }
 
-module.exports = { createAsr, VAD };
+module.exports = { createAsr, VAD, segmentWords, safeTokens };

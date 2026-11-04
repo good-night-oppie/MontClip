@@ -61,6 +61,9 @@
     assistant_request: ["external", "把聊天消息发给 AI 服务", "Send the chat to the AI service"],
     song_lookup: ["external", "按歌词联网查歌名（只发两三句歌词）", "Look up the song's name online from two or three lyric lines"],
     cloud_transcribe: ["external", "把录音分段发到云端听写", "Send the recording in parts to a cloud service to transcribe"],
+    // the 「自动出切片」 card edits (the owner / Deja, 2026-11-03): the streamer's buttons and the AI, the same capabilities
+    set_segment_kind: ["undoable", "改一张候选卡的类型：唱歌、互动、聊天、整活、普通高光或其他", "Change a candidate card's kind: singing, interaction, chat, stunt, highlight or other"],
+    add_segment: ["undoable", "用 IN–OUT 补一张候选卡，带上类型", "Add a candidate card from IN–OUT, with its kind"],
     fablecut_track: ["undoable", "跟着画面里的人或物体动，让马赛克、贴纸也跟着它走", "Follow a person or thing in the picture, so a mosaic or sticker moves with it"],
   };
   // External caps (Deja, 2026-11-03, on #83): per capability, fixed here with the risk levels, in bytes. perSend is one send
@@ -75,7 +78,17 @@
   const table = new Map();
   for (const t of TOOLS) if (SPEC[t.name]) table.set(t.name, { source: "mcp", schema: clone(t.inputSchema) });
   for (const [name, schema] of Object.entries(PROPOSALS)) table.set(name, { source: "proposal", schema: clone(schema) });
+  // the host's own sends (#83): no arguments of their own
   for (const name of HOST) table.set(name, { source: "host", schema: { type: "object" } });
+  // the host's card edits (segment-edits.js, from main), with their argument shapes
+  const KIND = { type: "string", enum: ["song", "interaction", "chat", "stunt", "moment", "other"] };
+  const HOST_EDITS = {
+    set_segment_kind: { type: "object", additionalProperties: false, required: ["id", "kind"],
+      properties: { id: { type: "string", pattern: "^[A-Za-z0-9_.-]{1,160}$" }, kind: KIND } },
+    add_segment: { type: "object", additionalProperties: false, required: ["mediaId", "from", "to", "kind"],
+      properties: { mediaId: { type: "string", pattern: "^[A-Za-z0-9_.-]{1,128}$" }, from: { type: "number", minimum: 0 }, to: { type: "number", minimum: 0 }, kind: KIND } },
+  };
+  for (const [name, schema] of Object.entries(HOST_EDITS)) table.set(name, { source: "host", schema: clone(schema) });
   for (const [name, entry] of table) {
     const [risk, zh, en] = SPEC[name];
     if (risk === "external" && !LIMITS[name]) throw new Error("capabilities: " + name + " sends out but has no caps");
