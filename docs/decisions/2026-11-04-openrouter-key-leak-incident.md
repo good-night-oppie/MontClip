@@ -1,0 +1,70 @@
+# 事件记录：OpenRouter 密钥明文在测试窗口泄露（2026-11-04）
+
+状态：**已止血，待作废换新**（Deja 已去向主人请：作废旧 key、删除明文 `.bak`）。QQ 定下 4 条规矩，见第 5 节。
+
+> 本记录不含任何密钥明文。密钥一律用 1Password 引用，正文只写「OpenRouter key」「sk- 开头的 token」这类描述。
+
+## 1. 时间线（本机本地时间）
+
+1. 21:02:46 —— VV 用 `vv-pr104` profile 启动测试窗口（pid 9332），命令行带 `--remote-debugging-port=9411`（固定端口）。
+2. 约 21:04 之前 —— OpenRouter key 的明文被粘进了测试窗口的**歌词框**（`data-ly-text`）。
+3. 21:04:26 —— 有人在这个测试窗口里**保存了一个 OpenRouter 连接**。系统当时两次返回 `USER_INPUT_ACTIVE`，说明有真人在用这台电脑。
+4. 之后 —— VV 截图时把歌词框里的明文 key 截进了截图；这张截图进入了她的 AI 对话记录。
+5. 再之后 —— VV 清掉了页面上的明文、删除了截图、停手不再操作。profile 里只保留了经 Electron safeStorage **加密后的那一份**。
+
+## 2. 已查明的
+
+- 我（QQ）、JJ、实施任务都没有动过这个窗口的记录；系统两次 `USER_INPUT_ACTIVE` 说明是真人操作。
+- VV 的旧脚本 `cdp/mc-pr26-real-config.cjs` 会读 `~/.openrouter-token`，再通过 CDP（`--remote-debugging-port`）去填 AI 服务。这个脚本现在在本机已找不到（可能已删）。
+- `~/.openrouter-token`（74 bytes）和 `~/.openrouter-token.bak`（83 bytes）**都是明文 key，权限 644**（应为 600，且本就不该有明文文件）。
+- 9411 端口当前没在监听（测试窗口已关）。
+
+## 3. 还不知道的
+
+- 21:04 具体是谁在操作（有真人，但身份未最终确认）。
+- 截图里的明文 key 除了进 VV 的 AI 对话记录，还有没有别的去处。
+- `cdp/mc-pr26-real-config.cjs` 是否在别处还有副本。
+
+## 4. 影响
+
+- key 明文曾短暂出现在：歌词框页面、一张截图（进了 AI 对话）、以及 `~/.openrouter-token` / `.bak` 两个明文文件。
+- 在 key 被作废之前，任何拿到明文的人都能以主人的 OpenRouter 账号消费（费用记在主人账号上）。
+
+## 5. 规矩（QQ 定，从即日起生效）
+
+### 5.1 测试窗口与 CDP 端口
+
+1. `--remote-debugging-port` **不得用固定端口**（如 9411）。每次随机生成，或由脚本临时分配。
+2. 测试窗口测完**立刻关闭**（脚本的 `finally` 里关窗口、退进程），不留后台窗口。
+3. 测试窗口用**专用临时 profile**（`--user-data-dir=<新建的空目录>`，测完删除），不在测试 profile 里保存任何真实连接。
+4. **真实 key 永远不进测试窗口**：需要真实连接的测试，改用注入的假 key（`sk-dummy-*`）或 mock 传输。
+
+### 5.2 读 key 的脚本
+
+1. 读取真实 key 的脚本**一律改为从 1Password 引用**（沿用 `op-secrets-reader` 的机制），不读明文文件。
+2. 明文 key 文件（`~/.openrouter-token` 及 `.bak`）**本就不该存在**：key 只存 1Password 引用 + 加密 profile。这次事件后全部清除。
+3. 需要真实 key 的测试，**不允许在共享桌面上跑**；只能在单用户、可信的机器上跑，跑完即弃。
+
+### 5.3 截图与日志
+
+1. **截图前先扫一遍**页面和窗口内容有没有 key 明文（`sk-` 开头的 token 模式），有就先清掉再截。
+2. 截图、日志、报告里**不允许出现 key 明文**（含 `~/.openrouter-token` 的内容）。
+3. 误截了 key 的截图**立即删除**，并像本次一样停手报告，不继续操作、不转发。
+
+### 5.4 已泄露 key 的处理
+
+1. **作废**：这个 key 在 OpenRouter 后台 revoke，主人换一个新的。
+2. **清除明文**：删除 `~/.openrouter-token` 和 `~/.openrouter-token.bak`。
+3. 换新 key 后，只存进加密 profile（safeStorage），不再生成任何明文文件；读取仍走 1Password 引用。
+
+## 6. 待办（由 Deja 请主人执行）
+
+- [ ] OpenRouter 后台作废旧 key、生成新 key。
+- [ ] 删除 `~/.openrouter-token` 和 `~/.openrouter-token.bak`。
+- [ ] 新 key 通过 1Password 引用接入，不落明文文件。
+
+## 7. 结论分类
+
+- **看到的事实**：测试窗口带固定 CDP 端口、key 明文进过歌词框和截图、两个明文 key 文件存在且 644、9411 端口已关。
+- **推断**：操作者是真人（`USER_INPUT_ACTIVE`），走的是 VV 的旧 CDP 脚本路径。
+- **还不知道的**：具体操作者身份、截图是否还有别的去向、CDP 脚本是否还有副本。
