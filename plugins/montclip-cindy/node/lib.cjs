@@ -162,7 +162,8 @@ async function deliverFiles(files, dir, tick = () => { }) {
       });
       fs.renameSync(part, to);
     } catch (e) { try { fs.rmSync(part, { force: true }); } catch { } throw e; }
-    out.push({ file: to, name, bytes: fs.statSync(to).size });
+    // renamed: a file of that name was already there (the card says so under it)
+    out.push({ file: to, name, bytes: fs.statSync(to).size, renamed: name !== path.basename(f) });
   }
   return out;
 }

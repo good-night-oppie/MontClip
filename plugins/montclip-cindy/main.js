@@ -89,21 +89,58 @@ function onDownloadProgress(d) {
 
 /* The export card in the chat (card capability: HTML + CSS only, no script; progress is a width). */
 function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }
-function exportCard(c) {
+/* The export card's words (JJ's final words, 2026-11-04). The plugin's pages are Chinese for now; the English is kept
+   beside them for when they follow Cindy's language. */
+const EXPORT_TEXT = {
+  zh: {
+    pick: '等你选文件夹…', start: '正在开始导出…', running: (p) => '正在导出 ' + p + '%', copy: (f) => '正在存到「' + f + '」…',
+    done: '导出完成', still: '还在导出', failed: '导出没有完成', cancelled: '没有导出',
+    savedTo: (f) => '已存到「' + f + '」', savedDefault: '存在 MontClip 自己的导出文件夹里',
+    stillNote: '这次等不到它导完。导完以后，文件会在 MontClip 自己的导出文件夹里。',
+    noFolder: '没有选文件夹，所以没有导出。',
+    copyFailed: (why) => '视频已经导出好了，但没能存进你选的文件夹（' + why + '）。文件还在 MontClip 自己的导出文件夹里，可以换一个文件夹再导出一次。',
+    renamed: '同名文件已经有了，这次存成这个名字',
+  },
+  en: {
+    pick: 'Waiting for you to choose a folder…', start: 'Starting the export…', running: (p) => 'Exporting ' + p + '%', copy: (f) => 'Saving to “' + f + '”…',
+    done: 'Export finished', still: 'Still exporting', failed: "The export didn't finish", cancelled: 'Not exported',
+    savedTo: (f) => 'Saved to “' + f + '”', savedDefault: "Saved in MontClip's own export folder",
+    stillNote: "This time it can't wait for the export to finish. When it's done, the file will be in MontClip's own export folder.",
+    noFolder: 'No folder was chosen, so nothing was exported.',
+    copyFailed: (why) => "The video is exported, but it couldn't be saved to the folder you chose (" + why + "). The file is still in MontClip's own export folder; you can export again to another folder.",
+    renamed: 'A file with this name was already there, so this one was saved under this name',
+  },
+};
+/** A file size: bytes under 1 KB (字节), then KB, MB, GB — as the main view says it. */
+function sizeText(b, lang) {
+  b = Math.max(0, Math.round(+b || 0));
+  if (b < 1024) return b + (lang === 'en' ? ' bytes' : ' 字节');
+  if (Math.round(b / 1024) < 1024) return Math.round(b / 1024) + ' KB';
+  if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
+  return (b / 1073741824).toFixed(1) + ' GB';
+}
+function exportCard(c, lang) {
+  const t = EXPORT_TEXT[lang === 'en' ? 'en' : 'zh'];
   const pct = Math.max(0, Math.min(100, Math.round((c.progress || 0) * 100)));
-  const head = { pick: '选择导出到哪个文件夹…', start: '正在开始导出…', running: '正在导出 ' + pct + '%', copy: '正在存到「' + esc(c.folder) + '」…',
-    done: '导出完成', failed: '导出没有完成', cancelled: '没有导出' }[c.phase] || '';
+  const small = 'margin:8px 0 0;font-size:12px;color:var(--text-secondary,#6b6b66)';
+  // copyFailed has no head of its own: its sentence says it all (the export did finish)
+  const head = { pick: t.pick, start: t.start, running: t.running(pct), copy: t.copy(esc(c.folder)),
+    done: t.done, still: t.still, failed: t.failed, cancelled: t.cancelled }[c.phase] || '';
   const bar = ['start', 'running', 'copy'].includes(c.phase)
     ? '<div style="height:4px;margin-top:10px;background:var(--border-default,#e4e4e0);border-radius:2px;overflow:hidden"><div style="height:100%;width:' + (c.phase === 'copy' ? 100 : pct) + '%;background:var(--accent,#4b3fd6)"></div></div>' : '';
-  const files = (c.files || []).map((f) => '<li style="overflow-wrap:anywhere">' + esc(f.name) + (f.bytes ? ' · ' + (f.bytes / 1048576).toFixed(1) + ' MB' : '') + '</li>').join('');
-  const where = c.phase === 'done' ? (c.folder ? '<p style="margin:8px 0 0">已存到「' + esc(c.folder) + '」</p>' : '<p style="margin:8px 0 0">在 MontClip 数据目录的 exports 文件夹里</p>') : '';
+  const files = (c.files || []).map((f) => '<li style="overflow-wrap:anywhere">' + esc(f.name) + (f.bytes ? ' · ' + sizeText(f.bytes, lang) : '') +
+    (f.renamed ? '<div style="' + small + ';margin-top:2px">' + t.renamed + '</div>' : '') + '</li>').join('');
+  const where = c.phase === 'done' ? '<p style="margin:8px 0 0">' + (c.folder ? t.savedTo(esc(c.folder)) : t.savedDefault) + '</p>' : '';
+  const body = c.phase === 'still' ? '<p style="' + small + '">' + t.stillNote + '</p>'
+    : c.phase === 'cancelled' ? '<p style="' + small + '">' + t.noFolder + '</p>'
+    : c.phase === 'copyFailed' ? '<p style="margin:0">' + t.copyFailed(esc(c.reason)) + '</p>' : '';
   const note = c.note ? '<p style="margin:8px 0 0;color:' + (c.phase === 'failed' ? 'var(--text-danger,#b42318)' : 'var(--text-secondary,#6b6b66)') + '">' + esc(c.note) + '</p>' : '';
   return '<div style="padding:12px 14px;color:var(--text-primary,#1a1a1a);font:13px/1.45 system-ui,sans-serif">' +
-    '<div style="font-weight:600">' + head + '</div>' + bar + where +
+    (head ? '<div style="font-weight:600">' + head + '</div>' : '') + bar + where + body +
     (files ? '<ul style="margin:8px 0 0;padding-left:18px">' + files + '</ul>' : '') + note + '</div>';
 }
 function sendCard(callId, c) {
-  const done = ['done', 'failed', 'cancelled'].includes(c.phase);
+  const done = ['done', 'failed', 'cancelled', 'still', 'copyFailed'].includes(c.phase);
   return cindy.send({ type: 'card-update', callId, v: 2, state: done ? 'done' : 'working', html: exportCard(c), height: done ? 150 : 110 });
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -152,7 +189,7 @@ const HANDLERS = {
       const picked = await cindy.pick({ mode: 'directory', title: '选择 MontClip 导出到哪个文件夹', callId });
       if (!picked || !picked.ok || !picked.path) {
         await sleep(1000);
-        sendCard(callId, { phase: 'cancelled', note: '没有选文件夹，所以没有导出。' });
+        sendCard(callId, { phase: 'cancelled' });
         return { cancelled: true, code: (picked && picked.errorCode) || 'CANCELLED' };
       }
       folder = picked.name || 'folder'; dir = picked.path;
@@ -170,8 +207,12 @@ const HANDLERS = {
     }
     if (job.status !== 'done') {
       await sleep(1000);
-      const note = job.status === 'pending' || job.status === 'running' ? '还在导出：用 call_tool fablecut_export {job:"' + job.id + '"} 看进度。' : (job.error || job.status);
-      sendCard(callId, { phase: job.status === 'cancelled' ? 'cancelled' : 'failed', note });
+      // still going when this call can wait no longer: the card says so in plain words; how to follow it is for the agent
+      if (job.status === 'pending' || job.status === 'running') {
+        sendCard(callId, { phase: 'still' });
+        return { job: job.id, status: job.status, hint: 'The export is still running. Check it with call_tool fablecut_export {job:"' + job.id + '"}; when it is done the file is in the MontClip data folder\'s exports/.' };
+      }
+      sendCard(callId, job.status === 'cancelled' ? { phase: 'cancelled' } : { phase: 'failed', note: job.error || job.status });
       return { job: job.id, status: job.status, error: job.error || null };
     }
     const outs = job.result && Array.isArray(job.result.outputs) ? job.result.outputs : [];
@@ -180,7 +221,7 @@ const HANDLERS = {
     if (dir) {
       sendCard(callId, { phase: 'copy', folder });
       try { files = (await node('montclip/export-deliver', { id: job.id, dir }, { timeoutMs: 60000, maxTotalMs: 900000 })).files; }
-      catch (e) { await sleep(1000); sendCard(callId, { phase: 'failed', note: '文件已导出到 MontClip 的 exports 文件夹，但没能存进所选文件夹：' + e.message }); return { job: job.id, status: 'done', copied: false, error: e.message }; }
+      catch (e) { await sleep(1000); sendCard(callId, { phase: 'copyFailed', reason: e.message }); return { job: job.id, status: 'done', copied: false, error: e.message }; }
     } else files = outs.filter((o) => o.ok).map((o) => ({ name: o.file })).concat(outs.length ? [] : [{ name: String(job.src || '').split('/').pop() }]);
     await sleep(1000);
     sendCard(callId, { phase: 'done', folder, files, note: report.join(' · ') });
