@@ -1,6 +1,6 @@
-/* FableCut captions — a transcript's words become caption clips, and caption
+/* MontClip captions — a transcript's words become caption clips, and caption
    clips become subtitle files. Zero dependencies; loaded by the editor as a
-   plain script (global `FableCutCaptions`) and required by the MCP server, so
+   plain script (global `MontClipCaptions`) and required by the MCP server, so
    the Transcript tab's Add captions and `fablecut_captions` make the same clips.
 
    cues(words) groups timeline words (transcribe.js layout) into captions: a
@@ -13,7 +13,7 @@
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else root.FableCutCaptions = api;
+  else root.MontClipCaptions = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 

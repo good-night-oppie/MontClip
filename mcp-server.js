@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   FableCut MCP server — connects Claude (Code / Desktop) to the video editor.
+   MontClip MCP server — connects Claude (Code / Desktop) to the video editor.
    Zero-dependency stdio JSON-RPC (Model Context Protocol).
 
    Register once for all Claude Code sessions, from a clone:

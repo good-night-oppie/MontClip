@@ -1,4 +1,4 @@
-/* FableCut timeline-ruler worker.
+/* MontClip timeline-ruler worker.
    Draws the ruler canvas (ticks, time labels, IN/OUT flags, beat markers,
    playhead) off the main thread via a transferred OffscreenCanvas. This is a
    clean Worker candidate — unlike the program-monitor compositor (app.js

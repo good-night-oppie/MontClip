@@ -5,7 +5,7 @@
                 part of the media it shows, in source seconds; where it starts on the timeline.
    highlights — highlight candidates already found in this session, moved to source seconds of the clip they fall in.
    Song sections are not sent: projects have no song data yet (finding songs is a later capability). */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./captions'));else root.MontClipFacts=factory(root.FableCutCaptions);})(typeof globalThis!=='undefined'?globalThis:this,function(C){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./captions'));else root.MontClipFacts=factory(root.MontClipCaptions);})(typeof globalThis!=='undefined'?globalThis:this,function(C){
 'use strict';
 const MAX_CLIPS=30,MAX_HIGHLIGHTS=12;
 const r2=x=>Math.round(x*100)/100;

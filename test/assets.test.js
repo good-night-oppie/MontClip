@@ -149,7 +149,7 @@ test("package.json declares no runtime dependencies", () => {
   // clone with no npm install.
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
   assert.deepEqual(pkg.dependencies ?? {}, {},
-    "FableCut must stay zero-runtime-dependency");
+    "MontClip must stay zero-runtime-dependency");
   assert.ok(pkg.scripts?.test, "package.json needs a test script so CI can run the suite");
 });
 

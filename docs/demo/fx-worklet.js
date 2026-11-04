@@ -1,4 +1,4 @@
-/* FableCut audio-effect processors the Web Audio API has no node for.
+/* MontClip audio-effect processors the Web Audio API has no node for.
    Loaded into the live AudioContext and into each export's
    OfflineAudioContext, so preview and export run the same code.
 
@@ -14,7 +14,7 @@
 const dbToLin = (db) => Math.pow(10, db / 20);
 const coef = (ms) => (ms <= 0 ? 0 : Math.exp(-1 / (sampleRate * ms / 1000)));
 
-class FableCutLimiter extends AudioWorkletProcessor {
+class MontClipLimiter extends AudioWorkletProcessor {
   static get parameterDescriptors() {
     return [
       { name: "ceiling", defaultValue: -1, minValue: -24, maxValue: 0, automationRate: "k-rate" },
@@ -56,7 +56,7 @@ class FableCutLimiter extends AudioWorkletProcessor {
   }
 }
 
-class FableCutGate extends AudioWorkletProcessor {
+class MontClipGate extends AudioWorkletProcessor {
   static get parameterDescriptors() {
     const k = "k-rate";
     return [
@@ -103,7 +103,7 @@ class FableCutGate extends AudioWorkletProcessor {
    at (1 − ratio) samples per sample, so it plays the input back faster or
    slower, and a sin² crossfade hides the jump when a tap wraps (the two
    weights always sum to 1). Adds about half a window (~30 ms) of latency. */
-class FableCutPitch extends AudioWorkletProcessor {
+class MontClipPitch extends AudioWorkletProcessor {
   static get parameterDescriptors() {
     const k = "k-rate";
     return [
@@ -157,6 +157,6 @@ class FableCutPitch extends AudioWorkletProcessor {
   }
 }
 
-registerProcessor("fablecut-limiter", FableCutLimiter);
-registerProcessor("fablecut-gate", FableCutGate);
-registerProcessor("fablecut-pitch", FableCutPitch);
+registerProcessor("fablecut-limiter", MontClipLimiter);
+registerProcessor("fablecut-gate", MontClipGate);
+registerProcessor("fablecut-pitch", MontClipPitch);

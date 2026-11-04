@@ -1,4 +1,4 @@
-# FableCut asset library
+# MontClip asset library
 
 Default, reusable assets. Everything here shows up live in the editor's left
 panel tabs and can be dropped onto the timeline — files are referenced in

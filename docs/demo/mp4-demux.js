@@ -1,7 +1,7 @@
-/* FableCut MP4 demuxer — the sample table of an MP4 / MOV video track, so the
+/* MontClip MP4 demuxer — the sample table of an MP4 / MOV video track, so the
    exporter can feed WebCodecs' VideoDecoder frame by frame instead of seeking a
    <video> element and waiting for it to present each frame. Zero dependencies.
-   Loaded by the editor as a plain script (global `FableCutMp4`) and required by
+   Loaded by the editor as a plain script (global `MontClipMp4`) and required by
    the tests.
 
    Only what decoding needs is read: the first video track's codec string and
@@ -13,7 +13,7 @@
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else root.FableCutMp4 = api;
+  else root.MontClipMp4 = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 

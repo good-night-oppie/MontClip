@@ -11,7 +11,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
  try{
   await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
   // synthetic captions only; no media is generated or read
-  await read(`(()=>{const cues=FableCutCaptions.parse('1\\n00:00:01,000 --> 00:00:03,000\\n合成句子\\n');project.clips=cues.map((c,i)=>FableCutCaptions.clip(c,{id:'synthetic_c'+i,track:'V1'}));rebuildClips();scheduleSave();true})()`);
+  await read(`(()=>{const cues=MontClipCaptions.parse('1\\n00:00:01,000 --> 00:00:03,000\\n合成句子\\n');project.clips=cues.map((c,i)=>MontClipCaptions.clip(c,{id:'synthetic_c'+i,track:'V1'}));rebuildClips();scheduleSave();true})()`);
   await read(`setSideTab('transcript');true`);await wait(300);
   const box=await read(`(()=>{const b=document.querySelector('[data-tr-sentences]');b.scrollIntoView({block:'center'});const r=b.getBoundingClientRect();return{x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2),w:r.width,h:r.height,hit:document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)===b};})()`);
   assert.ok(box.w>0&&box.h>0,'the button is laid out');assert.equal(box.hit,true,'nothing covers the button');

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   Static-mode shim for the FableCut playground.
+   Static-mode shim for the MontClip playground.
 
    The editor normally talks to server.js: it GETs /api/project, PUTs it
    back on every edit, and listens on /api/events for someone else (an

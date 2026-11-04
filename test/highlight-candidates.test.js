@@ -88,7 +88,7 @@ test('the editor wires the cards to local signals, the playhead and the range en
   a.ok(at > 0);
   a.match(body, /MontClipHighlights\.candidates\(sig\)/);
   a.match(body, /data-hl-jump[\s\S]*setTime\(c\.from\)/, 'Go to sets the playhead');
-  a.match(app, /function keepHighlightRanges\(ranges\) \{[\s\S]*?FableCutRangePlan\.create\(doc, ranges\)[\s\S]*?pushUndo\(snap\)/, 'Keep: the range engine and one undo step');
+  a.match(app, /function keepHighlightRanges\(ranges\) \{[\s\S]*?MontClipRangePlan\.create\(doc, ranges\)[\s\S]*?pushUndo\(snap\)/, 'Keep: the range engine and one undo step');
   a.doesNotMatch(body, /montclipAgentService|fetch\(/, 'no model and no request from the cards');
 });
 

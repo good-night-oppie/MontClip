@@ -270,7 +270,7 @@ function createHistory({ projects, autoMinutes = 10, keepAuto = 30 }) {
     };
   }
   function importBackup(b, { name, open = false } = {}) {
-    if (!b || b.fablecut !== "backup" || !b.project) throw new Error("not a FableCut backup");
+    if (!b || b.fablecut !== "backup" || !b.project) throw new Error("not a MontClip backup");
     const out = projects.importDoc(b.project, { name: name || b.name, open: false });
     projects.update(out.id, { notes: b.notes || "", tags: b.tags || [] });
     fs.mkdirSync(dir(out.id), { recursive: true });

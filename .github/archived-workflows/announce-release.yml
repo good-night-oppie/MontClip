@@ -66,7 +66,7 @@ jobs:
                then ($body[0:3800] + "\n\n… [read the full notes](" + $rel.url + ")")
                else $body end) as $desc
             | {
-                username: "FableCut",
+                username: "MontClip",
                 content: ("**" + $rel.tagName + "** is out" + $ping),
                 allowed_mentions: { parse: ["roles"] },
                 embeds: [{
@@ -79,7 +79,7 @@ jobs:
                   url: $rel.url,
                   description: $desc,
                   color: 8088831,
-                  footer: { text: "FableCut • MIT" },
+                  footer: { text: "MontClip • MIT" },
                   timestamp: $rel.publishedAt
                 }]
               }' > payload.json

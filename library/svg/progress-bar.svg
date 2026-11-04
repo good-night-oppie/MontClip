@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="120" viewBox="0 0 800 120">
-  <!-- FableCut animated SVG · one-shot (~2s) · progress bar fills left→right with a moving shine -->
+  <!-- MontClip animated SVG · one-shot (~2s) · progress bar fills left→right with a moving shine -->
   <style>
     .fill { transform-box: fill-box; transform-origin: left center;
             animation: grow 2s cubic-bezier(.5,.05,.2,1) both; }
