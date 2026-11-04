@@ -42,7 +42,8 @@ function engineError(r) {
     return Object.assign(new Error(t.zh), { code: 'DATA_DIR_IN_USE', messageEn: t.en });
   }
   // a worker's own code (or Node's errno code) comes back in the JSON-RPC error's data (nodeRuntimeBroker.ts L1122)
-  return Object.assign(new Error(message), { code: (r.data && typeof r.data.code === 'string' && r.data.code) || r.errorCode || 'NODE_REQUEST_FAILED' });
+  return Object.assign(new Error(message), { code: (r.data && typeof r.data.code === 'string' && r.data.code) || r.errorCode || 'NODE_REQUEST_FAILED',
+    ...(r.data && Number.isFinite(r.data.need) ? { need: r.data.need } : {}) });
 }
 async function node(method, params, extra) {
   const r = await cindy.node.request(Object.assign({ method, params: params || {}, timeoutMs: 120000 }, extra || {}));
@@ -59,7 +60,7 @@ function publicStart(s) { const o = Object.assign({}, s); delete o.url; return o
 /* ffmpeg (export, noise reduction): the pinned LGPL build the Windows app bundles, ~160 MB from GitHub, fetched by
    cindy.downloads (SHA-256 and exact size checked by Cindy) and unpacked by the worker, which checks it is LGPL.
    One install at a time, whether the chat or the editor tab's banner asked. Progress goes to the plugin's pages. */
-let installing = null;
+let installing = null, lastDownloadPhase = null;
 function installFfmpeg() {
   if (installing) return installing;
   installing = (async () => {
@@ -69,9 +70,11 @@ function installFfmpeg() {
     if (typeof cindy.downloads !== 'object' || typeof cindy.downloads.start !== 'function')
       return { error: 'This Cindy cannot download files for plugins; update Cindy.', code: 'HOST_TOO_OLD' };
     channel.postMessage({ type: 'ffmpeg-progress', phase: 'queued' });
+    lastDownloadPhase = null;
     const d = await cindy.downloads.start({ id: 'ffmpeg-' + spec.platform, url: spec.url, sha256: spec.sha256, bytes: spec.bytes });
     if (!d.ok) {
-      const code = d.errorCode || 'DOWNLOAD_FAILED';   // Cindy reports a failed download without a code (downloadSlot.ts L309–316)
+      // Cindy reports a failed download without a code (downloadSlot.ts L309–316); its progress said whether it was cancelled
+      const code = d.errorCode || (lastDownloadPhase === 'cancelled' ? 'CANCELLED' : 'DOWNLOAD_FAILED');
       channel.postMessage({ type: 'ffmpeg-progress', phase: 'failed', code, message: d.message || d.errorCode });
       return { error: d.message || d.errorCode || 'download failed', code };
     }
@@ -81,14 +84,17 @@ function installFfmpeg() {
       channel.postMessage({ type: 'ffmpeg-progress', phase: 'installed', version: out.version });
       return { download: { bytes: d.bytes, sha256: d.sha256, fromCache: d.fromCache }, install: out };
     } catch (e) {
-      channel.postMessage({ type: 'ffmpeg-progress', phase: 'failed', code: e.code || 'INSTALL_FAILED', message: String(e.message || e) });
-      return { error: String(e.message || e), code: e.code || 'INSTALL_FAILED' };
+      channel.postMessage({ type: 'ffmpeg-progress', phase: 'failed', code: e.code || 'INSTALL_FAILED', need: e.need, message: String(e.message || e) });
+      return { error: String(e.message || e), code: e.code || 'INSTALL_FAILED', ...(e.need ? { need: e.need } : {}) };
     }
   })().finally(() => { installing = null; });
   return installing;
 }
 function onDownloadProgress(d) {
   if (!d || !String(d.id || '').startsWith('ffmpeg-')) return;
+  lastDownloadPhase = d.phase;
+  // how it ended is said once, with its code, by installFfmpeg (Cindy's own failed / cancelled carry none)
+  if (d.phase === 'failed' || d.phase === 'cancelled') return;
   channel.postMessage({ type: 'ffmpeg-progress', phase: d.phase, loaded: d.loaded, total: d.total, speedBps: d.speedBps });
 }
 

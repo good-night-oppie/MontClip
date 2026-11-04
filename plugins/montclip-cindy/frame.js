@@ -106,29 +106,26 @@ function failureText(head, error) {
   }
   function progress(m) {
     if (!banner) return;
+    const B = window.MontClipFfmpegBanner, W = B.TEXT.zh;
     const bar = document.getElementById('ffmpegBar'), get = document.getElementById('ffmpegGet'), later = document.getElementById('ffmpegLater');
     banner.hidden = false;
     const busy = !['installed', 'failed', 'cancelled'].includes(m.phase);
     get.hidden = busy || m.phase === 'installed'; later.hidden = busy;
     bar.hidden = !busy;
-    const pct = m.total ? Math.floor((m.loaded / m.total) * 100) : null;
-    bar.firstElementChild.style.width = (pct === null ? 0 : pct) + '%';
-    const mb = (n) => (n / 1048576).toFixed(0);
-    if (m.phase === 'queued') bannerText('正在准备下载 ffmpeg…');
-    else if (m.phase === 'downloading') bannerText(pct === null ? '正在下载 ffmpeg…' : `正在下载 ffmpeg：${pct}%（${mb(m.loaded)} / ${mb(m.total)} MB${m.speedBps ? '，' + (m.speedBps / 1048576).toFixed(1) + ' MB/s' : ''}）`);
-    else if (m.phase === 'retrying') bannerText('网络断了一下，正在重试下载 ffmpeg…');
-    else if (m.phase === 'verifying') bannerText('下载完了，正在核对校验值…');
-    else if (m.phase === 'installing') bannerText('正在安装 ffmpeg，并确认是 LGPL 版本…');
+    bar.firstElementChild.style.width = (m.total ? Math.floor((m.loaded / m.total) * 100) : 0) + '%';
+    if (busy) bannerText(B.progressText(m));
     else if (m.phase === 'installed') {
-      bannerText('ffmpeg 已装好，现在可以导出了。');
+      bannerText(B.progressText(m));
       later.hidden = true;
       setTimeout(() => { banner.hidden = true; }, 4000);
       // the engine restarts to use it: follow it to its new address soon, not at the next minute
       setTimeout(async () => { const b = await ask('editor'); if (b.url && at(b.url) !== url) place(at(b.url)); }, 1500);
-    } else if (m.phase === 'failed' || m.phase === 'cancelled') {
-      // why, in plain words; the raw error small below; every failure offers 重试
-      const f = window.MontClipFfmpegFailure.describe(m.code || (m.phase === 'cancelled' ? 'CANCELLED' : ''), m.message);
-      bannerText(f.text, true, f.detail); get.textContent = '重试'; get.hidden = false;
+    } else {
+      // why, in plain words; the raw error small below where the sentence points to it; 重试 where trying again can help
+      const f = B.describe(m.code || (m.phase === 'cancelled' ? 'CANCELLED' : ''), m.message, { need: m.need });
+      bannerText(f.text, f.reason !== 'cancelled', f.detail);
+      get.hidden = !f.button; get.textContent = f.button === 'install' ? W.install : W.retry;
+      later.hidden = f.reason === 'cancelled';   // 下载取消了: only 下载并安装
     }
   }
   if (banner) {
@@ -136,7 +133,7 @@ function failureText(head, error) {
     document.getElementById('ffmpegGet').addEventListener('click', async () => {
       progress({ phase: 'queued' });
       const r = await ask('ffmpeg-install');
-      if (r.error) progress({ phase: 'failed', code: r.code, message: r.error });
+      if (r.error) progress({ phase: 'failed', code: r.code, need: r.need, message: r.error });
       else if (r.already || r.install) progress({ phase: 'installed' });
     });
     document.getElementById('ffmpegLater').addEventListener('click', () => {
@@ -149,7 +146,10 @@ function failureText(head, error) {
     let later = false;
     try { later = localStorage.getItem(LATER) === '1'; } catch (e) { }
     const s = await ask('ffmpeg-state');
-    if (s.supported && s.state !== 'downloaded' && !later) banner.hidden = false;
+    if (!s.supported || s.state === 'downloaded' || later) return;
+    // the files were changed since they were installed: say so, and offer 重新安装
+    if (s.state === 'changed') { bannerText(window.MontClipFfmpegBanner.TEXT.zh.changed, false, window.MontClipFfmpegBanner.TEXT.zh.firstNote); document.getElementById('ffmpegGet').textContent = window.MontClipFfmpegBanner.TEXT.zh.reinstall; }
+    banner.hidden = false;
   }
 
   async function boot() {

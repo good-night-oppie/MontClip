@@ -6,15 +6,15 @@
 <link rel="stylesheet" href="frame.css">
 </head>
 <body data-view="task">
-<div id="ffmpeg" role="region" aria-label="ffmpeg" hidden>
-  <p id="ffmpegText">导出 MP4、降噪要用 ffmpeg。MontClip 用固定版本的 LGPL ffmpeg：约 160 MB，从 GitHub 下载，下载后核对校验值。</p>
-  <button type="button" class="primary" id="ffmpegGet">下载 ffmpeg</button>
+<div id="ffmpeg" role="region" aria-label="导出工具（ffmpeg）" hidden>
+  <p id="ffmpegText">导出视频和降噪，要先装一个免费的导出工具 ffmpeg（约 160 MB，只装一次）。</p>
+  <button type="button" class="primary" id="ffmpegGet">下载并安装</button>
   <button type="button" id="ffmpegLater">以后再说</button>
   <div class="bar" id="ffmpegBar" hidden><i></i></div>
-  <p class="detail" id="ffmpegDetail" hidden></p>
+  <p class="detail" id="ffmpegDetail">从 GitHub（github.com）下载，下载时可能会转到 GitHub 存文件的网站。不会发送你的任何内容。</p>
 </div>
 <div id="status">正在启动 MontClip…</div>
-<script src="ffmpeg-failure.js"></script>
+<script src="ffmpeg-banner.js"></script>
 <script src="frame.js"></script>
 </body>
 </html>
