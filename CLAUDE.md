@@ -2011,8 +2011,8 @@ sequence (`Highlights 30 s`, or `name`), opened, so the timeline it came from
 stays as it was. It reads the video clips on the open timeline (`clipIds`
 limits them; `mediaIds` reads whole files instead), up to an hour of footage
 at a time: frames twice a second at 64 px, and the sound. Every half second is
-scored for movement, sound louder than the 20 s around it (a cheer, a laugh, a
-hit), its overall level, and a clear picture; black frames and flat colour
+scored for movement, sound louder than the 20 s around it (a moment that is clearly louder than the
+seconds around it), its overall level, and a clear picture; black frames and flat colour
 count for little. Cuts already in the footage are found, and a moment never
 crosses one. It then takes the best moments of `shot` seconds (default
 `duration` / 8, kept within 1.5–4 s), apart in the same footage (by half a
@@ -2900,9 +2900,9 @@ the dialog keeps it going), **看一遍** (cards best first, the best 3 ticked; 
 its start and end over 40 s with the sound drawn under it, ±1 / ±5 s, ▶ hear the start or the end, ▶ preview, take it
 out and put it back; an overview of the whole recording with a box per card) and **导出**. `songs.js` is not accurate
 enough yet to call any song right, so a song card is 「1:12:04 那段」, typed 「可能在唱歌」. Beside each start and end
-time is its level (design v8): 比较可能 (grey hint: listen before deciding), 估的 (yellow hint; where `songs.js` marked
-that end as guessed, or the best part of a song), or 你调过 (grey, no hint) while the streamer has moved it — undone or
-moved back, it shows its own level again; a highlight's ends are 比较可能. The same gate holds every other promise of
+time is its level (design v8): 比较可能 (listen before deciding), 估的 (where `songs.js` marked
+that end as guessed, or the best part of a song), or 你调过 (grey) while the streamer has moved it — undone or
+moved back, it shows its own level again; a highlight's ends are 比较可能. The cards follow the frozen v12 (JJ's visual review; v11 is void): a card shows only the tag, what it means is its tooltip, and the 估的 note (标着「估的」的开头结尾，先点「▶ 听开头 / 听结尾」听一下再定。) is written once, under the overview, above the first card. The name hint is written once, on the first card (every name has a tooltip and a ✎ under the pointer); the kind and length sit in the name row; the ± buttons on the row of each time; 〔▶ 试看〕 is bold, 〔按歌词校准字幕〕 is in the button row with the subtitle line as its tooltip, and 不要这条 is a grey text button at the right end. The evidence has a thin line on its left, the 这场是唱歌为主吗？ question is one line between two thin lines, and blue is only on the primary button and selected things (the current step among them). The wording names only what the search reads: loudness and live danmaku. The same gate holds every other promise of
 telling songs apart — the singing hint (会找可能在唱歌的段落，每段单独出一条。), the length hint, the search step (找哪几段
 可能在唱歌) and the lyrics button (如果这段是唱歌，可以按歌词校准字幕) — and a card is never given a song title by itself:
 only the streamer renames it (design v9). 「第 n 首歌」 and the song wording come back only when the
