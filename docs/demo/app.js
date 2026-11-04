@@ -1620,6 +1620,8 @@ function applyProject(data, opts = {}) {
     name: data.name || MontClipView.defaultProjectName(mcView.get().language),
     width: data.width || 1280, height: data.height || 720,
     fps: (Number(data.fps) > 0 ? Number(data.fps) : project.fps),
+    // the canvas or rate was chosen (menus, a template, an agent): the first recording imported does not replace it
+    canvasUser: data.canvasUser === true,
     background: data.background || "#000000",
     revision: data.revision || 0,
     folders: normalizeFolders(data.folders),
@@ -1857,6 +1859,7 @@ function projectJSONHere() {
   if (untargeted.length) out.untargetedTracks = untargeted;
   const ef = getExportFrame();
   if (ef) out.exportFrame = ef;
+  if (project.canvasUser) out.canvasUser = true;
   if (encodeProfile) out.encodeProfile = encodeProfile;
   if (delivery) out.delivery = delivery;
   if (outputs && outputs.length) out.outputs = outputs;
@@ -2197,6 +2200,8 @@ async function importFiles(fileList) {
   runtime.importFolderId = null;
   let added = 0, skipped = 0;
   const addedMedia = [], gen = runtime.projectGen;
+  // N25: an empty project whose canvas nobody chose takes the first recording's (followSourceCanvas)
+  const follow = !state.compCtx && MediaLib.canvasFollowsSource(project);
   // an FLV that could not be imported: the server's reason code, said in the interface language
   const flvFailure = (code) => toast(MontClipView.flvImportMessage(mcView.get().language, code));
   for (const file of files) {
@@ -2241,6 +2246,8 @@ async function importFiles(fileList) {
     addedMedia.push(m);
     added++;
   }
+  if (follow && addedMedia.some((m) => m.kind === "video"))
+    runtime.canvasFollow = { gen, ids: new Set(addedMedia.filter((m) => m.kind === "video").map((m) => m.id)) };
   if (added) { renderBin(); scheduleSave(); refreshMediaInfo(addedMedia); }
   if (!added && skipped)
     toast("Couldn't import — unsupported or unreadable file type");
@@ -2693,11 +2700,36 @@ async function refreshMediaInfo(list) {
       if (!(m.width > 0) && i.width > 0) { m.width = i.width; m.height = i.height; changed = true; }
     }
     if (changed) { renderBin(); scheduleSave(); if (state.selId) renderInspector(); }
+    followSourceCanvas();
   } catch { } finally {
     mediaInfoBusy = false;
     // files imported (or a Media info opened) meanwhile: everything still without details
     if (mediaInfoAgain) { mediaInfoAgain = false; refreshMediaInfo(); }
   }
+}
+
+/* N25 (docs/decisions/2026-11-03-canvas-follows-source.md): the canvas of an empty project follows the first recording
+   imported into it — its size (never scaled) and its average frame rate snapped to a standard rate (30 when none is
+   near) — once the server has read them. Not an undo step, like the import itself. */
+function followSourceCanvas() {
+  const f = runtime.canvasFollow;
+  if (!f) return;
+  if (f.gen !== runtime.projectGen || state.compCtx || project.canvasUser) { runtime.canvasFollow = null; return; }
+  const m = project.media.find((x) => f.ids.has(x.id) && MediaLib.sourceCanvas(x));
+  if (!m) return;   // not read yet: the next refreshMediaInfo
+  runtime.canvasFollow = null;
+  // meanwhile something else went on the timeline: leave the canvas
+  if (project.clips.some((c) => !f.ids.has(c.mediaId))) return;
+  const c = MediaLib.sourceCanvas(m);
+  if (c.width === project.width && c.height === project.height && c.fps === Number(project.fps)) return;
+  project.fps = c.fps;
+  setCanvasSize(c.width, c.height, { byUser: false });
+  syncFpsSel();
+  updateMonitorRes();
+  state.dirtyTimeline = true;
+  seekMediaWhilePaused();
+  scheduleSave();
+  toast(uiText(c.fpsSnapped ? "own.canvas-follow" : "own.canvas-follow-odd", { w: c.width, h: c.height, fps: +c.fps.toFixed(3), src: +(+m.fps).toFixed(2) }));
 }
 
 function setMediaFavorite(ids, on) {
@@ -11226,10 +11258,26 @@ function autoDoneHtml() {
     <div class="as-cta"><button type="button" class="btn primary" data-as-act="open-queue">${autoSay("as-open-queue")}</button>
       <button type="button" class="btn" data-as-act="back-review">${autoSay("as-back-review")}</button><button type="button" class="btn" data-as-act="another">${autoSay("as-another")}</button></div>`;
 }
+/** MontClip is busy with something a range edit must not cut across (exporting, importing, transcribing, saving). */
+const rangeEditBusy=()=>state.exporting||state.gesture||state.compCtx||runtime.activeImports||runtime.activeTranscriptions||runtime.desktopExportPending||runtime.saveRequests||runtime.saveTimer||runtime.saveFailed||(typeof closeSaveTransaction!=='undefined'&&closeSaveTransaction);
+/** Apply a checked range plan as one undo step: the sentence dialog's 〔应用〕, or an AI step its mode lets run (P4). An AI
+ *  step's event moves to applied with it. Returns the token that marks the AI's undo step (null for the streamer's own). */
+function commitRangePlan(plan, suggestion = null) {
+  const applyToken = suggestion ? crypto.randomUUID() : null;
+  const snap = JSON.stringify({ ...JSON.parse(undoSnapshot()), ...(applyToken ? {agentApplyId:applyToken} : {}), rangeState: {
+    inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
+  } });
+  // the step is its event: the AI's (applied now; the save writes its revision), or the streamer's own use of the same capability
+  if (suggestion?.eventId) moveEvent(suggestion.eventId, "applied", { revision: null });
+  applyProject(plan.project);
+  pushUndo(snap, suggestion?.eventId ? { eventId: suggestion.eventId } : { capability: "keep_sentences", args: { timelineRanges: plan.keep.map((r) => ({ from: r.from, to: r.to })) } });
+  setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
+  return applyToken;
+}
 /** SRT sentence selection: preview a read-only plan, apply on a clone as one undo step. */
 async function showSentenceSelection(suggestion = null, onApplied = null, onCancelled = null) {
   let applied = false;
-  const busy=()=>state.exporting||state.gesture||state.compCtx||runtime.activeImports||runtime.activeTranscriptions||runtime.desktopExportPending||runtime.saveRequests||runtime.saveTimer||runtime.saveFailed||(typeof closeSaveTransaction!=='undefined'&&closeSaveTransaction);
+  const busy = rangeEditBusy;
   const proposalContext=()=>({...agentProjectContext(),generation:agentProjectContext().gen});
   if (state.exporting || state.gesture || state.compCtx || suggestion&&busy()) { toast(uiText(suggestion&&busy()?"own.sd-busy-save":"own.sd-busy")); return; }
   if (suggestion) {if(!MontClipProposal.current(suggestion,projectJSON(),proposalContext())){console.warn("showSentenceSelection: the suggestion is not valid for the current project; nothing opened");return;}}
@@ -11321,16 +11369,8 @@ async function showSentenceSelection(suggestion = null, onApplied = null, onCanc
     stopPreview();
     if (!current()) { changed(); return; }
     try {
-      const next = plan.project;
-      const applyToken = suggestion ? crypto.randomUUID() : null;
-      const snap = JSON.stringify({ ...JSON.parse(undoSnapshot()), ...(applyToken ? {agentApplyId:applyToken} : {}), rangeState: {
-        inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
-      } });
-      // the step is its event: the AI's (applied now; the save writes its revision), or the streamer's own use of the same capability
-      if (suggestion?.eventId) moveEvent(suggestion.eventId, "applied", { revision: null });
-      applyProject(next);
-      pushUndo(snap, suggestion?.eventId ? { eventId: suggestion.eventId } : { capability: "keep_sentences", args: { timelineRanges: plan.keep.map((r) => ({ from: r.from, to: r.to })) } });
-      applied = true; if(onApplied)onApplied(applyToken); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
+      const applyToken = commitRangePlan(plan, suggestion);
+      applied = true; if(onApplied)onApplied(applyToken);
       dialog.close();
       if (slices) { queueSlices(plan.segments, sliceNames); toast(uiText("own.ssel-done-slices", { n: plan.segments.length })); }
       else toast(uiText(byTime ? "own.ssel-done-ranges" : "own.sd-done"));
@@ -14255,9 +14295,11 @@ function addTemplateClip(t, trackId, at) {
   selectClip(clip.id); scheduleSave(); renderBin(); renderInspector();
   toast(`${comp.name} placed — edit its fields in the Inspector`);
 }
-/** Set the canvas size (the aspect menu and a template's "Use … canvas" button). */
-function setCanvasSize(w, h) {
+/** Set the canvas size (the aspect menu and a template's "Use … canvas" button: the streamer's choice, which the first
+ *  recording imported then leaves alone; followSourceCanvas passes byUser false). */
+function setCanvasSize(w, h, { byUser = true } = {}) {
   project.width = w; project.height = h;
+  if (byUser) project.canvasUser = true;
   els.preview.width = w; els.preview.height = h;
   if (project.exportFrame) project.exportFrame = normalizeExportFrame(project.exportFrame, w, h);
   updateMonitorRes();
@@ -20749,6 +20791,7 @@ els.fpsSel?.addEventListener("change", () => {
   const v = FPS_PRESETS[+els.fpsSel.value];
   if (!(v > 0)) return;
   project.fps = v;
+  project.canvasUser = true;
   syncFpsSel();
   updateMonitorRes();
   state.dirtyTimeline = true;
@@ -22674,6 +22717,101 @@ function recordAgentEvent(e){try{return eventLog().append(e);}catch{return null;
 async function versionBeforeAgent(){
  try{if(!await flushSave())return;await fetch('/api/versions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'before_agent',name:uiText('own.before-ai')})});}catch{}
 }
+/** A reply's proposal, checked against the project as it is now, as an event of its run (has_result); one the check
+ *  refuses is a failed event. The run's first step keeps an agent version first (awaited before anything is applied). */
+function agentProposalStep(response,result){
+ const c=agentProjectContext();
+ if(JSON.stringify(result.context)!==JSON.stringify(c))throw Error('STALE');
+ let version=null;
+ if(!agentRuns.has(result)){agentRuns.set(result,crypto.randomUUID());version=versionBeforeAgent();}
+ const meta={id:crypto.randomUUID(),runId:agentRuns.get(result),step:1,actor:'ai',at:new Date().toISOString(),revision:project.revision};
+ let proposal;
+ try{proposal=MontClipProposal.prepare(response,{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});}
+ catch(error){recordAgentEvent(MontClipProposal.failedEvent(error,{...meta,capability:response&&response.type}));throw error;}
+ const ev=recordAgentEvent(MontClipProposal.event(proposal,meta));
+ if(ev)proposal.eventId=ev.id;
+ return {proposal,ev,c,version};
+}
+/* P4: the assistant's permission mode (agent-policy.js; docs/decisions/2026-11-03-agent-permission-modes.md). The main
+   process keeps the mode and the approvals (window.montclipAgentPolicy); the page shows the switch, the Yolo mark and the
+   host's approval box. Without the desktop host there is no mode: replies wait for 〔查看剪辑建议〕 as before. */
+const agentPolicy={mode:'manual'};
+async function loadAgentMode(){try{const r=await window.montclipAgentPolicy.get();if(r&&r.ok&&MontClipPolicy.MODES.includes(r.mode))agentPolicy.mode=r.mode;}catch{}paintAgentMode();}
+async function setAgentMode(mode){
+ let r;try{r=await window.montclipAgentPolicy.setMode(mode);}catch{r={ok:false,code:'MODE_UNAVAILABLE'};}
+ if(r&&MontClipPolicy.MODES.includes(r.mode))agentPolicy.mode=r.mode;
+ paintAgentMode();return r;
+}
+/** The Yolo mark in the top bar, shown all the time Yolo is on (the assistant has its own mark in the pane). */
+function paintAgentMode(){const mark=document.getElementById('mcYoloMark');if(mark)mark.hidden=agentPolicy.mode!=='yolo';if(typeof mcAgent!=='undefined'&&mcAgent)mcAgent.render();}
+/** The host's approval box (QQ 4: only the host shows it). It shows the capability's plain sentence (never its internal
+ *  name), what it changes or where it sends, and for an external step what is sent. Resolves to once | session | deny. */
+function askAgentApproval(d,{summary='',content=null}={}){
+ return new Promise((resolve)=>{
+  const dialog=document.createElement('dialog');dialog.className='agent-approval';dialog.setAttribute('data-agent-approval','');
+  const say=(k,v)=>escapeHtml(uiText(k,v)),choice=(c)=>'<button type="button" class="btn'+(c==='deny'?'':' primary')+'" data-choice="'+c+'">'+say('own.ap-'+c)+'</button>';
+  dialog.innerHTML='<form method="dialog"><h3>'+say('own.ap-title')+'</h3><p data-ap-label></p><p data-ap-summary></p><p data-ap-target></p>'
+   +(content!=null?'<p>'+say('own.ap-content')+'</p><pre data-ap-content></pre>':'')
+   +(d.choices.includes('session')?'':'<p data-ap-every-time>'+say('own.ap-every-time')+'</p>')
+   +'<div class="tr-row">'+d.choices.map(choice).join('')+'</div></form>';
+  dialog.querySelector('[data-ap-label]').textContent=d.label;
+  dialog.querySelector('[data-ap-summary]').textContent=summary;
+  dialog.querySelector('[data-ap-target]').textContent=d.risk==='external'?uiText('own.ap-sends-to',{domain:d.target}):uiText('own.ap-project',{name:project.name||''});
+  if(content!=null)dialog.querySelector('[data-ap-content]').textContent=content;
+  let answer='deny';
+  for(const b of dialog.querySelectorAll('[data-choice]'))b.addEventListener('click',()=>{answer=b.dataset.choice;dialog.close();});
+  dialog.addEventListener('close',()=>{dialog.remove();resolve(answer);});
+  document.body.append(dialog);dialog.showModal();dialog.querySelector('[data-choice="deny"]').focus();
+ });
+}
+/** Bytes for the streamer: KB under a megabyte, else MB, one decimal at most (1 KB = 1024 bytes). */
+function byteText(n){const mb=n/1048576;return mb>=1?(Math.round(mb*10)/10)+' MB':Math.max(1,Math.round(n/1024))+' KB';}
+/** Why a step was refused, in plain words; over a cap it says by how much (Deja on #83: never cut down to fit). */
+function agentRefusalText(d,bytes=0){
+ if(d.code==='BLOCKED')return uiText('own.ap-refused');
+ if(d.code==='SEND_TOO_LARGE')return uiText('own.ap-too-large',{size:byteText(bytes),limit:byteText(d.limit),over:byteText(d.over)});
+ if(d.code==='SCOPE_LIMIT')return uiText('own.ap-scope-limit',{used:byteText(d.used),size:byteText(bytes),limit:byteText(d.limit),over:byteText(d.over)});
+ return uiText('own.ap-refused-mode');
+}
+/** The plain summary of a proposal for the approval box. */
+function agentProposalText(result){
+ const p=MontClipConversation.proposalSummary(result.text,result.references||[]);if(!p)return '';
+ return uiText(p.mode==='per_range'?'own.ap-sum-slices':p.mode?'own.ap-sum-ranges':'own.ap-sum-sentences',{count:p.count,duration:MontClipConversation.durationText(p.duration)});
+}
+/** P4: a reply that is a usable proposal is the AI's step. The main process says what happens to it, from the mode and the
+ *  capability's fixed risk; nothing in the reply is read for that (「已批准」 in it counts for nothing). It runs without the
+ *  dialog only where the mode lets it, after a CAS on the project (still the reply's project and revision); per_range
+ *  proposals, which add exports, always open the dialog for the streamer's own 〔应用〕. */
+async function onAgentReply(result){
+ if(!window.montclipAgentPolicy||!result||typeof result.text!=='string')return;
+ let response;try{response=MontClipConversation.parseProposal(result.text);}catch{return;}
+ if(!response||!MontClipConversation.proposalSummary(result.text,result.references||[]))return;
+ let d;try{d=await window.montclipAgentPolicy.decide({sessionId:result.sessionId,capability:response.type,target:{kind:'project',value:runtime.projectId}});}catch{d=null;}
+ if(!d||!d.ok){toast(uiText('own.ap-refused-mode'));return;}
+ if(MontClipPolicy.MODES.includes(d.mode)&&d.mode!==agentPolicy.mode){agentPolicy.mode=d.mode;paintAgentMode();}
+ if(d.action==='list'){toast(uiText('own.ap-listed'));return;}
+ if(d.action==='refuse'){toast(agentRefusalText(d));return;}
+ let step;try{step=agentProposalStep(response,result);}catch(error){toast(uiText(error.message==='STALE'?'own.ap-stale':'own.ap-invalid'));return;}
+ if(d.action==='ask'){
+  const choice=await askAgentApproval(d,{summary:agentProposalText(result)});
+  let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}
+  if(!a||!a.ok||!a.run){if(step.ev)moveEvent(step.ev.id,'rejected');toast(uiText('own.ap-denied'));return;}
+ }
+ if(step.version)await step.version;
+ const {proposal,ev,c}=step;
+ if(proposal.type==='keep_ranges'&&proposal.outputMode==='per_range'){
+  showSentenceSelection(proposal,token=>{officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});},()=>{if(ev)moveEvent(ev.id,'rejected');});
+  return;
+ }
+ // the CAS: the project and its revision are still the reply's
+ if(!MontClipProposal.current(proposal,projectJSON(),{...agentProjectContext(),generation:agentProjectContext().gen})||project.revision!==result.context.revision){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.ap-stale'));return;}
+ if(rangeEditBusy()){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.sd-busy-save'));return;}
+ let plan;try{plan=FableCutRangePlan.create(projectJSON(),proposal.keep);plan.keep=proposal.keep;}catch{if(ev)moveEvent(ev.id,'failed');toast(uiText('own.ap-invalid'));return;}
+ const token=commitRangePlan(plan,proposal);
+ officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});
+ toastAction(uiText('own.ap-applied',{mode:MontClipPolicy.modeLabel(agentPolicy.mode,mcView.get().language)}),uiText('own.ap-undo'),()=>{if(canUndoOfficialProposal(result)){if(!ev||!undoEvent(ev.id).ok)undo();}});
+ mcAgent.render();
+}
 function canUndoOfficialProposal(result){
  const entry=result&&officialProposalApplications.get(result),c=agentProjectContext();
  if(!entry||entry.projectId!==c.projectId||entry.sequenceId!==c.sequenceId||entry.gen!==c.gen)return false;
@@ -22691,21 +22829,15 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  getProjectName:id=>id===runtime.projectId?project.name:null,
  canUndoProposal:canUndoOfficialProposal,
  getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[]});},
+ ...(window.montclipAgentPolicy?{getMode:()=>agentPolicy.mode,setMode:setAgentMode,onReply:result=>{void onAgentReply(result);}}:{}),
  getFactsOmitted:()=>MontClipFacts.omitted(projectJSON()),
  onUndo:result=>{if(canUndoOfficialProposal(result)){const entry=officialProposalApplications.get(result);if(!entry?.eventId||!undoEvent(entry.eventId).ok)undo();}},
  onProposal:(response,result)=>{
-   const c=agentProjectContext();
-   if(JSON.stringify(result.context)!==JSON.stringify(c))throw Error('STALE');
-   if(!agentRuns.has(result)){agentRuns.set(result,crypto.randomUUID());void versionBeforeAgent();}
-   const meta={id:crypto.randomUUID(),runId:agentRuns.get(result),step:1,actor:'ai',at:new Date().toISOString(),revision:project.revision};
-   let proposal;
-   try{proposal=MontClipProposal.prepare(response,{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});}
-   catch(error){recordAgentEvent(MontClipProposal.failedEvent(error,{...meta,capability:response&&response.type}));throw error;}
-   const ev=recordAgentEvent(MontClipProposal.event(proposal,meta));
-   if(ev)proposal.eventId=ev.id;
+   const {proposal,ev,c}=agentProposalStep(response,result);
    showSentenceSelection(proposal,token=>{officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});},
     ()=>{if(ev)moveEvent(ev.id,'rejected');});
  },
  getReferences:kind=>MontClipAgentPane.referenceChips(kind,{...agentProjectContext(),
  start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(FableCutCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
 setInterval(()=>mcAgent.sync(),500);
+if(window.montclipAgentPolicy)void loadAgentMode();

@@ -13,6 +13,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `agent-close-fault-smoke.cjs` | `MONTCLIP_SESSION_CLOSE_COMPLETE` | 在用 |
 | `agent-errors-smoke.cjs` | `ERRORS_PASS` | 在用 |
 | `agent-minimum-smoke.cjs` | `MONTCLIP_MINIMUM_COMPLETE` | 在用 |
+| `agent-modes-smoke.cjs` | `MODES_PASS` | 在用 |
 | `agent-no-key-network-smoke.cjs` | `AGENT_NO_KEY_NETWORK_PASS` | 在用 |
 | `agent-paste-smoke.cjs` | `MONTCLIP_PASTE_HARNESS_DISABLED (SKIPPED)`，退出码 0 | 已停用：会动系统剪贴板（138514e 起停用，没有开关能打开） |
 | `asr-gaps-smoke.cjs` | `ASR_GAPS_PASS` | 在用 |
@@ -52,6 +53,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `simple-shortcuts-smoke.cjs` | `SIMPLE_KEYS_COMPLETE` | 在用 |
 | `slice-cards-smoke.cjs` | `SLICE_CARDS_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `songs-smoke.cjs` | `SONGS_PASS` | 在用 |
+| `source-follow-smoke.cjs` | `SOURCE_FOLLOW_PASS` | 在用；需要 `MONTCLIP_FFMPEG_DIR`，PATH 上不能有 ffmpeg；`MONTCLIP_SF_TIMING=1` 另量 30 / 60 帧导出耗时 |
 | `three-track-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
 | `timeline-content-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
 | `timeline-drag-smoke.cjs` | `MONTCLIP_DRAG_COMPLETE` | 在用 |

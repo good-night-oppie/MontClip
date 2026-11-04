@@ -120,7 +120,7 @@ async function start() {
   ipcMain.on("montclip:corrections:clear", (event) => { event.returnValue = settingsAllowed(event, win, origin) ? corrections.clear() : { ok: false, code: "CORRECTIONS_FORBIDDEN" }; });
   ipcMain.on("montclip:capabilities:get", (event) => {
     event.returnValue = settingsAllowed(event, win, origin)
-      ? { ok: true, capabilities: Capabilities.list().map((c) => ({ name: c.name, source: c.source, risk: c.risk, summary: c.summary, schema: c.schema })) }
+      ? { ok: true, capabilities: Capabilities.list().map((c) => ({ name: c.name, source: c.source, risk: c.risk, summary: c.summary, schema: c.schema, limits: Capabilities.limits(c.name) })) }
       : { ok: false, code: "CAPABILITIES_FORBIDDEN" };
   });
   // read-only feature switches for the page (desktop/features.js); no channel sets them
@@ -250,6 +250,25 @@ async function start() {
     if(!settingsAllowed(event,win,origin))return {ok:false,code:'AGENT_FORBIDDEN'};
     return agentService[operation](value);
   });
+  // The AI's permission modes (P4; QQ's revision 2–4): the mode and the approvals live here, in memory (a restart is
+  // back to 手动); risks come from the table in this process; Yolo only after the streamer's yes in this process's box.
+  // External steps in Yolo need the AI service set up (the switch) and one of its fixed addresses (the allowlist).
+  const { yoloText } = require('./agent-mode-text');
+  const agentPolicy = require('./agent-policy-host').createPolicyHost({
+    language: () => languageOf(settings.get()),
+    external: () => ({ enabled: agentService.get().configured === true, allowlist: Object.values(AgentService.ENDPOINTS) }),
+    async confirmYolo() {
+      const t = yoloText(languageOf(settings.get()));
+      const answer = smoke ? { response: process.env.MONTCLIP_SMOKE_YOLO_CONSENT === '1' ? 1 : 0 }
+        : await dialog.showMessageBox(win, { type: 'warning', title: t.title, message: t.message, detail: t.detail, buttons: t.buttons, defaultId: 0, cancelId: 0, noLink: true });
+      if (smoke) process.stdout.write('MONTCLIP_YOLO_CONSENT ' + JSON.stringify({ title: t.title, message: t.message, answered: answer.response }) + '\n');
+      return answer.response === 1;
+    },
+  });
+  ipcMain.handle('montclip:policy:get', (event) => settingsAllowed(event, win, origin) ? agentPolicy.getMode() : { ok: false, code: 'POLICY_FORBIDDEN' });
+  ipcMain.handle('montclip:policy:setMode', (event, mode) => settingsAllowed(event, win, origin) ? agentPolicy.setMode(mode) : { ok: false, code: 'POLICY_FORBIDDEN' });
+  ipcMain.handle('montclip:policy:decide', (event, value) => settingsAllowed(event, win, origin) ? agentPolicy.decide(value) : { ok: false, code: 'POLICY_FORBIDDEN' });
+  ipcMain.handle('montclip:policy:answer', (event, value) => settingsAllowed(event, win, origin) ? agentPolicy.answer(value) : { ok: false, code: 'POLICY_FORBIDDEN' });
   // Desktop FLV import: the page hands over the file the user picked; the path is read by the preload and never
   // returned to the page. Fixed operations, same sender / frame / origin guard as the settings.
   const FLV_CODES = new Set(["FLV_NOT_FOUND", "FLV_NOT_FLV", "FLV_IMPORT_EXPIRED", "FLV_IMPORT_BUSY", "FLV_IMPORT_CANCELED", "FLV_SOURCE_CHANGED", "FLV_COPY_MISMATCH", "FLV_CLEANUP_FAILED"]);

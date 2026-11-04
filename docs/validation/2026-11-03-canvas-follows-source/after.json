@@ -1,0 +1,133 @@
+{
+ "pathFfmpeg": null,
+ "defaultCanvas": {
+  "w": 1920,
+  "h": 1080,
+  "fps": 30
+ },
+ "p1": {
+  "w": 1920,
+  "h": 1080,
+  "fps": 60,
+  "toast": "已按这场录像设置画面：1920×1080，每秒 60 帧。",
+  "media": {
+   "fps": 60,
+   "width": 1920,
+   "height": 1080,
+   "sampleRate": 48000
+  }
+ },
+ "e1": {
+  "width": 1920,
+  "height": 1080,
+  "avgFps": 60,
+  "frames": 300,
+  "expectFrames": 300,
+  "sampleRate": 48000,
+  "firstFrames": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "repeats": 0,
+  "skips": 0,
+  "syncWorstMs": 0.1,
+  "syncOk": true,
+  "placementOk": true,
+  "bytes": 140320
+ },
+ "s2probe": {
+  "avg_frame_rate": "959/16",
+  "r_frame_rate": "60000/1001",
+  "start_time": "0.021000"
+ },
+ "p2": {
+  "w": 1280,
+  "h": 720,
+  "fps": 59.94,
+  "toast": "已按这场录像设置画面：1280×720，每秒 59.94 帧。",
+  "media": {
+   "fps": 59.92,
+   "width": 1280,
+   "height": 720,
+   "sampleRate": 48000
+  }
+ },
+ "e2": {
+  "width": 1280,
+  "height": 720,
+  "avgFps": 59.94,
+  "frames": 240,
+  "expectFrames": 240,
+  "sampleRate": 48000,
+  "firstFrames": [
+   58,
+   59,
+   60,
+   61,
+   62,
+   63
+  ],
+  "repeats": 0,
+  "skips": 0,
+  "syncWorstMs": 11,
+  "syncOk": true,
+  "placementOk": true,
+  "bytes": 73766
+ },
+ "droppedFrameFlv": {
+  "imported": 0,
+  "toast": "这个 FLV 这次没导进来：MontClip 没法确认它的时间是否完整。换一个录完整的文件，或者先把它转成 MP4 再导入。"
+ },
+ "p3": {
+  "w": 1280,
+  "h": 720,
+  "fps": 25,
+  "toast": "已按这场录像设置画面：1280×720，每秒 25 帧。",
+  "media": {
+   "fps": 25,
+   "width": 1280,
+   "height": 720,
+   "sampleRate": 48000
+  }
+ },
+ "p3b": {
+  "w": 640,
+  "h": 360,
+  "fps": 30,
+  "toast": "已按这场录像设置画面：640×360。它的帧率（约每秒 45 帧）不常见，先用每秒 30 帧。",
+  "media": {
+   "fps": 45,
+   "width": 640,
+   "height": 360,
+   "sampleRate": 48000
+  }
+ },
+ "p4": {
+  "w": 1080,
+  "h": 1920,
+  "fps": 30,
+  "toast": "Switched to “跟随 4”",
+  "media": {
+   "fps": 60,
+   "width": 1920,
+   "height": 1080,
+   "sampleRate": 48000
+  }
+ },
+ "p5": {
+  "w": 1920,
+  "h": 1080,
+  "fps": 30,
+  "toast": "Switched to “跟随 5”",
+  "media": {
+   "fps": 60,
+   "width": 1920,
+   "height": 1080,
+   "sampleRate": 48000
+  }
+ }
+}

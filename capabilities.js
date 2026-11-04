@@ -38,7 +38,8 @@
     fablecut_set_project: ["undoable", "整份替换当前项目（先存一个版本）", "Replace the open project as a whole (a version is kept first)"],
     fablecut_frame: ["read", "看某一时刻的画面", "Look at the picture at a moment"],
     fablecut_analyze_reference: ["undoable", "分析参考视频的节奏，并把它的音乐加进素材", "Analyse a reference video's pace and add its music to the media"],
-    fablecut_import_media: ["external", "导入本机文件，或从网址下载素材", "Import a local file, or download media from a web address"],
+    // undoable for a file on this computer; a web address is blocked (riskOf reads the arguments, Deja on #83)
+    fablecut_import_media: ["undoable", "从这台电脑导入素材文件", "Import a media file from this computer"],
     fablecut_encode_profiles: ["read", "查看导出设置", "List the export settings"],
     fablecut_normalize_audio: ["undoable", "把几段的音量调得一样大", "Make several clips equally loud"],
     fablecut_auto_duck: ["undoable", "有人说话时自动压低音乐", "Lower the music while someone speaks"],
@@ -56,35 +57,64 @@
     fablecut_proxy: ["undoable", "做或删掉预览用的小文件，让预览更流畅", "Make or delete small preview files so the preview plays smoothly"],
     fablecut_export: ["sensitive", "把时间线导出成视频文件", "Export the timeline to a video file"],
     fablecut_scopes: ["read", "测量画面的亮度和色彩", "Measure the picture's levels and colour"],
+    // the sends the host makes itself (not MCP tools); P4: each external capability carries its caps (LIMITS below)
+    assistant_request: ["external", "把聊天消息发给 AI 服务", "Send the chat to the AI service"],
+    song_lookup: ["external", "按歌词联网查歌名（只发两三句歌词）", "Look up the song's name online from two or three lyric lines"],
+    cloud_transcribe: ["external", "把录音分段发到云端听写", "Send the recording in parts to a cloud service to transcribe"],
     // the 「自动出切片」 card edits (the owner / Deja, 2026-11-03): the streamer's buttons and the AI, the same capabilities
     set_segment_kind: ["undoable", "改一张候选卡的类型：唱歌、互动、聊天、整活、普通高光或其他", "Change a candidate card's kind: singing, interaction, chat, stunt, highlight or other"],
     add_segment: ["undoable", "用 IN–OUT 补一张候选卡，带上类型", "Add a candidate card from IN–OUT, with its kind"],
     fablecut_track: ["undoable", "跟着画面里的人或物体动，让马赛克、贴纸也跟着它走", "Follow a person or thing in the picture, so a mosaic or sticker moves with it"],
   };
+  // External caps (Deja, 2026-11-03, on #83): per capability, fixed here with the risk levels, in bytes. perSend is one send
+  // (for audio: one part); perScope is everything sent in one scope — a chat, or a project while it is open. Over either cap
+  // a send is refused, saying by how much; it is never cut down to fit. cloud_transcribe's caps hold its place: not wired yet.
+  const TEXT = { kind: "text", perSend: 131072, perScope: 4194304, scope: "chat" };
+  const AUDIO = { kind: "audio", perSend: 26214400, perScope: 2147483648, scope: "project-open" };
+  const LIMITS = { assistant_request: TEXT, song_lookup: TEXT, cloud_transcribe: AUDIO };
+  const HOST = ["assistant_request", "song_lookup", "cloud_transcribe"];
   const freeze = (o) => { if (o && typeof o === "object" && !Object.isFrozen(o)) { Object.freeze(o); for (const v of Object.values(o)) freeze(v); } return o; };
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const table = new Map();
   for (const t of TOOLS) if (SPEC[t.name]) table.set(t.name, { source: "mcp", schema: clone(t.inputSchema) });
   for (const [name, schema] of Object.entries(PROPOSALS)) table.set(name, { source: "proposal", schema: clone(schema) });
-  // the host's own capabilities (segment-edits.js), with their argument shapes
+  // the host's own sends (#83): no arguments of their own
+  for (const name of HOST) table.set(name, { source: "host", schema: { type: "object" } });
+  // the host's card edits (segment-edits.js, from main), with their argument shapes
   const KIND = { type: "string", enum: ["song", "interaction", "chat", "stunt", "moment", "other"] };
-  const HOST = {
+  const HOST_EDITS = {
     set_segment_kind: { type: "object", additionalProperties: false, required: ["id", "kind"],
       properties: { id: { type: "string", pattern: "^[A-Za-z0-9_.-]{1,160}$" }, kind: KIND } },
     add_segment: { type: "object", additionalProperties: false, required: ["mediaId", "from", "to", "kind"],
       properties: { mediaId: { type: "string", pattern: "^[A-Za-z0-9_.-]{1,128}$" }, from: { type: "number", minimum: 0 }, to: { type: "number", minimum: 0 }, kind: KIND } },
   };
-  for (const [name, schema] of Object.entries(HOST)) table.set(name, { source: "host", schema: clone(schema) });
+  for (const [name, schema] of Object.entries(HOST_EDITS)) table.set(name, { source: "host", schema: clone(schema) });
   for (const [name, entry] of table) {
     const [risk, zh, en] = SPEC[name];
-    table.set(name, freeze({ name, source: entry.source, risk, summary: { "zh-CN": zh, en }, schema: entry.schema }));
+    if (risk === "external" && !LIMITS[name]) throw new Error("capabilities: " + name + " sends out but has no caps");
+    table.set(name, freeze({ name, source: entry.source, risk, summary: { "zh-CN": zh, en }, schema: entry.schema, limits: risk === "external" ? { ...LIMITS[name] } : null }));
   }
   const get = (name) => (typeof name === "string" && table.has(name) ? table.get(name) : null);
-  const riskOf = (name) => (get(name) ? get(name).risk : "blocked");
+  /* A capability whose risk depends on what it is asked to do (Deja, 2026-11-03, on #83): fablecut_import_media downloads
+     when its path is a web address (any "scheme://"), or reads a network share (\\server or //server) — not among the
+     network exceptions the owner approved, so blocked in every mode — and imports a file from this computer otherwise.
+     Arguments it cannot read are blocked. */
+  const BY_ARGS = {
+    fablecut_import_media(args) {
+      if (!args || typeof args !== "object" || Array.isArray(args) || "url" in args) return "blocked";
+      const p = args.path;
+      if (typeof p !== "string" || !p.trim()) return "blocked";
+      return /^[a-z][a-z0-9+.-]*:\/\//i.test(p.trim()) || /^(\\\\|\/\/)/.test(p.trim()) ? "blocked" : "undoable";
+    },
+  };
+  /** The risk of a capability (for one that depends on its arguments, of this call); "blocked" for anything else. */
+  const riskOf = (name, args) => (!get(name) ? "blocked" : BY_ARGS[name] ? BY_ARGS[name](args) : get(name).risk);
   const list = () => [...table.values()];
+  /** An external capability's caps ({kind, perSend, perScope, scope}, frozen); null for any other name. */
+  const limits = (name) => (get(name) ? get(name).limits : null);
   /** What the approval box and the plan list show for a capability (JJ, 2026-11-03): its plain sentence in the interface
    *  language (English for any other), never its internal name — also for a name the table does not have. */
   const UNKNOWN = Object.freeze({ "zh-CN": "AI 想做一件软件不认识的操作，已经拦下，什么都没改。", en: "The AI asked for an action MontClip doesn't know. It was blocked; nothing changed." });
   const label = (name, language) => { const c = get(name), l = language === "zh-CN" ? "zh-CN" : "en"; return c ? c.summary[l] : UNKNOWN[l]; };
-  return Object.freeze({ RISKS, BLOCKED, get, riskOf, list, label });
+  return Object.freeze({ RISKS, BLOCKED, get, riskOf, list, label, limits });
 });
