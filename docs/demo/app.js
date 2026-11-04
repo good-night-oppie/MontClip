@@ -10635,7 +10635,7 @@ function autoCardHtml(c, i) {
     <div class="as-clip-h"><input type="checkbox" data-as-act="toggle"${c.on ? " checked" : ""} aria-label="${autoSay("as-tick")}">
       <div class="as-clip-main"><div class="as-clip-title"><span class="as-muted">${i + 1}.</span> <input type="text" data-as-act="rename" value="${escapeHtml(autoName(c))}" aria-label="${autoSay("as-rename")}" title="${autoSay("as-rename-tip")}">${c.on ? "" : `<span class="as-tag">${autoSay("as-spare")}</span>`}${autoKindLineHtml(c)}</div>
         ${i === 0 ? `<div class="as-small" data-as-name-hint>${autoSay("as-song-name-hint")}</div>` : ""}
-        ${c.added ? `<p class="as-why"><b>${autoSay("as-added-why")}</b></p>` : why ? `<p class="as-why">${autoSay("as-why")}<b>${escapeHtml(why)}</b></p>` : ""}${autoHabitLineHtml(c)}</div></div>
+        ${c.added ? `<p class="as-why"><b>${autoSay("as-added-why")}</b></p>` : c.changedFrom ? `<p class="as-why"><b>${autoSay("as-marked-why")}</b></p>` : why ? `<p class="as-why">${autoSay("as-why")}<b>${escapeHtml(why)}</b></p>` : ""}${autoHabitLineHtml(c)}</div></div>
     ${c.on ? `<div class="as-trim">${autoEdgeHtml(c, "s")}${autoEdgeHtml(c, "e")}</div>` : `<p class="as-small">${autoSay("as-tick-to-adjust")}</p>`}
     <div class="as-actions"><button type="button" class="btn tiny as-play" data-as-act="play">${autoSay("as-play")}</button>
       <button type="button" class="btn tiny" data-as-act="fine">${autoSay("as-fine")}</button>
@@ -10664,6 +10664,8 @@ async function autoApplyKept(cards, recs) {
   const out = MontClipCorrections.apply(cards, rules, { duration: Object.fromEntries(recs.map((r) => [r.mediaId, r.duration])), recKey: Object.fromEntries(recs.map((r) => [r.mediaId, r.key])) });
   // 你调过 is the streamer's own move: where a habit moved a card, its found ends move too, so each end keeps its level
   for (const c of out) if (c.was) { c.found = { s0: c.s0, e0: c.e0 }; if (Number.isFinite(c.s0)) c.s0 = c.s; if (Number.isFinite(c.e0)) c.e0 = c.e; }
+  // a part marked 不是唱歌 comes back as the streamer's kind, at their start and end: their change (你改的), with its reason
+  for (const c of out) if (c.changedFrom) { c.kindBy = true; if (Number.isFinite(c.s0)) c.s0 = c.s; if (Number.isFinite(c.e0)) c.e0 = c.e; }
   st.habitUsed = out.filter((c) => c.was).length; st.keptN = kept.length; st.habitRules = rules;
   return out;
 }
@@ -10900,7 +10902,8 @@ function autoClick(e) {
   if (act === "play") { autoPreview(c); return; }
   if (act === "drop") {
     autoSnap(); st.clips = st.clips.filter((x) => x !== c); c.on = false; st.dropped.push(c);
-    autoRender("review"); autoToastKept(uiText("own.as-dropped-one", { name: autoName(c) }), autoKeep({ type: "remove", kind: c.kind }, c)); return;
+    const rec = autoRec(c.mediaId), where = rec && rec.key ? { rec: rec.key, s: c.s, e: c.e } : {};
+    autoRender("review"); autoToastKept(uiText("own.as-dropped-one", { name: autoName(c) }), autoKeep({ type: "remove", kind: c.kind, ...where }, c)); return;
   }
   if (act === "fine") { autoPlace(st.clips.filter((x) => x.on || x === c), { select: c, fine: true }); return; }
   if (act === "set-kind") { autoSetKind(c, c.kind === "song" ? "moment" : "song"); return; }

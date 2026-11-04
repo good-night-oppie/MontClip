@@ -70,11 +70,19 @@ Constants: `MAX_SHIFT` 5 s, `HABIT_WINDOW` 5, `HABIT_MIN` 4, `BAR_BASE` 0.12 (so
   way. The search gets it through `songOptions(rules)`.
 - **The same recording** (not a habit: one mark is enough, the bar off or on): a part marked 「不是唱歌」 is not a song card
   again when the same recording is searched again — a song card more than half of whose length lies inside the marked
-  part is left out (`apply(cards, rules, {recKey})`). **Measured against the card's own length** (Deja, decided), and
+  part becomes that part again, as the kind the streamer gave it (`apply(cards, rules, {recKey})`; see below). **Measured against the card's own length** (Deja, decided), and
   exactly half does not count: a long card is not taken out whole because a short marked part lies inside it. The 「不是唱歌」 record carries the recording's key and the part's
   start and end (seconds); the key is `recordingKey(duration, loudness)` — the length and the loudness bins (0.1 dB),
-  hashed (FNV-1a, 64 bits, 16 hex digits). No path, no file name. 「是唱歌」 marks nothing away. To the streamer: what they
-  marked does not come back.
+  hashed (FNV-1a, 64 bits, 16 hex digits). No path, no file name. 「是唱歌」 marks nothing away.
+  **Changed after VV's real-window review of 12f4f21 (Deja, 2026-11-03):** 「不是唱歌」 says the part is not a song, not that
+  the streamer does not want it. So the part is not dropped: the same recording searched again shows one card for it, as
+  the kind it was given (热闹, 互动 …), at the start and end the streamer had, marked 你改的 (`changedFrom: "song"`, rule
+  `not-song`, not moved by a habit), with the reason 「上次你标了这段不是唱歌，这次照你改的出，开头结尾和上次一样。」
+  (wording for JJ). Only a part also taken out (不要这条) stays away: a taking-out record now carries the recording's key
+  and the part too (`rules().gone`); a plain taking-out still changes nothing on the next search. Not handled yet: 「是唱歌」
+  on that card afterwards does not cancel the mark (only a song made another kind carries the part).
+  The card is not cut down to a 1-minute clip with the other cards: it has no danmaku peak to centre one on, so it keeps
+  the part as marked (Deja: intended).
 - 互动, 聊天 and 整活 have their own habits like every kind; no rule finds their parts — only the streamer's own moves
   shift their start and end. A song made one of them counts as 「不是唱歌」; between them and 普通高光 the singing bar is not
   touched.

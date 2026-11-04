@@ -17,8 +17,10 @@
              OFF by default (BAR_ON; Deja, 2026-11-03, from the LOSO numbers: 0.19 of recall for 0.02 of precision); kept,
              with its tests, for when real corrections exist.
    One rule is not a habit: a part marked 「不是唱歌」 in a recording is not a song card again when that same recording is
-   searched again (a song card more than half inside it). The recording is known by recordingKey — its length and a hash
-   of its sound — never by its path.
+   searched again (a song card more than half inside it): it comes back as the kind the streamer gave it, at the start and
+   end they had (「不是唱歌」 says the part is not a song, not that it is unwanted; VV / Deja, 2026-11-03) — unless they also
+   took it out (不要这条), then it stays away. The recording is known by recordingKey — its length and a hash of its
+   sound — never by its path.
    Each card lists the rules that touched it (card.rules). With no rules (off, or nothing kept) the cards come back exactly
    as given, and the search gets no options. */
 (function (root, factory) {
@@ -33,7 +35,7 @@
   const BAR_BASE = 0.12, BAR_RANGE = Object.freeze([BAR_BASE / 2, BAR_BASE * 1.5]);
   // the singing bar is off: with it off the search keeps songs.js PAUSE (0.12)
   const BAR_ON = false;
-  const FIELDS = { kind: ["from", "to", "features", "rec", "s", "e"], add: ["kind", "features"], trim: ["kind", "startShift", "endShift"], remove: ["kind", "features"] };
+  const FIELDS = { kind: ["from", "to", "features", "rec", "s", "e"], add: ["kind", "features"], trim: ["kind", "startShift", "endShift"], remove: ["kind", "features", "rec", "s", "e"] };
   const r2 = (x) => Math.round(x * 100) / 100, r3 = (x) => Math.round(x * 1000) / 1000;
   const num = (x, lo, hi) => typeof x === "number" && Number.isFinite(x) && x >= lo && x <= hi;
   const fail = () => { throw new Error("CORRECTION_INVALID"); };
@@ -47,7 +49,7 @@
     const out = { v: 1, at: num(input.at, 0, 1e15) ? Math.round(input.at) : Date.now(), type: input.type, duration: r2(input.duration) };
     // the store's own id for a record, so undoing an edit can take its record back
     if ("id" in input) { if (typeof input.id !== "string" || !/^[a-f0-9]{16}$/.test(input.id)) fail(); out.id = input.id; }
-    // a kind change may say which recording and which part (rec, s, e: all three or none)
+    // a kind change or a taking-out may say which recording and which part (rec, s, e: all three or none)
     const where = ["rec", "s", "e"].filter((k) => k in input);
     if (where.length && (where.length !== 3 || typeof input.rec !== "string" || !/^[a-f0-9]{16}$/.test(input.rec)
       || !num(input.s, 0, out.duration) || !num(input.e, 0, out.duration) || input.e <= input.s)) fail();
@@ -98,7 +100,7 @@
     return same && { values: same, n: last.length };
   }
   /** The fixed rules from the records: {shift: {kind: {start?: {by, of}, end?: {by, of}}}, bar?: {dir, PAUSE, of},
-   *  notSong?: [{rec, s, e}]}. opts.bar turns the singing bar on (default BAR_ON, off). */
+   *  notSong?: [{rec, s, e, to}], gone?: [{rec, s, e}]}. opts.bar turns the singing bar on (default BAR_ON, off). */
   function rules(records, { bar = BAR_ON } = {}) {
     const list = Array.isArray(records) ? records : [], out = { shift: {} };
     for (const k of KINDS) {
@@ -111,8 +113,11 @@
     }
     // 「不是唱歌」 (+1: the bar up, stricter) and 「是唱歌」 (−1: the bar down), the last of them in order
     const kinds = list.filter((x) => x.type === "kind" && (x.from === "song") !== (x.to === "song"));
-    const marked = kinds.filter((x) => x.from === "song" && x.rec).map((x) => ({ rec: x.rec, s: x.s, e: x.e }));
+    const marked = kinds.filter((x) => x.from === "song" && x.rec).map((x) => ({ rec: x.rec, s: x.s, e: x.e, to: x.to }));
     if (marked.length) out.notSong = marked;
+    // the parts taken out (不要这条) in a known recording: a part marked 不是唱歌 and taken out stays away
+    const gone = list.filter((x) => x.type === "remove" && x.rec).map((x) => ({ rec: x.rec, s: x.s, e: x.e }));
+    if (gone.length) out.gone = gone;
     const h = bar && habit(kinds.map((x) => (x.from === "song" ? 1 : -1)));
     if (h) {
       const dir = h.values[0] > 0 ? "up" : "down", same = kinds.slice(-HABIT_WINDOW).filter((x) => (x.from === "song") === (dir === "up") && x.features);
@@ -129,14 +134,25 @@
 
   /** The cards with the rules applied; opts: {duration: {mediaId: s}, recKey: {mediaId: recordingKey}}. With no rules
    *  the very same cards (a copy) come back, without a rules field. A song card found with a moved bar says so
-   *  (song-bar). A song card more than half inside a part marked 不是唱歌 in the same recording is left out. */
+   *  (song-bar). A song card more than half inside a part marked 不是唱歌 in the same recording becomes that part, as the
+   *  kind it was given (changedFrom "song", the rule not-song; one card per part, not moved by a habit), or stays away
+   *  if that part was also taken out. */
   function apply(cards, r, opts = {}) {
     const list = JSON.parse(JSON.stringify(Array.isArray(cards) ? cards : []));
     if (none(r)) return list;
-    const marks = r.notSong || [], keyOf = opts.recKey || {};
-    const markedAway = (c) => c.kind === "song" && keyOf[c.mediaId] && c.e > c.s
-      && marks.some((m) => m.rec === keyOf[c.mediaId] && Math.min(c.e, m.e) - Math.max(c.s, m.s) > (c.e - c.s) / 2);
-    return list.filter((c) => !markedAway(c)).map((c) => {
+    const marks = r.notSong || [], gone = r.gone || [], keyOf = opts.recKey || {}, done = new Set();
+    const over = (a, b) => Math.min(a.e, b.e) - Math.max(a.s, b.s);
+    const markOf = (c) => (c.kind === "song" && keyOf[c.mediaId] && c.e > c.s ? marks.find((m) => m.rec === keyOf[c.mediaId] && over(c, m) > (c.e - c.s) / 2) : null);
+    const out = [];
+    for (const c of list) {
+      const m = markOf(c);
+      if (!m) { out.push(c); continue; }
+      if (done.has(m) || gone.some((g) => g.rec === m.rec && over(g, m) > (m.e - m.s) / 2)) continue;
+      done.add(m);
+      out.push({ ...c, kind: m.to, s: m.s, e: m.e, at: m.s, reasons: [], changedFrom: "song", rules: ["not-song"] });
+    }
+    return out.map((c) => {
+      if (c.changedFrom) return c;
       const used = [];
       let s = c.s, e = c.e;
       if (c.kind === "song" && r.bar) used.push("song-bar");
