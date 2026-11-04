@@ -202,9 +202,10 @@ test("导出没有完成: why in one plain sentence, the raw error only on the s
 
 test("the small line: no paths, local ports or pids — only what helps us", () => {
   const exportCard = card();
-  const raw = "ENOENT: no such file, open 'C:\\Users\\me\\FableCut\\exports\\a.mp4' (D:/直播/x.mp4) at http://127.0.0.1:7777/api pid 4242 port=9222 /home/me/FableCut/media/b.mp4";
+  // example folders only (no product name in them, so the rename script never touches this test)
+  const raw = "ENOENT: no such file, open 'C:\\Users\\me\\clips-data\\exports\\a.mp4' (D:/直播/x.mp4) at http://127.0.0.1:7777/api pid 4242 port=9222 /home/me/clips-data/media/b.mp4";
   const small = plain(exportCard({ phase: "failed", stage: "job", reason: raw })).at(-1);
-  for (const leak of ["Users", "me\\", "直播", "7777", "4242", "9222", "/home/", "FableCut\\exports"]) assert.ok(!small.includes(leak), leak + " in " + small);
+  for (const leak of ["Users", "me\\", "直播", "7777", "4242", "9222", "/home/", "clips-data"]) assert.ok(!small.includes(leak), leak + " in " + small);
   assert.match(small, /^ENOENT: no such file, open/, "the rest stays, so we can tell what it was");
   assert.ok(plain(exportCard({ phase: "failed", stage: "job", reason: "x".repeat(2000) })).at(-1).length <= 300, "at most 300 characters");
 });
