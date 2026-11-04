@@ -159,8 +159,39 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.equal(await read(`document.querySelector('[data-as-learn-line]').textContent`),zh('as-learn-off')+zh('as-learn-off-btn'));
   await read(`(async()=>{document.querySelectorAll('[data-as-card]')[0].querySelector('[data-as-act=nudge][data-as-w=s][data-as-d="1"]').click();await new Promise(r=>setTimeout(r,200));return true;})()`);
   assert.equal((await status()).count,5,'off: the move is not kept');
-  // on again, 清空记录 with its confirmation
-  const cleared=await read(`(async()=>{document.querySelector('[data-as-learn-line] [data-as-act=learn]').click();await new Promise(r=>setTimeout(r,300));let d=document.querySelector('dialog.as-learn[open]');
+  // JJ's (b) (Deja, 2026-11-03): 〔打开〕 on the line turns the switch on at once — the page's own switch — with a toast that
+  // can undo it; what was changed while it was off is not kept afterwards; the page's switch follows, both ways, also
+  // while the page is open; the toast with 〔撤销〕 stays 8 s and holds while the pointer is on it
+  const line=()=>read(`(()=>{const l=document.querySelector('[data-as-learn-line]');return{text:l.textContent,act:l.querySelector('button').dataset.asAct};})()`);
+  const pageSwitch=()=>read(`(async()=>{let d=document.querySelector('dialog.as-learn[open]');const was=!!d;if(!d){document.querySelector('#setSlices [data-learn-open]').click();await new Promise(r=>setTimeout(r,300));d=document.querySelector('dialog.as-learn[open]');}
+    const on=d.querySelector('[data-learn-switch]').checked;if(!was)d.querySelector('[data-learn-ok]').click();return on;})()`);
+  assert.deepEqual(await line(),{text:zh('as-learn-off')+zh('as-learn-off-btn'),act:'learn-on'});
+  await read(`(async()=>{document.querySelector('[data-as-learn-line] [data-as-act=learn-on]').click();await new Promise(r=>setTimeout(r,300));return true;})()`);
+  const on1=await status();report.turnOn={enabled:on1.enabled,count:on1.count,toast:await toastText()};
+  assert.equal(on1.enabled,true);assert.equal(on1.count,5,'the move made while it was off is not kept now');
+  assert.equal(await toastText(),zh('as-learn-on-here'));
+  assert.deepEqual(await line(),{text:zh('as-learn-on')+zh('as-learn-on-btn'),act:'learn'});
+  assert.equal(await pageSwitch(),true,'the page: on');
+  // the toast with 〔撤销〕: still there at 6 s; held while the pointer is on it (9 s), gone 8 s after it leaves
+  await wait(6000);assert.equal(await read(`document.querySelector('[data-as-toast]').hidden`),false,'8 s, not 5');
+  await read(`(()=>{document.querySelector('[data-as-toast]').dispatchEvent(new MouseEvent('mouseenter'));return true;})()`);await wait(3000);
+  assert.equal(await read(`document.querySelector('[data-as-toast]').hidden`),false,'held while the pointer is on it');
+  await read(`(()=>{document.querySelector('[data-as-toast]').dispatchEvent(new MouseEvent('mouseleave'));return true;})()`);
+  // 〔撤销〕: off again, the line says so, the page too
+  await undoToast();
+  assert.equal((await status()).enabled,false,'undone: off');assert.equal((await status()).count,5);
+  assert.deepEqual(await line(),{text:zh('as-learn-off')+zh('as-learn-off-btn'),act:'learn-on'});
+  assert.equal(await pageSwitch(),false,'the page: off');
+  await wait(8500);assert.equal(await read(`document.querySelector('[data-as-toast]').hidden`),true,'gone once the time is up');
+  // with the page open: its switch follows 〔打开〕 and 〔撤销〕 as they happen
+  const live=await read(`(async()=>{document.querySelector('#setSlices [data-learn-open]').click();await new Promise(r=>setTimeout(r,300));
+    const sw=()=>document.querySelector('dialog.as-learn[open] [data-learn-switch]').checked,r=[sw()];
+    document.querySelector('[data-as-learn-line] [data-as-act=learn-on]').click();await new Promise(r=>setTimeout(r,300));r.push(sw());
+    document.querySelector('[data-as-toast-undo]').click();await new Promise(r=>setTimeout(r,300));r.push(sw());
+    document.querySelector('dialog.as-learn [data-learn-ok]').click();return r;})()`);
+  assert.deepEqual(live,[false,true,false],'the open page follows');assert.equal((await status()).enabled,false);
+  // on again, 清空记录 with its confirmation (the line offers only 〔打开〕 while off: the page from 设置)
+  const cleared=await read(`(async()=>{document.querySelector('#setSlices [data-learn-open]').click();await new Promise(r=>setTimeout(r,300));let d=document.querySelector('dialog.as-learn[open]');
     const s=d.querySelector('[data-learn-switch]');s.checked=true;s.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,300));
     d.querySelector('[data-learn-clear]').click();await new Promise(r=>setTimeout(r,200));d=document.querySelector('dialog.as-learn[open]');const confirm=d.querySelector('[data-learn-confirm]').textContent;
     d.querySelector('[data-learn-clear-yes]').click();await new Promise(r=>setTimeout(r,300));d=document.querySelector('dialog.as-learn[open]');

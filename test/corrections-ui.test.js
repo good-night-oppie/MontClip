@@ -101,3 +101,17 @@ test('one root rule: every disabled .btn is faded, with no hand cursor; no per-b
  a.match(root.body,/cursor:\s*default/);
  a.ok(!/\[data-as-add-ok\]:disabled|\[data-learn-clear\]:disabled/.test(css),'no rule for one button');
 });
+
+// JJ chose (b) (Deja, 2026-11-03): 〔打开〕 on the line under the cards turns the switch on at once, with a toast that can
+// undo it — the line and the toast in JJ's words, whole sentences, both languages
+test("the line when it is off, its 〔打开〕 and the toast after it, in JJ's words",()=>{
+ a.equal(zh('as-learn-off'),'「记住我的剪辑习惯」关着：这里的修改不会记下来，下次找也不参考以前记的。');a.equal(zh('as-learn-off-btn'),'打开');
+ // the space after the English sentence parts it from its button
+ a.equal(en('as-learn-off'),"“Remember my editing habits” is off: changes here are not kept, and the next search doesn't use what was kept. ");a.equal(en('as-learn-off-btn'),'Turn on');
+ a.equal(zh('as-learn-on-here'),'已打开「记住我的剪辑习惯」。从现在起，你在这里的修改会记在这台电脑上，不会发出去。');
+ a.equal(en('as-learn-on-here'),'“Remember my editing habits” is on. From now on, changes you make here are kept on this computer and never sent.');
+ // the same switch as the page: one store call, and the undo step turns it off again
+ const app=read('app.js');
+ a.match(app,/data-as-act="\$\{on \? "learn" : "learn-on"\}"/);
+ a.match(app,/act === "learn-on"/);
+});
