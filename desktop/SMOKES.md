@@ -15,6 +15,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `agent-minimum-smoke.cjs` | `MONTCLIP_MINIMUM_COMPLETE` | 在用 |
 | `agent-no-key-network-smoke.cjs` | `AGENT_NO_KEY_NETWORK_PASS` | 在用 |
 | `agent-paste-smoke.cjs` | `MONTCLIP_PASTE_HARNESS_DISABLED (SKIPPED)`，退出码 0 | 已停用：会动系统剪贴板（138514e 起停用，没有开关能打开） |
+| `asr-gaps-smoke.cjs` | `ASR_GAPS_PASS` | 在用 |
 | `asr-smoke.cjs` | `ASR_SMOKE_PASS` | 在用 |
 | `auto-slices-smoke.cjs` | `AUTO_SLICES_PASS` | 在用 |
 | `av-sync-smoke.cjs` | `AV_SYNC_PASS` | 在用；需要 `MONTCLIP_AV_INPUT` 指向一段闪光加蜂鸣的测试视频 |
