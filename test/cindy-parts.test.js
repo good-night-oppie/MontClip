@@ -168,3 +168,14 @@ test('how long the AI took: words in Chinese (58 秒, 1 分 29 秒), Cindy\'s ow
   assert.match(standIn, /return i18n\.language === 'zh-CN' \? durationZh\(ms, options\) : formatDuration\(ms, options\);/);
   assert.ok(STAND_INS['apps/desktop/src/renderer/lib/sessionDurationFormat']);
 });
+
+test('every MontClip string is in the built bundle (QQ on #109 7ab67eb: a string added without rebuilding never reached the pane)', () => {
+  const strings = JSON.parse(fs.readFileSync(path.join(UI, 'montclip-strings.json'), 'utf8'));
+  const bundle = fs.readFileSync(path.join(__dirname, '..', 'cindy-official.js'), 'utf8');
+  // esbuild writes non-ASCII characters as \uXXXX with upper-case hex digits
+  const escaped = (s) => s.replace(/[^\x00-\x7f]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'));
+  const missing = [];
+  const walk = (o, at) => { for (const [k, v] of Object.entries(o)) { if (typeof v === 'string') { if (!bundle.includes(v) && !bundle.includes(escaped(v))) missing.push(at + k); } else if (v && typeof v === 'object') walk(v, at + k + '.'); } };
+  for (const lang of ['zh-CN', 'en']) walk(strings[lang], lang + '.');
+  assert.deepEqual(missing, [], 'rebuild with node agent-ui/build.cjs');
+});
