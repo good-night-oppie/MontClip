@@ -123,3 +123,12 @@ test("文稿 and the editor being closed: JJ's sentences", () => {
   assert.ok(page.includes('<p id="offline" class="offline" hidden>剪辑器没有打开，所以没跳过去。先打开右侧栏的「MontClip 剪辑器」，再点一次。</p>'));
   assert.ok(page.includes("还没有字幕。在剪辑器里听写或加字幕后，这里会按时间列出每一句，点一句就跳到那里。"));
 });
+
+test("the panel keeps its last highlight when the editor goes quiet (a background tab's timers are slowed — VV, #114)", () => {
+  const panel = fs.readFileSync(path.join(PLUGIN, "embed", "panel.js"), "utf8");
+  assert.equal((panel.match(/editor = null/g) || []).length, 1, "only the declaration: silence never clears the editor's state");
+  assert.doesNotMatch(panel, /editorSeen > \d+\) \{ editor = null/);
+  // a click still picks the way: the channel when the editor was heard from lately, else /api/ui/command
+  assert.match(panel, /if \(ch && Date\.now\(\) - editorSeen < 3000\) \{ ch\.postMessage\(\{ type: "seek", t \}\); return; \}/);
+  assert.match(panel, /fetch\("\/api\/ui\/command"/);
+});
