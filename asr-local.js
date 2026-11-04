@@ -10,6 +10,11 @@
    and the transcription goes on. The result is complete, partial (with gaps), or failed (ASR_FAILED: nothing at all
    could be read). Every decode is on a new stream, so a stream the engine broke is never used again. Rea: the failing
    segment is at 3603.7 s and 4.74 s long, the only one of 1485 — not a long segment, so the VAD keeps its 20 s maximum.
+   The root (Rea, #93 ADR §10): the model's tokens.txt has a token that is exactly "@" (line 7252, "@ 7251"), and
+   sherpa-onnx 2.0.1 (gitSha1 af2d8d81) takes 2 off the length of a token ending in "@" — for "@" alone that underflows
+   (std::length_error: basic_string::_S_create, "string too long" on MSVC). The recognizer reads a copy of tokens.txt
+   with that token as the full-width 「＠」 (safeTokens), and 「＠」 is taken out of the words. Only decodeAsync is ever
+   called: the synchronous decode() aborts the whole process on this. The segment guard stays for anything else.
 
    asrDir   the engine and the VAD (resources/asr in the package, vendor/asr in a checkout):
               engine/node_modules/sherpa-onnx-node, engine/node_modules/sherpa-onnx-<platform>-<arch>, silero_vad.onnx,
@@ -22,7 +27,27 @@ const { spawn } = require("node:child_process");
 const { manifest, createStore } = require("./asr-models");
 const W = require("./asr-words");
 
+const crypto = require("node:crypto");
+const os = require("node:os");
+
 const RATE = 16000, WINDOW = 512;
+/** tokens.txt without a token that is exactly "@": that line's token becomes the full-width 「＠」 (its id unchanged) in a
+ *  copy in cacheDir, named by the source's SHA-256, so a changed source gets a new copy; the source is never changed.
+ *  → the file the recognizer reads (the source itself when there is nothing to fix). */
+function safeTokens(file, cacheDir) {
+  let bytes;
+  try { bytes = fs.readFileSync(file); } catch { return file; }   // unreadable: the engine says so itself
+  const text = bytes.toString("utf8");
+  if (!/^@ \d+\r?$/m.test(text)) return file;
+  const out = path.join(cacheDir, "tokens-" + crypto.createHash("sha256").update(bytes).digest("hex") + ".txt");
+  if (!fs.existsSync(out)) {
+    fs.mkdirSync(cacheDir, { recursive: true });
+    const tmp = out + "." + process.pid + ".tmp";
+    fs.writeFileSync(tmp, text.replace(/^@( \d+\r?)$/gm, "＠$1"));
+    fs.renameSync(tmp, out);
+  }
+  return out;
+}
 /** The VAD as measured on europa (RESULT.md §1): segments of at most 20 s. */
 const VAD = { threshold: 0.5, minSpeechDuration: 0.25, minSilenceDuration: 0.5, maxSpeechDuration: 20, windowSize: WINDOW };
 
@@ -36,7 +61,8 @@ async function segmentWords(r, audio, start, p) {
     const s = r.createStream();
     s.acceptWaveform({ sampleRate: RATE, samples: part });
     const res = await r.decodeAsync(s);
-    let ws = W.words(res, { offset: at, end: at + part.length / RATE });
+    // 「＠」 is the "@" token of safeTokens: never a word
+    let ws = W.words(res, { offset: at, end: at + part.length / RATE }).map((w) => [w[0].replace(/＠/g, ""), w[1], w[2]]).filter((w) => w[0]);
     if (p && ws.length) { try { ws = W.punctuate(ws, p.addPunct(W.plain(ws))); } catch { } }
     words.push(...ws); read = true;
   };
@@ -55,7 +81,9 @@ async function segmentWords(r, audio, start, p) {
 }
 const r3 = (x) => Math.round(x * 1000) / 1000;
 
-function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engineModule = null } = {}) {
+function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engineModule = null, cacheDir = null } = {}) {
+  // where the safe tokens copy goes (the server gives one in its data folder, userData in the desktop app)
+  cacheDir = path.resolve(cacheDir || path.join(os.tmpdir(), "montclip-asr-cache"));
   asrDir = path.resolve(asrDir); if (modelsDir) modelsDir = path.resolve(modelsDir);
   store = store || createStore({ roots: [path.join(asrDir, "models")], userDir: modelsDir });
   const engineDir = path.join(asrDir, "engine", "node_modules", "sherpa-onnx-node");
@@ -75,7 +103,7 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
   async function recognizer(dir) {
     if (rec && recDir === dir) return rec;
     rec = await engine().OfflineRecognizer.createAsync({ featConfig: { sampleRate: RATE, featureDim: 80 },
-      modelConfig: { paraformer: { model: path.join(dir, "model.int8.onnx") }, tokens: path.join(dir, "tokens.txt"), numThreads: threads, provider: "cpu", debug: 0 } });
+      modelConfig: { paraformer: { model: path.join(dir, "model.int8.onnx") }, tokens: safeTokens(path.join(dir, "tokens.txt"), cacheDir), numThreads: threads, provider: "cpu", debug: 0 } });
     recDir = dir;
     return rec;
   }
@@ -157,4 +185,4 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
   return { status, transcribe, store };
 }
 
-module.exports = { createAsr, VAD, segmentWords };
+module.exports = { createAsr, VAD, segmentWords, safeTokens };

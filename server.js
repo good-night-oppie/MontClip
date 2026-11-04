@@ -141,7 +141,7 @@ const MIME = {
 const ASR_DIR = path.resolve(process.env.MONTCLIP_ASR_DIR || path.join(APP_DIR, "vendor", "asr"));
 const ASR_MODELS_DIR = path.resolve(process.env.MONTCLIP_ASR_MODELS_DIR || path.join(DATA_DIR, "asr-models"));
 let asrLocal = null;
-const asr = () => asrLocal || (asrLocal = require("./asr-local").createAsr({ asrDir: ASR_DIR, modelsDir: ASR_MODELS_DIR, ffmpeg: FF.path("ffmpeg") }));
+const asr = () => asrLocal || (asrLocal = require("./asr-local").createAsr({ asrDir: ASR_DIR, modelsDir: ASR_MODELS_DIR, ffmpeg: FF.path("ffmpeg"), cacheDir: path.join(DATA_DIR, "asr-cache") }));
 const asrJob = { running: null };
 
 ensureDirs();
