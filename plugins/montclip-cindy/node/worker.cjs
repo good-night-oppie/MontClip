@@ -126,7 +126,11 @@ async function start() {
   }
   const mcp = require(path.join(APP, "mcp-server.js"));
   started = { origin, port, tools: mcp.TOOLS, callTool: mcp.callTool, ffmpeg: ff, node: process.version, data: DATA };
-  note({ event: "engine-started", origin, ffmpeg: ff.source, node: process.version, execPath: process.execPath, pid: process.pid });
+  // which of the variables MontClip's headless-browser lookup reads are present (names only, never values)
+  const envSeen = Object.fromEntries(["PROGRAMFILES", "PROGRAMFILES(X86)", "ProgramFiles", "LOCALAPPDATA", "SystemRoot", "USERPROFILE", "PATH", "Path"]
+    .map((k) => [k, typeof process.env[k] === "string" && process.env[k] !== ""]));
+  note({ event: "engine-started", origin, ffmpeg: ff.source, node: process.version, execPath: process.execPath, pid: process.pid,
+    envSeen, envCount: Object.keys(process.env).length, browser: require(path.join(APP, "export-jobs.js")).findBrowser() || null });
   return started;
 }
 
@@ -168,6 +172,38 @@ function sha256File(file) {
   return h.digest("hex");
 }
 
+let bindChain = Promise.resolve();
+async function bindOnce(p) {
+  await start();
+  const session = String(p.session || "");
+  if (!session) throw new Error("no session");
+  const file = path.join(DATA, "sessions.json");
+  let map = {};
+  try { map = JSON.parse(fs.readFileSync(file, "utf8")); } catch { }
+  const list = (await api("GET", "/api/projects")).body || {};
+  let id = map[session];
+  if (id && !(list.projects || []).some((x) => x.id === id)) id = null;
+  let created = false;
+  if (!id) {
+    // the first task to bind takes the project that is open now; later tasks get a new one
+    const taken = new Set(Object.values(map));
+    if (list.active && !taken.has(list.active)) id = list.active;
+    else {
+      const r = await api("POST", "/api/projects", { action: "new", name: "任务 " + session.slice(0, 8), open: false });
+      id = r.body && r.body.id;
+      created = true;
+    }
+    map[session] = id;
+    fs.writeFileSync(file, JSON.stringify(map, null, 2));
+  }
+  let switched = false;
+  if (list.active !== id) { await api("POST", "/api/projects", { action: "open", id }); switched = true; }
+  const proj = (await api("GET", "/api/project")).body || {};
+  const out = { session, project: id, created, switched, name: proj.name, revision: proj.revision, clips: (proj.clips || []).length };
+  logEntry({ kind: "bind", ...out });
+  return out;
+}
+
 const METHODS = {
   async "montclip/start"() {
     const s = await start();
@@ -203,35 +239,12 @@ const METHODS = {
   },
   /* A task view belongs to one Cindy task: each task keeps its own MontClip project (sessions.json).
      Binding opens that task's project when it is not the open one; the editor tabs reload with it. */
-  async "montclip/bind"(p) {
-    await start();
-    const session = String(p.session || "");
-    if (!session) throw new Error("no session");
-    const file = path.join(DATA, "sessions.json");
-    let map = {};
-    try { map = JSON.parse(fs.readFileSync(file, "utf8")); } catch { }
-    const list = (await api("GET", "/api/projects")).body || {};
-    let id = map[session];
-    if (id && !(list.projects || []).some((x) => x.id === id)) id = null;
-    let created = false;
-    if (!id) {
-      // the first task to bind takes the project that is open now; later tasks get a new one
-      const taken = new Set(Object.values(map));
-      if (list.active && !taken.has(list.active)) id = list.active;
-      else {
-        const r = await api("POST", "/api/projects", { action: "new", name: "任务 " + session.slice(0, 8), open: false });
-        id = r.body && r.body.id;
-        created = true;
-      }
-      map[session] = id;
-      fs.writeFileSync(file, JSON.stringify(map, null, 2));
-    }
-    let switched = false;
-    if (list.active !== id) { await api("POST", "/api/projects", { action: "open", id }); switched = true; }
-    const proj = (await api("GET", "/api/project")).body || {};
-    const out = { session, project: id, created, switched, name: proj.name, revision: proj.revision, clips: (proj.clips || []).length };
-    logEntry({ kind: "bind", ...out });
-    return out;
+  // one bind at a time: a task view binds both when it opens and when it becomes visible, and two
+  // binds racing for a new task each created a project (seen in Cindy, 2026-11-04)
+  "montclip/bind"(p) {
+    const run = bindChain.then(() => bindOnce(p));
+    bindChain = run.catch(() => {});
+    return run;
   },
   /* The pinned FFmpeg, fetched by cindy.downloads (sha256 + byte count checked by Cindy) — this only
      unpacks it: params.downloads.archive is the host's file, read before this request ends. */
