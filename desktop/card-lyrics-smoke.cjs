@@ -78,9 +78,13 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.deepEqual(applied.cues.map(q=>q[0]),['天空好蓝','我想飞翔']);assert.ok(applied.cues.every(q=>q[3]&&q[1]>=first.s&&q[2]<=first.e));
   assert.equal(applied.button,zh('as-lyrics-again',{n:2}));assert.equal(applied.other,zh('as-lyrics'),'the other card as it was');
   assert.equal(applied.clips,before,'the timeline not changed by a single character');
-  assert.equal(applied.toast,zh('as-lyrics-done',{n:2}),'the toast says nothing is on the timeline yet (placeholder key)');
+  assert.equal(applied.toast,zh('as-lyrics-done',{n:2}),'JJ words: nothing is on the timeline yet');
   // 2. the dialog's undo takes it back; then applied again
-  const undone=await read(`(()=>{autoUndo();const c=autoClip(${JSON.stringify(first.id)});return{cues:c.lyricCues||null,button:document.querySelector('[data-as-card="'+c.id+'"] [data-as-act=lyrics]').textContent};})()`);
+  // its 〔撤销〕 under #92's rule: shown past the old 5 s, held for 9 s while it has the focus, then it takes the step back
+  await wait(6000);
+  const held=await read(`(async()=>{const t=document.querySelector('[data-as-toast]'),b=t.querySelector('[data-as-toast-undo]');const at6=!t.hidden&&!b.hidden;b.focus();await new Promise(r=>setTimeout(r,9000));return{at6,held:!t.hidden};})()`);
+  report.held=held;assert.deepEqual(held,{at6:true,held:true},'〔撤销〕 stays 8 s and while it has the focus');
+  const undone=await read(`(()=>{document.querySelector('[data-as-toast] [data-as-toast-undo]').click();const c=autoClip(${JSON.stringify(first.id)});return{cues:c.lyricCues||null,button:document.querySelector('[data-as-card="'+c.id+'"] [data-as-act=lyrics]').textContent};})()`);
   report.undone=undone;assert.deepEqual(undone,{cues:null,button:zh('as-lyrics')});
   await read(`document.querySelector('[data-as-card="${first.id}"] [data-as-act=lyrics]').click();true`);
   await until(`!!document.querySelector('dialog[data-ly-dialog][open]')`);

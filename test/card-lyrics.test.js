@@ -62,3 +62,18 @@ test('the card\'s button: on a song card with words in its part; after calibrati
   // placed: the card's lines (lyricCuesOn), the others from the transcript as before
   a.match(app, /MontClipAutoSlices\.lyricCuesOn\(/);
 });
+
+// JJ's final words for the toast after calibrating a card (Deja, on #100), and its 〔撤销〕 under #92's rule: 8 s, held while
+// the pointer is on it or the focus is inside it
+test('the toast after calibrating: JJ\'s words, with 〔撤销〕 that stays 8 s and holds while hovered or focused', () => {
+  a.equal(V.t('zh-CN', 'own.as-lyrics-done', { n: 2 }), "已按歌词改好 2 句。放到时间线上以后，用的就是改好的字幕。");
+  a.equal(V.t('en', 'own.as-lyrics-done', { n: 2 }), "Corrected 2 lines from the lyrics. Once this part is on the timeline, these subtitles are used.");
+  a.equal(V.t('zh-CN', 'own.as-lyrics-again', { n: 2 }), '再对一遍歌词（已改 2 句）', 'as-lyrics-again as it was');
+  const app = read('app.js');
+  a.match(app, /autoToast\(uiText\("own\.as-lyrics-done", \{ n: card\.lyricN \}\)\);/, 'with 〔撤销〕 (undoable, the default)');
+  a.match(app, /const UNDO_TOAST_MS = 8000;/);
+  const at = app.slice(app.indexOf('function autoToast('), app.indexOf('function autoToast(') + 900);
+  a.match(at, /if \(undoable\) t\.holdToast\.start\(\); else autoToastTimer = setTimeout\(\(\) => \{ t\.hidden = true; \}, 5000\);/);
+  const ht = app.slice(app.indexOf('function holdToast('), app.indexOf('function holdToast(') + 900);
+  a.match(ht, /if \(hover \|\| el\.contains\(document\.activeElement\)\) since = Date\.now\(\);/);
+});
