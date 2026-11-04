@@ -4192,9 +4192,11 @@ function outsideEditStep(before, after, mediaBefore = null, mediaAfter = null) {
 }
 /** An undo snapshot to compare by: loading a page relinks each picture to its audio stems under fresh linkGroup ids
  *  (edit-ops.js relinkClips), so which clips share a group counts, not the group's name. Without this a reload, or an
- *  outside write that leaves the timeline alone, looked like an outside edit (VV's review of #111). */
+ *  outside write that leaves the timeline alone, looked like an outside edit (VV's review of #111). relinkClips also
+ *  deletes linkGroup and adds it back, so a clip's keys come back in another order (after `disabled` or `locked`):
+ *  the key is written with every object's keys sorted, arrays in their own order (QQ on 8875b1d). */
 function snapshotKey(json) {
-  if (typeof json !== "string" || !json.includes('"linkGroup"')) return json;
+  if (typeof json !== "string") return json;
   try {
     const snap = JSON.parse(json), names = new Map();
     const rename = (clips) => {
@@ -4204,9 +4206,17 @@ function snapshotKey(json) {
         c.linkGroup = names.get(c.linkGroup);
       }
     };
-    if (Array.isArray(snap)) rename(snap); else { rename(snap.clips); rename(snap.clipsOnly); }
-    return JSON.stringify(snap);
+    if (Array.isArray(snap)) rename(snap); else if (snap && typeof snap === "object") { rename(snap.clips); rename(snap.clipsOnly); }
+    return stableJson(snap);
   } catch { return json; }
+}
+/** JSON with every object's keys sorted (arrays keep their order), so the same content always reads the same. */
+function stableJson(v) {
+  if (Array.isArray(v)) return "[" + v.map((x) => (x === undefined ? "null" : stableJson(x))).join(",") + "]";
+  if (v && typeof v === "object") {
+    return "{" + Object.keys(v).sort().filter((k) => v[k] !== undefined).map((k) => JSON.stringify(k) + ":" + stableJson(v[k])).join(",") + "}";
+  }
+  return JSON.stringify(v);
 }
 const isOutsideStep = (snap) => typeof snap === "string" && snap.startsWith('{"outside":true,');
 /* Editor events (agent-events.js): each undo step carries the id of its event at the start of its snapshot. */
