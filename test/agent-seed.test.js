@@ -200,3 +200,60 @@ test('every request to the AI goes through the review box (QQ 4): confirm sends 
   a.equal(T('zh-CN')('aiGenerated'), 'AI 生成'); a.equal(T('en')('aiGenerated'), 'AI-generated');
   a.equal(T('zh-CN')('reference'), '让 AI 看'); a.equal(T('en')('reference'), 'Let the AI see it');
 });
+
+// QQ (2026-11-04): write the connection file, read it back and check it, and only then overwrite the seed and delete it;
+// a failure part-way keeps the seed and leaves no second copy
+test('sealing in order — success: written, read back the same, then the seed overwritten with zeros and deleted', () => {
+  const profile = tmp(), resources = tmp(), seed = writeSeed(resources), safe = sealing(true), size = fs.statSync(seed).size, order = [];
+  const watched = { ...fs,
+    openSync(p, ...r) { if (p === seed) order.push('open seed'); return fs.openSync(p, ...r); },
+    writeSync(fd, buf, ...r) { if (Buffer.isBuffer(buf) && buf.length === size) order.push(buf.every((b) => b === 0) ? 'zeros over the seed' : 'other bytes'); return fs.writeSync(fd, buf, ...r); },
+    unlinkSync(p) { if (p === seed) order.push('delete seed'); return fs.unlinkSync(p); } };
+  const service = AgentService.createDiskService(profile, safe), matches = service.matches;
+  service.matches = (v) => { order.push('read back'); return matches(v); };
+  a.equal(Seed.importSeed({ file: seed, fs: watched, service, encryptionAvailable: () => true }).code, 'SEALED');
+  a.deepEqual(order, ['read back', 'open seed', 'zeros over the seed', 'delete seed']);
+  a.equal(fs.existsSync(seed), false); a.deepEqual(holding(profile), []);
+});
+
+test('sealing in order — the write fails part-way: no connection file, no temporary, the seed kept', () => {
+  const profile = tmp(), resources = tmp(), seed = writeSeed(resources), safe = sealing(true);
+  const broken = { ...fs, renameSync() { throw Object.assign(Error('EIO'), { code: 'EIO' }); } };   // the temporary is written, the rename fails
+  const service = AgentService.createDiskService(profile, safe, broken);
+  a.equal(Seed.importSeed({ file: seed, service, encryptionAvailable: () => true }).code, 'CONFIG_FAILED');
+  a.deepEqual(fs.readdirSync(profile), [], 'no connection file, no temporary left');
+  a.equal(fs.readFileSync(seed, 'utf8'), Seed.seedText({ model: 'synthetic-flash-model', apiKey: KEY }), 'the seed is kept as it was');
+});
+
+test('sealing in order — read back not the same: the connection file removed again, the seed kept, one copy only', () => {
+  const profile = tmp(), resources = tmp(), seed = writeSeed(resources);
+  const wrong = { ...sealing(true), decryptString: () => 'sk-not-the-same-key' };   // what is on disk does not unseal to the key
+  const service = AgentService.createDiskService(profile, wrong);
+  a.equal(Seed.importSeed({ file: seed, service, encryptionAvailable: () => true }).code, 'VERIFY_FAILED');
+  a.deepEqual(fs.readdirSync(profile), [], 'the connection file is gone again');
+  a.equal(service.get().configured, false);
+  a.equal(fs.existsSync(seed), true, 'the seed is kept for the next launch');
+  // and main says it in plain words, never the key
+  const main = fs.readFileSync(path.join(__dirname, '..', 'desktop', 'main.js'), 'utf8');
+  a.ok(main.includes("VERIFY_FAILED: 'seedFailed', VERIFY_FAILED_NOT_UNDONE: 'seedFailed'"));
+  // the read-back is the main process's own: not one of the page's operations
+  a.ok(main.includes("for(const operation of ['get','configure','reset','deleteConnection','send','cancel']) ipcMain.handle('montclip:agent:'+operation,"));
+});
+
+test('a package carries no other credential (QQ ⑥): anything shaped like one in its text files fails the build, the seed aside', () => {
+  const P = require('../desktop/package-win.cjs'), app = tmp();
+  fs.mkdirSync(path.join(app, 'resources', 'app'), { recursive: true });
+  const put = (f, t) => { fs.mkdirSync(path.dirname(path.join(app, f)), { recursive: true }); fs.writeFileSync(path.join(app, f), t); return f; };
+  const clean = [put('resources/app/app.js', 'const x = "sk-short";'), put('resources/app/README.md', 'no keys here'), put('resources/asr/model.onnx', 'sk-' + 'a'.repeat(40))];
+  a.deepEqual(P.credentialsIn(app, clean), [], 'short look-alikes and binaries are not read as credentials');
+  const bad = [put('resources/app/leak.js', 'const k = "sk-' + 'b'.repeat(32) + '";'), put('resources/app/cfg.json', '{"aws":"AKIA' + 'C'.repeat(16) + '"}'),
+    put('resources/app/id.txt', '-----BEGIN OPENSSH PRIVATE KEY-----'), put('resources/app/gh.md', 'ghp_' + 'd'.repeat(36))];
+  a.deepEqual(P.credentialsIn(app, [...clean, ...bad]).map((x) => x.file + ' ' + x.kind),
+    ['resources/app/leak.js an sk- key', 'resources/app/cfg.json an AWS access key', 'resources/app/id.txt a private key', 'resources/app/gh.md a GitHub token']);
+  // the repository's own packaged files hold none
+  const root = path.join(__dirname, '..'), tracked = require('node:child_process').execSync('git ls-files', { cwd: root, encoding: 'utf8' }).split('\n');
+  const files = P.packagedFiles(root, tracked).flatMap((f) => (f.endsWith('/') ? tracked.filter((t) => t.startsWith(f)) : [f])).filter((f) => fs.existsSync(path.join(root, f)) && fs.statSync(path.join(root, f)).isFile());
+  a.deepEqual(P.credentialsIn(root, files), []);
+  const src = fs.readFileSync(path.join(root, 'desktop', 'package-win.cjs'), 'utf8');
+  a.ok(src.includes("const found = credentialsIn(appDir, all.filter((f) => f !== 'resources/' + AgentSeed.SEED_NAME)); if (found.length) fail("));
+});

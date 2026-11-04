@@ -168,7 +168,7 @@ async function main() {
       assert.ok(out.privateSeed.seedGone, 'the seed is deleted after the first launch');
       if (seedKey) {
         const holding = []; (function walk(d) { let l; try { l = fs.readdirSync(d, { withFileTypes: true }); } catch { return; } for (const e of l) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else { try { if (fs.statSync(p).size < 64 << 20 && fs.readFileSync(p).includes(Buffer.from(seedKey))) holding.push(path.relative(profile, p)); } catch {} } } })(profile);
-        out.privateSeed.profileFilesHoldingKey = holding; out.privateSeed.printedKey = log.includes(seedKey);
+        out.privateSeed.profileFilesHoldingKey = holding; out.privateSeed.printedKey = log.includes(seedKey) || log.includes(seedKey.slice(0, 12)) || log.includes('montclip-seed-v1');
         assert.deepEqual(holding, [], 'no file of the profile holds the plain key'); assert.equal(out.privateSeed.printedKey, false, 'the program printed no key');
       }
     }

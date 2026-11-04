@@ -81,3 +81,29 @@ at install. `--cache-dir <dir>` keeps the archive between runs (CI caches it und
 from `desktop/ffmpeg-manifest.json`), checked against the pinned SHA-256 before every use.
 Packaging copies the checked vendor folder; it never downloads. CI never uses the runner's own
 ffmpeg, and never the local FFmpeg a user may choose for H.264 export.
+
+## A private test package for one streamer (DeepSeek)
+
+The owner (2026-11-04): 「配置好再打包，私下打包，不发布」. One package carries one streamer's DeepSeek key as a one-time
+seed; QQ's rules (2026-11-04) are part of it:
+
+1. **One key per streamer.** On the DeepSeek platform give each key a spending limit and a note naming the streamer,
+   so one key can be revoked on its own. Packages are not interchangeable: never rename a zip and send it to someone
+   else — it holds the first streamer's key.
+2. **Point-to-point only.** No public link, no group files, no chat attachment. Write each package's SHA-256 (printed
+   at the end of the build) with the streamer's number in the owner's own list; the script writes no list.
+3. **Build** (Windows, a clean tree, `vendor/ffmpeg` and `vendor/asr` with the models, `npm ci` in `desktop/`):
+
+       node desktop/package-win.cjs --full --out <a folder outside the repository> --private-seed <file holding the key> --seed-model <the DeepSeek model id> --delete-key-file
+
+   The key file holds the key on one line, outside the repository; `--delete-key-file` deletes it once the package is
+   made (without it, a reminder is printed). The build fails if the key is anywhere in the package but
+   `resources/montclip-seed-v1.json`, or if anything else in the package looks like a credential. Check the zip with
+   `node desktop/package-smoke.cjs <zip>`; never upload it anywhere.
+4. **First launch** (`desktop/agent-seed.js`): the key is written into `agent-connection-v1.json` with Electron
+   safeStorage, read back and checked, and only then the seed's bytes are overwritten and the seed deleted. A failure
+   part-way keeps the seed and leaves no second copy. **On Windows safeStorage is DPAPI, bound to the current Windows
+   user: on another computer, or another Windows account, the AI has to be set up again** (the seed is gone after the
+   first launch). The key, its first characters, the seed's name and the sealed connection never go into a log.
+5. **Until that first launch the key is plain text inside the zip** — the risk of this way of doing it. Not done
+   (mentioned only): a package with no seed, where the streamer pastes her own key on the first launch.

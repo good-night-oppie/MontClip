@@ -57,6 +57,9 @@ function createService({read,write,backup,erase,seal,unseal,providers=PUBLIC_PRO
  try{const key=unseal(config.secret);if(!key)throw Error();// the fixed format note goes first; the page's own messages follow unchanged
  const outgoing={...JSON.parse(JSON.stringify(payload)),messages:Format.withFormat(JSON.parse(JSON.stringify(payload.messages)))};
  const result=await request({...config,key},outgoing,controller.signal);if(job.timedOut)return fail('TIMEOUT');if(job.cancelled)return fail('CANCELLED');if(typeof result.text!=='string'||!result.text.trim()||result.text.length>16000)return fail('INVALID_RESPONSE');return {ok:true,text:result.text,requestId:payload.requestId};}catch(e){return fail(job.timedOut?'TIMEOUT':job.cancelled?'CANCELLED':KNOWN.has(e&&e.message)?e.message:'REQUEST_FAILED');}finally{clearTimeout(timer);job.running=false;job.controller=null;}},
+ // the main process's own read-back (desktop/agent-seed.js): the file on disk holds this provider, model and key, sealed. Not an
+ // IPC operation: the page's list of operations is fixed in main.js.
+ matches(v){try{const raw=read();if(!raw)return false;const c=JSON.parse(raw);return c.version===1&&c.provider===v.provider&&c.model===v.model&&typeof c.secret==='string'&&unseal(c.secret)===v.apiKey;}catch{return false;}},
  cancel(id){const job=jobs.get(id);if(!job)return fail('UNKNOWN_REQUEST');if(!job.running)return{ok:true,code:'COMPLETED'};job.cancelled=true;job.controller.abort();return{ok:true,code:'CANCELLED'};},
  dispose(){for(const job of jobs.values())if(job.running){job.cancelled=true;job.controller.abort();}}
  };

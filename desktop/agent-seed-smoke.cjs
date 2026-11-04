@@ -3,7 +3,8 @@
 // own fresh profile, hidden offscreen window, a synthetic key, no network. The seed is named with MONTCLIP_SEED_FILE (a
 // packaged app reads resources/montclip-seed-v1.json instead). Checks: the key is sealed into agent-connection-v1.json,
 // the seed is deleted, no file of the profile holds the plain key, and nothing this process writes to stdout / stderr
-// or the console holds it.
+// or the console holds it — nor its first 12 characters, nor the seed's file name, nor the sealed secret (QQ ⑤, 2026-11-04);
+// the page's console is read too. No screenshot is taken.
 const electron = require('electron'), { app, BrowserWindow } = electron, fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 if (!process.argv.includes('--montclip-smoke')) throw Error('Explicit smoke required');
 const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
@@ -22,6 +23,7 @@ const holding = (dir) => { const out = []; (function walk(d) { let list; try { l
 
 const original = BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL = async function (...args) {
+  this.webContents.on('console-message', (...a) => { const e = a[0]; said.push(String(e && e.message !== undefined ? e.message : a[2])); });
   await original.apply(this, args); const read = (s) => this.webContents.executeJavaScript(s);
   let report = {};
   try {
@@ -32,7 +34,8 @@ BrowserWindow.prototype.loadURL = async function (...args) {
       seedDirFilesHoldingKey: holding(seedDir), encryption: require('electron').safeStorage.isEncryptionAvailable() };
     const pass = report.code === '{"code":"SEALED"}' && report.configured === true && report.provider === 'deepseek' && report.model === 'synthetic-flash-model'
       && report.seedGone && report.connectionWritten && !report.connectionHoldsKey && !report.profileFilesHoldingKey.length && !report.seedDirFilesHoldingKey.length;
-    const logsHoldKey = said.join('\n').includes(KEY);
+    const secret = raw ? JSON.parse(raw).secret : null, text = said.filter((l) => !l.startsWith('SEED_')).join('\n');
+    const logsHoldKey = text.includes(KEY) || text.includes(KEY.slice(0, 12)) || text.includes('montclip-seed-v1') || (!!secret && text.includes(secret));
     process.stdout.write((pass && !logsHoldKey ? 'SEED_PASS ' : 'SEED_FAIL ') + JSON.stringify({ ...report, logsHoldKey }) + '\n');
   } catch (e) { process.stdout.write('SEED_FAIL ' + (e && e.message) + '\n'); }
   finally { try { fs.rmSync(seedDir, { recursive: true, force: true }); } catch {} setTimeout(() => app.exit(0), 300); }

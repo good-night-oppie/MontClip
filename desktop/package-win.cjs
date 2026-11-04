@@ -63,6 +63,20 @@ function privateDone(seed, { zipName, sha256 }, { io = fs, say = (l) => process.
   say('密钥文件用完了，请删掉它（加 --delete-key-file 可以让脚本打完包就删）：' + seed.file);
   return { keyFileGone: false };
 }
+/** Anything in the package's text files that looks like a credential (QQ ⑥, 2026-11-04: a package carries no other
+ *  credential) → [{file, kind}]. The seed is left out by the caller; binaries (models, ffmpeg, Electron) are not read. */
+const CREDENTIAL_SHAPES = [['an sk- key', /\bsk-[A-Za-z0-9_-]{20,}/], ['an AWS access key', /\bAKIA[0-9A-Z]{16}\b/], ['a private key', /-----BEGIN [A-Z ]*PRIVATE KEY-----/],
+  ['a GitHub token', /\bgh[pousr]_[A-Za-z0-9]{30,}\b/], ['a Slack token', /\bxox[abprs]-[A-Za-z0-9-]{10,}/]];
+function credentialsIn(appDir, files) {
+  const out = [];
+  for (const f of files) {
+    if (!/\.(c?js|mjs|json|html|css|md|txt)$/i.test(f)) continue;
+    const p = path.join(appDir, f); if (fs.statSync(p).size > 32 << 20) continue;
+    const text = fs.readFileSync(p, 'utf8');
+    for (const [kind, re] of CREDENTIAL_SHAPES) if (re.test(text)) out.push({ file: f, kind });
+  }
+  return out;
+}
 /** Files of the package (relative paths) whose bytes hold the key. */
 function filesHolding(appDir, files, key) {
   const k = Buffer.from(key, 'utf8');
@@ -212,6 +226,8 @@ async function main() {
     // the key is in the seed and nowhere else; an ordinary package has no seed
     if (seed) { const holding = filesHolding(appDir, all, seed.key); if (JSON.stringify(holding) !== JSON.stringify(['resources/' + AgentSeed.SEED_NAME])) fail('the key is in ' + holding.length + ' files of the package, not only the seed'); }
     else if (all.includes('resources/' + AgentSeed.SEED_NAME)) fail('a seed in an ordinary package');
+    // and no other credential anywhere (the seed is the one key a private package holds); names the file and the kind only
+    { const found = credentialsIn(appDir, all.filter((f) => f !== 'resources/' + AgentSeed.SEED_NAME)); if (found.length) fail('something that looks like a credential in the package: ' + found.map((x) => x.file + ' (' + x.kind + ')').join(', ')); }
 
     const info = { product: 'MontClip', kind: seed ? 'private test build for one streamer (not a release; holds one DeepSeek key in plain text until its first launch)' : 'internal test build (not a release)',
       ...(seed ? { privateSeed: { provider: 'deepseek', model: seed.model, file: 'resources/' + AgentSeed.SEED_NAME } } : {}), commit, tree, built: new Date().toISOString(),
@@ -239,4 +255,4 @@ async function main() {
   } finally { fs.rmSync(work, { recursive: true, force: true }); }
 }
 if (require.main === module) main().catch((e) => { console.error(e.message); process.exitCode = 1; });
-module.exports = { ROOT_FILES, ROOT_DIRS, ROOT_EXTRA, desktopFiles, repoReads, packagedFiles, privateSeed, filesHolding, privateDone };
+module.exports = { ROOT_FILES, ROOT_DIRS, ROOT_EXTRA, desktopFiles, repoReads, packagedFiles, privateSeed, filesHolding, privateDone, credentialsIn };
