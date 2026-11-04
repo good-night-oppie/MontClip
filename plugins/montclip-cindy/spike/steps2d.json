@@ -1,0 +1,5 @@
+[{"method":"montclip/start"},
+ {"browser":"http://127.0.0.1:47777/?host=cindy"},
+ {"sleep":8000},
+ {"method":"montclip/call","params":{"name":"fablecut_export","arguments":{"range":"in-out","where":"tab","preset":"youtube"}},"max":3000}
+]

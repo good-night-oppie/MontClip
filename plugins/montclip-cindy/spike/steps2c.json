@@ -1,0 +1,11 @@
+[{"method":"montclip/start"},
+ {"browser":"http://127.0.0.1:47777/?host=cindy"},
+ {"sleep":8000},
+ {"method":"montclip/call","params":{"name":"fablecut_versions","arguments":{"action":"restore","version":2}}},
+ {"sleep":2500},
+ {"method":"montclip/ui","params":{"cmd":"state"}},
+ {"method":"montclip/call","params":{"name":"fablecut_versions","arguments":{"action":"list"}},"max":1500},
+ {"method":"montclip/call","params":{"name":"fablecut_patch_project","arguments":{"ops":[{"op":"setProject","set":{"inPoint":70,"outPoint":80}}]}}},
+ {"sleep":2000},
+ {"method":"montclip/call","params":{"name":"fablecut_export","arguments":{"range":"in-out","where":"tab"}},"max":3000}
+]

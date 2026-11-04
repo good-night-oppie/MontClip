@@ -1,0 +1,3 @@
+[{"method":"montclip/start"},
+ {"method":"montclip/call","params":{"name":"fablecut_export","arguments":{"range":"in-out","where":"headless","preset":"youtube"}},"max":3000}
+]

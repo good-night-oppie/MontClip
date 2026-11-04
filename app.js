@@ -1886,6 +1886,7 @@ function listenSSE() {
   es.addEventListener("proxy", (e) => onProxyEvent(e.data));
   es.addEventListener("transcript", (e) => onTranscriptEvent(e.data));
   es.addEventListener("asr", (e) => onAsrEvent(e.data));
+  es.addEventListener("ui-command", (e) => onUiCommand(e.data));
   es.addEventListener("versions", (e) => {
     let d = {};
     try { d = JSON.parse(e.data); } catch { }
@@ -4234,6 +4235,24 @@ function redo() {
   restoreSnapshot(snap);
   pruneSelection();
   scheduleSave(); renderInspector();
+}
+
+/** A command for this tab from outside it (POST /api/ui/command — an agent in Cindy, the transcript panel):
+ *  undo / redo run the tab's own undo stack, seek moves the playhead, state only reports. The answer goes back
+ *  on /api/ui/command/result; the first tab to answer wins. */
+function onUiCommand(data) {
+  let c = {};
+  try { c = JSON.parse(data); } catch { return; }
+  if (!c.id) return;
+  let ok = true, code = null;
+  if (c.cmd === "undo") { if (runtime.undo.length) undo(); else { ok = false; code = "NOTHING_TO_UNDO"; } }
+  else if (c.cmd === "redo") { if (runtime.redo.length) redo(); else { ok = false; code = "NOTHING_TO_REDO"; } }
+  else if (c.cmd === "seek") setTime(+c.t || 0);
+  else if (c.cmd !== "state") { ok = false; code = "UNKNOWN_CMD"; }
+  fetch("/api/ui/command/result", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+    id: c.id, ok, ...(code ? { code } : {}), cmd: c.cmd, time: state.time, undo: runtime.undo.length, redo: runtime.redo.length,
+    revision: project.revision ?? null, clips: project.clips.length, duration: projDur(),
+  }) }).catch(() => {});
 }
 
 function defaultTrackFor(kind) {

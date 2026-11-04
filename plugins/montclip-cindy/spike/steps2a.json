@@ -1,0 +1,2 @@
+[{"method":"montclip/start"},
+ {"method":"montclip/call","params":{"name":"fablecut_import_media","arguments":{"path":"<scratch>/media-src/synthetic-1080p60-12min.mp4","link":true}},"max":900}]
