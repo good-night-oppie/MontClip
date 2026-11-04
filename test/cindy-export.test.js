@@ -35,7 +35,7 @@ test("delivery copies into the picked folder, never over a file that is there, a
   fs.writeFileSync(path.join(dest, "clip.mp4"), "the user's own file");
   let seen = 0;
   const out = await deliverFiles([a], dest, (n) => { seen += n; });
-  assert.deepEqual(out.map((f) => [f.name, f.bytes]), [["clip (2).mp4", 300000]]);
+  assert.deepEqual(out.map((f) => [f.name, f.bytes, f.renamed]), [["clip (2).mp4", 300000, true]]);
   assert.equal(fs.readFileSync(path.join(dest, "clip.mp4"), "utf8"), "the user's own file", "not overwritten");
   assert.equal(seen, 300000);
   assert.deepEqual(fs.readdirSync(dest).sort(), ["clip (2).mp4", "clip.mp4"]);
@@ -60,10 +60,69 @@ test("the chat card: progress as a width, the folder's name escaped, no script, 
   const done = exportCard({ phase: "done", folder: '<img src=x onerror="alert(1)">', files: [{ name: "a.mp4", bytes: 2097152 }], note: "Checks passed: 1920×1080" });
   assert.match(done, /已存到「&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;」/);
   assert.match(done, /a\.mp4 · 2\.0 MB/);
-  for (const html of [running, done, exportCard({ phase: "failed", note: "x" }), exportCard({ phase: "pick" })]) {
-    assert.doesNotMatch(html, /<script|<iframe|<svg|<img|<[^>]*\son\w+=|!important/i);
+  for (const html of [running, done, exportCard({ phase: "failed", note: "x" }), exportCard({ phase: "pick" }),
+    exportCard({ phase: "copyFailed", reason: '<b>"x"</b>' }), exportCard({ phase: "still" })]) {
+    assert.doesNotMatch(html, /<script|<iframe|<svg|<img|<b>|<[^>]*\son\w+=|!important/i);
     assert.ok(Buffer.byteLength(html) < 32 * 1024);
   }
+});
+
+/* JJ's final words for the export card (2026-11-04), word for word */
+const plain = (html) => html.replace(/<[^>]+>/g, "\n").split("\n").map((s) => s.trim()).filter(Boolean);
+
+test("the chat card in JJ's words: waiting, starting, exporting, saving, done", () => {
+  const exportCard = card();
+  assert.deepEqual(plain(exportCard({ phase: "pick" })), ["等你选文件夹…"]);
+  assert.deepEqual(plain(exportCard({ phase: "start" })), ["正在开始导出…"]);
+  assert.deepEqual(plain(exportCard({ phase: "running", progress: 0.42 })), ["正在导出 42%"]);
+  assert.deepEqual(plain(exportCard({ phase: "copy", folder: "成片" })), ["正在存到「成片」…"]);
+  assert.deepEqual(plain(exportCard({ phase: "done", folder: "成片", files: [{ name: "a.mp4", bytes: 2097152 }] })),
+    ["导出完成", "已存到「成片」", "a.mp4 · 2.0 MB"]);
+  assert.deepEqual(plain(exportCard({ phase: "done", files: [{ name: "a.mp4", bytes: 2097152 }] })),
+    ["导出完成", "存在 MontClip 自己的导出文件夹里", "a.mp4 · 2.0 MB"], "no folder chosen");
+  assert.deepEqual(plain(exportCard({ phase: "cancelled" })), ["没有导出", "没有选文件夹，所以没有导出。"]);
+});
+
+test("the chat card: still exporting is not a failure, and says nothing for the AI", () => {
+  const exportCard = card();
+  const still = exportCard({ phase: "still" });
+  assert.deepEqual(plain(still), ["还在导出", "这次等不到它导完。导完以后，文件会在 MontClip 自己的导出文件夹里。"]);
+  assert.doesNotMatch(still, /导出没有完成|call_tool|fablecut_|montclip_/);
+  assert.deepEqual(plain(exportCard({ phase: "failed", note: "ffmpeg exited 1" })), ["导出没有完成", "ffmpeg exited 1"], "only a real failure");
+  const main = fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8");
+  const tool = main.slice(main.indexOf("async montclip_export("), main.indexOf("async montclip_install_ffmpeg("));
+  assert.match(tool, /sendCard\(callId, \{ phase: 'still' \}\);\n\s+return \{ job: job\.id, status: job\.status, hint: 'The export is still running\. Check it with call_tool fablecut_export/,
+    "the way to follow it goes back to the AI only");
+});
+
+test("the chat card: the copy that failed, and a file saved under another name", () => {
+  const exportCard = card();
+  assert.deepEqual(plain(exportCard({ phase: "copyFailed", reason: "磁盘满了" })),
+    ["视频已经导出好了，但没能存进你选的文件夹（磁盘满了）。文件还在 MontClip 自己的导出文件夹里，可以换一个文件夹再导出一次。"]);
+  assert.deepEqual(plain(exportCard({ phase: "done", folder: "成片", files: [{ name: "clip (2).mp4", bytes: 300000, renamed: true }] })),
+    ["导出完成", "已存到「成片」", "clip (2).mp4 · 293 KB", "同名文件已经有了，这次存成这个名字"]);
+});
+
+test("the chat card: sizes in 字节, KB, MB and GB, as the overview says them", () => {
+  const exportCard = card();
+  const size = (bytes, lang) => plain(exportCard({ phase: "done", files: [{ name: "a", bytes }] }, lang))[2];
+  assert.equal(size(512), "a · 512 字节");
+  assert.equal(size(900 * 1024), "a · 900 KB");
+  assert.equal(size(1048575), "a · 1.0 MB", "not 1024 KB");
+  assert.equal(size(1.5 * 1048576), "a · 1.5 MB");
+  assert.equal(size(2.3 * 1073741824), "a · 2.3 GB");
+  assert.equal(size(512, "en"), "a · 512 bytes");
+});
+
+test("the chat card in plain English (kept beside JJ's words for when the card follows Cindy's language)", () => {
+  const exportCard = card();
+  assert.deepEqual(plain(exportCard({ phase: "pick" }, "en")), ["Waiting for you to choose a folder…"]);
+  assert.deepEqual(plain(exportCard({ phase: "still" }, "en")),
+    ["Still exporting", "This time it can't wait for the export to finish. When it's done, the file will be in MontClip's own export folder."]);
+  assert.deepEqual(plain(exportCard({ phase: "copyFailed", reason: "disk full" }, "en")),
+    ["The video is exported, but it couldn't be saved to the folder you chose (disk full). The file is still in MontClip's own export folder; you can export again to another folder."]);
+  assert.deepEqual(plain(exportCard({ phase: "done", files: [{ name: "clip (2).mp4", bytes: 2097152, renamed: true }] }, "en")),
+    ["Export finished", "Saved in MontClip's own export folder", "clip (2).mp4 · 2.0 MB", "A file with this name was already there, so this one was saved under this name"]);
 });
 
 test("manifest: the card and the folder dialog are declared, with the export tool", () => {
