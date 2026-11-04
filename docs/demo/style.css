@@ -5008,7 +5008,7 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .ly-dialog textarea { width: 100%; box-sizing: border-box; }
 /* the lyrics box is an editor field (.dlv-f, as in the export dialog): its label above it, room around it (VV on #100) */
 .ly-dialog .ly-paste { margin: 10px 0 6px; }
-.ly-dialog .ly-paste textarea { line-height: 1.5; }
+.ly-dialog .ly-paste textarea { font-size: 14px; line-height: 1.5; }
 .ly-dialog .tr-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; }
 .ly-lines { padding-left: 22px; margin: 6px 0; }
 .ly-lines li { margin: 4px 0; }
