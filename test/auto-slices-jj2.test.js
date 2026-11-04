@@ -31,7 +31,8 @@ test("JJ's re-review: the Chinese word for word, an English for each", () => {
     a.ok(en(k) && !CJK.test(en(k).replace(/「\{name\}」/g, '')), k + ' (en): ' + en(k));
   }
   // Deja's checked English for items 5 and 6
-  a.equal(en('as-run-failed'), "Couldn't read the sound of 「{name}」. The file may be damaged, have no sound, or have been moved. Try another stream.");
+  // English quotes with “ ” (JJ, 2026-11-03)
+  a.equal(en('as-run-failed'), "Couldn't read the sound of “{name}”. The file may be damaged, have no sound, or have been moved. Try another stream.");
   a.equal(en('as-run-nospace'), "Drive {drive} is full, so the results can't be saved. Free up some space and try again.");
   a.equal(en('as-busy-export'), 'Exporting. Click here again when the export is done.');
   a.equal(en('as-busy-comp'), "You're inside a precomposed clip. Click the main sequence name at the far left above the timeline to go back, then click here.");
