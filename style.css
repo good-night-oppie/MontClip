@@ -3919,6 +3919,9 @@ body.file-drag::after {
 }
 
 .tr-tc:hover { color: var(--text); }
+/* a gap's time in the transcript's note (VV on #95): a link-like button, Tab and Enter reach it */
+.tr-gap-go { background: none; border: 0; padding: 0 2px; color: var(--text); font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.tr-gap-go:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
 
 .tw {
   cursor: pointer;
