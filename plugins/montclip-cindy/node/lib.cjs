@@ -127,4 +127,44 @@ function installFfmpeg({ archive, spec, dest, win, tmpDir, sha256, extract, inst
   } finally { fs.rmSync(work, { recursive: true, force: true }); }
 }
 
-module.exports = { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg };
+/* Export into a folder the user picked (cindy.pick in main.js: the system folder dialog, the user's own choice). The
+   engine writes into <data dir>/exports/; the files of a finished job are then copied into that folder. */
+/** The files a finished export job made, as absolute paths in exportsDir (every ok output of a batch). */
+function exportFiles(job, exportsDir) {
+  if (!job || job.status !== "done") return [];
+  const outs = job.result && Array.isArray(job.result.outputs) ? job.result.outputs.filter((o) => o && o.ok && o.file) : [];
+  const names = outs.length ? outs.map((o) => o.file) : job.src ? [decodeURIComponent(String(job.src).split("?")[0])] : [];
+  return [...new Set(names.map((n) => path.join(exportsDir, path.basename(n))))].filter((f) => fs.existsSync(f));
+}
+/** A name in `dir` nothing has yet: "clip.mp4", else "clip (2).mp4", "clip (3).mp4", … */
+function freeName(dir, name) {
+  const ext = path.extname(name), stem = path.basename(name, ext);
+  for (let i = 1; i < 10000; i++) {
+    const n = i === 1 ? name : `${stem} (${i})${ext}`;
+    if (!fs.existsSync(path.join(dir, n)) && !fs.existsSync(path.join(dir, n + ".part"))) return n;
+  }
+  throw new Error("no free file name in " + dir);
+}
+/** Copy `files` into `dir`, never over an existing file: each goes to <name>.part first and is renamed when complete,
+ *  so the folder never shows half a file. `tick(bytes)` is called as bytes arrive (the worker shows it's alive). */
+async function deliverFiles(files, dir, tick = () => { }) {
+  if (!dir || !path.isAbsolute(dir) || !fs.statSync(dir, { throwIfNoEntry: false })?.isDirectory())
+    throw Object.assign(new Error("the folder to export into is not there"), { code: "NO_FOLDER" });
+  const out = [];
+  for (const f of files) {
+    const name = freeName(dir, path.basename(f)), to = path.join(dir, name), part = to + ".part";
+    try {
+      await new Promise((resolve, reject) => {
+        const r = fs.createReadStream(f), w = fs.createWriteStream(part, { flags: "wx" });
+        r.on("data", (c) => tick(c.length));
+        r.on("error", reject); w.on("error", reject); w.on("finish", resolve);
+        r.pipe(w);
+      });
+      fs.renameSync(part, to);
+    } catch (e) { try { fs.rmSync(part, { force: true }); } catch { } throw e; }
+    out.push({ file: to, name, bytes: fs.statSync(to).size });
+  }
+  return out;
+}
+
+module.exports = { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg, exportFiles, freeName, deliverFiles };

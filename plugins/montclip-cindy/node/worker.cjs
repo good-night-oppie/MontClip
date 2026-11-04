@@ -14,7 +14,7 @@ const net = require("node:net");
 const http = require("node:http");
 const readline = require("node:readline");
 const { spawnSync } = require("node:child_process");
-const { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg } = require("./lib.cjs");
+const { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg, exportFiles, deliverFiles } = require("./lib.cjs");
 
 for (const k of ["log", "info", "debug", "warn", "error"]) console[k] = (...a) => process.stderr.write(a.map(String).join(" ") + "\n");
 
@@ -150,6 +150,35 @@ const METHODS = {
     const restarting = !!started;
     if (restarting) setTimeout(() => process.exit(0), 300);
     return { ...out, state: ffmpegState(), restarting };
+  },
+  /* Export (main.js montclip_export): start a job in the engine (the open editor tab, else headless), report it, and
+     copy what it made into the folder the user picked. */
+  async "montclip/export-start"(p) {
+    await start();
+    const body = { range: p.range, preset: p.preset, profile: p.profile, delivery: p.delivery, outputs: p.outputs, where: p.where || "auto" };
+    const r = await api("POST", "/api/export/request", body);
+    if (r.status !== 200) throw Object.assign(new Error((r.body && r.body.error) || `export request failed (${r.status})`), { code: (r.body && r.body.code) || "EXPORT_REFUSED" });
+    return r.body;
+  },
+  async "montclip/export-job"(p) {
+    await start();
+    const r = await api("GET", "/api/export/job?id=" + encodeURIComponent(String(p.id || "")));
+    if (r.status !== 200) throw Object.assign(new Error((r.body && r.body.error) || "no such export job"), { code: "NO_JOB" });
+    return r.body;
+  },
+  async "montclip/export-deliver"(p) {
+    await start();
+    const r = await api("GET", "/api/export/job?id=" + encodeURIComponent(String(p.id || "")));
+    if (r.status !== 200 || r.body.status !== "done") throw Object.assign(new Error("the export is not finished"), { code: "NOT_DONE" });
+    const files = exportFiles(r.body, path.join(DATA, "exports"));
+    if (!files.length) throw Object.assign(new Error("the export made no file"), { code: "NO_FILE" });
+    let sent = 0, last = 0;
+    const out = await deliverFiles(files, String(p.dir || ""), (n) => {
+      sent += n;
+      if (Date.now() - last > 1000) { last = Date.now(); note({ event: "export-copy", bytes: sent }); }   // activity keeps the request alive
+    });
+    note({ event: "export-delivered", files: out.length });
+    return { files: out };
   },
   async "montclip/bind"(p) {
     await start();

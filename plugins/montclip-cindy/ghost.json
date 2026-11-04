@@ -5,7 +5,7 @@
   "name": "MontClip",
   "description": "在 Cindy 任务里打开 MontClip 剪辑器，跟聊天同屏；在聊天里用自然语言剪辑本机录像和音频（删段、降噪、字幕、导出等 fablecut 操作），可撤销、重做，并能列出版本、回到某一版。插件带一个本机 Node 进程运行 MontClip 引擎，可读写本机文件。",
   "whenToUse": "需要剪辑本机录像或音频时：删掉某段、剪掉停顿、按文字剪、加字幕、调音量、降噪、按节拍剪、导出 MP4；撤销或重做剪辑；查看或回到 MontClip 项目的某个版本；在这个任务里打开 MontClip 剪辑器。",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "entry": "main.js",
   "command": "剪辑",
   "icon": "assets/icon.png",
@@ -84,6 +84,35 @@
       }
     },
     {
+      "name": "montclip_export",
+      "description": "把这个任务的剪辑导出成文件，并存到用户在系统对话框里选的文件夹（不覆盖同名文件）；聊天里的卡片显示导出进度。range 不传时：设了 IN/OUT 就导出那一段，否则整条时间线。preset 是交付预设（youtube、instagram-reels、master…，见 call_tool fablecut_encode_profiles）。folder:\"default\" 时不弹对话框，留在 MontClip 数据目录的 exports 里。需要先装 ffmpeg（montclip_status）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "preset": {
+            "type": "string",
+            "description": "交付预设 id，例如 youtube、instagram-reels、master；不传用项目设置"
+          },
+          "range": {
+            "type": "string",
+            "enum": [
+              "entire",
+              "in-out"
+            ],
+            "description": "导出范围；不传按 IN/OUT 自动判断"
+          },
+          "folder": {
+            "type": "string",
+            "enum": [
+              "ask",
+              "default"
+            ],
+            "description": "ask（缺省）= 让用户选文件夹；default = 留在 MontClip 的 exports 里"
+          }
+        }
+      }
+    },
+    {
       "name": "montclip_install_ffmpeg",
       "description": "下载并安装 MontClip 固定版本的 LGPL ffmpeg（约 160 MB，从 GitHub 下载，Cindy 校验 SHA-256 和大小，装好后再核对是 LGPL 构建）。导出 MP4、降噪等要用它。只在用户同意下载后调用；已装好时直接返回。",
       "parameters": {
@@ -125,6 +154,8 @@
       "release-assets.githubusercontent.com"
     ]
   },
+  "card": {},
+  "pick": true,
   "node": {
     "entry": "node/worker.cjs",
     "protocol": "json-rpc-stdio",

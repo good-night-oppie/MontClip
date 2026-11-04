@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Cindy plugin export: `montclip_export` saves into a folder the user picks (never over an existing file) and shows
+  the export's progress on its chat card.
 - Cindy plugin first-use ffmpeg: a banner in the editor tab (or `montclip_install_ffmpeg` from the chat) downloads the
   pinned LGPL build with `cindy.downloads`, shows its progress, and installs it with the Windows app's own staged
   install and LGPL check. `desktop/ffmpeg-manifest.json` now pins the win32-x64 archive's byte count.

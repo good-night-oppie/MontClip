@@ -48,6 +48,11 @@ The second shell around the one MontClip engine (the repository root). The first
   (the files differ from what was installed) or `missing`. Only Windows x64 is offered for now (the manifest pins
   the byte count only for it).
 
+- **Export.** `montclip_export {preset?, range?, folder?}` asks for a folder in the system dialog (`cindy.pick`, the
+  user's own choice; `folder:"default"` skips it), starts the engine's export (the open editor tab, else headless),
+  shows the progress on its chat card (`card`, HTML only) and copies the files into that folder — to `<name>.part`
+  first, never over an existing file (`clip (2).mp4`). The engine's own copy stays in `exports/`.
+
 ## Develop
 
 ```
