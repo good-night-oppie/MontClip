@@ -177,9 +177,18 @@ BrowserWindow.prototype.loadURL=async function(...args){
   const marked=await read(`(async()=>{const c=autoState().clips.find(x=>x.kind==='song');const s=c.s,e=c.e;document.querySelector('[data-as-card="'+c.id+'"] [data-as-act=set-kind]').click();await new Promise(r=>setTimeout(r,300));return{s,e};})()`);
   await search();
   const again=await read(`autoState().clips.filter(c=>c.kind==='song').map(c=>[c.s,c.e])`);
-  report.again={marked,songs:again.length};
   assert.ok(!again.some(([s,e])=>Math.min(e,marked.e)-Math.max(s,marked.s)>(e-s)/2),'the marked part is not a song card again');
   assert.ok(again.length>=1,'the other song is still found');
+  // VV on 12f4f21 / Deja: it is not gone — it comes back as 热闹的一段, 你改的, where it was marked, saying why
+  const back=await read(`(()=>{const c=autoState().clips.find(x=>x.s===${marked.s}&&x.e===${marked.e});if(!c)return null;const card=document.querySelector('[data-as-card="'+c.id+'"]');
+    return{id:c.id,kind:c.kind,line:card.querySelector('[data-as-kind-line]').textContent,why:(card.querySelector('.as-why')||{}).textContent||''};})()`);
+  report.again={marked,songs:again.length,back};
+  assert.ok(back,'the marked part is a card again');assert.equal(back.kind,'moment');
+  assert.ok(back.line.startsWith(zh('as-a-moment')+zh('as-tag-changed')),back.line);assert.equal(back.why,zh('as-marked-why'));
+  // 不要这条 on it as well: searched again, it stays away
+  await read(`(async()=>{document.querySelector('[data-as-card="'+${JSON.stringify(back.id)}+'"] [data-as-act=drop]').click();await new Promise(r=>setTimeout(r,300));return true;})()`);
+  await search();
+  assert.equal(await read(`autoState().clips.filter(c=>Math.min(c.e,${marked.e})-Math.max(c.s,${marked.s})>(c.e-c.s)/2).length`),0,'marked and taken out: not found again');
   ok=true;
  }catch(e){report.error=String(e&&e.stack||e).slice(0,1500);}
  finally{try{fs.rmSync(asrEmpty,{recursive:true,force:true});}catch{}out(ok?'CORRECTIONS_UI_PASS':'CORRECTIONS_UI_FAIL',report);process.exitCode=ok?0:1;app.exit(ok?0:1);}

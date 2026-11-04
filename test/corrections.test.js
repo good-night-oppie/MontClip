@@ -134,15 +134,23 @@ test('a 不是唱歌 record may carry the recording key and the part, numbers on
  for(const bad of [{rec:'C:/录像/a.flv',s:100,e:220},{rec:k},{rec:k,s:100},{rec:k,s:220,e:100},{rec:k,s:100,e:4000},{rec:k.toUpperCase(),s:100,e:220},{s:100,e:220}])
   a.throws(()=>C.record({type:'kind',from:'song',to:'other',duration:3600,...bad}),/CORRECTION_INVALID/,JSON.stringify(bad));
 });
-test('the same recording searched again: a part marked 不是唱歌 is not a song card again — one mark is enough, the bar off',()=>{
+// VV on 12f4f21 / Deja: 「不是唱歌」 means "this part is not a song", not "I don't want this part" — the same recording
+// searched again shows it as the kind the streamer gave it, where they had it (its start and end), marked as their change
+// (changedFrom, the rule not-song); only a part they also took out (不要这条) stays away
+test('the same recording searched again: a part marked 不是唱歌 comes back as the kind it was given, where it was — one mark is enough, the bar off',()=>{
  const k=K(3600,sound),k2=K(1800,sound.slice(0,3600));
  const marked=C.record({type:'kind',from:'song',to:'interaction',duration:3600,rec:k,s:100,e:220});
- const r=C.rules([marked]);a.equal(r.bar,undefined);a.deepEqual(r.notSong,[{rec:k,s:100,e:220}]);
- const cards=[card({id:'a',s:110,e:230}),card({id:'b',s:200,e:320}),card({id:'c',kind:'moment',s:100,e:220}),card({id:'d',mediaId:'m2',s:100,e:220}),card({id:'e',mediaId:'m3',s:100,e:220})];
+ const r=C.rules([marked]);a.equal(r.bar,undefined);a.deepEqual(r.notSong,[{rec:k,s:100,e:220,to:'interaction'}]);
+ const cards=[card({id:'a',s:110,e:230,reasons:[{kind:'song'}]}),card({id:'b',s:200,e:320}),card({id:'c',kind:'moment',s:100,e:220}),card({id:'d',mediaId:'m2',s:100,e:220}),card({id:'e',mediaId:'m3',s:100,e:220})];
  const out=C.apply(cards,r,{duration:{m1:3600,m2:1800,m3:3600},recKey:{m1:k,m2:k2}});
- a.deepEqual(out.map(c=>c.id),['b','c','d','e'],'a: 110 of its 120 s marked; b: 20 of 120 s, kept; c: not a song; d: another recording; e: no key');
+ a.deepEqual(out.map(c=>[c.id,c.kind,c.s,c.e]),[['a','interaction',100,220],['b','song',200,320],['c','moment',100,220],['d','song',100,220],['e','song',100,220]],
+  'a: 110 of its 120 s marked — the streamer\'s kind, their start and end; b: 20 of 120 s, a song still; c: not a song; d: another recording; e: no key');
+ a.equal(out[0].changedFrom,'song');a.deepEqual(out[0].rules,['not-song']);a.deepEqual(out[0].reasons,[],'not the singing reasons');
+ a.equal(out[1].changedFrom,undefined);
+ // two song cards inside one marked part: one card for the part
+ a.deepEqual(C.apply([card({id:'p',s:100,e:160}),card({id:'q',s:160,e:220})],r,{recKey:{m1:k}}).map(c=>[c.id,c.kind,c.s,c.e]),[['p','interaction',100,220]]);
  // exactly half is not more than half
- a.deepEqual(C.apply([card({id:'h',s:160,e:280})],r,{recKey:{m1:k}}).map(c=>c.id),['h']);
+ a.deepEqual(C.apply([card({id:'h',s:160,e:280})],r,{recKey:{m1:k}}).map(c=>[c.id,c.kind]),[['h','song']]);
  // 「是唱歌」 marks nothing away
  const isSong=C.record({type:'kind',from:'other',to:'song',duration:3600,rec:k,s:100,e:220});
  a.deepEqual(C.rules([isSong]).notSong,undefined);
@@ -161,4 +169,19 @@ test('chat and stunt: kept, their own habits per kind, never found by a rule, a 
   a.equal(C.rules([0.05,0.06,0.07,0.05].map(p=>kind('song',k,p)),{bar:true}).bar.dir,'up','a song made '+k+' is 不是唱歌');
   a.equal(C.rules([0.05,0.06,0.07,0.05].map(p=>kind('moment',k,p)),{bar:true}).bar,undefined,'not about singing');
  }
+});
+
+// 不要这条 on that part as well: then it stays away. A taking-out record may say which recording and part, like a kind change
+test('a part marked 不是唱歌 and taken out (不要这条) stays away when the same recording is searched again',()=>{
+ const k=K(3600,sound);
+ const rm=C.record({type:'remove',kind:'interaction',duration:3600,rec:k,s:100,e:220});a.deepEqual([rm.rec,rm.s,rm.e],[k,100,220]);
+ for(const bad of [{rec:k},{rec:k,s:100},{rec:'C:/a.flv',s:100,e:220},{s:100,e:220}])a.throws(()=>C.record({type:'remove',kind:'moment',duration:3600,...bad}),/CORRECTION_INVALID/);
+ const marked=C.record({type:'kind',from:'song',to:'moment',duration:3600,rec:k,s:100,e:220});
+ const r=C.rules([marked,rm]);
+ a.deepEqual(C.apply([card({id:'a',s:110,e:230}),card({id:'b',s:300,e:420})],r,{recKey:{m1:k}}).map(c=>[c.id,c.kind]),[['b','song']]);
+ // taken out in another recording, or another part: the marked part still comes back as the streamer's kind
+ const other=C.record({type:'remove',kind:'moment',duration:3600,rec:K(3601,sound),s:100,e:220}),elsewhere=C.record({type:'remove',kind:'moment',duration:3600,rec:k,s:500,e:620});
+ for(const x of [other,elsewhere])a.deepEqual(C.apply([card({id:'a',s:110,e:230})],C.rules([marked,x]),{recKey:{m1:k}}).map(c=>[c.id,c.kind]),[['a','moment']]);
+ // a plain taking-out (no kind change) changes nothing on the next search
+ a.deepEqual(C.apply([card({id:'a',s:110,e:230})],C.rules([rm]),{recKey:{m1:k}}).map(c=>[c.id,c.kind]),[['a','song']]);
 });
