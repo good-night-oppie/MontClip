@@ -139,7 +139,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
     for(let i=0;i<n;i++)await tick(i,false);out.noneTicked=title();
     for(let i=0;i<n;i++)await tick(i,keep.clips[i].picked);out.back=title();
     for(let i=0;i<n;i++)await tick(i,i===n-1);out.own=title();out.on=st.clips.filter(c=>c.on).length;
-    st.dropped=keep.clips.map(c=>({...c,on:false}));st.clips=[];autoRender('review');out.allOut=title();out.allOutText=d.querySelector('[data-as-body]').textContent;out.evidence=!!d.querySelector('.as-evidence');
+    st.dropped=keep.clips.map(c=>({...c,on:false}));st.clips=[];autoRender('review');out.allOut=title();out.allOutSub=d.querySelector('[data-as-body] .as-sub').textContent;out.allOutText=d.querySelector('[data-as-body]').textContent;out.evidence=!!d.querySelector('.as-evidence');
     st.clips=[];st.dropped=[];autoRender('review');out.noneFound=title();
     st.clips=keep.clips;st.dropped=keep.dropped;st.few=keep.few;st.hist.length=keep.hist;autoRender('review');return out;})()`);
   report.states=states;
@@ -148,6 +148,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.equal(states.noneTicked,zh('as-found-none-ticked',{found:states.n}));
   assert.equal(states.own,zh('as-found-ticked',{found:states.n,on:1}),'one the streamer ticked');
   assert.equal(states.allOut,zh('as-found-all-out',{found:states.n}));
+  assert.equal(states.allOutSub,zh('as-all-out-sub',{n:states.n}),'JJ\'s line under it, with how many are under 拿掉的');
   assert.ok(!/没有找到/.test(states.allOutText)&&!/圈出 0 段/.test(states.allOutText)&&!/够好的只有/.test(states.allOutText)&&!states.evidence,'all taken out: never 没有找到, 圈出 0 段 or 够好的只有');
   assert.equal(states.noneFound,zh('as-found-none'),'nothing found: as before');
   assert.equal(new Set([states.start,states.noneTicked,states.own,states.allOut,states.noneFound]).size,5,'five titles, none the same');

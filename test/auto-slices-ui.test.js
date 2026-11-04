@@ -206,3 +206,18 @@ test('设置 › 自动出切片: 开着 / 关着 beside 〔记住我的剪辑�
  a.deepEqual([zh('as-learn-state-on'),zh('as-learn-state-off'),en('as-learn-state-on'),en('as-learn-state-off')],['开着','关着','On','Off']);
  a.match(read('index.html'),/id="setSlices"[\s\S]*?data-learn-open[\s\S]*?data-learn-state/);
 });
+
+// JJ's final words for the line under 「全拿掉」 (Deja, 2026-11-03): the names it quotes are the screen's own words, read from
+// their keys — the fold (its words before the bracket), the toast's 〔撤销〕, 〔换一场 / 改设置〕
+test('the line under 全拿掉 in JJ\'s words; every name it quotes is the screen\'s own',()=>{
+ const en=(k,v)=>V.t('en','own.'+k,v);
+ const foldZh=zh('as-dropped',{n:'{n}'}).split('（')[0],foldEn=en('as-dropped',{n:'{n}'}).split(' (')[0];
+ a.equal(foldZh,'拿掉的 {n} 条');a.equal(foldEn,'Taken out: {n}');
+ const sub=(l)=>V.t(l,'own.as-all-out-sub',{n:'{n}'});
+ a.equal(sub('zh-CN'),`拿掉的都在下面「${foldZh}」里，点开就能放回来；刚拿掉的，也可以点提示里的「${zh('as-undo')}」或按 Ctrl+Z。想换一批，点「${zh('as-back-start')}」重新找。`);
+ a.equal(sub('en'),`Everything you took out is under “${foldEn}” below; open it to put them back. For the one you just took out, click “${en('as-undo')}” in the notice or press Ctrl+Z. For a new batch, click “${en('as-back-start')}” and search again.`);
+ a.equal(zh('as-all-out-sub',{n:3}).includes('拿掉的 3 条'),true,'the count filled in');
+ // the secondary button keeps its key's words with 0
+ a.equal(zh('as-export',{n:0}),'直接导出这 0 条');a.equal(en('as-export',{n:0}),'Export these 0 now');
+ a.match(read('app.js'),/"as-all-out-sub"[^\n]*n: st\.dropped\.length/);
+});
