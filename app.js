@@ -10511,7 +10511,8 @@ function autoRender(step) {
   const open = same ? [...body.querySelectorAll("details")].map((x) => x.open) : [], top = body.scrollTop;
   body.innerHTML = step === "start" ? autoStartHtml() : step === "run" ? autoRunHtml() : step === "review" ? autoReviewHtml() : autoDoneHtml();
   body.dataset.step = step;
-  if (same) { body.querySelectorAll("details").forEach((x, i) => { if (open[i]) x.open = true; }); body.scrollTop = top; } else body.scrollTop = 0;
+  // 整场一览 is not among them: it follows the window width until the streamer opens or closes it (autoOverviewHtml, st.ovOpen)
+  if (same) { body.querySelectorAll("details").forEach((x, i) => { if (open[i] && !x.matches("[data-as-ov]")) x.open = true; }); body.scrollTop = top; } else body.scrollTop = 0;
   autoFooter();
   // the focus stays in the dialog when it is drawn again: the same button if it is still there, else the dialog (VV on
   // 12f4f21: it fell to the page, so Ctrl+Z went to the timeline behind the dialog instead of undoing the card)
