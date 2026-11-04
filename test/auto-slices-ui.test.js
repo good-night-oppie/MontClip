@@ -187,3 +187,15 @@ test('the review\'s title: JJ\'s words, and the ticked set against the search\'s
  // the search's own cards say which it ticked
  a.match(fs.readFileSync(require('path').join(__dirname,'..','auto-slices.js'),'utf8'),/on: i < checked, picked: i < checked/);
 });
+
+// the footer's words (JJ): the empty states' reason on the left, the buttons keep their words with 0; a phone-wide window's
+// short words (v12: 「放到时间线上（3）」, 「导出 3 条」); 「先勾选要导出的」 is gone
+test('the footer: the empty states in JJ\'s words, the short words for a narrow window; 先勾选要导出的 gone',()=>{
+ const en=(k,v)=>V.t('en','own.'+k,v);
+ a.equal(zh('as-foot-all-out'),'0 条 · 先从「拿掉的」里放回要用的');a.equal(en('as-foot-all-out'),'0 · put back the ones you want from “Taken out” first');
+ a.equal(zh('as-foot-none-ticked'),'0 条 · 先勾上要用的');a.equal(en('as-foot-none-ticked'),'0 · tick the ones you want first');
+ a.equal(zh('as-place',{n:0}),'放到时间线上（0 条）');a.equal(en('as-place',{n:0}),'Put on the timeline (0)');
+ a.equal(zh('as-place-short',{n:3}),'放到时间线上（3）');a.equal(zh('as-export-short',{n:3}),'导出 3 条');
+ for(const k of ['as-place-short','as-export-short'])a.ok(en(k,{n:3})&&!/[一-鿿]/.test(en(k,{n:3})),k);
+ a.equal(V.text['zh-CN']['own.as-tick-first'],undefined);a.ok(!/as-tick-first/.test(read('app.js')));
+});
