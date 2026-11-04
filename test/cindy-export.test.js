@@ -44,6 +44,10 @@ test("delivery copies into the picked folder, never over a file that is there, a
   await assert.rejects(deliverFiles([a], "relative/dir"), (e) => e.code === "NO_FOLDER");
   await assert.rejects(deliverFiles([path.join(ex, "missing.mp4")], dest));
   assert.deepEqual(fs.readdirSync(dest).filter((f) => f.endsWith(".part")), [], "a failed copy leaves no .part");
+  // …not even one the write stream opens after the read has already failed (Linux CI, Node 18): try it many times
+  for (let i = 0; i < 25; i++) await assert.rejects(deliverFiles([path.join(ex, "missing-" + i + ".mp4")], dest));
+  await new Promise((r) => setTimeout(r, 300));
+  assert.deepEqual(fs.readdirSync(dest).filter((f) => f.endsWith(".part")), [], "no late .part either");
 });
 
 function card() {

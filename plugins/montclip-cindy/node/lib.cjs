@@ -154,10 +154,15 @@ async function deliverFiles(files, dir, tick = () => { }) {
   for (const f of files) {
     const name = freeName(dir, path.basename(f)), to = path.join(dir, name), part = to + ".part";
     try {
+      // settled only once the .part file is closed: the write stream opens it asynchronously, so a read that fails
+      // at once could otherwise leave a .part made after we removed it (seen on Linux CI, Node 18)
       await new Promise((resolve, reject) => {
         const r = fs.createReadStream(f), w = fs.createWriteStream(part, { flags: "wx" });
+        let failed = null;
+        const fail = (e) => { if (failed) return; failed = e; r.destroy(); w.destroy(); };
         r.on("data", (c) => tick(c.length));
-        r.on("error", reject); w.on("error", reject); w.on("finish", resolve);
+        r.on("error", fail); w.on("error", fail);
+        w.on("close", () => (failed ? reject(failed) : resolve()));
         r.pipe(w);
       });
       fs.renameSync(part, to);
