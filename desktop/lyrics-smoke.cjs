@@ -48,8 +48,8 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.ok(await read(`!!document.querySelector('[data-ly-dialog][open]')`),'the window opens');
   // VV on #100 (Deja): the box is the editor's field, as drawn — its colours and font, not white and monospace
   report.box=await read(`(()=>{const t=document.querySelector('[data-ly-text]'),s=getComputedStyle(t),d=getComputedStyle(document.querySelector('[data-ly-dialog]')),l=t.closest('label').getBoundingClientRect(),r=t.getBoundingClientRect();
-    return{white:s.backgroundColor==='rgb(255, 255, 255)',mono:/mono/i.test(s.fontFamily),sameFont:s.fontFamily===d.fontFamily,labelAbove:r.top-l.top>=12};})()`);
-  assert.deepEqual(report.box,{white:false,mono:false,sameFont:true,labelAbove:true},'the lyrics box wears the editor field style');
+    return{white:s.backgroundColor==='rgb(255, 255, 255)',mono:/mono/i.test(s.fontFamily),sameFont:s.fontFamily===d.fontFamily,labelAbove:r.top-l.top>=12,size:s.fontSize};})()`);
+  assert.deepEqual(report.box,{white:false,mono:false,sameFont:true,labelAbove:true,size:'14px'},'the lyrics box wears the editor field style');
   if(process.env.MONTCLIP_SHOTS_OUT){const fs=require('node:fs'),path=require('node:path');await wait(300);fs.writeFileSync(path.join(process.env.MONTCLIP_SHOTS_OUT,'lyrics-box.png'),(await win.webContents.capturePage()).toPNG());}
   await read(`(()=>{const e=document.querySelector('[data-ly-text]');e.value=${JSON.stringify(LYRICS)};document.querySelector('[data-ly-align]').click();})();true`);await wait();
   const shown=await read(`[...document.querySelectorAll('[data-ly-lines] li')].map(li=>({was:li.querySelector('.ly-was').textContent,now:li.querySelector('.ly-now').textContent,ticked:li.querySelector('[data-ly-pick]').checked,disabled:li.querySelector('[data-ly-pick]').disabled,tag:li.querySelector('.ly-tag')?.textContent||''}))`);

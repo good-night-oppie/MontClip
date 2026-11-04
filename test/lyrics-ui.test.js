@@ -67,3 +67,8 @@ test('the lyrics box is an editor field (.dlv-f), not the browser\'s own', () =>
   a.match(css, /\.dlv-f select, \.dlv-f input, \.dlv-f textarea, \.dlv-save-row input \{/);
   a.match(css, /\.ly-dialog \.ly-paste \{[^}]*margin: 10px 0 6px;/);
 });
+
+// VV on #104 (Deja): the lyrics box's text at 14px, not the field's 12px — lyrics are read and corrected there
+test('the lyrics box reads at 14px', () => {
+  a.match(read('style.css'), /.ly-dialog .ly-paste textarea {[^}]*font-size: 14px;/);
+});
