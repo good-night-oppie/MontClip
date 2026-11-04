@@ -43,6 +43,8 @@ BrowserWindow.prototype.loadURL=async function(...args){
    asrState.status={engine:{ready:true},vad:{ready:true},asr:{ready:true}};
    const doc=projectJSON();doc.media.push({id:'m_rec',name:'11 月 3 日 合成录像',kind:'audio',src,duration:480});
    applyProject(doc);scheduleSave();if(!await flushSave())throw Error('SAVE');return true;})()`);
+  // something on the timeline with an undo step: a Ctrl+Z that reached the timeline behind the dialog would take it back
+  await read(`(()=>{pushUndo(undoSnapshot());project.clips.push({id:'c_tl',kind:'text',mediaId:null,track:'V2',start:0,in:0,duration:2,props:{text:'时间线上的'}});scheduleSave();return true;})()`);
   await read(`document.getElementById('btnAutoSlices').click();true`);
   await until(`!!document.querySelector('dialog.auto-slices[open] [data-as-act=go]')`);
   await read(`document.querySelector('[data-as-act=go]').click();true`);
@@ -84,8 +86,34 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await wait(6000);
   const held=await read(`(async()=>{const t=document.querySelector('[data-as-toast]'),b=t.querySelector('[data-as-toast-undo]');const at6=!t.hidden&&!b.hidden;b.focus();await new Promise(r=>setTimeout(r,9000));return{at6,held:!t.hidden};})()`);
   report.held=held;assert.deepEqual(held,{at6:true,held:true},'〔撤销〕 stays 8 s and while it has the focus');
+  // VV on #100 d545221: after applying, the focus is the card's own lyrics button (in the dialog), the card is in view and
+  // flashed, and the tooltip says it is calibrated (placeholder key)
+  report.afterApply=await read(`(()=>{const d=document.querySelector('dialog.auto-slices'),card=d.querySelector('[data-as-card="${first.id}"]'),b=card.querySelector('[data-as-act=lyrics]'),body=d.querySelector('[data-as-body]');
+    const r=card.getBoundingClientRect(),q=body.getBoundingClientRect();return{focus:document.activeElement===b,inView:r.top<q.bottom&&r.bottom>q.top,title:b.title};})()`);
+  assert.deepEqual(report.afterApply,{focus:true,inView:true,title:zh('as-lyrics-again-title',{n:2})});
   const undone=await read(`(()=>{document.querySelector('[data-as-toast] [data-as-toast-undo]').click();const c=autoClip(${JSON.stringify(first.id)});return{cues:c.lyricCues||null,button:document.querySelector('[data-as-card="'+c.id+'"] [data-as-act=lyrics]').textContent};})()`);
   report.undone=undone;assert.deepEqual(undone,{cues:null,button:zh('as-lyrics')});
+  assert.equal(await read(`document.querySelector('dialog.auto-slices').contains(document.activeElement)`),true,'the focus stays in the dialog after 〔撤销〕');
+  // applied again, then a real Ctrl+Z: back to before calibrating, the timeline not touched, the focus in the dialog
+  const tl=await read(`JSON.stringify(project.clips)`);
+  await read(`document.querySelector('[data-as-card="${first.id}"] [data-as-act=lyrics]').click();true`);
+  await until(`!!document.querySelector('dialog[data-ly-dialog][open]')`);
+  await read(`(()=>{const d=document.querySelector('dialog[data-ly-dialog]');d.querySelector('[data-ly-text]').value=${JSON.stringify(LYRICS)};d.querySelector('[data-ly-align]').click();d.querySelector('[data-ly-apply-all]').click();return true;})()`);
+  await until(`!document.querySelector('dialog[data-ly-dialog]')&&!!autoClip(${JSON.stringify(first.id)}).lyricCues`);
+  for(const type of ['keyDown','keyUp'])win.webContents.sendInputEvent({type,keyCode:'Z',modifiers:['control']});await wait(400);
+  report.ctrlZ=await read(`(()=>{const c=autoClip(${JSON.stringify(first.id)});return{cues:c.lyricCues||null,inDialog:document.querySelector('dialog.auto-slices').contains(document.activeElement)};})()`);
+  assert.deepEqual(report.ctrlZ,{cues:null,inDialog:true},'a real Ctrl+Z undoes the card, never the timeline');
+  assert.equal(await read(`JSON.stringify(project.clips)`),tl);
+  // 〔再对一遍歌词〕 opens with the lyrics pasted last time (this window only)
+  await read(`document.querySelector('[data-as-card="${first.id}"] [data-as-act=lyrics]').click();true`);
+  await until(`!!document.querySelector('dialog[data-ly-dialog][open]')`);
+  await read(`(()=>{const d=document.querySelector('dialog[data-ly-dialog]');d.querySelector('[data-ly-text]').value=${JSON.stringify(LYRICS)};d.querySelector('[data-ly-align]').click();d.querySelector('[data-ly-apply-all]').click();return true;})()`);
+  await until(`!document.querySelector('dialog[data-ly-dialog]')&&!!autoClip(${JSON.stringify(first.id)}).lyricCues`);
+  await read(`document.querySelector('[data-as-card="${first.id}"] [data-as-act=lyrics]').click();true`);
+  await until(`!!document.querySelector('dialog[data-ly-dialog][open]')`);
+  report.again=await read(`(()=>{const d=document.querySelector('dialog[data-ly-dialog]'),v=d.querySelector('[data-ly-text]').value;d.close();return v;})()`);
+  assert.equal(report.again,LYRICS,'the lyrics pasted last time');
+  await until(`!document.querySelector('dialog[data-ly-dialog]')`);
   await read(`document.querySelector('[data-as-card="${first.id}"] [data-as-act=lyrics]').click();true`);
   await until(`!!document.querySelector('dialog[data-ly-dialog][open]')`);
   await read(`(()=>{const d=document.querySelector('dialog[data-ly-dialog]');d.querySelector('[data-ly-text]').value=${JSON.stringify(LYRICS)};d.querySelector('[data-ly-align]').click();d.querySelector('[data-ly-apply-all]').click();return true;})()`);

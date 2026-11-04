@@ -77,3 +77,33 @@ test('the toast after calibrating: JJ\'s words, with 〔撤销〕 that stays 8 s
   const ht = app.slice(app.indexOf('function holdToast('), app.indexOf('function holdToast(') + 900);
   a.match(ht, /if \(hover \|\| el\.contains\(document\.activeElement\)\) since = Date\.now\(\);/);
 });
+
+// VV on #100 d545221 (Deja): after applying (and after undoing) the focus is on the card's own lyrics button, in the
+// dialog — so Ctrl+Z reaches the dialog and never the timeline behind it; the card is scrolled into view and flashed
+// (#89's autoFocusCard); the button's tooltip says it is calibrated (a placeholder key until JJ words it); 〔再对一遍歌词〕
+// opens with the lyrics pasted last time — kept on the card in this window only, never in a record, never sent to the AI.
+test('after applying: the focus on the card\'s button, the card in view; undone: the focus there too', () => {
+  const app = read('app.js'), open = app.slice(app.indexOf('function autoLyricsOpen('), app.indexOf('function autoCardHtml('));
+  a.match(open, /autoRender\("review"\); autoLyricFocus\(card\.id\);/);
+  a.match(app, /function autoLyricFocus\(id\) \{[\s\S]*?autoFocusCard\(id\);[\s\S]*?data-as-act="lyrics"[\s\S]*?\.focus\(\{ preventScroll: true \}\)/);
+  const undo = app.slice(app.indexOf('function autoUndo('), app.indexOf('function autoUndo(') + 900);
+  a.match(undo, /autoLyricFocus\(/, 'an undone calibration puts the focus back on its button');
+});
+test('calibrated, the button\'s tooltip says so (placeholder key), not the transcript line', () => {
+  const app = read('app.js'), card = app.slice(app.indexOf('function autoCardHtml('), app.indexOf('function autoFooter('));
+  a.match(card, /c\.lyricCues \? autoSay\("as-lyrics-again-title", \{ n: c\.lyricN \|\| 0 \}\)/);
+  a.ok(V.t('zh-CN', 'own.as-lyrics-again-title', { n: 2 }).includes('2') && !/可能有错字/.test(V.t('zh-CN', 'own.as-lyrics-again-title', { n: 2 })));
+  a.ok(!/[一-鿿]/.test(V.t('en', 'own.as-lyrics-again-title', { n: 2 })));
+});
+test('the lyrics pasted last time: on the card in this window only, in no record and nothing sent', () => {
+  const app = read('app.js'), open = app.slice(app.indexOf('function autoLyricsOpen('), app.indexOf('function autoCardHtml('));
+  a.match(open, /lyricsDialog\(\{ words: sc\.words, caps: sc\.caps, text: c\.lyricText \|\| "",/);
+  a.match(open, /card\.lyricText = text;/);
+  a.match(app, /function lyricsDialog\(\{ words, caps, stale, onApply, text = "" \}\)/);
+  // only autoLyricsOpen reads or writes it; the project file, the AI's facts and the chat never see it
+  a.equal((app.match(/lyricText/g) || []).length, 3);
+  const save = app.slice(app.indexOf('function projectJSONHere('), app.indexOf('function projectJSONHere(') + 4000);
+  a.ok(!/autoState|lyricText|lyricCues/.test(save), 'not in the project file');
+  for (const f of ['agent-facts.js', 'agent-conversation.js', 'agent-pane.js', 'cindy-official.js', 'chat-proposal.js', 'agent-format.js'])
+    a.ok(!/lyricText|lyricCues/.test(read(f)), f);
+});
