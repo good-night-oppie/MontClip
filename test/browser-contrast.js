@@ -69,6 +69,11 @@ async function measureContrast({ browser, url, width = 1280, height = 800, settl
     let n = 0; const pend = new Map();
     ws.addEventListener("message", (e) => { const m = JSON.parse(e.data); pend.get(m.id)?.(m); });
     const evaluate = (expression) => new Promise((r) => { const k = ++n; pend.set(k, (m) => r(m.result?.result?.value)); ws.send(JSON.stringify({ id: k, method: "Runtime.evaluate", params: { expression, returnByValue: true, awaitPromise: true } })); });
+    // the editor has drawn when its track headers are there (a loaded machine takes longer than settleMs alone)
+    for (const until = Date.now() + 20000; Date.now() < until;) {
+      if (await evaluate(`document.readyState === "complete" && document.querySelectorAll(".track-head").length > 0`)) break;
+      await new Promise((r) => setTimeout(r, 250));
+    }
     await new Promise((r) => setTimeout(r, settleMs));
     let out;
     if (states) {
