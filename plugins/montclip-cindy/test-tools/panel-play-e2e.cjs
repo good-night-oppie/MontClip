@@ -68,6 +68,12 @@ async function cdp(wsUrl) {
   await panel.send("Page.bringToFront");
   out.background = [];
   for (let i = 0; i < 8; i++) { await sleep(1500); out.background.push({ at: (i + 1) * 1.5, editor: await editor.eval(`document.visibilityState`), panelLine: await panel.eval(`[...document.querySelectorAll('#lines li')].findIndex(li => li.classList.contains('now'))`) }); }
+  // (4) 属性 as the page shows it: the recording, then a caption
+  out.props = {};
+  for (const id of ["v1", "a"]) {
+    await editor.eval(`setSelection(["${id}"])`); await sleep(1500);
+    out.props[id] = await panel.eval(`(document.getElementById("tabProps").click(), [...document.querySelectorAll("#props dt")].map(dt => dt.textContent + "：" + dt.nextElementSibling.textContent + (dt.nextElementSibling.querySelector(".swatch") ? " [色块]" : "")))`);
+  }
   console.log(JSON.stringify(out));
   panel.close(); editor.close(); b.kill(); w.kill();
   setTimeout(() => { try { fs.rmSync(prof, { recursive: true, force: true }); fs.rmSync(data, { recursive: true, force: true }); } catch {} process.exit(0); }, 1500);
