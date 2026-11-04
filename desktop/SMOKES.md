@@ -30,6 +30,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `export-close-smoke.cjs` | `CLOSE_PASS` | 在用 |
 | `export-download-smoke.cjs` | `EXPORT_DOWNLOAD_COMPLETE` | 在用 |
 | `flv-native-smoke.cjs` | `FLV_NATIVE_COMPLETE` | 在用 |
+| `first-screen-smoke.cjs` | `FIRST_SCREEN_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `highlights-smoke.cjs` | `HIGHLIGHTS_COMPLETE` | 在用 |
 | `keep-ranges-smoke.cjs` | `KEEP_RANGES_PASS` | 在用 |
 | `lyrics-smoke.cjs` | `LYRICS_PASS` | 在用 |
