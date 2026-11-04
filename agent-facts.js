@@ -9,11 +9,23 @@
 'use strict';
 const MAX_CLIPS=30,MAX_HIGHLIGHTS=12;
 const r2=x=>Math.round(x*100)/100;
-function shots(doc){
+// a clip is named by its id only when that is a short id (the proposals' own rule): an id that is a path or a file name
+// is not sent — the clip is left out (the review box says no file names are sent; JJ / Deja, 2026-11-03), and the box
+// says how many were left out (omitted), so none vanishes silently
+const SHORT_ID=/^[A-Za-z0-9_-]{1,128}$/;
+const shortId=id=>typeof id==='string'&&SHORT_ID.test(id);
+// the clips that would be sent, whatever their id
+function candidates(doc){
  const off=new Set(doc.disabledTracks||[]),media=new Map((doc.media||[]).map(m=>[m.id,m]));
  const videoGroups=new Set(doc.clips.filter(c=>c.kind==='video'&&c.linkGroup).map(c=>c.linkGroup));
  return doc.clips.filter(c=>(c.kind==='video'||c.kind==='audio'&&!(c.linkGroup&&videoGroups.has(c.linkGroup)))&&!C.isCaption(c)&&!c.disabled&&!off.has(c.track)
-  &&!c.keyframes?.speed?.length&&Number.isFinite(media.get(c.mediaId)?.duration))
+  &&!c.keyframes?.speed?.length&&Number.isFinite(media.get(c.mediaId)?.duration));
+}
+/** How many clips were left out of the facts because their id is not a short id. Shown in the review box, never sent. */
+function omitted(doc){return candidates(doc).filter(c=>!shortId(c.id)).length;}
+function shots(doc){
+ const media=new Map((doc.media||[]).map(m=>[m.id,m]));
+ return candidates(doc).filter(c=>shortId(c.id))
   .sort((a,b)=>a.start-b.start||String(a.track).localeCompare(String(b.track)))
   .map(c=>{const speed=Number.isFinite(c.props?.speed)&&c.props.speed>0?c.props.speed:1,inPoint=c.in||0;
    return {clip:c,speed,inPoint,entry:{clipId:c.id,kind:c.kind,mediaDuration:r2(media.get(c.mediaId).duration),from:r2(inPoint),to:r2(inPoint+c.duration*speed),start:r2(c.start)}};});
@@ -32,5 +44,5 @@ function build(doc,{highlights=[]}={}){
  if(hl.length)out.highlights=hl;
  return out;
 }
-return {build};
+return {build,omitted,SHORT_ID};
 });
