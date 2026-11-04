@@ -396,3 +396,49 @@ test("the outside-edit toast: JJ's final words, in both languages", () => {
   assert.equal(UI.t("en", "own.undo-outside"), "Undid a change made by the AI or in another window, not here. If that was a mistake, click Redo to bring it back.");
   assert.doesNotMatch(require("node:fs").readFileSync(require("node:path").join(ROOT, "app.js"), "utf8"), /Undid a change made outside this tab/);
 });
+
+/* QQ on 8875b1d: disable (or lock) a linked clip, save, reload. relinkClips deletes linkGroup and adds it back, so on
+   the reloaded page it comes after `disabled` / `locked` — the same timeline with its keys in another order. Compared
+   as text, that looked like an outside edit: an empty undo step, and pushUndo cleared the redo stack. */
+function disableGroup({ w }) {
+  w.pushUndo();
+  for (const c of w.project.clips) c.disabled = true;   // the inspector's toggle: the whole linked group
+}
+test("a reload adds no undo step after a linked clip was disabled (keys in another order are the same timeline)", async () => {
+  const rec = recordingWorld();
+  disableGroup(rec);
+  assert.ok(Object.keys(rec.w.project.clips[0]).indexOf("linkGroup") < Object.keys(rec.w.project.clips[0]).indexOf("disabled"), "before: linkGroup, then disabled");
+  const { fresh, kept } = reload(rec);
+  assert.ok(Object.keys(fresh.project.clips[0]).indexOf("linkGroup") > Object.keys(fresh.project.clips[0]).indexOf("disabled"), "after the reload: disabled, then linkGroup (the trigger)");
+  await fresh.restoreUndoStack();
+  assert.equal(fresh.runtime.undo.length, kept.undo.length, "as many steps after the reload as before it");
+  assert.deepEqual(fresh.toasts, [], "no outside-edit toast");
+  fresh.undo();
+  assert.ok(fresh.project.clips.every((c) => !c.disabled), "the first Ctrl+Z enables the group again");
+});
+
+test("a reload keeps the redo stack (a linked clip disabled, then locked, then the lock undone)", async () => {
+  const rec = recordingWorld();
+  disableGroup(rec);
+  rec.w.pushUndo();
+  for (const c of rec.w.project.clips) c.locked = true;
+  rec.w.undo();                                     // the lock is undone: one step to redo
+  assert.equal(rec.w.runtime.redo.length, 1);
+  const { fresh, kept } = reload(rec);
+  await fresh.restoreUndoStack();
+  assert.equal(fresh.runtime.redo.length, kept.redo.length, "the redo stack is still there");
+  assert.equal(fresh.runtime.undo.length, kept.undo.length);
+  fresh.redo();
+  assert.ok(fresh.project.clips.every((c) => c.locked === true && c.disabled === true), "redo locks the group again");
+});
+
+test("snapshots compare by content: object keys in any order, arrays in their own order", () => {
+  const { w } = recordingWorld();
+  const a = JSON.stringify({ clips: [{ id: "x", linkGroup: "lg_1", disabled: true, props: { volume: 0, pan: 1 } }, { id: "y" }] });
+  const b = JSON.stringify({ clips: [{ props: { pan: 1, volume: 0 }, disabled: true, id: "x", linkGroup: "lg_2" }, { id: "y" }] });
+  assert.equal(w.outsideEditStep(a, b), null, "the same timeline");
+  const swapped = JSON.stringify({ clips: [{ id: "y" }, { id: "x", linkGroup: "lg_1", disabled: true, props: { volume: 0, pan: 1 } }] });
+  assert.notEqual(w.outsideEditStep(a, swapped), null, "clips in another order are another timeline");
+  const changed = JSON.stringify({ clips: [{ id: "x", linkGroup: "lg_1", disabled: false, props: { volume: 0, pan: 1 } }, { id: "y" }] });
+  assert.notEqual(w.outsideEditStep(a, changed), null, "a value that changed is a change");
+});
