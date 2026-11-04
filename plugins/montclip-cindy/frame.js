@@ -1,9 +1,20 @@
 /* What a page says when MontClip could not open (JJ's final words, 2026-11-04): what to do first, then — only when
    there is an error to show — the line to send us, in small print below. → {text, detail} */
 function failureText(head, error) {
-  const raw = error == null ? '' : String(error).trim();
+  const raw = scrub(error);
+  if (error != null && String(error).trim()) console.warn('[MontClip]', head, String(error));   // the whole of it: the log
   return raw ? { text: head + '关掉这个页签再打开试试；还不行，把下面这行发给我们：', detail: raw }
     : { text: head + '关掉这个页签再打开试试。', detail: '' };
+}
+/* The raw error for the small line, without what is only this computer's business: paths, local ports, pids (the same
+   scrub as the export card's, main.js, and the overview's, main-view-model.js). */
+function scrub(raw) {
+  return String(raw == null ? '' : raw)
+    .replace(/\b[A-Za-z]:[\\/][^\s'"）)]*/g, '…')
+    .replace(/(^|[\s('"=])\/(?:[^\s/'"]+\/)+[^\s'"）)]*/g, '$1…')
+    .replace(/\b(?:127\.0\.0\.1|localhost|0\.0\.0\.0|\[::1\]):\d+/gi, '…')
+    .replace(/\b(pid|port)\b[\s=:#]*\d+/gi, '$1 …')
+    .trim().slice(0, 300);
 }
 /* The task view: wake the logic page, bind this task's project, ask where the MontClip editor is, and frame it.
    The frame talks to the engine itself (same 127.0.0.1 host:port — Cindy allows that for a plugin that declares
@@ -123,6 +134,7 @@ function failureText(head, error) {
     } else {
       // why, in plain words; the raw error small below where the sentence points to it; 重试 where trying again can help
       const f = B.describe(m.code || (m.phase === 'cancelled' ? 'CANCELLED' : ''), m.message, { need: m.need });
+      if (m.message) console.warn('[MontClip] export tool install:', m.code || '', String(m.message));   // the whole of it: the log
       bannerText(f.text, f.reason !== 'cancelled', f.detail);
       get.hidden = !f.button; get.textContent = f.button === 'install' ? W.install : W.retry;
       later.hidden = f.reason === 'cancelled';   // 下载取消了: only 下载并安装
