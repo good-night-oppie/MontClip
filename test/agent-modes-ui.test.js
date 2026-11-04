@@ -72,8 +72,8 @@ test('the switch sits at the top of the assistant; the Yolo mark is in the pane 
 
 test('JJ’s final words (5d360cd7) for the changed lines; the Yolo box follows the interface language',()=>{
  const T=(l,k)=>View.text[l]['officialPane_'+k];
- a.equal(T('zh-CN','modeManualTip'),'改项目前先问你；撤不回的每次都问');
- a.equal(T('en','modeManualTip'),"Asks before changing the project; asks every time for anything that can't be undone");
+ a.equal(T('zh-CN','modeManualTip'),'改项目前先问你；撤不回的每次都问。默认是这个。');/* JJ's final words, frozen prototype c604fd65 (plan-copy.test.js) */
+ a.equal(T('en','modeManualTip'),"Asks before changing the project; asks every time for anything that can't be undone. This is the default.");
  a.equal(t('zh-CN','own.ap-refused-mode'),'助手现在没有选模式，所以什么都没做。请在助手顶部选一种模式。');
  // shown when the main process refused the switch or the channel failed (the switch exists in the desktop app only)
  a.equal(T('zh-CN','modeUnavailable'),'这次没换成，模式还是原来那个。关掉 MontClip 再打开，再试一次。');
@@ -90,12 +90,12 @@ test('the approval box is centred over a dimmed page (the page resets every marg
  a.match(css,/\.agent-approval \{ margin: auto; \}/);a.match(css,/\.agent-approval::backdrop \{ background: #0009; \}/);
 });
 
-test('Yolo is said one way (v7.2; Deja, 2026-11-04): the bar and the mode tip say the same, in the words of v7.2',()=>{
+test('Yolo (v7.2; Deja, 2026-11-04): the bar, and the mode tip in JJ final words (it adds that it asks once more)',()=>{
  const zh=View.text['zh-CN'],en=View.text.en;
  a.equal(zh.officialPane_yoloOn,'Yolo 开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。');
- a.equal(zh.officialPane_modeYoloTip,'每一步都直接做，不问你；往外发的内容照样先给你看');
+ a.equal(zh.officialPane_modeYoloTip,'每一步都直接做，不问你；往外发的内容照样先给你看。打开前会再确认一次。');
  a.equal(en.officialPane_yoloOn,'Yolo is on: the AI does every step without asking you; anything sent out is still shown to you first.');
- a.equal(en.officialPane_modeYoloTip,'Does every step without asking you; anything sent out is still shown to you first');
+ a.equal(en.officialPane_modeYoloTip,"Does every step without asking you; anything sent out is still shown to you first. You'll be asked once more before it turns on.");
 });
 
 test('the approval box has one main button: 〔只批准这次〕 (VV on #84 53f641d; 「这个聊天中都批准」 and 〔不同意〕 are plain)',()=>{

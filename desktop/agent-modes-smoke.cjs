@@ -55,7 +55,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
    await read(`document.querySelector('.cindy-send button').click();true`);await wait();
    await read(`document.querySelector('.cindy-confirm[open] button').click();true`);await wait(600);
   };
-  const box=()=>read(`(()=>{const d=document.querySelector('[data-agent-approval][open]');return d?{text:d.textContent,label:d.querySelector('[data-ap-label]').textContent,choices:[...d.querySelectorAll('[data-choice]')].map(b=>[b.dataset.choice,b.textContent]),focus:document.activeElement?.dataset?.choice||null}:null;})()`);
+  const box=()=>read(`(()=>{const d=document.querySelector('[data-agent-approval][open]');return d?{text:d.textContent,first:d.querySelector('h3').nextElementSibling.textContent,detail:d.querySelector('[data-ap-detail]')?.textContent??null,label:d.querySelector('[data-ap-label]').textContent,choices:[...d.querySelectorAll('[data-choice]')].map(b=>[b.dataset.choice,b.textContent]),focus:document.activeElement?.dataset?.choice||null}:null;})()`);
   const choose=async(c)=>{await read(`document.querySelector('[data-agent-approval][open] [data-choice="${c}"]').click();true`);await wait(400);};
   // 2. 手动: the box, with the plain sentence and three choices; 不同意 changes nothing
   const before=await clips();
@@ -63,6 +63,9 @@ BrowserWindow.prototype.loadURL=async function(...args){
   const b1=await box();report.manualBox=b1&&{label:b1.label,choices:b1.choices,focus:b1.focus};
   assert.ok(b1,'the approval box is shown in 手动');
   assert.equal(b1.label,Cap.label('keep_ranges','zh-CN'));
+  // VV on #84 (Deja, 2026-11-04; v7.2): its first line is what the step changes (MontClipPlan.stepDetail), the plain
+  // sentence under it
+  assert.equal(b1.first,'保留 0:00–1:55','the first line: what it changes');assert.equal(b1.detail,'保留 0:00–1:55');
   assert.ok(!/keep_ranges|fablecut_/.test(b1.text),'never the internal name');
   assert.deepEqual(b1.choices,[['once','只批准这次'],['session','这个聊天中都批准'],['deny','不同意']]);
   assert.equal(b1.focus,'deny','不同意 has the focus');

@@ -21,11 +21,16 @@ const categoryOf = (name) => Object.keys(CATEGORIES).find((c) => CATEGORIES[c].i
 
 let toolsCache = null;
 /* The Windows app has the same projects open (writer-lock.js): the engine refuses to start. Said in plain words, to the
-   page and to the chat (VV's review of #111; JJ to review). */
-const DATA_DIR_IN_USE_TEXT = '另一个 MontClip 正在用这些项目（可能是电脑上单独打开的 MontClip）。两个同时改，会互相盖掉。先把那边的 MontClip 关掉，再回到这里重试。';
+   page and to the chat: JJ's final words (2026-11-04), the desktop app's own box with "MontClip 桌面版" in it. The
+   plugin's pages are Chinese for now; the English is kept with it (messageEn) for when they follow Cindy's language. */
+const DATA_DIR_IN_USE_TEXT = {
+  zh: 'MontClip 桌面版正在用这些项目。两边同时改，会互相盖掉。\n先把那边的 MontClip 关掉，再打开这里。找不到那边的窗口，就重启电脑再试。',
+  en: "The MontClip desktop app is using these projects. If both edit at once, one overwrites the other.\nClose the other MontClip first, then open this one. If you can't find it, restart the computer and try again.",
+};
 function engineError(r) {
   const message = String(r.message || 'MontClip engine failed');
-  if (/DATA_DIR_IN_USE|Another MontClip \(/.test(message)) return Object.assign(new Error(DATA_DIR_IN_USE_TEXT), { code: 'DATA_DIR_IN_USE' });
+  if (/DATA_DIR_IN_USE|Another MontClip \(/.test(message))
+    return Object.assign(new Error(DATA_DIR_IN_USE_TEXT.zh), { code: 'DATA_DIR_IN_USE', messageEn: DATA_DIR_IN_USE_TEXT.en });
   return Object.assign(new Error(message), { code: r.errorCode || 'NODE_REQUEST_FAILED' });
 }
 async function node(method, params, extra) {
@@ -107,7 +112,7 @@ channel.onmessage = async (e) => {
     if (m.type === 'editor') { const s = await node('montclip/start'); a = { origin: s.origin, url: s.url }; }
     else if (m.type === 'bind') a = await node('montclip/bind', { session: String(m.session || '') });
     else a = { error: 'unknown request ' + m.type };
-  } catch (err) { a = { error: String(err.message || err), code: err.code || null }; }
+  } catch (err) { a = { error: String(err.message || err), code: err.code || null, ...(err.messageEn ? { errorEn: err.messageEn } : {}) }; }
   a = Object.assign({ reqId: m.reqId, answer: true }, a);
   answered.set(m.reqId, a);
   if (answered.size > 200) answered.delete(answered.keys().next().value);
