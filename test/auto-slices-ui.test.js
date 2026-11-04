@@ -106,7 +106,7 @@ test('v12: a pencil on hovering a name, 〔▶ 试看〕 stronger, the lyrics bu
  const actions=card.slice(card.indexOf('<div class="as-actions">'));
  a.ok(actions.includes('data-as-lyrics')&&actions.indexOf('data-as-lyrics')<actions.indexOf('data-as-act="drop"'),'〔按歌词校准字幕〕 in the button row, before 不要这条');
  // VV / Deja: no button that looks pressable and does nothing — the lyrics button only while the card can use it
- a.match(actions,/song && autoLyricsAvailable\(\) \?/);
+ a.match(actions,/song && autoLyricsAvailable\(c\) \?/);
  a.ok(!/<span class="as-small as-subline"/.test(card),'no subtitle line of its own');
 });
 // Deja (2026-11-03): the software cannot hear laughter; nothing the streamer sees may say it found any — every string of the
@@ -158,7 +158,8 @@ test('the name hint and the name tooltip in JJ\'s English; "in the video", never
 // 按歌词校准字幕 and the long sentence is its tooltip. In this dialog nothing disabled looks pressable.
 test('the card\'s lyrics button: none until the card can use it; then short, the long sentence in its tooltip; disabled looks disabled',()=>{
  const app=read('app.js'),css=read('style.css');
- a.match(app,/function autoLyricsAvailable\(\) \{\s*return false;/);
+ // the card is wired now (card-lyrics.test.js): only a song card with transcript words in its part
+ a.match(app,/function autoLyricsAvailable\(c\) \{\s*return !!c && c\.kind === "song" && autoLyricWords\(c\)\.length > 0;/);
  a.equal(zh('as-lyrics'),'按歌词校准字幕');
  // one rule for the whole app (#90, Deja): .btn:disabled / .btn[disabled]; this dialog no longer has its own
  a.match(css,/\.btn:disabled,\s*\.btn\[disabled\] \{[^}]*opacity: \.45;[^}]*cursor: default;/);

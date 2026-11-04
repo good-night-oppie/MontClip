@@ -10,15 +10,21 @@ test('on this computer only: the alignment module and the window send nothing',(
 });
 
 test('nothing changes before 〔应用〕; then one undo step, after a CAS on the project',()=>{
- const app=read('app.js'),i=app.indexOf('function openLyricsAlign'),body=app.slice(i,app.indexOf('function captionQuickHtml',i));
- const apply=body.indexOf('const apply =');
- a.ok(apply>0);
- a.ok(!/project\.clips\s*=|pushUndo\(/.test(body.slice(0,apply)),'aligning and showing the lines change nothing');
- a.match(body,/if \(JSON\.stringify\(projectJSON\(\)\) !== signature\) \{ summary\.textContent = uiText\("own\.ly-changed"\); return; \}/);
+ // the dialog is shared with the 自动出切片 card (lyricsDialog, docs/decisions/2026-11-03-card-lyrics.md): it changes
+ // nothing itself; 〔应用〕 checks stale() (the CAS) and only then calls the caller's onApply
+ const app=read('app.js'),k=app.indexOf('function lyricsDialog('),dlg=app.slice(k,app.indexOf('function captionQuickHtml',k));
+ a.ok(!/project\.clips\s*=|pushUndo\(|autoSnap\(/.test(dlg),'the dialog itself changes nothing');
+ const apply=dlg.slice(dlg.indexOf('const apply ='));
+ a.match(apply,/if \(stale\(\)\) \{ summary\.textContent = uiText\("own\.ly-changed"\); return; \}[\s\S]*onApply\(p, pasted\);/);
+ // the Transcript tab: the CAS is the whole project; its change is one undo step, inside onApply
+ const i=app.indexOf('function openLyricsAlign'),body=app.slice(i,k);
+ a.match(body,/const signature = JSON\.stringify\(projectJSON\(\)\);/);
+ a.match(body,/stale: \(\) => JSON\.stringify\(projectJSON\(\)\) !== signature, onApply: \(p\) => \{/);
+ a.ok(!/project\.clips\s*=|pushUndo\(/.test(body.slice(0,body.indexOf('onApply: (p) =>'))),'nothing before 〔应用〕');
  a.equal((body.match(/pushUndo\(/g)||[]).length,1);
  // unsure lines are not ticked, and lines with nothing heard can't be
- a.match(body,/box\.checked = l\.sure; box\.disabled = l\.start == null;/);
- a.match(body,/result\.lines\.map\(\(l, i\) => \(l\.sure \? i : -1\)\)/,'apply all leaves the unsure lines out');
+ a.match(dlg,/box\.checked = l\.sure; box\.disabled = l\.start == null;/);
+ a.match(dlg,/result\.lines\.map\(\(l, i\) => \(l\.sure \? i : -1\)\)/,'apply all leaves the unsure lines out');
 });
 
 test('the button is in the Transcript tab’s caption row; the module loads with the page',()=>{
