@@ -108,9 +108,28 @@ test('the lyrics pasted last time: on the card in this window only, in no record
   const fn = (name) => app.slice(app.indexOf('function ' + name + '('), app.indexOf('\n}\n', app.indexOf('function ' + name + '(')));
   const inside = (fn('autoLyricsOpen').match(/lyricText/g) || []).length + (fn('autoUndo').match(/lyricText/g) || []).length;
   a.equal((app.match(/lyricText/g) || []).length - (app.slice(app.indexOf('/** 〔按歌词校准字幕〕 on a card'), app.indexOf('function autoLyricsOpen(')).match(/lyricText/g) || []).length, inside, 'nowhere else');
-  a.match(fn('autoUndo'), /lyricText/);
+  // autoUndo carries it through MontClipAutoSlices.keepPasted (the last paste; tested below)
+  a.match(fn('autoUndo'), /MontClipAutoSlices\.keepPasted\(st, JSON\.parse\(st\.hist\.pop\(\)\)\)/);
   const save = app.slice(app.indexOf('function projectJSONHere('), app.indexOf('function projectJSONHere(') + 4000);
   a.ok(!/autoState|lyricText|lyricCues/.test(save), 'not in the project file');
   for (const f of ['agent-facts.js', 'agent-conversation.js', 'agent-pane.js', 'cindy-official.js', 'chat-proposal.js', 'agent-format.js'])
     a.ok(!/lyricText|lyricCues/.test(read(f)), f);
+});
+
+test('undone twice after two calibrations, the card keeps the lyrics pasted last (Deja, 2026-11-04: R02c; VV on #105 74d8486)', () => {
+  // the dialog's undo restores a snapshot of the cards; the lyrics pasted are carried over from the cards as they are now,
+  // so 〔再对一遍歌词〕 brings the last paste, as its tooltip (as-lyrics-again-title) says
+  const clone = (x) => JSON.parse(JSON.stringify(x));
+  let st = { clips: [{ id: 'k1' }, { id: 'k2', lyricText: '别的卡' }], dropped: [{ id: 'k3', lyricText: '拿掉的' }] };
+  const s0 = clone(st);
+  st.clips[0].lyricText = '第一轮'; st.clips[0].lyricCues = [{ text: '一' }];
+  const s1 = clone(st);
+  st.clips[0].lyricText = '第二轮'; st.clips[0].lyricCues = [{ text: '二' }];
+  st = S.keepPasted(st, s1);
+  a.deepEqual(st.clips[0], { id: 'k1', lyricText: '第二轮', lyricCues: [{ text: '一' }] }, 'undo 1: the first calibration back, the second paste kept');
+  st = S.keepPasted(st, s0);
+  a.deepEqual(st.clips[0], { id: 'k1', lyricText: '第二轮' }, 'undo 2: no calibration, the second paste kept');
+  a.equal(st.clips[1].lyricText, '别的卡'); a.equal(st.dropped[0].lyricText, '拿掉的', 'a card taken out keeps its own');
+  // a card that has nothing pasted now keeps what the snapshot had; nothing else on a card is touched
+  a.deepEqual(S.keepPasted({ clips: [{ id: 'k1' }], dropped: [] }, { clips: [{ id: 'k1', lyricText: '旧的', on: false }], dropped: [] }).clips[0], { id: 'k1', lyricText: '旧的', on: false });
 });
