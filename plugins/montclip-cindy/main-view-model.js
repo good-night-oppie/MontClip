@@ -32,26 +32,24 @@
     return { text: "导出的文件都存在 MontClip 自己的导出文件夹里。在聊天里让 AI 导出时，会先请你选一个文件夹，再另存一份到那里。",
       path: String(dataDir).replace(/[\\/]+$/, "") + sep + "exports" };
   }
-  /** A failure in JJ's words: what went wrong and what to try; with an error, "还不行，把下面这行发给我们：" and the
-   *  error on a small line of its own; without one, the sentence ends at what to try. */
-  /** The raw error for the small line, without what is only this computer's business: paths, local ports, pids
-   *  (the same as main.js's scrub, which the export card uses). */
-  function scrub(raw) {
-    return String(raw == null ? "" : raw)
-      .replace(/\b[A-Za-z]:[\\/][^\s'"）)]*/g, "…")
-      .replace(/(^|[\s('"=])\/(?:[^\s/'"]+\/)+[^\s'"）)]*/g, "$1…")
-      .replace(/\b(?:127\.0\.0\.1|localhost|0\.0\.0\.0|\[::1\]):\d+/gi, "…")
-      .replace(/\b(pid|port)\b[\s=:#]*\d+/gi, "$1 …")
-      .trim().slice(0, 300);
+  /** A failure (JJ v2, 2026-11-04, section 1, rule 2): what went wrong and what to try, in plain words — never the
+   *  raw error. With an error, the sentence ends at 〔复制问题信息〕 (the page's button copies it for us, scrubbed by
+   *  problem-details.js; the log keeps all of it); without one, at what to try. → {text, problem} */
+  function failure(head, tryThis, error, code) {
+    const raw = error == null ? "" : String(error).trim();
+    return raw ? { text: head + tryThis + "；还不行，点「复制问题信息」发给我们。", problem: { code: code || "UNKNOWN", error: raw } }
+      : { text: head + tryThis + "。", problem: null };
   }
-  function failure(head, tryThis, error) {
-    const raw = scrub(error);
-    return raw ? { text: head + tryThis + "；还不行，把下面这行发给我们：", detail: raw } : { text: head + tryThis + "。", detail: "" };
-  }
-  const FAILED = {
-    load: (e) => failure("MontClip 没能读取项目。", "关掉这页再打开试试", e),
-    openTask: (e) => failure("没能打开这个任务。", "这个任务可能已经删掉了", e),
-    openFolder: (e) => failure("没能打开导出文件夹。", "再点一次试试", e),   // waiting for JJ
+  /** The copy button's words: JJ v2, finalised (the same as the editor's, ui-preferences.js). */
+  const COPY = {
+    button: "复制问题信息", note: "复制的内容不含你的文件夹路径、密钥和观众信息。",
+    done: "已经复制好了，粘贴到发给我们的消息里就行。", failed: "这次没能复制，再点一次按钮试试。",
   };
-  return { projectRows, exportRows, size, exportsWhere, failure, scrub, FAILED };
+  const FAILED = {
+    // the sentences with 〔复制问题信息〕 are drafts (before v2 they ended with the raw error on a small line)
+    load: (e, code) => failure("MontClip 没能读取项目。", "关掉这页再打开试试", e, code),
+    openTask: (e, code) => failure("没能打开这个任务。", "这个任务可能已经删掉了", e, code),
+    openFolder: (e, code) => failure("没能打开导出文件夹。", "再点一次试试", e, code),   // waiting for JJ
+  };
+  return { projectRows, exportRows, size, exportsWhere, failure, COPY, FAILED };
 });

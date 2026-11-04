@@ -28,16 +28,37 @@
     if (button) el.appendChild(button);
     return el;
   }
-  // a failure: the sentence, then the raw error on a small line of its own (none without an error)
+  // a failure: the sentence, then 〔复制问题信息〕 when there is an error (JJ v2: the raw error is never on the page;
+  // the button copies it, scrubbed, and the log keeps all of it)
   function fail(f) {
     $('status').textContent = f.text; $('status').className = 'status error';
-    $('statusDetail').textContent = f.detail; $('statusDetail').hidden = !f.detail;
+    const box = $('statusCopy');
+    box.textContent = ''; box.hidden = !f.problem;
+    if (!f.problem) return;
+    console.warn(MontClipProblem.logLine(f.problem));
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = V.COPY.button;
+    const note = document.createElement('small');
+    note.className = 'note'; note.textContent = V.COPY.note;
+    b.addEventListener('click', async () => {
+      const line = MontClipProblem.copyLine(f.problem);
+      let ok = false;
+      try { await navigator.clipboard.writeText(line); ok = true; } catch (e) {
+        const t = document.createElement('textarea');   // an older webview: copy through a hidden field, from this click
+        t.value = line; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
+        document.body.appendChild(t); t.select();
+        try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+        t.remove();
+      }
+      note.textContent = ok ? V.COPY.done : V.COPY.failed;
+    });
+    box.append(b, note);
   }
   async function load() {
     const o = await ask('overview');
     const status = $('status');
-    if (o.error) { fail(V.FAILED.load(o.error)); return; }
-    status.textContent = ''; status.className = 'status'; $('statusDetail').hidden = true;
+    if (o.error) { fail(V.FAILED.load(o.error, o.code)); return; }
+    status.textContent = ''; status.className = 'status'; $('statusCopy').hidden = true;
     const projects = V.projectRows(o), exportsList = V.exportRows(o);
     $('projects').textContent = '';
     for (const p of projects) {
@@ -46,7 +67,7 @@
         b = document.createElement('button'); b.type = 'button'; b.textContent = '在任务中打开';
         b.addEventListener('click', async () => {
           const r = await ask('open-task', { session: p.task });
-          if (!r.ok) fail(V.FAILED.openTask(r.message || r.errorCode || r.error));
+          if (!r.ok) fail(V.FAILED.openTask(r.message || r.errorCode || r.error, r.errorCode || r.code));
         });
       }
       $('projects').appendChild(li(p.name, p.meta + (p.task ? '' : ' · 没有对应的任务'), b));
@@ -63,7 +84,7 @@
   // 打开文件夹: the logic page asks the worker to open MontClip's exports folder (the only folder this page can name)
   $('openExports').addEventListener('click', async () => {
     const r = await ask('open-folder');
-    if (r.error) fail(V.FAILED.openFolder(r.error));
+    if (r.error) fail(V.FAILED.openFolder(r.error, r.code));
   });
   (async () => { try { await fetch('/wake'); } catch (e) { } load(); })();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') load(); });

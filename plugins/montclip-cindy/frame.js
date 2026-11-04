@@ -1,20 +1,39 @@
-/* What a page says when MontClip could not open (JJ's final words, 2026-11-04): what to do first, then — only when
-   there is an error to show — the line to send us, in small print below. → {text, detail} */
-function failureText(head, error) {
-  const raw = scrub(error);
-  if (error != null && String(error).trim()) console.warn('[MontClip]', head, String(error));   // the whole of it: the log
-  return raw ? { text: head + '关掉这个页签再打开试试；还不行，把下面这行发给我们：', detail: raw }
-    : { text: head + '关掉这个页签再打开试试。', detail: '' };
+/* What a page says when MontClip could not open (JJ v2, 2026-11-04, section 1, rule 2): what happened and what to do,
+   in plain words; never the raw error. When there is one, 〔复制问题信息〕 copies it for us (scrubbed: problem-details.js)
+   and the whole of it goes to the log. → {text, problem} */
+const COPY = {   // JJ v2, finalised (the same words as the editor's, ui-preferences.js)
+  button: '复制问题信息', note: '复制的内容不含你的文件夹路径、密钥和观众信息。',
+  done: '已经复制好了，粘贴到发给我们的消息里就行。', failed: '这次没能复制，再点一次按钮试试。',
+};
+function failureText(head, error, code) {
+  const raw = error == null ? '' : String(error).trim();
+  if (!raw) return { text: head + '关掉这个页签再打开试试。', problem: null };
+  const problem = { code: code || 'UNKNOWN', error: raw };
+  console.warn(window.MontClipProblem ? MontClipProblem.logLine(problem) : '[MontClip] ' + raw);   // the whole of it: the log
+  // draft, waiting for JJ: #112's sentence, with the copy button in place of the raw line
+  return { text: head + '关掉这个页签再打开试试；还不行，点「复制问题信息」发给我们。', problem };
 }
-/* The raw error for the small line, without what is only this computer's business: paths, local ports, pids (the same
-   scrub as the export card's, main.js, and the overview's, main-view-model.js). */
-function scrub(raw) {
-  return String(raw == null ? '' : raw)
-    .replace(/\b[A-Za-z]:[\\/][^\s'"）)]*/g, '…')
-    .replace(/(^|[\s('"=])\/(?:[^\s/'"]+\/)+[^\s'"）)]*/g, '$1…')
-    .replace(/\b(?:127\.0\.0\.1|localhost|0\.0\.0\.0|\[::1\]):\d+/gi, '…')
-    .replace(/\b(pid|port)\b[\s=:#]*\d+/gi, '$1 …')
-    .trim().slice(0, 300);
+/** Put the copy button (and its small print) into `box`: a click copies the scrubbed line, never shown on the page. */
+function copyButton(box, problem) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'copy'; b.textContent = COPY.button;
+  const note = document.createElement('small');
+  note.className = 'note'; note.textContent = COPY.note;
+  b.addEventListener('click', async () => {
+    const line = MontClipProblem.copyLine(problem);
+    let ok = false;
+    try { await navigator.clipboard.writeText(line); ok = true; } catch (e) {
+      // an older webview: copy through a hidden field, still from this click
+      const t = document.createElement('textarea');
+      t.value = line; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
+      document.body.appendChild(t); t.select();
+      try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+      t.remove();
+    }
+    note.textContent = ok ? COPY.done : COPY.failed;
+  });
+  box.append(b, note);
+  return b;
 }
 /* The task view: wake the logic page, bind this task's project, ask where the MontClip editor is, and frame it.
    The frame talks to the engine itself (same 127.0.0.1 host:port — Cindy allows that for a plugin that declares
@@ -27,13 +46,9 @@ function scrub(raw) {
   const at = (u) => { const x = new URL(u); x.pathname = enginePath; return x.href; };
   const session = new URLSearchParams(location.search).get('session') || '';   // the task this page belongs to
   const channel = new BroadcastChannel('montclip');
-  const show = (text, error, retry, detail) => {
+  const show = (text, error, retry, problem) => {
     status.textContent = text; status.className = error ? 'error' : ''; status.hidden = false;
-    if (detail) {   // the raw error, small: for us, not for the user to read
-      const d = document.createElement('small');
-      d.className = 'detail'; d.textContent = detail;
-      status.appendChild(d);
-    }
+    if (problem) copyButton(status, problem);   // never the raw error itself
     if (retry) {   // e.g. the Windows app has these projects open: once it is closed, try again here
       const b = document.createElement('button');
       b.type = 'button'; b.textContent = '重试';
@@ -98,7 +113,7 @@ function scrub(raw) {
     const b = await ask('bind', { session });
     if (b.error) {
       if (inUse(b)) show(b.error, true, true);
-      else { const f = failureText('MontClip 没能打开这个任务的项目。', b.error); show(f.text, true, false, f.detail); }
+      else { const f = failureText('MontClip 没能打开这个任务的项目。', b.error, b.code); show(f.text, true, false, f.problem); }
       return false;
     }
     return true;
@@ -109,10 +124,13 @@ function scrub(raw) {
      starts only from its button — the user's own click — or when the user asks the chat (montclip_install_ffmpeg). */
   const banner = document.getElementById('ffmpeg');
   const LATER = 'montclip.ffmpeg.later';
-  function bannerText(text, error, detail) {
+  function bannerText(text, error, note, problem) {
     document.getElementById('ffmpegText').textContent = text;
     const d = document.getElementById('ffmpegDetail');
-    d.textContent = detail || ''; d.hidden = !detail;     // the raw error: as text, on its own small line
+    d.textContent = note || ''; d.hidden = !note;          // the first banner's small print (never a raw error)
+    const box = document.getElementById('ffmpegCopy');
+    box.textContent = ''; box.hidden = !problem;
+    if (problem) copyButton(box, problem);
     if (banner) banner.classList.toggle('error', !!error);
   }
   function progress(m) {
@@ -134,8 +152,8 @@ function scrub(raw) {
     } else {
       // why, in plain words; the raw error small below where the sentence points to it; 重试 where trying again can help
       const f = B.describe(m.code || (m.phase === 'cancelled' ? 'CANCELLED' : ''), m.message, { need: m.need });
-      if (m.message) console.warn('[MontClip] export tool install:', m.code || '', String(m.message));   // the whole of it: the log
-      bannerText(f.text, f.reason !== 'cancelled', f.detail);
+      if (m.message) console.warn(MontClipProblem.logLine({ code: m.code || 'INSTALL_FAILED', error: m.message }));   // the log
+      bannerText(f.text, f.reason !== 'cancelled', '', f.copy ? { code: m.code || 'INSTALL_FAILED', error: m.message } : null);
       get.hidden = !f.button; get.textContent = f.button === 'install' ? W.install : W.retry;
       later.hidden = f.reason === 'cancelled';   // 下载取消了: only 下载并安装
     }
@@ -170,7 +188,7 @@ function scrub(raw) {
     const a = await ask('editor');
     if (a.error || !a.url) {
       if (inUse(a)) show(a.error, true, true);
-      else { const f = failureText('MontClip 没能启动。', a.error); show(f.text, true, false, f.detail); }
+      else { const f = failureText('MontClip 没能启动。', a.error, a.code); show(f.text, true, false, f.problem); }
       return;
     }
     place(at(a.url));

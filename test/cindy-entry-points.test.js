@@ -165,8 +165,9 @@ test("main view: where the exports are — a sentence, 打开文件夹, the full
   assert.match(page, /<p class="hint" id="exportsWhere"><\/p>\n\s+<button type="button" id="openExports" hidden>打开文件夹<\/button>/);
   const js = fs.readFileSync(path.join(PLUGIN, "main-view.js"), "utf8");
   assert.match(js, /\$\('openExports'\)\.title = where\.path;/);
-  assert.match(js, /const r = await ask\('open-folder'\);\n\s+if \(r\.error\) fail\(V\.FAILED\.openFolder\(r\.error\)\);/);
-  assert.deepEqual(V.FAILED.openFolder("FOLDER_NOT_ALLOWED"), { text: "没能打开导出文件夹。再点一次试试；还不行，把下面这行发给我们：", detail: "FOLDER_NOT_ALLOWED" });
+  assert.match(js, /const r = await ask\('open-folder'\);\n\s+if \(r\.error\) fail\(V\.FAILED\.openFolder\(r\.error, r\.code\)\);/);
+  assert.deepEqual(V.FAILED.openFolder("only the exports folder can be opened", "FOLDER_NOT_ALLOWED"),
+    { text: "没能打开导出文件夹。再点一次试试；还不行，点「复制问题信息」发给我们。", problem: { code: "FOLDER_NOT_ALLOWED", error: "only the exports folder can be opened" } });
 });
 
 test("main view: 打开文件夹 asks the worker for MontClip's exports folder, whatever the page sends", async () => {
@@ -176,17 +177,37 @@ test("main view: 打开文件夹 asks the worker for MontClip's exports folder, 
   assert.deepEqual(p.calls.filter((c) => c[0] === "montclip/open-folder").map((c) => c[1]), [{ folder: "exports" }, { folder: "exports" }]);
 });
 
-test("main view failures in JJ's words: the error on a small line of its own, and no second half without one", () => {
-  assert.deepEqual(V.FAILED.load("EACCES: permission denied"),
-    { text: "MontClip 没能读取项目。关掉这页再打开试试；还不行，把下面这行发给我们：", detail: "EACCES: permission denied" });
-  assert.deepEqual(V.FAILED.load(""), { text: "MontClip 没能读取项目。关掉这页再打开试试。", detail: "" });
-  assert.deepEqual(V.FAILED.openTask("SESSION_NOT_FOUND"),
-    { text: "没能打开这个任务。这个任务可能已经删掉了；还不行，把下面这行发给我们：", detail: "SESSION_NOT_FOUND" });
-  assert.deepEqual(V.FAILED.openTask(undefined), { text: "没能打开这个任务。这个任务可能已经删掉了。", detail: "" });
+/* JJ v2 (2026-11-04, section 1, rule 2), Deja's decision for #115–#117: the overview says what went wrong and what to
+   try, in plain words; with an error, 〔复制问题信息〕 copies it for us (scrubbed: problem-details.js), and the log keeps
+   all of it. The raw error is never on the page. */
+const RAW_ENGLISH = /[A-Za-z]+[ ,;:'-]+[A-Za-z]+[ ,;:'-]+[A-Za-z]+/;
+test("main view failures (JJ v2): plain words, 〔复制问题信息〕 for the error, nothing raw on the page", () => {
+  const load = V.FAILED.load("EACCES: permission denied, open 'C:\\Users\\me\\clips-data\\projects\\index.json'", "EACCES");
+  assert.equal(load.text, "MontClip 没能读取项目。关掉这页再打开试试；还不行，点「复制问题信息」发给我们。");
+  assert.deepEqual(load.problem, { code: "EACCES", error: "EACCES: permission denied, open 'C:\\Users\\me\\clips-data\\projects\\index.json'" }, "for the button, not the page");
+  assert.deepEqual(V.FAILED.load(""), { text: "MontClip 没能读取项目。关掉这页再打开试试。", problem: null });
+  assert.equal(V.FAILED.openTask("SESSION_NOT_FOUND", "SESSION_NOT_FOUND").text, "没能打开这个任务。这个任务可能已经删掉了；还不行，点「复制问题信息」发给我们。");
+  assert.deepEqual(V.FAILED.openTask(undefined), { text: "没能打开这个任务。这个任务可能已经删掉了。", problem: null });
+  for (const f of [load, V.FAILED.openTask("SESSION_NOT_FOUND"), V.FAILED.openFolder("spawn explorer.exe ENOENT")]) {
+    assert.doesNotMatch(f.text, RAW_ENGLISH); assert.doesNotMatch(f.text, /EACCES|SESSION_NOT_FOUND|ENOENT/);
+    assert.ok(!("detail" in f), "no raw line for the page");
+  }
+  // the copy button's words: JJ v2, finalised; what it copies: the code and the raw error, the path cut to its file name
+  assert.deepEqual(V.COPY, { button: "复制问题信息", note: "复制的内容不含你的文件夹路径、密钥和观众信息。",
+    done: "已经复制好了，粘贴到发给我们的消息里就行。", failed: "这次没能复制，再点一次按钮试试。" });
+  const Problem = require(path.join(PLUGIN, "problem-details.js"));
+  const line = Problem.copyLine(load.problem);
+  assert.match(line, /EACCES: EACCES: permission denied, open 'index\.json'/);
+  for (const leak of ["Users", "me\\", "clips-data"]) assert.ok(!line.includes(leak), leak);
   const js = fs.readFileSync(path.join(PLUGIN, "main-view.js"), "utf8");
-  assert.match(js, /if \(o\.error\) \{ fail\(V\.FAILED\.load\(o\.error\)\); return; \}/);
-  assert.match(js, /if \(!r\.ok\) fail\(V\.FAILED\.openTask\(r\.message \|\| r\.errorCode \|\| r\.error\)\);/);
-  assert.match(js, /\$\('statusDetail'\)\.textContent = f\.detail; \$\('statusDetail'\)\.hidden = !f\.detail;/, "the error as text, never as HTML");
+  assert.match(js, /if \(o\.error\) \{ fail\(V\.FAILED\.load\(o\.error, o\.code\)\); return; \}/);
+  assert.match(js, /if \(!r\.ok\) fail\(V\.FAILED\.openTask\(r\.message \|\| r\.errorCode \|\| r\.error, r\.errorCode \|\| r\.code\)\);/);
+  assert.match(js, /const line = MontClipProblem\.copyLine\(f\.problem\);/);
+  assert.match(js, /console\.warn\(MontClipProblem\.logLine\(f\.problem\)\);/, "the log keeps all of it");
+  assert.doesNotMatch(js, /statusDetail|f\.detail/, "no raw line anywhere on the page");
+  const page = fs.readFileSync(path.join(PLUGIN, "main-view.html"), "utf8");
+  assert.match(page, /<div class="copybox" id="statusCopy" hidden><\/div>/);
+  assert.ok(page.indexOf('src="problem-details.js"') > 0 && page.indexOf('src="problem-details.js"') < page.indexOf('src="main-view.js"'));
   for (const keep of ["'在任务中打开'", "' · 没有对应的任务'"]) assert.ok(js.includes(keep), keep);
 });
 
@@ -202,59 +223,30 @@ test("status card in JJ's words: 导出工具（ffmpeg） and its three states",
   }
 });
 
-test("status card button: opened, or JJ's failure words with the error on a small line, escaped", async () => {
+test("status card button: opened, or JJ's plain sentence — the raw error only in the log (JJ v2)", async () => {
   const ok = logicPage();
   await ok.event({ name: "card-action", actionId: "open-editor", callId: "c", sessionId: "task-a" });
   assert.deepEqual(shown(ok.sent.at(-1).html), ["剪辑器已在右侧栏打开。"]);
-  const bad = logicPage({ taskView: { ok: false, errorCode: "TASK_VIEW_UNAVAILABLE", message: '<b>"gone"</b>' } });
+  const bad = logicPage({ taskView: { ok: false, errorCode: "TASK_VIEW_UNAVAILABLE", message: 'Task view unavailable for C:\\Users\\me\\x' } });
   await bad.event({ name: "card-action", actionId: "open-editor", callId: "c", sessionId: "task-a" });
   const html = bad.sent.at(-1).html;
-  assert.deepEqual(shown(html), ["没能打开剪辑器。再点一次试试；还不行，把下面这行发给我们：", "&lt;b&gt;&quot;gone&quot;&lt;/b&gt;"]);
-  assert.match(html, /font-size:12px/, "the error is the small line");
+  assert.deepEqual(shown(html), ["没能打开剪辑器。再点一次试试。"]);
+  assert.doesNotMatch(html, /TASK_VIEW_UNAVAILABLE|unavailable|Users/, "nothing raw on the card");
   const none = logicPage({ taskView: { ok: false } });
   await none.event({ name: "card-action", actionId: "open-editor", callId: "c", sessionId: "task-a" });
   assert.deepEqual(shown(none.sent.at(-1).html), ["没能打开剪辑器。再点一次试试。"]);
 });
 
-/* QQ: the raw error on a small line never carries paths, local ports or pids — the overview's and the status card's
-   small lines too, the same way as the export card's. */
-test("the overview's and the status card's small lines: no paths, local ports or pids", async () => {
-  const raw = "EACCES: permission denied, open 'C:/Users/me/clips-data/projects/index.json' at 127.0.0.1:7777 (pid 4242)";
-  const f = V.FAILED.load(raw);
-  assert.equal(f.text, "MontClip 没能读取项目。关掉这页再打开试试；还不行，把下面这行发给我们：");
-  assert.equal(f.detail, "EACCES: permission denied, open '…' at … (pid …)");
-  const main = fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8");
-  const i = main.indexOf("function esc("), j = main.indexOf("function sendCard(");
-  const cardScrub = new Function(main.slice(i, j) + "\nreturn scrub;")();
-  assert.equal(cardScrub(raw), V.scrub(raw), "the same scrub as the export card's");
-  const bad = logicPage({ taskView: { ok: false, message: raw } });
-  await bad.event({ name: "card-action", actionId: "open-editor", callId: "c", sessionId: "task-a" });
-  const small = shown(bad.sent.at(-1).html).at(-1);
-  for (const leak of ["Users", "clips-data", "7777", "4242"]) assert.ok(!small.includes(leak), leak + " in " + small);
-});
-
-/* Rea and QQ (2026-11-04): every small line that shows a raw error — the task page (frame.js), the export tool banner
-   (ffmpeg-banner.js), the export card (main.js), the overview (main-view-model.js) — drops paths, local ports and pids
-   the same way. Four pages, four copies (none can load another's script): they must stay alike. */
-test("the four copies of scrub agree", () => {
-  const frame = fs.readFileSync(path.join(PLUGIN, "frame.js"), "utf8");
-  const fromFrame = new Function("console", frame.slice(0, frame.indexOf("(function () {")) + "\nreturn scrub;")({ warn() { } });
-  const main = fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8");
-  const fromMain = new Function(main.slice(main.indexOf("function esc("), main.indexOf("function sendCard(")) + "\nreturn scrub;")();
-  const fromBanner = require(path.join(PLUGIN, "ffmpeg-banner.js")).scrub;
-  const samples = [
-    "EACCES: permission denied, open 'C:\\Users\\me\\clips-data\\project.json'",
-    "ENOENT: no such file or directory, stat 'D:/直播/11月/a.mp4'",
-    "connect ECONNREFUSED 127.0.0.1:7777", "listen EADDRINUSE: address already in use :::9222 (port 9222)",
-    "Another MontClip (desktop, pid 4242) is using this data folder",
-    "spawn /usr/lib/chromium/chromium ENOENT", "the editor stopped reporting progress (tab closed or browser crashed)",
-    "x".repeat(400), "", null,
-  ];
-  for (const s of samples) {
-    const want = V.scrub(s);
-    assert.equal(fromFrame(s), want, "frame.js: " + s);
-    assert.equal(fromBanner(s), want, "ffmpeg-banner.js: " + s);
-    assert.equal(fromMain(s), want, "main.js: " + s);
-    for (const leak of ["Users", "直播", "7777", "4242", "/usr/lib"]) assert.ok(!want.includes(leak), leak + " in " + want);
+test("no plugin page keeps a raw-error line or a scrub of its own: one rule, problem-details.js (JJ v2)", () => {
+  for (const f of ["frame.js", "ffmpeg-banner.js", "main-view.js", "main-view-model.js", "main.js"]) {
+    const src = fs.readFileSync(path.join(PLUGIN, f), "utf8");
+    assert.doesNotMatch(src, /function scrub\(|function rawLine\(|把下面这行发给我们/, f);
   }
+  // main.js (a logic page that cannot load scripts) has its own copy of copyLine: it must stay alike
+  const main = fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8");
+  const { problemLine } = new Function(main.slice(main.indexOf("function esc("), main.indexOf("function sendCard(")) + "\nreturn { problemLine };")();
+  const Problem = require(path.join(PLUGIN, "problem-details.js"));
+  const at = new Date("2026-11-04T12:00:00Z");
+  for (const sample of ["EACCES: open 'C:\\Users\\me\\a.json'", "token=" + "f".repeat(64), "Bearer x.y", ""])
+    assert.equal(problemLine("X", sample, at), Problem.copyLine({ code: "X", error: sample }, at), sample);
 });

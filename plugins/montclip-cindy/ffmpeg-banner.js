@@ -54,7 +54,7 @@
       permissionAgain: "点重试再来一次；还不行，重启电脑再试。",
       unpack: "解压没成功。",
       other: "没装上。",
-      otherAgain: "点重试再来一次；还不行，把下面这行发给我们：",
+      otherAgain: "点重试再来一次；还不行，点「复制问题信息」发给我们。",   // draft (JJ v2: the copy button, not the raw line)
       cancelled: "下载取消了，没有安装。",
       unsupported: "这台电脑的系统暂时没有对应的导出工具，导出和降噪用不了。",
       hostOld: "Cindy 版本太旧，装不了导出工具。先把 Cindy 更新到最新，再回来点下载。",
@@ -79,7 +79,7 @@
       permissionAgain: "Click Retry to try again; if that doesn't help, restart the computer and try again.",
       unpack: "Unpacking didn't work.",
       other: "It didn't install.",
-      otherAgain: "Click Retry to try again; if that doesn't help, send us the line below:",
+      otherAgain: "Click Retry to try again; if that doesn't help, use \"Copy problem details\" and send it to us.",
       cancelled: "The download was cancelled, so nothing was installed.",
       unsupported: "There is no export tool for this computer's system yet, so exporting and noise reduction aren't available.",
       hostOld: "This Cindy is too old to install the export tool. Update Cindy to the latest version, then come back and click download.",
@@ -101,35 +101,25 @@
     if (m.phase === "installed") return w.installed;
     return "";
   }
-  /** A failed install: {reason, text, detail, button}. `detail` is the raw error for the small line (only where the
-   *  sentence points to it); `button` is retry · install (下载并安装) · null (nothing to try again). `need` is the
+  /** A failed install: {reason, text, copy, button}. `copy`: the sentence points to 〔复制问题信息〕 (JJ v2: the raw
+   *  error is never on the page; the button copies it, scrubbed); `button` is retry · install (下载并安装) · null. `need` is the
    *  bytes to free for ENOSPC: the worker works it out from the archive, its unpacked size and the free space. */
   function describe(code, message, opts, lang) {
     const w = t(lang), need = opts && opts.need;
     const reason = reasonOf(code, message);
-    const raw = scrub(message);   // the small line: no paths, local ports or pids
+    const raw = String(message == null ? "" : message).trim();
     switch (reason) {
-      case "checksum": return { reason, text: w.checksum + w.again, detail: "", button: "retry" };
-      case "interrupted": return { reason, text: w.interrupted + w.again, detail: "", button: "retry" };
-      case "disk": return { reason, text: w.disk(aboutSize(need)) + w.again, detail: "", button: "retry" };
-      case "permission": return { reason, text: w.permission + w.permissionAgain, detail: "", button: "retry" };
-      case "unpack": return { reason, text: w.unpack + w.again, detail: "", button: "retry" };
-      case "cancelled": return { reason, text: w.cancelled, detail: "", button: "install" };
-      case "unsupported": return { reason, text: w.unsupported, detail: "", button: null };
-      case "hostOld": return { reason, text: w.hostOld, detail: "", button: null };
-      default: return raw ? { reason, text: w.other + w.otherAgain, detail: raw, button: "retry" }
-        : { reason, text: w.other + w.again, detail: "", button: "retry" };
+      case "checksum": return { reason, text: w.checksum + w.again, copy: false, button: "retry" };
+      case "interrupted": return { reason, text: w.interrupted + w.again, copy: false, button: "retry" };
+      case "disk": return { reason, text: w.disk(aboutSize(need)) + w.again, copy: false, button: "retry" };
+      case "permission": return { reason, text: w.permission + w.permissionAgain, copy: false, button: "retry" };
+      case "unpack": return { reason, text: w.unpack + w.again, copy: false, button: "retry" };
+      case "cancelled": return { reason, text: w.cancelled, copy: false, button: "install" };
+      case "unsupported": return { reason, text: w.unsupported, copy: false, button: null };
+      case "hostOld": return { reason, text: w.hostOld, copy: false, button: null };
+      default: return raw ? { reason, text: w.other + w.otherAgain, copy: true, button: "retry" }
+        : { reason, text: w.other + w.again, copy: false, button: "retry" };
     }
   }
-  /** The raw error for the small line, without what is only this computer's business: paths, local ports, pids (the
-   *  same scrub as frame.js's and the export card's). */
-  function scrub(raw) {
-    return String(raw == null ? "" : raw)
-      .replace(/\b[A-Za-z]:[\\/][^\s'"）)]*/g, "…")
-      .replace(/(^|[\s('"=])\/(?:[^\s/'"]+\/)+[^\s'"）)]*/g, "$1…")
-      .replace(/\b(?:127\.0\.0\.1|localhost|0\.0\.0\.0|\[::1\]):\d+/gi, "…")
-      .replace(/\b(pid|port)\b[\s=:#]*\d+/gi, "$1 …")
-      .trim().slice(0, 300);
-  }
-  return { reasonOf, describe, progressText, aboutSize, scrub, TEXT, REASONS };
+  return { reasonOf, describe, progressText, aboutSize, TEXT, REASONS };
 });
