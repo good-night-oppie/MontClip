@@ -120,6 +120,8 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     assert.match(shown.WorkGroupBlock.text, /用了 58 秒/);
     report.thoughtDone = (await show('ThinkingCard', `()=>({content:'看了项目和字幕',isStreaming:false,durationMs:58000,blockKey:'think-2'})`)).text.replace(/\s+/g, ' ');
     assert.match(report.thoughtDone, /想了 58 秒/, 'the finished thinking card (JJ)');
+    report.thoughtStopped = (await show('ThinkingCard', `()=>({content:'看了项目',isStreaming:false,aborted:true,durationMs:12000,blockKey:'think-3'})`)).text.replace(/\s+/g, ' ');
+    assert.match(report.thoughtStopped, /想了 12 秒，停下了/, 'the stopped thinking card (JJ)');
     assert.doesNotMatch(shown.WorkGroupBlock.text, /\d+s\b/);
     assert.match(shown.AskUserQuestionPrompt.text, /这段要不要留/);
     report.voiceButton = await read(`(()=>{const b=document.querySelector('#partBox_AskUserQuestionPrompt [data-testid="ask-user-voice"]');return b?getComputedStyle(b).display:'absent';})()`);
