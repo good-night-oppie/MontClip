@@ -9879,6 +9879,11 @@ function buildTranscriptPage() {
     placeCaptions(FableCutCaptions.fit(list, m.chars, m.lines), st, `from ${f.name}`);
   });
   q("[data-tr-cut-sel]").addEventListener("click", cutTranscriptSelection);
+  // a gap's time (trGapsHtml): click or Enter
+  E.body.addEventListener("click", (e) => {
+    const gap = e.target.closest(".tr-gap-go");
+    if (gap) goToTranscriptTime(+gap.dataset.t);
+  });
   E.body.addEventListener("mousedown", (e) => {
     const tc = e.target.closest(".tr-tc");
     if (tc) { goToTranscriptTime(+tc.dataset.t); return; }
@@ -9942,7 +9947,9 @@ function trGapsHtml(groups) {
   }
   if (!spots.length) return "";
   spots.sort((x, y) => x.t - y.t);
-  const shown = spots.slice(0, 20).map((x) => `<span class="tr-tc" data-t="${x.t}" title="${escapeHtml(fmt(x.t))}">${escapeHtml(fmt(x.t))}–${escapeHtml(fmt(x.u))}</span>`).join(" ");
+  // the 自动出切片 cards' time format (0:15–0:22), not the tab's frame timecode, which reads as minutes; a button each, so Tab
+  // reaches it and Enter goes there (VV on #95 d95ab21)
+  const shown = spots.slice(0, 20).map((x) => `<button type="button" class="tr-gap-go" data-t="${x.t}">${escapeHtml(MontClipAutoSlices.hms(x.t))}–${escapeHtml(MontClipAutoSlices.hms(x.u))}</button>`).join(" ");
   const more = spots.length > 20 ? " " + escapeHtml(uiText("own.tr-gaps-more", { more: spots.length - 20 })) : "";
   return `<div class="tr-note tr-gaps" data-tr-gaps>${escapeHtml(uiText("own.tr-gaps-note", { n: spots.length, dur: trGapDur(total) }))} ${shown}${more}</div>`;
 }
