@@ -10299,7 +10299,10 @@ function placeCaptions(list, styleKey, from) {
   state.dirtyTimeline = true;
   scheduleSave();
   renderInspector();
-  toast(`${list.length} caption${list.length === 1 ? "" : "s"} on ${track}${from ? " " + from : ""}${old.length ? ` · replaced ${old.length}` : ""}`);
+  // 〔加字幕〕 in the interface language (N3d); an imported file still says where it came from, in English, as before
+  if (from) toast(`${list.length} caption${list.length === 1 ? "" : "s"} on ${track} ${from}${old.length ? ` · replaced ${old.length}` : ""}`);
+  else toast(old.length ? MontClipView.tp(mcView.get().language, "own.cap-added-replaced", { n: list.length, m: old.length }, { n: list.length, track, m: old.length })
+    : MontClipView.tp(mcView.get().language, "own.cap-added", { n: list.length }, { n: list.length, track }));
 }
 /** A cut, split or trim that shortens a caption leaves its words timed to the old cut: say so, for a moment. */
 const capWatch = { durs: null, at: 0, said: 0 };
@@ -11136,10 +11139,9 @@ function autoUndo() {
   if (st.step !== "review" || !st.hist.length) return;
   const lyr = (cs) => new Map(cs.map((c) => [c.id, JSON.stringify(c.lyricCues || null)]));
   const was = lyr(st.clips);
-  // the lyrics pasted stay on their card: an undo takes back a calibration, not what the streamer pasted (VV on #100)
-  const pasted = new Map(st.clips.concat(st.dropped).filter((c) => c.lyricText).map((c) => [c.id, c.lyricText]));
-  const o = JSON.parse(st.hist.pop()); st.clips = o.clips; st.dropped = o.dropped;
-  for (const c of st.clips.concat(st.dropped)) if (pasted.has(c.id) && !c.lyricText) c.lyricText = pasted.get(c.id);
+  // the lyrics pasted stay on their card, the last paste (MontClipAutoSlices.keepPasted): an undo takes back a calibration,
+  // not what the streamer pasted (VV on #100, #105)
+  const o = MontClipAutoSlices.keepPasted(st, JSON.parse(st.hist.pop())); st.clips = o.clips; st.dropped = o.dropped;
   if (o.learnOn) autoLearnSet(false);   // 〔打开〕 undone: off again
   autoRender("review"); autoToast(uiText("own.as-undone"), false);
   const back = st.clips.find((c) => was.has(c.id) && was.get(c.id) !== JSON.stringify(c.lyricCues || null));
