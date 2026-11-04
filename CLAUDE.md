@@ -173,6 +173,13 @@ reports the real paths.
 folder — the Windows app and the Cindy plugin pointed at one folder, say —
 refuses to start and names the first. A lock whose process is gone is taken over.
 
+**Embedded in Cindy** (`plugins/montclip-cindy`, see its README) the engine runs
+with `MONTCLIP_HOST=cindy` and a 64-hex `MONTCLIP_EMBED_TOKEN`, loopback only. It
+answers only requests that carry the token: as the `montclip_embed` cookie, which a
+page load of any URL with `?token=<token>` receives (302 to the same URL without it),
+or as `X-MontClip-Session` (the plugin worker, and `mcp-server.js` when it runs with
+the same variables). Everything else gets 403.
+
 `mcp-server.js` run as a program speaks MCP on stdio; required as a module (the
 Cindy plugin's Node worker does) it only hands over `{TOOLS, callTool,
 ensureUIServer}` and leaves stdin alone.

@@ -80,6 +80,24 @@ const DESKTOP = process.env.MONTCLIP_DESKTOP === "1";
 const DESKTOP_TOKEN = process.env.MONTCLIP_SESSION_TOKEN;
 if (DESKTOP && (HOST !== "127.0.0.1" || !/^[a-f0-9]{64}$/.test(DESKTOP_TOKEN || "")))
   throw new Error("Desktop requires loopback binding and a fresh session token");
+/* Embedded in Cindy (plugins/montclip-cindy): the plugin's pages frame this server, and a frame cannot add a
+   request header. The worker starts the engine with a fresh random token; the frame's first page load carries it
+   once in the URL (?token=), gets it back as an HttpOnly cookie, and every later request carries the cookie.
+   The worker's own calls send it as X-MontClip-Session. Anything else on this machine gets 403. */
+const EMBED = process.env.MONTCLIP_HOST === "cindy";
+const EMBED_TOKEN = process.env.MONTCLIP_EMBED_TOKEN;
+if (EMBED && (HOST !== "127.0.0.1" || !/^[a-f0-9]{64}$/.test(EMBED_TOKEN || "")))
+  throw new Error("Embedding in Cindy requires loopback binding and a fresh session token");
+const EMBED_COOKIE = "montclip_embed";
+const sameToken = (a) => typeof a === "string" && a.length === EMBED_TOKEN.length &&
+  crypto.timingSafeEqual(Buffer.from(a), Buffer.from(EMBED_TOKEN));
+function embedCookie(req) {
+  for (const part of String(req.headers.cookie || "").split(";")) {
+    const i = part.indexOf("=");
+    if (i > 0 && part.slice(0, i).trim() === EMBED_COOKIE) return part.slice(i + 1).trim();
+  }
+  return null;
+}
 let boundPort = PORT;
 const serverOrigin = () => `http://127.0.0.1:${boundPort}`;
 
@@ -104,10 +122,28 @@ function requestAllowed(req) {
     return !req.headers.origin || req.headers.origin === serverOrigin();
   }
   if (!hostAllowed(req.headers.host)) return false;
+  if (EMBED && !sameToken(req.headers["x-montclip-session"]) && !sameToken(embedCookie(req))) return false;
   const origin = req.headers.origin;
   if (origin) {
     try { return hostAllowed(new URL(origin).host); } catch { return false; }
   }
+  return true;
+}
+/** Embedded: a page load that brings the token in its URL gets it back as a cookie, and is sent on to the same
+ *  URL without it (so the token does not stay in the frame's address or its history). True when answered. */
+function embedBootstrap(req, res) {
+  if (!EMBED || req.method !== "GET" || !hostAllowed(req.headers.host)) return false;
+  const url = new URL(req.url, "http://localhost");
+  const token = url.searchParams.get("token");
+  if (token === null) return false;
+  if (!sameToken(token)) { sendJSON(res, 403, { error: "forbidden: wrong session token" }); return true; }
+  url.searchParams.delete("token");
+  // SameSite=None + Partitioned: the frame sits inside Cindy's own page (another site); Secure is allowed on loopback
+  res.writeHead(302, {
+    "Set-Cookie": `${EMBED_COOKIE}=${EMBED_TOKEN}; Path=/; HttpOnly; SameSite=None; Secure; Partitioned`,
+    Location: url.pathname + url.search, "Cache-Control": "no-store", "Referrer-Policy": "no-referrer",
+  });
+  res.end();
   return true;
 }
 
@@ -728,7 +764,7 @@ const freshExports = new Set();
    headless browser the server starts (export-jobs.js). */
 const exportJobs = createExportJobs({
   allowHeadless: !DESKTOP,
-  url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}`,
+  url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}${EMBED ? "&token=" + EMBED_TOKEN : ""}`,
   broadcast,
   editors: () => sseClients.size,
 });
@@ -768,6 +804,7 @@ function serveFile(req, res, filePath) {
 
 /* ── Server ── */
 const server = http.createServer(async (req, res) => {
+  if (embedBootstrap(req, res)) return;
   if (!requestAllowed(req)) {
     sendJSON(res, 403, { error: "forbidden: request must come from this machine (bad Host or Origin header)" });
     return;
