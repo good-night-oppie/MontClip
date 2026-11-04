@@ -7,7 +7,16 @@
   const view = document.body.dataset.view || 'task';
   const session = new URLSearchParams(location.search).get('session') || '';   // the task this page belongs to
   const channel = new BroadcastChannel('montclip');
-  const show = (text, error) => { status.textContent = text; status.className = error ? 'error' : ''; status.hidden = false; };
+  const show = (text, error, retry) => {
+    status.textContent = text; status.className = error ? 'error' : ''; status.hidden = false;
+    if (retry) {   // e.g. the Windows app has these projects open: once it is closed, try again here
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = '重试';
+      b.addEventListener('click', () => location.reload());
+      status.appendChild(b);
+    }
+  };
+  const inUse = (m) => m && m.code === 'DATA_DIR_IN_USE';
 
   function ask(type, extra) {
     const reqId = type + '-' + Math.random().toString(36).slice(2);
@@ -45,7 +54,7 @@
   async function bind() {
     if (view !== 'task' || !session) return true;
     const b = await ask('bind', { session });
-    if (b.error) { show('MontClip 没能打开这个任务的项目：' + b.error, true); return false; }
+    if (b.error) { show(inUse(b) ? b.error : 'MontClip 没能打开这个任务的项目：' + b.error, true, inUse(b)); return false; }
     return true;
   }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && url) bind(); });
@@ -54,7 +63,7 @@
     try { await fetch('/wake'); } catch (e) { /* a page of a stopped plugin: the asks below simply wait */ }
     if (!(await bind())) return;
     const a = await ask('editor');
-    if (a.error || !a.url) { show('MontClip 没能启动：' + (a.error || '没有地址'), true); return; }
+    if (a.error || !a.url) { show(inUse(a) ? a.error : 'MontClip 没能启动：' + (a.error || '没有地址'), true, inUse(a)); return; }
     place(a.url);
     /* While the page is open the engine must stay up: asking keeps the worker from going idle, and when it was
        restarted (another port or a new token) the frame follows it — the editor keeps its undo history on the
