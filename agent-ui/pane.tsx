@@ -6,6 +6,7 @@ import {SendButton} from './upstream/SendButton';
 import {ListComposerTextarea} from './upstream/ListComposerTextarea';
 import {SettingsTextInput} from './upstream/SettingsTextInput';
 import {ThinkingText} from './upstream/ThinkingText';
+import './parts';
 declare const MontClipAgentPane:any,MontClipConversation:any,MontClipFormat:any;
 // provider failures told apart in plain words; anything else keeps the general message
 const ERR:Record<string,string>={AUTH:'errAuth',MODEL_INVALID:'errModel',RATE_LIMIT:'errRateLimit',TIMEOUT:'errTimeout',NETWORK:'errNetwork',UPSTREAM:'errUpstream'};

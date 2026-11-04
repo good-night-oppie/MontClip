@@ -1,0 +1,19 @@
+{
+ "about": "MontClip's own words for Cindy keys whose Cindy wording does not fit MontClip, laid over cindy-strings.json. The four permission modes are MontClip's (#83); the stand-in useAgentCapabilities gives them under Cindy's ids plan / ask / auto / bypassPermissions.",
+ "zh-CN": {
+  "newChat": { "permissionSelector": { "triggerAria": "AI 怎么做：{{label}}", "listAria": "AI 怎么做", "modes": { "claude-code": {
+   "plan": { "label": "计划", "description": "只出计划，不改项目" },
+   "ask": { "label": "手动", "description": "改项目前先问你；撤不回的每次都问" },
+   "auto": { "label": "自动", "description": "能撤销的直接做，撤不回的先问你" },
+   "bypassPermissions": { "label": "Yolo", "description": "全都直接做，不再问你；往外发的内容照样先给你看" }
+  } } } }
+ },
+ "en": {
+  "newChat": { "permissionSelector": { "triggerAria": "How the AI works: {{label}}", "listAria": "How the AI works", "modes": { "claude-code": {
+   "plan": { "label": "Plan", "description": "Only plans; changes nothing" },
+   "ask": { "label": "Manual", "description": "Asks before changing the project; asks every time for anything that can't be undone" },
+   "auto": { "label": "Auto", "description": "Does what can be undone; asks before what can't" },
+   "bypassPermissions": { "label": "Yolo", "description": "Does everything without asking; anything sent out is still shown to you first" }
+  } } } }
+ }
+}
