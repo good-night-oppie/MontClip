@@ -64,7 +64,7 @@ export const colors = exportThemeColors(theme as any); export const id = (theme 
   const cfg = await load(path.join(ROOT, 'apps/desktop/tailwind.config.ts'));
   const config = cfg.default || cfg;
   const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => SKIP.includes(e.name) ? [] : e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]);
-  const content = [...walk(path.join(R, 'components')), ...walk(path.join(R, 'hooks')), ...walk(path.join(R, 'lib')), ...walk(path.join(__dirname, 'stand-ins')), path.join(__dirname, 'parts.tsx')]
+  const content = [...walk(path.join(R, 'components')), ...walk(path.join(R, 'hooks')), ...walk(path.join(R, 'lib')), ...walk(path.join(__dirname, 'stand-ins')), path.join(__dirname, 'parts.tsx'), path.join(__dirname, 'HostCard.tsx')]
     .filter((f) => /\.(tsx?|js)$/.test(f));
   // Cindy's parts count on Tailwind's preflight (a button has no face of its own, a field no frame…). MontClip's page does
   // not: preflight, like every rule here, applies only inside the parts (SCOPE, step 4). Its rules for html and body are

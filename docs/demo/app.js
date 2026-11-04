@@ -22886,29 +22886,17 @@ async function setAgentMode(mode){
 }
 /** The Yolo mark in the top bar, shown all the time Yolo is on (the assistant has its own mark in the pane). */
 function paintAgentMode(){const mark=document.getElementById('mcYoloMark');if(mark)mark.hidden=agentPolicy.mode!=='yolo';if(typeof mcAgent!=='undefined'&&mcAgent)mcAgent.render();}
-/** The host's approval box (QQ 4: only the host shows it). It shows the capability's plain sentence (never its internal
- *  name), what it changes or where it sends, and for an external step what is sent. Resolves to once | session | deny. */
-function askAgentApproval(d,{summary='',content=null,detail=''}={}){
- return new Promise((resolve)=>{
-  const dialog=document.createElement('dialog');dialog.className='agent-approval';dialog.setAttribute('data-agent-approval','');
-  const say=(k,v)=>escapeHtml(uiText(k,v)),choice=(c)=>'<button type="button" class="btn'+(c==='once'?' primary':'')+'" data-choice="'+c+'">'+say('own.ap-'+c)+'</button>';
-  // v7.2 (VV on #84): first what this step changes (MontClipPlan.stepDetail, 「保留 0:00–1:55」), the plain sentence under it, small;
-  // a step with nothing concrete to say (an export) keeps the plain sentence first
-  dialog.innerHTML='<form method="dialog"><h3>'+say('own.ap-title')+'</h3>'+(detail?'<p class="agent-approval-detail" data-ap-detail></p>':'')+'<p data-ap-label'+(detail?' class="agent-approval-what"':'')+'></p><p data-ap-summary></p><p data-ap-target></p>'
-   +(content!=null?'<p>'+say('own.ap-content')+'</p><pre data-ap-content></pre>':'')
-   +(d.choices.includes('session')?'':'<p data-ap-every-time>'+say('own.ap-every-time')+'</p>')
-   +'<div class="tr-row">'+d.choices.map(choice).join('')+'</div></form>';
-  if(detail)dialog.querySelector('[data-ap-detail]').textContent=detail;
-  dialog.querySelector('[data-ap-label]').textContent=d.label;
-  dialog.querySelector('[data-ap-summary]').textContent=summary;
-  dialog.querySelector('[data-ap-target]').textContent=d.risk==='external'?uiText('own.ap-sends-to',{domain:d.target}):uiText('own.ap-project',{name:project.name||''});
-  if(content!=null)dialog.querySelector('[data-ap-content]').textContent=content;
-  let answer='deny';
-  for(const b of dialog.querySelectorAll('[data-choice]'))b.addEventListener('click',()=>{answer=b.dataset.choice;dialog.close();});
-  dialog.addEventListener('close',()=>{dialog.remove();resolve(answer);});
-  document.body.append(dialog);dialog.showModal();dialog.querySelector('[data-choice="deny"]').focus();
- });
-}
+/* The host's approval card (QQ 4: only the host shows it; v7.2 §2 and Deja's step 3: in the assistant's message stream, under
+   the reply or its plan, no longer a box over the page). A card is the host's own state, made only here, from a decision the
+   main process issued with a ticket (d.ticket); a reply's words never make one, and the stream shows them as plain text. It
+   belongs to the reply (or plan) it is about. Its buttons settle that card once; the caller sends the answer to the main
+   process with the ticket, which answers once. Until then the AI's step waits: nothing after it runs, and nothing can be sent.
+   Leaving the chat, or the project changing, while a card waits is a 「不同意」. The card says what this step changes
+   (MontClipPlan.stepDetail, 「保留 0:00–1:55」, 15 px), the capability's plain sentence under it (never its internal name), what
+   it changes or where it sends, and for an external step what is sent. Resolves to once | session | deny. */
+const agentApprovals=MontClipApproval.create({onChange:()=>{if(typeof mcAgent!=='undefined'&&mcAgent)mcAgent.render();},context:()=>JSON.stringify(agentProjectContext())});
+function askAgentApproval(d,options={}){return agentApprovals.ask(d,options);}
+const agentApprovalView=(result)=>agentApprovals.view(result,uiText,project.name||'');
 /** Bytes for the streamer: KB under a megabyte, else MB, one decimal at most (1 KB = 1024 bytes). */
 function byteText(n){const mb=n/1048576;return mb>=1?(Math.round(mb*10)/10)+' MB':Math.max(1,Math.round(n/1024))+' KB';}
 /** Why a step was refused, in plain words; over a cap it says by how much (Deja on #83: never cut down to fit). */
@@ -22938,7 +22926,7 @@ async function onAgentReply(result){
  if(d.action==='refuse'){toast(agentRefusalText(d));return;}
  let step;try{step=agentProposalStep(response,result);}catch(error){toast(uiText(error.message==='STALE'?'own.ap-stale':'own.ap-invalid'));return;}
  if(d.action==='ask'){
-  const choice=await askAgentApproval(d,{summary:agentProposalText(result),detail:MontClipPlan.stepDetail({capability:response.type,args:response},mcView.get().language)});
+  const choice=await askAgentApproval(d,{result,summary:agentProposalText(result),detail:MontClipPlan.stepDetail({capability:response.type,args:response},mcView.get().language)});
   let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}
   if(!a||!a.ok||!a.run){if(step.ev)moveEvent(step.ev.id,'rejected');toast(uiText('own.ap-denied'));return;}
  }
@@ -22993,7 +22981,7 @@ async function runAgentPlanStep(s,entry,result){
  catch(error){recordAgentEvent(MontClipProposal.failedEvent(error,{...meta,capability:s.capability}));return {ok:false,code:'STALE'};}
  const ev=recordAgentEvent(MontClipProposal.event(proposal,meta));if(ev)proposal.eventId=ev.id;
  if(d.action==='ask'){
-  const choice=await askAgentApproval(d,{summary:uiText('own.pl-step-of',{n:s.index+1,total:entry.run.list().length}),detail:MontClipPlan.stepDetail(s,mcView.get().language)});
+  const choice=await askAgentApproval(d,{result,summary:uiText('own.pl-step-of',{n:s.index+1,total:entry.run.list().length}),detail:MontClipPlan.stepDetail(s,mcView.get().language)});
   let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}
   if(!a||!a.ok||!a.run){if(ev)moveEvent(ev.id,'rejected');return {halt:'DENIED'};}
  }
@@ -23059,6 +23047,7 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[]});},
  ...(window.montclipAgentPolicy?{getMode:()=>agentPolicy.mode,setMode:setAgentMode,onReply:result=>{void onAgentReply(result);},
   getPlan:agentPlanView,planStart:runAgentPlan,planUndo:undoAgentPlan,
+  getApprovals:agentApprovalView,answerApproval:(id,choice)=>agentApprovals.answer(id,choice),approvalPending:()=>agentApprovals.waiting(),approvalLeave:()=>agentApprovals.leave(),
   planRemove:(result,i)=>{agentPlanOf(result)?.run.remove(i);},planDiscard:(result)=>{agentPlanOf(result)?.run.discard();}}:{}),
  getFactsOmitted:()=>MontClipFacts.omitted(projectJSON()),
  onUndo:result=>{if(canUndoOfficialProposal(result)){const entry=officialProposalApplications.get(result);if(!entry?.eventId||!undoEvent(entry.eventId).ok)undo();}},
@@ -23069,5 +23058,5 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  },
  getReferences:kind=>MontClipAgentPane.referenceChips(kind,{...agentProjectContext(),
  start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(FableCutCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
-setInterval(()=>mcAgent.sync(),500);
+setInterval(()=>{agentApprovals.check();mcAgent.sync();},500);
 if(window.montclipAgentPolicy)void loadAgentMode();

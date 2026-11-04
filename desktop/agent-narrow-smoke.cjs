@@ -88,7 +88,27 @@ BrowserWindow.prototype.loadURL=async function(...args){
   // and the plan's buttons are in sight without scrolling (VV on #84 53f641d: at 1280 〔开始〕 needed a scroll)
   report.wideStart=await read(`(()=>{const b=document.querySelector('[data-plan-start]'),r=b.getBoundingClientRect();let top=r.top,bottom=r.bottom;for(let p=b.parentElement;p;p=p.parentElement){const s=getComputedStyle(p);if(s.overflowY!=='visible'){const q=p.getBoundingClientRect();top=Math.max(top,q.top);bottom=Math.min(bottom,q.bottom);}}return{h:Math.round(r.height),visible:Math.round(Math.max(0,Math.min(bottom,innerHeight)-Math.max(top,0)))};})()`);
   assert.ok(report.wideStart.visible>=report.wideStart.h-1,'〔开始〕 in sight at 1280: '+JSON.stringify(report.wideStart));
-  report.requests=requests;report.transport='mock-test-only';
+  // step 3 (Deja): the approval card in the stream, whole and above the input box, at 1280×820 and 630×460
+  await read(`setAgentMode('manual')`);await wait(300);
+  assert.equal(await read('agentPolicy.mode'),'manual');
+  await read(`document.querySelector('[data-plan-start]').click();true`);
+  const cardSeen=()=>read(`(()=>{const c=document.querySelector('[data-host-card="approval"]');if(!c)return null;const r=c.getBoundingClientRect();let top=r.top,bottom=r.bottom;
+   for(let p=c.parentElement;p;p=p.parentElement){const s=getComputedStyle(p);if(s.overflowY!=='visible'){const q=p.getBoundingClientRect();top=Math.max(top,q.top);bottom=Math.min(bottom,q.bottom);}}
+   const comp=document.querySelector('[data-cindy-draft]').getBoundingClientRect();
+   return{h:Math.round(r.height),visible:Math.round(Math.max(0,Math.min(bottom,innerHeight)-Math.max(top,0))),bottom:Math.round(r.bottom),composerTop:Math.round(comp.top),composerH:Math.round(comp.height),
+    sizes:[...c.querySelectorAll('[data-host-card-first],[data-host-card-second]')].map(e=>getComputedStyle(e).fontSize),focus:document.activeElement?.dataset?.hostChoice||null,step:document.querySelector('[data-plan] li [data-step-state-text]')?.textContent||null};})()`);
+  for(let i=0;i<30&&!await cardSeen();i++)await wait(100);
+  for(const [w,h,name] of [[1280,820,'wide'],[630,460,'narrow']]){
+   if(name==='narrow'){await size(w,h);await read(`setSideTab('assistant');mcAgent.render();true`);await wait(300);}
+   const c=await cardSeen();report['card_'+name]=c;await shot('card-'+w+'x'+h);
+   assert.ok(c,name+': the card is shown');
+   assert.ok(c.visible>=c.h-1,name+': the card is whole: '+JSON.stringify(c));
+   assert.ok(c.bottom<=c.composerTop+1&&c.composerH>=28,name+': above the input box, which is in sight: '+JSON.stringify(c));
+   assert.equal(c.step,'进行中');
+   assert.deepEqual(c.sizes,['15px','12px'],name+': what changes in 15 px, the sentence under it in 12 px (v7.2)');
+  }
+  assert.equal(report.card_wide.focus,'once','the main button has the focus');
+  await read(`document.querySelector('[data-host-card="approval"] [data-host-choice="deny"]').click();true`);await wait(300);
   ok=true;
  }catch(e){report.error=String(e&&e.stack||e).slice(0,1500);}
  finally{out(ok?'NARROW_PASS':'NARROW_FAIL',report);process.exitCode=ok?0:1;app.exit(ok?0:1);}

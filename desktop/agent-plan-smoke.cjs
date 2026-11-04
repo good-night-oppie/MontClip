@@ -43,7 +43,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   };
   const view=()=>read(`(()=>{const p=document.querySelector('[data-plan]');if(!p)return null;return{text:p.textContent,steps:[...p.querySelectorAll('li')].map(li=>({label:li.querySelector('[data-step-label]').textContent,detail:li.querySelector('[data-step-detail]')?.textContent||'',mark:li.querySelector('[data-step-mark]').textContent,state:li.querySelector('[data-step-state-text]').textContent,reason:li.querySelector('[data-step-reason]')?.textContent||''})),
    start:p.querySelector('[data-plan-start]')?{disabled:p.querySelector('[data-plan-start]').disabled}:null,undo:!!p.querySelector('[data-plan-undo]'),note:p.querySelector('[data-plan-note]')?.textContent||''};})()`);
-  const box=()=>read(`(()=>{const d=document.querySelector('[data-agent-approval][open]');return d?{first:d.querySelector('h3').nextElementSibling.textContent,detail:d.querySelector('[data-ap-detail]')?.textContent??null,label:d.querySelector('[data-ap-label]').textContent,summary:d.querySelector('[data-ap-summary]').textContent}:null;})()`);
+  const box=()=>read(`(()=>{const d=document.querySelector('[data-host-card="approval"]');if(!d)return null;const sec=d.querySelector('[data-host-card-second]'),first=d.querySelector('[data-host-card-first]').textContent;return{text:d.textContent,first,detail:sec?first:null,label:sec?sec.textContent:first,summary:d.querySelector('[data-host-card-more]')?.textContent||'',choices:[...d.querySelectorAll('[data-host-choice]')].map(b=>[b.dataset.hostChoice,b.textContent]),focus:document.activeElement?.dataset?.hostChoice||null,inStream:!!d.closest('.cindy-thread'),dialogs:document.querySelectorAll('dialog[open]').length,waiting:document.querySelector('[data-approval-waiting]')?.textContent||null};})()`);
   const until=async(f,ms=6000)=>{const end=Date.now()+ms;let v;while(!(v=await f())&&Date.now()<end)await wait(100);return v;};
   // 1. a plan of three steps shows as a list; delete the third
   await turn({type:'plan',steps:[keep('v1',0,115),keep('range0_v1',0,110),{capability:'fablecut_export',args:{}}]});
@@ -63,13 +63,13 @@ BrowserWindow.prototype.loadURL=async function(...args){
   // 2. 〔开始〕 in 手动: the box for step 1 (one step 进行中), 「都批准」, step 2 runs without asking
   const before=await clips();
   await read(`document.querySelector('[data-plan-start]').click();true`);
-  const b1=await until(box);report.box=b1;assert.ok(b1,'手动 asks for the first step');assert.equal(b1.label,Cap.label('keep_ranges','zh-CN'));assert.match(b1.summary,/第 1 步，共 2 步/);
+  const b1=await until(box);report.box=b1;assert.ok(b1,'手动 asks for the first step');assert.equal(b1.label,Cap.label('keep_ranges','zh-CN'));const vAsk=await view();assert.equal(vAsk.steps[0].state,'进行中','while its card waits, the step is 进行中 (Deja, step 3)');
   // VV on #84 (Deja, 2026-11-04; v7.2): the box's first line is what this step changes (stepDetail), the plain sentence second
   assert.equal(b1.first,'保留 0:00–1:55');assert.equal(b1.detail,'保留 0:00–1:55');
   assert.deepEqual((await view()).steps.map(s=>s.state),['进行中','待做'],'one step 进行中');
   await shot('plan-doing');
   assert.equal(await read(`document.querySelector('[data-plan] [data-step-remove]')`),null,'no deleting once started');
-  await read(`document.querySelector('[data-agent-approval][open] [data-choice="session"]').click();true`);
+  await read(`document.querySelector('[data-host-card="approval"] [data-host-choice="session"]').click();true`);
   const done=await until(async()=>{const v=await view();return v&&v.steps.every(s=>s.state==='完成')&&v.undo?v:null;},10000);
   report.done=done&&{states:done.steps.map(s=>s.state),note:done.note};
   assert.ok(done,'both steps done; the second without asking');await shot('plan-done');assert.match(done.note,/每一步都做完了/);
@@ -117,7 +117,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   const en=await until(box);report.boxEn=en;
   assert.ok(en,'manual asks in English too');assert.equal(en.first,'Keep 0:00–1:55');assert.equal(en.detail,'Keep 0:00–1:55');
   assert.equal(en.label,Cap.label('keep_ranges','en'));
-  await read(`document.querySelector('[data-agent-approval][open] [data-choice="deny"]').click();true`);await wait(400);
+  await read(`document.querySelector('[data-host-card="approval"] [data-host-choice="deny"]').click();true`);await wait(400);
   assert.equal(await clips(),before,'declined: nothing done');
   await read(`updateMontClipView({language:'zh-CN'});true`);
   report.requests=requests;report.transport='mock-test-only';
