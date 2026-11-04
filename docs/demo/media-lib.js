@@ -36,8 +36,28 @@
   };
   const round = (v, n) => Math.round(v * 10 ** n) / 10 ** n;
 
+  /** An MKV stream's DURATION tag, "HH:MM:SS.nnnnnnnnn", in seconds (0 when it is not one). */
+  function tagSeconds(s) {
+    const m = /^(\d+):([0-5]\d):([0-5]\d(?:\.\d+)?)$/.exec(String(s || "").trim());
+    return m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : 0;
+  }
+  /** How long a file plays, in seconds, or 0 when nothing in the probe says (JJ / Rea, 2026-11-04). A Matroska
+   *  file's format.duration (and each stream's DURATION tag) is where its last timestamp ends, so the start time comes
+   *  off: one whose timestamps start at 3600 s says 3620 s for 20 s. MP4, MOV and TS already give the length. A
+   *  recording cut off mid-way may not say it in the header: then the streams' own durations, then the DURATION tags. */
+  function probeDuration(fmt, streams) {
+    const mkv = /\bmatroska\b|\bwebm\b/.test(String(fmt.format_name || ""));
+    const less = (d, start) => (mkv && start > 0 && d > start ? d - start : d);
+    const dur = less(Number(fmt.duration), Number(fmt.start_time) || 0);
+    if (dur > 0) return dur;
+    const av = streams.filter((s) => (s.codec_type === "video" || s.codec_type === "audio") && !(s.disposition && s.disposition.attached_pic));
+    const longest = (f) => av.reduce((m, s) => Math.max(m, f(s) || 0), 0);
+    return longest((s) => Number(s.duration)) || longest((s) => less(tagSeconds(s.tags && (s.tags.DURATION || s.tags.duration)), Number(s.start_time) || 0));
+  }
+
   /** ffprobe -show_format -show_streams -of json output → the INFO_KEYS (+ duration,
-   *  width, height). `size` falls back to the stat size the caller passes. */
+   *  width, height). `size` falls back to the stat size the caller passes. A video or a
+   *  sound whose length nothing says gets durationUnknown: true (never duration 0). */
   function parseProbe(json, statSize) {
     const out = {};
     const streams = Array.isArray(json && json.streams) ? json.streams : [];
@@ -46,7 +66,7 @@
     const a = streams.find((s) => s.codec_type === "audio");
     const size = Number(fmt.size) || Number(statSize) || 0;
     if (size > 0) out.size = size;
-    const dur = Number(fmt.duration);
+    const dur = probeDuration(fmt, streams);
     if (dur > 0) out.duration = round(dur, 3);
     const br = Number(fmt.bit_rate);
     if (br > 0) out.bitrate = Math.round(br);
@@ -68,6 +88,7 @@
       const sr = Number(a.sample_rate);
       if (sr > 0) out.sampleRate = sr;
     } else if (v && !still) out.audioChannels = 0;   // a video without sound says so; a picture has no audio to speak of
+    if (!(dur > 0) && (a || (v && !still))) out.durationUnknown = true;
     return out;
   }
 

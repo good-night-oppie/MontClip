@@ -227,6 +227,9 @@
     "err-editor-no-accept": ["The editor did not take the task. Wait until it is ready, then try again.", "编辑窗口没接到这个任务。等它准备好，再试一次。"],
     "map-no-media": ["This project has no audio or video, so there is no time mapping to export.", "这个项目里没有音视频，导不出时间对照表。"],
     "connected": ["Ready", "就绪"],
+    // a file whose length nothing in it says (an MKV cut off mid-recording): drafts, for JJ (2026-11-04)
+    "media-duration-unknown": ["“{name}” doesn't say how long it is, so MontClip can't tell its length. Its length on the timeline may be wrong.", "「{name}」里没写时长，MontClip 读不出它有多长，放到时间线上的长度可能不对。"],
+    "media-duration-unknown-n": ["{n} files don't say how long they are, so MontClip can't tell their length. Their length on the timeline may be wrong.", "有 {n} 个文件里没写时长，MontClip 读不出它们有多长，放到时间线上的长度可能不对。"],
     "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],
     "tl-above-captions": ["Captions above, click to show", "上方有字幕轨，点这里显示"],
     // P2 highlight cards (for JJ to review)

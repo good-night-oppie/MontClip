@@ -1677,7 +1677,7 @@ entry. These fields are read-only — they describe the file:
 | `codec` | video codec (`h264`, `hevc`, `prores`, `vp9` …), or the image format (`png`, `mjpeg`) |
 | `audioCodec` · `audioChannels` · `sampleRate` | first audio stream: codec, channel count (`0` = the file has no audio), Hz |
 | `size` · `bitrate` | file size in bytes · overall bitrate, bits per second |
-| `width` · `height` · `duration` | as before; filled in when missing (phone footage shot rotated reports its upright size) |
+| `width` · `height` · `duration` | as before; filled in when missing (phone footage shot rotated reports its upright size). An MKV whose timestamps start late (3600 s) is as long as it plays; one whose header has no length takes it from its streams (their durations, then their DURATION tags); when nothing in the file says it, there is no `duration` and the editor says so |
 
 Without ffprobe on PATH only `size` is filled in; the browser still probes
 `duration`, `width` and `height`.
