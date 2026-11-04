@@ -1,6 +1,6 @@
-/* FableCut auto-duck — find where the voice is and turn that into `duck`
+/* MontClip auto-duck — find where the voice is and turn that into `duck`
    keyframes (dB) on the music. Zero dependencies; loaded by the editor as a
-   plain script (global `FableCutDucking`) and required by the MCP server, so
+   plain script (global `MontClipDucking`) and required by the MCP server, so
    the inspector's Auto-duck and `fablecut_auto_duck` write identical keys.
 
    Pipeline: rmsEnvelope (per voice clip) → activeRegions (timeline seconds,
@@ -9,7 +9,7 @@
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else root.FableCutDucking = api;
+  else root.MontClipDucking = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 

@@ -1,10 +1,10 @@
 ---
-description: Edit video with FableCut — assemble a cut, add titles and captions, grade, add transitions, keyframe animation, speed ramps, and export. Use whenever the user wants to cut, trim, caption, subtitle, grade, or otherwise edit a video, or asks to open/start the video editor.
+description: Edit video with MontClip — assemble a cut, add titles and captions, grade, add transitions, keyframe animation, speed ramps, and export. Use whenever the user wants to cut, trim, caption, subtitle, grade, or otherwise edit a video, or asks to open/start the video editor.
 ---
 
-# Editing video with FableCut
+# Editing video with MontClip
 
-FableCut is a browser video editor whose entire timeline is one JSON document.
+MontClip is a browser video editor whose entire timeline is one JSON document.
 You edit video by patching that document; the open editor UI hot-reloads within
 ~150 ms, so the user watches the timeline rebuild as you work.
 

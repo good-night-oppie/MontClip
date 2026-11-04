@@ -68,7 +68,7 @@ test('two entries, one operation: 〔字幕大小〕 beside the style menu (all 
   a.match(app, /let html = captionQuickHtml\("selected"\) \+ \(state\.selIds\.size > 1/, 'the Inspector starts with it');
   const fn = app.slice(app.indexOf('function captionQuickApply('), app.indexOf('function captionQuickApply(') + 1500);
   a.ok(fn.indexOf('const snap = undoSnapshot();') >= 0 && (fn.match(/pushUndo\(/g) || []).length === 1, 'one undo step');
-  a.ok(!/FableCutCaptions\.(cues|clip)\(|addCaptionsFromTranscript/.test(fn), 'nothing generated again');
+  a.ok(!/MontClipCaptions\.(cues|clip)\(|addCaptionsFromTranscript/.test(fn), 'nothing generated again');
   a.match(fn, /MontClipCaptionQuick\.apply\(/);
   a.match(app, /function captionQuickTargets\(scope\) \{[\s\S]{0,400}!isClipLocked\(c\)/, 'locked captions are left alone');
   a.match(read('index.html'), /<script src="caption-quick\.js"><\/script>/);

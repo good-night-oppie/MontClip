@@ -1,7 +1,7 @@
-/* FableCut tracker — follows a region of a video from frame to frame by
+/* MontClip tracker — follows a region of a video from frame to frame by
    template matching (normalized cross-correlation), optionally with its scale
    and rotation. Zero dependencies. Loaded by the editor as a plain script
-   (global `FableCutTracker`) and required by the MCP server and the tests.
+   (global `MontClipTracker`) and required by the MCP server and the tests.
 
    The editor feeds it greyscale frames; it returns where the region went.
    A finished track is stored on the clip it was made on, in `props.tracks`:
@@ -16,7 +16,7 @@
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else root.FableCutTracker = api;
+  else root.MontClipTracker = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 

@@ -23,7 +23,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
    await read(`(async()=>{if(!await flushSaveBeforeSwitch())throw Error('SAVE');await pjPost({action:'new',name:'字幕大小 smoke ${template}',template:'${template}',open:true});if(!await syncFromServer(true))throw Error('CREATE');})()`);
    assert.deepEqual(await read(`[project.width,project.height]`),[W,H]);
    // five synthetic captions; c1 has its own size, c3 its own position
-   await read(`(async()=>{const doc=projectJSON();doc.clips=[0,1,2,3,4].map(i=>FableCutCaptions.clip({start:i*2,end:i*2+1.5,text:'合成字幕 '+i},{style:'subtitle',width:${W},height:${H},track:'V2',id:'cap'+i}));
+   await read(`(async()=>{const doc=projectJSON();doc.clips=[0,1,2,3,4].map(i=>MontClipCaptions.clip({start:i*2,end:i*2+1.5,text:'合成字幕 '+i},{style:'subtitle',width:${W},height:${H},track:'V2',id:'cap'+i}));
      doc.clips[1].props.fontSize=80;doc.clips[3].props.y=-100;doc.clips[4].keyframes={fontSize:[{t:0,v:30},{t:1,v:60}]};
      if(${H}>${W})doc.clips[2].keyframes={fontSize:[{t:0,v:30},{t:1,v:60}]};applyProject(doc);scheduleSave();if(!await flushSave())throw Error('SAVE');})()`);
    const snapClips=`JSON.stringify(project.clips.map(c=>({id:c.id,props:c.props,start:c.start,duration:c.duration,track:c.track})))`;

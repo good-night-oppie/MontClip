@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500">
-  <!-- FableCut animated SVG · one-shot pop then repeated ring-swing (notification / subscribe) -->
+  <!-- MontClip animated SVG · one-shot pop then repeated ring-swing (notification / subscribe) -->
   <style>
     .badge { transform-box: fill-box; transform-origin: center;
              animation: pop 0.5s cubic-bezier(.34,1.56,.64,1) both; }

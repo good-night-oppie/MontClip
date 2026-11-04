@@ -1,6 +1,6 @@
-/* FableCut compositions — nested sequences. Zero dependencies beyond edit-ops
+/* MontClip compositions — nested sequences. Zero dependencies beyond edit-ops
    (for re-basing keyframes). Loaded by the editor as a plain script (global
-   `FableCutComp`) and required by the MCP server and the tests.
+   `MontClipComp`) and required by the MCP server and the tests.
 
    A composition lives in `project.comps`:
      { id, name, width, height, duration, background?, tracks?: [{id, kind}], clips: [ …clips… ] }
@@ -18,9 +18,9 @@
    audio mix and the comp renderer all work from that list. */
 (function (root, factory) {
   const node = typeof module === "object" && module.exports;
-  const api = factory(node ? require("./edit-ops") : root.FableCutEdit);
+  const api = factory(node ? require("./edit-ops") : root.MontClipEdit);
   if (node) module.exports = api;
-  else root.FableCutComp = api;
+  else root.MontClipComp = api;
 })(typeof self !== "undefined" ? self : this, function (EditLib) {
   "use strict";
 

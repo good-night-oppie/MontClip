@@ -1,6 +1,6 @@
-/* FableCut silence — find the quiet stretches between phrases and cut them
+/* MontClip silence — find the quiet stretches between phrases and cut them
    out. Zero dependencies; loaded by the editor as a plain script (global
-   `FableCutSilence`) and required by the MCP server, so the inspector's
+   `MontClipSilence`) and required by the MCP server, so the inspector's
    Silence section and `fablecut_silence` find the same spans and cut them
    with the same `extract` ops.
 
@@ -11,7 +11,7 @@
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else root.FableCutSilence = api;
+  else root.MontClipSilence = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 

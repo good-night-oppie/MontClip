@@ -53,7 +53,7 @@ async function exercise({b64,ranges,audioCut,audioStart,encoder,shift}){
    {id:'a1',kind:'audio',mediaId:'fb',track:'A1',start:audioStart+shift,in:audioStart,duration:audioCut-audioStart,props:{volume:1}},
    {id:'a2',kind:'audio',mediaId:'fb',track:'A1',start:audioCut+shift,in:audioCut,duration:10-audioCut,props:{volume:1}},
    // one synthetic sentence per kept range (the dialog needs captions; the ranges are typed in)
-   ...ranges.map(([from,to],i)=>FableCutCaptions.clip({start:from,end:to,text:'合成句子'+(i+1)},{id:'s'+i,track:'V2',width:320,height:180}))]});
+   ...ranges.map(([from,to],i)=>MontClipCaptions.clip({start:from,end:to,text:'合成句子'+(i+1)},{id:'s'+i,track:'V2',width:320,height:180}))]});
  applyProject(doc);scheduleSave();if(!await flushSave())throw Error('Project save failed');
  await showSentenceSelection();
  const dialog=document.querySelector('.sentence-dialog'),field=dialog.querySelector('[data-ranges]');

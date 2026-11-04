@@ -160,7 +160,7 @@ function requestOnce(u, { signal, timeoutMs }) {
     port: u.port || undefined,
     path: u.pathname + u.search,
     method: "GET",
-    headers: { "User-Agent": "FableCut", Accept: "*/*" },
+    headers: { "User-Agent": "MontClip", Accept: "*/*" },
   };
   if (u.protocol === "https:" && !net.isIP(host)) opts.servername = host;
   return new Promise((resolve, reject) => {

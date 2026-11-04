@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   FableCut reference analyzer — zero-dependency Node.js (runs the bundled ffmpeg, see ffmpeg-path.js)
+   MontClip reference analyzer — zero-dependency Node.js (runs the bundled ffmpeg, see ffmpeg-path.js)
 
    Turns a reference video into an "edit blueprint": shot boundaries (cuts),
    music beats + BPM, an audio-energy curve, the drop, and the extracted music

@@ -1,6 +1,6 @@
 # MontClip desktop development shell
 
-This hosts the existing FableCut UI and compositor. It is **not a release or M0
+This hosts the existing MontClip UI and compositor. It is **not a release or M0
 acceptance build**. No Python or renderer Node integration is introduced. Electron
 is a development/packaging dependency; the core editor remains standard-library only.
 

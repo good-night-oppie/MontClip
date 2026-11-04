@@ -161,7 +161,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await until(`!document.querySelector('dialog[data-ly-dialog]')&&!!autoClip(${JSON.stringify(first.id)}).lyricCues`);
   // 3. placed (both song cards only): the first card's captions are its lines, inside its clip; the second's as heard
   await read(`(()=>{for(const c of autoState().clips)c.on=c.kind==='song';autoRender('review');document.querySelector('[data-as-act=place]').click();return true;})()`);
-  const placed=await read(`(()=>{const caps=project.clips.filter(c=>FableCutCaptions.isCaption(c)).map(c=>({text:c.props.text,s:c.start,e:+(c.start+c.duration).toFixed(3)}));
+  const placed=await read(`(()=>{const caps=project.clips.filter(c=>MontClipCaptions.isCaption(c)).map(c=>({text:c.props.text,s:c.start,e:+(c.start+c.duration).toFixed(3)}));
     const parts=project.clips.filter(c=>c.kind==='audio').map(c=>({in:c.in,start:c.start,e:+(c.start+c.duration).toFixed(3)}));return{caps,parts};})()`);
   report.placed=placed;
   const part1=placed.parts.find(p=>Math.abs(p.in-first.s)<1e-6),part2=placed.parts.find(p=>Math.abs(p.in-second.s)<1e-6);
