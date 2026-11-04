@@ -595,6 +595,30 @@
     "ssel-done-ranges": ["Joined these ranges. Undo is available.", "已拼接这些片段，可撤销。"],
     "ssel-done-slices": ["Kept {n} ranges and added them to the export queue. Undo is available.", "已留下 {n} 段，并加进导出队列，可撤销。"],
     "ssel-queue-changed": ["The timeline changed after this clip was queued, so it was not exported. Ask the assistant for a new suggested edit based on the current timeline.", "时间线在加入队列之后改过了，这条切片没有导出。请让助手按现在的时间线再给一次剪辑建议。"],
+    // P4 (permission modes): the host's approval box and what follows it. New copy, for JJ.
+    "ap-title": ["The AI wants to do this step", "AI 想做这一步"],
+    "ap-project": ["In the project: {name}", "改的是项目：{name}"],
+    "ap-sends-to": ["Sends to: {domain}", "发往：{domain}"],
+    "ap-content": ["What is sent:", "要发出去的内容："],
+    "ap-every-time": ["This can't be undone, so you are asked every time.", "这类操作撤不回，所以每次都会问你。"],
+    "ap-once": ["Allow this once", "只批准这次"],
+    "ap-session": ["Allow for this chat", "这个聊天中都批准"],
+    "ap-deny": ["Don't allow", "不同意"],
+    "ap-denied": ["Not done. Nothing changed.", "没有做这一步，什么都没改。"],
+    "ap-listed": ["Plan mode: this step is only listed, not done. Switch to another mode at the top of the assistant to do it.", "计划模式：这一步只列出来，没有做。要做的话，在助手顶部换一种模式。"],
+    "ap-refused": ["This step is never allowed, in any mode. Nothing changed.", "这一步任何模式下都不允许，什么都没改。"],
+    "ap-refused-mode": ["The assistant has no mode chosen right now, so nothing was done. Choose a mode at the top of the assistant.", "助手现在没有选模式，所以什么都没做。请在助手顶部选一种模式。"],
+    "ap-applied": ["Done as the AI suggested, without asking ({mode} mode). Undo is available.", "已按 AI 的建议改好，没有问你（{mode}模式）。可以撤销。"],
+    "ap-stale": ["The project changed after this reply, so this step was not done.", "项目在回复之后改过了，所以没有做这一步。"],
+    "ap-yolo-on": ["Yolo is on", "Yolo 开着"],
+    "ap-sum-sentences": ["Keep {count} sentences, about {duration} in the final cut.", "保留 {count} 句，成片大约 {duration}。"],
+    "ap-sum-ranges": ["Keep {count} ranges joined into one video, about {duration}.", "保留 {count} 段，拼成一条，大约 {duration}。"],
+    "ap-sum-slices": ["Cut {count} separate clips, one file each, about {duration} in total.", "切出 {count} 条切片，每条一个文件，一共大约 {duration}。"],
+    "ap-undo": ["Undo", "撤销"],
+    // over an external cap (Deja on #83): refused with by how much, never cut down to fit
+    "ap-too-large": ["This send is {size}; the most at a time is {limit}, so it is {over} over. Nothing was sent, and it won't be cut down to fit.", "这次要发出去的有 {size}，每次最多 {limit}，超了 {over}。没有发送，也不会截短了再发。"],
+    "ap-scope-limit": ["This chat has already sent {used}; {size} more would pass its {limit} cap by {over}. Nothing was sent, and it won't be cut down to fit.", "这个聊天已经发出去 {used}，再发这 {size} 就超过 {limit} 的上限，超了 {over}。没有发送，也不会截短了再发。"],
+    "ap-invalid": ["This suggested edit doesn't fit the project as it is, so nothing was done.", "这条剪辑建议和现在的项目对不上，所以没有做。"],
   };
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
@@ -720,6 +744,13 @@
   Object.assign(officialPaneText['zh-CN'],{errModel:'模型名称不对，请去设置里检查。草稿仍保留。',formatNote:'每次请求都会附带的格式说明',formatNoteExplain:'下面这段英文是 MontClip 每次自动附上的固定说明，只是告诉 AI 怎么写剪辑建议。里面没有你的录像、字幕或项目内容，你不用看懂。',noProposal:'这条回复不是剪辑建议。想让它直接剪，可以说清要保留哪几句。',errAuth:'密钥不对或没有权限，请去设置里检查。草稿仍保留。',errRateLimit:'服务暂时限流，请过一会再试。草稿仍保留。',errTimeout:'服务没有及时回应，请检查网络后再试。草稿仍保留。',errNetwork:'连不上服务，请检查网络连接后再试。草稿仍保留。',errUpstream:'服务那边暂时出了问题，请稍后再试，或去设置里换一个模型。草稿仍保留。'});
   Object.assign(officialPaneText.en,{more:'More',projectNotReady:'This project is not saved yet, so nothing was sent. Your edits are still here. Click Save project and try again.',saveProject:'Save project'});
   Object.assign(officialPaneText['zh-CN'],{more:'更多',projectNotReady:'这个项目还没保存好，所以没有发送。你的剪辑都还在。请点「保存项目」后再试。',saveProject:'保存项目'});
+  // P4: the mode switch at the top of the assistant (the AI cannot change it). New copy, for JJ.
+  Object.assign(officialPaneText.en,{modes:'How the AI works',modePlan:'Plan',modeManual:'Manual',modeAuto:'Auto',modeYolo:'Yolo',
+   modePlanTip:'Only plans; changes nothing',modeManualTip:'Asks before changing the project; asks every time for anything that can\'t be undone',modeAutoTip:'Does what can be undone; asks before what can\'t',modeYoloTip:'Does everything without asking; anything sent out is still shown to you first',
+   yoloOn:'Yolo is on: the AI does every step without asking you. Anything sent out is still shown first.',modeDeclined:'Yolo was not turned on.',modeUnavailable:'The mode didn\'t change; it\'s still the one it was. Close MontClip, open it again and try once more.'});
+  Object.assign(officialPaneText['zh-CN'],{modes:'AI 怎么做',modePlan:'计划',modeManual:'手动',modeAuto:'自动',modeYolo:'Yolo',
+   modePlanTip:'只出计划，不改项目',modeManualTip:'改项目前先问你；撤不回的每次都问',modeAutoTip:'能撤销的直接做，撤不回的先问你',modeYoloTip:'全都直接做，不再问你；往外发的内容照样先给你看',
+   yoloOn:'Yolo 开着：AI 的每一步都直接做，不再问你。往外发的内容照样先给你看。',modeDeclined:'没有打开 Yolo。',modeUnavailable:'这次没换成，模式还是原来那个。关掉 MontClip 再打开，再试一次。'});
   for(const language of ['en','zh-CN']) for(const [key,value] of Object.entries(officialPaneText[language])) text[language]['officialPane_'+key]=value;
   Object.assign(text['zh-CN'], { paneNew:'新建会话', paneSearch:'搜索本项目会话', paneDraft:'输入消息', paneSend:'发送', paneCancel:'取消', paneConfig:'助手设置', paneModel:'模型', paneNone:'未配置服务', paneWidth:'面板宽度', paneEmpty:'暂无消息。', paneTools:'暂无工具执行', paneLocal:'会话和草稿仅保留到本次窗口关闭，不会自动附加项目内容。', paneLimitSessions:'这次打开的会话数到上限了，暂时不能新建。回到已有会话继续；要留的内容先复制出来。', paneScopeCapacity:'会话已满，当前项目无法新建会话。请返回已有会话的项目，选择会话并复制保存需要留存的草稿。', panePasteTooLong:'粘贴后会超过 16000 字符，这次没有粘贴，原草稿未改动。请把要粘贴的内容分成几段。', paneLimitChars:'这条太长了，发不出去。删掉一部分，或者分成几条。', paneReferenceLimit:'最多可引用 20 项，请移除部分引用后再添加。', paneActionFailed:'这次操作未完成，请检查当前会话后重试。', paneSaveFailed:'面板宽度未能记住，下次打开可能恢复默认。' });
   Object.assign(text.en, { paneNew:'New session', paneSearch:'Search project sessions', paneDraft:'Message', paneSend:'Send', paneCancel:'Cancel', paneConfig:'Assistant settings', paneModel:'Model', paneNone:'Service not configured', paneWidth:'Pane width', paneEmpty:'No messages.', paneTools:'No tool activity', paneLocal:'Sessions and drafts last until this window closes. Project content is not attached automatically.', paneLimitSessions:"This window has reached its session limit, so no new session can be created for now. Go back to an existing session; copy anything you want to keep first.", paneScopeCapacity:'Sessions are full; a session cannot be created for this project. Return to a project with existing sessions, select one and copy any drafts you need to keep.', panePasteTooLong:'This paste would exceed 16000 characters. Nothing was pasted and your draft was kept. Split the text into smaller parts.', paneLimitChars:'This message is too long to send. Shorten it or split it into a few messages.', paneReferenceLimit:'Up to 20 references are allowed. Remove some before adding more.', paneActionFailed:'This action did not complete. Check the current session and try again.', paneSaveFailed:'Pane width could not be saved; the next launch may use the default.' });

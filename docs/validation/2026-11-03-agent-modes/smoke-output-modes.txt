@@ -1,0 +1,2 @@
+== narrow-630-smoke.cjs: NARROW630_COMPLETE {"zh-CN":{"lanes":{"partly":[],"whole":["V1","A1"],"hidden":["V3"],"hint":"上方有字幕轨，点这里显示","hintCut":false},"config":{"height":105,"scrollTop":0,"key":true,"save":true}},"en":{"lanes":{"partly":[],"whole":["V1","A1"],"h
+== agent-modes-smoke.cjs: MODES_PASS {"start":{"mode":"manual","buttons":[["计划","false"],["手动","true"],["自动","false"],["Yolo","false"]],"first":true,"yoloMark":false,"yoloPane":false},"manualBox":{"label":"按时间保留几段录像，拼成一条或各成一条切片","ch

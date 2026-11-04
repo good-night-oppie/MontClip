@@ -34,7 +34,7 @@
     if (!plain(e) || Object.keys(e).sort().join() !== KEYS.join()) fail("EVENT_INVALID");
     if (!id(e.id) || !id(e.runId) || !Number.isSafeInteger(e.step) || e.step < 0 || !ACTORS.includes(e.actor) || !STATES.includes(e.state)
       || !rev(e.revisionBefore) || !rev(e.revisionAfter) || typeof e.at !== "string" || e.at.length > 40 || !(e.args === null || plain(e.args))) fail("EVENT_INVALID");
-    const risk = e.actor === "streamer" && STREAMER[e.capability] ? STREAMER[e.capability] : Cap.riskOf(e.capability);
+    const risk = e.actor === "streamer" && STREAMER[e.capability] ? STREAMER[e.capability] : Cap.riskOf(e.capability, e.args);
     if (risk === "blocked") fail("EVENT_BLOCKED");
     let args = e.args;
     const size = JSON.stringify(args).length;
