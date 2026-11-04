@@ -4831,6 +4831,8 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .cindy-ref-actions {flex:none;}
 .cindy-references {flex:0 1 auto;min-height:0;}
 .cindy-port [role=status]:empty {display:none;}
+/* the Cindy question card (AskUserQuestionPrompt): voice input is left out for now (Deja, 2026-11-04); agent-ui/stand-ins/voiceInputOff.ts */
+[data-testid="ask-user-voice"] {display:none;}
 .cindy-port.compact .cindy-references {max-height:36px;}
 .cindy-port.compact .cindy-message {padding:2px 4px;}
 .cindy-port.compact .agent-toolbar {gap:2px;}

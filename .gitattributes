@@ -4,3 +4,4 @@ licenses/ffmpeg/texts/** -text
 
 # Preserve official upstream source bytes for provenance verification.
 agent-ui/upstream/** -text
+agent-ui/cindy-43001ea/** -text
