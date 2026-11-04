@@ -250,12 +250,22 @@ test("the Windows app has the projects open: the chat and the editor tab get pla
   };
   class BroadcastChannel { constructor() { channels.push(this); this.posted = []; } postMessage(m) { this.posted.push(JSON.parse(JSON.stringify(m))); } }
   vm.runInNewContext(fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8"), { cindy, BroadcastChannel, setTimeout, console, Map, Promise });
-  const plain = "另一个 MontClip 正在用这些项目（可能是电脑上单独打开的 MontClip）。两个同时改，会互相盖掉。先把那边的 MontClip 关掉，再回到这里重试。";
+  // JJ's final words (2026-11-04), word for word: the desktop app's box, with "MontClip 桌面版" / "The MontClip desktop app"
+  const plain = "MontClip 桌面版正在用这些项目。两边同时改，会互相盖掉。\n先把那边的 MontClip 关掉，再打开这里。找不到那边的窗口，就重启电脑再试。";
+  const plainEn = "The MontClip desktop app is using these projects. If both edit at once, one overwrites the other.\nClose the other MontClip first, then open this one. If you can't find it, restart the computer and try again.";
   await handler({ type: "tool-call", callId: "c1", tool: "montclip_status", args: {} });
   const r = sent.find((m) => m.type === "tool-result");
   assert.deepEqual([r.ok, r.errorCode, r.message], [false, "DATA_DIR_IN_USE", plain]);
   await channels[0].onmessage({ data: { reqId: "e1", type: "editor" } });
-  assert.deepEqual([channels[0].posted.at(-1).code, channels[0].posted.at(-1).error], ["DATA_DIR_IN_USE", plain]);
+  assert.deepEqual([channels[0].posted.at(-1).code, channels[0].posted.at(-1).error, channels[0].posted.at(-1).errorEn], ["DATA_DIR_IN_USE", plain, plainEn]);
+  // the same lines as the desktop app's own box, with the other one named
+  const N = require("../desktop/native-text");
+  for (const [lang, text, who] of [["zh-CN", plain, "MontClip 桌面版"], ["en", plainEn, "The MontClip desktop app"]]) {
+    const t = N.nativeText(lang);
+    // the Chinese swap leaves no space between 桌面版 and 正在 (the original's space sits between MontClip and 正在)
+    const swapped = lang === "en" ? t.dataDirInUseCindy.replace("The MontClip inside Cindy", who) : t.dataDirInUseCindy.replace("Cindy 里的 MontClip ", who);
+    assert.equal(text, swapped + "\n" + t.dataDirInUseHint);
+  }
   // the editor tab shows the words as they are, with 重试
   const frame = fs.readFileSync(path.join(PLUGIN, "frame.js"), "utf8");
   assert.match(frame, /show\(inUse\(a\) \? a\.error : 'MontClip 没能启动：' \+ \(a\.error \|\| '没有地址'\), true, inUse\(a\)\)/);
