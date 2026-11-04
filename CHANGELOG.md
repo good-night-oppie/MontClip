@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- An optional speech model next to the default (Paraformer zh, unchanged): Meta's Omnilingual ASR (CTC, int8, Apache-2.0),
+  for English and other languages — not for Chinese, where it makes several times more mistakes
+  (`docs/validation/2026-11-04-omnilingual-asr/README.md`). Never in a package: Settings › 听写 shows its licence in the
+  host's own box, then asks which site to download from; files are pinned (commit, SHA-256), checked in a staging folder
+  and moved into place in one step, and a consent record stays on this computer. Revoking deletes the model and the
+  record. It runs in a process of its own, so a crash or too little memory fails only that engine, in plain words.
 - Engine groundwork for the Cindy plugin (one engine, two shells): `mcp-server.js` can be required as a module
   (`{TOOLS, callTool, ensureUIServer}`), `POST /api/ui/command` asks the open editor tab to undo / redo / seek /
   report its state, the editor's undo history is kept per project (`/api/ui/undo-stack`) so a reloaded tab gets

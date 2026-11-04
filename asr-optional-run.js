@@ -12,6 +12,11 @@ const { VAD } = require("./asr-local");
 const OW = require("./asr-optional-words");
 
 const RATE = 16000, WINDOW = 512, MIN_PART = 0.25;
+/** Silence put on both sides of each segment before it is decoded (s). The VAD cuts close to the speech, and this CTC
+ *  model reads a segment with no silence around it badly: on europa a flite sentence cut by the VAD came out as
+ *  "ron fo jumps ove the lae dg …", the same samples with 0.5 s of silence each side as "quick brown fox jumps over …"
+ *  (docs/validation/2026-11-04-omnilingual-asr/README.md §3). Times are shifted back, so words keep file seconds. */
+const PAD = 0.5;
 const r3 = (x) => Math.round(x * 1000) / 1000;
 const send = (m) => { try { process.send(m); } catch { } };
 
@@ -19,10 +24,13 @@ async function segmentWords(r, audio, start) {
   const words = [], gaps = [];
   let read = false;
   const one = async (part, at) => {
+    const P = Math.round(PAD * RATE), padded = new Float32Array(part.length + 2 * P);
+    padded.set(part, P);
     const s = r.createStream();
-    s.acceptWaveform({ sampleRate: RATE, samples: part });
+    s.acceptWaveform({ sampleRate: RATE, samples: padded });
     const res = await r.decodeAsync(s);
-    words.push(...OW.words(res, { offset: at, end: at + part.length / RATE })); read = true;
+    const timestamps = (res.timestamps || []).map((t) => Math.max(0, t - PAD));
+    words.push(...OW.words({ tokens: res.tokens, timestamps }, { offset: at, end: at + part.length / RATE })); read = true;
   };
   const why = (e) => String((e && e.message) || e || "error").slice(0, 200);
   const gap = (n, at, e) => gaps.push({ start: r3(at), end: r3(at + n / RATE), reason: why(e) });
@@ -105,4 +113,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { run, segmentWords };
+module.exports = { run, segmentWords, PAD };

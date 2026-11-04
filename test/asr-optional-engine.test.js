@@ -29,6 +29,22 @@ test('words: one Chinese character is one word; other scripts are whole words up
   a.equal(T.text(OW.words(en, { offset: 0, end: 1 })), 'ask not why');
 });
 
+test('each segment is decoded with silence on both sides (the CTC model reads a tight cut badly); times stay in file seconds', async () => {
+  const R = require('../asr-optional-run');
+  const got = [];
+  const rec = { createStream: () => ({ acceptWaveform({ samples }) { this.samples = samples; } }),
+    async decodeAsync(s) { got.push(s.samples);
+      // a word at the first sample of the real sound, another one second in
+      return { tokens: ['h', 'i', ' ', 'y', 'o'], timestamps: [R.PAD, R.PAD + 0.1, R.PAD + 0.2, R.PAD + 1, R.PAD + 1.1] }; } };
+  const audio = new Float32Array(2 * 16000).fill(0.25);
+  const r = await R.segmentWords(rec, audio, 100);
+  const P = Math.round(R.PAD * 16000);
+  a.equal(got[0].length, audio.length + 2 * P);
+  a.ok(got[0].subarray(0, P).every((x) => x === 0) && got[0].subarray(-P).every((x) => x === 0), 'silence before and after');
+  a.equal(got[0][P], 0.25, 'the sound itself, untouched');
+  a.deepEqual(r.words, [['hi', 100, 100.6], ['yo', 101, 101.6]]);
+});
+
 /** An engine folder the parent accepts (the engine's package.json, a VAD of the pinned size), a store with one ready model. */
 function setup(t, { ramMB = 10, ready = true } = {}) {
   const dir = tmp(t);
