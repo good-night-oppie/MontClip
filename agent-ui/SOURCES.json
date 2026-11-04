@@ -329,6 +329,36 @@
         "sha256": "4633457cf945677ad1bc8bafd190fe1cb2cea2acbbe939711aa0cfe90a1426a3"
       },
       {
+        "file": "apps/desktop/src/renderer/styles/generated/tokens.css",
+        "blob": "9f74dddc2e361a0bc1482da07f6bce876d0f460e",
+        "sha256": "a1c8d401f4e7161b07b1484aa394cd9648626143d53bb51d4f36e455f21413fb"
+      },
+      {
+        "file": "apps/desktop/src/renderer/themes/builtin/cindy-dark.ts",
+        "blob": "3279c83369b8fc5cbb2cba9607cb192c41a8f7fc",
+        "sha256": "a2f0effe76ce41bae89cb1d640b45efe0f1fe73ba1d4e1a632881c55ff8c84c9"
+      },
+      {
+        "file": "apps/desktop/src/renderer/themes/color-registry.ts",
+        "blob": "ae4adb8d9b44b6b2f6416792c908145478c2ed05",
+        "sha256": "0be9b44d24fa86502f8329b389463034af9c4d2c2016b58a5464036988d55933"
+      },
+      {
+        "file": "apps/desktop/src/renderer/themes/colors.ts",
+        "blob": "8e88c58a6fbb18f629223a4a100fe1cd44df5e6a",
+        "sha256": "479a7cf32ea6c9bf4715cfff912139aec735554c01599007f754e917c2b4b87f"
+      },
+      {
+        "file": "apps/desktop/src/renderer/themes/event.ts",
+        "blob": "589fe24d77a41d1440c67307eeedd698f830acde",
+        "sha256": "77538148b6221eab748bdfd549d60e40ed45761dc1ef832b30cbf5a2ab4efab9"
+      },
+      {
+        "file": "apps/desktop/src/renderer/themes/theme-service.ts",
+        "blob": "e37040e674474254b7e732a86c55179fb46913a8",
+        "sha256": "ece3aeb31b7c19e82960eda8d7a1e9b4a7f83b67c678ae7d913a62a594161289"
+      },
+      {
         "file": "apps/desktop/src/renderer/utils/overloadError.ts",
         "blob": "e735ca9879a978f5086525143a61992ea9f07ff4",
         "sha256": "5dce6db87831c6c18497f1fa615f0bb3748f4d3ca638ba44c73c2121e3fcf183"
@@ -347,6 +377,16 @@
         "file": "apps/desktop/src/shared/claudeGatewayError.ts",
         "blob": "7cc9619690dd8b223828a2c27e54962d94221eeb",
         "sha256": "ec3de205bb348b89fe577b55fe51dbe36407cd55c513e54f1bc600592b0b38b8"
+      },
+      {
+        "file": "apps/desktop/src/shared/windowBackdrop.ts",
+        "blob": "e5df81e93558d288688b2926d9a4398a791375dd",
+        "sha256": "6754c06e8cca291758e10c1267f9c367ea753a91ab308121944e893f7a9cf863"
+      },
+      {
+        "file": "apps/desktop/tailwind.config.ts",
+        "blob": "b542a12974ac10d1715b6eb097e2f5bb12ae49ec",
+        "sha256": "3ae0e4f2b6e69895a0ca884652ffd1983b9654facf64b8b8f2356ea40d91bab2"
       },
       {
         "file": "packages/maker-shared/package.json",

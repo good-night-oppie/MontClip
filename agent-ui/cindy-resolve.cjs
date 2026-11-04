@@ -19,6 +19,15 @@ const ENTRIES = [
   'apps/desktop/src/renderer/components/chat/ToolCallCard.tsx',
   'apps/desktop/src/renderer/components/new-chat/AskUserQuestionPrompt.tsx',
 ];
+// Run at build time by styles.cjs (never in the page): Cindy's Tailwind config, and its theme code that turns the cindy-dark
+// theme into CSS variables; and the CSS files it reads as they are
+const STYLE_ENTRIES = [
+  'apps/desktop/tailwind.config.ts',
+  'apps/desktop/src/renderer/themes/colors.ts',
+  'apps/desktop/src/renderer/themes/theme-service.ts',
+  'apps/desktop/src/renderer/themes/builtin/cindy-dark.ts',
+];
+const STYLE_FILES = ['apps/desktop/src/renderer/styles/generated/tokens.css'];
 // Cindy file (without extension) → the MontClip stand-in used in its place, and why
 const STAND_INS = {
   'apps/desktop/src/renderer/lib/makerChatStore': ['makerChatStore.ts', "ErrorMessageCard reads two remote-error helpers from Cindy's chat store; the store itself pulls in 113 files"],
@@ -71,4 +80,4 @@ function plugin({ root, standIns = path.join(__dirname, 'stand-ins') }) {
     });
   } };
 }
-module.exports = { COMMIT, ENTRIES, STAND_INS, plugin, rel };
+module.exports = { COMMIT, ENTRIES, STYLE_ENTRIES, STYLE_FILES, STAND_INS, plugin, rel };

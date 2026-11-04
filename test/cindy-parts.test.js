@@ -42,7 +42,10 @@ test('a stand-in replaces each Cindy file that is not copied, and says what it r
 });
 
 test('every npm package in the bundle has its version and full license recorded', () => {
-  const packages = require('../agent-ui/BUNDLED-PACKAGES.json'), registry = require('../agent-ui/BUNDLED-LICENSES.json'), lock = require('../agent-ui/package-lock.json');
+  // in cindy-official.js (BUNDLED-PACKAGES) and in cindy-parts.css (STYLE-PACKAGES: Tailwind's preflight and rules)
+  const packages = [...new Set([...require('../agent-ui/BUNDLED-PACKAGES.json'), ...require('../agent-ui/STYLE-PACKAGES.json')])];
+  const registry = require('../agent-ui/BUNDLED-LICENSES.json'), lock = require('../agent-ui/package-lock.json');
+  assert.ok(packages.includes('tailwindcss'));
   const notice = fs.readFileSync(path.join(UI, 'THIRD-PARTY-NOTICES.txt'), 'utf8').replace(/\r\n/g, '\n');
   assert.deepEqual(Object.keys(registry).sort(), [...packages].sort(), 'the registry lists exactly the bundled packages');
   for (const name of ['@radix-ui/react-popover', '@radix-ui/react-tooltip', '@radix-ui/react-alert-dialog', 'i18next', 'react-i18next']) assert.ok(packages.includes(name), name);

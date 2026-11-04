@@ -14,10 +14,13 @@ if (!process.argv.includes('--montclip-smoke')) throw Error('Explicit smoke requ
 const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
 if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const out = (k, v) => process.stdout.write(k + ' ' + JSON.stringify(v) + '\n');
+const shotsDir=process.env.MONTCLIP_SHOTS_OUT||null;if(shotsDir&&!require('node:path').isAbsolute(shotsDir))throw Error('MONTCLIP_SHOTS_OUT must be an absolute folder');
+// MONTCLIP_SHOTS_OUT=<absolute folder> saves the hidden offscreen window's own page as PNGs (capturePage of this window only)
+const shotOf=(win)=>async(name)=>{if(!shotsDir)return;await new Promise(r=>setTimeout(r,200));require('node:fs').writeFileSync(require('node:path').join(shotsDir,name+'.png'),(await win.webContents.capturePage()).toPNG());};
 const original = BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL = async function (...args) {
   await original.apply(this, args);
-  const win = this, read = (s) => win.webContents.executeJavaScript(s), wait = (ms = 200) => new Promise((r) => setTimeout(r, ms));
+  const win = this, read = (s) => win.webContents.executeJavaScript(s), wait = (ms = 200) => new Promise((r) => setTimeout(r, ms)), shot = shotOf(win);
   const errors = [];
   win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) errors.push(message); });
   let ok = false; const report = {};
@@ -29,7 +32,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     assert.equal(await read(`MontClipCindyParts.commit`), '43001eaaa31ef322de9ae148c4051087277d6198');
     // one test box per part, in the page, out of the editor's way
     const show = async (name, props, language = 'zh-CN') => {
-      await read(`(()=>{let box=document.getElementById('partBox_${name}');if(!box){box=document.createElement('div');box.id='partBox_${name}';box.style.cssText='position:relative;width:420px;min-height:40px';document.body.appendChild(box);}
+      await read(`(()=>{let box=document.getElementById('partBox_${name}');if(!box){let g=document.getElementById('partGallery');if(!g){g=document.createElement('div');g.id='partGallery';g.style.cssText='position:fixed;inset:0;z-index:45;background:var(--bg,#0e0e10);display:flex;flex-wrap:wrap;align-content:flex-start;gap:12px;padding:12px;overflow:auto';document.body.appendChild(g);}box=document.createElement('div');box.id='partBox_${name}';box.style.cssText='position:relative;width:400px;min-height:40px'+('${name}'==='PermissionSelector'?';margin-top:360px':'');g.appendChild(box);}
         MontClipCindyParts.render(box,${JSON.stringify(name)},(${props})(),${JSON.stringify(language)});})()`);
       await wait();
       return read(`(()=>{const box=document.getElementById('partBox_${name}');return{text:box.innerText,html:box.innerHTML.length};})()`);
@@ -51,15 +54,41 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     for (const name of report.names) shown[name] = await show(name, sample[name]);
     report.shown = Object.fromEntries(Object.entries(shown).map(([k, v]) => [k, v.text.replace(/\s+/g, ' ').slice(0, 120)]));
     for (const name of report.names) { if (!(shown[name].html > 0)) report.pageErrors = await read('__partErrors'); assert.ok(shown[name].html > 0, name + ' rendered something'); }
+    await shot('cindy-parts-zh');
     // the mode switch: Cindy's selector with MontClip's four modes
     assert.match(shown.PermissionSelector.text, /手动/);
     await read(`document.querySelector('#partBox_PermissionSelector button').click();true`); await wait(400);
     report.modes = await read(`[...document.querySelectorAll('[role=menuitemradio],[role=option],[role=menuitem]')].map(e=>e.innerText.replace(/\\s+/g,' ').trim()).filter(Boolean)`);
     for (const label of ['计划', '手动', '自动', 'Yolo']) assert.ok(report.modes.some((t) => t.startsWith(label)), 'mode ' + label + ' in ' + JSON.stringify(report.modes));
+    await shot('cindy-parts-modes-menu');
     await read(`[...document.querySelectorAll('[role=menuitemradio],[role=option],[role=menuitem]')].find(e=>e.innerText.trim().startsWith('Yolo')).click();true`); await wait();
     report.picked = await read(`window.__mode`);
     assert.equal(report.picked, 'bypassPermissions');
     assert.equal(await read(`MontClipCindyParts.montclipModeOf(window.__mode)`), 'yolo');
+    // Cindy's styles (cindy-parts.css, the second change): inside the parts Cindy's look with MontClip's colours; MontClip's
+    // own page as it was (its --accent and --border, its buttons)
+    await show('PermissionSelector', `()=>({permissionMode:'bypassPermissions',onPermissionModeChange:()=>{}})`);
+    report.styles = await read(`(()=>{const root=getComputedStyle(document.documentElement),cs=(e)=>e&&getComputedStyle(e);
+      const trigger=document.querySelector('#partBox_PermissionSelector button'),q=document.querySelector('#partBox_AskUserQuestionPrompt button'),
+        own=document.getElementById('mcUndo'),exp=document.getElementById('btnExport');
+      return{accent:root.getPropertyValue('--accent').trim(),border:root.getPropertyValue('--border').trim(),cindyBorder:root.getPropertyValue('--cindy-border').trim(),
+        focusRing:root.getPropertyValue('--focus-ring').trim(),textPrimary:root.getPropertyValue('--text-primary').trim(),
+        yolo:cs(trigger.querySelector('span')||trigger).color,partButtonBg:cs(q).backgroundColor,partButtonBorder:cs(q).borderTopStyle,
+        ownButton:{bg:cs(own).backgroundColor,border:cs(own).borderTopWidth,radius:cs(own).borderTopLeftRadius},exportBg:cs(exp).backgroundImage};})()`);
+    assert.equal(report.styles.accent, '#7b6cff', "MontClip's --accent is its own");
+    assert.equal(report.styles.border, '#2c2c35', "MontClip's --border is its own");
+    assert.ok(report.styles.cindyBorder && report.styles.textPrimary, "Cindy's theme is there");
+    assert.equal(report.styles.focusRing, '#7b6cff', "the focus ring is MontClip's accent");
+    assert.equal(report.styles.yolo, 'rgb(229, 72, 77)', "Yolo in MontClip's red");
+    assert.equal(report.styles.partButtonBg, 'rgba(0, 0, 0, 0)', "a part's button has no browser face (preflight, inside the parts)");
+    // MontClip's own page with cindy-parts.css on and off: the same (a few of its controls, measured both ways)
+    report.ownPage = await read(`(()=>{const link=document.querySelector('link[href="cindy-parts.css"]'),ids=['mcUndo','btnExport','btnPlay','projectName','sideTabs'];
+      const props=['backgroundColor','backgroundImage','color','borderTopWidth','borderTopStyle','borderTopLeftRadius','paddingTop','paddingLeft','fontSize','fontFamily','lineHeight','boxSizing','width','height'];
+      const take=()=>ids.map(id=>{const s=getComputedStyle(document.getElementById(id));return id+' '+props.map(p=>s[p]).join('|');});
+      const on=take();link.disabled=true;const off=take();link.disabled=false;return{on,off};})()`);
+    assert.deepEqual(report.ownPage.on, report.ownPage.off, "MontClip's own controls look the same with Cindy's styles loaded");
+    assert.match(report.styles.exportBg, /linear-gradient/, "MontClip's main button keeps its gradient");
+    await show('PermissionSelector', `()=>({permissionMode:'ask',onPermissionModeChange:m=>{window.__mode=m;}})`);
     // the rest show their content
     assert.match(shown.InlineReferenceChip.text, /0:12–0:18 那句/);
     // the plan: folded into a pill (第 2 / 3 步); open, it lists the steps

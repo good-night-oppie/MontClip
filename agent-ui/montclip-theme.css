@@ -1,0 +1,15 @@
+/* MontClip's colours over Cindy's (助手面板 v7.2 §1; Deja): the accent is MontClip's #7b6cff, not Cindy's blue focus ring or
+   its white main button; MontClip's own buttons keep .btn.primary's gradient (#7b6cff → #4f8cff). Yolo is MontClip's red,
+   as its bar and the top-bar mark. Cindy's neutrals (surfaces, text, lines) stay. */
+:root {
+  --focus-ring: #7b6cff;
+  --focus-ring-soft: rgba(123, 108, 255, 0.5);
+  --ring: 246 100% 71%;
+  --perm-auto-selected-text: #7b6cff;
+  --perm-bypass-selected-text: #e5484d;
+  --accent-cta-bg-pure: #7b6cff;
+  --accent-pure-cta-fg: #ffffff;
+  --confirm-btn-primary-bg: #7b6cff;
+  --confirm-btn-primary-text: #ffffff;
+  --confirm-btn-primary-hover: #6a5bf0;
+}
