@@ -74,3 +74,16 @@ test('the words, exactly as JJ wrote them; the policy says when a step ran becau
  a.equal(P.decide({mode:'auto',capability:cap}).byApproval,undefined,'自动 runs an undoable step by itself');
  a.equal(P.decide({mode:'yolo',capability:cap,approved:true}).byApproval,undefined,'Yolo runs it by itself');
 });
+
+// VV (2026-11-04): a new approval box came up while the last step's toast (with its 〔撤销〕) was still showing, one over
+// the other. The box now takes the toast away first.
+test('a new approval box takes the last toast away first',async()=>{
+ const fnSync=(name)=>{const s=src.indexOf('function '+name+'(');a.ok(s>=0,name);return src.slice(s,src.indexOf('\n}',s)+2);};
+ const classes=new Set(['show','has-action']),stopped=[],cleared=[];
+ const ctx={els:{toast:{classList:{remove:(...c)=>c.forEach(x=>classes.delete(x)),contains:(c)=>classes.has(c)}}},toastTimer:7,toastHold:{stop:()=>stopped.push(1)},clearTimeout:(t)=>cleared.push(t)};
+ vm.createContext(ctx);vm.runInContext('var toastTimer=7;var toastHold={stop:()=>stopped.push(1)};'+fnSync('dismissToast'),Object.assign(ctx,{stopped}));
+ ctx.dismissToast();
+ a.equal(classes.size,0,'the toast is hidden, its button too');a.deepEqual(cleared,[7],'its timer stopped');a.equal(stopped.length,1,'its hold stopped');
+ const box=fnSync('askAgentApproval');
+ a.ok(box.indexOf('dismissToast();')>=0&&box.indexOf('dismissToast();')<box.indexOf('new Promise'),'before the box is shown');
+});

@@ -11335,6 +11335,12 @@ function autoPlace(clips, { select = null, fine = false } = {}) {
 }
 /** A toast with one button (the editor's toast is text only). The button acts once; the toast goes after 8 s. */
 let toastHold = null;
+/** Take the toast away now, with or without its button (VV, 2026-11-04: a new approval box came up over the last step's toast). */
+function dismissToast() {
+  clearTimeout(toastTimer); toastTimer = null;
+  if (toastHold) toastHold.stop();
+  if (els.toast) els.toast.classList.remove("show", "has-action");
+}
 function toastAction(msg, label, onClick) {
   if (!els.toast) return;
   els.toast.textContent = "";
@@ -22889,6 +22895,8 @@ function paintAgentMode(){const mark=document.getElementById('mcYoloMark');if(ma
 /** The host's approval box (QQ 4: only the host shows it). It shows the capability's plain sentence (never its internal
  *  name), what it changes or where it sends, and for an external step what is sent. Resolves to once | session | deny. */
 function askAgentApproval(d,{summary='',content=null,detail=''}={}){
+ // the last step's toast goes first, so the two never sit one over the other (VV)
+ dismissToast();
  return new Promise((resolve)=>{
   const dialog=document.createElement('dialog');dialog.className='agent-approval';dialog.setAttribute('data-agent-approval','');
   const say=(k,v)=>escapeHtml(uiText(k,v)),choice=(c)=>'<button type="button" class="btn'+(c==='once'?' primary':'')+'" data-choice="'+c+'">'+say('own.ap-'+c)+'</button>';
