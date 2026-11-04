@@ -27,7 +27,7 @@ const STATES = [
 for (const width of [1280, 970]) {
   test(`light theme in Cindy, ${width} px: every visible text at least 3:1`, { skip, timeout: 90000 }, async (t) => {
     const { base } = await startServer(t, makeDataDir(t, project), { FABLECUT_NO_FS_WATCH: "1" });
-    const out = await measureContrast({ browser, url: base + "/?host=cindy&theme=light", width, height: 800, states: STATES });
+    const out = await measureContrast({ browser, url: base + "/?host=cindy&theme=light", width, height: 800, settleMs: 1500, states: STATES });
     for (const st of STATES) {
       const { texts } = out[st.name];
       assert.ok(texts.length > 40, `${st.name}: the page drew its texts (${texts.length})`);
