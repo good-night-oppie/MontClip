@@ -98,4 +98,33 @@ function flatten(out, framesDir) {
   return { text: text.join("\n"), ...(images.length ? { images } : {}) };
 }
 
-module.exports = { fillWindowsEnv, newToken, createBinder, flatten };
+/* ffmpeg: the pinned LGPL build of desktop/ffmpeg-manifest.json (the one the Windows app bundles), fetched by
+   cindy.downloads (which checks its SHA-256 and byte count) and unpacked here into <data dir>/ffmpeg/<platform>. */
+/** What to download for this platform, or {supported:false}. cindy.downloads needs the exact byte count. */
+function ffmpegSpec(manifest, platform) {
+  const b = manifest && manifest.builds && manifest.builds[platform];
+  if (!b || !/^https:\/\//.test(b.url) || !/^[a-f0-9]{64}$/.test(b.sha256) || !Number.isInteger(b.bytes) || b.bytes <= 0)
+    return { supported: false, platform };
+  return { supported: true, platform, url: b.url, sha256: b.sha256, bytes: b.bytes, root: b.root, version: manifest.version, license: manifest.license };
+}
+
+/** Unpack a downloaded archive and install it: the archive's SHA-256 checked again, unpacked into a fresh folder,
+ *  then fetch-ffmpeg.cjs's installTree (staged copy, LGPL self-check of the staged ffmpeg, swap into `dest`).
+ *  A GPL or non-free build, a wrong archive or a missing program throws and leaves `dest` as it was. */
+function installFfmpeg({ archive, spec, dest, win, tmpDir, sha256, extract, installTree, check, manifest }) {
+  if (!archive || !fs.existsSync(archive)) throw Object.assign(new Error("no downloaded archive was handed over"), { code: "NO_ARCHIVE" });
+  const got = sha256(archive);
+  if (got !== spec.sha256) throw Object.assign(new Error(`archive SHA-256 mismatch: got ${got}, pinned ${spec.sha256}`), { code: "SHA256_MISMATCH" });
+  const work = fs.mkdtempSync(path.join(tmpDir, "montclip-ffmpeg-"));
+  try {
+    extract(archive, work);
+    const src = path.join(work, spec.root || "");
+    for (const n of ["ffmpeg", "ffprobe"]) if (!fs.existsSync(path.join(src, "bin", win ? n + ".exe" : n)))
+      throw Object.assign(new Error(`the archive has no ${n}`), { code: "BAD_ARCHIVE" });
+    const version = installTree({ src, dest, win, check,
+      source: { version: manifest.version, license: manifest.license, builder: manifest.builder, source: manifest.source, url: spec.url, sha256: spec.sha256 } });
+    return { installed: true, version: version || null, archiveSha256: got };
+  } finally { fs.rmSync(work, { recursive: true, force: true }); }
+}
+
+module.exports = { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg };

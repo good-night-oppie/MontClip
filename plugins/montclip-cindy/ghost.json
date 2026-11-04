@@ -5,7 +5,7 @@
   "name": "MontClip",
   "description": "在 Cindy 任务里打开 MontClip 剪辑器，跟聊天同屏；在聊天里用自然语言剪辑本机录像和音频（删段、降噪、字幕、导出等 fablecut 操作），可撤销、重做，并能列出版本、回到某一版。插件带一个本机 Node 进程运行 MontClip 引擎，可读写本机文件。",
   "whenToUse": "需要剪辑本机录像或音频时：删掉某段、剪掉停顿、按文字剪、加字幕、调音量、降噪、按节拍剪、导出 MP4；撤销或重做剪辑；查看或回到 MontClip 项目的某个版本；在这个任务里打开 MontClip 剪辑器。",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "entry": "main.js",
   "command": "剪辑",
   "icon": "assets/icon.png",
@@ -84,6 +84,14 @@
       }
     },
     {
+      "name": "montclip_install_ffmpeg",
+      "description": "下载并安装 MontClip 固定版本的 LGPL ffmpeg（约 160 MB，从 GitHub 下载，Cindy 校验 SHA-256 和大小，装好后再核对是 LGPL 构建）。导出 MP4、降噪等要用它。只在用户同意下载后调用；已装好时直接返回。",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
       "name": "montclip_open_task_view",
       "description": "在这个任务的右侧栏打开（或切到）MontClip 剪辑器页签，跟聊天并排。每个任务对应自己的 MontClip 项目。",
       "parameters": {
@@ -109,6 +117,12 @@
   "preview": {
     "hosts": [
       "127.0.0.1"
+    ]
+  },
+  "network": {
+    "hosts": [
+      "github.com",
+      "release-assets.githubusercontent.com"
     ]
   },
   "node": {

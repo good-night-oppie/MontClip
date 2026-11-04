@@ -38,8 +38,15 @@ The second shell around the one MontClip engine (the repository root). The first
   same folder open, the worker refuses to start and says so.
 - **Environment.** Cindy 0.1.122 gives the worker a trimmed environment without `PROGRAMFILES`; the worker puts
   back the usual Windows folders that exist, so headless export finds Chrome or Edge.
-- **ffmpeg.** Only the pinned LGPL build in `~/MontClip-Cindy/ffmpeg/<platform>-<arch>/`, never one from PATH.
-  Fetching it is a later PR (⑤); until then `montclip_status` reports `ffmpeg: "missing"` and export is unavailable.
+- **ffmpeg.** Only the pinned LGPL build of `desktop/ffmpeg-manifest.json` (the one the Windows app bundles), in
+  `~/MontClip-Cindy/ffmpeg/<platform>-<arch>/`, never one from PATH. On first use the editor tab shows a banner
+  (export and noise reduction need it, about 160 MB from GitHub); its button — or the chat's
+  `montclip_install_ffmpeg`, when the user agreed — downloads it with `cindy.downloads` (Cindy checks the SHA-256
+  and the exact size; progress shows in the banner), and the worker installs it with `desktop/fetch-ffmpeg.cjs`'s
+  staged install and LGPL check (no `--enable-gpl` / `--enable-nonfree`, `-L` says LGPL). The engine then restarts
+  to use it; the editor tab follows and keeps its undo history. `montclip_status` reports `downloaded`, `changed`
+  (the files differ from what was installed) or `missing`. Only Windows x64 is offered for now (the manifest pins
+  the byte count only for it).
 
 ## Develop
 

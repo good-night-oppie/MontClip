@@ -7,6 +7,7 @@
     "win32-x64": {
       "url": "https://github.com/good-night-oppie/MontClip/releases/download/ffmpeg-lgpl-n9.0.2-montclip1/ffmpeg-n9.0.2-42-gd7643a0fe3-win64-lgpl-9.0.zip",
       "sha256": "67c30e30206b5bddcc2af9ea4f0215bbbcd2519533316997945a0fd9602a2f96",
+      "bytes": 167488790,
       "root": "ffmpeg-n9.0.2-42-gd7643a0fe3-win64-lgpl-9.0"
     },
     "linux-x64": {

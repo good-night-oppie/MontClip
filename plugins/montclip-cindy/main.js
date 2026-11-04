@@ -32,6 +32,38 @@ async function engineTools() {
 /* the engine's answer without the editor's session token (it only goes to the plugin's own pages) */
 function publicStart(s) { const o = Object.assign({}, s); delete o.url; return o; }
 
+/* ffmpeg (export, noise reduction): the pinned LGPL build the Windows app bundles, ~160 MB from GitHub, fetched by
+   cindy.downloads (SHA-256 and exact size checked by Cindy) and unpacked by the worker, which checks it is LGPL.
+   One install at a time, whether the chat or the editor tab's banner asked. Progress goes to the plugin's pages. */
+let installing = null;
+function installFfmpeg() {
+  if (installing) return installing;
+  installing = (async () => {
+    const spec = await node('montclip/ffmpeg-spec');
+    if (!spec.supported) return { error: 'MontClip has no pinned ffmpeg for ' + spec.platform, code: 'UNSUPPORTED_PLATFORM' };
+    if (spec.state === 'downloaded') return { installed: true, already: true, version: spec.version };
+    if (typeof cindy.downloads !== 'object' || typeof cindy.downloads.start !== 'function')
+      return { error: 'This Cindy cannot download files for plugins; update Cindy.', code: 'HOST_TOO_OLD' };
+    channel.postMessage({ type: 'ffmpeg-progress', phase: 'queued' });
+    const d = await cindy.downloads.start({ id: 'ffmpeg-' + spec.platform, url: spec.url, sha256: spec.sha256, bytes: spec.bytes });
+    if (!d.ok) { channel.postMessage({ type: 'ffmpeg-progress', phase: 'failed', message: d.message || d.errorCode }); return { error: d.message || d.errorCode || 'download failed', code: d.errorCode || 'DOWNLOAD_FAILED' }; }
+    channel.postMessage({ type: 'ffmpeg-progress', phase: 'installing' });
+    try {
+      const out = await node('montclip/ffmpeg-install', {}, { downloadTokens: { archive: d.token }, timeoutMs: 120000 });
+      channel.postMessage({ type: 'ffmpeg-progress', phase: 'installed', version: out.version });
+      return { download: { bytes: d.bytes, sha256: d.sha256, fromCache: d.fromCache }, install: out };
+    } catch (e) {
+      channel.postMessage({ type: 'ffmpeg-progress', phase: 'failed', message: String(e.message || e) });
+      return { error: String(e.message || e), code: e.code || 'INSTALL_FAILED' };
+    }
+  })().finally(() => { installing = null; });
+  return installing;
+}
+function onDownloadProgress(d) {
+  if (!d || !String(d.id || '').startsWith('ffmpeg-')) return;
+  channel.postMessage({ type: 'ffmpeg-progress', phase: d.phase, loaded: d.loaded, total: d.total, speedBps: d.speedBps });
+}
+
 const HANDLERS = {
   async montclip_status() {
     const s = await node('montclip/start');
@@ -65,6 +97,8 @@ const HANDLERS = {
   async montclip_undo() { return node('montclip/ui', { cmd: 'undo' }); },
   async montclip_redo() { return node('montclip/ui', { cmd: 'redo' }); },
   async montclip_seek(args) { return node('montclip/ui', { cmd: 'seek', t: Number(args.t) }); },
+  /* Only when the user agreed to the download (about 160 MB). */
+  async montclip_install_ffmpeg() { return installFfmpeg(); },
   /* Open (or focus) the editor as this task's own tab in the task's right sidebar. */
   async montclip_open_task_view(args) {
     if (typeof cindy.taskView !== 'function') return { error: 'This Cindy has no task views; update Cindy.' };
@@ -74,6 +108,7 @@ const HANDLERS = {
 };
 
 cindy.onHostMessage(async function (msg) {
+  if (msg.type === 'event' && msg.name === 'download-progress') { onDownloadProgress(msg.data); return; }
   if (msg.type !== 'tool-call') return;
   const fn = Object.prototype.hasOwnProperty.call(HANDLERS, msg.tool) ? HANDLERS[msg.tool] : null;
   if (!fn) { await cindy.send({ type: 'tool-result', callId: msg.callId, ok: false, errorCode: 'TOOL_NOT_FOUND', message: msg.tool }); return; }
@@ -98,6 +133,8 @@ channel.onmessage = async (e) => {
   try {
     if (m.type === 'editor') { const s = await node('montclip/start'); a = { origin: s.origin, url: s.url }; }
     else if (m.type === 'bind') a = await node('montclip/bind', { session: String(m.session || '') });
+    else if (m.type === 'ffmpeg-state') a = await node('montclip/ffmpeg-spec');
+    else if (m.type === 'ffmpeg-install') a = await installFfmpeg();   // the banner's button: the user's own click
     else a = { error: 'unknown request ' + m.type };
   } catch (err) { a = { error: String(err.message || err), code: err.code || null }; }
   a = Object.assign({ reqId: m.reqId, answer: true }, a);

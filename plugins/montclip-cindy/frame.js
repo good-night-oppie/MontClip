@@ -69,12 +69,65 @@
   }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && url) bind(); });
 
+  /* First use: export and noise reduction need ffmpeg. The banner asks once (以后再说 is remembered); the download
+     starts only from its button — the user's own click — or when the user asks the chat (montclip_install_ffmpeg). */
+  const banner = document.getElementById('ffmpeg');
+  const LATER = 'montclip.ffmpeg.later';
+  function bannerText(text, error) {
+    document.getElementById('ffmpegText').textContent = text;
+    if (banner) banner.classList.toggle('error', !!error);
+  }
+  function progress(m) {
+    if (!banner) return;
+    const bar = document.getElementById('ffmpegBar'), get = document.getElementById('ffmpegGet'), later = document.getElementById('ffmpegLater');
+    banner.hidden = false;
+    const busy = !['installed', 'failed', 'cancelled'].includes(m.phase);
+    get.hidden = busy || m.phase === 'installed'; later.hidden = busy;
+    bar.hidden = !busy;
+    const pct = m.total ? Math.floor((m.loaded / m.total) * 100) : null;
+    bar.firstElementChild.style.width = (pct === null ? 0 : pct) + '%';
+    const mb = (n) => (n / 1048576).toFixed(0);
+    if (m.phase === 'queued') bannerText('正在准备下载 ffmpeg…');
+    else if (m.phase === 'downloading') bannerText(pct === null ? '正在下载 ffmpeg…' : `正在下载 ffmpeg：${pct}%（${mb(m.loaded)} / ${mb(m.total)} MB${m.speedBps ? '，' + (m.speedBps / 1048576).toFixed(1) + ' MB/s' : ''}）`);
+    else if (m.phase === 'retrying') bannerText('网络断了一下，正在重试下载 ffmpeg…');
+    else if (m.phase === 'verifying') bannerText('下载完了，正在核对校验值…');
+    else if (m.phase === 'installing') bannerText('正在安装 ffmpeg，并确认是 LGPL 版本…');
+    else if (m.phase === 'installed') {
+      bannerText('ffmpeg 已装好，现在可以导出了。');
+      later.hidden = true;
+      setTimeout(() => { banner.hidden = true; }, 4000);
+      // the engine restarts to use it: follow it to its new address soon, not at the next minute
+      setTimeout(async () => { const b = await ask('editor'); if (b.url && at(b.url) !== url) place(at(b.url)); }, 1500);
+    } else if (m.phase === 'failed' || m.phase === 'cancelled') { bannerText('ffmpeg 没装上：' + (m.message || m.phase) + '。可以再试一次。', true); get.textContent = '重试'; }
+  }
+  if (banner) {
+    channel.addEventListener('message', (e) => { const m = e.data || {}; if (m.type === 'ffmpeg-progress') progress(m); });
+    document.getElementById('ffmpegGet').addEventListener('click', async () => {
+      progress({ phase: 'queued' });
+      const r = await ask('ffmpeg-install');
+      if (r.error) progress({ phase: 'failed', message: r.error });
+      else if (r.already || r.install) progress({ phase: 'installed' });
+    });
+    document.getElementById('ffmpegLater').addEventListener('click', () => {
+      banner.hidden = true;
+      try { localStorage.setItem(LATER, '1'); } catch (e) { }
+    });
+  }
+  async function offerFfmpeg() {
+    if (!banner) return;
+    let later = false;
+    try { later = localStorage.getItem(LATER) === '1'; } catch (e) { }
+    const s = await ask('ffmpeg-state');
+    if (s.supported && s.state !== 'downloaded' && !later) banner.hidden = false;
+  }
+
   async function boot() {
     try { await fetch('/wake'); } catch (e) { /* a page of a stopped plugin: the asks below simply wait */ }
     if (!(await bind())) return;
     const a = await ask('editor');
     if (a.error || !a.url) { show('MontClip 没能启动：' + (a.error || '没有地址'), true); return; }
     place(at(a.url));
+    offerFfmpeg();
     /* While the page is open the engine must stay up: asking keeps the worker from going idle, and when it was
        restarted (another port or a new token) the frame follows it — the editor keeps its undo history on the
        engine, so the reload loses nothing. */

@@ -13,14 +13,26 @@ const path = require("node:path");
 const net = require("node:net");
 const http = require("node:http");
 const readline = require("node:readline");
-const { fillWindowsEnv, newToken, createBinder, flatten } = require("./lib.cjs");
+const { spawnSync } = require("node:child_process");
+const { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg } = require("./lib.cjs");
 
 for (const k of ["log", "info", "debug", "warn", "error"]) console[k] = (...a) => process.stderr.write(a.map(String).join(" ") + "\n");
 
 const APP = path.resolve(process.env.MONTCLIP_CINDY_APP || path.join(__dirname, "app"));
 // the plugin's work lives in the user's home, never inside the plugin (an update replaces the plugin folder)
 const DATA = path.resolve(process.env.MONTCLIP_CINDY_DATA || path.join(os.homedir(), "MontClip-Cindy"));
-const FFMPEG_DIR = path.join(DATA, "ffmpeg", `${process.platform}-${process.arch}`);
+const PLATFORM = `${process.platform}-${process.arch}`;
+const FFMPEG_DIR = path.join(DATA, "ffmpeg", PLATFORM);
+// the Windows app's own pinned-build manifest and installer (build.cjs copies them in)
+const fetchFfmpeg = () => require(path.join(APP, "desktop", "fetch-ffmpeg.cjs"));
+const ffmpegManifest = () => require(path.join(APP, "desktop", "ffmpeg-manifest.json"));
+/** "downloaded" (the pinned build, unchanged since it was installed) · "changed" · "missing" */
+function ffmpegState() {
+  if (!fs.existsSync(FFMPEG_DIR)) return "missing";
+  const spec = ffmpegSpec(ffmpegManifest(), PLATFORM);
+  if (!spec.supported) return "missing";
+  return fetchFfmpeg().upToDate(FFMPEG_DIR, spec, { win: process.platform === "win32" }).ok ? "downloaded" : "changed";
+}
 /* The same port each time when it is free, so the editor frame keeps its address across worker restarts. */
 const PREFERRED_PORT = process.env.MONTCLIP_CINDY_PORT !== undefined ? Number(process.env.MONTCLIP_CINDY_PORT) : 47777;
 
@@ -62,6 +74,7 @@ async function boot() {
     FABLECUT_NO_AUTOSTART: "1",   // the engine is this process: mcp-server must never spawn a second one
     // only the pinned LGPL build fetched into the data folder (montclip_install_ffmpeg); never one from PATH
     MONTCLIP_FFMPEG_PACKAGED: "1", MONTCLIP_FFMPEG_DIR: FFMPEG_DIR,
+    MONTCLIP_FFMPEG_REMEDY: "In Cindy, install it from the MontClip editor tab's banner, or ask the chat to run montclip_install_ffmpeg.",
   });
   require(path.join(APP, "server.js"));   // throws DATA_DIR_IN_USE when the Windows app has this data folder
   started = { origin: `http://127.0.0.1:${port}`, port, token };
@@ -73,8 +86,7 @@ async function boot() {
   if (!up) throw new Error("the MontClip engine did not start");
   const mcp = require(path.join(APP, "mcp-server.js"));
   const browser = require(path.join(APP, "export-jobs.js")).findBrowser() || null;
-  Object.assign(started, { tools: mcp.TOOLS, callTool: mcp.callTool, envFilled, browser,
-    ffmpeg: fs.existsSync(path.join(FFMPEG_DIR, process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg")) ? "downloaded" : "missing" });
+  Object.assign(started, { tools: mcp.TOOLS, callTool: mcp.callTool, envFilled, browser, ffmpeg: ffmpegState() });
   // names only, never values
   note({ event: "engine-started", origin: started.origin, node: process.version, envFilled, browser: !!browser, ffmpeg: started.ffmpeg });
   return started;
@@ -112,6 +124,32 @@ const METHODS = {
     if (!["undo", "redo", "seek", "state"].includes(p.cmd)) throw Object.assign(new Error("cmd must be undo, redo, seek or state"), { code: -32602 });
     const r = await api("POST", "/api/ui/command", { cmd: p.cmd, t: p.t });
     return { status: r.status, ...r.body };
+  },
+  /* ffmpeg for export and noise reduction: what to fetch (main.js downloads it with cindy.downloads) … */
+  async "montclip/ffmpeg-spec"() {
+    const spec = ffmpegSpec(ffmpegManifest(), PLATFORM);
+    return { ...spec, state: ffmpegState(), running: started ? started.ffmpeg : null };
+  },
+  /* … and installing what was downloaded: params.downloads.archive is the host's file, read before this request
+     ends. The engine read its ffmpeg when it loaded, so a running one restarts (the next request starts it again;
+     the editor tab follows the new address and keeps its undo history). */
+  async "montclip/ffmpeg-install"(p) {
+    const spec = ffmpegSpec(ffmpegManifest(), PLATFORM);
+    if (!spec.supported) throw Object.assign(new Error("there is no pinned ffmpeg build for " + PLATFORM), { code: "UNSUPPORTED_PLATFORM" });
+    const F = fetchFfmpeg();
+    const tar = process.platform === "win32" ? path.join(process.env.SystemRoot || "C:\\Windows", "System32", "tar.exe") : "/usr/bin/tar";
+    const out = installFfmpeg({
+      archive: p.downloads && p.downloads.archive, spec, dest: FFMPEG_DIR, win: process.platform === "win32", tmpDir: os.tmpdir(),
+      sha256: F.sha256, installTree: F.installTree, check: F.checkLgpl, manifest: ffmpegManifest(),
+      extract: (archive, dir) => {
+        const t = spawnSync(tar, ["-xf", archive, "-C", dir], { encoding: "utf8", windowsHide: true });
+        if (t.status !== 0) throw Object.assign(new Error("unpacking failed: " + (t.stderr || t.error)), { code: "UNPACK_FAILED" });
+      },
+    });
+    note({ event: "ffmpeg-installed", version: out.version });
+    const restarting = !!started;
+    if (restarting) setTimeout(() => process.exit(0), 300);
+    return { ...out, state: ffmpegState(), restarting };
   },
   async "montclip/bind"(p) {
     await start();

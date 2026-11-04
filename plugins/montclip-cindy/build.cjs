@@ -35,6 +35,8 @@ const walk = (rel) => {
   }
 };
 for (const d of DIRS) walk(d);
+// the Windows app's pinned LGPL ffmpeg: its manifest and installer (the plugin downloads the same build)
+for (const f of ["ffmpeg-manifest.json", "fetch-ffmpeg.cjs"]) copy(path.join(ROOT, "desktop", f), path.join(OUT, "desktop", f));
 // the pages the plugin's own views frame (served by the engine's static route, same origin as the editor)
 const EMBED = path.join(__dirname, "embed");
 if (fs.existsSync(EMBED)) for (const f of fs.readdirSync(EMBED)) copy(path.join(EMBED, f), path.join(OUT, "cindy", f));

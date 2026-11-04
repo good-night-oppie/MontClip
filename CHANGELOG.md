@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Cindy plugin first-use ffmpeg: a banner in the editor tab (or `montclip_install_ffmpeg` from the chat) downloads the
+  pinned LGPL build with `cindy.downloads`, shows its progress, and installs it with the Windows app's own staged
+  install and LGPL check. `desktop/ffmpeg-manifest.json` now pins the win32-x64 archive's byte count.
 - Cindy plugin right-sidebar panel: 文稿 lists the timeline's lines, follows the playhead and moves the editor on a
   click; 属性 shows the selected clip. Inside Cindy the editor tab shares its playhead and selection with the panel
   over `BroadcastChannel("montclip-editor")`.
