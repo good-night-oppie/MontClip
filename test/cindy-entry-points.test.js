@@ -152,10 +152,10 @@ test("main view in JJ's words: the lead, no projects yet, where the exports are"
   assert.ok(page.includes("<span>左侧导航「更多」→「自定义」，把 MontClip 拖到导航上。以后从导航一点就到这里。</span>"), "the pin hint: unchanged");
 });
 
-/* VV (2026-11-04): where the exports are is a sentence and 打开文件夹; the full path is only in the button's hover
-   text. Whether the sentence names the path waits for JJ (for now JJ's sentence without it). */
+/* JJ (2026-11-04): where the exports are is a sentence and 打开文件夹 after it; the full path is only in the button's
+   hover text. */
 test("main view: where the exports are — a sentence, 打开文件夹, the full path in its hover text only", () => {
-  const sentence = "导出的文件都在 MontClip 自己的导出文件夹里。在聊天里让 AI 导出时，会先请你选一个文件夹，再另存一份到那里。";
+  const sentence = "导出的文件都存在 MontClip 自己的导出文件夹里。在聊天里让 AI 导出时，会先请你选一个文件夹，再另存一份到那里。";
   assert.deepEqual(V.exportsWhere("C:\\Users\\me\\FableCut"), { text: sentence, path: "C:\\Users\\me\\FableCut\\exports" });
   assert.deepEqual(V.exportsWhere("/home/me/FableCut/"), { text: sentence, path: "/home/me/FableCut/exports" }, "the folder's own separator");
   assert.deepEqual(V.exportsWhere(""), { text: "", path: "" });
@@ -189,14 +189,14 @@ test("main view failures in JJ's words: the error on a small line of its own, an
   for (const keep of ["'在任务中打开'", "' · 没有对应的任务'"]) assert.ok(js.includes(keep), keep);
 });
 
-test("status card in JJ's words: 导出组件（ffmpeg） and its three states", async () => {
+test("status card in JJ's words: 导出工具（ffmpeg） and its three states", async () => {
   const states = { missing: "还没装（导出、降噪要用）", downloaded: "已装好", changed: "文件被改过，建议重新安装" };
   for (const [ffmpeg, words] of Object.entries(states)) {
     const p = logicPage({ ffmpeg });
     await p.tool("montclip_status");
     const lines = shown(p.sent.find((m) => m.type === "card-update").html);
-    const i = lines.indexOf("导出组件（ffmpeg）");
-    assert.deepEqual(lines.slice(i, i + 2), ["导出组件（ffmpeg）", words]);
+    const i = lines.indexOf("导出工具（ffmpeg）");
+    assert.deepEqual(lines.slice(i, i + 2), ["导出工具（ffmpeg）", words]);
     assert.ok(lines.includes("在这个任务里打开剪辑器"));
   }
 });

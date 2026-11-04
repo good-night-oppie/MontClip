@@ -24,13 +24,12 @@
   function exportRows(overview) {
     return (overview.exports || []).map((e) => ({ name: e.name, meta: [size(e.bytes || 0), day(e.modified)].filter(Boolean).join(" · ") }));
   }
-  /** Where the exported files are: a sentence, with 打开文件夹 beside it; the full path only in its hover text (VV).
-   *  The path's separator is the data folder's own. Whether the sentence names the path waits for JJ: for now it
-   *  does not (JJ's sentence of ec99242e, without the path). */
+  /** Where the exported files are (JJ's words): a sentence, with 打开文件夹 after it; the full path only in that
+   *  button's hover text, with the data folder's own separator. */
   function exportsWhere(dataDir) {
     if (!dataDir) return { text: "", path: "" };
     const sep = String(dataDir).includes("\\") ? "\\" : "/";
-    return { text: "导出的文件都在 MontClip 自己的导出文件夹里。在聊天里让 AI 导出时，会先请你选一个文件夹，再另存一份到那里。",
+    return { text: "导出的文件都存在 MontClip 自己的导出文件夹里。在聊天里让 AI 导出时，会先请你选一个文件夹，再另存一份到那里。",
       path: String(dataDir).replace(/[\\/]+$/, "") + sep + "exports" };
   }
   /** A failure in JJ's words: what went wrong and what to try; with an error, "还不行，把下面这行发给我们：" and the

@@ -62,7 +62,7 @@ function shownStrings() {
   const add = (file, list) => { for (const s of list) out.push({ file, s }); };
   for (const f of ["main-view.html", "task-view.html", "panel.html", "embed/panel.html"])
     if (fs.existsSync(path.join(PLUGIN, f))) add(f, htmlStrings(fs.readFileSync(path.join(PLUGIN, f), "utf8")));
-  for (const f of ["frame.js", "main-view.js", "main-view-model.js", "embed/panel.js", "embed/panel-model.js"])
+  for (const f of ["frame.js", "ffmpeg-banner.js", "main-view.js", "main-view-model.js", "embed/panel.js", "embed/panel-model.js"])
     if (fs.existsSync(path.join(PLUGIN, f))) add(f, literals(fs.readFileSync(path.join(PLUGIN, f), "utf8")));
   add("main.js", mainJsShown(fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8")));
   return out;
@@ -71,7 +71,7 @@ function shownStrings() {
 test("the collector finds the strings the streamer reads (a check that the check works)", () => {
   const all = shownStrings().map((x) => x.s);
   for (const s of ["把 MontClip 固定到左侧导航", "在这个任务里打开剪辑器", "导出完成", "剪辑器没有打开，所以没跳过去。先打开右侧栏的「MontClip 剪辑器」，再点一次。",
-    "还没有项目。在一个任务里跟 AI 说「打开剪辑器」就行。", "导出的文件都在 MontClip 自己的导出文件夹里。", "打开文件夹", "导出组件（ffmpeg）", "没能打开剪辑器。再点一次试试。",
+    "还没有项目。在一个任务里跟 AI 说「打开剪辑器」就行。", "导出的文件都存在 MontClip 自己的导出文件夹里。", "打开文件夹", "导出工具（ffmpeg）", "打开导出文件夹", "下载断了，没下完。检查一下网络。", "没能打开剪辑器。再点一次试试。",
     "选择 MontClip 导出到哪个文件夹", "still", "copyFailed"])
     assert.ok(all.some((x) => x.includes(s)), s);
   assert.ok(!all.some((x) => x.includes("Times are seconds on the timeline")), "the agent's RULES are not collected");
