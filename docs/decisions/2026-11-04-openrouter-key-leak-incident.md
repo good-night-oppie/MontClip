@@ -1,6 +1,6 @@
 # 事件记录：OpenRouter 密钥明文在测试窗口泄露（2026-11-04）
 
-状态：**已止血，待作废换新**（Deja 已去向主人请：作废旧 key、删除明文 `.bak`）。
+状态：**已止血，已作废换新**。2026-11-04 主人已在 OpenRouter 后台作废旧密钥并换新；katana 上 ~/.openrouter-token 和 .bak 已删除；新密钥只放在 europa 的 ~/.openrouter-montclip（600），真模型测试只在 europa 上跑。
 
 **结论（主人已确认）**：不是入侵。主人本人于 21:04 在电脑前测试时粘的密钥、存的连接——测试窗口和主人自己的窗口在同一桌面，她分不清哪个是哪个，误用了测试窗口。规矩见第 5 节。
 
@@ -66,10 +66,10 @@
 
 ## 6. 待办（由 Deja 请主人执行）
 
-- [ ] OpenRouter 后台作废旧 key、生成新 key。
-- [ ] 删除 `~/.openrouter-token` 和 `~/.openrouter-token.bak`。
-- [ ] 把 `~/.openrouter-token` 的权限从 644 改成 600（删除前先收紧，防同机其他账号读；这件由 Deja 请主人做）。
-- [ ] 新 key 通过 1Password 引用接入，不落明文文件。
+- [x] OpenRouter 后台作废旧 key、生成新 key（主人，2026-11-04）。
+- [x] 删除 katana 上的 `~/.openrouter-token` 和 `~/.openrouter-token.bak`（Deja，2026-11-04）。
+- [x] ~~把 `~/.openrouter-token` 的权限从 644 改成 600~~：文件已删除，不再需要。
+- [ ] 新 key 通过 1Password 引用接入，不落明文文件。现在的做法（Deja，2026-11-04）：新 key 只放在 europa 的 `~/.openrouter-montclip`（600），真模型测试只在 europa 上跑；`real-tests/key-file.cjs` 只读这个文件（或 `MONTCLIP_OPENROUTER_KEY_FILE` 指定的文件），权限比 600 宽就拒绝读、跳过测试，旧路径不再读。和 5.2 的「一律从 1Password 引用」还不一致，留给 QQ 定。
 
 ## 7. 结论分类
 

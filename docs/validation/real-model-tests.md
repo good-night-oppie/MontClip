@@ -3,7 +3,9 @@
 - **Unit** (`node --test`, also in CI): no network, substitutes only. `test/agent-format.test.js`.
 - **Integration**: an OpenRouter free vision model through the product's own request path
   (`desktop/agent-service.js`, fixed endpoint `https://openrouter.ai/api/v1/chat/completions`).
-  `MONTCLIP_REAL_MODELS=1 npm run test:integration`. Key only from `~/.openrouter-token`.
+  `MONTCLIP_REAL_MODELS=1 npm run test:integration`, on europa only. Key only from `~/.openrouter-montclip`
+  (mode 600), or the file `MONTCLIP_OPENROUTER_KEY_FILE` names; a file with wider permissions is refused and the tests
+  are skipped with the reason (`real-tests/key-file.cjs`). There is no fallback file.
 - **e2e**: DeepSeek Flash (`deepseek-flash`, from `api.deepseek.com/models`) in the real desktop
   app, visible window, fresh profile. `MONTCLIP_REAL_MODELS=1 npm run test:e2e`. Key only from
   `~/.deepseek-serena-api-key`, typed into the password field by the test.
