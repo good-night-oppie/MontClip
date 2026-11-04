@@ -121,3 +121,13 @@ test("JJ's words for the reason on a part marked 不是唱歌 that comes back",(
  a.equal(zh('as-marked-why'),'上次你把这段改成了不是唱歌，这次照你改的来，开头结尾也和上次一样。');
  a.equal(en('as-marked-why'),"Last time you marked this part as not singing, so it's shown the way you changed it, with the same start and end.");
 });
+
+// VV on b76bbe3: a card made another kind than 唱歌 shows no reason that only holds for singing (一直在唱，几乎没有停顿);
+// the sound and danmaku reasons stay; made a song again, it comes back (auto-slices.js cardReasons)
+test('a card that is no longer a song shows no singing-only reason; a song again, it shows it',()=>{
+ const S=require('../auto-slices'),r=[{signal:'singing',window:[0,1]},{signal:'loudness',value:5,window:[0,1]},{signal:'danmaku',value:3,count:40,window:[0,1]}];
+ a.deepEqual(S.cardReasons({kind:'song',reasons:r}).map(x=>x.signal),['singing','loudness','danmaku']);
+ for(const k of ['moment','interaction','chat','stunt','other'])a.deepEqual(S.cardReasons({kind:k,reasons:r}).map(x=>x.signal),['loudness','danmaku'],k);
+ a.deepEqual(S.cardReasons({kind:'moment'}),[]);
+ a.match(read('app.js'),/MontClipAutoSlices\.cardReasons\(c\)/);
+});
