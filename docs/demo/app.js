@@ -1293,10 +1293,26 @@ window.montclipDownloads?.onDone(({ state, name, removed }) => {
   else if (state === "cancelled") toast(uiText(wasExport ? "own.export-save-cancelled" : kind === "captions" ? "own.captions-save-cancelled" : "own.save-canceled"));
   else toast(uiText(wasExport ? "own.export-save-failed" : "own.save-failed"));
 });
+/** A toast with 〔撤销〕 (VV / Deja, 2026-11-03): it stays UNDO_TOAST_MS, and the time stops while the pointer is on it or
+ *  focus is inside it; once it leaves, the full time starts again. → {start, stop} for that toast element. */
+const UNDO_TOAST_MS = 8000;
+function holdToast(el, hide) {
+  // the pointer: its own events; the focus: where it is now (focus events do not always come, e.g. an unfocused window)
+  let timer = null, hover = false, since = 0;
+  el.addEventListener("mouseenter", () => { hover = true; }); el.addEventListener("mouseleave", () => { hover = false; });
+  const stop = () => { clearTimeout(timer); timer = null; };
+  const tick = () => {
+    if (hover || el.contains(document.activeElement)) since = Date.now();   // held: the time starts again once it leaves
+    else if (Date.now() - since >= UNDO_TOAST_MS) { stop(); hide(); return; }
+    timer = setTimeout(tick, 250);
+  };
+  return { start: () => { stop(); since = Date.now(); timer = setTimeout(tick, 250); }, stop };
+}
 function toast(msg) {
   if (!els.toast) return;
   els.toast.textContent = msg;
   els.toast.classList.add("show");
+  if (toastHold) toastHold.stop();
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => els.toast.classList.remove("show"), 3200);
 }
@@ -9601,12 +9617,31 @@ function openAsrSetup(state) {
     d.setAttribute("aria-labelledby", "asrSetupTitle");
     d.addEventListener("close", () => { if (asrSetup && asrSetup.dialog === d) asrSetup = null; d.remove(); });
     d.addEventListener("click", asrSetupClick);
+    // Esc (VV on #88 25b4578): what the box's own way out does — 〔以后再说〕 when it offers one, 〔好〕 once done; while
+    // downloading the box closes and the download goes on (Settings › 听写 shows it)
+    d.addEventListener("cancel", (e) => {
+      e.preventDefault();
+      const out = d.querySelector('[data-asr-setup="later"]') || d.querySelector('[data-asr-setup="ok"]');
+      if (out) out.click(); else d.close();
+    });
     document.body.append(d);
     asrSetup = { dialog: d, state: null };
     d.showModal();
   }
   asrSetup.state = state || null;
   paintAsrSetup();
+  // the focus in the box, on its first button, so Esc and Tab are the box's
+  // the box itself counts as "inside" (showModal may focus the <dialog>): then too (VV on #102)
+  const a = document.activeElement;
+  if (a === asrSetup.dialog || !asrSetup.dialog.contains(a)) asrSetup.dialog.querySelector(".dialog-actions button")?.focus();
+}
+/** A box taller than the window (Deja, #88): everything between its title and its actions goes into a .dialog-body that
+ *  scrolls, so the title and the actions stay in sight. */
+function wrapDialogBody(dialog) {
+  const body = document.createElement("div");
+  body.className = "dialog-body";
+  for (const n of [...dialog.childNodes]) if (!(n.nodeType === 1 && (n.matches("h2") || n.matches(".dialog-actions")))) body.append(n);
+  dialog.insertBefore(body, dialog.querySelector(":scope > .dialog-actions"));
 }
 function paintAsrSetup() {
   if (!asrSetup) return;
@@ -9617,9 +9652,9 @@ function paintAsrSetup() {
   if (!st) html = `<h2 id="asrSetupTitle">${h("setup-title")}</h2><p class="dim">${h("setup-intro")}</p>
     <div class="asr-card asr-card-main"><b>${h("setup-local-title")}</b> <span class="asr-tag">${h("setup-recommended")}</span>
       <ul><li>${h("asr-missing")}</li><li>${h("setup-local-speed")}${ASR_TEST_MINUTES ? h("setup-local-n", { n: ASR_TEST_MINUTES }) : ""}</li>
-        <li>${h("setup-local-errors")}</li>${asrPunctReady() ? "" : `<li>${h("setup-local-punct")}</li>`}</ul>
-      <button type="button" class="btn primary" data-asr-setup="download">${h("asr-download")}</button></div>
-    <div class="asr-card"><b>${h("setup-later-title")}</b><p>${h("setup-later")}</p>${later}</div>`;
+        <li>${h("setup-local-errors")}</li>${asrPunctReady() ? "" : `<li>${h("setup-local-punct")}</li>`}</ul></div>
+    <div class="asr-card"><b>${h("setup-later-title")}</b><p>${h("setup-later")}</p></div>
+    <div class="dialog-actions"><button type="button" class="btn primary" data-asr-setup="download">${h("asr-download")}</button>${later}</div>`;
   else if (st === "dl") html = `<h2 id="asrSetupTitle">${h("setup-dl-title")}</h2><p>${h("asr-downloading", { got: mbText(d.loaded) })}</p>
     <div class="asr-bar"><i style="width:${d.total ? Math.min(100, Math.round(100 * d.loaded / d.total)) : 0}%"></i></div>
     <div class="dialog-actions"><button type="button" class="btn" data-asr-setup="cancel">${h("asr-download-cancel")}</button></div>`;
@@ -9633,6 +9668,7 @@ function paintAsrSetup() {
       <div class="dialog-actions"><button type="button" class="btn primary" data-asr-setup="download">${h(again)}</button>${later}</div>`;
   }
   asrSetup.dialog.innerHTML = html;
+  wrapDialogBody(asrSetup.dialog);
 }
 async function asrSetupClick(e) {
   const b = e.target.closest("[data-asr-setup]");
@@ -10466,9 +10502,13 @@ function autoRender(step) {
   st.step = step;
   const order = ["start", "run", "review", "done"], n = order.indexOf(step);
   d.querySelectorAll("[data-as-st]").forEach((li) => { const k = order.indexOf(li.dataset.asSt); li.className = k === n ? "on" : k < n ? "done" : ""; });
-  const body = d.querySelector("[data-as-body]");
+  const body = d.querySelector("[data-as-body]"), same = body.dataset.step === step;
+  // the same page drawn again (an option picked): its folds stay as they were and it stays where it was scrolled (VV:
+  // picking a 每条多长 option closed 更多设置); another page starts at the top with its folds as designed
+  const open = same ? [...body.querySelectorAll("details")].map((x) => x.open) : [], top = body.scrollTop;
   body.innerHTML = step === "start" ? autoStartHtml() : step === "run" ? autoRunHtml() : step === "review" ? autoReviewHtml() : autoDoneHtml();
-  body.scrollTop = 0;
+  body.dataset.step = step;
+  if (same) { body.querySelectorAll("details").forEach((x, i) => { if (open[i]) x.open = true; }); body.scrollTop = top; } else body.scrollTop = 0;
   autoFooter();
 }
 
@@ -10694,7 +10734,10 @@ function autoToast(msg, undoable = true) {
   t.querySelector("[data-as-toast-msg]").textContent = msg;
   t.querySelector("[data-as-toast-undo]").hidden = !undoable;
   t.hidden = false; clearTimeout(autoToastTimer);
-  autoToastTimer = setTimeout(() => { t.hidden = true; }, 5000);
+  if (!t.holdToast) t.holdToast = holdToast(t, () => { t.hidden = true; });
+  t.holdToast.stop();
+  // with 〔撤销〕: 8 s, held while hovered or focused; without: 5 s as before
+  if (undoable) t.holdToast.start(); else autoToastTimer = setTimeout(() => { t.hidden = true; }, 5000);
 }
 function autoClip(id) { return autoState().clips.find((c) => c.id === id) || null; }
 function autoClick(e) {
@@ -10858,6 +10901,7 @@ function autoPlace(clips, { select = null, fine = false } = {}) {
   return r;
 }
 /** A toast with one button (the editor's toast is text only). The button acts once; the toast goes after 8 s. */
+let toastHold = null;
 function toastAction(msg, label, onClick) {
   if (!els.toast) return;
   els.toast.textContent = "";
@@ -10867,7 +10911,8 @@ function toastAction(msg, label, onClick) {
   els.toast.append(span, " ", btn);
   els.toast.classList.add("show", "has-action");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => els.toast.classList.remove("show", "has-action"), 8000);
+  if (!toastHold) toastHold = holdToast(els.toast, () => { if (els.toast.classList.contains("has-action")) els.toast.classList.remove("show", "has-action"); });
+  toastHold.start();
 }
 
 /* step 4: export — the ticked parts put on the timeline (one undo step), then one file each through the export queue */
@@ -18196,7 +18241,8 @@ async function openExportSetup() {
     renderQueue();
     els.exportSetup.classList.remove("hidden");
     // aria-modal hides what is behind — focus has to come inside
-    if (!els.exportSetup.contains(document.activeElement)) $("exportRangeSel")?.focus();
+    const a = document.activeElement;
+    if (a === els.exportSetup || !els.exportSetup.contains(a)) $("exportRangeSel")?.focus();
   });
 }
 function closeExportSetup() {

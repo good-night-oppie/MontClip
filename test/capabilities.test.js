@@ -6,9 +6,10 @@ const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('no
 const Cap=require('../capabilities'),TOOLS=require('../mcp-tools');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 
-test('every MCP tool and both proposal shapes are in the table, nothing else',()=>{
+test('every MCP tool, both proposal shapes and the two card edits are in the table, nothing else',()=>{
  const names=Cap.list().map(c=>c.name).sort();
- a.deepEqual(names,[...TOOLS.map(t=>t.name),'keep_ranges','keep_sentences'].sort());
+ // the card edits of 「自动出切片」 (the owner / Deja, 2026-11-03): host capabilities, undoable (test/segment-edits.test.js)
+ a.deepEqual(names,[...TOOLS.map(t=>t.name),'keep_ranges','keep_sentences','set_segment_kind','add_segment'].sort());
  a.equal(TOOLS.length,26);   // 25 in #74, plus #53's fablecut_danmaku
 });
 test('the MCP server serves the same tool definitions it always had (moved to mcp-tools.js, unchanged)',()=>{
