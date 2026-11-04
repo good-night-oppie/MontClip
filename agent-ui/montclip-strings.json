@@ -1,5 +1,5 @@
 {
- "about": "MontClip's own words for Cindy keys whose Cindy wording does not fit MontClip, laid over cindy-strings.json. The four permission modes are MontClip's, in 助手面板 v7.2 §3 words (#83's, with their full stops; the same sentences as the mode tips and the Yolo bar, test/cindy-parts.test.js); the stand-in useAgentCapabilities gives them under Cindy's ids plan / ask / auto / bypassPermissions.",
+ "about": "MontClip's own words for Cindy keys whose Cindy wording does not fit MontClip, laid over cindy-strings.json. The four permission modes are MontClip's, in 助手面板 v7.2 §3 words (#83's, with their full stops; the same sentences as the mode tips and the Yolo bar, test/cindy-parts.test.js); the stand-in useAgentCapabilities gives them under Cindy's ids plan / ask / auto / bypassPermissions. chat.thinking.inProgress / hidden are not Cindy keys: Cindy writes Thinking / Thinking hidden in ThinkingCard's JSX, and the build puts these two t() calls in their place (cindy-resolve.cjs PATCHES; VV on f3df7db).",
  "zh-CN": {
   "newChat": {
    "permissionSelector": {
@@ -25,6 +25,12 @@
       }
      }
     }
+   }
+  },
+  "chat": {
+   "thinking": {
+    "inProgress": "正在想",
+    "hidden": "这段思考没有显示"
    }
   }
  },
@@ -53,6 +59,12 @@
       }
      }
     }
+   }
+  },
+  "chat": {
+   "thinking": {
+    "inProgress": "Thinking",
+    "hidden": "Thinking hidden"
    }
   }
  }

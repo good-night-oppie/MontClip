@@ -70,14 +70,16 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     await show('PermissionSelector', `()=>({permissionMode:'bypassPermissions',onPermissionModeChange:()=>{}})`);
     report.styles = await read(`(()=>{const root=getComputedStyle(document.documentElement),cs=(e)=>e&&getComputedStyle(e);
       const trigger=document.querySelector('#partBox_PermissionSelector button'),q=document.querySelector('#partBox_AskUserQuestionPrompt button'),
-        own=document.getElementById('mcUndo'),exp=document.getElementById('btnExport');
-      return{accent:root.getPropertyValue('--accent').trim(),border:root.getPropertyValue('--border').trim(),cindyBorder:root.getPropertyValue('--cindy-border').trim(),
-        focusRing:root.getPropertyValue('--focus-ring').trim(),textPrimary:root.getPropertyValue('--text-primary').trim(),
+        own=document.getElementById('mcUndo'),exp=document.getElementById('btnExport'),part=cs(document.getElementById('partBox_PermissionSelector'));
+      return{accent:root.getPropertyValue('--accent').trim(),border:root.getPropertyValue('--border').trim(),cindyBorder:part.getPropertyValue('--cindy-border').trim(),
+        focusRing:part.getPropertyValue('--focus-ring').trim(),textPrimary:part.getPropertyValue('--text-primary').trim(),
+        onRoot:['--muted','--text-primary','--focus-ring','--cindy-border','--tw-ring-offset-width'].filter(n=>root.getPropertyValue(n).trim()),
         yolo:cs(trigger.querySelector('span')||trigger).color,partButtonBg:cs(q).backgroundColor,partButtonBorder:cs(q).borderTopStyle,
         ownButton:{bg:cs(own).backgroundColor,border:cs(own).borderTopWidth,radius:cs(own).borderTopLeftRadius},exportBg:cs(exp).backgroundImage};})()`);
     assert.equal(report.styles.accent, '#7b6cff', "MontClip's --accent is its own");
     assert.equal(report.styles.border, '#2c2c35', "MontClip's --border is its own");
-    assert.ok(report.styles.cindyBorder && report.styles.textPrimary, "Cindy's theme is there");
+    assert.ok(report.styles.cindyBorder && report.styles.textPrimary, "Cindy's theme is there, in a part");
+    assert.deepEqual(report.styles.onRoot, [], "no Cindy variable on the page's root (VV on f3df7db: --muted)");
     assert.equal(report.styles.focusRing, '#7b6cff', "the focus ring is MontClip's accent");
     assert.equal(report.styles.yolo, 'rgb(229, 72, 77)', "Yolo in MontClip's red");
     assert.equal(report.styles.partButtonBg, 'rgba(0, 0, 0, 0)', "a part's button has no browser face (preflight, inside the parts)");
@@ -87,6 +89,14 @@ BrowserWindow.prototype.loadURL = async function (...args) {
       const take=()=>ids.map(id=>{const s=getComputedStyle(document.getElementById(id));return id+' '+props.map(p=>s[p]).join('|');});
       const on=take();link.disabled=true;const off=take();link.disabled=false;return{on,off};})()`);
     assert.deepEqual(report.ownPage.on, report.ownPage.off, "MontClip's own controls look the same with Cindy's styles loaded");
+    // VV's grey texts (var(--muted, #9a9aaa)) and MontClip classes Cindy has too, on elements of MontClip's: the same on and off
+    report.ownProbes = await read(`(()=>{const link=document.querySelector('link[href="cindy-parts.css"]'),host=document.createElement('div');host.style.cssText='position:fixed;left:0;top:0;width:300px';
+      host.innerHTML='<ul class="xq-list"><li><div class="xq-sub">a</div></li></ul><div class="dlv-wh-in"><span>b</span></div><div class="cindy-plan-what">c</div><div class="dlv-batch-list"><div class="bo-empty">d</div></div><div class="grid">e</div><div class="block">f</div><div class="fixed">g</div><div class="sr-only">h</div><div class="filter">i</div>';
+      document.body.appendChild(host);const els=[...host.querySelectorAll('div,span')].filter(e=>!e.children.length);
+      const take=()=>els.map(e=>[e.className||e.parentNode.className+' span',getComputedStyle(e).color,getComputedStyle(e).display,getComputedStyle(e).position,getComputedStyle(e).width].join('|'));
+      const on=take();link.disabled=true;const off=take();link.disabled=false;host.remove();return{on,off};})()`);
+    assert.deepEqual(report.ownProbes.on, report.ownProbes.off, "MontClip's grey texts and same-named classes are not touched by Cindy's file");
+    for (const c of ['xq-sub', 'dlv-wh-in span', 'cindy-plan-what', 'bo-empty']) assert.ok(report.ownProbes.on.find((l) => l.startsWith(c + '|')).includes(c === 'cindy-plan-what' ? 'rgb(154, 160, 170)' : 'rgb(154, 154, 170)'), c + ' keeps its grey (as on main, VV): ' + report.ownProbes.on.find((l) => l.startsWith(c + '|')));
     assert.match(report.styles.exportBg, /linear-gradient/, "MontClip's main button keeps its gradient");
     await show('PermissionSelector', `()=>({permissionMode:'ask',onPermissionModeChange:m=>{window.__mode=m;}})`);
     // the rest show their content
@@ -102,6 +112,13 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     report.errorDetail = await read(`document.getElementById('partBox_ErrorMessageCard').innerText.replace(/\\s+/g,' ')`);
     assert.match(report.errorDetail, /密钥不对/);
     assert.match(shown.ToolCallCard.text, /patch_project|改了第 2 段的结尾/);
+    // thinking and work times in Chinese words (v7.2 「正在想… N 秒」; VV on f3df7db: it said Thinking, 1m 29s, 58s)
+    assert.match(shown.ThinkingCard.text, /^正在想\s*1 分 2\d 秒/);
+    assert.doesNotMatch(shown.ThinkingCard.text, /Thinking|\d+[ms]\b/);
+    report.dots = await read(`[...document.querySelectorAll('#partBox_ThinkingCard .thinking-dot')].map(e=>{const c=getComputedStyle(e);return c.width+' '+c.animationName;})`);
+    assert.deepEqual(report.dots, ['4px thinking-dot-wave', '4px thinking-dot-wave', '4px thinking-dot-wave'], 'the three dots of 正在想…');
+    assert.match(shown.WorkGroupBlock.text, /已工作 58 秒/);
+    assert.doesNotMatch(shown.WorkGroupBlock.text, /\d+s\b/);
     assert.match(shown.AskUserQuestionPrompt.text, /这段要不要留/);
     report.voiceButton = await read(`(()=>{const b=document.querySelector('#partBox_AskUserQuestionPrompt [data-testid="ask-user-voice"]');return b?getComputedStyle(b).display:'absent';})()`);
     assert.ok(['none', 'absent'].includes(report.voiceButton), 'no voice button: ' + report.voiceButton);
@@ -113,6 +130,9 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     const en = await show('PermissionSelector', `()=>({permissionMode:'ask',onPermissionModeChange:()=>{}})`, 'en');
     assert.match(en.text, /Manual/);
     for (const name of report.names.filter((n) => n !== 'PermissionSelector')) shown[name + '_en'] = await show(name, sample[name], 'en');
+    report.shownEn = { ThinkingCard: shown.ThinkingCard_en.text.replace(/\s+/g, ' '), WorkGroupBlock: shown.WorkGroupBlock_en.text.replace(/\s+/g, ' ').slice(0, 60) };
+    assert.match(report.shownEn.ThinkingCard, /^Thinking\s*1m 2\ds/, "English as in Cindy");
+    assert.match(report.shownEn.WorkGroupBlock, /Worked for 58s/);
     report.missingKeys = await read(`MontClipCindyParts.missingKeys()`);
     assert.deepEqual(report.missingKeys, [], 'every string a part asked for is there');
     report.pageErrors = await read(`__partErrors`);

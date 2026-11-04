@@ -309,11 +309,6 @@
         "sha256": "c87786bf9dd31c344f15c795f5cec6af2b215cb4abb0bd0b019629051cb04b25"
       },
       {
-        "file": "apps/desktop/src/renderer/lib/sessionDurationFormat.ts",
-        "blob": "66540b095d771788269e3a88bab07783496314c5",
-        "sha256": "72c072a33ccb5a37a826dd32410b12ebb480ba7a49b8a720ab1b1d5a886f9e66"
-      },
-      {
         "file": "apps/desktop/src/renderer/lib/toast.ts",
         "blob": "78d95e3ca4e660b47115ed06cef9915011540768",
         "sha256": "d43e37f62d030abf42da821d7cbc93ecc95e39c8896b9a85f49c2a52578aa01a"
@@ -332,6 +327,11 @@
         "file": "apps/desktop/src/renderer/styles/generated/tokens.css",
         "blob": "9f74dddc2e361a0bc1482da07f6bce876d0f460e",
         "sha256": "a1c8d401f4e7161b07b1484aa394cd9648626143d53bb51d4f36e455f21413fb"
+      },
+      {
+        "file": "apps/desktop/src/renderer/styles/globals.css",
+        "blob": "f1ea9df3e2ccf94dddf364ce86ca6928db4f854f",
+        "sha256": "ee694d8478217c475abe60fe040c63da60a07a9c85e1045ec27cb50f39866d39"
       },
       {
         "file": "apps/desktop/src/renderer/themes/builtin/cindy-dark.ts",

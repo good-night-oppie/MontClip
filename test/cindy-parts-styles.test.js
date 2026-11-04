@@ -9,7 +9,14 @@ const css = read('cindy-parts.css'), sources = require('../agent-ui/SOURCES.json
 const { STYLE_ENTRIES, STYLE_FILES } = require('../agent-ui/cindy-resolve.cjs');
 // the rules of a CSS file, outside comments: [selector, body]
 const rules = (text) => [...text.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}@;]+)\{([^{}]*)\}/g)].map((m) => [m[1].trim(), m[2]]);
-const SCOPE = ':where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"])';
+const SCOPE = ':where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim)';
+const split = (s) => s.split(/,(?![^(]*\))/).map((x) => x.trim());
+// every selector of a rule, outside @keyframes (from / to / n%)
+const selectors = () => rules(css).flatMap(([s]) => split(s)).filter((s) => !/^(from|to|[\d.]+%)$/.test(s));
+// the variable names MontClip's own page uses or sets
+const OWN = ['style.css', 'app.js', 'index.html', 'agent-ui/pane.tsx'].map(read).join('\n');
+const mine = new Set([...OWN.matchAll(/var\(\s*--([\w-]+)|(?:^|[{;\s'"])--([\w-]+)\s*:|setProperty\(\s*['"]--([\w-]+)/g)].map((m) => m[1] || m[2] || m[3]));
+const esc = (n) => n.replace(/[-]/g, '\\-');
 
 test('the page loads it before its own style.css; it is generated, and says from what', () => {
   const html = read('index.html');
@@ -26,43 +33,55 @@ test("what it is made from was copied unchanged at 43001ea (SOURCES.json parts):
   for (const f of [...STYLE_ENTRIES, ...STYLE_FILES, 'apps/desktop/src/renderer/components/ui/button.css']) assert.ok(copied.has(f), f);
 });
 
-test("Cindy's theme variables do not overwrite MontClip's: --border and --accent are written as --cindy-…", () => {
-  const theme = rules(css).find(([s, b]) => s === ':root' && /--text-primary:/.test(b));
-  assert.ok(theme, "Cindy's cindy-dark theme block");
-  const names = [...theme[1].matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]);
-  assert.ok(names.length >= 500, 'the whole theme: ' + names.length);
-  for (const n of ['--border', '--accent']) assert.ok(!names.includes(n), n + ' is MontClip\'s');
-  for (const n of ['--cindy-border', '--cindy-accent']) assert.ok(names.includes(n), n);
-  // nowhere else in the file is MontClip's --border / --accent set, and nothing reads them as Cindy's hsl() colours
-  for (const [, b] of rules(css)) assert.doesNotMatch(b, /(^|[;\s])--(border|accent)\s*:/);
-  assert.doesNotMatch(css, /hsl\(var\(--(border|accent)\)\)/);
-  // nor does a copied part use them itself
+test("Cindy's variables are set inside the parts only, and none of MontClip's names (VV on f3df7db: --muted)", () => {
+  const theme = rules(css).find(([s, b]) => s === SCOPE && /--text-primary:/.test(b));
+  assert.ok(theme, "Cindy's cindy-dark theme block, on the parts");
+  assert.ok([...theme[1].matchAll(/(--[\w-]+)\s*:/g)].length >= 500, 'the whole theme');
+  // nothing on :root, html or the page's elements: every rule that sets a variable is inside the parts
+  for (const [s, b] of rules(css)) if (/(^|[;{\s])--[\w-]+\s*:/.test(b)) for (const x of split(s)) assert.ok(x.includes(SCOPE), 'a variable set outside the parts: ' + x);
+  // style.css's own var(--x) names, as Deja asked: none is set by this file, anywhere; nor read, so a part uses Cindy's copy
+  const used = [...read('style.css').matchAll(/var\(\s*--([\w-]+)/g)].map((m) => m[1]);
+  assert.ok(used.includes('muted') && used.includes('accent') && used.includes('border'));
+  for (const n of new Set([...used, ...mine])) {
+    assert.doesNotMatch(css, new RegExp('(^|[;{\\s])--' + esc(n) + '\\s*:'), '--' + n + " is MontClip's: set here");
+    assert.doesNotMatch(css, new RegExp('var\\(\\s*--' + esc(n) + '(?![\\w-])'), '--' + n + " is MontClip's: read here");
+  }
+  // Cindy's own values under the --cindy- name (a part's Tailwind colour reads them there, e.g. var(--cindy-chat-input-bg))
+  for (const n of ['border', 'accent', 'muted']) assert.ok(css.includes('--cindy-' + n + ':'), n);
+  assert.ok(css.includes('var(--cindy-chat-input-bg)'));
+  // no copied part reads a renamed one some other way (an inline style, JavaScript): it would find nothing
+  const renamed = [...new Set([...css.matchAll(/--cindy-([\w-]+)\s*:/g)].map((m) => m[1]))].filter((n) => mine.has(n));
+  assert.ok(renamed.length >= 3);
   const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]);
-  for (const f of walk(path.join(__dirname, '../agent-ui/cindy-43001ea/apps/desktop/src/renderer/components')).filter((f) => /\.(tsx?|css)$/.test(f)))
-    assert.doesNotMatch(fs.readFileSync(f, 'utf8'), /var\(--(border|accent)\)/, f);
+  const files = [...walk(path.join(__dirname, '../agent-ui/cindy-43001ea/apps/desktop/src/renderer')), ...walk(path.join(__dirname, '../agent-ui/stand-ins'))]
+    .filter((f) => /\.(tsx?|cjs)$/.test(f) && !f.includes('__tests__'));
+  for (const f of files) {
+    const text = fs.readFileSync(f, 'utf8');
+    for (const n of renamed) assert.ok(!new RegExp('style=\\{[^}]*var\\(--' + esc(n) + '(?![\\w-])|getPropertyValue\\([\'"]--' + esc(n) + '[\'"]').test(text), n + ' in ' + f);
+  }
 });
 
-test("Tailwind's preflight applies only inside the parts: every rule for a bare element is scoped", () => {
-  const bare = /^(\*|::?[a-z-]+|[a-z][a-z0-9]*(\[[^\]]*\])?(:[a-z-]+(\([^)]*\))?)*)$/;
-  const element = rules(css).flatMap(([s]) => s.split(/,(?![^(]*\))/).map((x) => x.trim()))
-    .filter((s) => !s.includes(SCOPE) && !/^(from|to|[\d.]+%)$/.test(s) && bare.test(s.replace(/::?(before|after|placeholder|marker|-webkit-[a-z-]+|-moz-[a-z-]+)/g, '')));
-  // the only bare-element rules set variables, nothing else: Tailwind's own defaults (*, ::before, ::after, ::backdrop:
-  // --tw-…), Cindy's theme, tokens and MontClip's colours (:root). No property of MontClip's elements changes.
-  for (const [s, b] of rules(css)) {
-    const parts = s.split(/,(?![^(]*\))/).map((x) => x.trim());
-    if (!parts.some((p) => element.includes(p))) continue;
-    const props = b.split(';').map((d) => d.split(':')[0].trim()).filter(Boolean);
-    assert.ok(props.every((p) => p.startsWith('--')), 'unscoped rule sets more than variables: ' + s + ' { ' + props.filter((p) => !p.startsWith('--')).join(', ') + ' }');
+test('every rule applies inside the parts only: no selector, class or element, without the scope (VV on f3df7db)', () => {
+  const all = selectors();
+  assert.ok(all.length > 900);
+  assert.deepEqual(all.filter((s) => !s.includes(SCOPE)), [], 'unscoped selectors');
+  // the class names MontClip's page uses too are among them, scoped
+  for (const c of ['hidden', 'grid', 'block', 'fixed', 'filter', 'sr-only']) {
+    assert.ok(all.some((s) => s === SCOPE + ' .' + c), '.' + c + ' scoped');
+    assert.ok(!all.includes('.' + c));
   }
-  // and the scoped preflight is there: a button has no face of its own inside a part
-  assert.ok(css.includes(SCOPE + ' button'), 'button reset, scoped');
-  assert.doesNotMatch(css, /(^|\})\s*(html|body)\s*[,{]/, 'no rule for html or body');
+  // the scoped preflight is there: a button has no face of its own inside a part
+  assert.ok(all.includes(SCOPE + ' button'), 'button reset, scoped');
+  assert.doesNotMatch(css, /(^|\})\s*(:root|html|body)\s*[,{]/, 'no rule for :root, html or body');
 });
 
 test("MontClip's colours come last (v7.2 §1): its accent #7b6cff for the focus ring, 自动 and the main buttons; Yolo in its red", () => {
-  const own = read('agent-ui/montclip-theme.css').trim();
-  assert.ok(css.trimEnd().endsWith(own), 'montclip-theme.css at the end');
-  const root = rules(own).find(([s]) => s === ':root')[1];
+  const own = rules(read('agent-ui/montclip-theme.css'));
+  assert.equal(own.length, 1);
+  // the file's last rule is montclip-theme.css's, on the parts
+  const [sel, root] = rules(css).at(-1);
+  assert.equal(sel, SCOPE);
+  assert.equal(root.replace(/\s+/g, ''), own[0][1].replace(/\s+/g, ''));
   const v = (n) => new RegExp('--' + n + ':\\s*([^;]+);').exec(root)?.[1].trim();
   assert.equal(v('focus-ring'), '#7b6cff');
   assert.equal(v('perm-auto-selected-text'), '#7b6cff');

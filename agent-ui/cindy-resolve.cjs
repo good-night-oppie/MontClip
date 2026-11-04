@@ -27,7 +27,8 @@ const STYLE_ENTRIES = [
   'apps/desktop/src/renderer/themes/theme-service.ts',
   'apps/desktop/src/renderer/themes/builtin/cindy-dark.ts',
 ];
-const STYLE_FILES = ['apps/desktop/src/renderer/styles/generated/tokens.css'];
+// tokens.css as it is; from globals.css only the rules for ThinkingCard's three dots (styles.cjs GLOBALS)
+const STYLE_FILES = ['apps/desktop/src/renderer/styles/generated/tokens.css', 'apps/desktop/src/renderer/styles/globals.css'];
 // Cindy file (without extension) → the MontClip stand-in used in its place, and why
 const STAND_INS = {
   'apps/desktop/src/renderer/lib/makerChatStore': ['makerChatStore.ts', "ErrorMessageCard reads two remote-error helpers from Cindy's chat store; the store itself pulls in 113 files"],
@@ -47,7 +48,29 @@ const STAND_INS = {
   'apps/desktop/src/renderer/components/new-chat/askUserVoiceShortcutOwner': ['voiceInputOff.ts', 'voice input is left out for now'],
   'apps/desktop/src/renderer/components/new-chat/useAskUserDictation': ['voiceInputOff.ts', 'voice input is left out for now'],
   'apps/desktop/src/renderer/components/new-chat/voiceQuestionSelection': ['voiceInputOff.ts', 'voice input is left out for now'],
+  'apps/desktop/src/renderer/lib/sessionDurationFormat': ['sessionDurationFormat.ts', "ThinkingCard and WorkGroupBlock say how long the AI took as 58s / 1m 29s in every language; MontClip says 58 秒 / 1 分 29 秒 in Chinese (v7.2; VV on f3df7db). English is Cindy's own"],
 };
+// Words Cindy writes in the JSX itself, not as an i18n string, so a Chinese window showed them in English (VV on f3df7db:
+// 「Thinking」). The copied file stays as it is; when the bundle is built, each piece below (it must be there exactly once) is
+// replaced with a t() call, and the words are in montclip-strings.json, Chinese and English. Nothing else in the file changes.
+const PATCHES = {
+  'apps/desktop/src/renderer/components/chat/ThinkingCard.tsx': [
+    ['            <span className="text-14 italic text-[var(--msg-tool-card-chevron)] translate-y-[1px]">\n              Thinking hidden\n',
+      '            <span className="text-14 italic text-[var(--msg-tool-card-chevron)] translate-y-[1px]">\n              {t(\'chat.thinking.hidden\')}\n'],
+    ['            <span className="text-14 text-[var(--msg-tool-card-chevron)] translate-y-[1px]">\n              Thinking\n',
+      '            <span className="text-14 text-[var(--msg-tool-card-chevron)] translate-y-[1px]">\n              {t(\'chat.thinking.inProgress\')}\n'],
+  ],
+};
+// the file as the build reads it: the copy, with its PATCHES
+function patched(file, text) {
+  const eol = text.includes('\r\n') ? '\r\n' : '\n'; // a Windows checkout of Cindy has CRLF; the copy here has Cindy's LF
+  for (let [from, to] of PATCHES[file] || []) {
+    from = from.replace(/\n/g, eol); to = to.replace(/\n/g, eol);
+    if (text.split(from).length !== 2) throw Error(`${file}: the patched piece is not there exactly once: ${JSON.stringify(from.trim().slice(-40))}`);
+    text = text.replace(from, () => to);
+  }
+  return text;
+}
 const EXTS = ['', '.tsx', '.ts', '/index.tsx', '/index.ts', '.js', '.mjs', '.json'];
 const fileAt = (base) => { for (const e of EXTS) { const f = base + e; if (fs.existsSync(f) && fs.statSync(f).isFile()) return f; } return null; };
 const rel = (root, f) => path.relative(root, f).split(path.sep).join('/');
@@ -78,6 +101,11 @@ function plugin({ root, standIns = path.join(__dirname, 'stand-ins') }) {
       }
       return undefined;
     });
+    build.onLoad({ filter: /\.tsx?$/ }, (args) => {
+      const file = inside(args.path) && rel(root, args.path);
+      if (!file || !PATCHES[file]) return undefined;
+      return { contents: patched(file, fs.readFileSync(args.path, 'utf8')), loader: args.path.endsWith('x') ? 'tsx' : 'ts', resolveDir: path.dirname(args.path) };
+    });
   } };
 }
-module.exports = { COMMIT, ENTRIES, STYLE_ENTRIES, STYLE_FILES, STAND_INS, plugin, rel };
+module.exports = { COMMIT, ENTRIES, STYLE_ENTRIES, STYLE_FILES, STAND_INS, PATCHES, patched, plugin, rel };

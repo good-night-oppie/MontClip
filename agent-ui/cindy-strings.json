@@ -361,10 +361,6 @@
   "common": {
    "dismiss": "关闭"
   },
-  "usageDetails": {
-   "durationDaysHoursMinutes": "{{days}} 天 {{hours}} 小时 {{minutes}} 分",
-   "durationHoursMinutes": "{{hours}} 小时 {{minutes}} 分"
-  },
   "agentIsland": {
    "native": {
     "updatingTasks": "正在更新任务"
@@ -812,10 +808,6 @@
   },
   "common": {
    "dismiss": "Dismiss"
-  },
-  "usageDetails": {
-   "durationDaysHoursMinutes": "{{days}}d {{hours}}h {{minutes}}m",
-   "durationHoursMinutes": "{{hours}}h {{minutes}}m"
   },
   "agentIsland": {
    "native": {

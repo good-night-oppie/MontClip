@@ -79,7 +79,8 @@ test("the strings: Cindy's own for zh-CN and en, at 43001ea, the same keys in bo
   assert.deepEqual(en.filter((k) => !zh.has(k) && !k.endsWith('_one')), []);
   assert.ok(keys(strings['zh-CN']).length > 100);
   assert.deepEqual(keys(own['zh-CN']).sort(), keys(own.en).sort());
-  assert.ok(keys(own['zh-CN']).every((k) => k.startsWith('newChat.permissionSelector.')), 'MontClip replaces only the mode switch words here');
+  // the mode switch words, and the two words the build puts in ThinkingCard's JSX (PATCHES)
+  assert.ok(keys(own['zh-CN']).every((k) => k.startsWith('newChat.permissionSelector.') || ['chat.thinking.inProgress', 'chat.thinking.hidden'].includes(k)), 'MontClip replaces only the mode switch words here');
   assert.equal(own['zh-CN'].newChat.permissionSelector.modes['claude-code'].bypassPermissions.label, 'Yolo');
   assert.equal(own['zh-CN'].newChat.permissionSelector.modes['claude-code'].ask.label, '手动');
 });
@@ -104,4 +105,52 @@ test('the mode capsule says each mode in v7.2 §3 words, the same sentence as th
   assert.equal(desc('en', 'bypassPermissions'), 'Does every step without asking you; anything sent out is still shown to you first.');
   // the old wording is gone
   assert.ok(!JSON.stringify(own).includes('全都直接做'));
+});
+
+test('Chinese words where Cindy writes English in its JSX: ThinkingCard\'s title, put in by the build, the copied file unchanged (VV on f3df7db)', () => {
+  const { PATCHES, patched } = require('../agent-ui/cindy-resolve.cjs'), own = require('../agent-ui/montclip-strings.json');
+  assert.deepEqual(Object.keys(PATCHES), ['apps/desktop/src/renderer/components/chat/ThinkingCard.tsx']);
+  const file = Object.keys(PATCHES)[0], text = fs.readFileSync(path.join(ROOT, file), 'utf8');
+  // each piece is there exactly once, and only that piece changes: Thinking → t('chat.thinking.inProgress'), Thinking hidden → t('chat.thinking.hidden')
+  for (const [from] of PATCHES[file]) assert.equal(text.split(from).length, 2, from);
+  const out = patched(file, text);
+  assert.equal(out.split('\n').length, text.split('\n').length);
+  const changed = out.split('\n').map((l, i) => [text.split('\n')[i], l]).filter(([a, b]) => a !== b);
+  assert.deepEqual(changed.map(([a, b]) => [a.trim(), b.trim()]), [['Thinking hidden', "{t('chat.thinking.hidden')}"], ['Thinking', "{t('chat.thinking.inProgress')}"]]);
+  // the same with a Windows checkout's CRLF (vendor-cindy.cjs reads one)
+  assert.equal(patched(file, text.replace(/\n/g, '\r\n')), out.replace(/\n/g, '\r\n'));
+  // the words, in both languages
+  assert.equal(own['zh-CN'].chat.thinking.inProgress, '正在想');
+  assert.equal(own.en.chat.thinking.inProgress, 'Thinking');
+  assert.ok(own['zh-CN'].chat.thinking.hidden && !/[a-z]/i.test(own['zh-CN'].chat.thinking.hidden));
+  assert.equal(own.en.chat.thinking.hidden, 'Thinking hidden');
+  // in the bundle
+  const bundle = fs.readFileSync(path.join(__dirname, '../cindy-official.js'), 'utf8');
+  assert.match(bundle, /chat\.thinking\.inProgress/);
+  assert.doesNotMatch(bundle, /children:"Thinking"/);
+});
+
+test('how long the AI took: words in Chinese (58 秒, 1 分 29 秒), Cindy\'s own in English (58s, 1m 29s) (v7.2; VV on f3df7db)', () => {
+  const { durationZh } = require('../agent-ui/stand-ins/durationWords.cjs'), strings = require('../agent-ui/cindy-strings.json');
+  assert.equal(durationZh(12000), '12 秒');
+  assert.equal(durationZh(58000), '58 秒');
+  assert.equal(durationZh(89000), '1 分 29 秒');
+  assert.equal(durationZh(88400), '1 分 28 秒');
+  assert.equal(durationZh(120000), '2 分');
+  assert.equal(durationZh(120000, { alwaysShowRemainder: true }), '2 分 0 秒');
+  assert.equal(durationZh(0), '1 秒', "Cindy's minimum");
+  assert.equal(durationZh(0, { minimumSeconds: 0 }), '0 秒');
+  assert.equal(durationZh(NaN), '1 秒');
+  assert.equal(durationZh(3_900_000), '1 小时 5 分');
+  assert.equal(durationZh(90_000_000), '1 天 1 小时 0 分');
+  // what the cards say with it: Cindy's own strings around the time
+  const z = strings['zh-CN'].chat, fill = (s, d) => s.replace('{{duration}}', d);
+  assert.equal(fill(z.workGroup.worked, durationZh(58000)), '已工作 58 秒');
+  assert.equal(fill(z.thinking.completed, durationZh(58000)), '思考 58 秒');
+  assert.equal(fill(strings.en.chat.workGroup.worked, '58s'), 'Worked for 58s');
+  // the stand-in: Chinese window → durationWords; otherwise Cindy's formatDuration, unchanged
+  const standIn = fs.readFileSync(path.join(UI, 'stand-ins/sessionDurationFormat.ts'), 'utf8');
+  assert.match(standIn, /import \{ formatDuration \} from '@cindy\/maker-shared\/message-render';/);
+  assert.match(standIn, /return i18n\.language === 'zh-CN' \? durationZh\(ms, options\) : formatDuration\(ms, options\);/);
+  assert.ok(STAND_INS['apps/desktop/src/renderer/lib/sessionDurationFormat']);
 });
