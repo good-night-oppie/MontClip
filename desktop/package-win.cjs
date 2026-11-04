@@ -13,7 +13,12 @@
    - The packaged app runs only that FFmpeg (desktop/main.js sets MONTCLIP_FFMPEG_PACKAGED; ffmpeg-path.js has no
      PATH fallback).
    - Licences in licenses/: FFmpeg's LGPL text, libiconv's COPYING.LIB and README, LICENSES.md, MontClip's LICENSE.
-     Electron's own LICENSE and LICENSES.chromium.html stay where Electron puts them. */
+     Electron's own LICENSE and LICENSES.chromium.html stay where Electron puts them.
+   - A private test package for one streamer (Deja, 2026-11-04; the owner: 「配置好再打包，私下打包，不发布」), on top of --full:
+       node desktop/package-win.cjs --full --out <dir outside the repository> --private-seed <file holding the DeepSeek key> --seed-model <model id>
+     The key file is read here and nowhere else; its key goes into resources/montclip-seed-v1.json and nowhere else in the
+     package (checked: every file is searched for it). On its first launch the app seals it with safeStorage and deletes the
+     seed (desktop/agent-seed.js). The key is never printed; the model id is given, never guessed. Not for CI. */
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), crypto = require('node:crypto');
 const { execFileSync, spawnSync } = require('node:child_process');
 const ROOT = path.join(__dirname, '..');
@@ -23,6 +28,30 @@ const arg = (k) => { const i = process.argv.indexOf(k); return i > 0 ? process.a
 const sha = (f) => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
 const git = (...a) => execFileSync('git', a, { cwd: ROOT, encoding: 'utf8' }).trim();
 const fail = (m) => { throw Error('PACKAGE_FAILED: ' + m); };
+
+/** --private-seed / --seed-model, checked before anything is built → null (an ordinary package) or {key, model}. The
+ *  messages name the file, never what is in it. */
+function privateSeed(argv, { root = ROOT, out } = {}) {
+  const at = (k) => { const i = argv.indexOf(k); return i > 0 ? argv[i + 1] : null; };
+  const file = at('--private-seed'), model = at('--seed-model');
+  if (!file && !model) return null;
+  if (!file) fail('--seed-model needs --private-seed <file>');
+  if (!argv.includes('--full')) fail('a private package is a full one: add --full (the speech models go in, nothing is downloaded later)');
+  if (!model) fail('--seed-model <model id> is required: the DeepSeek model id is given, never guessed');
+  if (!out) fail('--out <dir> is required');
+  const rel = path.relative(path.resolve(root), path.resolve(out));
+  if (!rel || (!rel.startsWith('..') && !path.isAbsolute(rel))) fail('--out must be outside the repository: a private package holds a key');
+  let key;
+  try { key = fs.readFileSync(file, 'utf8').trim(); } catch (e) { fail('cannot read the key file ' + file + ' (' + (e.code || 'error') + ')'); }
+  const AgentSeed = require('./agent-seed.js');
+  try { AgentSeed.seedText({ model, apiKey: key }); } catch { fail('the key file ' + file + ' or --seed-model ' + JSON.stringify(model) + ' is not one a seed can hold (one line, no spaces; a model id of letters, digits and _.:/-)'); }
+  return { key, model };
+}
+/** Files of the package (relative paths) whose bytes hold the key. */
+function filesHolding(appDir, files, key) {
+  const k = Buffer.from(key, 'utf8');
+  return files.filter((f) => fs.readFileSync(path.join(appDir, f)).includes(k));
+}
 
 // what the app runs: the root page and server files (as in package.json "files"), and the desktop main process with
 // every module it requires
@@ -77,6 +106,7 @@ function packagedFiles(src, tracked) {
 async function main() {
   const out = arg('--out') || fail('--out <dir> is required');
   if (process.platform !== 'win32') fail('build on Windows');
+  const seed = privateSeed(process.argv, { out });
   if (git('status', '--porcelain', '--untracked-files=no')) fail('the working tree has changes; commit them first');
   const commit = git('rev-parse', 'HEAD'), short = commit.slice(0, 7), tree = git('rev-parse', 'HEAD^{tree}');
   const electronVersion = require('./package.json').devDependencies.electron;
@@ -148,6 +178,10 @@ async function main() {
       readmeVariant = r.variant;
     }
 
+    // a private package: the one-time seed (desktop/agent-seed.js)
+    const AgentSeed = require('./agent-seed.js');
+    if (seed) fs.writeFileSync(path.join(appDir, 'resources', AgentSeed.SEED_NAME), AgentSeed.seedText({ model: seed.model, apiKey: seed.key }));
+
     // what must and must not be in it
     const all = [];
     (function list(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); e.isDirectory() ? list(p) : all.push(path.relative(appDir, p).split(path.sep).join('/')); } })(appDir);
@@ -159,8 +193,12 @@ async function main() {
     if (all.some((f) => /openh264/i.test(f))) fail('openh264 found in the package');
     const ver = spawnSync(path.join(appDir, 'resources', 'ffmpeg', 'ffmpeg.exe'), ['-hide_banner', '-version'], { encoding: 'utf8', windowsHide: true }).stdout || '';
     if (/--enable-gpl|--enable-nonfree|--enable-libopenh264/.test(ver)) fail('the bundled FFmpeg is not the LGPL build without openh264');
+    // the key is in the seed and nowhere else; an ordinary package has no seed
+    if (seed) { const holding = filesHolding(appDir, all, seed.key); if (JSON.stringify(holding) !== JSON.stringify(['resources/' + AgentSeed.SEED_NAME])) fail('the key is in ' + holding.length + ' files of the package, not only the seed'); }
+    else if (all.includes('resources/' + AgentSeed.SEED_NAME)) fail('a seed in an ordinary package');
 
-    const info = { product: 'MontClip', kind: 'internal test build (not a release)', commit, tree, built: new Date().toISOString(),
+    const info = { product: 'MontClip', kind: seed ? 'private test build for one streamer (not a release; holds one DeepSeek key in plain text until its first launch)' : 'internal test build (not a release)',
+      ...(seed ? { privateSeed: { provider: 'deepseek', model: seed.model, file: 'resources/' + AgentSeed.SEED_NAME } } : {}), commit, tree, built: new Date().toISOString(),
       electron: electronVersion, packager: dep.version, platform: 'win32-x64',
       ffmpeg: { release: 'ffmpeg-lgpl-n9.0.2-montclip1', version: source.version, archiveSha256: source.sha256, files: source.files },
       appFiles: all.filter((f) => f.startsWith('resources/app/')).length, readme: { source: JSON.parse(fs.readFileSync(path.join(src, 'desktop', 'package-readme', 'SOURCE.json'), 'utf8')).sha256, variant: readmeVariant, urlButtonHidden: urlHidden, exportCopyGone: copyGone }, notIncluded: ['openh264 (H.264 encoding uses the system: Media Foundation or the graphics card)', 'local speech recognition models', 'ffplay'] };
@@ -168,7 +206,7 @@ async function main() {
 
     // zip + sha256
     fs.mkdirSync(out, { recursive: true });
-    const top = `MontClip-internal-win-x64${full ? '-full' : ''}-${buildId}`, zipName = top + '.zip', zip = path.join(out, zipName);
+    const top = `MontClip-${seed ? 'private' : 'internal'}-win-x64${full ? '-full' : ''}-${buildId}`, zipName = top + '.zip', zip = path.join(out, zipName);
     if (fs.existsSync(zip)) fail(zipName + ' already exists in ' + out);
     fs.renameSync(appDir, path.join(path.dirname(appDir), top));
     // entries named with '/' and UTF-8 (desktop/zip-dir.cjs); a failed zip is removed, never left half-written
@@ -179,9 +217,9 @@ async function main() {
     const sums = path.join(out, 'SHA256SUMS.txt'), line = `${zsha}  ${zipName}\n`;
     fs.appendFileSync(sums, line);
     const unpacked = all.reduce((s, f) => s + fs.statSync(path.join(path.dirname(appDir), top, f)).size, 0);
-    process.stdout.write('MONTCLIP_PACKAGE ' + JSON.stringify({ zip: zipName, sha256: zsha, bytes: size, unpackedBytes: unpacked, files: all.length, commit, tree,
+    process.stdout.write('MONTCLIP_PACKAGE ' + JSON.stringify({ zip: zipName, sha256: zsha, bytes: size, unpackedBytes: unpacked, files: all.length, commit, tree, private: !!seed,
       ffmpegExe: source.files['ffmpeg.exe'], ffprobeExe: source.files['ffprobe.exe'], electronZipDir: zipDir ? 'given' : 'downloaded' }) + '\n');
   } finally { fs.rmSync(work, { recursive: true, force: true }); }
 }
 if (require.main === module) main().catch((e) => { console.error(e.message); process.exitCode = 1; });
-module.exports = { ROOT_FILES, ROOT_DIRS, ROOT_EXTRA, desktopFiles, repoReads, packagedFiles };
+module.exports = { ROOT_FILES, ROOT_DIRS, ROOT_EXTRA, desktopFiles, repoReads, packagedFiles, privateSeed, filesHolding };

@@ -17,6 +17,12 @@ const TEXT = {
     serviceExitedAtStart: 'MontClip 的内部服务已退出。',
     serviceStoppedTitle: 'MontClip 出错了',
     ok: '确定',
+    // a private test package's one-time DeepSeek key (desktop/agent-seed.js): drafts, for JJ (2026-11-04)
+    seedTitle: 'AI 服务没有设好',
+    seedNoEncryption: '这台电脑现在没法加密保存密钥，所以包里带的 DeepSeek 密钥没有存，也不会改存成明文。重启电脑再打开 MontClip 试一次；还不行，请联系给你这个包的人。',
+    seedFailed: '包里带的 DeepSeek 密钥没能存进 MontClip。请关掉 MontClip 再打开试一次；还不行，请联系给你这个包的人。',
+    seedInvalid: '包里带的 AI 服务设置读不出来，没有用上。请联系给你这个包的人。',
+    seedNotDeleted: '包里那份没加密的密钥文件没能删掉。请关掉 MontClip，自己删掉这个文件：{file}',
   },
   en: {
     closeTitle: 'Save not confirmed',
@@ -31,6 +37,11 @@ const TEXT = {
     serviceExitedAtStart: "MontClip's internal service stopped while starting.",
     serviceStoppedTitle: 'MontClip ran into a problem',
     ok: 'OK',
+    seedTitle: 'The AI service is not set up',
+    seedNoEncryption: "This computer can't store keys encrypted right now, so the DeepSeek key that came with this package was not saved, and it won't be saved unencrypted either. Restart the computer and open MontClip again; if that doesn't help, contact whoever gave you this package.",
+    seedFailed: "The DeepSeek key that came with this package could not be saved in MontClip. Close MontClip and open it again; if that doesn't help, contact whoever gave you this package.",
+    seedInvalid: "The AI service settings that came with this package can't be read, so they were not used. Contact whoever gave you this package.",
+    seedNotDeleted: "The unencrypted key file that came with this package could not be deleted. Close MontClip and delete this file yourself: {file}",
   },
 };
 /** The language in a view-settings read ({ok, value:{language}}); Chinese when it can't be told. */

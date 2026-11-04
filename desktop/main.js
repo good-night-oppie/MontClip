@@ -246,6 +246,20 @@ async function start() {
   const AgentService = require('./agent-service');
   // OpenRouter only for tests: development builds, or the main process's own launch switch (never the page)
   const agentService = AgentService.createDiskService(app.getPath('userData'),safeStorage,undefined,{providers:AgentService.testProvidersEnabled({isPackaged:app.isPackaged,argv:process.argv,env:process.env})?AgentService.ALL_PROVIDERS:AgentService.PUBLIC_PROVIDERS});
+  // A private test package's one-time DeepSeek key (desktop/agent-seed.js): sealed into the connection file on the first
+  // launch, then the seed is deleted. Only a packaged app has one (resources/); a development run may name one for its
+  // tests with MONTCLIP_SEED_FILE. The key is never logged; the result is a code.
+  {
+    const AgentSeed = require('./agent-seed');
+    const seedFile = app.isPackaged ? path.join(process.resourcesPath, AgentSeed.SEED_NAME) : (process.env.MONTCLIP_SEED_FILE || null);
+    const seeded = seedFile ? AgentSeed.importSeed({ file: seedFile, service: agentService, encryptionAvailable: () => safeStorage.isEncryptionAvailable() }) : { code: 'NO_SEED' };
+    if (smoke) process.stdout.write('MONTCLIP_SEED ' + JSON.stringify({ code: seeded.code }) + '\n');
+    const say = { NO_ENCRYPTION: 'seedNoEncryption', CONFIG_FAILED: 'seedFailed', SEED_INVALID: 'seedInvalid', NOT_DELETED: 'seedNotDeleted' }[seeded.code];
+    if (say && !smoke) {
+      const t = nativeText(languageOf(settings.get()));
+      dialog.showMessageBox(win, { type: 'warning', title: t.seedTitle, message: t[say].replace('{file}', seeded.file || ''), buttons: [t.ok], defaultId: 0, noLink: true }).catch(() => {});
+    }
+  }
   for(const operation of ['get','configure','reset','deleteConnection','send','cancel']) ipcMain.handle('montclip:agent:'+operation,(event,value)=>{
     if(!settingsAllowed(event,win,origin))return {ok:false,code:'AGENT_FORBIDDEN'};
     return agentService[operation](value);
