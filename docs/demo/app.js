@@ -1293,6 +1293,21 @@ window.montclipDownloads?.onDone(({ state, name, removed }) => {
   else if (state === "cancelled") toast(uiText(wasExport ? "own.export-save-cancelled" : kind === "captions" ? "own.captions-save-cancelled" : "own.save-canceled"));
   else toast(uiText(wasExport ? "own.export-save-failed" : "own.save-failed"));
 });
+/** A toast with 〔撤销〕 (VV / Deja, 2026-11-03): it stays UNDO_TOAST_MS, and the time stops while the pointer is on it or
+ *  focus is inside it; once it leaves, the full time starts again. → {start, stop} for that toast element. */
+const UNDO_TOAST_MS = 8000;
+function holdToast(el, hide) {
+  // the pointer: its own events; the focus: where it is now (focus events do not always come, e.g. an unfocused window)
+  let timer = null, hover = false, since = 0;
+  el.addEventListener("mouseenter", () => { hover = true; }); el.addEventListener("mouseleave", () => { hover = false; });
+  const stop = () => { clearTimeout(timer); timer = null; };
+  const tick = () => {
+    if (hover || el.contains(document.activeElement)) since = Date.now();   // held: the time starts again once it leaves
+    else if (Date.now() - since >= UNDO_TOAST_MS) { stop(); hide(); return; }
+    timer = setTimeout(tick, 250);
+  };
+  return { start: () => { stop(); since = Date.now(); timer = setTimeout(tick, 250); }, stop };
+}
 function toast(msg) {
   if (!els.toast) return;
   els.toast.textContent = msg;
@@ -10695,7 +10710,10 @@ function autoToast(msg, undoable = true) {
   t.querySelector("[data-as-toast-msg]").textContent = msg;
   t.querySelector("[data-as-toast-undo]").hidden = !undoable;
   t.hidden = false; clearTimeout(autoToastTimer);
-  autoToastTimer = setTimeout(() => { t.hidden = true; }, 5000);
+  if (!t.holdToast) t.holdToast = holdToast(t, () => { t.hidden = true; });
+  t.holdToast.stop();
+  // with 〔撤销〕: 8 s, held while hovered or focused; without: 5 s as before
+  if (undoable) t.holdToast.start(); else autoToastTimer = setTimeout(() => { t.hidden = true; }, 5000);
 }
 function autoClip(id) { return autoState().clips.find((c) => c.id === id) || null; }
 function autoClick(e) {
