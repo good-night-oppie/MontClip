@@ -138,3 +138,15 @@ test('after a segment fails, the next one is decoded on a new stream, never the 
   a.ok(r.words.some(w=>w[1]>=12+POISON/RATE&&w[1]<12+POISON/RATE+3),'the next segment is read');
  }finally{S.done();}
 });
+
+// JJ's final words (Deja, 2026-11-03); the tab they name is the right panel's own tab, read from its key (term.transcript)
+test("JJ's words for a partial transcription; the tab named is the right panel's own",()=>{
+ const V=require('../ui-preferences'),zh=(k,v)=>V.t('zh-CN','own.'+k,v),en=(k,v)=>V.t('en','own.'+k,v);
+ const tabZh=V.t('zh-CN','term.transcript'),tabEn=V.t('en','term.transcript');
+ a.equal(zh('tr-gaps-toast',{n:2,dur:'31 秒'}),`听写完了，但有 2 段没听写出来（共 31 秒），这几段没有字幕。可以在右边「${tabZh}」里点时间跳过去看，需要的话自己补上字幕。`);
+ a.equal(en('tr-gaps-toast',{n:2,dur:'31 s'}),`Transcription finished, but 2 part(s) (31 s in all) couldn't be transcribed and have no subtitles. Click a time under “${tabEn}” on the right to jump there, and add subtitles yourself if you need them.`);
+ a.equal(zh('tr-gaps-note',{n:2,dur:'31 秒'}),'有 2 段没听写出来（共 31 秒），这几段没有字幕。点时间可以跳过去：');
+ a.equal(en('tr-gaps-note',{n:2,dur:'31 s'}),"2 part(s) (31 s in all) couldn't be transcribed and have no subtitles. Click a time to jump there:");
+ // the tab really is called that on screen
+ a.match(fs.readFileSync(path.join(ROOT,'index.html'),'utf8'),/data-side="transcript"[^>]*data-i18n="term\.transcript"/);
+});

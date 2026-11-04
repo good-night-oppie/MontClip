@@ -41,7 +41,8 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await read(`(async()=>{state.selIds=new Set(["c_talk"]);await transcribeFromTab();await new Promise(r=>setTimeout(r,300));return true;})()`);
   report.toast=await read(`els.toast.textContent`);
   assert.equal(report.toast,zh('tr-gaps-toast',{n:1,dur:'7 秒'}));
-  assert.ok(!/Transcribed|听写完/.test(report.toast),'never told as done');
+  // never the plain done toast; JJ's sentence says it finished *and* that parts are missing, in the same breath
+  assert.ok(!/^Transcribed /.test(report.toast)&&/没听写出来/.test(report.toast),'never told as simply done');
   // the tab: the gap where it is on the timeline (10 + 5 … 10 + 12), and a click goes there
   await read(`(async()=>{document.querySelector('[data-side=transcript]').click();await new Promise(r=>setTimeout(r,300));renderTranscript(true);return trState.open;})()`);
   report.note=await read(`(()=>{const n=document.querySelector('[data-tr-gaps]');return n&&{text:n.textContent,spots:[...n.querySelectorAll('.tr-tc')].map(x=>[x.textContent,+x.dataset.t])};})()`);
