@@ -84,7 +84,8 @@
       }
     }
     all.sort((x, y) => y.score - x.score || x.at - y.at);
-    const clips = all.slice(0, count).map((c, i) => ({ ...c, on: i < checked }));
+    // picked: the search ticked it — the review's title tells "as the search ticked them" from the streamer's own ticks
+    const clips = all.slice(0, count).map((c, i) => ({ ...c, on: i < checked, picked: i < checked }));
     return { clips, found: clips.length, few: clips.length < count ? { found: clips.length, count } : null };
   }
   /** 1:12:04 over an hour, 12:04 under. */
@@ -123,5 +124,17 @@
   }
   /** File names in review order, numbered 01, 02, …; a colon cannot be in a Windows file name. */
   const numbered = (names) => names.map((n, i) => String(i + 1).padStart(2, "0") + " " + String(n).replace(/:/g, "："));
-  return { KINDS, LENS, COUNTS, DEFAULTS, SONG_GATE, SONG_MEASURED, songsTrusted, title, edgeLevel, build, hms, nudge, overview, totals, numbered };
+  /** The review's title, from the cards and the ones taken out (VV / JJ / Deja, 2026-11-03): none (nothing found),
+   *  all-out (every card taken out), none-ticked, all / head (ticked exactly as the search ticked them: all of them, or
+   *  its best), ticked (the streamer's own ticks). "As the search ticked them" is the set of cards, not the count: a
+   *  card is as the search had it when its tick is its picked, and one the search ticked that was taken out is not. */
+  function reviewHead(clips, dropped = []) {
+    const list = Array.isArray(clips) ? clips : [], gone = Array.isArray(dropped) ? dropped : [];
+    const found = list.length, on = list.filter((c) => c.on).length;
+    if (!found) return gone.length ? { key: "all-out", found: gone.length, on: 0 } : { key: "none", found: 0, on: 0 };
+    if (!on) return { key: "none-ticked", found, on };
+    const same = list.every((c) => !!c.on === !!c.picked) && !gone.some((c) => c.picked);
+    return same ? { key: on === found ? "all" : "head", found, on } : { key: "ticked", found, on };
+  }
+  return { KINDS, LENS, COUNTS, DEFAULTS, SONG_GATE, SONG_MEASURED, songsTrusted, title, edgeLevel, build, hms, nudge, overview, totals, numbered, reviewHead };
 });

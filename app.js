@@ -10579,11 +10579,10 @@ function autoReviewHtml() {
   const st = autoState(), on = st.clips.filter((c) => c.on).length, found = st.clips.length;
   const names = st.recs.map((r) => autoMedia(r.mediaId)).filter(Boolean).map((m) => m.name).join("、");
   const dur = st.recs.reduce((x, r) => x + r.duration, 0), dm = st.recs.reduce((x, r) => x + (r.danmaku || 0), 0);
-  // three states that read differently (VV / JJ / Deja): nothing found; every card taken out (they are under 拿掉的);
-  // cards there but none ticked
-  const allOut = !found && st.dropped.length > 0;
-  const head = allOut ? autoSay("as-found-all-out", { found: st.dropped.length }) : !found ? autoSay("as-found-none")
-    : !on ? autoSay("as-found-none-ticked", { found }) : on === found ? autoSay("as-found-all", { found }) : autoSay("as-found-head", { found, on });
+  // the title follows the ticks (VV / JJ / Deja): nothing found, every card taken out (they are under 拿掉的), none
+  // ticked, ticked as the search ticked them, or the streamer's own ticks (auto-slices.js reviewHead)
+  const h = MontClipAutoSlices.reviewHead(st.clips, st.dropped), allOut = h.key === "all-out";
+  const head = autoSay({ none: "as-found-none", "all-out": "as-found-all-out", "none-ticked": "as-found-none-ticked", all: "as-found-all", head: "as-found-head", ticked: "as-found-ticked" }[h.key], h);
   const evidence = (dm ? autoSay("as-evidence", { count: dm.toLocaleString(), dur: autoDur(dur), n: found }) : autoSay("as-evidence-nodm", { dur: autoDur(dur), n: found }))
     + (st.habitUsed ? autoSay("as-evidence-habits", { n: st.keptN, k: st.habitUsed }) : "");
   // v12 (frozen; JJ's visual review): what every card used to repeat is said once — the name hint on the first card, the
@@ -10685,7 +10684,7 @@ async function autoApplyKept(cards, recs) {
   for (const c of out) if (c.was) { c.found = { s0: c.s0, e0: c.e0 }; if (Number.isFinite(c.s0)) c.s0 = c.s; if (Number.isFinite(c.e0)) c.e0 = c.e; }
   // a part marked 不是唱歌 comes back as the streamer's kind, at their start and end: their change (你改的), with its reason
   // a card added with 补一段 back in the same recording: ticked, its name if the page still has it
-  for (const c of out) if (c.added && c.keptId) { c.on = true; c.reasons = []; if (KEPT.names.has(c.keptId)) c.title = KEPT.names.get(c.keptId); }
+  for (const c of out) if (c.added && c.keptId) { c.on = true; c.picked = true; c.reasons = []; if (KEPT.names.has(c.keptId)) c.title = KEPT.names.get(c.keptId); }
   for (const c of out) if (c.changedFrom) { c.kindBy = true; if (Number.isFinite(c.s0)) c.s0 = c.s; if (Number.isFinite(c.e0)) c.e0 = c.e; }
   st.habitUsed = out.filter((c) => c.was).length; st.keptN = kept.length; st.habitRules = rules;
   return out;
