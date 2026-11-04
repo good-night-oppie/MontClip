@@ -32,7 +32,7 @@ All rows remain **not released** until the Windows package and review gates pass
 | N22 | Cover candidates | Existing frame extraction; ratios and picker needed | Pending |
 | N23 | Titles/file naming | Windows-safe naming and collision tests needed. Gap 2026-11-03: uploaded/imported media lost Chinese names (「合成 演唱.wav」 → 「_ _.wav」); every media path now uses `Delivery.mediaFileName` (fileSafeName rule, extension kept) — PR #78 | Pending; PR #78: unit tests + `MEDIA_NAMES_PASS` (upload, read, play), awaiting review |
 | N24 | Danmaku output | Independent annotation layer needed | Pending |
-| N25 | Export follows source | Existing delivery presets; exact rate and readback needed | Pending |
+| N25 | Export follows source | An empty project takes the first recording's size (never scaled) and its average frame rate snapped to a standard rate (30 when none is near); a canvas the streamer chose and a project with content are kept. Measured on main: 1080p60 exported at 30 fps (half the frames dropped). Sample rate stays 48 kHz. Found: an FLV with one dropped frame is refused at import (FLV_TIMELINE_GAP, not changed here) | Pending; this PR: `test/source-canvas.test.js` + `SOURCE_FOLLOW_PASS` (ffprobe readback, A/V ≤ 40 ms, VFR without repeated frames), awaiting review; ADR 2026-11-03-canvas-follows-source |
 | N26 | Multiple speakers/virtual camera | Existing transforms; simplified operation needed | Pending |
 | N27 | Caption readability/safe area | Chinese readability and reference-safe-area controls needed | Pending |
 | N28 | Room tone/J-L cuts/music tail | Existing audio timeline; focused workflow needed | Pending |

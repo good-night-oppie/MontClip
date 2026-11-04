@@ -411,6 +411,9 @@
     "as-place-title": ["Put them on the main timeline to keep editing or export them", "放到主界面时间线上，接着细剪或导出"],
     "as-export": ["Export these {n} now", "直接导出这 {n} 条"],
     "as-tick-first": ["Tick the ones you want first", "先勾选要导出的"],
+    // N25: the canvas taken from the first recording (draft wording; JJ to write)
+    "canvas-follow": ["Canvas set from this recording: {w}×{h}, {fps} fps.", "已按这场录像设置画面：{w}×{h}，每秒 {fps} 帧。"],
+    "canvas-follow-odd": ["Canvas set from this recording: {w}×{h}. Its frame rate (about {src} fps) is unusual, so 30 fps is used.", "已按这场录像设置画面：{w}×{h}。它的帧率（约每秒 {src} 帧）不常见，先用每秒 30 帧。"],
     "as-placed": ["Put {n} on the timeline; you can keep editing them.", "已把 {n} 条放到时间线上，可以接着细剪。"],
     "as-undo": ["Undo", "撤销"],
     // caption size and position in one go (P5; v10 ④, JJ's words of v7.4 and her final #81 changes)
