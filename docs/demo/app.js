@@ -9615,7 +9615,9 @@ function openAsrSetup(state) {
   asrSetup.state = state || null;
   paintAsrSetup();
   // the focus in the box, on its first button, so Esc and Tab are the box's
-  if (!asrSetup.dialog.contains(document.activeElement)) asrSetup.dialog.querySelector(".dialog-actions button")?.focus();
+  // the box itself counts as "inside" (showModal may focus the <dialog>): then too (VV on #102)
+  const a = document.activeElement;
+  if (a === asrSetup.dialog || !asrSetup.dialog.contains(a)) asrSetup.dialog.querySelector(".dialog-actions button")?.focus();
 }
 /** A box taller than the window (Deja, #88): everything between its title and its actions goes into a .dialog-body that
  *  scrolls, so the title and the actions stay in sight. */
@@ -18172,7 +18174,8 @@ async function openExportSetup() {
     renderQueue();
     els.exportSetup.classList.remove("hidden");
     // aria-modal hides what is behind — focus has to come inside
-    if (!els.exportSetup.contains(document.activeElement)) $("exportRangeSel")?.focus();
+    const a = document.activeElement;
+    if (a === els.exportSetup || !els.exportSetup.contains(a)) $("exportRangeSel")?.focus();
   });
 }
 function closeExportSetup() {
