@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="500" height="360" viewBox="0 0 500 360">
-  <!-- FableCut animated SVG · bubble pops in (~0.5s), then typing dots loop (chat / comment) -->
+  <!-- MontClip animated SVG · bubble pops in (~0.5s), then typing dots loop (chat / comment) -->
   <style>
     .bub { transform-box: fill-box; transform-origin: 250px 280px;
            animation: pop 0.5s cubic-bezier(.34,1.56,.64,1) both; }

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="700" height="700" viewBox="0 0 700 700">
-  <!-- FableCut animated SVG · one-shot (~0.6s) · radial impact/speed lines. Align to a hard cut on V4. -->
+  <!-- MontClip animated SVG · one-shot (~0.6s) · radial impact/speed lines. Align to a hard cut on V4. -->
   <style>
     .ln { stroke-dasharray: 170; stroke-dashoffset: 170;
           animation: shoot 0.55s cubic-bezier(.2,.8,.3,1) both; }

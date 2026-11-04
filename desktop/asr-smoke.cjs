@@ -130,7 +130,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     if (report.settingsAfter.status !== '听写模型装好了。以后听写都在这台电脑上做，不用再联网。' || !report.settingsAfter.button || report.settingsAfter.punctLine) throw Error('SETTINGS_AFTER ' + JSON.stringify(report.settingsAfter));
     // 4. transcribe the model's own test sentence
     const t0 = Date.now();
-    report.result = await read(`transcribeSrcs([${JSON.stringify(src)}]).then(async r=>{const d=await loadTranscript(${JSON.stringify(src)},true);return{done:r.done.length,failed:r.failed,words:d?d.words.length:0,text:d?FableCutTranscribe.join(d.words.map(w=>w[0])):'',first:d?d.words.slice(0,3):[],model:d&&d.model,language:d&&d.language}})`);
+    report.result = await read(`transcribeSrcs([${JSON.stringify(src)}]).then(async r=>{const d=await loadTranscript(${JSON.stringify(src)},true);return{done:r.done.length,failed:r.failed,words:d?d.words.length:0,text:d?MontClipTranscribe.join(d.words.map(w=>w[0])):'',first:d?d.words.slice(0,3):[],model:d&&d.model,language:d&&d.language}})`);
     report.ms = Date.now() - t0;
     if (report.result.done !== 1 || !/介绍/.test(report.result.text) || !/[，。]/.test(report.result.text) || /[一-鿿] [一-鿿]/.test(report.result.text)) throw Error('RESULT ' + JSON.stringify(report.result));
     report.first = report.result.first;

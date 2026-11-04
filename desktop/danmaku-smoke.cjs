@@ -32,7 +32,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   await read(`(async()=>{for(let i=0;i<200&&!runtime.projectId;i++)await new Promise(r=>setTimeout(r,50));const doc=projectJSON();
    Object.assign(doc,{media:[{id:'snd',src:${JSON.stringify(src)},kind:'audio',name:'合成 录播.wav',duration:120}],
     clips:[{id:'a',kind:'audio',mediaId:'snd',track:'A1',start:0,in:0,duration:120,props:{volume:1}},
-     ...Array.from({length:12},(_,i)=>FableCutCaptions.clip({start:i*10,end:i*10+8,text:'一句普通的话'},{id:'s'+i,track:'V2',width:1280,height:720}))]});
+     ...Array.from({length:12},(_,i)=>MontClipCaptions.clip({start:i*10,end:i*10+8,text:'一句普通的话'},{id:'s'+i,track:'V2',width:1280,height:720}))]});
    applyProject(doc);scheduleSave();if(!await flushSave())throw Error('save');})()`);
   await read(`setSideTab('transcript');true`);await wait(300);
   // through the button's own file input, as a person would pick the file

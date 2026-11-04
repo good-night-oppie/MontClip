@@ -1,5 +1,5 @@
-/* FableCut sequences — several timelines in one project. Zero dependencies.
-   Loaded by the editor as a plain script (global `FableCutSeq`) and required
+/* MontClip sequences — several timelines in one project. Zero dependencies.
+   Loaded by the editor as a plain script (global `MontClipSeq`) and required
    by the MCP server, project-ops and the tests.
 
    The OPEN sequence is the project's top level, as it always was: `clips`,
@@ -21,7 +21,7 @@
   const node = typeof module === "object" && module.exports;
   const api = factory();
   if (node) module.exports = api;
-  else root.FableCutSeq = api;
+  else root.MontClipSeq = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 

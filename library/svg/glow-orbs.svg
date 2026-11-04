@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
-  <!-- FableCut animated SVG · loops · floating bokeh orbs. Use on V4 with props {blend:"screen", opacity:0.7, fit:"cover"} -->
+  <!-- MontClip animated SVG · loops · floating bokeh orbs. Use on V4 with props {blend:"screen", opacity:0.7, fit:"cover"} -->
   <style>
     .o { transform-box: fill-box; transform-origin: center;
          animation: drift 9s ease-in-out infinite; }

@@ -1,10 +1,10 @@
 ---
-description: Build motion graphics in FableCut — shape layers (rectangles, ellipses, polygons, stars, lines, bezier paths, groups), draw-on trim paths, null objects, parenting, anchor points, curved motion paths with auto-orient, motion blur, text on a path, reusable compositions (nested sequences), animation presets and templates (lower thirds, logo animations, social layouts), all keyframed. Use when the user wants a lower third, an animated logo or icon, a callout, a progress bar or loading ring, shapes that pop or slide in, a title that "comes in" or "goes out", a vertical story or a quote card, a graphic reused across the edit, or anything to "move together", "orbit", "draw on" or "precompose".
+description: Build motion graphics in MontClip — shape layers (rectangles, ellipses, polygons, stars, lines, bezier paths, groups), draw-on trim paths, null objects, parenting, anchor points, curved motion paths with auto-orient, motion blur, text on a path, reusable compositions (nested sequences), animation presets and templates (lower thirds, logo animations, social layouts), all keyframed. Use when the user wants a lower third, an animated logo or icon, a callout, a progress bar or loading ring, shapes that pop or slide in, a title that "comes in" or "goes out", a vertical story or a quote card, a graphic reused across the edit, or anything to "move together", "orbit", "draw on" or "precompose".
 ---
 
-# Motion graphics with FableCut
+# Motion graphics with MontClip
 
-Motion graphics in FableCut are ordinary clips on the timeline, so everything
+Motion graphics in MontClip are ordinary clips on the timeline, so everything
 you know about clips (tracks, keyframes, transitions, masks, blend) still
 applies. Three pieces do the work:
 

@@ -1,4 +1,4 @@
-/* FableCut per-track meter worklet + stereo program sum pass-through.
+/* MontClip per-track meter worklet + stereo program sum pass-through.
    Inputs 0…nAudio−1 = A-track buses; input nAudio = video/other spill on master.
    Pass-through sum → stereo out. Per-track RMS/LUFS/Peak via port; master L/R
    RMS/Peak is metered on the main thread (AnalyserNodes on the worklet output),
@@ -42,7 +42,7 @@ function biquadStep(f, x) {
   return y;
 }
 
-class FableCutMeterProcessor extends AudioWorkletProcessor {
+class MontClipMeterProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
     const opts = (options && options.processorOptions) || {};
@@ -226,4 +226,4 @@ class FableCutMeterProcessor extends AudioWorkletProcessor {
   }
 }
 
-registerProcessor("fablecut-meter", FableCutMeterProcessor);
+registerProcessor("fablecut-meter", MontClipMeterProcessor);

@@ -1,7 +1,7 @@
-/* FableCut timeline edit operations — split, ripple delete, close gap,
+/* MontClip timeline edit operations — split, ripple delete, close gap,
    lift / extract, insert / overwrite, ripple / roll / slip / slide trims and
    crossfades. Zero dependencies. Loaded by the editor as a plain script
-   (global `FableCutEdit`) and required by the MCP server, so an agent's patch
+   (global `MontClipEdit`) and required by the MCP server, so an agent's patch
    op and the editor's keyboard shortcut run the very same code.
 
    The ops mutate a project document in place and know nothing about the DOM,
@@ -20,10 +20,10 @@
    lockedTracks and untargetedTracks) for headless callers. */
 (function (root, factory) {
   const node = typeof module === "object" && module.exports;
-  const api = factory(node ? require("./mask") : root.FableCutMask, node ? require("./tracker") : root.FableCutTracker,
-    node ? require("./motion") : root.FableCutMotion);
+  const api = factory(node ? require("./mask") : root.MontClipMask, node ? require("./tracker") : root.MontClipTracker,
+    node ? require("./motion") : root.MontClipMotion);
   if (node) module.exports = api;
-  else root.FableCutEdit = api;
+  else root.MontClipEdit = api;
 })(typeof self !== "undefined" ? self : this, function (MaskLib, TrackLib, MotionLib) {
   "use strict";
 
