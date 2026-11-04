@@ -1,5 +1,5 @@
-/* FableCut animation presets and templates. Zero dependencies. Loaded by the
-   editor as a plain script (global `FableCutTemplates`) and required by the MCP
+/* MontClip animation presets and templates. Zero dependencies. Loaded by the
+   editor as a plain script (global `MontClipTemplates`) and required by the MCP
    server and the tests.
 
    A PRESET is a named animation that fits any visual clip:
@@ -20,7 +20,7 @@
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else root.FableCutTemplates = api;
+  else root.MontClipTemplates = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 

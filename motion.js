@@ -1,6 +1,6 @@
-/* FableCut motion graphics — shape layers and layer transforms. Zero
+/* MontClip motion graphics — shape layers and layer transforms. Zero
    dependencies. Loaded by the editor as a plain script (global
-   `FableCutMotion`) and required by edit-ops, the MCP server and the tests, so
+   `MontClipMotion`) and required by edit-ops, the MCP server and the tests, so
    the editor, an agent's `setShape` / `setParent` ops and the tests agree on
    what a shape is and where a parented layer lands.
 
@@ -35,7 +35,7 @@
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else root.FableCutMotion = api;
+  else root.MontClipMotion = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 

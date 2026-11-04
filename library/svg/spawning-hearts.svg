@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="540" height="960" viewBox="0 0 540 960">
-  <!-- FableCut animated SVG: looping hearts from the lower right. -->
+  <!-- MontClip animated SVG: looping hearts from the lower right. -->
   <style>
     .heart { animation-timing-function: cubic-bezier(.25,.46,.45,.94); }
     @keyframes floatA {

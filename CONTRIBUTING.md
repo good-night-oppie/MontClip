@@ -1,12 +1,12 @@
-# Contributing to FableCut
+# Contributing to MontClip
 
-Thanks for your interest in FableCut! This is a zero-dependency, single-purpose
+Thanks for your interest in MontClip! This is a zero-dependency, single-purpose
 project, and contributions of all sizes are welcome — bug reports, new
 transitions, filter presets, animated SVG starters, docs, or core engine work.
 
 ## Ground rules
 
-- **No runtime dependencies.** FableCut ships as plain HTML/CSS/JS + a Node
+- **No runtime dependencies.** MontClip ships as plain HTML/CSS/JS + a Node
   standard-library server. Please keep it that way — no `npm install` should ever
   be required to run the editor. Dev-only tooling in `devDependencies` is fine if
   it earns its place.
@@ -19,7 +19,7 @@ transitions, filter presets, animated SVG starters, docs, or core engine work.
 
 ```bash
 git clone https://github.com/ronak-create/FableCut.git
-cd FableCut
+cd MontClip
 node server.js        # → http://localhost:7777
 ```
 
@@ -61,10 +61,11 @@ recommended) **ffmpeg on PATH** for fast export and upload remuxing.
 
 ## Shipping a feature: the checklist
 
-FableCut is published in several places (npm, the MCP registry, the `.mcpb`
-bundle, the Claude Code plugin, Glama, the website and its playground), and
-an agent reads the same manual a person does. A feature is done when all of
-these agree. CI's **Release readiness** job checks the starred (★) items for you.
+Upstream FableCut is published in several places (npm, the MCP registry, the
+`.mcpb` bundle, the Claude Code plugin, Glama, the website and its playground);
+MontClip is not published there yet. The checklist below comes from upstream
+and applies when MontClip publishes. An agent reads the same manual a person
+does, so a feature is done when all of these agree. CI's **Release readiness** job checks the starred (★) items for you.
 
 **The code**
 - Preview and export go through the same compositor path; check both by hand.

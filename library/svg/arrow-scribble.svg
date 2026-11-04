@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
-  <!-- FableCut animated SVG · one-shot (~0.7s) · hand-drawn arrow, points down-right.
+  <!-- MontClip animated SVG · one-shot (~0.7s) · hand-drawn arrow, points down-right.
        Flip/rotate with clip props to point anywhere. -->
   <style>
     .s { stroke-dasharray: 520; stroke-dashoffset: 520; animation: draw 0.55s cubic-bezier(.3,.8,.3,1) both; }

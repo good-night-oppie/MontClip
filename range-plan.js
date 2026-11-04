@@ -2,7 +2,7 @@
  * single revision/save/undo transaction. No media files are modified. */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory(require("./captions"), require("./edit-ops"));
-  else root.FableCutRangePlan = factory(root.FableCutCaptions, root.FableCutEdit);
+  else root.MontClipRangePlan = factory(root.MontClipCaptions, root.MontClipEdit);
 })(typeof self !== "undefined" ? self : this, function (C, Edit) {
   "use strict";
   const clone = (x) => JSON.parse(JSON.stringify(x));

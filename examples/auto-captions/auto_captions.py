@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create FableCut karaoke text clips from word-timestamped transcription JSON.
+"""Create MontClip karaoke text clips from word-timestamped transcription JSON.
 
 The input format is intentionally engine-agnostic: either a JSON file containing
 {"words": [{"word": "hello", "start": 0.0, "end": 0.4}, ...]} or a list of

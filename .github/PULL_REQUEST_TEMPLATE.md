@@ -1,4 +1,4 @@
-<!-- Thanks for contributing to FableCut! -->
+<!-- Thanks for contributing to MontClip! -->
 
 ## What does this PR do?
 
