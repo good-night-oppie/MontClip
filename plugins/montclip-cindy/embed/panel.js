@@ -62,11 +62,12 @@
     dl.textContent = "";
     $("propsEmpty").hidden = !!f;
     if (!f) return;
-    const rows = [["名称", f.name], ["类型", f.kind], ["轨道", f.track], ["开始", M.formatTime(f.start)], ["结束", M.formatTime(f.end)],
-      ["时长", f.duration + " 秒"], ["素材入点", M.formatTime(f.in)]];
+    const rows = [["名称", f.name], ["类型", f.kindLabel], ["轨道", f.track], ["开始", M.formatTime(f.start)], ["结束", M.formatTime(f.end)],
+      ["时长", f.duration + " 秒"]];
+    if (f.in !== null) rows.push(["素材起点", M.formatTime(f.in)]);
     if (f.media) rows.push(["素材", f.media.name], ["素材信息", [f.media.width && f.media.height ? `${f.media.width}×${f.media.height}` : "",
       f.media.fps ? f.media.fps + " fps" : "", f.media.codec || "", f.media.duration ? M.formatTime(f.media.duration) : ""].filter(Boolean).join(" · ")]);
-    for (const [k, v] of Object.entries(f.props)) rows.push([k, typeof v === "object" ? JSON.stringify(v) : String(v)]);
+    for (const [k, v] of f.props) rows.push([k, v]);
     if (f.keyframes.length) rows.push(["关键帧", f.keyframes.join("、")]);
     if (f.locked) rows.push(["锁定", "是"]);
     if (f.disabled) rows.push(["停用", "是"]);
