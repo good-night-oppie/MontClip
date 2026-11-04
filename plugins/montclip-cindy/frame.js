@@ -1,3 +1,10 @@
+/* What a page says when MontClip could not open (JJ's final words, 2026-11-04): what to do first, then — only when
+   there is an error to show — the line to send us, in small print below. → {text, detail} */
+function failureText(head, error) {
+  const raw = error == null ? '' : String(error).trim();
+  return raw ? { text: head + '关掉这个页签再打开试试；还不行，把下面这行发给我们：', detail: raw }
+    : { text: head + '关掉这个页签再打开试试。', detail: '' };
+}
 /* The task view: wake the logic page, bind this task's project, ask where the MontClip editor is, and frame it.
    The frame talks to the engine itself (same 127.0.0.1 host:port — Cindy allows that for a plugin that declares
    node and preview.hosts 127.0.0.1); this page only places it. The editor URL carries the engine's session token
@@ -9,8 +16,13 @@
   const at = (u) => { const x = new URL(u); x.pathname = enginePath; return x.href; };
   const session = new URLSearchParams(location.search).get('session') || '';   // the task this page belongs to
   const channel = new BroadcastChannel('montclip');
-  const show = (text, error, retry) => {
+  const show = (text, error, retry, detail) => {
     status.textContent = text; status.className = error ? 'error' : ''; status.hidden = false;
+    if (detail) {   // the raw error, small: for us, not for the user to read
+      const d = document.createElement('small');
+      d.className = 'detail'; d.textContent = detail;
+      status.appendChild(d);
+    }
     if (retry) {   // e.g. the Windows app has these projects open: once it is closed, try again here
       const b = document.createElement('button');
       b.type = 'button'; b.textContent = '重试';
@@ -73,7 +85,11 @@
   async function bind() {
     if (view !== 'task' || !session) return true;
     const b = await ask('bind', { session });
-    if (b.error) { show(inUse(b) ? b.error : 'MontClip 没能打开这个任务的项目：' + b.error, true, inUse(b)); return false; }
+    if (b.error) {
+      if (inUse(b)) show(b.error, true, true);
+      else { const f = failureText('MontClip 没能打开这个任务的项目。', b.error); show(f.text, true, false, f.detail); }
+      return false;
+    }
     return true;
   }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && url) bind(); });
@@ -134,7 +150,11 @@
     try { await fetch('/wake'); } catch (e) { /* a page of a stopped plugin: the asks below simply wait */ }
     if (!(await bind())) return;
     const a = await ask('editor');
-    if (a.error || !a.url) { show(inUse(a) ? a.error : 'MontClip 没能启动：' + (a.error || '没有地址'), true, inUse(a)); return; }
+    if (a.error || !a.url) {
+      if (inUse(a)) show(a.error, true, true);
+      else { const f = failureText('MontClip 没能启动。', a.error); show(f.text, true, false, f.detail); }
+      return;
+    }
     place(at(a.url));
     offerFfmpeg();
     /* While the page is open the engine must stay up: asking keeps the worker from going idle, and when it was
