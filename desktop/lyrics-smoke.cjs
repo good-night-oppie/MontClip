@@ -34,7 +34,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
    await loadTranscript(${JSON.stringify(up.src)},true);updateMontClipView({language:'zh-CN'});setSideTab('transcript');renderTranscript(true);})()`);await wait(400);
   // the captions as the transcript gives them
   await read(`(async()=>{addCaptionsFromTranscript('subtitle');if(!await flushSave())throw Error('SAVE');renderTranscript(true);})()`);await wait(400);
-  const caps=()=>read(`project.clips.filter(FableCutCaptions.isCaption).sort((a,b)=>a.start-b.start).map(c=>({text:c.props.text,start:c.start,end:+(c.start+c.duration).toFixed(3)}))`);
+  const caps=()=>read(`project.clips.filter(MontClipCaptions.isCaption).sort((a,b)=>a.start-b.start).map(c=>({text:c.props.text,start:c.start,end:+(c.start+c.duration).toFixed(3)}))`);
   const before=await caps();report.before=before;
   assert.ok(before.length>=2,'captions from the transcript');
   // 1. the button, and what it says with nothing to work on
@@ -90,11 +90,11 @@ BrowserWindow.prototype.loadURL=async function(...args){
    doc.clips.push({id:'c_song2',mediaId:'m_song2',kind:'audio',track:'A1',start:40,in:0,duration:30,props:{}});applyProject(doc);scheduleSave();if(!await flushSave())throw Error('SAVE');
    await fetch('/api/transcript?src='+encodeURIComponent(${JSON.stringify(up2.src)}),{method:'POST',body:JSON.stringify({src:${JSON.stringify(up2.src)},model:'paraformer-zh',language:'zh',duration:30,words:${JSON.stringify(heard2)}})});
    await loadTranscript(${JSON.stringify(up2.src)},true);
-   const C=FableCutCaptions,first=project.clips.find(C.isCaption),track=first.track,style=first.props.captionStyle||C.DEFAULT_STYLE;
+   const C=MontClipCaptions,first=project.clips.find(C.isCaption),track=first.track,style=first.props.captionStyle||C.DEFAULT_STYLE;
    const put=(id,text,s,e)=>{const ws=transcriptWords().filter(w=>(w.s+w.e)/2>=s&&(w.s+w.e)/2<e);project.clips.push({...C.clip({start:s,end:e,text,words:ws},{style,width:project.width,height:project.height,track}),id});};
    pushUndo();put('cap_A','天空好想下雨',40,41.8);put('cap_B','谢谢老板',42.5,44);put('cap_C','我好想住你隔壁',44.5,46.6);
    scheduleSave();if(!await flushSave())throw Error('SAVE');renderTranscript(true);})()`);await wait(400);
-  const all=()=>read(`JSON.stringify(project.clips.filter(FableCutCaptions.isCaption).sort((a,b)=>a.id<b.id?-1:1))`);
+  const all=()=>read(`JSON.stringify(project.clips.filter(MontClipCaptions.isCaption).sort((a,b)=>a.id<b.id?-1:1))`);
   const ABC=await all(),B0=await read(`JSON.stringify(getClip('cap_B'))`);
   await read(`project.inPoint=null;project.outPoint=null;setSelection(['cap_A','cap_C'],'cap_C');document.querySelector('[data-tr-cap-lyrics]').click();true`);await wait();
   await read(`(()=>{const e=document.querySelector('[data-ly-text]');e.value='天空好想下雨\\n谢谢老板\\n我好想住你隔壁';document.querySelector('[data-ly-align]').click();})();true`);await wait();
@@ -103,7 +103,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.deepEqual(scene.lines.map(l=>l.now),['改成：天空好想下雨','改成：谢谢老板','改成：我好想住你隔壁']);
   assert.equal(scene.hint,'有 1 行歌词对应的是你没选的字幕，没改','said under the comparison');
   await read(`document.querySelector('[data-ly-apply-all]').click();true`);await wait(300);
-  const now=JSON.parse(await read(`JSON.stringify(project.clips.filter(c=>FableCutCaptions.isCaption(c)&&c.start>=39).sort((a,b)=>a.start-b.start).map(c=>({id:c.id,text:c.props.text,start:c.start,end:+(c.start+c.duration).toFixed(3)})))`));
+  const now=JSON.parse(await read(`JSON.stringify(project.clips.filter(c=>MontClipCaptions.isCaption(c)&&c.start>=39).sort((a,b)=>a.start-b.start).map(c=>({id:c.id,text:c.props.text,start:c.start,end:+(c.start+c.duration).toFixed(3)})))`));
   scene.after=now;scene.selection=await read(`({ids:[...state.selIds],primary:state.selId})`);
   assert.equal(await read(`JSON.stringify(getClip('cap_B'))`),B0,'B not changed by a single character');
   assert.deepEqual(now.map(c=>c.text),['天空好想下雨','谢谢老板','我好想住你隔壁'],'no new 「谢谢老板」');

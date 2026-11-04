@@ -6,7 +6,7 @@
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="112" fill="url(#g)"/>
-  <!-- play triangle sliced by a cut (the "Cut" in FableCut) -->
+  <!-- play triangle sliced by a cut (the "Cut" in MontClip) -->
   <g fill="#fff">
     <path d="M188 146 L244 176 L244 336 L188 366 Z"/>
     <path d="M268 189 L392 256 L268 323 Z"/>

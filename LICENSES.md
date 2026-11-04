@@ -200,8 +200,9 @@ Speech is turned into words on this computer by the local server with sherpa-onn
 MontClip host code retains the repository's MIT LICENSE. Imported components retain their own terms.
 
 - Cindy: https://github.com/makecindy/cindy/tree/021923684f54129effbba6b72a8218526418fa45 — Apache-2.0; [LICENSE](agent-ui/upstream/LICENSE), [NOTICE](agent-ui/upstream/NOTICE), Copyright2026 XD Inc. Exact unchanged files/hashes: [SOURCES.json](agent-ui/SOURCES.json).
-- React19.2.0 and ReactDOM19.2.0: MIT. lucide-react0.468.0: ISC. Full bundled license notices: [THIRD-PARTY-NOTICES.txt](agent-ui/THIRD-PARTY-NOTICES.txt).
-- esbuild0.25.12: MIT build tool, not shipped as a runtime dependency. Lockfile fixes build versions.
+- Cindy, the assistant pane parts: https://github.com/makecindy/cindy/tree/43001eaaa31ef322de9ae148c4051087277d6198 — the same Apache-2.0 LICENSE and NOTICE (kept in [agent-ui/cindy-43001ea](agent-ui/cindy-43001ea)). The 145 unchanged files and their hashes are in [SOURCES.json](agent-ui/SOURCES.json) under `parts`; the MontClip stand-ins that take the place of a few Cindy files are in [agent-ui/stand-ins](agent-ui/stand-ins), each saying what it replaces ([cindy-resolve.cjs](agent-ui/cindy-resolve.cjs)). Cindy's zh-CN and en strings used by these parts: [cindy-strings.json](agent-ui/cindy-strings.json).
+- React19.2.0 and ReactDOM19.2.0: MIT. lucide-react0.468.0: ISC. The pane parts also bring @radix-ui popover, tooltip and alert-dialog (MIT), i18next and react-i18next (MIT), clsx and tailwind-merge (MIT), and what they depend on (MIT; tslib 0BSD). [BUNDLED-PACKAGES.json](agent-ui/BUNDLED-PACKAGES.json) lists every npm package in the bundle. Full bundled license notices: [THIRD-PARTY-NOTICES.txt](agent-ui/THIRD-PARTY-NOTICES.txt).
+- esbuild0.25.12 (MIT) and typescript 5.9.3 (Apache-2.0, used only to find the strings when copying the parts): build tools, not shipped. Lockfile fixes build versions.
 
 The generated cindy-official.js has been adapted through bundling/minification and MontClip host interfaces. It has an explicit modification notice; the copied upstream source files have not been edited. No private Cindy configuration, API key, packaged extraction or Rea source is included. See the [reuse/change inventory](docs/decisions/2026-11-01-official-cindy-port.md).
 

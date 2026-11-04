@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   FableCut server — zero-dependency Node.js
+   MontClip server — zero-dependency Node.js
    Run:  node server.js   →  http://localhost:7777
 
    Adds to the browser editor:

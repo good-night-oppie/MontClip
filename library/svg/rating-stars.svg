@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="240" viewBox="0 0 800 240">
-  <!-- FableCut animated SVG · one-shot (~1.1s) · 5 stars pop in sequence (review / rating) -->
+  <!-- MontClip animated SVG · one-shot (~1.1s) · 5 stars pop in sequence (review / rating) -->
   <style>
     .st { transform-box: fill-box; transform-origin: center;
           animation: pop 0.5s cubic-bezier(.34,1.56,.64,1) both; }

@@ -68,5 +68,736 @@
       "blob": "c27f318badb05dc15cfb307d6cff5f6184c8286b",
       "sha256": "cf91d99c589ef0f845d0ded9a4ae3480223ad48d83ad0d2e6f99eafbc803f6a2"
     }
-  ]
+  ],
+  "parts": {
+    "commit": "43001eaaa31ef322de9ae148c4051087277d6198",
+    "root": "cindy-43001ea",
+    "files": [
+      {
+        "file": "LICENSE",
+        "blob": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+      },
+      {
+        "file": "NOTICE",
+        "blob": "8a0a725caa23a95d89f25fdd6475d847c12501f3",
+        "sha256": "77ad73b2535cd4011ed8b509aa51d7c745ae5a6f411370d8f94337562c03cd97"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/chat/ErrorMessageCard.tsx",
+        "blob": "a4d056e1e01cc21e174287e1ffb8af510a76ada0",
+        "sha256": "397a510e844e8cc0e285578eb3e0487b857aee50d76ec460b0b3cd7c9cc13ef9"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/chat/InlineReferenceChip.tsx",
+        "blob": "f29a1b45c8b58d158b275e20ff48be752145c75c",
+        "sha256": "fb684b2630e6106b19051c61b850825231a5470188305cc865165ed3854f198a"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/chat/JumpToBottomChip.tsx",
+        "blob": "6450c1095b50bf97a36936594aaad9f66d267eda",
+        "sha256": "8c122164e101eb7a263b40e2bc49b7311112b7824a8e36b229e8b4abbef9e4f4"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/chat/ThinkingCard.tsx",
+        "blob": "a40c4515b84c3f9b871af4c3c33ab1e5fe60c6dc",
+        "sha256": "a8e5b09f96af2c7487c2f867e5cf51e0903c6d461fddd5f2d1e5f76fd6b727e7"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/chat/ThinkingText.tsx",
+        "blob": "51db901435a2f97a1af9c9aa6478dbee0c9cdbdc",
+        "sha256": "43a5960976fe6d0307631d46d04ecae35acbb145788d69afbb364cf107c4f0bf"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/chat/TodoListCard.tsx",
+        "blob": "fd9edd818c56a4720de2a98819cfbc9eddaa714b",
+        "sha256": "1d04abde5bfcbb92a1d7ea814e8cffb5b7d5ffb63919ddec483453acea2b29cc"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/chat/ToolCallCard.tsx",
+        "blob": "8a14bb47904dae20f1162f4484673f38248d60ab",
+        "sha256": "4b683960b82d962bf424fe034a2f242fe4d4679c17dfc91d0f284b03d98485d5"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/chat/WorkGroupBlock.tsx",
+        "blob": "49eca456e71e29a842dc0aa2f673ca19c4bcd0ef",
+        "sha256": "d60ba5b929709ff11f3542a2692a18e8bc49c9096cab13daeca8fb2374acd2ba"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/chat/activityRowChrome.ts",
+        "blob": "6fdc0a1021f36e78608689ff6a7c79b2a3126b3a",
+        "sha256": "b15740a58a0b32738519f2945a38d13420ff64ba2d04d9c6fc07a81f13cd3d4a"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/chat/chatChrome.ts",
+        "blob": "ea64265b9ae48892edb62d8c63474b05f836d7fc",
+        "sha256": "3b24488d617b6d10229c5a0c5e28b16b15d144558b85ddef62edda05df095c00"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/chat/errorReasonI18n.ts",
+        "blob": "5c3ea6383f7dba54c61bedf65533be226649b56c",
+        "sha256": "95cfca43dfb21f09741b89fe050ba83dbc21985f8e2dba321f8a9495400cdcea"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/chat/linkInteraction.ts",
+        "blob": "741f68a8edda726ed39cf03715bb730dbe26f990",
+        "sha256": "8771ae9f62c12fc32ce19cea451ec0f59bde69789e44b4db54c310d6543d2aac"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/chat/messageProjectionCache.ts",
+        "blob": "b23e35688b983d678aee8eacd6f4f2a562b84fb8",
+        "sha256": "0ffecb02ab4871cff406a9e7c44b475682dca67c21acf0a7ad12944b35fed14c"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/chat/toolLoopI18n.ts",
+        "blob": "7b20e4df7d3dc0ef914a47880875db971f20394f",
+        "sha256": "3c8c49735ff479f806b0283038957b514b9fddb38860e2604ca4cbf640ba1d9c"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/find-in-page/findInPageOwnership.ts",
+        "blob": "674a11b94207dccd0c967baf062dee8869bd719e",
+        "sha256": "bccb84b046ff563235be6afa864d9187c4b7265fd7d8e75772693fba0ef71d57"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/interaction-portal/InteractionPromptCardShell.tsx",
+        "blob": "2bb21042b50b4204e42dd230afd1230221627c13",
+        "sha256": "72cea459f09f3384f674fdde97245d4905c01fc451408ca5a3ce810740332b08"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/interaction-portal/InteractionPromptHost.tsx",
+        "blob": "f0189476684a767da4d9fd5c402cb603c107c1c8",
+        "sha256": "c71d3cfd278aea9bba45ca0fb835faabb28296b05ff8720fd16cc69df84127fd"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/interaction-portal/InteractionPromptSlot.tsx",
+        "blob": "d302bc2095532933d347346dae92f8837da6084a",
+        "sha256": "301386ae005279ba61378dccebfe6704e199fe33ba745bafe46420b65b301a51"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/interaction-portal/index.ts",
+        "blob": "411b1e0af3f578f49911b4ccc3ec85e7951195be",
+        "sha256": "47c1774d7cfee953ec6329853ea1104e0038b566766e4a78a59821d8a8c562ac"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/interaction-portal/store.ts",
+        "blob": "b6b7256c11f4ee9785889f4621d41cfb8fd1db86",
+        "sha256": "0da1121cd804be4f28e2e2d69b722111fd3da139d110161acb9f4c9061abc5a8"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/layout/windowDrag.tsx",
+        "blob": "58c13ca4162c00f390f6cd4a2f3f66809490fb9e",
+        "sha256": "c017f33f0fede97c386c00d27b28b37d7c5f100c655593d69331c7b37eaa610d"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/new-chat/AskUserQuestionPrompt.tsx",
+        "blob": "b7ff456123bc650dc2a27b711befd5c360880183",
+        "sha256": "635ec9f079809bfa6895cc2a56240199227c270c2a45976a966e99a52696605b"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/new-chat/PermissionSelector.tsx",
+        "blob": "7043b73f7fc3d61f3c229a31c7b2ad9748aa7ffe",
+        "sha256": "06c95567464113ce149ae0234ab6db9dacb1a266f13b706163f3652eafa4b528"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/ui/button.css",
+        "blob": "914169fdec5567cd21494984153ecfc604a435f0",
+        "sha256": "5a04cbf8736729782de3dc19e2ad545853edd3bf412cccc5aa176d8dd896b1ea"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/ui/button.tsx",
+        "blob": "a3ce79562a148ed1950ac90688790930c98222f9",
+        "sha256": "7f9385f4e2e29b6bc64f8bc3ca402f5c3a0db34c2ac3babd0d351fad076ea73c"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/ui/collapse.tsx",
+        "blob": "c22d1bf352c68c6b9c459708fb55065d22934650",
+        "sha256": "2f6172ce23ce87abcc2e23a78f4f1e5304b38fcaf822987aeb806e36bc15257c"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/ui/confirm-dialog-provider.tsx",
+        "blob": "e8de7486895c8713d3cb27336a9344d60de03784",
+        "sha256": "73cd6fe6771804d9d0476a537e2558f6d34f27ef3c00c5018a9c92996a07167d"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/ui/confirm-dialog.tsx",
+        "blob": "1bb6b18ed7ed44a816f9042edee5bbb20f724cfe",
+        "sha256": "2729c21839a654776a0b483036eaa60711a6f89e1f29428bc547412a0af42f47"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/ui/dropdown-menu-highlight.ts",
+        "blob": "b0aedd989f8e2bf26631a29744162e584ca246c3",
+        "sha256": "7eda0a2cc2bb73724c15c7b94f3d4950222abcd46cbf1e32e4e41a549d11f757"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/ui/error-notice.tsx",
+        "blob": "cc560194cf8be6c3f2a2b4b98e24fd899a961096",
+        "sha256": "ed2f856321a64facd5ef753cb273f77af436bf18f225387e640dab460c90c0cc"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/ui/file-type-icon.tsx",
+        "blob": "b1f8dc94ab8a0ed706e50d98a872765291c1b8f1",
+        "sha256": "c1678f70377e115484af68a43892f110161ed0990b3dfb79cfffa1e53db1c5f4"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/ui/menu-row.tsx",
+        "blob": "9b3f434a320c58df5cce4b9cba775f0d18a34489",
+        "sha256": "a1986c03deca14923a1d9ab46a03dad548a8f3e2c0701fdecdb1eefe7e7a6dd4"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/ui/morph-popover.tsx",
+        "blob": "a76810375349195fe943b7b53bec66062d10bd4b",
+        "sha256": "fcb387782fc60225e2501d43bd8ff01161b3770c621abf1a67fe216bf9f014fc"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/ui/popover.tsx",
+        "blob": "6e21d0f9d098e43ee281692dde24ff20d70e0e68",
+        "sha256": "dbd6f2255130d819f24a6e918a2f075eb731bc9227fef47bfc18ddc2fdc121dd"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/ui/spinner.tsx",
+        "blob": "f1af011fa85bf8b9a31278ab80d6bf8344b75a40",
+        "sha256": "0ae44d7c23ecbf686bcb2d196eef8f2554a36609143c0cc8bf46504544ac0652"
+      },
+      {
+        "file": "apps/desktop/src/renderer/components/ui/tooltip.tsx",
+        "blob": "46189a973e0efeaabb23e636f7333d80a69fafd9",
+        "sha256": "3eb44670a59d5ad6b9beefecb0118ee0e5f993723e5eff0f8f1185bbda8f0ef7"
+      },
+      {
+        "file": "apps/desktop/src/renderer/hooks/useAutoResize.ts",
+        "blob": "b807031182b61066d9c2fb3e64ea4ac4056081ff",
+        "sha256": "555f992959442233f62f44d74b25df200602fc2cfc8e2bf109ab921d09ac14b6"
+      },
+      {
+        "file": "apps/desktop/src/renderer/hooks/useExpandedBlockMemory.ts",
+        "blob": "0c23fb4db68754bb46e98984983b8f8ffe40fb6a",
+        "sha256": "bae55fc9f6d0affe3922a0479917ca2f0bd260dc0e9a9ae1481a9c58d1900138"
+      },
+      {
+        "file": "apps/desktop/src/renderer/hooks/useReducedMotion.ts",
+        "blob": "b76c125ff768ea134309e64bb1e6a026ac8198b7",
+        "sha256": "965220bcd957d7d114075c18e6683b7c3aa2f52f2828ae2914d801ff44018c1f"
+      },
+      {
+        "file": "apps/desktop/src/renderer/hooks/useStableTranslation.ts",
+        "blob": "5e4d2e65d8a664a63c0cd77e0e9994637c5a19f0",
+        "sha256": "76cc56538fa9fdb22ffbf68a2e2e1eded22359ef68939c109cebb7ba056a2a93"
+      },
+      {
+        "file": "apps/desktop/src/renderer/lib/agent-actions/workActivityProjection.ts",
+        "blob": "7751e37aced76172577deeac3fea14307367a0e2",
+        "sha256": "87aaa99f933d50f8c0703cc634d7b52eff5db9e5d1e443f4d2569752f271c377"
+      },
+      {
+        "file": "apps/desktop/src/renderer/lib/autoReviewUnavailableGuidance.ts",
+        "blob": "b3888c79d232c86fc04dd35b0ee0f1f28febcb22",
+        "sha256": "36dfb1e199e874532c177deaa4acc95a30fb2cdce6935283b40018f4a6c433ec"
+      },
+      {
+        "file": "apps/desktop/src/renderer/lib/editableKeyboardTarget.ts",
+        "blob": "d3d2b8204bebd61686757ff4519f288c8028947e",
+        "sha256": "262081252a9fc54fb68513cf1c37fa78ad70c1a7388178a9b4a6338361c1dd3c"
+      },
+      {
+        "file": "apps/desktop/src/renderer/lib/logger.ts",
+        "blob": "d56e3e9660eacfc1c48b509d8c9bb1dd9a495ffc",
+        "sha256": "fc410d5d92e7a3ed656a3defea27d8e25b1e5fb340757551e2d48460379a4eda"
+      },
+      {
+        "file": "apps/desktop/src/renderer/lib/scrollbarAutoHide.ts",
+        "blob": "9c27c2177392c3671dd3a6c148ce60134419d20c",
+        "sha256": "c87786bf9dd31c344f15c795f5cec6af2b215cb4abb0bd0b019629051cb04b25"
+      },
+      {
+        "file": "apps/desktop/src/renderer/lib/sessionDurationFormat.ts",
+        "blob": "66540b095d771788269e3a88bab07783496314c5",
+        "sha256": "72c072a33ccb5a37a826dd32410b12ebb480ba7a49b8a720ab1b1d5a886f9e66"
+      },
+      {
+        "file": "apps/desktop/src/renderer/lib/toast.ts",
+        "blob": "78d95e3ca4e660b47115ed06cef9915011540768",
+        "sha256": "d43e37f62d030abf42da821d7cbc93ecc95e39c8896b9a85f49c2a52578aa01a"
+      },
+      {
+        "file": "apps/desktop/src/renderer/lib/utils.ts",
+        "blob": "07cf0255b973daaf3d255dcda5a2adbb1fd91a3f",
+        "sha256": "d289d7563882e40b09850b4c86fb8a4e4c758fa16d81fc1425aba3277b1773f8"
+      },
+      {
+        "file": "apps/desktop/src/renderer/styles/generated/token-mappings.ts",
+        "blob": "7e58c6226f6ffa85581997c32ae9e5bcb19ddb53",
+        "sha256": "4633457cf945677ad1bc8bafd190fe1cb2cea2acbbe939711aa0cfe90a1426a3"
+      },
+      {
+        "file": "apps/desktop/src/renderer/utils/overloadError.ts",
+        "blob": "e735ca9879a978f5086525143a61992ea9f07ff4",
+        "sha256": "5dce6db87831c6c18497f1fa615f0bb3748f4d3ca638ba44c73c2121e3fcf183"
+      },
+      {
+        "file": "apps/desktop/src/renderer/utils/streamInterruptError.ts",
+        "blob": "01eeb34597fd9822262d80921b199cca374e4551",
+        "sha256": "8007f894e2e23d134b6f88342a6fdf8d1cce939491afd37c9626da3a6387b988"
+      },
+      {
+        "file": "apps/desktop/src/shared/agentActionVerbKeys.ts",
+        "blob": "00917896c62e715809234d8fb5e9972b51f1760b",
+        "sha256": "c20c639f0c0fba0f3c65071b4a055e4c9ce1f6c07fa991808ab7fc4c89f2ceec"
+      },
+      {
+        "file": "apps/desktop/src/shared/claudeGatewayError.ts",
+        "blob": "7cc9619690dd8b223828a2c27e54962d94221eeb",
+        "sha256": "ec3de205bb348b89fe577b55fe51dbe36407cd55c513e54f1bc600592b0b38b8"
+      },
+      {
+        "file": "packages/maker-shared/package.json",
+        "blob": "b3421d174e4c8560e23a7cce37873d10e1b974cc",
+        "sha256": "0858b81536035819e11d003d3e549ebdfa47421170187664b446d3c8dd6ce9be"
+      },
+      {
+        "file": "packages/maker-shared/src/agentCapabilities.ts",
+        "blob": "af047af2318f32a88755fcc48e06d5b03f591a9a",
+        "sha256": "bb308262d0d6dd52cbf6c54e6aa496325347932f3422bba052dd2af54d78730e"
+      },
+      {
+        "file": "packages/maker-shared/src/agentInputProjection.ts",
+        "blob": "497fac757e364193f16b82f1524c64b9554a7513",
+        "sha256": "4bd84f1bb889ef63c8dbd2918ae312fe420907e370328d3162a0788d3713f5f5"
+      },
+      {
+        "file": "packages/maker-shared/src/agentTask.ts",
+        "blob": "5837d87d956b5688f02a8750263508b9e907b71b",
+        "sha256": "d7901956d84d5bb60380a801387da3032d7c5631960dd6c7504c36149066fd87"
+      },
+      {
+        "file": "packages/maker-shared/src/brandIdentity.ts",
+        "blob": "56505f96b197d0e27b3c5dfc9c8c254133fd31a5",
+        "sha256": "f64bbc1fcff3c3b7967dbb398f779708780e8067649ee790e2511278ce4f55dd"
+      },
+      {
+        "file": "packages/maker-shared/src/branding.ts",
+        "blob": "79a1a2828aa7f936c89cc7fd50605b6a34ce61e7",
+        "sha256": "039900db5128f2e9818970a67a1b34c5aea49010e5a48d03ecb0c43a50a55639"
+      },
+      {
+        "file": "packages/maker-shared/src/chatQuotes.ts",
+        "blob": "81466c99c5565891c229f046e58021bb931e82c1",
+        "sha256": "9c3ab47e48a3e478f2e3bdc3295f201d2d6acafe7e7aec2942a27f4585ff051e"
+      },
+      {
+        "file": "packages/maker-shared/src/cindyMakeFeature.ts",
+        "blob": "367bfe78860606e767883f5a6f3bdf53f038cbbc",
+        "sha256": "d384fc4e7986c15b23668301aad3fcff16bdb8ea65825d8e8f8ee3c53b76f1c4"
+      },
+      {
+        "file": "packages/maker-shared/src/commandDisplay.ts",
+        "blob": "79aa57d7e856cffdd825d61cde75bb05f4903e77",
+        "sha256": "f23cad9408cd1c53bb155ef3748b43c0a4d7ffe7f4f04f80749e5d1b5505adac"
+      },
+      {
+        "file": "packages/maker-shared/src/commandIntent.ts",
+        "blob": "6d86e1589291c7d2af06233c43229f48f6633a52",
+        "sha256": "5803deb7d5fd020acd609023315461fc60e730f0373fe688013e610e0b2e150c"
+      },
+      {
+        "file": "packages/maker-shared/src/composerPalette.ts",
+        "blob": "b8d7bc62e382413fa70c54cd361dc919f0ec7158",
+        "sha256": "13fee50ce4d7fab10fd7ae505ff53c4335cfd30913933e293bace13842d6241d"
+      },
+      {
+        "file": "packages/maker-shared/src/deviceLinkContract.ts",
+        "blob": "948f7f92b979026f06e7a7b8b8511546486d2c49",
+        "sha256": "e81445c93788f92232e8d856b3f0b65de8140222fcd1e349e7aa79ab50f94423"
+      },
+      {
+        "file": "packages/maker-shared/src/deviceList.ts",
+        "blob": "774a12f9f5c64d7e804b83dcac8d56a628b97100",
+        "sha256": "a6f1e8061ec96b60fe406a27980ac3c9c60e5c26e4ae003c8b3feb0ccb68b972"
+      },
+      {
+        "file": "packages/maker-shared/src/errorRedaction.ts",
+        "blob": "d51386e35313ab2127006ff8786c1216263a47fa",
+        "sha256": "c709935144ac20e8c48c17d4dc2b01892cd5884c87bc441b4d999e0bef3db392"
+      },
+      {
+        "file": "packages/maker-shared/src/expandedBlockMemory.ts",
+        "blob": "7bc0df7bec919117c1e6ffdc1d09241443fd8e61",
+        "sha256": "3d0d28242c9301c4a3e7c7088881444040cfb35cebc5ea098e3cf6b150d9da05"
+      },
+      {
+        "file": "packages/maker-shared/src/fileBrowser.ts",
+        "blob": "a9a7d8a2e91add3dd9999586b7f6dfb6e0e81ab3",
+        "sha256": "adcdbda8a03672ceb80edd6bb1a0fac1c881215fa36cfc3ff30d9b7b4902f630"
+      },
+      {
+        "file": "packages/maker-shared/src/fileBrowserGrid.ts",
+        "blob": "8d1a8501d6a18dbd683455372cf77cd814e0f63e",
+        "sha256": "77c9cba930e9a329fc8579863670c6c43d57bf896cb741b7368103183838e91a"
+      },
+      {
+        "file": "packages/maker-shared/src/filePresentation.ts",
+        "blob": "caf43d4db9298f48197114b0dca7985dc08b81e9",
+        "sha256": "27352c7983a7fa3dc69b1987bb127c13cc7aa0562c1ec62bd4e02dfe42d175ed"
+      },
+      {
+        "file": "packages/maker-shared/src/filePreview.ts",
+        "blob": "2112751a2250aa2587ce96611660d1219196f7b0",
+        "sha256": "a59a3c3c74ea7863600506d38904285e6c9f2525ce5e2fd77306cb7c7d3b183e"
+      },
+      {
+        "file": "packages/maker-shared/src/fixtures.ts",
+        "blob": "551f78ea21b1cd9678bd102ee0b3fd32de198629",
+        "sha256": "267ec3267c8ae1c15601d8649cf141e23c1754b3fcff51bf7f584cdef8f54bfe"
+      },
+      {
+        "file": "packages/maker-shared/src/githubRead.ts",
+        "blob": "1a0c8741772921cc24d0cd9305baa98d0a54a306",
+        "sha256": "1983ba00d0c5c59eef78fefa151b2e23d122fde841c4d9cc857d6b27340c95db"
+      },
+      {
+        "file": "packages/maker-shared/src/goalVerdict.ts",
+        "blob": "ba28d2148b59ae7af0965c52b99f3419c94a0b12",
+        "sha256": "4e8d124118d09c8a2eb9d73bd07f18c8497e31205e73ab39fce638c61da48a18"
+      },
+      {
+        "file": "packages/maker-shared/src/historyAfter.ts",
+        "blob": "bcd731dd623eff0fab130345c784afca8a9b2982",
+        "sha256": "9661e81c7f1201e6f3532ddae315fbccd31ecf4445e004aba11db182dfd2633d"
+      },
+      {
+        "file": "packages/maker-shared/src/historyGap.ts",
+        "blob": "4218e27e13ea5246068d527444fb17e4612bcf38",
+        "sha256": "cd554b112d5aa2e2514cb58309da2376e2d5c397852afc1bc2977d6e089e57ea"
+      },
+      {
+        "file": "packages/maker-shared/src/historyView.ts",
+        "blob": "1064bf8cbcf9f2497f4a5c523f60f1d8b0af0128",
+        "sha256": "4b22685ab2ba0073ab384e6c8956624f1860f4e3a5b8e4487ab694bd94eec0fa"
+      },
+      {
+        "file": "packages/maker-shared/src/historyViewController.ts",
+        "blob": "90a0692805c3b301d88e7595f274585a8ca06203",
+        "sha256": "af17cd1a3b95b3eac2a5cffd2315f9433d9faafd9f68d11492e95e7a90e5330b"
+      },
+      {
+        "file": "packages/maker-shared/src/historyViewHandoff.ts",
+        "blob": "f26b3e96722c62517b96860817cc01cfa395f446",
+        "sha256": "7650aa214b6ca25fcef92723ca6e902a5cf95f6dacdecdcab9ab3985241f5fda"
+      },
+      {
+        "file": "packages/maker-shared/src/historyViewPrefetch.ts",
+        "blob": "1a14579b42c546534925e2a2cb14e34e476b7240",
+        "sha256": "1a1d793e300e3ee39f8b52ea6851f664606952c699cb40505ba523c6527dfa1a"
+      },
+      {
+        "file": "packages/maker-shared/src/historyViewProjection.ts",
+        "blob": "c87660de44d869d7f6967b7430386df4c38977c1",
+        "sha256": "af8cb6a713a1da60b86f83c99e883db87ec2b691cd3617583251be9ebd0a3889"
+      },
+      {
+        "file": "packages/maker-shared/src/historyViewRender.ts",
+        "blob": "e1079d9c88af97dbd786ce9918347b5af6574422",
+        "sha256": "568ed833938152bad9dc122d598840ccbb62243ad69ac2f816e17b40c6220bcb"
+      },
+      {
+        "file": "packages/maker-shared/src/historyWorkLines.ts",
+        "blob": "916d7079ce174bfd0b8ce22504749ee57277ea28",
+        "sha256": "7c5a665d463e32c973f8d37f2c76e7119e51997e535d1b5482675f163540f166"
+      },
+      {
+        "file": "packages/maker-shared/src/htmlPreviewCsp.ts",
+        "blob": "0f649cc69c2bc1dd2aae9c52303814797927cefc",
+        "sha256": "53e4e569a3962ee25092df6af7e95767096dc85eaa971837b838a3a4ec9b597d"
+      },
+      {
+        "file": "packages/maker-shared/src/index.ts",
+        "blob": "ff7b9dc1f7c00572b6c5ac8393123cfafe70964e",
+        "sha256": "be3e5435a76d4b4d22d8c29082f39c7ed61f70f988bf7bd36d28fc2345116320"
+      },
+      {
+        "file": "packages/maker-shared/src/interaction.ts",
+        "blob": "db945ec7978896e909b6deb539efbb16b0c73dd9",
+        "sha256": "b2bdbf69e89aea77ad75966fd33b30c4a60d501ae24527058c45489d70cedee8"
+      },
+      {
+        "file": "packages/maker-shared/src/internalCitation.ts",
+        "blob": "16be636722a582daf8b7eb5b7a7d460ff0a52413",
+        "sha256": "4ac80528fb4cb7393ab4e96e3d5517f0e516024eba55b3993b4be994bbe47b95"
+      },
+      {
+        "file": "packages/maker-shared/src/liveTaskPriority.ts",
+        "blob": "29fa2a75318f426c4ef97681e6bdcee8fe4fa1b4",
+        "sha256": "27da5684e542b2dd7ac2c51676eb97a63362914e82404db452df6cbd6c221fec"
+      },
+      {
+        "file": "packages/maker-shared/src/mathMarkdown.ts",
+        "blob": "70ea5fa6e058f3b754346edb2090a6a92c6f6219",
+        "sha256": "279ef63b0895c57a247297d7eddf3c67206615dc45c102bc33dbde01a884d595"
+      },
+      {
+        "file": "packages/maker-shared/src/mermaidAutofix.ts",
+        "blob": "b7f0739c044a8456da208d09394112a2b3f4da7f",
+        "sha256": "13efca4d4f5179b4d8c427f292d60a92689dd2acbe67089174ed47526b07ffd2"
+      },
+      {
+        "file": "packages/maker-shared/src/messageNormalize.ts",
+        "blob": "b761ea4c46e0d8790139d2b9a4032cf162dd14c3",
+        "sha256": "28b5d4ba9d859ba21b192c7bf8e89ffa495a2802969b2e995855fe7bdfff01fa"
+      },
+      {
+        "file": "packages/maker-shared/src/messagePresentation.ts",
+        "blob": "5fb755b12dd69553efd6f27274d7d94674322f18",
+        "sha256": "6b2c9fa1b12b6a5cae8573e92d2ce106d931ba973469076aa8f8e1a84ce44308"
+      },
+      {
+        "file": "packages/maker-shared/src/messageRender.ts",
+        "blob": "9a76d89532439370d7525cfd8678042a9f0ddffe",
+        "sha256": "93a1ff9a3305f563271517db4d0273edc7bfea961508e92411f2bca37c785dc4"
+      },
+      {
+        "file": "packages/maker-shared/src/messageSearch.ts",
+        "blob": "e6408c5ee62bbfc5683d1812156399c6c1ffe91f",
+        "sha256": "c7bb3196900a15c315e58b6eb8d7093c4719bdac78d333b8f6308bee138f797c"
+      },
+      {
+        "file": "packages/maker-shared/src/messageWindow.ts",
+        "blob": "ea7518c9cdaed4d9203ae77c7339d906026da0c2",
+        "sha256": "18f81ad46a964a5b0c49155feb6fa862951f208e5942721460321ea95b0d0f08"
+      },
+      {
+        "file": "packages/maker-shared/src/mobileHome.ts",
+        "blob": "3187bbbf73c2e7107eca7b5349fd09aab6a650d5",
+        "sha256": "89e1eaee037be466348cbfa3d260322fa9e4fc7a8d1906223607a17acfa7071d"
+      },
+      {
+        "file": "packages/maker-shared/src/pathText.ts",
+        "blob": "5a492442669e55d90b63511a669d43c4a416a4df",
+        "sha256": "35c6fa3c396a333ab08b84771368f72c4fbc174a6871c3cfca5dcadbd16281b7"
+      },
+      {
+        "file": "packages/maker-shared/src/payloadSummary.ts",
+        "blob": "76e7b8daa4ed31e412642220e66e8c003137589f",
+        "sha256": "7a90661fc22dcd8bee81902b20b65a455a1f8f4e80680d91eb4fef5693dcefc6"
+      },
+      {
+        "file": "packages/maker-shared/src/permissionMode.ts",
+        "blob": "709ee1fcb16247f3ad0079d0aa9116573ae7eaf7",
+        "sha256": "b800b284136baea26f804e66ca14a90a5f2b58d45ea37c6bd3eaab054a33de2e"
+      },
+      {
+        "file": "packages/maker-shared/src/presentationLocalization.ts",
+        "blob": "f31a7dec25ef0396eede316d501545363baf7ef3",
+        "sha256": "508a3b4f976391dc75da4f8867ca95fa3b02816a370363a3135db6fc96d6dc8f"
+      },
+      {
+        "file": "packages/maker-shared/src/projectAliasSync.ts",
+        "blob": "5cb59c6ae51c4d038b73c7578c19d9d74066ddad",
+        "sha256": "6b8e2d7eb5a974d2009cefd910f31cf2afa468b02ca11782d26bb9cd5ea047ad"
+      },
+      {
+        "file": "packages/maker-shared/src/projectAliases.ts",
+        "blob": "7e1a91662a3e288d1ae74b4700c999a0433c602d",
+        "sha256": "557da89c8d8b1e6986ce7a987e0bf99295a100bd5cfa680f6b2b5fdc9cd02a57"
+      },
+      {
+        "file": "packages/maker-shared/src/projectOrderSync.ts",
+        "blob": "81257aa18a8a2ac79f5bf594dbb4b5074cf08563",
+        "sha256": "bd5a0b2c93e47e9d005bfff5b66fb1ddd73988b1f83f0c7ec8d822ef87488e74"
+      },
+      {
+        "file": "packages/maker-shared/src/questionReferences.ts",
+        "blob": "64bfd1a6d07a6377b933912fe91fa8b9a31f2b3e",
+        "sha256": "4c37fa963f43e83afcdbd6beb249d0b865b4318dcf0179738ac26d1b12e6634e"
+      },
+      {
+        "file": "packages/maker-shared/src/queue.ts",
+        "blob": "4691899aca57b3fb94c428c05ee23bbb01c5fe39",
+        "sha256": "5815dfed41e892e8be6776c5d2709a43e0bd32d8585ef1ee81ee4ace34cf09a8"
+      },
+      {
+        "file": "packages/maker-shared/src/remoteTextStream.ts",
+        "blob": "50ab24b05c465180639e070f40a982454184f522",
+        "sha256": "622b4466cc6ac361eb95ad8793dd67d5bb6dc8599163f153e48de25f396c8a0b"
+      },
+      {
+        "file": "packages/maker-shared/src/richAnswer.ts",
+        "blob": "35dd18306578d7eea75af886fa843a4fe04a0bd4",
+        "sha256": "af1083faffc2ffba7cf03994996b1f5d9a6be802eb5c7772c5d7461cc65e40ef"
+      },
+      {
+        "file": "packages/maker-shared/src/richAnswerVisual.ts",
+        "blob": "5ddf62572fe536afe121e222382784c546186876",
+        "sha256": "b3bacc4719d2681bc4a24354280ea24bef52757724bd7c4f728a3cfd004e1cfc"
+      },
+      {
+        "file": "packages/maker-shared/src/runningTokenRateHistory.ts",
+        "blob": "bcdc93a2e7aba56d9fd82b53f2d537ba040280e6",
+        "sha256": "0e1797f42a4d3d9c36590baa54ad5a0253b7e484db399ab4e0259584720ddda3"
+      },
+      {
+        "file": "packages/maker-shared/src/scheduleDelete.ts",
+        "blob": "65c643888cd01a5d9d3f2f325b1f00e0994a9014",
+        "sha256": "fcd279e8c886f3cf556c163a55d63df0faaec3493da1403db7fed05d52fd4c5a"
+      },
+      {
+        "file": "packages/maker-shared/src/scheduleEvents.ts",
+        "blob": "a6b092289b8b975524abad484287343be2208a74",
+        "sha256": "0ad157358ea6ea8eb863383ee688d3c5c879b0eb5a1acb7f45f1100fdaef7c38"
+      },
+      {
+        "file": "packages/maker-shared/src/scheduleForm.ts",
+        "blob": "cace187018ecf08b0ef70deb6e76ff04561a8788",
+        "sha256": "7988f97a317355782dd8e5e26b0ba542bbc8357c292b89211030a94f7f21e778"
+      },
+      {
+        "file": "packages/maker-shared/src/scheduleModel.ts",
+        "blob": "d76b5fcd81bcf15f342294ffce3403e746542fe3",
+        "sha256": "145ca4c39b644f501208bb91b7868f38ff83afdfc0fbac78a5a1d1e1a942a8b0"
+      },
+      {
+        "file": "packages/maker-shared/src/sessionActionStrip.ts",
+        "blob": "7c0ae5278da0ade91aafc8e2aade85806836c953",
+        "sha256": "7434cf1cd19de62d7d97eda320de1b1bbee5c93de68dd6b86788ea8d86fed260"
+      },
+      {
+        "file": "packages/maker-shared/src/sessionActivity.ts",
+        "blob": "e6fdfed3dc4ab1531eb5f6e838092c036d03bc9e",
+        "sha256": "cb05d2c1b1d66f540619ec0bac9d52a8eeec3697d524bcf84373fbeb7f76cde4"
+      },
+      {
+        "file": "packages/maker-shared/src/sessionControls.ts",
+        "blob": "b824efaeddc73695c3371d64abca47794f0a4ec3",
+        "sha256": "a7485651c25e794eee35ccc0930f8dec974a089792fce45ab1205cc13ebdba2b"
+      },
+      {
+        "file": "packages/maker-shared/src/sessionIdentity.ts",
+        "blob": "731b35901b9ab092e92204712d8a27a50a3925a7",
+        "sha256": "d6c9fe26a1a7812de076226ca3721fd287289461aaa28c37101fa1ac241b92b6"
+      },
+      {
+        "file": "packages/maker-shared/src/sessionList.ts",
+        "blob": "94b63ae500f54f4e8215fa6b654987546ae1b121",
+        "sha256": "c8da7225f9ddf3e4201b161cbf65937660078129c8d5a1f295b43e70827f98f4"
+      },
+      {
+        "file": "packages/maker-shared/src/sessionListCollapse.ts",
+        "blob": "7cbcf97d510a50a49ec2300872cfb83297de18a6",
+        "sha256": "97d4926a9fb637f2ac34dc98e61cd8762c02275044274ad95561b57eb0f87cb4"
+      },
+      {
+        "file": "packages/maker-shared/src/sessionOperation.ts",
+        "blob": "3b134fa711509d0a3a275a7054a9ee19009c8f21",
+        "sha256": "c06ff0523ef9c582feba74738e419706f075adce45fe8b7a5a7e034ec6953558"
+      },
+      {
+        "file": "packages/maker-shared/src/sessionPrRefs.ts",
+        "blob": "c45698e09cfa57df85c32c37b7934be70d67b34a",
+        "sha256": "40db1c812844e3b8f5f62d204a9376fac4b6b2ed017274d785a702506dc16807"
+      },
+      {
+        "file": "packages/maker-shared/src/sessionSelection.ts",
+        "blob": "94523c270fd5b168eb6089b0bbe25c013365e761",
+        "sha256": "705af2b040bc7c951a43993aee813662c8b1ca928e6ff3e0f599cc1212b6093d"
+      },
+      {
+        "file": "packages/maker-shared/src/sessionTitle.ts",
+        "blob": "1bd2d8e42086a98d7a7b931db9d56289ee6665a5",
+        "sha256": "91d25853dfbd7c02856c661f489320f8e35a88583e563e4746b124cc6a58d9d8"
+      },
+      {
+        "file": "packages/maker-shared/src/sharedTask.ts",
+        "blob": "7ad15ebbd01c80bea4bac8f5967cfd992bd5348a",
+        "sha256": "b603372b78541f16ea65b4dce066afbe93e7458732cd1744f17d86485e071f05"
+      },
+      {
+        "file": "packages/maker-shared/src/subagentObservation.ts",
+        "blob": "88b0abe5995c82480d5d8f82c44bde420d3dc8a5",
+        "sha256": "2c825aed3dd7ad3ebffd0e9621b63ce8b55a9da72bf48bb3143114ff3b5cddd3"
+      },
+      {
+        "file": "packages/maker-shared/src/subagentWorkspace.ts",
+        "blob": "11324cc300a70931898f6e40a8ed6b74d78a8c30",
+        "sha256": "377a8ee7d7c5c719a6c5759902e044430ed44b4e063157d2c3e153c4fce47a1c"
+      },
+      {
+        "file": "packages/maker-shared/src/syntheticTrigger.ts",
+        "blob": "6c2e8a2614fb19c7bdd47435f688c5129efe0320",
+        "sha256": "55c33908b5606dae8a32b906dfa1869daa3a11eae9252083d0bb40802db5c827"
+      },
+      {
+        "file": "packages/maker-shared/src/systemCard.ts",
+        "blob": "820a2bd7837d81f9015c9e2e85fa5d24ed3fca1c",
+        "sha256": "edfaf3ee7cf406a895a3614bea43f285a5b62e36a8dc0074a4dea0d080b02235"
+      },
+      {
+        "file": "packages/maker-shared/src/taskTags.ts",
+        "blob": "acfbc097ad092db6687f7896f108c161dc83f880",
+        "sha256": "9bd2fc105fc2a604496a4cd32ca74b80e89c8599a57a13779325cb2a1d062d48"
+      },
+      {
+        "file": "packages/maker-shared/src/thinkingText.ts",
+        "blob": "870c9cabd240b47ff4546abe1e2ae491d13847ec",
+        "sha256": "852a2ef96387448e0ba5f34a7644a9cd2057a5ff777b6951cdc5b06f0df259e4"
+      },
+      {
+        "file": "packages/maker-shared/src/toolLoopError.ts",
+        "blob": "63cdc2f269d861dda6d3447f0492b4f9b0a47c68",
+        "sha256": "f80ec7ab55a6e73938a357e7b9390f17eef7e6aab5430f3fb7344c8e0f91a3cc"
+      },
+      {
+        "file": "packages/maker-shared/src/toolResultCompaction.ts",
+        "blob": "7366c771f1574be5de00d5836a488ecbcced96c5",
+        "sha256": "18d053f844fbfd58c1a6f8abcd2388eda0a726f774924a9d4baf85cf80cf160a"
+      },
+      {
+        "file": "packages/maker-shared/src/toolUseDescriptor.ts",
+        "blob": "1695b91f1e394979d914cc5ce3d07fceb521d1ed",
+        "sha256": "942b21c58df6df8b439e2a040e6f38174de991ad1d1f312a4058e8e2f0e73f72"
+      },
+      {
+        "file": "packages/maker-shared/src/turnContinuation.ts",
+        "blob": "cfd6bb597ce5e8a63f0427f23d2db55d5450c39b",
+        "sha256": "ea6e7a939323fa18ea6eb10ca8a840cb52b7f70dd05654840c31d332d0a7adaa"
+      },
+      {
+        "file": "packages/maker-shared/src/updateChannel.ts",
+        "blob": "f40a65c117d68fd552eb51fe1e51530ce8f9ed5a",
+        "sha256": "a29d9b2f5167e341f0753a77a867ba07cd20e79f126fffc3038768d191b6a34f"
+      },
+      {
+        "file": "packages/maker-shared/src/urlTextBoundary.ts",
+        "blob": "7e442db029d71e4292cf80f4a02f3cdbc104ad7e",
+        "sha256": "66fa67f2b86fd41046f49a3e293c00c5d014f17b95b21ea9b9413a129ae56be8"
+      },
+      {
+        "file": "packages/maker-shared/src/userBubbleAppearance.ts",
+        "blob": "ed8ba4850de354aee9c6aae84c6827e74de4965f",
+        "sha256": "964f3e45a3b0b57caf68b8ae9ca97e7a75e6b77047ae173978fde8deb29d2cdd"
+      },
+      {
+        "file": "packages/maker-shared/src/workActivityProjection.ts",
+        "blob": "71548a3e400de0e585fb266b77db38fdfd946774",
+        "sha256": "a5fa7495f0d7f9d62f4eda33742124cb1720ecb69f7ca6da1685ddc50141e8ca"
+      },
+      {
+        "file": "packages/maker-shared/src/workRunGrouping.ts",
+        "blob": "6b43c9f2cf76cd9410b1cdce879bc990437137eb",
+        "sha256": "6482a115fc0bdbdd5bcd77a210b65e119e379f33aabc13a731f8f58f80fd8f1f"
+      },
+      {
+        "file": "packages/maker-shared/src/workingStatus.ts",
+        "blob": "ca58040ccb49be115e2e9cce0de8342346eee4b7",
+        "sha256": "730d3f4769bca94309a0d5c3c1f673a2a6a149366a33345fa2b16d87b160bbd0"
+      },
+      {
+        "file": "packages/maker-shared/src/worktreePaths.ts",
+        "blob": "4578d5b1838b041c7778cd228b0bba9a620510f7",
+        "sha256": "1354df2c008218af3c8ef7c1727a969c78dad3ab64ba1cbec603f26eca3df61c"
+      },
+      {
+        "file": "packages/maker-shared/src/youtubeVideo.ts",
+        "blob": "786ea47d1a3d61f46c82a1d0749d55a0ca000159",
+        "sha256": "12d8658a5bec0759f2dec73534573ea7fb595bdedfdf98b02a8cd8b5707f7a7f"
+      }
+    ]
+  }
 }

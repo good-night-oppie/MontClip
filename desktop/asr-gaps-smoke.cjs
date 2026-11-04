@@ -55,7 +55,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await wait(200);report.playhead=await read(`state.time`);
   assert.ok(Math.abs(report.playhead-15)<0.05,'jumped to the gap: '+report.playhead);
   // subtitles made from the timeline's words: nothing in the gap (15–22 s on the timeline)
-  report.cues=await read(`FableCutCaptions.cues(transcriptWords(),{}).map(c=>[c.start,c.end,c.text.length])`);
+  report.cues=await read(`MontClipCaptions.cues(transcriptWords(),{}).map(c=>[c.start,c.end,c.text.length])`);
   assert.ok(report.cues.length>=2);assert.ok(!report.cues.some(([s])=>s>=15&&s<22),'no subtitle starts in the gap');
   if(shots){await wait(300);fs.writeFileSync(path.join(shots,'asr-gaps-tab.png'),(await win.webContents.capturePage()).toPNG());}
   ok=true;

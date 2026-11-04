@@ -4,14 +4,14 @@
    Two roots, because they have different lifetimes:
 
      APP_DIR   the checked-out code and the assets that ship with it. Read-only
-               in practice. When FableCut is installed as a Claude Code plugin
+               in practice. When MontClip is installed as a Claude Code plugin
                this directory is pinned to a commit and REPLACED on every update.
 
      DATA_DIR  the user's work — project.json, imported media, exports, cached
                analysis. Must outlive an update.
 
    Standalone (`node server.js`) they are the same directory, which is exactly
-   how FableCut has always behaved. Set FABLECUT_DATA_DIR to split them; the
+   how MontClip has always behaved. Set FABLECUT_DATA_DIR to split them; the
    plugin sets it to ${CLAUDE_PLUGIN_DATA}. Installed from npm (the code sits
    under node_modules, e.g. the npx cache) the default is ~/FableCut.
    ═══════════════════════════════════════════════════════════════════════════ */

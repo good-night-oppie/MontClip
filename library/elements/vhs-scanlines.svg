@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
-  <!-- FableCut element · VHS scanlines + edge tint · blend:"overlay" or "soft-light",
+  <!-- MontClip element · VHS scanlines + edge tint · blend:"overlay" or "soft-light",
        fit:"stretch", opacity ~0.5. Pair with rgbSplit + grain props for full VHS. -->
   <defs>
     <pattern id="lines" width="4" height="4" patternUnits="userSpaceOnUse">

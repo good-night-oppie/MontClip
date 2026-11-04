@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="300" height="120" viewBox="0 0 300 120">
-  <!-- FableCut animated SVG · loops · three bouncing dots (loading / buffering) -->
+  <!-- MontClip animated SVG · loops · three bouncing dots (loading / buffering) -->
   <style>
     .d { transform-box: fill-box; transform-origin: center;
          animation: bob 0.9s cubic-bezier(.4,0,.6,1) infinite; }

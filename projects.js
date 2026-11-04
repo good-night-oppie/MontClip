@@ -249,7 +249,7 @@ function createProjects({ dataDir, projectFile, libraryDir }) {
   /* A project file from elsewhere (an old backup, another machine). */
   function importDoc(doc, { name, open: andOpen = false } = {}) {
     if (!doc || typeof doc !== "object" || !Array.isArray(doc.clips) || !Array.isArray(doc.media))
-      throw new Error("not a FableCut project (it needs clips and media arrays)");
+      throw new Error("not a MontClip project (it needs clips and media arrays)");
     const id = add(structuredClone(doc), { name: cleanName(name) || doc.name });
     return andOpen ? open(id) : { id, project: summary(id, activeId()) };
   }

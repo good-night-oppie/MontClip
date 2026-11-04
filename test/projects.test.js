@@ -114,7 +114,7 @@ test("import takes a project file from elsewhere; a non-project is refused", (t)
   P.activeId();
   const out = P.importDoc(seedProject({ name: "Old backup", revision: 300 }));
   assert.equal(out.project.name, "Old backup");
-  assert.throws(() => P.importDoc({ hello: 1 }), /not a FableCut project/);
+  assert.throws(() => P.importDoc({ hello: 1 }), /not a MontClip project/);
 });
 
 test("a project that can't be read is never switched over", (t) => {

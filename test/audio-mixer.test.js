@@ -40,7 +40,7 @@ function world({ tracks = [{ id: "A1", kind: "audio" }, { id: "A2", kind: "audio
   const TRACKS = [];
   const project = { master, media };
   const env = {
-    TRACKS, project, TRACK_IDS: new Set(), FableCutFx: require("../audio-fx.js"),
+    TRACKS, project, TRACK_IDS: new Set(), MontClipFx: require("../audio-fx.js"),
     clamp: (v, a, b) => Math.min(b, Math.max(a, v)),
     applyTrackHeights() {}, syncTrackIds() {},
     getMedia: (id) => media.find((m) => m.id === id),
@@ -48,7 +48,7 @@ function world({ tracks = [{ id: "A1", kind: "audio" }, { id: "A2", kind: "audio
   const names = Object.keys(env);
   const fns = new Function(...names, `${CODE}\nreturn { ${EXPORTS.join(", ")} };`)(...names.map((k) => env[k]));
   fns.applyTracksFromProject(tracks);
-  return { ...fns, TRACKS, project, FableCutFx: env.FableCutFx };
+  return { ...fns, TRACKS, project, MontClipFx: env.MontClipFx };
 }
 
 /* A context that records every connect(): edges are [from, to, output, input]. */
@@ -227,7 +227,7 @@ test("fx slot: effects sit between gain and volume; tweaks update in place, shap
   const ctx = fakeCtx();
   const src = ctx.source();
   const c = { props: {}, fx: [{ type: "highpass", freq: 100 }, { type: "compressor", threshold: -20, makeup: 6 }] };
-  c.fx = w.FableCutFx.normalizeFx(c.fx);
+  c.fx = w.MontClipFx.normalizeFx(c.fx);
   const chain = w.buildClipChain(ctx, src, c, 2);
   assert.deepEqual(walk(ctx, chain.trim, chain.vol), ["gain", "biquad", "comp", "gain", "gain"], "trim → hp → comp → makeup → vol");
   const hp = ctx.outs(chain.trim)[0][1];

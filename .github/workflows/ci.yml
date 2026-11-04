@@ -48,7 +48,7 @@ jobs:
           node desktop/fetch-ffmpeg.cjs --platform linux-x64 --cache-dir .cache/ffmpeg
           echo "fetch-ffmpeg took $(( $(date +%s) - start )) s"
 
-      # No install step on purpose: FableCut has no runtime dependencies and the
+      # No install step on purpose: MontClip has no runtime dependencies and the
       # suite uses only node:test. A missing `npm install` here is the feature.
       - name: Run the test suite
         run: npm test

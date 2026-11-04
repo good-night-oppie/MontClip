@@ -1,6 +1,6 @@
-/* FableCut delivery — export presets and encode settings as data. Zero
+/* MontClip delivery — export presets and encode settings as data. Zero
    dependencies. Loaded by the editor as a plain script (global
-   `FableCutDelivery`) and required by the server, the MCP server and the tests.
+   `MontClipDelivery`) and required by the server, the MCP server and the tests.
 
    A delivery spec says what one output file should be:
 
@@ -31,7 +31,7 @@
   const node = typeof module === "object" && module.exports;
   const api = factory();
   if (node) module.exports = api;
-  else root.FableCutDelivery = api;
+  else root.MontClipDelivery = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 

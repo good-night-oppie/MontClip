@@ -9,7 +9,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { makeDataDir, readProject, writeProject, seedProject, startServer, startMcp } = require("./helpers");
 
-const WORDS = [["Meet", 0.5, 0.7], ["FableCut", 0.7, 1.3], ["Studio,", 1.3, 1.9], ["a", 2.0, 2.1], ["video", 2.1, 2.4], ["editor.", 2.4, 3.0],
+const WORDS = [["Meet", 0.5, 0.7], ["MontClip", 0.7, 1.3], ["Studio,", 1.3, 1.9], ["a", 2.0, 2.1], ["video", 2.1, 2.4], ["editor.", 2.4, 3.0],
   ["Then", 4.0, 4.3], ["just", 4.3, 4.5], ["ask.", 4.5, 5.0]];
 const post = (base, p, body) => fetch(base + p, { method: "POST", body: JSON.stringify(body) }).then(async (r) => ({ status: r.status, body: await r.json() }));
 
@@ -65,7 +65,7 @@ test("captions from the transcript, on a new lane above the title, timed word by
   assert.equal(doc.revision, 3);
   assert.equal(doc.tracks[0].id, "V4", "the new lane is on top");
   const cs = caps(dir).sort((a, b) => a.start - b.start);
-  assert.deepEqual(cs.map((c) => c.props.text.replace(/\n/g, " ")), ["Meet FableCut Studio,", "a video editor.", "Then just ask."]);
+  assert.deepEqual(cs.map((c) => c.props.text.replace(/\n/g, " ")), ["Meet MontClip Studio,", "a video editor.", "Then just ask."]);
   assert.ok(cs.every((c) => c.track === "V4" && c.props.textAnim === "highlight" && c.props.captionStyle === "highlight"));
   assert.deepEqual(cs[0].props.wordTimes, [[0, 0.2], [0.2, 0.8], [0.8, 1.4]], "seconds from the caption's start");
   assert.equal(cs[0].start, 0.5);
