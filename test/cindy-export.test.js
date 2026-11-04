@@ -60,7 +60,7 @@ test("the chat card: progress as a width, the folder's name escaped, no script, 
   const done = exportCard({ phase: "done", folder: '<img src=x onerror="alert(1)">', files: [{ name: "a.mp4", bytes: 2097152 }], note: "Checks passed: 1920×1080" });
   assert.match(done, /已存到「&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;」/);
   assert.match(done, /a\.mp4 · 2\.0 MB/);
-  for (const html of [running, done, exportCard({ phase: "failed", note: "x" }), exportCard({ phase: "pick" }),
+  for (const html of [running, done, exportCard({ phase: "failed", stage: "start", code: "EXPORT_REFUSED", reason: "<b>x</b>" }), exportCard({ phase: "pick" }),
     exportCard({ phase: "copyFailed", reason: '<b>"x"</b>' }), exportCard({ phase: "still" })]) {
     assert.doesNotMatch(html, /<script|<iframe|<svg|<img|<b>|<[^>]*\son\w+=|!important/i);
     assert.ok(Buffer.byteLength(html) < 32 * 1024);
@@ -90,7 +90,7 @@ test("the chat card: still exporting is not a failure, and says nothing for the 
   const still = exportCard({ phase: "still" });
   assert.deepEqual(plain(still), ["还在导出", "这次等不到它导完。导完以后，文件会在 MontClip 自己的导出文件夹里。"]);
   assert.doesNotMatch(still, /导出没有完成|call_tool|fablecut_|montclip_/);
-  assert.deepEqual(plain(exportCard({ phase: "failed", note: "ffmpeg exited 1" })), ["导出没有完成", "ffmpeg exited 1"], "only a real failure");
+  assert.equal(plain(exportCard({ phase: "failed", stage: "job", reason: "ffmpeg exited 1" }))[0], "导出没有完成", "only a real failure");
   const main = fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8");
   const tool = main.slice(main.indexOf("async montclip_export("), main.indexOf("async montclip_install_ffmpeg("));
   assert.match(tool, /sendCard\(callId, \{ phase: 'still' \}\);\n\s+return \{ job: job\.id, status: job\.status, hint: 'The export is still running\. Check it with call_tool fablecut_export/,
@@ -99,8 +99,8 @@ test("the chat card: still exporting is not a failure, and says nothing for the 
 
 test("the chat card: the copy that failed, and a file saved under another name", () => {
   const exportCard = card();
-  assert.deepEqual(plain(exportCard({ phase: "copyFailed", reason: "磁盘满了" })),
-    ["视频已经导出好了，但没能存进你选的文件夹（磁盘满了）。文件还在 MontClip 自己的导出文件夹里，可以换一个文件夹再导出一次。", "打开导出文件夹"]);
+  assert.deepEqual(plain(exportCard({ phase: "copyFailed", code: "ENOSPC", reason: "ENOSPC: no space left on device" })),
+    ["视频已经导出好了，但没能存进你选的文件夹（空间不够）。文件还在 MontClip 自己的导出文件夹里，可以换一个文件夹再导出一次。", "打开导出文件夹"]);
   assert.deepEqual(plain(exportCard({ phase: "done", folder: "成片", files: [{ name: "clip (2).mp4", bytes: 300000, renamed: true }] })),
     ["导出完成", "已存到「成片」", "clip (2).mp4 · 293 KB", "同名文件已经有了，这次存成这个名字", "打开导出文件夹"]);
 });
@@ -121,8 +121,8 @@ test("the chat card in plain English (kept beside JJ's words for when the card f
   assert.deepEqual(plain(exportCard({ phase: "pick" }, "en")), ["Waiting for you to choose a folder…"]);
   assert.deepEqual(plain(exportCard({ phase: "still" }, "en")),
     ["Still exporting", "This time it can't wait for the export to finish. When it's done, the file will be in MontClip's own export folder."]);
-  assert.deepEqual(plain(exportCard({ phase: "copyFailed", reason: "disk full" }, "en")),
-    ["The video is exported, but it couldn't be saved to the folder you chose (disk full). The file is still in MontClip's own export folder; you can export again to another folder.", "Open the export folder"]);
+  assert.deepEqual(plain(exportCard({ phase: "copyFailed", code: "ENOSPC", reason: "ENOSPC: no space left on device" }, "en")),
+    ["The video is exported, but it couldn't be saved to the folder you chose (not enough space). The file is still in MontClip's own export folder; you can export again to another folder.", "Open the export folder"]);
   assert.deepEqual(plain(exportCard({ phase: "done", files: [{ name: "clip (2).mp4", bytes: 2097152, renamed: true }] }, "en")),
     ["Export finished", "Saved in MontClip's own export folder", "clip (2).mp4 · 2.0 MB", "A file with this name was already there, so this one was saved under this name", "Open the export folder"]);
   assert.equal(plain(exportCard({ phase: "done", dir: "D:\\x", job: "x_1", files: [] }, "en")).at(-1), "Open folder");
@@ -158,12 +158,81 @@ test("worker: an export without ffmpeg is refused with the engine's reason", asy
 /* VV (2026-11-04): 还在导出 is not red; 打开文件夹 on a finished export and on a failed copy, opened by the worker —
    only MontClip's exports folder or the folder that export went into, every other path refused. The button's words
    wait for JJ. */
+/* QQ on 8461005: an export that could not start, or stopped halfway, never puts the engine's English on the card. One
+   plain sentence says why, then 你的剪辑都还在。; the raw error goes last, small, after 还不行，把下面这行发给我们：,
+   without paths, local ports or pids. The sentences are drafts waiting for JJ. */
+const SEND_US = "还不行，把下面这行发给我们：", KEPT = "你的剪辑都还在。";
+const ENGLISH_RUN = /[A-Za-z]+[ ,;:'-]+[A-Za-z]+[ ,;:'-]+[A-Za-z]+/;   // three English words in a row: a raw error
+
+test("导出没有完成: why in one plain sentence, the raw error only on the small last line", () => {
+  const exportCard = card();
+  const cases = [
+    // stage, code, raw error (the engine's own words), the plain sentence
+    ["start", "NO_EDITOR", "no editor tab is open to run it", "剪辑器没有接这次导出：先打开右侧栏的「MontClip 剪辑器」，等时间线出来，再导出一次。"],
+    ["start", "EXPORT_REFUSED", "no editor tab is open and no Chrome / Edge was found to export headless — open the editor in a browser, or set FABLECUT_CHROME to a Chromium-based browser",
+      "剪辑器没有接这次导出：先打开右侧栏的「MontClip 剪辑器」，等时间线出来，再导出一次。"],
+    ["start", "EDITOR_NOT_READY", "The editor is not ready; open it and retry.", "剪辑器没有接这次导出：先打开右侧栏的「MontClip 剪辑器」，等时间线出来，再导出一次。"],
+    ["start", "ffmpegMissing", "FFmpeg is not bundled", "导出工具还没装好：先在剪辑器上方的横幅里点「下载并安装」，装好再导出。"],
+    ["start", "EXPORT_REFUSED", "export x_1 is still running — wait for it, or cancel it", "上一个导出还没做完：等它做完，再导出这一次。"],
+    ["start", "TIMEOUT", "Node request timed out after 120000 ms", "MontClip 没有回应：关掉剪辑器再打开，再导出一次。"],
+    ["start", "EXPORT_REFUSED", "export request failed (500)", "导出没有开始：再导出一次试试。"],
+    ["job", undefined, "the editor stopped reporting progress (tab closed or browser crashed)", "导出到一半停下了：再导出一次试试。"],
+    ["job", undefined, "the headless browser never picked up the job (it may have failed to start or to load the editor)", "剪辑器没有接这次导出：先打开右侧栏的「MontClip 剪辑器」，等时间线出来，再导出一次。"],
+    ["job", undefined, "ffmpeg: Error writing trailer: No space left on device", "存视频的那个盘空间不够了：腾出一些空间，再导出一次。"],
+    ["job", undefined, "export failed", "导出到一半停下了：再导出一次试试。"],
+  ];
+  for (const [stage, code, raw, words] of cases) {
+    const lines = plain(exportCard({ phase: "failed", stage, code, reason: raw }));
+    assert.deepEqual(lines, ["导出没有完成", words + KEPT + SEND_US, raw.replace(/\b[A-Za-z]:[\\/]\S*/g, "…")], raw);
+    assert.doesNotMatch(lines[1], ENGLISH_RUN, "no English in the sentence");
+    assert.ok(!lines[1].includes(raw), "the raw error is not in the sentence");
+  }
+  // the raw error is the small line
+  const html = exportCard({ phase: "failed", stage: "start", code: "NO_EDITOR", reason: "no editor tab is open to run it" });
+  assert.match(html, /font-size:12px[^"]*"[^>]*>no editor tab is open to run it</);
+  // no raw error: no second half
+  assert.deepEqual(plain(exportCard({ phase: "failed", stage: "start" })), ["导出没有完成", "导出没有开始：再导出一次试试。" + KEPT]);
+  // the data folder in use: JJ's own sentence, as it is
+  const inUse = "MontClip 桌面版正在用这些项目。两边同时改，会互相盖掉。先把桌面版关掉，再打开这里。找不到桌面版的窗口，就重启电脑再试。";
+  assert.deepEqual(plain(exportCard({ phase: "failed", stage: "start", code: "DATA_DIR_IN_USE", reason: inUse })), ["导出没有完成", inUse]);
+  // English beside it
+  assert.equal(plain(exportCard({ phase: "failed", stage: "job", reason: "export failed" }, "en"))[1],
+    "The export stopped halfway: try exporting again.Your edit is all still there.If that doesn't help, send us the line below:");
+});
+
+test("the small line: no paths, local ports or pids — only what helps us", () => {
+  const exportCard = card();
+  const raw = "ENOENT: no such file, open 'C:\\Users\\me\\FableCut\\exports\\a.mp4' (D:/直播/x.mp4) at http://127.0.0.1:7777/api pid 4242 port=9222 /home/me/FableCut/media/b.mp4";
+  const small = plain(exportCard({ phase: "failed", stage: "job", reason: raw })).at(-1);
+  for (const leak of ["Users", "me\\", "直播", "7777", "4242", "9222", "/home/", "FableCut\\exports"]) assert.ok(!small.includes(leak), leak + " in " + small);
+  assert.match(small, /^ENOENT: no such file, open/, "the rest stays, so we can tell what it was");
+  assert.ok(plain(exportCard({ phase: "failed", stage: "job", reason: "x".repeat(2000) })).at(-1).length <= 300, "at most 300 characters");
+});
+
+test("a failed copy or open with a code the card does not know: a plain reason, the raw error small and last", () => {
+  const exportCard = card();
+  const copy = plain(exportCard({ phase: "copyFailed", code: "EBUSY", reason: "EBUSY: resource busy or locked, rename 'D:\\成片\\a.mp4.part'" }));
+  assert.deepEqual(copy.slice(0, 3), ["视频已经导出好了，但没能存进你选的文件夹（出了点问题）。文件还在 MontClip 自己的导出文件夹里，可以换一个文件夹再导出一次。",
+    SEND_US, "EBUSY: resource busy or locked, rename '…'"]);
+  const known = plain(exportCard({ phase: "copyFailed", code: "NO_FOLDER", reason: "the folder to export into is not there" }));
+  assert.ok(!known.includes(SEND_US) && !known.some((l) => /is not there/.test(l)), "a known code needs no raw line");
+  const open = plain(exportCard({ phase: "done", dir: "D:\\x", job: "x_1", openFailed: { code: "PROTOCOL_ERROR", message: "spawn explorer.exe ENOENT" } }));
+  assert.deepEqual(open.slice(-3), ["没能打开文件夹（出了点问题）。", SEND_US, "spawn explorer.exe ENOENT"]);
+});
+
+test("main.js: both failures go to the card with their code and stage, never as a note", () => {
+  const main = fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8");
+  assert.match(main, /sendCard\(callId, \{ phase: 'failed', stage: 'start', code: e\.code, reason: e\.message \}\)/);
+  assert.match(main, /\{ phase: 'failed', stage: 'job', progress: job\.progress, reason: job\.error \|\| job\.status \}/);
+  assert.doesNotMatch(main, /phase: 'failed', note:/);
+});
+
 test("the chat card: 还在导出 is not drawn as a failure (no red), 导出没有完成 is", () => {
   const exportCard = card();
   const still = exportCard({ phase: "still" });
   assert.doesNotMatch(still, /text-danger|#b42318/, "no red while it is still exporting");
   assert.doesNotMatch(still, /data-ghost-action/, "nothing to open yet");
-  assert.match(exportCard({ phase: "failed", note: "ffmpeg exited 1" }), /var\(--text-danger,#b42318\)/, "a real failure is red");
+  assert.match(exportCard({ phase: "failed", stage: "job", reason: "ffmpeg exited 1" }), /font-weight:600;color:var\(--text-danger,#b42318\)">导出没有完成</, "a real failure: its head is red");
 });
 
 test("the chat card: 打开文件夹 opens the folder she chose; 打开导出文件夹 MontClip's own export folder", () => {

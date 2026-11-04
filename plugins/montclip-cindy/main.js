@@ -115,7 +115,18 @@ const EXPORT_TEXT = {
     // waiting for JJ (VV, 2026-11-04): a failed open, and the reasons a copy fails
     openFailed: (why) => '没能打开文件夹（' + why + '）。',
     why: { NO_FOLDER: '选的文件夹找不到了，可能被删了或拔掉了 U 盘', ENOSPC: '空间不够', EACCES: '没有写入权限', EPERM: '没有写入权限',
-      FOLDER_NOT_ALLOWED: '只能打开导出用的文件夹' },
+      FOLDER_NOT_ALLOWED: '只能打开导出用的文件夹', OTHER: '出了点问题' },
+    // why an export did not finish (QQ on 8461005; drafts waiting for JJ): one plain sentence, then 你的剪辑都还在。
+    failedWhy: {
+      tool: '导出工具还没装好：先在剪辑器上方的横幅里点「下载并安装」，装好再导出。',
+      editor: '剪辑器没有接这次导出：先打开右侧栏的「MontClip 剪辑器」，等时间线出来，再导出一次。',
+      busy: '上一个导出还没做完：等它做完，再导出这一次。',
+      noAnswer: 'MontClip 没有回应：关掉剪辑器再打开，再导出一次。',
+      disk: '存视频的那个盘空间不够了：腾出一些空间，再导出一次。',
+      stopped: '导出到一半停下了：再导出一次试试。',
+      notStarted: '导出没有开始：再导出一次试试。',
+    },
+    kept: '你的剪辑都还在。', sendUs: '还不行，把下面这行发给我们：',
   },
   en: {
     pick: 'Waiting for you to choose a folder…', start: 'Starting the export…', running: (p) => 'Exporting ' + p + '%', copy: (f) => 'Saving to “' + f + '”…',
@@ -128,7 +139,18 @@ const EXPORT_TEXT = {
     openFolder: 'Open folder', openExports: 'Open the export folder',
     openFailed: (why) => "Couldn't open the folder (" + why + ').',
     why: { NO_FOLDER: "the folder you chose isn't there any more; it may have been deleted, or the USB drive removed", ENOSPC: 'not enough space',
-      EACCES: 'no permission to write there', EPERM: 'no permission to write there', FOLDER_NOT_ALLOWED: 'only the export folders can be opened' },
+      EACCES: 'no permission to write there', EPERM: 'no permission to write there', FOLDER_NOT_ALLOWED: 'only the export folders can be opened',
+      OTHER: 'something went wrong' },
+    failedWhy: {
+      tool: 'The export tool isn\'t installed yet: click "Download and install" in the bar above the editor, then export again.',
+      editor: 'The editor didn\'t take this export: open "MontClip editor" in the right sidebar, wait for the timeline, then export again.',
+      busy: 'The last export hasn\'t finished yet: wait for it, then export this one.',
+      noAnswer: 'MontClip didn\'t answer: close the editor, open it again, then export again.',
+      disk: 'The drive the video is saved on is full: free some space, then export again.',
+      stopped: 'The export stopped halfway: try exporting again.',
+      notStarted: 'The export didn\'t start: try exporting again.',
+    },
+    kept: 'Your edit is all still there.', sendUs: "If that doesn't help, send us the line below:",
   },
 };
 /** A file size: bytes under 1 KB (字节), then KB, MB, GB — as the main view says it. */
@@ -139,10 +161,38 @@ function sizeText(b, lang) {
   if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
   return (b / 1073741824).toFixed(1) + ' GB';
 }
-/** Why something failed, in words: the reason for a known code, else the raw message. */
+/** Why something failed, in words: the reason for a known code, else a plain one (never the raw message: that
+ *  goes on a small line of its own, see rawLine). */
 function whyText(code, message, lang) {
   const t = EXPORT_TEXT[lang === 'en' ? 'en' : 'zh'];
-  return t.why[code] || String(message || code || '');
+  return t.why[code] || t.why.OTHER;
+}
+/** A raw error for the small line, without what is only this computer's business: paths, local ports, pids. */
+function scrub(raw) {
+  return String(raw == null ? '' : raw)
+    .replace(/\b[A-Za-z]:[\\/][^\s'"）)]*/g, '…')                                  // C:\Users\… · D:/…
+    .replace(/(^|[\s('"=])\/(?:[^\s/'"]+\/)+[^\s'"）)]*/g, '$1…')                    // /home/…/x
+    .replace(/\b(?:127\.0\.0\.1|localhost|0\.0\.0\.0|\[::1\]):\d+/gi, '…')       // 127.0.0.1:7777
+    .replace(/\b(pid|port)\b[\s=:#]*\d+/gi, '$1 …')
+    .trim().slice(0, 300);
+}
+/** The raw error as the last, small line (after 还不行，把下面这行发给我们：), or nothing when there is none. */
+function rawLine(raw, lang, style) {
+  const t = EXPORT_TEXT[lang === 'en' ? 'en' : 'zh'], r = scrub(raw);
+  return r ? '<p style="' + style + '">' + t.sendUs + '</p><p style="' + style + ';margin-top:2px;overflow-wrap:anywhere">' + esc(r) + '</p>' : '';
+}
+/** Why an export did not finish: tool · editor · busy · noAnswer · disk · stopped · notStarted. `stage` says where it
+ *  failed: starting it (the engine's code) or the job (its English error, and how far it got). */
+function failedReason(c) {
+  const code = String(c.code || ''), m = String(c.reason || '');
+  if (/^ffmpeg(Missing|Dev)$|^FFMPEG_MISSING$/i.test(code) || /ffmpeg (is )?(not found|missing)/i.test(m)) return 'tool';
+  if (/^(EDITOR_NOT_READY|EDITOR_DID_NOT_ACCEPT|HEADLESS_DISABLED)$/.test(code) ||
+    /no editor tab|never picked up|did not accept|headless browser|Chrome \/ Edge/i.test(m)) return 'editor';
+  if (/is still (pending|running)/i.test(m)) return 'busy';
+  if (/^(TIMEOUT|PROCESS_EXITED|NODE_REQUEST_FAILED|CANCELLED)$/.test(code)) return 'noAnswer';
+  if (/no space left|ENOSPC|disk (is )?full/i.test(code + ' ' + m)) return 'disk';
+  if (c.stage === 'job') return 'stopped';
+  return 'notStarted';
 }
 function exportCard(c, lang) {
   const t = EXPORT_TEXT[lang === 'en' ? 'en' : 'zh'];
@@ -158,17 +208,23 @@ function exportCard(c, lang) {
   const where = c.phase === 'done' ? '<p style="margin:8px 0 0">' + (c.folder ? t.savedTo(esc(c.folder)) : t.savedDefault) + '</p>' : '';
   const body = c.phase === 'still' ? '<p style="' + small + '">' + t.stillNote + '</p>'
     : c.phase === 'cancelled' ? '<p style="' + small + '">' + t.noFolder + '</p>'
-    : c.phase === 'copyFailed' ? '<p style="margin:0">' + t.copyFailed(esc(whyText(c.code, c.reason, lang))) + '</p>' : '';
+    : c.phase === 'copyFailed' ? '<p style="margin:0">' + t.copyFailed(esc(whyText(c.code, c.reason, lang))) + '</p>' +
+      (t.why[c.code] ? '' : rawLine(c.reason, lang, small))
+    // 导出没有完成: why, in one plain sentence; 你的剪辑都还在。; the raw error last, small (QQ on 8461005)
+    : c.phase === 'failed' ? (c.code === 'DATA_DIR_IN_USE' ? '<p style="margin:8px 0 0">' + esc(c.reason) + '</p>'
+      : '<p style="margin:8px 0 0">' + t.failedWhy[failedReason(c)] + t.kept + (scrub(c.reason) ? t.sendUs : '') + '</p>' +
+        (scrub(c.reason) ? '<p style="' + small + ';margin-top:2px;overflow-wrap:anywhere">' + esc(scrub(c.reason)) + '</p>' : '')) : '';
   // 打开文件夹: the folder she chose, when the files went there; else 打开导出文件夹 (a failed copy leaves them in exports)
   const picked = c.phase === 'done' && !!c.dir;
   const open = c.phase === 'done' || c.phase === 'copyFailed'
     ? '<div style="margin-top:10px"><button data-ghost-action="open-folder:' + (picked ? 'picked' : 'exports') +
       '" style="font:inherit;padding:5px 12px;border-radius:6px;border:1px solid var(--border-default,#d4d4cf);background:transparent;color:inherit">' + (picked ? t.openFolder : t.openExports) + '</button></div>' +
-      (c.openFailed ? '<p style="' + small + '">' + t.openFailed(esc(whyText(c.openFailed.code, c.openFailed.message, lang))) + '</p>' : '')
+      (c.openFailed ? '<p style="' + small + '">' + t.openFailed(esc(whyText(c.openFailed.code, c.openFailed.message, lang))) + '</p>' +
+        (t.why[c.openFailed.code] ? '' : rawLine(c.openFailed.message, lang, small)) : '')
     : '';
   const note = c.note ? '<p style="margin:8px 0 0;color:' + (c.phase === 'failed' ? 'var(--text-danger,#b42318)' : 'var(--text-secondary,#6b6b66)') + '">' + esc(c.note) + '</p>' : '';
   return '<div style="padding:12px 14px;color:var(--text-primary,#1a1a1a);font:13px/1.45 system-ui,sans-serif">' +
-    (head ? '<div style="font-weight:600">' + head + '</div>' : '') + bar + where + body +
+    (head ? '<div style="font-weight:600' + (c.phase === 'failed' ? ';color:var(--text-danger,#b42318)' : '') + '">' + head + '</div>' : '') + bar + where + body +
     (files ? '<ul style="margin:8px 0 0;padding-left:18px">' + files + '</ul>' : '') + note + open + '</div>';
 }
 /* Each export card's last state, by its call: 打开文件夹 knows which folder, and the card is drawn again after the click
@@ -235,7 +291,7 @@ const HANDLERS = {
     sendCard(callId, { phase: 'start', folder });
     let job;
     try { job = await node('montclip/export-start', { range: args.range, preset: args.preset, profile: args.profile, outputs: args.outputs }); }
-    catch (e) { await sleep(1000); sendCard(callId, { phase: 'failed', note: e.message }); return { error: e.message, code: e.code }; }
+    catch (e) { await sleep(1000); sendCard(callId, { phase: 'failed', stage: 'start', code: e.code, reason: e.message }); return { error: e.message, code: e.code }; }
     const t0 = Date.now();
     while ((job.status === 'pending' || job.status === 'running') && Date.now() - t0 < 14 * 60000) {
       await sleep(1500);
@@ -249,7 +305,7 @@ const HANDLERS = {
         sendCard(callId, { phase: 'still' });
         return { job: job.id, status: job.status, hint: 'The export is still running. Check it with call_tool fablecut_export {job:"' + job.id + '"}; when it is done the file is in the MontClip data folder\'s exports/.' };
       }
-      sendCard(callId, job.status === 'cancelled' ? { phase: 'cancelled' } : { phase: 'failed', note: job.error || job.status });
+      sendCard(callId, job.status === 'cancelled' ? { phase: 'cancelled' } : { phase: 'failed', stage: 'job', progress: job.progress, reason: job.error || job.status });
       return { job: job.id, status: job.status, error: job.error || null };
     }
     const outs = job.result && Array.isArray(job.result.outputs) ? job.result.outputs : [];
