@@ -105,6 +105,35 @@ test('"把 3 到 5 秒删掉": the request goes to /v1/chat/completions with the
  }finally{await fake.close();}
 });
 
+// The product's main path (Deja, 2026-11-04): subtitles quoted on the timeline, 「只保留这两句」 → keep_sentences → applied
+// (one undo step) → undone. The request carries the quoted subtitles as references, as the pane sends them.
+test('quoted subtitles, 「只保留这两句」: keep_sentences from the fake api.meta.ai is applied as one undo step and undone',async()=>{
+ const C=require('../captions');
+ const doc=fixture();
+ doc.clips.push(...C.parse('1\n00:00:00,000 --> 00:00:03,000\n大家好，今天讲三个剪辑技巧。\n\n2\n00:00:03,000 --> 00:00:05,000\n嗯，这句我说错了，不要。\n\n3\n00:00:05,000 --> 00:00:10,000\n第一个技巧是删掉停顿。\n').map((c,i)=>C.clip(c,{id:'c'+i,track:'V2'})));
+ const quoted=doc.clips.filter(c=>c.id==='c0'||c.id==='c2').map(c=>({type:'caption',projectId:'p',sequenceId:'main',revision:1,gen:1,clipId:c.id,sourceCaptionId:c.id,text:c.props.text,start:c.start,end:c.start+c.duration}));
+ const reply=JSON.stringify({type:'keep_sentences',ranges:quoted.map(r=>({clipId:r.clipId,sourceCaptionId:r.sourceCaptionId,from:r.start,to:r.end}))});
+ const fake=await fakeMeta(()=>chatReply(reply));
+ try{
+  const s=service(fake);s.configure({provider:'meta',model:'muse-spark-1.1',apiKey:FAKE_KEY});
+  const r=await s.send(payload('只保留这两句\n\n'+JSON.stringify({references:quoted})));a.equal(r.ok,true,JSON.stringify(r));
+  const q=fake.seen[0];a.equal(q.path,'/v1/chat/completions');a.equal(q.body.model,'muse-spark-1.1');a.equal(q.auth,'Bearer '+FAKE_KEY);
+  a.match(q.body.messages.at(-1).content,/"references":\[\{"type":"caption"/,'the quoted subtitles go with the request');
+  a.match(q.body.messages[0].content,/keep_sentences/,'the format note asks for keep_sentences');
+  const before=timeline(doc),ed=editor(doc),response=V.parseProposal(r.text);
+  a.equal(response.type,'keep_sentences');
+  a.ok(V.proposalSummary(r.text,quoted),'the pane offers it (查看剪辑建议)');
+  const proposal=P.prepare(response,{doc:JSON.parse(JSON.stringify(doc)),context:{projectId:'p',sequenceId:'main',generation:1,revision:1},references:quoted});
+  a.deepEqual(proposal.keep,[{from:0,to:3},{from:5,to:10}]);
+  const ev=ed.eventLog().append(P.event(proposal,{id:crypto.randomUUID(),runId:crypto.randomUUID(),step:1,actor:'ai',at:new Date().toISOString(),revision:1}));proposal.eventId=ev.id;
+  const plan=R.create(JSON.parse(JSON.stringify(doc)),proposal.keep);plan.keep=proposal.keep;ed.commitRangePlan(plan,proposal);
+  a.deepEqual(doc.clips.filter(c=>c.kind==='video').map(c=>[c.start,c.in,c.duration]),[[0,0,3],[3,5,5]],'the sentence at 3–5 s is gone');
+  a.ok(!doc.clips.some(c=>C.isCaption(c)&&/说错了/.test(c.props.text)),'and its subtitle with it');
+  a.equal(ed.runtime.undo.length,1);a.equal(ed.undoEvent(ev.id).ok,true);
+  a.equal(timeline(doc),before,'undo puts it back');a.equal(ed.eventLog().get(ev.id).state,'undone');
+ }finally{await fake.close();}
+});
+
 test('a wrong key (401) and a wrong model name are explained in plain words; the draft is kept',async()=>{
  const fake=await fakeMeta((req,body)=>req.headers.authorization!=='Bearer '+FAKE_KEY
   ?[401,{error:{message:'Invalid API key provided.',type:'invalid_request_error',code:'invalid_api_key'}}]

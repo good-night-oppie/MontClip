@@ -55,3 +55,17 @@ Run on 2026-11-04 (europa, Linux, xvfb + the session keyring), `muse-spark-1.1`,
 Evidence (`real-model-e2e-meta/`, no key in any file — checked against the key and its first 12 characters): `e2e-result.json`,
 `run.txt`, and five screenshots per request (`*-1-draft`, `-2-review`, `-3-reply-approval`, `-4-applied`, `-5-undone`).
 No screenshot is taken while the settings (with the key field) are open.
+
+### keep_sentences format, how steady (2026-11-04, europa, `muse-spark-1.1`)
+
+`MONTCLIP_REAL_MODELS=1 node real-tests/meta-format-stability.cjs` — each run one request through the product's path
+(format note first, the quoted subtitles as references), read as the pane reads it and checked as Apply checks it.
+
+| Request (subtitles quoted) | Runs | Usable keep_sentences | Kept what was asked | Code fence | Median |
+|---|---|---|---|---|---|
+| 「只保留这两句」 (1 and 3) | 5 | 5 | 5 | 0 | 1.3 s |
+| 「这三句里，删掉说错的那一句，其他的留着」 (all three) | 5 | 5 | 5 | 0 | 1.2 s |
+| 「只要第一句」 (all three) | 5 | 5 | 5 | 0 | 1.3 s |
+
+15 of 15 replies were bare keep_sentences JSON that Apply accepted, each keeping the sentences asked for. Report:
+`meta-format-stability.json` (replies included; no key). The product flow was not changed for this.
