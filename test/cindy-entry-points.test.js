@@ -232,3 +232,29 @@ test("the overview's and the status card's small lines: no paths, local ports or
   const small = shown(bad.sent.at(-1).html).at(-1);
   for (const leak of ["Users", "clips-data", "7777", "4242"]) assert.ok(!small.includes(leak), leak + " in " + small);
 });
+
+/* Rea and QQ (2026-11-04): every small line that shows a raw error — the task page (frame.js), the export tool banner
+   (ffmpeg-banner.js), the export card (main.js), the overview (main-view-model.js) — drops paths, local ports and pids
+   the same way. Four pages, four copies (none can load another's script): they must stay alike. */
+test("the four copies of scrub agree", () => {
+  const frame = fs.readFileSync(path.join(PLUGIN, "frame.js"), "utf8");
+  const fromFrame = new Function("console", frame.slice(0, frame.indexOf("(function () {")) + "\nreturn scrub;")({ warn() { } });
+  const main = fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8");
+  const fromMain = new Function(main.slice(main.indexOf("function esc("), main.indexOf("function sendCard(")) + "\nreturn scrub;")();
+  const fromBanner = require(path.join(PLUGIN, "ffmpeg-banner.js")).scrub;
+  const samples = [
+    "EACCES: permission denied, open 'C:\\Users\\me\\clips-data\\project.json'",
+    "ENOENT: no such file or directory, stat 'D:/直播/11月/a.mp4'",
+    "connect ECONNREFUSED 127.0.0.1:7777", "listen EADDRINUSE: address already in use :::9222 (port 9222)",
+    "Another MontClip (desktop, pid 4242) is using this data folder",
+    "spawn /usr/lib/chromium/chromium ENOENT", "the editor stopped reporting progress (tab closed or browser crashed)",
+    "x".repeat(400), "", null,
+  ];
+  for (const s of samples) {
+    const want = V.scrub(s);
+    assert.equal(fromFrame(s), want, "frame.js: " + s);
+    assert.equal(fromBanner(s), want, "ffmpeg-banner.js: " + s);
+    assert.equal(fromMain(s), want, "main.js: " + s);
+    for (const leak of ["Users", "直播", "7777", "4242", "/usr/lib"]) assert.ok(!want.includes(leak), leak + " in " + want);
+  }
+});
