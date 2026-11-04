@@ -41,3 +41,19 @@ test('the pane asks for the summary through tp, not by replacing {count} itself'
   a.doesNotMatch(pane, /t\.planSummary\.replace/);
   a.match(read('cindy-official.js'), /officialPane_planSummary/, 'the bundle was rebuilt');
 });
+
+test('the approval box: its first line is what the step changes (stepDetail), the plain sentence second (VV on #84; v7.2)', () => {
+  const app = read('app.js'), ask = app.slice(app.indexOf('function askAgentApproval('), app.indexOf('\n}\n', app.indexOf('function askAgentApproval(')));
+  // first after the title: the detail when there is one; the capability's sentence under it, small
+  a.match(ask, /'<form method="dialog"><h3>'\+say\('own\.ap-title'\)\+'<\/h3>'\+\(detail\?'<p class="agent-approval-detail" data-ap-detail><\/p>':''\)\+'<p data-ap-label'\+\(detail\?' class="agent-approval-what"':''\)\+'><\/p>/);
+  a.match(ask, /if\(detail\)dialog\.querySelector\('\[data-ap-detail\]'\)\.textContent=detail;/);
+  // both callers give it, from MontClipPlan.stepDetail in the interface language
+  a.match(app, /askAgentApproval\(d,\{summary:agentProposalText\(result\),detail:MontClipPlan\.stepDetail\(\{capability:response\.type,args:response\},mcView\.get\(\)\.language\)\}\)/);
+  a.match(app, /askAgentApproval\(d,\{summary:uiText\('own\.pl-step-of',\{n:s\.index\+1,total:entry\.run\.list\(\)\.length\}\),detail:MontClipPlan\.stepDetail\(s,mcView\.get\(\)\.language\)\}\)/);
+  const Plan = require('../agent-plan'), s = { capability: 'keep_ranges', args: { output_mode: 'one_file', ranges: [{ clipId: 'v1', from: 0, to: 115 }] } };
+  a.equal(Plan.stepDetail(s, 'zh-CN'), '保留 0:00–1:55');
+  a.equal(Plan.stepDetail(s, 'en'), 'Keep 0:00–1:55');
+  const css = read('style.css');
+  a.match(css, /\.agent-approval-detail \{[^}]*font-size: 15px/);
+  a.match(css, /\.agent-approval-what \{[^}]*font-size: 12px/);
+});
