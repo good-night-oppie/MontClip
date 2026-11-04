@@ -10235,7 +10235,8 @@ function placeCaptions(list, styleKey, from) {
   renderInspector();
   // 〔加字幕〕 in the interface language (N3d); an imported file still says where it came from, in English, as before
   if (from) toast(`${list.length} caption${list.length === 1 ? "" : "s"} on ${track} ${from}${old.length ? ` · replaced ${old.length}` : ""}`);
-  else toast(uiText(old.length ? "own.cap-added-replaced" : "own.cap-added", { n: list.length, track, m: old.length }));
+  else toast(old.length ? MontClipView.tp(mcView.get().language, "own.cap-added-replaced", { n: list.length, m: old.length }, { n: list.length, track, m: old.length })
+    : MontClipView.tp(mcView.get().language, "own.cap-added", { n: list.length }, { n: list.length, track }));
 }
 /** A cut, split or trim that shortens a caption leaves its words timed to the old cut: say so, for a moment. */
 const capWatch = { durs: null, at: 0, said: 0 };
