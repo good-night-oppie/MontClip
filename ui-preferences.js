@@ -384,6 +384,9 @@
     "ly-cancel": ["Cancel", "取消"],
     "ly-done": ["Fixed {n} caption lines from the lyrics. Undo is available.", "已按歌词改好 {n} 行字幕，可以撤销。"],
     "ly-pick-range": ["First select the song's captions on the timeline, or mark the song with IN and OUT, then click Fix captions using lyrics.", "先在时间线上选中这首歌的字幕，或者用 IN 和 OUT 框出这首歌，再点「按歌词校准字幕」。"],
+    // 〔加字幕〕 (N3d, Deja 2026-11-04); the replacing one is for JJ
+    "cap-added": ["Added {n} captions on {track}", "已在 {track} 加了 {n} 句字幕"],
+    "cap-added-replaced": ["Added {n} captions on {track}, replacing {m}", "已在 {track} 加了 {n} 句字幕，换掉了原来的 {m} 句"],
     "ly-no-words": ["This part has no transcript. Transcribe it first, then fix the captions.", "这段没有听写的文字。先听写，再按歌词校准。"],
     "ly-no-lyrics": ["Paste the lyrics first.", "先把歌词粘贴进来。"],
     "ly-too-long": ["The lyrics or this part's transcript is too long: at most 3000 characters at a time. Narrow it down to one song.", "歌词或这段的听写太长了，一次最多 3000 个字。请把范围缩小到一首歌。"],
