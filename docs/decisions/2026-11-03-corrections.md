@@ -77,8 +77,7 @@ Constants: `MAX_SHIFT` 5 s, `HABIT_WINDOW` 5, `HABIT_MIN` 4, `BAR_BASE` 0.12 (so
   **Changed after VV's real-window review of 12f4f21 (Deja, 2026-11-03):** 「不是唱歌」 says the part is not a song, not that
   the streamer does not want it. So the part is not dropped: the same recording searched again shows one card for it, as
   the kind it was given (热闹, 互动 …), at the start and end the streamer had, marked 你改的 (`changedFrom: "song"`, rule
-  `not-song`, not moved by a habit), with the reason 「上次你标了这段不是唱歌，这次照你改的出，开头结尾和上次一样。」
-  (wording for JJ). Only a part also taken out (不要这条) stays away: a taking-out record now carries the recording's key
+  `not-song`, not moved by a habit), with the reason in JJ's words: 「上次你把这段改成了不是唱歌，这次照你改的来，开头结尾也和上次一样。」 Only a part also taken out (不要这条) stays away: a taking-out record now carries the recording's key
   and the part too (`rules().gone`); a plain taking-out still changes nothing on the next search. Not handled yet: 「是唱歌」
   on that card afterwards does not cancel the mark (only a song made another kind carries the part).
   The card is not cut down to a 1-minute clip with the other cards: it has no danmaku peak to centre one on, so it keeps
@@ -90,6 +89,10 @@ Constants: `MAX_SHIFT` 5 s, `HABIT_WINDOW` 5, `HABIT_MIN` 4, `BAR_BASE` 0.12 (so
   around it is another card). **The name is not kept in the record**: it is text the streamer typed, and a record holds
   numbers and fixed words only. The page holds the names while MontClip runs, so the name comes back within the session;
   after MontClip restarts the card comes back with its default name.
+  **Known limitation (Deja, 2026-11-03): after a restart a part added with 补一段 comes back with its default name.**
+  Deja decided the name may live with the project file (never in the corrections), linked by the add record's id — but
+  the 自动出切片 results and their cards are not kept in the project at all (they are the page's, for this session), so
+  there is nowhere to keep it yet; nothing in the interface says so. To be scheduled.
 - 互动, 聊天 and 整活 have their own habits like every kind; no rule finds their parts — only the streamer's own moves
   shift their start and end. A song made one of them counts as 「不是唱歌」; between them and 普通高光 the singing bar is not
   touched.
