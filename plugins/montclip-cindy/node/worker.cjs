@@ -14,8 +14,8 @@ const net = require("node:net");
 const http = require("node:http");
 const readline = require("node:readline");
 const { spawn, spawnSync } = require("node:child_process");
-const { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg, unpackCode, exportFiles, deliverFiles,
-  openFolder, rememberFolder, rememberedFolders } = require("./lib.cjs");
+const { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg, unpackCode, zipUnpackedBytes, freeBytes, spaceNeeded,
+  exportFiles, deliverFiles, openFolder, rememberFolder, rememberedFolders } = require("./lib.cjs");
 
 for (const k of ["log", "info", "debug", "warn", "error"]) console[k] = (...a) => process.stderr.write(a.map(String).join(" ") + "\n");
 
@@ -140,14 +140,25 @@ const METHODS = {
     if (!spec.supported) throw Object.assign(new Error("there is no pinned ffmpeg build for " + PLATFORM), { code: "UNSUPPORTED_PLATFORM" });
     const F = fetchFfmpeg();
     const tar = process.platform === "win32" ? path.join(process.env.SystemRoot || "C:\\Windows", "System32", "tar.exe") : "/usr/bin/tar";
-    const out = installFfmpeg({
-      archive: p.downloads && p.downloads.archive, spec, dest: FFMPEG_DIR, win: process.platform === "win32", tmpDir: os.tmpdir(),
+    const archive = p.downloads && p.downloads.archive;
+    let out;
+    try {
+      out = installFfmpeg({
+      archive, spec, dest: FFMPEG_DIR, win: process.platform === "win32", tmpDir: os.tmpdir(),
       sha256: F.sha256, installTree: F.installTree, check: F.checkLgpl, manifest: ffmpegManifest(),
       extract: (archive, dir) => {
         const t = spawnSync(tar, ["-xf", archive, "-C", dir], { encoding: "utf8", windowsHide: true });
         if (t.status !== 0) throw Object.assign(new Error("unpacking failed: " + (t.stderr || t.error)), { code: unpackCode(t.stderr || String(t.error)) });
       },
-    });
+      });
+    } catch (e) {
+      // 磁盘空间不够: how much to free, on the drive that ran out (a copy names it; tar unpacks into the temp folder)
+      if (e && e.code === "ENOSPC") {
+        let archiveBytes = 0; try { archiveBytes = fs.statSync(archive).size; } catch { }
+        e.need = spaceNeeded({ archiveBytes, unpackedBytes: zipUnpackedBytes(archive), free: freeBytes(e.dest || e.path ? path.dirname(e.dest || e.path) : os.tmpdir()) });
+      }
+      throw e;
+    }
     note({ event: "ffmpeg-installed", version: out.version });
     const restarting = !!started;
     if (restarting) setTimeout(() => process.exit(0), 300);
@@ -209,6 +220,6 @@ readline.createInterface({ input: process.stdin }).on("line", async (line) => {
   try { reply({ jsonrpc: "2.0", id: req.id, result: await fn(req.params || {}) }); }
   catch (e) {
     note({ event: "error", method: req.method, message: String(e && e.message) });
-    reply({ jsonrpc: "2.0", id: req.id, error: { code: typeof e.code === "number" ? e.code : -32000, message: String((e && e.message) || e), data: typeof e.code === "string" ? { code: e.code } : undefined } });
+    reply({ jsonrpc: "2.0", id: req.id, error: { code: typeof e.code === "number" ? e.code : -32000, message: String((e && e.message) || e), data: typeof e.code === "string" ? { code: e.code, ...(Number.isFinite(e.need) ? { need: e.need } : {}) } : undefined } });
   }
 });
