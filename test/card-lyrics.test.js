@@ -92,8 +92,10 @@ test('after applying: the focus on the card\'s button, the card in view; undone:
 test('calibrated, the button\'s tooltip says so (placeholder key), not the transcript line', () => {
   const app = read('app.js'), card = app.slice(app.indexOf('function autoCardHtml('), app.indexOf('function autoFooter('));
   a.match(card, /c\.lyricCues \? autoSay\("as-lyrics-again-title", \{ n: c\.lyricN \|\| 0 \}\)/);
-  a.ok(V.t('zh-CN', 'own.as-lyrics-again-title', { n: 2 }).includes('2') && !/可能有错字/.test(V.t('zh-CN', 'own.as-lyrics-again-title', { n: 2 })));
-  a.ok(!/[一-鿿]/.test(V.t('en', 'own.as-lyrics-again-title', { n: 2 })));
+  // JJ's final words (Deja, on #100), whole sentences; nothing of the transcript line is left in it
+  a.equal(V.t('zh-CN', 'own.as-lyrics-again-title', { n: 2 }), "字幕已按歌词改过 2 句。再点一次会带上你上次贴的歌词，可以再对一遍；想回到改之前，撤销一步就行。");
+  a.equal(V.t('en', 'own.as-lyrics-again-title', { n: 2 }), "2 subtitle lines were corrected from the lyrics. Click again to check them against the lyrics you pasted last time; one Undo takes you back to before.");
+  for (const l of ['zh-CN', 'en']) a.ok(!/听写出来|可能有错字|transcribed|wrong words/.test(V.t(l, 'own.as-lyrics-again-title', { n: 2 })), l);
 });
 test('the lyrics pasted last time: on the card in this window only, in no record and nothing sent', () => {
   const app = read('app.js'), open = app.slice(app.indexOf('function autoLyricsOpen('), app.indexOf('function autoCardHtml('));

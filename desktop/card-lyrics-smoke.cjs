@@ -63,6 +63,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.equal(empty,false,'no words in its part: no button');
   // 1. the dialog over the first card: its own words only; applied, kept on the card; the timeline the same
   const before=await read(`JSON.stringify(project.clips)`);
+  const titleBefore=await read(`document.querySelector('[data-as-card="${first.id}"] [data-as-act=lyrics]').title`);report.titleBefore=titleBefore;
   await read(`document.querySelector('[data-as-card="${first.id}"] [data-as-act=lyrics]').click();true`);
   await until(`!!document.querySelector('dialog[data-ly-dialog][open]')`);
   await read(`(()=>{const d=document.querySelector('dialog[data-ly-dialog]');d.querySelector('[data-ly-text]').value=${JSON.stringify(LYRICS)};d.querySelector('[data-ly-align]').click();return true;})()`);
@@ -85,7 +86,9 @@ BrowserWindow.prototype.loadURL=async function(...args){
   // flashed, and the tooltip says it is calibrated (placeholder key)
   report.afterApply=await read(`(()=>{const d=document.querySelector('dialog.auto-slices'),card=d.querySelector('[data-as-card="${first.id}"]'),b=card.querySelector('[data-as-act=lyrics]'),body=d.querySelector('[data-as-body]');
     const r=card.getBoundingClientRect(),q=body.getBoundingClientRect();return{focus:document.activeElement===b,inView:r.top<q.bottom&&r.bottom>q.top,title:b.title};})()`);
-  assert.deepEqual(report.afterApply,{focus:true,inView:true,title:zh('as-lyrics-again-title',{n:2})});
+  // JJ's words, as written (Deja, on #100); nothing of the transcript line left
+  assert.deepEqual(report.afterApply,{focus:true,inView:true,title:"字幕已按歌词改过 2 句。再点一次会带上你上次贴的歌词，可以再对一遍；想回到改之前，撤销一步就行。"});
+  assert.ok(!/听写出来|可能有错字/.test(report.afterApply.title));
   // 2. the dialog's undo takes it back; then applied again
   // its 〔撤销〕 under #92's rule: shown past the old 5 s, held for 9 s while it has the focus, then it takes the step back
   await wait(6000);
@@ -93,6 +96,8 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.held=held;assert.deepEqual(held,{at6:true,held:true},'〔撤销〕 stays 8 s and while it has the focus');
   const undone=await read(`(()=>{document.querySelector('[data-as-toast] [data-as-toast-undo]').click();const c=autoClip(${JSON.stringify(first.id)});return{cues:c.lyricCues||null,button:document.querySelector('[data-as-card="'+c.id+'"] [data-as-act=lyrics]').textContent};})()`);
   report.undone=undone;assert.deepEqual(undone,{cues:null,button:zh('as-lyrics')});
+  // undone: the tooltip as it was before calibrating
+  assert.equal(await read(`document.querySelector('[data-as-card="${first.id}"] [data-as-act=lyrics]').title`),titleBefore,'the tooltip back to before');
   assert.equal(await read(`document.querySelector('dialog.auto-slices').contains(document.activeElement)`),true,'the focus stays in the dialog after 〔撤销〕');
   // applied again, then a real Ctrl+Z: back to before calibrating, the timeline not touched, the focus in the dialog
   const tl=await read(`JSON.stringify(project.clips)`);
