@@ -410,7 +410,7 @@
     "as-kind-other": ["Other", "别的"],
     "as-tag-changed": ["Changed by you", "你改的"],
     "as-tag-added": ["Added by you", "你补的"],
-    "as-marked-why": ["Last time you marked this part as not singing; it is shown the way you changed it, with the same start and end.", "上次你标了这段不是唱歌，这次照你改的出，开头结尾和上次一样。"],
+    "as-marked-why": ["Last time you marked this part as not singing, so it's shown the way you changed it, with the same start and end.", "上次你把这段改成了不是唱歌，这次照你改的来，开头结尾也和上次一样。"],
     "as-kind-to-song": ["“{name}” is now marked as singing. Its start and end stay where they were; use the strips below to move them to where the singing starts and stops.", "「{name}」改成唱歌了。开头结尾没动，用下面的拖动条挪到唱歌开始和结束的地方。"],
     "as-kind-to-moment": ["“{name}” is no longer treated as singing.", "「{name}」不按唱歌处理了。"],
     "as-learn-told": [" (this change is kept on this computer and used next time)", "（这次修改记在这台电脑上，下次找的时候参考）"],

@@ -136,5 +136,9 @@
     const same = list.every((c) => !!c.on === !!c.picked) && !gone.some((c) => c.picked);
     return same ? { key: on === found ? "all" : "head", found, on } : { key: "ticked", found, on };
   }
-  return { KINDS, LENS, COUNTS, DEFAULTS, SONG_GATE, SONG_MEASURED, songsTrusted, title, edgeLevel, build, hms, nudge, overview, totals, numbered, reviewHead };
+  /** The reasons a card shows: a reason that only holds for singing (signal singing) only on a song card — one made
+   *  another kind keeps its sound and danmaku reasons (VV on #90 b76bbe3). The card keeps them all, so made a song again
+   *  (or the change undone) it shows it again. */
+  const cardReasons = (c) => ((c && c.reasons) || []).filter((r) => c.kind === "song" || r.signal !== "singing");
+  return { KINDS, LENS, COUNTS, DEFAULTS, SONG_GATE, SONG_MEASURED, songsTrusted, title, edgeLevel, build, hms, nudge, overview, totals, numbered, reviewHead, cardReasons };
 });

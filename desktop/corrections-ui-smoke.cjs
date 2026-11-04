@@ -58,17 +58,22 @@ BrowserWindow.prototype.loadURL=async function(...args){
   // 1. 这段不是唱歌 on the first song card: kind, 你改的, the switch flips; one correction with the recording's key; the first
   //    edit says it is kept, once; 〔撤销〕 takes both back
   const kind=await read(`(async()=>{const st=autoState(),c=st.clips.find(x=>x.kind==='song'),card=document.querySelector('[data-as-card="'+c.id+'"]');
+    const why0=(card.querySelector('.as-why')||{}).textContent||'';
     const link=card.querySelector('[data-as-act=set-kind]'),before=link.textContent;link.click();await new Promise(r=>setTimeout(r,300));
     const after=document.querySelector('[data-as-card="'+c.id+'"]');
-    return{id:c.id,before,kind:autoClip(c.id).kind,line:after.querySelector('[data-as-kind-line]').textContent,link:after.querySelector('[data-as-act=set-kind]').textContent};})()`);
+    return{id:c.id,before,why0,why:(after.querySelector('.as-why')||{}).textContent||'',kind:autoClip(c.id).kind,line:after.querySelector('[data-as-kind-line]').textContent,link:after.querySelector('[data-as-act=set-kind]').textContent};})()`);
   report.kind=kind;
   assert.equal(kind.before,zh('as-not-song'));assert.equal(kind.kind,'moment');assert.equal(kind.link,zh('as-is-song'));
   assert.ok(kind.line.startsWith(zh('as-a-moment')+zh('as-tag-changed')),kind.line);
+  // VV on b76bbe3: no reason that only holds for singing on a card that is no longer a song (the sound and danmaku ones stay)
+  const sung=V.t('zh-CN','own.hl-r-singing');
+  assert.ok(kind.why0.includes(sung),'a song card says it: '+kind.why0);assert.ok(!kind.why.includes(sung),'not after 这段不是唱歌: '+kind.why);
   assert.equal(await toastText(),zh('as-kind-to-moment',{name:await read(`autoName(autoClip(${JSON.stringify(kind.id)}))`)})+zh('as-learn-told'));
   const rec1=await read(`window.montclipCorrections.records()`);
   assert.equal(rec1.length,1);assert.deepEqual([rec1[0].type,rec1[0].from,rec1[0].to],['kind','song','moment']);assert.match(rec1[0].rec,/^[a-f0-9]{16}$/);assert.ok(rec1[0].e>rec1[0].s);
   await undoToast();
   assert.equal(await read(`autoClip(${JSON.stringify(kind.id)}).kind`),'song');assert.equal((await status()).count,0,'the correction taken back');
+  assert.ok((await read(`(document.querySelector('[data-as-card="'+${JSON.stringify(kind.id)}+'"] .as-why')||{}).textContent||''`)).includes(sung),'undone: the reason is back');
   // 2. 不要这条 and a move: one correction each, nothing said about keeping (said once already); 〔撤销〕 takes each back
   const moves=await read(`(async()=>{const cards=[...document.querySelectorAll('[data-as-card]')];cards[0].querySelector('[data-as-act=nudge][data-as-w=s][data-as-d="-1"]').click();await new Promise(r=>setTimeout(r,300));
     return document.querySelector('[data-as-toast-msg]').textContent;})()`);

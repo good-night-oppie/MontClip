@@ -10648,7 +10648,7 @@ function autoLyricsAvailable() {
   return false;
 }
 function autoCardHtml(c, i) {
-  const song = c.kind === "song", why = (c.reasons || []).map((r) => highlightReasonText(r).text).join(" · ");
+  const song = c.kind === "song", why = MontClipAutoSlices.cardReasons(c).map((r) => highlightReasonText(r).text).join(" · ");
   // v12: the subtitle line is the tooltip of 〔按歌词校准字幕〕 (once the card can use it)
   const subs = song && autoState().subs && autoSubMode() === "local" && autoSubCount(c) != null ? autoSay("as-sub-line", { n: autoSubCount(c) }) : "";
   // a song card is 「{time} 那段 · 可能在唱歌」 until songs.js reaches the naming gate (Deja; auto-slices.js)
