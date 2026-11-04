@@ -4977,7 +4977,7 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .auto-slices .as-addseg { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 12px 0 4px; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 8px; }
 .auto-slices .as-learnline { margin: 6px 0 10px; }
 .auto-slices .as-learnline .as-link { margin-left: 4px; }
-dialog.as-add, dialog.as-learn { margin: auto; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; width: min(460px, 92vw); padding: 16px 18px; }
+dialog.as-add, dialog.as-learn { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; width: min(460px, 92vw); padding: 16px 18px; }
 dialog.as-add::backdrop, dialog.as-learn::backdrop { background: #0009; }
 dialog.as-add h2, dialog.as-learn h2 { margin: 0 0 10px; font-size: 16px; }
 dialog.as-add .as-add-rec { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--dim); font-size: 12px; margin-top: 2px; }
