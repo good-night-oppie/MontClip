@@ -13,14 +13,16 @@ const path = require("node:path");
 const net = require("node:net");
 const http = require("node:http");
 const readline = require("node:readline");
-const { spawnSync } = require("node:child_process");
-const { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg, unpackCode, exportFiles, deliverFiles } = require("./lib.cjs");
+const { spawn, spawnSync } = require("node:child_process");
+const { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg, unpackCode, exportFiles, deliverFiles,
+  openFolder, rememberFolder, rememberedFolders } = require("./lib.cjs");
 
 for (const k of ["log", "info", "debug", "warn", "error"]) console[k] = (...a) => process.stderr.write(a.map(String).join(" ") + "\n");
 
 const APP = path.resolve(process.env.MONTCLIP_CINDY_APP || path.join(__dirname, "app"));
 // the plugin's work lives in the user's home, never inside the plugin (an update replaces the plugin folder)
 const DATA = path.resolve(process.env.MONTCLIP_CINDY_DATA || path.join(os.homedir(), "MontClip-Cindy"));
+const FOLDERS_FILE = path.join(DATA, "cindy-export-folders.json");   // the folders exports went into (打开文件夹)
 const PLATFORM = `${process.platform}-${process.arch}`;
 const FFMPEG_DIR = path.join(DATA, "ffmpeg", PLATFORM);
 // the Windows app's own pinned-build manifest and installer (build.cjs copies them in)
@@ -178,7 +180,15 @@ const METHODS = {
       if (Date.now() - last > 1000) { last = Date.now(); note({ event: "export-copy", bytes: sent }); }   // activity keeps the request alive
     });
     note({ event: "export-delivered", files: out.length });
+    try { rememberFolder(FOLDERS_FILE, String(p.dir)); } catch (e) { note({ event: "folders-not-kept", error: String(e.message) }); }
     return { files: out };
+  },
+  /* 打开文件夹: only the exports folder or a folder an export was delivered into (openFolder refuses the rest) */
+  async "montclip/open-folder"(p) {
+    const exportsDir = path.join(DATA, "exports");
+    fs.mkdirSync(exportsDir, { recursive: true });
+    const target = p.folder === "exports" ? exportsDir : p.folder;
+    return openFolder(target, { allowed: [exportsDir, ...rememberedFolders(FOLDERS_FILE)], spawn });
   },
   async "montclip/bind"(p) {
     await start();
