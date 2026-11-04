@@ -31,5 +31,8 @@ Builds on the permission modes (`docs/decisions/2026-11-03-agent-permission-mode
   3 lines, the 3 steps whole, the input box whole, with and without Yolo; at 1280×820 the pane beside the editor and
   〔开始〕 in sight without scrolling (the steps scroll inside the card; its buttons stay at its bottom).
 - The approval box has one main button, 〔只批准这次〕.
-- Yolo is said one way, v7.2's: 「Yolo 开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。」 (the bar; the mode's tip the same
-  without 「Yolo 开着：AI」).
+- Yolo is said one way, v7.2's: the bar 「Yolo 开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。」
+- The four modes' tips are JJ's final words, copied from the frozen prototype c604fd65 (MODES), full stops included (Deja,
+  2026-11-04): 「只出计划，不改项目。」「改项目前先问你；撤不回的每次都问。默认是这个。」「能撤销的直接做，撤不回的先问你。」
+  「每一步都直接做，不问你；往外发的内容照样先给你看。打开前会再确认一次。」; English as there. The assistant's mode capsule
+  (#107) says the same four.

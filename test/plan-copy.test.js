@@ -57,3 +57,18 @@ test('the approval box: its first line is what the step changes (stepDetail), th
   a.match(css, /\.agent-approval-detail \{[^}]*font-size: 15px/);
   a.match(css, /\.agent-approval-what \{[^}]*font-size: 12px/);
 });
+
+test('the four modes, in JJ\'s final words from the frozen prototype c604fd65 (MODES), full stops included (Deja, 2026-11-04)', () => {
+  const T = (l, k) => View.text[l]['officialPane_' + k];
+  a.equal(T('zh-CN', 'modePlanTip'), '只出计划，不改项目。');
+  a.equal(T('zh-CN', 'modeManualTip'), '改项目前先问你；撤不回的每次都问。默认是这个。');
+  a.equal(T('zh-CN', 'modeAutoTip'), '能撤销的直接做，撤不回的先问你。');
+  a.equal(T('zh-CN', 'modeYoloTip'), '每一步都直接做，不问你；往外发的内容照样先给你看。打开前会再确认一次。');
+  a.equal(T('en', 'modePlanTip'), 'Only plans; changes nothing.');
+  a.equal(T('en', 'modeManualTip'), "Asks before changing the project; asks every time for anything that can't be undone. This is the default.");
+  a.equal(T('en', 'modeAutoTip'), "Does what can be undone; asks before what can't.");
+  a.equal(T('en', 'modeYoloTip'), "Does every step without asking you; anything sent out is still shown to you first. You'll be asked once more before it turns on.");
+  // the Yolo bar is another sentence, as it was
+  a.equal(T('zh-CN', 'yoloOn'), 'Yolo 开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。');
+  a.equal(T('en', 'yoloOn'), 'Yolo is on: the AI does every step without asking you; anything sent out is still shown to you first.');
+});
