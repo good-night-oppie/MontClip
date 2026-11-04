@@ -708,6 +708,8 @@
     "ap-listed": ["Plan mode: this step is only listed, not done. Switch to another mode at the top of the assistant to do it.", "计划模式：这一步只列出来，没有做。要做的话，在助手顶部换一种模式。"],
     "ap-refused": ["This step is never allowed, in any mode. Nothing changed.", "这一步任何模式下都不允许，什么都没改。"],
     "ap-refused-mode": ["The assistant has no mode chosen right now, so nothing was done. Choose a mode at the top of the assistant.", "助手现在没有选模式，所以什么都没做。请在助手顶部选一种模式。"],
+    // after the streamer said yes in the approval box (QQ, 2026-11-04): ap-applied says "without asking", true only when the mode ran it; JJ words it finally
+    "ap-applied-approved": ["Done as you approved. Undo is available.", "已按你批准的改好。可以撤销。"],
     "ap-applied": ["Done as the AI suggested, without asking ({mode} mode). Undo is available.", "已按 AI 的建议改好，没有问你（{mode}模式）。可以撤销。"],
     "ap-stale": ["The project changed after this reply, so this step was not done.", "项目在回复之后改过了，所以没有做这一步。"],
     "ap-yolo-on": ["Yolo is on", "Yolo 开着"],
