@@ -23,7 +23,8 @@ test('the format note asks for replies without field names',()=>{
 test('with the settings open in a short pane, the settings get the room (thread, references and composer step aside)',()=>{
  const pane=read('agent-ui/pane.tsx'),css=read('style.css');
  assert.match(pane,/<div className=\{"cindy-port"\+\(compact\?" compact":""\)\+\(configOpen\?" config-open":""\)\}/);
- assert.match(css,/\.cindy-port\.compact\.config-open > :is\(\.cindy-thread,\.cindy-ref-actions,\.cindy-references,\.cindy-composer,\.cindy-proposal-actions\) \{display:none;\}/);
+ // P4: the mode switch and the pane's Yolo mark step aside too (the top bar's Yolo mark stays)
+ assert.match(css,/\.cindy-port\.compact\.config-open > :is\(\.cindy-thread,\.cindy-ref-actions,\.cindy-references,\.cindy-composer,\.cindy-proposal-actions,\.agent-modes,\.agent-yolo-on\) \{display:none;\}/);
  assert.match(css,/\.cindy-port\.compact\.config-open > \.cindy-config \{max-height:none;flex:1 1 auto;min-height:0;\}/);
 });
 

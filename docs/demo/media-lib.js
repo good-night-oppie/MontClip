@@ -102,6 +102,38 @@
       .filter(Boolean).join(" · ");
   }
 
+  /* ── the canvas from a recording (N25: docs/decisions/2026-11-03-canvas-follows-source.md) ── */
+  const STANDARD_FPS = [23.976, 24, 25, 29.97, 30, 50, 59.94, 60];
+  /** A recording's average frame rate (VFR included) snapped to the nearest standard rate within 3 %; null when none is
+   *  that near (the caller then uses 30). */
+  function standardFps(avg) {
+    const v = Number(avg);
+    if (!(v > 0) || !Number.isFinite(v)) return null;
+    let best = null;
+    for (const f of STANDARD_FPS) if (Math.abs(v - f) / f <= 0.03 && (best == null || Math.abs(v - f) < Math.abs(v - best))) best = f;
+    return best;
+  }
+  /** The canvas a recording gives: its own size (down to even numbers, never scaled), its snapped rate or 30.
+   *  null until the server has read its size and rate. */
+  function sourceCanvas(m) {
+    if (!m || m.kind !== "video" || !(m.width >= 16) || !(m.height >= 16) || !(m.fps > 0)) return null;
+    const fps = standardFps(m.fps);
+    return { width: Math.floor(m.width / 2) * 2, height: Math.floor(m.height / 2) * 2, fps: fps || 30, fpsSnapped: fps != null };
+  }
+  // the canvases a project has when nobody chose one: a new project (1080p template) and the first-run project.json
+  const DEFAULT_CANVASES = [[1920, 1080, 30], [1280, 720, 30]];
+  /** An empty project whose canvas nobody chose takes the first recording's. Chosen: canvasUser (set by the canvas and
+   *  frame-rate menus, a non-default template, an agent's setProject), or, for a project saved before canvasUser
+   *  existed, a canvas no default has, or an export frame. Not empty: a clip, a picture in the bin, a comp, a second sequence. */
+  function canvasFollowsSource(doc) {
+    if (!doc || doc.canvasUser || doc.exportFrame) return false;
+    if (!DEFAULT_CANVASES.some(([w, h, f]) => doc.width === w && doc.height === h && Number(doc.fps) === f)) return false;
+    if ((doc.clips || []).length || (doc.comps || []).length) return false;
+    if ((doc.media || []).some((m) => m && m.kind !== "audio")) return false;
+    if ((doc.sequences || []).length > 1) return false;
+    return true;
+  }
+
   /* ── tags and collections ── */
   function normalizeTags(v) {
     const list = Array.isArray(v) ? v : typeof v === "string" ? v.split(",") : [];
@@ -291,6 +323,7 @@
     KINDS, INFO_KEYS, SORT_KEYS, MAX_TAGS,
     srcName, relinkScore, kindFromName,
     parseProbe, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
+    STANDARD_FPS, standardFps, sourceCanvas, canvasFollowsSource,
     normalizeTags, allTags, normalizeCollections,
     placements, usageCounts,
     matchesQuery, matchesFilter, sortValue, sortMedia, query,

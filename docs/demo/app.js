@@ -1312,6 +1312,7 @@ function toast(msg) {
   if (!els.toast) return;
   els.toast.textContent = msg;
   els.toast.classList.add("show");
+  if (toastHold) toastHold.stop();
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => els.toast.classList.remove("show"), 3200);
 }
@@ -1619,6 +1620,8 @@ function applyProject(data, opts = {}) {
     name: data.name || MontClipView.defaultProjectName(mcView.get().language),
     width: data.width || 1280, height: data.height || 720,
     fps: (Number(data.fps) > 0 ? Number(data.fps) : project.fps),
+    // the canvas or rate was chosen (menus, a template, an agent): the first recording imported does not replace it
+    canvasUser: data.canvasUser === true,
     background: data.background || "#000000",
     revision: data.revision || 0,
     folders: normalizeFolders(data.folders),
@@ -1856,6 +1859,7 @@ function projectJSONHere() {
   if (untargeted.length) out.untargetedTracks = untargeted;
   const ef = getExportFrame();
   if (ef) out.exportFrame = ef;
+  if (project.canvasUser) out.canvasUser = true;
   if (encodeProfile) out.encodeProfile = encodeProfile;
   if (delivery) out.delivery = delivery;
   if (outputs && outputs.length) out.outputs = outputs;
@@ -2196,6 +2200,8 @@ async function importFiles(fileList) {
   runtime.importFolderId = null;
   let added = 0, skipped = 0;
   const addedMedia = [], gen = runtime.projectGen;
+  // N25: an empty project whose canvas nobody chose takes the first recording's (followSourceCanvas)
+  const follow = !state.compCtx && MediaLib.canvasFollowsSource(project);
   // an FLV that could not be imported: the server's reason code, said in the interface language
   const flvFailure = (code) => toast(MontClipView.flvImportMessage(mcView.get().language, code));
   for (const file of files) {
@@ -2240,6 +2246,8 @@ async function importFiles(fileList) {
     addedMedia.push(m);
     added++;
   }
+  if (follow && addedMedia.some((m) => m.kind === "video"))
+    runtime.canvasFollow = { gen, ids: new Set(addedMedia.filter((m) => m.kind === "video").map((m) => m.id)) };
   if (added) { renderBin(); scheduleSave(); refreshMediaInfo(addedMedia); }
   if (!added && skipped)
     toast("Couldn't import — unsupported or unreadable file type");
@@ -2692,11 +2700,36 @@ async function refreshMediaInfo(list) {
       if (!(m.width > 0) && i.width > 0) { m.width = i.width; m.height = i.height; changed = true; }
     }
     if (changed) { renderBin(); scheduleSave(); if (state.selId) renderInspector(); }
+    followSourceCanvas();
   } catch { } finally {
     mediaInfoBusy = false;
     // files imported (or a Media info opened) meanwhile: everything still without details
     if (mediaInfoAgain) { mediaInfoAgain = false; refreshMediaInfo(); }
   }
+}
+
+/* N25 (docs/decisions/2026-11-03-canvas-follows-source.md): the canvas of an empty project follows the first recording
+   imported into it — its size (never scaled) and its average frame rate snapped to a standard rate (30 when none is
+   near) — once the server has read them. Not an undo step, like the import itself. */
+function followSourceCanvas() {
+  const f = runtime.canvasFollow;
+  if (!f) return;
+  if (f.gen !== runtime.projectGen || state.compCtx || project.canvasUser) { runtime.canvasFollow = null; return; }
+  const m = project.media.find((x) => f.ids.has(x.id) && MediaLib.sourceCanvas(x));
+  if (!m) return;   // not read yet: the next refreshMediaInfo
+  runtime.canvasFollow = null;
+  // meanwhile something else went on the timeline: leave the canvas
+  if (project.clips.some((c) => !f.ids.has(c.mediaId))) return;
+  const c = MediaLib.sourceCanvas(m);
+  if (c.width === project.width && c.height === project.height && c.fps === Number(project.fps)) return;
+  project.fps = c.fps;
+  setCanvasSize(c.width, c.height, { byUser: false });
+  syncFpsSel();
+  updateMonitorRes();
+  state.dirtyTimeline = true;
+  seekMediaWhilePaused();
+  scheduleSave();
+  toast(uiText(c.fpsSnapped ? "own.canvas-follow" : "own.canvas-follow-odd", { w: c.width, h: c.height, fps: +c.fps.toFixed(3), src: +(+m.fps).toFixed(2) }));
 }
 
 function setMediaFavorite(ids, on) {
@@ -9627,12 +9660,23 @@ function openAsrSetup(state) {
     d.setAttribute("aria-labelledby", "asrSetupTitle");
     d.addEventListener("close", () => { if (asrSetup && asrSetup.dialog === d) asrSetup = null; d.remove(); });
     d.addEventListener("click", asrSetupClick);
+    // Esc (VV on #88 25b4578): what the box's own way out does — 〔以后再说〕 when it offers one, 〔好〕 once done; while
+    // downloading the box closes and the download goes on (Settings › 听写 shows it)
+    d.addEventListener("cancel", (e) => {
+      e.preventDefault();
+      const out = d.querySelector('[data-asr-setup="later"]') || d.querySelector('[data-asr-setup="ok"]');
+      if (out) out.click(); else d.close();
+    });
     document.body.append(d);
     asrSetup = { dialog: d, state: null };
     d.showModal();
   }
   asrSetup.state = state || null;
   paintAsrSetup();
+  // the focus in the box, on its first button, so Esc and Tab are the box's
+  // the box itself counts as "inside" (showModal may focus the <dialog>): then too (VV on #102)
+  const a = document.activeElement;
+  if (a === asrSetup.dialog || !asrSetup.dialog.contains(a)) asrSetup.dialog.querySelector(".dialog-actions button")?.focus();
 }
 /** A box taller than the window (Deja, #88): everything between its title and its actions goes into a .dialog-body that
  *  scrolls, so the title and the actions stay in sight. */
@@ -9651,9 +9695,9 @@ function paintAsrSetup() {
   if (!st) html = `<h2 id="asrSetupTitle">${h("setup-title")}</h2><p class="dim">${h("setup-intro")}</p>
     <div class="asr-card asr-card-main"><b>${h("setup-local-title")}</b> <span class="asr-tag">${h("setup-recommended")}</span>
       <ul><li>${h("asr-missing")}</li><li>${h("setup-local-speed")}${ASR_TEST_MINUTES ? h("setup-local-n", { n: ASR_TEST_MINUTES }) : ""}</li>
-        <li>${h("setup-local-errors")}</li>${asrPunctReady() ? "" : `<li>${h("setup-local-punct")}</li>`}</ul>
-      <button type="button" class="btn primary" data-asr-setup="download">${h("asr-download")}</button></div>
-    <div class="asr-card"><b>${h("setup-later-title")}</b><p>${h("setup-later")}</p>${later}</div>`;
+        <li>${h("setup-local-errors")}</li>${asrPunctReady() ? "" : `<li>${h("setup-local-punct")}</li>`}</ul></div>
+    <div class="asr-card"><b>${h("setup-later-title")}</b><p>${h("setup-later")}</p></div>
+    <div class="dialog-actions"><button type="button" class="btn primary" data-asr-setup="download">${h("asr-download")}</button>${later}</div>`;
   else if (st === "dl") html = `<h2 id="asrSetupTitle">${h("setup-dl-title")}</h2><p>${h("asr-downloading", { got: mbText(d.loaded) })}</p>
     <div class="asr-bar"><i style="width:${d.total ? Math.min(100, Math.round(100 * d.loaded / d.total)) : 0}%"></i></div>
     <div class="dialog-actions"><button type="button" class="btn" data-asr-setup="cancel">${h("asr-download-cancel")}</button></div>`;
@@ -9753,7 +9797,9 @@ async function transcribeSrcs(srcs, opts = transcribeSettings(), beat = null) {
       busy.beat();
       try {
         const r = await transcribeFile(srcs[i]);
-        out.done.push({ src: srcs[i], words: r.doc.words.length, language: r.doc.language, saved: r.saved });
+        const gaps = r.doc.gaps || [];
+        out.done.push({ src: srcs[i], words: r.doc.words.length, language: r.doc.language, saved: r.saved,
+          status: gaps.length ? "partial" : "complete", gaps: gaps.length, gapSeconds: Math.round(gaps.reduce((t, g) => t + g[1] - g[0], 0) * 10) / 10 });
       } catch (e) {
         if (busy.cancel || e.code === "ASR_CANCELLED") { out.cancelled = true; break; }
         out.failed.push({ src: srcs[i], error: String((e && e.message) || e), code: e.code || null });
@@ -9950,6 +9996,35 @@ function buildTranscriptPage() {
   });
   trState.built = true;
 }
+/** "31 秒" / "2 分 05 秒" for the length of the gaps. */
+function trGapDur(s) {
+  const zh = mcView.get().language === "zh-CN", t = Math.round(s);
+  if (t < 60) return zh ? `${t} 秒` : `${t} s`;
+  const m = Math.floor(t / 60), r = String(t % 60).padStart(2, "0");
+  return zh ? `${m} 分 ${r} 秒` : `${m} min ${r} s`;
+}
+/** The parts of the timeline's files the engine could not read (their transcript's gaps), placed on the timeline
+ *  through each clip that plays them: how many, how long, and each one a place to jump to (.tr-tc). They have no words,
+ *  so no subtitles: the note says so rather than leaving them quietly short. */
+function trGapsHtml(groups) {
+  const spots = [];
+  let total = 0;
+  for (const g of groups) {
+    const c = g[0], m = getMedia(c.mediaId), doc = m && transcriptOf(m.src);
+    if (!doc || !Array.isArray(doc.gaps) || !doc.gaps.length) continue;
+    const sp = +(c.props && c.props.speed) > 0 ? +c.props.speed : 1, a = +c.in || 0, b = a + (+c.duration || 0) * sp;
+    for (const [s, e] of doc.gaps) {
+      const from = Math.max(s, a), to = Math.min(e, b);
+      if (to <= from) continue;
+      spots.push({ t: (+c.start || 0) + (from - a) / sp, u: (+c.start || 0) + (to - a) / sp }); total += (to - from) / sp;
+    }
+  }
+  if (!spots.length) return "";
+  spots.sort((x, y) => x.t - y.t);
+  const shown = spots.slice(0, 20).map((x) => `<span class="tr-tc" data-t="${x.t}" title="${escapeHtml(fmt(x.t))}">${escapeHtml(fmt(x.t))}–${escapeHtml(fmt(x.u))}</span>`).join(" ");
+  const more = spots.length > 20 ? " " + escapeHtml(uiText("own.tr-gaps-more", { more: spots.length - 20 })) : "";
+  return `<div class="tr-note tr-gaps" data-tr-gaps>${escapeHtml(uiText("own.tr-gaps-note", { n: spots.length, dur: trGapDur(total) }))} ${shown}${more}</div>`;
+}
 function renderTranscript(force = false) {
   if (!trState.open || !els.transcriptPage) return;
   if (typeof FableCutTranscribe === "undefined") { els.transcriptPage.innerHTML = `<div class="tr-empty">${uiText("own.tr-module-missing")}</div>`; return; }
@@ -9980,6 +10055,7 @@ function renderTranscript(force = false) {
       const names = missing.slice(0, 6).map(escapeHtml).join(mcView.get().language === "zh-CN" ? "、" : ", ") + (missing.length > 6 ? escapeHtml(uiText("own.tr-more", { n: missing.length - 6 })) : "");
       html += `<div class="tr-note">${escapeHtml(uiText("own.tr-missing", { names: "\u0000" })).replace("\u0000", names)}</div>`;
     }
+    html += trGapsHtml(groups);
     if (!words.length && !missing.length) html += `<div class="tr-empty">${uiText([...transcriptCache.values()].some((v) => v instanceof Promise) ? "own.loading" : "own.tr-no-words")}</div>`;
     for (const s of T.segments(words)) {
       let p = "";
@@ -10086,6 +10162,9 @@ async function transcribeFromTab() {
   try { out = await transcribeSrcs(srcs); } catch (e) { toast(e.message); return; }
   const unsaved = out.done.filter((d) => !d.saved).length;
   const words = out.done.reduce((n, d) => n + d.words, 0);
+  // some parts could not be read: say so (how many, how long, where to find them), never that it is done
+  const gaps = out.done.reduce((n, d) => n + (d.gaps || 0), 0), gapSeconds = out.done.reduce((t, d) => t + (d.gapSeconds || 0), 0);
+  if (gaps && !out.cancelled) { toast(uiText("own.tr-gaps-toast", { n: gaps, dur: trGapDur(gapSeconds) })); return; }
   toast(out.cancelled ? `Stopped — ${out.done.length} file${out.done.length === 1 ? "" : "s"} transcribed`
     : out.failed.length && !out.done.length ? `Couldn't transcribe: ${out.failed[0].error}`
     : `Transcribed ${out.done.length} file${out.done.length === 1 ? "" : "s"}, ${words} words` +
@@ -10340,7 +10419,7 @@ const AUTO = { el: null, st: null };
 function autoState() {
   if (!AUTO.st || AUTO.st.projectId !== runtime.projectId)
     AUTO.st = { projectId: runtime.projectId, step: "start", picked: null, kind: "auto", count: MontClipAutoSlices.DEFAULTS.count,
-      len: MontClipAutoSlices.DEFAULTS.len, subs: true, run: null, recs: [], clips: [], dropped: [], few: null, ask: false, hist: [], exportIds: null };
+      len: MontClipAutoSlices.DEFAULTS.len, subs: true, run: null, recs: [], clips: [], dropped: [], few: null, ask: false, hist: [], histKept: [], exportIds: null };
   return AUTO.st;
 }
 const autoSay = (key, vars) => escapeHtml(uiText("own." + key, vars));
@@ -10433,7 +10512,7 @@ function openAutoSlices() {
 }
 function autoBuild() {
   const d = document.createElement("dialog");
-  d.className = "auto-slices"; d.setAttribute("aria-label", uiText("own.as-open"));
+  d.className = "auto-slices"; d.setAttribute("aria-label", uiText("own.as-open")); d.tabIndex = -1;
   d.innerHTML = `<div class="as-head"><b>${autoSay("as-open")}</b>
       <ol class="as-stepper">${["start", "run", "review", "done"].map((s) => `<li data-as-st="${s}">${autoSay("as-step-" + s)}</li>`).join("")}</ol>
       <span class="as-spacer"></span><span class="as-keep">${autoSay("as-keep")}</span>
@@ -10463,10 +10542,25 @@ function autoRender(step) {
   st.step = step;
   const order = ["start", "run", "review", "done"], n = order.indexOf(step);
   d.querySelectorAll("[data-as-st]").forEach((li) => { const k = order.indexOf(li.dataset.asSt); li.className = k === n ? "on" : k < n ? "done" : ""; });
-  const body = d.querySelector("[data-as-body]");
+  const body = d.querySelector("[data-as-body]"), same = body.dataset.step === step, had = d.contains(document.activeElement), keep = autoFocusSelector(document.activeElement);
+  // the same page drawn again (an option picked): its folds stay as they were and it stays where it was scrolled (VV:
+  // picking a 每条多长 option closed 更多设置); another page starts at the top with its folds as designed
+  const open = same ? [...body.querySelectorAll("details")].map((x) => x.open) : [], top = body.scrollTop;
   body.innerHTML = step === "start" ? autoStartHtml() : step === "run" ? autoRunHtml() : step === "review" ? autoReviewHtml() : autoDoneHtml();
-  body.scrollTop = 0;
+  body.dataset.step = step;
+  if (same) { body.querySelectorAll("details").forEach((x, i) => { if (open[i]) x.open = true; }); body.scrollTop = top; } else body.scrollTop = 0;
   autoFooter();
+  // the focus stays in the dialog when it is drawn again: the same button if it is still there, else the dialog (VV on
+  // 12f4f21: it fell to the page, so Ctrl+Z went to the timeline behind the dialog instead of undoing the card)
+  if (had && d.open && !d.contains(document.activeElement)) { const el = keep && d.querySelector(keep); (el || d).focus({ preventScroll: true }); }
+}
+/** A selector that finds element el again after the dialog is drawn again: its card and its data-as-* attributes. */
+function autoFocusSelector(el) {
+  if (!el || !AUTO.el || !AUTO.el.contains(el) || el === AUTO.el) return null;
+  const own = [...el.attributes].filter((a) => a.name.startsWith("data-as-")).map((a) => `[${a.name}="${CSS.escape(a.value)}"]`).join("");
+  if (!own) return null;
+  const card = el.closest("[data-as-card]");
+  return (card && card !== el ? `[data-as-card="${CSS.escape(card.dataset.asCard)}"] ` : "") + el.tagName.toLowerCase() + own;
 }
 
 /* step 1: the recordings, what the stream is, how many, how long */
@@ -10520,7 +10614,7 @@ async function autoRun() {
   const st = autoState(), recs = autoRecordings().filter((m) => st.picked.has(m.id));
   if (!recs.length) return;
   const run = { recs: recs.map((m) => m.id), phase: 0, frac: 0, stop: false, error: null, src: null };
-  st.run = run; st.hist = []; autoRender("run");
+  st.run = run; st.hist = []; st.histKept = []; autoRender("run");
   const tick = () => { if (AUTO.el && AUTO.el.open && st.step === "run" && st.run === run) autoRender("run"); };
   const wantSongs = st.kind === "auto" || st.kind === "sing", out = [];
   let current = null;
@@ -10560,7 +10654,10 @@ async function autoRun() {
     }
     run.phase = 4; tick();
     const r = MontClipAutoSlices.build({ recordings: out, kind: st.kind, count: st.count, len: st.len });
-    st.recs = out; st.clips = r.clips; st.few = r.few; st.dropped = []; st.hist = []; st.exportIds = null;
+    // v12: the kept corrections — the habits move the cards, a part marked 不是唱歌 in this recording does not come back
+    const clips = await autoApplyKept(r.clips, out);
+    if (st.run !== run) return;
+    st.recs = out; st.clips = clips; st.few = r.few; st.dropped = []; st.hist = []; st.histKept = []; st.exportIds = null;
     st.ask = st.kind === "auto" && r.clips.some((c) => c.kind === "song") && r.clips.some((c) => c.kind === "moment");
     st.run = null;
     if (AUTO.el && AUTO.el.open) autoRender("review");
@@ -10590,7 +10687,8 @@ function autoReviewHtml() {
   const names = st.recs.map((r) => autoMedia(r.mediaId)).filter(Boolean).map((m) => m.name).join("、");
   const dur = st.recs.reduce((x, r) => x + r.duration, 0), dm = st.recs.reduce((x, r) => x + (r.danmaku || 0), 0);
   const head = !found ? autoSay("as-found-none") : on === found ? autoSay("as-found-all", { found }) : autoSay("as-found-head", { found, on });
-  const evidence = dm ? autoSay("as-evidence", { count: dm.toLocaleString(), dur: autoDur(dur), n: found }) : autoSay("as-evidence-nodm", { dur: autoDur(dur), n: found });
+  const evidence = (dm ? autoSay("as-evidence", { count: dm.toLocaleString(), dur: autoDur(dur), n: found }) : autoSay("as-evidence-nodm", { dur: autoDur(dur), n: found }))
+    + (st.habitUsed ? autoSay("as-evidence-habits", { n: st.keptN, k: st.habitUsed }) : "");
   // v12 (frozen; JJ's visual review): what every card used to repeat is said once — the name hint on the first card, the
   // 估的 note under the first overview, above the first card (also the tooltip of every 估的 tag)
   const guessed = st.clips.some((c) => c.on && ["s", "e"].some((w) => MontClipAutoSlices.edgeLevel(c, w) === "estimated"));
@@ -10610,7 +10708,8 @@ function autoReviewHtml() {
     ${st.few ? `<section class="as-card-box"><b>${autoSay("as-few", st.few)}</b><p class="as-small">${autoSay("as-few-sub", { signals: uiText(dm ? "own.as-sig-both" : "own.as-sig-sound") })}</p></section>` : ""}
     <div data-as-cards>${cards}</div>
     ${st.dropped.length ? `<details class="as-more"><summary>${autoSay("as-dropped", { n: st.dropped.length })}</summary>
-      ${st.dropped.map((c) => `<div class="as-row as-dropped"><span>${escapeHtml(autoName(c))}</span><button type="button" class="btn tiny" data-as-act="put-back" data-as-id="${escapeHtml(c.id)}">${autoSay("as-put-back")}</button></div>`).join("")}</details>` : ""}`;
+      ${st.dropped.map((c) => `<div class="as-row as-dropped"><span>${escapeHtml(autoName(c))}</span><button type="button" class="btn tiny" data-as-act="put-back" data-as-id="${escapeHtml(c.id)}">${autoSay("as-put-back")}</button></div>`).join("")}</details>` : ""}
+    ${autoAddRowHtml()}${autoLearnLineHtml()}`;
 }
 function autoOverviewHtml(rec, clips, startNo) {
   const o = MontClipAutoSlices.overview(rec, clips, startNo), L = rec.duration;
@@ -10681,21 +10780,222 @@ function autoLyricsOpen(c) {
   } });
 }
 function autoCardHtml(c, i) {
-  const song = c.kind === "song", why = c.reasons.map((r) => highlightReasonText(r).text).join(" · ");
+  const song = c.kind === "song", why = MontClipAutoSlices.cardReasons(c).map((r) => highlightReasonText(r).text).join(" · ");
   // v12: the subtitle line is the tooltip of 〔按歌词校准字幕〕 (once the card can use it)
   const subs = song && autoState().subs && autoSubMode() === "local" && autoSubCount(c) != null ? autoSay("as-sub-line", { n: autoSubCount(c) }) : "";
   // a song card is 「{time} 那段 · 可能在唱歌」 until songs.js reaches the naming gate (Deja; auto-slices.js)
   return `<article class="as-clip${c.on ? "" : " off"}" data-as-card="${escapeHtml(c.id)}">
     <div class="as-clip-h"><input type="checkbox" data-as-act="toggle"${c.on ? " checked" : ""} aria-label="${autoSay("as-tick")}">
-      <div class="as-clip-main"><div class="as-clip-title"><span class="as-muted">${i + 1}.</span> <input type="text" data-as-act="rename" value="${escapeHtml(autoName(c))}" aria-label="${autoSay("as-rename")}" title="${autoSay("as-rename-tip")}">${c.on ? "" : `<span class="as-tag">${autoSay("as-spare")}</span>`}<span class="as-small as-kindline" data-as-kind-line>${autoSay(song ? "as-maybe-singing" : "as-a-moment")} · ${escapeHtml(autoDur(c.e - c.s))}</span></div>
+      <div class="as-clip-main"><div class="as-clip-title"><span class="as-muted">${i + 1}.</span> <input type="text" data-as-act="rename" value="${escapeHtml(autoName(c))}" aria-label="${autoSay("as-rename")}" title="${autoSay("as-rename-tip")}">${c.on ? "" : `<span class="as-tag">${autoSay("as-spare")}</span>`}${autoKindLineHtml(c)}</div>
         ${i === 0 ? `<div class="as-small" data-as-name-hint>${autoSay("as-song-name-hint")}</div>` : ""}
-        ${why ? `<p class="as-why">${autoSay("as-why")}<b>${escapeHtml(why)}</b></p>` : ""}</div></div>
+        ${c.added ? `<p class="as-why"><b>${autoSay("as-added-why")}</b></p>` : c.changedFrom ? `<p class="as-why"><b>${autoSay("as-marked-why")}</b></p>` : why ? `<p class="as-why">${autoSay("as-why")}<b>${escapeHtml(why)}</b></p>` : ""}${autoHabitLineHtml(c)}</div></div>
     ${c.on ? `<div class="as-trim">${autoEdgeHtml(c, "s")}${autoEdgeHtml(c, "e")}</div>` : `<p class="as-small">${autoSay("as-tick-to-adjust")}</p>`}
     <div class="as-actions"><button type="button" class="btn tiny as-play" data-as-act="play">${autoSay("as-play")}</button>
       <button type="button" class="btn tiny" data-as-act="fine">${autoSay("as-fine")}</button>
       ${song && autoLyricsAvailable(c) ? `<button type="button" class="btn tiny" data-as-act="lyrics" data-as-lyrics${subs ? " data-as-sub-line" : ""} title="${c.lyricCues ? autoSay("as-lyrics-again-title", { n: c.lyricN || 0 }) : [subs, autoSongKey("as-lyrics") !== "as-lyrics" ? autoSay(autoSongKey("as-lyrics")) : ""].filter(Boolean).join("\n")}">${c.lyricCues ? autoSay("as-lyrics-again", { n: c.lyricN || 0 }) : autoSay("as-lyrics")}</button>` : ""}
       <button type="button" class="as-drop" data-as-act="drop">${autoSay("as-drop")}</button></div></article>`;
 }
+/* ── 记住我的剪辑习惯 (frozen v12; Deja, 2026-11-03): the streamer's corrections, kept on this computer by the main process
+   (desktop/corrections-store.js, window.montclipCorrections) and never sent — corrections.js says what a record holds and
+   the fixed rules, segment-edits.js the two card edits. This block is the only page code that reads them
+   (test/corrections-ui.test.js); the assistant's context and request never do. Without the desktop store (the browser)
+   the edits still work and nothing is kept. ── */
+const KEPT = { told: false, on: null, names: new Map() };
+const autoStore = () => window.montclipCorrections || null;
+/** The search's cards with what was kept applied: the shift habits, and the parts marked 不是唱歌 in the same recording
+ *  (the singing bar is off). Off, or nothing kept: the cards as found. Also gives each recording its key. */
+async function autoApplyKept(cards, recs) {
+  const st = autoState();
+  for (const r of recs) r.key = MontClipCorrections.recordingKey(r.duration, r.loudness);
+  st.habitUsed = 0; st.keptN = 0; st.habitRules = null;
+  const s = autoStore();
+  if (!s) return cards;
+  let kept = null; try { kept = await s.records(); } catch { return cards; }
+  KEPT.on = kept !== null;
+  if (!kept || !kept.length) return cards;
+  const rules = MontClipCorrections.rules(kept);
+  const out = MontClipCorrections.apply(cards, rules, { duration: Object.fromEntries(recs.map((r) => [r.mediaId, r.duration])), recKey: Object.fromEntries(recs.map((r) => [r.mediaId, r.key])) });
+  // 你调过 is the streamer's own move: where a habit moved a card, its found ends move too, so each end keeps its level
+  for (const c of out) if (c.was) { c.found = { s0: c.s0, e0: c.e0 }; if (Number.isFinite(c.s0)) c.s0 = c.s; if (Number.isFinite(c.e0)) c.e0 = c.e; }
+  // a part marked 不是唱歌 comes back as the streamer's kind, at their start and end: their change (你改的), with its reason
+  // a card added with 补一段 back in the same recording: ticked, its name if the page still has it
+  for (const c of out) if (c.added && c.keptId) { c.on = true; c.reasons = []; if (KEPT.names.has(c.keptId)) c.title = KEPT.names.get(c.keptId); }
+  for (const c of out) if (c.changedFrom) { c.kindBy = true; if (Number.isFinite(c.s0)) c.s0 = c.s; if (Number.isFinite(c.e0)) c.e0 = c.e; }
+  st.habitUsed = out.filter((c) => c.was).length; st.keptN = kept.length; st.habitRules = rules;
+  return out;
+}
+/** Keep one correction (corrections.js record) for card c: its recording's length, and the part's sound where the kind
+ *  matters; its id goes with the undo step. → the words saying it is kept, the first time only, or "". */
+async function autoKeep(corr, c) {
+  const s = autoStore(), st = autoState(), rec = autoRec(c.mediaId);
+  if (!s || !rec) return "";
+  const body = { ...corr, duration: rec.duration };
+  if (corr.type !== "trim") { const f = MontClipCorrections.features(c, rec.loudness); if (f) body.features = f; }
+  const step = st.histKept[st.histKept.length - 1];
+  let r = null; try { r = await s.append(body); } catch { return ""; }
+  if (!r || !r.ok) { if (r && r.code === "CORRECTIONS_OFF") KEPT.on = false; return ""; }
+  KEPT.on = true;
+  if (step) step.push(r.id);
+  if (corr.type === "add") { c.keptId = r.id; if (c.title) KEPT.names.set(r.id, c.title); }
+  if (KEPT.told) return "";
+  KEPT.told = true; return uiText("own.as-learn-told");
+}
+const autoKeepMove = (c, w, d) => (Math.abs(d) > 1e-6 ? autoKeep({ type: "trim", kind: c.kind, startShift: w === "s" ? d : 0, endShift: w === "e" ? d : 0 }, c) : Promise.resolve(""));
+/** The toast at once; once the correction is kept, the first time, it also says so. */
+function autoToastKept(msg, kept) { autoToast(msg); kept.then((told) => { if (told) autoToast(msg + told); }); }
+/** An undone step's corrections go too. The store answers at once (sendSync), not with a promise; a failure here never
+ *  stops the undo from drawing the cards again (VV on 12f4f21: `.catch` on its answer threw before autoRender). */
+function autoForget(ids) {
+  const s = autoStore();
+  if (s && ids) for (const id of ids) { try { Promise.resolve(s.undo(id)).catch(() => {}); } catch {} }
+}
+/** 这段不是唱歌 / 这段是唱歌 (set_segment_kind): the kind only; marked 不是唱歌, the record says which recording and part. */
+function autoSetKind(c, kind) {
+  const st = autoState(), from = c.kind, s = c.s, e = c.e, r = MontClipSegmentEdits.setKind(st.clips, { id: c.id, kind });
+  if (!r.ok) return;
+  autoSnap(); st.clips = r.cards; const x = autoClip(c.id); x.kindBy = true;
+  autoRender("review"); autoFocusCard(x.id, false);
+  const rec = autoRec(x.mediaId), where = from === "song" && rec && rec.key ? { rec: rec.key, s, e } : {};
+  autoToastKept(uiText(kind === "song" ? "own.as-kind-to-song" : "own.as-kind-to-moment", { name: autoName(x) }), autoKeep({ ...r.correction, ...where }, x));
+}
+/** 这次不用: this card back where the search put it. */
+function autoNotNow(c) {
+  const st = autoState(), k = st.clips.indexOf(c);
+  if (k < 0 || !c.was) return;
+  const x = MontClipCorrections.revert(c);
+  if (x.found) { x.s0 = x.found.s0; x.e0 = x.found.e0; delete x.found; }
+  autoSnap(); st.clips[k] = x; autoRender("review"); autoFocusCard(c.id, false);
+  autoToast(uiText("own.as-habit-reverted", { name: autoName(c) }));
+}
+const autoKindName = (k) => (k === "song" ? autoSay("as-kind-song") : k === "moment" ? autoSay("as-a-moment") : autoSay("as-kind-" + k));
+function autoKindLineHtml(c) {
+  const song = c.kind === "song", lbl = song && !c.kindBy && !c.added ? autoSay("as-maybe-singing") : autoKindName(c.kind);
+  const tag = c.added ? `<span class="as-tag as-tag-you">${autoSay("as-tag-added")}</span>` : c.kindBy ? `<span class="as-tag as-tag-you">${autoSay("as-tag-changed")}</span>` : "";
+  return `<span class="as-small as-kindline" data-as-kind-line>${lbl}${tag} · ${escapeHtml(autoDur(c.e - c.s))} · <button type="button" class="as-link" data-as-act="set-kind">${autoSay(song ? "as-not-song" : "as-is-song")}</button></span>`;
+}
+/** ↺ 按你以前的习惯，开头提前了 4 秒（你以前 5 首歌里有 4 首把开头往前挪）· 这次不用 · 去设置 */
+function autoHabitLineHtml(c) {
+  const sh = c.was && autoState().habitRules && autoState().habitRules.shift[c.kind];
+  if (!sh) return "";
+  const n1 = (x) => String(Math.round(Math.abs(x) * 10) / 10), parts = [];
+  for (const w of ["start", "end"]) {
+    const h = sh[w];
+    if (!h || !(c.rules || []).includes(`shift-${w}:${c.kind}`)) continue;
+    const later = h.by > 0, key = w === "start" ? (later ? "as-habit-start-later" : "as-habit-start-earlier") : (later ? "as-habit-end-later" : "as-habit-end-earlier");
+    parts.push(autoSay(key, { d: n1(h.by) }) + autoSay("as-habit-why", { n: h.n, of: h.of, kind: uiText("own.as-habit-kind-" + c.kind),
+      edge: uiText("own.as-habit-edge-" + w), dir: uiText(later ? "own.as-habit-dir-later" : "own.as-habit-dir-earlier") }));
+  }
+  if (!parts.length) return "";
+  return `<p class="as-small as-habit" data-as-habit><span aria-hidden="true">↺</span>${autoSay("as-habit-lead")}${parts.join("，")} · <button type="button" class="as-link" data-as-act="not-now">${autoSay("as-habit-not-now")}</button> · <button type="button" class="as-link" data-as-act="learn-settings">${autoSay("as-habit-settings")}</button></p>`;
+}
+/** 补一段: the IN–OUT of the main timeline, inside one clip of a searched recording (speed 1) → that recording's part. */
+function autoAddSpan() {
+  const st = autoState(), i = project.inPoint, o = project.outPoint;
+  if (!Number.isFinite(i) || !Number.isFinite(o) || o - i < MontClipSegmentEdits.MIN_LEN) return null;
+  for (const c of project.clips) {
+    const rec = st.recs.find((r) => r.mediaId === c.mediaId);
+    if (!rec || c.disabled || (c.props && c.props.speed && c.props.speed !== 1) || (c.keyframes && c.keyframes.speed && c.keyframes.speed.length)) continue;
+    if (i >= c.start - 1e-6 && o <= c.start + c.duration + 1e-6) {
+      const s = Math.round((i - c.start + (c.in || 0)) * 1000) / 1000, e = Math.round((o - c.start + (c.in || 0)) * 1000) / 1000;
+      if (s >= 0 && e <= rec.duration) return { mediaId: c.mediaId, s, e };
+    }
+  }
+  return null;
+}
+function autoAddRowHtml() {
+  const sp = autoAddSpan(), hms = MontClipAutoSlices.hms;
+  const hint = sp ? autoSay("as-add-hint-on", { from: hms(sp.s), to: hms(sp.e), len: autoDur(sp.e - sp.s) })
+    : autoSay("as-add-hint-off") + `<button type="button" class="as-link" data-as-act="add-goto">${autoSay("as-add-goto")}</button>`;
+  return `<div class="as-addseg"><button type="button" class="btn" data-as-act="add"${sp ? "" : " disabled"}>${autoSay("as-add-btn")}</button><span class="as-small" data-as-add-hint>${hint}</span></div>`;
+}
+function autoLearnLineHtml() {
+  if (!autoStore()) return "";
+  const on = KEPT.on !== false;
+  return `<p class="as-small as-learnline" data-as-learn-line>${autoSay(on ? "as-learn-on" : "as-learn-off")}<button type="button" class="as-link" data-as-act="${on ? "learn" : "learn-on"}">${autoSay(on ? "as-learn-on-btn" : "as-learn-off-btn")}</button></p>`;
+}
+/** 〔打开〕 on the line (JJ's (b), Deja 2026-11-03): the page's own switch, on at once; one undo step (〔撤销〕 or Ctrl+Z)
+ *  turns it off again. Nothing changed while it was off is kept afterwards. The page follows if it is open. */
+function autoLearnSet(on) {
+  const s = autoStore();
+  if (!s) return false;
+  try { s.setEnabled(on); } catch { return false; }
+  KEPT.on = on;
+  if (document.querySelector("dialog.as-learn[open]")) autoLearnOpen();
+  return true;
+}
+function autoLearnTurnOn() {
+  if (!autoLearnSet(true)) return;
+  autoSnap({ learnOn: true });
+  autoRender("review"); autoToast(uiText("own.as-learn-on-here"));
+}
+function autoAddOpen(kind) {
+  const sp = autoAddSpan(), rec = sp && autoRec(sp.mediaId), m = sp && autoMedia(sp.mediaId);
+  if (!sp || !rec) return;
+  let d = document.querySelector("dialog.as-add");
+  const name = d ? (d.querySelector("[data-as-add-name]") || {}).value || "" : "";
+  if (!d) {
+    d = document.createElement("dialog"); d.className = "as-add"; document.body.append(d);
+    d.addEventListener("click", (e) => {
+      const k = e.target.closest("[data-as-add-kind]"); if (k) { autoAddOpen(k.dataset.asAddKind); return; }
+      if (e.target.closest("[data-as-add-no]")) { d.querySelector("[data-as-add-name]").value = ""; d.close(); return; }
+      if (e.target.closest("[data-as-add-ok]")) autoAddDo(d);
+    });
+  }
+  const hms = MontClipAutoSlices.hms, hintKey = !kind ? "as-add-hint-none" : kind === "song" ? "as-add-hint-song" : kind === "interaction" ? "as-add-hint-interaction" : "as-add-hint-moment";
+  d.dataset.kind = kind || "";
+  d.innerHTML = `<h2>${autoSay("as-add")}</h2><p>${autoSay("as-add-from")}<b>${escapeHtml(hms(sp.s))} → ${escapeHtml(hms(sp.e))}</b>${autoSay("as-add-total", { len: autoDur(sp.e - sp.s) })}<span class="as-add-rec" data-as-add-rec>${autoSay("as-add-rec", { name: m ? m.name : "" })}</span></p>
+    <div class="as-small">${autoSay("as-add-what")}</div><div class="as-seg">${MontClipSegmentEdits.ADD_ORDER.map((k) => `<button type="button" data-as-add-kind="${k}"${k === kind ? ' class="on"' : ""}>${autoKindName(k)}</button>`).join("")}</div>
+    <p class="as-small">${autoSay(hintKey)}</p>
+    <label class="dlv-f as-add-namefield"><span>${autoSay("as-add-name")}</span><input type="text" id="asAddName" data-as-add-name maxlength="80" placeholder="${escapeHtml(autoName({ kind: "moment", s: sp.s, e: sp.e, at: sp.s, no: null }))}"></label>
+    <div class="as-row"><button type="button" class="btn primary" data-as-add-ok${kind ? "" : " disabled"}>${autoSay(kind ? "as-add-ok" : "as-add-pick-first")}</button><button type="button" class="btn" data-as-add-no>${autoSay("as-add-cancel")}</button></div>`;
+  d.querySelector("[data-as-add-name]").value = name;
+  if (!d.open) d.showModal();
+}
+function autoAddDo(d) {
+  const st = autoState(), kind = d.dataset.kind, sp = autoAddSpan(), rec = sp && autoRec(sp.mediaId);
+  if (!kind || !sp || !rec) return;
+  const r = MontClipSegmentEdits.add(st.clips, { mediaId: sp.mediaId, from: sp.s, to: sp.e, kind }, { duration: { [sp.mediaId]: rec.duration } });
+  if (!r.ok) { autoToast(uiText("own.as-add-failed"), false); return; }
+  const title = d.querySelector("[data-as-add-name]").value.trim().slice(0, 80);
+  d.querySelector("[data-as-add-name]").value = ""; d.close();
+  autoSnap(); st.clips = r.cards; const x = autoClip(r.id); x.on = true; x.reasons = []; if (title) x.title = title;
+  autoRender("review"); autoFocusCard(x.id);
+  autoToastKept(uiText("own.as-added", { name: autoName(x) }), autoKeep({ ...r.correction, ...(rec.key ? { rec: rec.key, s: x.s, e: x.e } : {}) }, x));
+}
+/** The page 「记住我的剪辑习惯」 (from the line under the cards, 去设置 and 设置 › 自动出切片). */
+async function autoLearnOpen(confirm = false) {
+  const s = autoStore();
+  if (!s) return;
+  let now; try { now = await s.status(); } catch { return; }
+  KEPT.on = now.enabled;
+  let d = document.querySelector("dialog.as-learn");
+  if (!d) {
+    d = document.createElement("dialog"); d.className = "as-learn"; document.body.append(d);
+    d.addEventListener("change", async (e) => {
+      if (!e.target.matches("[data-learn-switch]")) return;
+      const on = e.target.checked; await s.setEnabled(on); KEPT.on = on;
+      toast(uiText(on ? "own.as-learn-turned-on" : "own.as-learn-turned-off")); autoLearnRefresh();
+    });
+    d.addEventListener("click", async (e) => {
+      if (e.target.closest("[data-learn-ok]")) { d.close(); autoLearnRefresh(); return; }
+      if (e.target.closest("[data-learn-clear]")) { autoLearnOpen(true); return; }
+      if (e.target.closest("[data-learn-clear-no]")) { autoLearnOpen(); return; }
+      if (e.target.closest("[data-learn-clear-yes]")) { await s.clear(); toast(uiText("own.as-learn-cleared")); autoLearnOpen(); }
+    });
+  }
+  const b = now.byType || {};
+  d.innerHTML = `<h2>${autoSay("as-learn-title")}</h2><p class="as-small" data-learn-sub>${autoSay("as-learn-sub")}</p>
+    <label class="as-check"><input type="checkbox" data-learn-switch${now.enabled ? " checked" : ""}> ${autoSay("as-learn-switch")}</label>
+    <div class="as-learn-count" data-learn-count>${now.count ? autoSay("as-learn-count", { n: now.count, trim: b.trim || 0, remove: b.remove || 0, kind: b.kind || 0, add: b.add || 0 }) : autoSay("as-learn-none")}</div>
+    <ul class="as-small" data-learn-bullets><li>${autoSay("as-learn-b1")}</li><li>${autoSay("as-learn-b2")}</li><li>${autoSay("as-learn-b3")}</li></ul>
+    ${confirm ? `<p class="as-warn" data-learn-confirm>${autoSay("as-learn-clear-confirm", { n: now.count })}</p><div class="as-row"><button type="button" class="btn primary" data-learn-clear-yes>${autoSay("as-learn-clear-yes")}</button><button type="button" class="btn" data-learn-clear-no>${autoSay("as-learn-clear-no")}</button></div>`
+      : `<div class="as-row"><button type="button" class="btn primary" data-learn-ok>${autoSay("as-learn-ok")}</button><button type="button" class="btn" data-learn-clear${now.count ? "" : " disabled"}>${autoSay("as-learn-clear")}</button></div>`}`;
+  if (!d.open) d.showModal();
+}
+function autoLearnRefresh() { if (AUTO.el && AUTO.el.open && autoState().step === "review") autoRender("review"); }
+{ const box = $("setSlices"), b = box && box.querySelector("[data-learn-open]");
+  if (box && autoStore()) { box.classList.remove("hidden"); b.addEventListener("click", () => autoLearnOpen()); } }
+/* ── end 记住我的剪辑习惯 ── */
 function autoFooter() {
   const st = autoState(), f = AUTO.el && AUTO.el.querySelector("[data-as-footer]");
   if (!f) return;
@@ -10708,16 +11008,21 @@ function autoFooter() {
     <button type="button" class="btn" data-as-act="export"${t.n ? "" : " disabled"}>${t.n ? autoSay("as-export", { n: t.n }) : autoSay("as-tick-first")}</button>`;
 }
 /* the dialog's own undo: card edits (tick, move, rename, take out) — not the timeline's */
-function autoSnap() { const st = autoState(); st.hist.push(JSON.stringify({ clips: st.clips, dropped: st.dropped })); if (st.hist.length > 100) st.hist.shift(); }
+function autoSnap(extra) {
+  const st = autoState(); st.hist.push(JSON.stringify({ clips: st.clips, dropped: st.dropped, ...extra })); st.histKept.push([]);
+  if (st.hist.length > 100) { st.hist.shift(); st.histKept.shift(); }
+}
 function autoUndo() {
   const st = autoState();
   if (st.step !== "review" || !st.hist.length) return;
   const lyr = (cs) => new Map(cs.map((c) => [c.id, JSON.stringify(c.lyricCues || null)]));
   const was = lyr(st.clips);
   const o = JSON.parse(st.hist.pop()); st.clips = o.clips; st.dropped = o.dropped;
+  if (o.learnOn) autoLearnSet(false);   // 〔打开〕 undone: off again
   autoRender("review"); autoToast(uiText("own.as-undone"), false);
   const back = st.clips.find((c) => was.has(c.id) && was.get(c.id) !== JSON.stringify(c.lyricCues || null));
   if (back) autoLyricFocus(back.id);
+  autoForget(st.histKept.pop());
 }
 let autoToastTimer = null;
 function autoToast(msg, undoable = true) {
@@ -10745,9 +11050,13 @@ function autoClick(e) {
   if (act === "ask") {
     st.ask = false; st.kind = b.dataset.asV;
     const r = MontClipAutoSlices.build({ recordings: st.recs, kind: st.kind, count: st.count, len: st.len });
-    autoSnap(); st.clips = r.clips; st.few = r.few; autoRender("review"); return;
+    autoApplyKept(r.clips, st.recs).then((clips) => { autoSnap(); st.clips = clips; st.few = r.few; autoRender("review"); }); return;
   }
   if (act === "focus") { autoFocusCard(b.dataset.asId); return; }
+  if (act === "learn" || act === "learn-settings") { autoLearnOpen(); return; }
+  if (act === "learn-on") { autoLearnTurnOn(); return; }
+  if (act === "add") { autoAddOpen(null); return; }
+  if (act === "add-goto") { AUTO.el.close(); toast(uiText("own.as-add-goto-toast")); return; }
   if (act === "put-back") {
     const k = st.dropped.findIndex((x) => x.id === b.dataset.asId); if (k < 0) return;
     autoSnap(); const [x] = st.dropped.splice(k, 1); x.on = true; st.clips.push(x); st.clips.sort((p, q) => q.score - p.score || p.at - q.at);
@@ -10764,17 +11073,22 @@ function autoClick(e) {
   if (!c) return;
   if (act === "nudge") {
     const d = +b.dataset.asD, w = b.dataset.asW, rec = autoRec(c.mediaId);
+    const was = w === "s" ? c.s : c.e;
     autoSnap(); Object.assign(c, MontClipAutoSlices.nudge(c, w, d, rec ? rec.duration : Infinity)); autoRender("review"); autoFocusCard(c.id, false);
-    autoToast(uiText(`own.as-moved-${w === "s" ? "start" : "end"}-${d > 0 ? "later" : "earlier"}`, { name: autoName(c), d: Math.abs(d) })); return;
+    const msg = uiText(`own.as-moved-${w === "s" ? "start" : "end"}-${d > 0 ? "later" : "earlier"}`, { name: autoName(c), d: Math.abs(d) });
+    autoToastKept(msg, autoKeepMove(c, w, (w === "s" ? c.s : c.e) - was)); return;
   }
   if (act === "listen") { autoListen(c, b.dataset.asW); return; }
   if (act === "play") { autoPreview(c); return; }
   if (act === "drop") {
     autoSnap(); st.clips = st.clips.filter((x) => x !== c); c.on = false; st.dropped.push(c);
-    autoRender("review"); autoToast(uiText("own.as-dropped-one", { name: autoName(c) })); return;
+    const rec = autoRec(c.mediaId), where = rec && rec.key ? { rec: rec.key, s: c.s, e: c.e } : {};
+    autoRender("review"); autoToastKept(uiText("own.as-dropped-one", { name: autoName(c) }), autoKeep({ type: "remove", kind: c.kind, ...where }, c)); return;
   }
   if (act === "lyrics") { autoLyricsOpen(c); return; }
   if (act === "fine") { autoPlace(st.clips.filter((x) => x.on || x === c), { select: c, fine: true }); return; }
+  if (act === "set-kind") { autoSetKind(c, c.kind === "song" ? "moment" : "song"); return; }
+  if (act === "not-now") { autoNotNow(c); return; }
 }
 function autoChange(e) {
   const t = e.target, st = autoState();
@@ -10783,7 +11097,7 @@ function autoChange(e) {
   const card = t.closest("[data-as-card]"), c = card ? autoClip(card.dataset.asCard) : null;
   if (!c) return;
   if (t.dataset.asAct === "toggle") { autoSnap(); c.on = t.checked; autoRender("review"); autoFocusCard(c.id, false); return; }
-  if (t.dataset.asAct === "rename") { autoSnap(); const v = t.value.trim(); if (v) c.title = v.slice(0, 80); else delete c.title; autoFooter(); }
+  if (t.dataset.asAct === "rename") { autoSnap(); const v = t.value.trim(); if (v) c.title = v.slice(0, 80); else delete c.title; if (c.keptId) { if (c.title) KEPT.names.set(c.keptId, c.title); else KEPT.names.delete(c.keptId); } autoFooter(); }
 }
 function autoFocusCard(id, flash = true) {
   const el = AUTO.el && AUTO.el.querySelector(`[data-as-card="${CSS.escape(id)}"]`);
@@ -10811,8 +11125,10 @@ function autoDragStart(e) {
     const { d, w } = autoDrag; autoDrag = null;
     if (d) {
       const rec = autoRec(c.mediaId);
+      const was = w === "s" ? c.s : c.e;
       autoSnap(); Object.assign(c, MontClipAutoSlices.nudge(c, w, d, rec ? rec.duration : Infinity));
-      autoToast(uiText(`own.as-moved-${w === "s" ? "start" : "end"}-${d > 0 ? "later" : "earlier"}`, { name: autoName(c), d: Math.abs(d) }));
+      const msg = uiText(`own.as-moved-${w === "s" ? "start" : "end"}-${d > 0 ? "later" : "earlier"}`, { name: autoName(c), d: Math.abs(d) });
+      autoToastKept(msg, autoKeepMove(c, w, (w === "s" ? c.s : c.e) - was));
     }
     autoRender("review"); autoFocusCard(c.id, false);
   };
@@ -10894,6 +11210,7 @@ function autoPlace(clips, { select = null, fine = false } = {}) {
   return r;
 }
 /** A toast with one button (the editor's toast is text only). The button acts once; the toast goes after 8 s. */
+let toastHold = null;
 function toastAction(msg, label, onClick) {
   if (!els.toast) return;
   els.toast.textContent = "";
@@ -10903,7 +11220,8 @@ function toastAction(msg, label, onClick) {
   els.toast.append(span, " ", btn);
   els.toast.classList.add("show", "has-action");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => els.toast.classList.remove("show", "has-action"), 8000);
+  if (!toastHold) toastHold = holdToast(els.toast, () => { if (els.toast.classList.contains("has-action")) els.toast.classList.remove("show", "has-action"); });
+  toastHold.start();
 }
 
 /* step 4: export — the ticked parts put on the timeline (one undo step), then one file each through the export queue */
@@ -10958,10 +11276,26 @@ function autoDoneHtml() {
     <div class="as-cta"><button type="button" class="btn primary" data-as-act="open-queue">${autoSay("as-open-queue")}</button>
       <button type="button" class="btn" data-as-act="back-review">${autoSay("as-back-review")}</button><button type="button" class="btn" data-as-act="another">${autoSay("as-another")}</button></div>`;
 }
+/** MontClip is busy with something a range edit must not cut across (exporting, importing, transcribing, saving). */
+const rangeEditBusy=()=>state.exporting||state.gesture||state.compCtx||runtime.activeImports||runtime.activeTranscriptions||runtime.desktopExportPending||runtime.saveRequests||runtime.saveTimer||runtime.saveFailed||(typeof closeSaveTransaction!=='undefined'&&closeSaveTransaction);
+/** Apply a checked range plan as one undo step: the sentence dialog's 〔应用〕, or an AI step its mode lets run (P4). An AI
+ *  step's event moves to applied with it. Returns the token that marks the AI's undo step (null for the streamer's own). */
+function commitRangePlan(plan, suggestion = null) {
+  const applyToken = suggestion ? crypto.randomUUID() : null;
+  const snap = JSON.stringify({ ...JSON.parse(undoSnapshot()), ...(applyToken ? {agentApplyId:applyToken} : {}), rangeState: {
+    inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
+  } });
+  // the step is its event: the AI's (applied now; the save writes its revision), or the streamer's own use of the same capability
+  if (suggestion?.eventId) moveEvent(suggestion.eventId, "applied", { revision: null });
+  applyProject(plan.project);
+  pushUndo(snap, suggestion?.eventId ? { eventId: suggestion.eventId } : { capability: "keep_sentences", args: { timelineRanges: plan.keep.map((r) => ({ from: r.from, to: r.to })) } });
+  setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
+  return applyToken;
+}
 /** SRT sentence selection: preview a read-only plan, apply on a clone as one undo step. */
 async function showSentenceSelection(suggestion = null, onApplied = null, onCancelled = null) {
   let applied = false;
-  const busy=()=>state.exporting||state.gesture||state.compCtx||runtime.activeImports||runtime.activeTranscriptions||runtime.desktopExportPending||runtime.saveRequests||runtime.saveTimer||runtime.saveFailed||(typeof closeSaveTransaction!=='undefined'&&closeSaveTransaction);
+  const busy = rangeEditBusy;
   const proposalContext=()=>({...agentProjectContext(),generation:agentProjectContext().gen});
   if (state.exporting || state.gesture || state.compCtx || suggestion&&busy()) { toast(uiText(suggestion&&busy()?"own.sd-busy-save":"own.sd-busy")); return; }
   if (suggestion) {if(!MontClipProposal.current(suggestion,projectJSON(),proposalContext())){console.warn("showSentenceSelection: the suggestion is not valid for the current project; nothing opened");return;}}
@@ -11053,16 +11387,8 @@ async function showSentenceSelection(suggestion = null, onApplied = null, onCanc
     stopPreview();
     if (!current()) { changed(); return; }
     try {
-      const next = plan.project;
-      const applyToken = suggestion ? crypto.randomUUID() : null;
-      const snap = JSON.stringify({ ...JSON.parse(undoSnapshot()), ...(applyToken ? {agentApplyId:applyToken} : {}), rangeState: {
-        inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
-      } });
-      // the step is its event: the AI's (applied now; the save writes its revision), or the streamer's own use of the same capability
-      if (suggestion?.eventId) moveEvent(suggestion.eventId, "applied", { revision: null });
-      applyProject(next);
-      pushUndo(snap, suggestion?.eventId ? { eventId: suggestion.eventId } : { capability: "keep_sentences", args: { timelineRanges: plan.keep.map((r) => ({ from: r.from, to: r.to })) } });
-      applied = true; if(onApplied)onApplied(applyToken); setSelection([]); setTime(0); scheduleSave(); renderTranscript(true);
+      const applyToken = commitRangePlan(plan, suggestion);
+      applied = true; if(onApplied)onApplied(applyToken);
       dialog.close();
       if (slices) { queueSlices(plan.segments, sliceNames); toast(uiText("own.ssel-done-slices", { n: plan.segments.length })); }
       else toast(uiText(byTime ? "own.ssel-done-ranges" : "own.sd-done"));
@@ -13987,9 +14313,11 @@ function addTemplateClip(t, trackId, at) {
   selectClip(clip.id); scheduleSave(); renderBin(); renderInspector();
   toast(`${comp.name} placed — edit its fields in the Inspector`);
 }
-/** Set the canvas size (the aspect menu and a template's "Use … canvas" button). */
-function setCanvasSize(w, h) {
+/** Set the canvas size (the aspect menu and a template's "Use … canvas" button: the streamer's choice, which the first
+ *  recording imported then leaves alone; followSourceCanvas passes byUser false). */
+function setCanvasSize(w, h, { byUser = true } = {}) {
   project.width = w; project.height = h;
+  if (byUser) project.canvasUser = true;
   els.preview.width = w; els.preview.height = h;
   if (project.exportFrame) project.exportFrame = normalizeExportFrame(project.exportFrame, w, h);
   updateMonitorRes();
@@ -18232,7 +18560,8 @@ async function openExportSetup() {
     renderQueue();
     els.exportSetup.classList.remove("hidden");
     // aria-modal hides what is behind — focus has to come inside
-    if (!els.exportSetup.contains(document.activeElement)) $("exportRangeSel")?.focus();
+    const a = document.activeElement;
+    if (a === els.exportSetup || !els.exportSetup.contains(a)) $("exportRangeSel")?.focus();
   });
 }
 function closeExportSetup() {
@@ -20480,6 +20809,7 @@ els.fpsSel?.addEventListener("change", () => {
   const v = FPS_PRESETS[+els.fpsSel.value];
   if (!(v > 0)) return;
   project.fps = v;
+  project.canvasUser = true;
   syncFpsSel();
   updateMonitorRes();
   state.dirtyTimeline = true;
@@ -22405,6 +22735,101 @@ function recordAgentEvent(e){try{return eventLog().append(e);}catch{return null;
 async function versionBeforeAgent(){
  try{if(!await flushSave())return;await fetch('/api/versions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'before_agent',name:uiText('own.before-ai')})});}catch{}
 }
+/** A reply's proposal, checked against the project as it is now, as an event of its run (has_result); one the check
+ *  refuses is a failed event. The run's first step keeps an agent version first (awaited before anything is applied). */
+function agentProposalStep(response,result){
+ const c=agentProjectContext();
+ if(JSON.stringify(result.context)!==JSON.stringify(c))throw Error('STALE');
+ let version=null;
+ if(!agentRuns.has(result)){agentRuns.set(result,crypto.randomUUID());version=versionBeforeAgent();}
+ const meta={id:crypto.randomUUID(),runId:agentRuns.get(result),step:1,actor:'ai',at:new Date().toISOString(),revision:project.revision};
+ let proposal;
+ try{proposal=MontClipProposal.prepare(response,{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});}
+ catch(error){recordAgentEvent(MontClipProposal.failedEvent(error,{...meta,capability:response&&response.type}));throw error;}
+ const ev=recordAgentEvent(MontClipProposal.event(proposal,meta));
+ if(ev)proposal.eventId=ev.id;
+ return {proposal,ev,c,version};
+}
+/* P4: the assistant's permission mode (agent-policy.js; docs/decisions/2026-11-03-agent-permission-modes.md). The main
+   process keeps the mode and the approvals (window.montclipAgentPolicy); the page shows the switch, the Yolo mark and the
+   host's approval box. Without the desktop host there is no mode: replies wait for 〔查看剪辑建议〕 as before. */
+const agentPolicy={mode:'manual'};
+async function loadAgentMode(){try{const r=await window.montclipAgentPolicy.get();if(r&&r.ok&&MontClipPolicy.MODES.includes(r.mode))agentPolicy.mode=r.mode;}catch{}paintAgentMode();}
+async function setAgentMode(mode){
+ let r;try{r=await window.montclipAgentPolicy.setMode(mode);}catch{r={ok:false,code:'MODE_UNAVAILABLE'};}
+ if(r&&MontClipPolicy.MODES.includes(r.mode))agentPolicy.mode=r.mode;
+ paintAgentMode();return r;
+}
+/** The Yolo mark in the top bar, shown all the time Yolo is on (the assistant has its own mark in the pane). */
+function paintAgentMode(){const mark=document.getElementById('mcYoloMark');if(mark)mark.hidden=agentPolicy.mode!=='yolo';if(typeof mcAgent!=='undefined'&&mcAgent)mcAgent.render();}
+/** The host's approval box (QQ 4: only the host shows it). It shows the capability's plain sentence (never its internal
+ *  name), what it changes or where it sends, and for an external step what is sent. Resolves to once | session | deny. */
+function askAgentApproval(d,{summary='',content=null}={}){
+ return new Promise((resolve)=>{
+  const dialog=document.createElement('dialog');dialog.className='agent-approval';dialog.setAttribute('data-agent-approval','');
+  const say=(k,v)=>escapeHtml(uiText(k,v)),choice=(c)=>'<button type="button" class="btn'+(c==='deny'?'':' primary')+'" data-choice="'+c+'">'+say('own.ap-'+c)+'</button>';
+  dialog.innerHTML='<form method="dialog"><h3>'+say('own.ap-title')+'</h3><p data-ap-label></p><p data-ap-summary></p><p data-ap-target></p>'
+   +(content!=null?'<p>'+say('own.ap-content')+'</p><pre data-ap-content></pre>':'')
+   +(d.choices.includes('session')?'':'<p data-ap-every-time>'+say('own.ap-every-time')+'</p>')
+   +'<div class="tr-row">'+d.choices.map(choice).join('')+'</div></form>';
+  dialog.querySelector('[data-ap-label]').textContent=d.label;
+  dialog.querySelector('[data-ap-summary]').textContent=summary;
+  dialog.querySelector('[data-ap-target]').textContent=d.risk==='external'?uiText('own.ap-sends-to',{domain:d.target}):uiText('own.ap-project',{name:project.name||''});
+  if(content!=null)dialog.querySelector('[data-ap-content]').textContent=content;
+  let answer='deny';
+  for(const b of dialog.querySelectorAll('[data-choice]'))b.addEventListener('click',()=>{answer=b.dataset.choice;dialog.close();});
+  dialog.addEventListener('close',()=>{dialog.remove();resolve(answer);});
+  document.body.append(dialog);dialog.showModal();dialog.querySelector('[data-choice="deny"]').focus();
+ });
+}
+/** Bytes for the streamer: KB under a megabyte, else MB, one decimal at most (1 KB = 1024 bytes). */
+function byteText(n){const mb=n/1048576;return mb>=1?(Math.round(mb*10)/10)+' MB':Math.max(1,Math.round(n/1024))+' KB';}
+/** Why a step was refused, in plain words; over a cap it says by how much (Deja on #83: never cut down to fit). */
+function agentRefusalText(d,bytes=0){
+ if(d.code==='BLOCKED')return uiText('own.ap-refused');
+ if(d.code==='SEND_TOO_LARGE')return uiText('own.ap-too-large',{size:byteText(bytes),limit:byteText(d.limit),over:byteText(d.over)});
+ if(d.code==='SCOPE_LIMIT')return uiText('own.ap-scope-limit',{used:byteText(d.used),size:byteText(bytes),limit:byteText(d.limit),over:byteText(d.over)});
+ return uiText('own.ap-refused-mode');
+}
+/** The plain summary of a proposal for the approval box. */
+function agentProposalText(result){
+ const p=MontClipConversation.proposalSummary(result.text,result.references||[]);if(!p)return '';
+ return uiText(p.mode==='per_range'?'own.ap-sum-slices':p.mode?'own.ap-sum-ranges':'own.ap-sum-sentences',{count:p.count,duration:MontClipConversation.durationText(p.duration)});
+}
+/** P4: a reply that is a usable proposal is the AI's step. The main process says what happens to it, from the mode and the
+ *  capability's fixed risk; nothing in the reply is read for that (「已批准」 in it counts for nothing). It runs without the
+ *  dialog only where the mode lets it, after a CAS on the project (still the reply's project and revision); per_range
+ *  proposals, which add exports, always open the dialog for the streamer's own 〔应用〕. */
+async function onAgentReply(result){
+ if(!window.montclipAgentPolicy||!result||typeof result.text!=='string')return;
+ let response;try{response=MontClipConversation.parseProposal(result.text);}catch{return;}
+ if(!response||!MontClipConversation.proposalSummary(result.text,result.references||[]))return;
+ let d;try{d=await window.montclipAgentPolicy.decide({sessionId:result.sessionId,capability:response.type,target:{kind:'project',value:runtime.projectId}});}catch{d=null;}
+ if(!d||!d.ok){toast(uiText('own.ap-refused-mode'));return;}
+ if(MontClipPolicy.MODES.includes(d.mode)&&d.mode!==agentPolicy.mode){agentPolicy.mode=d.mode;paintAgentMode();}
+ if(d.action==='list'){toast(uiText('own.ap-listed'));return;}
+ if(d.action==='refuse'){toast(agentRefusalText(d));return;}
+ let step;try{step=agentProposalStep(response,result);}catch(error){toast(uiText(error.message==='STALE'?'own.ap-stale':'own.ap-invalid'));return;}
+ if(d.action==='ask'){
+  const choice=await askAgentApproval(d,{summary:agentProposalText(result)});
+  let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}
+  if(!a||!a.ok||!a.run){if(step.ev)moveEvent(step.ev.id,'rejected');toast(uiText('own.ap-denied'));return;}
+ }
+ if(step.version)await step.version;
+ const {proposal,ev,c}=step;
+ if(proposal.type==='keep_ranges'&&proposal.outputMode==='per_range'){
+  showSentenceSelection(proposal,token=>{officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});},()=>{if(ev)moveEvent(ev.id,'rejected');});
+  return;
+ }
+ // the CAS: the project and its revision are still the reply's
+ if(!MontClipProposal.current(proposal,projectJSON(),{...agentProjectContext(),generation:agentProjectContext().gen})||project.revision!==result.context.revision){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.ap-stale'));return;}
+ if(rangeEditBusy()){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.sd-busy-save'));return;}
+ let plan;try{plan=FableCutRangePlan.create(projectJSON(),proposal.keep);plan.keep=proposal.keep;}catch{if(ev)moveEvent(ev.id,'failed');toast(uiText('own.ap-invalid'));return;}
+ const token=commitRangePlan(plan,proposal);
+ officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});
+ toastAction(uiText('own.ap-applied',{mode:MontClipPolicy.modeLabel(agentPolicy.mode,mcView.get().language)}),uiText('own.ap-undo'),()=>{if(canUndoOfficialProposal(result)){if(!ev||!undoEvent(ev.id).ok)undo();}});
+ mcAgent.render();
+}
 function canUndoOfficialProposal(result){
  const entry=result&&officialProposalApplications.get(result),c=agentProjectContext();
  if(!entry||entry.projectId!==c.projectId||entry.sequenceId!==c.sequenceId||entry.gen!==c.gen)return false;
@@ -22422,21 +22847,15 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  getProjectName:id=>id===runtime.projectId?project.name:null,
  canUndoProposal:canUndoOfficialProposal,
  getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[]});},
+ ...(window.montclipAgentPolicy?{getMode:()=>agentPolicy.mode,setMode:setAgentMode,onReply:result=>{void onAgentReply(result);}}:{}),
  getFactsOmitted:()=>MontClipFacts.omitted(projectJSON()),
  onUndo:result=>{if(canUndoOfficialProposal(result)){const entry=officialProposalApplications.get(result);if(!entry?.eventId||!undoEvent(entry.eventId).ok)undo();}},
  onProposal:(response,result)=>{
-   const c=agentProjectContext();
-   if(JSON.stringify(result.context)!==JSON.stringify(c))throw Error('STALE');
-   if(!agentRuns.has(result)){agentRuns.set(result,crypto.randomUUID());void versionBeforeAgent();}
-   const meta={id:crypto.randomUUID(),runId:agentRuns.get(result),step:1,actor:'ai',at:new Date().toISOString(),revision:project.revision};
-   let proposal;
-   try{proposal=MontClipProposal.prepare(response,{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});}
-   catch(error){recordAgentEvent(MontClipProposal.failedEvent(error,{...meta,capability:response&&response.type}));throw error;}
-   const ev=recordAgentEvent(MontClipProposal.event(proposal,meta));
-   if(ev)proposal.eventId=ev.id;
+   const {proposal,ev,c}=agentProposalStep(response,result);
    showSentenceSelection(proposal,token=>{officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});},
     ()=>{if(ev)moveEvent(ev.id,'rejected');});
  },
  getReferences:kind=>MontClipAgentPane.referenceChips(kind,{...agentProjectContext(),
  start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(FableCutCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
 setInterval(()=>mcAgent.sync(),500);
+if(window.montclipAgentPolicy)void loadAgentMode();

@@ -29,10 +29,15 @@ window.__dlgEnds=(el)=>{const vw=innerWidth,vh=innerHeight,b=el.getBoundingClien
  const head=[...el.querySelectorAll('h1,h2,h3')].find(h=>h.offsetParent!==null&&!inInner(h))||null;
  const last=[...el.querySelectorAll('button')].filter(x=>x.offsetParent!==null&&!inInner(x)).pop()||null;
  const keep=scrollers.map(n=>n.scrollTop);
- for(const n of scrollers)n.scrollTop=n.scrollHeight;const headAtEnd=head?seen(head):null;
- for(const n of scrollers)n.scrollTop=0;const lastAtTop=last?seen(last):null;
+ // VV on #88 25b4578: an exit — a button of the box's own frame, outside every part that scrolls (el itself included) —
+ // in sight however far the box is scrolled
+ const frame=[...el.querySelectorAll('button')].filter(x=>x.offsetParent!==null&&!scrollers.some(n=>n.contains(x)));
+ for(const n of scrollers)n.scrollTop=n.scrollHeight;const headAtEnd=head?seen(head):null;const exitAtEnd=frame.filter(seen);
+ for(const n of scrollers)n.scrollTop=0;const lastAtTop=last?seen(last):null;const exitAtTop=frame.filter(seen);
+ const exit=exitAtTop.find(x=>exitAtEnd.includes(x))||null;
  scrollers.forEach((n,i)=>{n.scrollTop=keep[i];});
- return {scrolls:scrollers.length,head:head?head.textContent.trim().slice(0,30):null,last:last?last.textContent.trim().slice(0,20):null,headAtEnd,lastAtTop};};true`;
+ return {scrolls:scrollers.length,head:head?head.textContent.trim().slice(0,30):null,last:last?last.textContent.trim().slice(0,20):null,headAtEnd,lastAtTop,
+  exit:exit?(exit.textContent.trim()||exit.getAttribute('aria-label')||exit.title||'?').slice(0,20):null};};true`;
 const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...args){
  await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=(ms=200)=>new Promise(r=>setTimeout(r,ms));
@@ -61,12 +66,18 @@ BrowserWindow.prototype.loadURL=async function(...args){
   win.setContentSize(w,h);await wait(500);
   EXPORT_AT=await read(`(()=>{const r=document.getElementById('btnExport').getBoundingClientRect();return {x:Math.round(r.left)+4,y:Math.round(r.top)+4,width:Math.round(r.width)-8,height:Math.round(r.height)-8};})()`);
   base=await brightness();sized.exportButtonBrightness=Math.round(base);
+  const escape=async()=>{for(const type of ['keyDown','keyUp'])win.webContents.sendInputEvent({type,keyCode:'Escape'});await wait(300);};
+  // the FLV import box is gone before a key can reach it (the main process turns the synthetic file down at once); its
+  // Esc is its 〔取消〕 (desktopFlvImport's cancel handler)
+  const noEsc=['flv-import'];
   // one <dialog>: open it with `js`, find it by its class, measure, capture, close it
   const dialog=async(name,cls,js)=>{
    await read(`(()=>{${js}})();true`);
    let m=null;for(let i=0;i<40&&!m;i++){await wait(100);m=await read(`(()=>{const d=document.querySelector('dialog.${cls}[open]');return d?__dlgMeasure(d):null;})()`);}
    sized.dialogs[name]=m||{missing:true,open:await open()};
-   if(m){m.dimmed=await dimmed();await shot(size+'-dialog-'+name);}
+   if(m){m.dimmed=await dimmed();await shot(size+'-dialog-'+name);
+    // VV on #88: Esc from the keyboard closes it (whatever has the focus)
+    if(!noEsc.includes(name)){await escape();m.esc=!(await read(`!!document.querySelector('dialog.${cls}[open]')`));}}
    await read(`for(const d of document.querySelectorAll('dialog[open]'))d.close();true`);await wait(200);
   };
   // the FLV import box closes as soon as the main process turns the synthetic file down: it is measured in the same turn
@@ -76,6 +87,18 @@ BrowserWindow.prototype.loadURL=async function(...args){
   sized.dialogs['flv-import-as-opened']=await read(`window.__flvSeen||{missing:true}`);report.flvCopyError=await read(`window.__flvErr||null`);await read(`window.__flvSeen=null;true`);
   await dialog('caption-size','cq-dialog',`setSelection(['cap1']);openCaptionQuick()`);
   await dialog('asr-setup','asr-setup',`openAsrSetup()`);
+  // its Esc is 〔以后再说〕 (VV on #88): the choice is kept, as the button keeps it
+  sized.asrChoiceAfterEsc=await read(`window.montclipAsr.choice().then(c=>c&&c.choice||null)`);
+  // the 先不装 card as it is drawn (JJ's words, on #102): its title once, then its text — no word said twice
+  await read(`openAsrSetup();true`);await wait(300);
+  sized.laterCard=await read(`(()=>{const c=[...document.querySelectorAll('dialog.asr-setup .asr-card')].find(x=>!x.matches('.asr-card-main'));return c&&{title:c.querySelector('b').textContent,text:c.querySelector('p').textContent,all:c.textContent.replace(/\\s+/g,'')};})()`);
+  await read(`for(const d of document.querySelectorAll('dialog[open]'))d.close();true`);await wait(200);
+  // VV on #102 404db85: opened, the focus is on its first button — not on the box itself (the box "contains" itself) —
+  // and Esc from there is still 〔以后再说〕
+  await read(`window.montclipAsr.setChoice('').catch(()=>{});openAsrSetup();true`);await wait(300);
+  sized.asrFocus=await read(`(()=>{const a=document.activeElement;return a&&a.matches('dialog.asr-setup .dialog-actions button')&&a===document.querySelector('dialog.asr-setup .dialog-actions button')?a.dataset.asrSetup:(a?a.tagName+'.'+a.className:null);})()`);
+  await escape();sized.asrFocusEsc={open:await read(`!!document.querySelector('dialog.asr-setup[open]')`),choice:await read(`window.montclipAsr.choice().then(c=>c&&c.choice||null)`)};
+  await read(`for(const d of document.querySelectorAll('dialog[open]'))d.close();true`);await wait(200);
   await dialog('highlights','highlight-dialog',`showHighlightCandidates()`);
   await dialog('auto-slices','auto-slices',`openAutoSlices()`);
   await dialog('auto-slices-preview','as-preview',`autoPreview({mediaId:'m_syn',s:0,e:5,kind:'moment',at:0})`);
@@ -90,7 +113,8 @@ BrowserWindow.prototype.loadURL=async function(...args){
    let m=null;for(let i=0;i<40&&!m;i++){await wait(100);m=await read(`(()=>{const o=document.getElementById(${JSON.stringify(id)});if(!o||o.classList.contains('hidden'))return null;const d=o.querySelector('.dialog')||o.firstElementChild;const r=o.getBoundingClientRect();return {...__dlgMeasure(d,o),cover:Math.round(r.width)===innerWidth&&Math.round(r.height)===innerHeight};})()`);}
    await wait(200);
    sized.overlays[name]=m||{missing:true};
-   if(m){m.dimmed=await dimmed();await shot(size+'-overlay-'+name);}
+   if(m){m.dimmed=await dimmed();await shot(size+'-overlay-'+name);
+    await escape();m.esc=await read(`document.getElementById(${JSON.stringify(id)}).classList.contains('hidden')`);}
    await read(`document.getElementById(${JSON.stringify(id)}).classList.add('hidden');true`);await wait(150);
   };
   await overlay('export','exportSetup',`document.getElementById('btnExport').click()`);
@@ -110,11 +134,20 @@ BrowserWindow.prototype.loadURL=async function(...args){
    if(!m.inside)bad.push(`${name}: not whole inside the window (top ${m.top}, height ${m.h}, window ${m.vh})`);
    if(m.ends&&m.ends.headAtEnd===false)bad.push(`${name}: its title scrolls away`);
    if(m.ends&&m.ends.lastAtTop===false)bad.push(`${name}: its last button (${m.ends.last}) is out of sight`);
+   // VV on #88 25b4578: at 630 an exit in sight however far it is scrolled; Esc closes it
+   if(size==='630x460'&&m.ends&&!m.ends.exit&&!n.endsWith('-as-opened'))bad.push(`${name}: no exit in sight all the time`);
+   if(m.esc===false)bad.push(`${name}: Esc does not close it`);
    if(m.alpha<0.3)bad.push(`${name}: backdrop ${m.backdrop}`);
    if(m.dimmed!==undefined&&m.dimmed<0.25)bad.push(`${name}: the page behind it is only ${Math.round(m.dimmed*100)} % darker`);
    if(group==='dialogs'&&!m.modal)bad.push(name+': not modal, so nothing behind it is darkened');
    if(group==='overlays'&&!m.cover)bad.push(name+': the dark layer does not cover the window');
   }
+  for(const [size,got] of Object.entries(report.sizes)){
+   const lc=got.laterCard;
+   if(!lc||lc.title!=='先不装'||lc.text!=='找高光、剪辑、导出都照常能用，只是不会自动出字幕；你也可以自己导入 SRT 字幕文件。'||lc.all!==('先不装找高光、剪辑、导出都照常能用，只是不会自动出字幕；你也可以自己导入 SRT 字幕文件。').replace(/\s+/g,'')||lc.all.split('先不装').length!==2||lc.all.includes('以后再说'))bad.push(size+' asr-setup: the 先不装 card reads '+JSON.stringify(lc));
+   if(got.asrFocus!=='download')bad.push(size+' asr-setup: opened, the focus is on '+got.asrFocus+', not its first button');
+   if(!got.asrFocusEsc||got.asrFocusEsc.open||got.asrFocusEsc.choice!=='later')bad.push(size+' asr-setup: Esc from its first button is not 以后再说 '+JSON.stringify(got.asrFocusEsc));}
+  for(const [size,got] of Object.entries(report.sizes))if(got.asrChoiceAfterEsc!=='later')bad.push(size+' asr-setup: Esc is not 以后再说 (choice '+got.asrChoiceAfterEsc+')');
   report.bad=bad;ok=!bad.length;
  }catch(e){report.error=String(e&&e.stack||e).slice(0,1500);}
  finally{clearTimeout(watchdog);out(ok?'DIALOGS_PASS':'DIALOGS_FAIL',report);process.exitCode=ok?0:1;app.exit(ok?0:1);}

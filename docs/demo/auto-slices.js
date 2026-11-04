@@ -123,6 +123,10 @@
   }
   /** File names in review order, numbered 01, 02, …; a colon cannot be in a Windows file name. */
   const numbered = (names) => names.map((n, i) => String(i + 1).padStart(2, "0") + " " + String(n).replace(/:/g, "："));
+  /** The reasons a card shows: a reason that only holds for singing (signal singing) only on a song card — one made
+   *  another kind keeps its sound and danmaku reasons (VV on #90 b76bbe3). The card keeps them all, so made a song again
+   *  (or the change undone) it shows it again. */
+  const cardReasons = (c) => ((c && c.reasons) || []).filter((r) => c.kind === "song" || r.signal !== "singing");
   /* The card's 〔按歌词校准字幕〕 (docs/decisions/2026-11-03-card-lyrics.md): a card has no captions until it is placed, so
      it is calibrated on the card — one part, the card itself, and the transcript's words whose middle is inside it
      (recording seconds; lyrics-align.js aligns them). words: the transcript's [text, start, end] or {w, s, e}. */
@@ -141,5 +145,5 @@
       words: (q.words || []).filter((w) => w.s != null && w.e + off > lo + 1e-6 && w.s + off < hi - 1e-6).map((w) => ({ ...w, s: move(w.s), e: move(w.e) })),
     }));
   }
-  return { KINDS, LENS, COUNTS, DEFAULTS, SONG_GATE, SONG_MEASURED, songsTrusted, title, edgeLevel, build, hms, nudge, overview, totals, numbered, lyricScope, lyricCuesOn };
+  return { KINDS, LENS, COUNTS, DEFAULTS, SONG_GATE, SONG_MEASURED, songsTrusted, title, edgeLevel, build, hms, nudge, overview, totals, numbered, cardReasons, lyricScope, lyricCuesOn };
 });

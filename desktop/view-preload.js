@@ -8,7 +8,23 @@ contextBridge.exposeInMainWorld('montclipAgentService',Object.freeze({
  send:value=>ipcRenderer.invoke('montclip:agent:send',value),
  cancel:id=>ipcRenderer.invoke('montclip:agent:cancel',id)
 }));
+// The AI's permission mode and the host's approval box (P4): the main process decides; the page answers a ticket only.
+contextBridge.exposeInMainWorld('montclipAgentPolicy',Object.freeze({
+ get:()=>ipcRenderer.invoke('montclip:policy:get'),
+ setMode:mode=>ipcRenderer.invoke('montclip:policy:setMode',String(mode)),
+ decide:value=>ipcRenderer.invoke('montclip:policy:decide',value),
+ answer:value=>ipcRenderer.invoke('montclip:policy:answer',value)
+}));
 // Two fixed settings only. No file/path/channel/Node interface reaches the page.
+// The streamer's corrections, kept by the main process on this computer: six fixed operations, no path, nothing sent.
+contextBridge.exposeInMainWorld('montclipCorrections',Object.freeze({
+ status:()=>ipcRenderer.sendSync('montclip:corrections:status'),
+ records:()=>ipcRenderer.sendSync('montclip:corrections:records'),
+ append:record=>ipcRenderer.sendSync('montclip:corrections:append',record),
+ undo:id=>ipcRenderer.sendSync('montclip:corrections:undo',id),
+ setEnabled:on=>ipcRenderer.sendSync('montclip:corrections:setEnabled',on===true),
+ clear:()=>ipcRenderer.sendSync('montclip:corrections:clear')
+}));
 contextBridge.exposeInMainWorld('montclipCapabilities',Object.freeze({get:()=>ipcRenderer.sendSync('montclip:capabilities:get')}));
 contextBridge.exposeInMainWorld('montclipViewSettings',Object.freeze({
  get:()=>ipcRenderer.sendSync('montclip:view:get'),

@@ -1,0 +1,45 @@
+{
+ "machine": "i7-11800H, RTX 3060 Laptop; encoder h264_nvenc (first that works); source 60 s 1920x1080 60 fps testsrc2",
+ "runs": [
+  {
+   "30": {
+    "ms": 24216,
+    "bytes": 120189693,
+    "label": "Master",
+    "frames": 1800,
+    "avgFps": 30,
+    "width": 1920,
+    "height": 1080
+   },
+   "60": {
+    "ms": 46906,
+    "bytes": 222352709,
+    "label": "Master",
+    "frames": 3600,
+    "avgFps": 60,
+    "width": 1920,
+    "height": 1080
+   }
+  },
+  {
+   "30": {
+    "ms": 23303,
+    "bytes": 120189693,
+    "label": "Master",
+    "frames": 1800,
+    "avgFps": 30,
+    "width": 1920,
+    "height": 1080
+   },
+   "60": {
+    "ms": 46915,
+    "bytes": 222352709,
+    "label": "Master",
+    "frames": 3600,
+    "avgFps": 60,
+    "width": 1920,
+    "height": 1080
+   }
+  }
+ ]
+}

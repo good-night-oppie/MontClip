@@ -2920,6 +2920,18 @@ desktop's main process shows one local notification (`montclip:notify:found`, a 
 permissions stay denied. Not yet: the part bar for songs, song names, 直接说, multiple recordings shown apart,
 keeping ticks and edits when picking again, and the rest of the frozen design (see the P3 pull request's table).
 
+#### 记住我的剪辑习惯 (MontClip desktop)
+
+The streamer's corrections in the 自动出切片 review (frozen v12; ADR docs/decisions/2026-11-03-corrections.md). Each
+card's kind line has 这段不是唱歌 / 这段是唱歌 (and 你改的 / 你补的); 补一段 adds a card from the main timeline's IN–OUT
+(唱歌、互动、聊天、整活、别的); a move, 不要这条, a kind change and 补一段 are each kept as one correction by the desktop main
+process (`window.montclipCorrections`, `<userData>/corrections/default.json`), and 〔撤销〕 takes the edit and its correction
+back. The next search moves the cards by a habit (the same kind, the same direction, 4 of the last 5, at most ±5 s),
+says so on each card (↺ … · 这次不用 · 去设置) and in the evidence, and leaves out a song card more than half inside a
+part marked 不是唱歌 in the same recording. The singing-bar rule is off. The line under the cards and 设置 › 自动出切片 open
+the page 记住我的剪辑习惯 (the switch, the counts, 清空记录). Corrections are never sent: only one block of app.js reads
+them, never the assistant's context or request. Without the desktop store the edits work and nothing is kept.
+
 ### MontClip view preferences
 
 The shared editor DOM has Simple/Advanced layout controls, Chinese/English labels
@@ -3016,6 +3028,16 @@ The official proposal card offers Undo this apply only while its application is 
 
 Official-pane history presentation separates validated trailing reference envelopes into text and chips without changing stored/sent history. Confirmation lists human-readable messages and references; the exact HTTP request is available in collapsed details. A bounded proposal summary is presentation only: application still revalidates the live project. Stale replies can create a new draft with empty history/references, never automatically send.
 
+### AI permission modes (MontClip desktop)
+
+The desktop assistant has four modes, switched at the top of the assistant: 计划 (Plan: only lists steps), 手动 (Manual, the
+default: asks the first time, and every time for steps that can't be undone), 自动 (Auto: does what can be undone, asks before
+what can't) and Yolo (does everything; turning it on needs a yes in the app's own box, and a mark shows the whole time). The
+main process keeps the mode and the approvals in memory only, so a restart is back to 手动. The risk of each step comes from
+`capabilities.js`; the AI cannot change the mode or any list. The approval box offers 只批准这次 / 这个聊天中都批准 / 不同意;
+「都批准」 holds for one chat, one capability and one target. Anything sent out is always shown first, Yolo included, and is
+capped per send and per chat or project by each capability's own caps in `capabilities.js` (text 128 KiB / 4 MiB a chat;
+audio 25 MiB a part / 2 GiB a project while open); over a cap it is refused, never cut down. MCP tools and the REST API are not affected. See `docs/decisions/2026-11-03-agent-permission-modes.md`.
 ### Correct captions from the lyrics (MontClip)
 
 In the Transcript tab's caption row, **Fix captions using lyrics** (按歌词校准字幕) aligns the transcript of the selected

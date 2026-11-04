@@ -4,6 +4,7 @@
      node real-tests/songs-golden.cjs <golden dir>
    <golden dir>/cases/<case>/audio-features.json  {step, keys:[t, rms, …], rows}   (ffmpeg astats + aspectralstats)
    <golden dir>/cases/<case>/labels.json          {labels:[{start_sec, category, unaligned?}]}   singing / dancing count
+   --corrections <records.json> (optional) applies corrections.js rules from those records; off by default
    <golden dir>/split.json (optional)             {train:[…], holdout:[…]}   — reported apart, by count only
    recall@10: labelled song starts with a found start within 10 s. precision@15: found songs with a labelled start
    within 15 s. Offsets: found start − labelled start, for matches within 15 s, split by likely / estimated. */
@@ -11,6 +12,14 @@
 const fs = require("fs");
 const path = require("path");
 const Songs = require("../songs");
+const Corrections = require("../corrections");
+// The streamer's corrections (corrections.js) are off here unless a file of records is named: they come from the same
+// streamer as the golden recordings, so using them by default would leak the answers into the score. Never what the
+// app kept on this computer; a file given by hand only. The number of records is printed, never the file's name.
+const arg = (k) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : null; };
+const corrections = arg("--corrections");
+const correctionRules = corrections ? Corrections.rules(JSON.parse(fs.readFileSync(corrections, "utf8"))) : null;
+console.log(corrections ? `corrections: on (${JSON.parse(fs.readFileSync(corrections, "utf8")).length} records)` : "corrections: off");
 
 const root = process.argv[2];
 if (!root || !fs.existsSync(path.join(root, "cases"))) { console.error("usage: songs-golden.cjs <golden dir with cases/>"); process.exit(2); }
@@ -24,7 +33,13 @@ function evaluate(name) {
   const k = Array.isArray(F.keys) ? F.keys.indexOf("rms") : 1;
   const labels = JSON.parse(fs.readFileSync(path.join(dir, "labels.json"), "utf8")).labels
     .filter((l) => SONG.test(String(l.category)) && !l.unaligned && Number.isFinite(l.start_sec)).map((l) => l.start_sec);
-  const found = Songs.find(F.rows.map((r) => r[k]), { step: F.step || 0.5, complete: true });
+  const rms = F.rows.map((r) => r[k]), step = F.step || 0.5;
+  // with corrections: the search with the moved singing bar, then each song moved by the song habit
+  let found = Songs.find(rms, { step, complete: true, ...Corrections.songOptions(correctionRules) });
+  if (correctionRules) {
+    const cards = Corrections.apply(found.map((s, i) => ({ id: "s" + i, mediaId: "x", kind: "song", s: s.from, e: s.to })), correctionRules, { duration: { x: rms.length * step } });
+    found = cards.map((c) => ({ ...found[+c.id.slice(1)], from: c.s, to: c.e }));
+  }
   const nearest = (t) => found.reduce((best, s) => (Math.abs(s.from - t) < Math.abs(best ? best.from - t : Infinity) ? s : best), null);
   const r = { n: labels.length, hit10: 0, pred: found.length, tp15: 0, est: found.filter((s) => s.confidence === "estimated").length, offSure: [], offEst: [] };
   for (const t of labels) {
