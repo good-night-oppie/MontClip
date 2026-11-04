@@ -61,6 +61,23 @@ The second shell around the one MontClip engine (the repository root). The first
   right after a real click). It also asks the user to pin MontClip to the left navigation (「更多」→「自定义」): from
   the 「更多」 menu Cindy 0.1.122 always opens a plugin's main view as a full page.
 
+## In-Cindy acceptance checklist (Cindy 真机验收清单)
+
+What only a real Cindy window can show. Each was checked in a headless browser or by a test; none of these yet in
+Cindy itself (installs go through Deja first).
+
+- [ ] The task view loads the editor (not 403 / blank): the frame keeps its `montclip_embed` cookie inside Cindy's page
+      (headless cross-site frame: works — `test-tools/cross-site-frame.cjs`).
+- [ ] Undo after switching tasks: the tab reloads and gets its undo steps and playhead back (#111 / #119).
+- [ ] The side panel's highlight with the editor tab in the background for more than 3 s: it stays on the last line
+      (VV, #114; headless: `test-tools/panel-play-e2e.cjs`, step 3).
+- [ ] The side panel follows the playing line, and Cindy's light / dark theme, in Cindy's right sidebar.
+- [ ] The light theme inside Cindy: no text under 3:1 (headless: `test/cindy-embed-contrast.test.js`).
+- [ ] The ffmpeg banner: download with progress, installed, export works (spike: 14 s, sha256 matched).
+- [ ] `montclip_export`: the system folder dialog, progress on the chat card, the file in the folder.
+- [ ] The status card's 「在这个任务里打开剪辑器」 and the main view's 「在任务中打开」 (`focus:true` after a real click).
+- [ ] The Windows app already open: the editor tab says 「MontClip 桌面版正在用这些项目…」 with 重试.
+
 ## Develop
 
 ```
