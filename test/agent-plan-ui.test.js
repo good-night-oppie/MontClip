@@ -25,10 +25,12 @@ test('every step goes through the host’s decision and its own check when its t
  a.match(app,/planStart:runAgentPlan/);
 });
 
-test('the list shows the plain sentence and the state in words; deleting only before it starts',()=>{
+test('the list shows what each step changes, the plain sentence and the state in words; deleting only before it starts',()=>{
  const app=read('app.js'),pane=read('agent-ui/pane.tsx');
- a.match(app,/label:MontClipPlan\.stepLabel\(s,lang\),state:s\.state,stateText:MontClipPlan\.stateLabel\(s\.state,lang\)/);
- a.match(pane,/<span data-step-label>\{st\.label\}<\/span>/);
+ a.match(app,/label:MontClipPlan\.stepLabel\(s,lang\),detail:MontClipPlan\.stepDetail\(s,lang\),state:s\.state,stateText:MontClipPlan\.stateLabel\(s\.state,lang\)/);
+ // what it changes first; the plain sentence under it (or alone, when there is nothing concrete to say)
+ a.match(pane,/\{st\.detail\?<span data-step-detail title=\{st\.label\}>\{st\.detail\}<\/span>:<span data-step-label>\{st\.label\}<\/span>\}/);
+ a.match(pane,/\{st\.detail&&<span className="cindy-plan-what" data-step-label>\{st\.label\}<\/span>\}/);
  a.match(pane,/\{plan\.status==='ready'&&<button data-step-remove/);
  a.match(read('cindy-official.js'),/data-plan/,'the bundle was rebuilt');
 });
@@ -65,4 +67,13 @@ test('JJ’s final words (5d360cd7); the help’s body has no internal names, th
  const pane=read('agent-ui/pane.tsx');
  a.match(pane,/<p className="dim" data-format-plan-tech>\{t\.formatPlanTech\}<\/p><pre className="dim" data-format-plan>\{MontClipFormat\.PLAN_LINES\.join\('\\n'\)\}<\/pre><\/details>/);
  a.ok(pane.indexOf('data-format-body')<pane.indexOf('data-format-plan'),'after the body, in the small print');
+});
+
+test('v7.2 (说明第 39 行): each step has its mark — ○, a spinner while 进行中, ✓ and the text struck through when 完成, ✕ — in the list',()=>{
+ a.match(read('agent-ui/pane.tsx'),/data-step-mark aria-hidden="true">\{st\.mark\}/);
+ a.match(read('app.js'),/mark:MontClipPlan\.stateMark\(s\.state\)/);
+ const css=read('style.css');
+ a.match(css,/\.cindy-plan li\[data-step-state="done"\] \[data-step-label\] \{[^}]*text-decoration: line-through/);
+ a.match(css,/\.cindy-plan li\[data-step-state="doing"\] \[data-step-mark\][^{]*\{[^}]*animation:/);
+ a.match(read('cindy-official.js'),/data-step-mark/,'the bundle was rebuilt');
 });

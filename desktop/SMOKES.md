@@ -14,6 +14,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `agent-errors-smoke.cjs` | `ERRORS_PASS` | 在用 |
 | `agent-minimum-smoke.cjs` | `MONTCLIP_MINIMUM_COMPLETE` | 在用 |
 | `agent-modes-smoke.cjs` | `MODES_PASS` | 在用 |
+| `agent-narrow-smoke.cjs` | `NARROW_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `agent-no-key-network-smoke.cjs` | `AGENT_NO_KEY_NETWORK_PASS` | 在用 |
 | `agent-plan-smoke.cjs` | `PLAN_PASS` | 在用 |
 | `agent-paste-smoke.cjs` | `MONTCLIP_PASTE_HARNESS_DISABLED (SKIPPED)`，退出码 0 | 已停用：会动系统剪贴板（138514e 起停用，没有开关能打开） |

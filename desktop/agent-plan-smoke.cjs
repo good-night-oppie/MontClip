@@ -2,11 +2,11 @@
 // P4, second half (Deja, 2026-11-03): the plan list in the real page. Fresh profile, hidden offscreen window, a synthetic
 // project (no media file is read) and a MOCK model: the transport is replaced in the main process and answers with the plan
 // the smoke sets for that turn. Mock replies say nothing about a real model's behaviour. Checks:
-//  - a plan reply shows as a list (the capability's plain sentence per step, 没开始), never its JSON or internal names;
+//  - a plan reply shows as a list (what each step changes, the capability's plain sentence under it, 待做; v7.2 states ○ 待做 / 进行中 / ✓ 完成 / ✕ 没做成), never its JSON or internal names;
 //  - before it starts, a step can be deleted;
 //  - 〔开始〕 in 手动: the host's box for the first step, 「这个聊天中都批准」, the next step of the same kind runs without
-//    asking; one step 正在做 at a time; every step an event of one run; 〔撤销整个计划〕 takes them all back at once;
-//  - a step that no longer fits the project fails and stops the plan there; the rest stay 没开始, with the reason;
+//    asking; one step 进行中 at a time; every step an event of one run; 〔撤销整个计划〕 takes them all back at once;
+//  - a step that no longer fits the project fails and stops the plan there; the rest stay 待做, with the reason;
 //  - a step the assistant can't do yet stops the plan, saying so;
 //  - 计划 mode: 〔开始〕 is off; 〔整个不要〕 drops a plan and nothing is done.
 //   electron desktop/agent-plan-smoke.cjs --montclip-smoke --user-data-dir=<fresh>     → PLAN_PASS / PLAN_FAIL
@@ -41,7 +41,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
    await read(`document.querySelector('.cindy-send button').click();true`);await wait();
    await read(`document.querySelector('.cindy-confirm[open] button').click();true`);await wait(500);
   };
-  const view=()=>read(`(()=>{const p=document.querySelector('[data-plan]');if(!p)return null;return{text:p.textContent,steps:[...p.querySelectorAll('li')].map(li=>({label:li.querySelector('[data-step-label]').textContent,state:li.querySelector('[data-step-state-text]').textContent,reason:li.querySelector('[data-step-reason]')?.textContent||''})),
+  const view=()=>read(`(()=>{const p=document.querySelector('[data-plan]');if(!p)return null;return{text:p.textContent,steps:[...p.querySelectorAll('li')].map(li=>({label:li.querySelector('[data-step-label]').textContent,detail:li.querySelector('[data-step-detail]')?.textContent||'',mark:li.querySelector('[data-step-mark]').textContent,state:li.querySelector('[data-step-state-text]').textContent,reason:li.querySelector('[data-step-reason]')?.textContent||''})),
    start:p.querySelector('[data-plan-start]')?{disabled:p.querySelector('[data-plan-start]').disabled}:null,undo:!!p.querySelector('[data-plan-undo]'),note:p.querySelector('[data-plan-note]')?.textContent||''};})()`);
   const box=()=>read(`(()=>{const d=document.querySelector('[data-agent-approval][open]');return d?{label:d.querySelector('[data-ap-label]').textContent,summary:d.querySelector('[data-ap-summary]').textContent}:null;})()`);
   const until=async(f,ms=6000)=>{const end=Date.now()+ms;let v;while(!(v=await f())&&Date.now()<end)await wait(100);return v;};
@@ -51,21 +51,24 @@ BrowserWindow.prototype.loadURL=async function(...args){
   if(!v1)report.debug=await read(`(()=>{try{return {log:document.querySelector('[role=log]').textContent.slice(-300),plan:typeof MontClipPlan,mode:agentPolicy.mode,opt:typeof window.montclipAgentPolicy,status:document.querySelector('.cindy-port [role=status]:last-of-type')?.textContent};}catch(e){return String(e)}})()`);
   assert.ok(v1,'the plan list is shown');
   assert.deepEqual(v1.steps.map(s=>s.label),[Cap.label('keep_ranges','zh-CN'),Cap.label('keep_ranges','zh-CN'),Cap.label('fablecut_export','zh-CN')]);
-  assert.deepEqual(v1.steps.map(s=>s.state),['没开始','没开始','没开始']);
+  assert.deepEqual(v1.steps.map(s=>s.state),['待做','待做','待做']);
+  // what each step changes, first (VV on #84 53f641d): the two keep steps differ; the export says nothing more
+  assert.deepEqual(v1.steps.map(s=>s.detail),['保留 0:00–1:55','保留 0:00–1:50','']);
+  assert.deepEqual(v1.steps.map(s=>s.mark),['○','○','○']);
   assert.ok(!/keep_ranges|fablecut_|"type"/.test(v1.text),'no internal names, no JSON');
   await shot('plan-todo');
   assert.match(await read(`document.querySelector('[role=log] .cindy-message:last-child').textContent`),/已排好计划，共 3 步/);
   await read(`document.querySelectorAll('[data-plan] [data-step-remove]')[2].click();true`);await wait();
   assert.equal((await view()).steps.length,2,'deleted before it started');
-  // 2. 〔开始〕 in 手动: the box for step 1 (one step 正在做), 「都批准」, step 2 runs without asking
+  // 2. 〔开始〕 in 手动: the box for step 1 (one step 进行中), 「都批准」, step 2 runs without asking
   const before=await clips();
   await read(`document.querySelector('[data-plan-start]').click();true`);
   const b1=await until(box);report.box=b1;assert.ok(b1,'手动 asks for the first step');assert.equal(b1.label,Cap.label('keep_ranges','zh-CN'));assert.match(b1.summary,/第 1 步，共 2 步/);
-  assert.deepEqual((await view()).steps.map(s=>s.state),['正在做','没开始'],'one step 正在做');
+  assert.deepEqual((await view()).steps.map(s=>s.state),['进行中','待做'],'one step 进行中');
   await shot('plan-doing');
   assert.equal(await read(`document.querySelector('[data-plan] [data-step-remove]')`),null,'no deleting once started');
   await read(`document.querySelector('[data-agent-approval][open] [data-choice="session"]').click();true`);
-  const done=await until(async()=>{const v=await view();return v&&v.steps.every(s=>s.state==='做完了')&&v.undo?v:null;},10000);
+  const done=await until(async()=>{const v=await view();return v&&v.steps.every(s=>s.state==='完成')&&v.undo?v:null;},10000);
   report.done=done&&{states:done.steps.map(s=>s.state),note:done.note};
   assert.ok(done,'both steps done; the second without asking');await shot('plan-done');assert.match(done.note,/每一步都做完了/);
   const after=await clips();report.clips=[before,after];assert.equal(after,'range0_range0_v1:110');
@@ -77,13 +80,13 @@ BrowserWindow.prototype.loadURL=async function(...args){
   const undone=await read(`(()=>{const e=eventLog().list().filter(e=>e.actor==='ai'&&e.capability==='keep_ranges');const last=e.at(-1);return e.filter(x=>x.runId===last.runId).map(x=>x.state);})()`);
   assert.deepEqual(undone,['undone','undone']);
   await read(`flushSave()`);await wait();
-  // 4. 自动, a step that no longer fits: step 1 done, step 2 fails, step 3 stays 没开始 — the plan stopped there
+  // 4. 自动, a step that no longer fits: step 1 done, step 2 fails, step 3 stays 待做 — the plan stopped there
   await read(`document.querySelector('[data-mode="auto"]').click();true`);await wait();
   await turn({type:'plan',steps:[keep('v1',0,115),keep('v1',0,100),keep('range0_v1',0,90)]});
   await read(`document.querySelector('[data-plan-start]').click();true`);
   const stopped=await until(async()=>{const v=await view();return v&&v.steps.some(s=>s.state==='没做成')?v:null;},10000);
   report.stopped=stopped&&stopped.steps;
-  assert.deepEqual(stopped.steps.map(s=>s.state),['做完了','没做成','没开始']);
+  assert.deepEqual(stopped.steps.map(s=>s.state),['完成','没做成','待做']);
   assert.equal(stopped.steps[1].reason,'和现在的项目对不上。');await shot('plan-failed');assert.match(stopped.note,/计划停在了这一步/);
   assert.equal(await box(),null,'自动 did not ask');
   await read(`document.querySelector('[data-plan-undo]').click();true`);await wait(300);assert.equal(await clips(),before);
@@ -92,7 +95,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await turn({type:'plan',steps:[{capability:'fablecut_scopes',args:{}},keep('v1',0,115)]});
   await read(`document.querySelector('[data-plan-start]').click();true`);
   const cant=await until(async()=>{const v=await view();return v&&v.steps[0].state==='没做成'?v:null;});
-  assert.equal(cant.steps[0].reason,'助手现在还做不了这一步。');assert.equal(cant.steps[1].state,'没开始');assert.equal(await clips(),before);
+  assert.equal(cant.steps[0].reason,'助手现在还做不了这一步。');assert.equal(cant.steps[1].state,'待做');assert.equal(await clips(),before);
   // 6. 计划 mode: 〔开始〕 off; 〔整个不要〕 drops it, nothing done
   await read(`document.querySelector('[data-mode="plan"]').click();true`);await wait();
   await turn({type:'plan',steps:[keep('v1',0,115)]});

@@ -22823,7 +22823,7 @@ function paintAgentMode(){const mark=document.getElementById('mcYoloMark');if(ma
 function askAgentApproval(d,{summary='',content=null}={}){
  return new Promise((resolve)=>{
   const dialog=document.createElement('dialog');dialog.className='agent-approval';dialog.setAttribute('data-agent-approval','');
-  const say=(k,v)=>escapeHtml(uiText(k,v)),choice=(c)=>'<button type="button" class="btn'+(c==='deny'?'':' primary')+'" data-choice="'+c+'">'+say('own.ap-'+c)+'</button>';
+  const say=(k,v)=>escapeHtml(uiText(k,v)),choice=(c)=>'<button type="button" class="btn'+(c==='once'?' primary':'')+'" data-choice="'+c+'">'+say('own.ap-'+c)+'</button>';
   dialog.innerHTML='<form method="dialog"><h3>'+say('own.ap-title')+'</h3><p data-ap-label></p><p data-ap-summary></p><p data-ap-target></p>'
    +(content!=null?'<p>'+say('own.ap-content')+'</p><pre data-ap-content></pre>':'')
    +(d.choices.includes('session')?'':'<p data-ap-every-time>'+say('own.ap-every-time')+'</p>')
@@ -22904,7 +22904,7 @@ const planReason=(code)=>code?uiText(PLAN_REASON[code]||'own.pl-stale'):'';
 function agentPlanView(result){
  const entry=agentPlanOf(result);if(!entry)return null;
  const lang=mcView.get().language,status=entry.run.status();
- return {status,steps:entry.run.list().map((s)=>({label:MontClipPlan.stepLabel(s,lang),state:s.state,stateText:MontClipPlan.stateLabel(s.state,lang),reason:planReason(s.code)})),
+ return {status,steps:entry.run.list().map((s)=>({label:MontClipPlan.stepLabel(s,lang),detail:MontClipPlan.stepDetail(s,lang),state:s.state,stateText:MontClipPlan.stateLabel(s.state,lang),mark:MontClipPlan.stateMark(s.state),reason:planReason(s.code)})),
   canStart:status==='ready'&&!entry.busy&&agentPolicy.mode!=='plan',
   note:entry.note||(status==='ready'&&agentPolicy.mode==='plan'?uiText('own.pl-plan-mode'):status==='discarded'?uiText('own.pl-discarded'):status==='done'?uiText('own.pl-done'):status==='stopped'?uiText('own.pl-stopped'):''),
   canUndo:!entry.busy&&entry.applied>0&&(status==='done'||status==='stopped')};
@@ -22976,6 +22976,8 @@ const mcAgentPanel=document.getElementById('mcAssistantPanel');
 document.querySelector(".upper > .inspector").append(mcAgentPanel);
 document.querySelector(".topbar-right").prepend(document.getElementById("mcMediaToggle"));
 document.querySelector(".topbar-right").insertBefore(document.querySelector(".mc-history"),document.getElementById("btnExport"));
+// a narrow window's assistant lies over the editor under the top bar (style.css, max-width 760px): the bar's height, kept current
+{const bar=document.querySelector(".app > .topbar"),set=()=>document.documentElement.style.setProperty("--mc-topbar-h",Math.ceil(bar.getBoundingClientRect().bottom)+"px");set();if(typeof ResizeObserver!=="undefined")new ResizeObserver(set).observe(bar);addEventListener("resize",set);}
 document.getElementById("mcMediaToggle").onclick=()=>document.getElementById("app").classList.toggle("media-open");
 mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentContent'),
  getContext:agentProjectContext,ensureProject:ensureAgentProject,

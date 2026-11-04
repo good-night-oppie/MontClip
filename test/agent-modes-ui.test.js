@@ -65,7 +65,7 @@ test('new words, both languages (for JJ)',()=>{
 test('the switch sits at the top of the assistant; the Yolo mark is in the pane and the top bar',()=>{
  const pane=read('agent-ui/pane.tsx'),html=read('index.html');
  a.ok(pane.indexOf('data-agent-modes')<pane.indexOf('cindy-thread'),'above the thread');
- a.match(pane,/options\.getMode\?\.\(\)==='yolo'&&<p className="agent-yolo-on" role="status" data-yolo-on>/);
+ a.match(pane,/options\.getMode\?\.\(\)==='yolo'&&<p className="agent-yolo-on" role="status" data-yolo-on title=\{t\.yoloOn\}>/);
  a.match(html,/<span class="mc-yolo-mark" id="mcYoloMark" role="status" hidden data-i18n="own\.ap-yolo-on">/);
  a.match(read('cindy-official.js'),/data-agent-modes/,'the bundle was rebuilt');
 });
@@ -88,4 +88,16 @@ test('the approval box is centred over a dimmed page (the page resets every marg
  const css=read('style.css');
  a.match(css,/^\* \{[^}]*margin: 0;/m);
  a.match(css,/\.agent-approval \{ margin: auto; \}/);a.match(css,/\.agent-approval::backdrop \{ background: #0009; \}/);
+});
+
+test('Yolo is said one way (v7.2; Deja, 2026-11-04): the bar and the mode tip say the same, in the words of v7.2',()=>{
+ const zh=View.text['zh-CN'],en=View.text.en;
+ a.equal(zh.officialPane_yoloOn,'Yolo 开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。');
+ a.equal(zh.officialPane_modeYoloTip,'每一步都直接做，不问你；往外发的内容照样先给你看');
+ a.equal(en.officialPane_yoloOn,'Yolo is on: the AI does every step without asking you; anything sent out is still shown to you first.');
+ a.equal(en.officialPane_modeYoloTip,'Does every step without asking you; anything sent out is still shown to you first');
+});
+
+test('the approval box has one main button: 〔只批准这次〕 (VV on #84 53f641d; 「这个聊天中都批准」 and 〔不同意〕 are plain)',()=>{
+ a.match(read('app.js'),/choice=\(c\)=>'<button type="button" class="btn'\+\(c==='once'\?' primary':''\)\+'" data-choice="'/);
 });
