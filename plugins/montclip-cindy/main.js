@@ -85,11 +85,32 @@ function sendCard(callId, c) {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/* Each Cindy task edits its own project. Cindy hands every tool call the task it came from (sessionContext); the
+   engine has one project open at a time, so a call first makes sure it is this task's (the worker binds one at a time). */
+const taskOf = (msg) => (msg && msg.args && msg.args.session_context && msg.args.session_context.session_id) || null;
+async function forTask(msg) {
+  const session = taskOf(msg);
+  return session ? node('montclip/bind', { session }) : null;
+}
+/* The status card: what is ready, and — when this task has no editor tab — a button that opens it. */
+function statusCard(s, editorOpen) {
+  const row = (k, v) => '<div style="display:flex;gap:10px"><span style="color:var(--text-secondary,#6b6b66);min-width:5em">' + esc(k) + '</span><span>' + esc(v) + '</span></div>';
+  const ff = { downloaded: '已装好', changed: '文件和装时不一样，建议重新安装', missing: '还没装（导出、降噪要用）' }[s.ffmpeg] || s.ffmpeg;
+  return '<div style="padding:12px 14px;color:var(--text-primary,#1a1a1a);font:13px/1.5 system-ui,sans-serif">' +
+    '<div style="font-weight:600;margin-bottom:6px">MontClip</div>' +
+    row('项目', s.project || '—') + row('剪辑器', editorOpen ? '已在这个任务里打开' : '没有打开') + row('ffmpeg', ff) +
+    (editorOpen ? '' : '<div style="margin-top:10px"><button data-ghost-action="open-editor" style="font:inherit;padding:5px 12px;border-radius:6px;border:0;background:var(--accent,#4b3fd6);color:#fff">在这个任务里打开剪辑器</button></div>') +
+    '</div>';
+}
+
 const HANDLERS = {
-  async montclip_status() {
+  async montclip_status(args, msg) {
+    const bound = await forTask(msg).catch(() => null);
     const s = await node('montclip/start');
     let editor = null;
     try { editor = await node('montclip/ui', { cmd: 'state' }); } catch (e) { editor = { error: String(e.message) }; }
+    const open = !!(editor && editor.status === 200);
+    cindy.send({ type: 'card-update', callId: msg.callId, v: 2, html: statusCard({ ffmpeg: s.ffmpeg, project: bound && bound.name }, open), height: open ? 120 : 160 });
     return { engine: publicStart(s), editorTab: editor && editor.status === 200 ? editor
       : { open: false, note: 'The editor is not open in this task: montclip_open_task_view opens it. Undo / redo need it; without it, go back with fablecut_versions.' } };
   },
@@ -104,7 +125,8 @@ const HANDLERS = {
     if (!list.length) return { error: 'unknown category', categories: Object.keys(CATEGORIES).concat('other') };
     return { category: args.category, rules: RULES[args.category] || '', tools: list };
   },
-  async call_tool(args) {
+  async call_tool(args, msg) {
+    await forTask(msg);
     const tools = await engineTools();
     const name = String(args.name || '');
     const tool = tools.find((t) => t.name === name);
@@ -115,13 +137,14 @@ const HANDLERS = {
       return { error: String(e.message), inputSchema: tool.inputSchema, rules: RULES[categoryOf(name)] || '' };
     }
   },
-  async montclip_undo() { return node('montclip/ui', { cmd: 'undo' }); },
-  async montclip_redo() { return node('montclip/ui', { cmd: 'redo' }); },
-  async montclip_seek(args) { return node('montclip/ui', { cmd: 'seek', t: Number(args.t) }); },
+  async montclip_undo(args, msg) { await forTask(msg); return node('montclip/ui', { cmd: 'undo' }); },
+  async montclip_redo(args, msg) { await forTask(msg); return node('montclip/ui', { cmd: 'redo' }); },
+  async montclip_seek(args, msg) { await forTask(msg); return node('montclip/ui', { cmd: 'seek', t: Number(args.t) }); },
   /* Export, and save the file into a folder the user picks in the system dialog (folder:"default" keeps it in the
      MontClip data folder's exports/). Progress shows on this call's card. */
   async montclip_export(args, msg) {
     const callId = msg.callId;
+    await forTask(msg);
     let folder = null, dir = null;
     if (args.folder !== 'default') {
       if (typeof cindy.pick !== 'function') return { error: 'This Cindy cannot show a folder dialog for plugins; update Cindy, or pass folder:"default".', code: 'HOST_TOO_OLD' };
@@ -166,15 +189,23 @@ const HANDLERS = {
   /* Only when the user agreed to the download (about 160 MB). */
   async montclip_install_ffmpeg() { return installFfmpeg(); },
   /* Open (or focus) the editor as this task's own tab in the task's right sidebar. */
-  async montclip_open_task_view(args) {
+  async montclip_open_task_view(args, msg) {
     if (typeof cindy.taskView !== 'function') return { error: 'This Cindy has no task views; update Cindy.' };
-    const opened = await cindy.taskView(args.sessionId ? { sessionId: String(args.sessionId) } : {});
-    return opened;
+    const session = args.sessionId ? String(args.sessionId) : taskOf(msg);   // the task the chat is in, not whichever is in front
+    return cindy.taskView(session ? { sessionId: session } : {});
   },
 };
 
 cindy.onHostMessage(async function (msg) {
   if (msg.type === 'event' && msg.name === 'download-progress') { onDownloadProgress(msg.data); return; }
+  // the status card's button: a real click in the card, in its own task
+  if (msg.type === 'event' && msg.name === 'card-action' && msg.actionId === 'open-editor') {
+    const r = typeof cindy.taskView === 'function' ? await cindy.taskView(msg.sessionId ? { sessionId: msg.sessionId } : {}) : { ok: false, errorCode: 'HOST_TOO_OLD' };
+    cindy.send({ type: 'card-update', callId: msg.callId, v: 2, height: 90,
+      html: '<div style="padding:12px 14px;color:var(--text-primary,#1a1a1a);font:13px/1.5 system-ui,sans-serif">' +
+        (r && r.ok ? '剪辑器已在右侧栏打开。' : '没能打开剪辑器：' + esc((r && (r.message || r.errorCode)) || '')) + '</div>' });
+    return;
+  }
   if (msg.type !== 'tool-call') return;
   const fn = Object.prototype.hasOwnProperty.call(HANDLERS, msg.tool) ? HANDLERS[msg.tool] : null;
   if (!fn) { await cindy.send({ type: 'tool-result', callId: msg.callId, ok: false, errorCode: 'TOOL_NOT_FOUND', message: msg.tool }); return; }
@@ -200,6 +231,9 @@ channel.onmessage = async (e) => {
     if (m.type === 'editor') { const s = await node('montclip/start'); a = { origin: s.origin, url: s.url }; }
     else if (m.type === 'bind') a = await node('montclip/bind', { session: String(m.session || '') });
     else if (m.type === 'ffmpeg-state') a = await node('montclip/ffmpeg-spec');
+    else if (m.type === 'overview') a = await node('montclip/overview');
+    // the main view's button: open that task's editor tab and go to the task (Cindy checks it follows a real click)
+    else if (m.type === 'open-task') a = typeof cindy.taskView === 'function' ? await cindy.taskView({ sessionId: String(m.session || ''), focus: true }) : { ok: false, errorCode: 'HOST_TOO_OLD' };
     else if (m.type === 'ffmpeg-install') a = await installFfmpeg();   // the banner's button: the user's own click
     else a = { error: 'unknown request ' + m.type };
   } catch (err) { a = { error: String(err.message || err), code: err.code || null }; }

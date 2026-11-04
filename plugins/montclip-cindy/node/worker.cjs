@@ -180,6 +180,24 @@ const METHODS = {
     note({ event: "export-delivered", files: out.length });
     return { files: out };
   },
+  /* The main view's overview, across tasks: every project (and the task it belongs to), and what was exported. */
+  async "montclip/overview"() {
+    await start();
+    const list = (await api("GET", "/api/projects")).body || {};
+    const byProject = {};
+    for (const [session, id] of Object.entries(binder.map())) byProject[id] = session;
+    const projects = (list.projects || []).map((x) => ({ id: x.id, name: x.name, active: !!x.active, modified: x.modified || null,
+      duration: x.duration ?? null, clips: x.clips ?? null, task: byProject[x.id] || null }));
+    const dir = path.join(DATA, "exports");
+    let exports = [];
+    try {
+      exports = fs.readdirSync(dir).filter((f) => !f.startsWith(".") && !f.endsWith(".part")).map((f) => {
+        const st = fs.statSync(path.join(dir, f));
+        return st.isFile() ? { name: f, bytes: st.size, modified: st.mtime.toISOString() } : null;
+      }).filter(Boolean).sort((a, b) => b.modified.localeCompare(a.modified)).slice(0, 50);
+    } catch { }
+    return { projects, exports, ffmpeg: started.ffmpeg, dataDir: DATA };
+  },
   async "montclip/bind"(p) {
     await start();
     const b = await binder.bind(p.session);

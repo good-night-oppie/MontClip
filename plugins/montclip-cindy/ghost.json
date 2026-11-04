@@ -5,14 +5,14 @@
   "name": "MontClip",
   "description": "在 Cindy 任务里打开 MontClip 剪辑器，跟聊天同屏；在聊天里用自然语言剪辑本机录像和音频（删段、降噪、字幕、导出等 fablecut 操作），可撤销、重做，并能列出版本、回到某一版。插件带一个本机 Node 进程运行 MontClip 引擎，可读写本机文件。",
   "whenToUse": "需要剪辑本机录像或音频时：删掉某段、剪掉停顿、按文字剪、加字幕、调音量、降噪、按节拍剪、导出 MP4；撤销或重做剪辑；查看或回到 MontClip 项目的某个版本；在这个任务里打开 MontClip 剪辑器。",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "entry": "main.js",
   "command": "剪辑",
   "icon": "assets/icon.png",
   "tools": [
     {
       "name": "montclip_status",
-      "description": "启动（如未启动）MontClip 引擎，返回引擎状态、ffmpeg 是否已装、数据目录，以及这个任务的剪辑器页是否已打开（撤销/重做需要它打开）。先调这个。",
+      "description": "启动（如未启动）MontClip 引擎，切到这个任务自己的项目，返回引擎状态、ffmpeg 是否已装、数据目录，以及剪辑器页是否已打开（撤销/重做需要它打开）。聊天里会出现一张状态卡；剪辑器没打开时卡上有「在这个任务里打开剪辑器」按钮。先调这个。",
       "parameters": {
         "type": "object",
         "properties": {}
@@ -122,7 +122,7 @@
     },
     {
       "name": "montclip_open_task_view",
-      "description": "在这个任务的右侧栏打开（或切到）MontClip 剪辑器页签，跟聊天并排。每个任务对应自己的 MontClip 项目。",
+      "description": "在这个任务的右侧栏打开（或切到）MontClip 剪辑器页签，跟聊天并排；用户说「打开剪辑器」「剪这段录像」时调用。每个任务对应自己的 MontClip 项目。不传 sessionId 就是聊天所在的这个任务。",
       "parameters": {
         "type": "object",
         "properties": {
@@ -137,6 +137,11 @@
   "taskView": {
     "title": "MontClip 剪辑器",
     "html": "task-view.html"
+  },
+  "mainView": {
+    "title": "MontClip",
+    "icon": "image",
+    "html": "main-view.html"
   },
   "panel": {
     "title": "MontClip 面板",
@@ -156,6 +161,7 @@
   },
   "card": {},
   "pick": true,
+  "sessionContext": true,
   "node": {
     "entry": "node/worker.cjs",
     "protocol": "json-rpc-stdio",

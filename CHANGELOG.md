@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Cindy plugin entry points: the status card's 「在这个任务里打开剪辑器」 button, `montclip_open_task_view` in the chat's own
+  task, every tool call bound to that task's project (`sessionContext`), and a main view that is an overview across
+  tasks with a hint to pin MontClip to the left navigation.
 - Cindy plugin export: `montclip_export` saves into a folder the user picks (never over an existing file) and shows
   the export's progress on its chat card.
 - Cindy plugin first-use ffmpeg: a banner in the editor tab (or `montclip_install_ffmpeg` from the chat) downloads the

@@ -1,0 +1,18 @@
+html, body { margin: 0; background: var(--panel-bg, #f7f7f5); color: var(--text-primary, #1a1a1a);
+  font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 760px; margin: 0 auto; padding: 20px 24px 40px; }
+h1 { font-size: 20px; margin: 0 0 6px; }
+h2 { font-size: 14px; margin: 24px 0 8px; }
+.lead, .hint, .empty, .status { color: var(--text-secondary, #6b6b66); margin: 0 0 8px; }
+.pin { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; padding: 10px 12px; margin: 12px 0;
+  border: 1px solid var(--border-default, #e4e4e0); border-radius: 8px; background: var(--surface, #f7f7f5); }
+.pin[hidden] { display: none; }
+.pin span { flex: 1 1 320px; color: var(--text-secondary, #6b6b66); }
+.list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border-default, #e4e4e0); }
+.list li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 8px 2px; border-bottom: 1px solid var(--border-default, #e4e4e0); }
+.list .name { font-weight: 600; flex: 1 1 200px; overflow-wrap: anywhere; }
+.list .meta { color: var(--text-secondary, #6b6b66); font-variant-numeric: tabular-nums; }
+button { font: inherit; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-default, #d4d4cf);
+  background: transparent; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--accent, #4b3fd6); outline-offset: 1px; }
+.status.error { color: var(--text-danger, #b42318); }

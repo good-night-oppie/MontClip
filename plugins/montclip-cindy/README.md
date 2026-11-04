@@ -53,6 +53,14 @@ The second shell around the one MontClip engine (the repository root). The first
   shows the progress on its chat card (`card`, HTML only) and copies the files into that folder — to `<name>.part`
   first, never over an existing file (`clip (2).mp4`). The engine's own copy stays in `exports/`.
 
+- **Ways in.** In a task: the chat calls `montclip_open_task_view` (the task the chat is in — Cindy hands every
+  tool call its task through `sessionContext`), or the user clicks 「在这个任务里打开剪辑器」 on the status card
+  `montclip_status` draws. Every tool call first binds the chat's own task's project. The main view (`mainView`,
+  a page of its own) is only an overview across tasks — projects with their task, exported files — whose 「在任务中打开」
+  opens that task's editor tab and goes to the task (`cindy.taskView({sessionId, focus:true})`, which Cindy allows
+  right after a real click). It also asks the user to pin MontClip to the left navigation (「更多」→「自定义」): from
+  the 「更多」 menu Cindy 0.1.122 always opens a plugin's main view as a full page.
+
 ## Develop
 
 ```
