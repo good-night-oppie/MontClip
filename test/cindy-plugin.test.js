@@ -284,18 +284,18 @@ test("another holder (a server started by hand, or one that cannot be told): the
   assert.match(frame, /b\.textContent = '重试';/);
 });
 
-test("the editor tab's two failure lines: plain words first, the raw error after in small print, only when there is one", () => {
+test("the editor tab's two failure lines: plain words, then 〔复制问题信息〕 when there is an error (JJ v2; was #112's small print)", () => {
   const frame = fs.readFileSync(path.join(PLUGIN, "frame.js"), "utf8");
-  const failureText = new Function(frame.slice(frame.indexOf("function failureText("), frame.indexOf("/* The task view:")) + "\nreturn failureText;")();
-  assert.deepEqual(failureText("MontClip 没能打开这个任务的项目。", "could not open the task's project: {\"error\":\"x\"}"),
-    { text: "MontClip 没能打开这个任务的项目。关掉这个页签再打开试试；还不行，把下面这行发给我们：", detail: "could not open the task's project: {\"error\":\"x\"}" });
-  assert.deepEqual(failureText("MontClip 没能启动。", "the MontClip engine did not start"),
-    { text: "MontClip 没能启动。关掉这个页签再打开试试；还不行，把下面这行发给我们：", detail: "the MontClip engine did not start" });
+  const Problem = require(path.join(PLUGIN, "problem-details.js"));
+  const failureText = new Function("console", "window", "MontClipProblem", frame.slice(frame.indexOf("const COPY = {"), frame.indexOf("/** Put the copy button")) + "\nreturn failureText;")({ warn() { } }, { MontClipProblem: Problem }, Problem);
+  const a = failureText("MontClip 没能打开这个任务的项目。", "could not open the task's project: {\"error\":\"x\"}", "PROTOCOL_ERROR");
+  assert.equal(a.text, "MontClip 没能打开这个任务的项目。关掉这个页签再打开试试；还不行，点「复制问题信息」发给我们。");
+  assert.deepEqual(a.problem, { code: "PROTOCOL_ERROR", error: "could not open the task's project: {\"error\":\"x\"}" }, "for the copy button, not the page");
+  assert.equal(failureText("MontClip 没能启动。", "the MontClip engine did not start").text, "MontClip 没能启动。关掉这个页签再打开试试；还不行，点「复制问题信息」发给我们。");
   for (const none of [undefined, null, "", "  "])
-    assert.deepEqual(failureText("MontClip 没能启动。", none), { text: "MontClip 没能启动。关掉这个页签再打开试试。", detail: "" });
-  assert.match(frame, /failureText\('MontClip 没能打开这个任务的项目。', b\.error\)/);
-  assert.match(frame, /failureText\('MontClip 没能启动。', a\.error\)/);
-  assert.match(frame, /d\.className = 'detail'; d\.textContent = detail;/, "small print, as text");
+    assert.deepEqual(failureText("MontClip 没能启动。", none), { text: "MontClip 没能启动。关掉这个页签再打开试试。", problem: null });
+  assert.match(frame, /failureText\('MontClip 没能打开这个任务的项目。', b\.error, b\.code\)/);
+  assert.match(frame, /failureText\('MontClip 没能启动。', a\.error, a\.code\)/);
 });
 
 test("the plugin's description: JJ's final words", () => {

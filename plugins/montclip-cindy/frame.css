@@ -18,4 +18,7 @@ iframe.engine { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; backgroun
 #ffmpeg.error p { color: var(--text-danger, #b42318); }
 #ffmpeg p.detail { flex: 1 1 100%; font-size: 12px; color: var(--text-secondary, #6b6b66); overflow-wrap: anywhere; }
 #status button { font: inherit; padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border-default, #d4d4cf); background: transparent; color: inherit; cursor: pointer; }
-#status .detail { font-size: 11px; color: var(--text-secondary, #6b6b66); user-select: text; overflow-wrap: anywhere; max-width: 100%; }
+/* 〔复制问题信息〕 and its small print (JJ v2): the raw error itself is never on the page */
+#status .note, #ffmpeg .copybox .note { font-size: 11px; color: var(--text-secondary, #6b6b66); max-width: 100%; }
+#ffmpeg .copybox { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+#ffmpeg .copybox[hidden] { display: none; }
