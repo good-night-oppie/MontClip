@@ -7,7 +7,7 @@ const N = require('../desktop/native-text');
 const main = fs.readFileSync(path.join(__dirname, '..', 'desktop', 'main.js'), 'utf8');
 const KEYS = ['closeTitle', 'closeMessage', 'closeDetail', 'closeKeepWaiting', 'closeForce', 'serviceStopped',
   'startFailedTitle', 'startFailedHint', 'serviceStartTimeout', 'serviceExitedAtStart', 'serviceStoppedTitle', 'ok',
-  'dataDirInUseTitle', 'dataDirInUse', 'dataDirInUseHint', 'dataDirInUseOk'];
+  'dataDirInUseTitle', 'dataDirInUseCindy', 'dataDirInUseDesktop', 'dataDirInUseHint', 'dataDirInUseOk'];
 const startFailure = fs.readFileSync(path.join(__dirname, '..', 'desktop', 'startup-failure.js'), 'utf8');
 
 test('each native string in one language at a time', () => {
