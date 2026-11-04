@@ -14,15 +14,15 @@ const net = require("node:net");
 const http = require("node:http");
 const readline = require("node:readline");
 const { spawn, spawnSync } = require("node:child_process");
-const { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg, unpackCode, exportFiles, deliverFiles,
-  openFolder, rememberFolder, rememberedFolders } = require("./lib.cjs");
+const { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg, unpackCode, zipUnpackedBytes, freeBytes, spaceNeeded,
+  exportFiles, deliverFiles, openFolder, rememberFolder, folderOfJob } = require("./lib.cjs");
 
 for (const k of ["log", "info", "debug", "warn", "error"]) console[k] = (...a) => process.stderr.write(a.map(String).join(" ") + "\n");
 
 const APP = path.resolve(process.env.MONTCLIP_CINDY_APP || path.join(__dirname, "app"));
 // the plugin's work lives in the user's home, never inside the plugin (an update replaces the plugin folder)
 const DATA = path.resolve(process.env.MONTCLIP_CINDY_DATA || path.join(os.homedir(), "MontClip-Cindy"));
-const FOLDERS_FILE = path.join(DATA, "cindy-export-folders.json");   // the folders exports went into (打开文件夹)
+const FOLDERS_FILE = path.join(DATA, "cindy-export-folders.json");   // which folder each export went into (打开文件夹)
 const PLATFORM = `${process.platform}-${process.arch}`;
 const FFMPEG_DIR = path.join(DATA, "ffmpeg", PLATFORM);
 // the Windows app's own pinned-build manifest and installer (build.cjs copies them in)
@@ -140,14 +140,25 @@ const METHODS = {
     if (!spec.supported) throw Object.assign(new Error("there is no pinned ffmpeg build for " + PLATFORM), { code: "UNSUPPORTED_PLATFORM" });
     const F = fetchFfmpeg();
     const tar = process.platform === "win32" ? path.join(process.env.SystemRoot || "C:\\Windows", "System32", "tar.exe") : "/usr/bin/tar";
-    const out = installFfmpeg({
-      archive: p.downloads && p.downloads.archive, spec, dest: FFMPEG_DIR, win: process.platform === "win32", tmpDir: os.tmpdir(),
+    const archive = p.downloads && p.downloads.archive;
+    let out;
+    try {
+      out = installFfmpeg({
+      archive, spec, dest: FFMPEG_DIR, win: process.platform === "win32", tmpDir: os.tmpdir(),
       sha256: F.sha256, installTree: F.installTree, check: F.checkLgpl, manifest: ffmpegManifest(),
       extract: (archive, dir) => {
         const t = spawnSync(tar, ["-xf", archive, "-C", dir], { encoding: "utf8", windowsHide: true });
         if (t.status !== 0) throw Object.assign(new Error("unpacking failed: " + (t.stderr || t.error)), { code: unpackCode(t.stderr || String(t.error)) });
       },
-    });
+      });
+    } catch (e) {
+      // 磁盘空间不够: how much to free, on the drive that ran out (a copy names it; tar unpacks into the temp folder)
+      if (e && e.code === "ENOSPC") {
+        let archiveBytes = 0; try { archiveBytes = fs.statSync(archive).size; } catch { }
+        e.need = spaceNeeded({ archiveBytes, unpackedBytes: zipUnpackedBytes(archive), free: freeBytes(e.dest || e.path ? path.dirname(e.dest || e.path) : os.tmpdir()) });
+      }
+      throw e;
+    }
     note({ event: "ffmpeg-installed", version: out.version });
     const restarting = !!started;
     if (restarting) setTimeout(() => process.exit(0), 300);
@@ -180,7 +191,7 @@ const METHODS = {
       if (Date.now() - last > 1000) { last = Date.now(); note({ event: "export-copy", bytes: sent }); }   // activity keeps the request alive
     });
     note({ event: "export-delivered", files: out.length });
-    try { rememberFolder(FOLDERS_FILE, String(p.dir)); } catch (e) { note({ event: "folders-not-kept", error: String(e.message) }); }
+    try { rememberFolder(FOLDERS_FILE, String(p.id), String(p.dir)); } catch (e) { note({ event: "folders-not-kept", error: String(e.message) }); }
     return { files: out };
   },
   /* The main view's overview, across tasks: every project (and the task it belongs to), and what was exported. */
@@ -201,12 +212,15 @@ const METHODS = {
     } catch { }
     return { projects, exports, ffmpeg: started.ffmpeg, dataDir: DATA };
   },
-  /* 打开文件夹: only the exports folder or a folder an export was delivered into (openFolder refuses the rest) */
+  /* 打开文件夹 / 打开导出文件夹: {folder:"exports"} opens MontClip's exports folder, {job} the folder that export went
+     into. The allow-list is those two folders and nothing else: no request can name a path. */
   async "montclip/open-folder"(p) {
     const exportsDir = path.join(DATA, "exports");
     fs.mkdirSync(exportsDir, { recursive: true });
-    const target = p.folder === "exports" ? exportsDir : p.folder;
-    return openFolder(target, { allowed: [exportsDir, ...rememberedFolders(FOLDERS_FILE)], spawn });
+    const picked = p.job != null ? folderOfJob(FOLDERS_FILE, p.job) : null;
+    const target = p.folder === "exports" && p.job == null ? exportsDir : picked;
+    if (!target) throw Object.assign(new Error("only the exports folder or the folder an export went into can be opened"), { code: "FOLDER_NOT_ALLOWED" });
+    return openFolder(target, { allowed: [exportsDir, ...(picked ? [picked] : [])], spawn });
   },
   async "montclip/bind"(p) {
     await start();
@@ -227,6 +241,6 @@ readline.createInterface({ input: process.stdin }).on("line", async (line) => {
   try { reply({ jsonrpc: "2.0", id: req.id, result: await fn(req.params || {}) }); }
   catch (e) {
     note({ event: "error", method: req.method, message: String(e && e.message) });
-    reply({ jsonrpc: "2.0", id: req.id, error: { code: typeof e.code === "number" ? e.code : -32000, message: String((e && e.message) || e), data: typeof e.code === "string" ? { code: e.code } : undefined } });
+    reply({ jsonrpc: "2.0", id: req.id, error: { code: typeof e.code === "number" ? e.code : -32000, message: String((e && e.message) || e), data: typeof e.code === "string" ? { code: e.code, ...(Number.isFinite(e.need) ? { need: e.need } : {}) } : undefined } });
   }
 });

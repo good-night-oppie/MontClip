@@ -176,6 +176,61 @@ function unpackCode(stderr) {
   return "UNPACK_FAILED";
 }
 
+/* 磁盘空间不够: how much to free, worked out as JJ asked — the archive's size + its unpacked size − the free space. */
+/** The unpacked size of a .zip, from its central directory (zip64 too); null when it is not a zip that can be read. */
+function zipUnpackedBytes(file) {
+  let fd;
+  try {
+    fd = fs.openSync(file, "r");
+    const size = fs.fstatSync(fd).size, tail = Math.min(size, 65557), buf = Buffer.alloc(tail);
+    fs.readSync(fd, buf, 0, tail, size - tail);
+    const e = buf.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+    if (e < 0) return null;
+    let count = buf.readUInt16LE(e + 10), cdSize = buf.readUInt32LE(e + 12), cdOff = buf.readUInt32LE(e + 16);
+    if (count === 0xffff || cdSize === 0xffffffff || cdOff === 0xffffffff) {   // zip64: the locator sits just before
+      if (e < 20 || buf.readUInt32LE(e - 20) !== 0x07064b50) return null;
+      const rec = Buffer.alloc(56);
+      fs.readSync(fd, rec, 0, 56, Number(buf.readBigUInt64LE(e - 12)));
+      if (rec.readUInt32LE(0) !== 0x06064b50) return null;
+      count = Number(rec.readBigUInt64LE(32)); cdSize = Number(rec.readBigUInt64LE(40)); cdOff = Number(rec.readBigUInt64LE(48));
+    }
+    const cd = Buffer.alloc(cdSize);
+    fs.readSync(fd, cd, 0, cdSize, cdOff);
+    let total = 0, at = 0;
+    for (let i = 0; i < count; i++) {
+      if (cd.readUInt32LE(at) !== 0x02014b50) return null;
+      let n = cd.readUInt32LE(at + 24);
+      const nameLen = cd.readUInt16LE(at + 28), extraLen = cd.readUInt16LE(at + 30), commentLen = cd.readUInt16LE(at + 32);
+      if (n === 0xffffffff) {   // the real size is in the zip64 extra field
+        for (let x = at + 46 + nameLen; x < at + 46 + nameLen + extraLen;) {
+          const id = cd.readUInt16LE(x), len = cd.readUInt16LE(x + 2);
+          if (id === 1) { n = Number(cd.readBigUInt64LE(x + 4)); break; }
+          x += 4 + len;
+        }
+      }
+      total += n;
+      at += 46 + nameLen + extraLen + commentLen;
+    }
+    return total;
+  } catch { return null; } finally { if (fd !== undefined) fs.closeSync(fd); }
+}
+/** Free bytes on the drive that holds `dir` (its nearest existing folder); null when it cannot be read. */
+function freeBytes(dir) {
+  try {
+    let d = path.resolve(dir);
+    while (!fs.existsSync(d) && path.dirname(d) !== d) d = path.dirname(d);
+    const s = fs.statfsSync(d);
+    return Number(s.bavail) * Number(s.bsize);
+  } catch { return null; }
+}
+/** Bytes to free: archive + unpacked − free. Unpacked unknown: the archive's size stands in. When that comes out at
+ *  nothing (room was made since), the whole of archive + unpacked, so the sentence never says "about 0". */
+function spaceNeeded({ archiveBytes, unpackedBytes, free }) {
+  const whole = (archiveBytes || 0) + (unpackedBytes == null ? archiveBytes || 0 : unpackedBytes);
+  const n = whole - (free || 0);
+  return n > 0 ? n : whole;
+}
+
 /* 打开文件夹 on the export card: the system file manager on one folder — MontClip's exports folder, or a folder the
    user picked for an export (`allowed`). Any other path is refused, whatever the page or the agent asks. */
 function openFolder(target, { allowed, platform = process.platform, spawn, env = process.env }) {
@@ -197,17 +252,21 @@ function openFolder(target, { allowed, platform = process.platform, spawn, env =
   if (child && typeof child.unref === "function") child.unref();
   return { opened: wantReal };
 }
-/** The folders exports were delivered into (newest first, at most 50), kept in a file so a restarted worker knows them. */
-function rememberFolder(file, dir) {
-  let list = [];
-  try { list = JSON.parse(fs.readFileSync(file, "utf8")).folders || []; } catch { }
-  list = [dir, ...list.filter((d) => typeof d === "string" && d !== dir)].slice(0, 50);
-  fs.writeFileSync(file, JSON.stringify({ folders: list }, null, 1));
-  return list;
+/** Which folder each export went into (by its job id; the newest 50), kept in a file so a restarted worker knows. */
+function rememberFolder(file, job, dir) {
+  let jobs = [];
+  try { jobs = JSON.parse(fs.readFileSync(file, "utf8")).jobs || []; } catch { }
+  jobs = [{ job: String(job), dir: String(dir) }, ...jobs.filter((j) => j && j.job !== String(job))].slice(0, 50);
+  fs.writeFileSync(file, JSON.stringify({ jobs }, null, 1));
+  return jobs;
 }
-function rememberedFolders(file) {
-  try { return (JSON.parse(fs.readFileSync(file, "utf8")).folders || []).filter((d) => typeof d === "string"); } catch { return []; }
+/** The folder an export went into, or null. */
+function folderOfJob(file, job) {
+  try {
+    const j = (JSON.parse(fs.readFileSync(file, "utf8")).jobs || []).find((x) => x && x.job === String(job));
+    return j && typeof j.dir === "string" ? j.dir : null;
+  } catch { return null; }
 }
 
-module.exports = { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg, unpackCode, exportFiles, freeName, deliverFiles,
-  openFolder, rememberFolder, rememberedFolders };
+module.exports = { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg, unpackCode, zipUnpackedBytes, freeBytes, spaceNeeded,
+  exportFiles, freeName, deliverFiles, openFolder, rememberFolder, folderOfJob };

@@ -109,76 +109,140 @@ test("worker: without the download, ffmpeg is missing, and an install with no ar
   if (spec.supported) assert.equal(r.error.data.code, "NO_ARCHIVE");
 });
 
-/* VV (2026-11-04): a failed install never shows the raw English error first. It says why in plain words — the
-   checksum, the download stopping, no room, no permission, or something else — always offers 重试, and puts the raw
-   error on a small line. The words are VV's drafts, waiting for JJ. */
-const FAIL = require(path.join(PLUGIN, "ffmpeg-failure.js"));
+/* JJ's final words for the export tool's banner (2026-11-04), word for word: the first banner, the progress, and
+   why an install failed — never the raw English error first; 重试 where trying again can help. */
+const B = require(path.join(PLUGIN, "ffmpeg-banner.js"));
+const AGAIN = "点重试再来一次。";
 
-test("install failures: each code says why in plain words, the raw error goes small, never first", () => {
-  const cases = [
-    ["SHA256_MISMATCH", "archive SHA-256 mismatch: got 1a2b, pinned 9f8e", "checksum", "下载的文件不完整，可能是网络断了一下。"],
-    ["CHECKSUM", "", "checksum", "下载的文件不完整，可能是网络断了一下。"],
-    ["BAD_ARCHIVE", "the archive has no ffprobe", "checksum", "下载的文件不完整，可能是网络断了一下。"],
-    ["DOWNLOAD_FAILED", "下载失败，请重试（网络、权限或文件校验未通过）", "interrupted", "下载断了，可能是网络不稳。"],
-    ["NETWORK", "socket hang up", "interrupted", "下载断了，可能是网络不稳。"],
-    ["CANCELLED", "下载已取消", "interrupted", "下载断了，可能是网络不稳。"],
-    ["NO_ARCHIVE", "no downloaded archive was handed over", "interrupted", "下载断了，可能是网络不稳。"],
-    ["ENOSPC", "ENOSPC: no space left on device, write", "disk", "电脑上的空间不够了，腾出一些再试。"],
-    ["DISK", "", "disk", "电脑上的空间不够了，腾出一些再试。"],
-    ["EACCES", "EACCES: permission denied, open 'C:\\ffmpeg'", "permission", "没有权限往 MontClip 的文件夹里写文件。"],
-    ["EPERM", "EPERM: operation not permitted, rename", "permission", "没有权限往 MontClip 的文件夹里写文件。"],
-    ["UNPACK_FAILED", "unpacking failed: tar: bad header", "other", "ffmpeg 没装上。"],
-    ["INSTALL_FAILED", "the staged ffmpeg is a GPL build", "other", "ffmpeg 没装上。"],
-    [undefined, undefined, "other", "ffmpeg 没装上。"],
-  ];
-  for (const [code, message, reason, words] of cases) {
-    const f = FAIL.describe(code, message);
-    assert.equal(f.reason, reason, String(code));
-    assert.equal(f.text, words + "点「重试」再来一次。", String(code));
-    assert.equal(f.detail, (message || "").trim(), "the raw error, whole, for the small line");
-    assert.doesNotMatch(f.text, /SHA|ENOSPC|EACCES|archive|mismatch|LGPL|GitHub/i, "no raw words in the sentence");
-  }
-  // no code (an older host, or tar's own words): read from the message
-  assert.equal(FAIL.reasonOf("", "Write failed: No space left on device"), "disk");
-  assert.equal(FAIL.reasonOf("PROTOCOL_ERROR", "Access is denied."), "permission");
-  for (const reason of ["checksum", "interrupted", "disk", "permission", "other"]) assert.ok(FAIL.TEXT.en[reason], reason);
+test("banner in JJ's words: the first banner, its note and buttons; a changed install offers 重新安装", () => {
+  const view = fs.readFileSync(path.join(PLUGIN, "task-view.html"), "utf8");
+  assert.ok(view.includes('<p id="ffmpegText">导出视频和降噪，要先装一个免费的导出工具 ffmpeg（约 160 MB，只装一次）。</p>'));
+  assert.ok(view.includes('<p class="detail" id="ffmpegDetail">从 GitHub（github.com）下载，下载时可能会转到 GitHub 存文件的网站。不会发送你的任何内容。</p>'));
+  assert.ok(view.includes('<button type="button" class="primary" id="ffmpegGet">下载并安装</button>'));
+  assert.ok(view.includes('<button type="button" id="ffmpegLater">以后再说</button>'));
+  assert.equal(B.TEXT.zh.first, "导出视频和降噪，要先装一个免费的导出工具 ffmpeg（约 160 MB，只装一次）。");
+  assert.equal(B.TEXT.zh.firstNote, "从 GitHub（github.com）下载，下载时可能会转到 GitHub 存文件的网站。不会发送你的任何内容。");
+  assert.equal(B.TEXT.zh.changed, "导出工具的文件被改过，建议重新安装。");
+  assert.equal(B.TEXT.zh.reinstall, "重新安装");
+  const js = fs.readFileSync(path.join(PLUGIN, "frame.js"), "utf8");
+  assert.match(js, /if \(s\.state === 'changed'\) \{ bannerText\(window\.MontClipFfmpegBanner\.TEXT\.zh\.changed, false, window\.MontClipFfmpegBanner\.TEXT\.zh\.firstNote\); document\.getElementById\('ffmpegGet'\)\.textContent = window\.MontClipFfmpegBanner\.TEXT\.zh\.reinstall; \}/);
+  assert.ok(view.indexOf('src="ffmpeg-banner.js"') > 0 && view.indexOf('src="ffmpeg-banner.js"') < view.indexOf('src="frame.js"'), "loaded before frame.js");
 });
 
-test("install failures: tar's words become a code; the worker's code reaches the banner through main.js", async () => {
-  const { unpackCode } = require(path.join(PLUGIN, "node", "lib.cjs"));
+test("banner in JJ's words: the progress, speed kept", () => {
+  const MB = 1048576;
+  assert.equal(B.progressText({ phase: "queued" }), "正在准备下载导出工具…");
+  assert.equal(B.progressText({ phase: "downloading", loaded: 64 * MB, total: 160 * MB }), "正在下载导出工具：40%（64 / 160 MB）");
+  assert.equal(B.progressText({ phase: "downloading", loaded: 64 * MB, total: 160 * MB, speedBps: 4 * MB }), "正在下载导出工具：40%（64 / 160 MB，4.0 MB/s）");
+  assert.equal(B.progressText({ phase: "retrying" }), "网络断了一下，正在重试…");
+  assert.equal(B.progressText({ phase: "verifying" }), "下载完了，正在检查文件是不是完整…");
+  assert.equal(B.progressText({ phase: "installing" }), "正在安装，并检查版本对不对…");
+  assert.equal(B.progressText({ phase: "installed" }), "导出工具装好了，现在可以导出了。");
+  const js = fs.readFileSync(path.join(PLUGIN, "frame.js"), "utf8");
+  assert.match(js, /if \(busy\) bannerText\(B\.progressText\(m\)\);/);
+  assert.doesNotMatch(js, /正在下载 ffmpeg|核对校验值|LGPL 版本|ffmpeg 已装好/, "the old words are gone");
+});
+
+test("banner in JJ's words: each failure, its button, the raw error only where the sentence points to it", () => {
+  const cases = [
+    // code, message, sentence, button, detail
+    ["SHA256_MISMATCH", "archive SHA-256 mismatch: got 1a2b, pinned 9f8e", "下载下来的文件不完整，没有安装。" + AGAIN, "retry", ""],
+    ["BAD_ARCHIVE", "the archive has no ffprobe", "下载下来的文件不完整，没有安装。" + AGAIN, "retry", ""],
+    ["DOWNLOAD_FAILED", "下载失败，请重试（网络、权限或文件校验未通过）", "下载断了，没下完。检查一下网络。" + AGAIN, "retry", ""],
+    ["EACCES", "EACCES: permission denied, open 'x'", "MontClip 没法往自己的文件夹里写文件，可能被杀毒软件挡住了。点重试再来一次；还不行，重启电脑再试。", "retry", ""],
+    ["EPERM", "EPERM: operation not permitted, rename", "MontClip 没法往自己的文件夹里写文件，可能被杀毒软件挡住了。点重试再来一次；还不行，重启电脑再试。", "retry", ""],
+    ["UNPACK_FAILED", "unpacking failed: tar: bad header", "解压没成功。" + AGAIN, "retry", ""],
+    ["INSTALL_FAILED", "the staged ffmpeg is a GPL build", "没装上。点重试再来一次；还不行，把下面这行发给我们：", "retry", "the staged ffmpeg is a GPL build"],
+    ["PROTOCOL_ERROR", "  worker gone  ", "没装上。点重试再来一次；还不行，把下面这行发给我们：", "retry", "worker gone"],
+    [undefined, "", "没装上。" + AGAIN, "retry", ""],
+    ["CANCELLED", "下载已取消", "下载取消了，没有安装。", "install", ""],
+    ["UNSUPPORTED_PLATFORM", "MontClip has no pinned ffmpeg for darwin-arm64", "这台电脑的系统暂时没有对应的导出工具，导出和降噪用不了。", null, ""],
+    ["HOST_TOO_OLD", "This Cindy cannot download files for plugins; update Cindy.", "Cindy 版本太旧，装不了导出工具。先把 Cindy 更新到最新，再回来点下载。", null, ""],
+  ];
+  for (const [code, message, text, button, detail] of cases) {
+    const f = B.describe(code, message);
+    assert.deepEqual([f.text, f.button, f.detail], [text, button, detail], String(code));
+    assert.doesNotMatch(f.text, /SHA|ENOSPC|EACCES|archive|mismatch|LGPL|staged|worker/i, "no raw words in the sentence");
+  }
+  assert.equal(B.describe("ENOSPC", "ENOSPC: no space left on device", { need: 350 * 1048576 }).text,
+    "磁盘空间不够，删掉一些不要的文件，空出大约 350 MB。" + AGAIN);
+  assert.equal(B.describe("ENOSPC", "x", { need: 350 * 1048576 }).button, "retry");
+  // no code of its own: what the message says
+  assert.equal(B.reasonOf("PROTOCOL_ERROR", "Write failed: No space left on device"), "disk");
+  assert.equal(B.reasonOf("INSTALL_FAILED", "Access is denied."), "permission");
+  for (const k of Object.keys(B.TEXT.zh)) assert.ok(k in B.TEXT.en, "English for " + k);
+  const js = fs.readFileSync(path.join(PLUGIN, "frame.js"), "utf8");
+  assert.match(js, /get\.hidden = !f\.button; get\.textContent = f\.button === 'install' \? W\.install : W\.retry;/);
+  assert.match(js, /later\.hidden = f\.reason === 'cancelled';/, "下载取消了: only 下载并安装");
+  assert.match(js, /d\.textContent = detail \|\| ''; d\.hidden = !detail;/, "the raw error as text, on its own small line");
+});
+
+test("磁盘空间不够: the amount is worked out — the archive + its unpacked size − the free space, rounded up", (t) => {
+  const { zipUnpackedBytes, freeBytes, spaceNeeded, unpackCode } = require(path.join(PLUGIN, "node", "lib.cjs"));
+  // a stored zip written here: its central directory says what it unpacks to
+  function zip(entries) {
+    const local = [], central = [];
+    let off = 0;
+    for (const [name, size] of entries) {
+      const n = Buffer.from(name), data = Buffer.alloc(size, 1);
+      const h = Buffer.alloc(30); h.writeUInt32LE(0x04034b50, 0); h.writeUInt16LE(20, 4); h.writeUInt32LE(size, 18); h.writeUInt32LE(size, 22); h.writeUInt16LE(n.length, 26);
+      local.push(h, n, data);
+      const c = Buffer.alloc(46); c.writeUInt32LE(0x02014b50, 0); c.writeUInt16LE(20, 4); c.writeUInt16LE(20, 6); c.writeUInt32LE(size, 20); c.writeUInt32LE(size, 24); c.writeUInt16LE(n.length, 28); c.writeUInt32LE(off, 42);
+      central.push(c, n);
+      off += 30 + n.length + size;
+    }
+    const cd = Buffer.concat(central), e = Buffer.alloc(22);
+    e.writeUInt32LE(0x06054b50, 0); e.writeUInt16LE(entries.length, 8); e.writeUInt16LE(entries.length, 10); e.writeUInt32LE(cd.length, 12); e.writeUInt32LE(off, 16);
+    return Buffer.concat([...local, cd, e]);
+  }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-zip-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const z = path.join(dir, "ffmpeg.zip");
+  fs.writeFileSync(z, zip([["bin/ffmpeg.exe", 5000], ["bin/ffprobe.exe", 3000], ["LICENSE.txt", 7]]));
+  assert.equal(zipUnpackedBytes(z), 8007);
+  fs.writeFileSync(path.join(dir, "not.zip"), "plain text");
+  assert.equal(zipUnpackedBytes(path.join(dir, "not.zip")), null);
+  assert.equal(zipUnpackedBytes(path.join(dir, "missing.zip")), null);
+  assert.ok(freeBytes(path.join(dir, "not", "made", "yet")) > 0, "the nearest folder that exists");
+  const MB = 1048576;
+  assert.equal(spaceNeeded({ archiveBytes: 160 * MB, unpackedBytes: 250 * MB, free: 60 * MB }), 350 * MB);
+  assert.equal(spaceNeeded({ archiveBytes: 160 * MB, unpackedBytes: null, free: 60 * MB }), 260 * MB, "unpacked unknown: the archive stands in");
+  assert.equal(spaceNeeded({ archiveBytes: 160 * MB, unpackedBytes: 250 * MB, free: 900 * MB }), 410 * MB, "never about 0");
+  assert.deepEqual([B.aboutSize(349.2 * MB), B.aboutSize(1), B.aboutSize(1.21 * 1073741824)], ["350 MB", "1 MB", "1.3 GB"], "rounded up");
   assert.equal(unpackCode("tar: ffmpeg.exe: Write failed: No space left on device"), "ENOSPC");
   assert.equal(unpackCode("tar: Cannot open: Permission denied"), "EACCES");
   assert.equal(unpackCode("tar: Damaged tar archive"), "UNPACK_FAILED");
+  const worker = fs.readFileSync(path.join(PLUGIN, "node", "worker.cjs"), "utf8");
+  assert.match(worker, /e\.need = spaceNeeded\(\{ archiveBytes, unpackedBytes: zipUnpackedBytes\(archive\), free: freeBytes\(/);
+  assert.match(worker, /data: typeof e\.code === "string" \? \{ code: e\.code, \.\.\.\(Number\.isFinite\(e\.need\) \? \{ need: e\.need \} : \{\}\) \}/);
+});
+
+test("the worker's code (and the amount to free) reaches the banner through main.js; a cancelled download says so", async () => {
   const vm = require("node:vm");
-  // main.js in a sandbox: the download fails without a code (as Cindy 49fbcc4d does), then an install fails with one
-  async function run(download, install) {
+  async function run(download, install, phases = []) {
     const posted = [];
+    let handler = null;
     class BroadcastChannel { postMessage(m) { posted.push(JSON.parse(JSON.stringify(m))); } addEventListener() { } }
     const cindy = {
       node: { request: async (r) => r.method === "montclip/ffmpeg-spec" ? { ok: true, result: { supported: true, platform: "win32-x64", url: "https://github.com/x", sha256: "a".repeat(64), bytes: 1, state: "missing" } }
         : r.method === "montclip/ffmpeg-install" ? install : { ok: true, result: {} } },
-      downloads: { start: async () => download },
-      send: async () => ({ ok: true }), onHostMessage: () => { },
+      downloads: { start: async () => { for (const phase of phases) await handler({ type: "event", name: "download-progress", data: { id: "ffmpeg-win32-x64", phase } }); return download; } },
+      send: async () => ({ ok: true }), onHostMessage: (fn) => { handler = fn; },
     };
     const ctx = { cindy, BroadcastChannel, setTimeout, clearTimeout, console, Map, Promise };
     vm.runInNewContext(fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8") + "\n;this.__install = installFfmpeg;", ctx);
     const r = JSON.parse(JSON.stringify(await ctx.__install()));
+    assert.ok(posted.filter((m) => m.phase === "failed" || m.phase === "cancelled").length <= 1, "how it ended is said once");
     return { r, failed: posted.find((m) => m.phase === "failed") };
   }
-  const a = await run({ ok: false, message: "下载失败，请重试（网络、权限或文件校验未通过）" });
+  const a = await run({ ok: false, message: "下载失败，请重试（网络、权限或文件校验未通过）" }, null, ["downloading", "failed"]);
   assert.deepEqual([a.r.code, a.failed.code], ["DOWNLOAD_FAILED", "DOWNLOAD_FAILED"]);
-  const b = await run({ ok: true, token: "t", bytes: 1 }, { ok: false, errorCode: "PROTOCOL_ERROR", message: "ENOSPC: no space left on device, write", data: { code: "ENOSPC" } });
-  assert.deepEqual([b.r.code, b.failed.code, b.failed.message], ["ENOSPC", "ENOSPC", "ENOSPC: no space left on device, write"]);
-  assert.equal(FAIL.describe(b.failed.code, b.failed.message).reason, "disk");
-});
-
-test("the banner: the plain words, the raw error as text on its own small line, and 重试 on every failure", () => {
+  const c = await run({ ok: false, message: "下载已取消" }, null, ["downloading", "cancelled"]);
+  assert.deepEqual([c.r.code, c.failed.code], ["CANCELLED", "CANCELLED"], "Cindy's progress said it was cancelled");
+  const need = 350 * 1048576;
+  const b = await run({ ok: true, token: "t", bytes: 1 }, { ok: false, errorCode: "PROTOCOL_ERROR", message: "ENOSPC: no space left on device, write", data: { code: "ENOSPC", need } });
+  assert.deepEqual([b.r.code, b.r.need, b.failed.code, b.failed.need], ["ENOSPC", need, "ENOSPC", need]);
+  assert.equal(B.describe(b.failed.code, b.failed.message, { need: b.failed.need }).text, "磁盘空间不够，删掉一些不要的文件，空出大约 350 MB。" + AGAIN);
   const js = fs.readFileSync(path.join(PLUGIN, "frame.js"), "utf8");
-  assert.match(js, /const f = window\.MontClipFfmpegFailure\.describe\(m\.code \|\| \(m\.phase === 'cancelled' \? 'CANCELLED' : ''\), m\.message\);\n\s+bannerText\(f\.text, true, f\.detail\); get\.textContent = '重试'; get\.hidden = false;/);
-  assert.match(js, /d\.textContent = detail \|\| ''; d\.hidden = !detail;/);
-  assert.match(js, /progress\(\{ phase: 'failed', code: r\.code, message: r\.error \}\)/);
-  assert.doesNotMatch(js, /ffmpeg 没装上：' \+/, "the raw error no longer leads");
-  const view = fs.readFileSync(path.join(PLUGIN, "task-view.html"), "utf8");
-  assert.match(view, /<p class="detail" id="ffmpegDetail" hidden><\/p>/);
-  assert.ok(view.indexOf('src="ffmpeg-failure.js"') < view.indexOf('src="frame.js"'), "loaded before frame.js");
+  assert.match(js, /progress\(\{ phase: 'failed', code: r\.code, need: r\.need, message: r\.error \}\)/);
 });

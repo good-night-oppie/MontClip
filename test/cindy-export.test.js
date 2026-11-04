@@ -77,9 +77,11 @@ test("the chat card in JJ's words: waiting, starting, exporting, saving, done", 
   assert.deepEqual(plain(exportCard({ phase: "running", progress: 0.42 })), ["正在导出 42%"]);
   assert.deepEqual(plain(exportCard({ phase: "copy", folder: "成片" })), ["正在存到「成片」…"]);
   assert.deepEqual(plain(exportCard({ phase: "done", folder: "成片", files: [{ name: "a.mp4", bytes: 2097152 }] })),
-    ["导出完成", "已存到「成片」", "a.mp4 · 2.0 MB", "打开文件夹"]);
+    ["导出完成", "已存到「成片」", "a.mp4 · 2.0 MB", "打开导出文件夹"], "no dir: the files are in exports");
+  assert.deepEqual(plain(exportCard({ phase: "done", folder: "成片", dir: "D:\\成片", job: "x_1", files: [{ name: "a.mp4", bytes: 2097152 }] })),
+    ["导出完成", "已存到「成片」", "a.mp4 · 2.0 MB", "打开文件夹"], "JJ: 打开文件夹 opens the folder she chose");
   assert.deepEqual(plain(exportCard({ phase: "done", files: [{ name: "a.mp4", bytes: 2097152 }] })),
-    ["导出完成", "存在 MontClip 自己的导出文件夹里", "a.mp4 · 2.0 MB", "打开文件夹"], "no folder chosen");
+    ["导出完成", "存在 MontClip 自己的导出文件夹里", "a.mp4 · 2.0 MB", "打开导出文件夹"], "no folder chosen");
   assert.deepEqual(plain(exportCard({ phase: "cancelled" })), ["没有导出", "没有选文件夹，所以没有导出。"]);
 });
 
@@ -98,9 +100,9 @@ test("the chat card: still exporting is not a failure, and says nothing for the 
 test("the chat card: the copy that failed, and a file saved under another name", () => {
   const exportCard = card();
   assert.deepEqual(plain(exportCard({ phase: "copyFailed", reason: "磁盘满了" })),
-    ["视频已经导出好了，但没能存进你选的文件夹（磁盘满了）。文件还在 MontClip 自己的导出文件夹里，可以换一个文件夹再导出一次。", "打开文件夹"]);
+    ["视频已经导出好了，但没能存进你选的文件夹（磁盘满了）。文件还在 MontClip 自己的导出文件夹里，可以换一个文件夹再导出一次。", "打开导出文件夹"]);
   assert.deepEqual(plain(exportCard({ phase: "done", folder: "成片", files: [{ name: "clip (2).mp4", bytes: 300000, renamed: true }] })),
-    ["导出完成", "已存到「成片」", "clip (2).mp4 · 293 KB", "同名文件已经有了，这次存成这个名字", "打开文件夹"]);
+    ["导出完成", "已存到「成片」", "clip (2).mp4 · 293 KB", "同名文件已经有了，这次存成这个名字", "打开导出文件夹"]);
 });
 
 test("the chat card: sizes in 字节, KB, MB and GB, as the overview says them", () => {
@@ -120,9 +122,10 @@ test("the chat card in plain English (kept beside JJ's words for when the card f
   assert.deepEqual(plain(exportCard({ phase: "still" }, "en")),
     ["Still exporting", "This time it can't wait for the export to finish. When it's done, the file will be in MontClip's own export folder."]);
   assert.deepEqual(plain(exportCard({ phase: "copyFailed", reason: "disk full" }, "en")),
-    ["The video is exported, but it couldn't be saved to the folder you chose (disk full). The file is still in MontClip's own export folder; you can export again to another folder.", "Open folder"]);
+    ["The video is exported, but it couldn't be saved to the folder you chose (disk full). The file is still in MontClip's own export folder; you can export again to another folder.", "Open the export folder"]);
   assert.deepEqual(plain(exportCard({ phase: "done", files: [{ name: "clip (2).mp4", bytes: 2097152, renamed: true }] }, "en")),
-    ["Export finished", "Saved in MontClip's own export folder", "clip (2).mp4 · 2.0 MB", "A file with this name was already there, so this one was saved under this name", "Open folder"]);
+    ["Export finished", "Saved in MontClip's own export folder", "clip (2).mp4 · 2.0 MB", "A file with this name was already there, so this one was saved under this name", "Open the export folder"]);
+  assert.equal(plain(exportCard({ phase: "done", dir: "D:\\x", job: "x_1", files: [] }, "en")).at(-1), "Open folder");
 });
 
 test("manifest: the card and the folder dialog are declared, with the export tool", () => {
@@ -163,17 +166,16 @@ test("the chat card: 还在导出 is not drawn as a failure (no red), 导出没�
   assert.match(exportCard({ phase: "failed", note: "ffmpeg exited 1" }), /var\(--text-danger,#b42318\)/, "a real failure is red");
 });
 
-test("the chat card: 打开文件夹 opens the picked folder when the files went there, else MontClip's exports", () => {
+test("the chat card: 打开文件夹 opens the folder she chose; 打开导出文件夹 MontClip's own export folder", () => {
   const exportCard = card();
-  const action = (c) => [...exportCard(c).matchAll(/data-ghost-action="([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(action({ phase: "done", folder: "成片", dir: "D:\\成片", files: [] }), ["open-folder:picked"]);
-  assert.deepEqual(action({ phase: "done", files: [] }), ["open-folder:exports"], "no folder chosen: the files are in exports");
-  assert.deepEqual(action({ phase: "copyFailed", code: "NO_FOLDER", reason: "x", dir: "D:\\gone" }), ["open-folder:exports"], "a failed copy left them in exports");
-  for (const phase of ["pick", "start", "running", "copy", "still", "failed", "cancelled"]) assert.deepEqual(action({ phase }), [], phase);
-  for (const id of action({ phase: "done", dir: "D:\\x" }).concat(action({ phase: "done" }))) assert.match(id, /^[A-Za-z0-9_:-]{1,128}$/, "Cindy's GHOST_CARD_ACTION_ID_RE");
-  assert.doesNotMatch(exportCard({ phase: "done", dir: "D:\\私人\\成片" }), /私人/, "the full path is not in the card");
+  const button = (c) => [...exportCard(c).matchAll(/data-ghost-action="([^"]+)"[^>]*>([^<]+)</g)].map((m) => [m[1], m[2]]);
+  assert.deepEqual(button({ phase: "done", folder: "成片", dir: "D:\\成片", job: "x_1", files: [] }), [["open-folder:picked", "打开文件夹"]]);
+  assert.deepEqual(button({ phase: "done", files: [] }), [["open-folder:exports", "打开导出文件夹"]], "no folder chosen: the files are in exports");
+  assert.deepEqual(button({ phase: "copyFailed", code: "NO_FOLDER", reason: "x", dir: "D:\\gone" }), [["open-folder:exports", "打开导出文件夹"]], "JJ: a failed copy opens the export folder");
+  for (const phase of ["pick", "start", "running", "copy", "still", "failed", "cancelled"]) assert.deepEqual(button({ phase }), [], phase);
+  for (const [id] of button({ phase: "done", dir: "D:\\x", job: "x_1" }).concat(button({ phase: "done" }))) assert.match(id, /^[A-Za-z0-9_:-]{1,128}$/, "Cindy's GHOST_CARD_ACTION_ID_RE");
+  assert.doesNotMatch(exportCard({ phase: "done", dir: "D:\\私人\\成片", job: "x_1" }), /私人/, "the full path is not in the card");
 });
-
 test("the chat card: a failed copy says why in words for the codes it knows", () => {
   const exportCard = card();
   assert.equal(plain(exportCard({ phase: "copyFailed", code: "NO_FOLDER", reason: "the folder to export into is not there" }))[0],
@@ -183,14 +185,14 @@ test("the chat card: a failed copy says why in words for the codes it knows", ()
   assert.doesNotMatch(exportCard({ phase: "copyFailed", code: "NO_FOLDER", reason: "the folder to export into is not there" }), /is not there/);
 });
 
-const { openFolder, rememberFolder, rememberedFolders } = require(path.join(PLUGIN, "node", "lib.cjs"));
+const { openFolder, rememberFolder, folderOfJob } = require(path.join(PLUGIN, "node", "lib.cjs"));
 function fakeSpawn() {
   const calls = [];
   const spawn = (cmd, args, opts) => { calls.push([cmd, args, opts]); return { on() { }, unref() { } }; };
   return { calls, spawn };
 }
 
-test("open folder: the exports folder and a picked folder open in the file manager, nothing else", (t) => {
+test("open folder: the allowed folders open in the file manager; nothing else does", (t) => {
   const data = tmp(t, "montclip-open-"), picked = tmp(t, "montclip-picked-"), other = tmp(t, "montclip-other-");
   const exportsDir = path.join(data, "exports");
   fs.mkdirSync(exportsDir);
@@ -206,9 +208,9 @@ test("open folder: the exports folder and a picked folder open in the file manag
   assert.deepEqual(s.calls[2].slice(0, 2), ["xdg-open", [real(picked)]]);
   if (process.platform === "win32") openFolder(exportsDir.toUpperCase(), { allowed, platform: "win32", spawn: s.spawn, env: {} });
   const n = s.calls.length;
-  const refused = (target, code = "FOLDER_NOT_ALLOWED") =>
-    assert.throws(() => openFolder(target, { allowed, platform: process.platform, spawn: s.spawn }), (e) => e.code === code, String(target));
-  refused(other);                                   // a folder that exists, never picked
+  const refused = (target, code = "FOLDER_NOT_ALLOWED", list = allowed) =>
+    assert.throws(() => openFolder(target, { allowed: list, platform: process.platform, spawn: s.spawn }), (e) => e.code === code, String(target));
+  refused(other);                                   // a folder that exists, not on the list
   refused(data);                                    // the data folder above exports
   refused(path.join(exportsDir, ".."));             // .. out of exports
   refused(path.join(exportsDir, "sub"));            // inside exports is not exports
@@ -219,25 +221,26 @@ test("open folder: the exports folder and a picked folder open in the file manag
   refused(null);
   refused(["C:\\"]);
   refused(process.platform === "win32" ? "C:\\Windows\\System32" : "/etc");
+  refused(picked, "FOLDER_NOT_ALLOWED", [exportsDir]);   // another export's folder is not on this list
   assert.equal(s.calls.length, n, "nothing refused was opened");
   fs.rmSync(picked, { recursive: true, force: true });
-  refused(picked, "NO_FOLDER");                      // picked once, gone now: said so, not opened
+  refused(picked, "NO_FOLDER");                      // on the list, gone now: said so, not opened
   assert.equal(s.calls.length, n);
 });
 
-test("open folder: the folders exports went into are remembered newest first, at most 50", (t) => {
+test("open folder: which folder each export went into, by its job, newest 50", (t) => {
   const file = path.join(tmp(t, "montclip-folders-"), "cindy-export-folders.json");
-  assert.deepEqual(rememberedFolders(file), []);
-  rememberFolder(file, "D:\\a"); rememberFolder(file, "D:\\b"); rememberFolder(file, "D:\\a");
-  assert.deepEqual(rememberedFolders(file), ["D:\\a", "D:\\b"]);
-  for (let i = 0; i < 60; i++) rememberFolder(file, "D:\\f" + i);
-  assert.equal(rememberedFolders(file).length, 50);
-  assert.equal(rememberedFolders(file)[0], "D:\\f59");
+  assert.equal(folderOfJob(file, "x_1"), null);
+  rememberFolder(file, "x_1", "D:\\a"); rememberFolder(file, "x_2", "D:\\b"); rememberFolder(file, "x_1", "D:\\c");
+  assert.deepEqual([folderOfJob(file, "x_1"), folderOfJob(file, "x_2"), folderOfJob(file, "x_3")], ["D:\\c", "D:\\b", null]);
+  for (let i = 0; i < 60; i++) rememberFolder(file, "j" + i, "D:\\f" + i);
+  assert.equal(folderOfJob(file, "j59"), "D:\\f59");
+  assert.equal(folderOfJob(file, "j9"), null, "only the newest 50");
   fs.writeFileSync(file, "not json");
-  assert.deepEqual(rememberedFolders(file), [], "a broken file opens nothing");
+  assert.equal(folderOfJob(file, "j59"), null, "a broken file opens nothing");
 });
 
-test("open folder: the card button goes through the worker, with the export's own folder, and the card is drawn again", async () => {
+test("open folder: the card button asks the worker by the export's job, never a path, and the card is drawn again", async () => {
   const vm = require("node:vm");
   const asked = [], sent = [];
   let handler = null, answer = { ok: true, result: { opened: "x" } };
@@ -249,28 +252,28 @@ test("open folder: the card button goes through the worker, with the export's ow
   class BroadcastChannel { postMessage() { } addEventListener() { } }
   const ctx = { cindy, BroadcastChannel, setTimeout, clearTimeout, console, Map, Promise };
   vm.runInNewContext(fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8") + "\n;this.__card = sendCard;", ctx);
-  ctx.__card("call-a", { phase: "done", folder: "成片", dir: "D:\\成片", files: [] });
+  ctx.__card("call-a", { phase: "done", folder: "成片", dir: "D:\\成片", job: "x_a", files: [] });
   ctx.__card("call-b", { phase: "copyFailed", code: "NO_FOLDER", reason: "x", dir: "D:\\gone" });
   const click = (callId, actionId) => handler({ type: "event", name: "card-action", callId, actionId });
   await click("call-a", "open-folder:picked");
-  assert.deepEqual(asked.at(-1), ["montclip/open-folder", { folder: "D:\\成片" }]);
+  assert.deepEqual(asked.at(-1), ["montclip/open-folder", { job: "x_a" }]);
   assert.equal(sent.at(-1).callId, "call-a");
   assert.match(sent.at(-1).html, /data-ghost-action="open-folder:picked"/, "drawn again, so Cindy lets go of the button");
   await click("call-b", "open-folder:exports");
   assert.deepEqual(asked.at(-1), ["montclip/open-folder", { folder: "exports" }]);
-  // the page can name only picked or exports, never a path
   const before = asked.length;
   await click("call-a", "open-folder:C:\\Windows");
   await click("call-zzz", "open-folder:exports");
-  await click("call-b", "open-folder:picked");   // a failed copy has no picked folder to open
+  await click("call-b", "open-folder:picked");   // a failed copy has no folder of its own to open
   assert.equal(asked.length, before, "a forged action, an unknown card, a failed copy's picked folder: nothing asked");
+  for (const [, params] of asked) assert.ok(!Object.values(params).some((v) => /[\\/]/.test(String(v))), "no request names a path");
   // the worker refused or the folder is gone: the card says so, small
   answer = { ok: false, errorCode: "PROTOCOL_ERROR", message: "the folder is not there", data: { code: "NO_FOLDER" } };
   await click("call-a", "open-folder:picked");
   assert.ok(plain(sent.at(-1).html).includes("没能打开文件夹（选的文件夹找不到了，可能被删了或拔掉了 U 盘）。"));
 });
 
-test("worker: 打开文件夹 refuses any folder that is not the exports folder or one an export went into", async (t) => {
+test("worker: the allow-list is the exports folder and that export's own folder — nothing else opens", async (t) => {
   const dir = tmp(t, "montclip-cindy-open-");
   fs.writeFileSync(path.join(dir, "project.json"), JSON.stringify(seedProject()));
   const child = spawn(process.execPath, [path.join(PLUGIN, "node", "worker.cjs")], {
@@ -279,11 +282,15 @@ test("worker: 打开文件夹 refuses any folder that is not the exports folder 
   let buf = "", n = 0; const pend = new Map();
   child.stdout.on("data", (c) => { buf += c; let i; while ((i = buf.indexOf("\n")) >= 0) { const m = JSON.parse(buf.slice(0, i)); buf = buf.slice(i + 1); pend.get(m.id)?.(m); } });
   const rpc = (method, params = {}) => new Promise((r) => { const id = ++n; pend.set(id, r); child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n"); });
-  for (const folder of [dir, os.homedir(), path.join(dir, "exports", ".."), "..", process.platform === "win32" ? "C:\\Windows" : "/etc", 42]) {
+  // a path is never accepted, whatever it is — only {folder:"exports"} or {job}
+  for (const folder of [dir, path.join(dir, "exports"), os.homedir(), path.join(dir, "exports", ".."), "..", process.platform === "win32" ? "C:\\Windows" : "/etc", 42, null]) {
     const r = await rpc("montclip/open-folder", { folder });
     assert.equal(r.error && r.error.data && r.error.data.code, "FOLDER_NOT_ALLOWED", String(folder));
   }
-  fs.writeFileSync(path.join(dir, "cindy-export-folders.json"), JSON.stringify({ folders: [path.join(dir, "gone")] }));
-  const gone = await rpc("montclip/open-folder", { folder: path.join(dir, "gone") });
-  assert.equal(gone.error.data.code, "NO_FOLDER", "a remembered folder that is gone is not opened");
+  // an export nobody knows, and exports asked together with a job: refused
+  assert.equal((await rpc("montclip/open-folder", { job: "x_unknown" })).error.data.code, "FOLDER_NOT_ALLOWED");
+  assert.equal((await rpc("montclip/open-folder", { folder: "exports", job: "x_unknown" })).error.data.code, "FOLDER_NOT_ALLOWED");
+  // a known export whose folder is gone: said so, not opened
+  fs.writeFileSync(path.join(dir, "cindy-export-folders.json"), JSON.stringify({ jobs: [{ job: "x_1", dir: path.join(dir, "gone") }] }));
+  assert.equal((await rpc("montclip/open-folder", { job: "x_1" })).error.data.code, "NO_FOLDER");
 });
