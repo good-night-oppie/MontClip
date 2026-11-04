@@ -5067,6 +5067,9 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 .ly-outside { white-space: pre-line; color: var(--warn, #c98a2b); }
 .ly-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(640px, 92vw); max-height: 85vh; padding: 20px; overflow: auto; }
 .ly-dialog textarea { width: 100%; box-sizing: border-box; }
+/* the lyrics box is an editor field (.dlv-f, as in the export dialog): its label above it, room around it (VV on #100) */
+.ly-dialog .ly-paste { margin: 10px 0 6px; }
+.ly-dialog .ly-paste textarea { font-size: 14px; line-height: 1.5; }
 .ly-dialog .tr-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; }
 .ly-lines { padding-left: 22px; margin: 6px 0; }
 .ly-lines li { margin: 4px 0; }

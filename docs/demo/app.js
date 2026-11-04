@@ -7107,7 +7107,7 @@ function lyricsDialog({ words, caps, stale, onApply, text = "" }) {
   const dialog = document.createElement("dialog");
   dialog.className = "ly-dialog"; dialog.setAttribute("data-ly-dialog", "");
   dialog.innerHTML = `<form method="dialog"><h3>${say("ly-title")}</h3><p>${say("ly-intro")}</p>
-    <label>${say("ly-paste")}<textarea data-ly-text rows="6" placeholder="${say("ly-placeholder")}"></textarea></label>
+    <label class="dlv-f ly-paste">${say("ly-paste")}<textarea data-ly-text rows="6" placeholder="${say("ly-placeholder")}"></textarea></label>
     <div class="tr-row"><button type="button" class="btn" data-ly-align>${say("ly-align")}</button></div>
     <p data-ly-summary role="status"></p><ol class="ly-lines" data-ly-lines></ol><p class="ly-outside" data-ly-outside role="status"></p>
     <div class="tr-row"><button type="button" class="btn primary" data-ly-apply disabled>${say("ly-apply")}</button>
