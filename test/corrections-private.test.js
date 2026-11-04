@@ -24,7 +24,13 @@ test('no other code names them — the assistant, its context and its request bu
  walk('');
  for(const must of ['agent-facts.js','agent-format.js','agent-conversation.js','agent-pane.js','chat-proposal.js','desktop/agent-service.js','mcp-server.js','mcp-tools.js','server.js','app.js','cindy-official.js'])
   a.ok(files.includes(must),'scanned: '+must);
- const named=files.filter(f=>!OWN.has(f)&&FIELDS.test(read(f)));
+ // the code, not its comments: event-bounds.js (#93) says in a comment that it runs after the habit shift of corrections.js,
+ // and reads nothing of them
+ const code=(s)=>s.replace(/\/\*[\s\S]*?\*\//g,'').replace(/(^|[^:"'`\\])\/\/.*$/gm,'$1');
+ const named=files.filter(f=>!OWN.has(f)&&FIELDS.test(code(read(f))));
+ // comments are stripped only: a file whose code names them is still caught
+ a.ok(FIELDS.test(code('/* about corrections.js */ const x = window.montclipCorrections;')),'code is still read');
+ a.ok(!FIELDS.test(code('// after corrections.js\n/* corrections */ const y = 1;')),'comments are not code');
  a.deepEqual(named,[],'named outside their own files');
 });
 
