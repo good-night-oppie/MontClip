@@ -87,6 +87,15 @@ BrowserWindow.prototype.loadURL=async function(...args){
     st.clips=[];st.dropped=[];autoRender('review');out.noneFound=look();
     st.clips=keep.clips;st.dropped=keep.dropped;autoRender('review');return out;})()`);
   report.foot=foot;
+  // VV on e31d808: at 1280 the line under 全拿掉 must not leave its last character alone on a line (text-wrap: pretty)
+  const lastLine=await read(`(async()=>{const st=autoState(),keep={clips:st.clips,dropped:st.dropped};st.dropped=keep.clips.map(c=>({...c,on:false}));st.clips=[];autoRender('review');
+    const sub=document.querySelector('dialog.auto-slices [data-as-body] .as-sub'),t=sub.firstChild,rg=document.createRange(),tops=[];
+    for(let i=0;i<t.length;i++){rg.setStart(t,i);rg.setEnd(t,i+1);const r=rg.getBoundingClientRect();if(r.width)tops.push(Math.round(r.top));}
+    const last=Math.max(...tops);return{lines:new Set(tops).size,lastChars:tops.filter(x=>x===last).length,wrap:getComputedStyle(sub).textWrap||getComputedStyle(sub).textWrapStyle};})()`);
+  await shot('all-out-1280x800.png');
+  await read(`(()=>{const st=autoState();st.clips=st.dropped.map(c=>({...c,on:c.picked}));st.dropped=[];autoRender('review');return true;})()`);
+  report.allOutLine=lastLine;
+  assert.ok(lastLine.lastChars>=2,'the last line holds more than one character: '+JSON.stringify(lastLine));
   const place0=zh('as-place',{n:0}),exp0=zh('as-export',{n:0});
   assert.deepEqual(foot.allOut,{sum:zh('as-foot-all-out'),place:place0,exp:exp0,disabled:true,faded:true});
   assert.deepEqual(foot.noneTicked,{sum:zh('as-foot-none-ticked'),place:place0,exp:exp0,disabled:true,faded:true});
@@ -95,6 +104,11 @@ BrowserWindow.prototype.loadURL=async function(...args){
   // at once: the page's own switch, and the line's 〔打开〕 with its 〔撤销〕
   const state=()=>read(`(()=>{const s=document.querySelector('#setSlices [data-learn-state]'),b=document.querySelector('#setSlices [data-learn-open]');return s?{text:s.textContent,beside:b.parentElement.contains(s)}:null;})()`);
   const st0=await state();report.settingsState=[st0];
+  // VV on e31d808: 开着 / 关着 sits level with the button (their middles within 1 px)
+  await read(`(()=>{AUTO.el.close();openSettings();document.getElementById('setSlices').scrollIntoView();return true;})()`);await shot('settings-learn-state.png');
+  const mid=await read(`(()=>{const s=document.querySelector('#setSlices [data-learn-state]'),b=document.querySelector('#setSlices [data-learn-open]');const m=(e)=>{const r=e.getBoundingClientRect();return r.top+r.height/2;};const r={state:m(s),button:m(b),shown:s.getClientRects().length>0};closeSettings();document.getElementById('btnAutoSlices').click();return r;})()`);
+  report.settingsMid=mid;
+  assert.ok(mid.shown,'the settings page was open');assert.ok(Math.abs(mid.state-mid.button)<=1,'开着 level with the button: '+JSON.stringify(mid));
   assert.deepEqual(st0,{text:zh('as-learn-state-on'),beside:true});
   await read(`(async()=>{document.querySelector('#setSlices [data-learn-open]').click();await new Promise(r=>setTimeout(r,300));const s=document.querySelector('dialog.as-learn[open] [data-learn-switch]');s.checked=false;s.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,300));return true;})()`);
   const st1=await state();report.settingsState.push(st1);assert.equal(st1.text,zh('as-learn-state-off'),'off at once, the page still open');

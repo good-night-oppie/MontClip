@@ -182,10 +182,34 @@ test('the review\'s title: JJ\'s words, and the ticked set against the search\'s
  a.deepEqual(h([c('a',true,true),c('b',true,true),c('x',false,false)],[]),{key:'head',found:3,on:2},'as the search ticked them');
  a.deepEqual(h([c('a',true,true),c('b',true,true)],[]),{key:'all',found:2,on:2},'all of them, as the search did');
  a.deepEqual(h([c('a',true,true),c('b',true,false),c('x',false,true)],[]),{key:'ticked',found:3,on:2},'the same count, another set');
- a.deepEqual(h([c('a',true,true)],[c('b',true,false)]),{key:'ticked',found:1,on:1},'one the search ticked taken out');
+ a.deepEqual(h([c('a',true,true)],[c('b',true,false)]),{key:'ticked',found:2,on:1},'one the search ticked taken out: still found 2 (VV on e31d808)');
  a.deepEqual(h([c('a',true,true),c('x',false,true)],[]),{key:'ticked',found:2,on:2},'all ticked, but not as the search did');
  // the search's own cards say which it ticked
  a.match(fs.readFileSync(require('path').join(__dirname,'..','auto-slices.js'),'utf8'),/on: i < checked, picked: i < checked/);
+});
+
+// VV on #96 e31d808 (Deja): 「找到 N 条」 and 「圈出 N 段」 are what this search found — the cards taken out included, as
+// 「找到 2 条，你都拿掉了」 already says — so taking one out or putting one back never changes N. A part you added yourself
+// (补一段) was not found by the search: it is not counted in the title (the footer counts what goes out).
+test('found and 圈出 count every card the search found, the ones taken out too; zh and en',()=>{
+ const S=require('../auto-slices'),c=(id,picked,on)=>({id,picked,on}),en=(k,v)=>V.t('en','own.'+k,v);
+ const KEY={none:'as-found-none','all-out':'as-found-all-out','none-ticked':'as-found-none-ticked',all:'as-found-all',head:'as-found-head',ticked:'as-found-ticked'};
+ const title=(lang,clips,dropped)=>{const h=S.reviewHead(clips,dropped);return V.t(lang,'own.'+KEY[h.key],h);};
+ // found 2, one taken out
+ a.equal(title('zh-CN',[c('a',true,true)],[c('b',true,false)]),'找到 2 条，勾了 1 条');
+ a.equal(title('en',[c('a',true,true)],[c('b',true,false)]),'Found 2, 1 ticked');
+ // every one taken out, then one put back (unticked): still 2, and 拿掉的 holds the other
+ const back=[c('a',true,false)],left=[c('b',true,false)];
+ a.equal(title('zh-CN',back,left),'找到 2 条，现在一条都没勾');a.equal(title('en',back,left),'Found 2, none ticked right now');
+ a.equal(S.reviewHead(back,left).found-back.length,left.length,'found − on the page = what is under 拿掉的');
+ a.equal(title('zh-CN',[],[c('a',true,false),c('b',true,false)]),'找到 2 条，你都拿掉了');
+ // put back ticked: as the search ticked it, the first title again
+ a.deepEqual(S.reviewHead([c('a',true,true),c('b',true,true)],[]),{key:'all',found:2,on:2});
+ // a part added by hand: not something the search found
+ a.deepEqual(S.reviewHead([c('a',true,true),{id:'z',added:true,on:true}],[c('b',true,false)]),{key:'ticked',found:2,on:1});
+ // 圈出 N 段 says the same N as the title
+ a.ok(read('app.js').includes('autoSay("as-evidence", { count: dm.toLocaleString(), dur: autoDur(dur), n: h.found })'));
+ a.ok(read('app.js').includes('autoSay("as-evidence-nodm", { dur: autoDur(dur), n: h.found })'));
 });
 
 // the footer's words (JJ): the empty states' reason on the left, the buttons keep their words with 0; a phone-wide window's
