@@ -1,6 +1,6 @@
 # 记住我的剪辑习惯: the v12 interface (evidence)
 
-Code at `4ffc6f1` (VV's review of 12f4f21; first taken at `3e3b324`).
+Code at `4ffc6f1` (VV's review of 12f4f21; first taken at `3e3b324`). Windows, fresh profile, hidden offscreen window, synthetic sound only; the pictures are
 `capturePage` of the smoke's own window, no desktop capture.
 
     MONTCLIP_SHOTS_OUT=<this folder> electron desktop/corrections-ui-smoke.cjs --montclip-smoke --user-data-dir=<fresh>
