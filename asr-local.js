@@ -8,8 +8,8 @@
    segments of a 3.8-hour stream made sherpa-onnx throw basic_string::_S_create, and the whole transcription failed).
    A failing segment is tried again as its two halves, once; a part that still fails is a gap {start, end, reason}
    and the transcription goes on. The result is complete, partial (with gaps), or failed (ASR_FAILED: nothing at all
-   could be read). Why that segment fails is not known yet; if it turns out to be its length, the VAD gets a shorter
-   longest segment.
+   could be read). Every decode is on a new stream, so a stream the engine broke is never used again. Rea: the failing
+   segment is at 3603.7 s and 4.74 s long, the only one of 1485 — not a long segment, so the VAD keeps its 20 s maximum.
 
    asrDir   the engine and the VAD (resources/asr in the package, vendor/asr in a checkout):
               engine/node_modules/sherpa-onnx-node, engine/node_modules/sherpa-onnx-<platform>-<arch>, silero_vad.onnx,
