@@ -161,5 +161,14 @@
       words: (q.words || []).filter((w) => w.s != null && w.e + off > lo + 1e-6 && w.s + off < hi - 1e-6).map((w) => ({ ...w, s: move(w.s), e: move(w.e) })),
     }));
   }
-  return { KINDS, LENS, COUNTS, DEFAULTS, SONG_GATE, SONG_MEASURED, songsTrusted, title, edgeLevel, build, hms, nudge, overview, totals, numbered, reviewHead, cardReasons, lyricScope, lyricCuesOn };
+  /** The dialog's undo restores a snapshot of the cards ({clips, dropped}); the lyrics pasted on a card are carried over
+   *  from the cards as they are now, so an undo takes back a calibration, never what the streamer pasted, and after any
+   *  number of undos 〔再对一遍歌词〕 brings the last paste (Deja, 2026-11-04; VV on #105 74d8486: two calibrations undone
+   *  twice brought the first). A card with nothing pasted now keeps the snapshot's. Window only, like the cards. */
+  function keepPasted(now, restored) {
+    const pasted = new Map((now.clips || []).concat(now.dropped || []).filter((c) => c.lyricText).map((c) => [c.id, c.lyricText]));
+    const carry = (c) => (pasted.has(c.id) ? { ...c, lyricText: pasted.get(c.id) } : c);
+    return { ...restored, clips: (restored.clips || []).map(carry), dropped: (restored.dropped || []).map(carry) };
+  }
+  return { KINDS, LENS, COUNTS, DEFAULTS, SONG_GATE, SONG_MEASURED, songsTrusted, title, edgeLevel, build, hms, nudge, overview, totals, numbered, reviewHead, cardReasons, lyricScope, lyricCuesOn, keepPasted };
 });
