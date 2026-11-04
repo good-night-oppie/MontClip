@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cindy plugin shell `plugins/montclip-cindy` (0.1.0): the editor in a task view beside the chat, one MontClip
   project per Cindy task (no duplicate on first open), the engine reachable only from the plugin's pages
   (`MONTCLIP_HOST=cindy` session token → cookie), the trimmed Windows environment of Cindy's Node worker filled in
-  so headless export finds Chrome / Edge, and chat tools for editing, undo / redo / seek and opening the editor.
+  so headless export finds Chrome / Edge, and chat tools for editing, undo / redo / seek and opening the editor. When the
+  Windows app has the same projects open, the chat and the editor tab say so in plain words, with a retry.
 - Engine groundwork for the Cindy plugin (one engine, two shells): `mcp-server.js` can be required as a module
   (`{TOOLS, callTool, ensureUIServer}`), `POST /api/ui/command` asks the open editor tab to undo / redo / seek /
   report its state, the editor's undo history is kept per project (`/api/ui/undo-stack`) so a reloaded tab gets

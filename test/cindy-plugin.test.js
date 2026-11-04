@@ -235,3 +235,29 @@ test("worker: a data folder the Windows app already has is refused, with the rea
   assert.match(r.error.message, /Another MontClip \(cindy, pid \d+ on port \d+\) is already editing/);
   assert.equal(r.error.data.code, "DATA_DIR_IN_USE");
 });
+
+/* VV's review of #111: the Windows app first, then the plugin on the same projects. The engine refuses
+   (DATA_DIR_IN_USE); the plugin says so in plain words, to the chat and on the editor tab, with a retry. */
+test("the Windows app has the projects open: the chat and the editor tab get plain words, not the engine's English", async () => {
+  const vm = require("node:vm");
+  const sent = [], channels = [];
+  let handler = null;
+  const refusal = "Another MontClip (desktop, pid 31832 on port 10493) is already editing C:/Users/x/MontClip-Cindy. Close it first, or give this one its own data folder (FABLECUT_DATA_DIR).";
+  const cindy = {
+    node: { request: async () => ({ ok: false, errorCode: "NODE_REQUEST_FAILED", message: refusal }) },
+    send: async (m) => { sent.push(JSON.parse(JSON.stringify(m))); return { ok: true }; },
+    onHostMessage: (fn) => { handler = fn; },
+  };
+  class BroadcastChannel { constructor() { channels.push(this); this.posted = []; } postMessage(m) { this.posted.push(JSON.parse(JSON.stringify(m))); } }
+  vm.runInNewContext(fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8"), { cindy, BroadcastChannel, setTimeout, console, Map, Promise });
+  const plain = "另一个 MontClip 正在用这些项目（可能是电脑上单独打开的 MontClip）。两个同时改，会互相盖掉。先把那边的 MontClip 关掉，再回到这里重试。";
+  await handler({ type: "tool-call", callId: "c1", tool: "montclip_status", args: {} });
+  const r = sent.find((m) => m.type === "tool-result");
+  assert.deepEqual([r.ok, r.errorCode, r.message], [false, "DATA_DIR_IN_USE", plain]);
+  await channels[0].onmessage({ data: { reqId: "e1", type: "editor" } });
+  assert.deepEqual([channels[0].posted.at(-1).code, channels[0].posted.at(-1).error], ["DATA_DIR_IN_USE", plain]);
+  // the editor tab shows the words as they are, with 重试
+  const frame = fs.readFileSync(path.join(PLUGIN, "frame.js"), "utf8");
+  assert.match(frame, /show\(inUse\(a\) \? a\.error : 'MontClip 没能启动：' \+ \(a\.error \|\| '没有地址'\), true, inUse\(a\)\)/);
+  assert.match(frame, /b\.textContent = '重试';/);
+});
