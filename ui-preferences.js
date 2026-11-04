@@ -347,6 +347,10 @@
     "as-tag-estimated": ["Estimated", "估的"],
     "as-tag-likely": ["Fairly likely", "比较可能"],
     "as-tag-adjusted": ["You adjusted it", "你调过"],
+    // the card's button once calibrated (v12's words; a placeholder key until JJ words it)
+    "as-lyrics-again": ["Match the lyrics again ({n} changed)", "再对一遍歌词（已改 {n} 句）"],
+    // the card calibrated: nothing on the timeline yet (a placeholder key until JJ words it)
+    "as-lyrics-done": ["Matched {n} lines to the lyrics; they are this part's subtitles once it is on the timeline.", "已按歌词改好 {n} 句，放到时间线上时就用这些字幕。"],
     "as-lyrics": ["Correct the subtitles from the lyrics", "按歌词校准字幕"],
     "as-lyrics-maybe": ["If this part is singing, you can correct its subtitles from the lyrics", "如果这段是唱歌，可以按歌词校准字幕"],
     // P6a: correct captions from the lyrics. New copy, for JJ.
