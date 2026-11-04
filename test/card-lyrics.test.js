@@ -86,7 +86,7 @@ test('after applying: the focus on the card\'s button, the card in view; undone:
   const app = read('app.js'), open = app.slice(app.indexOf('function autoLyricsOpen('), app.indexOf('function autoCardHtml('));
   a.match(open, /autoRender\("review"\); autoLyricFocus\(card\.id\);/);
   a.match(app, /function autoLyricFocus\(id\) \{[\s\S]*?autoFocusCard\(id\);[\s\S]*?data-as-act="lyrics"[\s\S]*?\.focus\(\{ preventScroll: true \}\)/);
-  const undo = app.slice(app.indexOf('function autoUndo('), app.indexOf('function autoUndo(') + 900);
+  const undo = app.slice(app.indexOf('function autoUndo('), app.indexOf('\n}\n', app.indexOf('function autoUndo(')));
   a.match(undo, /autoLyricFocus\(/, 'an undone calibration puts the focus back on its button');
 });
 test('calibrated, the button\'s tooltip says so (placeholder key), not the transcript line', () => {

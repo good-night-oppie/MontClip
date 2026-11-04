@@ -10764,6 +10764,19 @@ function autoLyricFocus(id) {
   const b = AUTO.el && AUTO.el.querySelector(`[data-as-card="${CSS.escape(id)}"] [data-as-act="lyrics"]`);
   if (b) b.focus({ preventScroll: true });
 }
+/** The toast lies over the bottom of the cards: when it covers the card's own lyrics button (a narrow window, VV on #100),
+ *  the cards scroll up until the button is just above it — with room added at the end of the list when it cannot scroll
+ *  that far (gone at the next drawing). */
+function autoToastClear(id) {
+  const d = AUTO.el, t = d && d.querySelector("[data-as-toast]"), body = d && d.querySelector("[data-as-body]");
+  const b = d && d.querySelector(`[data-as-card="${CSS.escape(id)}"] [data-as-act="lyrics"]`);
+  if (!t || t.hidden || !b || !body) return;
+  const r = t.getBoundingClientRect(), q = b.getBoundingClientRect();
+  if (r.right <= q.left || q.right <= r.left || r.bottom <= q.top || q.bottom <= r.top) return;
+  const need = Math.ceil(q.bottom - r.top) + 8, room = body.scrollHeight - body.clientHeight - body.scrollTop;
+  if (room < need) { const sp = document.createElement("div"); sp.setAttribute("data-as-room", ""); sp.style.height = need - room + "px"; body.append(sp); }
+  body.scrollTop += need;
+}
 function autoLyricsAvailable(c) {
   return !!c && c.kind === "song" && autoLyricWords(c).length > 0;
 }
@@ -10783,7 +10796,7 @@ function autoLyricsOpen(c) {
     card.lyricCues = p.cues.map(({ start, end, text, words, lyrics }) => ({ start, end, text, words, lyrics }));
     card.lyricN = p.cues.filter((q) => q.lyrics).length;
     card.lyricText = text;
-    autoRender("review"); autoLyricFocus(card.id); autoToast(uiText("own.as-lyrics-done", { n: card.lyricN }));
+    autoRender("review"); autoLyricFocus(card.id); autoToast(uiText("own.as-lyrics-done", { n: card.lyricN })); autoToastClear(card.id);
   } });
 }
 function autoCardHtml(c, i) {
@@ -11024,7 +11037,10 @@ function autoUndo() {
   if (st.step !== "review" || !st.hist.length) return;
   const lyr = (cs) => new Map(cs.map((c) => [c.id, JSON.stringify(c.lyricCues || null)]));
   const was = lyr(st.clips);
+  // the lyrics pasted stay on their card: an undo takes back a calibration, not what the streamer pasted (VV on #100)
+  const pasted = new Map(st.clips.concat(st.dropped).filter((c) => c.lyricText).map((c) => [c.id, c.lyricText]));
   const o = JSON.parse(st.hist.pop()); st.clips = o.clips; st.dropped = o.dropped;
+  for (const c of st.clips.concat(st.dropped)) if (pasted.has(c.id) && !c.lyricText) c.lyricText = pasted.get(c.id);
   if (o.learnOn) autoLearnSet(false);   // 〔打开〕 undone: off again
   autoRender("review"); autoToast(uiText("own.as-undone"), false);
   const back = st.clips.find((c) => was.has(c.id) && was.get(c.id) !== JSON.stringify(c.lyricCues || null));
