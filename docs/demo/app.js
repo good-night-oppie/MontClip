@@ -9617,12 +9617,23 @@ function openAsrSetup(state) {
     d.setAttribute("aria-labelledby", "asrSetupTitle");
     d.addEventListener("close", () => { if (asrSetup && asrSetup.dialog === d) asrSetup = null; d.remove(); });
     d.addEventListener("click", asrSetupClick);
+    // Esc (VV on #88 25b4578): what the box's own way out does — 〔以后再说〕 when it offers one, 〔好〕 once done; while
+    // downloading the box closes and the download goes on (Settings › 听写 shows it)
+    d.addEventListener("cancel", (e) => {
+      e.preventDefault();
+      const out = d.querySelector('[data-asr-setup="later"]') || d.querySelector('[data-asr-setup="ok"]');
+      if (out) out.click(); else d.close();
+    });
     document.body.append(d);
     asrSetup = { dialog: d, state: null };
     d.showModal();
   }
   asrSetup.state = state || null;
   paintAsrSetup();
+  // the focus in the box, on its first button, so Esc and Tab are the box's
+  // the box itself counts as "inside" (showModal may focus the <dialog>): then too (VV on #102)
+  const a = document.activeElement;
+  if (a === asrSetup.dialog || !asrSetup.dialog.contains(a)) asrSetup.dialog.querySelector(".dialog-actions button")?.focus();
 }
 /** A box taller than the window (Deja, #88): everything between its title and its actions goes into a .dialog-body that
  *  scrolls, so the title and the actions stay in sight. */
@@ -9641,9 +9652,9 @@ function paintAsrSetup() {
   if (!st) html = `<h2 id="asrSetupTitle">${h("setup-title")}</h2><p class="dim">${h("setup-intro")}</p>
     <div class="asr-card asr-card-main"><b>${h("setup-local-title")}</b> <span class="asr-tag">${h("setup-recommended")}</span>
       <ul><li>${h("asr-missing")}</li><li>${h("setup-local-speed")}${ASR_TEST_MINUTES ? h("setup-local-n", { n: ASR_TEST_MINUTES }) : ""}</li>
-        <li>${h("setup-local-errors")}</li>${asrPunctReady() ? "" : `<li>${h("setup-local-punct")}</li>`}</ul>
-      <button type="button" class="btn primary" data-asr-setup="download">${h("asr-download")}</button></div>
-    <div class="asr-card"><b>${h("setup-later-title")}</b><p>${h("setup-later")}</p>${later}</div>`;
+        <li>${h("setup-local-errors")}</li>${asrPunctReady() ? "" : `<li>${h("setup-local-punct")}</li>`}</ul></div>
+    <div class="asr-card"><b>${h("setup-later-title")}</b><p>${h("setup-later")}</p></div>
+    <div class="dialog-actions"><button type="button" class="btn primary" data-asr-setup="download">${h("asr-download")}</button>${later}</div>`;
   else if (st === "dl") html = `<h2 id="asrSetupTitle">${h("setup-dl-title")}</h2><p>${h("asr-downloading", { got: mbText(d.loaded) })}</p>
     <div class="asr-bar"><i style="width:${d.total ? Math.min(100, Math.round(100 * d.loaded / d.total)) : 0}%"></i></div>
     <div class="dialog-actions"><button type="button" class="btn" data-asr-setup="cancel">${h("asr-download-cancel")}</button></div>`;
@@ -18223,7 +18234,8 @@ async function openExportSetup() {
     renderQueue();
     els.exportSetup.classList.remove("hidden");
     // aria-modal hides what is behind — focus has to come inside
-    if (!els.exportSetup.contains(document.activeElement)) $("exportRangeSel")?.focus();
+    const a = document.activeElement;
+    if (a === els.exportSetup || !els.exportSetup.contains(a)) $("exportRangeSel")?.focus();
   });
 }
 function closeExportSetup() {
