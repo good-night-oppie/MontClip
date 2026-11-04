@@ -143,25 +143,26 @@ test("banner in JJ's words: the progress, speed kept", () => {
   assert.doesNotMatch(js, /正在下载 ffmpeg|核对校验值|LGPL 版本|ffmpeg 已装好/, "the old words are gone");
 });
 
-test("banner in JJ's words: each failure, its button, the raw error only where the sentence points to it", () => {
+test("banner in JJ's words: each failure, its button; 〔复制问题信息〕 only where the sentence points to it (JJ v2)", () => {
   const cases = [
-    // code, message, sentence, button, detail
-    ["SHA256_MISMATCH", "archive SHA-256 mismatch: got 1a2b, pinned 9f8e", "下载下来的文件不完整，没有安装。" + AGAIN, "retry", ""],
-    ["BAD_ARCHIVE", "the archive has no ffprobe", "下载下来的文件不完整，没有安装。" + AGAIN, "retry", ""],
-    ["DOWNLOAD_FAILED", "下载失败，请重试（网络、权限或文件校验未通过）", "下载断了，没下完。检查一下网络。" + AGAIN, "retry", ""],
-    ["EACCES", "EACCES: permission denied, open 'x'", "MontClip 没法往自己的文件夹里写文件，可能被杀毒软件挡住了。点重试再来一次；还不行，重启电脑再试。", "retry", ""],
-    ["EPERM", "EPERM: operation not permitted, rename", "MontClip 没法往自己的文件夹里写文件，可能被杀毒软件挡住了。点重试再来一次；还不行，重启电脑再试。", "retry", ""],
-    ["UNPACK_FAILED", "unpacking failed: tar: bad header", "解压没成功。" + AGAIN, "retry", ""],
-    ["INSTALL_FAILED", "the staged ffmpeg is a GPL build", "没装上。点重试再来一次；还不行，把下面这行发给我们：", "retry", "the staged ffmpeg is a GPL build"],
-    ["PROTOCOL_ERROR", "  worker gone  ", "没装上。点重试再来一次；还不行，把下面这行发给我们：", "retry", "worker gone"],
-    [undefined, "", "没装上。" + AGAIN, "retry", ""],
-    ["CANCELLED", "下载已取消", "下载取消了，没有安装。", "install", ""],
-    ["UNSUPPORTED_PLATFORM", "MontClip has no pinned ffmpeg for darwin-arm64", "这台电脑的系统暂时没有对应的导出工具，导出和降噪用不了。", null, ""],
-    ["HOST_TOO_OLD", "This Cindy cannot download files for plugins; update Cindy.", "Cindy 版本太旧，装不了导出工具。先把 Cindy 更新到最新，再回来点下载。", null, ""],
+    // code, message, sentence, button, copy (the raw error itself is never on the page)
+    ["SHA256_MISMATCH", "archive SHA-256 mismatch: got 1a2b, pinned 9f8e", "下载下来的文件不完整，没有安装。" + AGAIN, "retry", false],
+    ["BAD_ARCHIVE", "the archive has no ffprobe", "下载下来的文件不完整，没有安装。" + AGAIN, "retry", false],
+    ["DOWNLOAD_FAILED", "下载失败，请重试（网络、权限或文件校验未通过）", "下载断了，没下完。检查一下网络。" + AGAIN, "retry", false],
+    ["EACCES", "EACCES: permission denied, open 'x'", "MontClip 没法往自己的文件夹里写文件，可能被杀毒软件挡住了。点重试再来一次；还不行，重启电脑再试。", "retry", false],
+    ["EPERM", "EPERM: operation not permitted, rename", "MontClip 没法往自己的文件夹里写文件，可能被杀毒软件挡住了。点重试再来一次；还不行，重启电脑再试。", "retry", false],
+    ["UNPACK_FAILED", "unpacking failed: tar: bad header", "解压没成功。" + AGAIN, "retry", false],
+    ["INSTALL_FAILED", "the staged ffmpeg is a GPL build", "没装上。点重试再来一次；还不行，点「复制问题信息」发给我们。", "retry", true],
+    ["PROTOCOL_ERROR", "  worker gone  ", "没装上。点重试再来一次；还不行，点「复制问题信息」发给我们。", "retry", true],
+    [undefined, "", "没装上。" + AGAIN, "retry", false],
+    ["CANCELLED", "下载已取消", "下载取消了，没有安装。", "install", false],
+    ["UNSUPPORTED_PLATFORM", "MontClip has no pinned ffmpeg for darwin-arm64", "这台电脑的系统暂时没有对应的导出工具，导出和降噪用不了。", null, false],
+    ["HOST_TOO_OLD", "This Cindy cannot download files for plugins; update Cindy.", "Cindy 版本太旧，装不了导出工具。先把 Cindy 更新到最新，再回来点下载。", null, false],
   ];
-  for (const [code, message, text, button, detail] of cases) {
+  for (const [code, message, text, button, copy] of cases) {
     const f = B.describe(code, message);
-    assert.deepEqual([f.text, f.button, f.detail], [text, button, detail], String(code));
+    assert.deepEqual([f.text, f.button, f.copy], [text, button, copy], String(code));
+    assert.ok(!("detail" in f), "no raw error for the page");
     assert.doesNotMatch(f.text, /SHA|ENOSPC|EACCES|archive|mismatch|LGPL|staged|worker/i, "no raw words in the sentence");
   }
   assert.equal(B.describe("ENOSPC", "ENOSPC: no space left on device", { need: 350 * 1048576 }).text,
@@ -174,7 +175,7 @@ test("banner in JJ's words: each failure, its button, the raw error only where t
   const js = fs.readFileSync(path.join(PLUGIN, "frame.js"), "utf8");
   assert.match(js, /get\.hidden = !f\.button; get\.textContent = f\.button === 'install' \? W\.install : W\.retry;/);
   assert.match(js, /later\.hidden = f\.reason === 'cancelled';/, "下载取消了: only 下载并安装");
-  assert.match(js, /d\.textContent = detail \|\| ''; d\.hidden = !detail;/, "the raw error as text, on its own small line");
+  assert.match(js, /d\.textContent = note \|\| ''; d\.hidden = !note;/, "the small line is only ever the first banner's note");
 });
 
 test("磁盘空间不够: the amount is worked out — the archive + its unpacked size − the free space, rounded up", (t) => {
@@ -247,24 +248,65 @@ test("the worker's code (and the amount to free) reaches the banner through main
   assert.match(js, /progress\(\{ phase: 'failed', code: r\.code, need: r\.need, message: r\.error \}\)/);
 });
 
-/* Rea (2026-11-04): a raw error never shows as it came. The page's two failures (frame.js: the task's project, the
-   start) and the banner's 没装上 keep #112's way — plain words, then the line to send us in small print — and that small
-   line drops paths, local ports and pids; the whole error goes to the log (console.warn). */
-test("the page's and the banner's small line: no paths, local ports or pids; the whole error in the log", () => {
+/* JJ v2 (2026-11-04, section 1, rule 2), Deja's decision for #115–#117: what the page shows is plain words only. Where
+   the sentence points to it, 〔复制问题信息〕 copies the error for us — its code and the raw error, with user paths cut
+   to the file name and no keys or tokens — and the whole of it goes to the log. */
+const Problem = require(path.join(PLUGIN, "problem-details.js"));
+const RAW_ENGLISH = /[A-Za-z]+[ ,;:'-]+[A-Za-z]+[ ,;:'-]+[A-Za-z]+/;   // three English words in a row
+function framePart() {
   const src = fs.readFileSync(path.join(PLUGIN, "frame.js"), "utf8");
   const logged = [];
-  const { failureText, scrub } = new Function("console", src.slice(0, src.indexOf("(function () {")) + "\nreturn { failureText, scrub };")({ warn: (...a) => logged.push(a.join(" ")) });
-  const raw = "EACCES: permission denied, open 'C:\\Users\\me\\clips-data\\project.json' at 127.0.0.1:7777 pid 4242 /home/me/clips-data/x";
-  const f = failureText("MontClip 没能启动。", raw);
-  assert.equal(f.text, "MontClip 没能启动。关掉这个页签再打开试试；还不行，把下面这行发给我们：");
-  assert.equal(f.detail, "EACCES: permission denied, open '…' at … pid … …");
+  const window = { MontClipProblem: Problem };
+  const f = new Function("console", "window", "MontClipProblem", "document", "navigator",
+    src.slice(0, src.indexOf("(function () {")) + "\nreturn { failureText, copyButton, COPY };");
+  return { src, logged, ...f({ warn: (...a) => logged.push(a.join(" ")) }, window, Problem, fakeDocument(), fakeNavigator()) };
+}
+/* just enough DOM for copyButton: elements with text, a click handler, append */
+function fakeDocument() {
+  const el = (tag) => ({ tag, textContent: "", className: "", type: "", style: {}, children: [], handlers: {},
+    setAttribute() { }, select() { }, remove() { }, append(...c) { this.children.push(...c); }, appendChild(c) { this.children.push(c); },
+    addEventListener(ev, fn) { this.handlers[ev] = fn; } });
+  return { createElement: el, body: el("body"), execCommand: () => false };
+}
+let clipboard = null;
+function fakeNavigator() { return { clipboard: { writeText: async (t) => { clipboard = t; } } }; }
+
+test("the task page's failures: plain words and 〔复制问题信息〕, never the raw error (JJ v2)", async () => {
+  const { src, logged, failureText, copyButton, COPY } = framePart();
+  const raw = "EACCES: permission denied, open 'C:\\Users\\me\\clips-data\\project.json' token=abcdef0123456789";
+  const f = failureText("MontClip 没能启动。", raw, "EACCES");
+  assert.equal(f.text, "MontClip 没能启动。关掉这个页签再打开试试；还不行，点「复制问题信息」发给我们。");
+  assert.doesNotMatch(f.text, RAW_ENGLISH); assert.ok(!f.text.includes("EACCES"), "no code on the page");
+  assert.ok(!("detail" in f), "no raw line for the page");
   assert.ok(logged.some((l) => l.includes(raw)), "the whole error is in the log");
-  assert.deepEqual(failureText("MontClip 没能启动。", ""), { text: "MontClip 没能启动。关掉这个页签再打开试试。", detail: "" });
-  // the banner's 没装上: the same scrub
-  assert.equal(B.describe("INSTALL_FAILED", "the staged ffmpeg failed its check at C:\\Users\\me\\clips-data\\ffmpeg (pid 4242)").detail,
-    "the staged ffmpeg failed its check at … (pid …)");
-  assert.equal(B.scrub(raw), scrub(raw), "frame.js and ffmpeg-banner.js scrub alike");
-  assert.match(src, /console\.warn\('\[MontClip\] export tool install:', m\.code \|\| '', String\(m\.message\)\);/);
-  // the two page failures go through failureText (no "：" + raw error glued to the sentence)
-  assert.doesNotMatch(src, /没能(启动|打开这个任务的项目)：' \+/);
+  assert.deepEqual(failureText("MontClip 没能启动。", ""), { text: "MontClip 没能启动。关掉这个页签再打开试试。", problem: null }, "no error: no copy button");
+  // the button: JJ's words; a click copies the code and the raw error, scrubbed
+  const box = fakeDocument().createElement("div");
+  const b = copyButton(box, f.problem);
+  assert.deepEqual([box.children[0].textContent, box.children[1].textContent], ["复制问题信息", "复制的内容不含你的文件夹路径、密钥和观众信息。"]);
+  await b.handlers.click();
+  assert.match(clipboard, /EACCES: EACCES: permission denied, open 'project\.json'/, "the code and the raw error, the path cut to its file name");
+  for (const leak of ["Users", "me\\", "clips-data", "abcdef0123456789"]) assert.ok(!clipboard.includes(leak), leak + " in " + clipboard);
+  assert.equal(box.children[1].textContent, COPY.done);
+  assert.equal(COPY.done, "已经复制好了，粘贴到发给我们的消息里就行。");
+  // the page puts the button in place of the raw line, on both failures
+  assert.match(src, /if \(problem\) copyButton\(status, problem\);   \/\/ never the raw error itself/);
+  assert.match(src, /failureText\('MontClip 没能打开这个任务的项目。', b\.error, b\.code\); show\(f\.text, true, false, f\.problem\);/);
+  assert.match(src, /failureText\('MontClip 没能启动。', a\.error, a\.code\); show\(f\.text, true, false, f\.problem\);/);
+  assert.doesNotMatch(src, /className = 'detail'|textContent = detail/, "no raw line anywhere on the page");
+});
+
+test("the export tool banner: 没装上 gets 〔复制问题信息〕; the raw error goes to the log, never the banner (JJ v2)", () => {
+  const src = fs.readFileSync(path.join(PLUGIN, "frame.js"), "utf8");
+  assert.match(src, /bannerText\(f\.text, f\.reason !== 'cancelled', '', f\.copy \? \{ code: m\.code \|\| 'INSTALL_FAILED', error: m\.message \} : null\);/);
+  assert.match(src, /console\.warn\(MontClipProblem\.logLine\(\{ code: m\.code \|\| 'INSTALL_FAILED', error: m\.message \}\)\);/);
+  const view = fs.readFileSync(path.join(PLUGIN, "task-view.html"), "utf8");
+  assert.match(view, /<div class="copybox" id="ffmpegCopy" hidden><\/div>/);
+  assert.ok(view.indexOf('src="problem-details.js"') < view.indexOf('src="frame.js"'), "problem-details.js before frame.js");
+  const panel = fs.readFileSync(path.join(PLUGIN, "panel.html"), "utf8");
+  assert.ok(panel.indexOf('src="problem-details.js"') > 0 && panel.indexOf('src="problem-details.js"') < panel.indexOf('src="frame.js"'));
+  // copied: the code and the raw error; no user path, no token, no key
+  const line = Problem.copyLine({ code: "INSTALL_FAILED", error: "the staged ffmpeg failed its check at C:\\Users\\me\\clips-data\\ffmpeg\\ffmpeg.exe (Bearer abc.def) sk-1234567890abc " + "a".repeat(64) });
+  assert.match(line, /INSTALL_FAILED: the staged ffmpeg failed its check at ffmpeg\.exe/);
+  for (const leak of ["Users", "clips-data", "abc.def", "sk-1234567890abc", "a".repeat(64)]) assert.ok(!line.includes(leak), leak);
 });
