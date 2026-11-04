@@ -49,7 +49,7 @@ test("Ctrl+Z after an agent edit takes back the agent's edit, then the user's", 
   w.undo();
   assert.equal(text(w, "b"), "original", "the agent's edit is taken back");
   assert.equal(text(w, "a"), "user edit", "the user's edit stays");
-  assert.equal(w.toasts.at(-1), "撤回了刚才在别处（AI 或另一个窗口）做的修改。");
+  assert.equal(w.toasts.at(-1), "撤销的这一步是 AI 或另一个窗口改的，不是你在这里改的。撤错了，点「重做」就能改回来。");
   w.undo();
   assert.equal(text(w, "a"), "user", "the next Ctrl+Z takes back the user's edit");
   assert.equal(w.toasts.length, 1, "only the outside step says so");
@@ -122,7 +122,7 @@ test("syncFromServer: an agent's edit becomes an undo step of its own; undo and 
   assert.equal(w.runtime.undo.length, 2, "and recorded as a step");
   w.undo();
   assert.deepEqual([text(w, "a"), text(w, "b")], ["user edit", "original"], "Ctrl+Z takes back the agent's edit only");
-  assert.equal(w.toasts.at(-1), "撤回了刚才在别处（AI 或另一个窗口）做的修改。");
+  assert.equal(w.toasts.at(-1), "撤销的这一步是 AI 或另一个窗口改的，不是你在这里改的。撤错了，点「重做」就能改回来。");
   w.undo();
   assert.equal(text(w, "a"), "user");
   w.redo(); w.redo();
