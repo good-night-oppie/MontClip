@@ -1,5 +1,5 @@
 {
- "about": "MontClip's own words for Cindy keys whose Cindy wording does not fit MontClip, laid over cindy-strings.json. The four permission modes are MontClip's, in JJ's final words from the frozen prototype c604fd65 (MODES), full stops included: word for word the mode tips of ui-preferences.js (officialPane_mode*Tip, #110), test/cindy-parts.test.js; the stand-in useAgentCapabilities gives them under Cindy's ids plan / ask / auto / bypassPermissions. chat.thinking.inProgress / hidden are not Cindy keys: Cindy writes Thinking / Thinking hidden in ThinkingCard's JSX, and the build puts these two t() calls in their place (cindy-resolve.cjs PATCHES; VV on f3df7db).",
+ "about": "MontClip's own words for Cindy keys whose Cindy wording does not fit MontClip, laid over cindy-strings.json. The four permission modes are MontClip's, in JJ's final words from the frozen prototype c604fd65 (MODES), full stops included: word for word the mode tips of ui-preferences.js (officialPane_mode*Tip, #110), test/cindy-parts.test.js; the stand-in useAgentCapabilities gives them under Cindy's ids plan / ask / auto / bypassPermissions. chat.thinking.inProgress / hidden are not Cindy keys: Cindy writes Thinking / Thinking hidden in ThinkingCard's JSX, and the build puts these two t() calls in their place (cindy-resolve.cjs PATCHES; VV on f3df7db). chat.workGroup.worked (only WorkGroupBlock, the whole reply's row) and chat.thinking.completed (only ThinkingCard, finished) are JJ's words (2026-11-04): 用了 / Took, 想了 / Thought for.",
  "zh-CN": {
   "newChat": {
    "permissionSelector": {
@@ -30,7 +30,11 @@
   "chat": {
    "thinking": {
     "inProgress": "正在想",
-    "hidden": "这段思考没有显示"
+    "hidden": "这段思考没有显示",
+    "completed": "想了 {{duration}}"
+   },
+   "workGroup": {
+    "worked": "用了 {{duration}}"
    }
   }
  },
@@ -64,7 +68,11 @@
   "chat": {
    "thinking": {
     "inProgress": "Thinking",
-    "hidden": "Thinking hidden"
+    "hidden": "Thinking hidden",
+    "completed": "Thought for {{duration}}"
+   },
+   "workGroup": {
+    "worked": "Took {{duration}}"
    }
   }
  }
