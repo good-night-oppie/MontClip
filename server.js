@@ -145,7 +145,12 @@ const asr = () => asrLocal || (asrLocal = require("./asr-local").createAsr({ asr
 const asrJob = { running: null };
 
 ensureDirs();
+/* One engine writes a data folder (writer-lock.js): the Windows app and the Cindy plugin share this
+   engine, and two of them on one folder would save over each other. MONTCLIP_SHELL names the shell. */
+const SHELL = process.env.MONTCLIP_SHELL || (DESKTOP ? "desktop" : "server");
+const writerLock = require("./writer-lock").acquire(DATA_DIR, { shell: SHELL });
 const projects = createProjects({ dataDir: DATA_DIR, projectFile: PROJECT_FILE, libraryDir: LIBRARY_DIR });
+const undoStacks = require("./undo-stacks").createUndoStacks({ dir: path.join(ANALYSIS_DIR, "undo") });
 const history = createHistory({ projects, autoMinutes: Number(process.env.FABLECUT_AUTO_VERSION_MIN) || 10 });
 /* project.json that can't be read at startup (a crash mid-write by another tool, a
    bad hand edit): keep it aside and put back the newest good copy. */
@@ -166,6 +171,7 @@ if (!fs.existsSync(PROJECT_FILE)) {
 
 /* ── SSE clients + file watching ── */
 const sseClients = new Set();
+const uiCommands = new Map();   // /api/ui/command id → resolve, until a tab answers or 4 s pass
 function broadcast(event = "change", data = event) {
   const payload = `event: ${event}\ndata: ${data}\n\n`;
   for (const res of sseClients) res.write(payload);
@@ -262,6 +268,7 @@ const BODY_LIMITS = {
   "PUT /api/project": 64 * 1048576,              // the project document
   "POST /api/projects": 128 * 1048576,           // an imported project or backup, with its versions
   "POST /api/transcript": 16 * 1048576,          // the words of a long recording
+  "PUT /api/ui/undo-stack": 64 * 1048576,        // up to 100 undo + redo snapshots of the timeline
   "POST /api/export/frame": 8192 * 8192 * 4 + MAX_BODY, // one raw RGBA frame of the largest canvas (with what came before it)
 };
 const STREAMED = new Set(["POST /api/upload", "POST /api/export/audio"]); // bodyToFile: straight to disk
@@ -808,11 +815,61 @@ const server = http.createServer(async (req, res) => {
     try {
       // a backup file (a project with its versions) imports through history.js
       const out = a.action === "import" && a.project?.fablecut === "backup" ? history.importBackup(a.project, a) : projects.act(a);
+      if (a.action === "delete" && out.deleted) try { undoStacks.remove(String(out.id || a.id)); } catch { }   // its undo history goes too
       broadcast("projects", JSON.stringify({ action: a.action, id: out.id || a.id || null, active: projects.activeId() }));
       // opening, or renaming the open project, rewrites ./project.json: reload the tabs now, watcher or not
       if (out.from || ((a.action === "update" || a.action === "rename") && out.project?.active)) onFsChange();
       sendJSON(res, 200, out);
     } catch (e) { sendJSON(res, /^no (project|saved template)/.test(e.message) ? 404 : 400, { error: e.message }); }
+    return;
+  }
+  /* API: commands for the open editor tab — undo, redo, seek, state. The undo stack lives in the
+     tab (one stack for the streamer and the agent), so an agent outside the tab asks the tab:
+     POST {cmd, t?} is sent to the tabs as SSE `ui-command`; the first tab to answer on
+     /api/ui/command/result wins, and its answer is this request's answer. No tab within 4 s → 409. */
+  if (p === "/api/ui/command" && req.method === "POST") {
+    let a;
+    try { a = JSON.parse((await readBody(req)).toString("utf8") || "{}"); }
+    catch { sendJSON(res, 400, { error: "body must be JSON {cmd, t?}" }); return; }
+    if (!["undo", "redo", "seek", "state"].includes(a.cmd)) { sendJSON(res, 400, { error: "cmd must be undo, redo, seek or state" }); return; }
+    if (a.cmd === "seek" && !(Number.isFinite(+a.t) && +a.t >= 0)) { sendJSON(res, 400, { error: "seek needs t (seconds, ≥ 0)" }); return; }
+    const id = crypto.randomUUID();
+    const answer = await new Promise((resolve) => {
+      const timer = setTimeout(() => { uiCommands.delete(id); resolve(null); }, 4000);
+      uiCommands.set(id, (r) => { clearTimeout(timer); uiCommands.delete(id); resolve(r); });
+      broadcast("ui-command", JSON.stringify({ id, cmd: a.cmd, ...(a.cmd === "seek" ? { t: +a.t } : {}) }));
+    });
+    if (!answer) sendJSON(res, 409, { error: "no editor tab is open to run it", code: "NO_EDITOR" });
+    else sendJSON(res, 200, answer);
+    return;
+  }
+  /* API: the open project's undo history, kept so a reloaded editor tab gets it back (undo-stacks.js).
+     GET ?project= → the stack or null · PUT ?project= {sequence, revision, current, media, undo, redo, time}
+     · POST /api/ui/undo-stack/time?project= {t} (a page going away: the playhead only). `project` is the
+     X-FableCut-Project id, "default" before projects are used. */
+  if (p === "/api/ui/undo-stack" || p === "/api/ui/undo-stack/time") {
+    const id = url.searchParams.get("project") || "default";
+    try {
+      if (p === "/api/ui/undo-stack" && req.method === "GET") { sendJSON(res, 200, { stack: undoStacks.get(id) }); return; }
+      if (p === "/api/ui/undo-stack" && req.method === "PUT") {
+        const body = JSON.parse((await readBody(req)).toString("utf8") || "null");
+        sendJSON(res, 200, undoStacks.put(id, body)); return;
+      }
+      if (p === "/api/ui/undo-stack/time" && req.method === "POST") {
+        const body = JSON.parse((await readBody(req)).toString("utf8") || "{}");
+        sendJSON(res, 200, { saved: undoStacks.setTime(id, +body.t) }); return;
+      }
+      sendJSON(res, 405, { error: "GET or PUT /api/ui/undo-stack, POST /api/ui/undo-stack/time" });
+    } catch (e) { sendJSON(res, e.status || 400, { error: e.message }); }
+    return;
+  }
+  if (p === "/api/ui/command/result" && req.method === "POST") {
+    let a;
+    try { a = JSON.parse((await readBody(req)).toString("utf8") || "{}"); }
+    catch { sendJSON(res, 400, { error: "body must be JSON {id, …}" }); return; }
+    const done = uiCommands.get(a.id);
+    if (done) done(a);
+    sendJSON(res, done ? 200 : 409, { taken: !!done });
     return;
   }
   /* API: versions (history.js) — GET ?project= lists them (default: the open project);
@@ -1782,6 +1839,7 @@ setInterval(() => {
 
 server.listen(PORT, HOST, () => {
   boundPort = server.address().port;
+  writerLock.update({ port: boundPort });
   console.log(`\n  MontClip running →  http://localhost:${boundPort}\n`);
   const ready = { type: "montclip-ready", origin: serverOrigin() };
   if (DESKTOP) {

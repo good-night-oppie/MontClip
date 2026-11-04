@@ -92,7 +92,7 @@ const TOOLS = [
     description: "Import a media file into MontClip's media library and register it in the project. Pass a local absolute path (copied, including .svg) or an https:// URL (downloaded into ./media/; video/audio/image only — remote SVG is refused). The URL is never kept as the playback src — CORS would break export. Returns the created media entry (use its id in clips).",
     inputSchema: {
       type: "object",
-      properties: { path: { type: "string", description: "Absolute path to a local file, or an https:// URL to download" }, acceptReadable: {type:"boolean", description:"Explicitly accept the currently readable FLV range when timing is uncertain. Does not authorize timestamp gaps or transcoding."}, allowTranscode: {type: "boolean", description: "For incompatible local FLV only: explicitly consent to a compatible MP4 transcode. Default false; original retained."} },
+      properties: { path: { type: "string", description: "Absolute path to a local file, or an https:// URL to download" }, link: { type: "boolean", description: "Local file only: hard-link it into media/ instead of copying when it is on the same drive (a several-GB recording imports at once, no second copy on disk; falls back to a copy). Only for files that will not be edited in place." }, acceptReadable: {type:"boolean", description:"Explicitly accept the currently readable FLV range when timing is uncertain. Does not authorize timestamp gaps or transcoding."}, allowTranscode: {type: "boolean", description: "For incompatible local FLV only: explicitly consent to a compatible MP4 transcode. Default false; original retained."} },
       required: ["path"],
     },
   },
