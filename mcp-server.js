@@ -628,7 +628,9 @@ async function speechWords(args, fileMode) {
     }
     if (job.status !== "done") throw new Error(`transcription ${job.status}: ${job.error || "no reason given"}`);
     const res = job.result || {};
-    note = `Transcribed ${(res.done || []).length} file${(res.done || []).length === 1 ? "" : "s"} (${model}${language ? ", " + language : ""}, in ${job.via === "headless" ? "a headless browser" : "the open editor tab"})` +
+    const partial = (res.done || []).filter((d) => d.gaps);
+    note = (partial.length ? `PARTLY transcribed: ${partial.reduce((n, d) => n + d.gaps, 0)} part(s) could not be read (${Math.round(partial.reduce((t, d) => t + (d.gapSeconds || 0), 0))} s in all) and have no words — no subtitles there; the rest is below. ` : "") +
+      `Transcribed ${(res.done || []).length} file${(res.done || []).length === 1 ? "" : "s"} (${model}${language ? ", " + language : ""}, in ${job.via === "headless" ? "a headless browser" : "the open editor tab"})` +
       ((res.failed || []).length ? `; failed: ${res.failed.map((f) => `${f.src} (${f.error})`).join(", ")}` : "") + ".\n";
   }
   const docs = new Map();
