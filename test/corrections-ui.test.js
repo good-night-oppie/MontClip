@@ -115,3 +115,9 @@ test("the line when it is off, its 〔打开〕 and the toast after it, in JJ's 
  a.match(app,/data-as-act="\$\{on \? "learn" : "learn-on"\}"/);
  a.match(app,/act === "learn-on"/);
 });
+
+// JJ's final words (Deja, 2026-11-03) for the reason on a part marked 不是唱歌 that comes back
+test("JJ's words for the reason on a part marked 不是唱歌 that comes back",()=>{
+ a.equal(zh('as-marked-why'),'上次你把这段改成了不是唱歌，这次照你改的来，开头结尾也和上次一样。');
+ a.equal(en('as-marked-why'),"Last time you marked this part as not singing, so it's shown the way you changed it, with the same start and end.");
+});
