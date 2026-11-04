@@ -153,6 +153,27 @@ test('revoke: the model, anything half-downloaded and the consent record are del
   a.equal(F.store.status('omni-test').consented, false);
 });
 
+test('one optional model at a time: choosing another revokes the first once the new one is in place (not before)', async (t) => {
+  const F = fixture(t);
+  const second = JSON.parse(JSON.stringify(F.manifest.models['omni-test']));
+  second.name = 'Omni test 2';
+  F.manifest.models['omni-test-2'] = second;
+  const store = O.createOptional({ manifest: F.manifest, userDir: F.userDir, root: F.root, version: '9.9.9' });
+  const yes = { license: async () => true, source: async () => 0 };
+  a.equal((await store.select('omni-test', { fetchFile: F.fetchFile, ask: yes })).ok, true);
+  a.equal(store.active(), 'omni-test');
+  // the second one fails its check: the first stays in use
+  F.served['tokens.txt'] = Buffer.from('<blk> 0\nb 1\n');
+  const bad = await store.select('omni-test-2', { fetchFile: F.fetchFile, ask: yes });
+  a.equal(bad.code, 'ASR_CHECK_FAILED'); a.equal(store.active(), 'omni-test');
+  F.served['tokens.txt'] = Buffer.from('<blk> 0\na 1\n');
+  const r = await store.select('omni-test-2', { fetchFile: F.fetchFile, ask: yes });
+  a.equal(r.ok, true); a.deepEqual(r.replaced, ['omni-test']); a.equal(r.active, 'omni-test-2');
+  const st = store.status('omni-test');
+  a.equal(st.installed, false); a.equal(st.consented, false);
+  a.ok(!fs.existsSync(path.join(F.userDir, 'optional', 'omni-test')));
+});
+
 test('cancelling the download revokes; a dropped connection keeps what came for the next try', async (t) => {
   const F = fixture(t);
   const ac = new AbortController();

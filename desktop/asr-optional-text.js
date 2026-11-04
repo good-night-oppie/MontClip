@@ -9,12 +9,12 @@ function optionalLicenseText(language, { name, licenseName, text }) {
   return zh ? {
     title: '许可证：' + name,
     message: `用这个模型之前，请先看它的许可证（${licenseName}）。`,
-    detail: `${String(text).trim()}\n\n——以上是模型自带的许可证原文。Apache License 2.0 全文随 MontClip 一起附带：licenses/asr/omnilingual-asr-Apache-2.0.txt。\n\n这是 Meta 开源的多语言模型，适合英文和其他语言。中文的错字比默认的 Paraformer 多好几倍，中文直播建议继续用默认模型。\n\n点「同意」以后，下一步再选从哪个网站下载；点「不同意」，什么都不下载，听写照旧用默认模型。`,
+    detail: `${String(text).trim()}\n\n——以上是模型自带的许可证原文。Apache License 2.0 全文随 MontClip 一起附带：licenses/asr/omnilingual-asr-Apache-2.0.txt。\n\n这是 Meta 开源的多语言模型，适合英文和其他语言。中文的错字比默认的 Paraformer 多好几倍，中文直播建议继续用默认模型。\n\n点「同意」以后，下一步再选从哪个网站下载；点「不同意」，什么都不下载，听写照旧用默认模型。如果已经在用另一个可选模型，新的装好以后，旧的会被撤销、删掉。`,
     buttons: ['不同意', '同意'],
   } : {
     title: 'Licence: ' + name,
     message: `Before using this model, please read its licence (${licenseName}).`,
-    detail: `${String(text).trim()}\n\n— Above: the licence that comes with the model, word for word. The full Apache License 2.0 text is shipped with MontClip: licenses/asr/omnilingual-asr-Apache-2.0.txt.\n\nThis is Meta's open multilingual model, for English and other languages. In Chinese it makes several times more mistakes than the default Paraformer model, so Chinese streams are better off with the default.\n\nAfter "Agree" you choose the site to download from; "Don't agree" downloads nothing and transcription keeps the default model.`,
+    detail: `${String(text).trim()}\n\n— Above: the licence that comes with the model, word for word. The full Apache License 2.0 text is shipped with MontClip: licenses/asr/omnilingual-asr-Apache-2.0.txt.\n\nThis is Meta's open multilingual model, for English and other languages. In Chinese it makes several times more mistakes than the default Paraformer model, so Chinese streams are better off with the default.\n\nAfter "Agree" you choose the site to download from; "Don't agree" downloads nothing and transcription keeps the default model. If another optional model is in use, it is revoked and deleted once the new one is installed.`,
     buttons: ["Don't agree", 'Agree'],
   };
 }

@@ -9844,36 +9844,50 @@ function paintAsrOptional() {
   const box = $("setAsrOpt");
   if (!box) return;
   if (!asrOpt.list) { box.hidden = true; loadAsrOptional(); return; }
-  const m = asrOpt.list.models[0];   // one optional model for now
-  box.hidden = !m;
-  if (!m) return;
-  let text, label = null;
-  if (asrOpt.busy) text = uiText("own.asr-opt-getting", { got: mbText(asrOpt.busy.loaded || 0), mb: m.mb });
-  else if (m.ready) { text = uiText("own.asr-opt-active"); label = "own.asr-opt-revoke"; }
-  else if (m.consented) { text = uiText("own.asr-opt-bad"); label = "own.asr-opt-revoke"; }   // agreed, but a file is missing or changed: not used
-  else { text = uiText("own.asr-opt-about", { mb: m.mb }); label = "own.asr-opt-use"; }
-  $("setAsrOptText").textContent = asrOpt.note || text;
-  const b = $("btnAsrOpt");
-  b.hidden = !label;
-  if (label) { b.textContent = uiText(label); b.dataset.i18n = label; }
-  $("btnAsrOptCancel").hidden = !asrOpt.busy;
+  const models = asrOpt.list.models || [];
+  box.hidden = !models.length;
+  if (!models.length) return;
+  // the general line (or what happened last), then one row per model: its size, what it is good at, and its button
+  $("setAsrOptText").textContent = asrOpt.note || uiText("own.asr-opt-about");
+  const list = $("setAsrOptList");
+  list.textContent = "";
+  const busy = asrOpt.busy, inUse = models.some((m) => m.ready);
+  for (const m of models) {
+    const row = document.createElement("div");
+    row.className = "settings-row settings-row-mid";
+    const text = document.createElement("span");
+    text.className = "settings-hint";
+    const note = uiText("own.asr-opt-note-" + String(m.params || "").toLowerCase());
+    if (busy && busy.id === m.id) text.textContent = uiText("own.asr-opt-getting", { name: m.name, got: mbText(busy.loaded || 0), mb: m.mb });
+    else if (m.ready) text.textContent = uiText("own.asr-opt-active", { name: m.name });
+    else if (m.consented) text.textContent = uiText("own.asr-opt-bad", { name: m.name });   // agreed, but a file is missing or changed: not used
+    else text.textContent = uiText("own.asr-opt-model", { name: m.name, mb: m.mb, note });
+    const label = m.ready || m.consented ? "own.asr-opt-revoke" : inUse ? "own.asr-opt-switch" : "own.asr-opt-use";
+    const b = document.createElement("button");
+    b.className = "btn"; b.type = "button"; b.textContent = uiText(label); b.dataset.i18n = label; b.dataset.model = m.id;
+    b.disabled = !!busy;
+    b.addEventListener("click", () => asrOptionalClick(m.id));
+    row.append(text, " ", b);
+    list.append(row);
+  }
+  $("btnAsrOptCancel").hidden = !busy;
 }
-async function asrOptionalClick() {
-  const api = window.montclipAsr && window.montclipAsr.optional, m = asrOpt.list && asrOpt.list.models[0];
+async function asrOptionalClick(id) {
+  const api = window.montclipAsr && window.montclipAsr.optional, m = asrOpt.list && (asrOpt.list.models || []).find((x) => x.id === id);
   if (!api || !m || asrOpt.busy || asrState.downloading || asrState.punctBusy) return;
   asrOpt.note = "";
   let r = null;
   if (m.ready || m.consented) {
     try { r = await api.revoke(m.id); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
-    if (r && r.ok) toast(uiText("own.asr-opt-revoked"));
+    if (r && r.ok) toast(uiText("own.asr-opt-revoked", { name: m.name }));
   } else {
-    asrOpt.busy = { loaded: 0 };
+    asrOpt.busy = { id: m.id, loaded: 0 };
     const off = api.onProgress((p) => { if (asrOpt.busy && p.id === m.id) { asrOpt.busy.loaded = p.loaded; paintAsrOptional(); } });
     paintAsrOptional();
     try { r = await api.select(m.id); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
     off?.();
     asrOpt.busy = null;
-    if (r && r.ok) toast(uiText("own.asr-opt-active"));
+    if (r && r.ok) toast(uiText("own.asr-opt-active", { name: m.name }));
     else if (r && r.code === "ASR_CHECK_FAILED") asrOpt.note = uiText("own.asr-check-failed");
     else if (r && r.code === "ASR_NO_SPACE") asrOpt.note = uiText("own.asr-opt-no-space", { need: mbText(r.needBytes || 0), free: mbText(r.freeBytes || 0) });
     else if (r && !r.declined) asrOpt.note = uiText("own.asr-opt-failed", { why: r.error || r.code || "?" });
@@ -9882,24 +9896,13 @@ async function asrOptionalClick() {
   await loadAsrOptional();
   loadAsrStatus();
 }
-/** Download the punctuation model: the host asks first (its own box), then it is checked file by file like the speech model. */
-async function asrGetPunct() {
-  if (!window.montclipAsr || asrState.punctBusy || asrState.downloading) return;
-  asrState.punctBusy = true; asrState.punctNote = ""; paintSettingsAsr();
-  let r = null;
-  try { r = await window.montclipAsr.download("punct"); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
-  asrState.punctBusy = false;
-  if (r && r.ok) toast(uiText("own.asr-punct-ready"));
-  else if (r && !(r.declined || r.code === "ASR_DOWNLOAD_CANCELLED")) asrState.punctNote = uiText("own.asr-download-failed", { why: r.error || r.code || "?" });
-  await loadAsrStatus();
-  paintSettingsAsr();
-}
 /** The optional engine's failures in plain words (asr-optional-engine.js): only it failed; the default is untouched. */
 function asrOptionalWords(j) {
   if (!j || j.engine !== "optional") return null;
   if (j.code === "ASR_OPTIONAL_CRASHED") return uiText("own.asr-opt-crashed");
   if (j.code === "ASR_OPTIONAL_NO_MEMORY") return uiText("own.asr-opt-no-memory", { need: `${j.needMB || "?"} MB`, free: `${j.freeMB ?? "?"} MB` });
-  if (j.code === "ASR_OPTIONAL_NOT_READY" || j.code === "ASR_OPTIONAL_MODEL_BROKEN") return uiText("own.asr-opt-bad");
+  const m = asrOpt.list && (asrOpt.list.models || []).find((x) => x.id === j.model);
+  if (j.code === "ASR_OPTIONAL_NOT_READY" || j.code === "ASR_OPTIONAL_MODEL_BROKEN") return uiText("own.asr-opt-bad", { name: m ? m.name : "Meta Omnilingual" });
   return null;
 }
 /** Transcribe one file in the local server, which saves its transcript. Resolves to {doc, saved}. */
@@ -20884,7 +20887,6 @@ $("btnH264Clear")?.addEventListener("click", async () => { await window.montclip
 $("btnSettings").addEventListener("click", openSettings);
 $("btnAsrSetup").addEventListener("click", () => openAsrSetup());
 $("btnAsrPunct").addEventListener("click", () => asrGetPunct());
-$("btnAsrOpt").addEventListener("click", () => asrOptionalClick());
 $("btnAsrOptCancel").addEventListener("click", () => { if (window.montclipAsr && asrOpt.busy) window.montclipAsr.cancel(); });
 $("btnCloseSettings").addEventListener("click", closeSettings);
 $("settingsOverlay").addEventListener("click", (e) => {

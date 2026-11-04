@@ -10,7 +10,8 @@
      - a consent record is on this computer: {model, revision, licenseSha256, agreedAt, montclipVersion} (no upload, no
        log), and its revision and licence hash are the ones this build pins.
    Revoking = the model's folder, its staging folder and its consent record are deleted; transcription goes back to the
-   default engine. Nothing here downloads until select() has had both answers; there is no "agree" parameter anywhere.
+   default engine. One optional model at a time: choosing another one revokes the first once the new one is in place.
+   Nothing here downloads until select() has had both answers; there is no "agree" parameter anywhere.
 
    desktop/asr-optional-manifest.json pins every file (size, SHA-256), the revision of each source (never a branch),
    the hosts (https only, exact names; a redirect to any other host is not followed — asr-download.js), and the
@@ -257,7 +258,10 @@ function createOptional({ manifest: m = manifest, userDir, root = __dirname, ver
     try {
       const r = await download(id, { source: pick, fetchFile, signal, onProgress });
       consent(id);
-      return { ok: true, source: r.source, active: active() };
+      // one optional model at a time: the one used before is revoked (its files and record go) once this one is in place
+      const replaced = Object.keys(m.models).filter((k) => k !== id && (fs.existsSync(modelDir(k)) || fs.existsSync(consentFile(k))));
+      for (const k of replaced) revoke(k);
+      return { ok: true, source: r.source, active: active(), replaced };
     } catch (e) {
       // 〔取消〕 while downloading: revoked; a dropped connection keeps what came, for the next try from the same site
       if (e.code === "ASR_DOWNLOAD_CANCELLED") { revoke(id); return { ok: false, declined: "cancelled" }; }
