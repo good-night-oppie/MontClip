@@ -29,6 +29,8 @@
   const LANGUAGES = { zh: "Chinese (Mandarin)" };
   const MAX_WORDS = 200000;
   const MAX_WORD = 80;
+  /** the parts the engine could not read, kept with a transcript (one per 2 s of a 24-hour recording) */
+  const MAX_GAPS = 50000;
   /** edit-ops.js MIN_DUR: extract refuses a range this short or shorter. */
   const MIN_CUT = 0.05;
 
@@ -65,8 +67,9 @@
     return out;
   }
 
-  /** A transcript document, checked: {v, src, model, language, duration, created, words:[[text, s, e], …]}.
-   *  Throws on anything malformed. Words are kept in time order, inside 0…duration. */
+  /** A transcript document, checked: {v, src, model, language, duration, created, words:[[text, s, e], …],
+   *  gaps:[[start, end, reason], …]}. Throws on anything malformed. Words are kept in time order, inside 0…duration.
+   *  gaps are the parts the engine could not read (asr-local.js): no words there, in time order, inside the recording. */
   function validate(doc) {
     if (!doc || typeof doc !== "object" || Array.isArray(doc)) throw new Error("a transcript must be an object");
     if (!Array.isArray(doc.words)) throw new Error("a transcript needs words: [[text, start, end], …]");
@@ -83,15 +86,28 @@
       words.push([t, r3(s), r3(e)]);
       prev = s;
     }
+    const gaps = [];
+    if (doc.gaps != null) {
+      if (!Array.isArray(doc.gaps) || doc.gaps.length > MAX_GAPS) throw new Error(`a transcript's gaps: at most ${MAX_GAPS} [start, end, reason]`);
+      for (const g of doc.gaps) {
+        if (!Array.isArray(g) || !num(g[0]) || !num(g[1]) || g[1] < g[0] || typeof g[2] !== "string") throw new Error("each gap must be [start, end, reason]");
+        let s = Math.max(0, g[0]), e = g[1];
+        if (duration != null) { s = Math.min(s, duration); e = Math.min(e, duration); }
+        if (e > s) gaps.push([r3(s), r3(e), g[2].slice(0, 200)]);
+      }
+      gaps.sort((x, y) => x[0] - y[0]);
+    }
     const lang = doc.language == null ? null : String(doc.language).slice(0, 16);
     return {
       v: 1, src: typeof doc.src === "string" ? doc.src.slice(0, 1024) : null,
       model: typeof doc.model === "string" ? doc.model.slice(0, 64) : null,
       language: lang, duration: duration != null ? r3(duration) : null,
       created: typeof doc.created === "string" ? doc.created.slice(0, 40) : new Date().toISOString(),
-      words,
+      words, gaps,
     };
   }
+  /** complete, or partial when some parts could not be read (its gaps). */
+  const status = (doc) => (doc && Array.isArray(doc.gaps) && doc.gaps.length ? "partial" : "complete");
 
   /** A clip whose speed follows keyframes: its words can't be placed on the timeline from one speed. */
   const ramped = (c) => !!(c && c.keyframes && Array.isArray(c.keyframes.speed) && c.keyframes.speed.length);
@@ -228,7 +244,7 @@
 
   return {
     MODELS, DEFAULT_MODEL, RATE, LANGUAGES, MIN_CUT,
-    model, language, join, gap, validate, ramped, clipWords, layout, norm, find, union,
+    model, language, join, gap, validate, status, ramped, clipWords, layout, norm, find, union,
     cutSpans, cutOps, text, segments, total,
   };
 });

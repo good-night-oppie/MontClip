@@ -1312,6 +1312,7 @@ function toast(msg) {
   if (!els.toast) return;
   els.toast.textContent = msg;
   els.toast.classList.add("show");
+  if (toastHold) toastHold.stop();
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => els.toast.classList.remove("show"), 3200);
 }
@@ -9616,12 +9617,23 @@ function openAsrSetup(state) {
     d.setAttribute("aria-labelledby", "asrSetupTitle");
     d.addEventListener("close", () => { if (asrSetup && asrSetup.dialog === d) asrSetup = null; d.remove(); });
     d.addEventListener("click", asrSetupClick);
+    // Esc (VV on #88 25b4578): what the box's own way out does — 〔以后再说〕 when it offers one, 〔好〕 once done; while
+    // downloading the box closes and the download goes on (Settings › 听写 shows it)
+    d.addEventListener("cancel", (e) => {
+      e.preventDefault();
+      const out = d.querySelector('[data-asr-setup="later"]') || d.querySelector('[data-asr-setup="ok"]');
+      if (out) out.click(); else d.close();
+    });
     document.body.append(d);
     asrSetup = { dialog: d, state: null };
     d.showModal();
   }
   asrSetup.state = state || null;
   paintAsrSetup();
+  // the focus in the box, on its first button, so Esc and Tab are the box's
+  // the box itself counts as "inside" (showModal may focus the <dialog>): then too (VV on #102)
+  const a = document.activeElement;
+  if (a === asrSetup.dialog || !asrSetup.dialog.contains(a)) asrSetup.dialog.querySelector(".dialog-actions button")?.focus();
 }
 /** A box taller than the window (Deja, #88): everything between its title and its actions goes into a .dialog-body that
  *  scrolls, so the title and the actions stay in sight. */
@@ -9640,9 +9652,9 @@ function paintAsrSetup() {
   if (!st) html = `<h2 id="asrSetupTitle">${h("setup-title")}</h2><p class="dim">${h("setup-intro")}</p>
     <div class="asr-card asr-card-main"><b>${h("setup-local-title")}</b> <span class="asr-tag">${h("setup-recommended")}</span>
       <ul><li>${h("asr-missing")}</li><li>${h("setup-local-speed")}${ASR_TEST_MINUTES ? h("setup-local-n", { n: ASR_TEST_MINUTES }) : ""}</li>
-        <li>${h("setup-local-errors")}</li>${asrPunctReady() ? "" : `<li>${h("setup-local-punct")}</li>`}</ul>
-      <button type="button" class="btn primary" data-asr-setup="download">${h("asr-download")}</button></div>
-    <div class="asr-card"><b>${h("setup-later-title")}</b><p>${h("setup-later")}</p>${later}</div>`;
+        <li>${h("setup-local-errors")}</li>${asrPunctReady() ? "" : `<li>${h("setup-local-punct")}</li>`}</ul></div>
+    <div class="asr-card"><b>${h("setup-later-title")}</b><p>${h("setup-later")}</p></div>
+    <div class="dialog-actions"><button type="button" class="btn primary" data-asr-setup="download">${h("asr-download")}</button>${later}</div>`;
   else if (st === "dl") html = `<h2 id="asrSetupTitle">${h("setup-dl-title")}</h2><p>${h("asr-downloading", { got: mbText(d.loaded) })}</p>
     <div class="asr-bar"><i style="width:${d.total ? Math.min(100, Math.round(100 * d.loaded / d.total)) : 0}%"></i></div>
     <div class="dialog-actions"><button type="button" class="btn" data-asr-setup="cancel">${h("asr-download-cancel")}</button></div>`;
@@ -9742,7 +9754,9 @@ async function transcribeSrcs(srcs, opts = transcribeSettings(), beat = null) {
       busy.beat();
       try {
         const r = await transcribeFile(srcs[i]);
-        out.done.push({ src: srcs[i], words: r.doc.words.length, language: r.doc.language, saved: r.saved });
+        const gaps = r.doc.gaps || [];
+        out.done.push({ src: srcs[i], words: r.doc.words.length, language: r.doc.language, saved: r.saved,
+          status: gaps.length ? "partial" : "complete", gaps: gaps.length, gapSeconds: Math.round(gaps.reduce((t, g) => t + g[1] - g[0], 0) * 10) / 10 });
       } catch (e) {
         if (busy.cancel || e.code === "ASR_CANCELLED") { out.cancelled = true; break; }
         out.failed.push({ src: srcs[i], error: String((e && e.message) || e), code: e.code || null });
@@ -9939,6 +9953,35 @@ function buildTranscriptPage() {
   });
   trState.built = true;
 }
+/** "31 秒" / "2 分 05 秒" for the length of the gaps. */
+function trGapDur(s) {
+  const zh = mcView.get().language === "zh-CN", t = Math.round(s);
+  if (t < 60) return zh ? `${t} 秒` : `${t} s`;
+  const m = Math.floor(t / 60), r = String(t % 60).padStart(2, "0");
+  return zh ? `${m} 分 ${r} 秒` : `${m} min ${r} s`;
+}
+/** The parts of the timeline's files the engine could not read (their transcript's gaps), placed on the timeline
+ *  through each clip that plays them: how many, how long, and each one a place to jump to (.tr-tc). They have no words,
+ *  so no subtitles: the note says so rather than leaving them quietly short. */
+function trGapsHtml(groups) {
+  const spots = [];
+  let total = 0;
+  for (const g of groups) {
+    const c = g[0], m = getMedia(c.mediaId), doc = m && transcriptOf(m.src);
+    if (!doc || !Array.isArray(doc.gaps) || !doc.gaps.length) continue;
+    const sp = +(c.props && c.props.speed) > 0 ? +c.props.speed : 1, a = +c.in || 0, b = a + (+c.duration || 0) * sp;
+    for (const [s, e] of doc.gaps) {
+      const from = Math.max(s, a), to = Math.min(e, b);
+      if (to <= from) continue;
+      spots.push({ t: (+c.start || 0) + (from - a) / sp, u: (+c.start || 0) + (to - a) / sp }); total += (to - from) / sp;
+    }
+  }
+  if (!spots.length) return "";
+  spots.sort((x, y) => x.t - y.t);
+  const shown = spots.slice(0, 20).map((x) => `<span class="tr-tc" data-t="${x.t}" title="${escapeHtml(fmt(x.t))}">${escapeHtml(fmt(x.t))}–${escapeHtml(fmt(x.u))}</span>`).join(" ");
+  const more = spots.length > 20 ? " " + escapeHtml(uiText("own.tr-gaps-more", { more: spots.length - 20 })) : "";
+  return `<div class="tr-note tr-gaps" data-tr-gaps>${escapeHtml(uiText("own.tr-gaps-note", { n: spots.length, dur: trGapDur(total) }))} ${shown}${more}</div>`;
+}
 function renderTranscript(force = false) {
   if (!trState.open || !els.transcriptPage) return;
   if (typeof FableCutTranscribe === "undefined") { els.transcriptPage.innerHTML = `<div class="tr-empty">${uiText("own.tr-module-missing")}</div>`; return; }
@@ -9969,6 +10012,7 @@ function renderTranscript(force = false) {
       const names = missing.slice(0, 6).map(escapeHtml).join(mcView.get().language === "zh-CN" ? "、" : ", ") + (missing.length > 6 ? escapeHtml(uiText("own.tr-more", { n: missing.length - 6 })) : "");
       html += `<div class="tr-note">${escapeHtml(uiText("own.tr-missing", { names: "\u0000" })).replace("\u0000", names)}</div>`;
     }
+    html += trGapsHtml(groups);
     if (!words.length && !missing.length) html += `<div class="tr-empty">${uiText([...transcriptCache.values()].some((v) => v instanceof Promise) ? "own.loading" : "own.tr-no-words")}</div>`;
     for (const s of T.segments(words)) {
       let p = "";
@@ -10075,6 +10119,9 @@ async function transcribeFromTab() {
   try { out = await transcribeSrcs(srcs); } catch (e) { toast(e.message); return; }
   const unsaved = out.done.filter((d) => !d.saved).length;
   const words = out.done.reduce((n, d) => n + d.words, 0);
+  // some parts could not be read: say so (how many, how long, where to find them), never that it is done
+  const gaps = out.done.reduce((n, d) => n + (d.gaps || 0), 0), gapSeconds = out.done.reduce((t, d) => t + (d.gapSeconds || 0), 0);
+  if (gaps && !out.cancelled) { toast(uiText("own.tr-gaps-toast", { n: gaps, dur: trGapDur(gapSeconds) })); return; }
   toast(out.cancelled ? `Stopped — ${out.done.length} file${out.done.length === 1 ? "" : "s"} transcribed`
     : out.failed.length && !out.done.length ? `Couldn't transcribe: ${out.failed[0].error}`
     : `Transcribed ${out.done.length} file${out.done.length === 1 ? "" : "s"}, ${words} words` +
@@ -10458,9 +10505,13 @@ function autoRender(step) {
   st.step = step;
   const order = ["start", "run", "review", "done"], n = order.indexOf(step);
   d.querySelectorAll("[data-as-st]").forEach((li) => { const k = order.indexOf(li.dataset.asSt); li.className = k === n ? "on" : k < n ? "done" : ""; });
-  const body = d.querySelector("[data-as-body]"), had = d.contains(document.activeElement), keep = autoFocusSelector(document.activeElement);
+  const body = d.querySelector("[data-as-body]"), same = body.dataset.step === step, had = d.contains(document.activeElement), keep = autoFocusSelector(document.activeElement);
+  // the same page drawn again (an option picked): its folds stay as they were and it stays where it was scrolled (VV:
+  // picking a 每条多长 option closed 更多设置); another page starts at the top with its folds as designed
+  const open = same ? [...body.querySelectorAll("details")].map((x) => x.open) : [], top = body.scrollTop;
   body.innerHTML = step === "start" ? autoStartHtml() : step === "run" ? autoRunHtml() : step === "review" ? autoReviewHtml() : autoDoneHtml();
-  body.scrollTop = 0;
+  body.dataset.step = step;
+  if (same) { body.querySelectorAll("details").forEach((x, i) => { if (open[i]) x.open = true; }); body.scrollTop = top; } else body.scrollTop = 0;
   autoFooter();
   // the focus stays in the dialog when it is drawn again: the same button if it is still there, else the dialog (VV on
   // 12f4f21: it fell to the page, so Ctrl+Z went to the timeline behind the dialog instead of undoing the card)
@@ -11108,6 +11159,7 @@ function autoPlace(clips, { select = null, fine = false } = {}) {
   return r;
 }
 /** A toast with one button (the editor's toast is text only). The button acts once; the toast goes after 8 s. */
+let toastHold = null;
 function toastAction(msg, label, onClick) {
   if (!els.toast) return;
   els.toast.textContent = "";
@@ -11117,7 +11169,8 @@ function toastAction(msg, label, onClick) {
   els.toast.append(span, " ", btn);
   els.toast.classList.add("show", "has-action");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => els.toast.classList.remove("show", "has-action"), 8000);
+  if (!toastHold) toastHold = holdToast(els.toast, () => { if (els.toast.classList.contains("has-action")) els.toast.classList.remove("show", "has-action"); });
+  toastHold.start();
 }
 
 /* step 4: export — the ticked parts put on the timeline (one undo step), then one file each through the export queue */
@@ -18446,7 +18499,8 @@ async function openExportSetup() {
     renderQueue();
     els.exportSetup.classList.remove("hidden");
     // aria-modal hides what is behind — focus has to come inside
-    if (!els.exportSetup.contains(document.activeElement)) $("exportRangeSel")?.focus();
+    const a = document.activeElement;
+    if (a === els.exportSetup || !els.exportSetup.contains(a)) $("exportRangeSel")?.focus();
   });
 }
 function closeExportSetup() {

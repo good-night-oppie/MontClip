@@ -60,3 +60,13 @@ test('every dialog wears the editor’s colours: its own text colour, panel back
   for(const p of ['color','background','border','padding'])a.match(own,new RegExp('(?:^|[;\\s{])'+p+'\\s*:'),`.${c} ${p}`);
  }
 });
+
+// VV on #102 404db85: a box that is focused itself (showModal can leave the focus on the <dialog>) "contains" the focus,
+// so el.contains(activeElement) alone never moved it to the first button. Every place that puts the focus inside a box
+// on opening also does so when the box itself has it.
+test('opening a box moves the focus in when the box itself has it, not only when it is outside',()=>{
+ const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+ a.match(app,/const a = document\.activeElement;\s*if \(a === asrSetup\.dialog \|\| !asrSetup\.dialog\.contains\(a\)\) asrSetup\.dialog\.querySelector\("\.dialog-actions button"\)\?\.focus\(\);/);
+ a.match(app,/const a = document\.activeElement;\s*if \(a === els\.exportSetup \|\| !els\.exportSetup\.contains\(a\)\) \$\("exportRangeSel"\)\?\.focus\(\);/);
+ a.ok(!/if \(!\w+(?:\.\w+)*\.contains\(document\.activeElement\)\)[^;]*\.focus\(/.test(app),'no other box checks contains() alone before focusing');
+});
