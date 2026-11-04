@@ -17,3 +17,4 @@ iframe.engine { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; backgroun
 #ffmpeg button.primary { background: var(--accent, #4b3fd6); border-color: transparent; color: #fff; }
 #ffmpeg.error p { color: var(--text-danger, #b42318); }
 #status button { font: inherit; padding: 4px 12px; border-radius: 6px; border: 1px solid var(--border-default, #d4d4cf); background: transparent; color: inherit; cursor: pointer; }
+#status .detail { font-size: 11px; color: var(--text-secondary, #6b6b66); user-select: text; overflow-wrap: anywhere; max-width: 100%; }
