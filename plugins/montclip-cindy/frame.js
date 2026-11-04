@@ -27,6 +27,23 @@
     });
   }
 
+  /* Cindy's light / dark theme: the host declares color-scheme on this page (and keeps it in step with its theme).
+     The editor gets it in its URL, then a message whenever it changes (host-embed.js listens). */
+  function scheme() {
+    const cs = String(getComputedStyle(document.documentElement).colorScheme || '').trim().split(/\s+/)[0];
+    if (cs === 'light' || cs === 'dark') return cs;
+    return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  let sent = null;
+  function sendTheme() {
+    const now = scheme();
+    if (!frame || !url || now === sent) return;
+    sent = now;
+    try { frame.contentWindow.postMessage({ type: 'montclip-host-theme', scheme: now }, new URL(url).origin); } catch (e) { }
+  }
+  setInterval(sendTheme, 1500);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', sendTheme);
+
   let url = null, frame = null;
   function place(next) {
     url = next;
@@ -35,10 +52,10 @@
       frame.className = 'engine';
       frame.title = 'MontClip';
       frame.allow = 'autoplay; fullscreen; clipboard-write';
-      frame.addEventListener('load', () => { status.hidden = true; });
+      frame.addEventListener('load', () => { status.hidden = true; sent = null; sendTheme(); });
       document.body.appendChild(frame);
     }
-    frame.src = url;
+    frame.src = url + (url.includes('?') ? '&' : '?') + 'theme=' + scheme();
   }
   /* A task view shows its own task's project: bind it when the page opens and whenever the task comes back to the
      front (another task's view may have opened a different project meanwhile). The worker runs binds one at a time. */

@@ -5114,3 +5114,25 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
   .app.agent-open .cindy-plan-what { display: none; }
   .app.agent-open .cindy-thread { min-height: 4.5em; }
 }
+
+/* ══ Inside another app (?host=cindy, host-embed.js): the host's chat replaces the built-in assistant, and the colours
+   follow the host's light / dark theme. The dark theme is the editor's own; light re-maps the surface variables. ══ */
+html[data-host] #mcAssistant, html[data-host] #mcAssistantTab, html[data-host] #mcAssistantPanel { display: none !important; }
+html[data-host-theme="dark"] { color-scheme: dark; }
+html[data-host-theme="light"] {
+  color-scheme: light;
+  --bg: #e9e9e6;
+  --panel: #f7f7f5;
+  --panel-head: #ececea;
+  --panel-sub: #f1f1ee;
+  --panel-2: #dcdcd8;
+  --well: #ffffff;
+  --border: #d4d4cf;
+  --text: #1f1f22;
+  --dim: #66666d;
+}
+/* light: the few places that write a light text colour of their own (on the dark theme's surfaces) */
+html[data-host-theme="light"] .logo { color: var(--text); }
+html[data-host-theme="light"] .btn.toggle.on, html[data-host-theme="light"] .bin-tabs button.on { color: #4b3fd6; }
+html[data-host-theme="light"] .ruler { background: var(--panel-head); }
+html[data-host-theme="light"] .track-headers, html[data-host-theme="light"] .track-head { background: var(--panel-sub); }
