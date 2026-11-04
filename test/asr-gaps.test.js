@@ -109,3 +109,30 @@ test('the page: partial is never told as done; the gaps are listed and can be ju
  a.match(app,/data-tr-gaps/);a.match(app,/own\.tr-gaps-toast/);
  const srv=fs.readFileSync(path.join(ROOT,'server.js'),'utf8');a.match(srv,/gaps: r\.gaps/);
 });
+
+// Rea (2026-11-03): the segment that failed is at 3603.7 s and 4.74 s long, the only one of 1485 — not a long segment.
+// The engine's state may be what broke, not that sound: after a failure, every later decode starts on a new stream
+// (never the one that threw), and the next segment is read as usual.
+test('after a segment fails, the next one is decoded on a new stream, never the one that threw, and is read',async()=>{
+ const S=setup();try{
+  const streams=[],log=[];
+  const {sherpa}=fakeSherpa({lengths:plan()});
+  sherpa.OfflineRecognizer.createAsync=async()=>({
+   createStream(){const s={id:streams.length,acceptWaveform({samples}){this.n=samples.length;}};streams.push(s);return s;},
+   async decodeAsync(s){log.push({id:s.id,n:s.n});
+    // a stream that has thrown is broken: using it again throws too
+    if(s.broken)throw new Error('stream used again after it failed');
+    if(s.n===POISON||s.n===Math.floor(POISON/2)){s.broken=true;throw new Error('basic_string::_S_create');}
+    const tokens=[],timestamps=[];for(let t=0;t+0.5<=s.n/RATE;t+=0.5){tokens.push('字');timestamps.push(t);}return{tokens,timestamps};}});
+  const asr=require('../asr-local').createAsr({asrDir:S.dir,store:S.store,ffmpeg:ffmpeg(),sherpa});
+  const r=await asr.transcribe(S.file,{});
+  a.equal(new Set(log.map(x=>x.id)).size,log.length,'every decode on its own stream');
+  // the decodes after the one that threw: none on a stream that threw before it
+  const k=log.findIndex(x=>x.n===POISON),after=log.slice(k+1);
+  a.ok(after.length>=5,'the halves and the segments after it were decoded');
+  a.ok(after.every(x=>x.id>log[k].id),'each later decode on a stream made after the one that threw');
+  a.ok(!streams.filter(s=>s.broken).some(s=>log.filter(x=>x.id===s.id).length>1),'a broken stream is never decoded twice');
+  a.equal(r.status,'partial');a.equal(r.gaps.length,1);
+  a.ok(r.words.some(w=>w[1]>=12+POISON/RATE&&w[1]<12+POISON/RATE+3),'the next segment is read');
+ }finally{S.done();}
+});
