@@ -26,4 +26,19 @@ function lavcFromTag(tag) {
   return m ? 'Lavc' + m[1] : null;
 }
 
-module.exports = { pathWithoutFfmpeg, lavcFromVersion, lavcFromTag };
+/** Which FFmpeg the packaged app ran (Deja, 2026-11-03): only the processes whose parents lead to the app (root, its pid)
+ *  count — an FFmpeg someone else runs on the computer at the same time is listed apart and does not fail the check —
+ *  and each of the app's must be one of the packaged exes, by its full path (case and slashes aside), never its name.
+ *  procs: [{pid, path, ancestors: [parent pid, its parent, …]}]. → {ok, why, ours, others} */
+function ffmpegInTree({ root, packaged, procs }) {
+  const norm = (p) => (typeof p === 'string' && p ? path.win32.normalize(p.replace(/\//g, '\\')).toLowerCase() : null);
+  const allowed = new Set((packaged || []).map(norm));
+  const mine = (procs || []).filter((p) => p.pid === root || (p.ancestors || []).includes(root));
+  const ours = mine.map((p) => p.path || null), others = (procs || []).filter((p) => !mine.includes(p)).map((p) => p.path || null);
+  if (!mine.length) return { ok: false, why: 'no FFmpeg of the app was seen', ours, others };
+  const bad = mine.filter((p) => !allowed.has(norm(p.path)));
+  if (bad.length) return { ok: false, why: 'the app ran an FFmpeg that is not the packaged one: ' + bad.map((p) => p.path || '(path unreadable)').join(', '), ours, others };
+  return { ok: true, why: '', ours, others };
+}
+
+module.exports = { pathWithoutFfmpeg, lavcFromVersion, lavcFromTag, ffmpegInTree };
