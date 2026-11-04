@@ -9,8 +9,8 @@ const pane=fs.readFileSync(path.join(__dirname,'../agent-ui/pane.tsx'),'utf8'),v
 const payload=(content='keep these')=>({version:1,requestId:'r1',projectId:'p',sequenceId:'s',revision:1,gen:0,messages:[{role:'user',content}]});
 const service=(request,extra={})=>{const s=S.createService({read:()=>JSON.stringify({version:1,provider:'openrouter',model:'nvidia/x-vl:free',secret:'sealed'}),write(){},seal:k=>k,unseal:()=>'test-key',request,providers:S.ALL_PROVIDERS,...extra});return s;}; // OpenRouter: the test switch (agent-providers.test.js)
 
-test('three fixed services, OpenRouter included (with the test switch); the page cannot name a URL',()=>{
- a.deepEqual(Object.keys(S.ENDPOINTS).sort(),['deepseek','openai','openrouter']);
+test('four fixed services, OpenRouter and Meta included (with the test switch); the page cannot name a URL',()=>{
+ a.deepEqual(Object.keys(S.ENDPOINTS).sort(),['deepseek','meta','openai','openrouter']);
  a.equal(S.ENDPOINTS.openrouter,'https://openrouter.ai/api/v1/chat/completions');
  const s=S.createService({read:()=>null,write(){},seal:k=>'s:'+k,unseal:x=>x,providers:S.ALL_PROVIDERS});
  a.equal(s.configure({provider:'openrouter',model:'google/gemma-4-31b-it:free',apiKey:'k'}).configured,true);

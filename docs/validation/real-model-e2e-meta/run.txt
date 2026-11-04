@@ -1,0 +1,30 @@
+
+  MontClip running →  http://localhost:35341
+
+  project file : /tmp/MontClip-meta-e2e-D9rOue/workspace/project.json
+  media folder : /tmp/MontClip-meta-e2e-D9rOue/workspace/media
+  library      : /tmp/MontClip-meta-e2e-D9rOue/workspace/library (sfx, elements, svg, fonts, presets, templates)
+  app files    : <repo>
+  ffmpeg       : found (fast export + faststart remux on)
+  encode prof. : <repo>/encoding-profiles.json (draft, delivery, hq, broadcast1080i50, prores422, nvenc-h264, nvenc-hevc, videotoolbox-h264, videotoolbox-hevc · default delivery)
+
+[OpenH264] this = 0x0x248c02eae220, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.
+[OpenH264] this = 0x0x248c02c73cf0, Warning:bEnableFrameSkip = 0,bitrate can't be controlled for RC_QUALITY_MODE,RC_BITRATE_MODE and RC_TIMESTAMP_MODE without enabling skip frame.
+E2E_STEP {"name":"settings","option":"Meta（Muse Spark） · api.meta.ai","options":["openrouter","meta","deepseek","openai"],"model":"muse-spark-1.1"}
+E2E_STEP {"name":"fields","inputs":["text","password"],"keyLength":true,"model":"muse-spark-1.1"}
+(electron) 'safeStorage.isEncryptionAvailable' is deprecated and will be removed. Please use 'safeStorage.isAsyncEncryptionAvailable' instead.
+E2E_STEP {"name":"safeStorage","available":true,"backend":"gnome_libsecret"}
+(electron) 'safeStorage.encryptString' is deprecated and will be removed. Please use 'safeStorage.encryptStringAsync' instead.
+E2E_STEP {"name":"configured","provider":"meta","model":"muse-spark-1.1","configured":true,"code":null,"mode":"manual","notice":"连接配置已保存在本机，没有发起请求。"}
+E2E_STEP {"name":"sentences-quoted","captions":2}
+E2E_STEP {"name":"sentences-review","domain":"api.meta.ai · muse-spark-1.1","formatNote":true,"raw":true}
+(electron) 'safeStorage.decryptString' is deprecated and will be removed. Please use 'safeStorage.decryptStringAsync' instead.
+E2E_STEP {"name":"sentences-reply","ms":1914,"text":"助手已生成剪辑建议：保留 2 句，成片大约 00:08。请先看一遍再应用。","notice":"","approval":"AI 想做这一步保留 2 句只保留选中的几句字幕对应的片段保留 2 句，成片大约 00:08。改的是项目：未命名项目只批准这次这个聊天中都批准不同意"}
+E2E_STEP {"name":"sentences-applied","clips":[[0,0,3],[3,5,5]],"overlapWith3to5":0,"keptSeconds":8,"undoSteps":1,"event":{"capability":"keep_sentences","state":"applied","args":{"ranges":[{"clipId":"e2e_c0","sourceCaptionId":"e2e_c0","from":0,"to":3},{"clipId":"e2e_c2","sourceCaptionId":"e2e_c2","from":5,"to":10}]}}}
+E2E_STEP {"name":"sentences-undone","restored":true,"event":"undone"}
+E2E_STEP {"name":"ranges-review","domain":"api.meta.ai · muse-spark-1.1","formatNote":true,"raw":true}
+E2E_STEP {"name":"ranges-reply","ms":2335,"text":"助手已生成剪辑建议：保留 2 段，拼成一条，大约 00:08。请先看一遍再应用。","notice":"","approval":"AI 想做这一步保留 0:00–0:03、0:05–0:10按时间保留几段录像，拼成一条或各成一条切片保留 2 段，拼成一条，大约 00:08。改的是项目：未命名项目只批准这次这个聊天中都批准不同意"}
+E2E_STEP {"name":"ranges-applied","clips":[[0,0,3],[3,5,5]],"overlapWith3to5":0,"keptSeconds":8,"undoSteps":1,"event":{"capability":"keep_ranges","state":"applied","args":{"output_mode":"one_file","ranges":[{"clipId":"v1","from":0,"to":3},{"clipId":"v1","from":5,"to":10}]}}}
+E2E_STEP {"name":"ranges-undone","restored":true,"event":"undone"}
+E2E_DONE {"passed":true,"skipped":null,"failed":null}
+MONTCLIP_SMOKE {"nodeUnavailable":true,"projectLoaded":true,"apiStatus":200,"externalBlocked":true,"compositor":true,"saved":true}
