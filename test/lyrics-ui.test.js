@@ -64,3 +64,17 @@ test('the two new sentences, both languages (for JJ)',()=>{
  for(const k of ['ly-outside','ly-held']){const zh=View.t('zh-CN','own.'+k),en=View.t('en','own.'+k);a.ok(zh&&zh!=='own.'+k&&zh.includes('{n}'),k);a.ok(en&&!/[一-鿿]/.test(en),k);}
  a.equal(View.t('zh-CN','own.ly-outside',{n:1}),'有 1 行歌词对应的是你没选的字幕，没改');
 });
+
+// VV on #100 (Deja): the lyrics box was the browser's own (white, a monospace font, no room around it); it is a field like
+// the export dialog's (.dlv-f): the label above it, the editor's colours, font and border
+test('the lyrics box is an editor field (.dlv-f), not the browser\'s own', () => {
+  const app = read('app.js'), css = read('style.css');
+  a.match(app, /<label class="dlv-f ly-paste">\$\{say\("ly-paste"\)\}<textarea data-ly-text rows="6"/);
+  a.match(css, /\.dlv-f select, \.dlv-f input, \.dlv-f textarea, \.dlv-save-row input \{/);
+  a.match(css, /\.ly-dialog \.ly-paste \{[^}]*margin: 10px 0 6px;/);
+});
+
+// VV on #104 (Deja): the lyrics box's text at 14px, not the field's 12px — lyrics are read and corrected there
+test('the lyrics box reads at 14px', () => {
+  a.match(read('style.css'), /.ly-dialog .ly-paste textarea {[^}]*font-size: 14px;/);
+});

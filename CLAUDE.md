@@ -3038,6 +3038,12 @@ main process keeps the mode and the approvals in memory only, so a restart is ba
 「都批准」 holds for one chat, one capability and one target. Anything sent out is always shown first, Yolo included, and is
 capped per send and per chat or project by each capability's own caps in `capabilities.js` (text 128 KiB / 4 MiB a chat;
 audio 25 MiB a part / 2 GiB a project while open); over a cap it is refused, never cut down. MCP tools and the REST API are not affected. See `docs/decisions/2026-11-03-agent-permission-modes.md`.
+
+The assistant can also reply with a plan of up to 30 steps. It shows as a list (○ 待做 / 进行中 / ✓ 完成 / ✕ 没做成; To do / In
+progress / Done / Not done), each step saying first what it changes (「保留 0:00–1:55」); the streamer can delete steps or drop the plan, then 〔开始〕 runs the steps one at a time, each decided by the mode as above.
+A step that fails or is declined stops the plan there, and 〔撤销整个计划〕 takes every applied step back at once. Only the
+two range edits can be done by the assistant yet. See `docs/decisions/2026-11-03-agent-plan-list.md`.
+In a window narrower than 760 px the assistant lies over the editor under the top bar, and 〔收起〕 puts it away.
 ### Correct captions from the lyrics (MontClip)
 
 In the Transcript tab's caption row, **Fix captions using lyrics** (按歌词校准字幕) aligns the transcript of the selected

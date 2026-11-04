@@ -109,6 +109,12 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.ctrlZ=await read(`(()=>{const c=autoClip(${JSON.stringify(first.id)});return{cues:c.lyricCues||null,inDialog:document.querySelector('dialog.auto-slices').contains(document.activeElement)};})()`);
   assert.deepEqual(report.ctrlZ,{cues:null,inDialog:true},'a real Ctrl+Z undoes the card, never the timeline');
   assert.equal(await read(`JSON.stringify(project.clips)`),tl);
+  // VV on #100 aeb81e7: undone, the lyrics pasted stay on the card (only the calibration is undone), as its tooltip says
+  await read(`document.querySelector('[data-as-card="${first.id}"] [data-as-act=lyrics]').click();true`);
+  await until(`!!document.querySelector('dialog[data-ly-dialog][open]')`);
+  report.afterUndoText=await read(`(()=>{const d=document.querySelector('dialog[data-ly-dialog]'),v=d.querySelector('[data-ly-text]').value;d.close();return v;})()`);
+  assert.equal(report.afterUndoText,LYRICS,'undone: the lyrics pasted last time are still there');
+  await until(`!document.querySelector('dialog[data-ly-dialog]')`);
   // 〔再对一遍歌词〕 opens with the lyrics pasted last time (this window only)
   await read(`document.querySelector('[data-as-card="${first.id}"] [data-as-act=lyrics]').click();true`);
   await until(`!!document.querySelector('dialog[data-ly-dialog][open]')`);
@@ -119,6 +125,18 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.again=await read(`(()=>{const d=document.querySelector('dialog[data-ly-dialog]'),v=d.querySelector('[data-ly-text]').value;d.close();return v;})()`);
   assert.equal(report.again,LYRICS,'the lyrics pasted last time');
   await until(`!document.querySelector('dialog[data-ly-dialog]')`);
+  // VV on #100 aeb81e7: at 630×460 the toast after applying does not lie over the card's own lyrics button
+  win.setMinimumSize(320,320);win.setContentSize(630,460);await wait(500);
+  await read(`document.querySelector('[data-as-card="${first.id}"] [data-as-act=lyrics]').click();true`);
+  await until(`!!document.querySelector('dialog[data-ly-dialog][open]')`);
+  await read(`(()=>{const d=document.querySelector('dialog[data-ly-dialog]');d.querySelector('[data-ly-text]').value=${JSON.stringify(LYRICS)};d.querySelector('[data-ly-align]').click();d.querySelector('[data-ly-apply-all]').click();return true;})()`);
+  await until(`!document.querySelector('dialog[data-ly-dialog]')&&!!autoClip(${JSON.stringify(first.id)}).lyricCues`);
+  await wait(300);
+  report.narrow=await read(`(()=>{const t=document.querySelector('[data-as-toast]'),b=document.querySelector('[data-as-card="${first.id}"] [data-as-act=lyrics]'),r=t.getBoundingClientRect(),q=b.getBoundingClientRect();
+    return{toast:!t.hidden,overlap:!(r.right<=q.left||q.right<=r.left||r.bottom<=q.top||q.bottom<=r.top),buttonSeen:q.height>0&&q.top>=0&&q.bottom<=innerHeight};})()`);
+  if(shots)await shot('card-lyrics-630x460.png');
+  assert.deepEqual(report.narrow,{toast:true,overlap:false,buttonSeen:true},'630: the toast leaves the card\'s button in sight');
+  win.setContentSize(1280,800);await wait(400);
   await read(`document.querySelector('[data-as-card="${first.id}"] [data-as-act=lyrics]').click();true`);
   await until(`!!document.querySelector('dialog[data-ly-dialog][open]')`);
   await read(`(()=>{const d=document.querySelector('dialog[data-ly-dialog]');d.querySelector('[data-ly-text]').value=${JSON.stringify(LYRICS)};d.querySelector('[data-ly-align]').click();d.querySelector('[data-ly-apply-all]').click();return true;})()`);

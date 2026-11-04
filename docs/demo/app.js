@@ -7107,7 +7107,7 @@ function lyricsDialog({ words, caps, stale, onApply, text = "" }) {
   const dialog = document.createElement("dialog");
   dialog.className = "ly-dialog"; dialog.setAttribute("data-ly-dialog", "");
   dialog.innerHTML = `<form method="dialog"><h3>${say("ly-title")}</h3><p>${say("ly-intro")}</p>
-    <label>${say("ly-paste")}<textarea data-ly-text rows="6" placeholder="${say("ly-placeholder")}"></textarea></label>
+    <label class="dlv-f ly-paste">${say("ly-paste")}<textarea data-ly-text rows="6" placeholder="${say("ly-placeholder")}"></textarea></label>
     <div class="tr-row"><button type="button" class="btn" data-ly-align>${say("ly-align")}</button></div>
     <p data-ly-summary role="status"></p><ol class="ly-lines" data-ly-lines></ol><p class="ly-outside" data-ly-outside role="status"></p>
     <div class="tr-row"><button type="button" class="btn primary" data-ly-apply disabled>${say("ly-apply")}</button>
@@ -10780,6 +10780,19 @@ function autoLyricFocus(id) {
   const b = AUTO.el && AUTO.el.querySelector(`[data-as-card="${CSS.escape(id)}"] [data-as-act="lyrics"]`);
   if (b) b.focus({ preventScroll: true });
 }
+/** The toast lies over the bottom of the cards: when it covers the card's own lyrics button (a narrow window, VV on #100),
+ *  the cards scroll up until the button is just above it — with room added at the end of the list when it cannot scroll
+ *  that far (gone at the next drawing). */
+function autoToastClear(id) {
+  const d = AUTO.el, t = d && d.querySelector("[data-as-toast]"), body = d && d.querySelector("[data-as-body]");
+  const b = d && d.querySelector(`[data-as-card="${CSS.escape(id)}"] [data-as-act="lyrics"]`);
+  if (!t || t.hidden || !b || !body) return;
+  const r = t.getBoundingClientRect(), q = b.getBoundingClientRect();
+  if (r.right <= q.left || q.right <= r.left || r.bottom <= q.top || q.bottom <= r.top) return;
+  const need = Math.ceil(q.bottom - r.top) + 8, room = body.scrollHeight - body.clientHeight - body.scrollTop;
+  if (room < need) { const sp = document.createElement("div"); sp.setAttribute("data-as-room", ""); sp.style.height = need - room + "px"; body.append(sp); }
+  body.scrollTop += need;
+}
 function autoLyricsAvailable(c) {
   return !!c && c.kind === "song" && autoLyricWords(c).length > 0;
 }
@@ -10799,7 +10812,7 @@ function autoLyricsOpen(c) {
     card.lyricCues = p.cues.map(({ start, end, text, words, lyrics }) => ({ start, end, text, words, lyrics }));
     card.lyricN = p.cues.filter((q) => q.lyrics).length;
     card.lyricText = text;
-    autoRender("review"); autoLyricFocus(card.id); autoToast(uiText("own.as-lyrics-done", { n: card.lyricN }));
+    autoRender("review"); autoLyricFocus(card.id); autoToast(uiText("own.as-lyrics-done", { n: card.lyricN })); autoToastClear(card.id);
   } });
 }
 function autoCardHtml(c, i) {
@@ -11057,7 +11070,10 @@ function autoUndo() {
   if (st.step !== "review" || !st.hist.length) return;
   const lyr = (cs) => new Map(cs.map((c) => [c.id, JSON.stringify(c.lyricCues || null)]));
   const was = lyr(st.clips);
+  // the lyrics pasted stay on their card: an undo takes back a calibration, not what the streamer pasted (VV on #100)
+  const pasted = new Map(st.clips.concat(st.dropped).filter((c) => c.lyricText).map((c) => [c.id, c.lyricText]));
   const o = JSON.parse(st.hist.pop()); st.clips = o.clips; st.dropped = o.dropped;
+  for (const c of st.clips.concat(st.dropped)) if (pasted.has(c.id) && !c.lyricText) c.lyricText = pasted.get(c.id);
   if (o.learnOn) autoLearnSet(false);   // 〔打开〕 undone: off again
   autoRender("review"); autoToast(uiText("own.as-undone"), false);
   const back = st.clips.find((c) => was.has(c.id) && was.get(c.id) !== JSON.stringify(c.lyricCues || null));
@@ -22807,7 +22823,7 @@ function paintAgentMode(){const mark=document.getElementById('mcYoloMark');if(ma
 function askAgentApproval(d,{summary='',content=null}={}){
  return new Promise((resolve)=>{
   const dialog=document.createElement('dialog');dialog.className='agent-approval';dialog.setAttribute('data-agent-approval','');
-  const say=(k,v)=>escapeHtml(uiText(k,v)),choice=(c)=>'<button type="button" class="btn'+(c==='deny'?'':' primary')+'" data-choice="'+c+'">'+say('own.ap-'+c)+'</button>';
+  const say=(k,v)=>escapeHtml(uiText(k,v)),choice=(c)=>'<button type="button" class="btn'+(c==='once'?' primary':'')+'" data-choice="'+c+'">'+say('own.ap-'+c)+'</button>';
   dialog.innerHTML='<form method="dialog"><h3>'+say('own.ap-title')+'</h3><p data-ap-label></p><p data-ap-summary></p><p data-ap-target></p>'
    +(content!=null?'<p>'+say('own.ap-content')+'</p><pre data-ap-content></pre>':'')
    +(d.choices.includes('session')?'':'<p data-ap-every-time>'+say('own.ap-every-time')+'</p>')
@@ -22870,6 +22886,87 @@ async function onAgentReply(result){
  toastAction(uiText('own.ap-applied',{mode:MontClipPolicy.modeLabel(agentPolicy.mode,mcView.get().language)}),uiText('own.ap-undo'),()=>{if(canUndoOfficialProposal(result)){if(!ev||!undoEvent(ev.id).ok)undo();}});
  mcAgent.render();
 }
+/* P4, second half: the AI's plan (agent-plan.js). A reply that is a plan shows as a list in the assistant; the streamer can
+   delete steps or drop it, then 〔开始〕 runs the steps in order, one at a time. Each step is decided by the host like any AI
+   step (agent-policy.js: run / ask / list / refuse), checked against the project as it is when its turn comes, and is one
+   event of the plan's run (agent-events.js), so 〔撤销整个计划〕 takes every applied step back at once (undoRun). A step that
+   fails, is declined or only listed stops the plan there. The agent version is kept before the first step. */
+const agentPlans=new WeakMap();
+function agentPlanOf(result){
+ if(!result||typeof result.text!=='string'||typeof MontClipPlan==='undefined')return null;
+ if(!agentPlans.has(result)){const p=MontClipPlan.parse(result.text);if(!p||!p.ok)return null;agentPlans.set(result,{run:MontClipPlan.create(p.steps),runId:crypto.randomUUID(),busy:false,applied:0,note:''});}
+ return agentPlans.get(result);
+}
+// why a step stopped, in plain words (the codes stay internal)
+const PLAN_REASON={DENIED:'own.pl-denied',LISTED:'own.pl-listed',REFUSED:'own.pl-refused',NO_EXECUTOR:'own.pl-no-executor',BUSY:'own.pl-busy',CANCELLED:'own.pl-cancelled',STALE:'own.pl-stale'};
+const planReason=(code)=>code?uiText(PLAN_REASON[code]||'own.pl-stale'):'';
+/** What the pane shows for a plan reply (null for any other reply). */
+function agentPlanView(result){
+ const entry=agentPlanOf(result);if(!entry)return null;
+ const lang=mcView.get().language,status=entry.run.status();
+ return {status,steps:entry.run.list().map((s)=>({label:MontClipPlan.stepLabel(s,lang),detail:MontClipPlan.stepDetail(s,lang),state:s.state,stateText:MontClipPlan.stateLabel(s.state,lang),mark:MontClipPlan.stateMark(s.state),reason:planReason(s.code)})),
+  canStart:status==='ready'&&!entry.busy&&agentPolicy.mode!=='plan',
+  note:entry.note||(status==='ready'&&agentPolicy.mode==='plan'?uiText('own.pl-plan-mode'):status==='discarded'?uiText('own.pl-discarded'):status==='done'?uiText('own.pl-done'):status==='stopped'?uiText('own.pl-stopped'):''),
+  canUndo:!entry.busy&&entry.applied>0&&(status==='done'||status==='stopped')};
+}
+/** One step of a plan: the host's decision, the step's own check against the project now, then the step. */
+async function runAgentPlanStep(s,entry,result){
+ let d;try{d=await window.montclipAgentPolicy.decide({sessionId:result.sessionId,capability:s.capability,target:{kind:'project',value:runtime.projectId}});}catch{d=null;}
+ if(!d||!d.ok||d.action==='refuse')return {ok:false,code:'REFUSED'};
+ if(d.action==='list')return {halt:'LISTED'};
+ // only the two edits by range can be done by the assistant yet; anything else stops the plan, saying so
+ if(s.capability!=='keep_sentences'&&s.capability!=='keep_ranges')return {ok:false,code:'NO_EXECUTOR'};
+ const c=agentProjectContext(),meta={id:crypto.randomUUID(),runId:entry.runId,step:s.index+1,actor:'ai',at:new Date().toISOString(),revision:project.revision};
+ let proposal;
+ try{proposal=MontClipProposal.prepare({...s.args,type:s.capability},{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references});}
+ catch(error){recordAgentEvent(MontClipProposal.failedEvent(error,{...meta,capability:s.capability}));return {ok:false,code:'STALE'};}
+ const ev=recordAgentEvent(MontClipProposal.event(proposal,meta));if(ev)proposal.eventId=ev.id;
+ if(d.action==='ask'){
+  const choice=await askAgentApproval(d,{summary:uiText('own.pl-step-of',{n:s.index+1,total:entry.run.list().length})});
+  let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}
+  if(!a||!a.ok||!a.run){if(ev)moveEvent(ev.id,'rejected');return {halt:'DENIED'};}
+ }
+ // the CAS: nobody changed the project while the box was open
+ if(!MontClipProposal.current(proposal,projectJSON(),{...agentProjectContext(),generation:agentProjectContext().gen})){if(ev)moveEvent(ev.id,'rejected');return {ok:false,code:'STALE'};}
+ if(proposal.type==='keep_ranges'&&proposal.outputMode==='per_range'){
+  // slices add exports: the dialog, and the streamer's own 〔应用〕
+  const applied=await new Promise((resolve)=>{showSentenceSelection(proposal,()=>resolve(true),()=>{if(ev)moveEvent(ev.id,'rejected');resolve(false);}).then(()=>{if(!document.querySelector('.sentence-dialog[open]'))resolve(false);});});
+  if(!applied)return {halt:'CANCELLED'};
+ } else {
+  if(rangeEditBusy()){if(ev)moveEvent(ev.id,'rejected');return {ok:false,code:'BUSY'};}
+  let plan;try{plan=FableCutRangePlan.create(projectJSON(),proposal.keep);plan.keep=proposal.keep;}catch{if(ev)moveEvent(ev.id,'failed');return {ok:false,code:'STALE'};}
+  commitRangePlan(plan,proposal);
+ }
+ entry.applied++;
+ // the next step is checked against the saved project
+ if(!await flushSave())return {ok:false,code:'BUSY'};
+ return {ok:true};
+}
+/** 〔开始〕: the steps in order, one at a time, until one stops the plan or all are done. */
+async function runAgentPlan(result){
+ const entry=agentPlanOf(result);if(!entry||entry.busy||!window.montclipAgentPolicy)return;
+ if(JSON.stringify(result.context)!==JSON.stringify(agentProjectContext())){entry.note=uiText('own.pl-stale-plan');mcAgent.render();return;}
+ if(!entry.run.start().ok)return;
+ entry.busy=true;mcAgent.render();
+ try{
+  await versionBeforeAgent();
+  for(let s=entry.run.next();s&&Number.isInteger(s.index);s=entry.run.next()){
+   mcAgent.render();
+   let r;try{r=await runAgentPlanStep(s,entry,result);}catch{r={ok:false,code:'STALE'};}
+   if(r.halt)entry.run.halt(s.index,r.halt);else entry.run.finish(s.index,r);
+   mcAgent.render();
+   if(entry.run.status()!=='running')break;
+  }
+ }finally{entry.busy=false;mcAgent.render();}
+}
+/** 〔撤销整个计划〕: every applied step of the plan's run at once, while they are the newest undo steps. */
+function undoAgentPlan(result){
+ const entry=agentPlanOf(result);if(!entry)return;
+ const r=undoRun(entry.runId);
+ if(r.ok){entry.applied=0;entry.note=uiText('own.pl-undone');}
+ else entry.note=uiText(r.code==='RUN_INTERLEAVED'?'own.pl-undo-interleaved':'own.pl-undo-none');
+ mcAgent.render();
+}
 function canUndoOfficialProposal(result){
  const entry=result&&officialProposalApplications.get(result),c=agentProjectContext();
  if(!entry||entry.projectId!==c.projectId||entry.sequenceId!==c.sequenceId||entry.gen!==c.gen)return false;
@@ -22879,6 +22976,8 @@ const mcAgentPanel=document.getElementById('mcAssistantPanel');
 document.querySelector(".upper > .inspector").append(mcAgentPanel);
 document.querySelector(".topbar-right").prepend(document.getElementById("mcMediaToggle"));
 document.querySelector(".topbar-right").insertBefore(document.querySelector(".mc-history"),document.getElementById("btnExport"));
+// a narrow window's assistant lies over the editor under the top bar (style.css, max-width 760px): the bar's height, kept current
+{const bar=document.querySelector(".app > .topbar"),set=()=>document.documentElement.style.setProperty("--mc-topbar-h",Math.ceil(bar.getBoundingClientRect().bottom)+"px");set();if(typeof ResizeObserver!=="undefined")new ResizeObserver(set).observe(bar);addEventListener("resize",set);}
 document.getElementById("mcMediaToggle").onclick=()=>document.getElementById("app").classList.toggle("media-open");
 mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentContent'),
  getContext:agentProjectContext,ensureProject:ensureAgentProject,
@@ -22887,7 +22986,9 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  getProjectName:id=>id===runtime.projectId?project.name:null,
  canUndoProposal:canUndoOfficialProposal,
  getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[]});},
- ...(window.montclipAgentPolicy?{getMode:()=>agentPolicy.mode,setMode:setAgentMode,onReply:result=>{void onAgentReply(result);}}:{}),
+ ...(window.montclipAgentPolicy?{getMode:()=>agentPolicy.mode,setMode:setAgentMode,onReply:result=>{void onAgentReply(result);},
+  getPlan:agentPlanView,planStart:runAgentPlan,planUndo:undoAgentPlan,
+  planRemove:(result,i)=>{agentPlanOf(result)?.run.remove(i);},planDiscard:(result)=>{agentPlanOf(result)?.run.discard();}}:{}),
  getFactsOmitted:()=>MontClipFacts.omitted(projectJSON()),
  onUndo:result=>{if(canUndoOfficialProposal(result)){const entry=officialProposalApplications.get(result);if(!entry?.eventId||!undoEvent(entry.eventId).ok)undo();}},
  onProposal:(response,result)=>{

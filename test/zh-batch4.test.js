@@ -32,8 +32,9 @@ test('the format collapsible: title, body naming the quote button, and the small
 test('the body ends with what to do after the reply, naming the review button', () => {
   a.equal(zh('formatNext'), '收到回复后，点下面的「{proposal}」，看看能不能直接用。');
   a.equal(en('formatNext'), 'After the reply, click "{proposal}" below to check whether it can be applied.');
-  a.equal(V.formatBody('zh-CN'), zh('format').split('{reference}').join('引用选中字幕') + '收到回复后，点下面的「查看剪辑建议」，看看能不能直接用。');
-  a.ok(V.formatBody('en').endsWith(' After the reply, click "Review suggested edit" below to check whether it can be applied.'));
+  // P4 (JJ, 5d360cd7) adds the plan sentence after it
+  a.equal(V.formatBody('zh-CN'), zh('format').split('{reference}').join('引用选中字幕') + '收到回复后，点下面的「查看剪辑建议」，看看能不能直接用。' + zh('formatPlan'));
+  a.ok(V.formatBody('en').endsWith(' After the reply, click "Review suggested edit" below to check whether it can be applied. ' + en('formatPlan')));
 });
 
 test('renaming the buttons renames them in the body too', () => {
@@ -55,6 +56,8 @@ test('one copy of the format text: the dead first definition is gone', () => {
 
 test('the pane renders the body with the quote button\'s own text, then the technical line', () => {
   const pane = read('agent-ui/pane.tsx');
-  a.match(pane, /<details data-format-help><summary>\{t\.formatTitle\}<\/summary><p data-format-body>\{W\.MontClipView\.formatBody\(language\)\}<\/p><p className="dim" data-format-tech>\{t\.formatTech\}<\/p><\/details>/);
+  a.match(pane, /<details data-format-help><summary>\{t\.formatTitle\}<\/summary><p data-format-body>\{W\.MontClipView\.formatBody\(language\)\}<\/p><p className="dim" data-format-tech>\{t\.formatTech\}<\/p>/);
+  // P4 (JJ, 5d360cd7): then the plan's small print, still inside the collapsible
+  a.match(pane, /data-format-tech>\{t\.formatTech\}<\/p><p className="dim" data-format-plan-tech>[\s\S]*?<\/pre><\/details>/);
   a.ok(!/查看剪辑提案|Review editing proposal|如何提出剪辑建议/.test(read('ui-preferences.js')), 'no old wording left');
 });

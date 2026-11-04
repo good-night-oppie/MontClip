@@ -5049,6 +5049,27 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 .agent-approval pre { white-space: pre-wrap; word-break: break-word; max-height: 40vh; overflow: auto; background: var(--bg, #111); padding: 8px; border-radius: 4px; }
 .agent-approval .tr-row { display: flex; flex-wrap: wrap; gap: 8px; }
 /* in a small assistant with the AI settings open, the switch and the pane's Yolo mark step aside (the rule with .cindy-thread above); the top bar's Yolo mark stays */
+/* P4, second half: the plan list in the assistant */
+/* the steps scroll inside the card; its note and buttons (〔开始〕〔撤销整个计划〕) stay in sight at its bottom (VV on #84 53f641d) */
+.cindy-plan { flex-shrink: 0; max-height: 40%; overflow: hidden; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; }
+.cindy-plan ol { margin: 0; padding-left: 20px; overflow: auto; min-height: 0; flex: 1 1 auto; }
+.cindy-plan > p, .cindy-plan > .agent-toolbar { flex-shrink: 0; }
+/* a step: what it changes first; the capability's plain sentence under it in 12 px (v7.2 §2) */
+.cindy-plan-what { display: block; font-size: 12px; color: var(--muted, #9aa0aa); font-weight: 400; }
+.cindy-plan li[data-step-state="done"] [data-step-detail] { text-decoration: line-through; color: var(--muted, #9aa0aa); }
+.cindy-plan li { margin: 2px 0; }
+.cindy-plan li[data-step-state="doing"] { font-weight: 600; }
+/* v7.2 (说明第 39 行): ○ 待做, a spinner while 进行中, ✓ 完成 with the text struck through, ✕ 没做成 */
+.cindy-plan-mark { display: inline-block; width: 1em; text-align: center; margin-right: 4px; }
+.cindy-plan li[data-step-state="doing"] [data-step-mark] { width: 0.8em; height: 0.8em; border: 2px solid var(--accent); border-right-color: transparent; border-radius: 50%; vertical-align: -1px; animation: cindy-plan-spin 0.9s linear infinite; }
+.cindy-plan li[data-step-state="done"] [data-step-label] { text-decoration: line-through; color: var(--muted, #9aa0aa); }
+.cindy-plan li[data-step-state="done"] [data-step-mark] { color: var(--ok, #4caf7d); }
+.cindy-plan li[data-step-state="failed"] [data-step-mark] { color: var(--danger); }
+@keyframes cindy-plan-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .cindy-plan li[data-step-state="doing"] [data-step-mark] { animation: none; } }
+.cindy-plan li[data-step-state="failed"] .cindy-plan-state { color: var(--danger); }
+.cindy-plan-state, .cindy-plan-reason { color: var(--muted, #9aa0aa); font-size: 12px; margin-left: 4px; }
+.cindy-plan p { margin: 2px 0; font-size: 12px; }
 
 /* P5: caption size and position in one go (app.js captionQuick*): the Inspector's top and the 〔字幕大小〕 dialog */
 .cq-panel { border: 1px solid var(--accent); border-radius: 8px; padding: 8px 10px; margin: 0 0 10px; }
@@ -5069,6 +5090,9 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 .ly-outside { white-space: pre-line; color: var(--warn, #c98a2b); }
 .ly-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(640px, 92vw); max-height: 85vh; padding: 20px; overflow: auto; }
 .ly-dialog textarea { width: 100%; box-sizing: border-box; }
+/* the lyrics box is an editor field (.dlv-f, as in the export dialog): its label above it, room around it (VV on #100) */
+.ly-dialog .ly-paste { margin: 10px 0 6px; }
+.ly-dialog .ly-paste textarea { font-size: 14px; line-height: 1.5; }
 .ly-dialog .tr-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; }
 .ly-lines { padding-left: 22px; margin: 6px 0; }
 .ly-lines li { margin: 4px 0; }
@@ -5076,3 +5100,19 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 .ly-lines .ly-was { opacity: 0.7; }
 .ly-lines .ly-tag { color: var(--warn, #c98a2b); font-size: 12px; }
 .ly-lines li[data-ly-sure="0"] .ly-now { opacity: 0.8; }
+
+/* VV's offscreen review of #84 (Deja, 2026-11-04): at 630×460 the assistant had 242×144 px — the plan a step and a half,
+   no conversation, and with Yolo on its bar filled the rest. v7.2: in a narrow window the chat lies over the editor, under
+   the top bar (its height: --mc-topbar-h, set by app.js), and 〔收起〕 puts it away. desktop/agent-narrow-smoke.cjs. */
+@media (max-width: 760px) {
+  .app.agent-open .upper > .inspector { position: fixed; top: var(--mc-topbar-h, 80px); left: 0; right: 0; bottom: 0; z-index: 40;
+    background: var(--panel); border: 0; border-radius: 0; box-shadow: 0 0 0 1px var(--border); display: flex; flex-direction: column; min-height: 0; }
+  .app.agent-open .upper > .inspector > .mc-assistant { flex: 1 1 auto; min-height: 0; }
+  /* the Yolo bar: one line, cut short with … ; the whole sentence is its tooltip */
+  .cindy-port .agent-yolo-on { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+  /* the plan keeps its steps in sight; the conversation takes what is left, and always at least 3 lines */
+  .app.agent-open .cindy-plan { max-height: none; }
+  /* each step on one line here: the capability's sentence under it is the step's tooltip instead */
+  .app.agent-open .cindy-plan-what { display: none; }
+  .app.agent-open .cindy-thread { min-height: 4.5em; }
+}
