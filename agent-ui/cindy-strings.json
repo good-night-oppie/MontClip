@@ -1,0 +1,904 @@
+{
+ "source": {
+  "commit": "43001eaaa31ef322de9ae148c4051087277d6198",
+  "files": {
+   "apps/desktop/src/renderer/i18n/locales/zh-CN/common.json": "d5818a1d634871fddee8cdf6990327f9f4ca4b57",
+   "apps/desktop/src/renderer/i18n/locales/en/common.json": "4a2eca8fb1565a4665898d2e45cc12e02038a1fa"
+  }
+ },
+ "zh-CN": {
+  "providerShare": {
+   "memberBudget": {
+    "paused": "此模型已暂停，请选择其他可用模型。"
+   }
+  },
+  "chat": {
+   "remoteError": {
+    "SSH_HARNESS_SWITCH_UNSUPPORTED": "此 SSH 任务暂不支持切换 Harness。请选择当前 Harness 下的模型，或使用所需 Harness 新建 SSH 任务。",
+    "MODEL_SELECTION_UNAVAILABLE": "所选模型在该供应商下已不可用。请在设置中检查连接，或重新选择可用模型。",
+    "HARNESS_SWITCH_NOT_READY": "Harness 尚未完成切换。请查看错误详情，待 Harness 就绪后重试。",
+    "DEVICE_LINK_BUSY": "远端繁忙，请稍后重试。",
+    "REMOTE_DAEMON_CLOSED": "远端连接中断了，可能正在更新。这一轮已经结束，请重新发送。",
+    "REMOTE_LOCAL_ATTACHMENT_UNSUPPORTED": "远端任务无法访问本地文件/图片附件。请直接粘贴内容。",
+    "AUTO_REVIEW_UNAVAILABLE": "自动审批暂时无法给出判断，需要审批的操作已改为由你确认。想少被打断，可以把任务切到「完全访问」，但风险更高。",
+    "AUTO_REVIEW_UNAVAILABLE_WECHAT": "自动审批暂时无法给出判断，需要审批的操作已改为由你确认。个人微信不能使用「完全访问」，请直接确认这次操作。",
+    "AUTO_REVIEW_CONFIRM_UNDELIVERED": "自动审批没完成，确认也没有送到或没有被点。这次拒绝不是你点的。",
+    "REMOTE_COMPAT_MODE_UNSUPPORTED": "远端任务不能使用本机兼容通道。请改用 Cindy AI，或在本机任务里继续。",
+    "REMOTE_GATEWAY_ENDPOINT_UNAVAILABLE": "Cindy AI 凭据尚未就绪(登录后由服务端自动下发)。请稍候重试；若持续出现，请到 设置 → 模型供应商 检查 Cindy AI 连接状态。",
+    "REMOTE_LOCAL_ONLY_PROVIDER": "该模型供应商是本机专属服务（如 Ollama），SSH 远端任务无法访问本机地址。请改用 Cindy AI 网关，或选择远端主机可达的模型供应商。",
+    "LOCAL_OLLAMA_NOT_READY": "本机 Ollama 还没就绪。请打开设置 → 模型供应商 → Ollama。",
+    "DEVICE_LINK_CONTROL_DISABLED": "已关闭对该设备的控制，消息未发送。",
+    "DEVICE_LINK_MEDIA_TRANSFER_FAILED": "附件传输失败，消息未发送。请重试。",
+    "MCP_APPROVAL_AUTO_BLOCKED": "这次工具调用被自动审核拦截，未收到你手动拒绝的记录。",
+    "MCP_APPROVAL_CONFIRMATION_TIMEOUT": "权限确认超时，未收到有效的确认结果。仅凭超时无法判断你是否点过按钮。",
+    "MCP_APPROVAL_CONFIRMATION_UNAVAILABLE": "这次权限确认未完成，未收到你手动拒绝的记录。",
+    "REMOTE_HOST_PROXY_FORWARD_UNAVAILABLE": "这个模型需要电脑端转发请求，当前远端连接还不能转发。请改用 Cindy AI，或在本机任务里使用这个模型。",
+    "REMOTE_MODEL_SWITCH_ROUTE_CHANGE": "换成这个模型需要另一条连接。请新建任务后再使用。",
+    "REMOTE_NATIVE_OAUTH_UNAVAILABLE": "远端任务还不能使用订阅登录。请改用 Cindy AI，或选择已配置密钥的模型供应商。",
+    "REMOTE_PI_CONTEXT_PROFILE_UNAVAILABLE": "远端 Pi 任务不能使用这个上下文配置。请改用 Cindy AI，或选择远端可以访问的模型。",
+    "REMOTE_PROVIDER_UNSUPPORTED": "远端任务还不能使用这个模型供应商。请换一个供应商，或在本机任务里使用它。",
+    "REMOTE_PROVIDER_UPDATING": "这个模型供应商的凭据正在更新。请稍后再试。",
+    "REMOTE_WORKDIR_UNAVAILABLE": "远端工作目录现在不可用。请确认那台电脑上的目录还在，然后重试。",
+    "REMOTE_OPTIMISTIC_SESSION_STATE_UNAVAILABLE": "电脑端暂时无法确认这条消息是否已经发出。请稍后再试，不要重复发送同一条。",
+    "REMOTE_AGENT_UNAVAILABLE": "运行 Agent 的电脑暂时连不上。确认那台电脑在线并允许远程控制后重试。",
+    "REMOTE_AGENT_PEER_TOO_OLD": "那台电脑上的 Cindy 版本过旧，暂不支持此操作。请先在那台电脑上更新 Cindy。",
+    "REMOTE_AGENT_EXPIRED": "这个任务在运行 Agent 的电脑上已经结束。请重新发送。",
+    "REMOTE_AGENT_NOT_FOUND": "这个任务在运行 Agent 的电脑上已经结束。请重新发送。",
+    "REMOTE_AGENT_BUSY": "那台电脑上同时运行的任务太多。先结束一些任务后再试。",
+    "REMOTE_AGENT_UNSUPPORTED": "那台电脑上这个 Agent 不可用。在那台电脑上安装或登录后再试，或换一个 Agent。",
+    "REMOTE_AGENT_INVALID": "和运行 Agent 的电脑通信出错。请重试；如果一直出现，请把两台电脑上的 Cindy 都更新到最新版。",
+    "REMOTE_AGENT_MEMBER_BUDGET_PAUSED": "此模型已达到分享者设置的模型占比上限。请选择其他可用模型继续。",
+    "REMOTE_AGENT_PROVIDER_NOT_ALLOWED": "那台电脑未向你开放这个供应商或所选模型。请让电脑主人在「远程与分享」中调整开放范围，或换一个模型。",
+    "REMOTE_AGENT_FORK_FAILED": "运行 Agent 的电脑没能从这里开启新任务。请重试，或换一条消息再试。",
+    "REMOTE_AGENT_SHARE_PAUSED": "对方已暂停对你的分享，恢复前不能使用这些模型。可以换成其他模型继续。",
+    "REMOTE_AGENT_SHARE_REMOVED": "这个分享已不可用（对方删除了分享或你已退出）。可以换成其他模型继续。",
+    "REMOTE_AGENT_SHARE_UNAVAILABLE": "分享的供应商暂时不可用：对方电脑可能不在线，或对方暂时关闭了分享。可以稍后再试，或换成其他模型继续。",
+    "REMOTE_AGENT_GROUP_USAGE_LIMIT": "此模型的可用账号已达到用量上限。可换用其他模型，或等配额重置后继续。",
+    "REMOTE_AGENT_GROUP_UNAVAILABLE": "供应商组里的电脑现在都不能运行这个任务：可能都不在线、已暂停分配、正在冷却，或没有这个模型。可以到这个供应商的「远程与分享」页查看组内电脑。",
+    "REMOTE_AGENT_DEVICE_LIMIT": "这台设备保留的远程任务数已达上限。可归档暂时不用的任务，或请远程电脑的主人在“远程与分享”中提高上限。",
+    "REMOTE_AGENT_TOTAL_LIMIT": "远程电脑保留的任务总数已达上限。请那台电脑的主人释放暂时不用的任务，或在“远程与分享”中提高上限。",
+    "REMOTE_AGENT_RESUME_LOST": "之前在那台电脑上的对话没能接上，Agent 会在没有之前上下文的情况下继续。",
+    "DEVICE_LINK_MEDIA_ACCESS_DENIED": "Cindy 无法读取源附件，消息未发送。请将文件另存到“下载”或其他可访问的文件夹，移除原附件，再用附件按钮添加副本后发送。"
+   },
+   "errorBanner": {
+    "requestFormatError": "应用发送的请求格式有误，本次回复未能完成。",
+    "streamInterruptedNoRetry": "模型输出中途中断了。通常是上游暂时故障，请稍后重试。",
+    "gatewayProxyTokenInvalidNoRetry": "Cindy AI 凭据已失效。若后续仍失败，请退出后重新登录",
+    "replyFailed": "回复未完成",
+    "attachmentAccessDeniedTitle": "Cindy 无法读取源附件，消息未发送。",
+    "attachmentAccessDeniedRecovery": "请将文件另存到“下载”或其他可访问的文件夹，移除原附件，再用附件按钮添加副本后发送。",
+    "retry": "重试",
+    "modelAccessDenied": "当前上游账号无权访问此模型。请切换模型，或向供应商确认模型访问权限",
+    "codexAppServerRetired": "Codex 服务已重启或更换；当前请求已中断，请重新运行。",
+    "contextOverflow": "这条消息本身已经超过模型上下文上限，没法在当前 Agent 里自动换窗继续。请缩短输入或去掉超大附件后再试。",
+    "remoteCompactEncryptedContent": "整理上下文失败：模型无法读取历史中的加密内容。自动接续未完成，可重试恢复。",
+    "overloadBusyNoRetry": "模型服务繁忙，上游暂时没有可用容量。可稍后重试，或换一个模型。",
+    "claudeGatewayOpusPlanMismatch": "这次 Opus 请求实际走的是 XD Gateway，不是你的 Claude.ai 订阅；该网关路由拒绝了此模型。可切换到 Claude.ai 订阅后重试，或换一个模型。",
+    "claudeSubscriptionOpusPlanMismatch": "当前连接的 Claude Pro 套餐不支持 Opus。请切换到套餐支持的模型；如果刚升级套餐，请在设置中重新连接 Anthropic 后重试。",
+    "cancelTitle": "关闭错误提示",
+    "networkHideRaw": "收起详情",
+    "networkShowRaw": "错误详情",
+    "diagnoseTitle": "在新任务中诊断这个错误",
+    "diagnose": "诊断"
+   },
+   "jumpToBottom": "跳到底部",
+   "thinking": {
+    "aborted": "思考 {{duration}}（已终止）",
+    "completed": "思考 {{duration}}"
+   },
+   "planPill": {
+    "step": "第 {{current}} / {{total}} 步",
+    "dismiss": "关闭计划"
+   },
+   "toolResultCompacted": "完整工具输出已释放（原始大小 {{size}}）",
+   "teammateProcess": {
+    "thinking": "正在思考",
+    "elapsed": "已处理 {{duration}}",
+    "took": "用时 {{duration}}",
+    "processing": "正在处理",
+    "worked": "处理记录"
+   },
+   "workGroup": {
+    "workDetails": "工作过程",
+    "working": "正在工作…",
+    "worked": "已工作 {{duration}}",
+    "exploration": {
+     "read_one": "读取 {{count}} 个文件",
+     "read_other": "读取 {{count}} 个文件",
+     "search_one": "搜索 {{count}} 次",
+     "search_other": "搜索 {{count}} 次",
+     "list_one": "列出目录 {{count}} 次",
+     "list_other": "列出目录 {{count}} 次"
+    }
+   },
+   "askUserQuestion": {
+    "back": "返回",
+    "skip": "跳过",
+    "sendAndContinue": "发送并继续",
+    "submit": "提交",
+    "next": "下一题",
+    "close": "关闭",
+    "answerPlaceholder": "请输入回答…",
+    "customAnswer": "输入其他回答…",
+    "pendingTitle": "等待回答",
+    "restoreAriaLabel": "展开问题卡片",
+    "minimizeAriaLabel": "收起问题卡片",
+    "voice": {
+     "hint": "可以说“第一项”或选项名称；多选后请说“确认选择”。",
+     "freeTextHint": "可以直接说出回答，检查后说“确认选择”提交。",
+     "confirm": "请检查当前选择，说“确认选择”提交，或说“取消选择”重选。",
+     "ambiguous": "无法确定你的选择，请再说一个选项编号或完整名称，也可以手动选择。",
+     "unknown": "没有识别到明确选项，请说选项编号或完整名称，也可以手动选择。",
+     "cancelled": "已取消语音选择，请重新选择。"
+    }
+   },
+   "agentActionRow": {
+    "verb": {
+     "read": "读取",
+     "listed": "列出",
+     "searched": "搜索",
+     "inspect": "查阅内容",
+     "inspectRepository": "检查仓库",
+     "inspectEnvironment": "检查开发环境",
+     "modifyRepository": "修改仓库",
+     "verify": "运行验证",
+     "fetched": "访问",
+     "installedDeps": "安装依赖",
+     "ranTests": "运行测试",
+     "built": "构建",
+     "linted": "代码检查",
+     "typechecked": "类型检查",
+     "runScript": "运行脚本",
+     "runNodeScript": "运行 Node.js 脚本",
+     "runPythonScript": "运行 Python 脚本",
+     "runPerlScript": "运行 Perl 脚本",
+     "runSwiftScript": "运行 Swift 脚本",
+     "checkSyntax": "检查语法",
+     "showVersion": "查看版本",
+     "checkFormatting": "检查格式",
+     "parseJson": "解析 JSON",
+     "count": "统计",
+     "showCurrentDirectory": "查看当前目录",
+     "showDateTime": "查看日期时间",
+     "locateCommand": "查找命令",
+     "inspectProcesses": "查看进程",
+     "inspectPorts": "查看端口",
+     "queryDatabase": "查询数据库",
+     "gitStatus": "查看工作区状态",
+     "gitDiff": "查看代码变更",
+     "gitLog": "查看提交记录",
+     "gitShow": "查看提交内容",
+     "gitAdd": "暂存代码变更",
+     "gitCommit": "提交代码变更",
+     "gitFetch": "获取远端更新",
+     "gitPull": "拉取远端更新",
+     "gitPush": "推送代码变更",
+     "gitRebase": "变基分支",
+     "gitMerge": "合并分支",
+     "gitCherryPick": "拣选提交",
+     "gitStash": "管理暂存工作",
+     "gitRestore": "恢复文件",
+     "gitSubmodule": "管理子模块",
+     "gitRemote": "查看远端仓库",
+     "gitRevParse": "解析 Git 引用",
+     "gitBranch": "查看分支",
+     "gitGrep": "搜索仓库内容",
+     "gitMergeBase": "查找共同祖先",
+     "gitLsFiles": "查看已跟踪文件",
+     "gitRevList": "查看提交范围",
+     "gitLsRemote": "查看远端引用",
+     "gitWorktreeList": "查看 worktree",
+     "gitWorktreeAdd": "创建 worktree",
+     "gitWorktreeRemove": "删除 worktree",
+     "gitWorktreeMove": "移动 worktree",
+     "gitWorktreePrune": "清理 worktree",
+     "ghPrList": "查看 PR 列表",
+     "ghPrView": "查看 PR",
+     "ghPrChecks": "查看 PR 检查",
+     "ghPrStatus": "查看 PR 状态",
+     "ghPrDiff": "查看 PR 变更",
+     "ghPrCreate": "创建 PR",
+     "ghPrEdit": "编辑 PR",
+     "ghPrComment": "评论 PR",
+     "ghPrReview": "评审 PR",
+     "ghPrMerge": "合并 PR",
+     "ghPrClose": "关闭 PR",
+     "ghPrReopen": "重新打开 PR",
+     "ghPrCheckout": "检出 PR",
+     "ghIssueList": "查看 Issue 列表",
+     "ghIssueView": "查看 Issue",
+     "ghIssueStatus": "查看 Issue 状态",
+     "ghIssueCreate": "创建 Issue",
+     "ghIssueEdit": "编辑 Issue",
+     "ghIssueComment": "评论 Issue",
+     "ghIssueClose": "关闭 Issue",
+     "ghIssueReopen": "重新打开 Issue",
+     "ghAuthStatus": "查看 GitHub 登录状态",
+     "ghAuthLogin": "登录 GitHub",
+     "ghAuthLogout": "退出 GitHub",
+     "ghAuthRefresh": "刷新 GitHub 授权",
+     "ghAuthSwitch": "切换 GitHub 账号",
+     "ghRunList": "查看工作流运行",
+     "ghRunView": "查看工作流运行",
+     "ghRunWatch": "监视工作流运行",
+     "ghSearch": "搜索 GitHub",
+     "ghRepoList": "查看仓库列表",
+     "ghRepoView": "查看仓库",
+     "ghApiQuery": "查询 GitHub API",
+     "ghApiMutation": "修改 GitHub 数据",
+     "ghApiCall": "调用 GitHub API",
+     "edited": "编辑",
+     "created": "创建",
+     "updated": "更新",
+     "ran": "运行",
+     "ranCommand": "运行命令",
+     "used": "调用"
+    },
+    "fileChange": {
+     "deleted": "删除",
+     "renamed": "重命名",
+     "files": "{{count}} 个文件"
+    }
+   },
+   "agentActions": {
+    "more_other": "另外 {{count}} 项",
+    "separator": "、",
+    "lastSeparator": "和",
+    "part": {
+     "edited_other": "编辑 {{count}} 个文件",
+     "created_other": "创建 {{count}} 个文件",
+     "ran_other": "运行 {{count}} 条命令",
+     "read_other": "读取 {{count}} 个文件",
+     "updated_other": "更新待办",
+     "searched_other": "执行搜索",
+     "fetched_other": "访问网络",
+     "used_other": "调用 {{count}} 个工具"
+    }
+   }
+  },
+  "logic": {
+   "errors": {
+    "emptyResponse": "模型没有返回内容。请重试。上下文很长时，也可以换一个模型。",
+    "turnFailed": "任务执行失败（模型未返回错误详情），请重试。",
+    "silentStopExhausted": "模型连续多次返回空响应，自动续跑已暂停。点击「继续」恢复任务。",
+    "executionResultUnavailable": "未能取回执行结果，已停止自动续接。可以让助手检查已有的执行结果。",
+    "outputLimit": "模型已达到输出长度上限，本轮回复可能不完整。可以直接发送下一条消息继续。",
+    "toolUseLoopDetected": "模型重复调用工具次数过多，Cindy 已停止本轮以避免无限循环。可以发送新消息继续。",
+    "permissionTightenInterruptFailed": "收紧权限时未能停止正在运行的任务，它可能会继续免确认执行直到结束；如有需要请手动停止。",
+    "codexAutoReviewUnavailable": "自动审批暂时不可用，当前操作已阻止并切换为默认权限。请重试，需要时会询问你。",
+    "hostShellCommandBlocked": "Cindy 已阻止这条 Shell 命令。请检查命令，并使用可用的工具或命令继续。",
+    "upstreamResponseIdleTimeout": "模型长时间没有任何响应，本轮已自动中断以免无限等待。已完成的工具调用都保留，可以直接发下一条消息继续。",
+    "codexHistoryOversized": "图片历史太大，没能自动恢复。请发送「继续」，Cindy 会接着完成当前任务。",
+    "codexCompactionNotConverging": "Codex 反复压缩上下文，但占用没有降下来，这一轮已停止，避免一直循环。占空间的是固定说明和工具定义，压缩去不掉。请新开一个任务继续。",
+    "codexCompactionNotConvergingModelSwitch": "Codex 反复压缩上下文，但占用没有降下来，这一轮已停止。这个任务中途切换过模型，Codex 仍按切换前的上下文上限判断。请切回原模型，或新开一个任务后再继续。",
+    "turnNoEventTimeout": "本轮长时间没有任何进展（模型、工具与后台进程都没有动静），已自动中断以免无限等待。可以直接发下一条消息继续。",
+    "toolUseLoopDetectedConsecutiveWithCount": "模型重复调用同一个工具 {{count}} 次，Cindy 已停止本轮以避免无限循环。可以发送新消息继续。",
+    "toolUseLoopDetectedPingPongWithCount": "模型在多个工具调用之间来回循环，Cindy 检测到本轮已有 {{count}} 次调用后停止了本轮。可以发送新消息继续。",
+    "toolUseLoopDetectedRotationWithCount": "模型持续轮转调用多个工具，Cindy 检测到本轮已有 {{count}} 次调用后停止了本轮。可以发送新消息继续。",
+    "toolUseLoopDetectedWithCount": "模型连续触发了无效的工具调用，Cindy 已在 {{count}} 次失败后停止本轮，以避免无限循环。可以发送新消息继续。"
+   }
+  },
+  "newChat": {
+   "chatInput": {
+    "switchFailed": "设置切换失败，未生效",
+    "voiceInput": {
+     "permissionDialog": {
+      "description": "请开启麦克风权限，再点击语音输入",
+      "title": "需要麦克风权限",
+      "confirm": "去授权",
+      "cancel": "取消"
+     },
+     "stop": "停止语音输入",
+     "start": "开始语音输入"
+    }
+   },
+   "permissionSelector": {
+    "triggerAria": "选择权限模式：{{label}}",
+    "listAria": "权限模式",
+    "modes": {
+     "claude-code": {
+      "ask": {
+       "label": "默认权限",
+       "description": "允许在工作区内读写；需要更高权限、联网或访问工作区外路径时再询问。"
+      },
+      "acceptEdits": {
+       "label": "允许编辑",
+       "description": "自动接受文件编辑请求，减少反复确认；涉及更高风险的命令或权限仍按底层权限策略处理。"
+      },
+      "auto": {
+       "label": "自动审批",
+       "description": "允许在工作区内读写，并自动审批提权请求；高风险操作可能被拒绝或要求确认。能减少打断，但存在误判风险。"
+      },
+      "bypassPermissions": {
+       "label": "完全访问",
+       "description": "允许修改任意文件并运行联网命令，无需再次确认。风险最高，只适合可信任务。"
+      }
+     },
+     "codex": {
+      "ask": {
+       "label": "默认权限",
+       "description": "允许在工作区内读写；需要更高权限、联网或访问工作区外路径时再询问。"
+      },
+      "auto": {
+       "label": "自动审批",
+       "description": "在受保护的工作区沙箱内自动执行命令；需要越过沙箱边界的操作交给自动审查器判断，高风险操作可能被拒绝或要求确认。"
+      },
+      "bypassPermissions": {
+       "label": "完全访问",
+       "description": "允许修改任意文件并运行联网命令，无需再次确认。风险最高，只适合可信任务。"
+      }
+     },
+     "pi": {
+      "ask": {
+       "label": "默认权限",
+       "description": "只读工具直接执行；写文件、跑命令和 MCP 工具每次都询问。"
+      },
+      "auto": {
+       "label": "自动审批",
+       "description": "工作区内写文件与安全命令自动执行；越界写、危险命令和 MCP 工具仍会询问。"
+      },
+      "bypassPermissions": {
+       "label": "完全访问",
+       "description": "允许修改任意文件并运行联网命令，无需再次确认。风险最高，只适合可信任务。"
+      }
+     }
+    }
+   }
+  },
+  "voiceInputOverlay": {
+   "status": {
+    "refining": "正在润色",
+    "submitting": "正在确认"
+   },
+   "speakerFiltered": "已忽略其他人的声音"
+  },
+  "commonUi": {
+   "confirmDialog": {
+    "confirm": "确认",
+    "cancel": "取消"
+   }
+  },
+  "common": {
+   "dismiss": "关闭"
+  },
+  "usageDetails": {
+   "durationDaysHoursMinutes": "{{days}} 天 {{hours}} 小时 {{minutes}} 分",
+   "durationHoursMinutes": "{{hours}} 小时 {{minutes}} 分"
+  },
+  "agentIsland": {
+   "native": {
+    "updatingTasks": "正在更新任务"
+   }
+  },
+  "ccAgent": {
+   "agentStatus": {
+    "thinking": "正在思考…",
+    "replying": "正在回复…",
+    "processing": "正在处理…",
+    "organizingConversation": "正在整理对话…",
+    "readingMemory": "正在读取记忆…",
+    "savingMemory": "正在保存记忆…",
+    "deletingMemory": "正在删除记忆…",
+    "organizingMemory": "正在整理记忆…",
+    "readingFile": "正在读取文件…",
+    "savingFile": "正在更新文件…",
+    "searchingWeb": "正在搜索网页…",
+    "readingWeb": "正在读取网页…",
+    "searchingFiles": "正在查找文件…",
+    "testing": "正在运行测试…",
+    "checking": "正在检查代码…",
+    "reviewingMemory": "正在核对记忆…",
+    "reviewingFiles": "正在核对文件…",
+    "reviewingSources": "正在核对网页资料…",
+    "reviewingChecks": "正在核对检查结果…"
+   }
+  },
+  "taskTags": {
+   "remoteBusy": "远端繁忙，请稍后重试。",
+   "loadFailed": "标签加载失败，请重试。",
+   "retry": "重试",
+   "editLabel": "编辑“{{name}}”",
+   "reorderLabel": "调整“{{name}}”的顺序",
+   "reorderHint": "拖动排序，也可用上下方向键调整",
+   "addLabel": "添加“{{name}}”",
+   "removeLabel": "移除“{{name}}”",
+   "title": "标签",
+   "more": "更多标签",
+   "settings": "标签设置",
+   "name": "名称",
+   "color": "颜色",
+   "favorite": "常用（最多 7 个）",
+   "create": "创建",
+   "save": "保存",
+   "done": "完成",
+   "back": "返回",
+   "delete": "删除标签",
+   "cancel": "取消",
+   "deleteConfirm": "从 {{count}} 个任务中删除“{{name}}”？任务和消息会保留。",
+   "loading": "加载中…",
+   "unavailable": "此电脑需要更新才能支持标签。",
+   "offline": "连接任务所在电脑后可编辑标签。",
+   "failed": "保存失败，请重试。",
+   "conflict": "标签已在其他端修改，请刷新后重试。",
+   "favoritesFull": "最多设置七个常用标签。",
+   "alreadyExists": "已有同名标签。",
+   "empty": "暂无标签。",
+   "red": "红色",
+   "orange": "橙色",
+   "yellow": "黄色",
+   "green": "绿色",
+   "blue": "蓝色",
+   "purple": "紫色",
+   "gray": "灰色",
+   "none": "无颜色",
+   "pink": "粉色",
+   "coral": "珊瑚色",
+   "teal": "青色",
+   "indigo": "靛蓝色",
+   "white": "白色",
+   "add": "添加标签",
+   "editTitle": "编辑标签",
+   "editHint": "修改会同步到使用此标签的所有任务。",
+   "addHint": "添加后，自动选中到当前任务。",
+   "selectedCount": "已选 {{count}} 个",
+   "presetImportant": "重要",
+   "presetFollowUp": "待跟进",
+   "presetWork": "工作",
+   "presetLife": "生活",
+   "presetIdeas": "灵感",
+   "presetReference": "资料"
+  }
+ },
+ "en": {
+  "providerShare": {
+   "memberBudget": {
+    "paused": "This model is paused. Choose another available model."
+   }
+  },
+  "chat": {
+   "remoteError": {
+    "SSH_HARNESS_SWITCH_UNSUPPORTED": "This SSH task cannot switch Harness. Choose a model in its current Harness, or create a new SSH task with the Harness you need.",
+    "MODEL_SELECTION_UNAVAILABLE": "The selected model is no longer available from its provider. Check the connection in Settings or choose another available model.",
+    "HARNESS_SWITCH_NOT_READY": "The Harness switch is not ready. Check the error details and retry after the Harness is ready.",
+    "DEVICE_LINK_BUSY": "The remote computer is busy. Please try again shortly.",
+    "REMOTE_DAEMON_CLOSED": "The remote connection dropped, possibly during an update. This turn has ended. Send the message again.",
+    "REMOTE_LOCAL_ATTACHMENT_UNSUPPORTED": "Local file/image attachments aren't accessible in remote sessions. Paste the content directly instead.",
+    "AUTO_REVIEW_UNAVAILABLE": "Auto-review could not reach a decision, so actions that need review now need your confirmation. Switch this task to Full access if you would rather not be interrupted. That mode is higher risk.",
+    "AUTO_REVIEW_UNAVAILABLE_WECHAT": "Auto-review could not reach a decision, so actions that need review now need your confirmation. Personal WeChat cannot use Full access. Confirm this action directly.",
+    "AUTO_REVIEW_CONFIRM_UNDELIVERED": "Automatic review was unavailable, and the confirmation request was not completed. This is not a user rejection.",
+    "REMOTE_COMPAT_MODE_UNSUPPORTED": "Remote tasks cannot use this computer’s compatibility route. Switch to Cindy AI, or continue in a local task.",
+    "REMOTE_GATEWAY_ENDPOINT_UNAVAILABLE": "Cindy AI credentials are not ready yet (issued automatically after sign-in). Please retry shortly; if this persists, check the Cindy AI status in Settings → Model Providers.",
+    "REMOTE_LOCAL_ONLY_PROVIDER": "This model provider is a local-only service (e.g. Ollama) that a remote SSH task cannot reach. Switch to the Cindy AI gateway, or pick a provider reachable from the remote host.",
+    "LOCAL_OLLAMA_NOT_READY": "Local Ollama isn't ready. Open Settings → Model Providers → Ollama.",
+    "DEVICE_LINK_CONTROL_DISABLED": "Control for this device is off; the message was not sent.",
+    "DEVICE_LINK_MEDIA_TRANSFER_FAILED": "Attachment transfer failed; the message was not sent. Please try again.",
+    "MCP_APPROVAL_AUTO_BLOCKED": "Automatic approval review blocked this tool call. No manual rejection was received.",
+    "MCP_APPROVAL_CONFIRMATION_TIMEOUT": "The permission request timed out without a confirmed decision. A timeout does not show whether you clicked a button.",
+    "MCP_APPROVAL_CONFIRMATION_UNAVAILABLE": "Permission confirmation could not be completed. No manual rejection was received.",
+    "REMOTE_HOST_PROXY_FORWARD_UNAVAILABLE": "This model needs this computer to forward requests, and the remote connection cannot do that yet. Switch to Cindy AI, or use this model in a local task.",
+    "REMOTE_MODEL_SWITCH_ROUTE_CHANGE": "Switching to this model needs a different connection. Start a new task to use it.",
+    "REMOTE_NATIVE_OAUTH_UNAVAILABLE": "Remote tasks cannot use a subscription sign-in yet. Switch to Cindy AI, or pick a provider with an API key.",
+    "REMOTE_PI_CONTEXT_PROFILE_UNAVAILABLE": "A remote Pi task cannot use this context profile. Switch to Cindy AI, or pick a model the remote computer can reach.",
+    "REMOTE_PROVIDER_UNSUPPORTED": "Remote tasks cannot use this model provider yet. Pick another provider, or use it in a local task.",
+    "REMOTE_PROVIDER_UPDATING": "This model provider’s credentials are updating. Try again in a moment.",
+    "REMOTE_WORKDIR_UNAVAILABLE": "The remote working directory is unavailable. Check that the folder still exists on that computer, then try again.",
+    "REMOTE_OPTIMISTIC_SESSION_STATE_UNAVAILABLE": "The computer cannot yet confirm whether this message was sent. Wait a moment and try again. Do not send the same message twice.",
+    "REMOTE_AGENT_UNAVAILABLE": "Can't reach the computer running the Agent. Make sure it's online and allows remote control, then try again.",
+    "REMOTE_AGENT_PEER_TOO_OLD": "Cindy on the other computer is too old for this action. Update Cindy there first.",
+    "REMOTE_AGENT_EXPIRED": "This session already ended on the computer running the Agent. Send your message again.",
+    "REMOTE_AGENT_NOT_FOUND": "This session already ended on the computer running the Agent. Send your message again.",
+    "REMOTE_AGENT_BUSY": "Too many sessions are running on the other computer. End some of them and try again.",
+    "REMOTE_AGENT_UNSUPPORTED": "This Agent isn't available on the other computer. Install or sign in to it there, or pick another Agent.",
+    "REMOTE_AGENT_INVALID": "Something went wrong talking to the computer running the Agent. Try again; if it keeps happening, update Cindy on both computers.",
+    "REMOTE_AGENT_MEMBER_BUDGET_PAUSED": "This model has reached the model share limit set by its owner. Choose another available model to continue.",
+    "REMOTE_AGENT_PROVIDER_NOT_ALLOWED": "That computer hasn’t granted you remote access to this provider or the selected model. Ask its owner to adjust access in Remote & Sharing, or pick another model.",
+    "REMOTE_AGENT_FORK_FAILED": "The computer running the Agent couldn’t start a new session from here. Try again, or try a different message.",
+    "REMOTE_AGENT_SHARE_PAUSED": "The owner has paused this share for you, so these models can’t be used until it’s resumed. Switch to another model to continue.",
+    "REMOTE_AGENT_SHARE_REMOVED": "This share is no longer available (the owner removed it or you left). Switch to another model to continue.",
+    "REMOTE_AGENT_SHARE_UNAVAILABLE": "The shared provider is temporarily unavailable. The owner's computer may be offline, or sharing is turned off for now. Try again later, or switch to another model to continue.",
+    "REMOTE_AGENT_GROUP_USAGE_LIMIT": "The available accounts for this model have reached their usage limit. Switch models or continue when the quota resets.",
+    "REMOTE_AGENT_GROUP_UNAVAILABLE": "No computer in the provider group can run this task right now. They may be offline, paused, cooling down, or missing this model. Check the group on this provider’s Remote & Sharing page.",
+    "REMOTE_AGENT_DEVICE_LIMIT": "This device has reached its remote session limit. Archive unused sessions or ask the provider owner to raise the limit in Remote & sharing.",
+    "REMOTE_AGENT_TOTAL_LIMIT": "The provider computer has reached its total remote session limit. Ask the owner to release unused sessions or raise the limit in Remote & sharing.",
+    "REMOTE_AGENT_RESUME_LOST": "The earlier conversation on the other computer could not be reconnected, so the agent continues without that context.",
+    "DEVICE_LINK_MEDIA_ACCESS_DENIED": "Cindy cannot read the source attachment; the message was not sent. Save a copy to Downloads or another accessible folder, remove the original attachment, and add the copy using the attachment button before sending again."
+   },
+   "errorBanner": {
+    "requestFormatError": "The app sent an invalid request, so this reply could not be completed.",
+    "streamInterruptedNoRetry": "The model stream was interrupted. This is usually a temporary upstream issue. Try again in a little while.",
+    "gatewayProxyTokenInvalidNoRetry": "Cindy AI credentials are no longer valid. If it happens again, sign out and sign back in",
+    "replyFailed": "Could not complete the reply",
+    "attachmentAccessDeniedTitle": "Cindy cannot read the source attachment; the message was not sent.",
+    "attachmentAccessDeniedRecovery": "Save a copy to Downloads or another accessible folder, remove the original attachment, and add the copy using the attachment button before sending again.",
+    "retry": "Retry",
+    "modelAccessDenied": "The upstream account cannot access this model. Select another model or check its access with the provider",
+    "codexAppServerRetired": "The Codex service was restarted or replaced. The current request was interrupted; run it again.",
+    "contextOverflow": "This message itself exceeds the model's context window, so Cindy cannot continue it in a fresh agent session. Shorten the input or remove a large attachment, then try again.",
+    "remoteCompactEncryptedContent": "Context compaction failed because the model could not read encrypted history. Automatic continuation did not complete. Retry to attempt recovery.",
+    "overloadBusyNoRetry": "The model service is busy — the upstream has no capacity right now. Try again later, or switch to another model.",
+    "claudeGatewayOpusPlanMismatch": "This Opus request went through XD Gateway, not your Claude.ai subscription. That gateway route rejected the model. Switch to your Claude.ai subscription and retry, or choose another model.",
+    "claudeSubscriptionOpusPlanMismatch": "Opus isn't available on the connected Claude Pro plan. Switch to a model included in your plan. If you recently upgraded, reconnect Anthropic in Settings, then retry.",
+    "cancelTitle": "Dismiss error",
+    "networkHideRaw": "Hide Details",
+    "networkShowRaw": "Error Details",
+    "diagnoseTitle": "Diagnose this error in a new session",
+    "diagnose": "Diagnose"
+   },
+   "jumpToBottom": "Jump to bottom",
+   "thinking": {
+    "aborted": "Thought for {{duration}} (aborted)",
+    "completed": "Thought for {{duration}}"
+   },
+   "planPill": {
+    "step": "Step {{current}} of {{total}}",
+    "dismiss": "Close Plan"
+   },
+   "toolResultCompacted": "Full tool output was released (original size {{size}})",
+   "teammateProcess": {
+    "thinking": "Thinking",
+    "elapsed": "Working for {{duration}}",
+    "took": "Took {{duration}}",
+    "processing": "Working",
+    "worked": "Activity"
+   },
+   "workGroup": {
+    "workDetails": "Work details",
+    "working": "Working…",
+    "worked": "Worked for {{duration}}",
+    "exploration": {
+     "read_one": "Read 1 file",
+     "read_other": "Read {{count}} files",
+     "search_one": "Searched once",
+     "search_other": "Searched {{count}} times",
+     "list_one": "Listed files once",
+     "list_other": "Listed files {{count}} times"
+    }
+   },
+   "askUserQuestion": {
+    "back": "Back",
+    "skip": "Skip",
+    "sendAndContinue": "Send and continue",
+    "submit": "Submit",
+    "next": "Next",
+    "close": "Close",
+    "answerPlaceholder": "Type your answer…",
+    "customAnswer": "Type something else…",
+    "pendingTitle": "Question pending",
+    "restoreAriaLabel": "Restore question prompt",
+    "minimizeAriaLabel": "Minimize question prompt",
+    "voice": {
+     "hint": "Say an option number or name. For multiple choices, then say “confirm selection”.",
+     "freeTextHint": "Say your answer, review it, then say “confirm selection” to submit.",
+     "confirm": "Review your selection, then say “confirm selection” to submit or “cancel selection” to choose again.",
+     "ambiguous": "Your choice is unclear. Say one option number or its full name, or choose manually.",
+     "unknown": "No clear option recognized. Say an option number or its full name, or choose manually.",
+     "cancelled": "Voice selection cancelled. Please choose again."
+    }
+   },
+   "agentActionRow": {
+    "verb": {
+     "read": "Read",
+     "listed": "Listed",
+     "searched": "Searched",
+     "inspect": "Inspect content",
+     "inspectRepository": "Inspect repository",
+     "inspectEnvironment": "Check development environment",
+     "modifyRepository": "Modify repository",
+     "verify": "Run checks",
+     "fetched": "Fetched",
+     "installedDeps": "Installed deps",
+     "ranTests": "Ran tests",
+     "built": "Built",
+     "linted": "Linted",
+     "typechecked": "Type-checked",
+     "runScript": "Run script",
+     "runNodeScript": "Run Node.js script",
+     "runPythonScript": "Run Python script",
+     "runPerlScript": "Run Perl script",
+     "runSwiftScript": "Run Swift script",
+     "checkSyntax": "Check syntax",
+     "showVersion": "Check version",
+     "checkFormatting": "Check formatting",
+     "parseJson": "Parse JSON",
+     "count": "Count",
+     "showCurrentDirectory": "Show current directory",
+     "showDateTime": "Show date and time",
+     "locateCommand": "Locate command",
+     "inspectProcesses": "Inspect processes",
+     "inspectPorts": "Inspect ports",
+     "queryDatabase": "Query database",
+     "gitStatus": "Check working tree status",
+     "gitDiff": "View code changes",
+     "gitLog": "View commit history",
+     "gitShow": "View commit",
+     "gitAdd": "Stage code changes",
+     "gitCommit": "Commit code changes",
+     "gitFetch": "Fetch remote updates",
+     "gitPull": "Pull remote updates",
+     "gitPush": "Push code changes",
+     "gitRebase": "Rebase branch",
+     "gitMerge": "Merge branch",
+     "gitCherryPick": "Cherry-pick commit",
+     "gitStash": "Manage stashed changes",
+     "gitRestore": "Restore files",
+     "gitSubmodule": "Manage submodules",
+     "gitRemote": "View Git remotes",
+     "gitRevParse": "Resolve Git reference",
+     "gitBranch": "View branches",
+     "gitGrep": "Search repository content",
+     "gitMergeBase": "Find common ancestor",
+     "gitLsFiles": "View tracked files",
+     "gitRevList": "View commit range",
+     "gitLsRemote": "View remote references",
+     "gitWorktreeList": "List worktrees",
+     "gitWorktreeAdd": "Create worktree",
+     "gitWorktreeRemove": "Remove worktree",
+     "gitWorktreeMove": "Move worktree",
+     "gitWorktreePrune": "Prune worktrees",
+     "ghPrList": "List pull requests",
+     "ghPrView": "View pull request",
+     "ghPrChecks": "Check pull request checks",
+     "ghPrStatus": "Check pull request status",
+     "ghPrDiff": "View pull request changes",
+     "ghPrCreate": "Create pull request",
+     "ghPrEdit": "Edit pull request",
+     "ghPrComment": "Comment on pull request",
+     "ghPrReview": "Review pull request",
+     "ghPrMerge": "Merge pull request",
+     "ghPrClose": "Close pull request",
+     "ghPrReopen": "Reopen pull request",
+     "ghPrCheckout": "Check out pull request",
+     "ghIssueList": "List issues",
+     "ghIssueView": "View issue",
+     "ghIssueStatus": "Check issue status",
+     "ghIssueCreate": "Create issue",
+     "ghIssueEdit": "Edit issue",
+     "ghIssueComment": "Comment on issue",
+     "ghIssueClose": "Close issue",
+     "ghIssueReopen": "Reopen issue",
+     "ghAuthStatus": "Check GitHub authentication",
+     "ghAuthLogin": "Log in to GitHub",
+     "ghAuthLogout": "Log out of GitHub",
+     "ghAuthRefresh": "Refresh GitHub authorization",
+     "ghAuthSwitch": "Switch GitHub account",
+     "ghRunList": "List workflow runs",
+     "ghRunView": "View workflow run",
+     "ghRunWatch": "Watch workflow run",
+     "ghSearch": "Search GitHub",
+     "ghRepoList": "List repositories",
+     "ghRepoView": "View repository",
+     "ghApiQuery": "Query GitHub API",
+     "ghApiMutation": "Modify GitHub data",
+     "ghApiCall": "Call GitHub API",
+     "edited": "Edited",
+     "created": "Created",
+     "updated": "Updated",
+     "ran": "Ran",
+     "ranCommand": "Run command",
+     "used": "Used"
+    },
+    "fileChange": {
+     "deleted": "Deleted",
+     "renamed": "Renamed",
+     "files": "{{count}} files"
+    }
+   },
+   "agentActions": {
+    "more_one": "{{count}} more",
+    "more_other": "{{count}} more",
+    "separator": ", ",
+    "lastSeparator": " and ",
+    "part": {
+     "edited_one": "edited a file",
+     "edited_other": "edited {{count}} files",
+     "created_one": "created a file",
+     "created_other": "created {{count}} files",
+     "ran_one": "ran a command",
+     "ran_other": "ran {{count}} commands",
+     "read_one": "read a file",
+     "read_other": "read {{count}} files",
+     "updated_one": "updated todos",
+     "updated_other": "updated todos",
+     "searched_one": "searched",
+     "searched_other": "searched",
+     "fetched_one": "fetched the web",
+     "fetched_other": "fetched the web",
+     "used_one": "used a tool",
+     "used_other": "used {{count}} tools"
+    }
+   }
+  },
+  "logic": {
+   "errors": {
+    "emptyResponse": "The model returned no content. Try again. If the context is very long, switch models.",
+    "turnFailed": "The task failed (the model returned no error detail) — please retry.",
+    "silentStopExhausted": "The model returned empty responses repeatedly; auto-resume is paused. Click \"Continue\" to resume the task.",
+    "executionResultUnavailable": "Unable to retrieve the execution result. Automatic continuation has stopped. Ask the assistant to check the existing execution result.",
+    "outputLimit": "The model reached its output limit, so this response may be incomplete. Send the next message to continue.",
+    "toolUseLoopDetected": "The model repeated a tool call too many times, so Cindy stopped this turn to prevent an infinite loop. Send a new message to continue.",
+    "permissionTightenInterruptFailed": "Failed to stop the running task while tightening permissions; it may keep running without approval prompts until it finishes. Stop it manually if needed.",
+    "codexAutoReviewUnavailable": "Auto-review is temporarily unavailable. The current action was blocked and permissions switched to Default. Retry the request; Cindy will ask when needed.",
+    "hostShellCommandBlocked": "Cindy blocked this shell command. Check the command and use an available tool or command to continue.",
+    "upstreamResponseIdleTimeout": "The model stopped responding for a long time, so this turn was interrupted to avoid hanging forever. Completed tool calls are preserved — send the next message to continue.",
+    "codexHistoryOversized": "The image history is too large to resume automatically. Send “Continue”, and Cindy will pick up the current task.",
+    "codexCompactionNotConverging": "Codex kept compacting the context, but the size did not come down, so this turn stopped to avoid a loop. The fixed instructions and tool definitions are using that space, and compacting cannot remove them. Start a new task to continue.",
+    "codexCompactionNotConvergingModelSwitch": "Codex kept compacting the context, but the size did not come down, so this turn stopped. This task switched models, and Codex is still using the earlier context limit. Switch back to the original model, or start a new task.",
+    "turnNoEventTimeout": "This turn showed no activity for a long time (model, tools and background processes were all silent), so it was interrupted to avoid hanging forever. Send the next message to continue.",
+    "toolUseLoopDetectedConsecutiveWithCount": "The model repeated the same tool call {{count}} times, so Cindy stopped this turn to prevent an infinite loop. Send a new message to continue.",
+    "toolUseLoopDetectedPingPongWithCount": "The model kept cycling between tool calls, so Cindy stopped this turn after detecting {{count}} calls in the loop. Send a new message to continue.",
+    "toolUseLoopDetectedRotationWithCount": "The model kept rotating through tool calls, so Cindy stopped this turn after detecting {{count}} calls in the loop. Send a new message to continue.",
+    "toolUseLoopDetectedWithCount": "The model kept repeating invalid tool calls, so Cindy stopped this turn after {{count}} failures to prevent an infinite loop. Send a new message to continue."
+   }
+  },
+  "newChat": {
+   "chatInput": {
+    "switchFailed": "Setting change failed; not applied",
+    "voiceInput": {
+     "permissionDialog": {
+      "description": "Allow microphone access, then click voice input again.",
+      "title": "Microphone permission required",
+      "confirm": "Grant permission",
+      "cancel": "Cancel"
+     },
+     "stop": "Stop voice input",
+     "start": "Start voice input"
+    }
+   },
+   "permissionSelector": {
+    "triggerAria": "Select permission mode: {{label}}",
+    "listAria": "Permission modes",
+    "modes": {
+     "claude-code": {
+      "ask": {
+       "label": "Default permissions",
+       "description": "Allows read/write access inside the workspace and asks before using higher permissions, network access, or paths outside the workspace."
+      },
+      "acceptEdits": {
+       "label": "Auto accept edits",
+       "description": "Automatically accepts file edit requests to reduce repeated confirmations. Higher-risk commands or permissions still follow the underlying permission policy."
+      },
+      "auto": {
+       "label": "Auto-review",
+       "description": "Allows read/write access inside the workspace and automatically reviews escalation requests; high-risk actions may still be denied or require confirmation. This reduces interruptions, but can make mistakes."
+      },
+      "bypassPermissions": {
+       "label": "Full access",
+       "description": "Allows editing any file and running networked commands without another confirmation. Highest risk; use only for trusted tasks."
+      }
+     },
+     "codex": {
+      "ask": {
+       "label": "Default permissions",
+       "description": "Allows read/write access inside the workspace and asks before using higher permissions, network access, or paths outside the workspace."
+      },
+      "auto": {
+       "label": "Auto-review",
+       "description": "Runs commands automatically inside the protected workspace sandbox. Actions that cross the sandbox boundary go to an automatic reviewer; high-risk actions may still be denied or require confirmation."
+      },
+      "bypassPermissions": {
+       "label": "Full access",
+       "description": "Allows editing any file and running networked commands without another confirmation. Highest risk; use only for trusted tasks."
+      }
+     },
+     "pi": {
+      "ask": {
+       "label": "Default permissions",
+       "description": "Read-only tools run directly; writing files, running commands, and MCP tools ask each time."
+      },
+      "auto": {
+       "label": "Auto-review",
+       "description": "In-workspace writes and safe commands run automatically; out-of-workspace writes, risky commands, and MCP tools still ask."
+      },
+      "bypassPermissions": {
+       "label": "Full access",
+       "description": "Allows editing any file and running networked commands without another confirmation. Highest risk; use only for trusted tasks."
+      }
+     }
+    }
+   }
+  },
+  "voiceInputOverlay": {
+   "status": {
+    "refining": "Refining",
+    "submitting": "Finalizing"
+   },
+   "speakerFiltered": "Ignored someone else's voice"
+  },
+  "commonUi": {
+   "confirmDialog": {
+    "confirm": "Confirm",
+    "cancel": "Cancel"
+   }
+  },
+  "common": {
+   "dismiss": "Dismiss"
+  },
+  "usageDetails": {
+   "durationDaysHoursMinutes": "{{days}}d {{hours}}h {{minutes}}m",
+   "durationHoursMinutes": "{{hours}}h {{minutes}}m"
+  },
+  "agentIsland": {
+   "native": {
+    "updatingTasks": "Updating tasks"
+   }
+  },
+  "ccAgent": {
+   "agentStatus": {
+    "thinking": "Thinking…",
+    "replying": "Replying…",
+    "processing": "Working…",
+    "organizingConversation": "Organizing the conversation…",
+    "readingMemory": "Reading memory…",
+    "savingMemory": "Saving memory…",
+    "deletingMemory": "Deleting memory…",
+    "organizingMemory": "Organizing memory…",
+    "readingFile": "Reading files…",
+    "savingFile": "Updating files…",
+    "searchingWeb": "Searching the web…",
+    "readingWeb": "Reading web pages…",
+    "searchingFiles": "Searching files…",
+    "testing": "Running tests…",
+    "checking": "Checking code…",
+    "reviewingMemory": "Checking memory…",
+    "reviewingFiles": "Reviewing files…",
+    "reviewingSources": "Checking web sources…",
+    "reviewingChecks": "Reviewing check results…"
+   }
+  },
+  "taskTags": {
+   "remoteBusy": "The remote computer is busy. Please try again shortly.",
+   "loadFailed": "Could not load tags. Try again.",
+   "retry": "Retry",
+   "editLabel": "Edit “{{name}}”",
+   "reorderLabel": "Reorder “{{name}}”",
+   "reorderHint": "Drag to reorder, or use the up and down arrow keys",
+   "addLabel": "Add “{{name}}”",
+   "removeLabel": "Remove “{{name}}”",
+   "title": "Tags",
+   "more": "More tags",
+   "settings": "Tag settings",
+   "name": "Name",
+   "color": "Color",
+   "favorite": "Favorite (up to 7)",
+   "create": "Create",
+   "save": "Save",
+   "done": "Done",
+   "back": "Back",
+   "delete": "Delete tag",
+   "cancel": "Cancel",
+   "deleteConfirm": "Delete “{{name}}” from {{count}} tasks? Tasks and messages will be kept.",
+   "loading": "Loading…",
+   "unavailable": "This computer needs an update to support tags.",
+   "offline": "Connect to the source computer to edit tags.",
+   "failed": "Could not save. Please try again.",
+   "conflict": "Tags changed elsewhere. Reload and try again.",
+   "favoritesFull": "Only seven favorite tags are allowed.",
+   "alreadyExists": "A tag with this name already exists.",
+   "empty": "No tags yet.",
+   "red": "Red",
+   "orange": "Orange",
+   "yellow": "Yellow",
+   "green": "Green",
+   "blue": "Blue",
+   "purple": "Purple",
+   "gray": "Gray",
+   "none": "No color",
+   "pink": "Pink",
+   "coral": "Coral",
+   "teal": "Teal",
+   "indigo": "Indigo",
+   "white": "White",
+   "add": "Add tag",
+   "editTitle": "Edit tag",
+   "editHint": "Changes apply to all tasks using this tag.",
+   "addHint": "Added tags are selected for this task.",
+   "selectedCount": "{{count}} selected",
+   "presetImportant": "Important",
+   "presetFollowUp": "Follow up",
+   "presetWork": "Work",
+   "presetLife": "Life",
+   "presetIdeas": "Ideas",
+   "presetReference": "Reference"
+  }
+ }
+}
