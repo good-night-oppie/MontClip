@@ -123,5 +123,9 @@
   }
   /** File names in review order, numbered 01, 02, …; a colon cannot be in a Windows file name. */
   const numbered = (names) => names.map((n, i) => String(i + 1).padStart(2, "0") + " " + String(n).replace(/:/g, "："));
-  return { KINDS, LENS, COUNTS, DEFAULTS, SONG_GATE, SONG_MEASURED, songsTrusted, title, edgeLevel, build, hms, nudge, overview, totals, numbered };
+  /** The reasons a card shows: a reason that only holds for singing (signal singing) only on a song card — one made
+   *  another kind keeps its sound and danmaku reasons (VV on #90 b76bbe3). The card keeps them all, so made a song again
+   *  (or the change undone) it shows it again. */
+  const cardReasons = (c) => ((c && c.reasons) || []).filter((r) => c.kind === "song" || r.signal !== "singing");
+  return { KINDS, LENS, COUNTS, DEFAULTS, SONG_GATE, SONG_MEASURED, songsTrusted, title, edgeLevel, build, hms, nudge, overview, totals, numbered, cardReasons };
 });
