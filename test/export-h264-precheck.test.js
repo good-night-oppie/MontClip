@@ -79,3 +79,14 @@ test('server, no H.264 encoder: H.264 refused at begin with a code, Archive (FFV
   const j = await r.json(); a.equal(r.status, 200, JSON.stringify(j)); a.ok(j.id);
   await fetch(base + '/api/export/end?id=' + j.id + '&discard=1', { method: 'POST' });
 });
+
+test('server, an H.264 encoder present but no local FFmpeg: a libx264 profile still asks for your own FFmpeg (extNeeded)', async (t) => {
+  const { makeDataDir, seedProject, startServer } = require('./helpers');
+  if (!require('../ffmpeg-path').available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
+  const dir = makeDataDir(t, seedProject({ revision: 1 }));
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_EXTERNAL_FFMPEG_SETTINGS: path.join(dir, 'no-setting.json') });
+  const st = await (await fetch(base + '/api/export/h264')).json();
+  if (!st.encoder) return t.skip('this computer has no H.264 encoder (covered above)');
+  const r = await fetch(base + '/api/export/begin', { method: 'POST', body: JSON.stringify({ fps: 30, name: 'x', profile: 'draft', hasAudio: false }) });
+  a.equal(r.status, 400); const j = await r.json(); a.equal(j.code, 'extNeeded', JSON.stringify(j));
+});
