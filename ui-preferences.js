@@ -500,6 +500,8 @@
     "as-dropped-one": ["Took out “{name}”", "已拿掉「{name}」"],
     "as-put-back-one": ["Put back “{name}”", "已放回「{name}」"],
     "as-undone": ["Undone", "已撤销"],
+    // VV's draft for #111, pending JJ: the undo of an edit made outside this tab
+    "undo-outside": ["Undid the change just made somewhere else (by the AI or in another window).", "撤回了刚才在别处（AI 或另一个窗口）做的修改。"],
     "as-dropped": ["Taken out: {n} (open to put them back)", "拿掉的 {n} 条（点开可以放回来）"],
     "as-put-back": ["Put back", "放回来"],
     "as-sum-n": ["{n} clips", "{n} 条"],

@@ -4183,11 +4183,29 @@ function counterSnapshot(snap) {
  *  When the edit removed media, the step carries the media list as it was too, so the clips it puts
  *  back find their files (and redo, whose counter-snapshot then carries media, takes them out again). */
 function outsideEditStep(before, after, mediaBefore = null, mediaAfter = null) {
-  if (before === after) return null;
+  if (before === after || snapshotKey(before) === snapshotKey(after)) return null;
   const now = new Set((mediaAfter || []).map((m) => m.id));
   const lost = (mediaBefore || []).some((m) => !now.has(m.id));
   const snap = lost ? before.slice(0, -1) + ',"media":' + JSON.stringify(mediaBefore) + "}" : before;
   return '{"outside":true,' + snap.slice(1);
+}
+/** An undo snapshot to compare by: loading a page relinks each picture to its audio stems under fresh linkGroup ids
+ *  (edit-ops.js relinkClips), so which clips share a group counts, not the group's name. Without this a reload, or an
+ *  outside write that leaves the timeline alone, looked like an outside edit (VV's review of #111). */
+function snapshotKey(json) {
+  if (typeof json !== "string" || !json.includes('"linkGroup"')) return json;
+  try {
+    const snap = JSON.parse(json), names = new Map();
+    const rename = (clips) => {
+      if (!Array.isArray(clips)) return;
+      for (const c of clips) if (c && c.linkGroup) {
+        if (!names.has(c.linkGroup)) names.set(c.linkGroup, "lg#" + names.size);
+        c.linkGroup = names.get(c.linkGroup);
+      }
+    };
+    if (Array.isArray(snap)) rename(snap); else { rename(snap.clips); rename(snap.clipsOnly); }
+    return JSON.stringify(snap);
+  } catch { return json; }
 }
 const isOutsideStep = (snap) => typeof snap === "string" && snap.startsWith('{"outside":true,');
 /* Editor events (agent-events.js): each undo step carries the id of its event at the start of its snapshot. */
@@ -4226,7 +4244,7 @@ function undo() {
   restoreSnapshot(snap);
   pruneSelection();
   scheduleSave(); renderInspector();
-  if (isOutsideStep(snap)) toast("Undid a change made outside this tab (an agent or another tab)");
+  if (isOutsideStep(snap)) toast(uiText("own.undo-outside"));
 }
 function redo() {
   if (!runtime.redo.length) return;
