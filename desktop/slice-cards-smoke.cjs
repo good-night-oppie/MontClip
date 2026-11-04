@@ -131,26 +131,34 @@ BrowserWindow.prototype.loadURL=async function(...args){
   // VV / JJ / Deja: the three empty states of the review, each with its own title — nothing found (as before), every card
   // taken out (JJ: 「找到 {found} 条，你都拿掉了」, no 「没有找到」, neither 「圈出 0 段」 nor 「够好的只有」), nothing ticked
   // (never 「先帮你勾了最好的 0 条」)
-  const states=await read(`(()=>{const st=autoState(),keep={clips:st.clips,dropped:st.dropped,few:st.few};const d=document.querySelector('dialog.auto-slices');
-    const look=()=>({title:d.querySelector('[data-as-body] h1').textContent,evidence:!!d.querySelector('.as-evidence'),few:/够好的只有/.test(d.querySelector('[data-as-body]').textContent),text:d.querySelector('[data-as-body]').textContent});
-    const out={};
-    st.clips=keep.clips.map(c=>({...c,on:false}));st.dropped=[];autoRender('review');out.noneTicked=look();
-    st.dropped=keep.clips.map(c=>({...c,on:false}));st.clips=[];autoRender('review');out.allOut=look();
-    st.clips=[];st.dropped=[];autoRender('review');out.noneFound=look();
-    st.clips=keep.clips;st.dropped=keep.dropped;st.few=keep.few;autoRender('review');out.n=keep.clips.length;return out;})()`);
-  report.states={noneTicked:states.noneTicked.title,allOut:states.allOut.title,noneFound:states.noneFound.title};
-  assert.equal(states.noneFound.title,zh('as-found-none'),'nothing found: as before');
-  assert.equal(states.allOut.title,zh('as-found-all-out',{found:states.n}));
-  assert.ok(!/没有找到/.test(states.allOut.text),'all taken out: never 没有找到');
-  assert.ok(!/圈出 0 段/.test(states.allOut.text)&&!states.allOut.few,'all taken out: neither 圈出 0 段 nor 够好的只有');
-  assert.equal(states.noneTicked.title,zh('as-found-none-ticked',{found:states.n}));
-  assert.ok(!/最好的 0 条/.test(states.noneTicked.title));
-  assert.equal(new Set(Object.values(report.states)).size,3,'three titles');
-  // the start page with no recording picked: 〔开始找高光〕 grey, and beside it why
-  const start=await read(`(()=>{const st=autoState(),keep=st.picked;st.picked=new Set();autoRender('start');const d=document.querySelector('dialog.auto-slices'),go=d.querySelector('[data-as-act=go]'),why=d.querySelector('[data-as-go-why]');
-    const r={disabled:go.disabled,why:why&&why.textContent,beside:!!why&&go.parentElement.contains(why)};st.picked=keep;autoRender('review');return r;})()`);
+  // the title follows the ticks at once (the cards' own tick boxes), JJ's words: every one unticked; ticked back as the
+  // search ticked them; one only; then every card taken out (in the state, as 不要这条 leaves it), and nothing found
+  const states=await read(`(async()=>{const st=autoState(),keep={clips:JSON.parse(JSON.stringify(st.clips)),dropped:st.dropped,few:st.few,hist:st.hist.length};const d=document.querySelector('dialog.auto-slices');
+    const title=()=>d.querySelector('[data-as-body] h1').textContent,tick=async(i,on)=>{const b=d.querySelectorAll('[data-as-card] input[data-as-act=toggle]')[i];if(b.checked!==on){b.checked=on;b.dispatchEvent(new Event('change',{bubbles:true}));}await new Promise(r=>setTimeout(r,50));};
+    const n=st.clips.length,out={n,start:title()};
+    for(let i=0;i<n;i++)await tick(i,false);out.noneTicked=title();
+    for(let i=0;i<n;i++)await tick(i,keep.clips[i].picked);out.back=title();
+    for(let i=0;i<n;i++)await tick(i,i===n-1);out.own=title();out.on=st.clips.filter(c=>c.on).length;
+    st.dropped=keep.clips.map(c=>({...c,on:false}));st.clips=[];autoRender('review');out.allOut=title();out.allOutText=d.querySelector('[data-as-body]').textContent;out.evidence=!!d.querySelector('.as-evidence');
+    st.clips=[];st.dropped=[];autoRender('review');out.noneFound=title();
+    st.clips=keep.clips;st.dropped=keep.dropped;st.few=keep.few;st.hist.length=keep.hist;autoRender('review');return out;})()`);
+  report.states=states;
+  assert.equal(states.start,states.back,'ticked back as the search did: the first title again');
+  assert.ok(states.start===zh('as-found-all',{found:states.n})||states.start===zh('as-found-head',{found:states.n,on:states.n}),states.start);
+  assert.equal(states.noneTicked,zh('as-found-none-ticked',{found:states.n}));
+  assert.equal(states.own,zh('as-found-ticked',{found:states.n,on:1}),'one the streamer ticked');
+  assert.equal(states.allOut,zh('as-found-all-out',{found:states.n}));
+  assert.ok(!/没有找到/.test(states.allOutText)&&!/圈出 0 段/.test(states.allOutText)&&!/够好的只有/.test(states.allOutText)&&!states.evidence,'all taken out: never 没有找到, 圈出 0 段 or 够好的只有');
+  assert.equal(states.noneFound,zh('as-found-none'),'nothing found: as before');
+  assert.equal(new Set([states.start,states.noneTicked,states.own,states.allOut,states.noneFound]).size,5,'five titles, none the same');
+  // the start page: the recording's own tick — off: 〔开始找高光〕 grey and JJ's line beside it; on again: the line as before
+  const start=await read(`(async()=>{autoRender('start');const d=document.querySelector('dialog.auto-slices'),rec=()=>d.querySelector('[data-as-act=rec]');
+    const look=()=>{const go=d.querySelector('[data-as-act=go]'),why=d.querySelector('[data-as-go-why]');return{disabled:go.disabled,why:why&&why.textContent,beside:!!why&&go.parentElement.contains(why),line:go.parentElement.querySelector('.as-small').textContent};};
+    const on=look();rec().click();await new Promise(r=>setTimeout(r,50));const off=look();rec().click();await new Promise(r=>setTimeout(r,50));const again=look();autoRender('review');return{on,off,again};})()`);
   report.startWhy=start;
-  assert.deepEqual(start,{disabled:true,why:zh('as-go-why-none'),beside:true});
+  assert.deepEqual([start.on.disabled,start.on.line],[false,zh('as-go-hint')]);
+  assert.deepEqual([start.off.disabled,start.off.why,start.off.beside],[true,zh('as-go-why-none'),true]);
+  assert.deepEqual([start.again.disabled,start.again.line,start.again.why],[false,zh('as-go-hint'),null]);
   // 4. blue: on the review page too
   report.blueReview=await read(BLUE);
   assert.deepEqual(report.blueStart,[],'start page: '+report.blueStart.join(' | '));

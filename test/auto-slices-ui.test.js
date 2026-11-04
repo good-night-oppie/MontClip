@@ -165,13 +165,25 @@ test('the card\'s lyrics button: none until the card can use it; then short, the
  a.ok(!/\.auto-slices button:disabled/.test(css),'no rule of the dialog\'s own');
 });
 
-// VV / JJ / Deja (2026-11-03): three states of the review that are not the same and must not read the same — nothing
-// found, every card taken out, nothing ticked. "All taken out" in JJ's words; "nothing ticked" and the start page's
-// reason for a greyed 〔开始找高光〕 are placeholders until JJ words them
-test('the review\'s three empty states have their own titles; the start page says why 〔开始找高光〕 is grey',()=>{
+// VV / JJ / Deja (2026-11-03): the review's title follows what is ticked, at once — JJ's words. Nothing found; every card
+// taken out; nothing ticked; ticked as the search ticked them (as before); ticked otherwise by the streamer. Whether
+// it is "as the search ticked them" is the set of cards, not the count (auto-slices.js reviewHead)
+test('the review\'s title: JJ\'s words, and the ticked set against the search\'s, not the count',()=>{
  const en=(k,v)=>V.t('en','own.'+k,v);
  a.equal(zh('as-found-all-out',{found:2}),'找到 2 条，你都拿掉了');a.equal(en('as-found-all-out',{found:2}),'Found 2, and you took them all out');
- const titles=[zh('as-found-none'),zh('as-found-all-out',{found:2}),zh('as-found-none-ticked',{found:2})];
- a.equal(new Set(titles).size,3,titles.join(' | '));a.ok(!/没有找到/.test(titles[1]));a.ok(!/0 条/.test(titles[2]));
- for(const k of ['as-found-none-ticked','as-go-why-none'])a.ok(zh(k,{found:2})&&en(k,{found:2})&&!/[一-鿿]/.test(en(k,{found:2})),k);
+ a.equal(zh('as-found-none-ticked',{found:3}),'找到 3 条，现在一条都没勾');a.equal(en('as-found-none-ticked',{found:3}),'Found 3, none ticked right now');
+ a.equal(zh('as-found-ticked',{found:5,on:2}),'找到 5 条，勾了 2 条');a.equal(en('as-found-ticked',{found:5,on:2}),'Found 5, 2 ticked');
+ a.equal(zh('as-found-head',{found:5,on:3}),'找到 5 条，先帮你勾了最好的 3 条','as before');
+ a.equal(zh('as-go-why-none'),'先在上面勾一场录像');a.equal(en('as-go-why-none'),'Tick a recording above first');
+ const S=require('../auto-slices'),h=S.reviewHead,c=(id,picked,on)=>({id,picked,on});
+ a.deepEqual(h([],[]),{key:'none',found:0,on:0});
+ a.deepEqual(h([],[c('a',true,false),c('b',false,false)]),{key:'all-out',found:2,on:0});
+ a.deepEqual(h([c('a',true,false),c('b',false,false)],[]),{key:'none-ticked',found:2,on:0});
+ a.deepEqual(h([c('a',true,true),c('b',true,true),c('x',false,false)],[]),{key:'head',found:3,on:2},'as the search ticked them');
+ a.deepEqual(h([c('a',true,true),c('b',true,true)],[]),{key:'all',found:2,on:2},'all of them, as the search did');
+ a.deepEqual(h([c('a',true,true),c('b',true,false),c('x',false,true)],[]),{key:'ticked',found:3,on:2},'the same count, another set');
+ a.deepEqual(h([c('a',true,true)],[c('b',true,false)]),{key:'ticked',found:1,on:1},'one the search ticked taken out');
+ a.deepEqual(h([c('a',true,true),c('x',false,true)],[]),{key:'ticked',found:2,on:2},'all ticked, but not as the search did');
+ // the search's own cards say which it ticked
+ a.match(fs.readFileSync(require('path').join(__dirname,'..','auto-slices.js'),'utf8'),/on: i < checked, picked: i < checked/);
 });
