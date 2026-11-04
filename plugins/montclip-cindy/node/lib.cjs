@@ -252,17 +252,21 @@ function openFolder(target, { allowed, platform = process.platform, spawn, env =
   if (child && typeof child.unref === "function") child.unref();
   return { opened: wantReal };
 }
-/** The folders exports were delivered into (newest first, at most 50), kept in a file so a restarted worker knows them. */
-function rememberFolder(file, dir) {
-  let list = [];
-  try { list = JSON.parse(fs.readFileSync(file, "utf8")).folders || []; } catch { }
-  list = [dir, ...list.filter((d) => typeof d === "string" && d !== dir)].slice(0, 50);
-  fs.writeFileSync(file, JSON.stringify({ folders: list }, null, 1));
-  return list;
+/** Which folder each export went into (by its job id; the newest 50), kept in a file so a restarted worker knows. */
+function rememberFolder(file, job, dir) {
+  let jobs = [];
+  try { jobs = JSON.parse(fs.readFileSync(file, "utf8")).jobs || []; } catch { }
+  jobs = [{ job: String(job), dir: String(dir) }, ...jobs.filter((j) => j && j.job !== String(job))].slice(0, 50);
+  fs.writeFileSync(file, JSON.stringify({ jobs }, null, 1));
+  return jobs;
 }
-function rememberedFolders(file) {
-  try { return (JSON.parse(fs.readFileSync(file, "utf8")).folders || []).filter((d) => typeof d === "string"); } catch { return []; }
+/** The folder an export went into, or null. */
+function folderOfJob(file, job) {
+  try {
+    const j = (JSON.parse(fs.readFileSync(file, "utf8")).jobs || []).find((x) => x && x.job === String(job));
+    return j && typeof j.dir === "string" ? j.dir : null;
+  } catch { return null; }
 }
 
 module.exports = { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg, unpackCode, zipUnpackedBytes, freeBytes, spaceNeeded,
-  exportFiles, freeName, deliverFiles, openFolder, rememberFolder, rememberedFolders };
+  exportFiles, freeName, deliverFiles, openFolder, rememberFolder, folderOfJob };

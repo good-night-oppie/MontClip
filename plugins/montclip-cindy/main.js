@@ -111,8 +111,9 @@ const EXPORT_TEXT = {
     noFolder: '没有选文件夹，所以没有导出。',
     copyFailed: (why) => '视频已经导出好了，但没能存进你选的文件夹（' + why + '）。文件还在 MontClip 自己的导出文件夹里，可以换一个文件夹再导出一次。',
     renamed: '同名文件已经有了，这次存成这个名字',
-    // waiting for JJ (VV, 2026-11-04): the button, a failed open, and the reasons a copy fails
-    openFolder: '打开文件夹', openFailed: (why) => '没能打开文件夹（' + why + '）。',
+    openFolder: '打开文件夹', openExports: '打开导出文件夹',   // JJ: the folder she chose · MontClip's own export folder
+    // waiting for JJ (VV, 2026-11-04): a failed open, and the reasons a copy fails
+    openFailed: (why) => '没能打开文件夹（' + why + '）。',
     why: { NO_FOLDER: '选的文件夹找不到了，可能被删了或拔掉了 U 盘', ENOSPC: '空间不够', EACCES: '没有写入权限', EPERM: '没有写入权限',
       FOLDER_NOT_ALLOWED: '只能打开导出用的文件夹' },
   },
@@ -124,7 +125,8 @@ const EXPORT_TEXT = {
     noFolder: 'No folder was chosen, so nothing was exported.',
     copyFailed: (why) => "The video is exported, but it couldn't be saved to the folder you chose (" + why + "). The file is still in MontClip's own export folder; you can export again to another folder.",
     renamed: 'A file with this name was already there, so this one was saved under this name',
-    openFolder: 'Open folder', openFailed: (why) => "Couldn't open the folder (" + why + ').',
+    openFolder: 'Open folder', openExports: 'Open the export folder',
+    openFailed: (why) => "Couldn't open the folder (" + why + ').',
     why: { NO_FOLDER: "the folder you chose isn't there any more; it may have been deleted, or the USB drive removed", ENOSPC: 'not enough space',
       EACCES: 'no permission to write there', EPERM: 'no permission to write there', FOLDER_NOT_ALLOWED: 'only the export folders can be opened' },
   },
@@ -157,10 +159,11 @@ function exportCard(c, lang) {
   const body = c.phase === 'still' ? '<p style="' + small + '">' + t.stillNote + '</p>'
     : c.phase === 'cancelled' ? '<p style="' + small + '">' + t.noFolder + '</p>'
     : c.phase === 'copyFailed' ? '<p style="margin:0">' + t.copyFailed(esc(whyText(c.code, c.reason, lang))) + '</p>' : '';
-  // 打开文件夹: the folder the files are in — the one picked, else MontClip's exports (a failed copy leaves them there)
+  // 打开文件夹: the folder she chose, when the files went there; else 打开导出文件夹 (a failed copy leaves them in exports)
+  const picked = c.phase === 'done' && !!c.dir;
   const open = c.phase === 'done' || c.phase === 'copyFailed'
-    ? '<div style="margin-top:10px"><button data-ghost-action="open-folder:' + (c.phase === 'done' && c.dir ? 'picked' : 'exports') +
-      '" style="font:inherit;padding:5px 12px;border-radius:6px;border:1px solid var(--border-default,#d4d4cf);background:transparent;color:inherit">' + t.openFolder + '</button></div>' +
+    ? '<div style="margin-top:10px"><button data-ghost-action="open-folder:' + (picked ? 'picked' : 'exports') +
+      '" style="font:inherit;padding:5px 12px;border-radius:6px;border:1px solid var(--border-default,#d4d4cf);background:transparent;color:inherit">' + (picked ? t.openFolder : t.openExports) + '</button></div>' +
       (c.openFailed ? '<p style="' + small + '">' + t.openFailed(esc(whyText(c.openFailed.code, c.openFailed.message, lang))) + '</p>' : '')
     : '';
   const note = c.note ? '<p style="margin:8px 0 0;color:' + (c.phase === 'failed' ? 'var(--text-danger,#b42318)' : 'var(--text-secondary,#6b6b66)') + '">' + esc(c.note) + '</p>' : '';
@@ -258,7 +261,7 @@ const HANDLERS = {
       catch (e) { await sleep(1000); sendCard(callId, { phase: 'copyFailed', code: e.code, reason: e.message }); return { job: job.id, status: 'done', copied: false, error: e.message, code: e.code }; }
     } else files = outs.filter((o) => o.ok).map((o) => ({ name: o.file })).concat(outs.length ? [] : [{ name: String(job.src || '').split('/').pop() }]);
     await sleep(1000);
-    sendCard(callId, { phase: 'done', folder, dir, files, note: report.join(' · ') });
+    sendCard(callId, { phase: 'done', folder, dir, job: job.id, files, note: report.join(' · ') });
     return { job: job.id, status: 'done', files: files.map((f) => f.file || f.name), report };
   },
   /* Only when the user agreed to the download (about 160 MB). */
@@ -277,11 +280,12 @@ cindy.onHostMessage(async function (msg) {
   if (msg.type === 'event' && msg.name === 'card-action' && /^open-folder:(picked|exports)$/.test(String(msg.actionId))) {
     const c = exportCards.get(msg.callId);
     if (!c) return;
-    const folder = msg.actionId === 'open-folder:picked' ? (c.phase === 'done' ? c.dir : null) : 'exports';
+    // the worker is told which export (its job id), never a path; it looks up where that export went
+    const ask = msg.actionId === 'open-folder:picked' ? (c.phase === 'done' && c.dir && c.job ? { job: c.job } : null) : { folder: 'exports' };
     let openFailed = null;
     try {
-      if (!folder) throw Object.assign(new Error('this export was not saved into a folder of its own'), { code: 'NO_FOLDER' });
-      await node('montclip/open-folder', { folder });
+      if (!ask) throw Object.assign(new Error('this export was not saved into a folder of its own'), { code: 'NO_FOLDER' });
+      await node('montclip/open-folder', ask);
     } catch (e) { openFailed = { code: e.code, message: e.message }; }
     sendCard(msg.callId, Object.assign({}, c, { openFailed }));
     return;

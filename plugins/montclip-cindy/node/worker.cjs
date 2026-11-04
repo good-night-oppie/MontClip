@@ -15,14 +15,14 @@ const http = require("node:http");
 const readline = require("node:readline");
 const { spawn, spawnSync } = require("node:child_process");
 const { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg, unpackCode, zipUnpackedBytes, freeBytes, spaceNeeded,
-  exportFiles, deliverFiles, openFolder, rememberFolder, rememberedFolders } = require("./lib.cjs");
+  exportFiles, deliverFiles, openFolder, rememberFolder, folderOfJob } = require("./lib.cjs");
 
 for (const k of ["log", "info", "debug", "warn", "error"]) console[k] = (...a) => process.stderr.write(a.map(String).join(" ") + "\n");
 
 const APP = path.resolve(process.env.MONTCLIP_CINDY_APP || path.join(__dirname, "app"));
 // the plugin's work lives in the user's home, never inside the plugin (an update replaces the plugin folder)
 const DATA = path.resolve(process.env.MONTCLIP_CINDY_DATA || path.join(os.homedir(), "MontClip-Cindy"));
-const FOLDERS_FILE = path.join(DATA, "cindy-export-folders.json");   // the folders exports went into (打开文件夹)
+const FOLDERS_FILE = path.join(DATA, "cindy-export-folders.json");   // which folder each export went into (打开文件夹)
 const PLATFORM = `${process.platform}-${process.arch}`;
 const FFMPEG_DIR = path.join(DATA, "ffmpeg", PLATFORM);
 // the Windows app's own pinned-build manifest and installer (build.cjs copies them in)
@@ -191,15 +191,18 @@ const METHODS = {
       if (Date.now() - last > 1000) { last = Date.now(); note({ event: "export-copy", bytes: sent }); }   // activity keeps the request alive
     });
     note({ event: "export-delivered", files: out.length });
-    try { rememberFolder(FOLDERS_FILE, String(p.dir)); } catch (e) { note({ event: "folders-not-kept", error: String(e.message) }); }
+    try { rememberFolder(FOLDERS_FILE, String(p.id), String(p.dir)); } catch (e) { note({ event: "folders-not-kept", error: String(e.message) }); }
     return { files: out };
   },
-  /* 打开文件夹: only the exports folder or a folder an export was delivered into (openFolder refuses the rest) */
+  /* 打开文件夹 / 打开导出文件夹: {folder:"exports"} opens MontClip's exports folder, {job} the folder that export went
+     into. The allow-list is those two folders and nothing else: no request can name a path. */
   async "montclip/open-folder"(p) {
     const exportsDir = path.join(DATA, "exports");
     fs.mkdirSync(exportsDir, { recursive: true });
-    const target = p.folder === "exports" ? exportsDir : p.folder;
-    return openFolder(target, { allowed: [exportsDir, ...rememberedFolders(FOLDERS_FILE)], spawn });
+    const picked = p.job != null ? folderOfJob(FOLDERS_FILE, p.job) : null;
+    const target = p.folder === "exports" && p.job == null ? exportsDir : picked;
+    if (!target) throw Object.assign(new Error("only the exports folder or the folder an export went into can be opened"), { code: "FOLDER_NOT_ALLOWED" });
+    return openFolder(target, { allowed: [exportsDir, ...(picked ? [picked] : [])], spawn });
   },
   async "montclip/bind"(p) {
     await start();
