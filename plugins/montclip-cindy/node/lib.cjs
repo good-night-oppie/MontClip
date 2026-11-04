@@ -168,4 +168,46 @@ async function deliverFiles(files, dir, tick = () => { }) {
   return out;
 }
 
-module.exports = { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg, exportFiles, freeName, deliverFiles };
+/** tar's own words for why it could not unpack, as the code the banner explains: no room, no permission, or neither. */
+function unpackCode(stderr) {
+  const m = String(stderr || "");
+  if (/no space left|ENOSPC|not enough space|disk (is )?full/i.test(m)) return "ENOSPC";
+  if (/permission denied|access is denied|EACCES|EPERM|cannot open: .*denied/i.test(m)) return "EACCES";
+  return "UNPACK_FAILED";
+}
+
+/* 打开文件夹 on the export card: the system file manager on one folder — MontClip's exports folder, or a folder the
+   user picked for an export (`allowed`). Any other path is refused, whatever the page or the agent asks. */
+function openFolder(target, { allowed, platform = process.platform, spawn, env = process.env }) {
+  if (typeof target !== "string" || !path.isAbsolute(target))
+    throw Object.assign(new Error("only the exports folder or a folder picked for an export can be opened"), { code: "FOLDER_NOT_ALLOWED" });
+  const key = (p) => (platform === "win32" ? p.toLowerCase() : p);
+  const real = (p) => { try { return fs.realpathSync.native(p); } catch { return null; } };
+  const want = path.resolve(target), wantReal = real(want);
+  const ok = (allowed || []).filter((a) => typeof a === "string" && path.isAbsolute(a)).some((a) => {
+    const r = real(path.resolve(a));
+    return key(path.resolve(a)) === key(want) && (!r || !wantReal || key(r) === key(wantReal));
+  });
+  if (!ok) throw Object.assign(new Error("only the exports folder or a folder picked for an export can be opened"), { code: "FOLDER_NOT_ALLOWED" });
+  if (!wantReal || !fs.statSync(wantReal).isDirectory()) throw Object.assign(new Error("the folder is not there"), { code: "NO_FOLDER" });
+  const [cmd, args] = platform === "win32" ? [path.join(env.SystemRoot || env.windir || "C:\\Windows", "explorer.exe"), [wantReal]]
+    : platform === "darwin" ? ["/usr/bin/open", [wantReal]] : ["xdg-open", [wantReal]];
+  const child = spawn(cmd, args, { detached: true, stdio: "ignore" });
+  if (child && typeof child.on === "function") child.on("error", () => { });
+  if (child && typeof child.unref === "function") child.unref();
+  return { opened: wantReal };
+}
+/** The folders exports were delivered into (newest first, at most 50), kept in a file so a restarted worker knows them. */
+function rememberFolder(file, dir) {
+  let list = [];
+  try { list = JSON.parse(fs.readFileSync(file, "utf8")).folders || []; } catch { }
+  list = [dir, ...list.filter((d) => typeof d === "string" && d !== dir)].slice(0, 50);
+  fs.writeFileSync(file, JSON.stringify({ folders: list }, null, 1));
+  return list;
+}
+function rememberedFolders(file) {
+  try { return (JSON.parse(fs.readFileSync(file, "utf8")).folders || []).filter((d) => typeof d === "string"); } catch { return []; }
+}
+
+module.exports = { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg, unpackCode, exportFiles, freeName, deliverFiles,
+  openFolder, rememberFolder, rememberedFolders };
