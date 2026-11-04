@@ -1293,6 +1293,21 @@ window.montclipDownloads?.onDone(({ state, name, removed }) => {
   else if (state === "cancelled") toast(uiText(wasExport ? "own.export-save-cancelled" : kind === "captions" ? "own.captions-save-cancelled" : "own.save-canceled"));
   else toast(uiText(wasExport ? "own.export-save-failed" : "own.save-failed"));
 });
+/** A toast with 〔撤销〕 (VV / Deja, 2026-11-03): it stays UNDO_TOAST_MS, and the time stops while the pointer is on it or
+ *  focus is inside it; once it leaves, the full time starts again. → {start, stop} for that toast element. */
+const UNDO_TOAST_MS = 8000;
+function holdToast(el, hide) {
+  // the pointer: its own events; the focus: where it is now (focus events do not always come, e.g. an unfocused window)
+  let timer = null, hover = false, since = 0;
+  el.addEventListener("mouseenter", () => { hover = true; }); el.addEventListener("mouseleave", () => { hover = false; });
+  const stop = () => { clearTimeout(timer); timer = null; };
+  const tick = () => {
+    if (hover || el.contains(document.activeElement)) since = Date.now();   // held: the time starts again once it leaves
+    else if (Date.now() - since >= UNDO_TOAST_MS) { stop(); hide(); return; }
+    timer = setTimeout(tick, 250);
+  };
+  return { start: () => { stop(); since = Date.now(); timer = setTimeout(tick, 250); }, stop };
+}
 function toast(msg) {
   if (!els.toast) return;
   els.toast.textContent = msg;
@@ -10758,7 +10773,22 @@ function autoAddRowHtml() {
 function autoLearnLineHtml() {
   if (!autoStore()) return "";
   const on = KEPT.on !== false;
-  return `<p class="as-small as-learnline" data-as-learn-line>${autoSay(on ? "as-learn-on" : "as-learn-off")}<button type="button" class="as-link" data-as-act="learn">${autoSay(on ? "as-learn-on-btn" : "as-learn-off-btn")}</button></p>`;
+  return `<p class="as-small as-learnline" data-as-learn-line>${autoSay(on ? "as-learn-on" : "as-learn-off")}<button type="button" class="as-link" data-as-act="${on ? "learn" : "learn-on"}">${autoSay(on ? "as-learn-on-btn" : "as-learn-off-btn")}</button></p>`;
+}
+/** 〔打开〕 on the line (JJ's (b), Deja 2026-11-03): the page's own switch, on at once; one undo step (〔撤销〕 or Ctrl+Z)
+ *  turns it off again. Nothing changed while it was off is kept afterwards. The page follows if it is open. */
+function autoLearnSet(on) {
+  const s = autoStore();
+  if (!s) return false;
+  try { s.setEnabled(on); } catch { return false; }
+  KEPT.on = on;
+  if (document.querySelector("dialog.as-learn[open]")) autoLearnOpen();
+  return true;
+}
+function autoLearnTurnOn() {
+  if (!autoLearnSet(true)) return;
+  autoSnap({ learnOn: true });
+  autoRender("review"); autoToast(uiText("own.as-learn-on-here"));
 }
 function autoAddOpen(kind) {
   const sp = autoAddSpan(), rec = sp && autoRec(sp.mediaId), m = sp && autoMedia(sp.mediaId);
@@ -10840,14 +10870,15 @@ function autoFooter() {
     <button type="button" class="btn" data-as-act="export"${t.n ? "" : " disabled"}>${t.n ? autoSay("as-export", { n: t.n }) : autoSay("as-tick-first")}</button>`;
 }
 /* the dialog's own undo: card edits (tick, move, rename, take out) — not the timeline's */
-function autoSnap() {
-  const st = autoState(); st.hist.push(JSON.stringify({ clips: st.clips, dropped: st.dropped })); st.histKept.push([]);
+function autoSnap(extra) {
+  const st = autoState(); st.hist.push(JSON.stringify({ clips: st.clips, dropped: st.dropped, ...extra })); st.histKept.push([]);
   if (st.hist.length > 100) { st.hist.shift(); st.histKept.shift(); }
 }
 function autoUndo() {
   const st = autoState();
   if (st.step !== "review" || !st.hist.length) return;
   const o = JSON.parse(st.hist.pop()); st.clips = o.clips; st.dropped = o.dropped;
+  if (o.learnOn) autoLearnSet(false);   // 〔打开〕 undone: off again
   autoRender("review"); autoToast(uiText("own.as-undone"), false);
   autoForget(st.histKept.pop());
 }
@@ -10858,7 +10889,10 @@ function autoToast(msg, undoable = true) {
   t.querySelector("[data-as-toast-msg]").textContent = msg;
   t.querySelector("[data-as-toast-undo]").hidden = !undoable;
   t.hidden = false; clearTimeout(autoToastTimer);
-  autoToastTimer = setTimeout(() => { t.hidden = true; }, 5000);
+  if (!t.holdToast) t.holdToast = holdToast(t, () => { t.hidden = true; });
+  t.holdToast.stop();
+  // with 〔撤销〕: 8 s, held while hovered or focused; without: 5 s as before
+  if (undoable) t.holdToast.start(); else autoToastTimer = setTimeout(() => { t.hidden = true; }, 5000);
 }
 function autoClip(id) { return autoState().clips.find((c) => c.id === id) || null; }
 function autoClick(e) {
@@ -10878,6 +10912,7 @@ function autoClick(e) {
   }
   if (act === "focus") { autoFocusCard(b.dataset.asId); return; }
   if (act === "learn" || act === "learn-settings") { autoLearnOpen(); return; }
+  if (act === "learn-on") { autoLearnTurnOn(); return; }
   if (act === "add") { autoAddOpen(null); return; }
   if (act === "add-goto") { AUTO.el.close(); toast(uiText("own.as-add-goto-toast")); return; }
   if (act === "put-back") {
