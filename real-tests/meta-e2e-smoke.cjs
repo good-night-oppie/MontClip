@@ -48,6 +48,9 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   step('settings',settings);assert.ok(settings.option&&settings.option.startsWith('Meta（Muse Spark） · api.meta.ai'),settings.option);assert.equal(settings.model,'muse-spark-1.1','the model is filled in');
   if(MODEL!==settings.model)await setValue(`document.querySelectorAll('.cindy-config input')[0]`,MODEL);
   await setValue(`document.querySelectorAll('.cindy-config input')[1]`,KEY);await wait(200);
+  // only lengths and types, never the value
+  step('fields',await read(`(()=>{const i=Array.from(document.querySelectorAll('.cindy-config input'));return{inputs:i.map(e=>e.type),keyLength:i[1]?.value.length===${KEY.length},model:i[0]?.value};})()`));
+  {const {safeStorage}=electron;step('safeStorage',{available:safeStorage.isEncryptionAvailable(),backend:process.platform==='linux'?safeStorage.getSelectedStorageBackend?.():null});}
   // 保存连接配置 by its words: the mode buttons come first in the settings
   await click(`Array.from(document.querySelectorAll('.cindy-config button')).find(b=>b.textContent==='保存连接配置')`);await wait(300);
   const conf=await read('montclipAgentService.get()'),mode=await read(`document.querySelector('[data-agent-modes] [aria-pressed=true]')?.dataset.mode||null`);
