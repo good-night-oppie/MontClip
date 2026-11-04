@@ -45,12 +45,13 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.ok(!/^Transcribed /.test(report.toast)&&/没听写出来/.test(report.toast),'never told as simply done');
   // the tab: the gap where it is on the timeline (10 + 5 … 10 + 12), and a click goes there
   await read(`(async()=>{document.querySelector('[data-side=transcript]').click();await new Promise(r=>setTimeout(r,300));renderTranscript(true);return trState.open;})()`);
-  report.note=await read(`(()=>{const n=document.querySelector('[data-tr-gaps]');return n&&{text:n.textContent,spots:[...n.querySelectorAll('.tr-tc')].map(x=>[x.textContent,+x.dataset.t])};})()`);
+  report.note=await read(`(()=>{const n=document.querySelector('[data-tr-gaps]');return n&&{text:n.textContent,spots:[...n.querySelectorAll('.tr-gap-go')].map(x=>[x.textContent,+x.dataset.t,x.tagName,x.tabIndex])};})()`);
   assert.ok(report.note,'the gaps are listed');
   assert.ok(report.note.text.startsWith(zh('tr-gaps-note',{n:1,dur:'7 秒'})),report.note.text);
-  // the tab's own time format (as its sentences show it)
-  assert.deepEqual(report.note.spots,[[await read(`fmt(15)+'–'+fmt(22)`),15]]);
-  await read(`(()=>{const s=document.querySelector('[data-tr-gaps] .tr-tc');s.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,button:0}));return true;})()`);
+  // VV on #95 d95ab21: the cards' time format (0:15–0:22), a button Tab reaches; Enter from the keyboard goes there
+  assert.deepEqual(report.note.spots,[['0:15–0:22',15,'BUTTON',0]]);
+  await read(`(()=>{setTime(0);document.querySelector('[data-tr-gaps] .tr-gap-go').focus();return document.activeElement.matches('.tr-gap-go');})()`);
+  for(const type of ['keyDown','char','keyUp'])win.webContents.sendInputEvent({type,keyCode:'Enter'});
   await wait(200);report.playhead=await read(`state.time`);
   assert.ok(Math.abs(report.playhead-15)<0.05,'jumped to the gap: '+report.playhead);
   // subtitles made from the timeline's words: nothing in the gap (15–22 s on the timeline)

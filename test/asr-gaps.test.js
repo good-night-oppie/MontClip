@@ -150,3 +150,14 @@ test("JJ's words for a partial transcription; the tab named is the right panel's
  // the tab really is called that on screen
  a.match(fs.readFileSync(path.join(ROOT,'index.html'),'utf8'),/data-side="transcript"[^>]*data-i18n="term\.transcript"/);
 });
+
+// VV on #95 d95ab21 (Deja, 2026-11-03): the gaps' times read like the 自动出切片 cards' (0:15–0:22, MontClipAutoSlices.hms),
+// not the tab's frame timecode (00:15:00 reads as 15 minutes); each one is a button — Tab reaches it, Enter goes there
+test('the gaps list: the cards\' time format, each time a button',()=>{
+ const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8'),i=app.indexOf('function trGapsHtml('),body=app.slice(i,app.indexOf('function renderTranscript(',i));
+ a.match(body,/<button type="button" class="tr-gap-go" data-t="\$\{x\.t\}">\$\{escapeHtml\(MontClipAutoSlices\.hms\(x\.t\)\)\}–\$\{escapeHtml\(MontClipAutoSlices\.hms\(x\.u\)\)\}<\/button>/);
+ a.ok(!/class="tr-tc"/.test(body),'no grey span');
+ a.match(app,/const gap = e\.target\.closest\("\.tr-gap-go"\);\s*if \(gap\) goToTranscriptTime\(\+gap\.dataset\.t\);/);
+ a.match(fs.readFileSync(path.join(ROOT,'style.css'),'utf8'),/\.tr-gap-go \{[^}]*text-decoration: underline;[^}]*cursor: pointer;/);
+ const S=require('../auto-slices');a.equal(S.hms(15)+'–'+S.hms(22),'0:15–0:22');
+});
