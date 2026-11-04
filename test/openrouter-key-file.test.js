@@ -36,6 +36,15 @@ test('a key file wider than 600 is refused, the tests are skipped and the reason
   a.match(w.skip, /cannot be checked on Windows/);
 });
 
+test('a key file another user owns is not read (QQ on #124)', () => {
+  const home = tmp(), file = path.join(home, '.openrouter-montclip');
+  fs.writeFileSync(file, FAKE, { mode: 0o600 });
+  const r = K.readKey({ env: {}, home, platform: 'linux', uid: fs.statSync(file).uid + 1 });
+  a.equal(r.key, undefined);
+  a.match(r.skip, /belongs to another user: not read/);
+  a.ok(!r.skip.includes(FAKE));
+});
+
 test('a 600 key file is read', { skip: !posix && 'Windows files have no owner-only mode' }, () => {
   const dir = tmp(), file = path.join(dir, 'k');
   fs.writeFileSync(file, FAKE + '\n', { mode: 0o600 });

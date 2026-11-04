@@ -13,6 +13,7 @@
 3. 21:04:26 —— 有人在这个测试窗口里**保存了一个 OpenRouter 连接**。系统当时两次返回 `USER_INPUT_ACTIVE`，说明有真人在用这台电脑。
 4. 之后 —— VV 截图时把歌词框里的明文 key 截进了截图；这张截图进入了她的 AI 对话记录。
 5. 再之后 —— VV 清掉了页面上的明文、删除了截图、停手不再操作。profile 里只保留了经 Electron safeStorage **加密后的那一份**。
+6. 2026-11-04 晚（换新以后）—— 换上的新 key 经聊天附件暴露过一次；QQ 已建议主人再换一次。交付方式的规矩见 5.5。
 
 ## 2. 已查明的
 
@@ -48,9 +49,9 @@
 
 ### 5.2 读 key 的脚本
 
-1. 读取真实 key 的脚本**一律改为从 1Password 引用**（沿用 `op-secrets-reader` 的机制），不读明文文件。
-2. 明文 key 文件（`~/.openrouter-token` 及 `.bak`）**本就不该存在**：key 只存 1Password 引用 + 加密 profile。这次事件后全部清除。
-3. 需要真实 key 的测试，**不允许在共享桌面上跑**；只能在单用户、可信的机器上跑，跑完即弃。
+读真实 key 的脚本：首选 1Password 引用；没有 1Password 代理的无人值守机器（目前只有 europa）可以用一个 600 的明文文件 `~/.openrouter-montclip`，但只允许 real-tests 读（`real-tests/key-file.cjs`）、权限比 600 宽拒读、Windows 不读、不打印不入报告；明文文件不得出现在任何共享桌面机（katana 等）上。密钥交付只走 SSH 直写目标机或 1Password，永不走聊天正文、附件、截图（5.5，2026-11-04 补）。
+
+（QQ 2026-11-04 改定，替换原来的「一律改为从 1Password 引用，不读明文文件」。`MONTCLIP_OPENROUTER_KEY_FILE` 只用于 europa 上的本地覆盖。）
 
 ### 5.3 截图与日志
 
@@ -64,12 +65,16 @@
 2. **清除明文**：删除 `~/.openrouter-token` 和 `~/.openrouter-token.bak`。
 3. 换新 key 后，只存进加密 profile（safeStorage），不再生成任何明文文件；读取仍走 1Password 引用。
 
+### 5.5 密钥怎么交付（2026-11-04 补）
+
+密钥交付只走 SSH 直写目标机或 1Password，永不走聊天正文、附件、截图。
+
 ## 6. 待办（由 Deja 请主人执行）
 
 - [x] OpenRouter 后台作废旧 key、生成新 key（主人，2026-11-04）。
 - [x] 删除 katana 上的 `~/.openrouter-token` 和 `~/.openrouter-token.bak`（Deja，2026-11-04）。
 - [x] ~~把 `~/.openrouter-token` 的权限从 644 改成 600~~：文件已删除，不再需要。
-- [ ] 新 key 通过 1Password 引用接入，不落明文文件。现在的做法（Deja，2026-11-04）：新 key 只放在 europa 的 `~/.openrouter-montclip`（600），真模型测试只在 europa 上跑；`real-tests/key-file.cjs` 只读这个文件（或 `MONTCLIP_OPENROUTER_KEY_FILE` 指定的文件），权限比 600 宽就拒绝读、跳过测试，旧路径不再读。和 5.2 的「一律从 1Password 引用」还不一致，留给 QQ 定。
+- [x] 新 key 的接入：按改定后的 5.2，新 key 只放在 europa 的 `~/.openrouter-montclip`（600），真模型测试只在 europa 上跑；`real-tests/key-file.cjs` 只读这个文件（或 `MONTCLIP_OPENROUTER_KEY_FILE` 指定的文件），权限比 600 宽、不是当前用户的文件或在 Windows 上都不读，旧路径不再读（Deja / QQ，2026-11-04）。
 
 ## 7. 结论分类
 
