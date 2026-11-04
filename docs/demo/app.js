@@ -7068,7 +7068,7 @@ function openLyricsAlign() {
 /** The lyrics dialog, shared by the Transcript tab (openLyricsAlign) and a 自动出切片 card (autoLyricsOpen): words and
  *  caps as MontClipLyrics.scope gives them; stale() says the target changed since it opened (then nothing is applied);
  *  onApply(plan) makes the change. Nothing changes before 〔应用勾选的〕 / 〔全部应用〕. */
-function lyricsDialog({ words, caps, stale, onApply }) {
+function lyricsDialog({ words, caps, stale, onApply, text = "" }) {
   const t = { words, caps };
   const say = (k, v) => escapeHtml(uiText("own." + k, v));
   const dialog = document.createElement("dialog");
@@ -7119,12 +7119,14 @@ function lyricsDialog({ words, caps, stale, onApply }) {
     if (stale()) { summary.textContent = uiText("own.ly-changed"); return; }
     const p = MontClipLyrics.plan(result, picked, t.caps);
     if (!p.cues.length) return;
+    const pasted = dialog.querySelector("[data-ly-text]").value;
     dialog.close();
-    onApply(p);
+    onApply(p, pasted);
   };
   dialog.querySelector("[data-ly-apply]").addEventListener("click", () => apply(ticked()));
   dialog.querySelector("[data-ly-apply-all]").addEventListener("click", () => apply(allSure()));
   dialog.addEventListener("close", () => dialog.remove());
+  if (text) dialog.querySelector("[data-ly-text]").value = text;
   document.body.append(dialog); dialog.showModal(); dialog.querySelector("[data-ly-text]").focus();
 }
 function captionQuickHtml(scope) {
@@ -10649,23 +10651,33 @@ function autoLyricWords(c) {
   const m = autoMedia(c.mediaId), d = m && typeof transcriptOf === "function" ? transcriptOf(m.src) : null;
   return d ? MontClipAutoSlices.lyricScope(d.words, c).words : [];
 }
+/** After calibrating, or undoing it (VV on #100): the card in view and flashed (#89's autoFocusCard), and the focus on its own
+ *  lyrics button — inside the dialog, so Ctrl+Z reaches the dialog and never the timeline behind it. */
+function autoLyricFocus(id) {
+  autoFocusCard(id);
+  const b = AUTO.el && AUTO.el.querySelector(`[data-as-card="${CSS.escape(id)}"] [data-as-act="lyrics"]`);
+  if (b) b.focus({ preventScroll: true });
+}
 function autoLyricsAvailable(c) {
   return !!c && c.kind === "song" && autoLyricWords(c).length > 0;
 }
 /** 〔按歌词校准字幕〕 on a card: the lyrics dialog over the part of the recording the card covers; applied, the lines are
  *  kept on the card (c.lyricCues, recording seconds — in this window only, like the card) in one step that 〔撤销〕 / Ctrl+Z
- *  takes back, and they are the captions of the card when it is placed (autoPlaceCaptions). The timeline does not change. */
+ *  takes back, and they are the captions of the card when it is placed (autoPlaceCaptions). The timeline does not change.
+ *  The lyrics pasted are kept on the card too (c.lyricText, this window only: never in the project file, a record or
+ *  anything sent), so 〔再对一遍歌词〕 opens with them (VV on #100). */
 function autoLyricsOpen(c) {
   const sc = MontClipAutoSlices.lyricScope(autoLyricWords(c), c);
   if (!sc.words.length) { autoToast(uiText("own.ly-no-words"), false); return; }
   const at = JSON.stringify([c.id, c.s, c.e]);
-  lyricsDialog({ words: sc.words, caps: sc.caps, stale: () => { const x = autoClip(c.id); return !x || JSON.stringify([x.id, x.s, x.e]) !== at; }, onApply: (p) => {
+  lyricsDialog({ words: sc.words, caps: sc.caps, text: c.lyricText || "", stale: () => { const x = autoClip(c.id); return !x || JSON.stringify([x.id, x.s, x.e]) !== at; }, onApply: (p, text) => {
     const card = autoClip(c.id);
     if (!card) return;
     autoSnap();
     card.lyricCues = p.cues.map(({ start, end, text, words, lyrics }) => ({ start, end, text, words, lyrics }));
     card.lyricN = p.cues.filter((q) => q.lyrics).length;
-    autoRender("review"); autoToast(uiText("own.as-lyrics-done", { n: card.lyricN }));
+    card.lyricText = text;
+    autoRender("review"); autoLyricFocus(card.id); autoToast(uiText("own.as-lyrics-done", { n: card.lyricN }));
   } });
 }
 function autoCardHtml(c, i) {
@@ -10681,7 +10693,7 @@ function autoCardHtml(c, i) {
     ${c.on ? `<div class="as-trim">${autoEdgeHtml(c, "s")}${autoEdgeHtml(c, "e")}</div>` : `<p class="as-small">${autoSay("as-tick-to-adjust")}</p>`}
     <div class="as-actions"><button type="button" class="btn tiny as-play" data-as-act="play">${autoSay("as-play")}</button>
       <button type="button" class="btn tiny" data-as-act="fine">${autoSay("as-fine")}</button>
-      ${song && autoLyricsAvailable(c) ? `<button type="button" class="btn tiny" data-as-act="lyrics" data-as-lyrics${subs ? " data-as-sub-line" : ""} title="${[subs, autoSongKey("as-lyrics") !== "as-lyrics" ? autoSay(autoSongKey("as-lyrics")) : ""].filter(Boolean).join("\n")}">${c.lyricCues ? autoSay("as-lyrics-again", { n: c.lyricN || 0 }) : autoSay("as-lyrics")}</button>` : ""}
+      ${song && autoLyricsAvailable(c) ? `<button type="button" class="btn tiny" data-as-act="lyrics" data-as-lyrics${subs ? " data-as-sub-line" : ""} title="${c.lyricCues ? autoSay("as-lyrics-again-title", { n: c.lyricN || 0 }) : [subs, autoSongKey("as-lyrics") !== "as-lyrics" ? autoSay(autoSongKey("as-lyrics")) : ""].filter(Boolean).join("\n")}">${c.lyricCues ? autoSay("as-lyrics-again", { n: c.lyricN || 0 }) : autoSay("as-lyrics")}</button>` : ""}
       <button type="button" class="as-drop" data-as-act="drop">${autoSay("as-drop")}</button></div></article>`;
 }
 function autoFooter() {
@@ -10700,8 +10712,12 @@ function autoSnap() { const st = autoState(); st.hist.push(JSON.stringify({ clip
 function autoUndo() {
   const st = autoState();
   if (st.step !== "review" || !st.hist.length) return;
+  const lyr = (cs) => new Map(cs.map((c) => [c.id, JSON.stringify(c.lyricCues || null)]));
+  const was = lyr(st.clips);
   const o = JSON.parse(st.hist.pop()); st.clips = o.clips; st.dropped = o.dropped;
   autoRender("review"); autoToast(uiText("own.as-undone"), false);
+  const back = st.clips.find((c) => was.has(c.id) && was.get(c.id) !== JSON.stringify(c.lyricCues || null));
+  if (back) autoLyricFocus(back.id);
 }
 let autoToastTimer = null;
 function autoToast(msg, undoable = true) {

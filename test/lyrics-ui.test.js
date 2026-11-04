@@ -15,7 +15,7 @@ test('nothing changes before 〔应用〕; then one undo step, after a CAS on th
  const app=read('app.js'),k=app.indexOf('function lyricsDialog('),dlg=app.slice(k,app.indexOf('function captionQuickHtml',k));
  a.ok(!/project\.clips\s*=|pushUndo\(|autoSnap\(/.test(dlg),'the dialog itself changes nothing');
  const apply=dlg.slice(dlg.indexOf('const apply ='));
- a.match(apply,/if \(stale\(\)\) \{ summary\.textContent = uiText\("own\.ly-changed"\); return; \}[\s\S]*onApply\(p\);/);
+ a.match(apply,/if \(stale\(\)\) \{ summary\.textContent = uiText\("own\.ly-changed"\); return; \}[\s\S]*onApply\(p, pasted\);/);
  // the Transcript tab: the CAS is the whole project; its change is one undo step, inside onApply
  const i=app.indexOf('function openLyricsAlign'),body=app.slice(i,k);
  a.match(body,/const signature = JSON\.stringify\(projectJSON\(\)\);/);

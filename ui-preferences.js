@@ -348,6 +348,8 @@
     "as-tag-likely": ["Fairly likely", "比较可能"],
     "as-tag-adjusted": ["You adjusted it", "你调过"],
     // the card's button once calibrated (v12's words; a placeholder key until JJ words it)
+    // the tooltip of 〔再对一遍歌词〕 once calibrated (a placeholder key until JJ words it)
+    "as-lyrics-again-title": ["{n} lines corrected from the lyrics. Matching again starts from the lyrics you pasted last time.", "已按歌词改好 {n} 句。再对一遍时会带上上次贴的歌词。"],
     "as-lyrics-again": ["Match the lyrics again ({n} changed)", "再对一遍歌词（已改 {n} 句）"],
     // the card calibrated: nothing on the timeline yet (JJ's words, on #100)
     "as-lyrics-done": ["Corrected {n} lines from the lyrics. Once this part is on the timeline, these subtitles are used.", "已按歌词改好 {n} 句。放到时间线上以后，用的就是改好的字幕。"],

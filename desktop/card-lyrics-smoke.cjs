@@ -81,16 +81,16 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.equal(applied.button,zh('as-lyrics-again',{n:2}));assert.equal(applied.other,zh('as-lyrics'),'the other card as it was');
   assert.equal(applied.clips,before,'the timeline not changed by a single character');
   assert.equal(applied.toast,zh('as-lyrics-done',{n:2}),'JJ words: nothing is on the timeline yet');
-  // 2. the dialog's undo takes it back; then applied again
-  // its 〔撤销〕 under #92's rule: shown past the old 5 s, held for 9 s while it has the focus, then it takes the step back
-  await wait(6000);
-  const held=await read(`(async()=>{const t=document.querySelector('[data-as-toast]'),b=t.querySelector('[data-as-toast-undo]');const at6=!t.hidden&&!b.hidden;b.focus();await new Promise(r=>setTimeout(r,9000));return{at6,held:!t.hidden};})()`);
-  report.held=held;assert.deepEqual(held,{at6:true,held:true},'〔撤销〕 stays 8 s and while it has the focus');
   // VV on #100 d545221: after applying, the focus is the card's own lyrics button (in the dialog), the card is in view and
   // flashed, and the tooltip says it is calibrated (placeholder key)
   report.afterApply=await read(`(()=>{const d=document.querySelector('dialog.auto-slices'),card=d.querySelector('[data-as-card="${first.id}"]'),b=card.querySelector('[data-as-act=lyrics]'),body=d.querySelector('[data-as-body]');
     const r=card.getBoundingClientRect(),q=body.getBoundingClientRect();return{focus:document.activeElement===b,inView:r.top<q.bottom&&r.bottom>q.top,title:b.title};})()`);
   assert.deepEqual(report.afterApply,{focus:true,inView:true,title:zh('as-lyrics-again-title',{n:2})});
+  // 2. the dialog's undo takes it back; then applied again
+  // its 〔撤销〕 under #92's rule: shown past the old 5 s, held for 9 s while it has the focus, then it takes the step back
+  await wait(6000);
+  const held=await read(`(async()=>{const t=document.querySelector('[data-as-toast]'),b=t.querySelector('[data-as-toast-undo]');const at6=!t.hidden&&!b.hidden;b.focus();await new Promise(r=>setTimeout(r,9000));return{at6,held:!t.hidden};})()`);
+  report.held=held;assert.deepEqual(held,{at6:true,held:true},'〔撤销〕 stays 8 s and while it has the focus');
   const undone=await read(`(()=>{document.querySelector('[data-as-toast] [data-as-toast-undo]').click();const c=autoClip(${JSON.stringify(first.id)});return{cues:c.lyricCues||null,button:document.querySelector('[data-as-card="'+c.id+'"] [data-as-act=lyrics]').textContent};})()`);
   report.undone=undone;assert.deepEqual(undone,{cues:null,button:zh('as-lyrics')});
   assert.equal(await read(`document.querySelector('dialog.auto-slices').contains(document.activeElement)`),true,'the focus stays in the dialog after 〔撤销〕');
