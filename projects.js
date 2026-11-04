@@ -197,6 +197,8 @@ function createProjects({ dataDir, projectFile, libraryDir }) {
       if (!Number.isInteger(v) || v < 16 || v > 8192 || v % 2) throw new Error(`${k} must be an even number of pixels, 16…8192`);
       doc[k] = v;
     }
+    // another template, or a rate or size of its own, is the streamer's choice: the first recording does not replace it
+    if (t.id !== "landscape-1080" || fps != null || width != null || height != null) doc.canvasUser = true;
     const id = add(doc, { name: cleanName(name) || "未命名项目", notes, tags, template: t.id });
     return andOpen ? open(id) : { id, project: summary(id, activeId()) };
   }

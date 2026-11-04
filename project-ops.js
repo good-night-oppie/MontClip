@@ -1145,6 +1145,8 @@
                 throw new Error("setProject: master is {gain} — master fader in dB, -60…+12");
             }
             if (v === null) delete proj[k]; else proj[k] = v;
+            // a canvas or rate set on purpose: the first recording imported no longer replaces it (media-lib canvasFollowsSource)
+            if ((k === "width" || k === "height" || k === "fps") && v != null) proj.canvasUser = true;
           }
           if (proj.inPoint != null && proj.outPoint != null && !(proj.outPoint > proj.inPoint))
             throw new Error("setProject: outPoint must be after inPoint");

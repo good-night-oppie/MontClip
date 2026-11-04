@@ -1620,6 +1620,8 @@ function applyProject(data, opts = {}) {
     name: data.name || MontClipView.defaultProjectName(mcView.get().language),
     width: data.width || 1280, height: data.height || 720,
     fps: (Number(data.fps) > 0 ? Number(data.fps) : project.fps),
+    // the canvas or rate was chosen (menus, a template, an agent): the first recording imported does not replace it
+    canvasUser: data.canvasUser === true,
     background: data.background || "#000000",
     revision: data.revision || 0,
     folders: normalizeFolders(data.folders),
@@ -1857,6 +1859,7 @@ function projectJSONHere() {
   if (untargeted.length) out.untargetedTracks = untargeted;
   const ef = getExportFrame();
   if (ef) out.exportFrame = ef;
+  if (project.canvasUser) out.canvasUser = true;
   if (encodeProfile) out.encodeProfile = encodeProfile;
   if (delivery) out.delivery = delivery;
   if (outputs && outputs.length) out.outputs = outputs;
@@ -2197,6 +2200,8 @@ async function importFiles(fileList) {
   runtime.importFolderId = null;
   let added = 0, skipped = 0;
   const addedMedia = [], gen = runtime.projectGen;
+  // N25: an empty project whose canvas nobody chose takes the first recording's (followSourceCanvas)
+  const follow = !state.compCtx && MediaLib.canvasFollowsSource(project);
   // an FLV that could not be imported: the server's reason code, said in the interface language
   const flvFailure = (code) => toast(MontClipView.flvImportMessage(mcView.get().language, code));
   for (const file of files) {
@@ -2241,6 +2246,8 @@ async function importFiles(fileList) {
     addedMedia.push(m);
     added++;
   }
+  if (follow && addedMedia.some((m) => m.kind === "video"))
+    runtime.canvasFollow = { gen, ids: new Set(addedMedia.filter((m) => m.kind === "video").map((m) => m.id)) };
   if (added) { renderBin(); scheduleSave(); refreshMediaInfo(addedMedia); }
   if (!added && skipped)
     toast("Couldn't import — unsupported or unreadable file type");
@@ -2693,11 +2700,36 @@ async function refreshMediaInfo(list) {
       if (!(m.width > 0) && i.width > 0) { m.width = i.width; m.height = i.height; changed = true; }
     }
     if (changed) { renderBin(); scheduleSave(); if (state.selId) renderInspector(); }
+    followSourceCanvas();
   } catch { } finally {
     mediaInfoBusy = false;
     // files imported (or a Media info opened) meanwhile: everything still without details
     if (mediaInfoAgain) { mediaInfoAgain = false; refreshMediaInfo(); }
   }
+}
+
+/* N25 (docs/decisions/2026-11-03-canvas-follows-source.md): the canvas of an empty project follows the first recording
+   imported into it — its size (never scaled) and its average frame rate snapped to a standard rate (30 when none is
+   near) — once the server has read them. Not an undo step, like the import itself. */
+function followSourceCanvas() {
+  const f = runtime.canvasFollow;
+  if (!f) return;
+  if (f.gen !== runtime.projectGen || state.compCtx || project.canvasUser) { runtime.canvasFollow = null; return; }
+  const m = project.media.find((x) => f.ids.has(x.id) && MediaLib.sourceCanvas(x));
+  if (!m) return;   // not read yet: the next refreshMediaInfo
+  runtime.canvasFollow = null;
+  // meanwhile something else went on the timeline: leave the canvas
+  if (project.clips.some((c) => !f.ids.has(c.mediaId))) return;
+  const c = MediaLib.sourceCanvas(m);
+  if (c.width === project.width && c.height === project.height && c.fps === Number(project.fps)) return;
+  project.fps = c.fps;
+  setCanvasSize(c.width, c.height, { byUser: false });
+  syncFpsSel();
+  updateMonitorRes();
+  state.dirtyTimeline = true;
+  seekMediaWhilePaused();
+  scheduleSave();
+  toast(uiText(c.fpsSnapped ? "own.canvas-follow" : "own.canvas-follow-odd", { w: c.width, h: c.height, fps: +c.fps.toFixed(3), src: +(+m.fps).toFixed(2) }));
 }
 
 function setMediaFavorite(ids, on) {
@@ -13989,9 +14021,11 @@ function addTemplateClip(t, trackId, at) {
   selectClip(clip.id); scheduleSave(); renderBin(); renderInspector();
   toast(`${comp.name} placed — edit its fields in the Inspector`);
 }
-/** Set the canvas size (the aspect menu and a template's "Use … canvas" button). */
-function setCanvasSize(w, h) {
+/** Set the canvas size (the aspect menu and a template's "Use … canvas" button: the streamer's choice, which the first
+ *  recording imported then leaves alone; followSourceCanvas passes byUser false). */
+function setCanvasSize(w, h, { byUser = true } = {}) {
   project.width = w; project.height = h;
+  if (byUser) project.canvasUser = true;
   els.preview.width = w; els.preview.height = h;
   if (project.exportFrame) project.exportFrame = normalizeExportFrame(project.exportFrame, w, h);
   updateMonitorRes();
@@ -20483,6 +20517,7 @@ els.fpsSel?.addEventListener("change", () => {
   const v = FPS_PRESETS[+els.fpsSel.value];
   if (!(v > 0)) return;
   project.fps = v;
+  project.canvasUser = true;
   syncFpsSel();
   updateMonitorRes();
   state.dirtyTimeline = true;
