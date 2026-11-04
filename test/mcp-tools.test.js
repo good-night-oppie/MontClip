@@ -19,7 +19,7 @@ const boot = async (t, project) => {
 test("fablecut_docs returns the manual, and can slice it by section", async (t) => {
   const { mcp } = await boot(t);
   const full = await mcp.callTool("fablecut_docs");
-  assert.match(full.text, /# FableCut/);
+  assert.match(full.text, /# MontClip/);
 
   const section = await mcp.callTool("fablecut_docs", { section: "schema" });
   assert.ok(section.text.length < full.text.length, "a section must be smaller than the manual");

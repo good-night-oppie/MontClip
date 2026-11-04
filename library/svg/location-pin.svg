@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="500" viewBox="0 0 400 500">
-  <!-- FableCut animated SVG · pin drops in once (~0.9s), then ground ring pulses forever (map / travel) -->
+  <!-- MontClip animated SVG · pin drops in once (~0.9s), then ground ring pulses forever (map / travel) -->
   <style>
     .pin { transform-box: fill-box; transform-origin: center bottom;
            animation: drop 0.8s cubic-bezier(.5,1.6,.5,1) both; }

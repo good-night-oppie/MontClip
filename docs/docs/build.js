@@ -24,8 +24,8 @@ const SRC = fs.readFileSync(path.join(ROOT, "CLAUDE.md"), "utf8").replace(/\r\n/
    [section, "*"] all of it. Names match the start of the heading. ── */
 const PAGES = [
   {
-    slug: "", nav: "Overview", title: "FableCut docs", group: "Start",
-    lede: "The manual for FableCut, built from `CLAUDE.md` in the repo: the same text your agent reads through the `fablecut_docs` tool, so what you read here is what it knows.",
+    slug: "", nav: "Overview", title: "MontClip docs", group: "Start",
+    lede: "The manual for MontClip (based on FableCut by ronak-create), built from `CLAUDE.md` in the repo: the same text your agent reads through the `fablecut_docs` tool (tool names keep the upstream `fablecut_` prefix), so what you read here is what it knows.",
     parts: [["Run"], ["How Claude Code edits a video"]],
   },
   {
@@ -110,7 +110,7 @@ const PAGES = [
   },
   {
     slug: "projects", nav: "Projects", title: "Projects", group: "The timeline",
-    lede: "Keep many projects in one FableCut: a dashboard to open, create from a canvas or template, duplicate, rename, take notes on, tag, archive and delete them, and fablecut_projects for agents.",
+    lede: "Keep many projects in one MontClip: a dashboard to open, create from a canvas or template, duplicate, rename, take notes on, tag, archive and delete them, and fablecut_projects for agents.",
     parts: [["project.json schema", "Projects"]],
   },
   {
@@ -453,7 +453,7 @@ function shell(pg, main, desc) {
   const base = pg.slug ? "../../" : "../";
   const docsHome = pg.slug ? "../" : "./";
   const url = SITE + "/docs/" + (pg.slug ? pg.slug + "/" : "");
-  const title = pg.slug ? `${pg.title} - FableCut docs` : "FableCut docs";
+  const title = pg.slug ? `${pg.title} - MontClip docs` : "MontClip docs";
   const crumbs = [{ name: "Docs", item: SITE + "/docs/" }].concat(pg.slug ? [{ name: pg.title, item: url }] : []);
   const ld = {
     "@context": "https://schema.org", "@type": "BreadcrumbList",
@@ -472,7 +472,7 @@ function shell(pg, main, desc) {
 <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
 <link rel="canonical" href="${url}">
 <meta property="og:type" content="article">
-<meta property="og:site_name" content="FableCut">
+<meta property="og:site_name" content="MontClip">
 <meta property="og:url" content="${url}">
 <meta property="og:title" content="${attr(title)}">
 <meta property="og:description" content="${attr(desc)}">
@@ -494,7 +494,7 @@ ${ICONS}
 
 <header class="nav" id="nav">
   <div class="wrap nav-inner">
-    <a class="brand" href="${base}" aria-label="FableCut home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>FableCut</span></a>
+    <a class="brand" href="${base}" aria-label="MontClip home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>MontClip</span></a>
     <nav class="nav-links" id="navLinks" aria-label="Primary">
       <a href="${base}#playground">Playground</a>
       <a href="${base}start/">Get started</a>
@@ -502,7 +502,7 @@ ${ICONS}
       <a href="${docsHome}" aria-current="page">Docs</a>
     </nav>
     <div class="nav-end">
-      <a class="gh" href="${REPO}" rel="noopener" target="_blank" aria-label="FableCut on GitHub">
+      <a class="gh" href="${REPO}" rel="noopener" target="_blank" aria-label="MontClip on GitHub">
         <svg class="i" aria-hidden="true"><use href="#i-gh"/></svg><span class="gh-label">GitHub</span><span class="gh-count" data-stars></span>
       </a>
       <button class="menu-btn" id="menuBtn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navLinks"><svg class="i" aria-hidden="true"><use href="#i-menu"/></svg></button>
@@ -515,7 +515,7 @@ ${main}
 <footer class="footer">
   <div class="wrap">
     <div class="foot">
-      <a class="brand" href="${base}" aria-label="FableCut home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>FableCut</span></a>
+      <a class="brand" href="${base}" aria-label="MontClip home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>MontClip</span></a>
       <nav class="foot-links" aria-label="Footer">
         <a href="${REPO}" rel="noopener" target="_blank">GitHub</a>
         <a href="${docsHome}">Docs</a>
@@ -580,13 +580,13 @@ function build() {
 
     const dir = path.join(OUT, pg.slug);
     fs.mkdirSync(dir, { recursive: true });
-    const desc = plain(pg.lede) || `${pg.title}, from the FableCut manual.`;
-    fs.writeFileSync(path.join(dir, "index.html"), shell(pg, main, `${desc} FableCut v${VERSION}.`));
+    const desc = plain(pg.lede) || `${pg.title}, from the MontClip manual.`;
+    fs.writeFileSync(path.join(dir, "index.html"), shell(pg, main, `${desc} MontClip v${VERSION}.`));
     written++;
   });
   return written;
 }
 
 const n = build();
-console.log(`docs: ${n} pages from CLAUDE.md (FableCut v${VERSION}) in ${path.relative(ROOT, OUT) || "."}/`);
+console.log(`docs: ${n} pages from CLAUDE.md (MontClip v${VERSION}) in ${path.relative(ROOT, OUT) || "."}/`);
 module.exports = { PAGES };

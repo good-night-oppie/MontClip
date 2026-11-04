@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   FableCut — a browser-based non-linear video editor
+   MontClip — a browser-based non-linear video editor
    Works standalone (open index.html) or connected to server.js, which adds
    persistent projects (project.json), a media library folder, and a REST API
    so external tools (e.g. Claude Code) can edit the timeline programmatically.
@@ -180,7 +180,7 @@ const TRANSITIONS = ["none", "fade", "slide-left", "slide-right", "slide-up", "s
 const TEXT_ANIMS = ["none", "typewriter", "word-pop", "word-slide", "karaoke", "highlight",
   "letter-pop", "wave", "bounce", "shake",
   "clip-reveal", "zoom-in", "font-cut", "rise-mask"];
-const BLEND_MODES = self.FableCutMask.BLENDS;   // the canvas composite set, shared with the agent (mask.js)
+const BLEND_MODES = self.MontClipMask.BLENDS;   // the canvas composite set, shared with the agent (mask.js)
 /* Named looks. % props multiply against the clip's own value, additive props add. */
 const FILTER_PRESETS = {
   none: {},
@@ -702,7 +702,7 @@ function isTrackLocked(id) { return state.lockedTracks.has(id); }
    edit-ops.js, shared with the MCP server so an agent's patch op and the
    editor's shortcut run the same code. The wrappers below add undo,
    selection, toasts and saving. */
-const EDIT = FableCutEdit.create({
+const EDIT = MontClipEdit.create({
   doc: () => project,
   tracks: () => TRACKS,
   trackLocked: (id) => isTrackLocked(id),
@@ -994,7 +994,7 @@ function projDur() {
   }
   return mx;
 }
-const clipSpeed = FableCutEdit.clipSpeed;   // comp clips run at 1×
+const clipSpeed = MontClipEdit.clipSpeed;   // comp clips run at 1×
 
 /* ── Speed ramps (time remapping) ──
    `speed` is keyframable: media time = in + ∫ speed(t) dt over the clip.
@@ -1049,9 +1049,9 @@ function propsAtPlayhead(c) {
    curve; auto-orient turns it with its direction of travel. */
 function applyMotionPath(c, p, local, orient) {
   if (!c.keyframes || !c.keyframes.x || !c.keyframes.y) return;
-  const q = self.FableCutMotion.pathPositionAt(c, local);
+  const q = self.MontClipMotion.pathPositionAt(c, local);
   if (q) { p.x = q.x; p.y = q.y; }
-  if (orient && p.autoOrient) { const a = self.FableCutMotion.orientAt(c, local); if (a != null) p.rotation = (+p.rotation || 0) + a; }
+  if (orient && p.autoOrient) { const a = self.MontClipMotion.orientAt(c, local); if (a != null) p.rotation = (+p.rotation || 0) + a; }
 }
 function fmtInspNum(v, step) {
   const n = +v;
@@ -1111,8 +1111,8 @@ function setAnimProp(c, k, v) {
   const dup = arr.find((kf) => Math.abs(kf.t - lt) < eps);
   if (dup) { dup.v = v; return true; }
   const other = k === "x" ? "y" : k === "y" ? "x" : null, oarr = other && c.keyframes[other];
-  if (other && Array.isArray(oarr) && oarr.length && self.FableCutMotion.hasPathHandles(c) && !oarr.some((kf) => Math.abs(kf.t - lt) < eps)) {
-    oarr.push({ t: lt, v: +self.FableCutMotion.positionAt(c, lt)[other].toFixed(3) });
+  if (other && Array.isArray(oarr) && oarr.length && self.MontClipMotion.hasPathHandles(c) && !oarr.some((kf) => Math.abs(kf.t - lt) < eps)) {
+    oarr.push({ t: lt, v: +self.MontClipMotion.positionAt(c, lt)[other].toFixed(3) });
     oarr.sort((a, b) => a.t - b.t);
   }
   arr.push({ t: lt, v });
@@ -1399,7 +1399,7 @@ function normalizeWorkArea(i, o, t0 = TIMELINE_START_TIME) {
 }
 /* Project-bin media management: metadata, search / filter / sort, tags,
    collections and usage live in media-lib.js (shared with the agent ops). */
-const MediaLib = self.FableCutMedia;
+const MediaLib = self.MontClipMedia;
 const BIN_PREFS_KEY = "fablecut.binPrefs";
 const binView = (() => {
   let saved = {};
@@ -1681,7 +1681,7 @@ function applyProject(data, opts = {}) {
     const raw = c.props || {};
     c.props = { ...DEFAULT_PROPS, ...(c.kind === "comp" ? { fit: "none" } : {}), ...raw };
     if (c.props.grade !== undefined) {
-      const g = self.FableCutColor.normalizeGrade(c.props.grade);
+      const g = self.MontClipColor.normalizeGrade(c.props.grade);
       if (g) c.props.grade = g; else delete c.props.grade;
     }
     if (migratePan && !Object.hasOwn(raw, "pan") && Number.isInteger(raw.audioChannel) && raw.audioChannel >= 0)
@@ -4931,7 +4931,7 @@ function rippleDeleteSelected() {
   state.dirtyTimeline = true;
   scheduleSave(); renderInspector();
 }
-const GAP_EPS = FableCutEdit.GAP_EPS;
+const GAP_EPS = MontClipEdit.GAP_EPS;
 /* Sync-safe close (EDIT.closeGapAt): every targeted track must have a gap at
    the playhead; their intersection closes. Locked clips stay put. */
 function closeGapAtPlayhead() {
@@ -5095,7 +5095,7 @@ function liftExtract(extract) {
 }
 /** Shift+D: crossfade the cuts of the selected audio clips, or — with no
  *  selection — the audio cut nearest the playhead on each targeted track. */
-function crossfadeSelected(dur = FableCutEdit.CROSSFADE_DUR) {
+function crossfadeSelected(dur = MontClipEdit.CROSSFADE_DUR) {
   const pairs = state.selIds.size ? crossfadeCuts(withLinked(selectedClips())) : EDIT.crossfadeCutsNear(state.time);
   if (!pairs.length) {
     toast(state.selIds.size ? "No audio cut next to the selection — clips must touch or overlap on one track"
@@ -5471,7 +5471,7 @@ function syncTimelineTrackView() {
 /** A lane whose clips are all captions (and that has some). */
 function captionOnlyTrack(id) {
   const clips = project.clips.filter(c => c.track === id);
-  return clips.length > 0 && clips.every(c => FableCutCaptions.isCaption(c));
+  return clips.length > 0 && clips.every(c => MontClipCaptions.isCaption(c));
 }
 function foldTrackRow(id) {
   syncTimelineTrackView.folded.add(id);
@@ -6449,11 +6449,11 @@ function startClipGesture(e, c, mode, collapseOnClick) {
     } else if (mode === "trim-l") {
       let ns = snapTime(orig.start + dt, groupIds);
       const sp = clipSpeed(c);
-      const maxShiftLeft = FableCutEdit.hasSourceTime(c) ? orig.in / sp : 1e6;
+      const maxShiftLeft = MontClipEdit.hasSourceTime(c) ? orig.in / sp : 1e6;
       ns = clamp(ns, Math.max(0, orig.start - maxShiftLeft), orig.start + orig.duration - MIN_DUR);
       const d = ns - orig.start;
       c.start = ns;
-      c.in = FableCutEdit.hasSourceTime(c) ? orig.in + d * sp : 0;
+      c.in = MontClipEdit.hasSourceTime(c) ? orig.in + d * sp : 0;
       c.duration = orig.duration - d;
       c.keyframes = shiftKF(orig.keyframes, d, c.duration);
       if (orig.masks) c.props.masks = Mask.shiftKeys(orig.masks, d);
@@ -6464,7 +6464,7 @@ function startClipGesture(e, c, mode, collapseOnClick) {
       let ne = snapTime(orig.start + orig.duration + dt, groupIds);
       let maxDur = 1e6;
       const srcLen = c.kind === "comp" ? (getComp(c.compId) || {}).duration : media?.duration;
-      if (FableCutEdit.hasSourceTime(c) && srcLen)
+      if (MontClipEdit.hasSourceTime(c) && srcLen)
         maxDur = Math.max(MIN_DUR, (srcLen - orig.in) / clipSpeed(c));
       c.duration = clamp(ne - orig.start, MIN_DUR, maxDur);
       c.keyframes = shiftKF(orig.keyframes, 0, c.duration);
@@ -7135,7 +7135,7 @@ function clipStatusBar(c) {
    operation: 〔字幕大小〕 beside the caption style menu works on all captions, the Inspector's top on the selected ones.
    Only fontSize and y change, nothing is generated again; each click is one undo step; locked captions stay as they are. */
 function captionQuickTargets(scope) {
-  const caps = project.clips.filter((c) => FableCutCaptions.isCaption(c) && (scope === "all" || state.selIds.has(c.id)));
+  const caps = project.clips.filter((c) => MontClipCaptions.isCaption(c) && (scope === "all" || state.selIds.has(c.id)));
   return caps.filter((c) => !isClipLocked(c));
 }
 /* P6a: correct captions from the lyrics (lyrics-align.js; ADR 本机能力边界 补记「用歌词校准听写字幕」). On this computer only:
@@ -7145,7 +7145,7 @@ function captionQuickTargets(scope) {
    the unlocked captions in IN–OUT; only those change, the others not by a single character (QQ on #85, Deja 2026-11-03):
    the words come from those captions only, and every new caption lies inside the one it replaces (MontClipLyrics.plan). */
 function lyricsTargets() {
-  const caps = project.clips.filter((c) => FableCutCaptions.isCaption(c));
+  const caps = project.clips.filter((c) => MontClipCaptions.isCaption(c));
   const s = MontClipLyrics.scope({
     captions: caps.map((c) => ({ id: c.id, start: c.start, end: c.start + c.duration, locked: isClipLocked(c) })),
     selected: caps.filter((c) => state.selIds.has(c.id)).map((c) => c.id),
@@ -7162,7 +7162,7 @@ function openLyricsAlign() {
   lyricsDialog({ words: t.words, caps: t.caps, stale: () => JSON.stringify(projectJSON()) !== signature, onApply: (p) => {
     // only the picked captions that get new ones are replaced; each new caption takes the track, style, size and place of
     // the caption it lies in
-    const C = FableCutCaptions, was = new Map(t.clips.map((c) => [c.id, c]));
+    const C = MontClipCaptions, was = new Map(t.clips.map((c) => [c.id, c]));
     const snap = undoSnapshot();
     const gone = new Set(p.replace);
     project.clips = project.clips.filter((c) => !gone.has(c.id));
@@ -7482,7 +7482,7 @@ function renderInspector(lite) {
       ${slider("speed", 0.25, 4, 0.05, p.speed, "×")}
     </div>`;
   }
-  if ((c.kind === "video" || c.kind === "audio") && typeof FableCutSilence !== "undefined") {
+  if ((c.kind === "video" || c.kind === "audio") && typeof MontClipSilence !== "undefined") {
     const so = silenceOptions(), found = state.silence;
     const num = (k, lo, hi, step, unit, title) => `<span class="insp-ctrls"><input type="number" data-sil="${k}" min="${lo}" max="${hi}" step="${step}" value="${so[k]}" title="${title}" style="max-width:64px"> ${unit}</span>`;
     html += `<div class="insp-section"><h3>Silence</h3>
@@ -7495,10 +7495,10 @@ function renderInspector(lite) {
         : `<span class="insp-ctrls"><button type="button" class="btn tiny" data-sil-find title="Listen to the selected clips and mark their silences on the timeline">Find</button>
         ${found ? `<button type="button" class="btn tiny" data-sil-cut title="Extract every marked silence on the targeted tracks (one undo step)">Cut ${found.spans.length}</button>
         <button type="button" class="btn tiny" data-sil-clear title="Remove the marks">Clear</button>` : ""}</span>`)}
-      ${found ? `<div class="insp-note">${found.spans.length} silence${found.spans.length === 1 ? "" : "s"}, ${FableCutSilence.total(found.spans).toFixed(1)} s, marked on the timeline. Cut extracts them on the targeted tracks — lock the music bed first to keep it running.</div>` : ""}
+      ${found ? `<div class="insp-note">${found.spans.length} silence${found.spans.length === 1 ? "" : "s"}, ${MontClipSilence.total(found.spans).toFixed(1)} s, marked on the timeline. Cut extracts them on the targeted tracks — lock the music bed first to keep it running.</div>` : ""}
     </div>`;
   }
-  if ((c.kind === "video" || c.kind === "audio") && typeof FableCutBeats !== "undefined") {
+  if ((c.kind === "video" || c.kind === "audio") && typeof MontClipBeats !== "undefined") {
     const bt = state.beats && state.beats.clipId === c.id ? state.beats : null, bs = beatsSettings();
     const lanes = TRACKS.filter((t) => t.kind === "video" && project.clips.some((x) => x.track === t.id)).map((t) => t.id)
       .sort((x, y) => (+x.slice(1) || 0) - (+y.slice(1) || 0));
@@ -7512,11 +7512,11 @@ function renderInspector(lite) {
       ${row("", `<span class="insp-ctrls"><button type="button" class="btn tiny" data-beat-mark title="A cyan marker on every beat (other markers stay)">Mark</button>
         <button type="button" class="btn tiny" data-beat-snap title="Roll each cut on the targeted video tracks to the nearest beat — nothing else moves">Snap cuts</button></span>`)}
       ${lanes.length ? row("Re-cut", `<span class="insp-ctrls"><select data-beat-track title="The track whose clips go on the beat" style="width:auto;min-width:4.2em">${lanes.map((id) => `<option>${id}</option>`).join("")}</select>
-        every <select data-beat-every title="Beats per shot" style="width:auto;min-width:3.6em">${FableCutBeats.EVERY.map((n) => `<option value="${n}" ${n === bs.every ? "selected" : ""}>${n}</option>`).join("")}</select> beats</span>`) +
+        every <select data-beat-every title="Beats per shot" style="width:auto;min-width:3.6em">${MontClipBeats.EVERY.map((n) => `<option value="${n}" ${n === bs.every ? "selected" : ""}>${n}</option>`).join("")}</select> beats</span>`) +
         row("", `<span class="insp-ctrls"><button type="button" class="btn tiny" data-beat-retime title="Lay that track's clips back to back on the beat, from the music's start (one undo step)">Re-cut</button></span>`) : ""}` : ""}
     </div>`;
   }
-  if (c.kind === "audio" && typeof FableCutFx !== "undefined") {
+  if (c.kind === "audio" && typeof MontClipFx !== "undefined") {
     html += `<div class="insp-section" data-fx-section><h3>Audio effects</h3>${fxEditorHtml(c.fx, playheadOverClip(c) ? state.time - c.start : null)}</div>`;
   }
   if (c.kind === "audio") {
@@ -7733,7 +7733,7 @@ function renderInspector(lite) {
     clearDuck(sel.length ? sel : [c]);
   });
   els.inspector.querySelectorAll("[data-sil]").forEach((inp) => inp.addEventListener("change", () => {
-    const o = silenceOptions(), [lo, hi] = FableCutSilence.LIMITS[inp.dataset.sil];
+    const o = silenceOptions(), [lo, hi] = MontClipSilence.LIMITS[inp.dataset.sil];
     o[inp.dataset.sil] = clamp(+inp.value || 0, lo, hi);
     inp.value = o[inp.dataset.sil];
     try { localStorage.setItem(SILENCE_KEY, JSON.stringify(o)); } catch { }
@@ -8948,7 +8948,7 @@ function loadFxWorklet(ctx) {
 const FX_WORKLET_TYPES = { limiter: "fablecut-limiter", gate: "fablecut-gate", pitch: "fablecut-pitch" };
 function normFx(list) {
   if (!Array.isArray(list) || !list.length) return undefined;
-  const out = typeof FableCutFx !== "undefined" ? FableCutFx.normalizeFx(list) : list;
+  const out = typeof MontClipFx !== "undefined" ? MontClipFx.normalizeFx(list) : list;
   return out.length ? out : undefined;
 }
 /** Seeded so preview and every export get the same impulse response. */
@@ -9023,7 +9023,7 @@ function makeFxUnit(ctx, e) {
       if (!fxWorkletReady.has(ctx)) { const pass = g(); return unit({ input: pass, output: pass, nodes: [pass], pending: true, set() { } }); }
       const w = new AudioWorkletNode(ctx, FX_WORKLET_TYPES[e.type]);
       return unit({ input: w, output: w, nodes: [w], set(p) {
-        for (const k of Object.keys(FableCutFx.FX_DEFS[e.type].params)) sv(w.parameters.get(k), p[k]);
+        for (const k of Object.keys(MontClipFx.FX_DEFS[e.type].params)) sv(w.parameters.get(k), p[k]);
       } });
     }
     case "delay": {
@@ -9111,9 +9111,9 @@ function syncFxSlot(slot, list) {
  *  clip's effects, timeline time for a track's, a bus's or the master's. */
 function animateFxSlot(slot, t, smooth = true) {
   const chain = slot?.chain;
-  if (!chain || chain.pending || !FableCutFx.hasKeys(slot.ref)) return;
+  if (!chain || chain.pending || !MontClipFx.hasKeys(slot.ref)) return;
   const fx = slot.ref.filter((e) => e && e.on !== false);
-  fx.forEach((e, i) => { if (e.keys && chain.units[i]) chain.units[i].set(FableCutFx.evalEffect(e, t), smooth); });
+  fx.forEach((e, i) => { if (e.keys && chain.units[i]) chain.units[i].set(MontClipFx.evalEffect(e, t), smooth); });
 }
 function trackFx(id) { return TRACKS.find((t) => t.id === id)?.fx; }
 function masterFx() { return project.master?.fx; }
@@ -9372,14 +9372,14 @@ async function measureClipGroup(clips) {
     const b = clamp(Math.ceil(mediaTimeAt(c, c.start + c.duration) * buf.sampleRate), a, buf.length);
     const src = [];
     for (let ch = 0; ch < buf.numberOfChannels; ch++) src.push(buf.getChannelData(ch).subarray(a, b));
-    chans.push(...FableCutLoudness.routeChannels(src, c.props || {}));
+    chans.push(...MontClipLoudness.routeChannels(src, c.props || {}));
   }
   if (!chans.length) return null;
   const n = Math.min(...chans.map((x) => x.length));
-  return FableCutLoudness.measure(chans.map((x) => x.subarray(0, n)), sr);
+  return MontClipLoudness.measure(chans.map((x) => x.subarray(0, n)), sr);
 }
 async function normalizeClips(clips, target = normalizeTarget()) {
-  if (typeof FableCutLoudness === "undefined") { toast("Loudness module missing — reload the editor"); return; }
+  if (typeof MontClipLoudness === "undefined") { toast("Loudness module missing — reload the editor"); return; }
   const groups = normalizeGroups(clips).filter((g) => !g.some(isGroupLocked));
   if (!groups.length) { toast("Select an audio or video clip to normalize"); return; }
   toast(`Measuring ${groups.length} clip${groups.length > 1 ? "s" : ""}…`);
@@ -9390,7 +9390,7 @@ async function normalizeClips(clips, target = normalizeTarget()) {
   pushUndo();
   let done = 0, silent = 0;
   for (const { g, m } of results) {
-    const db = m && FableCutLoudness.normalizeGainDb(m, target);
+    const db = m && MontClipLoudness.normalizeGainDb(m, target);
     if (db == null) { silent++; continue; }
     const gain = Math.round(clamp(db, CLIP_GAIN_MIN, CLIP_GAIN_MAX) * 10) / 10;
     for (const c of g) { if (getClip(c.id)) c.props.gain = gain; }
@@ -9504,15 +9504,15 @@ async function voiceRegions(voices, threshold, minLen, heard) {
     const b = clamp(Math.ceil(mediaTimeAt(v, clipEnd(v)) * buf.sampleRate), a, buf.length);
     const src = [];
     for (let ch = 0; ch < buf.numberOfChannels; ch++) src.push(buf.getChannelData(ch).subarray(a, b));
-    const env = FableCutDucking.rmsEnvelope(FableCutLoudness.routeChannels(src, v.props || {}), buf.sampleRate);
-    lists.push(FableCutDucking.activeRegions(env, {
+    const env = MontClipDucking.rmsEnvelope(MontClipLoudness.routeChannels(src, v.props || {}), buf.sampleRate);
+    lists.push(MontClipDucking.activeRegions(env, {
       t0: v.start, speed: clipSpeed(v), threshold,
       gain: dbToGain(clipGainDb(v)) * clamp(+(v.props?.volume ?? 1), 0, VOL_MAX),
       ...(minLen != null ? { minLen } : {}),
     }));
   }
   // silence wants every pause, so nothing is bridged there; ducking bridges short gaps
-  return FableCutDucking.mergeRegions(lists, minLen != null ? 0 : undefined);
+  return MontClipDucking.mergeRegions(lists, minLen != null ? 0 : undefined);
 }
 
 /* ── Silence (silence.js): find the pauses in speech, mark them on the
@@ -9520,8 +9520,8 @@ async function voiceRegions(voices, threshold, minLen, heard) {
    fablecut_silence. ── */
 const SILENCE_KEY = "fablecut-silence";
 function silenceOptions() {
-  try { return FableCutSilence.options(JSON.parse(localStorage.getItem(SILENCE_KEY) || "{}")); }
-  catch { return { ...FableCutSilence.DEFAULTS }; }
+  try { return MontClipSilence.options(JSON.parse(localStorage.getItem(SILENCE_KEY) || "{}")); }
+  catch { return { ...MontClipSilence.DEFAULTS }; }
 }
 /** Each linked group's audio stems, else the clip itself (audio, or a video without stems). */
 function speechGroups(clips) {
@@ -9545,21 +9545,21 @@ function silenceSig() {
 }
 let silenceGen = 0;   // the newest Find: an older one still decoding never replaces its result
 async function findSilences(clips, opts = silenceOptions()) {
-  if (typeof FableCutSilence === "undefined") { toast("Silence module missing — reload the editor"); return; }
+  if (typeof MontClipSilence === "undefined") { toast("Silence module missing — reload the editor"); return; }
   // a new Find replaces the old marks whatever it finds, so Cut never acts on another clip's result
   const gen = ++silenceGen;
   if (state.silence) { state.silence = null; state.dirtyTimeline = true; renderInspector(); }
   const all = speechGroups(clips).map((g) => g.filter(clipRenders)).filter((g) => g.length);
   if (!all.length) { toast("Select a clip with sound to find its silences"); return; }
   // a speed ramp moves the sound along the timeline unevenly: those clips are left alone
-  const groups = all.filter((g) => !g.some(FableCutSilence.ramped));
+  const groups = all.filter((g) => !g.some(MontClipSilence.ramped));
   if (!groups.length) { toast("These clips have a speed ramp — silence removal works on clips at a steady speed"); return; }
   toast("Listening for silences…");
   const sig = silenceSig(), heard = new Set();
   state.silenceBusy = true;   // the Inspector shows Listening… with Cancel meanwhile
   renderInspector();
   let sound;
-  try { sound = await voiceRegions(groups.flat(), opts.threshold, FableCutSilence.MIN_SOUND, heard); }
+  try { sound = await voiceRegions(groups.flat(), opts.threshold, MontClipSilence.MIN_SOUND, heard); }
   finally { if (gen === silenceGen) state.silenceBusy = false; }
   if (gen !== silenceGen) return;   // a newer Find took over, or Cancel
   renderInspector();   // Listening… → Find again, whatever comes next
@@ -9569,12 +9569,12 @@ async function findSilences(clips, opts = silenceOptions()) {
   const usable = groups.filter((g) => g.every((x) => heard.has(x.id)));
   if (!usable.length) { toast("Couldn't read the audio of these clips — nothing marked"); return; }
   const ranges = usable.map((g) => [Math.min(...g.map((x) => x.start)), Math.max(...g.map(clipEnd))]);
-  const spans = FableCutSilence.silentSpans(sound, ranges, { ...opts, fps: project.fps });
+  const spans = MontClipSilence.silentSpans(sound, ranges, { ...opts, fps: project.fps });
   state.silence = spans.length ? { ids: usable.flat().map((x) => x.id), spans, sig } : null;
   state.dirtyTimeline = true;
   renderInspector();
   toast((spans.length
-    ? `${spans.length} silence${spans.length === 1 ? "" : "s"}, ${FableCutSilence.total(spans).toFixed(1)} s — marked on the timeline`
+    ? `${spans.length} silence${spans.length === 1 ? "" : "s"}, ${MontClipSilence.total(spans).toFixed(1)} s — marked on the timeline`
     : "No silences that long — try a higher threshold or a shorter minimum") +
     (usable.length < groups.length ? " · some clips' audio couldn't be read, so their time is left alone" : "") +
     (groups.length < all.length ? " · clips with a speed ramp are left alone" : ""));
@@ -9612,10 +9612,10 @@ let transcriptGen = 0;               // bumps whenever a transcript arrives or c
 function transcribeSettings() {
   let o = {};
   try { o = JSON.parse(localStorage.getItem(TRANSCRIBE_KEY) || "{}"); } catch { }
-  let model = FableCutTranscribe.DEFAULT_MODEL, language = null, captionStyle = null;
-  try { model = FableCutTranscribe.model(o.model); } catch { }
-  try { language = FableCutTranscribe.language(o.language); } catch { }
-  try { captionStyle = typeof FableCutCaptions !== "undefined" && o.captionStyle ? FableCutCaptions.style(o.captionStyle) : null; } catch { }
+  let model = MontClipTranscribe.DEFAULT_MODEL, language = null, captionStyle = null;
+  try { model = MontClipTranscribe.model(o.model); } catch { }
+  try { language = MontClipTranscribe.language(o.language); } catch { }
+  try { captionStyle = typeof MontClipCaptions !== "undefined" && o.captionStyle ? MontClipCaptions.style(o.captionStyle) : null; } catch { }
   return { model, language, captionStyle };
 }
 function saveTranscribeSettings(patch) {
@@ -9633,7 +9633,7 @@ function loadTranscript(src, force = false) {
   const p = fetch("/api/transcript?src=" + encodeURIComponent(src)).then((r) => (r.ok ? r.json() : null))
     .then((j) => {
       let d = false;
-      try { d = j && j.transcript ? FableCutTranscribe.validate(j.transcript) : false; } catch { }
+      try { d = j && j.transcript ? MontClipTranscribe.validate(j.transcript) : false; } catch { }
       if (transcriptCache.get(src) === p) { transcriptCache.set(src, d); transcriptGen++; }
       return d;
     })
@@ -9918,7 +9918,7 @@ function transcriptWords() {
     const d = transcriptOf(getMedia(g[0].mediaId).src);
     if (d) entries.push({ clip: g[0], words: d.words });
   }
-  return FableCutTranscribe.layout(entries);
+  return MontClipTranscribe.layout(entries);
 }
 /** What Transcribe works on: the selected clips' files, else every file on the timeline without a transcript. */
 function transcribeTargets() {
@@ -9942,7 +9942,7 @@ function transcriptSig() {
 }
 
 function buildTranscriptPage() {
-  const T = FableCutTranscribe, root = els.transcriptPage, set = transcribeSettings();
+  const T = MontClipTranscribe, root = els.transcriptPage, set = transcribeSettings();
   // a packaged build without on-device transcription shows no transcribe entry, model choice or download progress
   const listen = transcribeAvailable();
   root.innerHTML = `<div class="tr-head">
@@ -9971,8 +9971,8 @@ function buildTranscriptPage() {
       </div>
       <div class="tr-row">
         <span class="tr-lbl" data-i18n="term.captions">${uiText("term.captions")}</span>
-        <select data-tr-cap-style title="The look: subtitle on a dark bar, karaoke (words light up as said), highlight (the word being said in colour), word pop (a few big words at a time)">${Object.entries(FableCutCaptions.STYLES).map(([k, st]) =>
-          `<option value="${k}" ${k === (set.captionStyle || FableCutCaptions.DEFAULT_STYLE) ? "selected" : ""}>${st.label}</option>`).join("")}</select>
+        <select data-tr-cap-style title="The look: subtitle on a dark bar, karaoke (words light up as said), highlight (the word being said in colour), word pop (a few big words at a time)">${Object.entries(MontClipCaptions.STYLES).map(([k, st]) =>
+          `<option value="${k}" ${k === (set.captionStyle || MontClipCaptions.DEFAULT_STYLE) ? "selected" : ""}>${st.label}</option>`).join("")}</select>
         <button type="button" class="btn tiny" data-tr-cap-quick${captionQuickTargets("all").length ? "" : " hidden"} data-i18n="own.cq-open">${escapeHtml(uiText("own.cq-open"))}</button>
         <button type="button" class="btn tiny" data-tr-cap-lyrics title="${escapeHtml(uiText("own.ly-open-title"))}" data-i18n="own.ly-open" data-i18n-title="own.ly-open-title">${escapeHtml(uiText("own.ly-open"))}</button>
         ${listen ? `<button type="button" class="btn tiny" data-tr-cap-add title="Make captions from these words, timed word by word, on a video lane above the edit (replaces the captions there; one undo step)" data-i18n="term.add-captions">${uiText("term.add-captions")}</button>` : ""}
@@ -10037,9 +10037,9 @@ function buildTranscriptPage() {
     if (!f) return;
     let list;
     const st = q("[data-tr-cap-style]").value;
-    try { list = FableCutCaptions.parse(await f.text()); } catch (e) { toast(e.message); return; }
-    const m = FableCutCaptions.metrics(st, project.width, project.height);
-    placeCaptions(FableCutCaptions.fit(list, m.chars, m.lines), st, `from ${f.name}`);
+    try { list = MontClipCaptions.parse(await f.text()); } catch (e) { toast(e.message); return; }
+    const m = MontClipCaptions.metrics(st, project.width, project.height);
+    placeCaptions(MontClipCaptions.fit(list, m.chars, m.lines), st, `from ${f.name}`);
   });
   q("[data-tr-cut-sel]").addEventListener("click", cutTranscriptSelection);
   // a gap's time (trGapsHtml): click or Enter
@@ -10118,7 +10118,7 @@ function trGapsHtml(groups) {
 }
 function renderTranscript(force = false) {
   if (!trState.open || !els.transcriptPage) return;
-  if (typeof FableCutTranscribe === "undefined") { els.transcriptPage.innerHTML = `<div class="tr-empty">${uiText("own.tr-module-missing")}</div>`; return; }
+  if (typeof MontClipTranscribe === "undefined") { els.transcriptPage.innerHTML = `<div class="tr-empty">${uiText("own.tr-module-missing")}</div>`; return; }
   if (!trState.built) buildTranscriptPage();
   const groups = transcriptGroups();
   for (const g of groups) {
@@ -10129,7 +10129,7 @@ function renderTranscript(force = false) {
   const sig = transcriptSig();
   if (!force && sig === trState.sig) return;
   trState.sig = sig;
-  const T = FableCutTranscribe, E = trState.el;
+  const T = MontClipTranscribe, E = trState.el;
   const words = trState.words = transcriptWords();
   trState.wsig = transcriptWordsSig();
   const tgt = transcribeTargets();
@@ -10150,7 +10150,7 @@ function renderTranscript(force = false) {
     if (!words.length && !missing.length) html += `<div class="tr-empty">${uiText([...transcriptCache.values()].some((v) => v instanceof Promise) ? "own.loading" : "own.tr-no-words")}</div>`;
     for (const s of T.segments(words)) {
       let p = "";
-      for (let k = s.i; k <= s.j; k++) p += (k > s.i ? FableCutTranscribe.gap(words[k - 1].w, words[k].w) : "") + `<span class="tw" data-k="${k}">${escapeHtml(words[k].w)}</span>`;
+      for (let k = s.i; k <= s.j; k++) p += (k > s.i ? MontClipTranscribe.gap(words[k - 1].w, words[k].w) : "") + `<span class="tw" data-k="${k}">${escapeHtml(words[k].w)}</span>`;
       html += `<p class="tr-seg"><span class="tr-tc" data-t="${s.from}" title="Go to ${fmt(s.from)}">${fmt(s.from)}</span>${p}</p>`;
     }
   }
@@ -10180,7 +10180,7 @@ function findTranscript(keepSel = false) {
   const E = trState.el;
   if (!E) return;
   const q = trState.query.trim();
-  trState.hits = q ? FableCutTranscribe.find(trState.words, q) : [];
+  trState.hits = q ? MontClipTranscribe.find(trState.words, q) : [];
   E.count.textContent = q ? uiText("own.found", { n: trState.hits.length }) : "";
   E.cutFound.disabled = !trState.hits.length;
   E.cutFound.textContent = trState.hits.length ? uiText("own.cut-n", { n: trState.hits.length }) : uiText("own.cut-all");
@@ -10212,7 +10212,7 @@ function paintTranscriptMarks() {
   E.foot.classList.toggle("hidden", !s);
   if (s) {
     const w = trState.words;
-    const txt = FableCutTranscribe.text(w, s.i, s.j);
+    const txt = MontClipTranscribe.text(w, s.i, s.j);
     E.selText.textContent = uiText(s.j === s.i ? "own.tr-selection-one" : "own.tr-selection", { n: s.j - s.i + 1, s: (w[s.j].e - w[s.i].s).toFixed(1), text: txt.length > 60 ? txt.slice(0, 57) + "…" : txt });
   }
 }
@@ -10225,7 +10225,7 @@ function cutTranscriptSelection() {
 function cutTranscriptRuns(runs, label) {
   // the words were placed on the timeline as it was at the last redraw: it may have moved since
   if (transcriptWordsSig() !== trState.wsig) { renderTranscript(true); toast("The timeline changed — find or select the words again"); return; }
-  const spans = FableCutTranscribe.cutSpans(trState.words, runs, { fps: projectFps() });
+  const spans = MontClipTranscribe.cutSpans(trState.words, runs, { fps: projectFps() });
   if (!spans.length) { toast("Too short to cut"); return; }
   const snap = undoSnapshot();
   let cut = 0, secs = 0;
@@ -10242,7 +10242,7 @@ function cutTranscriptRuns(runs, label) {
   toast(`Cut ${label} · ${secs.toFixed(1)} s shorter`);
 }
 function copyTranscript() {
-  const lines = FableCutTranscribe.segments(trState.words).map((s) => `[${fmt(s.from)}] ${s.text}`);
+  const lines = MontClipTranscribe.segments(trState.words).map((s) => `[${fmt(s.from)}] ${s.text}`);
   if (!lines.length) { toast("Nothing to copy yet"); return; }
   navigator.clipboard.writeText(lines.join("\n")).then(() => toast(`Copied ${lines.length} line${lines.length === 1 ? "" : "s"}`), () => toast("Couldn't copy — the browser refused"));
 }
@@ -10284,7 +10284,7 @@ function transcriptTick() {
    on a video lane above the edit; subtitle files out and in. The same clips as
    fablecut_captions. ── */
 function addCaptionsFromTranscript(styleKey) {
-  const C = FableCutCaptions;
+  const C = MontClipCaptions;
   if (transcriptWordsSig() !== trState.wsig) renderTranscript(true);
   const words = trState.words;
   if (!words.length) { toast("Transcribe the clips first — captions are made from their words"); return; }
@@ -10293,7 +10293,7 @@ function addCaptionsFromTranscript(styleKey) {
 }
 /** Put caption cues on the timeline (replacing the captions there), as one undo step. */
 function placeCaptions(list, styleKey, from) {
-  const C = FableCutCaptions;
+  const C = MontClipCaptions;
   if (!list.length) { toast("No captions to add"); return; }
   const old = project.clips.filter(C.isCaption);
   if (old.some(isGroupLocked)) { toastLocked(); return; }
@@ -10325,10 +10325,10 @@ function placeCaptions(list, styleKey, from) {
 /** A cut, split or trim that shortens a caption leaves its words timed to the old cut: say so, for a moment. */
 const capWatch = { durs: null, at: 0, said: 0 };
 function watchCaptions(now) {
-  if (now - capWatch.at < 500 || typeof FableCutCaptions === "undefined") return;
+  if (now - capWatch.at < 500 || typeof MontClipCaptions === "undefined") return;
   capWatch.at = now;
   const durs = new Map();
-  for (const c of project.clips) if (FableCutCaptions.isCaption(c)) durs.set(c.id, c.duration);
+  for (const c of project.clips) if (MontClipCaptions.isCaption(c)) durs.set(c.id, c.duration);
   const prev = capWatch.durs;
   capWatch.durs = durs;
   if (!prev || now - capWatch.said < 5000) return;
@@ -10386,7 +10386,7 @@ function removeDanmaku(m) {
    sent anywhere and no model runs. Go to moves the playhead; Keep goes through the range engine as one undo step. */
 async function highlightSignals(isCurrent = () => true) {
   const duration = projDur();
-  const sentences = project.clips.filter((c) => FableCutCaptions.isCaption(c) && !c.disabled && !(project.disabledTracks || []).includes(c.track))
+  const sentences = project.clips.filter((c) => MontClipCaptions.isCaption(c) && !c.disabled && !(project.disabledTracks || []).includes(c.track))
     .map((c) => ({ id: c.id, start: c.start, end: c.start + c.duration, text: (c.props && c.props.text) || "" }));
   let loudness = null;
   const audible = mediaClips().filter((c) => clipRenders(c) && (c.kind === "audio" || (c.kind === "video" && ((c.props && c.props.volume) ?? 1) > 0)));
@@ -10418,7 +10418,7 @@ async function highlightSignals(isCurrent = () => true) {
       const bins = Math.ceil((t1 - t0) / step - 1e-9);
       if (!buf) { for (let i = 0; i < bins; i++) values.push(-90); continue; }
       const chs = []; for (let ch = 0; ch < buf.numberOfChannels; ch++) chs.push(buf.getChannelData(ch));
-      const mono = FableCutBeats.mono(chs), per = Math.round(step * buf.sampleRate);
+      const mono = MontClipBeats.mono(chs), per = Math.round(step * buf.sampleRate);
       for (let i = 0; i < bins; i++) {
         let acc = 0, n = 0;
         for (let k = i * per; k < Math.min(mono.length, (i + 1) * per); k++) { acc += mono[k] * mono[k]; n++; }
@@ -10443,7 +10443,7 @@ function highlightReasonText(r) {
 }
 /** Keep the given timeline ranges (in this order) with the range engine, as one undo step. */
 function keepHighlightRanges(ranges) {
-  const doc = projectJSON(), plan = FableCutRangePlan.create(doc, ranges);
+  const doc = projectJSON(), plan = MontClipRangePlan.create(doc, ranges);
   const snap = JSON.stringify({ ...JSON.parse(undoSnapshot()), rangeState: {
     inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
   } });
@@ -10526,12 +10526,12 @@ const autoCanInstall = () => typeof openAsrSetup === "function";
 function autoSubCount(c) {
   const m = autoMedia(c.mediaId), d = m && typeof transcriptOf === "function" ? transcriptOf(m.src) : null;
   if (!d) return null;
-  return FableCutTranscribe.segments(d.words.filter((w) => (w[1] + w[2]) / 2 >= c.s && (w[1] + w[2]) / 2 < c.e)).length;
+  return MontClipTranscribe.segments(d.words.filter((w) => (w[1] + w[2]) / 2 >= c.s && (w[1] + w[2]) / 2 < c.e)).length;
 }
 /** Captions over the placed slices only (the timeline words of the placed clips), in the caller's undo step; captions
  *  elsewhere stay. Returns how many were added. */
 function autoPlaceCaptions(placed, at0, end) {
-  const C = FableCutCaptions, T = FableCutTranscribe, entries = [], sung = [];
+  const C = MontClipCaptions, T = MontClipTranscribe, entries = [], sung = [];
   for (const p of placed) {
     const clip = p.clip && getClip(p.clip), m = clip && getMedia(clip.mediaId), d = m && transcriptOf(m.src);
     // a card calibrated from the lyrics: its lines, on the timeline with its clip and inside it (auto-slices.js lyricCuesOn)
@@ -11443,7 +11443,7 @@ async function showSentenceSelection(suggestion = null, onApplied = null, onCanc
   if (suggestion) {if(!MontClipProposal.current(suggestion,projectJSON(),proposalContext())){console.warn("showSentenceSelection: the suggestion is not valid for the current project; nothing opened");return;}}
   else if (!(await flushSaveBeforeSwitch())) return;
   const doc = projectJSON(), signature = JSON.stringify(doc), projectId = runtime.projectId, projectGen=runtime.projectGen, sequenceId=SeqLib.activeId(seqRoot());
-  const captions = doc.clips.filter((c) => FableCutCaptions.isCaption(c) && !c.disabled && !(doc.disabledTracks || []).includes(c.track)).sort((a, b) => a.start - b.start);
+  const captions = doc.clips.filter((c) => MontClipCaptions.isCaption(c) && !c.disabled && !(doc.disabledTracks || []).includes(c.track)).sort((a, b) => a.start - b.start);
   // #71: an assistant's keep_ranges proposal (by time; one file, or one clip per range) opens this same dialog
   const byTime = suggestion?.type === "keep_ranges", slices = byTime && suggestion.outputMode === "per_range";
   const sliceNames = slices ? MontClipProposal.sliceNames(suggestion.labels, project.name, Delivery.fileSafeName) : null;
@@ -11484,7 +11484,7 @@ async function showSentenceSelection(suggestion = null, onApplied = null, onCanc
         if (pair.length !== 2 || pair.some(s => !s)) throw new Error(uiText("own.sd-range-line"));
         return { from: Number(pair[0]), to: Number(pair[1]) };
       }) : [...selected].map(id => captions.find(c => c.id === id)).map(c => ({ from: c.start, to: c.start+c.duration }));
-      plan = FableCutRangePlan.create(doc, keep); plan.keep = keep;
+      plan = MontClipRangePlan.create(doc, keep); plan.keep = keep;
       const cut = plan.captions.filter((c) => c.status === "visible" && c.truncated).length;
       const clock = MontClipHighlights.clock;
       summary.textContent = slices
@@ -11541,13 +11541,13 @@ async function showSentenceSelection(suggestion = null, onApplied = null, onCanc
 }
 function downloadSourceMap() {
   let map;
-  try { map = FableCutCaptions.sourceMap(projectJSON()); } catch (error) { toast(error.message); return; }
+  try { map = MontClipCaptions.sourceMap(projectJSON()); } catch (error) { toast(error.message); return; }
   if (!map.segments.length) { toast(uiText("own.map-no-media")); return; }
   const url = URL.createObjectURL(new Blob([JSON.stringify(map, null, 2)], { type: "application/json" }));
   saveDownload(url, "MontClip.mapping.json"); setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 function downloadCaptions(kind) {
-  const C = FableCutCaptions, list = C.fromClips(project.clips, [...state.disabledTracks]);
+  const C = MontClipCaptions, list = C.fromClips(project.clips, [...state.disabledTracks]);
   if (!list.length) { toast("No captions on the timeline yet — Add captions first"); return; }
   const blob = new Blob([kind === "vtt" ? C.toVTT(list) : C.toSRT(list)], { type: kind === "vtt" ? "text/vtt" : "application/x-subrip" });
   const url = URL.createObjectURL(blob), name = `${exportBaseName("captions")}.${kind}`;
@@ -11557,7 +11557,7 @@ function downloadCaptions(kind) {
 /* fablecut_transcribe: transcribe the job's files in this tab, save them, report. */
 async function runTranscribeJob(ticket, fail) {
   const spec = ticket.transcribe || {};
-  if (typeof FableCutTranscribe === "undefined") return fail("the transcript module is missing — reload the editor");
+  if (typeof MontClipTranscribe === "undefined") return fail("the transcript module is missing — reload the editor");
   if (trState.busy) return fail("this editor tab is already transcribing — wait for it, or cancel it there");
   const srcs = [], skipped = [];
   for (const src of spec.srcs || []) {
@@ -11568,7 +11568,7 @@ async function runTranscribeJob(ticket, fail) {
     .then((r) => r.json()).then((r) => { if (r?.cancel) cancelTranscribe(); }).catch(() => { });
   if (!srcs.length) return report({ status: "done", result: { done: [], skipped, failed: [] } });
   let last = 0;
-  const out = await transcribeSrcs(srcs, { model: FableCutTranscribe.model(spec.model), language: spec.language || null }, (f) => {
+  const out = await transcribeSrcs(srcs, { model: MontClipTranscribe.model(spec.model), language: spec.language || null }, (f) => {
     const t = performance.now();
     if (t - last > 1000) { last = t; report({ progress: f }); }
   }).catch((e) => ({ done: [], failed: srcs.map((src) => ({ src, error: e.message })) }));
@@ -11593,7 +11593,7 @@ const BEATS_KEY = "fablecut-beats";
 function beatsSettings() {
   let o = {};
   try { o = JSON.parse(localStorage.getItem(BEATS_KEY) || "{}"); } catch { }
-  return { every: FableCutBeats.EVERY.includes(+o.every) ? +o.every : 2 };
+  return { every: MontClipBeats.EVERY.includes(+o.every) ? +o.every : 2 };
 }
 /** What a found beat stands on: the clip's place, window, file and speed, and the frame rate. */
 function beatsSig(c) {
@@ -11608,9 +11608,9 @@ function beatsDoc() {
 }
 let beatsGen = 0;
 async function findBeats(c) {
-  if (typeof FableCutBeats === "undefined") { toast("Beats module missing — reload the editor"); return; }
+  if (typeof MontClipBeats === "undefined") { toast("Beats module missing — reload the editor"); return; }
   if (!c || (c.kind !== "audio" && c.kind !== "video")) { toast("Select the music clip to find its beat"); return; }
-  if (FableCutBeats.ramped(c)) { toast("This clip has a speed ramp — beats follow music playing at a steady speed"); return; }
+  if (MontClipBeats.ramped(c)) { toast("This clip has a speed ramp — beats follow music playing at a steady speed"); return; }
   const m = getMedia(c.mediaId);
   if (!m) return;
   const gen = ++beatsGen, sig = beatsSig(c);
@@ -11625,10 +11625,10 @@ async function findBeats(c) {
     const a1 = clamp(Math.ceil(mediaTimeAt(c, clipEnd(c)) * buf.sampleRate), a0, buf.length);
     const chs = [];
     for (let ch = 0; ch < buf.numberOfChannels; ch++) chs.push(buf.getChannelData(ch).subarray(a0, a1));
-    const a = FableCutBeats.analyze(FableCutBeats.resample(FableCutBeats.mono(chs), buf.sampleRate));
+    const a = MontClipBeats.analyze(MontClipBeats.resample(MontClipBeats.mono(chs), buf.sampleRate));
     const abs = { beats: a.beats.map((t) => t + (c.in || 0)), bpm: a.bpm, drop: a.drop != null ? a.drop + (c.in || 0) : null };
     if (beatsSig(getClip(c.id)) !== sig) { toast("The clip changed while listening — find the beat again"); return; }
-    const r = FableCutBeats.plan(beatsDoc(), getClip(c.id), abs, {});
+    const r = MontClipBeats.plan(beatsDoc(), getClip(c.id), abs, {});
     state.beats = r.grid.length ? { clipId: c.id, sig, a: abs, grid: r.grid, bpm: r.bpm, drop: r.drop } : null;
     toast(r.grid.length ? `${r.bpm} BPM · ${r.grid.length} beats marked on the timeline` + (r.drop != null ? ` · the drop at ${fmt(r.drop)}` : "")
       : "No steady beat found in this clip");
@@ -11648,7 +11648,7 @@ function beatsAction(acts) {
   const s = state.beats, c = s && getClip(s.clipId);
   if (!s || !c || s.sig !== beatsSig(c)) { state.beats = null; renderInspector(); toast("The music clip changed — find the beat again"); return; }
   let r;
-  try { r = FableCutBeats.plan(beatsDoc(), c, s.a, acts); }
+  try { r = MontClipBeats.plan(beatsDoc(), c, s.a, acts); }
   catch (e) { toast(e.message); return; }
   if (!r.ops.length) { toast(r.done.join(" · ") || "Nothing to change"); return; }
   const snap = undoSnapshot();
@@ -11688,7 +11688,7 @@ function beatsAction(acts) {
   toast(done.map((d) => d[0].toUpperCase() + d.slice(1)).join(" · "));
 }
 async function autoDuckClips(clips, { under = null, amount = duckAmount(), threshold = -40 } = {}) {
-  if (typeof FableCutDucking === "undefined") { toast("Ducking module missing — reload the editor"); return; }
+  if (typeof MontClipDucking === "undefined") { toast("Ducking module missing — reload the editor"); return; }
   const music = withLinked(clips).filter((x) => x.kind === "audio" && !isGroupLocked(x));
   if (!music.length) { toast("Select the music clip(s) to duck"); return; }
   const musicIds = new Set(music.map((x) => x.id));
@@ -11709,7 +11709,7 @@ async function autoDuckClips(clips, { under = null, amount = duckAmount(), thres
   for (const c of music) {
     if (done.has(c.linkGroup || c.id)) continue;
     done.add(c.linkGroup || c.id);
-    const keys = FableCutDucking.duckKeyframes(regions, c, { amount });
+    const keys = MontClipDucking.duckKeyframes(regions, c, { amount });
     setDuckKeys(c, keys);
     dips += keys.filter((k, i) => k.v === amount && (i === 0 || keys[i - 1].v !== amount)).length;
   }
@@ -12006,7 +12006,7 @@ const fxFromSlider = (s, d) => d.unit === "Hz" ? d.min * Math.pow(d.max / d.min,
  *  track's, a bus's or the master's; null while the playhead is off the clip
  *  (automation is then shown but not editable). */
 function fxEditorHtml(list, at = null) {
-  const F = FableCutFx;
+  const F = MontClipFx;
   const groups = {};
   for (const [id, p] of Object.entries(F.PRESETS)) (groups[p.group] = groups[p.group] || []).push([id, p.label]);
   let html = `<div class="fx-tools-row">
@@ -12047,7 +12047,7 @@ function syncFxEditors() {
   for (const ed of fxEditors) { if (ed.root.isConnected) ed.sync(); else fxEditors.delete(ed); }
 }
 function bindFxEditor(root, get, set, onStructure, timeOf = () => null) {
-  const F = FableCutFx;
+  const F = MontClipFx;
   const list = () => (get() || []).map((e) => ({ ...e }));
   const restructure = (next) => { set(next.length ? next : undefined); onStructure(); };
   const near = (x, at) => Math.abs(x.t - at) < kfTimeEps();
@@ -13119,7 +13119,7 @@ function transOffsetAt(c, t) {
   return { x: +p.x || 0, y: +p.y || 0 };
 }
 /* Rebase clip-local keyframe times by -offset, dropping ones outside [0, dur] */
-const shiftKF = FableCutEdit.shiftKF;
+const shiftKF = MontClipEdit.shiftKF;
 
 /* ═════════════════ SVG CLIPS (Claude-authored animated vectors) ═════════════
    Animated SVGs use CSS @keyframes. The compositor freezes them at any time t
@@ -13579,7 +13579,7 @@ function pixelPass(c, p, src, sx, sy, sw, sh, dw, dh) {
    preview and export alike. Without WebGL2 the same math runs on the CPU
    (color.js gradeImageData). The legacy CSS filter sliders still apply on
    top when the graded frame is drawn. */
-const Color = self.FableCutColor;
+const Color = self.MontClipColor;
 const gradeGL = { tried: false, gl: null, canvas: null, loc: null };
 const gradeCpu = document.createElement("canvas");
 const gradeCpuCtx = gradeCpu.getContext("2d", { willReadFrequently: true });
@@ -13873,7 +13873,7 @@ function layerBox(c, p, W, H, t) {
 /* ── Layer transforms (motion.js): the anchor point and parenting ──
    A clip draws at canvas centre · its parents · translate(x, y) · rotate ·
    (its picture at its scale, shifted so the anchor point sits at x / y). */
-const Motion = self.FableCutMotion;
+const Motion = self.MontClipMotion;
 function parentM(c, t) { return c.parent ? Motion.parentMatrix(c, anyClip, t) : null; }
 /** Canvas centre and the parents: the space a clip's x / y live in. */
 function parentScreenMatrix(c, W, H, t) {
@@ -13906,7 +13906,7 @@ function screenDeltaToParent(c, dx, dy, t = state.time) {
    clip draws its comp's frame like a picture (renderComp). Opening a comp
    loads it as a stand-in project, so the whole timeline edits it; saves write
    it back into the root document. */
-const CompLib = self.FableCutComp;
+const CompLib = self.MontClipComp;
 function compCtxId() { const x = state.compCtx; return x ? x.path[x.path.length - 1] : null; }
 function getComp(id) { return CompLib.getComp(project, id); }
 let flatMemo = null;
@@ -14027,7 +14027,7 @@ function syncCompCrumb() {
    wait in project.sequences. Opening one parks this timeline in its entry and
    loads the other, like a reload. For the session each sequence keeps its own
    undo history, playhead and selection. */
-const SeqLib = self.FableCutSeq;
+const SeqLib = self.MontClipSeq;
 /** The document that holds the sequences (the root while a comp is open). */
 function seqRoot() { return state.compCtx ? state.compCtx.root : project; }
 function openSequenceName() { const r = seqRoot(); return (SeqLib.find(r, SeqLib.activeId(r)) || SeqLib.MAIN).name; }
@@ -14384,7 +14384,7 @@ function bindCompControls(c) {
 }
 
 /* ── Animation presets and templates (the data and the maths live in templates.js) ── */
-const Tpl = self.FableCutTemplates;
+const Tpl = self.MontClipTemplates;
 const savedLib = { presets: [], templates: [] };   // the user's own, from library/presets and library/templates
 async function fetchSaved(kind) {
   try { const r = await fetch("/api/" + kind, { cache: "no-store" }); savedLib[kind] = r.ok ? await r.json() : []; }
@@ -15117,7 +15117,7 @@ function drawClipPicture(c, W, H, t, layered) {
    A masked clip draws into an offscreen layer instead of the program canvas;
    the layer is cut by the masks' matte (destination-in), then composited with
    the clip's opacity and blend. Preview and export share this path. */
-const Mask = self.FableCutMask;
+const Mask = self.MontClipMask;
 const maskCv = {};
 function maskCtx(key, W, H) {
   if (runtime.compDepth) key += ":" + runtime.compDepth;
@@ -15359,7 +15359,7 @@ function writeMaskSet(c, i, set) {
    enough that the region is ~56 px across. A track is stored on its clip as
    picture fractions (props.tracks); masks and other clips follow it by having
    it baked into their keys, so rendering never depends on it. */
-const Tracker = self.FableCutTracker;
+const Tracker = self.MontClipTracker;
 const trackUi = { clip: null, sel: -1, tool: null, size: 0.08, scale: false, rotation: false, run: null };
 const trackNorm = new WeakMap();
 function clipTracks(c) {
@@ -15392,7 +15392,7 @@ function seekFrame(el, t) {
 /* ── Reframe (reframe.js): fit each full-frame shot to the canvas and key its position to keep
    the subject in view. The frames come from a private <video>, small, 5 a second — the same
    samples, plan and keys as fablecut_reframe. One undo step. ── */
-const Reframe = self.FableCutReframe;
+const Reframe = self.MontClipReframe;
 const reframeRun = { busy: false, cancel: false, done: 0, of: 0 };
 /** RGB frames of clip c (SAMPLE_FPS across its window; one for a still), w×h each. With `onRgb`,
  *  each frame goes to it as it is read and nothing is kept (a long shot needn't sit in memory). */
@@ -15528,7 +15528,7 @@ async function reframeClips(clips, { follow = true, smooth = 0.5 } = {}) {
 /* ── Highlights: the best moments of the timeline's video, cut into a new sequence. The frames
    come from a private <video> (2 a second, small), the sound from the decoded file — the same
    reading, scores and picks as fablecut_highlights. ── */
-const Highlights = self.FableCutHighlights;
+const Highlights = self.MontClipHighlights;
 const highlightRun = { busy: false, cancel: false };
 const HL_AUDIO_MAX_SECS = 30 * 60;
 async function readHighlightSource(c, cancelled, onFrame) {
@@ -15550,7 +15550,7 @@ async function readHighlightSource(c, cancelled, onFrame) {
       const chs = [];
       for (let k = 0; k < buf.numberOfChannels; k++) chs.push(buf.getChannelData(k).subarray(a0, a1));
       aud = Highlights.sound(buf.sampleRate);
-      aud.push(FableCutBeats.mono(chs));
+      aud.push(MontClipBeats.mono(chs));
     }
   } catch { aud = null; }   // no sound to read: the picture alone decides
   return done();
@@ -18278,7 +18278,7 @@ function updateExportProfileNote(id) {
    saved ones, Custom) and, last, the raw encoding profiles. A delivery preset
    fills the controls below it; any change makes it "modified" and is kept as
    the browser's last settings. Values: "d:<preset id>" / "p:<profile id>". */
-const Delivery = window.FableCutDelivery;
+const Delivery = window.MontClipDelivery;
 let deliveryInfo = { encoders: null, saved: {} };
 let dlvSpec = null;
 let dlvNotes = [];
@@ -19306,7 +19306,7 @@ function prefetchExportVideos(t) {
    Seeking <video> per frame is slow and not frame-exact, so export decodes
    MP4 / MOV clips itself (mp4-demux.js + VideoDecoder). Clips it can't take
    stay on the <video> path. */
-const Mp4 = self.FableCutMp4;
+const Mp4 = self.MontClipMp4;
 class ExportFrameSource {
   static async open(src) {
     if (typeof VideoDecoder !== "function" || !Mp4) return null;
@@ -19608,14 +19608,14 @@ async function renderAudioMix(t0, t1, opts = {}) {
   // Effect automation: step the offline render and glide each keyed
   // parameter, the same way preview drives it every frame.
   const animated = [];
-  for (const { chain, c } of exportChains) if (FableCutFx.hasKeys(c.fx)) animated.push((t) => animateFxSlot(chain.fxSlot, t - c.start));
-  if (FableCutFx.hasKeys(masterFx()) || Object.keys(mix.trackBus).some((id) => FableCutFx.hasKeys(trackFx(id))) ||
-      (project.buses || []).some((b) => FableCutFx.hasKeys(b.fx)))
+  for (const { chain, c } of exportChains) if (MontClipFx.hasKeys(c.fx)) animated.push((t) => animateFxSlot(chain.fxSlot, t - c.start));
+  if (MontClipFx.hasKeys(masterFx()) || Object.keys(mix.trackBus).some((id) => MontClipFx.hasKeys(trackFx(id))) ||
+      (project.buses || []).some((b) => MontClipFx.hasKeys(b.fx)))
     animated.push((t) => animateMixFx(mix, t));
   if (animated.length) {
     for (const run of animated) run(t0);
     // jump to the first values, then glide
-    for (const { chain, c } of exportChains) if (FableCutFx.hasKeys(c.fx)) animateFxSlot(chain.fxSlot, t0 - c.start, false);
+    for (const { chain, c } of exportChains) if (MontClipFx.hasKeys(c.fx)) animateFxSlot(chain.fxSlot, t0 - c.start, false);
     animateMixFx(mix, t0, false);
     const step = FX_AUTOMATION_STEP;
     for (let k = 1; k * step < dur; k++) {
@@ -22969,7 +22969,7 @@ async function onAgentReply(result){
  // the CAS: the project and its revision are still the reply's
  if(!MontClipProposal.current(proposal,projectJSON(),{...agentProjectContext(),generation:agentProjectContext().gen})||project.revision!==result.context.revision){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.ap-stale'));return;}
  if(rangeEditBusy()){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.sd-busy-save'));return;}
- let plan;try{plan=FableCutRangePlan.create(projectJSON(),proposal.keep);plan.keep=proposal.keep;}catch{if(ev)moveEvent(ev.id,'failed');toast(uiText('own.ap-invalid'));return;}
+ let plan;try{plan=MontClipRangePlan.create(projectJSON(),proposal.keep);plan.keep=proposal.keep;}catch{if(ev)moveEvent(ev.id,'failed');toast(uiText('own.ap-invalid'));return;}
  const token=commitRangePlan(plan,proposal);
  officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});
  toastAction(uiText('own.ap-applied',{mode:MontClipPolicy.modeLabel(agentPolicy.mode,mcView.get().language)}),uiText('own.ap-undo'),()=>{if(canUndoOfficialProposal(result)){if(!ev||!undoEvent(ev.id).ok)undo();}});
@@ -23023,7 +23023,7 @@ async function runAgentPlanStep(s,entry,result){
   if(!applied)return {halt:'CANCELLED'};
  } else {
   if(rangeEditBusy()){if(ev)moveEvent(ev.id,'rejected');return {ok:false,code:'BUSY'};}
-  let plan;try{plan=FableCutRangePlan.create(projectJSON(),proposal.keep);plan.keep=proposal.keep;}catch{if(ev)moveEvent(ev.id,'failed');return {ok:false,code:'STALE'};}
+  let plan;try{plan=MontClipRangePlan.create(projectJSON(),proposal.keep);plan.keep=proposal.keep;}catch{if(ev)moveEvent(ev.id,'failed');return {ok:false,code:'STALE'};}
   commitRangePlan(plan,proposal);
  }
  entry.applied++;
@@ -23086,6 +23086,6 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
     ()=>{if(ev)moveEvent(ev.id,'rejected');});
  },
  getReferences:kind=>MontClipAgentPane.referenceChips(kind,{...agentProjectContext(),
- start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(FableCutCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
+ start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(MontClipCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
 setInterval(()=>mcAgent.sync(),500);
 if(window.montclipAgentPolicy)void loadAgentMode();

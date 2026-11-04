@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-FableCut is distributed from the `main` branch. Security fixes are applied to the
+MontClip is distributed from the `main` branch. Security fixes are applied to the
 latest release only.
 
 | Version | Supported |
@@ -31,7 +31,7 @@ released, we're happy to credit you unless you prefer to remain anonymous.
 
 ## Scope & threat model
 
-FableCut is designed to run **locally** — `node server.js` binds an unauthenticated
+MontClip is designed to run **locally** — `node server.js` binds an unauthenticated
 HTTP server intended for a single trusted user on their own machine. Since
 **v1.3.1** the server defends that boundary by default:
 

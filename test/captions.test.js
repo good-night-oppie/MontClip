@@ -116,9 +116,9 @@ test("the lane: captions' own, else the top video lane when free, else a new one
 });
 
 test("SRT and WebVTT out, and back in", () => {
-  const list = [{ start: 0.48, end: 2.5, text: "Meet FableCut" }, { start: 3725.1, end: 3727, text: "two\nlines" }];
+  const list = [{ start: 0.48, end: 2.5, text: "Meet MontClip" }, { start: 3725.1, end: 3727, text: "two\nlines" }];
   const srt = C.toSRT(list);
-  assert.match(srt, /^1\n00:00:00,480 --> 00:00:02,500\nMeet FableCut\n\n2\n01:02:05,100 --> 01:02:07,000\ntwo\nlines\n$/);
+  assert.match(srt, /^1\n00:00:00,480 --> 00:00:02,500\nMeet MontClip\n\n2\n01:02:05,100 --> 01:02:07,000\ntwo\nlines\n$/);
   assert.deepEqual(C.parse(srt), list);
   const vtt = C.toVTT(list);
   assert.match(vtt, /^WEBVTT\n\n00:00:00\.480 --> 00:00:02\.500\n/);

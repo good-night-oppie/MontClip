@@ -19,7 +19,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
  await wait(400);
  log('NARROW_START',{visible:win.isVisible(),projectId:await read('runtime.projectId')});
  await read(`montclipAgentService.configure({provider:'openai',model:'synthetic-model',apiKey:'synthetic-test-key-not-real'})`);
- await read(`(()=>{const cues=FableCutCaptions.parse('1\\n00:00:01,000 --> 00:00:02,800\\n合成句子一\\n\\n2\\n00:00:03,000 --> 00:00:04,000\\n合成句子二\\n');project.clips=cues.map((c,i)=>FableCutCaptions.clip(c,{id:'synthetic_c'+i,track:'V1'}));rebuildClips();setSelection(project.clips.map(c=>c.id));scheduleSave();})()`);
+ await read(`(()=>{const cues=MontClipCaptions.parse('1\\n00:00:01,000 --> 00:00:02,800\\n合成句子一\\n\\n2\\n00:00:03,000 --> 00:00:04,000\\n合成句子二\\n');project.clips=cues.map((c,i)=>MontClipCaptions.clip(c,{id:'synthetic_c'+i,track:'V1'}));rebuildClips();setSelection(project.clips.map(c=>c.id));scheduleSave();})()`);
  assert.ok(await read('flushSave()'));
  await read(`updateMontClipView({language:'zh-CN'});setSideTab('assistant');mcAgent.render();true`);await wait();
  // real window coordinates of an element's centre, after checking it is the topmost element there
