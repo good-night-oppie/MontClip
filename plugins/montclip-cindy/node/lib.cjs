@@ -127,4 +127,12 @@ function installFfmpeg({ archive, spec, dest, win, tmpDir, sha256, extract, inst
   } finally { fs.rmSync(work, { recursive: true, force: true }); }
 }
 
-module.exports = { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg };
+/** tar's own words for why it could not unpack, as the code the banner explains: no room, no permission, or neither. */
+function unpackCode(stderr) {
+  const m = String(stderr || "");
+  if (/no space left|ENOSPC|not enough space|disk (is )?full/i.test(m)) return "ENOSPC";
+  if (/permission denied|access is denied|EACCES|EPERM|cannot open: .*denied/i.test(m)) return "EACCES";
+  return "UNPACK_FAILED";
+}
+
+module.exports = { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg, unpackCode };

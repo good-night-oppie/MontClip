@@ -98,8 +98,10 @@ function failureText(head, error) {
      starts only from its button — the user's own click — or when the user asks the chat (montclip_install_ffmpeg). */
   const banner = document.getElementById('ffmpeg');
   const LATER = 'montclip.ffmpeg.later';
-  function bannerText(text, error) {
+  function bannerText(text, error, detail) {
     document.getElementById('ffmpegText').textContent = text;
+    const d = document.getElementById('ffmpegDetail');
+    d.textContent = detail || ''; d.hidden = !detail;     // the raw error: as text, on its own small line
     if (banner) banner.classList.toggle('error', !!error);
   }
   function progress(m) {
@@ -123,14 +125,18 @@ function failureText(head, error) {
       setTimeout(() => { banner.hidden = true; }, 4000);
       // the engine restarts to use it: follow it to its new address soon, not at the next minute
       setTimeout(async () => { const b = await ask('editor'); if (b.url && at(b.url) !== url) place(at(b.url)); }, 1500);
-    } else if (m.phase === 'failed' || m.phase === 'cancelled') { bannerText('ffmpeg 没装上：' + (m.message || m.phase) + '。可以再试一次。', true); get.textContent = '重试'; }
+    } else if (m.phase === 'failed' || m.phase === 'cancelled') {
+      // why, in plain words; the raw error small below; every failure offers 重试
+      const f = window.MontClipFfmpegFailure.describe(m.code || (m.phase === 'cancelled' ? 'CANCELLED' : ''), m.message);
+      bannerText(f.text, true, f.detail); get.textContent = '重试'; get.hidden = false;
+    }
   }
   if (banner) {
     channel.addEventListener('message', (e) => { const m = e.data || {}; if (m.type === 'ffmpeg-progress') progress(m); });
     document.getElementById('ffmpegGet').addEventListener('click', async () => {
       progress({ phase: 'queued' });
       const r = await ask('ffmpeg-install');
-      if (r.error) progress({ phase: 'failed', message: r.error });
+      if (r.error) progress({ phase: 'failed', code: r.code, message: r.error });
       else if (r.already || r.install) progress({ phase: 'installed' });
     });
     document.getElementById('ffmpegLater').addEventListener('click', () => {

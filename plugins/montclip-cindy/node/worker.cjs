@@ -14,7 +14,7 @@ const net = require("node:net");
 const http = require("node:http");
 const readline = require("node:readline");
 const { spawnSync } = require("node:child_process");
-const { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg } = require("./lib.cjs");
+const { fillWindowsEnv, newToken, createBinder, flatten, ffmpegSpec, installFfmpeg, unpackCode } = require("./lib.cjs");
 
 for (const k of ["log", "info", "debug", "warn", "error"]) console[k] = (...a) => process.stderr.write(a.map(String).join(" ") + "\n");
 
@@ -143,7 +143,7 @@ const METHODS = {
       sha256: F.sha256, installTree: F.installTree, check: F.checkLgpl, manifest: ffmpegManifest(),
       extract: (archive, dir) => {
         const t = spawnSync(tar, ["-xf", archive, "-C", dir], { encoding: "utf8", windowsHide: true });
-        if (t.status !== 0) throw Object.assign(new Error("unpacking failed: " + (t.stderr || t.error)), { code: "UNPACK_FAILED" });
+        if (t.status !== 0) throw Object.assign(new Error("unpacking failed: " + (t.stderr || t.error)), { code: unpackCode(t.stderr || String(t.error)) });
       },
     });
     note({ event: "ffmpeg-installed", version: out.version });
