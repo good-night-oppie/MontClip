@@ -18,7 +18,10 @@
        node desktop/package-win.cjs --full --out <dir outside the repository> --private-seed <file holding the DeepSeek key> --seed-model <model id>
      The key file is read here and nowhere else; its key goes into resources/montclip-seed-v1.json and nowhere else in the
      package (checked: every file is searched for it). On its first launch the app seals it with safeStorage and deletes the
-     seed (desktop/agent-seed.js). The key is never printed; the model id is given, never guessed. Not for CI. */
+     seed (desktop/agent-seed.js). The key is never printed; the model id is given, never guessed. Not for CI.
+     When it is done it prints the zip's SHA-256, to be written down with the streamer's number in the owner's own list (no
+     list file is written, nothing goes into the repository). --delete-key-file deletes the key file once the package is
+     made (and checks it is gone); without it, a reminder to delete it is printed. */
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), crypto = require('node:crypto');
 const { execFileSync, spawnSync } = require('node:child_process');
 const ROOT = path.join(__dirname, '..');
@@ -45,7 +48,20 @@ function privateSeed(argv, { root = ROOT, out } = {}) {
   try { key = fs.readFileSync(file, 'utf8').trim(); } catch (e) { fail('cannot read the key file ' + file + ' (' + (e.code || 'error') + ')'); }
   const AgentSeed = require('./agent-seed.js');
   try { AgentSeed.seedText({ model, apiKey: key }); } catch { fail('the key file ' + file + ' or --seed-model ' + JSON.stringify(model) + ' is not one a seed can hold (one line, no spaces; a model id of letters, digits and _.:/-)'); }
-  return { key, model };
+  return { key, model, file, deleteAfter: argv.includes('--delete-key-file') };
+}
+/** After a private package is made: its SHA-256 to write down, and the key file deleted (--delete-key-file) or a reminder. */
+function privateDone(seed, { zipName, sha256 }, { io = fs, say = (l) => process.stdout.write(l + '\n') } = {}) {
+  say('MONTCLIP_PRIVATE_PACKAGE ' + JSON.stringify({ zip: zipName, sha256 }));
+  say('请把这个 SHA-256 和这位主播的编号记进你自己的清单（脚本不写清单）：' + sha256);
+  if (seed.deleteAfter) {
+    try { io.unlinkSync(seed.file); } catch (e) { if (!e || e.code !== 'ENOENT') { say('密钥文件没能删掉，请自己删：' + seed.file); return { keyFileGone: false }; } }
+    const gone = !io.existsSync(seed.file);
+    say(gone ? '密钥文件已经删掉：' + seed.file : '密钥文件没能删掉，请自己删：' + seed.file);
+    return { keyFileGone: gone };
+  }
+  say('密钥文件用完了，请删掉它（加 --delete-key-file 可以让脚本打完包就删）：' + seed.file);
+  return { keyFileGone: false };
 }
 /** Files of the package (relative paths) whose bytes hold the key. */
 function filesHolding(appDir, files, key) {
@@ -217,9 +233,10 @@ async function main() {
     const sums = path.join(out, 'SHA256SUMS.txt'), line = `${zsha}  ${zipName}\n`;
     fs.appendFileSync(sums, line);
     const unpacked = all.reduce((s, f) => s + fs.statSync(path.join(path.dirname(appDir), top, f)).size, 0);
+    if (seed) privateDone(seed, { zipName, sha256: zsha });
     process.stdout.write('MONTCLIP_PACKAGE ' + JSON.stringify({ zip: zipName, sha256: zsha, bytes: size, unpackedBytes: unpacked, files: all.length, commit, tree, private: !!seed,
       ffmpegExe: source.files['ffmpeg.exe'], ffprobeExe: source.files['ffprobe.exe'], electronZipDir: zipDir ? 'given' : 'downloaded' }) + '\n');
   } finally { fs.rmSync(work, { recursive: true, force: true }); }
 }
 if (require.main === module) main().catch((e) => { console.error(e.message); process.exitCode = 1; });
-module.exports = { ROOT_FILES, ROOT_DIRS, ROOT_EXTRA, desktopFiles, repoReads, packagedFiles, privateSeed, filesHolding };
+module.exports = { ROOT_FILES, ROOT_DIRS, ROOT_EXTRA, desktopFiles, repoReads, packagedFiles, privateSeed, filesHolding, privateDone };

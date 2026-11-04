@@ -260,6 +260,12 @@ async function start() {
       dialog.showMessageBox(win, { type: 'warning', title: t.seedTitle, message: t[say].replace('{file}', seeded.file || ''), buttons: [t.ok], defaultId: 0, noLink: true }).catch(() => {});
     }
   }
+  // the 「AI 数据说明」 she read before the first request (desktop/agent-data-notice.js): two fixed operations, same guard
+  const dataNotice = require('./agent-data-notice').createStore(app.getPath('userData'));
+  // a development smoke (never the packaged app) has read it, in its own fresh profile, unless it tests the notice itself
+  if (smoke && process.env.MONTCLIP_SMOKE_NOTICE !== 'show') dataNotice.ack(require('./agent-data-notice').NOTICE_VERSION);
+  ipcMain.handle('montclip:agent:noticeGet', (event) => settingsAllowed(event, win, origin) ? dataNotice.get() : { ok: false, code: 'AGENT_FORBIDDEN' });
+  ipcMain.handle('montclip:agent:noticeAck', (event, version) => settingsAllowed(event, win, origin) ? dataNotice.ack(version) : { ok: false, code: 'AGENT_FORBIDDEN' });
   for(const operation of ['get','configure','reset','deleteConnection','send','cancel']) ipcMain.handle('montclip:agent:'+operation,(event,value)=>{
     if(!settingsAllowed(event,win,origin))return {ok:false,code:'AGENT_FORBIDDEN'};
     return agentService[operation](value);

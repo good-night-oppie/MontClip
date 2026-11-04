@@ -51,6 +51,8 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `package-smoke.cjs` | `PACKAGE_SMOKE_COMPLETE` | 在用；用 node 运行：`node desktop/package-smoke.cjs <打好的 zip>` |
 | `remove-connection-smoke.cjs` | `REMOVE_COMPLETE` | 在用 |
 | `agent-seed-smoke.cjs` | `SEED_PASS` | 在用 |
+| `agent-outgoing-smoke.cjs` | `OUTGOING_PASS` | 在用 |
+| `agent-off-smoke.cjs` | `AGENT_OFF_PASS` | 在用 |
 | `review-body-smoke.cjs` | `REVIEW_PASS` | 在用 |
 | `sentence-button-smoke.cjs` | `SENTENCE_BUTTON_COMPLETE` | 在用 |
 | `sentence-dialog-smoke.cjs` | `SD_PASS` | 在用 |

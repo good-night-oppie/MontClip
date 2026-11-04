@@ -102,7 +102,9 @@ test('the page cannot delete by itself: one fixed, guarded IPC with no argument,
  assert.ok(loop,'agent operations go through the sender/frame/origin guard');
  assert.deepEqual(loop[1].split(',').map(s=>s.trim().replace(/'/g,'')),['get','configure','reset','deleteConnection','send','cancel'],'the IPC list is fixed');
  assert.match(preload,/deleteConnection:\(\)=>ipcRenderer\.invoke\('montclip:agent:deleteConnection'\)/,'the page passes nothing: no path, no file name');
- assert.equal((preload.match(/montclip:agent:/g)||[]).length,6);
+ // six for the service, and the two of the 「AI 数据说明」 (desktop/agent-data-notice.js; QQ via DD and Deja, 2026-11-04)
+ assert.equal((preload.match(/montclip:agent:/g)||[]).length,8);
+ assert.deepEqual((preload.match(/montclip:agent:notice[A-Za-z]+/g)||[]).sort(),['montclip:agent:noticeAck','montclip:agent:noticeGet']);
  for(const src of [preload,pane])assert.doesNotMatch(src,/agent-connection|require\(['"]node:fs|unlink|rmdir|rmSync/,'no file names or file calls in the page or preload');
  const svc=read('desktop/agent-service.js');
  assert.match(svc,/deleteConnection\(\)\{/,'the service method takes no argument');
