@@ -4958,7 +4958,9 @@ dialog.as-add .as-seg button.on { border-color: var(--accent); background: var(-
 dialog.as-add .as-add-namefield { margin: 8px 0 12px; }
 dialog.as-add .as-small, dialog.as-learn .as-small { color: var(--dim); font-size: 12px; }
 dialog.as-add .as-row, dialog.as-learn .as-row { display: flex; gap: 8px; }
-dialog.as-learn .as-learn-count { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin: 10px 0; }
+/* VV on #90: room under the sub line; 已记 N 条 is plain grey text */
+dialog.as-learn [data-learn-sub] { margin: 0 0 12px; }
+dialog.as-learn .as-learn-count { color: var(--dim); margin: 10px 0; }
 dialog.as-learn ul { padding-left: 18px; margin: 0 0 12px; }
 dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 /* the 估的 note, once under the overview, above the first card */

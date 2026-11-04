@@ -10426,6 +10426,14 @@ function autoBuild() {
   // the editor's shortcuts listen on window: none of them may act on the timeline behind the dialog
   d.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z") && !isTypingTarget(document.activeElement)) { e.preventDefault(); autoUndo(); }
+    // Tab stays in the dialog: past the last control it comes back to the first, and the other way round (VV, #96)
+    if (e.key === "Tab" && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      const f = [...d.querySelectorAll('button, input, select, textarea, summary, [href], [tabindex]:not([tabindex="-1"])')]
+        .filter((x) => !x.disabled && x.getClientRects().length && !x.closest("[hidden], [inert]"));
+      const i = f.indexOf(document.activeElement);
+      if (f.length && !e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); }
+      else if (f.length && e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
+    }
     if (e.key !== "Escape") e.stopPropagation();
   });
   d.addEventListener("click", autoClick);
@@ -10783,11 +10791,16 @@ function autoLearnLineHtml() {
 }
 /** 〔打开〕 on the line (JJ's (b), Deja 2026-11-03): the page's own switch, on at once; one undo step (〔撤销〕 or Ctrl+Z)
  *  turns it off again. Nothing changed while it was off is kept afterwards. The page follows if it is open. */
+/** 设置 › 自动出切片: 开着 / 关着 beside 〔记住我的剪辑习惯〕, as the switch is (VV on #90 b76bbe3). */
+function autoLearnStateShow() {
+  const el = document.querySelector("#setSlices [data-learn-state]");
+  if (el) el.textContent = KEPT.on === false ? uiText("own.as-learn-state-off") : uiText("own.as-learn-state-on");
+}
 function autoLearnSet(on) {
   const s = autoStore();
   if (!s) return false;
   try { s.setEnabled(on); } catch { return false; }
-  KEPT.on = on;
+  KEPT.on = on; autoLearnStateShow();
   if (document.querySelector("dialog.as-learn[open]")) autoLearnOpen();
   return true;
 }
@@ -10835,13 +10848,13 @@ async function autoLearnOpen(confirm = false) {
   const s = autoStore();
   if (!s) return;
   let now; try { now = await s.status(); } catch { return; }
-  KEPT.on = now.enabled;
+  KEPT.on = now.enabled; autoLearnStateShow();
   let d = document.querySelector("dialog.as-learn");
   if (!d) {
     d = document.createElement("dialog"); d.className = "as-learn"; document.body.append(d);
     d.addEventListener("change", async (e) => {
       if (!e.target.matches("[data-learn-switch]")) return;
-      const on = e.target.checked; await s.setEnabled(on); KEPT.on = on;
+      const on = e.target.checked; await s.setEnabled(on); KEPT.on = on; autoLearnStateShow();
       toast(uiText(on ? "own.as-learn-turned-on" : "own.as-learn-turned-off")); autoLearnRefresh();
     });
     d.addEventListener("click", async (e) => {
@@ -10862,7 +10875,12 @@ async function autoLearnOpen(confirm = false) {
 }
 function autoLearnRefresh() { if (AUTO.el && AUTO.el.open && autoState().step === "review") autoRender("review"); }
 { const box = $("setSlices"), b = box && box.querySelector("[data-learn-open]");
-  if (box && autoStore()) { box.classList.remove("hidden"); b.addEventListener("click", () => autoLearnOpen()); } }
+  if (box && autoStore()) {
+    box.classList.remove("hidden"); b.addEventListener("click", () => autoLearnOpen());
+    try { KEPT.on = !!autoStore().status().enabled; } catch { }
+    autoLearnStateShow();
+    $("btnSettings")?.addEventListener("click", autoLearnStateShow);   // in the language shown now
+  } }
 /* ── end 记住我的剪辑习惯 ── */
 function autoFooter() {
   const st = autoState(), f = AUTO.el && AUTO.el.querySelector("[data-as-footer]");

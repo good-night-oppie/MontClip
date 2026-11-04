@@ -460,6 +460,9 @@
     "as-added": ["Added “{name}”; its card says “Added by you”.", "已补上「{name}」，卡片上标了「你补的」。"],
     "as-added-why": ["Added from the start and end set on the timeline", "用时间线上设好的开头和结尾补的"],
     "as-add-failed": ["That part cannot be added: it must lie inside the recording and be at least 5 seconds long.", "这段补不上：要在这场录像里面，而且至少 5 秒。"],
+    // 设置 › 自动出切片: whether 记住我的剪辑习惯 is on, beside its button (VV on #90; Deja's words)
+    "as-learn-state-on": ["On", "开着"],
+    "as-learn-state-off": ["Off", "关着"],
     "as-learn-title": ["Remember my editing habits", "记住我的剪辑习惯"],
     "as-learn-sub": ["This page also opens from “Settings › Auto slices”.", "在「设置 › 自动出切片」里也能打开这一页。"],
     "as-learn-switch": ["Remember my changes, to find closer next time", "记住我的修改，下次找得更准"],
