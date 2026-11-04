@@ -91,6 +91,45 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.deepEqual(foot.allOut,{sum:zh('as-foot-all-out'),place:place0,exp:exp0,disabled:true,faded:true});
   assert.deepEqual(foot.noneTicked,{sum:zh('as-foot-none-ticked'),place:place0,exp:exp0,disabled:true,faded:true});
   assert.deepEqual(foot.noneFound,{sum:(zh('as-sum-n',{n:0})+' '+zh('as-sum-none')).trim(),place:place0,exp:exp0,disabled:true,faded:true});
+  // VV on #90 b76bbe3: 设置 › 自动出切片 says beside 〔记住我的剪辑习惯〕 whether it is on — 「开着 / 关着」 — as the switch is,
+  // at once: the page's own switch, and the line's 〔打开〕 with its 〔撤销〕
+  const state=()=>read(`(()=>{const s=document.querySelector('#setSlices [data-learn-state]'),b=document.querySelector('#setSlices [data-learn-open]');return s?{text:s.textContent,beside:b.parentElement.contains(s)}:null;})()`);
+  const st0=await state();report.settingsState=[st0];
+  assert.deepEqual(st0,{text:zh('as-learn-state-on'),beside:true});
+  await read(`(async()=>{document.querySelector('#setSlices [data-learn-open]').click();await new Promise(r=>setTimeout(r,300));const s=document.querySelector('dialog.as-learn[open] [data-learn-switch]');s.checked=false;s.dispatchEvent(new Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,300));return true;})()`);
+  const st1=await state();report.settingsState.push(st1);assert.equal(st1.text,zh('as-learn-state-off'),'off at once, the page still open');
+  // the page: room between its sub line and the switch; 已记 N 条 as plain grey text, no box
+  const page=await read(`(()=>{const d=document.querySelector('dialog.as-learn[open]'),sub=d.querySelector('[data-learn-sub]'),sw=d.querySelector('[data-learn-switch]').closest('label'),c=d.querySelector('[data-learn-count]'),cs=getComputedStyle(c),dim=getComputedStyle(sub).color;
+    return{gap:sw.getBoundingClientRect().top-sub.getBoundingClientRect().bottom,border:cs.borderTopStyle,padLeft:cs.paddingLeft,grey:cs.color===dim};})()`);
+  report.learnPage=page;
+  assert.ok(page.gap>=8,'room between the sub line and the switch: '+page.gap);assert.deepEqual([page.border,page.padLeft,page.grey],['none','0px',true]);
+  await read(`(async()=>{document.querySelector('dialog.as-learn [data-learn-ok]').click();await new Promise(r=>setTimeout(r,200));autoRender('review');document.querySelector('[data-as-learn-line] [data-as-act=learn-on]').click();await new Promise(r=>setTimeout(r,300));return true;})()`);
+  const st2=await state();report.settingsState.push(st2);assert.equal(st2.text,zh('as-learn-state-on'),'on again from the line');
+  await read(`(async()=>{document.querySelector('[data-as-toast-undo]').click();await new Promise(r=>setTimeout(r,300));return true;})()`);
+  const st3=await state();report.settingsState.push(st3);assert.equal(st3.text,zh('as-learn-state-off'),'〔撤销〕: off again');
+  await read(`(async()=>{document.querySelector('[data-as-learn-line] [data-as-act=learn-on]').click();await new Promise(r=>setTimeout(r,300));return true;})()`);
+  // VV did not try it: Tab through the review dialog — the focus never leaves it, and goes the way the eye does: down the
+  // page, or across to the next column of the same row (a card's 开头 / 结尾 side by side)
+  await size(1280,800);
+  await read(`(()=>{const d=document.querySelector('dialog.auto-slices');d.querySelector('[data-as-body]').scrollTop=0;d.querySelector('.as-head button,.as-head [tabindex]').focus();return true;})()`);
+  const where=`(()=>{const d=document.querySelector('dialog.auto-slices'),e=document.activeElement,body=d.querySelector('[data-as-body]'),r=e.getBoundingClientRect(),br=body.getBoundingClientRect();
+    const zone=d.querySelector('.as-head').contains(e)?0:body.contains(e)?1:d.querySelector('[data-as-footer]').contains(e)?2:3;
+    return{inside:d.contains(e),zone,top:zone===1?r.top-br.top+body.scrollTop:r.top,left:r.left,right:r.right,card:(e.closest('[data-as-card]')||{}).dataset?.asCard||null,what:e.dataset.asAct||e.dataset.asCard||e.tagName+(e.textContent||'').trim().slice(0,8)};})()`;
+  const steps=[await read(where)];
+  for(let i=0;i<160;i++){for(const type of ['keyDown','keyUp'])win.webContents.sendInputEvent({type,keyCode:'Tab'});await wait(40);steps.push(await read(where));}
+  report.tab={n:steps.length,outside:steps.filter(x=>!x.inside).length};
+  assert.equal(report.tab.outside,0,'the focus never leaves the dialog');
+  // one pass, up to where it comes back round to the top
+  const pass=[];for(const x of steps){if(pass.length&&x.zone<pass[pass.length-1].zone)break;pass.push(x);}
+  report.tab.pass=pass.length;
+  const wrong=[];for(let i=1;i<pass.length;i++){const a=pass[i-1],b=pass[i];
+   if(b.zone>a.zone)continue;
+   if(b.top>=a.top-4)continue;                        // down the page, or along the same row
+   if(b.card&&b.card===a.card&&b.left>=a.right-4)continue;   // across to the next column of the same card
+   wrong.push([a.what,b.what]);}
+  report.tab.wrong=wrong;
+  assert.deepEqual(wrong,[],'the focus goes the way the eye does');
+  assert.ok(pass.length>=10,'a whole pass: '+pass.length);
   ok=true;
  }catch(e){report.error=String(e&&e.stack||e).slice(0,1500);}
  finally{try{fs.rmSync(asrEmpty,{recursive:true,force:true});}catch{}out(ok?'FIRST_SCREEN_PASS':'FIRST_SCREEN_FAIL',report);process.exitCode=ok?0:1;app.exit(ok?0:1);}

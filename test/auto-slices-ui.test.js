@@ -199,3 +199,10 @@ test('the footer: the empty states in JJ\'s words, the short words for a narrow 
  for(const k of ['as-place-short','as-export-short'])a.ok(en(k,{n:3})&&!/[一-鿿]/.test(en(k,{n:3})),k);
  a.equal(V.text['zh-CN']['own.as-tick-first'],undefined);a.ok(!/as-tick-first/.test(read('app.js')));
 });
+
+// VV on #90 b76bbe3: 设置 › 自动出切片 says whether 「记住我的剪辑习惯」 is on (Deja's words: 开着 / 关着, On / Off)
+test('设置 › 自动出切片: 开着 / 关着 beside 〔记住我的剪辑习惯〕',()=>{
+ const en=(k,v)=>V.t('en','own.'+k,v);
+ a.deepEqual([zh('as-learn-state-on'),zh('as-learn-state-off'),en('as-learn-state-on'),en('as-learn-state-off')],['开着','关着','On','Off']);
+ a.match(read('index.html'),/id="setSlices"[\s\S]*?data-learn-open[\s\S]*?data-learn-state/);
+});
