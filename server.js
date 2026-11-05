@@ -873,6 +873,16 @@ const exportJobs = createExportJobs({
   url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}${EMBED ? "&token=" + EMBED_TOKEN : ""}`,
   broadcast,
   editors: () => sseClients.size,
+  // a job that failed or was cancelled stops its encode now: ffmpeg and the half-finished file did wait for the
+  // 10-minute idle sweep, while a retry was already writing the next file (P11, europa 2026-11-05)
+  onEnd: (j) => { for (const [id, s] of [...exportSessions]) if (s.job === j.id) cleanupExport(id); },
+  // an export is done when its file is in exports/ under its own name (the .part is renamed only after ffmpeg exits)
+  finished: (src) => {
+    let name = "";
+    try { name = decodeURIComponent(String(src).split("?")[0].replace(/^\/exports\//, "")); } catch { return false; }
+    if (!name || name !== path.basename(name) || /\.part\.[^.]+$/i.test(name)) return false;
+    try { return fs.statSync(path.join(EXPORTS_DIR, name)).isFile(); } catch { return false; }
+  },
 });
 
 /* Static file with HTTP Range support (required for <video> seeking) */
@@ -1659,7 +1669,10 @@ async function handleRequest(req, res) {
       const mode = opts.mode === "annexb" ? "annexb" : "jpeg";
       if (mode !== "annexb" && opts.profile) resolveProfile(opts.profile); // 400, not 500, on a bad id — even without ffmpeg
       if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
-      sendJSON(res, 200, await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts));
+      const begun = await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts);
+      // the agent's export job this encode belongs to (export-jobs.js): when that job ends without a file, so does this
+      if (typeof opts.job === "string" && opts.job && exportSessions.has(begun.id)) exportSessions.get(begun.id).job = opts.job;
+      sendJSON(res, 200, begun);
     } catch (e) {
       // an unusable profile is the caller's problem, not a server fault
       const bad = /^Unknown encoding profile|was rejected by ffmpeg|ffmpeg rejected these settings|at most \d+ outputs|deliveries is empty|render each frame rate separately|export fps required|export width\/height required/.test(e.message || "");
