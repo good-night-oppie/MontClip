@@ -4,6 +4,10 @@
 
 The desktop app runs only the FFmpeg it ships in `resources/ffmpeg/`
 (see `ffmpeg-path.js`); it never uses an FFmpeg found on `PATH`.
+The Cindy plugin (`plugins/montclip-cindy`) does not ship FFmpeg: on first use it
+downloads this same pinned win32-x64 archive into `~/MontClip-Cindy/ffmpeg/win32-x64/`
+(SHA-256 and size checked by Cindy, then the same LGPL check), together with its
+`LICENSE.txt`, and runs only that copy.
 
 - Version: FFmpeg `n9.0.2-42-gd7643a0fe3`
 - License: **LGPL-3.0-or-later** (configured with `--enable-version3`, without

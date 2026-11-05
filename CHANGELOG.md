@@ -7,7 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Cindy task operations bind and run together; exports reject switched projects and editor status only accepts the originating task.
+- Cindy export delivery cannot overwrite a file created during copying; long exports offer a retry for delivery, and export results omit absolute paths.
+
 ### Added
+- Cindy plugin entry points: the status card's 「在这个任务里打开剪辑器」 button, `montclip_open_task_view` in the chat's own
+  task, every tool call bound to that task's project (`sessionContext`), and a main view that is an overview across
+  tasks with a hint to pin MontClip to the left navigation.
+- Cindy plugin export: `montclip_export` saves into a folder the user picks (never over an existing file) and shows
+  the export's progress on its chat card.
+- Cindy plugin first-use ffmpeg: a banner in the editor tab (or `montclip_install_ffmpeg` from the chat) downloads the
+  pinned LGPL build with `cindy.downloads`, shows its progress, and installs it with the Windows app's own staged
+  install and LGPL check. `desktop/ffmpeg-manifest.json` now pins the win32-x64 archive's byte count.
+- Cindy plugin right-sidebar panel: 文稿 lists the timeline's lines, follows the playhead and moves the editor on a
+  click; 属性 shows the selected clip. Inside Cindy the editor tab shares its playhead and selection with the panel
+  over `BroadcastChannel("montclip-editor")`.
+- Embedded editor (`?host=cindy`, `host-embed.js`): the built-in assistant is hidden inside Cindy (its chat takes
+  that place) and the editor follows Cindy's light / dark theme; the plugin's task view sends the theme in.
+- Cindy plugin shell `plugins/montclip-cindy` (0.1.0): the editor in a task view beside the chat, one MontClip
+  project per Cindy task (no duplicate on first open), the engine reachable only from the plugin's pages
+  (`MONTCLIP_HOST=cindy` session token → cookie), the trimmed Windows environment of Cindy's Node worker filled in
+  so headless export finds Chrome / Edge, and chat tools for editing, undo / redo / seek and opening the editor. When the
+  Windows app has the same projects open, the chat and the editor tab say so in plain words, with a retry.
 - Engine groundwork for the Cindy plugin (one engine, two shells): `mcp-server.js` can be required as a module
   (`{TOOLS, callTool, ensureUIServer}`), `POST /api/ui/command` asks the open editor tab to undo / redo / seek /
   report its state, the editor's undo history is kept per project (`/api/ui/undo-stack`) so a reloaded tab gets

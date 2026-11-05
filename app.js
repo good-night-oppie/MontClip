@@ -1352,6 +1352,7 @@ async function connectServer() {
     runtime.projectId = res.headers.get("X-FableCut-Project");
     await restoreUndoStack();   // a reloaded page gets its undo history back
     window.addEventListener("pagehide", keepPlayheadOnLeave);
+    if (typeof MontClipHost !== "undefined" && MontClipHost.embedded) startHostChannel();
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") keepPlayheadOnLeave(); });
     if (res.headers.get("X-FableCut-Projects")) initProjectsUi();
     listenSSE();
@@ -4375,13 +4376,15 @@ function onUiCommand(data) {
   let c = {};
   try { c = JSON.parse(data); } catch { return; }
   if (!c.id) return;
+  if (c.session && new URLSearchParams(location.search).get("cindySession") !== c.session) return;
+  if (c.project && runtime.projectId !== c.project) return;
   let ok = true, code = null;
   if (c.cmd === "undo") { if (runtime.undo.length) undo(); else { ok = false; code = "NOTHING_TO_UNDO"; } }
   else if (c.cmd === "redo") { if (runtime.redo.length) redo(); else { ok = false; code = "NOTHING_TO_REDO"; } }
   else if (c.cmd === "seek") setTime(+c.t || 0);
   else if (c.cmd !== "state") { ok = false; code = "UNKNOWN_CMD"; }
   fetch("/api/ui/command/result", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-    id: c.id, ok, ...(code ? { code } : {}), cmd: c.cmd, time: state.time, undo: runtime.undo.length, redo: runtime.redo.length,
+    id: c.id, session: c.session, project: runtime.projectId, ok, ...(code ? { code } : {}), cmd: c.cmd, time: state.time, undo: runtime.undo.length, redo: runtime.redo.length,
     revision: project.revision ?? null, clips: project.clips.length, duration: projDur(),
   }) }).catch(() => {});
 }
@@ -4422,6 +4425,30 @@ async function restoreUndoStack() {
   }
   if (stack.time > 0) setTime(Math.min(stack.time, projDur()));
   return true;
+}
+/* Inside Cindy the plugin's side panel (Transcript, Properties) is another page of this origin: this tab tells it where
+   the playhead is and what is selected, and takes its seeks, over BroadcastChannel("montclip-editor"). Messages:
+   editor → {type:"editor-state", time, playing, selId, revision, projectId} (on a change, and at least once a second);
+   panel → {type:"seek", t} | {type:"hello"}. */
+function startHostChannel() {
+  if (typeof BroadcastChannel !== "function" || runtime.hostChannel) return;
+  const ch = runtime.hostChannel = new BroadcastChannel("montclip-editor");
+  let last = "";
+  const post = (force) => {
+    const msg = { type: "editor-state", time: Math.round(state.time * 100) / 100, playing: !!state.playing, selId: state.selId ?? null,
+      revision: project.revision ?? null, projectId: runtime.projectId || null };
+    const key = JSON.stringify(msg);
+    if (force || key !== last) { last = key; ch.postMessage(msg); }
+  };
+  ch.onmessage = (e) => {
+    const m = e.data || {};
+    if (m.type === "seek" && Number.isFinite(+m.t) && +m.t >= 0) { setTime(Math.min(+m.t, projDur())); post(true); }
+    else if (m.type === "hello") post(true);
+  };
+  // a change goes out at once; with nothing changing, once a second anyway, so the panel knows the editor is still open
+  let beat = 0;
+  setInterval(() => { beat = (beat + 1) % 4; post(beat === 0); }, 250);
+  post(true);
 }
 /* the page is going away (Cindy switching tasks, a reload): keep where the playhead was (connectServer listens) */
 function keepPlayheadOnLeave() {
@@ -11893,6 +11920,7 @@ function parseDbInput(s) {
   return Number.isFinite(v) ? clampFaderDb(v) : null;
 }
 function setSideTab(tab) {
+  if (tab === "assistant" && typeof MontClipHost !== "undefined" && MontClipHost.embedded) tab = "inspector";   // in Cindy the chat is Cindy's own
   document.getElementById("app").classList.remove("media-open");
   const assistant=tab==="assistant";document.getElementById("mcAssistantPanel").classList.toggle("hidden",!assistant);document.getElementById("app").classList.toggle("agent-open",assistant);
   const mixer = tab === "mixer", color = tab === "color", transcript = tab === "transcript";
@@ -20312,6 +20340,8 @@ async function reportExportJob(id, body, force = false) {
   } catch { }
 }
 async function runExportJob(ticket) {
+  if (ticket?.project && ticket.project !== runtime.projectId) return;
+  if (ticket?.session && !new URLSearchParams(location.search).has("exportJob") && new URLSearchParams(location.search).get("cindySession") !== ticket.session) return;
   if (!ticket?.id || state.exporting) return; // a busy tab leaves it for another
   const claimed = await fetch("/api/export/job/claim?id=" + encodeURIComponent(ticket.id), { method: "POST" })
     .then((r) => r.ok).catch(() => false);
@@ -20321,6 +20351,7 @@ async function runExportJob(ticket) {
   for (let i = 0; i < 150 && ticket.revision != null && (project.revision || 0) < ticket.revision; i++)
     await new Promise((r) => setTimeout(r, 100));
   if (ticket.revision != null && (project.revision || 0) < ticket.revision) await syncFromServer();
+  if (ticket.project && ticket.project !== runtime.projectId) return fail("The export project changed.");
   if (ticket.kind === "scopes") return runScopesJob(ticket, fail);
   if (ticket.kind === "track") return runTrackJob(ticket, fail);
   if (ticket.kind === "transcribe") return runTranscribeJob(ticket, fail);
@@ -20336,11 +20367,13 @@ async function runExportJob(ticket) {
     return fail("range in-out needs the project's inPoint and/or outPoint — set them, or export the entire timeline");
   exportRangeForced = ticket.range || (hasWorkArea() ? "in-out" : "entire");
   try {
+    if (ticket.project && ticket.project !== runtime.projectId) return fail("The export project changed.");
     if (exportRange().frames < 1) return fail("the export range is empty — IN/OUT is at or past the end of the timeline");
     reportExportJob(ticket.id, { progress: 0 }, true);
     // an explicit profile wins; then the job's delivery spec, the project's, else the raw default
     const want = ticket.profile || ticket.deliveries ? null : ticket.delivery || project.delivery || null;
     if (want || ticket.deliveries) await fetchDeliveryInfo();
+    if (ticket.project && ticket.project !== runtime.projectId) return fail("The export project changed.");
     if (ticket.deliveries) {
       // one render per frame rate; the job reports every file at the end
       const specs = ticket.deliveries.map((d) => normalizeDelivery(d).spec);

@@ -173,6 +173,25 @@ reports the real paths.
 folder — the Windows app and the Cindy plugin pointed at one folder, say —
 refuses to start and names the first. A lock whose process is gone is taken over.
 
+Cindy worker operations carry the originating task session and serialize binding with the operation.
+Export captures the bound project before folder selection and refuses a changed project with
+`EXPORT_PROJECT_CHANGED`. Export jobs carry `project` and `session` through their tickets; the editor
+checks project identity before rendering. UI commands optionally carry `session` and `project`, and
+only matching editor replies are accepted. Cindy task frames use `cindySession` in their URL.
+
+**Embedded in Cindy** (`plugins/montclip-cindy`, see its README) the engine runs
+with `MONTCLIP_HOST=cindy` and a 64-hex `MONTCLIP_EMBED_TOKEN`, loopback only. It
+answers only requests that carry the token: as the `montclip_embed` cookie, which a
+page load of any URL with `?token=<token>` receives (302 to the same URL without it),
+or as `X-MontClip-Session` (the plugin worker, and `mcp-server.js` when it runs with
+the same variables). Everything else gets 403.
+The editor page opened with `?host=cindy` (host-embed.js) hides its built-in
+assistant — Cindy's chat takes its place — and follows Cindy's theme: `?theme=light|dark`
+at load, then `postMessage({type:"montclip-host-theme", scheme})` from the framing page.
+Embedded, it also shares its playhead and selection with the plugin's side panel over
+`BroadcastChannel("montclip-editor")` (`{type:"editor-state", time, playing, selId, revision, projectId}`
+four times a second when they change) and takes `{type:"seek", t}` from it.
+
 `mcp-server.js` run as a program speaks MCP on stdio; required as a module (the
 Cindy plugin's Node worker does) it only hands over `{TOOLS, callTool,
 ensureUIServer}` and leaves stdin alone.

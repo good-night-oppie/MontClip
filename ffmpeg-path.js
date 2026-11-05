@@ -41,14 +41,16 @@ function resolveTool(name, opts = {}) {
   const exe = exeName(name, platform);
   const packaged = env.MONTCLIP_FFMPEG_PACKAGED === "1";
   const missing = (p, source, why) => ({ ok: false, path: p, source, error: why });
+  // what to do about a missing packaged build: the Windows app is reinstalled; the Cindy plugin downloads it
+  const remedy = env.MONTCLIP_FFMPEG_REMEDY || "Reinstall MontClip to restore it.";
 
   if (packaged) {
     const dir = env.MONTCLIP_FFMPEG_DIR;
     if (!dir || !path.isAbsolute(dir)) return missing(path.join(appDir, "ffmpeg", exe), "packaged",
-      `MontClip could not find its bundled ${name}. Reinstall MontClip to restore it.`);
+      `MontClip could not find its bundled ${name}. ${remedy}`);
     const p = path.join(dir, exe);
     return exists(p) ? { ok: true, path: p, source: "packaged" }
-      : missing(p, "packaged", `MontClip's bundled ${name} is missing (${p}). Reinstall MontClip to restore it.`);
+      : missing(p, "packaged", `MontClip's bundled ${name} is missing (${p}). ${remedy}`);
   }
 
   const override = env[name === "ffmpeg" ? "MONTCLIP_FFMPEG" : "MONTCLIP_FFPROBE"];

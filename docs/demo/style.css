@@ -5141,6 +5141,62 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
   .app.agent-open .cindy-plan-what { display: none; }
   .app.agent-open .cindy-thread { min-height: 4.5em; }
 }
+
+/* ══ Inside another app (?host=cindy, host-embed.js): the host's chat replaces the built-in assistant, and the colours
+   follow the host's light / dark theme. The dark theme is the editor's own; light re-maps the surface variables. ══ */
+html[data-host] #mcAssistant, html[data-host] #mcAssistantTab, html[data-host] #mcAssistantPanel { display: none !important; }
+html[data-host-theme="dark"] { color-scheme: dark; }
+html[data-host-theme="light"] {
+  color-scheme: light;
+  --bg: #e9e9e6;
+  --panel: #f7f7f5;
+  --panel-head: #ececea;
+  --panel-sub: #f1f1ee;
+  --panel-2: #dcdcd8;
+  --well: #ffffff;
+  --border: #d4d4cf;
+  --text: #1f1f22;
+  --dim: #66666d;
+}
+/* light: the few places that write a light text colour of their own (on the dark theme's surfaces) */
+html[data-host-theme="light"] .logo { color: var(--text); }
+html[data-host-theme="light"] .btn.toggle.on, html[data-host-theme="light"] .bin-tabs button.on { color: #4b3fd6; }
+html[data-host-theme="light"] .ruler { background: var(--panel-head); }
+html[data-host-theme="light"] .track-headers, html[data-host-theme="light"] .track-head { background: var(--panel-sub); }
+/* light: what the dark theme writes in pale text or dark chips of its own (VV's contrast check of #113; every visible
+   text at least 3:1 — test/cindy-embed-contrast.test.js). Accent-tinted text goes to a deep accent, pale text to the
+   text colour, pale red to a deep red, dark chips to the light chip colour. */
+html[data-host-theme="light"] { --dim: #55555c; }
+html[data-host-theme="light"] .logo b,
+html[data-host-theme="light"] .style-opt.on,
+html[data-host-theme="light"] .btn.tiny.accent,
+html[data-host-theme="light"] .timecode,
+html[data-host-theme="light"] .mix-fx.on,
+html[data-host-theme="light"] .insp-row label.kf-graph-toggle:hover,
+html[data-host-theme="light"] .insp-row label.insp-reset:hover,
+html[data-host-theme="light"] .track-head .track-id[aria-pressed="true"],
+html[data-host-theme="light"] .cp-label:hover,
+html[data-host-theme="light"] .bin-tools select.on,
+html[data-host-theme="light"] .bin-tools .btn.tiny.on,
+html[data-host-theme="light"] .bin-filter-name,
+html[data-host-theme="light"] .bin-tag,
+html[data-host-theme="light"] .bin-colhead .bin-cell:hover,
+html[data-host-theme="light"] .bin-colhead .bin-cell.on,
+html[data-host-theme="light"] .pj-badge,
+html[data-host-theme="light"] .ver-num { color: #4b3fd6; }
+html[data-host-theme="light"] .bin-name,
+html[data-host-theme="light"] .bin-pop-label,
+html[data-host-theme="light"] .bin-pop-title,
+html[data-host-theme="light"] .relink-name b { color: var(--text); }
+html[data-host-theme="light"] .bin-offline-bar { color: #a3191f; }
+html[data-host-theme="light"] .bin-proxy.failed { background: #f6d5d6; color: #a3191f; }
+html[data-host-theme="light"] .bin-uses,
+html[data-host-theme="light"] .bin-proxy,
+html[data-host-theme="light"] .bin-proxy.ready:not(.on),
+html[data-host-theme="light"] .ver-badge,
+html[data-host-theme="light"] .bin-folder-add:hover { background: var(--panel-2); color: var(--text); }
+/* the thumbnail stays a dark picture well: its placeholder glyph stays light on it */
+html[data-host-theme="light"] .bin-thumb { color: #e8e8ee; }
 /* a recording nothing could read the length of (europa P3): JJ's sentence on the file */
 .bin-incomplete { font-size: 11px; line-height: 1.35; color: #ffb3b5; margin-top: 2px; white-space: normal; }
 .bin-row .bin-incomplete { grid-column: 1 / -1; padding-left: 28px; }

@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 3,
+  "minCindyVersion": "0.1.122",
+  "id": "montclip",
+  "name": "MontClip",
+  "description": "在 Cindy 任务里打开 MontClip 剪辑器，跟聊天并排。直接跟 AI 说怎么剪本机的录像和音频：删一段、剪掉停顿、加字幕、调音量、降噪、导出 MP4。每一步都能撤销、重做，也能回到以前的版本。MontClip 在这台电脑上运行，会读写这台电脑上的文件。",
+  "whenToUse": "需要剪辑本机录像或音频时：删掉某段、剪掉停顿、按文字剪、加字幕、调音量、降噪、按节拍剪、导出 MP4；撤销或重做剪辑；查看或回到 MontClip 项目的某个版本；在这个任务里打开 MontClip 剪辑器。",
+  "version": "0.5.1",
+  "releaseNotes": "同步 MontClip 主分支 6f537e49 的剪辑引擎，包含首次导入进度、单个素材自动选中和快捷键窗口关闭修复。保留按 Cindy 任务隔离的项目、撤销与导出操作。本包为待评审版本；导出中断恢复的后续修复及 Cindy 内完整验收尚未完成。",
+  "entry": "main.js",
+  "command": "剪辑",
+  "icon": "assets/icon.png",
+  "tools": [
+    {
+      "name": "montclip_status",
+      "description": "启动（如未启动）MontClip 引擎，切到这个任务自己的项目，返回引擎状态、ffmpeg 是否已装、数据目录，以及剪辑器页是否已打开（撤销/重做需要它打开）。聊天里会出现一张状态卡；剪辑器没打开时卡上有「在这个任务里打开剪辑器」按钮。先调这个。",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "list_tools",
+      "description": "列出 MontClip 引擎的剪辑操作（fablecut_*）。不传 category 返回类目概览；传 category 返回该类目每个操作的名称、说明、参数 schema 和该类目 RULES。类目：project（读/改时间线，删段用这里）、versions（版本）、audio、speech（听写/字幕）、export、other。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "类目名，来自概览"
+          }
+        }
+      }
+    },
+    {
+      "name": "call_tool",
+      "description": "执行一个 MontClip 剪辑操作。name 来自 list_tools 的返回（如 fablecut_patch_project、fablecut_versions）；args 按该操作的 inputSchema 传。改动写进这个任务的项目，剪辑器页会自动刷新，每次改动是剪辑器撤销栈里的一步。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "操作名，例如 fablecut_patch_project"
+          },
+          "args": {
+            "type": "object",
+            "description": "操作参数；不确定时传 {}，失败结果会附正确的 schema"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "montclip_undo",
+      "description": "撤销剪辑器里最近的一步（人改的和 Agent 改的在同一条撤销栈里）。需要剪辑器页已打开；没打开时返回 NO_EDITOR。返回撤销后的撤销/重做步数和修订号。",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "montclip_redo",
+      "description": "重做剪辑器里刚撤销的一步。需要剪辑器页已打开。",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "montclip_seek",
+      "description": "把剪辑器的播放头移到时间线上的某个时间（秒）。需要剪辑器页已打开。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "number",
+            "description": "时间线时间，秒"
+          }
+        },
+        "required": [
+          "t"
+        ]
+      }
+    },
+    {
+      "name": "montclip_export",
+      "description": "把这个任务的剪辑导出成文件，并存到用户在系统对话框里选的文件夹（不覆盖同名文件）；聊天里的卡片显示导出进度。range 不传时：设了 IN/OUT 就导出那一段，否则整条时间线。preset 是交付预设（youtube、instagram-reels、master…，见 call_tool fablecut_encode_profiles）。folder:\"default\" 时不弹对话框，留在 MontClip 数据目录的 exports 里。需要先装 ffmpeg（montclip_status）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "preset": {
+            "type": "string",
+            "description": "交付预设 id，例如 youtube、instagram-reels、master；不传用项目设置"
+          },
+          "range": {
+            "type": "string",
+            "enum": [
+              "entire",
+              "in-out"
+            ],
+            "description": "导出范围；不传按 IN/OUT 自动判断"
+          },
+          "folder": {
+            "type": "string",
+            "enum": [
+              "ask",
+              "default"
+            ],
+            "description": "ask（缺省）= 让用户选文件夹；default = 留在 MontClip 的 exports 里"
+          }
+        }
+      }
+    },
+    {
+      "name": "montclip_install_ffmpeg",
+      "description": "下载并安装 MontClip 固定版本的 LGPL ffmpeg（约 160 MB，从 GitHub 下载，Cindy 校验 SHA-256 和大小，装好后再核对是 LGPL 构建）。导出 MP4、降噪等要用它。只在用户同意下载后调用；已装好时直接返回。",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "montclip_open_task_view",
+      "description": "在这个任务的右侧栏打开（或切到）MontClip 剪辑器页签，跟聊天并排；用户说「打开剪辑器」「剪这段录像」时调用。每个任务对应自己的 MontClip 项目。不传 sessionId 就是聊天所在的这个任务。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "description": "可选：要打开到哪个任务；缺省是台前的任务"
+          }
+        }
+      }
+    }
+  ],
+  "taskView": {
+    "title": "MontClip 剪辑器",
+    "html": "task-view.html"
+  },
+  "mainView": {
+    "title": "MontClip",
+    "icon": "image",
+    "html": "main-view.html"
+  },
+  "panel": {
+    "title": "MontClip 面板",
+    "html": "panel.html",
+    "position": "right"
+  },
+  "preview": {
+    "hosts": [
+      "127.0.0.1"
+    ]
+  },
+  "network": {
+    "hosts": [
+      "github.com",
+      "release-assets.githubusercontent.com"
+    ]
+  },
+  "card": {},
+  "pick": true,
+  "sessionContext": true,
+  "node": {
+    "entry": "node/worker.cjs",
+    "protocol": "json-rpc-stdio",
+    "lifecycle": "on-demand",
+    "idleTimeoutSeconds": 3600
+  }
+}

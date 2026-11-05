@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>MontClip</title>
+<link rel="stylesheet" href="main-view.css">
+</head>
+<body>
+<main>
+  <h1>MontClip</h1>
+  <p class="lead">每个任务有自己的剪辑项目：在任务里打开剪辑器，它就在聊天旁边。这里列出所有任务的项目和导出的文件。</p>
+  <aside class="pin" id="pin">
+    <strong>把 MontClip 固定到左侧导航</strong>
+    <span>左侧导航「更多」→「自定义」，把 MontClip 拖到导航上。以后从导航一点就到这里。</span>
+    <button type="button" id="pinDone">知道了</button>
+  </aside>
+  <section>
+    <h2>项目</h2>
+    <p class="empty" id="projectsEmpty" hidden>还没有项目。在一个任务里跟 AI 说「打开剪辑器」就行。</p>
+    <ul class="list" id="projects"></ul>
+  </section>
+  <section>
+    <h2>导出的文件</h2>
+    <div class="where">
+      <p class="hint" id="exportsWhere"></p>
+      <button type="button" id="openExports" hidden>打开文件夹</button>
+    </div>
+    <p class="empty" id="exportsEmpty" hidden>还没有导出过。</p>
+    <ul class="list" id="exports"></ul>
+  </section>
+  <p class="status" id="status">正在读取…</p>
+  <div class="copybox" id="statusCopy" hidden></div>
+</main>
+<script src="problem-details.js"></script>
+<script src="main-view-model.js"></script>
+<script src="main-view.js"></script>
+</body>
+</html>
