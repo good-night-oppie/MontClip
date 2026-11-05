@@ -6,11 +6,12 @@
    ASSISTANT is what the assistant can do; a capability listed there is no longer reported as missing. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.MontClipLimits=factory();})(typeof globalThis!=='undefined'?globalThis:this,function(){
 'use strict';
-const ASSISTANT=Object.freeze(['keep_sentences','keep_ranges']);
+// reframe: the assistant's own (chat-proposal.js, Deja 2026-11-05) — so a vertical picture is no longer reported as missing
+const ASSISTANT=Object.freeze(['keep_sentences','keep_ranges','reframe']);
 // a vertical or square picture: 竖屏 / 横屏 / 方屏, 9:16 and the like (also with ： or 比), 画面比例, reframe, vertical, portrait,
 // aspect ratio; 竖版 / 竖版视频 too
 const UNSUPPORTED=Object.freeze([
- Object.freeze({id:'reframe',capability:'fablecut_reframe',
+ Object.freeze({id:'reframe',capability:'reframe',
   match:/竖屏|竖版|横屏|方屏|画面比例|改比例|(?:9|16|4|5|1)\s*(?::|：|比)\s*(?:16|9|5|4|1)\b|\breframe|\bvertical\b|\bportrait\b|aspect[ -]ratio/i,key:'limitReframe'}),
 ]);
 /** The things the message asks for that the assistant cannot do: [{id, capability, key}], in UNSUPPORTED's order. */

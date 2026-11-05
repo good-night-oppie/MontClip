@@ -738,6 +738,19 @@
     "ap-sum-sentences": ["Keep {count} sentences, about {duration} in the final cut.", "保留 {count} 句，成片大约 {duration}。"],
     "ap-sum-ranges": ["Keep {count} ranges joined into one video, about {duration}.", "保留 {count} 段，拼成一条，大约 {duration}。"],
     "ap-sum-slices": ["Cut {count} separate clips, one file each, about {duration} in total.", "切出 {count} 条切片，每条一个文件，一共大约 {duration}。"],
+    // the assistant's reframe (Deja, 2026-11-05; app.js runAgentReframe). 待 JJ 定稿: wording for JJ to settle
+    "ap-sum-reframe": ["Make a {aspect} copy of the sequence whose shots follow the person, then switch to it. The original stays as it is. It looks at the footage frame by frame, which can take a while.", "做一份 {aspect} 的新序列，画面跟着人走，做好后切换过去；原来的序列不动。要逐帧看画面，可能要等一会儿。"],
+    "rf-progress": ["Making the {aspect} version: looking at shot {n} of {of} · {pct}%", "正在做 {aspect} 的版本：看第 {n}/{of} 个镜头的画面 · {pct}%"],
+    "rf-cancel": ["Cancel", "取消"],
+    "rf-done": ["Made the {aspect} copy “{name}” and switched to it. Undo once to go back to the original sequence.", "已做好 {aspect} 的新序列「{name}」并切换过去。撤销一次就回到原来的序列。"],
+    "rf-cancelled": ["Cancelled. No sequence was made; nothing changed.", "已取消，没有新建序列，什么都没改。"],
+    "rf-changed": ["The project changed while the footage was being read, so no sequence was made. Ask again.", "看画面的时候项目改过了，所以没有新建序列。可以再让助手做一次。"],
+    "rf-nothing": ["No shot here can be reframed (only titles, picture-in-picture or clips placed by hand), so no sequence was made.", "这里没有能改比例的镜头（只有字幕、画中画或手动摆过的片段），所以没有新建序列。"],
+    "rf-busy": ["Something else is running (an export, or another reframe). Try again when it is done.", "现在有别的事在进行（导出或另一个改比例），等它完成再试。"],
+    "rf-failed": ["The footage couldn't be read, so no sequence was made.", "画面读不出来，所以没有新建序列。"],
+    "rf-same": ["The sequence already has that shape; there is nothing to make.", "这个序列已经是这个比例了，不用再做。"],
+    "rf-undone": ["Undone: the {aspect} copy was deleted and “{name}” is open again.", "已撤销：删掉了 {aspect} 的新序列，回到「{name}」。"],
+    "rf-undo-failed": ["Couldn't go back to the original sequence. Open it from the sequence menu.", "回不到原来的序列，请从序列菜单里打开它。"],
     "ap-undo": ["Undo", "撤销"],
     // P4, second half: the plan list. New copy, for JJ.
     "pl-step-of": ["Step {n} of {total} of the plan.", "计划的第 {n} 步，共 {total} 步。"],
@@ -1008,6 +1021,9 @@
   // (app.js EXPORT_FRAME_ASPECTS). Its labels are not translated yet (“Full canvas”, “9:16 Reel” in Chinese too), so the
   // Chinese names it by what it is and says 9:16; the English names the labels. noChange: a suggested edit that would change nothing.
   Object.assign(officialPaneText.en,{limitReframe:'The assistant can’t change the picture to vertical (another shape) yet. To do it by hand: in the drop-down above the player that shows “Full canvas”, choose “9:16 Reel”, then export.',noChange:'This suggestion would leave the timeline exactly as it is (it is {duration} now), so there is nothing to apply.'});
+  // the assistant's reframe proposal (Deja, 2026-11-05), 待 JJ 定稿
+  Object.assign(officialPaneText.en,{proposalReframe:'Suggested edit: a {aspect} copy of the sequence whose shots follow the person; the original stays as it is. You are asked before anything is made.'});
+  Object.assign(officialPaneText['zh-CN'],{proposalReframe:'已生成剪辑建议：做一份 {aspect} 的新序列，画面跟着人走，原来的序列不动。动手之前会先问你。'});
   Object.assign(officialPaneText['zh-CN'],{limitReframe:'改竖屏（改画面比例）这一步，助手现在做不了。可以手动改：在播放器上方的导出画面下拉框里选 9:16，再导出。',noChange:'按这个建议剪，时间线和现在完全一样（现在一共 {duration}），不用应用。'});
   // VV real-model test (2026-11-02): the format note that goes with every request, a reply without a usable proposal, and errors told apart
   Object.assign(officialPaneText.en,{errModel:'The model name is wrong. Check it in settings. Your draft is kept.',formatNote:'Format note sent with every request',formatNoteExplain:'The text below is a fixed note MontClip adds to every request. It only tells the AI how to format editing suggestions. It contains none of your recordings, subtitles or project content.',noProposal:'This reply is not an editing suggestion. To have it cut for you, say which sentences to keep.',errAuth:'The key is wrong or has no access. Check it in settings. Your draft is kept.',errRateLimit:'The service is limiting requests for now. Try again in a little while. Your draft is kept.',errTimeout:'The service did not answer in time. Check your connection and try again. Your draft is kept.',errNetwork:'Could not reach the service. Check your internet connection, then try again. Your draft is kept.',errUpstream:'The service is having trouble right now. Try again later, or choose another model in settings. Your draft is kept.'});

@@ -50,18 +50,20 @@ test('the pane shows no 〔查看剪辑建议〕 for an unchanged proposal and s
  a.equal(View.text.en.officialPane_noChange.replace('{duration}','00:50'),'This suggestion would leave the timeline exactly as it is (it is 00:50 now), so there is nothing to apply.');
 });
 
-test('the assistant cannot reframe: fablecut_reframe exists in MCP, not among what the assistant can do',()=>{
+// since the assistant's own reframe (test/agent-reframe.test.js) a vertical picture is something it can do: the words are
+// still recognised, and reported as missing only for an assistant without it
+test('a vertical picture is recognised from the words; reported as missing only without the assistant\'s reframe',()=>{
  a.ok(Cap.get('fablecut_reframe'),'MCP has it');
- a.deepEqual([...L.ASSISTANT],['keep_sentences','keep_ranges']);
+ a.deepEqual([...L.ASSISTANT],['keep_sentences','keep_ranges','reframe']);
+ const without=['keep_sentences','keep_ranges'];
  for(const t of ['剪到 1 分钟以内，发快手和 B 站竖屏','改成竖版视频','做个 9:16 的','9：16','画面比例改成 1:1','make it vertical','Reframe for Shorts','portrait please','change the aspect ratio'])
-  a.deepEqual(L.unsupported(t).map(u=>u.id),['reframe'],t);
+  {a.deepEqual(L.unsupported(t,without).map(u=>u.id),['reframe'],t);a.deepEqual(L.unsupported(t),[],t);}
  for(const t of ['剪到 1 分钟以内','把 1:15 到 2:30 留下','保留 0:16 之后的','keep the first 30 seconds','把她开口唱之前的安静部分剪掉'])
-  a.deepEqual(L.unsupported(t),[],t);
- a.deepEqual(L.unsupported('竖屏',[...L.ASSISTANT,'fablecut_reframe']),[],'once the assistant can, it is no longer reported');
+  a.deepEqual(L.unsupported(t,without),[],t);
 });
 
 test('a mixed message, with a substitute transport: the format note sent carries the rule, and the reply as shown starts with what can\'t be done',async()=>{
- const draft='剪到 1 分钟以内，发快手和 B 站竖屏',edit={type:'keep_ranges',output_mode:'one_file',ranges:[{clipId:'c',from:100,to:150}]};
+ const without=['keep_sentences','keep_ranges'],draft='剪到 1 分钟以内，发快手和 B 站竖屏',edit={type:'keep_ranges',output_mode:'one_file',ranges:[{clipId:'c',from:100,to:150}]};
  // the desktop service with an injected request: what would go to the provider
  let sent=null;
  const service=S.createService({read:()=>JSON.stringify({version:1,provider:'openrouter',model:'m',secret:'sealed'}),write(){},seal:k=>k,unseal:()=>'k',providers:S.ALL_PROVIDERS,
@@ -71,14 +73,16 @@ test('a mixed message, with a substitute transport: the format note sent carries
  conv.prepare();a.equal((await conv.confirm()).ok,true);
  const system=sent.messages[0];
  a.equal(system.role,'system');
- a.ok(system.content.includes('When a message also asks for something you cannot do and you answer in words, your first sentence says plainly what you cannot do, for example 「改竖屏这一步我现在做不了。」'));
- a.ok(system.content.includes('in Chinese: 在播放器上方的导出画面下拉框里选 9:16，再导出; in English: in the drop-down above the player that shows “Full canvas”, choose “9:16 Reel”, then export'));
+ // the rule now names what is still missing (publishing); the vertical copy has its own reply (test/agent-reframe.test.js)
+ a.ok(system.content.includes('When a message also asks for something you cannot do and you answer in words, your first sentence says plainly what you cannot do, for example 「发到快手和 B 站这一步我做不了。」'));
+ a.ok(system.content.includes('When one message asks both to cut and for another shape, reply with the cut first; the user asks for the shape after it.'));
  a.ok(system.content.includes('Do not propose an edit that would change nothing'));
- a.match(system.content,/You cannot change the picture's shape \(vertical, 9:16, square\)/);
- // the reply is an edit (JSON only, it cannot say anything): the pane's first sentence is the host's, decided by the words
+ a.match(system.content,/Apart from these replies you cannot change anything: you cannot export, upload or publish\./);
+ // the host's own first sentence: none now (the assistant can make the vertical copy); for an assistant without it, first
+ a.deepEqual(L.shown(draft,conv.result().text,{limitReframe:'x'}),[conv.result().text]);
  for(const lang of ['zh-CN','en']){
   const strings=new Proxy({},{get:(_,k)=>View.text[lang]['officialPane_'+String(k)]});
-  const shown=L.shown(draft,conv.result().text,strings);
+  const shown=L.unsupported(draft,without).length?[View.text[lang].officialPane_limitReframe,conv.result().text]:[conv.result().text];
   a.equal(shown.length,2);a.equal(shown[0],View.text[lang].officialPane_limitReframe);a.equal(shown[1],conv.result().text);
  }
  a.equal(View.text['zh-CN'].officialPane_limitReframe,'改竖屏（改画面比例）这一步，助手现在做不了。可以手动改：在播放器上方的导出画面下拉框里选 9:16，再导出。');
@@ -97,7 +101,7 @@ test('the names in the manual way are the ones on screen: the export-frame drop-
  const app=read('app.js'),html=read('index.html');
  a.match(app,/const EXPORT_FRAME_ASPECTS = \[\n  \{ label: "Full canvas", w: 0, h: 0 \},\n  \{ label: "9:16 Reel", w: 9, h: 16 \},/);
  a.match(html,/<select data-more-rank="6" id="exportFrameSel"/);
- for(const s of [View.text.en.officialPane_limitReframe,F.FORMAT_NOTE])a.ok(s.includes('“Full canvas”')&&s.includes('“9:16 Reel”'));
- // the labels are English in the Chinese interface too (not translated yet): the Chinese names the drop-down and 9:16
- for(const s of [View.text['zh-CN'].officialPane_limitReframe,F.FORMAT_NOTE])a.ok(s.includes('在播放器上方的导出画面下拉框里选 9:16，再导出'));
+ // the host's sentence (kept for JJ to settle; shown only for an assistant without reframe) names them
+ a.ok(View.text.en.officialPane_limitReframe.includes('“Full canvas”')&&View.text.en.officialPane_limitReframe.includes('“9:16 Reel”'));
+ a.ok(View.text['zh-CN'].officialPane_limitReframe.includes('在播放器上方的导出画面下拉框里选 9:16，再导出'));
 });

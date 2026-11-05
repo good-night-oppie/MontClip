@@ -23,6 +23,8 @@ function parseProposal(text){
 }
 function proposalSummary(text,references){
  try{const p=parseProposal(text);if(!p)return null;
+ // reframe: exactly {type, aspect}, a shape from the list (chat-proposal.js checks it again against the project)
+ if(p.type==='reframe')return Object.keys(p).sort().join(',')==='aspect,type'&&['9:16','1:1','4:5'].includes(p.aspect)?{count:1,duration:0,mode:'reframe',aspect:p.aspect}:null;
  if(p.type==='keep_ranges'){const keys=Object.keys(p).sort().join(',');if(keys!=='output_mode,ranges,type'||!['one_file','per_range'].includes(p.output_mode)||!Array.isArray(p.ranges)||!p.ranges.length||p.ranges.length>100)return null;
   let duration=0;for(const r of p.ranges){const k=r&&typeof r==='object'?Object.keys(r).sort().join(','):'';if(k!=='clipId,from,to'&&k!=='clipId,from,label,to'||typeof r.from!=='number'||typeof r.to!=='number'||!Number.isFinite(r.from)||!Number.isFinite(r.to)||r.from<0||r.to-r.from<0.5)return null;duration+=r.to-r.from;}
   return{count:p.ranges.length,duration,mode:p.output_mode};}

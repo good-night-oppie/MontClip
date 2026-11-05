@@ -48,6 +48,8 @@
       return ok ? out("run") : out("ask", ALL);
     }
     if (mode === "plan") return risk === "read" ? out("run") : out("list");
+    // asked every time in every mode, Yolo too (capabilities.js CONFIRM_EVERY_TIME): no 「都批准」, an earlier yes counts for nothing
+    if (Cap.confirmEveryTime(capability)) return out("ask", EVERY_TIME);
     if (mode === "yolo") return out("run");
     if (mode === "auto") return risk === "sensitive" && !ok ? out("ask", ALL) : out("run");
     // 手动

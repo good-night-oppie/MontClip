@@ -10,7 +10,7 @@ test('every MCP tool, both proposal shapes, the host’s three sends and the two
  const names=Cap.list().map(c=>c.name).sort();
  // the sends the host makes itself, each with its caps (Deja, #83): the assistant, the song lookup, cloud transcription;
  // the card edits of 「自动出切片」 (the owner / Deja, 2026-11-03): host capabilities, undoable (test/segment-edits.test.js)
- a.deepEqual(names,[...TOOLS.map(t=>t.name),'keep_ranges','keep_sentences','assistant_request','song_lookup','cloud_transcribe','set_segment_kind','add_segment'].sort());
+ a.deepEqual(names,[...TOOLS.map(t=>t.name),'keep_ranges','keep_sentences','reframe','assistant_request','song_lookup','cloud_transcribe','set_segment_kind','add_segment'].sort());
  a.equal(TOOLS.length,26);   // 25 in #74, plus #53's fablecut_danmaku
 });
 test('the MCP server serves the same tool definitions it always had (moved to mcp-tools.js, unchanged)',()=>{
@@ -31,8 +31,9 @@ test('each capability: a schema, one of the four risk levels, a plain sentence i
 test('risk levels follow the draft: reading is read, edits are undoable, files written or deleted are sensitive, sending out is external',()=>{
  const r=n=>Cap.riskOf(n);
  for(const n of ['fablecut_status','fablecut_docs','fablecut_get_project','fablecut_frame','fablecut_scopes','fablecut_encode_profiles'])a.equal(r(n),'read',n);
- for(const n of ['keep_ranges','keep_sentences','fablecut_patch_project','fablecut_silence','fablecut_beats','fablecut_reframe'])a.equal(r(n),'undoable',n);
- for(const n of ['fablecut_export','fablecut_projects','fablecut_versions','fablecut_captions'])a.equal(r(n),'sensitive',n);
+ for(const n of ['keep_ranges','keep_sentences','fablecut_patch_project','fablecut_silence','fablecut_beats'])a.equal(r(n),'undoable',n);
+ // reframe switches what is open (Deja, 2026-11-05): the assistant's reply and the MCP tool alike (test/agent-reframe.test.js)
+ for(const n of ['fablecut_export','fablecut_projects','fablecut_versions','fablecut_captions','fablecut_reframe','reframe'])a.equal(r(n),'sensitive',n);
  // Deja on #83: a download from a web address is blocked; a file on this computer is undoable (test/import-media-risk.test.js)
  a.equal(Cap.riskOf('fablecut_import_media',{path:'https://example.com/a.mp4'}),'blocked');
  a.equal(Cap.riskOf('fablecut_import_media',{path:'C:/a.mp4'}),'undoable');
