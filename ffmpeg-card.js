@@ -7,9 +7,10 @@
   else root.MontClipFfmpegCard = factory();
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
-  // zh-CN Linux card and result lines: JJ, final (2026-11-04, via Deja), word for word.
-  // Everything marked DRAFT is for JJ to finalise: the English, the Windows card, the macOS command, the no-H.264 lines
-  // and the path box. The Linux body is JJ's sentence in two parts (notFound + install), joined word for word.
+  // zh-CN: JJ, final, word for word — the Linux card and result lines (2026-11-04), the 「还不能导出 MP4」 card, the
+  // Windows card, the path box, the Export tooltips and the macOS card (2026-11-05). The Linux body is JJ's sentence in
+  // two parts (notFound + install). The Windows / macOS cards name buttons 〔…〕 (JJ); the Linux lines keep JJ's 「」.
+  // en: only the 「还不能导出 MP4」 title and body are final; the rest is a DRAFT for JJ.
   const text = {
     "zh-CN": {
       title: "还差一个剪辑工具",
@@ -22,25 +23,23 @@
       stillMissingLinux: "还是没找到。如果装在别处，点『手动选择』告诉我它在哪。",
       notFfmpeg: "这个文件不是 FFmpeg。请选名字叫 ffmpeg 的那个文件。",
       noProbe: "FFmpeg 找到了，但还缺它自带的 ffprobe。一般重新安装 FFmpeg 就会一起装上。",
-      // DRAFT
-      bodyWin: "预览和导出视频要用到免费工具 FFmpeg，这台电脑上还没找到它。如果已经装好，点「选择 ffmpeg.exe」告诉我它在哪。",
+      bodyWin: "预览和导出视频要用到免费工具 FFmpeg，这台电脑上还没找到它。如果已经装好了，点〔选择 ffmpeg.exe〕，选中它就行。",
       chooseWin: "选择 ffmpeg.exe",
-      stillMissingWin: "还是没找到。如果装在别处，点『选择 ffmpeg.exe』告诉我它在哪。",
+      stillMissingWin: "还是没找到。如果装在别的地方，点〔选择 ffmpeg.exe〕，选中它就行。",
+      installMac: "打开「终端」，粘贴下面这一行，按回车。装好后回到这里点〔重新检测〕。",
       // 「还不能导出 MP4」: JJ, final (2026-11-05, via Deja) — title, body and the Linux line, word for word
       noH264Title: "还不能导出 MP4",
       noH264: "这台电脑上的 FFmpeg 少了导出 MP4 要用的部分（H.264 编码）。片段照常能浏览、能标，导出要换一个完整版的 FFmpeg。",
       noH264Linux: "打开终端运行 `sudo apt install ffmpeg`，装好后点「重新检测」。",
       noH264Result: "这台电脑上的 FFmpeg 少了导出 MP4 要用的部分（H.264 编码）。",
-      // DRAFT
-      noH264Mac: "打开终端运行 `brew install ffmpeg`，装好后点「重新检测」。",
-      noH264Win: "点「选择 ffmpeg.exe」，选一个完整版的 FFmpeg。",
-      unavailableH264: "现在不能导出 MP4：这台电脑上的 FFmpeg 少了 H.264 编码。",
-      pathLabel: "FFmpeg 在哪（完整路径）",
+      noH264Win: "点〔选择 ffmpeg.exe〕，选一个完整版的 FFmpeg。",   // only 「」→〔〕 changed (JJ's rule); its wording is not one JJ listed
+      unavailableH264: "现在还不能导出 MP4：这台电脑上的 FFmpeg 做不了 MP4（缺 H.264 编码）。",
+      pathLabel: "FFmpeg 放在哪（完整路径）",
       pathUse: "用这个",
-      unavailable: "现在不能导出：还差 FFmpeg。",
+      unavailable: "现在还不能导出：缺少 FFmpeg。",
     },
     en: {
-      // DRAFT (all English)
+      // DRAFT for JJ — everything here except noH264Title / noH264 (JJ, final 2026-11-05)
       title: "One editing tool is missing",
       notFound: "Previewing and exporting video need FFmpeg, a free tool, and it isn't on this computer yet.",
       install: "Open a terminal, run the line below, then click “Check again”:",
@@ -51,22 +50,22 @@
       stillMissingLinux: "Still not found. If it's installed elsewhere, click “choose it” and show me where.",
       notFfmpeg: "This file isn't FFmpeg. Choose the file named ffmpeg.",
       noProbe: "FFmpeg was found, but its ffprobe is missing. Reinstalling FFmpeg usually brings it back.",
-      bodyWin: "Previewing and exporting video need FFmpeg, a free tool, and it isn't on this computer yet. If it's installed, click “Choose ffmpeg.exe” and show me where.",
+      bodyWin: "Previewing and exporting video need FFmpeg, a free tool, and it isn't on this computer yet. If it's already installed, click “Choose ffmpeg.exe” and select it.",
       chooseWin: "Choose ffmpeg.exe",
-      stillMissingWin: "Still not found. If it's installed elsewhere, click “Choose ffmpeg.exe” and show me where.",
+      stillMissingWin: "Still not found. If it's installed somewhere else, click “Choose ffmpeg.exe” and select it.",
+      installMac: "Open “Terminal”, paste the line below and press Return. When it's done, come back here and click “Check again”.",
       noH264Title: "Can't export MP4 yet",
-      noH264: "The FFmpeg on this computer is missing the part MP4 export needs (H.264 encoding). Clips can still be browsed and marked; to export, switch to a full version of FFmpeg.",
+      noH264: "The FFmpeg on this computer can't make MP4 files (it's missing H.264 encoding). You can still browse and mark clips. To export, switch to a full version of FFmpeg.",
       noH264Linux: "Open a terminal and run `sudo apt install ffmpeg`, then click “Check again”.",
-      noH264Result: "The FFmpeg on this computer is missing the part MP4 export needs (H.264 encoding).",
-      noH264Mac: "Open a terminal and run `brew install ffmpeg`, then click “Check again”.",
+      noH264Result: "The FFmpeg on this computer can't make MP4 files (it's missing H.264 encoding).",
       noH264Win: "Click “Choose ffmpeg.exe” and pick a full version of FFmpeg.",
-      unavailableH264: "Can't export MP4 now: the FFmpeg on this computer has no H.264 encoding.",
+      unavailableH264: "Can't export MP4 yet: the FFmpeg on this computer can't make MP4 files (it's missing H.264 encoding).",
       pathLabel: "Where FFmpeg is (full path)",
       pathUse: "Use this",
-      unavailable: "Export is unavailable: FFmpeg is missing.",
+      unavailable: "Can't export yet: FFmpeg is missing.",
     },
   };
-  const COMMANDS = { linux: "sudo apt install ffmpeg", darwin: "brew install ffmpeg" };   // darwin: DRAFT
+  const COMMANDS = { linux: "sudo apt install ffmpeg", darwin: "brew install ffmpeg" };
   const lang = (l) => (text[l] ? l : "en");
 
   /** What was found → ready · missing (no ffmpeg) · noProbe (ffmpeg without ffprobe) · noH264 (no MP4 export). */
@@ -91,14 +90,16 @@
     const sp = lang(language) === "en" ? " " : "";
     let title = t.title, body, howto = null;
     // 「还不能导出 MP4」: the command sits inside JJ's sentence (`…`); the page shows it as code with 〔复制〕 after it
-    if (status.state === "noH264") { title = t.noH264Title; body = t.noH264; howto = win ? t.noH264Win : platform === "darwin" ? t.noH264Mac : t.noH264Linux; }
-    else if (status.state === "noProbe") body = win ? t.noProbe : t.noProbe + sp + t.install;
-    else body = win ? t.bodyWin : t.notFound + sp + t.install;
+    // macOS (JJ, 2026-11-05): the sentence above the command box, the command in the box with 〔复制〕 beside it
+    const mac = platform === "darwin", install = mac ? t.installMac : t.install;
+    if (status.state === "noH264") { title = t.noH264Title; body = t.noH264; howto = win ? t.noH264Win : mac ? t.installMac : t.noH264Linux; }
+    else if (status.state === "noProbe") body = win ? t.noProbe : t.noProbe + sp + install;
+    else body = win ? t.bodyWin : t.notFound + sp + install;
     return {
       state: status.state, title, body, howto, command, copy: command ? t.copy : null,
       buttons: win ? [choose, detect] : [detect, choose],
       // no file dialog here (web / server, a plugin host without one): 「手动选择」 opens a path box instead
-      input: status.picker ? null : { label: t.pathLabel, placeholder: win ? "C:\\ffmpeg\\bin\\ffmpeg.exe" : "/usr/local/bin/ffmpeg", button: t.pathUse },
+      input: status.picker ? null : { label: t.pathLabel, placeholder: win ? "C:\\ffmpeg\\bin\\ffmpeg.exe" : "/usr/bin/ffmpeg", button: t.pathUse },
       status: null,
     };
   }

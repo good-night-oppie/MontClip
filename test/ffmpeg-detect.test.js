@@ -109,6 +109,7 @@ test('every 「X」 a card or its result line tells the user to click is a contr
     for (const line of lines) for (const q of quoted(line)) {
       // a quote names a control when it is a whole label or a label's key part (「手动选择」 → 「我装在别处了，手动选择」)
       if (/[。.]$/.test(q)) continue;
+      if (q === '终端' || q === 'Terminal') continue;   // the macOS app's name in JJ's sentence, not a button (buttons are 〔…〕)
       a.ok(labels.some((l) => l === q || l.endsWith(q) || l.includes(q)), `${where}: 「${q}」 is not in the card (${labels.join(' / ')})`);
     }
     for (const word of ['下面', 'below']) if (c.body.includes(word)) a.ok(c.command, `${where}: says ${word} — the command must be in the card`);
@@ -210,4 +211,47 @@ test('server: of the FFmpegs on this machine it uses the first that can export H
   const st = await (await fetch(base + '/api/ffmpeg')).json();
   a.equal(st.ffmpeg.source, want.source, `candidates ${list.map((c, i) => c.source + (can[i] ? '+h264' : '')).join(', ')}`);
   a.equal(st.state === 'ready', can.includes(true));
+});
+
+/* JJ, final (2026-11-05, via Deja): the English 「还不能导出 MP4」 card, the Windows card, the path box, the greyed
+   Export tooltips and the macOS card — word for word. Buttons are named 〔…〕 and the name must be the button's own. */
+test('JJ final 2026-11-05: English no-H.264 card, Windows card, path box, Export tooltips, macOS card', () => {
+  const en = Card.model({ state: 'noH264', platform: 'linux' }, 'en');
+  a.equal(en.title, "Can't export MP4 yet");
+  a.equal(en.body, "The FFmpeg on this computer can't make MP4 files (it's missing H.264 encoding). You can still browse and mark clips. To export, switch to a full version of FFmpeg.");
+  const w = Card.model({ state: 'missing', platform: 'win32', picker: true }, 'zh-CN');
+  a.equal(w.body, '预览和导出视频要用到免费工具 FFmpeg，这台电脑上还没找到它。如果已经装好了，点〔选择 ffmpeg.exe〕，选中它就行。');
+  a.equal(Card.results('zh-CN', 'win32').stillMissing, '还是没找到。如果装在别的地方，点〔选择 ffmpeg.exe〕，选中它就行。');
+  const box = Card.model({ state: 'missing', platform: 'linux', picker: false }, 'zh-CN').input;
+  a.deepEqual([box.label, box.placeholder, box.button], ['FFmpeg 放在哪（完整路径）', '/usr/bin/ffmpeg', '用这个']);
+  const z = Card.text['zh-CN'];
+  a.equal(z.unavailable, '现在还不能导出：缺少 FFmpeg。');
+  a.equal(z.unavailableH264, '现在还不能导出 MP4：这台电脑上的 FFmpeg 做不了 MP4（缺 H.264 编码）。');
+  const mac = Card.model({ state: 'missing', platform: 'darwin' }, 'zh-CN');
+  a.equal(mac.command, 'brew install ffmpeg'); a.equal(mac.copy, '复制');
+  a.ok(mac.body.endsWith('打开「终端」，粘贴下面这一行，按回车。装好后回到这里点〔重新检测〕。'), mac.body);
+  const macNo = Card.model({ state: 'noH264', platform: 'darwin' }, 'zh-CN');
+  a.equal(macNo.command, 'brew install ffmpeg'); a.equal(macNo.howto, '打开「终端」，粘贴下面这一行，按回车。装好后回到这里点〔重新检测〕。');
+  // the Windows card never says 「我」
+  for (const st of ['missing', 'noProbe', 'noH264']) {
+    const c = Card.model({ state: st, platform: 'win32', picker: true }, 'zh-CN');
+    a.ok(!/我/.test(JSON.stringify(c) + Card.results('zh-CN', 'win32').stillMissing), st);
+  }
+  a.ok(!/DRAFT/.test(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'ffmpeg-card.js'), 'utf8').split('const text')[1].split('en: {')[0]),
+    'no DRAFT mark left in the zh-CN text');
+});
+
+test('every 〔X〕 a card names is exactly a button on that card (macOS, Windows, Linux; both languages)', () => {
+  for (const lang of ['zh-CN', 'en']) for (const platform of PLATFORMS) for (const state of STATES) for (const picker of [true, false]) {
+    const c = Card.model({ state, platform, picker }, lang);
+    const labels = c.buttons.map((b) => b.label).concat(c.copy ? [c.copy] : [], c.input && !picker ? [c.input.button] : []);
+    const lines = [c.body, c.howto || '', ...Object.values(Card.results(lang, platform))];
+    for (const line of lines) for (const m of line.matchAll(/〔([^〕]+)〕/g))
+      a.ok(labels.includes(m[1]), `${lang} ${platform} ${state}: 〔${m[1]}〕 is not a button (${labels.join(' / ')})`);
+  }
+});
+
+test('the page draws the command box with 〔复制〕 when the howto line has no inline command (macOS)', () => {
+  const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  a.match(app, /if \(m\.command && !\(m\.howto \|\| ""\)\.includes\("`"\)\) \{/);
 });

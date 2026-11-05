@@ -1401,7 +1401,8 @@ function renderFfmpegCard() {
         line.append(code, copy);
       });
       kids.push(line);
-    } else if (m.command) {
+    }
+    if (m.command && !(m.howto || "").includes("`")) {   // macOS: the command in its own box under the sentence (JJ)
       const row = el("div", "ffc-cmd");
       const copy = el("button", "btn tiny", m.copy); copy.type = "button"; copy.dataset.ffc = "copy";
       row.append(el("code", null, m.command), copy);
