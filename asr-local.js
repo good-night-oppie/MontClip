@@ -167,11 +167,16 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
       const S = engine(), r = await recognizer(dir);
       p = punctuator(store.dir("punct"));
       for (const part of parts || [null]) {
+        // a part that starts under SEEK_MIN is read from the file's start: what comes before the part's own start is
+        // another part's (or nobody's), so only words and gaps whose middle is at or after it are this part's — two
+        // reads that both start at 0 never keep a word twice (Rea on #165, 17:14)
+        const from = part ? part[0] : 0, mine = (a, b) => (a + b) / 2 >= from;
         const { samples: got, at } = await listen(S, r, p, file, part, { signal,
-          onSegment: (one, len) => { words.push(...one.words); gaps.push(...one.gaps); if (one.read) read++; if (one.gaps.length) skipped++; speech += len; segments++; },
+          onSegment: (one, len) => { words.push(...one.words.filter((w) => mine(w[1], w[2]))); const g = one.gaps.filter((x) => mine(x.start, x.end)); gaps.push(...g);
+            if (one.read) read++; if (g.length) skipped++; speech += len; segments++; },
           onSamples: (n) => { if (want > 0) onProgress(Math.min(0.99, (samples + n) / RATE / want)); } });
         samples += got;
-        if (part) spans.push([r3(at), r3(at + got / RATE)]);
+        if (part) spans.push([r3(Math.max(at, from)), r3(at + got / RATE)]);
       }
     } finally { rest(); }
     words.sort((x, y) => x[1] - y[1]); gaps.sort((x, y) => x.start - y.start);
