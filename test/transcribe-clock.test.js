@@ -6,7 +6,7 @@
    cut at the border came back twice when the two were merged.
    The fix (asr-local.js readArgs): no -ss when the window starts before 3 s (read from 0, -t to), and always #149's
    clock filter (audio-window.js CLOCK_FILTER: aresample=async=1:min_hard_comp=0.01:first_pts=0 — Deja, 2026-11-05:
-   reuse it, don't write a second one; until #149 is merged asr-local.js keeps the same string, then imports it), so
+   reuse it, don't write a second one; asr-local.js imports it), so
    sample 0 is media time 0. A refill reads a pad either side and keeps only its core.
    The sources are made here with ffmpeg: beeps at known times. The engine is a stand-in that writes 「哔」 where each
    beep starts, so the clock is checked without a speech model. */

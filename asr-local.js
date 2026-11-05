@@ -27,10 +27,10 @@ const { spawn } = require("node:child_process");
 const { manifest, createStore } = require("./asr-models");
 const W = require("./asr-words");
 const { hidePaths } = require("./asr-status");
-/* The media's own clock for every read (Rea on #165). 与 #149 audio-window.js CLOCK_FILTER 同源，#149 合入后改为 import
-   (Deja, 2026-11-05: one clock filter for the export's audio window and for transcription, with #149's tests behind
-   it): a late sound track is padded with silence so sample 0 is media time 0. */
-const CLOCK_FILTER = "aresample=async=1:min_hard_comp=0.01:first_pts=0";
+/* The media's own clock for every read (Rea on #165): #149's filter, imported (Deja, 2026-11-05: one clock filter for
+   the export's audio window and for transcription, with #149's tests behind it) — a late sound track is padded with
+   silence so sample 0 is media time 0. */
+const { CLOCK_FILTER } = require("./audio-window");
 /** Below this a window is read from the start of the file, not with -ss: an input seek near 0 missed by −21 ms on AAC,
  *  −105 ms when the picture starts late, and an FLV lost its first ~1.2 s of sound (Rea on #165). */
 const SEEK_MIN = 3;
