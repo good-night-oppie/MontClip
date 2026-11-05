@@ -10,8 +10,8 @@
 // Needs vendor/asr (the engine and the VAD). Prints ASR_META_REMOVE_PASS / ASR_META_REMOVE_FAIL.
 const electron = require('electron'), { app, BrowserWindow, session } = electron, fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 if (!process.argv.includes('--montclip-smoke')) throw Error('Explicit smoke required');
-const profileArg = process.argv.find((a) => a.startsWith('--user-data-dir='));
-if (!profileArg || !profileArg.slice('--user-data-dir='.length).trim()) throw Error('A fresh --user-data-dir is required');
+const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
+if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const profile = profileArg.slice('--user-data-dir='.length).trim();
 const META = process.env.MONTCLIP_SMOKE_META_DIR;
 if (!META || !fs.existsSync(path.join(META, 'asrMeta', 'model.int8.onnx'))) throw Error('MONTCLIP_SMOKE_META_DIR must hold asrMeta/');
