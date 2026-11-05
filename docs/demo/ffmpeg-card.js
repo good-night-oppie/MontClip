@@ -26,11 +26,15 @@
       bodyWin: "预览和导出视频要用到免费工具 FFmpeg，这台电脑上还没找到它。如果已经装好，点「选择 ffmpeg.exe」告诉我它在哪。",
       chooseWin: "选择 ffmpeg.exe",
       stillMissingWin: "还是没找到。如果装在别处，点『选择 ffmpeg.exe』告诉我它在哪。",
-      noH264Title: "还差一个能导出 MP4 的 FFmpeg",
-      noH264: "找到了 FFmpeg，但它导不出 MP4（H.264）视频，所以现在只能导出别的格式。",
-      installFull: "打开终端运行下面这行，装一个完整版，装好后点「重新检测」：",
-      chooseFull: "可以点「选择 ffmpeg.exe」，选一个能导出 MP4 的 FFmpeg。",
-      noH264Result: "找到了 FFmpeg，但它导不出 MP4（H.264）视频。",
+      // 「还不能导出 MP4」: JJ, final (2026-11-05, via Deja) — title, body and the Linux line, word for word
+      noH264Title: "还不能导出 MP4",
+      noH264: "这台电脑上的 FFmpeg 少了导出 MP4 要用的部分（H.264 编码）。片段照常能浏览、能标，导出要换一个完整版的 FFmpeg。",
+      noH264Linux: "打开终端运行 `sudo apt install ffmpeg`，装好后点「重新检测」。",
+      noH264Result: "这台电脑上的 FFmpeg 少了导出 MP4 要用的部分（H.264 编码）。",
+      // DRAFT
+      noH264Mac: "打开终端运行 `brew install ffmpeg`，装好后点「重新检测」。",
+      noH264Win: "点「选择 ffmpeg.exe」，选一个完整版的 FFmpeg。",
+      unavailableH264: "现在不能导出 MP4：这台电脑上的 FFmpeg 少了 H.264 编码。",
       pathLabel: "FFmpeg 在哪（完整路径）",
       pathUse: "用这个",
       unavailable: "现在不能导出：还差 FFmpeg。",
@@ -50,11 +54,13 @@
       bodyWin: "Previewing and exporting video need FFmpeg, a free tool, and it isn't on this computer yet. If it's installed, click “Choose ffmpeg.exe” and show me where.",
       chooseWin: "Choose ffmpeg.exe",
       stillMissingWin: "Still not found. If it's installed elsewhere, click “Choose ffmpeg.exe” and show me where.",
-      noH264Title: "This FFmpeg can't export MP4",
-      noH264: "FFmpeg was found, but it can't export MP4 (H.264) video, so only other formats export for now.",
-      installFull: "Open a terminal, run the line below to install the full version, then click “Check again”:",
-      chooseFull: "Click “Choose ffmpeg.exe” to pick an FFmpeg that can.",
-      noH264Result: "FFmpeg was found, but it can't export MP4 (H.264) video.",
+      noH264Title: "Can't export MP4 yet",
+      noH264: "The FFmpeg on this computer is missing the part MP4 export needs (H.264 encoding). Clips can still be browsed and marked; to export, switch to a full version of FFmpeg.",
+      noH264Linux: "Open a terminal and run `sudo apt install ffmpeg`, then click “Check again”.",
+      noH264Result: "The FFmpeg on this computer is missing the part MP4 export needs (H.264 encoding).",
+      noH264Mac: "Open a terminal and run `brew install ffmpeg`, then click “Check again”.",
+      noH264Win: "Click “Choose ffmpeg.exe” and pick a full version of FFmpeg.",
+      unavailableH264: "Can't export MP4 now: the FFmpeg on this computer has no H.264 encoding.",
       pathLabel: "Where FFmpeg is (full path)",
       pathUse: "Use this",
       unavailable: "Export is unavailable: FFmpeg is missing.",
@@ -83,12 +89,13 @@
     const choose = { id: "choose", label: win ? t.chooseWin : t.chooseLinux };
     const detect = { id: "detect", label: t.detect };
     const sp = lang(language) === "en" ? " " : "";
-    let title = t.title, body;
-    if (status.state === "noH264") { title = t.noH264Title; body = t.noH264 + sp + (win ? t.chooseFull : t.installFull); }
+    let title = t.title, body, howto = null;
+    // 「还不能导出 MP4」: the command sits inside JJ's sentence (`…`); the page shows it as code with 〔复制〕 after it
+    if (status.state === "noH264") { title = t.noH264Title; body = t.noH264; howto = win ? t.noH264Win : platform === "darwin" ? t.noH264Mac : t.noH264Linux; }
     else if (status.state === "noProbe") body = win ? t.noProbe : t.noProbe + sp + t.install;
     else body = win ? t.bodyWin : t.notFound + sp + t.install;
     return {
-      state: status.state, title, body, command, copy: command ? t.copy : null,
+      state: status.state, title, body, howto, command, copy: command ? t.copy : null,
       buttons: win ? [choose, detect] : [detect, choose],
       // no file dialog here (web / server, a plugin host without one): 「手动选择」 opens a path box instead
       input: status.picker ? null : { label: t.pathLabel, placeholder: win ? "C:\\ffmpeg\\bin\\ffmpeg.exe" : "/usr/local/bin/ffmpeg", button: t.pathUse },

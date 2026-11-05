@@ -51,20 +51,42 @@ test('a chosen file must be a program named ffmpeg that runs as FFmpeg; nothing 
   a.deepEqual(JSON.parse(fs.readFileSync(settings, 'utf8')), { version: 1, path: ok });
 });
 
-test('H.264 from PATH only when the bundled build has no H.264 encoder: a graphics card or Windows encoder stays first', async (t) => {
-  const d = tmp(t), sys = path.join(d, process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'); fs.writeFileSync(sys, 'x');
-  const x264 = async (f, args) => args.includes('-encoders') ? { code: 0, stdout: ' V....D libx264  H.264\n' } : { code: 0, stdout: 'ffmpeg version 5.1\n' };
-  const ext = X.createExternal({ settingsFile: null, envPath: null, run: x264, setup: 'server', findOnPath: () => sys });
-  a.deepEqual([...(await ext.available(new Set(['h264_mf', 'ffv1'])))].sort(), ['ffv1', 'h264_mf'], 'bundled has one: PATH not used');
-  a.ok((await ext.available(new Set(['ffv1']))).has('libx264'), 'bundled has none: the PATH FFmpeg with libx264');
-  a.equal((await ext.current({ allowPath: true })).source, 'path');
-  // europa's Debian FFmpeg lists encoders MontClip never selects: they don't count as having H.264
-  a.ok((await ext.available(new Set(['h264_omx', 'h264_v4l2m2m', 'ffv1']))).has('libx264'));
+// ADR 2026-11-05 (Deja, JJ): several usable ones → the one that can export H.264. Bundled LGPL + a full system FFmpeg
+// → the system one. Otherwise the first that runs, in order.
+test('several FFmpegs: the first that can export H.264 wins; else the first that runs', async () => {
+  const c = (source, p) => ({ ok: true, source, path: p });
+  const list = [c('vendor', '/app/vendor/ffmpeg'), c('path', '/usr/bin/ffmpeg'), c('chosen', '/opt/ff/ffmpeg')];
+  const has = (set) => async (p) => set.includes(p);
+  a.deepEqual(await FF.pick(list, has(['/usr/bin/ffmpeg'])), { ...list[1], h264: true }, 'LGPL bundled + full system → system');
+  a.deepEqual(await FF.pick(list, has(['/app/vendor/ffmpeg', '/usr/bin/ffmpeg'])), { ...list[0], h264: true }, 'bundled can → bundled (Windows h264_mf, a graphics card)');
+  a.deepEqual(await FF.pick(list, has(['/opt/ff/ffmpeg'])), { ...list[2], h264: true });
+  a.deepEqual(await FF.pick(list, has([])), { ...list[0], h264: false }, 'none can → the first, so preview still works');
+  a.equal(await FF.pick([], has([])), null);
+  let asked = 0; await FF.pick(list, async (p) => { asked++; return p === '/app/vendor/ffmpeg'; });
+  a.equal(asked, 1, 'stops at the first that can');
+  // every candidate that exists, in order, once
+  const root = path.parse(process.cwd()).root, x = (n) => n + (process.platform === 'win32' ? '.exe' : '');
+  const v = path.join(root, 'app', 'vendor', 'ffmpeg', `${process.platform}-x64`, x('ffmpeg')), bin = path.join(root, 'usr', 'bin');
+  const settings = path.join(root, 'data', 'external-ffmpeg.json');
+  const got = FF.candidates('ffmpeg', { env: { PATH: bin }, appDir: path.join(root, 'app'), platform: process.platform, arch: 'x64',
+    exists: (f) => [v, path.join(bin, x('ffmpeg')), path.join(root, 'opt', x('ffmpeg'))].includes(f), chosenFile: settings, readChoice: () => ({ path: path.join(root, 'opt', x('ffmpeg')) }) });
+  a.deepEqual(got.map((g) => g.source), ['vendor', 'path', 'chosen']);
 });
 
 /* ── the card ── */
 const quoted = (s) => [...s.matchAll(/[「『“]([^」』”]+)[」』”]/g)].map((m) => m[1]);
 const PLATFORMS = ['linux', 'win32', 'darwin'], STATES = ['missing', 'noProbe', 'noH264'];
+
+test('JJ\'s "还不能导出 MP4" card, word for word, apart from "not found"', () => {
+  const c = Card.model({ state: 'noH264', platform: 'linux' }, 'zh-CN');
+  a.equal(c.title, '还不能导出 MP4');
+  a.equal(c.body, '这台电脑上的 FFmpeg 少了导出 MP4 要用的部分（H.264 编码）。片段照常能浏览、能标，导出要换一个完整版的 FFmpeg。');
+  a.equal(c.howto, '打开终端运行 `sudo apt install ffmpeg`，装好后点「重新检测」。');
+  a.equal(c.command, 'sudo apt install ffmpeg');
+  a.deepEqual(c.buttons.map((b) => b.label), ['重新检测', '我装在别处了，手动选择']);
+  a.notEqual(c.title, Card.model({ state: 'missing', platform: 'linux' }, 'zh-CN').title);
+  a.ok(!/预览照常/.test(JSON.stringify(c)), 'not until LGPL preview is confirmed (ADR 5)');
+});
 
 test('JJ\'s Linux card, word for word', () => {
   const c = Card.model({ state: 'missing', platform: 'linux' }, 'zh-CN');
@@ -83,7 +105,7 @@ test('every 「X」 a card or its result line tells the user to click is a contr
   for (const lang of ['zh-CN', 'en']) for (const platform of PLATFORMS) for (const state of STATES) for (const picker of [true, false]) {
     const c = Card.model({ state, platform, picker }, lang), where = `${lang} ${platform} ${state} picker:${picker}`;
     const labels = c.buttons.map((b) => b.label).concat(c.copy ? [c.copy] : []);
-    const lines = [c.body, c.status || '', ...Object.values(Card.results(lang, platform))];
+    const lines = [c.body, c.howto || '', c.status || '', ...Object.values(Card.results(lang, platform))];
     for (const line of lines) for (const q of quoted(line)) {
       // a quote names a control when it is a whole label or a label's key part (「手动选择」 → 「我装在别处了，手动选择」)
       if (/[。.]$/.test(q)) continue;
@@ -104,7 +126,7 @@ test('Windows keeps 「选择 ffmpeg.exe」; Linux has the copyable command; not
   a.equal(Card.model({ state: 'ready', platform: 'linux' }, 'zh-CN'), null, 'ready: no card at all');
 });
 
-test('the page builds the card from the model, gates only export and proxies, and re-detects without a reload', () => {
+test('the page builds the card from the model, gates export, and re-detects without a reload', () => {
   const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8'), html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   a.match(html, /<script src="ffmpeg-card\.js"><\/script>/); a.match(html, /id="ffmpegCard"/);
   const body = (head) => { const i = app.indexOf(head); a.ok(i >= 0, head); return app.slice(i, app.indexOf('\n}', i)); };
@@ -113,7 +135,8 @@ test('the page builds the card from the model, gates only export and proxies, an
   const act = body('async function ffmpegCardAction(');
   a.match(act, /fetch\("\/api\/ffmpeg\/detect", \{ method: "POST" \}\)/); a.match(act, /fetch\("\/api\/ffmpeg\/choose"/);
   a.match(act, /window\.montclipExternalFfmpeg\?\.choose\(\)/, 'Windows desktop: the same file dialog as Settings');
-  a.match(body('function applyFfmpegState('), /btnExport/);
+  const gate = body('function applyFfmpegState(');
+  a.match(gate, /btnExport/); a.match(gate, /st\.state !== "ready"/, 'no exportable FFmpeg (noH264 too) turns export off (ADR 3)');
 });
 
 /* End to end with the real bundled binaries: no ffmpeg anywhere → "install" one into a PATH folder → 「重新检测」 (no
@@ -154,4 +177,37 @@ test('server: missing → re-detect after installing → chosen path survives a 
   ({ base } = await startServer(t, dir, env));
   st = await (await fetch(base + '/api/ffmpeg')).json();
   a.equal(st.ffmpeg.source, 'chosen', 'the chosen path is kept across a restart'); a.notEqual(st.state, 'missing');
+});
+
+/* #115 (plugin, first-use download) calls this after a download: can THIS program export MP4? (ADR 4: self-check, and
+   show 「还不能导出 MP4」 instead of "download complete" when it can't.) */
+test('server: POST /api/ffmpeg/check answers for one program, without changing what is used', async (t) => {
+  const { makeDataDir, seedProject, startServer } = require('./helpers');
+  if (!FF.available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
+  const dir = makeDataDir(t, seedProject({ revision: 1 }));
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1' });
+  const before = await (await fetch(base + '/api/ffmpeg')).json();
+  const check = async (p) => (await fetch(base + '/api/ffmpeg/check', { method: 'POST', body: JSON.stringify({ path: p }) })).json();
+  const r = await check(FF.path('ffmpeg'));
+  a.equal(r.ok, true); a.equal(r.ffprobe, true); a.equal(typeof r.h264, 'boolean'); a.ok(Array.isArray(r.encoders));
+  a.equal(r.h264, r.encoders.length > 0);
+  a.equal((await check(path.join(dir, 'project.json'))).code, 'notFfmpeg', 'only a program named ffmpeg is started');
+  a.deepEqual(await (await fetch(base + '/api/ffmpeg')).json(), before, 'checking does not switch programs');
+});
+
+// ADR 2026-11-05 acceptance: "LGPL 版和完整版都在时，选完整版". On europa that is the bundled LGPL build (no H.264) and
+// /usr/bin/ffmpeg (libx264) → the system one; on a Windows machine with h264_mf / a graphics card → the bundled one.
+test('server: of the FFmpegs on this machine it uses the first that can export H.264', async (t) => {
+  const { makeDataDir, seedProject, startServer } = require('./helpers');
+  const dir = makeDataDir(t, seedProject({ revision: 1 }));
+  const settings = path.join(dir, 'external-ffmpeg.json');
+  const list = FF.candidates('ffmpeg', { chosenFile: settings });
+  if (!list.length) return t.skip('no ffmpeg on this machine');
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_EXTERNAL_FFMPEG_SETTINGS: settings });
+  const can = [];
+  for (const c of list) can.push((await (await fetch(base + '/api/ffmpeg/check', { method: 'POST', body: JSON.stringify({ path: c.path }) })).json()).h264);
+  const want = list[can.indexOf(true)] || list[0];
+  const st = await (await fetch(base + '/api/ffmpeg')).json();
+  a.equal(st.ffmpeg.source, want.source, `candidates ${list.map((c, i) => c.source + (can[i] ? '+h264' : '')).join(', ')}`);
+  a.equal(st.state === 'ready', can.includes(true));
 });

@@ -21,6 +21,10 @@
    When none names an existing file the tool is reported missing, with the
    first source's plain-language reason, and `path` stays absolute.
    refresh() forgets what was found, for 「重新检测」 without a restart.
+
+   ADR 2026-11-05: when several exist, the one that can export H.264 is used.
+   candidates() lists them in this order and pick() takes the first that can
+   (the server asks each one's encoders); use() pins the pick until refresh().
    ═══════════════════════════════════════════════════════════════════════════ */
 "use strict";
 const fs = require("fs");
@@ -71,6 +75,27 @@ function resolveTool(name, opts = {}) {
     }
   }
   return first;
+}
+/** Every place this tool exists, in order (bundled, PATH, chosen), each path once. */
+function candidates(name, opts = {}) {
+  const env = opts.env || process.env, platform = opts.platform || process.platform, exists = opts.exists || isFile;
+  const exe = exeName(name, platform), p = platform === "win32" ? path.win32 : path.posix;
+  const out = [], add = (r) => { if (r && r.ok && !out.some((o) => o.path === r.path)) out.push(r); };
+  add(resolveBundled(name, opts));
+  const onPath = findOnPath(exe, { env, platform, exists });
+  if (onPath) add({ ok: true, path: onPath, source: "path" });
+  const chosenFile = opts.chosenFile !== undefined ? opts.chosenFile : (env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS || null);
+  const choice = (opts.readChoice || readChoiceFile)(chosenFile);
+  if (choice && typeof choice.path === "string" && p.isAbsolute(choice.path)) {
+    const f = p.join(p.dirname(choice.path), exe);
+    if (exists(f)) add({ ok: true, path: f, source: "chosen" });
+  }
+  return out;
+}
+/** The first candidate that can export H.264 (asked with hasH264(path)); none can → the first, h264:false; none → null. */
+async function pick(list, hasH264) {
+  for (const c of list) if (await hasH264(c.path)) return { ...c, h264: true };
+  return list.length ? { ...list[0], h264: false } : null;
 }
 function resolveBundled(name, opts = {}) {
   if (!TOOLS.includes(name)) throw new Error(`unknown tool ${name}`);
@@ -137,7 +162,9 @@ module.exports = {
   status: () => Object.fromEntries(TOOLS.map((t) => [t, cached(t)])),
   /** Forget what was found: the next call looks again (「重新检测」). */
   refresh: () => cache.clear(),
-  findOnPath,
+  /** Pin a tool to one program (the server's pick) until refresh(). */
+  use: (name, r) => { if (!TOOLS.includes(name)) throw new Error(`unknown tool ${name}`); cache.set(name, r); },
+  candidates, pick, findOnPath,
   /** Tests only: forget what was resolved. */
   _reset: () => cache.clear(),
 };

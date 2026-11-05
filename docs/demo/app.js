@@ -1372,12 +1372,13 @@ async function refreshFfmpegCard() {
 function applyFfmpegState() {
   const st = ffmpegUi.status, b = $("btnExport");
   if (!st || !b) return;
-  const off = st.state === "missing" || st.state === "noProbe";
+  // ADR 2026-11-05 (3): nothing that can export MP4 → export is off, and says why (「还不能导出 MP4」 too)
+  const off = st.state !== "ready";
   const t = MontClipFfmpegCard.text[mcView.get().language] || MontClipFfmpegCard.text.en;
   if (b.dataset.titleBefore === undefined) b.dataset.titleBefore = b.title || "";
   b.disabled = off;
-  b.title = off ? t.unavailable : b.dataset.titleBefore;
-  state.ffmpeg = !off;
+  b.title = off ? (st.state === "noH264" ? t.unavailableH264 : t.unavailable) : b.dataset.titleBefore;
+  state.ffmpeg = st.state !== "missing" && st.state !== "noProbe";
 }
 function renderFfmpegCard() {
   const box = $("ffmpegCard");
@@ -1391,7 +1392,16 @@ function renderFfmpegCard() {
   const kids = [];
   if (m) {
     kids.push(el("h3", "ffc-title", m.title), el("p", "ffc-body", m.body));
-    if (m.command) {
+    if (m.howto) {   // "…运行 `cmd`，装好后点「重新检测」。": the `…` part as code, 〔复制〕 beside it
+      const line = el("p", "ffc-howto");
+      m.howto.split("`").forEach((part, i) => {
+        if (!(i % 2)) { if (part) line.append(part); return; }
+        const code = el("code", null, part), copy = el("button", "btn tiny", m.copy || "Copy");
+        copy.type = "button"; copy.dataset.ffc = "copy";
+        line.append(code, copy);
+      });
+      kids.push(line);
+    } else if (m.command) {
       const row = el("div", "ffc-cmd");
       const copy = el("button", "btn tiny", m.copy); copy.type = "button"; copy.dataset.ffc = "copy";
       row.append(el("code", null, m.command), copy);

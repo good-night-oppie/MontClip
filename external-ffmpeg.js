@@ -143,8 +143,7 @@ async function savedStatus(settingsFile, { run = defaultRun } = {}) {
 /** The server's view of the setting. Re-checked when the setting or the file changes. Sources, first that is set:
     the saved choice (desktop Settings, or the Cindy plugin), then MONTCLIP_EXTERNAL_FFMPEG. Same in every run mode. */
 function createExternal({ settingsFile = process.env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS || null,
-  envPath = process.env.MONTCLIP_EXTERNAL_FFMPEG || null, run = defaultRun, setup = setupFor(),
-  findOnPath = () => require("./ffmpeg-path").findOnPath(process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg") } = {}) {
+  envPath = process.env.MONTCLIP_EXTERNAL_FFMPEG || null, run = defaultRun, setup = setupFor() } = {}) {
   let memo = null;
   const stamp = (f) => { try { const s = fs.statSync(f); return `${s.size}:${s.mtimeMs}`; } catch { return "gone"; } };
   async function checked(file, source) {
@@ -160,31 +159,23 @@ function createExternal({ settingsFile = process.env.MONTCLIP_EXTERNAL_FFMPEG_SE
     memo = { key, value };
     return value;
   }
-  /** allowPath: also an FFmpeg with libx264 on PATH (JJ P1) — only when the bundled build has no H.264 encoder, so a
-      graphics-card or Windows encoder is never displaced by whatever happens to be installed. */
-  let pathAllowed = false;   // what available() last decided, so the export uses the program its encoder list came from
-  async function current({ allowPath = pathAllowed } = {}) {
+  async function current() {
     const s = readSetting(settingsFile);
     if (s && s.bad) return setup === "settings"
       ? { ok: false, code: "extSettingBad", reason: "The saved local FFmpeg setting could not be read. Choose the program again in Settings." }
       : { ok: false, code: "extSavedUnusable", reason: "The saved FFmpeg choice for MontClip could not be read." };
     if (s) return checked(s.path, "settings");
     if (envPath) return checked(envPath, "env");
-    if (allowPath) {
-      const onPath = findOnPath();
-      if (onPath) { const r = await checked(onPath, "path"); if (r.ok) return r; }
-    }
     return { ok: false, code: "none", reason: "none" };
   }
   return {
     current,
     setup,
-    /** The bundled encoder set, plus libx264 while the local FFmpeg checks out. */
-    async available(bundled) {
+    /** The picked program's encoder set, plus libx264 while the local FFmpeg checks out. ownX264: the picked program
+        has libx264 itself (a full system FFmpeg, ADR 2026-11-05) — then it stays. */
+    async available(bundled, { ownX264 = false } = {}) {
       const set = new Set([...bundled].filter((e) => e !== "libx264"));
-      // the same test export uses: an h264_* MontClip never selects (h264_omx, h264_v4l2m2m …) is no encoder here
-      pathAllowed = !require("./delivery").encodersFor("h264", set).length;
-      if ((await current({ allowPath: pathAllowed })).ok) set.add("libx264");
+      if (ownX264 || (await current()).ok) set.add("libx264");
       return set;
     },
   };

@@ -5129,6 +5129,9 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 .ffmpeg-card .ffc-body { margin: 0 0 10px; }
 .ffmpeg-card .ffc-cmd { display: flex; gap: 8px; align-items: center; margin: 0 0 10px; }
 .ffmpeg-card .ffc-cmd code { flex: 1; padding: 6px 8px; border-radius: 6px; background: var(--panel); font-family: ui-monospace, Consolas, monospace; user-select: all; }
+.ffmpeg-card .ffc-howto { margin: 0 0 10px; }
+.ffmpeg-card .ffc-howto code { padding: 2px 6px; border-radius: 5px; background: var(--panel); font-family: ui-monospace, Consolas, monospace; user-select: all; }
+.ffmpeg-card .ffc-howto .btn { margin: 0 6px; vertical-align: baseline; }
 .ffmpeg-card .ffc-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .ffmpeg-card .ffc-path { display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; margin-top: 10px; }
 .ffmpeg-card .ffc-path label { grid-column: 1 / -1; opacity: .8; }
