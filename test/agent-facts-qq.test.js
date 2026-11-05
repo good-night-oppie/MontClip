@@ -130,7 +130,7 @@ test('over 8 h: the review box says it, and the two are not in what is sent (JJå
  a.equal(View.text.en.officialPane_factsLong,'The video is longer than 8 hours, so singing parts and loudness are not attached this time.');
  const pane=read('agent-ui/pane.tsx'),app=read('app.js');
  a.match(pane,/\{review&&options\.soundTooLong\?\.\(\)&&<p data-facts-long>\{t\.factsLong\}<\/p>\}/);
- a.match(app,/soundTooLong:\(\)=>\{const doc=projectJSON\(\),s=runtime\.soundFacts;return soundFactsOn\(\)&&!!s&&s\.signature===JSON\.stringify\(MontClipFacts\.soundMedia\(doc\)\)&&MontClipFacts\.tooLong\(doc,s\.sound\);\},/);
+ a.match(app,/soundTooLong:\(\)=>\{const doc=projectJSON\(\),s=runtime\.soundFacts;return soundFactsOn\(\)&&!!s&&s\.signature===JSON\.stringify\(MontClipFacts\.soundMedia\(doc\)\)&&MontClipFacts\.tooLong\(doc,s\.sound,undefined,selectedClips\(\)\.map\(c=>c\.id\)\);\},/);
  a.match(read('cindy-official.js'),/data-facts-long/);
 });
 

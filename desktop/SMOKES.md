@@ -54,6 +54,9 @@ Linux 上不用加 `--password-store`：在 Electron 认不出来的桌面上（
 | `official-pane-smoke.cjs` | `OFFICIAL_COMPLETE` | 在用 |
 | `package-smoke.cjs` | `PACKAGE_SMOKE_COMPLETE` | 在用；用 node 运行：`node desktop/package-smoke.cjs <打好的 zip>` |
 | `remove-connection-smoke.cjs` | `REMOVE_COMPLETE` | 在用 |
+| `agent-seed-smoke.cjs` | `SEED_PASS` | 在用 |
+| `agent-outgoing-smoke.cjs` | `OUTGOING_PASS` | 在用 |
+| `agent-off-smoke.cjs` | `AGENT_OFF_PASS` | 在用 |
 | `review-body-smoke.cjs` | `REVIEW_PASS` | 在用 |
 | `review-count-smoke.cjs` | `REVIEW_COUNT_PASS` | 在用：发送确认框一打开（第一帧）就要写对引用的字幕条数 |
 | `sentence-button-smoke.cjs` | `SENTENCE_BUTTON_COMPLETE` | 在用 |
@@ -76,3 +79,4 @@ Linux 上不用加 `--password-store`：在 Electron 认不出来的桌面上（
 | `zh-batch7-smoke.cjs` | `ZH7_PASS` | 在用 |
 | `zh-terms-smoke.cjs` | `TERMS_COMPLETE` | 在用 |
 | `zh-transcript-smoke.cjs` | `TR_PASS` | 在用 |
+| `seed-conflict-smoke.cjs` | `SEED_CONFLICT_PASS` | 在用；合成密钥、离屏窗口；中英文冲突提示、禁止发送、保留删除入口 |

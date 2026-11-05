@@ -6,11 +6,12 @@ const test = require("node:test"), a = require("node:assert/strict"), fs = requi
 const V = require("../ui-preferences");
 const read = (f) => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 
+// once 〔帮我修好〕 is there (#157), the two toasts end with JJ's 「点〔帮我修好〕试试。」 / "Click “Fix it for me” to try."
 test("JJ's three sentences, word for word", () => {
-  a.equal(V.t("zh-CN", "own.media-duration-unknown", { name: "录屏.webm" }), "「录屏.webm」可能没录完整（比如录屏中途停了），读不出有多长，现在还剪不了。原文件没有改动。");
-  a.equal(V.t("en", "own.media-duration-unknown", { name: "rec.webm" }), "\"rec.webm\" may not have finished recording (for example, a screen recording that was stopped), so its length can't be read and it can't be edited yet. The original file is unchanged.");
-  a.equal(V.t("zh-CN", "own.media-duration-unknown-n", { n: 3 }), "有 3 个视频可能没录完整，读不出有多长，现在还剪不了。原文件都没有改动。");
-  a.equal(V.t("en", "own.media-duration-unknown-n", { n: 3 }), "3 videos may not have finished recording, so their length can't be read and they can't be edited yet. The original files are unchanged.");
+  a.equal(V.t("zh-CN", "own.media-duration-unknown", { name: "录屏.webm" }), "「录屏.webm」可能没录完整（比如录屏中途停了），读不出有多长，现在还剪不了。原文件没有改动。点〔帮我修好〕试试。");
+  a.equal(V.t("en", "own.media-duration-unknown", { name: "rec.webm" }), "\"rec.webm\" may not have finished recording (for example, a screen recording that was stopped), so its length can't be read and it can't be edited yet. The original file is unchanged. Click “Fix it for me” to try.");
+  a.equal(V.t("zh-CN", "own.media-duration-unknown-n", { n: 3 }), "有 3 个视频可能没录完整，读不出有多长，现在还剪不了。原文件都没有改动。点〔帮我修好〕试试。");
+  a.equal(V.t("en", "own.media-duration-unknown-n", { n: 3 }), "3 videos may not have finished recording, so their length can't be read and they can't be edited yet. The original files are unchanged. Click “Fix it for me” to try.");
   a.equal(V.t("zh-CN", "own.media-cannot-cut", { name: "录屏.webm" }), "读不出「录屏.webm」有多长，放不上时间线。原文件没有改动。");
   a.equal(V.t("en", "own.media-cannot-cut", { name: "rec.webm" }), "Can't read how long \"rec.webm\" is, so it can't go on the timeline. The original file is unchanged.");
 });

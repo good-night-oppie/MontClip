@@ -291,6 +291,19 @@ const TOOLS = [
     },
   },
   {
+    name: "fablecut_repair_media",
+    description: "Make a video MontClip can cut: a recording cut off mid-way (no length — the editor marks it 'can't be cut yet'), or any video in a format the editor can't cut (FLV included; no allowTranscode needed — calling this is the yes). A new MP4 is written into media/ (the original file is never touched) and takes the entry's place in the project: every clip, composition and sequence that used it switches, fitted to the usable part; a version is kept first, so it can be undone. First a quick remux (-c copy), checked (length and a strict decode); only when that doesn't hold, a re-encode with the encoders that work here (your own FFmpeg's libx264, else the bundled LGPL H.264 / VP9 encoders). A background job: {mediaId} answers at once with {job, status, progress, phase}; {job} says how far it got and, when done, result.mediaId (the NEW media id) and result.duration; {cancel} stops it (nothing is changed). Calling {mediaId} again while it runs joins the same job. Failed with error.code REPAIR_FAILED: too damaged to repair — use another file.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        mediaId: { type: "string", description: "The video to repair or convert (starts a job, or joins the one already running)" },
+        job: { type: "string", description: "A job id (r_…): how far it got, and the result once done" },
+        cancel: { type: "string", description: "A job id (r_…) to stop" },
+        force: { type: "boolean", description: "Also switch clips the user locked (only when they asked)" },
+      },
+    },
+  },
+  {
     name: "fablecut_projects",
     description: "Several projects in one MontClip: the projects dashboard. ./project.json (what every other tool reads and edits) is always the OPEN project; the others are stored beside it and share media/, exports/ and the library, so a duplicate or a template copies no footage. Actions: list (default; archived:'only'|'all' to see archived ones) · open {id} — switches the editor to that project (the open one is saved first; editor tabs reload; your next fablecut_get_project reads the new one) · new {name, template?, fps?, width?, height?, notes?, tags?, open?:true} — template is a built-in canvas (landscape-1080 default, vertical-1080, square-1080, portrait-1350, uhd-4k, landscape-720) or a saved template id · duplicate {id, name?, open?:false} · update {id, name?, notes?, tags?} · archive / unarchive {id} · delete {id} (archived projects only) · templates · save_template {id, name} (the project's canvas, tracks, clips and media references) · delete_template {template}. Opening another project changes what the user sees — only open, archive or delete when the user asked for it.",
     inputSchema: {
