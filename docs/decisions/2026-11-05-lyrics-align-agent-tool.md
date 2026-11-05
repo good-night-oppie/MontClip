@@ -45,6 +45,11 @@
 
 **限制：** 这是模拟的听写结果，不是真的 TTS 声音过真的引擎——CI 里两样都没有，本机（Windows）也没有中文 TTS 和听写模型。P8 修好以后，应该用真录音（或真 TTS＋伴奏）再跑一遍这张表，必要时调门槛；`scripts/lyrics-threshold.cjs` 跑完会在门槛分不开两侧时退出码为 1。
 
+## 门槛的已知空白
+
+- 现在的门槛（0.2，且至少 2 行）是用**模拟的听写结果**定的（`test/lyrics-synth.js`）。真的人声经过真的听写引擎得出的结果还没用来测过。
+- 等 P8 修好（MontClip #165、MontClip-Cindy #7），europa 上能真的听写以后，要用真实人声重跑一遍 `scripts/lyrics-threshold.cjs` 那张表：歌词对、混进不存在的行、换了一首歌，三种情况都要跑。再根据结果决定门槛要不要调。调了的话，同时改 `lyrics-track.js` 的 `THRESHOLD`、本 ADR 里的表和 `test/lyrics-track.test.js` 里锁的数。
+
 ## 实现
 
 - `lyrics-track.js`（纯函数）：`propose`（调用 `lyrics-align.js` 的 `lines` / `align`，不另写对齐）、`place`（每行放在哪）、`clips`（新轨上的字幕片段，用 `captions.js` 的 `clip`，对上的行按字计时）、`newTrack`、`scopeSig`（唱歌那几段的位置、源区间、速度和帧率；方案之后动过就拒绝）、`forAgent`、`messageKey`。
