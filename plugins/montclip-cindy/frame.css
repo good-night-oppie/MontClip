@@ -1,5 +1,8 @@
 html, body { margin: 0; height: 100%; background: var(--panel-bg, #f7f7f5); color: var(--text-primary, #1a1a1a);
   font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+/* the hidden attribute must win: #status below is an absolute layer over the whole page with display:flex, and an
+   id rule beats the browser's own [hidden] rule, so a "hidden" status would sit on the editor and take every click */
+[hidden] { display: none !important; }
 #status { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center; padding: 24px; white-space: pre-line;
   text-align: center; color: var(--text-secondary, #6b6b66); }
 #status.error { color: var(--text-danger, #b42318); }
