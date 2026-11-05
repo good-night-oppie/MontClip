@@ -1784,9 +1784,9 @@ function checkMonoLeftStems() {
  *  step — and settle the question. The open-project toast and the export warning both use it. */
 function centreMonoStems(ids, side = "left") {
   const now = MontClipEdit.monoSideStems(project, side).filter((c) => ids.has(c.id));
+  if (now.length) pushUndo();   // the pans are one undo step; the answer stays (Ctrl+Z does not ask again)
   project.monoPanReviewed = true;
   if (now.length) {
-    pushUndo();
     for (const c of now) { c.props.pan = 0; delete c.props.panAuto; }
     state.dirtyTimeline = true;
     renderInspector();
@@ -19943,13 +19943,13 @@ const AUDIO_WINDOW_PAD = 0.5;
    it succeeded (europa, 2026-11-04). Now the export stops and says which clip (Deja, 2026-11-05). Only clips that are
    heard count: a linked video's picture (volume 0) or a file with no audio stream never stop an export. */
 /** Does the timeline put sound to one side on purpose? Then the check after the export does not
- *  warn about a file with sound in one ear. On purpose: pan keyframes, a clip pan the streamer
- *  set (no panAuto — except the left-ear mono stems of an old project nobody has answered for
- *  yet), or a track or bus pan. */
+ *  warn about a file with sound in one ear. On purpose: pan keyframes, any clip pan without
+ *  panAuto, or a track or bus pan. Better to miss one than to warn wrongly (QQ, 2026-11-05): a
+ *  pan without panAuto is always the streamer's, old projects' left-ear mono stems included —
+ *  those are only the open-project question's (checkMonoLeftStems). */
 function exportPanIntent() {
-  const unknown = new Set(project.monoPanReviewed ? [] : MontClipEdit.monoLeftStems(project).map((c) => c.id));
   const clipIntent = project.clips.some((c) => (c.kind === "audio" || c.kind === "video") && clipRenders(c)
-    && (c.keyframes?.pan?.length || (Math.abs(+c.props?.pan || 0) > 1e-3 && !c.props.panAuto && !unknown.has(c.id))));
+    && (c.keyframes?.pan?.length || (Math.abs(+c.props?.pan || 0) > 1e-3 && !c.props.panAuto)));
   return !!(clipIntent || (project.tracks || []).some((t) => t.kind === "audio" && Math.abs(+t.pan || 0) > 1e-3)
     || (project.buses || []).some((b) => Math.abs(+b.pan || 0) > 1e-3));
 }

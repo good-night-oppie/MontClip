@@ -714,11 +714,13 @@ edits the key under the playhead. Agents:
   stem of a mono file on channel 0, at exactly −1, with no pan keyframes and no other stem
   in its link group, might be the program's old default or the streamer's choice (no
   `panAuto` then), so on open the editor asks once, in a toast that blocks nothing:
-  centre them (one undo step) or keep them. Either answer sets `monoPanReviewed: true`;
+  centre them (one undo step) or keep them. Showing the question writes nothing; either
+  answer sets `monoPanReviewed: true` in project.json (never the window's storage);
   a project with no such stem (and every stem's channel count known) is set quietly, by
   the editor or the next `fablecut_patch_project`. Until then `fablecut_status` warns;
   centre them (`updateClip set:{props:{pan:0}}`, then `setProject {monoPanReviewed:true}`)
-  only when the user asks.
+  only when the user asks. The check after an export never reports these stems (no
+  `panAuto`, so the streamer's): the open-project question is their only path.
 - Use **gain** for "this clip is too quiet / loud", **volume keyframes** for
   shaping, **duck** for dipping under dialogue, the **track fader** to
   balance whole lanes (dialogue against the music bed), and a **bus** when
@@ -2775,9 +2777,11 @@ A spec (every key optional — what is left out comes from its `preset`):
   length, loudness against the target (±1 LU) and the true-peak ceiling, and file size
   against the platform's limit. Without a target the report says where the platform
   plays it ("YouTube plays it 4.2 dB quieter"). A stereo file whose left and right are
-  more than 20 dB apart (the louder side above −60 dB) gets a warning — "only the left
-  channel has sound" — unless the timeline puts the sound there on purpose (pan
-  keyframes, a clip pan without `panAuto`, a track or bus pan). The file is kept either way.
+  more than 20 dB apart (each channel of the finished file measured with ffmpeg astats; the
+  louder side above −60 dB) gets a warning — "only the left channel has sound" — unless the
+  timeline puts the sound there on purpose (pan keyframes, any clip pan without `panAuto`,
+  a track or bus pan). Better to miss one than to warn wrongly: a file under 2 s, of unknown
+  length or silent all through is not judged. The file is kept either way.
   In the editor it reads in plain words, without the numbers; when mono sounds put in that ear
   are the cause, it has a **Play in both** button — the same fix, one undo step, as the
   open-project question in "Audio mix".

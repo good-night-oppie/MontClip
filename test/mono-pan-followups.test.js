@@ -85,6 +85,25 @@ test("opening an old project asks once, and blocks nothing: Both ears centres th
   assert.ok(w.calls.save >= 1);
 });
 
+test("QQ: showing the question writes nothing — the project stays byte for byte until the streamer answers, and the answer lives in project.json", () => {
+  const w = promptWorld({ clips: [vid(), stem("a", { pan: -1 })] });
+  const before = JSON.stringify(w.project);
+  w.checkMonoLeftStems();
+  assert.equal(w.calls.toast.length, 1, "asked");
+  assert.equal(JSON.stringify(w.project), before, "the question alone changes nothing in the project");
+  assert.equal(w.calls.save, 0, "and saves nothing");
+  assert.equal(w.calls.undo, 0);
+  // where "asked once" lives: monoPanReviewed in the project (saved by serialize), never the window's storage
+  const code = slice("function checkMonoLeftStems(", "function scheduleSave(");
+  assert.doesNotMatch(code, /localStorage|sessionStorage|mcView\.set/);
+  assert.match(SRC, /if \(project\.monoPanReviewed\) out\.monoPanReviewed = true;/, "serialized into project.json");
+  // 〔改成两边都有〕: written then, as one undo step
+  w.calls.toast[0].actions[0][1]();
+  assert.equal(w.calls.undo, 1);
+  assert.equal(w.project.monoPanReviewed, true);
+  assert.ok(w.calls.save >= 1);
+});
+
 test("Keep as is: nothing changes, and the project never asks again", () => {
   const w = promptWorld({ clips: [vid(), stem("a", { pan: -1 })] });
   w.checkMonoLeftStems();
@@ -241,6 +260,15 @@ test("the export report: a warning that keeps the file, unless the timeline put 
   assert.match(r.line, /⚠ only the left channel has sound \(left -9\.2 dB, right -91 dB\)/);
   assert.ok(!Delivery.verify(spec, probe, { ...ctx, panIntent: true }).checks.some((x) => x.code), "on purpose: no warning");
   assert.ok(!Delivery.verify(spec, probe, { ...ctx, channelLevels: [-12, -12.4] }).checks.some((x) => x.code), "both ears: no warning");
+  // QQ: judged on the finished file only — under 2 s, or silent all through, is never reported
+  const short = { ...probe, format: { duration: "1.9" } };
+  assert.ok(!Delivery.verify(spec, short, ctx).checks.some((x) => x.code), "a file under 2 s: not judged");
+  const shortStream = { ...probe, streams: [probe.streams[0], { ...probe.streams[1], duration: "1.5" }], format: { duration: "3" } };
+  assert.ok(!Delivery.verify(spec, shortStream, ctx).checks.some((x) => x.code), "the audio stream's own length counts first");
+  assert.ok(!Delivery.verify(spec, { ...probe, format: {} }, ctx).checks.some((x) => x.code), "length unknown: not judged");
+  assert.ok(!Delivery.verify(spec, probe, { ...ctx, channelLevels: [-91, -91] }).checks.some((x) => x.code), "silent all through: not reported");
+  assert.equal(Delivery.oneSided([-9, -91], 1.99), null);
+  assert.deepEqual(Delivery.oneSided([-9, -91], 2), { side: "left", L: -9, R: -91 });
   const monoOut = { ...probe, streams: [probe.streams[0], { ...probe.streams[1], channels: 1 }] };
   assert.ok(!Delivery.verify(spec, monoOut, { ...ctx, channelLevels: [-9.2] }).checks.some((x) => x.code), "a mono file has no sides");
 });
@@ -341,13 +369,13 @@ test("on purpose (a pan set by hand or keyed): no warning at all — and the but
   assert.match(SRC, /savedMsg: oneSided \? \(\) => showOneSidedWarning\(oneSided\) :/, "a single export's toast is the warning");
 });
 
-test("on purpose: pan keyframes, a pan set by hand, a track or bus pan — not the program's pans, not an unanswered old stem", () => {
+test("on purpose: pan keyframes, any pan without panAuto (old projects' left-ear stems too — QQ: better to miss one), a track or bus pan", () => {
   const run = (doc) => {
     const project = { media: [mono], clips: [], tracks: [], buses: [], ...doc };
     return new Function("project", "MontClipEdit", "clipRenders", slice("function exportPanIntent(", "/* The plain one-sided warning") + "\nreturn exportPanIntent();")(project, MontClipEdit, () => true);
   };
   assert.equal(run({ clips: [vid(), stem("a", { pan: -1, panAuto: true })] }), false, "the program's pan");
-  assert.equal(run({ clips: [vid(), stem("a", { pan: -1 })] }), false, "an old stem nobody answered for");
+  assert.equal(run({ clips: [vid(), stem("a", { pan: -1 })] }), true, "an old stem nobody answered for: no panAuto, so not reported — only the open-project question deals with it");
   assert.equal(run({ clips: [vid(), stem("a", { pan: -1 })], monoPanReviewed: true }), true, "kept as it is: on purpose");
   assert.equal(run({ clips: [vid(), stem("a", { pan: -0.6 })] }), true, "a pan set by hand");
   assert.equal(run({ clips: [vid(), stem("a", { pan: 0 }, { keyframes: { pan: [{ t: 0, v: 0 }, { t: 1, v: -1 }] } })] }), true, "pan keys");
