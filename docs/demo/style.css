@@ -5197,6 +5197,24 @@ html[data-host-theme="light"] .ver-badge,
 html[data-host-theme="light"] .bin-folder-add:hover { background: var(--panel-2); color: var(--text); }
 /* the thumbnail stays a dark picture well: its placeholder glyph stays light on it */
 html[data-host-theme="light"] .bin-thumb { color: #e8e8ee; }
+/* The FFmpeg card (ffmpeg-card.js): floats under the top bar so the editor's layout never moves */
+.ffmpeg-card { position: fixed; top: 52px; right: 16px; z-index: 900; width: min(480px, calc(100vw - 32px));
+  background: var(--panel-head); border: 1px solid var(--panel-2); border-radius: 10px; padding: 14px 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .45); color: var(--text, #e8e8ee); font-size: 13px; line-height: 1.5; }
+.ffmpeg-card.hidden { display: none; }
+.ffmpeg-card .ffc-title { margin: 0 0 6px; font-size: 15px; }
+.ffmpeg-card .ffc-body { margin: 0 0 10px; }
+.ffmpeg-card .ffc-cmd { display: flex; gap: 8px; align-items: center; margin: 0 0 10px; }
+.ffmpeg-card .ffc-cmd code { flex: 1; padding: 6px 8px; border-radius: 6px; background: var(--panel); font-family: ui-monospace, Consolas, monospace; user-select: all; }
+.ffmpeg-card .ffc-howto { margin: 0 0 10px; }
+.ffmpeg-card .ffc-howto code { padding: 2px 6px; border-radius: 5px; background: var(--panel); font-family: ui-monospace, Consolas, monospace; user-select: all; }
+.ffmpeg-card .ffc-howto .btn { margin: 0 6px; vertical-align: baseline; }
+.ffmpeg-card .ffc-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ffmpeg-card .ffc-path { display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; margin-top: 10px; }
+.ffmpeg-card .ffc-path label { grid-column: 1 / -1; opacity: .8; }
+.ffmpeg-card .ffc-path input { min-width: 0; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--panel-2); background: var(--panel); color: inherit; font-family: ui-monospace, Consolas, monospace; }
+.ffmpeg-card .ffc-line { margin: 10px 0 0; padding-top: 8px; border-top: 1px solid var(--panel-2); }
+
 /* a recording nothing could read the length of (europa P3): JJ's sentence on the file */
 .bin-incomplete { font-size: 11px; line-height: 1.35; color: #ffb3b5; margin-top: 2px; white-space: normal; }
 .bin-row .bin-incomplete { grid-column: 1 / -1; padding-left: 28px; }

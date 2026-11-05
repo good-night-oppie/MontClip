@@ -56,7 +56,7 @@ function createSongScan({ dir, ffmpeg = require("./ffmpeg-path").path("ffmpeg") 
   function read(file, key, from, { signal, onSegment }) {
     return new Promise((resolve, reject) => {
       if (signal && signal.aborted) return reject(stopped());
-      const proc = spawn(ffmpeg, ["-v", "error", "-nostdin", ...(from ? ["-ss", String(from * SEGMENT)] : []), "-i", file,
+      const proc = spawn(typeof ffmpeg === "function" ? ffmpeg() : ffmpeg, ["-v", "error", "-nostdin", ...(from ? ["-ss", String(from * SEGMENT)] : []), "-i", file,
         "-vn", "-map", "0:a:0", "-af", FILTER, "-f", "null", "-"], { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
       let seg = from, rows = [], row = null, buf = "", err = "", aborted = false, failed = null;
       const onAbort = () => { aborted = true; proc.kill(); };
@@ -123,4 +123,4 @@ function createSongScan({ dir, ffmpeg = require("./ffmpeg-path").path("ffmpeg") 
   function forget(file) { fs.rmSync(folder(keyOf(file)), { recursive: true, force: true }); }
   return { scan, cached, load, forget, keyOf, STEP, SEGMENT };
 }
-module.exports = { createSongScan, STEP, SEGMENT, KEYS };
+module.exports = { createSongScan, STEP, SEGMENT, KEYS, FILTER };   // FILTER: ffmpeg-path.js gates a fallback FFmpeg on it
