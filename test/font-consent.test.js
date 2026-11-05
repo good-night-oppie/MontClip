@@ -34,24 +34,29 @@ class El{
 function page({desktop=false,clips=[],installed=[]}={}){
  const requests=[],toasts=[],links=[];
  const head=new El('head'),body=new El('body');
- // a stylesheet <link> is a request; it "loads" a moment later (and its CSS would fetch the font files)
- head.onAppend=(x)=>{if(x.tagName==='LINK'){requests.push(x.href);links.push(x);setTimeout(()=>x.onload?.(),0);}};
+ // a stylesheet <link> is a request (unless it is a blob: of this page); it "loads" a moment later (and its CSS
+ // would fetch the font files)
+ head.onAppend=(x)=>{if(x.tagName==='LINK'){if(!String(x.href).startsWith('blob:'))requests.push(x.href);links.push(x);setTimeout(()=>x.onload?.(),0);}};
  const canvas={getContext:()=>({font:'',measureText(){const f=this.font;return{width:installed.some(n=>f.includes('"'+n+'"'))?123:100};}})};
  const fontSet=[];fontSet.load=async()=>[];fontSet.ready=Promise.resolve();fontSet.add=()=>{};
  const document={head,body,fonts:fontSet,createElement:(t)=>t==='canvas'?canvas:new El(t)};
- const fetch=async(u)=>{const url=new URL(u,LOCAL).href;requests.push(url);
-  if(url.startsWith(LOCAL+'/api/library'))return{json:async()=>[],arrayBuffer:async()=>new ArrayBuffer(0)};throw new Error('offline');};
+ const fetches=[];
+ const fetch=async(u,init)=>{const url=new URL(u,LOCAL).href;requests.push(url);fetches.push({url,init});
+  if(url.startsWith(LOCAL+'/api/library'))return{json:async()=>[],arrayBuffer:async()=>new ArrayBuffer(0)};
+  if(url.startsWith('https://fonts.googleapis.com/'))return{ok:true,status:200,text:async()=>"@font-face{src:url(https://fonts.gstatic.com/x.woff2)}"};
+  throw new Error('offline');};
+ let blobs=0;const URL_={createObjectURL:()=>'blob:'+LOCAL+'/'+(++blobs),revokeObjectURL(){}};
  const window=desktop?{montclipViewSettings:{}}:{};
  const runtime={fontReq:new Map(),libraryFontReq:new Set(),customFonts:[],googleLoaded:new Set(),fontConsent:new Set(),fontHinted:new Set()};
  const uiText=(k,v)=>k+(v?' '+JSON.stringify(v):'');
- const stubs={window,document,fetch,runtime,SYSTEM_FONTS,GOOGLE_FONTS,FONT_CUT_DEFAULT,uiText,
+ const stubs={window,document,fetch,URL:URL_,Blob:class{},runtime,SYSTEM_FONTS,GOOGLE_FONTS,FONT_CUT_DEFAULT,uiText,
   toast:(m)=>toasts.push({m}),toastAction:(m,label,fn)=>toasts.push({m,label,fn}),
   escapeHtml:(s)=>String(s),mediaClips:()=>clips,textFontWeight:(p)=>p.weight||(p.bold===false?400:700),FontFace:class{},setTimeout,clearTimeout};
  const names=['ensureFont','loadProjectFonts','requestFonts','fontFamilyRowsHtml'];
  const api=new Function(...Object.keys(stubs),FONTS+'\nreturn {'+names.map(n=>`${n}: typeof ${n}==="function"?${n}:undefined`).join(',')+'};')(...Object.values(stubs));
  const external=()=>requests.filter(u=>!u.startsWith(LOCAL));
  const dialog=()=>body.all().find(e=>e.tagName==='DIALOG'&&e.open);
- return {api,requests,external,toasts,body,dialog,runtime,links};
+ return {api,requests,external,toasts,body,dialog,runtime,links,fetches};
 }
 const tick=(ms=5)=>new Promise(r=>setTimeout(r,ms));
 const hostOf=(u)=>new URL(u).hostname;
@@ -101,9 +106,13 @@ test('browser mode: after Yes, only fonts.googleapis.com / fonts.gstatic.com, an
  const ext=p.external();
  a.ok(ext.length>=1,'the font was requested');
  for(const u of ext){a.ok(['fonts.googleapis.com','fonts.gstatic.com'].includes(hostOf(u)),u);a.ok(/family=Lobster[:&]/.test(u),u);}
- // Deja (on #151): no Referer to Google Fonts. The stylesheet <link> says no-referrer; the font files it pulls from
- // fonts.gstatic.com follow its policy (real-tests/font-consent-browser-smoke.cjs checks the headers a browser sends)
- for(const l of p.links)a.equal(l.referrerPolicy,'no-referrer',l.href);
+ // Deja (on #151): no Referer and no cookies to Google Fonts. The stylesheet is fetched with no-referrer and no
+ // credentials, then put in from a blob: address, so the font files it pulls from fonts.gstatic.com name no referrer
+ // either (real-tests/font-consent-browser-smoke.cjs checks the headers a browser really sends)
+ const google=p.fetches.filter(x=>x.url.startsWith('https://fonts.googleapis.com/'));
+ a.equal(google.length,1);a.equal(google[0].init?.referrerPolicy,'no-referrer');a.equal(google[0].init?.credentials,'omit');
+ a.ok(p.links.length>=1);
+ for(const l of p.links){a.match(l.href,/^blob:/,'the sheet comes from this page');a.equal(l.referrerPolicy,'no-referrer');}
  // the same font again: no box this session; another font: the box again
  const n=p.requests.length;
  a.equal(await p.api.requestFonts(['Lobster']),true);a.equal(p.dialog(),undefined,'not asked twice for one font');

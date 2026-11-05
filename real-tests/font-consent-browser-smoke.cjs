@@ -96,8 +96,10 @@ const standIn = https.createServer({ key: fs.readFileSync(key), cert: fs.readFil
     const g = (u) => new URL(u).hostname;
     const css = seen.find((s) => s.host === "fonts.googleapis.com"), file = seen.find((s) => s.host === "fonts.gstatic.com");
     const header = (s, name) => Object.entries(s.headers).find(([k]) => k.toLowerCase() === name)?.[1];
-    // nothing in what was sent names this computer: its address and port, the editor's page, or the project
-    const local = (s) => JSON.stringify(s).match(/127\.0\.0\.1|localhost|:7791|secret-project-name/);
+    // nothing in what was sent names this computer (its address and port, the editor's page, the project), except the
+    // Origin header: a browser sends it on every CORS request, which both of these are, whatever the referrer policy
+    const local = (s) => JSON.stringify({ ...s, headers: Object.fromEntries(Object.entries(s.headers).filter(([k]) => k.toLowerCase() !== "origin")) })
+      .match(/127\.0\.0\.1|localhost|:7791|secret-project-name/);
     const checks = [
       ["opening the project sent nothing out", r.afterOpen.length === 0],
       ["the fallback hint names the fonts", /Lobster/.test(r.toastAfterOpen) && /Cinzel/.test(r.toastAfterOpen)],
@@ -110,7 +112,8 @@ const standIn = https.createServer({ key: fs.readFileSync(key), cert: fs.readFil
       ["both requests reached the stand-in (the stylesheet, then the font file)", !!css && !!file],
       ["no Referer on either request", !!css && !!file && !header(css, "referer") && !header(file, "referer")],
       ["no Cookie on either request (one was planted for each host)", !!css && !!file && !header(css, "cookie") && !header(file, "cookie")],
-      ["nothing in either request names this computer's address, page or project", !!css && !!file && !local(css) && !local(file)],
+      ["nothing else in either request names this computer's address, page or project", !!css && !!file && !local(css) && !local(file)],
+      ["the Origin header is at most the editor's origin (no path, no project)", !!css && !!file && [css, file].every((s) => [undefined, ORIGIN, "null"].includes(header(s, "origin")))],
       ["not asked twice for one font in a session", r.askedAgain === false],
     ];
     for (const [name, ok] of checks) console.log((ok ? "PASS " : "FAIL ") + name);

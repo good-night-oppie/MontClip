@@ -18110,17 +18110,30 @@ function ensureFont(name) {
 /* The one place that goes to Google Fonts, and only for a font the streamer confirmed this session. */
 async function loadGoogleFont(name) {
   if (fontDesktop() || !runtime.fontConsent.has(name)) return false;
+  const url = "https://fonts.googleapis.com/css2?family=" +
+    encodeURIComponent(name).replace(/%20/g, "+") + ":" + GOOGLE_FONT_STYLES + "&display=swap";
+  let css;
+  try {
+    // no Referer (it named this editor's address) and no cookies; a name Google Fonts doesn't know answers 400
+    const r = await fetch(url, { referrerPolicy: "no-referrer", credentials: "omit" });
+    if (!r.ok) return false;
+    css = await r.text();
+  } catch { return false; }
+  // The stylesheet goes in from a blob: address, so its font files on fonts.gstatic.com carry no Referer either: a
+  // sheet's requests name the sheet as their referrer, and a blob: address is never sent as one. (A <link> straight to
+  // Google sent the stylesheet's address, fonts.googleapis.com, to fonts.gstatic.com; real-tests/font-consent-browser-smoke.cjs
+  // checks the headers a browser really sends.)
+  const href = URL.createObjectURL(new Blob([css], { type: "text/css" }));
   const ok = await new Promise((resolve) => {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    // CORS mode so @font-face files stay origin-clean when fillText hits the canvas.
-    link.crossOrigin = "anonymous";
-    link.href = "https://fonts.googleapis.com/css2?family=" +
-      encodeURIComponent(name).replace(/%20/g, "+") + ":" + GOOGLE_FONT_STYLES + "&display=swap";
+    link.referrerPolicy = "no-referrer";
+    link.href = href;
     link.onload = () => resolve(true);
     link.onerror = () => { link.remove(); resolve(false); };
     document.head.appendChild(link);
   });
+  URL.revokeObjectURL(href); // parsed: the font addresses in it are absolute
   if (!ok) return false;
   runtime.googleLoaded.add(name);
   // fetch the usual faces now instead of on the first frame that draws them
