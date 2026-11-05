@@ -182,7 +182,8 @@ function createExternal({ settingsFile = process.env.MONTCLIP_EXTERNAL_FFMPEG_SE
     /** The bundled encoder set, plus libx264 while the local FFmpeg checks out. */
     async available(bundled) {
       const set = new Set([...bundled].filter((e) => e !== "libx264"));
-      pathAllowed = ![...set].some((e) => /^h264_/.test(e));
+      // the same test export uses: an h264_* MontClip never selects (h264_omx, h264_v4l2m2m …) is no encoder here
+      pathAllowed = !require("./delivery").encodersFor("h264", set).length;
       if ((await current({ allowPath: pathAllowed })).ok) set.add("libx264");
       return set;
     },

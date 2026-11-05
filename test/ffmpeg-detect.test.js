@@ -58,6 +58,8 @@ test('H.264 from PATH only when the bundled build has no H.264 encoder: a graphi
   a.deepEqual([...(await ext.available(new Set(['h264_mf', 'ffv1'])))].sort(), ['ffv1', 'h264_mf'], 'bundled has one: PATH not used');
   a.ok((await ext.available(new Set(['ffv1']))).has('libx264'), 'bundled has none: the PATH FFmpeg with libx264');
   a.equal((await ext.current({ allowPath: true })).source, 'path');
+  // europa's Debian FFmpeg lists encoders MontClip never selects: they don't count as having H.264
+  a.ok((await ext.available(new Set(['h264_omx', 'h264_v4l2m2m', 'ffv1']))).has('libx264'));
 });
 
 /* ── the card ── */
