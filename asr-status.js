@@ -26,10 +26,11 @@ function code(st) {
 function manifest() {
   try { return JSON.parse(fs.readFileSync(path.join(__dirname, "desktop", "asr-manifest.json"), "utf8")); } catch { return null; }
 }
-/** The speech model's size as JJ writes it: MiB to the nearest 10 (约 230 MB). */
+/** The speech model's size as the cards say it: MB of 1,000,000 bytes, to the nearest 10 (243,446,974 → 约 240 MB), the
+ *  same rule as the Cindy plugin's status card (DD on MontClip-Cindy#7). */
 function modelMb(m = manifest()) {
   const files = m && m.models && m.models.asr && m.models.asr.files;
-  return files ? Math.round(Object.values(files).reduce((n, f) => n + f.size, 0) / 1048576 / 10) * 10 : null;
+  return files ? Math.round(Object.values(files).reduce((n, f) => n + f.size, 0) / 1e6 / 10) * 10 : null;
 }
 const nativePackage = (platform = process.platform, arch = process.arch) => "sherpa-onnx-" + (platform === "win32" ? "win" : platform) + "-" + arch;
 
