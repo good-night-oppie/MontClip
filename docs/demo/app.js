@@ -9693,7 +9693,7 @@ function paintAsrStatus() {
   E.asrImport.hidden = !desk || !imp;
   E.asrCancel.hidden = !desk || !cancel;
   E.asrLater.hidden = !desk || !later;
-  // 〔撤销〕 Meta's model: its files and the consent record go, back to Paraformer (ADR #122 §6)
+  // 〔删掉 Meta 的模型〕: its files and the consent record go, back to Paraformer (ADR #122 §6)
   if (E.asrRevoke) {
     E.asrRevoke.hidden = !desk || !(window.montclipAsr && window.montclipAsr.revoke) || !(asrKey() === "asrMeta" && s && (asrModelStatus(s).consented || asrModelStatus(s).installed)) || !!d;
     E.asrRevoke.classList.toggle("accent", partly);

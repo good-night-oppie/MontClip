@@ -167,7 +167,8 @@
     "asr-meta-partly-removed": ["Meta's model wasn't fully removed, so it can't be used right now. Click “Remove Meta's model” again to finish removing it. To use Meta later, download it again after that. To transcribe now, switch back to Paraformer.", "Meta 的模型没删干净，现在用不了。再点一次〔删掉 Meta 的模型〕就能删完；之后还想用 Meta，再重新下载。现在要听写，先换回 Paraformer。"],
     // a file of Meta's model could not be deleted (JJ's final words, 11-05; the curly quotes are Deja's)
     "asr-meta-remove-incomplete": ["Meta's model wasn't fully removed: some of its files are in use and couldn't be deleted. Your agreement to its licence terms hasn't been withdrawn yet. Close MontClip, open it again, then click “Remove Meta's model” once more; if that doesn't work, restart the computer and try again. Until it's fully removed, switch transcription back to Paraformer.", "Meta 的模型没删干净：有的文件正被占用，删不掉。你对许可条款的同意还没收回。关掉 MontClip 再打开，然后再点一次〔删掉 Meta 的模型〕；还不行，就重启电脑再试。删干净之前，听写请先换回 Paraformer。"],
-    "asr-meta-revoked": ["Revoked: Meta's model and your consent record were deleted; transcription uses Paraformer again.", "已撤销：Meta 的模型和你的同意记录都删掉了，听写回到 Paraformer。"],
+    // removed for good (JJ's final words, 11-05): a notice with no button
+    "asr-meta-revoked": ["Meta's model has been removed and your consent withdrawn. Transcription now uses Paraformer. To use Meta again, just download it again.", "Meta 的模型删掉了，你的同意也收回了。听写已经换回 Paraformer；以后还想用 Meta，再重新下载就行。"],
     "asr-missing-meta": ["Meta's Omnilingual model is not installed yet. Download it once (about 280–350 MB, after you read and accept its licence) or import it; after that it runs on this computer and no sound is sent.", "Meta 的多语言模型还没装。看过许可证、点了同意以后下载一次（约 280–350 MB），或者导入；之后都在这台电脑上听写，不发送声音。"],
     "asr-downloading": ["Downloading the transcription model: {got} / about 230 MB. You can go on editing; you'll be told when it's done.", "正在下载听写模型：{got} / 约 230 MB。可以先去剪辑，下载完会告诉你。"],
     "asr-download-cancel": ["Cancel download", "取消下载"],
