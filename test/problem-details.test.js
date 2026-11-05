@@ -79,7 +79,8 @@ test("what happened: each failure sentence has its part (never cut mid-sentence)
   for (const m of /const FLV_REASONS = \{([\s\S]*?)\};/.exec(src)[1].matchAll(/:\s*"([^"]+)"/g)) keys.add(m[1]);
   for (const k of ["h264NoneWin", "h264NoneOther", "extGone", "extNotFfmpeg", "extNoX264", "extSettingBad", "frameTooSmall", "ffmpegMissing", "extNeeded"]) keys.add(k);
   for (const k of keys) a.ok(Object.hasOwn(V.WHAT_SENTENCES, k), `${k}: which part says what happened?`);
-  for (const k of Object.keys(V.WHAT_SENTENCES)) for (const l of ["zh-CN", "en"]) {
+  // (JJ's own words, WHAT_TEXT, are checked word for word below)
+  for (const k of Object.keys(V.WHAT_SENTENCES).filter((k) => !Object.hasOwn(V.WHAT_TEXT, k))) for (const l of ["zh-CN", "en"]) {
     const s = V.t(l, k), w = V.whatHappened(l, k, s);
     a.ok(w && s.startsWith(w), `${k} ${l}: a whole first part of the sentence: ${w}`);
     a.ok(/[。.！!？?]$/.test(w) || w === s, `${k} ${l}: ends where a sentence ends: ${w}`);
@@ -150,6 +151,60 @@ test("the server looks each file's size up, and says the version", { timeout: 60
   const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
   a.match(app, /const p = \{ text: r\.what \|\| r\.text \|\| "", code: r\.code \|\| "", log: r\.log \|\| "" \}/, "the page sends what happened, the code and the raw error (read for its files only)");
   a.match(app, /MontClipRedact\.problemDetails\(\{ \.\.\.p, app: \{ platform: navigator\.platform \|\| "" \} \}, \{ platform: [^}]*, language \}\)/, "the page's own fallback, the same rules");
+});
+
+// JJ's own words for what happened (#161), word for word; the screen keeps its whole sentence (err-offline's English
+// is JJ's new one)
+const JJ_WHAT = {
+  "own.err-offline": ["这一版不联网，不能从网址下载。", "This version works offline, so it can't download from a web address."],
+  flvExpired: ["这次导入停太久已经失效了。", "This import waited too long and expired."],
+  extSaveFailed: ["这次的选择没能保存。", "This choice couldn't be saved."],
+  extRemoveFailed: ["没能停用这个 FFmpeg。", "Could not stop using this FFmpeg."],
+  extNeeded: ["这个导出设置要用 x264，需要一个带 x264 的 FFmpeg。", "This export setting uses x264, which needs an FFmpeg that includes x264."],
+  extNotFullPath: ["选的不是 FFmpeg 程序文件本身。", "The selected item isn't the FFmpeg program file itself."],
+};
+test("JJ's words for what happened, word for word; the screen's sentences unchanged but err-offline's English", () => {
+  for (const [k, [zh, en]] of Object.entries(JJ_WHAT)) {
+    a.equal(V.whatHappened("zh-CN", k, V.t("zh-CN", k)), zh, k);
+    a.equal(V.whatHappened("en", k, V.t("en", k)), en, k);
+  }
+  a.equal(V.errorText("en", { code: "NETWORK_DISABLED" }).what, JJ_WHAT["own.err-offline"][1], "through errorText, as the copy gets it");
+  a.equal(V.errorText("zh-CN", { code: "extSaveFailed" }).what, JJ_WHAT.extSaveFailed[0]);
+  a.equal(V.t("en", "own.err-offline"), "This version works offline, so it can't download from a web address. Import a file from your computer.");
+  a.equal(V.t("zh-CN", "own.err-offline"), "这一版不联网，不能从网址下载。请导入电脑里的文件。", "the Chinese on screen is unchanged");
+  a.equal(V.t("zh-CN", "flvExpired"), "这次导入停太久已经失效了，重新导入一次就行。原片没有改动。", "the screen keeps the whole sentence");
+  a.equal(V.t("zh-CN", "extNeeded"), "这个导出设置要用 x264，需要先在设置里选一个带 x264 的 FFmpeg。也可以改用导出预设，用显卡或 Windows 自带的编码器。");
+});
+
+/* The rule (JJ, #161): what happened — the part the copy takes, or a new failure sentence's first sentence — never says
+   what to do: no 请, 再…一次, 重新…; in English no please / try again, and no sentence that starts with an imperative.
+   EXEMPT is the existing strings that break it; it may only get shorter (each must still break it, and there are no more
+   than it holds now). Every other sentence a failure can be said in, now or added later, is checked. */
+const EXEMPT = ["h264Choose", "h264Clear"];   // button labels of the FFmpeg setting that share the h264* keys, not failures
+const EXEMPT_MAX = 2;
+const ZH_DO = /请|再.{0,6}一次|重新/;
+const EN_DO = /\bplease\b|\btry again\b|(^|[.!?;:]\s+)(import|select|choose|click|export|open|use|free|make|switch|reinstall|wait|check|try|pick|turn|set|restart|close|save|drag|add|remove|delete|stop|go|enter|type|see|look|tap|press|run|install|update|start|clear)\b/i;
+test("what happened never says what to do — every failure sentence, now and added later; the exemptions only shrink", () => {
+  const src = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8");
+  const keys = new Set(["errOther", "errDiskFull", "errDiskFullSize"]);
+  for (const m of /const ERROR_TEXT = \{([\s\S]*?)\};/.exec(src)[1].matchAll(/:\s*"([^"]+)"/g)) keys.add(m[1]);
+  for (const m of /const FLV_REASONS = \{([\s\S]*?)\};/.exec(src)[1].matchAll(/:\s*"([^"]+)"/g)) keys.add(m[1]);
+  for (const k of Object.keys(V.text.en)) if (/^(h264|ext|frame|ffmpeg)[A-Z][A-Za-z0-9]*$/.test(k) || /^own\.(err-|export-blank-)/.test(k)) keys.add(k);
+  const first = (s) => String(s || "").split(/(?<=[。！？])|(?<=[.!?])\s+(?=\S)/).filter((x) => x.trim())[0] || "";
+  const breaks = (k) => ["zh-CN", "en"].some((l) => {
+    const s = V.t(l, k);
+    if (!s) return false;
+    const listed = Object.hasOwn(V.WHAT_TEXT, k) || Object.hasOwn(V.WHAT_SENTENCES, k);
+    return (l === "en" ? EN_DO : ZH_DO).test(listed ? V.whatHappened(l, k, s) : first(s));
+  });
+  a.ok(keys.size > 40, "the failure sentences are found: " + keys.size);
+  for (const k of keys) if (!EXEMPT.includes(k)) a.ok(!breaks(k), `${k}: what happened says what to do — give it JJ's words in WHAT_TEXT`);
+  for (const k of EXEMPT) a.ok(breaks(k), `${k} keeps the rule now: drop it from EXEMPT`);
+  a.ok(EXEMPT.length <= EXEMPT_MAX, "the exemptions only shrink");
+  // the rule itself
+  for (const s of ["请再试一次。", "空出来以后再试一次。", "重新导入一次就行。"]) a.match(s, ZH_DO);
+  for (const s of ["Please try again.", "It failed. Try again.", "Import a file from your computer.", "Something; select another."]) a.match(s, EN_DO);
+  for (const s of ["The export went wrong.", "This choice couldn't be saved.", "The selected item isn't the FFmpeg program file itself."]) a.doesNotMatch(s, EN_DO);
 });
 
 test("redactProblem: no path on the computer, user name, account, key or token in what it gives back", () => {

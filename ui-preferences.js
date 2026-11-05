@@ -235,7 +235,8 @@
     "rp-source-invalid": ["A clip's timing doesn't match its file. Check the clip, then select again.", "有片段的时间和它的文件对不上，请检查后重新选择。"],
     "rp-source-loop": ["A clip runs past the end of its file; selecting sentences doesn't support that yet.", "有片段比它的原文件还长，按句选段暂时处理不了。"],
     // refusals the server sends as a code (JJ to review); the Chinese is the old message's Chinese half
-    "err-offline": ["Offline mode: import a local file.", "这一版不联网，不能从网址下载。请导入电脑里的文件。"],
+    // English: JJ, #161 (the Chinese unchanged)
+    "err-offline": ["This version works offline, so it can't download from a web address. Import a file from your computer.", "这一版不联网，不能从网址下载。请导入电脑里的文件。"],
     "err-headless-disabled": ["Background browser tasks are turned off in the desktop app.", "桌面版不能在后台打开浏览器做这件事。"],
     "err-editor-not-ready": ["The editor is not ready yet. Open it, then try again.", "编辑窗口还没准备好。先打开 MontClip 的编辑窗口，再试一次。"],
     "err-editor-no-accept": ["The editor did not take the task. Wait until it is ready, then try again.", "编辑窗口没接到这个任务。等它准备好，再试一次。"],
@@ -1082,9 +1083,19 @@
     h264None: 1, h264NoneWin: 1, h264NoneOther: 1, h264ExternalFailed: 1, extGone: 1, extNotFfmpeg: 1, extNoX264: 1, extSettingBad: 1,
     frameTooSmall: 1, ffmpegMissing: 1, extNeeded: 1, extSaveFailed: 1, extRemoveFailed: 1, extNotUsedNote: 1,
   };
+  /* JJ's own words for what happened (#161), where the sentence's first part also says what to do: copied instead. */
+  const WHAT_TEXT = {
+    "own.err-offline": { "zh-CN": "这一版不联网，不能从网址下载。", en: "This version works offline, so it can't download from a web address." },
+    flvExpired: { "zh-CN": "这次导入停太久已经失效了。", en: "This import waited too long and expired." },
+    extSaveFailed: { "zh-CN": "这次的选择没能保存。", en: "This choice couldn't be saved." },
+    extRemoveFailed: { "zh-CN": "没能停用这个 FFmpeg。", en: "Could not stop using this FFmpeg." },
+    extNeeded: { "zh-CN": "这个导出设置要用 x264，需要一个带 x264 的 FFmpeg。", en: "This export setting uses x264, which needs an FFmpeg that includes x264." },
+    extNotFullPath: { "zh-CN": "选的不是 FFmpeg 程序文件本身。", en: "The selected item isn't the FFmpeg program file itself." },
+  };
   const sentencesOf = (s) => String(s || "").split(/(?<=[。！？])|(?<=[.!?])\s+(?=\S)/).filter((x) => x.trim());
   function whatHappened(language, key, said) {
     const l = lang(language), en = l === "en", parts = sentencesOf(said);
+    if (Object.hasOwn(WHAT_TEXT, key)) return WHAT_TEXT[key][l];
     if (Object.hasOwn(WHAT_SENTENCES, key)) return parts.slice(0, WHAT_SENTENCES[key]).join(en ? " " : "").trim();
     // not listed: drop the clauses that ask for 〔复制问题信息〕 (a sentence or the half of one after 「；」)
     const btn = [text["zh-CN"].btnCopyProblem, text.en.btnCopyProblem, "复制问题信息", "Copy problem"];
@@ -1237,5 +1248,5 @@
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
   /** Where 〔复制问题信息〕's copy goes (#161; JJ): a mailbox a program watches for 「MontClip 问题信息 v1」. */
   const PROBLEM_EMAIL = "etang.build.bot@gmail.com";
-  return { PROBLEM_EMAIL, WHAT_SENTENCES, whatHappened, create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints, errorText, batchReason, exportResult, ERROR_CODES: Object.keys(ERROR_TEXT).concat(Object.keys(FLV_REASONS)) };
+  return { PROBLEM_EMAIL, WHAT_SENTENCES, WHAT_TEXT, whatHappened, create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints, errorText, batchReason, exportResult, ERROR_CODES: Object.keys(ERROR_TEXT).concat(Object.keys(FLV_REASONS)) };
 });
