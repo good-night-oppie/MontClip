@@ -3227,6 +3227,14 @@ async function redoTrackAnalysisNow(m, track, hadSongs, still) {
   await redoCaptionsForTrack(m, track, { auto: true });
   await songs;
 }
+/** Each file's picked track, to tell after an undo whether one went back. */
+function trackPicks() { return new Map(project.media.map((m) => [m.id, MediaLib.audioTrackOf(m)])); }
+function noteTrackUndo(before) {
+  const back = project.media.find((m) => before.has(m.id) && before.get(m.id) !== MediaLib.audioTrackOf(m));
+  if (!back) return;
+  runtime.captionRedo = null; paintCaptionRedo(); renderBin();
+  toast(uiText("own.at-undone", { n: MediaLib.audioTrackOf(back) + 1 }));
+}
 /** By 〔听写所选〕 in the Transcript tab: JJ's sentence and 〔按这条轨重做字幕〕 while edited captions wait for a redo
  *  from the track picked last (VV on #177: the toast is gone when the streamer comes back). */
 function paintCaptionRedo() {
@@ -4617,14 +4625,12 @@ function undo() {
   const snap = runtime.undo.pop(), id = eventIdOf(snap);
   runtime.redo.push(id ? withEventId(counterSnapshot(snap), id) : counterSnapshot(snap));
   if (id) moveEvent(id, "undone");
-  const tracksBefore = new Map(project.media.map((m) => [m.id, MediaLib.audioTrackOf(m)]));
+  const tracksBefore = typeof trackPicks === "function" ? trackPicks() : null;
   restoreSnapshot(snap);
   pruneSelection();
   scheduleSave(); renderInspector();
   if (isOutsideStep(snap)) toast(uiText("own.undo-outside"));
-  // a track change undone (VV on #177): say which track is in use again
-  const back = project.media.find((m) => tracksBefore.has(m.id) && tracksBefore.get(m.id) !== MediaLib.audioTrackOf(m));
-  if (back) { runtime.captionRedo = null; paintCaptionRedo(); renderBin(); toast(uiText("own.at-undone", { n: MediaLib.audioTrackOf(back) + 1 })); }
+  if (tracksBefore) noteTrackUndo(tracksBefore);   // a track change undone (VV on #177): say which track is in use again
 }
 function redo() {
   if (!runtime.redo.length) return;
