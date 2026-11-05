@@ -96,6 +96,7 @@ function refreshLanguageText() {
   if (els.projectName) els.projectName.textContent = projectStatusText();
   if (els.projectName?.classList.contains("clickable")) els.projectName.setAttribute("title", uiText("term.projects"));
   if (trState.built) renderTranscript(true);
+  syncExportFrameSel();
 }
 function updateMontClipView(patch) {
   if(patch.mode && patch.mode!==mcView.get().mode){
@@ -247,13 +248,14 @@ const ASPECT_PRESETS = [
   { label: "1:1 · 1080×1080", w: 1080, h: 1080 },
 ];
 const FPS_PRESETS = [24, 25, 30, 50, 60];
-/** Delivery-aspect presets fitted inside the composition canvas (export crop). */
+/* Delivery-aspect presets fitted inside the composition canvas (export crop). The drop-down above the player shows each
+   one's own.ef-* words in the interface language (draft Chinese, for JJ to settle). */
 const EXPORT_FRAME_ASPECTS = [
-  { label: "Full canvas", w: 0, h: 0 },
-  { label: "9:16 Reel", w: 9, h: 16 },
-  { label: "16:9", w: 16, h: 9 },
-  { label: "4:5 IG", w: 4, h: 5 },
-  { label: "1:1 Square", w: 1, h: 1 },
+  { key: "ef-full", w: 0, h: 0 },
+  { key: "ef-9-16", w: 9, h: 16 },
+  { key: "ef-16-9", w: 16, h: 9 },
+  { key: "ef-4-5", w: 4, h: 5 },
+  { key: "ef-1-1", w: 1, h: 1 },
 ];
 const WAVE_PEAKS_PER_SEC = 50;
 /* ── Mixer levels (dB). Clip gain is a trim before volume; track and master
@@ -1601,11 +1603,12 @@ function syncExportFrameSel() {
   const i = exportFrameAspectIndex(ef);
   let html = EXPORT_FRAME_ASPECTS.map((a, j) => {
     const sel = ef ? (i === j) : (j === 0);
-    return `<option value="${j}" ${sel ? "selected" : ""}>${a.label}</option>`;
+    return `<option value="${j}" ${sel ? "selected" : ""}>${escapeHtml(uiText("own." + a.key))}</option>`;
   }).join("");
   if (ef && i < 0)
-    html += `<option value="custom" selected>Custom · ${ef.w}×${ef.h}</option>`;
+    html += `<option value="custom" selected>${escapeHtml(uiText("own.ef-custom", { w: ef.w, h: ef.h }))}</option>`;
   els.exportFrameSel.innerHTML = html;
+  els.exportFrameSel.title = uiText("own.ef-title");
 }
 function applyProject(data, opts = {}) {
   if (state.compCtx && !opts.ctx && SeqLib.activeId(data) !== SeqLib.activeId(state.compCtx.root)) {

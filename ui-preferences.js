@@ -858,6 +858,15 @@
     "help-85": ["", "剪掉选中的字和后面的停顿（在目标轨道上提取）· <kbd>Esc</kbd> 取消选择"],
     "help-86": ["", "<kbd>Enter</kbd> / <kbd>⇧</kbd>+<kbd>Enter</kbd> 跳到下一个 / 上一个找到的地方 · 〔剪切〕把找到的全部剪掉"],
     "help-87": ["", "选一个样式，再点〔添加字幕〕（撤销一次就能全部撤回；会替换那里原有的字幕）· 点 SRT / VTT 可以下载字幕 · 〔导入…〕把字幕文件里的字幕放上来"],
+    // the export-frame drop-down above the player (app.js EXPORT_FRAME_ASPECTS; Deja, 2026-11-05). 待 JJ 定稿: the Chinese is a
+    // first draft; the English is what the drop-down said before
+    "ef-full": ["Full canvas", "整个画布"],
+    "ef-9-16": ["9:16 Reel", "9:16 竖屏"],
+    "ef-16-9": ["16:9", "16:9 横屏"],
+    "ef-4-5": ["4:5 IG", "4:5 竖版"],
+    "ef-1-1": ["1:1 Square", "1:1 方形"],
+    "ef-custom": ["Custom · {w}×{h}", "自定义 · {w}×{h}"],
+    "ef-title": ["Delivery export frame — crop inside the canvas for reframing", "导出画面：在画布里裁出要导出的部分"],
   });
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
   // English by number (JJ, 2026-11-04; MontClipView.tp): 〔加字幕〕, by the captions added, then by the ones replaced. The
