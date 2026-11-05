@@ -78,8 +78,8 @@
   // seconds); loudnessValues — whole numbers 0–100, one a second, one every few seconds when the clips together are longer
   // than 2400 s: 40 min one a second, 2 h one every 3 s, 4 h one every 6 s, 8 h one every 12 s. Whole numbers at most
   // one a second say how loud a stretch is, not what it sounds like: no waveform can be rebuilt from them.
-  // loudnessSeconds — the longest the clips may be together (8 h); longer, the send is refused. Over any cap the send is
-  // refused (FACTS_LIMIT), never cut down. 2400 values, not 7200: a message is at most 16000 characters (the desktop
+  // loudnessSeconds — the longest the clips may be together (8 h); longer, neither is attached that time and the review box
+  // says so (JJ定稿, 2026-11-05). Over the other caps the send is refused (FACTS_LIMIT). Never cut down. 2400 values, not 7200: a message is at most 16000 characters (the desktop
   // service checks it), and a value takes up to four ("100,").
   const FACTS = { singingParts: 100, loudnessValues: 2400, loudnessSeconds: 28800 };
   const freeze = (o) => { if (o && typeof o === "object" && !Object.isFrozen(o)) { Object.freeze(o); for (const v of Object.values(o)) freeze(v); } return o; };

@@ -78,8 +78,9 @@ test('over a cap the facts are refused (FACTS_LIMIT), not cut down',()=>{
 // JJ's words, as written (2026-11-05)
 test('the review box: the line about the sound numbers, word for word, outside the fold, only when they are sent',()=>{
  const zh=View.text['zh-CN'],en=View.text.en;
- a.equal(zh.officialPane_factsSound,'还会发送：哪几段可能在唱歌（只有开始和结束的秒数）、每秒的音量大小（一串数字）。不发声音本身。');
- a.equal(en.officialPane_factsSound,'Also sent: which parts may be singing (start and end seconds only) and the loudness for each second (a list of numbers). The sound itself is not sent.');
+ // JJ定稿 (2026-11-05): a long video gets one number every few seconds, so 「每秒的」 is gone
+ a.equal(zh.officialPane_factsSound,'还会发送：哪几段可能在唱歌（只有开始和结束的秒数）、音量大小（每秒或每隔几秒一个数）（一串数字）。不发声音本身。');
+ a.equal(en.officialPane_factsSound,'Also sent: which parts may be singing (start and end seconds only) and the loudness (one number every second or every few seconds) (a list of numbers). The sound itself is not sent.');
  const pane=read('agent-ui/pane.tsx'),at=pane.indexOf('<p data-facts-sound>');
  a.ok(at>pane.indexOf('</details>',pane.indexOf('<details data-facts-note>')),'outside the fold');
  a.match(pane,/n=W\.MontClipFacts\?\.soundSummary\(f\);return n\?<><p data-facts-sound>\{t\.factsSound\}<\/p>/);

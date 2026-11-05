@@ -7,7 +7,7 @@
    singing    — the parts that may be singing (JJ via Deja, 2026-11-05): the songs the 「✨ 自动出切片」 「唱歌」 scan found
                 (songs.js, /api/songs), inside the part each clip shows, as {clipId, from, to} in source seconds. Only for
                 recordings already scanned; nothing else about a song (its marks, its confidence) is sent.
-   loudness   — how loud each clip is, one 0–100 value a second (the server's RMS levels, signals.js, every 0.5 s, joined
+   loudness   — how loud each clip is, one 0–100 value every second or every few seconds (the server's RMS levels, signals.js, every 0.5 s, joined
                 by power to whole seconds): 0 is −60 dBFS or quieter, 100 is full scale. When the clips together are longer
                 than the cap (capabilities.js FACTS.loudnessValues), each value covers `step` seconds instead, the same
                 step for every clip, so the total fits. {clipId, from, step, values}: value i covers from + i·step.
@@ -89,6 +89,11 @@ function soundSummary(facts){
    switched off in 设置, the pane says so above the reply, deterministically, from the message's words. */
 const SOUND_WORDS=/安静|静音|没声音|没有声音|开口|开始唱|唱之前|前奏|唱歌|停顿|\bsilen|\bquiet|\bsing(s|ing)?\b|\bpause/i;
 const asksAboutSound=text=>typeof text==='string'&&SOUND_WORDS.test(text);
+/** Are the clips whose sound is known longer than FACTS.loudnessSeconds (8 h) together? Then build() attaches neither. */
+function tooLong(doc,sound,caps=Caps().FACTS){
+ if(!sound||typeof sound!=='object')return false;
+ return shots(doc).slice(0,MAX_CLIPS).filter(s=>sound[s.clip.mediaId]?.loudness||sound[s.clip.mediaId]?.songs).reduce((n,s)=>n+s.entry.to-s.entry.from,0)>caps.loudnessSeconds;
+}
 /** sound: {[mediaId]: {loudness: {step, values: dBFS[]}, songs: [{from, to}] | null}} — what the server has for each file. */
 function build(doc,{highlights=[],sound=null}={}){
  const list=shots(doc),sent=list.slice(0,MAX_CLIPS),out={clips:sent.map(s=>s.entry)};
@@ -97,11 +102,13 @@ function build(doc,{highlights=[],sound=null}={}){
  if(hl.length)out.highlights=hl;
  if(sound&&typeof sound==='object'){
   const entries=sent.map(s=>({clipId:s.entry.clipId,mediaId:s.clip.mediaId,from:s.entry.from,to:s.entry.to})),caps=Caps().FACTS;
-  // longer than the cap altogether: refused, never cut down
-  if(entries.filter(e=>sound[e.mediaId]?.loudness).reduce((n,e)=>n+e.to-e.from,0)>caps.loudnessSeconds)throw Error('FACTS_LIMIT');
-  const singing=singingOf(entries,sound),loudness=loudnessOf(entries,sound,caps.loudnessValues);
-  if(singing.length)out.singing=singing;
-  if(loudness.length)out.loudness=loudness;
+  // longer than the cap altogether (JJ定稿, 2026-11-05): neither is attached this time, the rest is sent; the review box
+  // says so (tooLong). Never cut down.
+  if(!tooLong(doc,sound)){
+   const singing=singingOf(entries,sound),loudness=loudnessOf(entries,sound,caps.loudnessValues);
+   if(singing.length)out.singing=singing;
+   if(loudness.length)out.loudness=loudness;
+  }
  }
  return check(out);
 }
@@ -111,5 +118,5 @@ function soundMedia(doc){
  for(const s of shots(doc).slice(0,MAX_CLIPS)){const m=media.get(s.clip.mediaId);if(m&&typeof m.src==='string'&&!seen.has(m.id)){seen.add(m.id);out.push({mediaId:m.id,src:m.src});}}
  return out;
 }
-return {build,check,omitted,soundMedia,soundSummary,asksAboutSound,level,SHORT_ID};
+return {build,check,tooLong,omitted,soundMedia,soundSummary,asksAboutSound,level,SHORT_ID};
 });

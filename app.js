@@ -23395,6 +23395,7 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  canUndoProposal:canUndoOfficialProposal,
  getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts,s=runtime.soundFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[],sound:soundFactsOn()&&s&&s.signature===JSON.stringify(MontClipFacts.soundMedia(doc))?s.sound:null});},
  soundFactsOff:()=>!soundFactsOn(),
+ soundTooLong:()=>{const doc=projectJSON(),s=runtime.soundFacts;return soundFactsOn()&&!!s&&s.signature===JSON.stringify(MontClipFacts.soundMedia(doc))&&MontClipFacts.tooLong(doc,s.sound);},
  soundOffNote:(text)=>soundFactsOn()||!MontClipFacts.asksAboutSound(text)?'':uiText('own.sf-off-note',{settings:uiText('term.settings'),switch:uiText('own.sf-label')}),
  beforeReview:agentSoundFacts,
  ...(window.montclipAgentPolicy?{getMode:()=>agentPolicy.mode,setMode:setAgentMode,onReply:result=>{void onAgentReply(result);},

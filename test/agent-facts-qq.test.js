@@ -11,18 +11,21 @@ const doc=(secs,clips=1)=>({media:[{id:'m1',name:'我的直播.mp4',src:'/media/
  clips:Array.from({length:clips},(_,i)=>({id:'c'+i,kind:'video',mediaId:'m1',track:'V1',start:i*secs,in:i*secs,duration:secs,props:{}}))});
 const sound=(secs,songs=null)=>({m1:{loudness:{step:0.5,values:Array.from({length:secs*2},(_,i)=>-60+(i%120)/2)},songs}});
 
-test('(1) only singing [from, to] and whole-number loudness 0–100; the step for 2 h, 4 h and 8 h; longer is refused',()=>{
+test('(1) only singing [from, to] and whole-number loudness 0–100; the step for 2 h, 4 h and 8 h; longer: not attached',()=>{
  const f=Facts.build(doc(600),{sound:sound(600,[{from:30,to:200,confidence:'estimated',marks:[]}])});
  a.deepEqual(f.singing,[{clipId:'c0',from:30,to:200}]);
  for(const e of f.loudness)for(const v of e.values)a.ok(Number.isInteger(v)&&v>=0&&v<=100,'a whole number 0–100: '+v);
  a.ok(f.loudness.every(e=>e.step>=1),'at most one a second: no waveform');
  const stepFor=(secs)=>Facts.build(doc(secs),{sound:sound(secs)}).loudness[0].step;
  a.equal(stepFor(2400),1);a.equal(stepFor(7200),3,'2 h: one every 3 s');a.equal(stepFor(14400),6,'4 h: one every 6 s');a.equal(stepFor(28800),12,'8 h: one every 12 s');
- a.throws(()=>Facts.build(doc(28801),{sound:sound(28801)}),/FACTS_LIMIT/,'over 8 h: refused, not cut down');
- a.throws(()=>Facts.build(doc(14401,2),{sound:sound(14401*2)}),/FACTS_LIMIT/,'two clips together over 8 h');
+ // over 8 h (JJ定稿, 2026-11-05): neither is attached, the rest is sent — never a part of them (test below)
+ for(const [d,snd] of [[doc(28801),sound(28801,[{from:1,to:200}])],[doc(14401,2),sound(14401*2)]]){
+  const f=Facts.build(d,{sound:snd});a.equal(f.singing,undefined);a.equal(f.loudness,undefined);a.ok(f.clips.length);a.equal(Facts.tooLong(d,snd),true);
+ }
+ a.equal(Facts.tooLong(doc(28800),sound(28800)),false,'8 h exactly: attached');
  a.equal(Cap.FACTS.loudnessSeconds,28800);
  const caps=read('capabilities.js');
- for(const s of ['40 min one a second, 2 h one every 3 s, 4 h one every 6 s, 8 h one every 12 s','no waveform can be rebuilt from them','loudnessSeconds — the longest the clips may be together (8 h); longer, the send is refused'])a.ok(caps.includes(s),s);
+ for(const s of ['40 min one a second, 2 h one every 3 s, 4 h one every 6 s, 8 h one every 12 s','no waveform can be rebuilt from them','loudnessSeconds — the longest the clips may be together (8 h); longer, neither is attached that time and the review box\n  // says so'])a.ok(caps.includes(s),s);
 });
 
 // (5) every key of what goes out, at every level: one more and this fails
@@ -53,8 +56,9 @@ test('(2) the review box lists the sound in plain numbers: singing parts, how lo
  a.deepEqual(Facts.soundSummary(f),{parts:2,seconds:260,values:600,step:1});
  a.equal(Facts.soundSummary({clips:[]}),null);
  const fill=(l)=>View.text[l].officialPane_factsCounts.replace('{parts}','2').replace('{duration}',V.durationText(260)).replace('{values}','600').replace('{step}','1');
- a.equal(fill('zh-CN'),'这次附上：可能在唱歌的 2 段，一共 04:20；音量 600 个数，每 1 秒一个。');
- a.equal(fill('en'),'This time: 2 singing parts, 04:20 in total; 600 loudness numbers, one every 1 s.');
+ // JJ定稿 (2026-11-05), word for word
+ a.equal(fill('zh-CN'),'这次附上：可能在唱歌的段落 2 段，共 04:20；音量数字 600 个，每 1 秒一个。');
+ a.equal(fill('en'),'This time: 2 possible singing parts, 04:20 in total; 600 loudness numbers, one every 1 s.');
  const pane=read('agent-ui/pane.tsx');
  a.match(pane,/<p data-facts-counts>\{t\.factsCounts\.replace\('\{parts\}',String\(n\.parts\)\)\.replace\('\{duration\}',MontClipConversation\.durationText\(n\.seconds\)\|\|'0:00'\)\.replace\('\{values\}',String\(n\.values\)\)\.replace\('\{step\}',String\(n\.step\)\)\}<\/p>/);
  // shown before every send: the only way to send is the review box's own button, whatever was approved before
@@ -69,7 +73,7 @@ test('(2) the review box lists the sound in plain numbers: singing parts, how lo
   a.ok(/唱歌|singing/.test(t.officialPane_factsSound)&&/音量|loudness/.test(t.officialPane_factsSound),l);
   a.ok(/唱歌|singing/.test(t.officialPane_factsCounts)&&/音量|loudness/.test(t.officialPane_factsCounts),l);
  }
- a.match(read('ui-preferences.js'),/QQ's five on #169 \(Deja, 2026-11-05\), 待 JJ 定稿/);
+ a.match(read('ui-preferences.js'),/QQ's five on #169 \(Deja, 2026-11-05\), JJ定稿 \(2026-11-05\)/);
  a.match(read('cindy-official.js'),/data-facts-counts/,'the bundle was rebuilt');
 });
 
@@ -97,7 +101,7 @@ test('(3) 设置 › 「附上唱歌段和音量」: on by default, kept when of
  const zh=View.text['zh-CN'],en=View.text.en;
  a.equal(zh['own.sf-label'],'附上唱歌段和音量');a.equal(en['own.sf-label'],'Attach singing parts and loudness');
  a.equal(zh.officialPane_factsOff,'这次没有附上唱歌段和音量：设置里关着。');
- a.match(read('ui-preferences.js'),/「附上唱歌段和音量」 in 设置 \(QQ's five on #169; Deja, 2026-11-05\)\. 待 JJ 定稿/);
+ a.match(read('ui-preferences.js'),/「附上唱歌段和音量」 in 设置 \(QQ's five on #169; Deja, 2026-11-05\)\. JJ定稿 \(2026-11-05\)/);
 });
 
 test('(3) off, a message about the quiet part gets the editor\'s note above the reply: it can\'t be done, and how to turn it on',()=>{
@@ -113,4 +117,34 @@ test('(3) off, a message about the quiet part gets the editor\'s note above the 
  a.match(pane,/const soundNote=m\.role==='assistant'\?options\.soundOffNote\?\.\(MontClipAgentPane\.displayMessage\(session\.messages\[i-1\]\?\.text\|\|''\)\.text\)\|\|'':'';/);
  a.match(pane,/<strong>\{m\.role==='user'\?t\.user:t\.assistant\}<\/strong>\{soundNote&&<p data-sound-off>\{soundNote\}<\/p>\}/);
  a.match(read('cindy-official.js'),/data-sound-off/);
+});
+
+test('over 8 h: the review box says it, and the two are not in what is sent (JJ定稿, 2026-11-05)',()=>{
+ const d=doc(28801),snd=sound(28801,[{from:1,to:200,confidence:'likely',marks:[]}]),f=Facts.build(d,{sound:snd});
+ const state={current:()=>({id:'1',draft:'把开头安静的部分剪掉',messages:[],references:[]}),complete(){}};
+ const conv=V.createConversation({state,getContext:()=>({projectId:'p',sequenceId:'main',revision:1,gen:0}),getFacts:()=>f,id:()=>'r1'});
+ const content=conv.prepare().messages.at(-1).content,tail=JSON.parse(content.slice(content.lastIndexOf('\n\n')+2));
+ a.deepEqual(Object.keys(tail.facts),['clips'],'only the clips: no singing, no loudness');
+ a.equal(Facts.soundSummary(tail.facts),null,'so no counts line either');
+ a.equal(View.text['zh-CN'].officialPane_factsLong,'片子超过 8 小时，这次没有附上唱歌段和音量。');
+ a.equal(View.text.en.officialPane_factsLong,'The video is longer than 8 hours, so singing parts and loudness are not attached this time.');
+ const pane=read('agent-ui/pane.tsx'),app=read('app.js');
+ a.match(pane,/\{review&&options\.soundTooLong\?\.\(\)&&<p data-facts-long>\{t\.factsLong\}<\/p>\}/);
+ a.match(app,/soundTooLong:\(\)=>\{const doc=projectJSON\(\),s=runtime\.soundFacts;return soundFactsOn\(\)&&!!s&&s\.signature===JSON\.stringify\(MontClipFacts\.soundMedia\(doc\)\)&&MontClipFacts\.tooLong\(doc,s\.sound\);\},/);
+ a.match(read('cindy-official.js'),/data-facts-long/);
+});
+
+test('JJ定稿: nothing said to the streamer, the model or the docs says 「每秒的音量」 / "loudness for each second" any more',()=>{
+ const said=[];
+ for(const l of ['zh-CN','en'])for(const [k,v] of Object.entries(View.text[l]))if(typeof v==='string')said.push(k+': '+v);
+ said.push('FORMAT_NOTE: '+Format.FORMAT_NOTE);
+ for(const c of Cap.list())said.push(c.name+': '+c.summary['zh-CN']+' '+c.summary.en);
+ for(const f of ['CLAUDE.md','index.html','capabilities.js','agent-facts.js','agent-format.js'])said.push(f+': '+read(f));
+ for(const s of said)a.ok(!/每秒的音量|loudness for each second/i.test(s),s.slice(0,120));
+ a.equal(View.t('zh-CN','own.sf-hint'),'开着的时候，发给 AI 的内容里会附上哪几段可能在唱歌，以及音量大小（每秒或每隔几秒一个数）：只是数字，不是录音。关掉以后，助手判断不了哪里安静、从哪里开始唱。');
+ a.equal(View.t('en','own.sf-hint'),"When on, what is sent to the AI includes which parts may be singing and the loudness (one number every second or every few seconds): numbers only, not the recording. When off, the assistant can't tell where it is quiet or where the singing starts.");
+ // and the drafts JJ kept as they were
+ a.equal(View.t('zh-CN','own.sf-title'),'AI 助手');a.equal(View.t('zh-CN','own.sf-label'),'附上唱歌段和音量');
+ a.equal(View.text['zh-CN'].officialPane_factsOff,'这次没有附上唱歌段和音量：设置里关着。');
+ a.equal(View.text.en.officialPane_factsOff,'Singing parts and loudness are not attached: they are switched off in Settings.');
 });
