@@ -9718,7 +9718,7 @@ async function asrGet() {
   return !!(r && r.ok);
 }
 function asrCancel() { if (window.montclipAsr && asrState.downloading) window.montclipAsr.cancel(); }
-/** 〔撤销〕 Meta's model: the host asks, then deletes its files and the consent record; the tab goes back to Paraformer. */
+/** 〔删掉 Meta 的模型〕: the host asks, then deletes its files and the consent record; the tab goes back to Paraformer. */
 async function asrRevokeMeta() {
   if (!window.montclipAsr || !window.montclipAsr.revoke || asrState.downloading) return;
   let r = null;

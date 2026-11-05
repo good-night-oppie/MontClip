@@ -152,11 +152,12 @@
     "asr-meta-crashed": ["Meta's model stopped with an error, so this transcription didn't finish. Your edits are all still there. Switch the speech model back to Paraformer and transcribe again.", "Meta 的模型出错停了，这次没有听写完。你的剪辑都还在。把「听写模型」换回 Paraformer 再听写就行。"],
     // the button on "Meta's model stopped": the speech model back to Paraformer (JJ's words)
     "asr-switch-paraformer": ["Switch to Paraformer", "换回 Paraformer"],
-    "asr-meta-broken": ["Meta's model files can't be read. Revoke Meta's model and download it again, or switch back to Paraformer.", "Meta 的模型文件读不了。撤销 Meta 的模型再下载一次，或者换回 Paraformer。"],
+    // the delete button's name and asr-meta-broken: JJ's final words (Deja, 11-05)
+    "asr-meta-broken": ["Meta's model files can't be read; they may have been damaged while downloading. Click \"Remove Meta's model\" and download it again, or switch back to Paraformer.", "Meta 的模型文件读不了，可能是下载时坏了。点〔删掉 Meta 的模型〕，再重新下载一次；或者换回 Paraformer。"],
     "asr-meta-no-memory": ["There isn't enough free memory for Meta's model (it needs about {need}; {free} is free), so it didn't start. Close some programs and try again, or switch back to Paraformer.", "内存不够跑 Meta 的模型（大约要 {need}，现在只空着 {free}），所以没有开始。关掉一些软件再试，或者换回 Paraformer。"],
     "asr-meta-consent": ["Meta's multilingual model is on this computer, but it is used only after you read its licence and agree.", "Meta 的多语言模型已经在这台电脑上了，但要先看它的许可证、点同意才会用。"],
     "asr-meta-agree": ["Read the licence and use it", "看许可证并使用"],
-    "asr-meta-revoke": ["Revoke Meta's model", "撤销 Meta 的模型"],
+    "asr-meta-revoke": ["Remove Meta's model", "删掉 Meta 的模型"],
     "asr-meta-revoked": ["Revoked: Meta's model and your consent record were deleted; transcription uses Paraformer again.", "已撤销：Meta 的模型和你的同意记录都删掉了，听写回到 Paraformer。"],
     "asr-missing-meta": ["Meta's Omnilingual model is not installed yet. Download it once (about 280–350 MB, after you read and accept its licence) or import it; after that it runs on this computer and no sound is sent.", "Meta 的多语言模型还没装。看过许可证、点了同意以后下载一次（约 280–350 MB），或者导入；之后都在这台电脑上听写，不发送声音。"],
     "asr-downloading": ["Downloading the transcription model: {got} / about 230 MB. You can go on editing; you'll be told when it's done.", "正在下载听写模型：{got} / 约 230 MB。可以先去剪辑，下载完会告诉你。"],

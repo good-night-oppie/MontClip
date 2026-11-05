@@ -65,6 +65,15 @@ function createConsent({ modelsDir, root = __dirname, manifest: m = manifest, no
     return { ok: true, revoked: key };
   }
 
+  /** What revoke() would delete, in bytes: the model's folder (in the user's folder only) and its half-downloaded parts. */
+  function size(key) {
+    terms(key);
+    const dir = path.resolve(modelsDir), model = m.models[key];
+    const sum = (p) => { let st; try { st = fs.lstatSync(p); } catch { return 0; } if (!st.isDirectory()) return st.isFile() ? st.size : 0; let names; try { names = fs.readdirSync(p); } catch { return 0; } return names.reduce((n, f) => n + sum(path.join(p, f)), 0); };
+    const shas = [...Object.values(model.files).map((f) => f.sha256), ...(model.sources || []).filter((s) => s.sha256).map((s) => s.sha256)];
+    return sum(path.join(dir, key)) + shas.reduce((n, sha) => n + sum(path.join(dir, ".partial", sha + ".part")), 0);
+  }
+
   /** The streamer chooses the model: licence → (site → download, when the files are not here) → record. */
   async function choose(key, { ask, installed, download, version } = {}) {
     const t = terms(key), model = m.models[key];
@@ -91,7 +100,7 @@ function createConsent({ modelsDir, root = __dirname, manifest: m = manifest, no
     return { ok: true };
   }
 
-  return { licenseText, record, allowed, agree, revoke, choose };
+  return { licenseText, record, allowed, agree, revoke, size, choose };
 }
 
 module.exports = { createConsent, termsOf };

@@ -55,19 +55,22 @@ function asrConfirmText(language, { site, url, mb, also = [] }) {
   };
 }
 
-/** Revoke: the model's files and the consent record are deleted; transcription goes back to Paraformer. */
-function asrRevokeText(language) {
+/** 〔删掉 Meta 的模型〕 (JJ's final words, Deja 11-05): the model's files and the agreement go; transcription goes back to
+ *  Paraformer. `bytes`: what the files on this computer take, shown as 「（约 N MB）」 when known (JJ: optional).
+ *  Buttons in JJ's order, 〔删掉〕〔先不删〕; Enter and Esc keep it (keepId). */
+function asrRevokeText(language, { bytes } = {}) {
   const zh = language !== 'en';
+  const mb = bytes > 0 ? (bytes >= 10 * 1048576 ? Math.round(bytes / 1048576 / 10) * 10 : Math.max(1, Math.round(bytes / 1048576))) : 0;
   return zh ? {
-    title: '撤销 Meta 的多语言听写模型',
-    message: '要撤销 Meta 的多语言听写模型吗？',
-    detail: '会删掉这个模型的文件和你的同意记录。听写回到默认的 Paraformer。以后想用还可以再选。',
-    buttons: ['取消', '撤销'],
+    title: '删掉 Meta 的多语言听写模型？',
+    message: '删掉 Meta 的多语言听写模型？',
+    detail: `会删掉这台电脑上的 Meta 模型文件${mb ? `（约 ${mb} MB）` : ''}，同时收回你之前对它许可条款的同意。以后想用，重新下载、再同意一次就行。用它听写好的字幕不会删。`,
+    buttons: ['删掉', '先不删'], removeId: 0, keepId: 1,
   } : {
-    title: "Revoke Meta's multilingual speech model",
-    message: "Revoke Meta's multilingual speech model?",
-    detail: "The model's files and your consent record are deleted. Transcription goes back to the default Paraformer. You can choose it again later.",
-    buttons: ['Cancel', 'Revoke'],
+    title: "Remove Meta's multilingual speech model?",
+    message: "Remove Meta's multilingual speech model?",
+    detail: `This deletes Meta's model files${mb ? ` (about ${mb} MB)` : ''} from this computer and withdraws your earlier agreement to its licence terms. To use it again, download it and agree again. Captions it already made are kept.`,
+    buttons: ['Remove', 'Keep it'], removeId: 0, keepId: 1,
   };
 }
 

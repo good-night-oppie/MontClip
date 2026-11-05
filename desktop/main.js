@@ -199,15 +199,15 @@ async function start() {
     } catch (e) { return { ok: false, code: e.code || "ASR_DOWNLOAD_FAILED", error: String(e.message || e) }; }
     finally { asrBusy = null; }
   }
-  // 〔撤销〕: the model's files and the consent record go (after the host's own box); back to Paraformer
+  // 〔删掉 Meta 的模型〕: the model's files and the consent record go (after the host's own box); back to Paraformer
   ipcMain.handle("montclip:asr:revoke", async (event, which) => {
     if (!settingsAllowed(event, win, origin) || !features.transcribe) return { ok: false, code: "ASR_FORBIDDEN" };
     if (which !== "asrMeta" || !AsrConsent.termsOf(which)) return { ok: false, code: "ASR_UNKNOWN_MODEL" };
     if (asrBusy) return { ok: false, code: "ASR_BUSY" };
-    const t = asrRevokeText(languageOf(settings.get()));
-    const answer = smoke ? { response: smokeAnswer("REVOKE") }
-      : await dialog.showMessageBox(win, { type: "question", title: t.title, message: t.message, detail: t.detail, buttons: t.buttons, defaultId: 0, cancelId: 0, noLink: true });
-    if (answer.response !== 1) return { ok: false, declined: true };
+    const t = asrRevokeText(languageOf(settings.get()), { bytes: asrConsent.size(which) });
+    const answer = smoke ? { response: smokeAnswer("REVOKE") === 1 ? t.removeId : t.keepId }
+      : await dialog.showMessageBox(win, { type: "question", title: t.title, message: t.message, detail: t.detail, buttons: t.buttons, defaultId: t.keepId, cancelId: t.keepId, noLink: true });
+    if (answer.response !== t.removeId) return { ok: false, declined: true };
     try { return asrConsent.revoke(which); } catch (e) { return { ok: false, error: String(e.message || e) }; }
   });
   // v10: what the streamer chose on the transcription setup page ("local" | "later"), kept here because the page's
