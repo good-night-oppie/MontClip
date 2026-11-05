@@ -249,9 +249,9 @@ const ASPECT_PRESETS = [
 ];
 const FPS_PRESETS = [24, 25, 30, 50, 60];
 /* Delivery-aspect presets fitted inside the composition canvas (export crop). The drop-down above the player shows each
-   one's own.ef-* words in the interface language (draft Chinese, for JJ to settle). */
+   one's own.ef-* words in the interface language (JJ定稿, 2026-11-05). */
 const EXPORT_FRAME_ASPECTS = [
-  { key: "ef-full", w: 0, h: 0 },
+  { key: "ef-full-canvas", w: 0, h: 0 },
   { key: "ef-9-16", w: 9, h: 16 },
   { key: "ef-16-9", w: 16, h: 9 },
   { key: "ef-4-5", w: 4, h: 5 },
