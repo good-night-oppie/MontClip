@@ -16,6 +16,8 @@ const smoke = !app.isPackaged && process.argv.includes("--montclip-smoke");
 const faultTest = smoke && (process.argv.includes("--close-crash") ? "crash" : process.argv.includes("--close-timeout") ? "timeout" : null);
 
 app.enableSandbox();
+// Linux: the system keyring for the saved AI key, unless the user chose a --password-store (desktop/password-store.js).
+{ const store = require("./password-store").passwordStoreSwitch(); if (store) app.commandLine.appendSwitch("password-store", store); }
 app.setName("MontClip");
 if (!app.requestSingleInstanceLock()) app.exit(0);
 app.on("second-instance", () => { if (win && !win.isDestroyed()) { win.restore(); win.focus(); } });
