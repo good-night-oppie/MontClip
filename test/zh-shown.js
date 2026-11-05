@@ -59,19 +59,25 @@ function wrongCase(text) {
 }
 
 /** English words of three letters or more the zh-CN page shows: {"help:<section>/<keys>": words} for the shortcuts in the
- *  help layer, one row each; {"html:<id>": words} for the rest of index.html, by the nearest element with an id. */
+ *  help layer, one row each, both columns; {"help-head:<n>": words} for its section headings; {"html:<id>": words} for
+ *  the rest of index.html, by the nearest element with an id. (Until 2026-11-05 the first column and the headings were
+ *  left out, so 41 left cells Rea's second scan found were never reported.) */
 function englishShown() {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8'), found = {};
   const a = html.indexOf('id="helpKeys"'), b = html.indexOf('id="helpEmpty"');
   const help = html.slice(a, b);
+  let n = 0;
   for (const sec of help.split(/<section class="keys-sec"/).slice(1)) {
     const head = (sec.match(/<h3[^>]*data-i18n="([^"]+)"/) || [])[1] || '?';
+    const h = englishLeft(shown((sec.match(/<h3[\s\S]*?<\/h3>/) || [''])[0]).map((x) => x.text).join(' '));
+    n++;
+    if (h) found['help-head:' + n] = h;
     for (const row of sec.matchAll(/<tr>([\s\S]*?)<\/tr>/g)) {
       const cells = [...row[1].matchAll(/<td[^>]*>[\s\S]*?<\/td>/g)].map((c) => c[0]);
       if (cells.length < 2) continue;
       let key = 'help:' + head.replace(/^term\./, '') + '/' + textOf(cells[0].replace(/<[^>]+>/g, ' '));
       while (key in found) key += '+';
-      const w = englishLeft(shown(cells.slice(1).join(' ')).map((x) => x.text).join(' '));
+      const w = englishLeft(shown(cells.join(' ')).map((x) => x.text).join(' '));
       if (w) found[key] = w;
     }
   }
