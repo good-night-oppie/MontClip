@@ -68,11 +68,11 @@ test('over a cap the facts are refused (FACTS_LIMIT), not cut down',()=>{
  a.equal(Facts.build(doc(),{sound:{m1:{loudness:null,songs:songs.slice(1)}}}).singing.length,Cap.FACTS.singingParts,'at the cap: sent');
  a.throws(()=>Facts.check({clips:[],loudness:[{clipId:'c',from:0,step:1,values:new Array(2401).fill(0)}]}),/FACTS_LIMIT/);
  a.doesNotThrow(()=>Facts.check({clips:[],loudness:[{clipId:'c',from:0,step:1,values:new Array(2400).fill(0)}]}));
- // the review box: a refusal says so, and nothing is sent
+ // the review box: a refusal says so, and nothing is sent (JJ定稿, 2026-11-05, word for word)
  const pane=read('agent-ui/pane.tsx');
  a.match(pane,/catch\(error\)\{setNotice\(\(error as Error\)\.message==='FACTS_LIMIT'\?'factsLimit':'scope'\);\}/);
- a.equal(View.text['zh-CN'].officialPane_factsLimit,'要附上的数字超过了能发的上限，这次没有发送。你写的话还在。');
- a.equal(View.text.en.officialPane_factsLimit,'There are more numbers to attach than can be sent, so nothing was sent. What you wrote is still here.');
+ a.equal(View.text['zh-CN'].officialPane_factsLimit,'要附上的数字太多，超过了能发的上限，这次没有发送。你写的话还在，选短一点的范围再发就行。');
+ a.equal(View.text.en.officialPane_factsLimit,'There are too many numbers to attach, more than can be sent, so nothing was sent. What you wrote is still here. Select a shorter range and send again.');
 });
 
 // JJ's words, as written (2026-11-05)
