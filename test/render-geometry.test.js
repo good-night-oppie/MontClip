@@ -291,7 +291,8 @@ function expectedCover(c, t) {
   if ((cv.from != null && lt < cv.from) || (cv.to != null && lt >= cv.to)) return null;   // outside its time window
   const r = { x0: Math.max(left, fl + cv.x * W * f), y0: Math.max(top, ft + cv.y * H * f),
     x1: Math.min(left + dw, fl + (cv.x + cv.w) * W * f), y1: Math.min(top + dh, ft + (cv.y + cv.h) * H * f) };
-  return { x0: Math.max(0, r.x0), y0: Math.max(0, r.y0), x1: Math.min(W, r.x1), y1: Math.min(H, r.y1) };
+  const out = { x0: Math.max(0, r.x0), y0: Math.max(0, r.y0), x1: Math.min(W, r.x1), y1: Math.min(H, r.y1) };
+  return out.x1 > out.x0 && out.y1 > out.y0 ? out : null;   // wholly cropped away: nothing covered
 }
 function nearBox(got, want, what) {
   if (!want) { assert.equal(got, null, `${what}: expected nothing covered, got ${JSON.stringify(got)}`); return; }
@@ -315,6 +316,8 @@ const COVER_CASES = [
   { id: "c_crop_b", start: 5, duration: 1, samples: [5.5], props: { cropR: 25, cropB: 20, cropL: 10, redactions: [{ x: 0.3, y: 0.3, w: 0.3, h: 0.3 }] } },
   // Two: half of the redaction lies in the cropped-away part (0.25–0.40 cut, 0.40–0.55 shown): only the shown half is drawn
   { id: "c_half", start: 6, duration: 1, samples: [6.5], props: { cropL: 40, redactions: [{ x: 0.25, y: 0.3, w: 0.3, h: 0.3 }] } },
+  // wholly in the cropped-away part: nothing drawn (no flat area anywhere)
+  { id: "c_outside", start: 8, duration: 1, samples: [8.5], props: { cropL: 50, redactions: [{ x: 0.1, y: 0.3, w: 0.3, h: 0.3 }] } },
   // x + w and y + h past 1: cut at the original frame's edge
   { id: "c_over", start: 7, duration: 1, samples: [7.5], props: { redactions: [{ x: 0.8, y: 0.7, w: 0.4, h: 0.5 }] } },
 ];

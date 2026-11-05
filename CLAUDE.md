@@ -1189,8 +1189,16 @@ the same way. Redactions live in `props.redactions` on video, image, svg and com
 | `from` · `to` | the whole clip | seconds from the clip's start: cover only while a private window is up, without cutting the clip |
 | `name` · `on` | — | a label; `on:false` turns it off |
 
-A cover only shows where the picture is: a part cropped away has nothing to
-cover. Under the clip's masks a cover is cut like the rest of the picture.
+How it is drawn, with the crop `cL cT cR cB` as fractions and
+`keepW = 1 − cL − cR`, `keepH = 1 − cT − cB`: the redaction is first cut to
+what the crop keeps and to the frame — `x1 = max(x, cL, 0)`,
+`x2 = min(x + w, 1 − cR, 1)`, likewise `y1`, `y2` — and nothing is drawn when
+`x2 ≤ x1` or `y2 ≤ y1`. The pixels come from `[x1·W0, x2·W0] × [y1·H0, y2·H0]`
+of the source frame (W0 × H0), and go back at
+`left + (x1 − cL) / keepW · width` (width `(x2 − x1) / keepW · width`; y alike)
+of the drawn picture, inside the clip's own transform — so scale, position,
+rotation and keyframes carry it. A redaction wholly in the cropped-away part
+draws nothing. Under the clip's masks a cover is cut like the rest of the picture.
 
 In the editor: right-click a clip → **给这块打码** (Cover this area), then drag
 a box on the monitor over what to hide (Esc cancels). The Inspector's

@@ -15250,14 +15250,23 @@ function drawCovers(covers, shown, { sx, sy, cw, ch, sw, sh, dw, dh }) {
   const [img, ix, iy, iw, ih] = shown;
   const m = ctx2d.getTransform(), k = Math.hypot(m.a, m.b) || 1;   // output px per picture px
   const outW = ctx2d.canvas.width;
+  // the crop as fractions of the original frame (W0 × H0 = sw × sh), and what it keeps
+  const cL = sx / sw, cT = sy / sh, keepW = cw / sw, keepH = ch / sh, cR = 1 - cL - keepW, cB = 1 - cT - keepH;
   for (const cv of covers) {
     if (cv.on === false) continue;
-    // the area in fractions of the drawn (cropped) picture
-    const u0 = clamp((cv.x * sw - sx) / cw, 0, 1), u1 = clamp(((cv.x + cv.w) * sw - sx) / cw, 0, 1);
-    const v0 = clamp((cv.y * sh - sy) / ch, 0, 1), v1 = clamp(((cv.y + cv.h) * sh - sy) / ch, 0, 1);
-    if (u1 - u0 <= 0 || v1 - v0 <= 0) continue;   // cropped away
-    const X = -dw / 2 + u0 * dw, Y = -dh / 2 + v0 * dh, RW = (u1 - u0) * dw, RH = (v1 - v0) * dh;
-    const SX = ix + u0 * iw, SY = iy + v0 * ih, SW = (u1 - u0) * iw, SH = (v1 - v0) * ih;
+    // 1. Intersect in the original frame's 0…1 space: the redaction ∩ the part the crop keeps ∩ the frame.
+    //    Nothing left → wholly cropped away or off the frame: draw nothing.
+    const x1 = Math.max(cv.x, cL, 0), x2 = Math.min(cv.x + cv.w, 1 - cR, 1);
+    const y1 = Math.max(cv.y, cT, 0), y2 = Math.min(cv.y + cv.h, 1 - cB, 1);
+    if (x2 <= x1 || y2 <= y1) continue;
+    // 2. Where it is in the drawn (cropped) picture: (x1 − cL) / keepW … — the picture is drawn at
+    //    (−dw/2, −dh/2, dw, dh) in the clip's own transform (its scale, position, rotation and keys), so this is the
+    //    dest box there: destX = left + (x1 − cL) / keepW · width, destW = (x2 − x1) / keepW · width; y alike.
+    const u1 = (x1 - cL) / keepW, u2 = (x2 - cL) / keepW, v1 = (y1 - cT) / keepH, v2 = (y2 - cT) / keepH;
+    const X = -dw / 2 + u1 * dw, Y = -dh / 2 + v1 * dh, RW = (u2 - u1) * dw, RH = (v2 - v1) * dh;
+    // 3. The pixels to sample, in the image just drawn: for the plain video frame (ix = cL·W0, iw = keepW·W0) this is
+    //    [x1·W0, x2·W0] × [y1·H0, y2·H0]; a keyed or graded copy covers only the kept part, so map through it
+    const SX = ix + u1 * iw, SY = iy + v1 * ih, SW = (u2 - u1) * iw, SH = (v2 - v1) * ih;
     const g = Mask.coverGrain(cv, Math.min(RW, RH) * k, outW);
     ctx2d.save();
     // shrink the area to a few cells (from its own pixels only, so nothing dark bleeds in at the picture's edge),
