@@ -28,11 +28,19 @@ const BEEPS = [1, 3.5, 6, 8.5];
 test("readArgs: whole, a window from before 3 s (no -ss), a later window (-ss); every read through #149's clock filter", () => {
   const { readArgs: readAudioArgs, SEEK_MIN, CLOCK_FILTER } = require("../asr-local.js");
   a.equal(SEEK_MIN, 3);
-  // the same string as #149's audio-window.js CLOCK_FILTER (one clock for the export's audio window and transcription)
-  a.equal(CLOCK_FILTER, "aresample=async=1:min_hard_comp=0.01:first_pts=0");
   a.ok(!fs.existsSync(path.join(__dirname, "..", "audio-read.js")), "no second shared reader next to #149's");
-  // #149 is merged: the filter is imported from audio-window.js, not kept as a copy (Deja, 2026-11-05)
-  a.equal(CLOCK_FILTER, require("../audio-window.js").CLOCK_FILTER);
+  // #149 is merged: asr-local.js uses the very CLOCK_FILTER audio-window.js exports, imported, never a copy (Deja,
+  // 2026-11-05) — checked by what asr-local picks up when audio-window exports something else, not by the strings
+  const awPath = require.resolve("../audio-window.js"), alPath = require.resolve("../asr-local.js");
+  const realAw = require(awPath), sentinel = "clock-filter-" + Math.random().toString(36).slice(2);
+  try {
+    delete require.cache[alPath];
+    require.cache[awPath].exports = { ...realAw, CLOCK_FILTER: sentinel };
+    const fresh = require(alPath);
+    a.equal(fresh.CLOCK_FILTER, sentinel, "asr-local takes audio-window's export");
+    const r = fresh.readArgs({ file: "f", from: 5, to: 6 });
+    a.equal(r.args[r.args.indexOf("-af") + 1], sentinel, "and reads through it");
+  } finally { require.cache[awPath].exports = realAw; delete require.cache[alPath]; }
   const src = fs.readFileSync(path.join(__dirname, "..", "asr-local.js"), "utf8");
   a.match(src, /require\("\.\/audio-window"\)/, "asr-local.js imports it");
   a.doesNotMatch(src, /CLOCK_FILTER = "aresample/, "no copy of the string left");
