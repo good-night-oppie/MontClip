@@ -131,7 +131,7 @@ test("a copy of the engine without desktop/asr-manifest.json (the plugin's): /ap
   const sj = await st.json();
   a.equal(sj.engine.ready, false); a.equal(sj.asr.ready, false);
   const r = await fetch(s.base + "/api/asr/transcribe", { method: "POST", body: JSON.stringify({ src: "/media/a.wav" }) });
-  a.equal(r.status, 409); a.equal((await r.json()).code, "ASR_ENGINE_MISSING");
+  a.equal(r.status, 409); a.equal((await r.json()).code, "ASR_MANIFEST_MISSING", "its own code (test/asr-unavailable.test.js)");
   a.equal((await fetch(s.base + "/api/project")).status, 200, "still running");
 });
 

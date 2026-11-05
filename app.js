@@ -9980,7 +9980,7 @@ async function transcribeSrcs(srcs, opts = transcribeSettings(), beat = null) {
       } catch (e) {
         if (busy.cancel || e.code === "ASR_CANCELLED") { out.cancelled = true; break; }
         out.failed.push({ src: srcs[i], error: String((e && e.message) || e), code: e.code || null });
-        if (e.code === "ASR_MODEL_MISSING" || e.code === "ASR_ENGINE_MISSING") break;   // the rest would fail the same way
+        if (e.code === "ASR_MODEL_MISSING" || e.code === "ASR_ENGINE_MISSING" || e.code === "ASR_MANIFEST_MISSING") break;   // the rest would fail the same way
       }
     }
   } finally {

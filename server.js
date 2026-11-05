@@ -144,8 +144,16 @@ let asrLocal = null;
 const asr = () => asrLocal || (asrLocal = require("./asr-local").createAsr({ asrDir: ASR_DIR, modelsDir: ASR_MODELS_DIR, ffmpeg: FF.path("ffmpeg"), cacheDir: path.join(DATA_DIR, "asr-cache") }));
 /** The speech engine's front, or null when this copy of MontClip cannot even load it (P8: a copy without
  *  desktop/asr-manifest.json threw here and took the whole server down). Never throws. */
-let asrLoadError = null;
-const asrOrNull = () => { try { return asr(); } catch (e) { asrLoadError = String((e && e.message) || e).split("\n")[0].slice(0, 200); return null; } };
+let asrLoadError = null, asrLoadCode = null;
+const asrOrNull = () => {
+  try { return asr(); }
+  catch (e) {
+    asrLoadError = String((e && e.message) || e).split("\n")[0].slice(0, 200);
+    asrLoadCode = /asr-manifest\.json/.test(asrLoadError) ? "ASR_MANIFEST_MISSING" : "ASR_ENGINE_MISSING";
+    return null;
+  }
+};
+const AsrStatus = require("./asr-status");
 const ASR_NONE = { ready: false, where: null, missing: [], bad: [] };
 const asrJob = { running: null };
 
@@ -778,7 +786,16 @@ function serveFile(req, res, filePath) {
 }
 
 /* ── Server ── */
-const server = http.createServer(async (req, res) => {
+/* Every request's handler runs here: whatever it throws is answered (500, JSON) and logged, never left as an
+   unhandled rejection that ends the process (P8: a missing speech manifest took the Cindy plugin's engine down). */
+const server = http.createServer((req, res) => {
+  handleRequest(req, res).catch((e) => {
+    console.error("[montclip] request failed: " + req.method + " " + String(req.url).split("?")[0] + ": " + ((e && e.stack) || e));
+    if (!res.headersSent) { try { sendJSON(res, 500, { code: "INTERNAL", error: String((e && e.message) || e) }); } catch { } }
+    else { try { res.end(); } catch { } }
+  });
+});
+async function handleRequest(req, res) {
   if (!requestAllowed(req)) {
     sendJSON(res, 403, { error: "forbidden: request must come from this machine (bad Host or Origin header)" });
     return;
@@ -1807,7 +1824,9 @@ const server = http.createServer(async (req, res) => {
        POST /api/asr/cancel            → {cancelled} */
   if (p === "/api/asr/status" && req.method === "GET") {
     const A = asrOrNull();
-    sendJSON(res, 200, A ? A.status() : { model: null, engine: { ready: false, why: asrLoadError }, vad: { ready: false }, asr: ASR_NONE, punct: ASR_NONE });
+    const st = A ? A.status() : { model: null, engine: { ready: false, why: asrLoadError }, vad: { ready: false }, asr: ASR_NONE, punct: ASR_NONE };
+    // code: why transcription cannot run here (asr-status.js), null when it can
+    sendJSON(res, 200, { ...st, code: A ? AsrStatus.code(st) : asrLoadCode });
     return;
   }
   if (p === "/api/asr/cancel" && req.method === "POST") {
@@ -1831,7 +1850,8 @@ const server = http.createServer(async (req, res) => {
     }
     if (asrJob.running) { sendJSON(res, 409, { code: "ASR_BUSY", error: "already transcribing " + asrJob.running.src }); return; }
     const A = asrOrNull(), st = A ? A.status() : null;
-    if (!st || !st.engine.ready || !st.vad.ready) { sendJSON(res, 409, { code: "ASR_ENGINE_MISSING", error: "the speech engine is missing from this copy of MontClip" + (st ? "" : " (" + asrLoadError + ")") }); return; }
+    if (!st) { sendJSON(res, 409, { code: asrLoadCode, error: "the speech engine cannot be loaded in this copy of MontClip: " + asrLoadError }); return; }
+    if (!st.engine.ready || !st.vad.ready) { sendJSON(res, 409, { code: "ASR_ENGINE_MISSING", error: "the speech engine is missing from this copy of MontClip" }); return; }
     if (!st.asr.ready) { sendJSON(res, 409, { code: "ASR_MODEL_MISSING", error: "no speech model yet: the user downloads it or imports it (USB drive / a file) in the Transcript tab; MontClip never fetches it by itself", missing: st.asr.missing, bad: st.asr.bad }); return; }
     const ac = new AbortController(), job = asrJob.running = { src, ac };
     res.on("close", () => { if (!res.writableFinished) ac.abort(); });   // the page went away: stop
@@ -1877,7 +1897,7 @@ const server = http.createServer(async (req, res) => {
   file = path.normalize(path.join(ROOT, file));
   if (!file.startsWith(ROOT + path.sep)) { res.writeHead(403); res.end(); return; }
   serveFile(req, res, file);
-});
+}
 
 /* Auto-save versions of the open project while it changes (every FABLECUT_AUTO_VERSION_MIN
    minutes at most, default 10), whoever edits it: the editor, an agent, a script. */

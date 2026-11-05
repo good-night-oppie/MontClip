@@ -605,16 +605,6 @@ function timelineSig(doc) {
 }
 /** A file longer than this is listened to only where its clips play, when they cover less than half of it. */
 const LONG_FILE_S = 600;
-/** No speech engine, no speech model: said plainly, with the code and what the user does — never as a stalled
- *  editor (P8). The sentences in 「」 are drafts for JJ. */
-const ASR_SAY = {
-  engine: "No speech engine on this computer (ASR_ENGINE_MISSING): nothing was transcribed, and nothing was sent anywhere. " +
-    "MontClip never fetches it by itself, so do not try to. Tell the user (draft, JJ to finalise): " +
-    "「这台电脑上的 MontClip 还没有听写程序，所以还不能把说的话转成文字。」 — then where it comes from: the 完整版 package of the desktop app has it; in Cindy, montclip_status says whether it can be installed here.",
-  model: "No speech model yet (ASR_MODEL_MISSING): nothing was transcribed, and nothing was sent anywhere. " +
-    "It is about 230 MB; the user downloads it after seeing where it comes from and agreeing, or imports her own copy — never fetch it yourself. " +
-    "Tell the user (draft, JJ to finalise): 「还没装听写模型（约 230 MB），所以还不能把说的话转成文字。装好以后再试一次。」",
-};
 /* The words said on the timeline (or in whole files, mediaIds): transcribes what has no
    transcript yet as a job in an open tab, else headless, then lays the words out. Shared by
    fablecut_transcribe and fablecut_captions. */
@@ -693,8 +683,9 @@ async function speechWords(args, fileMode) {
     }
     if (job.status !== "done") {
       const why = String(job.error || "");
-      if (/\bASR_ENGINE_MISSING\b/.test(why)) throw new Error(ASR_SAY.engine);
-      if (/\bASR_MODEL_MISSING\b/.test(why)) throw new Error(ASR_SAY.model);
+      const S = require("./asr-status");
+      const code = Object.keys(S.SAY).find((c) => new RegExp("\\b" + c + "\\b").test(why));   // ASR_MANIFEST_MISSING · ASR_ENGINE_MISSING · ASR_MODEL_MISSING
+      if (code) throw new Error(S.SAY[code]);
       throw new Error(`transcription ${job.status}: ${why || "no reason given"}`);
     }
     const res = job.result || {};
