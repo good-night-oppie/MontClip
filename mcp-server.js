@@ -127,6 +127,21 @@ const KIND_BY_EXT = {
   ".png": "image", ".jpg": "image", ".jpeg": "image", ".gif": "image", ".webp": "image", ".svg": "svg",
 };
 const uid = () => Math.random().toString(36).slice(2, 9);
+/** What fablecut_import_media says about the length it found (europa P3, 2026-11-05: "no ffprobe" was said whenever
+ *  the header had no length, though ffprobe had run). Say what actually happened. */
+function importNote(entry, probed) {
+  const timed = entry.kind === "video" || entry.kind === "audio";
+  if (!timed || entry.duration > 0) {
+    return probed && probed.durationFrom === "packets"
+      ? `Note: the file's header has no length (a recording stopped mid-way?), so it was read from the last packet: ${entry.duration}s. Seeking in it may be slow. Ready to use in clips via mediaId.`
+      : "Ready to use in clips via mediaId.";
+  }
+  if (!probed || probed.probe === "stat")
+    return "Note: duration unknown — ffprobe isn't available here, so the length wasn't read. The browser UI will probe and fill it in; re-read the project before trimming this media.";
+  if (probed.probe === "failed")
+    return `Note: ffprobe could not read this file (${probed.probeError}). It may be cut off — a recording stopped before it was saved. With no length it can't be placed or cut; the original file is unchanged.`;
+  return "Note: nothing in this file says how long it is — not the header, the streams or the packets' times. With no length it can't be placed or cut; the original file is unchanged.";
+}
 
 /* ── Tool definitions ── */
 const TOOLS = require("./mcp-tools");
@@ -1663,7 +1678,8 @@ async function callTool(name, args, attempt = 0) {
         // offset is not counted (QQ, #126: format=duration alone stored 3620 s for 20 s)
       };
       if (prepared.originalSrc) Object.assign(entry, {originalSrc: prepared.originalSrc, preparation: prepared.preparation});
-      Object.assign(entry, infoForEntry(await probeFile(target), entry));
+      const probed = await probeFile(target);
+      Object.assign(entry, infoForEntry(probed, entry));
       const proj = readProject();
       // import only appends a media entry (never touches clips), so it merges
       // into the live document; keep lastReadRevision in step only if it
@@ -1674,9 +1690,7 @@ async function callTool(name, args, attempt = 0) {
       writeProject(proj);
       if (wasCurrent) lastReadRevision = proj.revision;
       return `Imported → ${JSON.stringify(entry)}\n` +
-        (entry.duration == null && kind !== "image"
-          ? "Note: duration unknown (no ffprobe). The browser UI will probe and fill it in; re-read the project before trimming this media."
-          : "Ready to use in clips via mediaId.");
+        importNote(entry, probed);
     }
     case "fablecut_encode_profiles": {
       if (args.preset) {
