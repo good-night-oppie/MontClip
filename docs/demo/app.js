@@ -43,6 +43,8 @@ const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
 const uiOr = (key, english) => (mcView.get().language === "en" ? english : uiText(key));
 /** A stored default name ("Main", "Title") as the interface language shows it; the user's own names as they are. */
 const shownName = (name) => MontClipView.defaultName(mcView.get().language, name);
+/** A project's name as shown: a stored default (未命名项目 / Untitled project) in the interface language (P7). */
+const shownProject = (name) => MontClipView.projectName(mcView.get().language, name);
 /** On-device transcription: on in development and the browser editor; a packaged desktop build has it
  *  off unless the main process turned it on (desktop/features.js). Off means no entry and no download. */
 function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
@@ -89,7 +91,7 @@ function renderMontClipView() {
 }
 /** The project name (user content, never translated) and the connection status in the current language. */
 function projectStatusText() {
-  return project.name + (state.connected ? "  ·  🟢 " + uiText("own.connected") : "  ·  ⚪ " + uiText("own.local-session"));
+  return shownProject(project.name) + (state.connected ? "  ·  🟢 " + uiText("own.connected") : "  ·  ⚪ " + uiText("own.local-session"));
 }
 /** Text computed from state (not data-i18n) after a language switch: the top bar status and the Transcript panel. */
 function refreshLanguageText() {
@@ -115,15 +117,22 @@ function updateMontClipView(patch) {
 }
 /** Texts built in code (not data-i18n markers) for the views that are on screen, after a language switch. */
 function refreshLocalizedViews() {
-  renderBin();
-  if (typeof renderInspector === "function" && els.inspector) renderInspector();
-  if (typeof renderColorPage === "function" && colorState.open) renderColorPage(true);
-  if (typeof syncSequenceButton === "function") syncSequenceButton();
+  // each view on its own: one that fails to redraw must not leave the others in the old language (Rea, #148: the export
+  // range row stayed 「整条时间线」 in English)
+  const step = (f) => { try { f(); } catch (e) { console.error("language switch:", e); } };
+  // the export dialog's range row, hidden or not: the dialog may still be opening (its lists load first), and it would
+  // then show the line written before the switch
+  step(() => { renderExportEngineText(); syncExportRangeUi(); });
+  step(() => renderBin());
+  if (typeof renderInspector === "function" && els.inspector) step(() => renderInspector());
+  if (typeof renderColorPage === "function" && colorState.open) step(() => renderColorPage(true));
+  if (typeof syncSequenceButton === "function") step(() => syncSequenceButton());
+  if (typeof syncExportFrameSel === "function") step(() => syncExportFrameSel());
   state.dirtyTimeline = true; // clip labels ("T · Title")
-  if (meterState.modeBtn) meterState.modeBtn.textContent = meterModeLabel(meterState.mode);
-  if (projectsOpen()) renderProjects();
+  if (meterState.modeBtn) step(() => { meterState.modeBtn.textContent = meterModeLabel(meterState.mode); });
+  if (projectsOpen()) step(() => renderProjects());
   if (els.exportSetup && !els.exportSetup.classList.contains("hidden")) {
-    renderExportEngineText(); syncExportRangeUi(); if (dlvSpec) fillDeliveryControls(); refreshDeliveryNotes(); renderDeliveryTokens(); renderBatchList();
+    step(() => { if (dlvSpec) fillDeliveryControls(); refreshDeliveryNotes(); renderDeliveryTokens(); renderBatchList(); });
   }
 }
 document.getElementById("mcMode").addEventListener("click", e => {
@@ -485,7 +494,7 @@ function showTrackCtxMenu(clientX, clientY, track) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "ctx-item";
-  btn.textContent = "Remove track";
+  btn.textContent = uiText("own.track-remove");
   if (!check.ok) {
     btn.disabled = true;
     btn.title = check.reason;
@@ -1714,7 +1723,7 @@ function syncExportFrameSel() {
   const i = exportFrameAspectIndex(ef);
   let html = EXPORT_FRAME_ASPECTS.map((a, j) => {
     const sel = ef ? (i === j) : (j === 0);
-    return `<option value="${j}" ${sel ? "selected" : ""}>${a.label}</option>`;
+    return `<option value="${j}" ${sel ? "selected" : ""}>${j === 0 ? escapeHtml(uiText("own.ef-full-canvas")) : a.label}</option>`;
   }).join("");
   if (ef && i < 0)
     html += `<option value="custom" selected>Custom · ${ef.w}×${ef.h}</option>`;
@@ -2794,13 +2803,13 @@ function syncBinTools() {
   if ((f.startsWith("tag:") && !tags.some((t) => t.toLowerCase() === f.slice(4).toLowerCase())) ||
     (f.startsWith("col:") && !getCollection(f.slice(4)))) binView.filter = "";
   const opt = (v, label) => `<option value="${escapeHtml(v)}"${v === binView.filter ? " selected" : ""}>${escapeHtml(label)}</option>`;
-  const html = opt("", "All media") + opt("fav", "★ Favorites") + opt("used", "Used in the edit") + opt("unused", "Unused") +
+  const html = opt("", uiText("own.bin-all")) + opt("fav", uiText("own.bin-fav")) + opt("used", uiText("own.bin-used")) + opt("unused", uiText("own.bin-unused")) +
     (mediaOffline.size || binView.filter === "offline" ? opt("offline", `⚠ Offline (${mediaOffline.size})`) : "") +
-    (project.media.some((m) => m.kind === "video") ? opt("proxy", "Has a proxy") + opt("noproxy", "Video without a proxy") : "") +
-    `<optgroup label="Kind">${MediaLib.KINDS.map((k) => opt("kind:" + k, k === "svg" ? "SVG" : k === "video" || k === "audio" ? uiText("term." + k) : k[0].toUpperCase() + k.slice(1))).join("")}</optgroup>` +
-    (cols.length ? `<optgroup label="Collections">${cols.map((c) => opt("col:" + c.id, c.name + ` (${c.media.length})`)).join("")}</optgroup>` : "") +
-    (tags.length ? `<optgroup label="Tags">${tags.map((t) => opt("tag:" + t, "#" + t)).join("")}</optgroup>` : "");
-  if (els.binFilter.innerHTML !== html) els.binFilter.innerHTML = html;
+    (project.media.some((m) => m.kind === "video") ? opt("proxy", uiText("own.bin-proxy")) + opt("noproxy", uiText("own.bin-noproxy")) : "") +
+    `<optgroup label="${escapeHtml(uiText("own.bin-group-kind"))}">${MediaLib.KINDS.map((k) => opt("kind:" + k, k === "svg" ? "SVG" : k === "video" || k === "audio" ? uiText("term." + k) : k === "image" ? uiText("own.bin-image") : k[0].toUpperCase() + k.slice(1))).join("")}</optgroup>` +
+    (cols.length ? `<optgroup label="${escapeHtml(uiText("own.bin-group-collections"))}">${cols.map((c) => opt("col:" + c.id, c.name + ` (${c.media.length})`)).join("")}</optgroup>` : "") +
+    (tags.length ? `<optgroup label="${escapeHtml(uiText("own.bin-group-tags"))}">${tags.map((t) => opt("tag:" + t, "#" + t)).join("")}</optgroup>` : "");
+  if (els.binFilter.innerHTML !== html) { els.binFilter.innerHTML = html; fitBinFilter(); }
   els.binFilter.value = binView.filter;
   els.binFilter.classList.toggle("on", !!binView.filter);
   els.binSort.value = binView.sort;
@@ -2809,6 +2818,16 @@ function syncBinTools() {
   els.binViewBtn.classList.toggle("on", binView.list);
   els.binViewBtn.title = binView.list ? "Thumbnail view" : uiText("term.list-view-metadata-columns");
   if (els.binSearch.value !== binView.q && document.activeElement !== els.binSearch) els.binSearch.value = binView.q;
+}
+/** The Show box is as wide as its longest built-in choice, plus room for the native arrow (VV, #148: at the default width
+ *  「全部素材」 was cut). A collection's or a tag's own name may still be cut; the box never grows past the row. */
+function fitBinFilter() {
+  const sel = els.binFilter, cs = getComputedStyle(sel);
+  const ctx = (fitBinFilter.ctx ||= document.createElement("canvas").getContext("2d"));
+  ctx.font = cs.font || "11px 'Segoe UI', sans-serif";
+  const box = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) + (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0);
+  const text = Math.max(0, ...[...sel.options].filter((o) => !/^(col|tag):/.test(o.value)).map((o) => ctx.measureText(o.textContent).width));
+  sel.style.minWidth = Math.ceil(text + box + 22) + "px";
 }
 function setBinFilter(filter) {
   binView.filter = filter || "";
@@ -3049,37 +3068,37 @@ function showMediaMenu(x, y, m) {
     return b;
   };
   const sep = () => { const d = document.createElement("div"); d.className = "ctx-sep"; menu.appendChild(d); };
-  item("Open in Source", () => loadSourceFromMedia(m));
-  item(`Find timeline instances (${uses})`, () => showMediaInstances(m, x, y), uses ? null : "Not used on the timeline");
-  item("Media info…", () => showMediaInfo(m, x, y));
-  item(isMediaOffline(m.id) ? "Relink…" : "Relink to another copy…", () => openRelinkDialog([m]), state.connected ? null : uiText("own.needs-server"));
+  item(uiText("own.mm-open-source"), () => loadSourceFromMedia(m));
+  item(uiText("own.mm-instances", { n: uses }), () => showMediaInstances(m, x, y), uses ? null : "Not used on the timeline");
+  item(uiText("own.mm-info"), () => showMediaInfo(m, x, y));
+  item(isMediaOffline(m.id) ? "Relink…" : uiText("own.mm-relink-copy"), () => openRelinkDialog([m]), state.connected ? null : uiText("own.needs-server"));
   item(uiText("term.replace-file"), () => replaceMediaFile(m), state.connected ? null : uiText("own.needs-server"));
   if (m.kind === "video") {
     const ps = proxyStatus.get(m.id);
     const why = !state.connected ? uiText("own.needs-server") : !state.ffmpeg ? "Needs MontClip's bundled FFmpeg" : isMediaOffline(m.id) ? "The file is offline" : null;
     if (ps && (ps.state === "ready" || ps.state === "running" || ps.state === "queued")) item(ps.state === "ready" ? "Delete proxy" : "Stop making the proxy", () => deleteProxies([m]));
     else {
-      item("Create proxy (540p)", () => createProxies([m], 540), why);
-      item("Create proxy (720p)", () => createProxies([m], 720), why);
+      item(uiText("own.mm-proxy-540"), () => createProxies([m], 540), why);
+      item(uiText("own.mm-proxy-720"), () => createProxies([m], 720), why);
     }
   }
   sep();
-  item(m.favorite ? "Remove from favorites" : "Add to favorites", () => setMediaFavorite([m.id], !m.favorite));
-  item("Tags…", () => promptBinText(x, y, `Tags for ${m.name}`, (m.tags || []).join(", "), (v) => setMediaTags(m, v),
+  item(m.favorite ? "Remove from favorites" : uiText("own.mm-fav-add"), () => setMediaFavorite([m.id], !m.favorite));
+  item(uiText("own.mm-tags"), () => promptBinText(x, y, `Tags for ${m.name}`, (m.tags || []).join(", "), (v) => setMediaTags(m, v),
     { allowEmpty: true, max: 400, ok: "Save", placeholder: "interview, b-roll, day 1", hint: "Comma-separated. Search #tag to find them.",
       chips: MediaLib.allTags(project.media) }));
   for (const col of project.collections || []) {
     const inIt = col.media.includes(m.id);
     item(inIt ? `Remove from “${col.name}”` : `Add to “${col.name}”`, () => addToCollection(col.id, m.id, !inIt));
   }
-  item("New collection…", () => promptBinText(x, y, "New collection", "", (name) => {
+  item(uiText("own.mm-new-collection"), () => promptBinText(x, y, "New collection", "", (name) => {
     const col = newCollection(name, [m.id]);
     toast(`Added ${m.name} to the collection “${col.name}”`);
   }, { placeholder: "Selects, Interviews…", ok: "Create" }));
   const dm = (project.danmaku || []).find((e) => e.mediaId === m.id);
   if (dm) { sep(); item(uiText("own.dm-remove", { n: dm.count }), () => removeDanmaku(m)); }
   sep();
-  item("Remove from project", () => removeMediaFromBin(m));
+  item(uiText("own.mm-remove"), () => removeMediaFromBin(m)).title = uiText("own.mm-remove-title");
   document.body.appendChild(menu);
   menu.id = "trackCtxMenu";
   trackCtxMenu = menu;
@@ -3867,7 +3886,7 @@ function renderProjectGrid() {
   grid.innerHTML = rows.length ? rows.map((p) => `
     <button type="button" class="pj-card${p.id === pj.sel && pj.mode === "detail" ? " sel" : ""}${p.active ? " open" : ""}" data-pj="${escapeHtml(p.id)}" title="${p.active ? escapeHtml(uiText("own.pj-currently-open")) : "Double-click to open"}">
       ${pjThumbHtml(p)}
-      <span class="pj-card-name">${escapeHtml(p.name)}${p.active ? ` <span class="pj-badge">${escapeHtml(uiText("own.pj-open"))}</span>` : ""}</span>
+      <span class="pj-card-name">${escapeHtml(shownProject(p.name))}${p.active ? ` <span class="pj-badge">${escapeHtml(uiText("own.pj-open"))}</span>` : ""}</span>
       <span class="pj-card-meta">${p.unreadable ? "file unreadable" : `${pjCanvas(p)} · ${pjFmtDur(p.duration)}`}</span>
       <span class="pj-card-when dim">${escapeHtml(pj.sort === "created" ? uiText("own.pj-when-created", { when: pjWhen(p.created) }) : pj.sort === "modified" || !p.opened ? uiText("own.pj-when-modified", { when: pjWhen(p.modified) }) : uiText("own.pj-when-opened", { when: pjWhen(p.opened) }))}</span>
     </button>`).join("")
@@ -3878,7 +3897,7 @@ function pjDetailHtml(p) {
   const fact = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
   const tpl = p.template && pj.templates.find((t) => t.id === p.template);
   return `${pjThumbHtml(p, true)}
-    <label class="pj-field"><span>${uiText("term.name")}</span><input type="text" id="pjName" value="${escapeHtml(p.name)}" maxlength="120" spellcheck="false"></label>
+    <label class="pj-field"><span>${uiText("term.name")}</span><input type="text" id="pjName" value="${escapeHtml(shownProject(p.name))}" maxlength="120" spellcheck="false"></label>
     <dl class="pj-facts">
       ${fact(escapeHtml(uiText("own.pj-canvas")), p.unreadable ? "—" : pjCanvas(p))}
       ${fact(escapeHtml(uiText("own.pj-length")), escapeHtml((p.clips === 1 ? uiText("own.pj-length-value-1", { dur: pjFmtDur(p.duration), clips: 1, media: p.media }) : uiText("own.pj-length-value", { dur: pjFmtDur(p.duration), clips: p.clips, media: p.media }))))}
@@ -4010,7 +4029,7 @@ async function pjSaveField(field) {
   const el = $({ name: "pjName", notes: "pjNotes", tags: "pjTags" }[field]);
   if (!el) return;
   const v = el.value;
-  if (field === "name" && (!v.trim() || v.trim() === p.name)) { if (!v.trim()) el.value = p.name; return; }
+  if (field === "name" && (!v.trim() || v.trim() === p.name || v.trim() === shownProject(p.name))) { if (!v.trim()) el.value = shownProject(p.name); return; }
   if (field === "notes" && v === (p.notes || "")) return;
   if (field === "tags" && v === (p.tags || []).join(", ")) return;
   const out = await pjPost({ action: "update", id: p.id, [field]: field === "name" ? v.trim() : v });
@@ -4086,7 +4105,7 @@ function pjVersionsHtml() {
   return `<div class="ver-view">
     <div class="ver-head">
       <button type="button" class="btn tiny" data-ver-act="back">← All projects</button>
-      <h3>Versions of ${escapeHtml(p.name)}</h3>
+      <h3>Versions of ${escapeHtml(shownProject(p.name))}</h3>
     </div>
     <div class="ver-save">
       <input type="text" id="verName" maxlength="120" placeholder="Name (optional), e.g. Client cut" spellcheck="false" aria-label="Version name">
@@ -6293,6 +6312,8 @@ const SNAP_TARGET_LABELS = {
   clips: "Clip edges", playhead: "Playhead", markers: "Markers",
   inout: "IN / OUT", keyframes: "Keyframes", frames: "Frame grid",
 };
+const SNAP_TARGET_TERMS = { clips: "own.snap-clips", playhead: "own.snap-playhead", markers: "term.markers",
+  inout: "own.snap-inout", keyframes: "own.snap-keyframes", frames: "own.snap-frames" };
 function snapTargets() { return getSetting("snapTargets") || DEFAULT_SETTINGS.snapTargets; }
 /* → {t, hit}: `hit` is true when a target (not the frame grid) caught t.
    ignore: clip id, Set of ids, or null. opts.skipMarker: a marker being dragged. */
@@ -6353,9 +6374,9 @@ function openSnapMenu(anchor) {
   const menu = document.createElement("div");
   menu.className = "ctx-menu snap-menu";
   const on = snapTargets();
-  menu.innerHTML = `<div class="snap-menu-head dim">Snap to</div>` +
+  menu.innerHTML = `<div class="snap-menu-head dim">${escapeHtml(uiText("own.snap-to"))}</div>` +
     Object.entries(SNAP_TARGET_LABELS).map(([k, label]) =>
-      `<label class="ctx-item snap-opt"><input type="checkbox" data-snap="${k}"${on[k] ? " checked" : ""}> <span>${k === "markers" ? escapeHtml(uiText("term.markers")) : label}</span></label>`).join("");
+      `<label class="ctx-item snap-opt"><input type="checkbox" data-snap="${k}"${on[k] ? " checked" : ""}> <span>${escapeHtml(SNAP_TARGET_TERMS[k] ? uiText(SNAP_TARGET_TERMS[k]) : label)}</span></label>`).join("");
   menu.addEventListener("change", (e) => {
     const k = e.target.dataset.snap;
     if (k) toggleSnapTarget(k);
@@ -7081,7 +7102,7 @@ function openMarkerList(anchor) {
   menu.className = "ctx-menu marker-list";
   const list = project.markers || [];
   if (!list.length) {
-    menu.innerHTML = `<div class="marker-empty dim">No markers yet — press <kbd>M</kbd> at the playhead.</div>`;
+    menu.innerHTML = `<div class="marker-empty dim">${uiText("own.markers-empty")}</div>`; // repo-authored, with its <kbd>
   } else {
     menu.innerHTML = list.map((m, i) =>
       `<div class="marker-row" data-i="${i}">` +
@@ -14391,7 +14412,9 @@ function syncSequenceButton() {
   const n = SeqLib.entries(seqRoot()).length;
   b.querySelector(".seq-name").textContent = openSequenceName();
   b.querySelector(".seq-count").textContent = n > 1 ? String(n) : "";
-  b.title = `Sequence: ${openSequenceName()}${n > 1 ? ` (one of ${n})` : ""} — open another one, or add, duplicate, rename`;
+  // English keeps "(one of N)"; the Chinese line (Rea #327) has no count
+  b.title = mcView.get().language === "en" ? `Sequence: ${openSequenceName()}${n > 1 ? ` (one of ${n})` : ""} — open another one, or add, duplicate, rename`
+    : uiText("own.seq-button-title", { name: openSequenceName() });
 }
 /** The sequence menu: the project's sequences (click one to open it), then what to do with them. */
 function showSequenceMenu(x, y) {
@@ -14418,15 +14441,15 @@ function showSequenceMenu(x, y) {
   }
   sep();
   item(`<span>${escapeHtml(uiText("term.new-sequence"))}</span>`, () => promptNewSequence(x, y));
-  item(`<span>Highlights…</span>`, () => promptHighlights(x, y),
+  item(`<span>${escapeHtml(uiText("own.hl-menu"))}</span>`, () => promptHighlights(x, y),
     state.compCtx ? "Close the composition first" : !project.clips.some((c) => c.kind === "video") ? "Put video on the timeline first" : null);
-  item(`<span>Duplicate “${escapeHtml(shownName(open.name))}”</span>`, () => newSequence({ from: "open" }));
-  item(`<span>Rename “${escapeHtml(shownName(open.name))}”…</span>`, () => promptBinText(x, y, "Sequence name", open.name, (v) => renameSequence(openId, v), { max: 120, ok: "Rename" }));
-  item(`<span>Delete “${escapeHtml(shownName(open.name))}”…</span>`, (b) => {
+  item(`<span>${escapeHtml(uiText("own.seq-duplicate", { name: shownName(open.name) }))}</span>`, () => newSequence({ from: "open" }));
+  item(`<span>${escapeHtml(uiText("own.seq-rename", { name: shownName(open.name) }))}</span>`, () => promptBinText(x, y, "Sequence name", open.name, (v) => renameSequence(openId, v), { max: 120, ok: "Rename" }));
+  item(`<span>${escapeHtml(uiText("own.seq-delete", { name: shownName(open.name) }))}</span>`, (b) => {
     if (b.dataset.armed !== "1") { b.dataset.armed = "1"; b.querySelector("span").textContent = "Click again to delete it"; return; }
     hideTrackCtxMenu();
     deleteSequence(openId);
-  }, rows.length < 2 ? "A project keeps at least one sequence" : null, true);
+  }, rows.length < 2 ? uiText("own.seq-keep-one") : null, true);
   showPopover(menu, x, y);
 }
 /** New sequence: a name, a canvas, and whether it starts empty or as a copy of the open one. */
@@ -14483,13 +14506,13 @@ function promptHighlights(x, y) {
   const sizes = [{ label: `Same as “${openSequenceName()}” · ${project.width}×${project.height}`, w: 0, h: 0 }, ...ASPECT_PRESETS];
   const pop = document.createElement("div");
   pop.className = "ctx-menu bin-pop seq-new";
-  pop.innerHTML = `<label class="bin-pop-label" for="hlLen">Highlights</label>
+  pop.innerHTML = `<label class="bin-pop-label" for="hlLen">${escapeHtml(uiText("own.hl-title"))}</label>
     <select id="hlLen" class="bin-pop-input">${[15, 30, 60, 90].map((s) => `<option value="${s}" ${s === 30 ? "selected" : ""}>${s} s</option>`).join("")}</select>
     <label class="bin-pop-label" for="hlSize">Canvas</label>
     <select id="hlSize" class="bin-pop-input">${sizes.map((s, i) => `<option value="${i}">${escapeHtml(s.label)}</option>`).join("")}</select>
     <label class="seq-new-copy" title="Each shot is fitted to the new shape and keyed to keep what matters in it in view (Inspector → Reframe)"><input type="checkbox" id="hlFollow" checked> Follow the subject in each shot</label>
-    <div class="bin-pop-hint" data-hl-status>From ${from ? `the ${n} selected video clip${n === 1 ? "" : "s"}` : `every video clip on this timeline (${n})`}: the moments with the most movement and sound, in story order, never across a cut. They go into a new sequence; this one stays as it is.</div>
-    <div class="bin-pop-btns"><button type="button" class="btn tiny" data-cancel>Cancel</button><button type="button" class="btn tiny accent" data-ok ${n ? "" : "disabled"}>Make</button></div>`;
+    <div class="bin-pop-hint" data-hl-status>${escapeHtml(uiText("own.hl-desc"))}</div>
+    <div class="bin-pop-btns"><button type="button" class="btn tiny" data-cancel>${escapeHtml(uiText("term.cancel"))}</button><button type="button" class="btn tiny accent" data-ok ${n ? "" : "disabled"}>${escapeHtml(uiText("own.hl-make"))}</button></div>`;
   const size = () => sizes[+pop.querySelector("#hlSize").value] || sizes[0];
   const reshaped = () => { const s = size(); return !!(s.w && s.w * project.height !== s.h * project.width); };
   const syncFollow = () => { pop.querySelector("#hlFollow").closest("label").hidden = !reshaped(); };
@@ -16837,7 +16860,7 @@ function shapeSectionHtml(c, p, row) {
   };
   let html = `<div class="insp-section" data-shape-section><h3>Shape layer</h3>
     <div class="cl-row">${Object.entries(SHAPE_PRESETS).map(([k, pre]) => btn(`data-sadd="${k}"`, "+ " + pre.label, `Add a ${pre.label.toLowerCase()} to this layer`, false, full)).join("")}
-      ${btn('data-stool="pen"', "Pen", "Click points on the monitor (drag to curve); click the first point to close, Enter for an open path", ui.tool === "pen", full)}</div>
+      ${btn('data-stool="pen"', uiText("term.pen"), "Click points on the monitor (drag to curve); click the first point to close, Enter for an open path", ui.tool === "pen", full)}</div>
     ${ui.tool === "pen" ? `<p class="cl-note">Pen: click to add points, drag to curve. Click the first point to close, Enter keeps the path open. Backspace / Ctrl+Z removes the last point, Esc cancels.</p>` : ""}
     ${list.length ? `<div class="cl-row shape-items">${chips}</div>` : ui.tool ? "" : `<p class="cl-note">No shapes yet — add one above.</p>`}
     ${slider("trimStart", 0, 100, 0.5, "%")}${slider("trimEnd", 0, 100, 0.5, "%")}${slider("trimOffset", -100, 100, 0.5, "%")}`;
@@ -17472,7 +17495,7 @@ function textPathSectionHtml(c, p, row) {
   const btn = (attr, label, title, on, dis) => `<button type="button" class="btn tiny${on ? " toggle on" : ""}" ${attr} title="${title}" ${dis ? "disabled" : ""}>${label}</button>`;
   return `<div class="insp-section" data-textpath-section><h3>Text path</h3>
     <div class="cl-row">${Object.entries(TEXT_PATH_PRESETS).map(([k, pre]) => btn(`data-tpath="${k}"`, pre.label, `Set the title on ${/^[aeiou]/i.test(pre.label) ? "an" : "a"} ${pre.label.toLowerCase()}`)).join("")}
-      ${btn('data-tpath="pen"', "Pen", "Draw the path on the monitor: click points (drag to curve), Enter to finish, click the first point to close it", shapeUi.clip === c.id && shapeUi.tool === "pen")}</div>
+      ${btn('data-tpath="pen"', uiText("term.pen"), "Draw the path on the monitor: click points (drag to curve), Enter to finish, click the first point to close it", shapeUi.clip === c.id && shapeUi.tool === "pen")}</div>
     ${has ? `<div class="cl-row">${btn('data-tpath="edit"', "Edit path", "Show the path's points and handles on the monitor", editing)}${btn('data-tpath="off"', "Remove", "Back to a normal title")}</div>
       ${row("Offset", `<input type="range" data-k="pathOffset" min="-100" max="200" step="0.5" value="${fmtInspNum(p.pathOffset, 0.5)}" title="Slide the text along the path, % of its length — key it to make the text travel">
         <span class="val" data-val="pathOffset" data-unit="%">${fmtInspNum(p.pathOffset, 0.5)}%</span>`, "pathOffset")}
@@ -18733,7 +18756,9 @@ function deliveryFrame(spec) {
   return Delivery.reframe(spec, cv.w, cv.h, cv.region);
 }
 /** The project's name as a file name: Chinese kept, only what Windows cannot have replaced. */
-const exportBaseName = (fallback) => Delivery.fileSafeName(project.name, MontClipView.exportFallback(mcView.get().language, fallback));
+/** An export's file name from the project's name — never a default one (P7: then the first media's name, else MontClip, and the date). */
+const exportBaseName = (fallback) => Delivery.fileSafeName(MontClipView.exportProjectName(project.name, (project.media || []).map((m) => m.name)),
+  MontClipView.exportFallback(mcView.get().language, fallback));
 function deliveryFileName(spec, fps) {
   const fr = deliveryFrame(spec);
   return Delivery.renderFilename(spec.filename, spec, {
@@ -21196,7 +21221,8 @@ function filterHelp() {
     const h3 = sec.querySelector("h3");
     // a translated layer still answers English searches: match the shown text AND the saved
     // English source (the heading's keyed English, and each cell's stashed original markup)
-    const headEn = h3 && (h3.dataset.i18n || h3.dataset.i18nTail) ? MontClipView.t("en", h3.dataset.i18n || h3.dataset.i18nTail) : "";
+    const headEn = h3 ? [h3, ...h3.querySelectorAll("[data-i18n]")].map((el) => (el.dataset.i18n || el.dataset.i18nTail
+      ? MontClipView.t("en", el.dataset.i18n || el.dataset.i18nTail) : "")).join(" ") : "";
     const head = ((h3 ? h3.textContent : "") + " " + headEn).toLowerCase();
     let shown = 0;
     for (const tr of sec.querySelectorAll("tr")) {
@@ -21244,6 +21270,8 @@ function onSettingsTabTrap(e) {
 function openSettings() {
   const cb = $("setLinkSelect");
   if (cb) cb.checked = !!getSetting("linkSelect");
+  const sf = $("setSoundFactsOn");
+  if (sf) sf.checked = soundFactsOn();
   const overlay = $("settingsOverlay");
   overlay.classList.remove("hidden");
   overlay.addEventListener("keydown", onSettingsTabTrap);
@@ -21307,6 +21335,12 @@ function closeTopOverlay() {
   else return false;
   return true;
 }
+/** 「附上唱歌段和音量」 (QQ on #169): on unless switched off in 设置. Off, no sound numbers are read or sent. */
+function soundFactsOn() { return mcView.get().soundFacts !== false; }
+$("setSoundFactsOn")?.addEventListener("change", (e) => {
+  mcView.set({ soundFacts: !!e.target.checked });
+  if (!e.target.checked) runtime.soundFacts = null;
+});
 $("setLinkSelect").addEventListener("change", (e) => {
   setSetting("linkSelect", !!e.target.checked);
   if (!getSetting("linkSelect")) {
@@ -23520,6 +23554,20 @@ function canUndoOfficialProposal(result){
  if(!entry||entry.projectId!==c.projectId||entry.sequenceId!==c.sequenceId||entry.gen!==c.gen)return false;
  try{return JSON.parse(runtime.undo.at(-1)).agentApplyId===entry.token;}catch{return false;}
 }
+/* The sound numbers for the facts (JJ via Deja, 2026-11-05; agent-facts.js): before the review box opens, each sent clip's
+   file's loudness (/api/signals/loudness, read once and kept by the server) and the songs the 「唱歌」 scan already found
+   (/api/songs; only a file read to its end). Never starts a song scan. A file not ready within 15 s is left out this time. */
+async function agentSoundFacts(){
+ if(!soundFactsOn()){runtime.soundFacts=null;return;}   // switched off: nothing is read
+ const want=MontClipFacts.soundMedia(projectJSON()),sound={};
+ const get=async(url)=>{const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),15000);try{const r=await fetch(url,{signal:ctrl.signal});return r.ok?await r.json():null;}catch{return null;}finally{clearTimeout(timer);}};
+ await Promise.all(want.map(async({mediaId,src})=>{
+  const [l,g]=await Promise.all([get("/api/signals/loudness?src="+encodeURIComponent(src)),get("/api/songs?src="+encodeURIComponent(src))]);
+  sound[mediaId]={loudness:l&&Number.isFinite(l.step)&&Array.isArray(l.values)?{step:l.step,values:l.values}:null,
+   songs:g&&g.state==="done"&&Array.isArray(g.songs)?g.songs.map((x)=>({from:x.from,to:x.to})):null};
+ }));
+ runtime.soundFacts={signature:JSON.stringify(want),sound};
+}
 const mcAgentPanel=document.getElementById('mcAssistantPanel');
 document.querySelector(".upper > .inspector").append(mcAgentPanel);
 document.querySelector(".topbar-right").prepend(document.getElementById("mcMediaToggle"));
@@ -23533,11 +23581,17 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  onHide:()=>{setSideTab("inspector");document.getElementById("mcAssistant").focus();},
  getProjectName:id=>id===runtime.projectId?project.name:null,
  canUndoProposal:canUndoOfficialProposal,
- getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[]});},
+ // only the selected clips' numbers (the 「AI 数据说明」 says so): none selected, none sent
+ getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts,s=runtime.soundFacts;return MontClipFacts.build(doc,{selected:selectedClips().map(c=>c.id),highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[],sound:soundFactsOn()&&s&&s.signature===JSON.stringify(MontClipFacts.soundMedia(doc))?s.sound:null});},
+ soundFactsOff:()=>!soundFactsOn(),
+ soundTooLong:()=>{const doc=projectJSON(),s=runtime.soundFacts;return soundFactsOn()&&!!s&&s.signature===JSON.stringify(MontClipFacts.soundMedia(doc))&&MontClipFacts.tooLong(doc,s.sound,undefined,selectedClips().map(c=>c.id));},
+ soundOffNote:(text)=>soundFactsOn()||!MontClipFacts.asksAboutSound(text)?'':uiText('own.sf-off-note',{settings:uiText('term.settings'),switch:uiText('own.sf-label')}),
+ beforeReview:agentSoundFacts,
  ...(window.montclipAgentPolicy?{getMode:()=>agentPolicy.mode,setMode:setAgentMode,onReply:result=>{void onAgentReply(result);},
   getPlan:agentPlanView,planStart:runAgentPlan,planUndo:undoAgentPlan,
   planRemove:(result,i)=>{agentPlanOf(result)?.run.remove(i);},planDiscard:(result)=>{agentPlanOf(result)?.run.discard();}}:{}),
- getFactsOmitted:()=>MontClipFacts.omitted(projectJSON()),
+ getFactsOmitted:()=>MontClipFacts.omitted(projectJSON(),{selected:selectedClips().map(c=>c.id)}),
+ isOpen:()=>!document.getElementById("mcAssistantPanel").classList.contains("hidden"),
  onUndo:result=>{if(canUndoOfficialProposal(result)){const entry=officialProposalApplications.get(result);if(!entry?.eventId||!undoEvent(entry.eventId).ok)undo();}},
  onProposal:(response,result)=>{
    const {proposal,ev,c}=agentProposalStep(response,result);
@@ -23547,4 +23601,17 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  getReferences:kind=>MontClipAgentPane.referenceChips(kind,{...agentProjectContext(),
  start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(MontClipCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
 setInterval(()=>mcAgent.sync(),500);
+/* 设置 › AI 助手 (Deja and JJ, 2026-11-04): the switch the main process keeps — off, it refuses every send — and the
+   「AI 数据说明」 again. Desktop only: the browser editor has no assistant service. */
+{ const box=$("setAi"),box2=$("setAiEnabled"),svc=window.montclipAgentService;
+  if(box&&svc?.switchGet){
+    box.classList.remove("hidden");
+    const show=async()=>{const r=await svc.switchGet();box2.checked=r?.enabled!==false;};
+    box2.addEventListener("change",async()=>{const r=await svc.switchSet(box2.checked);box2.checked=r?.enabled!==false;mcAgent.refreshSwitch?.();
+      if(!box2.checked&&!$("mcAssistantPanel").classList.contains("hidden"))setSideTab("inspector");});   // off: the panel folds away
+    // the notice lives in the assistant panel: it is opened first, or a hidden panel would hide the notice too
+    $("btnAiNotice").addEventListener("click",()=>{$("btnCloseSettings")?.click();setSideTab("assistant");mcAgent.render();void mcAgent.showNotice();});
+    $("btnSettings")?.addEventListener("click",()=>{void show();});
+    void show();
+  } }
 if(window.montclipAgentPolicy)void loadAgentMode();

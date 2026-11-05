@@ -73,6 +73,15 @@
   const AUDIO = { kind: "audio", perSend: 26214400, perScope: 2147483648, scope: "project-open" };
   const LIMITS = { assistant_request: TEXT, song_lookup: TEXT, cloud_transcribe: AUDIO };
   const HOST = ["assistant_request", "song_lookup", "cloud_transcribe"];
+  // What the facts block of an assistant_request may carry about the sound (JJ via Deja, 2026-11-05; QQ's five on #169):
+  // numbers only, never the sound, a file name or a path. singingParts — parts that may be singing ({clipId, from, to},
+  // seconds); loudnessValues — whole numbers 0–100, one a second, one every few seconds when the clips together are longer
+  // than 2400 s: 40 min one a second, 2 h one every 3 s, 4 h one every 6 s, 8 h one every 12 s. Whole numbers at most
+  // one a second say how loud a stretch is, not what it sounds like: no waveform can be rebuilt from them.
+  // loudnessSeconds — the longest the clips may be together (8 h); longer, neither is attached that time and the review box
+  // says so (JJ定稿, 2026-11-05). Over the other caps the send is refused (FACTS_LIMIT). Never cut down. 2400 values, not 7200: a message is at most 16000 characters (the desktop
+  // service checks it), and a value takes up to four ("100,").
+  const FACTS = { singingParts: 100, loudnessValues: 2400, loudnessSeconds: 28800 };
   const freeze = (o) => { if (o && typeof o === "object" && !Object.isFrozen(o)) { Object.freeze(o); for (const v of Object.values(o)) freeze(v); } return o; };
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const table = new Map();
@@ -116,5 +125,5 @@
    *  language (English for any other), never its internal name — also for a name the table does not have. */
   const UNKNOWN = Object.freeze({ "zh-CN": "AI 想做一件软件不认识的操作，已经拦下，什么都没改。", en: "The AI asked for an action MontClip doesn't know. It was blocked; nothing changed." });
   const label = (name, language) => { const c = get(name), l = language === "zh-CN" ? "zh-CN" : "en"; return c ? c.summary[l] : UNKNOWN[l]; };
-  return Object.freeze({ RISKS, BLOCKED, get, riskOf, list, label, limits });
+  return Object.freeze({ RISKS, BLOCKED, FACTS: freeze(FACTS), get, riskOf, list, label, limits });
 });
