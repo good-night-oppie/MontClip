@@ -47,15 +47,15 @@ test("fablecut_blur_region adds, names, replaces and removes redactions; refuses
   const redactions = (id) => readProject(dir).clips.find((c) => c.id === id).props?.redactions;
   let r = await mcp.callTool("fablecut_blur_region", { clipId: "c_a", rect: { x: 0.6, y: 0.1, w: 0.3, h: 0.4 }, name: "co-host" });
   assert.equal(r.isError, false, r.text);
-  assert.match(r.text, /c_a\.redactions\(1 redaction: mosaic 60 "co-host"/);
+  assert.match(r.text, /c_a\.redactions\(1 redaction: #1 mosaic 60 "co-host"/);
   assert.match(r.text, /follows the clip/);
   r = await mcp.callTool("fablecut_blur_region", { clipId: "c_a", rect: { x: 0.1, y: 0.8, w: 0.3, h: 0.05 }, style: "blur", strength: 40 });
   assert.equal(redactions("c_a").length, 2);
   r = await mcp.callTool("fablecut_blur_region", { clipId: "c_a", rect: { x: 0.55, y: 0.1, w: 0.35, h: 0.4 }, name: "co-host" });
   assert.equal(redactions("c_a").length, 2, "a name that is there replaces that area");
-  assert.deepEqual(redactions("c_a")[0], { x: 0.55, y: 0.1, w: 0.35, h: 0.4, style: "mosaic", strength: 60, name: "co-host" });
+  assert.deepEqual(redactions("c_a")[0], { id: 1, x: 0.55, y: 0.1, w: 0.35, h: 0.4, style: "mosaic", strength: 60, name: "co-host" });
   const compact = await mcp.callTool("fablecut_get_project", { compact: true });
-  assert.match(compact.text, /\[2 redactions: mosaic 60 "co-host"/);
+  assert.match(compact.text, /\[2 redactions: #1 mosaic 60 "co-host"/);
   r = await mcp.callTool("fablecut_blur_region", { clipId: "c_a", rect: { x: 0.1, y: 0.1, w: 0.1, h: 0.1 }, name: "popup", from: 1, to: 2.5 });
   assert.match(r.text, /"popup" at 0\.1,0\.1 0\.1×0\.1 1–2\.5 s/);
   r = await mcp.callTool("fablecut_blur_region", { clipId: "c_a", remove: "popup" });
@@ -110,10 +110,37 @@ test("JJ's final copy (2026-11-05), word for word in both languages; the English
   assert.match(tool.description, /^Hide an area of a clip's picture in one step/);
   const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
   // the timeline badge and the panel title count the same list the rows are numbered from
-  assert.match(app, /uiText\("own\.cover-badge", \{ n: clipCovers\(c\)\.length \}\)/);
+  assert.match(app, /const nCovers = Mask\.COVER_KINDS\.includes\(c\.kind\) \? clipCovers\(c\)\.length : 0;/);
+  assert.match(app, /uiText\("own\.cover-badge", \{ n: nCovers \}\)\) \+ \(label \? " · " : ""\)/, "no separator after 打码·N when the clip has no name");
   assert.match(app, /uiText\("own\.cover-section-n", \{ n: list\.length \}\)/);
   assert.match(app, /const list = clipCovers\(c\)[^\n]*\n  const rows = list\.map/);
   // the menu entry sits right after enable / lock, in its own group
   const menu = app.slice(app.indexOf("function showClipCtxMenu"), app.indexOf("function showClipCtxMenu") + 4000);
   assert.ok(menu.indexOf('uiText("own.clip-lock")') < menu.indexOf('uiText("own.cover-area")') && menu.indexOf('uiText("own.cover-area")') < menu.indexOf("own.clip-parent-null"));
+});
+
+/* Numbers stay (Deja, 2026-11-05): each redaction gets its number when it is made — the largest on the clip + 1 —
+   and keeps it; removing another never renumbers; a list saved without numbers gets them in order when read. */
+test("redaction numbers: given once, kept for good, filled in for old lists", () => {
+  const box = { x: 0.5, y: 0.5, w: 0.2, h: 0.2 };
+  assert.deepEqual(M.normalizeCovers([box, box, box]).map((c) => c.id), [1, 2, 3], "an old list: numbered in order");
+  assert.deepEqual(M.normalizeCovers([{ ...box, id: 2 }, box]).map((c) => c.id), [2, 3], "one removed: the rest keep theirs, a new one is the largest + 1");
+  assert.deepEqual(M.normalizeCovers([{ ...box, id: 5 }, { ...box, id: 5 }, { ...box, id: 1 }]).map((c) => c.id), [5, 6, 1], "a duplicate counts as missing");
+  assert.equal(M.replaceCoverArea({ ...box, id: 4, style: "blur" }, { x: 0.1, y: 0.1, w: 0.1, h: 0.1 }).id, 4, "re-drawing keeps the number");
+  assert.throws(() => M.normalizeCover({ ...box, id: 0 }, true), /id must be a whole number/);
+  assert.match(M.describeCovers(M.normalizeCovers([{ ...box, id: 2 }])), /#2 mosaic 60/);
+});
+
+test("agents: the patch ops keep the numbers (remove one → the other keeps its number; a new one is the largest + 1)", async (t) => {
+  const dir = makeDataDir(t, seedProject({ clips: [{ id: "c_a", mediaId: "m_a", kind: "video", track: "V1", start: 0, in: 0, duration: 5,
+    props: { redactions: [{ x: 0.3, y: 0.3, w: 0.2, h: 0.2 }, { x: 0.7, y: 0.7, w: 0.2, h: 0.2 }] } }] }));
+  const mcp = startMcp(t, dir);
+  await mcp.request("initialize", { protocolVersion: "2025-11-25" });
+  const ids = () => (readProject(dir).clips[0].props.redactions || []).map((r) => r.id);
+  let r = await mcp.callTool("fablecut_blur_region", { clipId: "c_a", remove: 0 });
+  assert.equal(r.isError, false, r.text);
+  assert.deepEqual(ids(), [2], "an old list is numbered when read; removing the first leaves the second as #2");
+  r = await mcp.callTool("fablecut_blur_region", { clipId: "c_a", rect: { x: 0.5, y: 0.5, w: 0.1, h: 0.1 } });
+  assert.deepEqual(ids(), [2, 3]);
+  assert.match(r.text, /#2 mosaic 60.*#3 mosaic 60/);
 });

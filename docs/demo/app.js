@@ -5637,8 +5637,7 @@ function rebuildClips() {
     if (hasWave) body += `<canvas class="wave"></canvas>`;
     const badge = (isMediaOffline(c.mediaId) ? "⚠ Offline · " : "") + (c.keyframes && Object.keys(c.keyframes).length ? "◆ " : "") +
                   (c.transitionIn || c.transitionOut ? "⇄ " : "") +
-                  (clipMatte(c) ? "◐ " : "") +
-                  (Mask.COVER_KINDS.includes(c.kind) && clipCovers(c).length ? escapeHtml(uiText("own.cover-badge", { n: clipCovers(c).length })) + " · " : "");
+                  (clipMatte(c) ? "◐ " : "");
     const chTag = (() => {
       const s = audioChannelShort(c.props?.audioChannel);
       return s ? s + " · " : "";
@@ -5650,8 +5649,11 @@ function rebuildClips() {
       : c.kind === "comp" ? "▣ · " + ((getComp(c.compId) || {}).name || c.name || "missing comp")
       : c.kind === "audio" ? chTag + (c.name || "")
       : (c.name || "");
+    // 打码·N, then the name after a separator — no separator when there is no name (VV)
+    const nCovers = Mask.COVER_KINDS.includes(c.kind) ? clipCovers(c).length : 0;
+    const coverTag = nCovers ? escapeHtml(uiText("own.cover-badge", { n: nCovers })) + (label ? " · " : "") : "";
     body += `<div class="fade"></div>
-      <div class="clip-label">${badge}${escapeHtml(label)}</div>`;
+      <div class="clip-label">${badge}${coverTag}${escapeHtml(label)}</div>`;
     if (c.kind === "comp") {
       // say on hover how to get inside (wide enough clips show it in the clip, every one in its tooltip)
       const comp = getComp(c.compId);
@@ -15299,13 +15301,20 @@ function startCoverTool(c, replace = null) {
   if (replace != null && !(replace >= 0 && replace < n)) return;
   selectClip(c.id);
   if (state.playing) pause();
-  if (!activeAt(c, state.time)) { toast(uiText("own.cover-not-here")); }
-  else toast(uiText(replace == null ? "own.cover-drag" : "own.cover-redo-drag", { n: replace + 1 }));
+  if (!activeAt(c, state.time)) { coverHint(uiText("own.cover-not-here")); }
+  else coverHint(uiText(replace == null ? "own.cover-drag" : "own.cover-redo-drag", { n: replace != null ? clipCovers(c)[replace].id : 0 }));
   coverUi.clip = c.id; coverUi.drag = null; coverUi.replace = replace;
   if (replace != null) { coverUi.sel = replace; coverUi.selClip = c.id; }
   state.dirtyTimeline = true;
 }
+/** The 拖一个框 hint (a toast) — remembered, so it is taken down once it no longer applies. */
+function coverHint(msg) { coverUi.hint = msg; toast(msg); }
+function dropCoverHint() {
+  if (coverUi.hint && els.toast && els.toast.textContent === coverUi.hint) { clearTimeout(toastTimer); els.toast.classList.remove("show"); }
+  coverUi.hint = null;
+}
 function stopCoverTool() {
+  dropCoverHint();
   if (!coverUi.clip) return;
   coverUi.clip = null; coverUi.drag = null; coverUi.replace = null;
   state.dirtyTimeline = true;
@@ -15335,9 +15344,11 @@ function drawCoverOverlay(c, W) {
     path(P);
     if (j === sel) {
       ctx2d.setLineDash([]); ctx2d.lineWidth = lw * 2.5; ctx2d.strokeStyle = "#ffd25a"; ctx2d.stroke();
-      const fs = Math.max(12, W / 70);
+      // in screen pixels: the monitor shows the W-wide canvas at its own size, so 13 screen px, never smaller
+      const shown = els.preview.getBoundingClientRect().width || W, fs = 13 * W / shown;
+      runtime.coverLabelScreenPx = fs * shown / W;   // what a reader sees (the smoke checks it)
       ctx2d.font = `600 ${fs}px system-ui, sans-serif`; ctx2d.textBaseline = "bottom";
-      const label = uiText("own.cover-area-n", { n: j + 1 }), tw = ctx2d.measureText(label).width;
+      const label = uiText("own.cover-area-n", { n: cv.id }), tw = ctx2d.measureText(label).width;
       ctx2d.fillStyle = "rgba(0,0,0,0.7)"; ctx2d.fillRect(P[0].x, P[0].y - fs * 1.3, tw + fs * 0.6, fs * 1.3);
       ctx2d.fillStyle = "#ffd25a"; ctx2d.fillText(label, P[0].x + fs * 0.3, P[0].y - fs * 0.15);
     } else {
@@ -15394,7 +15405,7 @@ function finishCoverBox(c, area) {
   if (j != null && list[j]) list[j] = Mask.replaceCoverArea(list[j], area);
   else list.push(area);
   writeCovers(c, list);
-  coverUi.clip = null; coverUi.replace = null;
+  coverUi.clip = null; coverUi.replace = null; dropCoverHint();
   coverUi.sel = j != null && list[j] ? j : list.length - 1; coverUi.selClip = c.id;
   scheduleSave(); renderInspector(); revealCoverSection();
 }
@@ -15408,7 +15419,7 @@ function coverSectionHtml(c) {
   const rows = list.map((cv, j) => {
     const redoing = on && coverUi.replace === j;
     return `<div class="cl-row" data-cover="${j}">
-      <button type="button" class="btn tiny cl-chip${j === sel ? " toggle on" : ""}" data-cover-pick title="${escapeHtml(uiText("own.cover-pick-tip"))}">${escapeHtml(uiText("own.cover-area-n", { n: j + 1 }))}</button>
+      <button type="button" class="btn tiny cl-chip${j === sel ? " toggle on" : ""}" data-cover-pick title="${escapeHtml(uiText("own.cover-pick-tip"))}">${escapeHtml(uiText("own.cover-area-n", { n: cv.id }))}</button>
       <button type="button" class="btn tiny${redoing ? " toggle on" : ""}" data-cover-redo title="${escapeHtml(uiText("own.cover-redo-tip"))}">${escapeHtml(uiText("own.cover-redo"))}</button>
       <button type="button" class="btn tiny" data-cover-del>${escapeHtml(uiText("own.cover-remove"))}</button></div>
     <div class="cl-row" data-cover-opts="${j}">
@@ -15417,7 +15428,7 @@ function coverSectionHtml(c) {
       <label class="cl-note">${escapeHtml(uiText("own.cover-strength"))}</label>
       <input type="range" data-cover-strength min="1" max="100" step="1" value="${cv.strength}"></div>`;
   }).join("");
-  const note = on ? (coverUi.replace != null ? uiText("own.cover-redo-drag", { n: coverUi.replace + 1 }) : uiText("own.cover-drag")) : "";
+  const note = on ? (coverUi.replace != null && list[coverUi.replace] ? uiText("own.cover-redo-drag", { n: list[coverUi.replace].id }) : uiText("own.cover-drag")) : "";
   return `<div class="insp-section" data-cover-section><h3 data-cover-title>${escapeHtml(uiText("own.cover-section-n", { n: list.length }))}</h3>
     ${rows || `<p class="cl-note">${escapeHtml(uiText("own.cover-none"))}</p>`}
     <div class="cl-row"><button type="button" class="btn tiny${on && coverUi.replace == null ? " toggle on" : ""}" data-cover-add title="${escapeHtml(uiText("own.cover-area-tip"))}"
@@ -15442,6 +15453,8 @@ function bindCoverControls(c) {
   for (const row of root.querySelectorAll("[data-cover]")) {
     const j = +row.dataset.cover;
     row.querySelector("[data-cover-pick]").addEventListener("click", () => {
+      dropCoverHint();   // picking a box: the earlier 拖一个框 hint no longer applies
+      if (coverUi.clip === c.id) { coverUi.clip = null; coverUi.drag = null; coverUi.replace = null; }   // nor does a box half-way
       const was = coverSelFor(c) === j;
       coverUi.sel = was ? -1 : j; coverUi.selClip = c.id;
       state.dirtyTimeline = true; renderInspector();

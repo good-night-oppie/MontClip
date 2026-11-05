@@ -1191,6 +1191,7 @@ the same way. Redactions live in `props.redactions` on video, image, svg and com
 | `strength` | 60 | 1…100: bigger blocks / a stronger blur. At 60 a block is at least ~1.4 % of the frame's width, so letters don't survive |
 | `from` · `to` | the whole clip | seconds from the clip's start: cover only while a private window is up, without cutting the clip |
 | `name` · `on` | — | a label; `on:false` turns it off |
+| `id` | given | the redaction's number (第 `id` 块 / Area `id`): given when it is made — the largest on the clip + 1 — and kept for good; removing another never renumbers it. A list without numbers (an older project) is numbered in order when read |
 
 How it is drawn: `u1 = clamp(x − w/2, 0, 1)`, `u2 = clamp(x + w/2, 0, 1)`
 (likewise `v1`, `v2` from `y`, `h`), nothing when `u2 ≤ u1` or `v2 ≤ v1`; the
@@ -1205,7 +1206,8 @@ In the editor: right-click a clip → **给这块打码** (English: **Hide this 
 its own group, right after Disable / Lock), then drag a box on the monitor over
 what to hide (Esc cancels). A clip with redactions says so on the timeline
 (**打码·2** / **Hidden · 2**). The Inspector's **打码区域（2）** (**Hidden areas (2)**)
-section scrolls into view when one is added and lists them by number: **第 1 块**
+section scrolls into view when one is added and lists them by their numbers (which stay — remove 第 1 块
+and the next is still 第 2 块): **第 1 块**
 (**Area 1**; click it to highlight its box on the monitor), **重新框选**
 (**Redraw**: drag a new box for that area — its style and strength stay; Esc
 keeps the old box), **去掉** (**Remove**), and below each its style (mosaic or

@@ -701,8 +701,9 @@
               if (adding) list.push(next); else list[i] = next;
             }
             c.props = c.props || {};
-            if (list.length) c.props.redactions = list; else delete c.props.redactions;
-            notes.push(`~${id}.redactions(${Mask.describeCovers(list) || "none"})`);
+            const numbered = Mask.numberCovers(list);   // a new one: the largest number + 1; the others keep theirs
+            if (numbered.length) c.props.redactions = numbered; else delete c.props.redactions;
+            notes.push(`~${id}.redactions(${Mask.describeCovers(numbered) || "none"})`);
           }
           break;
         }

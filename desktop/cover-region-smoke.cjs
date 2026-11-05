@@ -79,6 +79,16 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await click('[data-cover="0"] [data-cover-pick]');
   assert.equal((await look()).sel,0,'第 1 块 picked');
   await wait(200);await shot(win,'cover-picked.png');
+  // the number on the monitor reads at 12 screen px or more, whatever the monitor's size (VV)
+  report.labelPx=await read(`runtime.coverLabelScreenPx`);assert.ok(report.labelPx>=12,'the box number is '+report.labelPx+' screen px');
+  // picking a box takes down the earlier 拖一个框 hint (VV): start a new box from the panel, then pick 第 1 块
+  await click('[data-cover-add]');
+  assert.equal(await read(`els.toast.classList.contains('show')&&els.toast.textContent===uiText('own.cover-drag')`),true,'the hint is up');
+  await click('[data-cover="0"] [data-cover-pick]');
+  report.hintAfterPick=await read(`({shown:els.toast.classList.contains('show'),text:els.toast.textContent,tool:coverUi.clip})`);
+  assert.equal(report.hintAfterPick.shown,false,'the hint is gone after picking');assert.equal(report.hintAfterPick.tool,null,'and no box is half-way');
+  if((await look()).sel!==0)await click('[data-cover="0"] [data-cover-pick]');   // picking again toggles; keep 第 1 块 picked
+  assert.equal((await look()).sel,0);
   const before=(await look()).list;
   // 3. 重新框选 第 1 块: a new area, style and strength kept, 第 2 块 untouched; one undo puts it back
   await click('[data-cover="0"] [data-cover-redo]');
@@ -98,6 +108,21 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.equal(report.redoNote,await read(`escapeHtml(uiText('own.cover-redo-drag',{n:1})).replace(/Esc/,'<kbd>Esc</kbd>')`));assert.ok(report.redoNote.includes('<kbd>Esc</kbd>'));
   await key('Escape');
   s=await look();report.esc=s;assert.deepEqual(s.list,before,'Esc keeps it as it is');assert.equal(s.tool,null);assert.equal(s.undo,depth,'nothing written');
+  // numbers stay (Deja): remove 第 1 块 → the other is still 第 2 块; a new one is 第 3 块; undo / redo keep them
+  const areaN=async(n)=>read(`uiText('own.cover-area-n',{n:${n}})`);
+  await click('[data-cover="0"] [data-cover-del]');
+  s=await look();report.removed=s;assert.deepEqual(s.rows,[await areaN(2)]);assert.equal(s.title,await read(`uiText('own.cover-section-n',{n:1})`));
+  assert.ok(s.badge.startsWith(await read(`uiText('own.cover-badge',{n:1})`)),s.badge);assert.deepEqual(s.list.map(x=>x.id),[2]);
+  await click('[data-cover-add]');await drag(0.4,0.4,0.5,0.5);
+  s=await look();report.added=s;assert.deepEqual(s.rows,[await areaN(2),await areaN(3)],'a new one takes the largest number + 1');
+  await read(`undo();true`);await wait(150);s=await look();assert.deepEqual(s.rows,[await areaN(2)]);
+  await read(`redo();true`);await wait(150);s=await look();assert.deepEqual(s.rows,[await areaN(2),await areaN(3)],'redo: the same numbers');
+  await read(`undo();true`);await wait(150);await read(`undo();true`);await wait(150);
+  s=await look();report.restored=s;assert.deepEqual(s.rows,[await areaN(1),await areaN(2)],'undo: 第 1 块 is back with its own number');assert.deepEqual(s.list,before);
+  // a clip with no name: 打码·2, no separator after it (VV)
+  await read(`(()=>{const c=project.clips.find(c=>c.kind==='image');c.name='';state.dirtyTimeline=true;return true;})()`);await wait(250);
+  report.noName=(await look()).badge;assert.equal(report.noName,await read(`uiText('own.cover-badge',{n:2})`),'打码·2 and nothing after it');
+  await read(`(()=>{const c=project.clips.find(c=>c.kind==='image');c.name='synthetic';state.dirtyTimeline=true;return true;})()`);await wait(250);
   // 5. in English the interface shows JJ's words exactly: the menu item, the title, the rows, the badge
   await read(`updateMontClipView({language:'en'});renderInspector();state.dirtyTimeline=true;true`);await wait(300);
   await click(clipEl);await click(clipEl,'right');
