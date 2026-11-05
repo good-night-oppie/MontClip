@@ -11,6 +11,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | 文件 | 成功标志 | 状态 |
 |---|---|---|
 | `agent-close-fault-smoke.cjs` | `MONTCLIP_SESSION_CLOSE_COMPLETE` | 在用 |
+| `agent-config-language-smoke.cjs` | `CONFIG_LANGUAGE_COMPLETE` | 在用（`MONTCLIP_SMOKE_NO_KEYSTORE=1` 时模拟没有钥匙串） |
 | `agent-errors-smoke.cjs` | `ERRORS_PASS` | 在用 |
 | `agent-minimum-smoke.cjs` | `MONTCLIP_MINIMUM_COMPLETE` | 在用 |
 | `agent-modes-smoke.cjs` | `MODES_PASS` | 在用 |
