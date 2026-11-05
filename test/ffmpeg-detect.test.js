@@ -282,6 +282,16 @@ test('server: an upload named ffmpeg.exe can be neither chosen nor checked; the 
   const route = server.slice(server.indexOf('if (p === "/api/ffmpeg/check"'), server.indexOf('if (p === "/api/ffmpeg/choose"'));
   a.match(route, /if \(DESKTOP\) \{ sendJSON\(res, 403,/, 'desktop: only the main process file dialog');
   a.match(server, /FF\.setPlaces\(\{ deny: \[MEDIA_DIR, LIBRARY_DIR, UPLOADS_DIR, ANALYSIS_DIR, PROXIES_DIR, FRAMES_DIR, EXPORTS_DIR/);
+  // QQ (a): the routines those two routes call (check → X.checkTool, choose → X.saveTool), on the uploaded file, with
+  // an injected run that counts: refused, and run 0 times
+  a.match(route, /X\.checkTool\(file\)/);
+  a.match(server.slice(server.indexOf('if (p === "/api/ffmpeg/choose"')), /^[\s\S]{0,600}X\.saveTool\(/);
+  FF.setPlaces({ deny: [path.join(dir, 'media'), path.join(dir, '.uploads')] }); t.after(() => FF.setPlaces({}));
+  let ran = 0; const run = async () => { ran++; return { code: 0, stdout: 'ffmpeg version 9\n V....D libx264  H.264' }; };
+  a.equal((await X.checkTool(file, { run })).code, 'notFfmpeg', 'check');
+  const saved = path.join(dir, 'chosen.json');
+  a.equal((await X.saveTool(saved, file, { run })).ok, false, 'choose'); a.equal(fs.existsSync(saved), false);
+  a.equal(ran, 0, 'the uploaded program was never started');
 });
 
 /* 2. Which FFmpeg (QQ (a), Deja): the 11-02 rule stands — everything uses the bundled build; a chosen / variable / PATH
@@ -329,6 +339,99 @@ test('server: bundled build + a full FFmpeg on PATH → bundled for everything, 
   a.equal(st.ffmpeg.source, 'vendor', 'the bundled build stays the one for everything'); a.equal(st.state, 'ready'); a.equal(st.encoder, 'libx264');
   const h = await (await fetch(base + '/api/export/h264')).json();
   a.deepEqual(h.external, { ok: true, source: 'path' });
+});
+
+/* QQ (b): which program each path starts. The local FFmpeg only for exports and proxies; signals, song-scan, asr (and
+   frames) start the bundled build. */
+test('analysis paths are wired to the bundled build; only exports and proxies reach the local FFmpeg', () => {
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  for (const mod of ['./asr-local', './signals', './song-scan'])
+    a.match(server, new RegExp(`require\\("${mod.replace('.', '\\.')}"\\)[^\\n]*ffmpeg: \\(\\) => FF\\.path\\("ffmpeg"\\)`), mod);
+  const px = server.slice(server.indexOf('const proxies = createProxies({'), server.indexOf('noEncoder:', server.indexOf('const proxies = createProxies({')));
+  a.match(px, /ffmpeg: \(\) => FF\.path\("ffmpeg"\)/, 'proxy.js falls back to the bundled build'); a.match(px, /encoder: proxyEncoder/);
+  const pe = server.slice(server.indexOf('async function proxyEncoder('), server.indexOf('const proxies = createProxies({'));
+  a.match(pe, /runFfmpeg\(\["-hide_banner", "-encoders"\], 15000, ext\.path\)/, 'the local FFmpeg\'s own encoders');
+  a.ok(!/encodersOf\(ext/.test(pe), 'no HEVC or other test encodes on it, only H.264 ones'); a.match(pe, /proxyTrial\(ext\.path, e\)/, 'and a 2-frame test on it');
+  a.match(server.slice(server.indexOf('function proxyTrial(')), /^[\s\S]{0,700}"-frames:v", "2", \.\.\.PROXY_H264\[e\]/, 'with the proxy\'s own arguments');
+});
+
+test('server (POSIX): every program started is logged — signals, song-scan and frames start the bundled build; proxies and exports the local one', { timeout: 180000 }, async (t) => {
+  if (process.platform === 'win32') return t.skip('a shell script cannot stand in for ffmpeg.exe; the wiring is checked from the source above');
+  const { makeDataDir, seedProject, startServer } = require('./helpers'), cp = require('node:child_process');
+  if (!FF.available('ffmpeg') || !FF.available('ffprobe')) return t.skip('bundled ffmpeg not installed');
+  let sys = null;
+  for (const f of ['/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg']) {
+    try { if (/libx264/.test(cp.execFileSync(f, ['-hide_banner', '-encoders'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }))) { sys = f; break; } } catch { }
+  }
+  if (!sys) return t.skip('no FFmpeg with libx264 here');
+  const w = tmp(t), log = path.join(w, 'spawn.log'), bundled = path.join(w, 'bundled', 'ffmpeg'), local = path.join(w, 'local', 'ffmpeg');
+  const wrap = (file, tag, real) => { fs.mkdirSync(path.dirname(file)); fs.writeFileSync(file, `#!/bin/sh\nprintf '%s %s\\n' ${tag} "$*" >> '${log}'\nexec '${real}' "$@"\n`, { mode: 0o755 }); };
+  wrap(bundled, 'BUNDLED', FF.path('ffmpeg')); wrap(local, 'LOCAL', sys);
+  const dir = makeDataDir(t, seedProject({ revision: 1 }));
+  fs.mkdirSync(path.join(dir, 'media'), { recursive: true });
+  cp.execFileSync(FF.path('ffmpeg'), ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=s=320x180:r=30:d=3', '-f', 'lavfi', '-i', 'sine=d=3',
+    '-c:v', 'mpeg4', '-c:a', 'aac', '-shortest', path.join(dir, 'media', 'a.mp4')]);
+  const jpg = path.join(w, 'f.jpg');
+  cp.execFileSync(FF.path('ffmpeg'), ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=s=320x180', '-frames:v', '1', jpg]);
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_TEST_NO_H264: '1', MONTCLIP_FFMPEG: bundled, MONTCLIP_FFPROBE: FF.path('ffprobe'),
+    PATH: path.dirname(local), Path: path.dirname(local), MONTCLIP_EXTERNAL_FFMPEG_SETTINGS: '', MONTCLIP_EXTERNAL_FFMPEG: '' });
+  const st = await (await fetch(base + '/api/ffmpeg')).json();
+  a.equal(st.state, 'ready'); a.equal(st.encoder, 'libx264');
+  const lines = () => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '').split('\n').filter(Boolean);
+  const since = (n) => lines().slice(n);
+  const until = async (fn, what) => { for (let i = 0; i < 240; i++) { const v = await fn(); if (v) return v; await new Promise((r) => setTimeout(r, 250)); } throw new Error('timed out: ' + what); };
+  // analysis: signals, songs, a frame
+  let mark = lines().length;
+  a.equal((await fetch(base + '/api/signals/loudness?src=/media/a.mp4')).status, 200);
+  await fetch(base + '/api/songs', { method: 'POST', body: JSON.stringify({ src: '/media/a.mp4' }) });
+  await until(async () => ['done', 'failed', 'stopped'].includes((await (await fetch(base + '/api/songs?src=/media/a.mp4')).json()).state), 'songs');
+  a.equal((await fetch(base + '/api/frame?src=/media/a.mp4&t=1')).status, 200);
+  const analysis = since(mark);
+  a.ok(analysis.length >= 3, analysis.join('\n'));
+  a.deepEqual(analysis.filter((l) => !l.startsWith('BUNDLED ')), [], 'signals, songs and frames start the bundled build only');
+  // a proxy: the local FFmpeg, probed itself (its encoders, a 2-frame test), then the encode
+  mark = lines().length;
+  await fetch(base + '/api/proxy', { method: 'POST', body: JSON.stringify({ srcs: ['/media/a.mp4'], height: 540 }) });
+  const ps = await until(async () => { const s = (await (await fetch(base + '/api/proxy/status', { method: 'POST', body: JSON.stringify({ srcs: ['/media/a.mp4'] }) })).json()).status['/media/a.mp4']; return s && ['ready', 'failed'].includes(s.state) && s; }, 'proxy');
+  a.equal(ps.state, 'ready', JSON.stringify(ps));
+  const proxy = since(mark).filter((l) => l.startsWith('LOCAL '));
+  a.ok(proxy.some((l) => /-frames:v 2 .*-c:v libx264/.test(l)), 'the 2-frame test ran on the local FFmpeg\n' + proxy.join('\n'));
+  a.ok(proxy.some((l) => /-c:v libx264/.test(l) && /proxies/.test(l)), 'the proxy was encoded by the local FFmpeg');
+  a.ok(!since(mark).some((l) => l.startsWith('BUNDLED ') && /libx264/.test(l)));
+  // an export: the local FFmpeg encodes it
+  mark = lines().length;
+  const begin = await (await fetch(base + '/api/export/begin', { method: 'POST', body: JSON.stringify({ fps: 30, duration: 0.5, canvasW: 320, canvasH: 180, hasAudio: false, deliveries: [{ delivery: { preset: 'web' }, name: 'e' }] }) })).json();
+  a.ok(begin.id, JSON.stringify(begin));
+  const frame = fs.readFileSync(jpg);
+  for (let i = 0; i < 15; i++) a.equal((await fetch(`${base}/api/export/frame?id=${begin.id}`, { method: 'POST', body: frame })).status, 200);
+  const end = await (await fetch(`${base}/api/export/end?id=${begin.id}`, { method: 'POST' })).json();
+  a.ok(end.outputs && end.outputs[0].ok, JSON.stringify(end));
+  a.ok(since(mark).some((l) => l.startsWith('LOCAL ') && /-c:v libx264/.test(l)), 'the export was encoded by the local FFmpeg');
+  // everything the local FFmpeg was ever asked: its checks, the proxy, the export
+  for (const l of lines().filter((x) => x.startsWith('LOCAL ')))
+    a.ok(/-version|-encoders|-c:v (libx264|h264_\w+) /.test(l), 'the local FFmpeg ran only checks and H.264 encodes (its own 2-frame tests included): ' + l);
+});
+
+/* QQ (c): an FFmpeg below the gate is never the fallback for everything. The gate is what MontClip needs (the
+   ebur128 options it measures with), not a version number; Debian 12's 5.1 fails it. */
+test('no bundled build: an FFmpeg that fails the gate is not the fallback; one that passes is', (t) => {
+  if (process.platform === 'win32') return t.skip('the stand-in programs are shell scripts');
+  const w = tmp(t), old = path.join(w, 'old'), ok = path.join(w, 'new');
+  const fake = (d, failGate) => {
+    fs.mkdirSync(d); for (const n of ['ffmpeg', 'ffprobe'])
+      fs.writeFileSync(path.join(d, n), `#!/bin/sh\ncase "$*" in *framelog*) ${failGate ? 'echo "Option framelog not found." >&2; exit 1' : 'exit 0'};; esac\necho "ffmpeg version ${failGate ? '5.1.9' : '9.0.2'}"\n`, { mode: 0o755 });
+  };
+  fake(old, true); fake(ok, false);
+  const none = path.join(w, 'app');   // no vendor folder: no bundled build
+  const resolve = (dir) => FF.resolveTool('ffmpeg', { env: { PATH: dir }, appDir: none, platform: process.platform, arch: 'x64', chosenFile: null });
+  a.equal(FF.passesGate(path.join(old, 'ffmpeg')), false); a.equal(FF.passesGate(path.join(ok, 'ffmpeg')), true);
+  const r = resolve(old); a.equal(r.ok, false); a.equal(r.tooOld, true, 'below the gate: not used, and the card says it is too old');
+  const g = resolve(ok); a.equal(g.ok, true); a.equal(g.source, 'path'); a.equal(g.path, path.join(ok, 'ffmpeg'));
+  // the real thing where it is installed: Debian 12's ffmpeg 5.1 (europa) fails the gate
+  try {
+    const v = require('node:child_process').execFileSync('/usr/bin/ffmpeg', ['-version'], { encoding: 'utf8' });
+    if (/^ffmpeg version 5\.1/m.test(v)) a.equal(FF.passesGate('/usr/bin/ffmpeg'), false, 'Debian 12 ffmpeg 5.1');
+  } catch { }
 });
 
 /* 3. JJ (2026-11-05): no H.264 — simple mode greys the whole Export button; advanced mode keeps it and disables only the

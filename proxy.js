@@ -45,9 +45,12 @@ function findProxies(dir, file) {
     .filter(Boolean).sort((a, b) => b.height - a.height);
 }
 
-/* Video encoder arguments for a proxy. The bundled LGPL FFmpeg has no libx264, so the
-   server passes the first H.264 encoder it has (hardware, then Windows' h264_mf). A
-   proxy is for preview: the user's own FFmpeg (chosen in Settings) is never used here. */
+/* Video encoder arguments for a proxy. The server's encoder() names the encoder and the
+   program that runs it: the bundled build's first H.264 encoder (hardware, then Windows'
+   h264_mf); with none (Linux, LGPL, no graphics card), the local FFmpeg's — chosen,
+   MONTCLIP_EXTERNAL_FFMPEG or PATH — probed on that program itself, a 2-frame test encode
+   included (ADR 2026-11-02 as amended 2026-11-05: the local FFmpeg encodes H.264 only,
+   exports and proxies). encoder() may also return a bare name: the `ffmpeg` given here runs it. */
 const PROXY_H264 = {
   libx264: ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p"],
   h264_nvenc: ["-c:v", "h264_nvenc", "-preset", "p4", "-rc", "vbr", "-cq", "23", "-b:v", "0", "-pix_fmt", "yuv420p"],
@@ -126,13 +129,15 @@ function createProxies({ dir, resolveSrc, probe, broadcast = () => { }, ffmpeg =
     const dur = (info && info.duration) || 0;
     const part = j.out + ".part";
     let err = "", last = 0;
-    let name = null;
-    try { name = await encoder(); } catch { }
+    let pick = null;
+    try { pick = await encoder(); } catch { }
     if (j.state !== "running") { finish(); return; }
+    const name = typeof pick === "string" ? pick : pick && pick.encoder;
+    const bin = (pick && typeof pick === "object" && pick.bin) || (typeof ffmpeg === "function" ? ffmpeg() : ffmpeg);
     const video = PROXY_H264[name];
     if (!video) { j.state = "failed"; j.error = noEncoder(); tell(j); jobs.delete(j.src); finish(); return; }
     const run = (fpsMode, retried) => {
-      const proc = j.proc = spawn(typeof ffmpeg === "function" ? ffmpeg() : ffmpeg, args(j, part, fpsMode, video), { windowsHide: true });
+      const proc = j.proc = spawn(bin, args(j, part, fpsMode, video), { windowsHide: true });
       proc.stdout.on("data", (d) => {
         const m = /out_time_(?:us|ms)=(\d+)/.exec(String(d).split("\n").reverse().join("\n"));
         if (m && dur > 0) {

@@ -68,7 +68,7 @@ try {
 const Templates = require("./templates");
 const { probeFile } = require("./media-probe");
 const MediaLib = require("./media-lib");
-const { createProxies } = require("./proxy");
+const { createProxies, PROXY_H264 } = require("./proxy");
 const { createTranscripts } = require("./transcripts");
 const Delivery = require("./delivery");
 const ExportCleanup = require("./export-cleanup");
@@ -190,17 +190,31 @@ function broadcast(event = "change", data = event) {
   const payload = `event: ${event}\ndata: ${data}\n\n`;
   for (const res of sseClients) res.write(payload);
 }
-/* Proxies are H.264: the bundled build's own encoder; with none (Linux, LGPL, no graphics card), libx264 from the local
-   FFmpeg, which then also makes the proxy (ADR 2026-11-05 supplement). One proxy at a time, so one program at a time. */
-let proxyBin = null;
-const proxies = createProxies({ dir: PROXIES_DIR, resolveSrc, probe: probeFile, ffmpeg: () => proxyBin || FF.path("ffmpeg"), broadcast: (ev, data) => broadcast(ev, data),
-  encoder: async () => {
-    const own = Delivery.encodersFor("h264", await bundledEncoders());
-    if (own.length) { proxyBin = FF.path("ffmpeg"); return own[0]; }
-    const ext = await externalFfmpeg.current();
-    if (ext.ok) { proxyBin = ext.path; return "libx264"; }
-    proxyBin = null; return null;
-  },
+/* Proxies are H.264 (ADR 2026-11-02 as amended 2026-11-05): the bundled build's own encoder; with none (Linux, LGPL,
+   no graphics card), the local FFmpeg (chosen, MONTCLIP_EXTERNAL_FFMPEG or PATH) makes the proxy. Each program is
+   probed itself — its own -encoders, and a 2-frame test encode with the proxy's arguments — so an encoder is never
+   taken from one program and run on another. encoder() answers {encoder, bin}; proxy.js runs that bin. */
+const proxyTrials = new Map();
+function proxyTrial(bin, e) {
+  let key = `${bin}|${e}`;
+  try { const st = fs.statSync(bin); key += `|${st.size}|${st.mtimeMs}`; } catch { return Promise.resolve(false); }
+  if (!proxyTrials.has(key)) proxyTrials.set(key, runFfmpeg(["-hide_banner", "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=256x144:r=30:d=0.1",
+    "-frames:v", "2", ...PROXY_H264[e], "-f", "null", "-"], 15000, bin).then((r) => r.code === 0));
+  return proxyTrials.get(key);
+}
+async function proxyEncoder() {
+  for (const e of Delivery.encodersFor("h264", await bundledEncoders()))
+    if (PROXY_H264[e] && await proxyTrial(FF.path("ffmpeg"), e)) return { encoder: e, bin: FF.path("ffmpeg") };
+  const ext = await externalFfmpeg.current();
+  if (!ext.ok) return null;
+  // its own -encoders, then a 2-frame test of each H.264 one (and nothing else: no HEVC or other test encodes on it)
+  const listed = Delivery.parseEncoders((await runFfmpeg(["-hide_banner", "-encoders"], 15000, ext.path)).stdout);
+  for (const e of Delivery.encodersFor("h264", listed))
+    if (PROXY_H264[e] && await proxyTrial(ext.path, e)) return { encoder: e, bin: ext.path };
+  return null;
+}
+const proxies = createProxies({ dir: PROXIES_DIR, resolveSrc, probe: probeFile, ffmpeg: () => FF.path("ffmpeg"), broadcast: (ev, data) => broadcast(ev, data),
+  encoder: proxyEncoder,
   noEncoder: () => X.noH264Reason({ mediaFoundation: hasMediaFoundation() }) });
 /* Word transcripts, one per version of a file (fablecut_transcribe, the Transcript tab). */
 const transcripts = createTranscripts({ dir: path.join(ANALYSIS_DIR, "transcripts"), resolveSrc });
@@ -447,8 +461,9 @@ function encodersOf(bin) {
   if (encoderCache.has(key)) return encoderCache.get(key);
   const p = (async () => {
     let listed = Delivery.parseEncoders((await runFfmpeg(["-hide_banner", "-encoders"], 15000, bin)).stdout);
-    // test/export-h264-precheck.test.js: a computer with no H.264 encoder (Linux with the LGPL build, no graphics card)
-    if (process.env.MONTCLIP_TEST_NO_H264 === "1") listed = new Set([...listed].filter((e) => !Delivery.encodersFor("h264", new Set([e])).length));
+    // test/export-h264-precheck.test.js: a computer whose bundled build has no H.264 encoder (Linux with the LGPL build,
+    // no graphics card). Only the bundled program: a local FFmpeg keeps its libx264 (proxies probe it here too).
+    if (process.env.MONTCLIP_TEST_NO_H264 === "1" && bin === FF.path("ffmpeg")) listed = new Set([...listed].filter((e) => !Delivery.encodersFor("h264", new Set([e])).length));
     const usable = new Set([...listed].filter((e) => !Delivery.ENCODERS[e]?.hw));
     await Promise.all([...listed].filter((e) => Delivery.ENCODERS[e]?.hw).map(async (e) => {
       const r = await runFfmpeg(["-hide_banner", "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=256x144:r=30:d=0.1",
