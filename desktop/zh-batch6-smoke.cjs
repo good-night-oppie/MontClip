@@ -75,6 +75,16 @@ const READ = String.raw`(async () => {
   r.parentNone = txt(insp.querySelector('select[data-parent] option[value=""]'));
   r.arcTitle = insp.querySelector('[data-tpath="arc"]')?.title;
   r.transTitle = insp.querySelector('label.insp-reset[data-reset="transIn"]')?.title;
+  // Rea's review of #147: the Masks section of the Inspector (its heading, Pen, Draw), the top bar's tooltip, the Color tab's Draw
+  const ms = insp.querySelector('[data-mask-section]');
+  r.maskHead = txt(ms?.querySelector('h3'));
+  r.maskPen = txt(ms?.querySelector('[data-mtool="pen"]')); r.maskDraw = txt(ms?.querySelector('[data-mtool="draw"]'));
+  r.projTitle = document.getElementById('projectName').title;
+  if (document.body.dataset.mcMode !== 'simple') {
+    setSelection([window.__zh6Adjust]); setSideTab('color'); colorState.layer = 0; renderColorPage(true); await wait(30);
+    r.colorDraw = txt(document.querySelector('[data-mdraw]'));
+    setSideTab('inspector'); setSelection([window.__zh6Title]); renderInspector(); await wait(30);
+  }
   // the timeline label of the title, and the Parent option naming it
   state.dirtyTimeline = true; await wait(120);
   const label = [...document.querySelectorAll('.clip-label')].map(txt).find((l) => l.includes('T · '));
@@ -119,6 +129,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     // a title (new, so its stored name and text are the defaults), a stereo file in the bin, a transition to reset
     await read(`(()=>{addTitle();const c=project.clips[project.clips.length-1];window.__zh6Title=c.id;c.transitionIn={type:'fade',duration:1};
       project.media.push({id:'m_zh6',name:'zh6.mp4',kind:'video',src:'/media/zh6.mp4',duration:5,width:320,height:240,audioChannels:2,sampleRate:48000});
+      project.clips.push({id:'c_zh6adj',mediaId:null,kind:'adjust',track:'V3',start:0,in:0,duration:4,name:'Adjust',props:{...DEFAULT_PROPS,grade:{layers:[{name:'L1'}]}}});window.__zh6Adjust='c_zh6adj';
       renderBin();return true;})()`);
     for (const [language, mode] of [['zh-CN', 'advanced'], ['zh-CN', 'simple'], ['en', 'advanced'], ['en', 'simple'], ['zh-CN', 'advanced']]) {
       await read(`updateMontClipView(${JSON.stringify({ language, mode })}); true`); await wait();
@@ -144,6 +155,11 @@ BrowserWindow.prototype.loadURL = async function (...args) {
       assert.equal(r.presetPh, zh ? '名称' : 'Name', at + ' preset name placeholder');
       assert.equal(r.presetSave, zh ? '保存' : 'Save', at + ' preset Save');
       assert.equal(r.parentNone, zh ? '无' : 'None', at + ' Parent None');
+      assert.equal(r.maskHead, zh ? '蒙版' : 'Masks', at + ' Inspector Masks heading');
+      assert.equal(r.maskPen, zh ? '钢笔' : 'Pen', at + ' Inspector mask Pen');
+      assert.equal(r.maskDraw, zh ? '绘制' : 'Draw', at + ' Inspector mask Draw');
+      assert.equal(r.projTitle, zh ? '项目' : 'Projects', at + ' top bar tooltip');
+      if (mode !== 'simple') assert.equal(r.colorDraw, zh ? '绘制' : 'Draw', at + ' Color tab Draw');
       assert.equal(r.titleLabel, zh ? 'T · 标题' : 'T · Title', at + ' title label');
       assert.equal(r.seqName, zh ? '主序列' : 'Main', at + ' sequence button');
       assert.ok(r.seqTitle.includes(zh ? '主序列' : 'Main') && !(zh && /\bMain\b/.test(r.seqTitle)), at + ' sequence tooltip: ' + r.seqTitle);
