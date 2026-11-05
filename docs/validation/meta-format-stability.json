@@ -1,0 +1,256 @@
+{
+ "model": "muse-spark-1.1",
+ "date": "2026-11-04T22:56:06.138Z",
+ "runsPerPrompt": 5,
+ "summary": [
+  {
+   "prompt": "只保留这两句",
+   "runs": 5,
+   "usable": 5,
+   "asked": 5,
+   "fenced": 0,
+   "errors": [],
+   "medianMs": 1328
+  },
+  {
+   "prompt": "这三句里，删掉说错的那一句，其他的留着",
+   "runs": 5,
+   "usable": 5,
+   "asked": 5,
+   "fenced": 0,
+   "errors": [],
+   "medianMs": 1198
+  },
+  {
+   "prompt": "只要第一句",
+   "runs": 5,
+   "usable": 5,
+   "asked": 5,
+   "fenced": 0,
+   "errors": [],
+   "medianMs": 1331
+  }
+ ],
+ "runs": [
+  {
+   "prompt": "只保留这两句",
+   "n": 1,
+   "ms": 1567,
+   "reply": "{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"c0\",\"sourceCaptionId\":\"c0\",\"from\":0,\"to\":3},{\"clipId\":\"c2\",\"sourceCaptionId\":\"c2\",\"from\":5,\"to\":10}]}",
+   "json": true,
+   "fenced": false,
+   "summary": true,
+   "kept": [
+    "c0",
+    "c2"
+   ],
+   "valid": true,
+   "right": true
+  },
+  {
+   "prompt": "只保留这两句",
+   "n": 2,
+   "ms": 1328,
+   "reply": "{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"c0\",\"sourceCaptionId\":\"c0\",\"from\":0,\"to\":3},{\"clipId\":\"c2\",\"sourceCaptionId\":\"c2\",\"from\":5,\"to\":10}]}",
+   "json": true,
+   "fenced": false,
+   "summary": true,
+   "kept": [
+    "c0",
+    "c2"
+   ],
+   "valid": true,
+   "right": true
+  },
+  {
+   "prompt": "只保留这两句",
+   "n": 3,
+   "ms": 1401,
+   "reply": "{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"c0\",\"sourceCaptionId\":\"c0\",\"from\":0,\"to\":3},{\"clipId\":\"c2\",\"sourceCaptionId\":\"c2\",\"from\":5,\"to\":10}]}",
+   "json": true,
+   "fenced": false,
+   "summary": true,
+   "kept": [
+    "c0",
+    "c2"
+   ],
+   "valid": true,
+   "right": true
+  },
+  {
+   "prompt": "只保留这两句",
+   "n": 4,
+   "ms": 1304,
+   "reply": "{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"c0\",\"sourceCaptionId\":\"c0\",\"from\":0,\"to\":3},{\"clipId\":\"c2\",\"sourceCaptionId\":\"c2\",\"from\":5,\"to\":10}]}",
+   "json": true,
+   "fenced": false,
+   "summary": true,
+   "kept": [
+    "c0",
+    "c2"
+   ],
+   "valid": true,
+   "right": true
+  },
+  {
+   "prompt": "只保留这两句",
+   "n": 5,
+   "ms": 900,
+   "reply": "{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"c0\",\"sourceCaptionId\":\"c0\",\"from\":0,\"to\":3},{\"clipId\":\"c2\",\"sourceCaptionId\":\"c2\",\"from\":5,\"to\":10}]}",
+   "json": true,
+   "fenced": false,
+   "summary": true,
+   "kept": [
+    "c0",
+    "c2"
+   ],
+   "valid": true,
+   "right": true
+  },
+  {
+   "prompt": "这三句里，删掉说错的那一句，其他的留着",
+   "n": 1,
+   "ms": 1749,
+   "reply": "{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"c0\",\"sourceCaptionId\":\"c0\",\"from\":0,\"to\":3},{\"clipId\":\"c2\",\"sourceCaptionId\":\"c2\",\"from\":5,\"to\":10}]}",
+   "json": true,
+   "fenced": false,
+   "summary": true,
+   "kept": [
+    "c0",
+    "c2"
+   ],
+   "valid": true,
+   "right": true
+  },
+  {
+   "prompt": "这三句里，删掉说错的那一句，其他的留着",
+   "n": 2,
+   "ms": 1196,
+   "reply": "{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"c0\",\"sourceCaptionId\":\"c0\",\"from\":0,\"to\":3},{\"clipId\":\"c2\",\"sourceCaptionId\":\"c2\",\"from\":5,\"to\":10}]}",
+   "json": true,
+   "fenced": false,
+   "summary": true,
+   "kept": [
+    "c0",
+    "c2"
+   ],
+   "valid": true,
+   "right": true
+  },
+  {
+   "prompt": "这三句里，删掉说错的那一句，其他的留着",
+   "n": 3,
+   "ms": 1985,
+   "reply": "{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"c0\",\"sourceCaptionId\":\"c0\",\"from\":0,\"to\":3},{\"clipId\":\"c2\",\"sourceCaptionId\":\"c2\",\"from\":5,\"to\":10}]}",
+   "json": true,
+   "fenced": false,
+   "summary": true,
+   "kept": [
+    "c0",
+    "c2"
+   ],
+   "valid": true,
+   "right": true
+  },
+  {
+   "prompt": "这三句里，删掉说错的那一句，其他的留着",
+   "n": 4,
+   "ms": 1021,
+   "reply": "{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"c0\",\"sourceCaptionId\":\"c0\",\"from\":0,\"to\":3},{\"clipId\":\"c2\",\"sourceCaptionId\":\"c2\",\"from\":5,\"to\":10}]}",
+   "json": true,
+   "fenced": false,
+   "summary": true,
+   "kept": [
+    "c0",
+    "c2"
+   ],
+   "valid": true,
+   "right": true
+  },
+  {
+   "prompt": "这三句里，删掉说错的那一句，其他的留着",
+   "n": 5,
+   "ms": 1198,
+   "reply": "{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"c0\",\"sourceCaptionId\":\"c0\",\"from\":0,\"to\":3},{\"clipId\":\"c2\",\"sourceCaptionId\":\"c2\",\"from\":5,\"to\":10}]}",
+   "json": true,
+   "fenced": false,
+   "summary": true,
+   "kept": [
+    "c0",
+    "c2"
+   ],
+   "valid": true,
+   "right": true
+  },
+  {
+   "prompt": "只要第一句",
+   "n": 1,
+   "ms": 1377,
+   "reply": "{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"c0\",\"sourceCaptionId\":\"c0\",\"from\":0,\"to\":3}]}",
+   "json": true,
+   "fenced": false,
+   "summary": true,
+   "kept": [
+    "c0"
+   ],
+   "valid": true,
+   "right": true
+  },
+  {
+   "prompt": "只要第一句",
+   "n": 2,
+   "ms": 1245,
+   "reply": "{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"c0\",\"sourceCaptionId\":\"c0\",\"from\":0,\"to\":3}]}",
+   "json": true,
+   "fenced": false,
+   "summary": true,
+   "kept": [
+    "c0"
+   ],
+   "valid": true,
+   "right": true
+  },
+  {
+   "prompt": "只要第一句",
+   "n": 3,
+   "ms": 1331,
+   "reply": "{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"c0\",\"sourceCaptionId\":\"c0\",\"from\":0,\"to\":3}]}",
+   "json": true,
+   "fenced": false,
+   "summary": true,
+   "kept": [
+    "c0"
+   ],
+   "valid": true,
+   "right": true
+  },
+  {
+   "prompt": "只要第一句",
+   "n": 4,
+   "ms": 1456,
+   "reply": "{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"c0\",\"sourceCaptionId\":\"c0\",\"from\":0,\"to\":3}]}",
+   "json": true,
+   "fenced": false,
+   "summary": true,
+   "kept": [
+    "c0"
+   ],
+   "valid": true,
+   "right": true
+  },
+  {
+   "prompt": "只要第一句",
+   "n": 5,
+   "ms": 1284,
+   "reply": "{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"c0\",\"sourceCaptionId\":\"c0\",\"from\":0,\"to\":3}]}",
+   "json": true,
+   "fenced": false,
+   "summary": true,
+   "kept": [
+    "c0"
+   ],
+   "valid": true,
+   "right": true
+  }
+ ]
+}
