@@ -40,7 +40,7 @@ test('case 2, desktop: a program the user chose in Settings goes ahead of the se
 });
 
 test('case 3: neither — refused, and in server mode the reason does not point at a Settings dialog that is not there',async t=>{
- const none=X.createExternal({settingsFile:null,envPath:null,run:async()=>{throw new Error('must not run');}});
+ const none=X.createExternal({settingsFile:null,envPath:null,findOnPath:()=>null,run:async()=>{throw new Error('must not run');}});
  a.deepEqual(await h264(none,LGPL_LINUX),[]);
  a.deepEqual(await none.current(),{ok:false,code:'none',reason:'none'});
  const r=X.noH264({platform:'linux',setup:'server'});
@@ -131,7 +131,7 @@ test('run mode comes from how MontClip was started, not from whether a settings 
 test('the same three cases give the same encoders in every run mode', async (t) => {
   const d = tmp(t), exe = path.join(d, 'ffmpeg'), settings = path.join(d, 'external-ffmpeg.json'); fs.writeFileSync(exe, 'x');
   for (const [setup, env] of Object.entries(MODES)) {
-    const mk = (o) => X.createExternal({ settingsFile: settings, envPath: null, run: withX264, setup: X.setupFor(env), ...o });
+    const mk = (o) => X.createExternal({ settingsFile: settings, envPath: null, run: withX264, setup: X.setupFor(env), findOnPath: () => null, ...o });
     fs.rmSync(settings, { force: true });
     a.deepEqual(await h264(mk({}), ['h264_nvenc']), ['h264_nvenc'], setup + ': bundled has one');
     a.deepEqual(await h264(mk({}), LGPL_LINUX), [], setup + ': neither');

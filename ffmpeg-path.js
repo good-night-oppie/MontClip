@@ -1,23 +1,26 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    Which ffmpeg / ffprobe to run.
 
-   MontClip runs the FFmpeg it ships with, never whatever happens to be on PATH:
-   a PATH build may be GPL, may be missing, or may differ from the one the app
-   was tested with. Resolution order, first match wins:
+   JJ P1 (2026-11-04): the same order in the desktop app, web / server mode and
+   the Cindy plugin — the bundled build, then PATH, then the place the user
+   chose. First match wins, per tool:
 
-     1. Packaged desktop app — desktop/main.js sets MONTCLIP_FFMPEG_DIR to
-        <process.resourcesPath>/ffmpeg and sets MONTCLIP_FFMPEG_PACKAGED=1, which
-        also turns off the per-tool overrides below.
-     2. Development — MONTCLIP_FFMPEG / MONTCLIP_FFPROBE: an absolute path to
-        one program each.
-     3. Development — MONTCLIP_FFMPEG_DIR: a folder holding both.
-     4. Development — vendor/ffmpeg/<platform>-<arch>/ in the checkout, filled by
-        `node desktop/fetch-ffmpeg.cjs` (the same files packaging bundles).
+     1. Bundled:
+        a. packaged desktop app / plugin — MONTCLIP_FFMPEG_PACKAGED=1 and
+           MONTCLIP_FFMPEG_DIR (which also turns off b and c);
+        b. development — MONTCLIP_FFMPEG / MONTCLIP_FFPROBE (absolute paths);
+        c. development — MONTCLIP_FFMPEG_DIR (a folder holding both);
+        d. development — vendor/ffmpeg/<platform>-<arch>/, filled by
+           `node desktop/fetch-ffmpeg.cjs` (the same files packaging bundles).
+     2. PATH — looked up here, folder by folder, so the result is an absolute
+        path: nothing is ever spawned by bare name (spawn would search PATH and
+        the current folder in its own way).
+     3. The user's choice — the ffmpeg saved in MONTCLIP_EXTERNAL_FFMPEG_SETTINGS
+        ({version:1, path}); ffprobe is looked for beside it.
 
-   When none of these names an existing file the tool is reported missing, with
-   a plain-language reason. There is no fallback to PATH: callers get the
-   absolute path the bundled program should have, so spawning it fails with
-   ENOENT instead of quietly running a different build.
+   When none names an existing file the tool is reported missing, with the
+   first source's plain-language reason, and `path` stays absolute.
+   refresh() forgets what was found, for 「重新检测」 without a restart.
    ═══════════════════════════════════════════════════════════════════════════ */
 "use strict";
 const fs = require("fs");
@@ -29,9 +32,47 @@ function exeName(name, platform) { return platform === "win32" ? name + ".exe" :
 
 function isFile(p) { try { return fs.statSync(p).isFile(); } catch { return false; } }
 
-/** Resolve one tool. Never throws; never returns a bare program name.
- *  → { ok:true, path, source } | { ok:false, path, source, error } */
+/** The first PATH folder holding `exe`, as an absolute path; null when none. Relative and empty entries are skipped
+ *  (they mean the current folder, which is not where an installed program lives). */
+function findOnPath(exe, { env = process.env, platform = process.platform, exists = isFile } = {}) {
+  const p = platform === "win32" ? path.win32 : path.posix;
+  const raw = env.PATH !== undefined ? env.PATH : (env.Path !== undefined ? env.Path : "");
+  const list = platform === "win32" && env.PATH !== undefined && env.Path !== undefined && env.Path !== env.PATH ? env.PATH + ";" + env.Path : raw;
+  for (const dir of String(list || "").split(platform === "win32" ? ";" : ":")) {
+    const d = dir.trim().replace(/^"(.*)"$/, "$1");
+    if (!d || !p.isAbsolute(d)) continue;
+    const f = p.join(d, exe);
+    if (exists(f)) return f;
+  }
+  return null;
+}
+/** The ffmpeg path saved as the user's choice, or null. */
+function readChoiceFile(file) {
+  if (!file) return null;
+  try { const v = JSON.parse(fs.readFileSync(file, "utf8")); return v && v.version === 1 && typeof v.path === "string" ? { path: v.path } : null; } catch { return null; }
+}
+
+/** Resolve one tool: bundled, then PATH, then the user's choice. Never throws; never returns a bare program name.
+ *  → { ok:true, path, source } | { ok:false, path, source, error }   (source: packaged · env · env-dir · vendor · path · chosen) */
 function resolveTool(name, opts = {}) {
+  const first = resolveBundled(name, opts);
+  if (first.ok) return first;
+  const env = opts.env || process.env, platform = opts.platform || process.platform, exists = opts.exists || isFile;
+  const exe = exeName(name, platform);
+  const onPath = findOnPath(exe, { env, platform, exists });
+  if (onPath) return { ok: true, path: onPath, source: "path" };
+  const chosenFile = opts.chosenFile !== undefined ? opts.chosenFile : (env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS || null);
+  const choice = (opts.readChoice || readChoiceFile)(chosenFile);
+  if (choice && typeof choice.path === "string") {
+    const p = platform === "win32" ? path.win32 : path.posix;
+    if (p.isAbsolute(choice.path)) {
+      const f = p.join(p.dirname(choice.path), exe);
+      if (exists(f)) return { ok: true, path: f, source: "chosen" };
+    }
+  }
+  return first;
+}
+function resolveBundled(name, opts = {}) {
   if (!TOOLS.includes(name)) throw new Error(`unknown tool ${name}`);
   const env = opts.env || process.env;
   const platform = opts.platform || process.platform;
@@ -84,7 +125,7 @@ module.exports = {
   /** Absolute path to spawn (it may not exist — see `available`). */
   path: (name) => cached(name).path,
   available: (name) => cached(name).ok,
-  /** Where the tool was looked for: packaged · env · env-dir · vendor. */
+  /** Where the tool was found (or first looked for): packaged · env · env-dir · vendor · path · chosen. */
   source: (name) => cached(name).source,
   /** The code the page shows: the packaged app says "ffmpegMissing" in its language; the env /
       vendor reasons only exist in a development setup and stay English ("ffmpegDev"). */
@@ -94,6 +135,9 @@ module.exports = {
   /** The error to report when running the tool failed: why, and what needed it. */
   why: (name, need) => (cached(name).error || `MontClip's bundled ${name} could not be started (${cached(name).path}).`) + ` It is needed ${need}.`,
   status: () => Object.fromEntries(TOOLS.map((t) => [t, cached(t)])),
+  /** Forget what was found: the next call looks again (「重新检测」). */
+  refresh: () => cache.clear(),
+  findOnPath,
   /** Tests only: forget what was resolved. */
   _reset: () => cache.clear(),
 };

@@ -132,7 +132,7 @@ function createProxies({ dir, resolveSrc, probe, broadcast = () => { }, ffmpeg =
     const video = PROXY_H264[name];
     if (!video) { j.state = "failed"; j.error = noEncoder(); tell(j); jobs.delete(j.src); finish(); return; }
     const run = (fpsMode, retried) => {
-      const proc = j.proc = spawn(ffmpeg, args(j, part, fpsMode, video), { windowsHide: true });
+      const proc = j.proc = spawn(typeof ffmpeg === "function" ? ffmpeg() : ffmpeg, args(j, part, fpsMode, video), { windowsHide: true });
       proc.stdout.on("data", (d) => {
         const m = /out_time_(?:us|ms)=(\d+)/.exec(String(d).split("\n").reverse().join("\n"));
         if (m && dur > 0) {

@@ -1,6 +1,7 @@
-/* MontClip runs the FFmpeg it bundles, never one found on PATH (ffmpeg-path.js).
-   · no production code spawns a bare "ffmpeg" / "ffprobe"
-   · the resolver: packaged dir, dev overrides, vendor folder, plain errors, no PATH
+/* Which FFmpeg MontClip runs (ffmpeg-path.js). JJ P1 (2026-11-04): bundled first, then PATH, then the user's choice —
+   the PATH / choice order is pinned in test/ffmpeg-detect.test.js; this file pins the bundled part.
+   · no production code spawns a bare "ffmpeg" / "ffprobe" (PATH is looked up to an absolute path, never by spawn)
+   · the resolver: packaged dir, dev overrides, vendor folder, plain errors
    · a server started with an empty PATH still previews and exports with the
      bundled build, and says so plainly — without hanging — when it is missing */
 "use strict";

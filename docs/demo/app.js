@@ -1348,6 +1348,7 @@ async function connectServer() {
     if (window.montclipAsr) setTimeout(maybeOpenAsrSetup, 800);
     fetch("/api/export/ffmpeg").then((r) => r.json())
       .then((j) => { state.ffmpeg = !!j.available; }).catch(() => { });
+    refreshFfmpegCard();
     fetchEncodeProfiles();
     detectWebCodecs();
   } catch {
@@ -1357,6 +1358,106 @@ async function connectServer() {
   initSequencesUi();
   await probeMissingMeta();
 }
+/* ── The FFmpeg card (JJ P1, 2026-11-04; ffmpeg-card.js) ──
+   One state for the desktop app, web / server mode and the Cindy plugin (GET /api/ffmpeg). Ready: no card at all.
+   Otherwise the card's text and its controls come from one model, so every 「X」 it mentions is right there. Only
+   export is switched off (and says why); browsing media and marking clips carry on. 「重新检测」 asks the server to look
+   again — no reload, no restart. Without a file dialog (web, the plugin) 「手动选择」 opens a path box. */
+const ffmpegUi = { status: null, line: "", input: false, hide: 0 };
+async function refreshFfmpegCard() {
+  try { ffmpegUi.status = await (await fetch("/api/ffmpeg", { cache: "no-store" })).json(); } catch { return; }
+  applyFfmpegState();
+  renderFfmpegCard();
+}
+function applyFfmpegState() {
+  const st = ffmpegUi.status, b = $("btnExport");
+  if (!st || !b) return;
+  const off = st.state === "missing" || st.state === "noProbe";
+  const t = MontClipFfmpegCard.text[mcView.get().language] || MontClipFfmpegCard.text.en;
+  if (b.dataset.titleBefore === undefined) b.dataset.titleBefore = b.title || "";
+  b.disabled = off;
+  b.title = off ? t.unavailable : b.dataset.titleBefore;
+  state.ffmpeg = !off;
+}
+function renderFfmpegCard() {
+  const box = $("ffmpegCard");
+  if (!box) return;
+  const st = ffmpegUi.status, lang = mcView.get().language;
+  const picker = !!window.montclipExternalFfmpeg || !!(st && st.picker);
+  const m = st ? MontClipFfmpegCard.model({ ...st, picker }, lang) : null;
+  clearTimeout(ffmpegUi.hide);
+  if (!m && !ffmpegUi.line) { box.classList.add("hidden"); box.replaceChildren(); return; }
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const kids = [];
+  if (m) {
+    kids.push(el("h3", "ffc-title", m.title), el("p", "ffc-body", m.body));
+    if (m.command) {
+      const row = el("div", "ffc-cmd");
+      const copy = el("button", "btn tiny", m.copy); copy.type = "button"; copy.dataset.ffc = "copy";
+      row.append(el("code", null, m.command), copy);
+      kids.push(row);
+    }
+    const btns = el("div", "ffc-actions");
+    for (const b of m.buttons) { const e = el("button", "btn" + (b.id === "detect" ? " primary" : ""), b.label); e.type = "button"; e.dataset.ffc = b.id; btns.append(e); }
+    kids.push(btns);
+    if (m.input && ffmpegUi.input) {
+      const row = el("div", "ffc-path"), lab = el("label", null, m.input.label), inp = el("input");
+      inp.type = "text"; inp.id = "ffcPath"; inp.placeholder = m.input.placeholder; inp.spellcheck = false; lab.htmlFor = "ffcPath";
+      inp.addEventListener("keydown", (e) => { if (e.key === "Enter") ffmpegCardAction("use"); });
+      const use = el("button", "btn", m.input.button); use.type = "button"; use.dataset.ffc = "use";
+      row.append(lab, inp, use);
+      kids.push(row);
+    }
+  }
+  if (ffmpegUi.line) kids.push(el("p", "ffc-line", ffmpegUi.line));
+  box.replaceChildren(...kids);
+  box.classList.remove("hidden");
+  if (!m) ffmpegUi.hide = setTimeout(() => { ffmpegUi.line = ""; renderFfmpegCard(); }, 5000);   // 「找到了」, then gone
+}
+/** A click in the card: copy · detect · choose (the desktop file dialog, or the path box) · use (the typed path). */
+async function ffmpegCardAction(id) {
+  const st0 = ffmpegUi.status || {}, lang = mcView.get().language;
+  const R = MontClipFfmpegCard.results(lang, st0.platform);
+  const say = (st, result) => {
+    ffmpegUi.status = st;
+    const r = result || (st.state === "ready" ? "found" : st.state);
+    ffmpegUi.line = r === "found" ? R.found : r === "noProbe" ? R.noProbe : r === "noH264" ? R.noH264
+      : r === "notFfmpeg" ? R.notFfmpeg : r === "missing" ? R.stillMissing : (MontClipView.h264Message(lang, { code: r }) || R.stillMissing);
+    if (st.state === "ready") ffmpegUi.input = false;
+    applyFfmpegState();
+    renderFfmpegCard();
+  };
+  try {
+    if (id === "copy") {
+      const m = MontClipFfmpegCard.model({ ...st0, picker: true }, lang);
+      if (m && m.command && navigator.clipboard) await navigator.clipboard.writeText(m.command).catch(() => { });
+      return;
+    }
+    if (id === "detect") return say(await (await fetch("/api/ffmpeg/detect", { method: "POST" })).json());
+    if (id === "choose") {
+      if (window.montclipExternalFfmpeg) {   // the desktop app: the same file dialog as Settings → H.264 export
+        const r = await window.montclipExternalFfmpeg?.choose();
+        if (!r || r.code === "CANCELLED") return;
+        const st = await (await fetch("/api/ffmpeg/detect", { method: "POST" })).json();
+        return say(st, r.ok ? null : r.code === "extNotFfmpeg" || r.code === "extNotFullPath" ? "notFfmpeg" : r.code);
+      }
+      ffmpegUi.input = true;
+      renderFfmpegCard();
+      $("ffcPath")?.focus();
+      return;
+    }
+    if (id === "use") {
+      const v = ($("ffcPath")?.value || "").trim();
+      if (!v) return;
+      const r = await (await fetch("/api/ffmpeg/choose", { method: "POST", body: JSON.stringify({ path: v }) })).json();
+      return say(r, r.result);
+    }
+  } catch { }
+}
+$("ffmpegCard")?.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-ffc]");
+  if (b) ffmpegCardAction(b.dataset.ffc);
+});
 /* Main-profile AVC level by canvas height; Annex-B is required so ffmpeg
    can ingest the elementary stream with `-f h264` and no avcC converter. */
 function webCodecsAvcCodec() {

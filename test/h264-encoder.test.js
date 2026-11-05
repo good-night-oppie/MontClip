@@ -32,10 +32,11 @@ test('h264_mf gets rate control it understands',()=>{
  const cbr=args({preset:'youtube',video:{rate:'cbr',bitrate:8000}});a.ok(cbr.join(' ').includes('-rate_control cbr'));
 });
 
-test('the local FFmpeg is only a file the user chose: no PATH, no names, no discovery',async()=>{
+// JJ P1 (2026-11-04): PATH is now looked at too — by ffmpeg-path.js, folder by folder, to an absolute path; never a bare name
+test('the local FFmpeg is a full path that checks out: no bare names, no shell lookup',async()=>{
  for(const bad of ['ffmpeg','./ffmpeg','x264/ffmpeg.exe',''])a.equal((await X.check(bad,{run:async()=>({code:0,stdout:' V..... libx264 '})})).ok,false,bad);
  const src=fs.readFileSync(path.join(ROOT,'external-ffmpeg.js'),'utf8');
- a.ok(!/process\.env\.PATH|["']which["']|["']where(\.exe)?["']|\$PATH/.test(src),'never searches PATH');
+ a.ok(!/process\.env\.PATH|["']which["']|["']where(\.exe)?["']|\$PATH/.test(src),'no shell lookup: PATH goes through ffmpeg-path.js findOnPath');
  const ext=X.createExternal({settingsFile:null,run:async()=>{throw new Error('must not run');}});
  a.deepEqual(await ext.current(),{ok:false,code:'none',reason:'none'});
 });

@@ -26,7 +26,11 @@ const ownedProcesses = process.env.MONTCLIP_DESKTOP === "1"
 const { spawn, spawnSync, execFile } = require("child_process");
 const FF = require("./ffmpeg-path");
 const X = require("./external-ffmpeg");
-/* A local FFmpeg the user chose for libx264, H.264 export only (external-ffmpeg.js). */
+/* Where a chosen FFmpeg is saved: the desktop app names its own file; otherwise it lives with the user's data, so the
+   web / server mode and the Cindy plugin keep a choice across restarts too (JJ P1). */
+if (!process.env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS)
+  process.env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS = path.join(require("./paths").DATA_DIR, "external-ffmpeg.json");
+/* A local FFmpeg with libx264 for H.264 export (external-ffmpeg.js): the user's choice, the server's variable, or PATH. */
 const externalFfmpeg = X.createExternal();
 
 const { analyze, frame, frameGrid } = require("./analyze");
@@ -111,17 +115,23 @@ function requestAllowed(req) {
   return true;
 }
 
-/* ffmpeg powers optional niceties (faststart remux on upload, fast export).
-   Everything else works without it. It is always the bundled build
-   (ffmpeg-path.js); FFMPEG_MISSING says in plain words why it is unavailable. */
-let HAS_FFMPEG = false;
-let FFMPEG_MISSING = FF.reason("ffmpeg");
-/* the page says "ffmpegMissing" in its language; the English reasons of a development setup stay English */
-const FFMPEG_MISSING_CODE = FF.missingCode({ source: FF.source("ffmpeg") });
-if (!FFMPEG_MISSING) {
-  try { HAS_FFMPEG = spawnSync(FF.path("ffmpeg"), ["-version"], { stdio: "ignore", timeout: 15000, windowsHide: true }).status === 0; } catch {}
-  if (!HAS_FFMPEG) FFMPEG_MISSING = `MontClip's bundled ffmpeg (${FF.path("ffmpeg")}) could not be started. Reinstall MontClip to restore it.`;
+/* ffmpeg powers preview niceties (proxies, frames, conversions) and export. Everything else works without it:
+   browsing media and marking clips never need it. Which program runs is ffmpeg-path.js's answer (bundled → PATH →
+   the user's choice); FFMPEG_MISSING says in plain words why it is unavailable. detectFfmpeg() runs again for
+   「重新检测」 and after a choice, without a restart. */
+let HAS_FFMPEG = false, FFMPEG_MISSING = "", FFMPEG_MISSING_CODE = "ffmpegDev";
+function detectFfmpeg() {
+  FF.refresh();
+  HAS_FFMPEG = false;
+  FFMPEG_MISSING = FF.reason("ffmpeg");
+  /* the page says "ffmpegMissing" in its language; the English reasons of a development setup stay English */
+  FFMPEG_MISSING_CODE = FF.missingCode({ source: FF.source("ffmpeg") });
+  if (!FFMPEG_MISSING) {
+    try { HAS_FFMPEG = spawnSync(FF.path("ffmpeg"), ["-version"], { stdio: "ignore", timeout: 15000, windowsHide: true }).status === 0; } catch {}
+    if (!HAS_FFMPEG) FFMPEG_MISSING = `The ffmpeg MontClip found (${X.maskUserPath(FF.path("ffmpeg"))}) could not be started.`;
+  }
 }
+detectFfmpeg();
 
 const MIME = {
   ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
@@ -141,7 +151,7 @@ const MIME = {
 const ASR_DIR = path.resolve(process.env.MONTCLIP_ASR_DIR || path.join(APP_DIR, "vendor", "asr"));
 const ASR_MODELS_DIR = path.resolve(process.env.MONTCLIP_ASR_MODELS_DIR || path.join(DATA_DIR, "asr-models"));
 let asrLocal = null;
-const asr = () => asrLocal || (asrLocal = require("./asr-local").createAsr({ asrDir: ASR_DIR, modelsDir: ASR_MODELS_DIR, ffmpeg: FF.path("ffmpeg"), cacheDir: path.join(DATA_DIR, "asr-cache") }));
+const asr = () => asrLocal || (asrLocal = require("./asr-local").createAsr({ asrDir: ASR_DIR, modelsDir: ASR_MODELS_DIR, ffmpeg: () => FF.path("ffmpeg"), cacheDir: path.join(DATA_DIR, "asr-cache") }));
 const asrJob = { running: null };
 
 ensureDirs();
@@ -176,17 +186,17 @@ function broadcast(event = "change", data = event) {
   const payload = `event: ${event}\ndata: ${data}\n\n`;
   for (const res of sseClients) res.write(payload);
 }
-const proxies = createProxies({ dir: PROXIES_DIR, resolveSrc, probe: probeFile, ffmpeg: FF.path("ffmpeg"), broadcast: (ev, data) => broadcast(ev, data),
+const proxies = createProxies({ dir: PROXIES_DIR, resolveSrc, probe: probeFile, ffmpeg: () => FF.path("ffmpeg"), broadcast: (ev, data) => broadcast(ev, data),
   // proxies are for preview: the bundled build's own H.264 encoder only, never the user's FFmpeg
   encoder: async () => Delivery.encodersFor("h264", await bundledEncoders()).find((e) => e !== "libx264") || null,
   noEncoder: () => X.noH264Reason({ mediaFoundation: hasMediaFoundation() }) });
 /* Word transcripts, one per version of a file (fablecut_transcribe, the Transcript tab). */
 const transcripts = createTranscripts({ dir: path.join(ANALYSIS_DIR, "transcripts"), resolveSrc });
 // P2 highlight signals: each file's loudness, read once by ffmpeg as a stream and cached per file version
-const signals = require("./signals").createSignals({ dir: path.join(ANALYSIS_DIR, "signals"), ffmpeg: FF.path("ffmpeg") });
+const signals = require("./signals").createSignals({ dir: path.join(ANALYSIS_DIR, "signals"), ffmpeg: () => FF.path("ffmpeg") });
 // P2 songs: each file read in segments, each kept as it is read (analysis/songs/), so a stopped scan carries on
 const Songs = require("./songs");
-const songScan = require("./song-scan").createSongScan({ dir: path.join(ANALYSIS_DIR, "songs"), ffmpeg: FF.path("ffmpeg") });
+const songScan = require("./song-scan").createSongScan({ dir: path.join(ANALYSIS_DIR, "songs"), ffmpeg: () => FF.path("ffmpeg") });
 const songJobs = new Map();   // src → {state, done, total, ctrl, error, code}
 // the drive the song analysis is written to ("C" on Windows), for 「{drive} 盘空间不够」 — never the path
 const songDrive = () => { const root = path.parse(path.resolve(ANALYSIS_DIR)).root; return /^[A-Za-z]:/.test(root) ? root[0].toUpperCase() : root; };
@@ -386,6 +396,21 @@ function attachProc(sess, proc) {
    test encode, because a build lists h264_nvenc / _qsv / _amf whether or not
    this machine has the GPU. Asked once, in the background, on first use. */
 let deliveryEncodersP = null;
+/** What the page's FFmpeg card shows (ffmpeg-card.js): one of ready · missing · noProbe · noH264, the same answer in
+ *  every run mode. No paths: only where each tool came from. */
+async function ffmpegStatus() {
+  const probe = FF.status().ffprobe;
+  const h264 = HAS_FFMPEG ? Delivery.encodersFor("h264", await deliveryEncoders()) : [];
+  const state = HAS_FFMPEG ? (probe.ok ? (h264.length ? "ready" : "noH264") : "noProbe") : "missing";
+  return { state, platform: process.platform, setup: externalFfmpeg.setup, picker: false,
+    ffmpeg: { ok: HAS_FFMPEG, source: FF.source("ffmpeg") }, ffprobe: { ok: probe.ok, source: probe.source }, encoder: h264[0] || null };
+}
+/** 「重新检测」: look again, forget the encoder list, answer the new state. */
+async function redetectFfmpeg() {
+  detectFfmpeg();
+  deliveryEncodersP = null;
+  return ffmpegStatus();
+}
 function runFfmpeg(args, timeout = 15000, bin = FF.path("ffmpeg")) {
   return new Promise((resolve) => {
     execFile(bin, args, { timeout, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
@@ -1396,6 +1421,19 @@ const server = http.createServer(async (req, res) => {
   }
 
   /* API: fast export (browser-rendered frames → ffmpeg encode) */
+  /* API: the FFmpeg card (ffmpeg-card.js) — the state, 「重新检测」, and a path typed into the card where there is no file
+     dialog (web / server mode, the plugin). The desktop app chooses through its own file dialog instead. */
+  if (p === "/api/ffmpeg" && req.method === "GET") { sendJSON(res, 200, await ffmpegStatus()); return; }
+  if (p === "/api/ffmpeg/detect" && req.method === "POST") { sendJSON(res, 200, await redetectFfmpeg()); return; }
+  if (p === "/api/ffmpeg/choose" && req.method === "POST") {
+    if (DESKTOP) { sendJSON(res, 403, { error: "the desktop app chooses FFmpeg in its own file dialog", code: "EXTERNAL_FFMPEG_FORBIDDEN" }); return; }
+    let body = {};
+    try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { }
+    const r = await X.saveTool(process.env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS, typeof body.path === "string" ? body.path.trim() : "");
+    const st = await redetectFfmpeg();
+    sendJSON(res, 200, { ...st, result: r.ok ? (st.state === "ready" ? "found" : st.state) : r.code });
+    return;
+  }
   if (p === "/api/export/ffmpeg" && req.method === "GET") {
     sendJSON(res, 200, HAS_FFMPEG ? { available: true } : { available: false, reason: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE });
     return;

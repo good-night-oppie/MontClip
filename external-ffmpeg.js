@@ -98,18 +98,37 @@ function setupFor(env = process.env) {
   return env.MONTCLIP_DESKTOP === "1" ? "settings" : "server";
 }
 
+/** A program the user names in the card (any FFmpeg, x264 or not): it must be an existing file called ffmpeg(.exe) and
+    answer -version as FFmpeg. A file with another name is never started. → {ok:true, path} | {ok:false, code:"notFfmpeg"} */
+async function checkTool(file, { run = defaultRun } = {}) {
+  const bad = { ok: false, path: typeof file === "string" ? file : null, code: "notFfmpeg" };
+  if (typeof file !== "string" || !path.isAbsolute(file) || !/^ffmpeg(\.exe)?$/i.test(path.basename(file))) return bad;
+  try { if (!fs.statSync(file).isFile()) return bad; } catch { return bad; }
+  const v = await run(file, ["-hide_banner", "-version"]);
+  return v.code === 0 && /ffmpeg version/i.test(v.stdout) ? { ok: true, path: file } : bad;
+}
+function writeChoice(settingsFile, file) {
+  const temp = settingsFile + "." + process.pid + "." + Date.now().toString(36) + Math.random().toString(36).slice(2, 8) + ".tmp";
+  try {
+    fs.mkdirSync(path.dirname(settingsFile), { recursive: true });
+    fs.writeFileSync(temp, JSON.stringify({ version: 1, path: file }), { flag: "wx" });
+    fs.renameSync(temp, settingsFile);
+    return true;
+  } catch { try { fs.unlinkSync(temp); } catch { } return false; }
+}
+/** Save what the card's path box named (checkTool first). The same file the desktop Settings choice uses. */
+async function saveTool(settingsFile, file, { run = defaultRun } = {}) {
+  const r = await checkTool(file, { run });
+  if (!r.ok) return r;
+  return writeChoice(settingsFile, r.path) ? r : { ok: false, path: r.path, code: "extSaveFailed" };
+}
+
 /** A user's choice, saved where the server reads it: the desktop main process (file dialog) and the Cindy plugin's
     worker both call these, so the check and the file are the same everywhere. → forPage-able results. */
 async function saveChoice(settingsFile, file, { run = defaultRun } = {}) {
   const result = await check(file, { run });
   if (!result.ok) return result;
-  const temp = settingsFile + "." + process.pid + "." + Date.now().toString(36) + Math.random().toString(36).slice(2, 8) + ".tmp";
-  try {
-    fs.mkdirSync(path.dirname(settingsFile), { recursive: true });
-    fs.writeFileSync(temp, JSON.stringify({ version: 1, path: result.path }), { flag: "wx" });
-    fs.renameSync(temp, settingsFile);
-  } catch { try { fs.unlinkSync(temp); } catch { } return { ok: false, path: result.path, code: "extSaveFailed", reason: "The choice could not be saved." }; }
-  return result;
+  return writeChoice(settingsFile, result.path) ? result : { ok: false, path: result.path, code: "extSaveFailed", reason: "The choice could not be saved." };
 }
 function clearChoice(settingsFile) {
   try { fs.rmSync(settingsFile, { force: true }); return { ok: false, code: "none" }; } catch { return { ok: false, code: "extRemoveFailed" }; }
@@ -124,7 +143,8 @@ async function savedStatus(settingsFile, { run = defaultRun } = {}) {
 /** The server's view of the setting. Re-checked when the setting or the file changes. Sources, first that is set:
     the saved choice (desktop Settings, or the Cindy plugin), then MONTCLIP_EXTERNAL_FFMPEG. Same in every run mode. */
 function createExternal({ settingsFile = process.env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS || null,
-  envPath = process.env.MONTCLIP_EXTERNAL_FFMPEG || null, run = defaultRun, setup = setupFor() } = {}) {
+  envPath = process.env.MONTCLIP_EXTERNAL_FFMPEG || null, run = defaultRun, setup = setupFor(),
+  findOnPath = () => require("./ffmpeg-path").findOnPath(process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg") } = {}) {
   let memo = null;
   const stamp = (f) => { try { const s = fs.statSync(f); return `${s.size}:${s.mtimeMs}`; } catch { return "gone"; } };
   async function checked(file, source) {
@@ -140,13 +160,20 @@ function createExternal({ settingsFile = process.env.MONTCLIP_EXTERNAL_FFMPEG_SE
     memo = { key, value };
     return value;
   }
-  async function current() {
+  /** allowPath: also an FFmpeg with libx264 on PATH (JJ P1) — only when the bundled build has no H.264 encoder, so a
+      graphics-card or Windows encoder is never displaced by whatever happens to be installed. */
+  let pathAllowed = false;   // what available() last decided, so the export uses the program its encoder list came from
+  async function current({ allowPath = pathAllowed } = {}) {
     const s = readSetting(settingsFile);
     if (s && s.bad) return setup === "settings"
       ? { ok: false, code: "extSettingBad", reason: "The saved local FFmpeg setting could not be read. Choose the program again in Settings." }
       : { ok: false, code: "extSavedUnusable", reason: "The saved FFmpeg choice for MontClip could not be read." };
     if (s) return checked(s.path, "settings");
     if (envPath) return checked(envPath, "env");
+    if (allowPath) {
+      const onPath = findOnPath();
+      if (onPath) { const r = await checked(onPath, "path"); if (r.ok) return r; }
+    }
     return { ok: false, code: "none", reason: "none" };
   }
   return {
@@ -155,7 +182,8 @@ function createExternal({ settingsFile = process.env.MONTCLIP_EXTERNAL_FFMPEG_SE
     /** The bundled encoder set, plus libx264 while the local FFmpeg checks out. */
     async available(bundled) {
       const set = new Set([...bundled].filter((e) => e !== "libx264"));
-      if ((await current()).ok) set.add("libx264");
+      pathAllowed = ![...set].some((e) => /^h264_/.test(e));
+      if ((await current({ allowPath: pathAllowed })).ok) set.add("libx264");
       return set;
     },
   };
@@ -193,4 +221,4 @@ function noH264Reason({ platform = process.platform, mediaFoundation = true, set
   return s + " You can choose your own FFmpeg with libx264 in Settings, or export in another format (for example Archive).";
 }
 
-module.exports = { maskUserPath, forPage, noH264, check, setupFor, saveChoice, clearChoice, savedStatus, createExternal, isExternalJob, argsUseX264, argsUseH264, noH264Reason, readSetting };
+module.exports = { maskUserPath, forPage, noH264, check, checkTool, saveTool, setupFor, saveChoice, clearChoice, savedStatus, createExternal, isExternalJob, argsUseX264, argsUseH264, noH264Reason, readSetting };
