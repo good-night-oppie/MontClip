@@ -136,14 +136,19 @@ test('a narrow window opens 素材 across the whole width, not half off the page
 
 // VV on #162 (bcdceed9): at ≤560 px the open bin covers the player, so a double-click that loaded Source looked like nothing
 // happened, and the button still said 素材. Measured edge: 559 and 560 hide the player, 561 and 630 sit side by side.
-test('≤560 px: 素材 says 返回播放器 while open (DRAFT for JJ), with aria-expanded; the edge is the same number in CSS and JS', () => {
+test('≤560 px: 素材 says 返回播放器 while open, with aria-expanded; the edge is the same number in CSS and JS', () => {
   const css = read('style.css'), app = read('app.js'), prefs = read('ui-preferences.js');
   const edge = +css.match(/@media\s*\(max-width:\s*(\d+)px\)\s*\{[^{}]*\.app\.media-open \.upper/)[1];
   a.equal(edge, 560, 'the bin takes the whole width at ≤560 px');
   a.ok(app.includes('matchMedia("(max-width:' + edge + 'px)")'), 'app.js narrows at the same width');
   a.equal(MontClipT('zh-CN', 'own.media-toggle'), '素材'); a.equal(MontClipT('en', 'own.media-toggle'), 'Media');
-  a.equal(MontClipT('zh-CN', 'own.media-back'), '返回播放器'); a.equal(MontClipT('en', 'own.media-back'), 'Back to player');
-  a.match(prefs, /DRAFT[^\n]*JJ[^\n]*\n\s*"media-back"/, 'the new sentence is marked DRAFT for JJ');
+  // JJ (定稿 2026-11-05): 返回播放器; in English the button says "← Player", its aria-label and tooltip "Back to player"
+  a.equal(MontClipT('zh-CN', 'own.media-back'), '返回播放器'); a.equal(MontClipT('en', 'own.media-back'), '← Player');
+  a.equal(MontClipT('zh-CN', 'own.media-back-full'), '返回播放器'); a.equal(MontClipT('en', 'own.media-back-full'), 'Back to player');
+  a.ok(!/DRAFT[^\n]*\n\s*"media-back/.test(prefs), 'no longer a draft');
+  const sync = app.match(/function syncMediaToggle\(\) \{[\s\S]*?\n\}/)[0];
+  a.match(sync, /setAttribute\("aria-label", full\)/); a.match(sync, /b\.title = full/);
+  a.match(sync, /removeAttribute\("aria-label"\)/, 'back to 素材: the visible text is its name again');
   a.match(app, /setAttribute\("aria-expanded"/);
   a.ok(!/getElementById\("mcMediaToggle"\)\.textContent=mcView\.get\(\)\.language==="en"\?"Media":"素材"/.test(app), 'the label is no longer fixed to 素材');
 });

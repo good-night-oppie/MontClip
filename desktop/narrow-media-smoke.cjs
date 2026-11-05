@@ -6,8 +6,8 @@
 // getBoundingClientRect().left ≥ 0 and .right ≤ innerWidth. A control inside a strip that scrolls sideways counts by the
 // strip (a person scrolls the strip to it). The page itself does not scroll sideways.
 // VV on #162 (bcdceed9): at ≤560 px the open panel covers the player, so a double-click that loaded Source looked like
-// nothing happened. Now, at ≤560 px: the open panel's button says 返回播放器 / Back to player (DRAFT for JJ) with
-// aria-expanded="true"; a single click, the star and the Show filter leave the panel open; a double-click that loads the
+// nothing happened. Now, at ≤560 px: the open panel's button says 返回播放器 / ← Player (JJ, 2026-11-05; its aria-label
+// and tooltip in full: 返回播放器 / Back to player) with aria-expanded="true", and ⚙ and ? stay on the top bar; a single click, the star and the Show filter leave the panel open; a double-click that loads the
 // file into Source puts the panel away and shows the player with Source in it; 素材 again brings the panel back with the
 // same files. At 561 px and wider the panel and the player sit side by side and a double-click leaves the panel open.
 // Hidden offscreen window, fresh profile, two files from library/elements; MONTCLIP_SHOTS_OUT=<absolute folder> saves the
@@ -34,11 +34,13 @@ const FLOW=`(async()=>{
  const frame=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
  const appEl=document.getElementById('app'),tog=document.getElementById('mcMediaToggle'),bin=document.querySelector('.upper > .bin');
  const shown=e=>{if(!e)return false;const k=e.getBoundingClientRect();return k.width>0&&k.height>0&&e.getClientRects().length>0;};
- const toggle=()=>({text:tog.textContent,expanded:tog.getAttribute('aria-expanded')});
+ const toggle=()=>({text:tog.textContent,expanded:tog.getAttribute('aria-expanded'),label:tog.getAttribute('aria-label'),title:tog.title});
+ // JJ (2026-11-05): ⚙ and ? stay on the top bar at 360 px, not in its More menu
+ const onBar=id=>{const e=document.getElementById(id),m=document.getElementById('topMoreMenu'),k=e.getBoundingClientRect();return !m.contains(e)&&shown(e)&&k.left>=-0.5&&k.right<=innerWidth+0.5;};
  const ids=()=>[...bin.querySelectorAll('.bin-item[data-media-id]')].map(e=>e.dataset.mediaId).join(',');
  const files=()=>JSON.stringify(project.media.map(m=>[m.id,m.name,m.src]));
  const item=()=>bin.querySelector('.bin-item[data-media-id="m_syn_a"]');
- const opened=toggle(),playerWhileOpen=shown(document.getElementById('monitorStage')),before={ids:ids(),files:files()};
+ const opened=toggle(),bar={settings:onBar('btnSettings'),help:onBar('btnHelp')},playerWhileOpen=shown(document.getElementById('monitorStage')),before={ids:ids(),files:files()};
  item().click();await frame();
  item().querySelector('.bin-fav').click();await frame();item().querySelector('.bin-fav').click();await frame();
  const f=document.getElementById('binFilter');f.value='fav';f.dispatchEvent(new Event('change'));await frame();f.value='';f.dispatchEvent(new Event('change'));await frame();
@@ -48,17 +50,21 @@ const FLOW=`(async()=>{
  // AGAIN (after the screenshot of this moment) opens the panel again, if the double-click put it away
  window.__mcAgain=async()=>{if(!after.open){tog.click();await frame();await frame();}
   return{open:shown(bin),toggle:toggle(),sameFiles:ids()===before.ids&&files()===before.files&&before.ids.split(',').length===2,source:state.source.mediaId};};
- return{narrow:innerWidth<=560,labels:{media:uiText('own.media-toggle'),back:uiText('own.media-back')},opened,playerWhileOpen,stayed,after};})()`;
+ return{narrow:innerWidth<=560,labels:{media:uiText('own.media-toggle'),back:uiText('own.media-back')},opened,bar,playerWhileOpen,stayed,after};})()`;
 const AGAIN=`(async()=>{const r=await window.__mcAgain();delete window.__mcAgain;return r;})()`;
-const flowProblems=(f)=>{const p=[],L=f.labels,want=(ok,what)=>{if(!ok)p.push(what);};
+// JJ's wording (定稿 2026-11-05): the button and, in full, its aria-label and tooltip
+const BACK={'zh-CN':['返回播放器','返回播放器'],en:['← Player','Back to player']};
+const flowProblems=(f,language)=>{const p=[],L=f.labels,want=(ok,what)=>{if(!ok)p.push(what);};
  want(f.opened.expanded==='true','open: aria-expanded is '+f.opened.expanded);
- want(f.opened.text===(f.narrow?L.back:L.media),'open: the button says '+f.opened.text);
+ want(f.opened.text===(f.narrow?BACK[language][0]:L.media),'open: the button says '+f.opened.text);
+ if(f.narrow)want(f.opened.label===BACK[language][1]&&f.opened.title===BACK[language][1],'open: aria-label / title are '+JSON.stringify([f.opened.label,f.opened.title]));
+ if(f.narrow)want(f.bar.settings&&f.bar.help,'open: ⚙ / ? are not on the top bar '+JSON.stringify(f.bar));
  want(f.playerWhileOpen===!f.narrow,'open: the player is '+(f.playerWhileOpen?'shown':'hidden'));
  want(f.stayed,'a click, the star or the filter put the panel away');
  want(f.after.source==='m_syn_a'&&f.after.monitor==='source','double-click did not load Source: '+JSON.stringify(f.after));
  want(f.after.player,'after the double-click the player is not shown');
  want(f.after.open===!f.narrow,'after the double-click the panel is '+(f.after.open?'open':'away'));
- if(f.narrow)want(f.after.toggle.text===L.media&&f.after.toggle.expanded==='false','after the double-click the button says '+JSON.stringify(f.after.toggle));
+ if(f.narrow)want(f.after.toggle.text===L.media&&f.after.toggle.expanded==='false'&&f.after.toggle.label===null&&!f.after.toggle.title,'after the double-click the button says '+JSON.stringify(f.after.toggle));
  want(f.again.open&&f.again.toggle.expanded==='true','素材 again does not bring the panel back');
  want(f.again.sameFiles,'the panel lost files');want(f.again.source==='m_syn_a','Source lost its file');
  return p;};
@@ -89,7 +95,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
     const flow=clicked?await read(FLOW):null;await wait(400); // the Source picture draws
     if(shotsDir&&mode==='simple')fs.writeFileSync(path.join(shotsDir,`narrow-media-${w}-${language}-after-double-click.png`),(await win.webContents.capturePage()).toPNG());
     if(flow){flow.again=await read(AGAIN);if(shotsDir&&mode==='simple')fs.writeFileSync(path.join(shotsDir,`narrow-media-${w}-${language}-reopened.png`),(await win.webContents.capturePage()).toPNG());}
-    const problems=flow?flowProblems(flow):['素材 is not shown'];
+    const problems=flow?flowProblems(flow,language):['素材 is not shown'];
     const row={size:[w,h],language,mode,...m,flow:problems.length?{problems,...flow}:'ok'};results.push(row);process.stdout.write('NARROW_MEDIA '+JSON.stringify(row)+'\n');
     await read(`document.getElementById('app').classList.remove('media-open');setMonitorMode('program');true`);}}
   const bad=results.filter(m=>!m.open||m.outside.length||m.overflowX>0||m.flow!=='ok');
