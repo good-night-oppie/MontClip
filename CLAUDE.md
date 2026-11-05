@@ -67,7 +67,7 @@ Every Claude Code session then has these tools:
   cast), as the editor's scopes see it; also what a grade layer or a clip's masks
   select. See "Color" and "Masks" below.
 - `fablecut_blur_region` — cover an area of a clip's picture (a co-host, viewers' names)
-  with a mosaic or blur that follows the clip. See "Covered areas" below.
+  with a mosaic or blur that follows the clip. See "Redactions (打码)" below.
 - `fablecut_track` — motion tracking: follow a region of a video clip, store it as
   a track, and make a mask or another clip follow it. See "Tracking" below.
 - `fablecut_proxy` — make, check or delete proxies: light copies of heavy footage
@@ -1163,19 +1163,19 @@ on the face** — an adjustment layer with a feathered ellipse, keyed to follow
 it; **vignette through an adjustment layer** — an inverted ellipse with
 `feather:200` and the layer's `brightness` down.
 
-### Covered areas
+### Redactions (打码)
 
-A **covered area** hides part of a clip's picture behind a **mosaic** (the
+A **redaction** hides part of a clip's picture behind a **mosaic** (the
 default — a light blur can leave text readable) or a **blur**: a co-host's
 window, viewers' names, a number plate. It is drawn from the clip's own pixels,
 with the picture, so it **follows the clip**: when the clip is zoomed, moved,
 pushed in with keyframes, sped up or cropped, the cover stays on the same part
 of the footage — no keys to write. Preview, `fablecut_frame` and export draw it
-the same way. Covers live in `props.covers` on video, image, svg and comp clips
+the same way. Redactions live in `props.redactions` on video, image, svg and comp clips
 (up to 16):
 
 ```jsonc
-"covers": [
+"redactions": [
   { "name": "co-host", "x": 0.52, "y": 0.14, "w": 0.31, "h": 0.65 },
   { "name": "names", "x": 0.1, "y": 0.82, "w": 0.44, "h": 0.07, "style": "blur", "strength": 80 }
 ]
@@ -1183,7 +1183,7 @@ the same way. Covers live in `props.covers` on video, image, svg and comp clips
 
 | key | default | does |
 |---|---|---|
-| `x` · `y` · `w` · `h` | — | **mask coordinates**: 0…1 of the clip's original frame (the whole source frame, before crop, scale and position), origin top-left; `x`, `y` the top-left corner |
+| `x` · `y` · `w` · `h` | — | **mask coordinates**: 0…1 of the clip's original frame (the whole source frame, before crop, scale and position), origin top-left; `x`, `y` the top-left corner (0…1). `x + w` and `y + h` may run past 1: that part is cut at the frame's edge. Changing the crop never moves a redaction; the part of it in the cropped-away area is simply not drawn |
 | `style` | `mosaic` | `mosaic` (hard blocks) · `blur` (smooth) |
 | `strength` | 60 | 1…100: bigger blocks / a stronger blur. At 60 a block is at least ~1.4 % of the frame's width, so letters don't survive |
 | `from` · `to` | the whole clip | seconds from the clip's start: cover only while a private window is up, without cutting the clip |
@@ -1202,11 +1202,11 @@ adds one (a name already there replaces that area); `{clipId, remove: index | na
 takes them off. Read `rect` off the source with `fablecut_frame {path, t}` (see
 "Where the numbers come from" under Masks), then check it with
 `fablecut_frame {time}` at a moment the clip is on screen. Patch ops do the same:
-`{op:"setCover", id | ids, cover?: index | name, set:{x, y, w, h, style?, strength?, from?, to?, name?, on?}}`,
-`{op:"removeCover", id | ids, cover: index | name | "all"}`; `props.covers`
+`{op:"setRedaction", id | ids, redaction?: index | name, set:{x, y, w, h, style?, strength?, from?, to?, name?, on?}}`,
+`{op:"removeRedaction", id | ids, redaction: index | name | "all"}`; `props.redactions`
 written through `addClip` / `updateClip` is validated the same way. Locks
 apply (`force:true` only when the user asked). The compact view lists them as
-`[2 covered areas: mosaic 60 "co-host" at 0.52,0.14 0.31×0.65, …]`.
+`[2 redactions: mosaic 60 "co-host" at 0.52,0.14 0.31×0.65, …]`.
 
 ### Track mattes and blending
 

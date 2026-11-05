@@ -490,7 +490,7 @@
     return n;
   }
 
-  /* ── Covered areas (props.covers) ──
+  /* ── Covered areas (props.redactions) ──
      An area of the clip's picture hidden behind a mosaic (default) or a blur — a co-host's window, viewers'
      names. Same coordinates as masks: x, y = the top-left corner, w, h the size, 0…1 of the clip's original
      frame. The cover is drawn with the picture, so it moves, scales and turns with the clip and its keys.
@@ -499,19 +499,19 @@
   const MAX_COVERS = 16;
   const COVER_STYLES = ["mosaic", "blur"];
   const COVER_KINDS = ["video", "image", "svg", "comp"];
-  function normalizeCover(cv, strict = false, where = "cover") {
+  function normalizeCover(cv, strict = false, where = "redaction") {
     const bad = (msg) => { if (strict) throw new Error(`${where}${msg}`); return null; };
     if (!isObj(cv)) return bad(" must be an object like {x:0.6, y:0.1, w:0.3, h:0.4}");
     const known = ["x", "y", "w", "h", "style", "strength", "from", "to", "name", "on"];
     for (const k of Object.keys(cv)) if (!known.includes(k)) return bad(`.${k}: unknown key (${known.join(", ")})`);
     for (const k of ["x", "y", "w", "h"]) if (!isNum(cv[k])) return bad(`.${k} must be a number (0…1 of the clip's original frame)`);
-    let x0 = clamp(cv.x, 0, 1), y0 = clamp(cv.y, 0, 1);
-    const x1 = clamp(cv.x + cv.w, 0, 1), y1 = clamp(cv.y + cv.h, 0, 1);
-    if (x1 - x0 < 0.002 || y1 - y0 < 0.002) return bad(" lies outside the frame or is too small (x, y, w, h are 0…1 of the clip's original frame; w, h > 0)");
+    // x, y inside the original frame; x + w and y + h may run past 1 — that part is cut at the frame's edge when drawn
+    if (cv.x < 0 || cv.x >= 1 || cv.y < 0 || cv.y >= 1) return bad(": x, y (the top-left corner) must be 0…1 of the clip's original frame (below 1)");
+    if (cv.w < 0.002 || cv.h < 0.002 || cv.w > 2 || cv.h > 2) return bad(": w, h must be > 0 (fractions of the original frame; past the edge is cut)");
     const style = cv.style == null ? "mosaic" : cv.style;
     if (!COVER_STYLES.includes(style)) return bad(`.style must be ${COVER_STYLES.join(" | ")}`);
     if (cv.strength != null && !isNum(cv.strength)) return bad(".strength must be a number 1…100");
-    const out = { x: r4(x0), y: r4(y0), w: r4(x1 - x0), h: r4(y1 - y0), style, strength: Math.round(clamp(cv.strength == null ? 60 : cv.strength, 1, 100)) };
+    const out = { x: r4(cv.x), y: r4(cv.y), w: r4(cv.w), h: r4(cv.h), style, strength: Math.round(clamp(cv.strength == null ? 60 : cv.strength, 1, 100)) };
     for (const k of ["from", "to"]) {
       if (cv[k] == null) continue;
       if (!isNum(cv[k]) || cv[k] < 0) return bad(`.${k} must be seconds from the clip's start (≥ 0)`);
@@ -528,15 +528,15 @@
   }
   function normalizeCovers(list, strict = false) {
     if (list == null) return null;
-    if (!Array.isArray(list)) { if (strict) throw new Error("covers must be a list of {x, y, w, h, style?, strength?}"); return null; }
-    if (list.length > MAX_COVERS) { if (strict) throw new Error(`covers has ${list.length} areas (at most ${MAX_COVERS})`); list = list.slice(0, MAX_COVERS); }
-    const out = list.map((cv, i) => normalizeCover(cv, strict, `covers[${i}]`)).filter(Boolean);
+    if (!Array.isArray(list)) { if (strict) throw new Error("redactions must be a list of {x, y, w, h, style?, strength?}"); return null; }
+    if (list.length > MAX_COVERS) { if (strict) throw new Error(`redactions has ${list.length} areas (at most ${MAX_COVERS})`); list = list.slice(0, MAX_COVERS); }
+    const out = list.map((cv, i) => normalizeCover(cv, strict, `redactions[${i}]`)).filter(Boolean);
     return out.length ? out : null;
   }
-  /** "2 covered areas: mosaic 60 "names", blur 40". */
+  /** "2 redactions: mosaic 60 "names", blur 40". */
   function describeCovers(list) {
     if (!Array.isArray(list) || !list.length) return "";
-    return `${list.length} covered area${list.length > 1 ? "s" : ""}: ` + list.map((cv) =>
+    return `${list.length} redaction${list.length > 1 ? "s" : ""}: ` + list.map((cv) =>
       `${cv.style} ${cv.strength}${cv.name ? ` "${cv.name}"` : ""} at ${cv.x},${cv.y} ${cv.w}×${cv.h}` +
       (cv.from != null || cv.to != null ? ` ${cv.from ?? 0}–${cv.to ?? "end"} s` : "") + (cv.on === false ? " off" : "")).join(", ");
   }

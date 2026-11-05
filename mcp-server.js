@@ -1308,7 +1308,7 @@ async function callTool(name, args, attempt = 0) {
       if (!id) throw new Error("fablecut_blur_region needs clipId");
       const extra = { ...(args.force === true ? { force: true } : {}) };
       let op;
-      if (args.remove != null) op = { op: "removeCover", id, cover: args.remove, ...extra };
+      if (args.remove != null) op = { op: "removeRedaction", id, redaction: args.remove, ...extra };
       else {
         const r = args.rect;
         if (!r || typeof r !== "object" || !["x", "y", "w", "h"].every((k) => Number.isFinite(r[k])))
@@ -1320,7 +1320,7 @@ async function callTool(name, args, attempt = 0) {
         if (args.to != null) set.to = args.to;
         const named = typeof args.name === "string" && args.name.trim() ? args.name.trim() : null;
         if (named) set.name = named;
-        op = { op: "setCover", id, ...(named ? { cover: named } : {}), set, ...extra };
+        op = { op: "setRedaction", id, ...(named ? { redaction: named } : {}), set, ...extra };
       }
       const out = await callTool("fablecut_patch_project", { ops: [op], ...(args.baseRevision != null ? { baseRevision: args.baseRevision } : {}) });
       return out + (args.remove != null ? "" : " The area follows the clip (zoom, move, keyframes, speed, crop). Check it with fablecut_frame {time} at a moment the clip is on screen.");

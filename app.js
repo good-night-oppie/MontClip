@@ -15077,7 +15077,7 @@ function drawOfflineSlate(c, p, W, H) {
   const m = getMedia(c.mediaId);
   const mw = m && m.width > 0 ? m.width : W, mh = m && m.height > 0 ? m.height : H, sc = p.scale || 1;
   let dw, dh;
-  if (p.fit === "cover") { const f = Math.max(W / mw, H / mh) * sc; dw = mw * f; dh = mh * f; }
+  if (p.fit === "redaction") { const f = Math.max(W / mw, H / mh) * sc; dw = mw * f; dh = mh * f; }
   else if (p.fit === "stretch") { dw = W * sc; dh = H * sc; }
   else if (p.fit === "none") { dw = mw * sc; dh = mh * sc; }
   else { const f = Math.min(W / mw, H / mh) * sc; dw = mw * f; dh = mh * f; }
@@ -15184,7 +15184,7 @@ function drawClipPicture(c, W, H, t, layered) {
     // fit → destination size
     const sc = p.scale || 1;
     let dw, dh;
-    if (p.fit === "cover") { const f = Math.max(W / cw, H / ch) * sc; dw = cw * f; dh = ch * f; }
+    if (p.fit === "redaction") { const f = Math.max(W / cw, H / ch) * sc; dw = cw * f; dh = ch * f; }
     else if (p.fit === "stretch") { dw = W * sc; dh = H * sc; }
     else if (p.fit === "none") { const k = src._fcScale || 1; dw = cw * sc / k; dh = ch * sc / k; }
     else { const f = Math.min(W / cw, H / ch) * sc; dw = cw * f; dh = ch * f; }
@@ -15222,7 +15222,7 @@ function drawClipPicture(c, W, H, t, layered) {
       ctx2d.drawImage(src, sx, sy, cw, ch, -dw / 2, -dh / 2, dw, dh);
       shown = [src, sx, sy, cw, ch];
     }
-    const covers = Mask.COVER_KINDS.includes(c.kind) ? Mask.normalizeCovers(p.covers) : null;
+    const covers = Mask.COVER_KINDS.includes(c.kind) ? Mask.normalizeCovers(p.redactions) : null;
     if (covers) drawCovers(covers.filter((cv) => Mask.coverActive(cv, t - c.start)), shown, { sx, sy, cw, ch, sw, sh, dw, dh });
     ctx2d.filter = "none";
     if (p.vignette > 0) {
@@ -15238,7 +15238,7 @@ function drawClipPicture(c, W, H, t, layered) {
   return { p, geom };
 }
 
-/* ═══════════ COVERED AREAS (props.covers — validation in mask.js) ═══════════
+/* ═══════════ COVERED AREAS (props.redactions — validation in mask.js) ═══════════
    A covered area is re-drawn over the picture from the picture's own pixels, as
    a mosaic or a blur, inside the clip's transform: so it moves, scales and turns
    with the clip and its keys, in preview and export alike. Its x, y, w, h are
@@ -15281,7 +15281,7 @@ function drawCovers(covers, shown, { sx, sy, cw, ch, sw, sh, dw, dh }) {
    The box is read in the clip's whole source frame (the mask box), so it is stored in the same
    coordinates as masks and crop and follows the clip from then on. ── */
 const coverUi = { clip: null, drag: null };
-function clipCovers(c) { return (c && Mask.normalizeCovers(c.props && c.props.covers)) || []; }
+function clipCovers(c) { return (c && Mask.normalizeCovers(c.props && c.props.redactions)) || []; }
 function coverToolActive(c) { return !!c && coverUi.clip === c.id && state.selId === c.id && !isSourceMode(); }
 function startCoverTool(c) {
   if (isGroupLocked(c)) { toastLocked(); return; }
@@ -15296,7 +15296,7 @@ function startCoverTool(c) {
 function stopCoverTool() { if (coverUi.clip) { coverUi.clip = null; coverUi.drag = null; state.dirtyTimeline = true; } }
 function writeCovers(c, list) {
   const n = list.length ? Mask.normalizeCovers(list) : null;
-  if (n) c.props.covers = n; else delete c.props.covers;
+  if (n) c.props.redactions = n; else delete c.props.redactions;
   state.dirtyTimeline = true;
 }
 /** The box being dragged (and the clip's covered areas, faint) on the monitor. */
@@ -15986,7 +15986,7 @@ function pictureRect(c, p) {
   if (!sw || !sh) return null;
   const k = cropFrac(p), cw = Math.max(1, sw * (1 - k.l - k.r)), ch = Math.max(1, sh * (1 - k.t - k.b)), sc = p.scale || 1;
   let dw, dh;
-  if (p.fit === "cover") { const f = Math.max(W / cw, H / ch) * sc; dw = cw * f; dh = ch * f; }
+  if (p.fit === "redaction") { const f = Math.max(W / cw, H / ch) * sc; dw = cw * f; dh = ch * f; }
   else if (p.fit === "stretch") { dw = W * sc; dh = H * sc; }
   else if (p.fit === "none") { const ps = el._fcScale || 1; dw = cw * sc / ps; dh = ch * sc / ps; }   // a proxy is drawn at the original's size
   else { const f = Math.min(W / cw, H / ch) * sc; dw = cw * f; dh = ch * f; }

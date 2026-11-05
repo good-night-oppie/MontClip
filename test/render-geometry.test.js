@@ -249,7 +249,7 @@ test("render geometry: crop, masks and transforms land where documented — fabl
   assertTitle(boxes(await rgbOf(file, Math.round(TITLE_AT * FPS))), "export · title card");
 });
 
-/* ── Covered areas (props.covers, fablecut_blur_region): where a cover is, the stripes of a striped source are
+/* ── Covered areas (props.redactions, fablecut_blur_region): where a cover is, the stripes of a striped source are
    gone (flat grey); everywhere else they remain. A cover on a clip pushed in with keys, at the push's start,
    middle and end, and a blur cover on a cropped clip — on both render paths. ── */
 function runFf(args) {
@@ -287,7 +287,7 @@ function expectedCover(c, t) {
   const L = (p.cropL || 0) / 100, R = (p.cropR || 0) / 100, T = (p.cropT || 0) / 100, B = (p.cropB || 0) / 100;
   const cw = W * (1 - L - R), ch = H * (1 - T - B), f = Math.min(W / cw, H / ch) * s, dw = cw * f, dh = ch * f;
   const left = W / 2 + x - dw / 2, top = H / 2 + y - dh / 2, fl = left - L * W * f, ft = top - T * H * f;
-  const cv = p.covers[0];
+  const cv = p.redactions[0];
   if ((cv.from != null && lt < cv.from) || (cv.to != null && lt >= cv.to)) return null;   // outside its time window
   const r = { x0: Math.max(left, fl + cv.x * W * f), y0: Math.max(top, ft + cv.y * H * f),
     x1: Math.min(left + dw, fl + (cv.x + cv.w) * W * f), y1: Math.min(top + dh, ft + (cv.y + cv.h) * H * f) };
@@ -301,17 +301,32 @@ function nearBox(got, want, what) {
 }
 const COVER_CASES = [
   { id: "c_push", start: 0, duration: 2, samples: [0, 1, 1.9],
-    props: { covers: [{ x: 0.55, y: 0.55, w: 0.2, h: 0.2 }] },
+    props: { redactions: [{ x: 0.55, y: 0.55, w: 0.2, h: 0.2 }] },
     keyframes: { scale: [{ t: 0, v: 1 }, { t: 1.9, v: 2, ease: "linear" }], x: [{ t: 0, v: 0 }, { t: 1.9, v: -120, ease: "linear" }],
       y: [{ t: 0, v: 0 }, { t: 1.9, v: -60, ease: "linear" }] } },
   { id: "c_cropped", start: 2, duration: 1, samples: [2.5],
-    props: { cropL: 30, cropT: 20, covers: [{ x: 0.2, y: 0.3, w: 0.3, h: 0.25, style: "blur", strength: 80 }] } },
+    props: { cropL: 30, cropT: 20, redactions: [{ x: 0.2, y: 0.3, w: 0.3, h: 0.25, style: "blur", strength: 80 }] } },
   // a cover with a time window (seconds from the clip's start): not there before `from`, there after it
   { id: "c_window", start: 3, duration: 1, samples: [3.2, 3.7],
-    props: { covers: [{ x: 0.3, y: 0.3, w: 0.4, h: 0.4, from: 0.5 }] } },
+    props: { redactions: [{ x: 0.3, y: 0.3, w: 0.4, h: 0.4, from: 0.5 }] } },
+  // Deja's two locks. One: the same redaction before and after the crop is changed — it stays on the same part of
+  // the original frame (checked below by mapping both covered boxes back onto the source frame).
+  { id: "c_crop_a", start: 4, duration: 1, samples: [4.5], props: { redactions: [{ x: 0.3, y: 0.3, w: 0.3, h: 0.3 }] } },
+  { id: "c_crop_b", start: 5, duration: 1, samples: [5.5], props: { cropR: 25, cropB: 20, cropL: 10, redactions: [{ x: 0.3, y: 0.3, w: 0.3, h: 0.3 }] } },
+  // Two: half of the redaction lies in the cropped-away part (0.25–0.40 cut, 0.40–0.55 shown): only the shown half is drawn
+  { id: "c_half", start: 6, duration: 1, samples: [6.5], props: { cropL: 40, redactions: [{ x: 0.25, y: 0.3, w: 0.3, h: 0.3 }] } },
+  // x + w and y + h past 1: cut at the original frame's edge
+  { id: "c_over", start: 7, duration: 1, samples: [7.5], props: { redactions: [{ x: 0.8, y: 0.7, w: 0.4, h: 0.5 }] } },
 ];
+/** A canvas box of clip c (no transform keys) back onto its original frame, as fractions. */
+function toSourceFrame(c, b) {
+  const p = c.props, L = (p.cropL || 0) / 100, R = (p.cropR || 0) / 100, T = (p.cropT || 0) / 100, B = (p.cropB || 0) / 100;
+  const cw = W * (1 - L - R), ch = H * (1 - T - B), f = Math.min(W / cw, H / ch);
+  const fl = W / 2 - cw * f / 2 - L * W * f, ft = H / 2 - ch * f / 2 - T * H * f;
+  return { x0: (b.x0 - fl) / (W * f), y0: (b.y0 - ft) / (H * f), x1: (b.x1 - fl) / (W * f), y1: (b.y1 - ft) / (H * f) };
+}
 
-test("a covered area hides the picture there and follows the clip — fablecut_frame still and Fast export", { skip: SKIP, timeout: 900_000 }, async (t) => {
+test("a redaction hides the picture there and follows the clip — fablecut_frame still and Fast export", { skip: SKIP, timeout: 900_000 }, async (t) => {
   const dir = makeDataDir(t, { name: "x", width: W, height: H, fps: FPS, revision: 0, media: [], clips: [] });
   fs.mkdirSync(path.join(dir, "media"), { recursive: true });
   // vertical black / white stripes, 8 px each: nothing flat anywhere until something covers it
@@ -326,11 +341,20 @@ test("a covered area hides the picture there and follows the clip — fablecut_f
   const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1" });
   const poll = async (id) => { for (;;) { const j = await (await fetch(base + "/api/export/job?id=" + id)).json();
     if (j.status === "done") return j; if (/failed|cancelled/.test(j.status)) throw new Error(j.error); await new Promise((r) => setTimeout(r, 200)); } };
+  const seen = {};
   for (const cs of COVER_CASES) for (const ts of cs.samples) {
     const j = await poll((await (await fetch(base + "/api/scopes/request", { method: "POST", body: JSON.stringify({ time: ts, image: true, where: "headless" }) })).json()).id);
     const jpg = path.join(dir, `s${ts}.jpg`);
     fs.writeFileSync(jpg, Buffer.from(j.result.image.split(",")[1], "base64"));
-    nearBox(flatBox(await coverRgb(jpg)), expectedCover(doc.clips.find((c) => c.id === cs.id), ts), `still · ${cs.id} · t=${ts}`);
+    const got = flatBox(await coverRgb(jpg));
+    nearBox(got, expectedCover(doc.clips.find((c) => c.id === cs.id), ts), `still · ${cs.id} · t=${ts}`);
+    seen[cs.id] = got;
+  }
+  // the crop changed, the redaction did not move on the original frame: both boxes map back to 0.3…0.6 × 0.3…0.6
+  for (const id of ["c_crop_a", "c_crop_b"]) {
+    const s = toSourceFrame(doc.clips.find((c) => c.id === id), seen[id]);
+    for (const [k, v] of [["x0", 0.3], ["y0", 0.3], ["x1", 0.6], ["y1", 0.6]])
+      assert.ok(Math.abs(s[k] - v) <= 0.01, `${id}: the redaction's ${k} on the original frame is ${s[k].toFixed(4)}, expected ${v} ±0.01 (crop must not move it)`);
   }
   const e = await poll((await (await fetch(base + "/api/export/request", { method: "POST",
     body: JSON.stringify({ where: "headless", range: "entire", preset: "archive", delivery: { audio: { codec: "none" } } }) })).json()).id);
