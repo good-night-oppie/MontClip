@@ -52,7 +52,11 @@ BrowserWindow.prototype.loadURL=async function(...args){
 
   // 1. the right-click menu: its own group after 停用 / 锁定
   const clipEl=`.track[data-track="V1"] .clip`;
-  await click(clipEl);await click(clipEl,'right');
+  await click(clipEl);
+  // nothing hidden yet: JJ's sentence, with the menu item's own name in it
+  report.none=await read(`(()=>{const n=els.inspector.querySelector('[data-cover-section] .cl-note');return n&&n.textContent;})()`);
+  assert.equal(report.none,'还没有打码。在片段上点右键 →〔给这块打码〕，再在画面上拖一个框。');
+  await click(clipEl,'right');
   await shot(win,'cover-menu.png');
   report.menu=await read(`[...document.querySelectorAll('#trackCtxMenu > *')].map(e=>e.classList.contains('ctx-sep')?'—':e.querySelector('span').textContent)`);
   const cover=await read(`uiText('own.cover-area')`),lock=await read(`uiText('own.clip-lock')`),dis=await read(`uiText('own.clip-disable')`);
@@ -123,6 +127,12 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await read(`(()=>{const c=project.clips.find(c=>c.kind==='image');c.name='';state.dirtyTimeline=true;return true;})()`);await wait(250);
   report.noName=(await look()).badge;assert.equal(report.noName,await read(`uiText('own.cover-badge',{n:2})`),'打码·2 and nothing after it');
   await read(`(()=>{const c=project.clips.find(c=>c.kind==='image');c.name='synthetic';state.dirtyTimeline=true;return true;})()`);await wait(250);
+  // a locked clip: the menu's disabled items say JJ's locked hint, in Chinese
+  await read(`(()=>{project.clips.find(c=>c.kind==='image').locked=true;return true;})()`);
+  await read(`(()=>{const c=project.clips.find(c=>c.kind==='image');showClipCtxMenu(10,10,c);return true;})()`);await wait(150);
+  report.lockedTip=await read(`(()=>{const b=[...document.querySelectorAll('#trackCtxMenu .ctx-item')].find(b=>b.querySelector('span').textContent===uiText('own.cover-area'));const t=b&&b.title;hideTrackCtxMenu();return t;})()`);
+  assert.equal(report.lockedTip,'片段锁住了，先解锁才能改。');
+  await read(`(()=>{delete project.clips.find(c=>c.kind==='image').locked;return true;})()`);
   // 5. in English the interface shows JJ's words exactly: the menu item, the title, the rows, the badge
   await read(`updateMontClipView({language:'en'});renderInspector();state.dirtyTimeline=true;true`);await wait(300);
   await click(clipEl);await click(clipEl,'right');

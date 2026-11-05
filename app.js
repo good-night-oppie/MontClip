@@ -15430,7 +15430,7 @@ function coverSectionHtml(c) {
   }).join("");
   const note = on ? (coverUi.replace != null && list[coverUi.replace] ? uiText("own.cover-redo-drag", { n: list[coverUi.replace].id }) : uiText("own.cover-drag")) : "";
   return `<div class="insp-section" data-cover-section><h3 data-cover-title>${escapeHtml(uiText("own.cover-section-n", { n: list.length }))}</h3>
-    ${rows || `<p class="cl-note">${escapeHtml(uiText("own.cover-none"))}</p>`}
+    ${rows || `<p class="cl-note">${escapeHtml(uiText("own.cover-none", { menu: uiText("own.cover-area") }))}</p>`}
     <div class="cl-row"><button type="button" class="btn tiny${on && coverUi.replace == null ? " toggle on" : ""}" data-cover-add title="${escapeHtml(uiText("own.cover-area-tip"))}"
       ${list.length >= Mask.MAX_COVERS ? "disabled" : ""}>${escapeHtml(uiText("own.cover-add"))}</button></div>
     ${note ? `<p class="cl-note">${escapeHtml(note).replace(/\bEsc\b/, "<kbd>Esc</kbd>")}</p>` : ""}</div>`;

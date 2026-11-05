@@ -98,12 +98,35 @@ test("JJ's final copy (2026-11-05), word for word in both languages; the English
     "cover-pick-tip": ["在画面上标出这一块", "Show this area's box on the monitor"],
     "cover-remove": ["去掉", "Remove"],
     "cover-area": ["给这块打码", "Hide this area"],   // the right-click menu item
+    // the rest, JJ定稿 later the same day
+    "cover-area-tip": ["给这一块打码，片段放大、移动时码会跟着走。适合挡连麦的人和观众昵称。", "Hides this area, and the cover follows when the clip is zoomed or moved. Good for hiding a co-host and viewers' names."],
+    "cover-drag": ["在画面上拖一个框，框住要打码的地方。按 Esc 取消。", "Drag a box on the monitor over what to hide. Press Esc to cancel."],
+    "cover-not-here": ["先把播放头移到这个片段上，再在画面上拖一个框。", "Move the playhead over the clip, then drag a box on the monitor."],
+    "cover-outside": ["框拖到片段画面外面了，请拖在这个片段的画面上。", "The box is outside the clip's picture. Drag it over the clip."],
+    "cover-add": ["+ 再打一块", "+ Hide another area"],
+    "cover-mosaic": ["马赛克", "Mosaic"],
+    "cover-blur": ["模糊", "Blur"],
+    "cover-strength": ["强度", "Strength"],
+    "cover-max": ["这个片段已经打了 3 块码，最多就是 3 块。要再打，先去掉一块。", "This clip already has 3 hidden areas, the most allowed. Remove one to add another."],
+    "clip-locked-tip": ["片段锁住了，先解锁才能改。", "The clip is locked. Unlock it to make changes."],
   };
   for (const [k, [c, e]] of Object.entries(JJ)) { assert.equal(zh(k, { n: 3 }), c, k + " 中文"); assert.equal(en(k, { n: 3 }), e, k + " English"); }
-  // every English 打码 string: Hide / Hidden, never Cover / Covered
+  // 第 5 句: the menu item's name comes from the menu item's own uiText, so the two can never drift apart
+  assert.equal(zh("cover-none", { menu: zh("cover-area") }), "还没有打码。在片段上点右键 →〔给这块打码〕，再在画面上拖一个框。");
+  assert.equal(en("cover-none", { menu: en("cover-area") }), "Nothing hidden yet. Right-click the clip → “Hide this area”, then drag a box on the monitor.");
+  for (const l of ["zh-CN", "en"]) assert.ok(!/给这块打码|Hide this area/.test(V.t(l, "own.cover-none")), "cover-none must not carry its own copy of the menu name");
+  const app0 = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  assert.match(app0, /uiText\("own\.cover-none", \{ menu: uiText\("own\.cover-area"\) \}\)/);
+  assert.doesNotMatch(app0, /uiText\("own\.cover-none"\)/);
+  // a button named in a sentence is the button's own text: 去掉 / Remove in cover-max
+  assert.ok(zh("cover-max", { n: 3 }).includes(zh("cover-remove")) && en("cover-max", { n: 3 }).includes(en("cover-remove")));
+  // every English 打码 string says Hide / Hidden: "cover" only as the noun JJ chose ("the cover follows"), never the verb
   const src = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8"), keys = [...src.matchAll(/"(cover-[a-z-]+)":/g)].map((m) => m[1]);
   assert.ok(keys.length >= 18, keys.join(","));
-  for (const k of keys) assert.doesNotMatch(en(k, { n: 2 }), /\bcover(ed|s)?\b/i, k + ": " + en(k, { n: 2 }));
+  for (const k of keys) assert.doesNotMatch(en(k, { n: 2 }).replace("the cover follows", ""), /\bcover(ed|s)?\b/i, k + ": " + en(k, { n: 2 }));
+  // and every Chinese one says 打码, never 盖住 / 遮住 (JJ): the panel, the menu, the locked hint and the tool's sentence
+  for (const k of [...keys, "clip-locked-tip"]) assert.doesNotMatch(zh(k, { n: 2 }), /盖住|遮住|盖上|打上马赛克/, k + ": " + zh(k, { n: 2 }));
+  assert.equal(require("../capabilities").get("fablecut_blur_region").summary["zh-CN"], "给画面里的一块打码，片段放大、移动时码会跟着走");
   for (const f of ["capabilities.js", "manifest.json"]) assert.doesNotMatch(fs.readFileSync(path.join(__dirname, "..", f), "utf8").match(/fablecut_blur_region.*/)[0], /\bCover\b/, f);
   assert.equal(require("../capabilities").get("fablecut_blur_region").summary.en, "Hide an area of the picture with a mosaic that follows the clip when it zooms or moves");
   const tool = require("../mcp-tools").find((t) => t.name === "fablecut_blur_region");
@@ -145,12 +168,12 @@ test("agents: the patch ops keep the numbers (remove one → the other keeps its
   assert.match(r.text, /#2 mosaic 60.*#3 mosaic 60/);
 });
 
-/* The right-click menu's locked hint follows the interface language (Deja, 2026-11-05; the Chinese is a draft, 待 JJ 定稿). */
+/* The right-click menu's locked hint follows the interface language (Deja, 2026-11-05; JJ定稿 the same day). */
 test("the clip menu's locked hint is a uiText key, not English written into app.js", () => {
   const V = require("../ui-preferences"), fs = require("node:fs"), path = require("node:path");
-  assert.equal(V.t("zh-CN", "own.clip-locked-tip"), "片段已锁定，解锁后才能改");
-  assert.equal(V.t("en", "own.clip-locked-tip"), "Locked — unlock to change");
+  assert.equal(V.t("zh-CN", "own.clip-locked-tip"), "片段锁住了，先解锁才能改。");   // JJ定稿
+  assert.equal(V.t("en", "own.clip-locked-tip"), "The clip is locked. Unlock it to make changes.");
   const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
-  assert.doesNotMatch(app, /"Locked — unlock to change"/);
+  assert.doesNotMatch(app, /"Locked — unlock to change"|"The clip is locked/);
   assert.equal(app.match(/locked \? uiText\("own\.clip-locked-tip"\) : null/g).length, 7);
 });
