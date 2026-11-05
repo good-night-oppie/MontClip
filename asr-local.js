@@ -27,7 +27,23 @@ const { spawn } = require("node:child_process");
 const { manifest, createStore } = require("./asr-models");
 const W = require("./asr-words");
 const { hidePaths } = require("./asr-status");
-const { readAudioArgs } = require("./audio-read");
+/* The media's own clock for every read (Rea on #165). 与 #149 audio-window.js CLOCK_FILTER 同源，#149 合入后改为 import
+   (Deja, 2026-11-05: one clock filter for the export's audio window and for transcription, with #149's tests behind
+   it): a late sound track is padded with silence so sample 0 is media time 0. */
+const CLOCK_FILTER = "aresample=async=1:min_hard_comp=0.01:first_pts=0";
+/** Below this a window is read from the start of the file, not with -ss: an input seek near 0 missed by −21 ms on AAC,
+ *  −105 ms when the picture starts late, and an FLV lost its first ~1.2 s of sound (Rea on #165). */
+const SEEK_MIN = 3;
+/** ffmpeg's arguments for 16 kHz mono PCM of `file` (all of it, or from…to) on the media's own clock.
+ *  → {args, start}: start is the media time of the first sample (0, or `from` when it seeks). */
+function readArgs({ file, from = null, to = null, rate = RATE, channels = 1 } = {}) {
+  const f = from == null ? 0 : Math.max(0, +from || 0);
+  const seek = from != null && f >= SEEK_MIN;
+  const start = seek ? f : 0;
+  const t = to == null ? null : Math.max(0, +to - start);
+  return { start, args: ["-nostdin", "-v", "error", ...(seek ? ["-ss", String(f)] : []), "-i", file, ...(t != null ? ["-t", String(Math.round(t * 1e6) / 1e6)] : []),
+    "-vn", "-af", CLOCK_FILTER, "-ac", String(channels), "-ar", String(rate), "-f", "s16le", "-acodec", "pcm_s16le", "-"] };
+}
 
 const crypto = require("node:crypto");
 const os = require("node:os");
@@ -166,10 +182,10 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
       ...(parts ? { spans } : {}), speech, segments, model: manifest.models.asr.id, language: "zh", punctuated: !!p };
   }
   /** One stretch of the file (`part` [from, to], or null for all of it) through ffmpeg (16 kHz mono) and a fresh VAD;
-   *  each segment's words go to onSegment with file times. Read by audio-read.js on the media's own clock: a part that
+   *  each segment's words go to onSegment with file times. Read by readArgs on the media's own clock: a part that
    *  starts before 3 s is read from the start of the file (Rea on #165). -> {samples, at}: what was read, from where. */
   async function listen(S, r, p, file, part, { signal, onSegment, onSamples }) {
-    const plan = readAudioArgs({ file, from: part ? part[0] : null, to: part ? part[1] : null, rate: RATE });
+    const plan = readArgs({ file, from: part ? part[0] : null, to: part ? part[1] : null });
     const at = plan.start;
     const vad = new S.Vad({ sileroVad: { model: vadFile, ...VAD }, sampleRate: RATE, debug: false, numThreads: 1 }, 60);
     const proc = spawn(ffmpeg, plan.args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
@@ -218,4 +234,4 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
   return { status, transcribe, store };
 }
 
-module.exports = { createAsr, VAD, segmentWords, safeTokens, nativePackage };
+module.exports = { createAsr, VAD, segmentWords, safeTokens, nativePackage, readArgs, SEEK_MIN, CLOCK_FILTER };
