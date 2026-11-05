@@ -396,14 +396,16 @@ test('real model, real server: while 〔删掉〕 waits for Meta, a Paraformer t
   const post = (p, b) => fetch(s.base + p, { method: 'POST', body: JSON.stringify(b) }).then(async (r) => ({ status: r.status, json: await r.json() }));
   const metaJob = post('/api/asr/transcribe', { src: '/media/long.wav', model: 'meta' });
   await new Promise((r) => setTimeout(r, 800));
-  // what the desktop host does after 〔删掉〕: release (its answer waits for Meta's process), a Paraformer request meanwhile
+  // what the desktop host does after 〔删掉〕: release (its answer waits for Meta's process). The Meta job is cancelled
+  // first (its answer comes then); a Paraformer request from that moment on is the one asked for "during the wait"
   const order = [];
   const rel = post('/api/asr/meta/release', {}).then((r) => { order.push('released'); return r; });
-  const para = post('/api/asr/transcribe', { src: '/media/short.wav' }).then((r) => { order.push('paraformer'); return r; });
+  a.equal((await metaJob).json.code, 'ASR_CANCELLED');
+  order.push('meta cancelled');
+  const para = post('/api/asr/transcribe', { src: '/media/short.wav' }).then((r) => { order.push('paraformer done'); return r; });
   const [r1, r2] = await Promise.all([rel, para]);
   a.equal(r1.json.released, true); a.equal(r1.json.cancelled, true);
   a.equal(r2.status, 200, JSON.stringify(r2.json)); a.equal(r2.json.status, 'complete');
-  a.equal((await metaJob).json.code, 'ASR_CANCELLED');
   // held until {done:true}: Meta is refused with its own code; Paraformer still runs
   const m = await post('/api/asr/transcribe', { src: '/media/short.wav', model: 'meta' });
   a.equal(m.status, 409); a.equal(m.json.code, 'ASR_OPTIONAL_REMOVING'); a.equal(m.json.engine, 'meta');
