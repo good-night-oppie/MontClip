@@ -2737,6 +2737,9 @@ A spec (every key optional — what is left out comes from its `preset`):
   more than 20 dB apart (the louder side above −60 dB) gets a warning — "only the left
   channel has sound" — unless the timeline puts the sound there on purpose (pan
   keyframes, a clip pan without `panAuto`, a track or bus pan). The file is kept either way.
+  In the editor it reads in plain words, without the numbers; when mono sounds put in that ear
+  are the cause, it has a **Play in both** button — the same fix, one undo step, as the
+  open-project question in "Audio mix".
   The report shows in the queue, a toast after a single export, and the `fablecut_export` reply.
 - **Saved presets**: "Save preset…" in the dialog writes `library/delivery/<id>.json`,
   listed under "Saved" in every project (`GET / POST /api/export/presets`,

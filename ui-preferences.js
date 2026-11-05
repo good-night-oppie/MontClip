@@ -119,13 +119,21 @@
     // DRAFT for JJ (Deja 2026-11-05): a clip's sound could not be read, so the export stops instead of coming out silent
     "export-audio-failed": ["Export stopped: the sound of “{name}” couldn't be read, so the file would have had no sound. Nothing was exported. Try again; if it keeps happening, re-import that recording.",
       "导出停下了：「{name}」的声音读不出来，导出来会没有声音，所以这次没有导出。请再试一次；如果还是这样，重新导入这段录像。"],
-    // DRAFT for JJ (待 JJ 定稿; Deja 2026-11-05): an old project with mono recordings in the left ear only — asked once, on open
-    "mono-left": ["{n} mono sound clip(s) in this project play only in the left ear. Put them in both ears?", "这个项目里有 {n} 条单声道声音只在左边耳机里有。要改成两边都有吗？"],
-    "mono-left-centre": ["Both ears", "改成两边都有"],
-    "mono-left-keep": ["Keep as is", "不用"],
-    // DRAFT for JJ (待 JJ 定稿; Deja 2026-11-05): the check after an export finds sound in one ear only (a warning, the file is kept)
-    "export-one-sided-left": ["Only the left ear has sound; the right is almost silent (left {L} dB, right {R} dB).", "只有左边耳机有声音，右边几乎听不到（左 {L} dB，右 {R} dB）。"],
-    "export-one-sided-right": ["Only the right ear has sound; the left is almost silent (left {L} dB, right {R} dB).", "只有右边耳机有声音，左边几乎听不到（左 {L} dB，右 {R} dB）。"],
+    // JJ定稿 (2026-11-05, via Deja), word for word: an old project with mono sounds in the left ear only — asked once, on open
+    "mono-left": ["{n} sounds in this project only play in the left ear. Make them play in both?", "这个项目里有 {n} 段声音只在左边耳机里有。要改成两边都有吗？"],
+    "mono-left-centre": ["Play in both", "改成两边都有"],
+    "mono-left-keep": ["Not now", "不用"],
+    // JJ定稿 (2026-11-05, via Deja), word for word: the check after an export finds sound in one ear only (a warning, the file is kept).
+    // No dB in the sentence: the numbers stay on the check (L, R) for the developer line of 复制问题信息 (#161).
+    // -fix: the cause was found (mono sounds put there), with the button; the plain one: no cause found, no button.
+    "export-one-sided-left-fix": ["The exported video only has sound in the left ear; the right is almost silent. If you didn't mean it, make the sound play in both ears and export again.", "导出的视频只有左边耳机有声音，右边几乎听不到。如果不是你故意这样放的，可以先改成两边都有再导出一次。"],
+    "export-one-sided-right-fix": ["The exported video only has sound in the right ear; the left is almost silent. If you didn't mean it, make the sound play in both ears and export again.", "导出的视频只有右边耳机有声音，左边几乎听不到。如果不是你故意这样放的，可以先改成两边都有再导出一次。"],
+    "export-one-sided-fix": ["Play in both", "改成两边都有"],
+    "export-one-sided-left": ["The exported video only has sound in the left ear; the right is almost silent.", "导出的视频只有左边耳机有声音，右边几乎听不到。"],
+    "export-one-sided-right": ["The exported video only has sound in the right ear; the left is almost silent.", "导出的视频只有右边耳机有声音，左边几乎听不到。"],
+    // JJ定稿 (zh); the English is a draft for JJ. Shown after the plain sentence only once 〔复制问题信息〕 sits next to the export result (#161):
+    // until then ONE_SIDED_COPY_TAIL in app.js keeps it off.
+    "export-one-sided-copy-tail": ["If you didn't mean it, click Copy problem details and send it to us.", "如果不是你故意的，点〔复制问题信息〕发给我们。"],
     "finishing": ["Finishing…", "正在收尾…"],
     // narrow windows: tools that do not fit a bar (JJ to review)
     "more": ["More", "更多"],

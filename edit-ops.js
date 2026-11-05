@@ -158,9 +158,13 @@
    *  no pan keyframes, and no other audio stem in its link group. Whether the −1 was the
    *  program's or the streamer's can't be told for these (no panAuto then), so the editor
    *  asks once per project (doc.monoPanReviewed) and the MCP status warns. */
-  function monoLeftStems(doc, clips = doc.clips || []) {
+  function monoLeftStems(doc, clips = doc.clips || []) { return monoSideStems(doc, "left", clips); }
+  /** The same on either side: a mono file's stem hard `side` ("left" −1, "right" +1). After an
+   *  export that came out in one ear, these are the cause the editor can fix (centre them). */
+  function monoSideStems(doc, side, clips = doc.clips || []) {
     const media = new Map((doc.media || []).map((m) => [m.id, m]));
-    return clips.filter((c) => c.kind === "audio" && c.props && c.props.audioChannel === 0 && c.props.pan === -1
+    const pan = side === "right" ? 1 : -1;
+    return clips.filter((c) => c.kind === "audio" && c.props && c.props.audioChannel === 0 && c.props.pan === pan
       && !(c.keyframes && Array.isArray(c.keyframes.pan) && c.keyframes.pan.length)
       && isMonoMedia(media.get(c.mediaId))
       && !(c.linkGroup && clips.some((x) => x !== c && x.kind === "audio" && x.linkGroup === c.linkGroup)));
@@ -1051,7 +1055,7 @@
 
   return {
     MIN_DUR, MIN_TRANS_DUR, CROSSFADE_DUR, GAP_EPS, TRIM_LOCKED, DEFAULT_TRACKS,
-    clipEnd, clipSpeed, isMediaClip, hasSourceTime, kfChannel, hasSpeedRamp, mediaTimeAt, shiftKF, shiftMasks, detachChildren, defaultPanForChannel, monoLeftStems, settleMonoPanReview,
+    clipEnd, clipSpeed, isMediaClip, hasSourceTime, kfChannel, hasSpeedRamp, mediaTimeAt, shiftKF, shiftMasks, detachChildren, defaultPanForChannel, monoLeftStems, monoSideStems, settleMonoPanReview,
     create, forDoc,
   };
 });

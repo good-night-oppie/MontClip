@@ -1304,8 +1304,12 @@ function saveDownload(href, name, { savedMsg, exportFile = false, kind = null } 
     if (kind) pendingKinds.set(name, kind);
     if (exportFile) { window.montclipDownloads.expect(name); pendingExports.add(name); for (const q of exportQueue) if (q.file === name) q.saving = true; renderQueue(); }
   }
-  else if (savedMsg) toast(savedMsg);
+  else if (savedMsg) saySaved(savedMsg);
   document.body.appendChild(a); a.click(); a.remove();
+}
+/** A success message is text, or a function that shows its own toast (a warning with a button). */
+function saySaved(msg) {
+  if (typeof msg === "function") msg(); else toast(msg);
 }
 window.montclipDownloads?.onDone(({ state, name, removed }) => {
   // another save of this file is open: main refused this one; that one keeps its state
@@ -1314,7 +1318,7 @@ window.montclipDownloads?.onDone(({ state, name, removed }) => {
   pendingSaves.delete(name); pendingExports.delete(name); pendingKinds.delete(name);
   for (const q of exportQueue) if (q.file === name) { q.saving = false; if (removed) q.saved = true; }
   renderQueue();
-  if (state === "completed") { if (msg) toast(msg); }
+  if (state === "completed") { if (msg) saySaved(msg); }
   else if (state === "cancelled") toast(uiText(wasExport ? "own.export-save-cancelled" : kind === "captions" ? "own.captions-save-cancelled" : "own.save-canceled"));
   else toast(uiText(wasExport ? "own.export-save-failed" : "own.save-failed"));
 });
@@ -1772,12 +1776,14 @@ function checkMonoLeftStems() {
   runtime.monoLeftAsked.add(key);
   const ids = new Set(stems.map((c) => c.id));
   toastActions(uiText("own.mono-left", { n: stems.length }), [
-    [uiText("own.mono-left-centre"), () => centreMonoLeftStems(ids)],
+    [uiText("own.mono-left-centre"), () => centreMonoStems(ids)],
     [uiText("own.mono-left-keep"), () => { project.monoPanReviewed = true; scheduleSave(); }],
   ]);
 }
-function centreMonoLeftStems(ids) {
-  const now = MontClipEdit.monoLeftStems(project).filter((c) => ids.has(c.id));   // still as they were when asked
+/** Centre the mono stems `ids` that are still hard `side` (as they were when asked) — one undo
+ *  step — and settle the question. The open-project toast and the export warning both use it. */
+function centreMonoStems(ids, side = "left") {
+  const now = MontClipEdit.monoSideStems(project, side).filter((c) => ids.has(c.id));
   project.monoPanReviewed = true;
   if (now.length) {
     pushUndo();
@@ -19874,9 +19880,29 @@ function exportPanIntent() {
   return !!(clipIntent || (project.tracks || []).some((t) => t.kind === "audio" && Math.abs(+t.pan || 0) > 1e-3)
     || (project.buses || []).some((b) => Math.abs(+b.pan || 0) > 1e-3));
 }
+/* The plain one-sided warning's second half, 「…点〔复制问题信息〕发给我们」, waits for that button next to the export
+   result (#161); turn this on when it is there. */
+const ONE_SIDED_COPY_TAIL = false;
+/** "Only one ear has sound" after an export → {text, side, ids}: when mono sounds the editor can centre put it
+ *  there (the cause), JJ's sentence that says so and ids for its 〔改成两边都有〕 button; else the plain sentence
+ *  and no button. The dB stay on the check (c.L, c.R), for the developer line of 复制问题信息. */
+function oneSidedWarning(c) {
+  const side = c.side === "right" ? "right" : "left";
+  const stems = MontClipEdit.monoSideStems(project, side);
+  if (stems.length) return { text: uiText(`own.export-one-sided-${side}-fix`), side, ids: new Set(stems.map((x) => x.id)) };
+  let text = uiText(`own.export-one-sided-${side}`);
+  if (ONE_SIDED_COPY_TAIL) text += (mcView.get().language === "en" ? " " : "") + uiText("own.export-one-sided-copy-tail");
+  return { text, side, ids: null };
+}
+/** Show it: a toast, with the button when there is something to centre. */
+function showOneSidedWarning(c) {
+  const w = oneSidedWarning(c);
+  if (w.ids) toastActions(w.text, [[uiText("own.export-one-sided-fix"), () => centreMonoStems(w.ids, w.side)]]);
+  else toast(w.text);
+}
 /** A check from the export report in the interface language, where it has a code; else its text. */
 function exportCheckText(c) {
-  if (c.code === "AUDIO_ONE_SIDED") return uiText(c.side === "right" ? "own.export-one-sided-right" : "own.export-one-sided-left", { L: c.L, R: c.R });
+  if (c.code === "AUDIO_ONE_SIDED") return oneSidedWarning(c).text;
   return c.text;
 }
 function exportReportLine(r) {
@@ -20154,7 +20180,8 @@ async function fastExport(opts = {}) {
         name: String(o.file || "").replace(/\.[^.]+$/, ""), range: exportRangeMode(), status: "done", progress: 1,
         src: o.src, file: o.file, report: o.report || null });
       renderQueue();
-      saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true, savedMsg:
+      const oneSided = o.report && o.report.checks.find((c) => !c.ok && c.code === "AUDIO_ONE_SIDED");
+      saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true, savedMsg: oneSided ? () => showOneSidedWarning(oneSided) :
         o.report && !o.report.ok ? `Exported ${o.file} — check: ${o.report.checks.filter((c) => !c.ok).map(exportCheckText).join("; ")} (Export → Queue)` : `Exported ${o.file}${o.report ? " — checks passed" : ""}` });
     }
     else saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true });
@@ -20273,6 +20300,8 @@ function renderQueue() {
       (q.status === "running" ? `<div class="progress"><div class="progress-fill" style="width:${(q.progress * 100).toFixed(1)}%"></div></div>` : "") +
       `<span class="xq-status">${escapeHtml(status)}</span>` +
       (q.report ? `<span class="xq-report${q.report.ok ? "" : " warn"}">${q.report.ok ? "✓ " : ""}${escapeHtml(exportReportLine(q.report))}</span>` : "") +
+      (q.report && q.report.checks.some((c) => !c.ok && c.code === "AUDIO_ONE_SIDED" && oneSidedWarning(c).ids)
+        ? `<button type="button" class="btn tiny" data-q-fix="${q.id}">${escapeHtml(uiText("own.export-one-sided-fix"))}</button>` : "") +
       `</div><div class="xq-actions">${actions}</div></li>`;
   }).join("");
 }
@@ -21044,9 +21073,16 @@ $("btnQueueClear")?.addEventListener("click", () => {
   renderQueue();
 });
 $("exportQueueList")?.addEventListener("click", (e) => {
-  const r = e.target.dataset.qRetry, x = e.target.dataset.qRemove, s = e.target.dataset.qSave;
-  const q = exportQueue.find((v) => v.id === (r || x || s));
+  const r = e.target.dataset.qRetry, x = e.target.dataset.qRemove, s = e.target.dataset.qSave, f = e.target.dataset.qFix;
+  const q = exportQueue.find((v) => v.id === (r || x || s || f));
   if (!q) return;
+  // 〔改成两边都有〕 under a one-sided warning: the same fix as the open-project question (one undo step)
+  if (f) {
+    const c = q.report && q.report.checks.find((x) => !x.ok && x.code === "AUDIO_ONE_SIDED"), w = c && oneSidedWarning(c);
+    if (w && w.ids) centreMonoStems(w.ids, w.side);
+    renderQueue();
+    return;
+  }
   // save this export again: it names itself, so the copy goes only once a save completes
   if (s) { if (q.saving) return; q.saving = true; renderQueue(); saveDownload(q.src, q.file || decodeURIComponent(q.src.split("/").pop()), { exportFile: true }); return; }
   if (r) { q.status = "pending"; q.error = null; q.progress = 0; }

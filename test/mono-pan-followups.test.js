@@ -54,7 +54,7 @@ test("settling the question: only when no timeline has such a stem and every ste
   assert.deepEqual(settle({ media: [mono], clips: [vid(), stem("a", { pan: -1 })], monoPanReviewed: true }), [false, true], "already answered");
 });
 
-/* The editor: checkMonoLeftStems / centreMonoLeftStems sliced out of app.js. */
+/* The editor: checkMonoLeftStems / centreMonoStems sliced out of app.js. */
 function promptWorld(doc) {
   const project = { media: [mono], clips: [], ...doc };
   const calls = { toast: [], undo: 0, save: 0 };
@@ -65,7 +65,7 @@ function promptWorld(doc) {
   };
   const code = slice("function checkMonoLeftStems(", "function scheduleSave(");
   const names = Object.keys(env);
-  const fns = new Function(...names, `${code}\nreturn { checkMonoLeftStems, centreMonoLeftStems };`)(...names.map((k) => env[k]));
+  const fns = new Function(...names, `${code}\nreturn { checkMonoLeftStems, centreMonoStems };`)(...names.map((k) => env[k]));
   return { project, calls, env, ...fns };
 }
 
@@ -245,23 +245,102 @@ test("the export report: a warning that keeps the file, unless the timeline put 
   assert.ok(!Delivery.verify(spec, monoOut, { ...ctx, channelLevels: [-9.2] }).checks.some((x) => x.code), "a mono file has no sides");
 });
 
-test("the warning in the interface language says which ear, in plain words (draft for JJ)", () => {
-  const UI = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8");
-  assert.match(UI, /"export-one-sided-left": \[.*"只有左边耳机有声音，右边几乎听不到（左 \{L\} dB，右 \{R\} dB）。"\]/);
-  assert.match(UI, /"export-one-sided-right": \[.*"只有右边耳机有声音，左边几乎听不到（左 \{L\} dB，右 \{R\} dB）。"\]/);
-  assert.match(UI, /DRAFT for JJ \(待 JJ 定稿[^\n]*\n\s*"mono-left"/);
-  assert.match(UI, /DRAFT for JJ \(待 JJ 定稿[^\n]*\n\s*"export-one-sided-left"/);
-  const f = new Function("uiText", slice("function exportCheckText(", "function exportAudioHeard(") + "\nreturn { exportCheckText, exportReportLine };")((k, v) => `${k}|${v.L}|${v.R}`);
-  assert.equal(f.exportCheckText({ code: "AUDIO_ONE_SIDED", side: "right", L: -80, R: -12 }), "own.export-one-sided-right|-80|-12");
-  assert.equal(f.exportReportLine({ line: "x", checks: [{ ok: true, text: "ffv1" }, { ok: false, code: "AUDIO_ONE_SIDED", side: "left", L: -9, R: -91 }] }),
-    "ffv1 · ⚠ own.export-one-sided-left|-9|-91");
-  assert.equal(f.exportReportLine({ line: "as it was", checks: [{ ok: true, text: "ffv1" }] }), "as it was");
+const UI = require("../ui-preferences.js");
+const zh = (k, v) => UI.t("zh-CN", "own." + k, v), en = (k, v) => UI.t("en", "own." + k, v);
+
+test("JJ定稿, word for word: the open-project question and its buttons", () => {
+  assert.equal(zh("mono-left", { n: 2 }), "这个项目里有 2 段声音只在左边耳机里有。要改成两边都有吗？");
+  assert.equal(en("mono-left", { n: 2 }), "2 sounds in this project only play in the left ear. Make them play in both?");
+  assert.deepEqual([zh("mono-left-centre"), zh("mono-left-keep")], ["改成两边都有", "不用"]);
+  assert.deepEqual([en("mono-left-centre"), en("mono-left-keep")], ["Play in both", "Not now"]);
+  const SRC_UI = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8");
+  assert.match(SRC_UI, /JJ定稿 \(2026-11-05, via Deja\)[^\n]*\n\s*"mono-left"/);
+  assert.match(SRC_UI, /JJ定稿 \(2026-11-05, via Deja\)[^\n]*\n[^\n]*\n[^\n]*\n\s*"export-one-sided-left-fix"/);
+});
+
+test("JJ定稿, word for word: the export warnings, left and right, with and without a cause; no dB in them", () => {
+  assert.equal(zh("export-one-sided-left-fix"), "导出的视频只有左边耳机有声音，右边几乎听不到。如果不是你故意这样放的，可以先改成两边都有再导出一次。");
+  assert.equal(zh("export-one-sided-right-fix"), "导出的视频只有右边耳机有声音，左边几乎听不到。如果不是你故意这样放的，可以先改成两边都有再导出一次。");
+  assert.equal(en("export-one-sided-left-fix"), "The exported video only has sound in the left ear; the right is almost silent. If you didn't mean it, make the sound play in both ears and export again.");
+  assert.equal(en("export-one-sided-right-fix"), "The exported video only has sound in the right ear; the left is almost silent. If you didn't mean it, make the sound play in both ears and export again.");
+  assert.deepEqual([zh("export-one-sided-fix"), en("export-one-sided-fix")], ["改成两边都有", "Play in both"]);
+  assert.equal(zh("export-one-sided-left"), "导出的视频只有左边耳机有声音，右边几乎听不到。");
+  assert.equal(zh("export-one-sided-right"), "导出的视频只有右边耳机有声音，左边几乎听不到。");
+  assert.equal(en("export-one-sided-left"), "The exported video only has sound in the left ear; the right is almost silent.");
+  assert.equal(en("export-one-sided-right"), "The exported video only has sound in the right ear; the left is almost silent.");
+  assert.equal(zh("export-one-sided-copy-tail"), "如果不是你故意的，点〔复制问题信息〕发给我们。");
+  for (const k of ["export-one-sided-left-fix", "export-one-sided-right-fix", "export-one-sided-left", "export-one-sided-right"])
+    assert.doesNotMatch(zh(k) + en(k), /dB|\{/, k);
+});
+
+/* The warning after an export, sliced out of app.js with the real wording (zh-CN) and the real fix. */
+function warnWorld(doc) {
+  const project = { media: [mono], clips: [], ...doc };
+  const calls = { toast: [], plain: [], undo: 0, save: 0 };
+  const env = {
+    project, MontClipEdit, state: { connected: true, compCtx: null, dirtyTimeline: false }, runtime: { projectId: "p1" }, EXPORT_JOB_PAGE: false,
+    mcView: { get: () => ({ language: "zh-CN" }) }, uiText: (k, v) => UI.t("zh-CN", k, v),
+    toastActions: (msg, actions) => calls.toast.push({ msg, actions }), toast: (msg) => calls.plain.push(msg),
+    pushUndo: () => { calls.undo++; }, scheduleSave: () => { calls.save++; }, renderInspector() {},
+  };
+  const code = slice("function checkMonoLeftStems(", "function scheduleSave(") + slice("const ONE_SIDED_COPY_TAIL", "function exportAudioHeard(");
+  const names = Object.keys(env);
+  const fns = new Function(...names, `${code}\nreturn { oneSidedWarning, showOneSidedWarning, exportCheckText, exportReportLine, checkMonoLeftStems };`)(...names.map((k) => env[k]));
+  return { project, calls, ...fns };
+}
+const check = (side) => ({ ok: false, code: "AUDIO_ONE_SIDED", side, L: side === "left" ? -9.2 : -91, R: side === "left" ? -91 : -9.2, text: "x" });
+
+test("after an export, cause found (mono sounds put in that ear): JJ's sentence and 〔改成两边都有〕, the same fix as the open-project question", () => {
+  const w = warnWorld({ clips: [vid(), stem("a", { pan: -1 })] });
+  w.showOneSidedWarning(check("left"));
+  assert.equal(w.calls.plain.length, 0);
+  assert.equal(w.calls.toast.length, 1);
+  assert.equal(w.calls.toast[0].msg, "导出的视频只有左边耳机有声音，右边几乎听不到。如果不是你故意这样放的，可以先改成两边都有再导出一次。");
+  assert.deepEqual(w.calls.toast[0].actions.map((x) => x[0]), ["改成两边都有"]);
+  w.calls.toast[0].actions[0][1]();
+  // what the open-project question's 〔改成两边都有〕 does: centred, one undo step, settled
+  const q = warnWorld({ clips: [vid(), stem("a", { pan: -1 })] });
+  q.checkMonoLeftStems(); q.calls.toast[0].actions[0][1]();
+  for (const x of [w, q]) {
+    assert.equal(x.project.clips[1].props.pan, 0);
+    assert.equal(x.calls.undo, 1);
+    assert.equal(x.project.monoPanReviewed, true);
+  }
+  // the same on the right
+  const r = warnWorld({ clips: [vid(), stem("a", { pan: 1, panAuto: true })] });
+  r.showOneSidedWarning(check("right"));
+  assert.equal(r.calls.toast[0].msg, "导出的视频只有右边耳机有声音，左边几乎听不到。如果不是你故意这样放的，可以先改成两边都有再导出一次。");
+  r.calls.toast[0].actions[0][1]();
+  assert.equal(r.project.clips[1].props.pan, 0);
+});
+
+test("after an export, no cause found (e.g. a stereo recording with the voice on one channel): the first half only, no button", () => {
+  const stereo = { ...mono, audioChannels: 2 };
+  const w = warnWorld({ media: [stereo], clips: [vid(), stem("a", { pan: -1, panAuto: true }), stem("b", { audioChannel: 1, pan: 1, panAuto: true }, { track: "A2" })] });
+  w.showOneSidedWarning(check("left"));
+  assert.equal(w.calls.toast.length, 0, "no button");
+  assert.deepEqual(w.calls.plain, ["导出的视频只有左边耳机有声音，右边几乎听不到。"]);
+  w.showOneSidedWarning(check("right"));
+  assert.equal(w.calls.plain[1], "导出的视频只有右边耳机有声音，左边几乎听不到。");
+  assert.match(slice("const ONE_SIDED_COPY_TAIL", "function oneSidedWarning("), /const ONE_SIDED_COPY_TAIL = false;/, "the 〔复制问题信息〕 half waits for #161");
+  // the queue says the same, without the numbers; they stay on the check for the developer line
+  assert.equal(w.exportReportLine({ line: "x", checks: [{ ok: true, text: "ffv1" }, check("left")] }), "ffv1 · ⚠ 导出的视频只有左边耳机有声音，右边几乎听不到。");
+  assert.equal(w.exportReportLine({ line: "as it was", checks: [{ ok: true, text: "ffv1" }] }), "as it was");
+});
+
+test("on purpose (a pan set by hand or keyed): no warning at all — and the button shows only where the editor can fix it", () => {
+  // the report never carries the check then (verify with panIntent, above, and the third export in mono-pan-export.test.js)
+  const show = slice("function showOneSidedWarning(", "/** A check from the export report");
+  assert.match(show, /if \(w\.ids\) toastActions\(w\.text, \[\[uiText\("own\.export-one-sided-fix"\), \(\) => centreMonoStems\(w\.ids, w\.side\)\]\]\);/);
+  assert.match(SRC, /data-q-fix="\$\{q\.id\}">\$\{escapeHtml\(uiText\("own\.export-one-sided-fix"\)\)\}/, "the queue row has the button too, from its key");
+  assert.match(SRC, /if \(w && w\.ids\) centreMonoStems\(w\.ids, w\.side\);/);
+  assert.match(SRC, /savedMsg: oneSided \? \(\) => showOneSidedWarning\(oneSided\) :/, "a single export's toast is the warning");
 });
 
 test("on purpose: pan keyframes, a pan set by hand, a track or bus pan — not the program's pans, not an unanswered old stem", () => {
   const run = (doc) => {
     const project = { media: [mono], clips: [], tracks: [], buses: [], ...doc };
-    return new Function("project", "MontClipEdit", "clipRenders", slice("function exportPanIntent(", "/** A check from the export report") + "\nreturn exportPanIntent();")(project, MontClipEdit, () => true);
+    return new Function("project", "MontClipEdit", "clipRenders", slice("function exportPanIntent(", "/* The plain one-sided warning") + "\nreturn exportPanIntent();")(project, MontClipEdit, () => true);
   };
   assert.equal(run({ clips: [vid(), stem("a", { pan: -1, panAuto: true })] }), false, "the program's pan");
   assert.equal(run({ clips: [vid(), stem("a", { pan: -1 })] }), false, "an old stem nobody answered for");
