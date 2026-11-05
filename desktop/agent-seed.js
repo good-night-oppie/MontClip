@@ -9,10 +9,12 @@
      2. read it back from disk and unseal it: the same provider, model and key (service.matches);
      3. only then overwrite the seed's bytes, then delete it, and check that it is gone.
    A failure at 1 leaves no connection file and keeps the seed; at 2 the connection file is removed again
-   (deleteConnection) and the seed kept; so a key is in the seed or in the connection file, never in both after a failure.
+   (deleteConnection) and the seed kept. If rollback cannot remove the connection, both files stay for recovery;
+   a later launch must verify the saved connection before it can remove the seed.
    - safeStorage unavailable: nothing is written, the seed stays for a later launch, and the streamer is told in plain
      words. The key is never saved in plain text anywhere else.
-   - A connection already saved: it is kept; the seed is deleted unused.
+   - A connection already saved: delete the seed only if provider, model and key match; otherwise keep both files
+     and report SEED_CONFLICT. Do not overwrite a different connection or silently discard the recovery copy.
    - The seed is read once, never logged; results carry codes and paths only, never the key or any part of it. */
 const SEED_NAME = 'montclip-seed-v1.json';
 const SEED_MAX_BYTES = 8192;
@@ -38,7 +40,8 @@ function seedText({ model, apiKey }) {
 }
 
 /** Seal the seed, if there is one. → {code, file?}:
- *  NO_SEED · SEALED · ALREADY_CONFIGURED (deleted unused) · NOT_DELETED (sealed or unused, but the file could not be removed:
+ *  NO_SEED · SEALED · ALREADY_CONFIGURED (verified matching connection) · SEED_CONFLICT (different or unverifiable
+ *  saved connection, both files kept) · NOT_DELETED (verified, but the file could not be removed:
  *  the streamer is asked to delete it) · NO_ENCRYPTION (nothing written, the seed kept) · SEED_INVALID (kept, untouched) ·
  *  CONFIG_FAILED (the service refused it; nothing written; the seed kept) · VERIFY_FAILED (written but not read back the same:
  *  the connection file removed again, the seed kept) · VERIFY_FAILED_NOT_UNDONE (and it could not be removed). */
@@ -56,7 +59,12 @@ function importSeed({ file, fs = require('node:fs'), service, encryptionAvailabl
   raw = null;
   if (!seed) return { code: 'SEED_INVALID', file };
   const now = service.get();
-  if (now && now.configured) return { code: remove() ? 'ALREADY_CONFIGURED' : 'NOT_DELETED', file };
+  if (now && now.configured) {
+    const same = service.matches(seed);
+    seed.apiKey = null;
+    if (!same) return { code: 'SEED_CONFLICT', file };
+    return { code: remove() ? 'ALREADY_CONFIGURED' : 'NOT_DELETED', file };
+  }
   if (!encryptionAvailable()) return { code: 'NO_ENCRYPTION', file };
   const r = service.configure({ provider: seed.provider, model: seed.model, apiKey: seed.apiKey });
   if (!r || r.ok === false || !r.configured) { seed.apiKey = null; return { code: 'CONFIG_FAILED', file }; }

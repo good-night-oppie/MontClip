@@ -254,7 +254,7 @@ async function start() {
     const seedFile = app.isPackaged ? path.join(process.resourcesPath, AgentSeed.SEED_NAME) : (process.env.MONTCLIP_SEED_FILE || null);
     const seeded = seedFile ? AgentSeed.importSeed({ file: seedFile, service: agentService, encryptionAvailable: () => safeStorage.isEncryptionAvailable() }) : { code: 'NO_SEED' };
     if (smoke) process.stdout.write('MONTCLIP_SEED ' + JSON.stringify({ code: seeded.code }) + '\n');
-    const say = { NO_ENCRYPTION: 'seedNoEncryption', CONFIG_FAILED: 'seedFailed', VERIFY_FAILED: 'seedFailed', VERIFY_FAILED_NOT_UNDONE: 'seedFailed', SEED_INVALID: 'seedInvalid', NOT_DELETED: 'seedNotDeleted' }[seeded.code];
+    const say = { NO_ENCRYPTION: 'seedNoEncryption', CONFIG_FAILED: 'seedFailed', VERIFY_FAILED: 'seedFailed', VERIFY_FAILED_NOT_UNDONE: 'seedFailed', SEED_CONFLICT: 'seedFailed', SEED_INVALID: 'seedInvalid', NOT_DELETED: 'seedNotDeleted' }[seeded.code];
     if (say && !smoke) {
       const t = nativeText(languageOf(settings.get()));
       dialog.showMessageBox(win, { type: 'warning', title: t.seedTitle, message: t[say].replace('{file}', seeded.file || ''), buttons: [t.ok], defaultId: 0, noLink: true }).catch(() => {});

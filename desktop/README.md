@@ -102,7 +102,10 @@ seed; QQ's rules (2026-11-04) are part of it:
    `node desktop/package-smoke.cjs <zip>`; never upload it anywhere.
 4. **First launch** (`desktop/agent-seed.js`): the key is written into `agent-connection-v1.json` with Electron
    safeStorage, read back and checked, and only then the seed's bytes are overwritten and the seed deleted. A failure
-   part-way keeps the seed and leaves no second copy. **On Windows safeStorage is DPAPI, bound to the current Windows
+   part-way keeps the seed. If rollback cannot delete a mismatching connection, both files remain; the next launch
+   reports a conflict and preserves the seed. An existing connection permits seed deletion only when provider, model
+   and key all match. After the conflicting connection is explicitly removed, a later launch can seal the preserved
+   seed. **On Windows safeStorage is DPAPI, bound to the current Windows
    user: on another computer, or another Windows account, the AI has to be set up again** (the seed is gone after the
    first launch). The key, its first characters, the seed's name and the sealed connection never go into a log.
 5. **Until that first launch the key is plain text inside the zip** — the risk of this way of doing it. Not done

@@ -55,13 +55,16 @@ test('safeStorage unavailable: nothing is written, the key is not saved in plain
   a.equal(r.code, 'CONFIG_FAILED'); a.deepEqual(fs.readdirSync(profile), []); a.equal(fs.existsSync(seed), true);
 });
 
-test('a connection already saved is kept and the seed deleted unused; a bad seed is left alone; a seed that cannot be deleted is said', () => {
+test('a matching saved connection removes the seed; a different connection or bad seed is preserved; a removal failure is reported', () => {
   const profile = tmp(), resources = tmp(), safe = sealing(true), service = AgentService.createDiskService(profile, safe);
   a.equal(service.configure({ provider: 'deepseek', model: 'their-own', apiKey: 'sk-their-own-key' }).configured, true);
   const before = fs.readFileSync(path.join(profile, 'agent-connection-v1.json'), 'utf8');
   const seed = writeSeed(resources);
-  a.equal(Seed.importSeed({ file: seed, service, encryptionAvailable: () => true }).code, 'ALREADY_CONFIGURED');
+  a.equal(Seed.importSeed({ file: seed, service, encryptionAvailable: () => true }).code, 'SEED_CONFLICT');
   a.equal(fs.readFileSync(path.join(profile, 'agent-connection-v1.json'), 'utf8'), before);
+  a.equal(fs.existsSync(seed), true);
+  a.equal(service.configure(Seed.parseSeed(fs.readFileSync(seed, 'utf8'))).configured, true);
+  a.equal(Seed.importSeed({ file: seed, service, encryptionAvailable: () => true }).code, 'ALREADY_CONFIGURED');
   a.equal(fs.existsSync(seed), false);
   // not a seed: untouched
   const bad = path.join(resources, Seed.SEED_NAME);
@@ -260,6 +263,36 @@ test('sealing in order — read back not the same: the connection file removed a
   a.ok(main.includes("VERIFY_FAILED: 'seedFailed', VERIFY_FAILED_NOT_UNDONE: 'seedFailed'"));
   // the read-back is the main process's own: not one of the page's operations
   a.ok(main.includes("for(const operation of ['get','configure','reset','deleteConnection','send','cancel']) ipcMain.handle('montclip:agent:'+operation,"));
+});
+
+test('failed verification and failed rollback: a fresh launch preserves the recoverable seed', () => {
+  const profile = tmp(), resources = tmp(), seed = writeSeed(resources), safe = sealing(true);
+  const expected = Seed.parseSeed(fs.readFileSync(seed, 'utf8'));
+  const connection = path.join(profile, 'agent-connection-v1.json');
+  const blocked = { ...fs, unlinkSync(p) { if (p === connection) throw Object.assign(Error('EPERM'), { code: 'EPERM' }); return fs.unlinkSync(p); } };
+  const wrongSeal = { ...safe, encryptString: () => safe.encryptString('synthetic-wrong-key') };
+  const first = AgentService.createDiskService(profile, wrongSeal, blocked);
+  a.equal(Seed.importSeed({ file: seed, service: first, encryptionAvailable: () => true }).code, 'VERIFY_FAILED_NOT_UNDONE');
+  const before = fs.readFileSync(seed, 'utf8');
+  const restart = AgentService.createDiskService(profile, safe, blocked);
+  const result = Seed.importSeed({ file: seed, service: restart, encryptionAvailable: () => true });
+  a.equal(fs.existsSync(seed), true, 'restart must not delete the last recovery copy');
+  a.equal(result.code, 'SEED_CONFLICT', 'a different saved connection is not successful seed import');
+  a.equal(fs.readFileSync(seed, 'utf8'), before);
+  a.equal(restart.matches(expected), false);
+  a.deepEqual(holding(resources), [Seed.SEED_NAME]);
+  a.deepEqual(holding(profile), []);
+  a.equal(safe.decryptString(Buffer.from(JSON.parse(fs.readFileSync(connection, 'utf8')).secret, 'base64')), 'synthetic-wrong-key');
+  // Once the user can remove the conflicting connection, the untouched seed is usable on a fresh launch.
+  a.equal(AgentService.createDiskService(profile, safe).deleteConnection().code, 'CONNECTION_DELETED');
+  const recovered = AgentService.createDiskService(profile, safe);
+  a.equal(Seed.importSeed({ file: seed, service: recovered, encryptionAvailable: () => true }).code, 'SEALED');
+  a.equal(recovered.matches(expected), true);
+  a.equal(fs.existsSync(seed), false);
+  a.deepEqual(fs.readdirSync(profile), ['agent-connection-v1.json'], 'only one sealed key file after recovery');
+  a.deepEqual(holding(profile), []);
+  const main = fs.readFileSync(path.join(__dirname, '..', 'desktop', 'main.js'), 'utf8');
+  a.ok(main.includes("SEED_CONFLICT: 'seedFailed'"), 'a conflict shows the existing failure warning');
 });
 
 test('a package carries no other credential (QQ ⑥): anything shaped like one in its text files fails the build, the seed aside', () => {
