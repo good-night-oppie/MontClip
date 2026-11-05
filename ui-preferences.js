@@ -863,11 +863,13 @@
     "seq-duplicate": ["Duplicate “{name}”", "复制一份「{name}」"], "seq-rename": ["Rename “{name}”…", "重命名「{name}」…"],
     "seq-delete": ["Delete “{name}”…", "删除「{name}」…"], "seq-keep-one": ["A project keeps at least one sequence", "一个项目至少要留一个序列"],
     "snap-to": ["Snap to", "吸附到"], "snap-clips": ["Clip edges", "片段边缘"], "snap-playhead": ["Playhead", "播放头"],
+    "snap-targets-title": ["Snap targets — clip edges, playhead, markers, IN/OUT, keyframes, frame grid", "吸附目标 — 片段边缘、播放头、标记、入点/出点、关键帧、每一帧"],
+    "seq-button-title": ["Sequence: {name} — open another one, or add, duplicate, rename", "序列：{name} — 打开别的序列，或新建、复制一份、重命名"],
     "snap-inout": ["IN / OUT", "入点 / 出点"], "snap-keyframes": ["Keyframes", "关键帧"], "snap-frames": ["Frame grid", "每一帧"],
     "markers-empty": ["No markers yet — press <kbd>M</kbd> at the playhead.", "还没有标记 — 按 <kbd>M</kbd> 在播放头处加一个。"],
     "mm-open-source": ["Open in Source", "在源监视器中打开"], "mm-instances": ["Find timeline instances ({n})", "在时间线上找到它（{n} 处）"],
     "mm-info": ["Media info…", "素材信息…"], "mm-relink-copy": ["Relink to another copy…", "重新链接到另一份文件…"],
-    "mm-proxy-540": ["Create proxy (540p)", "生成代理（540p）"], "mm-proxy-720": ["Create proxy (720p)", "生成代理（720p）"],
+    "mm-proxy-540": ["Create proxy (540p)", "创建代理（540p）"], "mm-proxy-720": ["Create proxy (720p)", "创建代理（720p）"], // term.create-proxy (Rea)
     "mm-fav-add": ["Add to favorites", "加入收藏"], "mm-tags": ["Tags…", "标签…"], "mm-new-collection": ["New collection…", "新建分组…"],
     "mm-remove": ["Remove from project", "从项目里移除"],
     // English draft, for JJ

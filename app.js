@@ -14224,7 +14224,9 @@ function syncSequenceButton() {
   const n = SeqLib.entries(seqRoot()).length;
   b.querySelector(".seq-name").textContent = openSequenceName();
   b.querySelector(".seq-count").textContent = n > 1 ? String(n) : "";
-  b.title = `Sequence: ${openSequenceName()}${n > 1 ? ` (one of ${n})` : ""} — open another one, or add, duplicate, rename`;
+  // English keeps "(one of N)"; the Chinese line (Rea #327) has no count
+  b.title = mcView.get().language === "en" ? `Sequence: ${openSequenceName()}${n > 1 ? ` (one of ${n})` : ""} — open another one, or add, duplicate, rename`
+    : uiText("own.seq-button-title", { name: openSequenceName() });
 }
 /** The sequence menu: the project's sequences (click one to open it), then what to do with them. */
 function showSequenceMenu(x, y) {
