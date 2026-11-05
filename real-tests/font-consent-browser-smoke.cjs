@@ -75,9 +75,13 @@ const standIn = https.createServer({ key: fs.readFileSync(key), cert: fs.readFil
     for (const h of HOSTS) await send("Network.setCookie", { name: "planted", value: "cookie-" + h, domain: h, path: "/", secure: true, sameSite: "None" });
     const ev = async (expr) => (await send("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true })).result?.value;
     await send("Page.navigate", { url: ORIGIN + "/" });
-    await sleep(6000);
+    // the fallback hint, once the page has opened the project (a slow machine takes longer than a fixed wait)
+    const toastText = `(document.querySelector(".toast")||document.getElementById("toast"))?.textContent || ""`;
+    let hint = "";
+    for (let i = 0; i < 60 && !/Lobster/.test(hint); i++) { await sleep(500); hint = await ev(toastText); }
+    await sleep(500);
     const r = { afterOpen: [...external] };
-    r.toastAfterOpen = await ev(`document.querySelector(".toast")?.textContent || document.getElementById("toast")?.textContent || ""`);
+    r.toastAfterOpen = hint;
     await ev(`loadProjectFonts().then(()=>1)`);
     r.afterExportFonts = [...external];
     r.exportToast = await ev(`(document.querySelector(".toast")||document.getElementById("toast"))?.textContent || ""`);
