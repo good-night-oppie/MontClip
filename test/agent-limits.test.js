@@ -105,13 +105,15 @@ test('a mixed message, with a substitute transport: the format note sent carries
  a.match(read('index.html'),/<script src="agent-limits\.js"><\/script>/);
 });
 
-test('the export-frame drop-down keeps its label (aria-label and tooltip, 待 JJ 定稿), set with the options',()=>{
+test('the export-frame drop-down keeps its label (aria-label, JJ定稿), set with the options',()=>{
  for(const lang of ['zh-CN','en']){
   const sel=dropdown(lang);
-  a.equal(sel.getAttribute('aria-label'),View.text[lang]['own.ef-label']);a.equal(sel.title,View.text[lang]['own.ef-label']);
+  a.equal(sel.getAttribute('aria-label'),View.text[lang]['own.ef-label']);
  }
  a.equal(View.text['zh-CN']['own.ef-label'],'导出画面');a.equal(View.text.en['own.ef-label'],'Export frame');
- a.match(read('ui-preferences.js'),/the export-frame drop-down above the player: its name \(aria-label and tooltip; Deja, 2026-11-05\)\. 待 JJ 定稿/);
+ a.match(read('ui-preferences.js'),/the export-frame drop-down above the player: its name \(aria-label; Deja, 2026-11-05\)\. JJ定稿 \(2026-11-05\)/);
  const app=read('app.js'),refresh=app.slice(app.indexOf('function refreshLanguageText()'),app.indexOf('function updateMontClipView('));
  a.match(refresh,/syncExportFrameSel\(\);/,'a language switch rebuilds it');
+ // the format note names no option words (no Reel / IG, JJ 2026-11-05)
+ a.ok(!/Reel|“Full canvas”/.test(F.FORMAT_NOTE));
 });

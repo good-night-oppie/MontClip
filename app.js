@@ -1608,7 +1608,6 @@ function syncExportFrameSel() {
     html += `<option value="custom" selected>Custom · ${ef.w}×${ef.h}</option>`;
   els.exportFrameSel.innerHTML = html;
   els.exportFrameSel.setAttribute("aria-label", uiText("own.ef-label"));
-  els.exportFrameSel.title = uiText("own.ef-label");
 }
 function applyProject(data, opts = {}) {
   if (state.compCtx && !opts.ctx && SeqLib.activeId(data) !== SeqLib.activeId(state.compCtx.root)) {

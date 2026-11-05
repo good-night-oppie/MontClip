@@ -874,7 +874,8 @@
     "help-85": ["", "剪掉选中的字和后面的停顿（在目标轨道上提取）· <kbd>Esc</kbd> 取消选择"],
     "help-86": ["", "<kbd>Enter</kbd> / <kbd>⇧</kbd>+<kbd>Enter</kbd> 跳到下一个 / 上一个找到的地方 · 〔剪切〕把找到的全部剪掉"],
     "help-87": ["", "选一个样式，再点〔添加字幕〕（撤销一次就能全部撤回；会替换那里原有的字幕）· 点 SRT / VTT 可以下载字幕 · 〔导入…〕把字幕文件里的字幕放上来"],
-    // the export-frame drop-down above the player: its name (aria-label and tooltip; Deja, 2026-11-05). 待 JJ 定稿
+    // the export-frame drop-down above the player: its name (aria-label; Deja, 2026-11-05). JJ定稿 (2026-11-05); its tooltip is
+    // own.ef-title (#173)
     "ef-label": ["Export frame", "导出画面"],
   });
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
