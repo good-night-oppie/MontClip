@@ -105,12 +105,13 @@ const JJ = {
 };
 const modelMb = () => {
   const m = JSON.parse(fs.readFileSync(path.join(ROOT, "desktop", "asr-manifest.json"), "utf8")).models.asr;
-  return Math.round(Object.values(m.files).reduce((n, f) => n + f.size, 0) / 1048576 / 10) * 10;
+  // MB of 1,000,000 bytes, to the nearest 10 — the same rule as the plugin's status card (DD on MontClip-Cindy#7)
+  return Math.round(Object.values(m.files).reduce((n, f) => n + f.size, 0) / 1e6 / 10) * 10;
 };
 
 test("JJ's final sentences for the user, word for word; the model's size from the manifest", () => {
   const S = require("../asr-status.js");
-  a.equal(modelMb(), 230, "the pinned Paraformer files are about 230 MB");
+  a.equal(modelMb(), 240, "the pinned Paraformer files: 243,446,974 bytes, about 240 MB");
   a.deepEqual(S.userText("ASR_ENGINE_MISSING"), JJ.engine);
   a.deepEqual(S.userText("ASR_MANIFEST_MISSING"), JJ.engine, "a copy without the manifest has no transcription program either");
   a.deepEqual(S.userText("ASR_MODEL_MISSING"), { zh: JJ.model.zh(modelMb()), en: JJ.model.en(modelMb()) });
