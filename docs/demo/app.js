@@ -2701,7 +2701,9 @@ async function refreshMediaInfo(list) {
     if (!res.ok) return;
     const { info } = await res.json();
     let changed = false;
-    const unknown = [];
+    const unknown = [], shorter = [];
+    // taken before anything changes: a corrected length and the clips fitted to it are one undo step (Rea, #126)
+    const snap = JSON.stringify({ clips: project.clips, markers: project.markers || [], comps: project.comps || [], media: project.media, seqClips: otherSequenceClips() });
     for (const m of project.media) {
       const i = info && info[m.src];
       if (!i) continue;
@@ -2711,7 +2713,21 @@ async function refreshMediaInfo(list) {
       // starts at 3600 s plays 20 s; Chromium says 3620 s): media-lib.js parseProbe / serverDuration
       const d = MediaLib.serverDuration(m, i);
       if (d.changed) changed = true;
+      if (d.length) shorter.push(m);
       if (d.unknown && !durationUnknownSaid.has(m.src)) { durationUnknownSaid.add(m.src); unknown.push(m); }
+    }
+    // clips placed from the browser's 3620 s (an old project, or dragged in before the server answered) fit the real
+    // length, as a replaced file's clips do (setMediaSource): here, in comps and in the other sequences
+    if (shorter.length) {
+      for (const m of shorter) {
+        MediaLib.fitClips(m, project.clips);
+        for (const comp of project.comps || []) MediaLib.fitClips(m, comp.clips);
+        if (state.compCtx) MediaLib.fitClips(m, state.compCtx.root.clips);
+        for (const sq of SeqLib.others(seqRoot())) MediaLib.fitClips(m, sq.clips);
+      }
+      pushUndo(snap);
+      runtime.compGen = (runtime.compGen || 0) + 1;
+      state.dirtyTimeline = true;
     }
     // nothing says how long it is: tell the user once, in plain words (never 0:00 or NaN)
     if (unknown.length) toast(unknown.length === 1 ? uiText("own.media-duration-unknown", { name: unknown[0].name }) : uiText("own.media-duration-unknown-n", { n: unknown.length }));

@@ -101,7 +101,7 @@ test("an old project: an MKV with its size already saved and the browser's 3620 
   a.equal(ok.duration, 20.4);
   // nothing says the length: unknown, the marker set so it is said once and not asked again
   const none = { kind: "video", src: "/media/c.mkv", size: 1 };
-  a.deepEqual(MediaLib.serverDuration(none, { durationUnknown: true }), { changed: true, unknown: true });
+  a.deepEqual(MediaLib.serverDuration(none, { durationUnknown: true }), { changed: true, unknown: true, length: false });
   a.equal(none.duration, undefined); a.equal(MediaLib.needsInfo(none), false);
 });
 

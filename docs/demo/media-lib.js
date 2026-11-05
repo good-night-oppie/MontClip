@@ -77,17 +77,33 @@
     return matroska(m) || !(Number.isFinite(m.duration) && m.duration > 0);
   }
   /** Take the server's length (info from parseProbe) into the entry: where the browser has none, or one more than a second
-   *  longer (an MKV's start counted). Marks entries asked for their length so they are asked once. → {changed, unknown} */
+   *  longer (an MKV's start counted). Marks entries asked for their length so they are asked once.
+   *  → {changed, unknown, length} — length: the entry's length itself changed (its clips then need fitClips) */
   function serverDuration(m, info) {
-    const out = { changed: false, unknown: false };
+    const out = { changed: false, unknown: false, length: false };
     if (!timed(m) || !info) return out;
     const known = Number.isFinite(m.duration) && m.duration > 0;
-    if (info.duration > 0 && (!known || m.duration - info.duration > 1)) { m.duration = info.duration; out.changed = true; }
+    if (info.duration > 0 && (!known || m.duration - info.duration > 1)) { m.duration = info.duration; out.changed = out.length = true; }
     else if (info.durationUnknown && !known) out.unknown = true;
     if ((info.duration > 0 || info.durationUnknown) && !m.durationChecked && (matroska(m) || !(Number.isFinite(m.duration) && m.duration > 0) || out.unknown)) {
       m.durationChecked = true; out.changed = true;
     }
     return out;
+  }
+  /** Fit the clips of media m into its length, as a replaced file's clips are (in + duration×speed ≤ m.duration; a linked
+   *  sound shares the media and its timing, so it fits the same). Pictures are left alone. → how many edges moved */
+  function fitClips(m, clips) {
+    let trimmed = 0;
+    if (!timed(m) || !(m.duration > 0)) return 0;
+    for (const c of clips || []) {
+      if (c.mediaId !== m.id || c.kind === "image" || c.kind === "svg") continue;
+      const speed = (c.props && +c.props.speed) || 1;
+      const maxIn = Math.max(0, m.duration - 0.001);
+      if ((+c.in || 0) > maxIn) { c.in = maxIn; trimmed++; }
+      const maxDur = Math.max(0.05, (m.duration - (+c.in || 0)) / speed);
+      if (c.duration > maxDur + 1e-6) { c.duration = maxDur; trimmed++; }
+    }
+    return trimmed;
   }
 
   /** ffprobe -show_format -show_streams -of json output → the INFO_KEYS (+ duration,
@@ -378,7 +394,7 @@
   return {
     KINDS, INFO_KEYS, SORT_KEYS, MAX_TAGS,
     srcName, relinkScore, kindFromName,
-    parseProbe, needsInfo, serverDuration, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
+    parseProbe, needsInfo, serverDuration, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
     STANDARD_FPS, standardFps, sourceCanvas, canvasFollowsSource,
     normalizeTags, allTags, normalizeCollections,
     placements, usageCounts,
