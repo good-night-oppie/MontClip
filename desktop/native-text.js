@@ -57,7 +57,21 @@ const TEXT = {
 };
 /** The language in a view-settings read ({ok, value:{language}}); Chinese when it can't be told. */
 const languageOf = (read) => (read && read.value && read.value.language === 'en' ? 'en' : 'zh-CN');
-Object.assign(TEXT["zh-CN"],{"seedOk": "好", "seedConflictTitle": "AI 先停用了", "seedConflict": "包里带的 AI 服务设置，和这台电脑上已经保存的不一样，所以先暂停使用 AI。剪辑照常能用。\n想改用包里的设置：在助手面板点「AI 服务」，再点「删除这个连接」，然后关掉 MontClip 再打开。\n不想替换你现在的设置：请联系给你这个包的人。"});
-Object.assign(TEXT["en"],{"seedOk": "OK", "seedConflictTitle": "AI is paused for now", "seedConflict": "The AI service settings that came with this package don't match the ones saved on this computer, so the AI is paused for now. Editing works as usual.\nTo use the package's settings: in the assistant panel click “AI service”, then “Remove this connection”, then close MontClip and open it again.\nTo keep your current settings instead: contact the person who gave you this package."});
+// The button names in these two come from the buttons' own text (ui-preferences.js officialPane_config /
+// officialPane_removeConnection), so they are always the names on screen. JJ's final copy, 2026-11-05; Chinese button
+// names in 〔〕.
+{
+  const ui = require('../ui-preferences').text, zh = ui['zh-CN'], en = ui.en;
+  const zhConfig = '〔' + zh.officialPane_config + '〕', zhRemove = '〔' + zh.officialPane_removeConnection + '〕';
+  const enConfig = '“' + en.officialPane_config + '”', enRemove = '“' + en.officialPane_removeConnection + '”';
+  Object.assign(TEXT["zh-CN"], { seedOk: "好", seedConflictTitle: "AI 先停用了",
+    seedConflict: "包里带的 AI 服务设置，和这台电脑上已经保存的不一样，所以先暂停使用 AI。剪辑照常能用。\n想改用包里的设置：在助手面板点" + zhConfig + "，再点" + zhRemove + "，然后关掉 MontClip 再打开。\n不想替换你现在的设置：请联系给你这个包的人。",
+    // a sealing that failed and could not be undone (agent-seed.js VERIFY_FAILED_NOT_UNDONE, then SEAL_FAILED_LEFTOVER on
+    // every launch until it is removed; QQ on #131). 「会自动重新存一次」 is checked in test/agent-seed.test.js.
+    seedSealFailed: "包里带的 DeepSeek 密钥第一次没存好，电脑上还留着一份不完整的 AI 服务设置，所以先暂停了 AI。剪辑照常能用，包里那份密钥也还在。\n要修好：在助手面板点" + zhConfig + "→" + zhRemove + "，再关掉 MontClip 重新打开，会自动重新存一次。还不行，请联系给你这个包的人。" });
+  Object.assign(TEXT.en, { seedOk: "OK", seedConflictTitle: "AI is paused for now",
+    seedConflict: "The AI service settings that came with this package don't match the ones saved on this computer, so the AI is paused for now. Editing works as usual.\nTo use the package's settings: in the assistant panel click " + enConfig + ", then " + enRemove + ", then close MontClip and open it again.\nTo keep your current settings instead: contact the person who gave you this package.",
+    seedSealFailed: "The DeepSeek key that came with this package wasn't saved properly the first time, and incomplete AI service settings were left on this computer, so the AI is paused for now. Editing works as usual, and the package's key is still there.\nTo fix it: in the assistant panel click " + enConfig + " → " + enRemove + ", then close MontClip and open it again. It will save the key again automatically. If that doesn't help, contact whoever gave you this package." });
+}
 const nativeText = (language) => TEXT[language === 'en' ? 'en' : 'zh-CN'];
 module.exports = { nativeText, languageOf, TEXT };

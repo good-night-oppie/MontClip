@@ -120,6 +120,6 @@ test('only the selected clips: the others, their highlights and their left-out c
  a.equal(Facts.omitted(doc,{selected:['c_v1']}),0);a.equal(Facts.omitted(doc,{selected:['C:/Users/主播/a.mp4']}),1);
  // the editor asks for the selected clips, for the facts and for the left-out count
  const app=read('app.js');
- a.ok(app.includes('getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{selected:selectedClips().map(c=>c.id),'));
+ a.ok(app.includes('getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts,s=runtime.soundFacts;return MontClipFacts.build(doc,{selected:selectedClips().map(c=>c.id),'));
  a.ok(app.includes('getFactsOmitted:()=>MontClipFacts.omitted(projectJSON(),{selected:selectedClips().map(c=>c.id)}),'));
 });

@@ -263,7 +263,7 @@ test('sealing in order — read back not the same: the connection file removed a
   a.equal(fs.existsSync(seed), true, 'the seed is kept for the next launch');
   // and main says it in plain words, never the key
   const main = fs.readFileSync(path.join(__dirname, '..', 'desktop', 'main.js'), 'utf8');
-  a.ok(main.includes("VERIFY_FAILED: 'seedFailed', VERIFY_FAILED_NOT_UNDONE: 'seedConflict'"));
+  a.ok(main.includes("VERIFY_FAILED: 'seedFailed', VERIFY_FAILED_NOT_UNDONE: 'seedSealFailed'"));
   // the read-back is the main process's own: not one of the page's operations
   a.ok(main.includes("for(const operation of ['get','configure','reset','deleteConnection','send','cancel']) ipcMain.handle('montclip:agent:'+operation,"));
 });
@@ -281,7 +281,7 @@ test('failed verification and failed rollback: a fresh launch preserves the reco
   const restart = AgentService.createDiskService(profile, safe, blocked);
   const result = Seed.importSeed({ file: seed, service: restart, encryptionAvailable: () => true });
   a.equal(fs.existsSync(seed), true, 'restart must not delete the last recovery copy');
-  a.equal(result.code, 'SEED_CONFLICT', 'a different saved connection is not successful seed import');
+  a.equal(result.code, 'SEAL_FAILED_LEFTOVER', 'the leftover of the failed sealing is not successful seed import, nor her own connection');
   a.equal(restart.get().configured, false, 'a restart still cannot advertise verified setup');
   a.equal(restart.get().code, 'SEED_CONFLICT');
   const request = {version:1,requestId:'conflict-send',projectId:'p',sequenceId:null,revision:0,gen:0,messages:[{role:'user',content:'synthetic'}]};
@@ -308,6 +308,86 @@ test('failed verification and failed rollback: a fresh launch preserves the reco
   a.deepEqual(holding(profile), []);
   const main = fs.readFileSync(path.join(__dirname, '..', 'desktop', 'main.js'), 'utf8');
   a.ok(main.includes("SEED_CONFLICT: 'seedConflict'"), 'a conflict has its own recovery instructions');
+});
+
+// QQ on #131 (head 296d4d4a): a connection that a failed rollback left behind is not a connection she chose. On the next
+// launch it is reported as a failed sealing (SEAL_FAILED_LEFTOVER), never as set up, and the seed stays; only a connection
+// that is not that leftover (she set up another one herself) is SEED_CONFLICT. Neither ever deletes the seed.
+test('across two launches: verify mismatch + rollback EPERM, then the next launch keeps the seed and reports a failed sealing', () => {
+  const profile = tmp(), resources = tmp(), seed = writeSeed(resources), safe = sealing(true);
+  const expected = Seed.parseSeed(fs.readFileSync(seed, 'utf8')), before = fs.readFileSync(seed, 'utf8');
+  const connection = path.join(profile, 'agent-connection-v1.json');
+  const blocked = { ...fs, unlinkSync(p) { if (p === connection) throw Object.assign(Error('EPERM'), { code: 'EPERM' }); return fs.unlinkSync(p); } };
+  const wrongSeal = { ...safe, encryptString: () => safe.encryptString('synthetic-wrong-key') };
+  const first = AgentService.createDiskService(profile, wrongSeal, blocked);
+  a.equal(Seed.importSeed({ file: seed, service: first, encryptionAvailable: () => true }).code, 'VERIFY_FAILED_NOT_UNDONE');
+  a.equal(fs.existsSync(connection), true, 'the leftover connection could not be removed');
+  // the second launch: a fresh service, the file system working again for the seed
+  const second = AgentService.createDiskService(profile, safe);
+  a.equal(second.get().configured, true, 'on its own the leftover file looks like a saved connection');
+  const result = Seed.importSeed({ file: seed, service: second, encryptionAvailable: () => true });
+  a.equal(result.code, 'SEAL_FAILED_LEFTOVER', 'a failed sealing, not ALREADY_CONFIGURED and not her own other connection');
+  a.equal(fs.readFileSync(seed, 'utf8'), before, 'the seed, the last recovery copy, is kept as it was');
+  a.equal(second.get().configured, false, 'never shown as set up');
+  a.equal(second.matches(expected), false);
+  a.deepEqual(holding(profile), []); a.deepEqual(holding(resources), [Seed.SEED_NAME], 'the leftover record holds no key');
+  // a third launch says the same: nothing was consumed
+  a.equal(Seed.importSeed({ file: seed, service: AgentService.createDiskService(profile, safe), encryptionAvailable: () => true }).code, 'SEAL_FAILED_LEFTOVER');
+  a.equal(fs.readFileSync(seed, 'utf8'), before);
+  // she removes the leftover (as the dialog says) and restarts: the seed is sealed, and nothing of the leftover stays
+  a.equal(AgentService.createDiskService(profile, safe).deleteConnection().code, 'CONNECTION_DELETED');
+  const recovered = AgentService.createDiskService(profile, safe);
+  a.equal(Seed.importSeed({ file: seed, service: recovered, encryptionAvailable: () => true }).code, 'SEALED');
+  a.equal(recovered.matches(expected), true);
+  a.deepEqual(fs.readdirSync(resources), [], 'the seed and the leftover record are both gone');
+  const main = fs.readFileSync(path.join(__dirname, '..', 'desktop', 'main.js'), 'utf8');
+  a.ok(main.includes("SEAL_FAILED_LEFTOVER: 'seedSealFailed'"), 'its own words: the sealing failed');
+});
+
+// JJ's seedSealFailed promises 「会自动重新存一次」 / "It will save the key again automatically" (2026-11-05): that is only
+// true if removing the connection from the paused app, then opening MontClip again, seals the seed and clears the leftover.
+test('SEAL_FAILED_LEFTOVER → 〔删除这个连接〕 in that same paused run → reopen: the seed is sealed again, AI set up, seed and .leftover gone', () => {
+  const profile = tmp(), resources = tmp(), seed = writeSeed(resources), safe = sealing(true);
+  const expected = Seed.parseSeed(fs.readFileSync(seed, 'utf8')), leftover = seed + Seed.LEFTOVER_SUFFIX;
+  const connection = path.join(profile, 'agent-connection-v1.json');
+  const blocked = { ...fs, unlinkSync(p) { if (p === connection) throw Object.assign(Error('EPERM'), { code: 'EPERM' }); return fs.unlinkSync(p); } };
+  const wrongSeal = { ...safe, encryptString: () => safe.encryptString('synthetic-wrong-key') };
+  a.equal(Seed.importSeed({ file: seed, service: AgentService.createDiskService(profile, wrongSeal, blocked), encryptionAvailable: () => true }).code, 'VERIFY_FAILED_NOT_UNDONE');
+  // the launch that shows seedSealFailed; the page's 〔删除这个连接〕 calls this same service's deleteConnection()
+  const paused = AgentService.createDiskService(profile, safe);
+  a.equal(Seed.importSeed({ file: seed, service: paused, encryptionAvailable: () => true }).code, 'SEAL_FAILED_LEFTOVER');
+  a.equal(paused.get().configured, false); a.equal(fs.existsSync(leftover), true);
+  a.equal(paused.deleteConnection().code, 'CONNECTION_DELETED');
+  a.equal(fs.existsSync(connection), false);
+  // close MontClip and open it again
+  const reopened = AgentService.createDiskService(profile, safe);
+  a.equal(Seed.importSeed({ file: seed, service: reopened, encryptionAvailable: () => true }).code, 'SEALED');
+  a.equal(reopened.get().configured, true, 'the AI is set up');
+  a.equal(reopened.get().code, null);
+  a.equal(reopened.matches(expected), true, 'with the key from the package');
+  a.equal(fs.existsSync(seed), false, 'the seed is gone'); a.equal(fs.existsSync(leftover), false, 'the .leftover is gone');
+  a.deepEqual(fs.readdirSync(resources), []); a.deepEqual(holding(profile), []);
+  // and a further launch has nothing left to do
+  a.equal(Seed.importSeed({ file: seed, service: AgentService.createDiskService(profile, safe), encryptionAvailable: () => true }).code, 'NO_SEED');
+});
+
+test('a different connection she set up herself (not a leftover): SEED_CONFLICT, its own code; the seed kept, AI paused', () => {
+  const profile = tmp(), resources = tmp(), seed = writeSeed(resources), safe = sealing(true), before = fs.readFileSync(seed, 'utf8');
+  const own = AgentService.createDiskService(profile, safe);
+  a.equal(own.configure({ provider: 'deepseek', model: 'synthetic-own-model', apiKey: 'sk-synthetic-own-key' }).ok, true);
+  const launch = AgentService.createDiskService(profile, safe);
+  a.equal(Seed.importSeed({ file: seed, service: launch, encryptionAvailable: () => true }).code, 'SEED_CONFLICT');
+  a.equal(fs.readFileSync(seed, 'utf8'), before); a.equal(launch.get().configured, false); a.equal(launch.get().code, 'SEED_CONFLICT');
+  // a leftover record from an earlier failure does not turn her own, later connection into a leftover
+  const profile2 = tmp(), resources2 = tmp(), seed2 = writeSeed(resources2);
+  const connection2 = path.join(profile2, 'agent-connection-v1.json');
+  const blocked = { ...fs, unlinkSync(p) { if (p === connection2) throw Object.assign(Error('EPERM'), { code: 'EPERM' }); return fs.unlinkSync(p); } };
+  const wrongSeal = { ...safe, encryptString: () => safe.encryptString('synthetic-wrong-key') };
+  a.equal(Seed.importSeed({ file: seed2, service: AgentService.createDiskService(profile2, wrongSeal, blocked), encryptionAvailable: () => true }).code, 'VERIFY_FAILED_NOT_UNDONE');
+  fs.unlinkSync(connection2);   // removed by hand, then she sets up her own
+  a.equal(AgentService.createDiskService(profile2, safe).configure({ provider: 'deepseek', model: 'synthetic-own-model', apiKey: 'sk-synthetic-own-key' }).ok, true);
+  a.equal(Seed.importSeed({ file: seed2, service: AgentService.createDiskService(profile2, safe), encryptionAvailable: () => true }).code, 'SEED_CONFLICT');
+  a.equal(fs.existsSync(seed2), true);
 });
 
 test('a wiped seed that could not be deleted stays a cleanup task on later launches', () => {

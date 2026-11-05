@@ -4,10 +4,17 @@
    clips      — each shot (a video clip, or an audio clip that is not the sound of a video): its media length and the
                 part of the media it shows, in source seconds; where it starts on the timeline.
    highlights — highlight candidates already found in this session, moved to source seconds of the clip they fall in.
-   Song sections are not sent: projects have no song data yet (finding songs is a later capability).
    selected   — the 「AI 数据说明」 says only the clips she selected are sent (JJ v5; QQ via Deja, 2026-11-04): given a list
-                of clip ids, only those shots (and the highlights inside them) are sent, and none when nothing is selected. */
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./captions'));else root.MontClipFacts=factory(root.MontClipCaptions);})(typeof globalThis!=='undefined'?globalThis:this,function(C){
+                of clip ids, only those shots (and the highlights inside them) are sent, and none when nothing is selected.
+   singing    — the parts that may be singing (JJ via Deja, 2026-11-05): the songs the 「✨ 自动出切片」 「唱歌」 scan found
+                (songs.js, /api/songs), inside the part each clip shows, as {clipId, from, to} in source seconds. Only for
+                recordings already scanned; nothing else about a song (its marks, its confidence) is sent.
+   loudness   — how loud each clip is, one 0–100 value every second or every few seconds (the server's RMS levels, signals.js, every 0.5 s, joined
+                by power to whole seconds): 0 is −60 dBFS or quieter, 100 is full scale. When the clips together are longer
+                than the cap (capabilities.js FACTS.loudnessValues), each value covers `step` seconds instead, the same
+                step for every clip, so the total fits. {clipId, from, step, values}: value i covers from + i·step.
+   Neither carries the sound itself. Over a cap (capabilities.js FACTS) build() refuses with FACTS_LIMIT. */
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./captions'),()=>require('./capabilities'));else root.MontClipFacts=factory(root.MontClipCaptions,()=>root.MontClipCapabilities);})(typeof globalThis!=='undefined'?globalThis:this,function(C,Caps){
 'use strict';
 const MAX_CLIPS=30,MAX_HIGHLIGHTS=12;
 const r2=x=>Math.round(x*100)/100;
@@ -40,12 +47,79 @@ function toSource(list,from,to){
  const m=t=>r2(hit.inPoint+(t-hit.clip.start)*hit.speed);
  return {clipId:hit.clip.id,from:m(from),to:m(to)};
 }
-function build(doc,{highlights=[],selected}={}){
- const list=shots(doc,selected),out={clips:list.slice(0,MAX_CLIPS).map(s=>s.entry)};
+const FLOOR_DB=-60;
+/** A dBFS level → 0–100: 0 at FLOOR_DB or quieter, 100 at full scale. */
+const level=db=>Math.max(0,Math.min(100,Math.round((db-FLOOR_DB)/-FLOOR_DB*100)));
+/** The power mean of the 0.5 s levels (dBFS) in [from, to) seconds of the file; null when none was read there. */
+function meanDb(values,step,from,to){
+ let acc=0,n=0;
+ for(let i=Math.max(0,Math.floor(from/step+1e-9));i<values.length&&i*step<to-1e-9;i++){const v=values[i];if(typeof v==='number'&&Number.isFinite(v)){acc+=Math.pow(10,v/10);n++;}}
+ return n?10*Math.log10(acc/n):null;
+}
+const usable=s=>s&&Number.isFinite(s.step)&&s.step>0&&Array.isArray(s.values);
+/** The loudness entries: one step for every clip, the smallest whole number of seconds whose values fit the cap. */
+function loudnessOf(entries,sound,cap){
+ const withSound=entries.filter(e=>usable(sound[e.mediaId]?.loudness)&&e.to>e.from);
+ if(!withSound.length)return [];
+ const count=step=>withSound.reduce((n,e)=>n+Math.ceil((e.to-e.from)/step-1e-9),0);
+ let step=Math.max(1,Math.ceil(withSound.reduce((n,e)=>n+e.to-e.from,0)/cap));
+ while(count(step)>cap)step++;
+ return withSound.map(e=>{const L=sound[e.mediaId].loudness,values=[];
+  for(let t=e.from;t<e.to-1e-9;t+=step){const db=meanDb(L.values,L.step,t,Math.min(e.to,t+step));if(db===null)break;values.push(level(db));}
+  return {clipId:e.clipId,from:e.from,step,values};}).filter(e=>e.values.length);
+}
+/** The parts that may be singing, inside the part each clip shows (source seconds), in clip order. */
+function singingOf(entries,sound){
+ const out=[];
+ for(const e of entries){const songs=sound[e.mediaId]?.songs;if(!Array.isArray(songs))continue;
+  for(const s of songs){if(!s||!Number.isFinite(s.from)||!Number.isFinite(s.to))continue;const from=Math.max(e.from,s.from),to=Math.min(e.to,s.to);if(to-from>=0.5)out.push({clipId:e.clipId,from:r2(from),to:r2(to)});}}
+ return out;
+}
+/** Throws FACTS_LIMIT when the facts carry more than capabilities.js allows (refused, never cut down). */
+function check(facts,caps=Caps().FACTS){
+ const L=facts.loudness||[],values=L.reduce((n,e)=>n+e.values.length,0),seconds=L.reduce((n,e)=>n+e.values.length*e.step,0);
+ if((facts.singing||[]).length>caps.singingParts||values>caps.loudnessValues||seconds>caps.loudnessSeconds+(L[0]?.step||0)*L.length)throw Error('FACTS_LIMIT');
+ return facts;
+}
+/** What the review box lists, in plain numbers: how many singing parts, how long together, how many loudness values and
+ *  how many seconds each covers; null when the facts carry neither. */
+function soundSummary(facts){
+ if(!facts||!(facts.singing||facts.loudness))return null;
+ const S=facts.singing||[],L=facts.loudness||[];
+ return {parts:S.length,seconds:r2(S.reduce((n,s)=>n+s.to-s.from,0)),values:L.reduce((n,e)=>n+e.values.length,0),step:L[0]?L[0].step:0};
+}
+/* A message that asks about the sound — the quiet part, where the singing starts (QQ on #169): when the sound numbers are
+   switched off in 设置, the pane says so above the reply, deterministically, from the message's words. */
+const SOUND_WORDS=/安静|静音|没声音|没有声音|开口|开始唱|唱之前|前奏|唱歌|停顿|\bsilen|\bquiet|\bsing(s|ing)?\b|\bpause/i;
+const asksAboutSound=text=>typeof text==='string'&&SOUND_WORDS.test(text);
+/** Are the clips whose sound is known longer than FACTS.loudnessSeconds (8 h) together? Then build() attaches neither. */
+function tooLong(doc,sound,caps=Caps().FACTS,selected){
+ if(!sound||typeof sound!=='object')return false;
+ return shots(doc,selected).slice(0,MAX_CLIPS).filter(s=>sound[s.clip.mediaId]?.loudness||sound[s.clip.mediaId]?.songs).reduce((n,s)=>n+s.entry.to-s.entry.from,0)>caps.loudnessSeconds;
+}
+/** sound: {[mediaId]: {loudness: {step, values: dBFS[]}, songs: [{from, to}] | null}} — what the server has for each file. */
+function build(doc,{highlights=[],sound=null,selected}={}){
+ const list=shots(doc,selected),sent=list.slice(0,MAX_CLIPS),out={clips:sent.map(s=>s.entry)};
  const hl=highlights.filter(h=>Number.isFinite(h.from)&&Number.isFinite(h.to)&&h.to>h.from).slice(0,MAX_HIGHLIGHTS)
   .map(h=>{const s=toSource(list,h.from,h.to);return s&&{...s,score:Number.isFinite(h.score)?r2(h.score):null};}).filter(Boolean);
  if(hl.length)out.highlights=hl;
+ if(sound&&typeof sound==='object'){
+  const entries=sent.map(s=>({clipId:s.entry.clipId,mediaId:s.clip.mediaId,from:s.entry.from,to:s.entry.to})),caps=Caps().FACTS;
+  // longer than the cap altogether (JJ定稿, 2026-11-05): neither is attached this time, the rest is sent; the review box
+  // says so (tooLong). Never cut down.
+  if(!tooLong(doc,sound,caps,selected)){
+   const singing=singingOf(entries,sound),loudness=loudnessOf(entries,sound,caps.loudnessValues);
+   if(singing.length)out.singing=singing;
+   if(loudness.length)out.loudness=loudness;
+  }
+ }
+ return check(out);
+}
+/** The media whose sound numbers build() would use (the clips it sends): [{mediaId, src}]. */
+function soundMedia(doc){
+ const media=new Map((doc.media||[]).map(m=>[m.id,m])),seen=new Set(),out=[];
+ for(const s of shots(doc).slice(0,MAX_CLIPS)){const m=media.get(s.clip.mediaId);if(m&&typeof m.src==='string'&&!seen.has(m.id)){seen.add(m.id);out.push({mediaId:m.id,src:m.src});}}
  return out;
 }
-return {build,omitted,SHORT_ID};
+return {build,check,tooLong,omitted,soundMedia,soundSummary,asksAboutSound,level,SHORT_ID};
 });

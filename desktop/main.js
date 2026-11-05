@@ -16,6 +16,8 @@ const smoke = !app.isPackaged && process.argv.includes("--montclip-smoke");
 const faultTest = smoke && (process.argv.includes("--close-crash") ? "crash" : process.argv.includes("--close-timeout") ? "timeout" : null);
 
 app.enableSandbox();
+// Linux: the system keyring for the saved AI key, unless the user chose a --password-store (desktop/password-store.js).
+{ const store = require("./password-store").passwordStoreSwitch(); if (store) app.commandLine.appendSwitch("password-store", store); }
 app.setName("MontClip");
 if (!app.requestSingleInstanceLock()) app.exit(0);
 app.on("second-instance", () => { if (win && !win.isDestroyed()) { win.restore(); win.focus(); } });
@@ -260,10 +262,10 @@ async function start() {
     const seedFile = app.isPackaged ? path.join(process.resourcesPath, AgentSeed.SEED_NAME) : (process.env.MONTCLIP_SEED_FILE || null);
     const seeded = seedFile ? AgentSeed.importSeed({ file: seedFile, service: agentService, encryptionAvailable: () => safeStorage.isEncryptionAvailable() }) : { code: 'NO_SEED' };
     if (smoke) process.stdout.write('MONTCLIP_SEED ' + JSON.stringify({ code: seeded.code }) + '\n');
-    const say = { NO_ENCRYPTION: 'seedNoEncryption', CONFIG_FAILED: 'seedFailed', VERIFY_FAILED: 'seedFailed', VERIFY_FAILED_NOT_UNDONE: 'seedConflict', SEED_CONFLICT: 'seedConflict', SEED_INVALID: 'seedInvalid', NOT_DELETED: 'seedNotDeleted' }[seeded.code];
+    const say = { NO_ENCRYPTION: 'seedNoEncryption', CONFIG_FAILED: 'seedFailed', VERIFY_FAILED: 'seedFailed', VERIFY_FAILED_NOT_UNDONE: 'seedSealFailed', SEAL_FAILED_LEFTOVER: 'seedSealFailed', SEED_CONFLICT: 'seedConflict', SEED_INVALID: 'seedInvalid', NOT_DELETED: 'seedNotDeleted' }[seeded.code];
     if (say && !smoke) {
       const t = nativeText(languageOf(settings.get()));
-      dialog.showMessageBox(win, { type: 'warning', title: say === 'seedConflict' ? t.seedConflictTitle : t.seedTitle, message: t[say].replace('{file}', seeded.file || ''), buttons: [t.seedOk], defaultId: 0, noLink: true }).catch(() => {});
+      dialog.showMessageBox(win, { type: 'warning', title: say === 'seedConflict' || say === 'seedSealFailed' ? t.seedConflictTitle : t.seedTitle, message: t[say].replace('{file}', seeded.file || ''), buttons: [t.seedOk], defaultId: 0, noLink: true }).catch(() => {});
     }
   }
   // the 「AI 数据说明」 she read before the first request (desktop/agent-data-notice.js): two fixed operations, same guard

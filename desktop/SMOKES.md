@@ -6,11 +6,14 @@
 electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 ```
 
+Linux 上不用加 `--password-store`：在 Electron 认不出来的桌面上（openbox、VNC、xvfb，没有 `XDG_CURRENT_DESKTOP`），桌面版启动时自己要系统钥匙串；GNOME、KDE 等它认得的桌面照它自己的选择（KDE 用 KWallet）（`desktop/password-store.js`）。用户自己传了的以用户的为准。没有钥匙串（没有 secret service、没有会话 DBUS、没有 libsecret）时照样能启动，保存密钥会被拒绝（`KEY_STORE_UNAVAILABLE`），不会明文写盘。
+
 成功时打印「成功标志」那一行。`test/smokes-current.test.js` 检查这份清单列出了 `desktop/` 里的每一个 smoke。
 
 | 文件 | 成功标志 | 状态 |
 |---|---|---|
 | `agent-close-fault-smoke.cjs` | `MONTCLIP_SESSION_CLOSE_COMPLETE` | 在用 |
+| `agent-config-language-smoke.cjs` | `CONFIG_LANGUAGE_COMPLETE` | 在用（`MONTCLIP_SMOKE_NO_KEYSTORE=1` 时模拟没有钥匙串） |
 | `agent-errors-smoke.cjs` | `ERRORS_PASS` | 在用 |
 | `agent-minimum-smoke.cjs` | `MONTCLIP_MINIMUM_COMPLETE` | 在用 |
 | `agent-modes-smoke.cjs` | `MODES_PASS` | 在用 |
@@ -39,6 +42,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `flv-native-smoke.cjs` | `FLV_NATIVE_COMPLETE` | 在用 |
 | `first-screen-smoke.cjs` | `FIRST_SCREEN_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `highlights-smoke.cjs` | `HIGHLIGHTS_COMPLETE` | 在用 |
+| `highlights-menu-smoke.cjs` | `HIGHLIGHTS_MENU_PASS` | 在用；需要 `MONTCLIP_FFMPEG_DIR` 指向自带的 ffmpeg 目录 |
 | `hidden-smoke.cjs` | `HIDDEN_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `keep-ranges-smoke.cjs` | `KEEP_RANGES_PASS` | 在用 |
 | `lyrics-smoke.cjs` | `LYRICS_PASS` | 在用 |
@@ -65,11 +69,14 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `three-track-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
 | `timeline-content-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
 | `timeline-drag-smoke.cjs` | `MONTCLIP_DRAG_COMPLETE` | 在用 |
+| `tc-io-width-smoke.cjs` | `TC_IO_WIDTH_PASS` | 在用；360 / 630 / 1400px 下中英文控制条高度与 main 一致，入点 / 出点标签不逐字换行 |
 | `toast-more-smoke.cjs` | `TOAST_MORE_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `url-sentence-smoke.cjs` | `URL_SENTENCE_COMPLETE` | 在用 |
 | `zh-batch3-smoke.cjs` | `ZH3_COMPLETE` | 在用 |
 | `zh-batch4-smoke.cjs` | `ZH4_PASS` | 在用 |
 | `zh-batch5-smoke.cjs` | `ZH5_PASS` | 在用 |
+| `zh-batch6-smoke.cjs` | `ZH6_PASS` | 在用 |
+| `zh-batch7-smoke.cjs` | `ZH7_PASS` | 在用 |
 | `zh-terms-smoke.cjs` | `TERMS_COMPLETE` | 在用 |
 | `zh-transcript-smoke.cjs` | `TR_PASS` | 在用 |
 | `seed-conflict-smoke.cjs` | `SEED_CONFLICT_PASS` | 在用；合成密钥、离屏窗口；中英文冲突提示、禁止发送、保留删除入口 |
