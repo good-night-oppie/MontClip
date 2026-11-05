@@ -372,6 +372,25 @@ const TOOLS = [
     },
   },
   {
+    name: "fablecut_blur_region",
+    description: "Cover an area of a clip's picture in one step — a co-host's window, viewers' names, a licence plate. The area is drawn over with a mosaic (default; a light blur can leave text readable) or a blur, from the clip's own pixels, in preview and export alike. It FOLLOWS THE CLIP: it is laid on the clip's original frame and drawn with the picture, so when the clip is zoomed, moved, pushed in with keyframes, sped up or cropped it stays on the same part of the footage — no keys to write. rect uses MASK COORDINATES: x, y, w, h are 0…1 of the clip's original frame (the whole source frame, before crop, scale and position), origin top-left, x, y the TOP-LEFT corner — read them off fablecut_frame {path, t} of the source, not off the timeline. Stored on the clip as props.covers (up to 16). Pass remove (an index, a name or \"all\") to take covers off. Locked clips are refused unless force:true. Check the result with fablecut_frame {time}. Video, image, svg and comp clips.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        clipId: { type: "string", description: "The clip to cover an area of (video, image, svg or comp)" },
+        rect: { type: "object", description: "The area: x, y = its top-left corner, w, h = its size, all 0…1 of the clip's original frame (the whole source frame, before crop, scale and position)",
+          properties: { x: { type: "number" }, y: { type: "number" }, w: { type: "number" }, h: { type: "number" } }, required: ["x", "y", "w", "h"] },
+        strength: { type: "number", description: "1…100 (default 60): bigger mosaic blocks / a stronger blur" },
+        style: { type: "string", enum: ["mosaic", "blur"], description: "mosaic (default) or blur" },
+        name: { type: "string", description: "A label, e.g. \"co-host\" or \"names\"; a name that is already there replaces that area" },
+        remove: { description: "Instead of adding: take a cover off — its index (0 = first), its name, or \"all\"" },
+        force: { type: "boolean", description: "Edit a locked clip — only when the user asked" },
+        baseRevision: { type: "number", description: "Optional: refuse with CONFLICT if the project moved past this revision" },
+      },
+      required: ["clipId"],
+    },
+  },
+  {
     name: "fablecut_track",
     description: "Follow something in a video clip frame by frame (motion tracking, in the editor: an open tab, else headless Chrome / Edge) and store it on the clip as a named track (props.tracks). Then, in the same call, make a mask follow it (apply:{mask}) or pin another clip to it (apply:{clip} — a title, sticker, blur box… its x / y, and optionally scale / rotation, get keyframes that ride on the track, keeping where it is at `at`). What to follow: region {x, y, w, h} or point {x, y} (+ size), as fractions of the clip's picture (0…1, y down) at time `at`; or leave both out with apply:{mask} to follow what that mask covers. To re-apply an existing track, pass its name with apply and no region. Pick something with detail (a corner, a logo, text, an eye), not a flat area; the result reports match quality (≥ 0.8 is solid) and where the region was lost, if it was. Check the outcome with fablecut_scopes or by looking at the keyed clip.",
     inputSchema: {

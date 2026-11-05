@@ -249,4 +249,91 @@ test("render geometry: crop, masks and transforms land where documented — fabl
   assertTitle(boxes(await rgbOf(file, Math.round(TITLE_AT * FPS))), "export · title card");
 });
 
+/* ── Covered areas (props.covers, fablecut_blur_region): where a cover is, the stripes of a striped source are
+   gone (flat grey); everywhere else they remain. A cover on a clip pushed in with keys, at the push's start,
+   middle and end, and a blur cover on a cropped clip — on both render paths. ── */
+function runFf(args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(ffmpegBin(), args, { stdio: ["ignore", "pipe", "pipe"] });
+    const out = [], err = [];
+    child.stdout.on("data", (c) => out.push(c)); child.stderr.on("data", (c) => err.push(c));
+    child.on("error", reject);
+    child.on("close", (code) => code === 0 ? resolve(Buffer.concat(out)) : reject(new Error(Buffer.concat(err).toString())));
+  });
+}
+const coverRgb = (file, n) => runFf(["-hide_banner", "-loglevel", "error", "-i", file,
+  ...(n == null ? ["-vf", `scale=${W}:${H}`] : ["-vf", `select=eq(n\\,${n}),scale=${W}:${H}`, "-fps_mode", "passthrough"]),
+  "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]);
+/** The box of "flat mid-grey" pixels: where the stripes were covered (black canvas and the stripes are not flat grey). */
+function flatBox(rgb) {
+  const L = new Float32Array(W * H);
+  for (let i = 0; i < W * H; i++) L[i] = (rgb[i * 3] + rgb[i * 3 + 1] + rgb[i * 3 + 2]) / 3;
+  const b = { x0: W, y0: H, x1: -1, y1: -1 };
+  for (let y = 0; y < H; y++) for (let x = 6; x < W - 6; x++) {
+    const v = L[y * W + x];
+    if (v < 60 || v > 200) continue;
+    let lo = 255, hi = 0;
+    for (let k = -6; k <= 6; k++) { const q = L[y * W + x + k]; if (q < lo) lo = q; if (q > hi) hi = q; }
+    if (hi - lo > 40) continue;
+    if (x < b.x0) b.x0 = x; if (y < b.y0) b.y0 = y; if (x > b.x1) b.x1 = x; if (y > b.y1) b.y1 = y;
+  }
+  return b.x1 < 0 ? null : { x0: b.x0, y0: b.y0, x1: b.x1 + 1, y1: b.y1 + 1 };
+}
+const lerpK = (k, t, d) => { if (!k) return d; if (t <= k[0].t) return k[0].v; if (t >= k[k.length - 1].t) return k[k.length - 1].v;
+  for (let i = 1; i < k.length; i++) if (t <= k[i].t) return k[i - 1].v + (k[i].v - k[i - 1].v) * (t - k[i - 1].t) / (k[i].t - k[i - 1].t); return d; };
+/** Where clip c's cover lands at time t (independent model: crop → fit contain → scale → x / y; covers on the original frame). */
+function expectedCover(c, t) {
+  const p = c.props, k = c.keyframes || {}, lt = t - c.start, s = lerpK(k.scale, lt, 1), x = lerpK(k.x, lt, 0), y = lerpK(k.y, lt, 0);
+  const L = (p.cropL || 0) / 100, R = (p.cropR || 0) / 100, T = (p.cropT || 0) / 100, B = (p.cropB || 0) / 100;
+  const cw = W * (1 - L - R), ch = H * (1 - T - B), f = Math.min(W / cw, H / ch) * s, dw = cw * f, dh = ch * f;
+  const left = W / 2 + x - dw / 2, top = H / 2 + y - dh / 2, fl = left - L * W * f, ft = top - T * H * f;
+  const cv = p.covers[0];
+  const r = { x0: Math.max(left, fl + cv.x * W * f), y0: Math.max(top, ft + cv.y * H * f),
+    x1: Math.min(left + dw, fl + (cv.x + cv.w) * W * f), y1: Math.min(top + dh, ft + (cv.y + cv.h) * H * f) };
+  return { x0: Math.max(0, r.x0), y0: Math.max(0, r.y0), x1: Math.min(W, r.x1), y1: Math.min(H, r.y1) };
+}
+function nearBox(got, want, what) {
+  assert.ok(got, `${what}: nothing covered, expected ${JSON.stringify(want)}`);
+  for (const [k, tol] of [["x0", W * 0.01], ["x1", W * 0.01], ["y0", H * 0.01], ["y1", H * 0.01]])
+    assert.ok(Math.abs(got[k] - want[k]) <= tol, `${what}: ${k} ${got[k]}, expected ${want[k].toFixed(1)} ±${tol} (got ${JSON.stringify(got)})`);
+}
+const COVER_CASES = [
+  { id: "c_push", start: 0, duration: 2, samples: [0, 1, 1.9],
+    props: { covers: [{ x: 0.55, y: 0.55, w: 0.2, h: 0.2 }] },
+    keyframes: { scale: [{ t: 0, v: 1 }, { t: 1.9, v: 2, ease: "linear" }], x: [{ t: 0, v: 0 }, { t: 1.9, v: -120, ease: "linear" }],
+      y: [{ t: 0, v: 0 }, { t: 1.9, v: -60, ease: "linear" }] } },
+  { id: "c_cropped", start: 2, duration: 1, samples: [2.5],
+    props: { cropL: 30, cropT: 20, covers: [{ x: 0.2, y: 0.3, w: 0.3, h: 0.25, style: "blur", strength: 80 }] } },
+];
+
+test("a covered area hides the picture there and follows the clip — fablecut_frame still and Fast export", { skip: SKIP, timeout: 900_000 }, async (t) => {
+  const dir = makeDataDir(t, { name: "x", width: W, height: H, fps: FPS, revision: 0, media: [], clips: [] });
+  fs.mkdirSync(path.join(dir, "media"), { recursive: true });
+  // vertical black / white stripes, 8 px each: nothing flat anywhere until something covers it
+  await runFf(["-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", `color=c=black:s=${W}x${H}:r=${FPS}:d=10`,
+    "-vf", "geq=lum='if(lt(mod(X,16),8),235,16)':cb=128:cr=128", "-c:v", "libvpx-vp9", "-pix_fmt", "yuv420p", "-crf", "12", "-b:v", "0",
+    "-deadline", "realtime", "-cpu-used", "8", "-g", String(FPS), "-f", "mp4", path.join(dir, "media", "stripes.mp4")]);
+  const doc = { name: "Covers", width: W, height: H, fps: FPS, revision: 1, maskSchema: 2, background: "#000000",
+    media: [{ id: "m_s", name: "stripes.mp4", kind: "video", src: "/media/stripes.mp4", duration: 10, width: W, height: H }],
+    clips: COVER_CASES.map((cs) => ({ id: cs.id, mediaId: "m_s", kind: "video", track: "V1", start: cs.start, in: 0, duration: cs.duration,
+      props: { volume: 0, ...cs.props }, ...(cs.keyframes ? { keyframes: cs.keyframes } : {}) })) };
+  fs.writeFileSync(path.join(dir, "project.json"), JSON.stringify(doc));
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1" });
+  const poll = async (id) => { for (;;) { const j = await (await fetch(base + "/api/export/job?id=" + id)).json();
+    if (j.status === "done") return j; if (/failed|cancelled/.test(j.status)) throw new Error(j.error); await new Promise((r) => setTimeout(r, 200)); } };
+  for (const cs of COVER_CASES) for (const ts of cs.samples) {
+    const j = await poll((await (await fetch(base + "/api/scopes/request", { method: "POST", body: JSON.stringify({ time: ts, image: true, where: "headless" }) })).json()).id);
+    const jpg = path.join(dir, `s${ts}.jpg`);
+    fs.writeFileSync(jpg, Buffer.from(j.result.image.split(",")[1], "base64"));
+    nearBox(flatBox(await coverRgb(jpg)), expectedCover(doc.clips.find((c) => c.id === cs.id), ts), `still · ${cs.id} · t=${ts}`);
+  }
+  const e = await poll((await (await fetch(base + "/api/export/request", { method: "POST",
+    body: JSON.stringify({ where: "headless", range: "entire", preset: "archive", delivery: { audio: { codec: "none" } } }) })).json()).id);
+  const file = path.join(dir, decodeURIComponent(e.src).replace(/^\/exports\//, "exports/"));
+  for (const cs of COVER_CASES) for (const ts of cs.samples) {
+    const n = Math.round(ts * FPS);
+    nearBox(flatBox(await coverRgb(file, n)), expectedCover(doc.clips.find((c) => c.id === cs.id), n / FPS), `export · ${cs.id} · t=${n / FPS}`);
+  }
+});
+
 module.exports = { expected, boxes };

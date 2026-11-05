@@ -530,6 +530,10 @@ function showClipCtxMenu(clientX, clientY, c) {
     item("Find silences", "", () => findSilences(selectedClips()));
   if (selectedClips().some((x) => isVisualClip(x) && x.kind !== "null"))
     item(uiText("own.clip-parent-null"), "", parentSelectionToNull, locked ? "Locked — unlock to change" : null);
+  if (Mask.COVER_KINDS.includes(c.kind)) {
+    const b = item(uiText("own.cover-area"), "", () => startCoverTool(c), locked ? "Locked — unlock to change" : null);
+    if (!locked) b.title = uiText("own.cover-area-tip");
+  }
   item(uiText("term.precompose"), "", precomposeSelection, locked ? "Locked — unlock to change" : null);
   if (c.kind === "comp") item(uiText("term.open-composition"), "", () => enterComp(c.compId, c));
   if (c.mediaId || c.kind === "comp") item(uiText("term.reveal-in-project"), "", () => revealInProject(c));
@@ -7609,6 +7613,7 @@ function renderInspector(lite) {
   if (isVisualClip(c)) html += motionSectionHtml(c, p, row);
   if (c.kind !== "audio" && c.kind !== "null") html += maskSectionHtml(c);
   if (c.kind === "video") html += trackSectionHtml(c);
+  if (Mask.COVER_KINDS.includes(c.kind)) html += coverSectionHtml(c);
   html += `<div class="insp-section"><h3>Transition</h3>
     ${tsel("In", "transIn", c.transitionIn)}
     ${curveSel("In curve", "curveIn", c.transitionIn)}
@@ -7898,6 +7903,7 @@ function renderInspector(lite) {
     });
   });
   bindMaskControls(c);
+  bindCoverControls(c);
   bindTrackControls(c);
   bindParentAnchorControls(c);
   bindShapeControls(c);
@@ -14697,6 +14703,7 @@ function drawSelectionOverlay(W, H, t) {
   if (drawingLayerMask(c)) { drawLayerStroke(c, W); if (!maskEditing(c)) return; }
   if (maskEditing(c) && drawMaskOverlay(c, W)) return;   // a layer's mask replaces the box
   if (maskEditActive(c) && drawClipMaskOverlay(c, W)) return;   // so does a clip mask being edited
+  if (coverToolActive(c) && drawCoverOverlay(c, W)) return;   // and the box being dragged for a covered area
   drawTrackOverlay(c, W);
   if (!isVisualClip(c) || !activeAt(c, t) || !clipRenders(c)) return;
   if (shapeEditActive(c) && drawShapeOverlay(c, W, H, t)) return;   // a picked shape item replaces the box
@@ -15159,6 +15166,7 @@ function drawClipPicture(c, W, H, t, layered) {
     ctx2d.filter = buildFilter(p);
     const grade = activeGrade(c, p, t), matte = gradeMatte(c);
     let graded = null;
+    let shown = null;   // the image just drawn and the part of it that fills the picture (covers re-draw from it)
     noteGradeGeom(c, ctx2d.getTransform(), dw, dh, -dw / 2, -dh / 2);
     // masks live in the whole source frame — the frame the crop percentages are measured on — so a
     // mask stays on the same part of the source whatever the crop; it moves and scales with the clip
@@ -15173,11 +15181,16 @@ function drawClipPicture(c, W, H, t, layered) {
       }
       if (grade) processed = gradeSource(processed, 0, 0, processed.width, processed.height, processed.width, processed.height, dw, dh, grade, matte) || processed;
       ctx2d.drawImage(processed, 0, 0, processed.width, processed.height, -dw / 2, -dh / 2, dw, dh);
+      shown = [processed, 0, 0, processed.width, processed.height];
     } else if (captureGradeInput(c, [src, sx, sy, cw, ch, sw, sh, dw, dh]), grade && (graded = gradeSource(src, sx, sy, cw, ch, sw, sh, dw, dh, grade, matte))) {
       ctx2d.drawImage(graded, 0, 0, graded.width, graded.height, -dw / 2, -dh / 2, dw, dh);
+      shown = [graded, 0, 0, graded.width, graded.height];
     } else {
       ctx2d.drawImage(src, sx, sy, cw, ch, -dw / 2, -dh / 2, dw, dh);
+      shown = [src, sx, sy, cw, ch];
     }
+    const covers = Mask.COVER_KINDS.includes(c.kind) ? Mask.normalizeCovers(p.covers) : null;
+    if (covers) drawCovers(covers, shown, { sx, sy, cw, ch, sw, sh, dw, dh });
     ctx2d.filter = "none";
     if (p.vignette > 0) {
       const g = ctx2d.createRadialGradient(0, 0, Math.min(dw, dh) * 0.35, 0, 0, Math.hypot(dw, dh) * 0.55);
@@ -15190,6 +15203,164 @@ function drawClipPicture(c, W, H, t, layered) {
   }
   ctx2d.restore();
   return { p, geom };
+}
+
+/* ═══════════ COVERED AREAS (props.covers — validation in mask.js) ═══════════
+   A covered area is re-drawn over the picture from the picture's own pixels, as
+   a mosaic or a blur, inside the clip's transform: so it moves, scales and turns
+   with the clip and its keys, in preview and export alike. Its x, y, w, h are
+   0…1 of the clip's original frame (like masks and crop). */
+const coverCv = document.createElement("canvas");
+const coverCtx = coverCv.getContext("2d");
+function drawCovers(covers, shown, { sx, sy, cw, ch, sw, sh, dw, dh }) {
+  if (!shown) return;
+  const [img, ix, iy, iw, ih] = shown;
+  const m = ctx2d.getTransform(), k = Math.hypot(m.a, m.b) || 1;   // output px per picture px
+  const outW = ctx2d.canvas.width;
+  for (const cv of covers) {
+    if (cv.on === false) continue;
+    // the area in fractions of the drawn (cropped) picture
+    const u0 = clamp((cv.x * sw - sx) / cw, 0, 1), u1 = clamp(((cv.x + cv.w) * sw - sx) / cw, 0, 1);
+    const v0 = clamp((cv.y * sh - sy) / ch, 0, 1), v1 = clamp(((cv.y + cv.h) * sh - sy) / ch, 0, 1);
+    if (u1 - u0 <= 0 || v1 - v0 <= 0) continue;   // cropped away
+    const X = -dw / 2 + u0 * dw, Y = -dh / 2 + v0 * dh, RW = (u1 - u0) * dw, RH = (v1 - v0) * dh;
+    const SX = ix + u0 * iw, SY = iy + v0 * ih, SW = (u1 - u0) * iw, SH = (v1 - v0) * ih;
+    const g = Mask.coverGrain(cv, Math.min(RW, RH) * k, outW);
+    ctx2d.save();
+    // shrink the area to a few cells (from its own pixels only, so nothing dark bleeds in at the picture's edge),
+    // then draw them back: as hard blocks (mosaic) or smoothed (blur)
+    const cell = cv.style === "blur" ? g.blur : g.block;
+    const tw = Math.max(1, Math.round(RW * k / cell)), th = Math.max(1, Math.round(RH * k / cell));
+    // exactly the cells' size: a smoothed draw samples past a sub-rectangle's edge, and must find the area there, not old pixels
+    if (coverCv.width !== tw) coverCv.width = tw;
+    if (coverCv.height !== th) coverCv.height = th;
+    coverCtx.clearRect(0, 0, tw, th);
+    coverCtx.imageSmoothingEnabled = true; coverCtx.imageSmoothingQuality = "high";
+    coverCtx.drawImage(img, SX, SY, SW, SH, 0, 0, tw, th);
+    ctx2d.imageSmoothingEnabled = cv.style === "blur";
+    if (cv.style === "blur") ctx2d.imageSmoothingQuality = "high";
+    ctx2d.drawImage(coverCv, X, Y, RW, RH);
+    ctx2d.restore();
+  }
+}
+
+/* ── Covered areas in the editor: right-click a clip → 「给这块打码」, drag a box on the monitor.
+   The box is read in the clip's whole source frame (the mask box), so it is stored in the same
+   coordinates as masks and crop and follows the clip from then on. ── */
+const coverUi = { clip: null, drag: null };
+function clipCovers(c) { return (c && Mask.normalizeCovers(c.props && c.props.covers)) || []; }
+function coverToolActive(c) { return !!c && coverUi.clip === c.id && state.selId === c.id && !isSourceMode(); }
+function startCoverTool(c) {
+  if (isGroupLocked(c)) { toastLocked(); return; }
+  if (clipCovers(c).length >= Mask.MAX_COVERS) { toast(uiText("own.cover-max", { n: Mask.MAX_COVERS })); return; }
+  selectClip(c.id);
+  if (state.playing) pause();
+  if (!activeAt(c, state.time)) { toast(uiText("own.cover-not-here")); }
+  else toast(uiText("own.cover-drag"));
+  coverUi.clip = c.id; coverUi.drag = null;
+  state.dirtyTimeline = true;
+}
+function stopCoverTool() { if (coverUi.clip) { coverUi.clip = null; coverUi.drag = null; state.dirtyTimeline = true; } }
+function writeCovers(c, list) {
+  const n = list.length ? Mask.normalizeCovers(list) : null;
+  if (n) c.props.covers = n; else delete c.props.covers;
+  state.dirtyTimeline = true;
+}
+/** The box being dragged (and the clip's covered areas, faint) on the monitor. */
+function drawCoverOverlay(c, W) {
+  const B = maskBox(c);
+  if (!B || !activeAt(c, state.time)) return false;
+  const lw = Math.max(1.5, W / 800);
+  ctx2d.save();
+  ctx2d.setTransform(1, 0, 0, 1, 0, 0);
+  const quad = (x0, y0, x1, y1) => {
+    const P = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([x, y]) => B.toCanvas(x * B.bw, y * B.bh));
+    ctx2d.beginPath(); P.forEach((p, i) => (i ? ctx2d.lineTo(p.x, p.y) : ctx2d.moveTo(p.x, p.y))); ctx2d.closePath();
+  };
+  ctx2d.setLineDash([lw * 3, lw * 3]); ctx2d.lineWidth = lw; ctx2d.strokeStyle = "rgba(255,210,90,0.5)";
+  for (const cv of clipCovers(c)) { quad(cv.x, cv.y, cv.x + cv.w, cv.y + cv.h); ctx2d.stroke(); }
+  const d = coverUi.drag;
+  if (d) {
+    ctx2d.setLineDash([]); ctx2d.lineWidth = lw * 2; ctx2d.strokeStyle = "#ffd25a"; ctx2d.fillStyle = "rgba(255,210,90,0.15)";
+    quad(Math.min(d.u0, d.u1), Math.min(d.v0, d.v1), Math.max(d.u0, d.u1), Math.max(d.v0, d.v1));
+    ctx2d.fill(); ctx2d.stroke();
+  }
+  ctx2d.restore();
+  return true;
+}
+els.preview.addEventListener("pointerdown", (e) => {
+  if (e.button !== 0) return;
+  const c = getClip(state.selId);
+  if (!coverToolActive(c)) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  const B = maskBox(c);
+  if (!B || !activeAt(c, state.time)) { toast(uiText("own.cover-not-here")); return; }
+  const bp = B.toBox(canvasPt(e));
+  coverUi.drag = { u0: bp.x / B.bw, v0: bp.y / B.bh, u1: bp.x / B.bw, v1: bp.y / B.bh };
+  els.preview.setPointerCapture(e.pointerId);
+  state.dirtyTimeline = true;
+}, true);
+els.preview.addEventListener("pointermove", (e) => {
+  const d = coverUi.drag, c = getClip(state.selId);
+  if (!d || !coverToolActive(c)) return;
+  e.stopImmediatePropagation();
+  const B = maskBox(c);
+  if (!B) return;
+  const bp = B.toBox(canvasPt(e));
+  d.u1 = bp.x / B.bw; d.v1 = bp.y / B.bh;
+  state.dirtyTimeline = true;
+}, true);
+els.preview.addEventListener("pointerup", (e) => {
+  const d = coverUi.drag, c = getClip(state.selId);
+  if (!d || !coverToolActive(c)) return;
+  e.stopImmediatePropagation();
+  coverUi.drag = null;
+  const x0 = clamp(Math.min(d.u0, d.u1), 0, 1), x1 = clamp(Math.max(d.u0, d.u1), 0, 1);
+  const y0 = clamp(Math.min(d.v0, d.v1), 0, 1), y1 = clamp(Math.max(d.v0, d.v1), 0, 1);
+  const B = maskBox(c);
+  if (!B || (x1 - x0) * B.bw < 4 || (y1 - y0) * B.bh < 4) { toast(uiText("own.cover-outside")); state.dirtyTimeline = true; return; }
+  pushUndo();
+  writeCovers(c, [...clipCovers(c), { x: +x0.toFixed(4), y: +y0.toFixed(4), w: +(x1 - x0).toFixed(4), h: +(y1 - y0).toFixed(4) }]);
+  coverUi.clip = null;
+  scheduleSave(); renderInspector();
+}, true);
+window.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" || !coverUi.clip) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  stopCoverTool();
+}, true);
+function coverSectionHtml(c) {
+  const list = clipCovers(c), on = coverUi.clip === c.id;
+  const rows = list.map((cv, j) => `<div class="cl-row" data-cover="${j}">
+      <select data-cover-style title="${escapeHtml(uiText("own.cover-area-tip"))}">${Mask.COVER_STYLES.map((st) =>
+        `<option value="${st}" ${cv.style === st ? "selected" : ""}>${escapeHtml(uiText("own.cover-" + st))}</option>`).join("")}</select>
+      <label class="cl-note">${escapeHtml(uiText("own.cover-strength"))}</label>
+      <input type="range" data-cover-strength min="1" max="100" step="1" value="${cv.strength}">
+      <button type="button" class="btn tiny" data-cover-del>${escapeHtml(uiText("own.cover-remove"))}</button></div>`).join("");
+  return `<div class="insp-section" data-cover-section><h3>${escapeHtml(uiText("own.cover-section"))}</h3>
+    ${rows || `<p class="cl-note">${escapeHtml(uiText("own.cover-none"))}</p>`}
+    <div class="cl-row"><button type="button" class="btn tiny${on ? " toggle on" : ""}" data-cover-add title="${escapeHtml(uiText("own.cover-area-tip"))}"
+      ${list.length >= Mask.MAX_COVERS ? "disabled" : ""}>${escapeHtml(uiText("own.cover-add"))}</button></div>
+    ${on ? `<p class="cl-note">${escapeHtml(uiText("own.cover-drag"))}</p>` : ""}</div>`;
+}
+function bindCoverControls(c) {
+  const root = els.inspector.querySelector("[data-cover-section]");
+  if (!root) return;
+  const edit = (j, set) => {
+    if (isGroupLocked(c)) { toastLocked(); renderInspector(); return; }
+    const list = clipCovers(c).map((x) => ({ ...x }));
+    if (!list[j]) return;
+    pushUndo();
+    if (set === null) list.splice(j, 1); else Object.assign(list[j], set);
+    writeCovers(c, list); scheduleSave(); renderInspector();
+  };
+  root.querySelector("[data-cover-add]")?.addEventListener("click", () => { if (coverUi.clip === c.id) stopCoverTool(); else startCoverTool(c); renderInspector(); });
+  for (const row of root.querySelectorAll("[data-cover]")) {
+    const j = +row.dataset.cover;
+    row.querySelector("[data-cover-style]").addEventListener("change", (e) => edit(j, { style: e.target.value }));
+    row.querySelector("[data-cover-strength]").addEventListener("change", (e) => edit(j, { strength: +e.target.value }));
+    row.querySelector("[data-cover-del]").addEventListener("click", () => edit(j, null));
+  }
 }
 
 /* ═══════════ MASKS (props.masks — math in mask.js) ═══════════

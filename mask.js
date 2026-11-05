@@ -490,6 +490,53 @@
     return n;
   }
 
+  /* ── Covered areas (props.covers) ──
+     An area of the clip's picture hidden behind a mosaic (default) or a blur — a co-host's window, viewers'
+     names. Same coordinates as masks: x, y = the top-left corner, w, h the size, 0…1 of the clip's original
+     frame. The cover is drawn with the picture, so it moves, scales and turns with the clip and its keys.
+       { x, y, w, h, style?: "mosaic" | "blur" (default mosaic), strength?: 1…100 (default 60), name?, on? } */
+  const MAX_COVERS = 16;
+  const COVER_STYLES = ["mosaic", "blur"];
+  const COVER_KINDS = ["video", "image", "svg", "comp"];
+  function normalizeCover(cv, strict = false, where = "cover") {
+    const bad = (msg) => { if (strict) throw new Error(`${where}${msg}`); return null; };
+    if (!isObj(cv)) return bad(" must be an object like {x:0.6, y:0.1, w:0.3, h:0.4}");
+    const known = ["x", "y", "w", "h", "style", "strength", "name", "on"];
+    for (const k of Object.keys(cv)) if (!known.includes(k)) return bad(`.${k}: unknown key (${known.join(", ")})`);
+    for (const k of ["x", "y", "w", "h"]) if (!isNum(cv[k])) return bad(`.${k} must be a number (0…1 of the clip's original frame)`);
+    let x0 = clamp(cv.x, 0, 1), y0 = clamp(cv.y, 0, 1);
+    const x1 = clamp(cv.x + cv.w, 0, 1), y1 = clamp(cv.y + cv.h, 0, 1);
+    if (x1 - x0 < 0.002 || y1 - y0 < 0.002) return bad(" lies outside the frame or is too small (x, y, w, h are 0…1 of the clip's original frame; w, h > 0)");
+    const style = cv.style == null ? "mosaic" : cv.style;
+    if (!COVER_STYLES.includes(style)) return bad(`.style must be ${COVER_STYLES.join(" | ")}`);
+    if (cv.strength != null && !isNum(cv.strength)) return bad(".strength must be a number 1…100");
+    const out = { x: r4(x0), y: r4(y0), w: r4(x1 - x0), h: r4(y1 - y0), style, strength: Math.round(clamp(cv.strength == null ? 60 : cv.strength, 1, 100)) };
+    if (typeof cv.name === "string" && cv.name.trim()) out.name = cv.name.trim().slice(0, 40);
+    if (cv.on === false) out.on = false;
+    return out;
+  }
+  function normalizeCovers(list, strict = false) {
+    if (list == null) return null;
+    if (!Array.isArray(list)) { if (strict) throw new Error("covers must be a list of {x, y, w, h, style?, strength?}"); return null; }
+    if (list.length > MAX_COVERS) { if (strict) throw new Error(`covers has ${list.length} areas (at most ${MAX_COVERS})`); list = list.slice(0, MAX_COVERS); }
+    const out = list.map((cv, i) => normalizeCover(cv, strict, `covers[${i}]`)).filter(Boolean);
+    return out.length ? out : null;
+  }
+  /** "2 covered areas: mosaic 60 "names", blur 40". */
+  function describeCovers(list) {
+    if (!Array.isArray(list) || !list.length) return "";
+    return `${list.length} covered area${list.length > 1 ? "s" : ""}: ` + list.map((cv) =>
+      `${cv.style} ${cv.strength}${cv.name ? ` "${cv.name}"` : ""} at ${cv.x},${cv.y} ${cv.w}×${cv.h}${cv.on === false ? " off" : ""}`).join(", ");
+  }
+  /** The mosaic block (output px) and blur radius for a cover whose shorter side is `short` px on an output `outW` px wide. */
+  function coverGrain(cv, short, outW) {
+    const k = clamp(cv.strength == null ? 60 : cv.strength, 1, 100) / 100;
+    // blocks: at least a few per short side, and never so small that letters survive (≥ ~1.4 % of the frame width at 60)
+    const block = Math.max(3, short / (2 + 10 * (1 - k)), outW * (0.004 + 0.016 * k));
+    const blur = Math.max(2, short * (0.05 + 0.3 * k), outW * (0.003 + 0.012 * k));
+    return { block, blur };
+  }
+
   /** One line per clip for status readouts: "2 masks: ellipse, bezier(12) −". */
   function describe(list) {
     if (!Array.isArray(list) || !list.length) return "";
@@ -554,6 +601,7 @@
     MAX_MASKS, MAX_POINTS, SHAPES, MODES, KEYED, BLENDS, MATTES, matteTrackFor, checkCompositing, NUM_KEYED, RANGE, DEFAULTS, EASES,
     normalizeMasks, normalizeMask, mergeMask, maskAt, masksAt, shiftKeys, centreOf, cornerFor,
     MASK_SCHEMA, cropOf, migrateMask, migrateClips, migrateProject,
+    MAX_COVERS, COVER_STYLES, COVER_KINDS, normalizeCover, normalizeCovers, describeCovers, coverGrain,
     anchors, tracePath, flatten, polyDist, maskCoverage, combine, matteAt, fitStroke, rasterize, describe, splitPoints, editTopology,
   };
 });

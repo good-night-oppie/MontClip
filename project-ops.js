@@ -243,6 +243,14 @@
       try { n = Mask.normalizeMasks(c.props.masks, true); } catch (err) { throw new Error(`${label}: props.${err.message}`); }
       if (n) c.props.masks = n; else delete c.props.masks;
     };
+    // props.covers written wholesale is validated like setCover
+    const checkCovers = (c, label) => {
+      if (!c.props || c.props.covers == null) return;
+      if (!Mask.COVER_KINDS.includes(c.kind)) throw new Error(`${label}: covered areas go on ${Mask.COVER_KINDS.join(", ")} clips`);
+      let n;
+      try { n = Mask.normalizeCovers(c.props.covers, true); } catch (err) { throw new Error(`${label}: props.${err.message}`); }
+      if (n) c.props.covers = n; else delete c.props.covers;
+    };
     // props.tracks written wholesale is validated too (the editor writes them; agents rarely should)
     const checkTracks = (c, label) => {
       if (!c.props || c.props.tracks == null) return;
@@ -320,7 +328,7 @@
           if (!NO_MEDIA.includes(c.kind) && !proj.media.some((m) => m.id === c.mediaId))
             throw new Error(`addClip: unknown mediaId ${c.mediaId}`);
           if (NO_MEDIA.includes(c.kind)) c.mediaId = null;
-          checkMasks(c, "addClip");
+          checkMasks(c, "addClip"); checkCovers(c, "addClip");
           checkShapes(c, "addClip");
           checkParent(c, "addClip");
           checkMotion(c, "addClip");
@@ -342,7 +350,7 @@
               refuseLocked("updateClip", `track ${op.set.track} is locked`, op);
           }
           mergeInto(c, op.set);
-          checkMasks(c, "updateClip");
+          checkMasks(c, "updateClip"); checkCovers(c, "updateClip");
           if (op.set && op.set.props && "tracks" in op.set.props) checkTracks(c, "updateClip");
           if (op.set && op.set.props && "shapes" in op.set.props) checkShapes(c, "updateClip");
           if (op.set && "parent" in op.set) checkParent(c, "updateClip");
@@ -649,6 +657,49 @@
           }
           break;
         }
+        case "setCover":
+        case "removeCover": {
+          // {op:"setCover", id | ids, cover?: index | "name", set:{x, y, w, h, style?, strength?, name?, on?}, remove?:true}
+          // {op:"removeCover", id | ids, cover: index | "name" | "all"}
+          const name = op.op;
+          const ids = Array.isArray(op.ids) ? op.ids : op.id != null ? [op.id] : [];
+          if (!ids.length) throw new Error(`${name} needs id or ids`);
+          const remove = name === "removeCover" || op.remove === true;
+          const all = op.cover === "all";
+          const byName = typeof op.cover === "string" && op.cover.trim() !== "" && !all;
+          if (op.cover != null && !all && !byName && !(Number.isInteger(op.cover) && op.cover >= 0)) throw new Error(`${name}: cover is an index (0 = first), a name, or "all" to remove every one`);
+          if (remove && op.cover == null) throw new Error(`${name} needs cover: an index, a name or "all"`);
+          if (!remove && (op.set == null || typeof op.set !== "object" || Array.isArray(op.set))) throw new Error("setCover needs set:{x, y, w, h, style?, strength?} (or remove:true)");
+          for (const id of ids) {
+            const c = proj.clips.find((x) => x.id === id);
+            if (!c) throw new Error(`${name}: no clip ${id}`);
+            if (!Mask.COVER_KINDS.includes(c.kind)) throw new Error(`${name}: ${id} is a ${c.kind} clip — covered areas go on ${Mask.COVER_KINDS.join(", ")} clips`);
+            refuseLocked(name, lockReason(c), op);
+            const list = (Mask.normalizeCovers(c.props?.covers) || []).slice();
+            let i = op.cover == null || all ? list.length : byName ? list.findIndex((cv) => cv.name === op.cover.trim()) : op.cover;
+            const where = `${name}: ${id}`;
+            if (remove && all) list.length = 0;
+            else if (remove) {
+              if (i < 0 || i >= list.length) throw new Error(`${where} has no covered area ${JSON.stringify(op.cover)}`);
+              list.splice(i, 1);
+            } else {
+              const adding = i < 0 || i === list.length;
+              if (!adding && i > list.length) throw new Error(`${where} has ${list.length} covered area(s) — use cover:${list.length} (or leave cover out) to add one`);
+              if (adding && list.length >= Mask.MAX_COVERS) throw new Error(`${where}: at most ${Mask.MAX_COVERS} covered areas`);
+              const base = adding ? (byName ? { name: op.cover.trim() } : {}) : list[i];
+              const merged = { ...base };
+              for (const [k, v] of Object.entries(op.set)) { if (v === null) delete merged[k]; else merged[k] = v; }
+              let next;
+              try { next = Mask.normalizeCover(merged, true, "cover"); }
+              catch (err) { throw new Error(`${where}: ${err.message}`); }
+              if (adding) list.push(next); else list[i] = next;
+            }
+            c.props = c.props || {};
+            if (list.length) c.props.covers = list; else delete c.props.covers;
+            notes.push(`~${id}.covers(${Mask.describeCovers(list) || "none"})`);
+          }
+          break;
+        }
         case "setShape":
         case "removeShape": {
           // {op:"setShape", id | ids, shape?: index | "name" | "2.0" (group path), set:{…}, replace?:true, remove?:true}
@@ -929,7 +980,7 @@
           const comp = CompLib.getComp(proj, op.comp);
           if (!comp) throw new Error("inComp: no comp " + op.comp);
           if (!Array.isArray(op.ops)) throw new Error("inComp needs ops:[…]");
-          const allowed = ["addClip", "updateClip", "removeClip", "setGrade", "setGradeLayer", "setMask", "removeMask", "setMaskKeys", "setMatte",
+          const allowed = ["addClip", "updateClip", "removeClip", "setGrade", "setGradeLayer", "setMask", "removeMask", "setMaskKeys", "setCover", "removeCover", "setMatte",
             "setShape", "removeShape", "setParent", "setMotionPath", "setTextPath", "setFx", "setFxKeys", "precompose", "inComp",
             "applyPreset", "addTemplate", "setTemplate",
             "split", "rippleDelete", "closeGap", "lift", "extract", "rippleTrim", "roll", "slip", "slide", "crossfade"];
@@ -1160,7 +1211,7 @@
           notes.push(timelineEdit(proj, op, refuseLocked, lockReason, ctx));
           break;
         default:
-          throw new Error("Unknown op: " + op.op + " (addClip|updateClip|removeClip|addMedia|updateMedia|removeMedia|relinkMedia|replaceMedia|setCollection|removeCollection|setProject|setTrack|setBus|removeBus|setFx|setFxKeys|setGrade|setGradeLayer|setMask|removeMask|setMaskKeys|setMatte|removeTrack|setShape|removeShape|setParent|setMotionPath|setTextPath|" +
+          throw new Error("Unknown op: " + op.op + " (addClip|updateClip|removeClip|addMedia|updateMedia|removeMedia|relinkMedia|replaceMedia|setCollection|removeCollection|setProject|setTrack|setBus|removeBus|setFx|setFxKeys|setGrade|setGradeLayer|setMask|removeMask|setMaskKeys|setCover|removeCover|setMatte|removeTrack|setShape|removeShape|setParent|setMotionPath|setTextPath|" +
             "split|rippleDelete|closeGap|lift|extract|rippleTrim|roll|slip|slide|insert|overwrite|crossfade|" +
             "addComp|updateComp|removeComp|precompose|inComp|applyPreset|addTemplate|setTemplate|savePreset|saveTemplate|" +
             "addSequence|openSequence|updateSequence|removeSequence|inSequence)");
@@ -1187,15 +1238,15 @@
           kept[k] = v;
           continue;
         }
-        if (k === "masks" || k === "tracks" || k === "shapes" || k === "textPath" || k === "wordTimes") continue;   // summarized below — point lists and samples are long
+        if (k === "masks" || k === "covers" || k === "tracks" || k === "shapes" || k === "textPath" || k === "wordTimes") continue;   // summarized below — point lists and samples are long
         if (hex(PROP_DEFAULTS[k]) !== hex(v)) kept[k] = v;
       }
-      const masks = Mask.describe(Mask.normalizeMasks(o.masks)), tracks = Tracker.describe(Tracker.normalizeTracks(o.tracks));
+      const masks = Mask.describe(Mask.normalizeMasks(o.masks)), covers = Mask.describeCovers(Mask.normalizeCovers(o.covers)), tracks = Tracker.describe(Tracker.normalizeTracks(o.tracks));
       const shapes = Motion.describe(Motion.normalizeShapes(o.shapes));
       const tp = o.textPath && Motion.normalizeTextPath(o.textPath);
       if (tp) kept.textPath = tp.type + (tp.points ? `(${tp.points.length})` : tp.w ? ` ${tp.w}×${tp.h}` : "");
       const timed = Array.isArray(o.wordTimes) && o.wordTimes.length ? ` [${o.wordTimes.length} words timed to speech]` : "";
-      return (Object.keys(kept).length ? " " + JSON.stringify(kept) : "") + (shapes ? ` [${shapes}]` : "") + (masks ? ` [${masks}]` : "") + (tracks ? ` [tracks: ${tracks}]` : "") + timed;
+      return (Object.keys(kept).length ? " " + JSON.stringify(kept) : "") + (shapes ? ` [${shapes}]` : "") + (masks ? ` [${masks}]` : "") + (covers ? ` [${covers}]` : "") + (tracks ? ` [tracks: ${tracks}]` : "") + timed;
     };
     // Mixer: only off-default faders / pans, so a fresh project adds no line.
     const signed = (v) => (v > 0 ? "+" : "") + v;

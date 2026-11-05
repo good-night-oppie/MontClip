@@ -66,6 +66,8 @@ Every Claude Code session then has these tools:
 - `fablecut_scopes` — measure the graded picture at a moment (levels, clipping, colour
   cast), as the editor's scopes see it; also what a grade layer or a clip's masks
   select. See "Color" and "Masks" below.
+- `fablecut_blur_region` — cover an area of a clip's picture (a co-host, viewers' names)
+  with a mosaic or blur that follows the clip. See "Covered areas" below.
 - `fablecut_track` — motion tracking: follow a region of a video clip, store it as
   a track, and make a mask or another clip follow it. See "Tracking" below.
 - `fablecut_proxy` — make, check or delete proxies: light copies of heavy footage
@@ -1160,6 +1162,50 @@ logo out of the background** — a bezier around it, `feather` 2–4;
 on the face** — an adjustment layer with a feathered ellipse, keyed to follow
 it; **vignette through an adjustment layer** — an inverted ellipse with
 `feather:200` and the layer's `brightness` down.
+
+### Covered areas
+
+A **covered area** hides part of a clip's picture behind a **mosaic** (the
+default — a light blur can leave text readable) or a **blur**: a co-host's
+window, viewers' names, a number plate. It is drawn from the clip's own pixels,
+with the picture, so it **follows the clip**: when the clip is zoomed, moved,
+pushed in with keyframes, sped up or cropped, the cover stays on the same part
+of the footage — no keys to write. Preview, `fablecut_frame` and export draw it
+the same way. Covers live in `props.covers` on video, image, svg and comp clips
+(up to 16):
+
+```jsonc
+"covers": [
+  { "name": "co-host", "x": 0.52, "y": 0.14, "w": 0.31, "h": 0.65 },
+  { "name": "names", "x": 0.1, "y": 0.82, "w": 0.44, "h": 0.07, "style": "blur", "strength": 80 }
+]
+```
+
+| key | default | does |
+|---|---|---|
+| `x` · `y` · `w` · `h` | — | **mask coordinates**: 0…1 of the clip's original frame (the whole source frame, before crop, scale and position), origin top-left; `x`, `y` the top-left corner |
+| `style` | `mosaic` | `mosaic` (hard blocks) · `blur` (smooth) |
+| `strength` | 60 | 1…100: bigger blocks / a stronger blur. At 60 a block is at least ~1.4 % of the frame's width, so letters don't survive |
+| `name` · `on` | — | a label; `on:false` turns it off |
+
+A cover only shows where the picture is: a part cropped away has nothing to
+cover. Under the clip's masks a cover is cut like the rest of the picture.
+
+In the editor: right-click a clip → **给这块打码** (Cover this area), then drag
+a box on the monitor over what to hide (Esc cancels). The Inspector's
+**Covered areas** section lists them — mosaic or blur, strength, remove — and
+**+ Cover an area** draws another. One undo step each.
+
+**Agents:** `fablecut_blur_region {clipId, rect:{x, y, w, h}, strength?, style?, name?}`
+adds one (a name already there replaces that area); `{clipId, remove: index | name | "all"}`
+takes them off. Read `rect` off the source with `fablecut_frame {path, t}` (see
+"Where the numbers come from" under Masks), then check it with
+`fablecut_frame {time}` at a moment the clip is on screen. Patch ops do the same:
+`{op:"setCover", id | ids, cover?: index | name, set:{x, y, w, h, style?, strength?, name?, on?}}`,
+`{op:"removeCover", id | ids, cover: index | name | "all"}`; `props.covers`
+written through `addClip` / `updateClip` is validated the same way. Locks
+apply (`force:true` only when the user asked). The compact view lists them as
+`[2 covered areas: mosaic 60 "co-host" at 0.52,0.14 0.31×0.65, …]`.
 
 ### Track mattes and blending
 
