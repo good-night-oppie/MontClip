@@ -195,6 +195,20 @@ Speech is turned into words on this computer by the local server with sherpa-onn
 - Not used: SenseVoice (its licence question, QwenAudio/SenseVoice issue #334, was reopened on 2026-08-29 and has no
   answer from the licensor), and `sherpa-onnx-paraformer-zh-int8-2025-10-07` (a Sichuan-dialect model).
 
+### Optional model: Meta Omnilingual ASR (#133, 2026-11-04)
+
+Never in any package. Used only after the user read its licence in the desktop host's own box and agreed, then picked
+the site (`asr-consent.js`; ADR 2026-11-04 #122 §6); a consent record stays on the user's computer. Pinned in
+`desktop/asr-manifest.json` as `asrMeta` (files, SHA-256, sources, consent terms). It runs on the same sherpa-onnx-node
+2.0.1 engine as above (`modelConfig.omnilingual`). Evaluation: `docs/validation/2026-11-04-omnilingual-asr/README.md`.
+
+| Component | Version / file | Licence | In which package | Text |
+|---|---|---|---|---|
+| Omnilingual ASR CTC 300M, int8 (`sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12`: `model.int8.onnx`, `tokens.txt`, `LICENSE`), k2-fsa's ONNX int8 conversion of Meta's `omniASR_CTC_300M`; Hugging Face `csukuangfj/…` at commit 6abf1ece…, the same files in the k2-fsa GitHub release archive (SHA-256 cdcd0559…) | SHA-256 e7c4e54e… / a7a044c5… / a70a523b… | Apache-2.0. Meta's repo (github.com/facebookresearch/omnilingual-asr): "Omnilingual ASR code and models are released under the Apache 2.0." Model card huggingface.co/facebook/omniASR-CTC-1B: "License: apache-2.0". The converted repo's model card has no `license:` field; its LICENSE file (also in the archive) reads "Copyright 2025 (c) Meta Platforms, Inc. and affiliates. Licensed under the Apache License, Version 2.0". Checked 2026-11-04 | none: an optional download after consent (or the user's own copy, used only after consent) | `licenses/asr/omnilingual-asr-LICENSE.txt` (byte for byte; the text shown in the consent box), `licenses/asr/omnilingual-asr-Apache-2.0.txt` (full text) |
+
+- Not used: Meta's SeamlessM4T (CC BY-NC 4.0, non-commercial). Meta's hosted Model API is a cloud service and a separate
+  thing; nothing here uses it, and it is not assumed to host Omnilingual ASR or to speak the OpenAI API.
+
 ## Third-party code in the official Cindy integration
 
 MontClip host code retains the repository's MIT LICENSE. Imported components retain their own terms.
