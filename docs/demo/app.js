@@ -9669,7 +9669,7 @@ function paintAsrStatus() {
   const E = trState.el;
   if (!E || !E.asr) return;
   const s = asrState.status, desk = !!window.montclipAsr, d = asrState.downloading, ph = asrState.phase;
-  let text, get = null, imp = false, cancel = false, later = false;
+  let text, get = null, imp = false, cancel = false, later = false, partly = false;
   if (!s) text = uiText("own.asr-checking");
   else if (!s.engine.ready || !s.vad.ready) text = uiText("own.asr-engine-missing");
   else if (d) { text = uiText("own.asr-downloading", { got: mbText(d.loaded) }); cancel = true; }
@@ -9678,6 +9678,9 @@ function paintAsrStatus() {
   else if (ph === "check-failed") { text = uiText("own.asr-check-failed"); get = "own.asr-again"; later = true; }
   else if (ph === "failed") { text = uiText("own.asr-download-failed", { why: asrState.why || "?" }); get = "own.asr-again"; later = true; }
   else if (asrModelStatus(s).ready) text = uiText("own.asr-ready");
+  // 删了一半 (Deja / JJ, 11-05): agreed, some of Meta's files here and some not — 〔删掉 Meta 的模型〕 first, then
+  // 〔换回 Paraformer〕; no 〔下载并使用〕
+  else if (asrKey() === "asrMeta" && asrModelStatus(s).partlyRemoved) { text = uiText("own.asr-meta-partly-removed"); partly = true; }
   // Meta's model is here (a USB import) but not agreed to: its licence first (asr-consent.js), then it is used
   else if (asrKey() === "asrMeta" && asrModelStatus(s).installed && !asrModelStatus(s).consented) { text = uiText("own.asr-meta-consent"); get = "own.asr-meta-agree"; }
   else { const meta = asrKey() === "asrMeta"; text = uiText(asrModelStatus(s).bad.length ? "own.asr-bad" : meta ? "own.asr-missing-meta" : "own.asr-missing"); get = meta ? "own.asr-download-meta" : "own.asr-download"; imp = true; }
@@ -9691,7 +9694,11 @@ function paintAsrStatus() {
   E.asrCancel.hidden = !desk || !cancel;
   E.asrLater.hidden = !desk || !later;
   // 〔撤销〕 Meta's model: its files and the consent record go, back to Paraformer (ADR #122 §6)
-  if (E.asrRevoke) E.asrRevoke.hidden = !desk || !(window.montclipAsr && window.montclipAsr.revoke) || !(asrKey() === "asrMeta" && s && (asrModelStatus(s).consented || asrModelStatus(s).installed)) || !!d;
+  if (E.asrRevoke) {
+    E.asrRevoke.hidden = !desk || !(window.montclipAsr && window.montclipAsr.revoke) || !(asrKey() === "asrMeta" && s && (asrModelStatus(s).consented || asrModelStatus(s).installed)) || !!d;
+    E.asrRevoke.classList.toggle("accent", partly);
+  }
+  if (E.asrSwitch) E.asrSwitch.hidden = !partly;
 }
 /** 下载并使用 / 接着下载 / 再下载一次: the main process asks, downloads (resuming what is there) and checks. */
 async function asrGet() {
@@ -9997,7 +10004,8 @@ function buildTranscriptPage() {
         <button type="button" class="btn tiny" data-tr-asr-import hidden data-i18n="own.asr-import">${escapeHtml(uiText("own.asr-import"))}</button>
         <button type="button" class="btn tiny" data-tr-asr-cancel hidden data-i18n="own.asr-download-cancel">${escapeHtml(uiText("own.asr-download-cancel"))}</button>
         <button type="button" class="btn tiny" data-tr-asr-later hidden data-i18n="own.asr-later">${escapeHtml(uiText("own.asr-later"))}</button>
-        <button type="button" class="btn tiny" data-tr-asr-revoke hidden data-i18n="own.asr-meta-revoke">${escapeHtml(uiText("own.asr-meta-revoke"))}</button></div>` : ""}
+        <button type="button" class="btn tiny" data-tr-asr-revoke hidden data-i18n="own.asr-meta-revoke">${escapeHtml(uiText("own.asr-meta-revoke"))}</button>
+        <button type="button" class="btn tiny" data-tr-asr-switch hidden data-i18n="own.asr-switch-paraformer">${escapeHtml(uiText("own.asr-switch-paraformer"))}</button></div>` : ""}
       ${listen ? `<div class="tr-busy hidden" data-tr-busy><span data-tr-busy-text></span><span class="tr-bar"><i data-tr-bar></i></span>
         <button type="button" class="btn tiny" data-tr-cancel title="Stop transcribing (what is done is kept)" data-i18n="term.cancel">${uiText("term.cancel")}</button></div>` : ""}
       <div class="tr-row">
@@ -10028,7 +10036,7 @@ function buildTranscriptPage() {
   trState.el = { go: q("[data-tr-go]"), busy: q("[data-tr-busy]"), busyText: q("[data-tr-busy-text]"), bar: q("[data-tr-bar]"),
     find: q("[data-tr-find]"), count: q("[data-tr-count]"), cutFound: q("[data-tr-cut-found]"), body: q("[data-tr-body]"),
     foot: q("[data-tr-foot]"), selText: q("[data-tr-sel]"),
-    asr: q("[data-tr-asr]"), asrDownload: q("[data-tr-asr-download]"), asrImport: q("[data-tr-asr-import]"), asrCancel: q("[data-tr-asr-cancel]"), asrLater: q("[data-tr-asr-later]"), asrModel: q("[data-tr-asr-model]"), asrRevoke: q("[data-tr-asr-revoke]"), asrFit: q("[data-tr-asr-fit]") };
+    asr: q("[data-tr-asr]"), asrDownload: q("[data-tr-asr-download]"), asrImport: q("[data-tr-asr-import]"), asrCancel: q("[data-tr-asr-cancel]"), asrLater: q("[data-tr-asr-later]"), asrModel: q("[data-tr-asr-model]"), asrRevoke: q("[data-tr-asr-revoke]"), asrSwitch: q("[data-tr-asr-switch]"), asrFit: q("[data-tr-asr-fit]") };
   const E = trState.el;
   if (listen) {
     E.go.addEventListener("click", transcribeFromTab);
@@ -10037,6 +10045,7 @@ function buildTranscriptPage() {
     E.asrCancel.addEventListener("click", asrCancel);
     E.asrLater.addEventListener("click", asrLater);
     E.asrRevoke.addEventListener("click", asrRevokeMeta);
+    E.asrSwitch.addEventListener("click", () => setAsrKey("asr"));
     E.asrImport.addEventListener("click", asrImport);
     E.asrModel.addEventListener("change", () => setAsrKey(E.asrModel.value));
     paintAsrStatus();

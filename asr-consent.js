@@ -21,6 +21,14 @@ const { manifest } = require("./asr-models");
 const err = (code, message, extra) => Object.assign(new Error(message), { code }, extra);
 /** The manifest entry's consent terms, or null when the model needs no consent. */
 const termsOf = (key, m = manifest) => (m.models[key] && m.models[key].consent) || null;
+/** 删了一半 (Deja / JJ, 11-05): the agreement is still here, and some of the model's files are while others aren't — a
+ *  removal that stopped half-way. Not a model never installed (none of its files here) nor a download under way (no
+ *  agreement yet; its files wait in .partial until they are all checked). `st`: the store's status for the model. */
+function partlyRemoved(key, st, consented, m = manifest) {
+  if (!consented || !termsOf(key, m) || !st) return false;
+  const n = Object.keys(m.models[key].files).length, gone = (st.missing || []).length;
+  return gone > 0 && gone < n;
+}
 
 // rm: fs.rmSync, replaceable in tests (a file Windows keeps busy)
 function createConsent({ modelsDir, root = __dirname, manifest: m = manifest, now = () => new Date(), rm = fs.rmSync } = {}) {
@@ -120,4 +128,4 @@ function createConsent({ modelsDir, root = __dirname, manifest: m = manifest, no
   return { licenseText, record, allowed, agree, revoke, remove, size, choose };
 }
 
-module.exports = { createConsent, termsOf };
+module.exports = { createConsent, termsOf, partlyRemoved };

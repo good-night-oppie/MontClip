@@ -151,11 +151,12 @@ let asrConsentObj = null, asrMetaObj = null;
 const asrMeta = () => asrMetaObj || (asrMetaObj = require("./asr-meta-engine").createMetaEngine({ asrDir: ASR_DIR, modelsDir: ASR_MODELS_DIR, ffmpeg: FF.path("ffmpeg"), cacheDir: path.join(DATA_DIR, "asr-cache") }));
 const asrConsent = () => asrConsentObj || (asrConsentObj = require("./asr-consent").createConsent({ modelsDir: ASR_MODELS_DIR }));
 function asrStatus() {
-  const st = asr().status();
+  const st = asr().status(), Consent = require("./asr-consent");
   for (const key of Object.keys(st)) {
-    if (!st[key] || typeof st[key] !== "object" || !("ready" in st[key]) || !require("./asr-consent").termsOf(key)) continue;
+    if (!st[key] || typeof st[key] !== "object" || !("ready" in st[key]) || !Consent.termsOf(key)) continue;
     const consented = asrConsent().allowed(key);
-    st[key] = { ...st[key], installed: st[key].ready, consented, ready: st[key].ready && consented };
+    // partlyRemoved: 删了一半 — agreed, some of its files here and some not (a removal that stopped half-way)
+    st[key] = { ...st[key], installed: st[key].ready, consented, ready: st[key].ready && consented, partlyRemoved: Consent.partlyRemoved(key, st[key], consented) };
   }
   return st;
 }
