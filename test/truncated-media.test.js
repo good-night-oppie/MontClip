@@ -155,3 +155,45 @@ test("media-lib: a length arriving clears the mark, an unknown one sets it; the 
   a.match(body, /MediaLib\.cannotCut\(m\)/, "the editor refuses to place it");
   a.match(body, /own\.media-cannot-cut/, "and says why, in the user's language");
 });
+
+/* JJ (P1 / P3, 2026-11-05): the length can't wait for the editor tab. An entry already in the project with no length
+   (imported before this fix, or by a tool that didn't read it) is read with ffprobe by the agent's own calls. */
+test("no editor open: an entry with no length gets it from ffprobe when the agent reads or patches the project", { skip }, async (t) => {
+  const data = makeDataDir(t, seedProject({ media: [], clips: [] }));
+  const mediaDir = path.join(data, "media");
+  fs.mkdirSync(mediaDir, { recursive: true });
+  fs.copyFileSync(made("cut.webm"), path.join(mediaDir, "rec.webm"));
+  fs.copyFileSync(made("cut.mp4"), path.join(mediaDir, "rec.mp4"));
+  const proj = readProject(data);
+  proj.media = [
+    { id: "m_webm", name: "rec.webm", kind: "video", src: "/media/rec.webm", size: 1 },
+    { id: "m_mp4", name: "rec.mp4", kind: "video", src: "/media/rec.mp4", size: 1 },
+  ];
+  proj.revision = 5;
+  fs.writeFileSync(path.join(data, "project.json"), JSON.stringify(proj));
+  const mcp = startMcp(t, data, { FABLECUT_NO_AUTOSTART: "1" });
+  await mcp.request("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "t", version: "1" } });
+
+  const view = await mcp.callTool("fablecut_get_project", { compact: true });
+  a.equal(view.isError, false, view.text);
+  const after = readProject(data);
+  between(after.media[0].duration, "the WebM's entry");
+  a.equal(after.media[1].duration, undefined);
+  a.equal(after.media[1].durationUnknown, true, "the MP4 nothing can read is marked");
+  a.ok(after.revision > 5, "written back as an edit");
+  // and a patch on it is told why, without an editor anywhere
+  const r = await mcp.callTool("fablecut_patch_project", { ops: [{ op: "insert", mediaId: "m_mp4", at: 0, duration: 1 }] });
+  a.equal(r.isError, true);
+  a.match(r.text, /no length MontClip could read/, r.text);
+  const ok = await mcp.callTool("fablecut_patch_project", { ops: [{ op: "insert", mediaId: "m_webm", at: 0 }] });
+  a.equal(ok.isError, false, ok.text);
+});
+
+/* JJ's words on a file that can't be cut (2026-11-05, final in Chinese; the English is a draft for JJ). */
+test("the mark on a file that can't be cut: JJ's sentence, shown on it in the bin", () => {
+  const V = require("../ui-preferences");
+  a.equal(V.t("zh-CN", "own.media-incomplete"), "这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。");
+  a.doesNotMatch(V.t("en", "own.media-incomplete"), /[一-鿿]/);
+  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  a.match(app, /MediaLib\.cannotCut\(m\)[^\n]*own\.media-incomplete|own\.media-incomplete[^\n]*MediaLib\.cannotCut\(m\)/, "the bin marks it with that sentence");
+});
