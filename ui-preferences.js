@@ -248,6 +248,12 @@
     // the button, its menu item, done and failed are JJ's, word for word; the tip, progress, Cancel, "no encoder" and
     // the English of the slow-to-seek mark are drafts for JJ
     "repair-button": ["Fix it for me", "帮我修好"],
+    // JJ定稿 (2026-11-05): the button is interpolated from repair-button.
+    "media-gap-mark": ["Gap of about {N} s", "断了约 {N} 秒"],
+    "media-gap-tip": ["The recording has a gap of about {N} s in the middle. Click “{button}” to save a new copy without the gap. The original is not changed.", "录像中间有一段约 {N} 秒的空档。点〔{button}〕，会另存一份跳过空档的新文件，原文件不动。"],
+    "repair-gap-reason": ["This recording has a gap of about {N} s. “{button}” saves a copy that skips the gap. The original is not changed, and you can undo.", "这段录像中间断了约 {N} 秒。点〔{button}〕，会另存一份跳过这段空档的；原文件不动，可以撤销。"],
+    // JJ定稿: separate fragment; do not append until annotation remapping and undo are verified.
+    "repair-gap-aligned": ["Danmaku and subtitles after the gap have been lined up too.", "空档后面的弹幕和字幕已经跟着对齐。"],
     "repair-menu": ["Fix it for me…", "帮我修好…"],
     "repair-button-tip": ["Saves a complete MP4 beside it and uses that instead. The original file is not changed, and Ctrl+Z puts it back.", "另存一份完整的 MP4 来替换它。原文件不动，按 Ctrl+Z 可以换回来。"],
     "repair-progress": ["Fixing… {n}%", "正在修…{n}%"],
