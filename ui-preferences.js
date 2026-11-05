@@ -236,14 +236,14 @@
     // the English of the slow-to-seek mark are drafts for JJ
     "repair-button": ["Fix it for me", "帮我修好"],
     "repair-menu": ["Fix it for me…", "帮我修好…"],
-    "repair-button-tip": ["Saves a complete MP4 beside it and uses that instead. The original file is not changed, and Ctrl+Z puts it back.", "另存一份完整的 MP4 来替换它。原文件不动，按 Ctrl+Z 可以换回来。"],
+    "repair-button-tip": ["Saves a complete MP4 beside it and uses that instead. The original file is not changed, and Ctrl+Z puts it back.", "另存一份完整的 MP4 来替换它。原文件不动，按 ⟨Ctrl⟩+⟨Z⟩ 可以换回来。"],
     "repair-progress": ["Fixing… {n}%", "正在修…{n}%"],
     "repair-cancel": ["Cancel", "取消"],
     "repair-done": ["Fixed. Clips that use it now use the fixed copy, in the same place. The original is still there.", "修好了。时间线上用到它的片段已经换成修好的这份，位置没变；原文件还在。"],
     "repair-failed": ["\"{name}\" stopped recording before it was saved, and this kind can't be fixed. The original file is unchanged — please use a complete file.", "「{name}」录到一半就停了，没存好，这种修不了。原文件没有改动，请换一个完整的文件。"],
-    "repair-encoder-missing": ["This computer has no encoder MontClip can use to fix \"{name}\", so nothing was written. The original file is unchanged.", "这台电脑上没有 MontClip 能用来修「{name}」的编码器，什么文件都没写。原文件没有改动。"],
+    "repair-encoder-missing": ["“{name}” needs re-encoding to be fixed, and the FFmpeg on this computer can't do that, so nothing was fixed or saved. The original file is unchanged. Switch to a full version of FFmpeg and try again.", "「{name}」要重新编码才能修，这台电脑上的 FFmpeg 做不了，所以没有修，也没有生成新文件。原文件没有改动。换成完整版 FFmpeg 以后再试。"],
     // cases 1 and 2: it can be cut, only seeking in it may be slow — a small mark on the file, no dialog
-    "media-slow-mark": ["Not recorded to the end, so seeking may be slow. Right-click → “Fix it for me” saves a complete copy.", "没录完整，拖动可能会慢。右键〔帮我修好〕，会另存一份完整的。"],
+    "media-slow-mark": ["This recording didn't finish properly, so scrubbing may be slow. Right-click → “Fix it for me” to save a complete copy.", "没录完整，拖动可能会慢。右键〔帮我修好〕，会另存一份完整的。"],
     // JJ 定稿 (2026-11-05, via Deja), word for word: the toast when files nothing can read the length of are imported,
     // and the toast when one is dragged onto the timeline
     "media-duration-unknown": ["\"{name}\" may not have finished recording (for example, a screen recording that was stopped), so its length can't be read and it can't be edited yet. The original file is unchanged. Click “Fix it for me” to try.", "「{name}」可能没录完整（比如录屏中途停了），读不出有多长，现在还剪不了。原文件没有改动。点〔帮我修好〕试试。"],
