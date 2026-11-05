@@ -583,7 +583,8 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
 }
 /** Integrated loudness and true peak of a file's first audio stream (ffmpeg ebur128). */
 async function measureLoudness(file, timeout = 10 * 60 * 1000) {
-  const r = await runFfmpeg(Delivery.LOUDNESS_ARGS(file), timeout);
+  // the bundled build measures: a system FFmpeg picked for H.264 may lack options (Debian 5.1: ebur128 framelog)
+  const r = await runFfmpeg(Delivery.LOUDNESS_ARGS(file), timeout, FF.measurePath("ffmpeg"));
   return r.code === 0 ? Delivery.parseEbur128(r.stderr) : null;
 }
 function ffprobeJSON(file) {

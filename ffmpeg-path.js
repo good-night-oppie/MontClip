@@ -160,6 +160,8 @@ module.exports = {
   /** The error to report when running the tool failed: why, and what needed it. */
   why: (name, need) => (cached(name).error || `MontClip's bundled ${name} could not be started (${cached(name).path}).`) + ` It is needed ${need}.`,
   status: () => Object.fromEntries(TOOLS.map((t) => [t, cached(t)])),
+  /** The bundled build when it is there, else the picked one: for measuring, whose options a system build may lack. */
+  measurePath: (name) => { const b = resolveBundled(name); return b.ok ? b.path : cached(name).path; },
   /** Forget what was found: the next call looks again (「重新检测」). */
   refresh: () => cache.clear(),
   /** Pin a tool to one program (the server's pick) until refresh(). */
