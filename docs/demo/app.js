@@ -2471,7 +2471,9 @@ function renderBin() {
     const folder = flat && m.folderId ? getFolder(m.folderId) : null;
     const usesHtml = `<button type="button" class="bin-uses${uses ? "" : " none"}" title="${uses ? `Used ${uses}× — click to find every instance` : "Not used on the timeline"}">${uses}</button>`;
     // JJ (P3, 2026-11-05): a recording nothing could read the length of says so on the file itself
-    const incomplete = MediaLib.cannotCut(m) ? `<div class="bin-incomplete">${escapeHtml(uiText("own.media-incomplete"))}</div>` : "";
+    const rep = repairing.get(m.id);
+    const repairHtml = rep ? `<div class="bin-repair"><span class="bin-repair-pct">${escapeHtml(uiText("own.repair-progress", { n: Math.round(rep.progress * 100) }))}</span><button type="button" class="btn tiny" data-repair-cancel>${escapeHtml(uiText("own.repair-cancel"))}</button></div>` : "";
+    const incomplete = repairHtml || (MediaLib.cannotCut(m) ? `<div class="bin-incomplete">${escapeHtml(uiText("own.media-incomplete"))}<button type="button" class="btn tiny" data-repair title="${escapeHtml(uiText("own.repair-button-tip"))}">${escapeHtml(uiText("own.repair-button"))}</button></div>` : "");
     const favHtml = `<button type="button" class="bin-fav${m.favorite ? " on" : ""}" title="${m.favorite ? "Favorite — click to unstar" : "Mark as favorite"}" aria-pressed="${!!m.favorite}">${m.favorite ? "★" : "☆"}</button>`;
     if (binView.list) {
       const cell = (v, cls = "") => `<span class="bin-cell${cls}">${escapeHtml(v || "—")}</span>`;
@@ -2516,7 +2518,7 @@ function renderBin() {
     // Don't bubble to the root drop zone while hovering a media row
     item.addEventListener("dragover", (e) => e.stopPropagation());
     item.addEventListener("click", (e) => {
-      if (e.target.closest(".bin-del, .bin-fav, .bin-uses")) return;
+      if (e.target.closest(".bin-del, .bin-fav, .bin-uses, .bin-repair, .bin-incomplete .btn")) return;
       if (e.ctrlKey || e.metaKey) return; // reserved for import
       if (!getSetting("linkSelect")) return;
       e.preventDefault();
@@ -2533,6 +2535,8 @@ function renderBin() {
       if (getSetting("linkSelect")) flashMonitorAttention();
     });
     item.addEventListener("contextmenu", (e) => { e.preventDefault(); e.stopPropagation(); showMediaMenu(e.clientX, e.clientY, m); });
+    item.querySelector("[data-repair]")?.addEventListener("click", (e) => { e.stopPropagation(); repairMediaFile(m); });
+    item.querySelector("[data-repair-cancel]")?.addEventListener("click", (e) => { e.stopPropagation(); cancelRepair(m.id); });
     item.querySelector(".bin-fav").addEventListener("click", (e) => { e.stopPropagation(); setMediaFavorite([m.id], !m.favorite); });
     item.querySelector(".bin-uses").addEventListener("click", (e) => {
       e.stopPropagation();
@@ -2923,6 +2927,9 @@ function showMediaMenu(x, y, m) {
   item(isMediaOffline(m.id) ? "Relink…" : "Relink to another copy…", () => openRelinkDialog([m]), state.connected ? null : uiText("own.needs-server"));
   item(uiText("term.replace-file"), () => replaceMediaFile(m), state.connected ? null : uiText("own.needs-server"));
   if (m.kind === "video") {
+    // 〔帮我转〕 for any video (JJ, P3): the same job as 〔修复成可以剪的视频〕 — FLV or not, no allowTranscode
+    item(MediaLib.cannotCut(m) ? uiText("own.repair-button") : uiText("own.convert-menu"), () => repairMediaFile(m),
+      !state.connected ? uiText("own.needs-server") : !state.ffmpeg ? "Needs MontClip's bundled FFmpeg" : isMediaOffline(m.id) ? "The file is offline" : repairing.has(m.id) ? uiText("own.repair-progress", { n: Math.round(repairing.get(m.id).progress * 100) }) : null);
     const ps = proxyStatus.get(m.id);
     const why = !state.connected ? uiText("own.needs-server") : !state.ffmpeg ? "Needs MontClip's bundled FFmpeg" : isMediaOffline(m.id) ? "The file is offline" : null;
     if (ps && (ps.state === "ready" || ps.state === "running" || ps.state === "queued")) item(ps.state === "ready" ? "Delete proxy" : "Stop making the proxy", () => deleteProxies([m]));
@@ -3175,6 +3182,57 @@ function pickFilesForRelink({ folder = false, accept = els.fileInput.accept } = 
     input.addEventListener("cancel", () => { resolve([]); input.remove(); }, { once: true });
     input.click();
   });
+}
+
+/* 〔修复成可以剪的视频〕 / 〔帮我转〕 (JJ, P3, 2026-11-05): the server writes a new MP4 beside the original (make-editable.js:
+   a quick remux first, a re-encode only when that doesn't hold; the original is never touched), and it takes this
+   entry's place — every clip, composition and sequence that used it — as one undo step. Progress and Cancel sit on the
+   file in the bin. The same swap as fablecut_repair_media's (MediaLib.swapMedia). */
+const repairing = new Map();   // media id → {job, progress}
+/** Seconds as said to a person: 16 秒 / 2 分 16 秒 / 1 小时 4 分 (16 s / 2 min 16 s / 1 h 4 min). */
+function spokenDuration(sec) {
+  const t = Math.max(0, Math.round(sec || 0)), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+  return h ? uiText("own.dur-hm", { h, m }) : m ? uiText("own.dur-ms", { m, s }) : uiText("own.dur-s", { s });
+}
+async function repairMediaFile(m) {
+  if (!m || repairing.has(m.id)) return;
+  const st = { job: null, progress: 0 };
+  repairing.set(m.id, st);
+  renderBin();
+  let j = null;
+  try {
+    const res = await fetch("/api/repair", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ src: m.src }) });
+    if (res.ok) j = await res.json();
+    st.job = j && j.job;
+    while (j && (j.status === "running" || j.status === "pending")) {
+      await new Promise((r) => setTimeout(r, 500));
+      const q = await fetch("/api/repair/job?id=" + encodeURIComponent(st.job));
+      j = q.ok ? await q.json() : null;
+      if (j) { st.progress = j.progress || 0; const pct = document.querySelector(`.bin-item[data-media-id="${CSS.escape(m.id)}"] .bin-repair-pct`); if (pct) pct.textContent = uiText("own.repair-progress", { n: Math.round(st.progress * 100) }); }
+    }
+  } catch { j = null; }
+  repairing.delete(m.id);
+  if (j && j.status === "done" && j.result) {
+    const root = seqRoot();
+    pushUndo(JSON.stringify({ clips: project.clips, markers: project.markers || [], comps: project.comps || [], media: project.media, seqClips: otherSequenceClips() }));
+    const entry = { id: "m_" + uid(), ...j.result };
+    if ((root.media || []).some((x) => x.id === m.id)) {
+      MediaLib.swapMedia(root, m.id, entry);
+      // an open composition's clips are edited in `project` until it closes
+      if (project !== root) for (const c of project.clips) if (c.mediaId === m.id) c.mediaId = entry.id;
+    } else root.media.push(entry);
+    runtime.compGen = (runtime.compGen || 0) + 1;
+    state.dirtyTimeline = true;
+    renderBin(); scheduleSave(); renderInspector();
+    toast(uiText("own.repair-done", { duration: spokenDuration(entry.duration) }));
+    return;
+  }
+  renderBin();
+  if (!j || j.status !== "cancelled") toast(uiText("own.repair-failed"));
+}
+async function cancelRepair(mediaId) {
+  const st = repairing.get(mediaId);
+  if (st && st.job) { try { await fetch("/api/repair/cancel?id=" + encodeURIComponent(st.job), { method: "POST" }); } catch { } }
 }
 
 /* Replace file…: a different file behind this media entry, for every clip that uses it. */

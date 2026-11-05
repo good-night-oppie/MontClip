@@ -202,7 +202,7 @@ test("the editor's server: POST /api/repair → a job; it ends with the new file
   const srv = await startServer(t, data, { FABLECUT_NO_FS_WATCH: "1" });
   const start = await fetch(srv.base + "/api/repair", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ src: "/media/rec.webm" }) });
   a.equal(start.status, 200);
-  const { id } = await start.json();
+  const { job: id } = await start.json();
   let s;
   for (const end = Date.now() + 60_000; ;) {
     s = await (await fetch(srv.base + "/api/repair/job?id=" + encodeURIComponent(id))).json();

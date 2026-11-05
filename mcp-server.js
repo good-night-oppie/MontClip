@@ -30,6 +30,8 @@ const FX = require("./audio-fx");
 const EditOps = require("./edit-ops");
 const ProjectOps = require("./project-ops");
 const Denoise = require("./denoise");
+const MakeEditable = require("./make-editable");
+const MediaLib = require("./media-lib");
 const { createProjects } = require("./projects");
 const { createHistory } = require("./history");
 const Color = require("./color");
@@ -1028,6 +1030,65 @@ function versionBeforeAgent(rewrite) {
     return ` Warning: no version was saved before this edit (${e.message}) — fablecut_versions {action:"save"} keeps one.`;
   }
 }
+/* fablecut_repair_media (JJ, P3, 2026-11-05): 〔修复成可以剪的视频〕 for agents, and the general 〔帮我转〕 — any
+   video, FLV or not, without allowTranscode. A background job (the long-operation convention, MontClip-Cindy #3):
+   {mediaId} answers at once with the job; {job} says how far it got and, once done, the new mediaId; {cancel} stops
+   it; the same {mediaId} again while it runs joins that job. Done: the new MP4 takes the entry's place (MediaLib.swapMedia),
+   a version of the project kept first, so the swap can be undone (fablecut_versions; in the editor, Ctrl+Z). */
+const repairJobs = MakeEditable.createJobs({ prefix: "r_" });
+const REPAIR_WORDS = {
+  REPAIR_FAILED: "This video is too damaged to repair. Please use another file.",
+  REPAIR_CANCELLED: "Stopped; nothing was changed.",
+};
+function repairLine(j) {
+  const pct = Math.round(j.progress * 100);
+  const head = j.status === "done" ? `Repaired: the usable part is ${j.result.duration}s, now media ${j.result.mediaId} (it replaced ${j.result.replaced}${j.result.clips ? `; ${j.result.clips} clip(s) switched` : ""}).`
+    : j.status === "failed" || j.status === "cancelled" ? (REPAIR_WORDS[j.error.code] || j.error.message)
+    : `Repair job ${j.job}: ${j.status} ${pct}% (${j.phase}). Call again with job "${j.job}" for progress and the result, or cancel "${j.job}" to stop it.`;
+  return head + "\n" + JSON.stringify(j);
+}
+async function repairTool(args) {
+  if (args.cancel != null) {
+    const j = repairJobs.cancel(args.cancel);
+    if (!j) throw new Error("no repair job " + args.cancel);
+    return repairLine(j);
+  }
+  if (args.job != null) {
+    const j = repairJobs.get(args.job);
+    if (!j) throw new Error("no repair job " + args.job + " (jobs live as long as this MCP server runs; start it again with {mediaId})");
+    return repairLine(j);
+  }
+  const id = args.mediaId != null ? String(args.mediaId) : "";
+  if (!id) throw new Error("mediaId is required (or job / cancel)");
+  const doc = readProject();
+  const m = (doc.media || []).find((x) => x.id === id);
+  if (!m) throw new Error("no media " + id);
+  if (m.kind !== "video") throw new Error(`${id} is ${m.kind}: only a video can be repaired or converted`);
+  const file = mediaFile(m.src);
+  if (!file) throw new Error(`${id}: its file is missing (offline) — relinkMedia first`);
+  const lockedTracks = new Set(Array.isArray(doc.lockedTracks) ? doc.lockedTracks : []);
+  const locked = (doc.clips || []).filter((c) => c.mediaId === id && (c.locked === true || lockedTracks.has(c.track)));
+  if (locked.length && args.force !== true)
+    throw new Error(`${locked.map((c) => c.id).join(", ")} locked — the user locked it. Leave it alone, or pass force:true if they asked you to change it`);
+  const j = repairJobs.start(id, async ({ signal, onProgress }) => {
+    const r = await MakeEditable.makeEditable(file, { outDir: MEDIA_DIR, signal, onProgress });
+    const name = path.basename(r.file);
+    const entry = { id: "m_" + uid(), name, kind: "video", src: "/media/" + encodeURIComponent(name), duration: r.duration, preparation: r.preparation };
+    Object.assign(entry, infoForEntry(await probeFile(r.file), entry));
+    versionBeforeAgent(true);
+    // re-read: the project may have changed while it ran
+    const proj = readProject();
+    const wasCurrent = lastReadRevision === (proj.revision || 0);
+    let clips = 0, replaced = id;
+    if ((proj.media || []).some((x) => x.id === id)) clips = MediaLib.swapMedia(proj, id, entry).clips;
+    else { proj.media.push(entry); replaced = null; }   // the original was removed meanwhile: just added
+    proj.revision = (proj.revision || 0) + 1;
+    writeProject(proj);
+    if (wasCurrent) lastReadRevision = proj.revision;
+    return { mediaId: entry.id, replaced, duration: r.duration, preparation: r.preparation, ...(r.encoder ? { encoder: r.encoder } : {}), src: entry.src, clips };
+  });
+  return repairLine(j);
+}
 async function proxyTool(args) {
   if (!(await ensureUIServer())) throw new Error(`the editor server is not running and could not be started on port ${PORT}`);
   const proj = readProject();
@@ -1318,6 +1379,8 @@ async function callTool(name, args, attempt = 0) {
       return captionsTool(args);
     case "fablecut_denoise":
       return denoiseTool(args);
+    case "fablecut_repair_media":
+      return repairTool(args);
     case "fablecut_proxy":
       return proxyTool(args);
     case "fablecut_projects":

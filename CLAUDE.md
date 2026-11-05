@@ -68,6 +68,8 @@ Every Claude Code session then has these tools:
   select. See "Color" and "Masks" below.
 - `fablecut_track` — motion tracking: follow a region of a video clip, store it as
   a track, and make a mask or another clip follow it. See "Tracking" below.
+- `fablecut_repair_media` — make a video MontClip can cut: a recording cut off mid-way, or any format the editor
+  can't cut (FLV too). A new MP4 replaces the entry; a background job. See "Media management" below.
 - `fablecut_proxy` — make, check or delete proxies: light copies of heavy footage
   the editor plays while editing (export always reads the originals). See
   "Media management" below.
@@ -1739,6 +1741,25 @@ Files under `media/` may sit in subfolders (`/media/archive/a.mp4`).
   swap the file of one clip only, use the Inspector's **Source** menu instead.
 - Relink and replace are one undo step each.
 
+**Repair / convert (〔修复成可以剪的视频〕).** A recording whose length can't be read (it stopped before it was saved)
+shows "This video wasn't recorded to the end…" on the file in the bin, with a **Repair into a video you can cut**
+button; right-click any video → **Convert to a video you can cut** runs the same thing (FLV included, no
+`allowTranscode`). A new MP4 is written into `media/` as `<name>.repaired.mp4` — the original file is never
+touched — and takes the entry's place: every clip, composition and sequence that used it switches, fitted to
+the usable part, as one undo step (the new entry has `derivedFrom` and `replaced: {id, name, src}`). First a
+quick remux (`-c copy`), checked: the new file states its length, close to what the original holds, and decodes
+cleanly end to end. Only if that doesn't hold (VP8 can't go into an MP4, a broken frame …) it is re-encoded,
+with the encoders exports use: your own FFmpeg's libx264, else a bundled LGPL H.264 encoder that works here, else
+the bundled LGPL VP9 (no GPL encoder is ever bundled). An FLV goes through the FLV preparation first. Progress and
+**Cancel** sit on the file; a file too damaged says "This video is too damaged to repair. Please use another
+file." (an MP4 whose index was never written, for one).
+
+**Agents:** `fablecut_repair_media {mediaId}` answers at once with a job — `{job, status, progress, phase}` —
+the long-operation convention: call again with `{job}` for progress and, when `status` is `done`,
+`result.mediaId` (the NEW id) and `result.duration`; `{cancel}` stops it (nothing changes); the same
+`{mediaId}` again while it runs joins that job. `failed` carries `error.code` (`REPAIR_FAILED`). A version is
+kept first, so `fablecut_versions` can undo the swap.
+
 **Proxies.** Heavy footage — 4K, HEVC, ProRes, long phone clips — can stutter
 while you scrub and play. A *proxy* is a light copy the editor plays instead
 while you edit: H.264 at 540p (or 720p / 1080p, never larger than the
@@ -2322,6 +2343,10 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
   `{src, key, state, done, total, complete, scanned, songs}` (songs in file seconds; state `running` · `done` ·
   `stopped` · `failed` · `none`) · `POST /api/songs/cancel {src}` stops it, keeping what was read. SSE event
   `songs` (`{src, state, done, total}`) after each segment. See "Songs in a recording".
+- `POST /api/repair {src}` → `{job, status, progress, phase}` (a job; the same src while it runs joins it) ·
+  `GET /api/repair/job?id=` → the same, with `result {src, name, kind, duration, preparation, encoder?, …details}`
+  when done or `error {code}` · `POST /api/repair/cancel?id=`. Writes `<name>.repaired.mp4` into `./media/`;
+  registering it is the caller's job (see "Media management").
 - `POST /api/denoise` — body `{src:"/media/…", amount:"light"|"medium"|"strong"}`: writes a
   noise-reduced FLAC of the whole file into `./media/` (reused if it exists) and returns
   `{src, name, duration, channels}`. Does not touch `project.json` (see "Audio mix").

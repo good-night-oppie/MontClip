@@ -231,6 +231,18 @@
     // media-incomplete is JJ's sentence (定稿 2026-11-05) — on the file in the bin, and when it is dragged onto the
     // timeline; the English is a draft for JJ. The two toasts are built from it, drafts for JJ too.
     "media-incomplete": ["This video wasn't recorded to the end (the screen recording may have stopped early), so its length can't be read. It can't be cut yet.", "这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
+    // 〔修复成可以剪的视频〕 (JJ, P3, 2026-11-05): button, done and failed are JJ's Chinese (定稿); the English, the
+    // progress line, Cancel, the button's tip, the right-click 〔帮我转〕 and the spoken lengths are drafts for JJ
+    "repair-button": ["Repair into a video you can cut", "修复成可以剪的视频"],
+    "repair-button-tip": ["Saves a new MP4 beside it and uses that instead. The original file is not changed, and Ctrl+Z puts it back.", "另存一份新的 MP4 来替换它。原文件不动，按 Ctrl+Z 可以换回来。"],
+    "repair-progress": ["Repairing… {n}%", "正在修复…{n}%"],
+    "repair-cancel": ["Cancel", "取消"],
+    "repair-done": ["Repaired. The usable part is {duration} long.", "修好了，能用的部分有 {duration}。"],
+    "repair-failed": ["This video is too damaged to repair. Please use another file.", "这个视频损坏得太多，修不好。请换一个文件。"],
+    "convert-menu": ["Convert to a video you can cut", "帮我转成可以剪的视频"],
+    "dur-s": ["{s} s", "{s} 秒"],
+    "dur-ms": ["{m} min {s} s", "{m} 分 {s} 秒"],
+    "dur-hm": ["{h} h {m} min", "{h} 小时 {m} 分"],
     "media-duration-unknown": ["“{name}”: this video wasn't recorded to the end (the screen recording may have stopped early), so its length can't be read. It can't be cut yet.", "「{name}」：这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
     "media-duration-unknown-n": ["{n} videos weren't recorded to the end (the screen recordings may have stopped early), so their length can't be read. They can't be cut yet.", "有 {n} 个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
     "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],
