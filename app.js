@@ -41,11 +41,14 @@ const mcView = MontClipView.create(window.montclipViewSettings ? MontClipView.de
 const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
 /** At ≤560 px (style.css) the open bin takes the whole width and the player gives way (VV on #162). */
 const mcMediaNarrow = matchMedia("(max-width:560px)");
-/** The top bar's media button: 返回播放器 while the open bin covers the player (a DRAFT for JJ), else 素材; aria-expanded. */
+/** The top bar's media button: 返回播放器 / ← Player while the open bin covers the player (JJ: aria-label and tooltip
+ *  say it in full, Back to player), else 素材; aria-expanded either way. */
 function syncMediaToggle() {
   const b = document.getElementById("mcMediaToggle"), open = document.getElementById("app").classList.contains("media-open");
-  const label = uiText(open && mcMediaNarrow.matches ? "own.media-back" : "own.media-toggle");
+  const back = open && mcMediaNarrow.matches, label = uiText(back ? "own.media-back" : "own.media-toggle");
   if (b.textContent !== label) b.textContent = label;
+  if (back) { const full = uiText("own.media-back-full"); b.setAttribute("aria-label", full); b.title = full; }
+  else { b.removeAttribute("aria-label"); b.removeAttribute("title"); }
   b.setAttribute("aria-expanded", String(open));
 }
 /** A double-click that loaded a file into Source puts the covering bin away, so the player shows it (VV on #162). */

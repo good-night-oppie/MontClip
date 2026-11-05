@@ -237,8 +237,9 @@
     "tl-above-captions": ["Captions above, click to show", "上方有字幕轨，点这里显示"],
     // the top bar's media button (below 1100 px); at ≤560 px the open panel covers the player and the button says so
     "media-toggle": ["Media", "素材"],
-    // DRAFT for JJ (VV on #162, 2026-11-05): both languages are drafts
-    "media-back": ["Back to player", "返回播放器"],
+    // JJ (定稿 2026-11-05): the button says media-back; its aria-label and tooltip say media-back-full
+    "media-back": ["← Player", "返回播放器"],
+    "media-back-full": ["Back to player", "返回播放器"],
     // P2 highlight cards (for JJ to review)
     "hl-open": ["Highlight candidates", "高光候选"],
     "hl-title": ["Highlight candidates (worked out on this computer; no AI)", "高光候选（只在本机判断，不调用 AI）"],
