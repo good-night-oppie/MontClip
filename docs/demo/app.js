@@ -9864,11 +9864,11 @@ async function asrGetPunct() {
   await loadAsrStatus();
   paintSettingsAsr();
 }
-/** A transcription Meta's model could not finish because it stopped: JJ's words and 〔换回 Paraformer〕, which makes
- *  Paraformer the chosen speech model. → true when it showed that (other failures keep the plain toast). */
+/** A transcription Meta's model could not do — it stopped, there wasn't enough memory, its files can't be read, or it
+ *  is being removed (〔删掉〕): JJ's words alone, never after "Couldn't transcribe: " (Deja, 11-05), and 〔换回 Paraformer〕,
+ *  which makes Paraformer the chosen speech model. → true when it showed that (other failures keep the plain toast). */
 function asrMetaFailToast(f) {
-  // and one asked for while Meta's model is being removed (〔删掉〕): its words alone, with the same button
-  if (!f || (f.code !== "ASR_OPTIONAL_CRASHED" && f.code !== "ASR_OPTIONAL_REMOVING")) return false;
+  if (!f || !["ASR_OPTIONAL_CRASHED", "ASR_OPTIONAL_NO_MEMORY", "ASR_OPTIONAL_MODEL_BROKEN", "ASR_OPTIONAL_REMOVING"].includes(f.code)) return false;
   toastAction(f.error, uiText("own.asr-switch-paraformer"), () => setAsrKey("asr"));
   return true;
 }
