@@ -181,6 +181,7 @@ test('every request to the AI goes through the review box (QQ 4): confirm sends 
     'kept; then the review only when she was sending (shown again from 设置 or the link, it only closes)');
   a.ok(notice.includes('onCancel={e=>e.preventDefault()}'), 'Esc does not close it: only 〔我知道了〕 does');
   a.doesNotMatch(pane.slice(pane.indexOf('const acceptNotice'), pane.indexOf(' const confirm=')), /conversation\.confirm|\.send\(/, '〔我知道了〕 sends nothing');
+  // JJ定稿 (2026-11-05, via Deja): 「发了什么」 also names the singing parts and the loudness, ending 「声音本身不发。」 as the review box.
   // JJ's v3, word for word (europa ~/montclip-labels/jj/2026-11-04-AI数据说明-DeepSeek私下包-v3-JJ.md, sha256 98da6840…,
   // QQ passed; Deja, 2026-11-04: v3 is the one): each line as it shows, a bold label followed by its text
   const V = require('../ui-preferences'), T = (lang) => (k) => V.text[lang]['officialPane_' + k];
@@ -189,7 +190,7 @@ test('every request to the AI goes through the review box (QQ 4): confirm sends 
     t('dataNoticeBasis'), t('dataNoticeOk')];
   a.deepEqual(lines(T('zh-CN')), [
     '用 AI 之前，先说清楚这几件事',
-    '发了什么：你在助手里写的话，加上你选中的片段的时间、长度这类数字，以及哪几段可能在唱歌（只有开始和结束的秒数）、每秒的音量大小（一串数字）。字幕（听写出来的文字）和弹幕的原文，只有你点了〔让 AI 看〕才会发。录像、声音和文件本身，从来不发。',
+    '发了什么：你在助手里写的话，加上你选中的片段的时间、长度这类数字，以及哪几段可能在唱歌（只有开始和结束的秒数）、每秒的音量大小（一串数字）。声音本身不发。字幕（听写出来的文字）和弹幕的原文，只有你点了〔让 AI 看〕才会发。录像、声音和文件本身，从来不发。',
     '发给谁：直接发给 DeepSeek（深度求索）的官方接口 api.deepseek.com，中间不经过 MontClip 团队或别的服务器；数据存在中国境内。',
     'DeepSeek 会怎么用：DeepSeek 的隐私政策写着，你发过去的内容和 AI 的回复「可能」用于训练模型和改进服务，用之前会加密、去掉能认出你的信息。用这种方式发过去的内容，没有开关能让它不拿去训练，它也没公布会存多久。我们只是照实转述，没法替 DeepSeek 保证什么。',
     '所以：不想让别人看到的话，别写进助手；不想发的字幕和弹幕，就别点〔让 AI 看〕。',
@@ -199,7 +200,7 @@ test('every request to the AI goes through the review box (QQ 4): confirm sends 
     '我知道了']);
   a.deepEqual(lines(T('en')), [
     'Before you use the AI, a few things to know',
-    'What is sent: what you write to the assistant, plus numbers about the clips you selected, such as their times and lengths, which parts may be singing (start and end seconds only) and the loudness for each second (a list of numbers). Caption text (from transcription) and live-comment text are sent only when you click [Let the AI see it]. Your video, audio and files themselves are never sent.',
+    'What is sent: what you write to the assistant, plus numbers about the clips you selected, such as their times and lengths, which parts may be singing (start and end seconds only) and the loudness for each second (a list of numbers). The sound itself is never sent. Caption text (from transcription) and live-comment text are sent only when you click [Let the AI see it]. Your video, audio and files themselves are never sent.',
     "Who gets it: DeepSeek's official API (api.deepseek.com), directly. Nothing passes through the MontClip team or any other server. The data is stored in mainland China.",
     "What DeepSeek does with it: DeepSeek's privacy policy says what you send and what the AI replies \"may\" be used to train its models and improve its service, after being encrypted and stripped of anything that identifies you. For data sent this way there is no switch to keep it out of training, and DeepSeek hasn't said how long it is kept. We're only passing on what the policy says; we can't promise anything on DeepSeek's behalf.",
     "So: don't write anything to the assistant that you wouldn't want others to see, and don't click [Let the AI see it] for captions or live comments you'd rather not send.",
