@@ -407,8 +407,7 @@ async function ffmpegStatus() {
 }
 /** 「重新检测」: look again, forget the encoder list, answer the new state. */
 async function redetectFfmpeg() {
-  detectFfmpeg();
-  deliveryEncodersP = null;
+  detectFfmpeg();   // bundledEncoders() probes again only if the ffmpeg program changed
   return ffmpegStatus();
 }
 function runFfmpeg(args, timeout = 15000, bin = FF.path("ffmpeg")) {
@@ -423,8 +422,14 @@ async function deliveryEncoders() {
   if (!HAS_FFMPEG) return new Set();
   return externalFfmpeg.available(await bundledEncoders());
 }
+/* Kept per program (path, size, time): 「重新检测」 with the same ffmpeg answers at once; a new one is probed again. */
+let deliveryEncodersKey = "";
 function bundledEncoders() {
-  if (deliveryEncodersP) return deliveryEncodersP;
+  const bin = FF.path("ffmpeg");
+  let key = bin;
+  try { const st = fs.statSync(bin); key += `|${st.size}|${st.mtimeMs}`; } catch { }
+  if (deliveryEncodersP && deliveryEncodersKey === key) return deliveryEncodersP;
+  deliveryEncodersKey = key;
   deliveryEncodersP = (async () => {
     let listed = Delivery.parseEncoders((await runFfmpeg(["-hide_banner", "-encoders"])).stdout);
     // test/export-h264-precheck.test.js: a computer with no H.264 encoder (Linux with the LGPL build, no graphics card)

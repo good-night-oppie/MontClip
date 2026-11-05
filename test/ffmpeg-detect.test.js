@@ -139,7 +139,7 @@ test('server: missing → re-detect after installing → chosen path survives a 
   put(pathDir, 'ffprobe');
   const t0 = Date.now(); st = await post('/api/ffmpeg/detect');
   // JJ's 3 s is checked on an idle machine (PR #146, acceptance); here the whole suite runs in parallel
-  a.ok(Date.now() - t0 < 10000, `re-detect took ${Date.now() - t0} ms`);
+  a.ok(Date.now() - t0 < 30000, `re-detect took ${Date.now() - t0} ms`);   // a hang guard only
   a.ok(['ready', 'noH264'].includes(st.state), st.state); a.equal(st.ffmpeg.source, 'path');
   // the same answer reaches export: no restart needed
   a.equal((await (await fetch(base + '/api/export/ffmpeg')).json()).available, true);
