@@ -468,7 +468,7 @@ These are quick looks. For real grading use `props.grade` (see "Color" below).
 | `fontSize` | 72 | px |
 | `color` | "#ffffff" | fill |
 | `color2` | "" | if set: vertical gradient fill color→color2 |
-| `font` | "Segoe UI" | system font, a `library/fonts` family, or ANY Google Font name — unknown names are fetched from Google Fonts automatically |
+| `font` | "Segoe UI" | system font, a `library/fonts` family, or a Google Font name — loaded from Google Fonts only after the user confirms it in the editor (desktop: never); until then it draws and exports in the fallback face |
 | `bold` / `weight` | true / 0 | `weight` (300–900) overrides `bold` when non-zero |
 | `italic` `uppercase` | false | |
 | `align` | "center" | left · center · right · **justify** (inserts spaces between words to fill the text box width, or ~85% of the canvas when no box) |
@@ -511,8 +511,8 @@ dropdown + Shuffle), or reproduce it from an agent by writing the same props:
 | `luxury` | Cinzel | uppercase, cream→gold gradient, wide `letterSpacing`, `clip-reveal` |
 
 **Rule for agents: vary the font per title — never reuse one font across a whole
-edit.** Any Google Font name auto-loads; the display faces above ship in
-`library/fonts/`. Placement props (`x`/`y`) are canvas-aware in the styles
+edit.** The display faces above ship in `library/fonts/` and need no network;
+prefer them. Another Google Font loads only after the user confirms it (see `font`). Placement props (`x`/`y`) are canvas-aware in the styles
 (lower third ≈ `y: height*0.30`).
 
 Switching the style on an **existing** title (inspector dropdown/Shuffle) only
@@ -2533,8 +2533,8 @@ work). Animations wipe and stagger in reading order automatically. `letter-pop` 
 cursive joining stays correct.
 
 **Branded title**: `props: {font:"Bebas Neue", weight:700, letterSpacing:6,
-uppercase:true, color:"#ffffff", color2:"#7b6cff", textShadow:20}` — any Google
-Font name just works.
+uppercase:true, color:"#ffffff", color2:"#7b6cff", textShadow:20}` — another Google
+Font works too, once the user confirms loading it.
 
 **Kinetic font-cut title** (rhythmic typeface cuts on the beat, then settle):
 `props: {font:"Bebas Neue", fontSize:120, uppercase:true, color:"#ffd166",

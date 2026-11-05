@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- No Referer on any request this page makes (Deja, #151). The editor's own server never reads it. The font files a
+     Google Fonts stylesheet pulls take the sheet's policy, not this one: loadGoogleFont handles those. -->
+<meta name="referrer" content="no-referrer">
 <title>MontClip playground</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">

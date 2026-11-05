@@ -102,15 +102,16 @@ function pinnedBytes(build) {
   if (!Number.isSafeInteger(build.bytes) || build.bytes <= 0) throw new Error(`no pinned byte count for ${build.url || "this build"}: the manifest must give its exact size in bytes`);
   return build.bytes;
 }
-/** An archive is the pinned one when its size is the pinned byte count and then its SHA-256 matches. Throws otherwise. */
-function checkArchive(file, build) {
+/** An archive is the pinned one when its size is the pinned byte count and then its SHA-256 matches. Throws otherwise,
+ *  naming `name`: the URL for a download, the local file itself for --archive. */
+function checkArchive(file, build, name = file) {
   const bytes = pinnedBytes(build);
   const size = fs.statSync(file).size;
-  if (size !== bytes) throw new Error(`size mismatch for ${build.url || file}: got ${size} bytes, pinned ${bytes}`);
+  if (size !== bytes) throw new Error(`size mismatch for ${name}: got ${size} bytes, pinned ${bytes}`);
   const got = sha256(file);
-  if (got !== build.sha256) throw new Error(`SHA-256 mismatch for ${build.url || file}: got ${got}, pinned ${build.sha256}`);
+  if (got !== build.sha256) throw new Error(`SHA-256 mismatch for ${name}: got ${got}, pinned ${build.sha256}`);
 }
-const isPinned = (file, build) => { try { checkArchive(file, build); return true; } catch { return false; } };
+const isPinned = (file, build) => { try { checkArchive(file, build, file); return true; } catch { return false; } };
 
 /** The pinned archive in cacheDir: reused when its size and SHA-256 match, else (re)downloaded
  *  and checked: the byte count first, then the SHA-256. A download that fails or does not match is
@@ -124,7 +125,7 @@ async function cachedArchive(build, cacheDir, { download: get = download } = {})
   const part = file + ".part";
   fs.rmSync(part, { force: true });
   console.log("downloading " + build.url);
-  try { await get(build.url, part); checkArchive(part, build); }
+  try { await get(build.url, part); checkArchive(part, build, build.url); }
   catch (e) { fs.rmSync(part, { force: true }); throw e; }
   fs.renameSync(part, file);
   return file;

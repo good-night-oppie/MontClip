@@ -863,6 +863,8 @@ const runtime = {
   libraryFontReq: new Set(), // library families claimed by a load pass
   googleLoaded: new Set(),   // loaded from Google Fonts (the font picker lists them)
   fontReq: new Map(),   // font name -> Promise<boolean> (ensureFont)
+  fontConsent: new Set(),   // Google fonts the streamer said yes to going online for, this session (requestFonts)
+  fontHinted: new Set(),    // fonts already named in a "drawn in the fallback face" hint, this session
   undo: [], redo: [],
   seqUndo: new Map(),   // sequence id -> {undo, redo, time, sel}: each sequence keeps its own undo history this session
   seqOpen: null,        // the open sequence's id, to notice another one being opened
@@ -1722,6 +1724,7 @@ function applyProject(data, opts = {}) {
   if (migratePan) scheduleSave(); // persist marker + migrated stem pans
   // AV links aren't always on disk (older saves / agents) — rebuild from matching timing.
   relinkClips();
+  noteProjectFonts(); // titles in a font that would have to come from outside: the fallback face, and one hint
   // reset runtime playback elements so they rebuild against new data
   if (state.audioHold) setAudioHold(false);
   else stopAudioHoldNodes();
@@ -4645,7 +4648,7 @@ function addClipFromMedia(m, trackId, at) {
   if (!tr || (kind === "audio") !== (tr.kind === "audio")) trackId = defaultTrackFor(kind);
   if (isTrackLocked(trackId)) { toast(`${trackId} is locked — unlock it to add clips`); return null; }
   // nothing could read its length (a recording cut off before it was saved): never placed at a made-up 5 s (europa P3)
-  if (MediaLib.cannotCut(m)) { toast(uiText("own.media-incomplete")); return null; }
+  if (MediaLib.cannotCut(m)) { toast(uiText("own.media-cannot-cut", { name: m.name })); return null; }
   pushUndo();
   const start = Math.max(0, at ?? state.time);
   const duration = m.duration || 5;
@@ -4924,6 +4927,7 @@ function openStylePicker(anchor, c) {
       committed = true;
       close();
       scheduleSave(); renderInspector();
+      requestTitleFonts(c);
     });
     menu.appendChild(it);
   }
@@ -4941,6 +4945,12 @@ function openStylePicker(anchor, c) {
   menu.style.top = Math.round(Math.min(r.bottom + 4, innerHeight - 340)) + "px";
   document.body.appendChild(menu);
   runtime.styleMenu = { close };
+}
+/* A style the streamer picked: its fonts, asking first for any that would go online. (Applying a style on its own —
+   a new title, a hover preview — never asks or goes online; a missing face draws in the fallback.) */
+function requestTitleFonts(c) {
+  const p = c.props || {};
+  requestFonts([p.font, ...(p.textAnim === "font-cut" ? (Array.isArray(p.fontCutSet) && p.fontCutSet.length ? p.fontCutSet : FONT_CUT_DEFAULT) : [])]);
 }
 function closeStylePicker() { if (runtime.styleMenu) runtime.styleMenu.close(); }
 /* Swap a clip's source media in place: position, trim, keyframes, transitions,
@@ -7724,9 +7734,6 @@ function renderInspector(lite) {
     ${curveSel("Out curve", "curveOut", c.transitionOut)}
   </div>`;
   if (c.kind === "text") {
-    const fontGroup = (label, fonts) => fonts.length
-      ? `<optgroup label="${label}">${fonts.map((f) => `<option ${f === p.font ? "selected" : ""}>${f}</option>`).join("")}</optgroup>` : "";
-    const known = [...SYSTEM_FONTS, ...runtime.customFonts, ...GOOGLE_FONTS, ...runtime.googleLoaded];
     html += `<div class="insp-section"><h3>Text</h3>
       ${row("Content", `<textarea data-k="text">${p.text}</textarea>`, "", "text")}
       ${row(hasTextBox(p) && p.boxFit ? "Max size" : "Font size",
@@ -7745,14 +7752,7 @@ function renderInspector(lite) {
       ${sel("Direction", "direction", ["auto", "ltr", "rtl"], p.direction || "auto")}
     </div>
     <div class="insp-section"><h3>Font</h3>
-      ${row("Family", `<select data-k="font">
-        ${fontGroup("System", SYSTEM_FONTS)}
-        ${fontGroup("Library fonts", runtime.customFonts)}
-        ${fontGroup("Google fonts", [...new Set([...GOOGLE_FONTS, ...runtime.googleLoaded])])}
-        ${known.includes(p.font) ? "" : `<option selected>${p.font}</option>`}
-      </select>`, "", "font")}
-      ${row("Google font", `<input type="text" data-gfont placeholder="Type any Google Font name…">
-        <button class="btn tiny" data-action="gfont-load">Load</button>`)}
+      ${fontFamilyRowsHtml(p, row)}
       ${sel("Weight", "weight", [0, 300, 400, 500, 600, 700, 800, 900], p.weight)}
       ${check("Bold", "bold", p.bold)}
       ${check("Italic", "italic", p.italic)}
@@ -7803,7 +7803,7 @@ function renderInspector(lite) {
         : input.type === "range" || input.type === "number" ? parseFloat(input.value)
           : input.value;
       if (k === "weight") v = +v || 0;
-      if (k === "font") ensureFont(String(v));
+      if (k === "font") requestFonts([String(v)]);
       if (k === "name") { c.name = String(v); state.dirtyTimeline = true; }
       else if (k === "start") { c.start = Math.max(0, +v || 0); state.dirtyTimeline = true; inspPropGen++; }
       else if (k === "duration") { c.duration = Math.max(MIN_DUR, +v || MIN_DUR); state.dirtyTimeline = true; inspPropGen++; }
@@ -7866,13 +7866,14 @@ function renderInspector(lite) {
       else if (a === "gfont-load") {
         const name = els.inspector.querySelector("[data-gfont]")?.value.trim();
         if (!name) return;
-        ensureFont(name).then((ok) => { if (!ok) toast(`Couldn't load "${name}" from Google Fonts`); });
         c.props.font = name;
-        toast(`Loading Google font "${name}"…`);
+        // asks first (the hosts, what is sent); a "no" keeps the fallback face
+        requestFonts([name]).then((ok) => { if (ok === false) toast(`Couldn't load "${name}" from Google Fonts`); else if (ok) renderInspector(); });
       }
       else if (a === "title-shuffle") {
         const keys = Object.keys(TITLE_STYLES).filter((k) => k !== "plain" && k !== c.styleName);
         applyTitleStyle(c, keys[Math.floor(Math.random() * keys.length)], { keepTransform: true });
+        requestTitleFonts(c);
       }
       scheduleSave(); renderInspector();
     });
@@ -18209,41 +18210,126 @@ function fontRegistered(name) {
   for (const f of document.fonts) if (f.family.replace(/^["']|["']$/g, "") === name) return true;
   return false;
 }
-/* Make `name` drawable: system and library fonts already are, anything else
-   comes from Google Fonts. Resolves false when there is no such font. Cheap
-   to call every frame (font-cut does): one request per name, ever. */
+/* Google Fonts goes online (Deja, 11-04): MontClip may, but the streamer sees where and what first. The page asks
+   before the first request for a font (the names, both hosts, what is sent); a font confirmed once this session is
+   not asked about again. Desktop never goes online from the page (desktop/main.js blocks it): no Google font box
+   there, and a font that isn't on this computer is drawn and exported in the fallback face. */
+const GOOGLE_FONT_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com"];
+const fontDesktop = () => !!window.montclipViewSettings;
+/* Drawable without going online: a system font, a library font, one already loaded, or one on this machine. */
+function fontHere(name) {
+  return SYSTEM_FONTS.includes(name) || runtime.customFonts.includes(name) || fontRegistered(name) || fontInstalled(name);
+}
+/* Make `name` drawable if it can be without asking: system and library fonts already are, a Google font only once
+   the streamer has said yes to it this session. Resolves false otherwise (the fallback face draws it). Never goes
+   online for a font nobody confirmed, so drawing, opening a project and exporting call it freely. Cheap to call
+   every frame (font-cut does): one check per name until a yes. */
 function ensureFont(name) {
   if (!name || SYSTEM_FONTS.includes(name)) return FONT_READY;
   let req = runtime.fontReq.get(name);
   if (req) return req;
   req = (async () => {
     await (libraryFontsReady || loadLibraryFonts());
-    if (runtime.customFonts.includes(name) || fontRegistered(name) || fontInstalled(name)) return true;
-    const ok = await new Promise((resolve) => {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      // CORS mode so @font-face files stay origin-clean when fillText hits the canvas.
-      link.crossOrigin = "anonymous";
-      link.href = "https://fonts.googleapis.com/css2?family=" +
-        encodeURIComponent(name).replace(/%20/g, "+") + ":" + GOOGLE_FONT_STYLES + "&display=swap";
-      link.onload = () => resolve(true);
-      link.onerror = () => { link.remove(); resolve(false); };
-      document.head.appendChild(link);
-    });
-    if (!ok) return false;
-    runtime.googleLoaded.add(name);
-    // fetch the usual faces now instead of on the first frame that draws them
-    await Promise.all(["400", "700"].map((w) => document.fonts.load(`${w} 64px "${name}"`).catch(() => { })));
-    return true;
+    if (fontHere(name)) return true;
+    if (fontDesktop() || !runtime.fontConsent.has(name)) return false;
+    return loadGoogleFont(name);
   })();
   runtime.fontReq.set(name, req);
   return req;
 }
-/* Before an export: every face the titles draw with, loaded. A frame drawn
-   while its face is still in flight comes out in the fallback font, and in
-   an export that frame is final. Bounded so a dead network can't stall it. */
-async function loadProjectFonts() {
-  const faces = new Map(); // "italic 700 64px "Anton"" -> "Anton"
+/* The one place that goes to Google Fonts, and only for a font the streamer confirmed this session. */
+async function loadGoogleFont(name) {
+  if (fontDesktop() || !runtime.fontConsent.has(name)) return false;
+  const url = "https://fonts.googleapis.com/css2?family=" +
+    encodeURIComponent(name).replace(/%20/g, "+") + ":" + GOOGLE_FONT_STYLES + "&display=swap";
+  let css;
+  try {
+    // no Referer (it named this editor's address) and no cookies; a name Google Fonts doesn't know answers 400
+    const r = await fetch(url, { referrerPolicy: "no-referrer", credentials: "omit" });
+    if (!r.ok) return false;
+    css = await r.text();
+  } catch { return false; }
+  // The stylesheet goes in from a blob: address, so its font files on fonts.gstatic.com carry no Referer either: a
+  // sheet's requests name the sheet as their referrer, and a blob: address is never sent as one. (A <link> straight to
+  // Google sent the stylesheet's address, fonts.googleapis.com, to fonts.gstatic.com; real-tests/font-consent-browser-smoke.cjs
+  // checks the headers a browser really sends.)
+  const href = URL.createObjectURL(new Blob([css], { type: "text/css" }));
+  const ok = await new Promise((resolve) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.referrerPolicy = "no-referrer";
+    link.href = href;
+    link.onload = () => resolve(true);
+    link.onerror = () => { link.remove(); resolve(false); };
+    document.head.appendChild(link);
+  });
+  URL.revokeObjectURL(href); // parsed: the font addresses in it are absolute
+  if (!ok) return false;
+  runtime.googleLoaded.add(name);
+  // fetch the usual faces now instead of on the first frame that draws them
+  await Promise.all(["400", "700"].map((w) => document.fonts.load(`${w} 64px "${name}"`).catch(() => { })));
+  return true;
+}
+const fontNames = (names) => names.map((n) => `“${n}”`).join(uiText("own.font-list-sep"));
+/* The streamer picked fonts (the picker, Load, a title style). True when all of them can be drawn, false when one
+   couldn't be loaded, null when the streamer said no (or on desktop, where the page never goes online). */
+async function requestFonts(names) {
+  names = [...new Set(names.filter((n) => typeof n === "string" && n && !SYSTEM_FONTS.includes(n)))];
+  if (!names.length) return true;
+  await (libraryFontsReady || loadLibraryFonts());
+  const need = names.filter((n) => !fontHere(n));
+  if (!need.length) return true;
+  if (fontDesktop()) { toast(uiText("own.font-desktop-missing", { names: fontNames(need) })); return null; }
+  const ask = need.filter((n) => !runtime.fontConsent.has(n));
+  if (ask.length && !(await askFontConsent(ask))) return null;
+  for (const n of ask) { runtime.fontConsent.add(n); runtime.fontReq.delete(n); }
+  return (await Promise.all(need.map(ensureFont))).every(Boolean);
+}
+/* The box before going online: for every font not yet confirmed this session, in every permission mode. "Not now"
+   is focused, and Esc is "Not now". */
+function askFontConsent(names) {
+  return new Promise((resolve) => {
+    const dlg = document.createElement("dialog"), title = document.createElement("h3"), fonts = document.createElement("p");
+    dlg.className = "font-consent-dialog"; dlg.dataset.fontConsentDialog = "";
+    const hosts = document.createElement("p"), sent = document.createElement("p"), after = document.createElement("p"),
+      row = document.createElement("div"), deny = document.createElement("button"), allow = document.createElement("button");
+    title.textContent = uiText("own.font-net-title");
+    fonts.textContent = uiText("own.font-net-fonts", { names: fontNames(names) });
+    hosts.textContent = uiText("own.font-net-hosts", { hosts: GOOGLE_FONT_HOSTS.join(uiText("own.font-list-sep")) });
+    sent.textContent = uiText("own.font-net-sent");
+    after.textContent = uiText("own.font-net-no");
+    deny.type = allow.type = "button";
+    deny.className = "btn"; deny.dataset.fontConsent = "deny"; deny.textContent = uiText("own.font-net-deny");
+    allow.className = "btn primary"; allow.dataset.fontConsent = "allow"; allow.textContent = uiText("own.font-net-allow");
+    row.className = "font-consent-row"; row.append(deny, allow);
+    dlg.append(title, fonts, hosts, sent, after, row);
+    let answer = false;
+    deny.addEventListener("click", () => { answer = false; dlg.close(); });
+    allow.addEventListener("click", () => { answer = true; dlg.close(); });
+    dlg.addEventListener("close", () => { dlg.remove(); resolve(answer); }, { once: true });
+    document.body.append(dlg); dlg.showModal(); deny.focus();
+  });
+}
+/* The Font section's family rows. Desktop: no Google font box, and only the Google fonts on this computer. */
+function fontFamilyRowsHtml(p, row) {
+  const desk = fontDesktop();
+  const fontGroup = (label, fonts) => fonts.length
+    ? `<optgroup label="${label}">${fonts.map((f) => `<option ${f === p.font ? "selected" : ""}>${f}</option>`).join("")}</optgroup>` : "";
+  const google = [...new Set([...GOOGLE_FONTS, ...runtime.googleLoaded])]
+    .filter((f) => !desk || (!runtime.customFonts.includes(f) && fontHere(f)));
+  const known = [...SYSTEM_FONTS, ...runtime.customFonts, ...google];
+  return `${row("Family", `<select data-k="font">
+        ${fontGroup("System", SYSTEM_FONTS)}
+        ${fontGroup("Library fonts", runtime.customFonts)}
+        ${fontGroup("Google fonts", google)}
+        ${known.includes(p.font) ? "" : `<option selected>${p.font}</option>`}
+      </select>`, "", "font")}
+      ${desk ? "" : row("Google font", `<input type="text" data-gfont placeholder="Type any Google Font name…">
+        <button class="btn tiny" data-action="gfont-load">Load</button>`)}`;
+}
+/* The titles' faces: "italic 700 64px "Anton"" -> "Anton". */
+function projectFontFaces() {
+  const faces = new Map();
   for (const c of mediaClips()) {
     if (c.kind !== "text" || c.disabled) continue;
     const p = c.props || {};
@@ -18252,10 +18338,32 @@ async function loadProjectFonts() {
       fams.push(...(Array.isArray(p.fontCutSet) && p.fontCutSet.length ? p.fontCutSet : FONT_CUT_DEFAULT));
     for (const fam of fams) faces.set(`${p.italic ? "italic " : ""}${textFontWeight(p)} 64px "${fam}"`, fam);
   }
+  return faces;
+}
+/* After a project opens: the titles' fonts that can't be drawn (not here, not confirmed), told once each a session.
+   In the browser the hint offers to load them, which asks first. */
+async function noteProjectFonts() {
+  const fams = [...new Set(projectFontFaces().values())];
+  const oks = await Promise.all(fams.map(ensureFont));
+  const missing = fams.filter((f, i) => !oks[i] && !runtime.fontHinted.has(f));
+  if (!missing.length) return;
+  missing.forEach((f) => runtime.fontHinted.add(f));
+  if (fontDesktop()) toast(uiText("own.font-desktop-missing", { names: fontNames(missing) }));
+  else toastAction(uiText("own.font-fallback", { names: fontNames(missing) }), uiText("own.font-fallback-load"), () => requestFonts(missing));
+}
+/* Before an export: every face the titles draw with, loaded. A frame drawn
+   while its face is still in flight comes out in the fallback font, and in
+   an export that frame is final. Bounded so a dead network can't stall it.
+   Never goes online for a font nobody confirmed: those are named before the
+   export starts and drawn in the fallback face. */
+async function loadProjectFonts() {
+  const faces = projectFontFaces(), missing = new Set();
   const load = Promise.all([...faces].map(async ([spec, fam]) => {
     if (await ensureFont(fam)) await document.fonts.load(spec).catch(() => { });
+    else missing.add(fam);
   }));
   await Promise.race([load, new Promise((r) => setTimeout(r, 8000))]);
+  if (missing.size) toast(uiText("own.font-export-fallback", { names: fontNames([...missing]) }));
   try { await document.fonts.ready; } catch { }
 }
 

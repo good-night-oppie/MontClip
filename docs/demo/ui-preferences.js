@@ -182,6 +182,19 @@
     "asr-go-install": ["Install", "去装"],
     "tr-missing": ["No transcript yet: {names}", "还没有文稿：{names}"],
     "tr-more": [" +{n} more", " 等 {n} 个"],
+    // Google Fonts goes online (Deja, 2026-11-04): the box before it, and the fallback hints. JJ's wording (on #151, last round on 488ae6c).
+    "font-list-sep": [", ", "、"],
+    "font-net-title": ["Download fonts from the internet?", "要联网下载字体吗？"],
+    "font-net-fonts": ["Fonts: {names}", "要下载的字体：{names}"],
+    "font-net-hosts": ["MontClip will connect to Google Fonts: {hosts}.", "会连接 Google 字体的网站：{hosts}。"],
+    "font-net-sent": ["Only the font names are sent, plus what every browser sends when it goes online, such as your IP address. Your projects, recordings and captions are not sent.", "发出去的只有字体名，加上浏览器联网时都会带的基本信息，比如你的 IP 地址。项目、录像和字幕都不会发出去。"],
+    "font-net-no": ["If you don't download them, this text shows and exports in the default font.", "不下载的话，这些文字会用默认字体显示和导出。"],
+    "font-net-deny": ["Not now", "先不用"],
+    "font-net-allow": ["Download", "联网下载"],
+    "font-fallback": ["These fonts aren't on this computer: {names}. This text uses the default font for now.", "这台电脑上没有这些字体：{names}。现在先用默认字体显示。"],
+    "font-fallback-load": ["Download from the internet…", "联网下载…"],
+    "font-desktop-missing": ["These fonts aren't on this computer: {names}. This text shows and exports in the default font.", "这台电脑上没有这些字体：{names}。文字会用默认字体显示和导出。"],
+    "font-export-fallback": ["This export can't use these fonts: {names}. It uses the default font instead.", "这次导出用不了这些字体：{names}，会用默认字体代替。"],
     // a transcription with parts the engine could not read (asr-local.js gaps); JJ's words (tr-gaps-more: placeholder)
     "tr-gaps-toast": ["Transcription finished, but {n} part(s) ({dur} in all) couldn't be transcribed and have no subtitles. Click a time under “Transcript” on the right to jump there, and add subtitles yourself if you need them.", "听写完了，但有 {n} 段没听写出来（共 {dur}），这几段没有字幕。可以在右边「文稿」里点时间跳过去看，需要的话自己补上字幕。"],
     "tr-gaps-note": ["{n} part(s) ({dur} in all) couldn't be transcribed and have no subtitles. Click a time to jump there:", "有 {n} 段没听写出来（共 {dur}），这几段没有字幕。点时间可以跳过去："],
@@ -226,11 +239,14 @@
     "map-no-media": ["This project has no audio or video, so there is no time mapping to export.", "这个项目里没有音视频，导不出时间对照表。"],
     "connected": ["Ready", "就绪"],
     // a recording nothing could read the length of, not even its packets' times (cut off before it was saved: europa P3).
-    // media-incomplete is JJ's sentence (定稿 2026-11-05) — on the file in the bin, and when it is dragged onto the
-    // timeline; the English is a draft for JJ. The two toasts are built from it, drafts for JJ too.
+    // media-incomplete is JJ's sentence (定稿 2026-11-05, her review of the trial), on the file in the bin; the English
+    // is a draft for JJ.
     "media-incomplete": ["This video wasn't recorded to the end (the screen recording may have stopped early), so its length can't be read. It can't be cut yet.", "这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
-    "media-duration-unknown": ["“{name}”: this video wasn't recorded to the end (the screen recording may have stopped early), so its length can't be read. It can't be cut yet.", "「{name}」：这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
-    "media-duration-unknown-n": ["{n} videos weren't recorded to the end (the screen recordings may have stopped early), so their length can't be read. They can't be cut yet.", "有 {n} 个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
+    // JJ 定稿 (2026-11-05, via Deja), word for word: the toast when files nothing can read the length of are imported,
+    // and the toast when one is dragged onto the timeline
+    "media-duration-unknown": ["\"{name}\" may not have finished recording (for example, a screen recording that was stopped), so its length can't be read and it can't be edited yet. The original file is unchanged.", "「{name}」可能没录完整（比如录屏中途停了），读不出有多长，现在还剪不了。原文件没有改动。"],
+    "media-duration-unknown-n": ["{n} videos may not have finished recording, so their length can't be read and they can't be edited yet. The original files are unchanged.", "有 {n} 个视频可能没录完整，读不出有多长，现在还剪不了。原文件都没有改动。"],
+    "media-cannot-cut": ["Can't read how long \"{name}\" is, so it can't go on the timeline. The original file is unchanged.", "读不出「{name}」有多长，放不上时间线。原文件没有改动。"],
     "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],
     "tl-above-captions": ["Captions above, click to show", "上方有字幕轨，点这里显示"],
     // P2 highlight cards (for JJ to review)

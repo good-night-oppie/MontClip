@@ -167,8 +167,8 @@ test('every public code: words in both languages, no English in the Chinese, not
 // in test/zh-shown.js — names in their own casing, key names, 中文（ABC）, officialPane_formatTech, the logo and "English".
 const Z = require('./zh-shown');
 // Strings outside this PR that still break the rule, for JJ to finalise in a PR of their own (key → the words): not rewritten here.
-// (main fixed every one of them: #144, wip2-zh-labels — emptied in #161's merge)
-const KNOWN = {};
+// (main fixed every earlier one: #144, wip2-zh-labels; #151's font sentence names Google, for JJ: a product name, (a)?)
+const KNOWN = { 'own.font-net-hosts': 'Google' };
 test('the Chinese interface: no English word of three letters or more, beyond JJ\'s categories; names in their own casing', () => {
   const found = {};
   for (const [k, v] of Object.entries(V.text['zh-CN'])) {
@@ -196,7 +196,7 @@ test('the Chinese interface: no English word of three letters or more, beyond JJ
 test('the Chinese interface of index.html (help layer included): English left in it is only the listed exceptions', () => {
   const found = Z.englishShown(), known = require('./fixtures/zh-index-english.json');
   a.ok(!('html:app' in found) && !('html:mcLanguage' in found), '(e)');
-  // main translated the help layer and the rest of the page (#144, wip2-zh-labels): nothing is left on the list (#161's merge)
+  // main translated the help layer and the rest of the page (#144, wip2-zh-labels): nothing is left on the list
   a.ok(!Object.keys(found).some((k) => k.startsWith('help:')), 'the help layer comes out in Chinese');
   a.ok(!found['html:helpOverlay'] || !/Keyboard/.test(found['html:helpOverlay']), 'data-i18n headings come out in Chinese');
   for (const [k, w] of Object.entries(found)) a.equal(known[k], w, `zh-CN ${k} shows ${w}`);
