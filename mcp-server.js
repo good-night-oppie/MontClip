@@ -44,7 +44,6 @@ const SeqLib = require("./sequences");
 const Templates = require("./templates");
 const Delivery = require("./delivery");
 const { probeFile, infoForEntry } = require("./media-probe");
-const MediaLib = require("./media-lib");
 const { findProxies } = require("./proxy");
 /** The user's saved presets / templates (library/presets, library/templates), validated; bad files skipped. */
 const savedItems = (kind) => readSaved(kind).map((x) => (kind === "presets" ? Templates.normalizePreset(x.data) : Templates.normalizeTemplate(x.data))).filter(Boolean);
