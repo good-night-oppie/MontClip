@@ -145,14 +145,15 @@ function freeName(dir, name) {
   }
   throw new Error("no free file name in " + dir);
 }
-/** Copy `files` into `dir`, never over an existing file: each goes to <name>.part first and is renamed when complete,
+/** Copy `files` into `dir`, never over an existing file: each goes to a private .part first and is linked when complete,
  *  so the folder never shows half a file. `tick(bytes)` is called as bytes arrive (the worker shows it's alive). */
 async function deliverFiles(files, dir, tick = () => { }) {
   if (!dir || !path.isAbsolute(dir) || !fs.statSync(dir, { throwIfNoEntry: false })?.isDirectory())
     throw Object.assign(new Error("the folder to export into is not there"), { code: "NO_FOLDER" });
   const out = [];
   for (const f of files) {
-    const name = freeName(dir, path.basename(f)), to = path.join(dir, name), part = to + ".part";
+    let name = freeName(dir, path.basename(f)), to = path.join(dir, name);
+    const part = path.join(dir, '.' + crypto.randomBytes(16).toString('hex') + '.part');
     try {
       // settled only once the .part file is closed: the write stream opens it asynchronously, so a read that fails
       // at once could otherwise leave a .part made after we removed it (seen on Linux CI, Node 18)
@@ -165,7 +166,15 @@ async function deliverFiles(files, dir, tick = () => { }) {
         w.on("close", () => (failed ? reject(failed) : resolve()));
         r.pipe(w);
       });
-      fs.renameSync(part, to);
+      // link is an atomic no-replace publication; a name chosen before the copy may now be taken.
+      for (;;) {
+        try { fs.linkSync(part, to); break; }
+        catch (e) {
+          if (e.code !== 'EEXIST') throw e;
+          name = freeName(dir, path.basename(f)); to = path.join(dir, name);
+        }
+      }
+      fs.unlinkSync(part);
     } catch (e) { try { fs.rmSync(part, { force: true }); } catch { } throw e; }
     // renamed: a file of that name was already there (the card says so under it)
     out.push({ file: to, name, bytes: fs.statSync(to).size, renamed: name !== path.basename(f) });

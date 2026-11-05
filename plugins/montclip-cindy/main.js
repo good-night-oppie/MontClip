@@ -183,9 +183,13 @@ function logProblem(code, error) {
   console.warn('[MontClip] ' + new Date().toISOString() + ' ' + (code || 'UNKNOWN') + ': ' + String(error));
 }
 /** What the tool result says about a failed export: the card's plain sentence and the code — nothing raw. */
+function copyFailureText(c, lang) {
+  const t = EXPORT_TEXT[lang === 'en' ? 'en' : 'zh'];
+  return Object.hasOwn(t.why, c.code || '') ? t.copyFailed(t.why[c.code]) : t.failedWhy.other;
+}
 function plainFailure(c) {
   const t = EXPORT_TEXT.zh;
-  const text = c.phase === 'copyFailed' ? t.copyFailed(whyText(c.code, c.reason, 'zh'))
+  const text = c.phase === 'copyFailed' ? copyFailureText(c, 'zh')
     : c.code === 'DATA_DIR_IN_USE' ? String(c.reason) : t.failedWhy[failedReason(c)] + t.kept;
   return { error: text, code: c.code || (c.phase === 'copyFailed' ? 'COPY_FAILED' : 'EXPORT_FAILED') };
 }
@@ -224,9 +228,9 @@ function exportCard(c, lang) {
   const files = (c.files || []).map((f) => '<li style="overflow-wrap:anywhere">' + esc(f.name) + (f.bytes ? ' · ' + sizeText(f.bytes, lang) : '') +
     (f.renamed ? '<div style="' + small + ';margin-top:2px">' + t.renamed + '</div>' : '') + '</li>').join('');
   const where = c.phase === 'done' ? '<p style="margin:8px 0 0">' + (c.folder ? t.savedTo(esc(c.folder)) : t.savedDefault) + '</p>' : '';
-  const body = c.phase === 'still' ? '<p style="' + small + '">' + t.stillNote + '</p>'
+  const body = c.phase === 'still' ? '<p style="' + small + '">' + (c.job ? (lang === 'en' ? 'Still exporting; click Retry to check this export and finish saving to the chosen folder.' : '还在导出，尚未存入所选文件夹。点〔重试〕查看这次导出，完成后继续存入原来选的文件夹。') : t.stillNote) + '</p>'
     : c.phase === 'cancelled' ? '<p style="' + small + '">' + t.noFolder + '</p>'
-    : c.phase === 'copyFailed' ? '<p style="margin:0">' + t.copyFailed(esc(whyText(c.code, c.reason, lang))) + '</p>'
+    : c.phase === 'copyFailed' ? '<p style="margin:0">' + esc(copyFailureText(c, lang)) + '</p>'
     // 导出没有完成: why, in plain words; 你的剪辑都还在，没有丢。 — never the raw error (JJ v2)
     : c.phase === 'failed' ? (c.code === 'DATA_DIR_IN_USE' ? '<p style="margin:8px 0 0">' + esc(c.reason) + '</p>'
       : '<p style="margin:8px 0 0">' + t.failedWhy[failedReason(c)] + t.kept + '</p>' +
@@ -237,7 +241,7 @@ function exportCard(c, lang) {
   // 打开文件夹: the folder she chose, when the files went there; else 打开导出文件夹 (a failed copy leaves them in
   // exports), and after a failed copy 换个文件夹 too (JJ v2)
   const picked = c.phase === 'done' && !!c.dir;
-  const open = c.phase === 'done' || c.phase === 'copyFailed'
+  const open = c.phase === 'still' && c.job ? buttons([['retry-delivery', t.retry, false]]) : c.phase === 'done' || c.phase === 'copyFailed'
     ? buttons([['open-folder:' + (picked ? 'picked' : 'exports'), picked ? t.openFolder : t.openExports, false]]
         .concat(c.phase === 'copyFailed' && c.job ? [['pick-again', t.pickAgain, false]] : [])
         .concat(c.phase === 'copyFailed' && hasRaw(c) ? [['copy-problem', t.copyProblem, false]] : [])) +
@@ -260,6 +264,43 @@ function sendCard(callId, c) {
   return cindy.send({ type: 'card-update', callId, v: 2, state: done ? 'done' : 'working', html: exportCard(c), height: c.phase === 'failed' ? 260 : c.phase === 'copyFailed' ? 240 : c.phase === 'done' ? 210 : done ? 150 : 110 });
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function finishExport(job, { callId, folder, dir, again }) {
+    const t0 = Date.now();
+    while ((job.status === 'pending' || job.status === 'running') && Date.now() - t0 < 14 * 60000) {
+      await sleep(1500);
+      job = await node('montclip/export-job', { id: job.id });
+      sendCard(callId, { phase: 'running', progress: job.progress, folder });
+    }
+    if (job.status !== 'done') {
+      await sleep(1000);
+      // still going when this call can wait no longer: the card says so in plain words; how to follow it is for the agent
+      if (job.status === 'pending' || job.status === 'running') {
+        sendCard(callId, { phase: 'still', job: job.id, folder, dir, again });
+        return { job: job.id, status: job.status, hint: 'The export is still running. Check it with call_tool fablecut_export {job:"' + job.id + '"}; use Retry on this card to finish saving to the chosen folder.' };
+      }
+      if (job.status === 'cancelled') { sendCard(callId, { phase: 'cancelled' }); return { job: job.id, status: 'cancelled' }; }
+      logProblem(job.code || 'EXPORT_FAILED', job.error);
+      const c = { phase: 'failed', stage: 'job', code: job.code, progress: job.progress, reason: job.error || job.status, again };
+      sendCard(callId, c);
+      return Object.assign({ job: job.id, status: job.status }, plainFailure(c));
+    }
+    const outs = job.result && Array.isArray(job.result.outputs) ? job.result.outputs : [];
+    const report = outs.map((o) => o.report && o.report.line).filter(Boolean);
+    let files = [];
+    if (dir) {
+      sendCard(callId, { phase: 'copy', folder });
+      try { files = (await node('montclip/export-deliver', { id: job.id, dir }, { timeoutMs: 60000, maxTotalMs: 900000 })).files; }
+      catch (e) {
+        await sleep(1000); logProblem(e.code, e.message);
+        const c = { phase: 'copyFailed', code: e.code, reason: e.message, job: job.id };
+        sendCard(callId, c); return Object.assign({ job: job.id, status: 'done', copied: false }, plainFailure(c));
+      }
+    } else files = outs.filter((o) => o.ok).map((o) => ({ name: o.file })).concat(outs.length ? [] : [{ name: String(job.src || '').split('/').pop() }]);
+    await sleep(1000);
+    sendCard(callId, { phase: 'done', folder, dir, job: job.id, files, note: report.join(' · ') });
+    return { job: job.id, status: 'done', files: files.map((f) => String(f.name || f.file || '').split(/[\\/]/).pop()), report };
+}
 
 const HANDLERS = {
   async montclip_status() {
@@ -320,40 +361,7 @@ const HANDLERS = {
       const c = { phase: 'failed', stage: 'start', code: e.code, reason: e.message, again };
       sendCard(callId, c); return plainFailure(c);
     }
-    const t0 = Date.now();
-    while ((job.status === 'pending' || job.status === 'running') && Date.now() - t0 < 14 * 60000) {
-      await sleep(1500);
-      job = await node('montclip/export-job', { id: job.id });
-      sendCard(callId, { phase: 'running', progress: job.progress, folder });
-    }
-    if (job.status !== 'done') {
-      await sleep(1000);
-      // still going when this call can wait no longer: the card says so in plain words; how to follow it is for the agent
-      if (job.status === 'pending' || job.status === 'running') {
-        sendCard(callId, { phase: 'still' });
-        return { job: job.id, status: job.status, hint: 'The export is still running. Check it with call_tool fablecut_export {job:"' + job.id + '"}; when it is done the file is in the MontClip data folder\'s exports/.' };
-      }
-      if (job.status === 'cancelled') { sendCard(callId, { phase: 'cancelled' }); return { job: job.id, status: 'cancelled' }; }
-      logProblem(job.code || 'EXPORT_FAILED', job.error);
-      const c = { phase: 'failed', stage: 'job', code: job.code, progress: job.progress, reason: job.error || job.status, again };
-      sendCard(callId, c);
-      return Object.assign({ job: job.id, status: job.status }, plainFailure(c));
-    }
-    const outs = job.result && Array.isArray(job.result.outputs) ? job.result.outputs : [];
-    const report = outs.map((o) => o.report && o.report.line).filter(Boolean);
-    let files = [];
-    if (dir) {
-      sendCard(callId, { phase: 'copy', folder });
-      try { files = (await node('montclip/export-deliver', { id: job.id, dir }, { timeoutMs: 60000, maxTotalMs: 900000 })).files; }
-      catch (e) {
-        await sleep(1000); logProblem(e.code, e.message);
-        const c = { phase: 'copyFailed', code: e.code, reason: e.message, job: job.id };
-        sendCard(callId, c); return Object.assign({ job: job.id, status: 'done', copied: false }, plainFailure(c));
-      }
-    } else files = outs.filter((o) => o.ok).map((o) => ({ name: o.file })).concat(outs.length ? [] : [{ name: String(job.src || '').split('/').pop() }]);
-    await sleep(1000);
-    sendCard(callId, { phase: 'done', folder, dir, job: job.id, files, note: report.join(' · ') });
-    return { job: job.id, status: 'done', files: files.map((f) => f.file || f.name), report };
+    return finishExport(job, { callId, folder, dir, again });
   },
   /* Only when the user agreed to the download (about 160 MB). */
   async montclip_install_ffmpeg() { return installFfmpeg(); },
@@ -371,6 +379,19 @@ cindy.onHostMessage(async function (msg) {
   // 重试 / 下载并安装 / 换个文件夹 on an export card (JJ v2's buttons): real clicks in the card, in its own task
   // 复制问题信息 on an export card: the card cannot copy, so open this task's MontClip page and show it there (JJ v2,
   // Deja 2026-11-04). The raw error goes only from this logic page to that page, on this computer.
+  if (msg.type === 'event' && msg.name === 'card-action' && msg.actionId === 'retry-delivery') {
+    const c = exportCards.get(msg.callId);
+    if (!c || c.phase !== 'still' || !c.job) return;
+    sendCard(msg.callId, { phase: 'running', folder: c.folder });
+    try {
+      const job = await node('montclip/export-job', { id: c.job });
+      await finishExport(job, { ...c, callId: msg.callId });
+    } catch (e) {
+      logProblem(e.code, e.message);
+      sendCard(msg.callId, c);
+    }
+    return;
+  }
   if (msg.type === 'event' && msg.name === 'card-action' && msg.actionId === 'copy-problem') {
     const c = exportCards.get(msg.callId);
     if (!c || !hasRaw(c) || !msg.sessionId) return;
