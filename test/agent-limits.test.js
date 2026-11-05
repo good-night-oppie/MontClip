@@ -89,7 +89,8 @@ test('a mixed message, with a substitute transport: the format note sent carries
  a.equal(system.role,'system');
  // the rule names what is still missing (publishing); the vertical copy has its own reply
  a.ok(system.content.includes('When a message also asks for something you cannot do and you answer in words, your first sentence says plainly what you cannot do, for example 「发到快手和 B 站这一步我做不了。」'));
- a.ok(system.content.includes('When one message asks both to cut and for another shape, reply with the cut first; the user asks for the shape after it.'));
+ // JJ定稿 (2026-11-05): the cut first, with JJ's sentence before it (test/agent-reframe-words.test.js has the words)
+ a.ok(system.content.includes('When one message asks both to cut and for another shape (for example to under a minute and vertical), reply with the cut\'s JSON first'));
  a.ok(system.content.includes('Do not propose an edit that would change nothing'));
  a.match(system.content,/Apart from these replies you cannot change anything: you cannot export, upload or publish\./);
  for(const lang of ['zh-CN','en']){

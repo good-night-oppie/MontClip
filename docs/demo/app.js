@@ -23324,10 +23324,10 @@ async function runAgentReframe(aspect,{eventId=null,token=null}={}){
  const stamp=(c)=>{const m=getMedia(c.mediaId)||{};return JSON.stringify([c.mediaId,m.src,m.width,m.height,c.track,c.start,c.in,c.duration,!!c.locked,c.props||{},c.keyframes||{}]);};
  const stamps=new Map(take.map((c)=>[c.id,stamp(c)])),plans=[];
  const say=(i,frac)=>agentReframeProgress(uiText('own.rf-progress',{aspect,n:i+1,of:take.length,pct:Math.round(frac*100)}));
- let failed=false;
+ let failed=false,reading=null;
  try{
   for(let i=0;i<take.length&&!agentReframeRun.cancel;i++){
-   const c=take[i];say(i,0);
+   const c=take[i];reading=c;say(i,0);
    const src=await pictureSize(c),cover=Reframe.coverRect(src.width,src.height,canvas.width,canvas.height,1);
    let samples=null;
    if(Math.max(cover.maxX,cover.maxY)>0.5){
@@ -23340,8 +23340,10 @@ async function runAgentReframe(aspect,{eventId=null,token=null}={}){
   }
  }catch{failed=true;}
  finally{agentReframeRun.busy=false;agentReframeDone();}
+ // the clip whose file couldn't be read, by the name the bin shows (never a path)
+ const failedName=()=>{const m=reading&&getMedia(reading.mediaId);const n=m&&typeof m.name==='string'?m.name.split(/[\\/]/).pop().trim():'';return n||null;};
  if(agentReframeRun.cancel){agentReframeRun.cancel=false;return {ok:false,code:'CANCELLED'};}
- if(failed||!plans.length)return {ok:false,code:'FAILED'};
+ if(failed||!plans.length)return {ok:false,code:'FAILED',...(failed&&failedName()?{name:failedName()}:{})};
  if(gen!==runtime.projectGen||seqId!==SeqLib.activeId(seqRoot())||size!==JSON.stringify([project.width,project.height])||(projectFps()||30)!==fps||
    lanes!==JSON.stringify([...state.lockedTracks])||plans.some((p)=>{const c=getClip(p.id);return !c||stamp(c)!==stamps.get(p.id);}))return {ok:false,code:'CHANGED'};
  if(state.exporting||state.gesture)return {ok:false,code:'BUSY'};
@@ -23368,7 +23370,7 @@ function agentReframeBackOf(snap){
 }
 /** Undo of the reframe: open the original sequence again, then delete the copy (its undo history goes with it). */
 function undoAgentReframe(snap,b){
- if(SeqLib.activeId(seqRoot())!==b.sequence||!SeqLib.find(seqRoot(),b.back)||!openSequence(b.back)){runtime.undo.push(snap);toast(uiText('own.rf-undo-failed'));return false;}
+ if(SeqLib.activeId(seqRoot())!==b.sequence||!SeqLib.find(seqRoot(),b.back)||!openSequence(b.back)){runtime.undo.push(snap);toast(uiText('own.rf-undo-failed',{name:shownName(b.backName||'')}));return false;}
  const doc=projectJSONHere();
  try{SeqLib.remove(doc,b.sequence);}catch{}
  project.sequences=doc.sequences||null;project.sequence=doc.sequence||null;
@@ -23402,7 +23404,7 @@ async function agentReframeFlow(response,result){
   if(step.version)await step.version;
   if(!MontClipProposal.current(proposal,projectJSON(),{...agentProjectContext(),generation:agentProjectContext().gen})){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.ap-stale'));return;}
   const token=crypto.randomUUID(),r=await runAgentReframe(aspect,{eventId:ev&&ev.id,token});
-  if(!r.ok){if(ev)moveEvent(ev.id,r.code==='CANCELLED'?'rejected':'failed');toast(uiText('own.rf-'+({CANCELLED:'cancelled',CHANGED:'changed',NOTHING:'nothing',BUSY:'busy'}[r.code]||'failed'),{aspect}));return;}
+  if(!r.ok){if(ev)moveEvent(ev.id,r.code==='CANCELLED'?'rejected':'failed');toast(uiText('own.rf-'+({CANCELLED:'cancelled',CHANGED:'changed',NOTHING:'nothing',BUSY:'busy'}[r.code]||'failed'),{aspect})+(r.code==='FAILED'&&r.name?' '+uiText('own.rf-failed-name',{name:r.name}):''));return;}
   const c=agentProjectContext();
   officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});
   toast(uiText('own.rf-done',{aspect,name:shownName(r.name)}));
