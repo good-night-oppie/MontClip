@@ -96,9 +96,8 @@ test("the chat card: still exporting is not a failure, and says nothing for the 
   assert.doesNotMatch(still, /导出没有完成|call_tool|fablecut_|montclip_/);
   assert.equal(plain(exportCard({ phase: "failed", stage: "job", reason: "ffmpeg exited 1" }))[0], "导出没有完成", "only a real failure");
   const main = fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8");
-  const tool = main.slice(main.indexOf("async montclip_export("), main.indexOf("async montclip_install_ffmpeg("));
-  assert.match(tool, /sendCard\(callId, \{ phase: 'still' \}\);\n\s+return \{ job: job\.id, status: job\.status, hint: 'The export is still running\. Check it with call_tool fablecut_export/,
-    "the way to follow it goes back to the AI only");
+  assert.match(main, /phase: 'still', job: job.id, folder, dir, again/);
+  assert.match(main, /retry-delivery/);
 });
 
 test("the chat card: the copy that failed, and a file saved under another name", () => {
@@ -209,7 +208,7 @@ test("导出没有完成 (JJ's final words): plain words, the right buttons, not
 test("a failed copy or open: a plain reason in the sentence, nothing raw on the card (JJ v2)", () => {
   const exportCard = card();
   const copy = plain(exportCard({ phase: "copyFailed", code: "EBUSY", reason: "EBUSY: resource busy or locked, rename 'D:\\成片\\a.mp4.part'", job: "x_1" }));
-  assert.deepEqual(copy, ["视频已经导出好了，但没能存进你选的文件夹（出了点问题）。文件还在 MontClip 自己的导出文件夹里，可以换一个文件夹再导出一次。", "打开导出文件夹", "换个文件夹", "复制问题信息", COPY_NOTE]);
+  assert.deepEqual(copy, ["这次没有做完，出了个我们没预料到的问题。原片没有改动。再点〔重试〕；还不行，点〔复制问题信息〕发给我们。", "打开导出文件夹", "换个文件夹", "复制问题信息", COPY_NOTE]);
   const open = plain(exportCard({ phase: "done", dir: "D:\\x", job: "x_1", openFailed: { code: "PROTOCOL_ERROR", message: "spawn explorer.exe ENOENT" } }));
   assert.equal(open.at(-1), "没能打开文件夹（出了点问题）。");
   for (const lines of [copy, open]) { assert.doesNotMatch(lines.join("\n"), ENGLISH_RUN); assert.doesNotMatch(lines.join("\n"), CODES); }

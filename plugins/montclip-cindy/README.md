@@ -50,8 +50,10 @@ The second shell around the one MontClip engine (the repository root). The first
 
 - **Export.** `montclip_export {preset?, range?, folder?}` asks for a folder in the system dialog (`cindy.pick`, the
   user's own choice; `folder:"default"` skips it), starts the engine's export (the open editor tab, else headless),
-  shows the progress on its chat card (`card`, HTML only) and copies the files into that folder — to `<name>.part`
-  first, never over an existing file (`clip (2).mp4`). The engine's own copy stays in `exports/`.
+  shows the progress on its chat card (`card`, HTML only) and copies the files into that folder — to a private `.part`
+  first, then published with a no-replace hard link, retrying names (`clip (2).mp4`).
+  After 14 minutes the card offers Retry to check the same job and finish delivery to the original folder;
+  it does not start another render. Tool results contain file names only. The engine's own copy stays in `exports/`.
 
 - **Ways in.** In a task: the chat calls `montclip_open_task_view` (the task the chat is in — Cindy hands every
   tool call its task through `sessionContext`), or the user clicks 「在这个任务里打开剪辑器」 on the status card

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Cindy export delivery cannot overwrite a file created during copying; long exports offer a retry for delivery, and export results omit absolute paths.
+
 ### Added
 - Cindy plugin entry points: the status card's 「在这个任务里打开剪辑器」 button, `montclip_open_task_view` in the chat's own
   task, every tool call bound to that task's project (`sessionContext`), and a main view that is an overview across
