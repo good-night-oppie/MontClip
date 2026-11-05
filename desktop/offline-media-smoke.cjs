@@ -21,7 +21,7 @@ const out = (k, v) => process.stdout.write(k + ' ' + JSON.stringify(v) + '\n');
 const ZH = {
   barOne: '⚠ 「tone-b.mp4」找不到了，可能被移走或删掉了。你剪好的都还在，把文件找回来就能接着用。',
   barMany: '⚠ 有 2 个素材找不到了，可能被移走或删掉了。你剪好的都还在，把文件找回来就能接着用。',
-  exportOne: '有 1 个素材找不到了，导出时这几段会显示「找不到」的画面、没有声音。先把它们找回来再导出吧。',
+  exportOne: '有 1 个素材找不到了，导出时这一段会显示「找不到」的画面、没有声音。先把它找回来再导出吧。',
 };
 const EN_BAR = '⚠ Can\'t find “tone-b.mp4”. It may have been moved or deleted. Your edits are still there; find the file and you can carry on.';
 
@@ -91,13 +91,14 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     check('zh strip: that file by name', s1 && s1.text === ZH.barOne, s1);
     check('zh strip: one button, 〔找到它…〕 (no Show)', s1 && s1.buttons.length === 1 && s1.buttons[0] === '找到它…', s1);
     const badge = await read(`(()=>{const e=document.querySelector('.bin-item.offline .bin-offline');const it=document.querySelector('.bin-item.offline');return e?{text:e.textContent,title:e.title,item:it.title}:null})()`);
-    check('zh badge 「找不到」 and its hover', badge && badge.text === '找不到' && badge.title === '这个文件找不到了。右键选〔重新链接…〕，把它找回来。' && badge.item.includes('⚠ 这个文件找不到了。右键选〔重新链接…〕，把它找回来。'), badge);
+    check('zh badge 「找不到」 and its hover', badge && badge.text === '找不到' && badge.title === '这个文件找不到了。右键选〔重新链接…〕，把它找回来。' && badge.item.split('\n').includes('这个文件找不到了。右键选〔重新链接…〕，把它找回来。'), badge);
+    check('zh hover: no path, no user folder', badge && !/[\\/]|Users|home/i.test(badge.item), badge && badge.item);
     const toasts = await read(`[...document.querySelectorAll('.toast, #toast, .toasts > *')].map(t=>t.textContent).join(' | ')`);
     check('no corner toast about it', !/offline|Relink/i.test(toasts), toasts);
     await shot('offline-strip-zh', '#binList');
     await read(`document.querySelector('.bin-offline-bar [data-relink]')?.click(); true`); await wait(600);
     const r1 = await dialogRows();
-    check('〔找到它…〕 opens Relink with that file', r1.length === 1 && r1[0] === '⚠ 正在找：「tone-b.mp4」', r1);
+    check('〔找到它…〕 opens Relink with that file', r1.length === 1 && r1[0] === '正在找：「tone-b.mp4」（第 1 个，共 1 个）', r1);
     await read(`document.getElementById('relinkOverlay')?.remove(); true`);
 
     // ── the export reminder
@@ -108,7 +109,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     await shot('offline-export-zh', '#exportSetup .dialog');
     await read(`document.querySelector('#exportOfflineWarn [data-off-find]')?.click(); true`); await wait(600);
     const afterFind = await read(`({setupHidden:els.exportSetup.classList.contains('hidden'),rows:[...document.querySelectorAll('#relinkOverlay .relink-row b')].map(b=>b.textContent),exporting:!!window.__mcExport})`);
-    check('〔先找回来…〕 closes export and opens Relink, no export', afterFind.setupHidden && afterFind.rows.join() === '⚠ 正在找：「tone-b.mp4」' && !afterFind.exporting, afterFind);
+    check('〔先找回来…〕 closes export and opens Relink, no export', afterFind.setupHidden && afterFind.rows.join() === '正在找：「tone-b.mp4」（第 1 个，共 1 个）' && !afterFind.exporting, afterFind);
     await read(`document.getElementById('relinkOverlay')?.remove(); true`);
 
     // ── 〔照样导出〕: the export runs, and the missing part is silent
@@ -128,6 +129,8 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     await view('en'); await wait();
     const s2 = await strip();
     check('en strip, JJ\'s English', s2 && s2.text === EN_BAR && s2.buttons.join() === 'Find it…', s2);
+    const enHover = await read(`document.querySelector('.bin-item.offline')?.title || ''`);
+    check('en hover: the file\'s name, no path, no user folder', enHover.includes('⚠ Offline: tone-b.mp4 is missing') && !/[\\/]|Users|home/i.test(enHover), enHover);
 
     // ── several missing: by number, and the dialog goes through them in order
     fs.rmSync(path.join(media, 'tone-a.mp4'));
@@ -137,7 +140,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     check('zh strip: how many, 〔一个个找回来…〕', s3 && s3.text === ZH.barMany && s3.buttons.join() === '一个个找回来…', s3);
     await read(`document.querySelector('.bin-offline-bar [data-relink]')?.click(); true`); await wait(600);
     const r3 = await dialogRows();
-    check('Relink marks each one in order', r3.join('|') === '⚠ 正在找：「tone-a.mp4」（第 1 个，共 2 个）|⚠ 正在找：「tone-b.mp4」（第 2 个，共 2 个）', r3);
+    check('Relink marks each one in order', r3.join('|') === '正在找：「tone-a.mp4」（第 1 个，共 2 个）|正在找：「tone-b.mp4」（第 2 个，共 2 个）', r3);
     await shot('offline-relink-zh', '#relinkOverlay .dialog');
     await read(`document.getElementById('relinkOverlay')?.remove(); true`);
     // what Show did: the filter lists the missing ones
@@ -170,7 +173,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     await read(`document.querySelector('.bin-offline-bar [data-relink]')?.click(); true`);
     const r4 = await read(`(async()=>{const until=Date.now()+15000;while(!document.getElementById('relinkOverlay')&&Date.now()<until)await new Promise(r=>setTimeout(r,50));
       return {rows:[...document.querySelectorAll('#relinkOverlay .relink-row b')].map(b=>b.textContent),a:getMedia('ma').src,b:getMedia('mb').src,toast:document.getElementById('toast').textContent};})()`);
-    check('the two found by name are linked without asking; the dialog asks only about the third', r4.rows.join('|') === '⚠ 正在找：「tone-c.mp4」' && r4.a === '/media/moved/tone-a.mp4' && r4.b === '/media/moved/tone-b.mp4', r4);
+    check('the two found by name are linked without asking; the dialog asks only about the third', r4.rows.join('|') === '正在找：「tone-c.mp4」（第 1 个，共 1 个）' && r4.a === '/media/moved/tone-a.mp4' && r4.b === '/media/moved/tone-b.mp4', r4);
     check('no toast while she is still being asked', !/自动找回|Relinked/.test(r4.toast), r4.toast);
     await read(`document.querySelector('#relinkOverlay [data-cancel]').click(); true`); await wait(400);
     const t4 = await read(`document.getElementById('toast').textContent`);

@@ -2499,7 +2499,7 @@ function renderBin() {
     else thumbEl.textContent = icon;
     const nameEl = item.querySelector(".bin-name");
     nameEl.textContent = m.name;
-    item.title = [m.name, offline ? uiText("own.off-item-title", { path: decodeURIComponent(String(m.src).split("?")[0]) }) : "", MediaLib.describe(m), m.tags && m.tags.length ? m.tags.map((t) => "#" + t).join(" ") : ""].filter(Boolean).join("\n");
+    item.title = [m.name, offline ? uiText("own.off-item-title", { file: m.name }) : "", MediaLib.describe(m), m.tags && m.tags.length ? m.tags.map((t) => "#" + t).join(" ") : ""].filter(Boolean).join("\n");
     item.addEventListener("dragstart", (e) => {
       runtime.binDragFolderId = null;
       e.dataTransfer.setData("text/fablecut-media", m.id);
@@ -3224,7 +3224,7 @@ async function openRelinkDialog(list) {
         </div>`;
       // missing files, in order (JJ, 2026-11-05): 「正在找：「{file}」（第 k 个，共 n 个）」
       const k = missing.indexOf(m) + 1;
-      row.querySelector("b").textContent = !k ? m.name : "⚠ " + (missing.length > 1 ? uiText("own.off-finding-k", { file: m.name, k, n: missing.length }) : uiText("own.off-finding", { file: m.name }));
+      row.querySelector("b").textContent = k ? uiText("own.off-finding-k", { file: m.name, k, n: missing.length }) : m.name;   // JJ's words exactly: no ⚠, the count even for one
       row.querySelector(".relink-was").textContent = "was " + decodeURIComponent(String(m.src).split("?")[0]) + (m.duration ? " · " + fmt(m.duration) : "") + (m.size ? " · " + MediaLib.fmtSize(m.size) : "");
       const sel = row.querySelector("select");
       const opt = (v, label) => { const o = document.createElement("option"); o.value = v; o.textContent = label; sel.appendChild(o); };
@@ -18782,7 +18782,7 @@ async function openExportSetup() {
   }
   if (offWarn) {
     offWarn.classList.toggle("hidden", !offUsed.length);
-    offWarn.innerHTML = offUsed.length ? `<span>${escapeHtml(MontClipView.tp(mcView.get().language, "own.off-export", { n: offUsed.length }, { n: offUsed.length }))}</span>
+    offWarn.innerHTML = offUsed.length ? `<span>${escapeHtml(offUsed.length === 1 ? uiText("own.off-export-one") : uiText("own.off-export", { n: offUsed.length }))}</span>
       <span class="export-offline-actions"><button type="button" class="btn tiny accent" data-off-find>${escapeHtml(uiText("own.off-find-first"))}</button><button type="button" class="btn tiny" data-off-go>${escapeHtml(uiText("own.off-export-anyway"))}</button></span>` : "";
     offWarn.querySelector("[data-off-find]")?.addEventListener("click", () => { closeExportSetup(); openRelinkDialog(offUsed); });
     offWarn.querySelector("[data-off-go]")?.addEventListener("click", () => startChosenExport());

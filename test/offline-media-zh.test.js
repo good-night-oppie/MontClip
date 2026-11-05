@@ -18,7 +18,8 @@ test('JJ\'s Chinese, word for word', () => {
   a.equal(t('zh-CN', 'off-find-each'), '一个个找回来…');
   a.equal(t('zh-CN', 'off-badge'), '找不到');
   a.equal(t('zh-CN', 'off-badge-title'), '这个文件找不到了。右键选〔重新链接…〕，把它找回来。');
-  a.equal(tp('zh-CN', 'off-export', { n: 2 }, { n: 2 }), '有 2 个素材找不到了，导出时这几段会显示「找不到」的画面、没有声音。先把它们找回来再导出吧。');
+  a.equal(t('zh-CN', 'off-item-title', { file: 'tone-b.mp4' }), '这个文件找不到了。右键选〔重新链接…〕，把它找回来。', 'no ⚠ in front (Rea)');
+  a.equal(t('zh-CN', 'off-export', { n: 2 }), '有 2 个素材找不到了，导出时这几段会显示「找不到」的画面、没有声音。先把它们找回来再导出吧。');
   a.equal(t('zh-CN', 'off-find-first'), '先找回来…');
   a.equal(t('zh-CN', 'off-export-anyway'), '照样导出');
   a.equal(t('zh-CN', 'off-other-copy'), '用另一处的同一段录像…');
@@ -26,7 +27,7 @@ test('JJ\'s Chinese, word for word', () => {
   a.equal(t('zh-CN', 'off-replace-title'), '换成另一段录像，用到它的片段都会跟着换。');
   a.equal(t('zh-CN', 'off-none'), '素材都在，没有找不到的。');
   a.equal(t('zh-CN', 'off-finding-k', { file: 'tone-b.mp4', k: 2, n: 5 }), '正在找：「tone-b.mp4」（第 2 个，共 5 个）');
-  a.equal(t('zh-CN', 'off-finding', { file: 'tone-b.mp4' }), '正在找：「tone-b.mp4」');
+  a.equal(t('zh-CN', 'off-finding-k', { file: 'tone-c.mp4', k: 1, n: 1 }), '正在找：「tone-c.mp4」（第 1 个，共 1 个）', 'one left: the count too');
   a.equal(t('zh-CN', 'off-auto-found', { m: 2 }), '已经自动找回 2 个');
   a.equal(t('zh-CN', 'off-slate'), '找不到');
   a.equal(V.t('zh-CN', 'term.relink'), '重新链接…', '〔重新链接…〕 stays');
@@ -36,16 +37,20 @@ test('JJ\'s Chinese, word for word', () => {
 test('JJ\'s English, word for word (“ ” quotes, JJ\'s rule); the drafts as they are until JJ settles them', () => {
   a.equal(t('en', 'off-bar-one', { file: 'tone-b.mp4' }), 'Can\'t find “tone-b.mp4”. It may have been moved or deleted. Your edits are still there; find the file and you can carry on.');
   a.equal(t('en', 'off-find-it'), 'Find it…');
-  a.equal(tp('en', 'off-export', { n: 2 }, { n: 2 }), '2 media files can\'t be found. In the export those parts will show a “missing” picture with no sound. Find them first, then export.');
+  a.equal(t('en', 'off-export', { n: 2 }), '2 media files can\'t be found. In the export those parts will show a “missing” picture with no sound. Find them first, then export.');
   a.equal(t('en', 'off-other-copy'), 'Use the same recording from elsewhere…');
   a.equal(t('en', 'off-other-copy-title'), 'The same recording saved somewhere else (a backup on another drive, for example). Point to that one; your cuts stay the same.');
   a.equal(t('en', 'off-finding-k', { file: 'tone-b.mp4', k: 2, n: 5 }), 'Looking for “tone-b.mp4” (2 of 5)');
-  a.equal(t('en', 'off-finding', { file: 'tone-b.mp4' }), 'Looking for “tone-b.mp4”');
+  a.equal(t('en', 'off-finding-k', { file: 'tone-c.mp4', k: 1, n: 1 }), 'Looking for “tone-c.mp4” (1 of 1)');
   a.equal(t('en', 'off-replace-title'), 'Swap in a different recording; every clip that uses it changes too.');
   // drafts (草稿，待 JJ 定稿)
   a.equal(t('en', 'off-bar-many', { n: 3 }), '3 media files can\'t be found. They may have been moved or deleted. Your edits are still there; find the files and you can carry on.');
   a.equal(t('en', 'off-find-each'), 'Find them one by one…');
-  a.equal(tp('en', 'off-export', { n: 1 }, { n: 1 }), '1 media file can\'t be found. In the export that part will show a “missing” picture with no sound. Find it first, then export.');
+  // n = 1 (drafts, 草稿，待 JJ 定稿): never 「有 1 个素材……这几段」
+  a.equal(t('en', 'off-export-one'), '1 media file can\'t be found. In the export that part will show a “missing” picture with no sound. Find it first, then export.');
+  a.equal(t('zh-CN', 'off-export-one'), '有 1 个素材找不到了，导出时这一段会显示「找不到」的画面、没有声音。先把它找回来再导出吧。');
+  a.doesNotMatch(t('zh-CN', 'off-export-one'), /这几段|它们/);
+  a.equal(t('en', 'off-item-title', { file: 'tone-b.mp4' }), '⚠ Offline: tone-b.mp4 is missing — right-click → Relink…');
   a.equal(t('en', 'off-find-first'), 'Find them first…');
   a.equal(t('en', 'off-export-anyway'), 'Export anyway');
   a.equal(t('en', 'off-none'), 'All your media is here; nothing is missing.');
@@ -94,13 +99,14 @@ test('the corner toast is gone; the dialog marks each file it is finding, in ord
   a.doesNotMatch(check, /toast\(/, 'the strip says it now');
   const dlg = body('async function openRelinkDialog(', '\n}\n');
   a.match(dlg, /toast\(uiText\("own\.off-none"\)\)/);
-  a.match(dlg, /own\.off-finding-k", \{ file: m\.name, k, n: missing\.length \}/);
+  a.ok(dlg.includes('row.querySelector("b").textContent = k ? uiText("own.off-finding-k", { file: m.name, k, n: missing.length }) : m.name;'), 'no ⚠ in front, and the count even for one file');
+  a.doesNotMatch(dlg, /own\.off-finding"/);
   a.doesNotMatch(dlg, /Nothing is offline/);
 });
 
 test('the export reminder has its two buttons: 〔先找回来…〕 opens the dialog, 〔照样导出〕 starts the export', () => {
   const s = body('const offUsed = project.media.filter(', 'fillExportRangeSelect();');
-  a.match(s, /MontClipView\.tp\(mcView\.get\(\)\.language, "own\.off-export", \{ n: offUsed\.length \}, \{ n: offUsed\.length \}\)/);
+  a.ok(s.includes('offUsed.length === 1 ? uiText("own.off-export-one") : uiText("own.off-export", { n: offUsed.length })'));
   a.doesNotMatch(s, /will export as|Relink…/);
   const find = /\[data-off-find\]"\)\??\.addEventListener\("click", \(\) => \{ ([^}]*) \}\)/.exec(s), go = /\[data-off-go\]"\)\??\.addEventListener\("click", \(\) => \{?([^}\n]*)\}?\)/.exec(s);
   a.ok(find && go, 'both buttons are wired');
@@ -133,6 +139,18 @@ test('a missing file found under the same name is linked without asking; the dia
   a.ok(dlg.includes('const close = () => { overlay.remove(); scheduleOfflineCheck(0); sayAuto(); };'));
   a.ok(body('async function setMediaSource(', '\n}\n').includes('if (!quiet) toast(msg);'));
   // the real round (3 missing, 2 found by name: one question, then 「已经自动找回 2 个」) is in desktop/offline-media-smoke.cjs
+});
+
+test('the card\'s hover names the file, never its path (no folder separators, no user folder), in both languages', () => {
+  const item = body('const makeMediaItem = (m, depth) => {', '\n  const renderLevel = ');
+  a.ok(item.includes('uiText("own.off-item-title", { file: m.name })'));
+  a.doesNotMatch(item, /off-item-title", \{ path/);
+  for (const l of ['en', 'zh-CN']) {
+    a.doesNotMatch(V.text[l]['own.off-item-title'], /\{path\}/, l);
+    const s = t(l, 'off-item-title', { file: 'tone-b.mp4' });
+    a.doesNotMatch(s, /[\\/]|Users|home/i, l);
+  }
+  // the real card's whole hover is checked in desktop/offline-media-smoke.cjs
 });
 
 test('the export mix leaves a missing file out, even one whose sound was decoded before it went missing', () => {
