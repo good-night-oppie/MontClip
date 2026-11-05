@@ -148,7 +148,13 @@ ensureDirs();
 /* One engine writes a data folder (writer-lock.js): the Windows app and the Cindy plugin share this
    engine, and two of them on one folder would save over each other. MONTCLIP_SHELL names the shell. */
 const SHELL = process.env.MONTCLIP_SHELL || (DESKTOP ? "desktop" : "server");
-const writerLock = require("./writer-lock").acquire(DATA_DIR, { shell: SHELL });
+let writerLock;
+try { writerLock = require("./writer-lock").acquire(DATA_DIR, { shell: SHELL }); }
+catch (e) {
+  // the shell that started this server (the Windows app) tells the user who has the folder: one line it can read
+  if (e.code === "DATA_DIR_IN_USE") console.error("MONTCLIP_DATA_DIR_IN_USE " + JSON.stringify({ shell: e.holder?.shell || null, port: e.holder?.port || null }));
+  throw e;
+}
 const projects = createProjects({ dataDir: DATA_DIR, projectFile: PROJECT_FILE, libraryDir: LIBRARY_DIR });
 const undoStacks = require("./undo-stacks").createUndoStacks({ dir: path.join(ANALYSIS_DIR, "undo") });
 const history = createHistory({ projects, autoMinutes: Number(process.env.FABLECUT_AUTO_VERSION_MIN) || 10 });
