@@ -82,6 +82,12 @@ Cindy itself (installs go through Deja first).
 
 ## Develop
 
+Version 0.5.1 includes the engine from main `6f537e49` (2026-11-04), including first-use
+import progress/selection and overlay closing fixes. Build from this branch before packing;
+`node/app/` is generated and must not be reused from an older build. Desktop-only assistant
+providers remain in the desktop shell; this plugin uses Cindy's assistant. Export recovery
+review fixes and the live Cindy checklist above remain outstanding.
+
 ```
 node plugins/montclip-cindy/build.cjs        # copy the engine into node/app/
 node --test test/cindy-plugin.test.js        # manifest, worker over stdio, token, environment, binding

@@ -1,6 +1,6 @@
 # 事件记录：OpenRouter 密钥明文在测试窗口泄露（2026-11-04）
 
-状态：**已止血，待作废换新**（Deja 已去向主人请：作废旧 key、删除明文 `.bak`）。
+状态：**已止血，已作废换新**。2026-11-04 主人已在 OpenRouter 后台作废旧密钥并换新；katana 上 ~/.openrouter-token 和 .bak 已删除；新密钥只放在 europa 的 ~/.openrouter-montclip（600），真模型测试只在 europa 上跑。
 
 **结论（主人已确认）**：不是入侵。主人本人于 21:04 在电脑前测试时粘的密钥、存的连接——测试窗口和主人自己的窗口在同一桌面，她分不清哪个是哪个，误用了测试窗口。规矩见第 5 节。
 
@@ -20,6 +20,7 @@
 - VV 的旧脚本 `cdp/mc-pr26-real-config.cjs` 会读 `~/.openrouter-token`，再通过 CDP（`--remote-debugging-port`）去填 AI 服务。这个脚本现在在本机已找不到（可能已删）。
 - `~/.openrouter-token`（74 bytes）和 `~/.openrouter-token.bak`（83 bytes）**都是明文 key，权限 644**（应为 600，且本就不该有明文文件）。
 - 9411 端口当前没在监听（测试窗口已关）。
+- 新 key 曾经通过聊天附件暴露一次，已建议再换。
 
 ## 3. 还不知道的
 
@@ -48,9 +49,9 @@
 
 ### 5.2 读 key 的脚本
 
-1. 读取真实 key 的脚本**一律改为从 1Password 引用**（沿用 `op-secrets-reader` 的机制），不读明文文件。
-2. 明文 key 文件（`~/.openrouter-token` 及 `.bak`）**本就不该存在**：key 只存 1Password 引用 + 加密 profile。这次事件后全部清除。
-3. 需要真实 key 的测试，**不允许在共享桌面上跑**；只能在单用户、可信的机器上跑，跑完即弃。
+读真实 key 的脚本：首选 1Password 引用；没有 1Password 代理的无人值守机器（目前只有 europa）可以用一个 600 的明文文件 `~/.openrouter-montclip`，但只允许 real-tests 读（`real-tests/key-file.cjs`）、权限比 600 宽拒读、Windows 不读、不打印不入报告；明文文件不得出现在任何共享桌面机（katana 等）上。密钥交付只走 SSH 直写目标机或 1Password，永不走聊天正文、附件、截图（5.5，2026-11-04 补）。
+
+（QQ 2026-11-04 改定，替换原来的「一律改为从 1Password 引用，不读明文文件」。`MONTCLIP_OPENROUTER_KEY_FILE` 只用于 europa 上的本地覆盖。）
 
 ### 5.3 截图与日志
 
@@ -64,12 +65,16 @@
 2. **清除明文**：删除 `~/.openrouter-token` 和 `~/.openrouter-token.bak`。
 3. 换新 key 后，只存进加密 profile（safeStorage），不再生成任何明文文件；读取仍走 1Password 引用。
 
+### 5.5 密钥怎么交付（2026-11-04 补）
+
+密钥交付只走 SSH 直写目标机或 1Password，永不走聊天正文、附件、截图。
+
 ## 6. 待办（由 Deja 请主人执行）
 
-- [ ] OpenRouter 后台作废旧 key、生成新 key。
-- [ ] 删除 `~/.openrouter-token` 和 `~/.openrouter-token.bak`。
-- [ ] 把 `~/.openrouter-token` 的权限从 644 改成 600（删除前先收紧，防同机其他账号读；这件由 Deja 请主人做）。
-- [ ] 新 key 通过 1Password 引用接入，不落明文文件。
+- [x] OpenRouter 后台作废旧 key、生成新 key（主人，2026-11-04）。
+- [x] 删除 katana 上的 `~/.openrouter-token` 和 `~/.openrouter-token.bak`（Deja，2026-11-04）。
+- [x] ~~把 `~/.openrouter-token` 的权限从 644 改成 600~~：文件已删除，不再需要。
+- [x] 新 key 的接入：按改定后的 5.2，新 key 只放在 europa 的 `~/.openrouter-montclip`（600），真模型测试只在 europa 上跑；`real-tests/key-file.cjs` 只读这个文件（或 `MONTCLIP_OPENROUTER_KEY_FILE` 指定的文件），权限比 600 宽、不是当前用户的文件或在 Windows 上都不读，旧路径不再读（Deja / QQ，2026-11-04）。
 
 ## 7. 结论分类
 

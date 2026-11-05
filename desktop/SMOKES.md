@@ -51,6 +51,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `package-smoke.cjs` | `PACKAGE_SMOKE_COMPLETE` | 在用；用 node 运行：`node desktop/package-smoke.cjs <打好的 zip>` |
 | `remove-connection-smoke.cjs` | `REMOVE_COMPLETE` | 在用 |
 | `review-body-smoke.cjs` | `REVIEW_PASS` | 在用 |
+| `review-count-smoke.cjs` | `REVIEW_COUNT_PASS` | 在用：发送确认框一打开（第一帧）就要写对引用的字幕条数 |
 | `sentence-button-smoke.cjs` | `SENTENCE_BUTTON_COMPLETE` | 在用 |
 | `sentence-dialog-smoke.cjs` | `SD_PASS` | 在用 |
 | `simple-primary-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
