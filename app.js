@@ -43,6 +43,8 @@ const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
 const uiOr = (key, english) => (mcView.get().language === "en" ? english : uiText(key));
 /** A stored default name ("Main", "Title") as the interface language shows it; the user's own names as they are. */
 const shownName = (name) => MontClipView.defaultName(mcView.get().language, name);
+/** A project's name as shown: a stored default (未命名项目 / Untitled project) in the interface language (P7). */
+const shownProject = (name) => MontClipView.projectName(mcView.get().language, name);
 /** On-device transcription: on in development and the browser editor; a packaged desktop build has it
  *  off unless the main process turned it on (desktop/features.js). Off means no entry and no download. */
 function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
@@ -89,7 +91,7 @@ function renderMontClipView() {
 }
 /** The project name (user content, never translated) and the connection status in the current language. */
 function projectStatusText() {
-  return project.name + (state.connected ? "  ·  🟢 " + uiText("own.connected") : "  ·  ⚪ " + uiText("own.local-session"));
+  return shownProject(project.name) + (state.connected ? "  ·  🟢 " + uiText("own.connected") : "  ·  ⚪ " + uiText("own.local-session"));
 }
 /** Text computed from state (not data-i18n) after a language switch: the top bar status and the Transcript panel. */
 function refreshLanguageText() {
@@ -3714,7 +3716,7 @@ function renderProjectGrid() {
   grid.innerHTML = rows.length ? rows.map((p) => `
     <button type="button" class="pj-card${p.id === pj.sel && pj.mode === "detail" ? " sel" : ""}${p.active ? " open" : ""}" data-pj="${escapeHtml(p.id)}" title="${p.active ? escapeHtml(uiText("own.pj-currently-open")) : "Double-click to open"}">
       ${pjThumbHtml(p)}
-      <span class="pj-card-name">${escapeHtml(p.name)}${p.active ? ` <span class="pj-badge">${escapeHtml(uiText("own.pj-open"))}</span>` : ""}</span>
+      <span class="pj-card-name">${escapeHtml(shownProject(p.name))}${p.active ? ` <span class="pj-badge">${escapeHtml(uiText("own.pj-open"))}</span>` : ""}</span>
       <span class="pj-card-meta">${p.unreadable ? "file unreadable" : `${pjCanvas(p)} · ${pjFmtDur(p.duration)}`}</span>
       <span class="pj-card-when dim">${escapeHtml(pj.sort === "created" ? uiText("own.pj-when-created", { when: pjWhen(p.created) }) : pj.sort === "modified" || !p.opened ? uiText("own.pj-when-modified", { when: pjWhen(p.modified) }) : uiText("own.pj-when-opened", { when: pjWhen(p.opened) }))}</span>
     </button>`).join("")
@@ -3725,7 +3727,7 @@ function pjDetailHtml(p) {
   const fact = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
   const tpl = p.template && pj.templates.find((t) => t.id === p.template);
   return `${pjThumbHtml(p, true)}
-    <label class="pj-field"><span>${uiText("term.name")}</span><input type="text" id="pjName" value="${escapeHtml(p.name)}" maxlength="120" spellcheck="false"></label>
+    <label class="pj-field"><span>${uiText("term.name")}</span><input type="text" id="pjName" value="${escapeHtml(shownProject(p.name))}" maxlength="120" spellcheck="false"></label>
     <dl class="pj-facts">
       ${fact(escapeHtml(uiText("own.pj-canvas")), p.unreadable ? "—" : pjCanvas(p))}
       ${fact(escapeHtml(uiText("own.pj-length")), escapeHtml((p.clips === 1 ? uiText("own.pj-length-value-1", { dur: pjFmtDur(p.duration), clips: 1, media: p.media }) : uiText("own.pj-length-value", { dur: pjFmtDur(p.duration), clips: p.clips, media: p.media }))))}
@@ -3857,7 +3859,7 @@ async function pjSaveField(field) {
   const el = $({ name: "pjName", notes: "pjNotes", tags: "pjTags" }[field]);
   if (!el) return;
   const v = el.value;
-  if (field === "name" && (!v.trim() || v.trim() === p.name)) { if (!v.trim()) el.value = p.name; return; }
+  if (field === "name" && (!v.trim() || v.trim() === p.name || v.trim() === shownProject(p.name))) { if (!v.trim()) el.value = shownProject(p.name); return; }
   if (field === "notes" && v === (p.notes || "")) return;
   if (field === "tags" && v === (p.tags || []).join(", ")) return;
   const out = await pjPost({ action: "update", id: p.id, [field]: field === "name" ? v.trim() : v });
@@ -3933,7 +3935,7 @@ function pjVersionsHtml() {
   return `<div class="ver-view">
     <div class="ver-head">
       <button type="button" class="btn tiny" data-ver-act="back">← All projects</button>
-      <h3>Versions of ${escapeHtml(p.name)}</h3>
+      <h3>Versions of ${escapeHtml(shownProject(p.name))}</h3>
     </div>
     <div class="ver-save">
       <input type="text" id="verName" maxlength="120" placeholder="Name (optional), e.g. Client cut" spellcheck="false" aria-label="Version name">
@@ -18448,7 +18450,9 @@ function deliveryFrame(spec) {
   return Delivery.reframe(spec, cv.w, cv.h, cv.region);
 }
 /** The project's name as a file name: Chinese kept, only what Windows cannot have replaced. */
-const exportBaseName = (fallback) => Delivery.fileSafeName(project.name, MontClipView.exportFallback(mcView.get().language, fallback));
+/** An export's file name from the project's name — never a default one (P7: then the first media's name, else MontClip, and the date). */
+const exportBaseName = (fallback) => Delivery.fileSafeName(MontClipView.exportProjectName(project.name, (project.media || []).map((m) => m.name)),
+  MontClipView.exportFallback(mcView.get().language, fallback));
 function deliveryFileName(spec, fps) {
   const fr = deliveryFrame(spec);
   return Delivery.renderFilename(spec.filename, spec, {

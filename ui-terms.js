@@ -42,7 +42,7 @@
     "window-title": ["MontClip · Video Editor", "MontClip · 视频剪辑", "B", "SPEC row: (old window title) Video Editor"],
     "projects": ["Projects", "项目", "B"],
     "all-projects": ["All projects", "全部项目", "B"],
-    "untitled-project": ["Untitled Project", "未命名项目", "B"],
+    "untitled-project": ["Untitled project", "未命名项目", "B", "JJ 插件试用 P7：小写 p"],
     "workspace": ["Workspace", "工作区", "B"],
     "edit": ["Edit", "剪辑", "B"],
     "color": ["Color", "调色", "own", "JJ review 2026-11-02"],

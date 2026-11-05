@@ -110,7 +110,7 @@
     "or-click": ["or click", "或点击"],
     "lift-title": ["Lift (;) — remove IN→OUT on targeted tracks, leave the gap", "提起（;）— 删除目标轨道上入点到出点的内容，留下空隙"],
     "extract-title": ["Extract (') — remove IN→OUT on targeted tracks and close the gap", "提取（'）— 删除目标轨道上入点到出点的内容，并补上空隙"],
-    "inspector-empty": ["Select a clip to edit its transform, effects & audio.", "选中一个片段以编辑它的画面、特效与音频。"],
+    "inspector-empty": ["Select a clip to edit its picture, effects and audio.", "选中一个片段以编辑它的画面、特效与音频。"],
     "exporting-pct": ["Exporting… {pct}%", "正在导出… {pct}%"],
     "rendering-pct": ["Rendering… {pct}%", "正在渲染… {pct}%"],
     "encoding": ["Encoding…", "正在编码…"],
@@ -1113,9 +1113,21 @@
       return whole.slice(0, whole.indexOf(open)) + open + kept.join(sep) + close;
     });
   }
-  /** A new project's name (Deja, 第四批): 未命名项目, Untitled Project in English. Chinese first when the language is unknown. */
-  const defaultProjectName = (language) => (language === "en" ? "Untitled Project" : "未命名项目");
-  const isDefaultProjectName = (name) => name === "未命名项目" || name === "Untitled Project";
+  /** A new project's name (Deja, 第四批): 未命名项目, Untitled project in English (JJ, 插件试用 P7: lower-case p). Chinese first
+   *  when the language is unknown. "Untitled Project", what older English projects were called, is a default name too. */
+  const defaultProjectName = (language) => (language === "en" ? "Untitled project" : "未命名项目");
+  const isDefaultProjectName = (name) => name === "未命名项目" || name === "Untitled project" || name === "Untitled Project";
+  /** A project's name as the page shows it (P7): a stored default reads as the default of the interface language; the
+   *  project keeps what it has. Any other name is the user's, shown as it is. */
+  const projectName = (language, name) => (isDefaultProjectName(name) ? defaultProjectName(language) : name);
+  /** The name an export takes (P7, Deja): the project's own name; never a default one — then the first media's name
+   *  (without its extension), else MontClip, followed by the date (月-日, as 直播切片 {月-日}). */
+  const exportProjectName = (name, mediaNames = [], date = new Date()) => {
+    if (typeof name === "string" && name.trim() && !isDefaultProjectName(name)) return name;
+    const first = (mediaNames || []).find((n) => typeof n === "string" && n.trim());
+    const stem = first ? first.trim().replace(/\.[A-Za-z0-9]{1,10}$/, "").trim() : "";
+    return (stem || "MontClip") + " " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+  };
   /** A stored name as the page shows it (Deja, 2026-11-05): exactly the default "Main" (a sequence) or "Title" (a new
    *  title) reads as the existing term in Chinese; any other name is the user's and is shown as it is. Only for display —
    *  the project keeps "Main" / "Title". */
@@ -1127,5 +1139,5 @@
    *  English word (export, captions…) in English. */
   const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
-  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
+  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, projectName, exportProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
 });

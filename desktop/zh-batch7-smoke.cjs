@@ -126,6 +126,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     // 插件试用 P7: a stored default project name, the empty Inspector, and the export file name, rendered
     const P7 = String.raw`(async (stored) => {
       const wait = (ms) => new Promise((r) => setTimeout(r, ms)), txt = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null);
+      project.media = [{ id: 'm_p7', name: '回放 0105.mp4', kind: 'video', src: '/media/p7.mp4', duration: 5, width: 320, height: 240 }];
       project.name = stored; setSelection([]); renderInspector(); refreshLanguageText(); await wait(30);
       const r = { top: txt(document.getElementById('projectName')), empty: txt(document.querySelector('#inspector .inspector-empty')),
         file: exportBaseName('export'), stored: project.name };
@@ -136,7 +137,6 @@ BrowserWindow.prototype.loadURL = async function (...args) {
       closeProjects();
       return r;
     })`;
-    await read(`(()=>{project.media=[{id:'m_p7',name:'回放 0105.mp4',kind:'video',src:'/media/p7.mp4',duration:5,width:320,height:240}];renderBin();return true;})()`);
     for (const language of ['en', 'zh-CN']) for (const stored of ['未命名项目', 'Untitled Project', 'Untitled project']) {
       await read(`updateMontClipView(${JSON.stringify({ language, mode: 'advanced' })}); true`); await wait();
       const r = await read(`${P7}(${JSON.stringify(stored)})`), at = `P7 ${language} stored ${stored}`, shownName = language === 'en' ? 'Untitled project' : '未命名项目';
