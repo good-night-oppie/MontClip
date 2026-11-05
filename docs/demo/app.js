@@ -63,10 +63,24 @@ async function copyProblem(r) {
     if (res.ok) out = (await res.json()).text;
   } catch { /* offline: the page's copy of the rules */ }
   if (typeof out !== "string") out = MontClipRedact.problemDetails(r.line || "", { platform: /win/i.test(navigator.platform || "") ? "win32" : "", language: mcView.get().language });
-  // then where to send it — TODO(主人定): own.copy-problem-where is empty until the place is decided (Deja, #161)
-  const where = uiText("own.copy-problem-where");
-  const sep = mcView.get().language === "en" ? " " : "";
-  try { await navigator.clipboard.writeText(out); toast(uiText("own.copy-problem-done") + (where ? sep + where : "")); } catch { toast(uiText("own.copy-problem-failed")); }
+  try { await navigator.clipboard.writeText(out); toastProblemSent(); } catch { toast(uiText("own.copy-problem-failed")); }
+}
+/** After a copy (JJ, #161): what was taken out, and the mailbox to send it to. The address can be selected (one click
+ *  selects all of it) and copied by hand; there is no button for it, which would overwrite the copy just made. The toast
+ *  stays while the pointer or the focus is on it. */
+function toastProblemSent() {
+  if (!els.toast) return;
+  const [before, after = ""] = uiText("own.copy-problem-sent").split("{email}");
+  const mail = document.createElement("span");
+  mail.className = "toast-email"; mail.textContent = MontClipView.PROBLEM_EMAIL; mail.tabIndex = 0;
+  const line = document.createElement("span");
+  line.append(before, mail, after);
+  els.toast.textContent = "";
+  els.toast.append(line);
+  els.toast.classList.add("show", "has-action");
+  clearTimeout(toastTimer);
+  if (!toastHold) toastHold = holdToast(els.toast, () => { if (els.toast.classList.contains("has-action")) els.toast.classList.remove("show", "has-action"); });
+  toastHold.start();
 }
 /** A failure in a toast: the words, and for one without its own sentence 〔复制问题信息〕 with JJ's small print under it.
  *  A sentence that asks for the button itself (r.copy: an export that came out black or silent) gets it too, said as it

@@ -103,8 +103,8 @@ test('after a copy: one key and one string, the same as #132 and the plugin', ()
     a.ok(!('copyProblemDone' in V.text[l]) && !('copyProblemFailed' in V.text[l]), l);
   }
   // every copy button goes through copyProblem, which says only these two
-  // (+ where to send it, own.copy-problem-where, once the place is decided: #161)
-  a.match(fnBody(app, 'async function copyProblem('), /toast\(uiText\("own\.copy-problem-done"\)( \+ \(where \? sep \+ where : ""\))?\); \} catch \{ toast\(uiText\("own\.copy-problem-failed"\)\); \}/);
+  // #161: after a copy, JJ's sentence with the mailbox (toastProblemSent); own.copy-problem-done stays for #132 and the plugin
+  a.match(fnBody(app, 'async function copyProblem('), /toastProblemSent\(\); \} catch \{ toast\(uiText\("own\.copy-problem-failed"\)\); \}/);
   a.equal((app.match(/copyProblem\(/g) || []).length - 1, (app.match(/uiText\("btnCopyProblem"\)|data-as-act="copy-problem"/g) || []).length, 'each copy button calls copyProblem');
   a.ok(!/已复制|copyProblemDone|copyProblemFailed/.test(app));
 });

@@ -270,11 +270,32 @@ test("a black / silent export: the queue row says the sentence with 〔复制问
   a.match(app, /if \(!end\.src\) throw exportEndError\(end, "encode failed"\);/, "the export stops before any save window opens");
 });
 
-test("after 〔复制问题信息〕: where to send it — a key held for it, empty (TODO) until the place is decided", () => {
+test("after 〔复制问题信息〕: JJ's sentence, word for word, with the mailbox to select — and no second copy button", () => {
   const V = require("../ui-preferences");
-  const src = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8");
-  a.match(src, /TODO\(主人定\)[^\n]*\n[^\n]*\n\s*"copy-problem-where": \["", ""\],/);
-  a.equal(V.t("zh-CN", "own.copy-problem-where"), "");
+  a.equal(V.PROBLEM_EMAIL, "etang.build.bot@gmail.com");
+  const said = (l) => V.t(l, "own.copy-problem-sent", { email: V.PROBLEM_EMAIL });
+  a.equal(said("zh-CN"), "复制好了（文件路径和账号已经去掉）。把它发到 etang.build.bot@gmail.com，我们会尽快看。");
+  a.equal(said("en"), "Copied (file paths and account details removed). Send it to etang.build.bot@gmail.com and we'll look at it as soon as we can.");
+  // the toast, run on a small stand-in for the page
   const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
-  a.match(app, /const where = uiText\("own\.copy-problem-where"\);\n[^\n]*\n  try \{ await navigator\.clipboard\.writeText\(out\); toast\(uiText\("own\.copy-problem-done"\) \+ \(where \? sep \+ where : ""\)\);/);
+  const src = app.slice(app.indexOf("function toastProblemSent() {"), app.indexOf("/** A failure in a toast:"));
+  const node = (tag) => ({ tag, children: [], className: "", tabIndex: -1, _text: "",
+    set textContent(v) { this._text = v; this.children = []; }, get textContent() { return this._text + this.children.map((c) => (typeof c === "string" ? c : c.textContent)).join(""); },
+    append(...xs) { this.children.push(...xs); }, classList: { set: new Set(), add(...c) { c.forEach((x) => this.set.add(x)); }, remove(...c) { c.forEach((x) => this.set.delete(x)); }, contains(c) { return this.set.has(c); } } });
+  for (const language of ["zh-CN", "en"]) {
+    const toast = node("div");
+    let held = 0;
+    new Function("els", "uiText", "MontClipView", "document", "clearTimeout", "toastTimer", "toastHold", "holdToast", src + "\ntoastProblemSent();")(
+      { toast }, (k, v) => V.t(language, k, v), V, { createElement: node }, () => {}, 0, null, () => ({ start: () => { held++; }, stop() {} }));
+    a.equal(toast.textContent, said(language), language);
+    const all = []; const walk = (n) => { if (typeof n !== "string") { all.push(n); n.children.forEach(walk); } }; walk(toast);
+    const mail = all.find((n) => n.className === "toast-email");
+    a.ok(mail && mail.textContent === V.PROBLEM_EMAIL && mail.tabIndex === 0, "the address is its own selectable element");
+    a.ok(!all.some((n) => n.tag === "button"), "no button: a second copy would overwrite the problem details");
+    a.ok(toast.classList.contains("show") && toast.classList.contains("has-action") && held === 1, "it stays while held, so it can be selected");
+  }
+  const css = fs.readFileSync(path.join(__dirname, "..", "style.css"), "utf8");
+  a.match(css, /#toast \.toast-email \{ user-select: all;/, "one click selects the whole address");
+  a.match(app, /navigator\.clipboard\.writeText\(out\); toastProblemSent\(\);/);
+  a.doesNotMatch(src, /clipboard/, "the toast never writes the clipboard");
 });

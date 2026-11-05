@@ -700,9 +700,10 @@
     "export-blank-picture": ["The export went wrong: the video is black from start to finish, but the clips on the timeline have picture. Don't use this file. Your originals are unchanged. Export again, and if it's still black, click “Copy problem details” and send it to us.", "导出出了问题：成片从头到尾都是黑屏，但时间线上的素材是有画面的。这个文件先别用，原片没有改动。请再导出一次；还是黑屏的话，点〔复制问题信息〕发给我们。"],
     "export-blank-sound": ["The export went wrong: the video has no sound from start to finish, but the clips on the timeline have sound. Don't use this file. Your originals are unchanged. Export again, and if there's still no sound, click “Copy problem details” and send it to us.", "导出出了问题：成片从头到尾都没有声音，但时间线上的素材是有声音的。这个文件先别用，原片没有改动。请再导出一次；还是没声音的话，点〔复制问题信息〕发给我们。"],
     "export-blank-both": ["The export went wrong: the video is black and silent from start to finish, but the clips on the timeline have picture and sound. Don't use this file. Your originals are unchanged. Export again, and if it happens again, click “Copy problem details” and send it to us.", "导出出了问题：成片从头到尾都是黑屏、也没有声音，但时间线上的素材有画面也有声音。这个文件先别用，原片没有改动。请再导出一次；还是这样的话，点〔复制问题信息〕发给我们。"],
-    // TODO(主人定): after 〔复制问题信息〕, one more sentence saying where to send it (Deja, #161). Empty until the place is
-    // decided: copyProblem says nothing more while it is empty.
-    "copy-problem-where": ["", ""],
+    // after 〔复制问题信息〕: what was taken out and where to send it (JJ 定稿, #161; the brackets only since
+    // test/problem-details.test.js shows it). {email} is PROBLEM_EMAIL, shown so it can be selected — never a second copy
+    // button, which would overwrite what was just copied.
+    "copy-problem-sent": ["Copied (file paths and account details removed). Send it to {email} and we'll look at it as soon as we can.", "复制好了（文件路径和账号已经去掉）。把它发到 {email}，我们会尽快看。"],
     // JJ (#74): the version kept before the AI's edits, named in the interface language only
     "before-ai": ["Before AI changes", "AI 改之前"],
     // JJ (#71): the selection / proposal dialog in the interface language only, never 「中文 / English」 together
@@ -1205,5 +1206,7 @@
    *  English word (export, captions…) in English. */
   const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
-  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints, errorText, batchReason, exportResult, ERROR_CODES: Object.keys(ERROR_TEXT).concat(Object.keys(FLV_REASONS)) };
+  /** Where 〔复制问题信息〕's copy goes (#161; JJ): a mailbox a program watches for 「MontClip 问题信息 v1」. */
+  const PROBLEM_EMAIL = "etang.build.bot@gmail.com";
+  return { PROBLEM_EMAIL, create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints, errorText, batchReason, exportResult, ERROR_CODES: Object.keys(ERROR_TEXT).concat(Object.keys(FLV_REASONS)) };
 });
