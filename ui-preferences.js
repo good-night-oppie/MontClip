@@ -679,10 +679,11 @@
     "export-checked-n": ["Export checked ({n})", "导出勾选的版本（{n}）"],
     "export-failed-prefix": ["Export failed: ", "导出失败："],
     // the export self-check (export-check.js): the file came out black / silent from start to end while the footage is not.
-    // JJ 定稿 (2026-11-04, #161), word for word; the button named in them is btnCopyProblem (test/export-start-time.test.js)
-    "export-blank-picture": ["The export went wrong: the video is black from start to finish, but the clips on the timeline have picture. Don't use this file. Your originals are unchanged. Export again, and if it's still black, click “Copy problem info” and send it to us.", "导出出了问题：成片从头到尾都是黑屏，但时间线上的素材是有画面的。这个文件先别用，原片没有改动。请再导出一次；还是黑屏的话，点〔复制问题信息〕发给我们。"],
-    "export-blank-sound": ["The export went wrong: the video has no sound from start to finish, but the clips on the timeline have sound. Don't use this file. Your originals are unchanged. Export again, and if there's still no sound, click “Copy problem info” and send it to us.", "导出出了问题：成片从头到尾都没有声音，但时间线上的素材是有声音的。这个文件先别用，原片没有改动。请再导出一次；还是没声音的话，点〔复制问题信息〕发给我们。"],
-    "export-blank-both": ["The export went wrong: the video is black and silent from start to finish, but the clips on the timeline have picture and sound. Don't use this file. Your originals are unchanged. Export again, and if it happens again, click “Copy problem info” and send it to us.", "导出出了问题：成片从头到尾都是黑屏、也没有声音，但时间线上的素材有画面也有声音。这个文件先别用，原片没有改动。请再导出一次；还是这样的话，点〔复制问题信息〕发给我们。"],
+    // JJ 定稿 (2026-11-04, #161), word for word, except the English button's name: “Copy problem details”, its real name on
+    // screen (btnCopyProblem; JJ's rule, Deja) — test/export-start-time.test.js
+    "export-blank-picture": ["The export went wrong: the video is black from start to finish, but the clips on the timeline have picture. Don't use this file. Your originals are unchanged. Export again, and if it's still black, click “Copy problem details” and send it to us.", "导出出了问题：成片从头到尾都是黑屏，但时间线上的素材是有画面的。这个文件先别用，原片没有改动。请再导出一次；还是黑屏的话，点〔复制问题信息〕发给我们。"],
+    "export-blank-sound": ["The export went wrong: the video has no sound from start to finish, but the clips on the timeline have sound. Don't use this file. Your originals are unchanged. Export again, and if there's still no sound, click “Copy problem details” and send it to us.", "导出出了问题：成片从头到尾都没有声音，但时间线上的素材是有声音的。这个文件先别用，原片没有改动。请再导出一次；还是没声音的话，点〔复制问题信息〕发给我们。"],
+    "export-blank-both": ["The export went wrong: the video is black and silent from start to finish, but the clips on the timeline have picture and sound. Don't use this file. Your originals are unchanged. Export again, and if it happens again, click “Copy problem details” and send it to us.", "导出出了问题：成片从头到尾都是黑屏、也没有声音，但时间线上的素材有画面也有声音。这个文件先别用，原片没有改动。请再导出一次；还是这样的话，点〔复制问题信息〕发给我们。"],
     // TODO(主人定): after 〔复制问题信息〕, one more sentence saying where to send it (Deja, #161). Empty until the place is
     // decided: copyProblem says nothing more while it is empty.
     "copy-problem-where": ["", ""],

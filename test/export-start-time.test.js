@@ -201,11 +201,11 @@ test("the editor reads every player and the export's decoder on media time, and 
 /* JJ's final words (2026-11-04, #161), word for word, and what the streamer sees with them: the 〔复制问题信息〕 they ask
    for (#129's button and its redaction), never 「完成」 or a way to open the file. */
 const BLANK = {
-  "export-blank-picture": ["The export went wrong: the video is black from start to finish, but the clips on the timeline have picture. Don't use this file. Your originals are unchanged. Export again, and if it's still black, click “Copy problem info” and send it to us.",
+  "export-blank-picture": ["The export went wrong: the video is black from start to finish, but the clips on the timeline have picture. Don't use this file. Your originals are unchanged. Export again, and if it's still black, click “Copy problem details” and send it to us.",
     "导出出了问题：成片从头到尾都是黑屏，但时间线上的素材是有画面的。这个文件先别用，原片没有改动。请再导出一次；还是黑屏的话，点〔复制问题信息〕发给我们。"],
-  "export-blank-sound": ["The export went wrong: the video has no sound from start to finish, but the clips on the timeline have sound. Don't use this file. Your originals are unchanged. Export again, and if there's still no sound, click “Copy problem info” and send it to us.",
+  "export-blank-sound": ["The export went wrong: the video has no sound from start to finish, but the clips on the timeline have sound. Don't use this file. Your originals are unchanged. Export again, and if there's still no sound, click “Copy problem details” and send it to us.",
     "导出出了问题：成片从头到尾都没有声音，但时间线上的素材是有声音的。这个文件先别用，原片没有改动。请再导出一次；还是没声音的话，点〔复制问题信息〕发给我们。"],
-  "export-blank-both": ["The export went wrong: the video is black and silent from start to finish, but the clips on the timeline have picture and sound. Don't use this file. Your originals are unchanged. Export again, and if it happens again, click “Copy problem info” and send it to us.",
+  "export-blank-both": ["The export went wrong: the video is black and silent from start to finish, but the clips on the timeline have picture and sound. Don't use this file. Your originals are unchanged. Export again, and if it happens again, click “Copy problem details” and send it to us.",
     "导出出了问题：成片从头到尾都是黑屏、也没有声音，但时间线上的素材有画面也有声音。这个文件先别用，原片没有改动。请再导出一次；还是这样的话，点〔复制问题信息〕发给我们。"],
 };
 const CODES = { "export-blank-picture": "EXPORT_BLANK_PICTURE", "export-blank-sound": "EXPORT_BLANK_SOUND", "export-blank-both": "EXPORT_BLANK_BOTH" };
@@ -230,13 +230,16 @@ test("the button named in the sentences is the button on screen: zh", () => {
   for (const k of Object.keys(BLANK)) a.ok(V.t("zh-CN", "own." + k).includes(`〔${btn}〕`), k);
 });
 
-// JJ's English sentences say “Copy problem info”; #129's button says "Copy problem details" (its own sentence, errOther,
-// too). Which one stays is JJ's call (Deja, #161) — until then this is a known mismatch, reported here, not hidden.
-test("the button named in the sentences is the button on screen: en", { todo: "JJ: the English button is “Copy problem details”, the sentences say “Copy problem info”" }, () => {
+// JJ's rule: a sentence names a button by its real name on screen. The English sentences said “Copy problem info”; the
+// button (#129's btnCopyProblem) says "Copy problem details", so the sentences use that (Deja, #161).
+test("the button named in the sentences is the button on screen: en", () => {
   const V = require("../ui-preferences"), btn = V.t("en", "btnCopyProblem");
-  for (const k of Object.keys(BLANK)) a.ok(V.t("en", "own." + k).includes(`“${btn}”`), `${k}: the sentence names “${btn}”`);
+  a.equal(btn, "Copy problem details");
+  for (const k of Object.keys(BLANK)) {
+    a.ok(V.t("en", "own." + k).includes(`click “${btn}” and send it to us.`), `${k}: the sentence names “${btn}”`);
+    a.ok(!/Copy problem info/.test(V.t("en", "own." + k)), k);
+  }
 });
-
 test("a black / silent export: the queue row says the sentence with 〔复制问题信息〕 and 〔重试这条〕 — no 完成, no 保存 or open", () => {
   const V = require("../ui-preferences");
   const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
