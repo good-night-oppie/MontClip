@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Partial official Apache-2.0 Cindy composer/configuration component port, local session restoration, explicit full-payload confirmation, fixed-provider desktop transport and guarded sentence proposal preview/apply/undo. Live-provider and visible-window acceptance remain pending.
 
 ### Fixed
+- Generate missing presentation timestamps on the repair remux path; reject non-finite output durations while
+  retaining the minimum length, ±1 s duration check and strict full decode. A reproducible timestamp-jump test
+  confirms that a short but decodable remux is still refused.
+- Send background duration metadata through the editor server so an open editor can save it alongside pending
+  timeline edits. Server errors no longer fall back to a direct project write.
 - A recording whose timestamps don't start at 0 (an OBS MKV that starts at 3600 s, an MP4 edit list) exported as
   black, its sound 21 ms late, and the export said done. The file's start and the offset of its decoded sound are now
   read with ffprobe (`start`, `audioOffset`), and the players, the export's decoder and its audio mix use them; the

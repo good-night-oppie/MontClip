@@ -65,7 +65,9 @@ try {
   }
 } catch {}
 const Templates = require("./templates");
-const { probeFile } = require("./media-probe");
+const { probeFile, infoForEntry } = require("./media-probe");
+const MakeEditable = require("./make-editable");
+const repairJobs = MakeEditable.createJobs({ prefix: "r_" });
 const MediaLib = require("./media-lib");
 const { createProxies } = require("./proxy");
 const { createTranscripts } = require("./transcripts");
@@ -1839,6 +1841,63 @@ const server = http.createServer(async (req, res) => {
       }
       const r = await denoiseFile(file, MEDIA_DIR, opts.amount);
       sendJSON(res, 200, { src: "/media/" + encodeURIComponent(r.name), name: r.name, duration: r.duration, channels: r.channels, cached: r.cached });
+    } catch (e) { sendJSON(res, 500, { error: String(e.message || e) }); }
+    return;
+  }
+
+  /* API: 〔帮我修好〕 (JJ, P3) — POST {src} starts a job (or joins the one running for that
+     file) → {job, status, progress, phase}; GET /api/repair/job?id= → the same, with result {src, name, kind, duration,
+     preparation, encoder?, …file details} once done, or error {code}; POST /api/repair/cancel?id= stops it. The new MP4
+     is written into media/; the original is never touched. Swapping it into the project is the editor's job
+     (MediaLib.swapMedia, one undo step), as fablecut_repair_media does for agents. */
+  if (p === "/api/repair" && req.method === "POST") {
+    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
+    let opts;
+    try { opts = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "body must be JSON {src}" }); return; }
+    const file = resolveSrc(opts.src);
+    if (!file) { sendJSON(res, 404, { error: "src must name an existing file under /media/ or /library/" }); return; }
+    sendJSON(res, 200, repairJobs.start(file, async ({ signal, onProgress }) => {
+      const r = await MakeEditable.makeEditable(file, { outDir: MEDIA_DIR, signal, onProgress });
+      const name = path.basename(r.file);
+      const out = { src: "/media/" + encodeURIComponent(name), name, kind: "video", duration: r.duration, preparation: r.preparation, ...(r.encoder ? { encoder: r.encoder } : {}) };
+      return { ...infoForEntry(await probeFile(r.file), out), ...out };
+    }));
+    return;
+  }
+  if (p === "/api/repair/job" && req.method === "GET") {
+    const j = repairJobs.get(url.searchParams.get("id"));
+    if (!j) { sendJSON(res, 404, { error: "no such repair job" }); return; }
+    sendJSON(res, 200, j);
+    return;
+  }
+  if (p === "/api/repair/cancel" && req.method === "POST") {
+    const j = repairJobs.cancel(url.searchParams.get("id"));
+    if (!j) { sendJSON(res, 404, { error: "no such repair job" }); return; }
+    sendJSON(res, 200, j);
+    return;
+  }
+
+  /* API: lengths the agent read for files that had none (QQ, #152 review): POST {updates:[{id, src, duration?,
+     durationFrom?, durationUnknown?}]}. With an editor open they go to it (SSE "media-backfill"): it puts them into the
+     project it has open, an unsaved step included, and saves once — the agent no longer writes over that step. With
+     none open they are merged onto the project on disk here, as a PUT would write it. → {via:"editor"|"server", changed?} */
+  if (p === "/api/media-backfill" && req.method === "POST") {
+    let body;
+    try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "body must be JSON {updates}" }); return; }
+    const updates = body && Array.isArray(body.updates) ? body.updates.filter((u) => u && typeof u.id === "string" && typeof u.src === "string").slice(0, 2000) : null;
+    if (!updates) { sendJSON(res, 400, { error: "updates must be a list of {id, src, duration | durationUnknown}" }); return; }
+    if (sseClients.size) { broadcast("media-backfill", JSON.stringify({ updates })); sendJSON(res, 200, { via: "editor", editors: sseClients.size }); return; }
+    try {
+      const cur = JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(new RegExp("^\\uFEFF"), ""));
+      const changed = MediaLib.applyBackfill(cur, updates);
+      if (changed) {
+        cur.revision = (cur.revision || 0) + 1;
+        const tmp = PROJECT_FILE + ".tmp";
+        fs.writeFileSync(tmp, JSON.stringify(cur, null, 2));
+        fs.renameSync(tmp, PROJECT_FILE);
+        broadcast("change");
+      }
+      sendJSON(res, 200, { via: "server", changed, revision: cur.revision || 0 });
     } catch (e) { sendJSON(res, 500, { error: String(e.message || e) }); }
     return;
   }

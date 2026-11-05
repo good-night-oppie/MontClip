@@ -42,7 +42,13 @@ function release() {
   if (next) next(); else active--;
 }
 /** → {json} or {error: ffprobe's own reason} (a file it can't open: an MP4 whose index was never written). */
+// tests only: every ffprobe run waits this long first, so a test can show what a slow disk does to the callers
+const TEST_DELAY = Math.max(0, Number(process.env.FABLECUT_TEST_PROBE_DELAY_MS) || 0);
 function runProbe(file) {
+  if (TEST_DELAY) return new Promise((r) => setTimeout(r, TEST_DELAY)).then(() => runProbeNow(file));
+  return runProbeNow(file);
+}
+function runProbeNow(file) {
   return new Promise((resolve) => {
     execFile(FF.path("ffprobe"), ["-v", "error", "-show_format", "-show_streams", "-of", "json", file],
       { encoding: "utf8", timeout: 15_000, maxBuffer: 1 << 23, windowsHide: true },
