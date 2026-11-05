@@ -51,15 +51,18 @@ test('server: /api/audio-window decodes only the asked part, sample-accurately, 
     a.equal((await fetch(base + '/api/audio-window?' + q)).status, 400, q);
 });
 
-test('the export mix asks for a window on long or large files, and offsets the clip into it', () => {
+test('the export mix asks for a window for every local file (with a server), and offsets the clip into it', () => {
   const mix = body(app, 'async function renderAudioMix(');
   a.match(mix, /exportAudioSource\(m, c, a, b, windows\)/, 'each clip gets its source through the window helper');
   a.match(mix, /src\.start\(mixWhen, Math\.max\(0, mediaTimeAt\(c, a\) - at\)\)/, 'speed ramp: offset into the window');
   a.match(mix, /src\.start\(mixWhen, Math\.max\(0, c\.in \+ local0 \* sp - at\), mixDur \* sp\)/, 'steady speed: offset into the window');
   const helper = body(app, 'async function exportAudioSource(');
   a.match(helper, /\/api\/audio-window\?src=/);
-  a.match(helper, /getAudioBuffer\(m\)/, 'short files keep the whole-file decode (shared with waveforms)');
-  a.match(app, /const AUDIO_WINDOW_MIN_SEC = \d+, AUDIO_WINDOW_MIN_BYTES = [\d *]+,/);
+  // QQ 2026-11-05: every local file goes through the window (container clock); the whole-file decode is only the
+  // fallback without a server, so one project never mixes two offsets
+  a.ok(!/AUDIO_WINDOW_MIN_SEC|AUDIO_WINDOW_MIN_BYTES/.test(app), 'no size / length split any more');
+  a.match(helper, /if \(state\.connected && !isCrossOriginSrc\(m\.src\)\)/);
+  a.match(helper, /getAudioBuffer\(m\)/, 'no server: the whole-file decode');
 });
 
 test('a headless export page (?exportJob=) draws no waveforms, so it never decodes whole files for them', () => {
@@ -117,4 +120,45 @@ test('auto-slice default: libx264 only → veryfast, same CRF; a graphics card o
   a.equal(run({ kind: 'delivery', spec: { preset: 'youtube' }, source: 'project' }, ['libx264']).video.speed, 'balanced', 'the project pins it');
   a.match(body(app, 'function queueSlices('), /const spec = sliceDeliverySpec\(\);/);
   a.match(body(app, 'async function autoExport('), /if \(!deliveryInfo\.encoders\) await fetchDeliveryInfo\(\);[\s\S]*queueSlices\(/, 'the encoders are known before the slices are queued');
+});
+
+
+/* QQ 2026-11-05: audio that starts 80 ms after the video. The window puts the beep where the container (and <video>)
+   has it — 5.080 s — for a window from 0 as well as from inside the file, in FLV and MKV. (The whole-file
+   decodeAudioData put it at 5.021 / 5.000 s, so every local file now goes through the window.) */
+test('server: audio starting 80 ms late lands on the container clock, from 0 and mid-file, FLV and MKV (±1 ms)', async (t) => {
+  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../ffmpeg-path');
+  if (!FF.available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
+  const dir = makeDataDir(t, seedProject({ revision: 1 }));
+  fs.mkdirSync(path.join(dir, 'media'), { recursive: true });
+  const beep = "aevalsrc='if(gte(t,5)*lt(t,5.2),0.5*sin(2*PI*1000*t),0)|0':s=48000:d=10";
+  const make = (name, vcodec, acodec) => execFileSync(FF.path('ffmpeg'), ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc2=s=160x90:r=30:d=10',
+    '-itsoffset', '0.08', '-f', 'lavfi', '-i', beep, '-map', '0:v', '-map', '1:a', '-c:v', vcodec, '-c:a', acodec, path.join(dir, 'media', name)]);
+  make('late.flv', 'flv', 'aac'); make('late.mkv', 'mpeg4', 'flac');
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1' });
+  for (const name of ['late.flv', 'late.mkv']) for (const [from, to] of [[0, 10], [4, 6]]) {
+    const r = await fetch(`${base}/api/audio-window?src=/media/${name}&from=${from}&to=${to}`);
+    a.equal(r.status, 200, name);
+    const w = readWav(Buffer.from(await r.arrayBuffer())), L = w.ch(0);
+    const onset = L.findIndex((v) => Math.abs(v) > 0.05) / 48000;
+    a.ok(Math.abs(onset - (5.08 - from)) <= 0.001, `${name} from ${from}: beep at ${(onset + from).toFixed(4)} s in the file, want 5.0800`);
+  }
+});
+
+/* QQ 2026-11-05: the server never holds a whole window in memory; the WAV header is read chunk by chunk. */
+test('server: the window is written to disk and streamed, its WAV header walked chunk by chunk', () => {
+  const server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+  const route = server.slice(server.indexOf('if (p === "/api/audio-window"'), server.indexOf('if (p === "/api/frame"'));
+  a.ok(!/Buffer\.concat\(chunks\)|indexOf\("data"/.test(route), 'no buffering, no indexOf("data")');
+  a.match(route, /fs\.createReadStream\(/); a.match(route, /wavChunks\(/);
+  const { wavChunks } = require('../audio-window');
+  const fmt = Buffer.alloc(16); fmt.writeUInt16LE(3, 0); fmt.writeUInt16LE(2, 2); fmt.writeUInt32LE(48000, 4); fmt.writeUInt16LE(32, 14);
+  const chunk = (id, b) => { const h = Buffer.alloc(8); h.write(id, 0, 'ascii'); h.writeUInt32LE(b.length, 4); return Buffer.concat([h, b, b.length & 1 ? Buffer.alloc(1) : Buffer.alloc(0)]); };
+  // a LIST chunk whose text contains "data" sits before the real data chunk
+  const body = Buffer.concat([Buffer.from('WAVE'), chunk('fmt ', fmt), chunk('LIST', Buffer.from('INFOdata?x')), chunk('data', Buffer.alloc(64))]);
+  const head = Buffer.alloc(8); head.write('RIFF', 0, 'ascii'); head.writeUInt32LE(body.length, 4);
+  const c = wavChunks(Buffer.concat([head, body]));
+  a.deepEqual({ format: c.fmt.format, channels: c.fmt.channels, rate: c.fmt.rate, bits: c.fmt.bits }, { format: 3, channels: 2, rate: 48000, bits: 32 });
+  a.equal(c.data.size, 64); a.equal(c.data.offset, 12 + 8 + 16 + 8 + 10 + 8);
+  a.equal(wavChunks(Buffer.from('nope')), null);
 });

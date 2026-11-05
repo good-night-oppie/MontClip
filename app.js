@@ -19621,10 +19621,11 @@ function encodeWAV(buf) {
    (clip chains → track buses → master fader), honoring volume / pan keyframes
    and fades. t0/t1 are timeline seconds (export window); mix time 0 is t0. */
 const FX_AUTOMATION_STEP = 0.02; // export automation resolution, seconds
-/* The export mix on a long or large file asks the server for only the part it plays (/api/audio-window), instead of
-   decoding the whole file in the tab: a 2-hour, 8 GB recording read 5 GB, took the tab to 4.5 GB and exported no sound
-   (europa, 2026-11-04). Shorter files keep the whole-file decode, which waveforms share. */
-const AUDIO_WINDOW_MIN_SEC = 1200, AUDIO_WINDOW_MIN_BYTES = 512 * 1024 * 1024, AUDIO_WINDOW_PAD = 0.5;
+/* The export mix asks the server for only the part of each file it plays (/api/audio-window), on the container's clock.
+   Every local file goes this way (QQ, 2026-11-05): decodeAudioData on a whole file put a late-starting audio stream's
+   sound 60–80 ms early, so short files and long ones would have been mixed with two different offsets. It also never
+   decodes a 2-hour recording whole in the tab (europa, 2026-11-04). Only without a server does it decode the file. */
+const AUDIO_WINDOW_PAD = 0.5;
 /* A clip whose sound could not be decoded used to be dropped from the mix, and the export came out silent and said
    it succeeded (europa, 2026-11-04). Now the export stops and says which clip (Deja, 2026-11-05). Only clips that are
    heard count: a linked video's picture (volume 0) or a file with no audio stream never stop an export. */
@@ -19640,8 +19641,7 @@ function exportMixFailure(results) {
 }
 /** → {buf, at}: an AudioBuffer of clip c's audio for timeline a…b, and the media time its first sample is at. */
 async function exportAudioSource(m, c, a, b, windows = new Map()) {
-  const big = (m.duration || 0) > AUDIO_WINDOW_MIN_SEC || (m.size || 0) > AUDIO_WINDOW_MIN_BYTES;
-  if (big && !isCrossOriginSrc(m.src)) {
+  if (state.connected && !isCrossOriginSrc(m.src)) {
     const m0 = Math.min(mediaTimeAt(c, a), mediaTimeAt(c, b)), m1 = Math.max(mediaTimeAt(c, a), mediaTimeAt(c, b));
     const from = Math.max(0, Math.floor((m0 - AUDIO_WINDOW_PAD) * 1000) / 1000), to = Math.ceil((m1 + AUDIO_WINDOW_PAD) * 1000) / 1000;
     if (to - from <= 3600) {
