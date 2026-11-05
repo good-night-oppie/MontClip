@@ -300,7 +300,7 @@ test('partly removed: whichever one file stays busy, the others go; Meta is then
   }
   // the server: Meta's status is "installed and agreed"; a model that is not installed is refused before anything runs
   const server = read('server.js');
-  a.match(server, /st\[key\] = \{ \.\.\.st\[key\], installed: st\[key\]\.ready, consented, ready: st\[key\]\.ready && consented \};/);
+  a.match(server, /st\[key\] = \{ \.\.\.st\[key\], installed: st\[key\]\.ready, consented, ready: st\[key\]\.ready && consented[,}]/);
   a.match(server, /if \(!st\[key\] \|\| !st\[key\]\.ready\) \{ sendJSON\(res, 409, \{ code: "ASR_MODEL_MISSING"/);
   a.ok(server.indexOf('code: "ASR_MODEL_MISSING"') < server.indexOf('await (key === "asrMeta" ? asrMeta() : asr()).transcribe('));
   a.match(app, /E\.go\.disabled = !!trState\.busy \|\| !tgt\.srcs\.length \|\| !asrReady\(\);/);
@@ -446,7 +446,7 @@ test('删了一半, the Transcript tab: JJ\'s words, 〔删掉 Meta 的模型〕
   const look = (lang, meta, { downloading = null } = {}) => {
     const E = {}; for (const k of ['asr', 'asrDownload', 'asrImport', 'asrCancel', 'asrLater', 'asrModel', 'asrRevoke', 'asrSwitch', 'asrFit']) { E[k] = el(); E[k].classList.owner = E[k]; }
     const ctx = { localStorage: { getItem: () => 'asrMeta', setItem: () => {} }, uiText: (k, v) => V.t(lang, k, v), mbText: (n) => n + ' B',
-      window: { montclipAsr: { revoke: () => {} } }, trState: { el: E, busy: null }, paintSettingsAsr: () => {}, renderTranscript: () => {},
+      window: { montclipAsr: { revoke: () => {} } }, trState: { el: E, busy: null }, paintSettingsAsr: () => {}, paintAsrSetup: () => {}, renderTranscript: () => {},
       asrState: { note: '', phase: null, downloading, status: { engine: { ready: true }, vad: { ready: true }, asr: { ready: true, missing: [], bad: [] }, asrMeta: meta } } };
     vm.runInNewContext(code, ctx);
     vm.runInContext('paintAsrStatus()', ctx);
