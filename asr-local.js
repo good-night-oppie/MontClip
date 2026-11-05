@@ -27,6 +27,7 @@ const { spawn } = require("node:child_process");
 const { manifest, createStore } = require("./asr-models");
 const W = require("./asr-words");
 const { hidePaths } = require("./asr-status");
+const { readAudioArgs } = require("./audio-read");
 
 const crypto = require("node:crypto");
 const os = require("node:os");
@@ -150,8 +151,7 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
       const S = engine(), r = await recognizer(dir);
       p = punctuator(store.dir("punct"));
       for (const part of parts || [null]) {
-        const at = part ? part[0] : 0;
-        const got = await listen(S, r, p, file, part, { signal,
+        const { samples: got, at } = await listen(S, r, p, file, part, { signal,
           onSegment: (one, len) => { words.push(...one.words); gaps.push(...one.gaps); if (one.read) read++; if (one.gaps.length) skipped++; speech += len; segments++; },
           onSamples: (n) => { if (want > 0) onProgress(Math.min(0.99, (samples + n) / RATE / want)); } });
         samples += got;
@@ -166,13 +166,13 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
       ...(parts ? { spans } : {}), speech, segments, model: manifest.models.asr.id, language: "zh", punctuated: !!p };
   }
   /** One stretch of the file (`part` [from, to], or null for all of it) through ffmpeg (16 kHz mono) and a fresh VAD;
-   *  each segment's words go to onSegment with file times. -> the number of samples read. */
+   *  each segment's words go to onSegment with file times. Read by audio-read.js on the media's own clock: a part that
+   *  starts before 3 s is read from the start of the file (Rea on #165). -> {samples, at}: what was read, from where. */
   async function listen(S, r, p, file, part, { signal, onSegment, onSamples }) {
-    const at = part ? part[0] : 0;
+    const plan = readAudioArgs({ file, from: part ? part[0] : null, to: part ? part[1] : null, rate: RATE });
+    const at = plan.start;
     const vad = new S.Vad({ sileroVad: { model: vadFile, ...VAD }, sampleRate: RATE, debug: false, numThreads: 1 }, 60);
-    const seek = part ? ["-ss", String(at)] : [], len = part ? ["-t", String(part[1] - part[0])] : [];
-    const proc = spawn(ffmpeg, ["-nostdin", "-v", "error", ...seek, "-i", file, ...len, "-vn", "-ac", "1", "-ar", String(RATE), "-f", "s16le", "-acodec", "pcm_s16le", "-"],
-      { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+    const proc = spawn(ffmpeg, plan.args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     let stderr = "", spawnError = null;
     proc.stderr.on("data", (c) => { if (stderr.length < 4000) stderr += c; });
     const exited = new Promise((resolve) => {
@@ -212,7 +212,7 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
       vad.flush();
       await decodeReady();
     } finally { stop(); if (signal) signal.removeEventListener("abort", stop); }
-    return samples;
+    return { samples, at };
   }
 
   return { status, transcribe, store };

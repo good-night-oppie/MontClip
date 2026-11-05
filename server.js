@@ -1858,20 +1858,23 @@ async function handleRequest(req, res) {
     let last = 0;
     try {
       const TR = require("./transcribe.js");
-      // the parts of the ranges this file's transcript has not listened to yet (all of them with again:true)
+      // the parts of the ranges this file's transcript has not listened to yet (all of them with again:true), read with a
+      // pad either side; only each part's core is kept (Rea on #165: no lead-in doubled a word cut at the border)
       const had = ranges ? transcripts.get(src) || null : null;
-      let need = ranges ? (body.again === true ? TR.missingSpans(null, ranges) : TR.missingSpans(had, ranges)) : null;
-      if (need && !need.length && !had) need = ranges;   // only slivers asked for, and nothing yet: read them as asked
-      if (need && !need.length) {
+      const info = await probeFile(file);
+      const dur = info && info.duration;
+      let plan = ranges ? TR.refillPlan(body.again === true ? null : had, ranges, { pad: 1.5, duration: dur }) : null;
+      if (plan && !plan.read.length && !had) plan = { read: ranges, core: ranges };   // only slivers asked for, and nothing yet: read them as asked
+      if (plan && !plan.read.length) {
         sendJSON(res, 200, { src, status: TR.status(had), gaps: had.gaps.length, gapSeconds: Math.round(had.gaps.reduce((t, g) => t + g[1] - g[0], 0) * 10) / 10,
           skippedSegments: 0, words: had.words.length, duration: had.duration, speech: 0, punctuated: null, spans: had.spans || null, already: true });
         return;
       }
-      const info = await probeFile(file);
-      const r = await A.transcribe(file, { signal: ac.signal, duration: info && info.duration, ranges: need,
+      const r = await A.transcribe(file, { signal: ac.signal, duration: dur, ranges: plan ? plan.read : null,
         onProgress: (frac) => { const now = Date.now(); if (now - last > 250) { last = now; broadcast("asr", JSON.stringify({ src, frac })); } } });
-      const add = TR.validate({ src, model: TR.DEFAULT_MODEL, language: r.language, duration: r.duration, created: new Date().toISOString(), words: r.words,
+      let add = TR.validate({ src, model: TR.DEFAULT_MODEL, language: r.language, duration: r.duration, created: new Date().toISOString(), words: r.words,
         gaps: r.gaps.map((g) => [g.start, g.end, g.reason]), ...(r.spans ? { spans: r.spans } : {}) });
+      if (r.spans && plan) add = TR.keepIn(add, plan.core);
       // what was listened to before (other clips' windows of this file) stays; a new part replaces its own stretch
       const doc = transcripts.put(src, r.spans ? TR.mergeDocs(transcripts.get(src) || null, add) : add);
       broadcast("transcript", JSON.stringify({ src }));

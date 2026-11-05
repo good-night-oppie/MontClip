@@ -151,6 +151,26 @@
     }
     return union(list).map((x) => [r3(x.from), r3(x.to)]);
   }
+  /** What to read to add `ranges` to a transcript that covers some parts already (Rea on #165): the parts still missing,
+   *  each read with a whole `pad` either side (the VAD and the engine hear a word cut at the border from its start), and
+   *  the core whose words are kept — the missing part, reaching pad/2 back into what was already heard, so the word the
+   *  old window cut at its end is replaced by the one heard with context, and never kept twice.
+   *  → {read: [[from, to], …], core: [[from, to], …]}, file seconds, inside 0…duration; both empty when nothing is missing. */
+  function refillPlan(doc, ranges, { pad = 1.5, duration = null } = {}) {
+    const missing = missingSpans(doc, ranges);
+    const end = num(duration) && duration > 0 ? duration : Infinity;
+    const have = doc && Array.isArray(doc.spans) ? doc.spans : [];
+    const touches = (t) => have.some(([a, b]) => Math.abs(t - a) < 1e-6 || Math.abs(t - b) < 1e-6);
+    const read = union(missing.map(([a, b]) => ({ from: Math.max(0, a - pad), to: Math.min(end, b + pad) }))).map((x) => [r3(x.from), r3(x.to)]);
+    const core = union(missing.map(([a, b]) => ({ from: touches(a) ? Math.max(0, a - pad / 2) : a, to: touches(b) ? Math.min(end, b + pad / 2) : b })))
+      .map((x) => [r3(x.from), r3(x.to)]);
+    return { read, core };
+  }
+  /** A transcript cut to `core`: the words and gaps whose middle is inside it; spans = core. */
+  function keepIn(doc, core) {
+    const inside = (t) => core.some(([a, b]) => t >= a && t <= b);
+    return validate({ ...doc, words: doc.words.filter((w) => inside((w[1] + w[2]) / 2)), gaps: (doc.gaps || []).filter((g) => inside((g[0] + g[1]) / 2)), spans: core });
+  }
   /** Seconds the ranges add up to. */
   const rangeSeconds = (ranges) => (ranges || []).reduce((n, x) => n + Math.max(0, x[1] - x[0]), 0);
   /** A transcript of some parts of a file (`add`, with spans) laid into one that has others (`old`): what `add`
@@ -307,7 +327,7 @@
   return {
     MODELS, DEFAULT_MODEL, RATE, LANGUAGES, MIN_CUT,
     model, language, join, gap, validate, status, ramped, clipWords, layout, norm, find, union,
-    missingSpans, clipRanges, rangeSeconds, mergeDocs,
+    missingSpans, clipRanges, rangeSeconds, mergeDocs, refillPlan, keepIn,
     cutSpans, cutOps, text, segments, total,
   };
 });

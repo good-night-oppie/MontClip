@@ -154,7 +154,8 @@ test("one file read whole, then a window added: the two transcripts' words are l
   const plan = T.refillPlan(doc1, [[5, 9]], { pad: 1.5, duration: 10 });
   const add = await E.asr.transcribe(f, { ranges: plan.read, duration: 10 });
   const merged = T.mergeDocs(doc1, T.keepIn(T.validate({ duration: 10, words: add.words, spans: add.spans }), plan.core));
-  for (const [s] of merged.words) {
+  a.ok(merged.words.length >= 3, "the beep at 1 s from the first window, 6 and 8.5 s from the refill: " + merged.words.map((w) => w[1]));
+  for (const [, s] of merged.words) {
     const w = beepsIn(whole).find((x) => Math.abs(x - s) < 0.2);
     a.ok(w != null && Math.abs(w - s) < 0.005, `${s} s: ${w == null ? "not in the whole read" : Math.round((s - w) * 1000) + " ms from it"}`);
   }
