@@ -25,6 +25,10 @@ test('the manifest: Meta needs consent, Paraformer and punctuation do not; the l
   a.equal(sha(lic), t.license.sha256);
   a.equal(meta.files.LICENSE.sha256, t.license.sha256, 'the LICENSE downloaded with the model is the same text');
   a.match(lic.toString(), /Copyright 2025 \(c\) Meta Platforms, Inc\. and affiliates\.[\s\S]*Apache License, Version 2\.0/);
+  // the domestic source first, pinned to the revision; then the GitHub archive (pinned by its SHA-256)
+  a.equal(new URL(meta.sources[0].base).hostname, 'hf-mirror.com');
+  a.ok(meta.sources[0].base.includes('/resolve/' + t.revision + '/'));
+  a.equal(meta.sources[1].kind, 'archive'); a.match(meta.sources[1].sha256, /^[0-9a-f]{64}$/);
   a.deepEqual(manifest.models.asr.sources.map((s) => s.base || s.url), [
     'https://hf-mirror.com/csukuangfj/sherpa-onnx-paraformer-zh-2023-09-14/resolve/def027084691107096b5ebba69785756d63de6c5/',
     'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-paraformer-zh-2023-09-14.tar.bz2'], 'Paraformer untouched');
@@ -36,10 +40,10 @@ test('choose: the licence first, then the site, then the download, then the reco
   let have = false;
   const r = await S.choose('asrMeta', { version: '1.18.0', installed: () => have,
     ask: { license: async (q) => { log.push('licence'); a.match(q.text, /Apache License, Version 2\.0/); return true; },
-      source: async (q) => { log.push('site'); a.deepEqual(q.sites, ['github.com']); return 0; } },
+      source: async (q) => { log.push('site'); a.deepEqual(q.sites, ['hf-mirror.com', 'github.com']); return 1; } },
     download: async (pick) => { log.push('download ' + pick); placeFiles(dir); have = true; } });
   a.equal(r.ok, true);
-  a.deepEqual(log, ['licence', 'site', 'download 0']);
+  a.deepEqual(log, ['licence', 'site', 'download 1']);
   a.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, 'consent', 'asrMeta.json'), 'utf8')),
     { model: meta.id, revision: C.termsOf('asrMeta').revision, licenseSha256: C.termsOf('asrMeta').license.sha256, agreedAt: '2026-11-04T12:00:00.000Z', montclipVersion: '1.18.0' });
   a.equal(S.allowed('asrMeta'), true);

@@ -10,14 +10,16 @@ const {manifest,allowedUrl}=require('../asr-models'),W=require('../asr-words');
 const {wav}=require('./songs-synth');
 const RATE=16000;
 
-test('the manifest: Meta Omnilingual is an optional model with pinned files from GitHub; Paraformer is unchanged',()=>{
+test('the manifest: Meta Omnilingual is an optional model with pinned files (hf-mirror at a commit, then GitHub); Paraformer is unchanged',()=>{
  const m=manifest.models.asrMeta,p=manifest.models.asr;
  a.equal(m.id,'omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12');a.equal(m.required,false);a.equal(m.engine,'omnilingual');
  a.match(m.license,/^Apache-2\.0 \(Copyright 2025 Meta Platforms/);
  // the model's own LICENSE comes with it (ADR #122 §6: the licence text travels with the model; asr-consent.js)
  a.deepEqual(Object.keys(m.files).sort(),['LICENSE','model.int8.onnx','tokens.txt']);
  for(const f of Object.values(m.files)){a.ok(f.size>0);a.match(f.sha256,/^[0-9a-f]{64}$/);}
- a.equal(m.sources.length,1);a.equal(m.sources[0].kind,'archive');a.match(m.sources[0].sha256,/^[0-9a-f]{64}$/);
+ // the domestic site first, pinned to a commit; then GitHub's archive, pinned by its SHA-256 (Deja 11-04)
+ a.equal(m.sources.length,2);a.equal(m.sources[0].kind,'files');a.match(m.sources[0].base,/^https:\/\/hf-mirror\.com\/.*\/resolve\/[0-9a-f]{40}\/$/);
+ a.equal(m.sources[1].kind,'archive');a.match(m.sources[1].sha256,/^[0-9a-f]{64}$/);
  for(const s of m.sources)a.ok(allowedUrl(s.base||s.url),'from a host the manifest already allows');
  a.equal(p.id,'paraformer-zh-2023-09-14-int8');a.equal(p.required,true);
  a.equal(p.files['model.int8.onnx'].sha256,'f36a0433bcf096bd6d6f11b80a3ac8bed110bdca632fe0d731df8d1a84475945','Paraformer untouched');

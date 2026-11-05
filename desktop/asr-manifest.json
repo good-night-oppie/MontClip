@@ -47,9 +47,10 @@
       "consent": {
         "revision": "6abf1ece20cd2308bdb7d13cd78ec1c44fa4c094",
         "license": { "name": "Apache License 2.0", "file": "licenses/asr/omnilingual-asr-LICENSE.txt", "sha256": "a70a523bafbb595c2844104feb313d204904dac91c3d186c05f22a10a71c7a94" },
-        "note": "ADR 2026-11-04 #122 §6 (asr-consent.js): the streamer reads this licence text in the host's box and agrees before anything is downloaded, then picks the site; used only with a consent record on this computer. revision: the Hugging Face commit of the converted model repo (csukuangfj/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12); the GitHub archive holds the same files (same SHA-256)."
+        "note": "ADR 2026-11-04 #122 §6 (asr-consent.js): the streamer reads this licence text in the host's box and agrees before anything is downloaded, then picks the site; used only with a consent record on this computer. revision: the Hugging Face commit the hf-mirror source is pinned to (csukuangfj/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12); the GitHub archive holds the same files (same SHA-256). hf-mirror.com first: the site reachable from mainland China (not tested from there); from a US connection it passes the request on to huggingface.co, which is not a listed host, so that site fails and the streamer is asked again for another."
       },
       "sources": [
+        { "kind": "files", "base": "https://hf-mirror.com/csukuangfj/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/resolve/6abf1ece20cd2308bdb7d13cd78ec1c44fa4c094/" },
         { "kind": "archive", "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12.tar.bz2",
           "size": 292571207, "sha256": "cdcd0559c7c73efed54209a926e321afc914d046c5fdbf3665f00dc78180e5ed", "dir": "sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12/" }
       ]
