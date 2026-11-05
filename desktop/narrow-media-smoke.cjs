@@ -45,9 +45,11 @@ const FLOW=`(async()=>{
  const stayed=appEl.classList.contains('media-open');
  item().dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));await frame();await frame();
  const after={source:state.source.mediaId,monitor:state.monitorMode,open:appEl.classList.contains('media-open'),player:shown(document.getElementById('monitorStage')),toggle:toggle()};
- if(!after.open){tog.click();await frame();await frame();}
- const again={open:shown(bin),toggle:toggle(),sameFiles:ids()===before.ids&&files()===before.files&&before.ids.split(',').length===2,source:state.source.mediaId};
- return{narrow:innerWidth<=560,labels:{media:uiText('own.media-toggle'),back:uiText('own.media-back')},opened,playerWhileOpen,stayed,after,again};})()`;
+ // AGAIN (after the screenshot of this moment) opens the panel again, if the double-click put it away
+ window.__mcAgain=async()=>{if(!after.open){tog.click();await frame();await frame();}
+  return{open:shown(bin),toggle:toggle(),sameFiles:ids()===before.ids&&files()===before.files&&before.ids.split(',').length===2,source:state.source.mediaId};};
+ return{narrow:innerWidth<=560,labels:{media:uiText('own.media-toggle'),back:uiText('own.media-back')},opened,playerWhileOpen,stayed,after};})()`;
+const AGAIN=`(async()=>{const r=await window.__mcAgain();delete window.__mcAgain;return r;})()`;
 const flowProblems=(f)=>{const p=[],L=f.labels,want=(ok,what)=>{if(!ok)p.push(what);};
  want(f.opened.expanded==='true','open: aria-expanded is '+f.opened.expanded);
  want(f.opened.text===(f.narrow?L.back:L.media),'open: the button says '+f.opened.text);
@@ -84,8 +86,10 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
     await wait(400);
     const m=clicked?await read(MEASURE):{open:false,outside:['素材 is not shown']};
     if(shotsDir&&mode==='simple')fs.writeFileSync(path.join(shotsDir,`narrow-media-${w}-${language}.png`),(await win.webContents.capturePage()).toPNG());
-    const flow=clicked?await read(FLOW):null,problems=flow?flowProblems(flow):['素材 is not shown'];
+    const flow=clicked?await read(FLOW):null;await wait(400); // the Source picture draws
     if(shotsDir&&mode==='simple')fs.writeFileSync(path.join(shotsDir,`narrow-media-${w}-${language}-after-double-click.png`),(await win.webContents.capturePage()).toPNG());
+    if(flow){flow.again=await read(AGAIN);if(shotsDir&&mode==='simple')fs.writeFileSync(path.join(shotsDir,`narrow-media-${w}-${language}-reopened.png`),(await win.webContents.capturePage()).toPNG());}
+    const problems=flow?flowProblems(flow):['素材 is not shown'];
     const row={size:[w,h],language,mode,...m,flow:problems.length?{problems,...flow}:'ok'};results.push(row);process.stdout.write('NARROW_MEDIA '+JSON.stringify(row)+'\n');
     await read(`document.getElementById('app').classList.remove('media-open');setMonitorMode('program');true`);}}
   const bad=results.filter(m=>!m.open||m.outside.length||m.overflowX>0||m.flow!=='ok');
