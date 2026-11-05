@@ -107,6 +107,28 @@ test("a long recording, two short windows: only those parts are decoded, the wor
   a.ok(fracs.length && Math.max(...fracs) > 0.5 && fracs.every((f) => f <= 0.99), "progress is over what is listened to");
 });
 
+test("two refill reads that both start before 3 s (both read from the file's start): every word once (Rea on #165, 17:14)", async (t) => {
+  const E = engineDir(t);
+  const file = path.join(E.dir, "short.wav");
+  execFileSync(ffmpeg(), ["-v", "error", "-f", "lavfi", "-i", "sine=frequency=300:sample_rate=16000:duration=10", "-ac", "1", file]);
+  const { sherpa } = fakeSherpa();
+  const asr = require("../asr-local").createAsr({ asrDir: E.dir, store: E.store, ffmpeg: ffmpeg(), sherpa });
+  // heard before: [0.5, 3.9]; now [0, 6] is wanted
+  const had = T.validate({ duration: 10, words: [["旧", 1.6, 1.8]], spans: [[0.5, 3.9]] });
+  const plan = T.refillPlan(had, [[0, 6]], { pad: 1.5, duration: 10 });
+  a.deepEqual(plan.read, [[0, 2], [2.4, 7.5]], "Rea's example: two reads, both under SEEK_MIN");
+  a.deepEqual(plan.core, [[0, 1.25], [3.15, 6]]);
+  const r = await asr.transcribe(file, { ranges: plan.read, duration: 10 });
+  a.ok(r.words.every((w, i) => i === 0 || w[1] !== r.words[i - 1][1]), "no word heard twice by the two reads: " + JSON.stringify(r.words.map((w) => w[1])));
+  a.deepEqual(r.spans.map((x) => x[0]), [0, 2.4], "each span starts where its read was asked to");
+  const add = T.keepIn(T.validate({ duration: r.duration, words: r.words, gaps: [], spans: r.spans }), plan.core);
+  const starts = add.words.map((w) => w[1]);
+  a.ok(starts.length > 0);
+  a.equal(new Set(starts).size, starts.length, "every word once after keepIn: " + JSON.stringify(starts));
+  const m = T.mergeDocs(had, add);
+  a.equal(new Set(m.words.map((w) => w[1])).size, m.words.length, "and once in the merged transcript");
+});
+
 test("the engine's native part for this computer is missing: not ready, and transcribe says ASR_ENGINE_MISSING", async (t) => {
   const E = engineDir(t, { native: false });
   const asr = require("../asr-local").createAsr({ asrDir: E.dir, store: E.store, ffmpeg: ffmpeg() });
