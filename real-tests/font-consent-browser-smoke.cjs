@@ -128,6 +128,7 @@ const standIn = https.createServer({ key: fs.readFileSync(key), cert: fs.readFil
     try { ws && ws.close(); } catch { }
     ch.kill(); srv.kill(); standIn.close();
     await sleep(1000);
-    for (const d of [data, prof, certDir]) try { fs.rmSync(d, { recursive: true, force: true }); } catch { }
+    // Chrome lets go of its profile a moment after it is killed (Windows): retry rather than leave it behind
+    for (const d of [data, prof, certDir]) try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }); } catch { }
   }
 })().catch((e) => { console.error(e); process.exit(1); });
