@@ -68,11 +68,11 @@ const placeAllowed = (file) => require("./ffmpeg-path").placeAllowed(file);
 async function check(file, { run = defaultRun } = {}) {
   if (typeof file !== "string" || !file || !path.isAbsolute(file))
     return { ok: false, path: file || null, code: "extNotFullPath", reason: "Choose the FFmpeg program file itself (a full path)." };
-  // a folder the server writes, or (POSIX) not executable: never started
-  if (!placeAllowed(file)) return { ok: false, path: file, code: "extNotFfmpeg", reason: `MontClip does not run programs from ${maskUserPath(path.dirname(file))}.` };
   let st = null;
   try { st = fs.statSync(file); } catch { }
   if (!st || !st.isFile()) return { ok: false, path: file, code: "extGone", reason: `There is no file at ${maskUserPath(file)} any more.` };
+  // a folder the server writes, or (POSIX) not executable: never started
+  if (!placeAllowed(file)) return { ok: false, path: file, code: "extNotFfmpeg", reason: `MontClip does not run programs from ${maskUserPath(path.dirname(file))}.` };
   const v = await run(file, ["-hide_banner", "-version"]);
   if (v.code !== 0 || !/ffmpeg version/i.test(v.stdout)) return { ok: false, path: file, code: "extNotFfmpeg", reason: `The chosen program could not be started or did not run as FFmpeg (${maskUserPath(file)}).` };
   const e = await run(file, ["-hide_banner", "-encoders"]);

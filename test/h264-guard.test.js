@@ -60,7 +60,7 @@ test('reasons and paths from the local FFmpeg check carry no user name',async t=
  const missing=await X.check(process.platform==='win32'?fake:'/home/ada/ffmpeg',{run:async()=>({code:0,stdout:''})});
  a.equal(missing.ok,false);a.ok(!/Ada|ada/.test(missing.reason),missing.reason);
  a.ok(!/Ada|ada/.test(JSON.stringify(X.forPage(missing))),'what the page gets');
- const exe=path.join(d,'ffmpeg.exe');fs.writeFileSync(exe,'x');
+ const exe=path.join(d,'ffmpeg.exe');fs.writeFileSync(exe,'x',{mode:0o755});
  const ok=await X.check(exe,{run:async(f,args)=>({code:0,stdout:args.includes('-version')?'ffmpeg version 7':' V....D libx264  H.264'})});
  a.equal(ok.ok,true);a.equal(ok.path,exe,'the main process keeps the real path to run it');
  a.equal(X.forPage(ok).path,X.maskUserPath(exe));a.ok(!('version' in X.forPage(ok))||!/Users\\[^%]/.test(X.forPage(ok).version));

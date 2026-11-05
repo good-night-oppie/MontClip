@@ -69,7 +69,7 @@ test('every reason code reads in the interface language; zh-CN has no English se
 
 test('the local FFmpeg check returns codes, and the page gets codes, not English reasons',async t=>{
  const d=fs.mkdtempSync(path.join(os.tmpdir(),'mc-code-'));t.after(()=>fs.rmSync(d,{recursive:true,force:true}));
- const exe=path.join(d,'ffmpeg.exe');fs.writeFileSync(exe,'x');
+ const exe=path.join(d,'ffmpeg.exe');fs.writeFileSync(exe,'x',{mode:0o755});
  a.equal((await X.check('ffmpeg')).code,'extNotFullPath');
  a.equal((await X.check(path.join(d,'gone.exe'))).code,'extGone');
  a.equal((await X.check(exe,{run:async()=>({code:1,stdout:''})})).code,'extNotFfmpeg');

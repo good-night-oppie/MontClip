@@ -46,7 +46,7 @@ const withX264=async(file,args)=>args.includes('-encoders')?{code:0,stdout:' V..
 const withoutX264=async(file,args)=>args.includes('-encoders')?{code:0,stdout:' V....D h264_mf\n'}:{code:0,stdout:'ffmpeg version n9 lgpl\n'};
 
 test('a program without libx264, or one that will not run, is refused with a plain reason',async t=>{
- const d=tmp(t),exe=path.join(d,'ffmpeg.exe');fs.writeFileSync(exe,'x');
+ const d=tmp(t),exe=path.join(d,'ffmpeg.exe');fs.writeFileSync(exe,'x',{mode:0o755});
  const no=await X.check(exe,{run:withoutX264});a.equal(no.ok,false);a.match(no.reason,/libx264/);
  const dead=await X.check(exe,{run:async()=>({code:1,stdout:'',error:'ENOENT'})});a.equal(dead.ok,false);a.match(dead.reason,/could not be started|did not run/);
  const yes=await X.check(exe,{run:withX264});a.equal(yes.ok,true);a.match(yes.version,/ffmpeg version/);
@@ -54,7 +54,7 @@ test('a program without libx264, or one that will not run, is refused with a pla
 });
 
 test('when the chosen file disappears the export falls back and says why',async t=>{
- const d=tmp(t),exe=path.join(d,'ffmpeg.exe'),settings=path.join(d,'external-ffmpeg.json');fs.writeFileSync(exe,'x');
+ const d=tmp(t),exe=path.join(d,'ffmpeg.exe'),settings=path.join(d,'external-ffmpeg.json');fs.writeFileSync(exe,'x',{mode:0o755});
  fs.writeFileSync(settings,JSON.stringify({version:1,path:exe}));
  const ext=X.createExternal({settingsFile:settings,run:withX264});
  a.deepEqual((await ext.current()).ok,true);a.equal((await ext.current()).path,exe);

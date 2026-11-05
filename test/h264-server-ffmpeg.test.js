@@ -22,7 +22,7 @@ test('case 1: the bundled FFmpeg has an H.264 encoder — used as before, the se
 });
 
 test('case 2: the bundled one has none, MONTCLIP_EXTERNAL_FFMPEG names an FFmpeg with libx264 — export uses it',async t=>{
- const d=tmp(t),exe=path.join(d,'ffmpeg');fs.writeFileSync(exe,'x');
+ const d=tmp(t),exe=path.join(d,'ffmpeg');fs.writeFileSync(exe,'x',{mode:0o755});
  const ext=X.createExternal({settingsFile:null,envPath:exe,run:withX264});
  a.deepEqual(await h264(ext,LGPL_LINUX),['libx264']);
  const cur=await ext.current();a.equal(cur.ok,true);a.equal(cur.path,exe);a.equal(cur.source,'env');
@@ -49,7 +49,7 @@ test('case 3: neither — refused, and in server mode the reason does not point 
  a.match(why,/MONTCLIP_EXTERNAL_FFMPEG/);a.ok(!/Settings|below/.test(why),why);
  a.match(X.noH264Reason({platform:'linux'}),/in Settings/,'desktop wording unchanged');
  // a named FFmpeg without x264 does not help either, and says so in server words
- const d=tmp(t),exe=path.join(d,'ffmpeg');fs.writeFileSync(exe,'x');
+ const d=tmp(t),exe=path.join(d,'ffmpeg');fs.writeFileSync(exe,'x',{mode:0o755});
  const bad=X.createExternal({settingsFile:null,envPath:exe,run:withoutX264});
  a.deepEqual(await h264(bad,LGPL_LINUX),[]);
  const cur=await bad.current();a.equal(cur.ok,false);a.equal(cur.code,'extEnvUnusable');a.match(cur.reason,/MONTCLIP_EXTERNAL_FFMPEG/);a.match(cur.reason,/libx264/);
@@ -131,7 +131,7 @@ test('run mode comes from how MontClip was started, not from whether a settings 
 });
 
 test('the same three cases give the same encoders in every run mode', async (t) => {
-  const d = tmp(t), exe = path.join(d, 'ffmpeg'), settings = path.join(d, 'external-ffmpeg.json'); fs.writeFileSync(exe, 'x');
+  const d = tmp(t), exe = path.join(d, 'ffmpeg'), settings = path.join(d, 'external-ffmpeg.json'); fs.writeFileSync(exe, 'x', { mode: 0o755 });
   for (const [setup, env] of Object.entries(MODES)) {
     const mk = (o) => X.createExternal({ settingsFile: settings, envPath: null, run: withX264, setup: X.setupFor(env), findOnPath: () => null, ...o });
     fs.rmSync(settings, { force: true });
@@ -146,7 +146,7 @@ test('the same three cases give the same encoders in every run mode', async (t) 
 });
 
 test('saving a choice is one shared routine: checked first, written atomically, cleared on request', async (t) => {
-  const d = tmp(t), exe = path.join(d, 'ffmpeg'), settings = path.join(d, 'sub', 'external-ffmpeg.json'); fs.writeFileSync(exe, 'x');
+  const d = tmp(t), exe = path.join(d, 'ffmpeg'), settings = path.join(d, 'sub', 'external-ffmpeg.json'); fs.writeFileSync(exe, 'x', { mode: 0o755 });
   const no = await X.saveChoice(settings, exe, { run: withoutX264 });
   a.equal(no.ok, false); a.equal(no.code, 'extNoX264'); a.equal(fs.existsSync(settings), false, 'nothing saved when the check fails');
   a.equal((await X.saveChoice(settings, 'ffmpeg', { run: withX264 })).code, 'extNotFullPath', 'no bare names');
@@ -172,7 +172,7 @@ test('the plugin says it in plugin words: no Settings, no "below", no environmen
 });
 
 test('outside the desktop app a saved choice that fails is said without pointing at desktop Settings', async (t) => {
-  const d = tmp(t), exe = path.join(d, 'ffmpeg'), settings = path.join(d, 'external-ffmpeg.json'); fs.writeFileSync(exe, 'x');
+  const d = tmp(t), exe = path.join(d, 'ffmpeg'), settings = path.join(d, 'external-ffmpeg.json'); fs.writeFileSync(exe, 'x', { mode: 0o755 });
   fs.writeFileSync(settings, JSON.stringify({ version: 1, path: exe }));
   for (const setup of ['plugin', 'server']) {
     const c = await X.createExternal({ settingsFile: settings, envPath: null, run: withoutX264, setup }).current();
