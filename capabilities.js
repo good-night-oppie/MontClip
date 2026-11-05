@@ -64,6 +64,10 @@
     // the 「自动出切片」 card edits (the owner / Deja, 2026-11-03): the streamer's buttons and the AI, the same capabilities
     set_segment_kind: ["undoable", "改一张候选卡的类型：唱歌、互动、聊天、整活、普通高光或其他", "Change a candidate card's kind: singing, interaction, chat, stunt, highlight or other"],
     add_segment: ["undoable", "用 IN–OUT 补一张候选卡，带上类型", "Add a candidate card from IN–OUT, with its kind"],
+    // lyrics onto a new caption track (JJ, 2026-11-05): the proposal only reads; applying is one undo step, and the
+    // editor asks the streamer on its own card first, whatever the mode (docs/decisions/2026-11-05-lyrics-align-agent-tool.md)
+    fablecut_lyrics: ["read", "按贴进来的歌词，对出每一行唱在哪里（只出方案，不改项目）", "Line up pasted lyrics with the singing (a proposal only; the project is not changed)"],
+    fablecut_lyrics_apply: ["undoable", "把对好的歌词放到一条新的字幕轨上", "Put the lined-up lyrics on a new caption track"],
     fablecut_track: ["undoable", "跟着画面里的人或物体动，让马赛克、贴纸也跟着它走", "Follow a person or thing in the picture, so a mosaic or sticker moves with it"],
   };
   // External caps (Deja, 2026-11-03, on #83): per capability, fixed here with the risk levels, in bytes. perSend is one send

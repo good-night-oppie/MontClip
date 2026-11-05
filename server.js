@@ -1130,6 +1130,22 @@ const server = http.createServer(async (req, res) => {
     }
     return;
   }
+  /* API: put a lyrics proposal on a new caption track (fablecut_lyrics_apply) — a "lyrics" job on the export-job queue,
+     open tabs only: the tab asks the streamer on a card and does it only when she agrees. */
+  if (p === "/api/lyrics/request" && req.method === "POST") {
+    try {
+      const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
+      const pr = opts.proposal;
+      if (!pr || typeof pr !== "object" || pr.ok !== true || pr.code !== "OK" || typeof pr.id !== "string" || !Array.isArray(pr.lines) || !pr.lines.length || pr.lines.length > 300 || typeof pr.sig !== "string" || !Array.isArray(pr.clipIds)) {
+        sendJSON(res, 400, { error: "proposal must be a fablecut_lyrics proposal whose code is OK" }); return;
+      }
+      if (JSON.stringify(pr).length > 2_000_000) { sendJSON(res, 413, { error: "proposal too large" }); return; }
+      sendJSON(res, 200, exportJobs.request({ kind: "lyrics", where: "tab", lyrics: pr }));
+    } catch (e) {
+      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e) });
+    }
+    return;
+  }
   /* API: proxies (see proxy.js).
        POST /api/proxy {srcs:[…], height?:540|720|1080} → {status:{src: status}} — queue them
        POST /api/proxy/status {srcs:[…]} → {status:{src: status | null}}

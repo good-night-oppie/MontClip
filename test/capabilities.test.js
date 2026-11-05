@@ -11,7 +11,7 @@ test('every MCP tool, both proposal shapes, the host’s three sends and the two
  // the sends the host makes itself, each with its caps (Deja, #83): the assistant, the song lookup, cloud transcription;
  // the card edits of 「自动出切片」 (the owner / Deja, 2026-11-03): host capabilities, undoable (test/segment-edits.test.js)
  a.deepEqual(names,[...TOOLS.map(t=>t.name),'keep_ranges','keep_sentences','assistant_request','song_lookup','cloud_transcribe','set_segment_kind','add_segment'].sort());
- a.equal(TOOLS.length,26);   // 25 in #74, plus #53's fablecut_danmaku
+ a.equal(TOOLS.length,28);   // 25 in #74, plus #53's fablecut_danmaku, plus fablecut_lyrics and fablecut_lyrics_apply
 });
 test('the MCP server serves the same tool definitions it always had (moved to mcp-tools.js, unchanged)',()=>{
  const src=read('mcp-server.js');

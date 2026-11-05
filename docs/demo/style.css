@@ -5068,6 +5068,9 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 .agent-approval-what { font-size: 12px; color: var(--dim); margin-top: 2px; }
 .agent-approval pre { white-space: pre-wrap; word-break: break-word; max-height: 40vh; overflow: auto; background: var(--bg, #111); padding: 8px; border-radius: 4px; }
 .agent-approval .tr-row { display: flex; flex-wrap: wrap; gap: 8px; }
+/* the agent's lyrics card: the lines that did not match are grey, as they will be on the timeline */
+.lt-lines { max-height: 40vh; overflow: auto; margin: 8px 0; padding-left: 24px; }
+.lt-lines .lt-grey { color: var(--dim); opacity: .6; }
 /* in a small assistant with the AI settings open, the switch and the pane's Yolo mark step aside (the rule with .cindy-thread above); the top bar's Yolo mark stays */
 /* P4, second half: the plan list in the assistant */
 /* the steps scroll inside the card; its note and buttons (〔开始〕〔撤销整个计划〕) stay in sight at its bottom (VV on #84 53f641d) */
