@@ -53,8 +53,8 @@
       permission: "MontClip 没法往自己的文件夹里写文件，可能被杀毒软件挡住了。",
       permissionAgain: "点重试再来一次；还不行，重启电脑再试。",
       unpack: "解压没成功。",
-      other: "没装上。",
-      otherAgain: "点重试再来一次；还不行，点「复制问题信息」发给我们。",   // draft (JJ v2: the copy button, not the raw line)
+      other: "导出工具这次没装上。",   // JJ: with its subject
+      otherAgain: "点〔重试〕再来一次；还不行，点「复制问题信息」发给我们。",   // JJ, final (2026-11-04)
       cancelled: "下载取消了，没有安装。",
       unsupported: "这台电脑的系统暂时没有对应的导出工具，导出和降噪用不了。",
       hostOld: "Cindy 版本太旧，装不了导出工具。先把 Cindy 更新到最新，再回来点下载。",
@@ -78,7 +78,7 @@
       permission: "MontClip can't write files into its own folder; antivirus software may be blocking it.",
       permissionAgain: "Click Retry to try again; if that doesn't help, restart the computer and try again.",
       unpack: "Unpacking didn't work.",
-      other: "It didn't install.",
+      other: "The export tool didn't install this time.",
       otherAgain: "Click Retry to try again; if that doesn't help, use \"Copy problem details\" and send it to us.",
       cancelled: "The download was cancelled, so nothing was installed.",
       unsupported: "There is no export tool for this computer's system yet, so exporting and noise reduction aren't available.",
