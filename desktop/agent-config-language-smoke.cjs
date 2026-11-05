@@ -3,7 +3,8 @@
 // press save, then read the saved state — in the Chinese and the English interface, through the real pane, the same
 // way the demo recording does (the select set by value, then a change event). Own fresh profile, hidden offscreen
 // window, no network (nothing is sent). MONTCLIP_SMOKE_NO_KEYSTORE=1 makes the key store unavailable, as it was in
-// the europa run: nothing is saved, the pane says so, and the service names the reason (KEY_STORE_UNAVAILABLE).
+// the europa run: nothing is saved, and the pane says why (KEY_STORE_UNAVAILABLE).
+// Either way, an empty key and a bad model ID are refused with their own notice before anything is saved.
 const electron=require('electron'),{app,BrowserWindow}=electron,assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke required');
 const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
@@ -19,7 +20,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   for(const language of ['zh-CN','en']){
    await read(`montclipAgentService.deleteConnection()`);
    await read(`updateMontClipView({language:${JSON.stringify(language)}});setSideTab('assistant');mcAgent.render();true`);await wait(400);
-   const T=await read(`(()=>{const t=MontClipView.text[${JSON.stringify(language)}];return{config:t.officialPane_config,save:t.officialPane_save,saved:t.officialPane_saved,failed:t.officialPane_configFailed};})()`);
+   const T=await read(`(()=>{const t=MontClipView.text[${JSON.stringify(language)}];return{config:t.officialPane_config,save:t.officialPane_save,saved:t.officialPane_saved,keyStore:t.officialPane_configKeyStore,keyRequired:t.officialPane_configKeyRequired,invalid:t.officialPane_configInvalid};})()`);
    const config=`Array.from(document.querySelectorAll('.cindy-port button')).find(b=>b.textContent===${JSON.stringify(T.config)})`;
    if(await read(`!!document.querySelector('.cindy-config')`)){await read(`${config}.click();true`);await wait();}
    await read(`${config}.click();true`);await wait(400);
@@ -28,6 +29,15 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
    const setValue=(sel,v)=>read(`(()=>{const e=${sel},proto=e.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,'value').set.call(e,${JSON.stringify(v)});e.dispatchEvent(new Event(e.tagName==='SELECT'?'change':'input',{bubbles:true}));return true;})()`);
    await setValue(`document.querySelector('.cindy-config select')`,'meta');await wait(300);
    const model=await read(`document.querySelectorAll('.cindy-config input')[0].value`);
+   const statusText=()=>read(`Array.from(document.querySelectorAll('.cindy-port [role=status]')).map(e=>e.textContent).join('|')`);
+   const saveButton=`Array.from(document.querySelectorAll('.cindy-config button')).find(b=>b.textContent===${JSON.stringify(T.save)}).click();true`;
+   // nothing saved yet and no key: 请先填写 API 密钥再保存
+   await read(saveButton);await wait(500);assert.ok((await statusText()).includes(T.keyRequired),language+': empty key named');
+   // a model ID the service refuses: its own notice; the model is put back afterwards
+   await setValue(`document.querySelectorAll('.cindy-config input')[0]`,'缪斯 spark');await setValue(`document.querySelectorAll('.cindy-config input')[1]`,KEY);await wait(200);
+   await read(saveButton);await wait(500);assert.ok((await statusText()).includes(T.invalid),language+': bad model ID named');
+   assert.equal((await read(`montclipAgentService.get()`)).configured,false);
+   await setValue(`document.querySelectorAll('.cindy-config input')[0]`,'muse-spark-1.1');
    await setValue(`document.querySelectorAll('.cindy-config input')[1]`,KEY);await wait(200);
    await read(`Array.from(document.querySelectorAll('.cindy-config button')).find(b=>b.textContent===${JSON.stringify(T.save)}).click();true`);await wait(800);
    const conf=await read(`montclipAgentService.get()`);
@@ -39,7 +49,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
    assert.equal(model,'muse-spark-1.1',language+': the Meta model is filled in');
    if(noKeyStore){
     assert.equal(conf.configured,false);assert.equal(r.fileWritten,false);
-    assert.ok(status.includes(T.failed),language+': the pane says nothing was saved');
+    assert.ok(status.includes(T.keyStore),language+': the pane says the keychain is not available');
     const direct=await read(`montclipAgentService.configure({provider:'meta',model:'muse-spark-1.1',apiKey:${JSON.stringify(KEY)}})`);
     assert.equal(direct.code,'KEY_STORE_UNAVAILABLE',language+': the reason reaches the page');
    }else{

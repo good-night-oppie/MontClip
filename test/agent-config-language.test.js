@@ -61,3 +61,23 @@ test('settings lists: the AI service list uses the provider id as its value; eve
  assert.ok(all.length>20);
  for(const o of all)assert.match(o,/\bvalue="[^"]*"/,'an option without a value takes its shown (translated) text as value: '+o);
 });
+
+// Deja (2026-11-05, after #166): a failed save says which thing is wrong. Each code the service returns has its own
+// notice; any other code still falls back to 「配置未保存，原有设置保留。」. The wording is a draft for JJ.
+test('each save failure code shows its own notice; an unknown code falls back to "not saved"',()=>{
+ const pane=read('agent-ui/pane.tsx'),view=require('../ui-preferences');
+ const m=pane.match(/setNotice\(result\?\.ok\?'saved':\(\(m:Record<string,string>,c:string\)=>Object\.hasOwn\(m,c\)\?m\[c\]:'configFailed'\)\((\{[^}]*\}),String\(result\?\.code\)\)\);/);
+ assert.ok(m,'the save button maps the code to a notice');
+ const map=Function('return '+m[1])();
+ assert.deepEqual(map,{KEY_STORE_UNAVAILABLE:'configKeyStore',KEY_REQUIRED:'configKeyRequired',CONFIG_INVALID:'configInvalid',CONFIG_WRITE_FAILED:'configWriteFailed'});
+ const notice=code=>Object.hasOwn(map,code)?map[code]:'configFailed';
+ for(const code of ['CONFIG_READ_FAILED','SEED_CONFLICT','AGENT_FORBIDDEN','toString','constructor','undefined'])assert.equal(notice(code),'configFailed',code);
+ const want={'zh-CN':{configKeyStore:'这台电脑的系统钥匙串现在用不了，密钥没法加密保存，所以没有保存。原有设置不变。',configKeyRequired:'请先填写 API 密钥再保存。',
+  configInvalid:'模型 ID 只能用英文字母、数字和 . _ : / -，最多 100 个字符。',configWriteFailed:'设置文件写不进去，没有保存。原有设置不变。',configFailed:'配置未保存，原有设置保留。'},
+  en:{configKeyStore:'This computer’s keychain isn’t available, so the key can’t be stored safely and nothing was saved. Your previous settings are unchanged.',
+  configKeyRequired:'Enter the API key, then save.',configInvalid:'The model ID can only use letters, digits and . _ : / -, up to 100 characters.',
+  configWriteFailed:'The settings file couldn’t be written, so nothing was saved. Your previous settings are unchanged.',configFailed:'Configuration was not saved. Existing settings retained.'}};
+ for(const l of ['zh-CN','en'])for(const [k,v] of Object.entries(want[l])){assert.equal(view.text[l]['officialPane_'+k],v,l+' '+k);if(l==='zh-CN')assert.doesNotMatch(v,/我/,'no 「我」');}
+ const bundle=read('cindy-official.js');
+ for(const s of ['KEY_STORE_UNAVAILABLE:"configKeyStore"','KEY_REQUIRED:"configKeyRequired"','CONFIG_INVALID:"configInvalid"','CONFIG_WRITE_FAILED:"configWriteFailed"'])assert.ok(bundle.includes(s),'bundle rebuilt: '+s);
+});
