@@ -1,6 +1,6 @@
 /* Desktop host for the existing editor and compositor. No renderer Node API. */
 "use strict";
-const { app, BrowserWindow, dialog, session, utilityProcess, ipcMain, safeStorage, Notification } = require("electron");
+const { app, BrowserWindow, dialog, session, utilityProcess, ipcMain, safeStorage, Notification, shell } = require("electron");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { createStore, allowed: settingsAllowed } = require("./view-settings");
@@ -73,6 +73,26 @@ async function start() {
   ses.setPermissionRequestHandler((_, __, callback) => callback(false));
   ses.setPermissionCheckHandler(() => false);
   const local = (url) => { try { return new URL(url).origin === origin; } catch { return false; } };
+  // The shell shows one of the workspace's own files in its folder: a name under exports/ or media/ or library/ of this
+  // data dir, nothing else; the page never learns a path. (browser shell: no bridge — the buttons stay disabled / absent)
+  const workspaceFile = (src) => {
+    let p; try { p = decodeURIComponent(String(src || "").split("?")[0]); } catch { return null; }
+    const [root, rel] = p.startsWith("/exports/") ? [path.join(env.FABLECUT_DATA_DIR, "exports"), p.slice(9)]
+      : p.startsWith("/media/") ? [path.join(env.FABLECUT_DATA_DIR, "media"), p.slice(7)]
+      : p.startsWith("/library/") ? [path.join(env.FABLECUT_DATA_DIR, "library"), p.slice(9)] : [null, null];
+    // subfolders are normal (media/archive/a.mp4, library/svg/x.svg); the prefix check below stops ".." escaping
+    if (!root || !rel) return null;
+    const file = path.normalize(path.join(root, rel));
+    if (!file.startsWith(path.normalize(root + path.sep))) return null;
+    try { return fs.statSync(file).isFile() ? file : null; } catch { return null; }
+  };
+  ipcMain.handle("montclip:reveal", (event, src) => {
+    if (!settingsAllowed(event, win, origin)) return { ok: false, code: "REVEAL_FORBIDDEN" };
+    const file = workspaceFile(src);
+    if (!file) return { ok: false, code: "REVEAL_NOT_FOUND" };
+    shell.showItemInFolder(file);
+    return { ok: true };
+  });
   ses.webRequest.onBeforeRequest((details, callback) => {
     const embedded = /^(blob:|data:)/.test(details.url);
     callback({ cancel: !local(details.url) && !embedded });

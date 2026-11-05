@@ -1271,6 +1271,13 @@ let toastTimer = null;
    once saved its copy in exports/ may go (desktop/export-downloads.js); a cancel keeps it and says where it is, and
    its queue row then says it was saved. The browser shows the message as before. */
 const pendingSaves = new Map(), pendingExports = new Set(), pendingKinds = new Map();   // name → success message · exports · kind
+/* Show a workspace file in the desktop shell (an export, or a media/library src). The page passes only the same
+   /exports/… or /media|/library/… name it already serves; the shell resolves it inside the data folder. */
+async function revealFileBySrc(src) {
+  if (!window.montclipReveal || !isLocalSrc(src) && !String(src || "").startsWith("/exports/")) return;
+  const r = await window.montclipReveal.show(src).catch(() => ({ ok: false }));
+  if (!r || r.ok !== true) toast(uiText(r && r.code === "REVEAL_NOT_FOUND" ? "own.reveal-not-found" : "own.reveal-failed"));
+}
 function saveDownload(href, name, { savedMsg, exportFile = false, kind = null } = {}) {
   const a = document.createElement("a");
   a.href = href; a.download = name;
@@ -2888,6 +2895,7 @@ function showMediaMenu(x, y, m) {
   };
   const sep = () => { const d = document.createElement("div"); d.className = "ctx-sep"; menu.appendChild(d); };
   item("Open in Source", () => loadSourceFromMedia(m));
+  item(uiText("own.reveal-in-folder"), () => revealFileBySrc(m.src), isMediaOffline(m.id) ? uiText("own.reveal-offline") : (!isLocalSrc(m.src) || !window.montclipReveal ? uiText("own.needs-desktop") : null));
   item(`Find timeline instances (${uses})`, () => showMediaInstances(m, x, y), uses ? null : "Not used on the timeline");
   item("Media info…", () => showMediaInfo(m, x, y));
   item(isMediaOffline(m.id) ? "Relink…" : "Relink to another copy…", () => openRelinkDialog([m]), state.connected ? null : uiText("own.needs-server"));
@@ -19955,6 +19963,7 @@ function renderQueue() {
     const actions = [
       // 保存 opens the save window again; once a save went through, 已保存
       q.status === "done" && q.src ? (q.saved ? `<span class="dlv-q-saved">${escapeHtml(uiText("own.q-saved"))}</span>` : `<button type="button" class="btn tiny" data-q-save="${q.id}"${q.saving ? ` disabled title="${escapeHtml(uiText("own.save-busy"))}"` : ""}>${escapeHtml(uiText("own.q-save"))}</button>`) : "",
+      q.status === "done" && q.src && window.montclipReveal ? `<button type="button" class="btn tiny" data-q-reveal="${q.id}">${escapeHtml(uiText("own.q-reveal"))}</button>` : "",
       q.status === "failed" || q.status === "cancelled" ? `<button type="button" class="btn tiny" data-q-retry="${q.id}">Retry</button>` : "",
       q.status !== "running" ? `<button type="button" class="btn tiny" data-q-remove="${q.id}" title="Remove from the queue">✕</button>` : "",
     ].join("");
@@ -20734,9 +20743,11 @@ $("btnQueueClear")?.addEventListener("click", () => {
   renderQueue();
 });
 $("exportQueueList")?.addEventListener("click", (e) => {
-  const r = e.target.dataset.qRetry, x = e.target.dataset.qRemove, s = e.target.dataset.qSave;
-  const q = exportQueue.find((v) => v.id === (r || x || s));
+  const r = e.target.dataset.qRetry, x = e.target.dataset.qRemove, s = e.target.dataset.qSave, rv = e.target.dataset.qReveal;
+  const q = exportQueue.find((v) => v.id === (r || x || s || rv));
   if (!q) return;
+  // show the exported file in its folder (desktop shell; a browser keeps the status line)
+  if (rv) { revealFileBySrc(q.src); return; }
   // save this export again: it names itself, so the copy goes only once a save completes
   if (s) { if (q.saving) return; q.saving = true; renderQueue(); saveDownload(q.src, q.file || decodeURIComponent(q.src.split("/").pop()), { exportFile: true }); return; }
   if (r) { q.status = "pending"; q.error = null; q.progress = 0; }
