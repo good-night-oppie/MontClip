@@ -8,19 +8,17 @@
 'use strict';
 // reframe: the assistant's own (chat-proposal.js, Deja 2026-11-05) — so a vertical picture is no longer reported as missing
 const ASSISTANT=Object.freeze(['keep_sentences','keep_ranges','reframe']);
-// a vertical or square picture: 竖屏 / 横屏 / 方屏, 9:16 and the like (also with ： or 比), 画面比例, reframe, vertical, portrait,
-// aspect ratio; 竖版 / 竖版视频 too
-const UNSUPPORTED=Object.freeze([
- Object.freeze({id:'reframe',capability:'reframe',
-  match:/竖屏|竖版|横屏|方屏|画面比例|改比例|(?:9|16|4|5|1)\s*(?::|：|比)\s*(?:16|9|5|4|1)\b|\breframe|\bvertical\b|\bportrait\b|aspect[ -]ratio/i,key:'limitReframe'}),
-]);
+// {id, capability, match, key}: words that ask for something the assistant can't do, and the pane string that says so.
+// Empty now: a vertical or square picture was the one, and its check and sentence went with the assistant's own reframe
+// (Deja, 2026-11-05).
+const UNSUPPORTED=Object.freeze([]);
 /** The things the message asks for that the assistant cannot do: [{id, capability, key}], in UNSUPPORTED's order. */
 function unsupported(text,available=ASSISTANT){
  if(typeof text!=='string'||!text)return [];
  return UNSUPPORTED.filter(u=>!available.includes(u.capability)&&u.match.test(text)).map(({id,capability,key})=>({id,capability,key}));
 }
 /** The host's sentence for a reply to this message (strings: the pane's officialPane_ table, without the prefix), or '' when
- *  nothing is missing. names fills its {placeholders} (the drop-down's names as it shows them: app.js exportFrameNames). */
+ *  nothing is missing. names fills its {placeholders}, for a sentence that names something on screen. */
 function note(text,strings,names={}){
  return unsupported(text).map(u=>strings&&typeof strings[u.key]==='string'?strings[u.key].replace(/\{(\w+)\}/g,(m,k)=>typeof names[k]==='string'?names[k]:m):'').filter(Boolean).join(' ');
 }

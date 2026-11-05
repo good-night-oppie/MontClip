@@ -90,7 +90,7 @@ test('the format note offers the reply, and a vertical picture is no longer repo
  a.ok(!/You cannot change the picture's shape/.test(F.FORMAT_NOTE));
  a.ok(!F.FORMAT_NOTE.includes('改竖屏这一步我现在做不了'));
  a.deepEqual(L.unsupported('剪到 1 分钟以内，发快手和 B 站竖屏'),[]);
- a.deepEqual(L.unsupported('改成竖屏',['keep_ranges']).map(u=>u.id),['reframe'],'without it, still reported');
+ a.deepEqual(L.unsupported('改成竖屏',['keep_ranges']),[],'the vertical check is gone with it (Deja, 2026-11-05)');
 });
 
 const skip=!FF.resolveTool('ffmpeg').ok&&"MontClip's ffmpeg is not in vendor/ (node desktop/fetch-ffmpeg.cjs)";

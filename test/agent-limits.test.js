@@ -2,8 +2,9 @@
 // JJ via Deja (2026-11-05): 「剪到 1 分钟以内，发快手和 B 站竖屏」 gave 「保留 1 段」, and 〔应用〕 changed nothing and made
 // nothing vertical. Two rules: (1) a proposal that would change nothing gets no button — decided by the host from the
 // numbers (chat-proposal.js unchanged); (2) what the assistant can't do is said first — the format note asks the model,
-// and, because an edit reply is JSON only, the pane puts the host's own sentence above the reply whenever the message
-// asks for a vertical picture (agent-limits.js), decided from the message's words. Substitute transport, no network.
+// and, because an edit reply is JSON only, the pane can put the host's own sentence above the reply when the message asks
+// for something the assistant has no capability for (agent-limits.js; nothing now — the vertical picture was the one, and
+// went with the assistant's reframe). Substitute transport, no network.
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 const P=require('../chat-proposal'),L=require('../agent-limits'),F=require('../agent-format'),V=require('../agent-conversation');
@@ -11,18 +12,14 @@ const S=require('../desktop/agent-service'),View=require('../ui-preferences'),Ca
 
 const ctx={projectId:'p',sequenceId:'main',generation:0,revision:1};
 const doc=(clips)=>({fps:30,media:[{id:'m',kind:'video',duration:600}],clips:clips||[{id:'c',kind:'video',mediaId:'m',track:'V1',start:0,in:100,duration:50,props:{}}]});
-/** The export-frame drop-down as app.js renders it in a language (its own code, on a stand-in <select>), and the names
- *  exportFrameNames reads back from it. */
+/** The export-frame drop-down as app.js renders it in a language: its own code, on a stand-in <select>. */
 function dropdown(lang){
  const app=read('app.js');
  const slice=(from,to)=>{const i=app.indexOf(from);a.ok(i>=0,from);return app.slice(i,app.indexOf(to,i));};
  const src=slice('const EXPORT_FRAME_ASPECTS = [','const WAVE_PEAKS_PER_SEC')+slice('function syncExportFrameSel()','function applyProject(');
- const attrs={},sel={title:'',innerHTML:'',setAttribute:(k,v)=>{attrs[k]=String(v);},getAttribute:(k)=>attrs[k]??null,
-  optionText:(v)=>{const m=new RegExp('<option value="'+v+'"[^>]*>([^<]*)</option>').exec(sel.innerHTML);return m?m[1]:null;},
-  querySelector:(q)=>{const m=/^option\[value="([^"]+)"\]$/.exec(q),t=m&&sel.optionText(m[1]);return t==null?null:{textContent:t};}};
- const run=new Function('els','getExportFrame','exportFrameAspectIndex','uiText','escapeHtml',src+';syncExportFrameSel();return exportFrameNames();');
- const names=run({exportFrameSel:sel},()=>null,()=>-1,(k,v)=>View.t(lang,k,v),(x)=>String(x));
- return {sel,names};
+ const attrs={},sel={title:'',innerHTML:'',setAttribute:(k,v)=>{attrs[k]=String(v);},getAttribute:(k)=>attrs[k]??null};
+ new Function('els','getExportFrame','exportFrameAspectIndex','uiText','escapeHtml',src+';syncExportFrameSel();')({exportFrameSel:sel},()=>null,()=>-1,(k,v)=>View.t(lang,k,v),(x)=>String(x));
+ return sel;
 }
 const ranges=(r,mode='one_file',d=doc())=>P.prepare({type:'keep_ranges',output_mode:mode,ranges:r.map(([from,to])=>({clipId:'c',from,to}))},{doc:d,context:ctx});
 
@@ -64,20 +61,23 @@ test('the pane shows no 〔查看剪辑建议〕 for an unchanged proposal and s
  a.equal(View.text.en.officialPane_noChange.replace('{duration}','00:50'),"This suggestion wouldn't change the timeline (it's 00:50 now), so there's nothing to apply.");
 });
 
-// since the assistant's own reframe (test/agent-reframe.test.js) a vertical picture is something it can do: the words are
-// still recognised, and reported as missing only for an assistant without it
-test('a vertical picture is recognised from the words; reported as missing only without the assistant\'s reframe',()=>{
+// Deja (2026-11-05): with the assistant's own reframe (test/agent-reframe.test.js) the 「改竖屏」 sentence and the check that
+// showed it are gone together. The mechanism stays, with nothing in its list: no message gets a host sentence now.
+test('nothing is reported as missing: the vertical check and its sentence are gone; the assistant can reframe',()=>{
  a.ok(Cap.get('fablecut_reframe'),'MCP has it');
  a.deepEqual([...L.ASSISTANT],['keep_sentences','keep_ranges','reframe']);
- const without=['keep_sentences','keep_ranges'];
- for(const t of ['剪到 1 分钟以内，发快手和 B 站竖屏','改成竖版视频','做个 9:16 的','9：16','画面比例改成 1:1','make it vertical','Reframe for Shorts','portrait please','change the aspect ratio'])
-  {a.deepEqual(L.unsupported(t,without).map(u=>u.id),['reframe'],t);a.deepEqual(L.unsupported(t),[],t);}
- for(const t of ['剪到 1 分钟以内','把 1:15 到 2:30 留下','保留 0:16 之后的','keep the first 30 seconds','把她开口唱之前的安静部分剪掉'])
-  a.deepEqual(L.unsupported(t,without),[],t);
+ a.deepEqual([...L.UNSUPPORTED],[]);
+ for(const t of ['剪到 1 分钟以内，发快手和 B 站竖屏','改成竖版视频','做个 9:16 的','make it vertical','Reframe for Shorts','把 1:15 到 2:30 留下'])
+  {a.deepEqual(L.unsupported(t),[],t);a.deepEqual(L.unsupported(t,['keep_ranges']),[],t);a.equal(L.note(t,{limitReframe:'x'}),'',t);}
+ for(const l of ['zh-CN','en'])a.equal(View.text[l].officialPane_limitReframe,undefined,l);
+ const app=read('app.js'),pane=read('agent-ui/pane.tsx');
+ a.ok(!/exportFrameNames|limitNames/.test(app),'app.js no longer reads names for it');
+ a.ok(!/limitNames/.test(pane));
+ a.ok(!/limitReframe/.test(read('agent-limits.js')+read('ui-preferences.js')));
 });
 
-test('a mixed message, with a substitute transport: the format note sent carries the rule, and the reply as shown starts with what can\'t be done',async()=>{
- const without=['keep_sentences','keep_ranges'],draft='剪到 1 分钟以内，发快手和 B 站竖屏',edit={type:'keep_ranges',output_mode:'one_file',ranges:[{clipId:'c',from:100,to:150}]};
+test('a mixed message, with a substitute transport: the format note sent carries the rules; no host sentence is added',async()=>{
+ const draft='剪到 1 分钟以内，发快手和 B 站竖屏',edit={type:'keep_ranges',output_mode:'one_file',ranges:[{clipId:'c',from:100,to:150}]};
  // the desktop service with an injected request: what would go to the provider
  let sent=null;
  const service=S.createService({read:()=>JSON.stringify({version:1,provider:'openrouter',model:'m',secret:'sealed'}),write(){},seal:k=>k,unseal:()=>'k',providers:S.ALL_PROVIDERS,
@@ -87,50 +87,31 @@ test('a mixed message, with a substitute transport: the format note sent carries
  conv.prepare();a.equal((await conv.confirm()).ok,true);
  const system=sent.messages[0];
  a.equal(system.role,'system');
- // the rule now names what is still missing (publishing); the vertical copy has its own reply (test/agent-reframe.test.js)
+ // the rule names what is still missing (publishing); the vertical copy has its own reply
  a.ok(system.content.includes('When a message also asks for something you cannot do and you answer in words, your first sentence says plainly what you cannot do, for example 「发到快手和 B 站这一步我做不了。」'));
  a.ok(system.content.includes('When one message asks both to cut and for another shape, reply with the cut first; the user asks for the shape after it.'));
  a.ok(system.content.includes('Do not propose an edit that would change nothing'));
  a.match(system.content,/Apart from these replies you cannot change anything: you cannot export, upload or publish\./);
- // the host's own first sentence: none now (the assistant can make the vertical copy); for an assistant without it, first
- a.deepEqual(L.shown(draft,conv.result().text,{limitReframe:'x'}),[conv.result().text]);
  for(const lang of ['zh-CN','en']){
   const strings=new Proxy({},{get:(_,k)=>View.text[lang]['officialPane_'+String(k)]});
-  const names=dropdown(lang).names;
-  const shown=L.shown(draft,conv.result().text,strings,names);
-  a.equal(shown.length,2);a.equal(shown[1],conv.result().text);
-  a.equal(shown[0],View.text[lang].officialPane_limitReframe.replace('{dropdown}',names.dropdown).replace('{option}',names.option));
+  a.deepEqual(L.shown(draft,conv.result().text,strings),[conv.result().text],'the reply alone');
  }
- // JJ定稿 (2026-11-05), word for word, with the names the drop-down shows now
- a.equal(L.note(draft,{limitReframe:View.text['zh-CN'].officialPane_limitReframe},dropdown('zh-CN').names),'改竖屏这一步，助手现在还做不了。可以自己改：在播放器上方的「导出画面」里选「9:16 Reel」，再导出。');
- a.equal(L.note(draft,{limitReframe:View.text.en.officialPane_limitReframe},dropdown('en').names),'The assistant can\'t switch to vertical yet. You can do it yourself: in the “Export frame” list above the player, choose “9:16 Reel”, then export.');
- a.ok(View.text['zh-CN'].officialPane_limitReframe.startsWith('改竖屏'),'its first sentence is what can\'t be done');
- a.ok(!/我/.test(View.text['zh-CN'].officialPane_limitReframe)&&!/我/.test(View.text['zh-CN'].officialPane_noChange),'fixed words: no 我');
- a.deepEqual(L.shown('剪到 1 分钟以内',conv.result().text,{}),[conv.result().text],'nothing missing: the reply alone');
- // the pane shows it first in the assistant's message, from the user message before it
+ a.ok(!/我/.test(View.text['zh-CN'].officialPane_noChange),'fixed words: no 我');
+ // the pane keeps the place for a host sentence, for something missing later
  const pane=read('agent-ui/pane.tsx');
- a.match(pane,/const limit=m\.role==='assistant'\?W\.MontClipLimits\?\.note\(MontClipAgentPane\.displayMessage\(session\.messages\[i-1\]\?\.text\|\|''\)\.text,t,options\.limitNames\?\.\(\)\|\|\{\}\):'';/);
- a.match(read('app.js'),/ limitNames:\(\)=>exportFrameNames\(\),/);
+ a.match(pane,/const limit=m\.role==='assistant'\?W\.MontClipLimits\?\.note\(MontClipAgentPane\.displayMessage\(session\.messages\[i-1\]\?\.text\|\|''\)\.text,t\):'';/);
  a.match(pane,/<strong>\{m\.role==='user'\?t\.user:t\.assistant\}<\/strong>\{limit&&<p data-host-limit>\{limit\}<\/p>\}<ThinkingText content=\{shown\.text\}\/>/);
  a.match(read('cindy-official.js'),/data-host-limit/);
  a.match(read('index.html'),/<script src="agent-limits\.js"><\/script>/);
 });
 
-test('the names in the sentence are the ones the drop-down shows: its label and its 9:16 option, read from it',()=>{
+test('the export-frame drop-down keeps its label (aria-label and tooltip, 待 JJ 定稿), set with the options',()=>{
  for(const lang of ['zh-CN','en']){
-  const {sel,names}=dropdown(lang);
-  a.equal(names.dropdown,View.text[lang]['own.ef-label']);a.equal(names.dropdown,sel.getAttribute('aria-label'));a.equal(sel.title,names.dropdown);
-  a.equal(names.option,sel.optionText('1'),'the 9:16 option as rendered');
-  a.equal(names.option,'9:16 Reel','what it shows now (the translation PR changes the option, and the sentence follows)');
+  const sel=dropdown(lang);
+  a.equal(sel.getAttribute('aria-label'),View.text[lang]['own.ef-label']);a.equal(sel.title,View.text[lang]['own.ef-label']);
  }
  a.equal(View.text['zh-CN']['own.ef-label'],'导出画面');a.equal(View.text.en['own.ef-label'],'Export frame');
  a.match(read('ui-preferences.js'),/the export-frame drop-down above the player: its name \(aria-label and tooltip; Deja, 2026-11-05\)\. 待 JJ 定稿/);
- // never written into the sentence by hand
- for(const l of ['zh-CN','en']){const t=View.text[l].officialPane_limitReframe;a.ok(t.includes('{dropdown}')&&t.includes('{option}')&&!t.includes('9:16')&&!t.includes('Reel'),t);}
- // a language switch rebuilds the drop-down, so the names follow it
  const app=read('app.js'),refresh=app.slice(app.indexOf('function refreshLanguageText()'),app.indexOf('function updateMontClipView('));
- a.match(refresh,/syncExportFrameSel\(\);/);
- a.match(read('index.html'),/<select data-more-rank="6" id="exportFrameSel"/);
- // the format note keeps its own way of saying it (the model's words, not the editor's)
- a.ok(F.FORMAT_NOTE.includes('“Full canvas”')&&F.FORMAT_NOTE.includes('“9:16 Reel”'));
+ a.match(refresh,/syncExportFrameSel\(\);/,'a language switch rebuilds it');
 });

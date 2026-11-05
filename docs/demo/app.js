@@ -1610,13 +1610,6 @@ function syncExportFrameSel() {
   els.exportFrameSel.setAttribute("aria-label", uiText("own.ef-label"));
   els.exportFrameSel.title = uiText("own.ef-label");
 }
-/** The export-frame drop-down's name and its 9:16 option, as the drop-down shows them now — for the assistant's
- *  「改竖屏」 sentence (agent-limits.js), so it names what is on screen in whatever words the drop-down uses. */
-function exportFrameNames(sel = els.exportFrameSel) {
-  const i = EXPORT_FRAME_ASPECTS.findIndex((a) => a.w === 9 && a.h === 16);
-  const opt = sel && sel.querySelector('option[value="' + i + '"]');
-  return { dropdown: (sel && sel.getAttribute("aria-label")) || "", option: (opt && opt.textContent) || "" };
-}
 function applyProject(data, opts = {}) {
   if (state.compCtx && !opts.ctx && SeqLib.activeId(data) !== SeqLib.activeId(state.compCtx.root)) {
     // another sequence was opened (an agent, another tab): the comp was opened from the old one
@@ -23459,7 +23452,6 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  getProjectName:id=>id===runtime.projectId?project.name:null,
  canUndoProposal:canUndoOfficialProposal,
  noChange:agentProposalUnchanged,
- limitNames:()=>exportFrameNames(),
  getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[]});},
  ...(window.montclipAgentPolicy?{getMode:()=>agentPolicy.mode,setMode:setAgentMode,onReply:result=>{void onAgentReply(result);},
   getPlan:agentPlanView,planStart:runAgentPlan,planUndo:undoAgentPlan,
