@@ -39,6 +39,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `flv-native-smoke.cjs` | `FLV_NATIVE_COMPLETE` | 在用 |
 | `first-screen-smoke.cjs` | `FIRST_SCREEN_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `highlights-smoke.cjs` | `HIGHLIGHTS_COMPLETE` | 在用 |
+| `highlights-menu-smoke.cjs` | `HIGHLIGHTS_MENU_PASS` | 在用；需要 `MONTCLIP_FFMPEG_DIR` 指向自带的 ffmpeg 目录 |
 | `hidden-smoke.cjs` | `HIDDEN_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `keep-ranges-smoke.cjs` | `KEEP_RANGES_PASS` | 在用 |
 | `lyrics-smoke.cjs` | `LYRICS_PASS` | 在用 |

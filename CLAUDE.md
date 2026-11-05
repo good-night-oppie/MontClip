@@ -470,7 +470,7 @@ These are quick looks. For real grading use `props.grade` (see "Color" below).
 | `fontSize` | 72 | px |
 | `color` | "#ffffff" | fill |
 | `color2` | "" | if set: vertical gradient fill color→color2 |
-| `font` | "Segoe UI" | system font, a `library/fonts` family, or ANY Google Font name — unknown names are fetched from Google Fonts automatically |
+| `font` | "Segoe UI" | system font, a `library/fonts` family, or a Google Font name — loaded from Google Fonts only after the user confirms it in the editor (desktop: never); until then it draws and exports in the fallback face |
 | `bold` / `weight` | true / 0 | `weight` (300–900) overrides `bold` when non-zero |
 | `italic` `uppercase` | false | |
 | `align` | "center" | left · center · right · **justify** (inserts spaces between words to fill the text box width, or ~85% of the canvas when no box) |
@@ -513,8 +513,8 @@ dropdown + Shuffle), or reproduce it from an agent by writing the same props:
 | `luxury` | Cinzel | uppercase, cream→gold gradient, wide `letterSpacing`, `clip-reveal` |
 
 **Rule for agents: vary the font per title — never reuse one font across a whole
-edit.** Any Google Font name auto-loads; the display faces above ship in
-`library/fonts/`. Placement props (`x`/`y`) are canvas-aware in the styles
+edit.** The display faces above ship in `library/fonts/` and need no network;
+prefer them. Another Google Font loads only after the user confirms it (see `font`). Placement props (`x`/`y`) are canvas-aware in the styles
 (lower third ≈ `y: height*0.30`).
 
 Switching the style on an **existing** title (inspector dropdown/Shuffle) only
@@ -1752,7 +1752,7 @@ entry. These fields are read-only — they describe the file:
 | `codec` | video codec (`h264`, `hevc`, `prores`, `vp9` …), or the image format (`png`, `mjpeg`) |
 | `audioCodec` · `audioChannels` · `sampleRate` | first audio stream: codec, channel count (`0` = the file has no audio), Hz |
 | `size` · `bitrate` | file size in bytes · overall bitrate, bits per second |
-| `width` · `height` · `duration` | as before; filled in when missing (phone footage shot rotated reports its upright size) |
+| `width` · `height` · `duration` | as before; filled in when missing (phone footage shot rotated reports its upright size). An MKV whose timestamps start late (3600 s) is as long as it plays; one whose header has no length takes it from its streams (their durations, then their DURATION tags), from the earliest start to the latest end; when nothing there says it either (a recording stopped before it was saved), it is read from the packets' times, first to last (`fablecut_import_media` says so). When even that fails — or ffprobe can't open the file at all, as with an MP4 whose index was never written — there is no `duration`, the entry gets `durationUnknown: true`, the editor says so, and the file can't be placed: `addClip`, `insert` and `overwrite` refuse it, and so does dragging it onto the timeline. Without ffprobe nothing is marked; the browser's length is used. The editor asks once about every MKV / WebM and every recording without a length, old projects included (`durationChecked` marks it), and MCP imports read the length the same way. Clips already placed from a wrong (too long) length are fitted to the corrected one, as one undo step |
 
 Without ffprobe on PATH only `size` is filled in; the browser still probes
 `duration`, `width` and `height`.
@@ -2612,8 +2612,8 @@ work). Animations wipe and stagger in reading order automatically. `letter-pop` 
 cursive joining stays correct.
 
 **Branded title**: `props: {font:"Bebas Neue", weight:700, letterSpacing:6,
-uppercase:true, color:"#ffffff", color2:"#7b6cff", textShadow:20}` — any Google
-Font name just works.
+uppercase:true, color:"#ffffff", color2:"#7b6cff", textShadow:20}` — another Google
+Font works too, once the user confirms loading it.
 
 **Kinetic font-cut title** (rhythmic typeface cuts on the beat, then settle):
 `props: {font:"Bebas Neue", fontSize:120, uppercase:true, color:"#ffd166",
