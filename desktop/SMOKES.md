@@ -69,5 +69,6 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `zh-batch4-smoke.cjs` | `ZH4_PASS` | 在用 |
 | `zh-batch5-smoke.cjs` | `ZH5_PASS` | 在用 |
 | `zh-batch6-smoke.cjs` | `ZH6_PASS` | 在用 |
+| `zh-batch7-smoke.cjs` | `ZH7_PASS` | 在用 |
 | `zh-terms-smoke.cjs` | `TERMS_COMPLETE` | 在用 |
 | `zh-transcript-smoke.cjs` | `TR_PASS` | 在用 |
