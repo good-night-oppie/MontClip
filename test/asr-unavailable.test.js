@@ -188,3 +188,19 @@ test("hidePaths: a path keeps only its last part; a URL, a ratio or a time is le
   a.equal(hidePaths("\\\\server\\share\\a.txt"), "…/a.txt");
   for (const keep of ["see http://127.0.0.1:7777/api/asr", "ratio 1/2 at 12:30", "basic_string::_S_create"]) a.equal(hidePaths(keep), keep);
 });
+
+/* JJ (2026-11-05): a size is the manifest's bytes rounded to 10 MB (243,371,218 → 240), never written by hand, and the
+   Cindy plugin's status card says it through the same function (aboutMb, here). */
+test("aboutMb: bytes to MB rounded to 10; the model's size follows the manifest's bytes", () => {
+  const S = require("../asr-status.js");
+  a.equal(typeof S.aboutMb, "function");
+  a.equal(S.aboutMb(243371218), 240);
+  a.equal(S.aboutMb(134885400), 130);
+  a.equal(S.aboutMb(255109021), 260);
+  const m = JSON.parse(fs.readFileSync(path.join(ROOT, "desktop", "asr-manifest.json"), "utf8"));
+  a.equal(S.modelMb(m), 240);
+  const bigger = JSON.parse(JSON.stringify(m));
+  bigger.models.asr.files["model.int8.onnx"].size = 312000000;
+  a.equal(S.modelMb(bigger), 310, "a different model in the manifest, a different number");
+  a.equal(S.modelMb(bigger), S.aboutMb(312000000 + m.models.asr.files["tokens.txt"].size));
+});
