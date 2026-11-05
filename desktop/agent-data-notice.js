@@ -5,7 +5,8 @@
    the main process (userData/agent-data-notice-v1.json), so it holds across launches — the page's own storage follows
    its port, which changes on every launch. A new NOTICE_VERSION (the wording changed) shows it again.
    The file holds the version she accepted and when; nothing else. Fixed IPC: montclip:agent:noticeGet / noticeAck. */
-const NOTICE_VERSION = 2;   // 2: JJ's v3 (2026-11-04) — what DeepSeek does with it, how to turn it off, the policy versions
+const NOTICE_VERSION = 3;   // 2: JJ's v3 (2026-11-04) — what DeepSeek does with it, how to turn it off, the policy versions
+                            // 3: 「发了什么」 also names the singing parts and the loudness a second (JJ via Deja, 2026-11-05)
 const NAME = 'agent-data-notice-v1.json';
 
 function createStore(root, fs = require('node:fs')) {
