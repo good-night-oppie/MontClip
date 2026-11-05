@@ -19891,7 +19891,7 @@ function oneSidedWarning(c) {
   const stems = MontClipEdit.monoSideStems(project, side);
   if (stems.length) return { text: uiText(`own.export-one-sided-${side}-fix`), side, ids: new Set(stems.map((x) => x.id)) };
   let text = uiText(`own.export-one-sided-${side}`);
-  if (ONE_SIDED_COPY_TAIL) text += (mcView.get().language === "en" ? " " : "") + uiText("own.export-one-sided-copy-tail");
+  if (ONE_SIDED_COPY_TAIL) text += (mcView.get().language === "en" ? " " : "") + uiText("own.export-one-sided-copy-tail", { button: uiText("own.export-one-sided-copy-button") });
   return { text, side, ids: null };
 }
 /** Show it: a toast, with the button when there is something to centre. */

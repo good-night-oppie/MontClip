@@ -268,22 +268,26 @@ test("JJ定稿, word for word: the export warnings, left and right, with and wit
   assert.equal(zh("export-one-sided-right"), "导出的视频只有右边耳机有声音，左边几乎听不到。");
   assert.equal(en("export-one-sided-left"), "The exported video only has sound in the left ear; the right is almost silent.");
   assert.equal(en("export-one-sided-right"), "The exported video only has sound in the right ear; the left is almost silent.");
-  assert.equal(zh("export-one-sided-copy-tail"), "如果不是你故意的，点〔复制问题信息〕发给我们。");
+  // the 〔复制问题信息〕 half: JJ定稿 in both languages, the button's name from its key
+  assert.equal(zh("export-one-sided-copy-tail", { button: zh("export-one-sided-copy-button") }), "如果不是你故意的，点〔复制问题信息〕发给我们。");
+  assert.equal(en("export-one-sided-copy-tail", { button: en("export-one-sided-copy-button") }), "If you didn't mean it, click “Copy problem details” and send it to us.");
+  const SRC_UI = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8");
+  assert.match(SRC_UI, /JJ定稿 \(2026-11-05, via Deja; zh and en\)[^\n]*\n[^\n]*\n[^\n]*\n\s*"export-one-sided-copy-tail"/);
   for (const k of ["export-one-sided-left-fix", "export-one-sided-right-fix", "export-one-sided-left", "export-one-sided-right"])
     assert.doesNotMatch(zh(k) + en(k), /dB|\{/, k);
 });
 
 /* The warning after an export, sliced out of app.js with the real wording (zh-CN) and the real fix. */
-function warnWorld(doc) {
+function warnWorld(doc, { lang = "zh-CN", copyTail = false } = {}) {
   const project = { media: [mono], clips: [], ...doc };
   const calls = { toast: [], plain: [], undo: 0, save: 0 };
   const env = {
     project, MontClipEdit, state: { connected: true, compCtx: null, dirtyTimeline: false }, runtime: { projectId: "p1" }, EXPORT_JOB_PAGE: false,
-    mcView: { get: () => ({ language: "zh-CN" }) }, uiText: (k, v) => UI.t("zh-CN", k, v),
+    mcView: { get: () => ({ language: lang }) }, uiText: (k, v) => UI.t(lang, k, v),
     toastActions: (msg, actions) => calls.toast.push({ msg, actions }), toast: (msg) => calls.plain.push(msg),
     pushUndo: () => { calls.undo++; }, scheduleSave: () => { calls.save++; }, renderInspector() {},
   };
-  const code = slice("function checkMonoLeftStems(", "function scheduleSave(") + slice("const ONE_SIDED_COPY_TAIL", "function exportAudioHeard(");
+  const code = slice("function checkMonoLeftStems(", "function scheduleSave(") + slice("const ONE_SIDED_COPY_TAIL", "function exportAudioHeard(").replace("const ONE_SIDED_COPY_TAIL = false;", `const ONE_SIDED_COPY_TAIL = ${copyTail};`);
   const names = Object.keys(env);
   const fns = new Function(...names, `${code}\nreturn { oneSidedWarning, showOneSidedWarning, exportCheckText, exportReportLine, checkMonoLeftStems };`)(...names.map((k) => env[k]));
   return { project, calls, ...fns };
@@ -350,4 +354,20 @@ test("on purpose: pan keyframes, a pan set by hand, a track or bus pan — not t
   assert.equal(run({ clips: [vid(), stem("a", { pan: 0 })], tracks: [{ id: "A1", kind: "audio", pan: -1 }] }), true, "a track pan");
   assert.equal(run({ clips: [vid(), stem("a", { pan: 0 })], buses: [{ id: "B1", pan: 0.8 }] }), true, "a bus pan");
   assert.equal(run({ clips: [vid(), stem("a", { pan: 0 })] }), false, "centred");
+});
+
+test("once 〔复制问题信息〕 sits next to the export result (ONE_SIDED_COPY_TAIL on), the plain warning reads in full — JJ定稿, zh and en", () => {
+  const stereo = { ...mono, audioChannels: 2 };
+  const clips = [vid(), stem("a", { pan: -1, panAuto: true }), stem("b", { audioChannel: 1, pan: 1, panAuto: true }, { track: "A2" })];
+  const z = warnWorld({ media: [stereo], clips }, { copyTail: true });
+  z.showOneSidedWarning(check("left"));
+  assert.deepEqual(z.calls.plain, ["导出的视频只有左边耳机有声音，右边几乎听不到。如果不是你故意的，点〔复制问题信息〕发给我们。"]);
+  const e = warnWorld({ media: [stereo], clips }, { lang: "en", copyTail: true });
+  e.showOneSidedWarning(check("right"));
+  assert.deepEqual(e.calls.plain, ["The exported video only has sound in the right ear; the left is almost silent. If you didn't mean it, click “Copy problem details” and send it to us."]);
+  // still off for now, and a cause found never gets this half
+  assert.match(SRC, /const ONE_SIDED_COPY_TAIL = false;/);
+  const f = warnWorld({ clips: [vid(), stem("a", { pan: -1 })] }, { copyTail: true });
+  f.showOneSidedWarning(check("left"));
+  assert.equal(f.calls.toast[0].msg, "导出的视频只有左边耳机有声音，右边几乎听不到。如果不是你故意这样放的，可以先改成两边都有再导出一次。");
 });

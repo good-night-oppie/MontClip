@@ -131,9 +131,11 @@
     "export-one-sided-fix": ["Play in both", "改成两边都有"],
     "export-one-sided-left": ["The exported video only has sound in the left ear; the right is almost silent.", "导出的视频只有左边耳机有声音，右边几乎听不到。"],
     "export-one-sided-right": ["The exported video only has sound in the right ear; the left is almost silent.", "导出的视频只有右边耳机有声音，左边几乎听不到。"],
-    // JJ定稿 (zh); the English is a draft for JJ. Shown after the plain sentence only once 〔复制问题信息〕 sits next to the export result (#161):
-    // until then ONE_SIDED_COPY_TAIL in app.js keeps it off.
-    "export-one-sided-copy-tail": ["If you didn't mean it, click Copy problem details and send it to us.", "如果不是你故意的，点〔复制问题信息〕发给我们。"],
+    // JJ定稿 (2026-11-05, via Deja; zh and en), word for word. Shown after the plain sentence only once 〔复制问题信息〕 sits next
+    // to the export result (#161): until then ONE_SIDED_COPY_TAIL in app.js keeps it off. The button's name comes from its
+    // key (export-one-sided-copy-button; when #161 lands, the button's own key there).
+    "export-one-sided-copy-tail": ["If you didn't mean it, click “{button}” and send it to us.", "如果不是你故意的，点〔{button}〕发给我们。"],
+    "export-one-sided-copy-button": ["Copy problem details", "复制问题信息"],
     "finishing": ["Finishing…", "正在收尾…"],
     // narrow windows: tools that do not fit a bar (JJ to review)
     "more": ["More", "更多"],
