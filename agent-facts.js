@@ -74,10 +74,21 @@ function singingOf(entries,sound){
 }
 /** Throws FACTS_LIMIT when the facts carry more than capabilities.js allows (refused, never cut down). */
 function check(facts,caps=Caps().FACTS){
- const values=(facts.loudness||[]).reduce((n,e)=>n+e.values.length,0);
- if((facts.singing||[]).length>caps.singingParts||values>caps.loudnessValues)throw Error('FACTS_LIMIT');
+ const L=facts.loudness||[],values=L.reduce((n,e)=>n+e.values.length,0),seconds=L.reduce((n,e)=>n+e.values.length*e.step,0);
+ if((facts.singing||[]).length>caps.singingParts||values>caps.loudnessValues||seconds>caps.loudnessSeconds+(L[0]?.step||0)*L.length)throw Error('FACTS_LIMIT');
  return facts;
 }
+/** What the review box lists, in plain numbers: how many singing parts, how long together, how many loudness values and
+ *  how many seconds each covers; null when the facts carry neither. */
+function soundSummary(facts){
+ if(!facts||!(facts.singing||facts.loudness))return null;
+ const S=facts.singing||[],L=facts.loudness||[];
+ return {parts:S.length,seconds:r2(S.reduce((n,s)=>n+s.to-s.from,0)),values:L.reduce((n,e)=>n+e.values.length,0),step:L[0]?L[0].step:0};
+}
+/* A message that asks about the sound — the quiet part, where the singing starts (QQ on #169): when the sound numbers are
+   switched off in 设置, the pane says so above the reply, deterministically, from the message's words. */
+const SOUND_WORDS=/安静|静音|没声音|没有声音|开口|开始唱|唱之前|前奏|唱歌|停顿|\bsilen|\bquiet|\bsing(s|ing)?\b|\bpause/i;
+const asksAboutSound=text=>typeof text==='string'&&SOUND_WORDS.test(text);
 /** sound: {[mediaId]: {loudness: {step, values: dBFS[]}, songs: [{from, to}] | null}} — what the server has for each file. */
 function build(doc,{highlights=[],sound=null}={}){
  const list=shots(doc),sent=list.slice(0,MAX_CLIPS),out={clips:sent.map(s=>s.entry)};
@@ -86,6 +97,8 @@ function build(doc,{highlights=[],sound=null}={}){
  if(hl.length)out.highlights=hl;
  if(sound&&typeof sound==='object'){
   const entries=sent.map(s=>({clipId:s.entry.clipId,mediaId:s.clip.mediaId,from:s.entry.from,to:s.entry.to})),caps=Caps().FACTS;
+  // longer than the cap altogether: refused, never cut down
+  if(entries.filter(e=>sound[e.mediaId]?.loudness).reduce((n,e)=>n+e.to-e.from,0)>caps.loudnessSeconds)throw Error('FACTS_LIMIT');
   const singing=singingOf(entries,sound),loudness=loudnessOf(entries,sound,caps.loudnessValues);
   if(singing.length)out.singing=singing;
   if(loudness.length)out.loudness=loudness;
@@ -98,5 +111,5 @@ function soundMedia(doc){
  for(const s of shots(doc).slice(0,MAX_CLIPS)){const m=media.get(s.clip.mediaId);if(m&&typeof m.src==='string'&&!seen.has(m.id)){seen.add(m.id);out.push({mediaId:m.id,src:m.src});}}
  return out;
 }
-return {build,check,omitted,soundMedia,level,SHORT_ID};
+return {build,check,omitted,soundMedia,soundSummary,asksAboutSound,level,SHORT_ID};
 });

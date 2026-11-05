@@ -46,7 +46,7 @@ test('nothing known about the sound: no singing, no loudness; a song outside the
 });
 
 test('the caps live in capabilities.js; long clips get fewer values, each covering more seconds, never cut short',()=>{
- a.deepEqual({...Cap.FACTS},{singingParts:100,loudnessValues:2400});
+ a.deepEqual({...Cap.FACTS},{singingParts:100,loudnessValues:2400,loudnessSeconds:28800});
  a.ok(Object.isFrozen(Cap.FACTS));
  // three clips of 1 h of a 3 h file: 10800 s → 5 s a value (4.5 rounds up), the whole of each clip covered
  const long={media:[{id:'m1',src:'/media/a.mp4',kind:'video',duration:10800}],clips:[0,1,2].map(i=>({id:'c'+i,kind:'video',mediaId:'m1',track:'V1',start:i*3600,in:i*3600,duration:3600,props:{}}))};
@@ -82,13 +82,13 @@ test('the review box: the line about the sound numbers, word for word, outside t
  a.equal(en.officialPane_factsSound,'Also sent: which parts may be singing (start and end seconds only) and the loudness for each second (a list of numbers). The sound itself is not sent.');
  const pane=read('agent-ui/pane.tsx'),at=pane.indexOf('<p data-facts-sound>');
  a.ok(at>pane.indexOf('</details>',pane.indexOf('<details data-facts-note>')),'outside the fold');
- a.match(pane,/return f&&\(f\.singing\|\|f\.loudness\)\?<p data-facts-sound>\{t\.factsSound\}<\/p>:null;/);
+ a.match(pane,/n=W\.MontClipFacts\?\.soundSummary\(f\);return n\?<><p data-facts-sound>\{t\.factsSound\}<\/p>/);
  a.match(read('cindy-official.js'),/data-facts-sound/,'the bundle was rebuilt');
  // the numbers are fetched before the box is put together, and the page passes them in
  a.match(pane,/await options\.beforeReview\?\.\(\);try\{setReview\(conversation\.prepare\(\)\)/);
  const app=read('app.js');
  a.match(app,/ beforeReview:agentSoundFacts,/);
- a.match(app,/sound:s&&s\.signature===JSON\.stringify\(MontClipFacts\.soundMedia\(doc\)\)\?s\.sound:null/);
+ a.match(app,/sound:soundFactsOn\(\)&&s&&s\.signature===JSON\.stringify\(MontClipFacts\.soundMedia\(doc\)\)\?s\.sound:null/);
  const fn=app.slice(app.indexOf('async function agentSoundFacts'),app.indexOf("const mcAgentPanel="));
  a.ok(!/method/.test(fn),'only reads: never starts a song scan');
  a.match(fn,/g\.state==="done"/,'only a file read to its end');

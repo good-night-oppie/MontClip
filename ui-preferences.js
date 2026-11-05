@@ -279,6 +279,11 @@
     "hl-r-speech": ["Talking faster than usual (about {ratio}×)", "说话比平时快（约 {ratio} 倍）"],
     "hl-r-singing": ["Singing throughout, hardly pausing", "一直在唱，几乎没有停顿"],
     // 「✨ 自动出切片」 (P3; frozen design v7, v7.5 last; the Chinese is the design's and JJ's, the English is for JJ)
+    // 「附上唱歌段和音量」 in 设置 (QQ's five on #169; Deja, 2026-11-05). 待 JJ 定稿
+    "sf-title": ["AI assistant", "AI 助手"],
+    "sf-label": ["Attach singing parts and loudness", "附上唱歌段和音量"],
+    "sf-hint": ["When on, what is sent to the AI includes which parts may be singing and the loudness for each second: numbers only, not the recording. When off, the assistant can't tell where it is quiet or where the singing starts.", "开着的时候，发给 AI 的内容里会附上哪几段可能在唱歌、每秒的音量大小：只是数字，不是录音。关掉以后，助手判断不了哪里安静、从哪里开始唱。"],
+    "sf-off-note": ["“{switch}” is off, so the assistant can't tell where it is quiet or where the singing starts. To use it, turn on “{switch}” in “{settings}”, then send again.", "「{switch}」现在关着，助手判断不了哪里安静、从哪里开始唱。要用的话，到〔{settings}〕里打开「{switch}」，再发一次。"],
     "as-open": ["✨ Auto clips", "✨ 自动出切片"],
     "as-open-done": ["✨ Auto clips · done", "✨ 自动出切片 · 找完了"],
     "as-step-start": ["Recordings", "选录像"],
@@ -1010,6 +1015,11 @@
   // fold (JJ's words). factsLimit: over capabilities.js FACTS nothing is sent (JJ定稿, 2026-11-05).
   Object.assign(officialPaneText.en,{factsSound:'Also sent: which parts may be singing (start and end seconds only) and the loudness for each second (a list of numbers). The sound itself is not sent.',factsLimit:'There are too many numbers to attach, more than can be sent, so nothing was sent. What you wrote is still here. Select a shorter range and send again.'});
   Object.assign(officialPaneText['zh-CN'],{factsSound:'还会发送：哪几段可能在唱歌（只有开始和结束的秒数）、每秒的音量大小（一串数字）。不发声音本身。',factsLimit:'要附上的数字太多，超过了能发的上限，这次没有发送。你写的话还在，选短一点的范围再发就行。'});
+  // QQ's five on #169 (Deja, 2026-11-05), 待 JJ 定稿: the review box lists the sound numbers in plain words; when they are
+  // switched off, it says so; a reply to a message about the sound says, while they are off, that it can't be done and how
+  // to turn them on ({settings} and {switch}: the button's and the switch's own words, filled in by app.js).
+  Object.assign(officialPaneText.en,{factsCounts:'This time: {parts} singing parts, {duration} in total; {values} loudness numbers, one every {step} s.',factsOff:'Singing parts and loudness are not attached: they are switched off in Settings.'});
+  Object.assign(officialPaneText['zh-CN'],{factsCounts:'这次附上：可能在唱歌的 {parts} 段，一共 {duration}；音量 {values} 个数，每 {step} 秒一个。',factsOff:'这次没有附上唱歌段和音量：设置里关着。'});
   // VV real-model test (2026-11-02): the format note that goes with every request, a reply without a usable proposal, and errors told apart
   Object.assign(officialPaneText.en,{errModel:'The model name is wrong. Check it in settings. Your draft is kept.',formatNote:'Format note sent with every request',formatNoteExplain:'The text below is a fixed note MontClip adds to every request. It only tells the AI how to format editing suggestions. It contains none of your recordings, subtitles or project content.',noProposal:'This reply is not an editing suggestion. To have it cut for you, say which sentences to keep.',errAuth:'The key is wrong or has no access. Check it in settings. Your draft is kept.',errRateLimit:'The service is limiting requests for now. Try again in a little while. Your draft is kept.',errTimeout:'The service did not answer in time. Check your connection and try again. Your draft is kept.',errNetwork:'Could not reach the service. Check your internet connection, then try again. Your draft is kept.',errUpstream:'The service is having trouble right now. Try again later, or choose another model in settings. Your draft is kept.'});
   Object.assign(officialPaneText['zh-CN'],{errModel:'模型名称不对，请去设置里检查。草稿仍保留。',formatNote:'每次请求都会附带的格式说明',formatNoteExplain:'下面这段英文是 MontClip 每次自动附上的固定说明，只是告诉 AI 怎么写剪辑建议。里面没有你的录像、字幕或项目内容，你不用看懂。',noProposal:'这条回复不是剪辑建议。想让它直接剪，可以说清要保留哪几句。',errAuth:'密钥不对或没有权限，请去设置里检查。草稿仍保留。',errRateLimit:'服务暂时限流，请过一会再试。草稿仍保留。',errTimeout:'服务没有及时回应，请检查网络后再试。草稿仍保留。',errNetwork:'连不上服务，请检查网络连接后再试。草稿仍保留。',errUpstream:'服务那边暂时出了问题，请稍后再试，或去设置里换一个模型。草稿仍保留。'});
@@ -1044,13 +1054,14 @@
   }
   function create(storage) {
     let saved; try { saved = JSON.parse(storage.getItem(KEY)); } catch {}
-    let value = { mode: saved?.mode === "advanced" ? "advanced" : "simple", language: saved?.language === "en" ? "en" : "zh-CN" };
+    // soundFacts (QQ on #169): 「附上唱歌段和音量」, on by default; kept only when switched off
+    let value = { mode: saved?.mode === "advanced" ? "advanced" : "simple", language: saved?.language === "en" ? "en" : "zh-CN", ...(saved?.soundFacts === false ? { soundFacts: false } : {}) };
     return {
       get: () => ({ ...value }),
       set(patch) {
         const next = { ...value, ...patch };
-        if (!["simple", "advanced"].includes(next.mode) || !text[next.language]) throw new Error("Invalid view preference");
-        value = { mode: next.mode, language: next.language };
+        if (!["simple", "advanced"].includes(next.mode) || !text[next.language] || ![undefined, true, false].includes(next.soundFacts)) throw new Error("Invalid view preference");
+        value = { mode: next.mode, language: next.language, ...(next.soundFacts === false ? { soundFacts: false } : {}) };
         try { storage.setItem(KEY, JSON.stringify(value)); return true; } catch { return false; }
       },
     };
