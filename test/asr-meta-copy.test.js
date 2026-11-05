@@ -163,11 +163,16 @@ test('JJ\'s final words: being removed; removed half-way', () => {
 test('a sentence that names a button names it as the button itself says it', () => {
   for (const lang of ['zh-CN', 'en']) {
     const t = (k) => V.t(lang, 'own.' + k), named = (k) => (lang === 'en' ? '“' + t(k) + '”' : '〔' + t(k) + '〕');
-    for (const [sentence, button] of [['asr-meta-removing', 'asr-switch-paraformer'], ['asr-meta-partly-removed', 'asr-meta-revoke'], ['asr-meta-remove-incomplete', 'asr-meta-revoke']]) {
+    // (asr-meta-broken: only its quotes changed to curly ones, Deja 11-05)
+    for (const [sentence, button] of [['asr-meta-removing', 'asr-switch-paraformer'], ['asr-meta-partly-removed', 'asr-meta-revoke'], ['asr-meta-remove-incomplete', 'asr-meta-revoke'], ['asr-meta-broken', 'asr-meta-revoke']]) {
       a.ok(t(sentence).includes(named(button)), lang + ' ' + sentence + ' names ' + named(button));
     }
-    // asr-meta-broken (JJ's final words of 11-05): the same name; its English keeps JJ's straight quotes
-    a.ok(t('asr-meta-broken').includes(lang === 'en' ? '"' + t('asr-meta-revoke') + '"' : '〔' + t('asr-meta-revoke') + '〕'), lang + ' asr-meta-broken');
+    // a button whose label ends in a size in brackets is named without it — the size changes, the words are what the
+    // streamer looks for (Deja, 11-05): 「下载并使用」 / “Download and use” in asr-meta-mirror-failed
+    const bare = (k) => t(k).replace(/\s*[（(][^（）()]*[）)]$/, '');
+    a.equal(bare('asr-download-meta'), lang === 'en' ? 'Download and use' : '下载并使用', 'the label without its size');
+    const m = t('asr-meta-mirror-failed');
+    a.ok(m.includes(lang === 'en' ? '“' + bare('asr-download-meta') + '”' : '「' + bare('asr-download-meta') + '」'), lang + ' asr-meta-mirror-failed names the button without its size');
   }
   // and the buttons really carry those words: 〔换回 Paraformer〕 on the toast, 〔删掉 Meta 的模型〕 in the Transcript tab
   const app = read('app.js');

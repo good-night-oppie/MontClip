@@ -153,7 +153,7 @@
     // the button on "Meta's model stopped": the speech model back to Paraformer (JJ's words)
     "asr-switch-paraformer": ["Switch to Paraformer", "换回 Paraformer"],
     // the delete button's name and asr-meta-broken: JJ's final words (Deja, 11-05)
-    "asr-meta-broken": ["Meta's model files can't be read; they may have been damaged while downloading. Click \"Remove Meta's model\" and download it again, or switch back to Paraformer.", "Meta 的模型文件读不了，可能是下载时坏了。点〔删掉 Meta 的模型〕，再重新下载一次；或者换回 Paraformer。"],
+    "asr-meta-broken": ["Meta's model files can't be read; they may have been damaged while downloading. Click “Remove Meta's model” and download it again, or switch back to Paraformer.", "Meta 的模型文件读不了，可能是下载时坏了。点〔删掉 Meta 的模型〕，再重新下载一次；或者换回 Paraformer。"],
     "asr-meta-no-memory": ["There isn't enough free memory for Meta's model (it needs about {need}; {free} is free), so it didn't start. Close some programs and try again, or switch back to Paraformer.", "内存不够跑 Meta 的模型（大约要 {need}，现在只空着 {free}），所以没有开始。关掉一些软件再试，或者换回 Paraformer。"],
     // without what is free (JJ confirmed; the English is Deja's, after JJ's meaning), and without any number (JJ confirmed), 11-05
     "asr-meta-no-memory-need": ["There isn't enough free memory for Meta's model (it needs about {need}), so it didn't start. Close some programs and try again, or switch back to Paraformer.", "内存不够跑 Meta 的模型（大约要 {need}），所以没有开始。关掉一些软件再试，或者换回 Paraformer。"],

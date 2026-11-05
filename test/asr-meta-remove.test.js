@@ -35,7 +35,7 @@ test('JJ\'s final words: the button, its box, asr-meta-broken', () => {
   a.equal(zh('asr-meta-revoke'), '删掉 Meta 的模型');
   a.equal(en('asr-meta-revoke'), "Remove Meta's model");
   a.equal(zh('asr-meta-broken'), 'Meta 的模型文件读不了，可能是下载时坏了。点〔删掉 Meta 的模型〕，再重新下载一次；或者换回 Paraformer。');
-  a.equal(en('asr-meta-broken'), 'Meta\'s model files can\'t be read; they may have been damaged while downloading. Click "Remove Meta\'s model" and download it again, or switch back to Paraformer.');
+  a.equal(en('asr-meta-broken'), 'Meta\'s model files can\'t be read; they may have been damaged while downloading. Click “Remove Meta\'s model” and download it again, or switch back to Paraformer.');
   const z = T.asrRevokeText('zh'), e = T.asrRevokeText('en');
   a.equal(z.title, '删掉 Meta 的多语言听写模型？'); a.equal(z.message, z.title);
   a.equal(e.title, "Remove Meta's multilingual speech model?"); a.equal(e.message, e.title);
