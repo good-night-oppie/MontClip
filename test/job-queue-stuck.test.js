@@ -18,10 +18,10 @@ const { makeDataDir, seedProject, startServer, startMcp } = require("./helpers")
 const ROOT = path.join(__dirname, "..");
 
 /* The queue with a clock the test moves, and one "open tab" that never does anything. */
-function queue({ allowHeadless = true, editors = 1 } = {}) {
+function queue({ allowHeadless = true, editors = 1, connected = true } = {}) {
   let now = 1_000_000;
   const sent = [];
-  const jobs = J.createExportJobs({ allowHeadless, editors: () => editors, url: () => "http://127.0.0.1:1", broadcast: (ev, data) => sent.push(JSON.parse(data)), now: () => now });
+  const jobs = J.createExportJobs({ allowHeadless, editorConnected: () => connected, editors: () => editors, url: () => "http://127.0.0.1:1", broadcast: (ev, data) => sent.push(JSON.parse(data)), now: () => now });
   return { jobs, sent, tick: (ms) => { now += ms; }, done: () => jobs.shutdown() };
 }
 const refusal = (fn) => { try { fn(); } catch (e) { return e; } assert.fail("expected a refusal"); };
@@ -31,7 +31,7 @@ test("a tab that claims a job and never reports frees the queue within the limit
   try {
     const first = q.jobs.request({ kind: "scopes", image: true });
     assert.equal(first.via, "tab");
-    assert.ok(q.jobs.claim(first.id), "the tab takes it…");
+    assert.ok(q.jobs.claim(first.id, { tabId: "a", hidden: true }), "the tab takes it…");
     q.tick(J.TAB_SILENT_MS - 1000);
     assert.equal(q.jobs.get(first.id).status, "running", "…and is given the limit to answer");
     assert.equal(refusal(() => q.jobs.request({})).code, 409);
@@ -61,7 +61,7 @@ test("a tab that keeps answering keeps its job; the limit runs from its last rep
   const q = queue();
   try {
     const j = q.jobs.request({});
-    q.jobs.claim(j.id);
+    q.jobs.claim(j.id, { tabId: "a", hidden: true });
     for (let i = 0; i < 12; i++) { q.tick(5000); assert.deepEqual(q.jobs.report(j.id, {}), { cancel: false }, "a heartbeat"); }
     q.jobs.sweep();
     assert.equal(q.jobs.get(j.id).status, "running", "a minute of heartbeats is a working tab");
@@ -80,7 +80,7 @@ test("in the desktop app the reason does not offer a headless browser", () => {
   const q = queue({ allowHeadless: false });
   try {
     const j = q.jobs.request({ kind: "scopes" });
-    q.jobs.claim(j.id);
+    q.jobs.claim(j.id, { tabId: "a", hidden: true });
     q.tick(J.TAB_SILENT_MS + 1);
     q.jobs.sweep();
     const v = q.jobs.get(j.id);
@@ -237,4 +237,23 @@ test("a host giving up on callTool (its AbortSignal) cancels the job, and a late
   assert.match(err.message, /cancelled/);
   assert.equal((await getJob(base, ticket.id)).status, "cancelled", "and its job is already cancelled when it returns");
   assert.equal((await post(base, "/api/scopes/request", { where: "tab" })).status, 200);
+});
+
+for (const ms of [25000, 130000]) test(`a visible busy tab survives ${ms} ms without a report`, () => {
+  const q = queue(); try {
+    const j = q.jobs.request({}); q.jobs.claim(j.id, { tabId:'a', hidden:false });
+    q.tick(ms); q.jobs.sweep();
+    assert.equal(q.jobs.get(j.id).status, 'running');
+    assert.equal(refusal(() => q.jobs.request({})).errorCode, 'JOB_BUSY');
+  } finally { q.done(); }
+});
+test('a disconnected owner releases even a visible tab, and unknown presence is conservative', () => {
+  const q = queue({ connected:false }); try {
+    const j = q.jobs.request({}); q.jobs.claim(j.id, { tabId:'a', hidden:false });
+    q.tick(25000); q.jobs.sweep(); assert.equal(q.jobs.get(j.id).status, 'failed');
+  } finally { q.done(); }
+  const q2 = queue(); try {
+    const j = q2.jobs.request({}); q2.jobs.claim(j.id);
+    q2.tick(130000); q2.jobs.sweep(); assert.equal(q2.jobs.get(j.id).status, 'running');
+  } finally { q2.done(); }
 });
