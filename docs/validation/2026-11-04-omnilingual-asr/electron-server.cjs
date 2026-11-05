@@ -1,7 +1,9 @@
 /* Windows acceptance (Deja, 2026-11-04): the desktop path as it runs. Electron's utilityProcess runs server.js exactly
    as desktop/main.js starts it (PORT 0, 127.0.0.1, the session token, a data folder, the models folder), and the page's
    request POST /api/asr/transcribe {src, model} goes through server.js → asr-local.js → sherpa-onnx in that process.
-     <electron 45> docs/validation/2026-11-04-omnilingual-asr/electron-server.cjs <models folder> <meta|paraformer> <audio file>
+     <electron 45> docs/validation/2026-11-04-omnilingual-asr/electron-server.cjs <models folder> <meta|paraformer|kill> <audio file>
+   meta: Meta's model, which the server runs in a child process (asr-meta-engine.js); paraformer: the default, in the
+   server; kill: Meta on the file, its child killed after 5 s, then Paraformer on the same file in the same server.
    <models folder>: asrMeta/{model.int8.onnx, tokens.txt, LICENSE} for Meta (the app's own layout); Paraformer comes from
    vendor/asr/models (node desktop/fetch-asr.cjs --models asr). DEVELOPMENT ONLY: for "meta" this script writes the
    consent record itself so no one has to click (in the app only the streamer agrees, in the host's own box), and
@@ -18,11 +20,13 @@ const ROOT = path.join(__dirname, "..", "..", "..");
 const { app, utilityProcess } = require("electron");
 const [modelsDir, which, audio] = process.argv.slice(-3);
 const out = (o) => process.stdout.write(JSON.stringify(o) + "\n");
+/** The pids of Meta's child processes (asr-meta-run.js) under `parent`. */
+const metaChildren = (parent) => { try { return execFileSync("powershell.exe", ["-NoProfile", "-Command", `Get-CimInstance Win32_Process -Filter "ParentProcessId=${parent}" | Where-Object { $_.CommandLine -match 'asr-meta-run' } | ForEach-Object { $_.ProcessId }`]).toString().split(/\s+/).filter(Boolean).map(Number); } catch { return []; } };
 const peakMB = (pid) => { try { return Math.round(Number(execFileSync("powershell.exe", ["-NoProfile", "-Command", `(Get-Process -Id ${pid}).PeakWorkingSet64`]).toString().trim()) / 1048576); } catch { return null; } };
 
 app.whenReady().then(async () => {
   const consent = require(path.join(ROOT, "asr-consent")).createConsent({ modelsDir: path.resolve(modelsDir) });
-  if (which === "meta") consent.agree("asrMeta", "validation");   // development only (see above)
+  if (which !== "paraformer") consent.agree("asrMeta", "validation");   // development only (see above)
   const data = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-electron-server-"));
   fs.mkdirSync(path.join(data, "media"), { recursive: true });
   const name = "speech" + path.extname(audio);
@@ -48,18 +52,30 @@ app.whenReady().then(async () => {
       req.end(body ? JSON.stringify(body) : undefined);
     });
     const st = await call("/api/asr/status");
+    if (which === "kill") {
+      const p = call("/api/asr/transcribe", { src: "/media/" + name, model: "meta" });
+      await new Promise((r) => setTimeout(r, 5000));
+      const kids = metaChildren(worker.pid);
+      for (const k of kids) { try { process.kill(k); } catch { } }
+      const r1 = await p, t1 = Date.now();
+      const r2 = await call("/api/asr/transcribe", { src: "/media/" + name });
+      out({ which, electron: process.versions.electron, utilityPid: worker.pid, killedMetaPids: kids,
+        meta: { http: r1.http, code: r1.code, engine: r1.engine, error: r1.error },
+        paraformerAfter: { http: r2.http, result: r2.status, words: r2.words, wallSeconds: (Date.now() - t1) / 1000 }, serverStillUp: (await call("/api/asr/status")).http === 200 });
+      return;
+    }
     const t0 = Date.now();
     const r = await call("/api/asr/transcribe", which === "meta" ? { src: "/media/" + name, model: "meta" } : { src: "/media/" + name });
     const wall = (Date.now() - t0) / 1000;
     const doc = await call("/api/transcript?src=" + encodeURIComponent("/media/" + name));
     const w = (doc.transcript && doc.transcript.words) || [];
     out({ which, electron: process.versions.electron, utilityPid: worker.pid, ready: which === "meta" ? st.asrMeta : st.asr && st.asr.ready,
-      http: r.http, result: r.status, code: r.code, error: r.error, words: r.words, duration: r.duration, speech: r.speech, gaps: r.gaps,
+      http: r.http, result: r.status, code: r.code, error: r.error, engine: r.engine, childPeakMB: r.maxRssMB, words: r.words, duration: r.duration, speech: r.speech, gaps: r.gaps,
       wallSeconds: wall, rtfOfRecording: r.duration ? +(wall / r.duration).toFixed(4) : null, threads: 4, utilityPeakMB: peakMB(worker.pid),
       savedModel: doc.transcript && doc.transcript.model, firstWords: w.slice(0, 9).map((x) => x[0]).join(" "),
       cpu: os.cpus()[0].model.trim(), logicalCpus: os.cpus().length });
   } finally {
-    if (which === "meta") fs.rmSync(path.join(path.resolve(modelsDir), "consent", "asrMeta.json"), { force: true });
+    if (which !== "paraformer") fs.rmSync(path.join(path.resolve(modelsDir), "consent", "asrMeta.json"), { force: true });
     worker.kill();
     setTimeout(() => { fs.rmSync(data, { recursive: true, force: true }); app.quit(); }, 500);
   }
