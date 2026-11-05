@@ -80,8 +80,9 @@ test('〔换回 Paraformer〕 on "Meta\'s model stopped": one click and the chos
   shown[0].onClick();
   a.equal(vm.runInContext('asrKey()', ctx), 'asr', 'the speech model is Paraformer now');
   a.equal(store.get('montclip.asrModel'), 'asr');
-  // other failures keep the plain toast (no button)
-  a.equal(vm.runInContext('asrMetaFailToast({ code: "ASR_OPTIONAL_NO_MEMORY", error: "x" })', ctx), false);
+  // failures that aren't Meta's own keep the plain toast (no button); not enough memory now has the button (Deja, 11-05)
+  a.equal(vm.runInContext('asrMetaFailToast({ code: "ASR_FAILED", error: "x" })', ctx), false);
+  a.equal(vm.runInContext('asrMetaFailToast({ code: "ASR_BUSY", error: "already transcribing" })', ctx), false);
   a.match(app, /if \(asrMetaFailToast\(out\.failed\[0\]\)\) return;/, 'the Transcript tab uses it');
 });
 
