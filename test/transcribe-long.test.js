@@ -236,7 +236,7 @@ test("fablecut_transcribe: no speech engine or model is said plainly, with its c
   await tab.connected();
   const mcp = startMcp(t, dir, { FABLECUT_PORT: String(port) });
   await mcp.request("initialize", { protocolVersion: "2025-11-25" });
-  for (const [code, re] of [["ASR_ENGINE_MISSING", /no speech engine/i], ["ASR_MODEL_MISSING", /no speech model/i]]) {
+  for (const [code, re] of [["ASR_ENGINE_MISSING", /还没有听写程序/], ["ASR_MODEL_MISSING", /还没装听写模型/]]) {
     const pending = mcp.callTool("fablecut_transcribe", { clipIds: ["sp_a"] });
     const ticket = await tab.next();
     await post(base, "/api/export/job/claim?id=" + ticket.id);
