@@ -128,16 +128,50 @@ const KIND_BY_EXT = {
   ".mp3": "audio", ".wav": "audio", ".ogg": "audio", ".m4a": "audio", ".aac": "audio", ".flac": "audio",
   ".png": "image", ".jpg": "image", ".jpeg": "image", ".gif": "image", ".webp": "image", ".svg": "svg",
 };
-function ffprobeDuration(file) {
-  try {
-    const r = spawnSync(FF.path("ffprobe"),
-      ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file],
-      { encoding: "utf8", timeout: 10_000 });
-    const d = parseFloat((r.stdout || "").trim());
-    return isNaN(d) ? undefined : Math.round(d * 1000) / 1000;
-  } catch { return undefined; }
-}
 const uid = () => Math.random().toString(36).slice(2, 9);
+/** Media entries with no length read yet get it from ffprobe here, so the agent never waits for an editor tab to probe
+ *  them (JJ, P1 / P3, 2026-11-05). An entry nothing can read is marked durationUnknown (MediaLib.cannotCut). Written back
+ *  as an edit only when something changed, onto the latest document (the probing may take a while). → how many changed */
+async function backfillDurations() {
+  const todo = (readProject().media || []).filter((m) => (m.kind === "video" || m.kind === "audio") &&
+    !(Number.isFinite(m.duration) && m.duration > 0) && !m.durationUnknown && mediaFile(m.src));
+  if (!todo.length) return 0;
+  const found = new Map();
+  for (const m of todo) {
+    const info = await probeFile(mediaFile(m.src));
+    if (info && (info.duration > 0 || info.durationUnknown)) found.set(m.id, info);
+  }
+  if (!found.size) return 0;
+  const proj = readProject();
+  const wasCurrent = lastReadRevision === (proj.revision || 0);
+  let n = 0;
+  for (const m of proj.media || []) {
+    const info = found.get(m.id);
+    if (!info || (m.duration > 0) || m.durationUnknown) continue;
+    if (info.duration > 0) m.duration = info.duration; else m.durationUnknown = true;
+    n++;
+  }
+  if (!n) return 0;
+  proj.revision = (proj.revision || 0) + 1;
+  writeProject(proj);
+  if (wasCurrent) lastReadRevision = proj.revision;
+  return n;
+}
+/** What fablecut_import_media says about the length it found (europa P3, 2026-11-05: "no ffprobe" was said whenever
+ *  the header had no length, though ffprobe had run). Say what actually happened. */
+function importNote(entry, probed) {
+  const timed = entry.kind === "video" || entry.kind === "audio";
+  if (!timed || entry.duration > 0) {
+    return probed && probed.durationFrom === "packets"
+      ? `Note: the file's header has no length (a recording stopped mid-way?), so it was read from the last packet: ${entry.duration}s. Seeking in it may be slow. Ready to use in clips via mediaId.`
+      : "Ready to use in clips via mediaId.";
+  }
+  if (!probed || probed.probe === "stat")
+    return "Note: duration unknown — ffprobe isn't available here, so the length wasn't read. The browser UI will probe and fill it in; re-read the project before trimming this media.";
+  if (probed.probe === "failed")
+    return `Note: ffprobe could not read this file (${probed.probeError}). It may be cut off — a recording stopped before it was saved. With no length it can't be placed or cut; the original file is unchanged.`;
+  return "Note: nothing in this file says how long it is — not the header, the streams or the packets' times. With no length it can't be placed or cut; the original file is unchanged.";
+}
 
 /* ── Tool definitions ── */
 const TOOLS = require("./mcp-tools");
@@ -1301,6 +1335,7 @@ async function callTool(name, args, attempt = 0) {
       return versionsTool(args);
     case "fablecut_status": {
       const up = await ensureUIServer();
+      await backfillDurations();
       const proj = readProject();
       const dur = proj.clips.reduce((m, c) => Math.max(m, c.start + c.duration), 0);
       const files = fs.existsSync(MEDIA_DIR)
@@ -1376,6 +1411,7 @@ async function callTool(name, args, attempt = 0) {
         parts.filter((s) => s.startsWith("## ")).map((s) => s.slice(3, s.indexOf("\n"))).join(" · ");
     }
     case "fablecut_get_project": {
+      await backfillDurations();
       const doc = readProject();
       lastReadRevision = doc.revision || 0;
       if (!args.compact) return JSON.stringify(doc);
@@ -1391,6 +1427,7 @@ async function callTool(name, args, attempt = 0) {
         throw new Error("`baseRevision` must be an integer revision (from fablecut_get_project, fablecut_status or the last patch result)");
       // ops get filled in as they apply (auto ids …); a retry must start from the originals
       const ops = structuredClone(args.ops);
+      if (base == null) await backfillDurations();   // with a baseRevision, a write here would itself be the conflict
       const proj = readProject();
       const readRev = proj.revision || 0;
       const conflict = (rev) => new Error(
@@ -1679,10 +1716,12 @@ async function callTool(name, args, attempt = 0) {
         name: originalName,
         kind,
         src: "/media/" + encodeURIComponent(path.basename(target)),
-        duration: kind === "image" || kind === "svg" ? undefined : ffprobeDuration(target),
+        // the length comes from probeFile below (media-lib parseProbe), the same reading the editor uses: an MKV's start
+        // offset is not counted (QQ, #126: format=duration alone stored 3620 s for 20 s)
       };
       if (prepared.originalSrc) Object.assign(entry, {originalSrc: prepared.originalSrc, preparation: prepared.preparation});
-      Object.assign(entry, infoForEntry(await probeFile(target), entry));
+      const probed = await probeFile(target);
+      Object.assign(entry, infoForEntry(probed, entry));
       const proj = readProject();
       // import only appends a media entry (never touches clips), so it merges
       // into the live document; keep lastReadRevision in step only if it
@@ -1693,9 +1732,7 @@ async function callTool(name, args, attempt = 0) {
       writeProject(proj);
       if (wasCurrent) lastReadRevision = proj.revision;
       return `Imported → ${JSON.stringify(entry)}\n` +
-        (entry.duration == null && kind !== "image"
-          ? "Note: duration unknown (no ffprobe). The browser UI will probe and fill it in; re-read the project before trimming this media."
-          : "Ready to use in clips via mediaId.");
+        importNote(entry, probed);
     }
     case "fablecut_encode_profiles": {
       if (args.preset) {
