@@ -68,9 +68,7 @@ function negotiateProtocolVersion(requested) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function readProject() {
   const raw = fs.readFileSync(PROJECT_FILE, "utf8").replace(new RegExp("^\\uFEFF"), "");
-  const doc = JSON.parse(raw);
-  Mask.migrateProject(doc);   // masks saved before maskSchema 2 → top-left corner, fractions of the source frame
-  return doc;
+  return JSON.parse(raw);
 }
 function writeProject(doc) {
   // atomic tmp+rename so the UI's file watcher never sees a half-written doc
@@ -1167,7 +1165,7 @@ async function frameTool(args) {
     const sized = res.imageSize && res.frame
       ? `
 Image ${res.imageSize.w}x${res.imageSize.h} px = the whole ${res.frame.w}x${res.frame.h} frame (1 image px = ${(res.frame.w / res.imageSize.w).toFixed(2)} frame px). ` +
-        "Crop and mask numbers are not canvas positions: they are fractions of each clip's original frame (the whole source frame, before crop, scale and x / y; a mask's x, y is its top-left corner) — see the Masks docs."
+        "Crop and mask numbers are not canvas positions: crop is a percent of each clip's whole source frame, and a mask's x, y (its centre), w, h are fractions of the picture left after the crop, before the clip's scale and x / y — see \"Mask and crop coordinates\" in the docs."
       : "";
 
     /* Text mode: the scopes reading measured this exact frame already, and its
@@ -1507,8 +1505,6 @@ async function callTool(name, args, attempt = 0) {
       // Agents often omit top-level flags they don't know about. Keep panSchema
       // once established so a rewrite that drops pan:0 cannot re-trigger L/R migration.
       if (!(doc.panSchema >= 1) && (cur.panSchema >= 1)) doc.panSchema = 1;
-      // every document an agent reads is at maskSchema 2 (readProject), so masks it writes are in that convention
-      if (!(doc.maskSchema >= Mask.MASK_SCHEMA)) doc.maskSchema = Mask.MASK_SCHEMA;
       writeProject(doc);
       lastReadRevision = doc.revision;
       return `Saved (revision ${doc.revision}). ${doc.clips.length} clip(s). The editor UI (if open at ${BASE}) has hot-reloaded.${verWarn}`;
