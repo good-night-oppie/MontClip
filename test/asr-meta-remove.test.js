@@ -223,9 +223,9 @@ test('2. a file that still can\'t be deleted: never "removed"; the streamer is t
   vm.runInNewContext(app.slice(i, j + 3), ctx);
   await vm.runInContext('asrRevokeMeta()', ctx);
   a.deepEqual(calls, [['toast', 'own.asr-meta-remove-incomplete'], ['loadAsrStatus']]);
-  // the words (drafts for JJ)
-  a.equal(zh('asr-meta-remove-incomplete'), 'Meta 的模型没删干净：有的文件正被占用，删不掉。你对许可条款的同意还没收回。关掉 MontClip 再打开，然后再点一次〔删掉 Meta 的模型〕。');
-  a.equal(en('asr-meta-remove-incomplete'), "Meta's model wasn't fully removed: some of its files are in use and couldn't be deleted. Your agreement to its licence terms hasn't been withdrawn yet. Close MontClip, open it again, then click “Remove Meta's model” once more.");
+  // JJ's final words (Deja, 11-05; the button's name in curly quotes: Deja's change to JJ's straight ones)
+  a.equal(zh('asr-meta-remove-incomplete'), 'Meta 的模型没删干净：有的文件正被占用，删不掉。你对许可条款的同意还没收回。关掉 MontClip 再打开，然后再点一次〔删掉 Meta 的模型〕；还不行，就重启电脑再试。删干净之前，听写请先换回 Paraformer。');
+  a.equal(en('asr-meta-remove-incomplete'), "Meta's model wasn't fully removed: some of its files are in use and couldn't be deleted. Your agreement to its licence terms hasn't been withdrawn yet. Close MontClip, open it again, then click “Remove Meta's model” once more; if that doesn't work, restart the computer and try again. Until it's fully removed, switch transcription back to Paraformer.");
 });
 
 test('the wiring: after 〔删掉〕 the host has the server stop Meta and wait, then removes; the server stops only a Meta job', () => {
@@ -262,4 +262,89 @@ test('real Meta model: 〔删掉〕 0.8 s into a transcription removes everythin
   a.equal(r.ok, true, JSON.stringify(r));
   a.equal(alive(child), false);
   a.equal(fs.existsSync(path.join(dir, 'asrMeta')), false); a.equal(S.allowed('asrMeta'), false);
+});
+
+// ── Meta only partly removed (Deja, 11-05: does choosing Meta still transcribe?). On katana, 〔删掉〕 0.8 s into a Meta
+// transcription with the old code left model.int8.onnx and tokens.txt (LICENSE gone). Each file is deleted on its own,
+// so one that stays busy leaves the others gone: Meta is then not installed, the Transcribe button is off and the
+// server refuses it (ASR_MODEL_MISSING) — so the last sentence of JJ's words stands. ──
+const crypto = require('node:crypto');
+const { createStore } = require('../asr-models');
+const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
+
+test('partly removed: whichever one file stays busy, the others go; Meta is then not installed, so it can\'t be used to transcribe', async (t) => {
+  // stand-in files with a manifest made for them (the real hashes can't be faked); the consent terms are the real ones
+  const files = { 'model.int8.onnx': 'model bytes', 'tokens.txt': 'tokens', 'LICENSE': 'licence' };
+  const man = { ...manifest, models: { ...manifest.models, asrMeta: { ...META, files: Object.fromEntries(Object.entries(files).map(([n, s]) => [n, { size: Buffer.byteLength(s), sha256: sha(s) }])) } } };
+  const app = read('app.js');
+  const i = app.indexOf('const ASR_MODEL_KEY'), j = app.indexOf('/** The optional punctuation model');
+  for (const busy of Object.keys(files)) {
+    const dir = tmp(t, 'mc-rm-part-');
+    const put = () => { fs.mkdirSync(path.join(dir, 'asrMeta'), { recursive: true }); for (const [n, s] of Object.entries(files)) fs.writeFileSync(path.join(dir, 'asrMeta', n), s); };
+    const S = C.createConsent({ modelsDir: dir, manifest: man,
+      rm: (p, o) => { if (path.basename(p) === busy) throw Object.assign(new Error('EBUSY'), { code: 'EBUSY' }); return fs.rmSync(p, o); } });
+    await S.choose('asrMeta', { ask: yesTo([]), installed: () => fs.existsSync(path.join(dir, 'asrMeta', busy)), download: async () => put(), version: 'test' });
+    const store = createStore({ manifest: man, roots: [], userDir: dir });
+    a.equal(store.status().asrMeta.ready, true, 'usable before');
+    const r = await S.remove('asrMeta', { release: async () => ({ released: true, stopped: 0 }) });
+    a.equal(r.code, 'ASR_REMOVE_INCOMPLETE'); a.deepEqual(r.left, ['asrMeta/' + busy], busy + ' busy: only it is left');
+    const st = store.status().asrMeta;
+    a.equal(st.ready, false, busy + ' busy: not installed any more');
+    a.deepEqual(st.missing.sort(), Object.keys(files).filter((n) => n !== busy).sort());
+    a.equal(S.allowed('asrMeta'), true, 'the agreement is kept (so the button to remove it stays)');
+    // the page with that status: Meta chosen, not ready — the Transcribe button is off, the line says it is not installed
+    const ctx = { localStorage: { getItem: () => 'asrMeta', setItem: () => {} },
+      asrState: { status: { engine: { ready: true }, vad: { ready: true }, asr: { ready: true, missing: [], bad: [] }, asrMeta: { ...st, installed: st.ready, consented: true, ready: st.ready && true } } } };
+    vm.runInNewContext(app.slice(i, j), ctx);
+    a.equal(vm.runInContext('asrReady()', ctx), false, busy + ' busy: Transcribe is off');
+  }
+  // the server: Meta's status is "installed and agreed"; a model that is not installed is refused before anything runs
+  const server = read('server.js');
+  a.match(server, /st\[key\] = \{ \.\.\.st\[key\], installed: st\[key\]\.ready, consented, ready: st\[key\]\.ready && consented \};/);
+  a.match(server, /if \(!st\[key\] \|\| !st\[key\]\.ready\) \{ sendJSON\(res, 409, \{ code: "ASR_MODEL_MISSING"/);
+  a.ok(server.indexOf('code: "ASR_MODEL_MISSING"') < server.indexOf('await (key === "asrMeta" ? asrMeta() : asr()).transcribe('));
+  a.match(app, /E\.go\.disabled = !!trState\.busy \|\| !tgt\.srcs\.length \|\| !asrReady\(\);/);
+});
+
+test('partly removed, the edges: every file of it busy — nothing deleted, Meta still whole and usable; only a half-downloaded part left — the files are gone', async (t) => {
+  const files = { 'model.int8.onnx': 'model bytes', 'tokens.txt': 'tokens', 'LICENSE': 'licence' };
+  const man = { ...manifest, models: { ...manifest.models, asrMeta: { ...META, files: Object.fromEntries(Object.entries(files).map(([n, s]) => [n, { size: Buffer.byteLength(s), sha256: sha(s) }])) } } };
+  for (const stuck of ['every file', 'a part']) {
+    const dir = tmp(t, 'mc-rm-edge-');
+    fs.mkdirSync(path.join(dir, '.partial'), { recursive: true });
+    const part = path.join(dir, '.partial', META.sources.find((s) => s.sha256).sha256 + '.part'); fs.writeFileSync(part, 'half');
+    const S = C.createConsent({ modelsDir: dir, manifest: man,
+      rm: (p, o) => { if (stuck === 'every file' ? p.includes('asrMeta') : p === part) throw Object.assign(new Error('EBUSY'), { code: 'EBUSY' }); return fs.rmSync(p, o); } });
+    await S.choose('asrMeta', { ask: yesTo([]), installed: () => fs.existsSync(path.join(dir, 'asrMeta', 'LICENSE')),
+      download: async () => { fs.mkdirSync(path.join(dir, 'asrMeta'), { recursive: true }); for (const [n, s] of Object.entries(files)) fs.writeFileSync(path.join(dir, 'asrMeta', n), s); }, version: 'test' });
+    const r = await S.remove('asrMeta', {});
+    a.equal(r.code, 'ASR_REMOVE_INCOMPLETE', stuck);
+    a.equal(createStore({ manifest: man, roots: [], userDir: dir }).status().asrMeta.ready, stuck === 'every file', stuck);
+    if (stuck === 'a part') a.deepEqual(r.left, ['.partial/' + path.basename(part)]);
+    a.equal(S.allowed('asrMeta'), true);
+  }
+});
+
+// the real model and the real server: what Windows left (model.int8.onnx busy), then Meta is asked for
+test('real Meta model, real server: model.int8.onnx busy when removing — Meta is then refused (ASR_MODEL_MISSING); Paraformer is still ready', { skip: !(ENGINE && META_DIR) && 'set MONTCLIP_TEST_META_DIR (and have vendor/asr)' }, async (t) => {
+  const { startServer, makeDataDir } = require('./helpers');
+  const dataDir = makeDataDir(t), models = path.join(dataDir, 'asr-models');
+  const S = C.createConsent({ modelsDir: models,
+    rm: (p, o) => { if (path.basename(p) === 'model.int8.onnx') throw Object.assign(new Error('EBUSY'), { code: 'EBUSY' }); return fs.rmSync(p, o); } });
+  await S.choose('asrMeta', { ask: yesTo([]), installed: () => fs.existsSync(path.join(models, 'asrMeta', 'model.int8.onnx')), version: 'test', download: async () => {
+    fs.mkdirSync(path.join(models, 'asrMeta'), { recursive: true });
+    for (const f of Object.keys(META.files)) fs.copyFileSync(path.join(META_DIR, 'asrMeta', f), path.join(models, 'asrMeta', f));
+  } });
+  const media = path.join(dataDir, 'media', 'tone.wav'); fs.mkdirSync(path.dirname(media), { recursive: true });
+  cp.execFileSync(require('../ffmpeg-path').path('ffmpeg'), ['-v', 'error', '-f', 'lavfi', '-i', 'sine=f=300:d=3', '-ar', '16000', '-y', media]);
+  const s = await startServer(t, dataDir, { MONTCLIP_ASR_DIR: VENDOR, MONTCLIP_ASR_MODELS_DIR: models });
+  a.equal((await (await fetch(s.base + '/api/asr/status')).json()).asrMeta.ready, true, 'usable before');
+  const r = await S.remove('asrMeta', {});
+  a.deepEqual(r.left, ['asrMeta/model.int8.onnx']);
+  const st = await (await fetch(s.base + '/api/asr/status')).json();
+  a.equal(st.asrMeta.ready, false); a.equal(st.asrMeta.installed, false); a.equal(st.asrMeta.consented, true);
+  a.deepEqual(st.asrMeta.missing.sort(), ['LICENSE', 'tokens.txt']);
+  a.equal(st.asr.ready, true, 'Paraformer');
+  const res = await fetch(s.base + '/api/asr/transcribe', { method: 'POST', body: JSON.stringify({ src: '/media/tone.wav', model: 'meta' }) });
+  a.equal(res.status, 409); a.equal((await res.json()).code, 'ASR_MODEL_MISSING');
 });
