@@ -85,3 +85,23 @@ No result is merged into project.json: keeping diagnostics separate avoids races
 with pending editor changes and prevents implicit application of the new clock.
 The endpoint rejects edit options. No UI action or agent repair tool may treat
 starting the diagnostic scan as consent to remove a hole.
+
+## Continuous-copy experiment after explicit choice
+
+Run `node scripts/packet-clock-normalize-bench.js` or
+`node --test test/packet-clock-normalize.test.js`. This harness applies the ranges
+to both video and audio using trim/atrim and the SAME original PTS origin for
+each segment, then concatenates the segments. It does not independently reset
+each track to STARTPTS, which could erase their relative offset.
+
+Windows results: FLV source gives a 9.923 s copy (coverage 9.940 s); MKV gives
+9.908 s (coverage 9.907 s). Both pass finite/minimum/coverage duration checks and
+strict whole-file decode. At normalized time 5.52 s, pixels match sequentially
+decoded source frame 165 exactly. Video/audio packet timestamps have no large
+holes; their starts and ends differ by less than 1/30 s. Source bytes are unchanged.
+
+The harness uses lossless FFV1 video and PCM audio in MKV for exact pixel checks,
+not a browser-ready output. This does not implement #157's codec selection, UI,
+job consent, replacement/undo, or full editor export acceptance. Interior sound
+alignment and real browser playback still need end-to-end checks. The two opt-in
+repair integration TODOs remain pending. Linux/europa experiment: not run locally.
