@@ -347,6 +347,14 @@ test('real Meta model, real server: model.int8.onnx busy when removing — Meta 
   a.equal(st.asr.ready, true, 'Paraformer');
   const res = await fetch(s.base + '/api/asr/transcribe', { method: 'POST', body: JSON.stringify({ src: '/media/tone.wav', model: 'meta' }) });
   a.equal(res.status, 409); a.equal((await res.json()).code, 'ASR_MODEL_MISSING');
+  a.equal(st.asrMeta.partlyRemoved, true, '删了一半');
+  // 〔删掉 Meta 的模型〕 once more, with nothing busy now: the rest goes, and the agreement; then it is simply not installed
+  const again = await C.createConsent({ modelsDir: models }).remove('asrMeta', {});
+  a.equal(again.ok, true, JSON.stringify(again));
+  a.equal(fs.existsSync(path.join(models, 'asrMeta')), false);
+  const after = (await (await fetch(s.base + '/api/asr/status')).json()).asrMeta;
+  a.deepEqual({ installed: after.installed, consented: after.consented, partlyRemoved: after.partlyRemoved }, { installed: false, consented: false, partlyRemoved: false });
+  a.deepEqual(after.missing.sort(), Object.keys(META.files).sort());
 });
 
 // ── while 〔删掉〕 waits (Deja, 11-05): a Meta request gets plain words — never a code or English — and Paraformer works ──
@@ -356,8 +364,9 @@ test('a Meta transcription asked for while Meta is being removed: one plain sent
   const code = take('const ASR_MODEL_KEY', 'const asrModelStatus') + take('function asrMetaFailToast(', '\n}\n') + '\n}\n'
     + take('function asrMetaWords(', '/** Transcribe files one after another.')
     + take('async function transcribeSrcs(', '\n}\n') + '\n}\n' + take('async function transcribeFromTab(', '\n}\n') + '\n}\n';
-  for (const [lang, want] of [['zh-CN', 'Meta 的模型正在删掉，这次没有开始听写。把「听写模型」换回 Paraformer 再听写就行。'],
-    ['en', "Meta's model is being removed, so this transcription didn't start. Switch the speech model back to Paraformer and transcribe again."]]) {
+  // JJ's final words (Deja, 11-05)
+  for (const [lang, want] of [['zh-CN', '正在删掉 Meta 的模型，这次没有开始听写。点〔换回 Paraformer〕，再听写就行。'],
+    ['en', "Removing Meta's model, so this transcription didn't start. Click “Switch to Paraformer” and transcribe again."]]) {
     const shown = [];
     const ctx = {
       localStorage: { getItem: () => 'asrMeta', setItem: () => {} }, uiText: (k, v) => V.t(lang, k, v), Number, String, Object, JSON, Math,
@@ -412,4 +421,50 @@ test('real model, real server: while 〔删掉〕 waits for Meta, a Paraformer t
   a.equal((await post('/api/asr/transcribe', { src: '/media/short.wav' })).status, 200);
   await post('/api/asr/meta/release', { done: true });
   t.diagnostic('order: ' + order.join(' → '));
+});
+
+// ── 删了一半 (Deja / JJ, 11-05): the agreement is still here, some of Meta's files are and some aren't. The Transcript tab
+// says so, with 〔删掉 Meta 的模型〕 first and 〔换回 Paraformer〕; no 〔下载并使用〕. Not a model never installed (none of its
+// files) and not a download under way (no agreement yet, its files still in .partial). ──
+test('删了一半: what counts — the agreement, and some but not all of the files', () => {
+  const all = Object.keys(META.files), st = (missing) => ({ ready: false, missing, bad: [] });
+  a.equal(C.partlyRemoved('asrMeta', st(['LICENSE']), true), true, 'one file gone, agreed');
+  a.equal(C.partlyRemoved('asrMeta', st(all.slice(0, 2)), true), true, 'two gone');
+  a.equal(C.partlyRemoved('asrMeta', st(all), true), false, 'all gone: not installed');
+  a.equal(C.partlyRemoved('asrMeta', st(['LICENSE']), false), false, 'no agreement: a download under way, or a USB copy');
+  a.equal(C.partlyRemoved('asrMeta', { ready: true, missing: [], bad: [] }, true), false, 'whole');
+  a.equal(C.partlyRemoved('asr', st(['tokens.txt']), true), false, 'Paraformer has no agreement');
+  // the server reports it with Meta's status
+  a.match(read('server.js'), /partlyRemoved: Consent\.partlyRemoved\(key, st\[key\], consented\)/);
+});
+
+test('删了一半, the Transcript tab: JJ\'s words, 〔删掉 Meta 的模型〕 first, 〔换回 Paraformer〕, no 〔下载并使用〕; other states unchanged', () => {
+  const app = read('app.js');
+  const take = (start, end) => { const i = app.indexOf(start), j = app.indexOf(end, i); a.ok(i >= 0 && j > i, start); return app.slice(i, j); };
+  const code = take('const ASR_MODEL_KEY', '/** The optional punctuation model') + take('function paintAsrStatus(', '\n}\n') + '\n}\n';
+  const el = () => ({ hidden: true, textContent: '', dataset: {}, disabled: false, value: '', classes: new Set(), classList: { toggle(c, on) { this.owner.classes[on ? 'add' : 'delete'](c); } } });
+  const look = (lang, meta, { downloading = null } = {}) => {
+    const E = {}; for (const k of ['asr', 'asrDownload', 'asrImport', 'asrCancel', 'asrLater', 'asrModel', 'asrRevoke', 'asrSwitch', 'asrFit']) { E[k] = el(); E[k].classList.owner = E[k]; }
+    const ctx = { localStorage: { getItem: () => 'asrMeta', setItem: () => {} }, uiText: (k, v) => V.t(lang, k, v), mbText: (n) => n + ' B',
+      window: { montclipAsr: { revoke: () => {} } }, trState: { el: E, busy: null }, paintSettingsAsr: () => {}, renderTranscript: () => {},
+      asrState: { note: '', phase: null, downloading, status: { engine: { ready: true }, vad: { ready: true }, asr: { ready: true, missing: [], bad: [] }, asrMeta: meta } } };
+    vm.runInNewContext(code, ctx);
+    vm.runInContext('paintAsrStatus()', ctx);
+    return { text: E.asr.textContent, download: !E.asrDownload.hidden, import: !E.asrImport.hidden, remove: !E.asrRevoke.hidden, removeFirst: E.asrRevoke.classes.has('accent'), switchBack: !E.asrSwitch.hidden };
+  };
+  const all = Object.keys(META.files);
+  for (const lang of ['zh-CN', 'en']) {
+    const partly = look(lang, { ready: false, installed: false, consented: true, partlyRemoved: true, missing: ['LICENSE'], bad: [] });
+    a.deepEqual(partly, { text: V.t(lang, 'own.asr-meta-partly-removed'), download: false, import: false, remove: true, removeFirst: true, switchBack: true }, lang + ' 删了一半');
+    // never installed: 〔下载并使用〕, nothing about removing
+    const never = look(lang, { ready: false, installed: false, consented: false, partlyRemoved: false, missing: all, bad: [] });
+    a.deepEqual(never, { text: V.t(lang, 'own.asr-missing-meta'), download: true, import: true, remove: false, removeFirst: false, switchBack: false }, lang + ' never installed');
+    // agreed, but none of the files here: not 删了一半 (〔删掉〕 is still offered, as before, to withdraw the agreement)
+    const none = look(lang, { ready: false, installed: false, consented: true, partlyRemoved: false, missing: all, bad: [] });
+    a.equal(none.text, V.t(lang, 'own.asr-missing-meta')); a.equal(none.download, true); a.equal(none.switchBack, false); a.equal(none.removeFirst, false);
+    // a download under way says so, whatever the files are
+    const dl = look(lang, { ready: false, installed: false, consented: true, partlyRemoved: true, missing: ['LICENSE'], bad: [] }, { downloading: { loaded: 1 } });
+    a.equal(dl.text, V.t(lang, 'own.asr-downloading', { got: '1 B' })); a.equal(dl.switchBack, false);
+  }
+  a.match(app, /E\.asrSwitch\.addEventListener\("click", \(\) => setAsrKey\("asr"\)\);/);
 });

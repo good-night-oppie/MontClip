@@ -150,3 +150,28 @@ test('not enough memory, files that can\'t be read: only the plain sentence, wit
     }
   }
 });
+
+// JJ's final words (Deja, 11-05): Meta being removed, and Meta removed half-way
+test('JJ\'s final words: being removed; removed half-way', () => {
+  a.equal(zh('asr-meta-removing'), '正在删掉 Meta 的模型，这次没有开始听写。点〔换回 Paraformer〕，再听写就行。');
+  a.equal(en('asr-meta-removing'), 'Removing Meta\'s model, so this transcription didn\'t start. Click “Switch to Paraformer” and transcribe again.');
+  a.equal(zh('asr-meta-partly-removed'), 'Meta 的模型没删干净，现在用不了。再点一次〔删掉 Meta 的模型〕就能删完；之后还想用 Meta，再重新下载。现在要听写，先换回 Paraformer。');
+  a.equal(en('asr-meta-partly-removed'), 'Meta\'s model wasn\'t fully removed, so it can\'t be used right now. Click “Remove Meta\'s model” again to finish removing it. To use Meta later, download it again after that. To transcribe now, switch back to Paraformer.');
+});
+
+// JJ: a button named in a sentence is named exactly as the button says it (English in curly quotes, Chinese in 〔〕)
+test('a sentence that names a button names it as the button itself says it', () => {
+  for (const lang of ['zh-CN', 'en']) {
+    const t = (k) => V.t(lang, 'own.' + k), named = (k) => (lang === 'en' ? '“' + t(k) + '”' : '〔' + t(k) + '〕');
+    for (const [sentence, button] of [['asr-meta-removing', 'asr-switch-paraformer'], ['asr-meta-partly-removed', 'asr-meta-revoke'], ['asr-meta-remove-incomplete', 'asr-meta-revoke']]) {
+      a.ok(t(sentence).includes(named(button)), lang + ' ' + sentence + ' names ' + named(button));
+    }
+    // asr-meta-broken (JJ's final words of 11-05): the same name; its English keeps JJ's straight quotes
+    a.ok(t('asr-meta-broken').includes(lang === 'en' ? '"' + t('asr-meta-revoke') + '"' : '〔' + t('asr-meta-revoke') + '〕'), lang + ' asr-meta-broken');
+  }
+  // and the buttons really carry those words: 〔换回 Paraformer〕 on the toast, 〔删掉 Meta 的模型〕 in the Transcript tab
+  const app = read('app.js');
+  a.match(app, /toastAction\(f\.error, uiText\("own\.asr-switch-paraformer"\)/);
+  a.match(app, /data-tr-asr-revoke hidden data-i18n="own\.asr-meta-revoke">\$\{escapeHtml\(uiText\("own\.asr-meta-revoke"\)\)\}/);
+  a.match(app, /data-tr-asr-switch hidden data-i18n="own\.asr-switch-paraformer">\$\{escapeHtml\(uiText\("own\.asr-switch-paraformer"\)\)\}/);
+});
