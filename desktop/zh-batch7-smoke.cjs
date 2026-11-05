@@ -133,6 +133,8 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     const FIT = String.raw`(async () => {
       const wait = (ms) => new Promise((r) => setTimeout(r, ms)), sel = document.getElementById('binFilter'), sort = document.getElementById('binSort');
       renderBin(); await wait(60);
+      // narrow window: the bin sits behind the 素材 / Media button
+      if (!sel.offsetParent && document.getElementById('mcMediaToggle')?.offsetParent) { document.getElementById('mcMediaToggle').click(); await wait(200); }
       if (!sel.offsetParent) return { hidden: true };
       const cs = getComputedStyle(sel), ctx = document.createElement('canvas').getContext('2d'); ctx.font = cs.font;
       const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
@@ -192,7 +194,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     assert.ok(own.top.startsWith('Untitled Project copy ') && own.file === 'Untitled Project copy', 'own name: ' + JSON.stringify(own));
     ok = true;
   } catch (e) { seen.error = String(e && e.message || e).slice(0, 1500); }
-  finally { out(ok ? 'ZH7_PASS' : 'ZH7_FAIL', ok ? { checked: Object.keys(seen) } : { error: seen.error }); process.exitCode = ok ? 0 : 1; app.exit(ok ? 0 : 1); }
+  finally { out(ok ? 'ZH7_PASS' : 'ZH7_FAIL', ok ? { checked: Object.keys(seen), fit: Object.fromEntries(Object.entries(seen).filter(([k]) => k.startsWith('fit')).map(([k, v]) => [k, v.hidden ? 'hidden' : { width: v.width, sort: v.sortWidth }])) } : { error: seen.error }); process.exitCode = ok ? 0 : 1; app.exit(ok ? 0 : 1); }
   await new Promise(() => {});
 };
 { const Module = require('node:module'), load = Module._load; Module._load = function (id, ...args) { if (id === 'electron') { Module._load = load; return { ...electron, BrowserWindow: class extends BrowserWindow { constructor(o) { super({ ...o, show: false, webPreferences: { ...o.webPreferences, offscreen: true, backgroundThrottling: false } }); } } }; } return load.call(this, id, ...args); }; }

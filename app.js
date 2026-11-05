@@ -120,6 +120,7 @@ function refreshLocalizedViews() {
   if (typeof renderInspector === "function" && els.inspector) renderInspector();
   if (typeof renderColorPage === "function" && colorState.open) renderColorPage(true);
   if (typeof syncSequenceButton === "function") syncSequenceButton();
+  if (typeof syncExportFrameSel === "function") syncExportFrameSel();
   state.dirtyTimeline = true; // clip labels ("T · Title")
   if (meterState.modeBtn) meterState.modeBtn.textContent = meterModeLabel(meterState.mode);
   if (projectsOpen()) renderProjects();
@@ -1601,7 +1602,7 @@ function syncExportFrameSel() {
   const i = exportFrameAspectIndex(ef);
   let html = EXPORT_FRAME_ASPECTS.map((a, j) => {
     const sel = ef ? (i === j) : (j === 0);
-    return `<option value="${j}" ${sel ? "selected" : ""}>${a.label}</option>`;
+    return `<option value="${j}" ${sel ? "selected" : ""}>${j === 0 ? escapeHtml(uiText("own.ef-full-canvas")) : a.label}</option>`;
   }).join("");
   if (ef && i < 0)
     html += `<option value="custom" selected>Custom · ${ef.w}×${ef.h}</option>`;
@@ -2677,7 +2678,7 @@ function syncBinTools() {
     `<optgroup label="Kind">${MediaLib.KINDS.map((k) => opt("kind:" + k, k === "svg" ? "SVG" : k === "video" || k === "audio" ? uiText("term." + k) : k === "image" ? uiText("own.bin-image") : k[0].toUpperCase() + k.slice(1))).join("")}</optgroup>` +
     (cols.length ? `<optgroup label="Collections">${cols.map((c) => opt("col:" + c.id, c.name + ` (${c.media.length})`)).join("")}</optgroup>` : "") +
     (tags.length ? `<optgroup label="Tags">${tags.map((t) => opt("tag:" + t, "#" + t)).join("")}</optgroup>` : "");
-  if (els.binFilter.innerHTML !== html) els.binFilter.innerHTML = html;
+  if (els.binFilter.innerHTML !== html) { els.binFilter.innerHTML = html; fitBinFilter(); }
   els.binFilter.value = binView.filter;
   els.binFilter.classList.toggle("on", !!binView.filter);
   els.binSort.value = binView.sort;
@@ -2686,6 +2687,16 @@ function syncBinTools() {
   els.binViewBtn.classList.toggle("on", binView.list);
   els.binViewBtn.title = binView.list ? "Thumbnail view" : uiText("term.list-view-metadata-columns");
   if (els.binSearch.value !== binView.q && document.activeElement !== els.binSearch) els.binSearch.value = binView.q;
+}
+/** The Show box is as wide as its longest built-in choice, plus room for the native arrow (VV, #148: at the default width
+ *  「全部素材」 was cut). A collection's or a tag's own name may still be cut; the box never grows past the row. */
+function fitBinFilter() {
+  const sel = els.binFilter, cs = getComputedStyle(sel);
+  const ctx = (fitBinFilter.ctx ||= document.createElement("canvas").getContext("2d"));
+  ctx.font = cs.font || "11px 'Segoe UI', sans-serif";
+  const box = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) + (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0);
+  const text = Math.max(0, ...[...sel.options].filter((o) => !/^(col|tag):/.test(o.value)).map((o) => ctx.measureText(o.textContent).width));
+  sel.style.minWidth = Math.ceil(text + box + 22) + "px";
 }
 function setBinFilter(filter) {
   binView.filter = filter || "";

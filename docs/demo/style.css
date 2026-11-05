@@ -4181,6 +4181,10 @@ input[type="range"].cq-hue {
   padding: 3px 4px;
 }
 .bin-tools select.on { border-color: var(--accent); color: #cfc8ff; }
+/* Show takes the width of its longest choice (fitBinFilter); when the row is too narrow, Sort wraps to the next line
+   instead of shrinking to nothing (VV, #148) */
+.bin-tools #binFilter { max-width: 100%; }
+.bin-tools #binSort { min-width: 72px; }
 .bin-tools .btn.tiny { flex: none; min-width: 26px; }
 .bin-tools .btn.tiny.on { border-color: var(--accent); color: #cfc8ff; }
 

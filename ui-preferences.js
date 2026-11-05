@@ -863,6 +863,8 @@
     "seq-duplicate": ["Duplicate “{name}”", "复制一份「{name}」"], "seq-rename": ["Rename “{name}”…", "重命名「{name}」…"],
     "seq-delete": ["Delete “{name}”…", "删除「{name}」…"], "seq-keep-one": ["A project keeps at least one sequence", "一个项目至少要留一个序列"],
     "snap-to": ["Snap to", "吸附到"], "snap-clips": ["Clip edges", "片段边缘"], "snap-playhead": ["Playhead", "播放头"],
+    // VV's four (JJ agreed): the export frame's first choice
+    "ef-full-canvas": ["Full canvas", "完整画布"],
     "snap-targets-title": ["Snap targets — clip edges, playhead, markers, IN/OUT, keyframes, frame grid", "吸附目标 — 片段边缘、播放头、标记、入点/出点、关键帧、每一帧"],
     "seq-button-title": ["Sequence: {name} — open another one, or add, duplicate, rename", "序列：{name} — 打开别的序列，或新建、复制一份、重命名"],
     "snap-inout": ["IN / OUT", "入点 / 出点"], "snap-keyframes": ["Keyframes", "关键帧"], "snap-frames": ["Frame grid", "每一帧"],
