@@ -343,6 +343,33 @@ test('across two launches: verify mismatch + rollback EPERM, then the next launc
   a.ok(main.includes("SEAL_FAILED_LEFTOVER: 'seedSealFailed'"), 'its own words: the sealing failed');
 });
 
+// JJ's seedSealFailed promises 「会自动重新存一次」 / "It will save the key again automatically" (2026-11-05): that is only
+// true if removing the connection from the paused app, then opening MontClip again, seals the seed and clears the leftover.
+test('SEAL_FAILED_LEFTOVER → 〔删除这个连接〕 in that same paused run → reopen: the seed is sealed again, AI set up, seed and .leftover gone', () => {
+  const profile = tmp(), resources = tmp(), seed = writeSeed(resources), safe = sealing(true);
+  const expected = Seed.parseSeed(fs.readFileSync(seed, 'utf8')), leftover = seed + Seed.LEFTOVER_SUFFIX;
+  const connection = path.join(profile, 'agent-connection-v1.json');
+  const blocked = { ...fs, unlinkSync(p) { if (p === connection) throw Object.assign(Error('EPERM'), { code: 'EPERM' }); return fs.unlinkSync(p); } };
+  const wrongSeal = { ...safe, encryptString: () => safe.encryptString('synthetic-wrong-key') };
+  a.equal(Seed.importSeed({ file: seed, service: AgentService.createDiskService(profile, wrongSeal, blocked), encryptionAvailable: () => true }).code, 'VERIFY_FAILED_NOT_UNDONE');
+  // the launch that shows seedSealFailed; the page's 〔删除这个连接〕 calls this same service's deleteConnection()
+  const paused = AgentService.createDiskService(profile, safe);
+  a.equal(Seed.importSeed({ file: seed, service: paused, encryptionAvailable: () => true }).code, 'SEAL_FAILED_LEFTOVER');
+  a.equal(paused.get().configured, false); a.equal(fs.existsSync(leftover), true);
+  a.equal(paused.deleteConnection().code, 'CONNECTION_DELETED');
+  a.equal(fs.existsSync(connection), false);
+  // close MontClip and open it again
+  const reopened = AgentService.createDiskService(profile, safe);
+  a.equal(Seed.importSeed({ file: seed, service: reopened, encryptionAvailable: () => true }).code, 'SEALED');
+  a.equal(reopened.get().configured, true, 'the AI is set up');
+  a.equal(reopened.get().code, null);
+  a.equal(reopened.matches(expected), true, 'with the key from the package');
+  a.equal(fs.existsSync(seed), false, 'the seed is gone'); a.equal(fs.existsSync(leftover), false, 'the .leftover is gone');
+  a.deepEqual(fs.readdirSync(resources), []); a.deepEqual(holding(profile), []);
+  // and a further launch has nothing left to do
+  a.equal(Seed.importSeed({ file: seed, service: AgentService.createDiskService(profile, safe), encryptionAvailable: () => true }).code, 'NO_SEED');
+});
+
 test('a different connection she set up herself (not a leftover): SEED_CONFLICT, its own code; the seed kept, AI paused', () => {
   const profile = tmp(), resources = tmp(), seed = writeSeed(resources), safe = sealing(true), before = fs.readFileSync(seed, 'utf8');
   const own = AgentService.createDiskService(profile, safe);
