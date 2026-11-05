@@ -2388,6 +2388,22 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
   (first tab wins, else 409), `POST /api/export/job/report?id=`
   `{progress} | {status:"done", src} | {status:"failed", error}` → `{cancel}`.
 
+
+### Packet-clock diagnostics (draft)
+
+`POST /api/media-clock {src}` starts or reuses a read-only background scan and returns
+HTTP 202 `{src, key, state}`. `GET /api/media-clock?src=` polls it; when `state:"done"`,
+`result` contains `coveredDuration`, `sourceDuration`, `ranges`, `gaps`, and `timestampJump`.
+Other states are `none`, `queued`, `running`, `failed`, `cancelled`, and `stale`.
+`POST /api/media-clock/cancel {src}` cancels that scan. File size/mtime changes invalidate
+results. There are at most two active scans and 128 retained jobs; a full busy queue returns 429.
+
+These diagnostics do not save project metadata, shorten media, or modify clips. Only an
+explicit skip-gap choice may apply a different clock; the repair/UI integration is pending.
+The endpoint rejects edit options such as `apply`. Do not use covered duration as the
+source duration for `fablecut_frame` or existing clip In/Out values. See
+`docs/testing/packet-coverage.md` for mapping units and current limitations.
+
 ## Recipes
 
 **Assemble a rough cut**: clips back-to-back on V1; each `start` = running sum

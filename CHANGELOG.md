@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Draft packet-clock diagnostic API: bounded background scans report covered time separately
+  from the source clock. Diagnostics never change existing project coordinates; opt-in repair integration is pending.
 - Engine groundwork for the Cindy plugin (one engine, two shells): `mcp-server.js` can be required as a module
   (`{TOOLS, callTool, ensureUIServer}`), `POST /api/ui/command` asks the open editor tab to undo / redo / seek /
   report its state, the editor's undo history is kept per project (`/api/ui/undo-stack`) so a reloaded tab gets

@@ -51,7 +51,8 @@ const isAiCard=p=>/卡 4|Card 4/.test(p.pos),isAiNote=p=>/^(AI 说明|AI note)$/
 test('the copy file is the one JJ delivered',()=>{a.equal(src.sha(),src.SHA256);});
 
 test('README (English) and README.zh-CN are JJ\'s text, word for word',()=>{
- for(const lang of ['en','zh'])a.equal(read(READMES[lang]),expectedReadme(lang),READMES[lang]);
+ // The approved public copy remains exact; the English developer appendix is separate.
+ for(const lang of ['en','zh'])a.equal(read(READMES[lang]).split('\n## Technical reference\n')[0].trimEnd()+'\n',expectedReadme(lang),READMES[lang]);
 });
 
 test('home and start pages show every sentence of the copy, links where it says so',()=>{

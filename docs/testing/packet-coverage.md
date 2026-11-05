@@ -1,7 +1,7 @@
 # Timestamp coverage experiment (draft)
 
-This is an internal diagnostic module, not a change to imported media clocks.
-`packet-clock.js` is deliberately not called by the editor or `media-probe` yet.
+This is a read-only diagnostic API, not a change to imported media clocks.
+`packet-clock.js` is used by background scan jobs but not by editor clock conversion or `media-probe`.
 Existing projects, clip lengths and source seeking keep their current behavior.
 
 ## Reproduce
@@ -50,7 +50,7 @@ repair success. Keep the strict decode check.
 ## Remaining integration and product decision
 
 The helper maps clocks; it is not yet a working timeline feature. The two
-registered-duration regression assertions remain executed TODO failures. Browser
+explicit skip-gap repair assertions remain executed TODO failures. Browser
 preview, WebCodecs export, source monitor, offline audio, analyze.frame and
 background metadata writes must all consume the same agreed clock before those
 TODOs can be removed. Existing clip In/Out values must not be silently reinterpreted.
@@ -58,15 +58,28 @@ TODOs can be removed. Existing clip In/Out values must not be silently reinterpr
 A forward packet hole alone cannot distinguish a timestamp discontinuity from
 real lost recording time. #130 proposes keeping lost time as a held picture and
 silence; automatically compressing every hole conflicts with that behavior.
-Decision requested: automatically compress flagged new imports, or require an
-explicit choice to remove a hole while preserving the existing clock by default.
-Recommendation: explicit choice, with old projects unchanged. Both behaviors can
-reuse this scan, but application, audio silence and clip migration depend on it.
+Decision confirmed by the user on 2026-11-05: require an explicit choice to remove
+a hole. Scanning reports coverage separately; existing project clocks stay intact.
+The old TODO assertions expecting inspection to shorten duration were replaced by
+passing non-mutation tests and executed TODOs for an explicit skip-gap repair.
 
-After that decision: wire preview/export/audio and MCP seeking together; add
-background scan scheduling and server/editor merge; give #157 the covered repair
+Next: wire the explicit choice into the shared #157 repair workflow, which is not
+on this branch's main base yet; give that workflow the covered repair
 baseline only when validating a normalized output. Validate audio alignment,
 clip positions, exports, undo and existing-project migration end to end. Do not
 replace the baseline alone: current remux outputs still contain the hole.
 
 Linux and europa real-file checks: not run in this round.
+
+## Background diagnostics
+
+`POST /api/media-clock {src}` starts/reuses a job; `GET /api/media-clock?src=`
+polls its state/result. `POST /api/media-clock/cancel {src}` cancels only this job.
+Two scans run at once, at most 128 jobs are retained. Queue starts return before
+scanning; duplicate file versions share work. Size/mtime changes invalidate old
+results both during and after a scan. Shutdown aborts owned probe processes.
+
+No result is merged into project.json: keeping diagnostics separate avoids races
+with pending editor changes and prevents implicit application of the new clock.
+The endpoint rejects edit options. No UI action or agent repair tool may treat
+starting the diagnostic scan as consent to remove a hole.

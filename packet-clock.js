@@ -80,17 +80,19 @@ function sourceRanges(map, start, end) {
   return result;
 }
 const number = v => v != null && v !== "" && v !== "N/A" && Number.isFinite(Number(v)) ? Number(v) : undefined;
-async function scanFile(file, { timeoutMs } = {}) {
+async function scanFile(file, { timeoutMs, signal } = {}) {
+  if (signal?.aborted) throw Object.assign(new Error("clock scan cancelled"), { code: "ABORT_ERR" });
   const st = await fs.promises.stat(file);
   const streams = await new Promise((resolve, reject) => {
     execFile(FF.path("ffprobe"), ["-v", "error", "-show_streams", "-of", "json", file],
-      { encoding: "utf8", windowsHide: true, timeout: 15000, maxBuffer: 4 << 20 }, (err, out) => {
+      { encoding: "utf8", windowsHide: true, timeout: 15000, maxBuffer: 4 << 20, signal }, (err, out) => {
         if (err) return reject(err);
         try { resolve(JSON.parse(out).streams || []); } catch (e) { reject(e); }
       });
   });
   const stream = primaryStream(streams);
   if (!stream) throw new Error("no primary audio/video stream");
+  if (signal?.aborted) throw Object.assign(new Error("clock scan cancelled"), { code: "ABORT_ERR" });
   const budget = timeoutMs ?? Math.min(180000, 20000 + Math.ceil(st.size / 1e9) * 15000);
   return new Promise((resolve, reject) => {
     const scan = accumulator();
@@ -99,6 +101,9 @@ async function scanFile(file, { timeoutMs } = {}) {
     { windowsHide: true, stdio: ["ignore", "pipe", "ignore"] });
     let rest = "", failure;
     const fail = message => { failure = new Error(message); child.kill(); };
+    const abort = () => fail("clock scan cancelled");
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted) abort();
     const timer = setTimeout(() => fail("packet scan timed out; partial scan discarded"), budget);
     function line(text) {
       const fields = Object.fromEntries(text.split("|").map(kv => kv.split("=")));
@@ -111,9 +116,10 @@ async function scanFile(file, { timeoutMs } = {}) {
       if (rest.length > 4096 || lines.some(l => l.length > 4096)) return fail("invalid packet record");
       for (const text of lines) line(text);
     });
-    child.on("error", err => { clearTimeout(timer); reject(err); });
+    child.on("error", err => { clearTimeout(timer); signal?.removeEventListener("abort", abort); reject(err); });
     child.on("close", (code, signal) => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
       if (failure || signal || code !== 0) return reject(failure || new Error("packet scan incomplete"));
       try {
         if (rest) line(rest);

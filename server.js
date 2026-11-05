@@ -63,6 +63,7 @@ try {
 } catch {}
 const Templates = require("./templates");
 const { probeFile } = require("./media-probe");
+const clockJobs = require("./packet-clock-jobs").createClockJobs();
 const MediaLib = require("./media-lib");
 const { createProxies } = require("./proxy");
 const { createTranscripts } = require("./transcripts");
@@ -1016,6 +1017,29 @@ const server = http.createServer(async (req, res) => {
     } catch (e) { sendJSON(res, 422, { error: X.maskUserPath(e.message), code: e.code || "SONGS_FAILED", ...(e.code === "ENOSPC" ? { drive: songDrive() } : {}) }); }
     return;
   }
+  /* Read-only packet-clock diagnostics. No POST option applies a clock to a project. */
+  if ((p === "/api/media-clock" && (req.method === "GET" || req.method === "POST")) ||
+      (p === "/api/media-clock/cancel" && req.method === "POST")) {
+    try {
+      let src = url.searchParams.get("src") || "";
+      if (req.method === "POST") {
+        const body = JSON.parse((await readBody(req)).toString("utf8") || "{}");
+        if (!body || Array.isArray(body) || typeof body !== "object" || typeof body.src !== "string" ||
+            Object.keys(body).some(k => k !== "src")) {
+          sendJSON(res, 400, { error: "expected {src}; clock diagnostics do not apply edits" }); return;
+        }
+        src = body.src;
+      }
+      const file = resolveSrc(src);
+      if (!file || !fs.existsSync(file)) { sendJSON(res, 404, { error: "no such media file" }); return; }
+      const result = p.endsWith("/cancel") ? clockJobs.cancel(file) : req.method === "POST" ? await clockJobs.start(file) : await clockJobs.get(file);
+      sendJSON(res, req.method === "POST" && !p.endsWith("/cancel") ? 202 : 200, { src, ...result });
+    } catch (e) {
+      sendJSON(res, e.code === "CLOCK_QUEUE_FULL" ? 429 : e.code === "ENOENT" ? 404 : 400,
+        { code: e.code === "CLOCK_QUEUE_FULL" ? e.code : "CLOCK_REQUEST_FAILED", error: "clock diagnostic request failed" });
+    }
+    return;
+  }
   if (p === "/api/media-info" && (req.method === "GET" || req.method === "POST")) {
     try {
       if (req.method === "GET") {
@@ -1877,6 +1901,7 @@ async function shutdown() {
   shuttingDown = true;
   setTimeout(() => process.exit(0), 3700).unref?.();
   stopExportSweep();
+  clockJobs.shutdown();
   const sessions = [...exportSessions.values()];
   exportSessions.clear();
   exportJobs.shutdown();

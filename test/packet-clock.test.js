@@ -1,6 +1,10 @@
 "use strict";
 const test = require("node:test"), a = require("node:assert/strict");
 const load = () => require("../packet-clock");
+test("already-cancelled scans never start ffprobe", async () => {
+  const ctrl = new AbortController(); ctrl.abort();
+  await a.rejects(load().scanFile("missing-file", { signal: ctrl.signal }), { code: "ABORT_ERR" });
+});
 test("primary track excludes attached pictures and prefers default video over audio", () => {
   const { primaryStream } = load();
   a.equal(primaryStream([{ index: 0, codec_type: "video", disposition: { attached_pic: 1 } },

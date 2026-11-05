@@ -2,6 +2,7 @@
 const test = require("node:test"), assert = require("node:assert/strict"), fs = require("node:fs"), os = require("node:os"), path = require("node:path");
 const FF = require("../ffmpeg-path"), MP = require("../media-probe"), cp = require("node:child_process");
 const { samples, packets } = require("../scripts/packet-timestamps-bench");
+const { makeDataDir, seedProject, startServer } = require("./helpers");
 const have = FF.available("ffmpeg") && FF.available("ffprobe");
 let dir, fixture;
 test.before(() => { if (have) { dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-coverage-test-")); fixture = samples(dir); } });
@@ -50,9 +51,25 @@ for (const ext of ["flv", "mkv"]) {
     assert.equal(cuts.length, 2);
     assert.ok(Math.abs(cuts.reduce((n, r) => n + r.sourceEnd - r.sourceStart, 0) - 1) < 1 / 30);
   });
-  // Executed failing assertions, not skipped. Remove TODO only with source-clock integration.
-  test(`${ext}: registered duration excludes the 295-second timestamp hole`, { skip: !have, todo: "source mapping and background integration pending" }, async () => {
+  test(`${ext}: inspection preserves the original clock until explicit skip-gap choice`, { skip: !have }, async () => {
     const info = await MP.probeFile(fixture.rows.find(r => r.file.endsWith(ext)).file);
-    assert.ok(info.duration > 9 && info.duration < 10.2, `duration=${info.duration}`);
+    assert.ok(info.duration > 300, `original clock must remain intact: ${info.duration}`);
+  });
+  // This assertion is executed and still fails on main; #157's repair entry is not merged yet.
+  test(`${ext}: explicit skip-gap repair produces a short new copy`, { skip: !have, todo: "opt-in repair integration with #157 pending" }, async t => {
+    const projectDir = makeDataDir(t, seedProject()), media = path.join(projectDir, "media"); fs.mkdirSync(media);
+    const name = "cut." + ext, src = "/media/" + name;
+    fs.copyFileSync(fixture.rows.find(r => r.file.endsWith(ext)).file, path.join(media, name));
+    const { base } = await startServer(t, projectDir);
+    const response = await fetch(base + "/api/repair", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ src, skipGaps: true }) });
+    assert.equal(response.status, 200);
+    let job = await response.json(); const deadline = Date.now() + 60000;
+    while (["queued", "running"].includes(job.status) && Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 50));
+      job = await (await fetch(base + "/api/repair/job?id=" + encodeURIComponent(job.job))).json();
+    }
+    assert.equal(job.status, "done", JSON.stringify(job));
+    assert.notEqual(job.result.src, src);
+    assert.ok(job.result.duration > 9 && job.result.duration < 10.2);
   });
 }

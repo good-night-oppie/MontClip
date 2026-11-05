@@ -33,3 +33,9 @@ MontClip is a modified version of FableCut and keeps its MIT license. FableCut h
 ## License
 
 MIT. See [LICENSE](LICENSE) and the third-party notices.
+
+## Technical reference
+
+The experimental [packet-clock diagnostics](docs/testing/packet-coverage.md) run in the
+background and report covered time separately. They do not change existing projects.
+Applying a shorter clock requires an explicit choice; that repair integration is still pending.
