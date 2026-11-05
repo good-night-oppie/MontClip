@@ -32,10 +32,10 @@ class El{
  all(){return this.children.flatMap(c=>typeof c==='string'?[]:[c,...c.all()]);}
 }
 function page({desktop=false,clips=[],installed=[]}={}){
- const requests=[],toasts=[];
+ const requests=[],toasts=[],links=[];
  const head=new El('head'),body=new El('body');
  // a stylesheet <link> is a request; it "loads" a moment later (and its CSS would fetch the font files)
- head.onAppend=(x)=>{if(x.tagName==='LINK'){requests.push(x.href);setTimeout(()=>x.onload?.(),0);}};
+ head.onAppend=(x)=>{if(x.tagName==='LINK'){requests.push(x.href);links.push(x);setTimeout(()=>x.onload?.(),0);}};
  const canvas={getContext:()=>({font:'',measureText(){const f=this.font;return{width:installed.some(n=>f.includes('"'+n+'"'))?123:100};}})};
  const fontSet=[];fontSet.load=async()=>[];fontSet.ready=Promise.resolve();fontSet.add=()=>{};
  const document={head,body,fonts:fontSet,createElement:(t)=>t==='canvas'?canvas:new El(t)};
@@ -51,7 +51,7 @@ function page({desktop=false,clips=[],installed=[]}={}){
  const api=new Function(...Object.keys(stubs),FONTS+'\nreturn {'+names.map(n=>`${n}: typeof ${n}==="function"?${n}:undefined`).join(',')+'};')(...Object.values(stubs));
  const external=()=>requests.filter(u=>!u.startsWith(LOCAL));
  const dialog=()=>body.all().find(e=>e.tagName==='DIALOG'&&e.open);
- return {api,requests,external,toasts,body,dialog,runtime};
+ return {api,requests,external,toasts,body,dialog,runtime,links};
 }
 const tick=(ms=5)=>new Promise(r=>setTimeout(r,ms));
 const hostOf=(u)=>new URL(u).hostname;
@@ -101,6 +101,9 @@ test('browser mode: after Yes, only fonts.googleapis.com / fonts.gstatic.com, an
  const ext=p.external();
  a.ok(ext.length>=1,'the font was requested');
  for(const u of ext){a.ok(['fonts.googleapis.com','fonts.gstatic.com'].includes(hostOf(u)),u);a.ok(/family=Lobster[:&]/.test(u),u);}
+ // Deja (on #151): no Referer to Google Fonts. The stylesheet <link> says no-referrer; the font files it pulls from
+ // fonts.gstatic.com follow its policy (real-tests/font-consent-browser-smoke.cjs checks the headers a browser sends)
+ for(const l of p.links)a.equal(l.referrerPolicy,'no-referrer',l.href);
  // the same font again: no box this session; another font: the box again
  const n=p.requests.length;
  a.equal(await p.api.requestFonts(['Lobster']),true);a.equal(p.dialog(),undefined,'not asked twice for one font');
@@ -140,4 +143,21 @@ test('every call site that reaches Google Fonts on a click goes through requestF
  // the playground loads no title fonts from Google behind the streamer's back either
  const shim=fs.readFileSync(path.join(__dirname,'..','docs','demo','static-shim.js'),'utf8');
  a.ok(!/googleapis|gstatic/.test(shim),'docs/demo/static-shim.js preloads nothing from Google');
+});
+
+// JJ (on #151): sentences 1–7 and 9 as drafted; 8, 10 and 11 say first which fonts are missing, then what happens.
+test('the copy JJ settled, both languages',()=>{
+ const V=require('../ui-preferences.js'),t=(l,k,v)=>V.t(l,'own.'+k,v),names='“Lobster”、“Cinzel”';
+ const zh={
+  'font-net-title':'要联网下载字体吗？','font-net-fonts':'要下载的字体：{names}','font-net-hosts':'会连接 Google 字体的网站：{hosts}。',
+  'font-net-sent':'发出去的只有字体名，加上浏览器联网时都会带的基本信息，比如你的 IP 地址。项目、录像和字幕都不会发出去。',
+  'font-net-no':'不下载的话，这些文字会用默认字体显示和导出。','font-net-deny':'先不用','font-net-allow':'联网下载',
+  'font-fallback':'这台电脑上没有这些字体：{names}。现在先用默认字体显示。','font-fallback-load':'联网下载…',
+  'font-desktop-missing':'这台电脑上没有这些字体：{names}。文字会用默认字体显示和导出。',
+  'font-export-fallback':'这些字体没有加载：{names}。这次导出会用默认字体代替。'};
+ for(const [k,v] of Object.entries(zh))a.equal(t('zh-CN',k,{names,hosts:'x'}),v.replace('{names}',names).replace('{hosts}','x'),k);
+ const en={'font-fallback':"These fonts aren't on this computer: {names}. The titles use the default font for now.",
+  'font-desktop-missing':"These fonts aren't on this computer: {names}. The titles show and export in the default font.",
+  'font-export-fallback':"These fonts aren't loaded: {names}. This export uses the default font instead."};
+ for(const [k,v] of Object.entries(en))a.equal(t('en',k,{names:'"A"'}),v.replace('{names}','"A"'),k);
 });
