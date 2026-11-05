@@ -153,3 +153,50 @@ test("an export that stops reporting says where it stopped (percent and timeline
     }, 1100);
   });
 });
+
+/* A stand-in for ffmpeg as europa had it (P11): it reads frames from stdin and does not exit on SIGTERM. "stubborn"
+   also ignores the end of its input, so only the kill by its own handle stops it. The job wiring is the server's:
+   a job that ends without its file stops its sessions (server.js onEnd → cleanupExport → stopSessions). */
+function fakeFfmpeg(t, dir, { stubborn = false } = {}) {
+  const script = path.join(dir, "fake-ffmpeg.js");
+  fs.writeFileSync(script, `process.on("SIGTERM", () => {});
+process.stdin.on("data", () => {});
+${stubborn ? "" : 'process.stdin.on("end", () => process.exit(0));'}
+setInterval(() => {}, 1000);`);
+  const proc = spawn(process.execPath, [script], { stdio: ["pipe", "ignore", "ignore"], windowsHide: true });
+  t.after(() => { if (!exited(proc)) proc.kill("SIGKILL"); });
+  return proc;
+}
+for (const how of ["failed", "cancelled", "timed out"]) for (const stubborn of [false, true]) {
+  test(`a job ${how}: its ffmpeg${stubborn ? " (deaf to stdin too)" : ""} exits within the limit and its .part goes`, async (t) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-p11-fake-"));
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    const proc = fakeFfmpeg(t, dir, { stubborn });
+    const part = path.join(dir, "out.part.mp4"); fs.writeFileSync(part, "half");
+    const work = fs.mkdtempSync(path.join(dir, "fablecut-")); fs.writeFileSync(path.join(work, "audio.wav"), "x");
+    const sessions = new Map(), stops = [];
+    const { j } = jobs({ onEnd: (job) => { const s = sessions.get(job.id); if (s) stops.push(Cleanup.stopSessions([s], { timeoutMs: 3000 })); } });
+    t.after(() => j.shutdown());
+    const x = j.request({ where: "tab" }); j.claim(x.id);
+    sessions.set(x.id, { proc, partPath: part, dir: work });
+    await new Promise((r) => setTimeout(r, 300));
+    assert.equal(exited(proc), false, "it is waiting for frames");
+    const realNow = Date.now;
+    const t0 = realNow();
+    if (how === "failed") j.report(x.id, { status: "failed", error: "frame upload failed" });
+    else if (how === "cancelled") j.cancel(x.id);
+    else {   // the renderer went silent: the 1 s sweep sees it past the 120 s limit
+      Date.now = () => realNow() + 121_000;
+      await waitFor(() => stops.length > 0, 3000);
+      Date.now = realNow;
+    }
+    assert.equal(stops.length, 1, "the job's end stopped its encode");
+    const { left } = await stops[0];
+    assert.ok(await waitFor(() => exited(proc), 500), "ffmpeg has exited");
+    assert.ok(realNow() - t0 < 5000, "within the limit");
+    assert.deepEqual(left, []);
+    assert.equal(fs.existsSync(part), false, "no .part left");
+    assert.equal(fs.existsSync(work), false, "no fablecut-XXXX folder left");
+    assert.equal(j.get(x.id).status, how === "timed out" ? "failed" : how);
+  });
+}
