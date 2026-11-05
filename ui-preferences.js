@@ -860,6 +860,7 @@
     "bin-all": ["All media", "全部素材"], "bin-fav": ["★ Favorites", "★ 收藏"],
     "bin-used": ["Used in the edit", "时间线上用到的"], "bin-unused": ["Unused", "时间线上没用到的"],
     "bin-proxy": ["Has a proxy", "有代理的"], "bin-noproxy": ["Video without a proxy", "还没做代理的视频"], "bin-image": ["Image", "图片"],
+    "bin-group-kind": ["Kind", "类型"], "bin-group-collections": ["Collections", "分组"], "bin-group-tags": ["Tags", "标签"], // JJ
     "seq-duplicate": ["Duplicate “{name}”", "复制一份「{name}」"], "seq-rename": ["Rename “{name}”…", "重命名「{name}」…"],
     "seq-delete": ["Delete “{name}”…", "删除「{name}」…"], "seq-keep-one": ["A project keeps at least one sequence", "一个项目至少要留一个序列"],
     "snap-to": ["Snap to", "吸附到"], "snap-clips": ["Clip edges", "片段边缘"], "snap-playhead": ["Playhead", "播放头"],
