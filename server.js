@@ -1537,12 +1537,14 @@ const server = http.createServer(async (req, res) => {
     } catch (e) { sendJSON(res, 500, { error: String(e) }); }
     return;
   }
-  /* 〔复制问题信息〕 (JJ's table v2): {text} → the same text with viewers, keys and user folders taken out, by the rules
-     the page has too (problem-redact.js), with this computer's home folder. */
+  /* 〔复制问题信息〕 (JJ's table v2; #161): {text, language} → what is copied: its first line (the mail watcher's mark),
+     then the text with viewers, keys, accounts and paths taken out, by the rules the page has too (problem-redact.js),
+     with this computer's home folder and user name. */
   if (p === "/api/problem-details" && req.method === "POST") {
     let body;
     try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "the body must be JSON: {text}" }); return; }
-    sendJSON(res, 200, { text: Redact.redactProblem(String(body.text || "").slice(0, 8000), { home: os.homedir(), platform: process.platform }) });
+    const userName = () => { try { return os.userInfo().username; } catch { return ""; } };
+    sendJSON(res, 200, { text: Redact.problemDetails(String(body.text || "").slice(0, 8000), { home: os.homedir(), platform: process.platform, user: userName(), language: body.language }) });
     return;
   }
   /* {fresh:true} once for a file this session exported (then forgotten); {fresh:false} for anything else */

@@ -59,10 +59,10 @@ function sayError(error, where = "error") {
 async function copyProblem(r) {
   let out = null;
   try {
-    const res = await fetch("/api/problem-details", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: r.line || "" }) });
+    const res = await fetch("/api/problem-details", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: r.line || "", language: mcView.get().language }) });
     if (res.ok) out = (await res.json()).text;
   } catch { /* offline: the page's copy of the rules */ }
-  if (typeof out !== "string") out = MontClipRedact.redactProblem(r.line || "", { platform: /win/i.test(navigator.platform || "") ? "win32" : "" });
+  if (typeof out !== "string") out = MontClipRedact.problemDetails(r.line || "", { platform: /win/i.test(navigator.platform || "") ? "win32" : "", language: mcView.get().language });
   // then where to send it — TODO(主人定): own.copy-problem-where is empty until the place is decided (Deja, #161)
   const where = uiText("own.copy-problem-where");
   const sep = mcView.get().language === "en" ? " " : "";
