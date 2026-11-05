@@ -59,7 +59,16 @@ const MIN_PART = 0.25;
  *  en.wav: cut at 0.5 s → "", the same cut padded 0.25 s → the sentence). Its segments get that silence; the times are
  *  taken back to the file's. */
 const META_PAD = 0.25;
-async function segmentWords(r, audio, start, p, toWords = W.words, pad = 0) {
+/** The punctuation model is Chinese (CT-Transformer zh-en): on Meta's model it runs only for a segment that is mostly
+ *  Chinese characters, so English and other languages get no 「。」 (Deja, 2026-11-04). Paraformer's words always go to it,
+ *  as before. */
+const CJK = /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff]/;
+function mostlyChinese(ws) {
+  let cjk = 0, all = 0;
+  for (const w of ws) for (const ch of String(w[0])) { if (/\s/.test(ch)) continue; all++; if (CJK.test(ch)) cjk++; }
+  return all > 0 && cjk * 2 >= all;
+}
+async function segmentWords(r, audio, start, p, toWords = W.words, pad = 0, punctFor = null) {
   const words = [], gaps = [];
   let read = false;
   const one = async (part, at) => {
@@ -70,7 +79,7 @@ async function segmentWords(r, audio, start, p, toWords = W.words, pad = 0) {
     const res = await r.decodeAsync(s);
     // 「＠」 is the "@" token of safeTokens: never a word
     let ws = toWords(res, { offset: at - n / RATE, end: at + part.length / RATE }).map((w) => [w[0].replace(/＠/g, ""), Math.max(w[1], r3(at)), Math.max(w[2], r3(at))]).filter((w) => w[0]);
-    if (p && ws.length) { try { ws = W.punctuate(ws, p.addPunct(W.plain(ws))); } catch { } }
+    if (p && ws.length && (!punctFor || punctFor(ws))) { try { ws = W.punctuate(ws, p.addPunct(W.plain(ws))); } catch { } }
     words.push(...ws); read = true;
   };
   const why = (e) => String((e && e.message) || e || "error").slice(0, 200);
@@ -156,7 +165,7 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
       while (!vad.isEmpty()) {
         const seg = vad.front(false), start = seg.start / RATE, audio = Float32Array.from(seg.samples);
         vad.pop();
-        const one = await segmentWords(r, audio, start, p, toWords, key === "asrMeta" ? META_PAD : 0);
+        const one = await segmentWords(r, audio, start, p, toWords, key === "asrMeta" ? META_PAD : 0, key === "asrMeta" ? mostlyChinese : null);
         words.push(...one.words); gaps.push(...one.gaps);
         if (one.read) read++;
         if (one.gaps.length) skipped++;
@@ -195,4 +204,4 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
   return { status, transcribe, store };
 }
 
-module.exports = { createAsr, VAD, META_PAD, segmentWords, safeTokens };
+module.exports = { createAsr, VAD, META_PAD, segmentWords, safeTokens, mostlyChinese };
