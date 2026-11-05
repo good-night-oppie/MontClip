@@ -55,6 +55,7 @@ const READ = String.raw`(async () => {
   }
   f.value = ''; f.dispatchEvent(new Event('input')); closeHelp();
   r.filter = Object.fromEntries([...document.querySelectorAll('#binFilter option')].map((o) => [o.value, o.textContent]));
+  r.groups = [...document.querySelectorAll('#binFilter optgroup')].map((g) => g.label);
   syncSequenceButton();
   r.seqTitle = document.getElementById('btnSequences').title;
   r.snapTitle = document.getElementById('btnSnapMenu').title;
@@ -98,7 +99,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
   try {
     await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
     // a video in the bin (so the proxy rows and the Show filter's proxy entries appear) and an image
-    await read(`(()=>{project.media.push({id:'m_zh7',name:'zh7.mp4',kind:'video',src:'/media/zh7.mp4',duration:5,width:320,height:240},
+    await read(`(()=>{project.collections=[{id:'col_g',name:'Picks',media:['m_zh7']}];project.media.push({id:'m_zh7',name:'zh7.mp4',kind:'video',src:'/media/zh7.mp4',duration:5,width:320,height:240,tags:['day1']},
       {id:'m_zh7i',name:'zh7.png',kind:'image',src:'/media/zh7.png',width:320,height:240});renderBin();return true;})()`);
     for (const [language, mode] of [['zh-CN', 'advanced'], ['zh-CN', 'simple'], ['en', 'advanced'], ['en', 'simple'], ['zh-CN', 'advanced']]) {
       await read(`updateMontClipView(${JSON.stringify({ language, mode })}); true`); await wait();
@@ -108,6 +109,8 @@ BrowserWindow.prototype.loadURL = async function (...args) {
       for (const h of HEADS) assert.ok(r.heads.some(([t, s]) => t === L(h)[0] && s === L(h)[1]), `${at} heading ${JSON.stringify(L(h))}: ${JSON.stringify(r.heads)}`);
       for (const k of ['w', 'pc', 'sp']) assert.ok(r['search_' + k] >= 1, `${at} English search ${k} still finds its row`);
       for (const [v, p] of Object.entries(FILTER)) assert.equal(r.filter[v], L(p), `${at} filter ${v}`);
+      // JJ: the group headings (a collection and a tag are put in for this)
+      assert.deepEqual(r.groups, zh ? ['类型', '分组', '标签'] : ['Kind', 'Collections', 'Tags'], at + ' filter groups');
       for (const p of SEQ) assert.ok(r.seq.some(([t]) => t === L(p)), `${at} sequence menu ${L(p)}: ${JSON.stringify(r.seq)}`);
       const del = r.seq.find(([t]) => t === L(SEQ[3]));
       assert.equal(del[1], zh ? '一个项目至少要留一个序列' : 'A project keeps at least one sequence', at + ' delete tooltip');

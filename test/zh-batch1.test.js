@@ -87,6 +87,7 @@ const KEYS = {
   'own.bin-used': ['Used in the edit', '时间线上用到的'], 'own.bin-unused': ['Unused', '时间线上没用到的'],   // #62 JJ
   'own.bin-proxy': ['Has a proxy', '有代理的'], 'own.bin-noproxy': ['Video without a proxy', '还没做代理的视频'],
   'own.bin-image': ['Image', '图片'],
+  'own.bin-group-kind': ['Kind', '类型'], 'own.bin-group-collections': ['Collections', '分组'], 'own.bin-group-tags': ['Tags', '标签'], // JJ
   'own.seq-duplicate': ['Duplicate “{name}”', '复制一份「{name}」'], 'own.seq-rename': ['Rename “{name}”…', '重命名「{name}」…'],
   'own.seq-delete': ['Delete “{name}”…', '删除「{name}」…'], 'own.seq-keep-one': ['A project keeps at least one sequence', '一个项目至少要留一个序列'],
   'own.snap-to': ['Snap to', '吸附到'], 'own.snap-clips': ['Clip edges', '片段边缘'], 'own.snap-playhead': ['Playhead', '播放头'],
