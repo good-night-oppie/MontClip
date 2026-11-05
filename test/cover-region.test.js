@@ -85,19 +85,29 @@ test("re-drawing a redaction keeps its style, strength, name, time window and on
   assert.deepEqual(cv, M.normalizeCover({ x: 0.7, y: 0.3, w: 0.3, h: 0.4, style: "blur", strength: 30, name: "co-host", from: 1, to: 4, on: false }), "the old one is not touched");
 });
 
-test("the find-it-again words exist in both languages (drafts for JJ), numbered and counted from the same list", () => {
+test("JJ's final copy (2026-11-05), word for word in both languages; the English says Hide / Hidden, never Cover", () => {
   const V = require("../ui-preferences"), fs = require("node:fs"), path = require("node:path");
   const zh = (k, v) => V.t("zh-CN", "own." + k, v), en = (k, v) => V.t("en", "own." + k, v);
-  assert.equal(zh("cover-badge", { n: 2 }), "打码·2");
-  assert.equal(zh("cover-section-n", { n: 2 }), "打码区域（2）");
-  assert.equal(zh("cover-area-n", { n: 1 }), "区域1");
-  assert.equal(zh("cover-redo"), "重新框选");
-  assert.equal(zh("cover-remove"), "去掉");
-  for (const k of ["cover-badge", "cover-section-n", "cover-area-n", "cover-redo", "cover-redo-tip", "cover-redo-drag", "cover-pick-tip"]) {
-    const e = en(k, { n: 3 }), c = zh(k, { n: 3 });
-    assert.ok(e && c && e !== c, k + ": " + e + " / " + c);
-    if (k !== "cover-redo" && k !== "cover-redo-tip" && k !== "cover-pick-tip") assert.ok(e.includes("3") && c.includes("3"), k + " shows the number");
-  }
+  const JJ = {   // key: [中文, English] — JJ定稿
+    "cover-badge": ["打码·3", "Hidden · 3"],
+    "cover-section-n": ["打码区域（3）", "Hidden areas (3)"],
+    "cover-area-n": ["第 3 块", "Area 3"],
+    "cover-redo": ["重新框选", "Redraw"],
+    "cover-redo-tip": ["在画面上给这一块重新拖一个框，样式和强度不变。按 Esc 取消。", "Drag a new box for this area on the monitor. Its style and strength stay the same. Press Esc to cancel."],
+    "cover-redo-drag": ["在画面上给第 3 块重新拖一个框。按 Esc 取消，原来那块不变。", "Drag a new box for area 3 on the monitor. Press Esc to cancel and keep the old box."],
+    "cover-pick-tip": ["在画面上标出这一块", "Show this area's box on the monitor"],
+    "cover-remove": ["去掉", "Remove"],
+    "cover-area": ["给这块打码", "Hide this area"],   // the right-click menu item
+  };
+  for (const [k, [c, e]] of Object.entries(JJ)) { assert.equal(zh(k, { n: 3 }), c, k + " 中文"); assert.equal(en(k, { n: 3 }), e, k + " English"); }
+  // every English 打码 string: Hide / Hidden, never Cover / Covered
+  const src = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8"), keys = [...src.matchAll(/"(cover-[a-z-]+)":/g)].map((m) => m[1]);
+  assert.ok(keys.length >= 18, keys.join(","));
+  for (const k of keys) assert.doesNotMatch(en(k, { n: 2 }), /\bcover(ed|s)?\b/i, k + ": " + en(k, { n: 2 }));
+  for (const f of ["capabilities.js", "manifest.json"]) assert.doesNotMatch(fs.readFileSync(path.join(__dirname, "..", f), "utf8").match(/fablecut_blur_region.*/)[0], /\bCover\b/, f);
+  assert.equal(require("../capabilities").get("fablecut_blur_region").summary.en, "Hide an area of the picture with a mosaic that follows the clip when it zooms or moves");
+  const tool = require("../mcp-tools").find((t) => t.name === "fablecut_blur_region");
+  assert.match(tool.description, /^Hide an area of a clip's picture in one step/);
   const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
   // the timeline badge and the panel title count the same list the rows are numbered from
   assert.match(app, /uiText\("own\.cover-badge", \{ n: clipCovers\(c\)\.length \}\)/);

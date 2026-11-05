@@ -15234,8 +15234,8 @@ function drawClipPicture(c, W, H, t, layered) {
   return { p, geom };
 }
 
-/* ═══════════ COVERED AREAS (props.redactions — validation in mask.js) ═══════════
-   A covered area is re-drawn over the picture from the picture's own pixels, as
+/* ═══════════ REDACTIONS, 打码 (props.redactions — validation in mask.js) ═══════════
+   A redaction is re-drawn over the picture from the picture's own pixels, as
    a mosaic or a blur, inside the clip's transform: so it moves, scales and turns
    with the clip and its keys, in preview and export alike. Its x, y (centre), w, h are
    0…1 of the clip's picture after the crop — the same coordinates as masks. */
@@ -15277,7 +15277,7 @@ function drawCovers(covers, shown, { sx, sy, cw, ch, sw, sh, dw, dh }) {
   }
 }
 
-/* ── Covered areas in the editor: right-click a clip → 「给这块打码」, drag a box on the monitor.
+/* ── Redactions in the editor: right-click a clip → 「给这块打码」, drag a box on the monitor.
    The box is read in the clip's picture (the mask box: what the crop keeps), so it is stored in the same
    coordinates as masks — centre and size — and follows the clip from then on. ── */
 // clip: the clip whose box is being drawn (the tool is on); replace: the index being re-drawn, or null to add one;
@@ -15422,7 +15422,7 @@ function coverSectionHtml(c) {
     ${rows || `<p class="cl-note">${escapeHtml(uiText("own.cover-none"))}</p>`}
     <div class="cl-row"><button type="button" class="btn tiny${on && coverUi.replace == null ? " toggle on" : ""}" data-cover-add title="${escapeHtml(uiText("own.cover-area-tip"))}"
       ${list.length >= Mask.MAX_COVERS ? "disabled" : ""}>${escapeHtml(uiText("own.cover-add"))}</button></div>
-    ${note ? `<p class="cl-note">${escapeHtml(note)}</p>` : ""}</div>`;
+    ${note ? `<p class="cl-note">${escapeHtml(note).replace(/\bEsc\b/, "<kbd>Esc</kbd>")}</p>` : ""}</div>`;
 }
 function bindCoverControls(c) {
   const root = els.inspector.querySelector("[data-cover-section]");

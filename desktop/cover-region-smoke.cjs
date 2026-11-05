@@ -2,9 +2,9 @@
 // 打码 in the desktop editor (#163, VV's interaction review 2026-11-05). Fresh profile, hidden offscreen window, a
 // synthetic picture only. Real mouse input (CDP) for the menu, the boxes on the monitor and the buttons. Checks:
 //  - right-click a clip: 〔给这块打码〕 is its own group right after 停用 / 锁定 (separators on both sides);
-//  - dragging a box adds 区域1: the timeline clip says 打码·1, the Inspector title 打码区域（1）, and the section has
-//    been scrolled into view; a second box makes it 区域1 / 区域2, 打码·2, 打码区域（2）;
-//  - 区域N picks it (the monitor draws its box highlighted);
+//  - dragging a box adds 第 1 块: the timeline clip says 打码·1, the Inspector title 打码区域（1）, and the section has
+//    been scrolled into view; a second box makes it 第 1 块 / 第 2 块, 打码·2, 打码区域（2）;
+//  - 第 N 块 picks it (the monitor draws its box highlighted);
 //  - 〔重新框选〕 then a new box replaces that area: same number of areas, its style and strength kept, the other one
 //    untouched; one Ctrl+Z puts the old area back (style and strength still the same);
 //  - 〔重新框选〕 then Esc: nothing changes, and the tool is off.
@@ -60,7 +60,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await click(`#trackCtxMenu .ctx-item:nth-of-type(3)`);   // 〔给这块打码〕 (the 3rd button)
   assert.equal(await read(`coverUi.clip===project.clips.find(c=>c.kind==='image').id`),true,'the box tool is on');
   await read(`els.inspector.scrollTop=0;true`);
-  // 2. drag a box: 区域1, 打码·1, 打码区域（1）, scrolled into view
+  // 2. drag a box: 第 1 块, 打码·1, 打码区域（1）, scrolled into view
   await drag(0.6,0.1,0.9,0.5);
   let s=await look();report.one=s;
   assert.equal(s.list.length,1);assert.deepEqual(s.rows,[await read(`uiText('own.cover-area-n',{n:1})`)]);
@@ -73,14 +73,14 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await shot(win,'cover-panel-two.png');
   assert.deepEqual(s.rows,[await read(`uiText('own.cover-area-n',{n:1})`),await read(`uiText('own.cover-area-n',{n:2})`)]);
   assert.equal(s.title,await read(`uiText('own.cover-section-n',{n:2})`));assert.ok(s.badge.includes(await read(`uiText('own.cover-badge',{n:2})`)),s.badge);
-  // style and strength on 区域1, then pick it: highlighted
+  // style and strength on 第 1 块, then pick it: highlighted
   await read(`(()=>{const o=els.inspector.querySelector('[data-cover-opts="0"]');const sel=o.querySelector('[data-cover-style]');sel.value='blur';sel.dispatchEvent(new Event('change'));return true;})()`);
   await read(`(()=>{const o=els.inspector.querySelector('[data-cover-opts="0"]');const r=o.querySelector('[data-cover-strength]');r.value='30';r.dispatchEvent(new Event('change'));return true;})()`);
   await click('[data-cover="0"] [data-cover-pick]');
-  assert.equal((await look()).sel,0,'区域1 picked');
+  assert.equal((await look()).sel,0,'第 1 块 picked');
   await wait(200);await shot(win,'cover-picked.png');
   const before=(await look()).list;
-  // 3. 重新框选 区域1: a new area, style and strength kept, 区域2 untouched; one undo puts it back
+  // 3. 重新框选 第 1 块: a new area, style and strength kept, 第 2 块 untouched; one undo puts it back
   await click('[data-cover="0"] [data-cover-redo]');
   assert.equal(await read(`coverUi.replace`),0);
   const depth=(await look()).undo;
@@ -88,13 +88,28 @@ BrowserWindow.prototype.loadURL=async function(...args){
   s=await look();report.redo=s;
   assert.equal(s.list.length,2);assert.equal(s.list[0].style,'blur');assert.equal(s.list[0].strength,30);
   assert.ok(Math.abs(s.list[0].x-0.2)<0.01&&Math.abs(s.list[0].w-0.2)<0.01,'the new area: '+JSON.stringify(s.list[0]));
-  assert.deepEqual(s.list[1],before[1],'区域2 untouched');assert.equal(s.undo,depth+1,'one undo step');assert.equal(s.sel,0);
+  assert.deepEqual(s.list[1],before[1],'第 2 块 untouched');assert.equal(s.undo,depth+1,'one undo step');assert.equal(s.sel,0);
   await read(`undo();true`);await wait(150);
   s=await look();report.undone=s;assert.deepEqual(s.list,before,'one undo puts the old area back, style and strength as they were');
   // 4. 重新框选 then Esc: nothing changes, the tool is off
   await click('[data-cover="0"] [data-cover-redo]');
+  // the note under the rows says what to do, Esc in the interface's key style
+  report.redoNote=await read(`(()=>{const p=[...els.inspector.querySelectorAll('[data-cover-section] .cl-note')].pop();return p&&p.innerHTML;})()`);
+  assert.equal(report.redoNote,await read(`escapeHtml(uiText('own.cover-redo-drag',{n:1})).replace(/Esc/,'<kbd>Esc</kbd>')`));assert.ok(report.redoNote.includes('<kbd>Esc</kbd>'));
   await key('Escape');
   s=await look();report.esc=s;assert.deepEqual(s.list,before,'Esc keeps it as it is');assert.equal(s.tool,null);assert.equal(s.undo,depth,'nothing written');
+  // 5. in English the interface shows JJ's words exactly: the menu item, the title, the rows, the badge
+  await read(`updateMontClipView({language:'en'});renderInspector();state.dirtyTimeline=true;true`);await wait(300);
+  await click(clipEl);await click(clipEl,'right');
+  report.en=await read(`(()=>{const items=[...document.querySelectorAll('#trackCtxMenu .ctx-item span')].map(e=>e.textContent);hideTrackCtxMenu();
+   const sec=els.inspector.querySelector('[data-cover-section]'),c=project.clips.find(c=>c.kind==='image');
+   return{menu:items,title:sec.querySelector('[data-cover-title]').textContent,rows:[...sec.querySelectorAll('[data-cover-pick]')].map(b=>b.textContent),
+    redo:[...sec.querySelectorAll('[data-cover-redo]')].map(b=>b.textContent),remove:[...sec.querySelectorAll('[data-cover-del]')].map(b=>b.textContent),
+    badge:els.tracks.querySelector('.clip[data-id="'+c.id+'"] .clip-label').textContent};})()`);
+  assert.ok(report.en.menu.includes('Hide this area'),'menu: '+report.en.menu);assert.equal(report.en.title,'Hidden areas (2)');
+  assert.deepEqual(report.en.rows,['Area 1','Area 2']);assert.deepEqual(report.en.redo,['Redraw','Redraw']);assert.deepEqual(report.en.remove,['Remove','Remove']);
+  assert.ok(report.en.badge.startsWith('Hidden · 2'),report.en.badge);
+  await read(`updateMontClipView({language:'zh-CN'});true`);
   ok=true;
  }catch(e){report.error=String(e&&e.stack||e).slice(0,1500);}
  finally{out(ok?'COVER_REGION_PASS':'COVER_REGION_FAIL',report);process.exitCode=ok?0:1;app.exit(ok?0:1);}

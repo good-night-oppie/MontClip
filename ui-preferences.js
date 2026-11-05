@@ -659,28 +659,29 @@
     "clip-disable": ["Disable clip", "停用片段"],
     "clip-lock": ["Lock clip", "锁定片段"],
     "clip-parent-null": ["Parent to a new null", "绑定到新的空对象"],
-    // P4 (JJ, 2026-11-05): one step to cover a co-host or viewers' names. zh is JJ's; the English is a draft for JJ.
-    "cover-area": ["Cover this area", "给这块打码"],
-    "cover-area-tip": ["Covers this area and follows it when the clip is zoomed or moved. Good for hiding a co-host and viewers' names.", "把这块盖住，片段放大、移动时会跟着走。适合挡连麦的人和观众昵称。"],
-    "cover-drag": ["Drag a box on the monitor over what to cover. Esc cancels.", "在画面上拖一个框，框住要盖住的地方。按 Esc 取消。"],
+    // P4 (JJ, 2026-11-05): one step to hide a co-host or viewers' names. The rows JJ finalised on 2026-11-05 are marked
+    // JJ定稿 (test/cover-region.test.js locks them word for word); the English says Hide / Hidden, never Cover.
+    "cover-area": ["Hide this area", "给这块打码"],   // JJ定稿
+    "cover-area-tip": ["Hides this area and follows it when the clip is zoomed or moved. Good for hiding a co-host and viewers' names.", "把这块盖住，片段放大、移动时会跟着走。适合挡连麦的人和观众昵称。"],
+    "cover-drag": ["Drag a box on the monitor over what to hide. Press Esc to cancel.", "在画面上拖一个框，框住要盖住的地方。按 Esc 取消。"],
     "cover-not-here": ["Move the playhead over the clip, then drag a box on the monitor", "先把播放头移到这个片段上，再在画面上拖一个框"],
     "cover-outside": ["Drag the box over the clip's picture", "请在这个片段的画面上拖框"],
-    "cover-section": ["Covered areas", "打码区域"],
-    // VV's review of #163 (drafts for JJ): find a redaction again, and re-draw one
-    "cover-section-n": ["Covered areas ({n})", "打码区域（{n}）"],
-    "cover-badge": ["Covered · {n}", "打码·{n}"],
-    "cover-area-n": ["Area {n}", "区域{n}"],
-    "cover-pick-tip": ["Show this area's box on the monitor", "在画面上标出这一块的框"],
-    "cover-redo": ["Redraw", "重新框选"],
-    "cover-redo-tip": ["Drag a new box for this area on the monitor; its style and strength stay. Esc cancels.", "在画面上给这一块重新拖一个框，样式和强度不变。按 Esc 取消。"],
-    "cover-redo-drag": ["Drag a new box for area {n} on the monitor. Esc cancels and keeps it as it is.", "在画面上给区域{n}重新拖一个框。按 Esc 取消，原来那块不变。"],
-    "cover-none": ["Nothing covered. Right-click the clip → Cover this area, then drag a box on the monitor.", "还没有打码。在片段上点右键 →「给这块打码」，再在画面上拖一个框。"],
-    "cover-add": ["+ Cover an area", "+ 再打一块"],
+    "cover-section": ["Hidden areas", "打码区域"],
+    // VV's review of #163: find a redaction again, and re-draw one (JJ定稿 2026-11-05)
+    "cover-section-n": ["Hidden areas ({n})", "打码区域（{n}）"],   // JJ定稿
+    "cover-badge": ["Hidden · {n}", "打码·{n}"],   // JJ定稿
+    "cover-area-n": ["Area {n}", "第 {n} 块"],   // JJ定稿
+    "cover-pick-tip": ["Show this area's box on the monitor", "在画面上标出这一块"],   // JJ定稿
+    "cover-redo": ["Redraw", "重新框选"],   // JJ定稿
+    "cover-redo-tip": ["Drag a new box for this area on the monitor. Its style and strength stay the same. Press Esc to cancel.", "在画面上给这一块重新拖一个框，样式和强度不变。按 Esc 取消。"],   // JJ定稿
+    "cover-redo-drag": ["Drag a new box for area {n} on the monitor. Press Esc to cancel and keep the old box.", "在画面上给第 {n} 块重新拖一个框。按 Esc 取消，原来那块不变。"],   // JJ定稿
+    "cover-none": ["Nothing hidden. Right-click the clip → Hide this area, then drag a box on the monitor.", "还没有打码。在片段上点右键 →「给这块打码」，再在画面上拖一个框。"],
+    "cover-add": ["+ Hide another area", "+ 再打一块"],
     "cover-mosaic": ["Mosaic", "马赛克"],
     "cover-blur": ["Blur", "模糊"],
     "cover-strength": ["Strength", "强度"],
-    "cover-remove": ["Remove", "去掉"],
-    "cover-max": ["A clip can cover at most {n} areas", "一个片段最多打 {n} 块码"],
+    "cover-remove": ["Remove", "去掉"],   // JJ定稿
+    "cover-max": ["A clip can hide at most {n} areas", "一个片段最多打 {n} 块码"],
     "meter-rms": ["RMS", "音量"],
     "media-kind-video": ["video", "视频"],
     "fps-value": ["{n} fps", "{n} 帧/秒"],

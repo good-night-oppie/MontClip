@@ -64,7 +64,7 @@
     // the 「自动出切片」 card edits (the owner / Deja, 2026-11-03): the streamer's buttons and the AI, the same capabilities
     set_segment_kind: ["undoable", "改一张候选卡的类型：唱歌、互动、聊天、整活、普通高光或其他", "Change a candidate card's kind: singing, interaction, chat, stunt, highlight or other"],
     add_segment: ["undoable", "用 IN–OUT 补一张候选卡，带上类型", "Add a candidate card from IN–OUT, with its kind"],
-    fablecut_blur_region: ["undoable", "给画面里的一块打上马赛克，片段放大、移动时会跟着走", "Cover an area of the picture with a mosaic that follows the clip when it zooms or moves"],
+    fablecut_blur_region: ["undoable", "给画面里的一块打上马赛克，片段放大、移动时会跟着走", "Hide an area of the picture with a mosaic that follows the clip when it zooms or moves"],
     fablecut_track: ["undoable", "跟着画面里的人或物体动，让马赛克、贴纸也跟着它走", "Follow a person or thing in the picture, so a mosaic or sticker moves with it"],
   };
   // External caps (Deja, 2026-11-03, on #83): per capability, fixed here with the risk levels, in bytes. perSend is one send

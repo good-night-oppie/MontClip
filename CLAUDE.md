@@ -66,7 +66,7 @@ Every Claude Code session then has these tools:
 - `fablecut_scopes` — measure the graded picture at a moment (levels, clipping, colour
   cast), as the editor's scopes see it; also what a grade layer or a clip's masks
   select. See "Color" and "Masks" below.
-- `fablecut_blur_region` — cover an area of a clip's picture (a co-host, viewers' names)
+- `fablecut_blur_region` — hide an area of a clip's picture (a co-host, viewers' names)
   with a mosaic or blur that follows the clip. See "Redactions (打码)" below.
 - `fablecut_track` — motion tracking: follow a region of a video clip, store it as
   a track, and make a mask or another clip follow it. See "Tracking" below.
@@ -1201,13 +1201,14 @@ position, rotation and keyframes carry it. As with masks, changing the crop
 changes the picture the fractions refer to. Under the clip's masks a
 redaction is cut like the rest of the picture.
 
-In the editor: right-click a clip → **给这块打码** (Cover this area; its own
-group, right after Disable / Lock), then drag a box on the monitor over what to
-hide (Esc cancels). A clip with redactions says so on the timeline
-(**打码·2**). The Inspector's **打码区域（2）** section scrolls into view when one
-is added and lists them by number: **区域1** (click it to highlight its box on
-the monitor), **重新框选** (drag a new box for that area — its style and strength
-stay; Esc keeps it as it was), **去掉**, and below each its style (mosaic or
+In the editor: right-click a clip → **给这块打码** (English: **Hide this area**;
+its own group, right after Disable / Lock), then drag a box on the monitor over
+what to hide (Esc cancels). A clip with redactions says so on the timeline
+(**打码·2** / **Hidden · 2**). The Inspector's **打码区域（2）** (**Hidden areas (2)**)
+section scrolls into view when one is added and lists them by number: **第 1 块**
+(**Area 1**; click it to highlight its box on the monitor), **重新框选**
+(**Redraw**: drag a new box for that area — its style and strength stay; Esc
+keeps the old box), **去掉** (**Remove**), and below each its style (mosaic or
 blur) and strength; **+ 再打一块** draws another. One undo step each.
 
 **Agents:** `fablecut_blur_region {clipId, rect:{x, y, w, h}, strength?, style?, from?, to?, name?}`
