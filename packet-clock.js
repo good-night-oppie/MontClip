@@ -11,7 +11,7 @@ function primaryStream(streams) {
 }
 function accumulator({ gapThreshold = 2, maxSegments = 10000 } = {}) {
   const segments = [], gaps = [];
-  let segment, previous, packets = 0, failure;
+  let segment, previous, packets = 0, missingDurations = 0, failure;
   return {
     add({ pts, dts, duration = 0 }) {
       if (failure) return;
@@ -19,6 +19,7 @@ function accumulator({ gapThreshold = 2, maxSegments = 10000 } = {}) {
       if (!Number.isFinite(clock)) return;
       const presentation = Number.isFinite(pts) ? pts : clock;
       const length = Number.isFinite(duration) && duration > 0 ? duration : 0;
+      if (!length) missingDurations++;
       // A reset creates overlapping source coordinates: no unambiguous inverse exists.
       if (previous != null && clock < previous - 1e-6) { failure = "backward DTS: source normalization required"; return; }
       if (!segment || clock - segment.dtsEnd > gapThreshold) {
@@ -35,9 +36,24 @@ function accumulator({ gapThreshold = 2, maxSegments = 10000 } = {}) {
     },
     finish() {
       if (failure) throw new Error(failure);
-      return { packets, segments, gaps, timestampJump: gaps.length > 0 };
+      return { packets, segments, gaps, missingDurations, timestampJump: gaps.length > 0 };
     },
   };
+}
+function coverage(scan) {
+  if (scan.missingDurations) throw new Error("unknown packet duration: coverage is not established");
+  const ranges = [];
+  let end = 0, previousEnd = -Infinity;
+  for (const span of scan.segments) {
+    const { sourceStart, sourceEnd } = span;
+    if (!Number.isFinite(sourceStart) || !Number.isFinite(sourceEnd) || !(sourceEnd > sourceStart)) throw new Error("unknown segment duration");
+    if (sourceStart < previousEnd - 1e-6) throw new Error("overlapping presentation spans require normalization");
+    ranges.push({ start: end, end: end + sourceEnd - sourceStart, sourceStart, sourceEnd });
+    end += sourceEnd - sourceStart;
+    previousEnd = sourceEnd;
+  }
+  if (!ranges.length) throw new Error("no covered duration");
+  return { ...scan, coveredDuration: end, sourceDuration: previousEnd - ranges[0].sourceStart, ranges };
 }
 const number = v => v != null && v !== "" && v !== "N/A" && Number.isFinite(Number(v)) ? Number(v) : undefined;
 async function scanFile(file, { timeoutMs } = {}) {
@@ -84,4 +100,4 @@ async function scanFile(file, { timeoutMs } = {}) {
     });
   });
 }
-module.exports = { primaryStream, accumulator, scanFile };
+module.exports = { primaryStream, accumulator, scanFile, coverage };

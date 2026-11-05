@@ -19,6 +19,9 @@ for (const ext of ["flv", "mkv"]) {
     assert.equal(result.segments.length, 2); assert.equal(result.timestampJump, true);
     assert.ok(result.gaps[0].duration > 290);
     assert.ok(result.packets > 200 && result.packets <= 300);
+    const covered = require("../packet-clock").coverage(result);
+    assert.ok(covered.coveredDuration > 9 && covered.coveredDuration < 10.2, JSON.stringify(covered));
+    assert.ok(covered.sourceDuration > 300);
   });
   // Executed failing assertions, not skipped. Remove TODO only with source-clock integration.
   test(`${ext}: registered duration excludes the 295-second timestamp hole`, { skip: !have, todo: "source mapping and background integration pending" }, async () => {

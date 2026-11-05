@@ -32,3 +32,14 @@ test("invalid timestamps and excessive discontinuities cannot produce a plausibl
   for (const dts of [0, 10, 20]) scan.add({ dts, pts: dts, duration: .04 });
   a.throws(() => scan.finish(), /too many/);
 });
+test("coverage excludes the discontinuity but preserves time within each segment", () => {
+  const scan = load().accumulator();
+  for (let i = 0; i < 10; i++) scan.add({ dts: i < 5 ? i : i + 295, pts: i < 5 ? i : i + 295, duration: 1 });
+  const result = load().coverage(scan.finish());
+  a.equal(result.coveredDuration, 10); a.equal(result.sourceDuration, 305);
+  a.deepEqual(result.ranges, [{ start: 0, end: 5, sourceStart: 0, sourceEnd: 5 }, { start: 5, end: 10, sourceStart: 300, sourceEnd: 305 }]);
+});
+test("unknown packet durations and overlapping presentation spans require normalization", () => {
+  a.throws(() => load().coverage({ segments: [{ sourceStart: 0, sourceEnd: 0 }] }), /duration/);
+  a.throws(() => load().coverage({ segments: [{ sourceStart: 0, sourceEnd: 5 }, { sourceStart: 4, sourceEnd: 6 }] }), /overlap/);
+});
