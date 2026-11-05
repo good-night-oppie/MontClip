@@ -33,23 +33,29 @@ test('JJ\'s final words: stopped, no memory, where Meta fits (tab and Settings),
   a.equal(en('asr-meta-mirror-failed', m), 'It didn\'t download from hf-mirror.com (this often happens outside mainland China, or when the connection is unstable). Click “Download and use” again and choose github.com.');
 });
 
-test('not enough memory: the numbers when the server gave both, else the sentence without its brackets (never "? MB")', () => {
+test('not enough memory, JJ\'s three cases: both numbers; only what it needs; none (never "? MB")', () => {
   const app = read('app.js');
   const i = app.indexOf('function asrMetaWords('), j = app.indexOf('\n}\n', i);
-  for (const [lang, full, plain] of [
+  for (const [lang, both, needOnly, none] of [
     ['zh-CN', '内存不够跑 Meta 的模型（大约要 1000 MB，现在只空着 600 MB），所以没有开始。关掉一些软件再试，或者换回 Paraformer。',
+      '内存不够跑 Meta 的模型（大约要 1000 MB），所以没有开始。关掉一些软件再试，或者换回 Paraformer。',
       '内存不够跑 Meta 的模型，所以没有开始。关掉一些软件再试，或者换回 Paraformer。'],
     ['en', "There isn't enough free memory for Meta's model (it needs about 1000 MB; 600 MB is free), so it didn't start. Close some programs and try again, or switch back to Paraformer.",
+      "There isn't enough free memory for Meta's model (it needs about 1000 MB), so it didn't start. Close some programs and try again, or switch back to Paraformer.",
       "There isn't enough free memory for Meta's model, so it didn't start. Close some programs and try again, or switch back to Paraformer."]]) {
     // the real asrMetaWords from app.js, with the real words
     const ctx = { uiText: (k, v) => V.t(lang, k, v), Number };
     vm.runInNewContext(app.slice(i, j + 3), ctx);
     const say = (x) => vm.runInContext('asrMetaWords(' + JSON.stringify({ engine: 'meta', code: 'ASR_OPTIONAL_NO_MEMORY', ...x }) + ')', ctx);
-    a.equal(say({ needMB: 1000, freeMB: 600 }), full);
+    // 1. both
+    a.equal(say({ needMB: 1000, freeMB: 600 }), both);
     a.match(say({ needMB: 1000, freeMB: 0 }), lang === 'en' ? /0 MB is free/ : /只空着 0 MB/, 'nothing free is a number too');
-    for (const x of [{}, { needMB: 1000 }, { freeMB: 600 }, { needMB: null, freeMB: 600 }, { needMB: 1000, freeMB: '' }, { needMB: 'lots', freeMB: 600 }, { needMB: 0, freeMB: 600 }]) {
+    // 2. what it needs, without what is free
+    for (const x of [{ needMB: 1000 }, { needMB: 1000, freeMB: null }, { needMB: 1000, freeMB: '' }, { needMB: 1000, freeMB: 'x' }]) a.equal(say(x), needOnly, lang + ' ' + JSON.stringify(x));
+    // 3. no need (only free counts as none too): no brackets at all
+    for (const x of [{}, { freeMB: 600 }, { needMB: null, freeMB: 600 }, { needMB: 'lots', freeMB: 600 }, { needMB: 0, freeMB: 600 }]) {
       const w = say(x);
-      a.equal(w, plain, lang + ' ' + JSON.stringify(x));
+      a.equal(w, none, lang + ' ' + JSON.stringify(x));
       a.ok(!w.includes('?') && !w.includes('MB'));
     }
   }
