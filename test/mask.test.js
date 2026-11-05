@@ -15,8 +15,10 @@ const BW = 200, BH = 100;   // a 2:1 picture
 
 test("normalizeMask fills defaults, clamps, and refuses bad input in strict mode", () => {
   const m = M.normalizeMask({ shape: "rect", x: 0.3, opacity: 3, feather: -4 });
-  assert.deepEqual(m, { shape: "rect", mode: "add", x: 0.3, y: 0.5, w: 0.5, h: 0.5, scale: 1, rotation: 0, feather: 0, expand: 0, opacity: 1 });
+  assert.deepEqual(m, { shape: "rect", mode: "add", x: 0.3, y: 0.25, w: 0.5, h: 0.5, scale: 1, rotation: 0, feather: 0, expand: 0, opacity: 1 });
   assert.equal(M.normalizeMask({ shape: "ellipse" }).shape, "ellipse");
+  // x, y left out: a rect / ellipse is centred — x, y are its top-left corner
+  assert.deepEqual([M.normalizeMask({ shape: "rect", w: 0.2, h: 0.6 }).x, M.normalizeMask({ shape: "rect", w: 0.2, h: 0.6 }).y], [0.4, 0.2]);
   assert.throws(() => M.normalizeMask({ shape: "star" }, true), /shape must be rect \| ellipse \| bezier/);
   assert.throws(() => M.normalizeMask({ shape: "rect", glow: 1 }, true), /glow: unknown key/);
   assert.throws(() => M.normalizeMask({ shape: "rect", mode: "xor" }, true), /mode must be add/);
@@ -30,12 +32,12 @@ test("normalizeMask fills defaults, clamps, and refuses bad input in strict mode
 });
 
 test("shapes: rect, ellipse and bezier outlines cover the right pixels, and follow scale / rotation", () => {
-  const rect = M.normalizeMask({ shape: "rect", x: 0.5, y: 0.5, w: 0.5, h: 0.5 });
+  const rect = M.normalizeMask({ shape: "rect", x: 0.25, y: 0.25, w: 0.5, h: 0.5 });   // x, y = top-left corner
   assert.equal(M.matteAt([rect], 100, 50, BW, BH), 1, "centre");
   assert.equal(M.matteAt([rect], 148, 50, BW, BH), 1, "inside the right edge (x = 150)");
   assert.equal(M.matteAt([rect], 152, 50, BW, BH), 0, "outside the right edge");
   assert.equal(M.matteAt([rect], 100, 77, BW, BH), 0, "outside the bottom edge (y = 75)");
-  const ell = M.normalizeMask({ shape: "ellipse", x: 0.5, y: 0.5, w: 0.5, h: 0.5 });
+  const ell = M.normalizeMask({ shape: "ellipse", x: 0.25, y: 0.25, w: 0.5, h: 0.5 });
   assert.equal(M.matteAt([ell], 148, 50, BW, BH), 1, "on the ellipse's long axis");
   assert.equal(M.matteAt([ell], 145, 72, BW, BH), 0, "a rect corner is outside the ellipse");
   const turned = { ...rect, rotation: 90 };   // 100 × 50 px rect turned → 50 wide, 100 tall (about the centre)
@@ -54,8 +56,8 @@ test("shapes: rect, ellipse and bezier outlines cover the right pixels, and foll
 });
 
 test("modes, invert, opacity, feather and expansion combine like the canvas raster", () => {
-  const big = M.normalizeMask({ shape: "rect", x: 0.5, y: 0.5, w: 0.8, h: 0.8 });
-  const small = { ...big, w: 0.2, h: 0.2 };
+  const big = M.normalizeMask({ shape: "rect", x: 0.1, y: 0.1, w: 0.8, h: 0.8 });
+  const small = { ...big, x: 0.4, y: 0.4, w: 0.2, h: 0.2 };
   assert.equal(M.matteAt([big, { ...small, mode: "subtract" }], 100, 50, BW, BH), 0, "subtract cuts a hole");
   assert.equal(M.matteAt([big, { ...small, mode: "subtract" }], 40, 50, BW, BH), 1);
   assert.equal(M.matteAt([big, { ...small, mode: "intersect" }], 40, 50, BW, BH), 0, "intersect keeps the overlap only");
@@ -321,4 +323,58 @@ test("setMatte sets and clears a track matte; blend, matte and matteTrack are va
   await patch({ op: "setMatte", id: "c_a", matte: "luma", track: "V3" });
   r = await patch({ op: "updateClip", id: "c_a", set: { props: { matte: null } } });
   assert.equal(props("c_a").matteTrack, undefined, "matte:null through updateClip clears its track too");
+});
+
+/* maskSchema 2: x, y = a rect's / ellipse's top-left corner, every number a fraction of the clip's whole
+   source frame (crop is measured on the same frame). Projects saved before it are converted once. */
+test("migrateProject: old masks (centre, cropped picture) keep their outline in the new convention", () => {
+  const FW = 400, FH = 200;   // the source frame
+  const crop = { cropL: 10, cropR: 30, cropT: 20, cropB: 0 };   // picture = x 40…280, y 40…200 of the frame
+  const pic = { x0: 40, y0: 40, w: 240, h: 160 };
+  const old = [
+    { shape: "rect", x: 0.5, y: 0.5, w: 0.5, h: 0.25, rotation: 30 },
+    { shape: "ellipse", x: 0.25, y: 0.75, w: 0.2, h: 0.4, keys: [{ t: 0, x: 0.25 }, { t: 2, x: 0.75, w: 0.4, ease: "linear" }] },
+    { shape: "bezier", x: 0.5, y: 0.5, points: [[0, -0.3], [0.3, 0.3], [-0.3, 0.3]] },
+  ];
+  const doc = { clips: [{ id: "c", kind: "video", props: { ...crop, masks: JSON.parse(JSON.stringify(old)) } }],
+    comps: [{ id: "k", clips: [{ id: "t", kind: "text", props: { masks: [{ shape: "rect", x: 0.5, y: 0.5, w: 0.2, h: 0.2 }] } }] }] };
+  assert.equal(M.migrateProject(doc), 4);
+  assert.equal(doc.maskSchema, 2);
+  assert.equal(M.migrateProject(doc), 0, "only once");
+  const now = M.normalizeMasks(doc.clips[0].props.masks, true);
+  // every pixel of the frame is kept or cut exactly as before (old: picture box; new: frame box)
+  for (const t of [0, 1, 2]) {
+    // the old outline: centre x, y in the cropped picture (normalizeMask fills the other defaults; a rect's
+    // centre becomes its corner here so today's anchors() draws the old shape)
+    const was = M.masksAt(old.map((m) => ({ ...M.normalizeMask(m), x: m.x, y: m.y })), t)
+      .map((m) => (m.shape === "bezier" ? m : { ...m, x: m.x - m.w / 2, y: m.y - m.h / 2 }));
+    const is = M.masksAt(now, t);
+    for (let i = 0; i < old.length; i++) for (let y = 42; y < FH; y += 9) for (let x = 42; x < 280; x += 9) {
+      const a = M.matteAt([was[i]], x - pic.x0, y - pic.y0, pic.w, pic.h, 0) > 0.5;
+      const b = M.matteAt([is[i]], x, y, FW, FH, 0) > 0.5;
+      if (a === b) continue;   // a pixel on the outline itself can round either way (4-decimal fractions)
+      const d = Math.abs(M.polyDist(M.flatten(M.anchors(is[i], FW, FH)), x, y));
+      assert.ok(d < 1, `mask ${i} at t=${t}, frame px ${x},${y}: ${a ? "kept" : "cut"} before, not now (${d.toFixed(2)} px from the outline)`);
+    }
+  }
+  assert.deepEqual(doc.comps[0].clips[0].props.masks[0], { shape: "rect", x: 0.4, y: 0.4, w: 0.2, h: 0.2 }, "a text clip has no crop: centre → corner");
+});
+
+test("an old project is converted once by the agent tools and saved with maskSchema 2", async (t) => {
+  const old = seedProject({ clips: [{ id: "c_a", mediaId: "m_a", kind: "video", track: "V1", start: 0, in: 0, duration: 5,
+    props: { cropL: 20, cropR: 20, masks: [{ shape: "rect", x: 0.5, y: 0.5, w: 0.5, h: 0.5 }] } }] });
+  const dir = makeDataDir(t, old);
+  const mcp = startMcp(t, dir);
+  await mcp.request("initialize", { protocolVersion: "2025-11-25" });
+  const got = await mcp.callTool("fablecut_get_project", {}), full = JSON.parse(got.text.slice(got.text.indexOf("{")));
+  assert.equal(full.maskSchema, 2, "the agent reads the new convention");
+  assert.deepEqual(full.clips[0].props.masks[0], { shape: "rect", x: 0.35, y: 0.25, w: 0.3, h: 0.5 },
+    "centre 0.5 of a picture cropped 20 % each side → frame centre 0.5, width 0.3 → corner 0.35");
+  assert.equal(readProject(dir).maskSchema, undefined, "reading does not write");
+  await mcp.callTool("fablecut_patch_project", { ops: [{ op: "setProject", set: { name: "Renamed" } }] });
+  const saved = readProject(dir);
+  assert.equal(saved.maskSchema, 2);
+  assert.equal(saved.clips[0].props.masks[0].x, 0.35, "saved converted, and only once");
+  await mcp.callTool("fablecut_patch_project", { ops: [{ op: "setProject", set: { name: "Again" } }] });
+  assert.equal(readProject(dir).clips[0].props.masks[0].x, 0.35, "a second patch leaves it alone");
 });

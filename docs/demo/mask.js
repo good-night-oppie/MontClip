@@ -8,9 +8,12 @@
      { name?, on?, shape: rect | ellipse | bezier,
        mode?: add | subtract | intersect | difference   (default add),
        invert?, opacity? 0…1, feather? px, expand? px (− shrinks),
-       x, y      centre, 0…1 of the clip's picture (y down),
+       x, y      rect / ellipse: the TOP-LEFT corner; bezier: the point its
+                 outline is drawn around — 0…1 of the clip's picture, origin
+                 top-left, y down,
        w, h      size, 0…1 of the picture (rect / ellipse),
-       scale?, rotation?°,
+       scale?, rotation?°   about the shape's centre (x + w/2, y + h/2; a
+                 bezier's x, y),
        points?   bezier: [[dx, dy, inX?, inY?, outX?, outY?], …] — anchors
                  around x, y (fractions of the picture), each with optional
                  handles relative to the anchor; [dx, dy] alone is a corner,
@@ -19,9 +22,15 @@
    A free-hand stroke comes in as { shape: "freehand", stroke: [[u, v], …] }
    (picture fractions) and is stored as the bezier fitted through it.
 
-   The picture is the clip's drawn rectangle for video / image / svg, the text
-   block for text and the whole frame for an adjustment layer, so a mask moves,
-   scales and turns with its clip. feather and expand are in project pixels.
+   The picture is the clip's ORIGINAL frame for video / image / svg / comp —
+   the whole source frame, before crop, fit, scale and x / y: the same frame
+   the crop percentages are measured on — the text block for text and the
+   whole canvas for an adjustment or shape layer. So a mask stays on the same
+   part of the source whatever the clip's crop, and moves, scales and turns
+   with the clip.
+
+   Projects saved before maskSchema 2 stored x, y as the CENTRE, in fractions
+   of the cropped picture; migrateProject converts them once. feather and expand are in project pixels.
    Masks combine bottom-up into one matte; the first mask starts from empty when
    it adds and from full otherwise. invert flips a mask before it combines.
 
@@ -115,7 +124,11 @@
     if (src.invert === true) out.invert = true;
     for (const k of NUM_KEYED) {
       let v = src[k];
-      if (v == null) v = DEFAULTS[k];
+      // left out, a rect / ellipse sits in the middle: x, y are its top-left corner
+      if (v == null && (k === "x" || k === "y") && shape !== "bezier") {
+        const sk = k === "x" ? "w" : "h";
+        v = 0.5 - (isNum(src[sk]) ? src[sk] : DEFAULTS[sk]) / 2;
+      } else if (v == null) v = DEFAULTS[k];
       else if (!isNum(v)) { bad(`.${k} must be a number`); v = DEFAULTS[k]; }
       out[k] = k === "rotation" ? r4(clamp(v, ...RANGE[k])) : r4(clamp(v, ...RANGE[k]));
     }
@@ -223,6 +236,17 @@
   }
 
   /* ── Geometry ── */
+  /** The point a mask turns and scales around, in picture fractions: a rect's / ellipse's
+   *  centre (its x, y are the top-left corner), a bezier's own x, y. */
+  function centreOf(m) {
+    if (m.shape === "bezier") return { x: m.x, y: m.y };
+    return { x: m.x + (isNum(m.w) ? m.w : DEFAULTS.w) / 2, y: m.y + (isNum(m.h) ? m.h : DEFAULTS.h) / 2 };
+  }
+  /** The x, y that put mask m (with size w × h) around centre (cx, cy). */
+  function cornerFor(m, cx, cy, w = m.w, h = m.h) {
+    if (m.shape === "bezier") return { x: cx, y: cy };
+    return { x: cx - w / 2, y: cy - h / 2 };
+  }
   /** A mask's outline as closed cubic segments in picture pixels (bw × bh box,
    *  origin top-left): [{x, y, ix, iy, ox, oy}, …] — anchors with absolute handles. */
   function anchors(m, bw, bh) {
@@ -237,7 +261,7 @@
       local = (m.points || []).map((p) => [p[0] * bw, p[1] * bh, (p[2] || 0) * bw, (p[3] || 0) * bh, (p[4] || 0) * bw, (p[5] || 0) * bh]);
     }
     const th = (m.rotation || 0) * Math.PI / 180, s = m.scale == null ? 1 : m.scale;
-    const cs = Math.cos(th) * s, sn = Math.sin(th) * s, cx = m.x * bw, cy = m.y * bh;
+    const c = centreOf(m), cs = Math.cos(th) * s, sn = Math.sin(th) * s, cx = c.x * bw, cy = c.y * bh;
     const vec = (x, y) => [x * cs - y * sn, x * sn + y * cs];
     return local.map(([x, y, ix, iy, ox, oy]) => {
       const [ax, ay] = vec(x, y), [hix, hiy] = vec(ix, iy), [hox, hoy] = vec(ox, oy);
@@ -399,6 +423,73 @@
     out.globalAlpha = 1; out.globalCompositeOperation = "source-over";
   }
 
+  /* ── maskSchema 2 migration ──
+     Before maskSchema 2 a mask's x, y were its CENTRE and every mask number was a fraction of the
+     clip's CROPPED picture. Now a rect's / ellipse's x, y are its top-left corner and the numbers are
+     fractions of the whole source frame (what the crop percentages are measured on). With the clip's
+     crop L / T / R / B as fractions: u_frame = L + u_pic · (1 − L − R) and w_frame = w_pic · (1 − L − R),
+     the same on y with T / B; then x = centre − w / 2. The clip's static crop is used. Keys are converted
+     at their own times; a key that sets x or w gets both (y or h: both), from the old mask as it was at that
+     key, because the old convention kept the centre when the size changed and the new one keeps the corner.
+     So every key's outline is exact; between keys whose x and w eased differently it can drift slightly. */
+  const MASK_SCHEMA = 2;
+  const CROPPED_KINDS = new Set(["video", "image", "svg", "comp"]);
+  function cropOf(clip) {
+    const p = (clip && clip.props) || {}, k = (v) => clamp(+v || 0, 0, 95) / 100;
+    if (!clip || !CROPPED_KINDS.has(clip.kind)) return { l: 0, t: 0, r: 0, b: 0 };
+    return { l: k(p.cropL), t: k(p.cropT), r: k(p.cropR), b: k(p.cropB) };
+  }
+  /** One mask from the old convention to the new one (see above). */
+  function migrateMask(m, crop) {
+    const shape = isObj(m) ? (m.shape == null ? "ellipse" : m.shape) : null;
+    if (!SHAPES.includes(shape)) return m;   // freehand strokes and junk are left to the validator
+    const sx = 1 - crop.l - crop.r, sy = 1 - crop.t - crop.b, bez = shape === "bezier";
+    const full = { ...m, shape };
+    for (const k of ["x", "y", "w", "h"]) if (!isNum(full[k])) full[k] = DEFAULTS[k];
+    const at = (t) => maskAt(full, t);   // the old mask at a key's time, old units
+    const sizes = (o) => {
+      const out = { ...o };
+      if (isNum(o.w)) out.w = r4(o.w * sx);
+      if (isNum(o.h)) out.h = r4(o.h * sy);
+      if (Array.isArray(o.points)) out.points = o.points.map((p) => (Array.isArray(p) ? p.map((v, i) => (isNum(v) ? r4(v * (i % 2 ? sy : sx)) : v)) : p));
+      return out;
+    };
+    const cornerX = (o) => r4(crop.l + o.x * sx - (bez ? 0 : o.w * sx / 2));
+    const cornerY = (o) => r4(crop.t + o.y * sy - (bez ? 0 : o.h * sy / 2));
+    const out = sizes(m);
+    out.x = cornerX(full); out.y = cornerY(full);
+    if (Array.isArray(m.keys)) {
+      out.keys = m.keys.map((k) => {
+        if (!isObj(k)) return k;
+        const o = sizes(k), now = isNum(k.t) ? at(k.t) : full;
+        if (isNum(k.x) || (!bez && isNum(k.w))) o.x = cornerX(now);
+        if (isNum(k.y) || (!bez && isNum(k.h))) o.y = cornerY(now);
+        return o;
+      });
+    }
+    return out;
+  }
+  function migrateClips(clips) {
+    let n = 0;
+    for (const c of Array.isArray(clips) ? clips : []) {
+      if (!c || !isObj(c.props) || !Array.isArray(c.props.masks) || !c.props.masks.length) continue;
+      const crop = cropOf(c);
+      c.props.masks = c.props.masks.map((m) => migrateMask(m, crop));
+      n += c.props.masks.length;
+    }
+    return n;
+  }
+  /** Convert a project's clip masks to maskSchema 2 (every sequence and comp), in place, once.
+   *  Returns how many masks were converted; doc.maskSchema is 2 afterwards. */
+  function migrateProject(doc) {
+    if (!isObj(doc) || doc.maskSchema >= MASK_SCHEMA) return 0;
+    let n = migrateClips(doc.clips);
+    for (const sq of Array.isArray(doc.sequences) ? doc.sequences : []) if (isObj(sq)) n += migrateClips(sq.clips);
+    for (const cp of Array.isArray(doc.comps) ? doc.comps : []) if (isObj(cp)) n += migrateClips(cp.clips);
+    doc.maskSchema = MASK_SCHEMA;
+    return n;
+  }
+
   /** One line per clip for status readouts: "2 masks: ellipse, bezier(12) −". */
   function describe(list) {
     if (!Array.isArray(list) || !list.length) return "";
@@ -461,7 +552,8 @@
 
   return {
     MAX_MASKS, MAX_POINTS, SHAPES, MODES, KEYED, BLENDS, MATTES, matteTrackFor, checkCompositing, NUM_KEYED, RANGE, DEFAULTS, EASES,
-    normalizeMasks, normalizeMask, mergeMask, maskAt, masksAt, shiftKeys,
+    normalizeMasks, normalizeMask, mergeMask, maskAt, masksAt, shiftKeys, centreOf, cornerFor,
+    MASK_SCHEMA, cropOf, migrateMask, migrateClips, migrateProject,
     anchors, tracePath, flatten, polyDist, maskCoverage, combine, matteAt, fitStroke, rasterize, describe, splitPoints, editTopology,
   };
 });
