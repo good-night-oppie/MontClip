@@ -85,7 +85,7 @@ test('the local FFmpeg check returns codes, and the page gets codes, not English
 test('server: H.264 status and export refusals carry codes; the page shows them by code',async t=>{
  // /api/export/h264 sends codes only
  const h=server.slice(server.indexOf('async function h264Status()'),server.indexOf('\n}',server.indexOf('async function h264Status()')));
- a.match(h,/external: ext\.ok \? \{ ok: true \} : \{ ok: false, code: ext\.code \}/);a.match(h,/reason: list\.length \? null : X\.noH264\(/);a.ok(!/maskUserPath|noH264Reason/.test(h),'no English in the status');
+ a.match(h,/external: ext\.ok \? \{ ok: true, source: ext\.source \} : \{ ok: false, code: ext\.code \}/);a.match(h,/reason: list\.length \? null : X\.noH264\(/);a.ok(!/maskUserPath|noH264Reason/.test(h),'no English in the status');
  a.match(server,/code: "frameTooSmall", params: \{ w: frame\.outW, h: frame\.outH \}/);
  a.match(server,/noteCodes/);a.match(server,/code: "extNotUsedNote", params: \{ reason: ext\.code, encoder: o\.spec\.video\.encoder \}/);
  a.match(server,/\{ error: String\(e\.message \|\| e\), code: e\.code, params: e\.params \}|code: e\.code/);

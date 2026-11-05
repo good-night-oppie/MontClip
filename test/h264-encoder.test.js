@@ -73,7 +73,7 @@ test('the local FFmpeg only ever encodes an H.264 export; preview, decoding and 
  const enclosing=idx=>{let name=null;for(const m of server.slice(0,idx).matchAll(/\n(?:async )?function (\w+)\(/g))name=m[1];return name;};
  const uses=[...server.matchAll(/externalFfmpeg\.\w+\(|(?<!function )exportBinary\(/g)].map(m=>enclosing(m.index));
  a.ok(uses.length>=4,'wired into the export paths');
- for(const f of uses)a.ok(['deliveryEncoders','exportBinary','h264Status','beginDeliveryExport','beginExport'].includes(f),'external FFmpeg used in '+f);
+ for(const f of uses)a.ok(['deliveryEncoders','exportBinary','h264Status','beginDeliveryExport','beginExport','noH264Where','logH264AtStart'].includes(f),'external FFmpeg used in '+f);
  for(const fn of ['frameAt','framesSheet','ffprobeJSON','measureLoudness'])if(server.includes('function '+fn)){const body=server.slice(server.indexOf('function '+fn),server.indexOf('\n}',server.indexOf('function '+fn)));a.ok(!/externalFfmpeg|exportBinary/.test(body),fn);}
  for(const f of ['proxy.js','denoise.js','analyze.js','media-probe.js','import-url.js','mcp-server.js'])a.ok(!/external-ffmpeg|externalFfmpeg/.test(fs.readFileSync(path.join(ROOT,f),'utf8')),f);
 });

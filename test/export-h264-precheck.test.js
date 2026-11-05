@@ -54,7 +54,7 @@ test('the page asks before the audio mix: the Export dialog, the export queue an
 });
 
 test('server: every H.264 export path refuses with the same code before rendering', () => {
-  a.match(body(server, 'async function noH264Error('), /\.\.\.X\.noH264\(\{ mediaFoundation: hasMediaFoundation\(\) \}\)/);
+  a.match(body(server, 'async function noH264Error('), /\.\.\.X\.noH264\(noH264Where\(\)\)/);
   a.match(body(server, 'async function beginDeliveryExport('), /await noH264Error\(\)/);
   const raw = body(server, 'async function beginExport(');
   a.ok(raw.indexOf('X.argsUseH264(profile.args) && await noH264Error()') < raw.indexOf('exportBinary('), 'a raw H.264 profile: no encoder at all comes before "choose your own FFmpeg"');

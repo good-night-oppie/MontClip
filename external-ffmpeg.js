@@ -7,8 +7,13 @@
    choice is stored by the main process as {version:1, path} in a JSON file
    whose location reaches the server as MONTCLIP_EXTERNAL_FFMPEG_SETTINGS.
 
+   Web / server mode (node server.js, no desktop app) has no such dialog. There the person
+   who starts the server may name one in MONTCLIP_EXTERNAL_FFMPEG: an absolute path, checked
+   the same way. A choice saved in Settings goes first; the variable only counts without one.
+
    Rules (ADR docs/decisions/2026-11-02-h264-encoder.md):
-     · only the absolute path the user picked; never PATH, never a guess;
+     · only the absolute path the user picked (or the server's starter named); never PATH,
+       never a guess;
      · checked before use (-version and -encoders, argument arrays, no shell)
        and it must list libx264;
      · used only to encode an H.264 export (libx264). Preview, decoding,
@@ -79,22 +84,39 @@ function readSetting(settingsFile) {
   } catch { return { bad: true }; }
 }
 
-/** The server's view of the setting. Re-checked when the setting or the file changes. */
-function createExternal({ settingsFile = process.env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS || null, run = defaultRun } = {}) {
+const ENV_WHY = {
+  extNotFullPath: "it must be the full path of the ffmpeg program",
+  extGone: "there is no file there",
+  extNotFfmpeg: "it could not be started, or it is not FFmpeg",
+  extNoX264: "it has no libx264 encoder",
+};
+/** The server's view of the setting. Re-checked when the setting or the file changes.
+    `setup` says where a user can name one: "settings" (desktop: the Settings dialog) or "server"
+    (web / server mode: MONTCLIP_EXTERNAL_FFMPEG when the server starts). */
+function createExternal({ settingsFile = process.env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS || null,
+  envPath = process.env.MONTCLIP_EXTERNAL_FFMPEG || null, run = defaultRun } = {}) {
   let memo = null;
   const stamp = (f) => { try { const s = fs.statSync(f); return `${s.size}:${s.mtimeMs}`; } catch { return "gone"; } };
-  async function current() {
-    const s = readSetting(settingsFile);
-    if (!s) return { ok: false, code: "none", reason: "none" };
-    if (s.bad) return { ok: false, code: "extSettingBad", reason: "The saved local FFmpeg setting could not be read. Choose the program again in Settings." };
-    const key = `${s.path}|${stamp(s.path)}|${stamp(settingsFile)}`;
+  async function checked(file, source) {
+    const key = `${source}|${file}|${stamp(file)}|${settingsFile ? stamp(settingsFile) : ""}`;
     if (memo && memo.key === key) return memo.value;
-    const value = await check(s.path, { run });
+    let value = { ...(await check(file, { run })), source };
+    // the variable is not chosen in a dialog, so its failures name the variable instead of Settings
+    if (!value.ok && source === "env") value = { ok: false, path: file, source, code: "extEnvUnusable",
+      reason: `MONTCLIP_EXTERNAL_FFMPEG (${maskUserPath(file)}) cannot be used: ${ENV_WHY[value.code] || "it did not pass the check"}.` };
     memo = { key, value };
     return value;
   }
+  async function current() {
+    const s = readSetting(settingsFile);
+    if (s && s.bad) return { ok: false, code: "extSettingBad", reason: "The saved local FFmpeg setting could not be read. Choose the program again in Settings." };
+    if (s) return checked(s.path, "settings");
+    if (envPath) return checked(envPath, "env");
+    return { ok: false, code: "none", reason: "none" };
+  }
   return {
     current,
+    setup: settingsFile ? "settings" : "server",
     /** The bundled encoder set, plus libx264 while the local FFmpeg checks out. */
     async available(bundled) {
       const set = new Set([...bundled].filter((e) => e !== "libx264"));
@@ -118,17 +140,20 @@ function argsUseH264(args) {
   return false;
 }
 
-/** Why there is no H.264 encoder, as a code for the page. */
-function noH264({ platform = process.platform, mediaFoundation = true } = {}) {
-  return platform === "win32" ? { code: "h264NoneWin", featurePack: !mediaFoundation } : { code: "h264NoneOther", featurePack: false };
+/** Why there is no H.264 encoder, as a code for the page. `setup:"server"` (no desktop Settings) lets the page
+    say what exists in that mode. */
+function noH264({ platform = process.platform, mediaFoundation = true, setup } = {}) {
+  const r = platform === "win32" ? { code: "h264NoneWin", featurePack: !mediaFoundation } : { code: "h264NoneOther", featurePack: false };
+  return setup === "server" ? { ...r, setup } : r;
 }
 /** The same in English, for agents and logs. */
-function noH264Reason({ platform = process.platform, mediaFoundation = true } = {}) {
+function noH264Reason({ platform = process.platform, mediaFoundation = true, setup } = {}) {
   let s = "This computer has no H.264 encoder MontClip can use: no graphics-card encoder answered";
   if (platform === "win32") {
     s += " and Windows' own H.264 encoder is not available.";
     if (!mediaFoundation) s += " This looks like a Windows \"N\" edition without media components: install the Media Feature Pack from Windows Settings (Optional features), then restart MontClip.";
   } else s += ".";
+  if (setup === "server") return s + " Start the MontClip server with MONTCLIP_EXTERNAL_FFMPEG set to the full path of an FFmpeg that has libx264 (for example /usr/bin/ffmpeg), or export in another format (for example Archive).";
   return s + " You can choose your own FFmpeg with libx264 in Settings, or export in another format (for example Archive).";
 }
 

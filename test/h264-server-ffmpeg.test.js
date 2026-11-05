@@ -1,0 +1,118 @@
+'use strict';
+// Web / server mode (node server.js, no desktop app): there is no Settings file dialog, so the person who starts
+// the server names an FFmpeg with libx264 in MONTCLIP_EXTERNAL_FFMPEG (an absolute path; never PATH, never a guess —
+// ADR 2026-11-02). Three cases, with faked `ffmpeg -encoders` answers:
+//   1. the bundled FFmpeg has an H.264 encoder          → it is used; the server's FFmpeg is not needed;
+//   2. the bundled one has none, the named one has x264 → libx264 from the named FFmpeg;
+//   3. neither                                          → refused, and the reason names what exists in this mode.
+const test=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const Delivery=require('../delivery'),X=require('../external-ffmpeg'),V=require('../ui-preferences');
+
+function tmp(t){const d=fs.mkdtempSync(path.join(os.tmpdir(),'mc-srvx264-'));t.after(()=>fs.rmSync(d,{recursive:true,force:true}));return d;}
+const withX264=async(file,args)=>args.includes('-encoders')?{code:0,stdout:' V....D libx264              libx264 H.264 / AVC\n'}:{code:0,stdout:'ffmpeg version 5.1.8-0+deb12u1\n'};
+const withoutX264=async(file,args)=>args.includes('-encoders')?{code:0,stdout:' V....D mpeg4\n'}:{code:0,stdout:'ffmpeg version 5.1.8\n'};
+const h264=async(ext,bundled)=>Delivery.encodersFor('h264',await ext.available(new Set(bundled)));
+// the bundled LGPL build on Linux: no libx264, no usable graphics card
+const LGPL_LINUX=['ffv1','prores_ks','libvpx-vp9','aac','flac'];
+
+test('case 1: the bundled FFmpeg has an H.264 encoder — used as before, the server FFmpeg is not needed',async t=>{
+ const ext=X.createExternal({settingsFile:null,envPath:null,run:async()=>{throw new Error('must not run');}});
+ a.deepEqual(await h264(ext,['h264_nvenc','h264_mf']),['h264_nvenc','h264_mf']);
+ a.equal(ext.setup,'server');
+});
+
+test('case 2: the bundled one has none, MONTCLIP_EXTERNAL_FFMPEG names an FFmpeg with libx264 — export uses it',async t=>{
+ const d=tmp(t),exe=path.join(d,'ffmpeg');fs.writeFileSync(exe,'x');
+ const ext=X.createExternal({settingsFile:null,envPath:exe,run:withX264});
+ a.deepEqual(await h264(ext,LGPL_LINUX),['libx264']);
+ const cur=await ext.current();a.equal(cur.ok,true);a.equal(cur.path,exe);a.equal(cur.source,'env');
+ const spec=Delivery.normalize({preset:'youtube'},{available:await ext.available(new Set(LGPL_LINUX))}).spec;
+ a.equal(spec.video.encoder,'libx264');a.equal(X.isExternalJob(spec),true,'encoded by the named FFmpeg, not the bundled one');
+});
+
+test('case 2, desktop: a program the user chose in Settings goes ahead of the server variable',async t=>{
+ const d=tmp(t),mine=path.join(d,'mine.exe'),env=path.join(d,'env.exe'),settings=path.join(d,'external-ffmpeg.json');
+ fs.writeFileSync(mine,'x');fs.writeFileSync(env,'x');fs.writeFileSync(settings,JSON.stringify({version:1,path:mine}));
+ const ext=X.createExternal({settingsFile:settings,envPath:env,run:withX264});
+ a.equal((await ext.current()).path,mine);a.equal((await ext.current()).source,'settings');a.equal(ext.setup,'settings');
+ fs.rmSync(settings);
+ a.equal((await ext.current()).path,env,'no choice saved: the variable still counts');
+});
+
+test('case 3: neither — refused, and in server mode the reason does not point at a Settings dialog that is not there',async t=>{
+ const none=X.createExternal({settingsFile:null,envPath:null,run:async()=>{throw new Error('must not run');}});
+ a.deepEqual(await h264(none,LGPL_LINUX),[]);
+ a.deepEqual(await none.current(),{ok:false,code:'none',reason:'none'});
+ const r=X.noH264({platform:'linux',setup:'server'});
+ a.deepEqual(r,{code:'h264NoneOther',featurePack:false,setup:'server'});
+ const why=X.noH264Reason({platform:'linux',setup:'server'});
+ a.match(why,/MONTCLIP_EXTERNAL_FFMPEG/);a.ok(!/Settings|below/.test(why),why);
+ a.match(X.noH264Reason({platform:'linux'}),/in Settings/,'desktop wording unchanged');
+ // a named FFmpeg without x264 does not help either, and says so in server words
+ const d=tmp(t),exe=path.join(d,'ffmpeg');fs.writeFileSync(exe,'x');
+ const bad=X.createExternal({settingsFile:null,envPath:exe,run:withoutX264});
+ a.deepEqual(await h264(bad,LGPL_LINUX),[]);
+ const cur=await bad.current();a.equal(cur.ok,false);a.equal(cur.code,'extEnvUnusable');a.match(cur.reason,/MONTCLIP_EXTERNAL_FFMPEG/);a.match(cur.reason,/libx264/);
+ const rel=X.createExternal({settingsFile:null,envPath:'ffmpeg',run:withX264});
+ a.equal((await rel.current()).code,'extEnvUnusable','a bare name is not looked up on PATH');
+});
+
+test('the page says it in this mode: web refusals never mention Settings or "below"',()=>{
+ for(const lang of ['zh-CN','en']){
+  const web=V.h264Refusal(lang,{code:'h264NoneOther',setup:'server'});
+  a.ok(web,lang);a.ok(web.includes('MONTCLIP_EXTERNAL_FFMPEG'),web);a.ok(!/设置里|在下面|Settings|below|显卡驱动|graphics driver/.test(web),web);
+  a.equal(V.h264Refusal(lang,{code:'h264NoneOther'}),V.text[lang].h264Refuse,'desktop keeps JJ\'s sentence');
+  const need=V.h264Refusal(lang,{code:'extNeeded',setup:'server'});a.ok(!/设置里|Settings/.test(need),need);
+  a.ok(V.h264Message(lang,{code:'extEnvUnusable'}),lang+' extEnvUnusable');
+ }
+});
+
+// End to end, synthetic frames (lavfi): the bundled encoders are hidden (MONTCLIP_TEST_NO_H264, as on europa), no
+// desktop Settings file, and the server is started with MONTCLIP_EXTERNAL_FFMPEG = an FFmpeg with libx264 found here
+// by the test (the product never looks on PATH). Skipped when this machine has none.
+const { execFileSync } = require('node:child_process');
+function systemX264() {
+  if (process.env.MONTCLIP_TEST_X264_FFMPEG) return process.env.MONTCLIP_TEST_X264_FFMPEG;
+  try {
+    const found = execFileSync(process.platform === 'win32' ? 'where' : 'which', ['ffmpeg'], { encoding: 'utf8' }).split(/\r?\n/).filter(Boolean);
+    for (const f of found) {
+      const real = fs.realpathSync(f);
+      if (/^\s*V\S*\s+libx264\b/m.test(execFileSync(real, ['-hide_banner', '-encoders'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }))) return real;
+    }
+  } catch { }
+  return null;
+}
+
+test('server mode end to end: MONTCLIP_EXTERNAL_FFMPEG makes an H.264 export work where the bundled FFmpeg cannot', async (t) => {
+  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../ffmpeg-path');
+  if (!FF.available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
+  const x264 = systemX264();
+  if (!x264) return t.skip('no FFmpeg with libx264 on this machine');
+  const dir = makeDataDir(t, seedProject({ revision: 1 }));
+  const env = { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_TEST_NO_H264: '1', MONTCLIP_EXTERNAL_FFMPEG_SETTINGS: '', MONTCLIP_EXTERNAL_FFMPEG: x264 };
+  const { base } = await startServer(t, dir, env);
+  const st = await (await fetch(base + '/api/export/h264')).json();
+  a.equal(st.setup, 'server'); a.equal(st.encoder, 'libx264', JSON.stringify(st)); a.deepEqual(st.external, { ok: true, source: 'env' });
+  const jpg = path.join(dir, 'f.jpg');
+  execFileSync(FF.path('ffmpeg'), ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=s=320x180', '-frames:v', '1', '-q:v', '2', jpg]);
+  const begin = await fetch(base + '/api/export/begin', { method: 'POST', body: JSON.stringify({ fps: 30, duration: 0.2, canvasW: 320, canvasH: 180, hasAudio: false, deliveries: [{ delivery: { preset: 'web' }, name: 'srv' }] }) });
+  const sess = await begin.json(); a.equal(begin.status, 200, JSON.stringify(sess)); a.equal(sess.spec.video.encoder, 'libx264');
+  await fetch(base + '/api/export/frame?id=' + sess.id, { method: 'POST', body: Buffer.concat(Array(6).fill(fs.readFileSync(jpg))) });
+  const end = await (await fetch(base + '/api/export/end?id=' + sess.id, { method: 'POST' })).json();
+  a.match(end.src || '', /\/exports\/srv\.mp4$/, JSON.stringify(end));
+  const probe = execFileSync(FF.path('ffprobe'), ['-v', 'error', '-show_entries', 'stream=codec_name,nb_frames', '-of', 'csv=p=0', path.join(dir, 'exports', 'srv.mp4')], { encoding: 'utf8' });
+  a.match(probe, /^h264,6/m);
+});
+
+test('server mode end to end: neither encoder — refused at begin with setup:"server", worded without Settings', async (t) => {
+  const { makeDataDir, seedProject, startServer } = require('./helpers');
+  if (!require('../ffmpeg-path').available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
+  const dir = makeDataDir(t, seedProject({ revision: 1 }));
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_TEST_NO_H264: '1', MONTCLIP_EXTERNAL_FFMPEG_SETTINGS: '', MONTCLIP_EXTERNAL_FFMPEG: '' });
+  const st = await (await fetch(base + '/api/export/h264')).json();
+  a.equal(st.encoder, null); a.equal(st.reason.setup, 'server');
+  const r = await fetch(base + '/api/export/begin', { method: 'POST', body: JSON.stringify({ fps: 30, duration: 1, canvasW: 640, canvasH: 360, hasAudio: false, deliveries: [{ delivery: { preset: 'youtube' }, name: 'a' }] }) });
+  a.equal(r.status, 400); const j = await r.json();
+  a.equal(j.setup, 'server'); a.match(j.error, /MONTCLIP_EXTERNAL_FFMPEG/); a.ok(!/Settings/.test(j.error), j.error);
+  a.equal(V.h264Refusal('zh-CN', j), V.text['zh-CN'].h264RefuseServer);
+});

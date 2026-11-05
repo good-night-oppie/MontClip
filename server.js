@@ -417,27 +417,33 @@ function bundledEncoders() {
 /** Windows has Media Foundation (missing on "N" editions without the Media Feature Pack). */
 const hasMediaFoundation = () => process.platform !== "win32" ||
   fs.existsSync(path.join(process.env.SystemRoot || "C:/Windows", "System32", "mfplat.dll"));
+/** What the no-encoder reason may point at: Settings on the desktop, MONTCLIP_EXTERNAL_FFMPEG in web / server mode. */
+function noH264Where() { return { mediaFoundation: hasMediaFoundation(), setup: externalFfmpeg.setup }; }
 /** The program that encodes an export: the user's local FFmpeg only for libx264, else the bundled one. */
 async function exportBinary(useX264) {
   if (!useX264) return FF.path("ffmpeg");
   const ext = await externalFfmpeg.current();
   if (ext.ok) return ext.path;
+  const server = externalFfmpeg.setup === "server";
   throw Object.assign(new Error(ext.reason === "none"
-    ? "libx264 is only available from your own FFmpeg: choose it in Settings, or use a delivery preset (MontClip then uses the graphics card or Windows' own H.264 encoder)."
-    : "Your local FFmpeg cannot be used: " + X.maskUserPath(ext.reason)), { status: 400, code: ext.reason === "none" ? "extNeeded" : ext.code });
+    ? (server ? "libx264 is only available from an FFmpeg of your own: start the MontClip server with MONTCLIP_EXTERNAL_FFMPEG set to its full path, or use a delivery preset (MontClip then uses the graphics card or Windows' own H.264 encoder)."
+      : "libx264 is only available from your own FFmpeg: choose it in Settings, or use a delivery preset (MontClip then uses the graphics card or Windows' own H.264 encoder).")
+    : "Your local FFmpeg cannot be used: " + X.maskUserPath(ext.reason)),
+  { status: 400, code: ext.reason === "none" ? "extNeeded" : ext.code, ...(server ? { setup: "server" } : {}) });
 }
 /** No H.264 encoder at all (bundled, graphics card or the user's x264): the refusal, before anything renders (ADR 2026-11-02, 3). */
 async function noH264Error() {
   if (Delivery.encodersFor("h264", await deliveryEncoders()).length) return null;
-  return Object.assign(new Error(X.noH264Reason({ mediaFoundation: hasMediaFoundation() })), { status: 400, ...X.noH264({ mediaFoundation: hasMediaFoundation() }) });
+  return Object.assign(new Error(X.noH264Reason(noH264Where())), { status: 400, ...X.noH264(noH264Where()) });
 }
 /** What H.264 export will use here, for the export dialog and agents. */
 async function h264Status() {
   const available = await deliveryEncoders();
   const list = Delivery.encodersFor("h264", available);
   const ext = await externalFfmpeg.current();
-  return { encoder: list[0] || null, encoders: list, external: ext.ok ? { ok: true } : { ok: false, code: ext.code },
-    reason: list.length ? null : X.noH264({ mediaFoundation: hasMediaFoundation() }) };
+  return { encoder: list[0] || null, encoders: list, setup: externalFfmpeg.setup,
+    external: ext.ok ? { ok: true, source: ext.source } : { ok: false, code: ext.code },
+    reason: list.length ? null : X.noH264(noH264Where()) };
 }
 /** Saved delivery presets: library/delivery/<id>.json, each a spec plus a label. */
 function savedDeliveryPresets() { return Delivery.savedPresets(readSaved("delivery")); }
@@ -1466,7 +1472,7 @@ const server = http.createServer(async (req, res) => {
     } catch (e) {
       // an unusable profile is the caller's problem, not a server fault
       const bad = /^Unknown encoding profile|was rejected by ffmpeg|ffmpeg rejected these settings|at most \d+ outputs|deliveries is empty|render each frame rate separately|export fps required|export width\/height required/.test(e.message || "");
-      sendJSON(res, bad || e.status === 400 ? 400 : 500, { error: String(e.message || e), code: e.code, params: e.params, featurePack: e.featurePack });
+      sendJSON(res, bad || e.status === 400 ? 400 : 500, { error: String(e.message || e), code: e.code, params: e.params, featurePack: e.featurePack, setup: e.setup });
     }
     return;
   }
@@ -1847,6 +1853,17 @@ setInterval(() => {
   } catch { }
 }, 60_000).unref();
 
+/** Web / server mode has no Settings dialog: say at start what H.264 export will use, and how to add x264. */
+async function logH264AtStart() {
+  if (DESKTOP || !HAS_FFMPEG || externalFfmpeg.setup !== "server") return;
+  try {
+    const st = await h264Status(), ext = await externalFfmpeg.current();
+    if (st.encoder) console.log(`  H.264 export : ${st.encoder}${ext.ok ? " (MONTCLIP_EXTERNAL_FFMPEG)" : ""}`);
+    else console.log("  H.264 export : ⚠ none. Set MONTCLIP_EXTERNAL_FFMPEG to the full path of an FFmpeg with libx264 (e.g. /usr/bin/ffmpeg) and restart.");
+    if (!ext.ok && ext.code === "extEnvUnusable") console.log(`                 ${X.maskUserPath(ext.reason)}`);
+  } catch { }
+}
+
 server.listen(PORT, HOST, () => {
   boundPort = server.address().port;
   writerLock.update({ port: boundPort });
@@ -1862,6 +1879,7 @@ server.listen(PORT, HOST, () => {
   console.log(`  media folder : ${MEDIA_DIR}`);
   console.log(`  library      : ${LIBRARY_DIR} (${LIBRARY_SUBDIRS.join(", ")})`);
   if (DATA_DIR !== APP_DIR) console.log(`  app files    : ${APP_DIR}`);
+  logH264AtStart();
   console.log(`  ffmpeg       : ${HAS_FFMPEG ? "found (fast export + faststart remux on)" : "not available (real-time export only) — " + FFMPEG_MISSING}`);
   const enc = loadEncodeProfiles(true);
   console.log(`  encode prof. : ${PROFILES_FILE} (${Object.keys(enc.profiles).join(", ")} · default ${enc.default})`);

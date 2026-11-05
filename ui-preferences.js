@@ -69,6 +69,19 @@
   Object.assign(text.en, {
     h264Refuse: "This computer has no video encoder MontClip can use, so it couldn't export this time. Update the graphics driver and try again.",
   });
+  // Web / server mode (node server.js): no Settings dialog, so no "below" / "in Settings" and no graphics-driver advice
+  // (a server usually has no graphics card). The person who starts the server can name an FFmpeg with x264 in
+  // MONTCLIP_EXTERNAL_FFMPEG. 草稿，交 JJ 定稿 (2026-11-04): not final wording.
+  Object.assign(text["zh-CN"], {
+    h264RefuseServer: "这台电脑上找不到 MontClip 能用的 H.264 编码器，所以这次没能导出。可以换一种导出格式（比如「存档」）；或者请启动 MontClip 的人把 MONTCLIP_EXTERNAL_FFMPEG 设成一个带 x264 的 FFmpeg 的完整路径，再重新启动。",
+    extNeededServer: "这个导出设置要用 x264，但现在没有可用的 x264。请启动 MontClip 的人把 MONTCLIP_EXTERNAL_FFMPEG 设成一个带 x264 的 FFmpeg 的完整路径，再重新启动；也可以改用导出预设。",
+    extEnvUnusable: "启动时指定的 FFmpeg（MONTCLIP_EXTERNAL_FFMPEG）用不了，已改回内置编码。",
+  });
+  Object.assign(text.en, {
+    h264RefuseServer: "This computer has no H.264 encoder MontClip can use, so it couldn't export this time. Export in another format (for example Archive), or ask whoever starts MontClip to set MONTCLIP_EXTERNAL_FFMPEG to the full path of an FFmpeg that has x264, then restart it.",
+    extNeededServer: "This export setting uses x264, and no x264 is available. Ask whoever starts MontClip to set MONTCLIP_EXTERNAL_FFMPEG to the full path of an FFmpeg that has x264, then restart it, or use a delivery preset.",
+    extEnvUnusable: "The FFmpeg named when MontClip started (MONTCLIP_EXTERNAL_FFMPEG) cannot be used, so the built-in encoders are used instead.",
+  });
   // encoders by name: plain words in Chinese, the technical names (delivery.js labels) in English
   const ENCODER_NAMES = {
     "zh-CN": { h264_nvenc: "显卡编码（NVIDIA）", h264_mf: "Windows 自带编码", h264_qsv: "显卡编码（Intel）", h264_amf: "显卡编码（AMD）",
@@ -93,7 +106,9 @@
   /** An export refused before it started: "no H.264 encoder" in export words, any other code as h264Message says it. */
   function h264Refusal(language, r) {
     const t = text[lang(language)];
-    if (r && (r.code === "h264NoneWin" || r.code === "h264NoneOther")) return t.h264Refuse;
+    const server = r && r.setup === "server";
+    if (r && (r.code === "h264NoneWin" || r.code === "h264NoneOther")) return server ? t.h264RefuseServer : t.h264Refuse;
+    if (server && r.code === "extNeeded") return t.extNeededServer;
     return h264Message(language, r);
   }
   // MontClip's own wording for keyed strings the terms SPEC does not cover.
