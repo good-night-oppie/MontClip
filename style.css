@@ -1401,6 +1401,7 @@ body.track-size-s .clip.selected {
 
 .tc-io-lab {
   font: 700 9px/1 "Segoe UI", system-ui, sans-serif;
+  white-space: nowrap;
   letter-spacing: 0.05em;
   color: var(--dim);
   text-align: right;
@@ -4871,6 +4872,11 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .flv-import-dialog [data-flv-ask] { white-space: pre-line; line-height: 1.5; }
 .flv-import-dialog .flv-import-row { display: flex; gap: 8px; justify-content: flex-end; }
 .flv-import-dialog [hidden] { display: none; }
+/* the box before Google Fonts goes online (app.js askFontConsent) */
+.font-consent-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; width: min(460px, 92vw); padding: 14px 16px; }
+.font-consent-dialog h3 { margin: 0 0 8px; font-size: 15px; }
+.font-consent-dialog p { margin: 0 0 8px; line-height: 1.5; word-break: break-word; }
+.font-consent-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
 
 /* P2 highlight cards: shaped like the sentence dialog */
 .highlight-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(620px, 90vw); max-height: 85vh; padding: 20px; margin: auto; }
@@ -5136,3 +5142,6 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
   .app.agent-open .cindy-plan-what { display: none; }
   .app.agent-open .cindy-thread { min-height: 4.5em; }
 }
+/* a recording nothing could read the length of (europa P3): JJ's sentence on the file */
+.bin-incomplete { font-size: 11px; line-height: 1.35; color: #ffb3b5; margin-top: 2px; white-space: normal; }
+.bin-row .bin-incomplete { grid-column: 1 / -1; padding-left: 28px; }

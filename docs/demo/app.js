@@ -858,6 +858,8 @@ const runtime = {
   libraryFontReq: new Set(), // library families claimed by a load pass
   googleLoaded: new Set(),   // loaded from Google Fonts (the font picker lists them)
   fontReq: new Map(),   // font name -> Promise<boolean> (ensureFont)
+  fontConsent: new Set(),   // Google fonts the streamer said yes to going online for, this session (requestFonts)
+  fontHinted: new Set(),    // fonts already named in a "drawn in the fallback face" hint, this session
   undo: [], redo: [],
   seqUndo: new Map(),   // sequence id -> {undo, redo, time, sel}: each sequence keeps its own undo history this session
   seqOpen: null,        // the open sequence's id, to notice another one being opened
@@ -1717,6 +1719,7 @@ function applyProject(data, opts = {}) {
   if (migratePan) scheduleSave(); // persist marker + migrated stem pans
   // AV links aren't always on disk (older saves / agents) — rebuild from matching timing.
   relinkClips();
+  noteProjectFonts(); // titles in a font that would have to come from outside: the fallback face, and one hint
   // reset runtime playback elements so they rebuild against new data
   if (state.audioHold) setAudioHold(false);
   else stopAudioHoldNodes();
@@ -2067,8 +2070,9 @@ function probeAV(src, kind) {
   return new Promise((resolve, reject) => {
     const el = document.createElement(kind === "audio" ? "audio" : "video");
     el.preload = "metadata"; el.src = src;
+    // a recording that never says its length plays as Infinity here: that is no length, not an endless one
     el.onloadedmetadata = () => resolve({
-      duration: el.duration,
+      duration: Number.isFinite(el.duration) && el.duration > 0 ? el.duration : undefined,
       width: el.videoWidth || undefined, height: el.videoHeight || undefined,
     });
     el.onerror = reject;
@@ -2492,6 +2496,8 @@ function renderBin() {
     const uses = ctx.usage.get(m.id) || 0;
     const folder = flat && m.folderId ? getFolder(m.folderId) : null;
     const usesHtml = `<button type="button" class="bin-uses${uses ? "" : " none"}" title="${uses ? `Used ${uses}× — click to find every instance` : "Not used on the timeline"}">${uses}</button>`;
+    // JJ (P3, 2026-11-05): a recording nothing could read the length of says so on the file itself
+    const incomplete = MediaLib.cannotCut(m) ? `<div class="bin-incomplete">${escapeHtml(uiText("own.media-incomplete"))}</div>` : "";
     const favHtml = `<button type="button" class="bin-fav${m.favorite ? " on" : ""}" title="${m.favorite ? "Favorite — click to unstar" : "Mark as favorite"}" aria-pressed="${!!m.favorite}">${m.favorite ? "★" : "☆"}</button>`;
     if (binView.list) {
       const cell = (v, cls = "") => `<span class="bin-cell${cls}">${escapeHtml(v || "—")}</span>`;
@@ -2501,7 +2507,7 @@ function renderBin() {
         ${cell(m.codec, " c-codec")}${cell(MediaLib.fmtAudio(m), " c-audio")}${cell(MediaLib.fmtSize(m.size), " num c-size")}
         <span class="bin-cell c-proxy">${proxyBadgeHtml(m) || escapeHtml(m.kind === "video" ? "—" : "")}</span>
         <span class="bin-cell num c-usage">${usesHtml}</span>
-        <span class="bin-del" title="Remove (and its clips)">✕</span>`;
+        <span class="bin-del" title="Remove (and its clips)">✕</span>${incomplete}`;
     } else {
       const sub = [folder ? "📁 " + folder.name : "", m.kind === "video" ? uiText("own.media-kind-video") : m.kind, m.duration ? fmt(m.duration) : "", MediaLib.fmtRes(m), m.fps ? uiText("own.fps-value", { n: MediaLib.fmtFps(m.fps) }) : ""]
         .filter(Boolean).join(" · ");
@@ -2510,6 +2516,7 @@ function renderBin() {
         <div class="bin-meta">
           <div class="bin-name"></div>
           <div class="bin-sub">${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span> ` : ""}${escapeHtml(sub)}</div>
+          ${incomplete}
           ${m.tags && m.tags.length ? `<div class="bin-tags">${m.tags.map((t) => `<span class="bin-tag">#${escapeHtml(t)}</span>`).join("")}</div>` : ""}
         </div>
         <div class="bin-side">${favHtml}${usesHtml}${proxyBadgeHtml(m)}</div>
@@ -2756,11 +2763,13 @@ function makeColumnHead() {
 /* Server-probed metadata (fps, codecs, channels, sample rate, size) for media
    that has none yet. Without ffprobe the server still answers the size. */
 let mediaInfoBusy = false, mediaInfoAgain = false;
+const durationUnknownSaid = new Set();   // files already said to have no length, this session
 async function refreshMediaInfo(list) {
   if (!state.connected) return;
   if (mediaInfoBusy) { mediaInfoAgain = true; return; }   // run once more when this one ends
   // blob: srcs are files a hosted editor reads from a folder (a local session's own blobs are transient)
-  const todo = (list || project.media).filter((m) => !m.transient && m.size == null && (isLocalSrc(m.src) || /^blob:/.test(m.src || "")));
+  // no size yet, or (once) an MKV / a recording with no usable length: old projects and MCP imports have a size already
+  const todo = (list || project.media).filter((m) => !m.transient && MediaLib.needsInfo(m) && (isLocalSrc(m.src) || /^blob:/.test(m.src || "")));
   if (!todo.length) return;
   mediaInfoBusy = true;
   try {
@@ -2771,12 +2780,36 @@ async function refreshMediaInfo(list) {
     if (!res.ok) return;
     const { info } = await res.json();
     let changed = false;
+    const unknown = [], shorter = [];
+    // taken before anything changes: a corrected length and the clips fitted to it are one undo step (Rea, #126)
+    const snap = JSON.stringify({ clips: project.clips, markers: project.markers || [], comps: project.comps || [], media: project.media, seqClips: otherSequenceClips() });
     for (const m of project.media) {
       const i = info && info[m.src];
       if (!i) continue;
       for (const k of MediaLib.INFO_KEYS) if (i[k] != null && m[k] !== i[k]) { m[k] = i[k]; changed = true; }
       if (!(m.width > 0) && i.width > 0) { m.width = i.width; m.height = i.height; changed = true; }
+      // the server's length wins where the browser has none, or counted the start of an MKV's timestamps (one that
+      // starts at 3600 s plays 20 s; Chromium says 3620 s): media-lib.js parseProbe / serverDuration
+      const d = MediaLib.serverDuration(m, i);
+      if (d.changed) changed = true;
+      if (d.length) shorter.push(m);
+      if (d.unknown && !durationUnknownSaid.has(m.src)) { durationUnknownSaid.add(m.src); unknown.push(m); }
     }
+    // clips placed from the browser's 3620 s (an old project, or dragged in before the server answered) fit the real
+    // length, as a replaced file's clips do (setMediaSource): here, in comps and in the other sequences
+    if (shorter.length) {
+      for (const m of shorter) {
+        MediaLib.fitClips(m, project.clips);
+        for (const comp of project.comps || []) MediaLib.fitClips(m, comp.clips);
+        if (state.compCtx) MediaLib.fitClips(m, state.compCtx.root.clips);
+        for (const sq of SeqLib.others(seqRoot())) MediaLib.fitClips(m, sq.clips);
+      }
+      pushUndo(snap);
+      runtime.compGen = (runtime.compGen || 0) + 1;
+      state.dirtyTimeline = true;
+    }
+    // nothing says how long it is: tell the user once, in plain words (never 0:00 or NaN)
+    if (unknown.length) toast(unknown.length === 1 ? uiText("own.media-duration-unknown", { name: unknown[0].name }) : uiText("own.media-duration-unknown-n", { n: unknown.length }));
     if (changed) { renderBin(); scheduleSave(); if (state.selId) renderInspector(); }
     followSourceCanvas();
   } catch { } finally {
@@ -4556,6 +4589,8 @@ function addClipFromMedia(m, trackId, at) {
   const tr = TRACKS.find((t) => t.id === trackId);
   if (!tr || (kind === "audio") !== (tr.kind === "audio")) trackId = defaultTrackFor(kind);
   if (isTrackLocked(trackId)) { toast(`${trackId} is locked — unlock it to add clips`); return null; }
+  // nothing could read its length (a recording cut off before it was saved): never placed at a made-up 5 s (europa P3)
+  if (MediaLib.cannotCut(m)) { toast(uiText("own.media-incomplete")); return null; }
   pushUndo();
   const start = Math.max(0, at ?? state.time);
   const duration = m.duration || 5;
@@ -4834,6 +4869,7 @@ function openStylePicker(anchor, c) {
       committed = true;
       close();
       scheduleSave(); renderInspector();
+      requestTitleFonts(c);
     });
     menu.appendChild(it);
   }
@@ -4851,6 +4887,12 @@ function openStylePicker(anchor, c) {
   menu.style.top = Math.round(Math.min(r.bottom + 4, innerHeight - 340)) + "px";
   document.body.appendChild(menu);
   runtime.styleMenu = { close };
+}
+/* A style the streamer picked: its fonts, asking first for any that would go online. (Applying a style on its own —
+   a new title, a hover preview — never asks or goes online; a missing face draws in the fallback.) */
+function requestTitleFonts(c) {
+  const p = c.props || {};
+  requestFonts([p.font, ...(p.textAnim === "font-cut" ? (Array.isArray(p.fontCutSet) && p.fontCutSet.length ? p.fontCutSet : FONT_CUT_DEFAULT) : [])]);
 }
 function closeStylePicker() { if (runtime.styleMenu) runtime.styleMenu.close(); }
 /* Swap a clip's source media in place: position, trim, keyframes, transitions,
@@ -7634,9 +7676,6 @@ function renderInspector(lite) {
     ${curveSel("Out curve", "curveOut", c.transitionOut)}
   </div>`;
   if (c.kind === "text") {
-    const fontGroup = (label, fonts) => fonts.length
-      ? `<optgroup label="${label}">${fonts.map((f) => `<option ${f === p.font ? "selected" : ""}>${f}</option>`).join("")}</optgroup>` : "";
-    const known = [...SYSTEM_FONTS, ...runtime.customFonts, ...GOOGLE_FONTS, ...runtime.googleLoaded];
     html += `<div class="insp-section"><h3>Text</h3>
       ${row("Content", `<textarea data-k="text">${p.text}</textarea>`, "", "text")}
       ${row(hasTextBox(p) && p.boxFit ? "Max size" : "Font size",
@@ -7655,14 +7694,7 @@ function renderInspector(lite) {
       ${sel("Direction", "direction", ["auto", "ltr", "rtl"], p.direction || "auto")}
     </div>
     <div class="insp-section"><h3>Font</h3>
-      ${row("Family", `<select data-k="font">
-        ${fontGroup("System", SYSTEM_FONTS)}
-        ${fontGroup("Library fonts", runtime.customFonts)}
-        ${fontGroup("Google fonts", [...new Set([...GOOGLE_FONTS, ...runtime.googleLoaded])])}
-        ${known.includes(p.font) ? "" : `<option selected>${p.font}</option>`}
-      </select>`, "", "font")}
-      ${row("Google font", `<input type="text" data-gfont placeholder="Type any Google Font name…">
-        <button class="btn tiny" data-action="gfont-load">Load</button>`)}
+      ${fontFamilyRowsHtml(p, row)}
       ${sel("Weight", "weight", [0, 300, 400, 500, 600, 700, 800, 900], p.weight)}
       ${check("Bold", "bold", p.bold)}
       ${check("Italic", "italic", p.italic)}
@@ -7713,7 +7745,7 @@ function renderInspector(lite) {
         : input.type === "range" || input.type === "number" ? parseFloat(input.value)
           : input.value;
       if (k === "weight") v = +v || 0;
-      if (k === "font") ensureFont(String(v));
+      if (k === "font") requestFonts([String(v)]);
       if (k === "name") { c.name = String(v); state.dirtyTimeline = true; }
       else if (k === "start") { c.start = Math.max(0, +v || 0); state.dirtyTimeline = true; inspPropGen++; }
       else if (k === "duration") { c.duration = Math.max(MIN_DUR, +v || MIN_DUR); state.dirtyTimeline = true; inspPropGen++; }
@@ -7776,13 +7808,14 @@ function renderInspector(lite) {
       else if (a === "gfont-load") {
         const name = els.inspector.querySelector("[data-gfont]")?.value.trim();
         if (!name) return;
-        ensureFont(name).then((ok) => { if (!ok) toast(`Couldn't load "${name}" from Google Fonts`); });
         c.props.font = name;
-        toast(`Loading Google font "${name}"…`);
+        // asks first (the hosts, what is sent); a "no" keeps the fallback face
+        requestFonts([name]).then((ok) => { if (ok === false) toast(`Couldn't load "${name}" from Google Fonts`); else if (ok) renderInspector(); });
       }
       else if (a === "title-shuffle") {
         const keys = Object.keys(TITLE_STYLES).filter((k) => k !== "plain" && k !== c.styleName);
         applyTitleStyle(c, keys[Math.floor(Math.random() * keys.length)], { keepTransform: true });
+        requestTitleFonts(c);
       }
       scheduleSave(); renderInspector();
     });
@@ -10487,7 +10520,7 @@ async function highlightSignals(isCurrent = () => true) {
       }
       const clips = audible.filter((c) => perMedia[c.mediaId]).map((c) => ({ mediaId: c.mediaId, start: c.start, in: c.in || 0, duration: c.duration,
         speed: (c.props && c.props.speed) || 1, volume: (c.props && c.props.volume) ?? 1, gain: (c.props && c.props.gain) || 0 }));
-      if (clips.length) loudness = MontClipHighlights.mapLoudness(clips, perMedia, { duration, step: 0.5 });
+      if (clips.length) loudness = MontClipHighlightCandidates.mapLoudness(clips, perMedia, { duration, step: 0.5 });
     } catch { loudness = null; }
   }
   // without the server (the web demo), or when it could not read the files: the mix itself, in 60 s pieces.
@@ -10521,7 +10554,7 @@ async function highlightSignals(isCurrent = () => true) {
 function highlightReasonText(r) {
   const v = { db: r.value, peak: r.peak, ratio: r.value, count: r.count };
   const key = r.signal === "loudness" && !(r.value > 0) ? "own.hl-r-loudness-peak" : "own.hl-r-" + r.signal;
-  const detail = uiText(key + "-detail", v), when = MontClipHighlights.clock(r.window[0]) + "–" + MontClipHighlights.clock(r.window[1]);
+  const detail = uiText(key + "-detail", v), when = MontClipHighlightCandidates.clock(r.window[0]) + "–" + MontClipHighlightCandidates.clock(r.window[1]);
   return { text: uiText(key, v), title: detail ? detail + " · " + when : when };
 }
 /** Keep the given timeline ranges (in this order) with the range engine, as one undo step. */
@@ -10557,10 +10590,10 @@ async function showHighlightCandidates() {
   try { sig = await highlightSignals(current); } catch { sig = null; }
   if (!dialog.isConnected) return;
   if (!sig || !current()) { status.textContent = uiText("own.hl-changed"); return; }
-  const cards = MontClipHighlights.candidates(sig);
+  const cards = MontClipHighlightCandidates.candidates(sig);
   // the assistant may be told these (numbers only) while the timeline stays as it was when they were found
   runtime.highlightFacts = { signature, cards: cards.map((c) => ({ from: c.from, to: c.to, score: c.score })) };
-  if (!cards.length) { status.textContent = uiText("own.hl-empty-" + MontClipHighlights.emptyReason(sig)); return; }
+  if (!cards.length) { status.textContent = uiText("own.hl-empty-" + MontClipHighlightCandidates.emptyReason(sig)); return; }
   status.textContent = uiText("own.hl-found", { n: cards.length });
   back.textContent = uiText("own.hl-back", { n: cards.length });
   const picked = new Set();
@@ -10568,7 +10601,7 @@ async function showHighlightCandidates() {
     const card = document.createElement("div");
     card.className = "hl-card"; card.dataset.hlCard = String(i); card.dataset.hlRange = c.from + "-" + c.to;
     // m:ss.t and the length (VV, #52: 00:09:05 read as nine minutes five seconds)
-    const when = MontClipHighlights.clock(c.from) + "–" + MontClipHighlights.clock(c.to) + uiText("own.hl-dur", { s: MontClipHighlights.seconds(c.to - c.from) });
+    const when = MontClipHighlightCandidates.clock(c.from) + "–" + MontClipHighlightCandidates.clock(c.to) + uiText("own.hl-dur", { s: MontClipHighlightCandidates.seconds(c.to - c.from) });
     card.innerHTML = `<label><input type="checkbox" data-hl-pick> <strong>${escapeHtml(when)}</strong></label>
       ${c.text ? `<p class="hl-text">${escapeHtml(c.text.length > 120 ? c.text.slice(0, 120) + "…" : c.text)}</p>` : ""}
       <ul>${c.reasons.map((r) => { const t = highlightReasonText(r); return `<li data-hl-reason="${escapeHtml(r.signal)}" title="${escapeHtml(t.title)}">${escapeHtml(t.text)}</li>`; }).join("")}</ul>
@@ -10834,7 +10867,7 @@ async function autoRun() {
         if (run.stop) throw Object.assign(new Error("stopped"), { stopped: true });
       }
       run.phase = 2; tick();
-      const highlights = loudness ? MontClipHighlights.candidates({ duration: m.duration, sentences: [], loudness, danmaku: danmaku.map((t) => ({ t })) }) : [];
+      const highlights = loudness ? MontClipHighlightCandidates.candidates({ duration: m.duration, sentences: [], loudness, danmaku: danmaku.map((t) => ({ t })) }) : [];
       run.phase = 3; tick();
       let songs = [];
       if (wantSongs) {
@@ -11586,9 +11619,9 @@ async function showSentenceSelection(suggestion = null, onApplied = null, onCanc
       }) : [...selected].map(id => captions.find(c => c.id === id)).map(c => ({ from: c.start, to: c.start+c.duration }));
       plan = MontClipRangePlan.create(doc, keep); plan.keep = keep;
       const cut = plan.captions.filter((c) => c.status === "visible" && c.truncated).length;
-      const clock = MontClipHighlights.clock;
+      const clock = MontClipHighlightCandidates.clock;
       summary.textContent = slices
-        ? keep.map((r, i) => uiText("own.ssel-sum-slice", { name: sliceNames[i], from: clock(r.from), to: clock(r.to), len: MontClipHighlights.seconds(r.to - r.from) })).join(uiText("own.ssel-sum-slice-sep"))
+        ? keep.map((r, i) => uiText("own.ssel-sum-slice", { name: sliceNames[i], from: clock(r.from), to: clock(r.to), len: MontClipHighlightCandidates.seconds(r.to - r.from) })).join(uiText("own.ssel-sum-slice-sep"))
         : byTime
           ? uiText("own.ssel-sum-ranges", { ranges: keep.map((r) => `${clock(r.from)}–${clock(r.to)}`).join(" → "), duration: clock(Math.round(plan.duration)) })
             + (cut ? " " + uiText(cut === 1 ? "own.ssel-sum-cut-one" : "own.ssel-sum-cut", { cut }) : "")
@@ -18108,41 +18141,126 @@ function fontRegistered(name) {
   for (const f of document.fonts) if (f.family.replace(/^["']|["']$/g, "") === name) return true;
   return false;
 }
-/* Make `name` drawable: system and library fonts already are, anything else
-   comes from Google Fonts. Resolves false when there is no such font. Cheap
-   to call every frame (font-cut does): one request per name, ever. */
+/* Google Fonts goes online (Deja, 11-04): MontClip may, but the streamer sees where and what first. The page asks
+   before the first request for a font (the names, both hosts, what is sent); a font confirmed once this session is
+   not asked about again. Desktop never goes online from the page (desktop/main.js blocks it): no Google font box
+   there, and a font that isn't on this computer is drawn and exported in the fallback face. */
+const GOOGLE_FONT_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com"];
+const fontDesktop = () => !!window.montclipViewSettings;
+/* Drawable without going online: a system font, a library font, one already loaded, or one on this machine. */
+function fontHere(name) {
+  return SYSTEM_FONTS.includes(name) || runtime.customFonts.includes(name) || fontRegistered(name) || fontInstalled(name);
+}
+/* Make `name` drawable if it can be without asking: system and library fonts already are, a Google font only once
+   the streamer has said yes to it this session. Resolves false otherwise (the fallback face draws it). Never goes
+   online for a font nobody confirmed, so drawing, opening a project and exporting call it freely. Cheap to call
+   every frame (font-cut does): one check per name until a yes. */
 function ensureFont(name) {
   if (!name || SYSTEM_FONTS.includes(name)) return FONT_READY;
   let req = runtime.fontReq.get(name);
   if (req) return req;
   req = (async () => {
     await (libraryFontsReady || loadLibraryFonts());
-    if (runtime.customFonts.includes(name) || fontRegistered(name) || fontInstalled(name)) return true;
-    const ok = await new Promise((resolve) => {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      // CORS mode so @font-face files stay origin-clean when fillText hits the canvas.
-      link.crossOrigin = "anonymous";
-      link.href = "https://fonts.googleapis.com/css2?family=" +
-        encodeURIComponent(name).replace(/%20/g, "+") + ":" + GOOGLE_FONT_STYLES + "&display=swap";
-      link.onload = () => resolve(true);
-      link.onerror = () => { link.remove(); resolve(false); };
-      document.head.appendChild(link);
-    });
-    if (!ok) return false;
-    runtime.googleLoaded.add(name);
-    // fetch the usual faces now instead of on the first frame that draws them
-    await Promise.all(["400", "700"].map((w) => document.fonts.load(`${w} 64px "${name}"`).catch(() => { })));
-    return true;
+    if (fontHere(name)) return true;
+    if (fontDesktop() || !runtime.fontConsent.has(name)) return false;
+    return loadGoogleFont(name);
   })();
   runtime.fontReq.set(name, req);
   return req;
 }
-/* Before an export: every face the titles draw with, loaded. A frame drawn
-   while its face is still in flight comes out in the fallback font, and in
-   an export that frame is final. Bounded so a dead network can't stall it. */
-async function loadProjectFonts() {
-  const faces = new Map(); // "italic 700 64px "Anton"" -> "Anton"
+/* The one place that goes to Google Fonts, and only for a font the streamer confirmed this session. */
+async function loadGoogleFont(name) {
+  if (fontDesktop() || !runtime.fontConsent.has(name)) return false;
+  const url = "https://fonts.googleapis.com/css2?family=" +
+    encodeURIComponent(name).replace(/%20/g, "+") + ":" + GOOGLE_FONT_STYLES + "&display=swap";
+  let css;
+  try {
+    // no Referer (it named this editor's address) and no cookies; a name Google Fonts doesn't know answers 400
+    const r = await fetch(url, { referrerPolicy: "no-referrer", credentials: "omit" });
+    if (!r.ok) return false;
+    css = await r.text();
+  } catch { return false; }
+  // The stylesheet goes in from a blob: address, so its font files on fonts.gstatic.com carry no Referer either: a
+  // sheet's requests name the sheet as their referrer, and a blob: address is never sent as one. (A <link> straight to
+  // Google sent the stylesheet's address, fonts.googleapis.com, to fonts.gstatic.com; real-tests/font-consent-browser-smoke.cjs
+  // checks the headers a browser really sends.)
+  const href = URL.createObjectURL(new Blob([css], { type: "text/css" }));
+  const ok = await new Promise((resolve) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.referrerPolicy = "no-referrer";
+    link.href = href;
+    link.onload = () => resolve(true);
+    link.onerror = () => { link.remove(); resolve(false); };
+    document.head.appendChild(link);
+  });
+  URL.revokeObjectURL(href); // parsed: the font addresses in it are absolute
+  if (!ok) return false;
+  runtime.googleLoaded.add(name);
+  // fetch the usual faces now instead of on the first frame that draws them
+  await Promise.all(["400", "700"].map((w) => document.fonts.load(`${w} 64px "${name}"`).catch(() => { })));
+  return true;
+}
+const fontNames = (names) => names.map((n) => `“${n}”`).join(uiText("own.font-list-sep"));
+/* The streamer picked fonts (the picker, Load, a title style). True when all of them can be drawn, false when one
+   couldn't be loaded, null when the streamer said no (or on desktop, where the page never goes online). */
+async function requestFonts(names) {
+  names = [...new Set(names.filter((n) => typeof n === "string" && n && !SYSTEM_FONTS.includes(n)))];
+  if (!names.length) return true;
+  await (libraryFontsReady || loadLibraryFonts());
+  const need = names.filter((n) => !fontHere(n));
+  if (!need.length) return true;
+  if (fontDesktop()) { toast(uiText("own.font-desktop-missing", { names: fontNames(need) })); return null; }
+  const ask = need.filter((n) => !runtime.fontConsent.has(n));
+  if (ask.length && !(await askFontConsent(ask))) return null;
+  for (const n of ask) { runtime.fontConsent.add(n); runtime.fontReq.delete(n); }
+  return (await Promise.all(need.map(ensureFont))).every(Boolean);
+}
+/* The box before going online: for every font not yet confirmed this session, in every permission mode. "Not now"
+   is focused, and Esc is "Not now". */
+function askFontConsent(names) {
+  return new Promise((resolve) => {
+    const dlg = document.createElement("dialog"), title = document.createElement("h3"), fonts = document.createElement("p");
+    dlg.className = "font-consent-dialog"; dlg.dataset.fontConsentDialog = "";
+    const hosts = document.createElement("p"), sent = document.createElement("p"), after = document.createElement("p"),
+      row = document.createElement("div"), deny = document.createElement("button"), allow = document.createElement("button");
+    title.textContent = uiText("own.font-net-title");
+    fonts.textContent = uiText("own.font-net-fonts", { names: fontNames(names) });
+    hosts.textContent = uiText("own.font-net-hosts", { hosts: GOOGLE_FONT_HOSTS.join(uiText("own.font-list-sep")) });
+    sent.textContent = uiText("own.font-net-sent");
+    after.textContent = uiText("own.font-net-no");
+    deny.type = allow.type = "button";
+    deny.className = "btn"; deny.dataset.fontConsent = "deny"; deny.textContent = uiText("own.font-net-deny");
+    allow.className = "btn primary"; allow.dataset.fontConsent = "allow"; allow.textContent = uiText("own.font-net-allow");
+    row.className = "font-consent-row"; row.append(deny, allow);
+    dlg.append(title, fonts, hosts, sent, after, row);
+    let answer = false;
+    deny.addEventListener("click", () => { answer = false; dlg.close(); });
+    allow.addEventListener("click", () => { answer = true; dlg.close(); });
+    dlg.addEventListener("close", () => { dlg.remove(); resolve(answer); }, { once: true });
+    document.body.append(dlg); dlg.showModal(); deny.focus();
+  });
+}
+/* The Font section's family rows. Desktop: no Google font box, and only the Google fonts on this computer. */
+function fontFamilyRowsHtml(p, row) {
+  const desk = fontDesktop();
+  const fontGroup = (label, fonts) => fonts.length
+    ? `<optgroup label="${label}">${fonts.map((f) => `<option ${f === p.font ? "selected" : ""}>${f}</option>`).join("")}</optgroup>` : "";
+  const google = [...new Set([...GOOGLE_FONTS, ...runtime.googleLoaded])]
+    .filter((f) => !desk || (!runtime.customFonts.includes(f) && fontHere(f)));
+  const known = [...SYSTEM_FONTS, ...runtime.customFonts, ...google];
+  return `${row("Family", `<select data-k="font">
+        ${fontGroup("System", SYSTEM_FONTS)}
+        ${fontGroup("Library fonts", runtime.customFonts)}
+        ${fontGroup("Google fonts", google)}
+        ${known.includes(p.font) ? "" : `<option selected>${p.font}</option>`}
+      </select>`, "", "font")}
+      ${desk ? "" : row("Google font", `<input type="text" data-gfont placeholder="Type any Google Font name…">
+        <button class="btn tiny" data-action="gfont-load">Load</button>`)}`;
+}
+/* The titles' faces: "italic 700 64px "Anton"" -> "Anton". */
+function projectFontFaces() {
+  const faces = new Map();
   for (const c of mediaClips()) {
     if (c.kind !== "text" || c.disabled) continue;
     const p = c.props || {};
@@ -18151,10 +18269,32 @@ async function loadProjectFonts() {
       fams.push(...(Array.isArray(p.fontCutSet) && p.fontCutSet.length ? p.fontCutSet : FONT_CUT_DEFAULT));
     for (const fam of fams) faces.set(`${p.italic ? "italic " : ""}${textFontWeight(p)} 64px "${fam}"`, fam);
   }
+  return faces;
+}
+/* After a project opens: the titles' fonts that can't be drawn (not here, not confirmed), told once each a session.
+   In the browser the hint offers to load them, which asks first. */
+async function noteProjectFonts() {
+  const fams = [...new Set(projectFontFaces().values())];
+  const oks = await Promise.all(fams.map(ensureFont));
+  const missing = fams.filter((f, i) => !oks[i] && !runtime.fontHinted.has(f));
+  if (!missing.length) return;
+  missing.forEach((f) => runtime.fontHinted.add(f));
+  if (fontDesktop()) toast(uiText("own.font-desktop-missing", { names: fontNames(missing) }));
+  else toastAction(uiText("own.font-fallback", { names: fontNames(missing) }), uiText("own.font-fallback-load"), () => requestFonts(missing));
+}
+/* Before an export: every face the titles draw with, loaded. A frame drawn
+   while its face is still in flight comes out in the fallback font, and in
+   an export that frame is final. Bounded so a dead network can't stall it.
+   Never goes online for a font nobody confirmed: those are named before the
+   export starts and drawn in the fallback face. */
+async function loadProjectFonts() {
+  const faces = projectFontFaces(), missing = new Set();
   const load = Promise.all([...faces].map(async ([spec, fam]) => {
     if (await ensureFont(fam)) await document.fonts.load(spec).catch(() => { });
+    else missing.add(fam);
   }));
   await Promise.race([load, new Promise((r) => setTimeout(r, 8000))]);
+  if (missing.size) toast(uiText("own.font-export-fallback", { names: fontNames([...missing]) }));
   try { await document.fonts.ready; } catch { }
 }
 
@@ -18725,13 +18865,13 @@ function renderExportEngineText() {
   const wcOk = fastOk && state.webCodecs && !ef;
   $("engineFastNote").textContent = fastOk
     ? (ef ? "Exports the " + ef.w + "×" + ef.h + " delivery frame (cropped). Keeps rendering if you switch tabs."
-      : uiText("own.engine-fast-note"))
+      : uiText("term.engine-fast-note"))
     : (ef
       ? "Needs the server + MontClip's bundled FFmpeg to export a cropped delivery frame."
       : "Needs the server + MontClip's bundled FFmpeg.");
   const wcNote = $("engineWebCodecsNote");
   if (wcNote) {
-    if (wcOk) wcNote.textContent = uiText("own.engine-webcodecs-note");
+    if (wcOk) wcNote.textContent = uiText("term.engine-webcodecs-note");
     else if (ef) wcNote.textContent = fastOk
       ? "Unavailable while an export frame is set — use Fast export."
       : "Unavailable while an export frame is set. Install ffmpeg, or clear the export frame to use Realtime.";
@@ -19756,7 +19896,7 @@ async function fastExport(opts = {}) {
   const signal = exportAbort.signal;
   if (!opts.silent) els.exportOverlay.classList.remove("hidden");
   els.exportProgress.style.width = "0%";
-  els.exportNote.textContent = "Rendering frames → ffmpeg. You can switch tabs; export continues.";
+  els.exportNote.textContent = uiText("term.engine-fast-note");
   restoreExportVideoState();
   const deliveries = opts.deliveries || (opts.delivery ? [{ delivery: opts.delivery }] : null);
   const delivery = deliveries ? deliveries[0].delivery : null;
@@ -19905,7 +20045,7 @@ async function fastExport(opts = {}) {
     state.exporting = false; state.rendering = false;
     releaseOriginalPlayers();
     els.exportOverlay.classList.add("hidden");
-    els.exportNote.textContent = "Rendering your sequence in real time. Keep this tab focused.";
+    els.exportNote.textContent = uiText("term.export-note-realtime");
     if (runtime.pendingSync) syncFromServer();
   }
   return result;
@@ -19971,7 +20111,7 @@ function renderQueue() {
   const btnOpen = $("btnOpenQueue");
   if (btnOpen) btnOpen.textContent = exportQueue.length ? uiText("own.q-list-n", { n: pending || exportQueue.length }) : uiText("own.q-list");
   const start = $("btnQueueStart");
-  start.textContent = queueRunning ? "Stop" : "Start";
+  start.textContent = queueRunning ? uiText("term.queue-stop") : uiText("term.queue-start");
   start.disabled = !queueRunning && !pending;
   $("btnQueueClose").disabled = queueRunning;
   $("btnQueueClear").disabled = queueRunning || !exportQueue.some((q) => q.status !== "pending" && q.status !== "running");
@@ -20480,7 +20620,7 @@ async function webCodecsExport() {
   const signal = exportAbort.signal;
   els.exportOverlay.classList.remove("hidden");
   els.exportProgress.style.width = "0%";
-  els.exportNote.textContent = "Encoding with WebCodecs → ffmpeg mux. You can switch tabs; export continues.";
+  els.exportNote.textContent = uiText("term.engine-webcodecs-note");
   restoreExportVideoState();
   const { start: t0, end: t1, frames } = beginExportWindow();
   const fps = projectFps();
@@ -20603,7 +20743,7 @@ async function webCodecsExport() {
     state.exporting = false; state.rendering = false;
     releaseOriginalPlayers();
     els.exportOverlay.classList.add("hidden");
-    els.exportNote.textContent = "Rendering your sequence in real time. Keep this tab focused.";
+    els.exportNote.textContent = uiText("term.export-note-realtime");
     if (runtime.pendingSync) syncFromServer();
   }
 }
@@ -20862,10 +21002,17 @@ function filterHelp() {
   const words = $("helpFilter").value.toLowerCase().split(/\s+/).filter(Boolean);
   let any = false;
   for (const sec of $("helpKeys").querySelectorAll(".keys-sec")) {
-    const head = sec.querySelector("h3").textContent.toLowerCase();
+    const h3 = sec.querySelector("h3");
+    // a translated layer still answers English searches: match the shown text AND the saved
+    // English source (the heading's keyed English, and each cell's stashed original markup)
+    const headEn = h3 && h3.dataset.i18n ? MontClipView.t("en", h3.dataset.i18n) : "";
+    const head = ((h3 ? h3.textContent : "") + " " + headEn).toLowerCase();
     let shown = 0;
     for (const tr of sec.querySelectorAll("tr")) {
-      const text = head + " " + tr.textContent.toLowerCase();
+      const text = head + " " + [...tr.querySelectorAll("td")]
+        .map((td) => (td.dataset.i18nHtmlOrig || "") + " " + td.textContent)
+        .join(" ")
+        .toLowerCase();
       const hit = words.every((w) => text.includes(w));
       tr.classList.toggle("hidden", !hit);
       if (hit) shown++;

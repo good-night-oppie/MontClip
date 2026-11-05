@@ -44,7 +44,8 @@ const KEYS={
  'export-range-full':['Full timeline · {from} → {to}','整条时间线 · {from} → {to}','app'],
  'engine-fast-note':['Frame-accurate. Server encodes from JPEG frames. Keeps going if you switch tabs.','逐帧准确。由本机程序一帧帧编码，切到别的页面也会继续导出。','app'],
  'engine-webcodecs':['WebCodecs (HW encode)','显卡加速编码','html'],
- 'dlv-note-master':['Project size · H.264 CRF 16 · AAC 320k','和项目一样大 · 高画质（H.264 CRF 16 · AAC 320k）','app'],
+ // v2（JJ 定稿表 #119，2026-11-05）改了写法：括号里不再套括号
+ 'dlv-note-master':['Project size · H.264 CRF 16 · AAC 320k','和项目一样大 · 高画质 · H.264 恒定画质（CRF）16 · AAC 320k','app'],
  'dlv-resolution':['Resolution','分辨率','html'],
  'dlv-frame-rate':['Frame rate','帧率','html'],
  'dlv-codec':['Codec','视频编码','html'],
@@ -106,8 +107,10 @@ test('the master preset note stays English in delivery.js for agents and is tran
 
 test('static labels carry data-i18n markers and dynamic strings go through uiText',()=>{
  for(const [k,[e,,where]] of Object.entries(KEYS)){
-  if(where==='html')a.ok(html.includes('data-i18n="own.'+k+'"'),'index.html marks '+k);
-  else a.ok(app.includes('uiText("own.'+k+'"'),'app.js says '+k+' through uiText');
+  // DD (PR #144): the export dialog's engine notes render from term.* (JJ's v2 wording); the own.* keys stay as JJ's earlier copy
+  const ns=(k==='engine-fast-note'||k==='engine-webcodecs-note')?'term.':'own.';
+  if(where==='html')a.ok(html.includes('data-i18n="'+ns+k+'"'),'index.html marks '+k);
+  else a.ok(app.includes('uiText("'+ns+k+'"'),'app.js says '+k+' through uiText');
  }
  // a <label> wrapping a control: only the text is wrapped, so the control survives applyI18n
  for(const [id,k] of [['dlvRes','dlv-resolution'],['dlvFps','dlv-frame-rate'],['dlvCodec','dlv-codec'],['dlvEncoder','dlv-encoder'],['dlvRate','dlv-rate-control'],

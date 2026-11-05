@@ -45,10 +45,10 @@ test('an installed folder with the same pinned hash and unchanged programs is re
  const r=F.upToDate(dest,{sha256:'abc'},{win:false});a.equal(r.ok,false);a.match(r.reason,/ffmpeg changed/);
  a.equal(F.upToDate(path.join(dest,'nope'),{sha256:'abc'},{win:false}).ok,false);
 });
-test('a cached archive is used only when its SHA-256 matches; otherwise it is fetched again',async t=>{
+test('a cached archive is used only when its size and SHA-256 match; otherwise it is fetched again',async t=>{
  const d=fs.mkdtempSync(path.join(os.tmpdir(),'mc-cache-'));t.after(()=>fs.rmSync(d,{recursive:true,force:true}));
  const good=Buffer.from('pinned archive bytes'),sha=require('node:crypto').createHash('sha256').update(good).digest('hex');
- const b={url:'https://example.invalid/a.tar.xz',sha256:sha};let downloads=0;
+ const b={url:'https://example.invalid/a.tar.xz',sha256:sha,bytes:good.length};let downloads=0;
  const dl=async(url,file)=>{downloads++;fs.writeFileSync(file,good);};
  const p1=await F.cachedArchive(b,d,{download:dl});a.equal(downloads,1);a.equal(F.sha256(p1),sha);
  const p2=await F.cachedArchive(b,d,{download:dl});a.equal(downloads,1,'cache hit: no download');a.equal(p2,p1);
@@ -59,4 +59,43 @@ test('a cached archive is used only when its SHA-256 matches; otherwise it is fe
 test('fetch-ffmpeg never looks for an ffmpeg on PATH or the runner',()=>{
  const src=fs.readFileSync(path.join(__dirname,'..','desktop','fetch-ffmpeg.cjs'),'utf8');
  a.ok(!/process\.env\.PATH|["']which["']|["']where(\.exe)?["']|spawnSync\(["']ffmpeg/.test(src));
+});
+// Rea on #150: a download is checked against the manifest's exact byte count first, then its SHA-256.
+// A local server stands in for GitHub (the https:// URL is sent to it over plain HTTP).
+function server(t,body){const http=require('node:http');let hits=0;const s=http.createServer((q,r)=>{r.writeHead(200,{'content-length':body.length});r.end(body);});
+ t.after(()=>new Promise(r=>s.close(r)));return new Promise(r=>s.listen(0,'127.0.0.1',()=>{const port=s.address().port;
+  r({hits:()=>hits,get:(url,cb)=>{hits++;return http.get(url.replace(/^https:\/\/[^/]+/,'http://127.0.0.1:'+port),cb);}});}));}
+function cacheDir(t){const d=fs.mkdtempSync(path.join(os.tmpdir(),'mc-bytes-'));t.after(()=>fs.rmSync(d,{recursive:true,force:true}));return d;}
+const shaOf=(b)=>require('node:crypto').createHash('sha256').update(b).digest('hex');
+test('a download whose size is not the pinned byte count is refused and its temporary file deleted',async t=>{
+ const body=Buffer.from('an archive of the wrong length'),s=await server(t,body),d=cacheDir(t);
+ const b={url:'https://example.invalid/ff.tar.xz',sha256:shaOf(body),bytes:body.length+1};
+ await a.rejects(F.cachedArchive(b,d,{download:(u,f)=>F.download(u,f,{get:s.get})}),/size mismatch.*got 30 bytes, pinned 31/);
+ a.equal(s.hits(),1);a.deepEqual(fs.readdirSync(d),[],'no .part and no archive left');
+});
+test('a download of the pinned size and SHA-256 is kept',async t=>{
+ const body=Buffer.from('the pinned archive'),s=await server(t,body),d=cacheDir(t);
+ const f=await F.cachedArchive({url:'https://example.invalid/ff.zip',sha256:shaOf(body),bytes:body.length},d,{download:(u,f)=>F.download(u,f,{get:s.get})});
+ a.equal(fs.readFileSync(f,'utf8'),'the pinned archive');a.deepEqual(fs.readdirSync(d),['ff.zip']);
+});
+test('a build with no pinned byte count is an error, never skipped, and nothing is downloaded',async t=>{
+ const body=Buffer.from('x'),s=await server(t,body),d=cacheDir(t);
+ for(const bytes of [undefined,0,-1,1.5,'1'])
+  await a.rejects(F.cachedArchive({url:'https://example.invalid/ff.zip',sha256:shaOf(body),bytes},d,{download:(u,f)=>F.download(u,f,{get:s.get})}),/no pinned byte count/,String(bytes));
+ a.equal(s.hits(),0);a.deepEqual(fs.readdirSync(d),[]);
+ a.throws(()=>F.checkArchive(path.join(d,'none'),{sha256:shaOf(body)}),/no pinned byte count/);
+});
+// Rea on #153: an --archive that fails its check names that local file, not the manifest's URL.
+test('--archive: a local file that fails the size or SHA-256 check is named by its path in the error',t=>{
+ const {spawnSync}=require('node:child_process'),man=require('../desktop/ffmpeg-manifest.json');
+ const plat=Object.keys(man.builds)[0],d=cacheDir(t);
+ const cases=[['short.tar.xz',Buffer.from('too short')],['samesize.tar.xz',Buffer.alloc(man.builds[plat].bytes)]];
+ for(const [name,body] of cases){
+  const file=path.join(d,name);fs.writeFileSync(file,body);
+  const r=spawnSync(process.execPath,[path.join(__dirname,'..','desktop','fetch-ffmpeg.cjs'),'--platform',plat,'--archive',file,'--force'],{encoding:'utf8',env:{...process.env,MONTCLIP_FFMPEG_DIR:''}});
+  a.notEqual(r.status,0,name);
+  a.match(r.stderr,name==='short.tar.xz'?/size mismatch/:/SHA-256 mismatch/,name);
+  a.ok(r.stderr.includes(file),name+': the error names '+file+'\n'+r.stderr);
+  a.ok(!r.stderr.includes(man.builds[plat].url),name+': not the URL');
+ }
 });

@@ -166,18 +166,15 @@ test('every public code: words in both languages, no English in the Chinese, not
 // in test/zh-shown.js — names in their own casing, key names, 中文（ABC）, officialPane_formatTech, the logo and "English".
 const Z = require('./zh-shown');
 // Strings outside this PR that still break the rule, for JJ to finalise in a PR of their own (key → the words): not rewritten here.
-const KNOWN = {
-  'term.zoom-to-the-in-out-work-area': 'OUT', 'term.trim-clips-to-in-out-t': 'OUT', 'term.clear-source-or-timeline-in-out': 'OUT', 'term.in-out-and-markers': 'OUT',
-  'own.ly-open-title': 'OUT', 'own.ly-pick-range': 'OUT',
-  'term.vector-animations-from-library-svg': 'library,svg', 'term.overlay-art-from-library-elements': 'library,elements', 'term.sound-effects-from-library-sfx': 'library,sfx',
-  'term.filter-e-g-marker-trim-mask': 'marker,trim,mask', 'own.dlv-note-master': 'CRF',
-};
+// (main fixed every earlier one: #144, wip2-zh-labels; #151's font sentence names Google, for JJ: a product name, (a)?)
+const KNOWN = { 'own.font-net-hosts': 'Google' };
 test('the Chinese interface: no English word of three letters or more, beyond JJ\'s categories; names in their own casing', () => {
   const found = {};
   for (const [k, v] of Object.entries(V.text['zh-CN'])) {
     if (typeof v !== 'string' || Z.EXEMPT_ZH.has(k)) continue;
     a.deepEqual(Z.wrongCase(v), [], `zh-CN "${k}" writes a name in another casing: ${v}`);
-    const w = Z.englishLeft(v);
+    // key caps and code samples are not prose (main's help rows carry <kbd>, #144): the words around them are what counts
+    const w = Z.englishLeft(v.replace(/<(kbd|code)\b[^>]*>[\s\S]*?<\/\1>/g, ' ').replace(/<[^>]+>/g, ' '));
     if (w) found[k] = w;
   }
   for (const [k, w] of Object.entries(found)) a.equal(KNOWN[k], w, `zh-CN "${k}" has ${w}: ${V.text['zh-CN'][k]}`);
@@ -198,8 +195,8 @@ test('the Chinese interface: no English word of three letters or more, beyond JJ
 test('the Chinese interface of index.html (help layer included): English left in it is only the listed exceptions', () => {
   const found = Z.englishShown(), known = require('./fixtures/zh-index-english.json');
   a.ok(!('html:app' in found) && !('html:mcLanguage' in found), '(e)');
-  a.ok(Object.keys(found).some((k) => k.startsWith('help:')), 'the help layer is read');
-  a.equal(found['help:playback/Space'], 'Play,pause,Source,Program,whichever,active', 'VV\'s example');
+  // main translated the help layer and the rest of the page (#144, wip2-zh-labels): nothing is left on the list
+  a.ok(!Object.keys(found).some((k) => k.startsWith('help:')), 'the help layer comes out in Chinese');
   a.ok(!found['html:helpOverlay'] || !/Keyboard/.test(found['html:helpOverlay']), 'data-i18n headings come out in Chinese');
   for (const [k, w] of Object.entries(found)) a.equal(known[k], w, `zh-CN ${k} shows ${w}`);
   for (const k of Object.keys(known)) a.ok(found[k], k + ' is fixed now: drop it from test/fixtures/zh-index-english.json');

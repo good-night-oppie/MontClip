@@ -39,6 +39,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `flv-native-smoke.cjs` | `FLV_NATIVE_COMPLETE` | 在用 |
 | `first-screen-smoke.cjs` | `FIRST_SCREEN_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `highlights-smoke.cjs` | `HIGHLIGHTS_COMPLETE` | 在用 |
+| `highlights-menu-smoke.cjs` | `HIGHLIGHTS_MENU_PASS` | 在用；需要 `MONTCLIP_FFMPEG_DIR` 指向自带的 ffmpeg 目录 |
 | `hidden-smoke.cjs` | `HIDDEN_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `keep-ranges-smoke.cjs` | `KEEP_RANGES_PASS` | 在用 |
 | `lyrics-smoke.cjs` | `LYRICS_PASS` | 在用 |
@@ -51,6 +52,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `package-smoke.cjs` | `PACKAGE_SMOKE_COMPLETE` | 在用；用 node 运行：`node desktop/package-smoke.cjs <打好的 zip>` |
 | `remove-connection-smoke.cjs` | `REMOVE_COMPLETE` | 在用 |
 | `review-body-smoke.cjs` | `REVIEW_PASS` | 在用 |
+| `review-count-smoke.cjs` | `REVIEW_COUNT_PASS` | 在用：发送确认框一打开（第一帧）就要写对引用的字幕条数 |
 | `sentence-button-smoke.cjs` | `SENTENCE_BUTTON_COMPLETE` | 在用 |
 | `sentence-dialog-smoke.cjs` | `SD_PASS` | 在用 |
 | `simple-primary-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
@@ -61,6 +63,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `three-track-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
 | `timeline-content-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
 | `timeline-drag-smoke.cjs` | `MONTCLIP_DRAG_COMPLETE` | 在用 |
+| `tc-io-width-smoke.cjs` | `TC_IO_WIDTH_PASS` | 在用；360 / 630 / 1400px 下中英文控制条高度与 main 一致，入点 / 出点标签不逐字换行 |
 | `toast-more-smoke.cjs` | `TOAST_MORE_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `url-sentence-smoke.cjs` | `URL_SENTENCE_COMPLETE` | 在用 |
 | `zh-batch3-smoke.cjs` | `ZH3_COMPLETE` | 在用 |
