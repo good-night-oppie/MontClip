@@ -110,3 +110,42 @@ test('the box just before the download names the address chosen this time: githu
   // (main.js adds the hosts GitHub passes downloads on to: also)
   a.match(main, /confirm: async \(q\) => \(await ask\(asrConfirmText\(lang, \{ \.\.\.q, also: [^\n]*\), "CONFIRM"\)\) === 1,/);
 });
+
+// Deja 11-05: not enough memory and files that can't be read show only their own sentence too — no "Couldn't transcribe: "
+// before it, in either language — with 〔换回 Paraformer〕, as "Meta's model stopped" does.
+test('not enough memory, files that can\'t be read: only the plain sentence, with 〔换回 Paraformer〕 (no code, no English before it)', async () => {
+  const app = read('app.js');
+  const take = (start, end) => { const i = app.indexOf(start), j = app.indexOf(end, i); a.ok(i >= 0 && j > i, start); return app.slice(i, j); };
+  // the real chain the Transcript tab runs: transcribeFromTab → transcribeSrcs → transcribeFile → asrMetaWords → asrMetaFailToast
+  const code = take('const ASR_MODEL_KEY', 'const asrModelStatus') + take('function asrMetaFailToast(', '\n}\n') + '\n}\n'
+    + take('function asrMetaWords(', '/** Transcribe files one after another.')
+    + take('async function transcribeSrcs(', '\n}\n') + '\n}\n' + take('async function transcribeFromTab(', '\n}\n') + '\n}\n';
+  // what the server answers (server.js: engine "meta", the engine's own English message)
+  const answers = {
+    'asr-meta-no-memory': { code: 'ASR_OPTIONAL_NO_MEMORY', engine: 'meta', needMB: 1000, freeMB: 600, error: "not enough free memory for Meta's model: about 1000 MB needed, 600 MB free" },
+    'asr-meta-broken': { code: 'ASR_OPTIONAL_MODEL_BROKEN', engine: 'meta', error: 'Failed to create offline recognizer' },
+  };
+  for (const lang of ['zh-CN', 'en']) {
+    for (const [key, answer] of Object.entries(answers)) {
+      const shown = [], stored = new Map([['montclip.asrModel', 'asrMeta']]);
+      const ctx = {
+        localStorage: { getItem: (k) => (stored.has(k) ? stored.get(k) : null), setItem: (k, v) => stored.set(k, String(v)) },
+        uiText: (k, v) => V.t(lang, k, v), Number, String, Object, JSON, Math,
+        fetch: async () => ({ ok: false, status: answer.code === 'ASR_OPTIONAL_NO_MEMORY' ? 409 : 500, json: async () => answer }),
+        transcribeAvailable: () => true, transcribeSettings: () => ({}), trState: { busy: null }, renderTranscript: () => {}, paintTranscribeBusy: () => {},
+        loadAsrStatus: () => {}, paintAsrStatus: () => {}, transcribeTargets: () => ({ srcs: ['/media/a.wav'] }), trGapDur: () => '', loadTranscript: async () => null,
+        toast: (m) => shown.push({ m }), toastAction: (m, label, fn) => shown.push({ m, label, fn }),
+      };
+      vm.runInNewContext(code, ctx);
+      await vm.runInContext('transcribeFromTab()', ctx);
+      const want = V.t(lang, 'own.' + key, { need: '1000 MB', free: '600 MB' }), what = lang + ' ' + key;
+      a.equal(shown.length, 1, what);
+      a.equal(shown[0].m, want, what + ': the sentence alone');
+      a.ok(!/ASR_|Couldn't|offline recognizer|needed,/.test(shown[0].m), what + ': no code, no engine message');
+      if (lang !== 'en') a.ok(!/[A-Za-z]{2,}/.test(shown[0].m.replace(/Meta|Paraformer|MB/g, '')), what + ': no English in the Chinese');
+      a.equal(shown[0].label, V.t(lang, 'own.asr-switch-paraformer'), what + ': 〔换回 Paraformer〕');
+      shown[0].fn();
+      a.equal(stored.get('montclip.asrModel'), 'asr', what + ': one click and the speech model is Paraformer');
+    }
+  }
+});
