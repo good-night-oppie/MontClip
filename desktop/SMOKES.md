@@ -48,6 +48,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `narrow-layout-smoke.cjs` | `LAYOUT_MONITOR_MENU_PASS` | 在用 |
 | `narrow-pane-smoke.cjs` | `NARROW_COMPLETE` | 在用 |
 | `official-pane-smoke.cjs` | `OFFICIAL_COMPLETE` | 在用 |
+| `offline-media-smoke.cjs` | `OFFLINE_PASS` | 在用；需要 `MONTCLIP_FFMPEG_DIR`；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `package-smoke.cjs` | `PACKAGE_SMOKE_COMPLETE` | 在用；用 node 运行：`node desktop/package-smoke.cjs <打好的 zip>` |
 | `remove-connection-smoke.cjs` | `REMOVE_COMPLETE` | 在用 |
 | `review-body-smoke.cjs` | `REVIEW_PASS` | 在用 |

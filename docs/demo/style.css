@@ -5119,3 +5119,6 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
   .app.agent-open .cindy-plan-what { display: none; }
   .app.agent-open .cindy-thread { min-height: 4.5em; }
 }
+.export-offline-warn { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.export-offline-warn.hidden { display: none; }
+.export-offline-actions { display: flex; gap: 6px; margin-left: auto; }
