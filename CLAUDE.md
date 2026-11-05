@@ -68,6 +68,8 @@ Every Claude Code session then has these tools:
   select. See "Color" and "Masks" below.
 - `fablecut_track` — motion tracking: follow a region of a video clip, store it as
   a track, and make a mask or another clip follow it. See "Tracking" below.
+- `fablecut_repair_media` — make a video MontClip can cut: a recording cut off mid-way, or any format the editor
+  can't cut (FLV too). A new MP4 replaces the entry; a background job. See "Media management" below.
 - `fablecut_proxy` — make, check or delete proxies: light copies of heavy footage
   the editor plays while editing (export always reads the originals). See
   "Media management" below.
@@ -466,7 +468,7 @@ These are quick looks. For real grading use `props.grade` (see "Color" below).
 | `gain` | 0 | clip gain in dB (−60…+24), applied **before** `volume`, so keyframes and fades ride on top. Set by Normalize. |
 | `channelMode` | "stereo" | stereo · mono (L+R folded to one channel) · left · right (use one side) · swap (exchange L/R). Ignored on linked stems — `audioChannel` already picks their channel. |
 | `duck` | 0 | ducking in dB (≤ 0), multiplied into `volume`. Normally keyframed by Auto-duck (`keyframes.duck`), so the clip's own volume, keyframes and fades are untouched. |
-| `pan` | 0 | −1 (full left) … 0 (center) … +1 (full right). Linked stems default L `−1` / R `+1` / other `0`. Projects saved before pan migrate once on load (`panSchema`); keep `panSchema: 1` (and explicit `pan` on stems) when rewriting the document so a centered stem is not re-hard-panned. |
+| `pan` | 0 | −1 (full left) … 0 (center) … +1 (full right). Linked stems default L `−1` / R `+1` / other `0`; the only stem of a mono file defaults to `0` (centre). Projects saved before pan migrate once on load (`panSchema`); keep `panSchema: 1` (and explicit `pan` on stems) when rewriting the document so a centered stem is not re-hard-panned. |
 | `speed` | 1 | 0.25–4× playback rate. **Keyframable → speed ramps**: with `keyframes.speed` the engine time-remaps (media time = `in` + ∫speed dt), in preview and in the export audio mix. Static case: source window consumed = `duration × speed`, so `in + duration×speed ≤ media.duration`. |
 
 **Text clips only:**
@@ -1747,6 +1749,37 @@ Files under `media/` may sit in subfolders (`/media/archive/a.mp4`).
   swap the file of one clip only, use the Inspector's **Source** menu instead.
 - Relink and replace are one undo step each.
 
+**Fix it for me (〔帮我修好〕).** One button for every repair and conversion. A recording whose length can't be read
+(it stopped before it was saved) shows "This video wasn't recorded to the end…" on the file in the bin, with a
+**Fix it for me** button; one whose length came only from its packets (it can be cut, seeking may be slow) gets a
+small ◔ mark instead, no dialog. Right-click any video → **Fix it for me…** runs the same thing (FLV included, no
+`allowTranscode`). When re-encoding is needed and no encoder here can do it, it is refused and nothing is written. A new MP4 is written into `media/` as `<name>.repaired.mp4` — the original file is never
+touched — and takes the entry's place: every clip, composition and sequence that used it switches, fitted to
+the usable part, as one undo step (the new entry has `derivedFrom` and `replaced: {id, name, src}`). First a
+quick remux (`-fflags +genpts` before the input, `-c copy`, `+faststart`), checked: the new file states a finite
+length of at least 0.5 s, close to what the original holds, and decodes
+cleanly end to end. Only if that doesn't hold (VP8 can't go into an MP4, a broken frame …) it is re-encoded,
+with the encoders exports use: your own FFmpeg's libx264, else a bundled LGPL H.264 encoder that works here, else
+the bundled LGPL VP9 (no GPL encoder is ever bundled). An FLV goes through the FLV preparation first. Progress and
+**Cancel** sit on the file. Done: "Fixed. Clips that use it now use the fixed copy, in the same place. The original
+is still there." One that can't be fixed (an MP4 whose index was never written): "“name” stopped recording before
+it was saved, and this kind can't be fixed. The original file is unchanged — please use a complete file." The
+length check after a remux or re-encode is ±1 s against what the original holds.
+`+genpts` can generate missing presentation timestamps; it does not guarantee repair of existing timestamp jumps.
+`node scripts/repair-timestamps-bench.js` reproduces a synthetic jump with a truncated tail and compares both paths.
+
+Missing lengths read by the agent are sent to `POST /api/media-backfill`. An open editor receives the metadata
+over SSE, merges it with its pending edits and saves both through `PUT /api/project`; without an editor, the server
+merges onto the current document. Only entries still pointing at the same file and still missing a length change.
+If the server refuses or times out, no direct write follows. A connection refusal (no server) retains the standalone
+MCP fallback. This protects the duration backfill; it does not change other MCP writes or add multi-editor locking.
+
+**Agents:** `fablecut_repair_media {mediaId}` answers at once with a job — `{job, status, progress, phase}` —
+the long-operation convention: call again with `{job}` for progress and, when `status` is `done`,
+`result.mediaId` (the NEW id) and `result.duration`; `{cancel}` stops it (nothing changes); the same
+`{mediaId}` again while it runs joins that job. `failed` carries `error.code` (`REPAIR_FAILED`, or `REPAIR_ENCODER_MISSING`: re-encoding was needed and nothing here can do it — nothing written). A version is
+kept first, so `fablecut_versions` can undo the swap.
+
 **Proxies.** Heavy footage — 4K, HEVC, ProRes, long phone clips — can stutter
 while you scrub and play. A *proxy* is a light copy the editor plays instead
 while you edit: H.264 at 540p (or 720p / 1080p, never larger than the
@@ -2078,7 +2111,7 @@ user drops favourite takes on, cut into the edit from the Source monitor.
  (`props.volume: 0` so it isn't doubled) plus one `kind:"audio"` clip per source
  channel on consecutive A-tracks that share a `linkGroup` (and the same
  `mediaId` / timing). Each stem is mono-isolated then placed with `pan` (defaults
- preserve stereo: L `−1`, R `+1`). Standalone music/SFX also live on A-tracks. Linked partners
+ preserve stereo: L `−1`, R `+1`; a mono file's single stem is centred, `0`). Standalone music/SFX also live on A-tracks. Linked partners
  move/trim/split together — edit timing on any member of the group; do not treat
  A-tracks as music-only.
 - **Three track switches** (Premiere-style), all in the track header and all
@@ -2330,6 +2363,14 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
   `{src, key, state, done, total, complete, scanned, songs}` (songs in file seconds; state `running` · `done` ·
   `stopped` · `failed` · `none`) · `POST /api/songs/cancel {src}` stops it, keeping what was read. SSE event
   `songs` (`{src, state, done, total}`) after each segment. See "Songs in a recording".
+- `POST /api/media-backfill {updates:[{id, src, duration?, durationFrom?, durationUnknown?}]}` →
+  `{via:"editor", editors}` when handed to open SSE clients, or `{via:"server", changed, revision}` when saved
+  directly with no editor connected. Editor delivery is not a disk-save acknowledgement; the editor saves through
+  `PUT /api/project`. Non-finite lengths are ignored, and existing lengths, relinked and removed entries are kept.
+- `POST /api/repair {src}` → `{job, status, progress, phase}` (a job; the same src while it runs joins it) ·
+  `GET /api/repair/job?id=` → the same, with `result {src, name, kind, duration, preparation, encoder?, …details}`
+  when done or `error {code}` · `POST /api/repair/cancel?id=`. Writes `<name>.repaired.mp4` into `./media/`;
+  registering it is the caller's job (see "Media management").
 - `POST /api/denoise` — body `{src:"/media/…", amount:"light"|"medium"|"strong"}`: writes a
   noise-reduced FLAC of the whole file into `./media/` (reused if it exists) and returns
   `{src, name, duration, channels}`. Does not touch `project.json` (see "Audio mix").
@@ -2475,7 +2516,7 @@ clips, or a music bed with vocals gets captioned too), `fablecut_frame {time:<mi
 check the size and placement, and `fablecut_captions {export:"srt"}` for the
 platform's own subtitle upload.
 
-**Center a mono stem**: linked or standalone audio clip with `props.pan: 0` (inspector **Pan** slider, −1…+1). Stereo video stems default to L `−1` / R `+1`; set A1 to `0` to center that channel in the mix.
+**Center a mono stem**: linked or standalone audio clip with `props.pan: 0` (inspector **Pan** slider, −1…+1). Stereo video stems default to L `−1` / R `+1`; set A1 to `0` to center that channel in the mix. A mono file's single stem is already centred.
 
 **Cinematic grade**: `props.filterPreset: "teal-orange"` (tweak with
 `temperature`/`vignette` on top).

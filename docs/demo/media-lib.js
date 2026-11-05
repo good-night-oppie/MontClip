@@ -26,7 +26,7 @@
 
   const KINDS = ["video", "audio", "image", "svg"];
   /** Fields the server probes. Written back to the entry; never user-set. */
-  const INFO_KEYS = ["size", "fps", "codec", "audioCodec", "audioChannels", "sampleRate", "bitrate"];
+  const INFO_KEYS = ["size", "fps", "codec", "audioCodec", "audioChannels", "sampleRate", "bitrate", "durationFrom"];
   const MAX_TAGS = 24, MAX_TAG_LEN = 32;
   const SORT_KEYS = ["name", "kind", "duration", "resolution", "fps", "codec", "audio", "size", "usage"];
 
@@ -95,7 +95,51 @@
   }
   /** A video or sound nothing could read the length of (europa P3, 2026-11-05): it can't be placed or cut — not at 0 s,
    *  nor at a stand-in length. One not read yet (no mark) is not this. */
+  /** Cases 1 and 2 (JJ, 2026-11-05): it can be cut, but its length came from its packets — a recording cut off
+   *  before it was saved — so seeking in it may be slow. A small mark on the file and 〔帮我修好…〕 in its menu. */
+  const slowToSeek = (m) => !!(m && m.kind === "video" && m.durationFrom === "packets" && Number.isFinite(m.duration) && m.duration > 0);
   const cannotCut = (m) => !!(m && timed(m) && m.durationUnknown && !(Number.isFinite(m.duration) && m.duration > 0));
+  /** Lengths read for files that had none (the agent's backfill: QQ, #152) into a project: only an entry that still has
+   *  no length and still shows the same file; once each. updates: [{id, src, duration?, durationFrom?, durationUnknown?}].
+   *  Shared by the server (no editor open), the editor (onMediaBackfill) and the agent (no server). → how many changed */
+  function applyBackfill(doc, updates) {
+    let n = 0;
+    if (!doc || !Array.isArray(updates)) return 0;
+    for (const u of updates) {
+      if (!u || typeof u.id !== "string") continue;
+      const m = (doc.media || []).find((x) => x.id === u.id);
+      if (!m || m.src !== u.src || !timed(m) || (Number.isFinite(m.duration) && m.duration > 0) || m.durationUnknown) continue;
+      if (Number.isFinite(u.duration) && u.duration > 0) { m.duration = u.duration; if (u.durationFrom === "packets") m.durationFrom = "packets"; }
+      else if (u.durationUnknown === true) m.durationUnknown = true;
+      else continue;
+      n++;
+    }
+    return n;
+  }
+  /** A repaired (or converted) file takes an entry's place (〔帮我修好〕, fablecut_repair_media): `entry` goes
+   *  where the old one was, with its organization (favorite, tags, folder, collections) and `derivedFrom` / `replaced`
+   *  naming what it replaced; every clip that showed the old one — the open timeline, compositions, the other sequences —
+   *  shows the new one, fitted to its length. The old file stays on disk. Mutates `root`; → {clips: how many re-pointed} */
+  function swapMedia(root, oldId, entry) {
+    const list = root.media || (root.media = []);
+    const i = list.findIndex((m) => m.id === oldId);
+    if (i < 0) throw new Error("no media " + oldId);
+    const old = list[i];
+    const neu = { ...entry, derivedFrom: oldId, replaced: { id: old.id, name: old.name, src: old.src } };
+    for (const k of ["favorite", "tags", "folderId"]) if (old[k] != null && neu[k] == null) neu[k] = Array.isArray(old[k]) ? old[k].slice() : old[k];
+    delete neu.durationUnknown; delete neu.durationChecked;
+    list[i] = neu;
+    let clips = 0;
+    const repoint = (arr) => {
+      for (const c of arr || []) if (c && c.mediaId === oldId) { c.mediaId = neu.id; clips++; }
+      fitClips(neu, arr);
+    };
+    repoint(root.clips);
+    for (const k of root.comps || []) repoint(k.clips);
+    for (const s of root.sequences || []) repoint(s.clips);
+    for (const col of root.collections || []) if (Array.isArray(col.media)) col.media = col.media.map((id) => (id === oldId ? neu.id : id));
+    return { clips };
+  }
   /** Fit the clips of media m into its length, as a replaced file's clips are (in + duration×speed ≤ m.duration; a linked
    *  sound shares the media and its timing, so it fits the same). Pictures are left alone. → how many edges moved */
   function fitClips(m, clips) {
@@ -410,7 +454,7 @@
     importTidies, importPercent,
     KINDS, INFO_KEYS, SORT_KEYS, MAX_TAGS,
     srcName, relinkScore, kindFromName,
-    parseProbe, needsInfo, serverDuration, cannotCut, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
+    parseProbe, needsInfo, serverDuration, cannotCut, slowToSeek, swapMedia, applyBackfill, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
     STANDARD_FPS, standardFps, sourceCanvas, canvasFollowsSource,
     normalizeTags, allTags, normalizeCollections,
     placements, usageCounts,

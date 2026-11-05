@@ -5175,5 +5175,15 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 .ffmpeg-card .ffc-line { margin: 10px 0 0; padding-top: 8px; border-top: 1px solid var(--panel-2); }
 
 /* a recording nothing could read the length of (europa P3): JJ's sentence on the file */
-.bin-incomplete { font-size: 11px; line-height: 1.35; color: #ffb3b5; margin-top: 2px; white-space: normal; }
+.bin-incomplete { font-size: 11px; line-height: 1.45; color: #ffb3b5; white-space: normal; }
+/* the sentence and its button get a row of their own under the file */
+.bin-item.has-note { flex-wrap: wrap; }
+.bin-item.has-note > .bin-incomplete, .bin-item.has-note > .bin-repair { flex-basis: 100%; }
+.bin-incomplete .btn { display: block; margin: 4px 0 0; }
 .bin-row .bin-incomplete { grid-column: 1 / -1; padding-left: 28px; }
+/* 〔帮我修好〕: the button under JJ's sentence, and its progress with Cancel */
+.bin-repair .btn { margin-left: 6px; vertical-align: middle; }
+.bin-repair { font-size: 11px; margin-top: 2px; color: var(--accent, #7b6cff); }
+.bin-row .bin-repair { grid-column: 1 / -1; padding-left: 28px; }
+/* 〔帮我修好〕 cases 1 and 2: it can be cut, seeking may be slow — a small mark with JJ's hint (no dialog) */
+.bin-slow { display: inline-block; margin-right: 4px; color: #f5c451; font-size: 11px; cursor: help; }

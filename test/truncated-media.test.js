@@ -12,7 +12,7 @@ const test = require("node:test"), a = require("node:assert/strict"), fs = requi
 const FF = require("../ffmpeg-path");
 const MediaProbe = require("../media-probe");
 const MediaLib = require("../media-lib");
-const { makeDataDir, seedProject, startMcp, readProject } = require("./helpers");
+const { makeDataDir, seedProject, startMcp, startServer, readProject } = require("./helpers");
 
 const have = FF.available("ffmpeg") && FF.available("ffprobe");
 const skip = !have && "no ffmpeg / ffprobe here (node desktop/fetch-ffmpeg.cjs, or MONTCLIP_FFMPEG_DIR)";
@@ -171,7 +171,8 @@ test("no editor open: an entry with no length gets it from ffprobe when the agen
   ];
   proj.revision = 5;
   fs.writeFileSync(path.join(data, "project.json"), JSON.stringify(proj));
-  const mcp = startMcp(t, data, { FABLECUT_NO_AUTOSTART: "1" });
+  const srv = await startServer(t, data, { FABLECUT_NO_FS_WATCH: "1" });
+  const mcp = startMcp(t, data, { FABLECUT_PORT: String(srv.port), FABLECUT_NO_AUTOSTART: "1" });
   await mcp.request("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "t", version: "1" } });
 
   const view = await mcp.callTool("fablecut_get_project", { compact: true });
