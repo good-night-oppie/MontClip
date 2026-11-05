@@ -17,7 +17,9 @@
 - 时间戳逐字给，和 Paraformer 对得上（中位差 0.03 秒，97% 在 150 毫秒以内），不需要强制对齐。
 - 每段前后补静音是必须的。#133 补 0.25 秒，我测下来够用（第 3 节）。
 - 不需要升级 sherpa-onnx：2.0.1 已经带 `omnilingual`。
-- 还有几处没解决，写在第 9 节：可选模型和服务在同一个进程里，崩溃会连累默认引擎；英文结果会被加上中文句号「。」；Linux 上内存峰值偏高，原因没查。
+- Meta 的模型现在在自己的子进程里跑（Deja 11-04 定的）：坏模型、崩溃、内存不够，都只让它失败，用白话提示，服务和 Paraformer 照常（第 5 节）。
+- 中文标点模型只跑在以中文为主的 Meta 段上，英文结尾不会再多一个「。」。
+- 还剩的问题写在第 9 节：路径超过 260 个字符（另外排期），Linux 上内存峰值偏高（原因没查）。
 
 ## 本机开放权重推理 ≠ 云端 API
 
@@ -92,12 +94,17 @@ Paraformer 的时间不是真值，这只说明两边一致。#133 的 `letterWo
 
 | 路径 | 素材 | 模型 | 用时 | RTF（按录像长） | 内存峰值 | 结果 |
 |---|---|---|---|---|---|---|
-| **Electron 45.2.1 utilityProcess 里的 server.js → asr-local.js（#133 的真实路径）** | 8.7 秒合成英语（Windows 自带 TTS） | Meta 300M | 5.6 秒（含加载模型） | — | utilityProcess 633 MB | 24 个词全对，文稿记为 `omnilingual-meta` |
-| 同上 | 同上 | Paraformer | 4.0 秒（含加载模型） | — | utilityProcess 501 MB | 24 个词全对 |
-| 同上 | 2 小时合成英语（同一个 TTS，见第 10 节） | Meta 300M | 1202 秒 | 0.167 | utilityProcess 837 MB | complete，0 个没听写出的段，20666 个词 |
-| 同上 | 同上 | Paraformer | 345 秒 | 0.048 | utilityProcess 571 MB | complete，0 段，20626 个词 |
+**现在的路径**：Electron 45.2.1 utilityProcess 里的 server.js → `asr-meta-engine.js` → 子进程 `asr-meta-run.js` → asr-local.js（`{model:"asrMeta"}`）。Paraformer 还在 server 自己的进程里。
 
-- 内存峰值是 utilityProcess 自己的 `PeakWorkingSet64`，听写完以后读的；Meta 和 Paraformer 各用一个新的 utilityProcess，互不混。
+| 路径 | 素材 | 模型 | 用时 | RTF（按录像长） | 内存峰值 | 结果 |
+|---|---|---|---|---|---|---|
+| **子进程（现在）** | 8.7 秒合成英语（Windows 自带 TTS） | Meta 300M | 2.8 秒（含加载模型） | — | Meta 子进程 669 MB，utilityProcess 119 MB | 24 个词全对，结尾没有「。」，文稿记为 `omnilingual-meta` |
+| **子进程（现在）** | 2 小时合成英语（同一个 TTS，见第 10 节） | Meta 300M | 977 秒 | **0.136** | Meta 子进程 **845 MB**，utilityProcess 120 MB | complete，0 个没听写出的段，20666 个词 |
+| 在 server 进程里（#133 原来的做法，供对比） | 同上 | Meta 300M | 1202 秒 | 0.167 | utilityProcess 837 MB | complete，20666 个词（那时英文还会被加标点，所以慢一些） |
+| server 进程（不变） | 8.7 秒同上 | Paraformer | 4.0 秒（含加载模型） | — | utilityProcess 501 MB | 24 个词全对 |
+| server 进程（不变） | 2 小时同上 | Paraformer | 345 秒 | 0.048 | utilityProcess 571 MB | complete，0 段，20626 个词 |
+
+- utilityProcess 的内存峰值是它自己的 `PeakWorkingSet64`，听写完以后读的；Meta 子进程的峰值是它自己报的 `maxRSS`。每一行都开一个新的 utilityProcess，互不混。
 - 1B 在 Windows 上（Node，不是 #133 的路径，是我另一个分支的子进程路径，补 0.5 秒）：2 小时合成英语 2364 秒，RTF 0.328，内存 1354 MB。300M 同样条件 1247 秒，RTF 0.173，702 MB；Paraformer 259 秒，RTF 0.036，494 MB。
 - 一段连续 20 秒的合成语音（VAD 一段最长 20 秒）：300M 峰值 888 MB，1B 1480 MB。
 
@@ -115,8 +122,11 @@ Paraformer 的时间不是真值，这只说明两边一致。#133 的 `letterWo
 
 - 模型文件缺了或被改过：sha256 / 大小对不上，就不算装好，不加载（#133 原有的校验）。
 - 没有同意记录：不用（这次加的，第 6 节）。
-- **#133 的可选模型和服务在同一个进程里跑**：如果引擎崩溃，或者内存不够被系统杀掉，utilityProcess 和默认引擎会一起倒。原任务要求「只让这个可选引擎失败」，**这一条 #133 没做到**，见第 9 节。
-- 「文件通过了校验、引擎却读不了」这种情况，在 #133 的路径上**没测**（校验挡在前面，造不出来）。在我另一个分支的子进程路径上测过：引擎报「Failed to create offline recognizer」，只是这个引擎失败。
+- **Meta 在自己的子进程里跑**（`asr-meta-engine.js` fork `asr-meta-run.js`；在 Electron 的 utilityProcess 里用 `ELECTRON_RUN_AS_NODE` 起同一个程序）。崩溃、被杀、内存耗尽，都只结束这个子进程：服务回 `ASR_OPTIONAL_CRASHED`，白话提示「Paraformer 不受影响」。
+- 引擎读不了一个通过了校验的模型（文件坏了、或者不是这种模型）：`ASR_OPTIONAL_MODEL_BROKEN`，白话提示撤销后重下。
+- 开始前看空闲内存，不到 1000 MB（manifest 的 `ramMB`，按 Windows 上 20 秒一段时实测的 888 MB 定的）就不启动：`ASR_OPTIONAL_NO_MEMORY`，白话提示要多少、还剩多少。
+- 实测（Windows，Electron 45.2.1，`electron-server.cjs kill`）：Meta 听写 2 小时的文件，5 秒时杀掉它的子进程（pid 53436）→ 服务回 500 `ASR_OPTIONAL_CRASHED`「Meta's model stopped (exit code 1); Paraformer is not affected」→ **同一个服务**接着用 Paraformer 听写同一个文件：20626 个词，299 秒，服务一直在。
+- 测试（`test/asr-meta-engine.test.js`，Windows 和 Linux 都过）：坏模型只报一句白话错误，同一个进程接着用 Paraformer 听写；Meta 的子进程被杀 / abort / 堆耗尽，只有 Meta 失败，Paraformer 不受影响；内存不够和取消；真引擎下 Meta 文件损坏在子进程里被挡下、Paraformer 接着读出测试句；真模型下英文走子进程、没有「。」，中途被杀后 Paraformer 照常。
 
 ## 6. 同意流程（这次加的，ADR #122 第 6 节）
 
@@ -136,22 +146,25 @@ Paraformer 的时间不是真值，这只说明两边一致。#133 的 `letterWo
 
 ## 8. 回归测试（#133 加上这次的提交）
 
-- **Windows（katana，Node 22.15.1，`vendor/asr` 里有真引擎和 Paraformer、标点模型）**：`node --test` 1505 个，**1505 过，0 失败，0 跳过**。
-  - 其中走真引擎的：`the real engine on the model's own public test sentence`（Paraformer + VAD + 标点，`asr-local.js`）、`the real engine: "@" in place of 「嗯」…`（Paraformer 的 tokens 坑）。
-  - 新加的 `test/asr-consent.test.js` 7 个全过；#133 原有的 `test/asr-meta.test.js` 按新的 manifest（多了 LICENSE、hf-mirror 源）改了两处断言，全过。
+- **Windows（katana，Node 22.15.1，`vendor/asr` 里有真引擎和 Paraformer、标点模型，`MONTCLIP_TEST_META_DIR` 指向真的 Meta 模型）**：`node --test` 1513 个，**1513 过，0 失败，0 跳过**（head `6a3ce802`）。
+  - 其中走真引擎的：`the real engine on the model's own public test sentence`（Paraformer + VAD + 标点，`asr-local.js`）、`the real engine: "@" in place of 「嗯」…`（Paraformer 的 tokens 坑）、Meta 的两条真引擎测试（损坏的 Meta 文件、真模型走子进程再被杀）。
+  - 新加的 `test/asr-consent.test.js` 8 个、`test/asr-meta-engine.test.js` 6 个、`test/asr-meta-punct.test.js` 1 个全过；#133 原有的 `test/asr-meta.test.js` 按新的 manifest（多了 LICENSE、hf-mirror 源）改了两处断言，全过。
 - **Windows 桌面 smoke（Electron 45.2.1，全新 profile，隐藏窗口）**：`desktop/asr-smoke.cjs` **ASR_SMOKE_PASS**（Paraformer：导入、听写、标点），`desktop/asr-gaps-smoke.cjs` **ASR_GAPS_PASS**（VAD 段坏了只记一段）。
   - 第一次跑 asr-smoke 失败过：profile 放在很长的临时目录里，标点 token 的缓存文件路径约 275 个字符，超过 Windows 的 260 字符限制，sherpa-onnx 读不到。换短路径就过了。这是测试环境的问题，不是代码的；但用户的数据目录如果很深，也会撞上，另记一笔。
-- **Linux（europa，Node 18.20.4，系统 ffmpeg 5.1，引擎从 `~/asr-bench`）**：`node --test` 1505 个，**1479 过，6 失败，20 跳过**。
+- **Linux（europa，Node 18.20.4，系统 ffmpeg 5.1，引擎从 `~/asr-bench`，`MONTCLIP_TEST_META_DIR` 指向真的 Meta 模型）**：`node --test` 1513 个，**1488 过，6 失败，19 跳过**（head `6a3ce802`）。Meta 的真引擎测试在 Linux 上也过了。
   - 6 个失败（`a silent mix through the real ffmpeg…` 和 5 个 song-scan）在没改过的 `origin/main` 上用同一台机器也一样失败：europa 用的是 Debian 的 ffmpeg 5.1，不是 MontClip 固定的那个版本。和听写无关。
-  - 20 个跳过：没有 H.264 编码器、没有固定版本的 ffmpeg、zipDir 只在 Windows 上跑、`vendor/asr` 没取（Paraformer 测试句那一个）。
+  - 19 个跳过：没有 H.264 编码器、没有固定版本的 ffmpeg、zipDir 只在 Windows 上跑。
 - sherpa-onnx **没有升级**（2.0.1 本来就支持），所以「升级后回归」这一项实际上就是上面这些。
 
-## 9. #133 还有的问题（这次没改）
+## 9. 已知问题
 
-1. **故障隔离**：可选模型在服务进程里跑。崩溃或内存不够被杀时，utilityProcess 和默认引擎一起倒。我在另一个分支（`feat/omnilingual-asr`）写过一版「每次听写在自己的子进程里跑」的做法，带测试，并在 Electron utilityProcess 里实测过：坏模型只报 `ASR_OPTIONAL_MODEL_BROKEN`，同一个 utilityProcess 接着用好模型听写成功。要不要搬过来，请 Deja 定。
-2. **中文标点加到别的语言上**：装了 CT-Transformer 标点模型时，Meta 的英文结果末尾会多一个中文句号（实测「…lazy dog。」）。Paraformer 的英文也一样，不是这次引入的；但 Meta 主要用来听英文和其他语言，影响更大。
-3. **Linux 内存峰值偏高**（第 4 节），原因没查。
-4. **很深的数据目录**：标点 token 的缓存路径超过 260 个字符时，sherpa-onnx 读不到（第 8 节）。Paraformer 和 Meta 都会碰到，不是这次引入的。
+已经修了的（Deja 11-04 定的）：Meta 改在子进程里跑（第 5 节）；中文标点不再加到 Meta 的英文和其他外语上。
+
+还没修的：
+
+1. **很深的数据目录**：标点 token 的缓存路径超过 260 个字符时，sherpa-onnx 读不到（第 8 节，第一次跑 asr-smoke 时撞上）。Paraformer 和 Meta 都会碰到，不是这次引入的。Deja 另外排期。
+2. **Linux 内存峰值偏高**（第 4 节），原因没查。Windows 上 Meta 子进程 2 小时的峰值是 845 MB。
+3. **hf-mirror.com 在国外会失败**：它把下载转到 huggingface.co，不在白名单里。失败时文稿页提示「再点一次，改选 github.com」（文案草稿，交 JJ）。国内能不能直接下：没测。
 
 ## 10. 复现
 
@@ -223,6 +236,6 @@ b2c3c5416be343483c5762719dea0244c16cd7dfd437431d81998b94fe02f764  synth2h.m4a（
 ## 11. 没测的
 
 - 国内网络能不能从 hf-mirror.com 下载：**没测**。在美国出口的机器上，hf-mirror 会跳到 huggingface.co，不在白名单里，所以这个站在那边会失败，主播可以换 GitHub。
-- 真人点一遍「选 Meta → 看许可证 → 同意 → 选站 → 下载 → 听写 → 撤销」：**没跑**（逻辑由单元测试覆盖；Electron 里服务端那一段实跑了，对话框没有真人点）。
+- 真人点一遍「选 Meta → 看许可证 → 同意 → 选站 → 下载 → 听写 → 撤销」：**没跑**，Deja 安排 VV 来走。逻辑由单元测试覆盖；Electron 里服务端那一段实跑了，对话框没有真人点。
 - 1B 走 #133 的路径：**没跑**（#133 只带 300M）。
 - 男声、说唱、伴奏很响的英语：**没测**。英语只测了 FLEURS（朗读）和合成语音。
