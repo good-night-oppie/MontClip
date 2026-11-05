@@ -149,3 +149,117 @@ test('3. downloading it again asks for the agreement again: the licence comes fi
   a.match(read('desktop/main.js'), /if \(AsrConsent\.termsOf\(which\)\) return chooseWithConsent\(which\);/);
   a.match(read('server.js'), /ASR_CONSENT_REQUIRED/);
 });
+
+// ── 〔删掉〕 while Meta is transcribing (Rea, 11-05): on Windows its process holds the model's files while it loads them
+// (measured on katana: EBUSY at 0.8 s, deleted at 1.5 s), and a transcription whose files were deleted after loading
+// still finished and saved a transcript. So: stop it first and wait for its process to end; then the files; then the
+// agreement — and when a file still can't be deleted, say so and keep the agreement. ──
+const cp = require('node:child_process');
+const { EventEmitter } = require('node:events');
+const { createMetaEngine } = require('../asr-meta-engine');
+
+/** A Meta engine whose child runs `code` (a real process); `children` lists them. */
+function engineFor(t, code) {
+  const dir = tmp(t, 'mc-rm-eng-'), runner = path.join(dir, 'runner.js'), children = [];
+  fs.writeFileSync(runner, code);
+  const eng = createMetaEngine({ asrDir: dir, modelsDir: dir, ffmpeg: 'ffmpeg', cacheDir: dir, freeMem: () => 64 * 1024 * 1048576, runner,
+    fork: (...x) => { const c = cp.fork(...x); children.push(c); return c; } });
+  // never leave a stand-in running when a check fails
+  t.after(() => { for (const c of children) if (c.exitCode == null && c.signalCode == null) c.kill('SIGKILL'); });
+  return { eng, children, file: path.join(dir, 'rec.wav') };
+}
+const alive = (c) => c.exitCode == null && c.signalCode == null;
+/** rm as on Windows: busy while any of `children` is alive. */
+const busyWhile = (children, log) => (p, o) => {
+  const busy = children.some(alive); log.push(busy);
+  if (busy && fs.existsSync(p)) throw Object.assign(new Error('EBUSY: resource busy or locked'), { code: 'EBUSY' });
+  return fs.rmSync(p, o);
+};
+
+test('1. 〔删掉〕 during a Meta transcription: it is stopped, its process has ended, then the files go and the agreement is withdrawn', async (t) => {
+  const { eng, children, file } = engineFor(t, 'setInterval(() => {}, 1000);');
+  const dir = tmp(t, 'mc-rm-run-'), log = [];
+  const S = C.createConsent({ modelsDir: dir, rm: busyWhile(children, log) });
+  await S.choose('asrMeta', { ask: yesTo([]), installed: installed(dir), download: async () => writeMeta(dir), version: 'test' });
+  const job = eng.transcribe(file, {});
+  await new Promise((r) => setTimeout(r, 200));
+  a.equal(children.length, 1); a.ok(alive(children[0]), 'transcribing');
+  const r = await S.remove('asrMeta', { release: () => eng.release() });
+  await a.rejects(job, { code: 'ASR_CANCELLED' }, 'the transcription is cancelled, not "crashed"');
+  a.equal(alive(children[0]), false, 'its process has ended');
+  a.ok(log.length && log.every((b) => b === false), 'nothing was deleted while it ran');
+  a.equal(r.ok, true);
+  a.equal(fs.existsSync(path.join(dir, 'asrMeta')), false, 'the files are gone');
+  a.equal(S.record('asrMeta'), null); a.equal(S.allowed('asrMeta'), false, 'the agreement is withdrawn');
+});
+
+test('the engine: release() with nothing running; while it is releasing, no new Meta transcription starts; a process that will not end', async (t) => {
+  const { eng, file } = engineFor(t, 'setInterval(() => {}, 1000);');
+  a.deepEqual(await eng.release(), { released: true, stopped: 0 });
+  await a.rejects(eng.transcribe(file, {}), { code: 'ASR_BUSY' }, 'held until unhold()');
+  eng.unhold();
+  // a child that does not end when told (stand-in): release() gives up after its timeout and says so
+  const stuck = new EventEmitter(); stuck.kill = () => {}; stuck.send = () => {}; stuck.stderr = null;
+  const e2 = createMetaEngine({ freeMem: () => 64 * 1024 * 1048576, fork: () => stuck });
+  const job = e2.transcribe(file, {}); job.catch(() => {});
+  a.deepEqual(await e2.release({ timeoutMs: 100 }), { released: false, stopped: 1 });
+  stuck.emit('exit', null, 'SIGKILL');
+  await a.rejects(job, { code: 'ASR_CANCELLED' });
+});
+
+test('2. a file that still can\'t be deleted: never "removed"; the streamer is told; the agreement stays (files first, then the record)', async (t) => {
+  const dir = tmp(t, 'mc-rm-busy-');
+  const S = C.createConsent({ modelsDir: dir, rm: (p, o) => { if (p.endsWith('asrMeta')) throw Object.assign(new Error('EBUSY'), { code: 'EBUSY' }); return fs.rmSync(p, o); } });
+  await S.choose('asrMeta', { ask: yesTo([]), installed: installed(dir), download: async () => writeMeta(dir), version: 'test' });
+  const r = await S.remove('asrMeta', { release: async () => ({ released: true, stopped: 0 }) });
+  a.equal(r.ok, false); a.equal(r.code, 'ASR_REMOVE_INCOMPLETE'); a.deepEqual(r.left, ['asrMeta']);
+  a.ok(S.record('asrMeta'), 'the agreement is not withdrawn while its files are still here');
+  // the page: the not-removed words, not 「已撤销」, and the model stays chosen
+  const app = read('app.js');
+  const i = app.indexOf('async function asrRevokeMeta('), j = app.indexOf('\n}\n', i);
+  const calls = [];
+  const ctx = { window: { montclipAsr: { revoke: async () => r } }, asrState: { downloading: false },
+    toast: (m) => calls.push(['toast', m]), uiText: (k) => k, setAsrKey: (k) => calls.push(['setAsrKey', k]), loadAsrStatus: async () => calls.push(['loadAsrStatus']), String };
+  vm.runInNewContext(app.slice(i, j + 3), ctx);
+  await vm.runInContext('asrRevokeMeta()', ctx);
+  a.deepEqual(calls, [['toast', 'own.asr-meta-remove-incomplete'], ['loadAsrStatus']]);
+  // the words (drafts for JJ)
+  a.equal(zh('asr-meta-remove-incomplete'), 'Meta 的模型没删干净：有的文件正被占用，删不掉。你对许可条款的同意还没收回。关掉 MontClip 再打开，然后再点一次〔删掉 Meta 的模型〕。');
+  a.equal(en('asr-meta-remove-incomplete'), "Meta's model wasn't fully removed: some of its files are in use and couldn't be deleted. Your agreement to its licence terms hasn't been withdrawn yet. Close MontClip, open it again, then click “Remove Meta's model” once more.");
+});
+
+test('the wiring: after 〔删掉〕 the host has the server stop Meta and wait, then removes; the server stops only a Meta job', () => {
+  const main = read('desktop/main.js');
+  const h = main.slice(main.indexOf('ipcMain.handle("montclip:asr:revoke"'), main.indexOf('// v10: what the streamer chose'));
+  a.ok(h.indexOf('showMessageBox') < h.indexOf('asrConsent.remove('), 'asked first');
+  a.match(h, /fetch\(origin \+ "\/api\/asr\/meta\/release", \{ method: "POST", headers: \{ "X-MontClip-Session": token/);
+  a.match(h, /await asrConsent\.remove\(which, \{ release: \(\) => release\(\{\}\) \}\)/);
+  a.match(h, /finally \{ release\(\{ done: true \}\)/);
+  const server = read('server.js');
+  const s = server.slice(server.indexOf('p === "/api/asr/meta/release"'), server.indexOf('p === "/api/asr/transcribe"'));
+  a.match(s, /j && j\.key === "asrMeta"/); a.match(s, /await asrMeta\(\)\.release\(\)/); a.match(s, /asrMeta\(\)\.unhold\(\)/);
+  a.match(server, /job = asrJob\.running = \{ src, ac, key \}/);
+});
+
+// the real model, on this computer: Meta transcribing, 〔删掉〕 0.8 s in (while it is loading the model)
+const VENDOR = path.join(ROOT, 'vendor', 'asr'), META_DIR = process.env.MONTCLIP_TEST_META_DIR;
+const ENGINE = fs.existsSync(path.join(VENDOR, 'engine', 'node_modules', 'sherpa-onnx-node', 'package.json'));
+test('real Meta model: 〔删掉〕 0.8 s into a transcription removes everything', { skip: !(ENGINE && META_DIR) && 'set MONTCLIP_TEST_META_DIR (and have vendor/asr)' }, async (t) => {
+  const dir = tmp(t, 'mc-rm-real-');
+  const S = C.createConsent({ modelsDir: dir });
+  await S.choose('asrMeta', { ask: yesTo([]), installed: installed(dir), version: 'test', download: async () => {
+    fs.mkdirSync(path.join(dir, 'asrMeta'));
+    for (const f of Object.keys(META.files)) fs.copyFileSync(path.join(META_DIR, 'asrMeta', f), path.join(dir, 'asrMeta', f));
+  } });
+  const ff = require('../ffmpeg-path').path('ffmpeg'), speech = path.join(dir, 'tone.wav');
+  cp.execFileSync(ff, ['-v', 'error', '-f', 'lavfi', '-i', 'sine=f=300:d=20', '-ar', '16000', '-y', speech]);
+  let child = null;
+  const eng = createMetaEngine({ asrDir: VENDOR, modelsDir: dir, ffmpeg: ff, cacheDir: path.join(dir, 'cache'), fork: (...x) => (child = cp.fork(...x)) });
+  const job = eng.transcribe(speech, {}); job.catch(() => {});
+  await new Promise((r) => setTimeout(r, 800));
+  a.ok(child && alive(child), 'still loading or transcribing');
+  const r = await S.remove('asrMeta', { release: () => eng.release() });
+  a.equal(r.ok, true, JSON.stringify(r));
+  a.equal(alive(child), false);
+  a.equal(fs.existsSync(path.join(dir, 'asrMeta')), false); a.equal(S.allowed('asrMeta'), false);
+});
