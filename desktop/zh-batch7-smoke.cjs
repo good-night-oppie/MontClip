@@ -154,14 +154,27 @@ BrowserWindow.prototype.loadURL = async function (...args) {
       assert.equal(r.shapePen, zh ? '钢笔' : 'Pen', language + ' shape layer Pen');
       assert.equal(r.textPen, zh ? '钢笔' : 'Pen', language + ' text path Pen');
     }
+    for (const mode of ['simple', 'advanced']) {
     const range = await read(`(async()=>{const wait=(ms)=>new Promise((r)=>setTimeout(r,ms)),out={};
-      updateMontClipView({language:'zh-CN'});await wait(100);await openExportSetup();
+      updateMontClipView({language:'zh-CN',mode:${JSON.stringify(mode)}});setSelection([window.__zh7Text]);await wait(100);await openExportSetup();
       for(const until=Date.now()+8000;Date.now()<until&&els.exportSetup.classList.contains('hidden');)await wait(50);
       const row=()=>{const s=document.getElementById('exportRangeSel');return [s.options[s.selectedIndex].textContent,document.getElementById('exportRangeNote').textContent];};
       out.zh=row();updateMontClipView({language:'en'});await wait(100);out.en=row();updateMontClipView({language:'zh-CN'});await wait(100);out.zh2=row();closeExportSetup();return out;})()`);
-    seen.range = range;
-    for (const k of ['zh', 'zh2']) assert.ok(range[k][0] === '整条时间线' && range[k][1].startsWith('整条时间线 · '), k + ' export range: ' + JSON.stringify(range[k]));
-    assert.ok(range.en[0] === 'Entire timeline' && range.en[1].startsWith('Full timeline · ') && !/[一-鿿]/.test(range.en.join('')), 'en export range: ' + JSON.stringify(range.en));
+    seen['range ' + mode] = range;
+    for (const k of ['zh', 'zh2']) assert.ok(range[k][0] === '整条时间线' && range[k][1].startsWith('整条时间线 · '), mode + ' ' + k + ' export range: ' + JSON.stringify(range[k]));
+    assert.ok(range.en[0] === 'Entire timeline' && range.en[1].startsWith('Full timeline · ') && !/[一-鿿]/.test(range.en.join('')), mode + ' en export range: ' + JSON.stringify(range.en));
+    }
+    // one view failing to redraw (here the Inspector) must not leave the export range row in the old language
+    const robust = await read(`(async()=>{const wait=(ms)=>new Promise((r)=>setTimeout(r,ms));
+      updateMontClipView({language:'zh-CN',mode:'advanced'});await wait(100);await openExportSetup();
+      for(const until=Date.now()+8000;Date.now()<until&&els.exportSetup.classList.contains('hidden');)await wait(50);
+      const keep=window.renderInspector;window.renderInspector=()=>{throw Error('zh7: a view that fails to redraw');};
+      try{updateMontClipView({language:'en'});}catch(e){}
+      window.renderInspector=keep;await wait(100);
+      const s=document.getElementById('exportRangeSel'),out=[s.options[s.selectedIndex].textContent,document.getElementById('exportRangeNote').textContent];
+      closeExportSetup();updateMontClipView({language:'zh-CN'});return out;})()`);
+    assert.ok(robust[0] === 'Entire timeline' && robust[1].startsWith('Full timeline · '), 'export range after a failing redraw: ' + JSON.stringify(robust));
+    await read(`updateMontClipView({mode:'advanced'}); setSelection([]); true`);
     // VV's review of #148: the Show filter shows its whole choice at the desktop width (1283 px) and at 360 px, with room
     // for the native arrow; the sort row wraps rather than squeezing. And "Full canvas" in the player bar.
     const FIT = String.raw`(async () => {
