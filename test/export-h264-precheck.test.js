@@ -90,3 +90,57 @@ test('server, an H.264 encoder present but no local FFmpeg: a libx264 profile st
   const r = await fetch(base + '/api/export/begin', { method: 'POST', body: JSON.stringify({ fps: 30, name: 'x', profile: 'draft', hasAudio: false }) });
   a.equal(r.status, 400); const j = await r.json(); a.equal(j.code, 'extNeeded', JSON.stringify(j));
 });
+
+// QQ on 1d3e289: while the precheck is out, 〔返回选择页〕 still works; when it answered, autoExport placed the slices and
+// exported anyway. The real autoExport / autoExportConfirm and the real 〔返回〕 handlers, on a fake dialog, with the
+// precheck answering only after 〔返回〕 was clicked.
+function autoSlicesHarness() {
+  const fn = (head) => { const i = app.indexOf(head); a.ok(i >= 0, head); return app.slice(i, app.indexOf('\n}', i) + 2); };
+  // the request-number helpers right above autoExportConfirm (absent before QQ's fix: then the test is red, not broken)
+  const h0 = app.indexOf('function autoExNext('), helpers = h0 >= 0 ? app.slice(h0, app.indexOf('function autoExportConfirm(')) : '';
+  const handler = (act) => app.match(new RegExp(`if \\(act === "${act}"\\) \\{([^}]*)\\}`))[1];
+  const calls = { place: 0, queue: 0, run: 0, notices: 0 }, pending = [];
+  let page = 'review';
+  const go = { disabled: false, closest: () => ({ insertAdjacentHTML: () => { calls.notices++; } }) };
+  const body = { set innerHTML(h) { page = h.includes('as-ex') ? 'confirm' : 'review'; go.disabled = false; } };
+  const el = { open: true, querySelector: (s) => s === '[data-as-body]' ? body : s === '[data-as-footer]' ? {} : s === '[data-as-body] .as-ex' ? (page === 'confirm' ? {} : null)
+    : s === '[data-as-act="ex-go"]' ? (page === 'confirm' ? go : null) : null };
+  const st = { step: 'review', clips: [{ on: true, s: 0, e: 5 }, { on: true, s: 9, e: 12 }], subs: false };
+  const env = {
+    AUTO: { el }, autoState: () => st, autoSay: () => 'x', escapeHtml: (s) => s, autoName: () => 'n', autoDur: () => '1', autoSubMode: () => 'auto',
+    exportH264Refusal: () => new Promise((resolve) => pending.push(resolve)), deliveryIsH264: () => true, sliceDeliverySpec: () => ({}),
+    placeAutoSlices: () => { calls.place++; return { ok: true, at0: 0 }; }, queueSlices: () => { calls.queue++; }, autoExportRun: () => { calls.run++; },
+    autoRender: (step) => { st.step = step; page = 'review'; }, exportQueue: [], exportBaseName: () => 'S', autoToast() {}, uiText: () => '',
+    MontClipAutoSlices: { numbered: (x) => x }, Delivery: { fileSafeName: (n) => n },
+  };
+  const make = new Function(...Object.keys(env), `${helpers}\n${fn('function autoExportConfirm(')}\n${fn('async function autoExport(')}
+    return { confirm: autoExportConfirm, exportNow: autoExport, back: () => { ${handler('ex-cancel')} } };`);
+  return { ...make(...Object.values(env)), calls, pending, el, page: () => page };
+}
+const tick = () => new Promise((r) => setTimeout(r, 0));
+
+test('auto-slices: 〔返回〕 while the precheck is out — nothing placed, nothing exported, no notice on the page it left', async () => {
+  const h = autoSlicesHarness();
+  h.confirm(); a.equal(h.page(), 'confirm');
+  const going = h.exportNow();            // 〔导出〕: the precheck is out (pending[1]; pending[0] is the confirm page's own)
+  h.back(); a.equal(h.page(), 'review');  // 〔返回选择页〕 meanwhile
+  for (const answer of h.pending) answer(null);   // then the precheck answers "go ahead"
+  await going; await tick();
+  a.deepEqual(h.calls, { place: 0, queue: 0, run: 0, notices: 0 }, 'the timeline and the queue are left as they were');
+});
+
+test('auto-slices: the dialog closed, or the page left, while the precheck is out — nothing happens; otherwise it exports once', async () => {
+  const closed = autoSlicesHarness();
+  closed.confirm(); const going = closed.exportNow(); closed.el.open = false;
+  for (const answer of closed.pending) answer(null);
+  await going; await tick();
+  a.deepEqual(closed.calls, { place: 0, queue: 0, run: 0, notices: 0 });
+  // the confirm page's own precheck answers "no encoder" after 〔返回〕: no notice is put on the selection page
+  const left = autoSlicesHarness();
+  left.confirm(); left.back(); left.pending[0]('no encoder'); await tick();
+  a.equal(left.calls.notices, 0);
+  // still on the page and nothing clicked in between: the export goes ahead, once
+  const stay = autoSlicesHarness();
+  stay.confirm(); const ok = stay.exportNow(); for (const answer of stay.pending) answer(null); await ok; await tick();
+  a.deepEqual([stay.calls.place, stay.calls.queue, stay.calls.run], [1, 1, 1]);
+});

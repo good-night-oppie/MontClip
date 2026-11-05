@@ -87,7 +87,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
    return read(`({w:project.width,h:project.height,fps:project.fps,toast:document.getElementById('toast').textContent,media:(({fps,width,height,sampleRate})=>({fps,width,height,sampleRate}))(project.media.at(-1))})`);};
   /** 〔直接导出〕 of [s, e] of the last imported recording, through 自动出切片's own export; the file's path. */
   const direct=async(s,e)=>{const r=await read(`(async()=>{const m=project.media.at(-1);openAutoSlices();const st=autoState();
-    st.clips=[{id:'sf1',mediaId:m.id,s:${s},e:${e},on:true,kind:'talk',title:'跟随 smoke',reasons:[]}];autoExport();
+    st.clips=[{id:'sf1',mediaId:m.id,s:${s},e:${e},on:true,kind:'talk',title:'跟随 smoke',reasons:[]}];autoExportConfirm();autoExport();
     const end=Date.now()+20*60000;while(Date.now()<end){const q=(st.exportIds||[]).map(id=>exportQueue.find(x=>x.id===id));if(q.length&&q.every(x=>x&&(x.status==='done'||x.status==='failed')))break;await new Promise(r=>setTimeout(r,300));}
     const q=st.exportIds.map(id=>exportQueue.find(x=>x.id===id))[0];AUTO.el&&AUTO.el.close();return{status:q.status,error:q.error||null,label:q.label};})()`);
    direct.label=r.label;
