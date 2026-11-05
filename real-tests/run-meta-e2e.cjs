@@ -5,8 +5,9 @@
 // never printed, logged, written or shown in a screenshot. Model: MONTCLIP_E2E_MODEL, else muse-spark-1.1 (the product's
 // default for Meta). Before the app, two checks through the product's own request path (desktop/agent-service.js):
 // a made-up key must read as AUTH, a made-up model name as MODEL_INVALID.
-// On Linux the key is sealed with the session keyring (safeStorage): run inside a desktop session (DBUS_SESSION_BUS_ADDRESS
-// set; xvfb for the screen is fine). Without one the app refuses to save the key, as it should, and the run fails there.
+// On Linux the key is sealed with the session keyring (safeStorage). The app asks for it itself (desktop/password-store.js),
+// so no --password-store is needed; the session's DBUS_SESSION_BUS_ADDRESS must be set (xvfb for the screen is fine). Without
+// a reachable keyring the app refuses to save the key (KEY_STORE_UNAVAILABLE), as it should, and the run fails there.
 // Exit 0 = passed, 2 = skipped (reason printed), 1 = failed.
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),cp=require('node:child_process');
 const K=require('./meta-key-file.cjs'),S=require('../desktop/agent-service');
