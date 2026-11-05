@@ -28,9 +28,9 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
    assert.ok(await read(`(()=>{const b=Array.from(document.querySelectorAll('.cindy-port button')).find(b=>b.textContent===${T}.officialPane_reference);if(!b)return false;b.click();return true;})()`),'quote button');await wait(300);
    await read(`(()=>{const e=document.querySelector('[data-cindy-draft]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'Keep only these two sentences');e.dispatchEvent(new Event('input',{bubbles:true}));return true;})()`);await wait(300);
    // what the box says at the moment it opens: read from the observer, before any later render
-   await read(`(()=>{window.__firstOpen=null;const d=document.querySelector('.cindy-confirm');const o=new MutationObserver(()=>{if(d.open&&!window.__firstOpen){window.__firstOpen={summary:d.querySelectorAll('p')[1]?.textContent||'',listed:d.textContent.includes('Tip one: cut the pauses.')};o.disconnect();}});o.observe(d,{attributes:true,attributeFilter:['open']});document.querySelector('.cindy-send button').click();return true;})()`);
+   await read(`(()=>{window.__firstOpen=null;const d=document.querySelector('.cindy-confirm');const o=new MutationObserver(()=>{if(d.open&&!window.__firstOpen){window.__firstOpen={summary:d.querySelector('[data-review-summary]')?.textContent||'',listed:d.textContent.includes('Tip one: cut the pauses.')};o.disconnect();}});o.observe(d,{attributes:true,attributeFilter:['open']});document.querySelector('.cindy-send button').click();return true;})()`);
    await wait(900);
-   const first=await read('window.__firstOpen'),later=await read(`document.querySelector('.cindy-confirm[open]')?.querySelectorAll('p')[1]?.textContent||null`);
+   const first=await read('window.__firstOpen'),later=await read(`document.querySelector('.cindy-confirm[open]')?.querySelector('[data-review-summary]')?.textContent||null`);
    report[lang]={first,later};
    assert.ok(first,'the box opened');
    assert.ok(lang==='en'?first.summary.includes('2 quoted subtitles'):first.summary.includes('引用的 2 条字幕'),lang+' at first frame: '+first.summary);

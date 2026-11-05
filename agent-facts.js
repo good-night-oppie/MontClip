@@ -4,6 +4,8 @@
    clips      — each shot (a video clip, or an audio clip that is not the sound of a video): its media length and the
                 part of the media it shows, in source seconds; where it starts on the timeline.
    highlights — highlight candidates already found in this session, moved to source seconds of the clip they fall in.
+   selected   — the 「AI 数据说明」 says only the clips she selected are sent (JJ v5; QQ via Deja, 2026-11-04): given a list
+                of clip ids, only those shots (and the highlights inside them) are sent, and none when nothing is selected.
    singing    — the parts that may be singing (JJ via Deja, 2026-11-05): the songs the 「✨ 自动出切片」 「唱歌」 scan found
                 (songs.js, /api/songs), inside the part each clip shows, as {clipId, from, to} in source seconds. Only for
                 recordings already scanned; nothing else about a song (its marks, its confidence) is sent.
@@ -22,17 +24,18 @@ const r2=x=>Math.round(x*100)/100;
 const SHORT_ID=/^[A-Za-z0-9_-]{1,128}$/;
 const shortId=id=>typeof id==='string'&&SHORT_ID.test(id);
 // the clips that would be sent, whatever their id
-function candidates(doc){
+function candidates(doc,selected){
+ const only=Array.isArray(selected)?new Set(selected):null;
  const off=new Set(doc.disabledTracks||[]),media=new Map((doc.media||[]).map(m=>[m.id,m]));
  const videoGroups=new Set(doc.clips.filter(c=>c.kind==='video'&&c.linkGroup).map(c=>c.linkGroup));
  return doc.clips.filter(c=>(c.kind==='video'||c.kind==='audio'&&!(c.linkGroup&&videoGroups.has(c.linkGroup)))&&!C.isCaption(c)&&!c.disabled&&!off.has(c.track)
-  &&!c.keyframes?.speed?.length&&Number.isFinite(media.get(c.mediaId)?.duration));
+  &&!c.keyframes?.speed?.length&&Number.isFinite(media.get(c.mediaId)?.duration)&&(!only||only.has(c.id)));
 }
 /** How many clips were left out of the facts because their id is not a short id. Shown in the review box, never sent. */
-function omitted(doc){return candidates(doc).filter(c=>!shortId(c.id)).length;}
-function shots(doc){
+function omitted(doc,{selected}={}){return candidates(doc,selected).filter(c=>!shortId(c.id)).length;}
+function shots(doc,selected){
  const media=new Map((doc.media||[]).map(m=>[m.id,m]));
- return candidates(doc).filter(c=>shortId(c.id))
+ return candidates(doc,selected).filter(c=>shortId(c.id))
   .sort((a,b)=>a.start-b.start||String(a.track).localeCompare(String(b.track)))
   .map(c=>{const speed=Number.isFinite(c.props?.speed)&&c.props.speed>0?c.props.speed:1,inPoint=c.in||0;
    return {clip:c,speed,inPoint,entry:{clipId:c.id,kind:c.kind,mediaDuration:r2(media.get(c.mediaId).duration),from:r2(inPoint),to:r2(inPoint+c.duration*speed),start:r2(c.start)}};});
@@ -90,13 +93,13 @@ function soundSummary(facts){
 const SOUND_WORDS=/安静|静音|没声音|没有声音|开口|开始唱|唱之前|前奏|唱歌|停顿|\bsilen|\bquiet|\bsing(s|ing)?\b|\bpause/i;
 const asksAboutSound=text=>typeof text==='string'&&SOUND_WORDS.test(text);
 /** Are the clips whose sound is known longer than FACTS.loudnessSeconds (8 h) together? Then build() attaches neither. */
-function tooLong(doc,sound,caps=Caps().FACTS){
+function tooLong(doc,sound,caps=Caps().FACTS,selected){
  if(!sound||typeof sound!=='object')return false;
- return shots(doc).slice(0,MAX_CLIPS).filter(s=>sound[s.clip.mediaId]?.loudness||sound[s.clip.mediaId]?.songs).reduce((n,s)=>n+s.entry.to-s.entry.from,0)>caps.loudnessSeconds;
+ return shots(doc,selected).slice(0,MAX_CLIPS).filter(s=>sound[s.clip.mediaId]?.loudness||sound[s.clip.mediaId]?.songs).reduce((n,s)=>n+s.entry.to-s.entry.from,0)>caps.loudnessSeconds;
 }
 /** sound: {[mediaId]: {loudness: {step, values: dBFS[]}, songs: [{from, to}] | null}} — what the server has for each file. */
-function build(doc,{highlights=[],sound=null}={}){
- const list=shots(doc),sent=list.slice(0,MAX_CLIPS),out={clips:sent.map(s=>s.entry)};
+function build(doc,{highlights=[],sound=null,selected}={}){
+ const list=shots(doc,selected),sent=list.slice(0,MAX_CLIPS),out={clips:sent.map(s=>s.entry)};
  const hl=highlights.filter(h=>Number.isFinite(h.from)&&Number.isFinite(h.to)&&h.to>h.from).slice(0,MAX_HIGHLIGHTS)
   .map(h=>{const s=toSource(list,h.from,h.to);return s&&{...s,score:Number.isFinite(h.score)?r2(h.score):null};}).filter(Boolean);
  if(hl.length)out.highlights=hl;
@@ -104,7 +107,7 @@ function build(doc,{highlights=[],sound=null}={}){
   const entries=sent.map(s=>({clipId:s.entry.clipId,mediaId:s.clip.mediaId,from:s.entry.from,to:s.entry.to})),caps=Caps().FACTS;
   // longer than the cap altogether (JJ定稿, 2026-11-05): neither is attached this time, the rest is sent; the review box
   // says so (tooLong). Never cut down.
-  if(!tooLong(doc,sound)){
+  if(!tooLong(doc,sound,caps,selected)){
    const singing=singingOf(entries,sound),loudness=loudnessOf(entries,sound,caps.loudnessValues);
    if(singing.length)out.singing=singing;
    if(loudness.length)out.loudness=loudness;

@@ -3081,3 +3081,9 @@ The times stay the transcript's; misheard characters become the lyrics' ones; on
 shows what was heard and what it becomes; lines that align poorly are marked 「可能不对」 and not ticked. Nothing changes
 until the streamer applies; then the part's captions are replaced in one undo step. See
 `docs/decisions/2026-11-03-lyrics-captions.md`.
+
+### Desktop AI data notice and switch
+
+Settings › AI assistant › Use the AI assistant is on by default. Turning it off folds the panel away and blocks every new AI send in the main process (`AI_OFF`); editing remains available. The fixed, sender-guarded `montclip:agent:switchGet/switchSet` IPC reads or writes only a boolean, persisted in `agent-switch-v1.json`. DeepSeek sends also require acknowledgement of the current data notice. Only selected clip numbers are included automatically. The panel says "Replies are AI-generated"; editing plans carry their own "AI-generated" label.
+
+Private-package startup can return `SEED_CONFLICT` when the saved AI connection differs from the seed. The service then reports `configured:false`, refuses sends and configuration writes, and keeps both files. The assistant AI service panel keeps its remove-connection control available; deleting the connection and reopening allows the retained seed to be sealed. This gate is recomputed at startup, and is not an extra page-controlled IPC. A zero-filled seed left after a failed unlink is retried as cleanup, leaving the usable connection unchanged.
