@@ -58,15 +58,17 @@ test("an MKV whose header has no length, only the streams' DURATION tags: 3 s lo
   a.equal(info.durationUnknown, undefined);
 });
 
-test("an MKV where nothing says the length: unknown, never 0 s", { skip }, async () => {
+// europa P3 (2026-11-05): the header, the streams and their tags say nothing, but the packets still carry their times,
+// so the length is read from them. A file whose length nothing can read at all: test/truncated-media.test.js (cut.mp4)
+test("an MKV where nothing in the header or the streams says the length: read from its packets, never 0 s", { skip }, async () => {
   const raw = ffprobe(made("nothing.mkv"));
   a.equal(raw.format.duration, undefined, "ffprobe: no length in the header");
   a.ok(raw.streams.every((s) => !s.duration && !(s.tags && s.tags.DURATION)), "ffprobe: no stream says its length either");
   const info = await MediaProbe.probeFile(made("nothing.mkv"));
-  a.equal(info.duration, undefined);
-  a.equal(info.durationUnknown, true);
-  // an entry made from it gets no length (the editor then says so), rather than 0
-  a.equal(MediaProbe.infoForEntry(info, { kind: "video" }).duration, undefined);
+  a.ok(Math.abs(info.duration - LENGTH) <= TOL, "probe says " + info.duration + " s");
+  a.equal(info.durationFrom, "packets");
+  a.equal(info.durationUnknown, undefined);
+  a.equal(MediaProbe.infoForEntry(info, { kind: "video" }).duration, info.duration);
 });
 
 test("the editor: Infinity from the browser is no length; which files are asked and what is taken is media-lib.js's rule", () => {
@@ -144,11 +146,11 @@ test("no length in the header: from the earliest start to the latest end, across
 /* JJ rule 1: what happened, then what she can do now, and that the original is unchanged. Drafts, for JJ. */
 test("the hint for a file with no length, both languages, plain words with the next step (drafts for JJ)", () => {
   const V = require("../ui-preferences");
-  a.equal(V.t("zh-CN", "own.media-duration-unknown", { name: "录像.mkv" }), "「录像.mkv」里没写时长，MontClip 读不出它有多长，放到时间线上的长度可能不对。原片没有改动；拖到时间线后拉一下结尾就能对上。");
-  a.equal(V.t("en", "own.media-duration-unknown", { name: "rec.mkv" }), "“rec.mkv” doesn't say how long it is, so MontClip can't tell its length, and its length on the timeline may be wrong. The original is unchanged; after you drag it onto the timeline, drag its end to fit.");
-  a.equal(V.t("zh-CN", "own.media-duration-unknown-n", { n: 3 }), "有 3 个文件里没写时长，MontClip 读不出它们有多长，放到时间线上的长度可能不对。原片没有改动；拖到时间线后拉一下结尾就能对上。");
-  a.equal(V.t("en", "own.media-duration-unknown-n", { n: 3 }), "3 files don't say how long they are, so MontClip can't tell their length, and their length on the timeline may be wrong. The originals are unchanged; after you drag one onto the timeline, drag its end to fit.");
-  for (const k of ["own.media-duration-unknown", "own.media-duration-unknown-n"]) {
+  // europa P3: such a file can't be placed (MediaLib.cannotCut); the toasts are built from JJ's sentence (own.media-incomplete)
+  a.equal(V.t("zh-CN", "own.media-duration-unknown", { name: "录像.mkv" }), "「录像.mkv」：这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。");
+  a.equal(V.t("zh-CN", "own.media-duration-unknown-n", { n: 3 }), "有 3 个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。");
+  a.equal(V.t("en", "own.media-duration-unknown", { name: "rec.mkv" }), "“rec.mkv”: this video wasn't recorded to the end (the screen recording may have stopped early), so its length can't be read. It can't be cut yet.");
+  for (const k of ["own.media-duration-unknown", "own.media-duration-unknown-n", "own.media-incomplete"]) {
     const zh = V.t("zh-CN", k, { name: "x", n: 2 });
     a.doesNotMatch(zh, /NaN|0:00|undefined/);
     a.equal(zh.replace(/MontClip/g, "").match(/[A-Za-z]{3,}/), null, "no English word in the Chinese: " + zh);

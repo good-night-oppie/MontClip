@@ -85,11 +85,17 @@
     const known = Number.isFinite(m.duration) && m.duration > 0;
     if (info.duration > 0 && (!known || m.duration - info.duration > 1)) { m.duration = info.duration; out.changed = out.length = true; }
     else if (info.durationUnknown && !known) out.unknown = true;
+    // the mark that keeps a file with no length off the timeline (cannotCut): set while nothing says it, gone once one does
+    if (out.unknown && !m.durationUnknown) { m.durationUnknown = true; out.changed = true; }
+    if (m.durationUnknown && Number.isFinite(m.duration) && m.duration > 0) { delete m.durationUnknown; out.changed = true; }
     if ((info.duration > 0 || info.durationUnknown) && !m.durationChecked && (matroska(m) || !(Number.isFinite(m.duration) && m.duration > 0) || out.unknown)) {
       m.durationChecked = true; out.changed = true;
     }
     return out;
   }
+  /** A video or sound nothing could read the length of (europa P3, 2026-11-05): it can't be placed or cut — not at 0 s,
+   *  nor at a stand-in length. One not read yet (no mark) is not this. */
+  const cannotCut = (m) => !!(m && timed(m) && m.durationUnknown && !(Number.isFinite(m.duration) && m.duration > 0));
   /** Fit the clips of media m into its length, as a replaced file's clips are (in + duration×speed ≤ m.duration; a linked
    *  sound shares the media and its timing, so it fits the same). Pictures are left alone. → how many edges moved */
   function fitClips(m, clips) {
@@ -441,7 +447,7 @@
     importTidies, importPercent,
     KINDS, INFO_KEYS, SORT_KEYS, MAX_TAGS,
     srcName, relinkScore, kindFromName,
-    parseProbe, probeClock, needsFirstAudioPts, needsInfo, serverDuration, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
+    parseProbe, probeClock, needsFirstAudioPts, needsInfo, serverDuration, cannotCut, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
     STANDARD_FPS, standardFps, sourceCanvas, canvasFollowsSource,
     normalizeTags, allTags, normalizeCollections,
     placements, usageCounts,
