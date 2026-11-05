@@ -11,7 +11,6 @@ const JJ = {
   'zh-CN': {
     flvTimingUnverified: '这个 FLV 这次没导进来：MontClip 没法确认它的时间是否完整。换一个录完整的文件，或者先把它转成 MP4 再导入。',
     flvNeedsDesktop: '导入 FLV 需要用 MontClip 桌面版打开。',
-    flvDiskFull: '电脑空间不够，这个文件没导进来。清理一些空间后再试。',
   },
   en: {
     flvTimingUnverified: 'This FLV was not imported: MontClip could not confirm its timing is complete. Try a fully recorded file, or convert it to MP4 first.',
@@ -20,10 +19,12 @@ const JJ = {
 };
 const CASES = {
   FLV_TIMELINE_GAP: 'flvTimingUnverified', FLV_READABLE_CONSENT_REQUIRED: 'flvTimingUnverified',
-  FLV_DISK_FULL: 'flvDiskFull', NO_SERVER: 'flvNeedsDesktop',
+  // JJ's error table v2 (2026-11-04, #129): disk full is its own row (errDiskFull); FLV_PROBE_FAILED says the recording
+  // can't be read (flvUnreadable); anything else is the table's last row, which flvUploadFailed now says (test/error-text.test.js)
+  FLV_DISK_FULL: 'errDiskFull', NO_SERVER: 'flvNeedsDesktop',
   FLV_TRANSCODE_REQUIRED: 'flvNeedsConvert', FLV_STREAMS_UNSUPPORTED: 'flvNeedsConvert',
   FLV_COMPONENT_MISSING: 'flvComponentMissing',
-  UPLOAD_FAILED: 'flvUploadFailed', IMPORT_FAILED: 'flvUploadFailed', FLV_PROBE_FAILED: 'flvUploadFailed',
+  UPLOAD_FAILED: 'flvUploadFailed', IMPORT_FAILED: 'flvUploadFailed', FLV_PROBE_FAILED: 'flvUnreadable',
   FLV_PREPARATION_FAILED: 'flvUploadFailed', SOMETHING_NEW: 'flvUploadFailed', '': 'flvUploadFailed',
 };
 

@@ -22,7 +22,6 @@
     h264Clear: "不再使用这个 FFmpeg",
     h264NoneWin: "这台电脑上找不到能用的 H.264 编码器：显卡编码器没有响应，Windows 自带的编码器也用不了。你可以在下面选一个带 x264 的 FFmpeg，或者导出时换一种格式。",
     h264NoneOther: "这台电脑上找不到能用的 H.264 编码器。你可以在下面选一个带 x264 的 FFmpeg，或者导出时换一种格式。",
-    h264NeedFeaturePack: "你的 Windows 好像是不带媒体组件的「N 版」。请在 Windows 设置 › 应用 › 可选功能里安装「媒体功能包」（Media Feature Pack），然后重新打开 MontClip。",
     extNotFullPath: "请选 FFmpeg 程序文件本身（ffmpeg.exe）。",
     extGone: "之前选的 FFmpeg 已经不在原来的位置了。请重新选一次，或者点「不再使用这个 FFmpeg」。",
     extNotFfmpeg: "选的程序打不开，或者它不是 FFmpeg。请重新选。",
@@ -47,7 +46,6 @@
     h264Clear: "Stop using this FFmpeg",
     h264NoneWin: "This computer has no H.264 encoder MontClip can use: no graphics-card encoder answered, and Windows' built-in encoder is not available. You can choose an FFmpeg with x264 below, or export in another format.",
     h264NoneOther: "This computer has no H.264 encoder MontClip can use. You can choose an FFmpeg with x264 below, or export in another format.",
-    h264NeedFeaturePack: " Your Windows looks like an \"N\" edition without media components. Install the Media Feature Pack in Windows Settings › Apps › Optional features, then open MontClip again.",
     extNotFullPath: "Choose the FFmpeg program file itself (ffmpeg.exe).",
     extGone: "The FFmpeg you chose is no longer where it was. Choose it again, or click \"Stop using this FFmpeg\".",
     extNotFfmpeg: "The chosen program could not be started, or it is not FFmpeg. Choose again.",
@@ -78,7 +76,7 @@
     let s = t[r.code];
     if (r.code === "extNotUsedNote") s = fill(s, { reason: (h264Message(language, { code: p.reason }) || "").replace(/[。.]$/, ""), encoder: h264Encoder(language, p.encoder) });
     else s = fill(s, Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])));
-    if (/^h264None/.test(r.code) && r.featurePack) s += t.h264NeedFeaturePack;
+    // (the Windows "N" edition / Media Feature Pack line is gone until it is checked: JJ, 2026-11-04)
     return s;
   }
   // MontClip's own wording for keyed strings the terms SPEC does not cover.
@@ -566,14 +564,7 @@
     "as-ex-nosub": ["No subtitles this time: transcription is not installed on this computer. The videos export as usual. For subtitles, install it in Settings › Transcription (one download, about 230 MB), then come back and export.", "这次没有字幕：这台电脑还没装听写。成片照样能导出。要字幕的话，到「设置 › 听写」装上（要联网下载一次，约 230 MB），再回来导出。"],
     "as-sub-line": ["Subtitles: {n} sentences, transcribed; the singing may have wrong words", "字幕：{n} 句，是听写出来的，唱歌部分可能有错字"],
     "as-exporting": ["Exporting {n}…", "正在导出 {n} 条…"],
-    "as-done-title": ["Exported: {n}", "导出好了，{n} 条"],
-    "as-done-partial": ["Exported {n}; {failed} didn't", "导出好了 {n} 条，{failed} 条没成功"],
     "as-done-sub": ["They are in the export queue; save each one where you like.", "都在导出队列里，可以逐条存到你想放的地方。"],
-    "as-fail": ["{failed} didn't export: “{name}”. {why}. Your edits are all still here. Click Try again, or open the export queue to see why.", "有 {failed} 条没导出来：「{name}」。{why}。你的剪辑都还在，点「再试一次」，或者打开导出队列看原因。"],
-    "as-fail-why-space": ["The drive it saves to is out of space", "存视频的那个盘空间不够了"],
-    "as-fail-why-changed": ["The timeline changed after it was queued, so it wasn't exported", "加进导出以后，时间线又改过了，所以没导"],
-    "as-fail-why-other": ["The export stopped partway", "导出到一半停下了"],
-    "as-retry": ["Try again", "再试一次"],
     "as-open-queue": ["Open the export queue", "打开导出队列"],
     "as-back-review": ["Back to review", "回去再改改"],
     "as-another": ["Another stream", "再切一场"],
@@ -586,11 +577,11 @@
     "as-dur-s": ["{s} s", "{s} 秒"],
     // danmaku import (for JJ to review)
     "dm-import": ["Import danmaku…", "导入弹幕…"],
-    "dm-import-title": ["Import danmaku for the recording of the selected clip (a BililiveRecorder or Bilibili .xml file)", "给选中片段所在的那场录像导入弹幕（录播姬或 B 站的 .xml 文件）"],
+    "dm-import-title": ["Import danmaku for the recording of the selected clip (a BililiveRecorder or Bilibili .xml file)", "给选中片段所在的那场录像导入弹幕（录播姬或 B 站的 .XML 文件）"],
     "dm-reading": ["Reading {name}…", "正在读取 {name}…"],
     "dm-imported": ["{n} danmaku imported for {name}.", "已为 {name} 导入 {n} 条弹幕。"],
     "dm-pick-clip": ["Select a clip of this recording on the timeline first, then import the danmaku.", "先在时间线上选中这场录像的片段，再导入弹幕。"],
-    "dm-bad": ["This is not a BililiveRecorder or Bilibili danmaku file. For BililiveRecorder, pick the .xml file with the same name next to the recording.", "这不是录播姬或 B 站的弹幕文件。录播姬的话，选录像旁边那个同名的 .xml 文件。"],
+    "dm-bad": ["This is not a BililiveRecorder or Bilibili danmaku file. For BililiveRecorder, pick the .xml file with the same name next to the recording.", "这不是录播姬或 B 站的弹幕文件。录播姬的话，选录像旁边那个同名的 .XML 文件。"],
     "dm-too-many": ["More than {n} danmaku in one file: not imported.", "一个文件里的弹幕超过 {n} 条，没有导入。"],
     "dm-remove": ["Remove danmaku ({n})", "移除弹幕（{n} 条）"],
     "dm-removed": ["Danmaku removed from {name}.", "已移除 {name} 的弹幕。"],
@@ -653,7 +644,7 @@
     "engine-fast-note": ["Frame-accurate. Server encodes from JPEG frames. Keeps going if you switch tabs.", "逐帧准确。由本机程序一帧帧编码，切到别的页面也会继续导出。"],
     "engine-webcodecs": ["WebCodecs (HW encode)", "显卡加速编码"],
     // 「快速（ffmpeg）」 is the Fast radio's own Chinese label (term.fast-ffmpeg)
-    "engine-webcodecs-note": ["Frame-accurate. Browser HW-encodes H.264; server muxes with audio. Faster upload than Fast.", "逐帧准确。用显卡编码，比「快速（ffmpeg）」那一项更快。"],
+    "engine-webcodecs-note": ["Frame-accurate. Browser HW-encodes H.264; server muxes with audio. Faster upload than Fast.", "逐帧准确。用显卡编码，比「快速（FFmpeg）」那一项更快。"],
     // delivery.js keeps the English note for agents; the dialog shows this one
     "dlv-note-master": ["Project size · H.264 CRF 16 · AAC 320k", "和项目一样大 · 高画质 · H.264 恒定画质（CRF）16 · AAC 320k"],
     "dlv-resolution": ["Resolution", "分辨率"],
@@ -688,10 +679,13 @@
     "export-checked-n": ["Export checked ({n})", "导出勾选的版本（{n}）"],
     "export-failed-prefix": ["Export failed: ", "导出失败："],
     // the export self-check (export-check.js): the file came out black / silent from start to end while the footage is not.
-    // 草稿，待 JJ 定稿 (2026-11-04): what happened, that the file must not be used, that the originals are unchanged, what to do now
-    "export-blank-picture": ["The export went wrong: the video is black from start to end, but the footage on the timeline has a picture. Don't use this file. Your originals are unchanged; export again, and tell us if it is still black.", "导出出了问题：成片从头到尾都是黑屏，可时间线上的素材是有画面的。这个文件别用。原片没有改动；请再导出一次，还是黑屏的话告诉我们。"],
-    "export-blank-sound": ["The export went wrong: the video has no sound from start to end, but the footage on the timeline has sound. Don't use this file. Your originals are unchanged; export again, and tell us if it is still silent.", "导出出了问题：成片从头到尾都没有声音，可时间线上的素材是有声音的。这个文件别用。原片没有改动；请再导出一次，还是没声音的话告诉我们。"],
-    "export-blank-both": ["The export went wrong: the video is black and silent from start to end, but the footage on the timeline has picture and sound. Don't use this file. Your originals are unchanged; export again, and tell us if it happens again.", "导出出了问题：成片从头到尾都是黑屏，也没有声音，可时间线上的素材有画面也有声音。这个文件别用。原片没有改动；请再导出一次，还是这样的话告诉我们。"],
+    // JJ 定稿 (2026-11-04, #161), word for word; the button named in them is btnCopyProblem (test/export-start-time.test.js)
+    "export-blank-picture": ["The export went wrong: the video is black from start to finish, but the clips on the timeline have picture. Don't use this file. Your originals are unchanged. Export again, and if it's still black, click “Copy problem info” and send it to us.", "导出出了问题：成片从头到尾都是黑屏，但时间线上的素材是有画面的。这个文件先别用，原片没有改动。请再导出一次；还是黑屏的话，点〔复制问题信息〕发给我们。"],
+    "export-blank-sound": ["The export went wrong: the video has no sound from start to finish, but the clips on the timeline have sound. Don't use this file. Your originals are unchanged. Export again, and if there's still no sound, click “Copy problem info” and send it to us.", "导出出了问题：成片从头到尾都没有声音，但时间线上的素材是有声音的。这个文件先别用，原片没有改动。请再导出一次；还是没声音的话，点〔复制问题信息〕发给我们。"],
+    "export-blank-both": ["The export went wrong: the video is black and silent from start to finish, but the clips on the timeline have picture and sound. Don't use this file. Your originals are unchanged. Export again, and if it happens again, click “Copy problem info” and send it to us.", "导出出了问题：成片从头到尾都是黑屏、也没有声音，但时间线上的素材有画面也有声音。这个文件先别用，原片没有改动。请再导出一次；还是这样的话，点〔复制问题信息〕发给我们。"],
+    // TODO(主人定): after 〔复制问题信息〕, one more sentence saying where to send it (Deja, #161). Empty until the place is
+    // decided: copyProblem says nothing more while it is empty.
+    "copy-problem-where": ["", ""],
     // JJ (#74): the version kept before the AI's edits, named in the interface language only
     "before-ai": ["Before AI changes", "AI 改之前"],
     // JJ (#71): the selection / proposal dialog in the interface language only, never 「中文 / English」 together
@@ -974,6 +968,104 @@
     const t = text[language] || text.en;
     return t[Object.hasOwn(FLV_REASONS, code) ? FLV_REASONS[code] : "flvUploadFailed"];
   }
+  // Every failure the streamer sees goes through errorText (Deja, decision B), in JJ's final words (错误白话表 v2,
+  // 2026-11-04, sha256 d99c25d1…): first what happened, then what she can do now; whether the original was touched.
+  // The raw error, codes and English go to the log only; 〔复制问题信息〕 copies that line with viewers, keys and user
+  // folders taken out (problem-redact.js). Nothing raw is shown.
+  Object.assign(text["zh-CN"], {
+    flvUnreadable: "这个录像读不了，可能还没录完，或者文件坏了。原片没有改动。如果是还在录的，录完以后再导入。",
+    flvBusy: "上一个文件还在导入，等它做完再导这个。",
+    flvExpired: "这次导入停太久已经失效了，重新导入一次就行。原片没有改动。",
+    errDiskFullSize: "电脑空间不够，这次没有做完。要空出大约 {size}，空出来以后点重试。原片没有改动。",
+    // v2's sentence without 「要空出大约 {需要的大小}，」: MontClip does not know the size yet (for JJ)
+    errDiskFull: "电脑空间不够，这次没有做完。空出来以后点重试。原片没有改动。",
+    errOther: "这次没有做完，出了个我们没预料到的问题。原片没有改动。再试一次；还不行，点「复制问题信息」发给我们。",
+    exAll: "{n} 条导出好了", exSome: "{n} 条导出好了，{failed} 条没导出来", exNone: "这次一条都没导出来：{why}。你的剪辑都还在，没有丢。",
+    exWarned: "（其中 {n} 条有提醒，点开看看）",
+    // #116: without 「（{一句原因}）」 (the save window does not say why); the desktop folder is exports, so no name here
+    // (「MontClip导出」 is the plugin's folder; JJ, 2026-11-04)
+    exportSaveFolderFailed: "视频已经导出好了，但没能存进你选的文件夹。文件还在 MontClip 自己的导出文件夹里，可以换一个文件夹再导出一次。",
+    // three more rows (JJ, 2026-11-04), so these are not the last row: the timeline changed (JJ's sentence for #77,
+    // as-fail-why-changed, f953b1b), a picture smaller than the encoder takes, the FFmpeg chosen in Settings not working
+    errExportChanged: "加进导出以后，时间线又改过了，所以没导",
+    errFrameTooSmall: "画面太小，导不出来：宽和高都至少要 {n} 像素。把画面大小改大一点再导出。原片没有改动。",
+    errExtFailed: "设置里选的 FFmpeg 用不了，这次没有做完。在设置里改回 MontClip 自带的，或者重新选一个。原片没有改动。",
+    btnCopyProblem: "复制问题信息", copyProblemNote: "复制的内容不含你的文件夹路径、密钥和观众信息。",
+    btnRetry: "重试", btnRetryThis: "重试这条", btnOtherFolder: "换个文件夹",
+    // after a copy: the same key and words as #132 and the plugin (one string for every copy button)
+    "own.copy-problem-done": "已经复制好了，粘贴到发给我们的消息里就行。", "own.copy-problem-failed": "这次没能复制，再点一次按钮试试。",
+    qFailed: "没导出来：", qRendering: "正在导出… {pct}%", qDone: "导好了：{file}", qStopped: "已停下", qWaiting: "排队等导出",
+  });
+  Object.assign(text.en, {
+    flvUnreadable: "This recording can't be read. It may still be recording, or the file is damaged. The original is unchanged. If it's still recording, import it once it's done.",
+    flvBusy: "The previous file is still importing. Import this one once it's done.",
+    flvExpired: "This import waited too long and expired. Import it again; the original is unchanged.",
+    errDiskFullSize: "There isn't enough space on this computer, so this didn't finish. Free up about {size}, then try again. The original is unchanged.",
+    errDiskFull: "There isn't enough space on this computer, so this didn't finish. Free up some space, then try again. The original is unchanged.",
+    errOther: "This didn't finish because of a problem we didn't expect. The original is unchanged. Try again; if it still fails, use \"Copy problem details\" and send it to us.",
+    exAll: "{n} exported", exSome: "{n} exported, {failed} didn't", exNone: "Nothing was exported this time: {why}. Your edits are all still there.",
+    exWarned: "({n} have a note — open to see)",
+    exportSaveFolderFailed: "The video was exported, but it couldn't be saved to the folder you picked. It's in MontClip's own exports folder; you can export again to another folder.",
+    errExportChanged: "The timeline changed after it was queued, so it wasn't exported",
+    errFrameTooSmall: "The picture is too small to export: width and height must each be at least {n} pixels. Make it larger and export again. The original is unchanged.",
+    errExtFailed: "The FFmpeg chosen in Settings doesn't work, so this didn't finish. Switch back to the one that comes with MontClip in Settings, or choose another. The original is unchanged.",
+    btnCopyProblem: "Copy problem details", copyProblemNote: "What's copied leaves out your folder paths, keys and viewer details.",
+    btnRetry: "Retry", btnRetryThis: "Retry this one", btnOtherFolder: "Choose another folder",
+    "own.copy-problem-done": "Copied. Paste it in a message to us.", "own.copy-problem-failed": "It couldn't be copied this time. Try the button again.",
+    qFailed: "Didn't export: ", qRendering: "Exporting… {pct}%", qDone: "Done → exports/{file}", qStopped: "Stopped", qWaiting: "Waiting",
+  });
+  // v2's own rows for these codes (PROBE_FAILED used to fall to flvUploadFailed); a code it doesn't list is its last row
+  Object.assign(FLV_REASONS, { FLV_PROBE_FAILED: "flvUnreadable", FLV_NOT_FLV: "flvUnreadable", FLV_NOT_FOUND: "flvUnreadable",
+    FLV_IMPORT_BUSY: "flvBusy", FLV_IMPORT_EXPIRED: "flvExpired", FLV_DISK_FULL: "errDiskFull" });
+  for (const l of ["zh-CN", "en"]) text[l].flvUploadFailed = text[l].errOther;
+  /** Codes with a sentence of their own besides the h264 and FLV families (the others are v2's last row). */
+  const ERROR_TEXT = { EXPORT_BLANK_PICTURE: "own.export-blank-picture", EXPORT_BLANK_SOUND: "own.export-blank-sound", EXPORT_BLANK_BOTH: "own.export-blank-both",
+    NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready",
+    EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept", DISK_FULL: "errDiskFull", EXPORT_TIMELINE_CHANGED: "errExportChanged", frameTooSmall: "errFrameTooSmall",
+    extGone: "errExtFailed", extNotFfmpeg: "errExtFailed", extNoX264: "errExtFailed", extSettingBad: "errExtFailed", extNotFullPath: "errExtFailed" };
+  /** The codes whose sentence is one of v2's rows: a batch says only these as a reason, anything else as the last row. */
+  const TABLE_REASONS = new Set(["EXPORT_BLANK_PICTURE", "EXPORT_BLANK_SOUND", "EXPORT_BLANK_BOTH", "DISK_FULL", "FLV_DISK_FULL", "FLV_ENCODER_MISSING", "FLV_COMPONENT_MISSING", "h264NoneWin", "h264NoneOther", "ffmpegMissing",
+    "FLV_PROBE_FAILED", "FLV_NOT_FLV", "FLV_NOT_FOUND", "FLV_IMPORT_BUSY", "FLV_IMPORT_EXPIRED", "EXPORT_TIMELINE_CHANGED", "frameTooSmall",
+    "extGone", "extNotFfmpeg", "extNoX264", "extSettingBad", "extNotFullPath"]);
+  const DISK_FULL = /ENOSPC|no space left|disk is full|not enough space/i;
+  /** An export that came out black / silent (export-check.js): its sentence asks for 〔复制问题信息〕, so the button comes
+   *  with it although the sentence is its own (`copy`), and it is said as it is, not after 「导出失败：」/「没导出来：」. */
+  const COPY_CODES = new Set(["EXPORT_BLANK_PICTURE", "EXPORT_BLANK_SOUND", "EXPORT_BLANK_BOTH"]);
+  /** A failure in plain words: {code, text, known, log}. `error` is an Error, a server answer ({code | errorCode, error,
+   *  params, featurePack}) or a string. `known`: a sentence of its own (else v2's last row). `log` is the raw error, for
+   *  the log and 〔复制问题信息〕 only — never shown. */
+  function errorText(language, error) {
+    const l = lang(language), t = text[l], e = error && typeof error === "object" ? error : {};
+    const log = String(typeof error === "string" ? error : e.message || (typeof e.error === "string" ? e.error : "") || "").trim();
+    let code = [e.code, e.errorCode].find((c) => typeof c === "string" && c) || "";
+    if (!code && DISK_FULL.test(log)) code = "DISK_FULL";
+    const p = e.params || {};
+    let s = /DISK_FULL$/.test(code) && p.size ? fill(t.errDiskFullSize, { size: String(p.size) }) : null;
+    // an export's own rows before the Settings sentences (h264Message): frameTooSmall says the smallest size it takes
+    if (!s && Object.hasOwn(ERROR_TEXT, code) && (code !== "frameTooSmall" || p.n)) s = fill(t[ERROR_TEXT[code]], { n: String(p.n) });
+    if (!s && code) s = h264Message(l, { code, params: e.params, featurePack: e.featurePack });
+    if (!s && Object.hasOwn(FLV_REASONS, code)) s = flvImportMessage(l, code);
+    return { code: code || "UNKNOWN", text: s || t.errOther, known: !!s, copy: COPY_CODES.has(code), log };
+  }
+  /** One item's reason in a batch: v2's sentence for its code when the table has one, else v2's last row. Never the
+   *  Media Feature Pack line (JJ took it out of v2 until it is checked). */
+  function batchReason(language, error) {
+    const e = error && typeof error === "object" ? { ...error, featurePack: false } : error, r = errorText(language, e);
+    return TABLE_REASONS.has(r.code) ? r.text : text[lang(language)].errOther;
+  }
+  /** An export run: 「{N} 条导出好了」, 「{N} 条导出好了，{M} 条没导出来」, or v2's 「这次一条都没导出来：{第一个原因}。…」
+   *  (`why`: batchReason of the first that failed). */
+  function exportResult(language, { done = 0, failed = 0, warned = 0, why = "" } = {}) {
+    const l = lang(language), t = text[l];
+    if (failed && !done) {
+      let w = String(why || t.errOther).replace(/[。.]$/, "");
+      if (l === "en") w = w.charAt(0).toLowerCase() + w.slice(1);
+      return fill(t.exNone, { why: w });
+    }
+    let s = failed ? fill(t.exSome, { n: done, failed }) : fill(t.exAll, { n: done });
+    if (warned) s += (l === "en" ? " " : "") + fill(t.exWarned, { n: warned });
+    return s;
+  }
   Object.assign(text['zh-CN'],{paneLocalTemporary:'没能读取已存的会话。本次会话和草稿只在这次打开期间保留，关闭前请复制要留的内容。原有会话文件未改动。',paneLocalPolicy:'本机保存适用于已有项目 ID 的会话、草稿和明确引用；尚无项目 ID 的内容仅在本次窗口保留。这是保存范围说明，不表示本次内容已保存。不会自动发送。',paneSessionFailed:'会话保存尚未确认，当前编辑仍在此窗口。请保留草稿后重试；不会覆盖另一份更新的记录。',paneRetry:'重试保存会话',paneUser:'你',paneAssistant:'助手'});
   Object.assign(text.en,{paneLocalTemporary:'Saved sessions could not be read. Sessions and drafts from this window will not be saved; copy anything you want to keep before closing. The existing session file was not changed.',paneLocalPolicy:'Local storage applies to sessions, drafts and explicit references with a project ID; content without a project ID lasts only in this window. This describes storage scope, not confirmation that the current content was saved. Nothing is sent automatically.',paneSessionFailed:'Session saving is unconfirmed. Edits remain in this window. Keep your draft and retry; a newer stored snapshot will not be overwritten.',paneRetry:'Retry saving sessions',paneUser:'You',paneAssistant:'Assistant'});
 
@@ -1089,5 +1181,5 @@
    *  English word (export, captions…) in English. */
   const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
-  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
+  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, errorText, batchReason, exportResult, ERROR_CODES: Object.keys(ERROR_TEXT).concat(Object.keys(FLV_REASONS)), h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
 });

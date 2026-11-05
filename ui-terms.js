@@ -204,7 +204,7 @@
     "crf-constant-quality": ["CRF (constant quality)", "恒定画质（CRF）", "B"],
     "rate-control": ["Rate control", "码率控制", "B"],
     "best-quality-slow": ["Best quality (slow)", "最佳质量（较慢）", "B"],
-    "fast-ffmpeg": ["Fast (ffmpeg)", "快速（ffmpeg）", "B"],
+    "fast-ffmpeg": ["Fast (ffmpeg)", "快速（FFmpeg）", "B"],
     "webcodecs-hw-encode": ["WebCodecs (HW encode)", "WebCodecs（硬件编码）", "B"],
     "fast": ["Fast", "快速", "B"],
     "limit": ["Limit", "上限", "B"],

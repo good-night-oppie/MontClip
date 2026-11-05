@@ -198,14 +198,80 @@ test("the editor reads every player and the export's decoder on media time, and 
   a.equal(playerStart({ src: "/media/a.mp4" }, "/media/a.mp4"), 0);
 });
 
-test("the self-check's words: zh and en, for each case", () => {
+/* JJ's final words (2026-11-04, #161), word for word, and what the streamer sees with them: the 〔复制问题信息〕 they ask
+   for (#129's button and its redaction), never 「完成」 or a way to open the file. */
+const BLANK = {
+  "export-blank-picture": ["The export went wrong: the video is black from start to finish, but the clips on the timeline have picture. Don't use this file. Your originals are unchanged. Export again, and if it's still black, click “Copy problem info” and send it to us.",
+    "导出出了问题：成片从头到尾都是黑屏，但时间线上的素材是有画面的。这个文件先别用，原片没有改动。请再导出一次；还是黑屏的话，点〔复制问题信息〕发给我们。"],
+  "export-blank-sound": ["The export went wrong: the video has no sound from start to finish, but the clips on the timeline have sound. Don't use this file. Your originals are unchanged. Export again, and if there's still no sound, click “Copy problem info” and send it to us.",
+    "导出出了问题：成片从头到尾都没有声音，但时间线上的素材是有声音的。这个文件先别用，原片没有改动。请再导出一次；还是没声音的话，点〔复制问题信息〕发给我们。"],
+  "export-blank-both": ["The export went wrong: the video is black and silent from start to finish, but the clips on the timeline have picture and sound. Don't use this file. Your originals are unchanged. Export again, and if it happens again, click “Copy problem info” and send it to us.",
+    "导出出了问题：成片从头到尾都是黑屏、也没有声音，但时间线上的素材有画面也有声音。这个文件先别用，原片没有改动。请再导出一次；还是这样的话，点〔复制问题信息〕发给我们。"],
+};
+const CODES = { "export-blank-picture": "EXPORT_BLANK_PICTURE", "export-blank-sound": "EXPORT_BLANK_SOUND", "export-blank-both": "EXPORT_BLANK_BOTH" };
+
+test("the self-check's words: JJ's, word for word, for each case, said with the copy button and nothing before them", () => {
   const V = require("../ui-preferences");
-  for (const k of ["export-blank-picture", "export-blank-sound", "export-blank-both"]) {
-    const zh = V.t("zh-CN", "own." + k), en = V.t("en", "own." + k);
-    a.ok(zh && zh !== "own." + k && /原片没有改动/.test(zh), k);
-    a.ok(en && !/[一-鿿]/.test(en) && /originals are unchanged/.test(en), k);
+  for (const [k, [en, zh]] of Object.entries(BLANK)) {
+    a.equal(V.t("zh-CN", "own." + k), zh, k);
+    a.equal(V.t("en", "own." + k), en, k);
+    for (const [l, want] of [["zh-CN", zh], ["en", en]]) {
+      const r = V.errorText(l, { code: CODES[k], error: "the exported file is black" });
+      a.deepEqual([r.text, r.known, r.copy], [want, true, true], k + " " + l);
+      a.equal(V.batchReason(l, { code: CODES[k] }), want, "the queue and the summaries say the same sentence");
+    }
   }
+  a.equal(V.errorText("zh-CN", { code: "DISK_FULL" }).copy, false, "other sentences of their own keep their own way");
+});
+
+test("the button named in the sentences is the button on screen: zh", () => {
+  const V = require("../ui-preferences"), btn = V.t("zh-CN", "btnCopyProblem");
+  a.equal(btn, "复制问题信息");
+  for (const k of Object.keys(BLANK)) a.ok(V.t("zh-CN", "own." + k).includes(`〔${btn}〕`), k);
+});
+
+// JJ's English sentences say “Copy problem info”; #129's button says "Copy problem details" (its own sentence, errOther,
+// too). Which one stays is JJ's call (Deja, #161) — until then this is a known mismatch, reported here, not hidden.
+test("the button named in the sentences is the button on screen: en", { todo: "JJ: the English button is “Copy problem details”, the sentences say “Copy problem info”" }, () => {
+  const V = require("../ui-preferences"), btn = V.t("en", "btnCopyProblem");
+  for (const k of Object.keys(BLANK)) a.ok(V.t("en", "own." + k).includes(`“${btn}”`), `${k}: the sentence names “${btn}”`);
+});
+
+test("a black / silent export: the queue row says the sentence with 〔复制问题信息〕 and 〔重试这条〕 — no 完成, no 保存 or open", () => {
+  const V = require("../ui-preferences");
   const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
-  for (const [code, k] of [["EXPORT_BLANK_PICTURE", "export-blank-picture"], ["EXPORT_BLANK_SOUND", "export-blank-sound"], ["EXPORT_BLANK_BOTH", "export-blank-both"]])
-    a.ok(app.includes(`${code}: "own.${k}"`), code);
+  const src = app.slice(app.indexOf("function renderQueue() {"), app.indexOf("function renderQueueProgress() {"));
+  a.ok(src.length > 100, "renderQueue found");
+  for (const language of ["zh-CN", "en"]) for (const k of Object.keys(BLANK)) {
+    const els = {};
+    const $ = (id) => (els[id] = els[id] || { textContent: "", innerHTML: "", disabled: false });
+    const uiText = (key, vars) => V.t(language, key, vars);
+    const q = { id: "q1", status: "failed", code: CODES[k], error: "blank.mp4: the exported file is black", label: "Web", name: "blank", spec: { container: "mp4" }, range: null };
+    const run = new Function("$", "uiText", "MontClipView", "mcView", "Delivery", "deliveryFrame", "projectFps", "escapeHtml", "fmt", "exportQueue", "queueRunning",
+      src + "\nrenderQueue();");
+    run($, uiText, V, { get: () => ({ language }) }, { CONTAINERS: { mp4: { ext: ".mp4" } }, describe: () => "1280×720" }, () => ({ outW: 1280, outH: 720 }), () => 30,
+      (x) => String(x), (x) => String(x), [q], false);
+    const html = els.exportQueueList.innerHTML;
+    a.ok(html.includes(V.t(language, "own." + k)), `${k} ${language}: the sentence, as it is`);
+    a.ok(!html.includes(V.t(language, "qFailed")), "not after 「没导出来：」");
+    a.match(html, new RegExp(`data-q-copy="q1"[^>]*>${V.t(language, "btnCopyProblem")}<`), "〔复制问题信息〕 on the row");
+    a.match(html, /data-q-retry="q1"/);
+    a.doesNotMatch(html, /data-q-save|dlv-q-saved/, "nothing to save or open");
+    for (const word of ["完成", "导好了", "Done", "Open", "打开"]) a.ok(!html.includes(word), `${k} ${language}: no 「${word}」`);
+  }
+  // the clicks: the row's button copies through #129's redaction; the agent's job is failed, never done
+  a.match(app, /if \(c\) \{ copyProblem\(sayError\(q, "export-queue"\)\); return; \}/);
+  a.match(app, /if \(r\.known && !r\.copy\) toast\(prefix \+ r\.text\);\n  else toastAction\(\(r\.copy \? "" : prefix\) \+ r\.text, uiText\("btnCopyProblem"\), \(\) => copyProblem\(r\), uiText\("copyProblemNote"\)\);/);
+  a.match(app, /toastAction\(blank\.copy \? blank\.text : msg, uiText\("btnCopyProblem"\)/, "the queue's summary when none made it");
+  a.match(app, /\.\.\.\(o \? \{ code: o\.code \}/, "an output's own code reaches the queue");
+  a.match(app, /if \(!end\.src\) throw exportEndError\(end, "encode failed"\);/, "the export stops before any save window opens");
+});
+
+test("after 〔复制问题信息〕: where to send it — a key held for it, empty (TODO) until the place is decided", () => {
+  const V = require("../ui-preferences");
+  const src = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8");
+  a.match(src, /TODO\(主人定\)[^\n]*\n[^\n]*\n\s*"copy-problem-where": \["", ""\],/);
+  a.equal(V.t("zh-CN", "own.copy-problem-where"), "");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  a.match(app, /const where = uiText\("own\.copy-problem-where"\);\n[^\n]*\n  try \{ await navigator\.clipboard\.writeText\(out\); toast\(uiText\("own\.copy-problem-done"\) \+ \(where \? sep \+ where : ""\)\);/);
 });
