@@ -417,7 +417,7 @@ Examples in `library/svg/`: `sparkles.svg` (loop), `lower-third.svg`,
 | prop | default | notes |
 |---|---|---|
 | `fit` | "contain" | contain · cover (fill canvas, crop overflow) · stretch · none (native px) |
-| `cropL` `cropR` `cropT` `cropB` | 0 | % of the source trimmed off each edge |
+| `cropL` `cropR` `cropT` `cropB` | 0 | % of the source file's whole frame trimmed off each edge (the encoded frame, padding included), before `fit` / `scale` / `x` / `y`; what is left is fitted and centred |
 | `cornerRadius` | 0 | px, rounded corners — the PiP look |
 | `reframe` | — | set by Reframe (`"follow"` or `"centre"`): the clip's `fit` and position are Reframe's own, so running it again replaces them (see "Sequences") |
 | `flipH`, `flipV` | false | mirror |
@@ -1092,6 +1092,21 @@ The picture a mask lives in is the clip's drawn rectangle for video, image
 and svg (after fit and crop), the text block for text, and the whole canvas
 for an adjustment layer. Masks follow the clip when it is moved, scaled,
 rotated or flipped, and keep the clip's keyframes.
+
+**Where the numbers come from.** Mask and crop numbers are never canvas
+positions. A mask's `x` / `y` / `w` / `h` are fractions of the clip's own
+picture: the source file's encoded frame minus its crop, *before* the clip's
+`scale`, `x`, `y` and keyframes. Crop percentages are fractions of that whole
+encoded frame. So read positions off the **source**, not the timeline:
+`fablecut_frame {path, t}` (the clip's `in` + seconds into it × `speed`), and
+divide a pixel position by that image's own width and height. A file can carry
+padding in its frame — a screen recording whose picture fills only part of
+1920×1080, black bars, a pillarboxed phone video — and the padding counts as
+part of the frame: a mask over something at 40 % of the visible content of a
+recording that fills the top-left 80 % of its frame goes at 0.32, not 0.40. A
+`fablecut_frame {time}` still shows the composed timeline (zoomed, moved,
+cropped); its reply gives the image size and the frame size. Check a mask with
+`fablecut_scopes {time, mask:{clip}}` or `fablecut_frame {time}`.
 
 In the editor, the **Masks** section of the Inspector has **+ Rect**,
 **+ Ellipse**, **Pen** (click points on the monitor, drag while placing one to
@@ -2171,8 +2186,10 @@ inferring it from an `energy` value.
 
 Each answer leads with a text line naming the source, the timestamp(s) and (in
 timeline mode) the clips on screen, so you always know what you are looking at.
-`width` sets the pixel width (default 768 for one frame, 320 per contact-sheet
-cell); `text:true` returns descriptive statistics instead of an image block, for
+`width` sets the pixel width in the source modes (default 768 for one frame,
+320 per contact-sheet cell); a timeline still is the whole frame at up to 960 px
+wide, and its reply says `Image 960x540 px = the whole 1920x1080 frame` so a
+position read off it can be converted; `text:true` returns descriptive statistics instead of an image block, for
 agents without vision capability — luma levels (min, p1, median, mean, p99, max,
 all 0–1 like `fablecut_scopes`), dominant colors, texture, saturation and
 per-cell motion; `where`/`timeout` apply to timeline mode only.
