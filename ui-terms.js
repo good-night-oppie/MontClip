@@ -271,7 +271,7 @@
     "drag-to-resize-double-click-to-reset": ["Drag to resize · double-click to reset", "拖拽调整大小 · 双击恢复默认", "B"],
     "track": ["Track", "轨道", "B"],
     "track-padlock": ["Track padlock", "轨道锁", "B"],
-    "track-point": ["Track point", "轨道点", "B"],
+    "track-point": ["Track point", "跟踪点", "own", "JJ 第 1 批定稿 2026-11-05：跟踪用的点（原「轨道点」误译）"],
     "add-audio-track": ["Add audio track", "添加音频轨道", "B"],
     "add-video-track": ["Add video track", "添加视频轨道", "B"],
     "add-a-title-card-at-the-playhead": ["Add a title card at the playhead", "在播放头处添加标题卡", "B"],

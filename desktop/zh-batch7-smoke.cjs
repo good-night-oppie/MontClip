@@ -77,6 +77,7 @@ const READ = String.raw`(async () => {
   const ml = document.querySelector('.marker-list');
   r.markersEmpty = txt(ml?.querySelector('.marker-empty')); r.markersKbd = txt(ml?.querySelector('.marker-empty kbd'));
   ml?.remove();
+  mediaOffline.delete('m_zh7'); // the made-up file reads as present, so the menu offers "Relink to another copy…"
   showMediaMenu(10, 10, getMedia('m_zh7')); await wait(30);
   r.media = [...document.querySelectorAll('#trackCtxMenu .ctx-item')].map((b) => [txt(b), b.title || '']);
   hideTrackCtxMenu();

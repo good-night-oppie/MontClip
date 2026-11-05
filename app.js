@@ -482,7 +482,7 @@ function showTrackCtxMenu(clientX, clientY, track) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "ctx-item";
-  btn.textContent = "Remove track";
+  btn.textContent = uiText("own.track-remove");
   if (!check.ok) {
     btn.disabled = true;
     btn.title = check.reason;
@@ -2667,10 +2667,10 @@ function syncBinTools() {
   if ((f.startsWith("tag:") && !tags.some((t) => t.toLowerCase() === f.slice(4).toLowerCase())) ||
     (f.startsWith("col:") && !getCollection(f.slice(4)))) binView.filter = "";
   const opt = (v, label) => `<option value="${escapeHtml(v)}"${v === binView.filter ? " selected" : ""}>${escapeHtml(label)}</option>`;
-  const html = opt("", "All media") + opt("fav", "★ Favorites") + opt("used", "Used in the edit") + opt("unused", "Unused") +
+  const html = opt("", uiText("own.bin-all")) + opt("fav", uiText("own.bin-fav")) + opt("used", uiText("own.bin-used")) + opt("unused", uiText("own.bin-unused")) +
     (mediaOffline.size || binView.filter === "offline" ? opt("offline", `⚠ Offline (${mediaOffline.size})`) : "") +
-    (project.media.some((m) => m.kind === "video") ? opt("proxy", "Has a proxy") + opt("noproxy", "Video without a proxy") : "") +
-    `<optgroup label="Kind">${MediaLib.KINDS.map((k) => opt("kind:" + k, k === "svg" ? "SVG" : k === "video" || k === "audio" ? uiText("term." + k) : k[0].toUpperCase() + k.slice(1))).join("")}</optgroup>` +
+    (project.media.some((m) => m.kind === "video") ? opt("proxy", uiText("own.bin-proxy")) + opt("noproxy", uiText("own.bin-noproxy")) : "") +
+    `<optgroup label="Kind">${MediaLib.KINDS.map((k) => opt("kind:" + k, k === "svg" ? "SVG" : k === "video" || k === "audio" ? uiText("term." + k) : k === "image" ? uiText("own.bin-image") : k[0].toUpperCase() + k.slice(1))).join("")}</optgroup>` +
     (cols.length ? `<optgroup label="Collections">${cols.map((c) => opt("col:" + c.id, c.name + ` (${c.media.length})`)).join("")}</optgroup>` : "") +
     (tags.length ? `<optgroup label="Tags">${tags.map((t) => opt("tag:" + t, "#" + t)).join("")}</optgroup>` : "");
   if (els.binFilter.innerHTML !== html) els.binFilter.innerHTML = html;
@@ -2896,37 +2896,37 @@ function showMediaMenu(x, y, m) {
     return b;
   };
   const sep = () => { const d = document.createElement("div"); d.className = "ctx-sep"; menu.appendChild(d); };
-  item("Open in Source", () => loadSourceFromMedia(m));
-  item(`Find timeline instances (${uses})`, () => showMediaInstances(m, x, y), uses ? null : "Not used on the timeline");
-  item("Media info…", () => showMediaInfo(m, x, y));
-  item(isMediaOffline(m.id) ? "Relink…" : "Relink to another copy…", () => openRelinkDialog([m]), state.connected ? null : uiText("own.needs-server"));
+  item(uiText("own.mm-open-source"), () => loadSourceFromMedia(m));
+  item(uiText("own.mm-instances", { n: uses }), () => showMediaInstances(m, x, y), uses ? null : "Not used on the timeline");
+  item(uiText("own.mm-info"), () => showMediaInfo(m, x, y));
+  item(isMediaOffline(m.id) ? "Relink…" : uiText("own.mm-relink-copy"), () => openRelinkDialog([m]), state.connected ? null : uiText("own.needs-server"));
   item(uiText("term.replace-file"), () => replaceMediaFile(m), state.connected ? null : uiText("own.needs-server"));
   if (m.kind === "video") {
     const ps = proxyStatus.get(m.id);
     const why = !state.connected ? uiText("own.needs-server") : !state.ffmpeg ? "Needs MontClip's bundled FFmpeg" : isMediaOffline(m.id) ? "The file is offline" : null;
     if (ps && (ps.state === "ready" || ps.state === "running" || ps.state === "queued")) item(ps.state === "ready" ? "Delete proxy" : "Stop making the proxy", () => deleteProxies([m]));
     else {
-      item("Create proxy (540p)", () => createProxies([m], 540), why);
-      item("Create proxy (720p)", () => createProxies([m], 720), why);
+      item(uiText("own.mm-proxy-540"), () => createProxies([m], 540), why);
+      item(uiText("own.mm-proxy-720"), () => createProxies([m], 720), why);
     }
   }
   sep();
-  item(m.favorite ? "Remove from favorites" : "Add to favorites", () => setMediaFavorite([m.id], !m.favorite));
-  item("Tags…", () => promptBinText(x, y, `Tags for ${m.name}`, (m.tags || []).join(", "), (v) => setMediaTags(m, v),
+  item(m.favorite ? "Remove from favorites" : uiText("own.mm-fav-add"), () => setMediaFavorite([m.id], !m.favorite));
+  item(uiText("own.mm-tags"), () => promptBinText(x, y, `Tags for ${m.name}`, (m.tags || []).join(", "), (v) => setMediaTags(m, v),
     { allowEmpty: true, max: 400, ok: "Save", placeholder: "interview, b-roll, day 1", hint: "Comma-separated. Search #tag to find them.",
       chips: MediaLib.allTags(project.media) }));
   for (const col of project.collections || []) {
     const inIt = col.media.includes(m.id);
     item(inIt ? `Remove from “${col.name}”` : `Add to “${col.name}”`, () => addToCollection(col.id, m.id, !inIt));
   }
-  item("New collection…", () => promptBinText(x, y, "New collection", "", (name) => {
+  item(uiText("own.mm-new-collection"), () => promptBinText(x, y, "New collection", "", (name) => {
     const col = newCollection(name, [m.id]);
     toast(`Added ${m.name} to the collection “${col.name}”`);
   }, { placeholder: "Selects, Interviews…", ok: "Create" }));
   const dm = (project.danmaku || []).find((e) => e.mediaId === m.id);
   if (dm) { sep(); item(uiText("own.dm-remove", { n: dm.count }), () => removeDanmaku(m)); }
   sep();
-  item("Remove from project", () => removeMediaFromBin(m));
+  item(uiText("own.mm-remove"), () => removeMediaFromBin(m)).title = uiText("own.mm-remove-title");
   document.body.appendChild(menu);
   menu.id = "trackCtxMenu";
   trackCtxMenu = menu;
@@ -6131,6 +6131,8 @@ const SNAP_TARGET_LABELS = {
   clips: "Clip edges", playhead: "Playhead", markers: "Markers",
   inout: "IN / OUT", keyframes: "Keyframes", frames: "Frame grid",
 };
+const SNAP_TARGET_TERMS = { clips: "own.snap-clips", playhead: "own.snap-playhead", markers: "term.markers",
+  inout: "own.snap-inout", keyframes: "own.snap-keyframes", frames: "own.snap-frames" };
 function snapTargets() { return getSetting("snapTargets") || DEFAULT_SETTINGS.snapTargets; }
 /* → {t, hit}: `hit` is true when a target (not the frame grid) caught t.
    ignore: clip id, Set of ids, or null. opts.skipMarker: a marker being dragged. */
@@ -6191,9 +6193,9 @@ function openSnapMenu(anchor) {
   const menu = document.createElement("div");
   menu.className = "ctx-menu snap-menu";
   const on = snapTargets();
-  menu.innerHTML = `<div class="snap-menu-head dim">Snap to</div>` +
+  menu.innerHTML = `<div class="snap-menu-head dim">${escapeHtml(uiText("own.snap-to"))}</div>` +
     Object.entries(SNAP_TARGET_LABELS).map(([k, label]) =>
-      `<label class="ctx-item snap-opt"><input type="checkbox" data-snap="${k}"${on[k] ? " checked" : ""}> <span>${k === "markers" ? escapeHtml(uiText("term.markers")) : label}</span></label>`).join("");
+      `<label class="ctx-item snap-opt"><input type="checkbox" data-snap="${k}"${on[k] ? " checked" : ""}> <span>${escapeHtml(SNAP_TARGET_TERMS[k] ? uiText(SNAP_TARGET_TERMS[k]) : label)}</span></label>`).join("");
   menu.addEventListener("change", (e) => {
     const k = e.target.dataset.snap;
     if (k) toggleSnapTarget(k);
@@ -6919,7 +6921,7 @@ function openMarkerList(anchor) {
   menu.className = "ctx-menu marker-list";
   const list = project.markers || [];
   if (!list.length) {
-    menu.innerHTML = `<div class="marker-empty dim">No markers yet — press <kbd>M</kbd> at the playhead.</div>`;
+    menu.innerHTML = `<div class="marker-empty dim">${uiText("own.markers-empty")}</div>`; // repo-authored, with its <kbd>
   } else {
     menu.innerHTML = list.map((m, i) =>
       `<div class="marker-row" data-i="${i}">` +
@@ -14245,15 +14247,15 @@ function showSequenceMenu(x, y) {
   }
   sep();
   item(`<span>${escapeHtml(uiText("term.new-sequence"))}</span>`, () => promptNewSequence(x, y));
-  item(`<span>Highlights…</span>`, () => promptHighlights(x, y),
+  item(`<span>${escapeHtml(uiText("own.hl-menu"))}</span>`, () => promptHighlights(x, y),
     state.compCtx ? "Close the composition first" : !project.clips.some((c) => c.kind === "video") ? "Put video on the timeline first" : null);
-  item(`<span>Duplicate “${escapeHtml(shownName(open.name))}”</span>`, () => newSequence({ from: "open" }));
-  item(`<span>Rename “${escapeHtml(shownName(open.name))}”…</span>`, () => promptBinText(x, y, "Sequence name", open.name, (v) => renameSequence(openId, v), { max: 120, ok: "Rename" }));
-  item(`<span>Delete “${escapeHtml(shownName(open.name))}”…</span>`, (b) => {
+  item(`<span>${escapeHtml(uiText("own.seq-duplicate", { name: shownName(open.name) }))}</span>`, () => newSequence({ from: "open" }));
+  item(`<span>${escapeHtml(uiText("own.seq-rename", { name: shownName(open.name) }))}</span>`, () => promptBinText(x, y, "Sequence name", open.name, (v) => renameSequence(openId, v), { max: 120, ok: "Rename" }));
+  item(`<span>${escapeHtml(uiText("own.seq-delete", { name: shownName(open.name) }))}</span>`, (b) => {
     if (b.dataset.armed !== "1") { b.dataset.armed = "1"; b.querySelector("span").textContent = "Click again to delete it"; return; }
     hideTrackCtxMenu();
     deleteSequence(openId);
-  }, rows.length < 2 ? "A project keeps at least one sequence" : null, true);
+  }, rows.length < 2 ? uiText("own.seq-keep-one") : null, true);
   showPopover(menu, x, y);
 }
 /** New sequence: a name, a canvas, and whether it starts empty or as a copy of the open one. */
@@ -14310,13 +14312,13 @@ function promptHighlights(x, y) {
   const sizes = [{ label: `Same as “${openSequenceName()}” · ${project.width}×${project.height}`, w: 0, h: 0 }, ...ASPECT_PRESETS];
   const pop = document.createElement("div");
   pop.className = "ctx-menu bin-pop seq-new";
-  pop.innerHTML = `<label class="bin-pop-label" for="hlLen">Highlights</label>
+  pop.innerHTML = `<label class="bin-pop-label" for="hlLen">${escapeHtml(uiText("own.hl-title"))}</label>
     <select id="hlLen" class="bin-pop-input">${[15, 30, 60, 90].map((s) => `<option value="${s}" ${s === 30 ? "selected" : ""}>${s} s</option>`).join("")}</select>
     <label class="bin-pop-label" for="hlSize">Canvas</label>
     <select id="hlSize" class="bin-pop-input">${sizes.map((s, i) => `<option value="${i}">${escapeHtml(s.label)}</option>`).join("")}</select>
     <label class="seq-new-copy" title="Each shot is fitted to the new shape and keyed to keep what matters in it in view (Inspector → Reframe)"><input type="checkbox" id="hlFollow" checked> Follow the subject in each shot</label>
-    <div class="bin-pop-hint" data-hl-status>From ${from ? `the ${n} selected video clip${n === 1 ? "" : "s"}` : `every video clip on this timeline (${n})`}: the moments with the most movement and sound, in story order, never across a cut. They go into a new sequence; this one stays as it is.</div>
-    <div class="bin-pop-btns"><button type="button" class="btn tiny" data-cancel>Cancel</button><button type="button" class="btn tiny accent" data-ok ${n ? "" : "disabled"}>Make</button></div>`;
+    <div class="bin-pop-hint" data-hl-status>${escapeHtml(uiText("own.hl-desc"))}</div>
+    <div class="bin-pop-btns"><button type="button" class="btn tiny" data-cancel>${escapeHtml(uiText("term.cancel"))}</button><button type="button" class="btn tiny accent" data-ok ${n ? "" : "disabled"}>${escapeHtml(uiText("own.hl-make"))}</button></div>`;
   const size = () => sizes[+pop.querySelector("#hlSize").value] || sizes[0];
   const reshaped = () => { const s = size(); return !!(s.w && s.w * project.height !== s.h * project.width); };
   const syncFollow = () => { pop.querySelector("#hlFollow").closest("label").hidden = !reshaped(); };
@@ -20835,7 +20837,8 @@ function filterHelp() {
     const h3 = sec.querySelector("h3");
     // a translated layer still answers English searches: match the shown text AND the saved
     // English source (the heading's keyed English, and each cell's stashed original markup)
-    const headEn = h3 && (h3.dataset.i18n || h3.dataset.i18nTail) ? MontClipView.t("en", h3.dataset.i18n || h3.dataset.i18nTail) : "";
+    const headEn = h3 ? [h3, ...h3.querySelectorAll("[data-i18n]")].map((el) => (el.dataset.i18n || el.dataset.i18nTail
+      ? MontClipView.t("en", el.dataset.i18n || el.dataset.i18nTail) : "")).join(" ") : "";
     const head = ((h3 ? h3.textContent : "") + " " + headEn).toLowerCase();
     let shown = 0;
     for (const tr of sec.querySelectorAll("tr")) {
