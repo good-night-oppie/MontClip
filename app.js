@@ -2474,6 +2474,7 @@ function renderBin() {
     const rep = repairing.get(m.id);
     const repairHtml = rep ? `<div class="bin-repair"><span class="bin-repair-pct">${escapeHtml(uiText("own.repair-progress", { n: Math.round(rep.progress * 100) }))}</span><button type="button" class="btn tiny" data-repair-cancel>${escapeHtml(uiText("own.repair-cancel"))}</button></div>` : "";
     const incomplete = repairHtml || (MediaLib.cannotCut(m) ? `<div class="bin-incomplete">${escapeHtml(uiText("own.media-incomplete"))}<button type="button" class="btn tiny" data-repair title="${escapeHtml(uiText("own.repair-button-tip"))}">${escapeHtml(uiText("own.repair-button"))}</button></div>` : "");
+    if (incomplete) item.classList.add("has-note");
     const favHtml = `<button type="button" class="bin-fav${m.favorite ? " on" : ""}" title="${m.favorite ? "Favorite — click to unstar" : "Mark as favorite"}" aria-pressed="${!!m.favorite}">${m.favorite ? "★" : "☆"}</button>`;
     if (binView.list) {
       const cell = (v, cls = "") => `<span class="bin-cell${cls}">${escapeHtml(v || "—")}</span>`;
@@ -2492,11 +2493,10 @@ function renderBin() {
         <div class="bin-meta">
           <div class="bin-name"></div>
           <div class="bin-sub">${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span> ` : ""}${escapeHtml(sub)}</div>
-          ${incomplete}
           ${m.tags && m.tags.length ? `<div class="bin-tags">${m.tags.map((t) => `<span class="bin-tag">#${escapeHtml(t)}</span>`).join("")}</div>` : ""}
         </div>
         <div class="bin-side">${favHtml}${usesHtml}${proxyBadgeHtml(m)}</div>
-        <span class="bin-del" title="Remove (and its clips)">✕</span>`;
+        <span class="bin-del" title="Remove (and its clips)">✕</span>${incomplete}`;
     }
     const thumbEl = item.querySelector(".bin-thumb");
     if (thumbSrc) thumbEl.style.backgroundImage = `url(${JSON.stringify(thumbSrc)})`;
