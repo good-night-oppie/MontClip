@@ -45,8 +45,8 @@ The second shell around the one MontClip engine (the repository root). The first
   and the exact size; progress shows in the banner), and the worker installs it with `desktop/fetch-ffmpeg.cjs`'s
   staged install and LGPL check (no `--enable-gpl` / `--enable-nonfree`, `-L` says LGPL). The engine then restarts
   to use it; the editor tab follows and keeps its undo history. `montclip_status` reports `downloaded`, `changed`
-  (the files differ from what was installed) or `missing`. Only Windows x64 is offered for now (the manifest pins
-  the byte count only for it).
+  (the files differ from what was installed) or `missing`. Windows x64 and Linux x64 are offered (the manifest pins
+  both byte counts). The Linux build has no H.264 encoder that runs without a GPU, so H.264 export there needs more.
 
 ## In-Cindy acceptance checklist (Cindy 真机验收清单)
 

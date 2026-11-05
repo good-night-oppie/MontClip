@@ -22,9 +22,22 @@ test("the pinned build to download: URL, SHA-256 and the exact size cindy.downlo
   assert.equal(s.bytes, 167488790);
   assert.match(s.url, /^https:\/\/github\.com\/good-night-oppie\/MontClip\/releases\/download\//);
   assert.equal(s.license, "LGPL-3.0-or-later");
-  assert.equal(ffmpegSpec(manifest, "linux-x64").supported, false, "no byte count pinned: not offered");
+  const l = ffmpegSpec(manifest, "linux-x64");
+  assert.equal(l.supported, true, "Linux is offered: its byte count is pinned");
+  assert.equal(l.sha256, "69a9690a4c0eb7e7059f2141de54b4ec57100741a95a04809734c6adc9a0b8ae");
+  assert.equal(l.bytes, 134885400);
   assert.equal(ffmpegSpec(manifest, "darwin-arm64").supported, false);
   assert.equal(ffmpegSpec({ builds: { x: { url: "http://a/b", sha256: "0".repeat(64), bytes: 1 } } }, "x").supported, false, "https only");
+});
+
+test("every build in the manifest pins a SHA-256 and an exact byte count (cindy.downloads needs both)", () => {
+  const builds = Object.entries(manifest.builds);
+  assert.ok(builds.length >= 2);
+  for (const [platform, b] of builds) {
+    assert.match(String(b.sha256), /^[0-9a-f]{64}$/, platform + ": sha256");
+    assert.ok(Number.isSafeInteger(b.bytes) && b.bytes > 0, platform + ": bytes");
+    assert.equal(ffmpegSpec(manifest, platform).supported, true, platform + ": offered");
+  }
 });
 
 function world(t) {
