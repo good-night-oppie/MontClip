@@ -206,7 +206,7 @@
     "bgremove-net-no": ["If you don't download it, these clips show and export with their background.", "不下载的话，这些片段照常显示和导出，只是不抠掉背景。"],
     "bgremove-fallback": ["Some clips here use AI background removal, which needs a download first, so they show with their background for now.", "这个项目里有片段开了 AI 抠像，要先联网下载才能用，现在先显示原画面。"],
     "bgremove-export-fallback": ["AI background removal isn't downloaded, so this export keeps the background on those clips.", "AI 抠像还没下载，这次导出不会抠掉那些片段的背景。"],
-    "bgremove-desktop": ["AI background removal isn't available in the desktop app yet. To cut out a green screen, use Key color.", "桌面版暂时用不了 AI 抠像。要抠绿幕，可以用「Key color」。"],
+    "bgremove-desktop": ["AI background removal isn't available in the desktop app yet. To cut out a green screen, key it by color instead.", "桌面版暂时用不了 AI 抠像。要抠绿幕，可以改用按颜色抠像。"],
     // a transcription with parts the engine could not read (asr-local.js gaps); JJ's words (tr-gaps-more: placeholder)
     "tr-gaps-toast": ["Transcription finished, but {n} part(s) ({dur} in all) couldn't be transcribed and have no subtitles. Click a time under “Transcript” on the right to jump there, and add subtitles yourself if you need them.", "听写完了，但有 {n} 段没听写出来（共 {dur}），这几段没有字幕。可以在右边「文稿」里点时间跳过去看，需要的话自己补上字幕。"],
     "tr-gaps-note": ["{n} part(s) ({dur} in all) couldn't be transcribed and have no subtitles. Click a time to jump there:", "有 {n} 段没听写出来（共 {dur}），这几段没有字幕。点时间可以跳过去："],
