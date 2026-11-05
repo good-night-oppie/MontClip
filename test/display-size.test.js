@@ -71,3 +71,30 @@ test("an entry that already has the stored size (imported before) is corrected t
   const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
   a.match(app, /MediaLib\.displaySize\(m, i\)/, "refreshMediaInfo uses it");
 });
+
+/* An entry already in a project (europa: the replay imported as 1080×1920) is put right on the agent's next call,
+   no editor needed — the same pass that reads missing lengths (mcp-server backfillDurations). */
+test("no editor open: an entry with the stored size gets the display size when the agent reads the project", { skip }, async (t) => {
+  const { makeDataDir, seedProject, startMcp, readProject } = require("./helpers");
+  const data = makeDataDir(t, seedProject({ media: [], clips: [] }));
+  fs.mkdirSync(path.join(data, "media"), { recursive: true });
+  fs.copyFileSync(path.join(dir, "sar.mp4"), path.join(data, "media", "replay.mp4"));
+  fs.copyFileSync(path.join(dir, "square.mp4"), path.join(data, "media", "sq.mp4"));
+  const proj = readProject(data);
+  proj.media = [
+    { id: "m_r", name: "replay.mp4", kind: "video", src: "/media/replay.mp4", duration: 1, width: 108, height: 192, size: 1 },
+    { id: "m_s", name: "sq.mp4", kind: "video", src: "/media/sq.mp4", duration: 1, width: 160, height: 90, size: 1 },
+  ];
+  proj.revision = 3;
+  fs.writeFileSync(path.join(data, "project.json"), JSON.stringify(proj));
+  const mcp = startMcp(t, data, { FABLECUT_NO_AUTOSTART: "1" });
+  await mcp.request("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "t", version: "1" } });
+  const view = await mcp.callTool("fablecut_get_project", { compact: true });
+  a.match(view.text, /239×192 \(stored 108×192\)/, view.text);
+  const after = readProject(data);
+  a.deepEqual([after.media[0].width, after.media[0].height, after.media[0].storedWidth], [239, 192, 108]);
+  a.deepEqual([after.media[1].width, after.media[1].storedWidth], [160, undefined], "square pixels: left as they were");
+  const rev = after.revision;
+  await mcp.callTool("fablecut_get_project", { compact: true });
+  a.equal(readProject(data).revision, rev, "put right once, not on every call");
+});

@@ -131,13 +131,16 @@ const uid = () => Math.random().toString(36).slice(2, 9);
  *  them (JJ, P1 / P3, 2026-11-05). An entry nothing can read is marked durationUnknown (MediaLib.cannotCut). Written back
  *  as an edit only when something changed, onto the latest document (the probing may take a while). → how many changed */
 async function backfillDurations() {
-  const todo = (readProject().media || []).filter((m) => (m.kind === "video" || m.kind === "audio") &&
-    !(Number.isFinite(m.duration) && m.duration > 0) && !m.durationUnknown && mediaFile(m.src));
+  const noLength = (m) => (m.kind === "video" || m.kind === "audio") && !(Number.isFinite(m.duration) && m.duration > 0) && !m.durationUnknown;
+  // P6: a video with a size but no stored size beside it may hold the stored size of non-square pixels (read once
+  // per file version — probeFile caches it — so this costs nothing after the first call)
+  const sizeUnchecked = (m) => m.kind === "video" && m.width > 0 && m.storedWidth == null;
+  const todo = (readProject().media || []).filter((m) => (noLength(m) || sizeUnchecked(m)) && mediaFile(m.src));
   if (!todo.length) return 0;
   const found = new Map();
   for (const m of todo) {
     const info = await probeFile(mediaFile(m.src));
-    if (info && (info.duration > 0 || info.durationUnknown)) found.set(m.id, info);
+    if (info && (info.duration > 0 || info.durationUnknown || info.storedWidth > 0)) found.set(m.id, info);
   }
   if (!found.size) return 0;
   const proj = readProject();
@@ -145,9 +148,16 @@ async function backfillDurations() {
   let n = 0;
   for (const m of proj.media || []) {
     const info = found.get(m.id);
-    if (!info || (m.duration > 0) || m.durationUnknown) continue;
-    if (info.duration > 0) m.duration = info.duration; else m.durationUnknown = true;
-    n++;
+    if (!info) continue;
+    if (noLength(m) && (info.duration > 0 || info.durationUnknown)) {
+      if (info.duration > 0) m.duration = info.duration; else m.durationUnknown = true;
+      n++;
+    }
+    if (m.kind === "video" && info.storedWidth > 0 && m.storedWidth == null) {
+      require("./media-lib").displaySize(m, info);   // (MediaLib is required by name further on once #157 lands)
+      m.storedWidth = info.storedWidth; m.storedHeight = info.storedHeight;
+      n++;
+    }
   }
   if (!n) return 0;
   proj.revision = (proj.revision || 0) + 1;

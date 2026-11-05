@@ -2762,6 +2762,7 @@ async function refreshMediaInfo(list) {
       if (!i) continue;
       for (const k of MediaLib.INFO_KEYS) if (i[k] != null && m[k] !== i[k]) { m[k] = i[k]; changed = true; }
       if (!(m.width > 0) && i.width > 0) { m.width = i.width; m.height = i.height; changed = true; }
+      if (MediaLib.displaySize(m, i)) changed = true;   // P6: the display size, not the stored one
       // the server's length wins where the browser has none, or counted the start of an MKV's timestamps (one that
       // starts at 3600 s plays 20 s; Chromium says 3620 s): media-lib.js parseProbe / serverDuration
       const d = MediaLib.serverDuration(m, i);
