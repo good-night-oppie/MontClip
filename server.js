@@ -1899,7 +1899,8 @@ async function logH264AtStart() {
   if (DESKTOP || !HAS_FFMPEG || externalFfmpeg.setup !== "server") return;
   try {
     const st = await h264Status(), ext = await externalFfmpeg.current();
-    if (st.encoder) console.log(`  H.264 export : ${st.encoder}${ext.ok ? " (MONTCLIP_EXTERNAL_FFMPEG)" : ""}`);
+    const from = { settings: "the chosen FFmpeg", env: "MONTCLIP_EXTERNAL_FFMPEG", path: "FFmpeg on PATH" }[ext.source];
+    if (st.encoder) console.log(`  H.264 export : ${st.encoder}${ext.ok && st.encoder === "libx264" && from ? ` (${from})` : ""}`);
     else console.log("  H.264 export : ⚠ none. Set MONTCLIP_EXTERNAL_FFMPEG to the full path of an FFmpeg with libx264 (e.g. /usr/bin/ffmpeg) and restart.");
     if (!ext.ok && ext.code === "extEnvUnusable") console.log(`                 ${X.maskUserPath(ext.reason)}`);
   } catch { }
