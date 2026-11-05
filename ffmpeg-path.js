@@ -43,18 +43,27 @@ function isFile(p) { try { return fs.statSync(p).isFile(); } catch { return fals
 /* Folders the server writes (and so a page could put a file in): nothing there is ever started. `allow` wins (the
    plugin's own download folder). Paths are compared after realpath, case-insensitively on Windows. */
 let places = { deny: [], allow: [] };
+/* The real spelling of a path, even of one that does not exist yet: realpath the nearest folder that does and add the
+   rest. Folders are compared at check time, not when they are named — media/ or .uploads may be made later, and a
+   temp folder may be spelled two ways (C:\Users\RUNNER~1 and C:\Users\runneradmin, or a symlink). */
 const norm = (p) => {
-  let r = path.resolve(p);
-  try { r = fs.realpathSync.native(r); } catch { }
+  let head = path.resolve(p), rest = [], real = head;
+  for (;;) {
+    try { real = fs.realpathSync.native(head); break; } catch { }
+    const up = path.dirname(head);
+    if (up === head) { real = head; break; }
+    rest.unshift(path.basename(head)); head = up;
+  }
+  const r = rest.length ? path.join(real, ...rest) : real;
   return process.platform === "win32" ? r.toLowerCase() : r;
 };
 const inside = (file, dir) => file === dir || file.startsWith(dir.endsWith(path.sep) ? dir : dir + path.sep);
-function setPlaces({ deny = [], allow = [] } = {}) { places = { deny: deny.filter(Boolean).map(norm), allow: allow.filter(Boolean).map(norm) }; }
+function setPlaces({ deny = [], allow = [] } = {}) { places = { deny: deny.filter(Boolean), allow: allow.filter(Boolean) }; }
 /** May this program be started? Not inside a folder the server writes (unless allowed); on POSIX, executable. */
 function placeAllowed(file) {
   if (typeof file !== "string" || !path.isAbsolute(file)) return false;
-  const f = norm(file);
-  if (!places.allow.some((d) => inside(f, d)) && places.deny.some((d) => inside(f, d))) return false;
+  const f = norm(file), allow = places.allow.map(norm), deny = places.deny.map(norm);
+  if (!allow.some((d) => inside(f, d)) && deny.some((d) => inside(f, d))) return false;
   if (process.platform !== "win32") { try { if (!(fs.statSync(f).mode & 0o111)) return false; } catch { return false; } }
   return true;
 }

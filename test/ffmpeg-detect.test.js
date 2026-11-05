@@ -247,6 +247,22 @@ test('a program in a folder the server writes is refused before anything is star
   }
 });
 
+/* CI (Windows runner): the server names its folders before media/ or .uploads exist, through a path the system spells
+   another way (the runner's temp folder is C:\Users\RUNNER~1\…). A folder made later, reached through an alias, is
+   still refused. */
+test('a server folder that does not exist yet, named through an alias, is still refused once it is made', (t) => {
+  const real = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-alias-')), alias = real + '-link';
+  t.after(() => { try { fs.unlinkSync(alias); } catch { } fs.rmSync(real, { recursive: true, force: true }); FF.setPlaces({}); });
+  fs.symlinkSync(real, alias, 'junction');
+  FF.setPlaces({ deny: [path.join(alias, 'data', 'media')] });   // nothing under the alias exists yet
+  const exe = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg', file = path.join(real, 'data', 'media', exe);
+  fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, 'x', { mode: 0o755 });
+  a.equal(FF.placeAllowed(file), false, 'the real path');
+  a.equal(FF.placeAllowed(path.join(alias, 'data', 'media', exe)), false, 'the alias');
+  const beside = path.join(real, 'data', exe); fs.writeFileSync(beside, 'x', { mode: 0o755 });
+  a.equal(FF.placeAllowed(beside), true, 'beside it is fine');
+});
+
 test('server: an upload named ffmpeg.exe can be neither chosen nor checked; the desktop app refuses check', async (t) => {
   const { makeDataDir, seedProject, startServer } = require('./helpers');
   const dir = makeDataDir(t, seedProject({ revision: 1 }));
