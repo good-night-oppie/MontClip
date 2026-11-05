@@ -110,7 +110,7 @@
     "or-click": ["or click", "或点击"],
     "lift-title": ["Lift (;) — remove IN→OUT on targeted tracks, leave the gap", "提起（;）— 删除目标轨道上入点到出点的内容，留下空隙"],
     "extract-title": ["Extract (') — remove IN→OUT on targeted tracks and close the gap", "提取（'）— 删除目标轨道上入点到出点的内容，并补上空隙"],
-    "inspector-empty": ["Select a clip to edit its transform, effects & audio.", "选中一个片段以编辑它的画面、特效与音频。"],
+    "inspector-empty": ["Select a clip to edit its picture, effects and audio.", "选中一个片段以编辑它的画面、特效与音频。"],
     "exporting-pct": ["Exporting… {pct}%", "正在导出… {pct}%"],
     "rendering-pct": ["Rendering… {pct}%", "正在渲染… {pct}%"],
     "encoding": ["Encoding…", "正在编码…"],
@@ -251,8 +251,7 @@
     // and the toast when one is dragged onto the timeline
     "media-duration-unknown": ["\"{name}\" may not have finished recording (for example, a screen recording that was stopped), so its length can't be read and it can't be edited yet. The original file is unchanged.", "「{name}」可能没录完整（比如录屏中途停了），读不出有多长，现在还剪不了。原文件没有改动。"],
     "media-duration-unknown-n": ["{n} videos may not have finished recording, so their length can't be read and they can't be edited yet. The original files are unchanged.", "有 {n} 个视频可能没录完整，读不出有多长，现在还剪不了。原文件都没有改动。"],
-    // 分轨录像 (#177): which audio track is the streamer's voice. 待 JJ 定稿 — drafts, both languages
-    "media-info": ["Media info…", "素材信息…"],
+    // 分轨录像 (#177): which audio track is the streamer's voice. 待 JJ 定稿 — drafts, both languages (the menu item is mm-info)
     "at-title": ["Which track is the streamer's voice", "主播的声音在哪条轨"],
     "at-hint": ["Songs, loudness, subtitles and the export all use this one track. In an OBS recording, track 1 is usually all the sound mixed together.", "找歌、音量、字幕和导出都只用这一条轨。OBS 录的第 1 轨，通常是混好的全部声音。"],
     "at-track": ["Track {n}", "第 {n} 轨"],
@@ -872,6 +871,53 @@
     "help-85": ["", "剪掉选中的字和后面的停顿（在目标轨道上提取）· <kbd>Esc</kbd> 取消选择"],
     "help-86": ["", "<kbd>Enter</kbd> / <kbd>⇧</kbd>+<kbd>Enter</kbd> 跳到下一个 / 上一个找到的地方 · 〔剪切〕把找到的全部剪掉"],
     "help-87": ["", "选一个样式，再点〔添加字幕〕（撤销一次就能全部撤回；会替换那里原有的字幕）· 点 SRT / VTT 可以下载字幕 · 〔导入…〕把字幕文件里的字幕放上来"],
+    // 第 1 批定稿 by JJ (2026-11-05, sha256 5eb9771d…) of the second scan by Rea: the help layer (left column, heading
+    // notes), the Show filter of the bin, the right-click menus. The wording of JJ where JJ changed a line, else the draft
+    // by Rea (51372521). An empty English keeps the markup of the page (data-i18n-html).
+    "help-l-7": ["", "<kbd>0</kbd>–<kbd>9</kbd> / 点击时间码"],
+    "help-l-24": ["", "<kbd>Ctrl</kbd>+点击片段"],
+    "help-l-36": ["", "<kbd>Ctrl</kbd>+滚动滚轮"],
+    "help-l-46": ["", "<kbd>Ctrl/Cmd</kbd>+点击属性面板的名称或滑块"],
+    "help-l-47": ["", "<kbd>⇧</kbd>+点击名称"],
+    "help-l-51": ["", "<kbd>Ctrl</kbd>+点击素材库"],
+    "help-l-52": ["", "右键<b data-i18n=\"term.project\">项目</b>标签页"],
+    "help-l-63": ["", "<b data-i18n=\"term.templates\">模板</b>标签页"],
+    "help-l-69": ["", "<kbd>Enter</kbd> 在卡片上"],
+    "help-l-55": ["☆ / uses badge on a bin file", "素材上的 ☆ / 用了几次的小标"],
+    "help-l-56": ["☰ in the bin", "素材库里的 ☰"],
+    "help-l-68": ["Project card", "项目卡片"],
+    "help-sequence-menu": ["sequence menu", "序列菜单"],
+    "help-h-editing": ["Editing", "编辑"],
+    "help-n-projects": ["top bar → Projects", "顶栏 → 〔项目〕"],
+    "help-n-shapes": ["bin → Shapes · Inspector", "素材库 → 形状 · 属性面板"],
+    "help-n-tracking": ["Inspector → Tracking · a mask’s Track buttons", "属性面板 → 跟踪 · 蒙版上的〔跟踪〕按钮"],
+    "help-n-transcript": ["side panel → Transcript", "侧边栏 → 文稿"],
+    "bin-all": ["All media", "全部素材"], "bin-fav": ["★ Favorites", "★ 收藏"],
+    "bin-used": ["Used in the edit", "时间线上用到的"], "bin-unused": ["Unused", "时间线上没用到的"],
+    "bin-proxy": ["Has a proxy", "有代理的"], "bin-noproxy": ["Video without a proxy", "还没做代理的视频"], "bin-image": ["Image", "图片"],
+    "bin-group-kind": ["Kind", "类型"], "bin-group-collections": ["Collections", "分组"], "bin-group-tags": ["Tags", "标签"], // JJ
+    "seq-duplicate": ["Duplicate “{name}”", "复制一份「{name}」"], "seq-rename": ["Rename “{name}”…", "重命名「{name}」…"],
+    "seq-delete": ["Delete “{name}”…", "删除「{name}」…"], "seq-keep-one": ["A project keeps at least one sequence", "一个项目至少要留一个序列"],
+    "snap-to": ["Snap to", "吸附到"], "snap-clips": ["Clip edges", "片段边缘"], "snap-playhead": ["Playhead", "播放头"],
+    // VV's four (JJ agreed): the export frame's first choice
+    "ef-full-canvas": ["Full canvas", "完整画布"],
+    "snap-targets-title": ["Snap targets — clip edges, playhead, markers, IN/OUT, keyframes, frame grid", "吸附目标 — 片段边缘、播放头、标记、入点/出点、关键帧、每一帧"],
+    "seq-button-title": ["Sequence: {name} — open another one, or add, duplicate, rename", "序列：{name} — 打开别的序列，或新建、复制一份、重命名"],
+    "snap-inout": ["IN / OUT", "入点 / 出点"], "snap-keyframes": ["Keyframes", "关键帧"], "snap-frames": ["Frame grid", "每一帧"],
+    "markers-empty": ["No markers yet — press <kbd>M</kbd> at the playhead.", "还没有标记 — 按 <kbd>M</kbd> 在播放头处加一个。"],
+    "mm-open-source": ["Open in Source", "在源监视器中打开"], "mm-instances": ["Find timeline instances ({n})", "在时间线上找到它（{n} 处）"],
+    "mm-info": ["Media info…", "素材信息…"], "mm-relink-copy": ["Relink to another copy…", "重新链接到另一份文件…"],
+    "mm-proxy-540": ["Create proxy (540p)", "创建代理（540p）"], "mm-proxy-720": ["Create proxy (720p)", "创建代理（720p）"], // term.create-proxy (Rea)
+    "mm-fav-add": ["Add to favorites", "加入收藏"], "mm-tags": ["Tags…", "标签…"], "mm-new-collection": ["New collection…", "新建分组…"],
+    "mm-remove": ["Remove from project", "从项目里移除"],
+    // English draft, for JJ
+    "mm-remove-title": ["Takes it out of this project only, together with the clips that use it on the timeline (you can undo this). The file on your computer is not touched.",
+      "只从这个项目里拿掉，时间线上用到它的片段也会一起拿掉（可以撤销）。电脑上的原文件不动。"],
+    "track-remove": ["Remove track", "删除轨道"],
+    // the sequence menu's Highlights… and the dialog it opens: one name (English drafts, for JJ)
+    "hl-menu": ["Auto short…", "自动拼短片…"], "hl-title": ["Auto short", "自动拼短片"], "hl-make": ["Make", "拼好"],
+    "hl-desc": ["From the selected clips (or the whole timeline, if none is selected), picks the parts with the most movement and the loudest sound and puts them together in a new sequence. The sequence you are in stays as it is.",
+      "从选中的片段里（没选就用整条时间线），挑出画面动得多、声音大的几段，拼成一个新序列。原来的序列不动。"],
   });
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
   // English by number (JJ, 2026-11-04; MontClipView.tp): 〔加字幕〕, by the captions added, then by the ones replaced. The
@@ -1109,9 +1155,21 @@
       return whole.slice(0, whole.indexOf(open)) + open + kept.join(sep) + close;
     });
   }
-  /** A new project's name (Deja, 第四批): 未命名项目, Untitled Project in English. Chinese first when the language is unknown. */
-  const defaultProjectName = (language) => (language === "en" ? "Untitled Project" : "未命名项目");
-  const isDefaultProjectName = (name) => name === "未命名项目" || name === "Untitled Project";
+  /** A new project's name (Deja, 第四批): 未命名项目, Untitled project in English (JJ, 插件试用 P7: lower-case p). Chinese first
+   *  when the language is unknown. "Untitled Project", what older English projects were called, is a default name too. */
+  const defaultProjectName = (language) => (language === "en" ? "Untitled project" : "未命名项目");
+  const isDefaultProjectName = (name) => name === "未命名项目" || name === "Untitled project" || name === "Untitled Project";
+  /** A project's name as the page shows it (P7): a stored default reads as the default of the interface language; the
+   *  project keeps what it has. Any other name is the user's, shown as it is. */
+  const projectName = (language, name) => (isDefaultProjectName(name) ? defaultProjectName(language) : name);
+  /** The name an export takes (P7, Deja): the project's own name; never a default one — then the first media's name
+   *  (without its extension), else MontClip, followed by the date (月-日, as 直播切片 {月-日}). */
+  const exportProjectName = (name, mediaNames = [], date = new Date()) => {
+    if (typeof name === "string" && name.trim() && !isDefaultProjectName(name)) return name;
+    const first = (mediaNames || []).find((n) => typeof n === "string" && n.trim());
+    const stem = first ? first.trim().replace(/\.[A-Za-z0-9]{1,10}$/, "").trim() : "";
+    return (stem || "MontClip") + " " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+  };
   /** A stored name as the page shows it (Deja, 2026-11-05): exactly the default "Main" (a sequence) or "Title" (a new
    *  title) reads as the existing term in Chinese; any other name is the user's and is shown as it is. Only for display —
    *  the project keeps "Main" / "Title". */
@@ -1123,5 +1181,5 @@
    *  English word (export, captions…) in English. */
   const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
-  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
+  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, projectName, exportProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
 });

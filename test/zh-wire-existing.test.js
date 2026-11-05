@@ -53,7 +53,7 @@ const HELP = [
   [50, 'own.help-81', 'term.motion-path', 'Motion path', '运动路径'],
   [51, 'own.help-82', 'term.anchor-move', 'Anchor ✥ Move', '锚点 ✥ 移动'],
   [52, 'h3:Tracking', 'term.tracking', 'Tracking', '跟踪'],
-  [54, 'own.help-83', 'term.track-point', 'Track point', '轨道点'],
+  [54, 'own.help-83', 'term.track-point', 'Track point', '跟踪点'], // JJ 第 1 批: 轨道点 → 跟踪点
   [55, 'h3:Transcript', 'term.transcript', 'Transcript', '文稿'],
   [57, 'own.help-86', 'term.find-words', 'Find words', '查找词'],
   [58, 'own.help-87', 'term.captions', 'Captions', '字幕'],
@@ -92,12 +92,16 @@ test('the help layer shows those 41 in Chinese, left column and headings include
 });
 
 test('englishShown() now looks at the help layer\'s first column and its headings', () => {
+  // an untranslated left cell and an untranslated heading are reported (第 1 批 translated the real ones, so a copy of
+  // the page with one of each put back in English is the proof)
+  const page = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8')
+    .replace('<td data-i18n="own.help-l-56">☰ in the bin</td>', '<td>☰ in the bin</td>')
+    .replace('<h3 data-i18n="own.help-h-editing">Editing</h3>', '<h3>Editing</h3>');
+  const planted = Z.englishShown(page);
+  a.ok(Object.entries(planted).some(([k, w]) => k.startsWith('help:') && k.includes('☰ in the bin') && w.split(',').includes('bin')),
+    'help "☰ in the bin" is reported: ' + JSON.stringify(Object.keys(planted).filter((k) => k.startsWith('help'))));
+  a.ok(Object.entries(planted).some(([k, w]) => k.startsWith('help-head:') && /Editing/.test(w)), 'the Editing heading is reported');
   const left = Z.englishShown();
-  // a left cell Rea marked 新写 (not in this batch) is reported: proof the first column is checked
-  a.ok(Object.entries(left).some(([k, w]) => k.startsWith('help:') && k.includes('☰ in the bin') && /\bbin\b/.test(w)),
-    'help "☰ in the bin" is reported: ' + JSON.stringify(Object.keys(left).filter((k) => k.startsWith('help')).slice(0, 8)));
-  // so is a heading still in English (Editing, 新写)
-  a.ok(Object.entries(left).some(([k, w]) => k.startsWith('help-head:') && /Editing/.test(w)), 'the Editing heading is reported');
   // and none of the 41 wired ones is
   const helpLeft = Object.entries(left).filter(([k]) => k.startsWith('help'));
   const words = helpLeft.map(([, w]) => w).join(',').split(',');

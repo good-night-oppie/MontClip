@@ -38,7 +38,9 @@ test('only elements marked with data-i18n attributes are rewritten; user content
  for(const id of ['projectName','monitorClipName','binList','tracks'])a.ok(!new RegExp('id="'+id+'"[^>]*data-i18n').test(html)&&!new RegExp('data-i18n[^>]*id="'+id+'"').test(html),id);
  // the top bar shows the project name as written; only the connection status after it is keyed
  const status=app.match(/function projectStatusText\(\) \{[\s\S]*?\n\}/)[0];
- a.match(status,/return project\.name \+/,'project name shown as written');a.ok(!/uiText\(project\.name/.test(status));
+ // (P7: a stored default name, 未命名项目 / Untitled project, reads in the interface language; any other name as written)
+ a.match(status,/return shownProject\(project\.name\) \+/,'project name shown as written');a.ok(!/uiText\(project\.name/.test(status));
+ a.match(app,/const shownProject = \(name\) => MontClipView\.projectName\(mcView\.get\(\)\.language, name\);/);
  for(const m of app.matchAll(/els\.projectName\.textContent = ([^;]*)/g))a.ok(/project\.name|projectStatusText\(\)/.test(m[1]),'project name shown as written: '+m[1]);
 });
 

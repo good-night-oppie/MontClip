@@ -181,7 +181,7 @@ test('the editor: the media info lists the tracks with 试听, picking one is an
  a.match(app,/JSON\.stringify\(\{ src, track: m \? MediaLib\.audioTrackOf\(m\) : 0 \}\)/,'transcription names the track');
  a.match(app,/"\/api\/transcript\?src=" \+ encodeURIComponent\(src\) \+ "&track=" \+ track/);
  const V=require('../ui-preferences');
- for(const k of ['at-title','at-hint','at-track','at-listen','at-listen-failed','at-changed','at-found','at-found-n','media-info']){
+ for(const k of ['at-title','at-hint','at-track','at-listen','at-listen-failed','at-changed','at-found','at-found-n','at-channels']){
   const zh=V.t('zh-CN','own.'+k,{n:2,name:'录像'});a.ok(zh&&!zh.startsWith('own.'),k);a.ok(!/我/.test(zh),k+': no 我 on fixed text');
  }
  a.equal(V.t('zh-CN','own.at-title'),'主播的声音在哪条轨');

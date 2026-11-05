@@ -28,7 +28,7 @@ const after=[];const t={after:(f)=>after.push(f)};const sleep=(ms)=>new Promise(
  for(let i=0;i<50;i++){if(await ev("Array.isArray(project.media[0].audioTracks)"))break;await sleep(200);}
  console.log('audioTracks', JSON.stringify(await ev("project.media[0].audioTracks")));
  console.log('toast', await ev("[...document.querySelectorAll('.toast, #toast')].map(e=>e.textContent).join(' | ')"));
- console.log('menu label', await ev("uiText('own.media-info')"));
+ console.log('menu label', await ev("uiText('own.mm-info')"));
  await ev("showMediaInfo(getMedia('m_r'),100,100)");await sleep(300);
  console.log('rows', JSON.stringify(await ev("[...document.querySelectorAll('.bin-track')].map(r=>r.textContent+(r.querySelector('input').checked?' [x]':''))")));
  console.log('title', await ev("document.querySelector('.bin-tracks .bin-pop-label').textContent+' / '+document.querySelector('.bin-tracks .bin-pop-hint').textContent"));
