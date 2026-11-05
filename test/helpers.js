@@ -55,7 +55,7 @@ async function startServer(t, dataDir, extraEnv = {}, { serverJs = path.join(ROO
   for (let attempt = 0; attempt < 3; attempt++) {
     const port = await freePort();
     const child = spawn(process.execPath, [serverJs], {
-      cwd: path.dirname(serverJs),
+      cwd: ROOT,
       env: {
         ...process.env, ...extraEnv,
         PORT: String(port), HOST: "127.0.0.1",

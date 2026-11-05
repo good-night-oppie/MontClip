@@ -7,7 +7,8 @@
 
      createTranscripts({dir, resolveSrc}) → {
        get(src)        → the document | false (none for this version of the file) | null (no such file)
-       info(src)       → {words, language, model, duration, created} | false | null — without the words
+       info(src)       → {words, language, model, duration, created, spans} | false | null — without the words
+                         (spans: the parts of the file it covers, null = all of it)
        put(src, doc)   → the document as saved (validated; throws on a bad one or a missing file)
        remove(src)     → true when one was deleted
      }
@@ -44,7 +45,7 @@ function createTranscripts({ dir, resolveSrc }) {
     info(src) {
       const d = this.get(src);
       if (!d) return d;
-      return { words: d.words.length, language: d.language, model: d.model, duration: d.duration, created: d.created };
+      return { words: d.words.length, language: d.language, model: d.model, duration: d.duration, created: d.created, spans: d.spans || null };
     },
     put(src, doc) {
       const file = resolveSrc(src);

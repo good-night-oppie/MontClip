@@ -9947,9 +9947,10 @@ async function asrGetPunct() {
   await loadAsrStatus();
   paintSettingsAsr();
 }
-/** Transcribe one file in the local server, which saves its transcript. Resolves to {doc, saved}. */
-async function transcribeFile(src) {
-  const r = await fetch("/api/asr/transcribe", { method: "POST", body: JSON.stringify({ src }) });
+/** Transcribe one file in the local server, which saves its transcript. Resolves to {doc, saved}. `ranges`: only those
+ *  parts of it ([[from, to], …] file seconds — a long recording's clips), added to what its transcript covers. */
+async function transcribeFile(src, ranges = null, again = false) {
+  const r = await fetch("/api/asr/transcribe", { method: "POST", body: JSON.stringify({ src, ...(ranges ? { ranges } : {}), ...(again ? { again: true } : {}) }) });
   let j = {};
   try { j = await r.json(); } catch { }
   if (!r.ok) throw Object.assign(new Error(j.error || "transcription failed"), { code: j.code });
@@ -9972,7 +9973,7 @@ async function transcribeSrcs(srcs, opts = transcribeSettings(), beat = null) {
       paintTranscribeBusy();
       busy.beat();
       try {
-        const r = await transcribeFile(srcs[i]);
+        const r = await transcribeFile(srcs[i], (opts.ranges && opts.ranges[srcs[i]]) || null, !!opts.again);
         const gaps = r.doc.gaps || [];
         out.done.push({ src: srcs[i], words: r.doc.words.length, language: r.doc.language, saved: r.saved,
           status: gaps.length ? "partial" : "complete", gaps: gaps.length, gapSeconds: Math.round(gaps.reduce((t, g) => t + g[1] - g[0], 0) * 10) / 10 });
@@ -10022,7 +10023,9 @@ function transcribeTargets() {
   }
   const srcs = [...new Set(groups.map((g) => getMedia(g[0].mediaId).src))];
   const sel = srcs.filter((s) => picked.has(s));
-  return sel.length ? { srcs: sel, selected: true } : { srcs: srcs.filter((s) => transcriptCache.get(s) === false), selected: false };
+  // a transcript of some parts only (a long recording's clips) counts as none here: the whole file is wanted
+  const none = (s) => { const d = transcriptCache.get(s); return d === false || (!!d && !(d instanceof Promise) && Array.isArray(d.spans)); };
+  return sel.length ? { srcs: sel, selected: true } : { srcs: srcs.filter(none), selected: false };
 }
 /** What the words' places depend on: the timeline and the transcripts. */
 function transcriptWordsSig() {
@@ -10835,7 +10838,8 @@ async function autoRun() {
       const danmaku = autoDanmaku(m);
       run.phase = 1; tick();
       // 听写成文字: with subtitles on and the model installed, a recording without a transcript is transcribed (#70)
-      if (st.subs && autoSubMode() === "local" && !(await loadTranscript(m.src))) {
+      const had = st.subs && autoSubMode() === "local" ? await loadTranscript(m.src) : null;
+      if (st.subs && autoSubMode() === "local" && (!had || had.spans)) {
         try { await transcribeSrcs([m.src]); } catch { }
         if (run.stop) throw Object.assign(new Error("stopped"), { stopped: true });
       }
@@ -11662,23 +11666,25 @@ async function runTranscribeJob(ticket, fail) {
   const spec = ticket.transcribe || {};
   if (typeof MontClipTranscribe === "undefined") return fail("the transcript module is missing — reload the editor");
   if (trState.busy) return fail("this editor tab is already transcribing — wait for it, or cancel it there");
-  const srcs = [], skipped = [];
+  const srcs = [], skipped = [], ranges = spec.ranges || {};
   for (const src of spec.srcs || []) {
-    if (!spec.again && await loadTranscript(src, true)) { skipped.push(src); continue; }
+    const have = spec.again ? null : await loadTranscript(src, true);
+    // a long recording's clips (P8): only their windows, and only what its transcript does not cover yet
+    if (have && (ranges[src] ? !MontClipTranscribe.missingSpans(have, ranges[src]).length : !have.spans)) { skipped.push(src); continue; }
     srcs.push(src);
   }
   const report = (body, force) => fetch("/api/export/job/report?id=" + encodeURIComponent(ticket.id), { method: "POST", body: JSON.stringify(body) })
     .then((r) => r.json()).then((r) => { if (r?.cancel) cancelTranscribe(); }).catch(() => { });
   if (!srcs.length) return report({ status: "done", result: { done: [], skipped, failed: [] } });
   let last = 0;
-  const out = await transcribeSrcs(srcs, { model: MontClipTranscribe.model(spec.model), language: spec.language || null }, (f) => {
+  const out = await transcribeSrcs(srcs, { model: MontClipTranscribe.model(spec.model), language: spec.language || null, ranges, again: !!spec.again }, (f) => {
     const t = performance.now();
     if (t - last > 1000) { last = t; report({ progress: f }); }
   }).catch((e) => ({ done: [], failed: srcs.map((src) => ({ src, error: e.message })) }));
   for (const d of out.done) if (!d.saved) out.failed.push({ src: d.src, error: "transcribed, but the server didn't save it" });
   out.done = out.done.filter((d) => d.saved);
   if (out.cancelled) return report({ status: "failed", error: "cancelled" });
-  if (!out.done.length && out.failed.length) return fail(out.failed.map((f) => `${f.src}: ${f.error}`).join(" · "));
+  if (!out.done.length && out.failed.length) return fail(out.failed.map((f) => `${f.src}: ${f.error}${f.code ? ` (${f.code})` : ""}`).join(" · "));
   return report({ status: "done", result: { done: out.done, skipped, failed: out.failed } });
 }
 function clearSilences() {

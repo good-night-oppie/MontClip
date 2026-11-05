@@ -31,6 +31,8 @@ const crypto = require("node:crypto");
 const os = require("node:os");
 
 const RATE = 16000, WINDOW = 512;
+/** sherpa-onnx-node's native part for this computer: sherpa-onnx-win-x64, sherpa-onnx-linux-x64, sherpa-onnx-darwin-arm64… */
+const nativePackage = (platform = process.platform, arch = process.arch) => "sherpa-onnx-" + (platform === "win32" ? "win" : platform) + "-" + arch;
 /** tokens.txt without a token that is exactly "@": that line's token becomes the full-width 「＠」 (its id unchanged) in a
  *  copy in cacheDir, named by the source's SHA-256, so a changed source gets a new copy; the source is never changed.
  *  → the file the recognizer reads (the source itself when there is nothing to fix). */
@@ -87,6 +89,7 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
   asrDir = path.resolve(asrDir); if (modelsDir) modelsDir = path.resolve(modelsDir);
   store = store || createStore({ roots: [path.join(asrDir, "models")], userDir: modelsDir });
   const engineDir = path.join(asrDir, "engine", "node_modules", "sherpa-onnx-node");
+  const nativeDir = path.join(asrDir, "engine", "node_modules", nativePackage());
   const vadFile = path.join(asrDir, manifest.engine.vad.file);
   // sherpa: the engine module itself (tests give a stand-in; otherwise it is loaded from engineDir)
   let sherpa = engineModule, rec = null, recDir = null, punct = null, punctDir = null, idle = 0;
@@ -94,10 +97,16 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
   function status() {
     let vadOk = false;
     try { vadOk = fs.statSync(vadFile).size === manifest.engine.vad.size; } catch { }
-    return { model: manifest.models.asr.id, engine: { ready: fs.existsSync(path.join(engineDir, "package.json")) }, vad: { ready: vadOk }, ...store.status() };
+    // the engine is two packages: sherpa-onnx-node and its native part for this system (a package made for Windows
+    // carries only sherpa-onnx-win-x64, so on Linux the engine is not there even though sherpa-onnx-node is)
+    const ready = fs.existsSync(path.join(engineDir, "package.json")) && (!!engineModule || fs.existsSync(path.join(nativeDir, "package.json")));
+    return { model: manifest.models.asr.id, engine: { ready, native: path.basename(nativeDir) }, vad: { ready: vadOk }, ...store.status() };
   }
   function engine() {
-    if (!sherpa) sherpa = require(engineDir);
+    if (!sherpa) {
+      try { sherpa = require(engineDir); }
+      catch (e) { throw Object.assign(new Error("the speech engine could not be loaded on this computer: " + String((e && e.message) || e).split("\n")[0].slice(0, 200)), { code: "ASR_ENGINE_MISSING" }); }
+    }
     return sherpa;
   }
   async function recognizer(dir) {
@@ -121,15 +130,46 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
     if (idle.unref) idle.unref();
   }
 
-  async function transcribe(file, { signal, onProgress = () => {}, duration = null } = {}) {
+  /** ranges: [[from, to], …] in file seconds — listen to those parts only (a long recording's clips), each read from
+   *  the file with ffmpeg -ss / -t, so nothing before or after them is decoded; times stay file seconds. None: all of it.
+   *  duration: the file's length (progress, and the result's duration when only parts are read). */
+  async function transcribe(file, { signal, onProgress = () => {}, duration = null, ranges = null } = {}) {
     const st = status();
-    if (!st.engine.ready || !st.vad.ready) throw Object.assign(new Error("the speech engine is missing from this copy of MontClip — unzip the package again"), { code: "ASR_ENGINE_MISSING" });
+    if (!st.engine.ready || !st.vad.ready) throw Object.assign(new Error("the speech engine is missing from this copy of MontClip"), { code: "ASR_ENGINE_MISSING" });
     const dir = store.dir("asr");
     if (!dir) throw Object.assign(new Error("no speech model yet"), { code: "ASR_MODEL_MISSING" });
     clearTimeout(idle);
-    const S = engine(), r = await recognizer(dir), p = punctuator(store.dir("punct"));
+    const parts = Array.isArray(ranges) && ranges.length ? ranges.map((x) => [Math.max(0, +x[0] || 0), +x[1] || 0]).filter((x) => x[1] > x[0]) : null;
+    if (parts && !parts.length) throw Object.assign(new Error("nothing to listen to: every range is empty"), { code: "ASR_BAD_RANGES" });
+    const want = parts ? parts.reduce((n, x) => n + x[1] - x[0], 0) : duration;
+    const words = [], gaps = [], spans = [];
+    let samples = 0, speech = 0, segments = 0, read = 0, skipped = 0, p = null;
+    try {
+      const S = engine(), r = await recognizer(dir);
+      p = punctuator(store.dir("punct"));
+      for (const part of parts || [null]) {
+        const at = part ? part[0] : 0;
+        const got = await listen(S, r, p, file, part, { signal,
+          onSegment: (one, len) => { words.push(...one.words); gaps.push(...one.gaps); if (one.read) read++; if (one.gaps.length) skipped++; speech += len; segments++; },
+          onSamples: (n) => { if (want > 0) onProgress(Math.min(0.99, (samples + n) / RATE / want)); } });
+        samples += got;
+        if (part) spans.push([r3(at), r3(at + got / RATE)]);
+      }
+    } finally { rest(); }
+    words.sort((x, y) => x[1] - y[1]); gaps.sort((x, y) => x.start - y.start);
+    // nothing at all could be read: failed, not a transcript of silence
+    if (gaps.length && !read) throw Object.assign(new Error("no segment of the sound could be transcribed: " + gaps[0].reason), { code: "ASR_FAILED", gaps });
+    return { status: gaps.length ? "partial" : "complete", gaps, skippedSegments: skipped, words,
+      duration: parts ? (duration > 0 ? duration : Math.max(...spans.map((x) => x[1]))) : samples / RATE,
+      ...(parts ? { spans } : {}), speech, segments, model: manifest.models.asr.id, language: "zh", punctuated: !!p };
+  }
+  /** One stretch of the file (`part` [from, to], or null for all of it) through ffmpeg (16 kHz mono) and a fresh VAD;
+   *  each segment's words go to onSegment with file times. -> the number of samples read. */
+  async function listen(S, r, p, file, part, { signal, onSegment, onSamples }) {
+    const at = part ? part[0] : 0;
     const vad = new S.Vad({ sileroVad: { model: vadFile, ...VAD }, sampleRate: RATE, debug: false, numThreads: 1 }, 60);
-    const proc = spawn(ffmpeg, ["-nostdin", "-v", "error", "-i", file, "-vn", "-ac", "1", "-ar", String(RATE), "-f", "s16le", "-acodec", "pcm_s16le", "-"],
+    const seek = part ? ["-ss", String(at)] : [], len = part ? ["-t", String(part[1] - part[0])] : [];
+    const proc = spawn(ffmpeg, ["-nostdin", "-v", "error", ...seek, "-i", file, ...len, "-vn", "-ac", "1", "-ar", String(RATE), "-f", "s16le", "-acodec", "pcm_s16le", "-"],
       { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     let stderr = "", spawnError = null;
     proc.stderr.on("data", (c) => { if (stderr.length < 4000) stderr += c; });
@@ -139,18 +179,12 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
     });
     const stop = () => { try { proc.kill(); } catch { } };
     if (signal) { if (signal.aborted) stop(); else signal.addEventListener("abort", stop, { once: true }); }
-
-    const words = [], gaps = [];
-    let samples = 0, speech = 0, segments = 0, read = 0, skipped = 0, carry = null, pending = new Float32Array(0);
+    let samples = 0, carry = null, pending = new Float32Array(0);
     const decodeReady = async () => {
       while (!vad.isEmpty()) {
-        const seg = vad.front(false), start = seg.start / RATE, audio = Float32Array.from(seg.samples);
+        const seg = vad.front(false), start = at + seg.start / RATE, audio = Float32Array.from(seg.samples);
         vad.pop();
-        const one = await segmentWords(r, audio, start, p);
-        words.push(...one.words); gaps.push(...one.gaps);
-        if (one.read) read++;
-        if (one.gaps.length) skipped++;
-        speech += audio.length / RATE; segments++;
+        onSegment(await segmentWords(r, audio, start, p), audio.length / RATE);
       }
     };
     try {
@@ -166,7 +200,7 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
         pending = f.slice(k);
         samples += chunk.length / 2;
         await decodeReady();
-        if (duration > 0) onProgress(Math.min(0.99, samples / RATE / duration));
+        onSamples(samples);
       }
       if (signal && signal.aborted) throw Object.assign(new Error("cancelled"), { code: "ASR_CANCELLED" });
       const code = await exited;
@@ -175,14 +209,11 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
       if (pending.length) vad.acceptWaveform(pending);
       vad.flush();
       await decodeReady();
-    } finally { stop(); rest(); }
-    words.sort((x, y) => x[1] - y[1]); gaps.sort((x, y) => x.start - y.start);
-    // nothing at all could be read: failed, not a transcript of silence
-    if (gaps.length && !read) throw Object.assign(new Error("no segment of the sound could be transcribed: " + gaps[0].reason), { code: "ASR_FAILED", gaps });
-    return { status: gaps.length ? "partial" : "complete", gaps, skippedSegments: skipped, words, duration: samples / RATE, speech, segments, model: manifest.models.asr.id, language: "zh", punctuated: !!p };
+    } finally { stop(); if (signal) signal.removeEventListener("abort", stop); }
+    return samples;
   }
 
   return { status, transcribe, store };
 }
 
-module.exports = { createAsr, VAD, segmentWords, safeTokens };
+module.exports = { createAsr, VAD, segmentWords, safeTokens, nativePackage };

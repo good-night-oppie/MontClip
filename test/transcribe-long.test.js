@@ -32,7 +32,7 @@ test("a transcript may cover only some parts of its file (spans); validate keeps
 });
 
 test("clipRanges: the windows a file's clips play, padded and merged, in file seconds", () => {
-  const clips = [{ in: 4455.5, duration: 2.134 }, { in: 4440, duration: 6.401 }, { in: 4452.2, duration: 4.267 }, { in: 7199, duration: 5, props: { speed: 2 } }];
+  const clips = [{ in: 4455.5, duration: 2.134 }, { in: 4440, duration: 6.401 }, { in: 4452.2, duration: 4.267 }, { in: 7199, duration: 6, props: { speed: 2 } }];
   a.deepEqual(T.clipRanges(clips, { pad: 1.5, duration: 7211.725 }), [[4438.5, 4447.901], [4450.7, 4459.134], [7197.5, 7211.725]]);
 });
 
@@ -119,13 +119,13 @@ test("the engine's native part for this computer is missing: not ready, and tran
 test("a copy of the engine without desktop/asr-manifest.json (the plugin's): /api/asr/* answers, the server stays up", async (t) => {
   // the plugin's build copies the top-level files and a few folders, not desktop/asr-manifest.json
   const app = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-noasr-app-"));
-  t.after(() => fs.rmSync(app, { recursive: true, force: true }));
   for (const f of fs.readdirSync(ROOT)) if (/\.(js|html|css|json)$/.test(f) && f !== "project.json") fs.copyFileSync(path.join(ROOT, f), path.join(app, f));
   fs.mkdirSync(path.join(app, "desktop"));
   for (const f of ["ffmpeg-manifest.json", "fetch-ffmpeg.cjs"]) fs.copyFileSync(path.join(ROOT, "desktop", f), path.join(app, "desktop", f));
   const dataDir = makeDataDir(t);
   fs.mkdirSync(path.join(dataDir, "media"), { recursive: true }); fs.writeFileSync(path.join(dataDir, "media", "a.wav"), Buffer.alloc(100));
   const s = await startServer(t, dataDir, { FABLECUT_NO_FS_WATCH: "1", MONTCLIP_ASR_DIR: path.join(dataDir, "no-asr") }, { serverJs: path.join(app, "server.js") });
+  t.after(() => fs.rmSync(app, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }));
   const st = await fetch(s.base + "/api/asr/status");
   a.equal(st.status, 200);
   const sj = await st.json();
@@ -236,7 +236,7 @@ test("fablecut_transcribe: no speech engine or model is said plainly, with its c
   await tab.connected();
   const mcp = startMcp(t, dir, { FABLECUT_PORT: String(port) });
   await mcp.request("initialize", { protocolVersion: "2025-11-25" });
-  for (const [code, re] of [["ASR_ENGINE_MISSING", /no speech engine/], ["ASR_MODEL_MISSING", /no speech model/]]) {
+  for (const [code, re] of [["ASR_ENGINE_MISSING", /no speech engine/i], ["ASR_MODEL_MISSING", /no speech model/i]]) {
     const pending = mcp.callTool("fablecut_transcribe", { clipIds: ["sp_a"] });
     const ticket = await tab.next();
     await post(base, "/api/export/job/claim?id=" + ticket.id);
@@ -248,4 +248,26 @@ test("fablecut_transcribe: no speech engine or model is said plainly, with its c
     a.match(r.text, /nothing was transcribed/i);
     a.doesNotMatch(r.text, /stopped reporting/);
   }
+});
+
+/* ── the real engine (only where desktop/fetch-asr.cjs --models asr has run: europa, not CI) ── */
+
+const VENDOR = path.join(ROOT, "vendor", "asr");
+test("the real engine: the model's test sentence an hour into a long file, heard through a 10 s window", {
+  skip: !(fs.existsSync(path.join(VENDOR, "models", "asr", "model.int8.onnx")) && fs.existsSync(path.join(VENDOR, "test_wavs", "0.wav"))) && "vendor/asr models not fetched here",
+}, async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-asr-real-long-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, "long.mp4");
+  // an hour of silence, the sentence (about 5.6 s), a minute of silence: mp3 sound in an mp4, as the replay is
+  execFileSync(ffmpeg(), ["-v", "error", "-f", "lavfi", "-t", "3600", "-i", "anullsrc=r=16000:cl=mono", "-i", path.join(VENDOR, "test_wavs", "0.wav"),
+    "-f", "lavfi", "-t", "60", "-i", "anullsrc=r=16000:cl=mono", "-filter_complex", "[0:a][1:a][2:a]concat=n=3:v=0:a=1", "-c:a", "libmp3lame", "-b:a", "32k", file]);
+  const asr = require("../asr-local").createAsr({ asrDir: VENDOR, modelsDir: path.join(VENDOR, "models"), ffmpeg: ffmpeg(), cacheDir: path.join(dir, "cache") });
+  const t0 = Date.now();
+  const r = await asr.transcribe(file, { ranges: [[3598, 3608]], duration: 3665.6 });
+  const secs = (Date.now() - t0) / 1000;
+  t.diagnostic(`window of 10 s in a ${r.duration} s file: ${r.words.length} words in ${secs.toFixed(1)} s — ${r.words.map((w) => w[0]).join("")}`);
+  a.ok(r.words.length > 5, "words: " + r.words.length);
+  a.ok(r.words.every((w) => w[1] >= 3599.9 && w[2] <= 3608.01), "in file seconds, inside the window: " + JSON.stringify(r.words.slice(0, 2)));
+  a.ok(secs < 60, `took ${secs} s — the hour before the window must not be decoded`);
 });
