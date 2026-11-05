@@ -32,7 +32,7 @@ const FILTER = { '': ['All media', '全部素材'], fav: ['★ Favorites', '★ 
 const SEQ = [['Auto short…', '自动拼短片…'], ['Duplicate “Main”', '复制一份「主序列」'], ['Rename “Main”…', '重命名「主序列」…'], ['Delete “Main”…', '删除「主序列」…']];
 const SNAP = [['Snap to', '吸附到'], ['Clip edges', '片段边缘'], ['Playhead', '播放头'], ['Markers', '标记'], ['IN / OUT', '入点 / 出点'], ['Keyframes', '关键帧'], ['Frame grid', '每一帧']];
 const MEDIA = [['Open in Source', '在源监视器中打开'], ['Find timeline instances (0)', '在时间线上找到它（0 处）'], ['Media info…', '素材信息…'],
-  ['Relink to another copy…', '重新链接到另一份文件…'], ['Create proxy (540p)', '生成代理（540p）'], ['Create proxy (720p)', '生成代理（720p）'],
+  ['Relink to another copy…', '重新链接到另一份文件…'], ['Create proxy (540p)', '创建代理（540p）'], ['Create proxy (720p)', '创建代理（720p）'],
   ['Add to favorites', '加入收藏'], ['Tags…', '标签…'], ['New collection…', '新建分组…'], ['Remove from project', '从项目里移除']];
 const REMOVE_TITLE_ZH = '只从这个项目里拿掉，时间线上用到它的片段也会一起拿掉（可以撤销）。电脑上的原文件不动。';
 const HL_DESC_ZH = '从选中的片段里（没选就用整条时间线），挑出画面动得多、声音大的几段，拼成一个新序列。原来的序列不动。';
@@ -55,6 +55,9 @@ const READ = String.raw`(async () => {
   }
   f.value = ''; f.dispatchEvent(new Event('input')); closeHelp();
   r.filter = Object.fromEntries([...document.querySelectorAll('#binFilter option')].map((o) => [o.value, o.textContent]));
+  syncSequenceButton();
+  r.seqTitle = document.getElementById('btnSequences').title;
+  r.snapTitle = document.getElementById('btnSnapMenu').title;
   showSequenceMenu(10, 10); await wait(30);
   r.seq = [...document.querySelectorAll('.seq-menu .ctx-item')].map((b) => [txt(b), b.title || '']);
   // the Auto short dialog the menu item opens
@@ -115,6 +118,8 @@ BrowserWindow.prototype.loadURL = async function (...args) {
       else assert.ok(r.hlDesc && !/[一-鿿]/.test(r.hlDesc), at + ' dialog description in English: ' + r.hlDesc);
       assert.deepEqual(r.hlButtons, zh ? ['取消', '拼好'] : ['Cancel', 'Make'], at + ' dialog buttons');
       assert.deepEqual(r.snap, SNAP.map(L), at + ' snap menu');
+      assert.equal(r.snapTitle, zh ? '吸附目标 — 片段边缘、播放头、标记、入点/出点、关键帧、每一帧' : 'Snap targets — clip edges, playhead, markers, IN/OUT, keyframes, frame grid', at + ' snap button tooltip');
+      assert.equal(r.seqTitle, zh ? '序列：主序列 — 打开别的序列，或新建、复制一份、重命名' : 'Sequence: Main — open another one, or add, duplicate, rename', at + ' sequence button tooltip');
       assert.equal(r.markersEmpty, zh ? '还没有标记 — 按 M 在播放头处加一个。' : 'No markers yet — press M at the playhead.', at + ' markers');
       assert.equal(r.markersKbd, 'M', at + ' markers key cap');
       for (const p of MEDIA) assert.ok(r.media.some(([t]) => t === L(p)), `${at} bin menu ${L(p)}: ${JSON.stringify(r.media)}`);

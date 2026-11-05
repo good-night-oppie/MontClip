@@ -94,7 +94,11 @@ const KEYS = {
   'own.markers-empty': ['No markers yet — press <kbd>M</kbd> at the playhead.', '还没有标记 — 按 <kbd>M</kbd> 在播放头处加一个。'],
   'own.mm-open-source': ['Open in Source', '在源监视器中打开'], 'own.mm-instances': ['Find timeline instances ({n})', '在时间线上找到它（{n} 处）'], // #344 JJ
   'own.mm-info': ['Media info…', '素材信息…'], 'own.mm-relink-copy': ['Relink to another copy…', '重新链接到另一份文件…'],
-  'own.mm-proxy-540': ['Create proxy (540p)', '生成代理（540p）'], 'own.mm-proxy-720': ['Create proxy (720p)', '生成代理（720p）'],
+  // Rea's review: back to the existing term 创建代理 (term.create-proxy), as in the help layer
+  'own.mm-proxy-540': ['Create proxy (540p)', '创建代理（540p）'], 'own.mm-proxy-720': ['Create proxy (720p)', '创建代理（720p）'],
+  // #361 with JJ's 每一帧 (as the Snap menu); #327, Rea's draft
+  'own.snap-targets-title': ['Snap targets — clip edges, playhead, markers, IN/OUT, keyframes, frame grid', '吸附目标 — 片段边缘、播放头、标记、入点/出点、关键帧、每一帧'],
+  'own.seq-button-title': ['Sequence: {name} — open another one, or add, duplicate, rename', '序列：{name} — 打开别的序列，或新建、复制一份、重命名'],
   'own.mm-fav-add': ['Add to favorites', '加入收藏'], 'own.mm-tags': ['Tags…', '标签…'], 'own.mm-new-collection': ['New collection…', '新建分组…'], // #351 JJ
   'own.mm-remove': ['Remove from project', '从项目里移除'],
   'own.track-remove': ['Remove track', '删除轨道'],
@@ -105,6 +109,11 @@ test('the bin filter and the right-click menus: Rea\'s drafts and JJ\'s changes,
     a.equal(view.t('zh-CN', key), zh, key + ' zh');
     a.equal(view.t('en', key), en, key + ' en');
   }
+});
+
+test('the proxy items say 创建代理 like the existing term', () => {
+  a.equal(view.t('zh-CN', 'term.create-proxy'), '创建代理');
+  for (const k of ['own.mm-proxy-540', 'own.mm-proxy-720']) a.ok(view.t('zh-CN', k).startsWith(view.t('zh-CN', 'term.create-proxy') + '（'), k);
 });
 
 test('#352 and #329: JJ\'s sentences; the menu item and the dialog title are the same words', () => {
