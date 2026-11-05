@@ -35,7 +35,8 @@ function helpWorld(language) {
     const body = sm[1], hm = body.match(/<h3([^>]*)>([\s\S]*?)<\/h3>/);
     const key = (hm[1].match(/data-i18n="([^"]+)"/) || [])[1], tail = (hm[1].match(/data-i18n-tail="([^"]+)"/) || [])[1];
     const head = key ? view.t(language, key) : Z.shown(hm[0], language).map((x) => x.text).join(' ');
-    const h3 = { textContent: head, dataset: key ? { i18n: key } : tail ? { i18nTail: tail } : {} };
+    const h3 = { textContent: head, dataset: key ? { i18n: key } : tail ? { i18nTail: tail } : {},
+      querySelectorAll: () => [...hm[2].matchAll(/<span[^>]*data-i18n="([^"]+)"/g)].map((m) => ({ dataset: { i18n: m[1] } })) };
     const rows = [];
     for (const rm of body.matchAll(/<tr><td(?:\s[^>]*)?>[\s\S]*?<\/td>(<td[^>]*>)([\s\S]*?)<\/td><\/tr>/g)) {
       // the left cell as the page shows it (its data-i18n markers applied, #145), and its keyed parts
