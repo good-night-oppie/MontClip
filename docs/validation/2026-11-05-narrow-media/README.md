@@ -10,3 +10,17 @@ VV 在 #148 复看时发现：窗口宽 360 px 时点「素材」，素材面板
 | `before-360-*.png` / `after-360-*.png` | 360×640 点「素材」后，中文和英文 |
 | `before-1283-*.png` / `after-1283-*.png` | 1283×800 桌面宽度，改前改后 |
 | `1283-sha256.txt` | 1283×800 的 4 张截图（中/英 × 简单/高级）改前改后逐字节相同 |
+
+## 第二轮（VV 复看 bcdceed9 后，head b4f749d1 起）
+
+VV：≤560 px 时素材面板盖住了播放器，双击试看其实已经载入源画面，但看起来像没反应。
+
+| 文件 | 内容 |
+|---|---|
+| `round2-before.txt` | 新 smoke 在 bcdceed9 的代码上的完整输出：`NARROW_MEDIA_FAIL 16 of 16 cases` |
+| `round2-after.txt` | 新 smoke 在修复后的完整输出：`NARROW_MEDIA_PASS 16 cases`（360 / 560 / 561 / 630 × 中英 × 简单高级） |
+| `round2-360-*-open.png` | 360 px 打开素材：按钮写「返回播放器」/「Back to player」（DRAFT，等 JJ 定） |
+| `round2-360-*-after-double-click.png` | 双击 synthetic-a.svg 以后：素材面板收起，播放器在「源」上显示这个文件 |
+| `round2-360-*-reopened.png` | 再点「素材」：面板回来，两个文件都在 |
+| `round2-561-zh-CN-after-double-click.png` / `round2-630-en-after-double-click.png` | 561 和 630 px：并排，双击以后面板不收起 |
+| `round2-1283-sha256.txt` | 1283×800 不带素材的 4 张截图：main 跑 5 次，这个分支跑 3 次。en 简单、en 高级、zh 高级 3 张每次都逐字节相同；zh 简单在 main 自己的 5 次里就有两种结果（8f63…、799c…，只差 (1268,549) 一个像素的一个色值），这个分支的 3 次也是这两种之一，head2 和 main 逐字节相同 |
