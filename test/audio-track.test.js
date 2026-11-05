@@ -177,6 +177,7 @@ test('the editor: the media info lists the tracks with 试听, picking one is an
  const set=app.slice(app.indexOf('function setAudioTrack('),app.indexOf('function setAudioTrack(')+1400);
  a.match(set,/pushUndo\(/);a.match(set,/delete project\.songs\[m\.id\]/);a.match(set,/flushSave\(\)/);
  a.match(app,/&track=\$\{track\}`\)/,'the export window names the track');
+ a.match(app,/if \(MediaLib\.audioTrackOf\(m\)\) mo\.audioTrack = m\.audioTrack;/,'the save keeps the pick (the media list is written field by field)');
  a.match(app,/JSON\.stringify\(\{ src, track: m \? MediaLib\.audioTrackOf\(m\) : 0 \}\)/,'transcription names the track');
  a.match(app,/"\/api\/transcript\?src=" \+ encodeURIComponent\(src\) \+ "&track=" \+ track/);
  const V=require('../ui-preferences');

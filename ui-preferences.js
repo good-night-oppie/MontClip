@@ -257,6 +257,7 @@
     "at-hint": ["Songs, loudness, subtitles and the export all use this one track. In an OBS recording, track 1 is usually all the sound mixed together.", "找歌、音量、字幕和导出都只用这一条轨。OBS 录的第 1 轨，通常是混好的全部声音。"],
     "at-track": ["Track {n}", "第 {n} 轨"],
     "at-listen": ["Listen", "试听"],
+    "at-channels": ["{n} ch", "{n} 声道"],
     "at-listen-failed": ["This track can't be played.", "这条轨放不出来。"],
     "at-changed": ["Now using track {n}. Find the songs and make the subtitles again for this track.", "已改成第 {n} 轨。找歌和字幕要按这条轨重新做一次。"],
     "at-found": ["\"{name}\" has {n} audio tracks; track 1 is used. If the streamer's voice is on another track, right-click the file → Media info… to change it.", "「{name}」有 {n} 条音轨，现在用的是第 1 轨。主播的声音如果在别的轨上，右键这个文件 → 「素材信息…」里改。"],

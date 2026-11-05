@@ -1857,6 +1857,7 @@ function projectJSONHere() {
       if (m.tags && m.tags.length) mo.tags = m.tags.slice();
       if (derivedFrom) { mo.derivedFrom = derivedFrom; if (denoise) mo.denoise = denoise; }
       if (m.originalSrc) { mo.originalSrc = m.originalSrc; mo.preparation = m.preparation; }
+      if (MediaLib.audioTrackOf(m)) mo.audioTrack = m.audioTrack;   // the audio stream every reader uses (#177); 0 is not stored
       return mo;
     }),
     clips: clips.map(serializeClip),
@@ -3056,7 +3057,7 @@ function audioTrackPicker(m) {
     radio.type = "radio"; radio.name = "bin-track-" + m.id; radio.checked = i === cur;
     radio.addEventListener("change", () => { if (radio.checked) setAudioTrack(m, i); });
     const text = document.createElement("span");
-    text.textContent = [uiText("own.at-track", { n: i + 1 }), MediaLib.fmtAudio({ audioChannels: t.channels }), t.title || ""].filter(Boolean).join(" · ");
+    text.textContent = [uiText("own.at-track", { n: i + 1 }), t.channels > 0 ? uiText("own.at-channels", { n: t.channels }) : "", t.title || ""].filter(Boolean).join(" · ");
     const play = document.createElement("button");
     play.type = "button"; play.className = "bin-track-play";
     play.textContent = uiText("own.at-listen");
@@ -3070,8 +3071,8 @@ function audioTrackPicker(m) {
 let trackListen = null;
 async function listenAudioTrack(m, track, btn) {
   if (trackListen) { trackListen.pause(); URL.revokeObjectURL(trackListen.src); trackListen = null; }
-  const c = project.clips.find((x) => x.mediaId === m.id && state.t >= x.start && state.t < x.start + x.duration);
-  const from = Math.max(0, Math.min(c ? mediaTimeAt(c, state.t) : 0, (m.duration || 0) - 6));
+  const c = project.clips.find((x) => x.mediaId === m.id && state.time >= x.start && state.time < x.start + x.duration);
+  const from = Math.max(0, Math.min(c ? mediaTimeAt(c, state.time) : 0, (m.duration || 0) - 6));
   btn.disabled = true;
   try {
     const r = await fetch(`/api/audio-window?src=${encodeURIComponent(m.src)}&from=${from.toFixed(3)}&to=${(from + 6).toFixed(3)}&track=${track}`);
