@@ -1165,7 +1165,7 @@ async function frameTool(args) {
     const sized = res.imageSize && res.frame
       ? `
 Image ${res.imageSize.w}x${res.imageSize.h} px = the whole ${res.frame.w}x${res.frame.h} frame (1 image px = ${(res.frame.w / res.imageSize.w).toFixed(2)} frame px). ` +
-        "Crop and mask numbers are not canvas positions: they are fractions of each clip's own source picture, before its scale and x / y — see the Masks docs."
+        "Crop and mask numbers are not canvas positions: crop is a percent of each clip's whole source frame, and a mask's x, y (its centre), w, h are fractions of the picture left after the crop, before the clip's scale and x / y — see \"Mask and crop coordinates\" in the docs."
       : "";
 
     /* Text mode: the scopes reading measured this exact frame already, and its

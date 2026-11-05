@@ -117,25 +117,31 @@ function expected(c, t) {
 
 /* One clip per case, each in its own stretch of the timeline. Linear keys only. */
 const CASES = [
-  { name: "crop, no transform", sample: 0.5,
+  { name: "crop, no transform", samples: [0.5],
     clip: { id: "c_crop", start: 0, in: 0, duration: 1, props: { cropL: 50, cropR: 10, cropT: 50, cropB: 20 } } },
-  { name: "top strip crop (cropR + cropB), fit:contain centres it", sample: 1.5,
+  { name: "top strip crop (cropR + cropB), fit:contain centres it", samples: [1.5],
     clip: { id: "c_strip", start: 1, in: 0, duration: 1, props: { cropR: 30, cropB: 85 } } },
-  { name: "static scale + offset with a rect mask", sample: 2.5,
+  { name: "static scale + offset with a rect mask", samples: [2.5],
     clip: { id: "c_zoom", start: 2, in: 0, duration: 1, props: { scale: 2, x: -120, y: -60,
       masks: [{ shape: "rect", x: 0.65, y: 0.65, w: 0.2, h: 0.2 }] } } },
-  { name: "keyframed push (scale / x / y) with a rect mask, mid-move", sample: 3.5,
+  { name: "keyframed push (scale / x / y) with a rect mask: start, middle, end", samples: [3, 3.5, 4],
     clip: { id: "c_push", start: 3, in: 0, duration: 2, props: { masks: [{ shape: "rect", x: 0.65, y: 0.65, w: 0.2, h: 0.2 }] },
       keyframes: { scale: [{ t: 0, v: 1 }, { t: 1, v: 2, ease: "linear" }], x: [{ t: 0, v: 0 }, { t: 1, v: -120, ease: "linear" }],
         y: [{ t: 0, v: 0 }, { t: 1, v: -60, ease: "linear" }] } } },
-  { name: "speed 4 with crop and a scale key", sample: 5.5,
+  { name: "speed 4 with crop and a scale key", samples: [5.5],
     clip: { id: "c_speed", start: 5, in: 2, duration: 1, props: { speed: 4, cropL: 50, cropR: 10, cropT: 50, cropB: 20 },
       keyframes: { scale: [{ t: 0, v: 1 }, { t: 1, v: 1.2, ease: "linear" }] } } },
   // starts between frames, like sh_scrub (2.477 s, speed 4, keyed) — the still is asked for its very first instant
-  { name: "first frame of a keyed speed-4 clip", sample: 6.27, exportSample: 6.3,
+  { name: "first frame of a keyed speed-4 clip", samples: [6.27], exportSamples: [6.3],
     clip: { id: "c_first", start: 6.27, in: 1, duration: 0.93, props: { speed: 4 },
       keyframes: { scale: [{ t: 0, v: 1 }, { t: 0.9, v: 1.5, ease: "linear" }], x: [{ t: 0, v: 0 }, { t: 0.9, v: 90, ease: "linear" }],
         y: [{ t: 0, v: 0 }, { t: 0.9, v: 45, ease: "linear" }] } } },
+  // crop + a mask + a push: the mask is a fraction of the CROPPED picture and rides the push (start, middle, end)
+  { name: "crop + rect mask + keyframed push: start, middle, end", samples: [7.5, 8, 8.5],
+    clip: { id: "c_cropmask", start: 7.5, in: 0, duration: 1.5, props: { cropL: 20, cropT: 10, cropR: 10, cropB: 30,
+      masks: [{ shape: "rect", x: 0.75, y: 0.75, w: 0.3, h: 0.3 }] },
+      keyframes: { scale: [{ t: 0, v: 1 }, { t: 1, v: 1.6, ease: "linear" }], x: [{ t: 0, v: 0 }, { t: 1, v: -100, ease: "linear" }],
+        y: [{ t: 0, v: 0 }, { t: 1, v: -50, ease: "linear" }] } } },
 ];
 
 function project(src) {
@@ -179,17 +185,17 @@ test("render geometry: crop, masks and transforms land where documented — fabl
   const doc = project(src);
 
   // 1) the still fablecut_frame {time} shows (scopes job, image:true)
-  for (const cs of CASES) {
-    const r = await fetch(base + "/api/scopes/request", { method: "POST", body: JSON.stringify({ time: cs.sample, image: true, where: "headless" }) });
+  for (const cs of CASES) for (const sample of cs.samples) {
+    const r = await fetch(base + "/api/scopes/request", { method: "POST", body: JSON.stringify({ time: sample, image: true, where: "headless" }) });
     assert.equal(r.status, 200, await r.clone().text());
     const job = await poll(base, (await r.json()).id, 120_000);
     assert.deepEqual(job.result.imageSize, { w: W, h: H }, "the still says its own size (fablecut_frame quotes it)");
-    const jpg = path.join(dir, `still-${cs.clip.id}.jpg`);
+    const jpg = path.join(dir, `still-${cs.clip.id}-${sample}.jpg`);
     fs.writeFileSync(jpg, Buffer.from(job.result.image.split(",")[1], "base64"));
     const got = boxes(await rgbOf(jpg));
-    const want = expected(doc.clips.find((c) => c.id === cs.clip.id), cs.sample);
-    assertNear(got.picture, want.picture, `still · ${cs.name} · picture`);
-    assertNear(got.red, want.red, `still · ${cs.name} · red block`);
+    const want = expected(doc.clips.find((c) => c.id === cs.clip.id), sample);
+    assertNear(got.picture, want.picture, `still · ${cs.name} · t=${sample} · picture`);
+    assertNear(got.red, want.red, `still · ${cs.name} · t=${sample} · red block`);
   }
 
   // 2) a Fast export of the whole timeline, lossless (FFV1), read back per frame
@@ -199,12 +205,12 @@ test("render geometry: crop, masks and transforms land where documented — fabl
   const job = await poll(base, (await r.json()).id, 240_000);
   const file = path.join(dir, job.src.replace(/^\/exports\//, "exports/"));
   assert.ok(fs.existsSync(file), "export file " + file);
-  for (const cs of CASES) {
-    const ts = cs.exportSample ?? cs.sample, n = Math.round(ts * FPS);
+  for (const cs of CASES) for (const ts of cs.exportSamples || cs.samples) {
+    const n = Math.round(ts * FPS);
     const got = boxes(await rgbOf(file, n));
     const want = expected(doc.clips.find((c) => c.id === cs.clip.id), n / FPS);
-    assertNear(got.picture, want.picture, `export · ${cs.name} · picture`);
-    assertNear(got.red, want.red, `export · ${cs.name} · red block`);
+    assertNear(got.picture, want.picture, `export · ${cs.name} · t=${n / FPS} · picture`);
+    assertNear(got.red, want.red, `export · ${cs.name} · t=${n / FPS} · red block`);
   }
 });
 
