@@ -36,6 +36,8 @@ test('the server: model status, one transcription at a time, cancel; it reads mo
   // a stand-in engine folder: status() only looks for the engine's package.json and a VAD file of the pinned size
   const asrDir = path.join(dataDir, 'asr'); fs.mkdirSync(path.join(asrDir, 'engine', 'node_modules', 'sherpa-onnx-node'), { recursive: true });
   fs.writeFileSync(path.join(asrDir, 'engine', 'node_modules', 'sherpa-onnx-node', 'package.json'), '{}');
+  // and its native part for this computer (P8: without it the engine is not ready)
+  const native = path.join(asrDir, 'engine', 'node_modules', require('../asr-local').nativePackage()); fs.mkdirSync(native); fs.writeFileSync(path.join(native, 'package.json'), '{}');
   fs.writeFileSync(path.join(asrDir, 'silero_vad.onnx'), Buffer.alloc(643854));
   const s = await startServer(t, dataDir, { MONTCLIP_ASR_DIR: asrDir, MONTCLIP_ASR_MODELS_DIR: path.join(dataDir, 'no-models') });
   const st = await (await fetch(s.base + '/api/asr/status')).json();
