@@ -13,6 +13,13 @@ for (const ext of ["flv", "mkv"]) {
     assert.ok(rows.length > 200);
     assert.ok(rows.some((p, i) => i && Number(p.dts_time) - Number(rows[i - 1].dts_time) > 290));
   });
+  test(`${ext}: streamed primary scan sees two spans without counting audio twice`, { skip: !have }, async () => {
+    const result = await require("../packet-clock").scanFile(fixture.rows.find(r => r.file.endsWith(ext)).file);
+    assert.equal(result.kind, "video"); assert.equal(result.streamIndex, 0);
+    assert.equal(result.segments.length, 2); assert.equal(result.timestampJump, true);
+    assert.ok(result.gaps[0].duration > 290);
+    assert.ok(result.packets > 200 && result.packets <= 300);
+  });
   // Executed failing assertions, not skipped. Remove TODO only with source-clock integration.
   test(`${ext}: registered duration excludes the 295-second timestamp hole`, { skip: !have, todo: "source mapping and background integration pending" }, async () => {
     const info = await MP.probeFile(fixture.rows.find(r => r.file.endsWith(ext)).file);
