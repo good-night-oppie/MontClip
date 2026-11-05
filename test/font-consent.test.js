@@ -157,18 +157,23 @@ test('every call site that reaches Google Fonts on a click goes through requestF
 });
 
 // JJ (on #151): sentences 1–7 and 9 as drafted; 8, 10 and 11 say first which fonts are missing, then what happens.
+// JJ's last round (on 488ae6c): the export hint reworded; in English "this text", and "Download" for "Load".
 test('the copy JJ settled, both languages',()=>{
- const V=require('../ui-preferences.js'),t=(l,k,v)=>V.t(l,'own.'+k,v),names='“Lobster”、“Cinzel”';
+ const V=require('../ui-preferences.js'),t=(l,k,v)=>V.t(l,'own.'+k,v);
  const zh={
   'font-net-title':'要联网下载字体吗？','font-net-fonts':'要下载的字体：{names}','font-net-hosts':'会连接 Google 字体的网站：{hosts}。',
   'font-net-sent':'发出去的只有字体名，加上浏览器联网时都会带的基本信息，比如你的 IP 地址。项目、录像和字幕都不会发出去。',
   'font-net-no':'不下载的话，这些文字会用默认字体显示和导出。','font-net-deny':'先不用','font-net-allow':'联网下载',
   'font-fallback':'这台电脑上没有这些字体：{names}。现在先用默认字体显示。','font-fallback-load':'联网下载…',
   'font-desktop-missing':'这台电脑上没有这些字体：{names}。文字会用默认字体显示和导出。',
-  'font-export-fallback':'这些字体没有加载：{names}。这次导出会用默认字体代替。'};
- for(const [k,v] of Object.entries(zh))a.equal(t('zh-CN',k,{names,hosts:'x'}),v.replace('{names}',names).replace('{hosts}','x'),k);
- const en={'font-fallback':"These fonts aren't on this computer: {names}. The titles use the default font for now.",
-  'font-desktop-missing':"These fonts aren't on this computer: {names}. The titles show and export in the default font.",
-  'font-export-fallback':"These fonts aren't loaded: {names}. This export uses the default font instead."};
- for(const [k,v] of Object.entries(en))a.equal(t('en',k,{names:'"A"'}),v.replace('{names}','"A"'),k);
+  'font-export-fallback':'这次导出用不了这些字体：{names}，会用默认字体代替。'};
+ const en={
+  'font-net-title':'Download fonts from the internet?','font-net-fonts':'Fonts: {names}','font-net-hosts':'MontClip will connect to Google Fonts: {hosts}.',
+  'font-net-sent':'Only the font names are sent, plus what every browser sends when it goes online, such as your IP address. Your projects, recordings and captions are not sent.',
+  'font-net-no':"If you don't download them, this text shows and exports in the default font.",'font-net-deny':'Not now','font-net-allow':'Download',
+  'font-fallback':"These fonts aren't on this computer: {names}. This text uses the default font for now.",'font-fallback-load':'Download from the internet…',
+  'font-desktop-missing':"These fonts aren't on this computer: {names}. This text shows and exports in the default font.",
+  'font-export-fallback':"This export can't use these fonts: {names}. It uses the default font instead."};
+ for(const [lang,table,names] of [['zh-CN',zh,'“Lobster”、“Cinzel”'],['en',en,'"A", "B"']])
+  for(const [k,v] of Object.entries(table))a.equal(t(lang,k,{names,hosts:'x'}),v.replace('{names}',names).replace('{hosts}','x'),lang+' '+k);
 });
