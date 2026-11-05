@@ -209,10 +209,10 @@ test('every request to the AI goes through the review box (QQ 4): confirm sends 
     'Based on: DeepSeek Privacy Policy (version of 10 Feb 2026) and DeepSeek Open Platform Terms of Service (effective 29 Apr 2026). If they change, this page will change too.',
     'Got it']);
   // the notice shows them in that order, and nothing else
-  const order = ['dataNoticeWhatLabel', 'dataNoticeWhoLabel', 'dataNoticeUseLabel', 'dataNoticeSo', 'dataNoticeOffLabel', 'dataNoticeAiLabel', 'dataNoticeBasis'].map((k) => notice.indexOf('{t.' + k + '}'));
+  const order = ['dataNoticeWhatLabel', 'dataNoticeWhoLabel', 'dataNoticeUseLabel', 'dataNoticeSoundLabel', 'dataNoticeSo', 'dataNoticeOffLabel', 'dataNoticeAiLabel', 'dataNoticeBasis'].map((k) => notice.indexOf('{t.' + k + '}'));
   a.ok(order.every((n, k) => n > 0 && (k === 0 || n > order[k - 1])), "v3's order");
   a.deepEqual([...new Set(notice.match(/t\.dataNotice[A-Za-z0-9]+/g))].sort(), ['t.dataNoticeAi', 't.dataNoticeAiLabel', 't.dataNoticeBasis', 't.dataNoticeOff', 't.dataNoticeOffLabel', 't.dataNoticeOk',
-    't.dataNoticeSo', 't.dataNoticeTitle', 't.dataNoticeUse', 't.dataNoticeUseLabel', 't.dataNoticeWhat', 't.dataNoticeWhatLabel', 't.dataNoticeWho', 't.dataNoticeWhoLabel']);
+    't.dataNoticeSo', 't.dataNoticeSound', 't.dataNoticeSoundLabel', 't.dataNoticeTitle', 't.dataNoticeUse', 't.dataNoticeUseLabel', 't.dataNoticeWhat', 't.dataNoticeWhatLabel', 't.dataNoticeWho', 't.dataNoticeWhoLabel']);
   // the names the notice gives are the ones on screen: 设置 › AI 助手 › 用 AI 助手
   const own = (l, k) => V.text[l]['own.' + k];
   a.equal(own('zh-CN', 'ai-set-title'), 'AI 助手'); a.equal(own('zh-CN', 'ai-set-enabled'), '用 AI 助手'); a.equal(V.text['zh-CN']['term.settings'], '设置');
