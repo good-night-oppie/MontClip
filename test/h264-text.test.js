@@ -11,7 +11,7 @@ const zh=V.text['zh-CN'],en=V.text.en;
 const JJ={
  h264NoneWin:'这台电脑上找不到能用的 H.264 编码器：显卡编码器没有响应，Windows 自带的编码器也用不了。你可以在下面选一个带 x264 的 FFmpeg，或者导出时换一种格式。',
  h264NoneOther:'这台电脑上找不到能用的 H.264 编码器。你可以在下面选一个带 x264 的 FFmpeg，或者导出时换一种格式。',
- h264NeedFeaturePack:'你的 Windows 好像是不带媒体组件的「N 版」。请在 Windows 设置 › 应用 › 可选功能里安装「媒体功能包」（Media Feature Pack），然后重新打开 MontClip。',
+ // h264NeedFeaturePack (the Windows "N" / Media Feature Pack line) was a guess: JJ took it out (2026-11-04, #129)
  extNotFullPath:'请选 FFmpeg 程序文件本身（ffmpeg.exe）。',
  extGone:'之前选的 FFmpeg 已经不在原来的位置了。请重新选一次，或者点「不再使用这个 FFmpeg」。',
  extNotFfmpeg:'选的程序打不开，或者它不是 FFmpeg。请重新选。',
@@ -27,7 +27,7 @@ const JJ_EN={
  h264Hint:"By default MontClip exports with your graphics card or Windows' built-in encoder, so export works without any setup. For better quality you can also choose an FFmpeg on this computer that has x264: it is used only for H.264 export, and preview and other formats keep the built-in one. MontClip does not download anything or search for it.",
  h264Clear:'Stop using this FFmpeg',
 };
-const CODES=['h264NoneWin','h264NoneOther','h264NeedFeaturePack','extNotFullPath','extGone','extNotFfmpeg','extNoX264','extSettingBad','frameTooSmall','extNotUsedNote','ffmpegMissing'];
+const CODES=['h264NoneWin','h264NoneOther','extNotFullPath','extGone','extNotFfmpeg','extNoX264','extSettingBad','frameTooSmall','extNotUsedNote','ffmpegMissing'];
 const ENCODERS=['h264_nvenc','h264_mf','h264_qsv','h264_amf','libx264','h264_videotoolbox'];
 // proper names allowed in the Chinese interface
 const ALLOWED=/FFmpeg|ffmpeg\.exe|x264|H\.264|Media Feature Pack|MontClip|Windows|NVIDIA|Intel|AMD|Apple|N/g;
@@ -60,7 +60,7 @@ test('every reason code reads in the interface language; zh-CN has no English se
   const z=V.h264Message('zh-CN',c),e=V.h264Message('en',c);
   a.ok(z&&e,JSON.stringify(c));a.equal(englishIn(z),null,`zh ${JSON.stringify(c)}: ${z}`);a.ok(!/\{\w+\}/.test(z+e),'no placeholder left: '+z+' / '+e);
  }
- a.equal(V.h264Message('zh-CN',{code:'h264NoneWin',featurePack:true}),JJ.h264NoneWin+JJ.h264NeedFeaturePack);
+ a.equal(V.h264Message('zh-CN',{code:'h264NoneWin',featurePack:true}),JJ.h264NoneWin,'no Media Feature Pack guess (JJ, #129)');
  a.equal(V.h264Message('zh-CN',{code:'frameTooSmall',params:{w:120,h:40}}),'导出的画面太小（120×40），这台电脑的显卡编码器处理不了。请把导出尺寸调大一点，或者换一种格式。');
  a.equal(V.h264Message('zh-CN',{code:'extNotUsedNote',params:{reason:'extGone',encoder:'h264_mf'}}),'这次没用你选的 FFmpeg（'+JJ.extGone.replace(/。$/,'')+'），改用了 Windows 自带编码。','the reason inside the brackets drops its final full stop');
  a.equal(V.h264Message('zh-CN',{code:'nonsense'}),null,'an unknown code is not shown as text');
@@ -86,7 +86,7 @@ test('server: H.264 status and export refusals carry codes; the page shows them 
  // /api/export/h264 sends codes only
  const h=server.slice(server.indexOf('async function h264Status()'),server.indexOf('\n}',server.indexOf('async function h264Status()')));
  a.match(h,/external: ext\.ok \? \{ ok: true \} : \{ ok: false, code: ext\.code \}/);a.match(h,/reason: list\.length \? null : X\.noH264\(/);a.ok(!/maskUserPath|noH264Reason/.test(h),'no English in the status');
- a.match(server,/code: "frameTooSmall", params: \{ w: frame\.outW, h: frame\.outH \}/);
+ a.match(server,/code: "frameTooSmall",[^]{0,200}params: \{ w: frame\.outW, h: frame\.outH, n: /);   // n: the smallest side (#129)
  a.match(server,/noteCodes/);a.match(server,/code: "extNotUsedNote", params: \{ reason: ext\.code, encoder: o\.spec\.video\.encoder \}/);
  a.match(server,/\{ error: String\(e\.message \|\| e\), code: e\.code, params: e\.params \}|code: e\.code/);
  a.ok(!/FFMPEG_MISSING \}/.test(server),'every "ffmpeg missing" answer also carries its code');

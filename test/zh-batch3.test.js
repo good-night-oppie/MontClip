@@ -92,7 +92,7 @@ test('every batch-3 key has the exact English and JJ final Chinese text',()=>{
 
 test('the WebCodecs note names the Fast engine by its own Chinese label',()=>{
  const fast=view.t('zh-CN','term.fast-ffmpeg');
- a.equal(fast,'快速（ffmpeg）');
+ a.equal(fast,'快速（FFmpeg）');   // FFmpeg in its own casing (JJ, 2026-11-04, #129)
  a.equal(zh('engine-webcodecs-note'),'逐帧准确。用显卡编码，比「'+fast+'」那一项更快。');
  a.equal(en('engine-webcodecs-note'),'Frame-accurate. Browser HW-encodes H.264; server muxes with audio. Faster upload than Fast.');
  a.ok(html.includes('data-i18n="term.fast-ffmpeg"'),'the Fast radio keeps that label');

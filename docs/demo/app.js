@@ -59,7 +59,7 @@ async function copyProblem(r) {
     if (res.ok) out = (await res.json()).text;
   } catch { /* offline: the page's copy of the rules */ }
   if (typeof out !== "string") out = MontClipRedact.redactProblem(r.line || "", { platform: /win/i.test(navigator.platform || "") ? "win32" : "" });
-  try { await navigator.clipboard.writeText(out); toast(uiText("copyProblemDone")); } catch { toast(uiText("copyProblemFailed")); }
+  try { await navigator.clipboard.writeText(out); toast(uiText("own.copy-problem-done")); } catch { toast(uiText("own.copy-problem-failed")); }
 }
 /** A failure in a toast: the words, and for one without its own sentence 〔复制问题信息〕 with JJ's small print under it. */
 function toastProblem(r, prefix = "") {

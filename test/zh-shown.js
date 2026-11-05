@@ -32,11 +32,33 @@ function shown(html, language = 'zh-CN') {
   }
   return out;
 }
-const words = (s, allowed) => [...new Set((s.match(/[A-Za-z]{3,}/g) || []).filter((w) => !allowed.has(w)))].join(',');
+/* English words of three letters or more the Chinese interface may show (JJ, 2026-11-04, by category):
+   (a) product, format and provider names, in this casing (FFmpeg, XML — not ffmpeg, xml; the file name ffmpeg.exe as is);
+       MontClip, FLV, MP4 and Windows were on the list before and stay;
+   (b) key names;
+   (c) a technical term in Chinese with the English in brackets: 「固定码率（CBR）」 — 中文（ABC）;
+   (d) officialPane_formatTech, as a whole (the zh-CN table test);
+   (e) the logo's Mont / Clip and "English" in the language menu (EXEMPT_HTML). */
+const NAMES = ['Yolo', 'FFmpeg', 'SRT', 'XML', 'HTTPS', 'API', 'OpenAI', 'SiliconFlow', 'WebCodecs', 'AAC', 'kHz', 'Mbps', 'dBTP',
+  'MontClip', 'FLV', 'MP4', 'Windows'];
+const KEYS = ['Esc', 'Del', 'Home', 'End', 'Ctrl', 'Alt', 'Cmd'];
+const ALLOWED = new Set([...NAMES, ...KEYS]);
+const EXEMPT_ZH = new Set(['officialPane_formatTech']);
+const EXEMPT_HTML = new Set(['html:app', 'html:mcLanguage']);
+/** The English words left in a Chinese string once the categories above are taken out, comma-joined ("" = none). */
+function englishLeft(text) {
+  const t = String(text).replace(/\{\w+\}/g, '').replace(/ffmpeg\.exe/g, '').replace(/([㐀-鿿])（[A-Za-z][A-Za-z0-9.]*）/g, '$1');
+  return [...new Set((t.match(/[A-Za-z]{3,}/g) || []).filter((w) => !ALLOWED.has(w)))].join(',');
+}
+/** Allowed names written in another casing ("ffmpeg", "xml"), except the file name ffmpeg.exe. */
+function wrongCase(text) {
+  const t = String(text).replace(/ffmpeg\.exe/g, '');
+  return [...new Set((t.match(/[A-Za-z]{3,}/g) || []).filter((w) => !ALLOWED.has(w) && [...ALLOWED].some((n) => n.toLowerCase() === w.toLowerCase())))];
+}
 
 /** English words of three letters or more the zh-CN page shows: {"help:<section>/<keys>": words} for the shortcuts in the
  *  help layer, one row each; {"html:<id>": words} for the rest of index.html, by the nearest element with an id. */
-function englishShown(allowed) {
+function englishShown() {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8'), found = {};
   const a = html.indexOf('id="helpKeys"'), b = html.indexOf('id="helpEmpty"');
   const help = html.slice(a, b);
@@ -47,13 +69,13 @@ function englishShown(allowed) {
       if (cells.length < 2) continue;
       let key = 'help:' + head.replace(/^term\./, '') + '/' + textOf(cells[0].replace(/<[^>]+>/g, ' '));
       while (key in found) key += '+';
-      const w = words(shown(cells.slice(1).join(' ')).map((x) => x.text).join(' '), allowed);
+      const w = englishLeft(shown(cells.slice(1).join(' ')).map((x) => x.text).join(' '));
       if (w) found[key] = w;
     }
   }
   const rest = html.slice(0, a) + html.slice(b), byId = {};
   for (const x of shown(rest)) { const id = x.ids[x.ids.length - 1] || '-'; (byId[id] = byId[id] || []).push(x.text); }
-  for (const [id, texts] of Object.entries(byId)) { const w = words(texts.join(' '), allowed); if (w) found['html:' + id] = w; }
+  for (const [id, texts] of Object.entries(byId)) { const w = englishLeft(texts.join(' ')); if (w && !EXEMPT_HTML.has('html:' + id)) found['html:' + id] = w; }
   return found;
 }
-module.exports = { shown, englishShown };
+module.exports = { shown, englishShown, englishLeft, wrongCase, NAMES, KEYS, EXEMPT_ZH, EXEMPT_HTML };

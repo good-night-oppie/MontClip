@@ -105,11 +105,11 @@ function noH264({ platform = process.platform, mediaFoundation = true } = {}) {
   return platform === "win32" ? { code: "h264NoneWin", featurePack: !mediaFoundation } : { code: "h264NoneOther", featurePack: false };
 }
 /** The same in English, for agents and logs. */
-function noH264Reason({ platform = process.platform, mediaFoundation = true } = {}) {
+// (the Windows "N" edition / Media Feature Pack guess is gone until it is checked: JJ, 2026-11-04)
+function noH264Reason({ platform = process.platform } = {}) {
   let s = "This computer has no H.264 encoder MontClip can use: no graphics-card encoder answered";
   if (platform === "win32") {
     s += " and Windows' own H.264 encoder is not available.";
-    if (!mediaFoundation) s += " This looks like a Windows \"N\" edition without media components: install the Media Feature Pack from Windows Settings (Optional features), then restart MontClip.";
   } else s += ".";
   return s + " You can choose your own FFmpeg with libx264 in Settings, or export in another format (for example Archive).";
 }

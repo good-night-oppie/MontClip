@@ -462,7 +462,9 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
       frame = Delivery.reframe(spec, canvasW, canvasH, region);
     }
     if (avail !== available && !avail.has(spec.video.encoder))
-      throw Object.assign(new Error(`The exported picture (${frame.outW}×${frame.outH}) is smaller than this computer's H.264 encoder accepts (${[...available].filter((e) => Delivery.ENCODERS[e]?.min).map((e) => Delivery.ENCODERS[e].label + " needs " + Delivery.ENCODERS[e].min.join("×")).join(", ")}). Export a larger size, or choose another format.`), { status: 400, code: "frameTooSmall", params: { w: frame.outW, h: frame.outH } });
+      throw Object.assign(new Error(`The exported picture (${frame.outW}×${frame.outH}) is smaller than this computer's H.264 encoder accepts (${[...available].filter((e) => Delivery.ENCODERS[e]?.min).map((e) => Delivery.ENCODERS[e].label + " needs " + Delivery.ENCODERS[e].min.join("×")).join(", ")}). Export a larger size, or choose another format.`), { status: 400, code: "frameTooSmall",
+        // n: the smallest side the page names (JJ: one number for width and height): the largest minimum of the encoders refused
+        params: { w: frame.outW, h: frame.outH, n: Math.max(...[...available].map((e) => Delivery.ENCODERS[e]?.min || []).flat()) } });
     return { spec, notes, noteCodes: [], name: d && typeof d.name === "string" ? d.name : name, frame };
   });
   // one render has one frame rate: an output asking for another needs a render of its own
