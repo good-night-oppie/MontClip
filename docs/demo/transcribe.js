@@ -31,6 +31,8 @@
   const MAX_WORD = 80;
   /** the parts the engine could not read, kept with a transcript (one per 2 s of a 24-hour recording) */
   const MAX_GAPS = 50000;
+  /** the parts of a file a transcript listened to, when not the whole of it (the windows of its clips) */
+  const MAX_SPANS = 5000;
   /** edit-ops.js MIN_DUR: extract refuses a range this short or shorter. */
   const MIN_CUT = 0.05;
 
@@ -98,13 +100,73 @@
       gaps.sort((x, y) => x[0] - y[0]);
     }
     const lang = doc.language == null ? null : String(doc.language).slice(0, 16);
-    return {
+    const out = {
       v: 1, src: typeof doc.src === "string" ? doc.src.slice(0, 1024) : null,
       model: typeof doc.model === "string" ? doc.model.slice(0, 64) : null,
       language: lang, duration: duration != null ? r3(duration) : null,
       created: typeof doc.created === "string" ? doc.created.slice(0, 40) : new Date().toISOString(),
       words, gaps,
     };
+    // spans: only these parts of the file were listened to (a long recording, its clips' windows); none = the whole file
+    if (doc.spans != null) {
+      if (!Array.isArray(doc.spans) || doc.spans.length > MAX_SPANS) throw new Error(`a transcript's spans: at most ${MAX_SPANS} [start, end]`);
+      const list = [];
+      for (const sp of doc.spans) {
+        if (!Array.isArray(sp) || !num(sp[0]) || !num(sp[1]) || sp[1] < sp[0]) throw new Error("each span must be [start, end]");
+        let s = Math.max(0, sp[0]), e = sp[1];
+        if (duration != null) { s = Math.min(s, duration); e = Math.min(e, duration); }
+        if (e > s) list.push({ from: r3(s), to: r3(e) });
+      }
+      out.spans = union(list).map((x) => [x.from, x.to]);
+    }
+    return out;
+  }
+  /** The parts of `ranges` ([[from, to], …], file seconds) a transcript has not listened to yet, merged, each at
+   *  least `min` s long: all of them with no transcript, none when the transcript is of the whole file. */
+  function missingSpans(doc, ranges, { min = 0.3 } = {}) {
+    const want = union((ranges || []).map((x) => ({ from: Math.max(0, +x[0] || 0), to: +x[1] || 0 })));
+    if (doc && !Array.isArray(doc.spans)) return [];
+    const have = doc ? doc.spans : [];
+    const out = [];
+    for (const w of want) {
+      let at = w.from;
+      for (const [a, b] of have) {
+        if (b <= at || a >= w.to) continue;
+        if (a > at) out.push([r3(at), r3(a)]);
+        at = Math.max(at, b);
+      }
+      if (w.to > at) out.push([r3(at), r3(w.to)]);
+    }
+    return out.filter((x) => x[1] - x[0] >= min);
+  }
+  /** The windows of a file that clips play, padded by `pad` s each side (the VAD wants to hear a word from its start),
+   *  inside 0…duration, merged: [[from, to], …] in file seconds. */
+  function clipRanges(clips, { pad = 1.5, duration = null } = {}) {
+    const list = [];
+    for (const c of clips || []) {
+      const a = +c.in || 0, b = a + (+c.duration || 0) * clipSpeed(c);
+      let from = Math.max(0, a - pad), to = b + pad;
+      if (num(duration) && duration > 0) to = Math.min(to, duration);
+      if (to > from) list.push({ from, to });
+    }
+    return union(list).map((x) => [r3(x.from), r3(x.to)]);
+  }
+  /** Seconds the ranges add up to. */
+  const rangeSeconds = (ranges) => (ranges || []).reduce((n, x) => n + Math.max(0, x[1] - x[0]), 0);
+  /** A transcript of some parts of a file (`add`, with spans) laid into one that has others (`old`): what `add`
+   *  listened to replaces what `old` had there; the spans are the union. `add` without spans (the whole file)
+   *  replaces `old`. Both validated documents of the same file. */
+  function mergeDocs(old, add) {
+    if (!old || !Array.isArray(add.spans)) return add;
+    if (!Array.isArray(old.spans)) old = { ...old, spans: [[0, old.duration != null ? old.duration : Infinity]] };
+    const inside = (t) => add.spans.some(([a, b]) => t >= a && t <= b);
+    const words = old.words.filter((w) => !inside((w[1] + w[2]) / 2)).concat(add.words).sort((x, y) => x[1] - y[1] || x[2] - y[2]);
+    const gaps = old.gaps.filter((g) => !inside((g[0] + g[1]) / 2)).concat(add.gaps).sort((x, y) => x[0] - y[0]);
+    const spans = union([...old.spans, ...add.spans].map(([a, b]) => ({ from: a, to: b }))).map((x) => [x.from, x.to]);
+    const whole = add.duration != null && spans.length === 1 && spans[0][0] <= 0 && spans[0][1] >= add.duration;
+    const doc = { ...add, words, gaps };
+    if (whole) delete doc.spans; else doc.spans = spans;
+    return validate(doc);
   }
   /** complete, or partial when some parts could not be read (its gaps). */
   const status = (doc) => (doc && Array.isArray(doc.gaps) && doc.gaps.length ? "partial" : "complete");
@@ -245,6 +307,7 @@
   return {
     MODELS, DEFAULT_MODEL, RATE, LANGUAGES, MIN_CUT,
     model, language, join, gap, validate, status, ramped, clipWords, layout, norm, find, union,
+    missingSpans, clipRanges, rangeSeconds, mergeDocs,
     cutSpans, cutOps, text, segments, total,
   };
 });
