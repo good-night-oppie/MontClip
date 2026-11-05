@@ -96,6 +96,7 @@ function projectStatusText() {
 /** Text computed from state (not data-i18n) after a language switch: the top bar status and the Transcript panel. */
 function refreshLanguageText() {
   if (els.projectName) els.projectName.textContent = projectStatusText();
+  if (els.projectName?.classList.contains("clickable")) els.projectName.setAttribute("title", uiText("term.projects"));
   if (trState.built) renderTranscript(true);
 }
 function updateMontClipView(patch) {
@@ -117,6 +118,7 @@ function updateMontClipView(patch) {
 function refreshLocalizedViews() {
   renderBin();
   if (typeof renderInspector === "function" && els.inspector) renderInspector();
+  if (typeof renderColorPage === "function" && colorState.open) renderColorPage(true);
   if (typeof syncSequenceButton === "function") syncSequenceButton();
   state.dirtyTimeline = true; // clip labels ("T · Title")
   if (meterState.modeBtn) meterState.modeBtn.textContent = meterModeLabel(meterState.mode);
@@ -4087,7 +4089,7 @@ function initProjectsUi() {
   btn.classList.remove("hidden");
   btn.addEventListener("click", openProjects);
   els.projectName?.classList.add("clickable");
-  els.projectName?.setAttribute("title", "Projects");
+  els.projectName?.setAttribute("title", uiText("term.projects"));
   els.projectName?.addEventListener("click", openProjects);
   $("pjClose").addEventListener("click", closeProjects);
   ov.addEventListener("click", (e) => { if (e.target === ov) closeProjects(); });
@@ -16002,8 +16004,8 @@ function maskSectionHtml(c) {
   const tool = (k, label, title) => `<button type="button" class="btn tiny${ui.tool === k ? " toggle on" : ""}" data-mtool="${k}" title="${title}" ${list.length >= Mask.MAX_MASKS ? "disabled" : ""}>${label}</button>`;
   const chips = list.map((mk, j) => `<button type="button" class="btn tiny cl-chip${j === i ? " toggle on" : ""}${mk.on === false ? " off" : ""}" data-msel="${j}"
     title="${escapeHtml(mk.shape + (mk.mode !== "add" ? " · " + mk.mode : "") + (mk.invert ? " · inverted" : ""))} — click to edit on the monitor">${escapeHtml(mk.name || `Mask ${j + 1}`)}</button>`).join("");
-  let html = `<div class="insp-section" data-mask-section><h3>Masks</h3>
-    <div class="cl-row">${tool("rect", "+ Rect", "Add a rectangle mask")}${tool("ellipse", "+ Ellipse", "Add an ellipse mask")}${tool("pen", "Pen", "Click points on the monitor (drag to pull curve handles); click the first point or press Enter to close")}${tool("draw", "Draw", "Drag a free-hand outline on the monitor — it becomes an editable bezier")}
+  let html = `<div class="insp-section" data-mask-section><h3>${uiText("term.masks")}</h3>
+    <div class="cl-row">${tool("rect", "+ Rect", "Add a rectangle mask")}${tool("ellipse", "+ Ellipse", "Add an ellipse mask")}${tool("pen", uiText("term.pen"), "Click points on the monitor (drag to pull curve handles); click the first point or press Enter to close")}${tool("draw", uiText("term.draw"), "Drag a free-hand outline on the monitor — it becomes an editable bezier")}
       ${list.length ? `<button type="button" class="btn tiny${runtime.maskView ? " toggle on" : ""}" data-mact="view" title="Show the matte in the monitor (white = visible)">Matte</button>` : ""}</div>
     ${ui.tool === "pen" ? `<p class="cl-note">Pen: click to add points, drag to curve. Click the first point or press Enter to close. Ctrl+Z / Backspace removes the last point, Ctrl+Shift+Z puts it back, Esc cancels.</p>` : ""}
     ${ui.tool === "draw" ? `<p class="cl-note">Draw: drag around what to keep. Esc cancels.</p>` : ""}
@@ -22369,7 +22371,7 @@ function layerSectionsHtml(c) {
     </div>
     <div class="insp-section cp-mask"><h3>Mask</h3>
       <div class="cl-row">${["none", "ellipse", "rect", "poly"].map((s) => `<button type="button" class="btn tiny${(m ? m.shape : "none") === s ? " toggle on" : ""}" data-mshape="${s}">${s === "none" ? "None" : s === "rect" ? "Rect" : s[0].toUpperCase() + s.slice(1)}</button>`).join("")}
-        <button type="button" class="btn tiny${colorState.maskDraw || (m && m.shape === "bezier") ? " toggle on" : ""}" data-mdraw title="Drag a free-hand outline on the monitor — it becomes an editable bezier">Draw</button>
+        <button type="button" class="btn tiny${colorState.maskDraw || (m && m.shape === "bezier") ? " toggle on" : ""}" data-mdraw title="Drag a free-hand outline on the monitor — it becomes an editable bezier">${uiText("term.draw")}</button>
         ${m ? `<button type="button" class="btn tiny${m.invert ? " toggle on" : ""}" data-mact="invert" title="Grade outside the shape">Invert</button>` : ""}</div>
       ${m ? `<div class="cl-row"><button type="button" class="btn tiny${onKey ? " toggle on" : ""}" data-mact="key" title="${onKey ? "Remove the key at the playhead" : "Key the shape at the playhead — with keys, every change keys"}">◆ Key</button>
         <span class="cl-note">${keyed ? `${keyed} key${keyed > 1 ? "s" : ""}` : "not animated"}</span>
