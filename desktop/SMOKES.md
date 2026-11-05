@@ -6,6 +6,8 @@
 electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 ```
 
+Linux 上不用加 `--password-store`：在 Electron 认不出来的桌面上（openbox、VNC、xvfb，没有 `XDG_CURRENT_DESKTOP`），桌面版启动时自己要系统钥匙串；GNOME、KDE 等它认得的桌面照它自己的选择（KDE 用 KWallet）（`desktop/password-store.js`）。用户自己传了的以用户的为准。没有钥匙串（没有 secret service、没有会话 DBUS、没有 libsecret）时照样能启动，保存密钥会被拒绝（`KEY_STORE_UNAVAILABLE`），不会明文写盘。
+
 成功时打印「成功标志」那一行。`test/smokes-current.test.js` 检查这份清单列出了 `desktop/` 里的每一个 smoke。
 
 | 文件 | 成功标志 | 状态 |
@@ -52,6 +54,9 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `official-pane-smoke.cjs` | `OFFICIAL_COMPLETE` | 在用 |
 | `package-smoke.cjs` | `PACKAGE_SMOKE_COMPLETE` | 在用；用 node 运行：`node desktop/package-smoke.cjs <打好的 zip>` |
 | `remove-connection-smoke.cjs` | `REMOVE_COMPLETE` | 在用 |
+| `agent-seed-smoke.cjs` | `SEED_PASS` | 在用 |
+| `agent-outgoing-smoke.cjs` | `OUTGOING_PASS` | 在用 |
+| `agent-off-smoke.cjs` | `AGENT_OFF_PASS` | 在用 |
 | `review-body-smoke.cjs` | `REVIEW_PASS` | 在用 |
 | `review-count-smoke.cjs` | `REVIEW_COUNT_PASS` | 在用：发送确认框一打开（第一帧）就要写对引用的字幕条数 |
 | `sentence-button-smoke.cjs` | `SENTENCE_BUTTON_COMPLETE` | 在用 |
@@ -71,5 +76,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `zh-batch4-smoke.cjs` | `ZH4_PASS` | 在用 |
 | `zh-batch5-smoke.cjs` | `ZH5_PASS` | 在用 |
 | `zh-batch6-smoke.cjs` | `ZH6_PASS` | 在用 |
+| `zh-batch7-smoke.cjs` | `ZH7_PASS` | 在用 |
 | `zh-terms-smoke.cjs` | `TERMS_COMPLETE` | 在用 |
 | `zh-transcript-smoke.cjs` | `TR_PASS` | 在用 |
+| `seed-conflict-smoke.cjs` | `SEED_CONFLICT_PASS` | 在用；合成密钥、离屏窗口；中英文冲突提示、禁止发送、保留删除入口 |

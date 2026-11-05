@@ -58,12 +58,12 @@ function wrongCase(text) {
   return [...new Set((t.match(/[A-Za-z]{3,}/g) || []).filter((w) => !ALLOWED.has(w) && [...ALLOWED].some((n) => n.toLowerCase() === w.toLowerCase())))];
 }
 
-/** English words of three letters or more the zh-CN page shows: {"help:<section>/<keys>": words} for the shortcuts in the
+/** English words of three letters or more the zh-CN page (index.html, or the markup given) shows: {"help:<section>/<keys>": words} for the shortcuts in the
  *  help layer, one row each, both columns; {"help-head:<n>": words} for its section headings; {"html:<id>": words} for
  *  the rest of index.html, by the nearest element with an id. (Until 2026-11-05 the first column and the headings were
  *  left out, so 41 left cells Rea's second scan found were never reported.) */
-function englishShown() {
-  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8'), found = {};
+function englishShown(html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8')) {
+  const found = {};
   const a = html.indexOf('id="helpKeys"'), b = html.indexOf('id="helpEmpty"');
   const help = html.slice(a, b);
   let n = 0;

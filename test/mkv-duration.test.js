@@ -147,7 +147,7 @@ test("no length in the header: from the earliest start to the latest end, across
 test("the hint for a file with no length, both languages, plain words with the next step (drafts for JJ)", () => {
   const V = require("../ui-preferences");
   // JJ's final wording (2026-11-05): word for word in test/jj-length-strings.test.js
-  a.equal(V.t("zh-CN", "own.media-duration-unknown", { name: "录像.mkv" }), "「录像.mkv」可能没录完整（比如录屏中途停了），读不出有多长，现在还剪不了。原文件没有改动。");
+  a.equal(V.t("zh-CN", "own.media-duration-unknown", { name: "录像.mkv" }), "「录像.mkv」可能没录完整（比如录屏中途停了），读不出有多长，现在还剪不了。原文件没有改动。点〔帮我修好〕试试。");
   for (const k of ["own.media-duration-unknown", "own.media-duration-unknown-n", "own.media-incomplete", "own.media-cannot-cut"]) {
     const zh = V.t("zh-CN", k, { name: "x", n: 2 });
     a.doesNotMatch(zh, /NaN|0:00|undefined/);

@@ -14,7 +14,11 @@
       export runs, every ffmpeg.exe process is the one inside the package; the exported file is an MP4 that the packaged
       ffprobe reads. Whether the highlight-candidates entry exists, and opens, is reported (it comes with #52).
    5. The window is closed the normal way; the exit code is recorded; no MontClip.exe or ffmpeg.exe from the package is
-      left running. The unpacked folder and the profile are deleted. Prints PACKAGE_SMOKE_COMPLETE {…} or PACKAGE_SMOKE_FAIL. */
+      left running. The unpacked folder and the profile are deleted. Prints PACKAGE_SMOKE_COMPLETE {…} or PACKAGE_SMOKE_FAIL.
+   6. A private package (BUILD-INFO.json privateSeed; desktop/agent-seed.js): the seed is in it before the first launch; after
+      it, the AI service is set up with the seed's provider and model and the seed is gone. With --seed-key-file <file> (the
+      synthetic key it was built with) no file of the profile and nothing the program printed holds the key.
+        node desktop/package-smoke.cjs <MontClip-private-win-x64-full-….zip> --seed-key-file <file> */
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), crypto = require('node:crypto');
 const { spawn, spawnSync } = require('node:child_process');
 const assert = require('node:assert/strict');
@@ -22,6 +26,7 @@ const zip = path.resolve(process.argv[2] || '');
 // --no-path-ffmpeg (Deja): start the app with every PATH folder holding ffmpeg / ffprobe taken out, as on a computer with no FFmpeg
 const noPath = process.argv.includes('--no-path-ffmpeg');
 const NP = require('./smoke-no-path.cjs');
+const seedKeyAt = process.argv.indexOf('--seed-key-file'), seedKey = seedKeyAt > 0 ? fs.readFileSync(process.argv[seedKeyAt + 1], 'utf8').trim() : null;
 if (!process.argv[2] || !fs.existsSync(zip)) { console.error('usage: node desktop/package-smoke.cjs <zip> [--no-path-ffmpeg]'); process.exit(2); }
 const sha = (f) => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -90,7 +95,7 @@ async function main() {
     const q = (s) => "'" + s.replace(/'/g, "''") + "'";
     const ex = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `Expand-Archive -LiteralPath ${q(zip)} -DestinationPath ${q(root)}`], { encoding: 'utf8', windowsHide: true });
     assert.equal(ex.status, 0, 'unpack: ' + ex.stderr);
-    const top = fs.readdirSync(root).find((d) => d.startsWith('MontClip-internal-win-x64-'));
+    const top = fs.readdirSync(root).find((d) => /^MontClip-(internal|private)-win-x64-/.test(d));
     const appDir = path.join(root, top), exe = path.join(appDir, 'MontClip.exe'), ffDir = path.join(appDir, 'resources', 'ffmpeg');
     // JJ's notes in the root: UTF-8 with a BOM, CRLF, placeholders filled, no internal checklist
     out.readme = ['先看我-使用说明.txt', 'README-first.txt'].map((n) => { const b = fs.readFileSync(path.join(appDir, n)), s = b.toString('utf8');
@@ -113,6 +118,10 @@ async function main() {
       assert.ok(copyGone ? !has && (!COPY[lang].to || lines.includes(COPY[lang].to)) : has, n + ': the export-copy line matches the app');
     }
     out.unpackedTo = 'a new folder under %TEMP% named "MontClip 包测试 …"';
+    // 6. a private package: its seed, before the first launch
+    const buildInfo = JSON.parse(fs.readFileSync(path.join(appDir, 'BUILD-INFO.json'), 'utf8')), seedFile = path.join(appDir, 'resources', 'montclip-seed-v1.json');
+    if (buildInfo.privateSeed) assert.ok(fs.existsSync(seedFile), 'the private package holds its seed before the first launch');
+    else assert.ok(!fs.existsSync(seedFile), 'an ordinary package holds no seed');
     // a synthetic MP4, made with the packaged ffmpeg: 24 s, 320×180 at 30 fps, H.264 by Media Foundation + AAC; a 440 Hz tone,
     // quiet except 12–16 s (+25 dB), so the highlight candidates have a louder stretch to find
     const mp4 = path.join(media, '合成 片段.mp4');
@@ -151,6 +160,18 @@ async function main() {
       await wait(500);
     }
     out.window = await c.read(`({title:document.title,loaded:document.readyState,width:innerWidth,height:innerHeight,connected:state.connected})`);
+    // 6. a private package after its first launch: set up from the seed, the seed gone, the key nowhere in the profile
+    if (buildInfo.privateSeed) {
+      const conf = await c.read(`(async()=>{const g=await montclipAgentService.get();return{configured:g.configured,provider:g.provider,model:g.model};})()`);
+      out.privateSeed = { ...conf, seedGone: !fs.existsSync(seedFile) };
+      assert.equal(conf.configured, true, 'the AI service is set up from the seed'); assert.equal(conf.provider, buildInfo.privateSeed.provider); assert.equal(conf.model, buildInfo.privateSeed.model);
+      assert.ok(out.privateSeed.seedGone, 'the seed is deleted after the first launch');
+      if (seedKey) {
+        const holding = []; (function walk(d) { let l; try { l = fs.readdirSync(d, { withFileTypes: true }); } catch { return; } for (const e of l) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else { try { if (fs.statSync(p).size < 64 << 20 && fs.readFileSync(p).includes(Buffer.from(seedKey))) holding.push(path.relative(profile, p)); } catch {} } } })(profile);
+        out.privateSeed.profileFilesHoldingKey = holding; out.privateSeed.printedKey = log.includes(seedKey) || log.includes(seedKey.slice(0, 12)) || log.includes('montclip-seed-v1');
+        assert.deepEqual(holding, [], 'no file of the profile holds the plain key'); assert.equal(out.privateSeed.printedKey, false, 'the program printed no key');
+      }
+    }
     // import through the editor's own file input
     const { root: doc } = await c.send('DOM.getDocument', { depth: 0 });
     const { nodeId } = await c.send('DOM.querySelector', { nodeId: doc.nodeId, selector: '#fileInput' });
