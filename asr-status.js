@@ -8,6 +8,8 @@
                      model's size comes from desktop/asr-manifest.json.
      agentCode(code) → {code, missing: "manifest" | "engine" | "model", ids}: for the agent only, never shown to the user
      SAY[code]       → what fablecut_transcribe answers: all of the above.
+     hidePaths(text) → the text with every absolute path cut to "…/<its last part>": an error that leaves this
+                     computer's server for a page or an agent says which file, never where it is (QQ on #165).
    Zero dependencies; required by the server and the MCP server. Reading the manifest may fail (that is the first
    code), so it is read lazily and never throws here. */
 "use strict";
@@ -66,4 +68,14 @@ const CODES = ["ASR_MANIFEST_MISSING", "ASR_ENGINE_MISSING", "ASR_MODEL_MISSING"
 const SAY = {};
 for (const c of CODES) Object.defineProperty(SAY, c, { enumerable: true, get: () => say(c) });
 
-module.exports = { code, userText, agentCode, SAY, modelMb };
+/* A Windows path (C:\…, \\server\…) or a POSIX one (/…, ~/…) up to a quote, a space-free stretch's end, a comma or a
+   bracket. The last part stays, so "open '…/asr-manifest.json'" still says what is missing. */
+const PATHS = /(?:(?<![\w])[A-Za-z]:[\\/]|\\\\|~[\\/]|(?<![\w.:\/])\/(?=[^\s/]))[^'"`\s,;()<>\[\]{}]*/g;
+function hidePaths(text) {
+  return String(text == null ? "" : text).replace(PATHS, (p) => {
+    const last = p.split(/[\\/]+/).filter(Boolean).pop();
+    return last && !/^[A-Za-z]:$/.test(last) && last !== "~" ? "…/" + last : "…";
+  });
+}
+
+module.exports = { code, userText, agentCode, SAY, modelMb, hidePaths };

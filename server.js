@@ -145,15 +145,15 @@ const asr = () => asrLocal || (asrLocal = require("./asr-local").createAsr({ asr
 /** The speech engine's front, or null when this copy of MontClip cannot even load it (P8: a copy without
  *  desktop/asr-manifest.json threw here and took the whole server down). Never throws. */
 let asrLoadError = null, asrLoadCode = null;
+const AsrStatus = require("./asr-status");
 const asrOrNull = () => {
   try { return asr(); }
   catch (e) {
-    asrLoadError = String((e && e.message) || e).split("\n")[0].slice(0, 200);
+    asrLoadError = AsrStatus.hidePaths(String((e && e.message) || e).split("\n")[0]).slice(0, 200);   // never a local path
     asrLoadCode = /asr-manifest\.json/.test(asrLoadError) ? "ASR_MANIFEST_MISSING" : "ASR_ENGINE_MISSING";
     return null;
   }
 };
-const AsrStatus = require("./asr-status");
 const ASR_NONE = { ready: false, where: null, missing: [], bad: [] };
 const asrJob = { running: null };
 
@@ -1879,7 +1879,7 @@ async function handleRequest(req, res) {
       sendJSON(res, 200, { src, status: TR.status(doc), gaps: doc.gaps.length, gapSeconds, skippedSegments: r.skippedSegments, words: doc.words.length, duration: doc.duration, speech: Math.round(r.speech * 10) / 10, punctuated: r.punctuated, spans: doc.spans || null });
     } catch (e) {
       const code = e.code === "ASR_CANCELLED" || ac.signal.aborted ? "ASR_CANCELLED" : e.code || "ASR_FAILED";
-      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING)$/.test(code) ? 409 : 500, { code, error: String(e.message || e) });
+      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING)$/.test(code) ? 409 : 500, { code, error: AsrStatus.hidePaths(String(e.message || e)) });
     } finally { if (asrJob.running === job) asrJob.running = null; }
     return;
   }

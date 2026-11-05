@@ -26,6 +26,7 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { manifest, createStore } = require("./asr-models");
 const W = require("./asr-words");
+const { hidePaths } = require("./asr-status");
 
 const crypto = require("node:crypto");
 const os = require("node:os");
@@ -105,7 +106,8 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
   function engine() {
     if (!sherpa) {
       try { sherpa = require(engineDir); }
-      catch (e) { throw Object.assign(new Error("the speech engine could not be loaded on this computer: " + String((e && e.message) || e).split("\n")[0].slice(0, 200)), { code: "ASR_ENGINE_MISSING" }); }
+      // which module, never where it is on this computer (QQ on #165)
+      catch (e) { throw Object.assign(new Error("the speech engine could not be loaded on this computer: " + hidePaths(String((e && e.message) || e).split("\n")[0]).slice(0, 200)), { code: "ASR_ENGINE_MISSING" }); }
     }
     return sherpa;
   }

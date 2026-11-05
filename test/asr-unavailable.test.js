@@ -178,3 +178,12 @@ test("an engine that can't be loaded: the error names no path on this computer",
   a.equal(err && err.code, "ASR_ENGINE_MISSING");
   noLocalPath({ message: err.message }, localRoots(dir), "engine error");
 });
+
+test("hidePaths: a path keeps only its last part; a URL, a ratio or a time is left alone", () => {
+  const { hidePaths } = require("../asr-status.js");
+  a.equal(hidePaths("open 'C:\\Users\\name\\AppData\\x\\desktop\\asr-manifest.json'"), "open '…/asr-manifest.json'");
+  a.equal(hidePaths("Cannot find module '/home/name/x/sherpa-onnx-node/gone.js'. Please"), "Cannot find module '…/gone.js'. Please");
+  a.equal(hidePaths("open '~/MontClip/desktop/asr-manifest.json'"), "open '…/asr-manifest.json'");
+  a.equal(hidePaths("\\\\server\\share\\a.txt"), "…/a.txt");
+  for (const keep of ["see http://127.0.0.1:7777/api/asr", "ratio 1/2 at 12:30", "basic_string::_S_create"]) a.equal(hidePaths(keep), keep);
+});
