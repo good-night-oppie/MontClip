@@ -39,6 +39,10 @@ let mcAgent = null;
 const mcView = MontClipView.create(window.montclipViewSettings ? MontClipView.desktopStorage(window.montclipViewSettings) : localStorage);
 /** Keyed interface text in the current language (ui-terms.js / ui-preferences.js). Never for user content. */
 const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
+/** A keyed term in Chinese, the page's own English word in English (for a term whose English row reads differently). */
+const uiOr = (key, english) => (mcView.get().language === "en" ? english : uiText(key));
+/** A stored default name ("Main", "Title") as the interface language shows it; the user's own names as they are. */
+const shownName = (name) => MontClipView.defaultName(mcView.get().language, name);
 /** On-device transcription: on in development and the browser editor; a packaged desktop build has it
  *  off unless the main process turned it on (desktop/features.js). Off means no entry and no download. */
 function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
@@ -108,6 +112,7 @@ function projectStatusText() {
 /** Text computed from state (not data-i18n) after a language switch: the top bar status and the Transcript panel. */
 function refreshLanguageText() {
   if (els.projectName) els.projectName.textContent = projectStatusText();
+  if (els.projectName?.classList.contains("clickable")) els.projectName.setAttribute("title", uiText("term.projects"));
   if (trState.built) renderTranscript(true);
 }
 function updateMontClipView(patch) {
@@ -128,10 +133,14 @@ function updateMontClipView(patch) {
 /** Texts built in code (not data-i18n markers) for the views that are on screen, after a language switch. */
 function refreshLocalizedViews() {
   renderBin();
+  if (typeof renderInspector === "function" && els.inspector) renderInspector();
+  if (typeof renderColorPage === "function" && colorState.open) renderColorPage(true);
+  if (typeof syncSequenceButton === "function") syncSequenceButton();
+  state.dirtyTimeline = true; // clip labels ("T · Title")
   if (meterState.modeBtn) meterState.modeBtn.textContent = meterModeLabel(meterState.mode);
   if (projectsOpen()) renderProjects();
   if (els.exportSetup && !els.exportSetup.classList.contains("hidden")) {
-    renderExportEngineText(); syncExportRangeUi(); refreshDeliveryNotes(); renderDeliveryTokens(); renderBatchList();
+    renderExportEngineText(); syncExportRangeUi(); if (dlvSpec) fillDeliveryControls(); refreshDeliveryNotes(); renderDeliveryTokens(); renderBatchList();
   }
 }
 document.getElementById("mcMode").addEventListener("click", e => {
@@ -2504,7 +2513,7 @@ function renderBin() {
       item.innerHTML = `
         <span class="bin-cell bin-cell-name">${favHtml}<span class="bin-thumb sm"></span>${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span>` : ""}<span class="bin-name"></span></span>
         ${cell(MediaLib.fmtDur(m.duration), " num c-duration")}${cell(MediaLib.fmtRes(m), " num c-resolution")}${cell(MediaLib.fmtFps(m.fps), " num c-fps")}
-        ${cell(m.codec, " c-codec")}${cell(MediaLib.fmtAudio(m), " c-audio")}${cell(MediaLib.fmtSize(m.size), " num c-size")}
+        ${cell(m.codec, " c-codec")}${cell(MediaLib.fmtAudio(m).replace(/^stereo\b/, uiOr("term.stereo", "stereo")), " c-audio")}${cell(MediaLib.fmtSize(m.size), " num c-size")}
         <span class="bin-cell c-proxy">${proxyBadgeHtml(m) || escapeHtml(m.kind === "video" ? "—" : "")}</span>
         <span class="bin-cell num c-usage">${usesHtml}</span>
         <span class="bin-del" title="Remove (and its clips)">✕</span>${incomplete}`;
@@ -2693,7 +2702,7 @@ function syncBinTools() {
   const html = opt("", "All media") + opt("fav", "★ Favorites") + opt("used", "Used in the edit") + opt("unused", "Unused") +
     (mediaOffline.size || binView.filter === "offline" ? opt("offline", `⚠ Offline (${mediaOffline.size})`) : "") +
     (project.media.some((m) => m.kind === "video") ? opt("proxy", "Has a proxy") + opt("noproxy", "Video without a proxy") : "") +
-    `<optgroup label="Kind">${MediaLib.KINDS.map((k) => opt("kind:" + k, k[0].toUpperCase() + k.slice(1))).join("")}</optgroup>` +
+    `<optgroup label="Kind">${MediaLib.KINDS.map((k) => opt("kind:" + k, k === "svg" ? "SVG" : k === "video" || k === "audio" ? uiText("term." + k) : k[0].toUpperCase() + k.slice(1))).join("")}</optgroup>` +
     (cols.length ? `<optgroup label="Collections">${cols.map((c) => opt("col:" + c.id, c.name + ` (${c.media.length})`)).join("")}</optgroup>` : "") +
     (tags.length ? `<optgroup label="Tags">${tags.map((t) => opt("tag:" + t, "#" + t)).join("")}</optgroup>` : "");
   if (els.binFilter.innerHTML !== html) els.binFilter.innerHTML = html;
@@ -2701,9 +2710,9 @@ function syncBinTools() {
   els.binFilter.classList.toggle("on", !!binView.filter);
   els.binSort.value = binView.sort;
   els.binSortDir.textContent = binView.dir === "desc" ? "↓" : "↑";
-  els.binSortDir.title = binView.dir === "desc" ? "Descending — click for ascending" : "Ascending — click for descending";
+  els.binSortDir.title = binView.dir === "desc" ? "Descending — click for ascending" : uiText("term.ascending-click-for-descending");
   els.binViewBtn.classList.toggle("on", binView.list);
-  els.binViewBtn.title = binView.list ? "Thumbnail view" : "List view: metadata columns";
+  els.binViewBtn.title = binView.list ? "Thumbnail view" : uiText("term.list-view-metadata-columns");
   if (els.binSearch.value !== binView.q && document.activeElement !== els.binSearch) els.binSearch.value = binView.q;
 }
 function setBinFilter(filter) {
@@ -2740,15 +2749,17 @@ function makeFilterBar(n) {
 /* List view header: click a column to sort by it (again to flip the direction). */
 const BIN_COLUMNS = [["name", "Name"], ["duration", "Duration"], ["resolution", "Resolution"], ["fps", "FPS"],
   ["codec", "Codec"], ["audio", "Audio"], ["size", "Size"], ["proxy", "Proxy"], ["usage", "Uses"]];
+const BIN_COLUMN_TERMS = { name: "term.name", duration: "term.duration", resolution: "term.resolution", codec: "term.codec", audio: "term.audio", proxy: "term.proxy" };
+const binColumnLabel = (key, label) => (BIN_COLUMN_TERMS[key] ? uiText(BIN_COLUMN_TERMS[key]) : label);
 function makeColumnHead() {
   const head = document.createElement("div");
   head.className = "bin-colhead bin-row";
   for (const [key, label] of BIN_COLUMNS) {
-    if (key === "proxy") { const sp = document.createElement("span"); sp.className = "bin-cell c-proxy"; sp.textContent = label; head.appendChild(sp); continue; }
+    if (key === "proxy") { const sp = document.createElement("span"); sp.className = "bin-cell c-proxy"; sp.textContent = binColumnLabel(key, label); head.appendChild(sp); continue; }
     const b = document.createElement("button");
     b.type = "button";
     b.className = "bin-cell c-" + key + (key === "name" ? " bin-cell-name" : "") + (["duration", "resolution", "fps", "size", "usage"].includes(key) ? " num" : "") + (binView.sort === key ? " on" : "");
-    b.textContent = label + (binView.sort === key ? (binView.dir === "desc" ? " ↓" : " ↑") : "");
+    b.textContent = binColumnLabel(key, label) + (binView.sort === key ? (binView.dir === "desc" ? " ↓" : " ↑") : "");
     b.addEventListener("click", () => {
       if (binView.sort === key) binView.dir = binView.dir === "desc" ? "asc" : "desc";
       else { binView.sort = key; binView.dir = key === "name" || key === "codec" ? "asc" : "desc"; }
@@ -3772,7 +3783,7 @@ function pjDetailHtml(p) {
   const fact = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
   const tpl = p.template && pj.templates.find((t) => t.id === p.template);
   return `${pjThumbHtml(p, true)}
-    <label class="pj-field"><span>Name</span><input type="text" id="pjName" value="${escapeHtml(p.name)}" maxlength="120" spellcheck="false"></label>
+    <label class="pj-field"><span>${uiText("term.name")}</span><input type="text" id="pjName" value="${escapeHtml(p.name)}" maxlength="120" spellcheck="false"></label>
     <dl class="pj-facts">
       ${fact(escapeHtml(uiText("own.pj-canvas")), p.unreadable ? "—" : pjCanvas(p))}
       ${fact(escapeHtml(uiText("own.pj-length")), escapeHtml((p.clips === 1 ? uiText("own.pj-length-value-1", { dur: pjFmtDur(p.duration), clips: 1, media: p.media }) : uiText("own.pj-length-value", { dur: pjFmtDur(p.duration), clips: p.clips, media: p.media }))))}
@@ -3816,7 +3827,7 @@ function pjNewHtml() {
     </button>`;
   const saved = tpls.filter((x) => !x.builtin);
   return `<h3>New project</h3>
-    <label class="pj-field"><span>Name</span><input type="text" id="pjNewName" value="${escapeHtml(MontClipView.defaultProjectName(mcView.get().language))}" maxlength="120" spellcheck="false"></label>
+    <label class="pj-field"><span>${uiText("term.name")}</span><input type="text" id="pjNewName" value="${escapeHtml(MontClipView.defaultProjectName(mcView.get().language))}" maxlength="120" spellcheck="false"></label>
     <div class="pj-field"><span>Start from</span>
       <div class="pj-tpls">${tpls.filter((x) => x.builtin).map(row).join("")}</div>
       ${saved.length ? `<span class="pj-sub">Saved templates</span><div class="pj-tpls">${saved.map(row).join("")}</div>` : ""}
@@ -4132,7 +4143,7 @@ function initProjectsUi() {
   btn.classList.remove("hidden");
   btn.addEventListener("click", openProjects);
   els.projectName?.classList.add("clickable");
-  els.projectName?.setAttribute("title", "Projects");
+  els.projectName?.setAttribute("title", uiText("term.projects"));
   els.projectName?.addEventListener("click", openProjects);
   $("pjClose").addEventListener("click", closeProjects);
   ov.addEventListener("click", (e) => { if (e.target === ov) closeProjects(); });
@@ -5659,7 +5670,7 @@ function rebuildClips() {
       const s = audioChannelShort(c.props?.audioChannel);
       return s ? s + " · " : "";
     })();
-    const label = c.kind === "text" ? "T · " + (c.props.text || "").split("\n")[0]
+    const label = c.kind === "text" ? "T · " + shownName((c.props.text || "").split("\n")[0])
       : c.kind === "adjust" ? "FX · " + (c.name || "")
       : c.kind === "shape" ? "◆ · " + (c.name || "")
       : c.kind === "null" ? "✥ · " + (c.name || "")
@@ -6249,7 +6260,7 @@ function openSnapMenu(anchor) {
   const on = snapTargets();
   menu.innerHTML = `<div class="snap-menu-head dim">Snap to</div>` +
     Object.entries(SNAP_TARGET_LABELS).map(([k, label]) =>
-      `<label class="ctx-item snap-opt"><input type="checkbox" data-snap="${k}"${on[k] ? " checked" : ""}> <span>${label}</span></label>`).join("");
+      `<label class="ctx-item snap-opt"><input type="checkbox" data-snap="${k}"${on[k] ? " checked" : ""}> <span>${k === "markers" ? escapeHtml(uiText("term.markers")) : label}</span></label>`).join("");
   menu.addEventListener("change", (e) => {
     const k = e.target.dataset.snap;
     if (k) toggleSnapTarget(k);
@@ -7480,7 +7491,7 @@ function renderInspector(lite) {
   let html = captionQuickHtml("selected") + (state.selIds.size > 1
     ? `<div class="insp-multi">${state.selIds.size} clips selected — drag moves them together, Del deletes all. Fields below edit the primary (white-outlined) clip.</div>`
     : "") + clipStatusBar(c) + `<div class="insp-section"><h3>Clip — ${c.kind}</h3>
-    ${row("Name", `<input type="text" data-k="name" value="${escapeHtml(c.name || "")}">`)}
+    ${row(uiText("term.name"), `<input type="text" data-k="name" value="${escapeHtml(c.name || "")}">`)}
     ${c.mediaId ? row("Source", `<button type="button" class="btn tiny style-picker-btn" data-media-open title="Replace this clip's media — keeps position, trim, keyframes and effects">${escapeHtml((getMedia(c.mediaId) || {}).name || "Missing media")} ▾</button>`) : ""}
     ${row("Start (s)", `<input type="number" data-k="start" step="0.01" value="${c.start.toFixed(2)}">`)}
     ${row("Length (s)", `<input type="number" data-k="duration" step="0.01" value="${c.duration.toFixed(2)}">`)}
@@ -7512,7 +7523,7 @@ function renderInspector(lite) {
       ${parentRowHtml(c)}
     </div>`;
   } else if (c.kind !== "audio") {
-    html += `<div class="insp-section"><h3>Transform</h3>
+    html += `<div class="insp-section"><h3>${uiText("term.transform")}</h3>
       ${row("Position X", `<input type="number" data-k="x" value="${fmtInspNum(p.x)}">`, "x")}
       ${row("Position Y", `<input type="number" data-k="y" value="${fmtInspNum(p.y)}">`, "y")}
       ${slider("scale", 0.1, 4, 0.01, p.scale)}
@@ -7658,7 +7669,7 @@ function renderInspector(lite) {
   }
   const tsel = (label, key, tr) => {
     const active = state.transFocus === (key === "transIn" ? "in" : "out");
-    return `<div class="insp-row${active ? " trans-active" : ""}"><label class="insp-reset" data-reset="${key}" title="Ctrl-click: reset · Shift-click: reset">${label}</label>
+    return `<div class="insp-row${active ? " trans-active" : ""}"><label class="insp-reset" data-reset="${key}" title="Ctrl-click or Shift-click: remove the transition">${label}</label>
       <span class="insp-ctrls"><select data-k="${key}">${TRANSITIONS.map((x) => `<option ${x === (tr?.type || "none") ? "selected" : ""}>${x}</option>`).join("")}</select>
        <input type="number" class="insp-dur" data-k="${key}Dur" step="0.1" min="0.1" value="${tr?.duration ?? 1}"></span></div>`;
   };
@@ -7676,7 +7687,7 @@ function renderInspector(lite) {
     ${curveSel("Out curve", "curveOut", c.transitionOut)}
   </div>`;
   if (c.kind === "text") {
-    html += `<div class="insp-section"><h3>Text</h3>
+    html += `<div class="insp-section"><h3>${uiText("term.text")}</h3>
       ${row("Content", `<textarea data-k="text">${p.text}</textarea>`, "", "text")}
       ${row(hasTextBox(p) && p.boxFit ? "Max size" : "Font size",
         `<input type="range" data-k="fontSize" min="12" max="300" step="1" value="${fmtInspNum(p.fontSize, 1)}" title="Ctrl/Cmd-click: reset to default">
@@ -14163,7 +14174,8 @@ function syncCompCrumb() {
 const SeqLib = self.MontClipSeq;
 /** The document that holds the sequences (the root while a comp is open). */
 function seqRoot() { return state.compCtx ? state.compCtx.root : project; }
-function openSequenceName() { const r = seqRoot(); return (SeqLib.find(r, SeqLib.activeId(r)) || SeqLib.MAIN).name; }
+/** The open sequence's name as the page shows it (shownName: the stored default "Main" reads as 主序列 in Chinese). */
+function openSequenceName() { const r = seqRoot(); return shownName((SeqLib.find(r, SeqLib.activeId(r)) || SeqLib.MAIN).name); }
 /** A document is about to be shown: when it opens another sequence, the undo steps,
  *  playhead and selection go with the one that was open, and the other's come back. */
 function noteOpenSequence(data) {
@@ -14291,17 +14303,17 @@ function showSequenceMenu(x, y) {
     // the open one's live numbers are on the timeline (or the root, while a comp is open)
     const w = row.active ? r.width : row.width, h = row.active ? r.height : row.height;
     const len = row.active ? (state.compCtx ? row.duration : projDur()) : row.duration;
-    const b = item(`<span class="seq-check">${row.active ? "✓" : ""}</span><span class="seq-row-name">${escapeHtml(row.name)}</span><kbd>${w}×${h} · ${fmt(len)}</kbd>`,
+    const b = item(`<span class="seq-check">${row.active ? "✓" : ""}</span><span class="seq-row-name">${escapeHtml(shownName(row.name))}</span><kbd>${w}×${h} · ${fmt(len)}</kbd>`,
       () => openSequence(row.id));
     if (row.active) b.classList.add("on");
   }
   sep();
-  item(`<span>New sequence…</span>`, () => promptNewSequence(x, y));
+  item(`<span>${escapeHtml(uiText("term.new-sequence"))}</span>`, () => promptNewSequence(x, y));
   item(`<span>Highlights…</span>`, () => promptHighlights(x, y),
     state.compCtx ? "Close the composition first" : !project.clips.some((c) => c.kind === "video") ? "Put video on the timeline first" : null);
-  item(`<span>Duplicate “${escapeHtml(open.name)}”</span>`, () => newSequence({ from: "open" }));
-  item(`<span>Rename “${escapeHtml(open.name)}”…</span>`, () => promptBinText(x, y, "Sequence name", open.name, (v) => renameSequence(openId, v), { max: 120, ok: "Rename" }));
-  item(`<span>Delete “${escapeHtml(open.name)}”…</span>`, (b) => {
+  item(`<span>Duplicate “${escapeHtml(shownName(open.name))}”</span>`, () => newSequence({ from: "open" }));
+  item(`<span>Rename “${escapeHtml(shownName(open.name))}”…</span>`, () => promptBinText(x, y, "Sequence name", open.name, (v) => renameSequence(openId, v), { max: 120, ok: "Rename" }));
+  item(`<span>Delete “${escapeHtml(shownName(open.name))}”…</span>`, (b) => {
     if (b.dataset.armed !== "1") { b.dataset.armed = "1"; b.querySelector("span").textContent = "Click again to delete it"; return; }
     hideTrackCtxMenu();
     deleteSequence(openId);
@@ -14674,11 +14686,11 @@ function presetRowsHtml(c, row) {
     const list = (l) => l.map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join("");
     return `<select data-preset="${anchor}"><option value="">${first}</option>${list(Tpl.PRESETS.filter((p) => p.anchor === anchor))}${own.length ? `<optgroup label="Saved">${list(own)}</optgroup>` : ""}</select>`;
   };
-  return row("Presets", `<span class="insp-ctrls">${opts("in", "In…")}${opts("out", "Out…")}</span>`)
+  return row(uiOr("term.preset", "Presets"), `<span class="insp-ctrls">${opts("in", "In…")}${opts("out", "Out…")}</span>`)
     + row("", `<span class="insp-ctrls">${opts("at", "At playhead…")}${opts("whole", "Loop…")}</span>`)
-    + row("Save as preset", `<span class="insp-ctrls"><input type="text" data-preset-name maxlength="60" placeholder="Name" style="max-width:110px">
+    + row(uiText("term.save-as-preset"), `<span class="insp-ctrls"><input type="text" data-preset-name maxlength="60" placeholder="${uiText("term.name")}" style="max-width:110px">
       <select data-preset-anchor title="In: from the clip's start · Out: up to its end · Loop: the whole clip"><option value="in">In</option><option value="out">Out</option><option value="whole">Loop</option></select>
-      <button type="button" class="btn tiny" data-preset-save title="Save this clip's keyframes to library/presets — every project can use it">Save</button></span>`);
+      <button type="button" class="btn tiny" data-preset-save title="Save this clip's keyframes to library/presets — every project can use it">${uiText("term.save")}</button></span>`);
 }
 function bindPresetControls(c) {
   for (const s of els.inspector.querySelectorAll("[data-preset]")) s.addEventListener("change", () => {
@@ -16050,8 +16062,8 @@ function maskSectionHtml(c) {
   const tool = (k, label, title) => `<button type="button" class="btn tiny${ui.tool === k ? " toggle on" : ""}" data-mtool="${k}" title="${title}" ${list.length >= Mask.MAX_MASKS ? "disabled" : ""}>${label}</button>`;
   const chips = list.map((mk, j) => `<button type="button" class="btn tiny cl-chip${j === i ? " toggle on" : ""}${mk.on === false ? " off" : ""}" data-msel="${j}"
     title="${escapeHtml(mk.shape + (mk.mode !== "add" ? " · " + mk.mode : "") + (mk.invert ? " · inverted" : ""))} — click to edit on the monitor">${escapeHtml(mk.name || `Mask ${j + 1}`)}</button>`).join("");
-  let html = `<div class="insp-section" data-mask-section><h3>Masks</h3>
-    <div class="cl-row">${tool("rect", "+ Rect", "Add a rectangle mask")}${tool("ellipse", "+ Ellipse", "Add an ellipse mask")}${tool("pen", "Pen", "Click points on the monitor (drag to pull curve handles); click the first point or press Enter to close")}${tool("draw", "Draw", "Drag a free-hand outline on the monitor — it becomes an editable bezier")}
+  let html = `<div class="insp-section" data-mask-section><h3>${uiText("term.masks")}</h3>
+    <div class="cl-row">${tool("rect", "+ Rect", "Add a rectangle mask")}${tool("ellipse", "+ Ellipse", "Add an ellipse mask")}${tool("pen", uiText("term.pen"), "Click points on the monitor (drag to pull curve handles); click the first point or press Enter to close")}${tool("draw", uiText("term.draw"), "Drag a free-hand outline on the monitor — it becomes an editable bezier")}
       ${list.length ? `<button type="button" class="btn tiny${runtime.maskView ? " toggle on" : ""}" data-mact="view" title="Show the matte in the monitor (white = visible)">Matte</button>` : ""}</div>
     ${ui.tool === "pen" ? `<p class="cl-note">Pen: click to add points, drag to curve. Click the first point or press Enter to close. Ctrl+Z / Backspace removes the last point, Ctrl+Shift+Z puts it back, Esc cancels.</p>` : ""}
     ${ui.tool === "draw" ? `<p class="cl-note">Draw: drag around what to keep. Esc cancels.</p>` : ""}
@@ -16611,10 +16623,10 @@ function setClipParent(c, parentId) {
 function parentCandidates(c) {
   return project.clips.filter((x) => x.id !== c.id && isVisualClip(x) && !Motion.wouldCycle(c.id, x.id, getClip));
 }
-const clipShortLabel = (x) => x.track + " · " + (x.kind === "text" ? (x.props.text || "").split("\n")[0] : x.name || x.kind);
+const clipShortLabel = (x) => x.track + " · " + (x.kind === "text" ? shownName((x.props.text || "").split("\n")[0]) : x.name || x.kind);
 function parentRowHtml(c) {
   const cands = parentCandidates(c), cur = c.parent && getClip(c.parent);
-  const opts = [`<option value="">None</option>`, ...cands.map((x) => `<option value="${x.id}" ${x.id === c.parent ? "selected" : ""}>${escapeHtml(clipShortLabel(x))}${x.kind === "null" ? " (null)" : ""}</option>`)];
+  const opts = [`<option value="">${uiText("term.none")}</option>`, ...cands.map((x) => `<option value="${x.id}" ${x.id === c.parent ? "selected" : ""}>${escapeHtml(clipShortLabel(x))}${x.kind === "null" ? " (null)" : ""}</option>`)];
   if (c.parent && !cur) opts.push(`<option value="${escapeHtml(c.parent)}" selected>Missing clip</option>`);
   return `<div class="insp-row"><label title="Move, turn and scale with another clip (its opacity and effects are not inherited)">Parent</label><select data-parent>${opts.join("")}</select></div>`;
 }
@@ -17350,7 +17362,7 @@ function textPathSectionHtml(c, p, row) {
   const has = !!clipTextPath(c), editing = has && shapeUi.clip === c.id && samePath(shapeUi.sel, [0]);
   const btn = (attr, label, title, on, dis) => `<button type="button" class="btn tiny${on ? " toggle on" : ""}" ${attr} title="${title}" ${dis ? "disabled" : ""}>${label}</button>`;
   return `<div class="insp-section" data-textpath-section><h3>Text path</h3>
-    <div class="cl-row">${Object.entries(TEXT_PATH_PRESETS).map(([k, pre]) => btn(`data-tpath="${k}"`, pre.label, `Set the title on a ${pre.label.toLowerCase()}`)).join("")}
+    <div class="cl-row">${Object.entries(TEXT_PATH_PRESETS).map(([k, pre]) => btn(`data-tpath="${k}"`, pre.label, `Set the title on ${/^[aeiou]/i.test(pre.label) ? "an" : "a"} ${pre.label.toLowerCase()}`)).join("")}
       ${btn('data-tpath="pen"', "Pen", "Draw the path on the monitor: click points (drag to curve), Enter to finish, click the first point to close it", shapeUi.clip === c.id && shapeUi.tool === "pen")}</div>
     ${has ? `<div class="cl-row">${btn('data-tpath="edit"', "Edit path", "Show the path's points and handles on the monitor", editing)}${btn('data-tpath="off"', "Remove", "Back to a normal title")}</div>
       ${row("Offset", `<input type="range" data-k="pathOffset" min="-100" max="200" step="0.5" value="${fmtInspNum(p.pathOffset, 0.5)}" title="Slide the text along the path, % of its length — key it to make the text travel">
@@ -18643,7 +18655,7 @@ function fillDeliveryControls() {
     return [k, c.label + (none ? " — not in this ffmpeg" : ""), none && k !== v.codec];
   }), v.codec);
   const encs = Delivery.encodersFor(v.codec, avail);
-  setOptions($("dlvEncoder"), (encs.length ? encs : [v.encoder]).map((e) => [e, Delivery.ENCODERS[e]?.label || e]), v.encoder);
+  setOptions($("dlvEncoder"), (encs.length ? encs : [v.encoder]).map((e) => [e, MontClipView.encoderLabel(mcView.get().language, e, Delivery.ENCODERS[e]?.label || e)]), v.encoder);
   showField("dlvEncoderField", encs.length > 1);
   showField("dlvProfileField", !!C.profiles);
   if (C.profiles) setOptions($("dlvProfile"), Object.entries(C.profiles), v.profile);
@@ -21005,12 +21017,13 @@ function filterHelp() {
     const h3 = sec.querySelector("h3");
     // a translated layer still answers English searches: match the shown text AND the saved
     // English source (the heading's keyed English, and each cell's stashed original markup)
-    const headEn = h3 && h3.dataset.i18n ? MontClipView.t("en", h3.dataset.i18n) : "";
+    const headEn = h3 && (h3.dataset.i18n || h3.dataset.i18nTail) ? MontClipView.t("en", h3.dataset.i18n || h3.dataset.i18nTail) : "";
     const head = ((h3 ? h3.textContent : "") + " " + headEn).toLowerCase();
     let shown = 0;
     for (const tr of sec.querySelectorAll("tr")) {
       const text = head + " " + [...tr.querySelectorAll("td")]
-        .map((td) => (td.dataset.i18nHtmlOrig || "") + " " + td.textContent)
+        .map((td) => (td.dataset.i18nHtmlOrig || "") + " " + td.textContent + " " +
+          [td, ...td.querySelectorAll("[data-i18n]")].map((el) => (el.dataset.i18n ? MontClipView.t("en", el.dataset.i18n) : "")).join(" "))
         .join(" ")
         .toLowerCase();
       const hit = words.every((w) => text.includes(w));
@@ -22531,7 +22544,7 @@ function layerSectionsHtml(c) {
     </div>
     <div class="insp-section cp-mask"><h3>Mask</h3>
       <div class="cl-row">${["none", "ellipse", "rect", "poly"].map((s) => `<button type="button" class="btn tiny${(m ? m.shape : "none") === s ? " toggle on" : ""}" data-mshape="${s}">${s === "none" ? "None" : s === "rect" ? "Rect" : s[0].toUpperCase() + s.slice(1)}</button>`).join("")}
-        <button type="button" class="btn tiny${colorState.maskDraw || (m && m.shape === "bezier") ? " toggle on" : ""}" data-mdraw title="Drag a free-hand outline on the monitor — it becomes an editable bezier">Draw</button>
+        <button type="button" class="btn tiny${colorState.maskDraw || (m && m.shape === "bezier") ? " toggle on" : ""}" data-mdraw title="Drag a free-hand outline on the monitor — it becomes an editable bezier">${uiText("term.draw")}</button>
         ${m ? `<button type="button" class="btn tiny${m.invert ? " toggle on" : ""}" data-mact="invert" title="Grade outside the shape">Invert</button>` : ""}</div>
       ${m ? `<div class="cl-row"><button type="button" class="btn tiny${onKey ? " toggle on" : ""}" data-mact="key" title="${onKey ? "Remove the key at the playhead" : "Key the shape at the playhead — with keys, every change keys"}">◆ Key</button>
         <span class="cl-note">${keyed ? `${keyed} key${keyed > 1 ? "s" : ""}` : "not animated"}</span>
