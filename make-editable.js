@@ -114,7 +114,7 @@ async function makeEditable(file, { outDir = path.dirname(file), signal, onProgr
     let json;
     try { json = await probeJson(part, signal); } catch (e) { if (e.code === "REPAIR_CANCELLED") throw e; return 0; }
     const d = Number(json.format && json.format.duration);
-    if (!(d >= MIN_USABLE)) return 0;
+    if (!Number.isFinite(d) || d < MIN_USABLE) return 0;
     if (!lengthHolds(expected, d)) return 0;
     try { await run(FF.path("ffmpeg"), ["-v", "error", "-nostdin", "-xerror", "-err_detect", "explode", "-progress", "pipe:1", "-nostats", "-i", part, "-f", "null", "-"], { signal, onTime: span(p0, p1, "check") }); }
     catch (e) { if (e.code === "REPAIR_CANCELLED") throw e; return 0; }
@@ -145,7 +145,7 @@ async function makeEditable(file, { outDir = path.dirname(file), signal, onProgr
     say(0, "remux");
     let remuxed = true;
     try {
-      await run(FF.path("ffmpeg"), ["-v", "error", "-nostdin", "-y", "-progress", "pipe:1", "-nostats", "-i", file,
+      await run(FF.path("ffmpeg"), ["-v", "error", "-nostdin", "-y", "-progress", "pipe:1", "-nostats", "-fflags", "+genpts", "-i", file,
         "-map", "0:v:0?", "-map", "0:a:0?", "-c", "copy", "-movflags", "+faststart", "-f", "mp4", part], { signal, onTime: span(0, 0.15, "remux") });
     } catch (e) { if (e.code === "REPAIR_CANCELLED") throw e; remuxed = false; }
     // 2. check

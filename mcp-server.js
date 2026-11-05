@@ -150,33 +150,40 @@ function backfillDurations({ wait = BACKFILL_WAIT_MS } = {}) {
 async function backfillNow() {
   const todo = (readProject().media || []).filter((m) => (m.kind === "video" || m.kind === "audio") &&
     !(Number.isFinite(m.duration) && m.duration > 0) && !m.durationUnknown && mediaFile(m.src));
-  if (!todo.length) return 0;
+  if (!todo.length) return [];
   const found = new Map();
   await Promise.all(todo.map(async (m) => {
     const info = await probeFile(mediaFile(m.src));
     if (info && (info.duration > 0 || info.durationUnknown)) found.set(m.id, info);
   }));
-  if (!found.size) return 0;
+  if (!found.size) return [];
+  const updates = [...found].map(([id, info]) => {
+    const m = todo.find((x) => x.id === id);
+    return info.duration > 0 ? { id, src: m.src, duration: info.duration, ...(info.durationFrom ? { durationFrom: info.durationFrom } : {}) }
+      : { id, src: m.src, durationUnknown: true };
+  });
+  // QQ (#152): through the server, so an editor's unsaved step is never written over — it merges them itself, or the
+  // server does when none is open. Only a refused connection permits a direct write: a timeout or HTTP error may
+  // mean an editor is still open, so it must never turn into an outside write over that editor's pending save.
+  try {
+    const r = await apiJSON("POST", "/api/media-backfill", { updates });
+    if (r.status === 200) return updates;
+    throw new Error("media backfill refused by server: " + r.status);
+  } catch (e) { if (e.code !== "ECONNREFUSED") throw e; }
   for (let attempt = 0; attempt < 3; attempt++) {
     const proj = readProject();
     const readRev = proj.revision || 0;
     const wasCurrent = lastReadRevision === readRev;
-    let n = 0;
-    for (const m of proj.media || []) {
-      const info = found.get(m.id);
-      if (!info || (m.duration > 0) || m.durationUnknown) continue;
-      if (info.duration > 0) { m.duration = info.duration; if (info.durationFrom) m.durationFrom = info.durationFrom; } else m.durationUnknown = true;
-      n++;
-    }
-    if (!n) return 0;
+    const n = MediaLib.applyBackfill(proj, updates);
+    if (!n) return updates;
     // someone saved while this was being put together: start again from what they saved
     if ((readProject().revision || 0) !== readRev) continue;
     proj.revision = readRev + 1;
     writeProject(proj);
     if (wasCurrent) lastReadRevision = proj.revision;
-    return n;
+    return updates;
   }
-  return 0;   // the project kept changing: the next call reads them again (probeFile has them cached)
+  return updates;   // the project kept changing: the next call writes them (probeFile has them cached)
 }
 /** What fablecut_import_media says about the length it found (europa P3, 2026-11-05: "no ffprobe" was said whenever
  *  the header had no length, though ffprobe had run). Say what actually happened. */
@@ -1496,8 +1503,10 @@ async function callTool(name, args, attempt = 0) {
         parts.filter((s) => s.startsWith("## ")).map((s) => s.slice(3, s.indexOf("\n"))).join(" · ");
     }
     case "fablecut_get_project": {
-      await backfillDurations();
+      const filled = await backfillDurations();
       const doc = readProject();
+      // read just now, maybe not saved yet (an open editor saves them a moment later): shown already
+      if (Array.isArray(filled)) MediaLib.applyBackfill(doc, filled);
       lastReadRevision = doc.revision || 0;
       if (!args.compact) return JSON.stringify(doc);
       return ProjectOps.compactView(doc, {
@@ -1512,8 +1521,10 @@ async function callTool(name, args, attempt = 0) {
         throw new Error("`baseRevision` must be an integer revision (from fablecut_get_project, fablecut_status or the last patch result)");
       // ops get filled in as they apply (auto ids …); a retry must start from the originals
       const ops = structuredClone(args.ops);
-      if (base == null) await backfillDurations();   // with a baseRevision, a write here would itself be the conflict
+      const filled = base == null ? await backfillDurations() : null;   // with a baseRevision, a write here would itself be the conflict
       const proj = readProject();
+      // the ops see the lengths just read, and this patch's write carries them
+      if (Array.isArray(filled)) MediaLib.applyBackfill(proj, filled);
       const readRev = proj.revision || 0;
       const conflict = (rev) => new Error(
         `CONFLICT — not saved. project.json is at revision ${rev}, but this patch was based on ` +

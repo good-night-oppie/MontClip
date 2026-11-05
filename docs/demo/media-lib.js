@@ -99,6 +99,23 @@
    *  before it was saved — so seeking in it may be slow. A small mark on the file and 〔帮我修好…〕 in its menu. */
   const slowToSeek = (m) => !!(m && m.kind === "video" && m.durationFrom === "packets" && Number.isFinite(m.duration) && m.duration > 0);
   const cannotCut = (m) => !!(m && timed(m) && m.durationUnknown && !(Number.isFinite(m.duration) && m.duration > 0));
+  /** Lengths read for files that had none (the agent's backfill: QQ, #152) into a project: only an entry that still has
+   *  no length and still shows the same file; once each. updates: [{id, src, duration?, durationFrom?, durationUnknown?}].
+   *  Shared by the server (no editor open), the editor (onMediaBackfill) and the agent (no server). → how many changed */
+  function applyBackfill(doc, updates) {
+    let n = 0;
+    if (!doc || !Array.isArray(updates)) return 0;
+    for (const u of updates) {
+      if (!u || typeof u.id !== "string") continue;
+      const m = (doc.media || []).find((x) => x.id === u.id);
+      if (!m || m.src !== u.src || !timed(m) || (Number.isFinite(m.duration) && m.duration > 0) || m.durationUnknown) continue;
+      if (Number.isFinite(u.duration) && u.duration > 0) { m.duration = u.duration; if (u.durationFrom === "packets") m.durationFrom = "packets"; }
+      else if (u.durationUnknown === true) m.durationUnknown = true;
+      else continue;
+      n++;
+    }
+    return n;
+  }
   /** A repaired (or converted) file takes an entry's place (〔修复成可以剪的视频〕, fablecut_repair_media): `entry` goes
    *  where the old one was, with its organization (favorite, tags, folder, collections) and `derivedFrom` / `replaced`
    *  naming what it replaced; every clip that showed the old one — the open timeline, compositions, the other sequences —
@@ -437,7 +454,7 @@
     importTidies, importPercent,
     KINDS, INFO_KEYS, SORT_KEYS, MAX_TAGS,
     srcName, relinkScore, kindFromName,
-    parseProbe, needsInfo, serverDuration, cannotCut, slowToSeek, swapMedia, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
+    parseProbe, needsInfo, serverDuration, cannotCut, slowToSeek, swapMedia, applyBackfill, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
     STANDARD_FPS, standardFps, sourceCanvas, canvasFollowsSource,
     normalizeTags, allTags, normalizeCollections,
     placements, usageCounts,

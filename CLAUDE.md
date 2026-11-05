@@ -1748,7 +1748,8 @@ small ◔ mark instead, no dialog. Right-click any video → **Fix it for me…*
 `allowTranscode`). When re-encoding is needed and no encoder here can do it, it is refused and nothing is written. A new MP4 is written into `media/` as `<name>.repaired.mp4` — the original file is never
 touched — and takes the entry's place: every clip, composition and sequence that used it switches, fitted to
 the usable part, as one undo step (the new entry has `derivedFrom` and `replaced: {id, name, src}`). First a
-quick remux (`-c copy`), checked: the new file states its length, close to what the original holds, and decodes
+quick remux (`-fflags +genpts` before the input, `-c copy`, `+faststart`), checked: the new file states a finite
+length of at least 0.5 s, close to what the original holds, and decodes
 cleanly end to end. Only if that doesn't hold (VP8 can't go into an MP4, a broken frame …) it is re-encoded,
 with the encoders exports use: your own FFmpeg's libx264, else a bundled LGPL H.264 encoder that works here, else
 the bundled LGPL VP9 (no GPL encoder is ever bundled). An FLV goes through the FLV preparation first. Progress and
@@ -1756,6 +1757,14 @@ the bundled LGPL VP9 (no GPL encoder is ever bundled). An FLV goes through the F
 is still there." One that can't be fixed (an MP4 whose index was never written): "“name” stopped recording before
 it was saved, and this kind can't be fixed. The original file is unchanged — please use a complete file." The
 length check after a remux or re-encode is ±1 s against what the original holds.
+`+genpts` can generate missing presentation timestamps; it does not guarantee repair of existing timestamp jumps.
+`node scripts/repair-timestamps-bench.js` reproduces a synthetic jump with a truncated tail and compares both paths.
+
+Missing lengths read by the agent are sent to `POST /api/media-backfill`. An open editor receives the metadata
+over SSE, merges it with its pending edits and saves both through `PUT /api/project`; without an editor, the server
+merges onto the current document. Only entries still pointing at the same file and still missing a length change.
+If the server refuses or times out, no direct write follows. A connection refusal (no server) retains the standalone
+MCP fallback. This protects the duration backfill; it does not change other MCP writes or add multi-editor locking.
 
 **Agents:** `fablecut_repair_media {mediaId}` answers at once with a job — `{job, status, progress, phase}` —
 the long-operation convention: call again with `{job}` for progress and, when `status` is `done`,
@@ -2346,6 +2355,10 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
   `{src, key, state, done, total, complete, scanned, songs}` (songs in file seconds; state `running` · `done` ·
   `stopped` · `failed` · `none`) · `POST /api/songs/cancel {src}` stops it, keeping what was read. SSE event
   `songs` (`{src, state, done, total}`) after each segment. See "Songs in a recording".
+- `POST /api/media-backfill {updates:[{id, src, duration?, durationFrom?, durationUnknown?}]}` →
+  `{via:"editor", editors}` when handed to open SSE clients, or `{via:"server", changed, revision}` when saved
+  directly with no editor connected. Editor delivery is not a disk-save acknowledgement; the editor saves through
+  `PUT /api/project`. Non-finite lengths are ignored, and existing lengths, relinked and removed entries are kept.
 - `POST /api/repair {src}` → `{job, status, progress, phase}` (a job; the same src while it runs joins it) ·
   `GET /api/repair/job?id=` → the same, with `result {src, name, kind, duration, preparation, encoder?, …details}`
   when done or `error {code}` · `POST /api/repair/cancel?id=`. Writes `<name>.repaired.mp4` into `./media/`;

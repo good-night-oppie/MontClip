@@ -1777,6 +1777,31 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  /* API: lengths the agent read for files that had none (QQ, #152 review): POST {updates:[{id, src, duration?,
+     durationFrom?, durationUnknown?}]}. With an editor open they go to it (SSE "media-backfill"): it puts them into the
+     project it has open, an unsaved step included, and saves once — the agent no longer writes over that step. With
+     none open they are merged onto the project on disk here, as a PUT would write it. → {via:"editor"|"server", changed?} */
+  if (p === "/api/media-backfill" && req.method === "POST") {
+    let body;
+    try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "body must be JSON {updates}" }); return; }
+    const updates = body && Array.isArray(body.updates) ? body.updates.filter((u) => u && typeof u.id === "string" && typeof u.src === "string").slice(0, 2000) : null;
+    if (!updates) { sendJSON(res, 400, { error: "updates must be a list of {id, src, duration | durationUnknown}" }); return; }
+    if (sseClients.size) { broadcast("media-backfill", JSON.stringify({ updates })); sendJSON(res, 200, { via: "editor", editors: sseClients.size }); return; }
+    try {
+      const cur = JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(new RegExp("^\\uFEFF"), ""));
+      const changed = MediaLib.applyBackfill(cur, updates);
+      if (changed) {
+        cur.revision = (cur.revision || 0) + 1;
+        const tmp = PROJECT_FILE + ".tmp";
+        fs.writeFileSync(tmp, JSON.stringify(cur, null, 2));
+        fs.renameSync(tmp, PROJECT_FILE);
+        broadcast("change");
+      }
+      sendJSON(res, 200, { via: "server", changed, revision: cur.revision || 0 });
+    } catch (e) { sendJSON(res, 500, { error: String(e.message || e) }); }
+    return;
+  }
+
   /* API: SSE live-reload channel */
   if (p === "/api/events") {
     res.writeHead(200, {

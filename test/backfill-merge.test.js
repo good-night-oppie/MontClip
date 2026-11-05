@@ -35,6 +35,7 @@ test("MediaLib.applyBackfill: fills entries that still have no length (same file
   a.equal(doc.media[2].duration, undefined);
   a.equal(doc.media[3].durationUnknown, true);
   a.equal(MediaLib.applyBackfill(doc, [{ id: "m1", src: "/media/a.mkv", duration: 7 }]), 0, "once");
+  a.equal(MediaLib.applyBackfill(doc, [{ id: "m3", src: "/media/c-relinked.mkv", duration: Infinity }]), 0, "non-finite duration is not metadata");
 });
 
 test("the editor: the lengths go into the project it has open — its unsaved step kept — and it saves once", () => {
@@ -76,6 +77,7 @@ function listen(base) {
       }
     });
   });
+  req.on("error", () => { /* closed by the test, or by the server stopping */ });
   return {
     events, close: () => req.destroy(),
     next: (name, ms = 30_000) => new Promise((resolve, reject) => {
@@ -104,6 +106,7 @@ test("the server, no editor open: merges the lengths onto the project on disk an
   a.equal((await post(srv.base, "/api/media-backfill", { updates: [{ id: "m1", src: "/media/a.mkv", duration: 3.6 }] })).body.changed, 0);
   a.equal(readProject(data).revision, 6, "nothing new: not written");
   a.equal((await post(srv.base, "/api/media-backfill", { updates: "x" })).status, 400);
+  a.equal((await post(srv.base, "/api/media-backfill", null)).status, 400, "null JSON is rejected without stopping the server");
 });
 
 test("end to end: the agent reads a missing length while the editor has an unsaved step — both are kept", { skip }, async (t) => {
@@ -134,4 +137,24 @@ test("end to end: the agent reads a missing length while the editor has an unsav
   const doc = readProject(data);
   a.equal(doc.clips[0].start, 4, "the streamer's step is kept");
   a.ok(doc.media[0].duration > 3, "and the length the agent read is in");
+});
+
+test("a server refusal never falls back to writing over the editor", { skip }, async (t) => {
+  const data = makeDataDir(t, { ...seedProject({ media: [{ id: "m1", kind: "video", src: "/media/rec.mkv" }], clips: [] }), revision: 5 });
+  fs.mkdirSync(path.join(data, "media"), { recursive: true });
+  fs.copyFileSync(OBS, path.join(data, "media", "rec.mkv"));
+  let calls = 0;
+  const server = http.createServer((req, res) => {
+    calls++;
+    req.resume();
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "save unavailable" }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const before = fs.readFileSync(path.join(data, "project.json"), "utf8");
+  const mcp = startMcp(t, data, { FABLECUT_NO_AUTOSTART: "1", FABLECUT_PORT: String(server.address().port) });
+  await mcp.callTool("fablecut_get_project", { compact: true });
+  a.equal(calls, 1);
+  a.equal(fs.readFileSync(path.join(data, "project.json"), "utf8"), before);
 });
