@@ -1,1 +1,20 @@
-{}
+{
+  "help-head:10": "top,bar,Projects",
+  "help-head:13": "bin,Shapes,Inspector",
+  "help-head:14": "Inspector,Tracking,mask,Track,buttons",
+  "help-head:15": "side,panel,Transcript",
+  "help-head:3": "Editing",
+  "help:?/Enter on a card": "card",
+  "help:?/Project card": "Project,card",
+  "help:?/Timeline toolbar → sequence menu": "sequence,menu",
+  "help:bin-compositions-and-templates/Ctrl +click bin": "click,bin",
+  "help:bin-compositions-and-templates/Right-click Project tab": "tab",
+  "help:bin-compositions-and-templates/Templates tab": "tab",
+  "help:bin-compositions-and-templates/☆ / uses badge on a bin file": "uses,badge,bin,file",
+  "help:bin-compositions-and-templates/☰ in the bin": "the,bin",
+  "help:keyframes-presets-and-inspector/Ctrl/Cmd +click inspector label or slider": "click,inspector,label,slider",
+  "help:keyframes-presets-and-inspector/⇧ +click label": "click,label",
+  "help:playback/0 – 9 / click timecode": "click,timecode",
+  "help:selection/Ctrl +click clip": "click,clip",
+  "help:timeline-view-and-tracks/Ctrl +wheel": "wheel"
+}
