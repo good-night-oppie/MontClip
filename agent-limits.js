@@ -19,11 +19,12 @@ function unsupported(text,available=ASSISTANT){
  if(typeof text!=='string'||!text)return [];
  return UNSUPPORTED.filter(u=>!available.includes(u.capability)&&u.match.test(text)).map(({id,capability,key})=>({id,capability,key}));
 }
-/** The host's sentence for a reply to this message (strings: the pane's officialPane_ table, without the prefix), or '' when nothing is missing. */
-function note(text,strings){
- return unsupported(text).map(u=>strings&&typeof strings[u.key]==='string'?strings[u.key]:'').filter(Boolean).join(' ');
+/** The host's sentence for a reply to this message (strings: the pane's officialPane_ table, without the prefix), or '' when
+ *  nothing is missing. names fills its {placeholders} (the drop-down's names as it shows them: app.js exportFrameNames). */
+function note(text,strings,names={}){
+ return unsupported(text).map(u=>strings&&typeof strings[u.key]==='string'?strings[u.key].replace(/\{(\w+)\}/g,(m,k)=>typeof names[k]==='string'?names[k]:m):'').filter(Boolean).join(' ');
 }
 /** A reply as the pane shows it: the host's sentence first (when the message asks for something missing), then the reply. */
-function shown(text,reply,strings){const n=note(text,strings);return n?[n,reply]:[reply];}
+function shown(text,reply,strings,names){const n=note(text,strings,names);return n?[n,reply]:[reply];}
 return {ASSISTANT,UNSUPPORTED,unsupported,note,shown};
 });
