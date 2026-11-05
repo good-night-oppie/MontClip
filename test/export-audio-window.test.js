@@ -273,3 +273,48 @@ test('server: a timestamp gap in the audio leaves the sound after it on time (±
   }
   t.diagnostic(seen.join(' · '));
 });
+
+/* Rea on #165 (2026-11-05): with `-ss 0`, a window read from the file's head disagreed with one read further in —
+   FLV lost its first ~1.2 s of sound, MP3 with the picture 92 ms late came out −105 ms, AAC −21 ms. The window must
+   put a sound at the same place however it is read: from 0, from 0.3, from 2.9 or the whole file. Samples as Rea's:
+   MP3 from 0 with the picture 92 ms late (MKV, FLV), MP3 55 ms late (FLV), AAC 0.5 s late (MKV, MP4), AAC from 0. */
+test('server: a window from 0, from 0.3, from 2.9 or the whole file puts the same beep at the same place (±1 ms), FLV and MP3 too', { timeout: 180000 }, async (t) => {
+  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../ffmpeg-path');
+  if (!FF.available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
+  const dir = makeDataDir(t, seedProject({ revision: 1 })), media = path.join(dir, 'media');
+  fs.mkdirSync(media, { recursive: true });
+  const tone = "aevalsrc='(gte(t,1)*lt(t,1.1)+gte(t,3.5)*lt(t,3.6)+gte(t,6)*lt(t,6.1)+gte(t,8.5)*lt(t,8.6))*0.5*sin(2*PI*1000*t)|0':s=48000:d=10";
+  const make = (name, vOff, aOff, vcodec, acodec) => execFileSync(FF.path('ffmpeg'), ['-v', 'error', '-y',
+    '-itsoffset', String(vOff), '-f', 'lavfi', '-i', 'testsrc2=s=160x90:r=30:d=10', '-itsoffset', String(aOff), '-f', 'lavfi', '-i', tone,
+    '-map', '0:v', '-map', '1:a', '-c:v', vcodec, '-c:a', acodec, ...(acodec === 'libmp3lame' ? ['-ar', '44100'] : []), path.join(media, name)]);
+  const samples = [['mp3-pic92.mkv', 0.092, 0, 'mpeg4', 'libmp3lame'], ['mp3-pic92.flv', 0.092, 0, 'flv', 'libmp3lame'],
+    ['mp3-late55.flv', 0, 0.055, 'flv', 'libmp3lame'], ['aac-late500.mkv', 0, 0.5, 'mpeg4', 'aac'], ['aac-late500.mp4', 0, 0.5, 'mpeg4', 'aac'],
+    ['aac0.mkv', 0, 0, 'mpeg4', 'aac']];
+  for (const s of samples) make(...s);
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1' });
+  const beepNear = async (name, from, to, want) => {
+    const r = await fetch(`${base}/api/audio-window?src=/media/${name}&from=${from}&to=${to}`);
+    a.equal(r.status, 200, name);
+    const L = readWav(Buffer.from(await r.arrayBuffer())).ch(0), i0 = Math.max(0, Math.round((want - 0.3 - from) * 48000));
+    for (let i = i0; i < L.length; i++) if (Math.abs(L[i]) > 0.05) return from + i / 48000;
+    return null;
+  };
+  const seen = [];
+  for (const [name, , aOff] of samples) {
+    const want = 3.5 + aOff, got = {};
+    for (const [from, to] of [[0, 5], [0.3, 5], [2.9, 7], [0, 10]]) got[`${from}-${to}`] = await beepNear(name, from, to, want);
+    const vals = Object.values(got);
+    seen.push(`${name}: ${Object.entries(got).map(([k, v]) => `${k} ${v == null ? '—' : v.toFixed(4)}`).join(', ')}`);
+    a.ok(vals.every((v) => v != null), `${name}: the beep is in every window ${JSON.stringify(got)}`);
+    a.ok(Math.max(...vals) - Math.min(...vals) <= 0.001, `${name}: windows disagree ${JSON.stringify(got)}`);
+    a.ok(Math.abs(vals[0] - want) <= 0.03, `${name}: beep at ${vals[0].toFixed(4)} s, the picture has it at ${want} s (codec delay aside)`);
+  }
+  t.diagnostic(seen.join(' · '));
+});
+
+test('the container-clock filter is one exported string, and the window uses it', () => {
+  const W = require('../audio-window');
+  a.equal(W.CLOCK_FILTER, 'aresample=async=1:min_hard_comp=0.01:first_pts=0');
+  const args = W.windowArgs('x.flv', 0, 5, 'o.wav');
+  a.equal(args[args.indexOf('-af') + 1], W.CLOCK_FILTER);
+});

@@ -12,10 +12,15 @@
    samples in memory; the header is then walked chunk by chunk (never searched for "data"). */
 "use strict";
 
+/** The audio filter that puts a decoded window on the container's clock: sample 0 is container time `from`, a late
+    start and any timestamp gap over 10 ms are silence. Shared: every decode whose sample count is read as time (this
+    window; the transcript's decode in asr-local.js, #165) uses this one string, so their times agree. */
+const CLOCK_FILTER = "aresample=async=1:min_hard_comp=0.01:first_pts=0";
+
 /** ffmpeg arguments: the first audio stream from `from` for `dur` seconds, f32 WAV at 48 kHz, its own channels. */
 function windowArgs(file, from, dur, out) {
   return ["-hide_banner", "-v", "error", "-y", "-ss", from.toFixed(6), "-t", dur.toFixed(6), "-i", file,
-    "-map", "0:a:0", "-vn", "-sn", "-dn", "-af", "aresample=async=1:min_hard_comp=0.01:first_pts=0", "-ar", "48000", "-c:a", "pcm_f32le", "-f", "wav", out];
+    "-map", "0:a:0", "-vn", "-sn", "-dn", "-af", CLOCK_FILTER, "-ar", "48000", "-c:a", "pcm_f32le", "-f", "wav", out];
 }
 
 /** RIFF/WAVE chunks from the start of a file → {fmt:{format, channels, rate, bits}, data:{offset, size}} | null.
@@ -33,4 +38,4 @@ function wavChunks(buf) {
   return null;
 }
 
-module.exports = { windowArgs, wavChunks };
+module.exports = { windowArgs, wavChunks, CLOCK_FILTER };
