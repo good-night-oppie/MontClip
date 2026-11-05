@@ -6,7 +6,7 @@
 electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 ```
 
-Linux 上不用加 `--password-store`：桌面版启动时自己要系统钥匙串（`desktop/password-store.js`），用户自己传了的以用户的为准。没有钥匙串（没有 secret service、没有会话 DBUS、没有 libsecret）时照样能启动，保存密钥会被拒绝（`KEY_STORE_UNAVAILABLE`），不会明文写盘。
+Linux 上不用加 `--password-store`：在 Electron 认不出来的桌面上（openbox、VNC、xvfb，没有 `XDG_CURRENT_DESKTOP`），桌面版启动时自己要系统钥匙串；GNOME、KDE 等它认得的桌面照它自己的选择（KDE 用 KWallet）（`desktop/password-store.js`）。用户自己传了的以用户的为准。没有钥匙串（没有 secret service、没有会话 DBUS、没有 libsecret）时照样能启动，保存密钥会被拒绝（`KEY_STORE_UNAVAILABLE`），不会明文写盘。
 
 成功时打印「成功标志」那一行。`test/smokes-current.test.js` 检查这份清单列出了 `desktop/` 里的每一个 smoke。
 
