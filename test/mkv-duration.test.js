@@ -8,6 +8,8 @@
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), cp = require("node:child_process");
 const FF = require("../ffmpeg-path");
 const MediaProbe = require("../media-probe");
+const MediaLib = require("../media-lib");
+const { makeDataDir, seedProject, startMcp, readProject } = require("./helpers");
 
 const have = FF.available("ffmpeg") && FF.available("ffprobe");
 const skip = !have && "no ffmpeg / ffprobe here (node desktop/fetch-ffmpeg.cjs, or MONTCLIP_FFMPEG_DIR)";
@@ -31,6 +33,7 @@ test.before(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-mkv-"));
   const ff = FF.path("ffmpeg"), opts = { windowsHide: true, maxBuffer: 1 << 26 };
   cp.execFileSync(ff, [...SOURCE, "-output_ts_offset", "3600", made("offset.mkv")], opts);
+  cp.execFileSync(ff, [...SOURCE.map((v) => (v === "3" ? "20" : v)), "-output_ts_offset", "3600", made("offset20.mkv")], opts);
   cp.execFileSync(ff, [...SOURCE, made("tags-only.mkv")], opts);
   blankHeaderDuration(made("tags-only.mkv"));
   fs.writeFileSync(made("nothing.mkv"), cp.execFileSync(ff, [...SOURCE, "-f", "matroska", "pipe:1"], opts));
@@ -66,18 +69,88 @@ test("an MKV where nothing says the length: unknown, never 0 s", { skip }, async
   a.equal(MediaProbe.infoForEntry(info, { kind: "video" }).duration, undefined);
 });
 
-test("the editor: Infinity from the browser is no length; the server's length wins where the browser has none or counted an MKV's start", () => {
+test("the editor: Infinity from the browser is no length; which files are asked and what is taken is media-lib.js's rule", () => {
   const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
   a.ok(app.includes("duration: Number.isFinite(el.duration) && el.duration > 0 ? el.duration : undefined,"), "probeAV drops Infinity / NaN / 0");
-  a.ok(app.includes('if (m.kind !== "image" && m.kind !== "svg" && i.duration > 0 && (!known || m.duration - i.duration > 1)) { m.duration = i.duration; changed = true; }'));
-  a.ok(app.includes("else if (i.durationUnknown && !known && !durationUnknownSaid.has(m.src))"), "said once per file");
+  const at = app.indexOf("async function refreshMediaInfo"), body = app.slice(at, at + 2400);
+  a.match(body, /MediaLib\.needsInfo\(m\)/, "which files are asked: the same rule the tests check");
+  a.match(body, /MediaLib\.serverDuration\(m, i\)/, "how the server's length is taken: the same rule");
+  a.ok(body.includes("!durationUnknownSaid.has(m.src)"), "said once per file");
 });
 
-test("the hint for a file with no length, both languages, plain words (drafts for JJ)", () => {
+/* QQ (#126 review): refreshMediaInfo only asked files with no size, so an old project whose MKV already had its size
+   kept the browser's 3620 s for ever. Which files are asked, and what is taken from the answer, is now media-lib.js. */
+test("an old project: an MKV with its size already saved and the browser's 3620 s is asked again, becomes 20 s, and is asked once", () => {
+  const m = { id: "m1", kind: "video", name: "rec.mkv", src: "/media/rec.mkv", size: 123456, duration: 3620 };
+  a.equal(MediaLib.needsInfo(m), true, "asked although it has a size");
+  const r = MediaLib.serverDuration(m, { size: 123456, duration: 20 });
+  a.equal(m.duration, 20); a.equal(r.changed, true);
+  a.equal(MediaLib.needsInfo(m), false, "not asked on every load");
+  // a WebM the same; an MKV whose src was renamed but whose name says MKV too
+  a.equal(MediaLib.needsInfo({ kind: "video", src: "/media/a.webm", size: 1, duration: 10 }), true);
+  a.equal(MediaLib.needsInfo({ kind: "audio", src: "/media/a.mka", name: "a.mkv", size: 1, duration: 10 }), true);
+  // any recording with no usable length is asked once, whatever its format
+  a.equal(MediaLib.needsInfo({ kind: "video", src: "/media/a.mp4", size: 1 }), true);
+  // an MP4 that already has its size and a length is left alone, as before; pictures are never asked for a length
+  a.equal(MediaLib.needsInfo({ kind: "video", src: "/media/a.mp4", size: 1, duration: 10 }), false);
+  a.equal(MediaLib.needsInfo({ kind: "image", src: "/media/a.png", size: 1 }), false);
+  a.equal(MediaLib.needsInfo({ kind: "video", src: "/media/a.mp4" }), true, "no size: asked, as before");
+  // the browser's length stays when it is not longer than the server's by more than a second
+  const ok = { kind: "video", src: "/media/b.mkv", size: 1, duration: 20.4 };
+  a.equal(MediaLib.serverDuration(ok, { duration: 20 }).changed, true, "only the marker changes");
+  a.equal(ok.duration, 20.4);
+  // nothing says the length: unknown, the marker set so it is said once and not asked again
+  const none = { kind: "video", src: "/media/c.mkv", size: 1 };
+  a.deepEqual(MediaLib.serverDuration(none, { durationUnknown: true }), { changed: true, unknown: true });
+  a.equal(none.duration, undefined); a.equal(MediaLib.needsInfo(none), false);
+});
+
+test("an old project opened on a real offset MKV: the browser's 3620 s becomes 20 s", { skip }, async () => {
+  const info = await MediaProbe.probeFile(made("offset20.mkv"));
+  const m = { id: "m1", kind: "video", name: "rec.mkv", src: "/media/rec.mkv", size: info.size, duration: 3620 };
+  a.equal(MediaLib.needsInfo(m), true);
+  MediaLib.serverDuration(m, info);
+  a.ok(Math.abs(m.duration - 20) <= TOL, "now " + m.duration + " s");
+});
+
+test("MCP import of an MKV whose timestamps start at 3600 s: 20 s, the same as the editor", { skip }, async (t) => {
+  const data = makeDataDir(t, seedProject({ media: [], clips: [] }));
+  fs.mkdirSync(path.join(data, "media"), { recursive: true });
+  const mcp = startMcp(t, data, { FABLECUT_NO_AUTOSTART: "1" });
+  await mcp.request("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "t", version: "1" } });
+  const r = await mcp.callTool("fablecut_import_media", { path: made("offset20.mkv") });
+  a.equal(r.isError, false, r.text);
+  const m = readProject(data).media.at(-1);
+  a.ok(Math.abs(m.duration - 20) <= TOL, "MCP stored " + m.duration + " s");
+});
+
+/* QQ: the streams' fallback took each stream less its own start, then the longest, which loses the gap between them. */
+test("no length in the header: from the earliest start to the latest end, across streams (video 0–20 s, audio 10–30 s → 30 s)", () => {
+  const fmt = { format_name: "matroska,webm", start_time: "0.000000" };
+  // the streams' own durations
+  a.equal(MediaLib.parseProbe({ format: fmt, streams: [
+    { codec_type: "video", start_time: "0.000000", duration: "20.000000", width: 160, height: 90 },
+    { codec_type: "audio", start_time: "10.000000", duration: "20.000000", channels: 2, sample_rate: "48000" }] }).duration, 30);
+  // the streams' DURATION tags (where each stream's timestamps end)
+  a.equal(MediaLib.parseProbe({ format: fmt, streams: [
+    { codec_type: "video", start_time: "0.000000", width: 160, height: 90, tags: { DURATION: "00:00:20.000000000" } },
+    { codec_type: "audio", start_time: "10.000000", channels: 2, sample_rate: "48000", tags: { DURATION: "00:00:30.000000000" } }] }).duration, 30);
+  // the whole file offset (both start at 3600 s, tags say where they end): still the length, not the end
+  a.equal(MediaLib.parseProbe({ format: { format_name: "matroska,webm", start_time: "3600.000000" }, streams: [
+    { codec_type: "video", start_time: "3600.000000", width: 160, height: 90, tags: { DURATION: "01:00:03.000000000" } },
+    { codec_type: "audio", start_time: "3600.000000", channels: 2, sample_rate: "48000", tags: { DURATION: "01:00:03.000000000" } }] }).duration, 3);
+});
+
+/* JJ rule 1: what happened, then what she can do now, and that the original is unchanged. Drafts, for JJ. */
+test("the hint for a file with no length, both languages, plain words with the next step (drafts for JJ)", () => {
   const V = require("../ui-preferences");
-  a.equal(V.t("zh-CN", "own.media-duration-unknown", { name: "录像.mkv" }), "「录像.mkv」里没写时长，MontClip 读不出它有多长，放到时间线上的长度可能不对。");
-  a.equal(V.t("en", "own.media-duration-unknown", { name: "rec.mkv" }), "“rec.mkv” doesn't say how long it is, so MontClip can't tell its length. Its length on the timeline may be wrong.");
-  a.equal(V.t("zh-CN", "own.media-duration-unknown-n", { n: 3 }), "有 3 个文件里没写时长，MontClip 读不出它们有多长，放到时间线上的长度可能不对。");
-  a.equal(V.t("en", "own.media-duration-unknown-n", { n: 3 }), "3 files don't say how long they are, so MontClip can't tell their length. Their length on the timeline may be wrong.");
-  for (const k of ["own.media-duration-unknown", "own.media-duration-unknown-n"]) a.doesNotMatch(V.t("zh-CN", k, { name: "x", n: 2 }), /NaN|0:00|undefined/);
+  a.equal(V.t("zh-CN", "own.media-duration-unknown", { name: "录像.mkv" }), "「录像.mkv」里没写时长，MontClip 读不出它有多长，放到时间线上的长度可能不对。原片没有改动；拖到时间线后拉一下结尾就能对上。");
+  a.equal(V.t("en", "own.media-duration-unknown", { name: "rec.mkv" }), "“rec.mkv” doesn't say how long it is, so MontClip can't tell its length, and its length on the timeline may be wrong. The original is unchanged; after you drag it onto the timeline, drag its end to fit.");
+  a.equal(V.t("zh-CN", "own.media-duration-unknown-n", { n: 3 }), "有 3 个文件里没写时长，MontClip 读不出它们有多长，放到时间线上的长度可能不对。原片没有改动；拖到时间线后拉一下结尾就能对上。");
+  a.equal(V.t("en", "own.media-duration-unknown-n", { n: 3 }), "3 files don't say how long they are, so MontClip can't tell their length, and their length on the timeline may be wrong. The originals are unchanged; after you drag one onto the timeline, drag its end to fit.");
+  for (const k of ["own.media-duration-unknown", "own.media-duration-unknown-n"]) {
+    const zh = V.t("zh-CN", k, { name: "x", n: 2 });
+    a.doesNotMatch(zh, /NaN|0:00|undefined/);
+    a.equal(zh.replace(/MontClip/g, "").match(/[A-Za-z]{3,}/), null, "no English word in the Chinese: " + zh);
+  }
 });

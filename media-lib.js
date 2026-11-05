@@ -50,9 +50,44 @@
     const less = (d, start) => (mkv && start > 0 && d > start ? d - start : d);
     const dur = less(Number(fmt.duration), Number(fmt.start_time) || 0);
     if (dur > 0) return dur;
+    // from the earliest start to the latest end across the streams (QQ, #126): each stream less its own start would lose
+    // the gap between them (video 0–20 s, audio 10–30 s plays 30 s, not 20 s)
     const av = streams.filter((s) => (s.codec_type === "video" || s.codec_type === "audio") && !(s.disposition && s.disposition.attached_pic));
-    const longest = (f) => av.reduce((m, s) => Math.max(m, f(s) || 0), 0);
-    return longest((s) => Number(s.duration)) || longest((s) => less(tagSeconds(s.tags && (s.tags.DURATION || s.tags.duration)), Number(s.start_time) || 0));
+    const span = (end) => {
+      let first = Infinity, last = -Infinity;
+      for (const s of av) {
+        const start = Number(s.start_time) || 0, e = end(s, start);
+        if (e > start) { first = Math.min(first, start); last = Math.max(last, e); }
+      }
+      return last > first ? last - first : 0;
+    };
+    // a stream's duration is its length; an MKV's DURATION tag is where its timestamps end (a length when it is shorter than the start)
+    return span((s, start) => Number(s.duration) > 0 ? start + Number(s.duration) : 0) ||
+      span((s, start) => { const d = tagSeconds(s.tags && (s.tags.DURATION || s.tags.duration)); return d > 0 ? (mkv && d > start ? d : start + d) : 0; });
+  }
+  const timed = (m) => m && m.kind !== "image" && m.kind !== "svg";
+  const matroska = (m) => /\.(mkv|webm)$/i.test(String(m.src || "").split(/[?#]/)[0]) || /\.(mkv|webm)$/i.test(String(m.name || ""));
+  /** Should the editor ask the server about this entry? One with no size yet (as always), and, once (durationChecked),
+   *  an MKV / WebM (the browser counts the start of its timestamps: 3620 s for 20 s) or a recording with no usable length.
+   *  Old projects and MCP imports already have a size, so the size alone never reached them (QQ, #126). */
+  function needsInfo(m) {
+    if (!m) return false;
+    if (m.size == null) return true;
+    if (!timed(m) || m.durationChecked) return false;
+    return matroska(m) || !(Number.isFinite(m.duration) && m.duration > 0);
+  }
+  /** Take the server's length (info from parseProbe) into the entry: where the browser has none, or one more than a second
+   *  longer (an MKV's start counted). Marks entries asked for their length so they are asked once. → {changed, unknown} */
+  function serverDuration(m, info) {
+    const out = { changed: false, unknown: false };
+    if (!timed(m) || !info) return out;
+    const known = Number.isFinite(m.duration) && m.duration > 0;
+    if (info.duration > 0 && (!known || m.duration - info.duration > 1)) { m.duration = info.duration; out.changed = true; }
+    else if (info.durationUnknown && !known) out.unknown = true;
+    if ((info.duration > 0 || info.durationUnknown) && !m.durationChecked && (matroska(m) || !(Number.isFinite(m.duration) && m.duration > 0) || out.unknown)) {
+      m.durationChecked = true; out.changed = true;
+    }
+    return out;
   }
 
   /** ffprobe -show_format -show_streams -of json output → the INFO_KEYS (+ duration,
@@ -343,7 +378,7 @@
   return {
     KINDS, INFO_KEYS, SORT_KEYS, MAX_TAGS,
     srcName, relinkScore, kindFromName,
-    parseProbe, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
+    parseProbe, needsInfo, serverDuration, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
     STANDARD_FPS, standardFps, sourceCanvas, canvasFollowsSource,
     normalizeTags, allTags, normalizeCollections,
     placements, usageCounts,

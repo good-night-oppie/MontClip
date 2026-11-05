@@ -2689,7 +2689,8 @@ async function refreshMediaInfo(list) {
   if (!state.connected) return;
   if (mediaInfoBusy) { mediaInfoAgain = true; return; }   // run once more when this one ends
   // blob: srcs are files a hosted editor reads from a folder (a local session's own blobs are transient)
-  const todo = (list || project.media).filter((m) => !m.transient && m.size == null && (isLocalSrc(m.src) || /^blob:/.test(m.src || "")));
+  // no size yet, or (once) an MKV / a recording with no usable length: old projects and MCP imports have a size already
+  const todo = (list || project.media).filter((m) => !m.transient && MediaLib.needsInfo(m) && (isLocalSrc(m.src) || /^blob:/.test(m.src || "")));
   if (!todo.length) return;
   mediaInfoBusy = true;
   try {
@@ -2707,10 +2708,10 @@ async function refreshMediaInfo(list) {
       for (const k of MediaLib.INFO_KEYS) if (i[k] != null && m[k] !== i[k]) { m[k] = i[k]; changed = true; }
       if (!(m.width > 0) && i.width > 0) { m.width = i.width; m.height = i.height; changed = true; }
       // the server's length wins where the browser has none, or counted the start of an MKV's timestamps (one that
-      // starts at 3600 s plays 20 s; Chromium says 3620 s): media-lib.js parseProbe
-      const known = Number.isFinite(m.duration) && m.duration > 0;
-      if (m.kind !== "image" && m.kind !== "svg" && i.duration > 0 && (!known || m.duration - i.duration > 1)) { m.duration = i.duration; changed = true; }
-      else if (i.durationUnknown && !known && !durationUnknownSaid.has(m.src)) { durationUnknownSaid.add(m.src); unknown.push(m); }
+      // starts at 3600 s plays 20 s; Chromium says 3620 s): media-lib.js parseProbe / serverDuration
+      const d = MediaLib.serverDuration(m, i);
+      if (d.changed) changed = true;
+      if (d.unknown && !durationUnknownSaid.has(m.src)) { durationUnknownSaid.add(m.src); unknown.push(m); }
     }
     // nothing says how long it is: tell the user once, in plain words (never 0:00 or NaN)
     if (unknown.length) toast(unknown.length === 1 ? uiText("own.media-duration-unknown", { name: unknown[0].name }) : uiText("own.media-duration-unknown-n", { n: unknown.length }));
