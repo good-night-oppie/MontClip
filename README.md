@@ -39,3 +39,5 @@ MIT. See [LICENSE](LICENSE) and the third-party notices.
 The experimental [packet-clock diagnostics](docs/testing/packet-coverage.md) run in the
 background and report covered time separately. They do not change existing projects.
 Applying a shorter clock requires an explicit choice; that repair integration is still pending.
+
+See the [agent and API manual](CLAUDE.md) for media repair and background duration merging, and the [timestamp repair comparison](docs/testing/repair-timestamp-jump.md) for the reproducible test and its limits.

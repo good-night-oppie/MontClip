@@ -52,6 +52,7 @@
     fablecut_transcribe: ["undoable", "把说话听写成带时间的文字，可按文字剪", "Turn speech into timed words; cut by text"],
     fablecut_captions: ["sensitive", "加字幕、导入字幕，或把字幕导出成文件", "Add or import captions, or export them as a file"],
     fablecut_denoise: ["undoable", "降低片段的背景噪音", "Reduce background noise on clips"],
+    fablecut_repair_media: ["undoable", "把没录完整或剪不了的视频修成可以剪的 MP4，原文件不动", "Repair or convert a video into an MP4 you can cut; the original stays as it is"],
     fablecut_projects: ["sensitive", "新建、打开、归档或删除项目", "Create, open, archive or delete projects"],
     fablecut_versions: ["sensitive", "保存、比较、恢复或删除项目版本", "Save, compare, restore or delete project versions"],
     fablecut_proxy: ["undoable", "做或删掉预览用的小文件，让预览更流畅", "Make or delete small preview files so the preview plays smoothly"],
