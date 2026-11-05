@@ -111,19 +111,65 @@ test("MediaLib.swapMedia: the new entry takes the old one's place everywhere —
   a.deepEqual(root.collections[0].media, ["m2", "m0"]);
 });
 
-test("the words (JJ's, final in Chinese; English drafts for JJ)", () => {
+/* JJ 定稿 (2026-11-05, via Deja): one button, 〔帮我修好〕 / "Fix it for me", for every repair and conversion — the
+   old 〔修复成可以剪的视频〕 and 〔帮我转成可以剪的视频〕 are gone. */
+test("the words: JJ's, word for word (the English of the mark and the progress lines are drafts)", () => {
   const V = require("../ui-preferences");
-  a.equal(V.t("zh-CN", "own.repair-button"), "修复成可以剪的视频");
-  a.equal(V.t("zh-CN", "own.repair-done", { duration: "2 分 16 秒" }), "修好了，能用的部分有 2 分 16 秒。");
-  a.equal(V.t("zh-CN", "own.repair-failed"), "这个视频损坏得太多，修不好。请换一个文件。");
-  for (const k of ["own.repair-button", "own.repair-done", "own.repair-failed", "own.repair-progress", "own.repair-cancel", "own.convert-menu"]) {
-    a.doesNotMatch(V.t("en", k, { duration: "2 min 16 s", n: 40 }), /[一-鿿]|undefined/, k);
-    a.doesNotMatch(V.t("zh-CN", k, { duration: "2 分 16 秒", n: 40 }), /undefined|NaN/, k);
+  a.equal(V.t("zh-CN", "own.repair-button"), "帮我修好");
+  a.equal(V.t("en", "own.repair-button"), "Fix it for me");
+  a.equal(V.t("zh-CN", "own.repair-menu"), "帮我修好…");
+  a.equal(V.t("en", "own.repair-menu"), "Fix it for me…");
+  a.equal(V.t("zh-CN", "own.repair-done"), "修好了。时间线上用到它的片段已经换成修好的这份，位置没变；原文件还在。");
+  a.equal(V.t("en", "own.repair-done"), "Fixed. Clips that use it now use the fixed copy, in the same place. The original is still there.");
+  a.equal(V.t("zh-CN", "own.repair-failed", { name: "录屏.mp4" }), "「录屏.mp4」录到一半就停了，没存好，这种修不了。原文件没有改动，请换一个完整的文件。");
+  a.equal(V.t("en", "own.repair-failed", { name: "rec.mp4" }), "\"rec.mp4\" stopped recording before it was saved, and this kind can't be fixed. The original file is unchanged — please use a complete file.");
+  a.equal(V.t("zh-CN", "own.media-slow-mark"), "没录完整，拖动可能会慢。右键〔帮我修好〕，会另存一份完整的。");
+  // with the button there, the two toasts end with JJ's "try it" (curly quotes round the button's name in English)
+  a.equal(V.t("zh-CN", "own.media-duration-unknown", { name: "录屏.webm" }), "「录屏.webm」可能没录完整（比如录屏中途停了），读不出有多长，现在还剪不了。原文件没有改动。点〔帮我修好〕试试。");
+  a.equal(V.t("en", "own.media-duration-unknown", { name: "rec.webm" }), "\"rec.webm\" may not have finished recording (for example, a screen recording that was stopped), so its length can't be read and it can't be edited yet. The original file is unchanged. Click “Fix it for me” to try.");
+  a.equal(V.t("zh-CN", "own.media-duration-unknown-n", { n: 3 }), "有 3 个视频可能没录完整，读不出有多长，现在还剪不了。原文件都没有改动。点〔帮我修好〕试试。");
+  a.equal(V.t("en", "own.media-duration-unknown-n", { n: 3 }), "3 videos may not have finished recording, so their length can't be read and they can't be edited yet. The original files are unchanged. Click “Fix it for me” to try.");
+  for (const k of ["own.repair-progress", "own.repair-cancel", "own.repair-button-tip", "own.media-slow-mark", "own.repair-encoder-missing"]) {
+    a.doesNotMatch(V.t("en", k, { n: 40, name: "x" }), /[一-鿿]|undefined/, k);
+    a.doesNotMatch(V.t("zh-CN", k, { n: 40, name: "x" }), /undefined|NaN/, k);
   }
+  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8"), ui = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8");
+  for (const old of ["修复成可以剪的视频", "帮我转成可以剪的视频", "Repair into a video", "Convert to a video you can cut", "own.convert-menu"])
+    a.ok(!app.includes(old) && !ui.includes(old), "the old name is gone: " + old);
+  const line = (s) => app.split("\n").filter((l) => l.includes(s));
+  a.ok(line("MediaLib.cannotCut(m)").some((l) => l.includes("own.repair-button")), "the button sits on a file that can't be cut");
+  a.ok(app.includes('uiText("own.repair-failed", { name: m.name })'), "the failure names the file");
+  a.ok(app.includes("/api/repair"), "the editor runs it on the server");
+  a.ok(app.includes("MediaLib.swapMedia("), "and swaps the entry the same way the agent's does");
+});
+
+/* JJ (cases 1 and 2): a recording that plays but was cut off — its length read from its packets — can already be cut,
+   only seeking may be slow. No dialog: a small mark on the file with JJ's hint, and 〔帮我修好…〕 in its menu. */
+test("a file whose length came from its packets: marked 'seeking may be slow' on the entry; the editor shows the mark", { skip }, async () => {
+  const MediaProbe = require("../media-probe");
+  const info = await MediaProbe.probeFile(made("cut.webm"));
+  const e = MediaProbe.infoForEntry(info, { kind: "video" });
+  a.equal(e.durationFrom, "packets", "kept on the entry");
+  a.equal(MediaLib.slowToSeek({ kind: "video", duration: 2, durationFrom: "packets" }), true);
+  a.equal(MediaLib.slowToSeek({ kind: "video", duration: 2 }), false);
+  a.equal(MediaLib.slowToSeek({ kind: "video", durationUnknown: true }), false, "that one can't be cut at all: the other mark");
   const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
-  a.match(app, /MediaLib\.cannotCut\(m\)[^\n]*own\.repair-button|own\.repair-button[^\n]*MediaLib\.cannotCut\(m\)/, "the button sits on a file that can't be cut");
-  a.match(app, /\/api\/repair\b/, "the editor runs it on the server");
-  a.match(app, /MediaLib\.swapMedia\(/, "and swaps the entry the same way the agent's does");
+  a.ok(app.split("\n").some((l) => l.includes("MediaLib.slowToSeek(m)") && l.includes("own.media-slow-mark")), "the mark and its hint");
+  a.ok(app.includes('uiText("own.repair-menu")'), "〔帮我修好…〕 in the file's menu");
+});
+
+test("no encoder can take it: refused (REPAIR_ENCODER_MISSING), nothing written", { skip }, async () => {
+  const before = new Set(fs.readdirSync(dir));
+  await a.rejects(makeEditable(made("cut.webm"), { outDir: dir, encoders: async () => [] }), (e) => e.code === "REPAIR_ENCODER_MISSING");
+  a.deepEqual(fs.readdirSync(dir).filter((f) => !before.has(f)), [], "nothing new in the folder");
+});
+
+test("the check after a remux is ±1 s against what the original holds, not more", () => {
+  const { lengthHolds } = require("../make-editable");
+  a.equal(lengthHolds(100, 100.9), true);
+  a.equal(lengthHolds(100, 101.2), false, "1.2 s off is not the same recording");
+  a.equal(lengthHolds(7200, 7201.5), false, "not a share of a long one either");
+  a.equal(lengthHolds(0, 3), true, "nothing to compare with: the new file's own length");
 });
 
 async function mcpWith(t, files) {
