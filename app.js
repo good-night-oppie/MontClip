@@ -4751,7 +4751,7 @@ async function reconcileAudioChannels(videoClip, onlyTargeted = false) {
       ? `${m.name}: added ${newTracks} audio track${newTracks === 1 ? "" : "s"} and linked ${wantCh} channels`
       : `Linked ${wantCh} audio channel${wantCh === 1 ? "" : "s"} from ${m.name}`);
   else if (removed)
-    toast(`${m.name} has fewer channels — removed ${removed} linked audio clip(s)`);
+    toast(uiText("own.channels-fewer", { name: m.name, n: removed }));
 }
 /* Apply a named title style: reset the props a style owns, merge the style,
    place it (canvas-aware), and make sure its fonts are loaded.
