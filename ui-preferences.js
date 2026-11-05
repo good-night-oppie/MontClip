@@ -236,7 +236,7 @@
     // the English of the slow-to-seek mark are drafts for JJ
     "repair-button": ["Fix it for me", "帮我修好"],
     "repair-menu": ["Fix it for me…", "帮我修好…"],
-    "repair-button-tip": ["Saves a complete MP4 beside it and uses that instead. The original file is not changed, and Ctrl+Z puts it back.", "另存一份完整的 MP4 来替换它。原文件不动，按 ⟨Ctrl⟩+⟨Z⟩ 可以换回来。"],
+    "repair-button-tip": ["Saves a complete MP4 beside it and uses that instead. The original file is not changed, and Ctrl+Z puts it back.", "另存一份完整的 MP4 来替换它。原文件不动，按 Ctrl+Z 可以换回来。"],
     "repair-progress": ["Fixing… {n}%", "正在修…{n}%"],
     "repair-cancel": ["Cancel", "取消"],
     "repair-done": ["Fixed. Clips that use it now use the fixed copy, in the same place. The original is still there.", "修好了。时间线上用到它的片段已经换成修好的这份，位置没变；原文件还在。"],
