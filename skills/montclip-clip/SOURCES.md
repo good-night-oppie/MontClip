@@ -56,7 +56,7 @@
 **插件说明**：任务里写的 `plugins/montclip-cindy` 在 main 上**不存在**。插件在单独的仓库 `good-night-oppie/MontClip-Cindy` 里（`origin/main` @ `85c8183`）：
 - 工具定义在 `ghost.json`：`montclip_status`、`list_tools`、`call_tool`、`montclip_undo`、`montclip_redo`、`montclip_seek`、`montclip_export`、`montclip_install_ffmpeg`、`montclip_open_task_view`。
 - 分类和转发在 `main.js` 第 6–20 行和第 340–380 行。
-- 内置引擎钉在 `engine-lock.json` 的 `5b312e63`。这个提交是 main 的祖先，落后 66 个提交；`mcp-tools.js` 里的工具名和 main 一致。
+- 内置引擎钉在 `engine-lock.json` 的 `5b312e63`。这个提交是 main 的祖先，比 main `90e9ba22` 落后 88 个提交（`git rev-list --count 5b312e63..90e9ba22`）；`mcp-tools.js` 里的工具名和 main 一致。
 
 **工具名和参数**：都在 `mcp-tools.js`（main），按行号：
 
