@@ -1,5 +1,6 @@
 // End-to-end: a real headless export (preset archive) of a 3-track recording; which track is in the exported file?
 // node e2e-export.cjs <audioTrack>   (MONTCLIP_FFMPEG_DIR, FABLECUT_CHROME as for the app)
+// The test video needs an H.264 the browser plays: run with an ffmpeg that has libx264 (the bundled LGPL one has not).
 const R=require('path').join(__dirname,'..','..','..','test')+'/';
 const H=require(R+'helpers'),fs=require('fs'),path=require('path'),os=require('os'),{spawnSync}=require('child_process');
 const after=[];const t={after:(f)=>after.push(f)};

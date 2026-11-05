@@ -9,7 +9,7 @@ const after=[];const t={after:(f)=>after.push(f)};const sleep=(ms)=>new Promise(
  fs.writeFileSync(path.join(dir,'project.json'),JSON.stringify(proj));fs.mkdirSync(path.join(dir,'media'));
  const mic="sine=frequency=440:sample_rate=48000:duration=20,volume=enable='lt(t,5)+gte(t,15)':volume=0";
  spawnSync(require('../../../ffmpeg-path').path('ffmpeg'),['-v','error','-y','-f','lavfi','-i','color=c=gray:s=320x180:r=30:d=20','-f','lavfi','-i','sine=frequency=220:sample_rate=48000:duration=20','-f','lavfi','-i',mic,
-  '-map','0:v','-map','1:a','-map','2:a','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-ac','2','-metadata:s:a:0','title=Game','-metadata:s:a:1','title=Mic',path.join(dir,'media','r.mkv')]);
+  '-map','0:v','-map','1:a','-map','2:a','-c:v','mpeg4','-c:a','aac','-ac','2','-metadata:s:a:0','title=Game','-metadata:s:a:1','title=Mic',path.join(dir,'media','r.mkv')]);
  const {base}=await H.startServer(t,dir,{FABLECUT_NO_FS_WATCH:'1'});
  const prof=fs.mkdtempSync(path.join(os.tmpdir(),'mc-chr-'));
  const chrome=spawn(process.env.CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe',['--headless=new','--remote-debugging-port=9333','--user-data-dir='+prof,'--autoplay-policy=no-user-gesture-required',base+'/?lang=zh-CN'],{stdio:'ignore'});

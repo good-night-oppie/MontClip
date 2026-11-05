@@ -22,7 +22,7 @@ function synth(file,{tracks=3}={}){
  const args=['-v','error','-y','-f','lavfi','-i',`color=c=gray:s=64x36:r=5:d=${LEN}`];
  for(const s of ins)args.push('-f','lavfi','-i',s);
  args.push('-map','0:v');ins.forEach((_,i)=>args.push('-map',`${i+1}:a`));
- args.push('-c:v','libx264','-preset','ultrafast','-c:a','flac');
+ args.push('-c:v','mpeg4','-c:a','flac');   // mpeg4: the bundled LGPL ffmpeg has no libx264
  if(tracks>1)['Game','Mic','BGM'].forEach((n,i)=>args.push(`-metadata:s:a:${i}`,'title='+n));
  const r=spawnSync(ffmpeg(),[...args,file]);a.equal(r.status,0,String(r.stderr));
  return file;
