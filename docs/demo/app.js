@@ -19874,7 +19874,7 @@ async function fastExport(opts = {}) {
     state.exporting = false; state.rendering = false;
     releaseOriginalPlayers();
     els.exportOverlay.classList.add("hidden");
-    els.exportNote.textContent = "Rendering your sequence in real time. Keep this tab focused.";
+    els.exportNote.textContent = uiText("term.export-note-realtime");
     if (runtime.pendingSync) syncFromServer();
   }
   return result;
@@ -19940,7 +19940,7 @@ function renderQueue() {
   const btnOpen = $("btnOpenQueue");
   if (btnOpen) btnOpen.textContent = exportQueue.length ? uiText("own.q-list-n", { n: pending || exportQueue.length }) : uiText("own.q-list");
   const start = $("btnQueueStart");
-  start.textContent = queueRunning ? "Stop" : "Start";
+  start.textContent = queueRunning ? uiText("term.queue-stop") : uiText("term.queue-start");
   start.disabled = !queueRunning && !pending;
   $("btnQueueClose").disabled = queueRunning;
   $("btnQueueClear").disabled = queueRunning || !exportQueue.some((q) => q.status !== "pending" && q.status !== "running");
@@ -20563,7 +20563,7 @@ async function webCodecsExport() {
     state.exporting = false; state.rendering = false;
     releaseOriginalPlayers();
     els.exportOverlay.classList.add("hidden");
-    els.exportNote.textContent = "Rendering your sequence in real time. Keep this tab focused.";
+    els.exportNote.textContent = uiText("term.export-note-realtime");
     if (runtime.pendingSync) syncFromServer();
   }
 }
