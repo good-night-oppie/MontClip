@@ -87,7 +87,7 @@ function world({
     releaseClipEl() {}, scheduleSave() {}, renderInspector() {}, pruneSelection() {},
     ensureWave() {}, reconcileAudioChannels() {}, pause() {}, pauseSource() {},
     ensurePlayheadVisible() {}, toastSourceWindowMissing() {},
-    defaultPanForChannel: (ch) => (ch === 0 ? -1 : ch === 1 ? 1 : 0),
+    defaultPanForChannel: MontClipEdit.defaultPanForChannel,
     MontClipEdit, shiftKF: MontClipEdit.shiftKF, undoSnapshot: () => null,
     pushUndo: () => { calls.undo++; },
     toast: (msg) => { calls.toast.push(msg); },

@@ -59,7 +59,7 @@ test('packaging: the engine and the VAD always; the models only in the 完整版
   a.match(pkg, /const full = process\.argv\.includes\('--full'\)/);
   a.match(pkg, /Asr\.verify\(\{ models: full \}\)/);
   a.match(pkg, /Asr\.verify\(\{ dir: path\.join\(appDir, 'resources', 'asr'\), models: full \}\)/);
-  a.match(pkg, /MontClip-internal-win-x64\$\{full \? '-full' : ''\}-\$\{buildId\}/, 'the 完整版 zip has its own name');
+  a.match(pkg, /MontClip-\$\{seed \? 'private' : 'internal'\}-win-x64\$\{full \? '-full' : ''\}-\$\{buildId\}/, 'the 完整版 zip has its own name (a private one too)');
   a.ok(pkg.includes("const asrKeep = (f) => !isUnder(f, 'test_wavs') && (full || !isUnder(f, 'models'));") && pkg.includes('filter: asrKeep'), 'no test sentence; models only in the 完整版');
   const fetchAsr = read('desktop/fetch-asr.cjs');
   a.match(fetchAsr, /integrityOk\(/); a.match(fetchAsr, /--models/);
