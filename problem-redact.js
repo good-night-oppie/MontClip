@@ -86,9 +86,50 @@
   }
   /** The first line of what 〔复制问题信息〕 copies (#161, JJ): the mail watcher knows a report by it. */
   const HEADER = { "zh-CN": "MontClip 问题信息 v1", en: "MontClip problem details v1" };
-  /** Everything 〔复制问题信息〕 copies: HEADER in the interface language, then the redacted text. */
-  function problemDetails(s, opts = {}) {
-    return (HEADER[opts.language] || HEADER["zh-CN"]) + "\n" + redactProblem(s, opts);
+  /* What is copied (JJ, #161): the streamer can see at a glance that nothing of hers is in it. No raw error, call stack or
+     path: the plain sentence she saw; each file only as its type and size (「一个 mp4 文件，1.2 GB」); the error code alone
+     on its own line, for developers. */
+  const WORDS = {
+    "zh-CN": { dev: "给开发者看：", file: "相关文件：", one: (ext, size) => `一个 ${ext} 文件，${size || "大小不明"}` },
+    en: { dev: "For developers: ", file: "File: ", one: (ext, size) => `${/^[aefhilmnorsx]/.test(ext) ? "an" : "a"} ${ext} file, ${size || "size unknown"}` },
+  };
+  const FILE_EXT = "mp4|m4v|mov|mkv|webm|flv|avi|ts|mts|m2ts|wmv|mp3|wav|aac|m4a|flac|ogg|opus|wma|png|jpe?g|gif|webp|bmp|svg|srt|vtt|ass|lrc|xml|json|txt";
+  /** The files a raw error names (paths or bare names): [{name, ext}] — the name only to look its size up, never copied. */
+  function fileMentions(log) {
+    const out = [], seen = new Set();
+    const re = new RegExp(`(?:"([^"\\r\\n]+?\\.(?:${FILE_EXT}))"|'([^'\\r\\n]+?\\.(?:${FILE_EXT}))'|([^\\s"'<>()=,;]+?\\.(?:${FILE_EXT})))(?=$|[\\s"'<>():,;.])`, "gi");
+    for (const m of String(log || "").matchAll(re)) {
+      const name = m[1] || m[2] || m[3];
+      const ext = /\.([A-Za-z0-9]+)$/.exec(name)[1].toLowerCase();
+      if (!seen.has(name)) { seen.add(name); out.push({ name, ext }); }
+    }
+    return out;
   }
-  return { maskUserPath, redactProblem, problemDetails, HEADER };
+  function fmtBytes(b) {
+    if (!(b > 0)) return "";
+    const u = ["B", "KB", "MB", "GB", "TB"];
+    let i = 0, n = b;
+    while (n >= 1000 && i < u.length - 1) { n /= 1000; i++; }
+    return (i === 0 ? n : n < 10 ? n.toFixed(1) : Math.round(n)) + " " + u[i];
+  }
+  /** A file name or a sentence with file names in it: each name as its type (「一个 mp4 文件」), the rest redacted. */
+  function plain(s, w, opts) {
+    const re = new RegExp(`[^\\s"'<>()=,;：，。、「」“”]+?\\.(${FILE_EXT})(?=$|[\\s"'<>():,;.，。、」”])`, "gi");
+    return redactProblem(String(s || "").replace(re, (m, ext) => w.one(ext.toLowerCase(), "").replace(/[，,]\s*(大小不明|size unknown)$/, "")), opts);
+  }
+  /** Everything 〔复制问题信息〕 copies. p: {text: the plain sentence the streamer saw, code, log: the raw error (read only
+   *  for the files it names, never copied), files?: [{ext, size}] (the server's, with sizes)}; opts: {language, home,
+   *  platform, user}. Lines: HEADER; the sentence; 「相关文件：一个 mp4 文件，1.2 GB」 per file; 「给开发者看：<code>」. */
+  function problemDetails(p, opts = {}) {
+    const language = HEADER[opts.language] ? opts.language : "zh-CN", w = WORDS[language];
+    const lines = [HEADER[language]];
+    for (const l of String((p && p.text) || "").split(/\r?\n/)) if (l.trim()) lines.push(plain(l.trim(), w, opts));
+    const files = (p && Array.isArray(p.files) ? p.files : fileMentions(p && p.log).map((f) => ({ ext: f.ext })));
+    for (const f of files.slice(0, 8)) if (f && /^[a-z0-9]{1,5}$/i.test(f.ext)) lines.push(w.file + w.one(f.ext.toLowerCase(), fmtBytes(f.size)));
+    // a code is an identifier; anything else (a path, a message where a code should be) is not copied
+    const raw = String((p && p.code) || "").trim(), code = redactProblem(raw, opts).trim();
+    if (raw) lines.push(w.dev + (/^[A-Za-z0-9_.-]{1,64}$/.test(code) ? code : "UNKNOWN"));
+    return lines.join("\n");
+  }
+  return { maskUserPath, redactProblem, problemDetails, fileMentions, fmtBytes, HEADER };
 });

@@ -253,8 +253,8 @@ test('the page: nothing raw on screen; the copy button with its small print; the
   a.match(app, /toastAction\(uiText\("exportSaveFolderFailed"\), uiText\("btnOtherFolder"\)/, '#116: 〔换个文件夹〕 opens the save window again');
   const server = read('server.js');
   a.match(server, /p === "\/api\/problem-details"/);
-  // #161: and the user name, and the first line in the interface language (test/problem-details.test.js)
-  a.match(server, /Redact\.problemDetails\(String\(body\.text \|\| ""\)\.slice\(0, 8000\), \{ home: os\.homedir\(\), platform: process\.platform, user: userName\(\), language: body\.language \}\)/);
+  // #161: the plain sentence, the files as type and size, the code — with the user name too (test/problem-details.test.js)
+  a.match(server, /Redact\.problemDetails\(p, \{ home: os\.homedir\(\), platform: process\.platform, user: userName\(\), language: body\.language \}\)/);
   a.match(read('index.html'), /<script src="problem-redact\.js"><\/script>/);
 });
 

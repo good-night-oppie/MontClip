@@ -1544,7 +1544,16 @@ const server = http.createServer(async (req, res) => {
     let body;
     try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "the body must be JSON: {text}" }); return; }
     const userName = () => { try { return os.userInfo().username; } catch { return ""; } };
-    sendJSON(res, 200, { text: Redact.problemDetails(String(body.text || "").slice(0, 8000), { home: os.homedir(), platform: process.platform, user: userName(), language: body.language }) });
+    // the files the raw error names, as their type and size only (JJ, #161): looked up here, never copied by name
+    const sizeOf = (name) => {
+      const tries = [/^\/(media|library)\//.test(name) ? resolveSrc(name) : null, path.isAbsolute(name) ? name : null,
+        path.join(MEDIA_DIR, path.basename(name)), path.join(EXPORTS_DIR, path.basename(name))];
+      for (const f of tries) { try { if (f && fs.statSync(f).isFile()) return fs.statSync(f).size; } catch {} }
+      return null;
+    };
+    const files = Redact.fileMentions(String(body.log || "").slice(0, 8000)).map((f) => ({ ext: f.ext, size: sizeOf(f.name) }));
+    const p = { text: String(body.text || "").slice(0, 2000), code: body.code, files };
+    sendJSON(res, 200, { text: Redact.problemDetails(p, { home: os.homedir(), platform: process.platform, user: userName(), language: body.language }) });
     return;
   }
   /* {fresh:true} once for a file this session exported (then forgotten); {fresh:false} for anything else */

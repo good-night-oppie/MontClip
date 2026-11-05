@@ -54,15 +54,17 @@ function sayError(error, where = "error") {
   if (r.log) console.warn(r.line);
   return r;
 }
-/** 〔复制问题信息〕: the log line with viewers, keys and user folders taken out (problem-redact.js) — by the server, which
- *  knows the home folder; by the same rules here when the server can't be reached. */
+/** 〔复制问题信息〕 (problem-redact.js problemDetails; JJ, #161): the plain sentence she saw, the files only as type and size,
+ *  the error code for developers — never the raw error, a call stack, a path or a name. The server looks the files'
+ *  sizes up and knows the home folder and user name; the same rules here, without sizes, when it can't be reached. */
 async function copyProblem(r) {
   let out = null;
+  const p = { text: r.text || "", code: r.code || "", log: r.log || "" }, language = mcView.get().language;
   try {
-    const res = await fetch("/api/problem-details", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: r.line || "", language: mcView.get().language }) });
+    const res = await fetch("/api/problem-details", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...p, language }) });
     if (res.ok) out = (await res.json()).text;
   } catch { /* offline: the page's copy of the rules */ }
-  if (typeof out !== "string") out = MontClipRedact.problemDetails(r.line || "", { platform: /win/i.test(navigator.platform || "") ? "win32" : "", language: mcView.get().language });
+  if (typeof out !== "string") out = MontClipRedact.problemDetails(p, { platform: /win/i.test(navigator.platform || "") ? "win32" : "", language });
   try { await navigator.clipboard.writeText(out); toastProblemSent(); } catch { toast(uiText("own.copy-problem-failed")); }
 }
 /** After a copy (JJ, #161): what was taken out, and the mailbox to send it to. The address can be selected (one click
