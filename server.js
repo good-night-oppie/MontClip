@@ -1794,12 +1794,26 @@ const server = http.createServer(async (req, res) => {
                                          be read, kept with the transcript); 500 {code: ASR_FAILED} when nothing could;
                                          progress as SSE "asr" ({src, frac}); 409 {code} when busy, when the model or the
                                          engine is missing, or when cancelled. Nothing is downloaded here.
-       POST /api/asr/cancel            → {cancelled} */
+       POST /api/asr/cancel            → {cancelled}
+       POST /api/asr/meta/release      → {cancelled, released, stopped}: 〔删掉 Meta 的模型〕, after the streamer's yes in the
+                                         desktop app: a Meta transcription is cancelled and its process has ended before
+                                         this answers (Windows keeps the model's files while it loads them; Rea, 11-05);
+                                         no new one starts until {done:true}. A Paraformer job is left alone. */
   if (p === "/api/asr/status" && req.method === "GET") { sendJSON(res, 200, asrStatus()); return; }
   if (p === "/api/asr/cancel" && req.method === "POST") {
     const j = asrJob.running;
     if (j) j.ac.abort();
     sendJSON(res, 200, { cancelled: !!j });
+    return;
+  }
+  if (p === "/api/asr/meta/release" && req.method === "POST") {
+    let body = {};
+    try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}") || {}; } catch { }
+    if (body.done === true) { asrMeta().unhold(); sendJSON(res, 200, { done: true }); return; }
+    const j = asrJob.running, cancelled = !!(j && j.key === "asrMeta");
+    if (cancelled) j.ac.abort();
+    const r = await asrMeta().release();
+    sendJSON(res, 200, { cancelled, ...r });
     return;
   }
   if (p === "/api/asr/transcribe" && req.method === "POST") {
@@ -1819,7 +1833,7 @@ const server = http.createServer(async (req, res) => {
       sendJSON(res, 409, { code: "ASR_CONSENT_REQUIRED", waiting: "streamer", error: "this speech model is used only after the streamer read its licence and agreed, in the Transcript tab of the desktop app. Nothing was changed." }); return;
     }
     if (!st[key] || !st[key].ready) { sendJSON(res, 409, { code: "ASR_MODEL_MISSING", error: "no speech model yet: the user downloads it or imports it (USB drive / a file) in the Transcript tab; MontClip never fetches it by itself", missing: st[key] ? st[key].missing : [], bad: st.asr.bad }); return; }
-    const ac = new AbortController(), job = asrJob.running = { src, ac };
+    const ac = new AbortController(), job = asrJob.running = { src, ac, key };
     res.on("close", () => { if (!res.writableFinished) ac.abort(); });   // the page went away: stop
     let last = 0;
     try {
@@ -1835,7 +1849,7 @@ const server = http.createServer(async (req, res) => {
         ...(key === "asrMeta" ? { engine: "meta", threads: r.threads, maxRssMB: r.maxRssMB } : {}) });
     } catch (e) {
       const code = e.code === "ASR_CANCELLED" || ac.signal.aborted ? "ASR_CANCELLED" : e.code || "ASR_FAILED";
-      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING|OPTIONAL_NO_MEMORY)$/.test(code) ? 409 : 500,
+      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|BUSY|MODEL_MISSING|ENGINE_MISSING|OPTIONAL_NO_MEMORY)$/.test(code) ? 409 : 500,
         { code, error: String(e.message || e), ...(key === "asrMeta" ? { engine: "meta", needMB: e.needMB, freeMB: e.freeMB } : {}) });
     } finally { if (asrJob.running === job) asrJob.running = null; }
     return;

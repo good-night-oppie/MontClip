@@ -208,7 +208,12 @@ async function start() {
     const answer = smoke ? { response: smokeAnswer("REVOKE") === 1 ? t.removeId : t.keepId }
       : await dialog.showMessageBox(win, { type: "question", title: t.title, message: t.message, detail: t.detail, buttons: t.buttons, defaultId: t.keepId, cancelId: t.keepId, noLink: true });
     if (answer.response !== t.removeId) return { ok: false, declined: true };
-    try { return asrConsent.revoke(which); } catch (e) { return { ok: false, error: String(e.message || e) }; }
+    // a Meta transcription running now is stopped first and its process has ended before anything is deleted (Windows
+    // keeps the model's files while it loads them; Rea, 11-05); then the files; then the agreement
+    const release = (body) => fetch(origin + "/api/asr/meta/release", { method: "POST", headers: { "X-MontClip-Session": token, "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json());
+    try { return await asrConsent.remove(which, { release: () => release({}) }); }
+    catch (e) { return { ok: false, error: String(e.message || e) }; }
+    finally { release({ done: true }).catch(() => {}); }
   });
   // v10: what the streamer chose on the transcription setup page ("local" | "later"), kept here because the page's
   // origin (a random port) changes each time MontClip opens; and whether a download stopped half-way (it opens on 「没下载完」)

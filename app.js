@@ -9724,6 +9724,8 @@ async function asrRevokeMeta() {
   let r = null;
   try { r = await window.montclipAsr.revoke("asrMeta"); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
   if (r && r.ok) { toast(uiText("own.asr-meta-revoked")); setAsrKey("asr"); }
+  // a file could not be deleted: never 「删好了」; the agreement stays, the model stays chosen
+  else if (r && r.code === "ASR_REMOVE_INCOMPLETE") toast(uiText("own.asr-meta-remove-incomplete"));
   await loadAsrStatus();
 }
 function asrLater() { asrState.phase = null; asrState.why = ""; paintAsrStatus(); }

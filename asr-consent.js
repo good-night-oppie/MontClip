@@ -22,7 +22,8 @@ const err = (code, message, extra) => Object.assign(new Error(message), { code }
 /** The manifest entry's consent terms, or null when the model needs no consent. */
 const termsOf = (key, m = manifest) => (m.models[key] && m.models[key].consent) || null;
 
-function createConsent({ modelsDir, root = __dirname, manifest: m = manifest, now = () => new Date() } = {}) {
+// rm: fs.rmSync, replaceable in tests (a file Windows keeps busy)
+function createConsent({ modelsDir, root = __dirname, manifest: m = manifest, now = () => new Date(), rm = fs.rmSync } = {}) {
   const fileOf = (key) => path.join(path.resolve(modelsDir), "consent", key + ".json");
   const terms = (key) => { const t = termsOf(key, m); if (!t) throw err("ASR_NO_CONSENT_NEEDED", key + " needs no consent"); return t; };
 
@@ -54,15 +55,29 @@ function createConsent({ modelsDir, root = __dirname, manifest: m = manifest, no
     try { fs.writeFileSync(tmp, JSON.stringify(rec), { flag: "wx" }); fs.renameSync(tmp, file); } finally { fs.rmSync(tmp, { force: true }); }
     return rec;
   }
-  /** Revoke: the model's files (in the user's folder only), its half-downloaded parts and the record go. */
+  /** Revoke: the model's files (in the user's folder only) and its half-downloaded parts first, then the record. When a
+   *  file can't be deleted (Windows keeps it busy), the record stays: {ok:false, code:"ASR_REMOVE_INCOMPLETE", left}. */
   function revoke(key) {
     terms(key);
     const dir = path.resolve(modelsDir), model = m.models[key];
-    fs.rmSync(fileOf(key), { force: true });
-    fs.rmSync(path.join(dir, key), { recursive: true, force: true });
     const shas = [...Object.values(model.files).map((f) => f.sha256), ...(model.sources || []).filter((s) => s.sha256).map((s) => s.sha256)];
-    for (const sha of shas) fs.rmSync(path.join(dir, ".partial", sha + ".part"), { force: true });
+    const left = [];
+    for (const p of [path.join(dir, key), ...shas.map((sha) => path.join(dir, ".partial", sha + ".part"))]) {
+      try { rm(p, { recursive: true, force: true }); } catch { }
+      if (fs.existsSync(p)) left.push(path.relative(dir, p).split(path.sep).join("/"));
+    }
+    if (left.length) return { ok: false, code: "ASR_REMOVE_INCOMPLETE", left, error: "some of the model's files could not be deleted (in use?); the agreement stays until they are" };
+    fs.rmSync(fileOf(key), { force: true });
     return { ok: true, revoked: key };
+  }
+  /** 〔删掉 Meta 的模型〕, after the streamer said yes: release() stops a transcription with this model and waits for its
+   *  process to end (Rea, 11-05), then revoke(). */
+  async function remove(key, { release } = {}) {
+    terms(key);
+    let freed = null;
+    if (release) { try { freed = await release(); } catch (e) { freed = { released: false, error: String((e && e.message) || e) }; } }
+    const r = revoke(key);
+    return freed && freed.released === false ? { ...r, released: false } : r;
   }
 
   /** What revoke() would delete, in bytes: the model's folder (in the user's folder only) and its half-downloaded parts. */
@@ -100,7 +115,7 @@ function createConsent({ modelsDir, root = __dirname, manifest: m = manifest, no
     return { ok: true };
   }
 
-  return { licenseText, record, allowed, agree, revoke, size, choose };
+  return { licenseText, record, allowed, agree, revoke, remove, size, choose };
 }
 
 module.exports = { createConsent, termsOf };
