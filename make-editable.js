@@ -1,4 +1,4 @@
-/* 〔修复成可以剪的视频〕 and 〔帮我转〕: make a video MontClip can cut (JJ, P3, 2026-11-05; Deja).
+/* 〔帮我修好〕 (one button for every repair and conversion): make a video MontClip can cut (JJ, P3, 2026-11-05; Deja).
 
      makeEditable(file, {outDir, signal, onProgress(p 0…1, phase)}) →
        Promise of {file, duration, preparation: "remux" | "transcode", encoder?}
@@ -74,7 +74,17 @@ function target(file, outDir) {
 }
 const rm = (f) => { try { fs.rmSync(f, { force: true }); } catch { /* best effort */ } };
 
-/** The encoders a re-encode may use, best first: [{bin, video:[args], name}]. */
+/** After a remux or a re-encode: the new file is as long as what the original holds, within 1 s (JJ, 2026-11-05) —
+ *  nothing to compare with (the original says no length at all), its own length. */
+const lengthHolds = (expected, got) => !(expected > 0) || Math.abs(got - expected) <= 1;
+/** The bundled ffmpeg's encoder names (once). */
+let bundledList = null;
+function bundledEncoders() {
+  return bundledList || (bundledList = run(FF.path("ffmpeg"), ["-hide_banner", "-encoders"])
+    .then((out) => new Set(String(out).split(/\r?\n/).map((l) => (l.match(/^\s*V\S*\s+(\S+)/) || [])[1]).filter(Boolean)))
+    .catch(() => new Set()));
+}
+/** The encoders a re-encode may use, best first: [{bin, video:[args], name}]. Empty: nothing here can re-encode. */
 async function encoders() {
   const out = [];
   try {
@@ -83,11 +93,12 @@ async function encoders() {
   } catch { /* no local FFmpeg chosen */ }
   try { for (const e of await Prepare.usableH264()) out.push({ name: e, bin: FF.path("ffmpeg"), video: Prepare.transcodeVideoArgs(e) }); }
   catch { /* none answered */ }
-  out.push({ name: "libvpx-vp9", bin: FF.path("ffmpeg"), video: ["-c:v", "libvpx-vp9", "-crf", "32", "-b:v", "0", "-deadline", "realtime", "-cpu-used", "8", "-row-mt", "1", "-pix_fmt", "yuv420p"] });
+  if ((await bundledEncoders()).has("libvpx-vp9"))
+    out.push({ name: "libvpx-vp9", bin: FF.path("ffmpeg"), video: ["-c:v", "libvpx-vp9", "-crf", "32", "-b:v", "0", "-deadline", "realtime", "-cpu-used", "8", "-row-mt", "1", "-pix_fmt", "yuv420p"] });
   return out;
 }
 
-async function makeEditable(file, { outDir = path.dirname(file), signal, onProgress } = {}) {
+async function makeEditable(file, { outDir = path.dirname(file), signal, onProgress, encoders: listEncoders = encoders } = {}) {
   const say = (p, phase) => { if (onProgress) try { onProgress(Math.max(0, Math.min(1, p)), phase); } catch { } };
   if (signal && signal.aborted) throw cancelled();
   const info = await MediaProbe.probeFile(file);
@@ -104,7 +115,7 @@ async function makeEditable(file, { outDir = path.dirname(file), signal, onProgr
     try { json = await probeJson(part, signal); } catch (e) { if (e.code === "REPAIR_CANCELLED") throw e; return 0; }
     const d = Number(json.format && json.format.duration);
     if (!(d >= MIN_USABLE)) return 0;
-    if (expected > 0 && Math.abs(d - expected) > Math.max(1, expected * 0.02)) return 0;
+    if (!lengthHolds(expected, d)) return 0;
     try { await run(FF.path("ffmpeg"), ["-v", "error", "-nostdin", "-xerror", "-err_detect", "explode", "-progress", "pipe:1", "-nostats", "-i", part, "-f", "null", "-"], { signal, onTime: span(p0, p1, "check") }); }
     catch (e) { if (e.code === "REPAIR_CANCELLED") throw e; return 0; }
     return Math.round(d * 1000) / 1000;
@@ -147,7 +158,10 @@ async function makeEditable(file, { outDir = path.dirname(file), signal, onProgr
     // 3. re-encode, from the original, past whatever can't be decoded
     let audio = true;
     try { audio = (await probeJson(file, signal)).streams.some((s) => s.codec_type === "audio"); } catch (e) { if (e.code === "REPAIR_CANCELLED") throw e; }
-    for (const enc of await encoders()) {
+    const list = await listEncoders();
+    // re-encoding is needed and nothing here can do it: refused before anything is written (JJ)
+    if (!list.length) throw failure("REPAIR_ENCODER_MISSING");
+    for (const enc of list) {
       say(0.3, "transcode");
       try {
         await run(enc.bin, ["-v", "error", "-nostdin", "-y", "-progress", "pipe:1", "-nostats", "-err_detect", "ignore_err", "-fflags", "+discardcorrupt+genpts",
@@ -162,7 +176,7 @@ async function makeEditable(file, { outDir = path.dirname(file), signal, onProgr
   } catch (e) {
     rm(part);
     if (e.code === "REPAIR_CANCELLED" || (signal && signal.aborted)) throw cancelled();
-    if (e.code === "REPAIR_FAILED") throw e;
+    if (e.code === "REPAIR_FAILED" || e.code === "REPAIR_ENCODER_MISSING") throw e;
     throw failure("REPAIR_FAILED", e);
   }
 }
@@ -201,4 +215,4 @@ function createJobs({ prefix = "r_", keep = 50 } = {}) {
   return { start, get, cancel };
 }
 
-module.exports = { makeEditable, createJobs, MIN_USABLE };
+module.exports = { makeEditable, createJobs, lengthHolds, MIN_USABLE };

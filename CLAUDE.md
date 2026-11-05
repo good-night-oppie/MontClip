@@ -1741,23 +1741,26 @@ Files under `media/` may sit in subfolders (`/media/archive/a.mp4`).
   swap the file of one clip only, use the Inspector's **Source** menu instead.
 - Relink and replace are one undo step each.
 
-**Repair / convert (〔修复成可以剪的视频〕).** A recording whose length can't be read (it stopped before it was saved)
-shows "This video wasn't recorded to the end…" on the file in the bin, with a **Repair into a video you can cut**
-button; right-click any video → **Convert to a video you can cut** runs the same thing (FLV included, no
-`allowTranscode`). A new MP4 is written into `media/` as `<name>.repaired.mp4` — the original file is never
+**Fix it for me (〔帮我修好〕).** One button for every repair and conversion. A recording whose length can't be read
+(it stopped before it was saved) shows "This video wasn't recorded to the end…" on the file in the bin, with a
+**Fix it for me** button; one whose length came only from its packets (it can be cut, seeking may be slow) gets a
+small ◔ mark instead, no dialog. Right-click any video → **Fix it for me…** runs the same thing (FLV included, no
+`allowTranscode`). When re-encoding is needed and no encoder here can do it, it is refused and nothing is written. A new MP4 is written into `media/` as `<name>.repaired.mp4` — the original file is never
 touched — and takes the entry's place: every clip, composition and sequence that used it switches, fitted to
 the usable part, as one undo step (the new entry has `derivedFrom` and `replaced: {id, name, src}`). First a
 quick remux (`-c copy`), checked: the new file states its length, close to what the original holds, and decodes
 cleanly end to end. Only if that doesn't hold (VP8 can't go into an MP4, a broken frame …) it is re-encoded,
 with the encoders exports use: your own FFmpeg's libx264, else a bundled LGPL H.264 encoder that works here, else
 the bundled LGPL VP9 (no GPL encoder is ever bundled). An FLV goes through the FLV preparation first. Progress and
-**Cancel** sit on the file; a file too damaged says "This video is too damaged to repair. Please use another
-file." (an MP4 whose index was never written, for one).
+**Cancel** sit on the file. Done: "Fixed. Clips that use it now use the fixed copy, in the same place. The original
+is still there." One that can't be fixed (an MP4 whose index was never written): "“name” stopped recording before
+it was saved, and this kind can't be fixed. The original file is unchanged — please use a complete file." The
+length check after a remux or re-encode is ±1 s against what the original holds.
 
 **Agents:** `fablecut_repair_media {mediaId}` answers at once with a job — `{job, status, progress, phase}` —
 the long-operation convention: call again with `{job}` for progress and, when `status` is `done`,
 `result.mediaId` (the NEW id) and `result.duration`; `{cancel}` stops it (nothing changes); the same
-`{mediaId}` again while it runs joins that job. `failed` carries `error.code` (`REPAIR_FAILED`). A version is
+`{mediaId}` again while it runs joins that job. `failed` carries `error.code` (`REPAIR_FAILED`, or `REPAIR_ENCODER_MISSING`: re-encoding was needed and nothing here can do it — nothing written). A version is
 kept first, so `fablecut_versions` can undo the swap.
 
 **Proxies.** Heavy footage — 4K, HEVC, ProRes, long phone clips — can stutter

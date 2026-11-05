@@ -148,7 +148,7 @@ async function backfillDurations() {
   for (const m of proj.media || []) {
     const info = found.get(m.id);
     if (!info || (m.duration > 0) || m.durationUnknown) continue;
-    if (info.duration > 0) m.duration = info.duration; else m.durationUnknown = true;
+    if (info.duration > 0) { m.duration = info.duration; if (info.durationFrom) m.durationFrom = info.durationFrom; } else m.durationUnknown = true;
     n++;
   }
   if (!n) return 0;
@@ -1030,20 +1030,22 @@ function versionBeforeAgent(rewrite) {
     return ` Warning: no version was saved before this edit (${e.message}) — fablecut_versions {action:"save"} keeps one.`;
   }
 }
-/* fablecut_repair_media (JJ, P3, 2026-11-05): 〔修复成可以剪的视频〕 for agents, and the general 〔帮我转〕 — any
+/* fablecut_repair_media (JJ, P3, 2026-11-05): 〔帮我修好〕 for agents — repairs and the general conversion, one path (the old 〔帮我转〕 — any
    video, FLV or not, without allowTranscode. A background job (the long-operation convention, MontClip-Cindy #3):
    {mediaId} answers at once with the job; {job} says how far it got and, once done, the new mediaId; {cancel} stops
    it; the same {mediaId} again while it runs joins that job. Done: the new MP4 takes the entry's place (MediaLib.swapMedia),
    a version of the project kept first, so the swap can be undone (fablecut_versions; in the editor, Ctrl+Z). */
 const repairJobs = MakeEditable.createJobs({ prefix: "r_" });
+const repairNames = new Map();   // job → the file's name, for the words when it fails
 const REPAIR_WORDS = {
-  REPAIR_FAILED: "This video is too damaged to repair. Please use another file.",
-  REPAIR_CANCELLED: "Stopped; nothing was changed.",
+  REPAIR_FAILED: (name) => `"${name}" stopped recording before it was saved, and this kind can't be fixed. The original file is unchanged — please use a complete file.`,
+  REPAIR_ENCODER_MISSING: (name) => `This computer has no encoder MontClip can use to fix "${name}", so nothing was written. The original file is unchanged.`,
+  REPAIR_CANCELLED: () => "Stopped; nothing was changed.",
 };
 function repairLine(j) {
   const pct = Math.round(j.progress * 100);
-  const head = j.status === "done" ? `Repaired: the usable part is ${j.result.duration}s, now media ${j.result.mediaId} (it replaced ${j.result.replaced}${j.result.clips ? `; ${j.result.clips} clip(s) switched` : ""}).`
-    : j.status === "failed" || j.status === "cancelled" ? (REPAIR_WORDS[j.error.code] || j.error.message)
+  const head = j.status === "done" ? `Fixed. Clips that use it now use the fixed copy, in the same place. The original is still there. (Usable part ${j.result.duration}s; now media ${j.result.mediaId}, it replaced ${j.result.replaced}${j.result.clips ? `; ${j.result.clips} clip(s) switched` : ""}.)`
+    : j.status === "failed" || j.status === "cancelled" ? (REPAIR_WORDS[j.error.code] ? REPAIR_WORDS[j.error.code](repairNames.get(j.job) || "this video") : j.error.message)
     : `Repair job ${j.job}: ${j.status} ${pct}% (${j.phase}). Call again with job "${j.job}" for progress and the result, or cancel "${j.job}" to stop it.`;
   return head + "\n" + JSON.stringify(j);
 }
@@ -1087,6 +1089,7 @@ async function repairTool(args) {
     if (wasCurrent) lastReadRevision = proj.revision;
     return { mediaId: entry.id, replaced, duration: r.duration, preparation: r.preparation, ...(r.encoder ? { encoder: r.encoder } : {}), src: entry.src, clips };
   });
+  repairNames.set(j.job, m.name);
   return repairLine(j);
 }
 async function proxyTool(args) {

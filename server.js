@@ -1745,7 +1745,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  /* API: 〔修复成可以剪的视频〕 / 〔帮我转〕 (JJ, P3) — POST {src} starts a job (or joins the one running for that
+  /* API: 〔帮我修好〕 (JJ, P3) — POST {src} starts a job (or joins the one running for that
      file) → {job, status, progress, phase}; GET /api/repair/job?id= → the same, with result {src, name, kind, duration,
      preparation, encoder?, …file details} once done, or error {code}; POST /api/repair/cancel?id= stops it. The new MP4
      is written into media/; the original is never touched. Swapping it into the project is the editor's job

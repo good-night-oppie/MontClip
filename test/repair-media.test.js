@@ -138,7 +138,7 @@ test("the words: JJ's, word for word (the English of the mark and the progress l
     a.ok(!app.includes(old) && !ui.includes(old), "the old name is gone: " + old);
   const line = (s) => app.split("\n").filter((l) => l.includes(s));
   a.ok(line("MediaLib.cannotCut(m)").some((l) => l.includes("own.repair-button")), "the button sits on a file that can't be cut");
-  a.ok(app.includes('uiText("own.repair-failed", { name: m.name })'), "the failure names the file");
+  a.ok(line('"own.repair-failed"').some((l) => l.includes("{ name: m.name }") && l.includes('"own.repair-encoder-missing"')), "the failure names the file (and says when no encoder can do it)");
   a.ok(app.includes("/api/repair"), "the editor runs it on the server");
   a.ok(app.includes("MediaLib.swapMedia("), "and swaps the entry the same way the agent's does");
 });

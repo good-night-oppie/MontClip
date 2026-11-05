@@ -231,22 +231,23 @@
     // media-incomplete is JJ's sentence (定稿 2026-11-05, her review of the trial), on the file in the bin; the English
     // is a draft for JJ.
     "media-incomplete": ["This video wasn't recorded to the end (the screen recording may have stopped early), so its length can't be read. It can't be cut yet.", "这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
-    // 〔修复成可以剪的视频〕 (JJ, P3, 2026-11-05): button, done and failed are JJ's Chinese (定稿); the English, the
-    // progress line, Cancel, the button's tip, the right-click 〔帮我转〕 and the spoken lengths are drafts for JJ
-    "repair-button": ["Repair into a video you can cut", "修复成可以剪的视频"],
-    "repair-button-tip": ["Saves a new MP4 beside it and uses that instead. The original file is not changed, and Ctrl+Z puts it back.", "另存一份新的 MP4 来替换它。原文件不动，按 Ctrl+Z 可以换回来。"],
-    "repair-progress": ["Repairing… {n}%", "正在修复…{n}%"],
+    // 〔帮我修好〕 (JJ 定稿 2026-11-05, via Deja): one button for every repair and conversion, FLV breaks included —
+    // the button, its menu item, done and failed are JJ's, word for word; the tip, progress, Cancel, "no encoder" and
+    // the English of the slow-to-seek mark are drafts for JJ
+    "repair-button": ["Fix it for me", "帮我修好"],
+    "repair-menu": ["Fix it for me…", "帮我修好…"],
+    "repair-button-tip": ["Saves a complete MP4 beside it and uses that instead. The original file is not changed, and Ctrl+Z puts it back.", "另存一份完整的 MP4 来替换它。原文件不动，按 Ctrl+Z 可以换回来。"],
+    "repair-progress": ["Fixing… {n}%", "正在修…{n}%"],
     "repair-cancel": ["Cancel", "取消"],
-    "repair-done": ["Repaired. The usable part is {duration} long.", "修好了，能用的部分有 {duration}。"],
-    "repair-failed": ["This video is too damaged to repair. Please use another file.", "这个视频损坏得太多，修不好。请换一个文件。"],
-    "convert-menu": ["Convert to a video you can cut", "帮我转成可以剪的视频"],
-    "dur-s": ["{s} s", "{s} 秒"],
-    "dur-ms": ["{m} min {s} s", "{m} 分 {s} 秒"],
-    "dur-hm": ["{h} h {m} min", "{h} 小时 {m} 分"],
+    "repair-done": ["Fixed. Clips that use it now use the fixed copy, in the same place. The original is still there.", "修好了。时间线上用到它的片段已经换成修好的这份，位置没变；原文件还在。"],
+    "repair-failed": ["\"{name}\" stopped recording before it was saved, and this kind can't be fixed. The original file is unchanged — please use a complete file.", "「{name}」录到一半就停了，没存好，这种修不了。原文件没有改动，请换一个完整的文件。"],
+    "repair-encoder-missing": ["This computer has no encoder MontClip can use to fix \"{name}\", so nothing was written. The original file is unchanged.", "这台电脑上没有 MontClip 能用来修「{name}」的编码器，什么文件都没写。原文件没有改动。"],
+    // cases 1 and 2: it can be cut, only seeking in it may be slow — a small mark on the file, no dialog
+    "media-slow-mark": ["Not recorded to the end, so seeking may be slow. Right-click → “Fix it for me” saves a complete copy.", "没录完整，拖动可能会慢。右键〔帮我修好〕，会另存一份完整的。"],
     // JJ 定稿 (2026-11-05, via Deja), word for word: the toast when files nothing can read the length of are imported,
     // and the toast when one is dragged onto the timeline
-    "media-duration-unknown": ["\"{name}\" may not have finished recording (for example, a screen recording that was stopped), so its length can't be read and it can't be edited yet. The original file is unchanged.", "「{name}」可能没录完整（比如录屏中途停了），读不出有多长，现在还剪不了。原文件没有改动。"],
-    "media-duration-unknown-n": ["{n} videos may not have finished recording, so their length can't be read and they can't be edited yet. The original files are unchanged.", "有 {n} 个视频可能没录完整，读不出有多长，现在还剪不了。原文件都没有改动。"],
+    "media-duration-unknown": ["\"{name}\" may not have finished recording (for example, a screen recording that was stopped), so its length can't be read and it can't be edited yet. The original file is unchanged. Click “Fix it for me” to try.", "「{name}」可能没录完整（比如录屏中途停了），读不出有多长，现在还剪不了。原文件没有改动。点〔帮我修好〕试试。"],
+    "media-duration-unknown-n": ["{n} videos may not have finished recording, so their length can't be read and they can't be edited yet. The original files are unchanged. Click “Fix it for me” to try.", "有 {n} 个视频可能没录完整，读不出有多长，现在还剪不了。原文件都没有改动。点〔帮我修好〕试试。"],
     "media-cannot-cut": ["Can't read how long \"{name}\" is, so it can't go on the timeline. The original file is unchanged.", "读不出「{name}」有多长，放不上时间线。原文件没有改动。"],
     "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],
     "tl-above-captions": ["Captions above, click to show", "上方有字幕轨，点这里显示"],

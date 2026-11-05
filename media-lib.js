@@ -26,7 +26,7 @@
 
   const KINDS = ["video", "audio", "image", "svg"];
   /** Fields the server probes. Written back to the entry; never user-set. */
-  const INFO_KEYS = ["size", "fps", "codec", "audioCodec", "audioChannels", "sampleRate", "bitrate"];
+  const INFO_KEYS = ["size", "fps", "codec", "audioCodec", "audioChannels", "sampleRate", "bitrate", "durationFrom"];
   const MAX_TAGS = 24, MAX_TAG_LEN = 32;
   const SORT_KEYS = ["name", "kind", "duration", "resolution", "fps", "codec", "audio", "size", "usage"];
 
@@ -95,6 +95,9 @@
   }
   /** A video or sound nothing could read the length of (europa P3, 2026-11-05): it can't be placed or cut — not at 0 s,
    *  nor at a stand-in length. One not read yet (no mark) is not this. */
+  /** Cases 1 and 2 (JJ, 2026-11-05): it can be cut, but its length came from its packets — a recording cut off
+   *  before it was saved — so seeking in it may be slow. A small mark on the file and 〔帮我修好…〕 in its menu. */
+  const slowToSeek = (m) => !!(m && m.kind === "video" && m.durationFrom === "packets" && Number.isFinite(m.duration) && m.duration > 0);
   const cannotCut = (m) => !!(m && timed(m) && m.durationUnknown && !(Number.isFinite(m.duration) && m.duration > 0));
   /** A repaired (or converted) file takes an entry's place (〔修复成可以剪的视频〕, fablecut_repair_media): `entry` goes
    *  where the old one was, with its organization (favorite, tags, folder, collections) and `derivedFrom` / `replaced`
@@ -434,7 +437,7 @@
     importTidies, importPercent,
     KINDS, INFO_KEYS, SORT_KEYS, MAX_TAGS,
     srcName, relinkScore, kindFromName,
-    parseProbe, needsInfo, serverDuration, cannotCut, swapMedia, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
+    parseProbe, needsInfo, serverDuration, cannotCut, slowToSeek, swapMedia, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
     STANDARD_FPS, standardFps, sourceCanvas, canvasFollowsSource,
     normalizeTags, allTags, normalizeCollections,
     placements, usageCounts,

@@ -2475,11 +2475,12 @@ function renderBin() {
     const repairHtml = rep ? `<div class="bin-repair"><span class="bin-repair-pct">${escapeHtml(uiText("own.repair-progress", { n: Math.round(rep.progress * 100) }))}</span><button type="button" class="btn tiny" data-repair-cancel>${escapeHtml(uiText("own.repair-cancel"))}</button></div>` : "";
     const incomplete = repairHtml || (MediaLib.cannotCut(m) ? `<div class="bin-incomplete">${escapeHtml(uiText("own.media-incomplete"))}<button type="button" class="btn tiny" data-repair title="${escapeHtml(uiText("own.repair-button-tip"))}">${escapeHtml(uiText("own.repair-button"))}</button></div>` : "");
     if (incomplete) item.classList.add("has-note");
+    const slowMark = MediaLib.slowToSeek(m) ? `<span class="bin-slow" title="${escapeHtml(uiText("own.media-slow-mark"))}" aria-label="${escapeHtml(uiText("own.media-slow-mark"))}">◔</span>` : "";
     const favHtml = `<button type="button" class="bin-fav${m.favorite ? " on" : ""}" title="${m.favorite ? "Favorite — click to unstar" : "Mark as favorite"}" aria-pressed="${!!m.favorite}">${m.favorite ? "★" : "☆"}</button>`;
     if (binView.list) {
       const cell = (v, cls = "") => `<span class="bin-cell${cls}">${escapeHtml(v || "—")}</span>`;
       item.innerHTML = `
-        <span class="bin-cell bin-cell-name">${favHtml}<span class="bin-thumb sm"></span>${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span>` : ""}<span class="bin-name"></span></span>
+        <span class="bin-cell bin-cell-name">${favHtml}<span class="bin-thumb sm"></span>${slowMark}${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span>` : ""}<span class="bin-name"></span></span>
         ${cell(MediaLib.fmtDur(m.duration), " num c-duration")}${cell(MediaLib.fmtRes(m), " num c-resolution")}${cell(MediaLib.fmtFps(m.fps), " num c-fps")}
         ${cell(m.codec, " c-codec")}${cell(MediaLib.fmtAudio(m), " c-audio")}${cell(MediaLib.fmtSize(m.size), " num c-size")}
         <span class="bin-cell c-proxy">${proxyBadgeHtml(m) || escapeHtml(m.kind === "video" ? "—" : "")}</span>
@@ -2492,7 +2493,7 @@ function renderBin() {
         <div class="bin-thumb"></div>
         <div class="bin-meta">
           <div class="bin-name"></div>
-          <div class="bin-sub">${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span> ` : ""}${escapeHtml(sub)}</div>
+          <div class="bin-sub">${slowMark}${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span> ` : ""}${escapeHtml(sub)}</div>
           ${m.tags && m.tags.length ? `<div class="bin-tags">${m.tags.map((t) => `<span class="bin-tag">#${escapeHtml(t)}</span>`).join("")}</div>` : ""}
         </div>
         <div class="bin-side">${favHtml}${usesHtml}${proxyBadgeHtml(m)}</div>
@@ -2927,8 +2928,8 @@ function showMediaMenu(x, y, m) {
   item(isMediaOffline(m.id) ? "Relink…" : "Relink to another copy…", () => openRelinkDialog([m]), state.connected ? null : uiText("own.needs-server"));
   item(uiText("term.replace-file"), () => replaceMediaFile(m), state.connected ? null : uiText("own.needs-server"));
   if (m.kind === "video") {
-    // 〔帮我转〕 for any video (JJ, P3): the same job as 〔修复成可以剪的视频〕 — FLV or not, no allowTranscode
-    item(MediaLib.cannotCut(m) ? uiText("own.repair-button") : uiText("own.convert-menu"), () => repairMediaFile(m),
+    // 〔帮我修好…〕 for any video (JJ, 2026-11-05): one button for every repair and conversion — FLV or not, no allowTranscode
+    item(uiText("own.repair-menu"), () => repairMediaFile(m),
       !state.connected ? uiText("own.needs-server") : !state.ffmpeg ? "Needs MontClip's bundled FFmpeg" : isMediaOffline(m.id) ? "The file is offline" : repairing.has(m.id) ? uiText("own.repair-progress", { n: Math.round(repairing.get(m.id).progress * 100) }) : null);
     const ps = proxyStatus.get(m.id);
     const why = !state.connected ? uiText("own.needs-server") : !state.ffmpeg ? "Needs MontClip's bundled FFmpeg" : isMediaOffline(m.id) ? "The file is offline" : null;
@@ -3184,16 +3185,11 @@ function pickFilesForRelink({ folder = false, accept = els.fileInput.accept } = 
   });
 }
 
-/* 〔修复成可以剪的视频〕 / 〔帮我转〕 (JJ, P3, 2026-11-05): the server writes a new MP4 beside the original (make-editable.js:
+/* 〔帮我修好〕 (JJ, P3, 2026-11-05): the server writes a new MP4 beside the original (make-editable.js:
    a quick remux first, a re-encode only when that doesn't hold; the original is never touched), and it takes this
    entry's place — every clip, composition and sequence that used it — as one undo step. Progress and Cancel sit on the
    file in the bin. The same swap as fablecut_repair_media's (MediaLib.swapMedia). */
 const repairing = new Map();   // media id → {job, progress}
-/** Seconds as said to a person: 16 秒 / 2 分 16 秒 / 1 小时 4 分 (16 s / 2 min 16 s / 1 h 4 min). */
-function spokenDuration(sec) {
-  const t = Math.max(0, Math.round(sec || 0)), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
-  return h ? uiText("own.dur-hm", { h, m }) : m ? uiText("own.dur-ms", { m, s }) : uiText("own.dur-s", { s });
-}
 async function repairMediaFile(m) {
   if (!m || repairing.has(m.id)) return;
   const st = { job: null, progress: 0 };
@@ -3224,11 +3220,12 @@ async function repairMediaFile(m) {
     runtime.compGen = (runtime.compGen || 0) + 1;
     state.dirtyTimeline = true;
     renderBin(); scheduleSave(); renderInspector();
-    toast(uiText("own.repair-done", { duration: spokenDuration(entry.duration) }));
+    toast(uiText("own.repair-done"));
     return;
   }
   renderBin();
-  if (!j || j.status !== "cancelled") toast(uiText("own.repair-failed"));
+  if (j && j.status === "cancelled") return;
+  toast(uiText(j && j.error && j.error.code === "REPAIR_ENCODER_MISSING" ? "own.repair-encoder-missing" : "own.repair-failed", { name: m.name }));
 }
 async function cancelRepair(mediaId) {
   const st = repairing.get(mediaId);
