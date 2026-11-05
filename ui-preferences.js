@@ -367,7 +367,7 @@
     "as-lyrics-maybe": ["If this part is singing, you can correct its subtitles from the lyrics", "如果这段是唱歌，可以按歌词校准字幕"],
     // P6a: correct captions from the lyrics. New copy, for JJ.
     "ly-open": ["Fix captions using lyrics", "按歌词校准字幕"],
-    "ly-open-title": ["Paste the lyrics of the selected captions' song (or the IN–OUT part) and fix the misheard words; nothing is sent", "粘贴选中字幕（或 IN–OUT 那段）这首歌的歌词，把听错的字改过来；什么都不往外发"],
+    "ly-open-title": ["Paste the lyrics of the selected captions' song (or the IN–OUT part) and fix the misheard words; nothing is sent", "粘贴选中字幕（或入点–出点那段）这首歌的歌词，把听错的字改过来；什么都不往外发"],
     "ly-title": ["Fix captions using lyrics", "按歌词校准字幕"],
     "ly-intro": ["Paste this song's lyrics, one line each. They are matched on this computer; nothing is sent. The times stay the transcript's; only the misheard words are replaced, and each lyric line becomes one caption.", "把这首歌的歌词粘贴进来，一行一句。只在这台电脑上对齐，什么都不往外发。时间沿用听写的，只把听错的字换成歌词里的字，一行歌词一条字幕。"],
     "ly-paste": ["Lyrics", "歌词"],
@@ -383,7 +383,7 @@
     "ly-apply-all": ["Apply all that match", "全部应用（可能不对的除外）"],
     "ly-cancel": ["Cancel", "取消"],
     "ly-done": ["Fixed {n} caption lines from the lyrics. Undo is available.", "已按歌词改好 {n} 行字幕，可以撤销。"],
-    "ly-pick-range": ["First select the song's captions on the timeline, or mark the song with IN and OUT, then click Fix captions using lyrics.", "先在时间线上选中这首歌的字幕，或者用 IN 和 OUT 框出这首歌，再点「按歌词校准字幕」。"],
+    "ly-pick-range": ["First select the song's captions on the timeline, or mark the song with IN and OUT, then click Fix captions using lyrics.", "先在时间线上选中这首歌的字幕，或者用入点和出点框出这首歌，再点〔按歌词校准字幕〕。"],
     // 〔加字幕〕 (N3d, Deja 2026-11-04); the replacing one is for JJ
     "cap-added": ["Added {n} captions on {track}", "已在 {track} 加了 {n} 句字幕"],
     "cap-added-replaced": ["Added {n} captions on {track}, replacing the {m} that were there", "已在 {track} 加了 {n} 句字幕，换掉了原来的 {m} 句"],
@@ -649,7 +649,7 @@
     // 「快速（ffmpeg）」 is the Fast radio's own Chinese label (term.fast-ffmpeg)
     "engine-webcodecs-note": ["Frame-accurate. Browser HW-encodes H.264; server muxes with audio. Faster upload than Fast.", "逐帧准确。用显卡编码，比「快速（ffmpeg）」那一项更快。"],
     // delivery.js keeps the English note for agents; the dialog shows this one
-    "dlv-note-master": ["Project size · H.264 CRF 16 · AAC 320k", "和项目一样大 · 高画质（H.264 CRF 16 · AAC 320k）"],
+    "dlv-note-master": ["Project size · H.264 CRF 16 · AAC 320k", "和项目一样大 · 高画质 · H.264 恒定画质（CRF）16 · AAC 320k"],
     "dlv-resolution": ["Resolution", "分辨率"],
     "dlv-frame-rate": ["Frame rate", "帧率"],
     "dlv-codec": ["Codec", "视频编码"],
@@ -746,6 +746,97 @@
     "bin-importing": ["Importing… {pct}%", "正在导入… {pct}%"],
   });
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }
+  // 帮助层 87 行（JJ 定稿表 A，2026-11-05）：英文就是页面自己的标记，键里只放中文（en 留空，
+  // applyI18n 的 data-i18n-html 在英文时还原页面原样）。
+  Object.assign(own, {
+    "help-1": ["", "播放 / 暂停（源监视器或播放器，哪个在用就控制哪个）"],
+    "help-2": ["", "往返预览 — <kbd>L</kbd> 往前播，<kbd>J</kbd> 倒着播（没有声音）；再按一下变成 1.5× · 2× · 4×，按另一个键掉头；<kbd>K</kbd> 停"],
+    "help-3": ["", "按住 <kbd>K</kbd> 再点一下，走一帧；两个一起按住，用 ¼ 速度慢慢走"],
+    "help-4": ["", "走 1 帧（加 <kbd>⇧</kbd> 是 1 秒）"],
+    "help-5": ["", "跳到上一个 / 下一个剪辑点（选了片段时，先跳它的入点再跳出点；没选时，看目标轨道）。在源监视器里：跳到入点 / 出点"],
+    "help-6": ["", "跳到开头 / 结尾"],
+    "help-7": ["", "直接输入时间：<code>01:15:00</code>，连着写 <code>1500</code>（= 15 秒），<code>+30</code> / <code>-1:00</code> 往后 / 往前挪，<code>12.5</code> 秒。点入点 / 出点的时间也能这样输入"],
+    "help-8": ["", "播到出点就停；Home / End 跳到入点 / 出点"],
+    "help-9": ["", "载入源监视器"],
+    "help-10": ["", "把源的入点→出点那段插到时间线播放头处（后面的片段往后让）"],
+    "help-11": ["", "替换 — 在播放头处覆盖；如果源里载入的是时间线上的片段，就把新的入点 / 出点用到它上面（长度变了，后面的片段跟着挪）"],
+    "help-12": ["", "工具：选择 · 波纹编辑（拖片段的边，后面的跟着走）· 滚动编辑（拖两段之间的剪辑点）· 内滑（片段位置不动，换里面用的那一段）· 外滑（挪动片段，两边的片段跟着裁）"],
+    "help-13": ["", "在播放头处分割片段（有选中的就分选中的，没有就分目标轨道上的）"],
+    "help-14": ["", "把选中片段的开头 / 结尾裁到播放头"],
+    "help-15": ["", "删除选中的片段，或者去掉当前选中的转场"],
+    "help-16": ["", "波纹删除 — 删掉选中的，并把目标轨道上的空隙合拢"],
+    "help-17": ["", "找下一个所有轨道都空着的空隙（到结尾后从头再找；只在入点–出点之间找）"],
+    "help-18": ["", "合拢播放头处的空隙（目标轨道）"],
+    "help-19": ["", "在播放头处加转场（前后各占一半）"],
+    "help-20": ["", "停用 / 启用选中的片段 — 停用后预览和导出都看不到"],
+    "help-21": ["", "取消 / 建立视频与音频的链接"],
+    "help-22": ["", "撤销 / 重做（<kbd>Ctrl</kbd>+<kbd>Y</kbd> 也是重做）"],
+    "help-23": ["", "框选片段"],
+    "help-24": ["", "加进选择 / 从选择里去掉"],
+    "help-25": ["", "全选 / 取消选择"],
+    "help-26": ["", "停用 / 锁定 / 建立或取消链接 / 预合成"],
+    "help-27": ["", "设源的入点 / 出点（源模式），或者设时间线的工作区（播放器模式；导出也只导这一段）"],
+    "help-28": ["", "清除源或时间线的入点 / 出点"],
+    "help-29": ["", "在入点 / 出点处分割片段"],
+    "help-30": ["", "把片段裁到入点 / 出点（去掉前后多出来的）"],
+    "help-31": ["", "提起 / 提取目标轨道上入点→出点那段（提取会把空隙补上）"],
+    "help-32": ["", "在播放头处加 / 删标记"],
+    "help-33": ["", "跳到下一个 / 上一个标记"],
+    "help-34": ["", "拖动可移动 · 点击跳过去 · 双击或右键可改名、换颜色、删除 · 「标记」面板里列着全部标记"],
+    "help-35": ["", "缩放时间线"],
+    "help-36": ["", "以鼠标位置为中心缩放"],
+    "help-37": ["", "缩放到选中的片段"],
+    "help-38": ["", "缩放到入点–出点工作区"],
+    "help-39": ["", "缩放到显示全部"],
+    "help-40": ["", "打开 / 关闭吸附 — 点 ▾ 选吸附到什么（片段边缘、播放头、标记、入点 / 出点、关键帧、帧格）"],
+    "help-41": ["", "设为 / 取消目标轨道 — 编辑只作用在亮着的（目标）轨道上"],
+    "help-42": ["", "只听这条轨道（其他轨道都静音；再点一次恢复）"],
+    "help-43": ["", "锁定这条轨道 — 上面的东西都不能改、不能挪"],
+    "help-44": ["", "删掉一条空轨道（至少留 1 条视频轨和 1 条音频轨）"],
+    "help-45": ["", "跳到上一个 / 下一个关键帧（属性面板跟着变）"],
+    "help-46": ["", "把这个属性恢复默认，并清掉它的所有关键帧"],
+    "help-47": ["", "把播放头处的值恢复默认，或者删掉那个关键帧"],
+    "help-48": ["", "「入场」「出场」「在播放头处」「循环」这几个菜单，可以给选中的片段加上现成的动画 · 〔保存为预设〕把这个片段的关键帧存下来，所有项目都能用"],
+    "help-49": ["", "拖动改音量 · <kbd>Ctrl/Cmd</kbd>+点击加关键帧 · <kbd>Alt</kbd>+点击或双击删关键帧 · 拖两个角上的小方块做淡入淡出"],
+    "help-50": ["", "给选中片段旁边（或播放头处）的声音剪辑点加交叉淡化"],
+    "help-51": ["", "导入素材文件"],
+    "help-52": ["", "新建文件夹 · 新建复合片段"],
+    "help-53": ["", "可以搜名字、类型、编码、<code>2160p</code> 或标签；<code>#tag</code> 只搜标签 · <kbd>Esc</kbd> 清空"],
+    "help-54": ["", "找出时间线上用到它的地方 · 素材信息 · 收藏 · 标签 · 合集"],
+    "help-55": ["", "加星标 · 列出它用在哪些地方（点一个就跳过去）"],
+    "help-56": ["", "列表视图，带素材信息的各列 · 点列名排序"],
+    "help-57": ["", "〔在项目中显示〕— 在素材库里找到它的文件"],
+    "help-58": ["", "〔重新链接…〕— 告诉 MontClip 这段录像现在在哪 · 〔替换文件…〕— 换成另一个文件，用到它的片段都跟着换"],
+    "help-59": ["", "〔创建代理〕— 做一份更轻的副本，剪起来更流畅（右键「项目」标签页可以一次做全部）· 监视器上方的〔代理〕可以开关代理播放；导出永远用原片"],
+    "help-60": ["", "双击在时间线上打开 · 把素材库里的复合片段拖到时间线上就放进去了 · 点时间线上方的路径可以退回上一层"],
+    "help-61": ["", "预合成 — 把选中的片段放进一个新的复合片段"],
+    "help-62": ["", "退回上一层（什么都没选中时）"],
+    "help-63": ["", "把字幕条、标志动画或社交平台版式拖到时间线上（或点 ＋）· 在属性面板的「模板」一栏里填内容 · 右键复合片段 →〔保存为模板〕"],
+    "help-64": ["", "打开项目列表（或者点项目名）"],
+    "help-65": ["", "给当前项目存一个版本（每一步本来就自动保存了；版本是以后可以回到的一个点）"],
+    "help-66": ["", "拿某个版本和现在比 ·〔恢复…〕（点两次；恢复前会先把现在的存成一个版本）· 标成定稿"],
+    "help-67": ["", "打开这个项目里的另一个序列 ·〔新建序列…〕（任意画面尺寸，空的或者复制一份）·〔复制一份〕·〔重命名…〕·〔删除…〕（点两次；删之前先存成一个版本）"],
+    "help-68": ["", "点一下看详情、备注和标签 · 双击打开"],
+    "help-69": ["", "打开这个项目"],
+    "help-70": ["", "先退出「新建项目」，再关掉项目列表"],
+    "help-71": ["", "点两次 — 只有已归档的项目才能删"],
+    "help-72": ["", "拖动调色偏（按住 <kbd>⇧</kbd> 可以微调）· 双击恢复颜色 · 双击名称或滑块名可以恢复那一项"],
+    "help-73": ["", "在监视器上点一下：可以校正白平衡、在曲线上标出这个颜色，或者在图层的颜色选区里选中它 · <kbd>Esc</kbd> 取消"],
+    "help-74": ["", "点击在曲线上加点 · 拖动移动它 · 双击删掉它"],
+    "help-75": ["", "在里面拖动可移动 · 拖手柄改大小 · 拖圆钮旋转（按住 <kbd>⇧</kbd> 每次转 15°）· 多边形 / 贝塞尔：<kbd>Ctrl/Cmd</kbd>+点击加点，双击删点 · 绘制：拖出一个手画的轮廓"],
+    "help-76": ["", "点击放点，放点时拖动可以拉出曲线手柄 · 点第一个点或按 <kbd>Enter</kbd> 闭合 · <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Backspace</kbd> 删掉最后一个点，<kbd>Ctrl</kbd>+<kbd>⇧</kbd>+<kbd>Z</kbd> 放回来 · <kbd>Esc</kbd> 取消"],
+    "help-77": ["", "拖出一个手画的轮廓 — 它会变成可以再改的贝塞尔曲线"],
+    "help-78": ["", "在里面拖动可移动 · 拖边上的手柄改大小 · 拖圆钮旋转（按住 <kbd>⇧</kbd> 每次转 15°）· 拖点或它的手柄（按住 <kbd>Alt</kbd> 两边手柄分开动）· <kbd>Alt</kbd>+拖点拉出新手柄 · <kbd>Ctrl/Cmd</kbd>+点击轮廓加点 · 双击点删掉它 · <kbd>Esc</kbd> 取消选择"],
+    "help-79": ["", "在里面拖动可移动 · 拖角改大小（按住 <kbd>⇧</kbd> 保持比例）· 拖圆钮旋转（按住 <kbd>⇧</kbd> 每次转 15°）· 直线 / 路径：拖点或它的手柄（按住 <kbd>Alt</kbd> 两边手柄分开动），<kbd>Alt</kbd>+拖点拉出新手柄 · 路径：<kbd>Ctrl/Cmd</kbd>+点击轮廓加点，双击点删掉它 · <kbd>Esc</kbd> 取消选择"],
+    "help-80": ["", "点击放点，放点时拖动可以拉出曲线手柄 · 点第一个点闭合路径 · 按 <kbd>Enter</kbd> 保持不闭合 · <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Backspace</kbd> 删掉最后一个点，<kbd>Ctrl</kbd>+<kbd>⇧</kbd>+<kbd>Z</kbd> 放回来 · <kbd>Esc</kbd> 取消"],
+    "help-81": ["", "拖关键帧小方块可移动 · 拖手柄可以把路径拉弯（按住 <kbd>Alt</kbd> 两边手柄分开动）· <kbd>Alt</kbd>+拖关键帧拉出新手柄 · 双击关键帧变回尖角"],
+    "help-82": ["", "在监视器上拖动来移动锚点，画面不动（按住 <kbd>⇧</kbd> 吸附到画面中心）· <kbd>Esc</kbd> 关掉"],
+    "help-83": ["", "在监视器上点要跟踪的位置 — 从播放头一直跟到片段结尾 · <kbd>Esc</kbd> 取消选点，或者停下正在跑的跟踪（已经跟好的部分会留着）"],
+    "help-84": ["", "跳到那里 · <kbd>⇧</kbd>+点击或拖动可以选中连着的一串字"],
+    "help-85": ["", "剪掉选中的字和后面的停顿（在目标轨道上提取）· <kbd>Esc</kbd> 取消选择"],
+    "help-86": ["", "<kbd>Enter</kbd> / <kbd>⇧</kbd>+<kbd>Enter</kbd> 跳到下一个 / 上一个找到的地方 · 〔剪切〕把找到的全部剪掉"],
+    "help-87": ["", "选一个样式，再点〔添加字幕〕（撤销一次就能全部撤回；会替换那里原有的字幕）· 点 SRT / VTT 可以下载字幕 · 〔导入…〕把字幕文件里的字幕放上来"],
+  });
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
   // English by number (JJ, 2026-11-04; MontClipView.tp): 〔加字幕〕, by the captions added, then by the ones replaced. The
   // Chinese sentences have one form; the keys without a form stay as the fallback.
@@ -804,6 +895,13 @@
   const MARKS = [["[data-i18n]", "i18n", null], ["[data-i18n-title]", "i18nTitle", "title"],
     ["[data-i18n-placeholder]", "i18nPlaceholder", "placeholder"], ["[data-i18n-aria-label]", "i18nAriaLabel", "aria-label"]];
   function applyI18n(rootEl, language) {
+    // rich cells (help rows): one keyed Chinese HTML line replaces the cell's markup; the original
+    // markup is stashed once so switching back to English restores it. Strings are repo-authored.
+    for (const el of rootEl.querySelectorAll("[data-i18n-html]")) {
+      if (el.dataset.i18nHtmlOrig === undefined) el.dataset.i18nHtmlOrig = el.innerHTML;
+      const s = t(language, el.dataset.i18nHtml);
+      el.innerHTML = s || el.dataset.i18nHtmlOrig;
+    }
     for (const [sel, key, attr] of MARKS) for (const el of rootEl.querySelectorAll(sel)) {
       const s = t(language, el.dataset[key]);
       if (!s) continue;
