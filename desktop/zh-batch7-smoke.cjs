@@ -123,6 +123,34 @@ BrowserWindow.prototype.loadURL = async function (...args) {
       else assert.ok(rm[1] && !/[一-鿿]/.test(rm[1]), at + ' remove tooltip in English: ' + rm[1]);
       assert.equal(r.track, zh ? '删除轨道' : 'Remove track', at + ' track menu');
     }
+    // 插件试用 P7: a stored default project name, the empty Inspector, and the export file name, rendered
+    const P7 = String.raw`(async (stored) => {
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms)), txt = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null);
+      project.name = stored; setSelection([]); renderInspector(); refreshLanguageText(); await wait(30);
+      const r = { top: txt(document.getElementById('projectName')), empty: txt(document.querySelector('#inspector .inspector-empty')),
+        file: exportBaseName('export'), stored: project.name };
+      await openProjects();
+      for (const until = Date.now() + 8000; Date.now() < until && !document.querySelector('#projectsOverlay .pj-card.open, #projectsOverlay .pj-card');) await wait(50);
+      const card = document.querySelector('#projectsOverlay .pj-card.open') || document.querySelector('#projectsOverlay .pj-card');
+      r.card = txt(card?.querySelector('.pj-card-name'));
+      closeProjects();
+      return r;
+    })`;
+    await read(`(()=>{project.media=[{id:'m_p7',name:'回放 0105.mp4',kind:'video',src:'/media/p7.mp4',duration:5,width:320,height:240}];renderBin();return true;})()`);
+    for (const language of ['en', 'zh-CN']) for (const stored of ['未命名项目', 'Untitled Project', 'Untitled project']) {
+      await read(`updateMontClipView(${JSON.stringify({ language, mode: 'advanced' })}); true`); await wait();
+      const r = await read(`${P7}(${JSON.stringify(stored)})`), at = `P7 ${language} stored ${stored}`, shownName = language === 'en' ? 'Untitled project' : '未命名项目';
+      assert.ok(r.top.startsWith(shownName + ' '), at + ' top bar: ' + r.top);
+      assert.ok(!/未命名项目|Untitled/.test(r.top.replace(shownName, '')), at + ' top bar: one name only');
+      assert.equal(r.empty, language === 'en' ? 'Select a clip to edit its picture, effects and audio.' : '选中一个片段以编辑它的画面、特效与音频。', at + ' empty Inspector');
+      assert.match(r.file, /^回放 0105 \d\d-\d\d$/, at + ' export file name');
+      assert.equal(r.stored, stored, at + ' the stored name is kept');
+      if (r.card != null) assert.ok(r.card.startsWith(shownName), at + ' project card: ' + r.card);
+      seen[at] = r;
+    }
+    // a name of its own is the export name and is shown as it is
+    const own = await read(`${P7}("Untitled Project copy")`);
+    assert.ok(own.top.startsWith('Untitled Project copy ') && own.file === 'Untitled Project copy', 'own name: ' + JSON.stringify(own));
     ok = true;
   } catch (e) { seen.error = String(e && e.message || e).slice(0, 1500); }
   finally { out(ok ? 'ZH7_PASS' : 'ZH7_FAIL', ok ? { checked: Object.keys(seen) } : { error: seen.error }); process.exitCode = ok ? 0 : 1; app.exit(ok ? 0 : 1); }
