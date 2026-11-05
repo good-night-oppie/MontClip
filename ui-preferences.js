@@ -1093,8 +1093,11 @@
     extNotFullPath: { "zh-CN": "选的不是 FFmpeg 程序文件本身。", en: "The selected item isn't the FFmpeg program file itself." },
   };
   const sentencesOf = (s) => String(s || "").split(/(?<=[。！？])|(?<=[.!?])\s+(?=\S)/).filter((x) => x.trim());
+  /* Reassurance (「原片没有改动」, "the original is unchanged") is for the streamer, not for the developers the copy goes to
+     (JJ, #161): a whole sentence that says it is never copied. Shared with the tests. */
+  const REASSURE = /原片没有改动|原片没改|原有设置不变|原来的不动|原有[^。！？]{0,6}不变|没有改动|没有丢|\bunchanged\b|\buntouched\b|\bnot (?:been )?changed\b|\bnothing (?:has been |was )?changed\b|\bstill (?:all )?there\b|\bnothing (?:was )?lost\b/i;
   function whatHappened(language, key, said) {
-    const l = lang(language), en = l === "en", parts = sentencesOf(said);
+    const l = lang(language), en = l === "en", parts = sentencesOf(said).filter((x) => !REASSURE.test(x));
     if (Object.hasOwn(WHAT_TEXT, key)) return WHAT_TEXT[key][l];
     if (Object.hasOwn(WHAT_SENTENCES, key)) return parts.slice(0, WHAT_SENTENCES[key]).join(en ? " " : "").trim();
     // not listed: drop the clauses that ask for 〔复制问题信息〕 (a sentence or the half of one after 「；」)
@@ -1248,5 +1251,5 @@
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
   /** Where 〔复制问题信息〕's copy goes (#161; JJ): a mailbox a program watches for 「MontClip 问题信息 v1」. */
   const PROBLEM_EMAIL = "etang.build.bot@gmail.com";
-  return { PROBLEM_EMAIL, WHAT_SENTENCES, WHAT_TEXT, whatHappened, create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints, errorText, batchReason, exportResult, ERROR_CODES: Object.keys(ERROR_TEXT).concat(Object.keys(FLV_REASONS)) };
+  return { PROBLEM_EMAIL, WHAT_SENTENCES, WHAT_TEXT, REASSURE, whatHappened, create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints, errorText, batchReason, exportResult, ERROR_CODES: Object.keys(ERROR_TEXT).concat(Object.keys(FLV_REASONS)) };
 });

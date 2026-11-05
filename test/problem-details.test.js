@@ -87,7 +87,8 @@ test("what happened: each failure sentence has its part (never cut mid-sentence)
     a.ok(!/复制问题信息|Copy problem/.test(w), `${k} ${l}: no button in what happened`);
   }
   // a sentence not listed: everything but the half that asks for the button
-  a.equal(V.whatHappened("zh-CN", "unlisted", "出了问题。原片没有改动。再试一次；还不行，点「复制问题信息」发给我们。"), "出了问题。原片没有改动。再试一次。");
+  // (and without the reassurance, JJ: 「原片没有改动」 is for her, not for the developers)
+  a.equal(V.whatHappened("zh-CN", "unlisted", "出了问题。原片没有改动。再试一次；还不行，点「复制问题信息」发给我们。"), "出了问题。再试一次。");
   a.equal(V.whatHappened("en", "unlisted", "It failed. Try again; if it still fails, use \"Copy problem details\" and send it to us."), "It failed. Try again.");
 });
 
@@ -174,6 +175,36 @@ test("JJ's words for what happened, word for word; the screen's sentences unchan
   a.equal(V.t("zh-CN", "own.err-offline"), "这一版不联网，不能从网址下载。请导入电脑里的文件。", "the Chinese on screen is unchanged");
   a.equal(V.t("zh-CN", "flvExpired"), "这次导入停太久已经失效了，重新导入一次就行。原片没有改动。", "the screen keeps the whole sentence");
   a.equal(V.t("zh-CN", "extNeeded"), "这个导出设置要用 x264，需要先在设置里选一个带 x264 的 FFmpeg。也可以改用导出预设，用显卡或 Windows 自带的编码器。");
+});
+
+/* JJ (#161): reassurance — 「原片没有改动」「原有设置不变」「原来的不动」, "unchanged" — is for the streamer; what is copied goes to
+   developers, so the part the copy takes never has it. Cut by whole sentences. Every failure sentence is checked, listed
+   or not, now and added later. */
+const REASSURANCE = /原片没有改动|原有设置不变|原来的不动|原有.{0,6}不变|没有改动|\bunchanged\b|\buntouched\b|\bnot (been )?changed\b|\bstill there\b/i;
+test("what is copied never reassures — 原片没有改动, 原有设置不变, unchanged — for any failure sentence", () => {
+  const src = fs.readFileSync(path.join(__dirname, "..", "ui-preferences.js"), "utf8");
+  const keys = new Set(["errOther", "errDiskFull", "errDiskFullSize"]);
+  for (const m of /const ERROR_TEXT = \{([\s\S]*?)\};/.exec(src)[1].matchAll(/:\s*"([^"]+)"/g)) keys.add(m[1]);
+  for (const m of /const FLV_REASONS = \{([\s\S]*?)\};/.exec(src)[1].matchAll(/:\s*"([^"]+)"/g)) keys.add(m[1]);
+  for (const k of Object.keys(V.text.en)) if (/^(h264|ext|frame|ffmpeg)[A-Z][A-Za-z0-9]*$/.test(k) || /^own\.(err-|export-blank-)/.test(k)) keys.add(k);
+  let reassuring = 0;
+  for (const k of keys) for (const l of ["zh-CN", "en"]) {
+    const s = V.t(l, k);
+    if (!s) continue;
+    if (REASSURANCE.test(s)) reassuring++;
+    const w = V.whatHappened(l, k, s);
+    a.doesNotMatch(w, REASSURANCE, `${k} ${l}: the copy reassures: ${w}`);
+  }
+  a.ok(reassuring > 10, "the screen's sentences still reassure her: " + reassuring);
+  // through errorText too, as copyProblem gets it, and whole sentences only
+  for (const code of ["EXPORT_BLANK_PICTURE", "DISK_FULL", "extGone", "FLV_IMPORT_EXPIRED", "FLV_CANCELED", "UNKNOWN_THING"]) for (const l of ["zh-CN", "en"]) {
+    const r = V.errorText(l, { code, params: { size: "2 GB" } });
+    a.doesNotMatch(r.what, REASSURANCE, `${code} ${l}: ${r.what}`);
+    a.ok(/[。.！!？?]$/.test(r.what) || !/[。.]/.test(r.what), `${code} ${l}: whole sentences: ${r.what}`);
+  }
+  a.equal(V.whatHappened("en", "unlisted", "It failed. The original is unchanged. Your settings are not changed."), "It failed.");
+  a.equal(V.whatHappened("zh-CN", "unlisted", "没能保存。原有设置不变。原来的不动。"), "没能保存。");
+  for (const x of ["原片没有改动。", "原有设置不变。", "The original is unchanged.", "Nothing has been changed."]) a.ok(V.REASSURE.test(x) || REASSURANCE.test(x), x);
 });
 
 /* The rule (JJ, #161): what happened — the part the copy takes, or a new failure sentence's first sentence — never says
