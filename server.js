@@ -44,6 +44,7 @@ const { downloadImportUrl, maybeFaststart } = require("./import-url");
 const { prepareMedia, publicPreparationError } = require("./prepare-media");
 const { pruneCache } = require("./frame-cache");
 const { createExportJobs } = require("./export-jobs");
+const AudioWindow = require("./audio-window");
 const { denoiseFile, AMOUNT_IDS: DENOISE_AMOUNTS } = require("./denoise");
 
 const {
@@ -1629,6 +1630,46 @@ const server = http.createServer(async (req, res) => {
      file answers "did the source change underneath this?". The cache is capped
      (500 files / 128 MB, oldest mtime first — see frame-cache.js), so no
      combination of arguments can fill the disk. */
+  /* API: part of a file's audio, for the fast-export mix. The page used to fetch and decode the whole file, which on a
+     2-hour recording (8 GB) read gigabytes, ran the tab out of memory and exported no sound (europa, 2026-11-04).
+     WAV, 32-bit float, the file's own channels, 48 kHz; at most an hour (the page falls back to the whole file). */
+  if (p === "/api/audio-window" && req.method === "GET") {
+    const file = resolveSrc(url.searchParams.get("src") || "");
+    if (!file) { sendJSON(res, 404, { error: "src must name an existing file under /media/ or /library/" }); return; }
+    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
+    const from = Number(url.searchParams.get("from")), to = Number(url.searchParams.get("to"));
+    if (!Number.isFinite(from) || !Number.isFinite(to) || from < 0 || to <= from || to - from > 3600) {
+      sendJSON(res, 400, { error: "from and to are seconds, 0 ≤ from < to, at most an hour apart" }); return;
+    }
+    // written to a file (never held in memory: an hour of stereo is 1.4 GB), then streamed and removed
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-aw-")), out = path.join(tmpDir, "window.wav");
+    const cleanup = () => { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { } };
+    const proc = spawn(FF.path("ffmpeg"), AudioWindow.windowArgs(file, from, to - from, out), { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
+    let err = "", gone = false;
+    proc.stderr.on("data", (d) => { err = (err + d).slice(-1000); });
+    proc.on("error", () => { cleanup(); if (!res.headersSent) sendJSON(res, 500, { error: "ffmpeg could not be started" }); });
+    res.on("close", () => { gone = true; if (proc.exitCode === null) proc.kill(); });
+    proc.on("close", (code) => {
+      if (gone || res.headersSent) { cleanup(); return; }
+      let head = null, size = 0;
+      try {
+        size = fs.statSync(out).size;
+        const fd = fs.openSync(out, "r"), buf = Buffer.alloc(Math.min(size, 64 * 1024));
+        fs.readSync(fd, buf, 0, buf.length, 0); fs.closeSync(fd);
+        head = AudioWindow.wavChunks(buf);
+      } catch { }
+      if (code !== 0 || !head || head.data.size === 0) {
+        cleanup();
+        sendJSON(res, 422, { error: "no audio in that part of the file: " + X.maskUserPath(err.trim().split("\n").pop() || "exit " + code) });
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "audio/wav", "Content-Length": size, "Cache-Control": "no-store" });
+      const rs = fs.createReadStream(out);
+      rs.on("close", cleanup); rs.on("error", () => { cleanup(); res.destroy(); });
+      rs.pipe(res);
+    });
+    return;
+  }
   if (p === "/api/frame" && req.method === "GET") {
     const pathArg = url.searchParams.get("path");
     /* `path=` reads any file on this machine, so it is only answered for the

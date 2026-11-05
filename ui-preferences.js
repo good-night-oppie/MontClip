@@ -116,6 +116,9 @@
     "encoding": ["Encoding…", "正在编码…"],
     "encoding-pct": ["Encoding… {pct}%", "正在编码… {pct}%"],
     "mixing-audio": ["Mixing audio…", "正在混音…"],
+    // DRAFT for JJ (Deja 2026-11-05): a clip's sound could not be read, so the export stops instead of coming out silent
+    "export-audio-failed": ["Export stopped: the sound of “{name}” couldn't be read, so the file would have had no sound. Nothing was exported. Try again; if it keeps happening, re-import that recording.",
+      "导出停下了：「{name}」的声音读不出来，导出来会没有声音，所以这次没有导出。请再试一次；如果还是这样，重新导入这段录像。"],
     "finishing": ["Finishing…", "正在收尾…"],
     // narrow windows: tools that do not fit a bar (JJ to review)
     "more": ["More", "更多"],
