@@ -235,6 +235,10 @@
     "media-duration-unknown-n": ["{n} videos weren't recorded to the end (the screen recordings may have stopped early), so their length can't be read. They can't be cut yet.", "有 {n} 个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
     "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],
     "tl-above-captions": ["Captions above, click to show", "上方有字幕轨，点这里显示"],
+    // the top bar's media button (below 1100 px); at ≤560 px the open panel covers the player and the button says so
+    "media-toggle": ["Media", "素材"],
+    // DRAFT for JJ (VV on #162, 2026-11-05): both languages are drafts
+    "media-back": ["Back to player", "返回播放器"],
     // P2 highlight cards (for JJ to review)
     "hl-open": ["Highlight candidates", "高光候选"],
     "hl-title": ["Highlight candidates (worked out on this computer; no AI)", "高光候选（只在本机判断，不调用 AI）"],

@@ -39,6 +39,20 @@ let mcAgent = null;
 const mcView = MontClipView.create(window.montclipViewSettings ? MontClipView.desktopStorage(window.montclipViewSettings) : localStorage);
 /** Keyed interface text in the current language (ui-terms.js / ui-preferences.js). Never for user content. */
 const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
+/** At ≤560 px (style.css) the open bin takes the whole width and the player gives way (VV on #162). */
+const mcMediaNarrow = matchMedia("(max-width:560px)");
+/** The top bar's media button: 返回播放器 while the open bin covers the player (a DRAFT for JJ), else 素材; aria-expanded. */
+function syncMediaToggle() {
+  const b = document.getElementById("mcMediaToggle"), open = document.getElementById("app").classList.contains("media-open");
+  const label = uiText(open && mcMediaNarrow.matches ? "own.media-back" : "own.media-toggle");
+  if (b.textContent !== label) b.textContent = label;
+  b.setAttribute("aria-expanded", String(open));
+}
+/** A double-click that loaded a file into Source puts the covering bin away, so the player shows it (VV on #162). */
+function closeNarrowMedia(id) {
+  if (state.source.mediaId !== id || !mcMediaNarrow.matches) return;
+  document.getElementById("app").classList.remove("media-open");
+}
 /** On-device transcription: on in development and the browser editor; a packaged desktop build has it
  *  off unless the main process turned it on (desktop/features.js). Off means no entry and no download. */
 function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
@@ -65,7 +79,7 @@ function shortcutKeys(keys) {
 }
 function renderMontClipView() {
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
-  document.getElementById("mcAssistantTab").textContent=t.assistant;document.getElementById("mcMediaToggle").textContent=mcView.get().language==="en"?"Media":"素材";
+  document.getElementById("mcAssistantTab").textContent=t.assistant;syncMediaToggle();
   mcAgent?.render();
   document.querySelector(".mc-history").setAttribute("aria-label", t.undo + " / " + t.redo);
   document.documentElement.lang = language;
@@ -2530,6 +2544,7 @@ function renderBin() {
       } else {
         loadSourceFromMedia(m);
       }
+      closeNarrowMedia(m.id);
       if (getSetting("linkSelect")) flashMonitorAttention();
     });
     item.addEventListener("contextmenu", (e) => { e.preventDefault(); e.stopPropagation(); showMediaMenu(e.clientX, e.clientY, m); });
@@ -23187,6 +23202,7 @@ document.querySelector(".topbar-right").insertBefore(document.querySelector(".mc
 // a narrow window's assistant lies over the editor under the top bar (style.css, max-width 760px): the bar's height, kept current
 {const bar=document.querySelector(".app > .topbar"),set=()=>document.documentElement.style.setProperty("--mc-topbar-h",Math.ceil(bar.getBoundingClientRect().bottom)+"px");set();if(typeof ResizeObserver!=="undefined")new ResizeObserver(set).observe(bar);addEventListener("resize",set);}
 document.getElementById("mcMediaToggle").onclick=()=>document.getElementById("app").classList.toggle("media-open");
+new MutationObserver(syncMediaToggle).observe(document.getElementById("app"),{attributes:true,attributeFilter:["class"]});mcMediaNarrow.addEventListener("change",syncMediaToggle);syncMediaToggle();
 mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentContent'),
  getContext:agentProjectContext,ensureProject:ensureAgentProject,
  getLanguage:()=>mcView.get().language,settings:window.montclipPaneSettings,sessionStorage:window.montclipAgentSessions,
