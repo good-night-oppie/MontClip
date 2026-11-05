@@ -319,7 +319,17 @@
     return { score, why };
   }
 
+  /* An import in the bin (「正在导入… n%」): the copy into the project, then — for the files the server tidies with
+     faststart (import-url.js FASTSTART_EXT) — the tidy, which writes about as many bytes again, so each is half. It
+     stops at 99 until the file is in the bin. */
+  const importTidies = (name) => /\.(mp4|mov|m4v)$/i.test(String(name || ""));
+  function importPercent({ sent = 0, tidy = 0, tidies = false } = {}) {
+    const f = (x) => (Number.isFinite(x) ? Math.min(1, Math.max(0, x)) : 0);
+    return Math.min(99, Math.floor(100 * (tidies ? f(sent) / 2 + f(tidy) / 2 : f(sent))));
+  }
+
   return {
+    importTidies, importPercent,
     KINDS, INFO_KEYS, SORT_KEYS, MAX_TAGS,
     srcName, relinkScore, kindFromName,
     parseProbe, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,

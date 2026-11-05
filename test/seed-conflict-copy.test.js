@@ -16,7 +16,7 @@ const expected={
 };
 test('seed conflict recovery instructions match JJ exactly and name the real controls',()=>{
  for(const [lang,want] of Object.entries(expected)){
-  const t=V.text[lang];a.equal(N[lang].seedConflictTitle,want.title);a.equal(N[lang].seedConflict,want.body);a.equal(t.officialPane_seedConflict,want.status);
+  const t=V.text[lang];a.equal(N[lang].seedOk,lang==='en'?'OK':'好');a.equal(N[lang].seedConflictTitle,want.title);a.equal(N[lang].seedConflict,want.body);a.equal(t.officialPane_seedConflict,want.status);
   for(const key of ['config','removeConnection'])a.ok(want.body.includes(t['officialPane_'+key]),lang+' '+key);
   a.ok(want.status.includes(t.officialPane_removeConnection));
  }
@@ -28,5 +28,6 @@ test('conflicts keep removal available, disable save, and show recovery status i
  a.ok(pane.includes("conversation.busy()||cfg?.code==='CONFIG_READ_FAILED'||cfg?.code==='SEED_CONFLICT'"));
  const main=fs.readFileSync(path.join(__dirname,'..','desktop','main.js'),'utf8');
  a.ok(main.includes("VERIFY_FAILED_NOT_UNDONE: 'seedConflict', SEED_CONFLICT: 'seedConflict'"));
+ a.ok(main.includes("buttons: [t.seedOk]"));
  a.ok(main.includes("title: say === 'seedConflict' ? t.seedConflictTitle : t.seedTitle"));
 });
