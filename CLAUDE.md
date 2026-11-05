@@ -2241,6 +2241,11 @@ inferring it from an `energy` value.
 | `{path:"/media/x.mp4", frames:12}` | a 4×3 contact sheet across the whole clip |
 | `{path:"/media/x.mp4", frames:12, from:30, to:90}` | a contact sheet across part of it |
 | `{time:8.5}` (no `path`) | the **composed timeline** at 8.5 s, graded, all tracks |
+
+**Checking masks, crops, covers or captions: use `{time}`.** The `path` modes
+(one frame, contact sheet) decode the source file with ffmpeg, so they show the
+raw footage — no masks, no crop, no mosaic, no titles. Only `{time}` goes
+through the editor's compositor and shows what export renders.
 | `{path}` with an absolute path | the file is read in place without copying into `media/` |
 | `{path, text:true}` | text-only statistics (luma, colors, texture, saturation, motion) for non-vision agents |
 
