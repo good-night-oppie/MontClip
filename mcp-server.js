@@ -422,7 +422,8 @@ async function beatsTool(args) {
 /* fablecut_reframe: a new sequence on the canvas asked for (or the open one), then reframe.js on frames
    ffmpeg samples from each full-frame shot's window. */
 const REFRAME_MAX_SECS = 15 * 60;
-function sampleFrames(file, c, w, h) {
+/** → {frames, times}: SAMPLE_FPS a second, then the clip's last frame (reframe.js sampleTimes), read once more. */
+function sampleFrames(file, c, w, h, fps = 30) {
   const R = require("./reframe.js");
   const sp = Math.min(8, Math.max(0.1, +c.props?.speed || 1));
   const len = Math.max(0.1, Math.min(REFRAME_MAX_SECS, c.duration * sp));
@@ -436,7 +437,15 @@ function sampleFrames(file, c, w, h) {
   if (r.status !== 0) throw new Error(`ffmpeg couldn't read ${c.id}: ${String(r.stderr).trim().split("\n").pop()}`);
   const fb = w * h * 3, frames = [];
   for (let o = 0; o + fb <= r.stdout.length; o += fb) frames.push(r.stdout.subarray(o, o + fb));
-  return frames;
+  if (c.kind === "image") return { frames, times: null };
+  const want = R.sampleTimes(len, { frame: sp / (fps > 0 ? fps : 30) }), times = frames.map((_, i) => Math.round((i / R.SAMPLE_FPS) * 1000) / 1000);
+  const last = want[want.length - 1];
+  if (frames.length && last - times[times.length - 1] > 1e-3) {
+    const q = require("child_process").spawnSync(FF.path("ffmpeg"), ["-v", "error", "-ss", String(Math.max(0, +c.in || 0) + last), "-i", file, "-an", "-frames:v", "1",
+      "-vf", `scale=${w}:${h}`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 24, timeout: 60000 });
+    if (q.status === 0 && q.stdout.length >= fb) { frames.push(q.stdout.subarray(0, fb)); times.push(last); }
+  }
+  return { frames, times };
 }
 async function reframeTool(args) {
   const R = require("./reframe.js");
@@ -477,7 +486,7 @@ async function reframeTool(args) {
     const cover = R.coverRect(src.width, src.height, canvas.width, canvas.height, 1);
     if (args.follow !== false && Math.max(cover.maxX, cover.maxY) > 0.5) {   // no room to pan: nothing to look at
       const w = R.SAMPLE_W, h = Math.max(8, Math.round(w * src.height / src.width / 2) * 2);
-      try { samples = R.subjectTrack(sampleFrames(file, c, w, h), w, h); }
+      try { const s = sampleFrames(file, c, w, h, work.fps || 30); samples = R.subjectTrack(s.frames, w, h, s.times ? { times: s.times } : {}); }
       catch (e) { skip.push({ id: c.id, why: e.message }); continue; }
     }
     const p = R.clipPlan(c, samples, src, canvas, { smooth, fps: work.fps || 30, follow: args.follow !== false });

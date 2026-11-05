@@ -2000,7 +2000,8 @@ project's shorter side kept: 1920×1080 → 1080×1920 for 9:16, 1080×1080 for
 open sequence on its own canvas. Each full-frame shot — a video or still that
 isn't moved, scaled, cropped or keyed by hand — gets `fit:"cover"` and an `x`
 (or `y`) that keeps its subject in view. Frames are sampled 5 times a second at
-96 px; the subject is where motion (against the shot's own movement, so a pan
+96 px, plus the shot's last frame (reframe.js sampleTimes: read once more at its length − 1 frame, so the
+camera follows to the end; the editor and this tool share it); the subject is where motion (against the shot's own movement, so a pan
 or a flicker doesn't count), detail and colour gather, pulled gently toward
 the centre. A virtual camera operator then holds still while the subject
 stays inside a dead zone and eases after it no faster than a pan speed, and

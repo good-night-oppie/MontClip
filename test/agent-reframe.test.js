@@ -3,7 +3,8 @@
 // that shape whose shots follow the subject, and opens it. Sensitive (it switches what is open); asked every time in
 // every mode, Yolo too; only the listed shapes, nothing else in the reply; the footage is read with a progress line and
 // 〔取消〕 before anything is made; one undo goes back to the original sequence. A synthetic video (a block moving left to
-// right, made by ffmpeg) shows the 9:16 result keeps the block in the picture the whole time.
+// right, made by ffmpeg) shows the 9:16 result keeps the whole block in the picture in every frame, the last one included
+// (the clip's last frame is read too: reframe.js sampleTimes).
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const {spawnSync}=require('node:child_process');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
@@ -94,31 +95,54 @@ test('the format note offers the reply, and a vertical picture is no longer repo
 });
 
 const skip=!FF.resolveTool('ffmpeg').ok&&"MontClip's ffmpeg is not in vendor/ (node desktop/fetch-ffmpeg.cjs)";
-test('synthetic video (a block moving left to right): the 9:16 copy keeps the block in the picture the whole time',{skip},(t)=>{
+test('synthetic video (a block moving left to right): the 9:16 copy keeps the whole block in the picture in every frame, the last included',{skip},(t)=>{
  const d=fs.mkdtempSync(path.join(os.tmpdir(),'mc-rf-'));t.after(()=>fs.rmSync(d,{recursive:true,force:true}));
  const file=path.join(d,'block.mp4'),W=640,H=360,D=6,B=60,left=(s)=>20+(W-B-40)*s/D;
  // the bundled ffmpeg has no H.264 encoder: MPEG-4 Part 2 in MP4
  let r=spawnSync(FF.path('ffmpeg'),['-v','error','-y','-f','lavfi','-i',`color=c=0x202020:s=${W}x${H}:d=${D}:r=30`,'-f','lavfi','-i',`color=c=0xffcc00:s=${B}x${B}:d=${D}:r=30`,
   '-filter_complex',`[0][1]overlay=x='20+(${W-B-40})*t/${D}':y=${(H-B)/2}`,'-pix_fmt','yuv420p','-c:v','mpeg4','-q:v','3',file],{encoding:'utf8'});
  a.equal(r.status,0,r.stderr);
- // frames as the editor and fablecut_reframe sample them (reframe.js: SAMPLE_FPS a second, SAMPLE_W wide)
- const w=R.SAMPLE_W,h=Math.max(8,Math.round(w*H/W/2)*2);
+ // frames as the editor and fablecut_reframe sample them (reframe.js sampleTimes: SAMPLE_FPS a second, then the clip's last
+ // frame, read once more at duration − 1 frame — as mcp-server.js sampleFrames does, SAMPLE_W wide)
+ const w=R.SAMPLE_W,h=Math.max(8,Math.round(w*H/W/2)*2),fb=w*h*3,times=R.sampleTimes(D,{frame:1/30});
+ a.equal(times.length,31);a.equal(times[29],5.8);a.equal(times[30],5.966,'the last frame of the clip');
  r=spawnSync(FF.path('ffmpeg'),['-v','error','-i',file,'-an','-vf',`fps=${R.SAMPLE_FPS},scale=${w}:${h}`,'-f','rawvideo','-pix_fmt','rgb24','-'],{maxBuffer:1<<28});
  a.equal(r.status,0,String(r.stderr));
- const tr=R.tracker(w,h),fb=w*h*3;for(let o=0;o+fb<=r.stdout.length;o+=fb)tr.push(r.stdout.subarray(o,o+fb));
+ const frames=[];for(let o=0;o+fb<=r.stdout.length;o+=fb)frames.push(r.stdout.subarray(o,o+fb));
+ a.equal(frames.length,30);
+ const q=spawnSync(FF.path('ffmpeg'),['-v','error','-ss',String(times[30]),'-i',file,'-an','-frames:v','1','-vf',`scale=${w}:${h}`,'-f','rawvideo','-pix_fmt','rgb24','-'],{maxBuffer:1<<24});
+ a.equal(q.status,0,String(q.stderr));a.ok(q.stdout.length>=fb);frames.push(q.stdout.subarray(0,fb));
+ const samples=R.subjectTrack(frames,w,h,{times});
+ a.deepEqual(samples.map(s=>s[0]),times,'each frame at its own time');
  const canvas=R.canvasFor('9:16',W,H);a.deepEqual(canvas,{width:360,height:640});
  const clip={id:'c',kind:'video',in:0,duration:D,props:{}};
- const plan=R.clipPlan(clip,tr.samples,{width:W,height:H},canvas,{smooth:0.5,fps:30,follow:true});
+ const plan=R.clipPlan(clip,samples,{width:W,height:H},canvas,{smooth:0.5,fps:30,follow:true});
  a.equal(plan.set.props.fit,'cover');a.equal(plan.axis,'x');
  const keys=plan.set.keyframes.x;a.ok(keys.length>=2,'it follows: '+JSON.stringify(keys));
  const x=(s)=>{if(s<=keys[0].t)return keys[0].v;for(let i=1;i<keys.length;i++)if(s<=keys[i].t){const k0=keys[i-1],k1=keys[i];return k0.v+(k1.v-k0.v)*(s-k0.t)/(k1.t-k0.t);}return keys.at(-1).v;};
  const cover=R.coverRect(W,H,canvas.width,canvas.height,1),k=cover.pw/W;   // drawn px per source px
- // the frames are looked at 5 times a second, so the last one is at 5.8 s and the camera holds after it: up to there the
- // whole block is in the picture; in the last 0.2 s its edge may run past the picture's (at 6 s by 9 of its 60 px), its centre still inside
- const last=tr.samples.at(-1)[0];a.equal(last,5.8);
- for(let f=0;f<=D*30;f++){
+ // every frame of the clip, the last one (5.967 s) included: the whole block is in the picture
+ for(let f=0;f<D*30;f++){
   const s=f/30,from=(cover.pw/2-x(s)-canvas.width/2)/k,to=(cover.pw/2-x(s)+canvas.width/2)/k;   // the source pixels on the canvas
-  if(s>last+1e-9){const c=left(s)+B/2;a.ok(c>=from&&c<=to,`after the last frame looked at, at ${s.toFixed(2)} s`);continue;}
-  a.ok(left(s)>=from-0.5&&left(s)+B<=to+0.5,`at ${s.toFixed(2)} s the block (${left(s).toFixed(0)}–${(left(s)+B).toFixed(0)}) is outside ${from.toFixed(0)}–${to.toFixed(0)}`);
+  a.ok(left(s)>=from-0.5&&left(s)+B<=to+0.5,`at ${s.toFixed(3)} s the block (${left(s).toFixed(0)}–${(left(s)+B).toFixed(0)}) is outside ${from.toFixed(0)}–${to.toFixed(0)}`);
  }
+});
+
+test('the editor and fablecut_reframe both read the clip\'s last frame (reframe.js sampleTimes, one fix for both)',()=>{
+ a.deepEqual(R.sampleTimes(6,{frame:1/30}).slice(-2),[5.8,5.966]);
+ a.deepEqual(R.sampleTimes(6.2,{frame:1/30}).slice(-2),[6,6.166],'a clip not a whole number of samples long');
+ a.deepEqual(R.sampleTimes(5.8+1/30,{frame:1/30}).slice(-2),[5.6,5.8],'the last regular sample is the last frame: not read twice');
+ a.deepEqual(R.sampleTimes(4,{frame:2/30}).slice(-1),[3.933],'at 2× speed one timeline frame is two source frames');
+ // the tracker takes each frame's own time; without one, the next at SAMPLE_FPS as before
+ const t=R.tracker(8,8),f=new Uint8Array(8*8*3);t.push(f);t.push(f);t.push(f,0.75);
+ a.deepEqual(t.samples.map(s=>s[0]),[0,0.2,0.75]);
+ const app=read('app.js'),mcp=read('mcp-server.js');
+ a.match(app,/\(f, t\) => tr\.push\(f, t\),\n\s*\{ times: Reframe\.sampleTimes\(c\.duration \* clipSpeed\(c\), \{ frame: clipSpeed\(c\) \/ fps \}\) \}\);/,'the editor\'s Reframe');
+ a.match(app,/\(f,t\)=>tr\.push\(f,t\),\{times:Reframe\.sampleTimes\(c\.duration\*clipSpeed\(c\),\{frame:clipSpeed\(c\)\/fps\}\),cancelled:/,'the assistant\'s reframe');
+ a.match(app,/if \(onRgb\) onRgb\(rgb\(\), at\[i\]\); else frames\.push\(rgb\(\)\);/);
+ // Highlights reads the same way as before: no times, PIC_FPS a second
+ a.match(app,/await sampleClipFrames\(c, w, h, onFrame, \(f\) => pic\.push\(f\), \{ fps: Highlights\.PIC_FPS, cancelled \}\);/);
+ a.match(mcp,/const want = R\.sampleTimes\(len, \{ frame: sp \/ \(fps > 0 \? fps : 30\) \}\)/);
+ a.match(mcp,/samples = R\.subjectTrack\(s\.frames, w, h, s\.times \? \{ times: s\.times \} : \{\}\);/);
+ a.ok(!/extrapolat/i.test(read('reframe.js').replace(/Not an[\s*]+extrapolation/,'')),'read, not extrapolated');
 });
