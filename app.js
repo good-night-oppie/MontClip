@@ -1697,6 +1697,7 @@ function applyProject(data, opts = {}) {
   // AV links aren't always on disk (older saves / agents) — rebuild from matching timing.
   relinkClips();
   noteProjectFonts(); // titles in a font that would have to come from outside: the fallback face, and one hint
+  noteBgRemove();     // clips with AI background removal that would have to load it from outside: uncut, and one hint
   // reset runtime playback elements so they rebuild against new data
   if (state.audioHold) setAudioHold(false);
   else stopAudioHoldNodes();
@@ -7691,6 +7692,11 @@ function renderInspector(lite) {
           : input.value;
       if (k === "weight") v = +v || 0;
       if (k === "font") requestFonts([String(v)]);
+      // asks first (the host, download only); a "no" (or desktop, which can't) turns it back off
+      if (k === "bgRemove" && v) requestBgRemove().then((ok) => {
+        if (ok !== null) return;
+        c.props.bgRemove = false; scheduleSave(); renderInspector();
+      });
       if (k === "name") { c.name = String(v); state.dirtyTimeline = true; }
       else if (k === "start") { c.start = Math.max(0, +v || 0); state.dirtyTimeline = true; inspPropGen++; }
       else if (k === "duration") { c.duration = Math.max(MIN_DUR, +v || MIN_DUR); state.dirtyTimeline = true; inspPropGen++; }
@@ -13297,10 +13303,17 @@ async function prepareSvgFrame(c, t) {
 }
 
 /* ═════════════ AI BACKGROUND REMOVAL (MediaPipe selfie segmentation) ════════
-   Loaded lazily from CDN the first time a clip sets props.bgRemove. Produces a
-   per-clip person mask consumed by the pixel pipeline below. Degrades politely
-   when offline. */
-const bgSeg = { seg: null, loading: null, failed: false, queue: Promise.resolve(), masks: new Map() };
+   Loaded lazily from CDN (cdn.jsdelivr.net: a script, then its wasm and model
+   files) — only after the streamer said yes this session (Deja, 11-04: before
+   going online, show where and what is sent). Turning it on in the Inspector
+   asks; opening a project, drawing and exporting never do, and never go online:
+   the clip shows and exports uncut, and the streamer is told. Desktop never
+   tries (desktop/main.js blocks every non-local request). Produces a per-clip
+   person mask consumed by the pixel pipeline below; the frames stay on this
+   computer. */
+const BG_REMOVE_HOSTS = ["cdn.jsdelivr.net"];
+const bgSeg = { seg: null, loading: null, failed: false, consent: false, hinted: false, queue: Promise.resolve(), masks: new Map() };
+const bgRemoveDesktop = () => !!window.montclipViewSettings;
 function loadScript(src) {
   return new Promise((res, rej) => {
     const s = document.createElement("script");
@@ -13310,6 +13323,7 @@ function loadScript(src) {
 }
 function ensureBgSeg() {
   if (bgSeg.seg || bgSeg.failed) return bgSeg.loading || Promise.resolve();
+  if (bgRemoveDesktop() || !bgSeg.consent) return Promise.resolve();   // never online without a yes
   if (!bgSeg.loading) {
     const base = "https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation";
     bgSeg.loading = loadScript(`${base}/selfie_segmentation.js`).then(() => {
@@ -13329,6 +13343,37 @@ function ensureBgSeg() {
     });
   }
   return bgSeg.loading;
+}
+/* The streamer turned AI background removal on. True when it is ready, false when it couldn't be loaded, null when
+   the streamer said no (or on desktop, where the page never goes online). Asks every time until a yes. */
+async function requestBgRemove() {
+  if (bgSeg.seg) return true;
+  if (bgRemoveDesktop()) { toast(uiText("own.bgremove-desktop")); return null; }
+  if (!bgSeg.consent) {
+    const yes = await askNetConsent("bgRemove", uiText("own.bgremove-net-title"), [
+      uiText("own.bgremove-net-what"),
+      uiText("own.bgremove-net-hosts", { hosts: BG_REMOVE_HOSTS.join(uiText("own.font-list-sep")) }),
+      uiText("own.bgremove-net-sent"),
+      uiText("own.bgremove-net-no"),
+    ], uiText("own.font-net-deny"), uiText("own.font-net-allow"));
+    if (!yes) return null;
+    bgSeg.consent = true; bgSeg.failed = false; bgSeg.loading = null;
+  }
+  await ensureBgSeg();
+  return !!bgSeg.seg;
+}
+const bgRemoveClips = () => mediaClips().filter((c) => c.props?.bgRemove && !c.disabled && (c.kind === "video" || c.kind === "image"));
+/* After a project opens: clips with AI background removal that can't have it yet show uncut; told once a session.
+   In the browser the hint offers to load it, which asks first. */
+async function noteBgRemove() {
+  if (bgSeg.seg || bgSeg.hinted || !bgRemoveClips().length) return;
+  bgSeg.hinted = true;
+  if (bgRemoveDesktop()) toast(uiText("own.bgremove-desktop"));
+  else toastAction(uiText("own.bgremove-fallback"), uiText("own.font-fallback-load"), () => requestBgRemove());
+}
+/* Before an export: the clips with AI background removal export uncut when it isn't loaded. */
+function noteExportBgRemove() {
+  if (!bgSeg.seg && bgRemoveClips().length) toast(uiText("own.bgremove-export-fallback"));
 }
 /* Serialize sends; returns a promise that resolves once the mask is refreshed.
    Preview calls are dropped while one is in flight (masks lag a frame at most);
@@ -18145,21 +18190,28 @@ async function requestFonts(names) {
 /* The box before going online: for every font not yet confirmed this session, in every permission mode. "Not now"
    is focused, and Esc is "Not now". */
 function askFontConsent(names) {
+  return askNetConsent("font", uiText("own.font-net-title"), [
+    uiText("own.font-net-fonts", { names: fontNames(names) }),
+    uiText("own.font-net-hosts", { hosts: GOOGLE_FONT_HOSTS.join(uiText("own.font-list-sep")) }),
+    uiText("own.font-net-sent"),
+    uiText("own.font-net-no"),
+  ], uiText("own.font-net-deny"), uiText("own.font-net-allow"));
+}
+/* The box before going online, shared by everything the page may fetch from outside (Google Fonts, MediaPipe): a
+   title, the lines (what, where, what is sent, what happens without it), "Not now" focused and Esc = "Not now".
+   `kind` names the buttons' data attribute (data-font-consent, data-bg-remove-consent). Resolves true for yes. */
+function askNetConsent(kind, titleText, lines, denyText, allowText) {
   return new Promise((resolve) => {
-    const dlg = document.createElement("dialog"), title = document.createElement("h3"), fonts = document.createElement("p");
-    dlg.className = "font-consent-dialog"; dlg.dataset.fontConsentDialog = "";
-    const hosts = document.createElement("p"), sent = document.createElement("p"), after = document.createElement("p"),
-      row = document.createElement("div"), deny = document.createElement("button"), allow = document.createElement("button");
-    title.textContent = uiText("own.font-net-title");
-    fonts.textContent = uiText("own.font-net-fonts", { names: fontNames(names) });
-    hosts.textContent = uiText("own.font-net-hosts", { hosts: GOOGLE_FONT_HOSTS.join(uiText("own.font-list-sep")) });
-    sent.textContent = uiText("own.font-net-sent");
-    after.textContent = uiText("own.font-net-no");
+    const dlg = document.createElement("dialog"), title = document.createElement("h3");
+    dlg.className = "font-consent-dialog"; dlg.dataset[kind + "ConsentDialog"] = "";
+    const row = document.createElement("div"), deny = document.createElement("button"), allow = document.createElement("button");
+    title.textContent = titleText;
+    const ps = lines.map((line) => { const p = document.createElement("p"); p.textContent = line; return p; });
     deny.type = allow.type = "button";
-    deny.className = "btn"; deny.dataset.fontConsent = "deny"; deny.textContent = uiText("own.font-net-deny");
-    allow.className = "btn primary"; allow.dataset.fontConsent = "allow"; allow.textContent = uiText("own.font-net-allow");
+    deny.className = "btn"; deny.dataset[kind + "Consent"] = "deny"; deny.textContent = denyText;
+    allow.className = "btn primary"; allow.dataset[kind + "Consent"] = "allow"; allow.textContent = allowText;
     row.className = "font-consent-row"; row.append(deny, allow);
-    dlg.append(title, fonts, hosts, sent, after, row);
+    dlg.append(title, ...ps, row);
     let answer = false;
     deny.addEventListener("click", () => { answer = false; dlg.close(); });
     allow.addEventListener("click", () => { answer = true; dlg.close(); });
@@ -19860,6 +19912,7 @@ async function fastExport(opts = {}) {
       if (!r.ok) throw new Error("audio upload failed");
     }
     await loadProjectFonts();
+    noteExportBgRemove();
     resetExportCanvases();
     await armExportCors();
     await useOriginalPlayers();   // proxies are for editing — export reads the originals
@@ -20596,6 +20649,7 @@ async function webCodecsExport() {
       latencyMode: "quality",
     });
     await loadProjectFonts();
+    noteExportBgRemove();
     resetExportCanvases();
     await armExportCors();
     await useOriginalPlayers();   // proxies are for editing — export reads the originals
@@ -20686,6 +20740,7 @@ async function startExport() {
   seekMediaWhilePaused();
   await new Promise((r) => setTimeout(r, 350)); // let first frames decode
   await loadProjectFonts();
+  noteExportBgRemove();
   const stream = els.preview.captureStream(projectFps());
   for (const tr of runtime.audio.recDest.stream.getAudioTracks()) stream.addTrack(tr);
   recChunks = []; recDiscard = false;
