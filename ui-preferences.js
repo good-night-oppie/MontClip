@@ -228,8 +228,8 @@
     "map-no-media": ["This project has no audio or video, so there is no time mapping to export.", "这个项目里没有音视频，导不出时间对照表。"],
     "connected": ["Ready", "就绪"],
     // a recording nothing could read the length of, not even its packets' times (cut off before it was saved: europa P3).
-    // media-incomplete is JJ's sentence (定稿 2026-11-05) — on the file in the bin, and when it is dragged onto the
-    // timeline; the English is a draft for JJ. The two toasts are built from it, drafts for JJ too.
+    // media-incomplete is JJ's sentence (定稿 2026-11-05, her review of the trial), on the file in the bin; the English
+    // is a draft for JJ.
     "media-incomplete": ["This video wasn't recorded to the end (the screen recording may have stopped early), so its length can't be read. It can't be cut yet.", "这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
     // 〔修复成可以剪的视频〕 (JJ, P3, 2026-11-05): button, done and failed are JJ's Chinese (定稿); the English, the
     // progress line, Cancel, the button's tip, the right-click 〔帮我转〕 and the spoken lengths are drafts for JJ
@@ -243,8 +243,11 @@
     "dur-s": ["{s} s", "{s} 秒"],
     "dur-ms": ["{m} min {s} s", "{m} 分 {s} 秒"],
     "dur-hm": ["{h} h {m} min", "{h} 小时 {m} 分"],
-    "media-duration-unknown": ["“{name}”: this video wasn't recorded to the end (the screen recording may have stopped early), so its length can't be read. It can't be cut yet.", "「{name}」：这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
-    "media-duration-unknown-n": ["{n} videos weren't recorded to the end (the screen recordings may have stopped early), so their length can't be read. They can't be cut yet.", "有 {n} 个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
+    // JJ 定稿 (2026-11-05, via Deja), word for word: the toast when files nothing can read the length of are imported,
+    // and the toast when one is dragged onto the timeline
+    "media-duration-unknown": ["\"{name}\" may not have finished recording (for example, a screen recording that was stopped), so its length can't be read and it can't be edited yet. The original file is unchanged.", "「{name}」可能没录完整（比如录屏中途停了），读不出有多长，现在还剪不了。原文件没有改动。"],
+    "media-duration-unknown-n": ["{n} videos may not have finished recording, so their length can't be read and they can't be edited yet. The original files are unchanged.", "有 {n} 个视频可能没录完整，读不出有多长，现在还剪不了。原文件都没有改动。"],
+    "media-cannot-cut": ["Can't read how long \"{name}\" is, so it can't go on the timeline. The original file is unchanged.", "读不出「{name}」有多长，放不上时间线。原文件没有改动。"],
     "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],
     "tl-above-captions": ["Captions above, click to show", "上方有字幕轨，点这里显示"],
     // P2 highlight cards (for JJ to review)

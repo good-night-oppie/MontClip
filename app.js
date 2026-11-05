@@ -4622,7 +4622,7 @@ function addClipFromMedia(m, trackId, at) {
   if (!tr || (kind === "audio") !== (tr.kind === "audio")) trackId = defaultTrackFor(kind);
   if (isTrackLocked(trackId)) { toast(`${trackId} is locked — unlock it to add clips`); return null; }
   // nothing could read its length (a recording cut off before it was saved): never placed at a made-up 5 s (europa P3)
-  if (MediaLib.cannotCut(m)) { toast(uiText("own.media-incomplete")); return null; }
+  if (MediaLib.cannotCut(m)) { toast(uiText("own.media-cannot-cut", { name: m.name })); return null; }
   pushUndo();
   const start = Math.max(0, at ?? state.time);
   const duration = m.duration || 5;
