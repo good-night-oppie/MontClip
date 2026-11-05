@@ -46,6 +46,8 @@ contextBridge.exposeInMainWorld('montclipAsr',Object.freeze({
  download:which=>ipcRenderer.invoke('montclip:asr:download',which==='punct'?'punct':which==='asrMeta'?'asrMeta':'asr'),
  import:()=>ipcRenderer.invoke('montclip:asr:import'),
  cancel:()=>ipcRenderer.invoke('montclip:asr:cancel'),
+ // Meta's model: the main process shows its licence and asks (asr-consent.js); revoking deletes it and the consent record
+ revoke:which=>ipcRenderer.invoke('montclip:asr:revoke',which==='asrMeta'?'asrMeta':''),
  choice:()=>ipcRenderer.invoke('montclip:asr:choice'),
  setChoice:v=>ipcRenderer.invoke('montclip:asr:choice',v==='later'?'later':'local'),
  onProgress:fn=>{const h=(_,p)=>{try{fn({which:p&&p.which==='punct'?'punct':p&&p.which==='asrMeta'?'asrMeta':'asr',loaded:Number(p&&p.loaded)||0,total:Number(p&&p.total)||0});}catch{}};ipcRenderer.on('montclip:asr:progress',h);return()=>ipcRenderer.removeListener('montclip:asr:progress',h);}

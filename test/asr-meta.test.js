@@ -14,10 +14,11 @@ test('the manifest: Meta Omnilingual is an optional model with pinned files from
  const m=manifest.models.asrMeta,p=manifest.models.asr;
  a.equal(m.id,'omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12');a.equal(m.required,false);a.equal(m.engine,'omnilingual');
  a.match(m.license,/^Apache-2\.0 \(Copyright 2025 Meta Platforms/);
- a.deepEqual(Object.keys(m.files).sort(),['model.int8.onnx','tokens.txt']);
+ // the model's own LICENSE comes with it (ADR #122 §6: the licence text travels with the model; asr-consent.js)
+ a.deepEqual(Object.keys(m.files).sort(),['LICENSE','model.int8.onnx','tokens.txt']);
  for(const f of Object.values(m.files)){a.ok(f.size>0);a.match(f.sha256,/^[0-9a-f]{64}$/);}
  a.equal(m.sources.length,1);a.equal(m.sources[0].kind,'archive');a.match(m.sources[0].sha256,/^[0-9a-f]{64}$/);
- a.ok(allowedUrl(m.sources[0].url),'from a host the manifest already allows');
+ for(const s of m.sources)a.ok(allowedUrl(s.base||s.url),'from a host the manifest already allows');
  a.equal(p.id,'paraformer-zh-2023-09-14-int8');a.equal(p.required,true);
  a.equal(p.files['model.int8.onnx'].sha256,'f36a0433bcf096bd6d6f11b80a3ac8bed110bdca632fe0d731df8d1a84475945','Paraformer untouched');
 });
@@ -78,9 +79,9 @@ test('the server, the desktop app and the page: "meta" picks the model; only nam
  a.match(app,/<select data-tr-asr-model><option value="asr"[^>]*>.*<option value="asrMeta"/);
  a.match(app,/JSON\.stringify\(asrKey\(\) === "asrMeta" \? \{ src, model: "meta" \} : \{ src \}\)/);
  a.match(app,/window\.montclipAsr\.download\(which\)/);
+ // Meta's model goes through its licence and then the site box (asr-consent.js, test/asr-consent.test.js); Paraformer's
+ // question is the one it always was
  const t=require('../desktop/asr-text').asrDownloadText;
- a.match(t('zh-CN','asrMeta').message,/Meta 的多语言听写模型，大约 280 MB/);
- a.match(t('en','asrMeta').message,/Meta's multilingual speech model \(Omnilingual ASR\), about 280 MB/);
  a.match(t('zh-CN','asr').message,/听写模型，大约 230 MB/,'Paraformer\'s question is unchanged');
 });
 

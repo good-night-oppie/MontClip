@@ -9678,6 +9678,8 @@ function paintAsrStatus() {
   else if (ph === "check-failed") { text = uiText("own.asr-check-failed"); get = "own.asr-again"; later = true; }
   else if (ph === "failed") { text = uiText("own.asr-download-failed", { why: asrState.why || "?" }); get = "own.asr-again"; later = true; }
   else if (asrModelStatus(s).ready) text = uiText("own.asr-ready");
+  // Meta's model is here (a USB import) but not agreed to: its licence first (asr-consent.js), then it is used
+  else if (asrKey() === "asrMeta" && asrModelStatus(s).installed && !asrModelStatus(s).consented) { text = uiText("own.asr-meta-consent"); get = "own.asr-meta-agree"; }
   else { const meta = asrKey() === "asrMeta"; text = uiText(asrModelStatus(s).bad.length ? "own.asr-bad" : meta ? "own.asr-missing-meta" : "own.asr-missing"); get = meta ? "own.asr-download-meta" : "own.asr-download"; imp = true; }
   E.asr.textContent = asrState.note || text;
   E.asrDownload.hidden = !desk || !get;
@@ -9686,6 +9688,8 @@ function paintAsrStatus() {
   E.asrImport.hidden = !desk || !imp;
   E.asrCancel.hidden = !desk || !cancel;
   E.asrLater.hidden = !desk || !later;
+  // 〔撤销〕 Meta's model: its files and the consent record go, back to Paraformer (ADR #122 §6)
+  if (E.asrRevoke) E.asrRevoke.hidden = !desk || !(window.montclipAsr && window.montclipAsr.revoke) || !(asrKey() === "asrMeta" && s && (asrModelStatus(s).consented || asrModelStatus(s).installed)) || !!d;
 }
 /** 下载并使用 / 接着下载 / 再下载一次: the main process asks, downloads (resuming what is there) and checks. */
 async function asrGet() {
@@ -9709,6 +9713,14 @@ async function asrGet() {
   return !!(r && r.ok);
 }
 function asrCancel() { if (window.montclipAsr && asrState.downloading) window.montclipAsr.cancel(); }
+/** 〔撤销〕 Meta's model: the host asks, then deletes its files and the consent record; the tab goes back to Paraformer. */
+async function asrRevokeMeta() {
+  if (!window.montclipAsr || !window.montclipAsr.revoke || asrState.downloading) return;
+  let r = null;
+  try { r = await window.montclipAsr.revoke("asrMeta"); } catch (e) { r = { ok: false, error: String((e && e.message) || e) }; }
+  if (r && r.ok) { toast(uiText("own.asr-meta-revoked")); setAsrKey("asr"); }
+  await loadAsrStatus();
+}
 function asrLater() { asrState.phase = null; asrState.why = ""; paintAsrStatus(); }
 async function asrImport() {
   if (!window.montclipAsr || asrState.downloading) return;
@@ -9850,7 +9862,7 @@ async function transcribeFile(src) {
   const r = await fetch("/api/asr/transcribe", { method: "POST", body: JSON.stringify(asrKey() === "asrMeta" ? { src, model: "meta" } : { src }) });
   let j = {};
   try { j = await r.json(); } catch { }
-  if (!r.ok) throw Object.assign(new Error(j.error || "transcription failed"), { code: j.code });
+  if (!r.ok) throw Object.assign(new Error(j.code === "ASR_CONSENT_REQUIRED" ? uiText("own.asr-meta-consent") : j.error || "transcription failed"), { code: j.code });
   const doc = await loadTranscript(src, true);
   if (!doc) throw new Error("the transcript was not saved");
   transcriptGen++;
@@ -9952,7 +9964,8 @@ function buildTranscriptPage() {
         <button type="button" class="btn tiny" data-tr-asr-download hidden data-i18n="own.asr-download">${escapeHtml(uiText("own.asr-download"))}</button>
         <button type="button" class="btn tiny" data-tr-asr-import hidden data-i18n="own.asr-import">${escapeHtml(uiText("own.asr-import"))}</button>
         <button type="button" class="btn tiny" data-tr-asr-cancel hidden data-i18n="own.asr-download-cancel">${escapeHtml(uiText("own.asr-download-cancel"))}</button>
-        <button type="button" class="btn tiny" data-tr-asr-later hidden data-i18n="own.asr-later">${escapeHtml(uiText("own.asr-later"))}</button></div>` : ""}
+        <button type="button" class="btn tiny" data-tr-asr-later hidden data-i18n="own.asr-later">${escapeHtml(uiText("own.asr-later"))}</button>
+        <button type="button" class="btn tiny" data-tr-asr-revoke hidden data-i18n="own.asr-meta-revoke">${escapeHtml(uiText("own.asr-meta-revoke"))}</button></div>` : ""}
       ${listen ? `<div class="tr-busy hidden" data-tr-busy><span data-tr-busy-text></span><span class="tr-bar"><i data-tr-bar></i></span>
         <button type="button" class="btn tiny" data-tr-cancel title="Stop transcribing (what is done is kept)" data-i18n="term.cancel">${uiText("term.cancel")}</button></div>` : ""}
       <div class="tr-row">
@@ -9983,7 +9996,7 @@ function buildTranscriptPage() {
   trState.el = { go: q("[data-tr-go]"), busy: q("[data-tr-busy]"), busyText: q("[data-tr-busy-text]"), bar: q("[data-tr-bar]"),
     find: q("[data-tr-find]"), count: q("[data-tr-count]"), cutFound: q("[data-tr-cut-found]"), body: q("[data-tr-body]"),
     foot: q("[data-tr-foot]"), selText: q("[data-tr-sel]"),
-    asr: q("[data-tr-asr]"), asrDownload: q("[data-tr-asr-download]"), asrImport: q("[data-tr-asr-import]"), asrCancel: q("[data-tr-asr-cancel]"), asrLater: q("[data-tr-asr-later]"), asrModel: q("[data-tr-asr-model]") };
+    asr: q("[data-tr-asr]"), asrDownload: q("[data-tr-asr-download]"), asrImport: q("[data-tr-asr-import]"), asrCancel: q("[data-tr-asr-cancel]"), asrLater: q("[data-tr-asr-later]"), asrModel: q("[data-tr-asr-model]"), asrRevoke: q("[data-tr-asr-revoke]") };
   const E = trState.el;
   if (listen) {
     E.go.addEventListener("click", transcribeFromTab);
@@ -9991,6 +10004,7 @@ function buildTranscriptPage() {
     E.asrDownload.addEventListener("click", asrGet);
     E.asrCancel.addEventListener("click", asrCancel);
     E.asrLater.addEventListener("click", asrLater);
+    E.asrRevoke.addEventListener("click", asrRevokeMeta);
     E.asrImport.addEventListener("click", asrImport);
     E.asrModel.addEventListener("change", () => setAsrKey(E.asrModel.value));
     paintAsrStatus();

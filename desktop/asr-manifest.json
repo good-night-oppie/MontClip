@@ -41,7 +41,13 @@
       "note": "Optional, chosen in the Transcript tab (the owner, 2026-11-04: Paraformer stays the default, unchanged). One CTC model for 1600+ languages; sherpa-onnx-node 2.0.1 reads it (modelConfig.omnilingual). europa 2026-11-04, 4 threads: the archive's en.wav (3.9 s) in 3.3 s, Paraformer's 0.wav (5.6 s, Mandarin) in 4.7 s; one token per character, each with its time; no punctuation of its own.",
       "files": {
         "model.int8.onnx": { "size": 365352120, "sha256": "e7c4e54ee4c4c47829cc6667d5d00ed8ea7bef1dcfeef0fce766f77752a2726c" },
-        "tokens.txt": { "size": 86423, "sha256": "a7a044c52cb29cbe8b0dc1953e92cefd4ca16b0ed968177b6beab21f9a7d0b31" }
+        "tokens.txt": { "size": 86423, "sha256": "a7a044c52cb29cbe8b0dc1953e92cefd4ca16b0ed968177b6beab21f9a7d0b31" },
+        "LICENSE": { "size": 581, "sha256": "a70a523bafbb595c2844104feb313d204904dac91c3d186c05f22a10a71c7a94" }
+      },
+      "consent": {
+        "revision": "6abf1ece20cd2308bdb7d13cd78ec1c44fa4c094",
+        "license": { "name": "Apache License 2.0", "file": "licenses/asr/omnilingual-asr-LICENSE.txt", "sha256": "a70a523bafbb595c2844104feb313d204904dac91c3d186c05f22a10a71c7a94" },
+        "note": "ADR 2026-11-04 #122 §6 (asr-consent.js): the streamer reads this licence text in the host's box and agrees before anything is downloaded, then picks the site; used only with a consent record on this computer. revision: the Hugging Face commit of the converted model repo (csukuangfj/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12); the GitHub archive holds the same files (same SHA-256)."
       },
       "sources": [
         { "kind": "archive", "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-int8-2025-11-12.tar.bz2",

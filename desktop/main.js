@@ -144,6 +144,7 @@ async function start() {
     if (!settingsAllowed(event, win, origin) || !features.transcribe) return { ok: false, code: "ASR_FORBIDDEN" };
     if (which !== "asr" && which !== "asrMeta" && which !== "punct") return { ok: false, code: "ASR_UNKNOWN_MODEL" };
     if (asrBusy) return { ok: false, code: "ASR_BUSY" };
+    if (AsrConsent.termsOf(which)) return chooseWithConsent(which);
     const t = asrDownloadText(languageOf(settings.get()), which);
     const answer = smoke ? { response: process.env.MONTCLIP_SMOKE_ASR_CONSENT === "1" ? 1 : 0 }
       : await dialog.showMessageBox(win, { type: "question", title: t.title, message: t.message, detail: t.detail, buttons: t.buttons, defaultId: 0, cancelId: 0, noLink: true });
@@ -159,6 +160,53 @@ async function start() {
       return { ok: false, code: e.code || "ASR_DOWNLOAD_FAILED", needBytes: e.needBytes, freeBytes: e.freeBytes, drive: e.drive,
         error: e.failed ? e.failed.map((f) => f.source + ": " + f.error).join("; ") : String(e.message || e) };
     } finally { asrBusy = null; }
+  });
+  // A model that needs the streamer's consent (asr-consent.js; ADR 2026-11-04 #122 §6: Meta's Omnilingual ASR): its licence
+  // first (the text shipped with MontClip, in this host's own box, "no" by default), then — unless its files are already
+  // here — the site (the streamer picks; another site is asked again), then the download from that site only; the consent
+  // record last. "No" or no answer at any step revokes it. The page only names the model; nothing it sends can agree.
+  const AsrConsent = require("../asr-consent"), { asrLicenseText, asrSourceText, asrRevokeText } = require("./asr-consent-text");
+  const asrConsent = AsrConsent.createConsent({ modelsDir: env.MONTCLIP_ASR_MODELS_DIR });
+  const smokeAnswer = (name) => Number(process.env["MONTCLIP_SMOKE_ASR_" + name] || 0);
+  async function chooseWithConsent(which) {
+    const lang = languageOf(settings.get()), model = AsrModels.manifest.models[which];
+    const ask = async (t, name) => {
+      const answer = smoke ? { response: smokeAnswer(name) }
+        : await dialog.showMessageBox(win, { type: "question", title: t.title, message: t.message, detail: t.detail, buttons: t.buttons, defaultId: 0, cancelId: 0, noLink: true });
+      if (smoke) process.stdout.write("MONTCLIP_ASR_" + name + " " + JSON.stringify({ which, title: t.title, detail: t.detail, buttons: t.buttons, answered: answer.response }) + "\n");
+      return answer.response;
+    };
+    asrBusy = new AbortController();
+    try {
+      return await asrConsent.choose(which, { version: app.getVersion(),
+        installed: () => asrStore.status()[which].ready,
+        ask: {
+          license: async (q) => (await ask(asrLicenseText(lang, q), "LICENSE")) === 1,
+          source: async (q) => {
+            // the size each site sends: the files from the mirror, the archive from GitHub (MiB, to the nearest 10)
+            const mb = model.sources.map((s) => Math.round((s.size || Object.values(model.files).reduce((n, f) => n + f.size, 0)) / 1048576 / 10) * 10);
+            const r = await ask(asrSourceText(lang, { mb, sites: q.sites, hosts: ASR_HOSTS.slice() }), "SOURCE");
+            return r >= 1 ? r - 1 : null;
+          },
+        },
+        // the chosen site only: the model's entry with that one source (asr-models.js itself is unchanged)
+        download: (pick) => AsrModels.createStore({ manifest: { ...AsrModels.manifest, models: { ...AsrModels.manifest.models, [which]: { ...model, sources: [model.sources[pick]] } } },
+          roots: [], userDir: env.MONTCLIP_ASR_MODELS_DIR }).download(which, { signal: asrBusy.signal, hosts: ASR_HOSTS,
+          fetchFile: (url, dest, o) => AsrDownload.fetchFile(url, dest, { ...o, hosts: ASR_HOSTS }),
+          onProgress: (p) => { if (win && !win.isDestroyed() && p.total) win.webContents.send("montclip:asr:progress", { which, loaded: p.loaded, total: p.total }); } }) });
+    } catch (e) { return { ok: false, code: e.code || "ASR_DOWNLOAD_FAILED", error: String(e.message || e) }; }
+    finally { asrBusy = null; }
+  }
+  // 〔撤销〕: the model's files and the consent record go (after the host's own box); back to Paraformer
+  ipcMain.handle("montclip:asr:revoke", async (event, which) => {
+    if (!settingsAllowed(event, win, origin) || !features.transcribe) return { ok: false, code: "ASR_FORBIDDEN" };
+    if (which !== "asrMeta" || !AsrConsent.termsOf(which)) return { ok: false, code: "ASR_UNKNOWN_MODEL" };
+    if (asrBusy) return { ok: false, code: "ASR_BUSY" };
+    const t = asrRevokeText(languageOf(settings.get()));
+    const answer = smoke ? { response: smokeAnswer("REVOKE") }
+      : await dialog.showMessageBox(win, { type: "question", title: t.title, message: t.message, detail: t.detail, buttons: t.buttons, defaultId: 0, cancelId: 0, noLink: true });
+    if (answer.response !== 1) return { ok: false, declined: true };
+    try { return asrConsent.revoke(which); } catch (e) { return { ok: false, error: String(e.message || e) }; }
   });
   // v10: what the streamer chose on the transcription setup page ("local" | "later"), kept here because the page's
   // origin (a random port) changes each time MontClip opens; and whether a download stopped half-way (it opens on 「没下载完」)

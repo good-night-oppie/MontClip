@@ -142,6 +142,20 @@ const ASR_DIR = path.resolve(process.env.MONTCLIP_ASR_DIR || path.join(APP_DIR, 
 const ASR_MODELS_DIR = path.resolve(process.env.MONTCLIP_ASR_MODELS_DIR || path.join(DATA_DIR, "asr-models"));
 let asrLocal = null;
 const asr = () => asrLocal || (asrLocal = require("./asr-local").createAsr({ asrDir: ASR_DIR, modelsDir: ASR_MODELS_DIR, ffmpeg: FF.path("ffmpeg"), cacheDir: path.join(DATA_DIR, "asr-cache") }));
+/** Optional models that need the streamer's consent (asr-consent.js; ADR #122 §6: Meta's Omnilingual ASR): ready only
+ *  with their files AND a consent record on this computer. The server never writes or takes a record: only the desktop
+ *  host does, after the streamer agreed in its own box. */
+let asrConsentObj = null;
+const asrConsent = () => asrConsentObj || (asrConsentObj = require("./asr-consent").createConsent({ modelsDir: ASR_MODELS_DIR }));
+function asrStatus() {
+  const st = asr().status();
+  for (const key of Object.keys(st)) {
+    if (!st[key] || typeof st[key] !== "object" || !("ready" in st[key]) || !require("./asr-consent").termsOf(key)) continue;
+    const consented = asrConsent().allowed(key);
+    st[key] = { ...st[key], installed: st[key].ready, consented, ready: st[key].ready && consented };
+  }
+  return st;
+}
 const asrJob = { running: null };
 
 ensureDirs();
@@ -1770,14 +1784,15 @@ const server = http.createServer(async (req, res) => {
   }
 
   /* API: on-device transcription (asr-local.js; #70). One file at a time; the transcript is saved like a tab's.
-       GET  /api/asr/status            → {model, engine, vad, asr, punct}   (asr / punct: {ready, where, missing, bad})
+       GET  /api/asr/status            → {model, engine, vad, asr, punct, asrMeta}   (asr / punct: {ready, where, missing, bad};
+                                         asrMeta also {installed, consented}: ready only with both — asr-consent.js)
        POST /api/asr/transcribe {src, model?}  (model "meta": Meta Omnilingual ASR, when installed; else Paraformer) → {src, status, gaps, gapSeconds, skippedSegments, words, duration, speech, punctuated} once the
                                          transcript is saved; status complete or partial (gaps: how many parts could not
                                          be read, kept with the transcript); 500 {code: ASR_FAILED} when nothing could;
                                          progress as SSE "asr" ({src, frac}); 409 {code} when busy, when the model or the
                                          engine is missing, or when cancelled. Nothing is downloaded here.
        POST /api/asr/cancel            → {cancelled} */
-  if (p === "/api/asr/status" && req.method === "GET") { sendJSON(res, 200, asr().status()); return; }
+  if (p === "/api/asr/status" && req.method === "GET") { sendJSON(res, 200, asrStatus()); return; }
   if (p === "/api/asr/cancel" && req.method === "POST") {
     const j = asrJob.running;
     if (j) j.ac.abort();
@@ -1790,9 +1805,16 @@ const server = http.createServer(async (req, res) => {
     const src = typeof body.src === "string" ? body.src : "", file = src ? resolveSrc(src) : null;
     if (!file || !fs.existsSync(file)) { sendJSON(res, 404, { error: "no such file: " + src }); return; }
     if (asrJob.running) { sendJSON(res, 409, { code: "ASR_BUSY", error: "already transcribing " + asrJob.running.src }); return; }
-    const st = asr().status();
+    const st = asrStatus();
     if (!st.engine.ready || !st.vad.ready) { sendJSON(res, 409, { code: "ASR_ENGINE_MISSING", error: "the speech engine is missing from this copy of MontClip" }); return; }
     const key = body.model === "meta" ? "asrMeta" : "asr";
+    // nobody agrees to a licence for the streamer: no agree field is taken, and a model without a consent record waits for the streamer
+    if (["agree", "agreed", "consent", "accept", "accepted"].some((k) => Object.prototype.hasOwnProperty.call(body, k))) {
+      sendJSON(res, 400, { code: "ASR_AGREE_NOT_ACCEPTED", error: "nobody can agree to a model licence for the streamer: the streamer reads it and agrees in the desktop app's own box. Nothing was changed." }); return;
+    }
+    if (st[key] && st[key].installed && !st[key].consented) {
+      sendJSON(res, 409, { code: "ASR_CONSENT_REQUIRED", waiting: "streamer", error: "this speech model is used only after the streamer read its licence and agreed, in the Transcript tab of the desktop app. Nothing was changed." }); return;
+    }
     if (!st[key] || !st[key].ready) { sendJSON(res, 409, { code: "ASR_MODEL_MISSING", error: "no speech model yet: the user downloads it or imports it (USB drive / a file) in the Transcript tab; MontClip never fetches it by itself", missing: st[key] ? st[key].missing : [], bad: st.asr.bad }); return; }
     const ac = new AbortController(), job = asrJob.running = { src, ac };
     res.on("close", () => { if (!res.writableFinished) ac.abort(); });   // the page went away: stop
