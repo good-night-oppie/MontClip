@@ -44,7 +44,9 @@ function findBrowser(env = process.env) {
 }
 
 /** opts: {url(id) → page to open headless, broadcast(event, data), editors() → open tab count,
- *  keepProfile(kind) → a browser profile dir that outlives the job (a model cache), or null for a throwaway one} */
+ *  keepProfile(kind) → a browser profile dir that outlives the job (a model cache), or null for a throwaway one,
+ *  onEnd(job) → a job ended without its file (failed or cancelled): stop what it left running,
+ *  finished(src) → is the file an export job says it made really in place (renamed from .part)?} */
 function createExportJobs(opts) {
   function assertWhere(where = "auto") {
     if (opts.allowHeadless !== false) return;
@@ -78,6 +80,7 @@ function createExportJobs(opts) {
     if (isEnded(j)) return;
     Object.assign(j, fields, { status, updated: Date.now() });
     closeBrowser(j);
+    if (status !== "done" && opts.onEnd) { try { opts.onEnd(view(j)); } catch {} }
   }
   function sweep() {
     const now = Date.now();
@@ -169,7 +172,10 @@ function createExportJobs(opts) {
       if (j.status !== "running") return { cancel: false };
       j.updated = Date.now();
       if (Number.isFinite(progress)) j.progress = Math.max(0, Math.min(1, progress));
-      if (status === "done") end(j, "done", { progress: 1, src: String(src || ""), result: result && typeof result === "object" ? result : null });
+      // done means the finished file is in place, never "ffmpeg exited" (P11): a job whose file is not there failed
+      if (status === "done" && j.kind === "export" && opts.finished && !opts.finished(String(src || "")))
+        end(j, "failed", { error: "the export said it was done, but its file is not in place" });
+      else if (status === "done") end(j, "done", { progress: 1, src: String(src || ""), result: result && typeof result === "object" ? result : null });
       else if (status === "failed") end(j, "failed", { error: String(error || "export failed") });
       return { cancel: false };
     },

@@ -18,8 +18,13 @@ async function stopSessions(sessions, { timeoutMs = 3000, rm = (p) => fs.rmSync(
     if (s.partPath) paths.push(s.partPath);
     if (s.dir) paths.push(s.dir);
   }
-  for (const p of procs) { try { p.kill(); } catch {} }
+  // ffmpeg reading frames from stdin ignores SIGTERM while it waits for the next one (Linux: it stays blocked in read;
+  // europa, 2026-11-05: three were left running after their files were deleted), so its stdin is closed first — at the
+  // end of its input it stops at once — and whatever still runs halfway to the limit is killed outright.
+  for (const p of procs) { try { if (p.stdin && !p.stdin.destroyed) p.stdin.destroy(); } catch {} try { p.kill(); } catch {} }
   const ended = Promise.all(procs.map((p) => exited(p) ? null : new Promise((r) => { try { p.once("exit", r); } catch { r(); } })));
+  const hard = setTimeout(() => { for (const p of procs) if (!exited(p)) { try { p.kill("SIGKILL"); } catch {} } }, Math.max(0, (deadline - Date.now()) / 2));
+  ended.then(() => clearTimeout(hard));
   let left = paths;
   const sweep = () => { left = left.filter((p) => { try { rm(p); return fs.existsSync(p); } catch { return true; } }); };
   // ffmpeg first: wait (up to the limit) until it has exited, so nothing is still writing when the files go
