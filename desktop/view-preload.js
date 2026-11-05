@@ -9,7 +9,10 @@ contextBridge.exposeInMainWorld('montclipAgentService',Object.freeze({
  cancel:id=>ipcRenderer.invoke('montclip:agent:cancel',id),
  // the 「AI 数据说明」, read before the first request (desktop/agent-data-notice.js)
  noticeGet:()=>ipcRenderer.invoke('montclip:agent:noticeGet'),
- noticeAck:version=>ipcRenderer.invoke('montclip:agent:noticeAck',version)
+ noticeAck:version=>ipcRenderer.invoke('montclip:agent:noticeAck',version),
+ // the 「AI 助手」 switch in 设置 (desktop/agent-switch.js)
+ switchGet:()=>ipcRenderer.invoke('montclip:agent:switchGet'),
+ switchSet:enabled=>ipcRenderer.invoke('montclip:agent:switchSet',enabled)
 }));
 // The AI's permission mode and the host's approval box (P4): the main process decides; the page answers a ticket only.
 contextBridge.exposeInMainWorld('montclipAgentPolicy',Object.freeze({

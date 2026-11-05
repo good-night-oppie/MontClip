@@ -4,7 +4,9 @@
    clips      — each shot (a video clip, or an audio clip that is not the sound of a video): its media length and the
                 part of the media it shows, in source seconds; where it starts on the timeline.
    highlights — highlight candidates already found in this session, moved to source seconds of the clip they fall in.
-   Song sections are not sent: projects have no song data yet (finding songs is a later capability). */
+   Song sections are not sent: projects have no song data yet (finding songs is a later capability).
+   selected   — the 「AI 数据说明」 says only the clips she selected are sent (JJ v5; QQ via Deja, 2026-11-04): given a list
+                of clip ids, only those shots (and the highlights inside them) are sent, and none when nothing is selected. */
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./captions'));else root.MontClipFacts=factory(root.MontClipCaptions);})(typeof globalThis!=='undefined'?globalThis:this,function(C){
 'use strict';
 const MAX_CLIPS=30,MAX_HIGHLIGHTS=12;
@@ -15,17 +17,18 @@ const r2=x=>Math.round(x*100)/100;
 const SHORT_ID=/^[A-Za-z0-9_-]{1,128}$/;
 const shortId=id=>typeof id==='string'&&SHORT_ID.test(id);
 // the clips that would be sent, whatever their id
-function candidates(doc){
+function candidates(doc,selected){
+ const only=Array.isArray(selected)?new Set(selected):null;
  const off=new Set(doc.disabledTracks||[]),media=new Map((doc.media||[]).map(m=>[m.id,m]));
  const videoGroups=new Set(doc.clips.filter(c=>c.kind==='video'&&c.linkGroup).map(c=>c.linkGroup));
  return doc.clips.filter(c=>(c.kind==='video'||c.kind==='audio'&&!(c.linkGroup&&videoGroups.has(c.linkGroup)))&&!C.isCaption(c)&&!c.disabled&&!off.has(c.track)
-  &&!c.keyframes?.speed?.length&&Number.isFinite(media.get(c.mediaId)?.duration));
+  &&!c.keyframes?.speed?.length&&Number.isFinite(media.get(c.mediaId)?.duration)&&(!only||only.has(c.id)));
 }
 /** How many clips were left out of the facts because their id is not a short id. Shown in the review box, never sent. */
-function omitted(doc){return candidates(doc).filter(c=>!shortId(c.id)).length;}
-function shots(doc){
+function omitted(doc,{selected}={}){return candidates(doc,selected).filter(c=>!shortId(c.id)).length;}
+function shots(doc,selected){
  const media=new Map((doc.media||[]).map(m=>[m.id,m]));
- return candidates(doc).filter(c=>shortId(c.id))
+ return candidates(doc,selected).filter(c=>shortId(c.id))
   .sort((a,b)=>a.start-b.start||String(a.track).localeCompare(String(b.track)))
   .map(c=>{const speed=Number.isFinite(c.props?.speed)&&c.props.speed>0?c.props.speed:1,inPoint=c.in||0;
    return {clip:c,speed,inPoint,entry:{clipId:c.id,kind:c.kind,mediaDuration:r2(media.get(c.mediaId).duration),from:r2(inPoint),to:r2(inPoint+c.duration*speed),start:r2(c.start)}};});
@@ -37,8 +40,8 @@ function toSource(list,from,to){
  const m=t=>r2(hit.inPoint+(t-hit.clip.start)*hit.speed);
  return {clipId:hit.clip.id,from:m(from),to:m(to)};
 }
-function build(doc,{highlights=[]}={}){
- const list=shots(doc),out={clips:list.slice(0,MAX_CLIPS).map(s=>s.entry)};
+function build(doc,{highlights=[],selected}={}){
+ const list=shots(doc,selected),out={clips:list.slice(0,MAX_CLIPS).map(s=>s.entry)};
  const hl=highlights.filter(h=>Number.isFinite(h.from)&&Number.isFinite(h.to)&&h.to>h.from).slice(0,MAX_HIGHLIGHTS)
   .map(h=>{const s=toSource(list,h.from,h.to);return s&&{...s,score:Number.isFinite(h.score)?r2(h.score):null};}).filter(Boolean);
  if(hl.length)out.highlights=hl;

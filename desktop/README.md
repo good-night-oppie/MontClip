@@ -107,3 +107,13 @@ seed; QQ's rules (2026-11-04) are part of it:
    first launch). The key, its first characters, the seed's name and the sealed connection never go into a log.
 5. **Until that first launch the key is plain text inside the zip** — the risk of this way of doing it. Not done
    (mentioned only): a package with no seed, where the streamer pastes her own key on the first launch.
+6. **The 「AI 数据说明」** (JJ's v5; DeepSeek's open-platform terms 3.5, 5.5, 8.1): the first time she opens the
+   assistant it covers the whole window and only 〔我知道了〕 closes it; until then the main process refuses every send to
+   DeepSeek (`NOTICE_REQUIRED`). Read, it is kept in `agent-data-notice-v1.json` (the version she read; new words show it
+   again). It is shown again from 设置 › AI 助手 › 数据说明 and from the 数据说明 link in every review box. Only the
+   selected clips' numbers are sent (none when nothing is selected); caption text only after 〔让 AI 看〕; danmaku text
+   never. The panel says 「回复由 AI 生成」 at the top at all times; what can leave the panel (the AI's plans) carries its
+   own 「AI 生成」. In this package the AI names nothing and writes no descriptions or export titles.
+7. **设置 › AI 助手 › 用 AI 助手** (on by default): switched off (kept in `agent-switch-v1.json`), the assistant panel
+   folds away and the main process refuses every send (`AI_OFF`) and Yolo's external steps; opened again, the panel
+   says it is off. Nothing goes out. Editing works as before.

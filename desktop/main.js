@@ -265,18 +265,24 @@ async function start() {
   // a development smoke (never the packaged app) has read it, in its own fresh profile, unless it tests the notice itself
   if (smoke && process.env.MONTCLIP_SMOKE_NOTICE !== 'show') dataNotice.ack(require('./agent-data-notice').NOTICE_VERSION);
   ipcMain.handle('montclip:agent:noticeGet', (event) => settingsAllowed(event, win, origin) ? dataNotice.get() : { ok: false, code: 'AGENT_FORBIDDEN' });
+  // the 「AI 助手」 switch in 设置 (desktop/agent-switch.js): off, the main process refuses every request
+  const agentSwitch = require('./agent-switch').createStore(app.getPath('userData'));
+  ipcMain.handle('montclip:agent:switchGet', (event) => settingsAllowed(event, win, origin) ? agentSwitch.get() : { ok: false, code: 'AGENT_FORBIDDEN' });
+  ipcMain.handle('montclip:agent:switchSet', (event, enabled) => settingsAllowed(event, win, origin) ? agentSwitch.set(enabled) : { ok: false, code: 'AGENT_FORBIDDEN' });
   ipcMain.handle('montclip:agent:noticeAck', (event, version) => settingsAllowed(event, win, origin) ? dataNotice.ack(version) : { ok: false, code: 'AGENT_FORBIDDEN' });
   for(const operation of ['get','configure','reset','deleteConnection','send','cancel']) ipcMain.handle('montclip:agent:'+operation,(event,value)=>{
     if(!settingsAllowed(event,win,origin))return {ok:false,code:'AGENT_FORBIDDEN'};
+    // nothing goes out with the assistant switched off, nor to DeepSeek before she has read the 「AI 数据说明」 (QQ via Deja)
+    if(operation==='send'){if(!agentSwitch.get().enabled)return {ok:false,code:'AI_OFF'};if(agentService.get().provider==='deepseek'&&!dataNotice.get().accepted)return {ok:false,code:'NOTICE_REQUIRED'};}
     return agentService[operation](value);
   });
   // The AI's permission modes (P4; QQ's revision 2–4): the mode and the approvals live here, in memory (a restart is
   // back to 手动); risks come from the table in this process; Yolo only after the streamer's yes in this process's box.
-  // External steps in Yolo need the AI service set up (the switch) and one of its fixed addresses (the allowlist).
+  // External steps in Yolo need the AI service set up and 设置 › AI 助手 on (the switch), and one of its fixed addresses (the allowlist).
   const { yoloText } = require('./agent-mode-text');
   const agentPolicy = require('./agent-policy-host').createPolicyHost({
     language: () => languageOf(settings.get()),
-    external: () => ({ enabled: agentService.get().configured === true, allowlist: Object.values(AgentService.ENDPOINTS) }),
+    external: () => ({ enabled: agentSwitch.get().enabled === true && agentService.get().configured === true, allowlist: Object.values(AgentService.ENDPOINTS) }),
     async confirmYolo() {
       const t = yoloText(languageOf(settings.get()));
       const answer = smoke ? { response: process.env.MONTCLIP_SMOKE_YOLO_CONSENT === '1' ? 1 : 0 }

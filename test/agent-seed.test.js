@@ -161,41 +161,63 @@ test('every request to the AI goes through the review box (QQ 4): confirm sends 
   a.ok(pane.includes("const confirm=async()=>{dialog.current?.close();"), 'and it is the review box\'s 〔发送〕');
   a.ok(pane.includes('<p>{DOMAIN[provider]||DOMAIN.openai} · {cfg?.model}</p>'), 'the review names where it goes');
   a.ok(pane.indexOf("const read=await W.montclipAgentService?.noticeGet?.();if(!read?.accepted)") < pane.indexOf('setReview(conversation.prepare())'), 'the notice comes before the review');
-  a.ok(pane.includes("{m.role!=='user'&&<span className=\"cindy-ai-label\" data-ai-generated>{t.aiGenerated}</span>}"));
-  a.match(fs.readFileSync(path.join(__dirname, '..', 'cindy-official.js'), 'utf8'), /data-ai-generated/, 'the bundle was rebuilt');
+  const T0 = (lang) => (k) => require('../ui-preferences').text[lang]['officialPane_' + k];
+  // 「AI 生成」 (Deja, 2026-11-04): one line at the top of the panel, always there; no label on each reply
+  a.ok(pane.includes(' <p className="cindy-ai-line" data-ai-replies-line>{t.aiRepliesLine}</p>\n <div className="agent-toolbar">'));
+  a.doesNotMatch(pane, /m\.role!=='user'&&<span className="cindy-ai-label"/, 'no label on each reply');
+  a.equal(T0('zh-CN')('aiRepliesLine'), '回复由 AI 生成');
+  a.equal(T0('en')('aiRepliesLine'), 'Replies are AI-generated');
+  a.match(fs.readFileSync(path.join(__dirname, '..', 'cindy-official.js'), 'utf8'), /data-ai-replies-line/, 'the bundle was rebuilt');
   a.ok(pane.includes("const read=metadata.provider==='deepseek'?await W.montclipAgentService?.noticeGet?.():{accepted:true};"), 'the notice names DeepSeek: shown for it');
   // one button, 〔我知道了〕, and it is not a yes to sending: it keeps that she read it, then the review box as before
   const notice = pane.slice(pane.indexOf('<dialog ref={noticeDialog}'), pane.indexOf('</dialog>', pane.indexOf('<dialog ref={noticeDialog}')));
   a.equal((notice.match(/<button/g) || []).length, 1); a.ok(notice.includes('<button data-data-notice-ok onClick={acceptNotice}>{t.dataNoticeOk}</button>'));
-  a.ok(pane.includes("const acceptNotice=async()=>{const r=await W.montclipAgentService?.noticeAck?.(noticeVersion);noticeDialog.current?.close();if(r?.accepted)await showReview();else setNotice('failed');};"));
+  a.ok(pane.includes("const acceptNotice=async()=>{const r=await W.montclipAgentService?.noticeAck?.(noticeVersion);noticeDialog.current?.close();const then=noticeThen.current;noticeThen.current=null;if(!r?.accepted){setNotice('failed');return;}if(then==='review')await showReview();};"),
+    'kept; then the review only when she was sending (shown again from 设置 or the link, it only closes)');
+  a.ok(notice.includes('onCancel={e=>e.preventDefault()}'), 'Esc does not close it: only 〔我知道了〕 does');
   a.doesNotMatch(pane.slice(pane.indexOf('const acceptNotice'), pane.indexOf(' const confirm=')), /conversation\.confirm|\.send\(/, '〔我知道了〕 sends nothing');
-  // JJ's final words, word for word (europa ~/montclip-labels/jj/2026-11-04-AI数据说明-DeepSeek私下包-JJ.md, sha256 40877509…a67364):
-  // each line as it shows, a bold label followed by its text
+  // JJ's v3, word for word (europa ~/montclip-labels/jj/2026-11-04-AI数据说明-DeepSeek私下包-v3-JJ.md, sha256 98da6840…,
+  // QQ passed; Deja, 2026-11-04: v3 is the one): each line as it shows, a bold label followed by its text
   const V = require('../ui-preferences'), T = (lang) => (k) => V.text[lang]['officialPane_' + k];
-  const lines = (t) => [t('dataNoticeTitle'), t('dataNoticeWhoLabel') + t('dataNoticeWho'), t('dataNoticeWhatLabel') + t('dataNoticeWhat'), t('dataNoticeTrainLabel') + t('dataNoticeTrain'),
-    t('dataNoticeSo'), t('dataNoticeAlso'), '- ' + t('dataNoticeAlso1'), '- ' + t('dataNoticeAlso2'), t('dataNoticeWithout'), t('dataNoticeOk')];
+  const lines = (t) => [t('dataNoticeTitle'), t('dataNoticeWhatLabel') + t('dataNoticeWhat'), t('dataNoticeWhoLabel') + t('dataNoticeWho'),
+    t('dataNoticeUseLabel') + t('dataNoticeUse'), t('dataNoticeSo'), t('dataNoticeOffLabel') + t('dataNoticeOff'), t('dataNoticeAiLabel') + t('dataNoticeAi'),
+    t('dataNoticeBasis'), t('dataNoticeOk')];
   a.deepEqual(lines(T('zh-CN')), [
     '用 AI 之前，先说清楚这几件事',
-    '发给谁：DeepSeek（api.deepseek.com），数据存在中国境内。',
-    '发什么：你在助手里写的话，加上你选中的片段的时间、长度这类数字。字幕和弹幕的原文，只有你点了〔让 AI 看〕才会发。录像和声音不发。',
-    '会不会被拿去训练：可能会。DeepSeek 的隐私政策写着，你发过去的内容和 AI 的回复「可能」用于训练和改进它们的模型，用之前会先加密、去掉能认出你的信息。通过这种方式发过去的内容会存多久、怎么要求不拿去训练，DeepSeek 没有写，我们也不知道。',
+    '发了什么：你在助手里写的话，加上你选中的片段的时间、长度这类数字。字幕（听写出来的文字）和弹幕的原文，只有你点了〔让 AI 看〕才会发。录像、声音和文件本身，从来不发。',
+    '发给谁：直接发给 DeepSeek（深度求索）的官方接口 api.deepseek.com，中间不经过 MontClip 团队或别的服务器；数据存在中国境内。',
+    'DeepSeek 会怎么用：DeepSeek 的隐私政策写着，你发过去的内容和 AI 的回复「可能」用于训练模型和改进服务，用之前会加密、去掉能认出你的信息。用这种方式发过去的内容，没有开关能让它不拿去训练，它也没公布会存多久。我们只是照实转述，没法替 DeepSeek 保证什么。',
     '所以：不想让别人看到的话，别写进助手；不想发的字幕和弹幕，就别点〔让 AI 看〕。',
-    '另外两点',
-    '- 每次发出去之前，都会先给你看要发什么、发到哪里，你可以不发。',
-    '- AI 的回复会标上「AI 生成」。',
-    '不用 AI，剪辑照常能用。',
+    '怎么关：在「设置 › AI 助手」里关掉「用 AI 助手」，就一次都不发了。开着的时候，每次发出去之前也都会先给你看要发什么、发到哪个网站，你可以不发。不用 AI，剪辑照常能用。',
+    '标「AI 生成」：助手面板顶上写着「回复由 AI 生成」；它给的剪辑计划，单独标「AI 生成」。',
+    '依据：DeepSeek 隐私政策（2026 年 2 月 10 日版）、DeepSeek 开放平台服务条款（2026 年 4 月 29 日生效）。它们改了，这页也会跟着改。',
     '我知道了']);
   a.deepEqual(lines(T('en')), [
     'Before you use the AI, a few things to know',
-    'Who gets it: DeepSeek (api.deepseek.com). The data is stored in mainland China.',
-    'What is sent: what you write to the assistant, plus numbers about the clips you selected, such as their times and lengths. Caption and live-comment text is sent only when you click [Let the AI see it]. Your video and audio are never sent.',
-    'Could it be used for training? Yes, it might. DeepSeek\'s privacy policy says what you send and what the AI replies "may" be used to train and improve its models, after being encrypted and stripped of anything that identifies you. DeepSeek doesn\'t say how long data sent this way is kept, or how to opt out of training, and we don\'t know either.',
-    'So: don\'t write anything to the assistant that you wouldn\'t want others to see, and don\'t click [Let the AI see it] for captions or live comments you\'d rather not send.',
-    'Also',
-    '- Before anything is sent, you\'re shown what will be sent and where, and you can choose not to send it.',
-    '- Replies from the AI are labelled "AI-generated".',
-    'Editing works as usual without the AI.',
+    'What is sent: what you write to the assistant, plus numbers about the clips you selected, such as their times and lengths. Caption text (from transcription) and live-comment text are sent only when you click [Let the AI see it]. Your video, audio and files themselves are never sent.',
+    "Who gets it: DeepSeek's official API (api.deepseek.com), directly. Nothing passes through the MontClip team or any other server. The data is stored in mainland China.",
+    "What DeepSeek does with it: DeepSeek's privacy policy says what you send and what the AI replies \"may\" be used to train its models and improve its service, after being encrypted and stripped of anything that identifies you. For data sent this way there is no switch to keep it out of training, and DeepSeek hasn't said how long it is kept. We're only passing on what the policy says; we can't promise anything on DeepSeek's behalf.",
+    "So: don't write anything to the assistant that you wouldn't want others to see, and don't click [Let the AI see it] for captions or live comments you'd rather not send.",
+    "How to turn it off: turn off \"Use the AI assistant\" in Settings › AI assistant and nothing is ever sent. While it's on, you're shown what will be sent and to which site before every send, and you can choose not to send. Editing works as usual without the AI.",
+    'Marked "AI-generated": The assistant panel says "Replies are AI-generated" at the top; editing plans it gives are marked "AI-generated" on their own.',
+    'Based on: DeepSeek Privacy Policy (version of 10 Feb 2026) and DeepSeek Open Platform Terms of Service (effective 29 Apr 2026). If they change, this page will change too.',
     'Got it']);
+  // the notice shows them in that order, and nothing else
+  const order = ['dataNoticeWhatLabel', 'dataNoticeWhoLabel', 'dataNoticeUseLabel', 'dataNoticeSo', 'dataNoticeOffLabel', 'dataNoticeAiLabel', 'dataNoticeBasis'].map((k) => notice.indexOf('{t.' + k + '}'));
+  a.ok(order.every((n, k) => n > 0 && (k === 0 || n > order[k - 1])), "v3's order");
+  a.deepEqual([...new Set(notice.match(/t\.dataNotice[A-Za-z0-9]+/g))].sort(), ['t.dataNoticeAi', 't.dataNoticeAiLabel', 't.dataNoticeBasis', 't.dataNoticeOff', 't.dataNoticeOffLabel', 't.dataNoticeOk',
+    't.dataNoticeSo', 't.dataNoticeTitle', 't.dataNoticeUse', 't.dataNoticeUseLabel', 't.dataNoticeWhat', 't.dataNoticeWhatLabel', 't.dataNoticeWho', 't.dataNoticeWhoLabel']);
+  // the names the notice gives are the ones on screen: 设置 › AI 助手 › 用 AI 助手
+  const own = (l, k) => V.text[l]['own.' + k];
+  a.equal(own('zh-CN', 'ai-set-title'), 'AI 助手'); a.equal(own('zh-CN', 'ai-set-enabled'), '用 AI 助手'); a.equal(V.text['zh-CN']['term.settings'], '设置');
+  a.equal(own('en', 'ai-set-title'), 'AI assistant'); a.equal(own('en', 'ai-set-enabled'), 'Use the AI assistant'); a.equal(V.text.en['term.settings'], 'Settings');
+  // JJ's v4 increment (sha256 e9c59973…): the 设置 section, the review's link, the line when it is off
+  a.deepEqual(['ai-set-hint', 'ai-set-notice', 'ai-set-notice-tip'].map((k) => own('zh-CN', k)), ['关掉以后，助手不会往外发任何东西；剪辑照常能用。', '数据说明', '再看一遍：发给谁、发什么、会不会被拿去训练']);
+  a.deepEqual(['ai-set-hint', 'ai-set-notice', 'ai-set-notice-tip'].map((k) => own('en', k)), ["When it's off, the assistant sends nothing; editing works as usual.", 'Data notice', 'See again who gets your data, what is sent, and whether it may be used for training']);
+  a.equal(T('zh-CN')('noticeLink'), '数据说明'); a.equal(T('en')('noticeLink'), 'Data notice');
+  a.equal(T('zh-CN')('aiOff'), 'AI 助手关着，什么都不会发出去。要用的话，到「设置 › AI 助手」里打开。');
+  a.equal(T('en')('aiOff'), 'The AI assistant is off, so nothing is sent. To use it, turn it on in Settings › AI assistant.');
+  a.equal(require('../desktop/agent-data-notice').NOTICE_VERSION, 2, 'the words changed: she reads it again');
   // the label on a reply and the button the notice names are the same words
   a.equal(T('zh-CN')('aiGenerated'), 'AI 生成'); a.equal(T('en')('aiGenerated'), 'AI-generated');
   a.equal(T('zh-CN')('reference'), '让 AI 看'); a.equal(T('en')('reference'), 'Let the AI see it');
