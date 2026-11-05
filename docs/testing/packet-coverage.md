@@ -63,8 +63,8 @@ a hole. Scanning reports coverage separately; existing project clocks stay intac
 The old TODO assertions expecting inspection to shorten duration were replaced by
 passing non-mutation tests and executed TODOs for an explicit skip-gap repair.
 
-Next: wire the explicit choice into the shared #157 repair workflow, which is not
-on this branch's main base yet; give that workflow the covered repair
+Next: wire the explicit choice into the shared #157 repair workflow, now merged
+into this draft branch as a dependency; give that workflow the covered repair
 baseline only when validating a normalized output. Validate audio alignment,
 clip positions, exports, undo and existing-project migration end to end. Do not
 replace the baseline alone: current remux outputs still contain the hole.
@@ -105,3 +105,45 @@ not a browser-ready output. This does not implement #157's codec selection, UI,
 job consent, replacement/undo, or full editor export acceptance. Interior sound
 alignment and real browser playback still need end-to-end checks. The two opt-in
 repair integration TODOs remain pending. Linux/europa experiment: not run locally.
+
+## JJ copy and annotation planning (2026-11-05)
+
+This draft now targets `fix/repair-media` (#157), after ordinary merge `99d268e7`
+of its `ffe2b38e` head. No #157 or #130 branch was edited. Retarget to main after
+#157 merges. The shared repair entry exists here, but skip-gap production repair
+and editor integration are still incomplete; the two executed TODOs remain.
+
+JJ-approved gap badge, tooltip, repair explanation and separate success suffix
+live in ui-preferences.js. Tests lock both languages verbatim and inject the
+button name from `own.repair-button`. The success suffix is not used by the UI.
+The europa JJ v3 table's gap explanation was updated in place with a backup;
+its SHA-256 is `70dd0fe3abe1980a5b9cf38875dde86ba585d6520821b1a4c388b141091cce9b`.
+The previously described hold-frame/silence wording is superseded for this explicit
+repair choice; import still preserves the source clock.
+
+`gap-remap.js` is a pure, not-yet-connected replacement planner. It clones the
+project, maps source in-points, danmaku, song intervals/marks and transcript words,
+and maps timeline captions/highlights through their uniquely identified footage
+clip. Clip placement stays fixed. Constant playback speed is accounted for;
+speed ramps and ambiguous layered footage are rejected without mutation.
+`packet-clock.repairMap` retains format.start_time as the origin, including an
+initial audio/video offset; only internal gaps disappear. DTS detects a gap,
+while presentation spans determine the cut boundaries.
+
+Synthetic FLV/MKV tests now place annotations and cuts before/after the gap and
+verify the same shift within one frame, with input project and file unchanged.
+This is not an editor undo test. UI apply/undo/redo must additionally capture
+collections, songs, danmaku, all sequence/comp clips and transient highlight facts.
+Transcript copies must get separate sidecars so undo can use the original.
+
+Open product boundary: annotations/cuts lying entirely inside a removed gap have
+no corresponding frame in the copy. The planner currently refuses the whole
+replacement rather than dropping or moving them. This is a conservative guard,
+not a final user-facing policy. Do not enable the aligned-success suffix until
+real replacement and undo pass end-to-end acceptance.
+
+Validation: annotation helper and origin tests failed before implementation.
+Windows full suite before final boundary/origin additions: 1660 pass, 0 fail,
+5 skip, 2 executed TODO (83.9 s). Final targeted copy/remap/origin/synthetic suite:
+10 pass, 0 fail. Release readiness passed. Linux, europa real recording,
+browser preview/export and actual undo/redo: not run this round.

@@ -63,6 +63,21 @@ function toSource(map, time) {
   if (range) return range.sourceStart + Math.max(0, time - range.start);
   return time === map.coveredDuration ? map.ranges[map.ranges.length - 1].sourceEnd : null;
 }
+// Source edit offsets are relative to format.start_time, not the first video PTS.
+// Preserve that prefix; DTS finds discontinuities, PTS defines presentation cuts.
+function repairMap(scan, origin) {
+  const covered = coverage(scan), ranges = covered.ranges.map(r => ({ ...r }));
+  if (!Number.isFinite(origin) || origin > ranges[0].sourceStart) throw new Error("unknown or inconsistent source origin");
+  ranges[0].sourceStart = origin;
+  const gaps = [];
+  let duration = 0;
+  ranges.forEach((r, i) => {
+    if (i && r.sourceStart > ranges[i - 1].sourceEnd)
+      gaps.push({ from: ranges[i - 1].sourceEnd - origin, to: r.sourceStart - origin });
+    r.start = duration; duration += r.sourceEnd - r.sourceStart; r.end = duration;
+  });
+  return { v: 1, sourceOrigin: origin, sourceDuration: ranges[ranges.length - 1].sourceEnd - origin, duration, gaps, ranges };
+}
 function fromSource(map, time) {
   if (!Number.isFinite(time)) return null;
   const range = map.ranges.find(r => time >= r.sourceStart && time < r.sourceEnd);
@@ -130,4 +145,4 @@ async function scanFile(file, { timeoutMs, signal } = {}) {
     });
   });
 }
-module.exports = { primaryStream, accumulator, scanFile, coverage, toSource, fromSource, sourceRanges };
+module.exports = { primaryStream, accumulator, scanFile, coverage, toSource, fromSource, sourceRanges, repairMap };

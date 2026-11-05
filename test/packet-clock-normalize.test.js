@@ -31,4 +31,20 @@ for (const ext of ["flv", "mkv"]) test(`${ext}: an explicitly normalized copy ke
   });
   a.ok(Math.abs(edges[0].start - edges[1].start) < 1 / 30);
   a.ok(Math.abs(edges[0].end - edges[1].end) < 1 / 30);
+  const Clock = require("../packet-clock"), Remap = require("../gap-remap");
+  const meta = JSON.parse(run("ffprobe", ["-v", "error", "-show_format", "-of", "json", file]));
+  const map = Clock.repairMap(await Clock.scanFile(file), Number(meta.format.start_time));
+  const after = map.gaps[0].to + .5, removed = map.gaps.reduce((n, g) => n + g.to - g.from, 0);
+  const project = { media: [{ id: "old", src: file, duration: map.sourceDuration }], clips: [
+    { id: "full", kind: "video", mediaId: "old", start: 0, in: 0, duration: map.sourceDuration },
+    ...[2, after].map((t, i) => ({ id: "caption" + i, kind: "text", start: t, duration: .2, props: { caption: true } })),
+    ...[2, after].map((t, i) => ({ id: "cut" + i, kind: "video", mediaId: "old", start: 400 + i, in: t, duration: .2 })),
+  ], danmaku: [{ mediaId: "old", items: [[2, .2, 123], [after, .2, 456]] }] };
+  const before = JSON.stringify(project), planned = Remap.plan(project, "old", "new", map, [{ from: after, to: after + .2 }]);
+  a.equal(JSON.stringify(project), before, "replacement planning leaves the saved original intact");
+  a.equal(planned.project.clips.find(c => c.id === "caption0").start, 2);
+  a.equal(planned.project.clips.find(c => c.id === "cut0").in, 2);
+  for (const t of [planned.project.clips.find(c => c.id === "caption1").start,
+    planned.project.clips.find(c => c.id === "cut1").in, planned.project.danmaku[0].items[1][0], planned.highlights[0].from])
+    a.ok(Math.abs(t - (after - removed)) < 1 / 30);
 });
