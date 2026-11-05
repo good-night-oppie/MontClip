@@ -29,7 +29,30 @@ test('JJ\'s final words: stopped, no memory, where Meta fits (tab and Settings),
   a.match(read('app.js'), /data-tr-asr-fit hidden data-i18n="own\.asr-meta-fit"/, 'the Transcript tab the one without');
   const m = { mirror: 'hf-mirror.com', github: 'github.com' };
   a.equal(zh('asr-meta-mirror-failed', m), '从 hf-mirror.com 没下载成功（在中国大陆以外常常会这样，网络不稳的时候也会）。请再点一次「下载并使用」，改选 github.com。');
-  a.equal(en('asr-meta-mirror-failed', m), 'It didn\'t download from hf-mirror.com (this often happens outside mainland China, or when the connection is unstable). Click "Download and use" again and choose github.com.');
+  // the button's name in curly quotes (the house rule for quoted words in English; Deja 11-05); 「下载并使用」 unchanged
+  a.equal(en('asr-meta-mirror-failed', m), 'It didn\'t download from hf-mirror.com (this often happens outside mainland China, or when the connection is unstable). Click “Download and use” again and choose github.com.');
+});
+
+test('not enough memory: the numbers when the server gave both, else the sentence without its brackets (never "? MB")', () => {
+  const app = read('app.js');
+  const i = app.indexOf('function asrMetaWords('), j = app.indexOf('\n}\n', i);
+  for (const [lang, full, plain] of [
+    ['zh-CN', '内存不够跑 Meta 的模型（大约要 1000 MB，现在只空着 600 MB），所以没有开始。关掉一些软件再试，或者换回 Paraformer。',
+      '内存不够跑 Meta 的模型，所以没有开始。关掉一些软件再试，或者换回 Paraformer。'],
+    ['en', "There isn't enough free memory for Meta's model (it needs about 1000 MB; 600 MB is free), so it didn't start. Close some programs and try again, or switch back to Paraformer.",
+      "There isn't enough free memory for Meta's model, so it didn't start. Close some programs and try again, or switch back to Paraformer."]]) {
+    // the real asrMetaWords from app.js, with the real words
+    const ctx = { uiText: (k, v) => V.t(lang, k, v), Number };
+    vm.runInNewContext(app.slice(i, j + 3), ctx);
+    const say = (x) => vm.runInContext('asrMetaWords(' + JSON.stringify({ engine: 'meta', code: 'ASR_OPTIONAL_NO_MEMORY', ...x }) + ')', ctx);
+    a.equal(say({ needMB: 1000, freeMB: 600 }), full);
+    a.match(say({ needMB: 1000, freeMB: 0 }), lang === 'en' ? /0 MB is free/ : /只空着 0 MB/, 'nothing free is a number too');
+    for (const x of [{}, { needMB: 1000 }, { freeMB: 600 }, { needMB: null, freeMB: 600 }, { needMB: 1000, freeMB: '' }, { needMB: 'lots', freeMB: 600 }, { needMB: 0, freeMB: 600 }]) {
+      const w = say(x);
+      a.equal(w, plain, lang + ' ' + JSON.stringify(x));
+      a.ok(!w.includes('?') && !w.includes('MB'));
+    }
+  }
 });
 
 test('〔换回 Paraformer〕 on "Meta\'s model stopped": one click and the chosen speech model is Paraformer', () => {
