@@ -4277,13 +4277,15 @@ function onUiCommand(data) {
   let c = {};
   try { c = JSON.parse(data); } catch { return; }
   if (!c.id) return;
+  if (c.session && new URLSearchParams(location.search).get("cindySession") !== c.session) return;
+  if (c.project && runtime.projectId !== c.project) return;
   let ok = true, code = null;
   if (c.cmd === "undo") { if (runtime.undo.length) undo(); else { ok = false; code = "NOTHING_TO_UNDO"; } }
   else if (c.cmd === "redo") { if (runtime.redo.length) redo(); else { ok = false; code = "NOTHING_TO_REDO"; } }
   else if (c.cmd === "seek") setTime(+c.t || 0);
   else if (c.cmd !== "state") { ok = false; code = "UNKNOWN_CMD"; }
   fetch("/api/ui/command/result", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-    id: c.id, ok, ...(code ? { code } : {}), cmd: c.cmd, time: state.time, undo: runtime.undo.length, redo: runtime.redo.length,
+    id: c.id, session: c.session, project: runtime.projectId, ok, ...(code ? { code } : {}), cmd: c.cmd, time: state.time, undo: runtime.undo.length, redo: runtime.redo.length,
     revision: project.revision ?? null, clips: project.clips.length, duration: projDur(),
   }) }).catch(() => {});
 }
@@ -20068,6 +20070,8 @@ async function reportExportJob(id, body, force = false) {
   } catch { }
 }
 async function runExportJob(ticket) {
+  if (ticket?.project && ticket.project !== runtime.projectId) return;
+  if (ticket?.session && !new URLSearchParams(location.search).has("exportJob") && new URLSearchParams(location.search).get("cindySession") !== ticket.session) return;
   if (!ticket?.id || state.exporting) return; // a busy tab leaves it for another
   const claimed = await fetch("/api/export/job/claim?id=" + encodeURIComponent(ticket.id), { method: "POST" })
     .then((r) => r.ok).catch(() => false);
@@ -20077,6 +20081,7 @@ async function runExportJob(ticket) {
   for (let i = 0; i < 150 && ticket.revision != null && (project.revision || 0) < ticket.revision; i++)
     await new Promise((r) => setTimeout(r, 100));
   if (ticket.revision != null && (project.revision || 0) < ticket.revision) await syncFromServer();
+  if (ticket.project && ticket.project !== runtime.projectId) return fail("The export project changed.");
   if (ticket.kind === "scopes") return runScopesJob(ticket, fail);
   if (ticket.kind === "track") return runTrackJob(ticket, fail);
   if (ticket.kind === "transcribe") return runTranscribeJob(ticket, fail);
@@ -20092,11 +20097,13 @@ async function runExportJob(ticket) {
     return fail("range in-out needs the project's inPoint and/or outPoint — set them, or export the entire timeline");
   exportRangeForced = ticket.range || (hasWorkArea() ? "in-out" : "entire");
   try {
+    if (ticket.project && ticket.project !== runtime.projectId) return fail("The export project changed.");
     if (exportRange().frames < 1) return fail("the export range is empty — IN/OUT is at or past the end of the timeline");
     reportExportJob(ticket.id, { progress: 0 }, true);
     // an explicit profile wins; then the job's delivery spec, the project's, else the raw default
     const want = ticket.profile || ticket.deliveries ? null : ticket.delivery || project.delivery || null;
     if (want || ticket.deliveries) await fetchDeliveryInfo();
+    if (ticket.project && ticket.project !== runtime.projectId) return fail("The export project changed.");
     if (ticket.deliveries) {
       // one render per frame rate; the job reports every file at the end
       const specs = ticket.deliveries.map((d) => normalizeDelivery(d).spec);

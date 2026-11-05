@@ -40,3 +40,19 @@ test('overview hover does not contain the local data path', () => {
   const s = fs.readFileSync(path.join(root,'main-view.js'),'utf8');
   assert.doesNotMatch(s,/\.title\s*=\s*where\.path/);
 });
+
+test('automatic export uses headless when only another task has an editor', async () => {
+  const src=fs.readFileSync(path.join(root,'node/worker.cjs'),'utf8');
+  const begin=src.indexOf('async "montclip/export-start"(p) {');
+  const end=src.indexOf('  async "montclip/export-job"',begin);
+  const piece=src.slice(begin,end).replace(/,\s*$/, '');
+  const calls=[];
+  const context={start:async()=>({}),api:async(method,url,body)=>{
+    calls.push({url,body}); return url==='/api/ui/command' ? {status:409,body:{code:'NO_EDITOR'}} : {status:200,body:{id:'job'}};
+  }};
+  vm.runInNewContext('this.methods={'+piece+'};',context);
+  await context.methods['montclip/export-start']({session:'A',project:'p_a'});
+  assert.equal(calls[0].body.session,'A');
+  assert.equal(calls.at(-1).body.where,'headless');
+  assert.equal(calls.at(-1).body.project,'p_a');
+});

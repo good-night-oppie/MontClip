@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Cindy task operations bind and run together; exports reject switched projects and editor status only accepts the originating task.
 - Cindy export delivery cannot overwrite a file created during copying; long exports offer a retry for delivery, and export results omit absolute paths.
 
 ### Added

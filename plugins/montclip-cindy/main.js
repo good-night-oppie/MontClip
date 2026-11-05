@@ -126,6 +126,7 @@ const EXPORT_TEXT = {
       busy: '上一次导出还没做完，要等它做完才能开始这一个。把 MontClip 剪辑器切到前面，过半分钟再点〔重试〕。',
       noAnswer: 'MontClip 一直没有回应，这次没有做完。关掉剪辑器再打开，再点〔重试〕。原片没有改动。',
       stopped: '导出到一半停下了，这次没有做完。原片没有改动。再点〔重试〕。',
+      projectChanged: '这个任务的项目在等你选文件夹时被换走了，再导一次。',
       other: '这次没有做完，出了个我们没预料到的问题。原片没有改动。再点〔重试〕；还不行，点〔复制问题信息〕发给我们。',
     },
     kept: '你的剪辑都还在，没有丢。',
@@ -154,6 +155,7 @@ const EXPORT_TEXT = {
       busy: 'The last export hasn\'t finished, so this one can\'t start until it does. Bring the MontClip editor to the front and click Retry in half a minute.',
       noAnswer: 'MontClip didn\'t answer, so this didn\'t finish. Close the editor, open it again, then click Retry. The original is unchanged.',
       stopped: 'The export stopped halfway, so it didn\'t finish. The original is unchanged. Click Retry.',
+      projectChanged: 'The project changed while you were choosing a folder. Export again.',
       other: 'This didn\'t finish because of a problem we didn\'t expect. The original is unchanged. Click Retry; if it still fails, use "Copy problem details" and send it to us.',
     },
     kept: 'Your edits are all still there.',
@@ -197,6 +199,7 @@ function plainFailure(c) {
  *  failed: starting it (the engine's code) or the job (its English error, and how far it got). */
 function failedReason(c) {
   const code = String(c.code || ''), m = String(c.reason || '');
+  if (code === 'EXPORT_PROJECT_CHANGED') return 'projectChanged';
   if (/^ffmpeg(Missing|Dev)$|^FFMPEG_MISSING$/i.test(code) || /ffmpeg (is )?(not found|missing)/i.test(m)) return 'tool';
   if (/^(EDITOR_NOT_READY|EDITOR_DID_NOT_ACCEPT|HEADLESS_DISABLED)$/.test(code) ||
     /no editor tab|never picked up|did not accept|headless browser|Chrome \/ Edge/i.test(m)) return 'editor';
@@ -331,7 +334,7 @@ const HANDLERS = {
     const bound = await forTask(msg).catch(() => null);
     const s = await node('montclip/start');
     let editor = null;
-    try { editor = await node('montclip/ui', { cmd: 'state' }); } catch (e) { editor = { error: String(e.message) }; }
+    try { editor = await node('montclip/ui', { cmd: 'state', session: taskOf(msg) }); } catch (e) { editor = { error: String(e.message) }; }
     const open = !!(editor && editor.status === 200);
     cindy.send({ type: 'card-update', callId: msg.callId, v: 2, html: statusCard({ ffmpeg: s.ffmpeg, project: bound && bound.name }, open), height: open ? 120 : 160 });
     return { engine: publicStart(s), editorTab: editor && editor.status === 200 ? editor
@@ -355,19 +358,19 @@ const HANDLERS = {
     const tool = tools.find((t) => t.name === name);
     if (!tool) return { error: 'unknown operation ' + name, available: tools.map((t) => t.name), hint: 'list_tools({category}) shows each one with its parameters.' };
     try {
-      return await node('montclip/call', { name, arguments: args.args || {} }, { timeoutMs: 60000, maxTotalMs: 900000 });
+      return await node('montclip/call', { session: taskOf(msg), name, arguments: args.args || {} }, { timeoutMs: 60000, maxTotalMs: 900000 });
     } catch (e) {
       return { error: String(e.message), inputSchema: tool.inputSchema, rules: RULES[categoryOf(name)] || '' };
     }
   },
-  async montclip_undo(args, msg) { await forTask(msg); return node('montclip/ui', { cmd: 'undo' }); },
-  async montclip_redo(args, msg) { await forTask(msg); return node('montclip/ui', { cmd: 'redo' }); },
-  async montclip_seek(args, msg) { await forTask(msg); return node('montclip/ui', { cmd: 'seek', t: Number(args.t) }); },
+  async montclip_undo(args, msg) { await forTask(msg); return node('montclip/ui', { session: taskOf(msg), cmd: 'undo' }); },
+  async montclip_redo(args, msg) { await forTask(msg); return node('montclip/ui', { session: taskOf(msg), cmd: 'redo' }); },
+  async montclip_seek(args, msg) { await forTask(msg); return node('montclip/ui', { session: taskOf(msg), cmd: 'seek', t: Number(args.t) }); },
   /* Export, and save the file into a folder the user picks in the system dialog (folder:"default" keeps it in the
      MontClip data folder's exports/). Progress shows on this call's card. */
   async montclip_export(args, msg) {
     const callId = msg.callId;
-    await forTask(msg);
+    const bound = await forTask(msg);
     const again = { args, msg: { args: msg.args, session_context: msg.session_context } };   // 重试 runs the same export
     let folder = null, dir = null;
     if (args.folder !== 'default') {
@@ -384,7 +387,7 @@ const HANDLERS = {
     await sleep(1000);
     sendCard(callId, { phase: 'start', folder });
     let job;
-    try { job = await node('montclip/export-start', { range: args.range, preset: args.preset, profile: args.profile, outputs: args.outputs }); }
+    try { job = await node('montclip/export-start', { session: taskOf(msg), expectedProject: bound && bound.project, range: args.range, preset: args.preset, profile: args.profile, outputs: args.outputs }); }
     catch (e) {
       await sleep(1000); logProblem(e.code, e.message);
       const c = { phase: 'failed', stage: 'start', code: e.code, reason: e.message, again };

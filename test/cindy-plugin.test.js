@@ -303,3 +303,18 @@ test("the plugin's description: JJ's final words", () => {
   assert.equal(m.description, "在 Cindy 任务里打开 MontClip 剪辑器，跟聊天并排。直接跟 AI 说怎么剪本机的录像和音频：删一段、剪掉停顿、加字幕、调音量、降噪、导出 MP4。每一步都能撤销、重做，也能回到以前的版本。MontClip 在这台电脑上运行，会读写这台电脑上的文件。");
   assert.equal(m.whenToUse, "需要剪辑本机录像或音频时：删掉某段、剪掉停顿、按文字剪、加字幕、调音量、降噪、按节拍剪、导出 MP4；撤销或重做剪辑；查看或回到 MontClip 项目的某个版本；在这个任务里打开 MontClip 剪辑器。", "whenToUse unchanged");
 });
+
+test("worker serializes task binding with each operation and rejects an export after a project switch", async (t) => {
+  const w = startWorker(t, dataDir(t));
+  const a = (await w.rpc('montclip/bind', { session:'A' })).result;
+  const b = (await w.rpc('montclip/bind', { session:'B' })).result;
+  assert.notEqual(a.project,b.project);
+  const refused = await w.rpc('montclip/export-start', { session:'A', expectedProject:a.project });
+  assert.equal(refused.error.data.code,'EXPORT_PROJECT_CHANGED');
+  const [ra, rb, ra2] = await Promise.all(['A','B','A'].map(session => w.rpc('montclip/call', {
+    session, name:'fablecut_get_project', arguments:{ compact:true }
+  })));
+  assert.match(ra.result.text,/Cindy test/);
+  assert.match(rb.result.text,/任务 B/);
+  assert.equal(ra2.result.text.replace(/rev:\d+/, "rev"),ra.result.text.replace(/rev:\d+/, "rev"));
+});

@@ -248,7 +248,7 @@ function editorWorld({ clips, stack = null, sequence = "main" }) {
     return { json: async () => ({ stack }) };
   };
   const env = {
-    project, runtime, state, fetch, toast: (m) => toasts.push(m), uiText: (k) => require("../ui-preferences").t("zh-CN", k), pruneSelection() {}, scheduleSave() {}, renderInspector() {},
+    location: { search:"?cindySession=A" }, project, runtime, state, fetch, toast: (m) => toasts.push(m), uiText: (k) => require("../ui-preferences").t("zh-CN", k), pruneSelection() {}, scheduleSave() {}, renderInspector() {},
     SeqLib: { others: () => [], activeId: () => sequence, find: () => null }, seqRoot: () => project,
     reloadMediaSource() {}, renderBin() {}, scheduleOfflineCheck() {},
     setTime: (t) => { state.time = t; }, projDur: () => 600,
@@ -441,4 +441,23 @@ test("snapshots compare by content: object keys in any order, arrays in their ow
   assert.notEqual(w.outsideEditStep(a, swapped), null, "clips in another order are another timeline");
   const changed = JSON.stringify({ clips: [{ id: "x", linkGroup: "lg_1", disabled: false, props: { volume: 0, pan: 1 } }, { id: "y" }] });
   assert.notEqual(w.outsideEditStep(a, changed), null, "a value that changed is a change");
+});
+
+test("editor ignores UI commands addressed to another task or project", () => {
+  const w = editorWorld({ clips:[tclip('a','x')] });
+  w.onUiCommand(JSON.stringify({ id:'b', cmd:'seek', t:10, session:'B', project:'p_one' }));
+  w.onUiCommand(JSON.stringify({ id:'a-wrong', cmd:'seek', t:10, session:'A', project:'p_other' }));
+  assert.equal(w.sent.length,0); assert.equal(w.state.time,0);
+  w.onUiCommand(JSON.stringify({ id:'a', cmd:'seek', t:10, session:'A', project:'p_one' }));
+  assert.equal(w.state.time,10); assert.equal(w.sent.at(-1).body.session,'A');
+});
+
+test('HTTP UI command rejects an answer from another task and accepts its own', async t => {
+  const { base } = await startServer(t, makeDataDir(t));
+  await fakeTab(t,base,()=>({ok:true,session:'A',project:'p_a'}));
+  const missing = await post(base+'/api/ui/command',{cmd:'state',session:'B',project:'p_b'});
+  assert.equal(missing.status,409);
+  await fakeTab(t,base,()=>({ok:true,session:'B',project:'p_b'}));
+  const own = await post(base+'/api/ui/command',{cmd:'state',session:'B',project:'p_b'});
+  assert.equal(own.status,200); assert.equal((await own.json()).session,'B');
 });

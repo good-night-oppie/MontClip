@@ -124,7 +124,7 @@ const METHODS = {
   async "montclip/ui"(p) {
     await start();
     if (!["undo", "redo", "seek", "state"].includes(p.cmd)) throw Object.assign(new Error("cmd must be undo, redo, seek or state"), { code: -32602 });
-    const r = await api("POST", "/api/ui/command", { cmd: p.cmd, t: p.t });
+    const r = await api("POST", "/api/ui/command", { cmd: p.cmd, t: p.t, session: p.session, project: p.project });
     return { status: r.status, ...r.body };
   },
   /* ffmpeg for export and noise reduction: what to fetch (main.js downloads it with cindy.downloads) … */
@@ -168,7 +168,12 @@ const METHODS = {
      copy what it made into the folder the user picked. */
   async "montclip/export-start"(p) {
     await start();
-    const body = { range: p.range, preset: p.preset, profile: p.profile, delivery: p.delivery, outputs: p.outputs, where: p.where || "auto" };
+    // Another task's editor cannot take this ticket. Auto falls back to headless when ours is absent.
+    if (p.session && (!p.where || p.where === "auto")) {
+      const editor = await api("POST", "/api/ui/command", { cmd:"state", session:p.session, project:p.project });
+      p.where = editor.status === 200 ? "tab" : "headless";
+    }
+    const body = { project: p.project, session: p.session, range: p.range, preset: p.preset, profile: p.profile, delivery: p.delivery, outputs: p.outputs, where: p.where || "auto" };
     const r = await api("POST", "/api/export/request", body);
     if (r.status !== 200) throw Object.assign(new Error((r.body && r.body.error) || `export request failed (${r.status})`), { code: (r.body && r.body.code) || "EXPORT_REFUSED" });
     return r.body;
@@ -232,13 +237,35 @@ const METHODS = {
   },
 };
 
+// Bind and operate in one queue: async readline listeners otherwise interleave at every await.
+let taskOperations = Promise.resolve();
+function dispatch(method, params) {
+  const run = async () => {
+    const p = { ...params };
+    if (p.session && ['montclip/call', 'montclip/ui', 'montclip/export-start'].includes(method)) {
+      await start();
+      if (method === 'montclip/export-start' && p.expectedProject) {
+        const active = (await api('GET', '/api/projects')).body.active;
+        if (binder.map()[p.session] !== p.expectedProject || active !== p.expectedProject)
+          throw Object.assign(new Error('The task project changed while choosing a folder.'), { code:'EXPORT_PROJECT_CHANGED' });
+      }
+      p.project = (await binder.bind(p.session)).project;
+    }
+    return METHODS[method](p);
+  };
+  if (!['montclip/bind', 'montclip/call', 'montclip/ui', 'montclip/export-start'].includes(method)) return run();
+  const result = taskOperations.then(run);
+  taskOperations = result.catch(() => {});
+  return result;
+}
+
 readline.createInterface({ input: process.stdin }).on("line", async (line) => {
   let req;
   try { req = JSON.parse(line); } catch { reply({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }); return; }
   if (req.id === undefined || req.id === null) return;   // a notification: nothing to answer
   const fn = Object.hasOwn(METHODS, req.method) ? METHODS[req.method] : null;
   if (!fn) { reply({ jsonrpc: "2.0", id: req.id, error: { code: -32601, message: "Method not found" } }); return; }
-  try { reply({ jsonrpc: "2.0", id: req.id, result: await fn(req.params || {}) }); }
+  try { reply({ jsonrpc: "2.0", id: req.id, result: await dispatch(req.method, req.params || {}) }); }
   catch (e) {
     note({ event: "error", method: req.method, message: String(e && e.message) });
     reply({ jsonrpc: "2.0", id: req.id, error: { code: typeof e.code === "number" ? e.code : -32000, message: String((e && e.message) || e), data: typeof e.code === "string" ? { code: e.code, ...(Number.isFinite(e.need) ? { need: e.need } : {}) } : undefined } });

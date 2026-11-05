@@ -79,7 +79,7 @@
     const where = V.exportsWhere(o.dataDir);
     $('exportsWhere').textContent = where.text;
     $('openExports').hidden = !where.path;
-    $('openExports').title = where.path;      // the full path: in the hover text, not on the page
+    $('openExports').title = 'MontClip 导出';      // no local machine path in the tooltip
   }
   // 打开文件夹: the logic page asks the worker to open MontClip's exports folder (the only folder this page can name)
   $('openExports').addEventListener('click', async () => {

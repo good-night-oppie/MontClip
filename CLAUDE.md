@@ -173,6 +173,12 @@ reports the real paths.
 folder — the Windows app and the Cindy plugin pointed at one folder, say —
 refuses to start and names the first. A lock whose process is gone is taken over.
 
+Cindy worker operations carry the originating task session and serialize binding with the operation.
+Export captures the bound project before folder selection and refuses a changed project with
+`EXPORT_PROJECT_CHANGED`. Export jobs carry `project` and `session` through their tickets; the editor
+checks project identity before rendering. UI commands optionally carry `session` and `project`, and
+only matching editor replies are accepted. Cindy task frames use `cindySession` in their URL.
+
 **Embedded in Cindy** (`plugins/montclip-cindy`, see its README) the engine runs
 with `MONTCLIP_HOST=cindy` and a 64-hex `MONTCLIP_EMBED_TOKEN`, loopback only. It
 answers only requests that carry the token: as the `montclip_embed` cookie, which a

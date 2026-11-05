@@ -104,7 +104,7 @@ function copyButton(box, problem) {
       frame.addEventListener('load', () => { status.hidden = true; sent = null; sendTheme(); });
       document.body.appendChild(frame);
     }
-    frame.src = url + (url.includes('?') ? '&' : '?') + 'theme=' + scheme();
+    frame.src = url + (url.includes('?') ? '&' : '?') + 'theme=' + scheme() + (view === 'task' && session ? '&cindySession=' + encodeURIComponent(session) : '');
   }
   /* A task view shows its own task's project: bind it when the page opens and whenever the task comes back to the
      front (another task's view may have opened a different project meanwhile). The worker runs binds one at a time. */

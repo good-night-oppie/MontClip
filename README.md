@@ -33,3 +33,7 @@ MontClip is a modified version of FableCut and keeps its MIT license. FableCut h
 ## License
 
 MIT. See [LICENSE](LICENSE) and the third-party notices.
+
+## Technical notes
+
+Cindy task operations retain their originating task and project. Export refuses a project changed while choosing a folder; editor status and undo/redo replies are scoped to that task.

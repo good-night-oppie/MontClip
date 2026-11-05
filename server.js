@@ -879,8 +879,11 @@ const server = http.createServer(async (req, res) => {
     const id = crypto.randomUUID();
     const answer = await new Promise((resolve) => {
       const timer = setTimeout(() => { uiCommands.delete(id); resolve(null); }, 4000);
-      uiCommands.set(id, (r) => { clearTimeout(timer); uiCommands.delete(id); resolve(r); });
-      broadcast("ui-command", JSON.stringify({ id, cmd: a.cmd, ...(a.cmd === "seek" ? { t: +a.t } : {}) }));
+      uiCommands.set(id, (r) => {
+        if ((a.session && r.session !== a.session) || (a.project && r.project !== a.project)) return false;
+        clearTimeout(timer); uiCommands.delete(id); resolve(r); return true;
+      });
+      broadcast("ui-command", JSON.stringify({ id, session: a.session, project: a.project, cmd: a.cmd, ...(a.cmd === "seek" ? { t: +a.t } : {}) }));
     });
     if (!answer) sendJSON(res, 409, { error: "no editor tab is open to run it", code: "NO_EDITOR" });
     else sendJSON(res, 200, answer);
@@ -911,8 +914,8 @@ const server = http.createServer(async (req, res) => {
     try { a = JSON.parse((await readBody(req)).toString("utf8") || "{}"); }
     catch { sendJSON(res, 400, { error: "body must be JSON {id, …}" }); return; }
     const done = uiCommands.get(a.id);
-    if (done) done(a);
-    sendJSON(res, done ? 200 : 409, { taken: !!done });
+    const taken = !!done && done(a);
+    sendJSON(res, taken ? 200 : 409, { taken: !!taken });
     return;
   }
   /* API: versions (history.js) — GET ?project= lists them (default: the open project);
@@ -1315,6 +1318,12 @@ const server = http.createServer(async (req, res) => {
   if (p === "/api/export/request" && req.method === "POST") {
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
+      const exportProject = projects.peekActive();
+      const checkProject = () => {
+        if ((opts.project && opts.project !== exportProject) || projects.peekActive() !== exportProject)
+          throw Object.assign(new Error('The export project changed.'), { code:409, errorCode:'EXPORT_PROJECT_CHANGED' });
+      };
+      checkProject();
       exportJobs.assertWhere(opts.where);
       if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
       if (opts.profile) resolveProfile(String(opts.profile));
@@ -1348,7 +1357,8 @@ const server = http.createServer(async (req, res) => {
       }
       let revision = null;
       try { revision = JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(/^\uFEFF/, "")).revision ?? null; } catch {}
-      const job = exportJobs.request({ range: opts.range, profile: opts.profile, delivery: deliveries ? null : delivery, deliveries, where: opts.where, revision });
+      checkProject();
+      const job = exportJobs.request({ project: exportProject, session: opts.session, range: opts.range, profile: opts.profile, delivery: deliveries ? null : delivery, deliveries, where: opts.where, revision });
       sendJSON(res, 200, deliveries ? { ...job, delivery: `${deliveries.length} outputs from one render`, notes: outNotes }
         : delivery ? { ...job, delivery: Delivery.describe(delivery), notes } : job);
     } catch (e) {

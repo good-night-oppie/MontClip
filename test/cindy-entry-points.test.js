@@ -154,7 +154,7 @@ test("main view in JJ's words: the lead, no projects yet, where the exports are"
 
 /* JJ (2026-11-04): where the exports are is a sentence and 打开文件夹 after it; the full path is only in the button's
    hover text. */
-test("main view: where the exports are — a sentence, 打开文件夹, the full path in its hover text only", () => {
+test("main view: where the exports are — a sentence, 打开文件夹, no local path in its hover text", () => {
   const sentence = "导出的文件都存在 MontClip 自己的导出文件夹里。在聊天里让 AI 导出时，会先请你选一个文件夹，再另存一份到那里。";
   // example folders only (no product name in them, so the rename script never touches this test)
   assert.deepEqual(V.exportsWhere("C:\\Users\\me\\clips-data"), { text: sentence, path: "C:\\Users\\me\\clips-data\\exports" });
@@ -164,7 +164,7 @@ test("main view: where the exports are — a sentence, 打开文件夹, the full
   const page = fs.readFileSync(path.join(PLUGIN, "main-view.html"), "utf8");
   assert.match(page, /<p class="hint" id="exportsWhere"><\/p>\n\s+<button type="button" id="openExports" hidden>打开文件夹<\/button>/);
   const js = fs.readFileSync(path.join(PLUGIN, "main-view.js"), "utf8");
-  assert.match(js, /\$\('openExports'\)\.title = where\.path;/);
+  assert.doesNotMatch(js, /\.title = where\.path;/);
   assert.match(js, /const r = await ask\('open-folder'\);\n\s+if \(r\.error\) fail\(V\.FAILED\.openFolder\(r\.error, r\.code\)\);/);
   assert.deepEqual(V.FAILED.openFolder("only the exports folder can be opened", "FOLDER_NOT_ALLOWED"),
     { text: "没能打开导出文件夹。再点一次试试；还不行，点「复制问题信息」发给我们。", problem: { code: "FOLDER_NOT_ALLOWED", error: "only the exports folder can be opened" } });
