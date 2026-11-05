@@ -279,6 +279,11 @@
     "hl-r-speech": ["Talking faster than usual (about {ratio}×)", "说话比平时快（约 {ratio} 倍）"],
     "hl-r-singing": ["Singing throughout, hardly pausing", "一直在唱，几乎没有停顿"],
     // 「✨ 自动出切片」 (P3; frozen design v7, v7.5 last; the Chinese is the design's and JJ's, the English is for JJ)
+    // 「附上唱歌段和音量」 in 设置 (QQ's five on #169; Deja, 2026-11-05). JJ定稿 (2026-11-05)
+    "sf-title": ["AI assistant", "AI 助手"],
+    "sf-label": ["Attach singing parts and loudness", "附上唱歌段和音量"],
+    "sf-hint": ["When on, what is sent to the AI includes which parts may be singing and the loudness (one number every second or every few seconds): numbers only, not the recording. When off, the assistant can't tell where it is quiet or where the singing starts.", "开着的时候，发给 AI 的内容里会附上哪几段可能在唱歌，以及音量大小（每秒或每隔几秒一个数）：只是数字，不是录音。关掉以后，助手判断不了哪里安静、从哪里开始唱。"],
+    "sf-off-note": ["“{switch}” is off, so the assistant can't tell where it is quiet or where the singing starts. To use it, turn on “{switch}” in “{settings}”, then send again.", "「{switch}」现在关着，助手判断不了哪里安静、从哪里开始唱。要用的话，到〔{settings}〕里打开「{switch}」，再发一次。"],
     "as-open": ["✨ Auto clips", "✨ 自动出切片"],
     "as-open-done": ["✨ Auto clips · done", "✨ 自动出切片 · 找完了"],
     "as-step-start": ["Recordings", "选录像"],
@@ -1053,6 +1058,15 @@
   Object.assign(officialPaneText['zh-CN'],{notSent:'这次发送的只有上面显示的文字。不附带声音、画面和截图；软件不会自动加上文件路径和账号，但你自己写进文字或历史里的这类信息会照样发出。API 密钥只用来向服务验证身份。',undoLast:'撤销这次应用（和顶部撤销相同）',captionLabel:'字幕',rangeLabel:'范围',projectLabel:'项目'});
   Object.assign(officialPaneText.en,{reviewSummary:'This will send a fixed formatting note, your message, {captions} quoted subtitles, and {history} earlier messages (including their quotes).',rawRequest:'View exact request',proposalSummary:'Suggested edit: keep {count} sentences, about {duration} in the final cut. Look it over before applying.',proposalRanges:'Suggested edit: keep {count} ranges joined into one video, about {duration}. Look it over before applying.',proposalSlices:'Suggested edit: {count} separate clips, one file each, about {duration} in total. Look it over before applying.',factsOmittedOne:"Timing for 1 clip wasn't included, so the AI won't see where it is. Sending still works.",factsOmitted:"Timing for {n} clips wasn't included, so the AI won't see where they are. Sending still works.",factsTitle:'Timeline numbers are also sent · click to see them',factsExplain:'How long each recording is, which part each clip uses, and the start, end and score of the highlight candidates already found. No file names, subtitle text, pictures or sound. This is exactly what is sent:',goConfig:'Go to settings',staleProposal:'The project changed after this reply, so this suggested edit can no longer be used.',reask:'Ask again using the current project',reaskReady:'A new draft is ready with no history or references. Select current subtitles and review before sending. The original conversation is still in the session list.'});
   Object.assign(officialPaneText['zh-CN'],{reviewSummary:'这次会发送一段固定的格式说明、消息文字、引用的 {captions} 条字幕，以及之前的 {history} 条消息（包含其中的引用）。',rawRequest:'查看原始请求',proposalSummary:'已生成剪辑建议：保留 {count} 句，成片大约 {duration}。请先看一遍再应用。',proposalRanges:'已生成剪辑建议：保留 {count} 段，拼成一条，大约 {duration}。请先看一遍再应用。',proposalSlices:'已生成剪辑建议：切出 {count} 条切片，每条一个文件，一共大约 {duration}。请先看一遍再应用。',factsOmittedOne:'有 1 个片段这次没附上时间信息，AI 看不到它在哪。不影响发送。',factsOmitted:'有 {n} 个片段这次没附上时间信息，AI 看不到它们在哪。不影响发送。',factsTitle:'还会附上时间线的数字 · 点开看原文',factsExplain:'每段录像有多长、每个片段用到哪一部分，以及已经找到的高光候选的起止和分数。不含文件名、字幕文字、画面和声音。下面就是原样发出去的内容：',goConfig:'去设置',staleProposal:'项目在回复之后改过了，这条剪辑建议不能用了。',reask:'按现在的项目重新问',reaskReady:'已新建草稿，不带历史和引用。请重新选择当前字幕，确认后再发送。原来的对话还在会话列表里。'});
+  // JJ via Deja (2026-11-05): when the facts carry the singing parts and the loudness, the review box says so, outside the
+  // fold (JJ's words; JJ定稿 2026-11-05: 「音量大小（每秒或每隔几秒一个数）」, since a long video gets one every few seconds). factsLimit: over capabilities.js FACTS nothing is sent (JJ定稿, 2026-11-05).
+  Object.assign(officialPaneText.en,{factsSound:'Also sent: which parts may be singing (start and end seconds only) and the loudness (one number every second or every few seconds) (a list of numbers). The sound itself is not sent.',factsLimit:'There are too many numbers to attach, more than can be sent, so nothing was sent. What you wrote is still here. Select a shorter range and send again.'});
+  Object.assign(officialPaneText['zh-CN'],{factsSound:'还会发送：哪几段可能在唱歌（只有开始和结束的秒数）、音量大小（每秒或每隔几秒一个数）（一串数字）。不发声音本身。',factsLimit:'要附上的数字太多，超过了能发的上限，这次没有发送。你写的话还在，选短一点的范围再发就行。'});
+  // QQ's five on #169 (Deja, 2026-11-05), JJ定稿 (2026-11-05): the review box lists the sound numbers in plain words; when they are
+  // switched off, it says so; a reply to a message about the sound says, while they are off, that it can't be done and how
+  // to turn them on ({settings} and {switch}: the button's and the switch's own words, filled in by app.js).
+  Object.assign(officialPaneText.en,{factsCounts:'This time: {parts} possible singing parts, {duration} in total; {values} loudness numbers, one every {step} s.',factsLong:'The video is longer than 8 hours, so singing parts and loudness are not attached this time.',factsOff:'Singing parts and loudness are not attached: they are switched off in Settings.'});
+  Object.assign(officialPaneText['zh-CN'],{factsCounts:'这次附上：可能在唱歌的段落 {parts} 段，共 {duration}；音量数字 {values} 个，每 {step} 秒一个。',factsLong:'片子超过 8 小时，这次没有附上唱歌段和音量。',factsOff:'这次没有附上唱歌段和音量：设置里关着。'});
   // VV real-model test (2026-11-02): the format note that goes with every request, a reply without a usable proposal, and errors told apart
   Object.assign(officialPaneText.en,{errModel:'The model name is wrong. Check it in settings. Your draft is kept.',formatNote:'Format note sent with every request',formatNoteExplain:'The text below is a fixed note MontClip adds to every request. It only tells the AI how to format editing suggestions. It contains none of your recordings, subtitles or project content.',noProposal:'This reply is not an editing suggestion. To have it cut for you, say which sentences to keep.',errAuth:'The key is wrong or has no access. Check it in settings. Your draft is kept.',errRateLimit:'The service is limiting requests for now. Try again in a little while. Your draft is kept.',errTimeout:'The service did not answer in time. Check your connection and try again. Your draft is kept.',errNetwork:'Could not reach the service. Check your internet connection, then try again. Your draft is kept.',errUpstream:'The service is having trouble right now. Try again later, or choose another model in settings. Your draft is kept.'});
   Object.assign(officialPaneText['zh-CN'],{errModel:'模型名称不对，请去设置里检查。草稿仍保留。',formatNote:'每次请求都会附带的格式说明',formatNoteExplain:'下面这段英文是 MontClip 每次自动附上的固定说明，只是告诉 AI 怎么写剪辑建议。里面没有你的录像、字幕或项目内容，你不用看懂。',noProposal:'这条回复不是剪辑建议。想让它直接剪，可以说清要保留哪几句。',errAuth:'密钥不对或没有权限，请去设置里检查。草稿仍保留。',errRateLimit:'服务暂时限流，请过一会再试。草稿仍保留。',errTimeout:'服务没有及时回应，请检查网络后再试。草稿仍保留。',errNetwork:'连不上服务，请检查网络连接后再试。草稿仍保留。',errUpstream:'服务那边暂时出了问题，请稍后再试，或去设置里换一个模型。草稿仍保留。'});
@@ -1087,13 +1101,14 @@
   }
   function create(storage) {
     let saved; try { saved = JSON.parse(storage.getItem(KEY)); } catch {}
-    let value = { mode: saved?.mode === "advanced" ? "advanced" : "simple", language: saved?.language === "en" ? "en" : "zh-CN" };
+    // soundFacts (QQ on #169): 「附上唱歌段和音量」, on by default; kept only when switched off
+    let value = { mode: saved?.mode === "advanced" ? "advanced" : "simple", language: saved?.language === "en" ? "en" : "zh-CN", ...(saved?.soundFacts === false ? { soundFacts: false } : {}) };
     return {
       get: () => ({ ...value }),
       set(patch) {
         const next = { ...value, ...patch };
-        if (!["simple", "advanced"].includes(next.mode) || !text[next.language]) throw new Error("Invalid view preference");
-        value = { mode: next.mode, language: next.language };
+        if (!["simple", "advanced"].includes(next.mode) || !text[next.language] || ![undefined, true, false].includes(next.soundFacts)) throw new Error("Invalid view preference");
+        value = { mode: next.mode, language: next.language, ...(next.soundFacts === false ? { soundFacts: false } : {}) };
         try { storage.setItem(KEY, JSON.stringify(value)); return true; } catch { return false; }
       },
     };
