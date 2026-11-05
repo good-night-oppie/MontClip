@@ -41,11 +41,11 @@ test("parseProbe: width × height is the display size; the stored size beside it
   a.ok(MediaLib.INFO_KEYS.includes("storedWidth") && MediaLib.INFO_KEYS.includes("storedHeight"), "kept on the entry with the other details");
 });
 
-test("what an agent reads: 2389×1920, then 'stored 1080×1920'", () => {
+test("what an agent reads: 2389×1920, then 'stored as 1080×1920'", () => {
   const m = { id: "m1", kind: "video", name: "replay.mp4", src: "/media/replay.mp4", width: 2389, height: 1920, storedWidth: 1080, storedHeight: 1920, duration: 60 };
-  a.equal(MediaLib.fmtRes(m), "2389×1920 (stored 1080×1920)");
+  a.equal(MediaLib.fmtRes(m), "2389×1920 (stored as 1080×1920)");
   a.equal(MediaLib.fmtRes({ width: 1920, height: 1080 }), "1920×1080");
-  a.match(ProjectOps.compactView({ name: "p", width: 1080, height: 1920, fps: 30, media: [m], clips: [] }), /2389×1920 \(stored 1080×1920\)/);
+  a.match(ProjectOps.compactView({ name: "p", width: 1080, height: 1920, fps: 30, media: [m], clips: [] }), /2389×1920 \(stored as 1080×1920\)/);
 });
 
 test("a real file with non-square pixels: probed at its display size", { skip }, async () => {
@@ -90,7 +90,7 @@ test("no editor open: an entry with the stored size gets the display size when t
   const mcp = startMcp(t, data, { FABLECUT_NO_AUTOSTART: "1" });
   await mcp.request("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "t", version: "1" } });
   const view = await mcp.callTool("fablecut_get_project", { compact: true });
-  a.match(view.text, /239×192 \(stored 108×192\)/, view.text);
+  a.match(view.text, /239×192 \(stored as 108×192\)/, view.text);
   const after = readProject(data);
   a.deepEqual([after.media[0].width, after.media[0].height, after.media[0].storedWidth], [239, 192, 108]);
   a.deepEqual([after.media[1].width, after.media[1].storedWidth], [160, undefined], "square pixels: left as they were");

@@ -172,7 +172,7 @@
   function fmtRes(m) {
     if (!(m && m.width > 0 && m.height > 0)) return "";
     const stored = m.storedWidth > 0 && m.storedHeight > 0 && (m.storedWidth !== m.width || m.storedHeight !== m.height);
-    return `${m.width}×${m.height}` + (stored ? ` (stored ${m.storedWidth}×${m.storedHeight})` : "");
+    return `${m.width}×${m.height}` + (stored ? ` (stored as ${m.storedWidth}×${m.storedHeight})` : "");
   }
   /** P6: an entry that took the stored size (an import before display sizes, or one read without its pixel shape)
    *  takes the display size from the server's reading. → whether it changed */
