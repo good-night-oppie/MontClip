@@ -1832,7 +1832,7 @@ const server = http.createServer(async (req, res) => {
       broadcast("transcript", JSON.stringify({ src }));
       const gapSeconds = Math.round(doc.gaps.reduce((t, g) => t + g[1] - g[0], 0) * 10) / 10;
       sendJSON(res, 200, { src, status: TR.status(doc), gaps: doc.gaps.length, gapSeconds, skippedSegments: r.skippedSegments, words: doc.words.length, duration: doc.duration, speech: Math.round(r.speech * 10) / 10, punctuated: r.punctuated,
-        ...(optionalId ? { engine: "optional", model: optionalId } : {}) });
+        ...(optionalId ? { engine: "optional", model: optionalId, threads: r.threads, maxRssMB: r.maxRssMB } : {}) });
     } catch (e) {
       const code = e.code === "ASR_CANCELLED" || ac.signal.aborted ? "ASR_CANCELLED" : e.code || "ASR_FAILED";
       if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING|OPTIONAL_NOT_READY|OPTIONAL_NO_MEMORY)$/.test(code) ? 409 : 500,
