@@ -2621,7 +2621,7 @@ function renderBin() {
     // Root drop zone at the bottom so items can be moved out of folders
     const root = document.createElement("div");
     root.className = "bin-drop-root";
-    root.textContent = "Drop here to move to root";
+    root.textContent = uiText("own.bin-drop-root");
     bindFolderDropTarget(root, null);
     els.binList.appendChild(root);
   }

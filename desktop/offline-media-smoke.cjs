@@ -152,6 +152,10 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     await read(`renderBin(); true`); await wait();
     const none = await read(`document.querySelector('#binList .bin-noresult')?.textContent || null`);
     check('the empty filter says 「素材都在，没有找不到的。」', none === '素材都在，没有找不到的。', none);
+    // the bin's two other English lines VV saw (Chinese drafts, for JJ)
+    const binLines = await read(`(()=>{setBinFilter('');project.folders.push({id:'f_smoke',name:'B-roll',parentId:null,open:true});renderBin();
+      return {root:document.querySelector('#binList .bin-drop-root')?.textContent||null,hint:document.querySelector('#binEmpty .hint')?.textContent||null};})()`);
+    check('zh bin: 「拖到这里，移出文件夹」 and the double-click hint', binLines.root === '拖到这里，移出文件夹' && binLines.hint === '双击在源监视器里打开，或者拖到时间线上。', binLines);
     pass = checks.every((c) => c.ok);
   } catch (e) { checks.push({ name: 'error', ok: false, seen: String(e && e.message || e).slice(0, 600) }); }
   finally {

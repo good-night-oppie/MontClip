@@ -112,6 +112,9 @@
     "off-finding": ["Finding: {file}", "正在找：{file}"],   // en: draft
     "off-finding-k": ["Finding: {file} ({k} of {n})", "正在找：{file}（第 {k} 个，共 {n} 个）"],   // en: draft
     "off-slate": ["Media offline", "找不到"],
+    // the bin's two other English lines VV saw (Deja, 2026-11-05); zh: 草稿，待 JJ 定稿
+    "bin-drop-root": ["Drop here to move to root", "拖到这里，移出文件夹"],
+    "bin-dbl-hint": ["Double-click to open in Source, or drag onto the timeline.", "双击在源监视器里打开，或者拖到时间线上。"],
     // the Transcript tab's sentence button, one language at a time (for JJ to review)
     "tr-sentences": ["Select sentences", "按句选段"],
     // the Save dialog's outcome in the desktop app (VV, 012ba18; for JJ to review)

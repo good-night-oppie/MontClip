@@ -111,6 +111,17 @@ test('the picture for a missing file says 「找不到」 in Chinese', () => {
   a.match(s, /ctx2d\.fillText\(uiText\("own\.off-slate"\)/); a.doesNotMatch(s, /fillText\("Media offline"/);
 });
 
+test('the bin\'s two other English lines (VV; Chinese drafts, 草稿，待 JJ 定稿)', () => {
+  a.equal(V.t('zh-CN', 'own.bin-drop-root'), '拖到这里，移出文件夹');
+  a.equal(V.t('en', 'own.bin-drop-root'), 'Drop here to move to root');
+  a.equal(V.t('zh-CN', 'own.bin-dbl-hint'), '双击在源监视器里打开，或者拖到时间线上。');
+  a.equal(V.t('en', 'own.bin-dbl-hint'), 'Double-click to open in Source, or drag onto the timeline.');
+  a.ok(app.includes('root.textContent = uiText("own.bin-drop-root");'));
+  a.ok(!app.includes('"Drop here to move to root"'));
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  a.ok(html.includes('<p class="hint" data-i18n="own.bin-dbl-hint">Double-click to open in Source, or drag onto the timeline.</p>'));
+});
+
 test('the export mix leaves a missing file out, even one whose sound was decoded before it went missing', () => {
   const s = body('async function renderAudioMix(', 'const sources = ');
   a.match(s, /if \(!m \|\| isMediaOffline\(m\.id\)\) continue;/);
