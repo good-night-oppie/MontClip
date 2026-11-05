@@ -1887,6 +1887,7 @@ function listenSSE() {
   // Named events: "change" = project/media/library; "profiles" = encoding-profiles.json only
   es.addEventListener("change", () => { noteActivity(); syncFromServer(); scheduleOfflineCheck(); });
   es.addEventListener("proxy", (e) => onProxyEvent(e.data));
+  es.addEventListener("upload", (e) => onUploadEvent(e.data));
   es.addEventListener("transcript", (e) => onTranscriptEvent(e.data));
   es.addEventListener("asr", (e) => onAsrEvent(e.data));
   es.addEventListener("ui-command", (e) => onUiCommand(e.data));
@@ -2141,6 +2142,51 @@ function wavePeaksFor(c) {
 }
 
 /* ═══════════════════════════ MEDIA IMPORT ═══════════════════════════ */
+/* Files being imported: a 「正在导入… n%」 placeholder each, in the bin and in 〔✨ 自动出切片〕's list (which covers the
+   bin), from the upload's start until the file is in the bin or failed (VV, 2026-11-04: a 6.6 GB MP4 took ~7 minutes,
+   the bin all the while saying 「把视频拖到这里」). sent = the upload, tidy = the server's faststart ("upload" events). */
+const IMPORTING = new Map();
+function importingStart(name) {
+  const ticket = "t_" + uid();
+  IMPORTING.set(ticket, { name, sent: 0, tidy: 0, tidies: MediaLib.importTidies(name) });
+  renderBin(); autoAfterImport();
+  return ticket;
+}
+function importingSet(ticket, part) {
+  const it = IMPORTING.get(ticket);
+  if (!it) return;
+  Object.assign(it, part);
+  const say = uiText("own.bin-importing", { pct: MediaLib.importPercent(it) });
+  document.querySelectorAll(`[data-importing="${ticket}"] [data-importing-pct]`).forEach((n) => { n.textContent = say; });
+}
+function importingEnd(ticket) {
+  if (!ticket || !IMPORTING.delete(ticket)) return;
+  renderBin(); autoAfterImport();
+}
+function importingHtml(cls) {
+  return [...IMPORTING].map(([ticket, it]) => `<div class="${cls}" data-importing="${ticket}" role="status">
+    <span class="bin-importing-name">${escapeHtml(it.name)}</span>
+    <span class="bin-importing-pct" data-importing-pct>${escapeHtml(uiText("own.bin-importing", { pct: MediaLib.importPercent(it) }))}</span></div>`).join("");
+}
+function onUploadEvent(data) {
+  let e; try { e = JSON.parse(data); } catch { return; }
+  if (e && IMPORTING.has(e.ticket)) importingSet(e.ticket, { tidy: Number(e.frac) });
+}
+/** POST a file to /api/upload with XHR (fetch has no upload progress); onSent(fraction) as it goes. Resolves {ok, status, json}. */
+function uploadWithProgress(file, ticket, onSent) {
+  // the playground answers /api from its fetch shim (docs/demo/static-shim.js): no file goes to the static host
+  if (globalThis.__fcDemo) return fetch("/api/upload?name=" + encodeURIComponent(file.name), { method: "POST", body: file })
+    .then(async (res) => { let json = null; try { json = await res.json(); } catch { } return { ok: res.ok, status: res.status, json }; });
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/upload?name=" + encodeURIComponent(file.name) + (ticket ? "&ticket=" + encodeURIComponent(ticket) : ""));
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable && e.total) onSent(e.loaded / e.total); };
+    xhr.onload = () => { let json = null; try { json = JSON.parse(xhr.responseText); } catch { } resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, json }); };
+    xhr.onerror = () => reject(new Error("upload failed"));
+    xhr.send(file);
+  });
+}
+
 /* Windows often leaves File.type empty for video/audio — fall back to extension. */
 function mediaKindFromFile(file) {
   const t = file.type || "";
@@ -2214,53 +2260,56 @@ async function importFiles(fileList) {
     if (!kind) { skipped++; continue; }
     const flv = /\.flv$/i.test(file.name);
     let src, originalSrc, preparation, flvImport = null, transient = false;
-    if (flv && globalThis.montclipFlv) {
-      // desktop: checked where it is, copied only after the user agrees (desktopFlvImport)
-      const r = await desktopFlvImport(file);
-      if (!r) continue;
-      ({src, originalSrc, preparation} = r); flvImport = r.importId;
-    } else if (state.connected) {
-      try {
-        const res = await fetch("/api/upload?name=" + encodeURIComponent(file.name), { method: "POST", body: file });
-        if (!res.ok) { let code = ""; try { code = (await res.json()).code || ""; } catch {} throw Object.assign(new Error("upload " + res.status), { code }); }
-        ({src, originalSrc, preparation} = await res.json());
-      } catch (error) {
-        if (flv) { flvFailure(typeof error?.code === "string" && error.code ? error.code : "UPLOAD_FAILED"); continue; }
+    // 「正在导入… n%」 in the bin while the server copies and tidies it (the desktop FLV import has its own dialog)
+    const ticket = state.connected && !(flv && globalThis.montclipFlv) ? importingStart(file.name) : null;
+    try {
+      if (flv && globalThis.montclipFlv) {
+        // desktop: checked where it is, copied only after the user agrees (desktopFlvImport)
+        const r = await desktopFlvImport(file);
+        if (!r) continue;
+        ({src, originalSrc, preparation} = r); flvImport = r.importId;
+      } else if (state.connected) {
+        try {
+          const res = await uploadWithProgress(file, ticket, (sent) => importingSet(ticket, { sent }));
+          if (!res.ok) throw Object.assign(new Error("upload " + res.status), { code: (res.json && res.json.code) || "" });
+          ({src, originalSrc, preparation} = res.json);
+        } catch (error) {
+          if (flv) { flvFailure(typeof error?.code === "string" && error.code ? error.code : "UPLOAD_FAILED"); continue; }
+          src = URL.createObjectURL(file); transient = true;
+        }
+      } else {
+        if (flv) { flvFailure("NO_SERVER"); continue; }
         src = URL.createObjectURL(file); transient = true;
       }
-    } else {
-      if (flv) { flvFailure("NO_SERVER"); continue; }
-      src = URL.createObjectURL(file); transient = true;
-    }
-    const m = { id: "m_" + uid(), name: file.name, kind, src, transient, folderId };
-    if (originalSrc) Object.assign(m, {originalSrc, preparation});
-    try {
-      await loadMediaMetadata(m);
-      if (kind === "video") grabThumb(m).catch(() => { });
-      ensureWave(m);
-    } catch {
-      if (flvImport) { await globalThis.montclipFlv.cancel(flvImport); flvFailure("FLV_PREPARATION_FAILED"); continue; }
-      skipped++; continue;
-    }
-    if (gen !== runtime.projectGen) {
-      if (flvImport) await globalThis.montclipFlv.cancel(flvImport);
-      toast("Import stopped: another project was opened. The uploaded files are in media/"); break;
-    }
-    if (flvImport) await globalThis.montclipFlv.finish(flvImport);
-    project.media.push(m);
-    addedMedia.push(m);
-    added++;
+      const m = { id: "m_" + uid(), name: file.name, kind, src, transient, folderId };
+      if (originalSrc) Object.assign(m, {originalSrc, preparation});
+      try {
+        await loadMediaMetadata(m);
+        if (kind === "video") grabThumb(m).catch(() => { });
+        ensureWave(m);
+      } catch {
+        if (flvImport) { await globalThis.montclipFlv.cancel(flvImport); flvFailure("FLV_PREPARATION_FAILED"); continue; }
+        skipped++; continue;
+      }
+      if (gen !== runtime.projectGen) {
+        if (flvImport) await globalThis.montclipFlv.cancel(flvImport);
+        toast("Import stopped: another project was opened. The uploaded files are in media/"); break;
+      }
+      if (flvImport) await globalThis.montclipFlv.finish(flvImport);
+      project.media.push(m);
+      addedMedia.push(m);
+      added++;
+    } finally { importingEnd(ticket); }
   }
   if (follow && addedMedia.some((m) => m.kind === "video"))
     runtime.canvasFollow = { gen, ids: new Set(addedMedia.filter((m) => m.kind === "video").map((m) => m.id)) };
-  if (added) { renderBin(); scheduleSave(); refreshMediaInfo(addedMedia); }
+  if (added) { renderBin(); scheduleSave(); refreshMediaInfo(addedMedia); autoAfterImport(); }
   if (!added && skipped)
     toast("Couldn't import — unsupported or unreadable file type");
   else if (skipped)
     toast(`Imported ${added}, skipped ${skipped}`);
   return addedMedia;
 }
-
 function setImportUrlBusy(busy) {
   const input = els.importUrlInput;
   const go = $("btnDoImportUrl");
@@ -2334,13 +2383,14 @@ async function importFromUrl(url) {
 }
 
 function renderBin() {
-  els.binList.querySelectorAll(".bin-item, .bin-folder, .bin-drop-root, .comp-item, .bin-filterbar, .bin-colhead, .bin-noresult").forEach((n) => n.remove());
+  els.binList.querySelectorAll(".bin-item, .bin-folder, .bin-drop-root, .comp-item, .bin-filterbar, .bin-colhead, .bin-noresult, .bin-importing").forEach((n) => n.remove());
   syncBinTools();
   const comps = project.comps || [];
-  const empty = !project.media.length && !project.folders.length && !comps.length;
+  const empty = !project.media.length && !project.folders.length && !comps.length && !IMPORTING.size;
   els.binEmpty.style.display = empty ? "" : "none";
   els.binList.classList.toggle("list-view", binView.list && !empty);
   if (empty) return;
+  if (IMPORTING.size) els.binList.insertAdjacentHTML("beforeend", importingHtml("bin-importing"));
   const ctx = binCtx();
   const flat = !!(binView.q.trim() || binView.filter);   // searching / filtering → one flat list of hits
   if (mediaOffline.size && binView.filter !== "offline") {
@@ -10561,6 +10611,10 @@ function autoPlaceCaptions(placed, at0, end) {
   for (const q of cues) project.clips.push({ ...C.clip({ ...q, end: Math.min(q.end, end) }, { style, width: project.width, height: project.height, track }), id: "c_" + uid() });
   return cues.length;
 }
+/** An import started or ended (its 〔+ 导入录像〕 or the main 〔+ 导入〕): the open dialog's first page shows it. */
+function autoAfterImport() {
+  if (AUTO.el && AUTO.el.open && autoState().step === "start") autoRender("start");
+}
 function autoRecordings() {
   return project.media.filter((m) => (m.kind === "video" || m.kind === "audio") && !m.derivedFrom && !m.transient && typeof m.src === "string" && m.src.startsWith("/media/") && m.duration > 0);
 }
@@ -10687,15 +10741,21 @@ function autoStartHtml() {
     if (!st.picked.size && recs[0]) st.picked.add(recs[0].id);
   }
   for (const id of [...st.picked]) if (!recs.some((m) => m.id === id)) st.picked.delete(id);
-  const recList = recs.length ? recs.map((m) => { const on = st.picked.has(m.id), dm = autoDanmaku(m).length;
+  // one recording: ticked, so 〔开始找高光〕 works at once — once per recording, so unticking it sticks (VV, 2026-11-04:
+  // the dialog opened before the import kept an empty pick)
+  if (recs.length === 1 && st.soloTicked !== recs[0].id) { if (!st.picked.size) st.picked.add(recs[0].id); st.soloTicked = recs[0].id; }
+  const recList = (recs.length ? recs.map((m) => { const on = st.picked.has(m.id), dm = autoDanmaku(m).length;
       return `<div class="as-rec${on ? " on" : ""}" role="checkbox" aria-checked="${on}" tabindex="0" data-as-act="rec" data-as-id="${escapeHtml(m.id)}">
         <div class="as-t">${escapeHtml(m.name || m.src)}</div><div class="as-small">${escapeHtml(autoDur(m.duration))}</div>
         <span class="as-chip ${dm ? "ok" : "warn"}">${autoSay(dm ? "as-dm-yes" : "as-dm-no")}</span></div>`; }).join("")
-    : `<p class="as-muted">${autoSay("as-no-recs")}</p>`;
+    : IMPORTING.size ? "" : `<p class="as-muted">${autoSay("as-no-recs")}</p>`) + importingHtml("as-rec as-importing");
+  // the same import as the main 〔+ 导入〕 (VV: the empty list said 先导入 with no way to from here)
+  const importBtn = `<button type="button" class="btn tiny" data-as-act="import">${autoSay("as-import")}</button>`;
   const seg = (name, list, cur) => list.map((v) => `<button type="button" data-as-act="${name}" data-as-v="${v}" class="${cur === v ? "on" : ""}">${autoSay(autoSongKey("as-" + name + "-" + v))}</button>`).join("");
   const pickedDm = recs.filter((m) => st.picked.has(m.id)).reduce((x, m) => x + autoDanmaku(m).length, 0);
   return `<h1>${autoSay("as-start-title")}</h1><p class="as-sub">${autoSay("as-start-sub")}</p>
-    <section class="as-card-box"><h2>${autoSay("as-recs")}</h2><div class="as-recs">${recList}</div><p class="as-small">${autoSay("as-recs-multi")}</p></section>
+    <section class="as-card-box"><h2>${autoSay("as-recs")}</h2><div class="as-recs">${recList}</div><p class="as-small">${autoSay("as-recs-multi")}</p>
+      <div class="as-import">${importBtn}</div></section>
     <section class="as-card-box"><h2>${autoSay("as-kind-title")}</h2><div class="as-seg">${seg("kind", MontClipAutoSlices.KINDS, st.kind)}</div>
       <p class="as-small" data-as-kind-hint>${autoSay(autoKindHintKey(st.kind, pickedDm))}</p></section>
     <details class="as-more"><summary>${autoSay("as-more")}</summary>
@@ -11195,6 +11255,7 @@ function autoClick(e) {
   const st = autoState(), act = b.dataset.asAct, card = b.closest("[data-as-card]"), c = card ? autoClip(card.dataset.asCard) : null;
   if (act === "rec") { const id = b.dataset.asId; st.picked.has(id) ? st.picked.delete(id) : st.picked.add(id); autoRender("start"); return; }
   if (act === "kind" || act === "len") { st[act] = b.dataset.asV; autoRender("start"); return; }
+  if (act === "import") { openFileImport(); return; }
   if (act === "go") { autoRun(); return; }
   if (act === "sub-go") { if (autoCanInstall()) openAsrSetup(); return; }
   if (act === "stop") { if (st.run) st.run.stop = true; return; }

@@ -355,7 +355,7 @@ function resolvePathArg(p) {
 
 /* Remux MP4-family uploads with `+faststart` so the moov atom leads the file —
    without it <video> stalls for seconds probing over Range requests. */
-function faststart(file) { return maybeFaststart(file); }
+function faststart(file, opts) { return maybeFaststart(file, opts); }
 
 /* ── Export sessions ──
    Two modes share the same HTTP session API:
@@ -1221,7 +1221,9 @@ const server = http.createServer(async (req, res) => {
           }
         }
       } finally { try { fs.rmSync(staging, { force: true }); } catch {} }
-      await faststart(target);
+      // the page's 「正在导入… n%」 for this file (?ticket= from importFiles): how far the faststart tidy is, over SSE
+      const ticket = url.searchParams.get("ticket");
+      await faststart(target, /^[A-Za-z0-9_-]{1,40}$/.test(ticket || "") ? { onProgress: (frac) => broadcast("upload", JSON.stringify({ ticket, frac })) } : undefined);
       sendJSON(res, 200, { ok: true, ...await prepareMedia(target) });
     } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
     return;
