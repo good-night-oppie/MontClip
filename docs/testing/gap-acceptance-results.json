@@ -1,0 +1,72 @@
+{
+  "date": "2026-11-05",
+  "implementation": "3af43de8",
+  "synthetic": {
+    "headlessChrome": true,
+    "encoder": "h264_nvenc",
+    "gapSeconds": 294.979,
+    "preview": [
+      {
+        "time": 1,
+        "luma": 0
+      },
+      {
+        "time": 1.24,
+        "luma": 255
+      },
+      {
+        "time": 6,
+        "luma": 0
+      },
+      {
+        "time": 6.24,
+        "luma": 255
+      }
+    ],
+    "repaired": {
+      "duration": 9.966666,
+      "limitMs": 33.333333333333336,
+      "pairs": 20,
+      "unpaired": {
+        "flashes": [],
+        "beeps": []
+      },
+      "beforeWorstMs": 11.937166666666776,
+      "afterWorstMs": 11.45800000000019,
+      "ok": true
+    },
+    "exported": {
+      "duration": 9.966667,
+      "limitMs": 40,
+      "pairs": 20,
+      "unpaired": {
+        "flashes": [],
+        "beeps": []
+      },
+      "beforeWorstMs": 11.937166666666776,
+      "afterWorstMs": 11.45800000000019,
+      "ok": true
+    },
+    "ok": true
+  },
+  "real": {
+    "sourceUnchanged": true,
+    "outputRemoved": true,
+    "videoStreams": 1,
+    "audioStreams": 0,
+    "headerDurationKnown": false,
+    "gaps": [],
+    "gapSeconds": 0,
+    "coveredDuration": 256.28000000000003,
+    "probedDuration": 256.28,
+    "repairedDuration": 256.28,
+    "preparation": "transcode",
+    "encoder": "libvpx-vp9",
+    "strictDecode": true,
+    "frameAt57Seconds": true,
+    "avAlignment": {
+      "status": "not_measured",
+      "reason": "no_audio_stream"
+    }
+  }
+}
