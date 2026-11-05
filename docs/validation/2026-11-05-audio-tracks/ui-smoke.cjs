@@ -5,7 +5,9 @@ const after=[];const t={after:(f)=>after.push(f)};const sleep=(ms)=>new Promise(
 (async()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mc-ui-'));
  const proj=H.seedProject({width:320,height:180,fps:30,media:[{id:'m_r',name:'分轨.mkv',kind:'video',src:'/media/r.mkv',duration:20,width:320,height:180,audioChannels:2,size:1}],
-   clips:[{id:'c_v',mediaId:'m_r',kind:'video',track:'V1',start:0,in:0,duration:20,props:{}}]});
+   clips:[{id:'c_v',mediaId:'m_r',kind:'video',track:'V1',start:0,in:0,duration:20,props:{}},
+    // a caption the streamer edited (its text is no longer the text it was made with)
+    {id:'c_cap',mediaId:null,kind:'text',track:'V2',start:5,in:0,duration:2,name:'Caption',props:{text:'改过的字幕',captionMade:'原来的字幕',caption:true,captionStyle:'subtitle',wordTimes:[[0,1]]}}]});
  fs.writeFileSync(path.join(dir,'project.json'),JSON.stringify(proj));fs.mkdirSync(path.join(dir,'media'));
  const mic="sine=frequency=440:sample_rate=48000:duration=20,volume=enable='lt(t,5)+gte(t,15)':volume=0";
  spawnSync(require('../../../ffmpeg-path').path('ffmpeg'),['-v','error','-y','-f','lavfi','-i','color=c=gray:s=320x180:r=30:d=20','-f','lavfi','-i','sine=frequency=220:sample_rate=48000:duration=20','-f','lavfi','-i',mic,
@@ -40,6 +42,12 @@ const after=[];const t={after:(f)=>after.push(f)};const sleep=(ms)=>new Promise(
  console.log('after pick: entry', await ev("project.media[0].audioTrack"), 'saved', JSON.parse(fs.readFileSync(path.join(dir,'project.json'),'utf8')).media[0].audioTrack);
  console.log('toast', await ev("[...document.querySelectorAll('.toast, #toast')].map(e=>e.textContent).join(' | ')"));
  const L=await (await fetch(base+'/api/signals/loudness?src=/media/r.mkv')).json();console.log('server loudness track',L.track,'at 2s',L.values[4],'at 10s',L.values[20]);
+ let g;for(let i=0;i<40;i++){g=await (await fetch(base+'/api/songs?src=/media/r.mkv&track=1')).json();if(g.state==='done')break;await sleep(250);}
+ console.log('songs re-read in the background, track',g.track,'state',g.state);
+ console.log('toast with button', await ev("els.toast.textContent+' / button: '+(els.toast.querySelector('button')||{}).textContent"));
+ console.log('exported sound unchanged: channels', await ev("project.media[0].channels"), 'waveform key', await ev("(runtime.wavePeaks.get('m_r')||{}).src"));
+ await ev("showMediaInfo(getMedia('m_r'),100,100)");await sleep(300);
+ console.log('picker redo button', await ev("(document.querySelector('.bin-track-redo')||{}).textContent"));
  await ev("undo()");await sleep(1500);
  console.log('after undo: entry', await ev("project.media[0].audioTrack"), 'saved', JSON.parse(fs.readFileSync(path.join(dir,'project.json'),'utf8')).media[0].audioTrack);
  console.log('errors', JSON.stringify(errs));

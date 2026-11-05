@@ -251,16 +251,19 @@
     // and the toast when one is dragged onto the timeline
     "media-duration-unknown": ["\"{name}\" may not have finished recording (for example, a screen recording that was stopped), so its length can't be read and it can't be edited yet. The original file is unchanged.", "「{name}」可能没录完整（比如录屏中途停了），读不出有多长，现在还剪不了。原文件没有改动。"],
     "media-duration-unknown-n": ["{n} videos may not have finished recording, so their length can't be read and they can't be edited yet. The original files are unchanged.", "有 {n} 个视频可能没录完整，读不出有多长，现在还剪不了。原文件都没有改动。"],
-    // 分轨录像 (#177): which audio track is the streamer's voice. 待 JJ 定稿 — drafts, both languages (the menu item is mm-info)
+    // 分轨录像 (#177): which audio track is the streamer's voice. JJ定稿 (2026-11-05, via Deja), word for word, both
+    // languages; the menu name in at-found / at-found-n is the menu item's own key (mm-info), the button's its own
     "at-title": ["Which track is the streamer's voice", "主播的声音在哪条轨"],
-    "at-hint": ["Songs, loudness, subtitles and the export all use this one track. In an OBS recording, track 1 is usually all the sound mixed together.", "找歌、音量、字幕和导出都只用这一条轨。OBS 录的第 1 轨，通常是混好的全部声音。"],
+    "at-hint": ["Song finding, loudness and subtitles listen to this one track; the exported sound is not affected. In an OBS recording, track 1 is usually all the sound mixed together. If you recorded your mic on its own track, pick that one.", "找歌、音量和字幕只听这一条轨，导出的声音不受影响。OBS 录的第 1 轨通常是混好的全部声音；如果你把麦克风单独录成了一条轨，就选那一条。"],
     "at-track": ["Track {n}", "第 {n} 轨"],
     "at-listen": ["Listen", "试听"],
     "at-channels": ["{n} ch", "{n} 声道"],
-    "at-listen-failed": ["This track can't be played.", "这条轨放不出来。"],
-    "at-changed": ["Now using track {n}. Find the songs and make the subtitles again for this track.", "已改成第 {n} 轨。找歌和字幕要按这条轨重新做一次。"],
-    "at-found": ["\"{name}\" has {n} audio tracks; track 1 is used. If the streamer's voice is on another track, right-click the file → Media info… to change it.", "「{name}」有 {n} 条音轨，现在用的是第 1 轨。主播的声音如果在别的轨上，右键这个文件 → 「素材信息…」里改。"],
-    "at-found-n": ["{n} files have several audio tracks; track 1 is used. If the streamer's voice is on another track, right-click the file → Media info… to change it.", "有 {n} 个文件有好几条音轨，现在用的都是第 1 轨。主播的声音如果在别的轨上，右键文件 → 「素材信息…」里改。"],
+    "at-listen-failed": ["This track can't be played. It may be empty.", "这条轨放不出来，可能是空的。"],
+    "at-changed": ["Now using track {n}. Finding songs and loudness again for this track.", "已改成第 {n} 轨，正在按这条轨重新找歌、算音量。"],
+    "at-captions-redo": ["Redo subtitles from this track", "按这条轨重做字幕"],
+    "at-captions-edited": ["You've edited the subtitles, so they weren't redone automatically. To redo them from track {n}, click “{button}”. The current subtitles will be replaced.", "字幕你改过，所以没有自动重做。要按第 {n} 轨重做，点〔{button}〕；原来的字幕会被替换。"],
+    "at-found": ["“{name}” has {n} audio tracks; track 1 is in use. If the streamer's voice is on another track, right-click the file → “{menu}” to change it.", "「{name}」有 {n} 条音轨，现在用的是第 1 轨。主播的声音如果在别的轨上，右键这个文件 →〔{menu}〕里改。"],
+    "at-found-n": ["{n} files have several audio tracks; track 1 is in use for all of them. If the streamer's voice is on another track, right-click the file → “{menu}” to change it.", "有 {n} 个文件有好几条音轨，现在用的都是第 1 轨。主播的声音如果在别的轨上，右键文件 →〔{menu}〕里改。"],
     "media-cannot-cut": ["Can't read how long \"{name}\" is, so it can't go on the timeline. The original file is unchanged.", "读不出「{name}」有多长，放不上时间线。原文件没有改动。"],
     "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],
     "tl-above-captions": ["Captions above, click to show", "上方有字幕轨，点这里显示"],

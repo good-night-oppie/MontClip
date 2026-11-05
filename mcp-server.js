@@ -177,7 +177,7 @@ function audioTracksNote(m) {
   if (!Array.isArray(m.audioTracks) || m.audioTracks.length < 2) return "";
   return `\nIt has ${m.audioTracks.length} audio tracks: ` +
     m.audioTracks.map((t, i) => `${i}: ${t.channels} ch${t.title ? ` "${t.title}"` : ""}${t.default ? " (default)" : ""}`).join(" · ") +
-    `. Songs, loudness, the transcript and the export read track ${MediaLib.audioTrackOf(m)}. If the streamer's voice is on another one, ` +
+    `. Songs, loudness and the transcript listen to track ${MediaLib.audioTrackOf(m)}; the export always uses track 0. If the streamer's voice is on another one, ` +
     `ask the streamer which (fablecut_audio_track {mediaId, listen} cuts a few seconds of each to play), then fablecut_audio_track {mediaId, track}.`;
 }
 /* fablecut_audio_track: list a recording's audio streams, cut a few seconds of each to listen to, or pick the one
@@ -217,7 +217,7 @@ async function audioTrackTool(args) {
   proj.revision = readRev + 1;
   writeProject(proj);
   lastReadRevision = proj.revision;
-  return `${notes.join(" ")} — songs, loudness, the transcript and the export of ${m.id} now read audio track ${args.track} (revision ${proj.revision}; one undo step). ` +
+  return `${notes.join(" ")} — songs, loudness, the transcript, beats and silences of ${m.id} now listen to audio track ${args.track}; the export keeps track 0 (revision ${proj.revision}; one undo step). ` +
     `Songs found from the other track were dropped: run fablecut_songs / fablecut_transcribe again for this one.` + (verWarn || "");
 }
 
@@ -264,12 +264,14 @@ function probeChannels(file, track = 0) {
   return n > 0 ? n : 0;
 }
 /** Decode a clip's source window with ffmpeg and hand each chunk to
- *  `onChunk(channels)`. Resolves to the channel count (0 = no audio stream). */
-function streamClipAudio(proj, c0, onStart, onChunk) {
+ *  `onChunk(channels)`. Resolves to the channel count (0 = no audio stream).
+ *  `analysis`: listening to the sound (silence, beats, highlights) reads the entry's audioTrack; working on the
+ *  exported sound (normalize, auto-duck) reads track 0, the one the export uses (JJ on #177). */
+function streamClipAudio(proj, c0, onStart, onChunk, { analysis = false } = {}) {
   const media = proj.media.find((m) => m.id === c0.mediaId);
   const file = media && mediaFile(media.src);
   if (!file) return Promise.reject(new Error(`clip ${c0.id}: media file not found`));
-  const track = MediaLib.audioTrackOf(media);   // the stream every reader uses (media-lib.js)
+  const track = analysis ? MediaLib.audioTrackOf(media) : 0;
   const nCh = probeChannels(file, track);
   if (!nCh || onStart(nCh) === false) return Promise.resolve(0);
   return new Promise((resolve, reject) => {
@@ -307,7 +309,7 @@ async function measureClipGroup(proj, clips) {
   return meter ? meter.result() : null;
 }
 /** Timeline spans with sound on these voice clips (ducking.js pipeline). */
-async function voiceRegions(proj, voices, threshold, minLen, heard) {
+async function voiceRegions(proj, voices, threshold, minLen, heard, { analysis = false } = {}) {
   const L = require("./loudness.js"), D = require("./ducking.js");
   const lists = [];
   for (const v of voices) {
@@ -357,7 +359,7 @@ async function silenceTool(args) {
   const rampedN = enabled.length - live.length;
   if (!live.length) throw new Error("those clips have a speed ramp (speed keyframes) — silence removal works on clips at a steady speed");
   const heard = new Set();
-  const sound = await voiceRegions(doc, live.flat(), opts.threshold, S.MIN_SOUND, heard);
+  const sound = await voiceRegions(doc, live.flat(), opts.threshold, S.MIN_SOUND, heard, { analysis: true });
   // only time that was actually listened to can be silent: a clip with no audio stream is left alone
   const usable = live.filter((g) => g.every((x) => heard.has(x.id)));
   if (!usable.length) throw new Error("those clips have no audio stream — nothing to listen to");
@@ -443,7 +445,7 @@ async function beatsTool(args) {
   const sp = Math.min(8, Math.max(0.1, +clip.props?.speed || 1));
   if (clip.duration * sp > BEATS_MAX_SECS) throw new Error(`clip ${clip.id} is longer than ${BEATS_MAX_SECS / 60} minutes of music — split it, or find the beat on a part of it`);
   const parts = [];
-  const nCh = await streamClipAudio(doc, clip, () => true, (chs) => parts.push(Bt.mono(chs)));
+  const nCh = await streamClipAudio(doc, clip, () => true, (chs) => parts.push(Bt.mono(chs)), { analysis: true });
   if (!nCh) throw new Error(`clip ${clip.id} has no audio stream — nothing to listen to`);
   const len = parts.reduce((n, p) => n + p.length, 0), all = new Float32Array(len);
   let at = 0;
@@ -620,7 +622,7 @@ async function highlightsTool(args) {
     catch (e) { skip.push({ id: s.id, why: e.message }); continue; }
     if (pic.motion.length < 2) { skip.push({ id: s.id, why: "too short to look at" }); continue; }
     let aud = H.sound(NORM_SR);
-    try { if (!(await streamClipAudio(doc, s.clip, () => true, (chs) => aud.push(Bt.mono(chs))))) aud = null; }
+    try { if (!(await streamClipAudio(doc, s.clip, () => true, (chs) => aud.push(Bt.mono(chs)), { analysis: true }))) aud = null; }
     catch { aud = null; }   // no sound to read: the picture alone decides
     sources.push({ id: s.id, len, pic, aud, speed: Math.min(8, Math.max(0.1, +s.clip.props?.speed || 1)) });
   }
@@ -1483,7 +1485,7 @@ async function callTool(name, args, attempt = 0) {
       if (base != null && readRev !== base) throw conflict(readRev);
       const { notes, toSave } = ProjectOps.applyPatch(proj, ops, {
         savedItems,
-        audioChannels: (m) => { const f = mediaFile(m.src); return f ? probeChannels(f, MediaLib.audioTrackOf(m)) || 0 : null; },
+        audioChannels: (m) => { const f = mediaFile(m.src); return f ? probeChannels(f) || 0 : null; },   // stems carry the exported sound: track 0
         checkProfile: resolveProfile,
         deliveryPresets: savedDeliveryPresets(),
         mediaInfo: (src) => { const f = mediaFile(src); return f ? probeFile(f) : null; },

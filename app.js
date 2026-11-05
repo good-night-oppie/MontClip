@@ -2108,9 +2108,12 @@ let decodeCtx = null;
 function getDecodeCtx() {
   return decodeCtx || (decodeCtx = new (window.AudioContext || window.webkitAudioContext)());
 }
-/* A recording with several audio streams is read from the one its entry picks (m.audioTrack, media-lib.js audioTrackOf):
-   the browser's own decode always takes the first, so another stream comes from the server (/api/audio-window), whole.
-   Keyed by file and stream, so picking another stream reads it afresh and going back finds the first one again. */
+/* A recording with several audio streams (#177): the exported sound — what plays, the waveform, the stems, the export
+   mix, normalize and auto-duck — is always track 0, the browser's own decode. Analysis — silences, beats, highlights,
+   and on the server songs, loudness and the transcript — listens to the track the entry picks (m.audioTrack, media-lib.js
+   audioTrackOf), so picking the microphone never strips the game and the music out of the video (JJ on #177). Another
+   stream comes from the server (/api/audio-window), whole. Keyed by file and stream: picking another stream reads it
+   afresh, and going back finds the first one again. */
 function audioKey(m) {
   const t = MediaLib.audioTrackOf(m);
   return t ? `${m.src}#a${t}` : m.src;
@@ -2120,8 +2123,9 @@ function srcAudioKey(src) {
   const m = project.media.find((x) => x.src === src);
   return m ? audioKey(m) : src;
 }
-function getAudioBuffer(m) {
-  const src = m.src, key = audioKey(m), track = MediaLib.audioTrackOf(m);
+/** The exported sound (track 0); `{analysis:true}`: the track the entry picks for listening. */
+function getAudioBuffer(m, { analysis = false } = {}) {
+  const src = m.src, track = analysis ? MediaLib.audioTrackOf(m) : 0, key = track ? `${src}#a${track}` : src;
   let p = runtime.audioBufs.get(key);
   if (!p) {
     p = track
@@ -2146,7 +2150,7 @@ function ensureWave(m) {
   if (EXPORT_JOB_PAGE) return;
   // Also decode peaks from video files when their audio is placed on an A track
   if (m.kind !== "audio" && m.kind !== "video") return;
-  const have = runtime.wavePeaks.get(m.id), src = audioKey(m);   // file and audio stream
+  const have = runtime.wavePeaks.get(m.id), src = m.src;   // the exported sound: track 0
   if (have && (have instanceof Float32Array || have.src === src)) return;
   runtime.wavePeaks.set(m.id, { src, pending: true });
   getAudioBuffer(m).then((buf) => {
@@ -2845,8 +2849,8 @@ async function refreshMediaInfo(list) {
     // nothing says how long it is: tell the user once, in plain words (never 0:00 or NaN)
     if (unknown.length) toast(unknown.length === 1 ? uiText("own.media-duration-unknown", { name: unknown[0].name }) : uiText("own.media-duration-unknown-n", { n: unknown.length }));
     // a recording with several audio tracks (OBS): say once where the choice is; one track says nothing
-    if (tracksFound.length === 1) toast(uiText("own.at-found", { name: tracksFound[0].name, n: tracksFound[0].audioTracks.length }));
-    else if (tracksFound.length > 1) toast(uiText("own.at-found-n", { n: tracksFound.length }));
+    if (tracksFound.length === 1) toast(uiText("own.at-found", { name: tracksFound[0].name, n: tracksFound[0].audioTracks.length, menu: uiText("own.mm-info") }));
+    else if (tracksFound.length > 1) toast(uiText("own.at-found-n", { n: tracksFound.length, menu: uiText("own.mm-info") }));
     if (changed) { renderBin(); scheduleSave(); if (state.selId) renderInspector(); }
     followSourceCanvas();
   } catch { } finally {
@@ -3069,6 +3073,14 @@ function audioTrackPicker(m) {
   box.innerHTML = `<div class="bin-pop-label"></div><div class="bin-pop-hint"></div>`;
   box.querySelector(".bin-pop-label").textContent = uiText("own.at-title");
   box.querySelector(".bin-pop-hint").textContent = uiText("own.at-hint");
+  const redo = runtime.captionRedo;
+  if (redo && redo.mediaId === m.id && redo.track === cur) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "btn tiny bin-track-redo";
+    b.textContent = uiText("own.at-captions-redo");
+    b.addEventListener("click", () => { hideTrackCtxMenu(); redoCaptionsForTrack(m, cur); });
+    box.appendChild(b);
+  }
   m.audioTracks.forEach((t, i) => {
     const row = document.createElement("label");
     row.className = "bin-track";
@@ -3100,23 +3112,76 @@ async function listenAudioTrack(m, track, btn) {
     await a.play();
   } catch { toast(uiText("own.at-listen-failed")); } finally { btn.disabled = false; }
 }
-/** Pick the stream every reading of the sound uses. One undo step; the songs found from the old one are dropped. */
+/** Pick the track the sound is analysed from (the exported sound stays track 0). One undo step. The songs and the
+ *  loudness are read again from it in the background; the captions are redone from it when nobody edited them,
+ *  else the streamer is offered 〔按这条轨重做字幕〕 (captionsEdited). */
 function setAudioTrack(m, track) {
   if (MediaLib.audioTrackOf(m) === track) return;
   pushUndo(JSON.stringify({ clips: project.clips, markers: project.markers || [], comps: project.comps || [], media: project.media, seqClips: otherSequenceClips() }), { capability: "fablecut_audio_track", args: { mediaId: m.id, track } });
+  const hadSongs = !!(project.songs && project.songs[m.id]);
   if (track) m.audioTrack = track; else delete m.audioTrack;
-  if (project.songs && project.songs[m.id]) { delete project.songs[m.id]; if (!Object.keys(project.songs).length) delete project.songs; }
-  const t = m.audioTracks && m.audioTracks[track];
-  if (t && t.channels > 0) m.channels = t.channels;
-  // players keep playing the file; what was decoded or drawn from the old stream is read again
-  runtime.wavePeaks.delete(m.id);
-  ensureWave(m);
+  if (hadSongs) { delete project.songs[m.id]; if (!Object.keys(project.songs).length) delete project.songs; }
   transcriptGen++;
   renderTranscript(true);
   renderBin(); state.dirtyTimeline = true;
   scheduleSave();
-  flushSave().catch(() => { });   // the server reads the stream from the saved project: save now, not in a moment
   toast(uiText("own.at-changed", { n: track + 1 }));
+  // the server reads the track from the saved project: save first, then redo what was read from the old track
+  flushSave().catch(() => false).then(() => redoTrackAnalysis(m, track, hadSongs)).catch(() => { });
+}
+/* After a track change (JJ on #177): songs and loudness again, in the background, without a click; the captions too,
+   unless they were edited. */
+async function redoTrackAnalysis(m, track, hadSongs) {
+  const still = () => MediaLib.audioTrackOf(m) === track && project.media.includes(m);
+  fetch(`/api/signals/loudness?src=${encodeURIComponent(m.src)}&track=${track}`).catch(() => { });   // kept per track on the server
+  const songs = (async () => {
+    const post = await fetch("/api/songs", { method: "POST", body: JSON.stringify({ src: m.src, track }) });
+    if (!post.ok) return;
+    for (let i = 0; i < 7200 && still(); i++) {
+      const g = await (await fetch(`/api/songs?src=${encodeURIComponent(m.src)}&track=${track}`)).json();
+      if (g.state === "done") {
+        // songs the project kept (fablecut_songs) come back from the new track
+        if (hadSongs && still() && typeof MontClipSongs !== "undefined") {
+          project.songs = { ...(project.songs || {}), [m.id]: MontClipSongs.entry({ key: g.key, complete: g.complete, scanned: g.scanned, songs: g.songs }) };
+          scheduleSave();
+        }
+        return;
+      }
+      if (g.state === "failed" || g.state === "none") return;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  })().catch(() => { });
+  await redoCaptionsForTrack(m, track, { auto: true });
+  await songs;
+}
+/** Caption clips someone may have changed: a caption is the program's own while its text is the text it was made with
+ *  (props.captionMade, stamped by captions.js since #177) and it follows the speech (wordTimes). Captions made before
+ *  that stamp, or imported from a subtitle file, can't be told apart from edited ones, so they count as edited and are
+ *  never redone without asking. */
+function captionsEdited(list) {
+  return list.some((c) => !c.props || typeof c.props.captionMade !== "string" || c.props.captionMade !== c.props.text || !Array.isArray(c.props.wordTimes));
+}
+/** Redo the captions from the picked track: transcribe the file's track (the server keeps one transcript per track),
+ *  then make the captions again in their style — one undo step, replacing the old ones. auto: only when they were
+ *  not edited; otherwise say so, with 〔按这条轨重做字幕〕. */
+async function redoCaptionsForTrack(m, track, { auto = false } = {}) {
+  const C = typeof MontClipCaptions !== "undefined" ? MontClipCaptions : null;
+  const caps = C ? project.clips.filter(C.isCaption) : [];
+  if (!caps.length) return;
+  if (auto && captionsEdited(caps)) {
+    runtime.captionRedo = { mediaId: m.id, track };
+    toastAction(uiText("own.at-captions-edited", { n: track + 1, button: uiText("own.at-captions-redo") }), uiText("own.at-captions-redo"), () => redoCaptionsForTrack(m, track));
+    return;
+  }
+  if (MediaLib.audioTrackOf(m) !== track) return;
+  runtime.captionRedo = null;
+  if (!(await loadTranscript(m.src, true))) {
+    try { await transcribeSrcs([m.src]); } catch (e) { toast(String((e && e.message) || e)); return; }
+  }
+  if (MediaLib.audioTrackOf(m) !== track) return;
+  const style = (caps[0].props && caps[0].props.captionStyle) || C.DEFAULT_STYLE;
+  renderTranscript(true);
+  addCaptionsFromTranscript(style);
 }
 
 /* Find all timeline instances: every placement (main timeline and inside comps); click one to go there. */
@@ -9715,13 +9780,13 @@ function setDuckKeys(c, keys) {
 }
 /** Timeline spans with sound on the voice clips (each measured after its
  *  channel routing, scaled by its clip gain and static volume). */
-async function voiceRegions(voices, threshold, minLen, heard) {
+async function voiceRegions(voices, threshold, minLen, heard, { analysis = false } = {}) {
   const lists = [];
   for (const v of voices) {
     const m = getMedia(v.mediaId);
     if (!m) continue;
     let buf;
-    try { buf = await getAudioBuffer(m); } catch { continue; }
+    try { buf = await getAudioBuffer(m, { analysis }); } catch { continue; }   // silences listen to the picked track; auto-duck to the exported one
     heard?.add(v.id);   // read and measured: its quiet is real quiet, not a file that failed to decode
     const a = clamp(Math.floor(v.in * buf.sampleRate), 0, buf.length);
     const b = clamp(Math.ceil(mediaTimeAt(v, clipEnd(v)) * buf.sampleRate), a, buf.length);
@@ -9782,7 +9847,7 @@ async function findSilences(clips, opts = silenceOptions()) {
   state.silenceBusy = true;   // the Inspector shows Listening… with Cancel meanwhile
   renderInspector();
   let sound;
-  try { sound = await voiceRegions(groups.flat(), opts.threshold, MontClipSilence.MIN_SOUND, heard); }
+  try { sound = await voiceRegions(groups.flat(), opts.threshold, MontClipSilence.MIN_SOUND, heard, { analysis: true }); }
   finally { if (gen === silenceGen) state.silenceBusy = false; }
   if (gen !== silenceGen) return;   // a newer Find took over, or Cancel
   renderInspector();   // Listening… → Find again, whatever comes next
@@ -11855,7 +11920,7 @@ async function findBeats(c) {
   renderInspector();
   toast("Listening for the beat…");
   try {
-    const buf = await getAudioBuffer(m);
+    const buf = await getAudioBuffer(m, { analysis: true });
     await new Promise((res) => setTimeout(res, 0));   // let "Listening…" paint and Cancel land before the analysis runs
     if (gen !== beatsGen) return;
     const a0 = clamp(Math.floor((c.in || 0) * buf.sampleRate), 0, buf.length);
@@ -15783,7 +15848,7 @@ async function readHighlightSource(c, cancelled, onFrame) {
   const done = () => ({ id: c.id, len: c.duration * sp, pic, aud, speed: sp });
   if (cancelled() || !media || media.audioChannels === 0 || +media.duration > HL_AUDIO_MAX_SECS) return done();
   try {
-    const buf = await getAudioBuffer(media);
+    const buf = await getAudioBuffer(media, { analysis: true });
     const a0 = Math.max(0, Math.floor((c.in || 0) * buf.sampleRate));
     const a1 = Math.min(buf.length, Math.ceil(((c.in || 0) + c.duration * sp) * buf.sampleRate));
     if (a1 > a0) {
@@ -19917,9 +19982,9 @@ async function exportAudioSource(m, c, a, b, windows = new Map()) {
     const m0 = Math.min(mediaTimeAt(c, a), mediaTimeAt(c, b)), m1 = Math.max(mediaTimeAt(c, a), mediaTimeAt(c, b));
     const from = Math.max(0, Math.floor((m0 - AUDIO_WINDOW_PAD) * 1000) / 1000), to = Math.ceil((m1 + AUDIO_WINDOW_PAD) * 1000) / 1000;
     if (to - from <= 3600) {
-      const track = MediaLib.audioTrackOf(m);   // the stream the user picked; the server would look it up, but this is the tab's own
-      const key = `${m.src}|${track}|${from}|${to}`;
-      if (!windows.has(key)) windows.set(key, fetch(`/api/audio-window?src=${encodeURIComponent(m.src)}&from=${from}&to=${to}&track=${track}`)
+      // track 0 whatever the entry picks for analysis: the export keeps the whole sound (JJ on #177)
+      const key = `${m.src}|${from}|${to}`;
+      if (!windows.has(key)) windows.set(key, fetch(`/api/audio-window?src=${encodeURIComponent(m.src)}&from=${from}&to=${to}&track=0`)
         .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error("audio window " + r.status))))
         .then((ab) => getDecodeCtx().decodeAudioData(ab)).catch((e) => { console.warn("[MontClip] audio window failed, decoding the whole file:", e && e.message); return null; }));
       const buf = await windows.get(key);

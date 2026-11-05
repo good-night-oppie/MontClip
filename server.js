@@ -195,7 +195,7 @@ const signals = require("./signals").createSignals({ dir: path.join(ANALYSIS_DIR
 const Songs = require("./songs");
 const songScan = require("./song-scan").createSongScan({ dir: path.join(ANALYSIS_DIR, "songs"), ffmpeg: FF.path("ffmpeg") });
 const songJobs = new Map();   // src (+ "|a<track>" for another audio stream) → {state, done, total, ctrl, error, code}
-/* Which audio stream of a file is read for songs, loudness, the transcript and the export mix: `given` (a request's
+/* Which audio stream of a file is analysed — songs, loudness, the transcript: `given` (a request's
    `track`) when there is one, else the open project's media entry for that src (its audioTrack, media-lib.js
    audioTrackOf), else 0. One answer for every reader, so they never read different streams
    (docs/validation/2026-11-05-audio-tracks). → an integer, or NaN for a `given` that is not one. */
@@ -1663,7 +1663,8 @@ const server = http.createServer(async (req, res) => {
     if (!file) { sendJSON(res, 404, { error: "src must name an existing file under /media/ or /library/" }); return; }
     if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
     const from = Number(url.searchParams.get("from")), to = Number(url.searchParams.get("to"));
-    const track = audioTrackFor(url.searchParams.get("src") || "", url.searchParams.get("track"));
+    // the exported sound is track 0 whatever the entry picks for analysis (JJ on #177); `track` names another (试听)
+    const track = audioTrackFor(url.searchParams.get("src") || "", url.searchParams.get("track") || "0");
     if (Number.isNaN(track)) { sendJSON(res, 400, BAD_TRACK); return; }
     if (!Number.isFinite(from) || !Number.isFinite(to) || from < 0 || to <= from || to - from > 3600) {
       sendJSON(res, 400, { error: "from and to are seconds, 0 ≤ from < to, at most an hour apart" }); return;

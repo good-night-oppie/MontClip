@@ -130,7 +130,7 @@ test('setAudioTrack: one track at a time, only tracks the file has, and the song
  a.match(Ops.compactView({...doc,media:[{...doc.media[0],audioTrack:1}]}),/audioTrack:1 of \[0:2ch, 1:1ch "Mic"\]/);
  a.doesNotMatch(Ops.compactView(doc),/audioTrack:.* m_one|one\.mp4.*audioTrack/,'one track: nothing shown');
 });
-test('REST: with track 1 picked in the project, loudness, songs and the audio window read track 1 without being told; an explicit track wins',{skip},async(t)=>{
+test('REST: with track 1 picked in the project, loudness and songs read track 1 without being told; the audio window (the exported sound) stays on track 0 unless a track is named',{skip},async(t)=>{
  const proj=seedProject({media:[{id:'m_r',name:'r.mkv',kind:'video',src:'/media/r.mkv',duration:LEN,audioChannels:1,audioTrack:1,
   audioTracks:[{channels:1,title:'Game'},{channels:1,title:'Mic'},{channels:1,title:'BGM'}]}]});
  const dir=makeDataDir(t,proj);fs.mkdirSync(path.join(dir,'media'),{recursive:true});synth(path.join(dir,'media','r.mkv'));
@@ -142,12 +142,12 @@ test('REST: with track 1 picked in the project, loudness, songs and the audio wi
  let r;for(let i=0;i<300;i++){r=await (await fetch(base+'/api/songs?src=/media/r.mkv')).json();if(r.state==='done'||r.state==='failed')break;await new Promise(z=>setTimeout(z,100));}
  a.equal(r.state,'done',JSON.stringify(r).slice(0,300));a.equal(r.track,1);
  a.equal(r.songs.length,1);a.ok(Math.abs(r.songs[0].from-SING[0])<=2&&Math.abs(r.songs[0].to-SING[1])<=2,JSON.stringify(r.songs));
- const w=await fetch(base+'/api/audio-window?src=/media/r.mkv&from=90&to=91');a.equal(w.status,200);
- const buf=Buffer.from(await w.arrayBuffer()),h=AW.wavChunks(buf);let s=0;const n=h.data.size/4;for(let i=0;i<n;i++){const v=buf.readFloatLE(h.data.offset+i*4);s+=v*v;}
- a.ok(10*Math.log10(s/n)>-40,'audio window at 90 s: the microphone is on');
- const w0=Buffer.from(await (await fetch(base+'/api/audio-window?src=/media/r.mkv&from=30&to=31')).arrayBuffer()),h0=AW.wavChunks(w0);
- let s0=0;for(let i=0;i<h0.data.size/4;i++){const v=w0.readFloatLE(h0.data.offset+i*4);s0+=v*v;}
- a.ok(10*Math.log10(s0/(h0.data.size/4)+1e-12)<-60,'at 30 s the microphone is quiet (track 0, the game, would not be)');
+ // the exported sound: track 0 (the game, on at 30 s); the microphone only when it is named (试听)
+ const level=async(q)=>{const b=Buffer.from(await (await fetch(base+'/api/audio-window?src=/media/r.mkv&'+q)).arrayBuffer()),h=AW.wavChunks(b);
+  let s=0;const n=h.data.size/4;for(let i=0;i<n;i++){const v=b.readFloatLE(h.data.offset+i*4);s+=v*v;}return 10*Math.log10(s/n+1e-12);};
+ a.ok(await level('from=30&to=31')>-40,'audio window at 30 s: track 0, the game, whatever the project picks');
+ a.ok(await level('from=30&to=31&track=1')<-60,'track=1 named: the microphone, quiet at 30 s');
+ a.ok(await level('from=90&to=91&track=1')>-40,'and on at 90 s');
 });
 test('MCP fablecut_audio_track: lists the tracks, cuts a few seconds of each to listen to, picks one in one revision',{skip},async(t)=>{
  const proj=seedProject({media:[{id:'m_r',name:'r.mkv',kind:'video',src:'/media/r.mkv',duration:LEN}],clips:[]});
@@ -171,18 +171,67 @@ test('one audio track: nothing to choose, and every reader reads it as before',{
  const Songs=require('../songs'),scan=require('../song-scan').createSongScan({dir:path.join(d,'songs')});
  const s=Songs.find((await scan.scan(file)).rows.map(x=>x[0]),{complete:true});a.equal(s.length,1);a.ok(Math.abs(s[0].from-SING[0])<=2);
 });
-test('the editor: the media info lists the tracks with 试听, picking one is an undo step, and every decode and fetch follows it',()=>{
+test('the editor: the media info lists the tracks with 试听, picking one is an undo step, analysis follows it and the exported sound does not',()=>{
  const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
  a.match(app,/if \(Array\.isArray\(m\.audioTracks\) && m\.audioTracks\.length > 1\) pop\.appendChild\(audioTrackPicker\(m\)\);/);
  const set=app.slice(app.indexOf('function setAudioTrack('),app.indexOf('function setAudioTrack(')+1400);
  a.match(set,/pushUndo\(/);a.match(set,/delete project\.songs\[m\.id\]/);a.match(set,/flushSave\(\)/);
- a.match(app,/&track=\$\{track\}`\)/,'the export window names the track');
+ a.match(set,/redoTrackAnalysis\(m, track, hadSongs\)/,'songs, loudness and captions are redone without a click');
+ a.doesNotMatch(set,/m\.channels =|wavePeaks/,'the stems and the waveform keep the exported sound');
+ a.match(app,/&to=\$\{to\}&track=0`\)/,'the export mix asks for track 0: the exported sound never follows the pick (JJ)');
+ a.match(app,/getAudioBuffer\(m, \{ analysis \}\)/,'silences listen to the picked track, auto-duck to the exported one');
+ a.match(app,/const buf = await getAudioBuffer\(m, \{ analysis: true \}\);\n    await new Promise/,'beats listen to the picked track');
+ a.match(app,/const buf = await getAudioBuffer\(media, \{ analysis: true \}\);/,'highlights listen to the picked track');
+ a.match(app,/const have = runtime\.wavePeaks\.get\(m\.id\), src = m\.src;/,'the waveform is the exported sound');
  a.match(app,/if \(MediaLib\.audioTrackOf\(m\)\) mo\.audioTrack = m\.audioTrack;/,'the save keeps the pick (the media list is written field by field)');
  a.match(app,/JSON\.stringify\(\{ src, track: m \? MediaLib\.audioTrackOf\(m\) : 0 \}\)/,'transcription names the track');
  a.match(app,/"\/api\/transcript\?src=" \+ encodeURIComponent\(src\) \+ "&track=" \+ track/);
- const V=require('../ui-preferences');
- for(const k of ['at-title','at-hint','at-track','at-listen','at-listen-failed','at-changed','at-found','at-found-n','at-channels']){
-  const zh=V.t('zh-CN','own.'+k,{n:2,name:'录像'});a.ok(zh&&!zh.startsWith('own.'),k);a.ok(!/我/.test(zh),k+': no 我 on fixed text');
- }
- a.equal(V.t('zh-CN','own.at-title'),'主播的声音在哪条轨');
+ a.match(app,/uiText\("own\.at-found", \{ name: tracksFound\[0\]\.name, n: tracksFound\[0\]\.audioTracks\.length, menu: uiText\("own\.mm-info"\) \}\)/,'the menu name is the menu item\'s own');
+ a.match(app,/uiText\("own\.at-captions-edited", \{ n: track \+ 1, button: uiText\("own\.at-captions-redo"\) \}\)/,'the button name is the button\'s own');
+});
+test('JJ定稿 wording (2026-11-05), word for word in both languages; menu and button names come from their own keys',()=>{
+ const V=require('../ui-preferences'),zh=(k,v)=>V.t('zh-CN','own.'+k,v),en=(k,v)=>V.t('en','own.'+k,v);
+ const menuZh=zh('mm-info'),menuEn=en('mm-info'),btnZh=zh('at-captions-redo'),btnEn=en('at-captions-redo');
+ a.equal(menuZh,'素材信息…');a.equal(menuEn,'Media info…');
+ a.equal(zh('at-title'),'主播的声音在哪条轨');a.equal(en('at-title'),"Which track is the streamer's voice");
+ a.equal(zh('at-hint'),'找歌、音量和字幕只听这一条轨，导出的声音不受影响。OBS 录的第 1 轨通常是混好的全部声音；如果你把麦克风单独录成了一条轨，就选那一条。');
+ a.equal(en('at-hint'),"Song finding, loudness and subtitles listen to this one track; the exported sound is not affected. In an OBS recording, track 1 is usually all the sound mixed together. If you recorded your mic on its own track, pick that one.");
+ a.equal(zh('at-track',{n:2}),'第 2 轨');a.equal(en('at-track',{n:2}),'Track 2');
+ a.equal(zh('at-channels',{n:2}),'2 声道');a.equal(en('at-channels',{n:2}),'2 ch');
+ a.equal(zh('at-listen'),'试听');a.equal(en('at-listen'),'Listen');
+ a.equal(zh('at-listen-failed'),'这条轨放不出来，可能是空的。');a.equal(en('at-listen-failed'),"This track can't be played. It may be empty.");
+ a.equal(zh('at-changed',{n:2}),'已改成第 2 轨，正在按这条轨重新找歌、算音量。');a.equal(en('at-changed',{n:2}),'Now using track 2. Finding songs and loudness again for this track.');
+ a.equal(btnZh,'按这条轨重做字幕');a.equal(btnEn,'Redo subtitles from this track');
+ a.equal(zh('at-captions-edited',{n:2,button:btnZh}),'字幕你改过，所以没有自动重做。要按第 2 轨重做，点〔按这条轨重做字幕〕；原来的字幕会被替换。');
+ a.equal(en('at-captions-edited',{n:2,button:btnEn}),"You've edited the subtitles, so they weren't redone automatically. To redo them from track 2, click “Redo subtitles from this track”. The current subtitles will be replaced.");
+ a.equal(zh('at-found',{name:'录像',n:3,menu:menuZh}),'「录像」有 3 条音轨，现在用的是第 1 轨。主播的声音如果在别的轨上，右键这个文件 →〔素材信息…〕里改。');
+ a.equal(en('at-found',{name:'rec',n:3,menu:menuEn}),"“rec” has 3 audio tracks; track 1 is in use. If the streamer's voice is on another track, right-click the file → “Media info…” to change it.");
+ a.equal(zh('at-found-n',{n:2,menu:menuZh}),'有 2 个文件有好几条音轨，现在用的都是第 1 轨。主播的声音如果在别的轨上，右键文件 →〔素材信息…〕里改。');
+ a.equal(en('at-found-n',{n:2,menu:menuEn}),"2 files have several audio tracks; track 1 is in use for all of them. If the streamer's voice is on another track, right-click the file → “Media info…” to change it.");
+ a.equal(require('../capabilities').get('fablecut_audio_track').summary['zh-CN'],'分轨录像里，选哪条音轨是主播的声音');
+ const src=fs.readFileSync(path.join(__dirname,'..','ui-preferences.js'),'utf8');
+ a.ok(!/Media info…”|〔素材信息…〕|Redo subtitles from this track”|〔按这条轨重做字幕〕/.test(src),'menu and button names are never written into these sentences by hand');
+});
+test('captions say which text they were made with, so an edited one is told apart and never redone without asking',()=>{
+ const C=require('../captions');
+ const c=C.clip({start:1,end:2,text:'你好 世界',words:[{s:1,e:1.4},{s:1.5,e:2}]},{style:'subtitle',width:1920,height:1080});
+ a.equal(c.props.captionMade,'你好 世界');a.ok(Array.isArray(c.props.wordTimes));
+ const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+ const at=app.indexOf('function captionsEdited('),body=app.slice(app.indexOf('{',at)+1,app.indexOf('\n}',at));
+ const captionsEdited=new Function('list',body);
+ a.equal(captionsEdited([c]),false);
+ a.equal(captionsEdited([{...c,props:{...c.props,text:'你好 朋友'}}]),true,'text changed');
+ const old={...c,props:{...c.props}};delete old.props.captionMade;a.equal(captionsEdited([old]),true,'no stamp (made before #177): counted as edited');
+ const srt={...c,props:{...c.props}};delete srt.props.wordTimes;a.equal(captionsEdited([srt]),true,'imported (no word times): counted as edited');
+});
+test('MCP: silences, beats and highlights listen to the picked track; normalize and auto-duck work on the exported sound (track 0)',()=>{
+ const src=fs.readFileSync(path.join(__dirname,'..','mcp-server.js'),'utf8');
+ a.match(src,/function streamClipAudio\(proj, c0, onStart, onChunk, \{ analysis = false \} = \{\}\)/);
+ a.match(src,/const track = analysis \? MediaLib\.audioTrackOf\(media\) : 0;/);
+ a.match(src,/voiceRegions\(doc, live\.flat\(\), opts\.threshold, S\.MIN_SOUND, heard, \{ analysis: true \}\)/,'silences');
+ a.match(src,/streamClipAudio\(doc, clip, \(\) => true, \(chs\) => parts\.push\(Bt\.mono\(chs\)\), \{ analysis: true \}\)/,'beats');
+ a.match(src,/streamClipAudio\(doc, s\.clip, \(\) => true, \(chs\) => aud\.push\(Bt\.mono\(chs\)\), \{ analysis: true \}\)/,'highlights');
+ a.match(src,/await voiceRegions\(doc, voices, threshold\) : \[\]/,'auto-duck: the exported sound');
+ const norm=src.slice(src.indexOf('async function measureClipGroup('),src.indexOf('async function measureClipGroup(')+400);
+ a.doesNotMatch(norm,/analysis/,'normalize: the exported sound');
 });

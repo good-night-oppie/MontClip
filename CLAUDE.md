@@ -1777,21 +1777,27 @@ proxy only changes how smoothly the preview runs, never the result.
   — organize files (`favorite:false` unstars; `tags:[]` clears). Metadata keys
   are refused: they come from the file.
 - **Audio tracks.** A recording with several audio streams (`audioTracks`) has
-  one that every reading of its sound uses: songs, loudness, the transcript, the
-  export mix, and silence / beats / normalize / auto-duck. It is `audioTrack`
-  (0 = the first, the default, and not stored). In an OBS recording the first
+  one its sound is *analysed* from: `audioTrack` (0 = the first, the default,
+  and not stored). Songs, loudness, the transcript and captions, beats,
+  silences and highlights listen to it. The *exported* sound — the export mix,
+  the waveform, the stems, and normalize / auto-duck, which work on it — is
+  always track 0, so picking the microphone for better song finding never
+  strips the game and the music out of the video. In an OBS recording the first
   track is usually everything mixed together, so change it only when the
   streamer's voice is on its own track. `{op:"setAudioTrack", id, track}` picks
   one (only tracks the file has; the songs found from the old one are dropped),
   or `fablecut_audio_track {mediaId}` lists them, `{mediaId, listen: seconds}`
   cuts 6 s of each into `analysis/listen/` to play, `{mediaId, track}` picks one.
   Loudness, songs and transcripts are kept per track, so going back finds the
-  first results again. The REST readers (`/api/signals/loudness`, `/api/songs`,
-  `/api/audio-window`, `/api/transcript`, `/api/asr/transcribe`) take `track`,
-  and without it read the open project's `audioTrack` for that file. In the
-  editor: right-click the file → **Media info…** lists the tracks with
-  **Listen**. Preview playback still plays what the browser picks (the first
-  track, or an MP4's default one); the export uses the picked track.
+  first results again. The REST readers `/api/signals/loudness`, `/api/songs`,
+  `/api/transcript` and `/api/asr/transcribe` take `track`, and without it read
+  the open project's `audioTrack` for that file; `/api/audio-window` reads
+  track 0 unless `track` names another. In the editor: right-click the file →
+  **Media info…** lists the tracks with **Listen**. Picking one reads the songs
+  and loudness again in the background; captions are made again from the new
+  track unless they were edited (a caption keeps the text it was made with in
+  `props.captionMade`; captions without it, or imported from a subtitle file,
+  count as edited), and then **Redo subtitles from this track** offers it.
 - `{op:"setCollection", id?, name?, media?, add?, remove?}` creates a collection
   (a new `id`, or a `name` no collection has) or changes one: `media` replaces
   its list, `add` / `remove` edit it. `{op:"removeCollection", id}` deletes it;
