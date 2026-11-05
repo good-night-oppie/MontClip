@@ -21204,6 +21204,8 @@ function onSettingsTabTrap(e) {
 function openSettings() {
   const cb = $("setLinkSelect");
   if (cb) cb.checked = !!getSetting("linkSelect");
+  const sf = $("setSoundFactsOn");
+  if (sf) sf.checked = soundFactsOn();
   const overlay = $("settingsOverlay");
   overlay.classList.remove("hidden");
   overlay.addEventListener("keydown", onSettingsTabTrap);
@@ -21267,6 +21269,12 @@ function closeTopOverlay() {
   else return false;
   return true;
 }
+/** 「附上唱歌段和音量」 (QQ on #169): on unless switched off in 设置. Off, no sound numbers are read or sent. */
+function soundFactsOn() { return mcView.get().soundFacts !== false; }
+$("setSoundFactsOn")?.addEventListener("change", (e) => {
+  mcView.set({ soundFacts: !!e.target.checked });
+  if (!e.target.checked) runtime.soundFacts = null;
+});
 $("setLinkSelect").addEventListener("change", (e) => {
   setSetting("linkSelect", !!e.target.checked);
   if (!getSetting("linkSelect")) {
@@ -23480,6 +23488,20 @@ function canUndoOfficialProposal(result){
  if(!entry||entry.projectId!==c.projectId||entry.sequenceId!==c.sequenceId||entry.gen!==c.gen)return false;
  try{return JSON.parse(runtime.undo.at(-1)).agentApplyId===entry.token;}catch{return false;}
 }
+/* The sound numbers for the facts (JJ via Deja, 2026-11-05; agent-facts.js): before the review box opens, each sent clip's
+   file's loudness (/api/signals/loudness, read once and kept by the server) and the songs the 「唱歌」 scan already found
+   (/api/songs; only a file read to its end). Never starts a song scan. A file not ready within 15 s is left out this time. */
+async function agentSoundFacts(){
+ if(!soundFactsOn()){runtime.soundFacts=null;return;}   // switched off: nothing is read
+ const want=MontClipFacts.soundMedia(projectJSON()),sound={};
+ const get=async(url)=>{const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),15000);try{const r=await fetch(url,{signal:ctrl.signal});return r.ok?await r.json():null;}catch{return null;}finally{clearTimeout(timer);}};
+ await Promise.all(want.map(async({mediaId,src})=>{
+  const [l,g]=await Promise.all([get("/api/signals/loudness?src="+encodeURIComponent(src)),get("/api/songs?src="+encodeURIComponent(src))]);
+  sound[mediaId]={loudness:l&&Number.isFinite(l.step)&&Array.isArray(l.values)?{step:l.step,values:l.values}:null,
+   songs:g&&g.state==="done"&&Array.isArray(g.songs)?g.songs.map((x)=>({from:x.from,to:x.to})):null};
+ }));
+ runtime.soundFacts={signature:JSON.stringify(want),sound};
+}
 const mcAgentPanel=document.getElementById('mcAssistantPanel');
 document.querySelector(".upper > .inspector").append(mcAgentPanel);
 document.querySelector(".topbar-right").prepend(document.getElementById("mcMediaToggle"));
@@ -23493,7 +23515,11 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  onHide:()=>{setSideTab("inspector");document.getElementById("mcAssistant").focus();},
  getProjectName:id=>id===runtime.projectId?project.name:null,
  canUndoProposal:canUndoOfficialProposal,
- getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[]});},
+ getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts,s=runtime.soundFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[],sound:soundFactsOn()&&s&&s.signature===JSON.stringify(MontClipFacts.soundMedia(doc))?s.sound:null});},
+ soundFactsOff:()=>!soundFactsOn(),
+ soundTooLong:()=>{const doc=projectJSON(),s=runtime.soundFacts;return soundFactsOn()&&!!s&&s.signature===JSON.stringify(MontClipFacts.soundMedia(doc))&&MontClipFacts.tooLong(doc,s.sound);},
+ soundOffNote:(text)=>soundFactsOn()||!MontClipFacts.asksAboutSound(text)?'':uiText('own.sf-off-note',{settings:uiText('term.settings'),switch:uiText('own.sf-label')}),
+ beforeReview:agentSoundFacts,
  ...(window.montclipAgentPolicy?{getMode:()=>agentPolicy.mode,setMode:setAgentMode,onReply:result=>{void onAgentReply(result);},
   getPlan:agentPlanView,planStart:runAgentPlan,planUndo:undoAgentPlan,
   planRemove:(result,i)=>{agentPlanOf(result)?.run.remove(i);},planDiscard:(result)=>{agentPlanOf(result)?.run.discard();}}:{}),
