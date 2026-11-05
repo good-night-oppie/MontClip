@@ -4758,6 +4758,14 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
  body[data-mc-mode] .app.media-open .upper > .bin { display:flex; grid-column:2; grid-row:1; }
  .app.media-open .upper > .inspector { display:none; }
 }
+/* VV 2026-11-05 (360 px): the two columns above need 260 + 250 px, so below about 560 px 素材 put the bin half off the
+   page beside the player. There the bin takes the whole width instead, as the assistant does below 760 px; 素材 again
+   brings the player back. desktop/narrow-media-smoke.cjs. */
+@media(max-width:560px) {
+ .app.media-open .upper,.app.media-open.agent-open .upper { grid-template-columns:minmax(0,1fr); }
+ body[data-mc-mode] .app.media-open .upper > .monitor { display:none; }
+ body[data-mc-mode] .app.media-open .upper > .bin { grid-column:1; }
+}
 #mcAgentContent { flex:1; overflow:hidden; }
 #mcAgentContent .agent-scroll { flex:1; min-height:0; overflow:auto; display:flex; flex-direction:column; gap:4px; }
 #mcAgentContent > textarea,#mcAgentContent > .agent-toolbar { flex-shrink:0; }
