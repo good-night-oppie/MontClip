@@ -38,8 +38,11 @@
       h264Option: "这台电脑上的 FFmpeg 做不了 MP4（缺 H.264 编码）。",
       // DRAFT for JJ: no bundled build, and the FFmpeg found is too old to run what MontClip uses
       tooOldTitle: "这个 FFmpeg 太旧了",
-      tooOldLinux: "预览和导出要用到 FFmpeg，可这台电脑上找到的那个版本太旧，MontClip 用不了。请换一个新一点的完整版 FFmpeg，装好后点〔重新检测〕；如果装在别的地方，点〔我装在别处了，手动选择〕。",
-      tooOldWin: "预览和导出要用到 FFmpeg，可这台电脑上找到的那个版本太旧，MontClip 用不了。请换一个新一点的完整版 FFmpeg，点〔选择 ffmpeg.exe〕，选中它就行。",
+      // DRAFT for JJ, the too old card (Deja 2026-11-05): the reason first — the version found and the 6.0 needed, or the missing options
+      tooOldVersion: "预览和导出要用到 FFmpeg。这台电脑上找到的是 {v} 版，太旧了：MontClip 需要 {min} 或更新的版本。",
+      tooOldOptions: "预览和导出要用到 FFmpeg。这台电脑上找到的那个缺 MontClip 要用的功能（测响度、找歌），用不了。",
+      tooOldLinux: "请装一个新一点的完整版 FFmpeg，装好后点〔重新检测〕；如果装在别的地方，点〔我装在别处了，手动选择〕。",
+      tooOldWin: "请换一个新一点的完整版 FFmpeg，点〔选择 ffmpeg.exe〕，选中它就行。",
       pathLabel: "FFmpeg 放在哪（完整路径）",
       pathUse: "用这个",
       unavailable: "现在还不能导出：缺少 FFmpeg。",
@@ -68,14 +71,17 @@
       unavailableH264: "Can't export MP4 yet: the FFmpeg on this computer can't make MP4 files (it's missing H.264 encoding).",
       h264Option: "The FFmpeg on this computer can't make MP4 (missing H.264 encoding).",   // JJ, final
       tooOldTitle: "This FFmpeg is too old",
-      tooOldLinux: "Previewing and exporting need FFmpeg, and the one on this computer is too old for MontClip. Install a newer full version of FFmpeg, then click “Check again”; if it's somewhere else, click “It's installed elsewhere — choose it”.",
-      tooOldWin: "Previewing and exporting need FFmpeg, and the one on this computer is too old for MontClip. Get a newer full version of FFmpeg, then click “Choose ffmpeg.exe” and select it.",
+      tooOldVersion: "Previewing and exporting need FFmpeg. The one on this computer is version {v}, which is too old: MontClip needs {min} or newer.",
+      tooOldOptions: "Previewing and exporting need FFmpeg. The one on this computer lacks features MontClip uses (measuring loudness, finding songs).",
+      tooOldLinux: "Install a newer full version of FFmpeg, then click “Check again”; if it's somewhere else, click “It's installed elsewhere — choose it”.",
+      tooOldWin: "Get a newer full version of FFmpeg, then click “Choose ffmpeg.exe” and select it.",
       pathLabel: "Where FFmpeg is (full path)",
       pathUse: "Use this",
       unavailable: "Can't export yet: FFmpeg is missing.",
     },
   };
   const COMMANDS = { linux: "sudo apt install ffmpeg", darwin: "brew install ffmpeg" };
+  const MIN_VERSION = "6.0";   // ffmpeg-path.js MIN_VERSION: the oldest FFmpeg MontClip can use when it has no bundled build
   const lang = (l) => (text[l] ? l : "en");
 
   /** What was found → ready · missing (no ffmpeg) · noProbe (ffmpeg without ffprobe) · noH264 (no MP4 export).
@@ -103,7 +109,11 @@
     // 「还不能导出 MP4」: the command sits inside JJ's sentence (`…`); the page shows it as code with 〔复制〕 after it
     // macOS (JJ, 2026-11-05): the sentence above the command box, the command in the box with 〔复制〕 beside it
     const mac = platform === "darwin", install = mac ? t.installMac : t.install;
-    if (status.state === "tooOld") { title = t.tooOldTitle; body = win ? t.tooOldWin : t.tooOldLinux; }
+    if (status.state === "tooOld") {
+      const f = status.ffmpeg || {}, why = f.why === "version" && f.version
+        ? t.tooOldVersion.replace("{v}", f.version).replace("{min}", MIN_VERSION) : t.tooOldOptions;
+      title = t.tooOldTitle; body = why + sp + (win ? t.tooOldWin : t.tooOldLinux);
+    }
     else if (status.state === "noH264") { title = t.noH264Title; body = t.noH264; howto = win ? t.noH264Win : mac ? t.installMac : t.noH264Linux; }
     else if (status.state === "noProbe") body = win ? t.noProbe : t.noProbe + sp + install;
     else body = win ? t.bodyWin : t.notFound + sp + install;

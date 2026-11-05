@@ -67,19 +67,39 @@ function placeAllowed(file) {
   if (process.platform !== "win32") { try { if (!(fs.statSync(f).mode & 0o111)) return false; } catch { return false; } }
   return true;
 }
-/* The gate for an FFmpeg used for everything (no bundled build): it must run the loudness measurement's own options. */
+/* The gate for an FFmpeg used for everything (no bundled build), Deja 2026-11-05: version 6.0 or newer — Debian 12's
+   5.1.9 lacks aspectralstats measure= (6.0; song finding fails outright) and ebur128 framelog=quiet — and it must run
+   the options MontClip uses: the loudness measurement's, and song-scan's own filter string. A build whose number can't
+   be read (a git build, "N-…") is judged by the options alone. → {ok, version, why: "version" | "options" | null} */
+const MIN_VERSION = "6.0";
 const GATE_ARGS = ["-hide_banner", "-v", "error", "-f", "lavfi", "-i", "sine=d=0.3", "-af", "ebur128=peak=true:framelog=quiet", "-f", "null", "-"];
+const GATE_CHECKS = [GATE_ARGS,
+  ["-hide_banner", "-v", "error", "-f", "lavfi", "-i", "sine=d=1:sample_rate=16000", "-af", require("./song-scan").FILTER, "-f", "null", "-"]];
+/** "ffmpeg version 5.1.9-0+deb12u1 …" → "5.1.9"; "n9.0.2-…" → "9.0.2"; a git build ("N-118000-g…") → null. */
+function versionOf(text) {
+  const m = /ffmpeg version n?(\d+)\.(\d+)(?:\.(\d+))?/i.exec(String(text || ""));
+  return m ? [m[1], m[2], m[3]].filter((x) => x !== undefined).join(".") : null;
+}
+function versionBelow(v, min) {
+  const a = v.split(".").map(Number), b = min.split(".").map(Number);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) { const d = (a[i] || 0) - (b[i] || 0); if (d) return d < 0; }
+  return false;
+}
 const gateMemo = new Map();
-function passesGate(bin) {
+function gateCheck(bin) {
   let key = bin;
-  try { const st = fs.statSync(bin); key += `|${st.size}|${st.mtimeMs}`; } catch { return false; }
+  try { const st = fs.statSync(bin); key += `|${st.size}|${st.mtimeMs}`; } catch { return { ok: false, version: null, why: "options" }; }
   if (!gateMemo.has(key)) {
-    let ok = false;
-    try { ok = require("child_process").spawnSync(bin, GATE_ARGS, { stdio: "ignore", timeout: 15000, windowsHide: true }).status === 0; } catch { }
-    gateMemo.set(key, ok);
+    const run = (args) => { try { return require("child_process").spawnSync(bin, args, { encoding: "utf8", timeout: 15000, windowsHide: true }); } catch { return { status: -1, stdout: "" }; } };
+    const version = versionOf(run(["-hide_banner", "-version"]).stdout);
+    let r;
+    if (version && versionBelow(version, MIN_VERSION)) r = { ok: false, version, why: "version" };
+    else r = GATE_CHECKS.every((args) => run(args).status === 0) ? { ok: true, version, why: null } : { ok: false, version, why: "options" };
+    gateMemo.set(key, r);
   }
   return gateMemo.get(key);
 }
+function passesGate(bin) { return gateCheck(bin).ok; }
 
 /** The first PATH folder holding `exe`, as an absolute path; null when none. Relative and empty entries are skipped
  *  (they mean the current folder, which is not where an installed program lives). */
@@ -108,7 +128,8 @@ function resolveTool(name, opts = {}) {
   const first = resolveBundled(name, opts);
   if (first.ok) return first;
   const env = opts.env || process.env, platform = opts.platform || process.platform, exists = opts.exists || isFile;
-  const usable = name === "ffmpeg" ? (opts.usable || passesGate) : () => true;
+  // opts.usable (tests) answers true / false; the real gate answers {ok, version, why}
+  const usable = name === "ffmpeg" ? (opts.usable || gateCheck) : () => true;
   const allowed = opts.exists ? () => true : placeAllowed;   // tests that fake the file system fake its places too
   const exe = exeName(name, platform), p = platform === "win32" ? path.win32 : path.posix;
   const found = [];
@@ -123,11 +144,14 @@ function resolveTool(name, opts = {}) {
   let old = null;
   for (const c of found) {
     if (!allowed(c.path)) continue;
-    if (usable(c.path)) return { ok: true, ...c };
-    old = old || c;
+    const u = usable(c.path), g = typeof u === "object" && u ? u : { ok: !!u };
+    if (g.ok) return { ok: true, ...c };
+    old = old || { ...c, version: g.version || null, why: g.why || "options" };
   }
   if (old) return { ok: false, ...old, tooOld: true,
-    error: `The ${name} found at ${old.path} is too old for MontClip: it cannot run the loudness measurement's options (ebur128 framelog).` };
+    error: old.why === "version"
+      ? `The ${name} found at ${old.path} is version ${old.version}; MontClip needs ${MIN_VERSION} or newer.`
+      : `The ${name} found at ${old.path} is too old for MontClip: it cannot run the options MontClip uses (ebur128 framelog, aspectralstats measure).` };
   return first;
 }
 function resolveBundled(name, opts = {}) {
@@ -195,7 +219,7 @@ module.exports = {
   status: () => Object.fromEntries(TOOLS.map((t) => [t, cached(t)])),
   /** Forget what was found: the next call looks again (「重新检测」). */
   refresh: () => cache.clear(),
-  findOnPath, setPlaces, placeAllowed, passesGate, GATE_ARGS,
+  findOnPath, setPlaces, placeAllowed, passesGate, gateCheck, GATE_ARGS, GATE_CHECKS, MIN_VERSION, versionOf, versionBelow,
   /** Tests only: forget what was resolved. */
   _reset: () => cache.clear(),
 };

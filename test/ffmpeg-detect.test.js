@@ -460,3 +460,71 @@ test('no H.264: simple mode greys Export; advanced mode disables only the MP4 ch
   a.match(body('function updateMontClipView('), /try \{ applyFfmpegState\(\); \}/);
   a.match(body('function populateExportProfileSelect('), /MontClipFfmpegCard\.exportOption\(/);
 });
+
+/* Deja 2026-11-05: the fallback (no bundled build) needs FFmpeg 6.0 or newer. On europa, Debian 12's 5.1.9 has no
+   aspectralstats measure= (added in 6.0: song finding fails outright) and no ebur128 framelog=quiet. So: a version
+   read from -version below 6.0 is never the fallback; a build whose number can't be read (a git build) or that is
+   6.0+ must still run the options MontClip uses — the loudness measurement's and song-scan's own filter. The card
+   says why (DRAFT for JJ). */
+test('the fallback gate: FFmpeg 6.0 or newer, and the options MontClip runs (loudness, song finding)', () => {
+  a.equal(FF.MIN_VERSION, '6.0');
+  a.equal(FF.versionOf('ffmpeg version 5.1.9-0+deb12u1 Copyright (c) 2000-2025'), '5.1.9');
+  a.equal(FF.versionOf('ffmpeg version n9.0.2-20251101 Copyright'), '9.0.2');
+  a.equal(FF.versionOf('ffmpeg version 6.0 Copyright'), '6.0');
+  a.equal(FF.versionOf('ffmpeg version N-118000-gabc123 Copyright'), null, 'a git build has no number');
+  a.equal(FF.versionBelow('5.1.9', '6.0'), true); a.equal(FF.versionBelow('6.0', '6.0'), false); a.equal(FF.versionBelow('10.1', '6.0'), false);
+  const filters = FF.GATE_CHECKS.map((args) => args[args.indexOf('-af') + 1]);
+  a.ok(filters.includes('ebur128=peak=true:framelog=quiet'), 'the loudness measurement\'s options');
+  a.ok(filters.includes(require('../song-scan').FILTER), 'song-scan\'s own filter, the very string it runs');
+});
+
+test('no bundled build (POSIX): below 6.0 is never the fallback even if it runs the options; 6.0+ or a git build must run them', (t) => {
+  if (process.platform === 'win32') return t.skip('the stand-in programs are shell scripts');
+  const w = tmp(t), none = path.join(w, 'app');
+  const fake = (name, version, failOn) => {
+    const d = path.join(w, name); fs.mkdirSync(d);
+    for (const n of ['ffmpeg', 'ffprobe']) fs.writeFileSync(path.join(d, n),
+      `#!/bin/sh\ncase "$*" in ${failOn ? `*${failOn}*) exit 1;; ` : ''}*-version*) echo "ffmpeg version ${version} Copyright"; exit 0;; esac\nexit 0\n`, { mode: 0o755 });
+    return d;
+  };
+  const resolve = (dir) => FF.resolveTool('ffmpeg', { env: { PATH: dir }, appDir: none, platform: process.platform, arch: 'x64', chosenFile: null });
+  const old = resolve(fake('old', '5.1.9-0+deb12u1', null));
+  a.equal(old.ok, false); a.equal(old.tooOld, true); a.equal(old.version, '5.1.9'); a.equal(old.why, 'version', 'refused on its number alone');
+  const noSongs = resolve(fake('nosongs', '9.0.2', 'measure=flatness'));
+  a.equal(noSongs.ok, false); a.equal(noSongs.why, 'options'); a.equal(noSongs.version, '9.0.2');
+  a.equal(resolve(fake('six', '6.0', null)).ok, true);
+  const git = resolve(fake('git', 'N-118000-gabc123', null)); a.equal(git.ok, true, 'a git build that runs the options');
+  a.equal(resolve(fake('gitold', 'N-100000-gdef456', 'framelog')).why, 'options');
+  // the real one where it is installed: Debian 12's 5.1 (europa)
+  try {
+    const v = require('node:child_process').execFileSync('/usr/bin/ffmpeg', ['-version'], { encoding: 'utf8' });
+    if (/^ffmpeg version 5\.1/m.test(v)) a.equal(FF.passesGate('/usr/bin/ffmpeg'), false, 'Debian 12 ffmpeg 5.1');
+  } catch { }
+});
+
+test('server (POSIX): no bundled build and only FFmpeg 5.1 → tooOld, with the version for the card', async (t) => {
+  if (process.platform === 'win32') return t.skip('the stand-in programs are shell scripts');
+  const { makeDataDir, seedProject, startServer } = require('./helpers');
+  const w = tmp(t), bin = path.join(w, 'bin'); fs.mkdirSync(bin);
+  for (const n of ['ffmpeg', 'ffprobe']) fs.writeFileSync(path.join(bin, n), '#!/bin/sh\necho "ffmpeg version 5.1.9-0+deb12u1 Copyright"\n', { mode: 0o755 });
+  const dir = makeDataDir(t, seedProject({ revision: 1 })), gone = path.join(w, 'gone');
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_FFMPEG: path.join(gone, 'ffmpeg'), MONTCLIP_FFPROBE: path.join(gone, 'ffprobe'),
+    PATH: bin, Path: bin, MONTCLIP_EXTERNAL_FFMPEG_SETTINGS: '', MONTCLIP_EXTERNAL_FFMPEG: '' });
+  const st = await (await fetch(base + '/api/ffmpeg')).json();
+  a.equal(st.state, 'tooOld'); a.equal(st.ffmpeg.version, '5.1.9'); a.equal(st.ffmpeg.why, 'version'); a.equal(st.ffmpeg.ok, false);
+});
+
+test('the too-old card says why: the version found and 6.0, or the missing options (DRAFT for JJ)', () => {
+  for (const lang of ['zh-CN', 'en']) for (const platform of ['linux', 'win32']) {
+    const v = Card.model({ state: 'tooOld', platform, ffmpeg: { version: '5.1.9', why: 'version' } }, lang);
+    a.ok(v.body.includes('5.1.9') && v.body.includes('6.0'), `${lang} ${platform}: ${v.body}`);
+    const o = Card.model({ state: 'tooOld', platform, ffmpeg: { version: '9.0.2', why: 'options' } }, lang);
+    a.ok(o.body.includes(Card.text[lang].tooOldOptions), `${lang} ${platform}: ${o.body}`);
+    const bare = Card.model({ state: 'tooOld', platform, ffmpeg: {} }, lang);
+    a.ok(!/undefined|\{v\}|\{min\}/.test(bare.body + v.body + o.body));
+  }
+});
+
+test('the card\'s 6.0 is ffmpeg-path.js\'s', () => {
+  a.match(fs.readFileSync(path.join(__dirname, '..', 'ffmpeg-card.js'), 'utf8'), new RegExp(`const MIN_VERSION = "${FF.MIN_VERSION.replace('.', '\.')}"`));
+});

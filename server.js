@@ -424,12 +424,12 @@ function attachProc(sess, proc) {
 /** What the page's FFmpeg card shows (ffmpeg-card.js): one of ready · missing · noProbe · noH264, the same answer in
  *  every run mode. No paths: only where each tool came from. */
 async function ffmpegStatus() {
-  const probe = FF.status().ffprobe, tooOld = !HAS_FFMPEG && !!FF.status().ffmpeg.tooOld;
+  const probe = FF.status().ffprobe, found = FF.status().ffmpeg, tooOld = !HAS_FFMPEG && !!found.tooOld;
   const h264 = HAS_FFMPEG ? Delivery.encodersFor("h264", await deliveryEncoders()) : [];
   // tooOld: no bundled build, and the FFmpeg found can't run what MontClip uses (the gate in ffmpeg-path.js)
   const state = HAS_FFMPEG ? (probe.ok ? (h264.length ? "ready" : "noH264") : "noProbe") : tooOld ? "tooOld" : "missing";
   return { state, platform: process.platform, setup: externalFfmpeg.setup, picker: false,
-    ffmpeg: { ok: HAS_FFMPEG, source: FF.source("ffmpeg") }, ffprobe: { ok: probe.ok, source: probe.source }, encoder: h264[0] || null };
+    ffmpeg: { ok: HAS_FFMPEG, source: FF.source("ffmpeg"), ...(tooOld ? { version: found.version || null, why: found.why || "options" } : {}) }, ffprobe: { ok: probe.ok, source: probe.source }, encoder: h264[0] || null };
 }
 /** 「重新检测」: look again, forget the encoder list, answer the new state. */
 async function redetectFfmpeg() {

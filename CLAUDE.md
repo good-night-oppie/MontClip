@@ -201,8 +201,9 @@ development, `vendor/ffmpeg/<platform>-<arch>/` from `node desktop/fetch-ffmpeg.
 Quick Sync / AMF), else Windows' own `h264_mf`, else libx264 from an FFmpeg the user installed — the one they chose,
 then `PATH` (looked up to an absolute path, never spawned by name). That FFmpeg only encodes H.264 (exports, and
 proxies when the bundled build has none); probing, frames, analysis and loudness stay on the bundled build. Only with
-no bundled build at all is an FFmpeg on PATH (or the chosen one) used for everything, and only if it runs the
-`ebur128` options MontClip measures with (Debian 12's 5.1 does not). Nothing in a folder the server writes (media,
+no bundled build at all is an FFmpeg on PATH (or the chosen one) used for everything, and only if it is 6.0 or newer
+and runs the options MontClip uses — `ebur128` framelog for loudness, song-scan's `aspectralstats` measure — (Debian
+12's 5.1 does neither; the card then says which version it found). Nothing in a folder the server writes (media,
 uploads, analysis …) is ever started. With nothing that can export MP4 the editor shows one card (`ffmpeg-card.js`:
 install command, 「重新检测」, choose the file); simple mode then greys Export, advanced mode only the MP4 choices.
 `GET /api/ffmpeg`, `POST /api/ffmpeg/detect`, `POST /api/ffmpeg/choose {path}`, `POST /api/ffmpeg/check {path}`

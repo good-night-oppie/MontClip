@@ -123,4 +123,4 @@ function createSongScan({ dir, ffmpeg = require("./ffmpeg-path").path("ffmpeg") 
   function forget(file) { fs.rmSync(folder(keyOf(file)), { recursive: true, force: true }); }
   return { scan, cached, load, forget, keyOf, STEP, SEGMENT };
 }
-module.exports = { createSongScan, STEP, SEGMENT, KEYS };
+module.exports = { createSongScan, STEP, SEGMENT, KEYS, FILTER };   // FILTER: ffmpeg-path.js gates a fallback FFmpeg on it
