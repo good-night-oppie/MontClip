@@ -100,7 +100,10 @@ function tts(dir, text) {
   return fs.existsSync(out) && fs.statSync(out).size > 10000 ? out : null;
 }
 
-test('real engine: Meta\'s model missing or damaged fails in its own process with a plain code; Paraformer then transcribes', { skip: !ENGINE && 'vendor/asr with the Paraformer model is not here' }, async (t) => {
+// (a Meta model in the engine folder's own models/ — the 完整版 layout — is found first, so a damaged copy in the user's
+// folder would never be read: then this case cannot be made here)
+const META_IN_PACKAGE = fs.existsSync(path.join(VENDOR, 'models', 'asrMeta'));
+test('real engine: Meta\'s model missing or damaged fails in its own process with a plain code; Paraformer then transcribes', { skip: (!ENGINE && 'vendor/asr with the Paraformer model is not here') || (META_IN_PACKAGE && 'vendor/asr/models has a Meta model of its own') }, async (t) => {
   const dir = tmp(t);
   // Meta's files, damaged (the right names, the wrong bytes): its checks refuse them inside the child
   fs.mkdirSync(path.join(dir, 'asrMeta'));
