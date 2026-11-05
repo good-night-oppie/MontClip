@@ -9862,6 +9862,13 @@ async function asrGetPunct() {
   await loadAsrStatus();
   paintSettingsAsr();
 }
+/** A transcription Meta's model could not finish because it stopped: JJ's words and 〔换回 Paraformer〕, which makes
+ *  Paraformer the chosen speech model. → true when it showed that (other failures keep the plain toast). */
+function asrMetaFailToast(f) {
+  if (!f || f.code !== "ASR_OPTIONAL_CRASHED") return false;
+  toastAction(f.error, uiText("own.asr-switch-paraformer"), () => setAsrKey("asr"));
+  return true;
+}
 /** Meta's model failing, in plain words (asr-meta-engine.js runs it in a process of its own: Paraformer is untouched). */
 function asrMetaWords(j) {
   if (!j) return null;
@@ -10279,6 +10286,8 @@ async function transcribeFromTab() {
   // some parts could not be read: say so (how many, how long, where to find them), never that it is done
   const gaps = out.done.reduce((n, d) => n + (d.gaps || 0), 0), gapSeconds = out.done.reduce((t, d) => t + (d.gapSeconds || 0), 0);
   if (gaps && !out.cancelled) { toast(uiText("own.tr-gaps-toast", { n: gaps, dur: trGapDur(gapSeconds) })); return; }
+  // Meta's model stopped: its own words, with 〔换回 Paraformer〕
+  if (!out.cancelled && !out.done.length && out.failed.length) { if (asrMetaFailToast(out.failed[0])) return; }
   toast(out.cancelled ? `Stopped — ${out.done.length} file${out.done.length === 1 ? "" : "s"} transcribed`
     : out.failed.length && !out.done.length ? `Couldn't transcribe: ${out.failed[0].error}`
     : `Transcribed ${out.done.length} file${out.done.length === 1 ? "" : "s"}, ${words} words` +
