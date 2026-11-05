@@ -155,7 +155,8 @@
     // the delete button's name and asr-meta-broken: JJ's final words (Deja, 11-05)
     "asr-meta-broken": ["Meta's model files can't be read; they may have been damaged while downloading. Click \"Remove Meta's model\" and download it again, or switch back to Paraformer.", "Meta 的模型文件读不了，可能是下载时坏了。点〔删掉 Meta 的模型〕，再重新下载一次；或者换回 Paraformer。"],
     "asr-meta-no-memory": ["There isn't enough free memory for Meta's model (it needs about {need}; {free} is free), so it didn't start. Close some programs and try again, or switch back to Paraformer.", "内存不够跑 Meta 的模型（大约要 {need}，现在只空着 {free}），所以没有开始。关掉一些软件再试，或者换回 Paraformer。"],
-    // the same without the numbers, when the server gave none (Deja cut JJ's sentence down, 11-05; for JJ to confirm)
+    // without what is free (JJ confirmed; the English is Deja's, after JJ's meaning), and without any number (JJ confirmed), 11-05
+    "asr-meta-no-memory-need": ["There isn't enough free memory for Meta's model (it needs about {need}), so it didn't start. Close some programs and try again, or switch back to Paraformer.", "内存不够跑 Meta 的模型（大约要 {need}），所以没有开始。关掉一些软件再试，或者换回 Paraformer。"],
     "asr-meta-no-memory-plain": ["There isn't enough free memory for Meta's model, so it didn't start. Close some programs and try again, or switch back to Paraformer.", "内存不够跑 Meta 的模型，所以没有开始。关掉一些软件再试，或者换回 Paraformer。"],
     "asr-meta-consent": ["Meta's multilingual model is on this computer, but it is used only after you read its licence and agree.", "Meta 的多语言模型已经在这台电脑上了，但要先看它的许可证、点同意才会用。"],
     "asr-meta-agree": ["Read the licence and use it", "看许可证并使用"],

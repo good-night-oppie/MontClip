@@ -9877,9 +9877,10 @@ function asrMetaWords(j) {
   if (j.code === "ASR_OPTIONAL_CRASHED") return uiText("own.asr-meta-crashed");
   if (j.code === "ASR_OPTIONAL_MODEL_BROKEN") return uiText("own.asr-meta-broken");
   if (j.code === "ASR_OPTIONAL_NO_MEMORY") {
-    // the numbers only when the server gave both; else the sentence without its brackets, never "? MB"
+    // JJ's three cases: both numbers; only what it needs; none (only what is free counts as none) — never "? MB"
     const mb = (v) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.round(v) : null), need = mb(j.needMB), free = mb(j.freeMB);
-    return need && free != null ? uiText("own.asr-meta-no-memory", { need: `${need} MB`, free: `${free} MB` }) : uiText("own.asr-meta-no-memory-plain");
+    if (!need) return uiText("own.asr-meta-no-memory-plain");
+    return free != null ? uiText("own.asr-meta-no-memory", { need: `${need} MB`, free: `${free} MB` }) : uiText("own.asr-meta-no-memory-need", { need: `${need} MB` });
   }
   return null;
 }
