@@ -59,5 +59,9 @@ const TEXT = {
 const languageOf = (read) => (read && read.value && read.value.language === 'en' ? 'en' : 'zh-CN');
 Object.assign(TEXT["zh-CN"],{"seedOk": "好", "seedConflictTitle": "AI 先停用了", "seedConflict": "包里带的 AI 服务设置，和这台电脑上已经保存的不一样，所以先暂停使用 AI。剪辑照常能用。\n想改用包里的设置：在助手面板点「AI 服务」，再点「删除这个连接」，然后关掉 MontClip 再打开。\n不想替换你现在的设置：请联系给你这个包的人。"});
 Object.assign(TEXT["en"],{"seedOk": "OK", "seedConflictTitle": "AI is paused for now", "seedConflict": "The AI service settings that came with this package don't match the ones saved on this computer, so the AI is paused for now. Editing works as usual.\nTo use the package's settings: in the assistant panel click “AI service”, then “Remove this connection”, then close MontClip and open it again.\nTo keep your current settings instead: contact the person who gave you this package."});
+// a sealing that failed and could not be undone (agent-seed.js VERIFY_FAILED_NOT_UNDONE, then SEAL_FAILED_LEFTOVER on every
+// launch until it is removed; QQ on #131): drafts, for JJ (2026-11-05)
+Object.assign(TEXT["zh-CN"],{"seedSealFailed": "包里带的 DeepSeek 密钥没能存好，电脑上还留着一份没核对上的 AI 服务设置，所以先暂停使用 AI。剪辑照常能用。包里那份密钥还在。\n要修好：在助手面板点「AI 服务」，再点「删除这个连接」，然后关掉 MontClip 再打开。还不行，请联系给你这个包的人。"});
+Object.assign(TEXT["en"],{"seedSealFailed": "The DeepSeek key that came with this package wasn't saved properly, and AI service settings that couldn't be checked were left on this computer, so the AI is paused for now. Editing works as usual. The package's key is still there.\nTo fix it: in the assistant panel click “AI service”, then “Remove this connection”, then close MontClip and open it again. If that doesn't help, contact whoever gave you this package."});
 const nativeText = (language) => TEXT[language === 'en' ? 'en' : 'zh-CN'];
 module.exports = { nativeText, languageOf, TEXT };

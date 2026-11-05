@@ -102,8 +102,11 @@ seed; QQ's rules (2026-11-04) are part of it:
    `node desktop/package-smoke.cjs <zip>`; never upload it anywhere.
 4. **First launch** (`desktop/agent-seed.js`): the key is written into `agent-connection-v1.json` with Electron
    safeStorage, read back and checked, and only then the seed's bytes are overwritten and the seed deleted. A failure
-   part-way keeps the seed. If rollback cannot delete a mismatching connection, both files remain; the next launch
-   reports a conflict and preserves the seed. Until the conflict is resolved, the service reports not configured and refuses sends and configuration writes; its saved bytes remain unchanged. An existing connection permits seed deletion only when provider, model
+   part-way keeps the seed. If rollback cannot delete a mismatching connection, both files remain, and that leftover is
+   recorded beside the seed (`montclip-seed-v1.json.leftover`: the SHA-256 of the sealed connection file, never the
+   key). Every later launch that still finds that leftover reports a failed sealing (`SEAL_FAILED_LEFTOVER`) and
+   preserves the seed; a different connection the streamer set up herself is a conflict (`SEED_CONFLICT`), and also
+   preserves the seed. Until the conflict is resolved, the service reports not configured and refuses sends and configuration writes; its saved bytes remain unchanged. An existing connection permits seed deletion only when provider, model
    and key all match. After the conflicting connection is explicitly removed, a later launch can seal the preserved
    seed. A seed already wiped to all zero bytes is retried as cleanup on later launches; a failed unlink keeps the cleanup warning instead of reporting unreadable settings. **On Windows safeStorage is DPAPI, bound to the current Windows
    user: on another computer, or another Windows account, the AI has to be set up again** (the seed is gone after the

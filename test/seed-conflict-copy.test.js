@@ -27,7 +27,8 @@ test('conflicts keep removal available, disable save, and show recovery status i
  a.ok(pane.includes("cfg?.code==='SEED_CONFLICT'?t.seedConflict:cfg?.configured?t.configured:t.unconfigured"));
  a.ok(pane.includes("conversation.busy()||cfg?.code==='CONFIG_READ_FAILED'||cfg?.code==='SEED_CONFLICT'"));
  const main=fs.readFileSync(path.join(__dirname,'..','desktop','main.js'),'utf8');
- a.ok(main.includes("VERIFY_FAILED_NOT_UNDONE: 'seedConflict', SEED_CONFLICT: 'seedConflict'"));
+ a.ok(main.includes("VERIFY_FAILED_NOT_UNDONE: 'seedSealFailed', SEAL_FAILED_LEFTOVER: 'seedSealFailed', SEED_CONFLICT: 'seedConflict'"));
  a.ok(main.includes("buttons: [t.seedOk]"));
- a.ok(main.includes("title: say === 'seedConflict' ? t.seedConflictTitle : t.seedTitle"));
+ a.ok(main.includes("title: say === 'seedConflict' || say === 'seedSealFailed' ? t.seedConflictTitle : t.seedTitle"));
+ a.ok(N['zh-CN'].seedSealFailed.includes(V.text['zh-CN'].officialPane_removeConnection)&&N.en.seedSealFailed.includes(V.text.en.officialPane_removeConnection),'the leftover dialog names the real control');
 });

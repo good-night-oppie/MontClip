@@ -68,6 +68,9 @@ function createService({read,write,backup,erase,seal,unseal,providers=PUBLIC_PRO
  blockSeedConnection(){seedConflict=true;for(const job of jobs.values())if(job.running){job.cancelled=true;job.controller.abort();}},
  // the main process's own read-back (desktop/agent-seed.js): the file on disk holds this provider, model and key, sealed. Not an
  // IPC operation: the page's list of operations is fixed in main.js.
+ // which connection file this is (SHA-256 of its sealed bytes; never the key), so the seed can tell a leftover it wrote
+ // from one set up later; null when there is none
+ fingerprint(){try{const raw=read();return raw?require('node:crypto').createHash('sha256').update(raw).digest('hex'):null;}catch{return null;}},
  matches(v){try{const raw=read();if(!raw)return false;const c=JSON.parse(raw);return c.version===1&&c.provider===v.provider&&c.model===v.model&&typeof c.secret==='string'&&unseal(c.secret)===v.apiKey;}catch{return false;}},
  cancel(id){const job=jobs.get(id);if(!job)return fail('UNKNOWN_REQUEST');if(!job.running)return{ok:true,code:'COMPLETED'};job.cancelled=true;job.controller.abort();return{ok:true,code:'CANCELLED'};},
  dispose(){for(const job of jobs.values())if(job.running){job.cancelled=true;job.controller.abort();}}
