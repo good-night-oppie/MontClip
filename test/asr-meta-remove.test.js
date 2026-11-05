@@ -354,7 +354,8 @@ test('a Meta transcription asked for while Meta is being removed: one plain sent
   const app = read('app.js');
   const take = (start, end) => { const i = app.indexOf(start), j = app.indexOf(end, i); a.ok(i >= 0 && j > i, start); return app.slice(i, j); };
   const code = take('const ASR_MODEL_KEY', 'const asrModelStatus') + take('function asrMetaFailToast(', '\n}\n') + '\n}\n'
-    + take('function asrMetaWords(', '/** Transcribe files one after another.') + take('async function transcribeSrcs(', '/** The word under the playhead');
+    + take('function asrMetaWords(', '/** Transcribe files one after another.')
+    + take('async function transcribeSrcs(', '\n}\n') + '\n}\n' + take('async function transcribeFromTab(', '\n}\n') + '\n}\n';
   for (const [lang, want] of [['zh-CN', 'Meta 的模型正在删掉，这次没有开始听写。把「听写模型」换回 Paraformer 再听写就行。'],
     ['en', "Meta's model is being removed, so this transcription didn't start. Switch the speech model back to Paraformer and transcribe again."]]) {
     const shown = [];
@@ -362,7 +363,7 @@ test('a Meta transcription asked for while Meta is being removed: one plain sent
       localStorage: { getItem: () => 'asrMeta', setItem: () => {} }, uiText: (k, v) => V.t(lang, k, v), Number, String, Object, JSON, Math,
       // what the server answers then (server.js: 409, engine "meta", the engine's English message)
       fetch: async () => ({ ok: false, status: 409, json: async () => ({ code: 'ASR_OPTIONAL_REMOVING', engine: 'meta', error: "Meta's model is being removed" }) }),
-      transcribeAvailable: () => true, trState: { busy: null }, renderTranscript: () => {}, paintTranscribeBusy: () => {}, loadAsrStatus: () => {}, paintAsrStatus: () => {},
+      transcribeAvailable: () => true, transcribeSettings: () => ({}), trState: { busy: null }, renderTranscript: () => {}, paintTranscribeBusy: () => {}, loadAsrStatus: () => {}, paintAsrStatus: () => {},
       transcribeTargets: () => ({ srcs: ['/media/a.wav'] }), trGapDur: () => '', loadTranscript: async () => null,
       toast: (m) => shown.push({ m }), toastAction: (m, label, fn) => shown.push({ m, label, fn }),
     };
