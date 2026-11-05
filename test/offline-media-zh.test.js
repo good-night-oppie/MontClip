@@ -25,8 +25,9 @@ test('JJ\'s Chinese, word for word', () => {
   a.equal(t('zh-CN', 'off-other-copy-title'), '同一段录像存在别的地方（比如移动硬盘上的备份），指到那一份，剪辑点都不变。');
   a.equal(t('zh-CN', 'off-replace-title'), '换成另一段录像，用到它的片段都会跟着换。');
   a.equal(t('zh-CN', 'off-none'), '素材都在，没有找不到的。');
-  a.equal(t('zh-CN', 'off-finding-k', { file: 'tone-b.mp4', k: 2, n: 5 }), '正在找：tone-b.mp4（第 2 个，共 5 个）');
-  a.equal(t('zh-CN', 'off-finding', { file: 'tone-b.mp4' }), '正在找：tone-b.mp4');
+  a.equal(t('zh-CN', 'off-finding-k', { file: 'tone-b.mp4', k: 2, n: 5 }), '正在找：「tone-b.mp4」（第 2 个，共 5 个）');
+  a.equal(t('zh-CN', 'off-finding', { file: 'tone-b.mp4' }), '正在找：「tone-b.mp4」');
+  a.equal(t('zh-CN', 'off-auto-found', { m: 2 }), '已经自动找回 2 个');
   a.equal(t('zh-CN', 'off-slate'), '找不到');
   a.equal(V.t('zh-CN', 'term.relink'), '重新链接…', '〔重新链接…〕 stays');
   a.equal(V.t('zh-CN', 'term.replace-file'), '替换文件…', '〔替换文件…〕 stays');
@@ -38,6 +39,8 @@ test('JJ\'s English, word for word (“ ” quotes, JJ\'s rule); the drafts as t
   a.equal(tp('en', 'off-export', { n: 2 }, { n: 2 }), '2 media files can\'t be found. In the export those parts will show a “missing” picture with no sound. Find them first, then export.');
   a.equal(t('en', 'off-other-copy'), 'Use the same recording from elsewhere…');
   a.equal(t('en', 'off-other-copy-title'), 'The same recording saved somewhere else (a backup on another drive, for example). Point to that one; your cuts stay the same.');
+  a.equal(t('en', 'off-finding-k', { file: 'tone-b.mp4', k: 2, n: 5 }), 'Looking for “tone-b.mp4” (2 of 5)');
+  a.equal(t('en', 'off-finding', { file: 'tone-b.mp4' }), 'Looking for “tone-b.mp4”');
   a.equal(t('en', 'off-replace-title'), 'Swap in a different recording; every clip that uses it changes too.');
   // drafts (草稿，待 JJ 定稿)
   a.equal(t('en', 'off-bar-many', { n: 3 }), '3 media files can\'t be found. They may have been moved or deleted. Your edits are still there; find the files and you can carry on.');
@@ -46,8 +49,7 @@ test('JJ\'s English, word for word (“ ” quotes, JJ\'s rule); the drafts as t
   a.equal(t('en', 'off-find-first'), 'Find them first…');
   a.equal(t('en', 'off-export-anyway'), 'Export anyway');
   a.equal(t('en', 'off-none'), 'All your media is here; nothing is missing.');
-  a.equal(t('en', 'off-finding-k', { file: 'tone-b.mp4', k: 2, n: 5 }), 'Finding: tone-b.mp4 (2 of 5)');
-  a.equal(t('en', 'off-finding', { file: 'tone-b.mp4' }), 'Finding: tone-b.mp4');
+  a.equal(t('en', 'off-auto-found', { m: 2 }), 'Found 2 automatically.');
   // what English already said stays (JJ gave no new English for these)
   a.equal(t('en', 'off-badge'), 'OFFLINE');
   a.equal(t('en', 'off-badge-title'), 'The file is missing — right-click → Relink…');
@@ -111,15 +113,26 @@ test('the picture for a missing file says 「找不到」 in Chinese', () => {
   a.match(s, /ctx2d\.fillText\(uiText\("own\.off-slate"\)/); a.doesNotMatch(s, /fillText\("Media offline"/);
 });
 
-test('the bin\'s two other English lines (VV; Chinese drafts, 草稿，待 JJ 定稿)', () => {
+test('the bin\'s two other English lines (VV), JJ\'s wording', () => {
   a.equal(V.t('zh-CN', 'own.bin-drop-root'), '拖到这里，移出文件夹');
-  a.equal(V.t('en', 'own.bin-drop-root'), 'Drop here to move to root');
-  a.equal(V.t('zh-CN', 'own.bin-dbl-hint'), '双击在源监视器里打开，或者拖到时间线上。');
-  a.equal(V.t('en', 'own.bin-dbl-hint'), 'Double-click to open in Source, or drag onto the timeline.');
+  a.equal(V.t('en', 'own.bin-drop-root'), 'Drop here to move it out of the folder');
+  a.equal(V.t('zh-CN', 'own.bin-dbl-hint'), '双击可以先预览，或者直接拖到时间线上。');
+  a.equal(V.t('en', 'own.bin-dbl-hint'), 'Double-click to preview it, or drag it onto the timeline.');
   a.ok(app.includes('root.textContent = uiText("own.bin-drop-root");'));
   a.ok(!app.includes('"Drop here to move to root"'));
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  a.ok(html.includes('<p class="hint" data-i18n="own.bin-dbl-hint">Double-click to open in Source, or drag onto the timeline.</p>'));
+  a.ok(html.includes('<p class="hint" data-i18n="own.bin-dbl-hint">Double-click to preview it, or drag it onto the timeline.</p>'));
+});
+
+test('a missing file found under the same name is linked without asking; the dialog asks only about the rest; the round ends with 「已经自动找回 {m} 个」', () => {
+  const dlg = body('async function openRelinkDialog(', '\n}\n');
+  a.ok(dlg.indexOf('/api/relink/candidates') < dlg.indexOf('overlay.innerHTML'), 'candidates are found before the dialog opens');
+  a.ok(dlg.includes('if (o && o.score >= 100 && !used.has(o.src)) { await setMediaSource(m, o.src, "relink", undefined, true);'));
+  a.ok(dlg.includes('list = list.filter((m) => !found.has(m.id));\n  if (!list.length) { scheduleOfflineCheck(0); sayAuto(); return; }'));
+  a.ok(dlg.includes('toast(uiText("own.off-auto-found", { m: found.size }))'));
+  a.ok(dlg.includes('const close = () => { overlay.remove(); scheduleOfflineCheck(0); sayAuto(); };'));
+  a.ok(body('async function setMediaSource(', '\n}\n').includes('if (!quiet) toast(msg);'));
+  // the real round (3 missing, 2 found by name: one question, then 「已经自动找回 2 个」) is in desktop/offline-media-smoke.cjs
 });
 
 test('the export mix leaves a missing file out, even one whose sound was decoded before it went missing', () => {

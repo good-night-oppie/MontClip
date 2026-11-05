@@ -109,12 +109,13 @@
     "off-other-copy-title": ["The same recording saved somewhere else (a backup on another drive, for example). Point to that one; your cuts stay the same.", "同一段录像存在别的地方（比如移动硬盘上的备份），指到那一份，剪辑点都不变。"],
     "off-replace-title": ["Swap in a different recording; every clip that uses it changes too.", "换成另一段录像，用到它的片段都会跟着换。"],
     "off-none": ["All your media is here; nothing is missing.", "素材都在，没有找不到的。"],   // en: draft
-    "off-finding": ["Finding: {file}", "正在找：{file}"],   // en: draft
-    "off-finding-k": ["Finding: {file} ({k} of {n})", "正在找：{file}（第 {k} 个，共 {n} 个）"],   // en: draft
+    "off-finding": ["Looking for “{file}”", "正在找：「{file}」"],
+    "off-finding-k": ["Looking for “{file}” ({k} of {n})", "正在找：「{file}」（第 {k} 个，共 {n} 个）"],
+    "off-auto-found": ["Found {m} automatically.", "已经自动找回 {m} 个"],   // en: draft
     "off-slate": ["Media offline", "找不到"],
-    // the bin's two other English lines VV saw (Deja, 2026-11-05); zh: 草稿，待 JJ 定稿
-    "bin-drop-root": ["Drop here to move to root", "拖到这里，移出文件夹"],
-    "bin-dbl-hint": ["Double-click to open in Source, or drag onto the timeline.", "双击在源监视器里打开，或者拖到时间线上。"],
+    // the bin's two other English lines VV saw (Deja, 2026-11-05; JJ's wording)
+    "bin-drop-root": ["Drop here to move it out of the folder", "拖到这里，移出文件夹"],   // JJ, 2026-11-05
+    "bin-dbl-hint": ["Double-click to preview it, or drag it onto the timeline.", "双击可以先预览，或者直接拖到时间线上。"],   // JJ, 2026-11-05
     // the Transcript tab's sentence button, one language at a time (for JJ to review)
     "tr-sentences": ["Select sentences", "按句选段"],
     // the Save dialog's outcome in the desktop app (VV, 012ba18; for JJ to review)

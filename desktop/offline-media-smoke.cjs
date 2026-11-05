@@ -97,7 +97,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     await shot('offline-strip-zh', '#binList');
     await read(`document.querySelector('.bin-offline-bar [data-relink]')?.click(); true`); await wait(600);
     const r1 = await dialogRows();
-    check('〔找到它…〕 opens Relink with that file', r1.length === 1 && r1[0] === '⚠ 正在找：tone-b.mp4', r1);
+    check('〔找到它…〕 opens Relink with that file', r1.length === 1 && r1[0] === '⚠ 正在找：「tone-b.mp4」', r1);
     await read(`document.getElementById('relinkOverlay')?.remove(); true`);
 
     // ── the export reminder
@@ -108,7 +108,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     await shot('offline-export-zh', '#exportSetup .dialog');
     await read(`document.querySelector('#exportOfflineWarn [data-off-find]')?.click(); true`); await wait(600);
     const afterFind = await read(`({setupHidden:els.exportSetup.classList.contains('hidden'),rows:[...document.querySelectorAll('#relinkOverlay .relink-row b')].map(b=>b.textContent),exporting:!!window.__mcExport})`);
-    check('〔先找回来…〕 closes export and opens Relink, no export', afterFind.setupHidden && afterFind.rows.join() === '⚠ 正在找：tone-b.mp4' && !afterFind.exporting, afterFind);
+    check('〔先找回来…〕 closes export and opens Relink, no export', afterFind.setupHidden && afterFind.rows.join() === '⚠ 正在找：「tone-b.mp4」' && !afterFind.exporting, afterFind);
     await read(`document.getElementById('relinkOverlay')?.remove(); true`);
 
     // ── 〔照样导出〕: the export runs, and the missing part is silent
@@ -137,7 +137,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     check('zh strip: how many, 〔一个个找回来…〕', s3 && s3.text === ZH.barMany && s3.buttons.join() === '一个个找回来…', s3);
     await read(`document.querySelector('.bin-offline-bar [data-relink]')?.click(); true`); await wait(600);
     const r3 = await dialogRows();
-    check('Relink marks each one in order', r3.join('|') === '⚠ 正在找：tone-a.mp4（第 1 个，共 2 个）|⚠ 正在找：tone-b.mp4（第 2 个，共 2 个）', r3);
+    check('Relink marks each one in order', r3.join('|') === '⚠ 正在找：「tone-a.mp4」（第 1 个，共 2 个）|⚠ 正在找：「tone-b.mp4」（第 2 个，共 2 个）', r3);
     await shot('offline-relink-zh', '#relinkOverlay .dialog');
     await read(`document.getElementById('relinkOverlay')?.remove(); true`);
     // what Show did: the filter lists the missing ones
@@ -155,7 +155,26 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     // the bin's two other English lines VV saw (Chinese drafts, for JJ)
     const binLines = await read(`(()=>{setBinFilter('');project.folders.push({id:'f_smoke',name:'B-roll',parentId:null,open:true});renderBin();
       return {root:document.querySelector('#binList .bin-drop-root')?.textContent||null,hint:document.querySelector('#binEmpty .hint')?.textContent||null};})()`);
-    check('zh bin: 「拖到这里，移出文件夹」 and the double-click hint', binLines.root === '拖到这里，移出文件夹' && binLines.hint === '双击在源监视器里打开，或者拖到时间线上。', binLines);
+    check('zh bin: 「拖到这里，移出文件夹」 and 「双击可以先预览…」', binLines.root === '拖到这里，移出文件夹' && binLines.hint === '双击可以先预览，或者直接拖到时间线上。', binLines);
+    // JJ: three missing, two of them found under the same name (copies in media/moved/): those two are linked without
+    // asking, the dialog asks about the third only, and when the round ends she is told 「已经自动找回 2 个」
+    fs.copyFileSync(src.b, path.join(media, 'tone-c.mp4'));
+    await read(`project.media.push({id:'mc',src:'/media/tone-c.mp4',kind:'video',name:'tone-c.mp4',duration:2,width:320,height:180});
+      project.clips.push({id:'vc',kind:'video',mediaId:'mc',track:'V1',start:4,in:0,duration:2,props:{volume:0}}); renderBin(); scheduleSave(); true`);
+    check('the third file is there', await offlineIs([]));
+    for (const f of ['tone-a.mp4', 'tone-b.mp4', 'tone-c.mp4']) fs.rmSync(path.join(media, f));
+    fs.mkdirSync(path.join(media, 'moved'), { recursive: true });
+    fs.copyFileSync(src.a, path.join(media, 'moved', 'tone-a.mp4')); fs.copyFileSync(src.b, path.join(media, 'moved', 'tone-b.mp4'));
+    check('three files are found missing', await offlineIs(['ma', 'mb', 'mc']));
+    await view('zh-CN'); await read(`setBinFilter(''); document.getElementById('toast').textContent=''; true`); await wait();
+    await read(`document.querySelector('.bin-offline-bar [data-relink]')?.click(); true`);
+    const r4 = await read(`(async()=>{const until=Date.now()+15000;while(!document.getElementById('relinkOverlay')&&Date.now()<until)await new Promise(r=>setTimeout(r,50));
+      return {rows:[...document.querySelectorAll('#relinkOverlay .relink-row b')].map(b=>b.textContent),a:getMedia('ma').src,b:getMedia('mb').src,toast:document.getElementById('toast').textContent};})()`);
+    check('the two found by name are linked without asking; the dialog asks only about the third', r4.rows.join('|') === '⚠ 正在找：「tone-c.mp4」' && r4.a === '/media/moved/tone-a.mp4' && r4.b === '/media/moved/tone-b.mp4', r4);
+    check('no toast while she is still being asked', !/自动找回|Relinked/.test(r4.toast), r4.toast);
+    await read(`document.querySelector('#relinkOverlay [data-cancel]').click(); true`); await wait(400);
+    const t4 = await read(`document.getElementById('toast').textContent`);
+    check('the round ends with 「已经自动找回 2 个」', t4 === '已经自动找回 2 个', t4);
     pass = checks.every((c) => c.ok);
   } catch (e) { checks.push({ name: 'error', ok: false, seen: String(e && e.message || e).slice(0, 600) }); }
   finally {

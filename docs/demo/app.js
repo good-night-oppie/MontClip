@@ -3078,7 +3078,7 @@ function reloadMediaSource(m, oldSrc) {
 }
 
 /** Point a media entry at another file. mode "relink" (same footage) or "replace" (a new file). */
-async function setMediaSource(m, src, mode, name) {
+async function setMediaSource(m, src, mode, name, quiet = false) {
   const oldSrc = m.src, oldDur = m.duration;
   pushUndo(JSON.stringify({ clips: project.clips, markers: project.markers || [], comps: project.comps || [], media: project.media, seqClips: otherSequenceClips() }));
   m.src = src;
@@ -3116,7 +3116,7 @@ async function setMediaSource(m, src, mode, name) {
   state.dirtyTimeline = true;
   renderBin(); scheduleSave(); renderInspector();
   refreshMediaInfo([m]);
-  toast(msg);
+  if (!quiet) toast(msg);
 }
 
 /* Upload local files into media/ (like import, without adding bin entries) → [{file, src}]. */
@@ -3166,6 +3166,29 @@ async function replaceMediaFile(m) {
 async function openRelinkDialog(list) {
   list = (list || project.media.filter((m) => isMediaOffline(m.id))).filter(Boolean);
   if (!list.length) { toast(uiText("own.off-none")); return; }
+  // candidates found on disk (same name, other extension, similar name, same size)
+  let candidates = null;
+  if (state.connected) {
+    try {
+      const res = await fetch("/api/relink/candidates", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ media: list.map((m) => ({ id: m.id, name: m.name, src: m.src, size: m.size, kind: m.kind })) }),
+      });
+      ({ candidates } = await res.json());
+    } catch { }
+  }
+  const used = new Set(project.media.map((x) => x.src));
+  const optsOf = (m) => ((candidates && candidates[m.id]) || []).filter((o) => o.src !== m.src && (!used.has(o.src) || !isMediaOffline(m.id)));
+  // JJ (2026-11-05): a missing file found under the same name is linked straight away, without asking; the round ends
+  // with one sentence, 「已经自动找回 {m} 个」, and the dialog asks only about the rest
+  const found = new Set();
+  for (const m of list.filter((x) => isMediaOffline(x.id))) {
+    const o = optsOf(m)[0];
+    if (o && o.score >= 100 && !used.has(o.src)) { await setMediaSource(m, o.src, "relink", undefined, true); used.add(o.src); found.add(m.id); }
+  }
+  const sayAuto = () => { if (found.size) toast(uiText("own.off-auto-found", { m: found.size })); };
+  list = list.filter((m) => !found.has(m.id));
+  if (!list.length) { scheduleOfflineCheck(0); sayAuto(); return; }
   document.getElementById("relinkOverlay")?.remove();
   const overlay = document.createElement("div");
   overlay.className = "overlay";
@@ -3186,7 +3209,7 @@ async function openRelinkDialog(list) {
   const missing = list.filter((m) => isMediaOffline(m.id));
   const pick = new Map();   // media id → {src, label} | null
   const cands = new Map();  // media id → [{src, name, size, why}]
-  const close = () => { overlay.remove(); };
+  const close = () => { overlay.remove(); scheduleOfflineCheck(0); sayAuto(); };
   const render = () => {
     rowsEl.innerHTML = "";
     for (const m of list) {
@@ -3199,7 +3222,7 @@ async function openRelinkDialog(list) {
           <select aria-label="New location"></select>
           <button type="button" class="btn tiny" data-browse title="Pick the file (it is copied into the project)">Browse…</button>
         </div>`;
-      // missing files, in order (JJ, 2026-11-05): 「正在找：{file}（第 k 个，共 n 个）」
+      // missing files, in order (JJ, 2026-11-05): 「正在找：「{file}」（第 k 个，共 n 个）」
       const k = missing.indexOf(m) + 1;
       row.querySelector("b").textContent = !k ? m.name : "⚠ " + (missing.length > 1 ? uiText("own.off-finding-k", { file: m.name, k, n: missing.length }) : uiText("own.off-finding", { file: m.name }));
       row.querySelector(".relink-was").textContent = "was " + decodeURIComponent(String(m.src).split("?")[0]) + (m.duration ? " · " + fmt(m.duration) : "") + (m.size ? " · " + MediaLib.fmtSize(m.size) : "");
@@ -3257,32 +3280,22 @@ async function openRelinkDialog(list) {
   });
   overlay.querySelector("[data-apply]").addEventListener("click", async () => {
     const todo = list.filter((m) => pick.get(m.id));
-    close();
+    overlay.remove();
     for (const m of todo) await setMediaSource(m, pick.get(m.id).src, "relink");
-    scheduleOfflineCheck(0);
+    scheduleOfflineCheck(0); sayAuto();
   });
   render();
   dialog.focus();
-  // candidates found on disk (same name, other extension, similar name, same size)
-  if (state.connected) {
-    status.textContent = "Looking for the files…";
-    try {
-      const res = await fetch("/api/relink/candidates", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ media: list.map((m) => ({ id: m.id, name: m.name, src: m.src, size: m.size, kind: m.kind })) }),
-      });
-      const { candidates } = await res.json();
-      const used = new Set(project.media.map((x) => x.src));
-      let found = 0;
-      for (const m of list) {
-        const opts = (candidates[m.id] || []).filter((o) => o.src !== m.src && (!used.has(o.src) || !isMediaOffline(m.id)));
-        cands.set(m.id, opts);
-        // a confident match is picked for you (same name, or same name with a matching size)
-        if (opts[0] && opts[0].score >= 100 && !pick.get(m.id)) { pick.set(m.id, { src: opts[0].src, label: opts[0].name }); found++; }
-      }
-      status.textContent = found ? `Found ${found} of ${list.length} in the project folders.` : "";
-      if (overlay.isConnected) render();
-    } catch { status.textContent = ""; }
+  // a confident match the dialog still shows (a file that is there: 〔用另一处的同一段录像…〕) is picked for you
+  if (candidates) {
+    let pre = 0;
+    for (const m of list) {
+      const opts = optsOf(m);
+      cands.set(m.id, opts);
+      if (opts[0] && opts[0].score >= 100 && !pick.get(m.id)) { pick.set(m.id, { src: opts[0].src, label: opts[0].name }); pre++; }
+    }
+    status.textContent = pre ? `Found ${pre} of ${list.length} in the project folders.` : "";
+    render();
   }
 }
 
