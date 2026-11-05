@@ -2044,8 +2044,9 @@ function probeAV(src, kind) {
   return new Promise((resolve, reject) => {
     const el = document.createElement(kind === "audio" ? "audio" : "video");
     el.preload = "metadata"; el.src = src;
+    // a recording that never says its length plays as Infinity here: that is no length, not an endless one
     el.onloadedmetadata = () => resolve({
-      duration: el.duration,
+      duration: Number.isFinite(el.duration) && el.duration > 0 ? el.duration : undefined,
       width: el.videoWidth || undefined, height: el.videoHeight || undefined,
     });
     el.onerror = reject;
@@ -2733,11 +2734,13 @@ function makeColumnHead() {
 /* Server-probed metadata (fps, codecs, channels, sample rate, size) for media
    that has none yet. Without ffprobe the server still answers the size. */
 let mediaInfoBusy = false, mediaInfoAgain = false;
+const durationUnknownSaid = new Set();   // files already said to have no length, this session
 async function refreshMediaInfo(list) {
   if (!state.connected) return;
   if (mediaInfoBusy) { mediaInfoAgain = true; return; }   // run once more when this one ends
   // blob: srcs are files a hosted editor reads from a folder (a local session's own blobs are transient)
-  const todo = (list || project.media).filter((m) => !m.transient && m.size == null && (isLocalSrc(m.src) || /^blob:/.test(m.src || "")));
+  // no size yet, or (once) an MKV / a recording with no usable length: old projects and MCP imports have a size already
+  const todo = (list || project.media).filter((m) => !m.transient && MediaLib.needsInfo(m) && (isLocalSrc(m.src) || /^blob:/.test(m.src || "")));
   if (!todo.length) return;
   mediaInfoBusy = true;
   try {
@@ -2748,12 +2751,36 @@ async function refreshMediaInfo(list) {
     if (!res.ok) return;
     const { info } = await res.json();
     let changed = false;
+    const unknown = [], shorter = [];
+    // taken before anything changes: a corrected length and the clips fitted to it are one undo step (Rea, #126)
+    const snap = JSON.stringify({ clips: project.clips, markers: project.markers || [], comps: project.comps || [], media: project.media, seqClips: otherSequenceClips() });
     for (const m of project.media) {
       const i = info && info[m.src];
       if (!i) continue;
       for (const k of MediaLib.INFO_KEYS) if (i[k] != null && m[k] !== i[k]) { m[k] = i[k]; changed = true; }
       if (!(m.width > 0) && i.width > 0) { m.width = i.width; m.height = i.height; changed = true; }
+      // the server's length wins where the browser has none, or counted the start of an MKV's timestamps (one that
+      // starts at 3600 s plays 20 s; Chromium says 3620 s): media-lib.js parseProbe / serverDuration
+      const d = MediaLib.serverDuration(m, i);
+      if (d.changed) changed = true;
+      if (d.length) shorter.push(m);
+      if (d.unknown && !durationUnknownSaid.has(m.src)) { durationUnknownSaid.add(m.src); unknown.push(m); }
     }
+    // clips placed from the browser's 3620 s (an old project, or dragged in before the server answered) fit the real
+    // length, as a replaced file's clips do (setMediaSource): here, in comps and in the other sequences
+    if (shorter.length) {
+      for (const m of shorter) {
+        MediaLib.fitClips(m, project.clips);
+        for (const comp of project.comps || []) MediaLib.fitClips(m, comp.clips);
+        if (state.compCtx) MediaLib.fitClips(m, state.compCtx.root.clips);
+        for (const sq of SeqLib.others(seqRoot())) MediaLib.fitClips(m, sq.clips);
+      }
+      pushUndo(snap);
+      runtime.compGen = (runtime.compGen || 0) + 1;
+      state.dirtyTimeline = true;
+    }
+    // nothing says how long it is: tell the user once, in plain words (never 0:00 or NaN)
+    if (unknown.length) toast(unknown.length === 1 ? uiText("own.media-duration-unknown", { name: unknown[0].name }) : uiText("own.media-duration-unknown-n", { n: unknown.length }));
     if (changed) { renderBin(); scheduleSave(); if (state.selId) renderInspector(); }
     followSourceCanvas();
   } catch { } finally {
