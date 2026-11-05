@@ -5,6 +5,12 @@
 const fs = require("node:fs"), os = require("node:os"), path = require("node:path"), cp = require("node:child_process"), net = require("node:net");
 const ROOT = path.resolve(__dirname, ".."), FF = require("../ffmpeg-path"), Clock = require("../packet-clock");
 const Measure = require("../desktop/av-sync-measure.cjs"), { findBrowser } = require("../export-jobs");
+const crypto = require("node:crypto");
+const annotations = process.argv.includes("--annotations");
+// Software mode uses the installed encoder only to synthesize the test input.
+// Product repair retains its normal encoder selection; export uses Archive.
+const software = process.argv.includes("--software");
+const sha256 = file => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const run = (bin, args) => cp.execFileSync(bin, args, { windowsHide: true, timeout: 120000, maxBuffer: 64 << 20, stdio: ["ignore", "pipe", "pipe"] });
 function measured(file, limit) {
@@ -18,6 +24,23 @@ function measured(file, limit) {
   const result = Measure.pair(flashes, beeps, limit);
   return { ...result, duration: d.duration, limit, before: result.pairs.filter(p => p.flash < 5), after: result.pairs.filter(p => p.flash >= 5) };
 }
+function captionTiming(file, expected) {
+  const info=JSON.parse(run(FF.path("ffprobe"),["-v","error","-select_streams","v:0","-show_entries","stream=width,height:frame=best_effort_timestamp_time","-show_frames","-of","json",file]));
+  const {width,height}=info.streams[0], bytes=width*height*3;
+  const pixels=run(FF.path("ffmpeg"),["-v","error","-i",file,"-an","-pix_fmt","rgb24","-f","rawvideo","pipe:1"]);
+  if(pixels.length!==bytes*info.frames.length) throw Error("caption frame/PTS mismatch");
+  const ranges=[]; let start=null;
+  for(let i=0;i<info.frames.length;i++) {
+    let green=0; for(let p=i*bytes;p<(i+1)*bytes;p+=3) if(pixels[p+1]>100 && pixels[p+1]>pixels[p]*1.5 && pixels[p+1]>pixels[p+2]*1.5) green++;
+    const t=Number(info.frames[i].best_effort_timestamp_time);
+    if(green>=10 && start===null) start=t;
+    if(green<10 && start!==null) {ranges.push({start,end:t}); start=null;}
+  }
+  if(start!==null || ranges.length!==expected.length) throw Error("caption range count mismatch");
+  const errors=ranges.flatMap((r,i)=>[Math.abs(r.start-expected[i]),Math.abs(r.end-(expected[i]+.4))]);
+  if(errors.some(e=>!Number.isFinite(e)||e>1/30+1e-6)) throw Error("exported caption boundary outside one frame");
+  return {ranges,worstErrorMs:Math.max(...errors)*1000,frames:info.frames.length};
+}
 function fixture(dir, encoder) {
   const ff = FF.path("ffmpeg"), source = path.join(dir, "signal.mp4");
   const video = "color=c=black:size=320x180:rate=30:duration=5,format=yuv420p,drawbox=x=0:y=0:w=iw:h=ih:color=white:t=fill:enable='gte(n\\,6)*eq(mod(n-6\\,15)\\,0)'";
@@ -30,19 +53,47 @@ function fixture(dir, encoder) {
   return { file, source };
 }
 async function cdp(url) {
-  const ws = new WebSocket(url), calls = new Map(); let id = 0;
+  const ws = new WebSocket(url), calls = new Map(), events = []; let id = 0;
   await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject; });
-  ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && calls.has(m.id)) { const c = calls.get(m.id); calls.delete(m.id); m.error ? c.reject(Error(m.error.message)) : c.resolve(m.result); } };
-  return { close: () => ws.close(), send: (method, params = {}) => new Promise((resolve, reject) => { calls.set(++id, { resolve, reject }); ws.send(JSON.stringify({ id, method, params })); }) };
+  ws.onmessage = e => { const m = JSON.parse(e.data); if(m.method === "Runtime.exceptionThrown") events.push(m.params); if (m.id && calls.has(m.id)) { const c = calls.get(m.id); calls.delete(m.id); m.error ? c.reject(Error(m.error.message)) : c.resolve(m.result); } };
+  return { events, close: () => ws.close(), send: (method, params = {}) => new Promise((resolve, reject) => { calls.set(++id, { resolve, reject }); ws.send(JSON.stringify({ id, method, params })); }) };
 }
 async function exercise() {
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const deadline = Date.now() + 20000;
   while ((!state.connected || !runtime.projectId) && Date.now() < deadline) await wait(50);
   if (!state.connected) throw Error("editor not connected");
+  let before;
+  if (globalThis.acceptanceAnnotations) {
+    const cfg = globalThis.acceptanceAnnotations;
+    runtime.highlightFacts = { signature: JSON.stringify(projectJSON()), cards: cfg.times.map(t => ({ from: t, to: t + .4 })) };
+    before = repairSnapshot();
+  }
   await repairMediaFile(project.media.find(m => m.id === "old"));
   if (project.media[0].id === "old") throw Error("repair did not replace the media: " + document.body.innerText.slice(-600));
   if (!await flushSave()) throw Error("repair save failed");
+  let annotationResults = null;
+  if (before) {
+    const cfg = globalThis.acceptanceAnnotations, expected = [2, cfg.times[1] - cfg.removed];
+    const assertTimes = (label, actual) => {
+      if (actual.length !== 2 || actual.some((t,i) => !Number.isFinite(t) || Math.abs(t - expected[i]) > 1/30)) throw Error(label + " mapping mismatch: " + JSON.stringify(actual));
+      return actual;
+    };
+    annotationResults = {
+      expected,
+      captions: assertTimes("captions", ["caption-before", "caption-after"].map(id => project.clips.find(c => c.id === id).start)),
+      danmaku: assertTimes("danmaku", project.danmaku[0].items.map(x => x[0])),
+      danmakuTimeline: assertTimes("danmaku timeline", MontClipDanmaku.toTimeline(project.danmaku, project.clips.filter(c => c.id === "v"))),
+      highlights: assertTimes("highlights", runtime.highlightFacts.cards.map(c => c.from)),
+      cuts: assertTimes("cuts", project.sequences.find(s => s.id === "acceptance-cuts").clips.filter(c=>c.kind === "video").map(c => c.in))
+    };
+    const after = repairSnapshot();
+    const canonical = text => JSON.stringify(JSON.parse(text), function(k,v) { return v && !Array.isArray(v) && typeof v === "object" ? Object.fromEntries(Object.entries(v).sort(([a],[b]) => a.localeCompare(b))) : v; });
+    undo(); if (canonical(repairSnapshot()) !== canonical(before)) throw Error("browser undo did not restore full repair snapshot");
+    redo(); if (canonical(repairSnapshot()) !== canonical(after)) throw Error("browser redo did not restore full repair snapshot");
+    annotationResults.undo = true; annotationResults.redo = true;
+    if (!await flushSave()) throw Error("redo save failed");
+  }
   const preview = [];
   for (const t of [1.0, 1.24, 6.0, 6.24]) {
     setTime(t); await seekVideosTo(t); drawFrame(t); await wait(80);
@@ -51,15 +102,40 @@ async function exercise() {
     if (white ? luma < 200 : luma > 40) throw Error("preview marker mismatch at " + t + ": " + luma);
     preview.push({ time: t, luma, image: els.preview.toDataURL("image/png") });
   }
+  if (annotationResults) {
+    annotationResults.preview = [];
+    for (const start of annotationResults.expected) for (const offset of [-.1, .1, .5]) {
+      const t = start + offset; setTime(t); await seekVideosTo(t); drawFrame(t); await wait(80);
+      const pixels = els.preview.getContext("2d").getImageData(0,0,els.preview.width,els.preview.height).data;
+      let green = 0; for(let i=0;i<pixels.length;i+=4) if(pixels[i+1] > 100 && pixels[i+1] > pixels[i]*1.5 && pixels[i+1] > pixels[i+2]*1.5) green++;
+      if (offset === .1 ? green < 10 : green > 0) throw Error("caption preview visibility mismatch at " + t + ": " + green);
+      annotationResults.preview.push({time:t,greenPixels:green,visible:offset===.1});
+    }
+  }
   await fetchEncodeProfiles();
-  const result = await fastExport({ silent: true, delivery: { preset: "master", video: { codec: "h264", encoder: globalThis.acceptanceEncoder } } });
+  const result = await fastExport({ silent: true, delivery: globalThis.acceptanceSoftware ? {preset:"archive",video:{codec:"ffv1",encoder:"ffv1"}} : { preset: "master", video: { codec: "h264", encoder: globalThis.acceptanceEncoder } } });
   if (!result?.outputs?.length || result.outputs.some(o => !o.ok)) throw Error("export failed: " + JSON.stringify(result));
-  return { repaired: project.media[0].src, duration: project.media[0].duration, preview, exported: result.outputs[0].src };
+  let cutExport = null;
+  if (annotationResults) {
+    openSequence("acceptance-cuts");
+    annotationResults.cutPreview = [];
+    for (const t of [0,.24,1,1.24]) {
+      setTime(t); await seekVideosTo(t); drawFrame(t); await wait(80);
+      const p = els.preview.getContext("2d").getImageData(els.preview.width/2,els.preview.height/2,1,1).data;
+      const luma = (p[0]+p[1]+p[2])/3, white = t%1>.1;
+      if(white ? luma<200 : luma>40) throw Error("cut preview mismatch at "+t+": "+luma);
+      annotationResults.cutPreview.push({time:t,luma});
+    }
+    const cutResult = await fastExport({silent:true,deliveries:[{name:"Acceptance source cuts",delivery:globalThis.acceptanceSoftware?{preset:"archive",video:{codec:"ffv1",encoder:"ffv1"}}:{preset:"master",video:{codec:"h264",encoder:globalThis.acceptanceEncoder}}}]});
+    if(!cutResult?.outputs?.length || cutResult.outputs.some(o=>!o.ok)) throw Error("cut export failed");
+    cutExport = cutResult.outputs[0].src;
+  }
+  return { cutExport, annotationResults, repaired: project.media[0].src, duration: project.media[0].duration, preview, exported: result.outputs[0].src };
 }
 async function main() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-gap-chrome-")), processes = []; let server, chrome, client, browserClient;
   try {
-    const encoders = await require("../prepare-media").usableH264(); const encoder = encoders[0];
+    const encoders = await require("../prepare-media").usableH264(); const encoder = software ? "libx264" : encoders[0];
     if (!encoder) throw Error("no usable H.264 encoder for acceptance fixture/export");
     const made = fixture(dir, encoder), baseline = measured(made.source, 1 / 30);
     if (!baseline.ok) throw Error("synthetic baseline itself is not aligned");
@@ -69,34 +145,61 @@ async function main() {
       media: [{ id: "old", name: "gap.mkv", src: "/media/gap.mkv", kind: "video", duration: map.sourceDuration }],
       clips: [{ id: "v", kind: "video", mediaId: "old", track: "V1", start: 0, in: 0, duration: map.sourceDuration, props: { volume: 0 } },
         { id: "a", kind: "audio", mediaId: "old", track: "A1", start: 0, in: 0, duration: map.sourceDuration, props: { volume: 1 } }] }));
+    const removed = map.gaps.reduce((n,g) => n + g.to - g.from,0), times = [2, removed + 7];
+    if (annotations) {
+      const file = path.join(dir,"project.json"), doc = JSON.parse(fs.readFileSync(file));
+      doc.clips.push(...times.map((start,i) => ({id:i ? "caption-after":"caption-before",kind:"text",track:"V2",start,duration:.4,props:{caption:true,text:i ? "AFTER":"BEFORE",fontSize:24,color:"#00ff00",x:0,y:50,textShadow:0}})));
+      doc.danmaku = [{id:"d",mediaId:"old",items:times.map(t=>[t,.4,1000,1,16777215,"signal"])}];
+      doc.sequence = "main";
+      doc.sequences = [{id:"main",name:"Main",clips:doc.clips},{id:"acceptance-cuts",name:"Source cuts",clips:times.flatMap((t,i)=>["video","audio"].map(kind=>({id:"cut"+i+kind,kind,mediaId:"old",track:kind==="video"?"V1":"A1",start:i,in:t,duration:.4,props:{volume:kind==="audio"?1:0}})))}];
+      fs.writeFileSync(file,JSON.stringify(doc));
+    }
     const probe = net.createServer(); await new Promise(r => probe.listen(0, "127.0.0.1", r)); const port = probe.address().port; await new Promise(r => probe.close(r));
     const base = "http://127.0.0.1:" + port;
     server = cp.spawn(process.execPath, [path.join(ROOT, "server.js")], { cwd: ROOT, windowsHide: true, env: { ...process.env, PORT: String(port), FABLECUT_DATA_DIR: dir, FABLECUT_NO_FS_WATCH: "1" }, stdio: ["ignore", "pipe", "pipe"] });
-    processes.push({ kind: "server", pid: server.pid }); const log = fs.createWriteStream(path.join(dir, "server.log")); server.stdout.pipe(log); server.stderr.pipe(log);
+    processes.push({ kind: "server", pid: server.pid }); fs.writeFileSync(path.join(dir,"owned-processes.json"),JSON.stringify(processes)); const log = fs.createWriteStream(path.join(dir, "server.log")); server.stdout.pipe(log); server.stderr.pipe(log);
     for (let i = 0; ; i++) { try { if ((await fetch(base + "/api/project")).ok) break; } catch {} if (i > 100) throw Error("server not ready"); await sleep(100); }
     const profile = path.join(dir, "chrome-profile"); fs.mkdirSync(profile);
     chrome = cp.spawn(findBrowser(), ["--headless=new", "--remote-debugging-port=0", "--user-data-dir=" + profile, "--no-first-run", "--no-default-browser-check", "--autoplay-policy=no-user-gesture-required", "--disable-background-timer-throttling", "--disable-renderer-backgrounding", "--window-size=1600,900", "about:blank"], { windowsHide: true, stdio: "ignore" });
-    processes.push({ kind: "chrome", pid: chrome.pid }); const active = path.join(profile, "DevToolsActivePort");
+    processes.push({ kind: "chrome", pid: chrome.pid }); fs.writeFileSync(path.join(dir,"owned-processes.json"),JSON.stringify(processes)); const active = path.join(profile, "DevToolsActivePort");
     for (let i = 0; !fs.existsSync(active); i++) { if (i > 150) throw Error("Chrome debug port unavailable"); await sleep(100); }
     const [debugPort, browserPath] = fs.readFileSync(active, "utf8").trim().split(/\r?\n/);
     browserClient = await cdp("ws://127.0.0.1:" + debugPort + browserPath);
     const target = await (await fetch("http://127.0.0.1:" + debugPort + "/json/new?" + encodeURIComponent(base), { method: "PUT" })).json(); client = await cdp(target.webSocketDebuggerUrl);
-    await client.send("Runtime.enable"); await sleep(1500);
-    const evaluated = await client.send("Runtime.evaluate", { expression: `globalThis.acceptanceEncoder=${JSON.stringify(encoder)};(${exercise.toString()})()`, awaitPromise: true, returnByValue: true, timeout: 240000 });
+    await client.send("Runtime.enable");
+    for (let i=0;;i++) { const ready = await client.send("Runtime.evaluate", {expression:'typeof state !== "undefined" && typeof repairMediaFile === "function"',returnByValue:true}); if(ready.result.value) break; if(i>600) { const page = await client.send("Runtime.evaluate",{expression:"JSON.stringify({url:location.href,title:document.title,state:document.readyState,text:document.body?.innerText?.slice(0,400)})",returnByValue:true}); throw Error("editor scripts not ready: " + JSON.stringify({events:client.events,page:page.result.value})); } await sleep(100); }
+    const evaluated = await client.send("Runtime.evaluate", { expression: `globalThis.acceptanceSoftware=${JSON.stringify(software)};globalThis.acceptanceEncoder=${JSON.stringify(encoder)};globalThis.acceptanceAnnotations=${JSON.stringify(annotations ? {times,removed} : null)};(${exercise.toString()})()`, awaitPromise: true, returnByValue: true, timeout: 240000 });
     if (evaluated.exceptionDetails) throw Error(JSON.stringify(evaluated.exceptionDetails));
     const result = evaluated.result.value;
     for (let i = 0; i < result.preview.length; i++) { const p = result.preview[i]; fs.writeFileSync(path.join(dir, "preview-" + i + ".png"), Buffer.from(p.image.split(",")[1], "base64")); delete p.image; }
     const local = src => path.join(dir, ...src.split("/").filter(Boolean).map(decodeURIComponent));
     const repaired = measured(local(result.repaired), 1 / 30), exported = measured(local(result.exported), .04);
     const ok = repaired.ok && exported.ok && repaired.before.length > 0 && repaired.after.length > 0 && exported.before.length > 0 && exported.after.length > 0;
-    const report = { ok, encoder, processes, gapSeconds: map.gaps.reduce((n, g) => n + g.to - g.from, 0), preview: result.preview, repaired, exported };
+    if (result.annotationResults) {
+      result.annotationResults.captionTiming = captionTiming(local(result.exported),result.annotationResults.expected);
+      result.annotationResults.exported = [];
+      for (const point of result.annotationResults.preview) {
+        const pixels = run(FF.path("ffmpeg"), ["-v","error","-ss",String(point.time),"-i",local(result.exported),"-frames:v","1","-pix_fmt","rgb24","-f","rawvideo","pipe:1"]);
+        let green=0; for(let i=0;i<pixels.length;i+=3) if(pixels[i+1]>100 && pixels[i+1]>pixels[i]*1.5 && pixels[i+1]>pixels[i+2]*1.5) green++;
+        if(point.visible ? green<10 : green>0) throw Error("export caption mismatch at "+point.time+": "+green);
+        result.annotationResults.exported.push({time:point.time,greenPixels:green,visible:point.visible});
+      }
+    }
+    let cuts = null;
+    if(result.cutExport) {
+      cuts = measured(local(result.cutExport),.04);
+      if(!cuts.ok || cuts.pairs.length!==2 || cuts.pairs.some((p,i)=>Math.abs(p.flash-(i+7/30))>1/30)) throw Error("exported cuts do not match source frames within one frame");
+    }
+    const hashes = Object.fromEntries([["source",made.source],["input",made.file],["repaired",local(result.repaired)],["exported",local(result.exported)]].map(([k,f])=>[k,sha256(f)]));
+    if(result.cutExport) hashes.cutExport=sha256(local(result.cutExport));
+    const report = { cuts, ok, platform:process.platform, node:process.version, software, hashes, annotationResults:result.annotationResults, encoder, processes, gapSeconds: map.gaps.reduce((n, g) => n + g.to - g.from, 0), preview: result.preview, repaired, exported };
     fs.writeFileSync(path.join(dir, "results.json"), JSON.stringify(report, null, 2));
     console.log(JSON.stringify({ dir, ...report }, null, 2)); if (!ok) process.exitCode = 1;
-  } catch (e) { fs.writeFileSync(path.join(dir, "failure.txt"), String(e.stack || e)); console.error(JSON.stringify({ dir, error: String(e.message) })); process.exitCode = 1; }
+  } catch (e) { fs.writeFileSync(path.join(dir, "failure.txt"), String(e.stack || e)); console.error(JSON.stringify({ dir, processes, error: String(e.message) })); process.exitCode = 1; }
   finally {
     if (browserClient) { try { await browserClient.send("Browser.close"); } catch {} browserClient.close(); }
     client?.close(); if (chrome && chrome.exitCode === null) chrome.kill(); if (server && server.exitCode === null) server.kill();
   }
 }
 if (require.main === module) main();
-module.exports = { measured, fixture };
+module.exports = { measured, fixture, captionTiming };

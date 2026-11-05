@@ -58,9 +58,10 @@ were unchanged. This run explicitly used europa's installed FFmpeg.
   and cannot be claimed as a passed real-world gap-sync test.
 
 The real-file run confirms duration recovery and editability, but cannot supply
-the requested real-file A/V evidence. Keep #167 Draft unless the requester accepts
-this as not applicable, or a suitable real recording with audio and a gap is
-provided on europa for the same in-place procedure.
+the requested real-file A/V evidence. The requester has chosen to keep #167 Draft until a suitable real recording
+with audio and a gap is provided on europa for the same in-place procedure.
+DD and the original reporter have no confirmed qualifying sample; do not rescan
+the same candidates or treat a synthetic asset as real acceptance.
 
 ## Refusal text pending JJ approval
 
@@ -79,3 +80,9 @@ For the three intentionally unsupported cases, more specific drafts for JJ are:
 
 These specific alternatives are proposals, not silently promoted to JJ-approved
 strings. Button wording must come from the existing button key when wired.
+
+## Annotation follow-up
+
+See [gap-annotations.md](gap-annotations.md) for actual browser caption/danmaku/
+highlight/cut mapping, undo/redo, source-cut export, artifact hashes and separate
+Windows/Linux results. The original run above did not include those annotations.

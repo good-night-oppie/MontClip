@@ -1,0 +1,186 @@
+{
+  "platform": "win32",
+  "node": "v22.15.1",
+  "ok": true,
+  "encoder": "h264_nvenc",
+  "gapSeconds": 294.979,
+  "hashes": {
+    "source": "2a21b7b2cc87b0c12d9cf3ab64e18a084b1e9a88159191ac806d2f7c4de33253",
+    "input": "e02bbbb1ca24a88c65598247d85f2038d0345805bf4715830b94de486093e08e",
+    "repaired": "15d3ea7e9318217d6d78ca0619f8122339bb5fd86cd563a5adf077ea9996ecec",
+    "exported": "508f3b2882db711610fdd000a1ad3c392b19fd18fa595c7e01173a21b14a875a",
+    "cutExport": "8b362f174b68e3e59cb502d37ffe2936ee1808693f30ef83f1e47e00461fb21a"
+  },
+  "annotationResults": {
+    "expected": [
+      2,
+      7
+    ],
+    "captions": [
+      2,
+      7
+    ],
+    "danmaku": [
+      2,
+      7
+    ],
+    "danmakuTimeline": [
+      2,
+      7
+    ],
+    "highlights": [
+      2,
+      7
+    ],
+    "cuts": [
+      2,
+      7
+    ],
+    "undo": true,
+    "redo": true,
+    "preview": [
+      {
+        "time": 1.9,
+        "greenPixels": 0,
+        "visible": false
+      },
+      {
+        "time": 2.1,
+        "greenPixels": 848,
+        "visible": true
+      },
+      {
+        "time": 2.5,
+        "greenPixels": 0,
+        "visible": false
+      },
+      {
+        "time": 6.9,
+        "greenPixels": 0,
+        "visible": false
+      },
+      {
+        "time": 7.1,
+        "greenPixels": 658,
+        "visible": true
+      },
+      {
+        "time": 7.5,
+        "greenPixels": 0,
+        "visible": false
+      }
+    ],
+    "cutPreview": [
+      {
+        "time": 0,
+        "luma": 0
+      },
+      {
+        "time": 0.24,
+        "luma": 255
+      },
+      {
+        "time": 1,
+        "luma": 0
+      },
+      {
+        "time": 1.24,
+        "luma": 255
+      }
+    ],
+    "exported": [
+      {
+        "time": 1.9,
+        "greenPixels": 0,
+        "visible": false
+      },
+      {
+        "time": 2.1,
+        "greenPixels": 867,
+        "visible": true
+      },
+      {
+        "time": 2.5,
+        "greenPixels": 0,
+        "visible": false
+      },
+      {
+        "time": 6.9,
+        "greenPixels": 0,
+        "visible": false
+      },
+      {
+        "time": 7.1,
+        "greenPixels": 666,
+        "visible": true
+      },
+      {
+        "time": 7.5,
+        "greenPixels": 0,
+        "visible": false
+      }
+    ],
+    "captionTiming": {
+      "ranges": [
+        {
+          "start": 2,
+          "end": 2.4
+        },
+        {
+          "start": 7,
+          "end": 7.4
+        }
+      ],
+      "worstErrorMs": 0,
+      "frames": 299
+    }
+  },
+  "repaired": {
+    "duration": 9.966666,
+    "limitMs": 33.333333333333336,
+    "pairs": 20,
+    "unpaired": {
+      "flashes": [],
+      "beeps": []
+    },
+    "beforeWorstMs": 11.937166666666776,
+    "afterWorstMs": 11.45800000000019,
+    "ok": true
+  },
+  "exported": {
+    "duration": 9.966667,
+    "limitMs": 40,
+    "pairs": 20,
+    "unpaired": {
+      "flashes": [],
+      "beeps": []
+    },
+    "beforeWorstMs": 11.937166666666776,
+    "afterWorstMs": 11.45800000000019,
+    "ok": true
+  },
+  "cuts": {
+    "duration": 1.4,
+    "limitMs": 40,
+    "pairs": 2,
+    "unpaired": {
+      "flashes": [],
+      "beeps": []
+    },
+    "beforeWorstMs": 11.937166666666693,
+    "afterWorstMs": null,
+    "offsets": [
+      {
+        "flash": 0.233333,
+        "beep": 0.22139583333333332,
+        "offset": -0.011937166666666693
+      },
+      {
+        "flash": 1.233333,
+        "beep": 1.221875,
+        "offset": -0.011457999999999968
+      }
+    ],
+    "ok": true
+  }
+}

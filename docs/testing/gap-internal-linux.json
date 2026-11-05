@@ -1,0 +1,16 @@
+{
+  "platform": "linux",
+  "node": "v24.16.0",
+  "scope": "internal repaired-file audio alignment only",
+  "hash": "9a99225a5c0a689894741f1ff368fc383781107891c4d87a47b14e8189c56dac",
+  "duration": 9.967,
+  "pairs": 20,
+  "unpaired": {
+    "flashes": [],
+    "beeps": []
+  },
+  "beforeWorstMs": 9.74200000000014,
+  "afterWorstMs": 10.200333333333589,
+  "ok": true,
+  "limitMs": 33.333333333333336
+}
