@@ -757,6 +757,16 @@ const exportJobs = createExportJobs({
   url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}`,
   broadcast,
   editors: () => sseClients.size,
+  // a job that failed or was cancelled stops its encode now: ffmpeg and the half-finished file did wait for the
+  // 10-minute idle sweep, while a retry was already writing the next file (P11, europa 2026-11-05)
+  onEnd: (j) => { for (const [id, s] of [...exportSessions]) if (s.job === j.id) cleanupExport(id); },
+  // an export is done when its file is in exports/ under its own name (the .part is renamed only after ffmpeg exits)
+  finished: (src) => {
+    let name = "";
+    try { name = decodeURIComponent(String(src).split("?")[0].replace(/^\/exports\//, "")); } catch { return false; }
+    if (!name || name !== path.basename(name) || /\.part\.[^.]+$/i.test(name)) return false;
+    try { return fs.statSync(path.join(EXPORTS_DIR, name)).isFile(); } catch { return false; }
+  },
 });
 
 /* Static file with HTTP Range support (required for <video> seeking) */
@@ -1483,6 +1493,8 @@ const server = http.createServer(async (req, res) => {
       const begun = await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts);
       const sess = exportSessions.get(begun.id);
       if (sess) sess.check = ExportCheck.cleanPlan(opts.check);   // what the finished file is checked against (export-check.js)
+      // the agent's export job this encode belongs to (export-jobs.js): when that job ends without a file, so does this
+      if (typeof opts.job === "string" && opts.job && exportSessions.has(begun.id)) exportSessions.get(begun.id).job = opts.job;
       sendJSON(res, 200, begun);
     } catch (e) {
       // an unusable profile is the caller's problem, not a server fault

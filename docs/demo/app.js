@@ -1751,7 +1751,7 @@ function applyProject(data, opts = {}) {
       if (g) c.props.grade = g; else delete c.props.grade;
     }
     if (migratePan && !Object.hasOwn(raw, "pan") && Number.isInteger(raw.audioChannel) && raw.audioChannel >= 0)
-      c.props.pan = defaultPanForChannel(raw.audioChannel);
+      c.props.pan = defaultPanForChannel(raw.audioChannel, getMedia(c.mediaId)?.channels ?? getMedia(c.mediaId)?.audioChannels);
     if (c.keyframes) for (const arr of Object.values(c.keyframes))
       if (Array.isArray(arr)) arr.sort((a, b) => a.t - b.t);
     if (c.kind === "text") ensureFont(c.props.font);
@@ -4633,12 +4633,9 @@ function audioChannelLong(ch) {
   if (!Number.isInteger(ch) || ch < 0) return null;
   return CHANNEL_LONG[ch] || `Channel ${ch + 1}`;
 }
-/** Default stereo pan for an isolated linked stem (L −1, R +1, else center). */
-function defaultPanForChannel(ch) {
-  if (ch === 0) return -1;
-  if (ch === 1) return 1;
-  return 0;
-}
+/** Default stereo pan for an isolated linked stem — one rule with edit-ops.js:
+ *  a mono source's only stem is centred; several stems go L −1, R +1, rest centre. */
+const defaultPanForChannel = MontClipEdit.defaultPanForChannel;
 function clipPan(v) { return clamp(+v || 0, -1, 1); }
 /** Grow A-tracks to at least `need` (capped at MAX_TRACKS_PER_KIND). Returns how many were added. */
 function ensureAudioTrackCount(need) {
@@ -4685,7 +4682,7 @@ function attachLinkedAudioChannels(videoClip, m, nCh) {
       id: "c_" + uid(), mediaId: m.id, kind: "audio", track: ids[ch],
       start: videoClip.start, in: videoClip.in, duration: videoClip.duration,
       name: videoClip.name,
-      props: { ...DEFAULT_PROPS, audioChannel: ch, pan: defaultPanForChannel(ch) },
+      props: { ...DEFAULT_PROPS, audioChannel: ch, pan: defaultPanForChannel(ch, n) },
       linkGroup: lg,
     };
     if (videoClip.props?.speed != null) a.props.speed = videoClip.props.speed;
@@ -4720,7 +4717,7 @@ function addClipFromMedia(m, trackId, at) {
   if (kind === "video") {
     c.props.volume = 0;
     c.linkGroup = "lg_" + uid();
-    const nCh = m.channels > 0 ? m.channels : 2;
+    const nCh = m.channels > 0 ? m.channels : m.audioChannels > 0 ? m.audioChannels : 2;
     const added = ensureAudioTrackCount(Math.min(nCh, MAX_TRACKS_PER_KIND));
     if (added) {
       toast(added === 1
@@ -4902,10 +4899,18 @@ async function reconcileAudioChannels(videoClip, onlyTargeted = false) {
     project.clips.push({
       id: "c_" + uid(), mediaId, kind: "audio", track: ids[ch],
       start: live.start, in: live.in, duration: live.duration, name: live.name,
-      props: { ...DEFAULT_PROPS, audioChannel: ch, pan: defaultPanForChannel(ch) },
+      props: { ...DEFAULT_PROPS, audioChannel: ch, pan: defaultPanForChannel(ch, wantCh) },
       linkGroup: lg,
     });
     added++;
+  }
+  // The drop planted a stereo placeholder before the file was decoded; a mono file
+  // keeps only channel 0, which still has the placeholder's hard-left pan. Centre it —
+  // only here, where this run just dropped the placeholder's other half, so a pan
+  // the user set on an existing stem is never touched.
+  if (removed && wantCh === 1) {
+    const only = project.clips.find((c) => c.linkGroup === lg && c.kind === "audio" && (c.props?.audioChannel ?? 0) === 0);
+    if (only && only.props.pan === defaultPanForChannel(0, 2) && !only.keyframes?.pan?.length) only.props.pan = defaultPanForChannel(0, 1);
   }
   if (!added && !removed) {
     if (newTracks > 0) scheduleSave();
@@ -8619,7 +8624,7 @@ function routeSourceChannels(ctx, src, m, nCh, audio, collect) {
 
     const panner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
     if (panner) {
-      panner.pan.value = defaultPanForChannel(ch);
+      panner.pan.value = defaultPanForChannel(ch, nCh);
       g.connect(panner);
       panner.connect(bus);
       collect(panner, "panner");
@@ -20120,12 +20125,13 @@ async function fastExport(opts = {}) {
       body: JSON.stringify(delivery ? {
         fps, duration: frames / fps,
         deliveries: deliveries.map((d) => ({ delivery: d.delivery, name: d.name || deliveryFileName(d.delivery, fps) })),
-        canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav, check: exportCheckPlan(t0, t1),
+        canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav, job, check: exportCheckPlan(t0, t1),
       } : {
         fps,
         name: exportBaseName("export"),
         profile: profileId,
         hasAudio: !!wav,
+        job,
         check: exportCheckPlan(t0, t1),
       }),
       signal,
@@ -20207,7 +20213,7 @@ async function fastExport(opts = {}) {
       els.exportProgress.style.width = pct.toFixed(1) + "%";
       els.exportTitle.textContent = uiText("own.rendering-pct", { pct: pct.toFixed(0) });
       if (opts.onProgress) opts.onProgress(0.97 * (f + 1) / frames);
-      if (job) reportExportJob(job, { progress: 0.97 * (f + 1) / frames });
+      if (job) reportExportJob(job, { progress: 0.97 * (f + 1) / frames, at: +t.toFixed(2) });
     }
     await pixelChain;
     if (uploadError) throw uploadError;
