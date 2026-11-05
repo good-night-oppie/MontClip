@@ -731,6 +731,7 @@ const exportJobs = createExportJobs({
   url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}`,
   broadcast,
   editors: () => sseClients.size,
+  editorConnected: (id) => [...sseClients].some((res) => res.montclipTabId === id),
 });
 
 /* Static file with HTTP Range support (required for <video> seeking) */
@@ -1366,7 +1367,7 @@ const server = http.createServer(async (req, res) => {
     try {
       got = action === "" && req.method === "GET" ? exportJobs.get(id)
         : action === "/ticket" && req.method === "GET" ? exportJobs.ticket(id)
-        : action === "/claim" && req.method === "POST" ? (exportJobs.claim(id) ? { ok: true } : undefined)
+        : action === "/claim" && req.method === "POST" ? (exportJobs.claim(id, JSON.parse((await readBody(req)).toString("utf8") || "{}")) ? { ok: true } : undefined)
         : action === "/report" && req.method === "POST" ? exportJobs.report(id, JSON.parse((await readBody(req)).toString("utf8") || "{}"))
         : action === "/cancel" && req.method === "POST" ? exportJobs.cancel(id)
         : false;
@@ -1744,6 +1745,7 @@ const server = http.createServer(async (req, res) => {
       Connection: "keep-alive",
     });
     res.write("data: hello\n\n");
+    res.montclipTabId = url.searchParams.get("tabId") || null;
     sseClients.add(res);
     req.on("close", () => sseClients.delete(res));
     return;

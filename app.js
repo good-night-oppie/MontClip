@@ -1884,7 +1884,7 @@ function projectJSONHere() {
   return out;
 }
 function listenSSE() {
-  const es = new EventSource("/api/events");
+  const es = new EventSource("/api/events?tabId=" + encodeURIComponent(exportTabId));
   // Named events: "change" = project/media/library; "profiles" = encoding-profiles.json only
   es.addEventListener("change", () => { noteActivity(); syncFromServer(); scheduleOfflineCheck(); });
   es.addEventListener("proxy", (e) => onProxyEvent(e.data));
@@ -11570,7 +11570,7 @@ async function runTranscribeJob(ticket, fail) {
     if (!spec.again && await loadTranscript(src, true)) { skipped.push(src); continue; }
     srcs.push(src);
   }
-  const report = (body, force) => fetch("/api/export/job/report?id=" + encodeURIComponent(ticket.id), { method: "POST", body: JSON.stringify(body) })
+  const report = (body, force) => fetch("/api/export/job/report?id=" + encodeURIComponent(ticket.id), { method: "POST", body: JSON.stringify({ ...body, tabId: exportTabId, hidden: document.hidden }) })
     .then((r) => r.json()).then((r) => { if (r?.cancel) { jobProblem(ticket.id, r); cancelTranscribe(); } }).catch(() => { });
   if (!srcs.length) return report({ status: "done", result: { done: [], skipped, failed: [] } });
   let last = 0;
@@ -20025,6 +20025,7 @@ function onBatchListClick(e) {
    revision the agent asked for, then runs Fast export with the job's range
    and profile and reports back. A cancel from the agent arrives as the reply
    to a progress report. */
+const exportTabId = globalThis.crypto?.randomUUID?.() || "tab_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2);
 let exportJobReportAt = 0;
 async function reportExportJob(id, body, force = false) {
   const now = performance.now();
@@ -20032,7 +20033,7 @@ async function reportExportJob(id, body, force = false) {
   exportJobReportAt = now;
   try {
     const r = await fetch("/api/export/job/report?id=" + encodeURIComponent(id), {
-      method: "POST", body: JSON.stringify(body),
+      method: "POST", body: JSON.stringify({ ...body, tabId: exportTabId, hidden: document.hidden }),
     }).then((x) => x.json());
     if (r?.cancel) { jobProblem(id, r); renderCancelled = true; exportAbort?.abort(); }
   } catch { }
@@ -20046,26 +20047,30 @@ function jobProblem(id, reply) {
   showProblem({ code: reply.code, error: reply.error });
 }
 /* While this tab runs a job it says so every JOB_HEARTBEAT_MS, apart from its progress (a scope reading has none, an
-   export has none while it mixes the sound). The queue ends a tab job that stays quiet for 20 s (export-jobs.js
+   export has none while it mixes the sound). The queue ends a hidden or disconnected tab job that stays quiet for 20 s (export-jobs.js
    TAB_SILENT_MS), so a tab the browser has throttled in the background, minimized or paused frees the queue for the
    next job instead of holding it. A cancel can arrive as the reply. */
 const JOB_HEARTBEAT_MS = 5000;
 async function runExportJob(ticket) {
   if (!ticket?.id || state.exporting) return; // a busy tab leaves it for another
-  const claimed = await fetch("/api/export/job/claim?id=" + encodeURIComponent(ticket.id), { method: "POST" })
+  const claimed = await fetch("/api/export/job/claim?id=" + encodeURIComponent(ticket.id), { method: "POST", body: JSON.stringify({ tabId: exportTabId, hidden: document.hidden }) })
     .then((r) => r.ok).catch(() => false);
   if (!claimed) return;
   let running = true;
-  const beat = setInterval(() => {
-    fetch("/api/export/job/report?id=" + encodeURIComponent(ticket.id), { method: "POST", body: "{}" })
+  const heartbeat = () => {
+    fetch("/api/export/job/report?id=" + encodeURIComponent(ticket.id), { method: "POST", body: JSON.stringify({ tabId: exportTabId, hidden: document.hidden }) })
       .then((r) => r.json()).then((r) => {
         if (!r?.cancel || !running) return;
         jobProblem(ticket.id, r);
         if (ticket.kind === "transcribe") cancelTranscribe();
         else if (ticket.kind !== "scopes") { renderCancelled = true; exportAbort?.abort(); }
       }).catch(() => { });
-  }, JOB_HEARTBEAT_MS);
-  try { await runClaimedJob(ticket); } finally { running = false; clearInterval(beat); }
+  };
+  const beat = setInterval(heartbeat, JOB_HEARTBEAT_MS);
+  document.addEventListener("visibilitychange", heartbeat);
+  try { await runClaimedJob(ticket); } finally {
+    running = false; clearInterval(beat); document.removeEventListener("visibilitychange", heartbeat);
+  }
 }
 async function runClaimedJob(ticket) {
   const fail = (error) => reportExportJob(ticket.id, { status: "failed", error }, true);

@@ -62,7 +62,7 @@ test("a tab that keeps answering keeps its job; the limit runs from its last rep
   try {
     const j = q.jobs.request({});
     q.jobs.claim(j.id, { tabId: "a", hidden: true });
-    for (let i = 0; i < 12; i++) { q.tick(5000); assert.deepEqual(q.jobs.report(j.id, {}), { cancel: false }, "a heartbeat"); }
+    for (let i = 0; i < 12; i++) { q.tick(5000); assert.deepEqual(q.jobs.report(j.id, { tabId:"a" }), { cancel: false }, "a heartbeat"); }
     q.jobs.sweep();
     assert.equal(q.jobs.get(j.id).status, "running", "a minute of heartbeats is a working tab");
     q.tick(J.TAB_SILENT_MS + 1);
@@ -126,10 +126,10 @@ test("a tab running a job keeps answering while it works", () => {
 });
 
 /* ── Over HTTP and MCP: a fake editor tab (an SSE reader) that takes jobs and then goes quiet ── */
-function fakeTab(t, base) {
+function fakeTab(t, base, tabId = "a") {
   const tickets = [], waiters = [];
   let buf = "";
-  const req = http.get(base + "/api/events", (res) => {
+  const req = http.get(base + "/api/events?tabId=" + tabId, (res) => {
     res.setEncoding("utf8");
     res.on("data", (chunk) => {
       buf += chunk;
@@ -147,6 +147,7 @@ function fakeTab(t, base) {
   req.on("error", () => {});
   t.after(() => req.destroy());
   return {
+    close: () => req.destroy(),
     next: () => tickets.length ? Promise.resolve(tickets.shift()) : new Promise((r) => waiters.push(r)),
     connected: async () => {
       for (let i = 0; i < 100 && !req.socket?.readyState; i++) await new Promise((r) => setTimeout(r, 20));
@@ -256,4 +257,49 @@ test('a disconnected owner releases even a visible tab, and unknown presence is 
     const j = q2.jobs.request({}); q2.jobs.claim(j.id);
     q2.tick(130000); q2.jobs.sweep(); assert.equal(q2.jobs.get(j.id).status, 'running');
   } finally { q2.done(); }
+});
+
+test('HTTP: visible A survives 25 seconds, then its own disconnect releases even while B remains', { timeout:60000 }, async t => {
+  const { base, tab } = await boot(t);
+  const other = fakeTab(t, base, 'b'); await other.connected();
+  const request = await post(base, '/api/scopes/request', { where:'tab' });
+  const id = request.body.id;
+  assert.equal((await post(base, '/api/export/job/claim?id='+id, { tabId:'a', hidden:false })).status,200);
+  await new Promise(r=>setTimeout(r,25000));
+  assert.equal((await getJob(base,id)).status,'running');
+  tab.close();
+  const ended = await until(async()=>{ const j=await getJob(base,id); return j.status==='failed' && j; });
+  assert.equal(ended.code,'EDITOR_STOPPED_ANSWERING');
+});
+test('a hidden owner returning to the front is preserved and foreign heartbeats cannot keep it alive', () => {
+  const q = queue(); try {
+    const j = q.jobs.request({}); q.jobs.claim(j.id,{tabId:'a',hidden:true});
+    assert.deepEqual(q.jobs.report(j.id,{tabId:'b',hidden:false}),{cancel:true});
+    q.jobs.report(j.id,{tabId:'a',hidden:false}); q.tick(25000); q.jobs.sweep();
+    assert.equal(q.jobs.get(j.id).status,'running');
+  } finally { q.done(); }
+});
+
+for (const skipped of [true,false]) test(`transcription reports retain the claiming tab identity (skipped=${skipped})`, async () => {
+  const q=queue(); try {
+    const j=q.jobs.request({kind:'transcribe'}); q.jobs.claim(j.id,{tabId:'a',hidden:false});
+    const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8');
+    const code=app.slice(app.indexOf('async function runTranscribeJob('),app.indexOf('function clearSilences('));
+    let cancelled=false;
+    const ctx={exportTabId:'a',document:{hidden:false},MontClipTranscribe:{model:()=>({})},trState:{busy:false},
+      loadTranscript:async()=>skipped,performance:{now:()=>2000},jobProblem(){},cancelTranscribe(){cancelled=true;},
+      fetch:async(url,opts)=>({json:async()=>q.jobs.report(j.id,JSON.parse(opts.body))}),
+      transcribeSrcs:async(srcs,opts,progress)=>{progress(0.5); return {done:[{src:srcs[0],saved:true}],failed:[]};}};
+    require('node:vm').runInNewContext(code+';this.run=runTranscribeJob;',ctx);
+    await ctx.run({id:j.id,transcribe:{srcs:['x']}},()=>assert.fail('unexpected transcription failure'));
+    assert.equal(cancelled,false); assert.equal(q.jobs.get(j.id).status,'done');
+  } finally {q.done();}
+});
+
+test('tab identity initializes without secure-context randomUUID', () => {
+  const app=fs.readFileSync(path.join(ROOT,'app.js'),'utf8');
+  const declaration=app.match(/^const exportTabId = .*;$/m)[0];
+  const ctx={crypto:{},Date,Math};
+  require('node:vm').runInNewContext(declaration+';this.id=exportTabId;',ctx);
+  assert.match(ctx.id,/^[A-Za-z0-9_-]+$/);
 });

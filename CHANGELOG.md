@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- A visible connected editor is no longer timed out while busy. Silent-job recovery follows the owning tab, including its visibility and connection.
+
 ### Added
 - Engine groundwork for the Cindy plugin (one engine, two shells): `mcp-server.js` can be required as a module
   (`{TOOLS, callTool, ensureUIServer}`), `POST /api/ui/command` asks the open editor tab to undo / redo / seek /

@@ -99,12 +99,13 @@ function createExportJobs(opts) {
           : { error: j.via === "headless"
             ? "the headless browser never picked up the job (it may have failed to start or to load the editor)"
             : "no editor tab picked up the job — is it busy exporting? Retry with where:\"headless\"" });
-      else if (j.status === "running" && j.via === "tab" && now - j.updated > TAB_SILENT_MS)
+      else if (j.status === "running" && j.via === "tab" && now - j.updated > TAB_SILENT_MS &&
+        (j.hidden === true || (j.tabId && opts.editorConnected?.(j.tabId) === false)))
         // English for agents and logs; the page says errorCode in the interface language (app.js codeText)
         end(j, "failed", { errorCode: "EDITOR_STOPPED_ANSWERING", error: `the editor tab stopped answering for ${TAB_SILENT_MS / 1000} s ` +
           "(it may be in the background, minimized or paused), so the job was ended to free the queue — bring the editor to the front and retry" +
           (opts.allowHeadless === false ? "" : ", or retry with where:\"headless\"") });
-      else if (j.status === "running" && now - j.updated > STALL_MS)
+      else if (j.status === "running" && j.via === "headless" && now - j.updated > STALL_MS)
         end(j, "failed", { error: "the editor stopped reporting progress (tab closed or browser crashed)" });
       else if (isEnded(j) && now - j.updated > KEEP_MS) jobs.delete(j.id);
     }
@@ -149,7 +150,7 @@ function createExportJobs(opts) {
       // English for agents and logs, with the exact call that frees the queue; the page says JOB_BUSY in its own words
       if (busy) throw Object.assign(new Error(`${KIND_NAME[busy.kind] || "export"} ${busy.id} is still ${busy.status} — wait for it, or cancel it: ` +
         `fablecut_export {cancel:"${busy.id}"} (POST /api/export/job/cancel?id=${busy.id})` +
-        (busy.via === "tab" ? `. A job the editor tab stops answering ends by itself within ${TAB_SILENT_MS / 1000} s` : "")),
+        (busy.via === "tab" ? `. A silent job whose editor is hidden or disconnected ends after ${TAB_SILENT_MS / 1000} s` : "")),
       { code: 409, errorCode: "JOB_BUSY", busy: { id: busy.id, kind: busy.kind, status: busy.status, via: busy.via, progress: busy.progress, since: busy.created } });
       const tabs = opts.editors();
       if (where === "tab" && !tabs) throw Object.assign(new Error("no editor tab is open — open the editor, or use where:\"headless\""), { code: 409 });
@@ -176,14 +177,16 @@ function createExportJobs(opts) {
     /** What a tab needs to run the job (headless pages fetch it by id). */
     ticket(id) { const j = jobs.get(id); return j ? { id: j.id, kind: j.kind, range: j.range, profile: j.profile, delivery: j.delivery || null, deliveries: j.deliveries || null, time: j.time, revision: j.revision, matte: j.matte || null, mask: j.mask || null, track: j.track || null, transcribe: j.transcribe || null, image: !!j.image, status: j.status } : null; },
     /** First tab to claim a pending job runs it. */
-    claim(id) {
+    claim(id, { tabId, hidden } = {}) {
       const j = jobs.get(id);
       if (!j || j.status !== "pending") return false;
       j.status = "running"; j.updated = clock();
+      j.tabId = typeof tabId === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(tabId) ? tabId : null;
+      j.hidden = typeof hidden === "boolean" ? hidden : null;
       return true;
     },
     /** Progress / result from the running tab. Returns {cancel} so a cancel reaches it. */
-    report(id, { progress, status, src, result, error } = {}) {
+    report(id, { progress, status, src, result, error, tabId, hidden } = {}) {
       const j = jobs.get(id);
       if (!j) return null;
       // cancelled, or ended for it (it stopped answering): the tab stops, and what it sends late is not taken.
@@ -191,6 +194,8 @@ function createExportJobs(opts) {
       if (j.status === "failed" && j.errorCode) return { cancel: true, code: j.errorCode, error: j.error };
       if (j.status === "cancelled" || j.status === "failed") return { cancel: true };
       if (j.status !== "running") return { cancel: false };
+      if (j.tabId && tabId !== j.tabId) return { cancel: true };
+      if (typeof hidden === "boolean") j.hidden = hidden;
       j.updated = clock();   // any report counts; an empty one ({}) is the tab's heartbeat
       if (Number.isFinite(progress)) j.progress = Math.max(0, Math.min(1, progress));
       if (status === "done") end(j, "done", { progress: 1, src: String(src || ""), result: result && typeof result === "object" ? result : null });

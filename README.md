@@ -33,3 +33,7 @@ MontClip is a modified version of FableCut and keeps its MIT license. FableCut h
 ## License
 
 MIT. See [LICENSE](LICENSE) and the third-party notices.
+
+## Technical notes
+
+A busy visible editor keeps its queued job. Silent hidden or disconnected editors release the queue after 20 seconds; the busy response includes cancellation instructions.

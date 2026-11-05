@@ -87,7 +87,7 @@ test("a tab whose job the queue ended is told why, and says so in plain words", 
   let now = 0;
   const q = J.createExportJobs({ editors: () => 1, url: () => "", broadcast() {}, now: () => now });
   const j = q.request({});
-  q.claim(j.id); now += J.TAB_SILENT_MS + 1; q.sweep();
+  q.claim(j.id, { hidden:true }); now += J.TAB_SILENT_MS + 1; q.sweep();
   const r = q.report(j.id, { progress: 0.3 });
   a.equal(r.cancel, true); a.equal(r.code, "EDITOR_STOPPED_ANSWERING"); a.match(r.error, /stopped answering/);
   const c = q.request({}); q.cancel(c.id);

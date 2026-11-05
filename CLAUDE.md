@@ -2397,7 +2397,7 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
   progress, since}, error}`; `error` gives the exact cancel call (`fablecut_export
   {cancel:"x_…"}` · `POST /api/export/job/cancel?id=x_…`), which works for any kind.
   A tab that does not claim a job within 20 s, or claims it and then sends no report for
-  20 s (a tab the browser throttles in the background, a minimized or paused window),
+  20 s while its owning tab is hidden or its SSE connection is closed,
   frees the queue: the job ends `failed` with `code:"EDITOR_STOPPED_ANSWERING"` (or
   `EDITOR_DID_NOT_ACCEPT` in desktop mode when no tab took it) and a reason; it is not
   run again elsewhere, since the quiet tab may be half-way through it. A tab that reports
@@ -2673,8 +2673,8 @@ agent last wrote, so an export right after a patch includes that patch.
 - Long edits: `wait:false` returns a job id at once; poll with `{job:"x_…"}`
   and stop one with `{cancel:"x_…"}`. One job runs at a time — an export, or a
   scope reading / timeline frame / tracking / transcription on the same queue. A
-  refusal names the busy job and the call that cancels it; a tab that stops answering
-  frees the queue within 20 s by itself (see "REST API").
+  refusal names the busy job and the call that cancels it; a hidden or disconnected tab that stops answering
+  frees the queue after 20 s (see "REST API").
 
 ### Delivery presets
 
@@ -3105,3 +3105,7 @@ The times stay the transcript's; misheard characters become the lyrics' ones; on
 shows what was heard and what it becomes; lines that align poorly are marked 「可能不对」 and not ticked. Nothing changes
 until the streamer applies; then the part's captions are replaced in one undo step. See
 `docs/decisions/2026-11-03-lyrics-captions.md`.
+
+### Editor job presence
+
+A claimed tab job is released after 20 seconds without a report only when its owning tab is hidden or its SSE connection has closed. A visible connected tab keeps its job, even beyond 120 seconds. The busy reply still names the cancellation request. The editor sends a page-specific `tabId` on `/api/events`, job claim and report; claim/report also carry `hidden`. Unknown presence is treated conservatively.
