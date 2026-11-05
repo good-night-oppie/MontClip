@@ -1608,7 +1608,6 @@ function syncExportFrameSel() {
     html += `<option value="custom" selected>Custom · ${ef.w}×${ef.h}</option>`;
   els.exportFrameSel.innerHTML = html;
   els.exportFrameSel.setAttribute("aria-label", uiText("own.ef-label"));
-  els.exportFrameSel.title = uiText("own.ef-label");
 }
 /** The export-frame drop-down's name and its 9:16 option, as the drop-down shows them now — for the assistant's
  *  「改竖屏」 sentence (agent-limits.js), so it names what is on screen in whatever words the drop-down uses. */

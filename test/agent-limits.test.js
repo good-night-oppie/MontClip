@@ -86,7 +86,7 @@ test('a mixed message, with a substitute transport: the format note sent carries
  const system=sent.messages[0];
  a.equal(system.role,'system');
  a.ok(system.content.includes('When a message also asks for something you cannot do and you answer in words, your first sentence says plainly what you cannot do, for example 「改竖屏这一步我现在做不了。」'));
- a.ok(system.content.includes('in Chinese: 在播放器上方的导出画面下拉框里选 9:16，再导出; in English: in the drop-down above the player that shows “Full canvas”, choose “9:16 Reel”, then export'));
+ a.ok(system.content.includes('in Chinese: 在播放器上方的导出画面下拉框里选 9:16，再导出; in English: in the export-frame drop-down above the player, choose the 9:16 option, then export'));
  a.ok(system.content.includes('Do not propose an edit that would change nothing'));
  a.match(system.content,/You cannot change the picture's shape \(vertical, 9:16, square\)/);
  // the reply is an edit (JSON only, it cannot say anything): the pane's first sentence is the host's, decided by the words
@@ -98,8 +98,10 @@ test('a mixed message, with a substitute transport: the format note sent carries
   a.equal(shown[0],View.text[lang].officialPane_limitReframe.replace('{dropdown}',names.dropdown).replace('{option}',names.option));
  }
  // JJ定稿 (2026-11-05), word for word, with the names the drop-down shows now
- a.equal(L.note(draft,{limitReframe:View.text['zh-CN'].officialPane_limitReframe},dropdown('zh-CN').names),'改竖屏这一步，助手现在还做不了。可以自己改：在播放器上方的「导出画面」里选「9:16 Reel」，再导出。');
- a.equal(L.note(draft,{limitReframe:View.text.en.officialPane_limitReframe},dropdown('en').names),'The assistant can\'t switch to vertical yet. You can do it yourself: in the “Export frame” list above the player, choose “9:16 Reel”, then export.');
+ // (the option is whatever the drop-down shows: 「9:16 竖屏」 / “9:16 Vertical” once #173's translation is in)
+ const zhOpt=dropdown('zh-CN').names.option,enOpt=dropdown('en').names.option;
+ a.equal(L.note(draft,{limitReframe:View.text['zh-CN'].officialPane_limitReframe},dropdown('zh-CN').names),`改竖屏这一步，助手现在还做不了。可以自己改：在播放器上方的「导出画面」里选「${zhOpt}」，再导出。`);
+ a.equal(L.note(draft,{limitReframe:View.text.en.officialPane_limitReframe},dropdown('en').names),`The assistant can't switch to vertical yet. You can do it yourself: in the “Export frame” list above the player, choose “${enOpt}”, then export.`);
  a.ok(View.text['zh-CN'].officialPane_limitReframe.startsWith('改竖屏'),'its first sentence is what can\'t be done');
  a.ok(!/我/.test(View.text['zh-CN'].officialPane_limitReframe)&&!/我/.test(View.text['zh-CN'].officialPane_noChange),'fixed words: no 我');
  a.deepEqual(L.shown('剪到 1 分钟以内',conv.result().text,{}),[conv.result().text],'nothing missing: the reply alone');
@@ -115,18 +117,21 @@ test('a mixed message, with a substitute transport: the format note sent carries
 test('the names in the sentence are the ones the drop-down shows: its label and its 9:16 option, read from it',()=>{
  for(const lang of ['zh-CN','en']){
   const {sel,names}=dropdown(lang);
-  a.equal(names.dropdown,View.text[lang]['own.ef-label']);a.equal(names.dropdown,sel.getAttribute('aria-label'));a.equal(sel.title,names.dropdown);
+  a.equal(names.dropdown,View.text[lang]['own.ef-label']);a.equal(names.dropdown,sel.getAttribute('aria-label'));
   a.equal(names.option,sel.optionText('1'),'the 9:16 option as rendered');
-  a.equal(names.option,'9:16 Reel','what it shows now (the translation PR changes the option, and the sentence follows)');
+  // the option as app.js's own list names it (EXPORT_FRAME_ASPECTS), never a word written in the test
+  const app=read('app.js'),list=app.slice(app.indexOf('const EXPORT_FRAME_ASPECTS = ['),app.indexOf('const WAVE_PEAKS_PER_SEC'));
+  a.ok(list.includes(JSON.stringify(names.option))||names.option===View.text[lang]['own.ef-9-16'],'the 9:16 entry: '+names.option);
  }
  a.equal(View.text['zh-CN']['own.ef-label'],'导出画面');a.equal(View.text.en['own.ef-label'],'Export frame');
- a.match(read('ui-preferences.js'),/the export-frame drop-down above the player: its name \(aria-label and tooltip; Deja, 2026-11-05\)\. 待 JJ 定稿/);
+ a.match(read('ui-preferences.js'),/the export-frame drop-down above the player: its name \(aria-label; Deja, 2026-11-05\)\. JJ定稿 \(2026-11-05\)/);
  // never written into the sentence by hand
  for(const l of ['zh-CN','en']){const t=View.text[l].officialPane_limitReframe;a.ok(t.includes('{dropdown}')&&t.includes('{option}')&&!t.includes('9:16')&&!t.includes('Reel'),t);}
  // a language switch rebuilds the drop-down, so the names follow it
  const app=read('app.js'),refresh=app.slice(app.indexOf('function refreshLanguageText()'),app.indexOf('function updateMontClipView('));
  a.match(refresh,/syncExportFrameSel\(\);/);
  a.match(read('index.html'),/<select data-more-rank="6" id="exportFrameSel"/);
- // the format note keeps its own way of saying it (the model's words, not the editor's)
- a.ok(F.FORMAT_NOTE.includes('“Full canvas”')&&F.FORMAT_NOTE.includes('“9:16 Reel”'));
+ // the format note says it without the option's words, so it can't go out of date (no Reel / IG names, JJ 2026-11-05)
+ a.ok(F.FORMAT_NOTE.includes('in the export-frame drop-down above the player, choose the 9:16 option, then export'));
+ a.ok(!/Reel|“Full canvas”/.test(F.FORMAT_NOTE));
 });
