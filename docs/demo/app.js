@@ -2485,11 +2485,14 @@ function renderBin() {
     const usesHtml = `<button type="button" class="bin-uses${uses ? "" : " none"}" title="${uses ? `Used ${uses}× — click to find every instance` : "Not used on the timeline"}">${uses}</button>`;
     // JJ (P3, 2026-11-05): a recording nothing could read the length of says so on the file itself
     const rep = repairing.get(m.id);
+    if (m.kind === "video" && !offline) void loadMediaClock(m.src);
+    const gap = mediaClocks.get(m.src)?.result?.gapMap;
+    const gapWords = gap ? { N: Math.round(gap.gaps.reduce((n, g) => n + g.to - g.from, 0) * 10) / 10, button: uiText("own.repair-button") } : null;
     const repairHtml = rep ? `<div class="bin-repair"><span class="bin-repair-pct">${escapeHtml(uiText("own.repair-progress", { n: Math.round(rep.progress * 100) }))}</span><button type="button" class="btn tiny" data-repair-cancel>${escapeHtml(uiText("own.repair-cancel"))}</button></div>` : "";
     // Rea (#152): a sound file is not called a video, and gets no 〔帮我修好〕 (it repairs videos)
-    const incomplete = repairHtml || (MediaLib.cannotCut(m) ? (m.kind === "video" ? `<div class="bin-incomplete">${escapeHtml(uiText("own.media-incomplete"))}<button type="button" class="btn tiny" data-repair title="${escapeHtml(uiText("own.repair-button-tip"))}">${escapeHtml(uiText("own.repair-button"))}</button></div>` : `<div class="bin-incomplete">${escapeHtml(uiText("own.media-incomplete-audio"))}</div>`) : "");
+    const incomplete = repairHtml || (gapWords ? `<div class="bin-incomplete">${escapeHtml(uiText("own.repair-gap-reason", gapWords))}<button type="button" class="btn tiny" data-repair>${escapeHtml(uiText("own.repair-button"))}</button></div>` : MediaLib.cannotCut(m) ? (m.kind === "video" ? `<div class="bin-incomplete">${escapeHtml(uiText("own.media-incomplete"))}<button type="button" class="btn tiny" data-repair title="${escapeHtml(uiText("own.repair-button-tip"))}">${escapeHtml(uiText("own.repair-button"))}</button></div>` : `<div class="bin-incomplete">${escapeHtml(uiText("own.media-incomplete-audio"))}</div>`) : "");
     if (incomplete) item.classList.add("has-note");
-    const slowMark = MediaLib.slowToSeek(m) ? `<span class="bin-slow" title="${escapeHtml(uiText("own.media-slow-mark"))}" aria-label="${escapeHtml(uiText("own.media-slow-mark"))}">◔</span>` : "";
+    const slowMark = gapWords ? `<span class="bin-slow" title="${escapeHtml(uiText("own.media-gap-tip", gapWords))}">${escapeHtml(uiText("own.media-gap-mark", gapWords))}</span>` : MediaLib.slowToSeek(m) ? `<span class="bin-slow" title="${escapeHtml(uiText("own.media-slow-mark"))}" aria-label="${escapeHtml(uiText("own.media-slow-mark"))}">◔</span>` : "";
     const favHtml = `<button type="button" class="bin-fav${m.favorite ? " on" : ""}" title="${m.favorite ? "Favorite — click to unstar" : "Mark as favorite"}" aria-pressed="${!!m.favorite}">${m.favorite ? "★" : "☆"}</button>`;
     if (binView.list) {
       const cell = (v, cls = "") => `<span class="bin-cell${cls}">${escapeHtml(v || "—")}</span>`;
@@ -3212,15 +3215,50 @@ function pickFilesForRelink({ folder = false, accept = els.fileInput.accept } = 
    entry's place — every clip, composition and sequence that used it — as one undo step. Progress and Cancel sit on the
    file in the bin. The same swap as fablecut_repair_media's (MediaLib.swapMedia). */
 const repairing = new Map();   // media id → {job, progress}
+const mediaClocks = new Map(); // diagnostics only; importing never changes the project clock
+function loadMediaClock(src, refresh = false) {
+  const previous = mediaClocks.get(src);
+  if (previous && !refresh) return previous.promise;
+  const entry = { promise: null, result: null };
+  mediaClocks.set(src, entry);
+  entry.promise = (async () => {
+    try {
+      const start = await fetch("/api/media-clock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ src }) });
+      if (!start.ok) return null;
+      let job = await start.json(); const deadline = Date.now() + 190000;
+      while (["queued", "running"].includes(job.state) && Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 500));
+        const response = await fetch("/api/media-clock?src=" + encodeURIComponent(src));
+        if (!response.ok) return null;
+        job = await response.json();
+      }
+      if (job.state === "done") { entry.result = job.result; return job; }
+    } catch { /* Failed diagnostics leave source timing unchanged. */ }
+    return null;
+  })();
+  entry.promise.then(() => { if (mediaClocks.get(src) === entry && entry.result?.gapMap) renderBin(); });
+  return entry.promise;
+}
+function repairHighlights() {
+  const facts = runtime.highlightFacts;
+  return facts && facts.signature === JSON.stringify(projectJSON()) ? facts.cards : [];
+}
 async function repairMediaFile(m) {
   if (!m || repairing.has(m.id)) return;
+  const startedRoot = seqRoot(), source = m.src;
   const st = { job: null, progress: 0 };
   repairing.set(m.id, st);
   renderBin();
   let j = null;
   try {
-    const res = await fetch("/api/repair", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ src: m.src }) });
-    if (res.ok) j = await res.json();
+    const clock = await loadMediaClock(source, true), gapMap = clock?.result?.gapMap;
+    if (gapMap) {
+      if (state.compCtx || seqRoot() !== startedRoot) throw Object.assign(new Error(), { code: "GAP_EDIT_CONFLICT" });
+      MontClipGapRemap.plan(startedRoot, m.id, "m_" + uid(), gapMap, repairHighlights());
+    }
+    const res = await fetch("/api/repair", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ src: source, skipGaps: !!gapMap, sourceVersion: clock?.key }) });
+    j = await res.json();
+    if (!res.ok) j = { status: "failed", error: j };
     st.job = j && j.job;
     while (j && (j.status === "running" || j.status === "pending")) {
       await new Promise((r) => setTimeout(r, 500));
@@ -3228,17 +3266,35 @@ async function repairMediaFile(m) {
       j = q.ok ? await q.json() : null;
       if (j) { st.progress = j.progress || 0; const pct = document.querySelector(`.bin-item[data-media-id="${CSS.escape(m.id)}"] .bin-repair-pct`); if (pct) pct.textContent = uiText("own.repair-progress", { n: Math.round(st.progress * 100) }); }
     }
-  } catch { j = null; }
+  } catch (e) { j = { status: "failed", error: { code: e.code || "GAP_EDIT_CONFLICT" } }; }
   repairing.delete(m.id);
   if (j && j.status === "done" && j.result) {
     const root = seqRoot();
-    pushUndo(JSON.stringify({ clips: project.clips, markers: project.markers || [], comps: project.comps || [], media: project.media, seqClips: otherSequenceClips() }));
-    const entry = { id: "m_" + uid(), ...j.result };
-    if ((root.media || []).some((x) => x.id === m.id)) {
+    if (root !== startedRoot || !(root.media || []).some(x => x.id === m.id && x.src === source)) {
+      renderBin(); toast(uiText("own.repair-source-changed")); return;
+    }
+    const { gapMap, sourceVersion, ...details } = j.result;
+    const entry = { id: "m_" + uid(), ...details };
+    try {
+      if (gapMap) {
+        const response = await fetch("/api/media-clock?src=" + encodeURIComponent(source));
+        const current = response.ok ? await response.json() : null;
+        if (state.compCtx || seqRoot() !== root || !root.media.some(x => x.id === m.id && x.src === source) || !current || current.key !== sourceVersion || current.state !== "done")
+          throw Object.assign(new Error(), { code: "REPAIR_SOURCE_CHANGED" });
+        const planned = MontClipGapRemap.plan(root, m.id, entry.id, gapMap, repairHighlights());
+        pushUndo(repairSnapshot());
+        Object.assign(root, planned.project);
+        MediaLib.swapMedia(root, m.id, entry);
+        runtime.highlightFacts = { signature: JSON.stringify(projectJSON()), cards: planned.highlights };
+      } else {
+      pushUndo(repairSnapshot());
       MediaLib.swapMedia(root, m.id, entry);
       // an open composition's clips are edited in `project` until it closes
       if (project !== root) for (const c of project.clips) if (c.mediaId === m.id) c.mediaId = entry.id;
-    } else root.media.push(entry);
+      }
+    } catch (e) {
+      renderBin(); toast(uiText(e.code === "REPAIR_SOURCE_CHANGED" ? "own.repair-source-changed" : "own.repair-gap-conflict")); return;
+    }
     runtime.compGen = (runtime.compGen || 0) + 1;
     state.dirtyTimeline = true;
     renderBin(); scheduleSave(); renderInspector();
@@ -3247,7 +3303,8 @@ async function repairMediaFile(m) {
   }
   renderBin();
   if (j && j.status === "cancelled") return;
-  toast(uiText(j && j.error && j.error.code === "REPAIR_ENCODER_MISSING" ? "own.repair-encoder-missing" : "own.repair-failed", { name: m.name }));
+  const errorKey = { REPAIR_ENCODER_MISSING: "own.repair-encoder-missing", GAP_EDIT_CONFLICT: "own.repair-gap-conflict", REPAIR_SOURCE_CHANGED: "own.repair-source-changed" };
+  toast(uiText(errorKey[j?.error?.code] || "own.repair-failed", { name: m.name }));
 }
 async function cancelRepair(mediaId) {
   const st = repairing.get(mediaId);
@@ -4293,6 +4350,11 @@ function initProjectsUi() {
 function undoSnapshot() {
   return JSON.stringify({ clips: project.clips, markers: project.markers || [], comps: project.comps || [] });
 }
+const REPAIR_FIELDS = ["clips", "media", "comps", "sequences", "collections", "songs", "danmaku"];
+function repairSnapshot() {
+  const pick = doc => Object.fromEntries(REPAIR_FIELDS.filter(k => Object.hasOwn(doc, k)).map(k => [k, doc[k]]));
+  return JSON.stringify({ repairState: { root: pick(seqRoot()), view: project === seqRoot() ? null : pick(project), highlights: runtime.highlightFacts || null } });
+}
 /** Record an undo step — `snap` lets an edit snapshot first and record only
  *  once it knows it changed something. */
 function pushUndo(snap = undoSnapshot(), { eventId = null, capability = "manual_edit", args = {}, noEvent = false } = {}) {
@@ -4316,6 +4378,15 @@ function hasSeqClips(json) {
 function otherSequenceClips() { return Object.fromEntries(SeqLib.others(seqRoot()).map((sq) => [sq.id, sq.clips || []])); }
 function restoreSnapshot(json) {
   const snap = JSON.parse(json);
+  if (snap.repairState) {
+    const restore = (doc, fields) => { for (const k of REPAIR_FIELDS) { if (Object.hasOwn(fields, k)) doc[k] = fields[k]; else delete doc[k]; } };
+    restore(seqRoot(), snap.repairState.root);
+    if (snap.repairState.view && project !== seqRoot()) restore(project, snap.repairState.view);
+    runtime.highlightFacts = snap.repairState.highlights;
+    runtime.compGen = (runtime.compGen || 0) + 1;
+    renderBin(); scheduleOfflineCheck(0);
+    return;
+  }
   if (snap && snap.seqClips) {
     const open = SeqLib.activeId(seqRoot());
     for (const [id, clips] of Object.entries(snap.seqClips)) { const sq = SeqLib.find(seqRoot(), id); if (sq && id !== open) sq.clips = clips; }
@@ -4338,6 +4409,7 @@ function restoreSnapshot(json) {
 /** The current state to step back to, carrying the media list when `snap` does
  *  (removing, relinking or replacing media), so redo puts it back too. */
 function counterSnapshot(snap) {
+  if (JSON.parse(snap)?.repairState) return repairSnapshot();
   if (snap.includes('"rangeState":')) return JSON.stringify({ ...JSON.parse(undoSnapshot()), ...(JSON.parse(snap).agentApplyId ? {agentApplyId:JSON.parse(snap).agentApplyId} : {}), rangeState: {
     inPoint: project.inPoint ?? null, outPoint: project.outPoint ?? null, captionOmissions: project.captionOmissions || [],
   } });

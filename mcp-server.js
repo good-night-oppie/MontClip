@@ -1069,6 +1069,7 @@ const REPAIR_WORDS = {
   REPAIR_FAILED: (name) => `"${name}" stopped recording before it was saved, and this kind can't be fixed. The original file is unchanged — please use a complete file.`,
   REPAIR_ENCODER_MISSING: (name) => `This computer has no encoder MontClip can use to fix "${name}", so nothing was written. The original file is unchanged.`,
   REPAIR_CANCELLED: () => "Stopped; nothing was changed.",
+  GAP_EDIT_CONFLICT: () => "The project is unchanged. Resolve subtitles, danmaku or cuts inside the gap before trying again.",
 };
 function repairLine(j) {
   const pct = Math.round(j.progress * 100);
@@ -1100,6 +1101,25 @@ async function repairTool(args) {
   const locked = (doc.clips || []).filter((c) => c.mediaId === id && (c.locked === true || lockedTracks.has(c.track)));
   if (locked.length && args.force !== true)
     throw new Error(`${locked.map((c) => c.id).join(", ")} locked — the user locked it. Leave it alone, or pass force:true if they asked you to change it`);
+  if (args.skipGaps === true) {
+    if (!(await ensureUIServer())) throw new Error("The editor server is required for gap repair.");
+    const j = repairJobs.start(id + "|skipGaps", async ({ signal, onProgress }) => {
+      let r = await apiJSON("POST", "/api/repair", { src: m.src, mediaId: id, skipGaps: true, applyToProject: true, force: args.force === true });
+      if (r.status !== 200) throw Object.assign(new Error(r.body?.error || "Gap repair could not start"), { code: r.body?.code || "REPAIR_FAILED" });
+      let job = r.body;
+      while (["running", "pending"].includes(job.status)) {
+        if (signal.aborted) { await apiJSON("POST", "/api/repair/cancel?id=" + encodeURIComponent(job.job), {}); throw Object.assign(new Error("Stopped"), { code: "REPAIR_CANCELLED" }); }
+        onProgress(job.progress || 0, job.phase);
+        await sleep(250);
+        r = await apiJSON("GET", "/api/repair/job?id=" + encodeURIComponent(job.job));
+        if (r.status !== 200) throw new Error("Gap repair job unavailable");
+        job = r.body;
+      }
+      if (job.status !== "done") throw Object.assign(new Error(job.error?.message || "Gap repair failed"), { code: job.error?.code || "REPAIR_FAILED" });
+      return job.result;
+    });
+    repairNames.set(j.job, m.name); return repairLine(j);
+  }
   const j = repairJobs.start(id, async ({ signal, onProgress }) => {
     const r = await MakeEditable.makeEditable(file, { outDir: MEDIA_DIR, signal, onProgress });
     const name = path.basename(r.file);

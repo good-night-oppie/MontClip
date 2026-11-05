@@ -98,14 +98,14 @@ const number = v => v != null && v !== "" && v !== "N/A" && Number.isFinite(Numb
 async function scanFile(file, { timeoutMs, signal } = {}) {
   if (signal?.aborted) throw Object.assign(new Error("clock scan cancelled"), { code: "ABORT_ERR" });
   const st = await fs.promises.stat(file);
-  const streams = await new Promise((resolve, reject) => {
-    execFile(FF.path("ffprobe"), ["-v", "error", "-show_streams", "-of", "json", file],
+  const metadata = await new Promise((resolve, reject) => {
+    execFile(FF.path("ffprobe"), ["-v", "error", "-show_streams", "-show_format", "-of", "json", file],
       { encoding: "utf8", windowsHide: true, timeout: 15000, maxBuffer: 4 << 20, signal }, (err, out) => {
         if (err) return reject(err);
-        try { resolve(JSON.parse(out).streams || []); } catch (e) { reject(e); }
+        try { resolve(JSON.parse(out)); } catch (e) { reject(e); }
       });
   });
-  const stream = primaryStream(streams);
+  const stream = primaryStream(metadata.streams || []);
   if (!stream) throw new Error("no primary audio/video stream");
   if (signal?.aborted) throw Object.assign(new Error("clock scan cancelled"), { code: "ABORT_ERR" });
   const budget = timeoutMs ?? Math.min(180000, 20000 + Math.ceil(st.size / 1e9) * 15000);
@@ -140,7 +140,7 @@ async function scanFile(file, { timeoutMs, signal } = {}) {
         if (rest) line(rest);
         const result = scan.finish();
         if (!result.packets) throw new Error("no usable packet timestamps");
-        resolve({ ...result, streamIndex: stream.index, kind: stream.codec_type });
+        resolve({ ...result, streamIndex: stream.index, kind: stream.codec_type, sourceOrigin: number(metadata.format?.start_time) });
       } catch (e) { reject(e); }
     });
   });

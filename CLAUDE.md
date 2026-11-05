@@ -2440,10 +2440,27 @@ Other states are `none`, `queued`, `running`, `failed`, `cancelled`, and `stale`
 results. There are at most two active scans and 128 retained jobs; a full busy queue returns 429.
 
 These diagnostics do not save project metadata, shorten media, or modify clips. Only an
-explicit skip-gap choice may apply a different clock; the repair/UI integration is pending.
+explicit skip-gap choice may apply a different clock. The editor shows diagnostic gap
+labels and its repair button saves a new copy, mapping related annotations and cuts.
 The endpoint rejects edit options such as `apply`. Do not use covered duration as the
 source duration for `fablecut_frame` or existing clip In/Out values. See
 `docs/testing/packet-coverage.md` for mapping units and current limitations.
+
+`POST /api/repair {src, skipGaps:true, sourceVersion?}` explicitly requests a continuous
+copy; results include `gapMap` and `sourceVersion`. The editor preflights its live edits,
+then revalidates before applying the result with one undo step. A subtitle, danmaku
+interval, transcript word or cut wholly inside the removed gap causes
+`GAP_EDIT_CONFLICT`: preserve the project and resolve those edits first. Ambiguous
+caption sources and speed ramps also refuse automatic mapping. The original file
+and transcript remain available for undo. No import applies this mapping implicitly.
+
+Agents use `fablecut_repair_media {mediaId, skipGaps:true}` only after explicit user
+choice. It delegates to the server with `applyToProject:true, mediaId`; the server
+validates the latest project and saves a version before atomically replacing it.
+An open editor returns `REPAIR_EDITOR_OPEN`: use its repair button to preserve unsaved
+changes and local undo. A changed source returns `REPAIR_SOURCE_CHANGED`. This draft
+still needs full browser preview/export acceptance; the extra aligned-success sentence
+is deliberately not enabled.
 
 ## Recipes
 

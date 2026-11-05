@@ -138,7 +138,13 @@ test("the words: JJ's, word for word (the English of the mark and the progress l
     a.ok(!app.includes(old) && !ui.includes(old), "the old name is gone: " + old);
   const line = (s) => app.split("\n").filter((l) => l.includes(s));
   a.ok(line("MediaLib.cannotCut(m)").some((l) => l.includes("own.repair-button")), "the button sits on a file that can't be cut");
-  a.ok(line('"own.repair-failed"').some((l) => l.includes("{ name: m.name }") && l.includes('"own.repair-encoder-missing"')), "the failure names the file (and says when no encoder can do it)");
+  const errorBranch = app.match(/  const errorKey = \{ REPAIR_ENCODER_MISSING:[\s\S]*?toast\(uiText\([^\n]+\n/);
+  a.ok(errorBranch, "the editor routes repair errors to localized text");
+  for (const [code, key] of [["REPAIR_ENCODER_MISSING", "own.repair-encoder-missing"], ["REPAIR_FAILED", "own.repair-failed"], ["GAP_EDIT_CONFLICT", "own.repair-gap-conflict"]]) {
+    let result;
+    new Function("j", "m", "uiText", "toast", errorBranch[0])({ error: { code } }, { name: "rec.mp4" }, (k, args) => ({ k, args }), value => { result = value; });
+    a.deepEqual(result, { k: key, args: { name: "rec.mp4" } });
+  }
   a.ok(app.includes("/api/repair"), "the editor runs it on the server");
   a.ok(app.includes("MediaLib.swapMedia("), "and swaps the entry the same way the agent's does");
 });

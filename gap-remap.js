@@ -6,8 +6,9 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
   const clone = value => JSON.parse(JSON.stringify(value));
+  const conflict = message => Object.assign(new Error(message), { code: "GAP_EDIT_CONFLICT" });
   function retained(from, to) {
-    if (!(to > from)) throw new Error("annotation or cut lies entirely inside a gap");
+    if (!(to > from)) throw conflict("annotation or cut lies entirely inside a gap");
   }
   function mapper(map) {
     if (!Number.isFinite(map.duration) || map.duration <= 0) throw new Error("invalid gap map duration");
@@ -35,14 +36,18 @@
       const start = time(w[1]), end = time(w[2]); retained(start, end);
       return [w[0], start, end, ...w.slice(3)];
     });
+    if (result.gaps) result.gaps = result.gaps.map(g => {
+      const start = time(g[0]), end = time(g[1]); retained(start, end);
+      return [start, end, ...g.slice(2)];
+    });
     return result;
   }
   function plan(original, oldId, newId, map, highlights = []) {
     const project = clone(original), time = mapper(map);
     if (!original.media?.some(m => m.id === oldId) || oldId === newId || original.media.some(m => m.id === newId) || original.songs?.[newId])
       throw new Error("invalid replacement media identity");
-    // Entirely removed annotations need an explicit product rule. Until one is
-    // approved, reject the whole plan rather than silently deleting user edits.
+    // User decision: preserve the project and ask for conflicting edits to be
+    // resolved first. Never delete an annotation or snap it onto a gap boundary.
     const speed = c => c.props?.speed ?? 1;
     function source(c, t) { return (c.in || 0) + (t - c.start) * speed(c); }
     function timeline(c, t) { return c.start + (time(source(c, t)) - time(c.in || 0)) / speed(c); }
@@ -50,7 +55,7 @@
       const overlapping = clips.filter(c => c.kind === "video" && !c.disabled && c.start < to && c.start + c.duration > from);
       if (!overlapping.some(c => c.mediaId === oldId)) return null;
       if (overlapping.length !== 1 || overlapping[0].start > from || overlapping[0].start + overlapping[0].duration < to)
-        throw new Error("ambiguous timeline annotation source");
+        throw conflict("ambiguous timeline annotation source");
       return overlapping[0];
     }
     function annotations(clips, records) {
@@ -63,7 +68,7 @@
     function remapClips(clips = []) {
       // Validate first; nonlinear ramps need their own inverse, never a constant-speed approximation.
       for (const c of clips) if (c.mediaId === oldId) {
-        if (c.keyframes?.speed?.length) throw new Error("speed ramp gap mapping is not supported");
+        if (c.keyframes?.speed?.length) throw conflict("speed ramp gap mapping is not supported");
         if (!Number.isFinite(speed(c)) || speed(c) <= 0) throw new Error("invalid clip speed");
       }
       const before = clone(clips);
@@ -111,7 +116,7 @@
       songs.songs = (songs.songs || []).map(s => {
         const from = time(s.from), to = time(s.to); retained(from, to);
         return { ...s, from, to, marks: (s.marks || []).map(m => {
-          if (map.gaps.some(g => m.t > g.from && m.t < g.to)) throw new Error("song mark lies entirely inside a gap");
+          if (map.gaps.some(g => m.t > g.from && m.t < g.to)) throw conflict("song mark lies entirely inside a gap");
           return { ...m, t: time(m.t) };
         }) };
       });

@@ -55,8 +55,7 @@ for (const ext of ["flv", "mkv"]) {
     const info = await MP.probeFile(fixture.rows.find(r => r.file.endsWith(ext)).file);
     assert.ok(info.duration > 300, `original clock must remain intact: ${info.duration}`);
   });
-  // This assertion is executed and still fails on main; #157's repair entry is not merged yet.
-  test(`${ext}: explicit skip-gap repair produces a short new copy`, { skip: !have, todo: "opt-in repair integration with #157 pending" }, async t => {
+  test(`${ext}: explicit skip-gap repair produces a short new copy`, { skip: !have }, async t => {
     const projectDir = makeDataDir(t, seedProject()), media = path.join(projectDir, "media"); fs.mkdirSync(media);
     const name = "cut." + ext, src = "/media/" + name;
     fs.copyFileSync(fixture.rows.find(r => r.file.endsWith(ext)).file, path.join(media, name));

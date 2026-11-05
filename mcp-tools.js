@@ -284,6 +284,7 @@ const TOOLS = [
       type: "object",
       properties: {
         mediaId: { type: "string", description: "The video to repair or convert (starts a job, or joins the one already running)" },
+        skipGaps: { type: "boolean", description: "Only after the user explicitly asks: save a copy without timestamp gaps and map annotations/cuts. Conflicting edits inside gaps leave the project unchanged. With an editor tab open, use its Fix it for me button to preserve unsaved edits and undo; otherwise a project version is saved before replacement." },
         job: { type: "string", description: "A job id (r_…): how far it got, and the result once done" },
         cancel: { type: "string", description: "A job id (r_…) to stop" },
         force: { type: "boolean", description: "Also switch clips the user locked (only when they asked)" },

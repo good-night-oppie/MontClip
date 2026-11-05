@@ -136,10 +136,10 @@ This is not an editor undo test. UI apply/undo/redo must additionally capture
 collections, songs, danmaku, all sequence/comp clips and transient highlight facts.
 Transcript copies must get separate sidecars so undo can use the original.
 
-Open product boundary: annotations/cuts lying entirely inside a removed gap have
+Resolved product boundary: annotations/cuts lying entirely inside a removed gap have
 no corresponding frame in the copy. The planner currently refuses the whole
 replacement rather than dropping or moving them. This is a conservative guard,
-not a final user-facing policy. Do not enable the aligned-success suffix until
+the user-approved preserve-and-resolve-first policy. Do not enable the aligned-success suffix until
 real replacement and undo pass end-to-end acceptance.
 
 Validation: annotation helper and origin tests failed before implementation.
@@ -147,3 +147,49 @@ Windows full suite before final boundary/origin additions: 1660 pass, 0 fail,
 5 skip, 2 executed TODO (83.9 s). Final targeted copy/remap/origin/synthetic suite:
 10 pass, 0 fail. Release readiness passed. Linux, europa real recording,
 browser preview/export and actual undo/redo: not run this round.
+
+## Explicit repair integration follow-up
+
+The approved conflict policy is now wired: preserve the project, report conflicts,
+and ask the user to resolve them before repair. This section supersedes the earlier
+pending-integration notes. The two HTTP repair TODOs are now ordinary passing tests.
+
+- Formal encoder selection is reused from #157. A gap repair trims continuous
+  spans with a common audio/video origin and transcodes to a new MP4. Finite/minimum
+  duration, covered-duration comparison and strict full decode remain mandatory.
+- The bin starts read-only background scans and displays JJ's gap badge, hover
+  text and repair explanation. Import never shortens media. The repair button
+  validates current annotations before encoding and again before replacement.
+- Editor repair snapshots include media, clips, all sequences/compositions,
+  collections, songs, danmaku and transient highlights. Actual editor undo/redo
+  functions are exercised, not just a JSON clone comparison.
+- MCP `skipGaps:true` uses the server's shared job and atomic project replacement.
+  An open editor refuses agent replacement with REPAIR_EDITOR_OPEN, so unsaved
+  edits are not overwritten. With the editor closed, the server validates latest
+  edits and keeps a project version before replacement. Restoring that version is
+  tested. Transcript copies use new sidecars; the original file stays unchanged.
+
+The precise regression name in test/gap-undo.test.js is:
+`gap repair: annotations and cuts after the gap move by N, before-gap times stay, editor undo restores all`.
+It uses N=295 seconds and checks danmaku, highlights, captions and source cut points
+before/after the gap, then runs real editor undo and redo and compares all restored
+data. test/packet-clock-normalize.test.js separately ties those mappings to FLV/MKV
+synthetic video and validates the one-frame bound. test/gap-project-repair.test.js
+exercises MCP/server replacement, saved-version restore, conflict refusal and the
+open-editor safeguard.
+
+JJ-approved success suffix is still separate and off by default. New guard text
+is DRAFT / pending JJ approval:
+- EN: Use Fix it for me in the open editor so its unsaved edits and undo are preserved.
+- ZH: 请到打开的编辑器里点〔帮我修好〕，这样能保留尚未保存的修改，也能撤销。
+- EN: Some edits cannot be aligned across this gap. The project is unchanged. Resolve the subtitles, danmaku or cuts in the gap, then try again.
+- ZH: 有些编辑无法跨过空档对齐。工程没有改动。请先处理空档里的字幕、弹幕或切点，再试一次。
+- EN: The file or project changed during repair. Nothing was replaced. Try again with the current file.
+- ZH: 修复期间文件或工程变了，没有替换。请用现在这份文件重试。
+
+Still outstanding: browser preview/export and interior audio alignment acceptance,
+Linux real-file reproduction on europa (read-only), JJ approval of guard text.
+Speed ramps, ambiguous caption ownership and repair while a composition is open
+refuse automatic gap mapping. A conflict introduced during encoding can leave an
+unused new copy; the original project and file remain unchanged. The success
+suffix must remain disabled until complete acceptance.

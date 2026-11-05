@@ -27,10 +27,15 @@ const FF = require("./ffmpeg-path");
 const MediaProbe = require("./media-probe");
 const Prepare = require("./prepare-media");
 const X = require("./external-ffmpeg");
+const Clock = require("./packet-clock");
 
 const MIN_USABLE = 0.5;   // seconds: less than this is not a video one can cut
 const failure = (code, cause) => Object.assign(new Error(code, cause ? { cause } : undefined), { code });
 const cancelled = () => failure("REPAIR_CANCELLED");
+function fileVersion(file) {
+  const s = fs.statSync(file);
+  return [s.dev, s.ino, s.size, s.mtimeMs, s.ctimeMs].join(":");
+}
 
 /** Run ffmpeg / ffprobe; `onTime(seconds)` follows -progress. Rejects with {stderr}; with REPAIR_CANCELLED on abort. */
 function run(bin, args, { signal, onTime } = {}) {
@@ -98,14 +103,32 @@ async function encoders() {
   return out;
 }
 
-async function makeEditable(file, { outDir = path.dirname(file), signal, onProgress, encoders: listEncoders = encoders } = {}) {
+async function makeEditable(file, { outDir = path.dirname(file), signal, onProgress, skipGaps = false, beforeGapRepair, encoders: listEncoders = encoders } = {}) {
   const say = (p, phase) => { if (onProgress) try { onProgress(Math.max(0, Math.min(1, p)), phase); } catch { } };
   if (signal && signal.aborted) throw cancelled();
+  const sourceVersion = fileVersion(file);
   const info = await MediaProbe.probeFile(file);
   if (!info || info.probe === "failed") throw failure("REPAIR_FAILED", info && info.probeError ? new Error(info.probeError) : undefined);
   if (info.probe === "stat") throw failure("REPAIR_FAILED", new Error(FF.why("ffprobe", "to repair a video")));
-  const expected = info.duration > 0 ? info.duration : 0;
+  let expected = info.duration > 0 ? info.duration : 0, gapMap, gapStreams;
+  if (skipGaps) {
+    say(0, "scan");
+    const scan = await Clock.scanFile(file, { signal });
+    if (scan.timestampJump) {
+      const metadata = await probeJson(file, signal);
+      gapMap = Clock.repairMap(scan, Number(metadata.format?.start_time));
+      gapStreams = metadata.streams;
+      expected = gapMap.duration;
+      // Callers validate their latest annotations before any new file is written.
+      if (beforeGapRepair) await beforeGapRepair(gapMap);
+    }
+  }
   const out = target(file, outDir), part = out + ".part";
+  function finish(duration, preparation, extra = {}) {
+    if (fileVersion(file) !== sourceVersion) throw failure("REPAIR_SOURCE_CHANGED");
+    fs.renameSync(part, out); say(1, "done");
+    return { file: out, duration, preparation, sourceVersion, ...extra };
+  }
   const span = (p0, p1, phase) => (s) => say(p0 + (p1 - p0) * (expected > 0 ? Math.min(1, s / expected) : 0), phase);
 
   /** The new file holds: it says its length, close to what the original holds, and decodes cleanly. → seconds or 0 */
@@ -122,6 +145,36 @@ async function makeEditable(file, { outDir = path.dirname(file), signal, onProgr
   }
 
   try {
+    if (gapMap) {
+      const video = Clock.primaryStream(gapStreams);
+      if (video?.codec_type !== "video") throw failure("REPAIR_FAILED");
+      const audioStreams = gapStreams.filter(s => s.codec_type === "audio");
+      const audio = audioStreams.find(s => s.disposition?.default) || audioStreams[0];
+      const ranges = gapMap.ranges, filters = [];
+      filters.push(`[0:${video.index}]split=${ranges.length}` + ranges.map((_, i) => `[v${i}]`).join(""));
+      if (audio) filters.push(`[0:${audio.index}]asplit=${ranges.length}` + ranges.map((_, i) => `[a${i}]`).join(""));
+      ranges.forEach((r, i) => {
+        filters.push(`[v${i}]trim=start=${r.sourceStart}:end=${r.sourceEnd},setpts=PTS-${r.sourceStart}/TB[xv${i}]`);
+        if (audio) filters.push(`[a${i}]atrim=start=${r.sourceStart}:end=${r.sourceEnd},asetpts=PTS-${r.sourceStart}/TB[xa${i}]`);
+      });
+      filters.push(ranges.map((_, i) => `[xv${i}]` + (audio ? `[xa${i}]` : "")).join("") +
+        `concat=n=${ranges.length}:v=1:a=${audio ? 1 : 0}[v]` + (audio ? "[a]" : ""));
+      const list = await listEncoders();
+      if (!list.length) throw failure("REPAIR_ENCODER_MISSING");
+      for (const enc of list) {
+        say(.1, "transcode");
+        try {
+          await run(enc.bin, ["-v", "error", "-nostdin", "-y", "-progress", "pipe:1", "-nostats", "-copyts", "-i", file,
+            "-filter_complex", filters.join(";"), "-map", "[v]", ...(audio ? ["-map", "[a]"] : []),
+            ...enc.video, ...(audio ? ["-c:a", "aac", "-b:a", "192k"] : []), "-fps_mode", "vfr",
+            "-movflags", "+faststart", "-f", "mp4", part], { signal, onTime: span(.1, .85, "transcode") });
+          const d = await check(.85, 1);
+          if (d > 0) return finish(d, "transcode", { encoder: enc.name, gapMap });
+        } catch (e) { if (e.code === "REPAIR_CANCELLED" || e.code === "REPAIR_SOURCE_CHANGED") throw e; }
+        rm(part);
+      }
+      throw failure("REPAIR_FAILED");
+    }
     // an FLV: #130's preparation first (breaks, drift, its own checks); the request is the yes it asks for
     if (path.extname(file).toLowerCase() === ".flv") {
       say(0, "convert");
@@ -131,7 +184,7 @@ async function makeEditable(file, { outDir = path.dirname(file), signal, onProgr
         if (r.originalSrc && fs.existsSync(made)) {
           fs.renameSync(made, part);
           const d = await check(0.8, 1);
-          if (d > 0) { fs.renameSync(part, out); say(1, "done"); return { file: out, duration: d, preparation: r.preparation || "remux" }; }
+          if (d > 0) return finish(d, r.preparation || "remux");
           rm(part);
         }
       } catch (e) {
@@ -151,7 +204,7 @@ async function makeEditable(file, { outDir = path.dirname(file), signal, onProgr
     // 2. check
     if (remuxed) {
       const d = await check(0.15, 0.3);
-      if (d > 0) { fs.renameSync(part, out); say(1, "done"); return { file: out, duration: d, preparation: "remux" }; }
+      if (d > 0) return finish(d, "remux");
     }
     rm(part);
 
@@ -169,14 +222,14 @@ async function makeEditable(file, { outDir = path.dirname(file), signal, onProgr
           "-movflags", "+faststart", "-f", "mp4", part], { signal, onTime: span(0.3, 0.85, "transcode") });
       } catch (e) { if (e.code === "REPAIR_CANCELLED") throw e; rm(part); continue; }
       const d = await check(0.85, 1);
-      if (d > 0) { fs.renameSync(part, out); say(1, "done"); return { file: out, duration: d, preparation: "transcode", encoder: enc.name }; }
+      if (d > 0) return finish(d, "transcode", { encoder: enc.name });
       rm(part);
     }
     throw failure("REPAIR_FAILED");
   } catch (e) {
     rm(part);
     if (e.code === "REPAIR_CANCELLED" || (signal && signal.aborted)) throw cancelled();
-    if (e.code === "REPAIR_FAILED" || e.code === "REPAIR_ENCODER_MISSING") throw e;
+    if (e.code === "REPAIR_FAILED" || e.code === "REPAIR_ENCODER_MISSING" || e.code === "REPAIR_SOURCE_CHANGED") throw e;
     throw failure("REPAIR_FAILED", e);
   }
 }
@@ -215,4 +268,4 @@ function createJobs({ prefix = "r_", keep = 50 } = {}) {
   return { start, get, cancel };
 }
 
-module.exports = { makeEditable, createJobs, lengthHolds, MIN_USABLE };
+module.exports = { makeEditable, createJobs, lengthHolds, MIN_USABLE, fileVersion };

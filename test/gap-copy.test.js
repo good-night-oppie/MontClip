@@ -12,4 +12,6 @@ test("JJ final gap wording composes the button from its own key", () => {
     a.equal(V.t(lang, "own." + key, { N: 295, button: V.t(lang, "own.repair-button") }), expected);
   for (const lang of ["zh-CN", "en"]) for (const key of ["media-gap-tip", "repair-gap-reason"])
     a.ok(V.t(lang, "own." + key, { N: 295, button: "BUTTON_FROM_KEY" }).includes("BUTTON_FROM_KEY"));
+  const app = require("node:fs").readFileSync(require.resolve("../app.js"), "utf8");
+  a.ok(!app.includes('uiText("own.repair-gap-aligned"'), "the extra success sentence stays off until browser/export acceptance");
 });

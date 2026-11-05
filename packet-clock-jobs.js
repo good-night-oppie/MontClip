@@ -3,7 +3,11 @@
 const fs = require("node:fs"), Clock = require("./packet-clock");
 const error = code => Object.assign(new Error(code), { code });
 function createClockJobs({ concurrency = 2, maxJobs = 128, stat = fs.promises.stat,
-  scan = async (file, options) => Clock.coverage(await Clock.scanFile(file, options)) } = {}) {
+  scan = async (file, options) => {
+    const result = Clock.coverage(await Clock.scanFile(file, options));
+    if (result.timestampJump) result.gapMap = Clock.repairMap(result, result.sourceOrigin);
+    return result;
+  } } = {}) {
   if (!Number.isInteger(concurrency) || concurrency < 1 || !Number.isInteger(maxJobs) || maxJobs < 1) throw new Error("invalid clock queue limits");
   const jobs = new Map();
   let queue = [], active = 0, closed = false;

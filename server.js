@@ -64,6 +64,7 @@ try {
 const Templates = require("./templates");
 const { probeFile, infoForEntry } = require("./media-probe");
 const MakeEditable = require("./make-editable");
+const GapRemap = require("./gap-remap");
 const repairJobs = MakeEditable.createJobs({ prefix: "r_" });
 const clockJobs = require("./packet-clock-jobs").createClockJobs();
 const MediaLib = require("./media-lib");
@@ -1780,11 +1781,52 @@ const server = http.createServer(async (req, res) => {
     try { opts = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "body must be JSON {src}" }); return; }
     const file = resolveSrc(opts.src);
     if (!file) { sendJSON(res, 404, { error: "src must name an existing file under /media/ or /library/" }); return; }
-    sendJSON(res, 200, repairJobs.start(file, async ({ signal, onProgress }) => {
-      const r = await MakeEditable.makeEditable(file, { outDir: MEDIA_DIR, signal, onProgress });
+    const version = MakeEditable.fileVersion(file);
+    if (opts.sourceVersion && opts.sourceVersion !== version) { sendJSON(res, 409, { code: "REPAIR_SOURCE_CHANGED" }); return; }
+    const applyId = opts.applyToProject === true ? String(opts.mediaId || "") : null;
+    const projectId = projects.peekActive();
+    const readCurrent = () => JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(/^\uFEFF/, ""));
+    const validateCurrent = () => {
+      if (sseClients.size) throw Object.assign(new Error("Use Fix it for me in the open editor so its unsaved edits and undo are preserved."), { code: "REPAIR_EDITOR_OPEN" });
+      if (projects.peekActive() !== projectId) throw Object.assign(new Error("Project changed during repair"), { code: "REPAIR_SOURCE_CHANGED" });
+      const doc = readCurrent(), m = doc.media?.find(m => m.id === applyId && m.src === opts.src);
+      if (!m) throw Object.assign(new Error("Media changed during repair"), { code: "REPAIR_SOURCE_CHANGED" });
+      const locked = new Set(doc.lockedTracks || []);
+      const arrays = [doc.clips, ...(doc.comps || []).map(c => c.clips), ...(doc.sequences || []).map(s => s.clips)];
+      if (opts.force !== true && arrays.some(clips => (clips || []).some(c => c.mediaId === applyId && (c.locked || locked.has(c.track)))))
+        throw Object.assign(new Error("The user locked a clip that uses this media"), { code: "REPAIR_LOCKED" });
+      return doc;
+    };
+    if (applyId !== null) {
+      try { validateCurrent(); } catch (e) { sendJSON(res, 409, { code: e.code, error: e.message }); return; }
+    }
+    sendJSON(res, 200, repairJobs.start(file + "|" + version + "|" + (opts.skipGaps === true) + "|" + applyId + "|" + projectId, async ({ signal, onProgress }) => {
+      let mappedTranscript;
+      const r = await MakeEditable.makeEditable(file, { outDir: MEDIA_DIR, signal, onProgress, skipGaps: opts.skipGaps === true,
+        beforeGapRepair: map => {
+          if (applyId !== null) GapRemap.plan(validateCurrent(), applyId, "m_" + crypto.randomUUID(), map);
+          const doc = transcripts.get(opts.src); if (doc) mappedTranscript = GapRemap.transcript(doc, opts.src, map);
+        } });
       const name = path.basename(r.file);
-      const out = { src: "/media/" + encodeURIComponent(name), name, kind: "video", duration: r.duration, preparation: r.preparation, ...(r.encoder ? { encoder: r.encoder } : {}) };
-      return { ...infoForEntry(await probeFile(r.file), out), ...out };
+      const out = { src: "/media/" + encodeURIComponent(name), name, kind: "video", duration: r.duration, preparation: r.preparation,
+        sourceVersion: r.sourceVersion, ...(r.gapMap ? { gapMap: r.gapMap } : {}), ...(r.encoder ? { encoder: r.encoder } : {}) };
+      if (mappedTranscript) transcripts.put(out.src, { ...mappedTranscript, duration: r.duration });
+      const result = { ...infoForEntry(await probeFile(r.file), out), ...out };
+      if (applyId !== null) {
+        const doc = validateCurrent();
+        if (MakeEditable.fileVersion(file) !== r.sourceVersion) throw Object.assign(new Error("Source changed during repair"), { code: "REPAIR_SOURCE_CHANGED" });
+        const entry = { ...result, id: "m_" + crypto.randomUUID() }; delete entry.gapMap; delete entry.sourceVersion;
+        const planned = r.gapMap ? GapRemap.plan(doc, applyId, entry.id, r.gapMap).project : doc;
+        const switched = MediaLib.swapMedia(planned, applyId, entry);
+        // No await between the last read, snapshot and atomic write: an editor
+        // connection/save cannot enter between validation and replacement.
+        history.beforeAgent("Before gap repair");
+        planned.revision = (doc.revision || 0) + 1;
+        const tmp = PROJECT_FILE + ".repair.tmp";
+        fs.writeFileSync(tmp, JSON.stringify(planned, null, 2)); fs.renameSync(tmp, PROJECT_FILE);
+        return { ...result, mediaId: entry.id, replaced: applyId, clips: switched.clips };
+      }
+      return result;
     }));
     return;
   }
