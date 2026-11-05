@@ -165,7 +165,7 @@ async function start() {
   // first (the text shipped with MontClip, in this host's own box, "no" by default), then — unless its files are already
   // here — the site (the streamer picks; another site is asked again), then the download from that site only; the consent
   // record last. "No" or no answer at any step revokes it. The page only names the model; nothing it sends can agree.
-  const AsrConsent = require("../asr-consent"), { asrLicenseText, asrSourceText, asrRevokeText } = require("./asr-consent-text");
+  const AsrConsent = require("../asr-consent"), { asrLicenseText, asrSourceText, asrConfirmText, asrRevokeText } = require("./asr-consent-text");
   const asrConsent = AsrConsent.createConsent({ modelsDir: env.MONTCLIP_ASR_MODELS_DIR });
   const smokeAnswer = (name) => Number(process.env["MONTCLIP_SMOKE_ASR_" + name] || 0);
   async function chooseWithConsent(which) {
@@ -188,6 +188,8 @@ async function start() {
             const r = await ask(asrSourceText(lang, { mb, sites: q.sites, hosts: ASR_HOSTS.slice() }), "SOURCE");
             return r >= 1 ? r - 1 : null;
           },
+          // the address chosen this time, in full, with the hosts GitHub's downloads are passed on to
+          confirm: async (q) => (await ask(asrConfirmText(lang, { ...q, also: q.site === "github.com" ? ASR_HOSTS.filter((h) => h.endsWith(".githubusercontent.com")) : [] }), "CONFIRM")) === 1,
         },
         // the chosen site only: the model's entry with that one source (asr-models.js itself is unchanged)
         download: (pick) => AsrModels.createStore({ manifest: { ...AsrModels.manifest, models: { ...AsrModels.manifest.models, [which]: { ...model, sources: [model.sources[pick]] } } },

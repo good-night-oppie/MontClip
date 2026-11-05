@@ -10,7 +10,7 @@
    Revoking deletes the model's files, what was half-downloaded of them, and the record: back to the default model.
 
    choose(key, {ask, installed, download, version}) is the order the host follows, so it can be tested: the licence, then
-   (only when the files are not here yet) the site, then the download — nothing is requested before both answers — then
+   (only when the files are not here yet) the site, then one more box naming the address chosen, then the download — nothing is requested before both answers — then
    the record. No answer or "no" at any step: revoked. There is no "agree" argument anywhere. */
 "use strict";
 const fs = require("node:fs");
@@ -68,13 +68,16 @@ function createConsent({ modelsDir, root = __dirname, manifest: m = manifest, no
   /** The streamer chooses the model: licence → (site → download, when the files are not here) → record. */
   async function choose(key, { ask, installed, download, version } = {}) {
     const t = terms(key), model = m.models[key];
-    if (!ask || typeof ask.license !== "function" || typeof ask.source !== "function") throw err("ASR_CONSENT_NO_ASK", "only the streamer can agree, in the host's own box");
+    if (!ask || typeof ask.license !== "function" || typeof ask.source !== "function" || typeof ask.confirm !== "function") throw err("ASR_CONSENT_NO_ASK", "only the streamer can agree, in the host's own box");
     const text = licenseText(key);
     if ((await ask.license({ key, name: model.name, licenseName: t.license.name, text })) !== true) { revoke(key); return { ok: false, declined: "license" }; }
     if (!(installed && installed())) {
       const sites = (model.sources || []).map((s) => new URL(s.base || s.url).hostname);
       const pick = await ask.source({ key, sites });
       if (!(Number.isInteger(pick) && pick >= 0 && pick < sites.length)) { revoke(key); return { ok: false, declined: "download" }; }
+      // the rule for anything sent out (Deja 11-04): the last box before the request names the address chosen this time
+      const s = model.sources[pick], size = s.size || Object.values(model.files).reduce((n, f) => n + f.size, 0);
+      if ((await ask.confirm({ key, site: sites[pick], url: s.base || s.url, mb: Math.round(size / 1048576 / 10) * 10 })) !== true) { revoke(key); return { ok: false, declined: "download" }; }
       try { await download(pick); }
       catch (e) {
         if (e.code === "ASR_DOWNLOAD_CANCELLED") { revoke(key); return { ok: false, declined: "cancelled" }; }

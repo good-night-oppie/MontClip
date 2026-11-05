@@ -40,7 +40,7 @@ test('choose: the licence first, then the site, then the download, then the reco
   let have = false;
   const r = await S.choose('asrMeta', { version: '1.18.0', installed: () => have,
     ask: { license: async (q) => { log.push('licence'); a.match(q.text, /Apache License, Version 2\.0/); return true; },
-      source: async (q) => { log.push('site'); a.deepEqual(q.sites, ['hf-mirror.com', 'github.com']); return 1; } },
+      source: async (q) => { log.push('site'); a.deepEqual(q.sites, ['hf-mirror.com', 'github.com']); return 1; }, confirm: async () => true },
     download: async (pick) => { log.push('download ' + pick); placeFiles(dir); have = true; } });
   a.equal(r.ok, true);
   a.deepEqual(log, ['licence', 'site', 'download 1']);
@@ -51,9 +51,9 @@ test('choose: the licence first, then the site, then the download, then the reco
 
 test('no to the licence, no site, or a cancelled download: nothing requested (or kept), no record, back to Paraformer', async (t) => {
   for (const [ask, dl] of [
-    [{ license: async () => false, source: async () => 0 }, null],
-    [{ license: async () => true, source: async () => null }, null],
-    [{ license: async () => true, source: async () => 0 }, async () => { throw Object.assign(new Error('cancelled'), { code: 'ASR_DOWNLOAD_CANCELLED' }); }]]) {
+    [{ license: async () => false, source: async () => 0, confirm: async () => true }, null],
+    [{ license: async () => true, source: async () => null, confirm: async () => true }, null],
+    [{ license: async () => true, source: async () => 0, confirm: async () => true }, async () => { throw Object.assign(new Error('cancelled'), { code: 'ASR_DOWNLOAD_CANCELLED' }); }]]) {
     const dir = tmp(t), S = C.createConsent({ modelsDir: dir });
     let asked = 0;
     fs.mkdirSync(path.join(dir, '.partial'), { recursive: true });
@@ -74,7 +74,7 @@ test('files already here (a USB import): the licence is still asked, the site is
   placeFiles(dir);
   const log = [];
   const r = await S.choose('asrMeta', { installed: () => true, download: async () => log.push('download'),
-    ask: { license: async () => { log.push('licence'); return true; }, source: async () => { log.push('site'); return 0; } } });
+    ask: { license: async () => { log.push('licence'); return true; }, source: async () => { log.push('site'); return 0; }, confirm: async () => true } });
   a.equal(r.ok, true); a.deepEqual(log, ['licence']);
 });
 
@@ -133,12 +133,12 @@ test('where Meta fits, said in Settings and in the Transcript tab; a failed hf-m
   const fit = (lang) => V.t(lang, 'own.asr-meta-fit');
   a.match(fit('zh-CN'), /适合英文和其他外语/); a.match(fit('zh-CN'), /中文直播请继续用 Paraformer/);
   a.match(fit('en'), /for English and other languages/);
-  a.match(html, /id="setAsrMetaFit" data-i18n="own\.asr-meta-fit"/, 'Settings › Transcription says it');
+  a.match(html, /id="setAsrMetaFit" data-i18n="own\.asr-meta-fit-settings"/, 'Settings › Transcription says it (with the pointer to the menu)');
   a.match(app, /data-tr-asr-fit hidden data-i18n="own\.asr-meta-fit"/, 'and the Transcript tab, while Meta is chosen');
   a.match(V.t('zh-CN', 'own.asr-meta-mirror-failed', { mirror: 'hf-mirror.com', github: 'github.com' }), /从 hf-mirror\.com 没下载成功[\s\S]*改选 github\.com/);
   // choose() says which site failed, so the page can suggest the other
   const S = C.createConsent({ modelsDir: tmp(t) });
-  const r = await S.choose('asrMeta', { installed: () => false, ask: { license: async () => true, source: async () => 0 },
+  const r = await S.choose('asrMeta', { installed: () => false, ask: { license: async () => true, source: async () => 0, confirm: async () => true },
     download: async () => { throw Object.assign(new Error('not a listed host: huggingface.co'), { code: 'ASR_DOWNLOAD_FAILED' }); } });
   a.equal(r.ok, false); a.equal(r.site, 'hf-mirror.com');
   a.match(app, /r\.site === "hf-mirror\.com"\) asrState\.note = uiText\("own\.asr-meta-mirror-failed", \{ mirror: "hf-mirror\.com", github: "github\.com" \}\)/);

@@ -76,5 +76,6 @@ test('the box just before the download names the address chosen this time: githu
     }
   }
   const main = read('desktop/main.js');
-  a.match(main, /confirm: async \(q\) => \(await ask\(asrConfirmText\(lang, q\), "CONFIRM"\)\) === 1/);
+  // (main.js adds the hosts GitHub passes downloads on to: also)
+  a.match(main, /confirm: async \(q\) => \(await ask\(asrConfirmText\(lang, \{ \.\.\.q, also: [^\n]*\), "CONFIRM"\)\) === 1,/);
 });

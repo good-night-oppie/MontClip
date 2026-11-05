@@ -37,6 +37,24 @@ function asrSourceText(language, { mb, sites, hosts }) {
   };
 }
 
+/** 3. Just before the request: the address chosen this time, in full (the rule for anything sent out), and the hosts that
+ *  site may pass the download on to. New copy, for JJ. */
+function asrConfirmText(language, { site, url, mb, also = [] }) {
+  const zh = language !== 'en';
+  const via = also.length ? (zh ? `（下载可能会转到 ${also.join('、')}）\n` : `(the download may be passed on to ${also.join(', ')})\n`) : '';
+  return zh ? {
+    title: '下载 Meta 的多语言听写模型',
+    message: `从 ${site} 下载，大约 ${mb} MB。`,
+    detail: `下载地址：\n${url}\n${via}\n发出去的只有这个下载请求，会带上这台电脑的 IP 地址，不会发送你的录像、弹幕、字幕或账号。`,
+    buttons: ['取消', '下载'],
+  } : {
+    title: "Download Meta's multilingual speech model",
+    message: `Download from ${site}, about ${mb} MB.`,
+    detail: `Address:\n${url}\n${via}\nOnly this download request is sent; it carries this computer's IP address and nothing of your recordings, danmaku, captions or accounts.`,
+    buttons: ['Cancel', 'Download'],
+  };
+}
+
 /** Revoke: the model's files and the consent record are deleted; transcription goes back to Paraformer. */
 function asrRevokeText(language) {
   const zh = language !== 'en';
@@ -53,4 +71,4 @@ function asrRevokeText(language) {
   };
 }
 
-module.exports = { asrLicenseText, asrSourceText, asrRevokeText };
+module.exports = { asrLicenseText, asrSourceText, asrConfirmText, asrRevokeText };
