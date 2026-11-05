@@ -19615,13 +19615,36 @@ function encodeWAV(buf) {
    (clip chains → track buses → master fader), honoring volume / pan keyframes
    and fades. t0/t1 are timeline seconds (export window); mix time 0 is t0. */
 const FX_AUTOMATION_STEP = 0.02; // export automation resolution, seconds
+/* The export mix on a long or large file asks the server for only the part it plays (/api/audio-window), instead of
+   decoding the whole file in the tab: a 2-hour, 8 GB recording read 5 GB, took the tab to 4.5 GB and exported no sound
+   (europa, 2026-11-04). Shorter files keep the whole-file decode, which waveforms share. */
+const AUDIO_WINDOW_MIN_SEC = 1200, AUDIO_WINDOW_MIN_BYTES = 512 * 1024 * 1024, AUDIO_WINDOW_PAD = 0.5;
+/** → {buf, at}: an AudioBuffer of clip c's audio for timeline a…b, and the media time its first sample is at. */
+async function exportAudioSource(m, c, a, b, windows = new Map()) {
+  const big = (m.duration || 0) > AUDIO_WINDOW_MIN_SEC || (m.size || 0) > AUDIO_WINDOW_MIN_BYTES;
+  if (big && !isCrossOriginSrc(m.src)) {
+    const m0 = Math.min(mediaTimeAt(c, a), mediaTimeAt(c, b)), m1 = Math.max(mediaTimeAt(c, a), mediaTimeAt(c, b));
+    const from = Math.max(0, Math.floor((m0 - AUDIO_WINDOW_PAD) * 1000) / 1000), to = Math.ceil((m1 + AUDIO_WINDOW_PAD) * 1000) / 1000;
+    if (to - from <= 3600) {
+      const key = `${m.src}|${from}|${to}`;
+      if (!windows.has(key)) windows.set(key, fetch(`/api/audio-window?src=${encodeURIComponent(m.src)}&from=${from}&to=${to}`)
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error("audio window " + r.status))))
+        .then((ab) => getDecodeCtx().decodeAudioData(ab)).catch((e) => { console.warn("[MontClip] audio window failed, decoding the whole file:", e && e.message); return null; }));
+      const buf = await windows.get(key);
+      if (buf) return { buf, at: from };
+    }
+  }
+  return { buf: await getAudioBuffer(m), at: 0 };
+}
 async function renderAudioMix(t0, t1, opts = {}) {
-  const jobs = [];
+  const jobs = [], windows = new Map();
   for (const c of mediaClips()) {
     if (c.kind !== "audio" && c.kind !== "video") continue;
     if (!clipRenders(c)) continue;
     const m = getMedia(c.mediaId); if (!m) continue;
-    jobs.push(getAudioBuffer(m).then((buf) => ({ c, buf })).catch(() => null));
+    const a = Math.max(c.start, t0), b = Math.min(c.start + c.duration, t1);
+    if (b - a <= 1e-6) continue;
+    jobs.push(exportAudioSource(m, c, a, b, windows).then(({ buf, at }) => ({ c, buf, at })).catch(() => null));
   }
   const sources = (await Promise.all(jobs)).filter(Boolean);
   if (!sources.length) return null;
@@ -19635,7 +19658,7 @@ async function renderAudioMix(t0, t1, opts = {}) {
   mix.masterOut.connect(off.destination);
   let scheduled = false;
   const exportChains = [];
-  for (const { c, buf } of sources) {
+  for (const { c, buf, at } of sources) {
     const a = Math.max(c.start, t0), b = Math.min(c.start + c.duration, t1);
     if (b - a <= 1e-6) continue;
     const mixWhen = Math.max(0, a - t0);
@@ -19666,12 +19689,12 @@ async function renderAudioMix(t0, t1, opts = {}) {
       for (let i = 0; i < n; i++)
         rc[i] = clamp(kfChannel(c, "speed", local0 + (i / (n - 1)) * mixDur, clipSpeed(c)), 0.1, 8);
       src.playbackRate.setValueCurveAtTime(rc, mixWhen, Math.max(0.01, mixDur));
-      src.start(mixWhen, Math.max(0, mediaTimeAt(c, a)));
+      src.start(mixWhen, Math.max(0, mediaTimeAt(c, a) - at));
       src.stop(mixWhen + mixDur);
     } else {
       const sp = clipSpeed(c);
       src.playbackRate.value = sp;
-      src.start(mixWhen, Math.max(0, c.in + local0 * sp), mixDur * sp);
+      src.start(mixWhen, Math.max(0, c.in + local0 * sp - at), mixDur * sp);
     }
     scheduled = true;
   }

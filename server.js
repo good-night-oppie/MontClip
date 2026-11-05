@@ -1629,6 +1629,42 @@ const server = http.createServer(async (req, res) => {
      file answers "did the source change underneath this?". The cache is capped
      (500 files / 128 MB, oldest mtime first — see frame-cache.js), so no
      combination of arguments can fill the disk. */
+  /* API: part of a file's audio, for the fast-export mix. The page used to fetch and decode the whole file, which on a
+     2-hour recording (8 GB) read gigabytes, ran the tab out of memory and exported no sound (europa, 2026-11-04).
+     WAV, 32-bit float, the file's own channels, 48 kHz; at most an hour (the page falls back to the whole file). */
+  if (p === "/api/audio-window" && req.method === "GET") {
+    const file = resolveSrc(url.searchParams.get("src") || "");
+    if (!file) { sendJSON(res, 404, { error: "src must name an existing file under /media/ or /library/" }); return; }
+    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
+    const from = Number(url.searchParams.get("from")), to = Number(url.searchParams.get("to"));
+    if (!Number.isFinite(from) || !Number.isFinite(to) || from < 0 || to <= from || to - from > 3600) {
+      sendJSON(res, 400, { error: "from and to are seconds, 0 ≤ from < to, at most an hour apart" }); return;
+    }
+    const proc = spawn(FF.path("ffmpeg"), ["-hide_banner", "-v", "error", "-ss", from.toFixed(6), "-t", (to - from).toFixed(6),
+      "-i", file, "-map", "0:a:0", "-vn", "-sn", "-dn", "-ar", "48000", "-c:a", "pcm_f32le", "-f", "wav", "pipe:1"],
+    { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+    const chunks = [];
+    let err = "";
+    proc.stderr.on("data", (d) => { err = (err + d).slice(-1000); });
+    proc.stdout.on("data", (d) => chunks.push(d));
+    proc.on("error", () => { if (!res.headersSent) sendJSON(res, 500, { error: "ffmpeg could not be started" }); });
+    proc.on("close", (code) => {
+      if (res.headersSent || res.destroyed) return;
+      const wav = Buffer.concat(chunks);
+      // a WAV written to a pipe has no lengths in its header; fill them in so every decoder reads it to the end
+      const data = wav.indexOf("data", 12, "ascii");
+      if (code !== 0 || data < 0 || wav.length <= data + 8) {
+        sendJSON(res, 422, { error: "no audio in that part of the file: " + X.maskUserPath(err.trim().split("\n").pop() || "exit " + code) });
+        return;
+      }
+      wav.writeUInt32LE(wav.length - 8, 4);
+      wav.writeUInt32LE(wav.length - data - 8, data + 4);
+      res.writeHead(200, { "Content-Type": "audio/wav", "Content-Length": wav.length, "Cache-Control": "no-store" });
+      res.end(wav);
+    });
+    res.on("close", () => { if (proc.exitCode === null) proc.kill(); });
+    return;
+  }
   if (p === "/api/frame" && req.method === "GET") {
     const pathArg = url.searchParams.get("path");
     /* `path=` reads any file on this machine, so it is only answered for the
