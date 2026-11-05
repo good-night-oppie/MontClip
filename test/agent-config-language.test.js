@@ -42,6 +42,30 @@ test('no key store: the save fails as KEY_STORE_UNAVAILABLE (not a write failure
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });
 
+// JJ (2026-11-05): with no key store the key is never saved in plain text — not by us, and not through Electron's
+// basic_text fallback (a fixed built-in password on Linux), even when that backend reports itself available.
+test('no key store, or only basic_text: never saved in plain text — nothing written, no basic_text fallback',()=>{
+ const backends=[['basic_text',true],['basic_text',false],['unknown',false]];
+ for(const [backend,available] of backends){
+  const root=profile();let encrypted=0;
+  try{
+   const safe={isEncryptionAvailable:()=>available,getSelectedStorageBackend:()=>backend,encryptString:s=>{encrypted++;return Buffer.from('basic:'+s);},decryptString:b=>b.toString()};
+   const r=createDiskService(root,safe).configure({provider:'meta',model:'muse-spark-1.1',apiKey:KEY});
+   assert.equal(r.code,'KEY_STORE_UNAVAILABLE',backend+'/'+available);
+   assert.equal(encrypted,0,'the key never reaches the basic_text encryptor');
+   assert.deepEqual(fs.readdirSync(root),[],'no file at all');
+  }finally{fs.rmSync(root,{recursive:true,force:true});}
+ }
+ // a real key store still works, and so does one that cannot name its backend (Windows, macOS)
+ for(const getSelectedStorageBackend of [()=>'gnome_libsecret',()=>{throw Error('Linux only');},undefined]){
+  const root=profile();
+  try{assert.equal(createDiskService(root,{...sealing,getSelectedStorageBackend}).configure({provider:'meta',model:'muse-spark-1.1',apiKey:KEY}).ok,true);}
+  finally{fs.rmSync(root,{recursive:true,force:true});}
+ }
+ // nothing in MontClip turns Electron's plain-text fallback on
+ for(const f of ['desktop/main.js','desktop/agent-service.js'])assert.doesNotMatch(read(f),/setUsePlainTextEncryption/,f);
+});
+
 test('a failing disk is still a write failure, not a key-store one',()=>{
  const root=profile();
  try{
@@ -63,7 +87,7 @@ test('settings lists: the AI service list uses the provider id as its value; eve
 });
 
 // Deja (2026-11-05, after #166): a failed save says which thing is wrong. Each code the service returns has its own
-// notice; any other code still falls back to 「配置未保存，原有设置保留。」. The wording is a draft for JJ.
+// notice; any other code still falls back to 「配置未保存，原有设置保留。」.
 test('each save failure code shows its own notice; an unknown code falls back to "not saved"',()=>{
  const pane=read('agent-ui/pane.tsx'),view=require('../ui-preferences');
  const m=pane.match(/setNotice\(result\?\.ok\?'saved':\(\(m:Record<string,string>,c:string\)=>Object\.hasOwn\(m,c\)\?m\[c\]:'configFailed'\)\((\{[^}]*\}),String\(result\?\.code\)\)\);/);
@@ -72,12 +96,27 @@ test('each save failure code shows its own notice; an unknown code falls back to
  assert.deepEqual(map,{KEY_STORE_UNAVAILABLE:'configKeyStore',KEY_REQUIRED:'configKeyRequired',CONFIG_INVALID:'configInvalid',CONFIG_WRITE_FAILED:'configWriteFailed'});
  const notice=code=>Object.hasOwn(map,code)?map[code]:'configFailed';
  for(const code of ['CONFIG_READ_FAILED','SEED_CONFLICT','AGENT_FORBIDDEN','toString','constructor','undefined'])assert.equal(notice(code),'configFailed',code);
- const want={'zh-CN':{configKeyStore:'这台电脑的系统钥匙串现在用不了，密钥没法加密保存，所以没有保存。原有设置不变。',configKeyRequired:'请先填写 API 密钥再保存。',
-  configInvalid:'模型 ID 只能用英文字母、数字和 . _ : / -，最多 100 个字符。',configWriteFailed:'设置文件写不进去，没有保存。原有设置不变。',configFailed:'配置未保存，原有设置保留。'},
-  en:{configKeyStore:'This computer’s keychain isn’t available, so the key can’t be stored safely and nothing was saved. Your previous settings are unchanged.',
-  configKeyRequired:'Enter the API key, then save.',configInvalid:'The model ID can only use letters, digits and . _ : / -, up to 100 characters.',
-  configWriteFailed:'The settings file couldn’t be written, so nothing was saved. Your previous settings are unchanged.',configFailed:'Configuration was not saved. Existing settings retained.'}};
- for(const l of ['zh-CN','en'])for(const [k,v] of Object.entries(want[l])){assert.equal(view.text[l]['officialPane_'+k],v,l+' '+k);if(l==='zh-CN')assert.doesNotMatch(v,/我/,'no 「我」');}
+ // JJ's final wording (2026-11-05), word for word. The 〔复制问题信息〕 half is its own fragment and is not shown yet: that
+ // button is in #161 and not on the AI service panel. On europa (Linux, a signed-in openbox desktop, no --password-store)
+ // reopening did not help, so 「请在已经登录电脑桌面的状态下，重新打开 MontClip 再试」 is left out of the key-store notice.
+ const want={'zh-CN':{configKeyStore:'这台电脑现在没法安全地保存密钥（系统自带的密码保管用不了），所以没有保存，原有设置不变。',
+  configKeyRequired:'请先在「API 密钥（留空保留已有密钥）」一栏填好密钥，再保存。',
+  configInvalid:'模型 ID 里只能有英文字母、数字和 . _ : / - 这几个符号，最多 100 个字符。常见原因是多了空格，或者用了中文标点。',
+  configWriteFailed:'设置文件写不进去，所以没有保存，原有设置不变。',configCopyDetails:'请点〔复制问题信息〕发给我们。',configFailed:'配置未保存，原有设置保留。'},
+  en:{configKeyStore:'This computer can\'t store the key safely right now (its built-in password storage isn\'t available), so nothing was saved. Your previous settings are unchanged.',
+  configKeyRequired:'Fill in “API key (leave blank to retain)” first, then save.',
+  configInvalid:'The model ID can only contain letters, digits and . _ : / - (up to 100 characters). This is often caused by an extra space or a full-width punctuation mark.',
+  configWriteFailed:'The settings file couldn\'t be written, so nothing was saved. Your previous settings are unchanged.',configCopyDetails:'Click “Copy problem details” and send it to us.',
+  configFailed:'Configuration was not saved. Existing settings retained.'}};
+ for(const l of ['zh-CN','en'])for(const [k,v] of Object.entries(want[l]))assert.equal(view.text[l]['officialPane_'+k],v,l+' '+k);
+ // 「没填密钥」 names the key field by the field's own label: the same text, so they cannot drift apart
+ for(const l of ['zh-CN','en']){const t=view.text[l],label=t.officialPane_key;
+  assert.equal(t.officialPane_configKeyRequired,(l==='en'?'Fill in “{field}” first, then save.':'请先在「{field}」一栏填好密钥，再保存。').replace('{field}',label),l);}
+ assert.match(pane,/<label>\{t\.key\}<SettingsTextInput type="password"/,'the key field is labelled with officialPane_key');
+ assert.match(read('ui-preferences.js'),/officialPane_configKeyRequired=officialPaneText\[language\]\.configKeyRequired\.split\('\{field\}'\)\.join\(officialPaneText\[language\]\.key\)/,'filled from the key field\'s own text, not a copy');
+ // the 〔复制问题信息〕 fragment is not shown anywhere until that button is on the panel
+ for(const l of ['zh-CN','en'])for(const k of ['configKeyStore','configWriteFailed'])assert.ok(!view.text[l]['officialPane_'+k].includes(view.text[l].officialPane_configCopyDetails),l+' '+k);
+ assert.doesNotMatch(pane,/configCopyDetails/,'not wired yet (#161)');
  const bundle=read('cindy-official.js');
  for(const s of ['KEY_STORE_UNAVAILABLE:"configKeyStore"','KEY_REQUIRED:"configKeyRequired"','CONFIG_INVALID:"configInvalid"','CONFIG_WRITE_FAILED:"configWriteFailed"'])assert.ok(bundle.includes(s),'bundle rebuilt: '+s);
 });

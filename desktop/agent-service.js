@@ -83,6 +83,8 @@ function createDiskService(root,safeStorage,fs=require('node:fs'),{providers=PUB
  write(raw){const tmp=file+'.'+randomUUID()+'.tmp';let owned=false;try{fs.writeFileSync(tmp,raw,{flag:'wx',mode:0o600});owned=true;fs.renameSync(tmp,file);owned=false;}finally{if(owned)try{fs.unlinkSync(tmp);}catch{}}},
  // No key store (europa P9: Linux without a reachable keyring, e.g. no --password-store): never written in plain text,
  // and said as such, not as a write failure.
- seal(key){if(!safeStorage.isEncryptionAvailable())throw Object.assign(Error(),{code:'KEY_STORE_UNAVAILABLE'});return safeStorage.encryptString(key).toString('base64');},unseal(secret){return safeStorage.decryptString(Buffer.from(secret,'base64'));}
+ // Linux's basic_text backend is a fixed, built-in password: as good as plain text, so it counts as no key store (JJ, 2026-11-05).
+ seal(key){let backend=null;try{backend=safeStorage.getSelectedStorageBackend?.();}catch{}
+  if(!safeStorage.isEncryptionAvailable()||backend==='basic_text')throw Object.assign(Error(),{code:'KEY_STORE_UNAVAILABLE'});return safeStorage.encryptString(key).toString('base64');},unseal(secret){return safeStorage.decryptString(Buffer.from(secret,'base64'));}
  });}
 module.exports={createService,createDiskService,validPayload,httpsRequest,ENDPOINTS,RESPONSE_LIMIT_BYTES,PUBLIC_PROVIDERS,TEST_PROVIDERS,ALL_PROVIDERS,DEFAULT_SERVICE,DEFAULT_PROVIDER,DEFAULT_MODELS,testProvidersEnabled};
