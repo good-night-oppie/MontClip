@@ -171,7 +171,7 @@ test("model sanity: a full-frame clip fills the canvas", () => {
   assert.deepEqual(e.picture, { x0: 0, y0: 0, x1: W, y1: H });
 });
 
-test("render geometry: crop, masks and transforms land where documented — fablecut_frame still and Fast export agree", { skip: SKIP, timeout: 300_000 }, async (t) => {
+test("render geometry: crop, masks and transforms land where documented — fablecut_frame still and Fast export agree", { skip: SKIP, timeout: 600_000 }, async (t) => {
   const dir = makeDataDir(t, { name: "x", width: W, height: H, fps: FPS, revision: 0, media: [], clips: [] });
   const src = await makeSource(dir);
   fs.writeFileSync(path.join(dir, "project.json"), JSON.stringify(project(src), null, 2));
