@@ -2383,6 +2383,16 @@ async function importFromUrl(url) {
   }
 }
 
+function mediaResolution(m) {
+  if (!(m && m.width > 0 && m.height > 0)) return "";
+  const display = `${m.width}×${m.height}`;
+  if (!(m.storedWidth > 0 && m.storedHeight > 0) || (m.storedWidth === m.width && m.storedHeight === m.height)) return display;
+  return uiText("own.resolution-stored", { display, stored: `${m.storedWidth}×${m.storedHeight}` });
+}
+function mediaDescription(m) {
+  return [mediaResolution(m), m.fps ? uiText("own.fps-value", { n: MediaLib.fmtFps(m.fps) }) : "",
+    m.codec || "", MediaLib.fmtAudio(m), MediaLib.fmtSize(m.size)].filter(Boolean).join(" · ");
+}
 function renderBin() {
   els.binList.querySelectorAll(".bin-item, .bin-folder, .bin-drop-root, .comp-item, .bin-filterbar, .bin-colhead, .bin-noresult, .bin-importing").forEach((n) => n.remove());
   syncBinTools();
@@ -2477,13 +2487,13 @@ function renderBin() {
       const cell = (v, cls = "") => `<span class="bin-cell${cls}">${escapeHtml(v || "—")}</span>`;
       item.innerHTML = `
         <span class="bin-cell bin-cell-name">${favHtml}<span class="bin-thumb sm"></span>${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span>` : ""}<span class="bin-name"></span></span>
-        ${cell(MediaLib.fmtDur(m.duration), " num c-duration")}${cell(MediaLib.fmtRes(m), " num c-resolution")}${cell(MediaLib.fmtFps(m.fps), " num c-fps")}
+        ${cell(MediaLib.fmtDur(m.duration), " num c-duration")}${cell(mediaResolution(m), " num c-resolution")}${cell(MediaLib.fmtFps(m.fps), " num c-fps")}
         ${cell(m.codec, " c-codec")}${cell(MediaLib.fmtAudio(m), " c-audio")}${cell(MediaLib.fmtSize(m.size), " num c-size")}
         <span class="bin-cell c-proxy">${proxyBadgeHtml(m) || escapeHtml(m.kind === "video" ? "—" : "")}</span>
         <span class="bin-cell num c-usage">${usesHtml}</span>
         <span class="bin-del" title="Remove (and its clips)">✕</span>${incomplete}`;
     } else {
-      const sub = [folder ? "📁 " + folder.name : "", m.kind === "video" ? uiText("own.media-kind-video") : m.kind, m.duration ? fmt(m.duration) : "", MediaLib.fmtRes(m), m.fps ? uiText("own.fps-value", { n: MediaLib.fmtFps(m.fps) }) : ""]
+      const sub = [folder ? "📁 " + folder.name : "", m.kind === "video" ? uiText("own.media-kind-video") : m.kind, m.duration ? fmt(m.duration) : "", mediaResolution(m), m.fps ? uiText("own.fps-value", { n: MediaLib.fmtFps(m.fps) }) : ""]
         .filter(Boolean).join(" · ");
       item.innerHTML = `
         <div class="bin-thumb"></div>
@@ -2501,7 +2511,7 @@ function renderBin() {
     else thumbEl.textContent = icon;
     const nameEl = item.querySelector(".bin-name");
     nameEl.textContent = m.name;
-    item.title = [m.name, offline ? "⚠ Offline: " + decodeURIComponent(String(m.src).split("?")[0]) + " is missing — right-click → Relink…" : "", MediaLib.describe(m), m.tags && m.tags.length ? m.tags.map((t) => "#" + t).join(" ") : ""].filter(Boolean).join("\n");
+    item.title = [m.name, offline ? "⚠ Offline: " + decodeURIComponent(String(m.src).split("?")[0]) + " is missing — right-click → Relink…" : "", mediaDescription(m), m.tags && m.tags.length ? m.tags.map((t) => "#" + t).join(" ") : ""].filter(Boolean).join("\n");
     item.addEventListener("dragstart", (e) => {
       runtime.binDragFolderId = null;
       e.dataTransfer.setData("text/fablecut-media", m.id);
@@ -2967,7 +2977,7 @@ function showMediaInfo(m, x, y) {
   const rows = [
     ["Kind", m.kind], ["File", decodeURIComponent(String(m.src || "").split("?")[0]) + (isMediaOffline(m.id) ? " — MISSING (offline)" : "")],
     ["Duration", m.duration > 0 ? MediaLib.fmtDur(m.duration) + ` (${(+m.duration).toFixed(3)} s)` : ""],
-    ["Resolution", MediaLib.fmtRes(m)], ["Frame rate", m.fps ? MediaLib.fmtFps(m.fps) + " fps" : ""],
+    ["Resolution", mediaResolution(m)], ["Frame rate", m.fps ? MediaLib.fmtFps(m.fps) + " fps" : ""],
     ["Video codec", m.kind === "video" ? m.codec : ""], ["Format", m.kind !== "video" && m.codec ? m.codec : ""],
     ["Audio", audio], ["Bitrate", m.bitrate ? (m.bitrate >= 1e6 ? (m.bitrate / 1e6).toFixed(1) + " Mb/s" : Math.round(m.bitrate / 1000) + " kb/s") : ""],
     ["Size", MediaLib.fmtSize(m.size)], ["Used", uses.length ? uses.length + "×" : "not used"],
