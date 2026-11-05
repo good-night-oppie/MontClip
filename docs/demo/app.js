@@ -10491,7 +10491,7 @@ async function highlightSignals(isCurrent = () => true) {
       }
       const clips = audible.filter((c) => perMedia[c.mediaId]).map((c) => ({ mediaId: c.mediaId, start: c.start, in: c.in || 0, duration: c.duration,
         speed: (c.props && c.props.speed) || 1, volume: (c.props && c.props.volume) ?? 1, gain: (c.props && c.props.gain) || 0 }));
-      if (clips.length) loudness = MontClipHighlights.mapLoudness(clips, perMedia, { duration, step: 0.5 });
+      if (clips.length) loudness = MontClipHighlightCandidates.mapLoudness(clips, perMedia, { duration, step: 0.5 });
     } catch { loudness = null; }
   }
   // without the server (the web demo), or when it could not read the files: the mix itself, in 60 s pieces.
@@ -10525,7 +10525,7 @@ async function highlightSignals(isCurrent = () => true) {
 function highlightReasonText(r) {
   const v = { db: r.value, peak: r.peak, ratio: r.value, count: r.count };
   const key = r.signal === "loudness" && !(r.value > 0) ? "own.hl-r-loudness-peak" : "own.hl-r-" + r.signal;
-  const detail = uiText(key + "-detail", v), when = MontClipHighlights.clock(r.window[0]) + "–" + MontClipHighlights.clock(r.window[1]);
+  const detail = uiText(key + "-detail", v), when = MontClipHighlightCandidates.clock(r.window[0]) + "–" + MontClipHighlightCandidates.clock(r.window[1]);
   return { text: uiText(key, v), title: detail ? detail + " · " + when : when };
 }
 /** Keep the given timeline ranges (in this order) with the range engine, as one undo step. */
@@ -10561,10 +10561,10 @@ async function showHighlightCandidates() {
   try { sig = await highlightSignals(current); } catch { sig = null; }
   if (!dialog.isConnected) return;
   if (!sig || !current()) { status.textContent = uiText("own.hl-changed"); return; }
-  const cards = MontClipHighlights.candidates(sig);
+  const cards = MontClipHighlightCandidates.candidates(sig);
   // the assistant may be told these (numbers only) while the timeline stays as it was when they were found
   runtime.highlightFacts = { signature, cards: cards.map((c) => ({ from: c.from, to: c.to, score: c.score })) };
-  if (!cards.length) { status.textContent = uiText("own.hl-empty-" + MontClipHighlights.emptyReason(sig)); return; }
+  if (!cards.length) { status.textContent = uiText("own.hl-empty-" + MontClipHighlightCandidates.emptyReason(sig)); return; }
   status.textContent = uiText("own.hl-found", { n: cards.length });
   back.textContent = uiText("own.hl-back", { n: cards.length });
   const picked = new Set();
@@ -10572,7 +10572,7 @@ async function showHighlightCandidates() {
     const card = document.createElement("div");
     card.className = "hl-card"; card.dataset.hlCard = String(i); card.dataset.hlRange = c.from + "-" + c.to;
     // m:ss.t and the length (VV, #52: 00:09:05 read as nine minutes five seconds)
-    const when = MontClipHighlights.clock(c.from) + "–" + MontClipHighlights.clock(c.to) + uiText("own.hl-dur", { s: MontClipHighlights.seconds(c.to - c.from) });
+    const when = MontClipHighlightCandidates.clock(c.from) + "–" + MontClipHighlightCandidates.clock(c.to) + uiText("own.hl-dur", { s: MontClipHighlightCandidates.seconds(c.to - c.from) });
     card.innerHTML = `<label><input type="checkbox" data-hl-pick> <strong>${escapeHtml(when)}</strong></label>
       ${c.text ? `<p class="hl-text">${escapeHtml(c.text.length > 120 ? c.text.slice(0, 120) + "…" : c.text)}</p>` : ""}
       <ul>${c.reasons.map((r) => { const t = highlightReasonText(r); return `<li data-hl-reason="${escapeHtml(r.signal)}" title="${escapeHtml(t.title)}">${escapeHtml(t.text)}</li>`; }).join("")}</ul>
@@ -10835,7 +10835,7 @@ async function autoRun() {
         if (run.stop) throw Object.assign(new Error("stopped"), { stopped: true });
       }
       run.phase = 2; tick();
-      const highlights = loudness ? MontClipHighlights.candidates({ duration: m.duration, sentences: [], loudness, danmaku: danmaku.map((t) => ({ t })) }) : [];
+      const highlights = loudness ? MontClipHighlightCandidates.candidates({ duration: m.duration, sentences: [], loudness, danmaku: danmaku.map((t) => ({ t })) }) : [];
       run.phase = 3; tick();
       let songs = [];
       if (wantSongs) {
@@ -11584,9 +11584,9 @@ async function showSentenceSelection(suggestion = null, onApplied = null, onCanc
       }) : [...selected].map(id => captions.find(c => c.id === id)).map(c => ({ from: c.start, to: c.start+c.duration }));
       plan = MontClipRangePlan.create(doc, keep); plan.keep = keep;
       const cut = plan.captions.filter((c) => c.status === "visible" && c.truncated).length;
-      const clock = MontClipHighlights.clock;
+      const clock = MontClipHighlightCandidates.clock;
       summary.textContent = slices
-        ? keep.map((r, i) => uiText("own.ssel-sum-slice", { name: sliceNames[i], from: clock(r.from), to: clock(r.to), len: MontClipHighlights.seconds(r.to - r.from) })).join(uiText("own.ssel-sum-slice-sep"))
+        ? keep.map((r, i) => uiText("own.ssel-sum-slice", { name: sliceNames[i], from: clock(r.from), to: clock(r.to), len: MontClipHighlightCandidates.seconds(r.to - r.from) })).join(uiText("own.ssel-sum-slice-sep"))
         : byTime
           ? uiText("own.ssel-sum-ranges", { ranges: keep.map((r) => `${clock(r.from)}–${clock(r.to)}`).join(" → "), duration: clock(Math.round(plan.duration)) })
             + (cut ? " " + uiText(cut === 1 ? "own.ssel-sum-cut-one" : "own.ssel-sum-cut", { cut }) : "")
