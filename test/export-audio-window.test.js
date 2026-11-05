@@ -196,3 +196,80 @@ test('the audio window is decoded by the bundled FFmpeg', () => {
   a.match(route, /spawn\(FF\.path\("ffmpeg"\), AudioWindow\.windowArgs\(/);
   a.ok(!/externalFfmpeg|exportBinary/.test(route));
 });
+
+/* Rea on #149 (comment 6651791873, measured on bf5820a5): audio starting 59 / 80 ms after the video came out early by that
+   much when the clip starts within 0.5 s of the file's head — the window is clamped to from = 0 and its first sample was
+   the audio's first sample, not container time 0. The window must start at container time `from` whatever `from` is.
+   Clips from 0 s, 0.3 s and the middle, with the page's own rule for `from`; ±1 ms. Plus the 录播姬 direction (picture
+   late, sound from 0), which must stay at 0 ms. */
+test('server: audio 59 / 80 ms late, clip from 0 s, 0.3 s or mid-file — the window starts on the container clock (±1 ms)', { timeout: 120000 }, async (t) => {
+  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../ffmpeg-path');
+  if (!FF.available('ffmpeg') || !FF.available('ffprobe')) return t.skip('bundled ffmpeg not installed');
+  const dir = makeDataDir(t, seedProject({ revision: 1 })), media = path.join(dir, 'media');
+  fs.mkdirSync(media, { recursive: true });
+  const ff = (args) => execFileSync(FF.path('ffmpeg'), ['-v', 'error', '-y', ...args]);
+  const beeps = [1, 7.5];   // seconds of the audio's own clock
+  const tone = `aevalsrc='(${beeps.map((b) => `gte(t,${b})*lt(t,${b + 0.1})`).join('+')})*0.5*sin(2*PI*1000*t)|0':s=48000:d=12`;
+  const src = (vOff, aOff, vcodec, acodec, out) => ff(['-itsoffset', String(vOff), '-f', 'lavfi', '-i', 'testsrc2=s=160x90:r=30:d=12',
+    '-itsoffset', String(aOff), '-f', 'lavfi', '-i', tone, '-map', '0:v', '-map', '1:a', '-c:v', vcodec, '-c:a', acodec, path.join(media, out)]);
+  src(0, 0.08, 'mpeg4', 'aac', 'late80.mkv');
+  src(0, 0.08, 'flv', 'aac', 'late.flv');
+  ff(['-i', path.join(media, 'late.flv'), '-c:v', 'mpeg4', '-c:a', 'copy', '-movflags', '+faststart', path.join(media, 'compat.mp4')]);   // prepare-media's remux of the audio (flv1 pictures can't go in MP4)
+  src(0.058, 0, 'mpeg4', 'aac', 'picture-late.mkv');
+  // where the container puts the audio's first sample (59 ms for the remuxed FLV, as Rea measured)
+  const audioStart = (f) => {
+    const j = JSON.parse(execFileSync(FF.path('ffprobe'), ['-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=start_time', '-of', 'json', path.join(media, f)], { encoding: 'utf8' }));
+    return +j.streams[0].start_time;
+  };
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1' });
+  const PAD = 0.5, fromFor = (m0) => Math.max(0, Math.floor((m0 - PAD) * 1000) / 1000);   // app.js exportAudioSource
+  a.match(app, /const AUDIO_WINDOW_PAD = 0\.5;/); a.match(app, /const from = Math\.max\(0, Math\.floor\(\(m0 - AUDIO_WINDOW_PAD\) \* 1000\) \/ 1000\)/);
+  a.match(app, /if \(buf\) return \{ buf, at: from \};/, 'the page plays sample 0 of the window at container time `from`');
+  const seen = [];
+  // [file, where the container says the audio starts, where the sound really is (what the flash is aligned to)]. The
+  // remuxed FLV's audio "starts" at 0.059 s: its first samples are AAC priming, 21 ms before the sound at 0.080 s — the
+  // −59 ms Rea measured on the whole-file path is this.
+  for (const [file, start, off] of [['late80.mkv', 0.08, 0.08], ['compat.mp4', 0.059, 0.08], ['picture-late.mkv', 0, 0]]) {
+    a.ok(Math.abs(audioStart(file) - start) <= 0.002, `${file}: audio starts at ${audioStart(file)} s in the container, want ${start}`);
+    for (const [clipIn, beep] of [[0, 1], [0.3, 1], [7, 7.5]]) {
+      const from = fromFor(clipIn), to = Math.ceil((clipIn + 2 + PAD) * 1000) / 1000;
+      const r = await fetch(`${base}/api/audio-window?src=/media/${file}&from=${from}&to=${to}`);
+      a.equal(r.status, 200, file);
+      const L = readWav(Buffer.from(await r.arrayBuffer())).ch(0);
+      const at = from + L.findIndex((v) => Math.abs(v) > 0.05) / 48000, expect = beep + off;
+      seen.push(`${file} in=${clipIn}: ${((at - expect) * 1000).toFixed(2)} ms`);
+      a.ok(Math.abs(at - expect) <= 0.001, `${file}, clip from ${clipIn} s (window from ${from}): beep at ${at.toFixed(4)} s, the picture has it at ${expect.toFixed(4)} s`);
+    }
+  }
+  t.diagnostic(seen.join(' · '));
+});
+
+/* Rea on #149 (comment 6650099788): a recording with a timestamp gap — 录播姬 files have them, up to about 101 ms — put
+   the sound after the gap early by the gap. The window's n-th sample must be the file at from + n/48000: silence in the
+   gap, the WAV exactly to − from long. Gaps of 0.05, 0.1 and 0.5 s at 6 s; beeps at 3 s and after the gap. */
+test('server: a timestamp gap in the audio leaves the sound after it on time (±1 ms), and the window keeps its length', { timeout: 120000 }, async (t) => {
+  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../ffmpeg-path');
+  if (!FF.available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
+  const dir = makeDataDir(t, seedProject({ revision: 1 })), media = path.join(dir, 'media');
+  fs.mkdirSync(media, { recursive: true });
+  const tone = "aevalsrc='(gte(t,3)*lt(t,3.1)+gte(t,9)*lt(t,9.1))*0.5*sin(2*PI*1000*t)|0':s=48000:d=12";
+  const gaps = [0.05, 0.1, 0.5];
+  for (const g of gaps) execFileSync(FF.path('ffmpeg'), ['-v', 'error', '-y', '-f', 'lavfi', '-i', tone,
+    '-af', `asetpts='PTS+if(gte(T,6),${g}/TB,0)'`, '-c:a', 'pcm_s16le', path.join(media, `gap${g}.mkv`)]);
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1' });
+  const seen = [];
+  for (const g of gaps) {
+    const from = 2, to = 12;
+    const r = await fetch(`${base}/api/audio-window?src=/media/gap${g}.mkv&from=${from}&to=${to}`);
+    a.equal(r.status, 200);
+    const w = readWav(Buffer.from(await r.arrayBuffer())), L = w.ch(0);
+    const onsets = []; let last = -1;
+    for (let i = 0; i < L.length; i++) if (Math.abs(L[i]) > 0.05) { if (i - last > 4800) onsets.push(from + i / 48000); last = i; }
+    seen.push(`gap ${g}: ${onsets.map((v) => v.toFixed(4)).join(' / ')} · ${(w.frames / 48000).toFixed(4)} s`);
+    a.equal(onsets.length, 2, `gap ${g}: two beeps, got ${onsets.map((v) => v.toFixed(4))}`);
+    a.ok(Math.abs(onsets[0] - 3) <= 0.001, `gap ${g}: the beep before the gap at ${onsets[0].toFixed(4)} s, want 3.0000`);
+    a.ok(Math.abs(onsets[1] - (9 + g)) <= 0.001, `gap ${g}: the beep after the gap at ${onsets[1].toFixed(4)} s, want ${(9 + g).toFixed(4)}`);
+    a.ok(Math.abs(w.frames / 48000 - (to - from)) <= 0.001, `gap ${g}: the window is ${(w.frames / 48000).toFixed(4)} s, want ${to - from}`);
+  }
+  t.diagnostic(seen.join(' · '));
+});

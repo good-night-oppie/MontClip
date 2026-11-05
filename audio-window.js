@@ -2,7 +2,12 @@
 
    The window is on the container's clock: output sample 0 is container time `from`, even when the audio stream starts
    later than the video (`aresample=async=1:first_pts=0` pads the gap with silence) — QQ, 2026-11-05: audio 80 ms late
-   put the beep at 5.000 / 5.021 s without it, at 5.080 s (where <video> and the container have it) with it.
+   put the beep at 5.000 / 5.021 s without it, at 5.080 s (where <video> and the container have it) with it — for a
+   window from 0 too (Rea, #149: a clip within 0.5 s of the head was early by 59 / 80 ms on bf5820a5, before this filter).
+   A timestamp gap in the audio (录播姬 recordings have them, up to about 101 ms) is filled with silence as well:
+   min_hard_comp=0.01 fills any gap over 10 ms at once — the default (0.1 s) only stretches smaller ones by 1 sample a
+   second, which left the sound after a 50 ms gap 50 ms early (Rea, comment 6650099788). Millisecond timestamp rounding
+   stays under the 10 ms, so ordinary files are not touched.
    ffmpeg writes the WAV to a file, not a pipe, so its header carries the real lengths and the server never holds the
    samples in memory; the header is then walked chunk by chunk (never searched for "data"). */
 "use strict";
@@ -10,7 +15,7 @@
 /** ffmpeg arguments: the first audio stream from `from` for `dur` seconds, f32 WAV at 48 kHz, its own channels. */
 function windowArgs(file, from, dur, out) {
   return ["-hide_banner", "-v", "error", "-y", "-ss", from.toFixed(6), "-t", dur.toFixed(6), "-i", file,
-    "-map", "0:a:0", "-vn", "-sn", "-dn", "-af", "aresample=async=1:first_pts=0", "-ar", "48000", "-c:a", "pcm_f32le", "-f", "wav", out];
+    "-map", "0:a:0", "-vn", "-sn", "-dn", "-af", "aresample=async=1:min_hard_comp=0.01:first_pts=0", "-ar", "48000", "-c:a", "pcm_f32le", "-f", "wav", out];
 }
 
 /** RIFF/WAVE chunks from the start of a file → {fmt:{format, channels, rate, bits}, data:{offset, size}} | null.
