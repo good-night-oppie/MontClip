@@ -104,7 +104,7 @@ test("the chat card: still exporting is not a failure, and says nothing for the 
 test("the chat card: the copy that failed, and a file saved under another name", () => {
   const exportCard = card();
   assert.deepEqual(plain(exportCard({ phase: "copyFailed", code: "ENOSPC", reason: "ENOSPC: no space left on device" })),
-    ["视频已经导出好了，但没能存进你选的文件夹（空间不够）。文件还在 MontClip 自己的导出文件夹里，可以换一个文件夹再导出一次。", "打开导出文件夹"]);
+    ["视频已经导出好了，但没能存进你选的文件夹（空间不够）。文件还在 MontClip 自己的导出文件夹里，可以换一个文件夹再导出一次。", "打开导出文件夹", "复制问题信息", "会打开 MontClip 任务页，在那里复制。"]);
   assert.deepEqual(plain(exportCard({ phase: "done", folder: "成片", files: [{ name: "clip (2).mp4", bytes: 300000, renamed: true }] })),
     ["导出完成", "已存到「成片」", "clip (2).mp4 · 293 KB", "同名文件已经有了，这次存成这个名字", "打开导出文件夹"]);
 });
@@ -126,7 +126,7 @@ test("the chat card in plain English (kept beside JJ's words for when the card f
   assert.deepEqual(plain(exportCard({ phase: "still" }, "en")),
     ["Still exporting", "This time it can't wait for the export to finish. When it's done, the file will be in MontClip's own export folder."]);
   assert.deepEqual(plain(exportCard({ phase: "copyFailed", code: "ENOSPC", reason: "ENOSPC: no space left on device" }, "en")),
-    ["The video is exported, but it couldn't be saved to the folder you chose (not enough space). The file is still in MontClip's own export folder; you can export again to another folder.", "Open the export folder"]);
+    ["The video is exported, but it couldn't be saved to the folder you chose (not enough space). The file is still in MontClip's own export folder; you can export again to another folder.", "Open the export folder", "Copy problem details", "Opens the MontClip task page, where you can copy it."]);
   assert.deepEqual(plain(exportCard({ phase: "done", files: [{ name: "clip (2).mp4", bytes: 2097152, renamed: true }] }, "en")),
     ["Export finished", "Saved in MontClip's own export folder", "clip (2).mp4 · 2.0 MB", "A file with this name was already there, so this one was saved under this name", "Open the export folder"]);
   assert.equal(plain(exportCard({ phase: "done", dir: "D:\\x", job: "x_1", files: [] }, "en")).at(-1), "Open folder");
@@ -162,39 +162,45 @@ test("worker: an export without ffmpeg is refused with the engine's reason", asy
 /* VV (2026-11-04): 还在导出 is not red; 打开文件夹 on a finished export and on a failed copy, opened by the worker —
    only MontClip's exports folder or the folder that export went into, every other path refused. The button's words
    wait for JJ. */
-/* JJ v2 (2026-11-04, section 1, rule 2), Deja's decision for #115–#117 (QQ asked twice on #116/#117): the card says
-   what happened and what she can do, in plain words — never a raw error or a code. The card cannot copy (Cindy gives
-   plugins no text clipboard), so the problem line — the code and the raw error, user paths cut to the file name, no
-   keys or tokens — goes to the log and back to the AI in the tool result. */
+/* JJ v2 (2026-11-04, section 1, rule 2) and Deja's decisions for #115–#117: the card says what happened and what she can
+   do, in JJ's final words — never a raw error or a code. 〔复制问题信息〕 on the card opens this task's MontClip page,
+   which shows the sentence and copies the problem for her (the card cannot copy: Cindy gives plugins no text
+   clipboard). The tool result goes through the AI service, so it carries only the plain sentence and the code; the
+   raw error stays on this computer (the log, and the task page on her click). */
 const KEPT = "你的剪辑都还在，没有丢。";
 const ENGLISH_RUN = /[A-Za-z]+[ ,;:'-]+[A-Za-z]+[ ,;:'-]+[A-Za-z]+/;   // three English words in a row: a raw error
 const CODES = /\b(ENOENT|EACCES|EPERM|ENOSPC|EBUSY|NO_EDITOR|EXPORT_REFUSED|EDITOR_NOT_READY|TIMEOUT|PROTOCOL_ERROR|h264None\w*|ffmpeg(Missing|Dev)|NO_FOLDER|FOLDER_NOT_ALLOWED)\b/;
+const COPY_NOTE = "会打开 MontClip 任务页，在那里复制。";
 
-test("导出没有完成 (JJ v2): plain words, the right button, and nothing raw on the card", () => {
+test("导出没有完成 (JJ's final words): plain words, the right buttons, nothing raw on the card", () => {
   const exportCard = card();
   const cases = [
-    // stage, code, raw error (the engine's own words), the sentence, the button
+    // stage, code, raw error (the engine's own words), the sentence, the first button
     ["start", "ffmpegMissing", "FFmpeg is not bundled", "缺一个处理视频的工具，这次没有做完。点下面的按钮装上（约 160 MB，只装一次），装好以后会接着做。", ["install-ffmpeg", "下载并安装"]],
     ["job", "h264NoneWin", "This computer has no H.264 encoder MontClip can use: no graphics-card encoder answered", "这台电脑上找不到 MontClip 能用的视频编码器，所以这次没能导出。可以先更新显卡驱动再试。", ["retry", "重试"]],
-    ["job", undefined, "ffmpeg: Error writing trailer: No space left on device", "电脑空间不够，这次没有做完。空出一些地方以后点重试。原片没有改动。", ["retry", "重试"]],
-    ["start", "EDITOR_NOT_READY", "The editor is not ready; open it and retry.", "剪辑器这次没有接手导出，所以没有做完。打开右侧栏的「MontClip 剪辑器」，等时间线出来，再点重试。原片没有改动。", ["retry", "重试"]],
-    ["start", "EXPORT_REFUSED", "no editor tab is open and no Chrome / Edge was found to export headless", "剪辑器这次没有接手导出，所以没有做完。打开右侧栏的「MontClip 剪辑器」，等时间线出来，再点重试。原片没有改动。", ["retry", "重试"]],
-    ["start", "JOB_BUSY", "export x_1 is still running — wait for it, or cancel it", "上一个任务还没做完，这个要等它做完才能开始。把 MontClip 剪辑器切到前面，过半分钟再点重试。", ["retry", "重试"]],
-    ["start", "TIMEOUT", "Node request timed out after 120000 ms", "MontClip 这次没有回应，所以没有做完。关掉剪辑器再打开，再点重试。原片没有改动。", ["retry", "重试"]],
-    ["job", undefined, "the editor stopped reporting progress (tab closed or browser crashed)", "导出到一半停下了，这次没有做完。原片没有改动。再点重试。", ["retry", "重试"]],
-    ["start", "EXPORT_REFUSED", "export request failed (500)", "这次没有做完，出了个我们没预料到的问题。原片没有改动。再点重试；还不行，在聊天里跟 AI 说「把问题信息给我」。", ["retry", "重试"]],
+    ["job", undefined, "ffmpeg: Error writing trailer: No space left on device", "电脑空间不够，这次没有做完。空出一些地方以后点〔重试〕。原片没有改动。", ["retry", "重试"]],
+    ["start", "EDITOR_NOT_READY", "The editor is not ready; open it and retry.", "这次导出要剪辑器开着才能做，它没开或者还没准备好。打开右侧栏的「MontClip 剪辑器」，等时间线出来，再点〔重试〕。原片没有改动。", ["retry", "重试"]],
+    ["start", "EXPORT_REFUSED", "no editor tab is open and no Chrome / Edge was found to export headless", "这次导出要剪辑器开着才能做，它没开或者还没准备好。打开右侧栏的「MontClip 剪辑器」，等时间线出来，再点〔重试〕。原片没有改动。", ["retry", "重试"]],
+    ["start", "JOB_BUSY", "export x_1 is still running — wait for it, or cancel it", "上一次导出还没做完，要等它做完才能开始这一个。把 MontClip 剪辑器切到前面，过半分钟再点〔重试〕。", ["retry", "重试"]],
+    ["start", "TIMEOUT", "Node request timed out after 120000 ms", "MontClip 一直没有回应，这次没有做完。关掉剪辑器再打开，再点〔重试〕。原片没有改动。", ["retry", "重试"]],
+    ["job", undefined, "the editor stopped reporting progress (tab closed or browser crashed)", "导出到一半停下了，这次没有做完。原片没有改动。再点〔重试〕。", ["retry", "重试"]],
+    ["start", "EXPORT_REFUSED", "export request failed (500)", "这次没有做完，出了个我们没预料到的问题。原片没有改动。再点〔重试〕；还不行，点〔复制问题信息〕发给我们。", ["retry", "重试"]],
   ];
   for (const [stage, code, raw, words, btn] of cases) {
     const html = exportCard({ phase: "failed", stage, code, reason: raw });
     const lines = plain(html);
-    assert.deepEqual(lines, ["导出没有完成", words + KEPT, btn[1]], raw);
-    assert.ok(html.includes('data-ghost-action="' + btn[0] + '"'), btn[0]);
+    assert.deepEqual(lines, ["导出没有完成", words + KEPT, btn[1], "复制问题信息", COPY_NOTE], raw);
+    assert.ok(html.includes('data-ghost-action="' + btn[0] + '"') && html.includes('data-ghost-action="copy-problem"'), btn[0]);
     assert.doesNotMatch(lines.join("\n"), ENGLISH_RUN, "no English on the card");
     assert.doesNotMatch(lines.join("\n"), CODES, "no error code on the card");
+    assert.doesNotMatch(lines.join("\n"), /跟 AI 说/, "no 'ask the AI' any more");
   }
-  // the data folder in use: JJ's own sentence, as it is
+  // the data folder in use: JJ's own sentence, as it is (nothing to copy)
   const inUse = "MontClip 桌面版正在用这些项目。两边同时改，会互相盖掉。先把桌面版关掉，再打开这里。找不到桌面版的窗口，就重启电脑再试。";
   assert.deepEqual(plain(exportCard({ phase: "failed", stage: "start", code: "DATA_DIR_IN_USE", reason: inUse })), ["导出没有完成", inUse]);
+  // the install that failed
+  assert.ok(plain(exportCard({ phase: "failed", stage: "start", code: "ffmpegMissing", reason: "x", installFailed: true }))
+    .includes("导出工具这次没装上。点〔下载并安装〕再试一次；还不行，点〔复制问题信息〕发给我们。"));
   // English beside it
   assert.equal(plain(exportCard({ phase: "failed", stage: "job", progress: 0.4, reason: "export failed" }, "en"))[1],
     "The export stopped halfway, so it didn't finish. The original is unchanged. Click Retry.Your edits are all still there.");
@@ -203,83 +209,117 @@ test("导出没有完成 (JJ v2): plain words, the right button, and nothing raw
 test("a failed copy or open: a plain reason in the sentence, nothing raw on the card (JJ v2)", () => {
   const exportCard = card();
   const copy = plain(exportCard({ phase: "copyFailed", code: "EBUSY", reason: "EBUSY: resource busy or locked, rename 'D:\\成片\\a.mp4.part'", job: "x_1" }));
-  assert.deepEqual(copy, ["视频已经导出好了，但没能存进你选的文件夹（出了点问题）。文件还在 MontClip 自己的导出文件夹里，可以换一个文件夹再导出一次。", "打开导出文件夹", "换个文件夹"]);
+  assert.deepEqual(copy, ["视频已经导出好了，但没能存进你选的文件夹（出了点问题）。文件还在 MontClip 自己的导出文件夹里，可以换一个文件夹再导出一次。", "打开导出文件夹", "换个文件夹", "复制问题信息", COPY_NOTE]);
   const open = plain(exportCard({ phase: "done", dir: "D:\\x", job: "x_1", openFailed: { code: "PROTOCOL_ERROR", message: "spawn explorer.exe ENOENT" } }));
   assert.equal(open.at(-1), "没能打开文件夹（出了点问题）。");
   for (const lines of [copy, open]) { assert.doesNotMatch(lines.join("\n"), ENGLISH_RUN); assert.doesNotMatch(lines.join("\n"), CODES); }
 });
 
-test("the problem line for us: the code and the raw error, no user path, key or token — the same as problem-details.js", () => {
-  const main = fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8");
-  const { problemLine } = new Function(main.slice(main.indexOf("function esc("), main.indexOf("function sendCard(")) + "\nreturn { problemLine };")();
-  const Problem = require(path.join(PLUGIN, "problem-details.js"));
-  const at = new Date("2026-11-04T12:00:00Z");
-  const samples = [
-    "EACCES: permission denied, open 'C:\\Users\\me\\clips-data\\exports\\a.mp4'",
-    "ENOENT: no such file or directory, stat 'D:/直播/11月/a.mp4'",
-    "GET http://127.0.0.1:7777/?token=" + "a".repeat(64) + " failed (Bearer abc.def)",
-    "spawn /home/me/.cache/chromium/chrome ENOENT with key=sk-1234567890abc",
-    "the editor stopped reporting progress (tab closed or browser crashed)", "",
-  ];
-  for (const s of samples) assert.equal(problemLine("X", s, at), Problem.copyLine({ code: "X", error: s }, at), s);
-  const line = problemLine("EACCES", samples[0], at);
-  assert.equal(line, "[MontClip] 2026-11-04T12:00:00.000Z EACCES: EACCES: permission denied, open 'a.mp4'");
-  for (const leak of ["Users", "clips-data", "a".repeat(64), "abc.def", "sk-1234567890abc", "/home/me"])
-    assert.ok(!samples.map((x) => problemLine("X", x, at)).join("\n").includes(leak), leak);
-});
-
-test("main.js: a failure goes to the card as plain words, the problem line to the AI, the whole error to the log", () => {
-  const main = fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8");
-  assert.match(main, /sendCard\(callId, \{ phase: 'failed', stage: 'start', code: e\.code, reason: e\.message, again \}\); return \{ error: e\.message, code: e\.code, problem: problemFor\(e\.code, e\.message\) \};/);
-  assert.match(main, /problem: problemFor\(job\.code \|\| 'EXPORT_FAILED', job\.error\)/);
-  assert.match(main, /copied: false, error: e\.message, code: e\.code, problem: problemFor\(e\.code, e\.message\)/);
-  assert.doesNotMatch(main, /phase: 'failed', note:|function rawLine|sendUs/);
-  assert.match(main, /console\.warn\('\[MontClip\] ' \+ new Date\(\)\.toISOString\(\) \+ ' ' \+ \(code \|\| 'UNKNOWN'\) \+ ': ' \+ String\(error\)\);/, "the log keeps all of it");
-});
-
-test("the card's buttons: 重试 runs the same export again, 下载并安装 installs then carries on, 换个文件夹 asks again", async () => {
+/* a sandboxed logic page: main.js with a stand-in cindy, for the tool results and the card buttons */
+function logic({ start, deliver } = {}) {
   const vm = require("node:vm");
-  const asked = [], sent = [], picks = [];
-  let handler = null, installResult = { install: { version: "n9" } };
+  const asked = [], sent = [], picks = [], views = [], posted = [];
+  let handler = null;
   const cindy = {
     node: { request: async (r) => {
       asked.push([r.method, JSON.parse(JSON.stringify(r.params || {}))]);
       if (r.method === "montclip/ffmpeg-spec") return { ok: true, result: { supported: true, platform: "win32-x64", url: "https://github.com/x", sha256: "a".repeat(64), bytes: 1, state: "missing" } };
       if (r.method === "montclip/ffmpeg-install") return { ok: true, result: { installed: true } };
-      if (r.method === "montclip/export-start") return { ok: false, errorCode: "PROTOCOL_ERROR", message: "export request failed (500)", data: { code: "EXPORT_REFUSED" } };
-      if (r.method === "montclip/export-deliver") return { ok: true, result: { files: [{ name: "a.mp4", bytes: 1 }] } };
+      if (r.method === "montclip/export-start") return start || { ok: false, errorCode: "PROTOCOL_ERROR", message: "export request failed (500) at C:\\Users\\me\\clips-data\\exports", data: { code: "EXPORT_REFUSED" } };
+      if (r.method === "montclip/export-job") return { ok: true, result: { id: "x_1", status: "failed", progress: 0.4, error: "ffmpeg: could not write 'C:\\Users\\me\\clips-data\\exports\\a.mp4'" } };
+      if (r.method === "montclip/export-deliver") return deliver || { ok: true, result: { files: [{ name: "a.mp4", bytes: 1 }] } };
       return { ok: true, result: {} };
     } },
     downloads: { start: async () => ({ ok: true, token: "t", bytes: 1 }) },
     pick: async (o) => { picks.push(o); return { ok: true, path: "E:\\new", name: "new" }; },
+    taskView: async (o) => { views.push(JSON.parse(JSON.stringify(o))); return { ok: true }; },
     send: async (m) => { sent.push(JSON.parse(JSON.stringify(m))); return { ok: true }; },
     onHostMessage: (fn) => { handler = fn; },
   };
-  class BroadcastChannel { postMessage() { } addEventListener() { } }
+  const channels = [];
+  class BroadcastChannel { constructor() { channels.push(this); } postMessage(m) { posted.push(JSON.parse(JSON.stringify(m))); } addEventListener() { } }
   const ctx = { cindy, BroadcastChannel, setTimeout: (f) => f(), clearTimeout, console: { warn() { }, log() { } }, Map, Promise };
   vm.runInNewContext(fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8") + "\n;this.__card = sendCard; this.__H = HANDLERS;", ctx);
-  // an export that fails to start: the card has 重试; the result for the AI has the problem line, no raw on the card
-  const r = JSON.parse(JSON.stringify(await ctx.__H.montclip_export({ folder: "default" }, { callId: "c1" })));
-  assert.equal(r.code, "EXPORT_REFUSED");
-  assert.match(r.problem, /^\[MontClip\] \S+ EXPORT_REFUSED: export request failed \(500\)$/);
-  const failed = sent.filter((m) => m.callId === "c1").at(-1);
+  return { ctx, asked, sent, picks, views, posted, click: (callId, actionId, sessionId = "task-a") => handler({ type: "event", name: "card-action", callId, actionId, sessionId }),
+    page: async (m) => { await channels[0].onmessage({ data: m }); return posted.at(-1); } };
+}
+
+test("the tool result for the AI: the plain sentence and the code only — no raw error, no path (Deja, 2026-11-04)", async () => {
+  const L = logic();
+  const results = [
+    JSON.parse(JSON.stringify(await L.ctx.__H.montclip_export({ folder: "default" }, { callId: "c1" }))),
+  ];
+  const J = logic({ start: { ok: true, result: { id: "x_1", status: "running", progress: 0 } } });
+  results.push(JSON.parse(JSON.stringify(await J.ctx.__H.montclip_export({ folder: "default" }, { callId: "c2" }))));
+  const K = logic({ start: { ok: true, result: { id: "x_1", status: "done", src: "/exports/a.mp4", result: { outputs: [{ ok: true, file: "a.mp4" }] } } },
+    deliver: { ok: false, errorCode: "PROTOCOL_ERROR", message: "EACCES: permission denied, open 'E:\\成片\\a.mp4.part'", data: { code: "EACCES" } } });
+  results.push(JSON.parse(JSON.stringify(await K.ctx.__H.montclip_export({}, { callId: "c3" }))));
+  assert.deepEqual(results.map((r) => [r.code, r.error]), [
+    ["EXPORT_REFUSED", "这次没有做完，出了个我们没预料到的问题。原片没有改动。再点〔重试〕；还不行，点〔复制问题信息〕发给我们。" + KEPT],
+    ["EXPORT_FAILED", "导出到一半停下了，这次没有做完。原片没有改动。再点〔重试〕。" + KEPT],
+    ["EACCES", "视频已经导出好了，但没能存进你选的文件夹（没有写入权限）。文件还在 MontClip 自己的导出文件夹里，可以换一个文件夹再导出一次。"],
+  ]);
+  for (const r of results) {
+    const text = JSON.stringify(r);
+    assert.ok(!("problem" in r), "no problem line for the AI");
+    for (const leak of ["Users", "clips-data", "成片", "export request failed", "could not write", "permission denied", ":\\\\"]) assert.ok(!text.includes(leak), leak + " in " + text);
+  }
+  const main = fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8");
+  assert.doesNotMatch(main, /problem: problem|problemLine|function rawLine|phase: 'failed', note:/);
+  assert.match(main, /console\.warn\('\[MontClip\] ' \+ new Date\(\)\.toISOString\(\) \+ ' ' \+ \(code \|\| 'UNKNOWN'\) \+ ': ' \+ String\(error\)\);/, "the log keeps all of it");
+});
+
+test("复制问题信息 on the card: opens this task's MontClip page and shows the problem there, to copy (Deja, 2026-11-04)", async () => {
+  const L = logic();
+  L.ctx.__card("c1", { phase: "failed", stage: "start", code: "EXPORT_REFUSED", reason: "export request failed (500) at C:\\Users\\me\\x" });
+  await L.click("c1", "copy-problem", "task-a");
+  assert.deepEqual(L.views.at(-1), { sessionId: "task-a", focus: true }, "the task page of the card's own task, brought to the front");
+  const shown = L.posted.find((m) => m.type === "show-problem");
+  assert.deepEqual(shown, { type: "show-problem", session: "task-a",
+    text: "这次没有做完，出了个我们没预料到的问题。原片没有改动。再点〔重试〕；还不行，点〔复制问题信息〕发给我们。" + KEPT,
+    problem: { code: "EXPORT_REFUSED", error: "export request failed (500) at C:\\Users\\me\\x" } }, "on this computer only: logic page → task page");
+  // a page that loads afterwards asks for it, once
+  const a = await L.page({ reqId: "p1", type: "problem", session: "task-a" });
+  assert.equal(a.shown.problem.code, "EXPORT_REFUSED");
+  const b = await L.page({ reqId: "p2", type: "problem", session: "task-a" });
+  assert.equal(b.shown, null, "shown once");
+  assert.equal((await L.page({ reqId: "p3", type: "problem", session: "task-b" })).shown, null, "another task's page gets nothing");
+  // nothing to copy, or an unknown card: nothing opens
+  const before = L.views.length;
+  L.ctx.__card("c2", { phase: "failed", stage: "start" });
+  await L.click("c2", "copy-problem"); await L.click("c-none", "copy-problem");
+  assert.equal(L.views.length, before);
+});
+
+test("the task page: shows the card's sentence with 〔复制问题信息〕, focused, for its own task only; nothing raw", async () => {
+  const src = fs.readFileSync(path.join(PLUGIN, "frame.js"), "utf8");
+  assert.match(src, /if \(!problemBox \|\| !p \|\| p\.session !== session \|\| !p\.problem\) return;/, "its own task only");
+  assert.match(src, /document\.getElementById\('problemText'\)\.textContent = p\.text;/, "the plain sentence, as text");
+  assert.match(src, /const b = copyButton\(box, p\.problem\);[\s\S]{0,120}b\.focus\(\);/, "the focus on the copy button");
+  assert.match(src, /ask\('problem', \{ session \}\)\.then/, "a page opened by the click asks for it");
+  assert.doesNotMatch(src.slice(src.indexOf("function showProblem"), src.indexOf("async function boot")), /p\.problem\.error/, "the raw error is never put on the page");
+  const view = fs.readFileSync(path.join(PLUGIN, "task-view.html"), "utf8");
+  assert.match(view, /<div id="problem" role="region" aria-label="问题信息" hidden>\n  <p id="problemText"><\/p>\n  <div class="copybox" id="problemCopy"><\/div>\n  <button type="button" id="problemClose">知道了<\/button>\n<\/div>/);
+});
+
+test("the card's buttons: 重试 runs the same export again, 下载并安装 installs then carries on, 换个文件夹 asks again", async () => {
+  const L = logic();
+  await L.ctx.__H.montclip_export({ folder: "default" }, { callId: "c1" });
+  const failed = L.sent.filter((m) => m.callId === "c1").at(-1);
   assert.ok(failed.html.includes('data-ghost-action="retry"') && !failed.html.includes("export request failed"));
-  // 重试: the same export again
-  const before = asked.filter((a) => a[0] === "montclip/export-start").length;
-  await handler({ type: "event", name: "card-action", callId: "c1", actionId: "retry" });
-  assert.equal(asked.filter((a) => a[0] === "montclip/export-start").length, before + 1);
-  // 下载并安装 on a tool card: installs, then carries on with the export
-  ctx.__card("c2", { phase: "failed", stage: "start", code: "ffmpegMissing", reason: "FFmpeg is not bundled", again: { args: { folder: "default" }, msg: {} } });
-  const starts = asked.filter((a) => a[0] === "montclip/export-start").length;
-  await handler({ type: "event", name: "card-action", callId: "c2", actionId: "install-ffmpeg" });
-  assert.ok(asked.some((a) => a[0] === "montclip/ffmpeg-install"), "installed");
-  assert.equal(asked.filter((a) => a[0] === "montclip/export-start").length, starts + 1, "then the export again");
-  // 换个文件夹: the folder dialog, then the same export's files into the new folder
-  ctx.__card("c3", { phase: "copyFailed", code: "NO_FOLDER", reason: "x", job: "x_9" });
-  await handler({ type: "event", name: "card-action", callId: "c3", actionId: "pick-again" });
-  assert.equal(picks.at(-1).callId, "c3");
-  assert.deepEqual(asked.filter((a) => a[0] === "montclip/export-deliver").at(-1)[1], { id: "x_9", dir: "E:\\new" });
-  assert.match(sent.filter((m) => m.callId === "c3").at(-1).html, /已存到「new」/);
+  const before = L.asked.filter((a) => a[0] === "montclip/export-start").length;
+  await L.click("c1", "retry");
+  assert.equal(L.asked.filter((a) => a[0] === "montclip/export-start").length, before + 1);
+  L.ctx.__card("c2", { phase: "failed", stage: "start", code: "ffmpegMissing", reason: "FFmpeg is not bundled", again: { args: { folder: "default" }, msg: {} } });
+  const starts = L.asked.filter((a) => a[0] === "montclip/export-start").length;
+  await L.click("c2", "install-ffmpeg");
+  assert.ok(L.asked.some((a) => a[0] === "montclip/ffmpeg-install"), "installed");
+  assert.equal(L.asked.filter((a) => a[0] === "montclip/export-start").length, starts + 1, "then the export again");
+  L.ctx.__card("c3", { phase: "copyFailed", code: "NO_FOLDER", reason: "x", job: "x_9" });
+  await L.click("c3", "pick-again");
+  assert.equal(L.picks.at(-1).callId, "c3");
+  assert.deepEqual(L.asked.filter((a) => a[0] === "montclip/export-deliver").at(-1)[1], { id: "x_9", dir: "E:\\new" });
+  assert.match(L.sent.filter((m) => m.callId === "c3").at(-1).html, /已存到「new」/);
 });
 
 test("the chat card: 还在导出 is not drawn as a failure (no red), 导出没有完成 is", () => {
@@ -295,10 +335,11 @@ test("the chat card: 打开文件夹 opens the folder she chose; 打开导出文
   const button = (c) => [...exportCard(c).matchAll(/data-ghost-action="([^"]+)"[^>]*>([^<]+)</g)].map((m) => [m[1], m[2]]);
   assert.deepEqual(button({ phase: "done", folder: "成片", dir: "D:\\成片", job: "x_1", files: [] }), [["open-folder:picked", "打开文件夹"]]);
   assert.deepEqual(button({ phase: "done", files: [] }), [["open-folder:exports", "打开导出文件夹"]], "no folder chosen: the files are in exports");
-  assert.deepEqual(button({ phase: "copyFailed", code: "NO_FOLDER", reason: "x", dir: "D:\\gone" }), [["open-folder:exports", "打开导出文件夹"]], "JJ: a failed copy opens the export folder");
+  assert.deepEqual(button({ phase: "copyFailed", code: "NO_FOLDER", reason: "x", dir: "D:\\gone" }), [["open-folder:exports", "打开导出文件夹"], ["copy-problem", "复制问题信息"]], "JJ: a failed copy opens the export folder");
   for (const phase of ["pick", "start", "running", "copy", "still", "cancelled"]) assert.deepEqual(button({ phase }), [], phase);
-  assert.deepEqual(button({ phase: "failed", stage: "job", reason: "export failed" }), [["retry", "重试"]], "a failure offers 重试 (JJ v2)");
-  assert.deepEqual(button({ phase: "copyFailed", code: "NO_FOLDER", reason: "x", job: "x_1" }), [["open-folder:exports", "打开导出文件夹"], ["pick-again", "换个文件夹"]], "JJ v2: 〔打开导出文件夹〕〔换个文件夹〕");
+  assert.deepEqual(button({ phase: "failed", stage: "job", reason: "export failed" }), [["retry", "重试"], ["copy-problem", "复制问题信息"]], "a failure offers 重试 and 复制问题信息 (JJ v2)");
+  assert.deepEqual(button({ phase: "failed", stage: "start" }), [["retry", "重试"]], "nothing to copy: no copy button");
+  assert.deepEqual(button({ phase: "copyFailed", code: "NO_FOLDER", reason: "x", job: "x_1" }), [["open-folder:exports", "打开导出文件夹"], ["pick-again", "换个文件夹"], ["copy-problem", "复制问题信息"]], "JJ v2: 〔打开导出文件夹〕〔换个文件夹〕〔复制问题信息〕");
   for (const [id] of button({ phase: "done", dir: "D:\\x", job: "x_1" }).concat(button({ phase: "done" }))) assert.match(id, /^[A-Za-z0-9_:-]{1,128}$/, "Cindy's GHOST_CARD_ACTION_ID_RE");
   assert.doesNotMatch(exportCard({ phase: "done", dir: "D:\\私人\\成片", job: "x_1" }), /私人/, "the full path is not in the card");
 });
