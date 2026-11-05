@@ -1849,7 +1849,7 @@ const server = http.createServer(async (req, res) => {
         ...(key === "asrMeta" ? { engine: "meta", threads: r.threads, maxRssMB: r.maxRssMB } : {}) });
     } catch (e) {
       const code = e.code === "ASR_CANCELLED" || ac.signal.aborted ? "ASR_CANCELLED" : e.code || "ASR_FAILED";
-      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|BUSY|MODEL_MISSING|ENGINE_MISSING|OPTIONAL_NO_MEMORY)$/.test(code) ? 409 : 500,
+      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|BUSY|OPTIONAL_REMOVING|MODEL_MISSING|ENGINE_MISSING|OPTIONAL_NO_MEMORY)$/.test(code) ? 409 : 500,
         { code, error: String(e.message || e), ...(key === "asrMeta" ? { engine: "meta", needMB: e.needMB, freeMB: e.freeMB } : {}) });
     } finally { if (asrJob.running === job) asrJob.running = null; }
     return;

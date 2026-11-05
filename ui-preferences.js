@@ -161,6 +161,8 @@
     "asr-meta-consent": ["Meta's multilingual model is on this computer, but it is used only after you read its licence and agree.", "Meta 的多语言模型已经在这台电脑上了，但要先看它的许可证、点同意才会用。"],
     "asr-meta-agree": ["Read the licence and use it", "看许可证并使用"],
     "asr-meta-revoke": ["Remove Meta's model", "删掉 Meta 的模型"],
+    // a Meta transcription asked for while 〔删掉〕 waits for Meta's process to end (draft for JJ, 11-05)
+    "asr-meta-removing": ["Meta's model is being removed, so this transcription didn't start. Switch the speech model back to Paraformer and transcribe again.", "Meta 的模型正在删掉，这次没有开始听写。把「听写模型」换回 Paraformer 再听写就行。"],
     // a file of Meta's model could not be deleted (JJ's final words, 11-05; the curly quotes are Deja's)
     "asr-meta-remove-incomplete": ["Meta's model wasn't fully removed: some of its files are in use and couldn't be deleted. Your agreement to its licence terms hasn't been withdrawn yet. Close MontClip, open it again, then click “Remove Meta's model” once more; if that doesn't work, restart the computer and try again. Until it's fully removed, switch transcription back to Paraformer.", "Meta 的模型没删干净：有的文件正被占用，删不掉。你对许可条款的同意还没收回。关掉 MontClip 再打开，然后再点一次〔删掉 Meta 的模型〕；还不行，就重启电脑再试。删干净之前，听写请先换回 Paraformer。"],
     "asr-meta-revoked": ["Revoked: Meta's model and your consent record were deleted; transcription uses Paraformer again.", "已撤销：Meta 的模型和你的同意记录都删掉了，听写回到 Paraformer。"],

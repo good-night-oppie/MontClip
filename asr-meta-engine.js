@@ -9,10 +9,10 @@
      transcribe(file, {signal, onProgress, duration}),
      release({timeoutMs}) → {released, stopped}: stops every Meta transcription and resolves once its process has ended
        (〔删掉 Meta 的模型〕: Windows keeps the model's files while the process loads them; Rea, 11-05). Until unhold(),
-       no new one starts (ASR_BUSY).
+       no new one starts (ASR_OPTIONAL_REMOVING).
      unhold() }
    Errors: ASR_OPTIONAL_NO_MEMORY {needMB, freeMB}, ASR_OPTIONAL_CRASHED {exitCode, signal}, ASR_OPTIONAL_MODEL_BROKEN,
-   ASR_CANCELLED, ASR_BUSY (being removed), and asr-local.js's own codes passed through. */
+   ASR_CANCELLED, ASR_OPTIONAL_REMOVING (being removed), and asr-local.js's own codes passed through. */
 "use strict";
 const os = require("node:os");
 const path = require("node:path");
@@ -27,7 +27,7 @@ function createMetaEngine({ asrDir, modelsDir, ffmpeg, cacheDir, threads = 4, fo
   let waiters = [];            // release() calls waiting for every process to end
   const ended = (child) => { live.delete(child); if (!live.size) { for (const w of waiters) w(); waiters = []; } };
   function transcribe(file, { signal, onProgress = () => {}, duration = null } = {}) {
-    if (held) return Promise.reject(err("ASR_BUSY", "Meta's model is being removed"));
+    if (held) return Promise.reject(err("ASR_OPTIONAL_REMOVING", "Meta's model is being removed"));
     const needMB = (manifest.models.asrMeta && manifest.models.asrMeta.ramMB) || 0, freeMB = Math.round(freeMem() / 1048576);
     if (needMB && freeMB < needMB) return Promise.reject(err("ASR_OPTIONAL_NO_MEMORY", `not enough free memory for Meta's model: about ${needMB} MB needed, ${freeMB} MB free`, { needMB, freeMB }));
     if (signal && signal.aborted) return Promise.reject(err("ASR_CANCELLED", "cancelled"));

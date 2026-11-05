@@ -9867,7 +9867,8 @@ async function asrGetPunct() {
 /** A transcription Meta's model could not finish because it stopped: JJ's words and 〔换回 Paraformer〕, which makes
  *  Paraformer the chosen speech model. → true when it showed that (other failures keep the plain toast). */
 function asrMetaFailToast(f) {
-  if (!f || f.code !== "ASR_OPTIONAL_CRASHED") return false;
+  // and one asked for while Meta's model is being removed (〔删掉〕): its words alone, with the same button
+  if (!f || (f.code !== "ASR_OPTIONAL_CRASHED" && f.code !== "ASR_OPTIONAL_REMOVING")) return false;
   toastAction(f.error, uiText("own.asr-switch-paraformer"), () => setAsrKey("asr"));
   return true;
 }
@@ -9878,6 +9879,7 @@ function asrMetaWords(j) {
   if (j.engine !== "meta") return null;
   if (j.code === "ASR_OPTIONAL_CRASHED") return uiText("own.asr-meta-crashed");
   if (j.code === "ASR_OPTIONAL_MODEL_BROKEN") return uiText("own.asr-meta-broken");
+  if (j.code === "ASR_OPTIONAL_REMOVING") return uiText("own.asr-meta-removing");
   if (j.code === "ASR_OPTIONAL_NO_MEMORY") {
     // JJ's three cases: both numbers; only what it needs; none (only what is free counts as none) — never "? MB"
     const mb = (v) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.round(v) : null), need = mb(j.needMB), free = mb(j.freeMB);
