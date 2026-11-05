@@ -9857,12 +9857,22 @@ async function asrGetPunct() {
   await loadAsrStatus();
   paintSettingsAsr();
 }
+/** Meta's model failing, in plain words (asr-meta-engine.js runs it in a process of its own: Paraformer is untouched). */
+function asrMetaWords(j) {
+  if (!j) return null;
+  if (j.code === "ASR_CONSENT_REQUIRED") return uiText("own.asr-meta-consent");
+  if (j.engine !== "meta") return null;
+  if (j.code === "ASR_OPTIONAL_CRASHED") return uiText("own.asr-meta-crashed");
+  if (j.code === "ASR_OPTIONAL_MODEL_BROKEN") return uiText("own.asr-meta-broken");
+  if (j.code === "ASR_OPTIONAL_NO_MEMORY") return uiText("own.asr-meta-no-memory", { need: `${j.needMB || "?"} MB`, free: `${j.freeMB ?? "?"} MB` });
+  return null;
+}
 /** Transcribe one file in the local server, which saves its transcript. Resolves to {doc, saved}. */
 async function transcribeFile(src) {
   const r = await fetch("/api/asr/transcribe", { method: "POST", body: JSON.stringify(asrKey() === "asrMeta" ? { src, model: "meta" } : { src }) });
   let j = {};
   try { j = await r.json(); } catch { }
-  if (!r.ok) throw Object.assign(new Error(j.code === "ASR_CONSENT_REQUIRED" ? uiText("own.asr-meta-consent") : j.error || "transcription failed"), { code: j.code });
+  if (!r.ok) throw Object.assign(new Error(asrMetaWords(j) || j.error || "transcription failed"), { code: j.code });
   const doc = await loadTranscript(src, true);
   if (!doc) throw new Error("the transcript was not saved");
   transcriptGen++;
@@ -9889,7 +9899,7 @@ async function transcribeSrcs(srcs, opts = transcribeSettings(), beat = null) {
       } catch (e) {
         if (busy.cancel || e.code === "ASR_CANCELLED") { out.cancelled = true; break; }
         out.failed.push({ src: srcs[i], error: String((e && e.message) || e), code: e.code || null });
-        if (e.code === "ASR_MODEL_MISSING" || e.code === "ASR_ENGINE_MISSING") break;   // the rest would fail the same way
+        if (e.code === "ASR_MODEL_MISSING" || e.code === "ASR_ENGINE_MISSING" || /^ASR_(OPTIONAL_|CONSENT_)/.test(e.code || "")) break;   // the rest would fail the same way
       }
     }
   } finally {

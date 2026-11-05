@@ -143,6 +143,10 @@
     "asr-model-paraformer": ["Paraformer (Chinese)", "Paraformer（中文）"],
     "asr-model-meta": ["Meta Omnilingual (1,600+ languages)", "Meta 多语言模型（1600 多种语言）"],
     // Meta's model and its consent (asr-consent.js, ADR #122 §6; Deja 11-04): new copy, for JJ
+    // Meta's model failing, in plain words (asr-meta-engine.js); Deja 11-04, drafts for JJ
+    "asr-meta-crashed": ["Meta's model stopped with an error. Paraformer is not affected: switch the Speech model back to Paraformer and transcribe again.", "Meta 的模型出错停了，Paraformer 不受影响。把「听写模型」换回 Paraformer 再听写就行。"],
+    "asr-meta-broken": ["Meta's model files can't be read. Revoke Meta's model and download it again, or switch back to Paraformer.", "Meta 的模型文件读不了。撤销 Meta 的模型再下载一次，或者换回 Paraformer。"],
+    "asr-meta-no-memory": ["Not enough free memory for Meta's model (about {need} needed, {free} free). Close some programs and try again, or switch back to Paraformer.", "内存不够跑 Meta 的模型（大约要 {need}，现在只空着 {free}）。关掉一些软件再试，或者换回 Paraformer。"],
     "asr-meta-consent": ["Meta's multilingual model is on this computer, but it is used only after you read its licence and agree.", "Meta 的多语言模型已经在这台电脑上了，但要先看它的许可证、点同意才会用。"],
     "asr-meta-agree": ["Read the licence and use it", "看许可证并使用"],
     "asr-meta-revoke": ["Revoke Meta's model", "撤销 Meta 的模型"],

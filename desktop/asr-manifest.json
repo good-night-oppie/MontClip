@@ -38,6 +38,8 @@
       "license": "Apache-2.0 (Copyright 2025 Meta Platforms, Inc.; the archive's LICENSE, sha256 a70a523bafbb595c…; model: github.com/facebookresearch/omnilingual-asr; ONNX export: k2-fsa/sherpa-onnx; checked 2026-11-04)",
       "required": false,
       "engine": "omnilingual",
+      "ramMB": 1000,
+      "ramNote": "Free memory asked for before Meta's model starts (asr-meta-engine.js): its own process peaked at 888 MB on Windows (i7-11800H, 4 threads) with a 20 s VAD segment, 702 MB over two hours of shorter ones. On Linux (europa) the same model peaked at 2771 MB on a two-hour stream; not explained (docs/validation/2026-11-04-omnilingual-asr/README.md).",
       "note": "Optional, chosen in the Transcript tab (the owner, 2026-11-04: Paraformer stays the default, unchanged). One CTC model for 1600+ languages; sherpa-onnx-node 2.0.1 reads it (modelConfig.omnilingual). europa 2026-11-04, 4 threads: the archive's en.wav (3.9 s) in 3.3 s, Paraformer's 0.wav (5.6 s, Mandarin) in 4.7 s; one token per character, each with its time; no punctuation of its own.",
       "files": {
         "model.int8.onnx": { "size": 365352120, "sha256": "e7c4e54ee4c4c47829cc6667d5d00ed8ea7bef1dcfeef0fce766f77752a2726c" },

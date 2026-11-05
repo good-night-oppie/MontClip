@@ -145,7 +145,10 @@ const asr = () => asrLocal || (asrLocal = require("./asr-local").createAsr({ asr
 /** Optional models that need the streamer's consent (asr-consent.js; ADR #122 §6: Meta's Omnilingual ASR): ready only
  *  with their files AND a consent record on this computer. The server never writes or takes a record: only the desktop
  *  host does, after the streamer agreed in its own box. */
-let asrConsentObj = null;
+let asrConsentObj = null, asrMetaObj = null;
+/** Meta's model runs in a child process (asr-meta-engine.js): a crash or too little memory fails only it, never this
+ *  server or Paraformer (Deja, 2026-11-04; ADR #122). */
+const asrMeta = () => asrMetaObj || (asrMetaObj = require("./asr-meta-engine").createMetaEngine({ asrDir: ASR_DIR, modelsDir: ASR_MODELS_DIR, ffmpeg: FF.path("ffmpeg"), cacheDir: path.join(DATA_DIR, "asr-cache") }));
 const asrConsent = () => asrConsentObj || (asrConsentObj = require("./asr-consent").createConsent({ modelsDir: ASR_MODELS_DIR }));
 function asrStatus() {
   const st = asr().status();
@@ -1821,17 +1824,19 @@ const server = http.createServer(async (req, res) => {
     let last = 0;
     try {
       const info = await probeFile(file);
-      const r = await asr().transcribe(file, { signal: ac.signal, duration: info && info.duration, model: key,
+      const r = await (key === "asrMeta" ? asrMeta() : asr()).transcribe(file, { signal: ac.signal, duration: info && info.duration, model: key,
         onProgress: (frac) => { const now = Date.now(); if (now - last > 250) { last = now; broadcast("asr", JSON.stringify({ src, frac })); } } });
       const TR = require("./transcribe.js");
       const doc = transcripts.put(src, { src, model: key === "asrMeta" ? "omnilingual-meta" : TR.DEFAULT_MODEL, language: r.language, duration: r.duration, created: new Date().toISOString(), words: r.words,
         gaps: r.gaps.map((g) => [g.start, g.end, g.reason]) });
       broadcast("transcript", JSON.stringify({ src }));
       const gapSeconds = Math.round(doc.gaps.reduce((t, g) => t + g[1] - g[0], 0) * 10) / 10;
-      sendJSON(res, 200, { src, status: TR.status(doc), gaps: doc.gaps.length, gapSeconds, skippedSegments: r.skippedSegments, words: doc.words.length, duration: doc.duration, speech: Math.round(r.speech * 10) / 10, punctuated: r.punctuated });
+      sendJSON(res, 200, { src, status: TR.status(doc), gaps: doc.gaps.length, gapSeconds, skippedSegments: r.skippedSegments, words: doc.words.length, duration: doc.duration, speech: Math.round(r.speech * 10) / 10, punctuated: r.punctuated,
+        ...(key === "asrMeta" ? { engine: "meta", threads: r.threads, maxRssMB: r.maxRssMB } : {}) });
     } catch (e) {
       const code = e.code === "ASR_CANCELLED" || ac.signal.aborted ? "ASR_CANCELLED" : e.code || "ASR_FAILED";
-      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING)$/.test(code) ? 409 : 500, { code, error: String(e.message || e) });
+      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING|OPTIONAL_NO_MEMORY)$/.test(code) ? 409 : 500,
+        { code, error: String(e.message || e), ...(key === "asrMeta" ? { engine: "meta", needMB: e.needMB, freeMB: e.freeMB } : {}) });
     } finally { if (asrJob.running === job) asrJob.running = null; }
     return;
   }
