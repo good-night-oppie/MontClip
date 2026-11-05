@@ -61,6 +61,25 @@ test('Meta\'s process killed (or crashing, or out of memory): only Meta fails, i
   a.equal(r.status, 'complete'); a.ok(r.words.length > 0);
 });
 
+test('while 〔删掉〕 waits for Meta\'s process to end, Paraformer transcribes as usual; a Meta request then is refused in plain words', async (t) => {
+  const S = setup(t);
+  // a Meta process that takes 1.5 s to end once told (stand-in)
+  const { EventEmitter } = require('node:events');
+  const slow = new EventEmitter(); slow.stderr = null; slow.send = () => {};
+  slow.kill = () => { setTimeout(() => slow.emit('exit', null, 'SIGTERM'), 1500); };
+  const meta = S.meta({ fork: () => slow });
+  const job = meta.transcribe(S.file, {}); job.catch(() => {});
+  let released = null;
+  const rel = meta.release().then((r) => (released = r));
+  const para = await S.paraformer().transcribe(S.file, {});
+  a.equal(released, null, 'still waiting for Meta\'s process');
+  a.equal(para.status, 'complete'); a.ok(para.words.length > 0, 'Paraformer finished');
+  await a.rejects(meta.transcribe(S.file, {}), { code: 'ASR_OPTIONAL_REMOVING' });
+  await rel;
+  a.deepEqual(released, { released: true, stopped: 1 });
+  await a.rejects(job, { code: 'ASR_CANCELLED' });
+});
+
 test('too little free memory: refused before anything starts; cancel stops the child', async (t) => {
   const S = setup(t);
   let forked = 0;

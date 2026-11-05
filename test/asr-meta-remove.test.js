@@ -196,7 +196,7 @@ test('1. 〔删掉〕 during a Meta transcription: it is stopped, its process ha
 test('the engine: release() with nothing running; while it is releasing, no new Meta transcription starts; a process that will not end', async (t) => {
   const { eng, file } = engineFor(t, 'setInterval(() => {}, 1000);');
   a.deepEqual(await eng.release(), { released: true, stopped: 0 });
-  await a.rejects(eng.transcribe(file, {}), { code: 'ASR_BUSY' }, 'held until unhold()');
+  await a.rejects(eng.transcribe(file, {}), { code: 'ASR_OPTIONAL_REMOVING' }, 'held until unhold()');
   eng.unhold();
   // a child that does not end when told (stand-in): release() gives up after its timeout and says so
   const stuck = new EventEmitter(); stuck.kill = () => {}; stuck.send = () => {}; stuck.stderr = null;
@@ -347,4 +347,66 @@ test('real Meta model, real server: model.int8.onnx busy when removing — Meta 
   a.equal(st.asr.ready, true, 'Paraformer');
   const res = await fetch(s.base + '/api/asr/transcribe', { method: 'POST', body: JSON.stringify({ src: '/media/tone.wav', model: 'meta' }) });
   a.equal(res.status, 409); a.equal((await res.json()).code, 'ASR_MODEL_MISSING');
+});
+
+// ── while 〔删掉〕 waits (Deja, 11-05): a Meta request gets plain words — never a code or English — and Paraformer works ──
+test('a Meta transcription asked for while Meta is being removed: one plain sentence and 〔换回 Paraformer〕, no code, no English', async () => {
+  const app = read('app.js');
+  const take = (start, end) => { const i = app.indexOf(start), j = app.indexOf(end, i); a.ok(i >= 0 && j > i, start); return app.slice(i, j); };
+  const code = take('const ASR_MODEL_KEY', 'const asrModelStatus') + take('function asrMetaFailToast(', '\n}\n') + '\n}\n'
+    + take('function asrMetaWords(', '/** Transcribe files one after another.') + take('async function transcribeSrcs(', '/** The word under the playhead');
+  for (const [lang, want] of [['zh-CN', 'Meta 的模型正在删掉，这次没有开始听写。把「听写模型」换回 Paraformer 再听写就行。'],
+    ['en', "Meta's model is being removed, so this transcription didn't start. Switch the speech model back to Paraformer and transcribe again."]]) {
+    const shown = [];
+    const ctx = {
+      localStorage: { getItem: () => 'asrMeta', setItem: () => {} }, uiText: (k, v) => V.t(lang, k, v), Number, String, Object, JSON, Math,
+      // what the server answers then (server.js: 409, engine "meta", the engine's English message)
+      fetch: async () => ({ ok: false, status: 409, json: async () => ({ code: 'ASR_OPTIONAL_REMOVING', engine: 'meta', error: "Meta's model is being removed" }) }),
+      transcribeAvailable: () => true, trState: { busy: null }, renderTranscript: () => {}, paintTranscribeBusy: () => {}, loadAsrStatus: () => {}, paintAsrStatus: () => {},
+      transcribeTargets: () => ({ srcs: ['/media/a.wav'] }), trGapDur: () => '', loadTranscript: async () => null,
+      toast: (m) => shown.push({ m }), toastAction: (m, label, fn) => shown.push({ m, label, fn }),
+    };
+    vm.runInNewContext(code, ctx);
+    await vm.runInContext('transcribeFromTab()', ctx);
+    a.equal(shown.length, 1);
+    a.equal(shown[0].m, want, lang);
+    a.ok(!/ASR_|Couldn't|already transcribing/.test(shown[0].m), 'no code, no raw message');
+    if (lang !== 'en') a.ok(!/[A-Za-z]{3,}/.test(shown[0].m.replace(/Meta|Paraformer/g, '')), 'no English in the Chinese');
+    a.equal(shown[0].label, V.t(lang, 'own.asr-switch-paraformer'));
+    a.equal(typeof shown[0].fn, 'function');
+  }
+  // the server: the hold has its own code, answered 409 with engine "meta"; "already transcribing" keeps ASR_BUSY
+  const server = read('server.js');
+  a.match(server, /\^ASR_\(CANCELLED\|BUSY\|OPTIONAL_REMOVING\|MODEL_MISSING\|ENGINE_MISSING\|OPTIONAL_NO_MEMORY\)\$/);
+  a.match(read('asr-meta-engine.js'), /if \(held\) return Promise\.reject\(err\("ASR_OPTIONAL_REMOVING"/);
+});
+
+test('real model, real server: while 〔删掉〕 waits for Meta, a Paraformer transcription finishes; a Meta one is refused (ASR_OPTIONAL_REMOVING)', { skip: !(ENGINE && META_DIR) && 'set MONTCLIP_TEST_META_DIR (and have vendor/asr)' }, async (t) => {
+  const { startServer, makeDataDir } = require('./helpers');
+  const dataDir = makeDataDir(t), models = path.join(dataDir, 'asr-models');
+  const S = C.createConsent({ modelsDir: models });
+  await S.choose('asrMeta', { ask: yesTo([]), installed: () => fs.existsSync(path.join(models, 'asrMeta', 'model.int8.onnx')), version: 'test', download: async () => {
+    fs.mkdirSync(path.join(models, 'asrMeta'), { recursive: true });
+    for (const f of Object.keys(META.files)) fs.copyFileSync(path.join(META_DIR, 'asrMeta', f), path.join(models, 'asrMeta', f));
+  } });
+  const ff = require('../ffmpeg-path').path('ffmpeg'), media = path.join(dataDir, 'media'); fs.mkdirSync(media, { recursive: true });
+  for (const [n, d] of [['long.wav', 60], ['short.wav', 4]]) cp.execFileSync(ff, ['-v', 'error', '-f', 'lavfi', '-i', `sine=f=300:d=${d}`, '-ar', '16000', '-y', path.join(media, n)]);
+  const s = await startServer(t, dataDir, { MONTCLIP_ASR_DIR: VENDOR, MONTCLIP_ASR_MODELS_DIR: models });
+  const post = (p, b) => fetch(s.base + p, { method: 'POST', body: JSON.stringify(b) }).then(async (r) => ({ status: r.status, json: await r.json() }));
+  const metaJob = post('/api/asr/transcribe', { src: '/media/long.wav', model: 'meta' });
+  await new Promise((r) => setTimeout(r, 800));
+  // what the desktop host does after 〔删掉〕: release (its answer waits for Meta's process), a Paraformer request meanwhile
+  const order = [];
+  const rel = post('/api/asr/meta/release', {}).then((r) => { order.push('released'); return r; });
+  const para = post('/api/asr/transcribe', { src: '/media/short.wav' }).then((r) => { order.push('paraformer'); return r; });
+  const [r1, r2] = await Promise.all([rel, para]);
+  a.equal(r1.json.released, true); a.equal(r1.json.cancelled, true);
+  a.equal(r2.status, 200, JSON.stringify(r2.json)); a.equal(r2.json.status, 'complete');
+  a.equal((await metaJob).json.code, 'ASR_CANCELLED');
+  // held until {done:true}: Meta is refused with its own code; Paraformer still runs
+  const m = await post('/api/asr/transcribe', { src: '/media/short.wav', model: 'meta' });
+  a.equal(m.status, 409); a.equal(m.json.code, 'ASR_OPTIONAL_REMOVING'); a.equal(m.json.engine, 'meta');
+  a.equal((await post('/api/asr/transcribe', { src: '/media/short.wav' })).status, 200);
+  await post('/api/asr/meta/release', { done: true });
+  t.diagnostic('order: ' + order.join(' → '));
 });
