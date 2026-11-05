@@ -167,13 +167,16 @@ test('every public code: words in both languages, no English in the Chinese, not
 // in test/zh-shown.js — names in their own casing, key names, 中文（ABC）, officialPane_formatTech, the logo and "English".
 const Z = require('./zh-shown');
 // Strings outside this PR that still break the rule, for JJ to finalise in a PR of their own (key → the words): not rewritten here.
-// (main fixed every earlier one: #144, wip2-zh-labels; #151's font sentence names Google, for JJ: a product name, (a)?)
-const KNOWN = { 'own.font-net-hosts': 'Google' };
+// (main fixed every earlier one: #144, wip2-zh-labels; #151's font sentence names Google, for JJ: a product name, (a)?;
+// main's 「AI 数据说明」 names DeepSeek and its address, which main's own no-bilingual test allows as names)
+const KNOWN = { 'own.font-net-hosts': 'Google', officialPane_dataNoticeWho: 'DeepSeek,api,deepseek,com',
+  officialPane_dataNoticeUseLabel: 'DeepSeek', officialPane_dataNoticeUse: 'DeepSeek', officialPane_dataNoticeBasis: 'DeepSeek' };
 test('the Chinese interface: no English word of three letters or more, beyond JJ\'s categories; names in their own casing', () => {
   const found = {};
   for (const [k, v] of Object.entries(V.text['zh-CN'])) {
     if (typeof v !== 'string' || Z.EXEMPT_ZH.has(k)) continue;
-    a.deepEqual(Z.wrongCase(v), [], `zh-CN "${k}" writes a name in another casing: ${v}`);
+    // a web address is written as it is (main's 「AI 数据说明」: api.deepseek.com), not a name in another casing
+    a.deepEqual(Z.wrongCase(v.replace(/\b[a-z0-9-]+(\.[a-z0-9-]+)*\.(com|cn|net|org|io)\b/g, " ")), [], `zh-CN "${k}" writes a name in another casing: ${v}`);
     // key caps and code samples are not prose (main's help rows carry <kbd>, #144): the words around them are what counts
     const w = Z.englishLeft(v.replace(/<(kbd|code)\b[^>]*>[\s\S]*?<\/\1>/g, ' ').replace(/<[^>]+>/g, ' '));
     if (w) found[k] = w;

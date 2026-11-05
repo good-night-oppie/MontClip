@@ -11,7 +11,8 @@ test('the review box opens only after its review is rendered, never a microtask 
  const pane=read('agent-ui/pane.tsx');
  a.ok(!/queueMicrotask\(\(\)=>dialog\.current\?\.showModal\(\)\)/.test(pane),'no early open');
  a.match(pane,/useLayoutEffect\(\(\)=>\{if\(review&&dialog\.current&&!dialog\.current\.open\)dialog\.current\.showModal\(\);\},\[review\]\);/);
- a.equal((read('cindy-official.js').match(/queueMicrotask\(\(\)=>[a-zA-Z_$][\w$]*\.current\?\.showModal\(\)\)/g)||[]).length,0,'the bundle was rebuilt');
+ // The data-notice dialog may open in a microtask; verify the review's committed-state effect specifically.
+ a.match(read('cindy-official.js'),/useLayoutEffect\)\(\(\)=>\{([\w$]+)&&([\w$]+)\.current&&!\2\.current\.open&&\2\.current\.showModal\(\)\},\[\1\]\)/,'the bundle opens the review after render');
  a.match(read('desktop/SMOKES.md'),/`review-count-smoke\.cjs` \| `REVIEW_COUNT_PASS`/);
 });
 

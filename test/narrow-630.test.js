@@ -1,5 +1,5 @@
 /* VV (2026-11-02, 630×452) — three things the window checks (desktop/narrow-630-smoke.cjs) need from the code:
-   the caption lane is never left partly behind the sticky ruler; 「引用选中字幕」 with nothing selected says so;
+   the caption lane is never left partly behind the sticky ruler; 「让 AI 看」（原「引用选中字幕」） with nothing selected says so;
    the AI service settings show the key box and the save button without scrolling. Plus: the model is told not to
    write field names in its replies. */
 'use strict';
