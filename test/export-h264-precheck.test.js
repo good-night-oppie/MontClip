@@ -118,6 +118,8 @@ function autoSlicesHarness() {
     placeAutoSlices: () => { calls.place++; return { ok: true, at0: 0 }; }, queueSlices: () => { calls.queue++; }, autoExportRun: () => { calls.run++; },
     autoRender: (step) => { st.step = step; page = 'review'; }, exportQueue: [], exportBaseName: () => 'S', autoToast() {}, uiText: () => '',
     MontClipAutoSlices: { numbered: (x) => x }, Delivery: { fileSafeName: (n) => n },
+    // #149 (merged from main): autoExport fetches the encoder list before queueing, for sliceDeliverySpec's veryfast
+    deliveryInfo: { encoders: ['libx264'] }, fetchDeliveryInfo: async () => {},
   };
   const make = new Function(...Object.keys(env), `${helpers}\n${fn('function autoExportConfirm(')}\n${fn('async function autoExport(')}
     return { confirm: autoExportConfirm, exportNow: autoExport, back: () => { ${handler('ex-cancel')} } };`);
