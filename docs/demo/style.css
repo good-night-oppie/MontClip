@@ -5143,7 +5143,7 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 .bin-item.has-note > .bin-incomplete, .bin-item.has-note > .bin-repair { flex-basis: 100%; }
 .bin-incomplete .btn { display: block; margin: 4px 0 0; }
 .bin-row .bin-incomplete { grid-column: 1 / -1; padding-left: 28px; }
-/* 〔修复成可以剪的视频〕: the button under JJ's sentence, and its progress with Cancel */
+/* 〔帮我修好〕: the button under JJ's sentence, and its progress with Cancel */
 .bin-repair .btn { margin-left: 6px; vertical-align: middle; }
 .bin-repair { font-size: 11px; margin-top: 2px; color: var(--accent, #7b6cff); }
 .bin-row .bin-repair { grid-column: 1 / -1; padding-left: 28px; }

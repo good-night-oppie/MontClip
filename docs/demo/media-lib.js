@@ -116,7 +116,7 @@
     }
     return n;
   }
-  /** A repaired (or converted) file takes an entry's place (〔修复成可以剪的视频〕, fablecut_repair_media): `entry` goes
+  /** A repaired (or converted) file takes an entry's place (〔帮我修好〕, fablecut_repair_media): `entry` goes
    *  where the old one was, with its organization (favorite, tags, folder, collections) and `derivedFrom` / `replaced`
    *  naming what it replaced; every clip that showed the old one — the open timeline, compositions, the other sequences —
    *  shows the new one, fitted to its length. The old file stays on disk. Mutates `root`; → {clips: how many re-pointed} */
