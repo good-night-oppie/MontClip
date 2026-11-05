@@ -1310,7 +1310,7 @@ async function callTool(name, args, attempt = 0) {
       else {
         const r = args.rect;
         if (!r || typeof r !== "object" || !["x", "y", "w", "h"].every((k) => Number.isFinite(r[k])))
-          throw new Error("rect must be {x, y, w, h}: x, y the top-left corner, all 0…1 of the clip's original frame (read them off fablecut_frame {path, t})");
+          throw new Error("rect must be {x, y, w, h}: x, y its centre, w, h its size, all 0…1 of the clip's picture (after its crop), like a mask (read them off fablecut_frame {path, t})");
         const set = { x: r.x, y: r.y, w: r.w, h: r.h };
         if (args.strength != null) set.strength = args.strength;
         if (args.style != null) set.style = args.style;

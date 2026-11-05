@@ -15233,8 +15233,8 @@ function drawClipPicture(c, W, H, t, layered) {
 /* ═══════════ COVERED AREAS (props.redactions — validation in mask.js) ═══════════
    A covered area is re-drawn over the picture from the picture's own pixels, as
    a mosaic or a blur, inside the clip's transform: so it moves, scales and turns
-   with the clip and its keys, in preview and export alike. Its x, y, w, h are
-   0…1 of the clip's original frame (like masks and crop). */
+   with the clip and its keys, in preview and export alike. Its x, y (centre), w, h are
+   0…1 of the clip's picture after the crop — the same coordinates as masks. */
 const coverCv = document.createElement("canvas");
 const coverCtx = coverCv.getContext("2d");
 function drawCovers(covers, shown, { sx, sy, cw, ch, sw, sh, dw, dh }) {
@@ -15242,22 +15242,17 @@ function drawCovers(covers, shown, { sx, sy, cw, ch, sw, sh, dw, dh }) {
   const [img, ix, iy, iw, ih] = shown;
   const m = ctx2d.getTransform(), k = Math.hypot(m.a, m.b) || 1;   // output px per picture px
   const outW = ctx2d.canvas.width;
-  // the crop as fractions of the original frame (W0 × H0 = sw × sh), and what it keeps
-  const cL = sx / sw, cT = sy / sh, keepW = cw / sw, keepH = ch / sh, cR = 1 - cL - keepW, cB = 1 - cT - keepH;
   for (const cv of covers) {
     if (cv.on === false) continue;
-    // 1. Intersect in the original frame's 0…1 space: the redaction ∩ the part the crop keeps ∩ the frame.
-    //    Nothing left → wholly cropped away or off the frame: draw nothing.
-    const x1 = Math.max(cv.x, cL, 0), x2 = Math.min(cv.x + cv.w, 1 - cR, 1);
-    const y1 = Math.max(cv.y, cT, 0), y2 = Math.min(cv.y + cv.h, 1 - cB, 1);
-    if (x2 <= x1 || y2 <= y1) continue;
-    // 2. Where it is in the drawn (cropped) picture: (x1 − cL) / keepW … — the picture is drawn at
-    //    (−dw/2, −dh/2, dw, dh) in the clip's own transform (its scale, position, rotation and keys), so this is the
-    //    dest box there: destX = left + (x1 − cL) / keepW · width, destW = (x2 − x1) / keepW · width; y alike.
-    const u1 = (x1 - cL) / keepW, u2 = (x2 - cL) / keepW, v1 = (y1 - cT) / keepH, v2 = (y2 - cT) / keepH;
+    // The same coordinates as masks: x, y the centre, w, h the size, 0…1 of the picture as drawn — the crop is
+    // already cut away, and the picture sits at (−dw/2, −dh/2, dw, dh) in the clip's own transform (scale,
+    // position, rotation and keys). The part past the picture's edge is not drawn; nothing left, nothing drawn.
+    const u1 = clamp(cv.x - cv.w / 2, 0, 1), u2 = clamp(cv.x + cv.w / 2, 0, 1);
+    const v1 = clamp(cv.y - cv.h / 2, 0, 1), v2 = clamp(cv.y + cv.h / 2, 0, 1);
+    if (u2 <= u1 || v2 <= v1) continue;
     const X = -dw / 2 + u1 * dw, Y = -dh / 2 + v1 * dh, RW = (u2 - u1) * dw, RH = (v2 - v1) * dh;
-    // 3. The pixels to sample, in the image just drawn: for the plain video frame (ix = cL·W0, iw = keepW·W0) this is
-    //    [x1·W0, x2·W0] × [y1·H0, y2·H0]; a keyed or graded copy covers only the kept part, so map through it
+    // the pixels to sample, in the image just drawn (the source frame's crop window [sx, sx + cw] × [sy, sy + ch],
+    // or a keyed / graded copy of just that window)
     const SX = ix + u1 * iw, SY = iy + v1 * ih, SW = (u2 - u1) * iw, SH = (v2 - v1) * ih;
     const g = Mask.coverGrain(cv, Math.min(RW, RH) * k, outW);
     ctx2d.save();
@@ -15279,8 +15274,8 @@ function drawCovers(covers, shown, { sx, sy, cw, ch, sw, sh, dw, dh }) {
 }
 
 /* ── Covered areas in the editor: right-click a clip → 「给这块打码」, drag a box on the monitor.
-   The box is read in the clip's whole source frame (the mask box), so it is stored in the same
-   coordinates as masks and crop and follows the clip from then on. ── */
+   The box is read in the clip's picture (the mask box: what the crop keeps), so it is stored in the same
+   coordinates as masks — centre and size — and follows the clip from then on. ── */
 const coverUi = { clip: null, drag: null };
 function clipCovers(c) { return (c && Mask.normalizeCovers(c.props && c.props.redactions)) || []; }
 function coverToolActive(c) { return !!c && coverUi.clip === c.id && state.selId === c.id && !isSourceMode(); }
@@ -15312,7 +15307,7 @@ function drawCoverOverlay(c, W) {
     ctx2d.beginPath(); P.forEach((p, i) => (i ? ctx2d.lineTo(p.x, p.y) : ctx2d.moveTo(p.x, p.y))); ctx2d.closePath();
   };
   ctx2d.setLineDash([lw * 3, lw * 3]); ctx2d.lineWidth = lw; ctx2d.strokeStyle = "rgba(255,210,90,0.5)";
-  for (const cv of clipCovers(c)) { quad(cv.x, cv.y, cv.x + cv.w, cv.y + cv.h); ctx2d.stroke(); }
+  for (const cv of clipCovers(c)) { quad(cv.x - cv.w / 2, cv.y - cv.h / 2, cv.x + cv.w / 2, cv.y + cv.h / 2); ctx2d.stroke(); }   // x, y = its centre
   const d = coverUi.drag;
   if (d) {
     ctx2d.setLineDash([]); ctx2d.lineWidth = lw * 2; ctx2d.strokeStyle = "#ffd25a"; ctx2d.fillStyle = "rgba(255,210,90,0.15)";
@@ -15354,7 +15349,8 @@ els.preview.addEventListener("pointerup", (e) => {
   const B = maskBox(c);
   if (!B || (x1 - x0) * B.bw < 4 || (y1 - y0) * B.bh < 4) { toast(uiText("own.cover-outside")); state.dirtyTimeline = true; return; }
   pushUndo();
-  writeCovers(c, [...clipCovers(c), { x: +x0.toFixed(4), y: +y0.toFixed(4), w: +(x1 - x0).toFixed(4), h: +(y1 - y0).toFixed(4) }]);
+  // stored like a mask: the centre, and the size, as fractions of the clip's picture (the mask box)
+  writeCovers(c, [...clipCovers(c), { x: +((x0 + x1) / 2).toFixed(4), y: +((y0 + y1) / 2).toFixed(4), w: +(x1 - x0).toFixed(4), h: +(y1 - y0).toFixed(4) }]);
   coverUi.clip = null;
   scheduleSave(); renderInspector();
 }, true);

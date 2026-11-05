@@ -1172,36 +1172,34 @@ A **redaction** hides part of a clip's picture behind a **mosaic** (the
 default — a light blur can leave text readable) or a **blur**: a co-host's
 window, viewers' names, a number plate. It is drawn from the clip's own pixels,
 with the picture, so it **follows the clip**: when the clip is zoomed, moved,
-pushed in with keyframes, sped up or cropped, the cover stays on the same part
-of the footage — no keys to write. Preview, `fablecut_frame` and export draw it
+pushed in with keyframes or sped up, the redaction stays on the same part of
+the footage — no keys to write. Preview, `fablecut_frame` and export draw it
 the same way. Redactions live in `props.redactions` on video, image, svg and comp clips
 (up to 16):
 
 ```jsonc
 "redactions": [
-  { "name": "co-host", "x": 0.52, "y": 0.14, "w": 0.31, "h": 0.65 },
-  { "name": "names", "x": 0.1, "y": 0.82, "w": 0.44, "h": 0.07, "style": "blur", "strength": 80 }
+  { "name": "co-host", "x": 0.68, "y": 0.47, "w": 0.31, "h": 0.65 },
+  { "name": "names", "x": 0.32, "y": 0.86, "w": 0.44, "h": 0.07, "style": "blur", "strength": 80 }
 ]
 ```
 
 | key | default | does |
 |---|---|---|
-| `x` · `y` · `w` · `h` | — | **mask coordinates**: 0…1 of the clip's original frame (the whole source frame, before crop, scale and position), origin top-left; `x`, `y` the top-left corner (0…1). `x + w` and `y + h` may run past 1: that part is cut at the frame's edge. Changing the crop never moves a redaction; the part of it in the cropped-away area is simply not drawn |
+| `x` · `y` · `w` · `h` | — | **the same coordinates as masks** (see "Mask and crop coordinates" under Masks): `x`, `y` the area's **centre**, `w`, `h` its size, 0…1 of the clip's picture — the picture left after the crop, before the clip's scale and position. The part past the picture's edge is not drawn |
 | `style` | `mosaic` | `mosaic` (hard blocks) · `blur` (smooth) |
 | `strength` | 60 | 1…100: bigger blocks / a stronger blur. At 60 a block is at least ~1.4 % of the frame's width, so letters don't survive |
 | `from` · `to` | the whole clip | seconds from the clip's start: cover only while a private window is up, without cutting the clip |
 | `name` · `on` | — | a label; `on:false` turns it off |
 
-How it is drawn, with the crop `cL cT cR cB` as fractions and
-`keepW = 1 − cL − cR`, `keepH = 1 − cT − cB`: the redaction is first cut to
-what the crop keeps and to the frame — `x1 = max(x, cL, 0)`,
-`x2 = min(x + w, 1 − cR, 1)`, likewise `y1`, `y2` — and nothing is drawn when
-`x2 ≤ x1` or `y2 ≤ y1`. The pixels come from `[x1·W0, x2·W0] × [y1·H0, y2·H0]`
-of the source frame (W0 × H0), and go back at
-`left + (x1 − cL) / keepW · width` (width `(x2 − x1) / keepW · width`; y alike)
-of the drawn picture, inside the clip's own transform — so scale, position,
-rotation and keyframes carry it. A redaction wholly in the cropped-away part
-draws nothing. Under the clip's masks a cover is cut like the rest of the picture.
+How it is drawn: `u1 = clamp(x − w/2, 0, 1)`, `u2 = clamp(x + w/2, 0, 1)`
+(likewise `v1`, `v2` from `y`, `h`), nothing when `u2 ≤ u1` or `v2 ≤ v1`; the
+pixels of that part of the picture are shrunk to a few cells and drawn back at
+`(−dw/2 + u1·dw, −dh/2 + v1·dh)`, size `(u2 − u1)·dw × (v2 − v1)·dh`, inside
+the clip's own transform — where the picture itself is drawn — so scale,
+position, rotation and keyframes carry it. As with masks, changing the crop
+changes the picture the fractions refer to. Under the clip's masks a
+redaction is cut like the rest of the picture.
 
 In the editor: right-click a clip → **给这块打码** (Cover this area), then drag
 a box on the monitor over what to hide (Esc cancels). The Inspector's

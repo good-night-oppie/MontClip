@@ -12,11 +12,11 @@ const assert = require("node:assert/strict");
 const M = require("../mask.js");
 const { makeDataDir, readProject, seedProject, startMcp } = require("./helpers");
 
-test("normalizeCover: mask coordinates, defaults, clamped into the frame, strict errors", () => {
+test("normalizeCover: mask coordinates (centre, fractions of the picture), defaults, strict errors", () => {
   assert.deepEqual(M.normalizeCover({ x: 0.6, y: 0.1, w: 0.3, h: 0.4 }), { x: 0.6, y: 0.1, w: 0.3, h: 0.4, style: "mosaic", strength: 60 });
   assert.deepEqual(M.normalizeCover({ x: 0.9, y: 0.8, w: 0.3, h: 0.3, style: "blur", strength: 400, name: " names " }),
-    { x: 0.9, y: 0.8, w: 0.3, h: 0.3, style: "blur", strength: 100, name: "names" }, "x + w, y + h past 1 are kept as given (cut at the frame's edge when drawn)");
-  assert.throws(() => M.normalizeCover({ x: -0.1, y: 0, w: 0.2, h: 0.2 }, true), /x, y \(the top-left corner\) must be 0…1/);
+    { x: 0.9, y: 0.8, w: 0.3, h: 0.3, style: "blur", strength: 100, name: "names" }, "as given: the part past the picture's edge is not drawn");
+  assert.throws(() => M.normalizeCover({ x: -0.1, y: 0, w: 0.2, h: 0.2 }, true), /x, y \(its centre\) must be 0…1/);
   assert.throws(() => M.normalizeCover({ x: 0.1, y: 0.1, w: 0.2 }, true), /\.h must be a number/);
   assert.throws(() => M.normalizeCover({ x: 1.2, y: 0.1, w: 0.2, h: 0.2 }, true), /must be 0…1/);
   assert.throws(() => M.normalizeCover({ x: 0.2, y: 0.1, w: 0, h: 0.2 }, true), /w, h must be > 0/);
@@ -70,7 +70,7 @@ test("fablecut_blur_region adds, names, replaces and removes redactions; refuses
   r = await mcp.callTool("fablecut_blur_region", { clipId: "c_txt", rect: { x: 0, y: 0, w: 0.2, h: 0.2 } });
   assert.equal(r.isError, true); assert.match(r.text, /text clip/);
   r = await mcp.callTool("fablecut_blur_region", { clipId: "c_a", rect: { x: 0, y: 0 } });
-  assert.equal(r.isError, true); assert.match(r.text, /top-left corner/);
+  assert.equal(r.isError, true); assert.match(r.text, /x, y its centre/);
   r = await mcp.callTool("fablecut_patch_project", { ops: [{ op: "updateClip", id: "c_a", set: { props: { redactions: [{ x: 0, y: 0, w: 0.2, h: 0.2, style: "smudge" }] } } }] });
   assert.equal(r.isError, true, "props.redactions written wholesale is validated too"); assert.match(r.text, /style must be/);
 });
