@@ -29,27 +29,41 @@ const after=[];const t={after:(f)=>after.push(f)};const sleep=(ms)=>new Promise(
  await ev("refreshMediaInfo(project.media)");
  for(let i=0;i<50;i++){if(await ev("Array.isArray(project.media[0].audioTracks)"))break;await sleep(200);}
  console.log('audioTracks', JSON.stringify(await ev("project.media[0].audioTracks")));
- console.log('toast', await ev("[...document.querySelectorAll('.toast, #toast')].map(e=>e.textContent).join(' | ')"));
- console.log('menu label', await ev("uiText('own.mm-info')"));
- await ev("showMediaInfo(getMedia('m_r'),100,100)");await sleep(300);
+ console.log('notice bar', await ev("(document.querySelector('.bin-tracks-bar')||{}).textContent"));
+ console.log('badge', await ev("(document.querySelector('.bin-tracks-badge')||{}).textContent"));
+ // the badge opens the picker on its own
+ await ev("document.querySelector('.bin-tracks-badge').click()");await sleep(300);
+ console.log('picker title', await ev("document.querySelector('.bin-track-pop .bin-pop-title').textContent"));
  console.log('rows', JSON.stringify(await ev("[...document.querySelectorAll('.bin-track')].map(r=>r.textContent+(r.querySelector('input').checked?' [x]':''))")));
- console.log('title', await ev("document.querySelector('.bin-tracks .bin-pop-label').textContent+' / '+document.querySelector('.bin-tracks .bin-pop-hint').textContent"));
- // listen to track 1
+ console.log('play button class', await ev("document.querySelector('.bin-track-play').className"));
+ // listen: ■ 停 and lit; again stops; Esc stops
  await ev("document.querySelectorAll('.bin-track-play')[1].click()");await sleep(1500);
- console.log('listening', await ev("trackListen?{src:!!trackListen.src,paused:trackListen.paused,dur:trackListen.duration}:null"));
- // pick track 1
- await ev("(()=>{const r=document.querySelectorAll('.bin-track input')[1];r.checked=true;r.dispatchEvent(new Event('change'));})()");await sleep(1500);
+ console.log('listening', await ev("JSON.stringify({btn:document.querySelectorAll('.bin-track-play')[1].textContent,lit:document.querySelectorAll('.bin-track')[1].classList.contains('playing'),paused:trackListen&&trackListen.audio.paused})"));
+ await ev("document.querySelectorAll('.bin-track-play')[1].click()");await sleep(300);
+ console.log('clicked again', await ev("JSON.stringify({btn:document.querySelectorAll('.bin-track-play')[1].textContent,lit:document.querySelectorAll('.bin-track')[1].classList.contains('playing'),playing:!!trackListen})"));
+ await ev("document.querySelectorAll('.bin-track-play')[0].click()");await sleep(1500);
+ const a0=await ev("trackListen&&trackListen.audio");
+ await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await sleep(300);
+ console.log('after Esc', await ev("JSON.stringify({picker:!!document.querySelector('.bin-track-pop'),playing:!!trackListen})"));
+ // pick track 2 from the badge's picker
+ await ev("document.querySelector('.bin-tracks-badge').click()");await sleep(300);
+ await ev("(()=>{const r=document.querySelectorAll('.bin-track input')[1];r.checked=true;r.dispatchEvent(new Event('change'));})()");await sleep(400);
+ console.log('badge right after', await ev("document.querySelector('.bin-tracks-badge').textContent"));
+ await sleep(1500);
  console.log('after pick: entry', await ev("project.media[0].audioTrack"), 'saved', JSON.parse(fs.readFileSync(path.join(dir,'project.json'),'utf8')).media[0].audioTrack);
- console.log('toast', await ev("[...document.querySelectorAll('.toast, #toast')].map(e=>e.textContent).join(' | ')"));
  const L=await (await fetch(base+'/api/signals/loudness?src=/media/r.mkv')).json();console.log('server loudness track',L.track,'at 2s',L.values[4],'at 10s',L.values[20]);
  let g;for(let i=0;i<40;i++){g=await (await fetch(base+'/api/songs?src=/media/r.mkv&track=1')).json();if(g.state==='done')break;await sleep(250);}
  console.log('songs re-read in the background, track',g.track,'state',g.state);
+ await sleep(800);
+ console.log('badge after', await ev("document.querySelector('.bin-tracks-badge').textContent"));
  console.log('toast with button', await ev("els.toast.textContent+' / button: '+(els.toast.querySelector('button')||{}).textContent"));
+ await ev("setSideTab('transcript')");await sleep(500);
+ console.log('by 听写所选', await ev("(()=>{const b=document.querySelector('[data-tr-capredo]');return b&&!b.hidden?b.textContent:'(hidden)'})()"));
  console.log('exported sound unchanged: channels', await ev("project.media[0].channels"), 'waveform key', await ev("(runtime.wavePeaks.get('m_r')||{}).src"));
- await ev("showMediaInfo(getMedia('m_r'),100,100)");await sleep(300);
- console.log('picker redo button', await ev("(document.querySelector('.bin-track-redo')||{}).textContent"));
  await ev("undo()");await sleep(1500);
  console.log('after undo: entry', await ev("project.media[0].audioTrack"), 'saved', JSON.parse(fs.readFileSync(path.join(dir,'project.json'),'utf8')).media[0].audioTrack);
+ console.log('undo toast', await ev("els.toast.textContent"));
+ console.log('badge after undo', await ev("document.querySelector('.bin-tracks-badge').textContent"));
  console.log('errors', JSON.stringify(errs));
  ws.close();for(const f of after.reverse()) await f();fs.rmSync(dir,{recursive:true,force:true});
 })().catch(async(e)=>{console.error(e);for(const f of after.reverse()) await f();process.exit(1);});

@@ -483,6 +483,7 @@ function removeTimelineTrack(trackId) {
 let trackCtxMenu = null;
 function hideTrackCtxMenu() {
   if (trackCtxMenu) { trackCtxMenu.remove(); trackCtxMenu = null; }
+  if (typeof stopTrackListen === "function") stopTrackListen();   // a track being listened to stops with its picker
 }
 function showTrackCtxMenu(clientX, clientY, track) {
   hideTrackCtxMenu();
@@ -2441,6 +2442,27 @@ function renderBin() {
   els.binEmpty.style.display = empty ? "" : "none";
   els.binList.classList.toggle("list-view", binView.list && !empty);
   if (empty) return;
+  const noticed = (runtime.trackNotice || []).map(getMedia).filter((m) => m && Array.isArray(m.audioTracks) && m.audioTracks.length > 1);
+  if (noticed.length) {
+    const bar = document.createElement("div");
+    bar.className = "bin-filterbar bin-tracks-bar";
+    bar.setAttribute("role", "status");
+    bar.innerHTML = `<span></span><button type="button" class="btn tiny accent" data-go></button><button type="button" class="btn tiny" data-close>✕</button>`;
+    bar.querySelector("span").textContent = noticed.length === 1
+      ? uiText("own.at-found", { name: noticed[0].name, n: noticed[0].audioTracks.length, menu: uiText("own.at-menu") })
+      : uiText("own.at-found-n", { n: noticed.length, menu: uiText("own.at-menu") });
+    bar.querySelector("[data-go]").textContent = uiText("own.at-go");
+    const close = bar.querySelector("[data-close]");
+    close.title = close.ariaLabel = uiText("own.at-dismiss");
+    bar.querySelector("[data-go]").addEventListener("click", (e) => {
+      const r = e.currentTarget.getBoundingClientRect();
+      runtime.trackNotice = noticed.slice(1).map((m) => m.id);
+      openTrackPicker(noticed[0], r.left, r.bottom + 4);
+      renderBin();
+    });
+    close.addEventListener("click", () => { runtime.trackNotice = []; renderBin(); });
+    els.binList.appendChild(bar);
+  } else runtime.trackNotice = [];
   if (IMPORTING.size) els.binList.insertAdjacentHTML("beforeend", importingHtml("bin-importing"));
   const ctx = binCtx();
   const flat = !!(binView.q.trim() || binView.filter);   // searching / filtering → one flat list of hits
@@ -2523,10 +2545,11 @@ function renderBin() {
     // JJ (P3, 2026-11-05): a recording nothing could read the length of says so on the file itself
     const incomplete = MediaLib.cannotCut(m) ? `<div class="bin-incomplete">${escapeHtml(uiText("own.media-incomplete"))}</div>` : "";
     const favHtml = `<button type="button" class="bin-fav${m.favorite ? " on" : ""}" title="${m.favorite ? "Favorite — click to unstar" : "Mark as favorite"}" aria-pressed="${!!m.favorite}">${m.favorite ? "★" : "☆"}</button>`;
+    const tracksHtml = trackBadgeHtml(m);
     if (binView.list) {
       const cell = (v, cls = "") => `<span class="bin-cell${cls}">${escapeHtml(v || "—")}</span>`;
       item.innerHTML = `
-        <span class="bin-cell bin-cell-name">${favHtml}<span class="bin-thumb sm"></span>${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span>` : ""}<span class="bin-name"></span></span>
+        <span class="bin-cell bin-cell-name">${favHtml}<span class="bin-thumb sm"></span>${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span>` : ""}<span class="bin-name"></span>${tracksHtml}</span>
         ${cell(MediaLib.fmtDur(m.duration), " num c-duration")}${cell(MediaLib.fmtRes(m), " num c-resolution")}${cell(MediaLib.fmtFps(m.fps), " num c-fps")}
         ${cell(m.codec, " c-codec")}${cell(MediaLib.fmtAudio(m).replace(/^stereo\b/, uiOr("term.stereo", "stereo")), " c-audio")}${cell(MediaLib.fmtSize(m.size), " num c-size")}
         <span class="bin-cell c-proxy">${proxyBadgeHtml(m) || escapeHtml(m.kind === "video" ? "—" : "")}</span>
@@ -2540,7 +2563,7 @@ function renderBin() {
         <div class="bin-meta">
           <div class="bin-name"></div>
           <div class="bin-sub">${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span> ` : ""}${escapeHtml(sub)}</div>
-          ${incomplete}
+          ${incomplete}${tracksHtml}
           ${m.tags && m.tags.length ? `<div class="bin-tags">${m.tags.map((t) => `<span class="bin-tag">#${escapeHtml(t)}</span>`).join("")}</div>` : ""}
         </div>
         <div class="bin-side">${favHtml}${usesHtml}${proxyBadgeHtml(m)}</div>
@@ -2551,6 +2574,11 @@ function renderBin() {
     else thumbEl.textContent = icon;
     const nameEl = item.querySelector(".bin-name");
     nameEl.textContent = m.name;
+    const badge = item.querySelector(".bin-tracks-badge");
+    if (badge) {
+      badge.addEventListener("mousedown", (e) => e.stopPropagation());
+      badge.addEventListener("click", (e) => { e.stopPropagation(); const r = badge.getBoundingClientRect(); openTrackPicker(m, r.left, r.bottom + 4); });
+    }
     item.title = [m.name, offline ? "⚠ Offline: " + decodeURIComponent(String(m.src).split("?")[0]) + " is missing — right-click → Relink…" : "", MediaLib.describe(m), m.tags && m.tags.length ? m.tags.map((t) => "#" + t).join(" ") : ""].filter(Boolean).join("\n");
     item.addEventListener("dragstart", (e) => {
       runtime.binDragFolderId = null;
@@ -2848,9 +2876,9 @@ async function refreshMediaInfo(list) {
     }
     // nothing says how long it is: tell the user once, in plain words (never 0:00 or NaN)
     if (unknown.length) toast(unknown.length === 1 ? uiText("own.media-duration-unknown", { name: unknown[0].name }) : uiText("own.media-duration-unknown-n", { n: unknown.length }));
-    // a recording with several audio tracks (OBS): say once where the choice is; one track says nothing
-    if (tracksFound.length === 1) toast(uiText("own.at-found", { name: tracksFound[0].name, n: tracksFound[0].audioTracks.length, menu: uiText("own.mm-info") }));
-    else if (tracksFound.length > 1) toast(uiText("own.at-found-n", { n: tracksFound.length, menu: uiText("own.mm-info") }));
+    // a recording with several audio tracks (OBS): a bar in the bin that stays until it is used or closed, with
+    // 〔去选〕 (VV on #177: a toast was covered by the canvas toast at once, and is gone before 60 characters are read)
+    if (tracksFound.length) { runtime.trackNotice = [...new Set([...(runtime.trackNotice || []), ...tracksFound.map((m) => m.id)])]; changed = true; }
     if (changed) { renderBin(); scheduleSave(); if (state.selId) renderInspector(); }
     followSourceCanvas();
   } catch { } finally {
@@ -2986,6 +3014,7 @@ function showMediaMenu(x, y, m) {
   const sep = () => { const d = document.createElement("div"); d.className = "ctx-sep"; menu.appendChild(d); };
   item(uiText("own.mm-open-source"), () => loadSourceFromMedia(m));
   item(uiText("own.mm-instances", { n: uses }), () => showMediaInstances(m, x, y), uses ? null : "Not used on the timeline");
+  if (Array.isArray(m.audioTracks) && m.audioTracks.length > 1) item(uiText("own.at-menu"), () => openTrackPicker(m, x, y));
   item(uiText("own.mm-info"), () => showMediaInfo(m, x, y));
   item(isMediaOffline(m.id) ? "Relink…" : uiText("own.mm-relink-copy"), () => openRelinkDialog([m]), state.connected ? null : uiText("own.needs-server"));
   item(uiText("term.replace-file"), () => replaceMediaFile(m), state.connected ? null : uiText("own.needs-server"));
@@ -3066,6 +3095,24 @@ function showMediaInfo(m, x, y) {
 /* 「主播的声音在哪条轨」 (#177): a recording with several audio streams lists them — number, channels, the name OBS
    wrote — each with a few seconds to listen to. The one picked is what songs, loudness, the transcript and the export
    read (MediaLib.audioTrackOf); picking is one undo step. Wording: drafts for JJ (own.at-*). */
+/** 「3 条音轨 · 用第 1 条」 on a file with several audio tracks (nothing on one track); while the songs and loudness
+ *  are read again for a new track it says so. */
+function trackBadgeHtml(m) {
+  if (!Array.isArray(m.audioTracks) || m.audioTracks.length < 2) return "";
+  const busy = runtime.trackBusy && runtime.trackBusy.has(m.id);
+  return `<button type="button" class="bin-tracks-badge${busy ? " busy" : ""}">${escapeHtml(uiText("own.at-badge", { n: m.audioTracks.length, k: MediaLib.audioTrackOf(m) + 1 }))}` +
+    `${busy ? " · " + escapeHtml(uiText("own.at-badge-busy")) : ""}</button>`;
+}
+/** The track picker on its own (the badge, 〔去选〕, right-click 「选音轨…」). */
+function openTrackPicker(m, x, y) {
+  if (!Array.isArray(m.audioTracks) || m.audioTracks.length < 2) return;
+  const pop = document.createElement("div");
+  pop.className = "ctx-menu bin-pop bin-info bin-track-pop";
+  pop.innerHTML = `<div class="bin-pop-title"></div>`;
+  pop.querySelector(".bin-pop-title").textContent = m.name;
+  pop.appendChild(audioTrackPicker(m));
+  showPopover(pop, x, y);
+}
 function audioTrackPicker(m) {
   const box = document.createElement("div");
   box.className = "bin-tracks";
@@ -3090,7 +3137,7 @@ function audioTrackPicker(m) {
     const text = document.createElement("span");
     text.textContent = [uiText("own.at-track", { n: i + 1 }), t.channels > 0 ? uiText("own.at-channels", { n: t.channels }) : "", t.title || ""].filter(Boolean).join(" · ");
     const play = document.createElement("button");
-    play.type = "button"; play.className = "bin-track-play";
+    play.type = "button"; play.className = "btn tiny bin-track-play";
     play.textContent = uiText("own.at-listen");
     play.addEventListener("click", (e) => { e.preventDefault(); listenAudioTrack(m, i, play); });
     row.append(radio, text, play);
@@ -3098,19 +3145,37 @@ function audioTrackPicker(m) {
   });
   return box;
 }
-/* A few seconds of one stream, from where the playhead is in this file (else 0), through the server. */
+/* A few seconds of one stream, from where the playhead is in this file (else 0), through the server. While it plays
+   its button says 〔■ 停〕 and its row is lit; a second click, another track's 〔试听〕, closing the picker or Esc stop
+   it (VV on #177). */
 let trackListen = null;
+function stopTrackListen() {
+  const l = trackListen;
+  if (!l) return;
+  trackListen = null;
+  try { l.audio.pause(); } catch { }
+  try { URL.revokeObjectURL(l.audio.src); } catch { }
+  l.btn.textContent = uiText("own.at-listen");
+  l.btn.closest(".bin-track")?.classList.remove("playing");
+}
 async function listenAudioTrack(m, track, btn) {
-  if (trackListen) { trackListen.pause(); URL.revokeObjectURL(trackListen.src); trackListen = null; }
+  const again = trackListen && trackListen.btn === btn;
+  stopTrackListen();
+  if (again) return;
   const c = project.clips.find((x) => x.mediaId === m.id && state.time >= x.start && state.time < x.start + x.duration);
   const from = Math.max(0, Math.min(c ? mediaTimeAt(c, state.time) : 0, (m.duration || 0) - 6));
   btn.disabled = true;
   try {
     const r = await fetch(`/api/audio-window?src=${encodeURIComponent(m.src)}&from=${from.toFixed(3)}&to=${(from + 6).toFixed(3)}&track=${track}`);
     if (!r.ok) throw new Error("HTTP " + r.status);
-    const a = trackListen = new Audio(URL.createObjectURL(await r.blob()));
-    await a.play();
-  } catch { toast(uiText("own.at-listen-failed")); } finally { btn.disabled = false; }
+    const blob = await r.blob();
+    if (!btn.isConnected) return;   // the picker was closed meanwhile
+    const audio = new Audio(URL.createObjectURL(blob)), l = trackListen = { audio, btn };
+    audio.addEventListener("ended", () => { if (trackListen === l) stopTrackListen(); });
+    btn.textContent = uiText("own.at-stop");
+    btn.closest(".bin-track")?.classList.add("playing");
+    await audio.play();
+  } catch { stopTrackListen(); toast(uiText("own.at-listen-failed")); } finally { btn.disabled = false; }
 }
 /** Pick the track the sound is analysed from (the exported sound stays track 0). One undo step. The songs and the
  *  loudness are read again from it in the background; the captions are redone from it when nobody edited them,
@@ -3120,6 +3185,8 @@ function setAudioTrack(m, track) {
   pushUndo(JSON.stringify({ clips: project.clips, markers: project.markers || [], comps: project.comps || [], media: project.media, seqClips: otherSequenceClips() }), { capability: "fablecut_audio_track", args: { mediaId: m.id, track } });
   const hadSongs = !!(project.songs && project.songs[m.id]);
   if (track) m.audioTrack = track; else delete m.audioTrack;
+  runtime.trackNotice = (runtime.trackNotice || []).filter((id) => id !== m.id);   // picked: the import notice has done its job
+  runtime.captionRedo = null;
   if (hadSongs) { delete project.songs[m.id]; if (!Object.keys(project.songs).length) delete project.songs; }
   transcriptGen++;
   renderTranscript(true);
@@ -3133,6 +3200,12 @@ function setAudioTrack(m, track) {
    unless they were edited. */
 async function redoTrackAnalysis(m, track, hadSongs) {
   const still = () => MediaLib.audioTrackOf(m) === track && project.media.includes(m);
+  (runtime.trackBusy || (runtime.trackBusy = new Set())).add(m.id);
+  renderBin();
+  try { await redoTrackAnalysisNow(m, track, hadSongs, still); }
+  finally { runtime.trackBusy.delete(m.id); renderBin(); }
+}
+async function redoTrackAnalysisNow(m, track, hadSongs, still) {
   fetch(`/api/signals/loudness?src=${encodeURIComponent(m.src)}&track=${track}`).catch(() => { });   // kept per track on the server
   const songs = (async () => {
     const post = await fetch("/api/songs", { method: "POST", body: JSON.stringify({ src: m.src, track }) });
@@ -3154,6 +3227,21 @@ async function redoTrackAnalysis(m, track, hadSongs) {
   await redoCaptionsForTrack(m, track, { auto: true });
   await songs;
 }
+/** By 〔听写所选〕 in the Transcript tab: JJ's sentence and 〔按这条轨重做字幕〕 while edited captions wait for a redo
+ *  from the track picked last (VV on #177: the toast is gone when the streamer comes back). */
+function paintCaptionRedo() {
+  const box = els.transcriptPage && els.transcriptPage.querySelector("[data-tr-capredo]");
+  if (!box) return;
+  const r = runtime.captionRedo, m = r && getMedia(r.mediaId);
+  const on = !!(m && MediaLib.audioTrackOf(m) === r.track && typeof MontClipCaptions !== "undefined" && project.clips.some(MontClipCaptions.isCaption));
+  box.hidden = !on;
+  if (!on) { box.textContent = ""; return; }
+  box.innerHTML = `<span></span><button type="button" class="btn tiny accent"></button>`;
+  box.querySelector("span").textContent = uiText("own.at-captions-edited", { n: r.track + 1, button: uiText("own.at-captions-redo") });
+  const b = box.querySelector("button");
+  b.textContent = uiText("own.at-captions-redo");
+  b.addEventListener("click", () => redoCaptionsForTrack(m, r.track));
+}
 /** Caption clips someone may have changed: a caption is the program's own while its text is the text it was made with
  *  (props.captionMade, stamped by captions.js since #177) and it follows the speech (wordTimes). Captions made before
  *  that stamp, or imported from a subtitle file, can't be told apart from edited ones, so they count as edited and are
@@ -3171,10 +3259,12 @@ async function redoCaptionsForTrack(m, track, { auto = false } = {}) {
   if (auto && captionsEdited(caps)) {
     runtime.captionRedo = { mediaId: m.id, track };
     toastAction(uiText("own.at-captions-edited", { n: track + 1, button: uiText("own.at-captions-redo") }), uiText("own.at-captions-redo"), () => redoCaptionsForTrack(m, track));
+    paintCaptionRedo();
     return;
   }
   if (MediaLib.audioTrackOf(m) !== track) return;
   runtime.captionRedo = null;
+  paintCaptionRedo();
   if (!(await loadTranscript(m.src, true))) {
     try { await transcribeSrcs([m.src]); } catch (e) { toast(String((e && e.message) || e)); return; }
   }
@@ -4527,10 +4617,14 @@ function undo() {
   const snap = runtime.undo.pop(), id = eventIdOf(snap);
   runtime.redo.push(id ? withEventId(counterSnapshot(snap), id) : counterSnapshot(snap));
   if (id) moveEvent(id, "undone");
+  const tracksBefore = new Map(project.media.map((m) => [m.id, MediaLib.audioTrackOf(m)]));
   restoreSnapshot(snap);
   pruneSelection();
   scheduleSave(); renderInspector();
   if (isOutsideStep(snap)) toast(uiText("own.undo-outside"));
+  // a track change undone (VV on #177): say which track is in use again
+  const back = project.media.find((m) => tracksBefore.has(m.id) && tracksBefore.get(m.id) !== MediaLib.audioTrackOf(m));
+  if (back) { runtime.captionRedo = null; paintCaptionRedo(); renderBin(); toast(uiText("own.at-undone", { n: MediaLib.audioTrackOf(back) + 1 })); }
 }
 function redo() {
   if (!runtime.redo.length) return;
@@ -9968,6 +10062,7 @@ function paintAsrStatus() {
   paintAsrSetup();
   paintSettingsAsr();
   const E = trState.el;
+  paintCaptionRedo();
   if (!E || !E.asr) return;
   const s = asrState.status, desk = !!window.montclipAsr, d = asrState.downloading, ph = asrState.phase;
   let text, get = null, imp = false, cancel = false, later = false;
@@ -10246,6 +10341,7 @@ function buildTranscriptPage() {
       <div class="tr-row">
         ${listen ? `<button type="button" class="btn primary" data-tr-go></button>` : ""}
       </div>
+      <div class="tr-row tr-capredo" data-tr-capredo role="status" hidden></div>
       ${listen ? `<div class="tr-row tr-asr"><span class="tr-asr-text" data-tr-asr role="status"></span>
         <button type="button" class="btn tiny" data-tr-asr-download hidden data-i18n="own.asr-download">${escapeHtml(uiText("own.asr-download"))}</button>
         <button type="button" class="btn tiny" data-tr-asr-import hidden data-i18n="own.asr-import">${escapeHtml(uiText("own.asr-import"))}</button>

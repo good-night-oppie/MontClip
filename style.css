@@ -4335,7 +4335,16 @@ input[type="range"].cq-hue {
 .bin-tracks { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line, #333); }
 .bin-track { display: flex; align-items: center; gap: 6px; font-size: 11px; padding: 3px 0; cursor: pointer; }
 .bin-track span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bin-track-play { font-size: 11px; padding: 1px 8px; }
+.bin-track.playing { background: var(--accent-soft, #7b6cff22); border-radius: 4px; }
+.bin-tracks-badge { display: inline-block; margin-top: 2px; padding: 0 6px; border: 1px solid var(--line, #444); border-radius: 8px;
+  background: transparent; color: var(--dim); font-size: 10px; line-height: 16px; cursor: pointer; white-space: nowrap; }
+.bin-tracks-badge:hover { color: var(--text); border-color: var(--dim); }
+.bin-tracks-badge.busy { color: var(--accent, #7b6cff); }
+.bin-tracks-bar { background: #7b6cff1a; border: 1px solid #7b6cff55; border-radius: 6px; padding: 4px 6px; align-items: flex-start; }
+.bin-tracks-bar span { flex: 1; min-width: 0; white-space: normal; font-size: 11px; }
+.bin-track-redo { margin: 4px 0; }
+.tr-capredo { gap: 6px; align-items: flex-start; font-size: 11px; color: var(--dim); }
+.tr-capredo span { flex: 1; min-width: 0; }
 .bin-instances { max-height: 60vh; overflow-y: auto; }
 .bin-instances .ctx-item kbd { font-variant-numeric: tabular-nums; }
 

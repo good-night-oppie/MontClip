@@ -186,7 +186,7 @@ test('the editor: the media info lists the tracks with 试听, picking one is an
  a.match(app,/if \(MediaLib\.audioTrackOf\(m\)\) mo\.audioTrack = m\.audioTrack;/,'the save keeps the pick (the media list is written field by field)');
  a.match(app,/JSON\.stringify\(\{ src, track: m \? MediaLib\.audioTrackOf\(m\) : 0 \}\)/,'transcription names the track');
  a.match(app,/"\/api\/transcript\?src=" \+ encodeURIComponent\(src\) \+ "&track=" \+ track/);
- a.match(app,/uiText\("own\.at-found", \{ name: tracksFound\[0\]\.name, n: tracksFound\[0\]\.audioTracks\.length, menu: uiText\("own\.mm-info"\) \}\)/,'the menu name is the menu item\'s own');
+ a.match(app,/uiText\("own\.at-found", \{ name: noticed\[0\]\.name, n: noticed\[0\]\.audioTracks\.length, menu: uiText\("own\.at-menu"\) \}\)/,'the menu name is the menu item\'s own (「选音轨…」, VV on #177)');
  a.match(app,/uiText\("own\.at-captions-edited", \{ n: track \+ 1, button: uiText\("own\.at-captions-redo"\) \}\)/,'the button name is the button\'s own');
 });
 test('JJ定稿 wording (2026-11-05), word for word in both languages; menu and button names come from their own keys',()=>{
@@ -234,4 +234,50 @@ test('MCP: silences, beats and highlights listen to the picked track; normalize 
  a.match(src,/await voiceRegions\(doc, voices, threshold\) : \[\]/,'auto-duck: the exported sound');
  const norm=src.slice(src.indexOf('async function measureClipGroup('),src.indexOf('async function measureClipGroup(')+400);
  a.doesNotMatch(norm,/analysis/,'normalize: the exported sound');
+});
+/** A three-track MP4 (or MOV) made on the spot: mpeg4 picture, AAC sound; moov at the end (no faststart yet). */
+function synthMp4(file,extra=[]){
+ const args=['-v','error','-y','-f','lavfi','-i','color=c=gray:s=64x36:r=5:d=4'];
+ for(const f of [220,440,880])args.push('-f','lavfi','-i',`sine=frequency=${f}:sample_rate=48000:duration=4`);
+ args.push('-map','0:v','-map','1:a','-map','2:a','-map','3:a','-c:v','mpeg4','-c:a','aac',...extra,file);
+ const r=spawnSync(ffmpeg(),args);a.equal(r.status,0,String(r.stderr));return file;
+}
+const audioCount=(file)=>String(spawnSync(FF.path('ffprobe'),['-v','error','-select_streams','a','-show_entries','stream=index','-of','csv=p=0',file]).stdout).trim().split(/\s+/).filter(Boolean).length;
+test('importing an MP4 keeps every audio track: upload, and the desktop import (the same upload with a ticket) — main dropped all but one (VV on #177)',{skip},async(t)=>{
+ const d=tmp(t),src=synthMp4(path.join(d,'obs.mp4'));a.equal(audioCount(src),3);
+ const dir=makeDataDir(t);const {port,base}=await startServer(t,dir,{FABLECUT_NO_FS_WATCH:'1'});
+ const http=require('node:http'),body=fs.readFileSync(src);
+ for(const q of ['name=obs.mp4','name=obs2.mp4&ticket=t_tracks1']){
+  const r=await new Promise((resolve,reject)=>{const req=http.request({host:'127.0.0.1',port,path:'/api/upload?'+q,method:'POST',headers:{'Content-Length':body.length}},
+   (res)=>{const parts=[];res.on('data',(c)=>parts.push(c));res.on('end',()=>resolve(JSON.parse(Buffer.concat(parts).toString('utf8'))));});req.on('error',reject);req.end(body);});
+  const file=path.join(dir,'media',decodeURIComponent(r.src.slice(7)));
+  a.equal(audioCount(file),3,q+': three audio tracks after the faststart tidy');
+  const info=(await (await fetch(base+'/api/media-info?src='+encodeURIComponent(r.src))).json()).info;
+  a.equal(info.audioTracks.length,3,q);
+ }
+});
+test('the faststart tidy leaves out data streams the MP4 muxer cannot write (a MOV timecode track) and keeps the sound',{skip},async(t)=>{
+ const d=tmp(t),file=synthMp4(path.join(d,'cam.mov'),['-timecode','01:00:00:00']);
+ const kinds=String(spawnSync(FF.path('ffprobe'),['-v','error','-show_entries','stream=codec_type','-of','csv=p=0',file]).stdout);
+ a.match(kinds,/data/,'the MOV has a timecode data stream');
+ const r=await require('../import-url').maybeFaststart(file);
+ a.equal(r.optimized,true,JSON.stringify(r));a.equal(audioCount(file),3);
+ const src=fs.readFileSync(path.join(__dirname,'..','import-url.js'),'utf8');
+ a.match(src,/"-map", "0", "-map", "-0:d", "-map", "-0:t", "-c", "copy", "-movflags", "\+faststart"/);
+});
+test('VV on #177: a badge, a notice that stays with 〔去选〕, 「选音轨…」 in the menu, 试听 that stops, the redo by 〔听写所选〕, undo said',()=>{
+ const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+ a.match(app,/uiText\("own\.at-badge", \{ n: m\.audioTracks\.length, k: MediaLib\.audioTrackOf\(m\) \+ 1 \}\)/,'badge: 3 条音轨 · 用第 k 条');
+ a.match(app,/busy \? " · " \+ escapeHtml\(uiText\("own\.at-badge-busy"\)\)/,'badge while reading again');
+ a.match(app,/bar\.className = "bin-filterbar bin-tracks-bar";/,'the notice is a bar in the bin, not a toast');
+ a.doesNotMatch(app,/toast\(uiText\("own\.at-found/,'never a toast (the canvas toast covered it)');
+ a.match(app,/if \(Array\.isArray\(m\.audioTracks\) && m\.audioTracks\.length > 1\) item\(uiText\("own\.at-menu"\), \(\) => openTrackPicker\(m, x, y\)\);\n  item\(uiText\("own\.mm-info"\)/,'「选音轨…」 just above 素材信息…');
+ a.match(app,/play\.className = "btn tiny bin-track-play";/);
+ a.match(app,/btn\.textContent = uiText\("own\.at-stop"\);/);
+ a.match(app,/if \(typeof stopTrackListen === "function"\) stopTrackListen\(\);/,'closing the picker (Esc too) stops it');
+ a.match(app,/<div class="tr-row tr-capredo" data-tr-capredo role="status" hidden><\/div>/,'by 〔听写所选〕');
+ a.match(app,/toast\(uiText\("own\.at-undone", \{ n: MediaLib\.audioTrackOf\(back\) \+ 1 \}\)\)/);
+ const V=require('../ui-preferences');
+ for(const k of ['at-badge','at-badge-busy','at-go','at-menu','at-stop','at-undone','at-dismiss']){const zh=V.t('zh-CN','own.'+k,{n:3,k:1});a.ok(zh&&!zh.startsWith('own.'),k);a.ok(!/我/.test(zh),k);}
+ a.equal(V.t('zh-CN','own.at-badge',{n:3,k:2}),'3 条音轨 · 用第 2 条');
 });
