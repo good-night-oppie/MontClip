@@ -18,11 +18,13 @@ test('JJ\'s final words: stopped, no memory, where Meta fits (tab and Settings),
   a.equal(zh('asr-switch-paraformer'), '换回 Paraformer'); a.equal(en('asr-switch-paraformer'), 'Switch to Paraformer');
   a.equal(zh('asr-meta-no-memory', { need: '1000 MB', free: '600 MB' }), '内存不够跑 Meta 的模型（大约要 1000 MB，现在只空着 600 MB），所以没有开始。关掉一些软件再试，或者换回 Paraformer。');
   a.equal(en('asr-meta-no-memory', { need: '1000 MB', free: '600 MB' }), "There isn't enough free memory for Meta's model (it needs about 1000 MB; 600 MB is free), so it didn't start. Close some programs and try again, or switch back to Paraformer.");
-  // the Transcript tab: without the pointer to the menu; Settings: with it (the English pointer is Deja's, for JJ)
+  // the Transcript tab: without the pointer to the menu; Settings: with it
   a.equal(zh('asr-meta-fit'), 'Meta 的多语言模型适合英文和其他外语。中文直播请继续用 Paraformer：在公开测试里，Meta 听中文的错字大约是它的 4 倍。');
   a.equal(en('asr-meta-fit'), "Meta's multilingual model is for English and other languages. For Chinese streams, keep Paraformer: in public tests Meta made about four times as many mistakes on Chinese.");
   a.equal(zh('asr-meta-fit-settings'), 'Meta 的多语言模型适合英文和其他外语（文稿页「听写模型」里可以选）。中文直播请继续用 Paraformer：在公开测试里，Meta 听中文的错字大约是它的 4 倍。');
-  a.equal(en('asr-meta-fit-settings'), "Meta's multilingual model is for English and other languages (choose it under Speech model on the Transcript tab). For Chinese streams, keep Paraformer: in public tests Meta made about four times as many mistakes on Chinese.");
+  // JJ's final English pointer, with curly quotes, naming the menu as the English UI does ("asr-model": Speech model)
+  a.equal(en('asr-meta-fit-settings'), "Meta's multilingual model is for English and other languages (you can pick it on the Transcript tab, under “Speech model”). For Chinese streams, keep Paraformer: in public tests Meta made about four times as many mistakes on Chinese.");
+  a.equal(en('asr-model'), 'Speech model', 'the menu is called what the sentence says');
   a.match(read('index.html'), /id="setAsrMetaFit" data-i18n="own\.asr-meta-fit-settings"/, 'Settings shows the version with the pointer');
   a.match(read('app.js'), /data-tr-asr-fit hidden data-i18n="own\.asr-meta-fit"/, 'the Transcript tab the one without');
   const m = { mirror: 'hf-mirror.com', github: 'github.com' };
