@@ -267,7 +267,7 @@
     "as-start-sub": ["Pick the recordings, then click Start finding. What it finds are candidates: you look them over, and videos are made only when you export.", "选好录像，点「开始找高光」。找出来的是候选，你看一遍、点导出才会生成视频。"],
     "as-recs": ["Recordings", "录像"],
     "as-recs-multi": ["You can pick several; each one gets its own clips.", "可以多选，几场会分别出切片。"],
-    "as-no-recs": ["This project has no recordings yet. Import a stream recording first with + Import.", "这个项目里还没有录像。先用「+ 导入」导入一场直播录像。"],
+    "as-no-recs": ["This project has no recordings yet. Import a stream recording first with + Import recording.", "这个项目里还没有录像。先用「+ 导入录像」导入一场直播录像。"],
     "as-dm-yes": ["✓ Has live danmaku", "✓ 有直播弹幕"],
     "as-dm-no": ["No live danmaku: sound only", "没有直播弹幕，只能按声音找"],
     "as-kind-title": ["What is this stream mostly?", "这场主要在干什么？"],
@@ -498,6 +498,8 @@
     "as-dropped-one": ["Took out “{name}”", "已拿掉「{name}」"],
     "as-put-back-one": ["Put back “{name}”", "已放回「{name}」"],
     "as-undone": ["Undone", "已撤销"],
+    // JJ's final words (2026-11-04, #111 follow-up): the undo of an edit made outside this tab
+    "undo-outside": ["Undid a change made by the AI or in another window, not here. If that was a mistake, click Redo to bring it back.", "撤销的这一步是 AI 或另一个窗口改的，不是你在这里改的。撤错了，点「重做」就能改回来。"],
     "as-dropped": ["Taken out: {n} (open to put them back)", "拿掉的 {n} 条（点开可以放回来）"],
     "as-put-back": ["Put back", "放回来"],
     "as-sum-n": ["{n} clips", "{n} 条"],
@@ -728,6 +730,12 @@
     "ap-scope-limit": ["This chat has already sent {used}; {size} more would pass its {limit} cap by {over}. Nothing was sent, and it won't be cut down to fit.", "这个聊天已经发出去 {used}，再发这 {size} 就超过 {limit} 的上限，超了 {over}。没有发送，也不会截短了再发。"],
     "ap-invalid": ["This suggested edit doesn't fit the project as it is, so nothing was done.", "这条剪辑建议和现在的项目对不上，所以没有做。"],
   };
+  // First use (Deja's D, 2026-11-04, after VV's walk): import from inside 〔✨ 自动出切片〕, and the bin while a file comes
+  // in. For JJ to review.
+  Object.assign(own, {
+    "as-import": ["+ Import recording", "+ 导入录像"],
+    "bin-importing": ["Importing… {pct}%", "正在导入… {pct}%"],
+  });
   for (const [k, [en, zh]] of Object.entries((terms && terms.rows) || {})) { text.en["term." + k] = en; text["zh-CN"]["term." + k] = zh; }
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
   // English by number (JJ, 2026-11-04; MontClipView.tp): 〔加字幕〕, by the captions added, then by the ones replaced. The

@@ -149,7 +149,13 @@ ensureDirs();
 /* One engine writes a data folder (writer-lock.js): the Windows app and the Cindy plugin share this
    engine, and two of them on one folder would save over each other. MONTCLIP_SHELL names the shell. */
 const SHELL = process.env.MONTCLIP_SHELL || (DESKTOP ? "desktop" : "server");
-const writerLock = require("./writer-lock").acquire(DATA_DIR, { shell: SHELL });
+let writerLock;
+try { writerLock = require("./writer-lock").acquire(DATA_DIR, { shell: SHELL }); }
+catch (e) {
+  // the shell that started this server (the Windows app) tells the user who has the folder: one line it can read
+  if (e.code === "DATA_DIR_IN_USE") console.error("MONTCLIP_DATA_DIR_IN_USE " + JSON.stringify({ shell: e.holder?.shell || null, port: e.holder?.port || null }));
+  throw e;
+}
 const projects = createProjects({ dataDir: DATA_DIR, projectFile: PROJECT_FILE, libraryDir: LIBRARY_DIR });
 const undoStacks = require("./undo-stacks").createUndoStacks({ dir: path.join(ANALYSIS_DIR, "undo") });
 const history = createHistory({ projects, autoMinutes: Number(process.env.FABLECUT_AUTO_VERSION_MIN) || 10 });
@@ -350,7 +356,7 @@ function resolvePathArg(p) {
 
 /* Remux MP4-family uploads with `+faststart` so the moov atom leads the file —
    without it <video> stalls for seconds probing over Range requests. */
-function faststart(file) { return maybeFaststart(file); }
+function faststart(file, opts) { return maybeFaststart(file, opts); }
 
 /* ── Export sessions ──
    Two modes share the same HTTP session API:
@@ -1218,7 +1224,9 @@ const server = http.createServer(async (req, res) => {
           }
         }
       } finally { try { fs.rmSync(staging, { force: true }); } catch {} }
-      await faststart(target);
+      // the page's 「正在导入… n%」 for this file (?ticket= from importFiles): how far the faststart tidy is, over SSE
+      const ticket = url.searchParams.get("ticket");
+      await faststart(target, /^[A-Za-z0-9_-]{1,40}$/.test(ticket || "") ? { onProgress: (frac) => broadcast("upload", JSON.stringify({ ticket, frac })) } : undefined);
       sendJSON(res, 200, { ok: true, ...await prepareMedia(target) });
     } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
     return;
