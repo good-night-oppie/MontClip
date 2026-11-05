@@ -4,9 +4,10 @@
    first clip is nearly always near its start) mis-seeked: −21 ms on AAC, −105 ms when the picture starts late, and an
    FLV lost its first ~1.2 s of sound. And a window added next to one already heard was read with no lead-in, so a word
    cut at the border came back twice when the two were merged.
-   The fix both reads share (audio-read.js readAudioArgs, also for #149's /api/audio-window): no -ss when the window
-   starts before 3 s (read from 0, -t to), and -af aresample=async=1:first_pts=0 always, so sample 0 is media time 0
-   (Rea measured 7 sources × 4 ways: all within 0.1 ms). A refill reads a pad either side and keeps only its core.
+   The fix (asr-local.js readArgs): no -ss when the window starts before 3 s (read from 0, -t to), and always #149's
+   clock filter (audio-window.js CLOCK_FILTER: aresample=async=1:min_hard_comp=0.01:first_pts=0 — Deja, 2026-11-05:
+   reuse it, don't write a second one; until #149 is merged asr-local.js keeps the same string, then imports it), so
+   sample 0 is media time 0. A refill reads a pad either side and keeps only its core.
    The sources are made here with ffmpeg: beeps at known times. The engine is a stand-in that writes 「哔」 where each
    beep starts, so the clock is checked without a speech model. */
 "use strict";
@@ -24,9 +25,12 @@ const BEEPS = [1, 3.5, 6, 8.5];
 
 /* ── the shared reader ── */
 
-test("readAudioArgs: whole, a window from before 3 s (no -ss), a later window (-ss); sample 0 is always media time 0 of what it reads", () => {
-  const { readAudioArgs, SEEK_MIN } = require("../audio-read.js");
+test("readArgs: whole, a window from before 3 s (no -ss), a later window (-ss); every read through #149's clock filter", () => {
+  const { readArgs: readAudioArgs, SEEK_MIN, CLOCK_FILTER } = require("../asr-local.js");
   a.equal(SEEK_MIN, 3);
+  // the same string as #149's audio-window.js CLOCK_FILTER (one clock for the export's audio window and transcription)
+  a.equal(CLOCK_FILTER, "aresample=async=1:min_hard_comp=0.01:first_pts=0");
+  a.ok(!fs.existsSync(path.join(__dirname, "..", "audio-read.js")), "no second shared reader next to #149's");
   const whole = readAudioArgs({ file: "f.flv" });
   a.equal(whole.start, 0); a.ok(!whole.args.includes("-ss") && !whole.args.includes("-t"));
   const early = readAudioArgs({ file: "f.flv", from: 0.4, to: 2.7 });
@@ -37,7 +41,7 @@ test("readAudioArgs: whole, a window from before 3 s (no -ss), a later window (-
   a.ok(late.args.indexOf("-ss") < late.args.indexOf("-i"), "-ss before -i");
   a.equal(late.args[late.args.indexOf("-t") + 1], "4.5");
   for (const r of [whole, early, late]) {
-    a.equal(r.args[r.args.indexOf("-af") + 1], "aresample=async=1:first_pts=0", "the same clock for every read");
+    a.equal(r.args[r.args.indexOf("-af") + 1], CLOCK_FILTER, "the same clock for every read");
     a.ok(r.args.includes("-vn"));
     a.deepEqual(r.args.slice(-9), ["-ac", "1", "-ar", "16000", "-f", "s16le", "-acodec", "pcm_s16le", "-"]);
   }
