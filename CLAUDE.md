@@ -195,16 +195,19 @@ Desktop task requests reject `where: "headless"` with HTTP 409 and code
 export, transcription, scopes and tracking, including the shared job queue.
 It is not yet a portable release or offline transcription distribution.
 
-MontClip runs only its bundled LGPL FFmpeg (`ffmpeg-path.js`), never `ffmpeg`
-on `PATH`: packaged, `resources/ffmpeg/`; in development, `vendor/ffmpeg/<platform>-<arch>/`
-(`node desktop/fetch-ffmpeg.cjs`) or `MONTCLIP_FFMPEG` / `MONTCLIP_FFPROBE` full paths.
-Where this manual says "needs ffmpeg on PATH", read "needs the bundled FFmpeg".
-The LGPL build has no libx264. H.264 export and proxies use a graphics-card encoder
-(NVENC / Quick Sync / AMF), else Windows' own `h264_mf`; `GET /api/export/h264` says which.
-A user may choose their own FFmpeg with libx264 in Settings (desktop): it is used only for
-H.264 export, never for preview, decoding or proxies, and is never searched for on PATH.
-Raw encoding profiles that use libx264 need that local FFmpeg. With no H.264 encoder at all,
-export says why in plain words. See `docs/decisions/2026-11-02-h264-encoder.md`, `LICENSES.md`.
+MontClip looks for `ffmpeg` / `ffprobe` in this order (`ffmpeg-path.js`; desktop, web / server mode and the Cindy
+plugin alike): its bundled LGPL build (packaged, `resources/ffmpeg/`; in development, `vendor/ffmpeg/<platform>-<arch>/`
+from `node desktop/fetch-ffmpeg.cjs`, or `MONTCLIP_FFMPEG` / `MONTCLIP_FFPROBE` full paths), then `PATH` (looked up to
+an absolute path, never spawned by name), then the place the user chose. When several are there it uses the first
+that can export H.264 (bundled LGPL + a full system FFmpeg → the system one). The LGPL build has no libx264: H.264
+export uses a graphics-card encoder (NVENC / Quick Sync / AMF), else Windows' own `h264_mf`, else libx264 from an
+FFmpeg the user installed. With nothing that can export MP4, the editor shows one card (`ffmpeg-card.js`: install
+command, 「重新检测」, choose the file) and turns off Export; `GET /api/ffmpeg`, `POST /api/ffmpeg/detect`,
+`POST /api/ffmpeg/choose {path}`, `POST /api/ffmpeg/check {path}` (can this program export H.264?). The choice is kept
+in `<data dir>/external-ffmpeg.json`. **Advanced:** whoever starts a server can name an FFmpeg with libx264 in
+`MONTCLIP_EXTERNAL_FFMPEG` (a full path); it is never mentioned in the interface. MontClip ships and downloads only
+LGPL builds; a GPL FFmpeg is the user's own. See `docs/decisions/2026-11-05-ffmpeg-detect-and-download.md`,
+`docs/decisions/2026-11-02-h264-encoder.md`, `LICENSES.md`.
 
 ```
 node server.js        # → http://localhost:7777

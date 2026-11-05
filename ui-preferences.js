@@ -71,28 +71,29 @@
   });
   // Web / server mode (node server.js): no Settings dialog, so no "below" / "in Settings" and no graphics-driver advice
   // (a server usually has no graphics card). The person who starts the server can name an FFmpeg with x264 in
-  // MONTCLIP_EXTERNAL_FFMPEG. 草稿，交 JJ 定稿 (2026-11-04): not final wording.
+  // MONTCLIP_EXTERNAL_FFMPEG (an advanced setting, documented only). Deja 2026-11-05: these point at the FFmpeg card and
+  // name no configuration. DRAFT — 交 JJ 定稿.
   Object.assign(text["zh-CN"], {
-    h264RefuseServer: "这台电脑上找不到 MontClip 能用的 H.264 编码器，所以这次没能导出。可以换一种导出格式（比如「存档」）；或者请启动 MontClip 的人把 MONTCLIP_EXTERNAL_FFMPEG 设成一个带 x264 的 FFmpeg 的完整路径，再重新启动。",
-    extNeededServer: "这个导出设置要用 x264，但现在没有可用的 x264。请启动 MontClip 的人把 MONTCLIP_EXTERNAL_FFMPEG 设成一个带 x264 的 FFmpeg 的完整路径，再重新启动；也可以改用导出预设。",
-    extEnvUnusable: "启动时指定的 FFmpeg（MONTCLIP_EXTERNAL_FFMPEG）用不了，已改回内置编码。",
+    h264RefuseServer: "这台电脑上的 FFmpeg 导不出 MP4，所以这次没能导出。按右上角「还不能导出 MP4」卡片里的办法换一个完整版的 FFmpeg，装好后点「重新检测」；也可以换一种导出格式（比如「存档」）。",
+    extNeededServer: "这个导出设置要用 x264，这台电脑上的 FFmpeg 没有。请改用导出预设（比如「Master」），会用这台电脑能用的编码器导出。",
+    extEnvUnusable: "启动 MontClip 时指定的 FFmpeg 用不了，这次改用了这台电脑上其他能用的编码器。",
   });
   Object.assign(text.en, {
-    h264RefuseServer: "This computer has no H.264 encoder MontClip can use, so it couldn't export this time. Export in another format (for example Archive), or ask whoever starts MontClip to set MONTCLIP_EXTERNAL_FFMPEG to the full path of an FFmpeg that has x264, then restart it.",
-    extNeededServer: "This export setting uses x264, and no x264 is available. Ask whoever starts MontClip to set MONTCLIP_EXTERNAL_FFMPEG to the full path of an FFmpeg that has x264, then restart it, or use a delivery preset.",
-    extEnvUnusable: "The FFmpeg named when MontClip started (MONTCLIP_EXTERNAL_FFMPEG) cannot be used, so the built-in encoders are used instead.",
+    h264RefuseServer: "The FFmpeg on this computer can't export MP4, so it couldn't export this time. Follow the “Can't export MP4 yet” card at the top right to switch to a full version of FFmpeg, then click “Check again”; or export in another format (for example “Archive”).",
+    extNeededServer: "This export setting uses x264, and the FFmpeg on this computer doesn't have it. Use a delivery preset instead (for example “Master”): it exports with an encoder this computer can use.",
+    extEnvUnusable: "The FFmpeg named when MontClip started can't be used, so another encoder on this computer was used this time.",
   });
   // Cindy plugin: no Settings dialog and no environment variable for the user to set; the plugin names the FFmpeg
   // (see the plugin hookup in PR #146). 草稿，交 JJ 定稿 (2026-11-04): not final wording.
   Object.assign(text["zh-CN"], {
-    h264RefusePlugin: "这台电脑上找不到 MontClip 能用的 H.264 编码器，所以这次没能导出。可以换一种导出格式（比如「存档」）；或者在 Cindy 里告诉 MontClip 用这台电脑上一个带 x264 的 FFmpeg。",
-    extSavedUnusable: "之前指定给 MontClip 的 FFmpeg 用不了，已改回内置编码。",
-    extNeededPlugin: "这个导出设置要用 x264，但现在没有可用的 x264。可以在 Cindy 里告诉 MontClip 用这台电脑上一个带 x264 的 FFmpeg，也可以改用导出预设。",
+    h264RefusePlugin: "这台电脑上的 FFmpeg 导不出 MP4，所以这次没能导出。按右上角「还不能导出 MP4」卡片里的办法换一个完整版的 FFmpeg，装好后点「重新检测」；也可以换一种导出格式（比如「存档」）。",
+    extSavedUnusable: "之前选的 FFmpeg 用不了（可能被移走或删掉了），这次改用了这台电脑上其他能用的编码器。",
+    extNeededPlugin: "这个导出设置要用 x264，这台电脑上的 FFmpeg 没有。请改用导出预设（比如「Master」），会用这台电脑能用的编码器导出。",
   });
   Object.assign(text.en, {
-    h264RefusePlugin: "This computer has no H.264 encoder MontClip can use, so it couldn't export this time. Export in another format (for example Archive), or in Cindy, tell MontClip to use an FFmpeg with x264 on this computer.",
-    extSavedUnusable: "The FFmpeg chosen for MontClip cannot be used, so the built-in encoders are used instead.",
-    extNeededPlugin: "This export setting uses x264, and no x264 is available. In Cindy, tell MontClip to use an FFmpeg with x264 on this computer, or use a delivery preset.",
+    h264RefusePlugin: "The FFmpeg on this computer can't export MP4, so it couldn't export this time. Follow the “Can't export MP4 yet” card at the top right to switch to a full version of FFmpeg, then click “Check again”; or export in another format (for example “Archive”).",
+    extSavedUnusable: "The FFmpeg chosen before can't be used (it may have been moved or deleted), so another encoder on this computer was used this time.",
+    extNeededPlugin: "This export setting uses x264, and the FFmpeg on this computer doesn't have it. Use a delivery preset instead (for example “Master”): it exports with an encoder this computer can use.",
   });
   // encoders by name: plain words in Chinese, the technical names (delivery.js labels) in English
   const ENCODER_NAMES = {

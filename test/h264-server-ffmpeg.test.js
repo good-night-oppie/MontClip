@@ -60,7 +60,7 @@ test('case 3: neither — refused, and in server mode the reason does not point 
 test('the page says it in this mode: web refusals never mention Settings or "below"',()=>{
  for(const lang of ['zh-CN','en']){
   const web=V.h264Refusal(lang,{code:'h264NoneOther',setup:'server'});
-  a.ok(web,lang);a.ok(web.includes('MONTCLIP_EXTERNAL_FFMPEG'),web);a.ok(!/设置里|在下面|Settings|below|显卡驱动|graphics driver/.test(web),web);
+  a.ok(web,lang);a.ok(!/设置里|在下面|Settings|below|显卡驱动|graphics driver/.test(web),web);
   a.equal(V.h264Refusal(lang,{code:'h264NoneOther'}),V.text[lang].h264Refuse,'desktop keeps JJ\'s sentence');
   const need=V.h264Refusal(lang,{code:'extNeeded',setup:'server'});a.ok(!/设置里|Settings/.test(need),need);
   a.ok(V.h264Message(lang,{code:'extEnvUnusable'}),lang+' extEnvUnusable');
@@ -182,4 +182,24 @@ test('outside the desktop app a saved choice that fails is said without pointing
   fs.writeFileSync(settings, '{bad');
   a.equal((await X.createExternal({ settingsFile: settings, setup: 'plugin', run: withX264 }).current()).code, 'extSavedUnusable');
   for (const lang of ['zh-CN', 'en']) a.ok(V.h264Message(lang, { code: 'extSavedUnusable' }), lang);
+});
+
+/* Deja 2026-11-05: the six refusals point at the FFmpeg card, never at a configuration. The environment variable stays
+   as an advanced setting, in the docs only (CLAUDE.md "Run"), and in the English reasons agents and logs read. */
+test('the six refusals name no configuration, and every 「X」 they mention is on the FFmpeg card or in the preset list', () => {
+  const Card = require('../ffmpeg-card');
+  const KEYS = ['h264RefuseServer', 'extNeededServer', 'extEnvUnusable', 'h264RefusePlugin', 'extNeededPlugin', 'extSavedUnusable'];
+  for (const lang of ['zh-CN', 'en']) {
+    const card = Card.model({ state: 'noH264', platform: 'linux', picker: false }, lang);
+    const onCard = [card.title, ...card.buttons.map((b) => b.label), card.copy];
+    const presets = lang === 'en' ? ['Archive', 'Master'] : ['存档', 'Master'];
+    for (const k of KEYS) {
+      const s = V.text[lang][k];
+      a.ok(s, lang + ' ' + k);
+      a.ok(!/MONTCLIP_|环境变量|变量|environment|variable|配置文件|config|重新启动|restart|设置里|Settings/i.test(s), `${lang} ${k}: ${s}`);
+      for (const q of [...s.matchAll(/[「『“]([^」』”]+)[」』”]/g)].map((m) => m[1]))
+        a.ok(onCard.includes(q) || presets.includes(q), `${lang} ${k}: 「${q}」 is not on the card (${onCard.join(' / ')})`);
+    }
+    for (const k of ['h264RefuseServer', 'h264RefusePlugin']) a.ok(V.text[lang][k].includes(card.title.replace(/[。.]$/, '')), `${lang} ${k} names the card`);
+  }
 });
