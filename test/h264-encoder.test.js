@@ -89,7 +89,9 @@ test('server: without a local FFmpeg, libx264 profiles are refused in plain word
  const {makeDataDir,seedProject,startServer}=require('./helpers');
  if(!require('../ffmpeg-path').available('ffmpeg'))return t.skip('bundled ffmpeg not installed');
  const dir=makeDataDir(t,seedProject({revision:1}));
- const {base}=await startServer(t,dir,{FABLECUT_NO_FS_WATCH:'1',MONTCLIP_EXTERNAL_FFMPEG_SETTINGS:path.join(dir,'no-setting.json')});
+ // "no local FFmpeg": nothing chosen and nothing on PATH (JJ P1 looks there too)
+ const nowhere=path.join(dir,'no-such-folder');
+ const {base}=await startServer(t,dir,{FABLECUT_NO_FS_WATCH:'1',MONTCLIP_EXTERNAL_FFMPEG_SETTINGS:path.join(dir,'no-setting.json'),PATH:nowhere,Path:nowhere});
  const st=await (await fetch(base+'/api/export/h264')).json();
  a.deepEqual(st.external,{ok:false,code:'none'});a.ok(!st.encoders.includes('libx264'));
  if(st.encoder)a.equal(st.reason,null);else a.match(st.reason.code,/^h264None(Win|Other)$/);
