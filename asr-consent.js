@@ -56,16 +56,18 @@ function createConsent({ modelsDir, root = __dirname, manifest: m = manifest, no
     return rec;
   }
   /** Revoke: the model's files (in the user's folder only) and its half-downloaded parts first, then the record. When a
-   *  file can't be deleted (Windows keeps it busy), the record stays: {ok:false, code:"ASR_REMOVE_INCOMPLETE", left}. */
+   *  file can't be deleted (Windows keeps it busy), the record stays: {ok:false, code:"ASR_REMOVE_INCOMPLETE", left}.
+   *  Each file is deleted on its own, so one that stays busy leaves the others gone and the model unusable (not
+   *  installed) until it is removed or downloaded again (Deja, 11-05). */
   function revoke(key) {
     terms(key);
-    const dir = path.resolve(modelsDir), model = m.models[key];
+    const dir = path.resolve(modelsDir), model = m.models[key], mdir = path.join(dir, key);
     const shas = [...Object.values(model.files).map((f) => f.sha256), ...(model.sources || []).filter((s) => s.sha256).map((s) => s.sha256)];
-    const left = [];
-    for (const p of [path.join(dir, key), ...shas.map((sha) => path.join(dir, ".partial", sha + ".part"))]) {
-      try { rm(p, { recursive: true, force: true }); } catch { }
-      if (fs.existsSync(p)) left.push(path.relative(dir, p).split(path.sep).join("/"));
-    }
+    const rel = (p) => path.relative(dir, p).split(path.sep).join("/");
+    const gone = (p) => { try { rm(p, { recursive: true, force: true }); } catch { } return !fs.existsSync(p); };
+    const left = Object.keys(model.files).map((name) => path.join(mdir, name)).filter((p) => !gone(p)).map(rel);
+    if (!left.length && !gone(mdir)) left.push(rel(mdir));
+    for (const sha of shas) { const p = path.join(dir, ".partial", sha + ".part"); if (!gone(p)) left.push(rel(p)); }
     if (left.length) return { ok: false, code: "ASR_REMOVE_INCOMPLETE", left, error: "some of the model's files could not be deleted (in use?); the agreement stays until they are" };
     fs.rmSync(fileOf(key), { force: true });
     return { ok: true, revoked: key };
