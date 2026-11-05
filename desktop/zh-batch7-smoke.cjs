@@ -128,6 +128,40 @@ BrowserWindow.prototype.loadURL = async function (...args) {
       else assert.ok(rm[1] && !/[一-鿿]/.test(rm[1]), at + ' remove tooltip in English: ' + rm[1]);
       assert.equal(r.track, zh ? '删除轨道' : 'Remove track', at + ' track menu');
     }
+    // VV's review of #148: the Show filter shows its whole choice at the desktop width (1283 px) and at 360 px, with room
+    // for the native arrow; the sort row wraps rather than squeezing. And "Full canvas" in the player bar.
+    const FIT = String.raw`(async () => {
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms)), sel = document.getElementById('binFilter'), sort = document.getElementById('binSort');
+      renderBin(); await wait(60);
+      if (!sel.offsetParent) return { hidden: true };
+      const cs = getComputedStyle(sel), ctx = document.createElement('canvas').getContext('2d'); ctx.font = cs.font;
+      const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+      const was = sel.value, cut = [];
+      for (const o of [...sel.options].filter((o) => !/^(col|tag):/.test(o.value))) {
+        sel.value = o.value; await wait(5);
+        const need = Math.ceil(ctx.measureText(o.textContent).width + pad + 20), have = sel.getBoundingClientRect().width;
+        if (need > have || sel.scrollWidth > sel.clientWidth) cut.push([o.textContent, need, Math.round(have), sel.scrollWidth, sel.clientWidth]);
+      }
+      sel.value = was;
+      const tools = document.getElementById('binTools');
+      return { width: Math.round(sel.getBoundingClientRect().width), cut, sortWidth: Math.round(sort.getBoundingClientRect().width),
+        overflow: tools.scrollWidth > tools.clientWidth, frame0: document.querySelector('#exportFrameSel option[value="0"]')?.textContent };
+    })()`;
+    // a long collection name must not stretch the filter past the panel
+    await read(`(()=>{project.collections=[{id:'col_zh7',name:'A very long collection name that keeps going and going',media:[]}];renderBin();return true;})()`);
+    for (const [w, h] of [[1283, 800], [360, 740]]) {
+      win.setContentSize(w, h); await wait(500);
+      for (const language of ['zh-CN', 'en']) {
+        await read(`updateMontClipView(${JSON.stringify({ language, mode: 'advanced' })}); true`); await wait();
+        const r = await read(FIT), at = `fit ${w}px ${language}`;
+        seen[at] = r;
+        assert.ok(r.hidden || r.cut.length === 0, at + ' filter text cut: ' + JSON.stringify(r));
+        assert.ok(r.hidden || r.sortWidth >= 60, at + ' the sort box keeps a usable width: ' + JSON.stringify(r));
+        assert.ok(r.hidden || !r.overflow, at + ' nothing runs out of the bin tools row: ' + JSON.stringify(r));
+        if (w === 1283) assert.equal(r.frame0, language === 'en' ? 'Full canvas' : '完整画布', at + ' export frame: Full canvas');
+      }
+    }
+    win.setContentSize(1283, 800); await wait(300);
     // 插件试用 P7: a stored default project name, the empty Inspector, and the export file name, rendered
     const P7 = String.raw`(async (stored) => {
       const wait = (ms) => new Promise((r) => setTimeout(r, ms)), txt = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null);
