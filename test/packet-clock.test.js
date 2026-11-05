@@ -43,3 +43,22 @@ test("unknown packet durations and overlapping presentation spans require normal
   a.throws(() => load().coverage({ segments: [{ sourceStart: 0, sourceEnd: 0 }] }), /duration/);
   a.throws(() => load().coverage({ segments: [{ sourceStart: 0, sourceEnd: 5 }, { sourceStart: 4, sourceEnd: 6 }] }), /overlap/);
 });
+test("mapping crosses the seam to the following span and rejects time inside a source hole", () => {
+  const clock = load();
+  const map = clock.coverage({ segments: [{ sourceStart: 1.4, sourceEnd: 6.4 }, { sourceStart: 301.4, sourceEnd: 306.4 }] });
+  a.equal(clock.toSource(map, 5), 301.4);
+  a.ok(Math.abs(clock.toSource(map, 5.5) - 301.9) < 1e-9);
+  a.ok(Math.abs(clock.fromSource(map, 301.9) - 5.5) < 1e-9);
+  a.equal(clock.fromSource(map, 100), null);
+  a.equal(clock.toSource(map, -1), null); a.equal(clock.toSource(map, Infinity), null);
+  a.equal(clock.toSource(map, 11), null);
+  // Endpoints are valid trim boundaries, not a promise that a frame exists at EOF.
+  a.equal(clock.toSource(map, map.coveredDuration), 306.4);
+});
+test("a clip crossing a gap splits into source spans and preserves its covered length", () => {
+  const clock = load(), map = clock.coverage({ segments: [{ sourceStart: 0, sourceEnd: 5 }, { sourceStart: 300, sourceEnd: 305 }] });
+  a.deepEqual(clock.sourceRanges(map, 4, 6), [
+    { start: 4, end: 5, sourceStart: 4, sourceEnd: 5 }, { start: 5, end: 6, sourceStart: 300, sourceEnd: 301 },
+  ]);
+  a.throws(() => clock.sourceRanges(map, 0, 11), /outside/);
+});

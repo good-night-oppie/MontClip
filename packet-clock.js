@@ -48,12 +48,36 @@ function coverage(scan) {
     const { sourceStart, sourceEnd } = span;
     if (!Number.isFinite(sourceStart) || !Number.isFinite(sourceEnd) || !(sourceEnd > sourceStart)) throw new Error("unknown segment duration");
     if (sourceStart < previousEnd - 1e-6) throw new Error("overlapping presentation spans require normalization");
-    ranges.push({ start: end, end: end + sourceEnd - sourceStart, sourceStart, sourceEnd });
-    end += sourceEnd - sourceStart;
+    const next = end + (sourceEnd - sourceStart);
+    ranges.push({ start: end, end: next, sourceStart, sourceEnd });
+    end = next;
     previousEnd = sourceEnd;
   }
   if (!ranges.length) throw new Error("no covered duration");
   return { ...scan, coveredDuration: end, sourceDuration: previousEnd - ranges[0].sourceStart, ranges };
+}
+function toSource(map, time) {
+  if (!Number.isFinite(time) || time < 0 || time > map.coveredDuration) return null;
+  // Roundoff at a seam must select the following span, not the preceding hole.
+  const range = map.ranges.find(r => time >= r.start - 1e-9 && time < r.end - 1e-9);
+  if (range) return range.sourceStart + Math.max(0, time - range.start);
+  return time === map.coveredDuration ? map.ranges[map.ranges.length - 1].sourceEnd : null;
+}
+function fromSource(map, time) {
+  if (!Number.isFinite(time)) return null;
+  const range = map.ranges.find(r => time >= r.sourceStart && time < r.sourceEnd);
+  if (range) return range.start + time - range.sourceStart;
+  const last = map.ranges[map.ranges.length - 1];
+  return time === last.sourceEnd ? map.coveredDuration : null;
+}
+function sourceRanges(map, start, end) {
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start || end > map.coveredDuration) throw new Error("clip outside covered duration");
+  const result = [];
+  for (const r of map.ranges) {
+    const a = Math.max(start, r.start), b = Math.min(end, r.end);
+    if (b > a) result.push({ start: a, end: b, sourceStart: r.sourceStart + a - r.start, sourceEnd: r.sourceStart + b - r.start });
+  }
+  return result;
 }
 const number = v => v != null && v !== "" && v !== "N/A" && Number.isFinite(Number(v)) ? Number(v) : undefined;
 async function scanFile(file, { timeoutMs } = {}) {
@@ -100,4 +124,4 @@ async function scanFile(file, { timeoutMs } = {}) {
     });
   });
 }
-module.exports = { primaryStream, accumulator, scanFile, coverage };
+module.exports = { primaryStream, accumulator, scanFile, coverage, toSource, fromSource, sourceRanges };
