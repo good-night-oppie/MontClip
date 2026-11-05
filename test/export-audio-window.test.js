@@ -162,3 +162,37 @@ test('server: the window is written to disk and streamed, its WAV header walked 
   a.equal(c.data.size, 64); a.equal(c.data.offset, 12 + 8 + 16 + 8 + 10 + 8);
   a.equal(wavChunks(Buffer.from('nope')), null);
 });
+
+/* QQ 2026-11-05 (d): the window is the one path now, so a short and a long recording with the same late audio give the
+   same answer. Both FLV (aac), audio starting 80 ms after the video, a beep at 5.000 s of the audio (5.080 s on the
+   container clock); the long one, 10 minutes, has a second beep near its end (595.080 s) so drift would show. */
+test('server: a short and a long FLV with audio 80 ms late put the beep at the same place, to ±1 ms, and the long one does not drift', { timeout: 180000 }, async (t) => {
+  const { makeDataDir, seedProject, startServer } = require('./helpers'), FF = require('../ffmpeg-path');
+  if (!FF.available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
+  const dir = makeDataDir(t, seedProject({ revision: 1 }));
+  fs.mkdirSync(path.join(dir, 'media'), { recursive: true });
+  const make = (name, d, beeps) => execFileSync(FF.path('ffmpeg'), ['-v', 'error', '-y', '-f', 'lavfi', '-i', `testsrc2=s=160x90:r=10:d=${d}`,
+    '-itsoffset', '0.08', '-f', 'lavfi', '-i', `aevalsrc='${beeps.map((b) => `gte(t,${b})*lt(t,${b + 0.2})`).join('+')}*0.5*sin(2*PI*1000*t)|0':s=48000:d=${d}`,
+    '-map', '0:v', '-map', '1:a', '-c:v', 'flv', '-c:a', 'aac', path.join(dir, 'media', name)]);
+  make('short.flv', 10, [5]); make('long.flv', 600, [5, 595]);
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1' });
+  const beepAt = async (name, from, to) => {
+    const r = await fetch(`${base}/api/audio-window?src=/media/${name}&from=${from}&to=${to}`);
+    a.equal(r.status, 200, name);
+    const L = readWav(Buffer.from(await r.arrayBuffer())).ch(0);
+    return from + L.findIndex((v) => Math.abs(v) > 0.05) / 48000;
+  };
+  const short = await beepAt('short.flv', 4, 6), long = await beepAt('long.flv', 4, 6), late = await beepAt('long.flv', 594, 596);
+  for (const [what, v, want] of [['short', short, 5.08], ['long', long, 5.08], ['long, near its end', late, 595.08]])
+    a.ok(Math.abs(v - want) <= 0.001, `${what}: beep at ${v.toFixed(4)} s, want ${want.toFixed(4)}`);
+  t.diagnostic(`beep: short ${short.toFixed(4)} s, long ${long.toFixed(4)} s, long near its end ${late.toFixed(4)} s`);
+  a.ok(Math.abs(short - long) <= 0.001, `short ${short.toFixed(4)} and long ${long.toFixed(4)} agree`);
+});
+
+/* QQ 2026-11-05 (b), the audio-window side: the window is decoded by the bundled build, never a local FFmpeg. */
+test('the audio window is decoded by the bundled FFmpeg', () => {
+  const server = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+  const route = server.slice(server.indexOf('if (p === "/api/audio-window"'), server.indexOf('if (p === "/api/frame"'));
+  a.match(route, /spawn\(FF\.path\("ffmpeg"\), AudioWindow\.windowArgs\(/);
+  a.ok(!/externalFfmpeg|exportBinary/.test(route));
+});
