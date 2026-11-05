@@ -135,3 +135,46 @@ test("the agent alone hears what is missing: missing and the manifest's ids, mar
     a.match(say.slice(0, i), /never show (it|this) to the user/i, code + ": marked as the agent's only");
   }
 });
+
+/* QQ on #165: the ENOENT from asr-models.js (a missing manifest) and the require error from asr-local.js (an engine
+   that can't be loaded) carry the full install path, and went out in /api/asr/status's engine.why and the 409's error.
+   What reaches the page names no path on this computer: not the app's folder, the user's home or the temp folder. */
+const strings = (v, out = []) => { if (typeof v === "string") out.push(v); else if (v && typeof v === "object") for (const x of Object.values(v)) strings(x, out); return out; };
+function noLocalPath(body, roots, what) {
+  for (const s of strings(body)) for (const r of roots.filter(Boolean)) {
+    a.ok(!s.toLowerCase().includes(r.toLowerCase()), `${what}: "${s}" names ${r}`);
+    a.ok(!s.toLowerCase().includes(r.split("\\").join("/").toLowerCase()), `${what}: "${s}" names ${r}`);
+  }
+}
+const localRoots = (...more) => [os.homedir(), os.tmpdir(), fs.realpathSync(os.tmpdir()), ROOT, ...more];
+
+test("no manifest: status and the 409 name no path on this computer", async (t) => {
+  const app = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-nomanifest-"));
+  t.after(() => fs.rmSync(app, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }));
+  for (const f of fs.readdirSync(ROOT)) if (/\.(js|html|css|json)$/.test(f) && f !== "project.json") fs.copyFileSync(path.join(ROOT, f), path.join(app, f));
+  fs.mkdirSync(path.join(app, "desktop"));
+  for (const f of ["ffmpeg-manifest.json", "fetch-ffmpeg.cjs"]) fs.copyFileSync(path.join(ROOT, "desktop", f), path.join(app, "desktop", f));
+  const r = await ask(t, (d) => ({ MONTCLIP_ASR_DIR: path.join(d, "asr") }), { serverJs: path.join(app, "server.js") });
+  a.equal(r.status.body.code, "ASR_MANIFEST_MISSING");
+  a.match(r.status.body.engine.why, /asr-manifest\.json/, "still says which file");
+  noLocalPath(r.status.body, localRoots(app), "status");
+  noLocalPath(r.transcribe.body, localRoots(app), "409");
+});
+
+test("an engine that can't be loaded: the error names no path on this computer", async (t) => {
+  const { manifest } = require("../asr-models");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-badengine-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const nm = path.join(dir, "engine", "node_modules");
+  // sherpa-onnx-node whose main file is not there: require() throws "Cannot find module '<full path>'"
+  fs.mkdirSync(path.join(nm, "sherpa-onnx-node"), { recursive: true }); fs.writeFileSync(path.join(nm, "sherpa-onnx-node", "package.json"), '{"main":"gone.js"}');
+  const native = path.join(nm, require("../asr-local").nativePackage()); fs.mkdirSync(native); fs.writeFileSync(path.join(native, "package.json"), "{}");
+  const vad = path.join(dir, manifest.engine.vad.file); fs.writeFileSync(vad, ""); fs.truncateSync(vad, manifest.engine.vad.size);
+  fs.mkdirSync(path.join(dir, "model"));
+  const store = { dir: (k) => (k === "asr" ? path.join(dir, "model") : null), status: () => ({ asr: { ready: true, missing: [], bad: [] }, punct: { ready: false, missing: [], bad: [] } }) };
+  const asr = require("../asr-local").createAsr({ asrDir: dir, store, ffmpeg: "ffmpeg" });
+  let err = null;
+  try { await asr.transcribe(path.join(dir, "x.wav"), {}); } catch (e) { err = e; }
+  a.equal(err && err.code, "ASR_ENGINE_MISSING");
+  noLocalPath({ message: err.message }, localRoots(dir), "engine error");
+});
