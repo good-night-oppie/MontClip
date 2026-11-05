@@ -75,7 +75,7 @@ test('the local FFmpeg check returns codes, and the page gets codes, not English
  a.equal((await X.check(exe,{run:async()=>({code:1,stdout:''})})).code,'extNotFfmpeg');
  a.equal((await X.check(exe,{run:async(f,args)=>({code:0,stdout:args.includes('-version')?'ffmpeg version 7':' V....D h264_mf  H.264'})})).code,'extNoX264');
  const settings=path.join(d,'s.json');fs.writeFileSync(settings,'{bad');
- a.equal((await X.createExternal({settingsFile:settings}).current()).code,'extSettingBad');
+ a.equal((await X.createExternal({settingsFile:settings,setup:'settings'}).current()).code,'extSettingBad');
  const page=X.forPage(await X.check(path.join(d,'gone.exe')));
  a.deepEqual(Object.keys(page).sort(),['code','ok','path'],'no English reason reaches the page');
  a.deepEqual(X.noH264({platform:'win32',mediaFoundation:false}),{code:'h264NoneWin',featurePack:true});

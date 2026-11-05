@@ -90,11 +90,41 @@ const ENV_WHY = {
   extNotFfmpeg: "it could not be started, or it is not FFmpeg",
   extNoX264: "it has no libx264 encoder",
 };
-/** The server's view of the setting. Re-checked when the setting or the file changes.
-    `setup` says where a user can name one: "settings" (desktop: the Settings dialog) or "server"
-    (web / server mode: MONTCLIP_EXTERNAL_FFMPEG when the server starts). */
+/** How MontClip was started, which decides only how a reason is worded (what the user can do there), never which
+    encoder is used: "settings" (desktop app: the Settings dialog), "plugin" (Cindy plugin: the plugin names one),
+    "server" (node server.js in a browser: MONTCLIP_EXTERNAL_FFMPEG when it starts). */
+function setupFor(env = process.env) {
+  if (env.MONTCLIP_HOST === "cindy") return "plugin";
+  return env.MONTCLIP_DESKTOP === "1" ? "settings" : "server";
+}
+
+/** A user's choice, saved where the server reads it: the desktop main process (file dialog) and the Cindy plugin's
+    worker both call these, so the check and the file are the same everywhere. → forPage-able results. */
+async function saveChoice(settingsFile, file, { run = defaultRun } = {}) {
+  const result = await check(file, { run });
+  if (!result.ok) return result;
+  const temp = settingsFile + "." + process.pid + "." + Date.now().toString(36) + Math.random().toString(36).slice(2, 8) + ".tmp";
+  try {
+    fs.mkdirSync(path.dirname(settingsFile), { recursive: true });
+    fs.writeFileSync(temp, JSON.stringify({ version: 1, path: result.path }), { flag: "wx" });
+    fs.renameSync(temp, settingsFile);
+  } catch { try { fs.unlinkSync(temp); } catch { } return { ok: false, path: result.path, code: "extSaveFailed", reason: "The choice could not be saved." }; }
+  return result;
+}
+function clearChoice(settingsFile) {
+  try { fs.rmSync(settingsFile, { force: true }); return { ok: false, code: "none" }; } catch { return { ok: false, code: "extRemoveFailed" }; }
+}
+async function savedStatus(settingsFile, { run = defaultRun } = {}) {
+  const saved = readSetting(settingsFile);
+  if (!saved) return { ok: false, code: "none" };
+  if (saved.bad) return { ok: false, code: "extSettingBad" };
+  return check(saved.path, { run });
+}
+
+/** The server's view of the setting. Re-checked when the setting or the file changes. Sources, first that is set:
+    the saved choice (desktop Settings, or the Cindy plugin), then MONTCLIP_EXTERNAL_FFMPEG. Same in every run mode. */
 function createExternal({ settingsFile = process.env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS || null,
-  envPath = process.env.MONTCLIP_EXTERNAL_FFMPEG || null, run = defaultRun } = {}) {
+  envPath = process.env.MONTCLIP_EXTERNAL_FFMPEG || null, run = defaultRun, setup = setupFor() } = {}) {
   let memo = null;
   const stamp = (f) => { try { const s = fs.statSync(f); return `${s.size}:${s.mtimeMs}`; } catch { return "gone"; } };
   async function checked(file, source) {
@@ -104,19 +134,24 @@ function createExternal({ settingsFile = process.env.MONTCLIP_EXTERNAL_FFMPEG_SE
     // the variable is not chosen in a dialog, so its failures name the variable instead of Settings
     if (!value.ok && source === "env") value = { ok: false, path: file, source, code: "extEnvUnusable",
       reason: `MONTCLIP_EXTERNAL_FFMPEG (${maskUserPath(file)}) cannot be used: ${ENV_WHY[value.code] || "it did not pass the check"}.` };
+    // outside the desktop app the reasons that point at its Settings ("choose again", "Stop using this FFmpeg") don't apply
+    if (!value.ok && source === "settings" && setup !== "settings") value = { ok: false, path: file, source, code: "extSavedUnusable",
+      reason: `The FFmpeg chosen for MontClip (${maskUserPath(file)}) cannot be used: ${ENV_WHY[value.code] || "it did not pass the check"}.` };
     memo = { key, value };
     return value;
   }
   async function current() {
     const s = readSetting(settingsFile);
-    if (s && s.bad) return { ok: false, code: "extSettingBad", reason: "The saved local FFmpeg setting could not be read. Choose the program again in Settings." };
+    if (s && s.bad) return setup === "settings"
+      ? { ok: false, code: "extSettingBad", reason: "The saved local FFmpeg setting could not be read. Choose the program again in Settings." }
+      : { ok: false, code: "extSavedUnusable", reason: "The saved FFmpeg choice for MontClip could not be read." };
     if (s) return checked(s.path, "settings");
     if (envPath) return checked(envPath, "env");
     return { ok: false, code: "none", reason: "none" };
   }
   return {
     current,
-    setup: settingsFile ? "settings" : "server",
+    setup,
     /** The bundled encoder set, plus libx264 while the local FFmpeg checks out. */
     async available(bundled) {
       const set = new Set([...bundled].filter((e) => e !== "libx264"));
@@ -140,11 +175,11 @@ function argsUseH264(args) {
   return false;
 }
 
-/** Why there is no H.264 encoder, as a code for the page. `setup:"server"` (no desktop Settings) lets the page
-    say what exists in that mode. */
+/** Why there is no H.264 encoder, as a code for the page. `setup` "server" / "plugin" (no desktop Settings) lets the
+    page say what exists in that mode. */
 function noH264({ platform = process.platform, mediaFoundation = true, setup } = {}) {
   const r = platform === "win32" ? { code: "h264NoneWin", featurePack: !mediaFoundation } : { code: "h264NoneOther", featurePack: false };
-  return setup === "server" ? { ...r, setup } : r;
+  return setup === "server" || setup === "plugin" ? { ...r, setup } : r;
 }
 /** The same in English, for agents and logs. */
 function noH264Reason({ platform = process.platform, mediaFoundation = true, setup } = {}) {
@@ -153,8 +188,9 @@ function noH264Reason({ platform = process.platform, mediaFoundation = true, set
     s += " and Windows' own H.264 encoder is not available.";
     if (!mediaFoundation) s += " This looks like a Windows \"N\" edition without media components: install the Media Feature Pack from Windows Settings (Optional features), then restart MontClip.";
   } else s += ".";
+  if (setup === "plugin") return s + " In Cindy, name an FFmpeg with libx264 on this computer for MontClip to use, or export in another format (for example Archive).";
   if (setup === "server") return s + " Start the MontClip server with MONTCLIP_EXTERNAL_FFMPEG set to the full path of an FFmpeg that has libx264 (for example /usr/bin/ffmpeg), or export in another format (for example Archive).";
   return s + " You can choose your own FFmpeg with libx264 in Settings, or export in another format (for example Archive).";
 }
 
-module.exports = { maskUserPath, forPage, noH264, check, createExternal, isExternalJob, argsUseX264, argsUseH264, noH264Reason, readSetting };
+module.exports = { maskUserPath, forPage, noH264, check, setupFor, saveChoice, clearChoice, savedStatus, createExternal, isExternalJob, argsUseX264, argsUseH264, noH264Reason, readSetting };

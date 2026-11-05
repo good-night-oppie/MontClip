@@ -73,7 +73,9 @@ test('server, no H.264 encoder: H.264 refused at begin with a code, Archive (FFV
     { fps: 30, name: 'x', profile: 'delivery', hasAudio: false }]) {
     const r = await begin(req); a.equal(r.status, 400); const j = await r.json();
     a.match(j.code, /^h264None(Win|Other)$/, JSON.stringify(j)); a.ok(!/[一-鿿]/.test(j.error), 'English for agents and logs');
-    a.equal(V.h264Refusal('zh-CN', j), JJ_ZH);
+    // node server.js without the desktop app is server mode; the desktop app keeps JJ's sentence
+    a.equal(j.setup, 'server'); a.equal(V.h264Refusal('zh-CN', j), V.text['zh-CN'].h264RefuseServer);
+    a.equal(V.h264Refusal('zh-CN', { code: j.code }), JJ_ZH);
   }
   const r = await begin({ ...canvas, deliveries: [{ delivery: { preset: 'archive' }, name: 'c' }] });
   const j = await r.json(); a.equal(r.status, 200, JSON.stringify(j)); a.ok(j.id);

@@ -424,12 +424,15 @@ async function exportBinary(useX264) {
   if (!useX264) return FF.path("ffmpeg");
   const ext = await externalFfmpeg.current();
   if (ext.ok) return ext.path;
-  const server = externalFfmpeg.setup === "server";
+  const setup = externalFfmpeg.setup, how = {
+    settings: "choose it in Settings",
+    server: "start the MontClip server with MONTCLIP_EXTERNAL_FFMPEG set to its full path",
+    plugin: "in Cindy, name it for MontClip to use",
+  }[setup] || "choose it in Settings";
   throw Object.assign(new Error(ext.reason === "none"
-    ? (server ? "libx264 is only available from an FFmpeg of your own: start the MontClip server with MONTCLIP_EXTERNAL_FFMPEG set to its full path, or use a delivery preset (MontClip then uses the graphics card or Windows' own H.264 encoder)."
-      : "libx264 is only available from your own FFmpeg: choose it in Settings, or use a delivery preset (MontClip then uses the graphics card or Windows' own H.264 encoder).")
+    ? `libx264 is only available from your own FFmpeg: ${how}, or use a delivery preset (MontClip then uses the graphics card or Windows' own H.264 encoder).`
     : "Your local FFmpeg cannot be used: " + X.maskUserPath(ext.reason)),
-  { status: 400, code: ext.reason === "none" ? "extNeeded" : ext.code, ...(server ? { setup: "server" } : {}) });
+  { status: 400, code: ext.reason === "none" ? "extNeeded" : ext.code, ...(setup !== "settings" ? { setup } : {}) });
 }
 /** No H.264 encoder at all (bundled, graphics card or the user's x264): the refusal, before anything renders (ADR 2026-11-02, 3). */
 async function noH264Error() {
