@@ -68,6 +68,7 @@ const { createProxies } = require("./proxy");
 const { createTranscripts } = require("./transcripts");
 const Delivery = require("./delivery");
 const ExportCleanup = require("./export-cleanup");
+const ExportCheck = require("./export-check");
 const { createProjects } = require("./projects");
 const { createHistory } = require("./history");
 
@@ -536,6 +537,7 @@ async function verifyDeliveryOutput(sess, o, file) {
   try {
     const loudWanted = o.spec.audio.codec !== "none" && !!sess.wav;
     const [probe, loud] = await Promise.all([ffprobeJSON(file), loudWanted ? measureLoudness(file, VERIFY_LOUDNESS_MS) : null]);
+    o.loud = loud;   // the self-check reads its silence (blankCheck)
     if (!probe) return failed("could not read the file back to check it (ffprobe)");
     let size = 0;
     try { size = fs.statSync(file).size; } catch {}
@@ -544,6 +546,19 @@ async function verifyDeliveryOutput(sess, o, file) {
       size, loud, loudWanted, frame: o.frame, hasAudio: !!sess.wav,
     });
   } catch (e) { return failed("could not check the file: " + (e.message || e)); }
+}
+/** The self-check of a finished file (export-check.js): null when it may be called done, else {code, error, check}.
+ *  `loud`: the file's measured loudness (a delivery report), when there is one; `soundless`: the output was asked to
+ *  have no sound (a delivery with audio codec none), so its silence is not checked. */
+async function blankCheck(sess, file, loud, soundless = false) {
+  const plan = sess.check && (soundless ? { ...sess.check, audio: [] } : sess.check);
+  if (!plan || (!plan.video.length && !plan.audio.length)) return null;
+  try {
+    const r = await ExportCheck.check({ ffmpeg: FF.path("ffmpeg"), file, plan, resolve: resolveSrc,
+      silent: !sess.wav ? true : loud ? !!loud.silent : null, mix: sess.wav });
+    if (process.env.MONTCLIP_EXPORT_CHECK_LOG) console.log("[export-check] " + JSON.stringify(r));
+    return r.ok ? null : { code: ExportCheck.failCode(r), error: ExportCheck.failText(r), check: r };
+  } catch { return null; }   // a check that cannot run never fails an export
 }
 /** Spawn one ffmpeg per output of a delivery session. */
 function startDeliveryEncoders(sess) {
@@ -1460,7 +1475,10 @@ const server = http.createServer(async (req, res) => {
       const mode = opts.mode === "annexb" ? "annexb" : "jpeg";
       if (mode !== "annexb" && opts.profile) resolveProfile(opts.profile); // 400, not 500, on a bad id — even without ffmpeg
       if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
-      sendJSON(res, 200, await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts));
+      const begun = await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts);
+      const sess = exportSessions.get(begun.id);
+      if (sess) sess.check = ExportCheck.cleanPlan(opts.check);   // what the finished file is checked against (export-check.js)
+      sendJSON(res, 200, begun);
     } catch (e) {
       // an unusable profile is the caller's problem, not a server fault
       const bad = /^Unknown encoding profile|was rejected by ffmpeg|ffmpeg rejected these settings|at most \d+ outputs|deliveries is empty|render each frame rate separately|export fps required|export width\/height required/.test(e.message || "");
@@ -1548,12 +1566,14 @@ const server = http.createServer(async (req, res) => {
           exportedThisRun.add(file);
           freshExports.add(file);
           const report = await verifyDeliveryOutput(sess, o, o.outPath);
+          const blank = await blankCheck(sess, o.outPath, o.loud, o.spec.audio.codec === "none");
+          if (blank) return { file, ok: false, src: "/exports/" + encodeURIComponent(file), error: blank.error, code: blank.code, ...(report ? { report } : {}) };
           return { file, ok: true, src: "/exports/" + encodeURIComponent(file), ...(report ? { report } : {}),
             ...(o.loudnorm ? { mixLoudness: o.loudnorm.input_i } : {}) };
         }));
         cleanupExport(id);
         const ok = results.filter((x) => x.ok);
-        if (!ok.length) throw new Error(results.map((x) => `${x.file}: ${x.error}`).join(" · "));
+        if (!ok.length) throw Object.assign(new Error(results.map((x) => `${x.file}: ${x.error}`).join(" · ")), { code: results.find((x) => x.code)?.code });
         sendJSON(res, 200, { ok: true, src: ok[0].src, outputs: results });
         return;
       }
@@ -1565,9 +1585,11 @@ const server = http.createServer(async (req, res) => {
       sess.partPath = null; // renamed — cleanup must not delete the finished file
       exportedThisRun.add(path.basename(out));
       freshExports.add(path.basename(out));
+      const blank = await blankCheck(sess, out, null);
       cleanupExport(id);
+      if (blank) throw Object.assign(new Error(`${path.basename(out)}: ${blank.error}`), { code: blank.code });
       sendJSON(res, 200, { ok: true, src: "/exports/" + encodeURIComponent(path.basename(out)) });
-    } catch (e) { cleanupExport(id); sendJSON(res, 500, { error: String(e) }); }
+    } catch (e) { cleanupExport(id); sendJSON(res, 500, { error: String(e), ...(e && e.code ? { code: e.code } : {}) }); }
     return;
   }
 

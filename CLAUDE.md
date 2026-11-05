@@ -1677,6 +1677,7 @@ entry. These fields are read-only — they describe the file:
 | `codec` | video codec (`h264`, `hevc`, `prores`, `vp9` …), or the image format (`png`, `mjpeg`) |
 | `audioCodec` · `audioChannels` · `sampleRate` | first audio stream: codec, channel count (`0` = the file has no audio), Hz |
 | `size` · `bitrate` | file size in bytes · overall bitrate, bits per second |
+| `start` · `audioOffset` | only on a file whose clock doesn't start at 0 (an OBS recording whose timestamps start at 3600 s, an MP4 edit list): `start` is where media time 0 — the file's start, the 0 of `ffmpeg -ss` — sits on the file's own clock, seconds; `audioOffset` is where its decoded sound starts in media time (−0.021 for the AAC priming ahead of such a recording). The editor's players, the export's decoder and its audio mix are shifted by them, so `in` and every media time mean the same thing as for any other file |
 | `width` · `height` · `duration` | as before; filled in when missing (phone footage shot rotated reports its upright size). An MKV whose timestamps start late (3600 s) is as long as it plays; one whose header has no length takes it from its streams (their durations, then their DURATION tags), from the earliest start to the latest end; when nothing in the file says it, there is no `duration` and the editor says so. The editor asks once about every MKV / WebM and every recording without a length, old projects included (`durationChecked` marks it), and MCP imports read the length the same way. Clips already placed from a wrong (too long) length are fitted to the corrected one, as one undo step |
 
 Without ffprobe on PATH only `size` is filled in; the browser still probes
@@ -2369,7 +2370,7 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
 - Fast / WebCodecs export (browser compositor → server ffmpeg):
   `GET /api/export/ffmpeg` → `{available}` · `GET /api/export/profiles[?detail=1]` →
   `{default, profiles, issues}` · `POST /api/export/begin`
-  `{fps,name,mode?,profile?,hasAudio?,pixelFormat?,width?,height?}` → `{id,mode,profile?,label,summary}`
+  `{fps,name,mode?,profile?,hasAudio?,pixelFormat?,width?,height?,check?}` → `{id,mode,profile?,label,summary}`
   (`fps` is required — pass `project.fps`, no server-side default;
   `mode` is `"jpeg"` (default, Fast) or `"annexb"` (WebCodecs H.264 elementary stream);
   jpeg **400** if `profile` is not a defined id, or if ffmpeg rejects its args in the dry run;
@@ -2378,7 +2379,9 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
   used `pixelFormat:"rgba"`; Annex-B for annexb — one POST may concatenate frames
   or AUs. Must be after audio; ffmpeg is spawned on the first frame in both modes)
   · `POST /api/export/audio?id=` (WAV body — must be sent before the first frame)
-  · `POST /api/export/end?id=[&discard=1]` → `{src}` under `/exports/`
+  · `POST /api/export/end?id=[&discard=1]` → `{src}` under `/exports/`; **500** with `code`
+  `EXPORT_BLANK_PICTURE` / `EXPORT_BLANK_SOUND` / `EXPORT_BLANK_BOTH` when the file came out black or
+  silent from start to end while the footage in `check` (`{video:[{t, src, at}], audio:[{src, at, dur}]}`) is not
 - Export jobs (what `fablecut_export` drives): `POST /api/export/request`
   `{range?, profile?, where?:"auto"|"tab"|"headless"}` → `{id, status, via, …}`
   (409 if one is already running, or nothing can render it) · `GET /api/export/job?id=`
@@ -2724,6 +2727,12 @@ A spec (every key optional — what is left out comes from its `preset`):
   against the platform's limit. Without a target the report says where the platform
   plays it ("YouTube plays it 4.2 dB quieter"). The report shows in the queue, a toast
   after a single export, and the `fablecut_export` reply.
+- **Never done when blank.** An export whose file is black from start to end, or silent, while the footage on the
+  timeline at those moments is not, fails instead of finishing: the editor says so in plain words (`EXPORT_BLANK_PICTURE`
+  / `EXPORT_BLANK_SOUND` / `EXPORT_BLANK_BOTH`), `fablecut_export` returns the reason, and the file stays in
+  `exports/`. The editor sends what to compare with (`check` on `/api/export/begin`: at 8 moments, the video clips on
+  screen and where in their file they are; up to 8 stretches of sound), and the server reads 8 frames of the finished
+  file — about 0.4 s for 10 minutes of 1080p — and the sources only when the file looks blank.
 - **Saved presets**: "Save preset…" in the dialog writes `library/delivery/<id>.json`,
   listed under "Saved" in every project (`GET / POST /api/export/presets`,
   `POST /api/export/presets/delete {id}`).
@@ -2766,7 +2775,7 @@ ones and starts.
 - REST: `POST /api/export/begin {deliveries:[{delivery, name}, …], canvasW, canvasH,
   region?, duration, fps, hasAudio}` → `{id, input, jpegQuality, outputs:[{file, spec,
   summary, notes, size}]}`; frames and audio as for one output; `/api/export/end` →
-  `{src, outputs:[{file, ok, src, report:{ok, checks:[{ok, text}], line}, mixLoudness?} | {file, ok:false, error}]}`.
+  `{src, outputs:[{file, ok, src, report:{ok, checks:[{ok, text}], line}, mixLoudness?} | {file, ok:false, error, code?}]}`.
 
 ### Encoding profiles (`encoding-profiles.json`)
 

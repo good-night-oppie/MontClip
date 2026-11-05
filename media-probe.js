@@ -50,6 +50,15 @@ function runProbe(file) {
   });
 }
 
+/** The time of the first packet of the first sound stream, or null (media-lib.js probeClock). */
+function firstAudioPts(file) {
+  return new Promise((resolve) => {
+    execFile(FF.path("ffprobe"), ["-v", "error", "-select_streams", "a:0", "-show_entries", "packet=pts_time", "-read_intervals", "%+#1", "-of", "csv=p=0", file],
+      { encoding: "utf8", timeout: 15_000, windowsHide: true },
+      (err, stdout) => { const line = String(stdout || "").trim().split(/\s+/)[0], t = Number(line); resolve(!err && line && Number.isFinite(t) ? t : null); });
+  });
+}
+
 async function probeFile(file) {
   let st;
   try { st = await fs.promises.stat(file); } catch { return null; }
@@ -65,7 +74,8 @@ async function probeFile(file) {
         await slot();
         try {
           const json = await runProbe(file);
-          if (json) info = { ...MediaLib.parseProbe(json, st.size), probe: "ffprobe" };
+          const pts = json && MediaLib.needsFirstAudioPts(json) ? await firstAudioPts(file) : null;
+          if (json) info = { ...MediaLib.parseProbe(json, st.size, pts), probe: "ffprobe" };
         } finally { release(); }
       }
       if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value);

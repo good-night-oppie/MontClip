@@ -43,7 +43,7 @@ const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
  *  off unless the main process turned it on (desktop/features.js). Off means no entry and no download. */
 function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
 /** A server refusal's reason code, said in the interface language; "" when the code has no text of its own. */
-const CODE_TEXT = { NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready", EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept" };
+const CODE_TEXT = { EXPORT_BLANK_PICTURE: "own.export-blank-picture", EXPORT_BLANK_SOUND: "own.export-blank-sound", EXPORT_BLANK_BOTH: "own.export-blank-both", NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready", EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept" };
 function codeText(error) {
   const code = error && (error.code || error.errorCode);
   return typeof code === "string" && CODE_TEXT[code] ? uiText(CODE_TEXT[code]) : "";
@@ -833,7 +833,7 @@ const runtime = {
   clipEls: new Map(),   // clipId -> HTMLMediaElement
   clipGain: new Map(),  // clipId -> GainNode
   mediaAux: new Map(),  // mediaId -> {img?, thumb?, svgText?, svgAnimated?}
-  audioBufs: new Map(), // media src -> Promise<AudioBuffer> (waveforms + export mix); by file, so a relinked entry decodes its new one
+  audioBufs: new Map(), // media src (#audioOffset) -> Promise<AudioBuffer> (waveforms + export mix); by file, so a relinked entry decodes its new one
   wavePeaks: new Map(), // mediaId -> {src, channels: Float32Array[], max: Float32Array} | Float32Array (legacy) | {src, pending}
   library: {},          // dir -> [{name, rel, src, size}] cached /api/library results
   customFonts: [],      // family names loaded from /library/fonts
@@ -1960,7 +1960,7 @@ async function syncFromServer(force) {
       applyProject(data);
       { // decoded audio is by file: keep what this project uses, free the rest
         const srcs = new Set(project.media.map((m) => m.src));
-        for (const src of [...runtime.audioBufs.keys()]) if (!srcs.has(src)) runtime.audioBufs.delete(src);
+        for (const key of [...runtime.audioBufs.keys()]) if (!srcs.has(key.split("#")[0])) runtime.audioBufs.delete(key);
       }
       setTime(0);
       await restoreUndoStack();   // this project's own undo history, as its tab left it
@@ -2069,6 +2069,7 @@ async function grabThumb(m) {
   v.muted = true; v.preload = "auto";
   if (isCrossOriginSrc(m.src)) v.crossOrigin = "anonymous";
   v.src = m.src;
+  setPlayerStart(v, playerStart(m, m.src));
   await new Promise((res, rej) => { v.onloadeddata = res; v.onerror = rej; });
   v.currentTime = Math.min(0.5, (v.duration || 1) / 2);
   await new Promise((res) => { v.onseeked = res; setTimeout(res, 1500); });
@@ -2086,16 +2087,33 @@ let decodeCtx = null;
 function getDecodeCtx() {
   return decodeCtx || (decodeCtx = new (window.AudioContext || window.webkitAudioContext)());
 }
+/** The sound of media m, sample 0 at its media time 0. decodeAudioData starts where the decoded sound starts, which for a
+ *  file whose timestamps don't start at 0 is not media time 0 (media-lib.js probeClock: the 1024 samples of AAC priming
+ *  ahead of a recording that starts at 3600 s, 21 ms) — m.audioOffset says by how much, and the buffer is cut or padded
+ *  to it, so the waveform, the export mix and every reader of the buffer use media time. */
 function getAudioBuffer(m) {
-  const src = m.src;
-  let p = runtime.audioBufs.get(src);
+  const src = m.src, off = Number.isFinite(m.audioOffset) ? m.audioOffset : 0;
+  const key = off ? src + "#" + off : src;
+  let p = runtime.audioBufs.get(key);
   if (!p) {
     p = fetch(src).then((r) => r.arrayBuffer())
-      .then((ab) => getDecodeCtx().decodeAudioData(ab));
-    runtime.audioBufs.set(src, p);
-    p.catch(() => runtime.audioBufs.delete(src));
+      .then((ab) => getDecodeCtx().decodeAudioData(ab))
+      .then((buf) => (off ? shiftAudioBuffer(buf, off) : buf));
+    runtime.audioBufs.set(key, p);
+    p.catch(() => runtime.audioBufs.delete(key));
   }
   return p;
+}
+/** buf with its first sample moved to `off` seconds: off < 0 drops the samples before 0, off > 0 puts silence ahead. */
+function shiftAudioBuffer(buf, off) {
+  const n = Math.round(off * buf.sampleRate), len = Math.max(1, buf.length + n);
+  const out = getDecodeCtx().createBuffer(buf.numberOfChannels, len, buf.sampleRate);
+  for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+    const data = buf.getChannelData(ch);
+    if (n < 0) out.copyToChannel(data.subarray(Math.min(-n, data.length)), ch, 0);
+    else out.copyToChannel(data.subarray(0, len - n), ch, n);
+  }
+  return out;
 }
 function ensureWave(m) {
   // Also decode peaks from video files when their audio is placed on an A track
@@ -2790,6 +2808,13 @@ async function refreshMediaInfo(list) {
   }
 }
 
+/** Before an export reads any file: the server's details of every file, its start and sound offset among them (a file
+ *  imported a moment ago, a project an agent just wrote), so the first frames and the mix use them. At most `ms`. */
+async function mediaInfoSettled(ms = 10000) {
+  refreshMediaInfo();
+  const until = Date.now() + ms;
+  while (mediaInfoBusy && Date.now() < until) await new Promise((r) => setTimeout(r, 25));
+}
 /* N25 (docs/decisions/2026-11-03-canvas-follows-source.md): the canvas of an empty project follows the first recording
    imported into it — its size (never scaled) and its average frame rate snapped to a standard rate (30 when none is
    near) — once the server has read them. Not an undo step, like the import itself. */
@@ -3323,6 +3348,34 @@ function mediaPlaySrc(m) {
   if (!m || m.kind !== "video" || state.exporting || runtime.forceOriginals || !proxiesOn()) return m && m.src;
   const p = proxyOf(m);
   return p ? p.src : m.src;
+}
+/** Where media time 0 of the file a player plays sits on that player's clock: m.start for the original (media-lib.js
+ *  probeClock: Chromium keeps the file's own timestamps, so an OBS recording that starts at 3600 s shows its first frame
+ *  at currentTime 3600), 0 for a proxy (ffmpeg writes it from 0). */
+function playerStart(m, src) {
+  return m && src === m.src && m.start > 0 ? m.start : 0;
+}
+/** Make a player read and take media time: its currentTime, fastSeek, buffered, duration and the mediaTime of its frame
+ *  callbacks are shifted by `start` (playerStart), so every seek in the editor and the export lands on the right frame.
+ *  Set again whenever the player takes another file; 0 leaves it as it is. */
+function setPlayerStart(el, start) {
+  el._fcStart = start > 0 ? start : 0;
+  if (el._fcClock || !el._fcStart) return;
+  el._fcClock = true;
+  const P = HTMLMediaElement.prototype, d = (k) => Object.getOwnPropertyDescriptor(P, k);
+  const ct = d("currentTime"), buf = d("buffered"), dur = d("duration");
+  Object.defineProperty(el, "currentTime", { configurable: true,
+    get() { return ct.get.call(this) - this._fcStart; }, set(v) { ct.set.call(this, v + this._fcStart); } });
+  Object.defineProperty(el, "duration", { configurable: true, get() { return dur.get.call(this) - this._fcStart; } });
+  Object.defineProperty(el, "buffered", { configurable: true, get() {
+    const b = buf.get.call(this), s = this._fcStart;
+    return { length: b.length, start: (i) => b.start(i) - s, end: (i) => b.end(i) - s };
+  } });
+  if (typeof P.fastSeek === "function") el.fastSeek = function (t) { return P.fastSeek.call(this, t + this._fcStart); };
+  const rvfc = typeof HTMLVideoElement !== "undefined" && HTMLVideoElement.prototype.requestVideoFrameCallback;
+  if (rvfc && el instanceof HTMLVideoElement) el.requestVideoFrameCallback = function (cb) {
+    return rvfc.call(this, (now, meta) => cb(now, this._fcStart && meta ? { ...meta, mediaTime: meta.mediaTime - this._fcStart } : meta));
+  };
 }
 /** Switch every player to the original files and wait until they can draw (export, still renders). */
 async function useOriginalPlayers() {
@@ -8322,6 +8375,7 @@ function ensureSourceEl(m) {
     runtime.sourceEl = el;
   }
   const want = mediaPlaySrc(m);
+  setPlayerStart(el, playerStart(m, want));
   if (el.dataset.src !== want) {
     el.src = want;
     el.dataset.src = want;
@@ -8901,11 +8955,13 @@ function getClipEl(c) {
   const src = c.kind === "video" ? mediaPlaySrc(m) : m && m.src;
   // The clip now plays another file (noise reduction or undoing it, a relink, proxies on / off): rebuild.
   if (el && m && el._fcSrc !== src) { releaseClipEl(c.id); el = null; }
-  if (el) return el;
+  // the server's start of the file can arrive after the player was made (an import, an old project)
+  if (el) { if (m && el._fcStart !== playerStart(m, src)) setPlayerStart(el, playerStart(m, src)); return el; }
   if (!m) return null;
   el = document.createElement(c.kind === "audio" ? "audio" : "video");
   el.preload = "auto"; el.src = src; el.playsInline = true;
   el._fcSrc = src;
+  setPlayerStart(el, playerStart(m, src));
   // a proxy is smaller than the original: fit "none" (native pixels) scales it back up
   el._fcScale = src !== m.src && m.height > 0 ? (proxyOf(m)?.height || m.height) / m.height : 1;
   runtime.clipEls.set(c.id, el);
@@ -11381,6 +11437,7 @@ function autoListen(c, w) {
   const from = w === "s" ? c.s : Math.max(c.s, c.e - 8), to = w === "s" ? Math.min(c.e, c.s + 8) : c.e;
   if (state.playing) pause();
   if (a.getAttribute("src") !== m.src) a.src = m.src;
+  setPlayerStart(a, playerStart(m, m.src));
   const stopAt = () => { if (a.currentTime >= to) { a.pause(); a.removeEventListener("timeupdate", stopAt); } };
   a.addEventListener("timeupdate", stopAt);
   const go = () => { a.currentTime = from; a.play().catch(() => {}); };
@@ -11397,6 +11454,7 @@ function autoPreview(c) {
   document.body.append(d);
   const v = d.querySelector("video, audio");
   v.src = m.src;
+  setPlayerStart(v, playerStart(m, m.src));
   v.addEventListener("loadedmetadata", () => { v.currentTime = c.s; v.play().catch(() => {}); }, { once: true });
   v.addEventListener("timeupdate", () => { if (v.currentTime >= c.e) v.pause(); });
   d.addEventListener("keydown", (e) => { if (e.key !== "Escape") e.stopPropagation(); });
@@ -15514,6 +15572,7 @@ async function sampleClipFrames(c, w, h, onFrame, onRgb, { fps = Reframe.SAMPLE_
   const el = document.createElement("video");
   if (isCrossOriginSrc(m.src)) el.crossOrigin = "anonymous";
   el.muted = true; el.preload = "auto"; el.playsInline = true; el.src = m.src;
+  setPlayerStart(el, playerStart(m, m.src));
   try {
     await new Promise((res, rej) => {
       const tm = setTimeout(() => rej(new Error("the video did not load")), 15000);
@@ -15707,6 +15766,7 @@ async function runTrack(c, { box, from, to, dir, scale = false, rotation = false
   if (c.kind !== "video" || !m) throw new Error("tracking needs a video clip");
   const el = document.createElement("video");
   el.muted = true; el.preload = "auto"; el.playsInline = true; el.src = m.src;
+  setPlayerStart(el, playerStart(m, m.src));
   try {
     await new Promise((res, rej) => {
       const tm = setTimeout(() => rej(new Error("the video did not load")), 15000);
@@ -19527,7 +19587,9 @@ async function exportDecodeFrame(c, t) {
   }
   if (!src) return false;
   try {
-    runtime.exportFrames.set(c.id, await src.frameAt(mediaTimeAt(c, t)));
+    // the demuxer's times are the file's own (after its edit list), like a player's: shift by where media time 0 is
+    const m = getMedia(c.mediaId);
+    runtime.exportFrames.set(c.id, await src.frameAt(mediaTimeAt(c, t) + playerStart(m, m && m.src)));
     return true;
   } catch (e) {   // a decode error: this clip falls back to its element for the rest of the export
     console.warn("[MontClip] export decode failed, using the video element:", e && e.message);
@@ -19642,6 +19704,36 @@ function encodeWAV(buf) {
    (clip chains → track buses → master fader), honoring volume / pan keyframes
    and fades. t0/t1 are timeline seconds (export window); mix time 0 is t0. */
 const FX_AUTOMATION_STEP = 0.02; // export automation resolution, seconds
+/** What the server checks a finished export against (export-check.js): at 8 moments of t0…t1, the video clips on screen
+ *  (shown, not faded out) and where in their file they are; and up to 8 stretches of sound the mix plays (≤ 10 s each).
+ *  Times on the export's own clock (0 = t0); media times as mediaTimeAt gives them (0 = the file's start, as ffmpeg -ss). */
+function exportCheckPlan(t0, t1) {
+  const dur = t1 - t0, video = [], audio = [];
+  if (!(dur > 0)) return { video, audio };
+  const round = (v) => Math.round(v * 1000) / 1000;
+  for (let i = 0; i < 8; i++) {
+    const t = ((i + 0.5) / 8) * dur, at = t0 + t;
+    for (const c of mediaClips()) {
+      if (c.kind !== "video" || !clipRenders(c) || !activeAt(c, at)) continue;
+      const m = getMedia(c.mediaId);
+      if (!m || !isLocalSrc(m.src) || !(evalProps(c, at).opacity > 0.05)) continue;
+      video.push({ t: round(t), src: m.src, at: round(Math.max(0, mediaTimeAt(c, at))) });
+    }
+  }
+  for (const c of mediaClips()) {
+    if (audio.length >= 8) break;
+    if ((c.kind !== "audio" && c.kind !== "video") || !clipRenders(c)) continue;
+    const a = Math.max(c.start, t0), b = Math.min(clipEnd(c), t1);
+    const m = getMedia(c.mediaId);
+    if (b - a < 0.05 || !m || !isLocalSrc(m.src) || !(clipAudioGain(evalProps(c, (a + b) / 2)) > 0.001)) continue;
+    audio.push({ src: m.src, at: round(Math.max(0, mediaTimeAt(c, a))), dur: round(Math.min(10, (b - a) * clipSpeed(c))) });
+  }
+  return { video, audio };
+}
+/** An /api/export/end that failed, as an Error with the server's reason code (codeText says it in the interface language). */
+function exportEndError(end, fallback) {
+  return Object.assign(new Error(end.error || fallback), end.code ? { code: end.code } : {});
+}
 async function renderAudioMix(t0, t1, opts = {}) {
   const jobs = [];
   for (const c of mediaClips()) {
@@ -19764,6 +19856,7 @@ async function fastExport(opts = {}) {
   const setError = (err) => { if (!uploadError) uploadError = err; };
   try {
     els.exportTitle.textContent = uiText("own.mixing-audio");
+    await mediaInfoSettled();
     const wav = await renderAudioMix(t0, t1);
     if (renderCancelled) throw new Error("cancelled");
     const profileId = opts.profile || effectiveEncodeProfileId();
@@ -19773,12 +19866,13 @@ async function fastExport(opts = {}) {
       body: JSON.stringify(delivery ? {
         fps, duration: frames / fps,
         deliveries: deliveries.map((d) => ({ delivery: d.delivery, name: d.name || deliveryFileName(d.delivery, fps) })),
-        canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav,
+        canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav, check: exportCheckPlan(t0, t1),
       } : {
         fps,
         name: exportBaseName("export"),
         profile: profileId,
         hasAudio: !!wav,
+        check: exportCheckPlan(t0, t1),
       }),
       signal,
     }).then((r) => r.json());
@@ -19870,7 +19964,7 @@ async function fastExport(opts = {}) {
       try { workers?.terminate(); } catch { }
     }
     const end = await fetch("/api/export/end?id=" + sessId, { method: "POST", signal }).then((r) => r.json());
-    if (!end.src) throw new Error(end.error || "encode failed");
+    if (!end.src) throw exportEndError(end, "encode failed");
     const outs = end.outputs || [{ file: decodeURIComponent(end.src.split("/").pop()), ok: true, src: end.src }];
     // what each output was asked to be, beside what came out
     result = { outputs: outs.map((o, i) => ({ ...o, ...(begin.outputs && begin.outputs[i] ? { summary: begin.outputs[i].summary, notes: begin.outputs[i].notes } : {}) })) };
@@ -19889,9 +19983,9 @@ async function fastExport(opts = {}) {
   } catch (e) {
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
     const msg = e?.name === "AbortError" ? "cancelled" : String(e.message || e);
-    result = { error: msg, cancelled: msg === "cancelled" };
+    result = { error: msg, cancelled: msg === "cancelled", ...(e && e.code ? { code: e.code } : {}) };
     if (job) await reportExportJob(job, { status: "failed", error: msg }, true);
-    else if (msg !== "cancelled" && !opts.silent) alert(uiText("own.export-failed-prefix") + msg);
+    else if (msg !== "cancelled" && !opts.silent) alert(codeText(e) || uiText("own.export-failed-prefix") + msg);
   } finally {
     exportAbort = null;
     exportFullCanvas = false;
@@ -20033,7 +20127,7 @@ async function runQueue() {
         const o = res && res.outputs && res.outputs[i];
         if (o && o.ok) Object.assign(q, { status: "done", src: o.src, file: o.file, progress: 1, report: o.report || null });
         else if (res && res.cancelled) q.status = "cancelled";
-        else Object.assign(q, { status: "failed", error: (o && o.error) || (res && res.error) || "export failed" });
+        else Object.assign(q, { status: "failed", error: (o && (codeText(o) || o.error)) || (res && (codeText(res) || res.error)) || "export failed" });
       });
       renderQueue();
     }
@@ -20479,6 +20573,7 @@ async function webCodecsExport() {
   let up = null;
   try {
     els.exportTitle.textContent = uiText("own.mixing-audio");
+    await mediaInfoSettled();
     const wav = await renderAudioMix(t0, t1);
     if (renderCancelled) throw new Error("cancelled");
 
@@ -20489,6 +20584,7 @@ async function webCodecsExport() {
         name: exportBaseName("export"),
         mode: "annexb",
         hasAudio: !!wav,
+        check: exportCheckPlan(t0, t1),
       }),
       signal,
     }).then((r) => r.json());
@@ -20575,13 +20671,13 @@ async function webCodecsExport() {
     encoder.close();
     encoder = null;
     const end = await fetch("/api/export/end?id=" + sessId, { method: "POST", signal }).then((r) => r.json());
-    if (!end.src) throw new Error(end.error || "mux failed");
+    if (!end.src) throw exportEndError(end, "mux failed");
     saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true });
   } catch (e) {
     try { encoder?.close(); } catch { }
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
     const msg = e?.name === "AbortError" ? "cancelled" : String(e.message || e);
-    if (msg !== "cancelled") alert(uiText("own.export-failed-prefix") + msg);
+    if (msg !== "cancelled") alert(codeText(e) || uiText("own.export-failed-prefix") + msg);
   } finally {
     exportAbort = null;
     exportDecodeEnd();

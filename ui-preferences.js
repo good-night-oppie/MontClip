@@ -685,6 +685,11 @@
     "export-checked": ["Export checked", "导出勾选的版本"],
     "export-checked-n": ["Export checked ({n})", "导出勾选的版本（{n}）"],
     "export-failed-prefix": ["Export failed: ", "导出失败："],
+    // the export self-check (export-check.js): the file came out black / silent from start to end while the footage is not.
+    // 草稿，待 JJ 定稿 (2026-11-04): what happened, that the file must not be used, that the originals are unchanged, what to do now
+    "export-blank-picture": ["The export went wrong: the video is black from start to end, but the footage on the timeline has a picture. Don't use this file. Your originals are unchanged; export again, and tell us if it is still black.", "导出出了问题：成片从头到尾都是黑屏，可时间线上的素材是有画面的。这个文件别用。原片没有改动；请再导出一次，还是黑屏的话告诉我们。"],
+    "export-blank-sound": ["The export went wrong: the video has no sound from start to end, but the footage on the timeline has sound. Don't use this file. Your originals are unchanged; export again, and tell us if it is still silent.", "导出出了问题：成片从头到尾都没有声音，可时间线上的素材是有声音的。这个文件别用。原片没有改动；请再导出一次，还是没声音的话告诉我们。"],
+    "export-blank-both": ["The export went wrong: the video is black and silent from start to end, but the footage on the timeline has picture and sound. Don't use this file. Your originals are unchanged; export again, and tell us if it happens again.", "导出出了问题：成片从头到尾都是黑屏，也没有声音，可时间线上的素材有画面也有声音。这个文件别用。原片没有改动；请再导出一次，还是这样的话告诉我们。"],
     // JJ (#74): the version kept before the AI's edits, named in the interface language only
     "before-ai": ["Before AI changes", "AI 改之前"],
     // JJ (#71): the selection / proposal dialog in the interface language only, never 「中文 / English」 together
