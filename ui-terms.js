@@ -279,7 +279,7 @@
     "click-a-word": ["Click a word", "点击文稿中的文字", "own", "JJ review 2026-11-02: Chinese has sentence-level timing only"],
     "click-track-name": ["Click track name", "点击轨道名称", "B"],
     "find-words": ["Find words", "查找词", "B"],
-    "filter-e-g-marker-trim-mask": ["Filter — e.g. marker, trim, mask", "筛选 — 例如：标记、裁剪、蒙版", "B", "JJ 定稿表 #118：已用渲染后的中文帮助层验证「标记」可搜到，原文不换"],
+    "filter-e-g-marker-trim-mask": ["Filter — e.g. marker, keyframe, caption", "筛选 — 例如：标记、关键帧、字幕", "B", "Rea 定，2026-11-05；英文待 JJ 最终确认"],
     // JJ 定稿表（2026-11-05，rea/…初稿-v2，JJ 抽查通过）：index.html 剩余英文
     "double-click-to-open-in-source-or-drag-onto-the-timeline": ["Double-click to open in Source, or drag onto the timeline.", "双击可以先预览，或者直接拖到时间线上。", "own", "JJ 定稿表 #89（用 #137 定稿）"],
     "fit-window": ["Fit", "适合窗口", "own", "JJ 定稿表 #90"],

@@ -1401,6 +1401,7 @@ body.track-size-s .clip.selected {
 
 .tc-io-lab {
   font: 700 9px/1 "Segoe UI", system-ui, sans-serif;
+  white-space: nowrap;
   letter-spacing: 0.05em;
   color: var(--dim);
   text-align: right;

@@ -107,8 +107,10 @@ test('the master preset note stays English in delivery.js for agents and is tran
 
 test('static labels carry data-i18n markers and dynamic strings go through uiText',()=>{
  for(const [k,[e,,where]] of Object.entries(KEYS)){
-  if(where==='html')a.ok(html.includes('data-i18n="own.'+k+'"'),'index.html marks '+k);
-  else a.ok(app.includes('uiText("own.'+k+'"'),'app.js says '+k+' through uiText');
+  // DD (PR #144): the export dialog's engine notes render from term.* (JJ's v2 wording); the own.* keys stay as JJ's earlier copy
+  const ns=(k==='engine-fast-note'||k==='engine-webcodecs-note')?'term.':'own.';
+  if(where==='html')a.ok(html.includes('data-i18n="'+ns+k+'"'),'index.html marks '+k);
+  else a.ok(app.includes('uiText("'+ns+k+'"'),'app.js says '+k+' through uiText');
  }
  // a <label> wrapping a control: only the text is wrapped, so the control survives applyI18n
  for(const [id,k] of [['dlvRes','dlv-resolution'],['dlvFps','dlv-frame-rate'],['dlvCodec','dlv-codec'],['dlvEncoder','dlv-encoder'],['dlvRate','dlv-rate-control'],

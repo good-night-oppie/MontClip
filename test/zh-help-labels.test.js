@@ -1,6 +1,6 @@
 'use strict';
 /* Test first (red on the old code), then implementation. This file locks JJ's finalized table
-   (europa ~/montclip-labels/rea/2026-11-05-中文界面剩余英文-初稿-v2-Rea.md, sha256 5b1b7a13d400c772fa81d1d34a8fe704188bcf3c228e9f4a805f1c0201b0cac6;
+   (the shared wording table of 2026-11-05, Chinese draft v2, sha256 5b1b7a13d400c772fa81d1d34a8fe704188bcf3c228e9f4a805f1c0201b0cac6;
    JJ 抽查完成并给「可以交 Deja，再给实现」; numbered entries 1–120): the 87 help rows,
    the 21 other index.html spots and the 11 known remaining term rows. ⟨…⟩ is the page's own <kbd>/<code>. */
 const test = require('node:test'), a = require('node:assert/strict');
@@ -197,14 +197,14 @@ test('the 11 remaining rows take JJ\'s wording (定稿表 C)', () => {
     ['term.vector-animations-from-library-svg', '素材库里的矢量动画（SVG）'],
     ['term.overlay-art-from-library-elements', '素材库里的叠加素材'],
     ['term.sound-effects-from-library-sfx', '素材库里的音效'],
-    ['term.filter-e-g-marker-trim-mask', '筛选 — 例如：标记、裁剪、蒙版'],
+    ['term.filter-e-g-marker-trim-mask', '筛选 — 例如：标记、关键帧、字幕'],
     ['own.dlv-note-master', '和项目一样大 · 高画质 · H.264 恒定画质（CRF）16 · AAC 320k'],
   ];
   for (const [key, zh] of C) a.equal(view.t('zh-CN', key), zh, key);
   a.equal(view.t('zh-CN', 'own.as-lyrics'), '按歌词校准字幕', '#114: 按钮叫法以页面为准（已核对 own.as-lyrics）');
 });
 
-test('#118 (JJ 的条件): 搜「标记」确实能搜到帮助层里的行，所以 v2 原文一字不换', () => {
+test('#118 (JJ 的条件): 搜「标记」确实能搜到帮助层里的行；最终示例词按 Rea 决定', () => {
   const Z = require('./zh-shown');
   const region = html.slice(html.indexOf('id="helpKeys"'), html.indexOf('id="helpEmpty"'));
   const rows = [...region.matchAll(/<tr><td(?:\s[^>]*)?>[\s\S]*?<\/td>(<td[^>]*>)([\s\S]*?)<\/td><\/tr>/g)];
@@ -212,7 +212,7 @@ test('#118 (JJ 的条件): 搜「标记」确实能搜到帮助层里的行，�
     .filter((x) => x.text.includes('标记'));
   a.ok(hits.length > 0, 'the rendered zh-CN help text has at least one 标记 hit');
   a.deepEqual(hits.map((x) => x.row), [32, 33, 34, 40], 'the actual filter text of rows 32 / 33 / 34 / 40 contains 标记');
-  a.equal(view.t('zh-CN', 'term.filter-e-g-marker-trim-mask'), '筛选 — 例如：标记、裁剪、蒙版', 'v2 原句，不自行换词');
+  a.equal(view.t('zh-CN', 'term.filter-e-g-marker-trim-mask'), '筛选 — 例如：标记、关键帧、字幕', 'Rea 定的最终示例词');
 });
 
 test('the display whitelist includes SVG / VTT / Chromium (JJ v2 决定 1)', () => {

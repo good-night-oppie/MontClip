@@ -18696,13 +18696,13 @@ function renderExportEngineText() {
   const wcOk = fastOk && state.webCodecs && !ef;
   $("engineFastNote").textContent = fastOk
     ? (ef ? "Exports the " + ef.w + "×" + ef.h + " delivery frame (cropped). Keeps rendering if you switch tabs."
-      : uiText("own.engine-fast-note"))
+      : uiText("term.engine-fast-note"))
     : (ef
       ? "Needs the server + MontClip's bundled FFmpeg to export a cropped delivery frame."
       : "Needs the server + MontClip's bundled FFmpeg.");
   const wcNote = $("engineWebCodecsNote");
   if (wcNote) {
-    if (wcOk) wcNote.textContent = uiText("own.engine-webcodecs-note");
+    if (wcOk) wcNote.textContent = uiText("term.engine-webcodecs-note");
     else if (ef) wcNote.textContent = fastOk
       ? "Unavailable while an export frame is set — use Fast export."
       : "Unavailable while an export frame is set. Install ffmpeg, or clear the export frame to use Realtime.";
@@ -19725,7 +19725,7 @@ async function fastExport(opts = {}) {
   const signal = exportAbort.signal;
   if (!opts.silent) els.exportOverlay.classList.remove("hidden");
   els.exportProgress.style.width = "0%";
-  els.exportNote.textContent = "Rendering frames → ffmpeg. You can switch tabs; export continues.";
+  els.exportNote.textContent = uiText("term.engine-fast-note");
   restoreExportVideoState();
   const deliveries = opts.deliveries || (opts.delivery ? [{ delivery: opts.delivery }] : null);
   const delivery = deliveries ? deliveries[0].delivery : null;
@@ -20440,7 +20440,7 @@ async function webCodecsExport() {
   const signal = exportAbort.signal;
   els.exportOverlay.classList.remove("hidden");
   els.exportProgress.style.width = "0%";
-  els.exportNote.textContent = "Encoding with WebCodecs → ffmpeg mux. You can switch tabs; export continues.";
+  els.exportNote.textContent = uiText("term.engine-webcodecs-note");
   restoreExportVideoState();
   const { start: t0, end: t1, frames } = beginExportWindow();
   const fps = projectFps();
@@ -20822,10 +20822,17 @@ function filterHelp() {
   const words = $("helpFilter").value.toLowerCase().split(/\s+/).filter(Boolean);
   let any = false;
   for (const sec of $("helpKeys").querySelectorAll(".keys-sec")) {
-    const head = sec.querySelector("h3").textContent.toLowerCase();
+    const h3 = sec.querySelector("h3");
+    // a translated layer still answers English searches: match the shown text AND the saved
+    // English source (the heading's keyed English, and each cell's stashed original markup)
+    const headEn = h3 && h3.dataset.i18n ? MontClipView.t("en", h3.dataset.i18n) : "";
+    const head = ((h3 ? h3.textContent : "") + " " + headEn).toLowerCase();
     let shown = 0;
     for (const tr of sec.querySelectorAll("tr")) {
-      const text = head + " " + tr.textContent.toLowerCase();
+      const text = head + " " + [...tr.querySelectorAll("td")]
+        .map((td) => (td.dataset.i18nHtmlOrig || "") + " " + td.textContent)
+        .join(" ")
+        .toLowerCase();
       const hit = words.every((w) => text.includes(w));
       tr.classList.toggle("hidden", !hit);
       if (hit) shown++;

@@ -62,6 +62,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `three-track-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
 | `timeline-content-smoke.cjs` | `MONTCLIP_TIMELINE_COMPLETE` | 在用 |
 | `timeline-drag-smoke.cjs` | `MONTCLIP_DRAG_COMPLETE` | 在用 |
+| `tc-io-width-smoke.cjs` | `TC_IO_WIDTH_PASS` | 在用；360 / 630 / 1400px 下中英文控制条高度与 main 一致，入点 / 出点标签不逐字换行 |
 | `toast-more-smoke.cjs` | `TOAST_MORE_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `url-sentence-smoke.cjs` | `URL_SENTENCE_COMPLETE` | 在用 |
 | `zh-batch3-smoke.cjs` | `ZH3_COMPLETE` | 在用 |
