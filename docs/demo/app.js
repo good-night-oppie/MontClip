@@ -15958,7 +15958,7 @@ function bindTrackControls(c) {
 /** Monitor: the selected track's path, and its region at the playhead. */
 function drawTrackOverlay(c, W) {
   if (!c || trackUi.clip !== c.id || !els.inspector.querySelector("[data-track-section]")) return;
-  const tr = clipTracks(c)[trackUi.sel], B = maskBox(c);
+  const tr = clipTracks(c)[trackUi.sel], B = pictureBox(c);   // tracks are fractions of the cropped picture
   if (!tr || !B || !activeAt(c, state.time)) return;
   const lw = Math.max(1.5, W / 900), S = tr.samples, step = Math.max(1, Math.floor(S.length / 400));
   ctx2d.save(); ctx2d.setTransform(1, 0, 0, 1, 0, 0);
@@ -15977,7 +15977,7 @@ els.preview.addEventListener("pointerdown", (e) => {
   if (e.button !== 0 || trackUi.tool !== "point" || isSourceMode()) return;
   const c = getClip(state.selId);
   if (!c || c.id !== trackUi.clip || !activeAt(c, state.time)) return;
-  const B = maskBox(c);
+  const B = pictureBox(c);   // a track point is a fraction of the cropped picture
   if (!B) return;
   e.preventDefault(); e.stopImmediatePropagation();
   const bp = B.toBox(canvasPt(e)), u = bp.x / B.bw, v = bp.y / B.bh;
@@ -16147,6 +16147,18 @@ function maskBox(c) {
     bw: g.w, bh: g.h,
     toCanvas: (x, y) => { const p = M.transformPoint(new DOMPoint(x, y)); return { x: p.x, y: p.y }; },
     toBox: (pt) => { const p = inv.transformPoint(new DOMPoint(pt.x, pt.y)); return { x: p.x, y: p.y }; },
+  };
+}
+/** The cropped picture's box (tracks live here), from the mask box — the clip's whole source frame. */
+function pictureBox(c) {
+  const B = maskBox(c);
+  if (!B) return null;
+  const k = c.kind === "video" || c.kind === "image" || c.kind === "svg" || c.kind === "comp" ? cropFrac(evalProps(c, state.time)) : { l: 0, t: 0, r: 0, b: 0 };
+  const x0 = k.l * B.bw, y0 = k.t * B.bh;
+  return {
+    bw: B.bw * Math.max(1e-6, 1 - k.l - k.r), bh: B.bh * Math.max(1e-6, 1 - k.t - k.b),
+    toCanvas: (x, y) => B.toCanvas(x + x0, y + y0),
+    toBox: (pt) => { const q = B.toBox(pt); return { x: q.x - x0, y: q.y - y0 }; },
   };
 }
 /** Box px ↔ a mask's own frame (fractions of the picture, before its scale / rotation). */
