@@ -263,3 +263,44 @@ test("samples of what is copied (the PR shows them)", (t) => {
   t.diagnostic("B\n" + b);
   shapes(b, "zh-CN", r.what);
 });
+
+/* QQ (#161, security): a path the page sends is never looked at. A file's size is found by its name only, where the server
+   keeps files (media/, exports/, the files the project's media entries point at); found nowhere there: 「大小不明」. */
+test("a file's size: never a path the page sent — only its name, only where the server keeps files", () => {
+  const PF = require("../problem-files");
+  const os = require("node:os");
+  const where = { mediaDir: path.join(os.tmpdir(), "mc-media"), exportsDir: path.join(os.tmpdir(), "mc-exports"),
+    srcs: ["/media/archive/rec.mkv", "/media/other.mp4"], resolve: (src) => path.join(os.tmpdir(), "mc-media", ...src.slice(7).split("/")) };
+  for (const asked of ["C:\\Windows\\win.ini", "/etc/passwd", "C:\\Users\\alice\\Videos\\a.mp4", "\\\\NAS\\share\\x.mp4", "../../etc/hosts", "/home/alice/.ssh/id_rsa"]) {
+    const looked = [];
+    const spy = (f) => { looked.push(f); throw Object.assign(new Error("ENOENT"), { code: "ENOENT" }); };
+    a.equal(PF.sizeOf(asked, where, spy), null, asked + ": 大小不明");
+    for (const f of looked) {
+      a.ok(f.startsWith(where.mediaDir) || f.startsWith(where.exportsDir), `${asked}: only the server's folders are looked at, not ${f}`);
+      a.notEqual(path.resolve(f), path.resolve(asked), asked + " itself is never looked at");
+    }
+    a.ok(!looked.some((f) => /Windows|etc[\\/]|\.ssh|NAS|alice/.test(path.relative(where.mediaDir, f)) && !f.startsWith(where.exportsDir)), looked.join(", "));
+  }
+  // what is looked at for a name the project knows: media/, exports/, and that entry's own file in a subfolder
+  a.deepEqual(PF.candidates("D:\\anything\\rec.mkv", where), [path.join(where.mediaDir, "rec.mkv"), path.join(where.exportsDir, "rec.mkv"), path.join(where.mediaDir, "archive", "rec.mkv")]);
+  a.deepEqual(PF.candidates("..", where), []);
+  // and nothing in the server stats a path from the page any more
+  const server = fs.readFileSync(path.join(__dirname, "..", "server.js"), "utf8");
+  const body = server.slice(server.indexOf('if (p === "/api/problem-details"'), server.indexOf("/* {fresh:true} once for a file"));
+  a.doesNotMatch(body, /isAbsolute|statSync\(name|statSync\(f\)/);
+  a.match(body, /ProblemFiles\.sizeOf\(name, where, fs\.statSync\)/);
+});
+
+test("the server: a file named by an absolute path outside its folders has no size (大小不明), even when it exists", { timeout: 60_000 }, async (t) => {
+  const os = require("node:os");
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "mc-outside-"));
+  t.after(() => fs.rmSync(outside, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(outside, "secret-recording.mp4"), Buffer.alloc(3_000_000));
+  const dir = makeDataDir(t, seedProject({ media: [], clips: [] }));
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1" });
+  const res = await fetch(base + "/api/problem-details", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: "这次没有做完。", code: "E", log: `probe ${path.join(outside, "secret-recording.mp4")} and C:\\Windows\\win.ini and /etc/passwd failed`, language: "zh-CN" }) });
+  const { text } = await res.json();
+  a.deepEqual(text.split("\n").filter((l) => l.startsWith("相关文件：")), ["相关文件：一个 mp4 文件，大小不明"], text);
+  a.doesNotMatch(text, /3\.0 MB|secret|Windows\\|passwd/);
+});

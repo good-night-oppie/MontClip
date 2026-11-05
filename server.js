@@ -27,6 +27,7 @@ const { spawn, spawnSync, execFile } = require("child_process");
 const FF = require("./ffmpeg-path");
 const X = require("./external-ffmpeg");
 const Redact = require("./problem-redact");   // 〔复制问题信息〕: viewers, keys and user folders out
+const ProblemFiles = require("./problem-files");   // 〔复制问题信息〕: a named file's size, by its name only (#161)
 /* A local FFmpeg the user chose for libx264, H.264 export only (external-ffmpeg.js). */
 const externalFfmpeg = X.createExternal();
 
@@ -1546,12 +1547,11 @@ const server = http.createServer(async (req, res) => {
     try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "the body must be JSON: {text}" }); return; }
     const userName = () => { try { return os.userInfo().username; } catch { return ""; } };
     // the files the raw error names, as their type and size only (JJ, #161): looked up here, never copied by name
-    const sizeOf = (name) => {
-      const tries = [/^\/(media|library)\//.test(name) ? resolveSrc(name) : null, path.isAbsolute(name) ? name : null,
-        path.join(MEDIA_DIR, path.basename(name)), path.join(EXPORTS_DIR, path.basename(name))];
-      for (const f of tries) { try { if (f && fs.statSync(f).isFile()) return fs.statSync(f).size; } catch {} }
-      return null;
-    };
+    // never a path the page sent, only a file name where the server keeps files (problem-files.js; QQ, #161)
+    let srcs = [];
+    try { srcs = (JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(/^\uFEFF/, "")).media || []).map((m) => m && m.src); } catch {}
+    const where = { mediaDir: MEDIA_DIR, exportsDir: EXPORTS_DIR, srcs, resolve: resolveSrc };
+    const sizeOf = (name) => ProblemFiles.sizeOf(name, where, fs.statSync);
     const files = Redact.fileMentions(String(body.log || "").slice(0, 8000)).map((f) => ({ ext: f.ext, size: sizeOf(f.name) }));
     // the version line (JJ / QQ, #161): package.json's version and the system's family only (problem-redact.js versionLine)
     const version = (() => { try { return require("./package.json").version; } catch { return ""; } })();
