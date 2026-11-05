@@ -85,3 +85,17 @@ test('a build with no pinned byte count is an error, never skipped, and nothing 
  a.equal(s.hits(),0);a.deepEqual(fs.readdirSync(d),[]);
  a.throws(()=>F.checkArchive(path.join(d,'none'),{sha256:shaOf(body)}),/no pinned byte count/);
 });
+// Rea on #153: an --archive that fails its check names that local file, not the manifest's URL.
+test('--archive: a local file that fails the size or SHA-256 check is named by its path in the error',t=>{
+ const {spawnSync}=require('node:child_process'),man=require('../desktop/ffmpeg-manifest.json');
+ const plat=Object.keys(man.builds)[0],d=cacheDir(t);
+ const cases=[['short.tar.xz',Buffer.from('too short')],['samesize.tar.xz',Buffer.alloc(man.builds[plat].bytes)]];
+ for(const [name,body] of cases){
+  const file=path.join(d,name);fs.writeFileSync(file,body);
+  const r=spawnSync(process.execPath,[path.join(__dirname,'..','desktop','fetch-ffmpeg.cjs'),'--platform',plat,'--archive',file,'--force'],{encoding:'utf8',env:{...process.env,MONTCLIP_FFMPEG_DIR:''}});
+  a.notEqual(r.status,0,name);
+  a.match(r.stderr,name==='short.tar.xz'?/size mismatch/:/SHA-256 mismatch/,name);
+  a.ok(r.stderr.includes(file),name+': the error names '+file+'\n'+r.stderr);
+  a.ok(!r.stderr.includes(man.builds[plat].url),name+': not the URL');
+ }
+});
