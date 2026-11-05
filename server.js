@@ -120,6 +120,10 @@ function requestAllowed(req) {
    the user's choice); FFMPEG_MISSING says in plain words why it is unavailable. detectFfmpeg() runs again for
    「重新检测」 and after a choice, without a restart. */
 let HAS_FFMPEG = false, FFMPEG_MISSING = "", FFMPEG_MISSING_CODE = "ffmpegDev";
+/* Never start a program from a folder this server writes: an upload named ffmpeg.exe lands in media/ (QQ, 2026-11-05).
+   The plugin's download folder (MONTCLIP_FFMPEG_DIR, under the data folder) is the one allowed place. */
+FF.setPlaces({ deny: [MEDIA_DIR, LIBRARY_DIR, UPLOADS_DIR, ANALYSIS_DIR, PROXIES_DIR, FRAMES_DIR, EXPORTS_DIR, path.join(DATA_DIR, "projects")],
+  allow: [process.env.MONTCLIP_FFMPEG_DIR] });
 function detectFfmpeg() {
   FF.refresh();
   HAS_FFMPEG = false;
@@ -130,23 +134,6 @@ function detectFfmpeg() {
     try { HAS_FFMPEG = spawnSync(FF.path("ffmpeg"), ["-version"], { stdio: "ignore", timeout: 15000, windowsHide: true }).status === 0; } catch {}
     if (!HAS_FFMPEG) FFMPEG_MISSING = `The ffmpeg MontClip found (${X.maskUserPath(FF.path("ffmpeg"))}) could not be started.`;
   }
-  ffmpegPicked = Promise.resolve().then(pickFfmpeg);   // after the module has loaded: pickFfmpeg uses what is declared below
-}
-/* ADR 2026-11-05: several FFmpegs on this computer → the one that can export H.264 (bundled LGPL + a full system one →
-   the system one); none can → the first that runs, so browsing and preview still work. ffprobe comes from the same
-   folder when it is there. Every async user of ffmpeg waits for this (ffmpegPicked). */
-let ffmpegPicked = Promise.resolve();
-const runsAsFfmpeg = (bin) => { try { return spawnSync(bin, ["-version"], { stdio: "ignore", timeout: 15000, windowsHide: true }).status === 0; } catch { return false; } };
-async function pickFfmpeg() {
-  try {
-    const list = FF.candidates("ffmpeg").filter((c) => runsAsFfmpeg(c.path));
-    const p = await FF.pick(list, async (bin) => Delivery.encodersFor("h264", await encodersOf(bin)).length > 0);
-    if (!p) return;
-    FF.use("ffmpeg", { ok: true, path: p.path, source: p.source });
-    const probe = path.join(path.dirname(p.path), process.platform === "win32" ? "ffprobe.exe" : "ffprobe");
-    if (fs.existsSync(probe)) FF.use("ffprobe", { ok: true, path: probe, source: p.source });
-    HAS_FFMPEG = true; FFMPEG_MISSING = "";
-  } catch (e) { console.warn("[MontClip] picking an FFmpeg failed:", e && e.message); }
 }
 detectFfmpeg();
 
@@ -203,9 +190,17 @@ function broadcast(event = "change", data = event) {
   const payload = `event: ${event}\ndata: ${data}\n\n`;
   for (const res of sseClients) res.write(payload);
 }
-const proxies = createProxies({ dir: PROXIES_DIR, resolveSrc, probe: probeFile, ffmpeg: () => FF.path("ffmpeg"), broadcast: (ev, data) => broadcast(ev, data),
-  // proxies are for preview: the bundled build's own H.264 encoder only, never the user's FFmpeg
-  encoder: async () => Delivery.encodersFor("h264", await bundledEncoders()).find((e) => e !== "libx264") || null,
+/* Proxies are H.264: the bundled build's own encoder; with none (Linux, LGPL, no graphics card), libx264 from the local
+   FFmpeg, which then also makes the proxy (ADR 2026-11-05 supplement). One proxy at a time, so one program at a time. */
+let proxyBin = null;
+const proxies = createProxies({ dir: PROXIES_DIR, resolveSrc, probe: probeFile, ffmpeg: () => proxyBin || FF.path("ffmpeg"), broadcast: (ev, data) => broadcast(ev, data),
+  encoder: async () => {
+    const own = Delivery.encodersFor("h264", await bundledEncoders());
+    if (own.length) { proxyBin = FF.path("ffmpeg"); return own[0]; }
+    const ext = await externalFfmpeg.current();
+    if (ext.ok) { proxyBin = ext.path; return "libx264"; }
+    proxyBin = null; return null;
+  },
   noEncoder: () => X.noH264Reason({ mediaFoundation: hasMediaFoundation() }) });
 /* Word transcripts, one per version of a file (fablecut_transcribe, the Transcript tab). */
 const transcripts = createTranscripts({ dir: path.join(ANALYSIS_DIR, "transcripts"), resolveSrc });
@@ -415,10 +410,10 @@ function attachProc(sess, proc) {
 /** What the page's FFmpeg card shows (ffmpeg-card.js): one of ready · missing · noProbe · noH264, the same answer in
  *  every run mode. No paths: only where each tool came from. */
 async function ffmpegStatus() {
-  await ffmpegPicked;
-  const probe = FF.status().ffprobe;
+  const probe = FF.status().ffprobe, tooOld = !HAS_FFMPEG && !!FF.status().ffmpeg.tooOld;
   const h264 = HAS_FFMPEG ? Delivery.encodersFor("h264", await deliveryEncoders()) : [];
-  const state = HAS_FFMPEG ? (probe.ok ? (h264.length ? "ready" : "noH264") : "noProbe") : "missing";
+  // tooOld: no bundled build, and the FFmpeg found can't run what MontClip uses (the gate in ffmpeg-path.js)
+  const state = HAS_FFMPEG ? (probe.ok ? (h264.length ? "ready" : "noH264") : "noProbe") : tooOld ? "tooOld" : "missing";
   return { state, platform: process.platform, setup: externalFfmpeg.setup, picker: false,
     ffmpeg: { ok: HAS_FFMPEG, source: FF.source("ffmpeg") }, ffprobe: { ok: probe.ok, source: probe.source }, encoder: h264[0] || null };
 }
@@ -436,12 +431,11 @@ function runFfmpeg(args, timeout = 15000, bin = FF.path("ffmpeg")) {
 /** Encoders an export may use: the picked program's own (libx264 included when it has it), plus libx264 from the
  *  user's x264 choice / MONTCLIP_EXTERNAL_FFMPEG while that checks out. */
 async function deliveryEncoders() {
-  await ffmpegPicked;
   if (!HAS_FFMPEG) return new Set();
   const own = await bundledEncoders();
   return externalFfmpeg.available(own, { ownX264: own.has("libx264") });
 }
-/** The picked program's encoders. */
+/** The general program's encoders: the bundled build (or, with none, the FFmpeg used for everything). */
 function bundledEncoders() { return encodersOf(FF.path("ffmpeg")); }
 /* One program's usable encoders: `ffmpeg -encoders`, and for the hardware ones a 2-frame test encode, because a build
    lists h264_nvenc / _qsv / _amf whether or not this machine has the GPU. Kept per program (path, size, time), so
@@ -476,7 +470,7 @@ async function exportBinary(useX264) {
   if (!useX264) return FF.path("ffmpeg");
   const ext = await externalFfmpeg.current();
   if (ext.ok) return ext.path;
-  if ((await bundledEncoders()).has("libx264")) return FF.path("ffmpeg");   // the picked program has x264 itself
+  if ((await bundledEncoders()).has("libx264")) return FF.path("ffmpeg");   // no bundled build: the full FFmpeg used for everything
   const setup = externalFfmpeg.setup, how = {
     settings: "choose it in Settings",
     server: "start the MontClip server with MONTCLIP_EXTERNAL_FFMPEG set to its full path",
@@ -583,8 +577,7 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
 }
 /** Integrated loudness and true peak of a file's first audio stream (ffmpeg ebur128). */
 async function measureLoudness(file, timeout = 10 * 60 * 1000) {
-  // the bundled build measures: a system FFmpeg picked for H.264 may lack options (Debian 5.1: ebur128 framelog)
-  const r = await runFfmpeg(Delivery.LOUDNESS_ARGS(file), timeout, FF.measurePath("ffmpeg"));
+  const r = await runFfmpeg(Delivery.LOUDNESS_ARGS(file), timeout);   // the bundled build (ADR 2026-11-05 supplement)
   return r.code === 0 ? Delivery.parseEbur128(r.stderr) : null;
 }
 function ffprobeJSON(file) {
@@ -1457,6 +1450,8 @@ const server = http.createServer(async (req, res) => {
   /* #115's self-check after a download (ADR 4): can THIS program export MP4? Nothing switches to it here; 「重新检测」
      (or the next start) picks it if it should be used. → {ok, ffprobe, h264, encoders} | {ok:false, code:"notFfmpeg"} */
   if (p === "/api/ffmpeg/check" && req.method === "POST") {
+    // the desktop app chooses only in its main process's file dialog; nothing here starts a program for it
+    if (DESKTOP) { sendJSON(res, 403, { error: "the desktop app checks FFmpeg in its own file dialog", code: "EXTERNAL_FFMPEG_FORBIDDEN" }); return; }
     let body = {};
     try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { }
     const file = typeof body.path === "string" ? body.path.trim() : "";
@@ -1477,7 +1472,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (p === "/api/export/ffmpeg" && req.method === "GET") {
-    await ffmpegPicked;
     sendJSON(res, 200, HAS_FFMPEG ? { available: true } : { available: false, reason: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE });
     return;
   }

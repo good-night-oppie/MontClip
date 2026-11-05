@@ -34,6 +34,12 @@
       noH264Result: "这台电脑上的 FFmpeg 少了导出 MP4 要用的部分（H.264 编码）。",
       noH264Win: "点〔选择 ffmpeg.exe〕，选一个完整版的 FFmpeg。",   // only 「」→〔〕 changed (JJ's rule); its wording is not one JJ listed
       unavailableH264: "现在还不能导出 MP4：这台电脑上的 FFmpeg 做不了 MP4（缺 H.264 编码）。",
+      // JJ, final (2026-11-05): advanced mode, beside each MP4 (H.264) choice in the export dialog
+      h264Option: "这台电脑上的 FFmpeg 做不了 MP4（缺 H.264 编码）。",
+      // DRAFT for JJ: no bundled build, and the FFmpeg found is too old to run what MontClip uses
+      tooOldTitle: "这个 FFmpeg 太旧了",
+      tooOldLinux: "预览和导出要用到 FFmpeg，可这台电脑上找到的那个版本太旧，MontClip 用不了。请换一个新一点的完整版 FFmpeg，装好后点〔重新检测〕；如果装在别的地方，点〔我装在别处了，手动选择〕。",
+      tooOldWin: "预览和导出要用到 FFmpeg，可这台电脑上找到的那个版本太旧，MontClip 用不了。请换一个新一点的完整版 FFmpeg，点〔选择 ffmpeg.exe〕，选中它就行。",
       pathLabel: "FFmpeg 放在哪（完整路径）",
       pathUse: "用这个",
       unavailable: "现在还不能导出：缺少 FFmpeg。",
@@ -60,6 +66,10 @@
       noH264Result: "The FFmpeg on this computer can't make MP4 files (it's missing H.264 encoding).",
       noH264Win: "Click “Choose ffmpeg.exe” and pick a full version of FFmpeg.",
       unavailableH264: "Can't export MP4 yet: the FFmpeg on this computer can't make MP4 files (it's missing H.264 encoding).",
+      h264Option: "The FFmpeg on this computer can't make MP4 (missing H.264 encoding).",   // JJ, final
+      tooOldTitle: "This FFmpeg is too old",
+      tooOldLinux: "Previewing and exporting need FFmpeg, and the one on this computer is too old for MontClip. Install a newer full version of FFmpeg, then click “Check again”; if it's somewhere else, click “It's installed elsewhere — choose it”.",
+      tooOldWin: "Previewing and exporting need FFmpeg, and the one on this computer is too old for MontClip. Get a newer full version of FFmpeg, then click “Choose ffmpeg.exe” and select it.",
       pathLabel: "Where FFmpeg is (full path)",
       pathUse: "Use this",
       unavailable: "Can't export yet: FFmpeg is missing.",
@@ -68,7 +78,8 @@
   const COMMANDS = { linux: "sudo apt install ffmpeg", darwin: "brew install ffmpeg" };
   const lang = (l) => (text[l] ? l : "en");
 
-  /** What was found → ready · missing (no ffmpeg) · noProbe (ffmpeg without ffprobe) · noH264 (no MP4 export). */
+  /** What was found → ready · missing (no ffmpeg) · noProbe (ffmpeg without ffprobe) · noH264 (no MP4 export).
+      The server also says tooOld: no bundled build, and the FFmpeg found fails the gate (ffmpeg-path.js). */
   function state({ ffmpeg, ffprobe, h264 }) {
     if (!ffmpeg) return "missing";
     if (!ffprobe) return "noProbe";
@@ -92,7 +103,8 @@
     // 「还不能导出 MP4」: the command sits inside JJ's sentence (`…`); the page shows it as code with 〔复制〕 after it
     // macOS (JJ, 2026-11-05): the sentence above the command box, the command in the box with 〔复制〕 beside it
     const mac = platform === "darwin", install = mac ? t.installMac : t.install;
-    if (status.state === "noH264") { title = t.noH264Title; body = t.noH264; howto = win ? t.noH264Win : mac ? t.installMac : t.noH264Linux; }
+    if (status.state === "tooOld") { title = t.tooOldTitle; body = win ? t.tooOldWin : t.tooOldLinux; }
+    else if (status.state === "noH264") { title = t.noH264Title; body = t.noH264; howto = win ? t.noH264Win : mac ? t.installMac : t.noH264Linux; }
     else if (status.state === "noProbe") body = win ? t.noProbe : t.noProbe + sp + install;
     else body = win ? t.bodyWin : t.notFound + sp + install;
     return {
@@ -103,5 +115,18 @@
       status: null,
     };
   }
-  return { text, state, model, results, COMMANDS };
+  /* JJ (2026-11-05), by interface mode: with no H.264, simple mode greys the whole Export button; advanced mode keeps it
+     and disables only the MP4 (H.264) choices, each with h264Option beside it, so Archive still exports. With no
+     FFmpeg at all (missing · noProbe · tooOld) nothing exports, in either mode. */
+  function exportButton(status, mode, language) {
+    const t = text[lang(language)], st = status && status.state;
+    if (st === "missing" || st === "noProbe" || st === "tooOld") return { disabled: true, title: t.unavailable };
+    if (st === "noH264" && mode !== "advanced") return { disabled: true, title: t.unavailableH264 };
+    return { disabled: false, title: null };
+  }
+  function exportOption(status, mode, isH264, language) {
+    return status && status.state === "noH264" && mode === "advanced" && isH264
+      ? { disabled: true, note: text[lang(language)].h264Option } : { disabled: false, note: null };
+  }
+  return { text, state, model, results, COMMANDS, exportButton, exportOption };
 });

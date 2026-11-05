@@ -11,13 +11,16 @@
    who starts the server may name one in MONTCLIP_EXTERNAL_FFMPEG: an absolute path, checked
    the same way. A choice saved in Settings goes first; the variable only counts without one.
 
-   Rules (ADR docs/decisions/2026-11-02-h264-encoder.md):
-     · only the absolute path the user picked (or the server's starter named); never PATH,
-       never a guess;
-     · checked before use (-version and -encoders, argument arrays, no shell)
-       and it must list libx264;
-     · used only to encode an H.264 export (libx264). Preview, decoding,
-       probing, proxies and every other export keep the bundled FFmpeg;
+   Without either, an FFmpeg with libx264 on PATH counts too — only when the bundled build has no H.264 encoder
+   (JJ P1, 2026-11-04).
+
+   Rules (ADR docs/decisions/2026-11-02-h264-encoder.md, and its 2026-11-05 supplement):
+     · an absolute path only; PATH is looked up by ffmpeg-path.js to an absolute path, never by name;
+     · never a program in a folder the server writes (media, uploads, analysis …): ffmpeg-path.js placeAllowed,
+       checked before anything is started (QQ 2026-11-05); on POSIX it must be executable;
+     · checked before use (-version and -encoders, argument arrays, no shell) and it must list libx264;
+     · used only to encode H.264: exports, and proxies when the bundled build has no H.264 encoder. Preview,
+       decoding, probing, analysis and loudness keep the bundled FFmpeg;
      · gone or failing → exports fall back to the bundled encoders and say why.
    ═══════════════════════════════════════════════════════════════════════════ */
 "use strict";
@@ -61,9 +64,12 @@ function defaultRun(file, args) {
 
 /** Check one file. → {ok:true, path, version} | {ok:false, path, code, reason}. `code` is what the page
     shows (ui-preferences.js says it in the interface language); `reason` is English, for logs and agents. */
+const placeAllowed = (file) => require("./ffmpeg-path").placeAllowed(file);
 async function check(file, { run = defaultRun } = {}) {
   if (typeof file !== "string" || !file || !path.isAbsolute(file))
     return { ok: false, path: file || null, code: "extNotFullPath", reason: "Choose the FFmpeg program file itself (a full path)." };
+  // a folder the server writes, or (POSIX) not executable: never started
+  if (!placeAllowed(file)) return { ok: false, path: file, code: "extNotFfmpeg", reason: `MontClip does not run programs from ${maskUserPath(path.dirname(file))}.` };
   let st = null;
   try { st = fs.statSync(file); } catch { }
   if (!st || !st.isFile()) return { ok: false, path: file, code: "extGone", reason: `There is no file at ${maskUserPath(file)} any more.` };
@@ -104,6 +110,7 @@ async function checkTool(file, { run = defaultRun } = {}) {
   const bad = { ok: false, path: typeof file === "string" ? file : null, code: "notFfmpeg" };
   if (typeof file !== "string" || !path.isAbsolute(file) || !/^ffmpeg(\.exe)?$/i.test(path.basename(file))) return bad;
   try { if (!fs.statSync(file).isFile()) return bad; } catch { return bad; }
+  if (!placeAllowed(file)) return bad;   // a folder the server writes (an upload named ffmpeg.exe), or not executable
   const v = await run(file, ["-hide_banner", "-version"]);
   return v.code === 0 && /ffmpeg version/i.test(v.stdout) ? { ok: true, path: file } : bad;
 }
@@ -143,7 +150,8 @@ async function savedStatus(settingsFile, { run = defaultRun } = {}) {
 /** The server's view of the setting. Re-checked when the setting or the file changes. Sources, first that is set:
     the saved choice (desktop Settings, or the Cindy plugin), then MONTCLIP_EXTERNAL_FFMPEG. Same in every run mode. */
 function createExternal({ settingsFile = process.env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS || null,
-  envPath = process.env.MONTCLIP_EXTERNAL_FFMPEG || null, run = defaultRun, setup = setupFor() } = {}) {
+  envPath = process.env.MONTCLIP_EXTERNAL_FFMPEG || null, run = defaultRun, setup = setupFor(),
+  findOnPath = () => require("./ffmpeg-path").findOnPath(process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg") } = {}) {
   let memo = null;
   const stamp = (f) => { try { const s = fs.statSync(f); return `${s.size}:${s.mtimeMs}`; } catch { return "gone"; } };
   async function checked(file, source) {
@@ -159,23 +167,30 @@ function createExternal({ settingsFile = process.env.MONTCLIP_EXTERNAL_FFMPEG_SE
     memo = { key, value };
     return value;
   }
-  async function current() {
+  let pathAllowed = false;   // set by available(): PATH only when the bundled build has no H.264 encoder
+  async function current({ allowPath = pathAllowed } = {}) {
     const s = readSetting(settingsFile);
     if (s && s.bad) return setup === "settings"
       ? { ok: false, code: "extSettingBad", reason: "The saved local FFmpeg setting could not be read. Choose the program again in Settings." }
       : { ok: false, code: "extSavedUnusable", reason: "The saved FFmpeg choice for MontClip could not be read." };
     if (s) return checked(s.path, "settings");
     if (envPath) return checked(envPath, "env");
+    if (allowPath) {
+      const onPath = findOnPath();
+      if (onPath) { const r = await checked(onPath, "path"); if (r.ok) return r; }
+    }
     return { ok: false, code: "none", reason: "none" };
   }
   return {
     current,
     setup,
-    /** The picked program's encoder set, plus libx264 while the local FFmpeg checks out. ownX264: the picked program
-        has libx264 itself (a full system FFmpeg, ADR 2026-11-05) — then it stays. */
+    /** The general program's encoder set, plus libx264 while a local FFmpeg with it checks out. ownX264: the general
+        program has libx264 itself (no bundled build, a full FFmpeg used for everything) — then it stays. */
     async available(bundled, { ownX264 = false } = {}) {
       const set = new Set([...bundled].filter((e) => e !== "libx264"));
-      if (ownX264 || (await current()).ok) set.add("libx264");
+      // the same test export uses: an h264_* MontClip never selects (h264_omx, h264_v4l2m2m …) is no encoder here
+      pathAllowed = !require("./delivery").encodersFor("h264", set).length;
+      if (ownX264 || (await current({ allowPath: pathAllowed })).ok) set.add("libx264");
       return set;
     },
   };

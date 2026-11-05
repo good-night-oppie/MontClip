@@ -1,9 +1,14 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    Which ffmpeg / ffprobe to run.
 
-   JJ P1 (2026-11-04): the same order in the desktop app, web / server mode and
-   the Cindy plugin — the bundled build, then PATH, then the place the user
-   chose. First match wins, per tool:
+   The same in the desktop app, web / server mode and the Cindy plugin. The
+   bundled build runs everything — preview, probing, decoding, analysis,
+   loudness (ADR 2026-11-02, kept by the 2026-11-05 supplement). Another FFmpeg
+   (chosen, MONTCLIP_EXTERNAL_FFMPEG, PATH) only encodes H.264, through
+   external-ffmpeg.js. Only when there is no bundled build at all does this
+   file fall back to PATH, then the user's choice, for everything — and only to
+   a program that passes the gate (it runs the ebur128 options MontClip
+   measures with; Debian's 5.1 does not). First match wins, per tool:
 
      1. Bundled:
         a. packaged desktop app / plugin — MONTCLIP_FFMPEG_PACKAGED=1 and
@@ -12,19 +17,18 @@
         c. development — MONTCLIP_FFMPEG_DIR (a folder holding both);
         d. development — vendor/ffmpeg/<platform>-<arch>/, filled by
            `node desktop/fetch-ffmpeg.cjs` (the same files packaging bundles).
-     2. PATH — looked up here, folder by folder, so the result is an absolute
-        path: nothing is ever spawned by bare name (spawn would search PATH and
-        the current folder in its own way).
-     3. The user's choice — the ffmpeg saved in MONTCLIP_EXTERNAL_FFMPEG_SETTINGS
-        ({version:1, path}); ffprobe is looked for beside it.
+     2. No bundled build: PATH — looked up here, folder by folder, so the result
+        is an absolute path: nothing is ever spawned by bare name.
+     3. No bundled build: the user's choice — the ffmpeg saved in
+        MONTCLIP_EXTERNAL_FFMPEG_SETTINGS ({version:1, path}); ffprobe beside it.
+
+   Nothing in a folder the server writes is ever started (setPlaces /
+   placeAllowed: media, library, uploads, analysis, exports …, QQ 2026-11-05),
+   except the plugin's download folder; on POSIX the file must be executable.
 
    When none names an existing file the tool is reported missing, with the
    first source's plain-language reason, and `path` stays absolute.
    refresh() forgets what was found, for 「重新检测」 without a restart.
-
-   ADR 2026-11-05: when several exist, the one that can export H.264 is used.
-   candidates() lists them in this order and pick() takes the first that can
-   (the server asks each one's encoders); use() pins the pick until refresh().
    ═══════════════════════════════════════════════════════════════════════════ */
 "use strict";
 const fs = require("fs");
@@ -35,6 +39,38 @@ const TOOLS = ["ffmpeg", "ffprobe"];
 function exeName(name, platform) { return platform === "win32" ? name + ".exe" : name; }
 
 function isFile(p) { try { return fs.statSync(p).isFile(); } catch { return false; } }
+
+/* Folders the server writes (and so a page could put a file in): nothing there is ever started. `allow` wins (the
+   plugin's own download folder). Paths are compared after realpath, case-insensitively on Windows. */
+let places = { deny: [], allow: [] };
+const norm = (p) => {
+  let r = path.resolve(p);
+  try { r = fs.realpathSync.native(r); } catch { }
+  return process.platform === "win32" ? r.toLowerCase() : r;
+};
+const inside = (file, dir) => file === dir || file.startsWith(dir.endsWith(path.sep) ? dir : dir + path.sep);
+function setPlaces({ deny = [], allow = [] } = {}) { places = { deny: deny.filter(Boolean).map(norm), allow: allow.filter(Boolean).map(norm) }; }
+/** May this program be started? Not inside a folder the server writes (unless allowed); on POSIX, executable. */
+function placeAllowed(file) {
+  if (typeof file !== "string" || !path.isAbsolute(file)) return false;
+  const f = norm(file);
+  if (!places.allow.some((d) => inside(f, d)) && places.deny.some((d) => inside(f, d))) return false;
+  if (process.platform !== "win32") { try { if (!(fs.statSync(f).mode & 0o111)) return false; } catch { return false; } }
+  return true;
+}
+/* The gate for an FFmpeg used for everything (no bundled build): it must run the loudness measurement's own options. */
+const GATE_ARGS = ["-hide_banner", "-v", "error", "-f", "lavfi", "-i", "sine=d=0.3", "-af", "ebur128=peak=true:framelog=quiet", "-f", "null", "-"];
+const gateMemo = new Map();
+function passesGate(bin) {
+  let key = bin;
+  try { const st = fs.statSync(bin); key += `|${st.size}|${st.mtimeMs}`; } catch { return false; }
+  if (!gateMemo.has(key)) {
+    let ok = false;
+    try { ok = require("child_process").spawnSync(bin, GATE_ARGS, { stdio: "ignore", timeout: 15000, windowsHide: true }).status === 0; } catch { }
+    gateMemo.set(key, ok);
+  }
+  return gateMemo.get(key);
+}
 
 /** The first PATH folder holding `exe`, as an absolute path; null when none. Relative and empty entries are skipped
  *  (they mean the current folder, which is not where an installed program lives). */
@@ -56,46 +92,34 @@ function readChoiceFile(file) {
   try { const v = JSON.parse(fs.readFileSync(file, "utf8")); return v && v.version === 1 && typeof v.path === "string" ? { path: v.path } : null; } catch { return null; }
 }
 
-/** Resolve one tool: bundled, then PATH, then the user's choice. Never throws; never returns a bare program name.
- *  → { ok:true, path, source } | { ok:false, path, source, error }   (source: packaged · env · env-dir · vendor · path · chosen) */
+/** Resolve one tool: the bundled build; with none, PATH, then the user's choice (ffmpeg must pass the gate).
+ *  Never throws; never returns a bare program name.
+ *  → { ok:true, path, source } | { ok:false, path, source, error, tooOld? }   (source: packaged · env · env-dir · vendor · path · chosen) */
 function resolveTool(name, opts = {}) {
   const first = resolveBundled(name, opts);
   if (first.ok) return first;
   const env = opts.env || process.env, platform = opts.platform || process.platform, exists = opts.exists || isFile;
-  const exe = exeName(name, platform);
-  const onPath = findOnPath(exe, { env, platform, exists });
-  if (onPath) return { ok: true, path: onPath, source: "path" };
-  const chosenFile = opts.chosenFile !== undefined ? opts.chosenFile : (env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS || null);
-  const choice = (opts.readChoice || readChoiceFile)(chosenFile);
-  if (choice && typeof choice.path === "string") {
-    const p = platform === "win32" ? path.win32 : path.posix;
-    if (p.isAbsolute(choice.path)) {
-      const f = p.join(p.dirname(choice.path), exe);
-      if (exists(f)) return { ok: true, path: f, source: "chosen" };
-    }
-  }
-  return first;
-}
-/** Every place this tool exists, in order (bundled, PATH, chosen), each path once. */
-function candidates(name, opts = {}) {
-  const env = opts.env || process.env, platform = opts.platform || process.platform, exists = opts.exists || isFile;
+  const usable = name === "ffmpeg" ? (opts.usable || passesGate) : () => true;
+  const allowed = opts.exists ? () => true : placeAllowed;   // tests that fake the file system fake its places too
   const exe = exeName(name, platform), p = platform === "win32" ? path.win32 : path.posix;
-  const out = [], add = (r) => { if (r && r.ok && !out.some((o) => o.path === r.path)) out.push(r); };
-  add(resolveBundled(name, opts));
+  const found = [];
   const onPath = findOnPath(exe, { env, platform, exists });
-  if (onPath) add({ ok: true, path: onPath, source: "path" });
+  if (onPath) found.push({ path: onPath, source: "path" });
   const chosenFile = opts.chosenFile !== undefined ? opts.chosenFile : (env.MONTCLIP_EXTERNAL_FFMPEG_SETTINGS || null);
   const choice = (opts.readChoice || readChoiceFile)(chosenFile);
   if (choice && typeof choice.path === "string" && p.isAbsolute(choice.path)) {
     const f = p.join(p.dirname(choice.path), exe);
-    if (exists(f)) add({ ok: true, path: f, source: "chosen" });
+    if (exists(f)) found.push({ path: f, source: "chosen" });
   }
-  return out;
-}
-/** The first candidate that can export H.264 (asked with hasH264(path)); none can → the first, h264:false; none → null. */
-async function pick(list, hasH264) {
-  for (const c of list) if (await hasH264(c.path)) return { ...c, h264: true };
-  return list.length ? { ...list[0], h264: false } : null;
+  let old = null;
+  for (const c of found) {
+    if (!allowed(c.path)) continue;
+    if (usable(c.path)) return { ok: true, ...c };
+    old = old || c;
+  }
+  if (old) return { ok: false, ...old, tooOld: true,
+    error: `The ${name} found at ${old.path} is too old for MontClip: it cannot run the loudness measurement's options (ebur128 framelog).` };
+  return first;
 }
 function resolveBundled(name, opts = {}) {
   if (!TOOLS.includes(name)) throw new Error(`unknown tool ${name}`);
@@ -160,13 +184,9 @@ module.exports = {
   /** The error to report when running the tool failed: why, and what needed it. */
   why: (name, need) => (cached(name).error || `MontClip's bundled ${name} could not be started (${cached(name).path}).`) + ` It is needed ${need}.`,
   status: () => Object.fromEntries(TOOLS.map((t) => [t, cached(t)])),
-  /** The bundled build when it is there, else the picked one: for measuring, whose options a system build may lack. */
-  measurePath: (name) => { const b = resolveBundled(name); return b.ok ? b.path : cached(name).path; },
   /** Forget what was found: the next call looks again (「重新检测」). */
   refresh: () => cache.clear(),
-  /** Pin a tool to one program (the server's pick) until refresh(). */
-  use: (name, r) => { if (!TOOLS.includes(name)) throw new Error(`unknown tool ${name}`); cache.set(name, r); },
-  candidates, pick, findOnPath,
+  findOnPath, setPlaces, placeAllowed, passesGate, GATE_ARGS,
   /** Tests only: forget what was resolved. */
   _reset: () => cache.clear(),
 };

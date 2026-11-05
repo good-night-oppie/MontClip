@@ -100,6 +100,7 @@ function updateMontClipView(patch) {
   }
   const saved = mcView.set(patch); renderMontClipView();
   try { renderQueue(); } catch { /* not built yet */ }
+  try { applyFfmpegState(); } catch { }   // the mode decides what no H.264 turns off
   refreshLanguageText();
   refreshLocalizedViews();
   // simple mode has the selection tool only: back to V; the project, selection and history stay as they are
@@ -1372,13 +1373,13 @@ async function refreshFfmpegCard() {
 function applyFfmpegState() {
   const st = ffmpegUi.status, b = $("btnExport");
   if (!st || !b) return;
-  // ADR 2026-11-05 (3): nothing that can export MP4 → export is off, and says why (「还不能导出 MP4」 too)
-  const off = st.state !== "ready";
-  const t = MontClipFfmpegCard.text[mcView.get().language] || MontClipFfmpegCard.text.en;
+  // JJ (2026-11-05): no FFmpeg → Export off in both modes; no H.264 → off in simple mode, on in advanced mode (where only
+  // the MP4 choices are off, see populateExportProfileSelect). Runs again on every mode switch.
+  const r = MontClipFfmpegCard.exportButton(st, mcView.get().mode, mcView.get().language);
   if (b.dataset.titleBefore === undefined) b.dataset.titleBefore = b.title || "";
-  b.disabled = off;
-  b.title = off ? (st.state === "noH264" ? t.unavailableH264 : t.unavailable) : b.dataset.titleBefore;
-  state.ffmpeg = st.state !== "missing" && st.state !== "noProbe";
+  b.disabled = r.disabled;
+  b.title = r.title || b.dataset.titleBefore;
+  state.ffmpeg = st.state !== "missing" && st.state !== "noProbe" && st.state !== "tooOld";
 }
 function renderFfmpegCard() {
   const box = $("ffmpegCard");
@@ -18431,7 +18432,12 @@ function populateExportProfileSelect() {
     dlvSpec = n.spec; dlvNotes = n.notes;
     cur = "d:" + dlvSpec.preset;
   } else cur = "p:" + choice.id;
-  const opt = (v, label) => `<option value="${escapeHtml(v)}">${escapeHtml(label)}</option>`;
+  // advanced mode with no H.264: the MP4 choices are off, with JJ's note beside them (MontClipFfmpegCard.exportOption)
+  const view = mcView.get();
+  const optState = (v) => MontClipFfmpegCard.exportOption(ffmpegUi.status, view.mode, v.startsWith("d:")
+    ? normalizeDelivery(v.slice(2)).spec.video.codec === "h264" : profileIsH264(v.slice(2)), view.language);
+  const opt = (v, label) => { const o = optState(v);
+    return `<option value="${escapeHtml(v)}"${o.disabled ? " disabled" : ""}>${escapeHtml(o.note ? label + " — " + o.note : label)}</option>`; };
   let html = Delivery.presetGroups(deliveryInfo.saved).map((g) =>
     `<optgroup label="${escapeHtml(g.group)}">${g.items.map((it) => opt("d:" + it.id, it.label)).join("")}</optgroup>`).join("");
   const ids = Object.keys(encodeProfiles.profiles);
@@ -18445,6 +18451,8 @@ function populateExportProfileSelect() {
   sel.innerHTML = html;
   sel.value = cur;
   if (sel.value !== cur) sel.value = "d:" + Delivery.DEFAULT_PRESET;
+  // a choice that can't export here (MP4 with no H.264) gives way to the first that can (Archive …)
+  if (sel.selectedOptions[0]?.disabled) { const ok = [...sel.options].find((o) => !o.disabled); if (ok) { sel.value = ok.value; sel.dispatchEvent(new Event("change")); } }
   syncExportChoiceUi(choice.source);
 }
 /** source: where the current settings came from, for the hint line. */

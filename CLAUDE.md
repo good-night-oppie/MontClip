@@ -195,19 +195,21 @@ Desktop task requests reject `where: "headless"` with HTTP 409 and code
 export, transcription, scopes and tracking, including the shared job queue.
 It is not yet a portable release or offline transcription distribution.
 
-MontClip looks for `ffmpeg` / `ffprobe` in this order (`ffmpeg-path.js`; desktop, web / server mode and the Cindy
-plugin alike): its bundled LGPL build (packaged, `resources/ffmpeg/`; in development, `vendor/ffmpeg/<platform>-<arch>/`
-from `node desktop/fetch-ffmpeg.cjs`, or `MONTCLIP_FFMPEG` / `MONTCLIP_FFPROBE` full paths), then `PATH` (looked up to
-an absolute path, never spawned by name), then the place the user chose. When several are there it uses the first
-that can export H.264 (bundled LGPL + a full system FFmpeg → the system one). The LGPL build has no libx264: H.264
-export uses a graphics-card encoder (NVENC / Quick Sync / AMF), else Windows' own `h264_mf`, else libx264 from an
-FFmpeg the user installed. With nothing that can export MP4, the editor shows one card (`ffmpeg-card.js`: install
-command, 「重新检测」, choose the file) and turns off Export; `GET /api/ffmpeg`, `POST /api/ffmpeg/detect`,
-`POST /api/ffmpeg/choose {path}`, `POST /api/ffmpeg/check {path}` (can this program export H.264?). The choice is kept
-in `<data dir>/external-ffmpeg.json`. **Advanced:** whoever starts a server can name an FFmpeg with libx264 in
-`MONTCLIP_EXTERNAL_FFMPEG` (a full path); it is never mentioned in the interface. MontClip ships and downloads only
-LGPL builds; a GPL FFmpeg is the user's own. See `docs/decisions/2026-11-05-ffmpeg-detect-and-download.md`,
-`docs/decisions/2026-11-02-h264-encoder.md`, `LICENSES.md`.
+MontClip runs its bundled LGPL FFmpeg for everything (`ffmpeg-path.js`; packaged, `resources/ffmpeg/`; in
+development, `vendor/ffmpeg/<platform>-<arch>/` from `node desktop/fetch-ffmpeg.cjs`, or `MONTCLIP_FFMPEG` /
+`MONTCLIP_FFPROBE` full paths). The LGPL build has no libx264: H.264 export uses a graphics-card encoder (NVENC /
+Quick Sync / AMF), else Windows' own `h264_mf`, else libx264 from an FFmpeg the user installed — the one they chose,
+then `PATH` (looked up to an absolute path, never spawned by name). That FFmpeg only encodes H.264 (exports, and
+proxies when the bundled build has none); probing, frames, analysis and loudness stay on the bundled build. Only with
+no bundled build at all is an FFmpeg on PATH (or the chosen one) used for everything, and only if it runs the
+`ebur128` options MontClip measures with (Debian 12's 5.1 does not). Nothing in a folder the server writes (media,
+uploads, analysis …) is ever started. With nothing that can export MP4 the editor shows one card (`ffmpeg-card.js`:
+install command, 「重新检测」, choose the file); simple mode then greys Export, advanced mode only the MP4 choices.
+`GET /api/ffmpeg`, `POST /api/ffmpeg/detect`, `POST /api/ffmpeg/choose {path}`, `POST /api/ffmpeg/check {path}`
+(can this program export H.264? not in the desktop app). The choice is kept in `<data dir>/external-ffmpeg.json`.
+**Advanced:** whoever starts a server can name an FFmpeg with libx264 in `MONTCLIP_EXTERNAL_FFMPEG` (a full path); it
+is never mentioned in the interface. MontClip ships and downloads only LGPL builds; a GPL FFmpeg is the user's own.
+See `docs/decisions/2026-11-05-ffmpeg-detect-and-download.md`, `docs/decisions/2026-11-02-h264-encoder.md`, `LICENSES.md`.
 
 ```
 node server.js        # → http://localhost:7777

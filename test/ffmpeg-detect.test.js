@@ -17,7 +17,7 @@ test('order: bundled, then PATH, then the place the user chose — and each tool
   const vendor = (n) => path.join(app, 'vendor', 'ffmpeg', `${plat}-x64`, x(n));
   const settings = path.join(root, 'data', 'external-ffmpeg.json');
   const read = (f) => (f === settings ? { path: path.join(mine, x('ffmpeg')) } : null);
-  const r = (name, have) => FF.resolveTool(name, { env: { PATH: bin }, appDir: app, platform: plat, arch: 'x64', exists: (f) => have.includes(f), chosenFile: settings, readChoice: read });
+  const r = (name, have) => FF.resolveTool(name, { env: { PATH: bin }, appDir: app, platform: plat, arch: 'x64', exists: (f) => have.includes(f), chosenFile: settings, readChoice: read, usable: () => true });
   a.deepEqual(r('ffmpeg', [vendor('ffmpeg'), path.join(bin, x('ffmpeg'))]), { ok: true, path: vendor('ffmpeg'), source: 'vendor' });
   const p = r('ffmpeg', [path.join(bin, x('ffmpeg')), path.join(mine, x('ffmpeg'))]);
   a.equal(p.ok, true); a.equal(p.source, 'path'); a.equal(p.path, path.join(bin, x('ffmpeg')));
@@ -39,7 +39,7 @@ test('four states, from what was found', () => {
 
 test('a chosen file must be a program named ffmpeg that runs as FFmpeg; nothing else is started', async (t) => {
   const d = tmp(t), ok = path.join(d, process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'), other = path.join(d, 'tool.exe');
-  fs.writeFileSync(ok, 'x'); fs.writeFileSync(other, 'x');
+  fs.writeFileSync(ok, 'x'); fs.writeFileSync(other, 'x'); fs.chmodSync(ok, 0o755);
   let ran = 0; const run = async (f, args) => { ran++; return { code: 0, stdout: 'ffmpeg version 6.1' }; };
   a.equal((await X.checkTool(other, { run })).code, 'notFfmpeg'); a.equal(ran, 0, 'a file with another name is never started');
   a.equal((await X.checkTool('ffmpeg', { run })).code, 'notFfmpeg');
@@ -51,31 +51,9 @@ test('a chosen file must be a program named ffmpeg that runs as FFmpeg; nothing 
   a.deepEqual(JSON.parse(fs.readFileSync(settings, 'utf8')), { version: 1, path: ok });
 });
 
-// ADR 2026-11-05 (Deja, JJ): several usable ones → the one that can export H.264. Bundled LGPL + a full system FFmpeg
-// → the system one. Otherwise the first that runs, in order.
-test('several FFmpegs: the first that can export H.264 wins; else the first that runs', async () => {
-  const c = (source, p) => ({ ok: true, source, path: p });
-  const list = [c('vendor', '/app/vendor/ffmpeg'), c('path', '/usr/bin/ffmpeg'), c('chosen', '/opt/ff/ffmpeg')];
-  const has = (set) => async (p) => set.includes(p);
-  a.deepEqual(await FF.pick(list, has(['/usr/bin/ffmpeg'])), { ...list[1], h264: true }, 'LGPL bundled + full system → system');
-  a.deepEqual(await FF.pick(list, has(['/app/vendor/ffmpeg', '/usr/bin/ffmpeg'])), { ...list[0], h264: true }, 'bundled can → bundled (Windows h264_mf, a graphics card)');
-  a.deepEqual(await FF.pick(list, has(['/opt/ff/ffmpeg'])), { ...list[2], h264: true });
-  a.deepEqual(await FF.pick(list, has([])), { ...list[0], h264: false }, 'none can → the first, so preview still works');
-  a.equal(await FF.pick([], has([])), null);
-  let asked = 0; await FF.pick(list, async (p) => { asked++; return p === '/app/vendor/ffmpeg'; });
-  a.equal(asked, 1, 'stops at the first that can');
-  // every candidate that exists, in order, once
-  const root = path.parse(process.cwd()).root, x = (n) => n + (process.platform === 'win32' ? '.exe' : '');
-  const v = path.join(root, 'app', 'vendor', 'ffmpeg', `${process.platform}-x64`, x('ffmpeg')), bin = path.join(root, 'usr', 'bin');
-  const settings = path.join(root, 'data', 'external-ffmpeg.json');
-  const got = FF.candidates('ffmpeg', { env: { PATH: bin }, appDir: path.join(root, 'app'), platform: process.platform, arch: 'x64',
-    exists: (f) => [v, path.join(bin, x('ffmpeg')), path.join(root, 'opt', x('ffmpeg'))].includes(f), chosenFile: settings, readChoice: () => ({ path: path.join(root, 'opt', x('ffmpeg')) }) });
-  a.deepEqual(got.map((g) => g.source), ['vendor', 'path', 'chosen']);
-});
-
 /* ── the card ── */
 const quoted = (s) => [...s.matchAll(/[「『“]([^」』”]+)[」』”]/g)].map((m) => m[1]);
-const PLATFORMS = ['linux', 'win32', 'darwin'], STATES = ['missing', 'noProbe', 'noH264'];
+const PLATFORMS = ['linux', 'win32', 'darwin'], STATES = ['missing', 'noProbe', 'noH264', 'tooOld'];
 
 test('JJ\'s "还不能导出 MP4" card, word for word, apart from "not found"', () => {
   const c = Card.model({ state: 'noH264', platform: 'linux' }, 'zh-CN');
@@ -137,7 +115,7 @@ test('the page builds the card from the model, gates export, and re-detects with
   a.match(act, /fetch\("\/api\/ffmpeg\/detect", \{ method: "POST" \}\)/); a.match(act, /fetch\("\/api\/ffmpeg\/choose"/);
   a.match(act, /window\.montclipExternalFfmpeg\?\.choose\(\)/, 'Windows desktop: the same file dialog as Settings');
   const gate = body('function applyFfmpegState(');
-  a.match(gate, /btnExport/); a.match(gate, /st\.state !== "ready"/, 'no exportable FFmpeg (noH264 too) turns export off (ADR 3)');
+  a.match(gate, /btnExport/); a.match(gate, /MontClipFfmpegCard\.exportButton\(/, 'what is off follows the mode (JJ 2026-11-05)');
 });
 
 /* End to end with the real bundled binaries: no ffmpeg anywhere → "install" one into a PATH folder → 「重新检测」 (no
@@ -196,25 +174,7 @@ test('server: POST /api/ffmpeg/check answers for one program, without changing w
   a.deepEqual(await (await fetch(base + '/api/ffmpeg')).json(), before, 'checking does not switch programs');
 });
 
-// ADR 2026-11-05 acceptance: "LGPL 版和完整版都在时，选完整版". On europa that is the bundled LGPL build (no H.264) and
-// /usr/bin/ffmpeg (libx264) → the system one; on a Windows machine with h264_mf / a graphics card → the bundled one.
-test('server: of the FFmpegs on this machine it uses the first that can export H.264', async (t) => {
-  const { makeDataDir, seedProject, startServer } = require('./helpers');
-  const dir = makeDataDir(t, seedProject({ revision: 1 }));
-  const settings = path.join(dir, 'external-ffmpeg.json');
-  const list = FF.candidates('ffmpeg', { chosenFile: settings });
-  if (!list.length) return t.skip('no ffmpeg on this machine');
-  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_EXTERNAL_FFMPEG_SETTINGS: settings });
-  const can = [];
-  for (const c of list) can.push((await (await fetch(base + '/api/ffmpeg/check', { method: 'POST', body: JSON.stringify({ path: c.path }) })).json()).h264);
-  const want = list[can.indexOf(true)] || list[0];
-  const st = await (await fetch(base + '/api/ffmpeg')).json();
-  a.equal(st.ffmpeg.source, want.source, `candidates ${list.map((c, i) => c.source + (can[i] ? '+h264' : '')).join(', ')}`);
-  a.equal(st.state === 'ready', can.includes(true));
-});
 
-/* JJ, final (2026-11-05, via Deja): the English 「还不能导出 MP4」 card, the Windows card, the path box, the greyed
-   Export tooltips and the macOS card — word for word. Buttons are named 〔…〕 and the name must be the button's own. */
 test('JJ final 2026-11-05: English no-H.264 card, Windows card, path box, Export tooltips, macOS card', () => {
   const en = Card.model({ state: 'noH264', platform: 'linux' }, 'en');
   a.equal(en.title, "Can't export MP4 yet");
@@ -237,8 +197,9 @@ test('JJ final 2026-11-05: English no-H.264 card, Windows card, path box, Export
     const c = Card.model({ state: st, platform: 'win32', picker: true }, 'zh-CN');
     a.ok(!/我/.test(JSON.stringify(c) + Card.results('zh-CN', 'win32').stillMissing), st);
   }
-  a.ok(!/DRAFT/.test(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'ffmpeg-card.js'), 'utf8').split('const text')[1].split('en: {')[0]),
-    'no DRAFT mark left in the zh-CN text');
+  // the only DRAFT left in zh-CN is the too-old card (new, 2026-11-05)
+  const zhSrc = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'ffmpeg-card.js'), 'utf8').split('const text')[1].split('en: {')[0];
+  for (const line of zhSrc.split('\n').filter((l) => /DRAFT/.test(l))) a.match(line, /too old/, 'DRAFT only on the too-old card: ' + line);
 });
 
 test('every 〔X〕 a card names is exactly a button on that card (macOS, Windows, Linux; both languages)', () => {
@@ -254,4 +215,129 @@ test('every 〔X〕 a card names is exactly a button on that card (macOS, Window
 test('the page draws the command box with 〔复制〕 when the howto line has no inline command (macOS)', () => {
   const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
   a.match(app, /if \(m\.command && !\(m\.howto \|\| ""\)\.includes\("`"\)\) \{/);
+});
+
+
+/* ── Deja 2026-11-05, QQ's review ── */
+
+/* 1. Security: a file uploaded as ffmpeg.exe lands in media/; choosing or checking it must never run it. Nothing under
+   a folder the server writes (media, library, .uploads, analysis — proxies and frames —, exports, projects) is ever
+   started; #115's download folder (MONTCLIP_FFMPEG_DIR) is the one allowed place under the data folder. On POSIX the
+   file must be executable. */
+test('a program in a folder the server writes is refused before anything is started', async (t) => {
+  const d = tmp(t), media = path.join(d, 'media'), dl = path.join(d, 'ffmpeg', 'linux-x64');
+  fs.mkdirSync(media, { recursive: true }); fs.mkdirSync(dl, { recursive: true });
+  const exe = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg', bad = path.join(media, exe), good = path.join(dl, exe);
+  for (const f of [bad, good]) { fs.writeFileSync(f, 'x'); fs.chmodSync(f, 0o755); }
+  FF.setPlaces({ deny: [media, path.join(d, 'analysis')], allow: [dl] }); t.after(() => FF.setPlaces({ deny: [], allow: [] }));
+  let ran = 0; const run = async () => { ran++; return { code: 0, stdout: 'ffmpeg version 7\n V....D libx264  H.264' }; };
+  a.equal((await X.checkTool(bad, { run })).code, 'notFfmpeg');
+  a.equal((await X.saveTool(path.join(d, 'c.json'), bad, { run })).ok, false);
+  a.equal((await X.saveChoice(path.join(d, 'c.json'), bad, { run })).ok, false);
+  a.equal((await X.check(bad, { run })).ok, false);
+  a.equal(ran, 0, 'nothing was started');
+  a.equal(fs.existsSync(path.join(d, 'c.json')), false, 'nothing was saved');
+  // through a different spelling of the same folder too
+  a.equal(FF.placeAllowed(path.join(d, 'media', '.', exe)), false);
+  if (process.platform === 'win32') a.equal(FF.placeAllowed(bad.toUpperCase()), false, 'Windows paths ignore case');
+  a.equal((await X.checkTool(good, { run })).ok, true, "#115's download folder is allowed"); a.equal(ran, 1);
+  if (process.platform !== 'win32') {
+    const plain = path.join(d, 'plain', 'ffmpeg'); fs.mkdirSync(path.dirname(plain)); fs.writeFileSync(plain, 'x'); fs.chmodSync(plain, 0o644);
+    a.equal((await X.checkTool(plain, { run })).code, 'notFfmpeg', 'not executable'); a.equal(ran, 1);
+  }
+});
+
+test('server: an upload named ffmpeg.exe can be neither chosen nor checked; the desktop app refuses check', async (t) => {
+  const { makeDataDir, seedProject, startServer } = require('./helpers');
+  const dir = makeDataDir(t, seedProject({ revision: 1 }));
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1' });
+  const exe = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
+  // the real bundled program, so if the server did start it, it would answer as FFmpeg
+  const body = FF.available('ffmpeg') ? fs.readFileSync(FF.path('ffmpeg')) : Buffer.from('#!/bin/sh\necho ffmpeg version 9\n');
+  const up = await (await fetch(base + '/api/upload?name=' + exe, { method: 'POST', body })).json();
+  a.ok(up.src, JSON.stringify(up));
+  const file = path.join(dir, 'media', decodeURIComponent(up.src.replace(/^\/media\//, '')));
+  if (process.platform !== 'win32') fs.chmodSync(file, 0o755);
+  const choose = await (await fetch(base + '/api/ffmpeg/choose', { method: 'POST', body: JSON.stringify({ path: file }) })).json();
+  a.equal(choose.result, 'notFfmpeg'); a.equal(fs.existsSync(path.join(dir, 'external-ffmpeg.json')), false);
+  const check = await (await fetch(base + '/api/ffmpeg/check', { method: 'POST', body: JSON.stringify({ path: file }) })).json();
+  a.equal(check.ok, false); a.equal(check.code, 'notFfmpeg');
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const route = server.slice(server.indexOf('if (p === "/api/ffmpeg/check"'), server.indexOf('if (p === "/api/ffmpeg/choose"'));
+  a.match(route, /if \(DESKTOP\) \{ sendJSON\(res, 403,/, 'desktop: only the main process file dialog');
+  a.match(server, /FF\.setPlaces\(\{ deny: \[MEDIA_DIR, LIBRARY_DIR, UPLOADS_DIR, ANALYSIS_DIR, PROXIES_DIR, FRAMES_DIR, EXPORTS_DIR/);
+});
+
+/* 2. Which FFmpeg (QQ (a), Deja): the 11-02 rule stands — everything uses the bundled build; a chosen / variable / PATH
+   FFmpeg only encodes H.264 (exports, and proxies where the bundled build has no H.264). Only with no bundled build
+   at all is one used for everything, and then only if it passes the gate (it must run the ebur128 options MontClip
+   uses — europa's Debian 5.1 does not). Nothing is pinned globally. */
+test('the bundled build is used for everything; another FFmpeg only for H.264, or for all when there is no bundled build and it passes the gate', async (t) => {
+  const plat = process.platform, x = (n) => n + (plat === 'win32' ? '.exe' : '');
+  const root = path.parse(process.cwd()).root, app = path.join(root, 'app'), bin = path.join(root, 'usr', 'bin');
+  const vendor = path.join(app, 'vendor', 'ffmpeg', `${plat}-x64`, x('ffmpeg')), sys = path.join(bin, x('ffmpeg'));
+  const r = (have, usable) => FF.resolveTool('ffmpeg', { env: { PATH: bin }, appDir: app, platform: plat, arch: 'x64', exists: (f) => have.includes(f), chosenFile: null, usable });
+  a.equal(r([vendor, sys], () => true).source, 'vendor', 'a full system FFmpeg does not replace the bundled one');
+  a.equal(r([sys], () => true).source, 'path', 'no bundled build: the system one, for everything');
+  const old = r([sys], () => false);
+  a.equal(old.ok, false); a.equal(old.tooOld, true); a.equal(old.path, sys); a.match(old.error, /too old|options/i);
+  a.equal(typeof FF.use, 'undefined', 'nothing pins another FFmpeg as the global one');
+  a.equal(typeof FF.pick, 'undefined');
+  // H.264: libx264 from PATH only when the bundled build has no H.264 encoder
+  const d = tmp(t), onPath = path.join(d, x('ffmpeg')); fs.writeFileSync(onPath, 'x'); fs.chmodSync(onPath, 0o755);
+  const x264 = async (f, args) => args.includes('-encoders') ? { code: 0, stdout: ' V....D libx264  H.264\n' } : { code: 0, stdout: 'ffmpeg version 5.1\n' };
+  const ext = X.createExternal({ settingsFile: null, envPath: null, run: x264, setup: 'server', findOnPath: () => onPath });
+  a.deepEqual([...(await ext.available(new Set(['h264_mf', 'ffv1'])))].sort(), ['ffv1', 'h264_mf'], 'bundled has H.264: PATH not used');
+  a.ok((await ext.available(new Set(['ffv1', 'h264_omx']))).has('libx264'), 'bundled has none: libx264 from PATH');
+  a.equal((await ext.current()).source, 'path');
+  // the europa 5.1 / ebur128 case cannot happen: measuring uses FF.path (the bundled build), never the H.264 program
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  const loud = server.slice(server.indexOf('async function measureLoudness('), server.indexOf('function ffprobeJSON('));
+  a.match(loud, /runFfmpeg\(Delivery\.LOUDNESS_ARGS\(file\), timeout\)/); a.ok(!/measurePath|pickFfmpeg|FF\.use\(/.test(server));
+  a.ok(FF.GATE_ARGS.join(' ').includes('ebur128=peak=true:framelog=quiet'), 'the gate runs the ebur128 options measuring uses');
+  a.equal(require('../delivery').LOUDNESS_ARGS('x').find((v) => /ebur128/.test(v)), 'ebur128=peak=true:framelog=quiet', 'the gate matches what is measured');
+});
+
+test('server: bundled build + a full FFmpeg on PATH → bundled for everything, libx264 from PATH for H.264', async (t) => {
+  const { makeDataDir, seedProject, startServer } = require('./helpers');
+  if (!FF.available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
+  let sys = null;
+  try {
+    for (const f of require('node:child_process').execFileSync(process.platform === 'win32' ? 'where' : 'which', ['ffmpeg'], { encoding: 'utf8' }).split(/\r?\n/).filter(Boolean))
+      if (/libx264/.test(require('node:child_process').execFileSync(fs.realpathSync(f), ['-hide_banner', '-encoders'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }))) { sys = fs.realpathSync(f); break; }
+  } catch { }
+  if (!sys) return t.skip('no FFmpeg with libx264 on PATH here');
+  const dir = makeDataDir(t, seedProject({ revision: 1 })), p = path.dirname(sys);
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_TEST_NO_H264: '1', PATH: p, Path: p, MONTCLIP_EXTERNAL_FFMPEG_SETTINGS: '', MONTCLIP_EXTERNAL_FFMPEG: '' });
+  const st = await (await fetch(base + '/api/ffmpeg')).json();
+  a.equal(st.ffmpeg.source, 'vendor', 'the bundled build stays the one for everything'); a.equal(st.state, 'ready'); a.equal(st.encoder, 'libx264');
+  const h = await (await fetch(base + '/api/export/h264')).json();
+  a.deepEqual(h.external, { ok: true, source: 'path' });
+});
+
+/* 3. JJ (2026-11-05): no H.264 — simple mode greys the whole Export button; advanced mode keeps it and disables only the
+   H.264 (MP4) choices, each with JJ's note; Archive still exports. The same card in both. */
+test('no H.264: simple mode greys Export; advanced mode disables only the MP4 choices, with JJ\'s note', () => {
+  for (const lang of ['zh-CN', 'en']) {
+    const t = Card.text[lang];
+    const simple = Card.exportButton({ state: 'noH264' }, 'simple', lang);
+    a.deepEqual(simple, { disabled: true, title: t.unavailableH264 });
+    a.deepEqual(Card.exportButton({ state: 'noH264' }, 'advanced', lang), { disabled: false, title: null });
+    for (const mode of ['simple', 'advanced']) {
+      a.deepEqual(Card.exportButton({ state: 'missing' }, mode, lang), { disabled: true, title: t.unavailable });
+      a.deepEqual(Card.exportButton({ state: 'ready' }, mode, lang), { disabled: false, title: null });
+    }
+    a.deepEqual(Card.exportOption({ state: 'noH264' }, 'advanced', true, lang), { disabled: true, note: t.h264Option });
+    a.deepEqual(Card.exportOption({ state: 'noH264' }, 'advanced', false, lang), { disabled: false, note: null }, 'Archive still exports');
+    a.deepEqual(Card.exportOption({ state: 'ready' }, 'advanced', true, lang), { disabled: false, note: null });
+    a.ok(!/存档|Archive/.test(JSON.stringify(Card.model({ state: 'noH264', platform: 'linux' }, lang))), 'the card does not mention Archive');
+  }
+  a.equal(Card.text['zh-CN'].h264Option, '这台电脑上的 FFmpeg 做不了 MP4（缺 H.264 编码）。');
+  a.equal(Card.text.en.h264Option, "The FFmpeg on this computer can't make MP4 (missing H.264 encoding).");
+  // the page follows a mode switch, and the export dialog asks per option
+  const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  const body = (head) => { const i = app.indexOf(head); a.ok(i >= 0, head); return app.slice(i, app.indexOf('\n}', i)); };
+  a.match(body('function applyFfmpegState('), /MontClipFfmpegCard\.exportButton\(st, mcView\.get\(\)\.mode, mcView\.get\(\)\.language\)/);
+  a.match(body('function updateMontClipView('), /try \{ applyFfmpegState\(\); \}/);
+  a.match(body('function populateExportProfileSelect('), /MontClipFfmpegCard\.exportOption\(/);
 });
