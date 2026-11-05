@@ -26,11 +26,13 @@ function code(st) {
 function manifest() {
   try { return JSON.parse(fs.readFileSync(path.join(__dirname, "desktop", "asr-manifest.json"), "utf8")); } catch { return null; }
 }
-/** The speech model's size as the cards say it: MB of 1,000,000 bytes, to the nearest 10 (243,446,974 → 约 240 MB), the
- *  same rule as the Cindy plugin's status card (DD on MontClip-Cindy#7). */
+/** A size as MontClip says it (JJ, 2026-11-05): MB of 1,000,000 bytes, rounded to 10 (243,371,218 → 240). The one
+ *  function for it: these sentences, and the Cindy plugin's status card (its worker requires this file). */
+function aboutMb(bytes) { return Math.round((+bytes || 0) / 1e6 / 10) * 10; }
+/** The speech model's size from the manifest's bytes (约 240 MB for the pinned Paraformer files). */
 function modelMb(m = manifest()) {
   const files = m && m.models && m.models.asr && m.models.asr.files;
-  return files ? Math.round(Object.values(files).reduce((n, f) => n + f.size, 0) / 1e6 / 10) * 10 : null;
+  return files ? aboutMb(Object.values(files).reduce((n, f) => n + f.size, 0)) : null;
 }
 const nativePackage = (platform = process.platform, arch = process.arch) => "sherpa-onnx-" + (platform === "win32" ? "win" : platform) + "-" + arch;
 
@@ -79,4 +81,4 @@ function hidePaths(text) {
   });
 }
 
-module.exports = { code, userText, agentCode, SAY, modelMb, hidePaths };
+module.exports = { code, userText, agentCode, SAY, modelMb, aboutMb, hidePaths };
