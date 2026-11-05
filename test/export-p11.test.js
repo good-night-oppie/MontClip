@@ -193,7 +193,7 @@ for (const how of ["failed", "cancelled", "timed out"]) for (const stubborn of [
     assert.equal(stops.length, 1, "the job's end stopped its encode");
     const { left } = await stops[0];
     assert.ok(await waitFor(() => exited(proc), 500), "ffmpeg has exited");
-    assert.ok(realNow() - t0 < 5000, "within the limit");
+    assert.ok(realNow() - t0 < (stubborn ? 3000 : 1500), "stdin closed, SIGTERM, then SIGKILL after 2 s at most");
     assert.deepEqual(left, []);
     assert.equal(fs.existsSync(part), false, "no .part left");
     assert.equal(fs.existsSync(work), false, "no fablecut-XXXX folder left");
