@@ -3,7 +3,7 @@
    node desktop/fetch-ffmpeg.cjs [--platform win32-x64] [--archive <file>] [--cache-dir <dir>] [--force]
 
    One source of truth for CI, local runs and packaging: desktop/ffmpeg-manifest.json
-   (pinned URL + SHA-256). The archive must match that SHA-256, and the extracted ffmpeg
+   (pinned URL, byte count and SHA-256). The archive must be exactly that size and match that SHA-256, and the extracted ffmpeg
    must report an LGPL configuration (no --enable-gpl, no --enable-nonfree) — a GPL
    build is refused even if its checksum were pinned by mistake.
    Nothing is fetched when vendor/ (or MONTCLIP_FFMPEG_DIR) already holds that build
@@ -97,19 +97,35 @@ function upToDate(dest, build, { win }) {
   return { ok: true };
 }
 
-/** The pinned archive in cacheDir: reused when its SHA-256 matches, else (re)downloaded
- *  and checked. A download that fails or does not match throws: no fallback of any kind. */
+/** A build must pin its exact byte count; one that does not is an error, never a skipped check. */
+function pinnedBytes(build) {
+  if (!Number.isSafeInteger(build.bytes) || build.bytes <= 0) throw new Error(`no pinned byte count for ${build.url || "this build"}: the manifest must give its exact size in bytes`);
+  return build.bytes;
+}
+/** An archive is the pinned one when its size is the pinned byte count and then its SHA-256 matches. Throws otherwise. */
+function checkArchive(file, build) {
+  const bytes = pinnedBytes(build);
+  const size = fs.statSync(file).size;
+  if (size !== bytes) throw new Error(`size mismatch for ${build.url || file}: got ${size} bytes, pinned ${bytes}`);
+  const got = sha256(file);
+  if (got !== build.sha256) throw new Error(`SHA-256 mismatch for ${build.url || file}: got ${got}, pinned ${build.sha256}`);
+}
+const isPinned = (file, build) => { try { checkArchive(file, build); return true; } catch { return false; } };
+
+/** The pinned archive in cacheDir: reused when its size and SHA-256 match, else (re)downloaded
+ *  and checked: the byte count first, then the SHA-256. A download that fails or does not match is
+ *  deleted and throws: no fallback of any kind. */
 async function cachedArchive(build, cacheDir, { download: get = download } = {}) {
+  pinnedBytes(build);
   fs.mkdirSync(cacheDir, { recursive: true });
   const file = path.join(cacheDir, path.basename(new URL(build.url).pathname));
-  if (fs.existsSync(file) && sha256(file) === build.sha256) { console.log("using cached " + path.basename(file) + " (SHA-256 checked)"); return file; }
+  if (fs.existsSync(file) && isPinned(file, build)) { console.log("using cached " + path.basename(file) + " (size and SHA-256 checked)"); return file; }
   fs.rmSync(file, { force: true });
   const part = file + ".part";
   fs.rmSync(part, { force: true });
   console.log("downloading " + build.url);
-  await get(build.url, part);
-  const got = sha256(part);
-  if (got !== build.sha256) { fs.rmSync(part, { force: true }); throw new Error(`SHA-256 mismatch for ${build.url}: got ${got}, pinned ${build.sha256}`); }
+  try { await get(build.url, part); checkArchive(part, build); }
+  catch (e) { fs.rmSync(part, { force: true }); throw e; }
   fs.renameSync(part, file);
   return file;
 }
@@ -157,8 +173,7 @@ async function main() {
   try {
     let archive = arg("--archive");
     if (!archive) archive = await cachedArchive(build, arg("--cache-dir") || work);
-    const got = sha256(archive);
-    if (got !== build.sha256) throw new Error(`SHA-256 mismatch for ${archive}: got ${got}, pinned ${build.sha256}`);
+    checkArchive(archive, build);
     const ex = path.join(work, "x");
     fs.mkdirSync(ex);
     const tar = process.platform === "win32" ? path.join(process.env.SystemRoot || "C:\\Windows", "System32", "tar.exe") : "/usr/bin/tar";
@@ -174,4 +189,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch((e) => { console.error(e.message); process.exit(1); });
-module.exports = { checkLgpl, sha256, download, installTree, upToDate, cachedArchive };
+module.exports = { checkLgpl, sha256, download, installTree, upToDate, cachedArchive, checkArchive };
