@@ -522,6 +522,12 @@ function showClipCtxMenu(clientX, clientY, c) {
   item(anyEnabled ? uiText("own.clip-disable") : "Enable clip", "Shift+E", toggleClipsDisabled,
     locked ? "Locked — unlock to change" : null);
   item(anyUnlocked ? uiText("own.clip-lock") : "Unlock clip", "", toggleClipsLocked);
+  if (Mask.COVER_KINDS.includes(c.kind)) {   // 打码: its own group, right after enable / lock (VV's review of #163)
+    const sep = document.createElement("div"); sep.className = "ctx-sep"; menu.appendChild(sep);
+    const b = item(uiText("own.cover-area"), "", () => startCoverTool(c), locked ? "Locked — unlock to change" : null);
+    if (!locked) b.title = uiText("own.cover-area-tip");
+    menu.appendChild(Object.assign(document.createElement("div"), { className: "ctx-sep" }));
+  }
   if (group.some((x) => x.kind === "audio")) {
     item("Crossfade with neighbours", "Shift+D", () => crossfadeSelected(), locked ? "Locked — unlock to change" : null);
     item("Auto-duck under other tracks", "", () => autoDuckClips(selectedClips()), locked ? "Locked — unlock to change" : null);
@@ -530,10 +536,6 @@ function showClipCtxMenu(clientX, clientY, c) {
     item("Find silences", "", () => findSilences(selectedClips()));
   if (selectedClips().some((x) => isVisualClip(x) && x.kind !== "null"))
     item(uiText("own.clip-parent-null"), "", parentSelectionToNull, locked ? "Locked — unlock to change" : null);
-  if (Mask.COVER_KINDS.includes(c.kind)) {
-    const b = item(uiText("own.cover-area"), "", () => startCoverTool(c), locked ? "Locked — unlock to change" : null);
-    if (!locked) b.title = uiText("own.cover-area-tip");
-  }
   item(uiText("term.precompose"), "", precomposeSelection, locked ? "Locked — unlock to change" : null);
   if (c.kind === "comp") item(uiText("term.open-composition"), "", () => enterComp(c.compId, c));
   if (c.mediaId || c.kind === "comp") item(uiText("term.reveal-in-project"), "", () => revealInProject(c));
@@ -5635,7 +5637,8 @@ function rebuildClips() {
     if (hasWave) body += `<canvas class="wave"></canvas>`;
     const badge = (isMediaOffline(c.mediaId) ? "⚠ Offline · " : "") + (c.keyframes && Object.keys(c.keyframes).length ? "◆ " : "") +
                   (c.transitionIn || c.transitionOut ? "⇄ " : "") +
-                  (clipMatte(c) ? "◐ " : "");
+                  (clipMatte(c) ? "◐ " : "") +
+                  (Mask.COVER_KINDS.includes(c.kind) && clipCovers(c).length ? escapeHtml(uiText("own.cover-badge", { n: clipCovers(c).length })) + " · " : "");
     const chTag = (() => {
       const s = audioChannelShort(c.props?.audioChannel);
       return s ? s + " · " : "";
@@ -14731,7 +14734,8 @@ function drawSelectionOverlay(W, H, t) {
   if (drawingLayerMask(c)) { drawLayerStroke(c, W); if (!maskEditing(c)) return; }
   if (maskEditing(c) && drawMaskOverlay(c, W)) return;   // a layer's mask replaces the box
   if (maskEditActive(c) && drawClipMaskOverlay(c, W)) return;   // so does a clip mask being edited
-  if (coverToolActive(c) && drawCoverOverlay(c, W)) return;   // and the box being dragged for a covered area
+  if (coverToolActive(c) && drawCoverOverlay(c, W)) return;   // and the box being dragged for a redaction
+  if (coverSelFor(c) >= 0) drawCoverOverlay(c, W);   // a redaction picked in the Inspector: its box, highlighted
   drawTrackOverlay(c, W);
   if (!isVisualClip(c) || !activeAt(c, t) || !clipRenders(c)) return;
   if (shapeEditActive(c) && drawShapeOverlay(c, W, H, t)) return;   // a picked shape item replaces the box
@@ -15276,42 +15280,74 @@ function drawCovers(covers, shown, { sx, sy, cw, ch, sw, sh, dw, dh }) {
 /* ── Covered areas in the editor: right-click a clip → 「给这块打码」, drag a box on the monitor.
    The box is read in the clip's picture (the mask box: what the crop keeps), so it is stored in the same
    coordinates as masks — centre and size — and follows the clip from then on. ── */
-const coverUi = { clip: null, drag: null };
+// clip: the clip whose box is being drawn (the tool is on); replace: the index being re-drawn, or null to add one;
+// sel: the redaction picked in the Inspector (highlighted on the monitor), on clip selClip
+const coverUi = { clip: null, drag: null, replace: null, sel: -1, selClip: null };
 function clipCovers(c) { return (c && Mask.normalizeCovers(c.props && c.props.redactions)) || []; }
 function coverToolActive(c) { return !!c && coverUi.clip === c.id && state.selId === c.id && !isSourceMode(); }
-function startCoverTool(c) {
+/** The redaction picked in the Inspector for clip c, or −1. */
+function coverSelFor(c) {
+  if (!c || coverUi.selClip !== c.id || state.selId !== c.id) return -1;
+  return coverUi.sel < clipCovers(c).length ? coverUi.sel : -1;
+}
+/** Draw a box on the monitor: a new redaction, or (replace = index) a new area for that one — its style,
+ *  strength, name and time window stay. Esc cancels and leaves everything as it was. */
+function startCoverTool(c, replace = null) {
   if (isGroupLocked(c)) { toastLocked(); return; }
-  if (clipCovers(c).length >= Mask.MAX_COVERS) { toast(uiText("own.cover-max", { n: Mask.MAX_COVERS })); return; }
+  const n = clipCovers(c).length;
+  if (replace == null && n >= Mask.MAX_COVERS) { toast(uiText("own.cover-max", { n: Mask.MAX_COVERS })); return; }
+  if (replace != null && !(replace >= 0 && replace < n)) return;
   selectClip(c.id);
   if (state.playing) pause();
   if (!activeAt(c, state.time)) { toast(uiText("own.cover-not-here")); }
-  else toast(uiText("own.cover-drag"));
-  coverUi.clip = c.id; coverUi.drag = null;
+  else toast(uiText(replace == null ? "own.cover-drag" : "own.cover-redo-drag", { n: replace + 1 }));
+  coverUi.clip = c.id; coverUi.drag = null; coverUi.replace = replace;
+  if (replace != null) { coverUi.sel = replace; coverUi.selClip = c.id; }
   state.dirtyTimeline = true;
 }
-function stopCoverTool() { if (coverUi.clip) { coverUi.clip = null; coverUi.drag = null; state.dirtyTimeline = true; } }
+function stopCoverTool() {
+  if (!coverUi.clip) return;
+  coverUi.clip = null; coverUi.drag = null; coverUi.replace = null;
+  state.dirtyTimeline = true;
+  renderInspector();
+}
 function writeCovers(c, list) {
   const n = list.length ? Mask.normalizeCovers(list) : null;
   if (n) c.props.redactions = n; else delete c.props.redactions;
   state.dirtyTimeline = true;
 }
-/** The box being dragged (and the clip's covered areas, faint) on the monitor. */
+/** Bring the Inspector's 打码 section into view (after one is added or picked from the timeline). */
+function revealCoverSection() {
+  requestAnimationFrame(() => els.inspector.querySelector("[data-cover-section]")?.scrollIntoView({ block: "nearest" }));
+}
+/** On the monitor: the clip's redactions (the picked one bright, with its number) and the box being dragged. */
 function drawCoverOverlay(c, W) {
   const B = maskBox(c);
   if (!B || !activeAt(c, state.time)) return false;
-  const lw = Math.max(1.5, W / 800);
+  const lw = Math.max(1.5, W / 800), sel = coverSelFor(c);
   ctx2d.save();
   ctx2d.setTransform(1, 0, 0, 1, 0, 0);
-  const quad = (x0, y0, x1, y1) => {
-    const P = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([x, y]) => B.toCanvas(x * B.bw, y * B.bh));
-    ctx2d.beginPath(); P.forEach((p, i) => (i ? ctx2d.lineTo(p.x, p.y) : ctx2d.moveTo(p.x, p.y))); ctx2d.closePath();
-  };
-  ctx2d.setLineDash([lw * 3, lw * 3]); ctx2d.lineWidth = lw; ctx2d.strokeStyle = "rgba(255,210,90,0.5)";
-  for (const cv of clipCovers(c)) { quad(cv.x - cv.w / 2, cv.y - cv.h / 2, cv.x + cv.w / 2, cv.y + cv.h / 2); ctx2d.stroke(); }   // x, y = its centre
-  const d = coverUi.drag;
+  const corners = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([x, y]) => B.toCanvas(x * B.bw, y * B.bh));
+  const path = (P) => { ctx2d.beginPath(); P.forEach((p, i) => (i ? ctx2d.lineTo(p.x, p.y) : ctx2d.moveTo(p.x, p.y))); ctx2d.closePath(); };
+  clipCovers(c).forEach((cv, j) => {   // x, y = its centre
+    if (coverUi.replace === j && coverUi.clip === c.id) return;   // being re-drawn: the new box stands for it
+    const P = corners(cv.x - cv.w / 2, cv.y - cv.h / 2, cv.x + cv.w / 2, cv.y + cv.h / 2);
+    path(P);
+    if (j === sel) {
+      ctx2d.setLineDash([]); ctx2d.lineWidth = lw * 2.5; ctx2d.strokeStyle = "#ffd25a"; ctx2d.stroke();
+      const fs = Math.max(12, W / 70);
+      ctx2d.font = `600 ${fs}px system-ui, sans-serif`; ctx2d.textBaseline = "bottom";
+      const label = uiText("own.cover-area-n", { n: j + 1 }), tw = ctx2d.measureText(label).width;
+      ctx2d.fillStyle = "rgba(0,0,0,0.7)"; ctx2d.fillRect(P[0].x, P[0].y - fs * 1.3, tw + fs * 0.6, fs * 1.3);
+      ctx2d.fillStyle = "#ffd25a"; ctx2d.fillText(label, P[0].x + fs * 0.3, P[0].y - fs * 0.15);
+    } else {
+      ctx2d.setLineDash([lw * 3, lw * 3]); ctx2d.lineWidth = lw; ctx2d.strokeStyle = "rgba(255,210,90,0.5)"; ctx2d.stroke();
+    }
+  });
+  const d = coverUi.clip === c.id ? coverUi.drag : null;
   if (d) {
     ctx2d.setLineDash([]); ctx2d.lineWidth = lw * 2; ctx2d.strokeStyle = "#ffd25a"; ctx2d.fillStyle = "rgba(255,210,90,0.15)";
-    quad(Math.min(d.u0, d.u1), Math.min(d.v0, d.v1), Math.max(d.u0, d.u1), Math.max(d.v0, d.v1));
+    path(corners(Math.min(d.u0, d.u1), Math.min(d.v0, d.v1), Math.max(d.u0, d.u1), Math.max(d.v0, d.v1)));
     ctx2d.fill(); ctx2d.stroke();
   }
   ctx2d.restore();
@@ -15348,30 +15384,45 @@ els.preview.addEventListener("pointerup", (e) => {
   const y0 = clamp(Math.min(d.v0, d.v1), 0, 1), y1 = clamp(Math.max(d.v0, d.v1), 0, 1);
   const B = maskBox(c);
   if (!B || (x1 - x0) * B.bw < 4 || (y1 - y0) * B.bh < 4) { toast(uiText("own.cover-outside")); state.dirtyTimeline = true; return; }
-  pushUndo();
-  // stored like a mask: the centre, and the size, as fractions of the clip's picture (the mask box)
-  writeCovers(c, [...clipCovers(c), { x: +((x0 + x1) / 2).toFixed(4), y: +((y0 + y1) / 2).toFixed(4), w: +(x1 - x0).toFixed(4), h: +(y1 - y0).toFixed(4) }]);
-  coverUi.clip = null;
-  scheduleSave(); renderInspector();
+  // stored like a mask: the centre and the size, as fractions of the clip's picture (the mask box)
+  finishCoverBox(c, { x: +((x0 + x1) / 2).toFixed(4), y: +((y0 + y1) / 2).toFixed(4), w: +(x1 - x0).toFixed(4), h: +(y1 - y0).toFixed(4) });
 }, true);
+/** The dragged box becomes a new redaction, or the new area of the one being re-drawn (one undo step either way). */
+function finishCoverBox(c, area) {
+  const list = clipCovers(c), j = coverUi.replace;
+  pushUndo();
+  if (j != null && list[j]) list[j] = Mask.replaceCoverArea(list[j], area);
+  else list.push(area);
+  writeCovers(c, list);
+  coverUi.clip = null; coverUi.replace = null;
+  coverUi.sel = j != null && list[j] ? j : list.length - 1; coverUi.selClip = c.id;
+  scheduleSave(); renderInspector(); revealCoverSection();
+}
 window.addEventListener("keydown", (e) => {
   if (e.key !== "Escape" || !coverUi.clip) return;
   e.preventDefault(); e.stopImmediatePropagation();
-  stopCoverTool();
+  stopCoverTool();   // nothing written: a redaction being re-drawn keeps its area
 }, true);
 function coverSectionHtml(c) {
-  const list = clipCovers(c), on = coverUi.clip === c.id;
-  const rows = list.map((cv, j) => `<div class="cl-row" data-cover="${j}">
+  const list = clipCovers(c), on = coverUi.clip === c.id, sel = coverSelFor(c);
+  const rows = list.map((cv, j) => {
+    const redoing = on && coverUi.replace === j;
+    return `<div class="cl-row" data-cover="${j}">
+      <button type="button" class="btn tiny cl-chip${j === sel ? " toggle on" : ""}" data-cover-pick title="${escapeHtml(uiText("own.cover-pick-tip"))}">${escapeHtml(uiText("own.cover-area-n", { n: j + 1 }))}</button>
+      <button type="button" class="btn tiny${redoing ? " toggle on" : ""}" data-cover-redo title="${escapeHtml(uiText("own.cover-redo-tip"))}">${escapeHtml(uiText("own.cover-redo"))}</button>
+      <button type="button" class="btn tiny" data-cover-del>${escapeHtml(uiText("own.cover-remove"))}</button></div>
+    <div class="cl-row" data-cover-opts="${j}">
       <select data-cover-style title="${escapeHtml(uiText("own.cover-area-tip"))}">${Mask.COVER_STYLES.map((st) =>
         `<option value="${st}" ${cv.style === st ? "selected" : ""}>${escapeHtml(uiText("own.cover-" + st))}</option>`).join("")}</select>
       <label class="cl-note">${escapeHtml(uiText("own.cover-strength"))}</label>
-      <input type="range" data-cover-strength min="1" max="100" step="1" value="${cv.strength}">
-      <button type="button" class="btn tiny" data-cover-del>${escapeHtml(uiText("own.cover-remove"))}</button></div>`).join("");
-  return `<div class="insp-section" data-cover-section><h3>${escapeHtml(uiText("own.cover-section"))}</h3>
+      <input type="range" data-cover-strength min="1" max="100" step="1" value="${cv.strength}"></div>`;
+  }).join("");
+  const note = on ? (coverUi.replace != null ? uiText("own.cover-redo-drag", { n: coverUi.replace + 1 }) : uiText("own.cover-drag")) : "";
+  return `<div class="insp-section" data-cover-section><h3 data-cover-title>${escapeHtml(uiText("own.cover-section-n", { n: list.length }))}</h3>
     ${rows || `<p class="cl-note">${escapeHtml(uiText("own.cover-none"))}</p>`}
-    <div class="cl-row"><button type="button" class="btn tiny${on ? " toggle on" : ""}" data-cover-add title="${escapeHtml(uiText("own.cover-area-tip"))}"
+    <div class="cl-row"><button type="button" class="btn tiny${on && coverUi.replace == null ? " toggle on" : ""}" data-cover-add title="${escapeHtml(uiText("own.cover-area-tip"))}"
       ${list.length >= Mask.MAX_COVERS ? "disabled" : ""}>${escapeHtml(uiText("own.cover-add"))}</button></div>
-    ${on ? `<p class="cl-note">${escapeHtml(uiText("own.cover-drag"))}</p>` : ""}</div>`;
+    ${note ? `<p class="cl-note">${escapeHtml(note)}</p>` : ""}</div>`;
 }
 function bindCoverControls(c) {
   const root = els.inspector.querySelector("[data-cover-section]");
@@ -15381,15 +15432,30 @@ function bindCoverControls(c) {
     const list = clipCovers(c).map((x) => ({ ...x }));
     if (!list[j]) return;
     pushUndo();
-    if (set === null) list.splice(j, 1); else Object.assign(list[j], set);
+    if (set === null) { list.splice(j, 1); if (coverUi.selClip === c.id) coverUi.sel = -1; }
+    else Object.assign(list[j], set);
     writeCovers(c, list); scheduleSave(); renderInspector();
   };
-  root.querySelector("[data-cover-add]")?.addEventListener("click", () => { if (coverUi.clip === c.id) stopCoverTool(); else startCoverTool(c); renderInspector(); });
+  root.querySelector("[data-cover-add]")?.addEventListener("click", () => {
+    if (coverUi.clip === c.id && coverUi.replace == null) stopCoverTool(); else { startCoverTool(c); renderInspector(); }
+  });
   for (const row of root.querySelectorAll("[data-cover]")) {
     const j = +row.dataset.cover;
-    row.querySelector("[data-cover-style]").addEventListener("change", (e) => edit(j, { style: e.target.value }));
-    row.querySelector("[data-cover-strength]").addEventListener("change", (e) => edit(j, { strength: +e.target.value }));
+    row.querySelector("[data-cover-pick]").addEventListener("click", () => {
+      const was = coverSelFor(c) === j;
+      coverUi.sel = was ? -1 : j; coverUi.selClip = c.id;
+      state.dirtyTimeline = true; renderInspector();
+    });
+    row.querySelector("[data-cover-redo]").addEventListener("click", () => {
+      if (coverUi.clip === c.id && coverUi.replace === j) { stopCoverTool(); return; }
+      startCoverTool(c, j); renderInspector();
+    });
     row.querySelector("[data-cover-del]").addEventListener("click", () => edit(j, null));
+  }
+  for (const opts of root.querySelectorAll("[data-cover-opts]")) {
+    const j = +opts.dataset.coverOpts;
+    opts.querySelector("[data-cover-style]").addEventListener("change", (e) => edit(j, { style: e.target.value }));
+    opts.querySelector("[data-cover-strength]").addEventListener("change", (e) => edit(j, { strength: +e.target.value }));
   }
 }
 

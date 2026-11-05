@@ -75,3 +75,35 @@ test("fablecut_blur_region adds, names, replaces and removes redactions; refuses
   assert.equal(r.isError, true, "props.redactions written wholesale is validated too"); assert.match(r.text, /style must be/);
 });
 
+
+/* VV's review of #163: a redaction is found again (numbered, counted on the clip and in the panel title) and can be
+   re-drawn. The real window (menu order, scroll into view, highlight, Esc, one-step undo) is desktop/cover-region-smoke.cjs. */
+test("re-drawing a redaction keeps its style, strength, name, time window and on; only the area changes", () => {
+  const cv = M.normalizeCover({ x: 0.7, y: 0.3, w: 0.3, h: 0.4, style: "blur", strength: 30, name: "co-host", from: 1, to: 4, on: false });
+  const next = M.normalizeCover(M.replaceCoverArea(cv, { x: 0.2, y: 0.25, w: 0.2, h: 0.1 }));
+  assert.deepEqual(next, { ...cv, x: 0.2, y: 0.25, w: 0.2, h: 0.1 });
+  assert.deepEqual(cv, M.normalizeCover({ x: 0.7, y: 0.3, w: 0.3, h: 0.4, style: "blur", strength: 30, name: "co-host", from: 1, to: 4, on: false }), "the old one is not touched");
+});
+
+test("the find-it-again words exist in both languages (drafts for JJ), numbered and counted from the same list", () => {
+  const V = require("../ui-preferences"), fs = require("node:fs"), path = require("node:path");
+  const zh = (k, v) => V.t("zh-CN", "own." + k, v), en = (k, v) => V.t("en", "own." + k, v);
+  assert.equal(zh("cover-badge", { n: 2 }), "打码·2");
+  assert.equal(zh("cover-section-n", { n: 2 }), "打码区域（2）");
+  assert.equal(zh("cover-area-n", { n: 1 }), "区域1");
+  assert.equal(zh("cover-redo"), "重新框选");
+  assert.equal(zh("cover-remove"), "去掉");
+  for (const k of ["cover-badge", "cover-section-n", "cover-area-n", "cover-redo", "cover-redo-tip", "cover-redo-drag", "cover-pick-tip"]) {
+    const e = en(k, { n: 3 }), c = zh(k, { n: 3 });
+    assert.ok(e && c && e !== c, k + ": " + e + " / " + c);
+    if (k !== "cover-redo" && k !== "cover-redo-tip" && k !== "cover-pick-tip") assert.ok(e.includes("3") && c.includes("3"), k + " shows the number");
+  }
+  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  // the timeline badge and the panel title count the same list the rows are numbered from
+  assert.match(app, /uiText\("own\.cover-badge", \{ n: clipCovers\(c\)\.length \}\)/);
+  assert.match(app, /uiText\("own\.cover-section-n", \{ n: list\.length \}\)/);
+  assert.match(app, /const list = clipCovers\(c\)[^\n]*\n  const rows = list\.map/);
+  // the menu entry sits right after enable / lock, in its own group
+  const menu = app.slice(app.indexOf("function showClipCtxMenu"), app.indexOf("function showClipCtxMenu") + 4000);
+  assert.ok(menu.indexOf('uiText("own.clip-lock")') < menu.indexOf('uiText("own.cover-area")') && menu.indexOf('uiText("own.cover-area")') < menu.indexOf("own.clip-parent-null"));
+});

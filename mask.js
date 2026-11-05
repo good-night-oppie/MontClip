@@ -432,6 +432,10 @@
     if (cv.on === false) out.on = false;
     return out;
   }
+  /** A redaction with a new area (a box drawn again): its style, strength, name, time window and on stay. */
+  function replaceCoverArea(cv, area) {
+    return { ...cv, x: area.x, y: area.y, w: area.w, h: area.h };
+  }
   /** Whether a cover shows at clip-local time lt (its from / to window; on:false never). */
   function coverActive(cv, lt) {
     return cv.on !== false && (cv.from == null || lt >= cv.from - 1e-6) && (cv.to == null || lt < cv.to - 1e-6);
@@ -522,7 +526,7 @@
   return {
     MAX_MASKS, MAX_POINTS, SHAPES, MODES, KEYED, BLENDS, MATTES, matteTrackFor, checkCompositing, NUM_KEYED, RANGE, DEFAULTS, EASES,
     normalizeMasks, normalizeMask, mergeMask, maskAt, masksAt, shiftKeys,
-    MAX_COVERS, COVER_STYLES, COVER_KINDS, normalizeCover, normalizeCovers, describeCovers, coverGrain, coverActive,
+    MAX_COVERS, COVER_STYLES, COVER_KINDS, normalizeCover, normalizeCovers, describeCovers, coverGrain, coverActive, replaceCoverArea,
     anchors, tracePath, flatten, polyDist, maskCoverage, combine, matteAt, fitStroke, rasterize, describe, splitPoints, editTopology,
   };
 });

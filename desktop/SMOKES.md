@@ -26,6 +26,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `card-lyrics-smoke.cjs` | `CARD_LYRICS_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `cindy-parts-smoke.cjs` | `CINDY_PARTS_PASS` | 在用 |
 | `chinese-names-smoke.cjs` | `CN_NAMES_COMPLETE` | 在用 |
+| `cover-region-smoke.cjs` | `COVER_REGION_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图（只用合成画面） |
 | `corrections-smoke.cjs` | `CORRECTIONS_PASS` | 在用 |
 | `corrections-ui-smoke.cjs` | `CORRECTIONS_UI_PASS` | 在用；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `danmaku-keep-smoke.cjs` | `DANMAKU_KEEP_PASS` | 在用 |

@@ -1201,10 +1201,14 @@ position, rotation and keyframes carry it. As with masks, changing the crop
 changes the picture the fractions refer to. Under the clip's masks a
 redaction is cut like the rest of the picture.
 
-In the editor: right-click a clip → **给这块打码** (Cover this area), then drag
-a box on the monitor over what to hide (Esc cancels). The Inspector's
-**Covered areas** section lists them — mosaic or blur, strength, remove — and
-**+ Cover an area** draws another. One undo step each.
+In the editor: right-click a clip → **给这块打码** (Cover this area; its own
+group, right after Disable / Lock), then drag a box on the monitor over what to
+hide (Esc cancels). A clip with redactions says so on the timeline
+(**打码·2**). The Inspector's **打码区域（2）** section scrolls into view when one
+is added and lists them by number: **区域1** (click it to highlight its box on
+the monitor), **重新框选** (drag a new box for that area — its style and strength
+stay; Esc keeps it as it was), **去掉**, and below each its style (mosaic or
+blur) and strength; **+ 再打一块** draws another. One undo step each.
 
 **Agents:** `fablecut_blur_region {clipId, rect:{x, y, w, h}, strength?, style?, from?, to?, name?}`
 adds one (a name already there replaces that area); `{clipId, remove: index | name | "all"}`
