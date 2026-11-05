@@ -76,8 +76,10 @@ Linux and europa real-file checks: not run in this round.
 `POST /api/media-clock {src}` starts/reuses a job; `GET /api/media-clock?src=`
 polls its state/result. `POST /api/media-clock/cancel {src}` cancels only this job.
 Two scans run at once, at most 128 jobs are retained. Queue starts return before
-scanning; duplicate file versions share work. Size/mtime changes invalidate old
+scanning; duplicate file versions share work. File identity, size, mtime or ctime changes invalidate old
 results both during and after a scan. Shutdown aborts owned probe processes.
+This metadata key is not a content hash; an eventual destructive apply must revalidate
+the source and explicit choice, rather than treating cached diagnostics as authorization.
 
 No result is merged into project.json: keeping diagnostics separate avoids races
 with pending editor changes and prevents implicit application of the new clock.

@@ -117,10 +117,10 @@ async function scanFile(file, { timeoutMs, signal } = {}) {
       for (const text of lines) line(text);
     });
     child.on("error", err => { clearTimeout(timer); signal?.removeEventListener("abort", abort); reject(err); });
-    child.on("close", (code, signal) => {
+    child.on("close", (code, exitSignal) => {
       clearTimeout(timer);
       signal?.removeEventListener("abort", abort);
-      if (failure || signal || code !== 0) return reject(failure || new Error("packet scan incomplete"));
+      if (failure || exitSignal || code !== 0) return reject(failure || new Error("packet scan incomplete"));
       try {
         if (rest) line(rest);
         const result = scan.finish();

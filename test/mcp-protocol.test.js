@@ -96,12 +96,14 @@ test("every tools/call answer is well-formed content blocks", async (t) => {
   // must fail fast here instead of spawning a detached server.js no test can
   // stop. Their error answers are still text-led content blocks, which is what
   // this test checks.
-  const mcp = startMcp(t, makeDataDir(t), { FABLECUT_NO_AUTOSTART: "1" });
+  // Also isolate the port: NO_AUTOSTART alone still permits connecting to an existing editor.
+  const mcp = startMcp(t, makeDataDir(t), { FABLECUT_NO_AUTOSTART: "1", FABLECUT_PORT: "0" });
   await mcp.request("initialize", { protocolVersion: LATEST });
   const { result } = await mcp.request("tools/list");
   for (const tool of result.tools) {
     if (tool.name === "fablecut_status") continue; // spawns the editor server
-    const res = await mcp.request("tools/call", { name: tool.name, arguments: {} });
+    const res = await mcp.request("tools/call", { name: tool.name, arguments: {} })
+      .catch(e => { throw new Error(`${tool.name}: ${e.message}`, { cause: e }); });
     assert.ok(res.result, `${tool.name} returned no result`);
     const content = res.result.content;
     assert.ok(Array.isArray(content) && content.length, `${tool.name} returned no content blocks`);

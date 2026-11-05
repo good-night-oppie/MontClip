@@ -9,7 +9,7 @@ function createClockJobs({ concurrency = 2, maxJobs = 128, stat = fs.promises.st
   let queue = [], active = 0, closed = false;
   const keyOf = s => {
     if (s.isFile && !s.isFile()) throw error("CLOCK_NOT_FILE");
-    return s.size + ":" + s.mtimeMs;
+    return [s.dev ?? 0, s.ino ?? 0, s.size, s.mtimeMs, s.ctimeMs ?? 0].join(":");
   };
   const snapshot = job => job ? structuredClone({ key: job.key, state: job.state,
     ...(job.result ? { result: job.result } : {}), ...(job.code ? { code: job.code } : {}) }) : { state: "none" };

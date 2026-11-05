@@ -2395,7 +2395,7 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
 HTTP 202 `{src, key, state}`. `GET /api/media-clock?src=` polls it; when `state:"done"`,
 `result` contains `coveredDuration`, `sourceDuration`, `ranges`, `gaps`, and `timestampJump`.
 Other states are `none`, `queued`, `running`, `failed`, `cancelled`, and `stale`.
-`POST /api/media-clock/cancel {src}` cancels that scan. File size/mtime changes invalidate
+`POST /api/media-clock/cancel {src}` cancels that scan. File identity, size, mtime or ctime changes invalidate
 results. There are at most two active scans and 128 retained jobs; a full busy queue returns 429.
 
 These diagnostics do not save project metadata, shorten media, or modify clips. Only an

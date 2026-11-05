@@ -23,6 +23,19 @@ test("a changed file invalidates completed and in-flight results", async () => {
   await jobs.start("a"); await tick(); a.equal((await jobs.get("a")).state, "done");
   version++; a.equal((await jobs.get("a")).state, "stale");
 });
+test("same-size replacements with preserved mtime invalidate on ctime or file identity", async () => {
+  let ctimeMs = 1, ino = 10;
+  const jobs = create({ stat: async () => ({ size: 10, mtimeMs: 1, ctimeMs, ino, dev: 1 }), scan: async () => ({ coveredDuration: 9 }) });
+  await jobs.start("a"); await tick(); a.equal((await jobs.get("a")).state, "done");
+  ctimeMs++; a.equal((await jobs.get("a")).state, "stale");
+  await jobs.start("a"); await tick(); ino++; a.equal((await jobs.get("a")).state, "stale");
+});
+test("concurrent same-file starts share one scan after stat resolves", async () => {
+  let count = 0; const gate = defer();
+  const jobs = create({ stat: async () => { await gate.promise; return { size: 10, mtimeMs: 1 }; }, scan: async () => { count++; return { coveredDuration: 9 }; } });
+  const starts = [jobs.start("a"), jobs.start("a"), jobs.start("a")]; gate.resolve();
+  await Promise.all(starts); await tick(); a.equal(count, 1);
+});
 test("cancel releases queued work; scan errors never publish a partial answer", async () => {
   const gate = defer(); let calls = 0;
   const jobs = create({ concurrency: 1, stat: async () => ({ size: 10, mtimeMs: 1 }), scan: async () => { calls++; await gate.promise; throw new Error("partial scan"); } });
