@@ -9,6 +9,7 @@ const app = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8');
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 const css = fs.readFileSync(path.join(ROOT, 'style.css'), 'utf8');
 const view = require('../ui-preferences');
+const Z = require('./zh-shown');
 const strip = (s) => String(s).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 const fn = (name, next) => app.slice(app.indexOf(`function ${name}(`), app.indexOf(next, app.indexOf(`function ${name}(`)));
 
@@ -32,16 +33,19 @@ function helpWorld(language) {
   const sections = [];
   for (const sm of html.matchAll(/<section class="keys-sec">([\s\S]*?)<\/section>/g)) {
     const body = sm[1], hm = body.match(/<h3([^>]*)>([\s\S]*?)<\/h3>/);
-    const key = (hm[1].match(/data-i18n="([^"]+)"/) || [])[1];
-    const head = key ? view.t(language, key) : strip(hm[2]);
-    const h3 = { textContent: head, dataset: key ? { i18n: key } : {} };
+    const key = (hm[1].match(/data-i18n="([^"]+)"/) || [])[1], tail = (hm[1].match(/data-i18n-tail="([^"]+)"/) || [])[1];
+    const head = key ? view.t(language, key) : Z.shown(hm[0], language).map((x) => x.text).join(' ');
+    const h3 = { textContent: head, dataset: key ? { i18n: key } : tail ? { i18nTail: tail } : {} };
     const rows = [];
     for (const rm of body.matchAll(/<tr><td(?:\s[^>]*)?>[\s\S]*?<\/td>(<td[^>]*>)([\s\S]*?)<\/td><\/tr>/g)) {
-      const left = strip(rm[0].slice(0, rm[0].indexOf(rm[1])));
+      // the left cell as the page shows it (its data-i18n markers applied, #145), and its keyed parts
+      const leftHtml = rm[0].slice(4, rm[0].indexOf(rm[1]));
+      const left = Z.shown(leftHtml, language).map((x) => x.text).join(' ');
+      const marked = [...leftHtml.matchAll(/<(?:span|b)[^>]*data-i18n="([^"]+)"/g)].map((m) => ({ dataset: { i18n: m[1] } }));
       const own = (rm[1].match(/data-i18n-html="([^"]+)"/) || [])[1];
       const shown = own && language === 'zh-CN' ? view.t('zh-CN', own) : strip(rm[2]);
-      const keyTd = { textContent: left, dataset: {} };
-      const td = { textContent: shown, dataset: { i18nHtmlOrig: rm[2] } };
+      const keyTd = { textContent: left, dataset: { i18n: (leftHtml.match(/^<td[^>]*data-i18n="([^"]+)"/) || [])[1] }, querySelectorAll: () => marked };
+      const td = { textContent: shown, dataset: { i18nHtmlOrig: rm[2] }, querySelectorAll: () => [] };
       const cls = new Set();
       rows.push({ classList: { toggle(c, off) { off ? cls.add(c) : cls.delete(c); } },
         hidden: () => cls.has('hidden'), querySelectorAll: (sel) => sel === 'td' ? [keyTd, td] : [] });

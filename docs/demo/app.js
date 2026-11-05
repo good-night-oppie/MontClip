@@ -39,6 +39,10 @@ let mcAgent = null;
 const mcView = MontClipView.create(window.montclipViewSettings ? MontClipView.desktopStorage(window.montclipViewSettings) : localStorage);
 /** Keyed interface text in the current language (ui-terms.js / ui-preferences.js). Never for user content. */
 const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
+/** A keyed term in Chinese, the page's own English word in English (for a term whose English row reads differently). */
+const uiOr = (key, english) => (mcView.get().language === "en" ? english : uiText(key));
+/** A stored default name ("Main", "Title") as the interface language shows it; the user's own names as they are. */
+const shownName = (name) => MontClipView.defaultName(mcView.get().language, name);
 /** On-device transcription: on in development and the browser editor; a packaged desktop build has it
  *  off unless the main process turned it on (desktop/features.js). Off means no entry and no download. */
 function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
@@ -90,6 +94,7 @@ function projectStatusText() {
 /** Text computed from state (not data-i18n) after a language switch: the top bar status and the Transcript panel. */
 function refreshLanguageText() {
   if (els.projectName) els.projectName.textContent = projectStatusText();
+  if (els.projectName?.classList.contains("clickable")) els.projectName.setAttribute("title", uiText("term.projects"));
   if (trState.built) renderTranscript(true);
 }
 function updateMontClipView(patch) {
@@ -110,10 +115,14 @@ function updateMontClipView(patch) {
 /** Texts built in code (not data-i18n markers) for the views that are on screen, after a language switch. */
 function refreshLocalizedViews() {
   renderBin();
+  if (typeof renderInspector === "function" && els.inspector) renderInspector();
+  if (typeof renderColorPage === "function" && colorState.open) renderColorPage(true);
+  if (typeof syncSequenceButton === "function") syncSequenceButton();
+  state.dirtyTimeline = true; // clip labels ("T · Title")
   if (meterState.modeBtn) meterState.modeBtn.textContent = meterModeLabel(meterState.mode);
   if (projectsOpen()) renderProjects();
   if (els.exportSetup && !els.exportSetup.classList.contains("hidden")) {
-    renderExportEngineText(); syncExportRangeUi(); refreshDeliveryNotes(); renderDeliveryTokens(); renderBatchList();
+    renderExportEngineText(); syncExportRangeUi(); if (dlvSpec) fillDeliveryControls(); refreshDeliveryNotes(); renderDeliveryTokens(); renderBatchList();
   }
 }
 document.getElementById("mcMode").addEventListener("click", e => {
@@ -840,6 +849,8 @@ const runtime = {
   libraryFontReq: new Set(), // library families claimed by a load pass
   googleLoaded: new Set(),   // loaded from Google Fonts (the font picker lists them)
   fontReq: new Map(),   // font name -> Promise<boolean> (ensureFont)
+  fontConsent: new Set(),   // Google fonts the streamer said yes to going online for, this session (requestFonts)
+  fontHinted: new Set(),    // fonts already named in a "drawn in the fallback face" hint, this session
   undo: [], redo: [],
   seqUndo: new Map(),   // sequence id -> {undo, redo, time, sel}: each sequence keeps its own undo history this session
   seqOpen: null,        // the open sequence's id, to notice another one being opened
@@ -1694,6 +1705,7 @@ function applyProject(data, opts = {}) {
   if (migratePan) scheduleSave(); // persist marker + migrated stem pans
   // AV links aren't always on disk (older saves / agents) — rebuild from matching timing.
   relinkClips();
+  noteProjectFonts(); // titles in a font that would have to come from outside: the fallback face, and one hint
   // reset runtime playback elements so they rebuild against new data
   if (state.audioHold) setAudioHold(false);
   else stopAudioHoldNodes();
@@ -2478,7 +2490,7 @@ function renderBin() {
       item.innerHTML = `
         <span class="bin-cell bin-cell-name">${favHtml}<span class="bin-thumb sm"></span>${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span>` : ""}<span class="bin-name"></span></span>
         ${cell(MediaLib.fmtDur(m.duration), " num c-duration")}${cell(MediaLib.fmtRes(m), " num c-resolution")}${cell(MediaLib.fmtFps(m.fps), " num c-fps")}
-        ${cell(m.codec, " c-codec")}${cell(MediaLib.fmtAudio(m), " c-audio")}${cell(MediaLib.fmtSize(m.size), " num c-size")}
+        ${cell(m.codec, " c-codec")}${cell(MediaLib.fmtAudio(m).replace(/^stereo\b/, uiOr("term.stereo", "stereo")), " c-audio")}${cell(MediaLib.fmtSize(m.size), " num c-size")}
         <span class="bin-cell c-proxy">${proxyBadgeHtml(m) || escapeHtml(m.kind === "video" ? "—" : "")}</span>
         <span class="bin-cell num c-usage">${usesHtml}</span>
         <span class="bin-del" title="Remove (and its clips)">✕</span>${incomplete}`;
@@ -2667,7 +2679,7 @@ function syncBinTools() {
   const html = opt("", "All media") + opt("fav", "★ Favorites") + opt("used", "Used in the edit") + opt("unused", "Unused") +
     (mediaOffline.size || binView.filter === "offline" ? opt("offline", `⚠ Offline (${mediaOffline.size})`) : "") +
     (project.media.some((m) => m.kind === "video") ? opt("proxy", "Has a proxy") + opt("noproxy", "Video without a proxy") : "") +
-    `<optgroup label="Kind">${MediaLib.KINDS.map((k) => opt("kind:" + k, k[0].toUpperCase() + k.slice(1))).join("")}</optgroup>` +
+    `<optgroup label="Kind">${MediaLib.KINDS.map((k) => opt("kind:" + k, k === "svg" ? "SVG" : k === "video" || k === "audio" ? uiText("term." + k) : k[0].toUpperCase() + k.slice(1))).join("")}</optgroup>` +
     (cols.length ? `<optgroup label="Collections">${cols.map((c) => opt("col:" + c.id, c.name + ` (${c.media.length})`)).join("")}</optgroup>` : "") +
     (tags.length ? `<optgroup label="Tags">${tags.map((t) => opt("tag:" + t, "#" + t)).join("")}</optgroup>` : "");
   if (els.binFilter.innerHTML !== html) els.binFilter.innerHTML = html;
@@ -2675,9 +2687,9 @@ function syncBinTools() {
   els.binFilter.classList.toggle("on", !!binView.filter);
   els.binSort.value = binView.sort;
   els.binSortDir.textContent = binView.dir === "desc" ? "↓" : "↑";
-  els.binSortDir.title = binView.dir === "desc" ? "Descending — click for ascending" : "Ascending — click for descending";
+  els.binSortDir.title = binView.dir === "desc" ? "Descending — click for ascending" : uiText("term.ascending-click-for-descending");
   els.binViewBtn.classList.toggle("on", binView.list);
-  els.binViewBtn.title = binView.list ? "Thumbnail view" : "List view: metadata columns";
+  els.binViewBtn.title = binView.list ? "Thumbnail view" : uiText("term.list-view-metadata-columns");
   if (els.binSearch.value !== binView.q && document.activeElement !== els.binSearch) els.binSearch.value = binView.q;
 }
 function setBinFilter(filter) {
@@ -2714,15 +2726,17 @@ function makeFilterBar(n) {
 /* List view header: click a column to sort by it (again to flip the direction). */
 const BIN_COLUMNS = [["name", "Name"], ["duration", "Duration"], ["resolution", "Resolution"], ["fps", "FPS"],
   ["codec", "Codec"], ["audio", "Audio"], ["size", "Size"], ["proxy", "Proxy"], ["usage", "Uses"]];
+const BIN_COLUMN_TERMS = { name: "term.name", duration: "term.duration", resolution: "term.resolution", codec: "term.codec", audio: "term.audio", proxy: "term.proxy" };
+const binColumnLabel = (key, label) => (BIN_COLUMN_TERMS[key] ? uiText(BIN_COLUMN_TERMS[key]) : label);
 function makeColumnHead() {
   const head = document.createElement("div");
   head.className = "bin-colhead bin-row";
   for (const [key, label] of BIN_COLUMNS) {
-    if (key === "proxy") { const sp = document.createElement("span"); sp.className = "bin-cell c-proxy"; sp.textContent = label; head.appendChild(sp); continue; }
+    if (key === "proxy") { const sp = document.createElement("span"); sp.className = "bin-cell c-proxy"; sp.textContent = binColumnLabel(key, label); head.appendChild(sp); continue; }
     const b = document.createElement("button");
     b.type = "button";
     b.className = "bin-cell c-" + key + (key === "name" ? " bin-cell-name" : "") + (["duration", "resolution", "fps", "size", "usage"].includes(key) ? " num" : "") + (binView.sort === key ? " on" : "");
-    b.textContent = label + (binView.sort === key ? (binView.dir === "desc" ? " ↓" : " ↑") : "");
+    b.textContent = binColumnLabel(key, label) + (binView.sort === key ? (binView.dir === "desc" ? " ↓" : " ↑") : "");
     b.addEventListener("click", () => {
       if (binView.sort === key) binView.dir = binView.dir === "desc" ? "asc" : "desc";
       else { binView.sort = key; binView.dir = key === "name" || key === "codec" ? "asc" : "desc"; }
@@ -3746,7 +3760,7 @@ function pjDetailHtml(p) {
   const fact = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
   const tpl = p.template && pj.templates.find((t) => t.id === p.template);
   return `${pjThumbHtml(p, true)}
-    <label class="pj-field"><span>Name</span><input type="text" id="pjName" value="${escapeHtml(p.name)}" maxlength="120" spellcheck="false"></label>
+    <label class="pj-field"><span>${uiText("term.name")}</span><input type="text" id="pjName" value="${escapeHtml(p.name)}" maxlength="120" spellcheck="false"></label>
     <dl class="pj-facts">
       ${fact(escapeHtml(uiText("own.pj-canvas")), p.unreadable ? "—" : pjCanvas(p))}
       ${fact(escapeHtml(uiText("own.pj-length")), escapeHtml((p.clips === 1 ? uiText("own.pj-length-value-1", { dur: pjFmtDur(p.duration), clips: 1, media: p.media }) : uiText("own.pj-length-value", { dur: pjFmtDur(p.duration), clips: p.clips, media: p.media }))))}
@@ -3790,7 +3804,7 @@ function pjNewHtml() {
     </button>`;
   const saved = tpls.filter((x) => !x.builtin);
   return `<h3>New project</h3>
-    <label class="pj-field"><span>Name</span><input type="text" id="pjNewName" value="${escapeHtml(MontClipView.defaultProjectName(mcView.get().language))}" maxlength="120" spellcheck="false"></label>
+    <label class="pj-field"><span>${uiText("term.name")}</span><input type="text" id="pjNewName" value="${escapeHtml(MontClipView.defaultProjectName(mcView.get().language))}" maxlength="120" spellcheck="false"></label>
     <div class="pj-field"><span>Start from</span>
       <div class="pj-tpls">${tpls.filter((x) => x.builtin).map(row).join("")}</div>
       ${saved.length ? `<span class="pj-sub">Saved templates</span><div class="pj-tpls">${saved.map(row).join("")}</div>` : ""}
@@ -4106,7 +4120,7 @@ function initProjectsUi() {
   btn.classList.remove("hidden");
   btn.addEventListener("click", openProjects);
   els.projectName?.classList.add("clickable");
-  els.projectName?.setAttribute("title", "Projects");
+  els.projectName?.setAttribute("title", uiText("term.projects"));
   els.projectName?.addEventListener("click", openProjects);
   $("pjClose").addEventListener("click", closeProjects);
   ov.addEventListener("click", (e) => { if (e.target === ov) closeProjects(); });
@@ -4564,7 +4578,7 @@ function addClipFromMedia(m, trackId, at) {
   if (!tr || (kind === "audio") !== (tr.kind === "audio")) trackId = defaultTrackFor(kind);
   if (isTrackLocked(trackId)) { toast(`${trackId} is locked — unlock it to add clips`); return null; }
   // nothing could read its length (a recording cut off before it was saved): never placed at a made-up 5 s (europa P3)
-  if (MediaLib.cannotCut(m)) { toast(uiText("own.media-incomplete")); return null; }
+  if (MediaLib.cannotCut(m)) { toast(uiText("own.media-cannot-cut", { name: m.name })); return null; }
   pushUndo();
   const start = Math.max(0, at ?? state.time);
   const duration = m.duration || 5;
@@ -4843,6 +4857,7 @@ function openStylePicker(anchor, c) {
       committed = true;
       close();
       scheduleSave(); renderInspector();
+      requestTitleFonts(c);
     });
     menu.appendChild(it);
   }
@@ -4860,6 +4875,12 @@ function openStylePicker(anchor, c) {
   menu.style.top = Math.round(Math.min(r.bottom + 4, innerHeight - 340)) + "px";
   document.body.appendChild(menu);
   runtime.styleMenu = { close };
+}
+/* A style the streamer picked: its fonts, asking first for any that would go online. (Applying a style on its own —
+   a new title, a hover preview — never asks or goes online; a missing face draws in the fallback.) */
+function requestTitleFonts(c) {
+  const p = c.props || {};
+  requestFonts([p.font, ...(p.textAnim === "font-cut" ? (Array.isArray(p.fontCutSet) && p.fontCutSet.length ? p.fontCutSet : FONT_CUT_DEFAULT) : [])]);
 }
 function closeStylePicker() { if (runtime.styleMenu) runtime.styleMenu.close(); }
 /* Swap a clip's source media in place: position, trim, keyframes, transitions,
@@ -5626,7 +5647,7 @@ function rebuildClips() {
       const s = audioChannelShort(c.props?.audioChannel);
       return s ? s + " · " : "";
     })();
-    const label = c.kind === "text" ? "T · " + (c.props.text || "").split("\n")[0]
+    const label = c.kind === "text" ? "T · " + shownName((c.props.text || "").split("\n")[0])
       : c.kind === "adjust" ? "FX · " + (c.name || "")
       : c.kind === "shape" ? "◆ · " + (c.name || "")
       : c.kind === "null" ? "✥ · " + (c.name || "")
@@ -6216,7 +6237,7 @@ function openSnapMenu(anchor) {
   const on = snapTargets();
   menu.innerHTML = `<div class="snap-menu-head dim">Snap to</div>` +
     Object.entries(SNAP_TARGET_LABELS).map(([k, label]) =>
-      `<label class="ctx-item snap-opt"><input type="checkbox" data-snap="${k}"${on[k] ? " checked" : ""}> <span>${label}</span></label>`).join("");
+      `<label class="ctx-item snap-opt"><input type="checkbox" data-snap="${k}"${on[k] ? " checked" : ""}> <span>${k === "markers" ? escapeHtml(uiText("term.markers")) : label}</span></label>`).join("");
   menu.addEventListener("change", (e) => {
     const k = e.target.dataset.snap;
     if (k) toggleSnapTarget(k);
@@ -7447,7 +7468,7 @@ function renderInspector(lite) {
   let html = captionQuickHtml("selected") + (state.selIds.size > 1
     ? `<div class="insp-multi">${state.selIds.size} clips selected — drag moves them together, Del deletes all. Fields below edit the primary (white-outlined) clip.</div>`
     : "") + clipStatusBar(c) + `<div class="insp-section"><h3>Clip — ${c.kind}</h3>
-    ${row("Name", `<input type="text" data-k="name" value="${escapeHtml(c.name || "")}">`)}
+    ${row(uiText("term.name"), `<input type="text" data-k="name" value="${escapeHtml(c.name || "")}">`)}
     ${c.mediaId ? row("Source", `<button type="button" class="btn tiny style-picker-btn" data-media-open title="Replace this clip's media — keeps position, trim, keyframes and effects">${escapeHtml((getMedia(c.mediaId) || {}).name || "Missing media")} ▾</button>`) : ""}
     ${row("Start (s)", `<input type="number" data-k="start" step="0.01" value="${c.start.toFixed(2)}">`)}
     ${row("Length (s)", `<input type="number" data-k="duration" step="0.01" value="${c.duration.toFixed(2)}">`)}
@@ -7479,7 +7500,7 @@ function renderInspector(lite) {
       ${parentRowHtml(c)}
     </div>`;
   } else if (c.kind !== "audio") {
-    html += `<div class="insp-section"><h3>Transform</h3>
+    html += `<div class="insp-section"><h3>${uiText("term.transform")}</h3>
       ${row("Position X", `<input type="number" data-k="x" value="${fmtInspNum(p.x)}">`, "x")}
       ${row("Position Y", `<input type="number" data-k="y" value="${fmtInspNum(p.y)}">`, "y")}
       ${slider("scale", 0.1, 4, 0.01, p.scale)}
@@ -7625,7 +7646,7 @@ function renderInspector(lite) {
   }
   const tsel = (label, key, tr) => {
     const active = state.transFocus === (key === "transIn" ? "in" : "out");
-    return `<div class="insp-row${active ? " trans-active" : ""}"><label class="insp-reset" data-reset="${key}" title="Ctrl-click: reset · Shift-click: reset">${label}</label>
+    return `<div class="insp-row${active ? " trans-active" : ""}"><label class="insp-reset" data-reset="${key}" title="Ctrl-click or Shift-click: remove the transition">${label}</label>
       <span class="insp-ctrls"><select data-k="${key}">${TRANSITIONS.map((x) => `<option ${x === (tr?.type || "none") ? "selected" : ""}>${x}</option>`).join("")}</select>
        <input type="number" class="insp-dur" data-k="${key}Dur" step="0.1" min="0.1" value="${tr?.duration ?? 1}"></span></div>`;
   };
@@ -7643,10 +7664,7 @@ function renderInspector(lite) {
     ${curveSel("Out curve", "curveOut", c.transitionOut)}
   </div>`;
   if (c.kind === "text") {
-    const fontGroup = (label, fonts) => fonts.length
-      ? `<optgroup label="${label}">${fonts.map((f) => `<option ${f === p.font ? "selected" : ""}>${f}</option>`).join("")}</optgroup>` : "";
-    const known = [...SYSTEM_FONTS, ...runtime.customFonts, ...GOOGLE_FONTS, ...runtime.googleLoaded];
-    html += `<div class="insp-section"><h3>Text</h3>
+    html += `<div class="insp-section"><h3>${uiText("term.text")}</h3>
       ${row("Content", `<textarea data-k="text">${p.text}</textarea>`, "", "text")}
       ${row(hasTextBox(p) && p.boxFit ? "Max size" : "Font size",
         `<input type="range" data-k="fontSize" min="12" max="300" step="1" value="${fmtInspNum(p.fontSize, 1)}" title="Ctrl/Cmd-click: reset to default">
@@ -7664,14 +7682,7 @@ function renderInspector(lite) {
       ${sel("Direction", "direction", ["auto", "ltr", "rtl"], p.direction || "auto")}
     </div>
     <div class="insp-section"><h3>Font</h3>
-      ${row("Family", `<select data-k="font">
-        ${fontGroup("System", SYSTEM_FONTS)}
-        ${fontGroup("Library fonts", runtime.customFonts)}
-        ${fontGroup("Google fonts", [...new Set([...GOOGLE_FONTS, ...runtime.googleLoaded])])}
-        ${known.includes(p.font) ? "" : `<option selected>${p.font}</option>`}
-      </select>`, "", "font")}
-      ${row("Google font", `<input type="text" data-gfont placeholder="Type any Google Font name…">
-        <button class="btn tiny" data-action="gfont-load">Load</button>`)}
+      ${fontFamilyRowsHtml(p, row)}
       ${sel("Weight", "weight", [0, 300, 400, 500, 600, 700, 800, 900], p.weight)}
       ${check("Bold", "bold", p.bold)}
       ${check("Italic", "italic", p.italic)}
@@ -7722,7 +7733,7 @@ function renderInspector(lite) {
         : input.type === "range" || input.type === "number" ? parseFloat(input.value)
           : input.value;
       if (k === "weight") v = +v || 0;
-      if (k === "font") ensureFont(String(v));
+      if (k === "font") requestFonts([String(v)]);
       if (k === "name") { c.name = String(v); state.dirtyTimeline = true; }
       else if (k === "start") { c.start = Math.max(0, +v || 0); state.dirtyTimeline = true; inspPropGen++; }
       else if (k === "duration") { c.duration = Math.max(MIN_DUR, +v || MIN_DUR); state.dirtyTimeline = true; inspPropGen++; }
@@ -7785,13 +7796,14 @@ function renderInspector(lite) {
       else if (a === "gfont-load") {
         const name = els.inspector.querySelector("[data-gfont]")?.value.trim();
         if (!name) return;
-        ensureFont(name).then((ok) => { if (!ok) toast(`Couldn't load "${name}" from Google Fonts`); });
         c.props.font = name;
-        toast(`Loading Google font "${name}"…`);
+        // asks first (the hosts, what is sent); a "no" keeps the fallback face
+        requestFonts([name]).then((ok) => { if (ok === false) toast(`Couldn't load "${name}" from Google Fonts`); else if (ok) renderInspector(); });
       }
       else if (a === "title-shuffle") {
         const keys = Object.keys(TITLE_STYLES).filter((k) => k !== "plain" && k !== c.styleName);
         applyTitleStyle(c, keys[Math.floor(Math.random() * keys.length)], { keepTransform: true });
+        requestTitleFonts(c);
       }
       scheduleSave(); renderInspector();
     });
@@ -14133,7 +14145,8 @@ function syncCompCrumb() {
 const SeqLib = self.MontClipSeq;
 /** The document that holds the sequences (the root while a comp is open). */
 function seqRoot() { return state.compCtx ? state.compCtx.root : project; }
-function openSequenceName() { const r = seqRoot(); return (SeqLib.find(r, SeqLib.activeId(r)) || SeqLib.MAIN).name; }
+/** The open sequence's name as the page shows it (shownName: the stored default "Main" reads as 主序列 in Chinese). */
+function openSequenceName() { const r = seqRoot(); return shownName((SeqLib.find(r, SeqLib.activeId(r)) || SeqLib.MAIN).name); }
 /** A document is about to be shown: when it opens another sequence, the undo steps,
  *  playhead and selection go with the one that was open, and the other's come back. */
 function noteOpenSequence(data) {
@@ -14261,17 +14274,17 @@ function showSequenceMenu(x, y) {
     // the open one's live numbers are on the timeline (or the root, while a comp is open)
     const w = row.active ? r.width : row.width, h = row.active ? r.height : row.height;
     const len = row.active ? (state.compCtx ? row.duration : projDur()) : row.duration;
-    const b = item(`<span class="seq-check">${row.active ? "✓" : ""}</span><span class="seq-row-name">${escapeHtml(row.name)}</span><kbd>${w}×${h} · ${fmt(len)}</kbd>`,
+    const b = item(`<span class="seq-check">${row.active ? "✓" : ""}</span><span class="seq-row-name">${escapeHtml(shownName(row.name))}</span><kbd>${w}×${h} · ${fmt(len)}</kbd>`,
       () => openSequence(row.id));
     if (row.active) b.classList.add("on");
   }
   sep();
-  item(`<span>New sequence…</span>`, () => promptNewSequence(x, y));
+  item(`<span>${escapeHtml(uiText("term.new-sequence"))}</span>`, () => promptNewSequence(x, y));
   item(`<span>Highlights…</span>`, () => promptHighlights(x, y),
     state.compCtx ? "Close the composition first" : !project.clips.some((c) => c.kind === "video") ? "Put video on the timeline first" : null);
-  item(`<span>Duplicate “${escapeHtml(open.name)}”</span>`, () => newSequence({ from: "open" }));
-  item(`<span>Rename “${escapeHtml(open.name)}”…</span>`, () => promptBinText(x, y, "Sequence name", open.name, (v) => renameSequence(openId, v), { max: 120, ok: "Rename" }));
-  item(`<span>Delete “${escapeHtml(open.name)}”…</span>`, (b) => {
+  item(`<span>Duplicate “${escapeHtml(shownName(open.name))}”</span>`, () => newSequence({ from: "open" }));
+  item(`<span>Rename “${escapeHtml(shownName(open.name))}”…</span>`, () => promptBinText(x, y, "Sequence name", open.name, (v) => renameSequence(openId, v), { max: 120, ok: "Rename" }));
+  item(`<span>Delete “${escapeHtml(shownName(open.name))}”…</span>`, (b) => {
     if (b.dataset.armed !== "1") { b.dataset.armed = "1"; b.querySelector("span").textContent = "Click again to delete it"; return; }
     hideTrackCtxMenu();
     deleteSequence(openId);
@@ -14644,11 +14657,11 @@ function presetRowsHtml(c, row) {
     const list = (l) => l.map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join("");
     return `<select data-preset="${anchor}"><option value="">${first}</option>${list(Tpl.PRESETS.filter((p) => p.anchor === anchor))}${own.length ? `<optgroup label="Saved">${list(own)}</optgroup>` : ""}</select>`;
   };
-  return row("Presets", `<span class="insp-ctrls">${opts("in", "In…")}${opts("out", "Out…")}</span>`)
+  return row(uiOr("term.preset", "Presets"), `<span class="insp-ctrls">${opts("in", "In…")}${opts("out", "Out…")}</span>`)
     + row("", `<span class="insp-ctrls">${opts("at", "At playhead…")}${opts("whole", "Loop…")}</span>`)
-    + row("Save as preset", `<span class="insp-ctrls"><input type="text" data-preset-name maxlength="60" placeholder="Name" style="max-width:110px">
+    + row(uiText("term.save-as-preset"), `<span class="insp-ctrls"><input type="text" data-preset-name maxlength="60" placeholder="${uiText("term.name")}" style="max-width:110px">
       <select data-preset-anchor title="In: from the clip's start · Out: up to its end · Loop: the whole clip"><option value="in">In</option><option value="out">Out</option><option value="whole">Loop</option></select>
-      <button type="button" class="btn tiny" data-preset-save title="Save this clip's keyframes to library/presets — every project can use it">Save</button></span>`);
+      <button type="button" class="btn tiny" data-preset-save title="Save this clip's keyframes to library/presets — every project can use it">${uiText("term.save")}</button></span>`);
 }
 function bindPresetControls(c) {
   for (const s of els.inspector.querySelectorAll("[data-preset]")) s.addEventListener("change", () => {
@@ -16020,8 +16033,8 @@ function maskSectionHtml(c) {
   const tool = (k, label, title) => `<button type="button" class="btn tiny${ui.tool === k ? " toggle on" : ""}" data-mtool="${k}" title="${title}" ${list.length >= Mask.MAX_MASKS ? "disabled" : ""}>${label}</button>`;
   const chips = list.map((mk, j) => `<button type="button" class="btn tiny cl-chip${j === i ? " toggle on" : ""}${mk.on === false ? " off" : ""}" data-msel="${j}"
     title="${escapeHtml(mk.shape + (mk.mode !== "add" ? " · " + mk.mode : "") + (mk.invert ? " · inverted" : ""))} — click to edit on the monitor">${escapeHtml(mk.name || `Mask ${j + 1}`)}</button>`).join("");
-  let html = `<div class="insp-section" data-mask-section><h3>Masks</h3>
-    <div class="cl-row">${tool("rect", "+ Rect", "Add a rectangle mask")}${tool("ellipse", "+ Ellipse", "Add an ellipse mask")}${tool("pen", "Pen", "Click points on the monitor (drag to pull curve handles); click the first point or press Enter to close")}${tool("draw", "Draw", "Drag a free-hand outline on the monitor — it becomes an editable bezier")}
+  let html = `<div class="insp-section" data-mask-section><h3>${uiText("term.masks")}</h3>
+    <div class="cl-row">${tool("rect", "+ Rect", "Add a rectangle mask")}${tool("ellipse", "+ Ellipse", "Add an ellipse mask")}${tool("pen", uiText("term.pen"), "Click points on the monitor (drag to pull curve handles); click the first point or press Enter to close")}${tool("draw", uiText("term.draw"), "Drag a free-hand outline on the monitor — it becomes an editable bezier")}
       ${list.length ? `<button type="button" class="btn tiny${runtime.maskView ? " toggle on" : ""}" data-mact="view" title="Show the matte in the monitor (white = visible)">Matte</button>` : ""}</div>
     ${ui.tool === "pen" ? `<p class="cl-note">Pen: click to add points, drag to curve. Click the first point or press Enter to close. Ctrl+Z / Backspace removes the last point, Ctrl+Shift+Z puts it back, Esc cancels.</p>` : ""}
     ${ui.tool === "draw" ? `<p class="cl-note">Draw: drag around what to keep. Esc cancels.</p>` : ""}
@@ -16581,10 +16594,10 @@ function setClipParent(c, parentId) {
 function parentCandidates(c) {
   return project.clips.filter((x) => x.id !== c.id && isVisualClip(x) && !Motion.wouldCycle(c.id, x.id, getClip));
 }
-const clipShortLabel = (x) => x.track + " · " + (x.kind === "text" ? (x.props.text || "").split("\n")[0] : x.name || x.kind);
+const clipShortLabel = (x) => x.track + " · " + (x.kind === "text" ? shownName((x.props.text || "").split("\n")[0]) : x.name || x.kind);
 function parentRowHtml(c) {
   const cands = parentCandidates(c), cur = c.parent && getClip(c.parent);
-  const opts = [`<option value="">None</option>`, ...cands.map((x) => `<option value="${x.id}" ${x.id === c.parent ? "selected" : ""}>${escapeHtml(clipShortLabel(x))}${x.kind === "null" ? " (null)" : ""}</option>`)];
+  const opts = [`<option value="">${uiText("term.none")}</option>`, ...cands.map((x) => `<option value="${x.id}" ${x.id === c.parent ? "selected" : ""}>${escapeHtml(clipShortLabel(x))}${x.kind === "null" ? " (null)" : ""}</option>`)];
   if (c.parent && !cur) opts.push(`<option value="${escapeHtml(c.parent)}" selected>Missing clip</option>`);
   return `<div class="insp-row"><label title="Move, turn and scale with another clip (its opacity and effects are not inherited)">Parent</label><select data-parent>${opts.join("")}</select></div>`;
 }
@@ -17320,7 +17333,7 @@ function textPathSectionHtml(c, p, row) {
   const has = !!clipTextPath(c), editing = has && shapeUi.clip === c.id && samePath(shapeUi.sel, [0]);
   const btn = (attr, label, title, on, dis) => `<button type="button" class="btn tiny${on ? " toggle on" : ""}" ${attr} title="${title}" ${dis ? "disabled" : ""}>${label}</button>`;
   return `<div class="insp-section" data-textpath-section><h3>Text path</h3>
-    <div class="cl-row">${Object.entries(TEXT_PATH_PRESETS).map(([k, pre]) => btn(`data-tpath="${k}"`, pre.label, `Set the title on a ${pre.label.toLowerCase()}`)).join("")}
+    <div class="cl-row">${Object.entries(TEXT_PATH_PRESETS).map(([k, pre]) => btn(`data-tpath="${k}"`, pre.label, `Set the title on ${/^[aeiou]/i.test(pre.label) ? "an" : "a"} ${pre.label.toLowerCase()}`)).join("")}
       ${btn('data-tpath="pen"', "Pen", "Draw the path on the monitor: click points (drag to curve), Enter to finish, click the first point to close it", shapeUi.clip === c.id && shapeUi.tool === "pen")}</div>
     ${has ? `<div class="cl-row">${btn('data-tpath="edit"', "Edit path", "Show the path's points and handles on the monitor", editing)}${btn('data-tpath="off"', "Remove", "Back to a normal title")}</div>
       ${row("Offset", `<input type="range" data-k="pathOffset" min="-100" max="200" step="0.5" value="${fmtInspNum(p.pathOffset, 0.5)}" title="Slide the text along the path, % of its length — key it to make the text travel">
@@ -18111,41 +18124,126 @@ function fontRegistered(name) {
   for (const f of document.fonts) if (f.family.replace(/^["']|["']$/g, "") === name) return true;
   return false;
 }
-/* Make `name` drawable: system and library fonts already are, anything else
-   comes from Google Fonts. Resolves false when there is no such font. Cheap
-   to call every frame (font-cut does): one request per name, ever. */
+/* Google Fonts goes online (Deja, 11-04): MontClip may, but the streamer sees where and what first. The page asks
+   before the first request for a font (the names, both hosts, what is sent); a font confirmed once this session is
+   not asked about again. Desktop never goes online from the page (desktop/main.js blocks it): no Google font box
+   there, and a font that isn't on this computer is drawn and exported in the fallback face. */
+const GOOGLE_FONT_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com"];
+const fontDesktop = () => !!window.montclipViewSettings;
+/* Drawable without going online: a system font, a library font, one already loaded, or one on this machine. */
+function fontHere(name) {
+  return SYSTEM_FONTS.includes(name) || runtime.customFonts.includes(name) || fontRegistered(name) || fontInstalled(name);
+}
+/* Make `name` drawable if it can be without asking: system and library fonts already are, a Google font only once
+   the streamer has said yes to it this session. Resolves false otherwise (the fallback face draws it). Never goes
+   online for a font nobody confirmed, so drawing, opening a project and exporting call it freely. Cheap to call
+   every frame (font-cut does): one check per name until a yes. */
 function ensureFont(name) {
   if (!name || SYSTEM_FONTS.includes(name)) return FONT_READY;
   let req = runtime.fontReq.get(name);
   if (req) return req;
   req = (async () => {
     await (libraryFontsReady || loadLibraryFonts());
-    if (runtime.customFonts.includes(name) || fontRegistered(name) || fontInstalled(name)) return true;
-    const ok = await new Promise((resolve) => {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      // CORS mode so @font-face files stay origin-clean when fillText hits the canvas.
-      link.crossOrigin = "anonymous";
-      link.href = "https://fonts.googleapis.com/css2?family=" +
-        encodeURIComponent(name).replace(/%20/g, "+") + ":" + GOOGLE_FONT_STYLES + "&display=swap";
-      link.onload = () => resolve(true);
-      link.onerror = () => { link.remove(); resolve(false); };
-      document.head.appendChild(link);
-    });
-    if (!ok) return false;
-    runtime.googleLoaded.add(name);
-    // fetch the usual faces now instead of on the first frame that draws them
-    await Promise.all(["400", "700"].map((w) => document.fonts.load(`${w} 64px "${name}"`).catch(() => { })));
-    return true;
+    if (fontHere(name)) return true;
+    if (fontDesktop() || !runtime.fontConsent.has(name)) return false;
+    return loadGoogleFont(name);
   })();
   runtime.fontReq.set(name, req);
   return req;
 }
-/* Before an export: every face the titles draw with, loaded. A frame drawn
-   while its face is still in flight comes out in the fallback font, and in
-   an export that frame is final. Bounded so a dead network can't stall it. */
-async function loadProjectFonts() {
-  const faces = new Map(); // "italic 700 64px "Anton"" -> "Anton"
+/* The one place that goes to Google Fonts, and only for a font the streamer confirmed this session. */
+async function loadGoogleFont(name) {
+  if (fontDesktop() || !runtime.fontConsent.has(name)) return false;
+  const url = "https://fonts.googleapis.com/css2?family=" +
+    encodeURIComponent(name).replace(/%20/g, "+") + ":" + GOOGLE_FONT_STYLES + "&display=swap";
+  let css;
+  try {
+    // no Referer (it named this editor's address) and no cookies; a name Google Fonts doesn't know answers 400
+    const r = await fetch(url, { referrerPolicy: "no-referrer", credentials: "omit" });
+    if (!r.ok) return false;
+    css = await r.text();
+  } catch { return false; }
+  // The stylesheet goes in from a blob: address, so its font files on fonts.gstatic.com carry no Referer either: a
+  // sheet's requests name the sheet as their referrer, and a blob: address is never sent as one. (A <link> straight to
+  // Google sent the stylesheet's address, fonts.googleapis.com, to fonts.gstatic.com; real-tests/font-consent-browser-smoke.cjs
+  // checks the headers a browser really sends.)
+  const href = URL.createObjectURL(new Blob([css], { type: "text/css" }));
+  const ok = await new Promise((resolve) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.referrerPolicy = "no-referrer";
+    link.href = href;
+    link.onload = () => resolve(true);
+    link.onerror = () => { link.remove(); resolve(false); };
+    document.head.appendChild(link);
+  });
+  URL.revokeObjectURL(href); // parsed: the font addresses in it are absolute
+  if (!ok) return false;
+  runtime.googleLoaded.add(name);
+  // fetch the usual faces now instead of on the first frame that draws them
+  await Promise.all(["400", "700"].map((w) => document.fonts.load(`${w} 64px "${name}"`).catch(() => { })));
+  return true;
+}
+const fontNames = (names) => names.map((n) => `“${n}”`).join(uiText("own.font-list-sep"));
+/* The streamer picked fonts (the picker, Load, a title style). True when all of them can be drawn, false when one
+   couldn't be loaded, null when the streamer said no (or on desktop, where the page never goes online). */
+async function requestFonts(names) {
+  names = [...new Set(names.filter((n) => typeof n === "string" && n && !SYSTEM_FONTS.includes(n)))];
+  if (!names.length) return true;
+  await (libraryFontsReady || loadLibraryFonts());
+  const need = names.filter((n) => !fontHere(n));
+  if (!need.length) return true;
+  if (fontDesktop()) { toast(uiText("own.font-desktop-missing", { names: fontNames(need) })); return null; }
+  const ask = need.filter((n) => !runtime.fontConsent.has(n));
+  if (ask.length && !(await askFontConsent(ask))) return null;
+  for (const n of ask) { runtime.fontConsent.add(n); runtime.fontReq.delete(n); }
+  return (await Promise.all(need.map(ensureFont))).every(Boolean);
+}
+/* The box before going online: for every font not yet confirmed this session, in every permission mode. "Not now"
+   is focused, and Esc is "Not now". */
+function askFontConsent(names) {
+  return new Promise((resolve) => {
+    const dlg = document.createElement("dialog"), title = document.createElement("h3"), fonts = document.createElement("p");
+    dlg.className = "font-consent-dialog"; dlg.dataset.fontConsentDialog = "";
+    const hosts = document.createElement("p"), sent = document.createElement("p"), after = document.createElement("p"),
+      row = document.createElement("div"), deny = document.createElement("button"), allow = document.createElement("button");
+    title.textContent = uiText("own.font-net-title");
+    fonts.textContent = uiText("own.font-net-fonts", { names: fontNames(names) });
+    hosts.textContent = uiText("own.font-net-hosts", { hosts: GOOGLE_FONT_HOSTS.join(uiText("own.font-list-sep")) });
+    sent.textContent = uiText("own.font-net-sent");
+    after.textContent = uiText("own.font-net-no");
+    deny.type = allow.type = "button";
+    deny.className = "btn"; deny.dataset.fontConsent = "deny"; deny.textContent = uiText("own.font-net-deny");
+    allow.className = "btn primary"; allow.dataset.fontConsent = "allow"; allow.textContent = uiText("own.font-net-allow");
+    row.className = "font-consent-row"; row.append(deny, allow);
+    dlg.append(title, fonts, hosts, sent, after, row);
+    let answer = false;
+    deny.addEventListener("click", () => { answer = false; dlg.close(); });
+    allow.addEventListener("click", () => { answer = true; dlg.close(); });
+    dlg.addEventListener("close", () => { dlg.remove(); resolve(answer); }, { once: true });
+    document.body.append(dlg); dlg.showModal(); deny.focus();
+  });
+}
+/* The Font section's family rows. Desktop: no Google font box, and only the Google fonts on this computer. */
+function fontFamilyRowsHtml(p, row) {
+  const desk = fontDesktop();
+  const fontGroup = (label, fonts) => fonts.length
+    ? `<optgroup label="${label}">${fonts.map((f) => `<option ${f === p.font ? "selected" : ""}>${f}</option>`).join("")}</optgroup>` : "";
+  const google = [...new Set([...GOOGLE_FONTS, ...runtime.googleLoaded])]
+    .filter((f) => !desk || (!runtime.customFonts.includes(f) && fontHere(f)));
+  const known = [...SYSTEM_FONTS, ...runtime.customFonts, ...google];
+  return `${row("Family", `<select data-k="font">
+        ${fontGroup("System", SYSTEM_FONTS)}
+        ${fontGroup("Library fonts", runtime.customFonts)}
+        ${fontGroup("Google fonts", google)}
+        ${known.includes(p.font) ? "" : `<option selected>${p.font}</option>`}
+      </select>`, "", "font")}
+      ${desk ? "" : row("Google font", `<input type="text" data-gfont placeholder="Type any Google Font name…">
+        <button class="btn tiny" data-action="gfont-load">Load</button>`)}`;
+}
+/* The titles' faces: "italic 700 64px "Anton"" -> "Anton". */
+function projectFontFaces() {
+  const faces = new Map();
   for (const c of mediaClips()) {
     if (c.kind !== "text" || c.disabled) continue;
     const p = c.props || {};
@@ -18154,10 +18252,32 @@ async function loadProjectFonts() {
       fams.push(...(Array.isArray(p.fontCutSet) && p.fontCutSet.length ? p.fontCutSet : FONT_CUT_DEFAULT));
     for (const fam of fams) faces.set(`${p.italic ? "italic " : ""}${textFontWeight(p)} 64px "${fam}"`, fam);
   }
+  return faces;
+}
+/* After a project opens: the titles' fonts that can't be drawn (not here, not confirmed), told once each a session.
+   In the browser the hint offers to load them, which asks first. */
+async function noteProjectFonts() {
+  const fams = [...new Set(projectFontFaces().values())];
+  const oks = await Promise.all(fams.map(ensureFont));
+  const missing = fams.filter((f, i) => !oks[i] && !runtime.fontHinted.has(f));
+  if (!missing.length) return;
+  missing.forEach((f) => runtime.fontHinted.add(f));
+  if (fontDesktop()) toast(uiText("own.font-desktop-missing", { names: fontNames(missing) }));
+  else toastAction(uiText("own.font-fallback", { names: fontNames(missing) }), uiText("own.font-fallback-load"), () => requestFonts(missing));
+}
+/* Before an export: every face the titles draw with, loaded. A frame drawn
+   while its face is still in flight comes out in the fallback font, and in
+   an export that frame is final. Bounded so a dead network can't stall it.
+   Never goes online for a font nobody confirmed: those are named before the
+   export starts and drawn in the fallback face. */
+async function loadProjectFonts() {
+  const faces = projectFontFaces(), missing = new Set();
   const load = Promise.all([...faces].map(async ([spec, fam]) => {
     if (await ensureFont(fam)) await document.fonts.load(spec).catch(() => { });
+    else missing.add(fam);
   }));
   await Promise.race([load, new Promise((r) => setTimeout(r, 8000))]);
+  if (missing.size) toast(uiText("own.font-export-fallback", { names: fontNames([...missing]) }));
   try { await document.fonts.ready; } catch { }
 }
 
@@ -18506,7 +18626,7 @@ function fillDeliveryControls() {
     return [k, c.label + (none ? " — not in this ffmpeg" : ""), none && k !== v.codec];
   }), v.codec);
   const encs = Delivery.encodersFor(v.codec, avail);
-  setOptions($("dlvEncoder"), (encs.length ? encs : [v.encoder]).map((e) => [e, Delivery.ENCODERS[e]?.label || e]), v.encoder);
+  setOptions($("dlvEncoder"), (encs.length ? encs : [v.encoder]).map((e) => [e, MontClipView.encoderLabel(mcView.get().language, e, Delivery.ENCODERS[e]?.label || e)]), v.encoder);
   showField("dlvEncoderField", encs.length > 1);
   showField("dlvProfileField", !!C.profiles);
   if (C.profiles) setOptions($("dlvProfile"), Object.entries(C.profiles), v.profile);
@@ -20857,12 +20977,13 @@ function filterHelp() {
     const h3 = sec.querySelector("h3");
     // a translated layer still answers English searches: match the shown text AND the saved
     // English source (the heading's keyed English, and each cell's stashed original markup)
-    const headEn = h3 && h3.dataset.i18n ? MontClipView.t("en", h3.dataset.i18n) : "";
+    const headEn = h3 && (h3.dataset.i18n || h3.dataset.i18nTail) ? MontClipView.t("en", h3.dataset.i18n || h3.dataset.i18nTail) : "";
     const head = ((h3 ? h3.textContent : "") + " " + headEn).toLowerCase();
     let shown = 0;
     for (const tr of sec.querySelectorAll("tr")) {
       const text = head + " " + [...tr.querySelectorAll("td")]
-        .map((td) => (td.dataset.i18nHtmlOrig || "") + " " + td.textContent)
+        .map((td) => (td.dataset.i18nHtmlOrig || "") + " " + td.textContent + " " +
+          [td, ...td.querySelectorAll("[data-i18n]")].map((el) => (el.dataset.i18n ? MontClipView.t("en", el.dataset.i18n) : "")).join(" "))
         .join(" ")
         .toLowerCase();
       const hit = words.every((w) => text.includes(w));
@@ -22383,7 +22504,7 @@ function layerSectionsHtml(c) {
     </div>
     <div class="insp-section cp-mask"><h3>Mask</h3>
       <div class="cl-row">${["none", "ellipse", "rect", "poly"].map((s) => `<button type="button" class="btn tiny${(m ? m.shape : "none") === s ? " toggle on" : ""}" data-mshape="${s}">${s === "none" ? "None" : s === "rect" ? "Rect" : s[0].toUpperCase() + s.slice(1)}</button>`).join("")}
-        <button type="button" class="btn tiny${colorState.maskDraw || (m && m.shape === "bezier") ? " toggle on" : ""}" data-mdraw title="Drag a free-hand outline on the monitor — it becomes an editable bezier">Draw</button>
+        <button type="button" class="btn tiny${colorState.maskDraw || (m && m.shape === "bezier") ? " toggle on" : ""}" data-mdraw title="Drag a free-hand outline on the monitor — it becomes an editable bezier">${uiText("term.draw")}</button>
         ${m ? `<button type="button" class="btn tiny${m.invert ? " toggle on" : ""}" data-mact="invert" title="Grade outside the shape">Invert</button>` : ""}</div>
       ${m ? `<div class="cl-row"><button type="button" class="btn tiny${onKey ? " toggle on" : ""}" data-mact="key" title="${onKey ? "Remove the key at the playhead" : "Key the shape at the playhead — with keys, every change keys"}">◆ Key</button>
         <span class="cl-note">${keyed ? `${keyed} key${keyed > 1 ? "s" : ""}` : "not animated"}</span>
