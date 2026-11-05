@@ -117,3 +117,19 @@ test('the bin header buttons keep their labels at every width: they never shrink
 test('the bin More menu floats above the panels (at 1270 its items were drawn inside the bin and could not be clicked)', () => {
   a.match(read('app.js'), /attach\(document\.querySelector\("\.bin-actions"\), \$\("btnBinMore"\), \$\("binMoreMenu"\), \{ floating: true \}\)/);
 });
+
+// VV (2026-11-05, 360 px): 素材 put the bin beside the player, half off the page (filter 281→401, sort 405→483, its
+// direction 487→513). Where the two columns cannot fit, the open bin takes the whole width; the window check (360 and
+// 630, zh-CN and en, every control inside the page) is desktop/narrow-media-smoke.cjs.
+test('a narrow window opens 素材 across the whole width, not half off the page beside the player', () => {
+  const css = read('style.css'), m = css.match(/@media\s*\(max-width:\s*(\d+)px\)\s*\{[^{}]*\.app\.media-open \.upper[^{]*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)[\s\S]*?\n\}/);
+  a.ok(m, 'one column for the open bin');
+  a.ok(+m[1] >= 260 + 250 + 6 + 12, 'it starts where the monitor (260) and the bin (250) no longer fit side by side: ' + m[1]);
+  a.ok(+m[1] < 630, 'at 630 the bin still sits beside the player');
+  a.match(m[0], /\.app\.media-open \.upper > \.monitor \{\s*display:\s*none/);
+  a.match(m[0], /\.app\.media-open \.upper > \.bin \{\s*grid-column:\s*1/);
+  const smoke = read('desktop/narrow-media-smoke.cjs');
+  a.match(smoke, /SIZES=\[\[360,640\],\[630,460\]\]/);
+  a.match(smoke, /for\(const language of \['zh-CN','en'\]\)/);
+  a.match(smoke, /k\.left<-0\.5\|\|k\.right>innerWidth\+0\.5/);
+});

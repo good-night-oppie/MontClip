@@ -47,6 +47,7 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `more-sessions-smoke.cjs` | `MORE_PASS` | 在用 |
 | `narrow-630-smoke.cjs` | `NARROW630_COMPLETE` | 在用 |
 | `narrow-layout-smoke.cjs` | `LAYOUT_MONITOR_MENU_PASS` | 在用 |
+| `narrow-media-smoke.cjs` | `NARROW_MEDIA_PASS` | 在用；360×640 和 630×460 点「素材」后面板不出页面；`MONTCLIP_SHOTS_OUT` 存截图 |
 | `narrow-pane-smoke.cjs` | `NARROW_COMPLETE` | 在用 |
 | `official-pane-smoke.cjs` | `OFFICIAL_COMPLETE` | 在用 |
 | `package-smoke.cjs` | `PACKAGE_SMOKE_COMPLETE` | 在用；用 node 运行：`node desktop/package-smoke.cjs <打好的 zip>` |
