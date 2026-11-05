@@ -248,6 +248,11 @@
     // and the toast when one is dragged onto the timeline
     "media-duration-unknown": ["\"{name}\" may not have finished recording (for example, a screen recording that was stopped), so its length can't be read and it can't be edited yet. The original file is unchanged. Click “Fix it for me” to try.", "「{name}」可能没录完整（比如录屏中途停了），读不出有多长，现在还剪不了。原文件没有改动。点〔帮我修好〕试试。"],
     "media-duration-unknown-n": ["{n} videos may not have finished recording, so their length can't be read and they can't be edited yet. The original files are unchanged. Click “Fix it for me” to try.", "有 {n} 个视频可能没录完整，读不出有多长，现在还剪不了。原文件都没有改动。点〔帮我修好〕试试。"],
+    // Rea (#152): the same for a sound file, and for several files that are not all videos — drafts for JJ (no
+    // 〔帮我修好〕: it repairs videos)
+    "media-incomplete-audio": ["This audio wasn't recorded to the end (the recording may have stopped early), so its length can't be read. It can't be cut yet.", "这段音频没录完整（可能录音中途停了），读不出时长，现在还剪不了。"],
+    "media-duration-unknown-audio": ["\"{name}\" may not have finished recording (for example, a recording that was stopped), so its length can't be read and it can't be edited yet. The original file is unchanged.", "「{name}」可能没录完整（比如录音中途停了），读不出有多长，现在还剪不了。原文件没有改动。"],
+    "media-duration-unknown-n-mixed": ["{n} files may not have finished recording, so their length can't be read and they can't be edited yet. The original files are unchanged.", "有 {n} 个文件可能没录完整，读不出有多长，现在还剪不了。原文件都没有改动。"],
     "media-cannot-cut": ["Can't read how long \"{name}\" is, so it can't go on the timeline. The original file is unchanged.", "读不出「{name}」有多长，放不上时间线。原文件没有改动。"],
     "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],
     "tl-above-captions": ["Captions above, click to show", "上方有字幕轨，点这里显示"],

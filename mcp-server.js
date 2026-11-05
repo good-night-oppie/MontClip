@@ -130,32 +130,53 @@ const KIND_BY_EXT = {
 };
 const uid = () => Math.random().toString(36).slice(2, 9);
 /** Media entries with no length read yet get it from ffprobe here, so the agent never waits for an editor tab to probe
- *  them (JJ, P1 / P3, 2026-11-05). An entry nothing can read is marked durationUnknown (MediaLib.cannotCut). Written back
- *  as an edit only when something changed, onto the latest document (the probing may take a while). → how many changed */
-async function backfillDurations() {
+ *  them (JJ, P1 / P3, 2026-11-05). An entry nothing can read is marked durationUnknown (MediaLib.cannotCut).
+ *  Rea (#152): never hold the call up — the probes run side by side (media-probe runs at most PROBE_CONCURRENCY ffprobes
+ *  at once, the rest queue), the caller waits at most BACKFILL_WAIT_MS, and whatever takes longer is written when it
+ *  is done, in the background. One pass at a time; a call while one runs waits on the same pass (up to the same wait).
+ *  Written back as an edit only when something changed, onto the latest document, re-checked just before the write
+ *  (as fablecut_patch_project does): an editor save that lands meanwhile is re-read and kept. → the pass's promise */
+const BACKFILL_WAIT_MS = 1500;
+let backfillPass = null;
+function backfillDurations({ wait = BACKFILL_WAIT_MS } = {}) {
+  if (!backfillPass) {
+    backfillPass = backfillNow().catch((e) => { console.error("[MontClip] reading missing lengths failed: " + e.message); return 0; })
+      .finally(() => { backfillPass = null; });
+  }
+  const pass = backfillPass;
+  if (!wait) return Promise.resolve(null);
+  return Promise.race([pass, new Promise((r) => setTimeout(() => r(null), wait).unref())]);
+}
+async function backfillNow() {
   const todo = (readProject().media || []).filter((m) => (m.kind === "video" || m.kind === "audio") &&
     !(Number.isFinite(m.duration) && m.duration > 0) && !m.durationUnknown && mediaFile(m.src));
   if (!todo.length) return 0;
   const found = new Map();
-  for (const m of todo) {
+  await Promise.all(todo.map(async (m) => {
     const info = await probeFile(mediaFile(m.src));
     if (info && (info.duration > 0 || info.durationUnknown)) found.set(m.id, info);
-  }
+  }));
   if (!found.size) return 0;
-  const proj = readProject();
-  const wasCurrent = lastReadRevision === (proj.revision || 0);
-  let n = 0;
-  for (const m of proj.media || []) {
-    const info = found.get(m.id);
-    if (!info || (m.duration > 0) || m.durationUnknown) continue;
-    if (info.duration > 0) { m.duration = info.duration; if (info.durationFrom) m.durationFrom = info.durationFrom; } else m.durationUnknown = true;
-    n++;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const proj = readProject();
+    const readRev = proj.revision || 0;
+    const wasCurrent = lastReadRevision === readRev;
+    let n = 0;
+    for (const m of proj.media || []) {
+      const info = found.get(m.id);
+      if (!info || (m.duration > 0) || m.durationUnknown) continue;
+      if (info.duration > 0) { m.duration = info.duration; if (info.durationFrom) m.durationFrom = info.durationFrom; } else m.durationUnknown = true;
+      n++;
+    }
+    if (!n) return 0;
+    // someone saved while this was being put together: start again from what they saved
+    if ((readProject().revision || 0) !== readRev) continue;
+    proj.revision = readRev + 1;
+    writeProject(proj);
+    if (wasCurrent) lastReadRevision = proj.revision;
+    return n;
   }
-  if (!n) return 0;
-  proj.revision = (proj.revision || 0) + 1;
-  writeProject(proj);
-  if (wasCurrent) lastReadRevision = proj.revision;
-  return n;
+  return 0;   // the project kept changing: the next call reads them again (probeFile has them cached)
 }
 /** What fablecut_import_media says about the length it found (europa P3, 2026-11-05: "no ffprobe" was said whenever
  *  the header had no length, though ffprobe had run). Say what actually happened. */
@@ -1078,15 +1099,22 @@ async function repairTool(args) {
     const entry = { id: "m_" + uid(), name, kind: "video", src: "/media/" + encodeURIComponent(name), duration: r.duration, preparation: r.preparation };
     Object.assign(entry, infoForEntry(await probeFile(r.file), entry));
     versionBeforeAgent(true);
-    // re-read: the project may have changed while it ran
-    const proj = readProject();
-    const wasCurrent = lastReadRevision === (proj.revision || 0);
-    let clips = 0, replaced = id;
-    if ((proj.media || []).some((x) => x.id === id)) clips = MediaLib.swapMedia(proj, id, entry).clips;
-    else { proj.media.push(entry); replaced = null; }   // the original was removed meanwhile: just added
-    proj.revision = (proj.revision || 0) + 1;
-    writeProject(proj);
-    if (wasCurrent) lastReadRevision = proj.revision;
+    // re-read: the project may have changed while it ran; re-checked just before the write (as fablecut_patch_project
+    // does), so an editor save that lands meanwhile is re-read and kept
+    let proj, clips = 0, replaced = id;
+    for (let attempt = 0; ; attempt++) {
+      proj = readProject();
+      const readRev = proj.revision || 0;
+      const wasCurrent = lastReadRevision === readRev;
+      clips = 0; replaced = id;
+      if ((proj.media || []).some((x) => x.id === id)) clips = MediaLib.swapMedia(proj, id, entry).clips;
+      else { proj.media.push(entry); replaced = null; }   // the original was removed meanwhile: just added
+      if ((readProject().revision || 0) !== readRev && attempt < 3) continue;
+      proj.revision = readRev + 1;
+      writeProject(proj);
+      if (wasCurrent) lastReadRevision = proj.revision;
+      break;
+    }
     return { mediaId: entry.id, replaced, duration: r.duration, preparation: r.preparation, ...(r.encoder ? { encoder: r.encoder } : {}), src: entry.src, clips };
   });
   repairNames.set(j.job, m.name);
@@ -1392,7 +1420,7 @@ async function callTool(name, args, attempt = 0) {
       return versionsTool(args);
     case "fablecut_status": {
       const up = await ensureUIServer();
-      await backfillDurations();
+      backfillDurations({ wait: 0 });   // status only reports: the lengths are written when they are read
       const proj = readProject();
       const dur = proj.clips.reduce((m, c) => Math.max(m, c.start + c.duration), 0);
       const files = fs.existsSync(MEDIA_DIR)
