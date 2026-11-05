@@ -129,7 +129,36 @@ test('a narrow window opens 素材 across the whole width, not half off the page
   a.match(m[0], /\.app\.media-open \.upper > \.monitor \{\s*display:\s*none/);
   a.match(m[0], /\.app\.media-open \.upper > \.bin \{\s*grid-column:\s*1/);
   const smoke = read('desktop/narrow-media-smoke.cjs');
-  a.match(smoke, /SIZES=\[\[360,640\],\[630,460\]\]/);
+  a.match(smoke, /SIZES=\[\[360,640\],[^\n]*\[630,460\]\]/);
   a.match(smoke, /for\(const language of \['zh-CN','en'\]\)/);
   a.match(smoke, /k\.left<-0\.5\|\|k\.right>innerWidth\+0\.5/);
 });
+
+// VV on #162 (bcdceed9): at ≤560 px the open bin covers the player, so a double-click that loaded Source looked like nothing
+// happened, and the button still said 素材. Measured edge: 559 and 560 hide the player, 561 and 630 sit side by side.
+test('≤560 px: 素材 says 返回播放器 while open (DRAFT for JJ), with aria-expanded; the edge is the same number in CSS and JS', () => {
+  const css = read('style.css'), app = read('app.js'), prefs = read('ui-preferences.js');
+  const edge = +css.match(/@media\s*\(max-width:\s*(\d+)px\)\s*\{[^{}]*\.app\.media-open \.upper/)[1];
+  a.equal(edge, 560, 'the bin takes the whole width at ≤560 px');
+  a.ok(app.includes('matchMedia("(max-width:' + edge + 'px)")'), 'app.js narrows at the same width');
+  a.equal(MontClipT('zh-CN', 'own.media-toggle'), '素材'); a.equal(MontClipT('en', 'own.media-toggle'), 'Media');
+  a.equal(MontClipT('zh-CN', 'own.media-back'), '返回播放器'); a.equal(MontClipT('en', 'own.media-back'), 'Back to player');
+  a.match(prefs, /DRAFT[^\n]*JJ[^\n]*\n\s*"media-back"/, 'the new sentence is marked DRAFT for JJ');
+  a.match(app, /setAttribute\("aria-expanded"/);
+  a.ok(!/getElementById\("mcMediaToggle"\)\.textContent=mcView\.get\(\)\.language==="en"\?"Media":"素材"/.test(app), 'the label is no longer fixed to 素材');
+});
+test('≤560 px: a double-click that loads Source puts the bin away; click, star and filter do not', () => {
+  const app = read('app.js'), dbl = app.match(/item\.addEventListener\("dblclick", \(e\) => \{[\s\S]*?\n    \}\);/)[0];
+  a.match(dbl, /closeNarrowMedia\(m\.id\)/, 'the bin item double-click');
+  const fn = app.match(/function closeNarrowMedia\(id\) \{[\s\S]*?\n\}/)[0];
+  a.match(fn, /state\.source\.mediaId !== id/, 'only once Source holds that file');
+  a.match(fn, /mcMediaNarrow\.matches/, 'only at ≤560 px');
+  const click = app.match(/item\.addEventListener\("click", \(e\) => \{[\s\S]*?\n    \}\);/)[0];
+  a.ok(!/media-open|closeNarrowMedia/.test(click), 'a single click leaves the bin open');
+  a.ok(!/media-open|closeNarrowMedia/.test(app.match(/els\.binFilter\.addEventListener[^\n]*/)[0]), 'the filter leaves it open');
+  const smoke = read('desktop/narrow-media-smoke.cjs');
+  a.match(smoke, /SIZES=\[\[360,640\],\[560,640\],\[561,640\],\[630,460\]\]/);
+  a.match(smoke, /if\(!after\.open\)\{tog\.click\(\)/, 'reopens the bin after the double-click');
+  a.match(smoke, /sameFiles:ids\(\)===before\.ids/, 'and the files are all still there');
+});
+function MontClipT(lang, key) { return require('../ui-preferences').t(lang, key); }
