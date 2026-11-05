@@ -9876,7 +9876,11 @@ function asrMetaWords(j) {
   if (j.engine !== "meta") return null;
   if (j.code === "ASR_OPTIONAL_CRASHED") return uiText("own.asr-meta-crashed");
   if (j.code === "ASR_OPTIONAL_MODEL_BROKEN") return uiText("own.asr-meta-broken");
-  if (j.code === "ASR_OPTIONAL_NO_MEMORY") return uiText("own.asr-meta-no-memory", { need: `${j.needMB || "?"} MB`, free: `${j.freeMB ?? "?"} MB` });
+  if (j.code === "ASR_OPTIONAL_NO_MEMORY") {
+    // the numbers only when the server gave both; else the sentence without its brackets, never "? MB"
+    const mb = (v) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.round(v) : null), need = mb(j.needMB), free = mb(j.freeMB);
+    return need && free != null ? uiText("own.asr-meta-no-memory", { need: `${need} MB`, free: `${free} MB` }) : uiText("own.asr-meta-no-memory-plain");
+  }
   return null;
 }
 /** Transcribe one file in the local server, which saves its transcript. Resolves to {doc, saved}. */
