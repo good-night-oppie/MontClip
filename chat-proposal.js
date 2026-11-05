@@ -13,7 +13,19 @@ function checkContext(context){if(!context||typeof context.projectId!=='string'|
 function noOverlap(keep){for(let i=0;i<keep.length;i++)for(let j=0;j<i;j++)if(Math.min(keep[i].to,keep[j].to)>Math.max(keep[i].from,keep[j].from))fail('PROPOSAL_OVERLAP');}
 function result(response,doc,context,keep,extra){
  const plan=R.create(doc,keep); // existing lock/ramp/provenance/timing checks; no mutation
- return {type:response.type,outputMode:'one_file',labels:keep.map(()=>null),...extra,context:JSON.stringify(context),signature:JSON.stringify(doc),keep,duration:plan.duration,tracks:[...new Set(doc.clips.map(c=>c.track))]};
+ const p={type:response.type,outputMode:'one_file',labels:keep.map(()=>null),...extra,context:JSON.stringify(context),signature:JSON.stringify(doc),keep,duration:plan.duration,tracks:[...new Set(doc.clips.map(c=>c.track))]};
+ p.unchanged=unchanged(doc,p);
+ return p;
+}
+/* A proposal that would leave the timeline playing exactly as it does (JJ via Deja, 2026-11-05): one video, its ranges
+   one after another with no gap between them, from the timeline's start to its end — 「保留 1 段」 that is the whole edit,
+   or an edit already shorter than the length asked for. Decided here, from the numbers, not by the model: the pane then
+   shows no 〔查看剪辑建议〕 and says so. per_range is never unchanged: it adds a file per range to the export queue. */
+function unchanged(doc,p){
+ if(p.outputMode!=='one_file'||!p.keep.length)return false;
+ const tol=R.boundaryTolerance(doc.fps),end=Math.max(0,...doc.clips.map(c=>c.start+c.duration));
+ if(p.keep[0].from>tol||p.keep.at(-1).to<end-tol)return false;
+ return p.keep.every((r,i)=>i===0||Math.abs(r.from-p.keep[i-1].to)<=tol);
 }
 function sentences(response,{doc,context,references}){
  exact(response,['type','ranges']);

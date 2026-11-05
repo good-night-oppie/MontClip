@@ -23,6 +23,8 @@ const FORMAT_NOTE=[
  'from and to are seconds of that clip\'s recording and must lie inside its from and to in facts; ranges must not overlap; each lasts at least half a second; at most 100 ranges, in the order to keep them.',
  'output_mode one_file joins the ranges into one video; per_range makes each range its own clip and file, named by its label (for example one clip per song).',
  ...PLAN_LINES,
+ 'Do not propose an edit that would change nothing: when the timeline already is what the user asks for (for example it is already shorter than the length asked for, or the part to keep is all of it), say so in words instead, for example 「已经不到 1 分钟了，不用剪。」.',
+ 'You can only keep parts of the timeline with the replies above. You cannot change the picture\'s shape (vertical, 9:16, square), export, upload or publish. When a message also asks for something you cannot do and you answer in words, your first sentence says plainly what you cannot do, for example 「改竖屏这一步我现在做不了。」; then how to do it by hand (for vertical, in Chinese: 在播放器上方的导出画面下拉框里选 9:16，再导出; in English: in the drop-down above the player that shows “Full canvas”, choose “9:16 Reel”, then export); then the part you can do. When you answer with JSON for the part you can do, the editor itself tells the user about the rest.',
  'For any other question, answer briefly in the user\'s language without JSON.',
  'Never write field names such as clipId, sourceCaptionId, start, end, from, to, output_mode or facts in a reply meant for the user; refer to a sentence by its text and to a part of the recording by its time.'
 ].join('\n');

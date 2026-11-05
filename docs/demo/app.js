@@ -23132,6 +23132,16 @@ function agentProposalStep(response,result){
  if(ev)proposal.eventId=ev.id;
  return {proposal,ev,c,version};
 }
+/** A reply's proposal that, checked against the project as it is now, would leave the timeline as it is (chat-proposal.js
+ *  unchanged): {duration} of the timeline now, so the pane shows no 〔查看剪辑建议〕 and says so; null otherwise (also for one
+ *  the check refuses — the button then reports why, as before). Records nothing. */
+function agentProposalUnchanged(result){
+ try{
+  const c=agentProjectContext();if(JSON.stringify(result.context)!==JSON.stringify(c))return null;
+  const p=MontClipProposal.prepare(MontClipConversation.parseProposal(result.text),{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references||[]});
+  return p.unchanged?{duration:p.duration}:null;
+ }catch{return null;}
+}
 /* P4: the assistant's permission mode (agent-policy.js; docs/decisions/2026-11-03-agent-permission-modes.md). The main
    process keeps the mode and the approvals (window.montclipAgentPolicy); the page shows the switch, the Yolo mark and the
    host's approval box. Without the desktop host there is no mode: replies wait for 〔查看剪辑建议〕 as before. */
@@ -23189,6 +23199,8 @@ async function onAgentReply(result){
  if(!window.montclipAgentPolicy||!result||typeof result.text!=='string')return;
  let response;try{response=MontClipConversation.parseProposal(result.text);}catch{return;}
  if(!response||!MontClipConversation.proposalSummary(result.text,result.references||[]))return;
+ // nothing to do: not applied in any mode; the pane says so where the button would be
+ if(agentProposalUnchanged(result))return;
  let d;try{d=await window.montclipAgentPolicy.decide({sessionId:result.sessionId,capability:response.type,target:{kind:'project',value:runtime.projectId}});}catch{d=null;}
  if(!d||!d.ok){toast(uiText('own.ap-refused-mode'));return;}
  if(MontClipPolicy.MODES.includes(d.mode)&&d.mode!==agentPolicy.mode){agentPolicy.mode=d.mode;paintAgentMode();}
@@ -23314,6 +23326,7 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  onHide:()=>{setSideTab("inspector");document.getElementById("mcAssistant").focus();},
  getProjectName:id=>id===runtime.projectId?project.name:null,
  canUndoProposal:canUndoOfficialProposal,
+ noChange:agentProposalUnchanged,
  getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[]});},
  ...(window.montclipAgentPolicy?{getMode:()=>agentPolicy.mode,setMode:setAgentMode,onReply:result=>{void onAgentReply(result);},
   getPlan:agentPlanView,planStart:runAgentPlan,planUndo:undoAgentPlan,
