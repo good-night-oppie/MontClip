@@ -113,6 +113,8 @@ test('browser mode: after Yes, only fonts.googleapis.com / fonts.gstatic.com, an
  a.equal(google.length,1);a.equal(google[0].init?.referrerPolicy,'no-referrer');a.equal(google[0].init?.credentials,'omit');
  a.ok(p.links.length>=1);
  for(const l of p.links){a.match(l.href,/^blob:/,'the sheet comes from this page');a.equal(l.referrerPolicy,'no-referrer');}
+ // and the page as a whole says no Referer (Deja, on #151: the document-level policy as well)
+ a.match(fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),/<meta name="referrer" content="no-referrer">/);
  // the same font again: no box this session; another font: the box again
  const n=p.requests.length;
  a.equal(await p.api.requestFonts(['Lobster']),true);a.equal(p.dialog(),undefined,'not asked twice for one font');

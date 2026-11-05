@@ -91,6 +91,10 @@ const standIn = https.createServer({ key: fs.readFileSync(key), cert: fs.readFil
     r.afterAllow = [...external];
     await ev(`(window.__rf = requestFonts(["Lobster"]), 1)`); await sleep(300);
     r.askedAgain = await ev(`!!document.querySelector("dialog.font-consent-dialog")`);
+    // the page's policy is no-referrer (index.html); its own writes to the editor's server still go through
+    r.pagePolicy = await ev(`document.querySelector('meta[name=referrer]')?.content || null`);
+    r.localWrite = await ev(`fetch('/api/media-info', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ srcs: [], stat: true }) }).then((x) => x.status)`);
+    r.localSave = await ev(`fetch('/api/project').then((x) => x.json()).then((d) => fetch('/api/project', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...d, revision: (d.revision || 0) + 1 }) })).then((x) => x.status)`);
     r.seen = seen;
     console.log(JSON.stringify(r, null, 1));
     const g = (u) => new URL(u).hostname;
@@ -115,6 +119,8 @@ const standIn = https.createServer({ key: fs.readFileSync(key), cert: fs.readFil
       ["nothing else in either request names this computer's address, page or project", !!css && !!file && !local(css) && !local(file)],
       ["the Origin header is at most the editor's origin (no path, no project)", !!css && !!file && [css, file].every((s) => [undefined, ORIGIN, "null"].includes(header(s, "origin")))],
       ["not asked twice for one font in a session", r.askedAgain === false],
+      ["the page's referrer policy is no-referrer", r.pagePolicy === "no-referrer"],
+      ["the editor's own POST and PUT to its server still work under it", r.localWrite === 200 && r.localSave === 200],
     ];
     for (const [name, ok] of checks) console.log((ok ? "PASS " : "FAIL ") + name);
     process.exitCode = checks.every(([, ok]) => ok) ? 0 : 1;
