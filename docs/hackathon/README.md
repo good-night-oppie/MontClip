@@ -2,7 +2,7 @@
 
 # MontClip
 
-**Edit your stream by talking to it. Every AI edit is reviewed, applied by you, and one Undo away.**
+**Edit your stream by talking to it. Review every outgoing request. Choose when edits need your approval. Every applied edit is one Undo away.**
 
 A desktop video editor for streamers who cut their own streams. Chinese first, English one click away.
 Built for the **Meta AI Developer Hackathon** with **Muse Spark** on the **Meta Model API**.
@@ -28,8 +28,8 @@ A four-hour stream turns into a few short clips, and the streamer usually cuts t
 
 - **Ask in plain words.** Quote subtitle lines or select a range, then type a request such as *"Keep only these two sentences"* or *"Delete 3 to 5 seconds."*
 - **Muse Spark proposes an edit.** The request goes to `muse-spark-1.1` through the Meta Model API, and comes back as a structured edit against the real project timeline. It is not a text answer for the creator to carry out by hand.
-- **You see what leaves your computer.** Before anything is sent, a review box shows the destination (`api.meta.ai · muse-spark-1.1`) and exactly which subtitle lines and messages are included. Nothing else from the project is sent.
-- **You approve, it applies, Undo takes it back.** In Manual mode, every edit waits for *Allow this once*. An applied edit is a single step on the undo stack.
+- **You see what leaves your computer.** Before anything is sent, a review box shows the destination (`api.meta.ai · muse-spark-1.1`) and the complete request: your messages, any quoted subtitle text, and numeric timeline facts (clip IDs, durations, trim points, and optional highlight scores). No file names, paths, video, or audio are included.
+- **You approve, it applies, Undo takes it back.** In Manual mode, edits wait for your approval—you can allow one edit or this kind of edit for the current chat. An applied edit is a single step on the undo stack.
 - **A full editor around it.** Multi-track timeline, sentence-by-sentence keep/cut from subtitles, MP4 + SRT export with a bundled LGPL FFmpeg, and local Chinese transcription. Recordings stay on the computer.
 
 ![Muse Spark's suggested edit applied: the 10-second clip is now 8 seconds, with "Undo this apply" one click away](muse-spark-result.png)
@@ -61,7 +61,7 @@ creator selects subtitles / range ──► request + quoted lines
 ```
 
 - The API key is stored with Electron `safeStorage` (Windows DPAPI). It is never written to logs, screenshots or test fixtures. Real-model tests read it only from a `0600` key file and refuse a wider one.
-- Permission modes: **Plan** (suggest only), **Manual** (ask every time), **Auto**, **Yolo**. Even with *allow all*, every send still shows its content and destination.
+- Permission modes: **Plan** (suggest only), **Manual** (ask before applying; optional per-chat allow), **Auto**, **Yolo**. Even with *allow all*, every send still shows its content and destination.
 - Editing works fully without any AI service. The assistant is optional, and service charges are billed to the creator's own account.
 
 ![The creator keeps the decision](creator-decides.png)
@@ -91,7 +91,7 @@ Tests: `npm test` in the repository root (Node 18, 20 and 22 on Linux, plus Wind
 
 ## Demo video
 
-[**▶ MontClip — Meta AI Developer Hackathon demo (3:00)**](https://github.com/good-night-oppie/MontClip/releases/tag/meta-hackathon-demo): English narration, English/Chinese subtitles. The editing segments are real screen recordings of MontClip calling `muse-spark-1.1`. The title and diagram cards are labelled as illustrations.
+[**▶ MontClip — Meta AI Developer Hackathon demo (3:00)**](https://github.com/good-night-oppie/MontClip/releases/tag/meta-hackathon-demo): English narration, English/Chinese subtitles. The editing segments are real screen recordings of MontClip calling `muse-spark-1.1`. The title and diagram cards are illustrations, not screen recordings.
 
 ## License
 

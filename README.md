@@ -4,6 +4,8 @@ A video editor for streamers who cut their own streams. Chinese first, English o
 
 Based on [ronak-create/FableCut](https://github.com/ronak-create/FableCut) (MIT).
 
+**Meta AI Developer Hackathon submission:** [what we built with Muse Spark, the demo video and the evidence](docs/hackathon/README.md).
+
 [简体中文](docs/i18n/README.zh-CN.md)
 
 ## What MontClip is
