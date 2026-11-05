@@ -186,7 +186,7 @@ test("main view failures (JJ v2): plain words, 〔复制问题信息〕 for the 
   assert.equal(load.text, "MontClip 没能读取项目。关掉这页再打开试试；还不行，点「复制问题信息」发给我们。");
   assert.deepEqual(load.problem, { code: "EACCES", error: "EACCES: permission denied, open 'C:\\Users\\me\\clips-data\\projects\\index.json'" }, "for the button, not the page");
   assert.deepEqual(V.FAILED.load(""), { text: "MontClip 没能读取项目。关掉这页再打开试试。", problem: null });
-  assert.equal(V.FAILED.openTask("SESSION_NOT_FOUND", "SESSION_NOT_FOUND").text, "没能打开这个任务。这个任务可能已经删掉了；还不行，点「复制问题信息」发给我们。");
+  assert.equal(V.FAILED.openTask("SESSION_NOT_FOUND", "SESSION_NOT_FOUND").text, "没能打开这个任务，它可能已经被删掉了。如果没删，点「复制问题信息」发给我们。", "JJ, final");
   assert.deepEqual(V.FAILED.openTask(undefined), { text: "没能打开这个任务。这个任务可能已经删掉了。", problem: null });
   for (const f of [load, V.FAILED.openTask("SESSION_NOT_FOUND"), V.FAILED.openFolder("spawn explorer.exe ENOENT")]) {
     assert.doesNotMatch(f.text, RAW_ENGLISH); assert.doesNotMatch(f.text, /EACCES|SESSION_NOT_FOUND|ENOENT/);
@@ -242,11 +242,8 @@ test("no plugin page keeps a raw-error line or a scrub of its own: one rule, pro
     const src = fs.readFileSync(path.join(PLUGIN, f), "utf8");
     assert.doesNotMatch(src, /function scrub\(|function rawLine\(|把下面这行发给我们/, f);
   }
-  // main.js (a logic page that cannot load scripts) has its own copy of copyLine: it must stay alike
+  // main.js (the logic page) sends no problem line to the AI at all (Deja, 2026-11-04): only problem-details.js copies,
+  // on a page, on her click
   const main = fs.readFileSync(path.join(PLUGIN, "main.js"), "utf8");
-  const { problemLine } = new Function(main.slice(main.indexOf("function esc("), main.indexOf("function sendCard(")) + "\nreturn { problemLine };")();
-  const Problem = require(path.join(PLUGIN, "problem-details.js"));
-  const at = new Date("2026-11-04T12:00:00Z");
-  for (const sample of ["EACCES: open 'C:\\Users\\me\\a.json'", "token=" + "f".repeat(64), "Bearer x.y", ""])
-    assert.equal(problemLine("X", sample, at), Problem.copyLine({ code: "X", error: sample }, at), sample);
+  assert.doesNotMatch(main, /problemLine|problemScrub|problem: problem/);
 });

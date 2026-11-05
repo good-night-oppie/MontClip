@@ -22,3 +22,11 @@ iframe.engine { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; backgroun
 #status .note, #ffmpeg .copybox .note { font-size: 11px; color: var(--text-secondary, #6b6b66); max-width: 100%; }
 #ffmpeg .copybox { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
 #ffmpeg .copybox[hidden] { display: none; }
+/* 复制问题信息 from an export card: the card's sentence and the button, above the editor (like the export tool banner) */
+#problem { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 12px;
+  border-bottom: 1px solid var(--border-default, #e4e4e0); background: var(--surface-elevated, #fff); font: 13px/1.45 system-ui, sans-serif; }
+#problem[hidden] { display: none; }
+#problem p { margin: 0; flex: 1 1 100%; }
+#problem .copybox { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+#problem .copybox .note { font-size: 11px; color: var(--text-secondary, #6b6b66); }
+#problem button { font: inherit; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-default, #d4d4cf); background: transparent; color: inherit; cursor: pointer; }

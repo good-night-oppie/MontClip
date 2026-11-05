@@ -182,6 +182,25 @@ function copyButton(box, problem) {
     banner.hidden = false;
   }
 
+  /* 复制问题信息 from an export card (Deja, 2026-11-04): the card cannot copy, so this page shows the card's plain
+     sentence with the button, and puts the focus on it. The raw error is never shown, only copied (scrubbed). */
+  const problemBox = document.getElementById('problem');
+  function showProblem(p) {
+    if (!problemBox || !p || p.session !== session || !p.problem) return;
+    document.getElementById('problemText').textContent = p.text;
+    const box = document.getElementById('problemCopy');
+    box.textContent = '';
+    const b = copyButton(box, p.problem);
+    console.warn(MontClipProblem.logLine(p.problem));
+    problemBox.hidden = false;
+    b.focus();
+  }
+  if (problemBox) {
+    channel.addEventListener('message', (e) => { const m = e.data || {}; if (m.type === 'show-problem') showProblem(m); });
+    document.getElementById('problemClose').addEventListener('click', () => { problemBox.hidden = true; });
+    ask('problem', { session }).then((r) => { if (r && r.shown) showProblem(r.shown); });
+  }
+
   async function boot() {
     try { await fetch('/wake'); } catch (e) { /* a page of a stopped plugin: the asks below simply wait */ }
     if (!(await bind())) return;

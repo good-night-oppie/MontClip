@@ -116,22 +116,22 @@ const EXPORT_TEXT = {
     openFailed: (why) => '没能打开文件夹（' + why + '）。',
     why: { NO_FOLDER: '选的文件夹找不到了，可能被删了或拔掉了 U 盘', ENOSPC: '空间不够', EACCES: '没有写入权限', EPERM: '没有写入权限',
       FOLDER_NOT_ALLOWED: '只能打开导出用的文件夹', OTHER: '出了点问题' },
-    // why an export did not finish (JJ v2, 2026-11-04): plain words only — never the raw error, which goes to the log
-    // and to the AI (the card cannot copy: Cindy gives plugins no text clipboard). JJ v2 finalised: tool, encoder,
-    // kept; the rest are drafts waiting for JJ.
+    // why an export did not finish: JJ's final words (v2, 2026-11-04) — plain words only, never the raw error. That goes
+    // to the log, and to the task page when she clicks 〔复制问题信息〕 (the card itself cannot copy).
     failedWhy: {
       tool: '缺一个处理视频的工具，这次没有做完。点下面的按钮装上（约 160 MB，只装一次），装好以后会接着做。',
       encoder: '这台电脑上找不到 MontClip 能用的视频编码器，所以这次没能导出。可以先更新显卡驱动再试。',
-      disk: '电脑空间不够，这次没有做完。空出一些地方以后点重试。原片没有改动。',
-      editor: '剪辑器这次没有接手导出，所以没有做完。打开右侧栏的「MontClip 剪辑器」，等时间线出来，再点重试。原片没有改动。',
-      busy: '上一个任务还没做完，这个要等它做完才能开始。把 MontClip 剪辑器切到前面，过半分钟再点重试。',
-      noAnswer: 'MontClip 这次没有回应，所以没有做完。关掉剪辑器再打开，再点重试。原片没有改动。',
-      stopped: '导出到一半停下了，这次没有做完。原片没有改动。再点重试。',
-      other: '这次没有做完，出了个我们没预料到的问题。原片没有改动。再点重试；还不行，在聊天里跟 AI 说「把问题信息给我」。',
+      disk: '电脑空间不够，这次没有做完。空出一些地方以后点〔重试〕。原片没有改动。',
+      editor: '这次导出要剪辑器开着才能做，它没开或者还没准备好。打开右侧栏的「MontClip 剪辑器」，等时间线出来，再点〔重试〕。原片没有改动。',
+      busy: '上一次导出还没做完，要等它做完才能开始这一个。把 MontClip 剪辑器切到前面，过半分钟再点〔重试〕。',
+      noAnswer: 'MontClip 一直没有回应，这次没有做完。关掉剪辑器再打开，再点〔重试〕。原片没有改动。',
+      stopped: '导出到一半停下了，这次没有做完。原片没有改动。再点〔重试〕。',
+      other: '这次没有做完，出了个我们没预料到的问题。原片没有改动。再点〔重试〕；还不行，点〔复制问题信息〕发给我们。',
     },
     kept: '你的剪辑都还在，没有丢。',
-    retry: '重试', install: '下载并安装', pickAgain: '换个文件夹',   // JJ v2 buttons
-    installFailed: '导出工具这次没装上，再点一次试试。',          // draft
+    retry: '重试', install: '下载并安装', pickAgain: '换个文件夹', copyProblem: '复制问题信息',   // JJ v2 buttons
+    copyProblemNote: '会打开 MontClip 任务页，在那里复制。',
+    installFailed: '导出工具这次没装上。点〔下载并安装〕再试一次；还不行，点〔复制问题信息〕发给我们。',
   },
   en: {
     pick: 'Waiting for you to choose a folder…', start: 'Starting the export…', running: (p) => 'Exporting ' + p + '%', copy: (f) => 'Saving to “' + f + '”…',
@@ -150,15 +150,16 @@ const EXPORT_TEXT = {
       tool: 'A video tool is missing, so this didn\'t finish. Install it with the button below (about 160 MB, once); MontClip carries on after that.',
       encoder: 'This computer has no video encoder MontClip can use, so it couldn\'t export this time. Update the graphics driver and try again.',
       disk: 'There isn\'t enough space on this computer, so this didn\'t finish. Free up some space, then click Retry. The original is unchanged.',
-      editor: 'The editor didn\'t take this export, so it didn\'t finish. Open "MontClip editor" in the right sidebar, wait for the timeline, then click Retry. The original is unchanged.',
-      busy: 'The previous task isn\'t finished yet, so this one can\'t start until it is. Bring the MontClip editor to the front and click Retry in half a minute.',
-      noAnswer: 'MontClip didn\'t answer this time, so it didn\'t finish. Close the editor, open it again, then click Retry. The original is unchanged.',
+      editor: 'This export needs the editor open, and it isn\'t open or isn\'t ready yet. Open "MontClip editor" in the right sidebar, wait for the timeline, then click Retry. The original is unchanged.',
+      busy: 'The last export hasn\'t finished, so this one can\'t start until it does. Bring the MontClip editor to the front and click Retry in half a minute.',
+      noAnswer: 'MontClip didn\'t answer, so this didn\'t finish. Close the editor, open it again, then click Retry. The original is unchanged.',
       stopped: 'The export stopped halfway, so it didn\'t finish. The original is unchanged. Click Retry.',
-      other: 'This didn\'t finish because of a problem we didn\'t expect. The original is unchanged. Click Retry; if it still fails, ask the AI in the chat for the problem details.',
+      other: 'This didn\'t finish because of a problem we didn\'t expect. The original is unchanged. Click Retry; if it still fails, use "Copy problem details" and send it to us.',
     },
     kept: 'Your edits are all still there.',
-    retry: 'Retry', install: 'Download and install', pickAgain: 'Choose another folder',
-    installFailed: 'The export tool didn\'t install this time. Click again to try.',
+    retry: 'Retry', install: 'Download and install', pickAgain: 'Choose another folder', copyProblem: 'Copy problem details',
+    copyProblemNote: 'Opens the MontClip task page, where you can copy it.',
+    installFailed: 'The export tool didn\'t install this time. Click "Download and install" to try again; if it still fails, use "Copy problem details" and send it to us.',
   },
 };
 /** A file size: bytes under 1 KB (字节), then KB, MB, GB — as the main view says it. */
@@ -174,30 +175,19 @@ function whyText(code, message, lang) {
   const t = EXPORT_TEXT[lang === 'en' ? 'en' : 'zh'];
   return t.why[code] || t.why.OTHER;
 }
-/* The problem line for us (JJ v2): the code and the raw error, with user paths cut to the file name and no keys or
-   tokens — the same as problem-details.js's copyLine (this logic page cannot load that file; a test keeps them alike).
-   The card cannot copy it, so it goes to the log and back to the AI in the tool result. */
-const PROBLEM_SEG = "[^\\\\/:*?\"<>|;,%\\r\\n]*";
-const PROBLEM_WIN_DIR = new RegExp(`(?:(?<![A-Za-z0-9])[A-Za-z]:|%[A-Za-z_]+%|\\\\\\\\${PROBLEM_SEG})[\\\\/](?:${PROBLEM_SEG}[\\\\/])*`, "g");
-const PROBLEM_POSIX_DIR = /(^|[\s("'=,;])(?:~|\/(?:home|Users|root|tmp|var|private|mnt|media|Volumes|opt|data|srv|run))\/(?:[^/\s"'<>]*\/)*/g;
-function problemScrub(text) {
-  let s = String(text == null ? '' : text);
-  s = s.replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer [removed]');
-  s = s.replace(/\bsk-[A-Za-z0-9_-]{6,}/g, '[removed]');
-  s = s.replace(/\b(token|access_token|api_key|apikey|api-key|key|secret|password|session|sig|signature)=([^&\s"'#]+)/gi, '$1=[removed]');
-  s = s.replace(/\b[0-9a-fA-F]{64}\b/g, '[removed]');
-  s = s.replace(PROBLEM_WIN_DIR, '');
-  s = s.replace(PROBLEM_POSIX_DIR, '$1');
-  return s;
-}
-function problemLine(code, error, at) {
-  return '[MontClip] ' + (at instanceof Date ? at : new Date()).toISOString() + ' ' + (code || 'UNKNOWN') + ': ' + problemScrub(error);
-}
-/** The log gets the whole of it; the AI gets the scrubbed line, for her to send us if she asks. */
-function problemFor(code, error) {
-  if (error == null || !String(error).trim()) return null;
+/* A raw error never leaves this computer (Deja, 2026-11-04): the tool result goes through the AI service, so it carries
+   only the plain sentence and the code. The whole error goes to the log; when she clicks 〔复制问题信息〕 on the card, the
+   task page shows the sentence and copies it for her (scrubbed there, problem-details.js). */
+function logProblem(code, error) {
+  if (error == null || !String(error).trim()) return;
   console.warn('[MontClip] ' + new Date().toISOString() + ' ' + (code || 'UNKNOWN') + ': ' + String(error));
-  return problemLine(code, error);
+}
+/** What the tool result says about a failed export: the card's plain sentence and the code — nothing raw. */
+function plainFailure(c) {
+  const t = EXPORT_TEXT.zh;
+  const text = c.phase === 'copyFailed' ? t.copyFailed(whyText(c.code, c.reason, 'zh'))
+    : c.code === 'DATA_DIR_IN_USE' ? String(c.reason) : t.failedWhy[failedReason(c)] + t.kept;
+  return { error: text, code: c.code || (c.phase === 'copyFailed' ? 'COPY_FAILED' : 'EXPORT_FAILED') };
 }
 /** Why an export did not finish: tool · encoder · editor · busy · noAnswer · disk · stopped · other. `stage` says where it
  *  failed: starting it (the engine's code) or the job (its English error, and how far it got). */
@@ -213,6 +203,8 @@ function failedReason(c) {
   if (c.stage === 'job' && (c.progress > 0 || /stopped reporting progress|exited before the export finished|crashed/i.test(m))) return 'stopped';
   return 'other';
 }
+/** There is a raw error to copy for us (the data folder in use already says it all in JJ's own sentence). */
+const hasRaw = (c) => c.code !== 'DATA_DIR_IN_USE' && c.reason != null && String(c.reason).trim() !== '';
 /** A row of card buttons: [[actionId, label, primary], …] (Cindy sends the click back as a card-action). */
 function buttons(list) {
   return '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px">' + list.map(([id, label, primary]) =>
@@ -239,13 +231,17 @@ function exportCard(c, lang) {
     : c.phase === 'failed' ? (c.code === 'DATA_DIR_IN_USE' ? '<p style="margin:8px 0 0">' + esc(c.reason) + '</p>'
       : '<p style="margin:8px 0 0">' + t.failedWhy[failedReason(c)] + t.kept + '</p>' +
         (c.installFailed ? '<p style="' + small + '">' + t.installFailed + '</p>' : '') +
-        buttons([failedReason(c) === 'tool' ? ['install-ffmpeg', t.install, true] : ['retry', t.retry, true]])) : '';
+        buttons([failedReason(c) === 'tool' ? ['install-ffmpeg', t.install, true] : ['retry', t.retry, true]]
+          .concat(hasRaw(c) ? [['copy-problem', t.copyProblem, false]] : [])) +
+        (hasRaw(c) ? '<p style="' + small + ';margin-top:4px">' + t.copyProblemNote + '</p>' : '')) : '';
   // 打开文件夹: the folder she chose, when the files went there; else 打开导出文件夹 (a failed copy leaves them in
   // exports), and after a failed copy 换个文件夹 too (JJ v2)
   const picked = c.phase === 'done' && !!c.dir;
   const open = c.phase === 'done' || c.phase === 'copyFailed'
     ? buttons([['open-folder:' + (picked ? 'picked' : 'exports'), picked ? t.openFolder : t.openExports, false]]
-        .concat(c.phase === 'copyFailed' && c.job ? [['pick-again', t.pickAgain, false]] : [])) +
+        .concat(c.phase === 'copyFailed' && c.job ? [['pick-again', t.pickAgain, false]] : [])
+        .concat(c.phase === 'copyFailed' && hasRaw(c) ? [['copy-problem', t.copyProblem, false]] : [])) +
+      (c.phase === 'copyFailed' && hasRaw(c) ? '<p style="' + small + ';margin-top:4px">' + t.copyProblemNote + '</p>' : '') +
       (c.openFailed ? '<p style="' + small + '">' + t.openFailed(esc(whyText(c.openFailed.code, c.openFailed.message, lang))) + '</p>' : '')
     : '';
   const note = c.note ? '<p style="margin:8px 0 0;color:' + (c.phase === 'failed' ? 'var(--text-danger,#b42318)' : 'var(--text-secondary,#6b6b66)') + '">' + esc(c.note) + '</p>' : '';
@@ -256,11 +252,12 @@ function exportCard(c, lang) {
 /* Each export card's last state, by its call: 打开文件夹 knows which folder, and the card is drawn again after the click
    (Cindy holds the clicked button until the next card-update, at most 8 s: GHOST_CARD_ACTION_INFLIGHT_MS). */
 const exportCards = new Map();
+const pendingProblems = new Map();   // session → {text, problem}: what its task page is to show, from 复制问题信息 on a card
 function sendCard(callId, c) {
   exportCards.delete(callId); exportCards.set(callId, c);
   while (exportCards.size > 50) exportCards.delete(exportCards.keys().next().value);
   const done = ['done', 'failed', 'cancelled', 'still', 'copyFailed'].includes(c.phase);
-  return cindy.send({ type: 'card-update', callId, v: 2, state: done ? 'done' : 'working', html: exportCard(c), height: c.phase === 'failed' ? 230 : c.phase === 'done' || c.phase === 'copyFailed' ? 210 : done ? 150 : 110 });
+  return cindy.send({ type: 'card-update', callId, v: 2, state: done ? 'done' : 'working', html: exportCard(c), height: c.phase === 'failed' ? 260 : c.phase === 'copyFailed' ? 240 : c.phase === 'done' ? 210 : done ? 150 : 110 });
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -275,7 +272,7 @@ async function forTask(msg) {
 /* The card button could not open the editor: JJ's plain sentence only (JJ v2: never the raw error on the card); the
    whole error goes to the log. */
 function openEditorFailed(error, code) {
-  problemFor(code || 'TASK_VIEW_FAILED', error);
+  logProblem(code || 'TASK_VIEW_FAILED', error);
   return '没能打开剪辑器。再点一次试试。';
 }
 function statusCard(s, editorOpen) {
@@ -347,7 +344,11 @@ const HANDLERS = {
     sendCard(callId, { phase: 'start', folder });
     let job;
     try { job = await node('montclip/export-start', { range: args.range, preset: args.preset, profile: args.profile, outputs: args.outputs }); }
-    catch (e) { await sleep(1000); sendCard(callId, { phase: 'failed', stage: 'start', code: e.code, reason: e.message, again }); return { error: e.message, code: e.code, problem: problemFor(e.code, e.message) }; }
+    catch (e) {
+      await sleep(1000); logProblem(e.code, e.message);
+      const c = { phase: 'failed', stage: 'start', code: e.code, reason: e.message, again };
+      sendCard(callId, c); return plainFailure(c);
+    }
     const t0 = Date.now();
     while ((job.status === 'pending' || job.status === 'running') && Date.now() - t0 < 14 * 60000) {
       await sleep(1500);
@@ -361,8 +362,11 @@ const HANDLERS = {
         sendCard(callId, { phase: 'still' });
         return { job: job.id, status: job.status, hint: 'The export is still running. Check it with call_tool fablecut_export {job:"' + job.id + '"}; when it is done the file is in the MontClip data folder\'s exports/.' };
       }
-      sendCard(callId, job.status === 'cancelled' ? { phase: 'cancelled' } : { phase: 'failed', stage: 'job', code: job.code, progress: job.progress, reason: job.error || job.status, again });
-      return { job: job.id, status: job.status, error: job.error || null, problem: problemFor(job.code || 'EXPORT_FAILED', job.error) };
+      if (job.status === 'cancelled') { sendCard(callId, { phase: 'cancelled' }); return { job: job.id, status: 'cancelled' }; }
+      logProblem(job.code || 'EXPORT_FAILED', job.error);
+      const c = { phase: 'failed', stage: 'job', code: job.code, progress: job.progress, reason: job.error || job.status, again };
+      sendCard(callId, c);
+      return Object.assign({ job: job.id, status: job.status }, plainFailure(c));
     }
     const outs = job.result && Array.isArray(job.result.outputs) ? job.result.outputs : [];
     const report = outs.map((o) => o.report && o.report.line).filter(Boolean);
@@ -370,7 +374,11 @@ const HANDLERS = {
     if (dir) {
       sendCard(callId, { phase: 'copy', folder });
       try { files = (await node('montclip/export-deliver', { id: job.id, dir }, { timeoutMs: 60000, maxTotalMs: 900000 })).files; }
-      catch (e) { await sleep(1000); sendCard(callId, { phase: 'copyFailed', code: e.code, reason: e.message, job: job.id }); return { job: job.id, status: 'done', copied: false, error: e.message, code: e.code, problem: problemFor(e.code, e.message) }; }
+      catch (e) {
+        await sleep(1000); logProblem(e.code, e.message);
+        const c = { phase: 'copyFailed', code: e.code, reason: e.message, job: job.id };
+        sendCard(callId, c); return Object.assign({ job: job.id, status: 'done', copied: false }, plainFailure(c));
+      }
     } else files = outs.filter((o) => o.ok).map((o) => ({ name: o.file })).concat(outs.length ? [] : [{ name: String(job.src || '').split('/').pop() }]);
     await sleep(1000);
     sendCard(callId, { phase: 'done', folder, dir, job: job.id, files, note: report.join(' · ') });
@@ -398,6 +406,18 @@ cindy.onHostMessage(async function (msg) {
   }
   // 打开文件夹 on an export card: the worker opens it, and only the exports folder or the folder that export went into
   // 重试 / 下载并安装 / 换个文件夹 on an export card (JJ v2's buttons): real clicks in the card, in its own task
+  // 复制问题信息 on an export card: the card cannot copy, so open this task's MontClip page and show it there (JJ v2,
+  // Deja 2026-11-04). The raw error goes only from this logic page to that page, on this computer.
+  if (msg.type === 'event' && msg.name === 'card-action' && msg.actionId === 'copy-problem') {
+    const c = exportCards.get(msg.callId);
+    if (!c || !hasRaw(c) || !msg.sessionId) return;
+    const shown = { session: String(msg.sessionId), text: plainFailure(c).error, problem: { code: c.code || 'EXPORT_FAILED', error: String(c.reason) } };
+    pendingProblems.set(shown.session, shown);
+    if (typeof cindy.taskView === 'function') await cindy.taskView({ sessionId: shown.session, focus: true });
+    channel.postMessage(Object.assign({ type: 'show-problem' }, shown));   // a page already open shows it now
+    sendCard(msg.callId, c);   // draw the card again, so Cindy lets go of the button
+    return;
+  }
   if (msg.type === 'event' && msg.name === 'card-action' && ['retry', 'install-ffmpeg', 'pick-again'].includes(String(msg.actionId))) {
     const c = exportCards.get(msg.callId);
     if (!c) return;
@@ -417,9 +437,9 @@ cindy.onHostMessage(async function (msg) {
           const files = (await node('montclip/export-deliver', { id: c.job, dir: picked.path }, { timeoutMs: 60000, maxTotalMs: 900000 })).files;
           await sleep(1000);
           sendCard(msg.callId, { phase: 'done', folder, dir: picked.path, job: c.job, files });
-        } catch (e) { problemFor(e.code, e.message); await sleep(1000); sendCard(msg.callId, { phase: 'copyFailed', code: e.code, reason: e.message, job: c.job }); }
+        } catch (e) { logProblem(e.code, e.message); await sleep(1000); sendCard(msg.callId, { phase: 'copyFailed', code: e.code, reason: e.message, job: c.job }); }
       }
-    } catch (e) { problemFor(e.code, e.message); sendCard(msg.callId, c); }
+    } catch (e) { logProblem(e.code, e.message); sendCard(msg.callId, c); }
     return;
   }
   if (msg.type === 'event' && msg.name === 'card-action' && /^open-folder:(picked|exports)$/.test(String(msg.actionId))) {
@@ -431,7 +451,7 @@ cindy.onHostMessage(async function (msg) {
     try {
       if (!ask) throw Object.assign(new Error('this export was not saved into a folder of its own'), { code: 'NO_FOLDER' });
       await node('montclip/open-folder', ask);
-    } catch (e) { openFailed = { code: e.code, message: e.message }; problemFor(e.code, e.message); }
+    } catch (e) { openFailed = { code: e.code, message: e.message }; logProblem(e.code, e.message); }
     sendCard(msg.callId, Object.assign({}, c, { openFailed }));
     return;
   }
@@ -466,6 +486,8 @@ channel.onmessage = async (e) => {
     else if (m.type === 'ffmpeg-install') a = await installFfmpeg();   // the banner's button: the user's own click
     // the main view's 打开文件夹: always MontClip's exports folder — a page never names a path
     else if (m.type === 'open-folder') a = await node('montclip/open-folder', { folder: 'exports' });
+    // the task page opened by 复制问题信息 asks what to show (once: a later load shows nothing)
+    else if (m.type === 'problem') { const p = pendingProblems.get(String(m.session || '')); pendingProblems.delete(String(m.session || '')); a = p ? { shown: p } : { shown: null }; }
     else a = { error: 'unknown request ' + m.type };
   } catch (err) { a = { error: String(err.message || err), code: err.code || null, ...(err.messageEn ? { errorEn: err.messageEn } : {}) }; }
   a = Object.assign({ reqId: m.reqId, answer: true }, a);

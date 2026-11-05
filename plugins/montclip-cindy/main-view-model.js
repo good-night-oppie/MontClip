@@ -48,7 +48,12 @@
   const FAILED = {
     // the sentences with 〔复制问题信息〕 are drafts (before v2 they ended with the raw error on a small line)
     load: (e, code) => failure("MontClip 没能读取项目。", "关掉这页再打开试试", e, code),
-    openTask: (e, code) => failure("没能打开这个任务。", "这个任务可能已经删掉了", e, code),
+    // JJ, final (2026-11-04): the sentence reads on from "may have been deleted"
+    openTask: (e, code) => {
+      const raw = e == null ? "" : String(e).trim();
+      return raw ? { text: "没能打开这个任务，它可能已经被删掉了。如果没删，点「复制问题信息」发给我们。", problem: { code: code || "UNKNOWN", error: raw } }
+        : { text: "没能打开这个任务。这个任务可能已经删掉了。", problem: null };
+    },
     openFolder: (e, code) => failure("没能打开导出文件夹。", "再点一次试试", e, code),   // waiting for JJ
   };
   return { projectRows, exportRows, size, exportsWhere, failure, COPY, FAILED };
