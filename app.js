@@ -9685,6 +9685,8 @@ function paintAsrStatus() {
   E.asrDownload.hidden = !desk || !get;
   if (get) { E.asrDownload.textContent = uiText(get); E.asrDownload.dataset.i18n = get; }
   if (E.asrModel) { E.asrModel.value = asrKey(); E.asrModel.disabled = !!d || !!trState.busy; }
+  // what Meta's model is for (the FLEURS numbers: docs/validation/2026-11-04-omnilingual-asr), under the menu while chosen
+  if (E.asrFit) E.asrFit.hidden = asrKey() !== "asrMeta";
   E.asrImport.hidden = !desk || !imp;
   E.asrCancel.hidden = !desk || !cancel;
   E.asrLater.hidden = !desk || !later;
@@ -9709,6 +9711,9 @@ async function asrGet() {
   else if (r && r.code === "ASR_CHECK_FAILED") asrState.phase = "check-failed";
   else if (r && r.code === "ASR_DOWNLOAD_INTERRUPTED") asrState.phase = "interrupted";
   else { asrState.phase = "failed"; asrState.why = (r && r.error) || "?"; }
+  // Meta's model from hf-mirror.com did not come: say to choose github.com next time (outside mainland China the mirror
+  // passes the download on to a site that is not on the list; Deja 11-04)
+  if (r && !r.ok && !r.declined && r.site === "hf-mirror.com") asrState.note = uiText("own.asr-meta-mirror-failed", { mirror: "hf-mirror.com", github: "github.com" });
   await loadAsrStatus();
   return !!(r && r.ok);
 }
@@ -9969,7 +9974,8 @@ function buildTranscriptPage() {
         ${listen ? `<button type="button" class="btn primary" data-tr-go></button>` : ""}
       </div>
       ${listen ? `<div class="tr-row tr-asr-model"><span class="tr-lbl" data-i18n="own.asr-model">${escapeHtml(uiText("own.asr-model"))}</span>
-        <select data-tr-asr-model><option value="asr" data-i18n="own.asr-model-paraformer">${escapeHtml(uiText("own.asr-model-paraformer"))}</option><option value="asrMeta" data-i18n="own.asr-model-meta">${escapeHtml(uiText("own.asr-model-meta"))}</option></select></div>` : ""}
+        <select data-tr-asr-model><option value="asr" data-i18n="own.asr-model-paraformer">${escapeHtml(uiText("own.asr-model-paraformer"))}</option><option value="asrMeta" data-i18n="own.asr-model-meta">${escapeHtml(uiText("own.asr-model-meta"))}</option></select></div>
+      <div class="tr-row"><span class="tr-asr-text" data-tr-asr-fit hidden data-i18n="own.asr-meta-fit">${escapeHtml(uiText("own.asr-meta-fit"))}</span></div>` : ""}
       ${listen ? `<div class="tr-row tr-asr"><span class="tr-asr-text" data-tr-asr role="status"></span>
         <button type="button" class="btn tiny" data-tr-asr-download hidden data-i18n="own.asr-download">${escapeHtml(uiText("own.asr-download"))}</button>
         <button type="button" class="btn tiny" data-tr-asr-import hidden data-i18n="own.asr-import">${escapeHtml(uiText("own.asr-import"))}</button>
@@ -10006,7 +10012,7 @@ function buildTranscriptPage() {
   trState.el = { go: q("[data-tr-go]"), busy: q("[data-tr-busy]"), busyText: q("[data-tr-busy-text]"), bar: q("[data-tr-bar]"),
     find: q("[data-tr-find]"), count: q("[data-tr-count]"), cutFound: q("[data-tr-cut-found]"), body: q("[data-tr-body]"),
     foot: q("[data-tr-foot]"), selText: q("[data-tr-sel]"),
-    asr: q("[data-tr-asr]"), asrDownload: q("[data-tr-asr-download]"), asrImport: q("[data-tr-asr-import]"), asrCancel: q("[data-tr-asr-cancel]"), asrLater: q("[data-tr-asr-later]"), asrModel: q("[data-tr-asr-model]"), asrRevoke: q("[data-tr-asr-revoke]") };
+    asr: q("[data-tr-asr]"), asrDownload: q("[data-tr-asr-download]"), asrImport: q("[data-tr-asr-import]"), asrCancel: q("[data-tr-asr-cancel]"), asrLater: q("[data-tr-asr-later]"), asrModel: q("[data-tr-asr-model]"), asrRevoke: q("[data-tr-asr-revoke]"), asrFit: q("[data-tr-asr-fit]") };
   const E = trState.el;
   if (listen) {
     E.go.addEventListener("click", transcribeFromTab);

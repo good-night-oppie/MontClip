@@ -127,3 +127,19 @@ test('the desktop host: the licence box and the site box are its own, "no" by de
   a.deepEqual(src.buttons, ['取消', '从 hf-mirror.com 下载（约 350 MB）', '从 github.com 下载（约 280 MB）']);
   a.match(src.detail, /release-assets\.githubusercontent\.com/); a.match(src.detail, /只有下载请求/); a.match(src.detail, /IP/);
 });
+
+test('where Meta fits, said in Settings and in the Transcript tab; a failed hf-mirror download suggests github.com', async (t) => {
+  const V = require('../ui-preferences'), html = read('index.html'), app = read('app.js');
+  const fit = (lang) => V.t(lang, 'own.asr-meta-fit');
+  a.match(fit('zh-CN'), /适合英文和其他外语/); a.match(fit('zh-CN'), /中文直播请继续用 Paraformer/);
+  a.match(fit('en'), /for English and other languages/);
+  a.match(html, /id="setAsrMetaFit" data-i18n="own\.asr-meta-fit"/, 'Settings › Transcription says it');
+  a.match(app, /data-tr-asr-fit hidden data-i18n="own\.asr-meta-fit"/, 'and the Transcript tab, while Meta is chosen');
+  a.match(V.t('zh-CN', 'own.asr-meta-mirror-failed', { mirror: 'hf-mirror.com', github: 'github.com' }), /从 hf-mirror\.com 没下载成功[\s\S]*改选 github\.com/);
+  // choose() says which site failed, so the page can suggest the other
+  const S = C.createConsent({ modelsDir: tmp(t) });
+  const r = await S.choose('asrMeta', { installed: () => false, ask: { license: async () => true, source: async () => 0 },
+    download: async () => { throw Object.assign(new Error('not a listed host: huggingface.co'), { code: 'ASR_DOWNLOAD_FAILED' }); } });
+  a.equal(r.ok, false); a.equal(r.site, 'hf-mirror.com');
+  a.match(app, /r\.site === "hf-mirror\.com"\) asrState\.note = uiText\("own\.asr-meta-mirror-failed", \{ mirror: "hf-mirror\.com", github: "github\.com" \}\)/);
+});

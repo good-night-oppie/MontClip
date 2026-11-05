@@ -143,7 +143,10 @@
     "asr-model-paraformer": ["Paraformer (Chinese)", "Paraformer（中文）"],
     "asr-model-meta": ["Meta Omnilingual (1,600+ languages)", "Meta 多语言模型（1600 多种语言）"],
     // Meta's model and its consent (asr-consent.js, ADR #122 §6; Deja 11-04): new copy, for JJ
-    // Meta's model failing, in plain words (asr-meta-engine.js); Deja 11-04, drafts for JJ
+    // where Meta's model fits (FLEURS: Chinese 13.88% vs Paraformer 3.33% character errors; English 17.95% vs 20.64% word
+    // errors) and its failures in plain words; Deja 11-04, drafts for JJ
+    "asr-meta-fit": ["Meta's multilingual model (an option in the Transcript tab's Speech model menu) is for English and other languages. For Chinese it makes about four times as many mistakes as Paraformer, so Chinese streams should keep Paraformer.", "Meta 的多语言模型（文稿页「听写模型」里可以选）适合英文和其他外语。中文的错字大约是 Paraformer 的 4 倍，中文直播请继续用 Paraformer。"],
+    "asr-meta-mirror-failed": ["It didn't download from {mirror}: outside mainland China that site passes the download on to one MontClip doesn't connect to. Click Download and use again and choose {github}.", "从 {mirror} 没下载成功：在国外的网络上，这个网站会把下载转到 MontClip 不连的网站。请再点一次「下载并使用」，改选 {github}。"],
     "asr-meta-crashed": ["Meta's model stopped with an error. Paraformer is not affected: switch the Speech model back to Paraformer and transcribe again.", "Meta 的模型出错停了，Paraformer 不受影响。把「听写模型」换回 Paraformer 再听写就行。"],
     "asr-meta-broken": ["Meta's model files can't be read. Revoke Meta's model and download it again, or switch back to Paraformer.", "Meta 的模型文件读不了。撤销 Meta 的模型再下载一次，或者换回 Paraformer。"],
     "asr-meta-no-memory": ["Not enough free memory for Meta's model (about {need} needed, {free} free). Close some programs and try again, or switch back to Paraformer.", "内存不够跑 Meta 的模型（大约要 {need}，现在只空着 {free}）。关掉一些软件再试，或者换回 Paraformer。"],

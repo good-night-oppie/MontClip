@@ -78,7 +78,9 @@ function createConsent({ modelsDir, root = __dirname, manifest: m = manifest, no
       try { await download(pick); }
       catch (e) {
         if (e.code === "ASR_DOWNLOAD_CANCELLED") { revoke(key); return { ok: false, declined: "cancelled" }; }
-        return { ok: false, code: e.code || "ASR_DOWNLOAD_FAILED", error: String(e.message || e), needBytes: e.needBytes, freeBytes: e.freeBytes, drive: e.drive, failed: e.failed };
+        // site: which one failed, so the page can suggest the other one (hf-mirror passes a US connection on to a host
+        // that is not listed, Deja 11-04)
+        return { ok: false, code: e.code || "ASR_DOWNLOAD_FAILED", error: String(e.message || e), needBytes: e.needBytes, freeBytes: e.freeBytes, drive: e.drive, failed: e.failed, site: sites[pick] };
       }
       if (!(installed && installed())) return { ok: false, code: "ASR_CHECK_FAILED", error: "the model's files are not all there after the download" };
     }
