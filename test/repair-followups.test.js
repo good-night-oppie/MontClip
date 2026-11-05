@@ -12,7 +12,7 @@
 const test = require("node:test"), a = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), os = require("node:os"), crypto = require("node:crypto"), cp = require("node:child_process");
 const FF = require("../ffmpeg-path");
 const MediaLib = require("../media-lib");
-const { makeDataDir, seedProject, startMcp, readProject } = require("./helpers");
+const { makeDataDir, seedProject, startMcp, startServer, readProject } = require("./helpers");
 
 const have = FF.available("ffmpeg") && FF.available("ffprobe");
 const skip = !have && "no ffmpeg / ffprobe here (node desktop/fetch-ffmpeg.cjs, or MONTCLIP_FFMPEG_DIR)";
@@ -83,7 +83,8 @@ test("fablecut_status is not held up by slow probes: they run side by side and f
   }
   fs.writeFileSync(path.join(data, "project.json"), JSON.stringify(proj));
   // tests only: each ffprobe run waits 3 s first — four of them one after another would hold status for 12 s
-  const mcp = startMcp(t, data, { FABLECUT_NO_AUTOSTART: "1", FABLECUT_TEST_PROBE_DELAY_MS: "3000" });
+  const srv = await startServer(t, data, { FABLECUT_NO_FS_WATCH: "1" });
+  const mcp = startMcp(t, data, { FABLECUT_PORT: String(srv.port), FABLECUT_NO_AUTOSTART: "1", FABLECUT_TEST_PROBE_DELAY_MS: "3000" });
   await init(mcp);
   const t0 = Date.now();
   const s = await mcp.callTool("fablecut_status", {});
@@ -97,7 +98,7 @@ test("fablecut_status is not held up by slow probes: they run side by side and f
     if (doc.media.every((m) => m.duration > 0)) break;
     await new Promise((r) => setTimeout(r, 250));
   }
-  a.ok(doc.media.every((m) => m.duration > 3 && m.durationFrom === "packets"), JSON.stringify(doc.media.map((m) => m.duration)));
+  a.ok(doc.media.every((m) => m.duration > 3 && m.durationFrom === "packets"), JSON.stringify(doc.media.map((m) => m.duration)) + "\n" + mcp.stderr);
 });
 
 test("a sound file nothing can read the length of: not called a video, no 〔帮我修好〕 button (it repairs videos)", () => {

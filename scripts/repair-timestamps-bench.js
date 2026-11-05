@@ -5,18 +5,18 @@
 const fs = require("node:fs"), path = require("node:path"), os = require("node:os"), cp = require("node:child_process"), vm = require("node:vm");
 const FF = require("../ffmpeg-path"), MP = require("../media-probe");
 const file = require.resolve("../make-editable"), localRequire = require("node:module").createRequire(file);
-function exec(name, args) {
-  return cp.execFileSync(FF.path(name), args, { windowsHide: true, maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
+function exec(bin, args) {
+  return cp.execFileSync(bin, args, { windowsHide: true, maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
 }
 function sample(dir) {
   // The source is an existing synthetic H.264/AAC test pattern. Copying it needs no H.264 encoder.
   const source = path.join(__dirname, "../test/fixtures/truncated-h264/obs-crash.mkv");
-  const segment = (offset) => exec("ffmpeg", ["-v", "error", "-i", source, "-t", "2", "-c", "copy",
+  const segment = (offset) => exec(FF.path("ffmpeg"), ["-v", "error", "-i", source, "-t", "2", "-c", "copy",
     "-output_ts_offset", String(offset), "-f", "mpegts", "pipe:1"]);
   const first = segment(0), second = segment(20);
   const input = path.join(dir, "jump-truncated.ts");
   fs.writeFileSync(input, Buffer.concat([first, second.subarray(0, Math.floor(second.length * 0.7))]));
-  const packets = JSON.parse(exec("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_packets",
+  const packets = JSON.parse(exec(FF.path("ffprobe"), ["-v", "error", "-select_streams", "v:0", "-show_packets",
     "-show_entries", "packet=pts_time", "-of", "json", input])).packets;
   const jumps = [];
   for (let i = 1; i < packets.length; i++) {
@@ -50,10 +50,10 @@ async function benchmark() {
   for (const [variant, flags] of [["before", []], ["genpts", ["-fflags", "+genpts"]],
     ["igndts", ["-fflags", "+genpts+igndts"]], ["ignore_err", ["-err_detect", "ignore_err", "-fflags", "+genpts+igndts"]]]) {
     const out = path.join(dir, variant + ".mp4"), start = performance.now();
-    exec("ffmpeg", ["-v", "error", "-nostdin", "-y", ...flags, "-i", source.input,
+    exec(FF.path("ffmpeg"), ["-v", "error", "-nostdin", "-y", ...flags, "-i", source.input,
       "-map", "0:v:0?", "-map", "0:a:0?", "-c", "copy", "-movflags", "+faststart", out]);
-    const duration = Number(JSON.parse(exec("ffprobe", ["-v", "error", "-show_format", "-of", "json", out])).format.duration);
-    exec("ffmpeg", ["-v", "error", "-nostdin", "-xerror", "-err_detect", "explode", "-i", out, "-f", "null", "-"]);
+    const duration = Number(JSON.parse(exec(FF.path("ffprobe"), ["-v", "error", "-show_format", "-of", "json", out])).format.duration);
+    exec(FF.path("ffmpeg"), ["-v", "error", "-nostdin", "-xerror", "-err_detect", "explode", "-i", out, "-f", "null", "-"]);
     const row = { variant, duration, strictDecode: "pass", remuxProbeDecodeMs: performance.now() - start };
     if (variant === "before" || variant === "genpts") {
       const phases = [], began = performance.now();
@@ -63,7 +63,7 @@ async function benchmark() {
     }
     rows.push(row);
   }
-  const result = { ffmpeg: String(exec("ffmpeg", ["-version"])).split(/\r?\n/)[0], source, expectedDuration: info.duration, rows };
+  const result = { ffmpeg: String(exec(FF.path("ffmpeg"), ["-version"])).split(/\r?\n/)[0], source, expectedDuration: info.duration, rows };
   fs.writeFileSync(path.join(dir, "results.json"), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
 }
