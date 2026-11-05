@@ -31,6 +31,11 @@ test("readArgs: whole, a window from before 3 s (no -ss), a later window (-ss); 
   // the same string as #149's audio-window.js CLOCK_FILTER (one clock for the export's audio window and transcription)
   a.equal(CLOCK_FILTER, "aresample=async=1:min_hard_comp=0.01:first_pts=0");
   a.ok(!fs.existsSync(path.join(__dirname, "..", "audio-read.js")), "no second shared reader next to #149's");
+  // #149 is merged: the filter is imported from audio-window.js, not kept as a copy (Deja, 2026-11-05)
+  a.equal(CLOCK_FILTER, require("../audio-window.js").CLOCK_FILTER);
+  const src = fs.readFileSync(path.join(__dirname, "..", "asr-local.js"), "utf8");
+  a.match(src, /require\("\.\/audio-window"\)/, "asr-local.js imports it");
+  a.doesNotMatch(src, /CLOCK_FILTER = "aresample/, "no copy of the string left");
   const whole = readAudioArgs({ file: "f.flv" });
   a.equal(whole.start, 0); a.ok(!whole.args.includes("-ss") && !whole.args.includes("-t"));
   const early = readAudioArgs({ file: "f.flv", from: 0.4, to: 2.7 });
