@@ -1098,9 +1098,16 @@
   /** A new project's name (Deja, 第四批): 未命名项目, Untitled Project in English. Chinese first when the language is unknown. */
   const defaultProjectName = (language) => (language === "en" ? "Untitled Project" : "未命名项目");
   const isDefaultProjectName = (name) => name === "未命名项目" || name === "Untitled Project";
+  /** A stored name as the page shows it (Deja, 2026-11-05): exactly the default "Main" (a sequence) or "Title" (a new
+   *  title) reads as the existing term in Chinese; any other name is the user's and is shown as it is. Only for display —
+   *  the project keeps "Main" / "Title". */
+  const DEFAULT_NAMES = { Main: "term.main", Title: "term.title" };
+  const defaultName = (language, name) => (typeof name === "string" && Object.hasOwn(DEFAULT_NAMES, name) ? t(language, DEFAULT_NAMES[name]) || name : name);
+  /** An encoder in the export dialog: its plain Chinese name above when there is one; delivery.js's label otherwise and in English. */
+  const encoderLabel = (language, id, label) => (lang(language) === "zh-CN" && ENCODER_NAMES["zh-CN"][id]) || label;
   /** The file name used when a project's name leaves nothing usable (all slashes): 直播切片 {月-日} in Chinese, the old
    *  English word (export, captions…) in English. */
   const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
-  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
+  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
 });

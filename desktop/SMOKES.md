@@ -72,5 +72,6 @@ Linux 上不用加 `--password-store`：桌面版启动时自己要系统钥匙�
 | `zh-batch3-smoke.cjs` | `ZH3_COMPLETE` | 在用 |
 | `zh-batch4-smoke.cjs` | `ZH4_PASS` | 在用 |
 | `zh-batch5-smoke.cjs` | `ZH5_PASS` | 在用 |
+| `zh-batch6-smoke.cjs` | `ZH6_PASS` | 在用 |
 | `zh-terms-smoke.cjs` | `TERMS_COMPLETE` | 在用 |
 | `zh-transcript-smoke.cjs` | `TR_PASS` | 在用 |
