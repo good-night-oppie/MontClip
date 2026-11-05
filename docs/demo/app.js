@@ -1599,10 +1599,6 @@ function syncExportFrameSel() {
   els.exportFrameSel.innerHTML = html;
 }
 function applyProject(data, opts = {}) {
-  // masks saved before maskSchema 2 (x, y = centre, fractions of the cropped picture) → top-left corner,
-  // fractions of the whole source frame; once, then saved (see mask.js migrateProject)
-  const masksMigrated = !opts.ctx ? self.MontClipMask.migrateProject(data) : 0;
-  if (masksMigrated) setTimeout(() => scheduleSave(), 0);
   if (state.compCtx && !opts.ctx && SeqLib.activeId(data) !== SeqLib.activeId(state.compCtx.root)) {
     // another sequence was opened (an agent, another tab): the comp was opened from the old one
     state.compCtx = null;
@@ -1841,7 +1837,6 @@ function projectJSONHere() {
   const out = {
     name, width, height, fps, background, revision,
     panSchema: 1,
-    maskSchema: 2,   // mask x, y = top-left, fractions of the clip's whole source frame (mask.js)
     folders: (folders || []).map(({ id, name, parentId, open }) =>
       ({ id, name, parentId: parentId || null, open: open !== false })),
     tracks: serializeTracks(),
@@ -15193,10 +15188,7 @@ function drawClipPicture(c, W, H, t, layered) {
     const grade = activeGrade(c, p, t), matte = gradeMatte(c);
     let graded = null;
     noteGradeGeom(c, ctx2d.getTransform(), dw, dh, -dw / 2, -dh / 2);
-    // masks live in the whole source frame — the frame the crop percentages are measured on — so a
-    // mask stays on the same part of the source whatever the crop; it moves and scales with the clip
-    const kx = dw / cw, ky = dh / ch;
-    geom = noteMaskGeom(c, ctx2d.getTransform(), -dw / 2 - sx * kx, -dh / 2 - sy * ky, sw * kx, sh * ky);
+    geom = noteMaskGeom(c, ctx2d.getTransform(), -dw / 2, -dh / 2, dw, dh);
     if (needsPixelPass(p, c)) { // key / cut-out first, so the grade never shifts the key colour
       let processed = pixelPass(c, p, src, sx, sy, cw, ch, dw, dh);
       if (runtime.gradeCapture) { // pixelPass reuses its canvas — keep a copy
@@ -15789,15 +15781,13 @@ function bakeTrackIntoMask(c, i, samples, { scale, rotation }, from = samples[0]
     S.push(anchor); S.sort((a, b) => a[0] - b[0]);
   }
   const first = samples[0], base = Mask.maskAt(raw, from);
-  // samples are fractions of the cropped picture; masks are fractions of the whole source frame
-  const kc = cropFrac(evalProps(c, c.start + from)), fx = 1 - kc.l - kc.r, fy = 1 - kc.t - kc.b;
   const motion = ["x", "y", ...(scale ? ["scale"] : []), ...(rotation ? ["rotation"] : [])];
   const t0 = first[0] - 1e-4, t1 = samples[samples.length - 1][0] + 1e-4;
   let keys = (raw.keys || []).map((k) => ({ ...k }));
   for (const k of keys) if (k.t >= t0 && k.t <= t1) for (const p of motion) delete k[p];
   keys = keys.filter((k) => Object.keys(k).some((p) => p !== "t" && p !== "ease"));
   for (const sm of S) {
-    const v = { x: +(base.x + (sm[1] - anchor[1]) * fx).toFixed(4), y: +(base.y + (sm[2] - anchor[2]) * fy).toFixed(4) };
+    const v = { x: +(base.x + sm[1] - anchor[1]).toFixed(4), y: +(base.y + sm[2] - anchor[2]).toFixed(4) };
     if (scale) v.scale = +(base.scale * sm[3] / (anchor[3] || 1)).toFixed(4);
     if (rotation) v.rotation = +(base.rotation + sm[4] - anchor[4]).toFixed(3);
     const at = keys.find((k) => Math.abs(k.t - sm[0]) < 1e-4);
@@ -15860,13 +15850,12 @@ function attachToTrack(c, track, b, { scale, rotation, at = state.time }) {
 }
 /** The mask's outline bounds at clip-local t, as picture fractions (clamped into the picture). */
 function maskBoundsAt(c, raw, t) {
-  const p = evalProps(c, c.start + t), g = pictureRect(c, p), m = Mask.maskAt(raw, t);
+  const g = pictureRect(c, evalProps(c, c.start + t)), m = Mask.maskAt(raw, t);
   if (!g) return null;
-  const k = cropFrac(p), B = { bw: g.dw / Math.max(1e-6, 1 - k.l - k.r), bh: g.dh / Math.max(1e-6, 1 - k.t - k.b) };   // the whole source frame
+  const B = { bw: g.dw, bh: g.dh };
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const a of Mask.anchors(m, B.bw, B.bh)) { x0 = Math.min(x0, a.x); y0 = Math.min(y0, a.y); x1 = Math.max(x1, a.x); y1 = Math.max(y1, a.y); }
-  const lo = mediaToPic(p, x0 / B.bw, y0 / B.bh), hi = mediaToPic(p, x1 / B.bw, y1 / B.bh);   // → fractions of the cropped picture (the tracker's)
-  x0 = clamp(lo.u, 0, 1); x1 = clamp(hi.u, 0, 1); y0 = clamp(lo.v, 0, 1); y1 = clamp(hi.v, 0, 1);
+  x0 = clamp(x0 / B.bw, 0, 1); x1 = clamp(x1 / B.bw, 0, 1); y0 = clamp(y0 / B.bh, 0, 1); y1 = clamp(y1 / B.bh, 0, 1);
   if (x1 - x0 < 0.01 || y1 - y0 < 0.01) return null;
   return { x: (x0 + x1) / 2, y: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0 };
 }
@@ -16081,8 +16070,7 @@ function bindMaskControls(c) {
     if (k === "rect" || k === "ellipse") {
       pushUndo();
       const list = maskList(c).slice();
-      const w = k === "rect" ? 0.5 : 0.45, h = k === "rect" ? 0.5 : 0.6;
-      list.push({ shape: k, x: 0.5 - w / 2, y: 0.5 - h / 2, w, h });   // x, y = the top-left corner, centred
+      list.push({ shape: k, x: 0.5, y: 0.5, w: k === "rect" ? 0.5 : 0.45, h: k === "rect" ? 0.5 : 0.6 });
       writeMasks(c, list); maskUi.sel = list.length - 1; maskUi.tool = null; maskUi.pt = -1;
       scheduleSave(); rerender();
       if (!activeAt(c, state.time)) toast("Move the playhead over the clip to see the mask on the monitor");
@@ -16184,14 +16172,14 @@ function maskBox(c) {
 }
 /** Box px ↔ a mask's own frame (fractions of the picture, before its scale / rotation). */
 function maskBoxToLocal(m, B, bx, by, vector = false) {
-  const th = (m.rotation || 0) * Math.PI / 180, s = m.scale || 1, cs = Math.cos(th), sn = Math.sin(th), o = Mask.centreOf(m);
-  const dx = bx - (vector ? 0 : o.x * B.bw), dy = by - (vector ? 0 : o.y * B.bh);
+  const th = (m.rotation || 0) * Math.PI / 180, s = m.scale || 1, cs = Math.cos(th), sn = Math.sin(th);
+  const dx = bx - (vector ? 0 : m.x * B.bw), dy = by - (vector ? 0 : m.y * B.bh);
   return { x: (dx * cs + dy * sn) / s / B.bw, y: (-dx * sn + dy * cs) / s / B.bh };
 }
 function maskLocalToBox(m, B, lx, ly) {
   const th = (m.rotation || 0) * Math.PI / 180, s = m.scale || 1, cs = Math.cos(th), sn = Math.sin(th);
-  const px = lx * B.bw * s, py = ly * B.bh * s, o = Mask.centreOf(m);
-  return { x: o.x * B.bw + px * cs - py * sn, y: o.y * B.bh + px * sn + py * cs };
+  const px = lx * B.bw * s, py = ly * B.bh * s;
+  return { x: m.x * B.bw + px * cs - py * sn, y: m.y * B.bh + px * sn + py * cs };
 }
 function maskEditActive(c) {
   return !!c && maskUi.clip === c.id && state.selId === c.id && (maskUi.sel >= 0 || !!maskUi.tool) &&
@@ -16387,12 +16375,10 @@ els.preview.addEventListener("pointermove", (e) => {
   let set;
   if (d.mode === "move") set = { x: +(m0.x + (bp.x - d.start.x) / B.bw).toFixed(4), y: +(m0.y + (bp.y - d.start.y) / B.bh).toFixed(4) };
   else if (d.mode === "w" || d.mode === "h") {
-    const l = maskBoxToLocal(m0, B, bp.x, bp.y), o = Mask.centreOf(m0);   // resized about its centre: the corner moves too
-    if (d.mode === "w") { const w = +clamp(Math.abs(l.x) * 2, 0.01, 8).toFixed(4); set = { w, x: +(o.x - w / 2).toFixed(4) }; }
-    else { const h = +clamp(Math.abs(l.y) * 2, 0.01, 8).toFixed(4); set = { h, y: +(o.y - h / 2).toFixed(4) }; }
+    const l = maskBoxToLocal(m0, B, bp.x, bp.y);
+    set = d.mode === "w" ? { w: +clamp(Math.abs(l.x) * 2, 0.01, 8).toFixed(4) } : { h: +clamp(Math.abs(l.y) * 2, 0.01, 8).toFixed(4) };
   } else if (d.mode === "rotate") {
-    const o = Mask.centreOf(m0);
-    let r = Math.atan2(bp.x - o.x * B.bw, -(bp.y - o.y * B.bh)) * 180 / Math.PI;
+    let r = Math.atan2(bp.x - m0.x * B.bw, -(bp.y - m0.y * B.bh)) * 180 / Math.PI;
     if (e.shiftKey) r = Math.round(r / 15) * 15;
     set = { rotation: +r.toFixed(1) };
   } else if (m0.shape === "bezier") {

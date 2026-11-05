@@ -175,7 +175,6 @@
 
 
   function applyPatch(proj, ops, ctx) {
-    Mask.migrateProject(proj);   // old masks (centre, cropped picture) → top-left, source frame; once
     const savedItems = (ctx && ctx.savedItems) || (() => []);
     const notes = [];
     const toSave = [];   // [kind, item] — presets / templates written to the library once the project is saved

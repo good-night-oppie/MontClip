@@ -417,7 +417,7 @@ Examples in `library/svg/`: `sparkles.svg` (loop), `lower-third.svg`,
 | prop | default | notes |
 |---|---|---|
 | `fit` | "contain" | contain · cover (fill canvas, crop overflow) · stretch · none (native px) |
-| `cropL` `cropR` `cropT` `cropB` | 0 | % of the clip's original frame (the whole source frame, padding included) trimmed off each edge, before `fit` / `scale` / `x` / `y`; what is left is fitted and centred. Masks use the same frame (see "Masks") |
+| `cropL` `cropR` `cropT` `cropB` | 0 | % of the source file's whole frame trimmed off each edge (the encoded frame, padding included), before `fit` / `scale` / `x` / `y`; what is left is fitted and centred |
 | `cornerRadius` | 0 | px, rounded corners — the PiP look |
 | `reframe` | — | set by Reframe (`"follow"` or `"centre"`): the clip's `fit` and position are Reframe's own, so running it again replaces them (see "Sequences") |
 | `flipH`, `flipV` | false | mirror |
@@ -1060,8 +1060,8 @@ the masks cut it, and then its `opacity` and `blend` composite it.
 
 ```jsonc
 "masks": [
-  { "name": "Subject", "shape": "ellipse", "x": 0.32, "y": 0.1, "w": 0.4, "h": 0.7, "feather": 40 },
-  { "name": "Hole", "shape": "rect", "mode": "subtract", "x": 0.55, "y": 0.35, "w": 0.1, "h": 0.1 },
+  { "name": "Subject", "shape": "ellipse", "x": 0.52, "y": 0.45, "w": 0.4, "h": 0.7, "feather": 40 },
+  { "name": "Hole", "shape": "rect", "mode": "subtract", "x": 0.6, "y": 0.4, "w": 0.1, "h": 0.1 },
   { "shape": "bezier", "x": 0.3, "y": 0.7, "expand": 8,
     "points": [[0, -0.1], [0.12, 0.08, 0, -0.05, 0, 0.05], [-0.12, 0.08]],
     "keys": [{ "t": 0, "x": 0.3 }, { "t": 2, "x": 0.6, "ease": "linear" }] }
@@ -1071,11 +1071,11 @@ the masks cut it, and then its `opacity` and `blend` composite it.
 | key | default | does |
 |---|---|---|
 | `shape` | — | `rect` · `ellipse` · `bezier` (write `freehand` with a `stroke` to have one drawn for you) |
-| `x` · `y` | centred | rect, ellipse: the **top-left corner**, 0…1 of the clip's original frame (origin top-left, y down); left out, the shape is centred. bezier: the point its `points` are measured from |
-| `w` · `h` | 0.5 | size, 0…1 of the original frame's width / height (rect, ellipse) |
+| `x` · `y` | 0.5 | centre, as fractions of the clip's picture (0…1, y down) |
+| `w` · `h` | 0.5 | size, fractions of the picture's width / height (rect, ellipse) |
 | `points` | — | bezier: 3–64 anchors around `x, y`, each `[dx, dy]` (a corner) or `[dx, dy, inX, inY, outX, outY]` (with curve handles relative to the anchor), all fractions of the picture's width / height |
 | `stroke` | — | freehand only: `[[u, v], …]` picture fractions along an outline; it is simplified and stored as an editable `bezier` |
-| `scale` · `rotation` | 1 · 0 | about the shape's centre (`x + w/2`, `y + h/2`; a bezier's `x, y`); degrees clockwise |
+| `scale` · `rotation` | 1 · 0 | about the centre; degrees clockwise |
 | `mode` | `add` | how this mask combines with the ones before it: `add` · `subtract` · `intersect` · `difference` |
 | `invert` | false | use everything outside the shape |
 | `opacity` | 1 | 0…1, how strongly this mask counts |
@@ -1088,19 +1088,16 @@ Masks combine bottom-up (first in the list first). The first one starts from
 nothing when it adds and from the whole picture otherwise, so a lone
 `subtract` cuts a hole in a full picture. At most 8 masks per clip.
 
-**Mask coordinates** — `x`, `y`, `w`, `h` are 0…1 of the clip's original frame (the whole source frame, before crop, scale and position), origin top-left; `x`, `y` are the mask's top-left corner.
-
-The original frame is the whole source frame for video, image, svg and comp
-clips — the same frame the crop percentages are measured on, so a mask and a
-crop given the same numbers mark the same part of the source, and changing the
-crop never moves a mask. For a text clip it is the text block, for an
-adjustment or shape layer the whole canvas. Masks follow the clip when it is
-moved, scaled, rotated or flipped, and through its keyframes (a push in, a
-speed ramp): the mask is laid on the frame first, then the clip's transform
-moves both.
+The picture a mask lives in is the clip's drawn rectangle for video, image
+and svg (after fit and crop), the text block for text, and the whole canvas
+for an adjustment layer. Masks follow the clip when it is moved, scaled,
+rotated or flipped, and keep the clip's keyframes.
 
 **Where the numbers come from.** Mask and crop numbers are never canvas
-positions. Read them off the **source**, not the timeline:
+positions. A mask's `x` / `y` / `w` / `h` are fractions of the clip's own
+picture: the source file's encoded frame minus its crop, *before* the clip's
+`scale`, `x`, `y` and keyframes. Crop percentages are fractions of that whole
+encoded frame. So read positions off the **source**, not the timeline:
 `fablecut_frame {path, t}` (the clip's `in` + seconds into it × `speed`), and
 divide a pixel position by that image's own width and height. A file can carry
 padding in its frame — a screen recording whose picture fills only part of
@@ -1126,7 +1123,7 @@ change keys. Esc steps back (point, then mask).
 
 **Agents** edit masks with patch ops:
 
-- `{op:"setMask", id, set:{shape:"ellipse", x:0.3, y:0.1, w:0.4, h:0.7, feather:40}}`
+- `{op:"setMask", id, set:{shape:"ellipse", x:0.5, y:0.45, w:0.4, h:0.7, feather:40}}`
   adds a mask (no `mask`, an index one past the end or a new name adds one; a
   new mask needs `shape`). `{op:"setMask", id, mask:"Subject", set:{x:0.6}}`
   edits one, by index (0 = first) or name, merging key by key (`null` resets a
@@ -1138,18 +1135,8 @@ change keys. Esc steps back (point, then mask).
 - `props.masks` written through `addClip` / `updateClip` is validated the same
   way. Bad keys, shapes or values refuse the whole patch. Locks apply
   (`force:true` as elsewhere).
-- Projects saved before this convention (`maskSchema` missing or below 2)
-  stored `x`, `y` as the mask's centre, in fractions of the *cropped*
-  picture. They are converted once, when the editor, `fablecut_get_project`
-  or a patch reads them, and saved with `"maskSchema": 2` at the top of the
-  document: the frame position is `cropL + u · (1 − cropL − cropR)` (likewise
-  on y), sizes scale by `(1 − cropL − cropR)` / `(1 − cropT − cropB)`, and a
-  rect's or ellipse's corner is its centre minus half its size. Keys are
-  converted at their own times, so each keyed outline is exactly where it was.
-  A document written by `fablecut_set_project` without `maskSchema` is taken
-  to be in this convention (it was read in it).
 - `fablecut_scopes {time, mask:{clip}}` measures them: the % of the clip's
-  original frame its masks keep (the feathered matte, measured alone) and the % of
+  picture its masks keep (the feathered matte, measured alone) and the % of
   the frame the masked clip covers. The compact project view lists each
   clip's masks as `[2 masks: ellipse feather 40, rect subtract]`.
 
@@ -1227,7 +1214,7 @@ like a hand-keyed one, and you can edit its keys afterwards.
 | `name` | how masks, clips and agents refer to it (default `Track n`, or the mask's name) |
 | `kind` | `point` (position) or `box` (position, size and rotation were followed) |
 | `w` · `h` | the region that was matched, fractions of the clip's picture |
-| `samples` | one per frame: `[t, x, y, s, r, q]`. `t` is seconds from the clip's start, `x, y` is the centre (fractions of the cropped picture — a track is a point, not a mask: it keeps this older convention), `s` is the scale and `r` the rotation (°) relative to the first sample, `q` is the match quality 0…1 |
+| `samples` | one per frame: `[t, x, y, s, r, q]`. `t` is seconds from the clip's start, `x, y` is the centre (fractions of the picture, like masks), `s` is the scale and `r` the rotation (°) relative to the first sample, `q` is the match quality 0…1 |
 
 The tracker matches a small greyscale template of the region (normalized
 cross-correlation, sub-pixel, optionally over scale and rotation) and keeps
