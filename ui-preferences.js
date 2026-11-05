@@ -104,7 +104,7 @@
     "off-filter": ["⚠ Offline ({n})", "⚠ 找不到（{n}）"],
     "off-clip": ["⚠ Offline · ", "⚠ 找不到 · "],
     "off-export": ["{n} media files can't be found. In the export those parts will show a “missing” picture with no sound. Find them first, then export.", "有 {n} 个素材找不到了，导出时这几段会显示「找不到」的画面、没有声音。先把它们找回来再导出吧。"],
-    "off-export-one": ["1 media file can't be found. In the export that part will show a “missing” picture with no sound. Find it first, then export.", "有 1 个素材找不到了，导出时这一段会显示「找不到」的画面、没有声音。先把它找回来再导出吧。"],   // n = 1: draft (草稿，待 JJ 定稿), both languages
+    "off-export-one": ["1 media file can't be found. In the export that part will show a “missing” picture with no sound. Find it first, then export.", "有 1 个素材找不到了，导出时这一段会显示「找不到」的画面、没有声音。先把它找回来再导出吧。"],   // n = 1: JJ's final wording (Deja, 2026-11-05)
     "off-find-first": ["Find them first…", "先找回来…"],   // en: draft
     "off-export-anyway": ["Export anyway", "照样导出"],   // en: draft
     "off-other-copy": ["Use the same recording from elsewhere…", "用另一处的同一段录像…"],

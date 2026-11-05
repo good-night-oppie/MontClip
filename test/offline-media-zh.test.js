@@ -20,6 +20,8 @@ test('JJ\'s Chinese, word for word', () => {
   a.equal(t('zh-CN', 'off-badge-title'), '这个文件找不到了。右键选〔重新链接…〕，把它找回来。');
   a.equal(t('zh-CN', 'off-item-title', { file: 'tone-b.mp4' }), '这个文件找不到了。右键选〔重新链接…〕，把它找回来。', 'no ⚠ in front (Rea)');
   a.equal(t('zh-CN', 'off-export', { n: 2 }), '有 2 个素材找不到了，导出时这几段会显示「找不到」的画面、没有声音。先把它们找回来再导出吧。');
+  // only one file missing: JJ's own sentence, never 「有 1 个素材……这几段」
+  a.equal(t('zh-CN', 'off-export-one'), '有 1 个素材找不到了，导出时这一段会显示「找不到」的画面、没有声音。先把它找回来再导出吧。');
   a.equal(t('zh-CN', 'off-find-first'), '先找回来…');
   a.equal(t('zh-CN', 'off-export-anyway'), '照样导出');
   a.equal(t('zh-CN', 'off-other-copy'), '用另一处的同一段录像…');
@@ -42,14 +44,14 @@ test('JJ\'s English, word for word (“ ” quotes, JJ\'s rule); the drafts as t
   a.equal(t('en', 'off-other-copy-title'), 'The same recording saved somewhere else (a backup on another drive, for example). Point to that one; your cuts stay the same.');
   a.equal(t('en', 'off-finding-k', { file: 'tone-b.mp4', k: 2, n: 5 }), 'Looking for “tone-b.mp4” (2 of 5)');
   a.equal(t('en', 'off-finding-k', { file: 'tone-c.mp4', k: 1, n: 1 }), 'Looking for “tone-c.mp4” (1 of 1)');
+  a.equal(t('en', 'off-export-one'), '1 media file can\'t be found. In the export that part will show a “missing” picture with no sound. Find it first, then export.');
+  // settled: no longer marked as a draft in the table
+  const row = fs.readFileSync(path.join(__dirname, '..', 'ui-preferences.js'), 'utf8').split('\n').find((l) => l.includes('"off-export-one"'));
+  a.doesNotMatch(row, /draft|草稿/);
   a.equal(t('en', 'off-replace-title'), 'Swap in a different recording; every clip that uses it changes too.');
   // drafts (草稿，待 JJ 定稿)
   a.equal(t('en', 'off-bar-many', { n: 3 }), '3 media files can\'t be found. They may have been moved or deleted. Your edits are still there; find the files and you can carry on.');
   a.equal(t('en', 'off-find-each'), 'Find them one by one…');
-  // n = 1 (drafts, 草稿，待 JJ 定稿): never 「有 1 个素材……这几段」
-  a.equal(t('en', 'off-export-one'), '1 media file can\'t be found. In the export that part will show a “missing” picture with no sound. Find it first, then export.');
-  a.equal(t('zh-CN', 'off-export-one'), '有 1 个素材找不到了，导出时这一段会显示「找不到」的画面、没有声音。先把它找回来再导出吧。');
-  a.doesNotMatch(t('zh-CN', 'off-export-one'), /这几段|它们/);
   a.equal(t('en', 'off-item-title', { file: 'tone-b.mp4' }), '⚠ Offline: tone-b.mp4 is missing — right-click → Relink…');
   a.equal(t('en', 'off-find-first'), 'Find them first…');
   a.equal(t('en', 'off-export-anyway'), 'Export anyway');
