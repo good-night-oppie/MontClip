@@ -468,3 +468,44 @@ test('删了一半, the Transcript tab: JJ\'s words, 〔删掉 Meta 的模型〕
   }
   a.match(app, /E\.asrSwitch\.addEventListener\("click", \(\) => setAsrKey\("asr"\)\);/);
 });
+
+// ── removed for good (JJ's final words, Deja 11-05): the notice after 〔删掉〕 has done its work, and no Meta words say
+// 「撤销」 or 「同意记录」 any more ──
+test('removed: the notice is JJ\'s sentence, with no button, in both languages', async () => {
+  const app = read('app.js');
+  const i = app.indexOf('async function asrRevokeMeta('), j = app.indexOf('\n}\n', i);
+  for (const [lang, want] of [['zh-CN', 'Meta 的模型删掉了，你的同意也收回了。听写已经换回 Paraformer；以后还想用 Meta，再重新下载就行。'],
+    ['en', "Meta's model has been removed and your consent withdrawn. Transcription now uses Paraformer. To use Meta again, just download it again."]]) {
+    a.equal(V.t(lang, 'own.asr-meta-revoked'), want, lang);
+    const shown = [], chosen = [];
+    const ctx = { window: { montclipAsr: { revoke: async () => ({ ok: true, revoked: 'asrMeta' }) } }, asrState: { downloading: false },
+      uiText: (k, v) => V.t(lang, k, v), toast: (m) => shown.push(['toast', m]), toastAction: (m, label) => shown.push(['with a button', m, label]),
+      setAsrKey: (k) => chosen.push(k), loadAsrStatus: async () => {}, String };
+    vm.runInNewContext(app.slice(i, j + 3), ctx);
+    await vm.runInContext('asrRevokeMeta()', ctx);
+    a.deepEqual(shown, [['toast', want]], lang + ': this sentence, no button');
+    a.deepEqual(chosen, ['asr'], 'and the speech model is Paraformer');
+  }
+});
+
+test('no Meta words say 「撤销」 or 「同意记录」 (nor "revoke" / "consent record"): the page\'s and the host\'s boxes', () => {
+  const T = require('../desktop/asr-consent-text');
+  const words = [];
+  for (const lang of ['zh-CN', 'en']) {
+    // every Transcript-tab string about Meta's model, or one that names it
+    for (const [k, v] of Object.entries(V.text[lang])) {
+      if (/^own\.asr-/.test(k) && (/meta/i.test(k) || /Meta/.test(V.text['zh-CN'][k] + V.text.en[k]) || k === 'own.asr-switch-paraformer')) words.push([lang, k, v]);
+    }
+    // the host's own boxes: the licence, the site, the address, removing
+    const L = lang === 'en' ? 'en' : 'zh';
+    const boxes = { license: T.asrLicenseText(L, { name: 'Meta', licenseName: 'Apache License 2.0', text: '' }),
+      source: T.asrSourceText(L, { mb: [350, 280], sites: ['hf-mirror.com', 'github.com'], hosts: ['hf-mirror.com', 'github.com'] }),
+      confirm: T.asrConfirmText(L, { site: 'github.com', url: 'https://github.com/x', mb: 280, also: [] }), remove: T.asrRevokeText(L, { bytes: 365439124 }) };
+    for (const [name, b] of Object.entries(boxes)) words.push([lang, 'box ' + name, [b.title, b.message, b.detail, ...(b.buttons || [])].join(' | ')]);
+  }
+  a.ok(words.length > 40, 'the scan sees the words (' + words.length + ')');
+  for (const [lang, k, v] of words) {
+    a.ok(!/撤销|同意记录/.test(v), lang + ' ' + k + ': ' + v);
+    a.ok(!/revok|consent record/i.test(v), lang + ' ' + k + ': ' + v);
+  }
+});
