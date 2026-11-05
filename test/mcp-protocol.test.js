@@ -8,7 +8,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { ROOT, makeDataDir, startMcp } = require("./helpers");
+const { ROOT, makeDataDir, startMcp, freePort } = require("./helpers");
 
 const SUPPORTED = ["2025-11-25", "2025-06-18", "2024-11-05"];
 const LATEST = "2025-11-25";
@@ -96,7 +96,9 @@ test("every tools/call answer is well-formed content blocks", async (t) => {
   // must fail fast here instead of spawning a detached server.js no test can
   // stop. Their error answers are still text-led content blocks, which is what
   // this test checks.
-  const mcp = startMcp(t, makeDataDir(t), { FABLECUT_NO_AUTOSTART: "1" });
+  // and a port of its own with nothing on it: other test files' MCP servers may have auto-started an editor on
+  // the default 7777, and fablecut_export {} would then queue a real export there and wait far past the timeout
+  const mcp = startMcp(t, makeDataDir(t), { FABLECUT_NO_AUTOSTART: "1", FABLECUT_PORT: String(await freePort()) });
   await mcp.request("initialize", { protocolVersion: LATEST });
   const { result } = await mcp.request("tools/list");
   for (const tool of result.tools) {
