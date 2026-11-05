@@ -61,3 +61,9 @@ test('the export mix asks for a window on long or large files, and offsets the c
   a.match(helper, /getAudioBuffer\(m\)/, 'short files keep the whole-file decode (shared with waveforms)');
   a.match(app, /const AUDIO_WINDOW_MIN_SEC = \d+, AUDIO_WINDOW_MIN_BYTES = [\d *]+,/);
 });
+
+test('a headless export page (?exportJob=) draws no waveforms, so it never decodes whole files for them', () => {
+  a.match(app, /const EXPORT_JOB_PAGE = typeof location !== "undefined" && new URLSearchParams\(location\.search\)\.has\("exportJob"\);/);
+  const wave = body(app, 'function ensureWave(');
+  a.ok(wave.indexOf('if (EXPORT_JOB_PAGE) return;') > 0 && wave.indexOf('if (EXPORT_JOB_PAGE) return;') < wave.indexOf('getAudioBuffer('), 'before any decode');
+});

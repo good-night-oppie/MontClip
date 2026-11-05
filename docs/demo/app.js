@@ -2096,7 +2096,12 @@ function getAudioBuffer(m) {
   }
   return p;
 }
+/* A page the server opened only to run one export job (export-jobs.js, ?exportJob=<id>): nobody sees its timeline. */
+const EXPORT_JOB_PAGE = typeof location !== "undefined" && new URLSearchParams(location.search).has("exportJob");
 function ensureWave(m) {
+  // the export page draws no timeline: decoding a whole file for its waveform only competed with the export
+  // (a 2-hour recording: 5 GB read and 4.5 GB in the tab, europa 2026-11-04)
+  if (EXPORT_JOB_PAGE) return;
   // Also decode peaks from video files when their audio is placed on an A track
   if (m.kind !== "audio" && m.kind !== "video") return;
   const have = runtime.wavePeaks.get(m.id), src = m.src;
