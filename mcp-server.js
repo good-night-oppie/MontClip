@@ -1282,6 +1282,8 @@ async function callTool(name, args, attempt = 0) {
         const set = { x: r.x, y: r.y, w: r.w, h: r.h };
         if (args.strength != null) set.strength = args.strength;
         if (args.style != null) set.style = args.style;
+        if (args.from != null) set.from = args.from;
+        if (args.to != null) set.to = args.to;
         const named = typeof args.name === "string" && args.name.trim() ? args.name.trim() : null;
         if (named) set.name = named;
         op = { op: "setCover", id, ...(named ? { cover: named } : {}), set, ...extra };

@@ -21,6 +21,13 @@ test("normalizeCover: mask coordinates, defaults, clamped into the frame, strict
   assert.throws(() => M.normalizeCover({ x: 0, y: 0, w: 0.2, h: 0.2, style: "pixel" }, true), /style must be mosaic \| blur/);
   assert.throws(() => M.normalizeCover({ x: 0, y: 0, w: 0.2, h: 0.2, colour: 1 }, true), /colour: unknown key/);
   assert.equal(M.normalizeCovers([]), null);
+  // a time window, seconds from the clip's start
+  const win = M.normalizeCover({ x: 0, y: 0, w: 0.2, h: 0.2, from: 1.5, to: 3 });
+  assert.deepEqual([win.from, win.to], [1.5, 3]);
+  assert.deepEqual([1.4, 1.5, 2.9, 3].map((t) => M.coverActive(win, t)), [false, true, true, false]);
+  assert.equal(M.coverActive(M.normalizeCover({ x: 0, y: 0, w: 0.2, h: 0.2, to: 2 }), 0), true, "no from: from the clip's start");
+  assert.throws(() => M.normalizeCover({ x: 0, y: 0, w: 0.2, h: 0.2, from: 3, to: 2 }, true), /\.to must be after \.from/);
+  assert.throws(() => M.normalizeCover({ x: 0, y: 0, w: 0.2, h: 0.2, from: -1 }, true), /from must be seconds/);
   // never so fine that letters survive: a mosaic block is at least ~1.4 % of the frame width at the default strength
   assert.ok(M.coverGrain({ strength: 60 }, 30, 1920).block >= 25);
 });
@@ -47,6 +54,9 @@ test("fablecut_blur_region adds, names, replaces and removes covers; refuses loc
   assert.deepEqual(covers("c_a")[0], { x: 0.55, y: 0.1, w: 0.35, h: 0.4, style: "mosaic", strength: 60, name: "co-host" });
   const compact = await mcp.callTool("fablecut_get_project", { compact: true });
   assert.match(compact.text, /\[2 covered areas: mosaic 60 "co-host"/);
+  r = await mcp.callTool("fablecut_blur_region", { clipId: "c_a", rect: { x: 0.1, y: 0.1, w: 0.1, h: 0.1 }, name: "popup", from: 1, to: 2.5 });
+  assert.match(r.text, /"popup" at 0\.1,0\.1 0\.1×0\.1 1–2\.5 s/);
+  r = await mcp.callTool("fablecut_blur_region", { clipId: "c_a", remove: "popup" });
   r = await mcp.callTool("fablecut_blur_region", { clipId: "c_a", remove: "co-host" });
   assert.equal(covers("c_a").length, 1);
   r = await mcp.callTool("fablecut_blur_region", { clipId: "c_a", remove: "all" });

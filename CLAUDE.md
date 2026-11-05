@@ -1186,6 +1186,7 @@ the same way. Covers live in `props.covers` on video, image, svg and comp clips
 | `x` · `y` · `w` · `h` | — | **mask coordinates**: 0…1 of the clip's original frame (the whole source frame, before crop, scale and position), origin top-left; `x`, `y` the top-left corner |
 | `style` | `mosaic` | `mosaic` (hard blocks) · `blur` (smooth) |
 | `strength` | 60 | 1…100: bigger blocks / a stronger blur. At 60 a block is at least ~1.4 % of the frame's width, so letters don't survive |
+| `from` · `to` | the whole clip | seconds from the clip's start: cover only while a private window is up, without cutting the clip |
 | `name` · `on` | — | a label; `on:false` turns it off |
 
 A cover only shows where the picture is: a part cropped away has nothing to
@@ -1196,12 +1197,12 @@ a box on the monitor over what to hide (Esc cancels). The Inspector's
 **Covered areas** section lists them — mosaic or blur, strength, remove — and
 **+ Cover an area** draws another. One undo step each.
 
-**Agents:** `fablecut_blur_region {clipId, rect:{x, y, w, h}, strength?, style?, name?}`
+**Agents:** `fablecut_blur_region {clipId, rect:{x, y, w, h}, strength?, style?, from?, to?, name?}`
 adds one (a name already there replaces that area); `{clipId, remove: index | name | "all"}`
 takes them off. Read `rect` off the source with `fablecut_frame {path, t}` (see
 "Where the numbers come from" under Masks), then check it with
 `fablecut_frame {time}` at a moment the clip is on screen. Patch ops do the same:
-`{op:"setCover", id | ids, cover?: index | name, set:{x, y, w, h, style?, strength?, name?, on?}}`,
+`{op:"setCover", id | ids, cover?: index | name, set:{x, y, w, h, style?, strength?, from?, to?, name?, on?}}`,
 `{op:"removeCover", id | ids, cover: index | name | "all"}`; `props.covers`
 written through `addClip` / `updateClip` is validated the same way. Locks
 apply (`force:true` only when the user asked). The compact view lists them as

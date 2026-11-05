@@ -15190,7 +15190,7 @@ function drawClipPicture(c, W, H, t, layered) {
       shown = [src, sx, sy, cw, ch];
     }
     const covers = Mask.COVER_KINDS.includes(c.kind) ? Mask.normalizeCovers(p.covers) : null;
-    if (covers) drawCovers(covers, shown, { sx, sy, cw, ch, sw, sh, dw, dh });
+    if (covers) drawCovers(covers.filter((cv) => Mask.coverActive(cv, t - c.start)), shown, { sx, sy, cw, ch, sw, sh, dw, dh });
     ctx2d.filter = "none";
     if (p.vignette > 0) {
       const g = ctx2d.createRadialGradient(0, 0, Math.min(dw, dh) * 0.35, 0, 0, Math.hypot(dw, dh) * 0.55);

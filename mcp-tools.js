@@ -381,6 +381,8 @@ const TOOLS = [
         rect: { type: "object", description: "The area: x, y = its top-left corner, w, h = its size, all 0…1 of the clip's original frame (the whole source frame, before crop, scale and position)",
           properties: { x: { type: "number" }, y: { type: "number" }, w: { type: "number" }, h: { type: "number" } }, required: ["x", "y", "w", "h"] },
         strength: { type: "number", description: "1…100 (default 60): bigger mosaic blocks / a stronger blur" },
+        from: { type: "number", description: "Seconds from the CLIP's start when the cover begins (left out: the clip's start) — e.g. a private window that pops up for a few seconds" },
+        to: { type: "number", description: "Seconds from the clip's start when it ends (left out: the clip's end)" },
         style: { type: "string", enum: ["mosaic", "blur"], description: "mosaic (default) or blur" },
         name: { type: "string", description: "A label, e.g. \"co-host\" or \"names\"; a name that is already there replaces that area" },
         remove: { description: "Instead of adding: take a cover off — its index (0 = first), its name, or \"all\"" },

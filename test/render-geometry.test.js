@@ -288,11 +288,13 @@ function expectedCover(c, t) {
   const cw = W * (1 - L - R), ch = H * (1 - T - B), f = Math.min(W / cw, H / ch) * s, dw = cw * f, dh = ch * f;
   const left = W / 2 + x - dw / 2, top = H / 2 + y - dh / 2, fl = left - L * W * f, ft = top - T * H * f;
   const cv = p.covers[0];
+  if ((cv.from != null && lt < cv.from) || (cv.to != null && lt >= cv.to)) return null;   // outside its time window
   const r = { x0: Math.max(left, fl + cv.x * W * f), y0: Math.max(top, ft + cv.y * H * f),
     x1: Math.min(left + dw, fl + (cv.x + cv.w) * W * f), y1: Math.min(top + dh, ft + (cv.y + cv.h) * H * f) };
   return { x0: Math.max(0, r.x0), y0: Math.max(0, r.y0), x1: Math.min(W, r.x1), y1: Math.min(H, r.y1) };
 }
 function nearBox(got, want, what) {
+  if (!want) { assert.equal(got, null, `${what}: expected nothing covered, got ${JSON.stringify(got)}`); return; }
   assert.ok(got, `${what}: nothing covered, expected ${JSON.stringify(want)}`);
   for (const [k, tol] of [["x0", W * 0.01], ["x1", W * 0.01], ["y0", H * 0.01], ["y1", H * 0.01]])
     assert.ok(Math.abs(got[k] - want[k]) <= tol, `${what}: ${k} ${got[k]}, expected ${want[k].toFixed(1)} ±${tol} (got ${JSON.stringify(got)})`);
@@ -304,6 +306,9 @@ const COVER_CASES = [
       y: [{ t: 0, v: 0 }, { t: 1.9, v: -60, ease: "linear" }] } },
   { id: "c_cropped", start: 2, duration: 1, samples: [2.5],
     props: { cropL: 30, cropT: 20, covers: [{ x: 0.2, y: 0.3, w: 0.3, h: 0.25, style: "blur", strength: 80 }] } },
+  // a cover with a time window (seconds from the clip's start): not there before `from`, there after it
+  { id: "c_window", start: 3, duration: 1, samples: [3.2, 3.7],
+    props: { covers: [{ x: 0.3, y: 0.3, w: 0.4, h: 0.4, from: 0.5 }] } },
 ];
 
 test("a covered area hides the picture there and follows the clip — fablecut_frame still and Fast export", { skip: SKIP, timeout: 900_000 }, async (t) => {

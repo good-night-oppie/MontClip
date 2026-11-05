@@ -494,14 +494,15 @@
      An area of the clip's picture hidden behind a mosaic (default) or a blur — a co-host's window, viewers'
      names. Same coordinates as masks: x, y = the top-left corner, w, h the size, 0…1 of the clip's original
      frame. The cover is drawn with the picture, so it moves, scales and turns with the clip and its keys.
-       { x, y, w, h, style?: "mosaic" | "blur" (default mosaic), strength?: 1…100 (default 60), name?, on? } */
+       { x, y, w, h, style?: "mosaic" | "blur" (default mosaic), strength?: 1…100 (default 60),
+         from?, to?: seconds from the clip's start (left out: the whole clip), name?, on? } */
   const MAX_COVERS = 16;
   const COVER_STYLES = ["mosaic", "blur"];
   const COVER_KINDS = ["video", "image", "svg", "comp"];
   function normalizeCover(cv, strict = false, where = "cover") {
     const bad = (msg) => { if (strict) throw new Error(`${where}${msg}`); return null; };
     if (!isObj(cv)) return bad(" must be an object like {x:0.6, y:0.1, w:0.3, h:0.4}");
-    const known = ["x", "y", "w", "h", "style", "strength", "name", "on"];
+    const known = ["x", "y", "w", "h", "style", "strength", "from", "to", "name", "on"];
     for (const k of Object.keys(cv)) if (!known.includes(k)) return bad(`.${k}: unknown key (${known.join(", ")})`);
     for (const k of ["x", "y", "w", "h"]) if (!isNum(cv[k])) return bad(`.${k} must be a number (0…1 of the clip's original frame)`);
     let x0 = clamp(cv.x, 0, 1), y0 = clamp(cv.y, 0, 1);
@@ -511,9 +512,19 @@
     if (!COVER_STYLES.includes(style)) return bad(`.style must be ${COVER_STYLES.join(" | ")}`);
     if (cv.strength != null && !isNum(cv.strength)) return bad(".strength must be a number 1…100");
     const out = { x: r4(x0), y: r4(y0), w: r4(x1 - x0), h: r4(y1 - y0), style, strength: Math.round(clamp(cv.strength == null ? 60 : cv.strength, 1, 100)) };
+    for (const k of ["from", "to"]) {
+      if (cv[k] == null) continue;
+      if (!isNum(cv[k]) || cv[k] < 0) return bad(`.${k} must be seconds from the clip's start (≥ 0)`);
+      out[k] = r4(cv[k]);
+    }
+    if (out.from != null && out.to != null && out.to <= out.from) return bad(".to must be after .from");
     if (typeof cv.name === "string" && cv.name.trim()) out.name = cv.name.trim().slice(0, 40);
     if (cv.on === false) out.on = false;
     return out;
+  }
+  /** Whether a cover shows at clip-local time lt (its from / to window; on:false never). */
+  function coverActive(cv, lt) {
+    return cv.on !== false && (cv.from == null || lt >= cv.from - 1e-6) && (cv.to == null || lt < cv.to - 1e-6);
   }
   function normalizeCovers(list, strict = false) {
     if (list == null) return null;
@@ -526,7 +537,8 @@
   function describeCovers(list) {
     if (!Array.isArray(list) || !list.length) return "";
     return `${list.length} covered area${list.length > 1 ? "s" : ""}: ` + list.map((cv) =>
-      `${cv.style} ${cv.strength}${cv.name ? ` "${cv.name}"` : ""} at ${cv.x},${cv.y} ${cv.w}×${cv.h}${cv.on === false ? " off" : ""}`).join(", ");
+      `${cv.style} ${cv.strength}${cv.name ? ` "${cv.name}"` : ""} at ${cv.x},${cv.y} ${cv.w}×${cv.h}` +
+      (cv.from != null || cv.to != null ? ` ${cv.from ?? 0}–${cv.to ?? "end"} s` : "") + (cv.on === false ? " off" : "")).join(", ");
   }
   /** The mosaic block (output px) and blur radius for a cover whose shorter side is `short` px on an output `outW` px wide. */
   function coverGrain(cv, short, outW) {
@@ -601,7 +613,7 @@
     MAX_MASKS, MAX_POINTS, SHAPES, MODES, KEYED, BLENDS, MATTES, matteTrackFor, checkCompositing, NUM_KEYED, RANGE, DEFAULTS, EASES,
     normalizeMasks, normalizeMask, mergeMask, maskAt, masksAt, shiftKeys, centreOf, cornerFor,
     MASK_SCHEMA, cropOf, migrateMask, migrateClips, migrateProject,
-    MAX_COVERS, COVER_STYLES, COVER_KINDS, normalizeCover, normalizeCovers, describeCovers, coverGrain,
+    MAX_COVERS, COVER_STYLES, COVER_KINDS, normalizeCover, normalizeCovers, describeCovers, coverGrain, coverActive,
     anchors, tracePath, flatten, polyDist, maskCoverage, combine, matteAt, fitStroke, rasterize, describe, splitPoints, editTopology,
   };
 });
