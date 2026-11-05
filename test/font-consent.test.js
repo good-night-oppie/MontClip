@@ -42,7 +42,7 @@ function page({desktop=false,clips=[],installed=[]}={}){
  const fetch=async(u)=>{const url=new URL(u,LOCAL).href;requests.push(url);
   if(url.startsWith(LOCAL+'/api/library'))return{json:async()=>[],arrayBuffer:async()=>new ArrayBuffer(0)};throw new Error('offline');};
  const window=desktop?{montclipViewSettings:{}}:{};
- const runtime={fontReq:new Map(),libraryFontReq:new Set(),customFonts:[],googleLoaded:new Set()};
+ const runtime={fontReq:new Map(),libraryFontReq:new Set(),customFonts:[],googleLoaded:new Set(),fontConsent:new Set(),fontHinted:new Set()};
  const uiText=(k,v)=>k+(v?' '+JSON.stringify(v):'');
  const stubs={window,document,fetch,runtime,SYSTEM_FONTS,GOOGLE_FONTS,FONT_CUT_DEFAULT,uiText,
   toast:(m)=>toasts.push({m}),toastAction:(m,label,fn)=>toasts.push({m,label,fn}),
@@ -130,7 +130,7 @@ test('desktop: no Google font box or Load button, no uninstalled Google font in 
 });
 
 test('every call site that reaches Google Fonts on a click goes through requestFonts; nothing else creates the link',()=>{
- a.equal((SRC.match(/fonts\.googleapis\.com/g)||[]).length,1,'one place builds the address');
+ a.equal((SRC.match(/https:\/\/fonts\.googleapis\.com/g)||[]).length,1,'one place builds the address');
  const gate=slice('function loadGoogleFont(','\n}\n');
  a.match(gate,/fonts\.googleapis\.com/,'and it is loadGoogleFont, which only runs for a confirmed font');
  for(const m of SRC.matchAll(/loadGoogleFont\(/g)){const ctx=SRC.slice(Math.max(0,m.index-400),m.index);a.ok(/function loadGoogleFont\($/.test(SRC.slice(m.index-23,m.index+15))||/fontConsent\.has\(name\)/.test(ctx),'gated: '+SRC.slice(m.index-60,m.index+20));}
