@@ -11452,7 +11452,7 @@ function autoExportConfirm() {
     <div class="as-row"><button type="button" class="btn primary" data-as-act="ex-go">${autoSay("as-ex-go")}</button><button type="button" class="btn" data-as-act="ex-cancel">${autoSay("as-ex-cancel")}</button></div></section>`;
   AUTO.el.querySelector("[data-as-footer]").hidden = true;
 }
-function autoExport() {
+async function autoExport() {
   const st = autoState(), on = st.clips.filter((c) => c.on);
   const r = placeAutoSlices(on);
   if (!r.ok) { autoToast(uiText("own.as-place-failed", { why: r.why }), false); autoRender("review"); return; }
@@ -11461,6 +11461,7 @@ function autoExport() {
   let at = r.at0;
   const segments = on.map((c) => { const d = Math.round((c.e - c.s) * 1000) / 1000, s = { output: { start: at, end: Math.round((at + d) * 1000) / 1000 } }; at = s.output.end; return s; });
   const before = new Set(exportQueue.map((q) => q.id));
+  if (!deliveryInfo.encoders) await fetchDeliveryInfo();   // sliceDeliverySpec needs to know the encoders
   queueSlices(segments, names, { open: false });
   st.exportIds = exportQueue.filter((q) => !before.has(q.id)).map((q) => q.id);
   st.exportNames = on.map(autoName);
@@ -19624,6 +19625,19 @@ const FX_AUTOMATION_STEP = 0.02; // export automation resolution, seconds
    decoding the whole file in the tab: a 2-hour, 8 GB recording read 5 GB, took the tab to 4.5 GB and exported no sound
    (europa, 2026-11-04). Shorter files keep the whole-file decode, which waveforms share. */
 const AUDIO_WINDOW_MIN_SEC = 1200, AUDIO_WINDOW_MIN_BYTES = 512 * 1024 * 1024, AUDIO_WINDOW_PAD = 0.5;
+/* A clip whose sound could not be decoded used to be dropped from the mix, and the export came out silent and said
+   it succeeded (europa, 2026-11-04). Now the export stops and says which clip (Deja, 2026-11-05). Only clips that are
+   heard count: a linked video's picture (volume 0) or a file with no audio stream never stop an export. */
+function exportAudioHeard(c, m) {
+  if (m && m.audioChannels === 0) return false;
+  return c.kind === "audio" || !(c.props && c.props.volume === 0);
+}
+/** The first heard clip that failed → an Error for the export, in the interface language; else null. */
+function exportMixFailure(results) {
+  const bad = results.find((r) => r && r.failed && r.heard);
+  if (!bad) return null;
+  return Object.assign(new Error(uiText("own.export-audio-failed", { name: bad.c.name || bad.c.id || "" })), { code: "EXPORT_AUDIO_FAILED" });
+}
 /** → {buf, at}: an AudioBuffer of clip c's audio for timeline a…b, and the media time its first sample is at. */
 async function exportAudioSource(m, c, a, b, windows = new Map()) {
   const big = (m.duration || 0) > AUDIO_WINDOW_MIN_SEC || (m.size || 0) > AUDIO_WINDOW_MIN_BYTES;
@@ -19649,9 +19663,13 @@ async function renderAudioMix(t0, t1, opts = {}) {
     const m = getMedia(c.mediaId); if (!m) continue;
     const a = Math.max(c.start, t0), b = Math.min(c.start + c.duration, t1);
     if (b - a <= 1e-6) continue;
-    jobs.push(exportAudioSource(m, c, a, b, windows).then(({ buf, at }) => ({ c, buf, at })).catch(() => null));
+    jobs.push(exportAudioSource(m, c, a, b, windows).then(({ buf, at }) => ({ c, buf, at }))
+      .catch((e) => ({ c, failed: e, heard: exportAudioHeard(c, m) })));
   }
-  const sources = (await Promise.all(jobs)).filter(Boolean);
+  const results = await Promise.all(jobs);
+  const failed = exportMixFailure(results);
+  if (failed && !opts.raw) throw failed;
+  const sources = results.filter((r) => r && !r.failed);
   if (!sources.length) return null;
   const dur = Math.max(0, t1 - t0);
   if (dur <= 0) return null;
@@ -19935,9 +19953,20 @@ function queueAdd(spec, name) {
 }
 /** Slices from an applied keep_ranges per_range proposal: one queue item per range, each its own file. An item
  *  remembers the timeline it was made from and refuses to render once the timeline is different (Undo, an edit). */
-function queueSlices(segments, names, { open = true } = {}) {
+/* The delivery spec auto-slices export with. When nobody chose one (the master default) and this machine's only H.264
+   encoder is libx264 (no graphics card: europa), x264 runs at veryfast instead of slow, CRF unchanged — the frame phase
+   of a 30 s slice went from 67 s to 36 s; the files come out somewhat larger (Deja, 2026-11-05). A graphics-card or
+   Windows encoder, a preset the user or the project chose, and encoders not known yet are left alone. */
+function sliceDeliverySpec() {
   const choice = exportChoice();
+  const chosen = choice.kind === "delivery" && choice.source !== "default";
   const spec = normalizeDelivery(choice.kind === "delivery" ? choice.spec : Delivery.DEFAULT_PRESET).spec;
+  const enc = deliveryInfo.encoders ? Delivery.encodersFor("h264", new Set(deliveryInfo.encoders)) : null;
+  if (chosen || !enc || enc.length !== 1 || enc[0] !== "libx264" || spec.video.encoder !== "libx264") return spec;
+  return normalizeDelivery({ ...spec, video: { ...spec.video, speed: "fast" } }).spec;
+}
+function queueSlices(segments, names, { open = true } = {}) {
+  const spec = sliceDeliverySpec();
   const guard = JSON.stringify(project.clips);
   segments.forEach((s, i) => exportQueue.push({
     id: "q" + Math.random().toString(36).slice(2, 8), label: queueLabel(spec), spec, name: names[i],

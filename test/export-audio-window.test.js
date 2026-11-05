@@ -67,3 +67,54 @@ test('a headless export page (?exportJob=) draws no waveforms, so it never decod
   const wave = body(app, 'function ensureWave(');
   a.ok(wave.indexOf('if (EXPORT_JOB_PAGE) return;') > 0 && wave.indexOf('if (EXPORT_JOB_PAGE) return;') < wave.indexOf('getAudioBuffer('), 'before any decode');
 });
+
+/* Deja 2026-11-05: a failed audio mix must not export a silent file shown as a success. The export stops, with the
+   reason in the interface language (drafts for JJ). Only clips that are actually heard count: a silent picture
+   (volume 0, the linked-video layout) or a file with no audio stream never stops an export. */
+test('a clip whose sound cannot be decoded stops the export, said in plain words; silent clips never do', () => {
+  const head = 'function exportAudioHeard(', end = 'async function exportAudioSource(';
+  const src = app.slice(app.indexOf(head), app.indexOf(end));
+  a.ok(src.length > 50, 'helpers found');
+  const V = require('../ui-preferences');
+  for (const language of ['zh-CN', 'en']) {
+    const uiText = (k, v) => V.t(language, k, v);
+    const { exportAudioHeard, exportMixFailure } = new Function('uiText', src + '\nreturn { exportAudioHeard, exportMixFailure };')(uiText);
+    const vid = { kind: 'video', props: {} }, pic = { kind: 'video', props: { volume: 0 } }, aud = { kind: 'audio', name: '直播录像', props: {} };
+    a.equal(exportAudioHeard(aud, { audioChannels: 2 }), true);
+    a.equal(exportAudioHeard(vid, { audioChannels: 2 }), true);
+    a.equal(exportAudioHeard(pic, { audioChannels: 2 }), false, 'the picture of a linked video is silent');
+    a.equal(exportAudioHeard(aud, { audioChannels: 0 }), false, 'a file with no audio stream');
+    a.equal(exportMixFailure([{ c: aud, buf: {} }]), null);
+    const e = exportMixFailure([{ c: aud, buf: {} }, { c: aud, failed: new Error('decode failed'), heard: true }, { c: pic, failed: new Error('x'), heard: false }]);
+    a.ok(e instanceof Error); a.equal(e.code, 'EXPORT_AUDIO_FAILED');
+    a.ok(e.message.includes('直播录像'), e.message);
+    a.match(e.message, language === 'en' ? /no sound/ : /没有声音/);
+    a.equal(exportMixFailure([{ c: pic, failed: new Error('x'), heard: false }]), null, 'an unheard failure is not one');
+  }
+  const mix = body(app, 'async function renderAudioMix(');
+  a.match(mix, /const failed = exportMixFailure\(results\);/); a.match(mix, /if \(failed && !opts\.raw\) throw failed;/, 'export stops; highlight signals (raw) carry on');
+  // both export paths call it without raw, so the error reaches the export's own failure handling (queue: failed)
+  a.equal((app.match(/const wav = await renderAudioMix\(t0, t1\);/g) || []).length, 2);
+});
+
+/* Deja 2026-11-05: auto-slices on a machine whose only H.264 encoder is libx264 (no graphics card) export with x264
+   veryfast instead of the master preset's slow — frame phase 67 s → 36 s on europa, CRF unchanged. A graphics-card
+   encoder, or a preset the user (or the project) chose, is left as it is. */
+test('auto-slice default: libx264 only → veryfast, same CRF; a graphics card or a chosen preset is left alone', () => {
+  const Delivery = require('../delivery');
+  const src = app.slice(app.indexOf('function sliceDeliverySpec('), app.indexOf('function queueSlices('));
+  const run = (choice, encoders) => new Function('exportChoice', 'deliveryInfo', 'Delivery', 'normalizeDelivery',
+    src + '\nreturn sliceDeliverySpec();')(() => choice, { encoders }, Delivery, (x) => Delivery.normalize(x, { available: encoders ? new Set(encoders) : null }));
+  const dflt = { kind: 'delivery', spec: 'master', source: 'default' };
+  const x264 = run(dflt, ['libx264', 'ffv1', 'aac']), master = Delivery.normalize('master', { available: new Set(['libx264']) }).spec;
+  a.equal(x264.video.encoder, 'libx264'); a.equal(x264.video.speed, 'fast'); a.equal(x264.video.crf, master.video.crf, 'CRF unchanged');
+  const args = Delivery.ffmpegArgs(x264, { fps: 30, input: 'jpeg', canvasW: 1080, canvasH: 1920, frame: Delivery.reframe(x264, 1080, 1920), hasAudio: false, outPath: 'o.mp4' });
+  a.equal(args[args.indexOf('-preset') + 1], 'veryfast');
+  a.equal(run(dflt, ['libx264', 'h264_nvenc']).video.speed, master.video.speed, 'a graphics-card encoder: unchanged');
+  a.equal(run(dflt, ['h264_mf']).video.speed, master.video.speed, "Windows' encoder: unchanged");
+  a.equal(run(dflt, null).video.speed, master.video.speed, 'encoders not known yet: unchanged');
+  a.equal(run({ kind: 'delivery', spec: 'master', source: 'browser' }, ['libx264']).video.speed, master.video.speed, 'the user chose it');
+  a.equal(run({ kind: 'delivery', spec: { preset: 'youtube' }, source: 'project' }, ['libx264']).video.speed, 'balanced', 'the project pins it');
+  a.match(body(app, 'function queueSlices('), /const spec = sliceDeliverySpec\(\);/);
+  a.match(body(app, 'async function autoExport('), /if \(!deliveryInfo\.encoders\) await fetchDeliveryInfo\(\);[\s\S]*queueSlices\(/, 'the encoders are known before the slices are queued');
+});
