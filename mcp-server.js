@@ -126,15 +126,6 @@ const KIND_BY_EXT = {
   ".mp3": "audio", ".wav": "audio", ".ogg": "audio", ".m4a": "audio", ".aac": "audio", ".flac": "audio",
   ".png": "image", ".jpg": "image", ".jpeg": "image", ".gif": "image", ".webp": "image", ".svg": "svg",
 };
-function ffprobeDuration(file) {
-  try {
-    const r = spawnSync(FF.path("ffprobe"),
-      ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file],
-      { encoding: "utf8", timeout: 10_000 });
-    const d = parseFloat((r.stdout || "").trim());
-    return isNaN(d) ? undefined : Math.round(d * 1000) / 1000;
-  } catch { return undefined; }
-}
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 /* ── Tool definitions ── */
@@ -1668,7 +1659,8 @@ async function callTool(name, args, attempt = 0) {
         name: originalName,
         kind,
         src: "/media/" + encodeURIComponent(path.basename(target)),
-        duration: kind === "image" || kind === "svg" ? undefined : ffprobeDuration(target),
+        // the length comes from probeFile below (media-lib parseProbe), the same reading the editor uses: an MKV's start
+        // offset is not counted (QQ, #126: format=duration alone stored 3620 s for 20 s)
       };
       if (prepared.originalSrc) Object.assign(entry, {originalSrc: prepared.originalSrc, preparation: prepared.preparation});
       Object.assign(entry, infoForEntry(await probeFile(target), entry));
