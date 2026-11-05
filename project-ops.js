@@ -408,6 +408,23 @@
           }
           break;
         }
+        case "setAudioTrack": {
+          // {op:"setAudioTrack", id, track} — which audio stream of a multi-track recording (OBS can write six) is the
+          // streamer's voice; 0 = the first, the default. Songs, loudness, the transcript and the export mix all read
+          // this one stream (docs/validation/2026-11-05-audio-tracks). The songs found from another stream are
+          // dropped; loudness and transcripts are kept per stream on the server, so they are read again as needed.
+          const m = proj.media.find((x) => x.id === op.id);
+          if (!m) throw new Error("setAudioTrack: no media " + op.id);
+          const n = Array.isArray(m.audioTracks) ? m.audioTracks.length : 1;
+          const t = op.track;
+          if (!Number.isInteger(t) || t < 0 || t >= n)
+            throw new Error(`setAudioTrack: track is 0…${n - 1} for ${m.id} (${n === 1 ? "it has one audio stream" : n + " audio streams"})`);
+          if (MediaLib.audioTrackOf(m) === t) { notes.push(`=${m.id} track ${t}`); break; }
+          if (t) m.audioTrack = t; else delete m.audioTrack;
+          if (proj.songs && proj.songs[m.id]) { delete proj.songs[m.id]; if (!Object.keys(proj.songs).length) delete proj.songs; }
+          notes.push(`~${m.id} track ${t}`);
+          break;
+        }
         case "setCollection": {
           // {op:"setCollection", id?, name?, media?:[…], add?:[…], remove?:[…]} — creates it when the id is new
           const list = proj.collections = MediaLib.normalizeCollections(proj.collections, proj.media);
@@ -1240,6 +1257,8 @@
             (opts.proxy && m.kind === "video" && opts.proxy(m) ? ` proxy:${opts.proxy(m)}p` : "") +
             (m.favorite ? " ★" : "") + (m.tags && m.tags.length ? " " + m.tags.map((t) => "#" + t.replace(/\s+/g, "_")).join(" ") : "") +
             (m.folderId ? ` folder:${m.folderId}` : "") + ` uses:${uses.get(m.id) || 0}` +
+            (Array.isArray(m.audioTracks) && m.audioTracks.length > 1 ? ` audioTrack:${MediaLib.audioTrackOf(m)} of [` +
+              m.audioTracks.map((t, i) => `${i}:${t.channels}ch${t.title ? " " + JSON.stringify(t.title) : ""}`).join(", ") + "]" : "") +
             (m.derivedFrom ? ` (${m.denoise ? "denoised " + m.denoise : "derived"} from ${m.derivedFrom})` : "");
         });
       })(),

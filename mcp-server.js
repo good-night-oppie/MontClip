@@ -42,6 +42,7 @@ const SeqLib = require("./sequences");
 const Templates = require("./templates");
 const Delivery = require("./delivery");
 const { probeFile, infoForEntry } = require("./media-probe");
+const MediaLib = require("./media-lib");
 const { findProxies } = require("./proxy");
 /** The user's saved presets / templates (library/presets, library/templates), validated; bad files skipped. */
 const savedItems = (kind) => readSaved(kind).map((x) => (kind === "presets" ? Templates.normalizePreset(x.data) : Templates.normalizeTemplate(x.data))).filter(Boolean);
@@ -171,6 +172,55 @@ function importNote(entry, probed) {
   return "Note: nothing in this file says how long it is — not the header, the streams or the packets' times. With no length it can't be placed or cut; the original file is unchanged.";
 }
 
+/** A recording with several audio streams: which one is read, and how to pick another (fablecut_audio_track). */
+function audioTracksNote(m) {
+  if (!Array.isArray(m.audioTracks) || m.audioTracks.length < 2) return "";
+  return `\nIt has ${m.audioTracks.length} audio tracks: ` +
+    m.audioTracks.map((t, i) => `${i}: ${t.channels} ch${t.title ? ` "${t.title}"` : ""}${t.default ? " (default)" : ""}`).join(" · ") +
+    `. Songs, loudness, the transcript and the export read track ${MediaLib.audioTrackOf(m)}. If the streamer's voice is on another one, ` +
+    `ask the streamer which (fablecut_audio_track {mediaId, listen} cuts a few seconds of each to play), then fablecut_audio_track {mediaId, track}.`;
+}
+/* fablecut_audio_track: list a recording's audio streams, cut a few seconds of each to listen to, or pick the one
+   every reader uses (setAudioTrack, one undo step). */
+async function audioTrackTool(args) {
+  const doc = readProject(), readRev = doc.revision || 0;
+  const m = doc.media.find((x) => x.id === String(args.mediaId || ""));
+  if (!m) throw new Error("`mediaId` must name a media entry (fablecut_get_project {compact:true} lists them)");
+  if (m.kind !== "video" && m.kind !== "audio") throw new Error(`${m.id} is ${m.kind} — it has no sound`);
+  const file = mediaFile(m.src);
+  if (!file) throw new Error(`${m.id}: the file is missing (offline)`);
+  const info = await probeFile(file);
+  const tracks = info && Array.isArray(info.audioTracks) ? info.audioTracks : null;
+  const n = tracks ? tracks.length : info && info.audioChannels === 0 ? 0 : 1;
+  const list = () => (tracks || [{ channels: info && info.audioChannels }]).map((t, i) =>
+    `  ${i}: ${t.channels || "?"} ch${t.title ? ` "${t.title}"` : ""}${t.default ? " (default)" : ""}${i === MediaLib.audioTrackOf({ ...m, audioTracks: tracks }) ? "  ← read now" : ""}`).join("\n");
+  if (!n) return `${m.id} "${m.name}" has no audio.`;
+  if (args.listen != null) {
+    const at = Math.max(0, Number(args.listen) || 0), len = 6;
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const dest = path.join(ANALYSIS_DIR, "listen", `${m.id}-track${i}-${Math.round(at)}s.wav`);
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      const r = spawnSync(FF.path("ffmpeg"), require("./audio-window").windowArgs(file, at, len, dest, i), { timeout: 60000 });
+      out.push(`  ${i}: ${r.status === 0 ? dest : "could not be read"}`);
+    }
+    return `${m.id} "${m.name}" — ${len} s of each audio track from ${at} s, to play to the streamer:\n${out.join("\n")}\nTracks:\n${list()}`;
+  }
+  if (args.track == null) return `${m.id} "${m.name}" — ${n} audio track${n === 1 ? "" : "s"}:\n${list()}` +
+    (n > 1 ? "\nPick the streamer's voice with {mediaId, track}; listen first with {mediaId, listen: <seconds>}." : "");
+  const proj = readProject();
+  if ((proj.revision || 0) !== readRev) throw new Error(`the project changed meanwhile (revision ${readRev} → ${proj.revision}) — nothing changed; run fablecut_audio_track again`);
+  const pm = proj.media.find((x) => x.id === m.id);
+  if (tracks) pm.audioTracks = tracks;   // an entry probed before audio tracks were read
+  const { notes } = ProjectOps.applyPatch(proj, [{ op: "setAudioTrack", id: m.id, track: args.track }], { savedItems });
+  const verWarn = versionBeforeAgent(false);
+  proj.revision = readRev + 1;
+  writeProject(proj);
+  lastReadRevision = proj.revision;
+  return `${notes.join(" ")} — songs, loudness, the transcript and the export of ${m.id} now read audio track ${args.track} (revision ${proj.revision}; one undo step). ` +
+    `Songs found from the other track were dropped: run fablecut_songs / fablecut_transcribe again for this one.` + (verWarn || "");
+}
+
 /* ── Tool definitions ── */
 const TOOLS = require("./mcp-tools");
 
@@ -206,8 +256,8 @@ function clipSourceLen(c) {
   for (let i = 0; i < n; i++) sum += Math.min(8, Math.max(0.1, at((i + 0.5) * c.duration / n))) * c.duration / n;
   return sum;
 }
-function probeChannels(file) {
-  const r = spawnSync(FF.path("ffprobe"), ["-v", "error", "-select_streams", "a:0", "-show_entries", "stream=channels",
+function probeChannels(file, track = 0) {
+  const r = spawnSync(FF.path("ffprobe"), ["-v", "error", "-select_streams", "a:" + track, "-show_entries", "stream=channels",
     "-of", "csv=p=0", file], { encoding: "utf8" });
   if (r.error) throw new Error(FF.why("ffprobe", "to measure audio"));
   const n = parseInt(String(r.stdout).trim(), 10);
@@ -219,11 +269,12 @@ function streamClipAudio(proj, c0, onStart, onChunk) {
   const media = proj.media.find((m) => m.id === c0.mediaId);
   const file = media && mediaFile(media.src);
   if (!file) return Promise.reject(new Error(`clip ${c0.id}: media file not found`));
-  const nCh = probeChannels(file);
+  const track = MediaLib.audioTrackOf(media);   // the stream every reader uses (media-lib.js)
+  const nCh = probeChannels(file, track);
   if (!nCh || onStart(nCh) === false) return Promise.resolve(0);
   return new Promise((resolve, reject) => {
     const proc = spawn(FF.path("ffmpeg"), ["-v", "error", "-ss", String(Math.max(0, +c0.in || 0)),
-      "-t", String(Math.max(0.01, clipSourceLen(c0))), "-i", file, "-vn", "-map", "0:a:0",
+      "-t", String(Math.max(0.01, clipSourceLen(c0))), "-i", file, "-vn", "-map", "0:a:" + track,
       "-ar", String(NORM_SR), "-f", "f32le", "-acodec", "pcm_f32le", "-"]);
     let rest = Buffer.alloc(0), err = "";
     const frameBytes = 4 * nCh;
@@ -357,8 +408,9 @@ async function songsTool(args) {
   for (const m of files) {
     const file = mediaFile(m.src);
     if (!file) { lines.push(`${m.id} "${m.name}": the file is missing (offline) — skipped`); continue; }
-    if (args.again === true) scanner.forget(file);
-    const r = await scanner.scan(file);
+    const track = MediaLib.audioTrackOf(m);
+    if (args.again === true) scanner.forget(file, track);
+    const r = await scanner.scan(file, { track });
     const songs = Songs.find(r.rows.map((x) => x[0]), { step: r.step, complete: r.complete });
     ops.push({ op: "setSongs", mediaId: m.id, songs: { key: r.key, complete: r.complete, scanned: r.scanned, songs } });
     const est = songs.filter((s) => s.confidence === "estimated").length;
@@ -1312,6 +1364,8 @@ async function callTool(name, args, attempt = 0) {
       return highlightsTool(args);
     case "fablecut_songs":
       return songsTool(args);
+    case "fablecut_audio_track":
+      return audioTrackTool(args);
     case "fablecut_transcribe":
       return transcribeTool(args);
     case "fablecut_captions":
@@ -1429,7 +1483,7 @@ async function callTool(name, args, attempt = 0) {
       if (base != null && readRev !== base) throw conflict(readRev);
       const { notes, toSave } = ProjectOps.applyPatch(proj, ops, {
         savedItems,
-        audioChannels: (m) => { const f = mediaFile(m.src); return f ? probeChannels(f) || 0 : null; },
+        audioChannels: (m) => { const f = mediaFile(m.src); return f ? probeChannels(f, MediaLib.audioTrackOf(m)) || 0 : null; },
         checkProfile: resolveProfile,
         deliveryPresets: savedDeliveryPresets(),
         mediaInfo: (src) => { const f = mediaFile(src); return f ? probeFile(f) : null; },
@@ -1721,7 +1775,7 @@ async function callTool(name, args, attempt = 0) {
       writeProject(proj);
       if (wasCurrent) lastReadRevision = proj.revision;
       return `Imported → ${JSON.stringify(entry)}\n` +
-        importNote(entry, probed);
+        importNote(entry, probed) + audioTracksNote(entry);
     }
     case "fablecut_encode_profiles": {
       if (args.preset) {

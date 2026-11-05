@@ -54,6 +54,9 @@ Every Claude Code session then has these tools:
   on that canvas whose shots follow the subject. See "Sequences" below.
 - `fablecut_highlights` — the best moments of long footage cut into a short edit, in a new
   sequence. See "Sequences" below.
+- `fablecut_audio_track` — a recording with several audio tracks (OBS: microphone, game,
+  music…): list them, cut a few seconds of each to listen to, pick the streamer's voice.
+  See "Media management" below.
 - `fablecut_songs` — where each song in a long recording starts and ends, from the sound
   alone, with the guessed spots marked; kept in the project. See "Songs in a recording" below.
 - `fablecut_transcribe` — turn speech into words with times (on this computer: sherpa-onnx Paraformer zh),
@@ -357,6 +360,7 @@ Examples in `library/svg/`: `sparkles.svg` (loop), `lower-third.svg`,
       "duration": 12.4, "width": 1920, "height": 1080,
       "fps": 29.97, "codec": "h264", "audioCodec": "aac", "audioChannels": 2, "sampleRate": 48000,
       "size": 45200000, "bitrate": 29300000, // probed from the file (read-only; see "Media management")
+      // "audioTracks": [ {"channels": 2, "title": "Mic"}, … ], "audioTrack": 1,  // several audio streams: which one is read
       "favorite": true, "tags": [ "interview", "day 1" ],   // optional: bin organization
       "folderId": null },                    // optional: id of a folders[] entry
     { "id": "m_abd", "name": "intro.denoise-medium.flac", "kind": "audio", "src": "/media/intro.denoise-medium.flac",
@@ -1676,6 +1680,7 @@ entry. These fields are read-only — they describe the file:
 | `fps` | video frame rate (29.97, 25, 59.94 …); absent for stills and audio |
 | `codec` | video codec (`h264`, `hevc`, `prores`, `vp9` …), or the image format (`png`, `mjpeg`) |
 | `audioCodec` · `audioChannels` · `sampleRate` | first audio stream: codec, channel count (`0` = the file has no audio), Hz |
+| `audioTracks` | only for a file with two or more audio streams (OBS records up to six): `[{channels, title?, default?}]` in stream order, `title` being the name the recorder wrote |
 | `size` · `bitrate` | file size in bytes · overall bitrate, bits per second |
 | `width` · `height` · `duration` | as before; filled in when missing (phone footage shot rotated reports its upright size). An MKV whose timestamps start late (3600 s) is as long as it plays; one whose header has no length takes it from its streams (their durations, then their DURATION tags), from the earliest start to the latest end; when nothing there says it either (a recording stopped before it was saved), it is read from the packets' times, first to last (`fablecut_import_media` says so). When even that fails — or ffprobe can't open the file at all, as with an MP4 whose index was never written — there is no `duration`, the entry gets `durationUnknown: true`, the editor says so, and the file can't be placed: `addClip`, `insert` and `overwrite` refuse it, and so does dragging it onto the timeline. Without ffprobe nothing is marked; the browser's length is used. The editor asks once about every MKV / WebM and every recording without a length, old projects included (`durationChecked` marks it), and MCP imports read the length the same way. Clips already placed from a wrong (too long) length are fitted to the corrected one, as one undo step |
 
@@ -1771,6 +1776,22 @@ proxy only changes how smoothly the preview runs, never the result.
 - `{op:"updateMedia", id | ids, set:{name?, favorite?, tags?, folderId?}, addTags?, removeTags?}`
   — organize files (`favorite:false` unstars; `tags:[]` clears). Metadata keys
   are refused: they come from the file.
+- **Audio tracks.** A recording with several audio streams (`audioTracks`) has
+  one that every reading of its sound uses: songs, loudness, the transcript, the
+  export mix, and silence / beats / normalize / auto-duck. It is `audioTrack`
+  (0 = the first, the default, and not stored). In an OBS recording the first
+  track is usually everything mixed together, so change it only when the
+  streamer's voice is on its own track. `{op:"setAudioTrack", id, track}` picks
+  one (only tracks the file has; the songs found from the old one are dropped),
+  or `fablecut_audio_track {mediaId}` lists them, `{mediaId, listen: seconds}`
+  cuts 6 s of each into `analysis/listen/` to play, `{mediaId, track}` picks one.
+  Loudness, songs and transcripts are kept per track, so going back finds the
+  first results again. The REST readers (`/api/signals/loudness`, `/api/songs`,
+  `/api/audio-window`, `/api/transcript`, `/api/asr/transcribe`) take `track`,
+  and without it read the open project's `audioTrack` for that file. In the
+  editor: right-click the file → **Media info…** lists the tracks with
+  **Listen**. Preview playback still plays what the browser picks (the first
+  track, or an MP4's default one); the export uses the picked track.
 - `{op:"setCollection", id?, name?, media?, add?, remove?}` creates a collection
   (a new `id`, or a `name` no collection has) or changes one: `media` replaces
   its list, `add` / `remove` edit it. `{op:"removeCollection", id}` deletes it;

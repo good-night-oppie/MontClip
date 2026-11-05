@@ -2098,14 +2098,33 @@ let decodeCtx = null;
 function getDecodeCtx() {
   return decodeCtx || (decodeCtx = new (window.AudioContext || window.webkitAudioContext)());
 }
+/* A recording with several audio streams is read from the one its entry picks (m.audioTrack, media-lib.js audioTrackOf):
+   the browser's own decode always takes the first, so another stream comes from the server (/api/audio-window), whole.
+   Keyed by file and stream, so picking another stream reads it afresh and going back finds the first one again. */
+function audioKey(m) {
+  const t = MediaLib.audioTrackOf(m);
+  return t ? `${m.src}#a${t}` : m.src;
+}
+/** The audio key of the entry that plays this src (the src itself when none does). */
+function srcAudioKey(src) {
+  const m = project.media.find((x) => x.src === src);
+  return m ? audioKey(m) : src;
+}
 function getAudioBuffer(m) {
-  const src = m.src;
-  let p = runtime.audioBufs.get(src);
+  const src = m.src, key = audioKey(m), track = MediaLib.audioTrackOf(m);
+  let p = runtime.audioBufs.get(key);
   if (!p) {
-    p = fetch(src).then((r) => r.arrayBuffer())
-      .then((ab) => getDecodeCtx().decodeAudioData(ab));
-    runtime.audioBufs.set(src, p);
-    p.catch(() => runtime.audioBufs.delete(src));
+    p = track
+      ? (state.connected && m.duration > 0 && m.duration <= 3600
+        ? fetch(`/api/audio-window?src=${encodeURIComponent(src)}&from=0&to=${Math.ceil(m.duration * 1000) / 1000}&track=${track}`)
+          .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error("audio window " + r.status))))
+        // never the first stream in its place: that is the sound the user said is not theirs
+        : Promise.reject(new Error("audio track " + track + " can only be read through the server, an hour at a time")))
+        .then((ab) => getDecodeCtx().decodeAudioData(ab))
+      : fetch(src).then((r) => r.arrayBuffer())
+        .then((ab) => getDecodeCtx().decodeAudioData(ab));
+    runtime.audioBufs.set(key, p);
+    p.catch(() => runtime.audioBufs.delete(key));
   }
   return p;
 }
@@ -2117,7 +2136,7 @@ function ensureWave(m) {
   if (EXPORT_JOB_PAGE) return;
   // Also decode peaks from video files when their audio is placed on an A track
   if (m.kind !== "audio" && m.kind !== "video") return;
-  const have = runtime.wavePeaks.get(m.id), src = m.src;
+  const have = runtime.wavePeaks.get(m.id), src = audioKey(m);   // file and audio stream
   if (have && (have instanceof Float32Array || have.src === src)) return;
   runtime.wavePeaks.set(m.id, { src, pending: true });
   getAudioBuffer(m).then((buf) => {
@@ -2773,13 +2792,15 @@ async function refreshMediaInfo(list) {
     if (!res.ok) return;
     const { info } = await res.json();
     let changed = false;
-    const unknown = [], shorter = [];
+    const unknown = [], shorter = [], tracksFound = [];
     // taken before anything changes: a corrected length and the clips fitted to it are one undo step (Rea, #126)
     const snap = JSON.stringify({ clips: project.clips, markers: project.markers || [], comps: project.comps || [], media: project.media, seqClips: otherSequenceClips() });
     for (const m of project.media) {
       const i = info && info[m.src];
       if (!i) continue;
-      for (const k of MediaLib.INFO_KEYS) if (i[k] != null && m[k] !== i[k]) { m[k] = i[k]; changed = true; }
+      const tracksBefore = Array.isArray(m.audioTracks);
+      for (const k of MediaLib.INFO_KEYS) if (i[k] != null && !MediaLib.sameInfo(m[k], i[k])) { m[k] = i[k]; changed = true; }
+      if (!tracksBefore && Array.isArray(m.audioTracks)) tracksFound.push(m);
       if (!(m.width > 0) && i.width > 0) { m.width = i.width; m.height = i.height; changed = true; }
       // the server's length wins where the browser has none, or counted the start of an MKV's timestamps (one that
       // starts at 3600 s plays 20 s; Chromium says 3620 s): media-lib.js parseProbe / serverDuration
@@ -2803,6 +2824,9 @@ async function refreshMediaInfo(list) {
     }
     // nothing says how long it is: tell the user once, in plain words (never 0:00 or NaN)
     if (unknown.length) toast(unknown.length === 1 ? uiText("own.media-duration-unknown", { name: unknown[0].name }) : uiText("own.media-duration-unknown-n", { n: unknown.length }));
+    // a recording with several audio tracks (OBS): say once where the choice is; one track says nothing
+    if (tracksFound.length === 1) toast(uiText("own.at-found", { name: tracksFound[0].name, n: tracksFound[0].audioTracks.length }));
+    else if (tracksFound.length > 1) toast(uiText("own.at-found-n", { n: tracksFound.length }));
     if (changed) { renderBin(); scheduleSave(); if (state.selId) renderInspector(); }
     followSourceCanvas();
   } catch { } finally {
@@ -2938,7 +2962,7 @@ function showMediaMenu(x, y, m) {
   const sep = () => { const d = document.createElement("div"); d.className = "ctx-sep"; menu.appendChild(d); };
   item("Open in Source", () => loadSourceFromMedia(m));
   item(`Find timeline instances (${uses})`, () => showMediaInstances(m, x, y), uses ? null : "Not used on the timeline");
-  item("Media info…", () => showMediaInfo(m, x, y));
+  item(uiText("own.media-info"), () => showMediaInfo(m, x, y));
   item(isMediaOffline(m.id) ? "Relink…" : "Relink to another copy…", () => openRelinkDialog([m]), state.connected ? null : uiText("own.needs-server"));
   item(uiText("term.replace-file"), () => replaceMediaFile(m), state.connected ? null : uiText("own.needs-server"));
   if (m.kind === "video") {
@@ -3003,8 +3027,76 @@ function showMediaInfo(m, x, y) {
   pop.innerHTML = `<div class="bin-pop-title"></div><table>${rows.map(([k, v]) => `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`).join("")}</table>` +
     (m.size == null && state.connected ? `<div class="bin-pop-hint">Reading the file's details…</div>` : "");
   pop.querySelector(".bin-pop-title").textContent = m.name;
+  if (Array.isArray(m.audioTracks) && m.audioTracks.length > 1) pop.appendChild(audioTrackPicker(m));
   showPopover(pop, x, y);
   if (m.size == null) refreshMediaInfo([m]);
+  // an entry read before audio tracks were: ask once more, and add the choice when it has several
+  else if (m.audioTracks === undefined && (m.kind === "video" || m.kind === "audio") && m.audioChannels !== 0 && isLocalSrc(m.src) && state.connected)
+    fetch("/api/media-info?src=" + encodeURIComponent(m.src)).then((r) => r.json()).then(({ info }) => {
+      if (!info || !Array.isArray(info.audioTracks) || m.audioTracks !== undefined) return;
+      m.audioTracks = info.audioTracks;
+      scheduleSave();
+      if (pop.isConnected) pop.appendChild(audioTrackPicker(m));
+    }).catch(() => { });
+}
+/* 「主播的声音在哪条轨」 (#177): a recording with several audio streams lists them — number, channels, the name OBS
+   wrote — each with a few seconds to listen to. The one picked is what songs, loudness, the transcript and the export
+   read (MediaLib.audioTrackOf); picking is one undo step. Wording: drafts for JJ (own.at-*). */
+function audioTrackPicker(m) {
+  const box = document.createElement("div");
+  box.className = "bin-tracks";
+  const cur = MediaLib.audioTrackOf(m);
+  box.innerHTML = `<div class="bin-pop-label"></div><div class="bin-pop-hint"></div>`;
+  box.querySelector(".bin-pop-label").textContent = uiText("own.at-title");
+  box.querySelector(".bin-pop-hint").textContent = uiText("own.at-hint");
+  m.audioTracks.forEach((t, i) => {
+    const row = document.createElement("label");
+    row.className = "bin-track";
+    const radio = document.createElement("input");
+    radio.type = "radio"; radio.name = "bin-track-" + m.id; radio.checked = i === cur;
+    radio.addEventListener("change", () => { if (radio.checked) setAudioTrack(m, i); });
+    const text = document.createElement("span");
+    text.textContent = [uiText("own.at-track", { n: i + 1 }), MediaLib.fmtAudio({ audioChannels: t.channels }), t.title || ""].filter(Boolean).join(" · ");
+    const play = document.createElement("button");
+    play.type = "button"; play.className = "bin-track-play";
+    play.textContent = uiText("own.at-listen");
+    play.addEventListener("click", (e) => { e.preventDefault(); listenAudioTrack(m, i, play); });
+    row.append(radio, text, play);
+    box.appendChild(row);
+  });
+  return box;
+}
+/* A few seconds of one stream, from where the playhead is in this file (else 0), through the server. */
+let trackListen = null;
+async function listenAudioTrack(m, track, btn) {
+  if (trackListen) { trackListen.pause(); URL.revokeObjectURL(trackListen.src); trackListen = null; }
+  const c = project.clips.find((x) => x.mediaId === m.id && state.t >= x.start && state.t < x.start + x.duration);
+  const from = Math.max(0, Math.min(c ? mediaTimeAt(c, state.t) : 0, (m.duration || 0) - 6));
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/api/audio-window?src=${encodeURIComponent(m.src)}&from=${from.toFixed(3)}&to=${(from + 6).toFixed(3)}&track=${track}`);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const a = trackListen = new Audio(URL.createObjectURL(await r.blob()));
+    await a.play();
+  } catch { toast(uiText("own.at-listen-failed")); } finally { btn.disabled = false; }
+}
+/** Pick the stream every reading of the sound uses. One undo step; the songs found from the old one are dropped. */
+function setAudioTrack(m, track) {
+  if (MediaLib.audioTrackOf(m) === track) return;
+  pushUndo(JSON.stringify({ clips: project.clips, markers: project.markers || [], comps: project.comps || [], media: project.media, seqClips: otherSequenceClips() }), { capability: "fablecut_audio_track", args: { mediaId: m.id, track } });
+  if (track) m.audioTrack = track; else delete m.audioTrack;
+  if (project.songs && project.songs[m.id]) { delete project.songs[m.id]; if (!Object.keys(project.songs).length) delete project.songs; }
+  const t = m.audioTracks && m.audioTracks[track];
+  if (t && t.channels > 0) m.channels = t.channels;
+  // players keep playing the file; what was decoded or drawn from the old stream is read again
+  runtime.wavePeaks.delete(m.id);
+  ensureWave(m);
+  transcriptGen++;
+  renderTranscript(true);
+  renderBin(); state.dirtyTimeline = true;
+  scheduleSave();
+  flushSave().catch(() => { });   // the server reads the stream from the saved project: save now, not in a moment
+  toast(uiText("own.at-changed", { n: track + 1 }));
 }
 
 /* Find all timeline instances: every placement (main timeline and inside comps); click one to go there. */
@@ -9716,7 +9808,7 @@ function cutSilences() {
    time it is said — the same spans and extract ops as fablecut_transcribe. ── */
 const TRANSCRIBE_KEY = "fablecut-transcribe";
 const trState = { open: false, built: false, busy: null, sig: "", words: [], sel: null, anchor: null, drag: false, query: "", hits: [], now: -1 };
-const transcriptCache = new Map();   // src → validated transcript | false (none) | Promise while asking the server
+const transcriptCache = new Map();   // audioKey (src, + "#a<track>" for another audio stream) → validated transcript | false (none) | Promise while asking the server
 let transcriptGen = 0;               // bumps whenever a transcript arrives or changes: the tab redraws
 function transcribeSettings() {
   let o = {};
@@ -9732,22 +9824,23 @@ function saveTranscribeSettings(patch) {
 }
 /** The transcript of a file, if it is here already. */
 function transcriptOf(src) {
-  const d = transcriptCache.get(src);
+  const d = transcriptCache.get(srcAudioKey(src));
   return d && !(d instanceof Promise) ? d : null;
 }
 /** Ask the server for a file's transcript (once; `force` asks again). Resolves to it, or false. */
 function loadTranscript(src, force = false) {
-  const have = transcriptCache.get(src);
+  const key = srcAudioKey(src), m = project.media.find((x) => x.src === src), track = m ? MediaLib.audioTrackOf(m) : 0;
+  const have = transcriptCache.get(key);
   if (!force && have !== undefined) return have instanceof Promise ? have : Promise.resolve(have);
-  const p = fetch("/api/transcript?src=" + encodeURIComponent(src)).then((r) => (r.ok ? r.json() : null))
+  const p = fetch("/api/transcript?src=" + encodeURIComponent(src) + "&track=" + track).then((r) => (r.ok ? r.json() : null))
     .then((j) => {
       let d = false;
       try { d = j && j.transcript ? MontClipTranscribe.validate(j.transcript) : false; } catch { }
-      if (transcriptCache.get(src) === p) { transcriptCache.set(src, d); transcriptGen++; }
+      if (transcriptCache.get(key) === p) { transcriptCache.set(key, d); transcriptGen++; }
       return d;
     })
-    .catch(() => { if (transcriptCache.get(src) === p) transcriptCache.set(src, false); return false; });
-  transcriptCache.set(src, p);
+    .catch(() => { if (transcriptCache.get(key) === p) transcriptCache.set(key, false); return false; });
+  transcriptCache.set(key, p);
   return p;
 }
 function onTranscriptEvent(data) {
@@ -9966,7 +10059,8 @@ async function asrGetPunct() {
 }
 /** Transcribe one file in the local server, which saves its transcript. Resolves to {doc, saved}. */
 async function transcribeFile(src) {
-  const r = await fetch("/api/asr/transcribe", { method: "POST", body: JSON.stringify({ src }) });
+  const m = project.media.find((x) => x.src === src);
+  const r = await fetch("/api/asr/transcribe", { method: "POST", body: JSON.stringify({ src, track: m ? MediaLib.audioTrackOf(m) : 0 }) });
   let j = {};
   try { j = await r.json(); } catch { }
   if (!r.ok) throw Object.assign(new Error(j.error || "transcription failed"), { code: j.code });
@@ -10039,7 +10133,7 @@ function transcribeTargets() {
   }
   const srcs = [...new Set(groups.map((g) => getMedia(g[0].mediaId).src))];
   const sel = srcs.filter((s) => picked.has(s));
-  return sel.length ? { srcs: sel, selected: true } : { srcs: srcs.filter((s) => transcriptCache.get(s) === false), selected: false };
+  return sel.length ? { srcs: sel, selected: true } : { srcs: srcs.filter((s) => transcriptCache.get(srcAudioKey(s)) === false), selected: false };
 }
 /** What the words' places depend on: the timeline and the transcripts. */
 function transcriptWordsSig() {
@@ -10232,7 +10326,7 @@ function renderTranscript(force = false) {
   const groups = transcriptGroups();
   for (const g of groups) {
     const src = getMedia(g[0].mediaId).src;
-    if (!transcriptCache.has(src)) loadTranscript(src).then(() => renderTranscript(true));
+    if (!transcriptCache.has(srcAudioKey(src))) loadTranscript(src).then(() => renderTranscript(true));
   }
   paintTranscribeBusy();
   const sig = transcriptSig();
@@ -10247,7 +10341,7 @@ function renderTranscript(force = false) {
   if (E.go) E.go.disabled = !!trState.busy || !tgt.srcs.length || !asrReady();
   if (E.go) E.go.title = tgt.srcs.length ? "Turn the speech into words, on this computer (nothing is sent anywhere). Select clips to transcribe just those, or again"
     : groups.length ? "Every file on the timeline has a transcript — select clips to transcribe them again" : "Put clips with speech on the timeline first";
-  const missing = [...new Set(groups.map((g) => getMedia(g[0].mediaId)).filter((m) => transcriptCache.get(m.src) === false).map((m) => m.name || m.src))];
+  const missing = [...new Set(groups.map((g) => getMedia(g[0].mediaId)).filter((m) => transcriptCache.get(audioKey(m)) === false).map((m) => m.name || m.src))];
   let html = "";
   if (!groups.length) html = `<div class="tr-empty">${uiText("own.tr-empty")}</div>`;
   else {
@@ -19797,8 +19891,9 @@ async function exportAudioSource(m, c, a, b, windows = new Map()) {
     const m0 = Math.min(mediaTimeAt(c, a), mediaTimeAt(c, b)), m1 = Math.max(mediaTimeAt(c, a), mediaTimeAt(c, b));
     const from = Math.max(0, Math.floor((m0 - AUDIO_WINDOW_PAD) * 1000) / 1000), to = Math.ceil((m1 + AUDIO_WINDOW_PAD) * 1000) / 1000;
     if (to - from <= 3600) {
-      const key = `${m.src}|${from}|${to}`;
-      if (!windows.has(key)) windows.set(key, fetch(`/api/audio-window?src=${encodeURIComponent(m.src)}&from=${from}&to=${to}`)
+      const track = MediaLib.audioTrackOf(m);   // the stream the user picked; the server would look it up, but this is the tab's own
+      const key = `${m.src}|${track}|${from}|${to}`;
+      if (!windows.has(key)) windows.set(key, fetch(`/api/audio-window?src=${encodeURIComponent(m.src)}&from=${from}&to=${to}&track=${track}`)
         .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error("audio window " + r.status))))
         .then((ab) => getDecodeCtx().decodeAudioData(ab)).catch((e) => { console.warn("[MontClip] audio window failed, decoding the whole file:", e && e.message); return null; }));
       const buf = await windows.get(key);

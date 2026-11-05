@@ -121,7 +121,10 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
     if (idle.unref) idle.unref();
   }
 
-  async function transcribe(file, { signal, onProgress = () => {}, duration = null } = {}) {
+  /* `track`: which audio stream (the media entry's audioTrack). Always named: left to itself ffmpeg takes the stream
+     marked default, else the one with the most channels, which need not be the one songs, loudness and export read
+     (docs/validation/2026-11-05-audio-tracks). */
+  async function transcribe(file, { signal, onProgress = () => {}, duration = null, track = 0 } = {}) {
     const st = status();
     if (!st.engine.ready || !st.vad.ready) throw Object.assign(new Error("the speech engine is missing from this copy of MontClip — unzip the package again"), { code: "ASR_ENGINE_MISSING" });
     const dir = store.dir("asr");
@@ -129,7 +132,7 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
     clearTimeout(idle);
     const S = engine(), r = await recognizer(dir), p = punctuator(store.dir("punct"));
     const vad = new S.Vad({ sileroVad: { model: vadFile, ...VAD }, sampleRate: RATE, debug: false, numThreads: 1 }, 60);
-    const proc = spawn(ffmpeg, ["-nostdin", "-v", "error", "-i", file, "-vn", "-ac", "1", "-ar", String(RATE), "-f", "s16le", "-acodec", "pcm_s16le", "-"],
+    const proc = spawn(ffmpeg, ["-nostdin", "-v", "error", "-i", file, "-vn", "-map", "0:a:" + track, "-ac", "1", "-ar", String(RATE), "-f", "s16le", "-acodec", "pcm_s16le", "-"],
       { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     let stderr = "", spawnError = null;
     proc.stderr.on("data", (c) => { if (stderr.length < 4000) stderr += c; });

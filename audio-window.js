@@ -17,10 +17,11 @@
     window; the transcript's decode in asr-local.js, #165) uses this one string, so their times agree. */
 const CLOCK_FILTER = "aresample=async=1:min_hard_comp=0.01:first_pts=0";
 
-/** ffmpeg arguments: the first audio stream from `from` for `dur` seconds, f32 WAV at 48 kHz, its own channels. */
-function windowArgs(file, from, dur, out) {
+/** ffmpeg arguments: audio stream `track` (the media entry's audioTrack; 0 = the first) from `from` for `dur` seconds,
+    f32 WAV at 48 kHz, its own channels. */
+function windowArgs(file, from, dur, out, track = 0) {
   return ["-hide_banner", "-v", "error", "-y", "-ss", from.toFixed(6), "-t", dur.toFixed(6), "-i", file,
-    "-map", "0:a:0", "-vn", "-sn", "-dn", "-af", CLOCK_FILTER, "-ar", "48000", "-c:a", "pcm_f32le", "-f", "wav", out];
+    "-map", "0:a:" + track, "-vn", "-sn", "-dn", "-af", CLOCK_FILTER, "-ar", "48000", "-c:a", "pcm_f32le", "-f", "wav", out];
 }
 
 /** RIFF/WAVE chunks from the start of a file → {fmt:{format, channels, rate, bits}, data:{offset, size}} | null.

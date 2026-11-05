@@ -9,6 +9,10 @@
      codec         video codec (h264, hevc, vp9, prores …) — or the image format
      audioCodec    aac, mp3, pcm_s16le, opus …
      audioChannels channel count of the first audio stream, 0 = no audio
+     audioTracks   only when the file has two or more audio streams (OBS records up to six):
+                   [{channels, title?, default?}] in stream order, title being the name OBS writes
+     audioTrack    which of audioTracks is the streamer's voice (0 = the first, the default; set by the user).
+                   Every reading of the sound — songs, loudness, transcript, export — uses this one stream
      sampleRate    Hz
      bitrate       bits per second (whole file)
      favorite      true = starred in the bin
@@ -26,7 +30,7 @@
 
   const KINDS = ["video", "audio", "image", "svg"];
   /** Fields the server probes. Written back to the entry; never user-set. */
-  const INFO_KEYS = ["size", "fps", "codec", "audioCodec", "audioChannels", "sampleRate", "bitrate"];
+  const INFO_KEYS = ["size", "fps", "codec", "audioCodec", "audioChannels", "sampleRate", "bitrate", "audioTracks"];
   const MAX_TAGS = 24, MAX_TAG_LEN = 32;
   const SORT_KEYS = ["name", "kind", "duration", "resolution", "fps", "codec", "audio", "size", "usage"];
 
@@ -145,6 +149,15 @@
       const sr = Number(a.sample_rate);
       if (sr > 0) out.sampleRate = sr;
     } else if (v && !still) out.audioChannels = 0;   // a video without sound says so; a picture has no audio to speak of
+    const all = streams.filter((s) => s.codec_type === "audio");
+    if (all.length > 1) out.audioTracks = all.map((s) => {
+      const t = { channels: Number(s.channels) || 0 };
+      const tags = s.tags || {}, title = String(tags.title || tags.TITLE || tags.handler_name || "").trim();
+      // a muxer's own handler names ("SoundHandler") say nothing about what is on the track
+      if (title && !/^(SoundHandler|Sound Media Handler|Core Media Audio|soun)$/i.test(title)) t.title = title.slice(0, 64);
+      if (s.disposition && s.disposition.default) t.default = true;
+      return t;
+    });
     if (!(dur > 0) && (a || (v && !still))) out.durationUnknown = true;
     return out;
   }
@@ -175,6 +188,15 @@
     return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
   }
   /** One-line summary: "1920×1080 · 29.97 fps · h264 · stereo 48 kHz · 45 MB". */
+  /** Which audio stream of the file every reading uses: m.audioTrack when the file has that many, else 0. */
+  function audioTrackOf(m) {
+    const t = m && m.audioTrack;
+    return Number.isInteger(t) && t > 0 && Array.isArray(m.audioTracks) && t < m.audioTracks.length ? t : 0;
+  }
+  /** Two probed values the same (audioTracks is a list, compared by content). */
+  function sameInfo(a, b) {
+    return a === b || (a != null && b != null && typeof a === "object" && JSON.stringify(a) === JSON.stringify(b));
+  }
   function describe(m) {
     return [fmtRes(m), m.fps ? fmtFps(m.fps) + " fps" : "", m.codec || "", fmtAudio(m), fmtSize(m.size)]
       .filter(Boolean).join(" · ");
@@ -410,7 +432,7 @@
     importTidies, importPercent,
     KINDS, INFO_KEYS, SORT_KEYS, MAX_TAGS,
     srcName, relinkScore, kindFromName,
-    parseProbe, needsInfo, serverDuration, cannotCut, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
+    parseProbe, needsInfo, audioTrackOf, sameInfo, serverDuration, cannotCut, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
     STANDARD_FPS, standardFps, sourceCanvas, canvasFollowsSource,
     normalizeTags, allTags, normalizeCollections,
     placements, usageCounts,

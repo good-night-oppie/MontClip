@@ -4328,6 +4328,10 @@ input[type="range"].cq-hue {
 .bin-info table { border-collapse: collapse; font-size: 11px; width: 100%; }
 .bin-info th { color: var(--dim); font-weight: 400; text-align: left; padding: 2px 10px 2px 0; vertical-align: top; white-space: nowrap; }
 .bin-info td { color: var(--text); padding: 2px 0; word-break: break-all; user-select: text; }
+.bin-tracks { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line, #333); }
+.bin-track { display: flex; align-items: center; gap: 6px; font-size: 11px; padding: 3px 0; cursor: pointer; }
+.bin-track span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bin-track-play { font-size: 11px; padding: 1px 8px; }
 .bin-instances { max-height: 60vh; overflow-y: auto; }
 .bin-instances .ctx-item kbd { font-variant-numeric: tabular-nums; }
 
