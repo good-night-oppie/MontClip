@@ -116,16 +116,22 @@ function updateMontClipView(patch) {
 }
 /** Texts built in code (not data-i18n markers) for the views that are on screen, after a language switch. */
 function refreshLocalizedViews() {
-  renderBin();
-  if (typeof renderInspector === "function" && els.inspector) renderInspector();
-  if (typeof renderColorPage === "function" && colorState.open) renderColorPage(true);
-  if (typeof syncSequenceButton === "function") syncSequenceButton();
-  if (typeof syncExportFrameSel === "function") syncExportFrameSel();
+  // each view on its own: one that fails to redraw must not leave the others in the old language (Rea, #148: the export
+  // range row stayed 「整条时间线」 in English)
+  const step = (f) => { try { f(); } catch (e) { console.error("language switch:", e); } };
+  // the export dialog's range row, hidden or not: the dialog may still be opening (its lists load first), and it would
+  // then show the line written before the switch
+  step(() => { renderExportEngineText(); syncExportRangeUi(); });
+  step(() => renderBin());
+  if (typeof renderInspector === "function" && els.inspector) step(() => renderInspector());
+  if (typeof renderColorPage === "function" && colorState.open) step(() => renderColorPage(true));
+  if (typeof syncSequenceButton === "function") step(() => syncSequenceButton());
+  if (typeof syncExportFrameSel === "function") step(() => syncExportFrameSel());
   state.dirtyTimeline = true; // clip labels ("T · Title")
-  if (meterState.modeBtn) meterState.modeBtn.textContent = meterModeLabel(meterState.mode);
-  if (projectsOpen()) renderProjects();
+  if (meterState.modeBtn) step(() => { meterState.modeBtn.textContent = meterModeLabel(meterState.mode); });
+  if (projectsOpen()) step(() => renderProjects());
   if (els.exportSetup && !els.exportSetup.classList.contains("hidden")) {
-    renderExportEngineText(); syncExportRangeUi(); if (dlvSpec) fillDeliveryControls(); refreshDeliveryNotes(); renderDeliveryTokens(); renderBatchList();
+    step(() => { if (dlvSpec) fillDeliveryControls(); refreshDeliveryNotes(); renderDeliveryTokens(); renderBatchList(); });
   }
 }
 document.getElementById("mcMode").addEventListener("click", e => {
@@ -16683,7 +16689,7 @@ function shapeSectionHtml(c, p, row) {
   };
   let html = `<div class="insp-section" data-shape-section><h3>Shape layer</h3>
     <div class="cl-row">${Object.entries(SHAPE_PRESETS).map(([k, pre]) => btn(`data-sadd="${k}"`, "+ " + pre.label, `Add a ${pre.label.toLowerCase()} to this layer`, false, full)).join("")}
-      ${btn('data-stool="pen"', "Pen", "Click points on the monitor (drag to curve); click the first point to close, Enter for an open path", ui.tool === "pen", full)}</div>
+      ${btn('data-stool="pen"', uiText("term.pen"), "Click points on the monitor (drag to curve); click the first point to close, Enter for an open path", ui.tool === "pen", full)}</div>
     ${ui.tool === "pen" ? `<p class="cl-note">Pen: click to add points, drag to curve. Click the first point to close, Enter keeps the path open. Backspace / Ctrl+Z removes the last point, Esc cancels.</p>` : ""}
     ${list.length ? `<div class="cl-row shape-items">${chips}</div>` : ui.tool ? "" : `<p class="cl-note">No shapes yet — add one above.</p>`}
     ${slider("trimStart", 0, 100, 0.5, "%")}${slider("trimEnd", 0, 100, 0.5, "%")}${slider("trimOffset", -100, 100, 0.5, "%")}`;
@@ -17318,7 +17324,7 @@ function textPathSectionHtml(c, p, row) {
   const btn = (attr, label, title, on, dis) => `<button type="button" class="btn tiny${on ? " toggle on" : ""}" ${attr} title="${title}" ${dis ? "disabled" : ""}>${label}</button>`;
   return `<div class="insp-section" data-textpath-section><h3>Text path</h3>
     <div class="cl-row">${Object.entries(TEXT_PATH_PRESETS).map(([k, pre]) => btn(`data-tpath="${k}"`, pre.label, `Set the title on ${/^[aeiou]/i.test(pre.label) ? "an" : "a"} ${pre.label.toLowerCase()}`)).join("")}
-      ${btn('data-tpath="pen"', "Pen", "Draw the path on the monitor: click points (drag to curve), Enter to finish, click the first point to close it", shapeUi.clip === c.id && shapeUi.tool === "pen")}</div>
+      ${btn('data-tpath="pen"', uiText("term.pen"), "Draw the path on the monitor: click points (drag to curve), Enter to finish, click the first point to close it", shapeUi.clip === c.id && shapeUi.tool === "pen")}</div>
     ${has ? `<div class="cl-row">${btn('data-tpath="edit"', "Edit path", "Show the path's points and handles on the monitor", editing)}${btn('data-tpath="off"', "Remove", "Back to a normal title")}</div>
       ${row("Offset", `<input type="range" data-k="pathOffset" min="-100" max="200" step="0.5" value="${fmtInspNum(p.pathOffset, 0.5)}" title="Slide the text along the path, % of its length — key it to make the text travel">
         <span class="val" data-val="pathOffset" data-unit="%">${fmtInspNum(p.pathOffset, 0.5)}%</span>`, "pathOffset")}
