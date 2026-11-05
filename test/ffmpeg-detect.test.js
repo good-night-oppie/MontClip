@@ -528,3 +528,45 @@ test('the too-old card says why: the version found and 6.0, or the missing optio
 test('the card\'s 6.0 is ffmpeg-path.js\'s', () => {
   a.match(fs.readFileSync(path.join(__dirname, '..', 'ffmpeg-card.js'), 'utf8'), new RegExp(`const MIN_VERSION = "${FF.MIN_VERSION.replace('.', '\.')}"`));
 });
+
+/* P10 (Deja 2026-11-05): MONTCLIP_FFMPEG naming Debian's 5.1.9 as THE FFmpeg made song finding fail with ffmpeg's raw
+   "Option 'measure' not found". A program named that way passes the same gate as a fallback; refused, it is
+   FFMPEG_TOO_OLD with the version and no path, MontClip does not quietly use another one, and nothing starts it. */
+test('MONTCLIP_FFMPEG naming an FFmpeg below 6.0 is refused as FFMPEG_TOO_OLD with its version, and nothing else is used instead', () => {
+  const plat = process.platform, x = (n) => n + (plat === 'win32' ? '.exe' : '');
+  const root = path.parse(process.cwd()).root, named = path.join(root, 'opt', 'old', x('ffmpeg')), onPath = path.join(root, 'usr', 'bin', x('ffmpeg'));
+  const r = FF.resolveTool('ffmpeg', { env: { MONTCLIP_FFMPEG: named, PATH: path.dirname(onPath) }, appDir: path.join(root, 'app'), platform: plat, arch: 'x64',
+    exists: (f) => f === named || f === onPath, chosenFile: null, usable: (f) => (f === named ? { ok: false, version: '5.1.9', why: 'version' } : { ok: true }) });
+  a.equal(r.ok, false); a.equal(r.code, 'FFMPEG_TOO_OLD'); a.equal(r.version, '5.1.9'); a.equal(r.source, 'env'); a.equal(r.tooOld, true);
+  a.ok(!r.error.includes(named) && !r.error.includes('old'), 'the reason names no path: ' + r.error);
+  const fine = FF.resolveTool('ffmpeg', { env: { MONTCLIP_FFMPEG: named }, appDir: path.join(root, 'app'), platform: plat, arch: 'x64',
+    exists: (f) => f === named, chosenFile: null, usable: () => ({ ok: true, version: '7.1' }) });
+  a.equal(fine.ok, true); a.equal(fine.source, 'env');
+  a.equal(FF.missingCode({ source: 'env', tooOld: true }), 'FFMPEG_TOO_OLD');
+});
+
+test('server (POSIX): MONTCLIP_FFMPEG = a 5.1.9 script → FFMPEG_TOO_OLD with the version, no path and no raw ffmpeg error, songs refused before anything runs', async (t) => {
+  if (process.platform === 'win32') return t.skip('the stand-in program is a shell script');
+  const { makeDataDir, seedProject, startServer } = require('./helpers');
+  const w = tmp(t), bin = path.join(w, 'old-ffmpeg-bin'), log = path.join(w, 'ran.log'); fs.mkdirSync(bin);
+  for (const n of ['ffmpeg', 'ffprobe']) fs.writeFileSync(path.join(bin, n),
+    `#!/bin/sh\necho "$*" >> '${log}'\ncase "$*" in *-version*) echo "ffmpeg version 5.1.9-0+deb12u1 Copyright"; exit 0;; *measure=*) echo "Option 'measure' not found" >&2; exit 1;; esac\nexit 0\n`, { mode: 0o755 });
+  const dir = makeDataDir(t, seedProject({ revision: 1 }));
+  fs.mkdirSync(path.join(dir, 'media'), { recursive: true }); fs.writeFileSync(path.join(dir, 'media', 'rec.mp4'), 'x');
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_FFMPEG: path.join(bin, 'ffmpeg'), MONTCLIP_FFPROBE: path.join(bin, 'ffprobe'),
+    PATH: bin, Path: bin, MONTCLIP_EXTERNAL_FFMPEG_SETTINGS: '', MONTCLIP_EXTERNAL_FFMPEG: '' });
+  const st = await (await fetch(base + '/api/ffmpeg')).json();
+  a.equal(st.state, 'tooOld'); a.equal(st.ffmpeg.code, 'FFMPEG_TOO_OLD'); a.equal(st.ffmpeg.version, '5.1.9');
+  const ex = await (await fetch(base + '/api/export/ffmpeg')).json();
+  a.equal(ex.available, false); a.equal(ex.code, 'FFMPEG_TOO_OLD'); a.equal(ex.version, '5.1.9');
+  const before = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').split('\n').filter(Boolean).length : 0;
+  const r = await fetch(base + '/api/songs', { method: 'POST', body: JSON.stringify({ src: '/media/rec.mp4' }) });
+  const j = await r.json();
+  a.equal(r.status, 503); a.equal(j.code, 'FFMPEG_TOO_OLD'); a.equal(j.version, '5.1.9');
+  for (const body of [JSON.stringify(st), JSON.stringify(ex), JSON.stringify(j)]) {
+    a.ok(!body.includes(bin) && !body.includes('old-ffmpeg-bin'), 'no path: ' + body);
+    a.ok(!/Option 'measure' not found/.test(body), 'no raw ffmpeg error: ' + body);
+  }
+  const after = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').split('\n').filter(Boolean) : [];
+  a.ok(!after.slice(before).some((l) => /measure=/.test(l)), 'song finding never started the old program');
+});

@@ -129,11 +129,16 @@ function detectFfmpeg() {
   HAS_FFMPEG = false;
   FFMPEG_MISSING = FF.reason("ffmpeg");
   /* the page says "ffmpegMissing" in its language; the English reasons of a development setup stay English */
-  FFMPEG_MISSING_CODE = FF.missingCode({ source: FF.source("ffmpeg") });
+  FFMPEG_MISSING_CODE = FF.missingCode({ source: FF.source("ffmpeg"), tooOld: !!FF.status().ffmpeg.tooOld });
   if (!FFMPEG_MISSING) {
     try { HAS_FFMPEG = spawnSync(FF.path("ffmpeg"), ["-version"], { stdio: "ignore", timeout: 15000, windowsHide: true }).status === 0; } catch {}
     if (!HAS_FFMPEG) FFMPEG_MISSING = `The ffmpeg MontClip found (${X.maskUserPath(FF.path("ffmpeg"))}) could not be started.`;
   }
+}
+/** What every "no usable FFmpeg" answer carries: the reason, its code, and for FFMPEG_TOO_OLD the version (no path). */
+function ffmpegMissingBody() {
+  const f = FF.status().ffmpeg;
+  return { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE, ...(f.tooOld ? { version: f.version || null, why: f.why || "options" } : {}) };
 }
 detectFfmpeg();
 
@@ -426,10 +431,10 @@ function attachProc(sess, proc) {
 async function ffmpegStatus() {
   const probe = FF.status().ffprobe, found = FF.status().ffmpeg, tooOld = !HAS_FFMPEG && !!found.tooOld;
   const h264 = HAS_FFMPEG ? Delivery.encodersFor("h264", await deliveryEncoders()) : [];
-  // tooOld: no bundled build, and the FFmpeg found can't run what MontClip uses (the gate in ffmpeg-path.js)
+  // tooOld: the FFmpeg named in MONTCLIP_FFMPEG, or found with no bundled build, fails the gate (ffmpeg-path.js): FFMPEG_TOO_OLD
   const state = HAS_FFMPEG ? (probe.ok ? (h264.length ? "ready" : "noH264") : "noProbe") : tooOld ? "tooOld" : "missing";
   return { state, platform: process.platform, setup: externalFfmpeg.setup, picker: false,
-    ffmpeg: { ok: HAS_FFMPEG, source: FF.source("ffmpeg"), ...(tooOld ? { version: found.version || null, why: found.why || "options" } : {}) }, ffprobe: { ok: probe.ok, source: probe.source }, encoder: h264[0] || null };
+    ffmpeg: { ok: HAS_FFMPEG, source: FF.source("ffmpeg"), ...(tooOld ? { code: "FFMPEG_TOO_OLD", version: found.version || null, why: found.why || "options" } : {}) }, ffprobe: { ok: probe.ok, source: probe.source }, encoder: h264[0] || null };
 }
 /** 「重新检测」: look again, forget the encoder list, answer the new state. */
 async function redetectFfmpeg() {
@@ -1079,6 +1084,8 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       if (req.method === "POST") {
+        // P10: never hand song-scan's filter to an FFmpeg that can't run it (raw "Option 'measure' not found")
+        if (!HAS_FFMPEG) { sendJSON(res, 503, ffmpegMissingBody()); return; }
         const job = await startSongScan(src, file, body.again === true);
         sendJSON(res, 202, { src, state: job.state, done: job.done, total: job.total });
         return;
@@ -1220,7 +1227,7 @@ const server = http.createServer(async (req, res) => {
         sendJSON(res, 200, { deleted });
         return;
       }
-      if (p === "/api/proxy" && !HAS_FFMPEG) { sendJSON(res, 503, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
+      if (p === "/api/proxy" && !HAS_FFMPEG) { sendJSON(res, 503, ffmpegMissingBody()); return; }
       const status = {};
       for (const src of srcs) status[src] = p === "/api/proxy" ? await proxies.start(src, body.height) : await proxies.status(src);
       sendJSON(res, 200, { status });
@@ -1354,7 +1361,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       exportJobs.assertWhere(opts.where);
-      if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
+      if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
       if (opts.profile) resolveProfile(String(opts.profile));
       if (opts.profile && (opts.preset || opts.delivery || opts.outputs)) { sendJSON(res, 400, { error: "pass a profile (raw ffmpeg args) or a preset / delivery spec / outputs, not both" }); return; }
       // several files from one render: outputs:true = the project's checked batch outputs, or a list of specs
@@ -1487,7 +1494,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (p === "/api/export/ffmpeg" && req.method === "GET") {
-    sendJSON(res, 200, HAS_FFMPEG ? { available: true } : { available: false, reason: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE });
+    sendJSON(res, 200, HAS_FFMPEG ? { available: true } : { available: false, reason: FFMPEG_MISSING, ...ffmpegMissingBody() });
     return;
   }
   if (p === "/api/export/h264" && req.method === "GET") {
@@ -1560,7 +1567,7 @@ const server = http.createServer(async (req, res) => {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       const mode = opts.mode === "annexb" ? "annexb" : "jpeg";
       if (mode !== "annexb" && opts.profile) resolveProfile(opts.profile); // 400, not 500, on a bad id — even without ffmpeg
-      if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
+      if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
       sendJSON(res, 200, await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts));
     } catch (e) {
       // an unusable profile is the caller's problem, not a server fault
@@ -1684,7 +1691,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (p === "/api/analyze" && req.method === "POST") {
-    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
+    if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       const name = path.basename(decodeURIComponent(opts.src || ""));
@@ -1754,7 +1761,7 @@ const server = http.createServer(async (req, res) => {
         : "src must name an existing file under /media/ or /library/" });
       return;
     }
-    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
+    if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
     const num = (k, dflt) => {
       const raw = url.searchParams.get(k);
       if (raw === null || raw === "") return dflt;
@@ -1829,7 +1836,7 @@ const server = http.createServer(async (req, res) => {
      writes a denoised FLAC of the whole file into media/ (reused if it exists)
      and returns {src, name, duration, channels}. Registering it is the caller's job. */
   if (p === "/api/denoise" && req.method === "POST") {
-    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
+    if (!HAS_FFMPEG) { sendJSON(res, 400, ffmpegMissingBody()); return; }
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
       if (!DENOISE_AMOUNTS.includes(opts.amount)) { sendJSON(res, 400, { error: `amount must be one of ${DENOISE_AMOUNTS.join(", ")}` }); return; }

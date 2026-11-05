@@ -48,7 +48,8 @@ test("resolver: packaged builds use only the bundled folder and ignore dev overr
 
 test("resolver: development overrides must be full paths to existing files", () => {
   const p = path.resolve("/tools/ffmpeg.exe");
-  assert.deepEqual(FF.resolveTool("ffmpeg", { env: { MONTCLIP_FFMPEG: p }, exists: (x) => x === p }), { ok: true, path: p, source: "env" });
+  // MONTCLIP_FFMPEG also passes the 6.0 gate (P10, 2026-11-05; test/ffmpeg-detect.test.js) — a passing one here
+  assert.deepEqual(FF.resolveTool("ffmpeg", { env: { MONTCLIP_FFMPEG: p }, exists: (x) => x === p, usable: () => true }), { ok: true, path: p, source: "env" });
   const bare = FF.resolveTool("ffmpeg", { env: { MONTCLIP_FFMPEG: "ffmpeg" }, exists: () => true });
   assert.equal(bare.ok, false);
   assert.match(bare.error, /must be the full path/);

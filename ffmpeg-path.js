@@ -124,12 +124,27 @@ function readChoiceFile(file) {
 /** Resolve one tool: the bundled build; with none, PATH, then the user's choice (ffmpeg must pass the gate).
  *  Never throws; never returns a bare program name.
  *  → { ok:true, path, source } | { ok:false, path, source, error, tooOld? }   (source: packaged · env · env-dir · vendor · path · chosen) */
+/* Refused by the gate → FFMPEG_TOO_OLD, with the version and why, and no path in the reason (the page and agents see it). */
+function tooOldResult(name, c, g) {
+  const version = g.version || null, why = g.why || "options";
+  return { ...c, ok: false, tooOld: true, code: "FFMPEG_TOO_OLD", version, why,
+    error: why === "version" && version
+      ? `The ${name} MontClip was given is version ${version}; MontClip needs ${MIN_VERSION} or newer.`
+      : `The ${name} MontClip was given is too old: it cannot run the options MontClip uses (ebur128 framelog, aspectralstats measure).` };
+}
 function resolveTool(name, opts = {}) {
+  // opts.usable (tests) answers true / false or {ok, version, why}; the real gate answers {ok, version, why}
+  const usable = name === "ffmpeg" ? (opts.usable || gateCheck) : () => true;
+  const gate = (f) => { const u = usable(f); return typeof u === "object" && u ? u : { ok: !!u }; };
   const first = resolveBundled(name, opts);
+  // P10 (Deja 2026-11-05): MONTCLIP_FFMPEG names THE FFmpeg, so it passes the same gate as a fallback. Refused, MontClip
+  // says so instead of using another one: the person who named it should know it isn't used.
+  if (first.ok && first.source === "env" && name === "ffmpeg") {
+    const g = gate(first.path);
+    return g.ok ? first : tooOldResult(name, first, g);
+  }
   if (first.ok) return first;
   const env = opts.env || process.env, platform = opts.platform || process.platform, exists = opts.exists || isFile;
-  // opts.usable (tests) answers true / false; the real gate answers {ok, version, why}
-  const usable = name === "ffmpeg" ? (opts.usable || gateCheck) : () => true;
   const allowed = opts.exists ? () => true : placeAllowed;   // tests that fake the file system fake its places too
   const exe = exeName(name, platform), p = platform === "win32" ? path.win32 : path.posix;
   const found = [];
@@ -144,14 +159,11 @@ function resolveTool(name, opts = {}) {
   let old = null;
   for (const c of found) {
     if (!allowed(c.path)) continue;
-    const u = usable(c.path), g = typeof u === "object" && u ? u : { ok: !!u };
+    const g = gate(c.path);
     if (g.ok) return { ok: true, ...c };
-    old = old || { ...c, version: g.version || null, why: g.why || "options" };
+    old = old || { c, g };
   }
-  if (old) return { ok: false, ...old, tooOld: true,
-    error: old.why === "version"
-      ? `The ${name} found at ${old.path} is version ${old.version}; MontClip needs ${MIN_VERSION} or newer.`
-      : `The ${name} found at ${old.path} is too old for MontClip: it cannot run the options MontClip uses (ebur128 framelog, aspectralstats measure).` };
+  if (old) return tooOldResult(name, old.c, old.g);
   return first;
 }
 function resolveBundled(name, opts = {}) {
@@ -211,7 +223,7 @@ module.exports = {
   source: (name) => cached(name).source,
   /** The code the page shows: the packaged app says "ffmpegMissing" in its language; the env /
       vendor reasons only exist in a development setup and stay English ("ffmpegDev"). */
-  missingCode: ({ source }) => (source === "packaged" ? "ffmpegMissing" : "ffmpegDev"),
+  missingCode: ({ source, tooOld }) => (tooOld ? "FFMPEG_TOO_OLD" : source === "packaged" ? "ffmpegMissing" : "ffmpegDev"),
   /** Plain-language reason the tool is missing, or "" when it is there. */
   reason: (name) => cached(name).error || "",
   /** The error to report when running the tool failed: why, and what needed it. */

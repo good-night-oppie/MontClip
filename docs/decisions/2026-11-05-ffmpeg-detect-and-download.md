@@ -56,6 +56,7 @@
   - 证据：europa 上 Debian 12 的 5.1.9，跑 ebur128 那组报 `Invalid argument`，跑找歌那组报 `Option not found`，找歌会整个失效。内置的 9.0.2 两组都能过。
   - 过不了时卡片写明原因：读出了版本号的，说「找到的是 X 版，MontClip 需要 6.0 或更新的版本」；没有版本号可说的，说缺了哪些功能（测响度、找歌）。文字是草稿，交 JJ 定。
   - 所以「外部版只做 H.264 编码」这条要坚持：有内置版时，旧版本的系统 FFmpeg 只拿来编码，碰不到这些参数。
+  - **P10（Deja，2026-11-05）**：用 `MONTCLIP_FFMPEG` 直接指定的主 FFmpeg 也要过同一道门槛。过不了时不偷偷改用别的，所有「没有可用 FFmpeg」的回复（`/api/ffmpeg`、`/api/export/ffmpeg`、`/api/songs` 等）都带 `code: "FFMPEG_TOO_OLD"` 和检测到的 `version`，不带路径，也不把 ffmpeg 的原始报错（如 `Option 'measure' not found`）转给界面。找歌接口在没有可用 FFmpeg 时直接回 503，不再启动它。
 - **不再把外部版钉成全局。** europa 上 5.1 撞到 ebur128 的那个问题，按这条规则自然不会再出现：测响度用的是内置版。
 - **安全**：服务器自己会写入的目录（media、library、.uploads、analysis、proxies、frames、exports、projects）下的程序，一律不启动；插件 #115 的下载目录（`MONTCLIP_FFMPEG_DIR`）单独放进白名单。POSIX 上要求文件有可执行位。桌面版的 `/api/ffmpeg/check` 返回 403，桌面版只走主进程的文件对话框。
 - **没有 H.264 时**（JJ，2026-11-05）：

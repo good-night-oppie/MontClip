@@ -203,7 +203,9 @@ then `PATH` (looked up to an absolute path, never spawned by name). That FFmpeg 
 proxies when the bundled build has none); probing, frames, analysis and loudness stay on the bundled build. Only with
 no bundled build at all is an FFmpeg on PATH (or the chosen one) used for everything, and only if it is 6.0 or newer
 and runs the options MontClip uses — `ebur128` framelog for loudness, song-scan's `aspectralstats` measure — (Debian
-12's 5.1 does neither; the card then says which version it found). Nothing in a folder the server writes (media,
+12's 5.1 does neither; the card then says which version it found). An FFmpeg named in `MONTCLIP_FFMPEG` passes the
+same gate: refused, MontClip uses no other, and every "no FFmpeg" answer (`/api/ffmpeg`, `/api/export/ffmpeg`,
+`/api/songs` …) carries `code: "FFMPEG_TOO_OLD"` with its `version`, never a path or ffmpeg's own error. Nothing in a folder the server writes (media,
 uploads, analysis …) is ever started. With nothing that can export MP4 the editor shows one card (`ffmpeg-card.js`:
 install command, 「重新检测」, choose the file); simple mode then greys Export, advanced mode only the MP4 choices.
 `GET /api/ffmpeg`, `POST /api/ffmpeg/detect`, `POST /api/ffmpeg/choose {path}`, `POST /api/ffmpeg/check {path}`
