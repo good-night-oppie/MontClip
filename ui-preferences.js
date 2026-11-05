@@ -227,13 +227,12 @@
     "err-editor-no-accept": ["The editor did not take the task. Wait until it is ready, then try again.", "编辑窗口没接到这个任务。等它准备好，再试一次。"],
     "map-no-media": ["This project has no audio or video, so there is no time mapping to export.", "这个项目里没有音视频，导不出时间对照表。"],
     "connected": ["Ready", "就绪"],
-    // a file whose length nothing in it says, not even its packets' times (a recording cut off before it was saved:
-    // europa P3). 草稿，待 JJ 定稿 (2026-11-05): JJ rule 1 — what happened, then what she can do now, and that the original
-    // is unchanged. Such a file can't be placed (MediaLib.cannotCut), so the #126 wording "drag its end to fit" is gone.
-    "media-duration-unknown": ["MontClip can't read how long “{name}” is: nothing in the file says, not even its data. It may be a recording that stopped before it was saved. Without a length it can't go on the timeline. The original is unchanged; save it again from the app that recorded it, then import that.", "读不出「{name}」有多长：文件里哪儿都没写，数据里也读不到，可能是录到一半被停掉了。没有时长就放不到时间线上。原片没有改动；可以用录它的软件重新保存一份，再导入。"],
-    "media-duration-unknown-n": ["MontClip can't read how long {n} files are: nothing in them says, not even their data. They may be recordings that stopped before they were saved. Without a length they can't go on the timeline. The originals are unchanged; save them again from the app that recorded them, then import those.", "有 {n} 个文件读不出有多长：文件里哪儿都没写，数据里也读不到，可能是录到一半被停掉了。没有时长就放不到时间线上。原片没有改动；可以用录它们的软件重新保存一份，再导入。"],
-    // dragging such a file onto the timeline (草稿，待 JJ 定稿, 2026-11-05)
-    "media-cannot-cut": ["MontClip can't read how long “{name}” is, so it can't go on the timeline. The original is unchanged.", "读不出「{name}」有多长，放不到时间线上。原片没有改动。"],
+    // a recording nothing could read the length of, not even its packets' times (cut off before it was saved: europa P3).
+    // media-incomplete is JJ's sentence (定稿 2026-11-05) — on the file in the bin, and when it is dragged onto the
+    // timeline; the English is a draft for JJ. The two toasts are built from it, drafts for JJ too.
+    "media-incomplete": ["This video wasn't recorded to the end (the screen recording may have stopped early), so its length can't be read. It can't be cut yet.", "这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
+    "media-duration-unknown": ["“{name}”: this video wasn't recorded to the end (the screen recording may have stopped early), so its length can't be read. It can't be cut yet.", "「{name}」：这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
+    "media-duration-unknown-n": ["{n} videos weren't recorded to the end (the screen recordings may have stopped early), so their length can't be read. They can't be cut yet.", "有 {n} 个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
     "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],
     "tl-above-captions": ["Captions above, click to show", "上方有字幕轨，点这里显示"],
     // P2 highlight cards (for JJ to review)

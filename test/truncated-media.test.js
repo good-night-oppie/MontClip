@@ -153,7 +153,7 @@ test("media-lib: a length arriving clears the mark, an unknown one sets it; the 
   const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
   const at = app.indexOf("function addClipFromMedia"), body = app.slice(at, at + 600);
   a.match(body, /MediaLib\.cannotCut\(m\)/, "the editor refuses to place it");
-  a.match(body, /own\.media-cannot-cut/, "and says why, in the user's language");
+  a.match(body, /own.media-incomplete/, "and says why, in JJ's words");
 });
 
 /* JJ (P1 / P3, 2026-11-05): the length can't wait for the editor tab. An entry already in the project with no length

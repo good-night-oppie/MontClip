@@ -146,13 +146,11 @@ test("no length in the header: from the earliest start to the latest end, across
 /* JJ rule 1: what happened, then what she can do now, and that the original is unchanged. Drafts, for JJ. */
 test("the hint for a file with no length, both languages, plain words with the next step (drafts for JJ)", () => {
   const V = require("../ui-preferences");
-  // europa P3 (2026-11-05): such a file now can't be placed at all (MediaLib.cannotCut), so "drag its end to fit" went
-  a.equal(V.t("zh-CN", "own.media-duration-unknown", { name: "录像.mkv" }), "读不出「录像.mkv」有多长：文件里哪儿都没写，数据里也读不到，可能是录到一半被停掉了。没有时长就放不到时间线上。原片没有改动；可以用录它的软件重新保存一份，再导入。");
-  a.equal(V.t("en", "own.media-duration-unknown", { name: "rec.mkv" }), "MontClip can't read how long “rec.mkv” is: nothing in the file says, not even its data. It may be a recording that stopped before it was saved. Without a length it can't go on the timeline. The original is unchanged; save it again from the app that recorded it, then import that.");
-  a.equal(V.t("zh-CN", "own.media-duration-unknown-n", { n: 3 }), "有 3 个文件读不出有多长：文件里哪儿都没写，数据里也读不到，可能是录到一半被停掉了。没有时长就放不到时间线上。原片没有改动；可以用录它们的软件重新保存一份，再导入。");
-  a.equal(V.t("zh-CN", "own.media-cannot-cut", { name: "录像.webm" }), "读不出「录像.webm」有多长，放不到时间线上。原片没有改动。");
-  a.equal(V.t("en", "own.media-cannot-cut", { name: "rec.webm" }), "MontClip can't read how long “rec.webm” is, so it can't go on the timeline. The original is unchanged.");
-  for (const k of ["own.media-duration-unknown", "own.media-duration-unknown-n", "own.media-cannot-cut"]) {
+  // europa P3: such a file can't be placed (MediaLib.cannotCut); the toasts are built from JJ's sentence (own.media-incomplete)
+  a.equal(V.t("zh-CN", "own.media-duration-unknown", { name: "录像.mkv" }), "「录像.mkv」：这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。");
+  a.equal(V.t("zh-CN", "own.media-duration-unknown-n", { n: 3 }), "有 3 个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。");
+  a.equal(V.t("en", "own.media-duration-unknown", { name: "rec.mkv" }), "“rec.mkv”: this video wasn't recorded to the end (the screen recording may have stopped early), so its length can't be read. It can't be cut yet.");
+  for (const k of ["own.media-duration-unknown", "own.media-duration-unknown-n", "own.media-incomplete"]) {
     const zh = V.t("zh-CN", k, { name: "x", n: 2 });
     a.doesNotMatch(zh, /NaN|0:00|undefined/);
     a.equal(zh.replace(/MontClip/g, "").match(/[A-Za-z]{3,}/), null, "no English word in the Chinese: " + zh);

@@ -127,6 +127,34 @@ const KIND_BY_EXT = {
   ".png": "image", ".jpg": "image", ".jpeg": "image", ".gif": "image", ".webp": "image", ".svg": "svg",
 };
 const uid = () => Math.random().toString(36).slice(2, 9);
+/** Media entries with no length read yet get it from ffprobe here, so the agent never waits for an editor tab to probe
+ *  them (JJ, P1 / P3, 2026-11-05). An entry nothing can read is marked durationUnknown (MediaLib.cannotCut). Written back
+ *  as an edit only when something changed, onto the latest document (the probing may take a while). → how many changed */
+async function backfillDurations() {
+  const todo = (readProject().media || []).filter((m) => (m.kind === "video" || m.kind === "audio") &&
+    !(Number.isFinite(m.duration) && m.duration > 0) && !m.durationUnknown && mediaFile(m.src));
+  if (!todo.length) return 0;
+  const found = new Map();
+  for (const m of todo) {
+    const info = await probeFile(mediaFile(m.src));
+    if (info && (info.duration > 0 || info.durationUnknown)) found.set(m.id, info);
+  }
+  if (!found.size) return 0;
+  const proj = readProject();
+  const wasCurrent = lastReadRevision === (proj.revision || 0);
+  let n = 0;
+  for (const m of proj.media || []) {
+    const info = found.get(m.id);
+    if (!info || (m.duration > 0) || m.durationUnknown) continue;
+    if (info.duration > 0) m.duration = info.duration; else m.durationUnknown = true;
+    n++;
+  }
+  if (!n) return 0;
+  proj.revision = (proj.revision || 0) + 1;
+  writeProject(proj);
+  if (wasCurrent) lastReadRevision = proj.revision;
+  return n;
+}
 /** What fablecut_import_media says about the length it found (europa P3, 2026-11-05: "no ffprobe" was said whenever
  *  the header had no length, though ffprobe had run). Say what actually happened. */
 function importNote(entry, probed) {
@@ -1298,6 +1326,7 @@ async function callTool(name, args, attempt = 0) {
       return versionsTool(args);
     case "fablecut_status": {
       const up = await ensureUIServer();
+      await backfillDurations();
       const proj = readProject();
       const dur = proj.clips.reduce((m, c) => Math.max(m, c.start + c.duration), 0);
       const files = fs.existsSync(MEDIA_DIR)
@@ -1373,6 +1402,7 @@ async function callTool(name, args, attempt = 0) {
         parts.filter((s) => s.startsWith("## ")).map((s) => s.slice(3, s.indexOf("\n"))).join(" · ");
     }
     case "fablecut_get_project": {
+      await backfillDurations();
       const doc = readProject();
       lastReadRevision = doc.revision || 0;
       if (!args.compact) return JSON.stringify(doc);
@@ -1388,6 +1418,7 @@ async function callTool(name, args, attempt = 0) {
         throw new Error("`baseRevision` must be an integer revision (from fablecut_get_project, fablecut_status or the last patch result)");
       // ops get filled in as they apply (auto ids …); a retry must start from the originals
       const ops = structuredClone(args.ops);
+      if (base == null) await backfillDurations();   // with a baseRevision, a write here would itself be the conflict
       const proj = readProject();
       const readRev = proj.revision || 0;
       const conflict = (rev) => new Error(
