@@ -227,10 +227,12 @@
     "err-editor-no-accept": ["The editor did not take the task. Wait until it is ready, then try again.", "编辑窗口没接到这个任务。等它准备好，再试一次。"],
     "map-no-media": ["This project has no audio or video, so there is no time mapping to export.", "这个项目里没有音视频，导不出时间对照表。"],
     "connected": ["Ready", "就绪"],
-    // a file whose length nothing in it says (an MKV cut off mid-recording). 草稿，待 JJ 定稿 (2026-11-04): JJ rule 1 — what
-    // happened, then what she can do now, and that the original is unchanged (QQ, #126)
-    "media-duration-unknown": ["“{name}” doesn't say how long it is, so MontClip can't tell its length, and its length on the timeline may be wrong. The original is unchanged; after you drag it onto the timeline, drag its end to fit.", "「{name}」里没写时长，MontClip 读不出它有多长，放到时间线上的长度可能不对。原片没有改动；拖到时间线后拉一下结尾就能对上。"],
-    "media-duration-unknown-n": ["{n} files don't say how long they are, so MontClip can't tell their length, and their length on the timeline may be wrong. The originals are unchanged; after you drag one onto the timeline, drag its end to fit.", "有 {n} 个文件里没写时长，MontClip 读不出它们有多长，放到时间线上的长度可能不对。原片没有改动；拖到时间线后拉一下结尾就能对上。"],
+    // a recording nothing could read the length of, not even its packets' times (cut off before it was saved: europa P3).
+    // media-incomplete is JJ's sentence (定稿 2026-11-05) — on the file in the bin, and when it is dragged onto the
+    // timeline; the English is a draft for JJ. The two toasts are built from it, drafts for JJ too.
+    "media-incomplete": ["This video wasn't recorded to the end (the screen recording may have stopped early), so its length can't be read. It can't be cut yet.", "这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
+    "media-duration-unknown": ["“{name}”: this video wasn't recorded to the end (the screen recording may have stopped early), so its length can't be read. It can't be cut yet.", "「{name}」：这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
+    "media-duration-unknown-n": ["{n} videos weren't recorded to the end (the screen recordings may have stopped early), so their length can't be read. They can't be cut yet.", "有 {n} 个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
     "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],
     "tl-above-captions": ["Captions above, click to show", "上方有字幕轨，点这里显示"],
     // P2 highlight cards (for JJ to review)

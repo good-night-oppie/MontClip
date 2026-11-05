@@ -5136,3 +5136,6 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
   .app.agent-open .cindy-plan-what { display: none; }
   .app.agent-open .cindy-thread { min-height: 4.5em; }
 }
+/* a recording nothing could read the length of (europa P3): JJ's sentence on the file */
+.bin-incomplete { font-size: 11px; line-height: 1.35; color: #ffb3b5; margin-top: 2px; white-space: normal; }
+.bin-row .bin-incomplete { grid-column: 1 / -1; padding-left: 28px; }

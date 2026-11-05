@@ -2470,6 +2470,8 @@ function renderBin() {
     const uses = ctx.usage.get(m.id) || 0;
     const folder = flat && m.folderId ? getFolder(m.folderId) : null;
     const usesHtml = `<button type="button" class="bin-uses${uses ? "" : " none"}" title="${uses ? `Used ${uses}× — click to find every instance` : "Not used on the timeline"}">${uses}</button>`;
+    // JJ (P3, 2026-11-05): a recording nothing could read the length of says so on the file itself
+    const incomplete = MediaLib.cannotCut(m) ? `<div class="bin-incomplete">${escapeHtml(uiText("own.media-incomplete"))}</div>` : "";
     const favHtml = `<button type="button" class="bin-fav${m.favorite ? " on" : ""}" title="${m.favorite ? "Favorite — click to unstar" : "Mark as favorite"}" aria-pressed="${!!m.favorite}">${m.favorite ? "★" : "☆"}</button>`;
     if (binView.list) {
       const cell = (v, cls = "") => `<span class="bin-cell${cls}">${escapeHtml(v || "—")}</span>`;
@@ -2479,7 +2481,7 @@ function renderBin() {
         ${cell(m.codec, " c-codec")}${cell(MediaLib.fmtAudio(m), " c-audio")}${cell(MediaLib.fmtSize(m.size), " num c-size")}
         <span class="bin-cell c-proxy">${proxyBadgeHtml(m) || escapeHtml(m.kind === "video" ? "—" : "")}</span>
         <span class="bin-cell num c-usage">${usesHtml}</span>
-        <span class="bin-del" title="Remove (and its clips)">✕</span>`;
+        <span class="bin-del" title="Remove (and its clips)">✕</span>${incomplete}`;
     } else {
       const sub = [folder ? "📁 " + folder.name : "", m.kind === "video" ? uiText("own.media-kind-video") : m.kind, m.duration ? fmt(m.duration) : "", MediaLib.fmtRes(m), m.fps ? uiText("own.fps-value", { n: MediaLib.fmtFps(m.fps) }) : ""]
         .filter(Boolean).join(" · ");
@@ -2488,6 +2490,7 @@ function renderBin() {
         <div class="bin-meta">
           <div class="bin-name"></div>
           <div class="bin-sub">${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span> ` : ""}${escapeHtml(sub)}</div>
+          ${incomplete}
           ${m.tags && m.tags.length ? `<div class="bin-tags">${m.tags.map((t) => `<span class="bin-tag">#${escapeHtml(t)}</span>`).join("")}</div>` : ""}
         </div>
         <div class="bin-side">${favHtml}${usesHtml}${proxyBadgeHtml(m)}</div>
@@ -4560,6 +4563,8 @@ function addClipFromMedia(m, trackId, at) {
   const tr = TRACKS.find((t) => t.id === trackId);
   if (!tr || (kind === "audio") !== (tr.kind === "audio")) trackId = defaultTrackFor(kind);
   if (isTrackLocked(trackId)) { toast(`${trackId} is locked — unlock it to add clips`); return null; }
+  // nothing could read its length (a recording cut off before it was saved): never placed at a made-up 5 s (europa P3)
+  if (MediaLib.cannotCut(m)) { toast(uiText("own.media-incomplete")); return null; }
   pushUndo();
   const start = Math.max(0, at ?? state.time);
   const duration = m.duration || 5;
