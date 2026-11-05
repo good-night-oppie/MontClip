@@ -40,7 +40,7 @@ function seedText({ model, apiKey }) {
 }
 
 /** Seal the seed, if there is one. → {code, file?}:
- *  NO_SEED · SEALED · ALREADY_CONFIGURED (verified matching connection) · SEED_CONFLICT (different or unverifiable
+ *  NO_SEED · SEED_CLEANED (previously wiped seed deleted) · SEALED · ALREADY_CONFIGURED (verified matching connection) · SEED_CONFLICT (different or unverifiable
  *  saved connection, both files kept) · NOT_DELETED (verified, but the file could not be removed:
  *  the streamer is asked to delete it) · NO_ENCRYPTION (nothing written, the seed kept) · SEED_INVALID (kept, untouched) ·
  *  CONFIG_FAILED (the service refused it; nothing written; the seed kept) · VERIFY_FAILED (written but not read back the same:
@@ -55,14 +55,17 @@ function importSeed({ file, fs = require('node:fs'), service, encryptionAvailabl
     try { fs.unlinkSync(file); } catch (e) { if (!e || e.code !== 'ENOENT') return false; }
     return !fs.existsSync(file);
   };
+  // A prior successful wipe followed by failed unlink is cleanup, not an unreadable configuration.
+  if (raw.length > 0 && raw.length <= SEED_MAX_BYTES && /^\0+$/.test(raw)) return { code: remove() ? 'SEED_CLEANED' : 'NOT_DELETED', file };
   const seed = parseSeed(raw);
   raw = null;
   if (!seed) return { code: 'SEED_INVALID', file };
   const now = service.get();
+  if (now && now.code === 'SEED_CONFLICT') return { code: 'SEED_CONFLICT', file };
   if (now && now.configured) {
     const same = service.matches(seed);
     seed.apiKey = null;
-    if (!same) return { code: 'SEED_CONFLICT', file };
+    if (!same) { service.blockSeedConnection(); return { code: 'SEED_CONFLICT', file }; }
     return { code: remove() ? 'ALREADY_CONFIGURED' : 'NOT_DELETED', file };
   }
   if (!encryptionAvailable()) return { code: 'NO_ENCRYPTION', file };
@@ -70,7 +73,7 @@ function importSeed({ file, fs = require('node:fs'), service, encryptionAvailabl
   if (!r || r.ok === false || !r.configured) { seed.apiKey = null; return { code: 'CONFIG_FAILED', file }; }
   const same = service.matches({ provider: seed.provider, model: seed.model, apiKey: seed.apiKey });
   seed.apiKey = null;
-  if (!same) { const undone = service.deleteConnection(); return { code: undone && undone.code === 'CONNECTION_DELETED' ? 'VERIFY_FAILED' : 'VERIFY_FAILED_NOT_UNDONE', file }; }
+  if (!same) { const undone = service.deleteConnection(); if (!undone || undone.code !== 'CONNECTION_DELETED') service.blockSeedConnection(); return { code: undone && undone.code === 'CONNECTION_DELETED' ? 'VERIFY_FAILED' : 'VERIFY_FAILED_NOT_UNDONE', file }; }
   return { code: remove() ? 'SEALED' : 'NOT_DELETED', file };
 }
 

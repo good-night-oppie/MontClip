@@ -130,7 +130,7 @@ test('the pane asks first: the button only opens the confirmation, and only its 
  assert.match(button[1],/showModal\(\);removeDialog\.current\?\.querySelector<HTMLButtonElement>\('\[data-remove-cancel\]'\)\?\.focus\(\)/);
  assert.equal((pane.match(/deleteConnection\(\)/g)||[]).length,1,'one call');
  assert.match(pane,/<button data-remove-confirm onClick=\{async\(\)=>\{removeDialog\.current\?\.close\(\);const result=await W\.montclipAgentService\?\.deleteConnection\(\);/);
- assert.match(pane,/\(cfg\?\.configured\|\|cfg\?\.code==='CONFIG_READ_FAILED'\)&&<button data-remove-connection/,'shown while a connection is saved or unreadable');
+ assert.match(pane,/\(cfg\?\.configured\|\|cfg\?\.code==='CONFIG_READ_FAILED'\|\|cfg\?\.code==='SEED_CONFLICT'\)&&<button data-remove-connection/,'shown while a connection is saved or unreadable');
  assert.match(pane,/if\(result\?\.ok\)\{setCfg\(result\);setModel\(''\);setKey\(''\);setNotice\('connectionRemoved'\);\}else\{setCfg\(await W\.montclipAgentService\?\.get\(\)\);setNotice\('connectionRemoveFailed'\);\}/,'a failure shows its own notice and re-reads the real state');
  assert.match(pane,/<button data-remove-cancel onClick=\{\(\)=>removeDialog\.current\?\.close\(\)\}>/);
 });

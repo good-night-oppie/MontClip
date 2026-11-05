@@ -71,3 +71,4 @@ electron desktop/<文件> --montclip-smoke --user-data-dir=<新建的空目录>
 | `zh-batch5-smoke.cjs` | `ZH5_PASS` | 在用 |
 | `zh-terms-smoke.cjs` | `TERMS_COMPLETE` | 在用 |
 | `zh-transcript-smoke.cjs` | `TR_PASS` | 在用 |
+| `seed-conflict-smoke.cjs` | `SEED_CONFLICT_PASS` | 在用；合成密钥、离屏窗口；中英文冲突提示、禁止发送、保留删除入口 |

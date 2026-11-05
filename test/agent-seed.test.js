@@ -63,6 +63,8 @@ test('a matching saved connection removes the seed; a different connection or ba
   a.equal(Seed.importSeed({ file: seed, service, encryptionAvailable: () => true }).code, 'SEED_CONFLICT');
   a.equal(fs.readFileSync(path.join(profile, 'agent-connection-v1.json'), 'utf8'), before);
   a.equal(fs.existsSync(seed), true);
+  a.equal(service.get().configured, false);
+  a.equal(service.deleteConnection().code, 'CONNECTION_DELETED');
   a.equal(service.configure(Seed.parseSeed(fs.readFileSync(seed, 'utf8'))).configured, true);
   a.equal(Seed.importSeed({ file: seed, service, encryptionAvailable: () => true }).code, 'ALREADY_CONFIGURED');
   a.equal(fs.existsSync(seed), false);
@@ -260,12 +262,12 @@ test('sealing in order — read back not the same: the connection file removed a
   a.equal(fs.existsSync(seed), true, 'the seed is kept for the next launch');
   // and main says it in plain words, never the key
   const main = fs.readFileSync(path.join(__dirname, '..', 'desktop', 'main.js'), 'utf8');
-  a.ok(main.includes("VERIFY_FAILED: 'seedFailed', VERIFY_FAILED_NOT_UNDONE: 'seedFailed'"));
+  a.ok(main.includes("VERIFY_FAILED: 'seedFailed', VERIFY_FAILED_NOT_UNDONE: 'seedConflict'"));
   // the read-back is the main process's own: not one of the page's operations
   a.ok(main.includes("for(const operation of ['get','configure','reset','deleteConnection','send','cancel']) ipcMain.handle('montclip:agent:'+operation,"));
 });
 
-test('failed verification and failed rollback: a fresh launch preserves the recoverable seed', () => {
+test('failed verification and failed rollback: a fresh launch preserves the recoverable seed', async () => {
   const profile = tmp(), resources = tmp(), seed = writeSeed(resources), safe = sealing(true);
   const expected = Seed.parseSeed(fs.readFileSync(seed, 'utf8'));
   const connection = path.join(profile, 'agent-connection-v1.json');
@@ -273,11 +275,23 @@ test('failed verification and failed rollback: a fresh launch preserves the reco
   const wrongSeal = { ...safe, encryptString: () => safe.encryptString('synthetic-wrong-key') };
   const first = AgentService.createDiskService(profile, wrongSeal, blocked);
   a.equal(Seed.importSeed({ file: seed, service: first, encryptionAvailable: () => true }).code, 'VERIFY_FAILED_NOT_UNDONE');
+  a.equal(first.get().configured, false, 'a failed verification cannot advertise a usable connection');
   const before = fs.readFileSync(seed, 'utf8');
   const restart = AgentService.createDiskService(profile, safe, blocked);
   const result = Seed.importSeed({ file: seed, service: restart, encryptionAvailable: () => true });
   a.equal(fs.existsSync(seed), true, 'restart must not delete the last recovery copy');
   a.equal(result.code, 'SEED_CONFLICT', 'a different saved connection is not successful seed import');
+  a.equal(restart.get().configured, false, 'a restart still cannot advertise verified setup');
+  a.equal(restart.get().code, 'SEED_CONFLICT');
+  const request = {version:1,requestId:'conflict-send',projectId:'p',sequenceId:null,revision:0,gen:0,messages:[{role:'user',content:'synthetic'}]};
+  let requests=0;const savedFetch=global.fetch;
+  global.fetch=async()=>{requests++;throw Error('synthetic transport only');};
+  try { a.equal((await restart.send(request)).code, 'SEED_CONFLICT', 'unverified connection cannot send'); }
+  finally { global.fetch=savedFetch; }
+  a.equal(requests,0);
+  a.equal(restart.configure(expected).code,'SEED_CONFLICT','saving cannot bypass conflict resolution');
+  a.equal(restart.deleteConnection().ok,false);
+  a.equal(restart.get().configured,false,'failed removal does not clear the gate');
   a.equal(fs.readFileSync(seed, 'utf8'), before);
   a.equal(restart.matches(expected), false);
   a.deepEqual(holding(resources), [Seed.SEED_NAME]);
@@ -292,7 +306,23 @@ test('failed verification and failed rollback: a fresh launch preserves the reco
   a.deepEqual(fs.readdirSync(profile), ['agent-connection-v1.json'], 'only one sealed key file after recovery');
   a.deepEqual(holding(profile), []);
   const main = fs.readFileSync(path.join(__dirname, '..', 'desktop', 'main.js'), 'utf8');
-  a.ok(main.includes("SEED_CONFLICT: 'seedFailed'"), 'a conflict shows the existing failure warning');
+  a.ok(main.includes("SEED_CONFLICT: 'seedConflict'"), 'a conflict has its own recovery instructions');
+});
+
+test('a wiped seed that could not be deleted stays a cleanup task on later launches', () => {
+  const profile=tmp(), resources=tmp(), seed=writeSeed(resources), safe=sealing(true);
+  const noUnlink={...fs,unlinkSync(){throw Object.assign(Error('EPERM'),{code:'EPERM'});}};
+  const first=AgentService.createDiskService(profile,safe);
+  a.equal(Seed.importSeed({file:seed,fs:noUnlink,service:first,encryptionAvailable:()=>true}).code,'NOT_DELETED');
+  a.ok(fs.readFileSync(seed).every(b=>b===0));
+  const before=fs.readFileSync(path.join(profile,'agent-connection-v1.json'));
+  const restarted=AgentService.createDiskService(profile,safe);
+  a.equal(Seed.importSeed({file:seed,fs:noUnlink,service:restarted,encryptionAvailable:()=>true}).code,'NOT_DELETED');
+  a.equal(restarted.get().configured,true,'the verified connection still works');
+  a.deepEqual(fs.readFileSync(path.join(profile,'agent-connection-v1.json')),before);
+  a.equal(Seed.importSeed({file:seed,service:restarted,encryptionAvailable:()=>true}).code,'SEED_CLEANED');
+  a.equal(fs.existsSync(seed),false);
+  a.equal(restarted.matches({provider:'deepseek',model:'synthetic-flash-model',apiKey:KEY}),true);
 });
 
 test('a package carries no other credential (QQ ⑥): anything shaped like one in its text files fails the build, the seed aside', () => {

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Pause conflicting private-package AI connections until resolved, show recovery instructions, and keep cleanup warnings for wiped seed files across restarts.
+
 - Preserve a private package's seed on restart when sealing verification and rollback both fail; only a matching saved connection may consume it.
 
 - Correct the private DeepSeek data notice to describe reply and plan labels and the exact AI switch path; add the persistent AI switch and selected-clip-only request facts.

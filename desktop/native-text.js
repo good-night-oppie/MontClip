@@ -46,5 +46,7 @@ const TEXT = {
 };
 /** The language in a view-settings read ({ok, value:{language}}); Chinese when it can't be told. */
 const languageOf = (read) => (read && read.value && read.value.language === 'en' ? 'en' : 'zh-CN');
+Object.assign(TEXT["zh-CN"],{"seedConflictTitle": "AI 先停用了", "seedConflict": "包里带的 AI 服务设置，和这台电脑上已经保存的不一样，所以先暂停使用 AI。剪辑照常能用。\n想改用包里的设置：在助手面板点「AI 服务」，再点「删除这个连接」，然后关掉 MontClip 再打开。\n不想替换你现在的设置：请联系给你这个包的人。"});
+Object.assign(TEXT["en"],{"seedConflictTitle": "AI is paused for now", "seedConflict": "The AI service settings that came with this package don't match the ones saved on this computer, so the AI is paused for now. Editing works as usual.\nTo use the package's settings: in the assistant panel click “AI service”, then “Remove this connection”, then close MontClip and open it again.\nTo keep your current settings instead: contact the person who gave you this package."});
 const nativeText = (language) => TEXT[language === 'en' ? 'en' : 'zh-CN'];
 module.exports = { nativeText, languageOf, TEXT };
