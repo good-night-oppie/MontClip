@@ -119,6 +119,13 @@
     // DRAFT for JJ (Deja 2026-11-05): a clip's sound could not be read, so the export stops instead of coming out silent
     "export-audio-failed": ["Export stopped: the sound of “{name}” couldn't be read, so the file would have had no sound. Nothing was exported. Try again; if it keeps happening, re-import that recording.",
       "导出停下了：「{name}」的声音读不出来，导出来会没有声音，所以这次没有导出。请再试一次；如果还是这样，重新导入这段录像。"],
+    // DRAFT for JJ (待 JJ 定稿; Deja 2026-11-05): an old project with mono recordings in the left ear only — asked once, on open
+    "mono-left": ["{n} mono sound clip(s) in this project play only in the left ear. Put them in both ears?", "这个项目里有 {n} 条单声道声音只在左边耳机里有。要改成两边都有吗？"],
+    "mono-left-centre": ["Both ears", "改成两边都有"],
+    "mono-left-keep": ["Keep as is", "不用"],
+    // DRAFT for JJ (待 JJ 定稿; Deja 2026-11-05): the check after an export finds sound in one ear only (a warning, the file is kept)
+    "export-one-sided-left": ["Only the left ear has sound; the right is almost silent (left {L} dB, right {R} dB).", "只有左边耳机有声音，右边几乎听不到（左 {L} dB，右 {R} dB）。"],
+    "export-one-sided-right": ["Only the right ear has sound; the left is almost silent (left {L} dB, right {R} dB).", "只有右边耳机有声音，左边几乎听不到（左 {L} dB，右 {R} dB）。"],
     "finishing": ["Finishing…", "正在收尾…"],
     // narrow windows: tools that do not fit a bar (JJ to review)
     "more": ["More", "更多"],

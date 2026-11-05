@@ -509,7 +509,7 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
   }
   const sess = {
     mode: "jpeg", proc: null, fps: rate, outputs: outs, input, canvasW, canvasH, duration,
-    hasAudio: !!hasAudio, dir, wav: null, partPath: null, outPath: null,
+    hasAudio: !!hasAudio, panIntent: !!extra.panIntent, dir, wav: null, partPath: null, outPath: null,
     stderr: "", done: null, lastTouch: Date.now(), err: () => "",
   };
   sess.writeLock = Promise.resolve();
@@ -524,6 +524,11 @@ async function measureLoudness(file, timeout = 10 * 60 * 1000) {
   const r = await runFfmpeg(Delivery.LOUDNESS_ARGS(file), timeout);
   return r.code === 0 ? Delivery.parseEbur128(r.stderr) : null;
 }
+/** Each channel's level (dB) of a file's first audio stream, or null. */
+async function measureChannelLevels(file, timeout = 10 * 60 * 1000) {
+  const r = await runFfmpeg(Delivery.CHANNEL_LEVEL_ARGS(file), timeout);
+  return r.code === 0 ? Delivery.parseChannelLevels(r.stderr) : null;
+}
 function ffprobeJSON(file) {
   return new Promise((resolve) => {
     execFile(FF.path("ffprobe"), ["-v", "error", "-show_streams", "-show_format", "-of", "json", file], { timeout: 60000, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
@@ -536,13 +541,14 @@ async function verifyDeliveryOutput(sess, o, file) {
   const failed = (text) => ({ ok: false, checks: [{ ok: false, text }], line: "⚠ " + text });
   try {
     const loudWanted = o.spec.audio.codec !== "none" && !!sess.wav;
-    const [probe, loud] = await Promise.all([ffprobeJSON(file), loudWanted ? measureLoudness(file, VERIFY_LOUDNESS_MS) : null]);
+    const [probe, loud, channelLevels] = await Promise.all([ffprobeJSON(file), loudWanted ? measureLoudness(file, VERIFY_LOUDNESS_MS) : null,
+      loudWanted && o.spec.audio.channels === 2 ? measureChannelLevels(file, VERIFY_LOUDNESS_MS) : null]);
     if (!probe) return failed("could not read the file back to check it (ffprobe)");
     let size = 0;
     try { size = fs.statSync(file).size; } catch {}
     return Delivery.verify(o.spec, probe, {
       fps: sess.fps, frames: sess.frames || (sess.duration ? Math.round(sess.duration * sess.fps) : null), duration: sess.duration,
-      size, loud, loudWanted, frame: o.frame, hasAudio: !!sess.wav,
+      size, loud, loudWanted, frame: o.frame, hasAudio: !!sess.wav, channelLevels, panIntent: sess.panIntent,
     });
   } catch (e) { return failed("could not check the file: " + (e.message || e)); }
 }

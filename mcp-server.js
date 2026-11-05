@@ -1376,6 +1376,11 @@ async function callTool(name, args, attempt = 0) {
           const off = proj.media.filter((m) => /^\/(media|library)\//.test(m.src || "") && !mediaFile(m.src));
           return off.length ? [`OFFLINE media (file missing — find it and relinkMedia): ${cap(off.map((m) => `${m.id} ${m.src}`), 25).join("; ")}`] : [];
         })(),
+        ...(() => {
+          // a project saved before mono stems were centred; the streamer hasn't answered the editor's question yet
+          const left = proj.monoPanReviewed ? [] : EditOps.monoLeftStems(proj);
+          return left.length ? [`WARNING — mono audio in the left ear only: ${cap(left.map((c) => c.id), 25).join(", ")} (a mono file's stem at pan −1; it exports with sound on one side). Only if the user asks: updateClip set:{props:{pan:0}} on each, then setProject {monoPanReviewed:true}.`] : [];
+        })(),
         `Files in media/: ${cap(files, 25).join(", ") || "none"}`,
         `Library assets (./library): ${libSummary}`,
         ...(() => {
