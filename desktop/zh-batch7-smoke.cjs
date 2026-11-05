@@ -131,6 +131,37 @@ BrowserWindow.prototype.loadURL = async function (...args) {
       else assert.ok(rm[1] && !/[一-鿿]/.test(rm[1]), at + ' remove tooltip in English: ' + rm[1]);
       assert.equal(r.track, zh ? '删除轨道' : 'Remove track', at + ' track menu');
     }
+    // Rea's review of #148 (069663e3): the Pen buttons of a shape layer and of a title's text path; the export range row
+    // follows a language switch with the dialog open
+    const PEN = String.raw`(async () => {
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms)), txt = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : null);
+      if (!window.__zh7Shape) {
+        const sh = { id: 'c_zh7shape', mediaId: null, kind: 'shape', track: 'V3', start: 0, in: 0, duration: 4, name: 'Shape', props: { ...DEFAULT_PROPS, shapes: [{ type: 'rect', w: 100, h: 60, fill: '#ffffff' }] } };
+        const tt = { id: 'c_zh7text', mediaId: null, kind: 'text', track: 'V2', start: 0, in: 0, duration: 4, name: 'Title', props: { ...DEFAULT_PROPS, text: 'Hello' } };
+        project.clips.push(sh, tt); window.__zh7Shape = sh.id; window.__zh7Text = tt.id;
+      }
+      const r = {};
+      setSelection([window.__zh7Shape]); renderInspector(); await wait(30);
+      r.shapePen = txt(document.querySelector('#inspector [data-stool="pen"]'));
+      setSelection([window.__zh7Text]); renderInspector(); await wait(30);
+      r.textPen = txt(document.querySelector('#inspector [data-tpath="pen"]'));
+      setSelection([]); renderInspector();
+      return r;
+    })()`;
+    for (const language of ['zh-CN', 'en', 'zh-CN']) {
+      await read(`updateMontClipView(${JSON.stringify({ language, mode: 'advanced' })}); true`); await wait();
+      const r = await read(PEN), zh = language === 'zh-CN';
+      assert.equal(r.shapePen, zh ? '钢笔' : 'Pen', language + ' shape layer Pen');
+      assert.equal(r.textPen, zh ? '钢笔' : 'Pen', language + ' text path Pen');
+    }
+    const range = await read(`(async()=>{const wait=(ms)=>new Promise((r)=>setTimeout(r,ms)),out={};
+      updateMontClipView({language:'zh-CN'});await wait(100);await openExportSetup();
+      for(const until=Date.now()+8000;Date.now()<until&&els.exportSetup.classList.contains('hidden');)await wait(50);
+      const row=()=>{const s=document.getElementById('exportRangeSel');return [s.options[s.selectedIndex].textContent,document.getElementById('exportRangeNote').textContent];};
+      out.zh=row();updateMontClipView({language:'en'});await wait(100);out.en=row();updateMontClipView({language:'zh-CN'});await wait(100);out.zh2=row();closeExportSetup();return out;})()`);
+    seen.range = range;
+    for (const k of ['zh', 'zh2']) assert.ok(range[k][0] === '整条时间线' && range[k][1].startsWith('整条时间线 · '), k + ' export range: ' + JSON.stringify(range[k]));
+    assert.ok(range.en[0] === 'Entire timeline' && range.en[1].startsWith('Full timeline · ') && !/[一-鿿]/.test(range.en.join('')), 'en export range: ' + JSON.stringify(range.en));
     // VV's review of #148: the Show filter shows its whole choice at the desktop width (1283 px) and at 360 px, with room
     // for the native arrow; the sort row wraps rather than squeezing. And "Full canvas" in the player bar.
     const FIT = String.raw`(async () => {
