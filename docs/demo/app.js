@@ -59,12 +59,14 @@ function sayError(error, where = "error") {
  *  sizes up and knows the home folder and user name; the same rules here, without sizes, when it can't be reached. */
 async function copyProblem(r) {
   let out = null;
-  const p = { text: r.text || "", code: r.code || "", log: r.log || "" }, language = mcView.get().language;
+  // what happened only (r.what: JJ, #161), not what to do — the screen keeps the whole sentence
+  const p = { text: r.what || r.text || "", code: r.code || "", log: r.log || "" }, language = mcView.get().language;
   try {
     const res = await fetch("/api/problem-details", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...p, language }) });
     if (res.ok) out = (await res.json()).text;
   } catch { /* offline: the page's copy of the rules */ }
-  if (typeof out !== "string") out = MontClipRedact.problemDetails(p, { platform: /win/i.test(navigator.platform || "") ? "win32" : "", language });
+  // offline: the system's family from the page; the version is the server's to say (版本不明 here)
+  if (typeof out !== "string") out = MontClipRedact.problemDetails({ ...p, app: { platform: navigator.platform || "" } }, { platform: /win/i.test(navigator.platform || "") ? "win32" : "", language });
   try { await navigator.clipboard.writeText(out); toastProblemSent(); } catch { toast(uiText("own.copy-problem-failed")); }
 }
 /** After a copy (JJ, #161): what was taken out, and the mailbox to send it to. The address can be selected (one click

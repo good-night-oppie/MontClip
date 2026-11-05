@@ -87,12 +87,33 @@
   /** The first line of what 〔复制问题信息〕 copies (#161, JJ): the mail watcher knows a report by it. */
   const HEADER = { "zh-CN": "MontClip 问题信息 v1", en: "MontClip problem details v1" };
   /* What is copied (JJ, #161): the streamer can see at a glance that nothing of hers is in it. No raw error, call stack or
-     path: the plain sentence she saw; each file only as its type and size (「一个 mp4 文件，1.2 GB」); the error code alone
-     on its own line, for developers. */
+     path. Five kinds of line: HEADER; the version (MontClip's and the system's family, nothing more); what happened, in the
+     plain words she saw (errorText's `what`: not what to do, not the button); each file only as its type and size
+     (「一个 mp4 文件，1.2 GB」); the error code alone, for developers. */
   const WORDS = {
-    "zh-CN": { dev: "给开发者看：", file: "相关文件：", one: (ext, size) => `一个 ${ext} 文件，${size || "大小不明"}` },
-    en: { dev: "For developers: ", file: "File: ", one: (ext, size) => `${/^[aefhilmnorsx]/.test(ext) ? "an" : "a"} ${ext} file, ${size || "size unknown"}` },
+    "zh-CN": { version: "版本：", unknown: "版本不明", dev: "给开发者看（不用管）：", file: "相关文件：", one: (ext, size) => `一个 ${ext} 文件，${size || "大小不明"}` },
+    en: { version: "Version: ", unknown: "version unknown", dev: "For developers (you can ignore this): ", file: "File: ", one: (ext, size) => `${/^[aefhilmnorsx]/.test(ext) ? "an" : "a"} ${ext} file, ${size || "size unknown"}` },
   };
+  /** The system as the version line says it (JJ, #161): Windows 11 / Windows 10 / macOS / Linux — never a build number,
+   *  host or user name, path or locale. platform: process.platform (or the page's navigator.platform); release: os.release(). */
+  function systemName(platform, release) {
+    const p = String(platform || "").toLowerCase();
+    if (/^win/.test(p)) {
+      const m = /^10\.0\.(\d{5})(?:\D|$)/.exec(String(release || "").trim());
+      return m ? (Number(m[1]) >= 22000 ? "Windows 11" : "Windows 10") : "Windows";
+    }
+    if (/^(darwin|mac)/.test(p)) return "macOS";
+    if (/linux|x11/.test(p)) return "Linux";
+    return null;
+  }
+  /** 「版本：MontClip 1.18.0 · Windows 11」: a version that is a version (1.18.0, 1.18.0-rc.1), else 「版本不明」; the system's
+   *  family only (systemName). app: {version, platform, release}. */
+  function versionLine(app, language = "zh-CN") {
+    const w = WORDS[language] || WORDS["zh-CN"];
+    const v = String((app && app.version) || "").trim(), os = systemName(app && app.platform, app && app.release);
+    const version = /^\d{1,4}\.\d{1,4}\.\d{1,4}(-[0-9A-Za-z]{1,12}(\.[0-9A-Za-z]{1,12}){0,3})?$/.test(v) ? "MontClip " + v : "MontClip " + w.unknown;
+    return w.version + version + (os ? " · " + os : "");
+  }
   const FILE_EXT = "mp4|m4v|mov|mkv|webm|flv|avi|ts|mts|m2ts|wmv|mp3|wav|aac|m4a|flac|ogg|opus|wma|png|jpe?g|gif|webp|bmp|svg|srt|vtt|ass|lrc|xml|json|txt";
   /** The files a raw error names (paths or bare names): [{name, ext}] — the name only to look its size up, never copied. */
   function fileMentions(log) {
@@ -117,12 +138,13 @@
     const re = new RegExp(`[^\\s"'<>()=,;：，。、「」“”]+?\\.(${FILE_EXT})(?=$|[\\s"'<>():,;.，。、」”])`, "gi");
     return redactProblem(String(s || "").replace(re, (m, ext) => w.one(ext.toLowerCase(), "").replace(/[，,]\s*(大小不明|size unknown)$/, "")), opts);
   }
-  /** Everything 〔复制问题信息〕 copies. p: {text: the plain sentence the streamer saw, code, log: the raw error (read only
-   *  for the files it names, never copied), files?: [{ext, size}] (the server's, with sizes)}; opts: {language, home,
-   *  platform, user}. Lines: HEADER; the sentence; 「相关文件：一个 mp4 文件，1.2 GB」 per file; 「给开发者看：<code>」. */
+  /** Everything 〔复制问题信息〕 copies. p: {text: what happened, in the plain words the streamer saw (errorText's `what`),
+   *  code, log: the raw error (read only for the files it names, never copied), files?: [{ext, size}] (the server's, with
+   *  sizes), app?: {version, platform, release}}; opts: {language, home, platform, user}. Lines: HEADER; versionLine; what
+   *  happened; 「相关文件：一个 mp4 文件，1.2 GB」 per file; 「给开发者看（不用管）：<code>」. */
   function problemDetails(p, opts = {}) {
     const language = HEADER[opts.language] ? opts.language : "zh-CN", w = WORDS[language];
-    const lines = [HEADER[language]];
+    const lines = [HEADER[language], versionLine((p && p.app) || {}, language)];
     for (const l of String((p && p.text) || "").split(/\r?\n/)) if (l.trim()) lines.push(plain(l.trim(), w, opts));
     const files = (p && Array.isArray(p.files) ? p.files : fileMentions(p && p.log).map((f) => ({ ext: f.ext })));
     for (const f of files.slice(0, 8)) if (f && /^[a-z0-9]{1,5}$/i.test(f.ext)) lines.push(w.file + w.one(f.ext.toLowerCase(), fmtBytes(f.size)));
@@ -131,5 +153,5 @@
     if (raw) lines.push(w.dev + (/^[A-Za-z0-9_.-]{1,64}$/.test(code) ? code : "UNKNOWN"));
     return lines.join("\n");
   }
-  return { maskUserPath, redactProblem, problemDetails, fileMentions, fmtBytes, HEADER };
+  return { maskUserPath, redactProblem, problemDetails, fileMentions, fmtBytes, systemName, versionLine, HEADER };
 });

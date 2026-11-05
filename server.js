@@ -1552,7 +1552,10 @@ const server = http.createServer(async (req, res) => {
       return null;
     };
     const files = Redact.fileMentions(String(body.log || "").slice(0, 8000)).map((f) => ({ ext: f.ext, size: sizeOf(f.name) }));
-    const p = { text: String(body.text || "").slice(0, 2000), code: body.code, files };
+    // the version line (JJ / QQ, #161): package.json's version and the system's family only (problem-redact.js versionLine)
+    const version = (() => { try { return require("./package.json").version; } catch { return ""; } })();
+    const app = { version, platform: process.platform, release: os.release() };
+    const p = { text: String(body.text || "").slice(0, 2000), code: body.code, files, app };
     sendJSON(res, 200, { text: Redact.problemDetails(p, { home: os.homedir(), platform: process.platform, user: userName(), language: body.language }) });
     return;
   }

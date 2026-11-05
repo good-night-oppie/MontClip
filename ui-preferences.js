@@ -1058,12 +1058,36 @@
     let code = [e.code, e.errorCode].find((c) => typeof c === "string" && c) || "";
     if (!code && DISK_FULL.test(log)) code = "DISK_FULL";
     const p = e.params || {};
-    let s = /DISK_FULL$/.test(code) && p.size ? fill(t.errDiskFullSize, { size: String(p.size) }) : null;
+    let s = null, key = "errOther";
+    if (/DISK_FULL$/.test(code) && p.size) { s = fill(t.errDiskFullSize, { size: String(p.size) }); key = "errDiskFullSize"; }
     // an export's own rows before the Settings sentences (h264Message): frameTooSmall says the smallest size it takes
-    if (!s && Object.hasOwn(ERROR_TEXT, code) && (code !== "frameTooSmall" || p.n)) s = fill(t[ERROR_TEXT[code]], { n: String(p.n) });
-    if (!s && code) s = h264Message(l, { code, params: e.params, featurePack: e.featurePack });
-    if (!s && Object.hasOwn(FLV_REASONS, code)) s = flvImportMessage(l, code);
-    return { code: code || "UNKNOWN", text: s || t.errOther, known: !!s, copy: COPY_CODES.has(code), log };
+    if (!s && Object.hasOwn(ERROR_TEXT, code) && (code !== "frameTooSmall" || p.n)) { s = fill(t[ERROR_TEXT[code]], { n: String(p.n) }); key = ERROR_TEXT[code]; }
+    if (!s && code) { s = h264Message(l, { code, params: e.params, featurePack: e.featurePack }); if (s) key = code; }
+    if (!s && Object.hasOwn(FLV_REASONS, code)) { s = flvImportMessage(l, code); key = FLV_REASONS[code]; }
+    const said = s || t.errOther;
+    return { code: code || "UNKNOWN", text: said, what: whatHappened(l, key, said), known: !!s, copy: COPY_CODES.has(code), log };
+  }
+  /* What happened, without what to do (JJ, #161): the line 〔复制问题信息〕 copies after the version. For each sentence a
+     failure is said in, how many of its first sentences say what happened (checked one by one, both languages); the
+     screen keeps the whole sentence. A sentence not listed keeps everything but the part that asks for the button. */
+  const WHAT_SENTENCES = {
+    "own.export-blank-picture": 1, "own.export-blank-sound": 1, "own.export-blank-both": 1,
+    "own.err-offline": 1, "own.err-headless-disabled": 1, "own.err-editor-not-ready": 1, "own.err-editor-no-accept": 1,
+    errOther: 1, errDiskFull: 1, errDiskFullSize: 1, errExportChanged: 1, errFrameTooSmall: 1, errExtFailed: 1,
+    flvTimingUnverified: 1, flvDiskFull: 1, flvNeedsDesktop: 1, flvNeedsConvert: 1, flvComponentMissing: 1, flvNoEncoder: 1,
+    flvSourceChanged: 1, flvCopyMismatch: 1, flvCanceled: 1, flvCleanupFailed: 1, flvUnreadable: 1, flvBusy: 1, flvExpired: 1, flvUploadFailed: 1,
+    h264None: 1, h264NoneWin: 1, h264NoneOther: 1, h264ExternalFailed: 1, extGone: 1, extNotFfmpeg: 1, extNoX264: 1, extSettingBad: 1,
+    frameTooSmall: 1, ffmpegMissing: 1, extNeeded: 1, extSaveFailed: 1, extRemoveFailed: 1, extNotUsedNote: 1,
+  };
+  const sentencesOf = (s) => String(s || "").split(/(?<=[。！？])|(?<=[.!?])\s+(?=\S)/).filter((x) => x.trim());
+  function whatHappened(language, key, said) {
+    const l = lang(language), en = l === "en", parts = sentencesOf(said);
+    if (Object.hasOwn(WHAT_SENTENCES, key)) return parts.slice(0, WHAT_SENTENCES[key]).join(en ? " " : "").trim();
+    // not listed: drop the clauses that ask for 〔复制问题信息〕 (a sentence or the half of one after 「；」)
+    const btn = [text["zh-CN"].btnCopyProblem, text.en.btnCopyProblem, "复制问题信息", "Copy problem"];
+    const kept = parts.map((x) => x.split(/(?<=[；;])\s*/).filter((c) => !btn.some((b) => b && c.includes(b))).join(en ? " " : "")
+      .replace(/[；;]\s*$/, en ? "." : "。")).filter((x) => x.trim());
+    return kept.join(en ? " " : "").trim();
   }
   /** One item's reason in a batch: v2's sentence for its code when the table has one, else v2's last row. Never the
    *  Media Feature Pack line (JJ took it out of v2 until it is checked). */
@@ -1208,5 +1232,5 @@
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
   /** Where 〔复制问题信息〕's copy goes (#161; JJ): a mailbox a program watches for 「MontClip 问题信息 v1」. */
   const PROBLEM_EMAIL = "etang.build.bot@gmail.com";
-  return { PROBLEM_EMAIL, create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints, errorText, batchReason, exportResult, ERROR_CODES: Object.keys(ERROR_TEXT).concat(Object.keys(FLV_REASONS)) };
+  return { PROBLEM_EMAIL, WHAT_SENTENCES, whatHappened, create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints, errorText, batchReason, exportResult, ERROR_CODES: Object.keys(ERROR_TEXT).concat(Object.keys(FLV_REASONS)) };
 });
