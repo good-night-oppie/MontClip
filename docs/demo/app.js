@@ -20807,7 +20807,16 @@ $("btnHelp").addEventListener("click", () => {
   $("helpOverlay").classList.remove("hidden");
   $("helpFilter").focus();
 });
-$("btnCloseHelp").addEventListener("click", () => $("helpOverlay").classList.add("hidden"));
+/** Closes the shortcuts. Opened over Settings, the focus goes back to Settings, so the next Esc closes that (VV, 2026-11-04). */
+function closeHelp() {
+  $("helpOverlay").classList.add("hidden");
+  if (!$("settingsOverlay").classList.contains("hidden")) $("settingsDialog").focus();
+}
+$("btnCloseHelp").addEventListener("click", closeHelp);
+// a click on the dark area around the box closes it, as in Settings
+$("helpOverlay").addEventListener("click", (e) => {
+  if (e.target === $("helpOverlay")) closeHelp();
+});
 /** Keyboard shortcuts filter: keeps the rows (and whole sections, by heading) that match every typed word. */
 function filterHelp() {
   const words = $("helpFilter").value.toLowerCase().split(/\s+/).filter(Boolean);
@@ -20832,7 +20841,7 @@ $("helpFilter").addEventListener("keydown", (e) => {
   e.preventDefault();
   e.stopPropagation();
   if ($("helpFilter").value) { $("helpFilter").value = ""; filterHelp(); }
-  else $("helpOverlay").classList.add("hidden");
+  else closeHelp();
 });
 function settingsFocusables() {
   const root = $("settingsDialog");
@@ -20912,6 +20921,13 @@ $("btnCloseSettings").addEventListener("click", closeSettings);
 $("settingsOverlay").addEventListener("click", (e) => {
   if (e.target === $("settingsOverlay")) closeSettings();
 });
+/** Esc closes only the layer on top: the shortcuts (drawn over Settings) first, then Settings. False when neither is open. */
+function closeTopOverlay() {
+  if (!$("helpOverlay").classList.contains("hidden")) closeHelp();
+  else if (!$("settingsOverlay").classList.contains("hidden")) closeSettings();
+  else return false;
+  return true;
+}
 $("setLinkSelect").addEventListener("change", (e) => {
   setSetting("linkSelect", !!e.target.checked);
   if (!getSetting("linkSelect")) {
@@ -21545,15 +21561,8 @@ window.addEventListener("keydown", (e) => {
   }
   else if (k === "n" || k === "N") els.btnSnap.click();
   else if (k === "Escape") {
-    if (!$("settingsOverlay").classList.contains("hidden")) {
-      e.preventDefault();
-      closeSettings();
-    } else if (!$("helpOverlay").classList.contains("hidden")) {
-      e.preventDefault();
-      $("helpOverlay").classList.add("hidden");
-    } else {
-      selectClip(null);
-    }
+    if (closeTopOverlay()) e.preventDefault();
+    else selectClip(null);
   }
   else if ((e.ctrlKey || e.metaKey) && (k === "a" || k === "A")) {
     e.preventDefault();
