@@ -11,6 +11,19 @@ const S=require('../desktop/agent-service'),View=require('../ui-preferences'),Ca
 
 const ctx={projectId:'p',sequenceId:'main',generation:0,revision:1};
 const doc=(clips)=>({fps:30,media:[{id:'m',kind:'video',duration:600}],clips:clips||[{id:'c',kind:'video',mediaId:'m',track:'V1',start:0,in:100,duration:50,props:{}}]});
+/** The export-frame drop-down as app.js renders it in a language (its own code, on a stand-in <select>), and the names
+ *  exportFrameNames reads back from it. */
+function dropdown(lang){
+ const app=read('app.js');
+ const slice=(from,to)=>{const i=app.indexOf(from);a.ok(i>=0,from);return app.slice(i,app.indexOf(to,i));};
+ const src=slice('const EXPORT_FRAME_ASPECTS = [','const WAVE_PEAKS_PER_SEC')+slice('function syncExportFrameSel()','function applyProject(');
+ const attrs={},sel={title:'',innerHTML:'',setAttribute:(k,v)=>{attrs[k]=String(v);},getAttribute:(k)=>attrs[k]??null,
+  optionText:(v)=>{const m=new RegExp('<option value="'+v+'"[^>]*>([^<]*)</option>').exec(sel.innerHTML);return m?m[1]:null;},
+  querySelector:(q)=>{const m=/^option\[value="([^"]+)"\]$/.exec(q),t=m&&sel.optionText(m[1]);return t==null?null:{textContent:t};}};
+ const run=new Function('els','getExportFrame','exportFrameAspectIndex','uiText','escapeHtml',src+';syncExportFrameSel();return exportFrameNames();');
+ const names=run({exportFrameSel:sel},()=>null,()=>-1,(k,v)=>View.t(lang,k,v),(x)=>String(x));
+ return {sel,names};
+}
 const ranges=(r,mode='one_file',d=doc())=>P.prepare({type:'keep_ranges',output_mode:mode,ranges:r.map(([from,to])=>({clipId:'c',from,to}))},{doc:d,context:ctx});
 
 test('a proposal that keeps the whole timeline, in order and without a gap, changes nothing: unchanged',()=>{
@@ -46,8 +59,9 @@ test('the pane shows no 〔查看剪辑建议〕 for an unchanged proposal and s
  // in every mode (Auto, Yolo too): checked before the host is even asked
  const reply=app.slice(app.indexOf('async function onAgentReply'));
  a.ok(reply.indexOf('if(agentProposalUnchanged(result))return;')>0&&reply.indexOf('if(agentProposalUnchanged(result))return;')<reply.indexOf('montclipAgentPolicy.decide'));
- a.equal(View.text['zh-CN'].officialPane_noChange.replace('{duration}','00:50'),'按这个建议剪，时间线和现在完全一样（现在一共 00:50），不用应用。');
- a.equal(View.text.en.officialPane_noChange.replace('{duration}','00:50'),'This suggestion would leave the timeline exactly as it is (it is 00:50 now), so there is nothing to apply.');
+ // JJ定稿 (2026-11-05), word for word
+ a.equal(View.text['zh-CN'].officialPane_noChange.replace('{duration}','00:50'),'按这个建议剪，时间线不会有任何变化（现在一共 00:50），所以不用应用。');
+ a.equal(View.text.en.officialPane_noChange.replace('{duration}','00:50'),"This suggestion wouldn't change the timeline (it's 00:50 now), so there's nothing to apply.");
 });
 
 test('the assistant cannot reframe: fablecut_reframe exists in MCP, not among what the assistant can do',()=>{
@@ -78,26 +92,41 @@ test('a mixed message, with a substitute transport: the format note sent carries
  // the reply is an edit (JSON only, it cannot say anything): the pane's first sentence is the host's, decided by the words
  for(const lang of ['zh-CN','en']){
   const strings=new Proxy({},{get:(_,k)=>View.text[lang]['officialPane_'+String(k)]});
-  const shown=L.shown(draft,conv.result().text,strings);
-  a.equal(shown.length,2);a.equal(shown[0],View.text[lang].officialPane_limitReframe);a.equal(shown[1],conv.result().text);
+  const names=dropdown(lang).names;
+  const shown=L.shown(draft,conv.result().text,strings,names);
+  a.equal(shown.length,2);a.equal(shown[1],conv.result().text);
+  a.equal(shown[0],View.text[lang].officialPane_limitReframe.replace('{dropdown}',names.dropdown).replace('{option}',names.option));
  }
- a.equal(View.text['zh-CN'].officialPane_limitReframe,'改竖屏（改画面比例）这一步，助手现在做不了。可以手动改：在播放器上方的导出画面下拉框里选 9:16，再导出。');
+ // JJ定稿 (2026-11-05), word for word, with the names the drop-down shows now
+ a.equal(L.note(draft,{limitReframe:View.text['zh-CN'].officialPane_limitReframe},dropdown('zh-CN').names),'改竖屏这一步，助手现在还做不了。可以自己改：在播放器上方的「导出画面」里选「9:16 Reel」，再导出。');
+ a.equal(L.note(draft,{limitReframe:View.text.en.officialPane_limitReframe},dropdown('en').names),'The assistant can\'t switch to vertical yet. You can do it yourself: in the “Export frame” list above the player, choose “9:16 Reel”, then export.');
  a.ok(View.text['zh-CN'].officialPane_limitReframe.startsWith('改竖屏'),'its first sentence is what can\'t be done');
  a.ok(!/我/.test(View.text['zh-CN'].officialPane_limitReframe)&&!/我/.test(View.text['zh-CN'].officialPane_noChange),'fixed words: no 我');
  a.deepEqual(L.shown('剪到 1 分钟以内',conv.result().text,{}),[conv.result().text],'nothing missing: the reply alone');
  // the pane shows it first in the assistant's message, from the user message before it
  const pane=read('agent-ui/pane.tsx');
- a.match(pane,/const limit=m\.role==='assistant'\?W\.MontClipLimits\?\.note\(MontClipAgentPane\.displayMessage\(session\.messages\[i-1\]\?\.text\|\|''\)\.text,t\):'';/);
+ a.match(pane,/const limit=m\.role==='assistant'\?W\.MontClipLimits\?\.note\(MontClipAgentPane\.displayMessage\(session\.messages\[i-1\]\?\.text\|\|''\)\.text,t,options\.limitNames\?\.\(\)\|\|\{\}\):'';/);
+ a.match(read('app.js'),/ limitNames:\(\)=>exportFrameNames\(\),/);
  a.match(pane,/<strong>\{m\.role==='user'\?t\.user:t\.assistant\}<\/strong>\{limit&&<p data-host-limit>\{limit\}<\/p>\}<ThinkingText content=\{shown\.text\}\/>/);
  a.match(read('cindy-official.js'),/data-host-limit/);
  a.match(read('index.html'),/<script src="agent-limits\.js"><\/script>/);
 });
 
-test('the names in the manual way are the ones on screen: the export-frame drop-down above the player and its option',()=>{
- const app=read('app.js'),html=read('index.html');
- a.match(app,/const EXPORT_FRAME_ASPECTS = \[\n  \{ label: "Full canvas", w: 0, h: 0 \},\n  \{ label: "9:16 Reel", w: 9, h: 16 \},/);
- a.match(html,/<select data-more-rank="6" id="exportFrameSel"/);
- for(const s of [View.text.en.officialPane_limitReframe,F.FORMAT_NOTE])a.ok(s.includes('“Full canvas”')&&s.includes('“9:16 Reel”'));
- // the labels are English in the Chinese interface too (not translated yet): the Chinese names the drop-down and 9:16
- for(const s of [View.text['zh-CN'].officialPane_limitReframe,F.FORMAT_NOTE])a.ok(s.includes('在播放器上方的导出画面下拉框里选 9:16，再导出'));
+test('the names in the sentence are the ones the drop-down shows: its label and its 9:16 option, read from it',()=>{
+ for(const lang of ['zh-CN','en']){
+  const {sel,names}=dropdown(lang);
+  a.equal(names.dropdown,View.text[lang]['own.ef-label']);a.equal(names.dropdown,sel.getAttribute('aria-label'));a.equal(sel.title,names.dropdown);
+  a.equal(names.option,sel.optionText('1'),'the 9:16 option as rendered');
+  a.equal(names.option,'9:16 Reel','what it shows now (the translation PR changes the option, and the sentence follows)');
+ }
+ a.equal(View.text['zh-CN']['own.ef-label'],'导出画面');a.equal(View.text.en['own.ef-label'],'Export frame');
+ a.match(read('ui-preferences.js'),/the export-frame drop-down above the player: its name \(aria-label and tooltip; Deja, 2026-11-05\)\. 待 JJ 定稿/);
+ // never written into the sentence by hand
+ for(const l of ['zh-CN','en']){const t=View.text[l].officialPane_limitReframe;a.ok(t.includes('{dropdown}')&&t.includes('{option}')&&!t.includes('9:16')&&!t.includes('Reel'),t);}
+ // a language switch rebuilds the drop-down, so the names follow it
+ const app=read('app.js'),refresh=app.slice(app.indexOf('function refreshLanguageText()'),app.indexOf('function updateMontClipView('));
+ a.match(refresh,/syncExportFrameSel\(\);/);
+ a.match(read('index.html'),/<select data-more-rank="6" id="exportFrameSel"/);
+ // the format note keeps its own way of saying it (the model's words, not the editor's)
+ a.ok(F.FORMAT_NOTE.includes('“Full canvas”')&&F.FORMAT_NOTE.includes('“9:16 Reel”'));
 });
