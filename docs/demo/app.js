@@ -2449,8 +2449,8 @@ function renderBin() {
     bar.setAttribute("role", "status");
     bar.innerHTML = `<span></span><button type="button" class="btn tiny accent" data-go></button><button type="button" class="btn tiny" data-close>✕</button>`;
     bar.querySelector("span").textContent = noticed.length === 1
-      ? uiText("own.at-found", { name: noticed[0].name, n: noticed[0].audioTracks.length, menu: uiText("own.at-menu") })
-      : uiText("own.at-found-n", { n: noticed.length, menu: uiText("own.at-menu") });
+      ? uiText("own.at-found", { name: noticed[0].name, n: noticed[0].audioTracks.length, go: uiText("own.at-go"), menu: uiText("own.at-menu") })
+      : uiText("own.at-found-n", { n: noticed.length, go: uiText("own.at-go"), menu: uiText("own.at-menu") });
     bar.querySelector("[data-go]").textContent = uiText("own.at-go");
     const close = bar.querySelector("[data-close]");
     close.title = close.ariaLabel = uiText("own.at-dismiss");

@@ -186,7 +186,7 @@ test('the editor: the media info lists the tracks with 试听, picking one is an
  a.match(app,/if \(MediaLib\.audioTrackOf\(m\)\) mo\.audioTrack = m\.audioTrack;/,'the save keeps the pick (the media list is written field by field)');
  a.match(app,/JSON\.stringify\(\{ src, track: m \? MediaLib\.audioTrackOf\(m\) : 0 \}\)/,'transcription names the track');
  a.match(app,/"\/api\/transcript\?src=" \+ encodeURIComponent\(src\) \+ "&track=" \+ track/);
- a.match(app,/uiText\("own\.at-found", \{ name: noticed\[0\]\.name, n: noticed\[0\]\.audioTracks\.length, menu: uiText\("own\.at-menu"\) \}\)/,'the menu name is the menu item\'s own (「选音轨…」, VV on #177)');
+ a.match(app,/uiText\("own\.at-found", \{ name: noticed\[0\]\.name, n: noticed\[0\]\.audioTracks\.length, go: uiText\("own\.at-go"\), menu: uiText\("own\.at-menu"\) \}\)/,'the menu name is the menu item\'s own (「选音轨…」, VV on #177)');
  a.match(app,/uiText\("own\.at-captions-edited", \{ n: track \+ 1, button: uiText\("own\.at-captions-redo"\) \}\)/,'the button name is the button\'s own');
 });
 test('JJ定稿 wording (2026-11-05), word for word in both languages; menu and button names come from their own keys',()=>{
@@ -204,13 +204,21 @@ test('JJ定稿 wording (2026-11-05), word for word in both languages; menu and b
  a.equal(btnZh,'按这条轨重做字幕');a.equal(btnEn,'Redo subtitles from this track');
  a.equal(zh('at-captions-edited',{n:2,button:btnZh}),'字幕你改过，所以没有自动重做。要按第 2 轨重做，点〔按这条轨重做字幕〕；原来的字幕会被替换。');
  a.equal(en('at-captions-edited',{n:2,button:btnEn}),"You've edited the subtitles, so they weren't redone automatically. To redo them from track 2, click “Redo subtitles from this track”. The current subtitles will be replaced.");
- a.equal(zh('at-found',{name:'录像',n:3,menu:menuZh}),'「录像」有 3 条音轨，现在用的是第 1 轨。主播的声音如果在别的轨上，右键这个文件 →〔素材信息…〕里改。');
- a.equal(en('at-found',{name:'rec',n:3,menu:menuEn}),"“rec” has 3 audio tracks; track 1 is in use. If the streamer's voice is on another track, right-click the file → “Media info…” to change it.");
- a.equal(zh('at-found-n',{n:2,menu:menuZh}),'有 2 个文件有好几条音轨，现在用的都是第 1 轨。主播的声音如果在别的轨上，右键文件 →〔素材信息…〕里改。');
- a.equal(en('at-found-n',{n:2,menu:menuEn}),"2 files have several audio tracks; track 1 is in use for all of them. If the streamer's voice is on another track, right-click the file → “Media info…” to change it.");
+ // the bar's sentences name 〔去选〕 and 「选音轨…」 from their own keys (JJ定稿, VV's review)
+ const go={zh:zh('at-go'),en:en('at-go')},am={zh:zh('at-menu'),en:en('at-menu')};
+ a.equal(zh('at-found',{name:'录像',n:3,go:go.zh,menu:am.zh}),'「录像」有 3 条音轨，现在用的是第 1 轨。主播的声音如果在别的轨上，点〔去选〕换一条；以后也可以右键文件 →〔选音轨…〕。');
+ a.equal(en('at-found',{name:'rec',n:3,go:go.en,menu:am.en}),"“rec” has 3 audio tracks; track 1 is in use. If the streamer's voice is on another track, click “Choose” to switch. You can also right-click the file → “Choose audio track…” later.");
+ a.equal(zh('at-found-n',{n:2,go:go.zh,menu:am.zh}),'有 2 个文件有好几条音轨，现在用的都是第 1 轨。主播的声音如果在别的轨上，点〔去选〕换一条；以后也可以右键文件 →〔选音轨…〕。');
+ a.equal(en('at-found-n',{n:2,go:go.en,menu:am.en}),"2 files have several audio tracks; track 1 is in use for all of them. If the streamer's voice is on another track, click “Choose” to switch. You can also right-click the file → “Choose audio track…” later.");
+ a.equal(zh('at-badge',{n:3,k:2}),'3 条音轨 · 用第 2 条');a.equal(en('at-badge',{n:3,k:2}),'3 audio tracks · using track 2');
+ a.equal(zh('at-badge-busy'),'正在按新轨重算…');a.equal(en('at-badge-busy'),'updating for the new track…');
+ a.equal(go.zh,'去选');a.equal(go.en,'Choose');a.equal(zh('at-dismiss'),'关闭');a.equal(en('at-dismiss'),'Close');
+ a.equal(am.zh,'选音轨…');a.equal(am.en,'Choose audio track…');
+ a.equal(zh('at-stop'),'■ 停止');a.equal(en('at-stop'),'■ Stop');
+ a.equal(zh('at-undone',{n:1}),'已改回第 1 轨。');a.equal(en('at-undone',{n:1}),'Back to track 1.');
  a.equal(require('../capabilities').get('fablecut_audio_track').summary['zh-CN'],'分轨录像里，选哪条音轨是主播的声音');
  const src=fs.readFileSync(path.join(__dirname,'..','ui-preferences.js'),'utf8');
- a.ok(!/Media info…”|〔素材信息…〕|Redo subtitles from this track”|〔按这条轨重做字幕〕/.test(src),'menu and button names are never written into these sentences by hand');
+ a.ok(!/Media info…”|〔素材信息…〕|Redo subtitles from this track”|〔按这条轨重做字幕〕|〔去选〕|〔选音轨…〕|“Choose”|“Choose audio track…”/.test(src),'menu and button names are never written into these sentences by hand');
 });
 test('captions say which text they were made with, so an edited one is told apart and never redone without asking',()=>{
  const C=require('../captions');
