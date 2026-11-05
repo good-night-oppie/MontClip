@@ -659,6 +659,7 @@
     "clip-disable": ["Disable clip", "停用片段"],
     "clip-lock": ["Lock clip", "锁定片段"],
     "clip-parent-null": ["Parent to a new null", "绑定到新的空对象"],
+    "clip-locked-tip": ["Locked — unlock to change", "片段已锁定，解锁后才能改"],   // 待 JJ 定稿 (Deja, 2026-11-05)
     // P4 (JJ, 2026-11-05): one step to hide a co-host or viewers' names. The rows JJ finalised on 2026-11-05 are marked
     // JJ定稿 (test/cover-region.test.js locks them word for word); the English says Hide / Hidden, never Cover.
     "cover-area": ["Hide this area", "给这块打码"],   // JJ定稿

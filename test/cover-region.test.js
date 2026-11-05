@@ -144,3 +144,13 @@ test("agents: the patch ops keep the numbers (remove one → the other keeps its
   assert.deepEqual(ids(), [2, 3]);
   assert.match(r.text, /#2 mosaic 60.*#3 mosaic 60/);
 });
+
+/* The right-click menu's locked hint follows the interface language (Deja, 2026-11-05; the Chinese is a draft, 待 JJ 定稿). */
+test("the clip menu's locked hint is a uiText key, not English written into app.js", () => {
+  const V = require("../ui-preferences"), fs = require("node:fs"), path = require("node:path");
+  assert.equal(V.t("zh-CN", "own.clip-locked-tip"), "片段已锁定，解锁后才能改");
+  assert.equal(V.t("en", "own.clip-locked-tip"), "Locked — unlock to change");
+  const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+  assert.doesNotMatch(app, /"Locked — unlock to change"/);
+  assert.equal(app.match(/locked \? uiText\("own\.clip-locked-tip"\) : null/g).length, 7);
+});

@@ -520,27 +520,27 @@ function showClipCtxMenu(clientX, clientY, c) {
   const anyUnlocked = group.some((x) => x.locked !== true);
   const locked = group.some(isClipLocked);
   item(anyEnabled ? uiText("own.clip-disable") : "Enable clip", "Shift+E", toggleClipsDisabled,
-    locked ? "Locked — unlock to change" : null);
+    locked ? uiText("own.clip-locked-tip") : null);
   item(anyUnlocked ? uiText("own.clip-lock") : "Unlock clip", "", toggleClipsLocked);
   if (Mask.COVER_KINDS.includes(c.kind)) {   // 打码: its own group, right after enable / lock (VV's review of #163)
     const sep = document.createElement("div"); sep.className = "ctx-sep"; menu.appendChild(sep);
-    const b = item(uiText("own.cover-area"), "", () => startCoverTool(c), locked ? "Locked — unlock to change" : null);
+    const b = item(uiText("own.cover-area"), "", () => startCoverTool(c), locked ? uiText("own.clip-locked-tip") : null);
     if (!locked) b.title = uiText("own.cover-area-tip");
     menu.appendChild(Object.assign(document.createElement("div"), { className: "ctx-sep" }));
   }
   if (group.some((x) => x.kind === "audio")) {
-    item("Crossfade with neighbours", "Shift+D", () => crossfadeSelected(), locked ? "Locked — unlock to change" : null);
-    item("Auto-duck under other tracks", "", () => autoDuckClips(selectedClips()), locked ? "Locked — unlock to change" : null);
+    item("Crossfade with neighbours", "Shift+D", () => crossfadeSelected(), locked ? uiText("own.clip-locked-tip") : null);
+    item("Auto-duck under other tracks", "", () => autoDuckClips(selectedClips()), locked ? uiText("own.clip-locked-tip") : null);
   }
   if (group.some((x) => x.kind === "audio" || x.kind === "video"))
     item("Find silences", "", () => findSilences(selectedClips()));
   if (selectedClips().some((x) => isVisualClip(x) && x.kind !== "null"))
-    item(uiText("own.clip-parent-null"), "", parentSelectionToNull, locked ? "Locked — unlock to change" : null);
-  item(uiText("term.precompose"), "", precomposeSelection, locked ? "Locked — unlock to change" : null);
+    item(uiText("own.clip-parent-null"), "", parentSelectionToNull, locked ? uiText("own.clip-locked-tip") : null);
+  item(uiText("term.precompose"), "", precomposeSelection, locked ? uiText("own.clip-locked-tip") : null);
   if (c.kind === "comp") item(uiText("term.open-composition"), "", () => enterComp(c.compId, c));
   if (c.mediaId || c.kind === "comp") item(uiText("term.reveal-in-project"), "", () => revealInProject(c));
   const linked = selectedClips().some((x) => x.linkGroup || x.linkedId);
-  if (linked) item("Unlink audio / video", "Ctrl+L", toggleLinkSelected, locked ? "Locked — unlock to change" : null);
+  if (linked) item("Unlink audio / video", "Ctrl+L", toggleLinkSelected, locked ? uiText("own.clip-locked-tip") : null);
   else if (c.kind === "video" || c.kind === "audio") {
     const why = linkRefusal(selectedClips());
     item("Link audio / video", "Ctrl+L", toggleLinkSelected, why);
