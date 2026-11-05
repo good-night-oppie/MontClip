@@ -63,7 +63,7 @@ const TOOLS = [
         path: { type: "string", description: "Source clip to look at: an absolute file path or a '/media/…' src. Read in place — nothing is copied into media/. Omit to render the timeline instead." },
         t: { type: "number", description: "Seconds into the source clip (default 0). Ignored when `frames` is passed." },
         time: { type: "number", description: "TIMELINE seconds to render, when `path` is omitted (default: the editor's playhead)" },
-        frames: { type: "number", description: "Contact-sheet mode: number of moments to sample across the clip, 2–60 (default 12)" },
+        frames: { type: "number", description: "Contact-sheet mode: number of moments to sample across the clip, 2–60 (default 12). A contact sheet shows the RAW source file — no masks, crop, mosaic or titles; to check those, render the timeline with `time`" },
         cols: { type: "number", description: "Contact-sheet columns (omit for the squarest layout — 6 frames give 3×2, 12 give 4×3)" },
         from: { type: "number", description: "Contact sheet: start of the range to survey (default 0)" },
         to: { type: "number", description: "Contact sheet: end of the range (default: the clip's duration)" },
