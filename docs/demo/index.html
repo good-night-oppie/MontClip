@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- No Referer on any request this page makes (Deja, #151). The editor's own server never reads it. The font files a
+     Google Fonts stylesheet pulls take the sheet's policy, not this one: loadGoogleFont handles those. -->
+<meta name="referrer" content="no-referrer">
 <title>MontClip playground</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
@@ -561,13 +564,13 @@
           <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td data-i18n-html="own.help-5">Jump to previous / next cut (selected clip In then Out; no selection → targeted tracks). Source monitor: In / Out marks</td></tr>
           <tr><td><kbd>Home</kbd> / <kbd>End</kbd></td><td data-i18n-html="own.help-6">Jump to start / end</td></tr>
           <tr><td><kbd>0</kbd>–<kbd>9</kbd> / click timecode</td><td data-i18n-html="own.help-7">Type a time: <code>01:15:00</code>, packed <code>1500</code> (= 15 s), <code>+30</code> / <code>-1:00</code> to offset, <code>12.5</code> seconds. Click IN / OUT readouts to type those too</td></tr>
-          <tr><td>Limit (toolbar)</td><td data-i18n-html="own.help-8">Play stops at OUT; Home / End use IN / OUT</td></tr>
+          <tr><td data-i18n="term.limit-toolbar">Limit (toolbar)</td><td data-i18n-html="own.help-8">Play stops at OUT; Home / End use IN / OUT</td></tr>
         </table>
       </section>
       <section class="keys-sec">
         <h3 data-i18n="term.source-monitor">Source monitor</h3>
         <table class="keys">
-          <tr><td>Dbl-click bin / clip</td><td data-i18n-html="own.help-9">Load into the Source monitor</td></tr>
+          <tr><td data-i18n="term.dbl-click-bin-clip">Dbl-click bin / clip</td><td data-i18n-html="own.help-9">Load into the Source monitor</td></tr>
           <tr><td><kbd>,</kbd></td><td data-i18n-html="own.help-10">Insert Source In→Out at the timeline playhead (ripples later clips)</td></tr>
           <tr><td><kbd>.</kbd></td><td data-i18n-html="own.help-11">Replace — overwrite at the playhead, or apply new Source In / Out to a timeline-loaded clip (ripples if the duration changes)</td></tr>
         </table>
@@ -591,10 +594,10 @@
       <section class="keys-sec">
         <h3 data-i18n="term.selection">Selection</h3>
         <table class="keys">
-          <tr><td>Drag empty area</td><td data-i18n-html="own.help-23">Marquee-select clips</td></tr>
+          <tr><td data-i18n="term.drag-empty-area">Drag empty area</td><td data-i18n-html="own.help-23">Marquee-select clips</td></tr>
           <tr><td><kbd>Ctrl</kbd>+click clip</td><td data-i18n-html="own.help-24">Add to / remove from the selection</td></tr>
           <tr><td><kbd>Ctrl</kbd>+<kbd>A</kbd> / <kbd>Esc</kbd></td><td data-i18n-html="own.help-25">Select all / deselect</td></tr>
-          <tr><td>Right-click clip</td><td data-i18n-html="own.help-26">Disable / lock / link or unlink / precompose</td></tr>
+          <tr><td data-i18n="term.right-click-clip">Right-click clip</td><td data-i18n-html="own.help-26">Disable / lock / link or unlink / precompose</td></tr>
         </table>
       </section>
       <section class="keys-sec">
@@ -607,7 +610,7 @@
           <tr><td><kbd>;</kbd> / <kbd>'</kbd></td><td data-i18n-html="own.help-31">Lift / Extract IN→OUT on targeted tracks (Extract closes the gap)</td></tr>
           <tr><td><kbd>M</kbd></td><td data-i18n-html="own.help-32">Add / remove a marker at the playhead</td></tr>
           <tr><td><kbd>⇧</kbd>+<kbd>M</kbd> / <kbd>Alt</kbd>+<kbd>⇧</kbd>+<kbd>M</kbd></td><td data-i18n-html="own.help-33">Go to the next / previous marker</td></tr>
-          <tr><td>Marker on ruler</td><td data-i18n-html="own.help-34">Drag to move · click to jump · double-click or right-click to name / colour / delete · <b data-i18n="term.markers">Markers</b> lists them all</td></tr>
+          <tr><td data-i18n="term.marker-on-ruler">Marker on ruler</td><td data-i18n-html="own.help-34">Drag to move · click to jump · double-click or right-click to name / colour / delete · <b data-i18n="term.markers">Markers</b> lists them all</td></tr>
         </table>
       </section>
       <section class="keys-sec">
@@ -619,10 +622,10 @@
           <tr><td><kbd>Alt</kbd>+<kbd>Z</kbd></td><td data-i18n-html="own.help-38">Zoom to the IN–OUT work area</td></tr>
           <tr><td><kbd>⇧</kbd>+<kbd>Z</kbd></td><td data-i18n-html="own.help-39">Zoom to fit</td></tr>
           <tr><td><kbd>N</kbd></td><td data-i18n-html="own.help-40">Snapping on / off — <b>▾</b> picks targets (clip edges, playhead, markers, IN / OUT, keyframes, frame grid)</td></tr>
-          <tr><td>Click track name</td><td data-i18n-html="own.help-41">Target / untarget the track — edits touch lit (targeted) tracks only</td></tr>
-          <tr><td>Track <b>S</b></td><td data-i18n-html="own.help-42">Solo the track (mutes all others; click again to restore)</td></tr>
-          <tr><td>Track padlock</td><td data-i18n-html="own.help-43">Lock the track — nothing on it can be edited or moved</td></tr>
-          <tr><td>Right-click track</td><td data-i18n-html="own.help-44">Remove an empty track (keeps ≥1 video + ≥1 audio)</td></tr>
+          <tr><td data-i18n="term.click-track-name">Click track name</td><td data-i18n-html="own.help-41">Target / untarget the track — edits touch lit (targeted) tracks only</td></tr>
+          <tr><td><span data-i18n="term.track">Track</span> <b>S</b></td><td data-i18n-html="own.help-42">Solo the track (mutes all others; click again to restore)</td></tr>
+          <tr><td data-i18n="term.track-padlock">Track padlock</td><td data-i18n-html="own.help-43">Lock the track — nothing on it can be edited or moved</td></tr>
+          <tr><td data-i18n="term.right-click-track">Right-click track</td><td data-i18n-html="own.help-44">Remove an empty track (keeps ≥1 video + ≥1 audio)</td></tr>
         </table>
       </section>
       <section class="keys-sec">
@@ -631,13 +634,13 @@
           <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>←</kbd> / <kbd>→</kbd></td><td data-i18n-html="own.help-45">Go to the previous / next keyframe (the Inspector follows)</td></tr>
           <tr><td><kbd>Ctrl/Cmd</kbd>+click inspector label or slider</td><td data-i18n-html="own.help-46">Reset a property and clear all its keyframes</td></tr>
           <tr><td><kbd>⇧</kbd>+click label</td><td data-i18n-html="own.help-47">Reset the value at the playhead, or remove that keyframe</td></tr>
-          <tr><td>Motion → Presets</td><td data-i18n-html="own.help-48">In · Out · At playhead · Loop menus key a ready-made animation onto the selected clips · <b data-i18n="term.save-as-preset">Save as preset</b> keeps this clip's keyframes for every project</td></tr>
+          <tr><td data-i18n="term.motion-presets">Motion → Presets</td><td data-i18n-html="own.help-48">In · Out · At playhead · Loop menus key a ready-made animation onto the selected clips · <b data-i18n="term.save-as-preset">Save as preset</b> keeps this clip's keyframes for every project</td></tr>
         </table>
       </section>
       <section class="keys-sec">
         <h3 data-i18n="term.audio">Audio</h3>
         <table class="keys">
-          <tr><td>Volume line</td><td data-i18n-html="own.help-49">Drag to change the level · <kbd>Ctrl/Cmd</kbd>+click adds a keyframe · <kbd>Alt</kbd>+click or double-click removes one · corner grips drag fades</td></tr>
+          <tr><td data-i18n="term.volume-line">Volume line</td><td data-i18n-html="own.help-49">Drag to change the level · <kbd>Ctrl/Cmd</kbd>+click adds a keyframe · <kbd>Alt</kbd>+click or double-click removes one · corner grips drag fades</td></tr>
           <tr><td><kbd>⇧</kbd>+<kbd>D</kbd></td><td data-i18n-html="own.help-50">Crossfade the audio cut next to the selected clip (or at the playhead)</td></tr>
         </table>
       </section>
@@ -645,72 +648,72 @@
         <h3 data-i18n="term.bin-compositions-and-templates">Bin, compositions and templates</h3>
         <table class="keys">
           <tr><td><kbd>Ctrl</kbd>+click bin</td><td data-i18n-html="own.help-51">Import media files</td></tr>
-          <tr><td>Right-click <b data-i18n="term.project">Project</b> tab</td><td data-i18n-html="own.help-52">New folder · New composition</td></tr>
-          <tr><td>Bin search</td><td data-i18n-html="own.help-53">Name, kind, codec, <code>2160p</code> or a tag; <code>#tag</code> matches tags only · <kbd>Esc</kbd> clears</td></tr>
-          <tr><td>Right-click a bin file</td><td data-i18n-html="own.help-54">Find timeline instances · Media info · favorites · Tags · collections</td></tr>
+          <tr><td><span data-i18n="term.right-click">Right-click</span> <b data-i18n="term.project">Project</b> tab</td><td data-i18n-html="own.help-52">New folder · New composition</td></tr>
+          <tr><td data-i18n="term.bin-search">Bin search</td><td data-i18n-html="own.help-53">Name, kind, codec, <code>2160p</code> or a tag; <code>#tag</code> matches tags only · <kbd>Esc</kbd> clears</td></tr>
+          <tr><td data-i18n="term.right-click-a-bin-file">Right-click a bin file</td><td data-i18n-html="own.help-54">Find timeline instances · Media info · favorites · Tags · collections</td></tr>
           <tr><td>☆ / uses badge on a bin file</td><td data-i18n-html="own.help-55">Star it · list where it is used (click one to jump there)</td></tr>
           <tr><td>☰ in the bin</td><td data-i18n-html="own.help-56">List view with metadata columns · click a heading to sort</td></tr>
-          <tr><td>Right-click a clip</td><td data-i18n-html="own.help-57"><b data-i18n="term.reveal-in-project">Reveal in project</b> — show its file in the bin</td></tr>
-          <tr><td>Right-click a bin file</td><td data-i18n-html="own.help-58"><b data-i18n="term.relink">Relink…</b> — point it at the footage where it is now · <b data-i18n="term.replace-file">Replace file…</b> — a new file for every clip that uses it</td></tr>
-          <tr><td>Right-click a bin video</td><td data-i18n-html="own.help-59"><b data-i18n="term.create-proxy">Create proxy</b> — a light copy to edit with (right-click the Project tab for all of them) · <b data-i18n="term.proxy">Proxy</b> above the monitor plays proxies on / off; export always uses the originals</td></tr>
-          <tr><td>Comp clip / bin comp</td><td data-i18n-html="own.help-60">Double-click to open it on the timeline · drag a bin comp onto the timeline to place it · the breadcrumb above the timeline steps back out</td></tr>
-          <tr><td>Right-click clips</td><td data-i18n-html="own.help-61"><b data-i18n="term.precompose">Precompose</b> — move the selection into a new comp</td></tr>
-          <tr><td><kbd>Esc</kbd> inside a comp</td><td data-i18n-html="own.help-62">Back out one level (once nothing is selected)</td></tr>
+          <tr><td data-i18n="term.right-click-a-clip">Right-click a clip</td><td data-i18n-html="own.help-57"><b data-i18n="term.reveal-in-project">Reveal in project</b> — show its file in the bin</td></tr>
+          <tr><td data-i18n="term.right-click-a-bin-file">Right-click a bin file</td><td data-i18n-html="own.help-58"><b data-i18n="term.relink">Relink…</b> — point it at the footage where it is now · <b data-i18n="term.replace-file">Replace file…</b> — a new file for every clip that uses it</td></tr>
+          <tr><td data-i18n="term.right-click-a-bin-video">Right-click a bin video</td><td data-i18n-html="own.help-59"><b data-i18n="term.create-proxy">Create proxy</b> — a light copy to edit with (right-click the Project tab for all of them) · <b data-i18n="term.proxy">Proxy</b> above the monitor plays proxies on / off; export always uses the originals</td></tr>
+          <tr><td data-i18n="term.comp-clip-bin-comp">Comp clip / bin comp</td><td data-i18n-html="own.help-60">Double-click to open it on the timeline · drag a bin comp onto the timeline to place it · the breadcrumb above the timeline steps back out</td></tr>
+          <tr><td data-i18n="term.right-click-clips">Right-click clips</td><td data-i18n-html="own.help-61"><b data-i18n="term.precompose">Precompose</b> — move the selection into a new comp</td></tr>
+          <tr><td><kbd>Esc</kbd> <span data-i18n="term.inside-a-comp">inside a comp</span></td><td data-i18n-html="own.help-62">Back out one level (once nothing is selected)</td></tr>
           <tr><td><b data-i18n="term.templates">Templates</b> tab</td><td data-i18n-html="own.help-63">Drag a lower third, logo animation or social layout onto the timeline (or click ＋) · fill in its fields in the Inspector's <b data-i18n="term.template">Template</b> section · right-click a comp → <b data-i18n="term.save-as-template">Save as template</b></td></tr>
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Projects <span>top bar → Projects</span></h3>
+        <h3 data-i18n-tail="term.projects">Projects <span>top bar → Projects</span></h3>
         <table class="keys">
           <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>O</kbd></td><td data-i18n-html="own.help-64">Open the Projects dashboard (or click the project name)</td></tr>
           <tr><td><kbd>Ctrl/Cmd</kbd>+<kbd>S</kbd></td><td data-i18n-html="own.help-65">Save a version of the open project (every edit is saved anyway; a version is a point to come back to)</td></tr>
-          <tr><td>Project → <b data-i18n="term.versions">Versions…</b></td><td data-i18n-html="own.help-66">Compare a version with now · <b data-i18n="term.restore">Restore…</b> (click twice; what is there is saved as a version first) · mark the final cut</td></tr>
-          <tr><td>Timeline toolbar → <b>sequence menu</b></td><td data-i18n-html="own.help-67">Open another sequence of this project · <b data-i18n="term.new-sequence">New sequence…</b> (any canvas, empty or a copy) · <b data-i18n="term.duplicate">Duplicate</b> · <b data-i18n="term.rename">Rename…</b> · <b data-i18n="term.delete-2">Delete…</b> (click twice; kept as a version first)</td></tr>
+          <tr><td><span data-i18n="term.project-2">Project →</span> <b data-i18n="term.versions">Versions…</b></td><td data-i18n-html="own.help-66">Compare a version with now · <b data-i18n="term.restore">Restore…</b> (click twice; what is there is saved as a version first) · mark the final cut</td></tr>
+          <tr><td><span data-i18n="term.timeline-toolbar">Timeline toolbar →</span> <b>sequence menu</b></td><td data-i18n-html="own.help-67">Open another sequence of this project · <b data-i18n="term.new-sequence">New sequence…</b> (any canvas, empty or a copy) · <b data-i18n="term.duplicate">Duplicate</b> · <b data-i18n="term.rename">Rename…</b> · <b data-i18n="term.delete-2">Delete…</b> (click twice; kept as a version first)</td></tr>
           <tr><td>Project card</td><td data-i18n-html="own.help-68">Click to see its details, notes and tags · double-click to open it</td></tr>
           <tr><td><kbd>Enter</kbd> on a card</td><td data-i18n-html="own.help-69">Open that project</td></tr>
           <tr><td><kbd>Esc</kbd></td><td data-i18n-html="own.help-70">Back out of <b data-i18n="term.new-project">New project</b>, then close the dashboard</td></tr>
-          <tr><td><b data-i18n="term.delete-2">Delete…</b> (Archived)</td><td data-i18n-html="own.help-71">Click twice — only archived projects can be deleted</td></tr>
+          <tr><td><b data-i18n="term.delete-2">Delete…</b> <span data-i18n="term.archived-2">(Archived)</span></td><td data-i18n-html="own.help-71">Click twice — only archived projects can be deleted</td></tr>
         </table>
       </section>
       <section class="keys-sec">
         <h3 data-i18n="term.color-workspace">Color workspace</h3>
         <table class="keys">
-          <tr><td>Colour wheel</td><td data-i18n-html="own.help-72">Drag to tint (<kbd>⇧</kbd> = fine) · double-click resets the colour · double-click a label or slider name to reset it</td></tr>
-          <tr><td>WB pick / Pick</td><td data-i18n-html="own.help-73">Click the monitor to balance, to mark a colour on the curves, or to select it in a layer's qualifier · <kbd>Esc</kbd> cancels</td></tr>
-          <tr><td>Curves</td><td data-i18n-html="own.help-74">Click adds a point on the curve · drag moves it · double-click removes it</td></tr>
-          <tr><td>Layer mask on monitor</td><td data-i18n-html="own.help-75">Drag inside to move · handles resize · the knob rotates (<kbd>⇧</kbd> snaps to 15°) · poly / bezier: <kbd>Ctrl/Cmd</kbd>+click adds a point, double-click removes one · <b data-i18n="term.draw">Draw</b>: drag a free-hand outline</td></tr>
+          <tr><td data-i18n="term.colour-wheel">Colour wheel</td><td data-i18n-html="own.help-72">Drag to tint (<kbd>⇧</kbd> = fine) · double-click resets the colour · double-click a label or slider name to reset it</td></tr>
+          <tr><td data-i18n="term.wb-pick-pick">WB pick / Pick</td><td data-i18n-html="own.help-73">Click the monitor to balance, to mark a colour on the curves, or to select it in a layer's qualifier · <kbd>Esc</kbd> cancels</td></tr>
+          <tr><td data-i18n="term.curves">Curves</td><td data-i18n-html="own.help-74">Click adds a point on the curve · drag moves it · double-click removes it</td></tr>
+          <tr><td data-i18n="term.layer-mask-on-monitor">Layer mask on monitor</td><td data-i18n-html="own.help-75">Drag inside to move · handles resize · the knob rotates (<kbd>⇧</kbd> snaps to 15°) · poly / bezier: <kbd>Ctrl/Cmd</kbd>+click adds a point, double-click removes one · <b data-i18n="term.draw">Draw</b>: drag a free-hand outline</td></tr>
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Masks <span data-i18n="term.inspector-masks">Inspector → Masks</span></h3>
+        <h3 data-i18n-tail="term.masks">Masks <span data-i18n="term.inspector-masks">Inspector → Masks</span></h3>
         <table class="keys">
-          <tr><td>Pen</td><td data-i18n-html="own.help-76">Click to place points, drag while placing to pull curve handles · click the first point or <kbd>Enter</kbd> closes · <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Backspace</kbd> removes the last point, <kbd>Ctrl</kbd>+<kbd>⇧</kbd>+<kbd>Z</kbd> puts it back · <kbd>Esc</kbd> cancels</td></tr>
-          <tr><td>Draw</td><td data-i18n-html="own.help-77">Drag a free-hand outline — it becomes an editable bezier</td></tr>
-          <tr><td>Mask on monitor</td><td data-i18n-html="own.help-78">Drag inside to move · edge handles resize · the knob rotates (<kbd>⇧</kbd> snaps to 15°) · drag a point or its handles (<kbd>Alt</kbd> breaks the pair) · <kbd>Alt</kbd>+drag a point pulls new handles · <kbd>Ctrl/Cmd</kbd>+click the outline adds a point · double-click a point removes it · <kbd>Esc</kbd> deselects</td></tr>
+          <tr><td data-i18n="term.pen">Pen</td><td data-i18n-html="own.help-76">Click to place points, drag while placing to pull curve handles · click the first point or <kbd>Enter</kbd> closes · <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Backspace</kbd> removes the last point, <kbd>Ctrl</kbd>+<kbd>⇧</kbd>+<kbd>Z</kbd> puts it back · <kbd>Esc</kbd> cancels</td></tr>
+          <tr><td data-i18n="term.draw">Draw</td><td data-i18n-html="own.help-77">Drag a free-hand outline — it becomes an editable bezier</td></tr>
+          <tr><td data-i18n="term.mask-on-monitor">Mask on monitor</td><td data-i18n-html="own.help-78">Drag inside to move · edge handles resize · the knob rotates (<kbd>⇧</kbd> snaps to 15°) · drag a point or its handles (<kbd>Alt</kbd> breaks the pair) · <kbd>Alt</kbd>+drag a point pulls new handles · <kbd>Ctrl/Cmd</kbd>+click the outline adds a point · double-click a point removes it · <kbd>Esc</kbd> deselects</td></tr>
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Shapes and transforms <span>bin → Shapes · Inspector</span></h3>
+        <h3 data-i18n-tail="term.shapes-and-transforms">Shapes and transforms <span>bin → Shapes · Inspector</span></h3>
         <table class="keys">
-          <tr><td>Shape item on monitor</td><td data-i18n-html="own.help-79">Drag inside to move · corners resize (<kbd>⇧</kbd> keeps the proportions) · the knob rotates (<kbd>⇧</kbd> snaps to 15°) · line / path: drag a point or its handles (<kbd>Alt</kbd> breaks the pair), <kbd>Alt</kbd>+drag a point pulls new handles · path: <kbd>Ctrl/Cmd</kbd>+click the outline adds a point, double-click a point removes it · <kbd>Esc</kbd> deselects</td></tr>
-          <tr><td>Shape / text-path pen</td><td data-i18n-html="own.help-80">Click to place points, drag while placing to pull curve handles · click the first point closes the path · <kbd>Enter</kbd> keeps it open · <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Backspace</kbd> removes the last point, <kbd>Ctrl</kbd>+<kbd>⇧</kbd>+<kbd>Z</kbd> puts it back · <kbd>Esc</kbd> cancels</td></tr>
-          <tr><td>Motion path</td><td data-i18n-html="own.help-81">Drag a key square to move it · drag a handle to bend the path (<kbd>Alt</kbd> breaks the pair) · <kbd>Alt</kbd>+drag a key pulls new handles · double-click a key makes it a corner again</td></tr>
-          <tr><td>Anchor ✥ Move</td><td data-i18n-html="own.help-82">Drag on the monitor to move the anchor point; the picture stays put (<kbd>⇧</kbd> snaps to its centre) · <kbd>Esc</kbd> turns it off</td></tr>
+          <tr><td data-i18n="term.shape-item-on-monitor">Shape item on monitor</td><td data-i18n-html="own.help-79">Drag inside to move · corners resize (<kbd>⇧</kbd> keeps the proportions) · the knob rotates (<kbd>⇧</kbd> snaps to 15°) · line / path: drag a point or its handles (<kbd>Alt</kbd> breaks the pair), <kbd>Alt</kbd>+drag a point pulls new handles · path: <kbd>Ctrl/Cmd</kbd>+click the outline adds a point, double-click a point removes it · <kbd>Esc</kbd> deselects</td></tr>
+          <tr><td data-i18n="term.shape-text-path-pen">Shape / text-path pen</td><td data-i18n-html="own.help-80">Click to place points, drag while placing to pull curve handles · click the first point closes the path · <kbd>Enter</kbd> keeps it open · <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Backspace</kbd> removes the last point, <kbd>Ctrl</kbd>+<kbd>⇧</kbd>+<kbd>Z</kbd> puts it back · <kbd>Esc</kbd> cancels</td></tr>
+          <tr><td data-i18n="term.motion-path">Motion path</td><td data-i18n-html="own.help-81">Drag a key square to move it · drag a handle to bend the path (<kbd>Alt</kbd> breaks the pair) · <kbd>Alt</kbd>+drag a key pulls new handles · double-click a key makes it a corner again</td></tr>
+          <tr><td data-i18n="term.anchor-move">Anchor ✥ Move</td><td data-i18n-html="own.help-82">Drag on the monitor to move the anchor point; the picture stays put (<kbd>⇧</kbd> snaps to its centre) · <kbd>Esc</kbd> turns it off</td></tr>
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Tracking <span>Inspector → Tracking · a mask’s Track buttons</span></h3>
+        <h3 data-i18n-tail="term.tracking">Tracking <span>Inspector → Tracking · a mask’s Track buttons</span></h3>
         <table class="keys">
-          <tr><td>Track point</td><td data-i18n-html="own.help-83">Click the spot to follow on the monitor — it tracks from the playhead to the clip's end · <kbd>Esc</kbd> cancels the pick, or stops a running track (what was tracked so far is kept)</td></tr>
+          <tr><td data-i18n="term.track-point">Track point</td><td data-i18n-html="own.help-83">Click the spot to follow on the monitor — it tracks from the playhead to the clip's end · <kbd>Esc</kbd> cancels the pick, or stops a running track (what was tracked so far is kept)</td></tr>
         </table>
       </section>
       <section class="keys-sec">
-        <h3>Transcript <span>side panel → Transcript</span></h3>
+        <h3 data-i18n-tail="term.transcript">Transcript <span>side panel → Transcript</span></h3>
         <table class="keys">
           <tr><td data-i18n="term.click-a-word">Click a word</td><td data-i18n-html="own.help-84">Go to it · <kbd>⇧</kbd>+click or drag selects a run of words</td></tr>
           <tr><td><kbd>Del</kbd></td><td data-i18n-html="own.help-85">Cut the selected words and the pause after them (extract on the targeted tracks) · <kbd>Esc</kbd> clears the selection</td></tr>
-          <tr><td>Find words</td><td data-i18n-html="own.help-86"><kbd>Enter</kbd> / <kbd>⇧</kbd>+<kbd>Enter</kbd> go to the next / previous match · <b data-i18n="term.cut">Cut</b> extracts every match</td></tr>
-          <tr><td>Captions</td><td data-i18n-html="own.help-87">Pick a style, then <b data-i18n="term.add-captions">Add captions</b> (one undo step; replaces the captions there) · <b>SRT</b> / <b>VTT</b> download them · <b data-i18n="term.import-2">Import…</b> places a subtitle file's captions</td></tr>
+          <tr><td data-i18n="term.find-words">Find words</td><td data-i18n-html="own.help-86"><kbd>Enter</kbd> / <kbd>⇧</kbd>+<kbd>Enter</kbd> go to the next / previous match · <b data-i18n="term.cut">Cut</b> extracts every match</td></tr>
+          <tr><td data-i18n="term.captions">Captions</td><td data-i18n-html="own.help-87">Pick a style, then <b data-i18n="term.add-captions">Add captions</b> (one undo step; replaces the captions there) · <b>SRT</b> / <b>VTT</b> download them · <b data-i18n="term.import-2">Import…</b> places a subtitle file's captions</td></tr>
         </table>
       </section>
       <p class="help-empty hidden" id="helpEmpty" data-i18n="term.no-shortcut-matches-that">No shortcut matches that.</p>
