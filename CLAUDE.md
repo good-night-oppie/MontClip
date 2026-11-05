@@ -449,7 +449,7 @@ These are quick looks. For real grading use `props.grade` (see "Color" below).
 | `chromaKey` | "" | hex key color, e.g. `"#00ff00"` for green screen ("" = off) |
 | `chromaTolerance` | 26 | 0–100, how much color distance is keyed out |
 | `chromaSoftness` | 12 | 0–100, edge feather + spill suppression |
-| `bgRemove` | false | AI person cut-out (MediaPipe, loads from CDN on first use; needs internet once) |
+| `bgRemove` | false | AI person cut-out (MediaPipe from cdn.jsdelivr.net, downloaded only after the user confirms in the browser editor; until then, and in export without it, the clip shows uncut; the desktop app never loads it) |
 
 **Audio / time** (video/audio):
 | prop | default | notes |
@@ -2486,6 +2486,8 @@ background footage on V1.
 
 **Remove background without a green screen** (people):
 `props: {bgRemove:true}` — then put anything behind it on V1.
+It works once the user has confirmed the MediaPipe download in the browser editor
+(an agent cannot confirm it; a headless export without it keeps the background).
 
 **Picture-in-picture**: clip on V3 with
 `props: {scale:0.35, x:380, y:-200, cornerRadius:24}` — add
