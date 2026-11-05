@@ -2173,7 +2173,12 @@ function shiftAudioBuffer(buf, off) {
   }
   return out;
 }
+/* A page the server opened only to run one export job (export-jobs.js, ?exportJob=<id>): nobody sees its timeline. */
+const EXPORT_JOB_PAGE = typeof location !== "undefined" && new URLSearchParams(location.search).has("exportJob");
 function ensureWave(m) {
+  // the export page draws no timeline: decoding a whole file for its waveform only competed with the export
+  // (a 2-hour recording: 5 GB read and 4.5 GB in the tab, europa 2026-11-04)
+  if (EXPORT_JOB_PAGE) return;
   // Also decode peaks from video files when their audio is placed on an A track
   if (m.kind !== "audio" && m.kind !== "video") return;
   const have = runtime.wavePeaks.get(m.id), src = m.src;
@@ -11601,7 +11606,7 @@ function autoExportConfirm() {
     <div class="as-row"><button type="button" class="btn primary" data-as-act="ex-go">${autoSay("as-ex-go")}</button><button type="button" class="btn" data-as-act="ex-cancel">${autoSay("as-ex-cancel")}</button></div></section>`;
   AUTO.el.querySelector("[data-as-footer]").hidden = true;
 }
-function autoExport() {
+async function autoExport() {
   const st = autoState(), on = st.clips.filter((c) => c.on);
   const r = placeAutoSlices(on);
   if (!r.ok) { autoToast(uiText("own.as-place-failed", { why: r.why }), false); autoRender("review"); return; }
@@ -11610,6 +11615,7 @@ function autoExport() {
   let at = r.at0;
   const segments = on.map((c) => { const d = Math.round((c.e - c.s) * 1000) / 1000, s = { output: { start: at, end: Math.round((at + d) * 1000) / 1000 } }; at = s.output.end; return s; });
   const before = new Set(exportQueue.map((q) => q.id));
+  if (!deliveryInfo.encoders) await fetchDeliveryInfo();   // sliceDeliverySpec needs to know the encoders
   queueSlices(segments, names, { open: false });
   st.exportIds = exportQueue.filter((q) => !before.has(q.id)).map((q) => q.id);
   st.exportNames = on.map(autoName);
@@ -19915,15 +19921,55 @@ function exportCheckPlan(t0, t1) {
 function exportEndError(end, fallback) {
   return Object.assign(new Error(end.error || fallback), end.code ? { code: end.code } : {});
 }
+/* The export mix asks the server for only the part of each file it plays (/api/audio-window), on the container's clock.
+   Every local file goes this way (QQ, 2026-11-05): decodeAudioData on a whole file put a late-starting audio stream's
+   sound 60–80 ms early, so short files and long ones would have been mixed with two different offsets. It also never
+   decodes a 2-hour recording whole in the tab (europa, 2026-11-04). Only without a server does it decode the file. */
+const AUDIO_WINDOW_PAD = 0.5;
+/* A clip whose sound could not be decoded used to be dropped from the mix, and the export came out silent and said
+   it succeeded (europa, 2026-11-04). Now the export stops and says which clip (Deja, 2026-11-05). Only clips that are
+   heard count: a linked video's picture (volume 0) or a file with no audio stream never stop an export. */
+function exportAudioHeard(c, m) {
+  if (m && m.audioChannels === 0) return false;
+  return c.kind === "audio" || !(c.props && c.props.volume === 0);
+}
+/** The first heard clip that failed → an Error for the export, in the interface language; else null. */
+function exportMixFailure(results) {
+  const bad = results.find((r) => r && r.failed && r.heard);
+  if (!bad) return null;
+  return Object.assign(new Error(uiText("own.export-audio-failed", { name: bad.c.name || bad.c.id || "" })), { code: "EXPORT_AUDIO_FAILED" });
+}
+/** → {buf, at}: an AudioBuffer of clip c's audio for timeline a…b, and the media time its first sample is at. */
+async function exportAudioSource(m, c, a, b, windows = new Map()) {
+  if (state.connected && !isCrossOriginSrc(m.src)) {
+    const m0 = Math.min(mediaTimeAt(c, a), mediaTimeAt(c, b)), m1 = Math.max(mediaTimeAt(c, a), mediaTimeAt(c, b));
+    const from = Math.max(0, Math.floor((m0 - AUDIO_WINDOW_PAD) * 1000) / 1000), to = Math.ceil((m1 + AUDIO_WINDOW_PAD) * 1000) / 1000;
+    if (to - from <= 3600) {
+      const key = `${m.src}|${from}|${to}`;
+      if (!windows.has(key)) windows.set(key, fetch(`/api/audio-window?src=${encodeURIComponent(m.src)}&from=${from}&to=${to}`)
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error("audio window " + r.status))))
+        .then((ab) => getDecodeCtx().decodeAudioData(ab)).catch((e) => { console.warn("[MontClip] audio window failed, decoding the whole file:", e && e.message); return null; }));
+      const buf = await windows.get(key);
+      if (buf) return { buf, at: from };
+    }
+  }
+  return { buf: await getAudioBuffer(m), at: 0 };
+}
 async function renderAudioMix(t0, t1, opts = {}) {
-  const jobs = [];
+  const jobs = [], windows = new Map();
   for (const c of mediaClips()) {
     if (c.kind !== "audio" && c.kind !== "video") continue;
     if (!clipRenders(c)) continue;
     const m = getMedia(c.mediaId); if (!m) continue;
-    jobs.push(getAudioBuffer(m).then((buf) => ({ c, buf })).catch(() => null));
+    const a = Math.max(c.start, t0), b = Math.min(c.start + c.duration, t1);
+    if (b - a <= 1e-6) continue;
+    jobs.push(exportAudioSource(m, c, a, b, windows).then(({ buf, at }) => ({ c, buf, at }))
+      .catch((e) => ({ c, failed: e, heard: exportAudioHeard(c, m) })));
   }
-  const sources = (await Promise.all(jobs)).filter(Boolean);
+  const results = await Promise.all(jobs);
+  const failed = exportMixFailure(results);
+  if (failed && !opts.raw) throw failed;
+  const sources = results.filter((r) => r && !r.failed);
   if (!sources.length) return null;
   const dur = Math.max(0, t1 - t0);
   if (dur <= 0) return null;
@@ -19935,7 +19981,7 @@ async function renderAudioMix(t0, t1, opts = {}) {
   mix.masterOut.connect(off.destination);
   let scheduled = false;
   const exportChains = [];
-  for (const { c, buf } of sources) {
+  for (const { c, buf, at } of sources) {
     const a = Math.max(c.start, t0), b = Math.min(c.start + c.duration, t1);
     if (b - a <= 1e-6) continue;
     const mixWhen = Math.max(0, a - t0);
@@ -19966,12 +20012,12 @@ async function renderAudioMix(t0, t1, opts = {}) {
       for (let i = 0; i < n; i++)
         rc[i] = clamp(kfChannel(c, "speed", local0 + (i / (n - 1)) * mixDur, clipSpeed(c)), 0.1, 8);
       src.playbackRate.setValueCurveAtTime(rc, mixWhen, Math.max(0.01, mixDur));
-      src.start(mixWhen, Math.max(0, mediaTimeAt(c, a)));
+      src.start(mixWhen, Math.max(0, mediaTimeAt(c, a) - at));
       src.stop(mixWhen + mixDur);
     } else {
       const sp = clipSpeed(c);
       src.playbackRate.value = sp;
-      src.start(mixWhen, Math.max(0, c.in + local0 * sp), mixDur * sp);
+      src.start(mixWhen, Math.max(0, c.in + local0 * sp - at), mixDur * sp);
     }
     scheduled = true;
   }
@@ -20211,9 +20257,20 @@ function queueAdd(spec, name) {
 }
 /** Slices from an applied keep_ranges per_range proposal: one queue item per range, each its own file. An item
  *  remembers the timeline it was made from and refuses to render once the timeline is different (Undo, an edit). */
-function queueSlices(segments, names, { open = true } = {}) {
+/* The delivery spec auto-slices export with. When nobody chose one (the master default) and this machine's only H.264
+   encoder is libx264 (no graphics card: europa), x264 runs at veryfast instead of slow, CRF unchanged — the frame phase
+   of a 30 s slice went from 67 s to 36 s; the files come out somewhat larger (Deja, 2026-11-05). A graphics-card or
+   Windows encoder, a preset the user or the project chose, and encoders not known yet are left alone. */
+function sliceDeliverySpec() {
   const choice = exportChoice();
+  const chosen = choice.kind === "delivery" && choice.source !== "default";
   const spec = normalizeDelivery(choice.kind === "delivery" ? choice.spec : Delivery.DEFAULT_PRESET).spec;
+  const enc = deliveryInfo.encoders ? Delivery.encodersFor("h264", new Set(deliveryInfo.encoders)) : null;
+  if (chosen || !enc || enc.length !== 1 || enc[0] !== "libx264" || spec.video.encoder !== "libx264") return spec;
+  return normalizeDelivery({ ...spec, video: { ...spec.video, speed: "fast" } }).spec;
+}
+function queueSlices(segments, names, { open = true } = {}) {
+  const spec = sliceDeliverySpec();
   const guard = JSON.stringify(project.clips);
   segments.forEach((s, i) => exportQueue.push({
     id: "q" + Math.random().toString(36).slice(2, 8), label: queueLabel(spec), spec, name: names[i],
