@@ -132,3 +132,24 @@ for (const how of ["cancelled", "failed"]) {
     assert.equal((await (await fetch(base + "/api/export/job?id=" + ticket.id)).json()).status, how);
   });
 }
+
+test("an export that stops reporting says where it stopped (percent and timeline second), for the log", (t) => {
+  const { j } = jobs();
+  t.after(() => j.shutdown());
+  const x = j.request({ where: "tab" }); j.claim(x.id);
+  j.report(x.id, { progress: 0.42, at: 19.37 });
+  const realNow = Date.now;
+  // the sweep runs on a one-second timer: give it a tick with the clock past the 120 s a running tab may stay silent
+  return new Promise((resolve, reject) => {
+    Date.now = () => realNow() + 121_000;
+    setTimeout(() => {
+      Date.now = realNow;
+      try {
+        const v = j.get(x.id);
+        assert.equal(v.status, "failed");
+        assert.equal(v.error, "the editor stopped reporting progress at 42% (timeline 19.37 s) (tab closed or browser crashed)");
+        resolve();
+      } catch (e) { reject(e); }
+    }, 1100);
+  });
+});

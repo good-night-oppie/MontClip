@@ -20031,7 +20031,7 @@ async function fastExport(opts = {}) {
       els.exportProgress.style.width = pct.toFixed(1) + "%";
       els.exportTitle.textContent = uiText("own.rendering-pct", { pct: pct.toFixed(0) });
       if (opts.onProgress) opts.onProgress(0.97 * (f + 1) / frames);
-      if (job) reportExportJob(job, { progress: 0.97 * (f + 1) / frames });
+      if (job) reportExportJob(job, { progress: 0.97 * (f + 1) / frames, at: +t.toFixed(2) });
     }
     await pixelChain;
     if (uploadError) throw uploadError;

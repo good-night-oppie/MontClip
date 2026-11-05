@@ -92,7 +92,8 @@ function createExportJobs(opts) {
             ? "the headless browser never picked up the job (it may have failed to start or to load the editor)"
             : "no editor tab picked up the job — is it busy exporting? Retry with where:\"headless\"" });
       else if (j.status === "running" && now - j.updated > STALL_MS)
-        end(j, "failed", { error: "the editor stopped reporting progress (tab closed or browser crashed)" });
+        end(j, "failed", { error: "the editor stopped reporting progress" +
+          (j.kind === "export" ? ` at ${Math.round(j.progress * 100)}%${j.at != null ? ` (timeline ${j.at} s)` : ""}` : "") + " (tab closed or browser crashed)" });
       else if (isEnded(j) && now - j.updated > KEEP_MS) jobs.delete(j.id);
     }
     if (![...jobs.values()].some((j) => !isEnded(j)) && timer) { clearInterval(timer); timer = null; }
@@ -165,13 +166,14 @@ function createExportJobs(opts) {
       return true;
     },
     /** Progress / result from the running tab. Returns {cancel} so a cancel reaches it. */
-    report(id, { progress, status, src, result, error } = {}) {
+    report(id, { progress, status, src, result, error, at } = {}) {
       const j = jobs.get(id);
       if (!j) return null;
       if (j.status === "cancelled") return { cancel: true };
       if (j.status !== "running") return { cancel: false };
       j.updated = Date.now();
       if (Number.isFinite(progress)) j.progress = Math.max(0, Math.min(1, progress));
+      if (Number.isFinite(at)) j.at = at;   // the timeline second last drawn: where a stalled export stopped
       // done means the finished file is in place, never "ffmpeg exited" (P11): a job whose file is not there failed
       if (status === "done" && j.kind === "export" && opts.finished && !opts.finished(String(src || "")))
         end(j, "failed", { error: "the export said it was done, but its file is not in place" });
