@@ -178,10 +178,13 @@ synthetic video and validates the one-frame bound. test/gap-project-repair.test.
 exercises MCP/server replacement, saved-version restore, conflict refusal and the
 open-editor safeguard.
 
-JJ-approved success suffix is still separate and off by default. New guard text
-is DRAFT / pending JJ approval:
-- EN: Use Fix it for me in the open editor so its unsaved edits and undo are preserved.
-- ZH: 请到打开的编辑器里点〔帮我修好〕，这样能保留尚未保存的修改，也能撤销。
+JJ-approved success suffix is still separate and off by default.
+
+JJ定稿 — open-editor safeguard (button label interpolated from its key):
+- EN: The editor is open, so the assistant won't fix this directly and risk overwriting your edits there. Click “Fix it for me” in the editor instead; your edits stay and you can undo.
+- ZH: 剪辑器正开着，为了不冲掉你在里面的修改，助手先不直接修。请在剪辑器里点〔帮我修好〕，这样你的修改不会丢，也能撤销。
+
+Other guard text is DRAFT / pending JJ approval:
 - EN: Some edits cannot be aligned across this gap. The project is unchanged. Resolve the subtitles, danmaku or cuts in the gap, then try again.
 - ZH: 有些编辑无法跨过空档对齐。工程没有改动。请先处理空档里的字幕、弹幕或切点，再试一次。
 - EN: The file or project changed during repair. Nothing was replaced. Try again with the current file.

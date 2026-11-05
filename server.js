@@ -25,6 +25,7 @@ const ownedProcesses = process.env.MONTCLIP_DESKTOP === "1"
   ? require("./owned-processes").trackOwnedProcesses(require("child_process")) : null;
 const { spawn, spawnSync, execFile } = require("child_process");
 const FF = require("./ffmpeg-path");
+const ViewText = require("./ui-preferences");
 const X = require("./external-ffmpeg");
 /* A local FFmpeg the user chose for libx264, H.264 export only (external-ffmpeg.js). */
 const externalFfmpeg = X.createExternal();
@@ -1787,7 +1788,7 @@ const server = http.createServer(async (req, res) => {
     const projectId = projects.peekActive();
     const readCurrent = () => JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(/^\uFEFF/, ""));
     const validateCurrent = () => {
-      if (sseClients.size) throw Object.assign(new Error("Use Fix it for me in the open editor so its unsaved edits and undo are preserved."), { code: "REPAIR_EDITOR_OPEN" });
+      if (sseClients.size) throw Object.assign(new Error(ViewText.t("en", "own.repair-editor-open", { button: ViewText.t("en", "own.repair-button") })), { code: "REPAIR_EDITOR_OPEN" });
       if (projects.peekActive() !== projectId) throw Object.assign(new Error("Project changed during repair"), { code: "REPAIR_SOURCE_CHANGED" });
       const doc = readCurrent(), m = doc.media?.find(m => m.id === applyId && m.src === opts.src);
       if (!m) throw Object.assign(new Error("Media changed during repair"), { code: "REPAIR_SOURCE_CHANGED" });

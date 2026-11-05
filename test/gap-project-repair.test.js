@@ -51,5 +51,7 @@ test("an open editor prevents agent replacement of unsaved edits", { skip: !have
   const req = http.get(base + "/api/events"); req.on("error", () => {}); t.after(() => req.destroy());
   await new Promise(resolve => req.once("response", res => { res.on("error", () => {}); res.resume(); resolve(); }));
   const response = await post(base, "/api/repair", { src: "/media/cut.mkv", mediaId: "old", skipGaps: true, applyToProject: true });
-  a.equal(response.status, 409); a.equal((await response.json()).code, "REPAIR_EDITOR_OPEN");
+  a.equal(response.status, 409);
+  const body = await response.json(); a.equal(body.code, "REPAIR_EDITOR_OPEN");
+  a.equal(body.error, "The editor is open, so the assistant won't fix this directly and risk overwriting your edits there. Click “Fix it for me” in the editor instead; your edits stay and you can undo.");
 });

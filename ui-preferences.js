@@ -250,8 +250,9 @@
     "repair-button": ["Fix it for me", "帮我修好"],
     // JJ定稿 (2026-11-05): the button is interpolated from repair-button.
     "media-gap-mark": ["Gap of about {N} s", "断了约 {N} 秒"],
-    // DRAFT: guard wording for the approved preserve-and-resolve-conflicts policy.
-    "repair-editor-open": ["Use Fix it for me in the open editor so its unsaved edits and undo are preserved.", "请到打开的编辑器里点〔帮我修好〕，这样能保留尚未保存的修改，也能撤销。"],
+    // JJ定稿: button label comes from own.repair-button.
+    "repair-editor-open": ["The editor is open, so the assistant won't fix this directly and risk overwriting your edits there. Click “{button}” in the editor instead; your edits stay and you can undo.","剪辑器正开着，为了不冲掉你在里面的修改，助手先不直接修。请在剪辑器里点〔{button}〕，这样你的修改不会丢，也能撤销。"],
+    // DRAFT: other guard wording awaits JJ approval.
     "repair-gap-conflict": ["Some edits cannot be aligned across this gap. The project is unchanged. Resolve the subtitles, danmaku or cuts in the gap, then try again.", "有些编辑无法跨过空档对齐。工程没有改动。请先处理空档里的字幕、弹幕或切点，再试一次。"],
     "repair-source-changed": ["The file or project changed during repair. Nothing was replaced. Try again with the current file.", "修复期间文件或工程变了，没有替换。请用现在这份文件重试。"],
     "media-gap-tip": ["The recording has a gap of about {N} s in the middle. Click “{button}” to save a new copy without the gap. The original is not changed.", "录像中间有一段约 {N} 秒的空档。点〔{button}〕，会另存一份跳过空档的新文件，原文件不动。"],
