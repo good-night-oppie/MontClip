@@ -199,7 +199,7 @@ async function audioTrackTool(args) {
     const at = Math.max(0, Number(args.listen) || 0), len = 6;
     const out = [];
     for (let i = 0; i < n; i++) {
-      const dest = path.join(ANALYSIS_DIR, "listen", `${m.id}-track${i}-${Math.round(at)}s.wav`);
+      const dest = require("./audio-window").listenPath(path.join(ANALYSIS_DIR, "listen"), m.id, i, at);   // id cleaned, kept inside listen/
       fs.mkdirSync(path.dirname(dest), { recursive: true });
       const r = spawnSync(FF.path("ffmpeg"), require("./audio-window").windowArgs(file, at, len, dest, i), { timeout: 60000 });
       out.push(`  ${i}: ${r.status === 0 ? dest : "could not be read"}`);

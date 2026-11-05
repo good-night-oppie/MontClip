@@ -289,3 +289,32 @@ test('VV on #177: a badge, a notice that stays with 〔去选〕, 「选音轨�
  for(const k of ['at-badge','at-badge-busy','at-go','at-menu','at-stop','at-undone','at-dismiss']){const zh=V.t('zh-CN','own.'+k,{n:3,k:1});a.ok(zh&&!zh.startsWith('own.'),k);a.ok(!/我/.test(zh),k);}
  a.equal(V.t('zh-CN','own.at-badge',{n:3,k:2}),'3 条音轨 · 用第 2 条');
 });
+test('fablecut_audio_track {listen}: a media id with ../, an absolute path or a backslash never writes outside analysis/listen (QQ on #177)',()=>{
+ const dir=path.join(os.tmpdir(),'montclip-listen-x','listen'),root=path.resolve(dir);
+ for(const id of ['../../evil','..\\..\\evil','C:\\Windows\\evil','/etc/evil','a/../../b','m_ok-1','..','.\\x',path.resolve('/tmp/abs')]){
+  let out=null;try{out=AW.listenPath(dir,id,1,30);}catch(e){a.equal(e.code,'BAD_MEDIA_ID',id);continue;}
+  a.equal(path.dirname(out),root,id+' → '+out);
+  a.match(path.basename(out),/^[A-Za-z0-9_-]+-track1-30s\.wav$/,id);
+ }
+ a.equal(path.basename(AW.listenPath(dir,'m_ok-1',0,0)),'m_ok-1-track0-0s.wav');
+ a.throws(()=>AW.listenPath(dir,'../..',0,0),/can't name a file/);
+ a.throws(()=>AW.listenPath(dir,'m_a',-1,0));
+ const src=fs.readFileSync(path.join(__dirname,'..','mcp-server.js'),'utf8');
+ a.match(src,/require\("\.\/audio-window"\)\.listenPath\(path\.join\(ANALYSIS_DIR, "listen"\), m\.id, i, at\)/,'the tool uses it');
+ a.doesNotMatch(src,/`\$\{m\.id\}-track/,'no path built from the raw id');
+ // the editor's 试听 goes through /api/audio-window, which writes to a fresh temp folder with a fixed name
+ a.match(fs.readFileSync(path.join(__dirname,'..','server.js'),'utf8'),/fs\.mkdtempSync\(path\.join\(os\.tmpdir\(\), "montclip-aw-"\)\), out = path\.join\(tmpDir, "window\.wav"\)/);
+});
+test('MCP fablecut_audio_track {listen} with a hostile media id writes inside analysis/listen only',{skip},async(t)=>{
+ const id='..\\..\\..\\pwn';
+ const proj=seedProject({media:[{id,name:'r.mkv',kind:'video',src:'/media/r.mkv',duration:LEN}],clips:[]});
+ const dir=makeDataDir(t,proj);fs.mkdirSync(path.join(dir,'media'),{recursive:true});synth(path.join(dir,'media','r.mkv'));
+ const mcp=startMcp(t,dir,{FABLECUT_NO_AUTOSTART:'1'});
+ await mcp.request('initialize',{protocolVersion:'2024-11-05',capabilities:{},clientInfo:{name:'t',version:'1'}});
+ const h=await mcp.callTool('fablecut_audio_track',{mediaId:id,listen:90});
+ a.equal(h.isError,false,h.text);
+ const files=[...h.text.matchAll(/\d: (\S+\.wav)/g)].map(m=>m[1]);a.equal(files.length,3);
+ const listen=fs.realpathSync(path.join(dir,'analysis','listen'));
+ for(const f of files){a.ok(fs.existsSync(f));a.equal(path.dirname(fs.realpathSync(f)),listen,f);}
+ a.ok(!fs.existsSync(path.join(dir,'..','pwn-track0-90s.wav'))&&!fs.readdirSync(dir).some(f=>/pwn/.test(f)));
+});
