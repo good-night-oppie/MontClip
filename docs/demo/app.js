@@ -3310,12 +3310,13 @@ async function openRelinkDialog(list) {
   }
   const used = new Set(project.media.map((x) => x.src));
   const optsOf = (m) => ((candidates && candidates[m.id]) || []).filter((o) => o.src !== m.src && (!used.has(o.src) || !isMediaOffline(m.id)));
-  // JJ (2026-11-05): a missing file found under the same name is linked straight away, without asking; the round ends
+  // JJ (2026-11-05): a missing file found under the same name is linked straight away, without asking — QQ (#137):
+  // only when it is the same file (same name and size, one such candidate); the round ends
   // with one sentence, 「已经自动找回 {m} 个」, and the dialog asks only about the rest
   const found = new Set();
   for (const m of list.filter((x) => isMediaOffline(x.id))) {
-    const o = optsOf(m)[0];
-    if (o && o.score >= 100 && !used.has(o.src)) { await setMediaSource(m, o.src, "relink", undefined, true); used.add(o.src); found.add(m.id); }
+    const o = MediaLib.autoRelinkPick(m, optsOf(m));
+    if (o && !used.has(o.src)) { await setMediaSource(m, o.src, "relink", undefined, true); used.add(o.src); found.add(m.id); }
   }
   const sayAuto = () => { if (found.size) toast(uiText("own.off-auto-found", { m: found.size })); };
   list = list.filter((m) => !found.has(m.id));

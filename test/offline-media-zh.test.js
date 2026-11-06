@@ -135,7 +135,7 @@ test('the bin\'s two other English lines (VV), JJ\'s wording', () => {
 test('a missing file found under the same name is linked without asking; the dialog asks only about the rest; the round ends with 「已经自动找回 {m} 个」', () => {
   const dlg = body('async function openRelinkDialog(', '\n}\n');
   a.ok(dlg.indexOf('/api/relink/candidates') < dlg.indexOf('overlay.innerHTML'), 'candidates are found before the dialog opens');
-  a.ok(dlg.includes('if (o && o.score >= 100 && !used.has(o.src)) { await setMediaSource(m, o.src, "relink", undefined, true);'));
+  a.ok(dlg.includes('const o = MediaLib.autoRelinkPick(m, optsOf(m));\n    if (o && !used.has(o.src)) { await setMediaSource(m, o.src, "relink", undefined, true);'));
   a.ok(dlg.includes('list = list.filter((m) => !found.has(m.id));\n  if (!list.length) { scheduleOfflineCheck(0); sayAuto(); return; }'));
   a.ok(dlg.includes('toast(uiText("own.off-auto-found", { m: found.size }))'));
   a.ok(dlg.includes('const close = () => { overlay.remove(); scheduleOfflineCheck(0); sayAuto(); };'));
