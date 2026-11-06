@@ -66,7 +66,7 @@ test('server, no H.264 encoder: H.264 refused at begin with a code, Archive (FFV
   const dir = makeDataDir(t, seedProject({ revision: 1 }));
   // no H.264 anywhere: hidden in the bundled build, and nothing on PATH (JJ P1 looks there too)
   const nowhere = path.join(dir, 'no-such-folder');
-  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_TEST_NO_H264: '1', MONTCLIP_EXTERNAL_FFMPEG_SETTINGS: path.join(dir, 'no-setting.json'), PATH: nowhere, Path: nowhere });
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_TEST_NO_H264: '1', MONTCLIP_EXTERNAL_FFMPEG_SETTINGS: path.join(dir, 'no-setting.json'), MONTCLIP_FFMPEG: require('../ffmpeg-path').path('ffmpeg'), MONTCLIP_FFPROBE: require('../ffmpeg-path').path('ffprobe'), PATH: nowhere, Path: nowhere });
   const st = await (await fetch(base + '/api/export/h264')).json();
   a.equal(st.encoder, null); a.match(st.reason.code, /^h264None(Win|Other)$/);
   const begin = (b) => fetch(base + '/api/export/begin', { method: 'POST', body: JSON.stringify(b) });
@@ -120,8 +120,6 @@ function autoSlicesHarness({loadingEncoders=false}={}) {
     placeAutoSlices: () => { calls.place++; return { ok: true, at0: 0 }; }, queueSlices: () => { calls.queue++; }, autoExportRun: () => { calls.run++; },
     autoRender: (step) => { st.step = step; page = 'review'; }, exportQueue: [], exportBaseName: () => 'S', autoToast() {}, uiText: () => '',
     MontClipAutoSlices: { numbered: (x) => x }, Delivery: { fileSafeName: (n) => n },
-    // #149 (merged from main): autoExport fetches the encoder list before queueing, for sliceDeliverySpec's veryfast
-    deliveryInfo: { encoders: ['libx264'] }, fetchDeliveryInfo: async () => {},
   };
   const make = new Function(...Object.keys(env), `${helpers}\n${fn('function autoExportConfirm(')}\n${fn('async function autoExport(')}
     return { confirm: autoExportConfirm, exportNow: autoExport, back: () => { ${handler('ex-cancel')} } };`);

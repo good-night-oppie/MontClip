@@ -6,7 +6,7 @@ for(const language of ['zh-CN','en'])for(const job of [null,'agent-job'])test('u
   const alerts=[],reports=[],posts=[],noop=()=>{},prefix=language==='zh-CN'?'导出失败：':'Export failed: ';
   const box={AbortController,state:{},runtime:{},renderCancelled:false,exportAbort:null,exportFullCanvas:false,
     els:{exportOverlay:{classList:{add:noop,remove:noop}},exportProgress:{style:{}},exportNote:{},exportTitle:{}},
-    pause:noop,restoreExportVideoState:noop,projectFps:()=>30,beginExportWindow:()=>({start:0,end:1,frames:30}),
+    profileIsH264:()=>false, exportH264Refusal:async()=>null, pause:noop,restoreExportVideoState:noop,projectFps:()=>30,beginExportWindow:()=>({start:0,end:1,frames:30}),
     renderAudioMix:async()=>null,effectiveEncodeProfileId:()=> 'prores422',deliveryCanvas:()=>({w:160,h:90}),exportBaseName:()=> 'test',
     MontClipView:{h264Refusal:()=>''},mcView:{get:()=>({language})},uiText:k=>k==='own.export-failed-prefix'?prefix:k,
     fetch:async(url,request)=>{posts.push(url);return{json:async()=>({code:'PROFILE_FILTER_MAPPING_UNSUPPORTED',error:'PROFILE_FILTER_MAPPING_UNSUPPORTED'})};},
