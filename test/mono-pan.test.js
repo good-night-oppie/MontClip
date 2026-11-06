@@ -67,6 +67,7 @@ function appWorld({ clips = [], media }) {
     audioTrackIds: () => ["A1", "A2", "A3", "A4"],
     ensureAudioTrackCount: () => 0, isEditTarget: () => true, releaseClipEl() {}, scheduleSave() {},
     rebuildClips() {}, renderInspector() {}, toast() {}, state: {},
+    uiText: () => "", MontClipView: { tp: () => "" }, mcView: { get: () => ({}) }, // the toasts speak through the language table
     detectChannelCount: async (m) => m.channels,
   };
   const code = [
