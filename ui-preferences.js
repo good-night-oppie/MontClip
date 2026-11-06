@@ -1172,9 +1172,10 @@
   Object.assign(officialPaneText['zh-CN'],{noChange:'按这个建议剪，时间线不会有任何变化（现在一共 {duration}），所以不用应用。'});
   // #175 makes 9:16 / 1:1 / 4:5 itself; a message that asks only for another shape (16:9, 5:4, 横屏) still gets the manual
   // way first (agent-limits.js, Deja 2026-11-06). The sentences below are unchanged from #172.
-  // Non-vertical / unspecified reframe requests. JJ定稿 (2026-11-06).
-  Object.assign(officialPaneText.en,{limitReframeAspect:"The assistant can't change the aspect ratio yet. You can do it yourself: in the “{dropdown}” list above the player, choose “{option}”, then export.",limitReframeAny:"The assistant can't change the aspect ratio yet. You can do it yourself: choose the aspect ratio you need in the “{dropdown}” list above the player, then export."});
-  Object.assign(officialPaneText['zh-CN'],{limitReframeAspect:'改画面比例这一步，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选「{option}」，再导出。',limitReframeAny:'改画面比例这一步，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选择需要的画面比例，再导出。'});
+  // Another shape than the assistant makes (16:9, 5:4, 横屏). JJ定稿 (2026-11-06, for #175 at ac2df195; posted by Deja): only this
+  // shape can't be made. Two or more such shapes in one message get limitReframeAny (agent-limits.js note).
+  Object.assign(officialPaneText.en,{limitReframeAspect:"The assistant can't change it to “{option}” yet. You can do it yourself: in the “{dropdown}” list above the player, choose it, then export.",limitReframeAny:"The assistant can't make that aspect ratio yet. You can do it yourself: choose the aspect ratio you need in the “{dropdown}” list above the player, then export."});
+  Object.assign(officialPaneText['zh-CN'],{limitReframeAspect:'改成「{option}」这一步，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选它，再导出。',limitReframeAny:'这个画面比例，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选择需要的画面比例，再导出。'});
   // the assistant's reframe proposal (Deja, 2026-11-05), JJ定稿 (2026-11-05)
   Object.assign(officialPaneText.en,{proposalReframe:'Suggested edit: a {aspect} copy of the sequence whose shots follow the person; the original stays as it is. You are asked before anything is made.'});
   Object.assign(officialPaneText['zh-CN'],{proposalReframe:'已生成剪辑建议：做一份 {aspect} 的新序列，画面跟着人走，原来的序列不动。动手之前会先问你。'});

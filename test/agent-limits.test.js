@@ -169,3 +169,25 @@ test('「改成 9:16」: no host sentence, the reframe reply is accepted and ask
  const cut='把 4:16 到 5:30 剪掉';
  a.deepEqual(L.shapes(cut),[]);a.deepEqual(L.unsupported(cut),[]);a.equal(L.note(cut,{limitReframeAspect:'x',limitReframeAny:'y'}),'');
 });
+
+// JJ定稿 (2026-11-06, for #175 at ac2df195; posted by Deja on #175): the two sentences, word for word.
+test('JJ定稿, word for word: limitReframeAspect and limitReframeAny in both languages',()=>{
+ const zh=View.text['zh-CN'],en=View.text.en;
+ a.equal(zh.officialPane_limitReframeAspect,'改成「{option}」这一步，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选它，再导出。');
+ a.equal(en.officialPane_limitReframeAspect,"The assistant can't change it to “{option}” yet. You can do it yourself: in the “{dropdown}” list above the player, choose it, then export.");
+ a.equal(zh.officialPane_limitReframeAny,'这个画面比例，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选择需要的画面比例，再导出。');
+ a.equal(en.officialPane_limitReframeAny,"The assistant can't make that aspect ratio yet. You can do it yourself: choose the aspect ratio you need in the “{dropdown}” list above the player, then export.");
+ for(const t of [zh,en].flatMap(x=>[x.officialPane_limitReframeAspect,x.officialPane_limitReframeAny]))a.ok(!/9:16|16:9|Reel|我/.test(t),t);
+});
+
+// JJ asked (2026-11-06): with two or more shapes the assistant can't make, which {option}? None: never the first one alone —
+// the sentence without an option (limitReframeAny). The same shape said twice (16:9 and 横屏) is one shape.
+test('two or more shapes it can\'t make: limitReframeAny, never only the first; one shape said twice is one',()=>{
+ for(const lang of ['zh-CN','en']){
+  const {names}=dropdown(lang),T=k=>View.text[lang]['officialPane_'+k];
+  const strings={limitReframeAspect:T('limitReframeAspect'),limitReframeAny:T('limitReframeAny')};
+  const any=T('limitReframeAny').replace('{dropdown}',names.dropdown),one=T('limitReframeAspect').replace('{dropdown}',names.dropdown).replace('{option}',names.options['16:9']);
+  for(const t of ['改成 16:9 或 5:4','5:4 和 16:9 各一版','横屏，或者 5:4'])a.equal(L.note(t,strings,names),any,lang+' '+t);
+  for(const t of ['改成 16:9 横屏','16:9, landscape','16比9 和 16:9'])a.equal(L.note(t,strings,names),one,lang+' '+t);
+ }
+});
