@@ -1,8 +1,9 @@
 'use strict';
-// Synthetic privacy recipe regression. Node 22+, Chrome, FFmpeg on PATH.
+// Synthetic privacy recipe regression. Node 22+, Chrome, configured FFmpeg.
 // Runs the real browser compositor and fastExport. No runtime dependencies.
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os');
-const { spawn, execFileSync } = require('node:child_process');
+const { spawn, fork, execFileSync } = require('node:child_process');
+const {serverLease,resolveMediaTools,pipeClient,verifyBrowserArguments}=require('./privacy-runtime.cjs');
 const crypto = require('node:crypto');
 const root = path.resolve(__dirname, '..');
 const out = path.resolve(process.argv[2] || 'privacy-evidence');
@@ -13,7 +14,8 @@ fs.mkdirSync(path.join(data, 'media'));
 const W=320,H=180,FPS=12,N=12;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex');
-function ff(args) { return execFileSync('ffmpeg',['-hide_banner','-loglevel','error',...args],{windowsHide:true,maxBuffer:64*1024*1024}); }
+const mediaTools=resolveMediaTools();
+function ff(args) { return execFileSync(mediaTools.ffmpeg,['-hide_banner','-loglevel','error',...args],{windowsHide:true,maxBuffer:64*1024*1024}); }
 // Two opaque images differ only inside [8,10,80,25]. Test text, no real account.
 function ppm(secret) {
   const pixels=Buffer.alloc(W*H*3,90);
@@ -37,8 +39,7 @@ for(const secret of [0,1]) {
 fs.writeFileSync(path.join(data,'project.json'),JSON.stringify({width:W,height:H,fps:FPS,media:[],clips:[]}));
 const browser=require('../export-jobs').findBrowser();
 if(!browser)throw Error('Chrome/Edge required');
-let ws,srv,chrome;
-async function freePort(){const s=require('node:net').createServer();await new Promise(r=>s.listen(0,'127.0.0.1',r));const p=s.address().port;await new Promise(r=>s.close(r));return p;}
+let pipe,srv,chrome;
 async function pageRun({mode,scenario,secret}) {
   const W=320,H=180,FPS=12;
   const props={volume:0,fit:'contain',scale:0.6};
@@ -86,20 +87,35 @@ function compare(a,b) {
 }
 (async()=>{
   try {
-    const port=await freePort(),cdp=await freePort();
-    srv=spawn(process.execPath,[path.join(root,'server.js')],{env:{...process.env,PORT:String(port),FABLECUT_DATA_DIR:data,FABLECUT_NO_FS_WATCH:'1'},stdio:['ignore',fs.openSync(path.join(out,'server.log'),'w'),'ignore'],windowsHide:true});
-    chrome=spawn(browser,['--headless=new',`--remote-debugging-port=${cdp}`,`--user-data-dir=${path.join(data,'chrome')}`,'--no-first-run','about:blank'],{stdio:'ignore',windowsHide:true});
+    const token=crypto.randomBytes(32).toString('hex'),proof=crypto.randomBytes(32).toString('hex');
+    const proofPath='/media/proof-'+crypto.randomBytes(16).toString('hex')+'.txt';
+    fs.writeFileSync(path.join(data,proofPath.slice(1)),proof);
+    srv=fork(path.join(root,'server.js'),[],{env:{...process.env,PORT:'0',HOST:'127.0.0.1',MONTCLIP_DESKTOP:'1',MONTCLIP_SESSION_TOKEN:token,MONTCLIP_FFMPEG:mediaTools.ffmpeg,MONTCLIP_FFPROBE:mediaTools.ffprobe,FABLECUT_DATA_DIR:data,FABLECUT_NO_FS_WATCH:'1'},stdio:['ignore',fs.openSync(path.join(out,'server.log'),'w'),'ignore','ipc'],windowsHide:true});
+    const lease=await serverLease(srv,{token,proofPath,proof});
+    const profile=path.join(data,'chrome');fs.mkdirSync(profile);
+    chrome=spawn(browser,['--headless=new','--enable-automation','--remote-debugging-pipe',`--user-data-dir=${profile}`,'--no-first-run','about:blank'],{stdio:['ignore','ignore','ignore','pipe','pipe'],windowsHide:true});
+    pipe=pipeClient(chrome);
+    lease.onFailure(()=>pipe.close());
     fs.writeFileSync(path.join(out,'processes.json'),JSON.stringify({server:srv.pid,browser:chrome.pid,data},null,2));
-    let targets;for(let i=0;i<80;i++){try{targets=await(await fetch(`http://127.0.0.1:${cdp}/json`)).json();break;}catch{await sleep(100);}}
-    ws=new WebSocket(targets.find(t=>t.type==='page').webSocketDebuggerUrl);await new Promise(r=>ws.onopen=r);
-    let id=0;const pending=new Map();
-    ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.id){pending.get(m.id)?.(m);pending.delete(m.id);}};
-    const send=(method,params={})=>new Promise((resolve,reject)=>{const i=++id;const timer=setTimeout(()=>reject(Error('CDP timeout '+method)),120000);pending.set(i,m=>{clearTimeout(timer);m.error?reject(Error(JSON.stringify(m.error))):resolve(m.result);});ws.send(JSON.stringify({id:i,method,params}));});
+    verifyBrowserArguments((await pipe.send('Browser.getBrowserCommandLine')).arguments,profile);
+    const {browserContextId}=await pipe.send('Target.createBrowserContext');
+    const {targetId}=await pipe.send('Target.createTarget',{url:'about:blank',browserContextId});
+    const {sessionId}=await pipe.send('Target.attachToTarget',{targetId,flatten:true});
+    const send=(method,params={})=>{lease.assertAlive();return pipe.send(method,params,sessionId);};
     const ev=async expression=>{const r=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result.value;};
-    for(let i=0;i<80;i++){try{if((await fetch(`http://127.0.0.1:${port}/api/project`)).ok)break;}catch{}await sleep(100);}
-    await send('Page.navigate',{url:`http://127.0.0.1:${port}`});
-    for(let i=0;i<100;i++){try{if(await ev('!!runtime.projectId'))break;}catch{}await sleep(100);}
-    const results={platform:process.platform,head:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),node:process.version,ffmpeg:ff(['-version']).toString().split(/\r?\n/)[0],browser:await send('Browser.getVersion'),cases:[]};
+    pipe.onEvent(m=>{
+      if(m.sessionId!==sessionId||m.method!=='Fetch.requestPaused')return;
+      const {requestId,request}=m.params;
+      const allowed=new URL(request.url).origin===lease.origin;
+      try {send(allowed?'Fetch.continueRequest':'Fetch.failRequest',allowed?{requestId}:{requestId,errorReason:'BlockedByClient'}).catch(()=>pipe.close());}catch{pipe.close();}
+    });
+    await send('Network.enable');await send('Network.setExtraHTTPHeaders',{headers:{'X-MontClip-Session':token}});
+    await send('Fetch.enable',{patterns:[{urlPattern:'http*',requestStage:'Request'}]});
+    await send('Page.navigate',{url:lease.origin});
+    let ready=false;for(let i=0;i<100;i++){lease.assertAlive();try{if(await ev('state.connected && !!project')){ready=true;break;}}catch{}await sleep(100);}
+    if(!ready)throw Error('owned editor did not become ready');
+    const versions=Object.fromEntries(Object.entries(mediaTools).map(([name,file])=>[name,{path:file,version:execFileSync(file,['-version'],{windowsHide:true}).toString().split(/\r?\n/)[0]}]));
+    const results={platform:process.platform,head:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),node:process.version,tools:versions,browser:await pipe.send('Browser.getVersion'),cases:[]};
     for(const scenario of ['static','move','crop','edge','feather'])for(const mode of ['blur','cover']) {
       const runs=[];
       for(const secret of [0,1]) {
@@ -124,5 +140,5 @@ function compare(a,b) {
     const manifest={};function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){const p=path.join(d,e.name);if(e.isDirectory())walk(p);else manifest[path.relative(out,p).replaceAll('\\','/')]=hash(fs.readFileSync(p));}}walk(out);
     fs.writeFileSync(path.join(out,'SHA256.json'),JSON.stringify(manifest,null,2));
     if(!results.ok)process.exitCode=1;
-  } finally {ws?.close();chrome?.kill();srv?.kill();}
+  } finally {pipe?.close();if(chrome?.exitCode===null&&!chrome.killed)chrome.kill();if(srv?.exitCode===null&&!srv.killed)srv.kill();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
