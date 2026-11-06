@@ -48,12 +48,32 @@ Rea independently tested head `9dd795afb64835dc3640287c72d199372adb1c41` on euro
 
 Accept this documented non-blocking boundary for this scoped fix; do not increase `-t` to chase the nearest sample, since excess uploaded video frames could then enter the output. Preserve the existing strict assertions for fixtures where the exact target is observed; do not relax the full-length tail waveform checks globally. This finding does not restore the old missing-PCM-packet behavior. It does mean that an exact nearest-sample guarantee for every duration is not established.
 
-Source: Rea task handoff, reproduction script on europa `/tmp/rea-pr190-9dd795a-90gb/edge-round.cjs` (only abbreviated SHA256 `9de902ec…dd44` supplied; full hash and script not fetched here). Rea reports 40/40 targeted tests, five flash/tone AV scenarios with correct frame counts and nonzero tail, and 108 unchanged legacy argv combinations across nine profiles. These are Rea results on that head, not author reruns or approval of a later head. QQ owns the review conclusion. Windows/full-suite/release/browser and MP4/FLV AV were not run by Rea in that review.
+Source: Rea task handoff, reproduction script on europa `/tmp/rea-pr190-9dd795a-90gb/edge-round.cjs` (full SHA256 `9de902ec59e3799ed359cea76152eba3410c66f3f59ea528a4dd7f1dea83dd44` and script text subsequently supplied by Rea; no remote artifact fetched here). Rea reports 40/40 targeted tests, five flash/tone AV scenarios with correct frame counts and nonzero tail, and 108 unchanged legacy argv combinations across nine profiles. These are Rea results on that head, not author reruns or approval of a later head. QQ owns the review conclusion. Windows/full-suite/release/browser and MP4/FLV AV were not run by Rea in that review.
 
 ## Author Windows edge regression (2026-11-06)
 
 `test/prores-sample-edge.test.js` independently exercises both literal JavaScript Number `23.976` and `24000 / 1001`, with 2248 selected frames and 2249 uploaded JPEGs. System FFmpeg 9.0.1 reports video rates `2997/125` and `24000/1001`, respectively. Decimal 23.976 decodes 4500500 samples against target 4500501; the rational rate decodes exactly 4500496 samples. Both output exactly 2248 video frames, with the full last-frame interval, and retained PCM matches the source byte-for-byte through the real final tone.
 
-The edge test permits target or target-minus-one only for this decimal fixture, so differing FFmpeg rounding does not create a false regression; the rational fixture remains exact. Existing exact assertions on all other fixtures are unchanged. This records an output observation, not proof of the internal rounding stage. No product arguments changed and no duration extension was introduced. Full actual commands and system FFmpeg hash are in the test diagnostic log. Rea Linux/vendor evidence above remains separate; the requested precise original script/command/hash is pending Rea response.
+The edge test permits target or target-minus-one only for this decimal fixture, so differing FFmpeg rounding does not create a false regression; the rational fixture remains exact. Existing exact assertions on all other fixtures are unchanged. This records an output observation, not proof of the internal rounding stage. No product arguments changed and no duration extension was introduced. Full actual commands and system FFmpeg hash are in the test diagnostic log. Rea Linux/vendor evidence above remains separate; the subsequent precise Rea handoff is recorded below.
 
 Author validation: Windows system FFmpeg, targeted edge 2/2; full suite 1780 tests (1773 pass, 0 fail, 7 skipped), 75.208 seconds; release-check passes. Logs and hashes: `docs/validation/2026-11-06-prores-sample-edge/`. This test/docs-only change does not rerun browser exports or claim new Linux/vendor results. Direct SSH lookup of europa was unavailable on this host; Rea was asked to return the original evidence through the task.
+
+## Rea precise provenance received (2026-11-06)
+
+Source: Rea task handoff reporting a fresh run on `6818d2719458d496648bbf2f840228d5827432aa`, europa Linux, Node 18.20.4. These are reviewer-reported results, not author Linux reruns or approval of the current head.
+
+- FFmpeg `n9.0.2-42-gd7643a0fe3-20261102`, SHA256 `400b6f1408e708859148a473a47c342d449f15025a2f025e3ea49bd5f7116978`.
+- FFprobe SHA256 `33476cc0a33107e171c81cdfee17009612057ee1af67727ec6ec6d6f7d505546`.
+- Tool selection: `MONTCLIP_FFMPEG_DIR=/home/admin/apps/MontClip-test-src/vendor/ffmpeg/linux-x64`.
+- Comparison script: `/tmp/rea-pr190-9dd795a-90gb/edge2.cjs`, SHA256 `315fdbf5914aa78342b3effefff49202c73cac46766deb3fc49048e08e4ea222`. Script bytes were not independently fetched/hash-checked by the author.
+- Inputs: 2248 MJPEG frames, 64×36; stereo s16 48 kHz WAV, round(target)+50 samples, PCM bytes 0x01. Decimal JS `23.976` gives target 4500501 / decoded 4500500, video 2248 frames / 93.760427 seconds. JS `24000/1001` (23.976023976023978) gives target=decoded 4500496, video 2248 frames / 93.760333 seconds.
+
+Reported decimal export argv:
+
+```text
+-y -hide_banner -thread_queue_size 64 -f image2pipe -framerate 23.976 -c:v mjpeg -i - -i 23_976_decimal.wav -vf scale=in_range=full:in_color_matrix=bt601:out_range=tv:out_color_matrix=bt709,setparams=color_primaries=bt709:color_trc=bt709 -c:v prores_ks -profile:v 3 -pix_fmt yuv422p10le -c:a pcm_s16le -colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv -af aresample=48000,atrim=end_sample=4500501 -ar 48000 -map 0:v:0 -map 1:a:0 -t 93.760427094 23_976_decimal.mov
+```
+
+Rational comparison uses framerate `23.976023976023978`, trim target `4500496`, and duration `93.760333333` (fixture filenames identify the corresponding input/output). Rea did not isolate removal of -t, so duration microsecond rounding remains an inference. The original search-script handoff also lists `1748@23.976` as 4499499.4995 samples; direct arithmetic gives 3499499.4994995. That unrelated row is flagged for Rea correction and is not used as acceptance evidence. The 2248-frame pair agrees with the independent Windows results above.
+
+No product/test changes in this provenance-only update; no repeat export or test run. Existing head-specific validation and pending JJ/QQ gates retain their scope.
