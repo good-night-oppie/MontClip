@@ -11,7 +11,7 @@ The synthetic last-100ms tone in #189 reaches the browser mix and FFmpeg input i
 Fast export already quantizes its selected range to an integer frame count. Pass this `frames` value to raw `/api/export/begin`. Only JPEG `prores422` with an explicit valid frame count uses the new bound:
 
 - Video end is **frames / fps**, not the last frame's presentation timestamp.
-- Audio end is **round(frames / fps × 48000)** samples (nearest sample). Resample before trimming so direct WAV callers have a defined clock too.
+- The audio trim target is **round(frames / fps × 48000)** samples (nearest sample). Resample before trimming so direct WAV callers have a defined clock too. This is a trim target, not a universal exact decoded-sample guarantee: FFmpeg also applies the duration bound below, and the observed microsecond-quantization boundary can yield one sample fewer.
 - For this invocation only, replace shortest-stream termination with `-t` at the video end and `atrim=end_sample` at the audio end. Do not impose `-frames:v`, which could terminate before the audio tail is submitted.
 - A short uploaded WAV stays short; a long one is trimmed. There is no added silence. In the browser, a short source clip already produces silence outside that clip inside the full-range OfflineAudioContext; that existing semantic does not change.
 - Audio-free timelines remain audio-free. The last video frame occupies its full project-frame interval.
@@ -34,10 +34,18 @@ The bounded path explicitly sets the output rate to 48 kHz, overriding a custom 
 
 ## Verification
 
-`test/prores-end.test.js` first failed against main with 573440 != 576000 decoded samples. It now checks actual ProRes output: source tail waveform, exact sample boundary, 30000/1001 and 29.97 nonintegral boundaries, short/long/no audio. A portable MPEG-4/AAC MP4 comparison verifies that supplying the new field does not change existing packets, decoded PCM, negative AAC priming PTS or skip-sample metadata. It does not claim AAC padding equals audible duration.
+`test/prores-end.test.js` first failed against main with 573440 != 576000 decoded samples. It now checks actual ProRes output: source tail waveform, exact sample counts for the tested fixtures, 30000/1001 and 29.97 nonintegral boundaries, short/long/no audio. A portable MPEG-4/AAC MP4 comparison verifies that supplying the new field does not change existing packets, decoded PCM, negative AAC priming PTS or skip-sample metadata. It does not claim AAC padding equals audible duration.
 
 `test/prores-export-api.test.js` exercises the real isolated service (PORT=0 + authenticated IPC): rejected bounds, a five-second WAV limited to a one-second project, batched JPEGs, discard and cleanup. The first version caught temporary directories allocated before invalid-bound rejection; validation was moved ahead of allocation.
 
 `real-tests/prores-end-browser.cjs` uses only generated materials, an isolated data directory, private Chrome profile/CDP pipes and its own service. It exports through the actual compositor for CFR and VFR-source cases, measures output frames/samples, and compares the real last tone with the source at zero offset. A first MPEG-4 browser fixture timed out while waiting for a presented frame; it was replaced with browser-decodable synthetic H.264, without bypassing the app's x264 export settings gate. Fixture generation needs an external tool with libx264; unit tests do not.
 
 Platform/tool results and content hashes are recorded separately in the validation report. No downloading of missing tools, installation, deployment, human listening score or cross-platform result is implied.
+
+## Reported duration-quantization edge (Rea, 2026-11-06)
+
+Rea independently tested head `9dd795afb64835dc3640287c72d199372adb1c41` on europa (Node 18.20.4, vendor FFmpeg `n9.0.2-42-gd7643a0fe3`). At 23.976 fps and 2248 frames, the mathematical sample count is 4500500.5005 and the trim target is 4500501, but the decoded output contains 4500500 samples (one fewer, about 21 microseconds). The reported arguments include `aresample=48000,atrim=end_sample=4500501` and `-t 93.760427094`. Microsecond rounding of `-t` is the reported explanation, not an independently isolated root cause in this follow-up.
+
+Accept this documented non-blocking boundary for this scoped fix; do not increase `-t` to chase the nearest sample, since excess uploaded video frames could then enter the output. Preserve the existing strict assertions for fixtures where the exact target is observed; do not relax the full-length tail waveform checks globally. This finding does not restore the old missing-PCM-packet behavior. It does mean that an exact nearest-sample guarantee for every duration is not established.
+
+Source: Rea task handoff, reproduction script on europa `/tmp/rea-pr190-9dd795a-90gb/edge-round.cjs` (only abbreviated SHA256 `9de902ec…dd44` supplied; full hash and script not fetched here). Rea reports 40/40 targeted tests, five flash/tone AV scenarios with correct frame counts and nonzero tail, and 108 unchanged legacy argv combinations across nine profiles. These are Rea results on that head, not author reruns or approval of a later head. QQ owns the review conclusion. Windows/full-suite/release/browser and MP4/FLV AV were not run by Rea in that review.
