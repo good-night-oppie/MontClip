@@ -30,9 +30,10 @@ for (const f of ["app.js", "narrow-layout.js", "loudness.js", "ducking.js", "sil
   fs.copyFileSync(from, path.join(OUT, f));
 }
 
-/* The library files the built-in templates use (the placeholder logo). The
+/* The library files the built-in templates use (the placeholder logo) and the
+   title fonts the demo edits draw with (static-shim.js lists them). The
    shim serves /library/… from this folder. */
-for (const rel of ["elements/logo-placeholder.svg"]) {
+for (const rel of ["elements/logo-placeholder.svg", "fonts/Anton.woff2", "fonts/Playfair Display.woff2", "fonts/Bebas Neue.woff2", "fonts/Roboto.woff2", "fonts/LICENSES.md"]) {
   const to = path.join(OUT, "library", rel);
   fs.mkdirSync(path.dirname(to), { recursive: true });
   fs.copyFileSync(path.join(ROOT, "library", rel), to);

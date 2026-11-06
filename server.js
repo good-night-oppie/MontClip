@@ -38,12 +38,15 @@ const {
   listProfilesPublic,
   profileSummary,
   buildExportArgs,
+  proresProjectEnd,
+  proresFilterPlan,
   dryRunProfile,
 } = require("./encode-profiles");
 const { downloadImportUrl, maybeFaststart } = require("./import-url");
 const { prepareMedia, publicPreparationError } = require("./prepare-media");
 const { pruneCache } = require("./frame-cache");
 const { createExportJobs } = require("./export-jobs");
+const AudioWindow = require("./audio-window");
 const { denoiseFile, AMOUNT_IDS: DENOISE_AMOUNTS } = require("./denoise");
 
 const {
@@ -62,7 +65,9 @@ try {
   }
 } catch {}
 const Templates = require("./templates");
-const { probeFile } = require("./media-probe");
+const { probeFile, infoForEntry } = require("./media-probe");
+const MakeEditable = require("./make-editable");
+const repairJobs = MakeEditable.createJobs({ prefix: "r_" });
 const MediaLib = require("./media-lib");
 const { createProxies } = require("./proxy");
 const { createTranscripts } = require("./transcripts");
@@ -148,7 +153,13 @@ ensureDirs();
 /* One engine writes a data folder (writer-lock.js): the Windows app and the Cindy plugin share this
    engine, and two of them on one folder would save over each other. MONTCLIP_SHELL names the shell. */
 const SHELL = process.env.MONTCLIP_SHELL || (DESKTOP ? "desktop" : "server");
-const writerLock = require("./writer-lock").acquire(DATA_DIR, { shell: SHELL });
+let writerLock;
+try { writerLock = require("./writer-lock").acquire(DATA_DIR, { shell: SHELL }); }
+catch (e) {
+  // the shell that started this server (the Windows app) tells the user who has the folder: one line it can read
+  if (e.code === "DATA_DIR_IN_USE") console.error("MONTCLIP_DATA_DIR_IN_USE " + JSON.stringify({ shell: e.holder?.shell || null, port: e.holder?.port || null }));
+  throw e;
+}
 const projects = createProjects({ dataDir: DATA_DIR, projectFile: PROJECT_FILE, libraryDir: LIBRARY_DIR });
 const undoStacks = require("./undo-stacks").createUndoStacks({ dir: path.join(ANALYSIS_DIR, "undo") });
 const history = createHistory({ projects, autoMinutes: Number(process.env.FABLECUT_AUTO_VERSION_MIN) || 10 });
@@ -349,7 +360,7 @@ function resolvePathArg(p) {
 
 /* Remux MP4-family uploads with `+faststart` so the moov atom leads the file —
    without it <video> stalls for seconds probing over Range requests. */
-function faststart(file) { return maybeFaststart(file); }
+function faststart(file, opts) { return maybeFaststart(file, opts); }
 
 /* ── Export sessions ──
    Two modes share the same HTTP session API:
@@ -574,6 +585,11 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
     throw new Error("export width/height required for rgba");
   }
   if (m === "jpeg" && (extra.delivery || extra.deliveries)) return beginDeliveryExport(rate, name, hasAudio, extra);
+  if (m === "jpeg") {
+    const rawProfile = resolveProfile(profileId);
+    if (proresProjectEnd(rawProfile, { fps: rate, frames: extra.frames, pixelFormat }))
+      proresFilterPlan(rawProfile.args, !!hasAudio);
+  }
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const safe = exportName(name || "export");
   // Same filesystem as the finished file so renameSync(partPath, out) cannot EXDEV.
@@ -606,7 +622,7 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
   const { outPath, partPath } = reserveExportPaths(EXPORTS_DIR, safe, profile.extension);
   const sess = {
     mode: m, proc: null, fps: rate, profile, name: safe, hasAudio: !!hasAudio, binary,
-    pixelFormat, width, height,
+    pixelFormat, width, height, frames: extra.frames,
     dir, wav: null, partPath, outPath,
     stderr: "", done: null, lastTouch: Date.now(),
     err: () => sess.stderr.trim().split("\n").filter(Boolean).slice(-3)
@@ -621,7 +637,7 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
 function startEncoder(sess) {
   if (sess.outputs) return startDeliveryEncoders(sess);
   const args = buildExportArgs(sess.profile, {
-    fps: sess.fps, wavPath: sess.wav, outPath: sess.partPath,
+    fps: sess.fps, frames: sess.frames, wavPath: sess.wav, outPath: sess.partPath,
     pixelFormat: sess.pixelFormat, width: sess.width, height: sess.height,
   });
   const proc = spawn(sess.binary || FF.path("ffmpeg"), args, { stdio: ["pipe", "ignore", "pipe"] });
@@ -732,6 +748,16 @@ const exportJobs = createExportJobs({
   broadcast,
   editors: () => sseClients.size,
   editorConnected: (id) => [...sseClients].some((res) => res.montclipTabId === id),
+  // a job that failed or was cancelled stops its encode now: ffmpeg and the half-finished file did wait for the
+  // 10-minute idle sweep, while a retry was already writing the next file (P11, europa 2026-11-05)
+  onEnd: (j) => { for (const [id, s] of [...exportSessions]) if (s.job === j.id) cleanupExport(id); },
+  // an export is done when its file is in exports/ under its own name (the .part is renamed only after ffmpeg exits)
+  finished: (src) => {
+    let name = "";
+    try { name = decodeURIComponent(String(src).split("?")[0].replace(/^\/exports\//, "")); } catch { return false; }
+    if (!name || name !== path.basename(name) || /\.part\.[^.]+$/i.test(name)) return false;
+    try { return fs.statSync(path.join(EXPORTS_DIR, name)).isFile(); } catch { return false; }
+  },
 });
 
 /* Static file with HTTP Range support (required for <video> seeking) */
@@ -1216,7 +1242,9 @@ const server = http.createServer(async (req, res) => {
           }
         }
       } finally { try { fs.rmSync(staging, { force: true }); } catch {} }
-      await faststart(target);
+      // the page's 「正在导入… n%」 for this file (?ticket= from importFiles): how far the faststart tidy is, over SSE
+      const ticket = url.searchParams.get("ticket");
+      await faststart(target, /^[A-Za-z0-9_-]{1,40}$/.test(ticket || "") ? { onProgress: (frac) => broadcast("upload", JSON.stringify({ ticket, frac })) } : undefined);
       sendJSON(res, 200, { ok: true, ...await prepareMedia(target) });
     } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
     return;
@@ -1455,7 +1483,10 @@ const server = http.createServer(async (req, res) => {
       const mode = opts.mode === "annexb" ? "annexb" : "jpeg";
       if (mode !== "annexb" && opts.profile) resolveProfile(opts.profile); // 400, not 500, on a bad id — even without ffmpeg
       if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
-      sendJSON(res, 200, await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts));
+      const begun = await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts);
+      // the agent's export job this encode belongs to (export-jobs.js): when that job ends without a file, so does this
+      if (typeof opts.job === "string" && opts.job && exportSessions.has(begun.id)) exportSessions.get(begun.id).job = opts.job;
+      sendJSON(res, 200, begun);
     } catch (e) {
       // an unusable profile is the caller's problem, not a server fault
       const bad = /^Unknown encoding profile|was rejected by ffmpeg|ffmpeg rejected these settings|at most \d+ outputs|deliveries is empty|render each frame rate separately|export fps required|export width\/height required/.test(e.message || "");
@@ -1624,6 +1655,46 @@ const server = http.createServer(async (req, res) => {
      file answers "did the source change underneath this?". The cache is capped
      (500 files / 128 MB, oldest mtime first — see frame-cache.js), so no
      combination of arguments can fill the disk. */
+  /* API: part of a file's audio, for the fast-export mix. The page used to fetch and decode the whole file, which on a
+     2-hour recording (8 GB) read gigabytes, ran the tab out of memory and exported no sound (europa, 2026-11-04).
+     WAV, 32-bit float, the file's own channels, 48 kHz; at most an hour (the page falls back to the whole file). */
+  if (p === "/api/audio-window" && req.method === "GET") {
+    const file = resolveSrc(url.searchParams.get("src") || "");
+    if (!file) { sendJSON(res, 404, { error: "src must name an existing file under /media/ or /library/" }); return; }
+    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
+    const from = Number(url.searchParams.get("from")), to = Number(url.searchParams.get("to"));
+    if (!Number.isFinite(from) || !Number.isFinite(to) || from < 0 || to <= from || to - from > 3600) {
+      sendJSON(res, 400, { error: "from and to are seconds, 0 ≤ from < to, at most an hour apart" }); return;
+    }
+    // written to a file (never held in memory: an hour of stereo is 1.4 GB), then streamed and removed
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-aw-")), out = path.join(tmpDir, "window.wav");
+    const cleanup = () => { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { } };
+    const proc = spawn(FF.path("ffmpeg"), AudioWindow.windowArgs(file, from, to - from, out), { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
+    let err = "", gone = false;
+    proc.stderr.on("data", (d) => { err = (err + d).slice(-1000); });
+    proc.on("error", () => { cleanup(); if (!res.headersSent) sendJSON(res, 500, { error: "ffmpeg could not be started" }); });
+    res.on("close", () => { gone = true; if (proc.exitCode === null) proc.kill(); });
+    proc.on("close", (code) => {
+      if (gone || res.headersSent) { cleanup(); return; }
+      let head = null, size = 0;
+      try {
+        size = fs.statSync(out).size;
+        const fd = fs.openSync(out, "r"), buf = Buffer.alloc(Math.min(size, 64 * 1024));
+        fs.readSync(fd, buf, 0, buf.length, 0); fs.closeSync(fd);
+        head = AudioWindow.wavChunks(buf);
+      } catch { }
+      if (code !== 0 || !head || head.data.size === 0) {
+        cleanup();
+        sendJSON(res, 422, { error: "no audio in that part of the file: " + X.maskUserPath(err.trim().split("\n").pop() || "exit " + code) });
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "audio/wav", "Content-Length": size, "Cache-Control": "no-store" });
+      const rs = fs.createReadStream(out);
+      rs.on("close", cleanup); rs.on("error", () => { cleanup(); res.destroy(); });
+      rs.pipe(res);
+    });
+    return;
+  }
   if (p === "/api/frame" && req.method === "GET") {
     const pathArg = url.searchParams.get("path");
     /* `path=` reads any file on this machine, so it is only answered for the
@@ -1734,6 +1805,63 @@ const server = http.createServer(async (req, res) => {
       }
       const r = await denoiseFile(file, MEDIA_DIR, opts.amount);
       sendJSON(res, 200, { src: "/media/" + encodeURIComponent(r.name), name: r.name, duration: r.duration, channels: r.channels, cached: r.cached });
+    } catch (e) { sendJSON(res, 500, { error: String(e.message || e) }); }
+    return;
+  }
+
+  /* API: 〔帮我修好〕 (JJ, P3) — POST {src} starts a job (or joins the one running for that
+     file) → {job, status, progress, phase}; GET /api/repair/job?id= → the same, with result {src, name, kind, duration,
+     preparation, encoder?, …file details} once done, or error {code}; POST /api/repair/cancel?id= stops it. The new MP4
+     is written into media/; the original is never touched. Swapping it into the project is the editor's job
+     (MediaLib.swapMedia, one undo step), as fablecut_repair_media does for agents. */
+  if (p === "/api/repair" && req.method === "POST") {
+    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
+    let opts;
+    try { opts = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "body must be JSON {src}" }); return; }
+    const file = resolveSrc(opts.src);
+    if (!file) { sendJSON(res, 404, { error: "src must name an existing file under /media/ or /library/" }); return; }
+    sendJSON(res, 200, repairJobs.start(file, async ({ signal, onProgress }) => {
+      const r = await MakeEditable.makeEditable(file, { outDir: MEDIA_DIR, signal, onProgress });
+      const name = path.basename(r.file);
+      const out = { src: "/media/" + encodeURIComponent(name), name, kind: "video", duration: r.duration, preparation: r.preparation, ...(r.encoder ? { encoder: r.encoder } : {}) };
+      return { ...infoForEntry(await probeFile(r.file), out), ...out };
+    }));
+    return;
+  }
+  if (p === "/api/repair/job" && req.method === "GET") {
+    const j = repairJobs.get(url.searchParams.get("id"));
+    if (!j) { sendJSON(res, 404, { error: "no such repair job" }); return; }
+    sendJSON(res, 200, j);
+    return;
+  }
+  if (p === "/api/repair/cancel" && req.method === "POST") {
+    const j = repairJobs.cancel(url.searchParams.get("id"));
+    if (!j) { sendJSON(res, 404, { error: "no such repair job" }); return; }
+    sendJSON(res, 200, j);
+    return;
+  }
+
+  /* API: lengths the agent read for files that had none (QQ, #152 review): POST {updates:[{id, src, duration?,
+     durationFrom?, durationUnknown?}]}. With an editor open they go to it (SSE "media-backfill"): it puts them into the
+     project it has open, an unsaved step included, and saves once — the agent no longer writes over that step. With
+     none open they are merged onto the project on disk here, as a PUT would write it. → {via:"editor"|"server", changed?} */
+  if (p === "/api/media-backfill" && req.method === "POST") {
+    let body;
+    try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "body must be JSON {updates}" }); return; }
+    const updates = body && Array.isArray(body.updates) ? body.updates.filter((u) => u && typeof u.id === "string" && typeof u.src === "string").slice(0, 2000) : null;
+    if (!updates) { sendJSON(res, 400, { error: "updates must be a list of {id, src, duration | durationUnknown}" }); return; }
+    if (sseClients.size) { broadcast("media-backfill", JSON.stringify({ updates })); sendJSON(res, 200, { via: "editor", editors: sseClients.size }); return; }
+    try {
+      const cur = JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(new RegExp("^\\uFEFF"), ""));
+      const changed = MediaLib.applyBackfill(cur, updates);
+      if (changed) {
+        cur.revision = (cur.revision || 0) + 1;
+        const tmp = PROJECT_FILE + ".tmp";
+        fs.writeFileSync(tmp, JSON.stringify(cur, null, 2));
+        fs.renameSync(tmp, PROJECT_FILE);
+        broadcast("change");
+      }
+      sendJSON(res, 200, { via: "server", changed, revision: cur.revision || 0 });
     } catch (e) { sendJSON(res, 500, { error: String(e.message || e) }); }
     return;
   }

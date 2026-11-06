@@ -64,7 +64,7 @@ const omittedShown=n=>{
  // one clip: its own sentence (factsOmittedOne), as the strings with -one do elsewhere
  a.match(pane,/\{factsOmitted>0&&<p data-facts-omitted>\{factsOmitted===1\?t\.factsOmittedOne:t\.factsOmitted\.replace\('\{n\}',String\(factsOmitted\)\)\}<\/p>\}/);
  a.match(pane,/setFactsOmitted\(options\.getFactsOmitted\?\.\(\)\|\|0\)/,'counted when the box opens');
- a.match(read('app.js'),/getFactsOmitted:\(\)=>MontClipFacts\.omitted\(projectJSON\(\)\)/);
+ a.ok(read('app.js').includes('getFactsOmitted:()=>MontClipFacts.omitted(projectJSON(),{selected:selectedClips().map(c=>c.id)}),'));
  a.match(read('cindy-official.js'),/data-facts-omitted/,'the bundle was rebuilt');
  a.equal(View.text['zh-CN'].officialPane_factsOmitted.replace('{n}',String(n)),`有 ${n} 个片段这次没附上时间信息，AI 看不到它们在哪。不影响发送。`);
  a.equal(View.text.en.officialPane_factsOmitted.replace('{n}',String(n)),`Timing for ${n} clips wasn't included, so the AI won't see where they are. Sending still works.`);
@@ -107,4 +107,19 @@ test('the left-out line in JJ\'s final words: one clip and several, in Chinese a
  a.equal(en.officialPane_factsOmittedOne,"Timing for 1 clip wasn't included, so the AI won't see where it is. Sending still works.");
  a.equal(en.officialPane_factsOmitted,"Timing for {n} clips wasn't included, so the AI won't see where they are. Sending still works.");
  for(const s of [zh.officialPane_factsOmittedOne,zh.officialPane_factsOmitted,en.officialPane_factsOmittedOne,en.officialPane_factsOmitted])a.ok(!/编号|IDs?\b/.test(s),s);
+});
+
+// The 「AI 数据说明」 says what is sent is "你选中的片段的时间、长度这类数字" (JJ v5; QQ via Deja, 2026-11-04): only the
+// selected clips go out, their highlights with them, and nothing about the timeline when nothing is selected.
+test('only the selected clips: the others, their highlights and their left-out count stay home; none selected, none sent',()=>{
+ const hl=[{from:20,to:40,score:0.8},{from:320,to:330,score:0.5}];
+ const one=Facts.build(doc,{selected:['c_a2'],highlights:hl});
+ a.deepEqual(one.clips.map(c=>c.clipId),['c_a2']);a.deepEqual(one.highlights.map(h=>h.clipId),['c_a2'],'only the highlight inside it');
+ a.deepEqual(Facts.build(doc,{selected:[],highlights:hl}),{clips:[]},'nothing selected: no clip, no highlight');
+ a.deepEqual(Facts.build(doc,{selected:['cap1']}),{clips:[]},'a selected caption is not a shot, and its text never goes');
+ a.equal(Facts.omitted(doc,{selected:['c_v1']}),0);a.equal(Facts.omitted(doc,{selected:['C:/Users/主播/a.mp4']}),1);
+ // the editor asks for the selected clips, for the facts and for the left-out count
+ const app=read('app.js');
+ a.ok(app.includes('getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts,s=runtime.soundFacts;return MontClipFacts.build(doc,{selected:selectedClips().map(c=>c.id),'));
+ a.ok(app.includes('getFactsOmitted:()=>MontClipFacts.omitted(projectJSON(),{selected:selectedClips().map(c=>c.id)}),'));
 });

@@ -23,6 +23,50 @@ test("parseProbe reads frame rate, codecs, channels, size and bitrate", () => {
   });
 });
 
+// MKV lengths (JJ / Rea, 2026-11-04; Deja). A Matroska file's format.duration is where its last timestamp ends, so one
+// whose timestamps start at 3600 s says 3620 s for 20 s of footage; MP4, MOV and TS already give the length. A
+// recording cut off mid-way may not say its length in the header at all: then the streams' own durations, then each
+// MKV stream's DURATION tag ("HH:MM:SS.nnnnnnnnn", also counted from 0), and when nothing says it the length is
+// unknown — never 0 s.
+const AV = (extra = {}) => [
+  { codec_type: "video", codec_name: "h264", width: 1280, height: 720, avg_frame_rate: "60/1", ...extra.v },
+  { codec_type: "audio", codec_name: "aac", channels: 2, sample_rate: "48000", ...extra.a },
+];
+test("parseProbe: an MKV whose timestamps start at 3600 s is 20 s long, not 3620 s; an MP4 with a start time keeps its length", () => {
+  const mkv = M.parseProbe({ streams: AV(), format: { format_name: "matroska,webm", duration: "3620.021000", start_time: "3600.000000" } });
+  assert.equal(mkv.duration, 20.021);
+  assert.equal(mkv.durationUnknown, undefined);
+  const mp4 = M.parseProbe({ streams: AV(), format: { format_name: "mov,mp4,m4a,3gp,3g2,mj2", duration: "3.021333", start_time: "3599.978667" } });
+  assert.equal(mp4.duration, 3.021);
+  const ts = M.parseProbe({ streams: AV(), format: { format_name: "mpegts", duration: "3.021333", start_time: "3601.378667" } });
+  assert.equal(ts.duration, 3.021);
+  // an ordinary MKV (start 0) is unchanged
+  assert.equal(M.parseProbe({ streams: AV(), format: { format_name: "matroska,webm", duration: "20.021", start_time: "0.000000" } }).duration, 20.021);
+});
+test("parseProbe: no length in the header — the streams' durations, then the MKV DURATION tags (less the stream's start)", () => {
+  const streamDur = M.parseProbe({ streams: AV({ v: { duration: "19.99" }, a: { duration: "20.021" } }), format: { format_name: "matroska,webm", start_time: "0" } });
+  assert.equal(streamDur.duration, 20.021);
+  const tags = M.parseProbe({ streams: AV({ v: { start_time: "0.000000", tags: { DURATION: "00:00:19.999000000" } }, a: { start_time: "0.000000", tags: { DURATION: "00:00:20.021000000" } } }),
+    format: { format_name: "matroska,webm", start_time: "0.000000" } });
+  assert.equal(tags.duration, 20.021);
+  const offsetTags = M.parseProbe({ streams: AV({ v: { start_time: "3600.000000", tags: { DURATION: "01:00:19.999000000" } }, a: { start_time: "3600.000000", tags: { DURATION: "01:00:20.021000000" } } }),
+    format: { format_name: "matroska,webm", start_time: "3600.000000" } });
+  assert.equal(offsetTags.duration, 20.021);
+  // a cover picture's tag never counts
+  const cover = M.parseProbe({ streams: [{ codec_type: "audio", codec_name: "mp3", channels: 2, tags: { DURATION: "00:03:00.000000000" } },
+    { codec_type: "video", codec_name: "mjpeg", disposition: { attached_pic: 1 }, tags: { DURATION: "10:00:00.000000000" } }], format: { format_name: "mp3" } });
+  assert.equal(cover.duration, 180);
+});
+test("parseProbe: nothing says how long it is — the length is unknown, not 0 s; a still picture has no length to know", () => {
+  const none = M.parseProbe({ streams: AV({ v: { start_time: "0.000000" }, a: { start_time: "0.000000" } }), format: { format_name: "matroska,webm", start_time: "0.000000" } });
+  assert.equal(none.duration, undefined);
+  assert.equal(none.durationUnknown, true);
+  for (const bad of ["", "N/A", "garbage", "00:00:00.000000000"])
+    assert.equal(M.parseProbe({ streams: AV({ v: { tags: { DURATION: bad } } }), format: { format_name: "matroska,webm" } }).durationUnknown, true, bad);
+  const png = M.parseProbe({ streams: [{ codec_type: "video", codec_name: "png", width: 8, height: 8, avg_frame_rate: "25/1" }], format: { format_name: "png_pipe" } });
+  assert.equal(png.durationUnknown, undefined);
+});
+
 test("parseProbe: rotated phone footage swaps width and height; stills have no fps; silent video has 0 channels", () => {
   const rot = M.parseProbe({ streams: [{ codec_type: "video", codec_name: "hevc", width: 1920, height: 1080, avg_frame_rate: "60/1", side_data_list: [{ rotation: -90 }] }], format: {} }, 10);
   assert.equal(rot.width, 1080); assert.equal(rot.height, 1920);
@@ -225,6 +269,18 @@ test("relinkScore: same name beats another extension beats a similar name; size 
   assert.equal(M.relinkScore({ name: "vo.m4a", kind: "audio" }, { name: "vo.mp4" }).score, 60, "audio may sit in a video container");
   assert.equal(M.srcName("/media/a%20b.mp4?x=1"), "a b.mp4");
   assert.equal(M.kindFromName("/media/x.MOV"), "video");
+});
+
+test("autoRelinkPick (QQ #137): only the same file is linked silently — same name and size, exactly one", () => {
+  const m = { name: "live.mp4", src: "/media/live.mp4", size: 10, kind: "video" };
+  const c = (name, size, src) => ({ src: src || "/library/" + name, name, size, ...M.relinkScore(m, { name, size }) });
+  const same = c("live.mp4", 10);
+  assert.equal(M.autoRelinkPick(m, [same]), same, "same name and size: linked");
+  assert.equal(M.autoRelinkPick(m, [c("live.mp4", 99)]), null, "negative: same name, other contents (size) — never silent");
+  assert.equal(M.autoRelinkPick(m, [c("live.mov", 10)]), null, "negative: same stem and size (110) is not the same file");
+  assert.equal(M.autoRelinkPick(m, [same, c("live.mp4", 10, "/media/old/live.mp4")]), null, "negative: two same files — ambiguous, ask");
+  assert.equal(M.autoRelinkPick({ ...m, size: 0 }, [c("live.mp4", 10)]), null, "negative: original size unknown — ask");
+  assert.equal(M.autoRelinkPick(m, []), null);
 });
 
 test("relinkMedia points the entry at the found file, keeps clips, re-reads the details; refuses a missing file or another kind", () => {

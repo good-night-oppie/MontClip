@@ -9,8 +9,8 @@ const pane=fs.readFileSync(path.join(__dirname,'../agent-ui/pane.tsx'),'utf8'),v
 const payload=(content='keep these')=>({version:1,requestId:'r1',projectId:'p',sequenceId:'s',revision:1,gen:0,messages:[{role:'user',content}]});
 const service=(request,extra={})=>{const s=S.createService({read:()=>JSON.stringify({version:1,provider:'openrouter',model:'nvidia/x-vl:free',secret:'sealed'}),write(){},seal:k=>k,unseal:()=>'test-key',request,providers:S.ALL_PROVIDERS,...extra});return s;}; // OpenRouter: the test switch (agent-providers.test.js)
 
-test('three fixed services, OpenRouter included (with the test switch); the page cannot name a URL',()=>{
- a.deepEqual(Object.keys(S.ENDPOINTS).sort(),['deepseek','openai','openrouter']);
+test('four fixed services, OpenRouter and Meta included (with the test switch); the page cannot name a URL',()=>{
+ a.deepEqual(Object.keys(S.ENDPOINTS).sort(),['deepseek','meta','openai','openrouter']);
  a.equal(S.ENDPOINTS.openrouter,'https://openrouter.ai/api/v1/chat/completions');
  const s=S.createService({read:()=>null,write(){},seal:k=>'s:'+k,unseal:x=>x,providers:S.ALL_PROVIDERS});
  a.equal(s.configure({provider:'openrouter',model:'google/gemma-4-31b-it:free',apiKey:'k'}).configured,true);
@@ -45,7 +45,7 @@ test('fenced JSON is accepted as a proposal',()=>{
 });
 
 test('the proposal button shows only for a usable proposal; otherwise a plain line says so',()=>{
- a.match(pane,/usable&&<button data-review-proposal/);a.ok(pane.includes('data-no-proposal'));
+ a.match(pane,/usable&&!unchanged&&<button data-review-proposal/); // an unchanged one says so instead (agent-limits.test.js)a.ok(pane.includes('data-no-proposal'));
  a.equal(view['zh-CN'].officialPane_noProposal,'这条回复不是剪辑建议。想让它直接剪，可以说清要保留哪几句。');
  a.ok(view.en.officialPane_noProposal);
 });
@@ -69,6 +69,6 @@ test('real-model tests are opt-in and never part of the default or CI run',()=>{
  const real=fs.readdirSync(path.join(__dirname,'..','real-tests'));
  for(const f of real)a.ok(!/\.test\.[cm]?js$|-test\.|_test\.|^test-/.test(f),f+' must not match node --test defaults');
  for(const f of real.filter(f=>/openrouter|deepseek/.test(f))){const src=fs.readFileSync(path.join(__dirname,'..','real-tests',f),'utf8');a.match(src,/MONTCLIP_REAL_MODELS/,f);}
- const ci=fs.readFileSync(path.join(__dirname,'..','.github','workflows','ci.yml'),'utf8');a.ok(!/MONTCLIP_REAL_MODELS|openrouter-token|deepseek/i.test(ci),'CI never enables them or holds their keys');
+ const ci=fs.readFileSync(path.join(__dirname,'..','.github','workflows','ci.yml'),'utf8');a.ok(!/MONTCLIP_REAL_MODELS|openrouter-token|openrouter-montclip|OPENROUTER_KEY_FILE|deepseek/i.test(ci),'CI never enables them or holds their keys');
  const pkg=require('../package.json');a.equal(pkg.scripts.test,'node --test');
 });

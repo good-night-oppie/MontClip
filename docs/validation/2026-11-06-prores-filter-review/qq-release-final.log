@@ -1,0 +1,129 @@
+
+Versions
+  ok  package.json = 1.18.0
+  ok  manifest.json = 1.18.0
+  ok  .claude-plugin/plugin.json = 1.18.0
+  ok  mcp-server.js serverInfo = 1.18.0
+
+Not published
+  ok  package.json private: true (npm refuses to publish it)
+  ok  package.json has no mcpName
+  ok  no MCP registry manifest
+
+Metadata
+  ok  glama.json has $schema and maintainers
+  ok  LICENSE present (MIT)
+  ok  package.json bin exists
+  ok  package.json parses
+  ok  manifest.json parses
+  ok  glama.json parses
+  ok  .mcp.json parses
+  ok  .claude-plugin/plugin.json parses
+  ok  .claude-plugin/marketplace.json parses
+
+Bundled FFmpeg
+  ok  FFmpeg manifest license LGPL-3.0-or-later
+  ok  win32-x64: LGPL archive pinned by SHA-256
+  ok  win32-x64: LICENSES.md lists its source and SHA-256
+  ok  linux-x64: LGPL archive pinned by SHA-256
+  ok  linux-x64: LICENSES.md lists its source and SHA-256
+  ok  desktop packaging copies vendor/ffmpeg/<platform>-<arch> to resources/ffmpeg
+
+Bundled FFmpeg build (no GPL)
+  ok  FFmpeg manifest: our own build without libopenh264 (openh264: false)
+  ok  FFmpeg libraries: every licence text collected and classified
+  ok  vendor/ffmpeg/win32-x64 not fetched here — run node desktop/fetch-ffmpeg.cjs to check the build itself
+  ok  packaging copies only the bundled ffmpeg/ffprobe, its license and its source record
+
+Syntax
+  ok  agent-conversation.js
+  ok  agent-events.js
+  ok  agent-facts.js
+  ok  agent-format.js
+  ok  agent-pane.js
+  ok  agent-plan.js
+  ok  agent-policy.js
+  ok  agent-session-schema.js
+  ok  analyze.js
+  ok  app.js
+  ok  asr-download.js
+  ok  asr-local.js
+  ok  asr-models.js
+  ok  asr-words.js
+  ok  audio-fx.js
+  ok  audio-window.js
+  ok  auto-slices.js
+  ok  beats.js
+  ok  capabilities-page.js
+  ok  capabilities.js
+  ok  caption-quick.js
+  ok  captions.js
+  ok  chat-proposal.js
+  ok  cindy-official.js
+  ok  cli.js
+  ok  color.js
+  ok  comp.js
+  ok  corrections.js
+  ok  danmaku-file.js
+  ok  danmaku.js
+  ok  delivery.js
+  ok  denoise.js
+  ok  ducking.js
+  ok  edit-ops.js
+  ok  encode-profiles.js
+  ok  event-bounds.js
+  ok  export-cleanup.js
+  ok  export-jobs.js
+  ok  external-ffmpeg.js
+  ok  ffmpeg-path.js
+  ok  flv-readable-range.js
+  ok  frame-cache.js
+  ok  frame-stats.js
+  ok  fx-worklet.js
+  ok  highlight-candidates.js
+  ok  highlights.js
+  ok  history.js
+  ok  import-url.js
+  ok  loudness.js
+  ok  lyrics-align.js
+  ok  make-editable.js
+  ok  mask.js
+  ok  mcp-server.js
+  ok  mcp-tools.js
+  ok  media-lib.js
+  ok  media-probe.js
+  ok  meter-worklet.js
+  ok  motion.js
+  ok  mp4-demux.js
+  ok  narrow-layout.js
+  ok  owned-processes.js
+  ok  paths.js
+  ok  prepare-media.js
+  ok  project-ops.js
+  ok  projects.js
+  ok  proxy.js
+  ok  range-plan.js
+  ok  reframe.js
+  ok  ruler-worker.js
+  ok  segment-edits.js
+  ok  sequences.js
+  ok  server.js
+  ok  signals.js
+  ok  silence.js
+  ok  song-scan.js
+  ok  songs.js
+  ok  templates.js
+  ok  tracker.js
+  ok  transcribe.js
+  ok  transcripts.js
+  ok  ui-preferences.js
+  ok  ui-terms.js
+  ok  undo-stacks.js
+  ok  workspace-preferences.js
+  ok  writer-lock.js
+
+MCP server (repo)
+  ok  repo: 27 tools
+  ok  repo: tools match manifest.json
+
+all release checks passed

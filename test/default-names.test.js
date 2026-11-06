@@ -8,7 +8,7 @@ const read = (f) => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 
 test("the default project name follows the language", () => {
   a.equal(V.defaultProjectName("zh-CN"), "未命名项目");
-  a.equal(V.defaultProjectName("en"), "Untitled Project");
+  a.equal(V.defaultProjectName("en"), "Untitled project"); // JJ, 插件试用 P7
   a.equal(V.defaultProjectName(undefined), "未命名项目", "Chinese first");
 });
 test("a name with nothing usable for a file falls back to 直播切片 {月-日} in Chinese, the old word in English", () => {
@@ -21,9 +21,9 @@ test("a name with nothing usable for a file falls back to 直播切片 {月-日}
 });
 test("the page uses them: new-project dialog, empty names, export and caption file names", () => {
   const app = read("app.js");
-  a.match(app, /const exportBaseName = \(fallback\) => Delivery\.fileSafeName\(project\.name, MontClipView\.exportFallback\(mcView\.get\(\)\.language, fallback\)\);/);
+  a.match(app, /const exportBaseName = \(fallback\) => Delivery\.fileSafeName\(MontClipView\.exportProjectName\(project\.name, \(project\.media \|\| \[\]\)\.map\(\(m\) => m\.name\)\),\s*MontClipView\.exportFallback\(mcView\.get\(\)\.language, fallback\)\);/);
   a.match(app, /id="pjNewName" value="\$\{escapeHtml\(MontClipView\.defaultProjectName\(mcView\.get\(\)\.language\)\)\}"/);
-  a.ok(!/\|\| "Untitled Project"/.test(app), "no hard-coded English default left in the page");
+  a.ok(!/\|\| "Untitled [Pp]roject"/.test(app), "no hard-coded English default left in the page");
 });
 test("a project made by the server or the project store without a name is 未命名项目", () => {
   a.ok(!/"Untitled Project"/.test(read("server.js")), "server.js");

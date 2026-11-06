@@ -54,7 +54,9 @@ function findBrowser(env = process.env) {
 
 /** opts: {url(id) → page to open headless, broadcast(event, data), editors() → open tab count,
  *  keepProfile(kind) → a browser profile dir that outlives the job (a model cache), or null for a throwaway one,
- *  now() → the clock (tests)} */
+ *  now() → the clock (tests),
+ *  onEnd(job) → a job ended without its file (failed or cancelled): stop what it left running,
+ *  finished(src) → is the file an export job says it made really in place (renamed from .part)?} */
 function createExportJobs(opts) {
   const clock = typeof opts.now === "function" ? opts.now : Date.now;
   function assertWhere(where = "auto") {
@@ -89,6 +91,7 @@ function createExportJobs(opts) {
     if (isEnded(j)) return;
     Object.assign(j, fields, { status, updated: clock() });
     closeBrowser(j);
+    if (status !== "done" && opts.onEnd) { try { opts.onEnd(view(j)); } catch {} }
   }
   function sweep() {
     const now = clock();
@@ -106,7 +109,8 @@ function createExportJobs(opts) {
           "(it may be in the background, minimized or paused), so the job was ended to free the queue — bring the editor to the front and retry" +
           (opts.allowHeadless === false ? "" : ", or retry with where:\"headless\"") });
       else if (j.status === "running" && j.via === "headless" && now - j.updated > STALL_MS)
-        end(j, "failed", { error: "the editor stopped reporting progress (tab closed or browser crashed)" });
+        end(j, "failed", { error: "the editor stopped reporting progress" +
+          (j.kind === "export" ? ` at ${Math.round(j.progress * 100)}%${j.at != null ? ` (timeline ${j.at} s)` : ""}` : "") + " (tab closed or browser crashed)" });
       else if (isEnded(j) && now - j.updated > KEEP_MS) jobs.delete(j.id);
     }
     if (![...jobs.values()].some((j) => !isEnded(j)) && timer) { clearInterval(timer); timer = null; }
@@ -186,7 +190,7 @@ function createExportJobs(opts) {
       return true;
     },
     /** Progress / result from the running tab. Returns {cancel} so a cancel reaches it. */
-    report(id, { progress, status, src, result, error, tabId, hidden } = {}) {
+    report(id, { progress, status, src, result, error, at, tabId, hidden } = {}) {
       const j = jobs.get(id);
       if (!j) return null;
       // cancelled, or ended for it (it stopped answering): the tab stops, and what it sends late is not taken.
@@ -198,7 +202,11 @@ function createExportJobs(opts) {
       if (typeof hidden === "boolean") j.hidden = hidden;
       j.updated = clock();   // any report counts; an empty one ({}) is the tab's heartbeat
       if (Number.isFinite(progress)) j.progress = Math.max(0, Math.min(1, progress));
-      if (status === "done") end(j, "done", { progress: 1, src: String(src || ""), result: result && typeof result === "object" ? result : null });
+      if (Number.isFinite(at)) j.at = at;   // the timeline second last drawn: where a stalled export stopped
+      // done means the finished file is in place, never "ffmpeg exited" (P11): a job whose file is not there failed
+      if (status === "done" && j.kind === "export" && opts.finished && !opts.finished(String(src || "")))
+        end(j, "failed", { error: "the export said it was done, but its file is not in place" });
+      else if (status === "done") end(j, "done", { progress: 1, src: String(src || ""), result: result && typeof result === "object" ? result : null });
       else if (status === "failed") end(j, "failed", { error: String(error || "export failed") });
       return { cancel: false };
     },

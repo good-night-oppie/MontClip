@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+- Count accumulated gaps before hiding an unchanged assistant suggestion; match manual aspect-ratio guidance to the request.
+- Preserve the final partial audio packet in JPEG ProRes exports by using the selected range's explicit frame/sample end instead of shortest-stream termination. Other profiles and legacy calls without a frame count keep their existing behavior.
+- Preserve the last matching bounded-ProRes audio filter across output-index and type selectors; reject mappings or option forms that cannot be interpreted safely instead of restoring muted sound.
+
+- Pause conflicting private-package AI connections until resolved, show recovery instructions, and keep cleanup warnings for wiped seed files across restarts.
+
+- Preserve a private package's seed on restart when sealing verification and rollback both fail; only a matching saved connection may consume it.
+
+- Correct the private DeepSeek data notice to describe reply and plan labels and the exact AI switch path; add the persistent AI switch and selected-clip-only request facts.
+
 - A visible connected editor is no longer timed out while busy. Silent-job recovery follows the owning tab, including its visibility and connection.
 
 ### Added
@@ -19,6 +28,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Partial official Apache-2.0 Cindy composer/configuration component port, local session restoration, explicit full-payload confirmation, fixed-provider desktop transport and guarded sentence proposal preview/apply/undo. Live-provider and visible-window acceptance remain pending.
 
 ### Fixed
+- Generate missing presentation timestamps on the repair remux path; reject non-finite output durations while
+  retaining the minimum length, ±1 s duration check and strict full decode. A reproducible timestamp-jump test
+  confirms that a short but decodable remux is still refused.
+- Send background duration metadata through the editor server so an open editor can save it alongside pending
+  timeline edits. Server errors no longer fall back to a direct project write.
+- A reload no longer adds an empty undo step: loading relinks the picture to its audio stems under new ids, which the
+  kept undo history took for an edit made elsewhere (VV, #111). The undo of a real outside edit now says so in the
+  interface language.
+- The desktop app says plainly when another MontClip (the one in Cindy) is using its projects, instead of "the
+  internal service stopped".
 - Show the final session-capacity and message-length guidance only for the corresponding rejected action.
 - Reject oversized Agent draft pastes explicitly instead of silently truncating their text; preserve the accepted draft.
 - Separate Agent local storage policy from actual save confirmation; identify storage eligibility by project ID, not project name.
