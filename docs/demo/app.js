@@ -1621,7 +1621,8 @@ function syncExportFrameSel() {
   els.exportFrameSel.title = uiText("own.ef-title");
 }
 /** The export-frame drop-down's name and its 9:16 option, as the drop-down shows them now — for the assistant's
- *  「改竖屏」 sentence (agent-limits.js), so it names what is on screen in whatever words the drop-down uses. */
+ *  manual-way sentence (agent-limits.js: a shape the assistant can't make, e.g. 16:9), so it names what is on screen in
+ *  whatever words the drop-down uses. */
 function exportFrameNames(sel = els.exportFrameSel) {
   const i = EXPORT_FRAME_ASPECTS.findIndex((a) => a.w === 9 && a.h === 16);
   const opt = sel && sel.querySelector('option[value="' + i + '"]');
@@ -2423,6 +2424,16 @@ async function importFromUrl(url) {
   }
 }
 
+function mediaResolution(m) {
+  if (!(m && m.width > 0 && m.height > 0)) return "";
+  const display = `${m.width}×${m.height}`;
+  if (!(m.storedWidth > 0 && m.storedHeight > 0) || (m.storedWidth === m.width && m.storedHeight === m.height)) return display;
+  return uiText("own.resolution-stored", { display, stored: `${m.storedWidth}×${m.storedHeight}` });
+}
+function mediaDescription(m) {
+  return [mediaResolution(m), m.fps ? uiText("own.fps-value", { n: MediaLib.fmtFps(m.fps) }) : "",
+    m.codec || "", MediaLib.fmtAudio(m), MediaLib.fmtSize(m.size)].filter(Boolean).join(" · ");
+}
 function renderBin() {
   els.binList.querySelectorAll(".bin-item, .bin-folder, .bin-drop-root, .comp-item, .bin-filterbar, .bin-colhead, .bin-noresult, .bin-importing").forEach((n) => n.remove());
   syncBinTools();
@@ -2524,13 +2535,13 @@ function renderBin() {
       const cell = (v, cls = "") => `<span class="bin-cell${cls}">${escapeHtml(v || "—")}</span>`;
       item.innerHTML = `
         <span class="bin-cell bin-cell-name">${favHtml}<span class="bin-thumb sm"></span>${slowMark}${offlineHtml}<span class="bin-name"></span></span>
-        ${cell(MediaLib.fmtDur(m.duration), " num c-duration")}${cell(MediaLib.fmtRes(m), " num c-resolution")}${cell(MediaLib.fmtFps(m.fps), " num c-fps")}
+        ${cell(MediaLib.fmtDur(m.duration), " num c-duration")}${cell(mediaResolution(m), " num c-resolution")}${cell(MediaLib.fmtFps(m.fps), " num c-fps")}
         ${cell(m.codec, " c-codec")}${cell(MediaLib.fmtAudio(m).replace(/^stereo\b/, uiOr("term.stereo", "stereo")), " c-audio")}${cell(MediaLib.fmtSize(m.size), " num c-size")}
         <span class="bin-cell c-proxy">${proxyBadgeHtml(m) || escapeHtml(m.kind === "video" ? "—" : "")}</span>
         <span class="bin-cell num c-usage">${usesHtml}</span>
         <span class="bin-del" title="Remove (and its clips)">✕</span>${incomplete}`;
     } else {
-      const sub = [folder ? "📁 " + folder.name : "", m.kind === "video" ? uiText("own.media-kind-video") : m.kind, m.duration ? fmt(m.duration) : "", MediaLib.fmtRes(m), m.fps ? uiText("own.fps-value", { n: MediaLib.fmtFps(m.fps) }) : ""]
+      const sub = [folder ? "📁 " + folder.name : "", m.kind === "video" ? uiText("own.media-kind-video") : m.kind, m.duration ? fmt(m.duration) : "", mediaResolution(m), m.fps ? uiText("own.fps-value", { n: MediaLib.fmtFps(m.fps) }) : ""]
         .filter(Boolean).join(" · ");
       item.innerHTML = `
         <div class="bin-thumb"></div>
@@ -2547,7 +2558,7 @@ function renderBin() {
     else thumbEl.textContent = icon;
     const nameEl = item.querySelector(".bin-name");
     nameEl.textContent = m.name;
-    item.title = [m.name, offline ? uiText("own.off-item-title", { file: m.name }) : "", MediaLib.describe(m), m.tags && m.tags.length ? m.tags.map((t) => "#" + t).join(" ") : ""].filter(Boolean).join("\n");
+    item.title = [m.name, offline ? uiText("own.off-item-title", { file: m.name }) : "", mediaDescription(m), m.tags && m.tags.length ? m.tags.map((t) => "#" + t).join(" ") : ""].filter(Boolean).join("\n");
     item.addEventListener("dragstart", (e) => {
       runtime.binDragFolderId = null;
       e.dataTransfer.setData("text/fablecut-media", m.id);
@@ -2822,6 +2833,7 @@ async function refreshMediaInfo(list) {
       if (!i) continue;
       for (const k of MediaLib.INFO_KEYS) if (i[k] != null && m[k] !== i[k]) { m[k] = i[k]; changed = true; }
       if (!(m.width > 0) && i.width > 0) { m.width = i.width; m.height = i.height; changed = true; }
+      if (MediaLib.displaySize(m, i)) changed = true;   // P6: the display size, not the stored one
       // the server's length wins where the browser has none, or counted the start of an MKV's timestamps (one that
       // starts at 3600 s plays 20 s; Chromium says 3620 s): media-lib.js parseProbe / serverDuration
       const d = MediaLib.serverDuration(m, i);
@@ -3037,7 +3049,7 @@ function showMediaInfo(m, x, y) {
   const rows = [
     ["Kind", m.kind], ["File", decodeURIComponent(String(m.src || "").split("?")[0]) + (isMediaOffline(m.id) ? " — MISSING (offline)" : "")],
     ["Duration", m.duration > 0 ? MediaLib.fmtDur(m.duration) + ` (${(+m.duration).toFixed(3)} s)` : ""],
-    ["Resolution", MediaLib.fmtRes(m)], ["Frame rate", m.fps ? MediaLib.fmtFps(m.fps) + " fps" : ""],
+    ["Resolution", mediaResolution(m)], ["Frame rate", m.fps ? MediaLib.fmtFps(m.fps) + " fps" : ""],
     ["Video codec", m.kind === "video" ? m.codec : ""], ["Format", m.kind !== "video" && m.codec ? m.codec : ""],
     ["Audio", audio], ["Bitrate", m.bitrate ? (m.bitrate >= 1e6 ? (m.bitrate / 1e6).toFixed(1) + " Mb/s" : Math.round(m.bitrate / 1000) + " kb/s") : ""],
     ["Size", MediaLib.fmtSize(m.size)], ["Used", uses.length ? uses.length + "×" : "not used"],
@@ -3339,14 +3351,14 @@ async function openRelinkDialog(list) {
   overlay.className = "overlay";
   overlay.id = "relinkOverlay";
   overlay.innerHTML = `<div class="dialog relink" role="dialog" aria-modal="true" aria-labelledby="relinkTitle" tabindex="-1">
-    <h2 id="relinkTitle">Relink media</h2>
-    <p class="dim">Point ${list.length === 1 ? "this file" : `these ${list.length} files`} at the footage where it is now. Clips keep their In points and edits.</p>
+    <h2 id="relinkTitle">${escapeHtml(uiText("own.rl-title"))}</h2>
+    <p class="dim">${escapeHtml(list.length === 1 ? uiText("own.rl-intro-one") : uiText("own.rl-intro-many", { n: list.length }))}</p>
     <div class="relink-tools">
-      <button type="button" class="btn tiny" data-folder title="Pick the folder the files are in now — they are matched by name and copied into the project">Choose folder…</button>
+      <button type="button" class="btn tiny" data-folder title="${escapeHtml(uiText("own.rl-folder-title"))}">${escapeHtml(uiText("own.rl-folder"))}</button>
       <span class="relink-status dim"></span>
     </div>
     <div class="relink-rows"></div>
-    <div class="dialog-actions"><button type="button" class="btn" data-cancel>Cancel</button><button type="button" class="btn primary" data-apply>Relink</button></div>
+    <div class="dialog-actions"><button type="button" class="btn" data-cancel>${escapeHtml(uiText("own.rl-cancel"))}</button><button type="button" class="btn primary" data-apply>${escapeHtml(uiText("own.rl-apply"))}</button></div>
   </div>`;
   document.body.appendChild(overlay);
   const dialog = overlay.querySelector(".dialog");
@@ -3364,18 +3376,20 @@ async function openRelinkDialog(list) {
       const options = (cands.get(m.id) || []);
       row.innerHTML = `<div class="relink-name"><b></b><span class="dim relink-was"></span></div>
         <div class="relink-pick">
-          <select aria-label="New location"></select>
-          <button type="button" class="btn tiny" data-browse title="Pick the file (it is copied into the project)">Browse…</button>
+          <select aria-label="${escapeHtml(uiText("own.rl-new-loc"))}"></select>
+          <button type="button" class="btn tiny" data-browse title="${escapeHtml(uiText("own.rl-browse-title"))}">${escapeHtml(uiText("own.rl-browse"))}</button>
         </div>`;
       // missing files, in order (JJ, 2026-11-05): 「正在找：「{file}」（第 k 个，共 n 个）」
       const k = missing.indexOf(m) + 1;
       row.querySelector("b").textContent = k ? uiText("own.off-finding-k", { file: m.name, k, n: missing.length }) : m.name;   // JJ's words exactly: no ⚠, the count even for one
-      row.querySelector(".relink-was").textContent = "was " + decodeURIComponent(String(m.src).split("?")[0]) + (m.duration ? " · " + fmt(m.duration) : "") + (m.size ? " · " + MediaLib.fmtSize(m.size) : "");
+      // the file's name only (never its /media/… path) · its length as h:mm:ss, no frames · its size
+      const [was, ...rest] = MediaLib.relinkWasParts(m);
+      row.querySelector(".relink-was").textContent = [uiText("own.rl-was", { file: was }), ...rest].join(" · ");
       const sel = row.querySelector("select");
       const opt = (v, label) => { const o = document.createElement("option"); o.value = v; o.textContent = label; sel.appendChild(o); };
-      opt("", options.length || cur ? "— leave it —" : "— not found: Browse… or Choose folder… —");
+      opt("", uiText(options.length || cur ? "own.rl-leave" : "own.rl-not-found"));
       if (cur && !options.some((o) => o.src === cur.src)) opt(cur.src, cur.label);
-      for (const o of options) opt(o.src, `${decodeURIComponent(o.path || o.src)} · ${MediaLib.fmtSize(o.size)} (${o.why})`);
+      for (const o of options) opt(o.src, `${decodeURIComponent(o.path || o.src)} · ${MediaLib.fmtSize(o.size)} (${MediaLib.relinkWhyKeys(o.why).map((k) => uiText("own." + k)).join("")})`);
       sel.value = cur ? cur.src : "";
       sel.addEventListener("change", () => {
         const o = options.find((x) => x.src === sel.value);
@@ -3385,10 +3399,10 @@ async function openRelinkDialog(list) {
       row.querySelector("[data-browse]").addEventListener("click", async () => {
         const [file] = await pickFilesForRelink({});
         if (!file) return;
-        status.textContent = `Copying ${file.name}…`;
+        status.textContent = uiText("own.rl-copying", { name: file.name });
         const [up] = await uploadForRelink([file]);
-        status.textContent = up?.src ? "" : "Couldn't copy " + file.name;
-        if (up?.src) { pick.set(m.id, { src: up.src, label: `${file.name} (chosen)` }); render(); }
+        status.textContent = up?.src ? "" : uiText("own.rl-copy-failed", { name: file.name });
+        if (up?.src) { pick.set(m.id, { src: up.src, label: uiText("own.rl-chosen", { name: file.name }) }); render(); }
       });
       rowsEl.appendChild(row);
     }
@@ -3398,7 +3412,7 @@ async function openRelinkDialog(list) {
     const n = list.filter((m) => pick.get(m.id)).length;
     const b = overlay.querySelector("[data-apply]");
     b.disabled = !n;
-    b.textContent = n ? `Relink ${n}` : "Relink";
+    b.textContent = n ? uiText("own.rl-apply-n", { n }) : uiText("own.rl-apply");
   };
   overlay.querySelector("[data-cancel]").addEventListener("click", close);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
@@ -3416,11 +3430,11 @@ async function openRelinkDialog(list) {
       }
       if (best) want.push([m, best]);
     }
-    if (!want.length) { status.textContent = `None of the ${files.length} files in that folder match by name.`; return; }
+    if (!want.length) { status.textContent = uiText("own.rl-folder-none", { n: list.length, files: files.length }); return; }
     let i = 0;
-    const ups = await uploadForRelink(want.map(([, f]) => f), (f) => { status.textContent = `Copying ${++i}/${want.length}: ${f.name}…`; });
-    want.forEach(([m, f], k) => { if (ups[k].src) pick.set(m.id, { src: ups[k].src, label: `${f.name} (from the folder)` }); });
-    status.textContent = `Matched ${ups.filter((u) => u.src).length} of ${list.length} by name.`;
+    const ups = await uploadForRelink(want.map(([, f]) => f), (f) => { status.textContent = uiText("own.rl-copying-k", { i: ++i, n: want.length, name: f.name }); });
+    want.forEach(([m, f], k) => { if (ups[k].src) pick.set(m.id, { src: ups[k].src, label: uiText("own.rl-from-folder", { name: f.name }) }); });
+    status.textContent = uiText("own.rl-matched", { x: ups.filter((u) => u.src).length, n: list.length });
     render();
   });
   overlay.querySelector("[data-apply]").addEventListener("click", async () => {
@@ -3439,7 +3453,7 @@ async function openRelinkDialog(list) {
       cands.set(m.id, opts);
       if (opts[0] && opts[0].score >= 100 && !pick.get(m.id)) { pick.set(m.id, { src: opts[0].src, label: opts[0].name }); pre++; }
     }
-    status.textContent = pre ? `Found ${pre} of ${list.length} in the project folders.` : "";
+    status.textContent = pre ? uiText("own.rl-pre", { pre, n: list.length }) : "";
     render();
   }
 }
@@ -4470,6 +4484,9 @@ function undoRun(runId) {
 function undo() {
   if (!runtime.undo.length) return;
   const snap = runtime.undo.pop(), id = eventIdOf(snap);
+  // the assistant's reframe: back to the sequence it was made from, the copy deleted (no redo)
+  const rf = typeof snap === "string" && snap.includes('"agentReframeBack":') ? agentReframeBackOf(snap) : null;
+  if (rf) { if (undoAgentReframe(snap, rf)) { runtime.redo.length = 0; if (id) moveEvent(id, "undone"); } return; }
   runtime.redo.push(id ? withEventId(counterSnapshot(snap), id) : counterSnapshot(snap));
   if (id) moveEvent(id, "undone");
   restoreSnapshot(snap);
@@ -11606,6 +11623,12 @@ function autoPlace(clips, { select = null, fine = false } = {}) {
 }
 /** A toast with one button (the editor's toast is text only). The button acts once; the toast goes after 8 s. */
 let toastHold = null;
+/** Take the toast away now, with or without its button (VV, 2026-11-04: a new approval box came up over the last step's toast). */
+function dismissToast() {
+  clearTimeout(toastTimer); toastTimer = null;
+  if (toastHold) toastHold.stop();
+  if (els.toast) els.toast.classList.remove("show", "has-action");
+}
 function toastAction(msg, label, onClick) {
   if (!els.toast) return;
   els.toast.textContent = "";
@@ -15653,7 +15676,7 @@ const Reframe = self.MontClipReframe;
 const reframeRun = { busy: false, cancel: false, done: 0, of: 0 };
 /** RGB frames of clip c (SAMPLE_FPS across its window; one for a still), w×h each. With `onRgb`,
  *  each frame goes to it as it is read and nothing is kept (a long shot needn't sit in memory). */
-async function sampleClipFrames(c, w, h, onFrame, onRgb, { fps = Reframe.SAMPLE_FPS, cancelled = () => reframeRun.cancel } = {}) {
+async function sampleClipFrames(c, w, h, onFrame, onRgb, { fps = Reframe.SAMPLE_FPS, times = null, cancelled = () => reframeRun.cancel } = {}) {
   const m = getMedia(c.mediaId);
   const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
   const x = cv.getContext("2d", { willReadFrequently: true });
@@ -15679,13 +15702,14 @@ async function sampleClipFrames(c, w, h, onFrame, onRgb, { fps = Reframe.SAMPLE_
       el.addEventListener("loadeddata", () => { clearTimeout(tm); res(); }, { once: true });
       el.addEventListener("error", () => { clearTimeout(tm); rej(new Error("the video could not be read")); }, { once: true });
     });
-    const n = Math.max(1, Math.floor(c.duration * clipSpeed(c) * fps + 1e-6));
-    const frames = [];
+    // times (seconds from the in point): a reframe's, with the clip's last frame (Reframe.sampleTimes); else fps a second
+    const at = Array.isArray(times) && times.length ? times : Array.from({ length: Math.max(1, Math.floor(c.duration * clipSpeed(c) * fps + 1e-6)) }, (_, i) => i / fps);
+    const n = at.length, frames = [];
     for (let i = 0; i < n; i++) {
       if (cancelled()) break;
-      await seekFrame(el, Math.max(0, (c.in || 0) + i / fps) + 0.001);
+      await seekFrame(el, Math.max(0, (c.in || 0) + at[i]) + 0.001);
       x.drawImage(el, 0, 0, w, h);
-      if (onRgb) onRgb(rgb()); else frames.push(rgb());
+      if (onRgb) onRgb(rgb(), at[i]); else frames.push(rgb());
       if (onFrame) onFrame(i + 1, n);
     }
     return frames;
@@ -15741,7 +15765,8 @@ async function reframeClips(clips, { follow = true, smooth = 0.5 } = {}) {
         const w = Reframe.SAMPLE_W, h = Math.max(8, Math.round(w * src.height / src.width / 2) * 2);
         // each frame is looked at as it is read, between seeks, so Cancel answers and nothing piles up
         const tr = Reframe.tracker(w, h);
-        await sampleClipFrames(c, w, h, (i, n) => { reframeRun.frac = i / n; if (i % 10 === 0) renderInspector(); }, (f) => tr.push(f));
+        await sampleClipFrames(c, w, h, (i, n) => { reframeRun.frac = i / n; if (i % 10 === 0) renderInspector(); }, (f, t) => tr.push(f, t),
+          { times: Reframe.sampleTimes(c.duration * clipSpeed(c), { frame: clipSpeed(c) / fps }) });
         if (reframeRun.cancel) break;
         samples = tr.samples;
       }
@@ -23375,6 +23400,8 @@ function paintAgentMode(){const mark=document.getElementById('mcYoloMark');if(ma
 /** The host's approval box (QQ 4: only the host shows it). It shows the capability's plain sentence (never its internal
  *  name), what it changes or where it sends, and for an external step what is sent. Resolves to once | session | deny. */
 function askAgentApproval(d,{summary='',content=null,detail=''}={}){
+ // the last step's toast goes first, so the two never sit one over the other (VV)
+ dismissToast();
  return new Promise((resolve)=>{
   const dialog=document.createElement('dialog');dialog.className='agent-approval';dialog.setAttribute('data-agent-approval','');
   const say=(k,v)=>escapeHtml(uiText(k,v)),choice=(c)=>'<button type="button" class="btn'+(c==='once'?' primary':'')+'" data-choice="'+c+'">'+say('own.ap-'+c)+'</button>';
@@ -23407,6 +23434,7 @@ function agentRefusalText(d,bytes=0){
 /** The plain summary of a proposal for the approval box. */
 function agentProposalText(result){
  const p=MontClipConversation.proposalSummary(result.text,result.references||[]);if(!p)return '';
+ if(p.mode==='reframe')return uiText('own.ap-sum-reframe',{aspect:p.aspect});
  return uiText(p.mode==='per_range'?'own.ap-sum-slices':p.mode?'own.ap-sum-ranges':'own.ap-sum-sentences',{count:p.count,duration:MontClipConversation.durationText(p.duration)});
 }
 /** P4: a reply that is a usable proposal is the AI's step. The main process says what happens to it, from the mode and the
@@ -23417,6 +23445,7 @@ async function onAgentReply(result){
  if(!window.montclipAgentPolicy||!result||typeof result.text!=='string')return;
  let response;try{response=MontClipConversation.parseProposal(result.text);}catch{return;}
  if(!response||!MontClipConversation.proposalSummary(result.text,result.references||[]))return;
+ if(response.type==='reframe'){await agentReframeFlow(response,result);return;}
  // nothing to do: not applied in any mode; the pane says so where the button would be
  if(agentProposalUnchanged(result))return;
  let d;try{d=await window.montclipAgentPolicy.decide({sessionId:result.sessionId,capability:response.type,target:{kind:'project',value:runtime.projectId}});}catch{d=null;}
@@ -23425,7 +23454,10 @@ async function onAgentReply(result){
  if(d.action==='list'){toast(uiText('own.ap-listed'));return;}
  if(d.action==='refuse'){toast(agentRefusalText(d));return;}
  let step;try{step=agentProposalStep(response,result);}catch(error){toast(uiText(error.message==='STALE'?'own.ap-stale':'own.ap-invalid'));return;}
- if(d.action==='ask'){
+ // the toast after applying says why it ran (JJ's words, 2026-11-04): asked now and approved; allowed earlier for this chat
+ // (d.byApproval, 「这个聊天中都批准」); or run by 自动 / Yolo without asking
+ const asked=d.action==='ask';
+ if(asked){
   const choice=await askAgentApproval(d,{summary:agentProposalText(result),detail:MontClipPlan.stepDetail({capability:response.type,args:response},mcView.get().language)});
   let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}
   if(!a||!a.ok||!a.run){if(step.ev)moveEvent(step.ev.id,'rejected');toast(uiText('own.ap-denied'));return;}
@@ -23442,8 +23474,128 @@ async function onAgentReply(result){
  let plan;try{plan=MontClipRangePlan.create(projectJSON(),proposal.keep);plan.keep=proposal.keep;}catch{if(ev)moveEvent(ev.id,'failed');toast(uiText('own.ap-invalid'));return;}
  const token=commitRangePlan(plan,proposal);
  officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});
- toastAction(uiText('own.ap-applied',{mode:MontClipPolicy.modeLabel(agentPolicy.mode,mcView.get().language)}),uiText('own.ap-undo'),()=>{if(canUndoOfficialProposal(result)){if(!ev||!undoEvent(ev.id).ok)undo();}});
+ toastAction(asked?uiText('own.ap-applied-approved'):d.byApproval?uiText('own.ap-applied-allowed'):uiText('own.ap-applied',{mode:MontClipPolicy.modeLabel(agentPolicy.mode,mcView.get().language)}),uiText('own.ap-undo'),()=>{if(canUndoOfficialProposal(result)){if(!ev||!undoEvent(ev.id).ok)undo();}});
  mcAgent.render();
+}
+/* The assistant's reframe (Deja, 2026-11-05): {"type":"reframe","aspect"} → a copy of the open sequence on that shape whose
+   shots follow the subject (reframe.js, as the editor's New sequence… and fablecut_reframe), opened. The streamer confirms
+   it every time, in every mode (capabilities.js CONFIRM_EVERY_TIME). The footage is read first, with a progress line and
+   〔取消〕 that stay on screen (Yolo too); nothing is made until it has all been read, so 〔取消〕, a failure or an edit
+   meanwhile leave no half-made sequence. Then, at once: the copy is added and opened, the plans written to its clips, and
+   one undo step put on its history that deletes it and opens the original again (the sequence's own undo cannot reach
+   the other sequence, so this step does it; it has no redo). */
+const agentReframeRun={busy:false,cancel:false,el:null};
+function agentReframeProgress(text){
+ let el=agentReframeRun.el;
+ if(!el){
+  el=document.createElement('dialog');el.className='agent-approval agent-reframe-progress';el.setAttribute('data-agent-reframe','');
+  el.innerHTML='<p data-rf-progress></p><div class="tr-row"><button type="button" class="btn" data-rf-cancel></button></div>';
+  el.querySelector('[data-rf-cancel]').textContent=uiText('own.rf-cancel');
+  el.querySelector('[data-rf-cancel]').addEventListener('click',()=>{agentReframeRun.cancel=true;el.querySelector('[data-rf-cancel]').disabled=true;});
+  el.addEventListener('cancel',(e)=>e.preventDefault());
+  document.body.append(el);el.show();agentReframeRun.el=el;
+ }
+ el.querySelector('[data-rf-progress]').textContent=text;
+}
+function agentReframeDone(){if(agentReframeRun.el){agentReframeRun.el.remove();agentReframeRun.el=null;}}
+/** Read the footage, then make and open the copy. → {ok:true, sequence, name} | {ok:false, code}. */
+async function runAgentReframe(aspect,{eventId=null,token=null}={}){
+ if(state.exporting||state.gesture||reframeRun.busy||agentReframeRun.busy)return {ok:false,code:'BUSY'};
+ if(state.compCtx)exitComp(state.compCtx.path.length);
+ if(SeqLib.entries(seqRoot()).length>=SeqLib.MAX)return {ok:false,code:'SEQUENCE_LIMIT'};
+ let canvas;try{canvas=Reframe.canvasFor(aspect,project.width,project.height);}catch{return {ok:false,code:'INVALID'};}
+ const {take}=Reframe.targets({clips:project.clips,lockedTracks:[...state.lockedTracks]},{});
+ if(!take.length)return {ok:false,code:'NOTHING'};
+ Object.assign(agentReframeRun,{busy:true,cancel:false});
+ const fps=projectFps()||30,gen=runtime.projectGen,seqId=SeqLib.activeId(seqRoot()),size=JSON.stringify([project.width,project.height]),lanes=JSON.stringify([...state.lockedTracks]);
+ const stamp=(c)=>{const m=getMedia(c.mediaId)||{};return JSON.stringify([c.mediaId,m.src,m.width,m.height,c.track,c.start,c.in,c.duration,!!c.locked,c.props||{},c.keyframes||{}]);};
+ const stamps=new Map(take.map((c)=>[c.id,stamp(c)])),plans=[],snapshot=JSON.stringify(projectJSON());
+ const say=(i,frac)=>agentReframeProgress(uiText('own.rf-progress',{aspect,n:i+1,of:take.length,pct:Math.round(frac*100)}));
+ let failed=false,reading=null;
+ try{
+  for(let i=0;i<take.length&&!agentReframeRun.cancel;i++){
+   const c=take[i];reading=c;say(i,0);
+   const src=await pictureSize(c),cover=Reframe.coverRect(src.width,src.height,canvas.width,canvas.height,1);
+   let samples=null;
+   if(Math.max(cover.maxX,cover.maxY)>0.5){
+    const w=Reframe.SAMPLE_W,h=Math.max(8,Math.round(w*src.height/src.width/2)*2),tr=Reframe.tracker(w,h);
+    await sampleClipFrames(c,w,h,(k,n)=>{if(k%5===0)say(i,k/n);},(f,t)=>tr.push(f,t),{times:Reframe.sampleTimes(c.duration*clipSpeed(c),{frame:clipSpeed(c)/fps}),cancelled:()=>agentReframeRun.cancel});
+    samples=tr.samples;
+   }
+   if(agentReframeRun.cancel)break;
+   plans.push({id:c.id,...Reframe.clipPlan(c,samples,src,canvas,{smooth:0.5,fps,follow:true})});
+  }
+ }catch{failed=true;}
+ finally{agentReframeRun.busy=false;agentReframeDone();}
+ // the clip whose file couldn't be read, by the name the bin shows (never a path)
+ const failedName=()=>{const m=reading&&getMedia(reading.mediaId);const n=m&&typeof m.name==='string'?m.name.split(/[\\/]/).pop().trim():'';return n||null;};
+ if(agentReframeRun.cancel){agentReframeRun.cancel=false;return {ok:false,code:'CANCELLED'};}
+ if(failed||!plans.length)return {ok:false,code:'FAILED',...(failed&&failedName()?{name:failedName()}:{})};
+ if(snapshot!==JSON.stringify(projectJSON())||gen!==runtime.projectGen||seqId!==SeqLib.activeId(seqRoot())||size!==JSON.stringify([project.width,project.height])||(projectFps()||30)!==fps||
+   lanes!==JSON.stringify([...state.lockedTracks])||plans.some((p)=>{const c=getClip(p.id);return !c||stamp(c)!==stamps.get(p.id);}))return {ok:false,code:'CHANGED'};
+ if(state.exporting||state.gesture)return {ok:false,code:'BUSY'};
+ // made in one go: add the copy, open it, write the plans
+ const back=seqId,backName=openSequenceName(),name=(backName+' '+aspect).slice(0,120);
+ const doc=projectJSONHere();let s;
+ try{s=SeqLib.add(doc,{name,from:'open',width:canvas.width,height:canvas.height});}catch{return {ok:false,code:'FAILED'};}
+ project.sequences=doc.sequences;project.sequence=doc.sequence;
+ if(!openSequence(s.id)){const d2=projectJSONHere();try{SeqLib.remove(d2,s.id);}catch{}project.sequences=d2.sequences||null;project.sequence=d2.sequence||null;scheduleSave();return {ok:false,code:'BUSY'};}
+ for(const p of plans){
+  const c=getClip(p.id);if(!c)continue;
+  for(const [k,v] of Object.entries(p.set.props||{})){if(v!==null)c.props[k]=v;else if(Object.hasOwn(DEFAULT_PROPS,k))c.props[k]=DEFAULT_PROPS[k];else delete c.props[k];}
+  if('keyframes' in p.set){if(p.set.keyframes===null)delete c.keyframes;else c.keyframes=p.set.keyframes;}
+ }
+ if(eventId)moveEvent(eventId,'applied',{revision:null});
+ pushUndo(JSON.stringify({agentReframeBack:{sequence:s.id,back,aspect,backName},...(token?{agentApplyId:token}:{})}),eventId?{eventId}:{capability:'reframe',args:{aspect}});
+ state.dirtyTimeline=true;scheduleSave();renderInspector();syncCompCrumb();
+ return {ok:true,sequence:s.id,name};
+}
+/** The undo step runAgentReframe puts on the copy's history, or null. */
+function agentReframeBackOf(snap){
+ if(typeof snap!=='string'||!snap.includes('"agentReframeBack":'))return null;
+ try{const v=JSON.parse(snap).agentReframeBack;return v&&typeof v.sequence==='string'&&typeof v.back==='string'?v:null;}catch{return null;}
+}
+/** Undo of the reframe: open the original sequence again, then delete the copy (its undo history goes with it). */
+function undoAgentReframe(snap,b){
+ if(SeqLib.activeId(seqRoot())!==b.sequence||!SeqLib.find(seqRoot(),b.back)||!openSequence(b.back)){runtime.undo.push(snap);toast(uiText('own.rf-undo-failed',{name:shownName(b.backName||'')}));return false;}
+ const doc=projectJSONHere();
+ try{SeqLib.remove(doc,b.sequence);}catch{}
+ project.sequences=doc.sequences||null;project.sequence=doc.sequence||null;
+ runtime.seqUndo.delete(b.sequence);
+ syncCompCrumb();scheduleSave();renderInspector();
+ toast(uiText('own.rf-undone',{aspect:b.aspect||'',name:shownName(b.backName||'')}));
+ return true;
+}
+/** A reframe reply: the host's decision (it asks every time), the streamer's yes in the host's box, then the work. */
+const agentReframeFlows=new WeakSet();
+async function agentReframeFlow(response,result){
+ if(agentReframeFlows.has(result)||officialProposalApplications.has(result))return;
+ agentReframeFlows.add(result);
+ const lang=mcView.get().language;
+ try{
+  let d=null;
+  if(window.montclipAgentPolicy){
+   try{d=await window.montclipAgentPolicy.decide({sessionId:result.sessionId,capability:'reframe',target:{kind:'project',value:runtime.projectId}});}catch{d=null;}
+   if(!d||!d.ok){toast(uiText('own.ap-refused-mode'));return;}
+   if(MontClipPolicy.MODES.includes(d.mode)&&d.mode!==agentPolicy.mode){agentPolicy.mode=d.mode;paintAgentMode();}
+   if(d.action==='list'){toast(uiText('own.ap-listed'));return;}
+   if(d.action!=='ask'){toast(agentRefusalText(d));return;}
+  }
+  let step;try{step=agentProposalStep(response,result);}catch(error){toast(uiText(error.message==='STALE'?'own.ap-stale':error.message==='PROPOSAL_UNCHANGED'?'own.rf-same':'own.ap-invalid'));return;}
+  const {proposal,ev}=step,aspect=proposal.aspect;
+  const box=d||{choices:['once','deny'],label:MontClipCapabilities.label('reframe',lang),risk:'sensitive'};
+  const choice=await askAgentApproval(box,{summary:uiText('own.ap-sum-reframe',{aspect}),detail:MontClipPlan.stepDetail({capability:'reframe',args:{aspect}},lang)});
+  let yes=choice==='once';
+  if(d){let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}yes=!!(a&&a.ok&&a.run);}
+  if(!yes){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.ap-denied'));return;}
+  if(step.version)await step.version;
+  if(!MontClipProposal.current(proposal,projectJSON(),{...agentProjectContext(),generation:agentProjectContext().gen})){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.ap-stale'));return;}
+  const token=crypto.randomUUID(),r=await runAgentReframe(aspect,{eventId:ev&&ev.id,token});
+  if(!r.ok){if(ev)moveEvent(ev.id,r.code==='CANCELLED'?'rejected':'failed');toast(uiText('own.rf-'+({CANCELLED:'cancelled',CHANGED:'changed',NOTHING:'nothing',BUSY:'busy',SEQUENCE_LIMIT:'sequence-limit'}[r.code]||'failed'),{aspect,limit:SeqLib.MAX})+(r.code==='FAILED'&&r.name?' '+uiText('own.rf-failed-name',{name:r.name}):''));return;}
+  const c=agentProjectContext();
+  officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});
+  toast(uiText('own.rf-done',{aspect,name:shownName(r.name)}));
+ }finally{agentReframeFlows.delete(result);mcAgent.render();}
 }
 /* P4, second half: the AI's plan (agent-plan.js). A reply that is a plan shows as a list in the assistant; the streamer can
    delete steps or drop it, then 〔开始〕 runs the steps in order, one at a time. Each step is decided by the host like any AI
@@ -23573,6 +23725,7 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  isOpen:()=>!document.getElementById("mcAssistantPanel").classList.contains("hidden"),
  onUndo:result=>{if(canUndoOfficialProposal(result)){const entry=officialProposalApplications.get(result);if(!entry?.eventId||!undoEvent(entry.eventId).ok)undo();}},
  onProposal:(response,result)=>{
+   if(response&&response.type==='reframe'){void agentReframeFlow(response,result);return;}
    const {proposal,ev,c}=agentProposalStep(response,result);
    showSentenceSelection(proposal,token=>{officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});},
     ()=>{if(ev)moveEvent(ev.id,'rejected');});

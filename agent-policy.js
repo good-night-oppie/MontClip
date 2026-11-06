@@ -33,6 +33,8 @@
     if (risk === "blocked") return refuse("BLOCKED", risk, label);
     if (!MODES.includes(mode)) return refuse("MODE_UNKNOWN", risk, label);
     const out = (action, choices = []) => ({ action, code: null, risk, label, showContent: risk === "external", choices: action === "ask" ? choices : [] });
+    // run only because of an earlier 「这个聊天中都批准」 (not by the mode itself): the page says so after applying (JJ, 2026-11-04)
+    const allowed = () => ({ ...out("run"), byApproval: true });
     if (risk === "external") {
       const L = Cap.limits(capability), over = (code, limit, more) => ({ ...refuse(code, risk, label), showContent: true, ...more, limit });
       if (!L) return over("NO_LIMITS", 0, {});
@@ -45,15 +47,17 @@
         if (external.allowlisted !== true) return { ...refuse("DOMAIN_NOT_ALLOWED", risk, label), showContent: true };
         return out("run");
       }
-      return ok ? out("run") : out("ask", ALL);
+      return ok ? allowed() : out("ask", ALL);
     }
     if (mode === "plan") return risk === "read" ? out("run") : out("list");
+    // asked every time in every mode, Yolo too (capabilities.js CONFIRM_EVERY_TIME): no 「都批准」, an earlier yes counts for nothing
+    if (Cap.confirmEveryTime(capability)) return out("ask", EVERY_TIME);
     if (mode === "yolo") return out("run");
-    if (mode === "auto") return risk === "sensitive" && !ok ? out("ask", ALL) : out("run");
+    if (mode === "auto") return risk !== "sensitive" ? out("run") : ok ? allowed() : out("ask", ALL);
     // 手动
     if (risk === "sensitive") return out("ask", EVERY_TIME);
     if (risk === "read" && Array.isArray(whitelist) && whitelist.includes(capability)) return out("run");
-    return ok ? out("run") : out("ask", ALL);
+    return ok ? allowed() : out("ask", ALL);
   }
 
   /** A target as the host compares it: an https origin (no path, query or credentials), or a project id. */
