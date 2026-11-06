@@ -19,8 +19,8 @@ Three passes:
 
 1. `montclip-materials.py` starts MontClip against an isolated `FABLECUT_DATA_DIR`, imports the
    synthetic live room made by `make-synthetic-source.py` (needs Pillow and `fonts-noto-cjk`), asks `fablecut_frame` for a 12-frame
-   contact sheet and the frame at 3 s, then builds a crop + keyframed zoom shot with the gift-bar nickname blurred and exports
-   it with `fablecut_export`.
+   contact sheet and the frame at 3 s, then builds a crop + keyframed zoom shot with an opaque cover over the gift bar (`redact_shot.py`)
+   and exports it with `fablecut_export`.
 2. `page/demo.html` lays out those outputs; `render.cjs` seeks it to each of the 1320 frames
    (22 s at 60 fps) and screenshots them; `build.sh` encodes the frames into the motion layer.
    (Runtime JavaScript in this repository never runs ffmpeg by name; the shell script does.)
@@ -31,18 +31,32 @@ Three passes:
 directory; a failed call stops the build.
 
 Limits shown in the video itself: the live room is synthetic (placeholder streamer and viewer
-names), no stream repair is demonstrated, and the blur mask is placed relative to the cropped picture.
+names) and no stream repair is demonstrated.
 
-> **Warning:** MontClip's documented blur recipe (a blurred copy of the clip on the track above, masked
-> to the region, with the sharp clip left whole underneath) can leak the original. In our test on this
-> synthetic clip, the sharp nickname showed through and was fully readable at `blur: 64`.
+## The gift-bar cover
 
-As a workaround for this demo only, the sharp clip underneath also gets a matching `subtract` hole with
-the same crop, scale keyframes and mask geometry as the blurred copy. In that test it removed the
-visible leak. This is not a general privacy guarantee: it was checked only on this clip, with these
-transforms, at these settings. Other footage, moving regions, feathered masks or different transforms
-need their own frame-by-frame check, and publishing real footage still needs per-frame review and the
-subjects' consent.
+The demo hides the gift bar with an **opaque, hard-edged cover**: a shape layer on the track above the
+video with one black rectangle, normal blend, opacity 1, no feather, no corner radius and no stroke. It
+covers the whole bar plus a 12 px margin, is on screen for the whole shot, and has the same scale
+keyframes as the video so it follows the zoom (`redact_shot.py`). This is the approach investigated in
+#186 (a draft, not merged yet); it changes nothing in the engine.
+
+`verify-cover.py WORK` checks this exact shot. Two synthetic sources that differ only in the gift text
+(lossless VP9) go through it; every frame is rendered as a timeline preview (in the script's own editor
+tab) and exported, and the two sources are compared on every pixel of every frame. With the cover no frame
+may differ; without it (positive control) every frame must differ. It exits 0 only if both hold. Every
+client of each MontClip server it starts must be in its own process tree (`montclip_session.py`).
+
+That shows the covered text does not reach a single output pixel **in this synthetic shot with these
+settings**. It is not a guarantee for other footage, motion, crops or settings: check your own export
+frame by frame, and publishing real footage still needs per-frame review and the subjects' consent.
+
+> **Not recommended (kept as a record of the problem):** an earlier version of this demo blurred the bar
+> with MontClip's documented recipe (a blurred copy of the clip on the track above, masked to the region,
+> the sharp clip left whole underneath), and then added a matching `subtract` hole in the sharp clip. The
+> blur recipe on its own lets the sharp original show through: in our test on this synthetic clip the
+> nickname was readable at `blur: 32` and `blur: 64`. Do not use a masked blur to hide private
+> information.
 
 ## Banners and diagrams
 

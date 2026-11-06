@@ -44,7 +44,7 @@ html,body{width:1280px;height:720px;overflow:hidden;background:#090D16;color:#F8
   <div id="p1r" class="panel" style="left:680px;top:170px;width:540px;height:304px;border-color:#3B82F6"><img id="rzimg1"></div>
   <div id="c_raw" class="chip" style="left:60px;top:486px;background:#1E293B;color:#CBD5E1">RAW · SYNTHETIC LIVE ROOM</div>
   <div id="c_key" class="chip" style="left:290px;top:486px;background:#EF444422;color:#FCA5A5;border:1px solid #EF4444">NICKNAME VISIBLE</div>
-  <div id="c_out" class="chip" style="left:680px;top:486px;background:#3B82F622;color:#93C5FD;border:1px solid #3B82F6">MONTCLIP EXPORT · CROP + ZOOM + MASK</div>
+  <div id="c_out" class="chip" style="left:680px;top:486px;background:#3B82F622;color:#93C5FD;border:1px solid #3B82F6">MONTCLIP EXPORT · CROP + ZOOM + COVER</div>
   <div id="arrow" class="abs mono" style="left:604px;top:300px;width:72px;text-align:center;font:700 13px JBM;color:#F59E0B">MCP<br><span style="font-size:26px">→</span></div>
   <div id="edited" class="abs h1" style="left:60px;top:560px;color:#F59E0B">Edited by MontClip.</div>
 </div>
@@ -81,19 +81,18 @@ html,body{width:1280px;height:720px;overflow:hidden;background:#090D16;color:#F8
     <div id="cropR" class="abs" style="left:0;top:18.9px;width:281.4px;height:217.1px;border:2px solid #F59E0B"></div>
     <div id="maskR" class="abs" style="left:4.5px;top:207.8px;width:272.9px;height:24.1px;background:repeating-linear-gradient(45deg,#EF4444aa 0 4px,transparent 4px 8px);border:1px solid #EF4444"></div>
   </div>
-  <div id="minilab" class="chip" style="left:60px;top:372px;background:#1E293B;color:#CBD5E1">SOURCE · <span style="color:#FCD34D">CROP</span> · <span style="color:#FCA5A5">BLUR</span></div>
+  <div id="minilab" class="chip" style="left:60px;top:372px;background:#1E293B;color:#CBD5E1">SOURCE · <span style="color:#FCD34D">CROP</span> · <span style="color:#FCA5A5">COVER</span></div>
   <div id="ops" class="term" style="left:60px;top:414px;width:420px;height:224px">
     <div class="bar"><i></i><i></i><i></i>&nbsp;fablecut_patch_project · ops</div>
-    <div class="body" style="font-size:12.5px;line-height:1.5"><span style="color:#FCD34D">both: "cropR": 33, "cropT": 8</span>
+    <div class="body" style="font-size:12.5px;line-height:1.5"><span style="color:#94A3B8">V1 video:</span> <span style="color:#FCD34D">"cropR": 33, "cropT": 8</span>
 <span style="color:#93C5FD">both: "keyframes": { "scale": [
   {"t":0,"v":0.6},{"t":4.5,"v":1.0}] }</span>
-<span style="color:#94A3B8">V1:</span> <span style="color:#FCA5A5">"masks": [{ rect, "mode": "subtract" }]</span>
-<span style="color:#94A3B8">V2:</span> <span style="color:#FCA5A5">"blur": 32,
-    "masks": [{ rect, "mode": "add" }]</span></div>
+<span style="color:#94A3B8">V2 shape:</span> <span style="color:#FCA5A5">{ rect, "fill": "#000000",
+    "opacity": 1, "blend": "normal" }</span></div>
   </div>
   <div id="p3" class="panel" style="left:510px;top:124px;width:710px;height:400px;border-color:#3B82F6"><img id="rzimg3"></div>
   <div id="c3" class="chip" style="left:510px;top:536px;background:#3B82F622;color:#93C5FD;border:1px solid #3B82F6">FABLECUT_EXPORT → REDACT-ZOOM.MP4 · 60 FPS</div>
-  <div id="n3" class="abs mono" style="left:510px;top:578px;width:710px;font-size:12px;color:#64748B">The blur is a masked copy of the clip; the mask is placed relative to the cropped picture.</div>
+  <div id="n3" class="abs mono" style="left:510px;top:578px;width:710px;font-size:12px;color:#64748B">The cover is an opaque shape on the track above; it zooms with the picture.</div>
 </div>
 
 <!-- ===== S4 ship ===== -->
@@ -120,11 +119,11 @@ const eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;  // cubic in-out
 const $=id=>document.getElementById(id);
 const set=(el,o,tx=0,ty=0,s=1)=>{el.style.opacity=o;el.style.transform=`translate(${tx}px,${ty}px) scale(${s})`;el.style.visibility=o<=0.001?'hidden':'visible'};
 const pad=n=>String(n).padStart(4,'0');
-const SHOTS=[[0,4,'01 · HOOK','#F59E0B'],[4,11,'02 · PERCEIVE','#3B82F6'],[11,17,'03 · CROP · ZOOM · MASK','#EF4444'],[17,22,'04 · SHIP','#22C55E']];
+const SHOTS=[[0,4,'01 · HOOK','#F59E0B'],[4,11,'02 · PERCEIVE','#3B82F6'],[11,17,'03 · CROP · ZOOM · COVER','#EF4444'],[17,22,'04 · SHIP','#22C55E']];
 // timeline segments (static)
 {const W=1280-56;let h='';for(const[a,b,,c] of SHOTS){h+=`<div class="abs" style="left:${28+W*a/DUR+1}px;width:${W*(b-a)/DUR-2}px;top:684px;height:6px;border-radius:3px;background:${c};opacity:.28" data-a="${a}" data-b="${b}"></div>`;}$('segs').innerHTML=h;}
 // symbolic lanes (static html, animated per t)
-const CLIPS=[['V1',0,.38,'video m_…','#3B82F6'],['V1',.42,.62,'image sheet','#3B82F6'],['V1',.66,.95,'video crop+mask','#EF4444'],['V2',.1,.5,'text','#64748B'],['V2',.55,.8,'image detail','#3B82F6'],['V3',0,1,'text caption','#64748B']];
+const CLIPS=[['V1',0,.38,'video m_…','#3B82F6'],['V1',.42,.62,'image sheet','#3B82F6'],['V1',.66,.95,'video crop','#EF4444'],['V2',.1,.5,'text','#64748B'],['V2',.55,.8,'image detail','#3B82F6'],['V3',0,1,'text caption','#64748B']];
 {let h='<div class="lab abs" style="left:0;top:96px;color:#64748B">symbolic timeline · from fablecut_get_project</div>';
  ['V1','V2','V3'].forEach((v,i)=>{h+=`<div class="abs mono" style="left:0;top:${140+i*58}px;font-size:13px;color:#64748B">${v}</div><div class="abs" style="left:40px;right:0;top:${132+i*58}px;height:40px;border-radius:6px;background:#0F172A;border:1px solid #1E293B"></div>`});
  CLIPS.forEach((c,i)=>{const r=['V1','V2','V3'].indexOf(c[0]);h+=`<div class="abs mono lc" id="lc${i}" style="left:${40+550*c[1]}px;width:${550*(c[2]-c[1])-4}px;top:${136+r*58}px;height:32px;border-radius:5px;background:${c[4]}26;border:1px solid ${c[4]};color:#E2E8F0;font-size:12px;padding:8px 8px;white-space:nowrap;overflow:hidden">${c[3]}</div>`});
