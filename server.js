@@ -96,8 +96,8 @@ const EMBED_TOKEN = process.env.MONTCLIP_EMBED_TOKEN;
 if (EMBED && (HOST !== "127.0.0.1" || !/^[a-f0-9]{64}$/.test(EMBED_TOKEN || "")))
   throw new Error("Embedding in Cindy requires loopback binding and a fresh session token");
 const EMBED_COOKIE = "montclip_embed";
-const sameToken = (a) => typeof a === "string" && a.length === EMBED_TOKEN.length &&
-  crypto.timingSafeEqual(Buffer.from(a), Buffer.from(EMBED_TOKEN));
+const sameToken = (a) => typeof a === "string" && /^[a-f0-9]{64}$/.test(a) &&
+  crypto.timingSafeEqual(Buffer.from(a, "ascii"), Buffer.from(EMBED_TOKEN, "ascii"));
 function embedCookie(req) {
   for (const part of String(req.headers.cookie || "").split(";")) {
     const i = part.indexOf("=");
