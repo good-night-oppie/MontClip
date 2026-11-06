@@ -1623,7 +1623,9 @@ function syncExportFrameSel() {
 function exportFrameNames(sel = els.exportFrameSel) {
   const i = EXPORT_FRAME_ASPECTS.findIndex((a) => a.w === 9 && a.h === 16);
   const opt = sel && sel.querySelector('option[value="' + i + '"]');
-  return { dropdown: (sel && sel.getAttribute("aria-label")) || "", option: (opt && opt.textContent) || "" };
+  const options = Object.fromEntries(EXPORT_FRAME_ASPECTS.map((a, n) => [a.w + ':' + a.h,
+    sel?.querySelector('option[value="' + n + '"]')?.textContent || '']));
+  return { dropdown: (sel && sel.getAttribute("aria-label")) || "", option: (opt && opt.textContent) || "", options };
 }
 function applyProject(data, opts = {}) {
   if (state.compCtx && !opts.ctx && SeqLib.activeId(data) !== SeqLib.activeId(state.compCtx.root)) {

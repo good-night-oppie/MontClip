@@ -25,6 +25,8 @@ function unchanged(doc,p){
  if(p.outputMode!=='one_file'||!p.keep.length)return false;
  const tol=R.boundaryTolerance(doc.fps),end=Math.max(0,...doc.clips.map(c=>c.start+c.duration));
  if(p.keep[0].from>tol||p.keep.at(-1).to<end-tol)return false;
+ // Half-frame rounding applies to the whole edit, not independently to every gap.
+ if(Math.abs(end-p.duration)>tol)return false;
  return p.keep.every((r,i)=>i===0||Math.abs(r.from-p.keep[i-1].to)<=tol);
 }
 function sentences(response,{doc,context,references}){

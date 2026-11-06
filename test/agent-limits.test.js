@@ -41,6 +41,32 @@ test('a proposal that keeps the whole timeline, in order and without a gap, chan
  a.equal(ranges([[100,150]],'one_file',gap).unchanged,false);
 });
 
+test('small gaps must be counted together before hiding a proposal',()=>{
+ const d=doc([{id:'c',kind:'video',mediaId:'m',track:'V1',start:0,in:0,duration:10.09,props:{}}]);
+ const keep=Array.from({length:10},(_,i)=>[i*1.01,i*1.01+1]);
+ const p=ranges(keep,'one_file',d);
+ a.ok(Math.abs(p.duration-10)<1e-9,'the range engine removes nine 0.01-second gaps');
+ a.equal(p.unchanged,false,'0.09 seconds removed exceeds half a frame at 30 fps');
+});
+
+test('reframe advice follows the requested aspect and stays generic when it is ambiguous',()=>{
+ const strings={limitReframe:'vertical: {option}',limitReframeAspect:'aspect: {option}',limitReframeAny:'choose in {dropdown}'};
+ const names={dropdown:'Export frame',option:'Vertical',options:{'9:16':'Vertical','16:9':'Landscape','1:1':'Square','4:5':'Portrait'}};
+ for(const [request,expected] of [['改成横屏 16:9','Landscape'],['改成方屏 1:1','Square'],['4：5','Portrait']])
+  a.equal(L.note(request,strings,names),'aspect: '+expected,request);
+ for(const request of ['改画面比例','reframe','1:1 或 9:16'])a.equal(L.note(request,strings,names),'choose in Export frame',request);
+ a.equal(L.note('竖屏',strings,names),'vertical: Vertical');
+ for(const lang of ['zh-CN','en']){
+  const actual=dropdown(lang).names,words=new Proxy({},{get:(_,k)=>View.text[lang]['officialPane_'+String(k)]});
+  for(const aspect of ['16:9','1:1','4:5']){
+   const note=L.note('改成 '+aspect,words,actual);
+   a.ok(note.includes(actual.options[aspect])&&actual.options[aspect],note);
+   a.ok(!note.includes(actual.options['9:16']),note);
+  }
+  a.ok(L.note('改画面比例',words,actual).includes(actual.dropdown));
+ }
+});
+
 test('keep_sentences that keep every sentence of a fully captioned edit are unchanged too',()=>{
  const d=doc([{id:'c',kind:'video',mediaId:'m',track:'V1',start:0,in:0,duration:6,props:{}},
   {id:'s1',kind:'text',track:'V2',start:0,in:0,duration:3,props:{text:'一',caption:true}},{id:'s2',kind:'text',track:'V2',start:3,in:0,duration:3,props:{text:'二',caption:true}}]);

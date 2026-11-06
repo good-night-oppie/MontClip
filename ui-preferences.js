@@ -1082,6 +1082,9 @@
   // would change nothing.
   Object.assign(officialPaneText.en,{limitReframe:"The assistant can't switch to vertical yet. You can do it yourself: in the “{dropdown}” list above the player, choose “{option}”, then export.",noChange:"This suggestion wouldn't change the timeline (it's {duration} now), so there's nothing to apply."});
   Object.assign(officialPaneText['zh-CN'],{limitReframe:'改竖屏这一步，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选「{option}」，再导出。',noChange:'按这个建议剪，时间线不会有任何变化（现在一共 {duration}），所以不用应用。'});
+  // Non-vertical / unspecified reframe requests. JJ定稿 (2026-11-06).
+  Object.assign(officialPaneText.en,{limitReframeAspect:"The assistant can't change the aspect ratio yet. You can do it yourself: in the “{dropdown}” list above the player, choose “{option}”, then export.",limitReframeAny:"The assistant can't change the aspect ratio yet. You can do it yourself: choose the aspect ratio you need in the “{dropdown}” list above the player, then export."});
+  Object.assign(officialPaneText['zh-CN'],{limitReframeAspect:'改画面比例这一步，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选「{option}」，再导出。',limitReframeAny:'改画面比例这一步，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选择需要的画面比例，再导出。'});
   // JJ via Deja (2026-11-05): when the facts carry the singing parts and the loudness, the review box says so, outside the
   // fold (JJ's words; JJ定稿 2026-11-05: 「音量大小（每秒或每隔几秒一个数）」, since a long video gets one every few seconds). factsLimit: over capabilities.js FACTS nothing is sent (JJ定稿, 2026-11-05).
   Object.assign(officialPaneText.en,{factsSound:'Also sent: which parts may be singing (start and end seconds only) and the loudness (one number every second or every few seconds) (a list of numbers). The sound itself is not sent.',factsLimit:'There are too many numbers to attach, more than can be sent, so nothing was sent. What you wrote is still here. Select a shorter range and send again.'});

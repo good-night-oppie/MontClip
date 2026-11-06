@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Count accumulated gaps before hiding an unchanged assistant suggestion; match manual aspect-ratio guidance to the request.
+
 - Pause conflicting private-package AI connections until resolved, show recovery instructions, and keep cleanup warnings for wiped seed files across restarts.
 
 - Preserve a private package's seed on restart when sealing verification and rollback both fail; only a matching saved connection may consume it.

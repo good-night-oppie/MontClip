@@ -21,7 +21,17 @@ function unsupported(text,available=ASSISTANT){
 /** The host's sentence for a reply to this message (strings: the pane's officialPane_ table, without the prefix), or '' when
  *  nothing is missing. names fills its {placeholders} (the drop-down's names as it shows them: app.js exportFrameNames). */
 function note(text,strings,names={}){
- return unsupported(text).map(u=>strings&&typeof strings[u.key]==='string'?strings[u.key].replace(/\{(\w+)\}/g,(m,k)=>typeof names[k]==='string'?names[k]:m):'').filter(Boolean).join(' ');
+ return unsupported(text).map(u=>{
+  let key=u.key,values=names;
+  if(u.id==='reframe'){
+   const ratios=[...new Set([...text.matchAll(/\b(9|16|4|5|1)\s*(?::|：|比)\s*(16|9|5|4|1)\b/g)].map(m=>m[1]+':'+m[2]))];
+   const aspect=ratios.length?ratios.length===1?ratios[0]:null:/横屏|\blandscape\b/i.test(text)?'16:9':/方屏|\bsquare\b/i.test(text)?'1:1':/竖屏|竖版|\bvertical\b|\bportrait\b/i.test(text)?'9:16':null;
+   const option=names.options?.[aspect]||(aspect==='9:16'?names.option:null);
+   key=aspect==='9:16'&&option?'limitReframe':option?'limitReframeAspect':'limitReframeAny';
+   values={...names,option};
+  }
+  return strings&&typeof strings[key]==='string'?strings[key].replace(/\{(\w+)\}/g,(m,k)=>typeof values[k]==='string'?values[k]:m):'';
+ }).filter(Boolean).join(' ');
 }
 /** A reply as the pane shows it: the host's sentence first (when the message asks for something missing), then the reply. */
 function shown(text,reply,strings,names){const n=note(text,strings,names);return n?[n,reply]:[reply];}
