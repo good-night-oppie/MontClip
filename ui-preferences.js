@@ -114,6 +114,38 @@
     "off-finding-k": ["Looking for “{file}” ({k} of {n})", "正在找：「{file}」（第 {k} 个，共 {n} 个）"],
     "off-auto-found": ["Found {m} automatically.", "已经自动找回 {m} 个"],   // en: draft
     "off-slate": ["Media offline", "找不到"],
+    // the Relink dialog, 「找回录像」 (JJ's 18 lines on #137, 2026-11-06). JJ gave no English: every English line here is
+    // what the dialog said before, a draft (草稿，待 JJ 定稿). rl-folder-none: the English counts the folder's files
+    // ({files}), JJ's Chinese the recordings being found ({n}).
+    "rl-title": ["Relink media", "找回录像"],   // en: draft
+    "rl-intro-many": ["Point these {n} files at the footage where it is now. Clips keep their In points and edits.", "选一下这 {n} 个录像现在放在哪，时间线上的片段和剪辑都不会变。"],   // en: draft
+    "rl-intro-one": ["Point this file at the footage where it is now. Clips keep their In points and edits.", "选一下这个录像现在放在哪，时间线上的片段和剪辑都不会变。"],   // en: draft
+    "rl-folder": ["Choose folder…", "选文件夹…"],   // en: draft
+    "rl-folder-title": ["Pick the folder the files are in now — they are matched by name and copied into the project", "选录像现在所在的文件夹，按文件名对上后复制进项目"],   // en: draft
+    "rl-pre": ["Found {pre} of {n} in the project folders.", "已在项目文件夹里找到 {pre} 个（共 {n} 个）"],   // en: draft
+    "rl-folder-none": ["None of the {files} files in that folder match by name.", "这个文件夹里没有和这 {n} 个录像同名的文件。换个文件夹，或点〔选文件…〕一个个找。"],   // en: draft
+    "rl-copying-k": ["Copying {i}/{n}: {name}…", "正在复制第 {i} 个（共 {n} 个）：{name}…"],   // en: draft
+    "rl-matched": ["Matched {x} of {n} by name.", "按文件名对上了 {x} 个（共 {n} 个）"],   // en: draft
+    "rl-copying": ["Copying {name}…", "正在复制 {name}…"],   // en: draft
+    "rl-copy-failed": ["Couldn't copy {name}", "{name} 没能复制进项目。请再点〔选文件…〕试一次。"],   // en: draft
+    // the file's name only, never its path (Deja, 2026-11-06), so 「原文件」 rather than 「原来在」 (JJ)
+    "rl-was": ["was {file}", "原文件：{file}"],   // en: draft
+    "rl-new-loc": ["New location", "新位置"],   // en: draft
+    "rl-leave": ["— leave it —", "— 先不处理 —"],   // en: draft
+    "rl-not-found": ["— not found: Browse… or Choose folder… —", "— 没找到：点〔选文件…〕或〔选文件夹…〕 —"],   // en: draft
+    // why a file is offered (MediaLib.relinkWhyKeys maps relinkScore's ids to these)
+    "rl-why-same": ["same name", "同名"],   // en: draft
+    "rl-why-other-type": ["same name, other type", "同名，格式不同"],   // en: draft
+    "rl-why-similar": ["similar name", "名字相近"],   // en: draft
+    "rl-why-size": ["same size", "大小一样"],   // en: draft
+    "rl-why-and-size": [" and size", "，大小也一样"],   // en: draft
+    "rl-chosen": ["{name} (chosen)", "{name}（你选的）"],   // en: draft
+    "rl-from-folder": ["{name} (from the folder)", "{name}（从文件夹里找到）"],   // en: draft
+    "rl-browse": ["Browse…", "选文件…"],   // en: draft
+    "rl-browse-title": ["Pick the file (it is copied into the project)", "选这个录像文件（会复制进项目）"],   // en: draft
+    "rl-cancel": ["Cancel", "取消"],   // en: draft
+    "rl-apply": ["Relink", "找回"],   // en: draft
+    "rl-apply-n": ["Relink {n}", "找回 {n} 个"],   // en: draft
     // the bin's two other English lines VV saw (Deja, 2026-11-05; JJ's wording)
     "bin-drop-root": ["Drop here to move it out of the folder", "拖到这里，移出文件夹"],   // JJ, 2026-11-05
     "bin-dbl-hint": ["Double-click to preview it, or drag it onto the timeline.", "双击可以先预览，或者直接拖到时间线上。"],   // JJ, 2026-11-05

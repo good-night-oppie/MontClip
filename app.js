@@ -3329,14 +3329,14 @@ async function openRelinkDialog(list) {
   overlay.className = "overlay";
   overlay.id = "relinkOverlay";
   overlay.innerHTML = `<div class="dialog relink" role="dialog" aria-modal="true" aria-labelledby="relinkTitle" tabindex="-1">
-    <h2 id="relinkTitle">Relink media</h2>
-    <p class="dim">Point ${list.length === 1 ? "this file" : `these ${list.length} files`} at the footage where it is now. Clips keep their In points and edits.</p>
+    <h2 id="relinkTitle">${escapeHtml(uiText("own.rl-title"))}</h2>
+    <p class="dim">${escapeHtml(list.length === 1 ? uiText("own.rl-intro-one") : uiText("own.rl-intro-many", { n: list.length }))}</p>
     <div class="relink-tools">
-      <button type="button" class="btn tiny" data-folder title="Pick the folder the files are in now — they are matched by name and copied into the project">Choose folder…</button>
+      <button type="button" class="btn tiny" data-folder title="${escapeHtml(uiText("own.rl-folder-title"))}">${escapeHtml(uiText("own.rl-folder"))}</button>
       <span class="relink-status dim"></span>
     </div>
     <div class="relink-rows"></div>
-    <div class="dialog-actions"><button type="button" class="btn" data-cancel>Cancel</button><button type="button" class="btn primary" data-apply>Relink</button></div>
+    <div class="dialog-actions"><button type="button" class="btn" data-cancel>${escapeHtml(uiText("own.rl-cancel"))}</button><button type="button" class="btn primary" data-apply>${escapeHtml(uiText("own.rl-apply"))}</button></div>
   </div>`;
   document.body.appendChild(overlay);
   const dialog = overlay.querySelector(".dialog");
@@ -3354,18 +3354,20 @@ async function openRelinkDialog(list) {
       const options = (cands.get(m.id) || []);
       row.innerHTML = `<div class="relink-name"><b></b><span class="dim relink-was"></span></div>
         <div class="relink-pick">
-          <select aria-label="New location"></select>
-          <button type="button" class="btn tiny" data-browse title="Pick the file (it is copied into the project)">Browse…</button>
+          <select aria-label="${escapeHtml(uiText("own.rl-new-loc"))}"></select>
+          <button type="button" class="btn tiny" data-browse title="${escapeHtml(uiText("own.rl-browse-title"))}">${escapeHtml(uiText("own.rl-browse"))}</button>
         </div>`;
       // missing files, in order (JJ, 2026-11-05): 「正在找：「{file}」（第 k 个，共 n 个）」
       const k = missing.indexOf(m) + 1;
       row.querySelector("b").textContent = k ? uiText("own.off-finding-k", { file: m.name, k, n: missing.length }) : m.name;   // JJ's words exactly: no ⚠, the count even for one
-      row.querySelector(".relink-was").textContent = "was " + decodeURIComponent(String(m.src).split("?")[0]) + (m.duration ? " · " + fmt(m.duration) : "") + (m.size ? " · " + MediaLib.fmtSize(m.size) : "");
+      // the file's name only (never its /media/… path) · its length as h:mm:ss, no frames · its size
+      const [was, ...rest] = MediaLib.relinkWasParts(m);
+      row.querySelector(".relink-was").textContent = [uiText("own.rl-was", { file: was }), ...rest].join(" · ");
       const sel = row.querySelector("select");
       const opt = (v, label) => { const o = document.createElement("option"); o.value = v; o.textContent = label; sel.appendChild(o); };
-      opt("", options.length || cur ? "— leave it —" : "— not found: Browse… or Choose folder… —");
+      opt("", uiText(options.length || cur ? "own.rl-leave" : "own.rl-not-found"));
       if (cur && !options.some((o) => o.src === cur.src)) opt(cur.src, cur.label);
-      for (const o of options) opt(o.src, `${decodeURIComponent(o.path || o.src)} · ${MediaLib.fmtSize(o.size)} (${o.why})`);
+      for (const o of options) opt(o.src, `${decodeURIComponent(o.path || o.src)} · ${MediaLib.fmtSize(o.size)} (${MediaLib.relinkWhyKeys(o.why).map((k) => uiText("own." + k)).join("")})`);
       sel.value = cur ? cur.src : "";
       sel.addEventListener("change", () => {
         const o = options.find((x) => x.src === sel.value);
@@ -3375,10 +3377,10 @@ async function openRelinkDialog(list) {
       row.querySelector("[data-browse]").addEventListener("click", async () => {
         const [file] = await pickFilesForRelink({});
         if (!file) return;
-        status.textContent = `Copying ${file.name}…`;
+        status.textContent = uiText("own.rl-copying", { name: file.name });
         const [up] = await uploadForRelink([file]);
-        status.textContent = up?.src ? "" : "Couldn't copy " + file.name;
-        if (up?.src) { pick.set(m.id, { src: up.src, label: `${file.name} (chosen)` }); render(); }
+        status.textContent = up?.src ? "" : uiText("own.rl-copy-failed", { name: file.name });
+        if (up?.src) { pick.set(m.id, { src: up.src, label: uiText("own.rl-chosen", { name: file.name }) }); render(); }
       });
       rowsEl.appendChild(row);
     }
@@ -3388,7 +3390,7 @@ async function openRelinkDialog(list) {
     const n = list.filter((m) => pick.get(m.id)).length;
     const b = overlay.querySelector("[data-apply]");
     b.disabled = !n;
-    b.textContent = n ? `Relink ${n}` : "Relink";
+    b.textContent = n ? uiText("own.rl-apply-n", { n }) : uiText("own.rl-apply");
   };
   overlay.querySelector("[data-cancel]").addEventListener("click", close);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
@@ -3406,11 +3408,11 @@ async function openRelinkDialog(list) {
       }
       if (best) want.push([m, best]);
     }
-    if (!want.length) { status.textContent = `None of the ${files.length} files in that folder match by name.`; return; }
+    if (!want.length) { status.textContent = uiText("own.rl-folder-none", { n: list.length, files: files.length }); return; }
     let i = 0;
-    const ups = await uploadForRelink(want.map(([, f]) => f), (f) => { status.textContent = `Copying ${++i}/${want.length}: ${f.name}…`; });
-    want.forEach(([m, f], k) => { if (ups[k].src) pick.set(m.id, { src: ups[k].src, label: `${f.name} (from the folder)` }); });
-    status.textContent = `Matched ${ups.filter((u) => u.src).length} of ${list.length} by name.`;
+    const ups = await uploadForRelink(want.map(([, f]) => f), (f) => { status.textContent = uiText("own.rl-copying-k", { i: ++i, n: want.length, name: f.name }); });
+    want.forEach(([m, f], k) => { if (ups[k].src) pick.set(m.id, { src: ups[k].src, label: uiText("own.rl-from-folder", { name: f.name }) }); });
+    status.textContent = uiText("own.rl-matched", { x: ups.filter((u) => u.src).length, n: list.length });
     render();
   });
   overlay.querySelector("[data-apply]").addEventListener("click", async () => {
@@ -3429,7 +3431,7 @@ async function openRelinkDialog(list) {
       cands.set(m.id, opts);
       if (opts[0] && opts[0].score >= 100 && !pick.get(m.id)) { pick.set(m.id, { src: opts[0].src, label: opts[0].name }); pre++; }
     }
-    status.textContent = pre ? `Found ${pre} of ${list.length} in the project folders.` : "";
+    status.textContent = pre ? uiText("own.rl-pre", { pre, n: list.length }) : "";
     render();
   }
 }
