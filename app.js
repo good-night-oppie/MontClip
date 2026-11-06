@@ -23520,7 +23520,7 @@ async function agentReframeFlow(response,result){
   if(step.version)await step.version;
   if(!MontClipProposal.current(proposal,projectJSON(),{...agentProjectContext(),generation:agentProjectContext().gen})){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.ap-stale'));return;}
   const token=crypto.randomUUID(),r=await runAgentReframe(aspect,{eventId:ev&&ev.id,token});
-  if(!r.ok){if(ev)moveEvent(ev.id,r.code==='CANCELLED'?'rejected':'failed');toast(uiText('own.rf-'+({CANCELLED:'cancelled',CHANGED:'changed',NOTHING:'nothing',BUSY:'busy',SEQUENCE_LIMIT:'sequence-limit'}[r.code]||'failed'),{aspect})+(r.code==='FAILED'&&r.name?' '+uiText('own.rf-failed-name',{name:r.name}):''));return;}
+  if(!r.ok){if(ev)moveEvent(ev.id,r.code==='CANCELLED'?'rejected':'failed');toast(uiText('own.rf-'+({CANCELLED:'cancelled',CHANGED:'changed',NOTHING:'nothing',BUSY:'busy',SEQUENCE_LIMIT:'sequence-limit'}[r.code]||'failed'),{aspect,limit:SeqLib.MAX})+(r.code==='FAILED'&&r.name?' '+uiText('own.rf-failed-name',{name:r.name}):''));return;}
   const c=agentProjectContext();
   officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});
   toast(uiText('own.rf-done',{aspect,name:shownName(r.name)}));

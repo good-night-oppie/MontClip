@@ -11,3 +11,11 @@ Negative controls failed before the fix and passed afterward: adding a clip duri
 The first smoke attempt exported successfully but its raw undo equality compared normalized linkGroup identifiers. The corrected assertion checks unchanged clip contents plus preserved shared linkage; both attempts remain in local evidence. This is a fixture correction, not a suppressed production failure.
 
 No private footage, model request, visible desktop, installation, or human acceptance was used. The smoke invokes the real reframe operation directly; it does not exercise a human clicking the assistant approval UI. The historical eleven PR 172 failures remain documented in agent-review-172.md.
+
+## Final wording increment — 2026-11-06
+
+Supersedes the earlier sequence-limit wording only. The guard and toast now both use SeqLib.MAX; the translation takes {limit}. At 64 the Chinese and English output exactly match JJ's final wording (SOP v2). Other wording keys are unchanged.
+
+Negative control: node --test test/agent-reframe-words.test.js test/agent-reframe-race.test.js initially returned 10 pass / 1 fail (old Chinese wording). After the minimal fix: 11 pass / 0 fail / 0 skipped. The added test executes the actual failure-toast branch in both languages at limits 64 and 17, ensuring the displayed number comes from SeqLib.MAX. Existing tests cover the 64-sequence refusal before frame reading, cancellation, stale edits and successful one-step undo. Release readiness passed; demo app regenerated.
+
+No full suite or export rerun for this wording-only increment. No visible UI, clipping/layout or human acceptance check performed. PR 176 at d219d74f does not yet contain this increment; it can take this single appended commit with cherry-pick, without rewriting history.

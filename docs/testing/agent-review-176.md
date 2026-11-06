@@ -14,3 +14,11 @@ Validation:
 The first integrated run cancelled five inherited race tests: the VM fixture lacked clipSpeed, newly called by PR 176, and waited forever for frame reading. The fixture now supplies that dependency and reports early returns immediately; the failed run is retained locally. No production failure was hidden by dropping tests.
 
 PR 175 is integrated by ordinary merge, with its author commits preserved. No force push. The historical PR 172 eleven failures remain documented in agent-review-172.md. No human acceptance, real footage, full approval-button interaction, installation, or merge was performed. The browser smoke tests CFR footage; VFR evidence above exercises the real MCP sampling function.
+
+## PR 175 final wording integrated — 2026-11-06
+
+This increment applies PR 175 commit 64ef89f5d3ba37b68d04be7e23ce828b1713d313 on top of d219d74f, retaining the earlier evidence above. Only the final sequence-limit wording, its shared SeqLib.MAX value, the corresponding test, generated demo and evidence/changelog are added; source-frame algorithms are unchanged. The changelog context conflict was resolved by retaining both the existing source-PTS entry and the updated limit entry.
+
+node --test test/agent-reframe-words.test.js test/agent-reframe-race.test.js: 11 pass / 0 fail / 0 skipped. Includes exact bilingual text at 64, dynamic limit 17, 64-sequence refusal without reading frames, cancellation, revision changes and normal one-step undo. node .github/scripts/release-check.js: passed. The before-fix negative control belongs to PR 175 at de31439d (10 pass / 1 fail), recorded in agent-review-175.md; it was not rerun or relabeled as new PR 176 evidence.
+
+No full suite, frame-algorithm test or export rerun for this increment. Earlier full-suite and synthetic A/V evidence belongs to d219d74f. GUI language switching/layout and human acceptance remain pending. PR 175's earlier note that PR 176 lacked the increment is historical; this appended commit integrates it. No merge or installation performed.
