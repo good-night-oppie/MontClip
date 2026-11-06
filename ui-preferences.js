@@ -735,6 +735,7 @@
     "export-checked": ["Export checked", "导出勾选的版本"],
     "export-checked-n": ["Export checked ({n})", "导出勾选的版本（{n}）"],
     "export-failed-prefix": ["Export failed: ", "导出失败："],
+    "export-profile-unsupported": ["Export didn't run: MontClip can't guarantee the custom audio or filter settings in this preset. So that the exported sound doesn't differ from what you set, no file was made. Remove the custom audio and filter settings from the preset, or pick another preset, then listen to the result to check the sound is what you want.", "导出没有进行：这个预设里自定义的声音或滤镜设置，MontClip 没法保证照做。为了不让导出的声音和你设的不一样，没有生成文件。请去掉预设里自定义的声音和滤镜设置，或者换一个预设，导出后再听一下声音是不是你要的。"],
     // JJ (#74): the version kept before the AI's edits, named in the interface language only
     "before-ai": ["Before AI changes", "AI 改之前"],
     // JJ (#71): the selection / proposal dialog in the interface language only, never 「中文 / English」 together

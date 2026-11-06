@@ -20165,10 +20165,9 @@ async function fastExport(opts = {}) {
   } catch (e) {
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
     const unsupportedProfile = e?.code === "PROFILE_FILTER_MAPPING_UNSUPPORTED";
-    // Detailed recovery copy is pending JJ. Until then use only the existing
-    // generic failure label; never expose the technical code or suggest that
-    // a default profile preserves a user's mute/filter choices.
-    const msg = unsupportedProfile ? uiText("own.export-failed-prefix").replace(/[:：]\s*$/, "")
+    // JJ final copy (#190): one full sentence for alert and queue; the
+    // technical code stays only in the structured result for logs.
+    const msg = unsupportedProfile ? uiText("own.export-profile-unsupported")
       : e?.name === "AbortError" ? "cancelled" : String(e.message || e);
     result = { error: msg, cancelled: msg === "cancelled", ...(unsupportedProfile ? { code: e.code } : {}) };
     if (job) await reportExportJob(job, { status: "failed", error: msg }, true);
