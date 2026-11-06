@@ -23571,7 +23571,7 @@ async function agentReframeFlow(response,result){
   let step;try{step=agentProposalStep(response,result);}catch(error){toast(uiText(error.message==='STALE'?'own.ap-stale':error.message==='PROPOSAL_UNCHANGED'?'own.rf-same':'own.ap-invalid'));return;}
   const {proposal,ev}=step,aspect=proposal.aspect;
   const box=d||{choices:['once','deny'],label:MontClipCapabilities.label('reframe',lang),risk:'sensitive'};
-  const choice=await askAgentApproval(box,{summary:uiText('own.ap-sum-reframe',{aspect}),detail:MontClipPlan.stepDetail({capability:'reframe',args:{aspect}},lang)});
+  const choice=await askAgentApproval(box,{result,summary:uiText('own.ap-sum-reframe',{aspect}),detail:MontClipPlan.stepDetail({capability:'reframe',args:{aspect}},lang)});
   let yes=choice==='once';
   if(d){let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}yes=!!(a&&a.ok&&a.run);}
   if(!yes){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.ap-denied'));return;}

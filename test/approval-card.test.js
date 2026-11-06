@@ -170,3 +170,15 @@ test('the card: Cindy\'s card shell and buttons; focus lands on the card itself,
   a.match(read('cindy-official.js'), /data-host-card/, 'the bundle was rebuilt');
   a.ok(read('index.html').indexOf('agent-approval.js') < read('index.html').indexOf('app.js'));
 });
+
+// #120 merged with #175 (DD, 2026-11-06): a card is drawn under the reply it belongs to (ask(d,{result})). The reframe flow
+// came from main without it, so its card would have waited under no reply. Every caller passes its reply.
+test('every approval card belongs to its reply: onAgentReply, the reframe flow and plan steps pass result', () => {
+  const app = read('app.js');
+  for (const fn of ['async function onAgentReply', 'async function agentReframeFlow', 'async function runAgentPlanStep']) {
+    const i = app.indexOf(fn); a.ok(i >= 0, fn);
+    const body = app.slice(i, app.indexOf('\n}\n', i));
+    a.match(body, /await askAgentApproval\([a-z]+,\{result,/, fn);
+  }
+  a.equal((app.match(/askAgentApproval\(/g) || []).length, 4, 'the definition and the three callers');
+});
