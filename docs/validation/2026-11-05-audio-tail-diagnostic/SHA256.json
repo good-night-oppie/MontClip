@@ -41,8 +41,8 @@
   },
   {
     "file": "with-shortest-trace-stderr.txt",
-    "bytes": 728605,
-    "sha256": "7d90f7e45bd7d972a18d4eec4413076dac9af9735235fa372786a33871488930"
+    "bytes": 728593,
+    "sha256": "1909c699eb83caa8020f45e90f98f24c426aff0c3b41e0e83c3241525df4760f"
   },
   {
     "file": "without-shortest-probe.json",
@@ -51,7 +51,7 @@
   },
   {
     "file": "without-shortest-trace-stderr.txt",
-    "bytes": 727682,
-    "sha256": "fe9445b34765aab0a4c51fb2ddee509e35fdcb4bafd8bbcb2e7c5402903501f1"
+    "bytes": 727670,
+    "sha256": "d68d34ef65bd0b1acc7770761863dfedd0f709084a1b213c9677b30c220ed5bb"
   }
 ]

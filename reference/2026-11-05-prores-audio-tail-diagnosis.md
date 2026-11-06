@@ -54,3 +54,5 @@ node real-tests/audio-tail-pair.cjs out/audio-tail-new --debug-ts
 后续独立回归范围：CFR/VFR、短音频/长音频/无音频、最后音画边界；本轮只做上述CFR有声病例，没有扩成全套，也没有Linux/macOS、bundled构建或人工听感通过声明。
 
 本轮脚本语法、隔离profile守卫2/2、diff检查及release-check全部通过；产品完整单元测试不因只读诊断重跑。应用x264准确错误（旧loop01）：“这个导出设置要用 x264，需要先在设置里选一个带 x264 的 FFmpeg。也可以改用导出预设，用显卡或 Windows 自带的编码器。”对应server `exportBinary` 的HTTP400 `extNeeded` 设置门槛，不证明当前二进制缺x264，也与ProRes尾包原因不同；没有绕过门槛。
+
+归档文本仅规范化换行/行末空白并替换本机路径；原始stderr保留在本机输出目录，未删日志行。归档后发现FFmpeg原生行末空白触发diff检查，已追加清理提交并重算SHA256，不改测量值。

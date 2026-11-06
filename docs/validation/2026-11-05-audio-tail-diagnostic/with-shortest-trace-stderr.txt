@@ -2500,7 +2500,7 @@ Output #0, mov, to '<OUTPUT>\with-shortest-trace.mov':
 [vost#0:0/prores_ks @ 000002317edf3ac0] [enc:prores_ks @ 0000023101664340] encoder <- type:video frame_pts:192 frame_pts_time:6.4 time_base:1/30
 [vost#0:0/prores_ks @ 000002317edf3ac0] [enc:prores_ks @ 0000023101664340] encoder -> type:video pkt_pts:176 pkt_pts_time:5.866667 pkt_dts:176 pkt_dts_time:5.866667 duration:1 duration_time:0.0333333
 [vost#0:0/prores_ks @ 000002317edf3ac0] muxer <- pts:90112 pts_time:5.866667 dts:90112 dts_time:5.866667 duration:512 duration_time:0.0333333 size:83392 latency(total:84.211ms, demux-decode: 23.127ms/27%, decode-filter: 8.968ms/10%, encode 47.027ms/55%)
-frame=  177 fps=0.0 q=-0.0 size=   15616KiB time=00:00:06.40 bitrate=19988.5kbits/s speed=  12x elapsed=0:00:00.53    [vist#0:0/mjpeg @ 000002317f5113c0] [dec:mjpeg @ 0000023101630a40] decoder -> pts:195 pts_time:6.5 pkt_dts:195 pkt_dts_time:6.5 duration:1 duration_time:0.0333333 keyframe:1 frame_type:1 time_base:1/30
+frame=  177 fps=0.0 q=-0.0 size=   15616KiB time=00:00:06.40 bitrate=19988.5kbits/s speed=  12x elapsed=0:00:00.53[vist#0:0/mjpeg @ 000002317f5113c0] [dec:mjpeg @ 0000023101630a40] decoder -> pts:195 pts_time:6.5 pkt_dts:195 pkt_dts_time:6.5 duration:1 duration_time:0.0333333 keyframe:1 frame_type:1 time_base:1/30
 [vist#0:0/mjpeg @ 000002317f5113c0] demuxer -> ist_index:0:0 type:video pkt_pts:205 pkt_pts_time:6.833333 pkt_dts:205 pkt_dts_time:6.833333 duration:1 duration_time:0.0333333
 [vist#0:0/mjpeg @ 000002317f5113c0] demuxer+tsfixup -> ist_index:0:0 type:video pkt_pts:205 pkt_pts_time:6.833333 pkt_dts:205 pkt_dts_time:6.833333 duration:1 duration_time:0.0333333
 [vist#0:0/mjpeg @ 000002317f5113c0] demuxer+ffmpeg -> ist_index:0:0 type:video pkt_pts:205 pkt_pts_time:6.833333 pkt_dts:205 pkt_dts_time:6.833333 duration:1 duration_time:0.0333333 off:0 off_time:0
@@ -4289,17 +4289,17 @@ frame=  177 fps=0.0 q=-0.0 size=   15616KiB time=00:00:06.40 bitrate=19988.5kbit
 [out#0/mov @ 000002317ed71940] Terminating thread with return code 0 (success)
 [AVIOContext @ 00000231016c5940] Statistics: 34185336 bytes written, 2 seeks, 134 writeouts
 [out#0/mov @ 000002317ed71940] Output file #0 (<OUTPUT>\with-shortest-trace.mov):
-[out#0/mov @ 000002317ed71940]   Output stream #0:0 (video): 360 frames encoded; 360 packets muxed (31886268 bytes); 
-[out#0/mov @ 000002317ed71940]   Output stream #0:1 (audio): 140 frames encoded (573440 samples); 140 packets muxed (2293760 bytes); 
+[out#0/mov @ 000002317ed71940]   Output stream #0:0 (video): 360 frames encoded; 360 packets muxed (31886268 bytes);
+[out#0/mov @ 000002317ed71940]   Output stream #0:1 (audio): 140 frames encoded (573440 samples); 140 packets muxed (2293760 bytes);
 [out#0/mov @ 000002317ed71940]   Total: 500 packets (34180028 bytes) muxed
 [out#0/mov @ 000002317ed71940] video:31139KiB audio:2240KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 0.015518%
-frame=  360 fps=353 q=-0.0 Lsize=   33384KiB time=00:00:12.00 bitrate=22790.2kbits/s speed=11.8x elapsed=0:00:01.02    
+frame=  360 fps=353 q=-0.0 Lsize=   33384KiB time=00:00:12.00 bitrate=22790.2kbits/s speed=11.8x elapsed=0:00:01.02
 [in#0/image2pipe @ 000002317ed54a00] Input file #0 (fd:):
-[in#0/image2pipe @ 000002317ed54a00]   Input stream #0:0 (video): 360 packets read (30403460 bytes); 360 frames decoded; 0 decode errors; 
+[in#0/image2pipe @ 000002317ed54a00]   Input stream #0:0 (video): 360 packets read (30403460 bytes); 360 frames decoded; 0 decode errors;
 [in#0/image2pipe @ 000002317ed54a00]   Total: 360 packets (30403460 bytes) demuxed
 [AVIOContext @ 000002317ed54c40] Statistics: 30403460 bytes read, 0 seeks
 [in#1/wav @ 000002317f556a80] Input file #1 (<OUTPUT>\captured-mix.wav):
-[in#1/wav @ 000002317f556a80]   Input stream #1:0 (audio): 141 packets read (2304004 bytes); 141 frames decoded; 0 decode errors (576001 samples); 
+[in#1/wav @ 000002317f556a80]   Input stream #1:0 (audio): 141 packets read (2304004 bytes); 141 frames decoded; 0 decode errors (576001 samples);
 [in#1/wav @ 000002317f556a80]   Total: 141 packets (2304004 bytes) demuxed
 [AVIOContext @ 000002317ee12780] Statistics: 2369584 bytes read, 1 seeks
 

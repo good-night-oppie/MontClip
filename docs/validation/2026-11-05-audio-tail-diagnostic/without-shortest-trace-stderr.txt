@@ -2511,7 +2511,7 @@ Output #0, mov, to '<OUTPUT>\without-shortest-trace.mov':
 [vf#0:0 @ 00000220f9a86d40] filter_raw -> pts:210 pts_time:7 time_base:1/30
 [vf#0:0 @ 00000220f9a77080] filter -> pts:210 pts_time:7 exact:210.000000 time_base:1/30
 [vist#0:0/mjpeg @ 00000220f762cf80] [dec:mjpeg @ 00000220f97aec00] decoder -> pts:211 pts_time:7.033333 pkt_dts:211 pkt_dts_time:7.033333 duration:1 duration_time:0.0333333 keyframe:1 frame_type:1 time_base:1/30
-frame=  193 fps=0.0 q=-0.0 size=   17152KiB time=00:00:06.74 bitrate=20843.0kbits/s speed=12.8x elapsed=0:00:00.52    [vist#0:0/mjpeg @ 00000220f762cf80] demuxer -> ist_index:0:0 type:video pkt_pts:221 pkt_pts_time:7.366667 pkt_dts:221 pkt_dts_time:7.366667 duration:1 duration_time:0.0333333
+frame=  193 fps=0.0 q=-0.0 size=   17152KiB time=00:00:06.74 bitrate=20843.0kbits/s speed=12.8x elapsed=0:00:00.52[vist#0:0/mjpeg @ 00000220f762cf80] demuxer -> ist_index:0:0 type:video pkt_pts:221 pkt_pts_time:7.366667 pkt_dts:221 pkt_dts_time:7.366667 duration:1 duration_time:0.0333333
 [vist#0:0/mjpeg @ 00000220f762cf80] demuxer+tsfixup -> ist_index:0:0 type:video pkt_pts:221 pkt_pts_time:7.366667 pkt_dts:221 pkt_dts_time:7.366667 duration:1 duration_time:0.0333333
 [vist#0:0/mjpeg @ 00000220f762cf80] demuxer+ffmpeg -> ist_index:0:0 type:video pkt_pts:221 pkt_pts_time:7.366667 pkt_dts:221 pkt_dts_time:7.366667 duration:1 duration_time:0.0333333 off:0 off_time:0
 [vf#0:0 @ 00000220f9a86d40] filter_raw -> pts:211 pts_time:7.033333 time_base:1/30
@@ -4293,17 +4293,17 @@ frame=  193 fps=0.0 q=-0.0 size=   17152KiB time=00:00:06.74 bitrate=20843.0kbit
 [out#0/mov @ 00000220f75627c0] Terminating thread with return code 0 (success)
 [AVIOContext @ 00000220f975ccc0] Statistics: 34195612 bytes written, 2 seeks, 134 writeouts
 [out#0/mov @ 00000220f75627c0] Output file #0 (<OUTPUT>\without-shortest-trace.mov):
-[out#0/mov @ 00000220f75627c0]   Output stream #0:0 (video): 360 frames encoded; 360 packets muxed (31886268 bytes); 
-[out#0/mov @ 00000220f75627c0]   Output stream #0:1 (audio): 141 frames encoded (576001 samples); 141 packets muxed (2304004 bytes); 
+[out#0/mov @ 00000220f75627c0]   Output stream #0:0 (video): 360 frames encoded; 360 packets muxed (31886268 bytes);
+[out#0/mov @ 00000220f75627c0]   Output stream #0:1 (audio): 141 frames encoded (576001 samples); 141 packets muxed (2304004 bytes);
 [out#0/mov @ 00000220f75627c0]   Total: 501 packets (34190272 bytes) muxed
 [out#0/mov @ 00000220f75627c0] video:31139KiB audio:2250KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 0.015607%
-frame=  360 fps=0.0 q=-0.0 Lsize=   33394KiB time=00:00:12.00 bitrate=22797.0kbits/s speed=12.6x elapsed=0:00:00.95    
+frame=  360 fps=0.0 q=-0.0 Lsize=   33394KiB time=00:00:12.00 bitrate=22797.0kbits/s speed=12.6x elapsed=0:00:00.95
 [in#0/image2pipe @ 00000220f7543040] Input file #0 (fd:):
-[in#0/image2pipe @ 00000220f7543040]   Input stream #0:0 (video): 360 packets read (30403460 bytes); 360 frames decoded; 0 decode errors; 
+[in#0/image2pipe @ 00000220f7543040]   Input stream #0:0 (video): 360 packets read (30403460 bytes); 360 frames decoded; 0 decode errors;
 [in#0/image2pipe @ 00000220f7543040]   Total: 360 packets (30403460 bytes) demuxed
 [AVIOContext @ 00000220f7543280] Statistics: 30403460 bytes read, 0 seeks
 [in#1/wav @ 00000220f762d140] Input file #1 (<OUTPUT>\captured-mix.wav):
-[in#1/wav @ 00000220f762d140]   Input stream #1:0 (audio): 141 packets read (2304004 bytes); 141 frames decoded; 0 decode errors (576001 samples); 
+[in#1/wav @ 00000220f762d140]   Input stream #1:0 (audio): 141 packets read (2304004 bytes); 141 frames decoded; 0 decode errors (576001 samples);
 [in#1/wav @ 00000220f762d140]   Total: 141 packets (2304004 bytes) demuxed
 [AVIOContext @ 00000220f75f2400] Statistics: 2369584 bytes read, 1 seeks
 
