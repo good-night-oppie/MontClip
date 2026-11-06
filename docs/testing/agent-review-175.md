@@ -19,3 +19,11 @@ Supersedes the earlier sequence-limit wording only. The guard and toast now both
 Negative control: node --test test/agent-reframe-words.test.js test/agent-reframe-race.test.js initially returned 10 pass / 1 fail (old Chinese wording). After the minimal fix: 11 pass / 0 fail / 0 skipped. The added test executes the actual failure-toast branch in both languages at limits 64 and 17, ensuring the displayed number comes from SeqLib.MAX. Existing tests cover the 64-sequence refusal before frame reading, cancellation, stale edits and successful one-step undo. Release readiness passed; demo app regenerated.
 
 No full suite or export rerun for this wording-only increment. No visible UI, clipping/layout or human acceptance check performed. PR 176 at d219d74f does not yet contain this increment; it can take this single appended commit with cherry-pick, without rewriting history.
+
+## CI smoke registration/profile correction — 2026-11-06
+
+CI run 42192199944 at 64ef89f5 failed all four Tests jobs (Linux Node 18/20/22 and Windows Node 22), each on the same two assertions: smoke-profile-guard and smokes-current. The earlier 11/11 wording tests and release-check did not cover these. Earlier full-suite results preceded the addition of the new smoke script and do not establish CI success for the later heads.
+
+Both failures reproduced locally (7 pass / 2 fail). The added behavioral profile check also failed before the fix. The script now uses the required common argument guard and additionally rejects nonempty/existing-file profiles before loading Electron. Empty or nonexistent explicit profiles pass the guard without being written by the check. The smoke is registered in desktop/SMOKES.md. No test was relaxed.
+
+node --test test/smoke-profile-guard.test.js test/smokes-current.test.js test/reframe-smoke-profile.test.js: 14 pass / 0 fail / 0 skipped. node .github/scripts/release-check.js passed. No media/export rerun or trial.11 repack: that trial contains only the two runtime wording lines and does not contain this smoke. Fresh CI results are linked in the PR follow-up; GUI acceptance remains outstanding.

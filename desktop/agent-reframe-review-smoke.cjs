@@ -1,9 +1,13 @@
 'use strict';
 // Explicit, offscreen, synthetic-only reframe/export check; never an acceptance receipt.
-const electron=require('electron'),{app,BrowserWindow}=electron,a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
+const fs=require('node:fs'),path=require('node:path');
 if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke required');
-const profile=process.argv.find(x=>x.startsWith('--user-data-dir='))?.split('=').slice(1).join('='),dir=process.env.MONTCLIP_FFMPEG_DIR;
-if(!profile||!dir)throw Error('Fresh profile and bundled FFmpeg directory required');
+const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
+if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
+const profile=path.resolve(profileArg.slice('--user-data-dir='.length).trim()),dir=process.env.MONTCLIP_FFMPEG_DIR;
+if(fs.existsSync(profile)&&(!fs.statSync(profile).isDirectory()||fs.readdirSync(profile).length))throw Error('A fresh, empty --user-data-dir is required');
+if(!dir)throw Error('Bundled FFmpeg directory required');
+const electron=require('electron'),{app,BrowserWindow}=electron,a=require('node:assert/strict'),cp=require('node:child_process');
 const ffmpeg=path.join(dir,process.platform==='win32'?'ffmpeg.exe':'ffmpeg'),{measure}=require('./av-sync-measure.cjs');
 function source(file){
  const video="color=c=black:size=192x108:rate=30:duration=6,format=yuv420p,drawbox=x=0:y=0:w=iw:h=ih:color=white:t=fill:enable='gte(n\\,6)*eq(mod(n-6\\,15)\\,0)'";

@@ -22,3 +22,9 @@ This increment applies PR 175 commit 64ef89f5d3ba37b68d04be7e23ce828b1713d313 on
 node --test test/agent-reframe-words.test.js test/agent-reframe-race.test.js: 11 pass / 0 fail / 0 skipped. Includes exact bilingual text at 64, dynamic limit 17, 64-sequence refusal without reading frames, cancellation, revision changes and normal one-step undo. node .github/scripts/release-check.js: passed. The before-fix negative control belongs to PR 175 at de31439d (10 pass / 1 fail), recorded in agent-review-175.md; it was not rerun or relabeled as new PR 176 evidence.
 
 No full suite, frame-algorithm test or export rerun for this increment. Earlier full-suite and synthetic A/V evidence belongs to d219d74f. GUI language switching/layout and human acceptance remain pending. PR 175's earlier note that PR 176 lacked the increment is historical; this appended commit integrates it. No merge or installation performed.
+
+## CI dependency repair — 2026-11-06
+
+Ordinary merge of PR 175 head 7c1d3d0f (no rebase or force push). Resolved changelog/evidence context conflicts by preserving the existing PR 176 source-PTS entry and incorporating PR 175's new CI evidence. Frame algorithms remain unchanged. PR 175's four CI test jobs each failed the two smoke guard/list assertions; the earlier wording-only checks did not cover them.
+
+The integrated smoke now refuses blank/used profiles before loading Electron and is listed in SMOKES.md. The three smoke guard/list test files pass 14/14, and the two wording/race test files pass 11/11. Release readiness passed. No full local suite or unrelated media/export rerun; current-head CI is reported separately in the PR. Earlier evidence above remains attributed to its original heads. GUI/human acceptance remains pending; trial.11 does not include the smoke and does not need repackaging for this fix.
