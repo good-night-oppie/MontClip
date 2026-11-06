@@ -40,6 +40,9 @@ test('refuses a reused profile before creating output',t=>{
   const f=fixture(t);fs.mkdirSync(f.profile);fs.writeFileSync(path.join(f.profile,'project.json'),'original');
   a.throws(boot(f).run);a.equal(fs.readFileSync(path.join(f.profile,'project.json'),'utf8'),'original');a.ok(!fs.existsSync(f.out));
 });
+test('accepts an empty profile created by Electron before the script loads',t=>{
+  const f=fixture(t);fs.mkdirSync(f.profile);a.doesNotThrow(boot(f).run);a.ok(fs.statSync(f.out).isDirectory());
+});
 test('missing key logs neither local path nor raw reader reason',t=>{
   const f=fixture(t), b=boot(f,{missingKey:true});a.throws(b.run,/EXIT/);
   a.equal(b.exited(),2);a.ok(!b.output.join('').includes(f.root));a.ok(!b.output.join('').includes('private-user'));

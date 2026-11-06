@@ -18,10 +18,13 @@ const found=require('./meta-key-file.cjs').readKey();if(!found.key){process.stdo
 const KEY=found.key,hide=s=>String(s).split(KEY).join('<key>');
 const log=(k,v)=>process.stdout.write(k+' '+hide(JSON.stringify(v))+'\n');
 const SECONDS=10,FFMPEG=process.env.MONTCLIP_FOOTAGE_FFMPEG||'ffmpeg';
-// Both paths must be new, including dangling links. Never reuse another run's files.
+// Output must be new, including dangling links. Electron may create an empty profile before loading this script.
 function requireNew(dir){try{fs.lstatSync(dir);}catch(e){if(e.code==='ENOENT')return;throw Error('DIRECTORY_CHECK_FAILED');}throw Error('FRESH_DIRECTORY_REQUIRED');}
-requireNew(profile);requireNew(out);
-try{fs.mkdirSync(profile);fs.mkdirSync(out);}catch{throw Error('DIRECTORY_CREATE_FAILED');}
+let profileExists=false;
+try{const st=fs.lstatSync(profile);profileExists=true;if(st.isSymbolicLink()||!st.isDirectory()||fs.readdirSync(profile).length)throw Error('FRESH_PROFILE_REQUIRED');}
+catch(e){if(e.code!=='ENOENT')throw Error('FRESH_PROFILE_REQUIRED');}
+requireNew(out);
+try{if(!profileExists)fs.mkdirSync(profile);fs.mkdirSync(out);}catch{throw Error('DIRECTORY_CREATE_FAILED');}
 function makeSource(file){
  const r=cp.spawnSync(FFMPEG,['-hide_banner','-nostdin','-loglevel','error','-y','-f','lavfi','-i',`testsrc2=size=640x360:rate=30:duration=${SECONDS}`,'-f','lavfi','-i',`sine=frequency=440:sample_rate=48000:duration=${SECONDS}`,
   '-map','0:v','-map','1:a','-c:v','libvpx-vp9','-b:v','0','-crf','34','-deadline','good','-cpu-used','5','-pix_fmt','yuv420p','-c:a','aac','-b:a','128k','-ac','2','-movflags','+faststart',file],{windowsHide:true});
