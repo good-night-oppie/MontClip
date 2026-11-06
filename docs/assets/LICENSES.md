@@ -11,7 +11,7 @@ diagrams are not meant for the README.
 | `diagrams/flv-input-checks-{dark,light}.svg` | Generated the same way, then edited by hand: the "proposed" half was removed and the notes were checked against the code at d51b27a. |
 
 The four SVGs in `diagrams/` are released under the MIT License, the same license as this repository
-(see `LICENSE`). (Chosen by the author as the repository default; confirmation by Deja or QQ pending.)
+(see `LICENSE`), as decided by Deja on 2026-11-06 (recorded in the PR #187 discussion).
 
 `provenance.json` records the prompt, request ID and model of every generated file, the SHA-256
 of what was generated, what was changed by hand, and the SHA-256 of the committed file.
