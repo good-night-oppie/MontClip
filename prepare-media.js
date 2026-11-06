@@ -92,6 +92,9 @@ function logGaps(file, range, fixing) {
   console.error(`[MontClip] FLV ${path.basename(file)}: ${range.gaps.length} break(s)` + (fixing ? ` (converted: ${range.fix.join(", ") || "asked"})` : " (imported as is)") +
     " — " + range.gaps.map((g) => `${g.stream} ${at(g.at)} +${Math.round(g.len * 1000)}ms`).join(", "));
 }
+/** A conversion's time limit: 1.5 × the recording's length, at least 15 minutes, in whole ms — execFile refuses a
+ *  fraction (ERR_OUT_OF_RANGE: every recording over 10 minutes failed to import, VV on europa, 2026-11-06). */
+const timeoutMs = (seconds) => Math.ceil(Math.max(15 * 60, 1.5 * (Number(seconds) || 0)) * 1000);
 const MAX_LENGTH_DIFF = 0.1, MAX_AV_OFFSET = 0.04;
 /** How a conversion compares with the original's readable range (both from scanReadableRange): its length, and how
  *  far sound and picture moved against each other at its start and its end. Silence put in front of a sound that
@@ -154,7 +157,7 @@ async function prepareMedia(file, { allowTranscode = false, acceptReadable = fal
   const part = out + ".part.mp4";
   const progress = onProgress ? ["-progress", "pipe:1", "-stats_period", "1"] : [];
   // a long recording that has to be re-encoded can take longer than 15 minutes
-  const timeout = Math.max(15 * 60, 1.5 * range.duration) * 1000;
+  const timeout = timeoutMs(range.duration);
   const args = (encoder) => ["-v", "error", "-nostdin", "-n", ...progress, ...(strict ? DECODE_STRICT : []), "-i", file, "-map", "0:v:0", "-map", "0:a:0?",
     ...(encoder ? transcodeVideoArgs(encoder) : ["-c:v", "copy"]), ...(!hasAudio ? [] : fill || encoder ? FILL_AUDIO : ["-c:a", "copy"]),
     "-movflags", "+faststart", part,
@@ -199,4 +202,4 @@ async function prepareMedia(file, { allowTranscode = false, acceptReadable = fal
   return { src: url(out), originalSrc, preparation: reencoded ? "transcode" : "remux", audio: !hasAudio ? "none" : fill || reencoded ? "filled" : "copy",
     ...(fixing ? {gapsHeld: true} : {}), ...(range.gaps.length ? {gaps: range.gaps} : {}), ...(range.drifting ? {drift: Math.round(range.drift * 1000) / 1000} : {}) };
 }
-module.exports = { prepareMedia, inspectFlv, publicPreparationError, PUBLIC_CODES, usableH264, transcodeVideoArgs, conversionCheck };
+module.exports = { timeoutMs, prepareMedia, inspectFlv, publicPreparationError, PUBLIC_CODES, usableH264, transcodeVideoArgs, conversionCheck };
