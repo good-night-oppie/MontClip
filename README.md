@@ -37,3 +37,7 @@ MIT. See [LICENSE](LICENSE) and the third-party notices.
 ## Technical reference
 
 See the [agent and API manual](CLAUDE.md) for media repair and background duration merging, and the [timestamp repair comparison](docs/testing/repair-timestamp-jump.md) for the reproducible test and its limits.
+
+JPEG ProRes exports use the selected range's frame count to preserve audio through
+the project end. Direct REST callers can supply `frames` with `fps`; see the
+[export boundary decision](docs/decisions/2026-11-05-prores-project-end.md) for scope and compatibility.

@@ -20050,6 +20050,7 @@ async function fastExport(opts = {}) {
         canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav, job,
       } : {
         fps,
+        frames,
         name: exportBaseName("export"),
         profile: profileId,
         hasAudio: !!wav,

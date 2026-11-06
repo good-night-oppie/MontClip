@@ -223,7 +223,16 @@ function withInputColor(profile, inMatrix) {
 /* The single export pass. Fast export sends JPEG image2pipe by default;
    `pixelFormat: "rgba"` is uncompressed canvas frames. Audio mix is on disk
    before spawn. */
-function buildExportArgs(profile, { fps, wavPath, outPath, pixelFormat, width, height } = {}) {
+function proresProjectEnd(profile, { fps, frames, pixelFormat } = {}) {
+  if (profile.id !== "prores422" || pixelFormat === "rgba" || frames == null) return null;
+  const seconds = frames / fps, samples = Math.round(seconds * 48000);
+  if (!Number.isSafeInteger(frames) || frames <= 0 || !Number.isFinite(fps) || fps <= 0 ||
+      !Number.isFinite(seconds) || !Number.isSafeInteger(samples) || samples <= 0)
+    throw Object.assign(new Error("export frames must be a positive safe integer with a finite sample boundary"), { status: 400 });
+  return { seconds, samples };
+}
+function buildExportArgs(profile, { fps, frames, wavPath, outPath, pixelFormat, width, height } = {}) {
+  const end = proresProjectEnd(profile, { fps, frames, pixelFormat });
   const args = ["-y", "-hide_banner"];
   const raw = pixelFormat === "rgba";
   if (raw) {
@@ -241,7 +250,25 @@ function buildExportArgs(profile, { fps, wavPath, outPath, pixelFormat, width, h
     );
   }
   if (wavPath) args.push("-i", wavPath);
-  args.push(...withInputColor(profile, raw ? "bt709" : "bt601"), outPath);
+  let output = withInputColor(profile, raw ? "bt709" : "bt601");
+  if (end) {
+    // -shortest can stop before PCM's last partial packet. Bound this known
+    // project range instead; do not change legacy/unbounded profiles or pad audio.
+    output = output.filter(a => a !== "-shortest");
+    if (wavPath) {
+      const trim = `aresample=48000,atrim=end_sample=${end.samples}`;
+      // FFmpeg uses the last audio filter option, including its aliases.
+      // Appending a new -af would silently replace a user's -filter:a chain.
+      let af = -1;
+      for (let i = 0; i < output.length; i++)
+        if (/^-(?:af|filter:a(?::0)?)$/.test(output[i])) af = i;
+      if (af >= 0) output[af + 1] += "," + trim;
+      else output.push("-af", trim);
+      output.push("-ar", "48000");
+    }
+    output.push("-t", end.seconds.toFixed(9));
+  }
+  args.push(...output, outPath);
   return args;
 }
 
@@ -305,5 +332,6 @@ module.exports = {
   listProfilesPublic,
   profileSummary,
   buildExportArgs,
+  proresProjectEnd,
   dryRunProfile,
 };
