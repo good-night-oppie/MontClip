@@ -1,23 +1,60 @@
-"""Run one MontClip server for a demo script and talk to it over MCP, failing closed.
+"""Run one MontClip server for a demo script and talk to it over MCP, failing closed. Linux only.
 
-- fresh_dir(): the work directory must not exist yet, or be an empty real directory (no symlink);
-  nothing in an existing directory is deleted or overwritten.
-- Session: starts `node server.js` on a free port with its own FABLECUT_DATA_DIR, then proves that the
-  socket listening on that port belongs to the process it started (Linux /proc: the listening socket's
-  inode must be one of that process's open sockets). If that cannot be shown, it stops: an HTTP 200 alone
-  could come from any other MontClip on the machine.
-- Session.call(): runs mcp-call.cjs and stops on a non-zero exit (any tool error stops the run there).
-- Session.assert_owned() / the watcher: every client connected to our port must belong to our own process tree
-  (this script, mcp-call, the server and the headless browsers it spawns). A browser tab or any other process
-  connected from outside stops the run, before the project is written and at any time during calls. The
-  headless browsers seen are recorded (pid, parent chain to our server, profile directory).
-- Session.open_editor(): starts our own headless Chrome (a child of this script, with a new profile inside the
-  work directory) on our server's editor page and waits until that browser, and only it, is connected; frames
-  can then be rendered by that tab (where:"tab") instead of a new headless browser per frame.
+Isolation (the guarantee): before anything starts, the process enters a new user + network namespace of its
+own (isolate()). Its loopback is private: no process outside the namespace (a browser tab, another MontClip,
+another script) can reach the server at all, however short its connection. Everything this script starts
+(the server, mcp-call, headless browsers) is inside the namespace. What it does not stop: a process of the
+same user that deliberately joins the namespace (setns/nsenter); the watcher below looks for that, but
+polling cannot prove a negative, so that case is a stated limit, not a guarantee. The process is also a child
+subreaper, so descendants that double-fork stay in its process tree.
+
+- fresh_dir(): the work directory must not exist yet, or be an empty real directory (no symlink).
+- Session: starts `node server.js` (HOST=127.0.0.1) with its own FABLECUT_DATA_DIR, then before any request:
+  (1) the socket listening on the port must be one the server process holds (/proc inode check), and
+  (2) the server must serve a random proof file written into this run's data directory (authentication of
+      this run's service, not just "something answers 200"). The proof stays for the whole session and
+      mcp-call.cjs checks it, and the session's dead-marker, before initialize and before every tool request.
+- Lifecycle: the session becomes dead, for good, as soon as the server exits, the listening socket is no
+  longer the server's, a process inside our namespace is not in our process tree, or the watcher itself
+  fails. assert_owned() fails on a dead session; the dead-marker is written at once, so mcp-call sends no
+  further tool request, and the running batch (mcp-call and its MCP server) is killed as well.
+- open_editor(): our own headless Chrome (a child of this script, new profile in the work directory) on the
+  editor page; ready once the server accepts a tab-only frame request. Headless browsers the server starts
+  for exports are recorded (pid, parent chain to the server, profile).
 """
-import json, os, pathlib, socket, subprocess, sys, threading, time, urllib.error, urllib.request
+import ctypes, fcntl, json, os, pathlib, secrets, socket, struct, subprocess, sys, threading, time, urllib.error, urllib.request
 
 HERE = pathlib.Path(__file__).resolve().parent
+_ISOLATION = {}
+
+
+def isolate():
+    """Enter a new user + network namespace (once per process; must run before any thread starts)."""
+    if _ISOLATION:
+        return _ISOLATION
+    if threading.active_count() > 1:
+        raise SystemExit("isolate() must run before any thread is started")
+    host_net = os.readlink("/proc/self/ns/net")
+    uid, gid = os.getuid(), os.getgid()
+    libc = ctypes.CDLL(None, use_errno=True)
+    if libc.unshare(0x10000000 | 0x40000000) != 0:  # CLONE_NEWUSER | CLONE_NEWNET
+        raise SystemExit(f"cannot create a private network namespace (errno {ctypes.get_errno()}); refusing to run "
+                         "without request isolation (unprivileged user namespaces must be enabled)")
+    for name, text in (("setgroups", "deny"), ("uid_map", f"{uid} {uid} 1"), ("gid_map", f"{gid} {gid} 1")):
+        with open(f"/proc/self/{name}", "w") as f:
+            f.write(text)
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:  # bring up the private loopback
+        flags = struct.unpack("16sH14s", fcntl.ioctl(s, 0x8913, struct.pack("16sH14s", b"lo", 0, b"\0" * 14)))[1]
+        fcntl.ioctl(s, 0x8914, struct.pack("16sH14s", b"lo", flags | 1, b"\0" * 14))
+    # orphaned descendants (double-forked helpers such as Chrome's crash handler) are re-parented to us, so
+    # every process we start stays in our tree; only a process that joins the namespace from outside is not
+    if libc.prctl(36, 1, 0, 0, 0) != 0:  # PR_SET_CHILD_SUBREAPER
+        raise SystemExit("cannot become a child subreaper; refusing to run")
+    net = os.readlink("/proc/self/ns/net")
+    if net == host_net or os.getuid() != uid:
+        raise SystemExit("network namespace isolation did not take effect; refusing to run")
+    _ISOLATION.update({"host_netns": host_net, "netns": net, "pid": os.getpid()})
+    return _ISOLATION
 
 
 def fresh_dir(path):
@@ -39,8 +76,9 @@ def _free_port():
         return s.getsockname()[1]
 
 
-def _listen_inodes(port):
-    """Inodes of sockets in LISTEN state on `port` (IPv4 and IPv6), from /proc/net."""
+def _table(state, port, side):
+    """Socket inodes in `state` (hex, e.g. 0A LISTEN, 01 ESTABLISHED) whose local (side=1) or remote (side=2)
+    port is `port`, from /proc/net/tcp and tcp6 (which show only our own network namespace)."""
     found = set()
     for table in ("/proc/net/tcp", "/proc/net/tcp6"):
         try:
@@ -49,14 +87,18 @@ def _listen_inodes(port):
             continue
         for row in rows:
             f = row.split()
-            if len(f) > 9 and f[3] == "0A" and int(f[1].rsplit(":", 1)[1], 16) == port:
+            if len(f) > 9 and f[3] == state and int(f[side].rsplit(":", 1)[1], 16) == port and f[9] != "0":
                 found.add(f[9])
     return found
 
 
 def _process_sockets(pid):
     out = set()
-    for fd in pathlib.Path(f"/proc/{pid}/fd").iterdir():
+    try:
+        fds = list(pathlib.Path(f"/proc/{pid}/fd").iterdir())
+    except OSError:
+        return out
+    for fd in fds:
         try:
             target = os.readlink(fd)
         except OSError:
@@ -66,20 +108,22 @@ def _process_sockets(pid):
     return out
 
 
-def _parents():
+def _processes():
+    """pid -> (ppid, network namespace) for every process we can see."""
     out = {}
     for d in pathlib.Path("/proc").iterdir():
         if d.name.isdigit():
             try:
-                out[int(d.name)] = int((d / "stat").read_text().rsplit(")", 1)[1].split()[1])
+                ppid = int((d / "stat").read_text().rsplit(")", 1)[1].split()[1])
+                out[int(d.name)] = (ppid, os.readlink(d / "ns" / "net"))
             except (OSError, IndexError, ValueError):
                 pass
     return out
 
 
-def _tree(root, parents):
+def _tree(root, procs):
     kids, out, todo = {}, {root}, [root]
-    for pid, pp in parents.items():
+    for pid, (pp, _) in procs.items():
         kids.setdefault(pp, []).append(pid)
     while todo:
         for k in kids.get(todo.pop(), []):
@@ -88,39 +132,26 @@ def _tree(root, parents):
     return out
 
 
-def _client_inodes(port):
-    """Inodes of client-side sockets ESTABLISHED to 127.0.0.1/::1 `port` (remote port == port)."""
-    found = set()
-    for table in ("/proc/net/tcp", "/proc/net/tcp6"):
-        try:
-            rows = pathlib.Path(table).read_text().splitlines()[1:]
-        except OSError:
-            continue
-        for row in rows:
-            f = row.split()
-            if len(f) > 9 and f[3] == "01" and int(f[2].rsplit(":", 1)[1], 16) == port and f[9] != "0":
-                found.add(f[9])
-    return found
-
-
 class Session:
     def __init__(self, work, src, label):
+        self.iso = isolate()
         self.work, self.src, self.label = pathlib.Path(work), pathlib.Path(src), label
-        if not pathlib.Path("/proc/net/tcp").exists():
-            raise SystemExit("cannot prove which process owns the port on this system (no /proc); refusing to run")
+        self.dead, self.foreign, self.browsers, self.editor, self.editor_info = None, [], {}, None, None
+        self._stop, self._lock, self._batch = threading.Event(), threading.Lock(), None
         self.data = self.work / "data"
         self.data.mkdir()
         self.port = str(_free_port())
         ext = self.work / "external-ffmpeg.json"
         ext.write_text(json.dumps({"version": 1, "path": os.environ.get("EXTERNAL_FFMPEG", "/usr/bin/ffmpeg")}))
         self.env = {**os.environ, "FABLECUT_DATA_DIR": str(self.data), "FABLECUT_PORT": self.port, "PORT": self.port,
-                    "FABLECUT_NO_AUTOSTART": "1", "MONTCLIP_SRC": str(self.src), "MONTCLIP_EXTERNAL_FFMPEG_SETTINGS": str(ext)}
+                    "HOST": "127.0.0.1", "FABLECUT_NO_AUTOSTART": "1", "MONTCLIP_SRC": str(self.src),
+                    "MONTCLIP_EXTERNAL_FFMPEG_SETTINGS": str(ext)}
         self.log = self.work / "server.log"
         self.srv = subprocess.Popen(["node", "server.js"], cwd=self.src, env=self.env,
                                     stdout=open(self.log, "w"), stderr=subprocess.STDOUT)
-        self.foreign, self.browsers, self._stop, self.editor = [], {}, threading.Event(), None
         try:
             self._wait_until_ours()
+            self._authenticate()
             self.assert_owned()
         except BaseException:
             self.close()
@@ -128,42 +159,116 @@ class Session:
         self._watch = threading.Thread(target=self._watch_loop, daemon=True)
         self._watch.start()
 
-    def _check(self):
-        """Record clients of our port that are not in our process tree, and our server's headless browsers."""
-        port, parents = int(self.port), _parents()
-        server = _tree(self.srv.pid, parents)
-        ours = server | _tree(os.getpid(), parents)
-        mine = set()
-        for pid in ours:
+    # ---- ownership -------------------------------------------------------------------------------------
+    def _listener_is_servers(self):
+        inodes = _table("0A", int(self.port), 1)
+        return bool(inodes) and inodes <= _process_sockets(self.srv.pid)
+
+    def _wait_until_ours(self):
+        port = int(self.port)
+        for _ in range(80):
+            if self.srv.poll() is not None:
+                raise SystemExit(f"{self.label}: our MontClip server exited before it was ready:\n{self.log.read_text()[-800:]}")
+            inodes = _table("0A", port, 1)
+            if inodes:
+                if not inodes <= _process_sockets(self.srv.pid):
+                    raise SystemExit(f"{self.label}: port {port} is held by another process, not the server we started "
+                                     f"(pid {self.srv.pid}); stopping before any request")
+                try:
+                    if urllib.request.urlopen(f"http://127.0.0.1:{port}/api/project", timeout=2).status == 200:
+                        return
+                except OSError:
+                    pass
+            time.sleep(0.25)
+        raise SystemExit(f"{self.label}: our MontClip server did not come up on port {port}")
+
+    def _authenticate(self):
+        """The server must serve a random proof written into this run's data directory just now."""
+        exports = self.data / "exports"
+        exports.mkdir(exist_ok=True)
+        name, proof = f"owner-proof-{secrets.token_hex(8)}.txt", secrets.token_hex(32)
+        (exports / name).write_text(proof)
+        self.proof_file = exports / name  # kept for the whole session: mcp-call checks it before every tool request
+        url = f"http://127.0.0.1:{self.port}/exports/{name}"
+        try:
+            got = urllib.request.urlopen(url, timeout=5).read().decode()
+        except OSError as e:
+            raise SystemExit(f"{self.label}: could not read this run's proof file from the server ({e}); stopping")
+        if got != proof:
+            raise SystemExit(f"{self.label}: the server on port {self.port} did not serve this run's proof file; stopping")
+        if not self._listener_is_servers():
+            raise SystemExit(f"{self.label}: the listening socket changed hands during authentication; stopping")
+        self.dead_marker = self.work / "session-dead"
+        self.env.update(MONTCLIP_GATE_PROOF_URL=url, MONTCLIP_GATE_PROOF=proof, MONTCLIP_GATE_DEAD=str(self.dead_marker))
+        self.authenticated = {"proof_file": name, "time": time.time()}
+
+    def _kill(self, why):
+        with self._lock:
+            if self.dead is None:
+                self.dead = {"why": why, "time": time.time()}
+                marker = getattr(self, "dead_marker", None)
+                if marker is not None:
+                    marker.write_text(why)  # mcp-call refuses every further tool request
+            batch = self._batch
+        if batch and batch.poll() is None:
             try:
-                mine |= _process_sockets(pid)
+                os.killpg(batch.pid, 9)
             except OSError:
                 pass
-        stray = _client_inodes(port) - mine
-        if stray:
-            # a socket can be created by a child that has just exited; look again before calling it foreign
-            time.sleep(0.2)
-            parents = _parents(); ours = _tree(self.srv.pid, parents) | _tree(os.getpid(), parents)
-            mine = set().union(*[self._socks(p) for p in ours])
-            stray = _client_inodes(port) & stray - mine
-        if stray:
-            self.foreign.append({"time": time.time(), "inodes": sorted(stray)})
+
+    def _check(self):
+        """One pass: lifecycle, listener, processes in our namespace, clients of our port, our browsers."""
+        if self.srv.poll() is not None:
+            return self._kill(f"server exited (code {self.srv.returncode})")
+        if not self._listener_is_servers():
+            return self._kill("the socket listening on our port is not the server's any more")
+        procs = _processes()
+        ours = _tree(self.iso["pid"], procs)
+        strangers = sorted(p for p, (_, ns) in procs.items() if ns == self.iso["netns"] and p not in ours)
+        if strangers:
+            self.foreign.append({"time": time.time(), "processes_in_our_netns_outside_our_tree": strangers})
+            return self._kill(f"processes in our network namespace are not ours: {strangers}")
+        mine = set().union(*[_process_sockets(p) for p in ours])
+        clients = _table("01", int(self.port), 2)
+        unattributed = clients - mine
+        # A client socket whose owner has already exited cannot be attributed. It can only have come from a
+        # process inside our namespace, and every such process is checked above; it is counted, not erased.
+        if unattributed:
+            self.unattributed = getattr(self, "unattributed", 0) + len(unattributed)
+        server = _tree(self.srv.pid, procs)
         for pid in server - {self.srv.pid}:
+            if pid in self.browsers:
+                continue
             try:
-                # Chrome rewrites its process title, so its cmdline can be one space-separated string
                 cmd = pathlib.Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ").split()
             except OSError:
                 continue
             prof = [a.decode() for a in cmd if a.startswith(b"--user-data-dir=")]
-            if prof and b"--type=" not in b" ".join(cmd) and pid not in self.browsers:
+            if prof and not any(a.startswith(b"--type=") for a in cmd):
                 chain, p = [], pid
                 while p and p != self.srv.pid and len(chain) < 16:
-                    chain.append(p); p = parents.get(p)
+                    chain.append(p); p = procs.get(p, (None,))[0]
                 self.browsers[pid] = {"exe": cmd[0].decode(), "profile": prof[0].split("=", 1)[1],
                                       "parent_chain_to_server": chain + [self.srv.pid], "first_seen": time.time()}
-        return not stray
 
-    def open_editor(self, chrome=None, timeout=60):
+    def assert_owned(self):
+        self._check()
+        if getattr(self, "_watch", None) is not None and not self._watch.is_alive() and not self._stop.is_set():
+            self._kill("the ownership watcher stopped")
+        if self.dead:
+            raise SystemExit(f"{self.label}: session is no longer trusted ({self.dead['why']}); stopping")
+
+    def _watch_loop(self):
+        try:
+            while not self._stop.wait(0.1):
+                self._check()
+                if self.dead:
+                    return
+        except BaseException as e:  # a failing watcher must not leave a session that looks fine
+            self._kill(f"ownership watcher failed: {e!r}")
+
+    # ---- our own editor tab ------------------------------------------------------------------------------
+    def open_editor(self, chrome=None, timeout=90):
         exe = chrome or os.environ.get("FABLECUT_CHROME") or next(
             (c for c in ("/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser") if os.path.exists(c)), None)
         if not exe:
@@ -182,8 +287,7 @@ class Session:
         while time.time() < deadline:
             if self.editor.poll() is not None:
                 raise SystemExit(f"{self.label}: our editor browser exited before it connected")
-            tree = _tree(self.editor.pid, _parents())
-            if _client_inodes(int(self.port)) & set().union(*[self._socks(p) for p in tree]) and self._tab_ready():
+            if self._tab_ready():
                 self.assert_owned()
                 return
             time.sleep(0.5)
@@ -191,8 +295,7 @@ class Session:
 
     def _tab_ready(self):
         """True once the server has an editor tab: a tab-only frame request is accepted (409 until then).
-        The probe job is waited for, so it does not hold the tab. Only our own tab can be connected here:
-        assert_owned() has just checked every client of the port."""
+        Only our own tab can be connected: nothing outside our namespace can reach the server."""
         self.assert_owned()
         base = f"http://127.0.0.1:{self.port}"
         req = urllib.request.Request(base + "/api/scopes/request", data=b'{"where":"tab","image":false}',
@@ -210,67 +313,48 @@ class Session:
             job = json.loads(urllib.request.urlopen(f"{base}/api/export/job?id={job['id']}", timeout=5).read())
         return False
 
-    @staticmethod
-    def _socks(pid):
-        try:
-            return _process_sockets(pid)
-        except OSError:
-            return set()
-
-    def assert_owned(self):
-        if not self._check() or self.foreign:
-            raise SystemExit(f"{self.label}: a process outside this run is connected to our server (port {self.port}): "
-                             f"{self.foreign[-1:]}; stopping")
-
-    def _watch_loop(self):
-        while not self._stop.wait(0.5):
-            if self.srv.poll() is not None:
-                return
-            self._check()
-
-    def _wait_until_ours(self):
-        port = int(self.port)
-        for _ in range(80):
-            if self.srv.poll() is not None:
-                raise SystemExit(f"{self.label}: our MontClip server exited before it was ready:\n{self.log.read_text()[-800:]}")
-            inodes = _listen_inodes(port)
-            if inodes:
-                if not inodes & _process_sockets(self.srv.pid):
-                    raise SystemExit(f"{self.label}: port {port} is held by another process, not the server we started "
-                                     f"(pid {self.srv.pid}); stopping before any request")
-                try:
-                    if urllib.request.urlopen(f"http://127.0.0.1:{port}/api/project", timeout=2).status == 200:
-                        return
-                except OSError:
-                    pass
-            time.sleep(0.25)
-        raise SystemExit(f"{self.label}: our MontClip server did not come up on port {port}")
-
+    # ---- MCP -----------------------------------------------------------------------------------------------
     def call(self, calls, tag):
         self.assert_owned()  # before anything is sent, in particular before the project is written
         f = self.work / f"{tag}.json"
         f.write_text(json.dumps(calls, ensure_ascii=False, indent=1))
-        r = subprocess.run(["node", str(HERE / "mcp-call.cjs"), str(f)], env=self.env, capture_output=True, text=True, timeout=1500)
-        (self.work / f"{tag}.out.txt").write_text(r.stdout + r.stderr)
-        print(r.stdout[:3000])
-        if r.returncode != 0:
-            raise SystemExit(f"{self.label}: MCP call failed in {tag} (exit {r.returncode}); see {self.work / (tag + '.out.txt')}")
-        self.assert_owned()  # and nothing foreign connected while it ran
-        return r.stdout
+        out = open(self.work / f"{tag}.out.txt", "w+")
+        with self._lock:
+            self._batch = subprocess.Popen(["node", str(HERE / "mcp-call.cjs"), str(f)], env=self.env,
+                                           stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
+        batch, deadline = self._batch, time.time() + 1500
+        while batch.poll() is None:
+            if self.dead or time.time() > deadline:
+                self._kill(self.dead["why"] if self.dead else "batch timed out")
+                batch.wait()
+                break
+            time.sleep(0.1)
+        with self._lock:
+            self._batch = None
+        out.seek(0); text = out.read(); out.close()
+        print(text[:3000])
+        if self.dead:
+            raise SystemExit(f"{self.label}: stopped batch {tag}: {self.dead['why']}")
+        if batch.returncode != 0:
+            raise SystemExit(f"{self.label}: MCP call failed in {tag} (exit {batch.returncode}); see {self.work / (tag + '.out.txt')}")
+        self.assert_owned()  # and nothing went wrong while it ran
+        return text
 
     def close(self):
-        if getattr(self, "_stop", None):
-            self._stop.set()
-        if getattr(self, "editor", None) and self.editor.poll() is None:
-            self.editor.kill()
-            self.editor.wait(timeout=10)
+        self._stop.set()
+        if getattr(self, "_watch", None) is not None:
+            self._watch.join(timeout=5)
+        for p in (self.editor, self.srv):
+            if p is not None and p.poll() is None:
+                p.kill()
+                p.wait(timeout=10)
+        if getattr(self, "proof_file", None) is not None:
+            self.proof_file.unlink(missing_ok=True)
         (self.work / "ownership.json").write_text(json.dumps(
-            {"server_pid": self.srv.pid, "port": int(self.port), "foreign_clients": getattr(self, "foreign", []),
-             "headless_browsers": getattr(self, "browsers", {}), "editor_tab": getattr(self, "editor_info", None)},
-            indent=1, default=str))
-        if self.srv.poll() is None:
-            self.srv.kill()
-            self.srv.wait(timeout=10)
+            {"isolation": self.iso, "server_pid": self.srv.pid, "port": int(self.port),
+             "authenticated": getattr(self, "authenticated", None), "dead": self.dead,
+             "foreign": self.foreign, "unattributed_client_sockets": getattr(self, "unattributed", 0),
+             "headless_browsers": self.browsers, "editor_tab": self.editor_info}, indent=1, default=str))
 
     def __enter__(self):
         return self

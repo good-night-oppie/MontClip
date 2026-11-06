@@ -10,8 +10,11 @@ the export is decoded back to frames. Then the two sources are compared frame by
   cover    (the demo's shot)  : no frame may differ, in preview or in the export   -> the text has no effect
   no-cover (positive control) : every frame must differ, in preview and in export  -> the comparison can see it
 
-Missing or extra frames fail. Each source runs in its own MontClip server; every client of that server must
-be in this run's process tree (montclip_session.py), and the headless browsers it used are recorded.
+Missing or extra frames fail. Each source runs in its own MontClip server inside this process's private
+network namespace (montclip_session.py: nothing outside can reach it; the server is authenticated by a proof
+file; the run stops if it exits, loses its port or a stranger joins the namespace). Browsers are recorded.
+The sources are lossless VP9; the demo is built from an H.264 source with the same shot definition, so this
+checks the recipe, not the demo video's own pixels.
 
 This is a source-dependence test, not OCR and not an image-similarity score. It shows that, for this
 synthetic shot with these settings, the covered text does not reach a single output pixel. It is not a
@@ -22,6 +25,8 @@ Writes WORK/results.json and WORK/manifest.sha256; exit 0 only when both checks 
 """
 import sys; sys.dont_write_bytecode = True  # never leave __pycache__ in the repository
 import hashlib, json, os, pathlib, platform, re, subprocess
+import montclip_session
+montclip_session.isolate()  # first, while the process has one thread (numpy may start some on import)
 import numpy as np
 from PIL import Image
 from montclip_session import Session, fresh_dir
@@ -78,12 +83,29 @@ for case in ("cover", "nocover"):
                        "ownership": json.loads((d / "ownership.json").read_text())}
 
 
+# fablecut_frame returns the timeline preview at most 960 px wide (the editor's scopes job caps it: app.js
+# runScopesJob, Math.min(960, ...)), so previews are checked at 960x540; the export is checked at W x H.
+PREVIEW_SIZE = (min(960, W), round(min(960, W) * H / W))
+
+
 def preview_frames(d):
-    files = sorted((d / "preview").glob("*.png"))
-    return files, [np.asarray(Image.open(f).convert("RGB")) for f in files]
+    """Exactly 0000.png ... {N-1}.png, each PREVIEW_SIZE; anything missing, extra or another size stops the check."""
+    names = sorted(p.name for p in (d / "preview").iterdir())
+    want = [f"{i:04d}.png" for i in range(N)]
+    if names != want:
+        raise SystemExit(f"{d.name}: preview frames are not exactly 0000..{N - 1:04d} "
+                         f"(missing {sorted(set(want) - set(names))[:5]}, extra {sorted(set(names) - set(want))[:5]})")
+    frames = []
+    for n in want:
+        im = Image.open(d / "preview" / n).convert("RGB")
+        if im.size != PREVIEW_SIZE:
+            raise SystemExit(f"{d.name}/{n}: preview is {im.size}, expected {PREVIEW_SIZE}")
+        frames.append(np.asarray(im))
+    return want, frames
 
 
-res = {"method": __doc__.split("Usage:")[0].strip(), "frames_expected": N, "cover_rect_px_at_scale_1": redact_shot.cover_rect(),
+res = {"method": __doc__.split("Usage:")[0].strip(), "frames_expected": N, "preview_size": list(PREVIEW_SIZE),
+       "export_size": [W, H], "cover_rect_px_at_scale_1": redact_shot.cover_rect(),
        "sources": {k: {"file": v.name, "sha256": sha(v)} for k, v in sources.items()}, "cases": {},
        "environment": {"python": platform.python_version(), "node": subprocess.run(["node", "-v"], capture_output=True, text=True).stdout.strip(),
                        "ffmpeg": subprocess.run([FFMPEG, "-version"], capture_output=True, text=True).stdout.splitlines()[0],
@@ -96,7 +118,7 @@ for case in ("cover", "nocover"):
         if kind == "preview":
             (fa, xa), (fb, xb) = preview_frames(a["dir"]), preview_frames(b["dir"])
         else:
-            xa, xb = list(decode(a["export"])), list(decode(b["export"]))
+            xa, xb = list(decode(a["export"])), list(decode(b["export"]))  # decode() fixes W x H and refuses partial frames
         changed = [int((np.abs(p.astype(int) - q.astype(int)).sum(2) > 0).sum()) if p.shape == q.shape else -1
                    for p, q in zip(xa, xb)]
         counts_ok = len(xa) == len(xb) == N
@@ -109,12 +131,16 @@ for case in ("cover", "nocover"):
     entry["required"] = ("no frame may differ (preview and export)" if case == "cover"
                          else "positive control: every frame must differ (preview and export)")
     entry["exports"] = {k: {"file": r["export"].name, "sha256": sha(r["export"])} for k, r in (("text", a), ("notext", b))}
-    entry["ownership"] = {k: {"foreign_clients": len(r["ownership"]["foreign_clients"]),
+    entry["ownership"] = {k: {"foreign": len(r["ownership"]["foreign"]), "dead": r["ownership"]["dead"],
+                              "isolated": r["ownership"]["isolation"]["netns"] != r["ownership"]["isolation"]["host_netns"],
+                              "authenticated": bool(r["ownership"]["authenticated"]),
+                              "unattributed_client_sockets": r["ownership"]["unattributed_client_sockets"],
                               "editor_tab": {x: r["ownership"]["editor_tab"][x] for x in ("pid", "parent")},
                               "headless_browsers": [{"pid": int(p), "profile": v["profile"], "parent_chain_to_server": v["parent_chain_to_server"]}
                                                     for p, v in r["ownership"]["headless_browsers"].items()]}
                           for k, r in (("text", a), ("notext", b))}
-    ok &= all(v["foreign_clients"] == 0 and v["headless_browsers"] and v["editor_tab"]["pid"] for v in entry["ownership"].values())
+    ok &= all(v["foreign"] == 0 and v["dead"] is None and v["authenticated"] and v["isolated"]
+              and v["headless_browsers"] and v["editor_tab"]["pid"] for v in entry["ownership"].values())
     res["cases"][case] = entry
 res["ok"] = bool(ok)
 (work / "results.json").write_text(json.dumps(res, indent=1, ensure_ascii=False))
@@ -123,6 +149,6 @@ files += sorted(r["export"] for r in runs.values())
 (work / "manifest.sha256").write_text("".join(f"{sha(p)}  {p.relative_to(work)}\n" for p in files))
 for case, e in res["cases"].items():
     print(case, {k: (e[k]["frames"], e[k]["frames_with_any_changed_pixel"], e[k]["pass"]) for k in ("preview", "export")},
-          {k: (v["foreign_clients"], len(v["headless_browsers"])) for k, v in e["ownership"].items()})
+          {k: (v["foreign"], v["dead"], len(v["headless_browsers"])) for k, v in e["ownership"].items()})
 print("OK" if ok else "FAIL", "→", work / "results.json")
 sys.exit(0 if ok else 1)

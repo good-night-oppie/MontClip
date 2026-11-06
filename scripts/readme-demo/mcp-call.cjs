@@ -4,6 +4,10 @@
 //   exit 2 = a JSON-RPC error or a result with isError
 //   exit 3 = fablecut_export answered without its "Checks passed" line (MontClip reports a failed export as text)
 //   exit 4 = the MCP server exited or closed its output before answering
+//   exit 5 = (gated runs) before a tool request, the server did not serve this run's proof
+//   exit 6 = (gated runs) before a tool request, the session had been marked as no longer trusted
+// Gated runs (montclip_session.py sets MONTCLIP_GATE_*): before initialize and before every tools/call the
+// session's dead-marker must be absent and the server must serve this run's proof; otherwise nothing more is sent.
 const { spawn } = require('child_process'), fs = require('fs'), path = require('path');
 const calls = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
 const src = process.env.MONTCLIP_SRC || path.resolve(__dirname, '../..');
@@ -23,12 +27,25 @@ p.stdout.on('data', (d) => {
     if (m.id && pend[m.id]) { const r = pend[m.id]; delete pend[m.id]; r(m); }
   }
 });
+const gate = process.env.MONTCLIP_GATE_PROOF_URL
+  ? { url: process.env.MONTCLIP_GATE_PROOF_URL, proof: process.env.MONTCLIP_GATE_PROOF, dead: process.env.MONTCLIP_GATE_DEAD } : null;
+async function checkGate(what) {
+  if (!gate) return;
+  if (!gate.proof || !gate.dead) die(5, `gate is incomplete; ${what} not sent`);
+  if (fs.existsSync(gate.dead)) die(6, `session no longer trusted (${fs.readFileSync(gate.dead, 'utf8').trim()}); ${what} not sent`);
+  let got = null;
+  try { const r = await fetch(gate.url, { signal: AbortSignal.timeout(5000) }); got = r.ok ? await r.text() : null; } catch {}
+  if (got !== gate.proof) die(5, `the server did not serve this run's proof; ${what} not sent`);
+  if (fs.existsSync(gate.dead)) die(6, `session no longer trusted (${fs.readFileSync(gate.dead, 'utf8').trim()}); ${what} not sent`);
+}
 const rpc = (method, params) => new Promise((r) => { const i = ++id; pend[i] = r; p.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: i, method, params }) + '\n'); });
 (async () => {
+  await checkGate('initialize');
   const init = await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'readme-demo', version: '1' } });
   if (init.error) die(2, 'initialize failed: ' + JSON.stringify(init.error));
   p.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
   for (const c of calls) {
+    await checkGate(c.name);
     const r = await rpc('tools/call', { name: c.name, arguments: c.arguments });
     const content = (r.result && r.result.content) || [];
     const text = content.filter((x) => x.type === 'text').map((x) => x.text).join('\n');
