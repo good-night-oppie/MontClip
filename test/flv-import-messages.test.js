@@ -119,3 +119,28 @@ test('after a conversion with drift, the sentence never says the timing is right
   a.equal(V.flvConvertedMessage('zh-CN', one, 0), V.flvConvertedMessage('zh-CN', one), 'drift 0 / missing: as before');
   a.equal(V.flvConvertedMessage('zh-CN', one, undefined), V.flvConvertedMessage('zh-CN', one));
 });
+
+// JJ's drift sentences (2026-11-06, Deja 代贴), word for word. 待 JJ 确认删减: no {ms} (Deja: no number), JJ is confirming.
+const JJ_DRIFT = {
+  'zh-CN': {
+    flvConvertedDrift: '已经转好了。{time} 这里录像断了约 {N} 秒：这几秒画面会停住、没有声音。断点之后，声音和画面可能差一点点，软件没法判断哪边是准的，所以没有自动修正。导出前请看一下结尾处的口型对不对；不想要断掉的那段可以剪掉。',
+    flvConvertedDriftMany: '已经转好了。录像一共断了 {k} 处，加起来约 {N} 秒：这些地方画面会停住、没有声音。断点之后，声音和画面可能差一点点，软件没法判断哪边是准的，所以没有自动修正。导出前请看一下结尾处的口型对不对；不想要断掉的地方可以剪掉。',
+  },
+  en: {
+    flvConvertedDrift: "Converted. The recording dropped out for about {N} s at {time}: for those seconds the picture freezes and there's no sound. After that, the sound and picture may be slightly out of step, and MontClip can't tell which one is right, so nothing was corrected. Before you export, check that the mouth movements still match at the end; you can cut out the dropped part if you don't want it.",
+    flvConvertedDriftMany: "Converted. The recording dropped out {k} times, about {N} s in total: in those places the picture freezes and there's no sound. After that, the sound and picture may be slightly out of step, and MontClip can't tell which one is right, so nothing was corrected. Before you export, check that the mouth movements still match at the end; you can cut out the dropped places if you don't want them.",
+  },
+};
+test("JJ's drift sentences, verbatim; drift / no drift × one break / several breaks", () => {
+  for (const [lang, keys] of Object.entries(JJ_DRIFT)) for (const [k, v] of Object.entries(keys)) a.equal(V.text[lang][k], v, lang + ' ' + k);
+  const one = [{ stream: 'video', at: 30, len: 2 }, { stream: 'audio', at: 30, len: 2 }], many = [{ stream: 'video', at: 3, len: 0.6 }, { stream: 'video', at: 40, len: 1.25 }];
+  const fill = (s, v) => s.replace(/\{(\w+)\}/g, (m, k) => (k in v ? String(v[k]) : m));
+  for (const lang of ['zh-CN', 'en']) {
+    const J = { ...JJ[lang], ...JJ_DRIFT[lang] };
+    if (lang === 'en') { J.flvConverted = V.text.en.flvConverted; J.flvConvertedMany = V.text.en.flvConvertedMany; }
+    a.equal(V.flvConvertedMessage(lang, one), fill(J.flvConverted, { time: '00:30', N: '2' }), lang + ' one, no drift');
+    a.equal(V.flvConvertedMessage(lang, many), fill(J.flvConvertedMany, { k: 2, N: '1.9' }), lang + ' many, no drift');
+    a.equal(V.flvConvertedMessage(lang, one, 0.067), fill(J.flvConvertedDrift, { time: '00:30', N: '2' }), lang + ' one, drift');
+    a.equal(V.flvConvertedMessage(lang, many, 0.067), fill(J.flvConvertedDriftMany, { k: 2, N: '1.9' }), lang + ' many, drift');
+  }
+});

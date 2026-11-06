@@ -1150,22 +1150,23 @@
     exportSourceDamaged: "This wasn't exported: part of the picture in \"{name}\" around {at} is damaged and would come out garbled, so the export stopped. Your edits are all still there; you can cut that short part out and export again.",
   });
   /** About N seconds, as said to the streamer: whole seconds from 10 s, else one decimal (at least 0.1). */
-  /* DRAFT (Deja, 2026-11-06, for JJ — to be replaced word for word with JJ's final): after a conversion of breaks in a
-     recording whose picture and sound also move apart during it (prepareMedia's drift: not corrected, Deja's decision),
-     JJ's 「前后的时间是对的」 is not true (Rea, review 5804186201: drift 0.067, +98 ms at the end). No number of ms: the
-     drift measure is a lower bound of what an export shows. */
+  /* JJ's drift sentences (2026-11-06, Deja 代贴), word for word; 待 JJ 确认删减: no {ms} (Deja decided not to give a
+     number — prepareMedia's drift is a lower bound: Rea measured drift 0.067 and +98 ms at the end). Used after a
+     conversion of breaks when picture and sound also move apart during the recording (prepareMedia returns drift only
+     when flv-readable-range.js says drifting: drift over MAX_DRIFT 0.04 s, a fixed offset at the start not counted);
+     drift is not corrected (Deja's decision), so JJ's 「前后的时间是对的」 would not be true there (Rea, 5804186201). */
   Object.assign(text["zh-CN"], {
-    flvConvertedDrift: "已经转好了。{time} 这里录像断了约 {N} 秒：这几秒画面会停住、没有声音。另外，这场录像里声音和画面本来就慢慢错开了一点，MontClip 没有改动这一点。不想要断的那段可以剪掉。",
-    flvConvertedDriftMany: "已经转好了。录像一共断了 {k} 处，加起来约 {N} 秒：这些地方画面会停住、没有声音。另外，这场录像里声音和画面本来就慢慢错开了一点，MontClip 没有改动这一点。不想要断的地方可以剪掉。",
+    flvConvertedDrift: "已经转好了。{time} 这里录像断了约 {N} 秒：这几秒画面会停住、没有声音。断点之后，声音和画面可能差一点点，软件没法判断哪边是准的，所以没有自动修正。导出前请看一下结尾处的口型对不对；不想要断掉的那段可以剪掉。",
+    flvConvertedDriftMany: "已经转好了。录像一共断了 {k} 处，加起来约 {N} 秒：这些地方画面会停住、没有声音。断点之后，声音和画面可能差一点点，软件没法判断哪边是准的，所以没有自动修正。导出前请看一下结尾处的口型对不对；不想要断掉的地方可以剪掉。",
   });
   Object.assign(text.en, {
-    flvConvertedDrift: "Converted. The recording dropped out for about {N} s at {time}: for those seconds the picture freezes and there's no sound. The sound and picture in this recording also drift apart a little; MontClip did not change that. You can cut the dropout out if you don't want it.",
-    flvConvertedDriftMany: "Converted. The recording dropped out {k} times, about {N} s in total: in those places the picture freezes and there's no sound. The sound and picture in this recording also drift apart a little; MontClip did not change that. You can cut the dropouts out if you don't want them.",
+    flvConvertedDrift: "Converted. The recording dropped out for about {N} s at {time}: for those seconds the picture freezes and there's no sound. After that, the sound and picture may be slightly out of step, and MontClip can't tell which one is right, so nothing was corrected. Before you export, check that the mouth movements still match at the end; you can cut out the dropped part if you don't want it.",
+    flvConvertedDriftMany: "Converted. The recording dropped out {k} times, about {N} s in total: in those places the picture freezes and there's no sound. After that, the sound and picture may be slightly out of step, and MontClip can't tell which one is right, so nothing was corrected. Before you export, check that the mouth movements still match at the end; you can cut out the dropped places if you don't want them.",
   });
   const flvSeconds = (s) => s >= 10 ? String(Math.round(s)) : String(Math.max(0.1, Math.round(s * 10) / 10));
   /** After a recording with breaks was converted: where it broke, in JJ's words ("" when it had none). A break the
    *  picture and the sound both have (they overlap in time) is one break. `drift` (seconds, prepareMedia's result; only
-   *  there when over 40 ms): picture and sound still move apart, so the sentence does not say the timing is right. */
+   *  there when flv-readable-range.js's drifting holds: over MAX_DRIFT 0.04 s): picture and sound still move apart, so the sentence does not say the timing is right. */
   function flvConvertedMessage(language, gaps, drift) {
     const list = (Array.isArray(gaps) ? gaps : []).filter((g) => g && g.len > 0).map((g) => [g.at, g.at + g.len]).sort((a, b) => a[0] - b[0]);
     const merged = [];
