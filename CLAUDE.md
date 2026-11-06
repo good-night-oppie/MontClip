@@ -68,6 +68,8 @@ Every Claude Code session then has these tools:
   select. See "Color" and "Masks" below.
 - `fablecut_track` — motion tracking: follow a region of a video clip, store it as
   a track, and make a mask or another clip follow it. See "Tracking" below.
+- `fablecut_repair_media` — make a video MontClip can cut: a recording cut off mid-way, or any format the editor
+  can't cut (FLV too). A new MP4 replaces the entry; a background job. See "Media management" below.
 - `fablecut_proxy` — make, check or delete proxies: light copies of heavy footage
   the editor plays while editing (export always reads the originals). See
   "Media management" below.
@@ -1739,6 +1741,37 @@ Files under `media/` may sit in subfolders (`/media/archive/a.mp4`).
   swap the file of one clip only, use the Inspector's **Source** menu instead.
 - Relink and replace are one undo step each.
 
+**Fix it for me (〔帮我修好〕).** One button for every repair and conversion. A recording whose length can't be read
+(it stopped before it was saved) shows "This video wasn't recorded to the end…" on the file in the bin, with a
+**Fix it for me** button; one whose length came only from its packets (it can be cut, seeking may be slow) gets a
+small ◔ mark instead, no dialog. Right-click any video → **Fix it for me…** runs the same thing (FLV included, no
+`allowTranscode`). When re-encoding is needed and no encoder here can do it, it is refused and nothing is written. A new MP4 is written into `media/` as `<name>.repaired.mp4` — the original file is never
+touched — and takes the entry's place: every clip, composition and sequence that used it switches, fitted to
+the usable part, as one undo step (the new entry has `derivedFrom` and `replaced: {id, name, src}`). First a
+quick remux (`-fflags +genpts` before the input, `-c copy`, `+faststart`), checked: the new file states a finite
+length of at least 0.5 s, close to what the original holds, and decodes
+cleanly end to end. Only if that doesn't hold (VP8 can't go into an MP4, a broken frame …) it is re-encoded,
+with the encoders exports use: your own FFmpeg's libx264, else a bundled LGPL H.264 encoder that works here, else
+the bundled LGPL VP9 (no GPL encoder is ever bundled). An FLV goes through the FLV preparation first. Progress and
+**Cancel** sit on the file. Done: "Fixed. Clips that use it now use the fixed copy, in the same place. The original
+is still there." One that can't be fixed (an MP4 whose index was never written): "“name” stopped recording before
+it was saved, and this kind can't be fixed. The original file is unchanged — please use a complete file." The
+length check after a remux or re-encode is ±1 s against what the original holds.
+`+genpts` can generate missing presentation timestamps; it does not guarantee repair of existing timestamp jumps.
+`node scripts/repair-timestamps-bench.js` reproduces a synthetic jump with a truncated tail and compares both paths.
+
+Missing lengths read by the agent are sent to `POST /api/media-backfill`. An open editor receives the metadata
+over SSE, merges it with its pending edits and saves both through `PUT /api/project`; without an editor, the server
+merges onto the current document. Only entries still pointing at the same file and still missing a length change.
+If the server refuses or times out, no direct write follows. A connection refusal (no server) retains the standalone
+MCP fallback. This protects the duration backfill; it does not change other MCP writes or add multi-editor locking.
+
+**Agents:** `fablecut_repair_media {mediaId}` answers at once with a job — `{job, status, progress, phase}` —
+the long-operation convention: call again with `{job}` for progress and, when `status` is `done`,
+`result.mediaId` (the NEW id) and `result.duration`; `{cancel}` stops it (nothing changes); the same
+`{mediaId}` again while it runs joins that job. `failed` carries `error.code` (`REPAIR_FAILED`, or `REPAIR_ENCODER_MISSING`: re-encoding was needed and nothing here can do it — nothing written). A version is
+kept first, so `fablecut_versions` can undo the swap.
+
 **Proxies.** Heavy footage — 4K, HEVC, ProRes, long phone clips — can stutter
 while you scrub and play. A *proxy* is a light copy the editor plays instead
 while you edit: H.264 at 540p (or 720p / 1080p, never larger than the
@@ -2322,6 +2355,14 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
   `{src, key, state, done, total, complete, scanned, songs}` (songs in file seconds; state `running` · `done` ·
   `stopped` · `failed` · `none`) · `POST /api/songs/cancel {src}` stops it, keeping what was read. SSE event
   `songs` (`{src, state, done, total}`) after each segment. See "Songs in a recording".
+- `POST /api/media-backfill {updates:[{id, src, duration?, durationFrom?, durationUnknown?}]}` →
+  `{via:"editor", editors}` when handed to open SSE clients, or `{via:"server", changed, revision}` when saved
+  directly with no editor connected. Editor delivery is not a disk-save acknowledgement; the editor saves through
+  `PUT /api/project`. Non-finite lengths are ignored, and existing lengths, relinked and removed entries are kept.
+- `POST /api/repair {src}` → `{job, status, progress, phase}` (a job; the same src while it runs joins it) ·
+  `GET /api/repair/job?id=` → the same, with `result {src, name, kind, duration, preparation, encoder?, …details}`
+  when done or `error {code}` · `POST /api/repair/cancel?id=`. Writes `<name>.repaired.mp4` into `./media/`;
+  registering it is the caller's job (see "Media management").
 - `POST /api/denoise` — body `{src:"/media/…", amount:"light"|"medium"|"strong"}`: writes a
   noise-reduced FLAC of the whole file into `./media/` (reused if it exists) and returns
   `{src, name, duration, channels}`. Does not touch `project.json` (see "Audio mix").
@@ -2820,8 +2861,24 @@ ffmpeg -y -f image2pipe -framerate <fps> -i - [-i audio.wav] <jpeg-color> <args�
   (`range: "tv"`). Use `"range": "pc"` for full-range masters. Do **not** put those
   flags in `args` — the engine strips them and applies `color` so vf and tags stay
   aligned. `-pix_fmt` stays in `args` (sampling / bit depth only).
-- Nothing else is injected for you: `+faststart`, `-shortest`, `-strict -2` for Opus
-  in MP4 and pixel-format choices are all yours to write.
+- Normally `+faststart`, `-shortest`, `-strict -2` for Opus in MP4 and pixel-format
+  choices are yours to write. One bounded exception: JPEG `prores422` export with
+  a positive integer `frames` in `/api/export/begin` uses `frames / fps` as its
+  output end, replacing `-shortest` for that invocation. Audio is resampled to
+  48 kHz and trimmed to `round(frames / fps * 48000)` samples, preserving the
+  final partial PCM packet while removing the browser mix's extra sample.
+  Fast export supplies the already-quantized export-range frame count, including
+  when invoked by an agent. Direct REST callers should pass `frames` too.
+  Short uploaded WAVs remain short (no padding); the browser already mixes short
+  source clips into its full-range audio buffer. Missing `frames`, RGBA, Annex-B,
+  delivery presets and other encoding profiles retain their existing behavior.
+  Bounded ProRes pins default output maps to input0's first video and input1's
+  first audio. Explicit single-video/at-most-single-audio maps can reorder them;
+  numeric `-filter:N` selects that output index. The last matching audio filter
+  receives the trim, without modifying video chains. Unsupported maps, graph
+  labels, script filters or selectors return HTTP400
+  `PROFILE_FILTER_MAPPING_UNSUPPORTED`; see the export-boundary ADR for the
+  supported forms. There is no guessing or silent removal of a mute filter.
 - Frames arrive as **JPEG (4:2:0)**, so `yuv422p`/`yuv444p` cannot recover chroma the
   source never had; raise `jpegQuality` before reaching for a wider pixel format.
   Optional `pixelFormat:"rgba"` on `/api/export/begin` pipes uncompressed canvas
@@ -3047,7 +3104,7 @@ Only text chat is available through this adapter. Two proposal shapes are accept
 
 **Editor events and the capability table (P1).** `capabilities.js` lists what the buttons, the AI and MCP may do: every MCP tool (definitions in `mcp-tools.js`, which `mcp-server.js` serves) plus keep_ranges / keep_sentences, each with its input schema, one plain sentence (zh-CN / en) and a risk level fixed in the program — read, undoable, sensitive (writes, deletes or replaces files, switches projects) or external (network). Unknown names are blocked; `BLOCKED` lists what no mode may allow. The desktop main process holds the table and gives the page a read-only copy (`montclipCapabilities.get()`). `agent-events.js` is the event log: every undo step is an event `{id, runId, step, capability, args, actor: streamer|ai|recipe, risk, state, revisionBefore, revisionAfter, at}` — the streamer's edits as `manual_edit` (or the capability they used), the AI's reviewed proposals, a redo as a new event; the host sets the risk from the table. Each undo snapshot starts with its event id; Undo moves the event to undone; `undoRun(runId)` undoes a whole AI run while its steps are the newest undo steps (else `RUN_INTERLEAVED`, nothing undone). Edits that arrive from outside (an agent, another tab) stay undo steps but are not logged here. Before an AI run the host saves an agent version (`POST /api/versions {action:"before_agent"}`). The log is saved in project.json as `agentLog` (the newest 500 events, args over 2 KB kept as a size note; never pictures, sound or recordings) and is not part of the document proposals are checked against. Smoke: `electron desktop/events-smoke.cjs --montclip-smoke --user-data-dir=<fresh>`. Decisions: docs/decisions/2026-11-03-unified-backend-architecture.md, 2026-11-03-local-capability-boundary.md.
 
-Host-only bridge: montclipAgentService.get/configure/send/cancel; no REST/MCP key endpoint. send requires version1, requestId, projectId, sequenceId, revision, gen and bounded user/assistant messages. Proposal schema is {type:"keep_sentences",ranges:[{clipId,sourceCaptionId,from,to}]}; timestamps are timeline seconds and every boundary must equal the explicitly referenced whole sentence. Or {type:"keep_ranges",output_mode:"one_file"|"per_range",ranges:[{clipId,from,to,label?}]}: from/to are seconds of the clip's media, inside both the media (0 ≤ from < to ≤ duration) and the part the clip shows; no overlap; each ≥ 0.5 s; ≤ 100 ranges; ≤ 32 KB; the clip must be an enabled video/audio clip on an enabled track; label ≤ 80 characters without control characters. Every key is checked (chat-proposal.js); the reply is never run. one_file joins the ranges like keep_sentences; per_range applies the same cut (one undo step) and adds one export-queue item per range, named fileSafeName(label or project name)-NN; a queued slice refuses to render once the timeline differs from the one it was queued from. Each request also carries a numbers-only `facts` block (agent-facts.js: each shot's clipId, kind, media length, the part it shows and where it starts; highlight candidates found in this session, in source seconds) — no file names, paths, caption text, pictures or sound; the review dialog says so. A clip whose id is not a short id (the proposals' rule, [A-Za-z0-9_-]{1,128}) is left out, and the review dialog says how many were left out, outside the facts fold. When the server has them, the facts also carry two measures of the sound, never the sound itself: `singing` — the parts the 「✨ 自动出切片」 「唱歌」 scan already found (/api/songs, a file read to its end; no scan is started), as {clipId, from, to} in source seconds — and `loudness` — {clipId, from, step, values}, one 0–100 value every second or every few seconds (signals.js RMS levels joined by power; 0 = −60 dBFS or quieter, 100 = full scale), each covering more seconds when the clips together are longer than the cap. The caps are capabilities.js `FACTS` (100 singing parts; 2400 loudness values, whole numbers — one a second up to 40 min, one every 3 s for 2 h, 6 s for 4 h, 12 s for 8 h; a message is at most 16000 characters); clips longer than 8 h together get neither, and the review box says so; over the other caps the send is refused (FACTS_LIMIT), never cut down. The review box lists them in plain numbers (how many singing parts, how long together, how many loudness values and how many seconds each covers) before every send. 设置 › 「附上唱歌段和音量」 (on by default; kept in the view settings only when off) stops them being read or sent; while it is off, a reply to a message about the quiet part or the singing gets the editor's note above it, saying so and where to turn it on. When the facts carry either, the review dialog says so outside the fold. The format note tells the model to say it cannot hear the sound when these do not settle an edit, and to send the streamer to 〔✨ 自动出切片〕 → 「唱歌」 → 〔开始找高光〕 first. Each reviewed proposal is also an editor event `{id, runId, step, capability, args, actor, risk, state, revisionBefore, revisionAfter, at}` (chat-proposal.js `event` / `failedEvent` / `transition`; states planned → awaiting_confirmation → running → has_result → applied / rejected / undone / failed, forward only): has_result when reviewed, applied with the revision its save wrote, rejected when the review closes unapplied, undone by the card's undo, failed with the refusal code. args holds checked values only. Kept in memory (newest 200) until the event log lands. Smoke: `MONTCLIP_FFMPEG_DIR=<bundled> electron desktop/keep-ranges-smoke.cjs --montclip-smoke --user-data-dir=<fresh>` (mock reply, three slices, lengths and A/V sync ≤ 40 ms). Existing MCP/REST operations are unchanged.
+Host-only bridge: montclipAgentService.get/configure/send/cancel; no REST/MCP key endpoint. send requires version1, requestId, projectId, sequenceId, revision, gen and bounded user/assistant messages. Proposal schema is {type:"keep_sentences",ranges:[{clipId,sourceCaptionId,from,to}]}; timestamps are timeline seconds and every boundary must equal the explicitly referenced whole sentence. Or {type:"keep_ranges",output_mode:"one_file"|"per_range",ranges:[{clipId,from,to,label?}]}: from/to are seconds of the clip's media, inside both the media (0 ≤ from < to ≤ duration) and the part the clip shows; no overlap; each ≥ 0.5 s; ≤ 100 ranges; ≤ 32 KB; the clip must be an enabled video/audio clip on an enabled track; label ≤ 80 characters without control characters. Every key is checked (chat-proposal.js); the reply is never run. one_file joins the ranges like keep_sentences; per_range applies the same cut (one undo step) and adds one export-queue item per range, named fileSafeName(label or project name)-NN; a queued slice refuses to render once the timeline differs from the one it was queued from. Each request also carries a numbers-only `facts` block (agent-facts.js: each shot's clipId, kind, media length, the part it shows and where it starts; highlight candidates found in this session, in source seconds) — no file names, paths, caption text, pictures or sound; the review dialog says so. A clip whose id is not a short id (the proposals' rule, [A-Za-z0-9_-]{1,128}) is left out, and the review dialog says how many were left out, outside the facts fold. When the server has them, the facts also carry two measures of the sound, never the sound itself: `singing` — the parts the 「✨ 自动出切片」 「唱歌」 scan already found (/api/songs, a file read to its end; no scan is started), as {clipId, from, to} in source seconds — and `loudness` — {clipId, from, step, values}, one 0–100 value every second or every few seconds (signals.js RMS levels joined by power; 0 = −60 dBFS or quieter, 100 = full scale), each covering more seconds when the clips together are longer than the cap. The caps are capabilities.js `FACTS` (100 singing parts; 2400 loudness values, whole numbers — one a second up to 40 min, one every 3 s for 2 h, 6 s for 4 h, 12 s for 8 h; a message is at most 16000 characters); clips longer than 8 h together get neither, and the review box says so; over the other caps the send is refused (FACTS_LIMIT), never cut down. The review box lists them in plain numbers (how many singing parts, how long together, how many loudness values and how many seconds each covers) before every send. 设置 › 「附上唱歌段和音量」 (on by default; kept in the view settings only when off) stops them being read or sent; while it is off, a reply to a message about the quiet part or the singing gets the editor's note above it, saying so and where to turn it on. When the facts carry either, the review dialog says so outside the fold. The format note tells the model to say it cannot hear the sound when these do not settle an edit, and to send the streamer to 〔✨ 自动出切片〕 → 「唱歌」 → 〔开始找高光〕 first. Each reviewed proposal is also an editor event `{id, runId, step, capability, args, actor, risk, state, revisionBefore, revisionAfter, at}` (chat-proposal.js `event` / `failedEvent` / `transition`; states planned → awaiting_confirmation → running → has_result → applied / rejected / undone / failed, forward only): has_result when reviewed, applied with the revision its save wrote, rejected when the review closes unapplied, undone by the card's undo, failed with the refusal code. args holds checked values only. Kept in memory (newest 200) until the event log lands. Smoke: `MONTCLIP_FFMPEG_DIR=<bundled> electron desktop/keep-ranges-smoke.cjs --montclip-smoke --user-data-dir=<fresh>` (mock reply, three slices, lengths and A/V sync ≤ 40 ms). Existing MCP/REST operations are unchanged. A proposal that would leave the timeline playing as it does (one_file, its ranges back to back from the timeline's start to its end — chat-proposal.js `unchanged`) gets no 〔查看剪辑建议〕: the pane says nothing would change, and no mode applies it. What the assistant cannot do is said first: the format note asks for it in a reply in words, and when a message asks for a vertical or other-shape picture (agent-limits.js: 竖屏, 9:16, reframe, …; the assistant has no fablecut_reframe), the pane puts the editor's own sentence above the reply, naming the export-frame drop-down above the player and the requested aspect option as the drop-down shows them (app.js exportFrameNames reads its label, own.ef-label, and option text). Ambiguous requests only point to the drop-down. The unchanged check also compares total removed duration against the half-frame tolerance, so many small gaps cannot hide a meaningful edit.
 
 **Remove this connection** (删除这个连接) in AI service asks for confirmation, then the main process cancels a running request and deletes the saved connection file, which holds the sealed key, together with any write temporaries and reset backups. Only when the file is confirmed gone does the state return to not configured; sending is then refused. A failed delete is reported and still shows what remains saved. The fixed `montclip:agent:deleteConnection` IPC takes no argument.
 

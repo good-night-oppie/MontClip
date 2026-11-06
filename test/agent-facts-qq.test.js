@@ -115,7 +115,7 @@ test('(3) off, a message about the quiet part gets the editor\'s note above the 
  a.ok(!/我/.test(note('zh-CN')));
  const pane=read('agent-ui/pane.tsx');
  a.match(pane,/const soundNote=m\.role==='assistant'\?options\.soundOffNote\?\.\(MontClipAgentPane\.displayMessage\(session\.messages\[i-1\]\?\.text\|\|''\)\.text\)\|\|'':'';/);
- a.match(pane,/<strong>\{m\.role==='user'\?t\.user:t\.assistant\}<\/strong>\{soundNote&&<p data-sound-off>\{soundNote\}<\/p>\}/);
+ a.match(pane,/<strong>\{m\.role==='user'\?t\.user:t\.assistant\}<\/strong>\{limit&&<p data-host-limit>\{limit\}<\/p>\}\{soundNote&&<p data-sound-off>\{soundNote\}<\/p>\}/);
  a.match(read('cindy-official.js'),/data-sound-off/);
 });
 
