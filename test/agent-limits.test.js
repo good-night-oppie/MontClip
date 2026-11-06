@@ -38,6 +38,14 @@ test('a proposal that keeps the whole timeline, in order and without a gap, chan
  a.equal(ranges([[100,150]],'one_file',gap).unchanged,false);
 });
 
+test('small gaps must be counted together before hiding a proposal',()=>{
+ const d=doc([{id:'c',kind:'video',mediaId:'m',track:'V1',start:0,in:0,duration:10.09,props:{}}]);
+ const keep=Array.from({length:10},(_,i)=>[i*1.01,i*1.01+1]);
+ const p=ranges(keep,'one_file',d);
+ a.ok(Math.abs(p.duration-10)<1e-9,'the range engine removes nine 0.01-second gaps');
+ a.equal(p.unchanged,false,'0.09 seconds removed exceeds half a frame at 30 fps');
+});
+
 test('keep_sentences that keep every sentence of a fully captioned edit are unchanged too',()=>{
  const d=doc([{id:'c',kind:'video',mediaId:'m',track:'V1',start:0,in:0,duration:6,props:{}},
   {id:'s1',kind:'text',track:'V2',start:0,in:0,duration:3,props:{text:'一',caption:true}},{id:'s2',kind:'text',track:'V2',start:3,in:0,duration:3,props:{text:'二',caption:true}}]);
@@ -89,7 +97,8 @@ test('a mixed message, with a substitute transport: the format note sent carries
  a.equal(system.role,'system');
  // the rule names what is still missing (publishing); the vertical copy has its own reply
  a.ok(system.content.includes('When a message also asks for something you cannot do and you answer in words, your first sentence says plainly what you cannot do, for example 「发到快手和 B 站这一步我做不了。」'));
- a.ok(system.content.includes('When one message asks both to cut and for another shape, reply with the cut first; the user asks for the shape after it.'));
+ // JJ定稿 (2026-11-05): the cut first, with JJ's sentence before it (test/agent-reframe-words.test.js has the words)
+ a.ok(system.content.includes('When one message asks both to cut and for another shape (for example to under a minute and vertical), reply with the cut\'s JSON first'));
  a.ok(system.content.includes('Do not propose an edit that would change nothing'));
  a.match(system.content,/Apart from these replies you cannot change anything: you cannot export, upload or publish\./);
  for(const lang of ['zh-CN','en']){
@@ -100,18 +109,20 @@ test('a mixed message, with a substitute transport: the format note sent carries
  // the pane keeps the place for a host sentence, for something missing later
  const pane=read('agent-ui/pane.tsx');
  a.match(pane,/const limit=m\.role==='assistant'\?W\.MontClipLimits\?\.note\(MontClipAgentPane\.displayMessage\(session\.messages\[i-1\]\?\.text\|\|''\)\.text,t\):'';/);
- a.match(pane,/<strong>\{m\.role==='user'\?t\.user:t\.assistant\}<\/strong>\{limit&&<p data-host-limit>\{limit\}<\/p>\}<ThinkingText content=\{shown\.text\}\/>/);
+ a.match(pane,/<strong>\{m\.role==='user'\?t\.user:t\.assistant\}<\/strong>\{limit&&<p data-host-limit>\{limit\}<\/p>\}\{soundNote&&<p data-sound-off>\{soundNote\}<\/p>\}<ThinkingText content=\{shown\.text\}\/>/);
  a.match(read('cindy-official.js'),/data-host-limit/);
  a.match(read('index.html'),/<script src="agent-limits\.js"><\/script>/);
 });
 
-test('the export-frame drop-down keeps its label (aria-label and tooltip, 待 JJ 定稿), set with the options',()=>{
+test('the export-frame drop-down keeps its label (aria-label, JJ定稿), set with the options',()=>{
  for(const lang of ['zh-CN','en']){
   const sel=dropdown(lang);
-  a.equal(sel.getAttribute('aria-label'),View.text[lang]['own.ef-label']);a.equal(sel.title,View.text[lang]['own.ef-label']);
+  a.equal(sel.getAttribute('aria-label'),View.text[lang]['own.ef-label']);
  }
  a.equal(View.text['zh-CN']['own.ef-label'],'导出画面');a.equal(View.text.en['own.ef-label'],'Export frame');
- a.match(read('ui-preferences.js'),/the export-frame drop-down above the player: its name \(aria-label and tooltip; Deja, 2026-11-05\)\. 待 JJ 定稿/);
+ a.match(read('ui-preferences.js'),/the export-frame drop-down above the player: its name \(aria-label; Deja, 2026-11-05\)\. JJ定稿 \(2026-11-05\)/);
  const app=read('app.js'),refresh=app.slice(app.indexOf('function refreshLanguageText()'),app.indexOf('function updateMontClipView('));
  a.match(refresh,/syncExportFrameSel\(\);/,'a language switch rebuilds it');
+ // the format note names no option words (no Reel / IG, JJ 2026-11-05)
+ a.ok(!/Reel|“Full canvas”/.test(F.FORMAT_NOTE));
 });

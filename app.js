@@ -43,6 +43,8 @@ const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
 const uiOr = (key, english) => (mcView.get().language === "en" ? english : uiText(key));
 /** A stored default name ("Main", "Title") as the interface language shows it; the user's own names as they are. */
 const shownName = (name) => MontClipView.defaultName(mcView.get().language, name);
+/** A project's name as shown: a stored default (未命名项目 / Untitled project) in the interface language (P7). */
+const shownProject = (name) => MontClipView.projectName(mcView.get().language, name);
 /** On-device transcription: on in development and the browser editor; a packaged desktop build has it
  *  off unless the main process turned it on (desktop/features.js). Off means no entry and no download. */
 function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
@@ -89,7 +91,7 @@ function renderMontClipView() {
 }
 /** The project name (user content, never translated) and the connection status in the current language. */
 function projectStatusText() {
-  return project.name + (state.connected ? "  ·  🟢 " + uiText("own.connected") : "  ·  ⚪ " + uiText("own.local-session"));
+  return shownProject(project.name) + (state.connected ? "  ·  🟢 " + uiText("own.connected") : "  ·  ⚪ " + uiText("own.local-session"));
 }
 /** Text computed from state (not data-i18n) after a language switch: the top bar status and the Transcript panel. */
 function refreshLanguageText() {
@@ -115,15 +117,22 @@ function updateMontClipView(patch) {
 }
 /** Texts built in code (not data-i18n markers) for the views that are on screen, after a language switch. */
 function refreshLocalizedViews() {
-  renderBin();
-  if (typeof renderInspector === "function" && els.inspector) renderInspector();
-  if (typeof renderColorPage === "function" && colorState.open) renderColorPage(true);
-  if (typeof syncSequenceButton === "function") syncSequenceButton();
+  // each view on its own: one that fails to redraw must not leave the others in the old language (Rea, #148: the export
+  // range row stayed 「整条时间线」 in English)
+  const step = (f) => { try { f(); } catch (e) { console.error("language switch:", e); } };
+  // the export dialog's range row, hidden or not: the dialog may still be opening (its lists load first), and it would
+  // then show the line written before the switch
+  step(() => { renderExportEngineText(); syncExportRangeUi(); });
+  step(() => renderBin());
+  if (typeof renderInspector === "function" && els.inspector) step(() => renderInspector());
+  if (typeof renderColorPage === "function" && colorState.open) step(() => renderColorPage(true));
+  if (typeof syncSequenceButton === "function") step(() => syncSequenceButton());
+  if (typeof syncExportFrameSel === "function") step(() => syncExportFrameSel());
   state.dirtyTimeline = true; // clip labels ("T · Title")
-  if (meterState.modeBtn) meterState.modeBtn.textContent = meterModeLabel(meterState.mode);
-  if (projectsOpen()) renderProjects();
+  if (meterState.modeBtn) step(() => { meterState.modeBtn.textContent = meterModeLabel(meterState.mode); });
+  if (projectsOpen()) step(() => renderProjects());
   if (els.exportSetup && !els.exportSetup.classList.contains("hidden")) {
-    renderExportEngineText(); syncExportRangeUi(); if (dlvSpec) fillDeliveryControls(); refreshDeliveryNotes(); renderDeliveryTokens(); renderBatchList();
+    step(() => { if (dlvSpec) fillDeliveryControls(); refreshDeliveryNotes(); renderDeliveryTokens(); renderBatchList(); });
   }
 }
 document.getElementById("mcMode").addEventListener("click", e => {
@@ -485,7 +494,7 @@ function showTrackCtxMenu(clientX, clientY, track) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "ctx-item";
-  btn.textContent = "Remove track";
+  btn.textContent = uiText("own.track-remove");
   if (!check.ok) {
     btn.disabled = true;
     btn.title = check.reason;
@@ -1602,13 +1611,12 @@ function syncExportFrameSel() {
   const i = exportFrameAspectIndex(ef);
   let html = EXPORT_FRAME_ASPECTS.map((a, j) => {
     const sel = ef ? (i === j) : (j === 0);
-    return `<option value="${j}" ${sel ? "selected" : ""}>${a.label}</option>`;
+    return `<option value="${j}" ${sel ? "selected" : ""}>${j === 0 ? escapeHtml(uiText("own.ef-full-canvas")) : a.label}</option>`;
   }).join("");
   if (ef && i < 0)
     html += `<option value="custom" selected>Custom · ${ef.w}×${ef.h}</option>`;
   els.exportFrameSel.innerHTML = html;
   els.exportFrameSel.setAttribute("aria-label", uiText("own.ef-label"));
-  els.exportFrameSel.title = uiText("own.ef-label");
 }
 function applyProject(data, opts = {}) {
   if (state.compCtx && !opts.ctx && SeqLib.activeId(data) !== SeqLib.activeId(state.compCtx.root)) {
@@ -1699,7 +1707,7 @@ function applyProject(data, opts = {}) {
       if (g) c.props.grade = g; else delete c.props.grade;
     }
     if (migratePan && !Object.hasOwn(raw, "pan") && Number.isInteger(raw.audioChannel) && raw.audioChannel >= 0)
-      c.props.pan = defaultPanForChannel(raw.audioChannel);
+      c.props.pan = defaultPanForChannel(raw.audioChannel, getMedia(c.mediaId)?.channels ?? getMedia(c.mediaId)?.audioChannels);
     if (c.keyframes) for (const arr of Object.values(c.keyframes))
       if (Array.isArray(arr)) arr.sort((a, b) => a.t - b.t);
     if (c.kind === "text") ensureFont(c.props.font);
@@ -1902,6 +1910,7 @@ function listenSSE() {
   // Named events: "change" = project/media/library; "profiles" = encoding-profiles.json only
   es.addEventListener("change", () => { noteActivity(); syncFromServer(); scheduleOfflineCheck(); });
   es.addEventListener("proxy", (e) => onProxyEvent(e.data));
+  es.addEventListener("media-backfill", (e) => onMediaBackfill(e.data));
   es.addEventListener("upload", (e) => onUploadEvent(e.data));
   es.addEventListener("transcript", (e) => onTranscriptEvent(e.data));
   es.addEventListener("asr", (e) => onAsrEvent(e.data));
@@ -2491,12 +2500,17 @@ function renderBin() {
     const folder = flat && m.folderId ? getFolder(m.folderId) : null;
     const usesHtml = `<button type="button" class="bin-uses${uses ? "" : " none"}" title="${uses ? `Used ${uses}× — click to find every instance` : "Not used on the timeline"}">${uses}</button>`;
     // JJ (P3, 2026-11-05): a recording nothing could read the length of says so on the file itself
-    const incomplete = MediaLib.cannotCut(m) ? `<div class="bin-incomplete">${escapeHtml(uiText("own.media-incomplete"))}</div>` : "";
+    const rep = repairing.get(m.id);
+    const repairHtml = rep ? `<div class="bin-repair"><span class="bin-repair-pct">${escapeHtml(uiText("own.repair-progress", { n: Math.round(rep.progress * 100) }))}</span><button type="button" class="btn tiny" data-repair-cancel>${escapeHtml(uiText("own.repair-cancel"))}</button></div>` : "";
+    // Rea (#152): a sound file is not called a video, and gets no 〔帮我修好〕 (it repairs videos)
+    const incomplete = repairHtml || (MediaLib.cannotCut(m) ? (m.kind === "video" ? `<div class="bin-incomplete">${escapeHtml(uiText("own.media-incomplete"))}<button type="button" class="btn tiny" data-repair title="${escapeHtml(uiText("own.repair-button-tip"))}">${escapeHtml(uiText("own.repair-button"))}</button></div>` : `<div class="bin-incomplete">${escapeHtml(uiText("own.media-incomplete-audio"))}</div>`) : "");
+    if (incomplete) item.classList.add("has-note");
+    const slowMark = MediaLib.slowToSeek(m) ? `<span class="bin-slow" title="${escapeHtml(uiText("own.media-slow-mark"))}" aria-label="${escapeHtml(uiText("own.media-slow-mark"))}">◔</span>` : "";
     const favHtml = `<button type="button" class="bin-fav${m.favorite ? " on" : ""}" title="${m.favorite ? "Favorite — click to unstar" : "Mark as favorite"}" aria-pressed="${!!m.favorite}">${m.favorite ? "★" : "☆"}</button>`;
     if (binView.list) {
       const cell = (v, cls = "") => `<span class="bin-cell${cls}">${escapeHtml(v || "—")}</span>`;
       item.innerHTML = `
-        <span class="bin-cell bin-cell-name">${favHtml}<span class="bin-thumb sm"></span>${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span>` : ""}<span class="bin-name"></span></span>
+        <span class="bin-cell bin-cell-name">${favHtml}<span class="bin-thumb sm"></span>${slowMark}${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span>` : ""}<span class="bin-name"></span></span>
         ${cell(MediaLib.fmtDur(m.duration), " num c-duration")}${cell(MediaLib.fmtRes(m), " num c-resolution")}${cell(MediaLib.fmtFps(m.fps), " num c-fps")}
         ${cell(m.codec, " c-codec")}${cell(MediaLib.fmtAudio(m).replace(/^stereo\b/, uiOr("term.stereo", "stereo")), " c-audio")}${cell(MediaLib.fmtSize(m.size), " num c-size")}
         <span class="bin-cell c-proxy">${proxyBadgeHtml(m) || escapeHtml(m.kind === "video" ? "—" : "")}</span>
@@ -2509,12 +2523,11 @@ function renderBin() {
         <div class="bin-thumb"></div>
         <div class="bin-meta">
           <div class="bin-name"></div>
-          <div class="bin-sub">${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span> ` : ""}${escapeHtml(sub)}</div>
-          ${incomplete}
+          <div class="bin-sub">${slowMark}${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span> ` : ""}${escapeHtml(sub)}</div>
           ${m.tags && m.tags.length ? `<div class="bin-tags">${m.tags.map((t) => `<span class="bin-tag">#${escapeHtml(t)}</span>`).join("")}</div>` : ""}
         </div>
         <div class="bin-side">${favHtml}${usesHtml}${proxyBadgeHtml(m)}</div>
-        <span class="bin-del" title="Remove (and its clips)">✕</span>`;
+        <span class="bin-del" title="Remove (and its clips)">✕</span>${incomplete}`;
     }
     const thumbEl = item.querySelector(".bin-thumb");
     if (thumbSrc) thumbEl.style.backgroundImage = `url(${JSON.stringify(thumbSrc)})`;
@@ -2536,7 +2549,7 @@ function renderBin() {
     // Don't bubble to the root drop zone while hovering a media row
     item.addEventListener("dragover", (e) => e.stopPropagation());
     item.addEventListener("click", (e) => {
-      if (e.target.closest(".bin-del, .bin-fav, .bin-uses")) return;
+      if (e.target.closest(".bin-del, .bin-fav, .bin-uses, .bin-repair, .bin-incomplete .btn")) return;
       if (e.ctrlKey || e.metaKey) return; // reserved for import
       if (!getSetting("linkSelect")) return;
       e.preventDefault();
@@ -2553,6 +2566,8 @@ function renderBin() {
       if (getSetting("linkSelect")) flashMonitorAttention();
     });
     item.addEventListener("contextmenu", (e) => { e.preventDefault(); e.stopPropagation(); showMediaMenu(e.clientX, e.clientY, m); });
+    item.querySelector("[data-repair]")?.addEventListener("click", (e) => { e.stopPropagation(); repairMediaFile(m); });
+    item.querySelector("[data-repair-cancel]")?.addEventListener("click", (e) => { e.stopPropagation(); cancelRepair(m.id); });
     item.querySelector(".bin-fav").addEventListener("click", (e) => { e.stopPropagation(); setMediaFavorite([m.id], !m.favorite); });
     item.querySelector(".bin-uses").addEventListener("click", (e) => {
       e.stopPropagation();
@@ -2684,13 +2699,13 @@ function syncBinTools() {
   if ((f.startsWith("tag:") && !tags.some((t) => t.toLowerCase() === f.slice(4).toLowerCase())) ||
     (f.startsWith("col:") && !getCollection(f.slice(4)))) binView.filter = "";
   const opt = (v, label) => `<option value="${escapeHtml(v)}"${v === binView.filter ? " selected" : ""}>${escapeHtml(label)}</option>`;
-  const html = opt("", "All media") + opt("fav", "★ Favorites") + opt("used", "Used in the edit") + opt("unused", "Unused") +
+  const html = opt("", uiText("own.bin-all")) + opt("fav", uiText("own.bin-fav")) + opt("used", uiText("own.bin-used")) + opt("unused", uiText("own.bin-unused")) +
     (mediaOffline.size || binView.filter === "offline" ? opt("offline", `⚠ Offline (${mediaOffline.size})`) : "") +
-    (project.media.some((m) => m.kind === "video") ? opt("proxy", "Has a proxy") + opt("noproxy", "Video without a proxy") : "") +
-    `<optgroup label="Kind">${MediaLib.KINDS.map((k) => opt("kind:" + k, k === "svg" ? "SVG" : k === "video" || k === "audio" ? uiText("term." + k) : k[0].toUpperCase() + k.slice(1))).join("")}</optgroup>` +
-    (cols.length ? `<optgroup label="Collections">${cols.map((c) => opt("col:" + c.id, c.name + ` (${c.media.length})`)).join("")}</optgroup>` : "") +
-    (tags.length ? `<optgroup label="Tags">${tags.map((t) => opt("tag:" + t, "#" + t)).join("")}</optgroup>` : "");
-  if (els.binFilter.innerHTML !== html) els.binFilter.innerHTML = html;
+    (project.media.some((m) => m.kind === "video") ? opt("proxy", uiText("own.bin-proxy")) + opt("noproxy", uiText("own.bin-noproxy")) : "") +
+    `<optgroup label="${escapeHtml(uiText("own.bin-group-kind"))}">${MediaLib.KINDS.map((k) => opt("kind:" + k, k === "svg" ? "SVG" : k === "video" || k === "audio" ? uiText("term." + k) : k === "image" ? uiText("own.bin-image") : k[0].toUpperCase() + k.slice(1))).join("")}</optgroup>` +
+    (cols.length ? `<optgroup label="${escapeHtml(uiText("own.bin-group-collections"))}">${cols.map((c) => opt("col:" + c.id, c.name + ` (${c.media.length})`)).join("")}</optgroup>` : "") +
+    (tags.length ? `<optgroup label="${escapeHtml(uiText("own.bin-group-tags"))}">${tags.map((t) => opt("tag:" + t, "#" + t)).join("")}</optgroup>` : "");
+  if (els.binFilter.innerHTML !== html) { els.binFilter.innerHTML = html; fitBinFilter(); }
   els.binFilter.value = binView.filter;
   els.binFilter.classList.toggle("on", !!binView.filter);
   els.binSort.value = binView.sort;
@@ -2699,6 +2714,16 @@ function syncBinTools() {
   els.binViewBtn.classList.toggle("on", binView.list);
   els.binViewBtn.title = binView.list ? "Thumbnail view" : uiText("term.list-view-metadata-columns");
   if (els.binSearch.value !== binView.q && document.activeElement !== els.binSearch) els.binSearch.value = binView.q;
+}
+/** The Show box is as wide as its longest built-in choice, plus room for the native arrow (VV, #148: at the default width
+ *  「全部素材」 was cut). A collection's or a tag's own name may still be cut; the box never grows past the row. */
+function fitBinFilter() {
+  const sel = els.binFilter, cs = getComputedStyle(sel);
+  const ctx = (fitBinFilter.ctx ||= document.createElement("canvas").getContext("2d"));
+  ctx.font = cs.font || "11px 'Segoe UI', sans-serif";
+  const box = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) + (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0);
+  const text = Math.max(0, ...[...sel.options].filter((o) => !/^(col|tag):/.test(o.value)).map((o) => ctx.measureText(o.textContent).width));
+  sel.style.minWidth = Math.ceil(text + box + 22) + "px";
 }
 function setBinFilter(filter) {
   binView.filter = filter || "";
@@ -2805,7 +2830,13 @@ async function refreshMediaInfo(list) {
       state.dirtyTimeline = true;
     }
     // nothing says how long it is: tell the user once, in plain words (never 0:00 or NaN)
-    if (unknown.length) toast(unknown.length === 1 ? uiText("own.media-duration-unknown", { name: unknown[0].name }) : uiText("own.media-duration-unknown-n", { n: unknown.length }));
+    // the words follow the kind (Rea, #152): video toasts end with the repair button, sound files are never called video
+    if (unknown.length) {
+      const videos = unknown.every((x) => x.kind === "video");
+      toast(unknown.length === 1
+        ? uiText(videos ? "own.media-duration-unknown" : "own.media-duration-unknown-audio", { name: unknown[0].name })
+        : uiText(videos ? "own.media-duration-unknown-n" : "own.media-duration-unknown-n-mixed", { n: unknown.length }));
+    }
     if (changed) { renderBin(); scheduleSave(); if (state.selId) renderInspector(); }
     followSourceCanvas();
   } catch { } finally {
@@ -2939,37 +2970,40 @@ function showMediaMenu(x, y, m) {
     return b;
   };
   const sep = () => { const d = document.createElement("div"); d.className = "ctx-sep"; menu.appendChild(d); };
-  item("Open in Source", () => loadSourceFromMedia(m));
-  item(`Find timeline instances (${uses})`, () => showMediaInstances(m, x, y), uses ? null : "Not used on the timeline");
-  item("Media info…", () => showMediaInfo(m, x, y));
-  item(isMediaOffline(m.id) ? "Relink…" : "Relink to another copy…", () => openRelinkDialog([m]), state.connected ? null : uiText("own.needs-server"));
+  item(uiText("own.mm-open-source"), () => loadSourceFromMedia(m));
+  item(uiText("own.mm-instances", { n: uses }), () => showMediaInstances(m, x, y), uses ? null : "Not used on the timeline");
+  item(uiText("own.mm-info"), () => showMediaInfo(m, x, y));
+  item(isMediaOffline(m.id) ? "Relink…" : uiText("own.mm-relink-copy"), () => openRelinkDialog([m]), state.connected ? null : uiText("own.needs-server"));
   item(uiText("term.replace-file"), () => replaceMediaFile(m), state.connected ? null : uiText("own.needs-server"));
   if (m.kind === "video") {
+    // 〔帮我修好…〕 for any video (JJ, 2026-11-05): one button for every repair and conversion — FLV or not, no allowTranscode
+    item(uiText("own.repair-menu"), () => repairMediaFile(m),
+      !state.connected ? uiText("own.needs-server") : !state.ffmpeg ? "Needs MontClip's bundled FFmpeg" : isMediaOffline(m.id) ? "The file is offline" : repairing.has(m.id) ? uiText("own.repair-progress", { n: Math.round(repairing.get(m.id).progress * 100) }) : null);
     const ps = proxyStatus.get(m.id);
     const why = !state.connected ? uiText("own.needs-server") : !state.ffmpeg ? "Needs MontClip's bundled FFmpeg" : isMediaOffline(m.id) ? "The file is offline" : null;
     if (ps && (ps.state === "ready" || ps.state === "running" || ps.state === "queued")) item(ps.state === "ready" ? "Delete proxy" : "Stop making the proxy", () => deleteProxies([m]));
     else {
-      item("Create proxy (540p)", () => createProxies([m], 540), why);
-      item("Create proxy (720p)", () => createProxies([m], 720), why);
+      item(uiText("own.mm-proxy-540"), () => createProxies([m], 540), why);
+      item(uiText("own.mm-proxy-720"), () => createProxies([m], 720), why);
     }
   }
   sep();
-  item(m.favorite ? "Remove from favorites" : "Add to favorites", () => setMediaFavorite([m.id], !m.favorite));
-  item("Tags…", () => promptBinText(x, y, `Tags for ${m.name}`, (m.tags || []).join(", "), (v) => setMediaTags(m, v),
+  item(m.favorite ? "Remove from favorites" : uiText("own.mm-fav-add"), () => setMediaFavorite([m.id], !m.favorite));
+  item(uiText("own.mm-tags"), () => promptBinText(x, y, `Tags for ${m.name}`, (m.tags || []).join(", "), (v) => setMediaTags(m, v),
     { allowEmpty: true, max: 400, ok: "Save", placeholder: "interview, b-roll, day 1", hint: "Comma-separated. Search #tag to find them.",
       chips: MediaLib.allTags(project.media) }));
   for (const col of project.collections || []) {
     const inIt = col.media.includes(m.id);
     item(inIt ? `Remove from “${col.name}”` : `Add to “${col.name}”`, () => addToCollection(col.id, m.id, !inIt));
   }
-  item("New collection…", () => promptBinText(x, y, "New collection", "", (name) => {
+  item(uiText("own.mm-new-collection"), () => promptBinText(x, y, "New collection", "", (name) => {
     const col = newCollection(name, [m.id]);
     toast(`Added ${m.name} to the collection “${col.name}”`);
   }, { placeholder: "Selects, Interviews…", ok: "Create" }));
   const dm = (project.danmaku || []).find((e) => e.mediaId === m.id);
   if (dm) { sep(); item(uiText("own.dm-remove", { n: dm.count }), () => removeDanmaku(m)); }
   sep();
-  item("Remove from project", () => removeMediaFromBin(m));
+  item(uiText("own.mm-remove"), () => removeMediaFromBin(m)).title = uiText("own.mm-remove-title");
   document.body.appendChild(menu);
   menu.id = "trackCtxMenu";
   trackCtxMenu = menu;
@@ -3199,6 +3233,53 @@ function pickFilesForRelink({ folder = false, accept = els.fileInput.accept } = 
   });
 }
 
+/* 〔帮我修好〕 (JJ, P3, 2026-11-05): the server writes a new MP4 beside the original (make-editable.js:
+   a quick remux first, a re-encode only when that doesn't hold; the original is never touched), and it takes this
+   entry's place — every clip, composition and sequence that used it — as one undo step. Progress and Cancel sit on the
+   file in the bin. The same swap as fablecut_repair_media's (MediaLib.swapMedia). */
+const repairing = new Map();   // media id → {job, progress}
+async function repairMediaFile(m) {
+  if (!m || repairing.has(m.id)) return;
+  const st = { job: null, progress: 0 };
+  repairing.set(m.id, st);
+  renderBin();
+  let j = null;
+  try {
+    const res = await fetch("/api/repair", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ src: m.src }) });
+    if (res.ok) j = await res.json();
+    st.job = j && j.job;
+    while (j && (j.status === "running" || j.status === "pending")) {
+      await new Promise((r) => setTimeout(r, 500));
+      const q = await fetch("/api/repair/job?id=" + encodeURIComponent(st.job));
+      j = q.ok ? await q.json() : null;
+      if (j) { st.progress = j.progress || 0; const pct = document.querySelector(`.bin-item[data-media-id="${CSS.escape(m.id)}"] .bin-repair-pct`); if (pct) pct.textContent = uiText("own.repair-progress", { n: Math.round(st.progress * 100) }); }
+    }
+  } catch { j = null; }
+  repairing.delete(m.id);
+  if (j && j.status === "done" && j.result) {
+    const root = seqRoot();
+    pushUndo(JSON.stringify({ clips: project.clips, markers: project.markers || [], comps: project.comps || [], media: project.media, seqClips: otherSequenceClips() }));
+    const entry = { id: "m_" + uid(), ...j.result };
+    if ((root.media || []).some((x) => x.id === m.id)) {
+      MediaLib.swapMedia(root, m.id, entry);
+      // an open composition's clips are edited in `project` until it closes
+      if (project !== root) for (const c of project.clips) if (c.mediaId === m.id) c.mediaId = entry.id;
+    } else root.media.push(entry);
+    runtime.compGen = (runtime.compGen || 0) + 1;
+    state.dirtyTimeline = true;
+    renderBin(); scheduleSave(); renderInspector();
+    toast(uiText("own.repair-done"));
+    return;
+  }
+  renderBin();
+  if (j && j.status === "cancelled") return;
+  toast(uiText(j && j.error && j.error.code === "REPAIR_ENCODER_MISSING" ? "own.repair-encoder-missing" : "own.repair-failed", { name: m.name }));
+}
+async function cancelRepair(mediaId) {
+  const st = repairing.get(mediaId);
+  if (st && st.job) { try { await fetch("/api/repair/cancel?id=" + encodeURIComponent(st.job), { method: "POST" }); } catch { } }
+}
+
 /* Replace file…: a different file behind this media entry, for every clip that uses it. */
 async function replaceMediaFile(m) {
   const files = await pickFilesForRelink({ accept: m.kind === "audio" ? "audio/*,.mp3,.wav,.m4a,.flac,.ogg" : els.fileInput.accept });
@@ -3381,6 +3462,16 @@ async function refreshProxyStatus() {
   } catch { }
 }
 /** SSE "proxy": one file's proxy moved on (queued, progress, ready, failed, deleted). */
+/* Lengths the agent read for files that had none (QQ, #152): into the project open here — an unsaved step stays — and
+   one save carries both. Not an undo step: a file's details, as when the editor reads them itself. */
+function onMediaBackfill(data) {
+  let msg;
+  try { msg = JSON.parse(data); } catch { return; }
+  const n = MediaLib.applyBackfill(seqRoot(), msg && msg.updates);
+  if (!n) return;
+  renderBin();
+  scheduleSave();
+}
 function onProxyEvent(data) {
   let ev; try { ev = JSON.parse(data); } catch { return; }
   let hit = false;
@@ -3757,7 +3848,7 @@ function renderProjectGrid() {
   grid.innerHTML = rows.length ? rows.map((p) => `
     <button type="button" class="pj-card${p.id === pj.sel && pj.mode === "detail" ? " sel" : ""}${p.active ? " open" : ""}" data-pj="${escapeHtml(p.id)}" title="${p.active ? escapeHtml(uiText("own.pj-currently-open")) : "Double-click to open"}">
       ${pjThumbHtml(p)}
-      <span class="pj-card-name">${escapeHtml(p.name)}${p.active ? ` <span class="pj-badge">${escapeHtml(uiText("own.pj-open"))}</span>` : ""}</span>
+      <span class="pj-card-name">${escapeHtml(shownProject(p.name))}${p.active ? ` <span class="pj-badge">${escapeHtml(uiText("own.pj-open"))}</span>` : ""}</span>
       <span class="pj-card-meta">${p.unreadable ? "file unreadable" : `${pjCanvas(p)} · ${pjFmtDur(p.duration)}`}</span>
       <span class="pj-card-when dim">${escapeHtml(pj.sort === "created" ? uiText("own.pj-when-created", { when: pjWhen(p.created) }) : pj.sort === "modified" || !p.opened ? uiText("own.pj-when-modified", { when: pjWhen(p.modified) }) : uiText("own.pj-when-opened", { when: pjWhen(p.opened) }))}</span>
     </button>`).join("")
@@ -3768,7 +3859,7 @@ function pjDetailHtml(p) {
   const fact = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
   const tpl = p.template && pj.templates.find((t) => t.id === p.template);
   return `${pjThumbHtml(p, true)}
-    <label class="pj-field"><span>${uiText("term.name")}</span><input type="text" id="pjName" value="${escapeHtml(p.name)}" maxlength="120" spellcheck="false"></label>
+    <label class="pj-field"><span>${uiText("term.name")}</span><input type="text" id="pjName" value="${escapeHtml(shownProject(p.name))}" maxlength="120" spellcheck="false"></label>
     <dl class="pj-facts">
       ${fact(escapeHtml(uiText("own.pj-canvas")), p.unreadable ? "—" : pjCanvas(p))}
       ${fact(escapeHtml(uiText("own.pj-length")), escapeHtml((p.clips === 1 ? uiText("own.pj-length-value-1", { dur: pjFmtDur(p.duration), clips: 1, media: p.media }) : uiText("own.pj-length-value", { dur: pjFmtDur(p.duration), clips: p.clips, media: p.media }))))}
@@ -3900,7 +3991,7 @@ async function pjSaveField(field) {
   const el = $({ name: "pjName", notes: "pjNotes", tags: "pjTags" }[field]);
   if (!el) return;
   const v = el.value;
-  if (field === "name" && (!v.trim() || v.trim() === p.name)) { if (!v.trim()) el.value = p.name; return; }
+  if (field === "name" && (!v.trim() || v.trim() === p.name || v.trim() === shownProject(p.name))) { if (!v.trim()) el.value = shownProject(p.name); return; }
   if (field === "notes" && v === (p.notes || "")) return;
   if (field === "tags" && v === (p.tags || []).join(", ")) return;
   const out = await pjPost({ action: "update", id: p.id, [field]: field === "name" ? v.trim() : v });
@@ -3976,7 +4067,7 @@ function pjVersionsHtml() {
   return `<div class="ver-view">
     <div class="ver-head">
       <button type="button" class="btn tiny" data-ver-act="back">← All projects</button>
-      <h3>Versions of ${escapeHtml(p.name)}</h3>
+      <h3>Versions of ${escapeHtml(shownProject(p.name))}</h3>
     </div>
     <div class="ver-save">
       <input type="text" id="verName" maxlength="120" placeholder="Name (optional), e.g. Client cut" spellcheck="false" aria-label="Version name">
@@ -4521,12 +4612,9 @@ function audioChannelLong(ch) {
   if (!Number.isInteger(ch) || ch < 0) return null;
   return CHANNEL_LONG[ch] || `Channel ${ch + 1}`;
 }
-/** Default stereo pan for an isolated linked stem (L −1, R +1, else center). */
-function defaultPanForChannel(ch) {
-  if (ch === 0) return -1;
-  if (ch === 1) return 1;
-  return 0;
-}
+/** Default stereo pan for an isolated linked stem — one rule with edit-ops.js:
+ *  a mono source's only stem is centred; several stems go L −1, R +1, rest centre. */
+const defaultPanForChannel = MontClipEdit.defaultPanForChannel;
 function clipPan(v) { return clamp(+v || 0, -1, 1); }
 /** Grow A-tracks to at least `need` (capped at MAX_TRACKS_PER_KIND). Returns how many were added. */
 function ensureAudioTrackCount(need) {
@@ -4573,7 +4661,7 @@ function attachLinkedAudioChannels(videoClip, m, nCh) {
       id: "c_" + uid(), mediaId: m.id, kind: "audio", track: ids[ch],
       start: videoClip.start, in: videoClip.in, duration: videoClip.duration,
       name: videoClip.name,
-      props: { ...DEFAULT_PROPS, audioChannel: ch, pan: defaultPanForChannel(ch) },
+      props: { ...DEFAULT_PROPS, audioChannel: ch, pan: defaultPanForChannel(ch, n) },
       linkGroup: lg,
     };
     if (videoClip.props?.speed != null) a.props.speed = videoClip.props.speed;
@@ -4608,7 +4696,7 @@ function addClipFromMedia(m, trackId, at) {
   if (kind === "video") {
     c.props.volume = 0;
     c.linkGroup = "lg_" + uid();
-    const nCh = m.channels > 0 ? m.channels : 2;
+    const nCh = m.channels > 0 ? m.channels : m.audioChannels > 0 ? m.audioChannels : 2;
     const added = ensureAudioTrackCount(Math.min(nCh, MAX_TRACKS_PER_KIND));
     if (added) {
       toast(added === 1
@@ -4790,10 +4878,18 @@ async function reconcileAudioChannels(videoClip, onlyTargeted = false) {
     project.clips.push({
       id: "c_" + uid(), mediaId, kind: "audio", track: ids[ch],
       start: live.start, in: live.in, duration: live.duration, name: live.name,
-      props: { ...DEFAULT_PROPS, audioChannel: ch, pan: defaultPanForChannel(ch) },
+      props: { ...DEFAULT_PROPS, audioChannel: ch, pan: defaultPanForChannel(ch, wantCh) },
       linkGroup: lg,
     });
     added++;
+  }
+  // The drop planted a stereo placeholder before the file was decoded; a mono file
+  // keeps only channel 0, which still has the placeholder's hard-left pan. Centre it —
+  // only here, where this run just dropped the placeholder's other half, so a pan
+  // the user set on an existing stem is never touched.
+  if (removed && wantCh === 1) {
+    const only = project.clips.find((c) => c.linkGroup === lg && c.kind === "audio" && (c.props?.audioChannel ?? 0) === 0);
+    if (only && only.props.pan === defaultPanForChannel(0, 2) && !only.keyframes?.pan?.length) only.props.pan = defaultPanForChannel(0, 1);
   }
   if (!added && !removed) {
     if (newTracks > 0) scheduleSave();
@@ -6186,6 +6282,8 @@ const SNAP_TARGET_LABELS = {
   clips: "Clip edges", playhead: "Playhead", markers: "Markers",
   inout: "IN / OUT", keyframes: "Keyframes", frames: "Frame grid",
 };
+const SNAP_TARGET_TERMS = { clips: "own.snap-clips", playhead: "own.snap-playhead", markers: "term.markers",
+  inout: "own.snap-inout", keyframes: "own.snap-keyframes", frames: "own.snap-frames" };
 function snapTargets() { return getSetting("snapTargets") || DEFAULT_SETTINGS.snapTargets; }
 /* → {t, hit}: `hit` is true when a target (not the frame grid) caught t.
    ignore: clip id, Set of ids, or null. opts.skipMarker: a marker being dragged. */
@@ -6246,9 +6344,9 @@ function openSnapMenu(anchor) {
   const menu = document.createElement("div");
   menu.className = "ctx-menu snap-menu";
   const on = snapTargets();
-  menu.innerHTML = `<div class="snap-menu-head dim">Snap to</div>` +
+  menu.innerHTML = `<div class="snap-menu-head dim">${escapeHtml(uiText("own.snap-to"))}</div>` +
     Object.entries(SNAP_TARGET_LABELS).map(([k, label]) =>
-      `<label class="ctx-item snap-opt"><input type="checkbox" data-snap="${k}"${on[k] ? " checked" : ""}> <span>${k === "markers" ? escapeHtml(uiText("term.markers")) : label}</span></label>`).join("");
+      `<label class="ctx-item snap-opt"><input type="checkbox" data-snap="${k}"${on[k] ? " checked" : ""}> <span>${escapeHtml(SNAP_TARGET_TERMS[k] ? uiText(SNAP_TARGET_TERMS[k]) : label)}</span></label>`).join("");
   menu.addEventListener("change", (e) => {
     const k = e.target.dataset.snap;
     if (k) toggleSnapTarget(k);
@@ -6974,7 +7072,7 @@ function openMarkerList(anchor) {
   menu.className = "ctx-menu marker-list";
   const list = project.markers || [];
   if (!list.length) {
-    menu.innerHTML = `<div class="marker-empty dim">No markers yet — press <kbd>M</kbd> at the playhead.</div>`;
+    menu.innerHTML = `<div class="marker-empty dim">${uiText("own.markers-empty")}</div>`; // repo-authored, with its <kbd>
   } else {
     menu.innerHTML = list.map((m, i) =>
       `<div class="marker-row" data-i="${i}">` +
@@ -8504,7 +8602,7 @@ function routeSourceChannels(ctx, src, m, nCh, audio, collect) {
 
     const panner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
     if (panner) {
-      panner.pan.value = defaultPanForChannel(ch);
+      panner.pan.value = defaultPanForChannel(ch, nCh);
       g.connect(panner);
       panner.connect(bus);
       collect(panner, "panner");
@@ -14265,7 +14363,9 @@ function syncSequenceButton() {
   const n = SeqLib.entries(seqRoot()).length;
   b.querySelector(".seq-name").textContent = openSequenceName();
   b.querySelector(".seq-count").textContent = n > 1 ? String(n) : "";
-  b.title = `Sequence: ${openSequenceName()}${n > 1 ? ` (one of ${n})` : ""} — open another one, or add, duplicate, rename`;
+  // English keeps "(one of N)"; the Chinese line (Rea #327) has no count
+  b.title = mcView.get().language === "en" ? `Sequence: ${openSequenceName()}${n > 1 ? ` (one of ${n})` : ""} — open another one, or add, duplicate, rename`
+    : uiText("own.seq-button-title", { name: openSequenceName() });
 }
 /** The sequence menu: the project's sequences (click one to open it), then what to do with them. */
 function showSequenceMenu(x, y) {
@@ -14292,15 +14392,15 @@ function showSequenceMenu(x, y) {
   }
   sep();
   item(`<span>${escapeHtml(uiText("term.new-sequence"))}</span>`, () => promptNewSequence(x, y));
-  item(`<span>Highlights…</span>`, () => promptHighlights(x, y),
+  item(`<span>${escapeHtml(uiText("own.hl-menu"))}</span>`, () => promptHighlights(x, y),
     state.compCtx ? "Close the composition first" : !project.clips.some((c) => c.kind === "video") ? "Put video on the timeline first" : null);
-  item(`<span>Duplicate “${escapeHtml(shownName(open.name))}”</span>`, () => newSequence({ from: "open" }));
-  item(`<span>Rename “${escapeHtml(shownName(open.name))}”…</span>`, () => promptBinText(x, y, "Sequence name", open.name, (v) => renameSequence(openId, v), { max: 120, ok: "Rename" }));
-  item(`<span>Delete “${escapeHtml(shownName(open.name))}”…</span>`, (b) => {
+  item(`<span>${escapeHtml(uiText("own.seq-duplicate", { name: shownName(open.name) }))}</span>`, () => newSequence({ from: "open" }));
+  item(`<span>${escapeHtml(uiText("own.seq-rename", { name: shownName(open.name) }))}</span>`, () => promptBinText(x, y, "Sequence name", open.name, (v) => renameSequence(openId, v), { max: 120, ok: "Rename" }));
+  item(`<span>${escapeHtml(uiText("own.seq-delete", { name: shownName(open.name) }))}</span>`, (b) => {
     if (b.dataset.armed !== "1") { b.dataset.armed = "1"; b.querySelector("span").textContent = "Click again to delete it"; return; }
     hideTrackCtxMenu();
     deleteSequence(openId);
-  }, rows.length < 2 ? "A project keeps at least one sequence" : null, true);
+  }, rows.length < 2 ? uiText("own.seq-keep-one") : null, true);
   showPopover(menu, x, y);
 }
 /** New sequence: a name, a canvas, and whether it starts empty or as a copy of the open one. */
@@ -14357,13 +14457,13 @@ function promptHighlights(x, y) {
   const sizes = [{ label: `Same as “${openSequenceName()}” · ${project.width}×${project.height}`, w: 0, h: 0 }, ...ASPECT_PRESETS];
   const pop = document.createElement("div");
   pop.className = "ctx-menu bin-pop seq-new";
-  pop.innerHTML = `<label class="bin-pop-label" for="hlLen">Highlights</label>
+  pop.innerHTML = `<label class="bin-pop-label" for="hlLen">${escapeHtml(uiText("own.hl-title"))}</label>
     <select id="hlLen" class="bin-pop-input">${[15, 30, 60, 90].map((s) => `<option value="${s}" ${s === 30 ? "selected" : ""}>${s} s</option>`).join("")}</select>
     <label class="bin-pop-label" for="hlSize">Canvas</label>
     <select id="hlSize" class="bin-pop-input">${sizes.map((s, i) => `<option value="${i}">${escapeHtml(s.label)}</option>`).join("")}</select>
     <label class="seq-new-copy" title="Each shot is fitted to the new shape and keyed to keep what matters in it in view (Inspector → Reframe)"><input type="checkbox" id="hlFollow" checked> Follow the subject in each shot</label>
-    <div class="bin-pop-hint" data-hl-status>From ${from ? `the ${n} selected video clip${n === 1 ? "" : "s"}` : `every video clip on this timeline (${n})`}: the moments with the most movement and sound, in story order, never across a cut. They go into a new sequence; this one stays as it is.</div>
-    <div class="bin-pop-btns"><button type="button" class="btn tiny" data-cancel>Cancel</button><button type="button" class="btn tiny accent" data-ok ${n ? "" : "disabled"}>Make</button></div>`;
+    <div class="bin-pop-hint" data-hl-status>${escapeHtml(uiText("own.hl-desc"))}</div>
+    <div class="bin-pop-btns"><button type="button" class="btn tiny" data-cancel>${escapeHtml(uiText("term.cancel"))}</button><button type="button" class="btn tiny accent" data-ok ${n ? "" : "disabled"}>${escapeHtml(uiText("own.hl-make"))}</button></div>`;
   const size = () => sizes[+pop.querySelector("#hlSize").value] || sizes[0];
   const reshaped = () => { const s = size(); return !!(s.w && s.w * project.height !== s.h * project.width); };
   const syncFollow = () => { pop.querySelector("#hlFollow").closest("label").hidden = !reshaped(); };
@@ -16713,7 +16813,7 @@ function shapeSectionHtml(c, p, row) {
   };
   let html = `<div class="insp-section" data-shape-section><h3>Shape layer</h3>
     <div class="cl-row">${Object.entries(SHAPE_PRESETS).map(([k, pre]) => btn(`data-sadd="${k}"`, "+ " + pre.label, `Add a ${pre.label.toLowerCase()} to this layer`, false, full)).join("")}
-      ${btn('data-stool="pen"', "Pen", "Click points on the monitor (drag to curve); click the first point to close, Enter for an open path", ui.tool === "pen", full)}</div>
+      ${btn('data-stool="pen"', uiText("term.pen"), "Click points on the monitor (drag to curve); click the first point to close, Enter for an open path", ui.tool === "pen", full)}</div>
     ${ui.tool === "pen" ? `<p class="cl-note">Pen: click to add points, drag to curve. Click the first point to close, Enter keeps the path open. Backspace / Ctrl+Z removes the last point, Esc cancels.</p>` : ""}
     ${list.length ? `<div class="cl-row shape-items">${chips}</div>` : ui.tool ? "" : `<p class="cl-note">No shapes yet — add one above.</p>`}
     ${slider("trimStart", 0, 100, 0.5, "%")}${slider("trimEnd", 0, 100, 0.5, "%")}${slider("trimOffset", -100, 100, 0.5, "%")}`;
@@ -17348,7 +17448,7 @@ function textPathSectionHtml(c, p, row) {
   const btn = (attr, label, title, on, dis) => `<button type="button" class="btn tiny${on ? " toggle on" : ""}" ${attr} title="${title}" ${dis ? "disabled" : ""}>${label}</button>`;
   return `<div class="insp-section" data-textpath-section><h3>Text path</h3>
     <div class="cl-row">${Object.entries(TEXT_PATH_PRESETS).map(([k, pre]) => btn(`data-tpath="${k}"`, pre.label, `Set the title on ${/^[aeiou]/i.test(pre.label) ? "an" : "a"} ${pre.label.toLowerCase()}`)).join("")}
-      ${btn('data-tpath="pen"', "Pen", "Draw the path on the monitor: click points (drag to curve), Enter to finish, click the first point to close it", shapeUi.clip === c.id && shapeUi.tool === "pen")}</div>
+      ${btn('data-tpath="pen"', uiText("term.pen"), "Draw the path on the monitor: click points (drag to curve), Enter to finish, click the first point to close it", shapeUi.clip === c.id && shapeUi.tool === "pen")}</div>
     ${has ? `<div class="cl-row">${btn('data-tpath="edit"', "Edit path", "Show the path's points and handles on the monitor", editing)}${btn('data-tpath="off"', "Remove", "Back to a normal title")}</div>
       ${row("Offset", `<input type="range" data-k="pathOffset" min="-100" max="200" step="0.5" value="${fmtInspNum(p.pathOffset, 0.5)}" title="Slide the text along the path, % of its length — key it to make the text travel">
         <span class="val" data-val="pathOffset" data-unit="%">${fmtInspNum(p.pathOffset, 0.5)}%</span>`, "pathOffset")}
@@ -18602,7 +18702,9 @@ function deliveryFrame(spec) {
   return Delivery.reframe(spec, cv.w, cv.h, cv.region);
 }
 /** The project's name as a file name: Chinese kept, only what Windows cannot have replaced. */
-const exportBaseName = (fallback) => Delivery.fileSafeName(project.name, MontClipView.exportFallback(mcView.get().language, fallback));
+/** An export's file name from the project's name — never a default one (P7: then the first media's name, else MontClip, and the date). */
+const exportBaseName = (fallback) => Delivery.fileSafeName(MontClipView.exportProjectName(project.name, (project.media || []).map((m) => m.name)),
+  MontClipView.exportFallback(mcView.get().language, fallback));
 function deliveryFileName(spec, fps) {
   const fr = deliveryFrame(spec);
   return Delivery.renderFilename(spec.filename, spec, {
@@ -19952,12 +20054,13 @@ async function fastExport(opts = {}) {
       body: JSON.stringify(delivery ? {
         fps, duration: frames / fps,
         deliveries: deliveries.map((d) => ({ delivery: d.delivery, name: d.name || deliveryFileName(d.delivery, fps) })),
-        canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav,
+        canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav, job,
       } : {
         fps,
         name: exportBaseName("export"),
         profile: profileId,
         hasAudio: !!wav,
+        job,
       }),
       signal,
     }).then((r) => r.json());
@@ -20038,7 +20141,7 @@ async function fastExport(opts = {}) {
       els.exportProgress.style.width = pct.toFixed(1) + "%";
       els.exportTitle.textContent = uiText("own.rendering-pct", { pct: pct.toFixed(0) });
       if (opts.onProgress) opts.onProgress(0.97 * (f + 1) / frames);
-      if (job) reportExportJob(job, { progress: 0.97 * (f + 1) / frames });
+      if (job) reportExportJob(job, { progress: 0.97 * (f + 1) / frames, at: +t.toFixed(2) });
     }
     await pixelChain;
     if (uploadError) throw uploadError;
@@ -21042,7 +21145,8 @@ function filterHelp() {
     const h3 = sec.querySelector("h3");
     // a translated layer still answers English searches: match the shown text AND the saved
     // English source (the heading's keyed English, and each cell's stashed original markup)
-    const headEn = h3 && (h3.dataset.i18n || h3.dataset.i18nTail) ? MontClipView.t("en", h3.dataset.i18n || h3.dataset.i18nTail) : "";
+    const headEn = h3 ? [h3, ...h3.querySelectorAll("[data-i18n]")].map((el) => (el.dataset.i18n || el.dataset.i18nTail
+      ? MontClipView.t("en", el.dataset.i18n || el.dataset.i18nTail) : "")).join(" ") : "";
     const head = ((h3 ? h3.textContent : "") + " " + headEn).toLowerCase();
     let shown = 0;
     for (const tr of sec.querySelectorAll("tr")) {
@@ -21090,6 +21194,8 @@ function onSettingsTabTrap(e) {
 function openSettings() {
   const cb = $("setLinkSelect");
   if (cb) cb.checked = !!getSetting("linkSelect");
+  const sf = $("setSoundFactsOn");
+  if (sf) sf.checked = soundFactsOn();
   const overlay = $("settingsOverlay");
   overlay.classList.remove("hidden");
   overlay.addEventListener("keydown", onSettingsTabTrap);
@@ -21153,6 +21259,12 @@ function closeTopOverlay() {
   else return false;
   return true;
 }
+/** 「附上唱歌段和音量」 (QQ on #169): on unless switched off in 设置. Off, no sound numbers are read or sent. */
+function soundFactsOn() { return mcView.get().soundFacts !== false; }
+$("setSoundFactsOn")?.addEventListener("change", (e) => {
+  mcView.set({ soundFacts: !!e.target.checked });
+  if (!e.target.checked) runtime.soundFacts = null;
+});
 $("setLinkSelect").addEventListener("change", (e) => {
   setSetting("linkSelect", !!e.target.checked);
   if (!getSetting("linkSelect")) {
@@ -23319,18 +23431,19 @@ function agentReframeDone(){if(agentReframeRun.el){agentReframeRun.el.remove();a
 async function runAgentReframe(aspect,{eventId=null,token=null}={}){
  if(state.exporting||state.gesture||reframeRun.busy||agentReframeRun.busy)return {ok:false,code:'BUSY'};
  if(state.compCtx)exitComp(state.compCtx.path.length);
+ if(SeqLib.entries(seqRoot()).length>=SeqLib.MAX)return {ok:false,code:'SEQUENCE_LIMIT'};
  let canvas;try{canvas=Reframe.canvasFor(aspect,project.width,project.height);}catch{return {ok:false,code:'INVALID'};}
  const {take}=Reframe.targets({clips:project.clips,lockedTracks:[...state.lockedTracks]},{});
  if(!take.length)return {ok:false,code:'NOTHING'};
  Object.assign(agentReframeRun,{busy:true,cancel:false});
  const fps=projectFps()||30,gen=runtime.projectGen,seqId=SeqLib.activeId(seqRoot()),size=JSON.stringify([project.width,project.height]),lanes=JSON.stringify([...state.lockedTracks]);
  const stamp=(c)=>{const m=getMedia(c.mediaId)||{};return JSON.stringify([c.mediaId,m.src,m.width,m.height,c.track,c.start,c.in,c.duration,!!c.locked,c.props||{},c.keyframes||{}]);};
- const stamps=new Map(take.map((c)=>[c.id,stamp(c)])),plans=[];
+ const stamps=new Map(take.map((c)=>[c.id,stamp(c)])),plans=[],snapshot=JSON.stringify(projectJSON());
  const say=(i,frac)=>agentReframeProgress(uiText('own.rf-progress',{aspect,n:i+1,of:take.length,pct:Math.round(frac*100)}));
- let failed=false;
+ let failed=false,reading=null;
  try{
   for(let i=0;i<take.length&&!agentReframeRun.cancel;i++){
-   const c=take[i];say(i,0);
+   const c=take[i];reading=c;say(i,0);
    const src=await pictureSize(c),cover=Reframe.coverRect(src.width,src.height,canvas.width,canvas.height,1);
    let samples=null;
    if(Math.max(cover.maxX,cover.maxY)>0.5){
@@ -23343,9 +23456,11 @@ async function runAgentReframe(aspect,{eventId=null,token=null}={}){
   }
  }catch{failed=true;}
  finally{agentReframeRun.busy=false;agentReframeDone();}
+ // the clip whose file couldn't be read, by the name the bin shows (never a path)
+ const failedName=()=>{const m=reading&&getMedia(reading.mediaId);const n=m&&typeof m.name==='string'?m.name.split(/[\\/]/).pop().trim():'';return n||null;};
  if(agentReframeRun.cancel){agentReframeRun.cancel=false;return {ok:false,code:'CANCELLED'};}
- if(failed||!plans.length)return {ok:false,code:'FAILED'};
- if(gen!==runtime.projectGen||seqId!==SeqLib.activeId(seqRoot())||size!==JSON.stringify([project.width,project.height])||(projectFps()||30)!==fps||
+ if(failed||!plans.length)return {ok:false,code:'FAILED',...(failed&&failedName()?{name:failedName()}:{})};
+ if(snapshot!==JSON.stringify(projectJSON())||gen!==runtime.projectGen||seqId!==SeqLib.activeId(seqRoot())||size!==JSON.stringify([project.width,project.height])||(projectFps()||30)!==fps||
    lanes!==JSON.stringify([...state.lockedTracks])||plans.some((p)=>{const c=getClip(p.id);return !c||stamp(c)!==stamps.get(p.id);}))return {ok:false,code:'CHANGED'};
  if(state.exporting||state.gesture)return {ok:false,code:'BUSY'};
  // made in one go: add the copy, open it, write the plans
@@ -23371,7 +23486,7 @@ function agentReframeBackOf(snap){
 }
 /** Undo of the reframe: open the original sequence again, then delete the copy (its undo history goes with it). */
 function undoAgentReframe(snap,b){
- if(SeqLib.activeId(seqRoot())!==b.sequence||!SeqLib.find(seqRoot(),b.back)||!openSequence(b.back)){runtime.undo.push(snap);toast(uiText('own.rf-undo-failed'));return false;}
+ if(SeqLib.activeId(seqRoot())!==b.sequence||!SeqLib.find(seqRoot(),b.back)||!openSequence(b.back)){runtime.undo.push(snap);toast(uiText('own.rf-undo-failed',{name:shownName(b.backName||'')}));return false;}
  const doc=projectJSONHere();
  try{SeqLib.remove(doc,b.sequence);}catch{}
  project.sequences=doc.sequences||null;project.sequence=doc.sequence||null;
@@ -23405,7 +23520,7 @@ async function agentReframeFlow(response,result){
   if(step.version)await step.version;
   if(!MontClipProposal.current(proposal,projectJSON(),{...agentProjectContext(),generation:agentProjectContext().gen})){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.ap-stale'));return;}
   const token=crypto.randomUUID(),r=await runAgentReframe(aspect,{eventId:ev&&ev.id,token});
-  if(!r.ok){if(ev)moveEvent(ev.id,r.code==='CANCELLED'?'rejected':'failed');toast(uiText('own.rf-'+({CANCELLED:'cancelled',CHANGED:'changed',NOTHING:'nothing',BUSY:'busy'}[r.code]||'failed'),{aspect}));return;}
+  if(!r.ok){if(ev)moveEvent(ev.id,r.code==='CANCELLED'?'rejected':'failed');toast(uiText('own.rf-'+({CANCELLED:'cancelled',CHANGED:'changed',NOTHING:'nothing',BUSY:'busy',SEQUENCE_LIMIT:'sequence-limit'}[r.code]||'failed'),{aspect})+(r.code==='FAILED'&&r.name?' '+uiText('own.rf-failed-name',{name:r.name}):''));return;}
   const c=agentProjectContext();
   officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});
   toast(uiText('own.rf-done',{aspect,name:shownName(r.name)}));
@@ -23497,6 +23612,20 @@ function canUndoOfficialProposal(result){
  if(!entry||entry.projectId!==c.projectId||entry.sequenceId!==c.sequenceId||entry.gen!==c.gen)return false;
  try{return JSON.parse(runtime.undo.at(-1)).agentApplyId===entry.token;}catch{return false;}
 }
+/* The sound numbers for the facts (JJ via Deja, 2026-11-05; agent-facts.js): before the review box opens, each sent clip's
+   file's loudness (/api/signals/loudness, read once and kept by the server) and the songs the 「唱歌」 scan already found
+   (/api/songs; only a file read to its end). Never starts a song scan. A file not ready within 15 s is left out this time. */
+async function agentSoundFacts(){
+ if(!soundFactsOn()){runtime.soundFacts=null;return;}   // switched off: nothing is read
+ const want=MontClipFacts.soundMedia(projectJSON()),sound={};
+ const get=async(url)=>{const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),15000);try{const r=await fetch(url,{signal:ctrl.signal});return r.ok?await r.json():null;}catch{return null;}finally{clearTimeout(timer);}};
+ await Promise.all(want.map(async({mediaId,src})=>{
+  const [l,g]=await Promise.all([get("/api/signals/loudness?src="+encodeURIComponent(src)),get("/api/songs?src="+encodeURIComponent(src))]);
+  sound[mediaId]={loudness:l&&Number.isFinite(l.step)&&Array.isArray(l.values)?{step:l.step,values:l.values}:null,
+   songs:g&&g.state==="done"&&Array.isArray(g.songs)?g.songs.map((x)=>({from:x.from,to:x.to})):null};
+ }));
+ runtime.soundFacts={signature:JSON.stringify(want),sound};
+}
 const mcAgentPanel=document.getElementById('mcAssistantPanel');
 document.querySelector(".upper > .inspector").append(mcAgentPanel);
 document.querySelector(".topbar-right").prepend(document.getElementById("mcMediaToggle"));
@@ -23511,11 +23640,17 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  getProjectName:id=>id===runtime.projectId?project.name:null,
  canUndoProposal:canUndoOfficialProposal,
  noChange:agentProposalUnchanged,
- getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[]});},
+ // only the selected clips' numbers (the 「AI 数据说明」 says so): none selected, none sent
+ getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts,s=runtime.soundFacts;return MontClipFacts.build(doc,{selected:selectedClips().map(c=>c.id),highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[],sound:soundFactsOn()&&s&&s.signature===JSON.stringify(MontClipFacts.soundMedia(doc))?s.sound:null});},
+ soundFactsOff:()=>!soundFactsOn(),
+ soundTooLong:()=>{const doc=projectJSON(),s=runtime.soundFacts;return soundFactsOn()&&!!s&&s.signature===JSON.stringify(MontClipFacts.soundMedia(doc))&&MontClipFacts.tooLong(doc,s.sound,undefined,selectedClips().map(c=>c.id));},
+ soundOffNote:(text)=>soundFactsOn()||!MontClipFacts.asksAboutSound(text)?'':uiText('own.sf-off-note',{settings:uiText('term.settings'),switch:uiText('own.sf-label')}),
+ beforeReview:agentSoundFacts,
  ...(window.montclipAgentPolicy?{getMode:()=>agentPolicy.mode,setMode:setAgentMode,onReply:result=>{void onAgentReply(result);},
   getPlan:agentPlanView,planStart:runAgentPlan,planUndo:undoAgentPlan,
   planRemove:(result,i)=>{agentPlanOf(result)?.run.remove(i);},planDiscard:(result)=>{agentPlanOf(result)?.run.discard();}}:{}),
- getFactsOmitted:()=>MontClipFacts.omitted(projectJSON()),
+ getFactsOmitted:()=>MontClipFacts.omitted(projectJSON(),{selected:selectedClips().map(c=>c.id)}),
+ isOpen:()=>!document.getElementById("mcAssistantPanel").classList.contains("hidden"),
  onUndo:result=>{if(canUndoOfficialProposal(result)){const entry=officialProposalApplications.get(result);if(!entry?.eventId||!undoEvent(entry.eventId).ok)undo();}},
  onProposal:(response,result)=>{
    if(response&&response.type==='reframe'){void agentReframeFlow(response,result);return;}
@@ -23526,4 +23661,17 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  getReferences:kind=>MontClipAgentPane.referenceChips(kind,{...agentProjectContext(),
  start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(MontClipCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
 setInterval(()=>mcAgent.sync(),500);
+/* 设置 › AI 助手 (Deja and JJ, 2026-11-04): the switch the main process keeps — off, it refuses every send — and the
+   「AI 数据说明」 again. Desktop only: the browser editor has no assistant service. */
+{ const box=$("setAi"),box2=$("setAiEnabled"),svc=window.montclipAgentService;
+  if(box&&svc?.switchGet){
+    box.classList.remove("hidden");
+    const show=async()=>{const r=await svc.switchGet();box2.checked=r?.enabled!==false;};
+    box2.addEventListener("change",async()=>{const r=await svc.switchSet(box2.checked);box2.checked=r?.enabled!==false;mcAgent.refreshSwitch?.();
+      if(!box2.checked&&!$("mcAssistantPanel").classList.contains("hidden"))setSideTab("inspector");});   // off: the panel folds away
+    // the notice lives in the assistant panel: it is opened first, or a hidden panel would hide the notice too
+    $("btnAiNotice").addEventListener("click",()=>{$("btnCloseSettings")?.click();setSideTab("assistant");mcAgent.render();void mcAgent.showNotice();});
+    $("btnSettings")?.addEventListener("click",()=>{void show();});
+    void show();
+  } }
 if(window.montclipAgentPolicy)void loadAgentMode();

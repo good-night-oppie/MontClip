@@ -8,7 +8,7 @@ const fs = require("node:fs");
 
 const exited = (p) => p.exitCode !== null && p.exitCode !== undefined || p.signalCode !== null && p.signalCode !== undefined;
 
-async function stopSessions(sessions, { timeoutMs = 3000, rm = (p) => fs.rmSync(p, { recursive: true, force: true }), log = () => {} } = {}) {
+async function stopSessions(sessions, { timeoutMs = 3000, killAfterMs = 2000, rm = (p) => fs.rmSync(p, { recursive: true, force: true }), log = () => {} } = {}) {
   const deadline = Date.now() + timeoutMs;
   const procs = [], paths = [];
   for (const s of sessions || []) {
@@ -18,8 +18,14 @@ async function stopSessions(sessions, { timeoutMs = 3000, rm = (p) => fs.rmSync(
     if (s.partPath) paths.push(s.partPath);
     if (s.dir) paths.push(s.dir);
   }
-  for (const p of procs) { try { p.kill(); } catch {} }
+  // ffmpeg reading frames from stdin ignores SIGTERM while it waits for the next one (Linux: it stays blocked in read;
+  // europa, 2026-11-05: three were left running after their files were deleted), so its stdin is closed first — at the
+  // end of its input it stops at once — then SIGTERM, and whatever still runs after killAfterMs (2 s; at most half the
+  // limit) is killed outright (DD on europa: one still running 5 s after SIGTERM stopped only on SIGKILL).
+  for (const p of procs) { try { if (p.stdin && !p.stdin.destroyed) p.stdin.destroy(); } catch {} try { p.kill(); } catch {} }
   const ended = Promise.all(procs.map((p) => exited(p) ? null : new Promise((r) => { try { p.once("exit", r); } catch { r(); } })));
+  const hard = setTimeout(() => { for (const p of procs) if (!exited(p)) { try { p.kill("SIGKILL"); } catch {} } }, Math.max(0, Math.min(killAfterMs, (deadline - Date.now()) / 2)));
+  ended.then(() => clearTimeout(hard));
   let left = paths;
   const sweep = () => { left = left.filter((p) => { try { rm(p); return fs.existsSync(p); } catch { return true; } }); };
   // ffmpeg first: wait (up to the limit) until it has exited, so nothing is still writing when the files go

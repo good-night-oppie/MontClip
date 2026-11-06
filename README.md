@@ -33,3 +33,7 @@ MontClip is a modified version of FableCut and keeps its MIT license. FableCut h
 ## License
 
 MIT. See [LICENSE](LICENSE) and the third-party notices.
+
+## Technical reference
+
+See the [agent and API manual](CLAUDE.md) for media repair and background duration merging, and the [timestamp repair comparison](docs/testing/repair-timestamp-jump.md) for the reproducible test and its limits.
