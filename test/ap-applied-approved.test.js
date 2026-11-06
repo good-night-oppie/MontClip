@@ -21,7 +21,7 @@ async function reply(host,{mode,choice='once',language='zh-CN'}){
   MontClipPolicy:{MODES:['plan','manual','auto','yolo'],modeLabel:require('../agent-policy').modeLabel},
   MontClipPlan:{stepDetail:()=>''},MontClipProposal:{current:()=>true},MontClipRangePlan:{create:()=>({})},
   agentPolicy:{mode},paintAgentMode(){},runtime:{projectId:'p_1'},project:{revision:3},
-  agentProposalStep:()=>({proposal:{type:'keep_sentences',keep:[{from:0,to:3}]},ev:null,c:{projectId:'p_1',sequenceId:'main',gen:1},version:null}),
+  agentProposalUnchanged:()=>null,agentProposalStep:()=>({proposal:{type:'keep_sentences',keep:[{from:0,to:3}]},ev:null,c:{projectId:'p_1',sequenceId:'main',gen:1},version:null}),
   askAgentApproval:async()=>{asked.push(1);return choice;},agentProposalText:()=>'',moveEvent(){},
   projectJSON:()=>({}),agentProjectContext:()=>({projectId:'p_1',sequenceId:'main',gen:1}),rangeEditBusy:()=>false,
   commitRangePlan:()=>{commits.push(1);return 'tok';},officialProposalApplications:new Map(),
