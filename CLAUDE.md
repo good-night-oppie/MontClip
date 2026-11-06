@@ -179,6 +179,9 @@ answers only requests that carry the token: as the `montclip_embed` cookie, whic
 page load of any URL with `?token=<token>` receives (302 to the same URL without it),
 or as `X-MontClip-Session` (the plugin worker, and `mcp-server.js` when it runs with
 the same variables). Everything else gets 403.
+The editor page opened with `?host=cindy` (host-embed.js) hides its built-in
+assistant — Cindy's chat takes its place — and follows Cindy's theme: `?theme=light|dark`
+at load, then `postMessage({type:"montclip-host-theme", scheme})` from the framing page.
 
 `mcp-server.js` run as a program speaks MCP on stdio; required as a module (the
 Cindy plugin's Node worker does) it only hands over `{TOOLS, callTool,
