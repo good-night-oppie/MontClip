@@ -219,6 +219,7 @@ function reconcileWorld(clips, media) {
     getClip: (id) => project.clips.find((c) => c.id === id) || null, getMedia: (id) => project.media.find((m) => m.id === id),
     audioTrackIds: () => ["A1", "A2", "A3", "A4"], ensureAudioTrackCount: () => 0, isEditTarget: () => true,
     releaseClipEl() {}, scheduleSave() {}, rebuildClips() {}, renderInspector() {}, toast() {}, state: {},
+    MontClipView: { tp: () => "" }, mcView: { get: () => ({}) }, // main (#139): the channel toasts speak through the language table
     detectChannelCount: async (m) => m.channels,
   };
   const code = ["const defaultPanForChannel = MontClipEdit.defaultPanForChannel;", slice("async function reconcileAudioChannels(", "/* Apply a named title style")].join("\n");
