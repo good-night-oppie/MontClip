@@ -937,6 +937,14 @@
     "hl-menu": ["Auto short…", "自动拼短片…"], "hl-title": ["Auto short", "自动拼短片"], "hl-make": ["Make", "拼好"],
     "hl-desc": ["From the selected clips (or the whole timeline, if none is selected), picks the parts with the most movement and the loudest sound and puts them together in a new sequence. The sequence you are in stays as it is.",
       "从选中的片段里（没选就用整条时间线），挑出画面动得多、声音大的几段，拼成一个新序列。原来的序列不动。"],
+    // the export-frame drop-down above the player (app.js EXPORT_FRAME_ASPECTS): JJ定稿 (2026-11-05, via Deja), English
+    // included — no platform names (Reel, IG). ef-full-canvas is the key VV's four (#148, JJ agreed) use for the same words.
+    "ef-9-16": ["9:16 Vertical", "9:16 竖屏"],
+    "ef-16-9": ["16:9 Landscape", "16:9 横屏"],
+    "ef-4-5": ["4:5 Portrait", "4:5 竖图"],
+    "ef-1-1": ["1:1 Square", "1:1 方形"],
+    "ef-custom": ["Custom · {w}×{h}", "自定义 · {w}×{h}"],
+    "ef-title": ["Export frame: the part of the canvas that gets exported.", "导出画面：在画布里框出要导出的那一块。"],
   });
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
   // English by number (JJ, 2026-11-04; MontClipView.tp): 〔加字幕〕, by the captions added, then by the ones replaced. The
