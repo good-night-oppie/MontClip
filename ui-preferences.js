@@ -485,9 +485,11 @@
     "lt-too-few": ["Only {k} of {n} lines matched. It may be a different song or a different version, so nothing was added to the timeline.", "只对上了 {k}/{n} 行，可能不是这首歌，或者唱的版本不一样，所以没有放到时间线上。"],
     "lt-no-vocals": ["No singing was heard in this part, so the lyrics can't be lined up. Try another part.", "这段里没听出有人在唱，歌词对不上。换一段试试。"],
     "lt-no-lyrics": ["No lyrics yet. Paste them in, one line per line of the song.", "还没有歌词。把歌词粘贴进来，一行一句。"],
-    // TODO(P8): the sentence for 「需要听写、但引擎不能用」 is P8's, not final yet; this key holds its place until JJ fixes it
+    // DRAFT for JJ (Deja 2026-11-06): 「需要听写、但引擎不能用」. P8's final sentences (#165) cover a missing engine or model only;
+    // this code also covers no editor to run in, so it is a sentence of its own
     "lt-asr-unavailable": ["Transcription can't run on this computer right now, so the lyrics can't be lined up.", "这台电脑现在用不了听写，歌词对不上。"],
-    // the card's two buttons (JJ: 〔放到时间线上〕 / 〔先不用〕; the English is new, pending JJ)
+    // DRAFT for JJ (Deja 2026-11-05): the card's two buttons — JJ gave the Chinese 〔放到时间线上〕 / 〔先不用〕; the English, and
+    // the line after 〔先不用〕, are new
     "lt-place": ["Put on the timeline", "放到时间线上"],
     "lt-not-now": ["Not now", "先不用"],
     "lt-not-placed": ["Not added. Nothing changed.", "没有放，什么都没改。"],

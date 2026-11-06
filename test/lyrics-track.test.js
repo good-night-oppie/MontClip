@@ -209,9 +209,13 @@ test('JJ’s copy, word for word, in both languages; the P8 sentence holds its k
  a.equal(zh('lt-no-lyrics'),'还没有歌词。把歌词粘贴进来，一行一句。');
  a.equal(en('lt-no-lyrics'),'No lyrics yet. Paste them in, one line per line of the song.');
  a.equal(zh('lt-place'),'放到时间线上');a.equal(zh('lt-not-now'),'先不用');
- // TODO(P8): not final — only that the key is there in both languages, and the source says so
+ // not final yet: only that the keys are there in both languages, and the source marks each DRAFT for JJ (team rule:
+ // new streamer-visible words go in as drafts). P8's final sentences (#165) cover only a missing engine or model; this
+ // one also covers no editor to run in, so it waits for JJ (Deja, 2026-11-06)
  a.ok(zh('lt-asr-unavailable')&&en('lt-asr-unavailable'));
- a.match(read('ui-preferences.js'),/TODO\(P8\)[^\n]*\n\s*"lt-asr-unavailable"/);
+ a.match(read('ui-preferences.js'),/\/\/ DRAFT for JJ[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*"lt-asr-unavailable"/);
+ a.match(read('ui-preferences.js'),/\/\/ DRAFT for JJ[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*"lt-place"[^\n]*\n\s*"lt-not-now"[^\n]*\n\s*"lt-not-placed"/);
+ a.ok(!/TODO\(P8\)/.test(read('ui-preferences.js')),'no TODO(P8) placeholder left');
  const keys={OK:'lt-preview',TOO_FEW:'lt-too-few',NO_VOCALS:'lt-no-vocals',NO_LYRICS:'lt-no-lyrics',ASR_UNAVAILABLE:'lt-asr-unavailable'};
  for(const [code,key] of Object.entries(keys))a.equal(T.messageKey({ok:code==='OK',code}),key);
 });
