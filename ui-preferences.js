@@ -91,6 +91,32 @@
     "add-adjust-title": ["Add an adjustment layer (grades everything below it)", "添加调节层（调节它下面的所有画面）"],
     "add-import": ["+ Import", "+ 导入"],
     "add-url": ["+ URL", "+ 网址"],
+    // a file that can't be found (JJ, 2026-11-05, second round). English JJ did not give is a draft (草稿，待 JJ 定稿);
+    // where English already said it (badge, its hover, the slate) it stays as it was.
+    "off-bar-one": ["Can't find “{file}”. It may have been moved or deleted. Your edits are still there; find the file and you can carry on.", "「{file}」找不到了，可能被移走或删掉了。你剪好的都还在，把文件找回来就能接着用。"],
+    "off-find-it": ["Find it…", "找到它…"],
+    "off-bar-many": ["{n} media files can't be found. They may have been moved or deleted. Your edits are still there; find the files and you can carry on.", "有 {n} 个素材找不到了，可能被移走或删掉了。你剪好的都还在，把文件找回来就能接着用。"],   // en: draft
+    "off-find-each": ["Find them one by one…", "一个个找回来…"],   // en: draft
+    "off-badge": ["OFFLINE", "找不到"],
+    "off-badge-title": ["The file is missing — right-click → Relink…", "这个文件找不到了。右键选〔重新链接…〕，把它找回来。"],
+    // the file's name only, never its path: streamers send screenshots, and a full path holds their user name (Deja, 2026-11-05)
+    "off-item-title": ["⚠ Offline: {file} is missing — right-click → Relink…", "这个文件找不到了。右键选〔重新链接…〕，把它找回来。"],
+    "off-filter": ["⚠ Offline ({n})", "⚠ 找不到（{n}）"],
+    "off-clip": ["⚠ Offline · ", "⚠ 找不到 · "],
+    "off-export": ["{n} media files can't be found. In the export those parts will show a “missing” picture with no sound. Find them first, then export.", "有 {n} 个素材找不到了，导出时这几段会显示「找不到」的画面、没有声音。先把它们找回来再导出吧。"],
+    "off-export-one": ["1 media file can't be found. In the export that part will show a “missing” picture with no sound. Find it first, then export.", "有 1 个素材找不到了，导出时这一段会显示「找不到」的画面、没有声音。先把它找回来再导出吧。"],   // n = 1: JJ's final wording (Deja, 2026-11-05)
+    "off-find-first": ["Find them first…", "先找回来…"],   // en: draft
+    "off-export-anyway": ["Export anyway", "照样导出"],   // en: draft
+    "off-other-copy": ["Use the same recording from elsewhere…", "用另一处的同一段录像…"],
+    "off-other-copy-title": ["The same recording saved somewhere else (a backup on another drive, for example). Point to that one; your cuts stay the same.", "同一段录像存在别的地方（比如移动硬盘上的备份），指到那一份，剪辑点都不变。"],
+    "off-replace-title": ["Swap in a different recording; every clip that uses it changes too.", "换成另一段录像，用到它的片段都会跟着换。"],
+    "off-none": ["All your media is here; nothing is missing.", "素材都在，没有找不到的。"],   // en: draft
+    "off-finding-k": ["Looking for “{file}” ({k} of {n})", "正在找：「{file}」（第 {k} 个，共 {n} 个）"],
+    "off-auto-found": ["Found {m} automatically.", "已经自动找回 {m} 个"],   // en: draft
+    "off-slate": ["Media offline", "找不到"],
+    // the bin's two other English lines VV saw (Deja, 2026-11-05; JJ's wording)
+    "bin-drop-root": ["Drop here to move it out of the folder", "拖到这里，移出文件夹"],   // JJ, 2026-11-05
+    "bin-dbl-hint": ["Double-click to preview it, or drag it onto the timeline.", "双击可以先预览，或者直接拖到时间线上。"],   // JJ, 2026-11-05
     // the Transcript tab's sentence button, one language at a time (for JJ to review)
     "tr-sentences": ["Select sentences", "按句选段"],
     // the Save dialog's outcome in the desktop app (VV, 012ba18; for JJ to review)
@@ -960,6 +986,14 @@
     "hl-menu": ["Auto short…", "自动拼短片…"], "hl-title": ["Auto short", "自动拼短片"], "hl-make": ["Make", "拼好"],
     "hl-desc": ["From the selected clips (or the whole timeline, if none is selected), picks the parts with the most movement and the loudest sound and puts them together in a new sequence. The sequence you are in stays as it is.",
       "从选中的片段里（没选就用整条时间线），挑出画面动得多、声音大的几段，拼成一个新序列。原来的序列不动。"],
+    // the export-frame drop-down above the player (app.js EXPORT_FRAME_ASPECTS): JJ定稿 (2026-11-05, via Deja), English
+    // included — no platform names (Reel, IG). ef-full-canvas is the key VV's four (#148, JJ agreed) use for the same words.
+    "ef-9-16": ["9:16 Vertical", "9:16 竖屏"],
+    "ef-16-9": ["16:9 Landscape", "16:9 横屏"],
+    "ef-4-5": ["4:5 Portrait", "4:5 竖图"],
+    "ef-1-1": ["1:1 Square", "1:1 方形"],
+    "ef-custom": ["Custom · {w}×{h}", "自定义 · {w}×{h}"],
+    "ef-title": ["Export frame: the part of the canvas that gets exported.", "导出画面：在画布里框出要导出的那一块。"],
   });
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
   // English by number (JJ, 2026-11-04; MontClipView.tp): 〔加字幕〕, by the captions added, then by the ones replaced. The
