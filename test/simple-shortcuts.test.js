@@ -150,7 +150,7 @@ test("blockedHint reads a written shortcut the way advancedShortcut sees the key
 test("stripBlockedHints drops only the blocked hints from a tooltip", () => {
   const s = View.stripBlockedHints;
   assert.equal(s("Trim clips to IN/OUT (⇧T)"), "Trim clips to IN/OUT");
-  assert.equal(s("裁剪片段到 IN/OUT（⇧T）"), "裁剪片段到 IN/OUT");
+  assert.equal(s("裁剪片段到入点 / 出点（⇧T）"), "裁剪片段到入点 / 出点");
   assert.equal(s("Ripple delete selection (⇧Del) — closes gap on targeted tracks"), "Ripple delete selection — closes gap on targeted tracks");
   assert.equal(s("Ripple edit (B) — drag a clip edge"), "Ripple edit — drag a clip edge");
   assert.equal(s("Click to relink with its audio (select both, Ctrl/Cmd+L)"), "Click to relink with its audio (select both)");
@@ -163,7 +163,7 @@ test("every tooltip of the page, in both languages, keeps no blocked shortcut on
   const fs = require("node:fs"), path = require("node:path"), html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
   const titles = [...html.matchAll(/\stitle="([^"]*)"/g)].map((m) => m[1]);
   for (const m of html.matchAll(/data-i18n-title="([^"]+)"/g)) for (const l of ["en", "zh-CN"]) { const t = View.t(l, m[1]); if (t) titles.push(t); }
-  assert.ok(titles.includes("Trim clips to IN/OUT (⇧T)") && titles.includes("裁剪片段到 IN/OUT（⇧T）"), "btnTrimIO in both languages");
+  assert.ok(titles.includes("Trim clips to IN/OUT (⇧T)") && titles.includes("裁剪片段到入点 / 出点（⇧T）"), "btnTrimIO in both languages");
   const blockedIn = (t) => [...t.matchAll(/[（(]([^()（）]*)[)）]/g)].some((m) => m[1].split(/\s*[,，·]\s*/).some(View.blockedHint));
   assert.ok(titles.filter(blockedIn).length >= 6, "the scan sees the blocked ones");
   for (const t of titles) assert.equal(blockedIn(View.stripBlockedHints(t)), false, t);
@@ -176,9 +176,9 @@ test("syncShortcutTitles: simple strips, advanced restores, a new language's too
   sync("simple"); assert.equal(el.attrs.title, "Trim clips to IN/OUT");
   sync("simple"); assert.equal(el.attrs.title, "Trim clips to IN/OUT", "twice is the same");
   sync("advanced"); assert.equal(el.attrs.title, "Trim clips to IN/OUT (⇧T)", "back in advanced");
-  sync("simple"); el.attrs.title = "裁剪片段到 IN/OUT（⇧T）";   // the language changed: i18n wrote the full Chinese
-  sync("simple"); assert.equal(el.attrs.title, "裁剪片段到 IN/OUT");
-  sync("advanced"); assert.equal(el.attrs.title, "裁剪片段到 IN/OUT（⇧T）");
+  sync("simple"); el.attrs.title = "裁剪片段到入点 / 出点（⇧T）";   // the language changed: i18n wrote the full Chinese
+  sync("simple"); assert.equal(el.attrs.title, "裁剪片段到入点 / 出点");
+  sync("advanced"); assert.equal(el.attrs.title, "裁剪片段到入点 / 出点（⇧T）");
   assert.match(SRC, /MontClipView\.applyI18n\(document, language\);\n[^\n]*\n?\s*syncShortcutTitles\(mode\);|MontClipView\.applyI18n\(document, language\);\s*syncShortcutTitles\(mode\);/, "after the language is applied");
 });
 test("tooltips and menus built later go through the same rule: the clip flags and the clip menu", () => {

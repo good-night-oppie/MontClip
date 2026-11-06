@@ -5,6 +5,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { createStore, allowed: settingsAllowed } = require("./view-settings");
 const { nativeText, languageOf } = require("./native-text");
+const { dataDirInUse, exitedAtStart, startFailureBox } = require("./startup-failure");
 const { transcribeEnabled } = require("./features");
 const { createCloseController } = require("./close-controller");
 const External = require("../external-ffmpeg");
@@ -15,6 +16,8 @@ const smoke = !app.isPackaged && process.argv.includes("--montclip-smoke");
 const faultTest = smoke && (process.argv.includes("--close-crash") ? "crash" : process.argv.includes("--close-timeout") ? "timeout" : null);
 
 app.enableSandbox();
+// Linux: the system keyring for the saved AI key, unless the user chose a --password-store (desktop/password-store.js).
+{ const store = require("./password-store").passwordStoreSwitch(); if (store) app.commandLine.appendSwitch("password-store", store); }
 app.setName("MontClip");
 if (!app.requestSingleInstanceLock()) app.exit(0);
 app.on("second-instance", () => { if (win && !win.isDestroyed()) { win.restore(); win.focus(); } });
@@ -51,16 +54,21 @@ async function start() {
     process.env.MONTCLIP_FFMPEG_DIR = env.MONTCLIP_FFMPEG_DIR;
   }
   flvImports = require("./flv-import").createFlvImports({ mediaDir: path.join(env.FABLECUT_DATA_DIR, "media") });
+  // another MontClip (the one in Cindy) editing this data folder: say so, instead of a service that "stopped"
+  const inUse = dataDirInUse(env.FABLECUT_DATA_DIR, require("../writer-lock").holder);
+  if (inUse) throw inUse;
   worker = utilityProcess.fork(path.join(__dirname, "..", "server.js"), [], { env, stdio: "pipe" });
   worker.once("exit", () => { workerExited = true; });
+  let startErr = "";   // what the server said before it was ready (the last 8 KB): why it stopped, if it does
   worker.stdout?.on("data", (data) => { if (!app.isPackaged) process.stdout.write(data); });
-  worker.stderr?.on("data", (data) => { if (!app.isPackaged) process.stderr.write(data); });
+  worker.stderr?.on("data", (data) => { if (startErr !== null) startErr = (startErr + data).slice(-8192); if (!app.isPackaged) process.stderr.write(data); });
   const origin = await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(Object.assign(new Error("serviceStartTimeout"), { textKey: "serviceStartTimeout" })), 30000);
-    worker.once("exit", () => { clearTimeout(timeout); reject(Object.assign(new Error("serviceExitedAtStart"), { textKey: "serviceExitedAtStart" })); });
+    // stderr may still be arriving when the process is reported gone: read it a moment later
+    worker.once("exit", () => { clearTimeout(timeout); setTimeout(() => reject(exitedAtStart(startErr)), 100); });
     worker.on("message", (msg) => {
       if (msg?.type !== "montclip-ready" || !/^http:\/\/127\.0\.0\.1:\d+$/.test(msg.origin)) return;
-      clearTimeout(timeout); resolve(msg.origin);
+      clearTimeout(timeout); startErr = null; resolve(msg.origin);
     });
   });
   const ses = session.fromPartition("persist:montclip");
@@ -301,17 +309,43 @@ async function start() {
   const AgentService = require('./agent-service');
   // OpenRouter only for tests: development builds, or the main process's own launch switch (never the page)
   const agentService = AgentService.createDiskService(app.getPath('userData'),safeStorage,undefined,{providers:AgentService.testProvidersEnabled({isPackaged:app.isPackaged,argv:process.argv,env:process.env})?AgentService.ALL_PROVIDERS:AgentService.PUBLIC_PROVIDERS});
+  // A private test package's one-time DeepSeek key (desktop/agent-seed.js): sealed into the connection file on the first
+  // launch, then the seed is deleted. Only a packaged app has one (resources/); a development run may name one for its
+  // tests with MONTCLIP_SEED_FILE. The key is never logged; the result is a code.
+  {
+    const AgentSeed = require('./agent-seed');
+    const seedFile = app.isPackaged ? path.join(process.resourcesPath, AgentSeed.SEED_NAME) : (process.env.MONTCLIP_SEED_FILE || null);
+    const seeded = seedFile ? AgentSeed.importSeed({ file: seedFile, service: agentService, encryptionAvailable: () => safeStorage.isEncryptionAvailable() }) : { code: 'NO_SEED' };
+    if (smoke) process.stdout.write('MONTCLIP_SEED ' + JSON.stringify({ code: seeded.code }) + '\n');
+    const say = { NO_ENCRYPTION: 'seedNoEncryption', CONFIG_FAILED: 'seedFailed', VERIFY_FAILED: 'seedFailed', VERIFY_FAILED_NOT_UNDONE: 'seedSealFailed', SEAL_FAILED_LEFTOVER: 'seedSealFailed', SEED_CONFLICT: 'seedConflict', SEED_INVALID: 'seedInvalid', NOT_DELETED: 'seedNotDeleted' }[seeded.code];
+    if (say && !smoke) {
+      const t = nativeText(languageOf(settings.get()));
+      dialog.showMessageBox(win, { type: 'warning', title: say === 'seedConflict' || say === 'seedSealFailed' ? t.seedConflictTitle : t.seedTitle, message: t[say].replace('{file}', seeded.file || ''), buttons: [t.seedOk], defaultId: 0, noLink: true }).catch(() => {});
+    }
+  }
+  // the 「AI 数据说明」 she read before the first request (desktop/agent-data-notice.js): two fixed operations, same guard
+  const dataNotice = require('./agent-data-notice').createStore(app.getPath('userData'));
+  // a development smoke (never the packaged app) has read it, in its own fresh profile, unless it tests the notice itself
+  if (smoke && process.env.MONTCLIP_SMOKE_NOTICE !== 'show') dataNotice.ack(require('./agent-data-notice').NOTICE_VERSION);
+  ipcMain.handle('montclip:agent:noticeGet', (event) => settingsAllowed(event, win, origin) ? dataNotice.get() : { ok: false, code: 'AGENT_FORBIDDEN' });
+  // the 「AI 助手」 switch in 设置 (desktop/agent-switch.js): off, the main process refuses every request
+  const agentSwitch = require('./agent-switch').createStore(app.getPath('userData'));
+  ipcMain.handle('montclip:agent:switchGet', (event) => settingsAllowed(event, win, origin) ? agentSwitch.get() : { ok: false, code: 'AGENT_FORBIDDEN' });
+  ipcMain.handle('montclip:agent:switchSet', (event, enabled) => settingsAllowed(event, win, origin) ? agentSwitch.set(enabled) : { ok: false, code: 'AGENT_FORBIDDEN' });
+  ipcMain.handle('montclip:agent:noticeAck', (event, version) => settingsAllowed(event, win, origin) ? dataNotice.ack(version) : { ok: false, code: 'AGENT_FORBIDDEN' });
   for(const operation of ['get','configure','reset','deleteConnection','send','cancel']) ipcMain.handle('montclip:agent:'+operation,(event,value)=>{
     if(!settingsAllowed(event,win,origin))return {ok:false,code:'AGENT_FORBIDDEN'};
+    // nothing goes out with the assistant switched off, nor to DeepSeek before she has read the 「AI 数据说明」 (QQ via Deja)
+    if(operation==='send'){if(!agentSwitch.get().enabled)return {ok:false,code:'AI_OFF'};if(agentService.get().provider==='deepseek'&&!dataNotice.get().accepted)return {ok:false,code:'NOTICE_REQUIRED'};}
     return agentService[operation](value);
   });
   // The AI's permission modes (P4; QQ's revision 2–4): the mode and the approvals live here, in memory (a restart is
   // back to 手动); risks come from the table in this process; Yolo only after the streamer's yes in this process's box.
-  // External steps in Yolo need the AI service set up (the switch) and one of its fixed addresses (the allowlist).
+  // External steps in Yolo need the AI service set up and 设置 › AI 助手 on (the switch), and one of its fixed addresses (the allowlist).
   const { yoloText } = require('./agent-mode-text');
   const agentPolicy = require('./agent-policy-host').createPolicyHost({
     language: () => languageOf(settings.get()),
-    external: () => ({ enabled: agentService.get().configured === true, allowlist: Object.values(AgentService.ENDPOINTS) }),
+    external: () => ({ enabled: agentSwitch.get().enabled === true && agentService.get().configured === true, allowlist: Object.values(AgentService.ENDPOINTS) }),
     async confirmYolo() {
       const t = yoloText(languageOf(settings.get()));
       const answer = smoke ? { response: process.env.MONTCLIP_SMOKE_YOLO_CONSENT === '1' ? 1 : 0 }
@@ -479,9 +513,7 @@ app.whenReady().then(start).catch(async (error) => {
       // the interface language from view-settings.json (Chinese when it cannot be read); the box is
       // awaited: a message box does not block, and quitting would close it at once
       let t; try { t = nativeText(languageOf(createStore(app.getPath("userData")).get())); } catch { t = nativeText("zh-CN"); }
-      await dialog.showMessageBox({ type: "error", title: t.startFailedTitle,
-        message: `${(error && error.textKey && t[error.textKey]) || String((error && error.message) || error)}\n${t.startFailedHint}`,
-        buttons: [t.ok], noLink: true });
+      await dialog.showMessageBox({ type: "error", ...startFailureBox(error, t), noLink: true });
     }
   } finally {
     // quit even when the box could not be shown
