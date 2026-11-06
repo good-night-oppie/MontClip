@@ -100,6 +100,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     r.afterAllow = external.slice();
     if (!REAL && r.allowed) {
       r.preview = await ev(`(async()=>{await renderStillAt(0.5); const x=els.preview.getContext('2d');return {w:els.preview.width,h:els.preview.height,left:[...x.getImageData(220,180,1,1).data],right:[...x.getImageData(420,180,1,1).data]};})()`);
+      if(process.env.SMOKE_EVIDENCE_DIR){
+        fs.mkdirSync(process.env.SMOKE_EVIDENCE_DIR,{recursive:true});
+        const png=await ev(`els.preview.toDataURL('image/png').split(',')[1]`);
+        fs.writeFileSync(path.join(process.env.SMOKE_EVIDENCE_DIR,'preview.png'),Buffer.from(png,'base64'));
+      }
       r.tabExport = await ev(`fastExport({silent:true,profile:'prores422'})`);
       const src = r.tabExport?.outputs?.[0]?.src;
       if (src) {
@@ -107,6 +112,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         const decoded=spawnSync(process.env.MONTCLIP_FFMPEG || 'ffmpeg',['-v','error','-i',file,'-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','pipe:1'],{maxBuffer:4*1024*1024,windowsHide:true});
         if(decoded.status!==0)throw Error('decode: '+decoded.stderr);
         r.exportPixels={left:[...decoded.stdout.subarray((180*640+220)*3,(180*640+220)*3+3)],right:[...decoded.stdout.subarray((180*640+420)*3,(180*640+420)*3+3)]};
+        if(process.env.SMOKE_EVIDENCE_DIR){
+          const frame=spawnSync(process.env.MONTCLIP_FFMPEG || 'ffmpeg',['-v','error','-i',file,'-frames:v','1','-f','image2pipe','-vcodec','png','pipe:1'],{maxBuffer:4*1024*1024,windowsHide:true});
+          if(frame.status!==0)throw Error('PNG decode: '+frame.stderr);
+          fs.writeFileSync(path.join(process.env.SMOKE_EVIDENCE_DIR,'export.png'),frame.stdout);
+        }
       }
     }
     // A separate page must not inherit the preview page's consent. The server's actual job receipt is the evidence.
@@ -120,6 +130,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     }
     await ev(`(window.__rb = requestBgRemove(), 1)`); await sleep(300);
     r.askedAgain = await ev(`!!document.querySelector("dialog.font-consent-dialog")`);
+    if(process.env.SMOKE_EVIDENCE_DIR)fs.writeFileSync(path.join(process.env.SMOKE_EVIDENCE_DIR,'result.json'),JSON.stringify(r,null,2));
     console.log(JSON.stringify(r, null, 1));
     const host = (u) => new URL(u).hostname;
     const checks = [
