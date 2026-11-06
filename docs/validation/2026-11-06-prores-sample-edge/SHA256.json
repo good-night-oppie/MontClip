@@ -1,0 +1,17 @@
+[
+  {
+    "file": "qq-sample-edge.log",
+    "bytes": 5265,
+    "sha256": "7d7e6909412667396b719d1288c375d3e5bc4a9699edf6091d3e8ae7d68079dc"
+  },
+  {
+    "file": "qq-edge-full.log",
+    "bytes": 406997,
+    "sha256": "0ea4f218cc215b482c8866bdf3345b77023d7f67a962a562b3aa5ef0dec4adac"
+  },
+  {
+    "file": "qq-edge-release.log",
+    "bytes": 3161,
+    "sha256": "36bc89a7effb9eba979b49bfba2c837b835b47731840796104f25902dfdc8926"
+  }
+]
