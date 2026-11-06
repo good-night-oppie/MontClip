@@ -175,6 +175,19 @@ reports the real paths.
 folder — the Windows app and the Cindy plugin pointed at one folder, say —
 refuses to start and names the first. A lock whose process is gone is taken over.
 
+**Embedded in Cindy** (the MontClip-Cindy plugin, see its README) the engine runs
+with `MONTCLIP_HOST=cindy` and a fresh 64-hex `MONTCLIP_EMBED_TOKEN`, bound to
+`127.0.0.1` only (anything else, or desktop mode, refuses to start). It answers
+only requests that carry the token: as `X-MontClip-Session` (the plugin worker, and
+`mcp-server.js` when it runs with the same two variables), or as the
+`montclip_embed` cookie (HttpOnly, `SameSite=None; Secure; Partitioned`), which a
+page load (GET) of any URL with `?token=<token>` receives together with a 302 to the
+same URL without it. Everything else gets 403. Every answer says
+`Referrer-Policy: no-referrer`, and the token is never put in a redirect, a log
+line or an error. A headless export or measurement browser gets a one-time ticket
+(one use, one minute) in its URL instead of the token. Without
+`MONTCLIP_HOST=cindy` none of this applies.
+
 `mcp-server.js` run as a program speaks MCP on stdio; required as a module (the
 Cindy plugin's Node worker does) it only hands over `{TOOLS, callTool,
 ensureUIServer}` and leaves stdin alone.

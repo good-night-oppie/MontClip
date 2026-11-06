@@ -82,9 +82,12 @@ function writeProject(doc) {
    the full document. If the file has moved past it by write time, someone else
    (usually the user, in the editor UI) edited in between — refuse to clobber. */
 let lastReadRevision = null;
+/* Embedded in Cindy the editor server answers only requests that carry its session token (server.js, embed.js). */
+const session = () => process.env.MONTCLIP_HOST === "cindy" && process.env.MONTCLIP_EMBED_TOKEN
+  ? { "X-MontClip-Session": process.env.MONTCLIP_EMBED_TOKEN } : {};
 function httpOk(url) {
   return new Promise((resolve) => {
-    const req = http.get(url, (r) => { r.resume(); resolve(r.statusCode < 500); });
+    const req = http.get(url, { headers: session() }, (r) => { r.resume(); resolve(r.statusCode < 500); });
     req.on("error", () => resolve(false));
     req.setTimeout(1200, () => { req.destroy(); resolve(false); });
   });
@@ -93,7 +96,7 @@ function httpOk(url) {
  *  endpoints that gate on them — /api/frame?path= needs X-FableCut-Client. */
 function apiJSON(method, urlPath, payload, headers) {
   return new Promise((resolve, reject) => {
-    const req = http.request(API + urlPath, { method, headers: { "Content-Type": "application/json", ...headers } }, (r) => {
+    const req = http.request(API + urlPath, { method, headers: { "Content-Type": "application/json", ...session(), ...headers } }, (r) => {
       let data = "";
       r.setEncoding("utf8");
       r.on("data", (d) => { data += d; });
@@ -1221,7 +1224,7 @@ function imageBlockFromDataUrl(url) {
  *  arbitrary files nor probe which ones exist. */
 function apiBytes(urlPath) {
   return new Promise((resolve, reject) => {
-    const req = http.request(API + urlPath, { method: "GET", headers: { "X-FableCut-Client": "mcp" } }, (r) => {
+    const req = http.request(API + urlPath, { method: "GET", headers: { "X-FableCut-Client": "mcp", ...session() } }, (r) => {
       const chunks = [];
       r.on("data", (c) => chunks.push(c));
       r.on("end", () => resolve({ status: r.statusCode, headers: r.headers, body: Buffer.concat(chunks) }));
