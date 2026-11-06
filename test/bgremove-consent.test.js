@@ -102,6 +102,17 @@ test('explicit retry after a failed download succeeds; drawing never retries',as
  a.equal(p.dialog(),undefined);
 });
 
+test('a recreated page has no consent or assets and asks before loading all files again',async()=>{
+ const first=page(); const ready=first.api.requestBgRemove();await tick();first.button('allow').click();
+ a.equal(await ready,true);a.equal(first.external().length,9);
+ const reopened=page();a.equal(reopened.api.bgSeg.consent,false);a.equal(reopened.api.bgSeg.seg,null);
+ await reopened.api.ensureBgSeg();a.equal(reopened.external().length,0);
+ const next=reopened.api.requestBgRemove();await tick();a.ok(reopened.dialog());
+ a.equal(reopened.external().length,0);reopened.button('allow').click();
+ a.equal(await next,true);a.equal(reopened.external().length,9);
+ a.notEqual(reopened.api.bgSeg.seg,first.api.bgSeg.seg);
+});
+
 test('export preflight ignores disabled, hidden and out-of-range clips',()=>{
  for(const c of [{...video,disabled:true},{...video,hidden:true},{...video,start:3},{...video,start:-3}]){
   const p=page({clips:[c]});a.doesNotThrow(()=>p.api.noteExportBgRemove());a.deepEqual(p.external(),[]);
