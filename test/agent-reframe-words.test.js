@@ -67,7 +67,7 @@ test('剪到 1 分钟以内，再改竖屏: the format note sent (substitute tra
  a.ok(note.includes('in English “'+SENT_EN+'”'));
  a.ok(note.includes('This sentence is the only text allowed before a JSON reply.'));
  // the old 「改竖屏这一步我现在做不了」 example and its check are gone
- a.ok(!note.includes('改竖屏这一步我现在做不了'));a.deepEqual([...L.UNSUPPORTED],[]);
+ a.ok(!note.includes('改竖屏这一步我现在做不了'));a.deepEqual(L.unsupported('剪到 1 分钟以内，再改竖屏'),[],'vertical is the assistant\'s own: nothing reported (only 16:9 / 5:4 / 横屏 are, Deja 2026-11-06)');
  // such a reply is still the edit: the sentence is shown above its summary, never read for the edit
  const reply=conv.result().text;
  a.deepEqual(V.parseProposal(reply),edit);a.equal(V.proposalLead(reply),SENT_ZH);

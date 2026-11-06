@@ -1,0 +1,116 @@
+[
+  {
+    "file": "cfr/output-pts.json",
+    "bytes": 306199,
+    "sha256": "f1db82879fb30e61b6fa3306ebf15548286c56d9633852b511241c60b2dcbcaf"
+  },
+  {
+    "file": "cfr/project-preview.png",
+    "bytes": 37359,
+    "sha256": "4e4aa394643d88d1cab4b7113b53be7a30c805d979c2d60bb6c552b69d3ed837"
+  },
+  {
+    "file": "cfr/project.json",
+    "bytes": 5439,
+    "sha256": "caca22d3f356fda2d2fce0e47c80e9f15d36b2a426d9be7683ac5c64ede0257a"
+  },
+  {
+    "file": "cfr/receipt.json",
+    "bytes": 6928,
+    "sha256": "81a6ba695a82f855f58a682d0e1a347b7ac6e80cadfb82961cbce3099a161292"
+  },
+  {
+    "file": "cfr/result-export.json",
+    "bytes": 3901,
+    "sha256": "a334d6c88baee1334841fa7bb4b0adc05142b2c045fd35861ae1c9d3d58d9dee"
+  },
+  {
+    "file": "cfr/result-export.png",
+    "bytes": 95722,
+    "sha256": "8434a9993abab91da03e8eb9654512aa286353ab7847be4de80a29c64e329271"
+  },
+  {
+    "file": "cfr/source-pts.json",
+    "bytes": 295514,
+    "sha256": "acf20a1575afba7042b9e3531f7ad8a0546333aa7dceb75b9630536c45d531d3"
+  },
+  {
+    "file": "qq-filter-green.log",
+    "bytes": 7205,
+    "sha256": "c024f1f0676601408594cc1204bd8260830069bf163938669be59253c6b4fd5b"
+  },
+  {
+    "file": "qq-filter-red.log",
+    "bytes": 10039,
+    "sha256": "64a365092dd5809db6fbd18d9a666861190707c87a71597e2ab60cc3c97619b5",
+    "originalArchive": {
+      "commit": "b2ad3fc65a1b5109f6aaa064c3ccf754c384b63a",
+      "bytes": 10072,
+      "sha256": "5e8cdc43be05784006663d249511dc6241b18f433aee41622cddc3a82704446e",
+      "registeredBytes": 10072,
+      "registeredSha256": "5e8cdc43be05784006663d249511dc6241b18f433aee41622cddc3a82704446e"
+    },
+    "sanitization": {
+      "kind": "user-directory-prefix-only",
+      "placeholder": "%USERPROFILE%",
+      "replacements": 11
+    }
+  },
+  {
+    "file": "qq-full-final.log",
+    "bytes": 400702,
+    "sha256": "c8be3c1acdcb61b088bb609e95f5d3729e50993e3e68e35ae3c0e1c48d986a55",
+    "originalArchive": {
+      "commit": "b2ad3fc65a1b5109f6aaa064c3ccf754c384b63a",
+      "bytes": 400705,
+      "sha256": "58acba0eef895612721573fcf181319760a1f17e7e92e10625f70b2deb058be8",
+      "registeredBytes": 400705,
+      "registeredSha256": "58acba0eef895612721573fcf181319760a1f17e7e92e10625f70b2deb058be8"
+    },
+    "sanitization": {
+      "kind": "user-directory-prefix-only",
+      "placeholder": "%USERPROFILE%",
+      "replacements": 1
+    }
+  },
+  {
+    "file": "qq-release-final.log",
+    "bytes": 3161,
+    "sha256": "36bc89a7effb9eba979b49bfba2c837b835b47731840796104f25902dfdc8926"
+  },
+  {
+    "file": "vfr/output-pts.json",
+    "bytes": 32882,
+    "sha256": "581ad5879b26eada8cb3e9b3a6a097ef29b890011039eb36d0ba8f8f1cfc23d9"
+  },
+  {
+    "file": "vfr/project-preview.png",
+    "bytes": 37709,
+    "sha256": "f95fb797bd952480c5195fdfd320a0a8395c6e6dcbe19e28f38884a7bf50e034"
+  },
+  {
+    "file": "vfr/project.json",
+    "bytes": 5486,
+    "sha256": "95964718650ba73870424517d8338d83abd19f26a4f4ca356e4f5e72f5fb78e4"
+  },
+  {
+    "file": "vfr/receipt.json",
+    "bytes": 7048,
+    "sha256": "1ef6984aad63a9ddbc12f270a7b5e0916bdd73051df82c457232575dbe726b74"
+  },
+  {
+    "file": "vfr/result-export.json",
+    "bytes": 3905,
+    "sha256": "888d0a83b536ad2bc7cbc6e80f3dd31096715bd6714121e0db5641cbd8960f40"
+  },
+  {
+    "file": "vfr/result-export.png",
+    "bytes": 98731,
+    "sha256": "055780130f85599b4e1d0a8c9b156a2e902019e37fa6f1bb7c06eb052c216b2f"
+  },
+  {
+    "file": "vfr/source-pts.json",
+    "bytes": 251988,
+    "sha256": "b593d6bb40f5c7f0dac44d0648331458cceec149be7a3742ae1b3644684b28d6"
+  }
+]

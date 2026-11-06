@@ -17,9 +17,12 @@ function dropdown(lang){
  const app=read('app.js');
  const slice=(from,to)=>{const i=app.indexOf(from);a.ok(i>=0,from);return app.slice(i,app.indexOf(to,i));};
  const src=slice('const EXPORT_FRAME_ASPECTS = [','const WAVE_PEAKS_PER_SEC')+slice('function syncExportFrameSel()','function applyProject(');
- const attrs={},sel={title:'',innerHTML:'',setAttribute:(k,v)=>{attrs[k]=String(v);},getAttribute:(k)=>attrs[k]??null};
- new Function('els','getExportFrame','exportFrameAspectIndex','uiText','escapeHtml',src+';syncExportFrameSel();')({exportFrameSel:sel},()=>null,()=>-1,(k,v)=>View.t(lang,k,v),(x)=>String(x));
- return sel;
+ const attrs={},sel={title:'',innerHTML:'',setAttribute:(k,v)=>{attrs[k]=String(v);},getAttribute:(k)=>attrs[k]??null,
+  optionText:(v)=>{const m=new RegExp('<option value="'+v+'"[^>]*>([^<]*)</option>').exec(sel.innerHTML);return m?m[1]:null;},
+  querySelector:(q)=>{const m=/^option\[value="([^"]+)"\]$/.exec(q),t=m&&sel.optionText(m[1]);return t==null?null:{textContent:t};}};
+ const run=new Function('els','getExportFrame','exportFrameAspectIndex','uiText','escapeHtml',src+';syncExportFrameSel();return exportFrameNames();');
+ const names=run({exportFrameSel:sel},()=>null,()=>-1,(k,v)=>View.t(lang,k,v),(x)=>String(x));
+ return {sel,names};
 }
 const ranges=(r,mode='one_file',d=doc())=>P.prepare({type:'keep_ranges',output_mode:mode,ranges:r.map(([from,to])=>({clipId:'c',from,to}))},{doc:d,context:ctx});
 
@@ -71,17 +74,19 @@ test('the pane shows no 〔查看剪辑建议〕 for an unchanged proposal and s
 
 // Deja (2026-11-05): with the assistant's own reframe (test/agent-reframe.test.js) the 「改竖屏」 sentence and the check that
 // showed it are gone together. The mechanism stays, with nothing in its list: no message gets a host sentence now.
-test('nothing is reported as missing: the vertical check and its sentence are gone; the assistant can reframe',()=>{
+test('the assistant makes 9:16, 1:1 and 4:5 itself: those are not reported; a message that asks only for 16:9, 5:4 or 横屏 is',()=>{
  a.ok(Cap.get('fablecut_reframe'),'MCP has it');
  a.deepEqual([...L.ASSISTANT],['keep_sentences','keep_ranges','reframe']);
- a.deepEqual([...L.UNSUPPORTED],[]);
- for(const t of ['剪到 1 分钟以内，发快手和 B 站竖屏','改成竖版视频','做个 9:16 的','make it vertical','Reframe for Shorts','把 1:15 到 2:30 留下'])
-  {a.deepEqual(L.unsupported(t),[],t);a.deepEqual(L.unsupported(t,['keep_ranges']),[],t);a.equal(L.note(t,{limitReframe:'x'}),'',t);}
- for(const l of ['zh-CN','en'])a.equal(View.text[l].officialPane_limitReframe,undefined,l);
- const app=read('app.js'),pane=read('agent-ui/pane.tsx');
- a.ok(!/exportFrameNames|limitNames/.test(app),'app.js no longer reads names for it');
- a.ok(!/limitNames/.test(pane));
- a.ok(!/limitReframe/.test(read('agent-limits.js')+read('ui-preferences.js')));
+ a.deepEqual([...L.MADE],Object.keys(P.ASPECTS),'the shapes it makes are chat-proposal.js ASPECTS');
+ for(const t of ['剪到 1 分钟以内，发快手和 B 站竖屏','改成竖版视频','做个 9:16 的','make it vertical','Reframe for Shorts','把 1:15 到 2:30 留下',
+                 '改成 1:1','4:5 发小红书','把 16:9 改成 9:16','横屏转竖屏','16:9 和 9:16 各一版','landscape to portrait'])
+  {a.deepEqual(L.unsupported(t),[],t);a.equal(L.note(t,{limitReframeAspect:'x',limitReframeAny:'y'}),'',t);}
+ for(const t of ['改成 16:9','做个 16比9 的','5:4','改成横屏','make it landscape','16：9 横版'])
+  a.deepEqual(L.unsupported(t).map(u=>u.id),['reframe-aspect'],t);
+ // the vertical sentence of #172 stays gone; the manual way for another shape is #172's JJ定稿 (2026-11-06), unchanged
+ for(const l of ['zh-CN','en']){a.equal(View.text[l].officialPane_limitReframe,undefined,l);
+  for(const k of ['limitReframeAspect','limitReframeAny'])a.ok(/\{dropdown\}/.test(View.text[l]['officialPane_'+k]),l+' '+k);}
+ a.match(read('app.js'),/limitNames:\(\)=>exportFrameNames\(\),/,'app.js gives the pane the drop-down names');
 });
 
 test('a mixed message, with a substitute transport: the format note sent carries the rules; no host sentence is added',async()=>{
@@ -108,7 +113,7 @@ test('a mixed message, with a substitute transport: the format note sent carries
  a.ok(!/我/.test(View.text['zh-CN'].officialPane_noChange),'fixed words: no 我');
  // the pane keeps the place for a host sentence, for something missing later
  const pane=read('agent-ui/pane.tsx');
- a.match(pane,/const limit=m\.role==='assistant'\?W\.MontClipLimits\?\.note\(MontClipAgentPane\.displayMessage\(session\.messages\[i-1\]\?\.text\|\|''\)\.text,t\):'';/);
+ a.match(pane,/const limit=m\.role==='assistant'\?W\.MontClipLimits\?\.note\(MontClipAgentPane\.displayMessage\(session\.messages\[i-1\]\?\.text\|\|''\)\.text,t,options\.limitNames\?\.\(\)\|\|\{\}\):'';/);
  a.match(pane,/<strong>\{m\.role==='user'\?t\.user:t\.assistant\}<\/strong>\{limit&&<p data-host-limit>\{limit\}<\/p>\}\{soundNote&&<p data-sound-off>\{soundNote\}<\/p>\}<ThinkingText content=\{shown\.text\}\/>/);
  a.match(read('cindy-official.js'),/data-host-limit/);
  a.match(read('index.html'),/<script src="agent-limits\.js"><\/script>/);
@@ -116,7 +121,7 @@ test('a mixed message, with a substitute transport: the format note sent carries
 
 test('the export-frame drop-down keeps its label (aria-label, JJ定稿), set with the options',()=>{
  for(const lang of ['zh-CN','en']){
-  const sel=dropdown(lang);
+  const {sel}=dropdown(lang);
   a.equal(sel.getAttribute('aria-label'),View.text[lang]['own.ef-label']);
  }
  a.equal(View.text['zh-CN']['own.ef-label'],'导出画面');a.equal(View.text.en['own.ef-label'],'Export frame');
@@ -125,4 +130,42 @@ test('the export-frame drop-down keeps its label (aria-label, JJ定稿), set wit
  a.match(refresh,/syncExportFrameSel\(\);/,'a language switch rebuilds it');
  // the format note names no option words (no Reel / IG, JJ 2026-11-05)
  a.ok(!/Reel|“Full canvas”/.test(F.FORMAT_NOTE));
+});
+
+// QQ (review of #172 at 663bdf8e): times are not aspect ratios. Only 9:16 16:9 1:1 4:5 5:4 count (with : ： or 比), and never as
+// part of a longer number or time. The same 27 cases as #172, read through shapes() now that 9:16 / 1:1 / 4:5 are the assistant's.
+test('a time is not an aspect ratio: only 9:16 16:9 1:1 4:5 5:4 count, never inside a longer number or time',()=>{
+ for(const t of ['把 4:16 到 5:30 剪掉','从 05:16 开始','删掉 11:16 那句','19:16','9:160','1:1:1','剪掉 01:16','保留 2:16 到 3:45','1:10 那里','16:90','14:50 之后'])
+  {a.deepEqual(L.shapes(t),[],t);a.deepEqual(L.unsupported(t),[],t);}
+ for(const [t,r] of [['做个 9:16 的','9:16'],['16:9 横版','16:9'],['改成 1:1','1:1'],['4:5 发小红书','4:5'],['5:4','5:4'],
+                     ['9：16','9:16'],['16比9','16:9'],['1 : 1','1:1'],['4 比 5','4:5'],['(9:16)','9:16'],['ratio 5:4, please','5:4']])
+  a.deepEqual(L.shapes(t),[r],t);
+ const strings={limitReframeAspect:'aspect: {option}',limitReframeAny:'choose in {dropdown}'};
+ const names={dropdown:'Export frame',option:'Vertical',options:{'9:16':'Vertical','16:9':'Landscape','1:1':'Square','4:5':'Portrait'}};
+ for(const [t,o] of [['4:5 发小红书',''],['16比9','aspect: Landscape'],['5:4','choose in Export frame'],['从 05:16 开始改成 1:1',''],['把 4:16 到 5:30 剪掉，再改竖屏','']])
+  a.equal(L.note(t,strings,names),o,t);
+});
+
+test('the manual way names what the drop-down shows: its label and the 16:9 option, read from it; 5:4, not in it, gets the label only',()=>{
+ for(const lang of ['zh-CN','en']){
+  const {sel,names}=dropdown(lang),T=k=>View.text[lang]['officialPane_'+k];
+  a.equal(names.dropdown,View.text[lang]['own.ef-label']);a.equal(names.dropdown,sel.getAttribute('aria-label'));
+  a.equal(names.options['16:9'],sel.optionText('2'),'the 16:9 option as rendered');
+  const strings={limitReframeAspect:T('limitReframeAspect'),limitReframeAny:T('limitReframeAny')};
+  a.equal(L.note('改成 16:9',strings,names),T('limitReframeAspect').replace('{dropdown}',names.dropdown).replace('{option}',names.options['16:9']));
+  a.equal(L.note('改成 5:4',strings,names),T('limitReframeAny').replace('{dropdown}',names.dropdown));
+  a.ok(!/\{\w+\}/.test(L.note('改成 16:9',strings,names)),'no placeholder left');
+ }
+});
+
+// Deja (2026-11-06): 「改成 9:16」 gets the reframe proposal, asked first; 「把 4:16 到 5:30 剪掉」 is a cut, never a reframe.
+test('「改成 9:16」: no host sentence, the reframe reply is accepted and asked first; 「把 4:16 到 5:30 剪掉」 does not touch reframe',()=>{
+ const Policy=require('../agent-policy');
+ a.equal(L.note('改成 9:16',{limitReframeAspect:'x',limitReframeAny:'y'}),'');
+ const d={fps:30,width:1920,height:1080,media:[{id:'m',kind:'video',duration:60,width:1920,height:1080}],clips:[{id:'c',kind:'video',mediaId:'m',track:'V1',start:0,in:0,duration:30,props:{}}]};
+ const p=P.prepare({type:'reframe',aspect:'9:16'},{doc:d,context:ctx});
+ a.equal(p.type,'reframe');a.equal(p.aspect,'9:16');a.equal(p.unchanged,false);
+ for(const mode of ['manual','auto','yolo'])a.equal(Policy.decide({mode,capability:'reframe',language:'zh-CN'}).action,'ask',mode);
+ const cut='把 4:16 到 5:30 剪掉';
+ a.deepEqual(L.shapes(cut),[]);a.deepEqual(L.unsupported(cut),[]);a.equal(L.note(cut,{limitReframeAspect:'x',limitReframeAny:'y'}),'');
 });
