@@ -18,6 +18,7 @@ const FF = require("./ffmpeg-path");
 const Stats = require("./frame-stats");
 const Beats = require("./beats");
 const Delivery = require("./delivery");
+const MediaProbe = require("./media-probe");
 
 const SR = 22050;      // analysis sample rate
 const HOP = 512;       // onset-envelope hop size (~23 ms)
@@ -39,13 +40,31 @@ function run(cmd, args, { binary = false } = {}) {
 }
 
 /* ── ffprobe: container + stream facts ── */
+/* Rea (#152): kept per file version (path, size, modification time), so a truncated recording's packets are read
+   once, not on every fablecut_frame. */
+const probeCache = new Map();
 async function probe(file) {
+  let key = null;
+  try { const st = fs.statSync(file); key = `${st.size}:${st.mtimeMs}`; } catch { /* read it; ffprobe says why */ }
+  const hit = key && probeCache.get(file);
+  if (hit && hit.key === key) return { ...(await hit.info) };
+  const info = probeNow(file);
+  if (key) {
+    if (probeCache.size >= 500) probeCache.delete(probeCache.keys().next().value);
+    probeCache.set(file, { key, info });
+    info.catch(() => { if (probeCache.get(file)?.info === info) probeCache.delete(file); });   // a failure is not kept
+  }
+  return { ...(await info) };
+}
+async function probeNow(file) {
   const r = await run(FF.path("ffprobe"), ["-v", "error", "-show_streams", "-show_format", "-of", "json", file]);
   if (r.code !== 0) throw new Error("ffprobe failed: " + r.stderr.slice(-400));
   const info = JSON.parse(r.stdout);
   const v = (info.streams || []).find((s) => s.codec_type === "video");
   const a = (info.streams || []).find((s) => s.codec_type === "audio");
-  const dur = parseFloat(info.format?.duration || v?.duration || a?.duration || 0);
+  let dur = parseFloat(info.format?.duration || v?.duration || a?.duration || 0);
+  // a recording stopped mid-way may say its length nowhere: then from its packets, as the media probe does (europa P3)
+  if (!(dur > 0) && (v || a)) dur = await MediaProbe.packetDuration(file, Number(info.format?.size) || 0);
   let fps = 0;
   if (v?.avg_frame_rate && v.avg_frame_rate !== "0/0") {
     const [n, d] = v.avg_frame_rate.split("/").map(Number);
@@ -176,6 +195,7 @@ async function frame(file, { t = 0, width = 768, quality, stats = true } = {}) {
      wrong picture. Refuse instead of lying about where this is. */
   const info = await probe(file);
   if (!info.hasVideo) throw new Error("the file has no video track — there is no frame to look at");
+  if (!(info.duration > 0)) throw new Error("nothing in this file says how long it is, not even its packets' times — it can't be looked at or cut until it is repaired");
   if (at >= info.duration) throw new Error(`t=${at} is past the end of the clip (${info.duration}s)`);
   const pre = ["-ss", String(at)]; // seek to the keyframe before t, decode forward
   const jpeg = await jpegOut(file, pre, `scale=${w}:-2:flags=bilinear`, q);
