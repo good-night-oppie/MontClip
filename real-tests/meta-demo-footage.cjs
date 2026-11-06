@@ -12,26 +12,24 @@ const electron=require('electron'),{app,BrowserWindow}=electron,assert=require('
 if(!process.argv.includes('--montclip-smoke')||process.env.MONTCLIP_REAL_MODELS!=='1')throw Error('Explicit run with MONTCLIP_REAL_MODELS=1 required');
 const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
 if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
-const profile=profileArg.slice('--user-data-dir='.length).trim();
-const out=process.env.MONTCLIP_FOOTAGE_OUT;if(!out)throw Error('MONTCLIP_FOOTAGE_OUT required');
+const requestedProfile=profileArg.slice('--user-data-dir='.length).trim();
+const requestedOut=process.env.MONTCLIP_FOOTAGE_OUT;if(!requestedOut)throw Error('MONTCLIP_FOOTAGE_OUT required');
+const managed=require('./footage-profile.cjs').prepare(requestedProfile,requestedOut);
+const {profile,out}=managed;
+managed.bind(app,require('../desktop/agent-service'));
+// Also covers orderly exits outside the recording handler. SIGKILL/power loss cannot run cleanup.
+app.on('will-quit',()=>{if(!managed.cleanup().ok){process.stdout.write('FOOTAGE_FAILED: CREDENTIAL_CLEANUP_FAILED\n');app.exit(1);}});
 const found=require('./meta-key-file.cjs').readKey();if(!found.key){process.stdout.write('FOOTAGE SKIPPED: KEY_UNAVAILABLE; check the key file owner and permissions on Linux.\n');process.exit(2);}
 const KEY=found.key,hide=s=>String(s).split(KEY).join('<key>');
 const log=(k,v)=>process.stdout.write(k+' '+hide(JSON.stringify(v))+'\n');
 const SECONDS=10,FFMPEG=process.env.MONTCLIP_FOOTAGE_FFMPEG||'ffmpeg';
-// Output must be new, including dangling links. Electron may create an empty profile before loading this script.
-function requireNew(dir){try{fs.lstatSync(dir);}catch(e){if(e.code==='ENOENT')return;throw Error('DIRECTORY_CHECK_FAILED');}throw Error('FRESH_DIRECTORY_REQUIRED');}
-let profileExists=false;
-try{const st=fs.lstatSync(profile);profileExists=true;if(st.isSymbolicLink()||!st.isDirectory()||fs.readdirSync(profile).length)throw Error('FRESH_PROFILE_REQUIRED');}
-catch(e){if(e.code!=='ENOENT')throw Error('FRESH_PROFILE_REQUIRED');}
-requireNew(out);
-try{if(!profileExists)fs.mkdirSync(profile);fs.mkdirSync(out);}catch{throw Error('DIRECTORY_CREATE_FAILED');}
 function makeSource(file){
  const r=cp.spawnSync(FFMPEG,['-hide_banner','-nostdin','-loglevel','error','-y','-f','lavfi','-i',`testsrc2=size=640x360:rate=30:duration=${SECONDS}`,'-f','lavfi','-i',`sine=frequency=440:sample_rate=48000:duration=${SECONDS}`,
   '-map','0:v','-map','1:a','-c:v','libvpx-vp9','-b:v','0','-crf','34','-deadline','good','-cpu-used','5','-pix_fmt','yuv420p','-c:a','aac','-b:a','128k','-ac','2','-movflags','+faststart',file],{windowsHide:true});
  if(r.status!==0)throw Error('SOURCE_FAILED');
 }
 const original=BrowserWindow.prototype.loadURL;
-BrowserWindow.prototype.loadURL=async function(...args){await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=(ms=200)=>new Promise(r=>setTimeout(r,ms));
+BrowserWindow.prototype.loadURL=async function(...args){const win=this,read=s=>win.webContents.executeJavaScript(s),wait=(ms=200)=>new Promise(r=>setTimeout(r,ms));
  const result={language:'en',takes:{},steps:[]};const step=(name,data)=>{result.steps.push({name,...data});log('FOOTAGE_STEP',{name,...data});};
  // the recorder: frames with their times, one take at a time; never a frame while the settings are open
  let take=null;const takes={};
@@ -57,6 +55,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
  const still=async name=>fs.writeFileSync(path.join(out,name+'.png'),(await win.webContents.capturePage()).toPNG());
  const videoClips='JSON.stringify(project.clips.filter(c=>c.kind==="video").map(c=>[c.start,c.in,c.duration]))';
  try{
+  await original.apply(this,args);
   await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
   win.setContentSize(1280,800);await wait(500);
   await read(`updateMontClipView({language:'en'});setSideTab('assistant');mcAgent.render();true`);await wait(400);
@@ -109,6 +108,9 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   assert.ok(result.takes.A?.ok&&result.takes.B?.ok,'ENCODE_FAILED');result.passed=true;
  }catch(e){const code=String(e&&e.message||e);result.failed=/^(SOURCE_FAILED|NO_FRAMES|ENCODE_FAILED|PUBLISH_FAILED)$/.test(code)?code:'RECORDING_FAILED';if(take)await stopTake().catch(()=>{});}
  finally{clearInterval(tick);
+  result.cleanup=managed.cleanup();
+  if(!result.cleanup.ok){result.recordingFailed=result.failed||null;result.passed=false;result.failed='CREDENTIAL_CLEANUP_FAILED';}
+  try{
   const text=hide(JSON.stringify(result,null,1));fs.writeFileSync(path.join(out,'footage-result.json'),text+'\n');
   const lines=['# Demo footage — MontClip × Muse Spark (English interface)','','Recorded '+new Date().toISOString()+' on europa (Linux), the real MontClip desktop app in a hidden window, frames from Electron capturePage, model muse-spark-1.1 via api.meta.ai. Synthetic material only; no key in any frame (nothing is recorded while the settings are open).','',
    '`00-settings-meta-before-key.png` — the AI service settings with Meta (Muse Spark) · api.meta.ai chosen and muse-spark-1.1 filled in, before any key is typed.',''];
@@ -116,7 +118,8 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   lines.push('Result: '+(result.passed?'both takes passed (cut as asked, one undo step, undone)':'FAILED: '+result.failed)+'. Details: `footage-result.json`.');
   fs.writeFileSync(path.join(out,'shotlist.md'),hide(lines.join('\n'))+'\n');
   log('FOOTAGE_DONE',{passed:!!result.passed,failed:result.failed||null,takes:Object.fromEntries(Object.entries(result.takes).map(([k,v])=>[k,{ok:v.ok,seconds:v.seconds}]))});
-  setTimeout(()=>app.exit(result.passed?0:1),300);}
+  }catch{result.passed=false;process.stdout.write('FOOTAGE_FAILED: REPORT_WRITE_FAILED\n');}
+  finally{setTimeout(()=>app.exit(result.passed?0:1),300);}}
 };
 {const Module=require('node:module'),load=Module._load;Module._load=function(id,...args){if(id==='electron'){Module._load=load;return{...electron,BrowserWindow:class extends BrowserWindow{constructor(o){super({...o,show:false,webPreferences:{...o.webPreferences,offscreen:true,backgroundThrottling:false}});}}};}return load.call(this,id,...args);};}
 require('../desktop/main');
