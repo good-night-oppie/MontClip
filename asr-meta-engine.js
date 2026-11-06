@@ -19,6 +19,11 @@ const path = require("node:path");
 const childProcess = require("node:child_process");
 const { manifest } = require("./asr-models");
 
+// what the child gets of the server's environment: everything but the session token and any key, token, secret or
+// password — Meta's process needs none of them (QQ, review of 7e933bfb)
+const SECRET = /^MONTCLIP_SESSION_TOKEN$|_(?:KEY|TOKEN|SECRET|PASSWORD)$/i;
+const childEnv = (env) => { const out = {}; for (const [k, v] of Object.entries(env)) if (!SECRET.test(k)) out[k] = v; out.ELECTRON_RUN_AS_NODE = "1"; return out; };
+
 const err = (code, message, extra) => Object.assign(new Error(message), { code }, extra);
 
 function createMetaEngine({ asrDir, modelsDir, ffmpeg, cacheDir, threads = 4, fork = childProcess.fork, freeMem = os.freemem, runner = path.join(__dirname, "asr-meta-run.js") } = {}) {
@@ -34,7 +39,7 @@ function createMetaEngine({ asrDir, modelsDir, ffmpeg, cacheDir, threads = 4, fo
     return new Promise((resolve, reject) => {
       let settled = false, tail = "";
       // in the desktop app this server is Electron's utilityProcess: the child is the same binary run as plain Node
-      const child = fork(runner, [], { execPath: process.execPath, env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" }, stdio: ["ignore", "ignore", "pipe", "ipc"], windowsHide: true });
+      const child = fork(runner, [], { execPath: process.execPath, env: childEnv(process.env), stdio: ["ignore", "ignore", "pipe", "ipc"], windowsHide: true });
       live.add(child);
       if (child.stderr) child.stderr.on("data", (c) => { tail = (tail + c).slice(-2000); });
       const settle = (fn, v) => { if (settled) return; settled = true; if (signal) signal.removeEventListener("abort", onAbort); fn(v); };

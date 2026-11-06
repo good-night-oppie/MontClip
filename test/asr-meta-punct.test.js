@@ -26,4 +26,3 @@ test('Meta\'s English gets no 「。」: the Chinese punctuation model runs only
   a.equal(L.mostlyChinese([['ok', 0, 1], ['对', 1, 2], ['我', 2, 3]]), true, 'half Chinese (2 of 4 characters) counts as Chinese');
   a.equal(L.mostlyChinese([['bonjour', 0, 1], ['对', 1, 2]]), false);
 });
-

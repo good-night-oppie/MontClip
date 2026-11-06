@@ -149,3 +149,19 @@ test('real Meta model: English through the child process, no 「。」; killed m
   const para = await L.createAsr({ asrDir: VENDOR, modelsDir: path.join(VENDOR, 'models'), ffmpeg: ffmpeg(), cacheDir: cache }).transcribe(speech, {});
   a.equal(para.status, 'complete'); a.ok(para.words.length > 5);
 });
+
+// QQ A (review of 7e933bfb): the Meta process gets no session token and no *_KEY / *_TOKEN / *_SECRET / *_PASSWORD from
+// the server's environment — it needs none of them. The child itself reports what it sees.
+test('Meta\'s process does not inherit the session token or any key / token / secret / password variable', async (t) => {
+  const S = setup(t);
+  const names = ['MONTCLIP_SESSION_TOKEN', 'MC_TEST_API_KEY', 'mc_test_lower_token', 'MC_TEST_SECRET', 'MC_TEST_PASSWORD'];
+  for (const n of names) process.env[n] = 'synthetic-' + n;
+  t.after(() => { for (const n of names) delete process.env[n]; });
+  const runner = S.runner('process.once("message", () => process.send({ t: "error", code: "MC_ENV", message: JSON.stringify(Object.keys(process.env)) }, () => process.disconnect()));');
+  const seen = await S.meta({ runner }).transcribe(S.file, {}).then(() => null, (e) => (e.code === 'MC_ENV' ? JSON.parse(e.message) : e));
+  a.ok(Array.isArray(seen), 'the child reported its environment');
+  const lower = seen.map((k) => k.toLowerCase());
+  for (const n of names) a.ok(!lower.includes(n.toLowerCase()), n + ' reached Meta\'s process');
+  a.ok(seen.includes('ELECTRON_RUN_AS_NODE'), 'still runs as plain Node');
+  a.ok(lower.includes('path'), 'the rest of the environment is passed on');
+});
