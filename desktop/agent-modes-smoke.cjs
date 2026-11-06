@@ -39,7 +39,9 @@ BrowserWindow.prototype.loadURL=async function(...args){
  let ok=false;const report={};
  try{
   await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
-  await read(`(async()=>{if(!await flushSaveBeforeSwitch())throw Error('SAVE');await pjPost({action:'new',name:'权限模式 smoke',open:true});if(!await syncFromServer(true))throw Error('CREATE');})()`);await wait();
+  // a reload started by the server's own change event can overtake this one (it then answers nothing): wait until the new
+  // project is the open one instead of trusting that one answer
+  await read(`(async()=>{if(!await flushSaveBeforeSwitch())throw Error('SAVE');const made=await pjPost({action:'new',name:'权限模式 smoke',open:true});if(!made||!made.id)throw Error('CREATE');for(let i=0;i<50&&runtime.projectId!==made.id;i++){await syncFromServer(true);await new Promise(r=>setTimeout(r,100));}if(runtime.projectId!==made.id)throw Error('CREATE');})()`);await wait();
   await read(`(async()=>{const doc=projectJSON();Object.assign(doc,{media:[{id:'m1',src:'/media/none.mp4',kind:'video',name:'合成.mp4',duration:120}],clips:[{id:'v1',kind:'video',mediaId:'m1',track:'V1',start:0,in:0,duration:120,props:{volume:0}}]});applyProject(doc);scheduleSave();if(!await flushSave())throw Error('SAVE');})()`);
   await read(`updateMontClipView({language:'zh-CN'});setSideTab('assistant');mcAgent.render();true`);await wait();
   assert.equal((await read(`montclipAgentService.configure({provider:'openrouter',model:'synthetic-model',apiKey:'synthetic-test-key-not-real'})`)).configured,true);
@@ -50,6 +52,8 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.equal(start.mode,'manual');assert.deepEqual(start.buttons,[['计划','false'],['手动','true'],['自动','false'],['Yolo','false']]);
   assert.ok(start.first,'the switch is above the thread');assert.equal(start.yoloMark,false);assert.equal(start.yoloPane,false);
   const clips=()=>read(`project.clips.filter(c=>c.kind==='video').map(c=>c.duration).join(',')`);
+  // an edit made without asking lands a moment after the reply: wait for it (up to 6 s) rather than look once
+  const changedFrom=async(from)=>{let now=await clips();for(let i=0;i<30&&now===from;i++){await wait(200);now=await clips();}return now;};
   // one chat turn: draft → the review box → 发送 → the mock reply → whatever the host decides
   const turn=async(text)=>{
    await read(`(()=>{const e=document.querySelector('[data-cindy-draft]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,${JSON.stringify(text)});e.dispatchEvent(new Event('input',{bubbles:true}));})()`);await wait();
@@ -104,7 +108,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await read(`flushSave()`);await wait();
   await turn('再剪 5 秒');
   assert.equal(await box(),null,'same chat, same capability, same project: not asked again');
-  const s2=await clips();assert.notEqual(s2,s1,'applied without asking');
+  const s2=await changedFrom(s1);assert.notEqual(s2,s1,'applied without asking');
   report.session={durations:[s0,s1,s2]};
   // 6. a new chat asks again
   await read(`flushSave()`);await wait();
@@ -121,7 +125,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await read(`flushSave()`);await wait();
   const a0=await clips();await turn('剪掉最后 5 秒');
   assert.equal(await box(),null,'自动 does not ask for an undoable step');
-  const a1=await clips();assert.notEqual(a1,a0);
+  const a1=await changedFrom(a0);assert.notEqual(a1,a0);
   const t=await read(`(()=>{const t=document.getElementById('toast');return{text:t.querySelector('span')?.textContent,button:t.querySelector('.toast-action')?.textContent};})()`);
   report.auto={toast:t};assert.match(t.text,/没有问你（自动模式）/);assert.equal(t.button,'撤销');
   await read(`document.getElementById('toast').querySelector('.toast-action').click();true`);await wait();
@@ -138,7 +142,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.yolo=y;assert.equal(y.mode,'yolo');assert.equal(y.mark,true);assert.equal(y.markText,'Yolo 开着');assert.match(y.pane,/^Yolo 开着/);
   await read(`flushSave()`);await wait();
   const y0=await clips();await turn('剪掉最后 5 秒');
-  assert.equal(await box(),null);assert.notEqual(await clips(),y0,'Yolo: applied without asking');
+  assert.equal(await box(),null);assert.notEqual(await changedFrom(y0),y0,'Yolo: applied without asking');
   report.requests=requests;report.transport='mock-test-only';
   ok=true;
  }catch(e){report.error=String(e&&e.stack||e).slice(0,1500);}

@@ -1,4 +1,4 @@
-/* FableCut site. Plain script, no build, no dependencies. */
+/* MontClip site. Plain script, no build, no dependencies. */
 (function () {
   "use strict";
 
@@ -228,7 +228,7 @@
         if (!j || !j.tag_name) return;
         out.tag = j.tag_name;
         out.url = j.html_url;
-        // "FableCut v1.9.0 — targeting & locks, ..." keeps only what is new
+        // "MontClip v1.9.0 — targeting & locks, ..." keeps only what is new
         var parts = String(j.name || "").split(/\s[—–-]\s/);
         var s = parts.length > 1 ? parts.slice(1).join(", ") : "";
         out.summary = s ? s.charAt(0).toUpperCase() + s.slice(1) : "Read the release notes";

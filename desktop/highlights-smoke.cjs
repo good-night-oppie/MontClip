@@ -30,7 +30,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   await read(`(async()=>{for(let i=0;i<200&&!runtime.projectId;i++)await new Promise(r=>setTimeout(r,50));const doc=projectJSON();
    Object.assign(doc,{media:[{id:'snd',src:${JSON.stringify(src)},kind:'audio',name:'合成 高光.wav',duration:30}],
     clips:[{id:'a',kind:'audio',mediaId:'snd',track:'A1',start:0,in:0,duration:30,props:{volume:1}},
-     ...[[0,8,'平静的开场白'],[10,18,'这里突然喊起来了'],[20,28,'又安静下来']].map(([f,t,text],i)=>FableCutCaptions.clip({start:f,end:t,text},{id:'s'+i,track:'V2',width:1280,height:720}))]});
+     ...[[0,8,'平静的开场白'],[10,18,'这里突然喊起来了'],[20,28,'又安静下来']].map(([f,t,text],i)=>MontClipCaptions.clip({start:f,end:t,text},{id:'s'+i,track:'V2',width:1280,height:720}))]});
    applyProject(doc);scheduleSave();if(!await flushSave())throw Error('save');})()`);
   // VV (#52): the entries can be clicked at every width — elementFromPoint at each button's centre is the button
   const size=async(w,h)=>{win.setMinimumSize(200,200);for(let i=0;i<6;i++){const [iw,ih]=await read(`[innerWidth,innerHeight]`),[cw,ch]=win.getContentSize();if(iw===w&&ih===h)break;win.setContentSize(Math.round(cw*w/iw),Math.round(ch*h/ih));await wait(400);}};

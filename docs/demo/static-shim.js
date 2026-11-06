@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   Static-mode shim for the FableCut playground.
+   Static-mode shim for the MontClip playground.
 
    The editor normally talks to server.js: it GETs /api/project, PUTs it
    back on every edit, and listens on /api/events for someone else (an
@@ -117,6 +117,7 @@
 
   /* ── the four endpoints app.js actually needs, plus polite refusals ── */
   var nativeFetch = window.fetch.bind(window);
+  var DEMO_FONTS = ["Anton", "Playfair Display", "Bebas Neue", "Roboto"];
   window.fetch = function (input, init) {
     var url = typeof input === "string" ? input : (input && input.url) || "";
     var path;
@@ -146,7 +147,12 @@
       }
       return reply({ transcript: store.transcripts[src] || null });
     }
-    if (path === "/api/library") return reply([]);
+    // the title fonts the demo and the landing page's example edits use come from this folder (sync.js copies
+    // them), not from Google Fonts: the playground goes online for a font only after asking, like the editor
+    if (path === "/api/library") {
+      var dir = new URL(url, location.href).searchParams.get("dir");
+      return reply(dir === "fonts" ? DEMO_FONTS.map(function (n) { return { name: n + ".woff2", src: "/library/fonts/" + n + ".woff2" }; }) : []);
+    }
     if ((path === "/api/presets" || path === "/api/templates") && method === "GET") return reply([]);
     if (path === "/api/export/profiles") return reply({}, 404);
     if (path === "/api/upload" || path === "/api/library/install") {
@@ -271,27 +277,6 @@
     try { if (typeof window.setTime === "function") window.setTime(t); } catch (e) { }
   }
   if (EMBED) styleEmbed();
-
-  /* The canvas only draws with faces that are already loaded, so fetch the
-     title fonts the demo and the landing page's example edits use up front.
-     CORS mode keeps the canvas origin-clean. */
-  (function preloadTitleFonts() {
-    var families = ["Anton", "Playfair Display", "Bebas Neue", "Roboto"];
-    var link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.crossOrigin = "anonymous";
-    link.href = "https://fonts.googleapis.com/css2?family=Anton&family=Playfair+Display:wght@400;700" +
-      "&family=Bebas+Neue&family=Roboto:wght@400;600;700&display=swap";
-    link.onload = function () {
-      if (!document.fonts || !document.fonts.load) return;
-      families.forEach(function (f) {
-        ["400", "700"].forEach(function (w) {
-          document.fonts.load(w + ' 64px "' + f + '"').catch(function () { });
-        });
-      });
-    };
-    document.head.appendChild(link);
-  })();
 
   window.addEventListener("load", function () {
     setTimeout(function () { nudge(1.2); }, 700);

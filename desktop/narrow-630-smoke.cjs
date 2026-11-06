@@ -2,7 +2,7 @@
 // VV (2026-11-02, 630×452): three checks in a hidden offscreen window with a fresh profile, synthetic clips only.
 //  1. simple mode, a caption lane (V3) above V1/A1 that do not all fit: no visible lane is partly behind the sticky
 //     ruler. Either V3 is shown whole, or it is folded away and 「字幕轨在上方」 says so; clicking that shows V3 whole.
-//  2. 「引用选中字幕」 with no caption selected says 「先在时间线上选中字幕」 instead of doing nothing.
+//  2. 「让 AI 看」（原「引用选中字幕」） with no caption selected says 「先在时间线上选中字幕」 instead of doing nothing.
 //  3. AI service settings: the API key box and the save button are fully visible without scrolling.
 const electron=require('electron'),{app,BrowserWindow}=electron,assert=require('node:assert/strict');
 if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke required');
@@ -27,8 +27,8 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
    const T=await read(`(()=>{const t=MontClipView.text[${JSON.stringify(language)}];return{above:uiText('own.tl-above-captions'),noCaption:t.officialPane_noCaptionSelected,config:t.officialPane_config,save:t.officialPane_save,caption:t.officialPane_reference};})()`);
    // 1. the caption lane and the ruler (a missing file keeps V1/A1 occupied without reading any media)
    await read(`(()=>{project.media=[{id:'m_v',name:'v.mp4',kind:'video',src:'/media/synthetic-missing.mp4',duration:10,width:320,height:180}];
-    const cues=FableCutCaptions.parse('1\\n00:00:01,000 --> 00:00:03,000\\n合成句子\\n');
-    project.clips=[{id:'v1',mediaId:'m_v',kind:'video',track:'V1',start:0,in:0,duration:10,props:{}},{id:'a1',mediaId:'m_v',kind:'audio',track:'A1',start:0,in:0,duration:10,props:{}},...cues.map((c,i)=>FableCutCaptions.clip(c,{id:'cap'+i,track:'V3'}))];
+    const cues=MontClipCaptions.parse('1\\n00:00:01,000 --> 00:00:03,000\\n合成句子\\n');
+    project.clips=[{id:'v1',mediaId:'m_v',kind:'video',track:'V1',start:0,in:0,duration:10,props:{}},{id:'a1',mediaId:'m_v',kind:'audio',track:'A1',start:0,in:0,duration:10,props:{}},...cues.map((c,i)=>MontClipCaptions.clip(c,{id:'cap'+i,track:'V3'}))];
     syncTimelineTrackView.focusKey=null;syncTimelineTrackView.unfolded=null;setSelection([]);rebuildClips();scheduleSave();return true;})()`);
    await read(`(async()=>{if(!await flushSave())throw Error('SAVE');})()`);await wait(500);
    const lanes=`(()=>{const sc=els.timelineScroll.getBoundingClientRect(),under=sc.top+RULER_H,bottom=sc.top+els.timelineScroll.clientHeight;
@@ -54,7 +54,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
    await read(`setSideTab('assistant');mcAgent.render();true`);await wait(300);
    await read(`(()=>{const b=[...document.querySelectorAll('.cindy-port [data-reference-actions] button')].find(b=>b.textContent===${JSON.stringify(T.caption)});b.click();return true;})()`);await wait(400);
    const status=await read(`[...document.querySelectorAll('.cindy-port [role=status]')].map(e=>e.textContent).join('|')`);
-   assert.ok(status.includes(T.noCaption),language+': 「引用选中字幕」 with nothing selected says so: '+status);
+   assert.ok(status.includes(T.noCaption),language+': 「让 AI 看」 with nothing selected says so: '+status);
    // 3. settings: key box and save button visible without scrolling
    await read(`(()=>{const b=[...document.querySelectorAll('.cindy-port button')].find(b=>b.textContent===${JSON.stringify(T.config)});b.click();return true;})()`);await wait(400);
    const box=await read(`(()=>{const box=document.querySelector('.cindy-config'),r=box.getBoundingClientRect(),port=document.querySelector('.cindy-port').getBoundingClientRect();

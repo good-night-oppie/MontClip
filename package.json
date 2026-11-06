@@ -31,7 +31,8 @@
     "start": "node server.js",
     "test": "node --test",
     "test:integration": "node --test real-tests/openrouter.integration.cjs",
-    "test:e2e": "node real-tests/run-deepseek-e2e.cjs"
+    "test:e2e": "node real-tests/run-deepseek-e2e.cjs",
+    "test:e2e:meta": "node real-tests/run-meta-e2e.cjs"
   },
   "keywords": [
     "video-editor",

@@ -3,15 +3,15 @@
 // ":free"), through the product's own request path (desktop/agent-service.js with the
 // fixed OpenRouter endpoint). Off unless MONTCLIP_REAL_MODELS=1; never run in CI.
 //   MONTCLIP_REAL_MODELS=1 node --test real-tests/openrouter.integration.cjs
-// Key: only ~/.openrouter-token. It is never printed, logged or written anywhere.
+// Key: only ~/.openrouter-montclip (mode 600, on europa) or the file MONTCLIP_OPENROUTER_KEY_FILE names; a file with wider
+// permissions is refused and the tests are skipped (real-tests/key-file.cjs). It is never printed, logged or written anywhere.
 // Rate limits (429) and upstream failures are reported as SKIPPED (with the reason), not passed.
-const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const S=require('../desktop/agent-service'),C=require('../agent-conversation');
+const {test}=require('node:test'),a=require('node:assert/strict'),path=require('node:path');
+const S=require('../desktop/agent-service'),C=require('../agent-conversation'),K=require('./key-file.cjs');
 const ON=process.env.MONTCLIP_REAL_MODELS==='1';
-const keyFile=path.join(os.homedir(),'.openrouter-token');
-const KEY=ON&&fs.existsSync(keyFile)?fs.readFileSync(keyFile,'utf8').trim():null;
-const off=!ON?'real-model tests are off (set MONTCLIP_REAL_MODELS=1)':!KEY?'no ~/.openrouter-token':false;
-const report=[];const scrub=s=>KEY?String(s).split(KEY).join('<key>'):String(s);
+const found=ON?K.readKey():{},KEY=found.key||null;
+const off=!ON?'real-model tests are off (set MONTCLIP_REAL_MODELS=1)':!KEY?found.skip:false;
+const report=[];const scrub=K.scrubber(KEY);
 const out=process.env.MONTCLIP_REAL_REPORT||path.join(__dirname,'..','docs','validation','real-model-integration.json');
 
 async function pickModel(){
@@ -62,8 +62,6 @@ test('a wrong key is reported as AUTH (key wrong or no access)',{skip:off},async
 });
 test.after(()=>{
  if(off)return;
- const text=JSON.stringify({when:new Date().toISOString(),provider:'openrouter',endpoint:S.ENDPOINTS.openrouter,results:report,
-  counts:{passed:report.filter(r=>r.result==='passed').length,skipped:report.filter(r=>r.result==='skipped').length}},null,1);
- if(KEY&&text.includes(KEY))throw new Error('key would be written to the report');
- fs.mkdirSync(path.dirname(out),{recursive:true});fs.writeFileSync(out,text+'\n');
+ K.writeReport(out,{when:new Date().toISOString(),provider:'openrouter',endpoint:S.ENDPOINTS.openrouter,results:report,
+  counts:{passed:report.filter(r=>r.result==='passed').length,skipped:report.filter(r=>r.result==='skipped').length}},KEY);
 });

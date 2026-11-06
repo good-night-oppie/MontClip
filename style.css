@@ -1,4 +1,4 @@
-/* ══════════════════ FableCut — Premiere-style dark theme ══════════════════ */
+/* ══════════════════ MontClip — Premiere-style dark theme ══════════════════ */
 .mc-history { display: flex; gap: 6px; flex: 0 0 auto; }
 .mc-assistant { position: absolute; top: 100px; left: 6px; width: min(340px, calc(100vw - 12px)); max-height: calc(100vh - 120px); overflow: auto; padding: 12px; z-index: 20; }
 .mc-assistant p:where(:not([data-cindy-parts] *)) { margin-top: 12px; }
@@ -573,6 +573,20 @@ body.track-size-s .clip.selected {
   font-size: 11px;
   opacity: .7;
 }
+
+/* a file being imported: 「正在导入… n%」 until it is in the bin (app.js importingHtml) */
+.bin-importing {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  margin: 4px 6px;
+  font-size: 12px;
+}
+.bin-importing-name { overflow-wrap: anywhere; }
+.bin-importing-pct { color: var(--dim); font-variant-numeric: tabular-nums; }
 
 .bin-item,
 .bin-folder {
@@ -1387,6 +1401,7 @@ body.track-size-s .clip.selected {
 
 .tc-io-lab {
   font: 700 9px/1 "Segoe UI", system-ui, sans-serif;
+  white-space: nowrap;
   letter-spacing: 0.05em;
   color: var(--dim);
   text-align: right;
@@ -4166,6 +4181,10 @@ input[type="range"].cq-hue {
   padding: 3px 4px;
 }
 .bin-tools select.on { border-color: var(--accent); color: #cfc8ff; }
+/* Show takes the width of its longest choice (fitBinFilter); when the row is too narrow, Sort wraps to the next line
+   instead of shrinking to nothing (VV, #148) */
+.bin-tools #binFilter { max-width: 100%; }
+.bin-tools #binSort { min-width: 72px; }
 .bin-tools .btn.tiny { flex: none; min-width: 26px; }
 .bin-tools .btn.tiny.on { border-color: var(--accent); color: #cfc8ff; }
 
@@ -4783,6 +4802,16 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 /* Review is a centered themed modal; reply actions stay outside the scrolling history. */
 .cindy-confirm {position:fixed;inset:0;margin:auto;width:min(620px,90vw);box-sizing:border-box;padding:16px;border:1px solid var(--border);border-radius:8px;overflow:auto;background:var(--panel);color:var(--text);}
 .cindy-confirm::backdrop {background:rgba(0,0,0,.45);}
+/* The 「AI 数据说明」 (Deja, 2026-11-04): the whole window, read in full once; only 〔我知道了〕 closes it. */
+.cindy-confirm.cindy-data-notice {width:100vw;height:100vh;max-width:none;max-height:none;border:0;border-radius:0;padding:24px max(16px,calc((100vw - 680px) / 2));display:flex;flex-direction:column;gap:8px;}
+.cindy-data-notice:not([open]) {display:none;}
+.cindy-data-notice [data-data-notice-body] {flex:1 1 auto;min-height:0;overflow:auto;line-height:1.6;}
+.cindy-data-notice-basis {opacity:.75;}
+.cindy-link {background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;cursor:pointer;}
+.cindy-ai-label {display:inline-block;font-size:10px;padding:0 4px;border:1px solid var(--border);border-radius:3px;opacity:.8;}
+.agent-ai-off {margin:2px 0;font-size:11px;}
+/* 「回复由 AI 生成」 (Deja, 2026-11-04): one quiet line at the top of the panel; small, so a 630×460 window keeps its input box */
+.mc-assistant .cindy-ai-line {flex:none;margin:0;font-size:10px;line-height:12px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .cindy-review-text {max-height:30vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;}
 .cindy-chip {display:block;border:1px solid var(--border);border-radius:4px;padding:2px 4px;overflow-wrap:anywhere;}
 .cindy-proposal-actions {flex:none;display:flex;gap:4px;flex-wrap:wrap;}
@@ -4840,7 +4869,7 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .upper .mc-assistant {position:relative;inset:auto;}
 @media (max-height:560px) {
  .upper .mc-assistant #mcAssistantClose {position:absolute;top:3px;right:3px;z-index:1;padding:1px 4px;}
- .upper .mc-assistant .cindy-port > .agent-toolbar:first-child {padding-right:44px;}
+ .upper .mc-assistant .cindy-port > .cindy-ai-line {padding-right:44px;}
 }
 .cindy-port.compact .cindy-message {display:block;font-size:11px;line-height:1.35;}
 .cindy-port.compact .cindy-message > strong {margin-right:4px;}
@@ -4857,6 +4886,11 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .flv-import-dialog [data-flv-ask] { white-space: pre-line; line-height: 1.5; }
 .flv-import-dialog .flv-import-row { display: flex; gap: 8px; justify-content: flex-end; }
 .flv-import-dialog [hidden] { display: none; }
+/* the box before Google Fonts goes online (app.js askFontConsent) */
+.font-consent-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; width: min(460px, 92vw); padding: 14px 16px; }
+.font-consent-dialog h3 { margin: 0 0 8px; font-size: 15px; }
+.font-consent-dialog p { margin: 0 0 8px; line-height: 1.5; word-break: break-word; }
+.font-consent-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
 
 /* P2 highlight cards: shaped like the sentence dialog */
 .highlight-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(620px, 90vw); max-height: 85vh; padding: 20px; margin: auto; }
@@ -4912,6 +4946,8 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .auto-slices .as-rec { border: 1px solid var(--border); border-radius: 6px; padding: 8px; cursor: pointer; }
 .auto-slices .as-rec.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .auto-slices .as-rec .as-t { font-weight: 600; overflow-wrap: anywhere; }
+.auto-slices .as-rec.as-importing { border-style: dashed; cursor: default; margin: 0; }
+.auto-slices .as-import { margin-top: 8px; }
 .auto-slices .as-chip { display: inline-block; margin-top: 4px; font-size: 11px; padding: 1px 6px; border-radius: 8px; border: 1px solid var(--border); }
 .auto-slices .as-chip.ok { color: #7ec249; }
 .auto-slices .as-chip.warn { color: #f4a261; }
@@ -5118,3 +5154,16 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
   .app.agent-open .cindy-plan-what { display: none; }
   .app.agent-open .cindy-thread { min-height: 4.5em; }
 }
+/* a recording nothing could read the length of (europa P3): JJ's sentence on the file */
+.bin-incomplete { font-size: 11px; line-height: 1.45; color: #ffb3b5; white-space: normal; }
+/* the sentence and its button get a row of their own under the file */
+.bin-item.has-note { flex-wrap: wrap; }
+.bin-item.has-note > .bin-incomplete, .bin-item.has-note > .bin-repair { flex-basis: 100%; }
+.bin-incomplete .btn { display: block; margin: 4px 0 0; }
+.bin-row .bin-incomplete { grid-column: 1 / -1; padding-left: 28px; }
+/* 〔帮我修好〕: the button under JJ's sentence, and its progress with Cancel */
+.bin-repair .btn { margin-left: 6px; vertical-align: middle; }
+.bin-repair { font-size: 11px; margin-top: 2px; color: var(--accent, #7b6cff); }
+.bin-row .bin-repair { grid-column: 1 / -1; padding-left: 28px; }
+/* 〔帮我修好〕 cases 1 and 2: it can be cut, seeking may be slow — a small mark with JJ's hint (no dialog) */
+.bin-slow { display: inline-block; margin-right: 4px; color: #f5c451; font-size: 11px; cursor: help; }

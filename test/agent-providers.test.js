@@ -10,13 +10,14 @@ const stored=provider=>JSON.stringify({version:1,provider,model:'deepseek/deepse
 const svc=(extra={})=>{const calls=[];const s=S.createService({read:()=>null,write(){},seal:k=>k,unseal:()=>'k',request:async(c)=>{calls.push(c);return{text:'ok'};},...extra});return{s,calls};};
 const payload=()=>({version:1,requestId:'r'+Math.random().toString(36).slice(2,8),projectId:'p',sequenceId:'main',revision:1,gen:0,messages:[{role:'user',content:'hi'}]});
 
-test('a release lists OpenRouter first, then DeepSeek and OpenAI; unconfigured it starts on OpenRouter with DeepSeek Flash',()=>{
- a.deepEqual(S.PUBLIC_PROVIDERS,['openrouter','deepseek','openai']);
+// Meta (Muse Spark) joins second (the owner, 2026-11-04, Meta AI developer hackathon); the default does not change.
+test('a release lists OpenRouter first, then Meta, DeepSeek and OpenAI; unconfigured it starts on OpenRouter with DeepSeek Flash',()=>{
+ a.deepEqual(S.PUBLIC_PROVIDERS,['openrouter','meta','deepseek','openai']);
  a.equal(S.DEFAULT_PROVIDER,'openrouter');
- a.deepEqual(S.DEFAULT_MODELS,{openrouter:'deepseek/deepseek-v4.1-flash-1017'});
+ a.deepEqual(S.DEFAULT_MODELS,{openrouter:'deepseek/deepseek-v4.1-flash-1017',meta:'muse-spark-1.1'});
  const {s}=svc();const g=s.get();
- a.deepEqual(g.providers,['openrouter','deepseek','openai']);a.equal(g.configured,false);
- a.equal(g.provider,'openrouter');a.deepEqual(g.defaultModels,{openrouter:'deepseek/deepseek-v4.1-flash-1017'});
+ a.deepEqual(g.providers,['openrouter','meta','deepseek','openai']);a.equal(g.configured,false);
+ a.equal(g.provider,'openrouter');a.deepEqual(g.defaultModels,{openrouter:'deepseek/deepseek-v4.1-flash-1017',meta:'muse-spark-1.1'});
  a.equal(s.configure({provider:'openrouter',model:'deepseek/deepseek-v4.1-flash-1017',apiKey:'k'}).configured,true);
 });
 
@@ -28,8 +29,8 @@ test('a saved OpenRouter connection is used, through its fixed endpoint',async()
  a.equal(url,'https://openrouter.ai/api/v1/chat/completions');
 });
 
-test('only the three fixed endpoints; an unknown provider is refused before any network call',async()=>{
- a.deepEqual(Object.keys(S.ENDPOINTS).sort(),['deepseek','openai','openrouter']);
+test('only the four fixed endpoints; an unknown provider is refused before any network call',async()=>{
+ a.deepEqual(Object.keys(S.ENDPOINTS).sort(),['deepseek','meta','openai','openrouter']);
  const {s}=svc();a.equal(s.configure({provider:'evil',model:'m',apiKey:'k'}).code,'CONFIG_INVALID');
  let fetched=0;await a.rejects(S.httpsRequest({provider:'evil',model:'m',key:'k'},payload(),new AbortController().signal,{fetch:async()=>{fetched++;}}),/PROVIDER_UNAVAILABLE/);
  a.equal(fetched,0);
@@ -45,7 +46,7 @@ test('the settings: OpenRouter marked recommended, the model filled in from the 
  const pane=read('agent-ui/pane.tsx'),zh=V.text['zh-CN'],en=V.text.en;
  a.equal(zh.officialPane_retention,'服务商可能会保存你发送的文字。');a.ok(en.officialPane_retention);
  a.ok(zh.officialPane_recommended&&en.officialPane_recommended);
- a.match(pane,/\(PROVIDER_NAME\[p\]\|\|p\)\+' · '\+\(DOMAIN\[p\]\|\|''\)\+\(p===cfg\?\.recommended\?t\.recommended:''\)/,'the recommended one is marked');
+ a.match(pane,/\(\(language==='en'&&PROVIDER_NAME_EN\[p\]\)\|\|PROVIDER_NAME\[p\]\|\|p\)\+' · '\+\(DOMAIN\[p\]\|\|''\)\+\(p===cfg\?\.recommended\?t\.recommended:''\)/,'the recommended one is marked');
  a.match(pane,/<p data-retention>\{t\.retention\}<\/p>/,'the retention line is shown in the settings');
  a.match(pane,/setModel\(c\?\.model\|\|c\?\.defaultModels\?\.\[c\?\.provider\]\|\|''\)/,'an unconfigured pane gets the default model');
 });
@@ -62,7 +63,7 @@ test('the free-claim check catches free-model claims and leaves other uses of th
 test('the settings list comes from the service, not a fixed list in the page',()=>{
  const pane=read('agent-ui/pane.tsx');
  a.ok(!/<option value="openrouter">/.test(pane),'no hard-coded OpenRouter option');
- a.match(pane,/\(cfg\?\.providers\|\|\['openrouter','deepseek','openai'\]\)\.map\(/);
+ a.match(pane,/\(cfg\?\.providers\|\|\['openrouter','meta','deepseek','openai'\]\)\.map\(/);
  a.ok(!FREE_CLAIM.test(JSON.stringify(V.text['zh-CN'])+JSON.stringify(V.text.en).replace(/:free/g,'')),'no "free model" claim in the interface');
 });
 
@@ -95,7 +96,7 @@ test('the default service and model are one constant in one line',()=>{
  const src=read('desktop/agent-service.js');
  const lines=src.split('\n').filter(l=>/^const DEFAULT_SERVICE=/.test(l));
  a.equal(lines.length,1);a.match(lines[0],/^const DEFAULT_SERVICE=Object\.freeze\(\{provider:'openrouter',model:'deepseek\/deepseek-v4\.1-flash-1017'\}\);/);
- a.equal(S.DEFAULT_PROVIDER,S.DEFAULT_SERVICE.provider);a.deepEqual(S.DEFAULT_MODELS,{[S.DEFAULT_SERVICE.provider]:S.DEFAULT_SERVICE.model});
+ a.equal(S.DEFAULT_PROVIDER,S.DEFAULT_SERVICE.provider);a.deepEqual(S.DEFAULT_MODELS,{[S.DEFAULT_SERVICE.provider]:S.DEFAULT_SERVICE.model,meta:'muse-spark-1.1'});
  a.equal((src.match(/deepseek-v4\.1-flash/g)||[]).length,1,'the model id is written once');
 });
 

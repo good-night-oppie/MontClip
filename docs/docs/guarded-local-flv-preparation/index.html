@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Guarded local FLV preparation - FableCut docs</title>
-<meta name="description" content="Guarded local FLV preparation, from the FableCut manual. FableCut v1.18.0.">
+<title>Guarded local FLV preparation - MontClip docs</title>
+<meta name="description" content="Guarded local FLV preparation, from the MontClip manual. MontClip v1.18.0.">
 <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#0a0a0b" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
 <link rel="canonical" href="https://fablecut.space/docs/guarded-local-flv-preparation/">
 <meta property="og:type" content="article">
-<meta property="og:site_name" content="FableCut">
+<meta property="og:site_name" content="MontClip">
 <meta property="og:url" content="https://fablecut.space/docs/guarded-local-flv-preparation/">
-<meta property="og:title" content="Guarded local FLV preparation - FableCut docs">
-<meta property="og:description" content="Guarded local FLV preparation, from the FableCut manual. FableCut v1.18.0.">
+<meta property="og:title" content="Guarded local FLV preparation - MontClip docs">
+<meta property="og:description" content="Guarded local FLV preparation, from the MontClip manual. MontClip v1.18.0.">
 <meta property="og:image" content="https://fablecut.space/screenshot.png">
 <meta property="og:image:width" content="1600">
 <meta property="og:image:height" content="900">
@@ -51,7 +51,7 @@
 
 <header class="nav" id="nav">
   <div class="wrap nav-inner">
-    <a class="brand" href="../../" aria-label="FableCut home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>FableCut</span></a>
+    <a class="brand" href="../../" aria-label="MontClip home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>MontClip</span></a>
     <nav class="nav-links" id="navLinks" aria-label="Primary">
       <a href="../../#playground">Playground</a>
       <a href="../../start/">Get started</a>
@@ -59,7 +59,7 @@
       <a href="../" aria-current="page">Docs</a>
     </nav>
     <div class="nav-end">
-      <a class="gh" href="https://github.com/good-night-oppie/MontClip" rel="noopener" target="_blank" aria-label="FableCut on GitHub">
+      <a class="gh" href="https://github.com/good-night-oppie/MontClip" rel="noopener" target="_blank" aria-label="MontClip on GitHub">
         <svg class="i" aria-hidden="true"><use href="#i-gh"/></svg><span class="gh-label">GitHub</span><span class="gh-count" data-stars></span>
       </a>
       <button class="menu-btn" id="menuBtn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navLinks"><svg class="i" aria-hidden="true"><use href="#i-menu"/></svg></button>
@@ -77,7 +77,7 @@
     
     <p>Local FLV uploads and fablecut_import_media share prepare-media.js. Compatible single-video H.264 4:2:0 plus optional AAC streams are remuxed; other codecs need boolean allowTranscode:true. Decoded timestamp gaps above5ms are refused with FLV_TIMELINE_GAP before any MP4 allocation; this is clock quantization, not an AV quality guarantee. Multiple video/audio streams are refused. Source bytes are retained; output is a distinct MP4 and metadata carries originalSrc and preparation (remux/transcode), preserved by renderer serialization.</p><p>Uncertain decoded tails/header lengths/warnings require acceptReadable:true, separately from codec consent. REST upload returns409 with FLV_READABLE_CONSENT_REQUIRED, originalSrc and decoded range. POST /api/prepare-media accepts {src, acceptReadable, allowTranscode}; src must resolve to a local /media/ FLV. Booleans must be true, not strings. MCP accepts the same two booleans on fablecut_import_media. Callers must show the detected limitation before accepting; these flags do not make source timing verified or authorize gaps.</p><p>Legacy upload/MCP copies are already stored before probing and remain on refusal; this is not native zero-allocation consent. Repeated MCP attempts can retain extra source copies. The simple browser entry imports only unambiguous compatible FLV; when authorization is required it reports refusal, does not create a transient blob, and does not yet offer the deferred native consent UI. Source registration is guarded against project changes after metadata. These tests do not explain the historical browser disk-revision1 incident. No automatic subtitle/danmaku shift.</p><p><strong>Desktop FLV import.</strong> In the desktop app a picked FLV goes through the main process (<code class="ic">desktop/flv-import.js</code>, fixed IPC <code class="ic">montclip:flv:inspect|prepare|status|cancel|finish</code> behind the settings guard; the preload reads the File's path and no path returns to the page). It is checked where it is (probe and readable range; a timeline gap is refused) and hashed (sha256) before anything is copied. A re-encode or an unconfirmed ending asks first, Cancel focused. Then it is copied into <code class="ic">media/</code> as a stream into a new exclusive file, the copy's hash must equal the original's (<code class="ic">FLV_SOURCE_CHANGED</code> / <code class="ic">FLV_COPY_MISMATCH</code> otherwise), and <code class="ic">prepareMedia</code> makes the compatible MP4 from the copy. Cancel, failure, a project switch or quitting removes only the files that import made; nothing else in <code class="ic">media/</code> is touched. The browser path (<code class="ic">/api/upload</code>) is unchanged.</p><p>This split uses the existing development child_process/PATH tools, parameter arrays, timeout and owned partial-output cleanup. It is not the packaged tool resolver or a portable/offline release. System GPLv3 FFmpeg is a development test tool only, not an approved LGPL distribution candidate. Native IPC/hash snapshot/ close cleanup and its diagnostic harness will be a separate clean change. No AI/model/runtime dependency is added by this core split.</p><p>MontClip Agent Pane foundation: one pane is shared across view modes. Session search/new/select and bounded drafts are local to the open window and project/sequence; no provider or tool execution is connected. Sending reports unconfigured and retains draft; no synthetic assistant reply. Model selector intentionally has only an unavailable option. Desktop IPC montclip:pane:get/set accepts only width280–480 through the existing sender/frame/origin guard, storing agent-pane-settings.json under userData; no credentials, paths, messages or project data accepted. UI strings share MontClipView locale keys. The assistant shares the existing right-side page area with inspector tabs; the timeline spans the full workspace. Simple view hides empty non-main tracks while keeping occupied tracks and V1/A1. Advanced view retains every track with scrolling. New project/sequence or occupied-track changes initially reveal content; routine redraws preserve manual scrolling. View filtering does not change project tracks, clips or undo. Same-head visible-window review and full workspace acceptance remain pending.</p><p>Agent Pane reference increment: explicit project identity, selected caption text/current clip/source caption ID and timeline work-range chips. References are local draft data, not approved external payload or guaranteed current revision. Removing a chip removes it from the current session. No arbitrary attachment upload. IME-composing Enter is ignored by send; Shift+Enter keeps newline; Escape leaves an open native dialog alone, otherwise closes pane settings before hiding pane and focusing its launcher. Real keyboard/window verification pending.</p><p>Workspace preference now uses three fixed desktop IPC operations (get/set/migrate), strict {version:1,workspace:"edit"|"color"} in workspace-settings-v1.json. Original mode/language API remains exactly two keys. Migration reads only the currently accessible legacy origin if new file absent; it cannot recover inaccessible old random-port origins, overwrite an existing selection, or replace corrupted storage silently. Browser keeps origin-local fallback. Simple starts in Edit; Color→simple exits view state without writing project/undo, and nested/export blocks mode changes.</p>
     <div class="docs-end">
-      <a class="more" href="https://github.com/good-night-oppie/MontClip/blob/main/CLAUDE.md#L2982" rel="noopener" target="_blank">Edit this in CLAUDE.md <svg class="i i-ne" aria-hidden="true"><use href="#i-ne"/></svg></a>
+      <a class="more" href="https://github.com/good-night-oppie/MontClip/blob/main/CLAUDE.md#L3023" rel="noopener" target="_blank">Edit this in CLAUDE.md <svg class="i i-ne" aria-hidden="true"><use href="#i-ne"/></svg></a>
       <a class="more" href="https://raw.githubusercontent.com/good-night-oppie/MontClip/main/CLAUDE.md" rel="noopener" target="_blank">The whole manual as Markdown <svg class="i i-ne" aria-hidden="true"><use href="#i-ne"/></svg></a>
     </div>
     <nav class="docs-pn" aria-label="Previous and next page"><a class="docs-pn-prev" href="../export/"><span>Previous</span><b>Export</b></a><a class="docs-pn-next" href="../local-agent-session-storage/"><span>Next</span><b>Local Agent session storage</b></a></nav>
@@ -88,7 +88,7 @@
 <footer class="footer">
   <div class="wrap">
     <div class="foot">
-      <a class="brand" href="../../" aria-label="FableCut home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>FableCut</span></a>
+      <a class="brand" href="../../" aria-label="MontClip home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>MontClip</span></a>
       <nav class="foot-links" aria-label="Footer">
         <a href="https://github.com/good-night-oppie/MontClip" rel="noopener" target="_blank">GitHub</a>
         <a href="../">Docs</a>

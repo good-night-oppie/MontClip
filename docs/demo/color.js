@@ -1,6 +1,6 @@
-/* FableCut color — the grade's math, its validation, the scopes and the
+/* MontClip color — the grade's math, its validation, the scopes and the
    frame statistics an agent reads. Zero dependencies. Loaded by the editor as
-   a plain script (global `FableCutColor`) and required by the MCP server and
+   a plain script (global `MontClipColor`) and required by the MCP server and
    the tests, so the editor's Color page, an agent's `setGrade` op and the
    numbers in `fablecut_scopes` all agree. The GPU path (GRADE_FRAG, run by
    app.js) mirrors gradePixel() step for step; the CPU path is the fallback
@@ -52,9 +52,9 @@
    matte = qualifier × mask (each 1 when absent); out = mix(in, graded, matte). */
 (function (root, factory) {
   const node = typeof module === "object" && module.exports;
-  const api = factory(node ? require("./mask") : root.FableCutMask);
+  const api = factory(node ? require("./mask") : root.MontClipMask);
   if (node) module.exports = api;
-  else root.FableCutColor = api;
+  else root.MontClipColor = api;
 })(typeof self !== "undefined" ? self : this, function (MaskLib) {
   "use strict";
 

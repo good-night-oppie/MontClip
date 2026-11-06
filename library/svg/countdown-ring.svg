@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
-  <!-- FableCut animated SVG · one-shot (~3s) · countdown ring 3 → 2 → 1
+  <!-- MontClip animated SVG · one-shot (~3s) · countdown ring 3 → 2 → 1
        Useful for video intros, transitions, and "ready" cues. -->
   <style>
     /* Ring sweep — draws a circular arc over 1s per digit */
