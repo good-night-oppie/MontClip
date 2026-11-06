@@ -8,3 +8,17 @@ test('reused live PID equal to current process cannot be stolen',t=>{const d=dir
 test('same-process second acquisition cannot replace its live owner',t=>{const d=dir(t),first=W.acquire(d);try{a.throws(()=>W.acquire(d),{code:'DATA_DIR_IN_USE'});}finally{first.release();}});
 test('unreadable ownership metadata is not proof of dead owner',t=>{const d=dir(t),file=path.join(d,W.LOCK_NAME);fs.writeFileSync(file,'{partial');a.throws(()=>W.acquire(d),{code:'DATA_DIR_IN_USE'});a.equal(fs.readFileSync(file,'utf8'),'{partial');});
 test('EPERM probing owner means alive and must not steal',t=>{const d=dir(t),file=path.join(d,W.LOCK_NAME),original=process.kill;fs.writeFileSync(file,JSON.stringify({pid:987654321}));process.kill=()=>{throw Object.assign(Error('denied'),{code:'EPERM'});};try{a.throws(()=>W.acquire(d),{code:'DATA_DIR_IN_USE'});}finally{process.kill=original;}});
+test('only unverifiable metadata receives LOCK_OWNER_UNVERIFIED',t=>{
+ const d=dir(t),file=path.join(d,W.LOCK_NAME);
+ for(const value of ['{partial','null','{}','{"pid":0}','{"pid":"123"}']){
+  fs.writeFileSync(file,value);a.throws(()=>W.acquire(d),{code:'DATA_DIR_IN_USE',reason:'LOCK_OWNER_UNVERIFIED'});a.equal(fs.readFileSync(file,'utf8'),value);
+ }
+ fs.writeFileSync(file,JSON.stringify({pid:process.pid,shell:'server'}));
+ a.throws(()=>W.acquire(d),e=>{a.equal(e.code,'DATA_DIR_IN_USE');a.equal(e.reason,undefined);return true;});
+});
+test('exhausted stale-owner contention does not become unverified ownership',()=>{
+ const vm=require('node:vm'),source=fs.readFileSync(require.resolve('../writer-lock'),'utf8'),module={exports:{}};let removals=0;
+ const fakeFs={openSync(){throw Object.assign(Error('exists'),{code:'EEXIST'});},readFileSync:()=>JSON.stringify({pid:987654321}),rmSync(){removals++;}};
+ vm.runInNewContext(source,{module,require:n=>n==='fs'?fakeFs:require(n),process:{pid:123,kill(){throw Object.assign(Error('gone'),{code:'ESRCH'});}}});
+ a.throws(()=>module.exports.acquire('/synthetic'),e=>{a.equal(e.code,'DATA_DIR_IN_USE');a.equal(e.reason,undefined);return true;});a.equal(removals,2);
+});

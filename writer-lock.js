@@ -46,7 +46,7 @@ function acquire(dir, { shell = "server", port = null, pid = process.pid } = {})
       if (e.code !== "EEXIST") throw e;
       const holder = readLock(file);
       if (!holder || !Number.isInteger(holder.pid) || holder.pid <= 0) {
-        throw Object.assign(new Error(`Writer lock ownership cannot be verified for ${dir}. Leave the lock intact and inspect its owner.`), { code: "DATA_DIR_IN_USE" });
+        throw Object.assign(new Error(`Writer lock ownership cannot be verified for ${dir}. Leave the lock intact and inspect its owner.`), { code: "DATA_DIR_IN_USE", reason: "LOCK_OWNER_UNVERIFIED" });
       }
       // A reused PID (including our own) is not evidence that the old owner is gone.
       if (alive(holder.pid)) {
