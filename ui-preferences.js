@@ -810,7 +810,7 @@
     "rf-busy": ["Something else is running (an export, or another reframe). Try again when it's done.", "现在有别的事在进行（导出，或者另一个改比例），等它做完再试。"],
     "rf-failed": ["The footage couldn't be read, so no sequence was made.", "画面读不出来，所以没有新建序列。"],
     // 待 JJ 定稿 (2026-11-06).
-    "rf-sequence-limit": ["This project already has 64 sequences. Remove an unneeded sequence, then try again.", "这个工程已有 64 个序列，暂时不能再新建。请先删除一个不需要的序列，再试。"],
+    "rf-sequence-limit": ["This project already has {limit} sequences. Remove an unneeded sequence, then try again.", "这个工程已有 {limit} 个序列，暂时不能再新建。请先删除一个不需要的序列，再试。"],
     // added after rf-failed when the clip whose file couldn't be opened is known: its name as the bin shows it, no path. 待 JJ 定稿
     "rf-failed-name": ["The clip that couldn't be opened is “{name}”.", "打不开的素材是「{name}」。"],
     "rf-same": ["The sequence already has that shape; there is nothing to make.", "这个序列已经是这个比例了，不用再做。"],
