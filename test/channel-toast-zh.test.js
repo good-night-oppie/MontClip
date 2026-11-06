@@ -12,9 +12,9 @@ const app = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8');
 const View = require('../ui-preferences.js');
 const MontClipEdit = require('../edit-ops.js');
 
-// JJ's final wording (europa ~/montclip-labels/jj/2026-11-06-PR139-声道提示定稿-JJ.md); channels-fewer stays as it was (JJ, 2026-11-06)
+// JJ's final wording (europa ~/montclip-labels/jj/2026-11-06-PR139-声道提示定稿-JJ.md; channels-fewer per JJ's 2026-11-06 12:15Z final, confirmed by JJ)
 const LOCKED = {
-  'own.channels-fewer': ['{name} has fewer channels now — {n} linked audio clip(s) removed', '「{name}」的声道变少了，已删掉 {n} 条多余的关联音频片段'],
+  'own.channels-fewer': ['"{name}" has fewer channels now. {n} linked audio clip(s) removed.', '「{name}」的声道变少了，已删掉 {n} 条多余的关联音频片段。'],
   'own.channels-over-limit': ["{name} has {n} audio channels, but MontClip supports up to {max} audio tracks, so the extra {extra} weren't added to the timeline. The original file is unchanged.", '「{name}」有 {n} 个声道，MontClip 最多放 {max} 条音频轨，多出的 {extra} 个声道没有放进时间线。原文件没有变化。'],
   'own.channels-added-tracks': ['{name} has more channels than there were audio tracks. Added {tracks} audio track(s) and linked {linked} channel(s).', '「{name}」的声道比现有音频轨多，已新增 {tracks} 条音频轨，并关联了 {linked} 个声道。'],
   'own.channels-linked': ['Linked {linked} audio channel(s) from {name}.', '已关联「{name}」的 {linked} 个声道。'],
@@ -104,6 +104,6 @@ test('nothing changed says nothing; fewer channels says the fewer sentence', asy
   a.deepEqual((await reconcile({ ch: 2 })).toasts, []);
   const r = await reconcile({ ch: 1, language: 'zh-CN' });
   a.equal(r.linked, 1);
-  a.deepEqual(r.toasts, ['「clip.mov」的声道变少了，已删掉 1 条多余的关联音频片段']);
-  a.deepEqual((await reconcile({ ch: 1 })).toasts, ['clip.mov has fewer channels now — 1 linked audio clip(s) removed']);
+  a.deepEqual(r.toasts, ['「clip.mov」的声道变少了，已删掉 1 条多余的关联音频片段。']);
+  a.deepEqual((await reconcile({ ch: 1 })).toasts, ['"clip.mov" has fewer channels now. 1 linked audio clip(s) removed.']);
 });

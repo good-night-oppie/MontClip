@@ -104,8 +104,8 @@
     "export-save-cancelled": ["Not saved. The exported video is still here: open the export queue and click Save on this item to save it again.", "没有保存。导出的视频还在，打开『导出队列』，在这一条后面点『保存』就能再存一次。"],
     "captions-save-cancelled": ["Captions not saved. Click export captions again to save them.", "字幕没有保存。可以再点一次导出字幕。"],
     "save-busy": ["Close the save window that is already open first.", "先关掉上一个保存窗口"],
-    // a media file's channel count changed and its linked per-channel audio clips were synced (JJ's final wording 2026-11-06; channels-fewer kept as it was, per JJ)
-    "channels-fewer": ["{name} has fewer channels now — {n} linked audio clip(s) removed", "「{name}」的声道变少了，已删掉 {n} 条多余的关联音频片段"],
+    // a media file's channel count changed and its linked per-channel audio clips were synced (JJ's final wording, 2026-11-06)
+    "channels-fewer": ["\"{name}\" has fewer channels now. {n} linked audio clip(s) removed.", "「{name}」的声道变少了，已删掉 {n} 条多余的关联音频片段。"],
     "channels-over-limit": ["{name} has {n} audio channels, but MontClip supports up to {max} audio tracks, so the extra {extra} weren't added to the timeline. The original file is unchanged.", "「{name}」有 {n} 个声道，MontClip 最多放 {max} 条音频轨，多出的 {extra} 个声道没有放进时间线。原文件没有变化。"],
     "channels-added-tracks": ["{name} has more channels than there were audio tracks. Added {tracks} audio track(s) and linked {linked} channel(s).", "「{name}」的声道比现有音频轨多，已新增 {tracks} 条音频轨，并关联了 {linked} 个声道。"],
     "channels-linked": ["Linked {linked} audio channel(s) from {name}.", "已关联「{name}」的 {linked} 个声道。"],
