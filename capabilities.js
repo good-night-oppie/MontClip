@@ -26,6 +26,9 @@
       ranges: { type: "array", minItems: 1, maxItems: 100, items: { type: "object", additionalProperties: false,
         required: ["clipId", "sourceCaptionId", "from", "to"], properties: { clipId: { type: "string" }, sourceCaptionId: { type: "string" },
           from: { type: "number", minimum: 0 }, to: { type: "number" } } } } } },
+    // the desktop assistant's reframe (Deja, 2026-11-05): only these shapes, nothing else in the reply (chat-proposal.js)
+    reframe: { type: "object", additionalProperties: false, required: ["type", "aspect"], properties: {
+      type: { const: "reframe" }, aspect: { enum: ["9:16", "1:1", "4:5"] } } },
   };
   // name: [risk, 中文, English]
   const SPEC = {
@@ -45,7 +48,10 @@
     fablecut_auto_duck: ["undoable", "有人说话时自动压低音乐", "Lower the music while someone speaks"],
     fablecut_silence: ["undoable", "找出并剪掉说话里的停顿", "Find and cut the pauses in speech"],
     fablecut_beats: ["undoable", "找出音乐的节拍，按拍子剪", "Find the music's beat and cut on it"],
-    fablecut_reframe: ["undoable", "做一份竖屏或方形的版本，画面跟着人走", "Make a vertical or square version where the picture follows the person"],
+    // sensitive, not undoable (Deja, 2026-11-05): with an aspect it makes a new sequence and opens it — it switches what is
+    // open, which this table counts as sensitive (see the top), and the sequence's own Undo cannot take that back
+    fablecut_reframe: ["sensitive", "做一份竖屏或方形的版本，画面跟着人走", "Make a vertical or square version where the picture follows the person"],
+    reframe: ["sensitive", "做一份竖屏或方形的新序列，画面跟着人走，并切换过去", "Make a vertical or square copy of the sequence that follows the person, and switch to it"],
     fablecut_highlights: ["undoable", "从长录像里挑精彩片段，剪成一个新序列", "Cut the best moments of long footage into a new sequence"],
     fablecut_danmaku: ["undoable", "给一场录像导入录播姬或 B 站的弹幕文件，也可以移除已经导入的弹幕", "Import BililiveRecorder or Bilibili danmaku for a recording, or remove them"],
     fablecut_songs: ["undoable","找出录像里可能在唱歌的段落，标出估的地方", "Find the parts of a recording that are possibly singing, marking the guessed spots"],
@@ -130,5 +136,9 @@
    *  language (English for any other), never its internal name — also for a name the table does not have. */
   const UNKNOWN = Object.freeze({ "zh-CN": "AI 想做一件软件不认识的操作，已经拦下，什么都没改。", en: "The AI asked for an action MontClip doesn't know. It was blocked; nothing changed." });
   const label = (name, language) => { const c = get(name), l = language === "zh-CN" ? "zh-CN" : "en"; return c ? c.summary[l] : UNKNOWN[l]; };
-  return Object.freeze({ RISKS, BLOCKED, FACTS: freeze(FACTS), get, riskOf, list, label, limits });
+  /* Steps the streamer confirms every time, in every mode — Yolo and 自动 too, never 「都批准」 (Deja, 2026-11-05): the
+     assistant's reframe makes a new sequence and switches to it, and it reads the footage frame by frame. */
+  const CONFIRM_EVERY_TIME = Object.freeze(["reframe"]);
+  const confirmEveryTime = (name) => CONFIRM_EVERY_TIME.includes(name);
+  return Object.freeze({ RISKS, BLOCKED, CONFIRM_EVERY_TIME, confirmEveryTime, FACTS: freeze(FACTS), get, riskOf, list, label, limits });
 });

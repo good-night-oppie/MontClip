@@ -4762,6 +4762,21 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
  body[data-mc-mode] .app.media-open .upper > .bin { display:flex; grid-column:2; grid-row:1; }
  .app.media-open .upper > .inspector { display:none; }
 }
+/* VV 2026-11-05 (360 px): the two columns above need 260 + 250 px, so at ≤560 px 素材 put the bin half off the
+   page beside the player. There the bin takes the whole width instead, as the assistant does below 760 px; 素材 again
+   brings the player back. desktop/narrow-media-smoke.cjs. */
+@media(max-width:560px) {
+ .app.media-open .upper,.app.media-open.agent-open .upper { grid-template-columns:minmax(0,1fr); }
+ body[data-mc-mode] .app.media-open .upper > .monitor { display:none; }
+ body[data-mc-mode] .app.media-open .upper > .bin { grid-column:1; }
+}
+/* JJ (2026-11-05): at 360 px ⚙ and ? keep their place on the top bar, also beside 返回播放器: tighter buttons there */
+@media(max-width:560px) {
+ .topbar-right,.topbar-right > .mc-history { gap:2px; }
+ .topbar-right > .btn,.topbar-right > .mc-history > .btn { padding-left:5px; padding-right:5px; }
+ .topbar-right > #btnSettings { width:30px; padding-left:0; padding-right:0; }
+ .topbar-right > #btnHelp { min-width:28px; }
+}
 #mcAgentContent { flex:1; overflow:hidden; }
 #mcAgentContent .agent-scroll { flex:1; min-height:0; overflow:auto; display:flex; flex-direction:column; gap:4px; }
 #mcAgentContent > textarea,#mcAgentContent > .agent-toolbar { flex-shrink:0; }

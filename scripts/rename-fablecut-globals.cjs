@@ -15,8 +15,15 @@
      Upstream references, kept forever:
        - `ronak-create/FableCut`, `*.fablecut.space`, `io.github.ronak-create/fablecut`
        - the `FableCut` that names the upstream inside JJ's public copy
-       - the brand-guard tests (test/brand.test.js, test/ui-terms-page.test.js)
+       - the brand-guard tests (test/brand.test.js, test/ui-terms-page.test.js) and
+         this script's own test (test/rename-script-keep.test.js), whose fixtures hold the old name
        - historical records (docs/decisions/, docs/backlog/, docs/validation/)
+       - licence and notice files (LICENSE*, LICENSES*, NOTICE*), skipped whole
+       - any line carrying `fablecut-keep` (Deja, 2026-11-05): an upstream credit
+         such as "a modified version of [FableCut](…)" in docs/hackathon/README.md
+         is marked so, in a comment the reader doesn't see
+         (`<!-- fablecut-keep: upstream credit -->` in Markdown, `// fablecut-keep` in
+         code). Mark a new credit the same way; nothing else on that line is renamed.
 
    Usage (repo root, on a clean checkout or a branch that merged main afterwards):
 
@@ -45,6 +52,8 @@ const EXCLUDE_FILES = new Set([
   // Brand-guard tests: they assert the old name is *absent*; do not rename them.
   'test/brand.test.js',
   'test/ui-terms-page.test.js',
+  // This script's own test: its fixtures hold the old name on purpose.
+  'test/rename-script-keep.test.js',
   // JJ's public copy — the "FableCut" here names the upstream, so it stays.
   'README.md',
   'docs/index.html',
@@ -54,6 +63,11 @@ const EXCLUDE_FILES = new Set([
   'docs/i18n/README.zh-CN.md',
   'test/fixtures/montclip-public-copy-v1.md',
 ]);
+
+// Licence and notice files credit the upstream by name; never rewritten.
+const LICENCE_RE = /(^|\/)(LICEN[CS]ES?|NOTICE)(\.[a-z]+)?$/i;
+// A line carrying this word is left exactly as it is.
+const KEEP = 'fablecut-keep';
 
 const TEXT_RE = /\.(js|cjs|mjs|py|html|css|md|json|yml|yaml|svg|txt|sh|xml)$/;
 
@@ -79,32 +93,46 @@ const PROTECT = [
   ['path.join(home, "FableCut"', '@@DD_JOIN@@'],
 ];
 
-function renameTree() {
-  const files = execSync('git ls-files', { encoding: 'utf8', cwd: ROOT }).split('\n').filter(Boolean);
+/** One file's text renamed: protected strings and lines marked `fablecut-keep` stay; → {text, count}. */
+function renameText(src, rules) {
+  let count = 0;
+  const text = src.split('\n').map((line) => {
+    if (!line.includes('FableCut') || line.includes(KEEP)) return line;
+    let l = line;
+    for (const [from, ph] of rules) l = l.split(from).join(ph);
+    const n = (l.match(/FableCut/g) || []).length;
+    if (!n) return line; // every occurrence was a protected one — nothing to rename
+    count += n;
+    l = l.split('FableCut').join('MontClip');
+    for (const [from, ph] of rules) l = l.split(ph).join(from);
+    return l;
+  }).join('\n');
+  return { text, count };
+}
+
+/** root: the repository to rewrite (default this one); regenerate: rebuild docs/ afterwards (default yes). */
+function renameTree({ root = ROOT, regenerate = true } = {}) {
+  const files = execSync('git ls-files', { encoding: 'utf8', cwd: root }).split('\n').filter(Boolean);
   let changed = 0;
   let occurrences = 0;
   for (const f of files) {
-    if (EXCLUDE_FILES.has(f) || EXCLUDE_DIRS.some((d) => f.startsWith(d)) || !TEXT_RE.test(f)) continue;
-    const full = path.join(ROOT, f);
+    if (EXCLUDE_FILES.has(f) || EXCLUDE_DIRS.some((d) => f.startsWith(d)) || LICENCE_RE.test(f) || !TEXT_RE.test(f)) continue;
+    const full = path.join(root, f);
     const src = fs.readFileSync(full, 'utf8');
     if (!src.includes('FableCut')) continue;
     const rules = PROTECT.filter(([, , onlyIf]) => !onlyIf || onlyIf(f));
-    let text = src;
-    for (const [from, ph] of rules) text = text.split(from).join(ph);
-    const count = (text.match(/FableCut/g) || []).length;
-    if (!count) continue; // every occurrence was a protected one — nothing to rename
-    text = text.split('FableCut').join('MontClip');
-    for (const [from, ph] of rules) text = text.split(ph).join(from);
-    if (text === src) continue;
+    const { text, count } = renameText(src, rules);
+    if (!count || text === src) continue;
     fs.writeFileSync(full, text);
     changed += 1;
     occurrences += count;
   }
   console.log(`renamed ${occurrences} occurrence(s) across ${changed} file(s)`);
+  if (!regenerate) return;
   console.log('regenerating docs (docs/docs/build.js, docs/demo/sync.js) …');
-  execSync('node docs/docs/build.js', { stdio: 'inherit', cwd: ROOT });
-  execSync('node docs/demo/sync.js', { stdio: 'inherit', cwd: ROOT });
+  execSync('node docs/docs/build.js', { stdio: 'inherit', cwd: root });
+  execSync('node docs/demo/sync.js', { stdio: 'inherit', cwd: root });
 }
 
 if (require.main === module) renameTree();
-module.exports = { renameTree, PROTECT, EXCLUDE_FILES, EXCLUDE_DIRS };
+module.exports = { renameTree, renameText, PROTECT, EXCLUDE_FILES, EXCLUDE_DIRS, LICENCE_RE, KEEP };

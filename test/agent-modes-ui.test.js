@@ -29,10 +29,10 @@ test('the page asks only with the capability and the project: the reply’s word
  a.match(app,/window\.montclipAgentPolicy\.decide\(\{sessionId:result\.sessionId,capability:response\.type,target:\{kind:'project',value:runtime\.projectId\}\}\)/);
  // an approval is the host box's answer through its ticket, nothing else
  a.match(app,/window\.montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/);
- // the plan's steps (P4, second half) and the agent's lyrics card (fablecut_lyrics_apply) ask the same way: three
- // answers, each the answer to its own ticket
- a.equal((app.match(/montclipAgentPolicy\.answer\(/g)||[]).length,3);
- a.equal((app.match(/montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/g)||[]).length,3);
+ // the plan's steps (P4, second half), the reframe reply (test/agent-reframe.test.js) and the agent's lyrics card
+ // (fablecut_lyrics_apply) ask the same way: four answers, each the answer to its own ticket
+ a.equal((app.match(/montclipAgentPolicy\.answer\(/g)||[]).length,4);
+ a.equal((app.match(/montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/g)||[]).length,4);
  a.match(app,/window\.montclipAgentPolicy\.decide\(\{sessionId:result\.sessionId,capability:s\.capability,target:\{kind:'project',value:runtime\.projectId\}\}\)/);
 });
 

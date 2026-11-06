@@ -114,6 +114,38 @@
     "off-finding-k": ["Looking for “{file}” ({k} of {n})", "正在找：「{file}」（第 {k} 个，共 {n} 个）"],
     "off-auto-found": ["Found {m} automatically.", "已经自动找回 {m} 个"],   // en: draft
     "off-slate": ["Media offline", "找不到"],
+    // the Relink dialog, 「找回录像」 (JJ's 18 lines on #137, 2026-11-06). JJ gave no English: every English line here is
+    // what the dialog said before, a draft (草稿，待 JJ 定稿). rl-folder-none: the English counts the folder's files
+    // ({files}), JJ's Chinese the recordings being found ({n}).
+    "rl-title": ["Relink media", "找回录像"],   // en: draft
+    "rl-intro-many": ["Point these {n} files at the footage where it is now. Clips keep their In points and edits.", "选一下这 {n} 个录像现在放在哪，时间线上的片段和剪辑都不会变。"],   // en: draft
+    "rl-intro-one": ["Point this file at the footage where it is now. Clips keep their In points and edits.", "选一下这个录像现在放在哪，时间线上的片段和剪辑都不会变。"],   // en: draft
+    "rl-folder": ["Choose folder…", "选文件夹…"],   // en: draft
+    "rl-folder-title": ["Pick the folder the files are in now — they are matched by name and copied into the project", "选录像现在所在的文件夹，按文件名对上后复制进项目"],   // en: draft
+    "rl-pre": ["Found {pre} of {n} in the project folders.", "已在项目文件夹里找到 {pre} 个（共 {n} 个）"],   // en: draft
+    "rl-folder-none": ["None of the {files} files in that folder match by name.", "这个文件夹里没有和这 {n} 个录像同名的文件。换个文件夹，或点〔选文件…〕一个个找。"],   // en: draft
+    "rl-copying-k": ["Copying {i}/{n}: {name}…", "正在复制第 {i} 个（共 {n} 个）：{name}…"],   // en: draft
+    "rl-matched": ["Matched {x} of {n} by name.", "按文件名对上了 {x} 个（共 {n} 个）"],   // en: draft
+    "rl-copying": ["Copying {name}…", "正在复制 {name}…"],   // en: draft
+    "rl-copy-failed": ["Couldn't copy {name}", "{name} 没能复制进项目。请再点〔选文件…〕试一次。"],   // en: draft
+    // the file's name only, never its path (Deja, 2026-11-06), so 「原文件」 rather than 「原来在」 (JJ)
+    "rl-was": ["was {file}", "原文件：{file}"],   // en: draft
+    "rl-new-loc": ["New location", "新位置"],   // en: draft
+    "rl-leave": ["— leave it —", "— 先不处理 —"],   // en: draft
+    "rl-not-found": ["— not found: Browse… or Choose folder… —", "— 没找到：点〔选文件…〕或〔选文件夹…〕 —"],   // en: draft
+    // why a file is offered (MediaLib.relinkWhyKeys maps relinkScore's ids to these)
+    "rl-why-same": ["same name", "同名"],   // en: draft
+    "rl-why-other-type": ["same name, other type", "同名，格式不同"],   // en: draft
+    "rl-why-similar": ["similar name", "名字相近"],   // en: draft
+    "rl-why-size": ["same size", "大小一样"],   // en: draft
+    "rl-why-and-size": [" and size", "，大小也一样"],   // en: draft
+    "rl-chosen": ["{name} (chosen)", "{name}（你选的）"],   // en: draft
+    "rl-from-folder": ["{name} (from the folder)", "{name}（从文件夹里找到）"],   // en: draft
+    "rl-browse": ["Browse…", "选文件…"],   // en: draft
+    "rl-browse-title": ["Pick the file (it is copied into the project)", "选这个录像文件（会复制进项目）"],   // en: draft
+    "rl-cancel": ["Cancel", "取消"],   // en: draft
+    "rl-apply": ["Relink", "找回"],   // en: draft
+    "rl-apply-n": ["Relink {n}", "找回 {n} 个"],   // en: draft
     // the bin's two other English lines VV saw (Deja, 2026-11-05; JJ's wording)
     "bin-drop-root": ["Drop here to move it out of the folder", "拖到这里，移出文件夹"],   // JJ, 2026-11-05
     "bin-dbl-hint": ["Double-click to preview it, or drag it onto the timeline.", "双击可以先预览，或者直接拖到时间线上。"],   // JJ, 2026-11-05
@@ -309,6 +341,11 @@
     "media-cannot-cut": ["Can't read how long \"{name}\" is, so it can't go on the timeline. The original file is unchanged.", "读不出「{name}」有多长，放不上时间线。原文件没有改动。"],
     "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],
     "tl-above-captions": ["Captions above, click to show", "上方有字幕轨，点这里显示"],
+    // the top bar's media button (below 1100 px); at ≤560 px the open panel covers the player and the button says so
+    "media-toggle": ["Media", "素材"],
+    // JJ (定稿 2026-11-05): the button says media-back; its aria-label and tooltip say media-back-full
+    "media-back": ["← Player", "返回播放器"],
+    "media-back-full": ["Back to player", "返回播放器"],
     // P2 highlight cards (for JJ to review)
     "hl-open": ["Highlight candidates", "高光候选"],
     "hl-title": ["Highlight candidates (worked out on this computer; no AI)", "高光候选（只在本机判断，不调用 AI）"],
@@ -740,6 +777,7 @@
     "meter-rms": ["RMS", "音量"],
     "media-kind-video": ["video", "视频"],
     "fps-value": ["{n} fps", "{n} 帧/秒"],
+    "resolution-stored": ["{display} (stored as {stored})", "{display}（文件里存的是 {stored}）"],
     "export-range-full": ["Full timeline · {from} → {to}", "整条时间线 · {from} → {to}"],
     "engine-fast-note": ["Frame-accurate. Server encodes from JPEG frames. Keeps going if you switch tabs.", "逐帧准确。由本机程序一帧帧编码，切到别的页面也会继续导出。"],
     "engine-webcodecs": ["WebCodecs (HW encode)", "显卡加速编码"],
@@ -818,6 +856,23 @@
     "ap-sum-sentences": ["Keep {count} sentences, about {duration} in the final cut.", "保留 {count} 句，成片大约 {duration}。"],
     "ap-sum-ranges": ["Keep {count} ranges joined into one video, about {duration}.", "保留 {count} 段，拼成一条，大约 {duration}。"],
     "ap-sum-slices": ["Cut {count} separate clips, one file each, about {duration} in total.", "切出 {count} 条切片，每条一个文件，一共大约 {duration}。"],
+    // the assistant's reframe (Deja, 2026-11-05; app.js runAgentReframe). JJ定稿 (2026-11-05), except rf-failed-name (待 JJ 定稿)
+    "ap-sum-reframe": ["Make a {aspect} copy of the sequence whose shots follow the person, then switch to it. The original stays as it is. It looks at the footage frame by frame, which can take a while.", "做一份 {aspect} 的新序列，画面跟着人走，做好后切换过去；原来的序列不动。要逐帧看画面，可能要等一会儿。"],
+    "rf-progress": ["Making the {aspect} version: shot {n} of {of} · {pct}%", "正在做 {aspect} 的版本：第 {n}/{of} 个镜头 · {pct}%"],
+    "rf-cancel": ["Cancel", "取消"],
+    "rf-done": ["Made the {aspect} copy “{name}” and switched to it. Undo once to go back to the original sequence.", "已做好 {aspect} 的新序列「{name}」并切换过去。撤销一次就回到原来的序列。"],
+    "rf-cancelled": ["Cancelled. No sequence was made; nothing changed.", "已取消，没有新建序列，什么都没改。"],
+    "rf-changed": ["The project changed while this was being made, so to be safe no sequence was made. Ask again.", "做的过程中项目被改过，为了不出错，没有新建序列。可以再让助手做一次。"],
+    "rf-nothing": ["No shot here can be reframed (only titles, picture-in-picture or clips placed by hand), so no sequence was made.", "这里没有能改比例的镜头（只有字幕、画中画或手动摆过的片段），所以没有新建序列。"],
+    "rf-busy": ["Something else is running (an export, or another reframe). Try again when it's done.", "现在有别的事在进行（导出，或者另一个改比例），等它做完再试。"],
+    "rf-failed": ["The footage couldn't be read, so no sequence was made.", "画面读不出来，所以没有新建序列。"],
+    // JJ定稿 (2026-11-06).
+    "rf-sequence-limit": ["This project already has {limit} sequences. Remove an unneeded sequence, then try again.", "这个工程已有 {limit} 个序列，暂时不能再新建。请先删除一个不需要的序列，再试。"],
+    // added after rf-failed when the clip whose file couldn't be opened is known: its name as the bin shows it, no path. 待 JJ 定稿
+    "rf-failed-name": ["The clip that couldn't be opened is “{name}”.", "打不开的素材是「{name}」。"],
+    "rf-same": ["The sequence already has that shape; there is nothing to make.", "这个序列已经是这个比例了，不用再做。"],
+    "rf-undone": ["Undone: the {aspect} copy was deleted and “{name}” is open again.", "已撤销：删掉了 {aspect} 的新序列，回到「{name}」。"],
+    "rf-undo-failed": ["Couldn't go back to the original sequence. Open “{name}” from the sequence menu (▾) at the top left of the timeline.", "回不到原来的序列了。可以从时间线左上角的序列菜单（▾）里打开「{name}」。"],
     "ap-undo": ["Undo", "撤销"],
     // P4, second half: the plan list. New copy, for JJ.
     "pl-step-of": ["Step {n} of {total} of the plan.", "计划的第 {n} 步，共 {total} 步。"],
@@ -1165,15 +1220,19 @@
   Object.assign(officialPaneText['zh-CN'],{notSent:'这次发送的只有上面显示的文字。不附带声音、画面和截图；软件不会自动加上文件路径和账号，但你自己写进文字或历史里的这类信息会照样发出。API 密钥只用来向服务验证身份。',undoLast:'撤销这次应用（和顶部撤销相同）',captionLabel:'字幕',rangeLabel:'范围',projectLabel:'项目'});
   Object.assign(officialPaneText.en,{reviewSummary:'This will send a fixed formatting note, your message, {captions} quoted subtitles, and {history} earlier messages (including their quotes).',rawRequest:'View exact request',proposalSummary:'Suggested edit: keep {count} sentences, about {duration} in the final cut. Look it over before applying.',proposalRanges:'Suggested edit: keep {count} ranges joined into one video, about {duration}. Look it over before applying.',proposalSlices:'Suggested edit: {count} separate clips, one file each, about {duration} in total. Look it over before applying.',factsOmittedOne:"Timing for 1 clip wasn't included, so the AI won't see where it is. Sending still works.",factsOmitted:"Timing for {n} clips wasn't included, so the AI won't see where they are. Sending still works.",factsTitle:'Timeline numbers are also sent · click to see them',factsExplain:'How long each recording is, which part each clip uses, and the start, end and score of the highlight candidates already found. No file names, subtitle text, pictures or sound. This is exactly what is sent:',goConfig:'Go to settings',staleProposal:'The project changed after this reply, so this suggested edit can no longer be used.',reask:'Ask again using the current project',reaskReady:'A new draft is ready with no history or references. Select current subtitles and review before sending. The original conversation is still in the session list.'});
   Object.assign(officialPaneText['zh-CN'],{reviewSummary:'这次会发送一段固定的格式说明、消息文字、引用的 {captions} 条字幕，以及之前的 {history} 条消息（包含其中的引用）。',rawRequest:'查看原始请求',proposalSummary:'已生成剪辑建议：保留 {count} 句，成片大约 {duration}。请先看一遍再应用。',proposalRanges:'已生成剪辑建议：保留 {count} 段，拼成一条，大约 {duration}。请先看一遍再应用。',proposalSlices:'已生成剪辑建议：切出 {count} 条切片，每条一个文件，一共大约 {duration}。请先看一遍再应用。',factsOmittedOne:'有 1 个片段这次没附上时间信息，AI 看不到它在哪。不影响发送。',factsOmitted:'有 {n} 个片段这次没附上时间信息，AI 看不到它们在哪。不影响发送。',factsTitle:'还会附上时间线的数字 · 点开看原文',factsExplain:'每段录像有多长、每个片段用到哪一部分，以及已经找到的高光候选的起止和分数。不含文件名、字幕文字、画面和声音。下面就是原样发出去的内容：',goConfig:'去设置',staleProposal:'项目在回复之后改过了，这条剪辑建议不能用了。',reask:'按现在的项目重新问',reaskReady:'已新建草稿，不带历史和引用。请重新选择当前字幕，确认后再发送。原来的对话还在会话列表里。'});
-  // JJ定稿 (2026-11-05, via Deja). limitReframe: the editor's own first sentence above a reply to a message that asks for a
-  // vertical picture (agent-limits.js). {dropdown} and {option} are filled in from the export-frame drop-down as it shows
-  // (app.js exportFrameNames: its label and its 9:16 option's text), never written here. noChange: a suggested edit that
-  // would change nothing.
-  Object.assign(officialPaneText.en,{limitReframe:"The assistant can't switch to vertical yet. You can do it yourself: in the “{dropdown}” list above the player, choose “{option}”, then export.",noChange:"This suggestion wouldn't change the timeline (it's {duration} now), so there's nothing to apply."});
-  Object.assign(officialPaneText['zh-CN'],{limitReframe:'改竖屏这一步，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选「{option}」，再导出。',noChange:'按这个建议剪，时间线不会有任何变化（现在一共 {duration}），所以不用应用。'});
-  // Non-vertical / unspecified reframe requests. JJ定稿 (2026-11-06).
-  Object.assign(officialPaneText.en,{limitReframeAspect:"The assistant can't change the aspect ratio yet. You can do it yourself: in the “{dropdown}” list above the player, choose “{option}”, then export.",limitReframeAny:"The assistant can't change the aspect ratio yet. You can do it yourself: choose the aspect ratio you need in the “{dropdown}” list above the player, then export."});
-  Object.assign(officialPaneText['zh-CN'],{limitReframeAspect:'改画面比例这一步，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选「{option}」，再导出。',limitReframeAny:'改画面比例这一步，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选择需要的画面比例，再导出。'});
+  // JJ定稿 (2026-11-05, via Deja). noChange: a suggested edit that would change nothing. (#172's 「改竖屏」 sentence went with
+  // the assistant's own reframe, as Deja decided.)
+  Object.assign(officialPaneText.en,{noChange:"This suggestion wouldn't change the timeline (it's {duration} now), so there's nothing to apply."});
+  Object.assign(officialPaneText['zh-CN'],{noChange:'按这个建议剪，时间线不会有任何变化（现在一共 {duration}），所以不用应用。'});
+  // #175 makes 9:16 / 1:1 / 4:5 itself; a message that asks only for another shape (16:9, 5:4, 横屏) still gets the manual
+  // way first (agent-limits.js, Deja 2026-11-06). The sentences below are unchanged from #172.
+  // Another shape than the assistant makes (16:9, 5:4, 横屏). JJ定稿 (2026-11-06, for #175 at ac2df195; posted by Deja): only this
+  // shape can't be made. Two or more such shapes in one message get limitReframeAny (agent-limits.js note).
+  Object.assign(officialPaneText.en,{limitReframeAspect:"The assistant can't change it to “{option}” yet. You can do it yourself: in the “{dropdown}” list above the player, choose it, then export.",limitReframeAny:"The assistant can't make that aspect ratio yet. You can do it yourself: choose the aspect ratio you need in the “{dropdown}” list above the player, then export."});
+  Object.assign(officialPaneText['zh-CN'],{limitReframeAspect:'改成「{option}」这一步，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选它，再导出。',limitReframeAny:'这个画面比例，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选择需要的画面比例，再导出。'});
+  // the assistant's reframe proposal (Deja, 2026-11-05), JJ定稿 (2026-11-05)
+  Object.assign(officialPaneText.en,{proposalReframe:'Suggested edit: a {aspect} copy of the sequence whose shots follow the person; the original stays as it is. You are asked before anything is made.'});
+  Object.assign(officialPaneText['zh-CN'],{proposalReframe:'已生成剪辑建议：做一份 {aspect} 的新序列，画面跟着人走，原来的序列不动。动手之前会先问你。'});
   // JJ via Deja (2026-11-05): when the facts carry the singing parts and the loudness, the review box says so, outside the
   // fold (JJ's words; JJ定稿 2026-11-05: 「音量大小（每秒或每隔几秒一个数）」, since a long video gets one every few seconds). factsLimit: over capabilities.js FACTS nothing is sent (JJ定稿, 2026-11-05).
   Object.assign(officialPaneText.en,{factsSound:'Also sent: which parts may be singing (start and end seconds only) and the loudness (one number every second or every few seconds) (a list of numbers). The sound itself is not sent.',factsLimit:'There are too many numbers to attach, more than can be sent, so nothing was sent. What you wrote is still here. Select a shorter range and send again.'});
