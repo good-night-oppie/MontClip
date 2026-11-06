@@ -461,10 +461,12 @@ async function beatsTool(args) {
 /* fablecut_reframe: a new sequence on the canvas asked for (or the open one), then reframe.js on frames
    ffmpeg samples from each full-frame shot's window. */
 const REFRAME_MAX_SECS = 15 * 60;
-function sampleFrames(file, c, w, h) {
+/** → {frames, times}: SAMPLE_FPS a second, then the clip's last frame (reframe.js sampleTimes), read once more. */
+function sampleFrames(file, c, w, h, fps = 30) {
   const R = require("./reframe.js");
   const sp = Math.min(8, Math.max(0.1, +c.props?.speed || 1));
-  const len = Math.max(0.1, Math.min(REFRAME_MAX_SECS, c.duration * sp));
+  const len = Math.min(REFRAME_MAX_SECS, c.duration * sp);
+  if (!(len > 0)) throw new Error('reframe requires a positive clip duration');
   const args = c.kind === "image"
     ? ["-v", "error", "-i", file, "-frames:v", "1", "-vf", `scale=${w}:${h}`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
     : ["-v", "error", "-ss", String(Math.max(0, +c.in || 0)), "-t", String(len), "-i", file, "-an",
@@ -475,7 +477,26 @@ function sampleFrames(file, c, w, h) {
   if (r.status !== 0) throw new Error(`ffmpeg couldn't read ${c.id}: ${String(r.stderr).trim().split("\n").pop()}`);
   const fb = w * h * 3, frames = [];
   for (let o = 0; o + fb <= r.stdout.length; o += fb) frames.push(r.stdout.subarray(o, o + fb));
-  return frames;
+  if (c.kind === "image") return { frames, times: null };
+  const times = frames.map((_, i) => Math.round((i / R.SAMPLE_FPS) * 1000) / 1000);
+  // A timeline sample time is not a source-frame index. Decode from the preceding keyframe:
+  // accurate seek would discard the frame displayed at target and can return the next shot.
+  const start = Math.max(0, +c.in || 0), end = start + len;
+  const target = start + Math.max(0, len - sp / (fps > 0 ? fps : 30));
+  const q = require("child_process").spawnSync(FF.path("ffmpeg"), ["-hide_banner", "-v", "info", "-noaccurate_seek", "-ss", String(target), "-i", file,
+    "-copyts", "-start_at_zero", "-to", String(end), "-an", "-vf", `select='gte(t,${start})*lte(t,${target + 1e-7})*lt(t,${end})',scale=${w}:${h},showinfo`,
+    "-fps_mode", "passthrough", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 26, timeout: 60000, windowsHide: true });
+  const log = String(q.stderr || ''), clock = /config in time_base:\s*(\d+)\/(\d+)/.exec(log);
+  const tick = clock && Number(clock[1]) / Number(clock[2]);
+  const stamps = [...log.matchAll(/\bn:\s*\d+\s+pts:\s*(-?\d+)\s+pts_time:/g)].map(m => Number(m[1]) * tick);
+  const count = q.stdout ? q.stdout.length / fb : 0, pts = stamps[count - 1];
+  if (q.error || q.status !== 0 || !Number.isInteger(count) || !count || stamps.length !== count || !Number.isFinite(pts) || pts < start || pts >= end || pts > target + 1e-5)
+    throw new Error(`ffmpeg couldn't read the displayed tail frame of ${c.id}`);
+  const last = pts - start;
+  // fps=5 may repeat a VFR tail beyond its actual PTS. Replace those copies with the real tail.
+  while (times.length && times[times.length - 1] >= last) { times.pop(); frames.pop(); }
+  frames.push(q.stdout.subarray((count - 1) * fb, count * fb)); times.push(last);
+  return { frames, times };
 }
 async function reframeTool(args) {
   const R = require("./reframe.js");
@@ -516,7 +537,7 @@ async function reframeTool(args) {
     const cover = R.coverRect(src.width, src.height, canvas.width, canvas.height, 1);
     if (args.follow !== false && Math.max(cover.maxX, cover.maxY) > 0.5) {   // no room to pan: nothing to look at
       const w = R.SAMPLE_W, h = Math.max(8, Math.round(w * src.height / src.width / 2) * 2);
-      try { samples = R.subjectTrack(sampleFrames(file, c, w, h), w, h); }
+      try { const s = sampleFrames(file, c, w, h, work.fps || 30); samples = R.subjectTrack(s.frames, w, h, s.times ? { times: s.times } : {}); }
       catch (e) { skip.push({ id: c.id, why: e.message }); continue; }
     }
     const p = R.clipPlan(c, samples, src, canvas, { smooth, fps: work.fps || 30, follow: args.follow !== false });

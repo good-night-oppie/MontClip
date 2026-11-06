@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- MCP reframe selects the displayed source tail by decoded PTS, including mixed frame rates and VFR, without reading the following shot; empty tail reads fail explicitly.
+
 - Refuse stale assistant reframe plans when clips are added during reading; check the sequence limit before reading footage and render JJ-approved guidance from that same limit.
 
 - Count accumulated gaps before hiding an unchanged assistant suggestion; match manual aspect-ratio guidance to the request.
