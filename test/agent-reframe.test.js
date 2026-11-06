@@ -142,7 +142,7 @@ test('the editor and fablecut_reframe both read the clip\'s last frame (reframe.
  a.match(app,/if \(onRgb\) onRgb\(rgb\(\), at\[i\]\); else frames\.push\(rgb\(\)\);/);
  // Highlights reads the same way as before: no times, PIC_FPS a second
  a.match(app,/await sampleClipFrames\(c, w, h, onFrame, \(f\) => pic\.push\(f\), \{ fps: Highlights\.PIC_FPS, cancelled \}\);/);
- a.match(mcp,/const want = R\.sampleTimes\(len, \{ frame: sp \/ \(fps > 0 \? fps : 30\) \}\)/);
+ // MCP's source-frame selection is exercised with real CFR/VFR files in reframe-source-tail.test.js.
  a.match(mcp,/samples = R\.subjectTrack\(s\.frames, w, h, s\.times \? \{ times: s\.times \} : \{\}\);/);
  a.ok(!/extrapolat/i.test(read('reframe.js').replace(/Not an[\s*]+extrapolation/,'')),'read, not extrapolated');
 });

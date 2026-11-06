@@ -438,13 +438,24 @@ function sampleFrames(file, c, w, h, fps = 30) {
   const fb = w * h * 3, frames = [];
   for (let o = 0; o + fb <= r.stdout.length; o += fb) frames.push(r.stdout.subarray(o, o + fb));
   if (c.kind === "image") return { frames, times: null };
-  const want = R.sampleTimes(len, { frame: sp / (fps > 0 ? fps : 30) }), times = frames.map((_, i) => Math.round((i / R.SAMPLE_FPS) * 1000) / 1000);
-  const last = want[want.length - 1];
-  if (frames.length && last - times[times.length - 1] > 1e-3) {
-    const q = require("child_process").spawnSync(FF.path("ffmpeg"), ["-v", "error", "-ss", String(Math.max(0, +c.in || 0) + last), "-i", file, "-an", "-frames:v", "1",
-      "-vf", `scale=${w}:${h}`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 24, timeout: 60000 });
-    if (q.status === 0 && q.stdout.length >= fb) { frames.push(q.stdout.subarray(0, fb)); times.push(last); }
-  }
+  const times = frames.map((_, i) => Math.round((i / R.SAMPLE_FPS) * 1000) / 1000);
+  // A timeline sample time is not a source-frame index. Decode from the preceding keyframe:
+  // accurate seek would discard the frame displayed at target and can return the next shot.
+  const start = Math.max(0, +c.in || 0), end = start + len;
+  const target = start + Math.max(0, len - sp / (fps > 0 ? fps : 30));
+  const q = require("child_process").spawnSync(FF.path("ffmpeg"), ["-hide_banner", "-v", "info", "-noaccurate_seek", "-ss", String(target), "-i", file,
+    "-copyts", "-start_at_zero", "-to", String(end), "-an", "-vf", `select='gte(t,${start})*lte(t,${target + 1e-7})*lt(t,${end})',scale=${w}:${h},showinfo`,
+    "-fps_mode", "passthrough", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 26, timeout: 60000, windowsHide: true });
+  const log = String(q.stderr || ''), clock = /config in time_base:\s*(\d+)\/(\d+)/.exec(log);
+  const tick = clock && Number(clock[1]) / Number(clock[2]);
+  const stamps = [...log.matchAll(/\bn:\s*\d+\s+pts:\s*(-?\d+)\s+pts_time:/g)].map(m => Number(m[1]) * tick);
+  const count = q.stdout ? q.stdout.length / fb : 0, pts = stamps[count - 1];
+  if (q.error || q.status !== 0 || !Number.isInteger(count) || !count || stamps.length !== count || !Number.isFinite(pts) || pts < start || pts >= end || pts > target + 1e-5)
+    throw new Error(`ffmpeg couldn't read the displayed tail frame of ${c.id}`);
+  const last = pts - start;
+  // fps=5 may repeat a VFR tail beyond its actual PTS. Replace those copies with the real tail.
+  while (times.length && times[times.length - 1] >= last) { times.pop(); frames.pop(); }
+  frames.push(q.stdout.subarray((count - 1) * fb, count * fb)); times.push(last);
   return { frames, times };
 }
 async function reframeTool(args) {

@@ -3082,3 +3082,5 @@ The times stay the transcript's; misheard characters become the lyrics' ones; on
 shows what was heard and what it becomes; lines that align poorly are marked 「可能不对」 and not ticked. Nothing changes
 until the streamer applies; then the part's captions are replaced in one undo step. See
 `docs/decisions/2026-11-03-lyrics-captions.md`.
+
+MCP reframe tail sampling decodes from the preceding keyframe and selects the source frame displayed at the final timeline sample. Selection uses decoded PTS within the clip window, normalized to source playback time, including VFR and mismatched source/project frame rates. The tail sample carries its decoded timestamp; empty or failed tail reads are refused. This changes newly computed reframe plans only.
