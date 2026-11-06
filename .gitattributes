@@ -5,3 +5,11 @@ licenses/ffmpeg/texts/** -text
 # Preserve official upstream source bytes for provenance verification.
 agent-ui/upstream/** -text
 agent-ui/cindy-43001ea/** -text
+
+# Generated / verbatim-vendored files: collapse in review, exclude from review-size counts
+cindy-official.js linguist-generated
+cindy-parts.css linguist-generated
+package-lock.json linguist-generated
+agent-ui/package-lock.json linguist-generated
+agent-ui/upstream/** linguist-generated
+agent-ui/cindy-43001ea/** linguist-generated
