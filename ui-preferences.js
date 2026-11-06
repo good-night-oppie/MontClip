@@ -91,6 +91,32 @@
     "add-adjust-title": ["Add an adjustment layer (grades everything below it)", "添加调节层（调节它下面的所有画面）"],
     "add-import": ["+ Import", "+ 导入"],
     "add-url": ["+ URL", "+ 网址"],
+    // a file that can't be found (JJ, 2026-11-05, second round). English JJ did not give is a draft (草稿，待 JJ 定稿);
+    // where English already said it (badge, its hover, the slate) it stays as it was.
+    "off-bar-one": ["Can't find “{file}”. It may have been moved or deleted. Your edits are still there; find the file and you can carry on.", "「{file}」找不到了，可能被移走或删掉了。你剪好的都还在，把文件找回来就能接着用。"],
+    "off-find-it": ["Find it…", "找到它…"],
+    "off-bar-many": ["{n} media files can't be found. They may have been moved or deleted. Your edits are still there; find the files and you can carry on.", "有 {n} 个素材找不到了，可能被移走或删掉了。你剪好的都还在，把文件找回来就能接着用。"],   // en: draft
+    "off-find-each": ["Find them one by one…", "一个个找回来…"],   // en: draft
+    "off-badge": ["OFFLINE", "找不到"],
+    "off-badge-title": ["The file is missing — right-click → Relink…", "这个文件找不到了。右键选〔重新链接…〕，把它找回来。"],
+    // the file's name only, never its path: streamers send screenshots, and a full path holds their user name (Deja, 2026-11-05)
+    "off-item-title": ["⚠ Offline: {file} is missing — right-click → Relink…", "这个文件找不到了。右键选〔重新链接…〕，把它找回来。"],
+    "off-filter": ["⚠ Offline ({n})", "⚠ 找不到（{n}）"],
+    "off-clip": ["⚠ Offline · ", "⚠ 找不到 · "],
+    "off-export": ["{n} media files can't be found. In the export those parts will show a “missing” picture with no sound. Find them first, then export.", "有 {n} 个素材找不到了，导出时这几段会显示「找不到」的画面、没有声音。先把它们找回来再导出吧。"],
+    "off-export-one": ["1 media file can't be found. In the export that part will show a “missing” picture with no sound. Find it first, then export.", "有 1 个素材找不到了，导出时这一段会显示「找不到」的画面、没有声音。先把它找回来再导出吧。"],   // n = 1: JJ's final wording (Deja, 2026-11-05)
+    "off-find-first": ["Find them first…", "先找回来…"],   // en: draft
+    "off-export-anyway": ["Export anyway", "照样导出"],   // en: draft
+    "off-other-copy": ["Use the same recording from elsewhere…", "用另一处的同一段录像…"],
+    "off-other-copy-title": ["The same recording saved somewhere else (a backup on another drive, for example). Point to that one; your cuts stay the same.", "同一段录像存在别的地方（比如移动硬盘上的备份），指到那一份，剪辑点都不变。"],
+    "off-replace-title": ["Swap in a different recording; every clip that uses it changes too.", "换成另一段录像，用到它的片段都会跟着换。"],
+    "off-none": ["All your media is here; nothing is missing.", "素材都在，没有找不到的。"],   // en: draft
+    "off-finding-k": ["Looking for “{file}” ({k} of {n})", "正在找：「{file}」（第 {k} 个，共 {n} 个）"],
+    "off-auto-found": ["Found {m} automatically.", "已经自动找回 {m} 个"],   // en: draft
+    "off-slate": ["Media offline", "找不到"],
+    // the bin's two other English lines VV saw (Deja, 2026-11-05; JJ's wording)
+    "bin-drop-root": ["Drop here to move it out of the folder", "拖到这里，移出文件夹"],   // JJ, 2026-11-05
+    "bin-dbl-hint": ["Double-click to preview it, or drag it onto the timeline.", "双击可以先预览，或者直接拖到时间线上。"],   // JJ, 2026-11-05
     // the Transcript tab's sentence button, one language at a time (for JJ to review)
     "tr-sentences": ["Select sentences", "按句选段"],
     // the Save dialog's outcome in the desktop app (VV, 012ba18; for JJ to review)
