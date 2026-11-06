@@ -209,12 +209,12 @@ test('JJ’s copy, word for word, in both languages; the P8 sentence holds its k
  a.equal(zh('lt-no-lyrics'),'还没有歌词。把歌词粘贴进来，一行一句。');
  a.equal(en('lt-no-lyrics'),'No lyrics yet. Paste them in, one line per line of the song.');
  a.equal(zh('lt-place'),'放到时间线上');a.equal(zh('lt-not-now'),'先不用');
- // not final yet: only that the keys are there in both languages, and the source marks each DRAFT for JJ (team rule:
- // new streamer-visible words go in as drafts). P8's final sentences (#165) cover only a missing engine or model; this
- // one also covers no editor to run in, so it waits for JJ (Deja, 2026-11-06)
- a.ok(zh('lt-asr-unavailable')&&en('lt-asr-unavailable'));
- a.match(read('ui-preferences.js'),/\/\/ DRAFT for JJ[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*"lt-asr-unavailable"/);
- a.match(read('ui-preferences.js'),/\/\/ DRAFT for JJ[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*"lt-place"[^\n]*\n\s*"lt-not-now"[^\n]*\n\s*"lt-not-placed"/);
+ // JJ final, word for word (#164 issuecomment-6691316743)
+ a.equal(zh('lt-asr-unavailable'),'现在没法听写，歌词对不上。可能是编辑器没打开，或听写还没装好。');
+ a.equal(en('lt-asr-unavailable'),"Transcription can't run right now, so the lyrics can't be lined up. The editor may not be open, or transcription may not be installed yet.");
+ a.equal(en('lt-place'),'Add to the timeline');a.equal(en('lt-not-now'),'Not now');
+ a.equal(zh('lt-not-placed'),'没有放到时间线上，什么都没改。');a.equal(en('lt-not-placed'),'Not added. Nothing changed.');
+ a.ok(!/DRAFT for JJ[^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*"lt-/.test(read('ui-preferences.js')),'no lt- key left as DRAFT');
  a.ok(!/TODO\(P8\)/.test(read('ui-preferences.js')),'no TODO(P8) placeholder left');
  const keys={OK:'lt-preview',TOO_FEW:'lt-too-few',NO_VOCALS:'lt-no-vocals',NO_LYRICS:'lt-no-lyrics',ASR_UNAVAILABLE:'lt-asr-unavailable'};
  for(const [code,key] of Object.entries(keys))a.equal(T.messageKey({ok:code==='OK',code}),key);

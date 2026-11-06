@@ -108,7 +108,7 @@ test("apply: the open editor asks on its card; the agent hears what she chose; n
   await post(base, "/api/export/job/claim?id=" + t2.id);
   await post(base, "/api/export/job/report?id=" + t2.id, { status: "done", result: { applied: false, reason: "DECLINED" } });
   const no = JSON.parse((await p2).text);
-  assert.equal(no.applied, false); assert.equal(no.reason, "DECLINED"); assert.equal(no.message["zh-CN"], "没有放，什么都没改。");
+  assert.equal(no.applied, false); assert.equal(no.reason, "DECLINED"); assert.equal(no.message["zh-CN"], "没有放到时间线上，什么都没改。");
 
   // the singing clip moved since the proposal: refused before anyone is asked
   const doc = JSON.parse(bytes(dir)); doc.clips[0].start = 2; doc.revision++;
