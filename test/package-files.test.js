@@ -11,6 +11,24 @@ const tracked=execFileSync('git',['ls-files'],{cwd:ROOT,encoding:'utf8'}).trim()
 const files=P.packagedFiles(ROOT,tracked);
 const inPackage=(rel)=>files.some((f)=>rel===f||(f.endsWith('/')&&rel.startsWith(f)));
 
+test('the shipped app and generated tester notes make no unsupported AI naming claims',()=>{
+ const forbidden=['AI 起的名字','写的说明'];
+ const check=(name,content)=>{
+  // esbuild may encode Chinese as Unicode escapes in the shipped bundle.
+  const decoded=content.replace(/\\u([0-9a-f]{4})/gi,(_,hex)=>String.fromCharCode(parseInt(hex,16)));
+  for(const phrase of forbidden)a.ok(!decoded.includes(phrase),name+': unsupported claim '+phrase);
+ };
+ const scan=(rel)=>{
+  const full=path.join(ROOT,rel);
+  if(fs.statSync(full).isDirectory())for(const entry of fs.readdirSync(full))scan(path.join(rel,entry));
+  else check(rel,fs.readFileSync(full,'utf8'));
+ };
+ for(const rel of new Set(files))scan(rel);
+ const R=require('../desktop/package-readme/render.js');
+ for(const lang of ['zh-CN','en'])for(const urlHidden of [false,true])for(const copyGone of [false,true])
+  check('generated README '+lang,R.render(R.read(lang),{lang,buildId:'test-build',urlHidden,copyGone}).text);
+});
+
 test('the package list is what package-win.cjs takes, and the program starts from it',()=>{
  for(const f of ['desktop/main.js','desktop/view-preload.js','server.js','app.js','index.html','asr-models.js'])a.ok(inPackage(f),f);
  a.ok(!files.some((f)=>f.startsWith('test/')),'no tests');

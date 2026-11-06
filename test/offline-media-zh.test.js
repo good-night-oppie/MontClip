@@ -159,3 +159,38 @@ test('the export mix leaves a missing file out, even one whose sound was decoded
   const s = body('async function renderAudioMix(', 'const sources = ');
   a.match(s, /if \(!m \|\| isMediaOffline\(m\.id\)\) continue;/);
 });
+
+// Merge regression: the offline guard must run before main's window decoder,
+// while audible decode failures for files still present must continue to stop export.
+function mixHarness(clips, offline, decode) {
+  const vm = require('node:vm');
+  const mix = body('async function renderAudioMix(', '\n}\n') + '\n}';
+  const failures = body('function exportAudioHeard(', 'async function exportAudioSource(');
+  const rendered = new Error('Reached audio rendering');
+  const context = {
+    mediaClips: () => clips, clipRenders: () => true,
+    getMedia: id => ({ id, audioChannels: 2 }), isMediaOffline: id => offline.has(id),
+    exportAudioSource: decode, uiText: k => k,
+    OfflineAudioContext: function () { throw rendered; },
+  };
+  const run = vm.runInNewContext(failures + '\n' + mix + '\nrenderAudioMix', context);
+  return { run, rendered };
+}
+test('offline clips never enter the window decoder, even with cached sound', async () => {
+  const clip = { kind: 'audio', mediaId: 'missing', start: 0, duration: 2 };
+  const { run } = mixHarness([clip], new Set(['missing']), () => { throw Error('must not decode missing media'); });
+  a.equal(await run(0, 2), null);
+});
+test('a mixed offline/online export retains main\'s clipped window and source offset', async () => {
+  const clips = ['missing', 'present'].map(mediaId => ({ kind: 'audio', mediaId, start: 1, duration: 4 }));
+  const calls = [];
+  const { run, rendered } = mixHarness(clips, new Set(['missing']), async (m, c, from, to) => {
+    calls.push([m.id, from, to]); return { buf: {}, at: 1.5 };
+  });
+  await a.rejects(run(2, 3), e => e === rendered);
+  a.deepEqual(calls, [['present', 2, 3]]);
+});
+test('an online audible decode failure still stops export after the offline guard', async () => {
+  const { run } = mixHarness([{ kind: 'audio', mediaId: 'present', start: 0, duration: 2, props: {} }], new Set(), async () => { throw Error('decode failed'); });
+  await a.rejects(run(0, 2), e => e.code === 'EXPORT_AUDIO_FAILED');
+});

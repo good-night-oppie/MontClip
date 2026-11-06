@@ -25,7 +25,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
    applyProject(doc);scheduleSave();if(!await flushSave())throw Error('save');})()`);
   const sample=()=>{let total=0;for(const m of app.getAppMetrics()){const ws=(m.memory&&m.memory.workingSetSize||0)*1024;total+=ws;const k=m.type==='Tab'?'renderer':m.type==='Browser'?'browser':m.type==='GPU'?'gpu':null;if(k)peak[k]=Math.max(peak[k],ws);}peak.total=Math.max(peak.total,total);};
   sample();const base={...peak};timer=setInterval(sample,250);
-  const r=await read(`(async()=>{const t0=performance.now();const sig=await highlightSignals();const t1=performance.now();const cards=MontClipHighlights.candidates(sig);const t2=performance.now();
+  const r=await read(`(async()=>{const t0=performance.now();const sig=await highlightSignals();const t1=performance.now();const cards=MontClipHighlightCandidates.candidates(sig);const t2=performance.now();
    return{readMs:Math.round(t1-t0),candidatesMs:Math.round(t2-t1),bins:sig.loudness?sig.loudness.values.length:0,beats:sig.beats.length,sentences:sig.sentences.length,cards:cards.length,
     first:cards.slice(0,5).map(c=>[c.from,c.to,c.reasons.map(x=>x.signal).join('+')])};})()`);
   clearInterval(timer);sample();
