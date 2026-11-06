@@ -1326,7 +1326,7 @@ In the editor:
   (any visual clip that overlaps it in time) and press **Attach to the track**. The clip
   gets `x` / `y` keyframes (plus `scale` / `rotation` with those toggles on)
   that ride on the track and keep it where it is at the playhead. Stickers,
-  titles, a blur box or a highlight then stay pinned to the moving thing.
+  titles, a cover box or a highlight then stay pinned to the moving thing.
 - Tracking runs from a private copy of the video, so the monitor does not
   move. Progress shows in the Inspector, and **Esc** stops it and keeps what
   it has. Each finished track is one undo step.

@@ -139,7 +139,7 @@ test("JJ's final copy (2026-11-05), word for word in both languages; the English
   assert.equal(require("../capabilities").get("fablecut_blur_region").summary["zh-CN"], "给画面里的一块打码，片段放大、移动时码会跟着走");
   for (const f of ["capabilities.js", "manifest.json"]) assert.doesNotMatch(fs.readFileSync(path.join(__dirname, "..", f), "utf8").match(/fablecut_blur_region.*/)[0], /\bCover\b/, f);
   // DRAFT (Deja, 2026-11-06): "a mosaic" → "a solid block" (#186); JJ to sign off
-  assert.equal(require("../capabilities").get("fablecut_blur_region").summary.en, "Hide an area of the picture with a solid block that follows the clip when it zooms or moves");
+  assert.equal(require("../capabilities").get("fablecut_blur_region").summary.en, "Hide an area of the picture with a solid black block that follows the clip when it zooms or moves");
   const tool = require("../mcp-tools").find((t) => t.name === "fablecut_blur_region");
   assert.match(tool.description, /^Hide an area of a clip's picture in one step/);
   const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
