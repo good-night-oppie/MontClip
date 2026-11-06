@@ -14,7 +14,7 @@ The complete agent manual is in [CLAUDE.md](CLAUDE.md). Read it before changing 
 ## Review handoff
 
 - Follow [the review workflow](docs/decisions/2026-11-01-development-workflow.md). Start the PR description with `QQ 请审` (no `@`) and request reviewer `GoodNightOppie`.
-- The description label is for people; the reviewer request is required for Review Inbox discovery. A Draft can appear in the inbox while remaining ineligible for review.
+- The description label is for people; the reviewer request is required for Review Inbox discovery. A Draft can appear in the inbox but does not automatically enter Review Inbox agent review. Assigned human or teammate pre-review may proceed; it does not satisfy approval or merge gates.
 - Existing descriptions with the literal label `@QQ 请审` do not need another edit. Do not mention an unrelated GitHub account to request team review.
 - Keep the current-head review, CI, role approvals and merge gates unchanged.
 
