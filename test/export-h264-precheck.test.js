@@ -94,7 +94,7 @@ test('server, an H.264 encoder present but no local FFmpeg: a libx264 profile st
 // QQ on 1d3e289: while the precheck is out, 〔返回选择页〕 still works; when it answered, autoExport placed the slices and
 // exported anyway. The real autoExport / autoExportConfirm and the real 〔返回〕 handlers, on a fake dialog, with the
 // precheck answering only after 〔返回〕 was clicked.
-function autoSlicesHarness() {
+function autoSlicesHarness({loadingEncoders=false}={}) {
   const fn = (head) => { const i = app.indexOf(head); a.ok(i >= 0, head); return app.slice(i, app.indexOf('\n}', i) + 2); };
   // the request-number helpers right above autoExportConfirm (absent before QQ's fix: then the test is red, not broken)
   const h0 = app.indexOf('function autoExNext('), helpers = h0 >= 0 ? app.slice(h0, app.indexOf('function autoExportConfirm(')) : '';
@@ -106,7 +106,9 @@ function autoSlicesHarness() {
   const el = { open: true, querySelector: (s) => s === '[data-as-body]' ? body : s === '[data-as-footer]' ? {} : s === '[data-as-body] .as-ex' ? (page === 'confirm' ? {} : null)
     : s === '[data-as-act="ex-go"]' ? (page === 'confirm' ? go : null) : null };
   const st = { step: 'review', clips: [{ on: true, s: 0, e: 5 }, { on: true, s: 9, e: 12 }], subs: false };
+  const encoderInfo={encoders:loadingEncoders?null:[]}, encoderPending=[];
   const env = {
+    deliveryInfo:encoderInfo, fetchDeliveryInfo:()=>new Promise(resolve=>encoderPending.push(resolve)),
     AUTO: { el }, autoState: () => st, autoSay: () => 'x', escapeHtml: (s) => s, autoName: () => 'n', autoDur: () => '1', autoSubMode: () => 'auto',
     exportH264Refusal: () => new Promise((resolve) => pending.push(resolve)), deliveryIsH264: () => true, sliceDeliverySpec: () => ({}),
     placeAutoSlices: () => { calls.place++; return { ok: true, at0: 0 }; }, queueSlices: () => { calls.queue++; }, autoExportRun: () => { calls.run++; },
@@ -115,7 +117,7 @@ function autoSlicesHarness() {
   };
   const make = new Function(...Object.keys(env), `${helpers}\n${fn('function autoExportConfirm(')}\n${fn('async function autoExport(')}
     return { confirm: autoExportConfirm, exportNow: autoExport, back: () => { ${handler('ex-cancel')} } };`);
-  return { ...make(...Object.values(env)), calls, pending, el, page: () => page };
+  return { ...make(...Object.values(env)), calls, pending, encoderPending, el, page: () => page };
 }
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -143,4 +145,16 @@ test('auto-slices: the dialog closed, or the page left, while the precheck is ou
   const stay = autoSlicesHarness();
   stay.confirm(); const ok = stay.exportNow(); for (const answer of stay.pending) answer(null); await ok; await tick();
   a.deepEqual([stay.calls.place, stay.calls.queue, stay.calls.run], [1, 1, 1]);
+});
+
+test('auto-slices: cancellation during encoder discovery leaves timeline and queue untouched',async()=>{
+  const h=autoSlicesHarness({loadingEncoders:true});h.confirm();const going=h.exportNow();h.back();
+  h.encoderPending[0]();await going;
+  a.deepEqual(h.calls,{place:0,queue:0,run:0,notices:0});
+});
+
+test('auto-slices: an old precheck cannot act on a newly opened confirmation page',async()=>{
+  const h=autoSlicesHarness();h.confirm();const old=h.exportNow();h.back();h.confirm();
+  h.pending[0](null);h.pending[1](null);await old;await tick();
+  a.deepEqual(h.calls,{place:0,queue:0,run:0,notices:0});
 });
