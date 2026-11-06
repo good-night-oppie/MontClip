@@ -12,19 +12,32 @@ const app = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8');
 const View = require('../ui-preferences.js');
 const MontClipEdit = require('../edit-ops.js');
 
-// JJ's final wording (europa ~/montclip-labels/jj/2026-11-06-PR139-声道提示定稿-JJ.md; channels-fewer per JJ's 2026-11-06 12:15Z final, confirmed by JJ)
+// JJ's final wording (europa ~/montclip-labels/jj/2026-11-06-PR139-声道提示定稿-JJ.md; English one/other and the quoted
+// "{name}" per JJ's #139 comment 6689166488, 2026-11-06). Chinese has one form; the English key without a form is the other.
 const LOCKED = {
-  'own.channels-fewer': ['"{name}" has fewer channels now. {n} linked audio clip(s) removed.', '「{name}」的声道变少了，已删掉 {n} 条多余的关联音频片段。'],
-  'own.channels-over-limit': ["{name} has {n} audio channels, but MontClip supports up to {max} audio tracks, so the extra {extra} weren't added to the timeline. The original file is unchanged.", '「{name}」有 {n} 个声道，MontClip 最多放 {max} 条音频轨，多出的 {extra} 个声道没有放进时间线。原文件没有变化。'],
-  'own.channels-added-tracks': ['{name} has more channels than there were audio tracks. Added {tracks} audio track(s) and linked {linked} channel(s).', '「{name}」的声道比现有音频轨多，已新增 {tracks} 条音频轨，并关联了 {linked} 个声道。'],
-  'own.channels-linked': ['Linked {linked} audio channel(s) from {name}.', '已关联「{name}」的 {linked} 个声道。'],
+  'own.channels-fewer': ['"{name}" has fewer channels now. {n} linked audio clips were removed.', '「{name}」的声道变少了，已删掉 {n} 条多余的关联音频片段。'],
+  'own.channels-over-limit': ['"{name}" has {n} audio channels, but MontClip supports up to {max} audio tracks, so the extra {extra} channels weren\'t added to the timeline. The original file is unchanged.', '「{name}」有 {n} 个声道，MontClip 最多放 {max} 条音频轨，多出的 {extra} 个声道没有放进时间线。原文件没有变化。'],
+  'own.channels-added-tracks': ['"{name}" has more channels than there were audio tracks. Added {tracks} audio tracks and linked {linked} of its channels.', '「{name}」的声道比现有音频轨多，已新增 {tracks} 条音频轨，并关联了 {linked} 个声道。'],
+  'own.channels-linked': ['Linked {linked} audio channels from "{name}".', '已关联「{name}」的 {linked} 个声道。'],
+};
+const LOCKED_EN_FORMS = {
+  'own.channels-fewer': ['"{name}" has fewer channels now. 1 linked audio clip was removed.', '"{name}" has fewer channels now. {n} linked audio clips were removed.'],
+  'own.channels-over-limit': ['"{name}" has {n} audio channels, but MontClip supports up to {max} audio tracks, so the extra channel wasn\'t added to the timeline. The original file is unchanged.', '"{name}" has {n} audio channels, but MontClip supports up to {max} audio tracks, so the extra {extra} channels weren\'t added to the timeline. The original file is unchanged.'],
+  'own.channels-added-tracks': ['"{name}" has more channels than there were audio tracks. Added 1 audio track and linked {linked} of its channels.', '"{name}" has more channels than there were audio tracks. Added {tracks} audio tracks and linked {linked} of its channels.'],
+  'own.channels-linked': ['Linked 1 audio channel from "{name}".', 'Linked {linked} audio channels from "{name}".'],
 };
 
-test('the four channel sentences are JJ\'s final wording in both languages', () => {
+test('the four channel sentences are JJ\'s final wording in both languages, English one/other, no "(s)"', () => {
   for (const [key, [en, zh]] of Object.entries(LOCKED)) {
     a.equal(View.text.en[key], en, key + ' (en)');
     a.equal(View.text['zh-CN'][key], zh, key + ' (zh-CN)');
   }
+  for (const [key, [one, other]] of Object.entries(LOCKED_EN_FORMS)) {
+    a.equal(View.text.en[key + '_one'], one, key + '_one');
+    a.equal(View.text.en[key + '_other'], other, key + '_other');
+    a.ok(!(key + '_one' in View.text['zh-CN']) && !(key + '_other' in View.text['zh-CN']), key + ': Chinese has one form');
+  }
+  for (const k of Object.keys(View.text.en).filter((k) => k.startsWith('own.channels-'))) a.ok(!View.text.en[k].includes('(s)'), k);
 });
 
 test('no hardcoded English channel toast is left in app.js, and the demo copy matches', () => {
@@ -73,30 +86,31 @@ async function reconcile({ ch, language = 'en', linkedCh = [0, 1], untargeted = 
 test('linked counts what is linked now: all targeted, stereo already placed (6 ch → 6, not the 4 just added)', async () => {
   const r = await reconcile({ ch: 6 });
   a.equal(r.linked, 6);
-  a.deepEqual(r.toasts, ['clip.mov has more channels than there were audio tracks. Added 2 audio tracks and linked 6 channels.']);
+  a.deepEqual(r.toasts, ['"clip.mov" has more channels than there were audio tracks. Added 2 audio tracks and linked 6 of its channels.']);
   a.deepEqual((await reconcile({ ch: 6, language: 'zh-CN' })).toasts, ['「clip.mov」的声道比现有音频轨多，已新增 2 条音频轨，并关联了 6 个声道。']);
 });
 
 test('linked never over-reports when some lanes are not edit targets (the old wantCh said 6 and 4)', async () => {
   const r = await reconcile({ ch: 6, untargeted: ['A5', 'A6'] });
   a.equal(r.linked, 4);
-  a.deepEqual(r.toasts, ['clip.mov has more channels than there were audio tracks. Added 2 audio tracks and linked 4 channels.']);
+  a.deepEqual(r.toasts, ['"clip.mov" has more channels than there were audio tracks. Added 2 audio tracks and linked 4 of its channels.']);
   const s = await reconcile({ ch: 4, untargeted: ['A3'], language: 'zh-CN' });
   a.equal(s.linked, 3);
   a.deepEqual(s.toasts, ['已关联「clip.mov」的 3 个声道。']);
 });
 
 test('no new tracks: the linked sentence, with English singular/plural', async () => {
-  a.deepEqual((await reconcile({ ch: 4 })).toasts, ['Linked 4 audio channels from clip.mov.']);
-  a.deepEqual((await reconcile({ ch: 1, linkedCh: [] })).toasts, ['Linked 1 audio channel from clip.mov.']);
-  a.deepEqual((await reconcile({ ch: 5, linkedCh: [0, 1, 2, 3] })).toasts, ['clip.mov has more channels than there were audio tracks. Added 1 audio track and linked 5 channels.']);
+  a.deepEqual((await reconcile({ ch: 4 })).toasts, ['Linked 4 audio channels from "clip.mov".']);
+  a.deepEqual((await reconcile({ ch: 1, linkedCh: [] })).toasts, ['Linked 1 audio channel from "clip.mov".']);
+  a.deepEqual((await reconcile({ ch: 5, linkedCh: [0, 1, 2, 3] })).toasts, ['"clip.mov" has more channels than there were audio tracks. Added 1 audio track and linked 5 of its channels.']);
 });
 
 test('over the track limit: max is MAX_TRACKS_PER_KIND, extra = channels − max, the source untouched', async () => {
   const r = await reconcile({ ch: 20 });
   a.equal(r.tracks, MAX);
   a.equal(r.linked, MAX);
-  a.deepEqual(r.toasts, [`clip.mov has 20 audio channels, but MontClip supports up to ${MAX} audio tracks, so the extra ${20 - MAX} weren't added to the timeline. The original file is unchanged.`]);
+  a.deepEqual(r.toasts, [`"clip.mov" has 20 audio channels, but MontClip supports up to ${MAX} audio tracks, so the extra ${20 - MAX} channels weren't added to the timeline. The original file is unchanged.`]);
+  a.deepEqual((await reconcile({ ch: MAX + 1 })).toasts, [`"clip.mov" has ${MAX + 1} audio channels, but MontClip supports up to ${MAX} audio tracks, so the extra channel wasn't added to the timeline. The original file is unchanged.`]);
   a.deepEqual((await reconcile({ ch: 20, language: 'zh-CN' })).toasts, [`「clip.mov」有 20 个声道，MontClip 最多放 ${MAX} 条音频轨，多出的 ${20 - MAX} 个声道没有放进时间线。原文件没有变化。`]);
 });
 
@@ -105,5 +119,6 @@ test('nothing changed says nothing; fewer channels says the fewer sentence', asy
   const r = await reconcile({ ch: 1, language: 'zh-CN' });
   a.equal(r.linked, 1);
   a.deepEqual(r.toasts, ['「clip.mov」的声道变少了，已删掉 1 条多余的关联音频片段。']);
-  a.deepEqual((await reconcile({ ch: 1 })).toasts, ['"clip.mov" has fewer channels now. 1 linked audio clip(s) removed.']);
+  a.deepEqual((await reconcile({ ch: 1 })).toasts, ['"clip.mov" has fewer channels now. 1 linked audio clip was removed.']);
+  a.deepEqual((await reconcile({ ch: 1, linkedCh: [0, 1, 2] })).toasts, ['"clip.mov" has fewer channels now. 2 linked audio clips were removed.']);
 });
