@@ -1,0 +1,262 @@
+TAP version 13
+# Subtest: ProRes boundary: 12s real tail and extra mix sample
+ok 1 - ProRes boundary: 12s real tail and extra mix sample
+  ---
+  duration_ms: 259.4359
+  type: 'test'
+  ...
+# Subtest: ProRes boundary: fractional rate and noninteger seconds
+ok 2 - ProRes boundary: fractional rate and noninteger seconds
+  ---
+  duration_ms: 185.2945
+  type: 'test'
+  ...
+# Subtest: ProRes boundary: nonintegral sample boundary rounds to nearest sample
+ok 3 - ProRes boundary: nonintegral sample boundary rounds to nearest sample
+  ---
+  duration_ms: 179.0683
+  type: 'test'
+  ...
+# Subtest: ProRes boundary: long audio ends at project boundary
+ok 4 - ProRes boundary: long audio ends at project boundary
+  ---
+  duration_ms: 204.1409
+  type: 'test'
+  ...
+# Subtest: ProRes boundary: short audio stays short; video remains complete
+ok 5 - ProRes boundary: short audio stays short; video remains complete
+  ---
+  duration_ms: 173.813
+  type: 'test'
+  ...
+# Subtest: ProRes boundary: no audio remains silent with full video
+ok 6 - ProRes boundary: no audio remains silent with full video
+  ---
+  duration_ms: 157.296
+  type: 'test'
+  ...
+# Subtest: ProRes boundary: QQ output index mute remains silent
+ok 7 - ProRes boundary: QQ output index mute remains silent
+  ---
+  duration_ms: 171.1738
+  type: 'test'
+  ...
+# Subtest: ProRes boundary: type then index uses last mute
+ok 8 - ProRes boundary: type then index uses last mute
+  ---
+  duration_ms: 172.0723
+  type: 'test'
+  ...
+# Subtest: ProRes boundary: index then type uses last real tail
+ok 9 - ProRes boundary: index then type uses last real tail
+  ---
+  duration_ms: 171.9236
+  type: 'test'
+  ...
+# Subtest: ProRes boundary: reordered mapped audio index zero
+ok 10 - ProRes boundary: reordered mapped audio index zero
+  ---
+  duration_ms: 172.3409
+  type: 'test'
+  ...
+# Subtest: ProRes boundary: flag-like option value does not disable real tail
+ok 11 - ProRes boundary: flag-like option value does not disable real tail
+  ---
+  duration_ms: 174.941
+  type: 'test'
+  ...
+# Subtest: ProRes boundary: audio filter alias remains effective
+ok 12 - ProRes boundary: audio filter alias remains effective
+  ---
+  duration_ms: 171.8518
+  type: 'test'
+  ...
+# Subtest: ProRes boundary: bounded audio has explicit 48kHz clock
+ok 13 - ProRes boundary: bounded audio has explicit 48kHz clock
+  ---
+  duration_ms: 172.7191
+  type: 'test'
+  ...
+# Subtest: ProRes boundary: last audio filter option remains effective
+ok 14 - ProRes boundary: last audio filter option remains effective
+  ---
+  duration_ms: 193.677
+  type: 'test'
+  ...
+# Subtest: ProRes rejects invalid frames 0
+ok 15 - ProRes rejects invalid frames 0
+  ---
+  duration_ms: 0.4881
+  type: 'test'
+  ...
+# Subtest: ProRes rejects invalid frames -1
+ok 16 - ProRes rejects invalid frames -1
+  ---
+  duration_ms: 0.1031
+  type: 'test'
+  ...
+# Subtest: ProRes rejects invalid frames 1.5
+ok 17 - ProRes rejects invalid frames 1.5
+  ---
+  duration_ms: 0.0966
+  type: 'test'
+  ...
+# Subtest: ProRes rejects invalid frames Infinity
+ok 18 - ProRes rejects invalid frames Infinity
+  ---
+  duration_ms: 0.0735
+  type: 'test'
+  ...
+# Subtest: ProRes rejects invalid frames NaN
+ok 19 - ProRes rejects invalid frames NaN
+  ---
+  duration_ms: 0.0709
+  type: 'test'
+  ...
+# Subtest: ProRes rejects invalid frames 30
+ok 20 - ProRes rejects invalid frames 30
+  ---
+  duration_ms: 0.0724
+  type: 'test'
+  ...
+# Subtest: MP4/AAC with a supplied frame count retains legacy packets and delay handling
+ok 21 - MP4/AAC with a supplied frame count retains legacy packets and delay handling
+  ---
+  duration_ms: 311.744
+  type: 'test'
+  ...
+# Subtest: ProRes rejects invalid sample clock 0
+ok 22 - ProRes rejects invalid sample clock 0
+  ---
+  duration_ms: 0.1818
+  type: 'test'
+  ...
+# Subtest: ProRes rejects invalid sample clock -1
+ok 23 - ProRes rejects invalid sample clock -1
+  ---
+  duration_ms: 0.245
+  type: 'test'
+  ...
+# Subtest: ProRes rejects invalid sample clock Infinity
+ok 24 - ProRes rejects invalid sample clock Infinity
+  ---
+  duration_ms: 0.0665
+  type: 'test'
+  ...
+# Subtest: ProRes rejects invalid sample clock NaN
+ok 25 - ProRes rejects invalid sample clock NaN
+  ---
+  duration_ms: 0.0666
+  type: 'test'
+  ...
+# Subtest: ProRes rejects invalid sample clock 1e-300
+ok 26 - ProRes rejects invalid sample clock 1e-300
+  ---
+  duration_ms: 0.0471
+  type: 'test'
+  ...
+# Subtest: output-index video filters stay unchanged with reordered or absent audio
+ok 27 - output-index video filters stay unchanged with reordered or absent audio
+  ---
+  duration_ms: 493.3646
+  type: 'test'
+  ...
+# Subtest: option values are not mistaken for mapping/filter/disable options
+ok 28 - option values are not mistaken for mapping/filter/disable options
+  ---
+  duration_ms: 0.2538
+  type: 'test'
+  ...
+# Subtest: unresolved mapping/selector refuses ["-map","[mix]"]
+ok 29 - unresolved mapping/selector refuses ["-map","[mix]"]
+  ---
+  duration_ms: 0.2207
+  type: 'test'
+  ...
+# Subtest: unresolved mapping/selector refuses ["-map","0"]
+ok 30 - unresolved mapping/selector refuses ["-map","0"]
+  ---
+  duration_ms: 0.2052
+  type: 'test'
+  ...
+# Subtest: unresolved mapping/selector refuses ["-map","1:a","-map","1:a","-map","0:v"]
+ok 31 - unresolved mapping/selector refuses ["-map","1:a","-map","1:a","-map","0:v"]
+  ---
+  duration_ms: 0.1332
+  type: 'test'
+  ...
+# Subtest: unresolved mapping/selector refuses ["-filter:a:m:title:x","volume=0"]
+ok 32 - unresolved mapping/selector refuses ["-filter:a:m:title:x","volume=0"]
+  ---
+  duration_ms: 0.1115
+  type: 'test'
+  ...
+# Subtest: unresolved mapping/selector refuses ["-filter:99","volume=0"]
+ok 33 - unresolved mapping/selector refuses ["-filter:99","volume=0"]
+  ---
+  duration_ms: 0.1767
+  type: 'test'
+  ...
+# Subtest: unresolved mapping/selector refuses ["-filter_complex","[1:a]anull[a]"]
+ok 34 - unresolved mapping/selector refuses ["-filter_complex","[1:a]anull[a]"]
+  ---
+  duration_ms: 0.2667
+  type: 'test'
+  ...
+# Subtest: unresolved mapping/selector refuses ["-filter","null"]
+ok 35 - unresolved mapping/selector refuses ["-filter","null"]
+  ---
+  duration_ms: 0.187
+  type: 'test'
+  ...
+# Subtest: unresolved mapping/selector refuses ["-map","0:v","-map","-1:a"]
+ok 36 - unresolved mapping/selector refuses ["-map","0:v","-map","-1:a"]
+  ---
+  duration_ms: 0.1567
+  type: 'test'
+  ...
+# Subtest: unresolved mapping/selector refuses ["-filter_script:a","custom.txt"]
+ok 37 - unresolved mapping/selector refuses ["-filter_script:a","custom.txt"]
+  ---
+  duration_ms: 0.0968
+  type: 'test'
+  ...
+# Subtest: unresolved mapping/selector refuses ["-/filter:a","custom.txt"]
+ok 38 - unresolved mapping/selector refuses ["-/filter:a","custom.txt"]
+  ---
+  duration_ms: 0.0915
+  type: 'test'
+  ...
+# Subtest: unresolved mapping/selector refuses ["-an","-noan"]
+ok 39 - unresolved mapping/selector refuses ["-an","-noan"]
+  ---
+  duration_ms: 0.0898
+  type: 'test'
+  ...
+# Subtest: shortest progress filename preserves disabled audio
+ok 40 - shortest progress filename preserves disabled audio
+  ---
+  duration_ms: 231.1754
+  type: 'test'
+  ...
+# Subtest: shortest progress filename preserves real tail
+ok 41 - shortest progress filename preserves real tail
+  ---
+  duration_ms: 303.696
+  type: 'test'
+  ...
+# Subtest: bounded ProRes REST export, invalid boundary and cancellation
+ok 42 - bounded ProRes REST export, invalid boundary and cancellation
+  ---
+  duration_ms: 849.7504
+  type: 'test'
+  ...
+1..42
+# tests 42
+# suites 0
+# pass 42
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3997.161
