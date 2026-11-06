@@ -1,0 +1,360 @@
+TAP version 13
+# Subtest: rippleTrim in: one project frame, linked audio, actual undo and redo
+ok 1 - rippleTrim in: one project frame, linked audio, actual undo and redo
+  ---
+  duration_ms: 4.4359
+  type: 'test'
+  ...
+# Subtest: rippleTrim out: one project frame, linked audio, actual undo and redo
+ok 2 - rippleTrim out: one project frame, linked audio, actual undo and redo
+  ---
+  duration_ms: 1.287
+  type: 'test'
+  ...
+# Subtest: rollEdit in: one project frame, linked audio, actual undo and redo
+ok 3 - rollEdit in: one project frame, linked audio, actual undo and redo
+  ---
+  duration_ms: 0.8321
+  type: 'test'
+  ...
+# Subtest: rollEdit out: one project frame, linked audio, actual undo and redo
+ok 4 - rollEdit out: one project frame, linked audio, actual undo and redo
+  ---
+  duration_ms: 0.5502
+  type: 'test'
+  ...
+# Subtest: rippleTrim: clip lock refuses without changing timeline or undo
+ok 5 - rippleTrim: clip lock refuses without changing timeline or undo
+  ---
+  duration_ms: 0.854
+  type: 'test'
+  ...
+# Subtest: rippleTrim: track lock refuses without changing timeline or undo
+ok 6 - rippleTrim: track lock refuses without changing timeline or undo
+  ---
+  duration_ms: 0.288
+  type: 'test'
+  ...
+# Subtest: rippleTrim: linked lock refuses without changing timeline or undo
+ok 7 - rippleTrim: linked lock refuses without changing timeline or undo
+  ---
+  duration_ms: 0.3164
+  type: 'test'
+  ...
+# Subtest: rollEdit: clip lock refuses without changing timeline or undo
+ok 8 - rollEdit: clip lock refuses without changing timeline or undo
+  ---
+  duration_ms: 0.3311
+  type: 'test'
+  ...
+# Subtest: rollEdit: track lock refuses without changing timeline or undo
+ok 9 - rollEdit: track lock refuses without changing timeline or undo
+  ---
+  duration_ms: 0.5631
+  type: 'test'
+  ...
+# Subtest: rollEdit: linked lock refuses without changing timeline or undo
+ok 10 - rollEdit: linked lock refuses without changing timeline or undo
+  ---
+  duration_ms: 0.6144
+  type: 'test'
+  ...
+# Subtest: source start / zero delta cannot create a correction or consume redo
+ok 11 - source start / zero delta cannot create a correction or consume redo
+  ---
+  duration_ms: 0.9343
+  type: 'test'
+  ...
+# Subtest: insufficient preroll clamps: current engine does not promise a complete frame
+ok 12 - insufficient preroll clamps: current engine does not promise a complete frame
+  ---
+  duration_ms: 0.3849
+  type: 'test'
+  ...
+# Subtest: CFR 30 fps metadata: project frame is not a source-frame ordinal
+ok 13 - CFR 30 fps metadata: project frame is not a source-frame ordinal
+  ---
+  duration_ms: 0.4776
+  type: 'test'
+  ...
+# Subtest: VFR metadata: project frame is not a source-frame ordinal
+ok 14 - VFR metadata: project frame is not a source-frame ordinal
+  ---
+  duration_ms: 0.3233
+  type: 'test'
+  ...
+# Subtest: generated CFR: decoded timestamps survive trim/undo
+ok 15 - generated CFR: decoded timestamps survive trim/undo
+  ---
+  duration_ms: 107.3704
+  type: 'test'
+  ...
+# {"fixture":"CFR","source":"program-generated testsrc2; ffprobe decoded frames","sha256":"cc05fab61cd58105c78f7864e0d0d105b97d70f46764f88f599ae47492477bc3","timeBase":"1/12800","frameCount":125,"firstFrames":[{"index":0,"pts":0,"time":"0.000000"},{"index":1,"pts":512,"time":"0.040000"},{"index":2,"pts":1024,"time":"0.080000"},{"index":3,"pts":1536,"time":"0.120000"},{"index":4,"pts":2048,"time":"0.160000"},{"index":5,"pts":2560,"time":"0.200000"},{"index":6,"pts":3072,"time":"0.240000"},{"index":7,"pts":3584,"time":"0.280000"},{"index":8,"pts":4096,"time":"0.320000"},{"index":9,"pts":4608,"time":"0.360000"},{"index":10,"pts":5120,"time":"0.400000"},{"index":11,"pts":5632,"time":"0.440000"}],"sourceIndices":[1,2],"projectFrameSeconds":0.04,"uiVerified":false,"exportVerified":false}
+# Subtest: generated VFR: decoded timestamps survive trim/undo
+ok 16 - generated VFR: decoded timestamps survive trim/undo
+  ---
+  duration_ms: 101.2028
+  type: 'test'
+  ...
+# {"fixture":"VFR","source":"program-generated testsrc2; ffprobe decoded frames","sha256":"709a7d66f1ba1cc1ba86eca885a4cad75864a73ef61e8370fc46e329d0621a67","timeBase":"1/12800","frameCount":120,"firstFrames":[{"index":0,"pts":0,"time":"0.000000"},{"index":1,"pts":512,"time":"0.040000"},{"index":2,"pts":2048,"time":"0.160000"},{"index":3,"pts":2560,"time":"0.200000"},{"index":4,"pts":4608,"time":"0.360000"},{"index":5,"pts":5120,"time":"0.400000"},{"index":6,"pts":5632,"time":"0.440000"},{"index":7,"pts":6144,"time":"0.480000"},{"index":8,"pts":6656,"time":"0.520000"},{"index":9,"pts":7168,"time":"0.560000"},{"index":10,"pts":7680,"time":"0.600000"},{"index":11,"pts":8192,"time":"0.640000"}],"sourceIndices":[1,1],"projectFrameSeconds":0.04,"uiVerified":false,"exportVerified":false}
+# Subtest: sample table: sizes, chunk offsets, sync samples and B-frame order
+ok 17 - sample table: sizes, chunk offsets, sync samples and B-frame order
+  ---
+  duration_ms: 2.924
+  type: 'test'
+  ...
+# Subtest: ctts version 0: negative offsets preserve B-frame presentation order
+ok 18 - ctts version 0: negative offsets preserve B-frame presentation order
+  ---
+  duration_ms: 0.8969
+  type: 'test'
+  ...
+# Subtest: ctts version 1: negative offsets preserve B-frame presentation order
+ok 19 - ctts version 1: negative offsets preserve B-frame presentation order
+  ---
+  duration_ms: 0.4014
+  type: 'test'
+  ...
+# Subtest: the edit list moves pts onto the clock a <video> element shows
+ok 20 - the edit list moves pts onto the clock a <video> element shows
+  ---
+  duration_ms: 0.876
+  type: 'test'
+  ...
+# Subtest: 64-bit chunk offsets
+ok 21 - 64-bit chunk offsets
+  ---
+  duration_ms: 0.5562
+  type: 'test'
+  ...
+# Subtest: a rotated track is refused, so the exporter keeps the <video> element
+ok 22 - a rotated track is refused, so the exporter keeps the <video> element
+  ---
+  duration_ms: 0.2381
+  type: 'test'
+  ...
+# Subtest: pasp: anamorphic pixels widen the display size, square pixels leave it alone
+ok 23 - pasp: anamorphic pixels widen the display size, square pixels leave it alone
+  ---
+  duration_ms: 1.2959
+  type: 'test'
+  ...
+# Subtest: findMoov walks top-level boxes through range reads
+ok 24 - findMoov walks top-level boxes through range reads
+  ---
+  duration_ms: 20.8228
+  type: 'test'
+  ...
+# Subtest: codec strings for HEVC, VP9 and AV1 config boxes
+ok 25 - codec strings for HEVC, VP9 and AV1 config boxes
+  ---
+  duration_ms: 0.4654
+  type: 'test'
+  ...
+# Subtest: real files match ffprobe's packet list
+ok 26 - real files match ffprobe's packet list
+  ---
+  duration_ms: 2339.2228
+  type: 'test'
+  ...
+# Subtest: ripple on a tail shortens the clip and pulls everything after it left
+ok 27 - ripple on a tail shortens the clip and pulls everything after it left
+  ---
+  duration_ms: 5.4202
+  type: 'test'
+  ...
+# Subtest: ripple on a tail lengthens into more source and pushes the rest right
+ok 28 - ripple on a tail lengthens into more source and pushes the rest right
+  ---
+  duration_ms: 0.7933
+  type: 'test'
+  ...
+# Subtest: ripple on a head keeps the clip's start and trims its source In
+ok 29 - ripple on a head keeps the clip's start and trims its source In
+  ---
+  duration_ms: 0.6882
+  type: 'test'
+  ...
+# Subtest: ripple stops at the start of the source media
+ok 30 - ripple stops at the start of the source media
+  ---
+  duration_ms: 0.391
+  type: 'test'
+  ...
+# Subtest: ripple stops at the end of the source media
+ok 31 - ripple stops at the end of the source media
+  ---
+  duration_ms: 0.355
+  type: 'test'
+  ...
+# Subtest: ripple never makes a clip shorter than MIN_DUR
+ok 32 - ripple never makes a clip shorter than MIN_DUR
+  ---
+  duration_ms: 0.3212
+  type: 'test'
+  ...
+# Subtest: ripple leaves a locked track in place
+ok 33 - ripple leaves a locked track in place
+  ---
+  duration_ms: 0.4256
+  type: 'test'
+  ...
+# Subtest: ripple on a locked clip refuses
+ok 34 - ripple on a locked clip refuses
+  ---
+  duration_ms: 0.3468
+  type: 'test'
+  ...
+# Subtest: ripple can't pull a lane into a clip that stays behind
+ok 35 - ripple can't pull a lane into a clip that stays behind
+  ---
+  duration_ms: 2.1391
+  type: 'test'
+  ...
+# Subtest: roll moves the cut: one side lengthens, the other shortens, nothing else moves
+ok 36 - roll moves the cut: one side lengthens, the other shortens, nothing else moves
+  ---
+  duration_ms: 0.8605
+  type: 'test'
+  ...
+# Subtest: roll from the other side of the cut does the same thing
+ok 37 - roll from the other side of the cut does the same thing
+  ---
+  duration_ms: 0.4786
+  type: 'test'
+  ...
+# Subtest: roll is limited by source on both sides and by MIN_DUR
+ok 38 - roll is limited by source on both sides and by MIN_DUR
+  ---
+  duration_ms: 0.538
+  type: 'test'
+  ...
+# Subtest: roll with nothing on the other side trims into the free room only
+ok 39 - roll with nothing on the other side trims into the free room only
+  ---
+  duration_ms: 0.2957
+  type: 'test'
+  ...
+# Subtest: roll refuses when either side is locked
+ok 40 - roll refuses when either side is locked
+  ---
+  duration_ms: 0.1966
+  type: 'test'
+  ...
+# Subtest: slip changes the source In only
+ok 41 - slip changes the source In only
+  ---
+  duration_ms: 0.3464
+  type: 'test'
+  ...
+# Subtest: slip is clamped to the source media
+ok 42 - slip is clamped to the source media
+  ---
+  duration_ms: 0.2838
+  type: 'test'
+  ...
+# Subtest: slip refuses stills and titles
+ok 43 - slip refuses stills and titles
+  ---
+  duration_ms: 0.1928
+  type: 'test'
+  ...
+# Subtest: slide moves the clip; its neighbours trim, the sequence length stays
+ok 44 - slide moves the clip; its neighbours trim, the sequence length stays
+  ---
+  duration_ms: 0.2321
+  type: 'test'
+  ...
+# Subtest: slide is limited by the neighbours' length and source
+ok 45 - slide is limited by the neighbours' length and source
+  ---
+  duration_ms: 0.2398
+  type: 'test'
+  ...
+# Subtest: slide into free room when there is no neighbour
+ok 46 - slide into free room when there is no neighbour
+  ---
+  duration_ms: 0.1367
+  type: 'test'
+  ...
+# Subtest: slide refuses when a neighbour is locked
+ok 47 - slide refuses when a neighbour is locked
+  ---
+  duration_ms: 0.127
+  type: 'test'
+  ...
+# Subtest: lift removes IN→OUT on targeted tracks and leaves the gap
+ok 48 - lift removes IN→OUT on targeted tracks and leaves the gap
+  ---
+  duration_ms: 1.0792
+  type: 'test'
+  ...
+# Subtest: extract removes IN→OUT and closes the gap
+ok 49 - extract removes IN→OUT and closes the gap
+  ---
+  duration_ms: 1.4487
+  type: 'test'
+  ...
+# Subtest: extract skips untargeted tracks except for linked partners, and locked clips
+ok 50 - extract skips untargeted tracks except for linked partners, and locked clips
+  ---
+  duration_ms: 0.3686
+  type: 'test'
+  ...
+# Subtest: lift and extract need both IN and OUT
+ok 51 - lift and extract need both IN and OUT
+  ---
+  duration_ms: 0.2632
+  type: 'test'
+  ...
+# Subtest: every tool respects the tightest linked partner's source
+ok 52 - every tool respects the tightest linked partner's source
+  ---
+  duration_ms: 0.7797
+  type: 'test'
+  ...
+# Subtest: Ctrl+Z after an agent edit takes back the agent's edit, then the user's
+ok 53 - Ctrl+Z after an agent edit takes back the agent's edit, then the user's
+  ---
+  duration_ms: 6.5115
+  type: 'test'
+  ...
+# Subtest: undoing an outside edit that removed media brings the media back with its clips; redo removes it again
+ok 54 - undoing an outside edit that removed media brings the media back with its clips; redo removes it again
+  ---
+  duration_ms: 2.8742
+  type: 'test'
+  ...
+# Subtest: an outside edit that only changes clips keeps the step small (no media)
+ok 55 - an outside edit that only changes clips keeps the step small (no media)
+  ---
+  duration_ms: 0.6104
+  type: 'test'
+  ...
+# Subtest: an outside write that leaves the open timeline alone adds no undo step
+ok 56 - an outside write that leaves the open timeline alone adds no undo step
+  ---
+  duration_ms: 0.6302
+  type: 'test'
+  ...
+# Subtest: syncFromServer: an agent's edit becomes an undo step of its own; undo and redo walk through it in order
+ok 57 - syncFromServer: an agent's edit becomes an undo step of its own; undo and redo walk through it in order
+  ---
+  duration_ms: 3.852
+  type: 'test'
+  ...
+# Subtest: syncFromServer: a write that leaves the timeline alone adds no step; a collision lets Ctrl+Z put the user's version back
+ok 58 - syncFromServer: a write that leaves the timeline alone adds no step; a collision lets Ctrl+Z put the user's version back
+  ---
+  duration_ms: 2.7775
+  type: 'test'
+  ...
+1..58
+# tests 58
+# suites 0
+# pass 58
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2551.8078
