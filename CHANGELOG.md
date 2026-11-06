@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Preserve the final partial audio packet in JPEG ProRes exports by using the selected range's explicit frame/sample end instead of shortest-stream termination. Other profiles and legacy calls without a frame count keep their existing behavior.
+- Preserve the last matching bounded-ProRes audio filter across output-index and type selectors; reject mappings or option forms that cannot be interpreted safely instead of restoring muted sound.
+
 - Pause conflicting private-package AI connections until resolved, show recovery instructions, and keep cleanup warnings for wiped seed files across restarts.
 
 - Preserve a private package's seed on restart when sealing verification and rollback both fail; only a matching saved connection may consume it.

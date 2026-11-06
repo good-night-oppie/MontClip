@@ -20230,6 +20230,7 @@ async function fastExport(opts = {}) {
         canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav, job, check: exportCheckPlan(t0, t1),
       } : {
         fps,
+        frames,
         name: exportBaseName("export"),
         profile: profileId,
         hasAudio: !!wav,
@@ -20344,10 +20345,14 @@ async function fastExport(opts = {}) {
     else saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true });
   } catch (e) {
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
-    const msg = e?.name === "AbortError" ? "cancelled" : String(e.message || e);
+    const unsupportedProfile = e?.code === "PROFILE_FILTER_MAPPING_UNSUPPORTED";
+    // JJ final copy (#190): one full sentence for alert and queue; the
+    // technical code stays only in the structured result for logs.
+    const msg = unsupportedProfile ? uiText("own.export-profile-unsupported")
+      : e?.name === "AbortError" ? "cancelled" : String(e.message || e);
     result = { error: msg, code: e && e.code, params: e && e.params, featurePack: e && e.featurePack, cancelled: msg === "cancelled" };
     if (job) await reportExportJob(job, { status: "failed", error: msg }, true);
-    else if (msg !== "cancelled" && !opts.silent) sayExportFailure(e);
+    else if (msg !== "cancelled" && !opts.silent) { if (unsupportedProfile) alert(msg); else sayExportFailure(e); }
   } finally {
     exportAbort = null;
     exportFullCanvas = false;
