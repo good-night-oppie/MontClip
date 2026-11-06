@@ -25,7 +25,8 @@ test('only the host makes a card, and only from a decision with a ticket', async
   // and the host makes them in one place, from the main process's decision
   const app = read('app.js');
   a.equal((app.match(/agentApprovals\.ask\(/g) || []).length, 1);
-  a.match(app, /function askAgentApproval\(d,options=\{\}\)\{return agentApprovals\.ask\(d,options\);\}/);
+  // the last toast goes first (VV, #134), then the card
+  a.match(app, /function askAgentApproval\(d,options=\{\}\)\{dismissToast\(\);return agentApprovals\.ask\(d,options\);\}/);
 });
 
 test('the buttons answer the waiting card only, once; the answer goes to the main process with its ticket', async () => {
@@ -43,7 +44,8 @@ test('the buttons answer the waiting card only, once; the answer goes to the mai
   a.equal(await q, 'deny');
   // app.js: each card's answer is sent with its own ticket, nothing else approves
   const app = read('app.js');
-  a.equal((app.match(/window\.montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/g) || []).length, 2);
+  // onAgentReply, agentReframeFlow (#175) and runAgentPlanStep
+  a.equal((app.match(/window\.montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/g) || []).length, 3);
   a.match(app, /answerApproval:\(id,choice\)=>agentApprovals\.answer\(id,choice\)/);
   // the main process: a ticket answers once
   const host = Host.createPolicyHost({ confirmYolo: async () => true });

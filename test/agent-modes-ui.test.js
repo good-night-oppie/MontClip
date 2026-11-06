@@ -29,9 +29,10 @@ test('the page asks only with the capability and the project: the reply’s word
  a.match(app,/window\.montclipAgentPolicy\.decide\(\{sessionId:result\.sessionId,capability:response\.type,target:\{kind:'project',value:runtime\.projectId\}\}\)/);
  // an approval is the host box's answer through its ticket, nothing else
  a.match(app,/window\.montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/);
- // the plan's steps (P4, second half) ask the same way: two answers, each the box's answer to its ticket
- a.equal((app.match(/montclipAgentPolicy\.answer\(/g)||[]).length,2);
- a.equal((app.match(/montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/g)||[]).length,2);
+ // the plan's steps (P4, second half) and the reframe reply (test/agent-reframe.test.js) ask the same way: three
+ // answers, each the box's answer to its ticket
+ a.equal((app.match(/montclipAgentPolicy\.answer\(/g)||[]).length,3);
+ a.equal((app.match(/montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/g)||[]).length,3);
  a.match(app,/window\.montclipAgentPolicy\.decide\(\{sessionId:result\.sessionId,capability:s\.capability,target:\{kind:'project',value:runtime\.projectId\}\}\)/);
 });
 
@@ -54,7 +55,9 @@ test('自动 / Yolo apply only after a CAS on the project, as one undo step; per
 
 test('a step approved through the card never says 「没有问你」; only a direct run (auto/Yolo) may (issuecomment-6644967814)',()=>{
  const app=read('app.js'),i=app.indexOf('async function onAgentReply'),body=app.slice(i,app.indexOf('function canUndoOfficialProposal',i));
- a.match(body,/d\.action==='ask'\?'own\.ap-applied-approved':'own\.ap-applied'/,'the applied toast picks the approved wording after the card, the direct wording only on run');
+ // #134 (JJ): asked now → approved; allowed earlier for this chat → allowed; only a direct run (自动/Yolo) → 「没有问你」
+ a.match(body,/const asked=d\.action==='ask';/);
+ a.match(body,/toastAction\(asked\?uiText\('own\.ap-applied-approved'\):d\.byApproval\?uiText\('own\.ap-applied-allowed'\):uiText\('own\.ap-applied',/,'the applied toast picks the approved wording after the card, the direct wording only on run');
  for(const l of ['zh-CN','en']){
   const approved=t(l,'own.ap-applied-approved');
   a.ok(approved&&approved!=='own.ap-applied-approved',l+': ap-applied-approved exists');
