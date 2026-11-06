@@ -17,7 +17,9 @@ subreaper, so descendants that double-fork stay in its process tree.
 - Lifecycle: the session becomes dead, for good, as soon as the server exits, the listening socket is no
   longer the server's, a process inside our namespace is not in our process tree, or the watcher itself
   fails. assert_owned() fails on a dead session; the dead-marker is written at once, so mcp-call sends no
-  further tool request, and the running batch (mcp-call and its MCP server) is killed as well.
+  further tool request, and the running batch (mcp-call and its MCP server) is killed as well. call() kills
+  and waits for its batch on any exit, including an exception (Ctrl-C); close() first writes the marker,
+  then kills and waits for a running batch, and only then stops the watcher.
 - open_editor(): our own headless Chrome (a child of this script, new profile in the work directory) on the
   editor page; ready once the server accepts a tab-only frame request. Headless browsers the server starts
   for exports are recorded (pid, parent chain to the server, profile).
@@ -341,14 +343,15 @@ class Session:
             self._batch = subprocess.Popen(["node", str(HERE / "mcp-call.cjs"), str(f)], env=self.env,
                                            stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
         batch, deadline = self._batch, time.time() + 1500
-        while batch.poll() is None:
-            if self.dead or time.time() > deadline:
-                self._kill(self.dead["why"] if self.dead else "batch timed out")
-                batch.wait()
-                break
-            time.sleep(0.1)
-        with self._lock:
-            self._batch = None
+        try:
+            while batch.poll() is None:
+                if self.dead or time.time() > deadline:
+                    self._kill(self.dead["why"] if self.dead else "batch timed out")
+                    batch.wait()
+                    break
+                time.sleep(0.1)
+        finally:  # also on an exception (e.g. Ctrl-C): never leave our batch running
+            self._stop_batch(batch)
         out.seek(0); text = out.read(); out.close()
         print(text[:3000])
         if self.dead:
@@ -358,7 +361,40 @@ class Session:
         self.assert_owned()  # and nothing went wrong while it ran
         return text
 
+    def _stop_batch(self, batch):
+        """Kill our batch's whole process group (mcp-call and its MCP server) and wait for it."""
+        if batch is not None:
+            try:
+                os.killpg(batch.pid, 9)  # the whole group: mcp-call and its MCP server
+            except OSError:
+                pass
+            batch.wait()
+            # members whose parent died were re-parented to us (child subreaper): reap them too, so nothing of
+            # the group is left, not even a zombie
+            deadline = time.time() + 5
+            while True:
+                try:
+                    pid, _ = os.waitpid(-batch.pid, os.WNOHANG)
+                except ChildProcessError:
+                    break
+                if pid == 0:
+                    if time.time() > deadline:
+                        raise SystemExit(f"{self.label}: processes of batch group {batch.pid} survived SIGKILL; stopping")
+                    time.sleep(0.05)
+        with self._lock:
+            if self._batch is batch:
+                self._batch = None
+
     def close(self):
+        # order matters: first refuse every further tool request for good, then stop our running batch,
+        # and only then stop the watcher
+        self.closed = True
+        marker = getattr(self, "dead_marker", None)
+        if marker is not None and not marker.exists():
+            marker.write_text("session closed")
+        with self._lock:
+            batch = self._batch
+        self._stop_batch(batch)
         self._stop.set()
         if getattr(self, "_watch", None) is not None:
             self._watch.join(timeout=5)
@@ -369,7 +405,7 @@ class Session:
         if getattr(self, "proof_file", None) is not None:
             self.proof_file.unlink(missing_ok=True)
         (self.work / "ownership.json").write_text(json.dumps(
-            {"isolation": self.iso, "server_pid": self.srv.pid, "port": int(self.port),
+            {"isolation": self.iso, "server_pid": self.srv.pid, "port": int(self.port), "closed": True,
              "authenticated": getattr(self, "authenticated", None), "dead": self.dead,
              "foreign": self.foreign, "unattributed_client_sockets": getattr(self, "unattributed", 0),
              "headless_browsers": self.browsers, "editor_tab": self.editor_info}, indent=1, default=str))
