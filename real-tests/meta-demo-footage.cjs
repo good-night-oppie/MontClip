@@ -14,15 +14,18 @@ const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
 if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const profile=profileArg.slice('--user-data-dir='.length).trim();
 const out=process.env.MONTCLIP_FOOTAGE_OUT;if(!out)throw Error('MONTCLIP_FOOTAGE_OUT required');
-const found=require('./meta-key-file.cjs').readKey();if(!found.key){process.stdout.write('FOOTAGE SKIPPED: '+found.skip+'\n');process.exit(2);}
+const found=require('./meta-key-file.cjs').readKey();if(!found.key){process.stdout.write('FOOTAGE SKIPPED: KEY_UNAVAILABLE; check the key file owner and permissions on Linux.\n');process.exit(2);}
 const KEY=found.key,hide=s=>String(s).split(KEY).join('<key>');
 const log=(k,v)=>process.stdout.write(k+' '+hide(JSON.stringify(v))+'\n');
 const SECONDS=10,FFMPEG=process.env.MONTCLIP_FOOTAGE_FFMPEG||'ffmpeg';
-fs.mkdirSync(out,{recursive:true});
+// Both paths must be new, including dangling links. Never reuse another run's files.
+function requireNew(dir){try{fs.lstatSync(dir);}catch(e){if(e.code==='ENOENT')return;throw Error('DIRECTORY_CHECK_FAILED');}throw Error('FRESH_DIRECTORY_REQUIRED');}
+requireNew(profile);requireNew(out);
+try{fs.mkdirSync(profile);fs.mkdirSync(out);}catch{throw Error('DIRECTORY_CREATE_FAILED');}
 function makeSource(file){
  const r=cp.spawnSync(FFMPEG,['-hide_banner','-nostdin','-loglevel','error','-y','-f','lavfi','-i',`testsrc2=size=640x360:rate=30:duration=${SECONDS}`,'-f','lavfi','-i',`sine=frequency=440:sample_rate=48000:duration=${SECONDS}`,
   '-map','0:v','-map','1:a','-c:v','libvpx-vp9','-b:v','0','-crf','34','-deadline','good','-cpu-used','5','-pix_fmt','yuv420p','-c:a','aac','-b:a','128k','-ac','2','-movflags','+faststart',file],{windowsHide:true});
- if(r.status!==0)throw Error('SOURCE_FAILED '+String(r.stderr).slice(0,300));
+ if(r.status!==0)throw Error('SOURCE_FAILED');
 }
 const original=BrowserWindow.prototype.loadURL;
 BrowserWindow.prototype.loadURL=async function(...args){await original.apply(this,args);const win=this,read=s=>win.webContents.executeJavaScript(s),wait=(ms=200)=>new Promise(r=>setTimeout(r,ms));
@@ -33,15 +36,20 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   if(await read(`!!document.querySelector('.cindy-config')`))return;
   const img=await win.webContents.capturePage(),at=Date.now()-t.t0,file=String(t.frames.length).padStart(5,'0')+'.jpg';
   fs.writeFileSync(path.join(t.dir,file),img.toJPEG(90));t.frames.push({file,at});}catch{}finally{t.busy=false;}},100);
- const startTake=name=>{const dir=path.join(out,'frames-'+name);fs.rmSync(dir,{recursive:true,force:true});fs.mkdirSync(dir,{recursive:true});take=takes[name]={name,dir,frames:[],shots:[],t0:Date.now(),busy:false};};
+ const startTake=name=>{const dir=path.join(out,'frames-'+name);fs.mkdirSync(dir);take=takes[name]={name,dir,frames:[],shots:[],t0:Date.now(),busy:false};};
  const shot=(what)=>{if(take)take.shots.push({at:Date.now()-take.t0,what});};
  const stopTake=async()=>{const t=take;take=null;while(t.busy)await wait(20);
+  if(!t.frames.length)throw Error('NO_FRAMES');
   // each frame lasts until the next one: the take keeps its real pace
   const list=t.frames.map((f,i)=>`file '${f.file}'\nduration ${(((t.frames[i+1]?.at??f.at+100)-f.at)/1000).toFixed(3)}`).join('\n')+`\nfile '${t.frames.at(-1).file}'\n`;
   fs.writeFileSync(path.join(t.dir,'list.ffconcat'),'ffconcat version 1.0\n'+list);
-  const mp4=path.join(out,'take-'+t.name+'.mp4');
-  const r=cp.spawnSync(FFMPEG,['-hide_banner','-loglevel','error','-y','-f','concat','-safe','0','-i',path.join(t.dir,'list.ffconcat'),'-vf','fps=30,scale=1280:-2,format=yuv420p','-c:v','libx264','-crf','18','-preset','medium','-movflags','+faststart',mp4],{windowsHide:true});
-  result.takes[t.name]={file:path.basename(mp4),ok:r.status===0,frames:t.frames.length,seconds:+((t.frames.at(-1)?.at||0)/1000).toFixed(1),shots:t.shots,error:r.status===0?null:String(r.stderr).slice(0,300)};
+  const mp4=path.join(out,'take-'+t.name+'.mp4'),staged=path.join(t.dir,'encoded.mp4');
+  const r=cp.spawnSync(FFMPEG,['-hide_banner','-nostdin','-loglevel','error','-n','-f','concat','-safe','0','-i',path.join(t.dir,'list.ffconcat'),'-vf','fps=30,scale=1280:-2,format=yuv420p','-c:v','libx264','-crf','18','-preset','medium','-movflags','+faststart',staged],{windowsHide:true});
+  result.takes[t.name]={file:path.basename(mp4),ok:false,frames:t.frames.length,seconds:+((t.frames.at(-1)?.at||0)/1000).toFixed(1),shots:t.shots,error:'ENCODE_FAILED'};
+  if(r.status!==0)throw Error('ENCODE_FAILED');
+  // Exclusive publication: a failed encode stays in the private frame directory.
+  try{if(!fs.statSync(staged).size)throw Error();fs.copyFileSync(staged,mp4,fs.constants.COPYFILE_EXCL);}catch{throw Error('PUBLISH_FAILED');}
+  result.takes[t.name].ok=true;result.takes[t.name].error=null;
   fs.rmSync(t.dir,{recursive:true,force:true});};
  const still=async name=>fs.writeFileSync(path.join(out,name+'.png'),(await win.webContents.capturePage()).toPNG());
  const videoClips='JSON.stringify(project.clips.filter(c=>c.kind==="video").map(c=>[c.start,c.in,c.duration]))';
@@ -95,8 +103,8 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   };
   result.A=await takeOf('A','Keep only these two sentences',['demo_c0','demo_c2']);
   result.B=await takeOf('B','Delete 3 to 5 seconds',null);
-  result.passed=true;
- }catch(e){result.failed=hide(String(e&&e.message||e)).slice(0,600);if(take)await stopTake().catch(()=>{});}
+  assert.ok(result.takes.A?.ok&&result.takes.B?.ok,'ENCODE_FAILED');result.passed=true;
+ }catch(e){const code=String(e&&e.message||e);result.failed=/^(SOURCE_FAILED|NO_FRAMES|ENCODE_FAILED|PUBLISH_FAILED)$/.test(code)?code:'RECORDING_FAILED';if(take)await stopTake().catch(()=>{});}
  finally{clearInterval(tick);
   const text=hide(JSON.stringify(result,null,1));fs.writeFileSync(path.join(out,'footage-result.json'),text+'\n');
   const lines=['# Demo footage — MontClip × Muse Spark (English interface)','','Recorded '+new Date().toISOString()+' on europa (Linux), the real MontClip desktop app in a hidden window, frames from Electron capturePage, model muse-spark-1.1 via api.meta.ai. Synthetic material only; no key in any frame (nothing is recorded while the settings are open).','',
