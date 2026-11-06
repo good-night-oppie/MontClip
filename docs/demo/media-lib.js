@@ -458,6 +458,25 @@
     return { score, why };
   }
 
+  /** relinkScore's `why` (an English id the tests lock) → the keys the Relink dialog shows, in order:
+   *  "same name and size" → ["rl-why-same", "rl-why-and-size"] (「同名，大小也一样」). */
+  function relinkWhyKeys(why) {
+    const w = String(why || ""), base = w.replace(/ and size$/, "");
+    const keys = { "same name": "rl-why-same", "same name, other type": "rl-why-other-type", "similar name": "rl-why-similar", "same size": "rl-why-size" };
+    if (!keys[base]) return [];
+    return base === w ? [keys[base]] : [keys[base], "rl-why-and-size"];
+  }
+  /** A length as h:mm:ss, or m:ss under an hour, whole seconds (the Relink dialog; not the timeline's timecode). */
+  function fmtHms(t) {
+    if (!(t > 0)) return "";
+    const n = Math.floor(t), h = Math.floor(n / 3600), m = Math.floor((n % 3600) / 60), s = String(n % 60).padStart(2, "0");
+    return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+  }
+  /** The Relink dialog's small line under a file: [its file name (never its path), length, size], the unknown ones left out. */
+  function relinkWasParts(m) {
+    return [srcName(m.src) || m.name || "", fmtHms(m.duration), m.size ? fmtSize(m.size) : ""].filter(Boolean);
+  }
+
   /** The candidate a missing media `m` is linked to without asking, or null. Only the same file: the same name
    *  and the same size (score >= 150, and m.size known) — a same-named recording with other contents is never
    *  linked silently. Two or more such candidates are ambiguous, so the dialog asks. */
@@ -479,7 +498,7 @@
   return {
     importTidies, importPercent,
     KINDS, INFO_KEYS, SORT_KEYS, MAX_TAGS,
-    srcName, relinkScore, autoRelinkPick, kindFromName,
+    srcName, relinkScore, relinkWhyKeys, relinkWasParts, fmtHms, autoRelinkPick, kindFromName,
     parseProbe, needsInfo, serverDuration, cannotCut, slowToSeek, swapMedia, applyBackfill, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
     STANDARD_FPS, standardFps, sourceCanvas, canvasFollowsSource,
     normalizeTags, allTags, normalizeCollections, normalizeGaps,
