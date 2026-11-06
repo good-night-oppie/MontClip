@@ -4,7 +4,8 @@
 Two synthetic sources that differ only in the gift text (make-synthetic-source.py, lossless VP9, with and
 without NO_GIFT_TEXT) go through the very same shot. For each source MontClip renders every frame of the
 shot as a timeline preview (fablecut_frame, in this run's own editor tab: a headless Chrome started by this
-script with a new profile; what the tool returns is a downscaled, lossy JPEG, 960x540) and exports it (fablecut_export, in a headless browser our server starts, H.264);
+script with a new profile; taken mid-frame, at (i + 0.5) / fps; what the tool returns is a downscaled,
+lossy JPEG, 960x540) and exports it (fablecut_export, in a headless browser our server starts, H.264);
 the export is decoded back to frames. Then the two sources are compared frame by frame, every RGB channel:
 
   cover    (the demo's shot)  : no frame may differ, in preview or in the export   -> the text has no effect
@@ -77,7 +78,10 @@ for case in ("cover", "nocover"):
             mc.open_editor()  # our own tab; every client of the server is checked again before the project is written
             mc.call([{"name": "fablecut_patch_project", "arguments": {"ops": redact_shot.ops(mid, cover=case == "cover", name=label)}},
                      {"name": "fablecut_get_project", "arguments": {}}], "2-project")
-            mc.call([{"name": "fablecut_frame", "arguments": {"time": round(i / FPS, 6), "where": "tab", "timeout": 120},
+            # previews are taken mid-frame: at i/FPS the playhead can sit exactly on a source-frame boundary
+            # (30 fps source, 60 fps timeline), and a preview may then show either neighbour; two runs could
+            # differ for that reason alone (seen once, frame 68, outside the gift bar)
+            mc.call([{"name": "fablecut_frame", "arguments": {"time": round((i + 0.5) / FPS, 6), "where": "tab", "timeout": 120},
                       "saveImage": str(d / "preview" / f"{i:04d}.jpg")} for i in range(N)], "3-preview")
             mc.call([{"name": "fablecut_export", "arguments": {"range": "entire", "preset": "custom", "where": "headless", "timeout": 1200,
                       "delivery": {"width": W, "height": H, "fps": FPS, "container": "mp4", "video": {"codec": "h264"},
