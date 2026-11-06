@@ -182,7 +182,9 @@ only requests that carry the token: as `X-MontClip-Session` (the plugin worker, 
 `mcp-server.js` when it runs with the same two variables), or as the
 `montclip_embed` cookie (HttpOnly, `SameSite=None; Secure; Partitioned`), which a
 page load (GET) of any URL with `?token=<token>` receives together with a 302 to the
-same URL without it. Everything else gets 403. Every answer says
+same URL without it. The cookie is not the token: each such page load gets its own
+random session, which the server remembers (the newest 64) and can end on its own.
+Everything else gets 403. Every answer says
 `Referrer-Policy: no-referrer`, and the token is never put in a redirect, a log
 line or an error. A headless export or measurement browser gets a one-time ticket
 (one use, one minute) in its URL instead of the token. Without

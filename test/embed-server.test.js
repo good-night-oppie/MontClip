@@ -70,7 +70,10 @@ test("embedded: only the session header or cookie gets in; anything else is 403"
   assert.equal((await get("/api/project", { Cookie: `other=${s.token}` })).status, 403, "only the montclip_embed cookie counts");
   assert.equal((await get("/api/project", { "X-MontClip-Session": s.token.slice(0, 63) })).status, 403);
   assert.equal((await get("/api/project", { "X-MontClip-Session": s.token })).status, 200);
-  assert.equal((await get("/api/project", { Cookie: `a=1; montclip_embed=${s.token}; b=2` })).status, 200);
+  assert.equal((await get("/api/project", { Cookie: `montclip_embed=${s.token}` })).status, 403, "the cookie is a session the server handed out, not the token");
+  const boot = await get(`/?token=${s.token}`);
+  const id = boot.headers.get("set-cookie").split(";")[0].split("=")[1];
+  assert.equal((await get("/api/project", { Cookie: `a=1; montclip_embed=${id}; b=2` })).status, 200);
   // the token does not replace the Host / Origin checks
   assert.equal((await rawGet(s.port, "/api/project", { "X-MontClip-Session": s.token, Host: "evil.example" })).status, 403);
   assert.equal((await get("/api/project", { "X-MontClip-Session": s.token, Origin: "https://evil.example" })).status, 403);
@@ -89,13 +92,16 @@ test("embedded: ?token= trades for an HttpOnly partitioned cookie and a 302 to t
   assert.equal(location, "/?exportJob=x_1&view=monitor");
   assert.ok(!location.includes(s.token));
   const cookie = r.headers.get("set-cookie");
-  assert.match(cookie, new RegExp(`^montclip_embed=${s.token}; `));
+  const id = cookie.match(/^montclip_embed=([a-f0-9]{64}); /)?.[1];
+  assert.ok(id, cookie);
+  assert.notEqual(id, s.token, "the cookie is its own random session, not the token");
+  assert.ok(!cookie.includes(s.token));
   for (const attr of ["Path=/", "HttpOnly", "SameSite=None", "Secure", "Partitioned"]) assert.ok(cookie.split("; ").includes(attr), attr);
   assert.equal(r.headers.get("referrer-policy"), "no-referrer");
   assert.equal(r.headers.get("cache-control"), "no-store");
 
   // the cookie it handed out opens the page, and every embedded answer says no-referrer
-  const page = await fetch(s.base + location, { headers: { Cookie: `montclip_embed=${s.token}` } });
+  const page = await fetch(s.base + location, { headers: { Cookie: `montclip_embed=${id}` } });
   assert.equal(page.status, 200);
   assert.match(page.headers.get("content-type"), /html/);
   assert.equal(page.headers.get("referrer-policy"), "no-referrer");
@@ -153,7 +159,10 @@ test("embedded: the headless browser gets a one-time ticket, not the token", () 
   const first = answer(`/?exportJob=x_9&token=${ticket}`);
   assert.equal(first.code, 302);
   assert.equal(first.headers.Location, "/?exportJob=x_9");
-  assert.ok(first.headers["Set-Cookie"].startsWith(`montclip_embed=${token};`), "the ticket buys the real cookie");
+  const cookie = first.headers["Set-Cookie"];
+  const id = cookie.match(/^montclip_embed=([a-f0-9]{64}); /)?.[1];
+  assert.ok(id && id !== token && id !== ticket && !cookie.includes(token), "the ticket buys a cookie session, never the token");
+  assert.equal(e.authorized({ headers: { cookie: `montclip_embed=${id}` } }), true);
   assert.equal(answer(`/?token=${ticket}`).code, 403, "a ticket works once");
   const late = e.launchTicket();
   now += 60_001;
@@ -162,6 +171,32 @@ test("embedded: the headless browser gets a one-time ticket, not the token", () 
   assert.equal(e.bootstrap({ method: "GET", url: `/?token=${token}`, headers: { host: "evil.example" } }, {}), false);
   assert.equal(e.bootstrap({ method: "GET", url: `/?token=${token}`, headers: {} }, {}), false);
   assert.throws(() => Embed.createEmbed({ token: "x", hostAllowed: () => true }), (err) => !String(err.message).includes("x\""));
+});
+
+test("cookie sessions: one per page load, each can be ended on its own, the oldest end past the cap", () => {
+  const token = hex();
+  const e = Embed.createEmbed({ token, hostAllowed: () => true });
+  const boot = () => {
+    const res = { headers: null, writeHead(c, h) { this.headers = h; }, end() { } };
+    e.bootstrap({ method: "GET", url: `/?token=${token}`, headers: { host: "localhost" } }, res);
+    return res.headers["Set-Cookie"].match(/^montclip_embed=([a-f0-9]{64}); /)[1];
+  };
+  const req = (id) => ({ headers: { cookie: `montclip_embed=${id}` } });
+  const a = boot(), b = boot();
+  assert.notEqual(a, b);
+  assert.equal(e.cookieSession(req(a)), a);
+  assert.equal(e.cookieSession(req(b)), b);
+  assert.equal(e.cookieSession(req(hex())), null, "a value the server did not hand out is no session");
+  assert.equal(e.cookieSession({ headers: { "x-montclip-session": token } }), null, "the worker's header is not a cookie session");
+  assert.equal(e.revoke(a), true);
+  assert.equal(e.authorized(req(a)), false, "an ended session's cookie gets 403");
+  assert.equal(e.authorized(req(b)), true, "the others stay");
+  assert.equal(e.authorized({ headers: { "x-montclip-session": token } }), true);
+  const ids = Array.from({ length: Embed.MAX_SESSIONS }, boot);
+  assert.equal(e.authorized(req(b)), false, "past the cap the oldest session ends");
+  assert.equal(e.authorized(req(ids[0])), true);
+  assert.equal(e.authorized(req(ids.at(-1))), true);
+  assert.equal(Embed.COOKIE_ATTRS, "Path=/; HttpOnly; SameSite=None; Secure; Partitioned", "SameSite is QQ's call (PR #198) — change it here and in this test together");
 });
 
 test("embed helpers: constant-time comparison never throws, cookie parsing takes only the named cookie", () => {
