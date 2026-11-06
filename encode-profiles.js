@@ -8,6 +8,9 @@
    passed to spawn() as an array (no shell), so validating codec names would buy
    nothing but a smaller set of usable formats. Typos are caught by dryRunProfile
    against the real ffmpeg build instead, which also knows which encoders it has.
+   Exception: bounded JPEG ProRes validates a limited output mapping/filter
+   contract before injecting an audio end bound. Unsupported forms are refused,
+   never guessed, because guessing can silently override an existing mute.
 
    Export is ONE ffmpeg pass; this module owns the input side (JPEG image2pipe
    by default, or canvas RGBA when pixelFormat is "rgba") plus color conversion
@@ -231,6 +234,63 @@ function proresProjectEnd(profile, { fps, frames, pixelFormat } = {}) {
     throw Object.assign(new Error("export frames must be a positive safe integer with a finite sample boundary"), { status: 400 });
   return { seconds, samples };
 }
+// This is intentionally a small, explicit output-map contract, not a parser
+// for arbitrary FFmpeg graphs. Unknown maps/specifiers must not unmute audio.
+function proresFilterPlan(args, hasAudio) {
+  const refuse = () => { throw Object.assign(new Error("PROFILE_FILTER_MAPPING_UNSUPPORTED"), {
+    status: 400, code: "PROFILE_FILTER_MAPPING_UNSUPPORTED",
+  }); };
+  const maps = [], filters = [];
+  let noAudio = false;
+  // Consume option values instead of mistaking (for example) a progress file
+  // named "-an" for an audio-disable flag. Unknown option arity is not guessed.
+  const valueOptions = new Set(["-c", "-codec", "-vcodec", "-acodec", "-profile",
+    "-pix_fmt", "-sample_fmt", "-ar", "-ac", "-b", "-q", "-qscale", "-threads",
+    "-thread_type", "-f", "-movflags", "-fflags", "-flags", "-metadata", "-t", "-to",
+    "-r", "-fps_mode", "-vsync", "-tag", "-vtag", "-atag", "-strict", "-loglevel",
+    "-v", "-progress", "-colorspace", "-color_primaries", "-color_trc", "-color_range",
+    "-chroma_sample_location", "-vendor", "-bits_per_mb", "-quant_mat", "-alpha_bits"]);
+  const flags = new Set(["-shortest", "-sn", "-dn", "-bitexact", "-y", "-n", "-nostdin"]);
+  for (let i = 0; i < args.length; i++) {
+    const option = args[i];
+    if (option.startsWith("-/") || option === "-noan") refuse();
+    if (/^-filter_complex/.test(option) || /^-(?:filter_script|map_channel|attach|newaudio|newvideo|vn|i|lavfi)(?::|$)/.test(option)) refuse();
+    if (/^-(?:af|vf|map|an)[=:]/.test(option)) refuse();
+    if (option === "-map") {
+      const source = args[++i];
+      if (/^0:(?:v(?::0)?|0)$/.test(source)) maps.push("v");
+      else if (hasAudio && /^1:a(?::0)?$/.test(source)) maps.push("a");
+      else refuse();
+    } else if (option === "-af" || option === "-vf" || /^-filter(?::|$)/.test(option)) {
+      if (typeof args[i + 1] !== "string" || !args[i + 1] || args[i + 1].startsWith("-")) refuse();
+      const selector = option === "-af" ? "a" : option === "-vf" ? "v" : option.slice(8);
+      filters.push({ at: i, selector }); i++;
+    } else if (option === "-an") noAudio = true;
+    else if (flags.has(option)) continue;
+    else if (valueOptions.has(option.split(":")[0])) {
+      if (typeof args[++i] !== "string" || !args[i]) refuse();
+    } else refuse();
+  }
+  const explicit = maps.length > 0;
+  const streams = (explicit ? maps : hasAudio ? ["v", "a"] : ["v"]).filter(s => !(noAudio && s === "a"));
+  if (streams.filter(s => s === "v").length !== 1 || streams.filter(s => s === "a").length > 1) refuse();
+  let audioFilter = -1;
+  for (const { at, selector } of filters) {
+    let matches;
+    if (selector === "") matches = streams;
+    else if (/^\d+$/.test(selector)) {
+      const n = Number(selector); if (!Number.isSafeInteger(n) || n >= streams.length) refuse();
+      matches = [streams[n]];
+    } else if (/^[av](?::0)?$/.test(selector)) matches = streams.filter(s => s === selector[0]);
+    else refuse();
+    if (matches.includes("a")) {
+      if (matches.includes("v")) refuse();
+      audioFilter = at;
+    }
+  }
+  return { audioFilter, hasAudio: streams.includes("a"),
+    defaultMaps: explicit ? [] : ["-map", "0:v:0", ...(streams.includes("a") ? ["-map", "1:a:0"] : [])] };
+}
 function buildExportArgs(profile, { fps, frames, wavPath, outPath, pixelFormat, width, height } = {}) {
   const end = proresProjectEnd(profile, { fps, frames, pixelFormat });
   const args = ["-y", "-hide_banner"];
@@ -255,17 +315,15 @@ function buildExportArgs(profile, { fps, frames, wavPath, outPath, pixelFormat, 
     // -shortest can stop before PCM's last partial packet. Bound this known
     // project range instead; do not change legacy/unbounded profiles or pad audio.
     output = output.filter(a => a !== "-shortest");
-    if (wavPath) {
+    const plan = proresFilterPlan(output, !!wavPath);
+    if (plan.hasAudio) {
       const trim = `aresample=48000,atrim=end_sample=${end.samples}`;
-      // FFmpeg uses the last audio filter option, including its aliases.
-      // Appending a new -af would silently replace a user's -filter:a chain.
-      let af = -1;
-      for (let i = 0; i < output.length; i++)
-        if (/^-(?:af|filter:a(?::0)?)$/.test(output[i])) af = i;
+      const af = plan.audioFilter;
       if (af >= 0) output[af + 1] += "," + trim;
       else output.push("-af", trim);
       output.push("-ar", "48000");
     }
+    output.push(...plan.defaultMaps);
     output.push("-t", end.seconds.toFixed(9));
   }
   args.push(...output, outPath);
@@ -333,5 +391,6 @@ module.exports = {
   profileSummary,
   buildExportArgs,
   proresProjectEnd,
+  proresFilterPlan,
   dryRunProfile,
 };

@@ -39,6 +39,7 @@ const {
   profileSummary,
   buildExportArgs,
   proresProjectEnd,
+  proresFilterPlan,
   dryRunProfile,
 } = require("./encode-profiles");
 const { downloadImportUrl, maybeFaststart } = require("./import-url");
@@ -584,7 +585,11 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
     throw new Error("export width/height required for rgba");
   }
   if (m === "jpeg" && (extra.delivery || extra.deliveries)) return beginDeliveryExport(rate, name, hasAudio, extra);
-  if (m === "jpeg") proresProjectEnd(resolveProfile(profileId), { fps: rate, frames: extra.frames, pixelFormat });
+  if (m === "jpeg") {
+    const rawProfile = resolveProfile(profileId);
+    if (proresProjectEnd(rawProfile, { fps: rate, frames: extra.frames, pixelFormat }))
+      proresFilterPlan(rawProfile.args, !!hasAudio);
+  }
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const safe = exportName(name || "export");
   // Same filesystem as the finished file so renameSync(partPath, out) cannot EXDEV.

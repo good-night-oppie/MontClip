@@ -27,4 +27,18 @@ test('bounded ProRes REST export, invalid boundary and cancellation', {timeout:6
   assert.equal((await post('/api/export/frame?id='+cancelled,jpeg)).status,404);
   const until=Date.now()+6000;while(Date.now()<until&&fs.readdirSync(path.join(dir,'exports')).some(f=>f.endsWith('.part.mov')||f.startsWith('fablecut-')))await new Promise(r=>setTimeout(r,30));
   assert.deepEqual(fs.readdirSync(path.join(dir,'exports')),[path.basename(file)],'cancelled partial file and temp mix removed');
+  // Test-only injection into a second owned process; never edit the shared
+  // encoding-profiles.json while another test or user might be reading it.
+  const rejectedDir=path.join(dir,'rejected');fs.mkdirSync(rejectedDir);
+  fs.writeFileSync(path.join(rejectedDir,'project.json'),JSON.stringify(require('./helpers').seedProject()));
+  const hook=path.join(dir,'invalid-profile.cjs');
+  fs.writeFileSync(hook,`const e=require(${JSON.stringify(path.resolve(__dirname,'../encode-profiles.js'))});const original=e.resolveProfile;e.resolveProfile=id=>{const p=original(id);return id==='prores422'?{...p,args:[...p.args,'-map','[unknown]']}:p;};`);
+  const bad=cp.spawn(process.execPath,['--require',hook,path.resolve(__dirname,'../server.js')],{windowsHide:true,env:{...process.env,FABLECUT_DATA_DIR:rejectedDir,HOST:'127.0.0.1',PORT:'0',MONTCLIP_DESKTOP:'1',MONTCLIP_SESSION_TOKEN:token},stdio:['ignore','ignore','ignore','ipc']});
+  const stopped=new Promise(resolve=>bad.once('exit',resolve));
+  try {
+    const badOrigin=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('owned rejection server timeout')),15000);bad.once('error',e=>{clearTimeout(timer);reject(e);});bad.once('exit',code=>{clearTimeout(timer);reject(Error('owned rejection server exited '+code));});bad.on('message',m=>{if(m.type==='montclip-ready'){clearTimeout(timer);resolve(m.origin);}});});
+    const refused=await fetch(badOrigin+'/api/export/begin',{method:'POST',headers:{'X-MontClip-Session':token},body:JSON.stringify({fps:30,frames:30,profile:'prores422'}),signal:AbortSignal.timeout(15000)});
+    assert.equal(refused.status,400);assert.equal((await refused.json()).code,'PROFILE_FILTER_MAPPING_UNSUPPORTED');
+    assert.deepEqual(fs.readdirSync(path.join(rejectedDir,'exports')),[],'unknown mapping is refused before dry run or directory allocation');
+  } finally {if(bad.exitCode===null){bad.kill();await stopped;}}
 });

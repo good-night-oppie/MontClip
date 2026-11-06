@@ -10,6 +10,11 @@ for (const spec of [
   {name:'long audio ends at project boundary',frames:37,fps:24,extra:48000},
   {name:'short audio stays short; video remains complete',frames:37,fps:30,extra:-24000},
   {name:'no audio remains silent with full video',frames:37,fps:30,noAudio:true},
+  {name:'QQ output index mute remains silent',frames:30,fps:30,extra:1,filter:['-filter:1','volume=0']},
+  {name:'type then index uses last mute',frames:30,fps:30,extra:1,filter:['-af','volume=1','-filter:1','volume=0']},
+  {name:'index then type uses last real tail',frames:30,fps:30,extra:1,audible:true,filter:['-filter:1','volume=0','-filter:a:0','volume=1']},
+  {name:'reordered mapped audio index zero',frames:30,fps:30,extra:1,filter:['-map','1:a:0','-map','0:v:0','-filter:0','volume=0','-filter:1','hflip']},
+  {name:'flag-like option value does not disable real tail',frames:30,fps:30,extra:1,audible:true,filter:['-progress','-an']},
   {name:'audio filter alias remains effective',frames:30,fps:30,extra:1,filter:['-filter:a','volume=0']},
   {name:'bounded audio has explicit 48kHz clock',frames:30,fps:30,extra:1,filter:['-filter:a','volume=0','-ar','44100']},
   {name:'last audio filter option remains effective',frames:30,fps:30,extra:1,filter:['-af','volume=1','-af','volume=0']}
@@ -20,12 +25,12 @@ for (const spec of [
   const audio=path.join(dir,'mix.wav');fs.writeFileSync(audio,wav(n+(spec.extra||0)));
   const jpg=execFileSync(ff,['-v','error','-f','lavfi','-i','color=s=160x90','-frames:v','1','-c:v','mjpeg','-f','image2pipe','-']);
   const out=path.join(dir,'out.mov'),profile={...EP.resolveProfile('prores422')};if(spec.filter)profile.args=[...profile.args,...spec.filter];const args=EP.buildExportArgs(profile,{fps,frames,wavPath:spec.noAudio?null:audio,outPath:out});
-  const r=spawnSync(ff,args,{input:Buffer.concat(Array(frames).fill(jpg)),timeout:30000,maxBuffer:2**20,windowsHide:true});assert.equal(r.status,0,r.stderr?.toString());
+  const r=spawnSync(ff,args,{input:Buffer.concat(Array(frames).fill(jpg)),timeout:30000,maxBuffer:2**20,windowsHide:true,cwd:dir});assert.equal(r.status,0,r.stderr?.toString());
   if(!spec.noAudio){
   const pcm=execFileSync(ff,['-v','error','-i',out,'-map','0:a:0','-f','s16le','-'],{maxBuffer:4e6});
   const expected=Math.min(n,n+spec.extra);
   assert.equal(pcm.length/4,expected,'must preserve available source samples through project end');
-  assert.ok(pcm.equals(spec.filter?Buffer.alloc(expected*4):fs.readFileSync(audio).subarray(44,44+expected*4)),'real tail waveform or explicit profile mute, not accidental filter override');
+  assert.ok(pcm.equals(spec.filter&&!spec.audible?Buffer.alloc(expected*4):fs.readFileSync(audio).subarray(44,44+expected*4)),'real tail waveform or explicit profile mute, not accidental filter override');
   }
   if(spec.noAudio)assert.equal(JSON.parse(execFileSync(probe,['-v','error','-select_streams','a','-show_streams','-of','json',out])).streams.length,0);
   const meta=JSON.parse(execFileSync(probe,['-v','error','-select_streams','v:0','-count_frames','-show_streams','-of','json',out]));
@@ -56,3 +61,34 @@ test('MP4/AAC with a supplied frame count retains legacy packets and delay handl
 });
 
 for(const fps of [0,-1,Infinity,NaN,1e-300])test('ProRes rejects invalid sample clock '+fps,()=>assert.throws(()=>EP.proresProjectEnd({id:'prores422'},{fps,frames:30}),/frames/));
+
+test('output-index video filters stay unchanged with reordered or absent audio',t=>{
+  if(!FF.available('ffmpeg'))return t.skip('ffmpeg unavailable');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mc-filter-map-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const ff=FF.path('ffmpeg'),audio=path.join(dir,'mix.wav');fs.writeFileSync(audio,wav(48001));
+  const jpg=execFileSync(ff,['-v','error','-f','lavfi','-i','testsrc2=s=160x90','-frames:v','1','-c:v','mjpeg','-f','image2pipe','-']);
+  const pictures=[];
+  for(const [name,custom,wavPath] of [
+    ['video-only',['-filter:0','hflip','-filter:a','volume=0'],null],
+    ['audio-first',['-map','1:a:0','-map','0:v:0','-filter:0','volume=0','-filter:1','hflip'],audio],
+    ['disabled-audio',['-an','-filter:0','hflip','-af','volume=0'],audio],
+    ['unflipped',[],null]]){
+    const out=path.join(dir,name+'.mov'),base=EP.resolveProfile('prores422');
+    const args=EP.buildExportArgs({...base,args:[...base.args,...custom]},{fps:30,frames:30,wavPath,outPath:out});
+    const r=spawnSync(ff,args,{input:Buffer.concat(Array(30).fill(jpg)),timeout:30000,windowsHide:true});assert.equal(r.status,0,r.stderr?.toString());
+    pictures.push(execFileSync(ff,['-v','error','-i',out,'-map','0:v:0','-frames:v','1','-pix_fmt','rgb24','-f','rawvideo','-']));
+    if(name!=='audio-first')assert.ok(!args.some(a=>a.includes('atrim=')),'no audio output must not gain an audio trim');
+    else {const pcm=execFileSync(ff,['-v','error','-i',out,'-map','0:a:0','-f','s16le','-']);assert.equal(pcm.length,48000*4);assert.ok(pcm.equals(Buffer.alloc(pcm.length)));}
+  }
+  assert.ok(pictures[0].equals(pictures[1])&&pictures[1].equals(pictures[2]),'video hflip survives audio remapping/disable');
+  assert.ok(!pictures[0].equals(pictures[3]),'asymmetric picture really was flipped');
+});
+
+test('option values are not mistaken for mapping/filter/disable options',()=>{
+  const plan=EP.proresFilterPlan(['-progress','-an','-metadata','-filter:1','-filter:1','volume=0'],true);
+  assert.equal(plan.hasAudio,true);assert.equal(plan.audioFilter,4);
+  assert.throws(()=>EP.proresFilterPlan(['-unrecognized','-an'],true),e=>e.code==='PROFILE_FILTER_MAPPING_UNSUPPORTED');
+  assert.throws(()=>EP.proresFilterPlan(['extra-output.mov'],true),e=>e.code==='PROFILE_FILTER_MAPPING_UNSUPPORTED');
+});
+
+for(const args of [['-map','[mix]'],['-map','0'],['-map','1:a','-map','1:a','-map','0:v'],['-filter:a:m:title:x','volume=0'],['-filter:99','volume=0'],['-filter_complex','[1:a]anull[a]'],['-filter','null'],['-map','0:v','-map','-1:a'],['-filter_script:a','custom.txt'],['-/filter:a','custom.txt'],['-an','-noan']])test('unresolved mapping/selector refuses '+JSON.stringify(args),()=>{const p={...EP.resolveProfile('prores422'),args:[...EP.resolveProfile('prores422').args,...args]};assert.throws(()=>EP.buildExportArgs(p,{fps:30,frames:30,wavPath:'mix.wav',outPath:'x.mov'}),e=>e.code==='PROFILE_FILTER_MAPPING_UNSUPPORTED');});
