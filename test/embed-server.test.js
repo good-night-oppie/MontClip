@@ -96,7 +96,8 @@ test("embedded: ?token= trades for an HttpOnly partitioned cookie and a 302 to t
   assert.ok(id, cookie);
   assert.notEqual(id, s.token, "the cookie is its own random session, not the token");
   assert.ok(!cookie.includes(s.token));
-  for (const attr of ["Path=/", "HttpOnly", "SameSite=None", "Secure", "Partitioned"]) assert.ok(cookie.split("; ").includes(attr), attr);
+  assert.equal(cookie, `montclip_embed=${id}; Path=/; HttpOnly; SameSite=None; Secure; Partitioned`,
+    "the cookie's attributes are exactly these: none missing, none added, none changed (QQ, PR #198)");
   assert.equal(r.headers.get("referrer-policy"), "no-referrer");
   assert.equal(r.headers.get("cache-control"), "no-store");
 
@@ -162,6 +163,7 @@ test("embedded: the headless browser gets a one-time ticket, not the token", () 
   const cookie = first.headers["Set-Cookie"];
   const id = cookie.match(/^montclip_embed=([a-f0-9]{64}); /)?.[1];
   assert.ok(id && id !== token && id !== ticket && !cookie.includes(token), "the ticket buys a cookie session, never the token");
+  assert.equal(cookie, `montclip_embed=${id}; Path=/; HttpOnly; SameSite=None; Secure; Partitioned`);
   assert.equal(e.authorized({ headers: { cookie: `montclip_embed=${id}` } }), true);
   assert.equal(answer(`/?token=${ticket}`).code, 403, "a ticket works once");
   const late = e.launchTicket();
@@ -196,7 +198,7 @@ test("cookie sessions: one per page load, each can be ended on its own, the olde
   assert.equal(e.authorized(req(b)), false, "past the cap the oldest session ends");
   assert.equal(e.authorized(req(ids[0])), true);
   assert.equal(e.authorized(req(ids.at(-1))), true);
-  assert.equal(Embed.COOKIE_ATTRS, "Path=/; HttpOnly; SameSite=None; Secure; Partitioned", "SameSite is QQ's call (PR #198) — change it here and in this test together");
+  assert.equal(Embed.COOKIE_ATTRS, "Path=/; HttpOnly; SameSite=None; Secure; Partitioned", "decided by QQ on PR #198 (issuecomment-6698706427) — changing it needs QQ's review");
 });
 
 test("embed helpers: constant-time comparison never throws, cookie parsing takes only the named cookie", () => {
@@ -254,4 +256,15 @@ test("mcp-server.js sends X-MontClip-Session to an embedded engine", async (t) =
   const text = JSON.stringify(res.v);
   assert.ok(!/forbidden|403/.test(text), text);
   assert.ok(!res.v?.isError, text);
+});
+
+test("the cookie's attributes are written in one place: COOKIE_ATTRS in embed.js", () => {
+  const fs = require("fs"), path = require("path");
+  const root = path.join(__dirname, "..");
+  const files = fs.readdirSync(root).filter((f) => /\.(c|m)?js$/.test(f));
+  const writers = files.filter((f) => /SameSite\s*=|Partitioned/i.test(fs.readFileSync(path.join(root, f), "utf8")));
+  assert.deepEqual(writers, ["embed.js"], "only embed.js names the cookie's attributes");
+  const src = fs.readFileSync(path.join(root, "embed.js"), "utf8");
+  assert.equal(src.match(/SameSite=None; Secure; Partitioned/g).length, 1, "embed.js writes them once, in COOKIE_ATTRS");
+  assert.match(src, /"Set-Cookie": `\$\{COOKIE\}=\$\{id\}; \$\{COOKIE_ATTRS\}`/);
 });

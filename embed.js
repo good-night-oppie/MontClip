@@ -17,9 +17,12 @@ const COOKIE = "montclip_embed";
 const TOKEN_RE = /^[a-f0-9]{64}$/;
 const TICKET_MS = 60_000;
 const MAX_SESSIONS = 64;                            // the oldest cookie session ends when a 65th is handed out
-/* The cookie's SameSite attribute (QQ to decide, see PR #198): the editor frame is cross-site to its Cindy page
-   (cindy-ghost://<plugin>/… frames http://127.0.0.1:<port>/), and a cross-site frame neither receives nor sends a
-   Lax / Strict cookie, so this keeps #112's None + Partitioned (Secure is allowed on loopback). */
+/* The cookie's attributes, decided by QQ on PR #198 (issuecomment-6698706427; ADR 2026-11-06-embed-cookie-samesite):
+   the editor frame is cross-site to its Cindy page (cindy-ghost://<plugin>/… frames http://127.0.0.1:<port>/), and a
+   cross-site frame neither receives nor sends a Lax / Strict cookie, so it is None + Partitioned (Secure is allowed
+   on loopback). HttpOnly, Secure and Partitioned must stay. Cross-site forgery is stopped by the Host and Origin
+   checks and the server-issued random session, not by SameSite. This is the only place the attributes are written;
+   test/embed-server.test.js pins the exact string. */
 const COOKIE_ATTRS = "Path=/; HttpOnly; SameSite=None; Secure; Partitioned";
 
 /** Constant-time comparison of a request value with a secret. Compares bytes, not characters: a value of the same
