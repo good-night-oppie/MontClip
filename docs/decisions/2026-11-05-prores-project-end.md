@@ -64,7 +64,7 @@ Source: Rea task handoff reporting a fresh run on `6818d2719458d496648bbf2f84022
 
 - FFmpeg `n9.0.2-42-gd7643a0fe3-20261102`, SHA256 `400b6f1408e708859148a473a47c342d449f15025a2f025e3ea49bd5f7116978`.
 - FFprobe SHA256 `33476cc0a33107e171c81cdfee17009612057ee1af67727ec6ec6d6f7d505546`.
-- Tool selection: `MONTCLIP_FFMPEG_DIR=/home/admin/apps/MontClip-test-src/vendor/ffmpeg/linux-x64`.
+- Tool selection: `MONTCLIP_FFMPEG_DIR=<repo>/vendor/ffmpeg/linux-x64`.
 - Comparison script: `/tmp/rea-pr190-9dd795a-90gb/edge2.cjs`, SHA256 `315fdbf5914aa78342b3effefff49202c73cac46766deb3fc49048e08e4ea222`. Script bytes were not independently fetched/hash-checked by the author.
 - Inputs: 2248 MJPEG frames, 64×36; stereo s16 48 kHz WAV, round(target)+50 samples, PCM bytes 0x01. Decimal JS `23.976` gives target 4500501 / decoded 4500500, video 2248 frames / 93.760427 seconds. JS `24000/1001` (23.976023976023978) gives target=decoded 4500496, video 2248 frames / 93.760333 seconds.
 
