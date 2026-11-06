@@ -13357,8 +13357,10 @@ async function requestBgRemove() {
       uiText("own.bgremove-net-no"),
     ], uiText("own.font-net-deny"), uiText("own.font-net-allow"));
     if (!yes) return null;
-    bgSeg.consent = true; bgSeg.failed = false; bgSeg.loading = null;
+    bgSeg.consent = true;
   }
+  // Only an explicit user retry clears failure; preview/export never retry a download.
+  if (bgSeg.failed) { bgSeg.failed = false; bgSeg.loading = null; }
   await ensureBgSeg();
   return !!bgSeg.seg;
 }
@@ -13371,25 +13373,42 @@ async function noteBgRemove() {
   if (bgRemoveDesktop()) toast(uiText("own.bgremove-desktop"));
   else toastAction(uiText("own.bgremove-fallback"), uiText("own.font-fallback-load"), () => requestBgRemove());
 }
-/* Before an export: the clips with AI background removal export uncut when it isn't loaded. */
-function noteExportBgRemove() {
-  if (!bgSeg.seg && bgRemoveClips().length) toast(uiText("own.bgremove-export-fallback"));
+function bgRemoveExportError(clipId, realtime = false) {
+  return new Error(`BG_REMOVE_UNAVAILABLE: ${uiText(realtime ? "own.bgremove-export-realtime" : "own.bgremove-export-unavailable")} (${clipId})`);
+}
+/* A fresh/headless page cannot inherit consent. Refuse before starting an encoder, then verify every frame below. */
+function noteExportBgRemove(range = exportRange(), realtime = false) {
+  const c = bgRemoveClips().find((c) => clipRenders(c) && c.start < range.end && clipEnd(c) > range.start);
+  if (c && (!bgSeg.seg || realtime)) throw bgRemoveExportError(c.id, realtime);
 }
 /* Serialize sends; returns a promise that resolves once the mask is refreshed.
    Preview calls are dropped while one is in flight (masks lag a frame at most);
    the exporter passes force=true and awaits the exact mask. */
 bgSeg.pending = 0;
-function requestMask(clipId, el, force = false) {
-  ensureBgSeg();
+async function requestMask(clipId, el, force = false) {
+  if (force) await ensureBgSeg();
+  else ensureBgSeg();
+  if (force && !bgSeg.seg) throw bgRemoveExportError(clipId);
   if (!bgSeg.seg) return bgSeg.loading || Promise.resolve();
   if (!force && bgSeg.pending > 0) return Promise.resolve();
   bgSeg.pending++;
-  bgSeg.queue = bgSeg.queue.then(async () => {
-    if ((el.videoWidth || el.naturalWidth || 0) === 0) return;
+  const task = bgSeg.queue.then(async () => {
+    if (force) bgSeg.masks.delete(clipId); // a stale preview mask cannot certify this frame
+    if (!el || (el.videoWidth || el.naturalWidth || 0) === 0) {
+      if (force) throw bgRemoveExportError(clipId);
+      return;
+    }
     bgSeg.currentClip = clipId;
-    try { await bgSeg.seg.send({ image: el }); } catch { }
+    try {
+      await bgSeg.seg.send({ image: el });
+      const mask = bgSeg.masks.get(clipId);
+      if (force && (!mask || !mask.width || !mask.height)) throw bgRemoveExportError(clipId);
+    } catch {
+      if (force) { bgSeg.masks.delete(clipId); throw bgRemoveExportError(clipId); }
+    } finally { bgSeg.currentClip = null; }
   }).finally(() => { bgSeg.pending--; });
-  return bgSeg.queue;
+  bgSeg.queue = task.catch(() => {}); // keep later sends usable after a failed export
+  return task;
 }
 
 /* ═══════════ PIXEL PIPELINE (chroma key · temperature · tint · mask) ═══════
@@ -19852,7 +19871,7 @@ async function prepareFrameAssets(t) {
     if (c.kind === "svg") await prepareSvgFrame(c, t);
     if (c.props?.bgRemove && (c.kind === "video" || c.kind === "image")) {
       const el = c.kind === "video" ? getClipEl(c) : runtime.mediaAux.get(c.mediaId)?.img;
-      if (el) { try { await requestMask(c.id, el, true); } catch { } }
+      await requestMask(c.id, el, true);
     }
   }
 }
@@ -19883,6 +19902,7 @@ async function fastExport(opts = {}) {
   let uploadError = null;
   const setError = (err) => { if (!uploadError) uploadError = err; };
   try {
+    noteExportBgRemove({ start: t0, end: t1 });
     els.exportTitle.textContent = uiText("own.mixing-audio");
     const wav = await renderAudioMix(t0, t1);
     if (renderCancelled) throw new Error("cancelled");
@@ -19912,7 +19932,6 @@ async function fastExport(opts = {}) {
       if (!r.ok) throw new Error("audio upload failed");
     }
     await loadProjectFonts();
-    noteExportBgRemove();
     resetExportCanvases();
     await armExportCors();
     await useOriginalPlayers();   // proxies are for editing — export reads the originals
@@ -20599,6 +20618,7 @@ async function webCodecsExport() {
   const setError = (err) => { if (!uploadError) uploadError = err; };
   let up = null;
   try {
+    noteExportBgRemove({ start: t0, end: t1 });
     els.exportTitle.textContent = uiText("own.mixing-audio");
     const wav = await renderAudioMix(t0, t1);
     if (renderCancelled) throw new Error("cancelled");
@@ -20649,7 +20669,6 @@ async function webCodecsExport() {
       latencyMode: "quality",
     });
     await loadProjectFonts();
-    noteExportBgRemove();
     resetExportCanvases();
     await armExportCors();
     await useOriginalPlayers();   // proxies are for editing — export reads the originals
@@ -20729,6 +20748,9 @@ function pickMime() {
 async function startExport() {
   if (state.exporting) return;
   if (!project.clips.length) { alert("Timeline is empty — add some clips first."); return; }
+  // Realtime recording uses asynchronous preview masks, so it cannot promise frame-exact cut-outs.
+  try { noteExportBgRemove(exportRange(), true); }
+  catch (e) { alert(uiText("own.export-failed-prefix") + e.message); return; }
   const mime = pickMime();
   if (!mime) { alert("MediaRecorder is not supported in this browser."); return; }
   ensureAudio();
@@ -20740,7 +20762,6 @@ async function startExport() {
   seekMediaWhilePaused();
   await new Promise((r) => setTimeout(r, 350)); // let first frames decode
   await loadProjectFonts();
-  noteExportBgRemove();
   const stream = els.preview.captureStream(projectFps());
   for (const tr of runtime.audio.recDest.stream.getAudioTracks()) stream.addTrack(tr);
   recChunks = []; recDiscard = false;

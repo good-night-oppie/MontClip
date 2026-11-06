@@ -3,8 +3,7 @@
 // what is sent. AI background removal (props.bgRemove) is one such connection: app.js ensureBgSeg loads MediaPipe's
 // selfie segmentation (a script, then its wasm and model files through locateFile) from cdn.jsdelivr.net.
 //   browser / server mode: turning it on asks first (the host, "download only"); a yes holds for this session. Opening
-//     a project, drawing a frame and exporting never go online by themselves: the clip shows and exports uncut, and the
-//     streamer is told.
+//     a project or drawing a frame never bypass consent. Export refuses unavailable masks and reports the reason.
 //   desktop: the page never tries (desktop/main.js blocks every non-local request, and its CSP is script-src 'self'),
 //     so no box that can only fail; a plain hint instead.
 // app.js is a browser script, so the AI BACKGROUND REMOVAL section (and the shared consent box from FONTS) is sliced out
@@ -32,22 +31,24 @@ class El{
  focus(){} getContext(){return{drawImage(){}};}
  all(){return this.children.flatMap(c=>typeof c==='string'?[]:[c,...c.all()]);}
 }
-function page({desktop=false,clips=[]}={}){
+function page({desktop=false,clips=[],scriptFailures=0,sendFails=false,noResult=false}={}){
  const requests=[],toasts=[];
  const head=new El('head'),body=new El('body');
  // a <script src> is a request; it "loads" a moment later
- head.onAppend=(x)=>{if(x.tagName==='SCRIPT'){requests.push(x.src);setTimeout(()=>x.onload?.(),0);}};
+ head.onAppend=(x)=>{if(x.tagName==='SCRIPT'){requests.push(x.src);const fail=scriptFailures-->0;setTimeout(()=>fail?x.onerror?.():x.onload?.(),0);}};
  const document={head,body,createElement:(t)=>new El(t)};
  // what MediaPipe's script would do once loaded: fetch its wasm and model through locateFile
- class SelfieSegmentation{constructor({locateFile}){for(const f of MP_FILES)requests.push(locateFile(f));}setOptions(){}onResults(){}async send(){}}
+ class SelfieSegmentation{constructor({locateFile}){for(const f of MP_FILES)requests.push(locateFile(f));}setOptions(){}onResults(cb){this.cb=cb;}async send(){if(sendFails)throw Error('synthetic model failure');if(!noResult)this.cb({segmentationMask:{width:8,height:8}});}}
  const window=desktop?{montclipViewSettings:{}}:{};
- const runtime={};
+ const runtime={mediaAux:new Map()};
  const uiText=(k,v)=>k+(v?' '+JSON.stringify(v):'');
  const stubs={window,document,runtime,uiText,SelfieSegmentation,
   toast:(m)=>toasts.push({m}),toastAction:(m,label,fn)=>toasts.push({m,label,fn}),
-  mediaClips:()=>clips,fontDesktop:()=>!!window.montclipViewSettings,setTimeout,clearTimeout};
- const names=['ensureBgSeg','requestMask','requestBgRemove','noteBgRemove','noteExportBgRemove','bgSeg'];
- const code=BG+'\n'+fn('askNetConsent')+'\nreturn {'+names.map(n=>`${n}: typeof ${n}!=="undefined"?${n}:undefined`).join(',')+'};';
+  mediaClips:()=>clips,clipRenders:c=>!c.disabled&&!c.hidden,clipEnd:c=>c.start+c.duration,
+  activeAt:(c,t)=>t>=c.start&&t<c.start+c.duration,getClipEl:()=>null,
+  exportRange:()=>({start:0,end:3}),fontDesktop:()=>!!window.montclipViewSettings,setTimeout,clearTimeout};
+ const names=['ensureBgSeg','requestMask','requestBgRemove','noteBgRemove','noteExportBgRemove','prepareFrameAssets','bgSeg'];
+ const code=BG+'\n'+fn('askNetConsent')+'\nasync '+fn('prepareFrameAssets')+'\nreturn {'+names.map(n=>`${n}: typeof ${n}!=="undefined"?${n}:undefined`).join(',')+'};';
  const api=new Function(...Object.keys(stubs),code)(...Object.values(stubs));
  const external=()=>requests.filter(u=>!String(u).startsWith(LOCAL));
  const dialog=()=>body.all().find(e=>e.tagName==='DIALOG'&&e.open);
@@ -56,19 +57,19 @@ function page({desktop=false,clips=[]}={}){
 }
 const tick=(ms=5)=>new Promise(r=>setTimeout(r,ms));
 const hostOf=(u)=>new URL(u).hostname;
-const video={id:'c1',kind:'video',props:{bgRemove:true}};
+const video={id:'c1',kind:'video',start:0,duration:3,props:{bgRemove:true}};
 const frame={videoWidth:640,naturalWidth:0};
 
 test('browser mode: nobody said yes — drawing a bgRemove clip and exporting it send nothing out',async()=>{
  const p=page({clips:[video]});
  p.api.ensureBgSeg();
  p.api.requestMask('c1',frame);            // a preview frame
- await p.api.requestMask('c1',frame,true); // an export frame
+ await a.rejects(p.api.requestMask('c1',frame,true),/BG_REMOVE_UNAVAILABLE/); // export must fail closed
  await tick();
  a.deepEqual(p.external(),[],'no request left this computer');
 });
 
-test('browser mode: opening a project with a bgRemove clip, or exporting it, tells the streamer it shows uncut',async()=>{
+test('opening keeps the preview hint; exporting refuses unavailable masks',async()=>{
  const p=page({clips:[video]});
  a.equal(typeof p.api.noteBgRemove,'function','noteBgRemove exists');
  await p.api.noteBgRemove();
@@ -76,10 +77,46 @@ test('browser mode: opening a project with a bgRemove clip, or exporting it, tel
  p.toasts.length=0;await p.api.noteBgRemove();
  a.equal(p.toasts.length,0,'told once a session');
  a.equal(typeof p.api.noteExportBgRemove,'function','noteExportBgRemove exists');
- p.api.noteExportBgRemove();
- a.ok(p.toasts.some(t=>/bgremove/.test(t.m)),'the export says it removes no background');
+ a.throws(()=>p.api.noteExportBgRemove(),/BG_REMOVE_UNAVAILABLE/,'export refuses uncut output');
  await tick();
  a.deepEqual(p.external(),[]);
+});
+
+test('explicit retry after a failed download succeeds; drawing never retries',async()=>{
+ const p=page({scriptFailures:1});
+ const first=p.api.requestBgRemove();await tick();p.button('allow').click();
+ a.equal(await first,false);a.equal(p.api.bgSeg.consent,true);
+ await p.api.ensureBgSeg();a.equal(p.external().length,1);
+ const second=p.api.requestBgRemove(),concurrent=p.api.requestBgRemove();
+ a.equal(await second,true);a.equal(await concurrent,true);
+ a.equal(p.external().filter(u=>u.endsWith('/selfie_segmentation.js')).length,2);
+ a.equal(p.dialog(),undefined);
+});
+
+test('export preflight ignores disabled, hidden and out-of-range clips',()=>{
+ for(const c of [{...video,disabled:true},{...video,hidden:true},{...video,start:3},{...video,start:-3}]){
+  const p=page({clips:[c]});a.doesNotThrow(()=>p.api.noteExportBgRemove());a.deepEqual(p.external(),[]);
+ }
+});
+
+test('forced masks wait for loading and reject missing, stale or failed inference',async()=>{
+ const ready=page();ready.api.bgSeg.consent=true;
+ await ready.api.requestMask('c1',frame,true);a.ok(ready.api.bgSeg.masks.get('c1'));
+ for(const opts of [{sendFails:true},{noResult:true}]){
+  const p=page(opts);p.api.bgSeg.consent=true;await p.api.ensureBgSeg();
+  p.api.bgSeg.masks.set('c1',{stale:true});
+  await a.rejects(p.api.requestMask('c1',frame,true),/BG_REMOVE_UNAVAILABLE/);
+  a.equal(p.api.bgSeg.masks.has('c1'),false);
+  await a.rejects(p.api.requestMask('c1',frame,true),/BG_REMOVE_UNAVAILABLE/,'failure does not poison the queue');
+ }
+});
+
+test('frame preparation rejects missing media; realtime refuses even a loaded model',async()=>{
+ const p=page({clips:[video]});p.api.bgSeg.consent=true;await p.api.ensureBgSeg();
+ a.doesNotThrow(()=>p.api.noteExportBgRemove());
+ a.throws(()=>p.api.noteExportBgRemove({start:0,end:3},true),/bgremove-export-realtime/);
+ await a.rejects(p.api.prepareFrameAssets(1),/BG_REMOVE_UNAVAILABLE/);
+ await p.api.prepareFrameAssets(4);
 });
 
 test('browser mode: turning it on asks first — the box names cdn.jsdelivr.net and says download only; No sends nothing',async()=>{

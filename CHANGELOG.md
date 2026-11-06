@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Partial official Apache-2.0 Cindy composer/configuration component port, local session restoration, explicit full-payload confirmation, fixed-provider desktop transport and guarded sentence proposal preview/apply/undo. Live-provider and visible-window acceptance remain pending.
 
 ### Fixed
+
+- Refuse exports and composed-frame requests when a required AI background-removal mask is unavailable, instead of silently exporting the original background. Preserve page-local download consent, allow explicit download retries after failure, and require Fast/WebCodecs for frame-exact cut-outs.
 - A reload no longer adds an empty undo step: loading relinks the picture to its audio stems under new ids, which the
   kept undo history took for an edit made elsewhere (VV, #111). The undo of a real outside edit now says so in the
   interface language.

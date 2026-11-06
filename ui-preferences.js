@@ -203,9 +203,10 @@
     "bgremove-net-what": ["AI background removal uses Google's MediaPipe: a program and a model that MontClip downloads the first time.", "AI 抠像要用 Google 的 MediaPipe：第一次用时，MontClip 要下载它的程序和模型。"],
     "bgremove-net-hosts": ["MontClip will connect to jsDelivr: {hosts}.", "会连接 jsDelivr 的下载网站：{hosts}。"],
     "bgremove-net-sent": ["It only downloads. The background is removed on this computer: your recordings, captions and projects are not sent. The site sees what every browser sends when it goes online, such as your IP address.", "只下载，不上传。抠像在这台电脑上算，录像、字幕和项目都不会发出去。对方网站能看到浏览器联网时都会带的基本信息，比如你的 IP 地址。"],
-    "bgremove-net-no": ["If you don't download it, these clips show and export with their background.", "不下载的话，这些片段照常显示和导出，只是不抠掉背景。"],
+    "bgremove-net-no": ["Without the download, the preview keeps the background. Turn off AI background removal on these clips before exporting them without the effect.", "不下载的话，预览会保留背景。要保留背景导出，请先关闭这些片段的 AI 抠像。"],
     "bgremove-fallback": ["Some clips here use AI background removal, which needs a download first, so they show with their background for now.", "这个项目里有片段开了 AI 抠像，要先联网下载才能用，现在先显示原画面。"],
-    "bgremove-export-fallback": ["AI background removal isn't downloaded, so this export keeps the background on those clips.", "AI 抠像还没下载，这次导出不会抠掉那些片段的背景。"],
+    "bgremove-export-unavailable": ["AI background removal could not prepare this clip. Enable it in the browser editor, confirm the download or retry, then export from that same tab. To keep the background, turn off AI background removal on the clip first.", "这个片段的 AI 抠像未准备好。请在浏览器剪辑器里开启抠像，确认下载或重试，再从同一页面导出。要保留背景，请先关闭片段的 AI 抠像。"],
+    "bgremove-export-realtime": ["AI background removal needs Fast or WebCodecs export. Choose one of those export engines, or turn off AI background removal on these clips.", "AI 抠像需要逐帧导出。请选快速导出或浏览器编码导出，或先关闭这些片段的 AI 抠像。"],
     "bgremove-desktop": ["AI background removal isn't available in the desktop app yet. To cut out a green screen, key it by color instead.", "桌面版暂时用不了 AI 抠像。要抠绿幕，可以改用按颜色抠像。"],
     // a transcription with parts the engine could not read (asr-local.js gaps); JJ's words (tr-gaps-more: placeholder)
     "tr-gaps-toast": ["Transcription finished, but {n} part(s) ({dur} in all) couldn't be transcribed and have no subtitles. Click a time under “Transcript” on the right to jump there, and add subtitles yourself if you need them.", "听写完了，但有 {n} 段没听写出来（共 {dur}），这几段没有字幕。可以在右边「文稿」里点时间跳过去看，需要的话自己补上字幕。"],

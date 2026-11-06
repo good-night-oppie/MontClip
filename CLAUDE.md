@@ -449,7 +449,7 @@ These are quick looks. For real grading use `props.grade` (see "Color" below).
 | `chromaKey` | "" | hex key color, e.g. `"#00ff00"` for green screen ("" = off) |
 | `chromaTolerance` | 26 | 0–100, how much color distance is keyed out |
 | `chromaSoftness` | 12 | 0–100, edge feather + spill suppression |
-| `bgRemove` | false | AI person cut-out (MediaPipe from cdn.jsdelivr.net, downloaded only after the user confirms in the browser editor; until then, and in export without it, the clip shows uncut; the desktop app never loads it) |
+| `bgRemove` | false | AI person cut-out (MediaPipe from cdn.jsdelivr.net, downloaded only after the user confirms in the browser editor; preview stays uncut until ready, but export fails if a required mask cannot be generated; the desktop app never loads it) |
 
 **Audio / time** (video/audio):
 | prop | default | notes |
@@ -2487,7 +2487,15 @@ background footage on V1.
 **Remove background without a green screen** (people):
 `props: {bgRemove:true}` — then put anything behind it on V1.
 It works once the user has confirmed the MediaPipe download in the browser editor
-(an agent cannot confirm it; a headless export without it keeps the background).
+(an agent cannot confirm it). Consent belongs to that page only: use `where:"tab"`
+to export from the browser page where the user enabled it. A fresh headless page
+cannot inherit that consent and reports `BG_REMOVE_UNAVAILABLE` instead of exporting
+the original background. Fast and WebCodecs export verify every required frame mask;
+disabled tracks/clips and clips outside the export range do not block export.
+Realtime recording cannot guarantee exact masks and refuses these clips. Composed
+frame/scopes requests also fail if a required mask is unavailable. After a download
+failure, the user can enable AI background removal again to retry; preview and export
+do not initiate retries. To export with the background, explicitly turn off `bgRemove`.
 
 **Picture-in-picture**: clip on V3 with
 `props: {scale:0.35, x:380, y:-200, cornerRadius:24}` — add
