@@ -4,11 +4,14 @@
 Two synthetic sources that differ only in the gift text (make-synthetic-source.py, lossless VP9, with and
 without NO_GIFT_TEXT) go through the very same shot. For each source MontClip renders every frame of the
 shot as a timeline preview (fablecut_frame, in this run's own editor tab: a headless Chrome started by this
-script with a new profile) and exports it (fablecut_export, in a headless browser our server starts, H.264);
+script with a new profile; what the tool returns is a downscaled, lossy JPEG, 960x540) and exports it (fablecut_export, in a headless browser our server starts, H.264);
 the export is decoded back to frames. Then the two sources are compared frame by frame, every RGB channel:
 
   cover    (the demo's shot)  : no frame may differ, in preview or in the export   -> the text has no effect
   no-cover (positive control) : every frame must differ, in preview and in export  -> the comparison can see it
+
+The preview comparison is of those 960x540 JPEG preview images, not of the 1280x720 canvas; the export
+comparison (1280x720, the decoded H.264 export) is the one at full size.
 
 Missing or extra frames fail. Each source runs in its own MontClip server inside this process's private
 network namespace (montclip_session.py: nothing outside can reach it; the server is authenticated by a proof
@@ -75,7 +78,7 @@ for case in ("cover", "nocover"):
             mc.call([{"name": "fablecut_patch_project", "arguments": {"ops": redact_shot.ops(mid, cover=case == "cover", name=label)}},
                      {"name": "fablecut_get_project", "arguments": {}}], "2-project")
             mc.call([{"name": "fablecut_frame", "arguments": {"time": round(i / FPS, 6), "where": "tab", "timeout": 120},
-                      "saveImage": str(d / "preview" / f"{i:04d}.png")} for i in range(N)], "3-preview")
+                      "saveImage": str(d / "preview" / f"{i:04d}.jpg")} for i in range(N)], "3-preview")
             mc.call([{"name": "fablecut_export", "arguments": {"range": "entire", "preset": "custom", "where": "headless", "timeout": 1200,
                       "delivery": {"width": W, "height": H, "fps": FPS, "container": "mp4", "video": {"codec": "h264"},
                                    "audio": {"codec": "none"}, "filename": label}}}], "4-export")
@@ -83,28 +86,31 @@ for case in ("cover", "nocover"):
                        "ownership": json.loads((d / "ownership.json").read_text())}
 
 
-# fablecut_frame returns the timeline preview at most 960 px wide (the editor's scopes job caps it: app.js
-# runScopesJob, Math.min(960, ...)), so previews are checked at 960x540; the export is checked at W x H.
+# fablecut_frame returns the timeline preview as a JPEG (quality 0.85) at most 960 px wide (the editor's scopes
+# job: app.js runScopesJob, Math.min(960, ...) and toDataURL("image/jpeg", 0.85)), so previews are saved as .jpg
+# and checked as 960x540 JPEGs; they are downscaled, lossy images of the canvas. The export is checked at W x H.
 PREVIEW_SIZE = (min(960, W), round(min(960, W) * H / W))
 
 
 def preview_frames(d):
-    """Exactly 0000.png ... {N-1}.png, each PREVIEW_SIZE; anything missing, extra or another size stops the check."""
+    """Exactly 0000.jpg ... {N-1}.jpg, each a JPEG of PREVIEW_SIZE; anything missing, extra, of another type or size
+    stops the check."""
     names = sorted(p.name for p in (d / "preview").iterdir())
-    want = [f"{i:04d}.png" for i in range(N)]
+    want = [f"{i:04d}.jpg" for i in range(N)]
     if names != want:
         raise SystemExit(f"{d.name}: preview frames are not exactly 0000..{N - 1:04d} "
                          f"(missing {sorted(set(want) - set(names))[:5]}, extra {sorted(set(names) - set(want))[:5]})")
     frames = []
     for n in want:
-        im = Image.open(d / "preview" / n).convert("RGB")
-        if im.size != PREVIEW_SIZE:
-            raise SystemExit(f"{d.name}/{n}: preview is {im.size}, expected {PREVIEW_SIZE}")
-        frames.append(np.asarray(im))
+        im = Image.open(d / "preview" / n)
+        if im.format != "JPEG" or im.size != PREVIEW_SIZE:
+            raise SystemExit(f"{d.name}/{n}: preview is {im.format} {im.size}, expected JPEG {PREVIEW_SIZE}")
+        frames.append(np.asarray(im.convert("RGB")))
     return want, frames
 
 
 res = {"method": __doc__.split("Usage:")[0].strip(), "frames_expected": N, "preview_size": list(PREVIEW_SIZE),
+       "preview_format": "image/jpeg (as returned by fablecut_frame; downscaled, lossy)",
        "export_size": [W, H], "cover_rect_px_at_scale_1": redact_shot.cover_rect(),
        "sources": {k: {"file": v.name, "sha256": sha(v)} for k, v in sources.items()}, "cases": {},
        "environment": {"python": platform.python_version(), "node": subprocess.run(["node", "-v"], capture_output=True, text=True).stdout.strip(),

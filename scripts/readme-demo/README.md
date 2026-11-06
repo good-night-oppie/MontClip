@@ -42,9 +42,12 @@ keyframes as the video so it follows the zoom (`redact_shot.py`). This is the ap
 #186 (a draft, not merged yet); it changes nothing in the engine.
 
 `verify-cover.py WORK` checks this exact shot. Two synthetic sources that differ only in the gift text
-(lossless VP9) go through it; every frame is rendered as a timeline preview (in the script's own editor
-tab) and exported, and the two sources are compared on every pixel of every frame. With the cover no frame
-may differ; without it (positive control) every frame must differ. It exits 0 only if both hold.
+(lossless VP9) go through it. Every frame is exported (H.264, 1280×720, decoded back) and also rendered as
+a timeline preview in the script's own editor tab; the preview `fablecut_frame` returns is a downscaled,
+lossy JPEG (960×540). The two sources are compared on every pixel of every frame of both. With the cover no
+frame may differ; without it (positive control) every frame must differ. It exits 0 only if both hold. The
+full-size result is the export comparison; the preview comparison only shows the 960×540 JPEG previews
+are identical, not that the 1280×720 canvas is pixel for pixel identical.
 
 Each MontClip server runs inside a private user + network namespace that the script creates
 (`montclip_session.py`), so nothing outside it can send the server a request; the script also proves the
@@ -53,8 +56,8 @@ and it stops the run (killing a running batch) as soon as the server exits, the 
 process outside its tree shows up in the namespace. A same-user process that deliberately joins the
 namespace is looked for but cannot be ruled out by polling.
 
-That shows the covered text does not reach a single output pixel **in this synthetic shot with these
-settings**. The check uses lossless VP9 sources; the demo itself is built from an H.264 source with the
+That shows the covered text does not reach a single pixel of the export (and of the preview images)
+**in this synthetic shot with these settings**. The check uses lossless VP9 sources; the demo itself is built from an H.264 source with the
 same shot definition, so the demo video is covered by the same recipe, not checked pixel by pixel itself. It is not a guarantee for other footage, motion, crops or settings: check your own export
 frame by frame, and publishing real footage still needs per-frame review and the subjects' consent.
 
