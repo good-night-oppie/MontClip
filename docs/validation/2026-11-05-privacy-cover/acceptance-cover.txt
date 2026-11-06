@@ -1,0 +1,11 @@
+static preview: 0/12 frames disclose a pixel difference
+static export: 0/12 frames disclose a pixel difference
+move preview: 0/12 frames disclose a pixel difference
+move export: 0/12 frames disclose a pixel difference
+crop preview: 0/12 frames disclose a pixel difference
+crop export: 0/12 frames disclose a pixel difference
+edge preview: 0/12 frames disclose a pixel difference
+edge export: 0/12 frames disclose a pixel difference
+feather preview: 0/12 frames disclose a pixel difference
+feather export: 0/12 frames disclose a pixel difference
+cover: 120/120 frames independent of the synthetic secret

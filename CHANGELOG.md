@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Withdraw blur-over-original recipes as privacy guarantees; document opaque covers and per-frame preview/export checks without changing artistic compositing.
+
 - Pause conflicting private-package AI connections until resolved, show recovery instructions, and keep cleanup warnings for wiped seed files across restarts.
 
 - Preserve a private package's seed on restart when sealing verification and rollback both fail; only a matching saved connection may consume it.
