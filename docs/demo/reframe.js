@@ -117,10 +117,23 @@
 
   /** Frames → samples [[t, u, v, conf], …]: t in seconds from the first frame (at `fps`),
    *  u / v the subject's centre as fractions of the picture. `frames` are RGB bytes (w×h×3). */
-  function subjectTrack(frames, w, h, opts) {
-    const t = tracker(w, h, opts);
-    for (const f of frames) t.push(f);
+  function subjectTrack(frames, w, h, opts = {}) {
+    const t = tracker(w, h, opts), times = Array.isArray(opts.times) ? opts.times : null;
+    frames.forEach((f, i) => t.push(f, times ? times[i] : undefined));
     return t.samples;
+  }
+  /** Where a reframe looks in a clip (Deja, 2026-11-05): seconds from its in point, SAMPLE_FPS a second through its window
+   *  of `len` source seconds, and always its last frame, at len − `frame` (one frame of the timeline, in source seconds):
+   *  read once more when the regular samples stop short of it. Without it the camera stopped at the last regular sample
+   *  (up to 1/SAMPLE_FPS before the end) and a subject still moving left the picture in the shot's last frames. Not an
+   *  extrapolation: that frame is read like the others. The editor samples at these times; MCP resolves the tail against actual decoded source PTS. */
+  function sampleTimes(len, { fps = SAMPLE_FPS, frame = 1 / 30 } = {}) {
+    const n = Math.max(1, Math.floor(len * fps + 1e-6)), out = [];
+    for (let i = 0; i < n; i++) out.push(Math.round((i / fps) * 1000) / 1000);
+    // rounded down: a time a hair past the last frame finds no frame there (ffmpeg -ss)
+    const last = Math.floor(Math.max(0, len - frame) * 1000) / 1000;
+    if (last - out[out.length - 1] > 1e-3) out.push(last);
+    return out;
   }
   /** The same, a frame at a time, so a long shot needn't be held in memory:
    *  push(frame) as each one is read; `samples` grows as they come. */
@@ -129,10 +142,11 @@
     const samples = [];
     return {
       samples,
-      push(frame) {
+      /** t: the frame's time (seconds from the clip's in point); default the next one at fps (sampleTimes' regular ones). */
+      push(frame, t) {
         const { map, luma } = saliency(frame, w, h, prev);
         const c = centre(map, w, h);
-        samples.push([Math.round((samples.length / fps) * 1000) / 1000, c.u, c.v, c.conf]);
+        samples.push([Math.round((Number.isFinite(t) ? t : samples.length / fps) * 1000) / 1000, c.u, c.v, c.conf]);
         prev = luma;
       },
     };
@@ -293,5 +307,5 @@
     return { set, note: k.static ? `held on the subject (${axis} ${k.static > 0 ? "+" : ""}${k.static})` : "subject in the middle — centred", axis, keys: 0 };
   }
 
-  return { SAMPLE_FPS, SAMPLE_W, ASPECTS, targets, clipPlan, saliency, centre, subjectTrack, tracker, camera, simplify, coverRect, offsetFor, keysFor, canvasFor };
+  return { SAMPLE_FPS, SAMPLE_W, ASPECTS, targets, clipPlan, saliency, centre, subjectTrack, sampleTimes, tracker, camera, simplify, coverRect, offsetFor, keysFor, canvasFor };
 });

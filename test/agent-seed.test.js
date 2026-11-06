@@ -181,6 +181,7 @@ test('every request to the AI goes through the review box (QQ 4): confirm sends 
     'kept; then the review only when she was sending (shown again from 设置 or the link, it only closes)');
   a.ok(notice.includes('onCancel={e=>e.preventDefault()}'), 'Esc does not close it: only 〔我知道了〕 does');
   a.doesNotMatch(pane.slice(pane.indexOf('const acceptNotice'), pane.indexOf(' const confirm=')), /conversation\.confirm|\.send\(/, '〔我知道了〕 sends nothing');
+  // JJ定稿 (2026-11-05, via Deja): 「发了什么」 also names the singing parts and the loudness, ending 「声音本身不发。」 as the review box.
   // JJ's v3, word for word (europa ~/montclip-labels/jj/2026-11-04-AI数据说明-DeepSeek私下包-v3-JJ.md, sha256 98da6840…,
   // QQ passed; Deja, 2026-11-04: v3 is the one): each line as it shows, a bold label followed by its text
   const V = require('../ui-preferences'), T = (lang) => (k) => V.text[lang]['officialPane_' + k];
@@ -189,7 +190,7 @@ test('every request to the AI goes through the review box (QQ 4): confirm sends 
     t('dataNoticeBasis'), t('dataNoticeOk')];
   a.deepEqual(lines(T('zh-CN')), [
     '用 AI 之前，先说清楚这几件事',
-    '发了什么：你在助手里写的话，加上你选中的片段的时间、长度这类数字。字幕（听写出来的文字）和弹幕的原文，只有你点了〔让 AI 看〕才会发。录像、声音和文件本身，从来不发。',
+    '发了什么：你在助手里写的话，加上你选中的片段的时间、长度这类数字，以及哪几段可能在唱歌（只有开始和结束的秒数）、音量大小（每秒或每隔几秒一个数）（一串数字）。声音本身不发。字幕（听写出来的文字）和弹幕的原文，只有你点了〔让 AI 看〕才会发。录像、声音和文件本身，从来不发。',
     '发给谁：直接发给 DeepSeek（深度求索）的官方接口 api.deepseek.com，中间不经过 MontClip 团队或别的服务器；数据存在中国境内。',
     'DeepSeek 会怎么用：DeepSeek 的隐私政策写着，你发过去的内容和 AI 的回复「可能」用于训练模型和改进服务，用之前会加密、去掉能认出你的信息。用这种方式发过去的内容，没有开关能让它不拿去训练，它也没公布会存多久。我们只是照实转述，没法替 DeepSeek 保证什么。',
     '所以：不想让别人看到的话，别写进助手；不想发的字幕和弹幕，就别点〔让 AI 看〕。',
@@ -199,7 +200,7 @@ test('every request to the AI goes through the review box (QQ 4): confirm sends 
     '我知道了']);
   a.deepEqual(lines(T('en')), [
     'Before you use the AI, a few things to know',
-    'What is sent: what you write to the assistant, plus numbers about the clips you selected, such as their times and lengths. Caption text (from transcription) and live-comment text are sent only when you click [Let the AI see it]. Your video, audio and files themselves are never sent.',
+    'What is sent: what you write to the assistant, plus numbers about the clips you selected, such as their times and lengths, which parts may be singing (start and end seconds only) and the loudness (one number every second or every few seconds) (a list of numbers). The sound itself is never sent. Caption text (from transcription) and live-comment text are sent only when you click [Let the AI see it]. Your video, audio and files themselves are never sent.',
     "Who gets it: DeepSeek's official API (api.deepseek.com), directly. Nothing passes through the MontClip team or any other server. The data is stored in mainland China.",
     "What DeepSeek does with it: DeepSeek's privacy policy says what you send and what the AI replies \"may\" be used to train its models and improve its service, after being encrypted and stripped of anything that identifies you. For data sent this way there is no switch to keep it out of training, and DeepSeek hasn't said how long it is kept. We're only passing on what the policy says; we can't promise anything on DeepSeek's behalf.",
     "So: don't write anything to the assistant that you wouldn't want others to see, and don't click [Let the AI see it] for captions or live comments you'd rather not send.",
@@ -208,10 +209,10 @@ test('every request to the AI goes through the review box (QQ 4): confirm sends 
     'Based on: DeepSeek Privacy Policy (version of 10 Feb 2026) and DeepSeek Open Platform Terms of Service (effective 29 Apr 2026). If they change, this page will change too.',
     'Got it']);
   // the notice shows them in that order, and nothing else
-  const order = ['dataNoticeWhatLabel', 'dataNoticeWhoLabel', 'dataNoticeUseLabel', 'dataNoticeSo', 'dataNoticeOffLabel', 'dataNoticeAiLabel', 'dataNoticeBasis'].map((k) => notice.indexOf('{t.' + k + '}'));
+  const order = ['dataNoticeWhatLabel', 'dataNoticeWhoLabel', 'dataNoticeUseLabel', 'dataNoticeSoundLabel', 'dataNoticeSo', 'dataNoticeOffLabel', 'dataNoticeAiLabel', 'dataNoticeBasis'].map((k) => notice.indexOf('{t.' + k + '}'));
   a.ok(order.every((n, k) => n > 0 && (k === 0 || n > order[k - 1])), "v3's order");
   a.deepEqual([...new Set(notice.match(/t\.dataNotice[A-Za-z0-9]+/g))].sort(), ['t.dataNoticeAi', 't.dataNoticeAiLabel', 't.dataNoticeBasis', 't.dataNoticeOff', 't.dataNoticeOffLabel', 't.dataNoticeOk',
-    't.dataNoticeSo', 't.dataNoticeTitle', 't.dataNoticeUse', 't.dataNoticeUseLabel', 't.dataNoticeWhat', 't.dataNoticeWhatLabel', 't.dataNoticeWho', 't.dataNoticeWhoLabel']);
+    't.dataNoticeSo', 't.dataNoticeSound', 't.dataNoticeSoundLabel', 't.dataNoticeTitle', 't.dataNoticeUse', 't.dataNoticeUseLabel', 't.dataNoticeWhat', 't.dataNoticeWhatLabel', 't.dataNoticeWho', 't.dataNoticeWhoLabel']);
   // the names the notice gives are the ones on screen: 设置 › AI 助手 › 用 AI 助手
   const own = (l, k) => V.text[l]['own.' + k];
   a.equal(own('zh-CN', 'ai-set-title'), 'AI 助手'); a.equal(own('zh-CN', 'ai-set-enabled'), '用 AI 助手'); a.equal(V.text['zh-CN']['term.settings'], '设置');
@@ -222,7 +223,7 @@ test('every request to the AI goes through the review box (QQ 4): confirm sends 
   a.equal(T('zh-CN')('noticeLink'), '数据说明'); a.equal(T('en')('noticeLink'), 'Data notice');
   a.equal(T('zh-CN')('aiOff'), 'AI 助手关着，什么都不会发出去。要用的话，到「设置 › AI 助手」里打开。');
   a.equal(T('en')('aiOff'), 'The AI assistant is off, so nothing is sent. To use it, turn it on in Settings › AI assistant.');
-  a.equal(require('../desktop/agent-data-notice').NOTICE_VERSION, 2, 'the words changed: she reads it again');
+  a.equal(require('../desktop/agent-data-notice').NOTICE_VERSION, 3, 'the words changed (v3: the singing parts and the loudness): she reads it again');
   // the label on a reply and the button the notice names are the same words
   a.equal(T('zh-CN')('aiGenerated'), 'AI 生成'); a.equal(T('en')('aiGenerated'), 'AI-generated');
   a.equal(T('zh-CN')('reference'), '让 AI 看'); a.equal(T('en')('reference'), 'Let the AI see it');

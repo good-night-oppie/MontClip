@@ -5,7 +5,7 @@ description: 用 MontClip 现有功能把一场录像（多为直播回放）剪
 
 # MontClip 切片：从导入到导出
 
-本 skill 的事实依据：MontClip `main` @ `90e9ba22`（2026-11-05，含 #169、#148），Cindy 插件 MontClip-Cindy `0.5.1`（内置引擎 @ `5b312e63`）。证据见同目录 `SOURCES.md`。
+本 skill 的事实依据：MontClip `main` @ `b3441ba`（2026-11-06，含 #173、#169、#148），Cindy 插件 MontClip-Cindy `0.5.1`（内置引擎 @ `5b312e63`）。证据见同目录 `SOURCES.md`。
 「好切片」的标准蒸馏自 8 个公开 skill，每条后面用方括号标来源：
 [CS] ClipSkills · [DK] video-editing-analyzer · [CF] videocut-skills（chengfeng）· [VU] video-use · [SC] video-shotcraft · [MX] maxazure video-editing-skill · [MK] mediakit-cli。
 
@@ -21,7 +21,7 @@ description: 用 MontClip 现有功能把一场录像（多为直播回放）剪
 
 本文写成 `fablecut_xxx {参数}`。在 Cindy 里，把它包进 `call_tool` 就行。
 
-**插件版落后提醒**：插件 0.5.1 的引擎落后 main（`90e9ba22`）88 个提交。它没有 #149（长录像导出不再静音）、#156（`Highlights…` 菜单修复）和 #152（中途停掉的录像怎么读时长）这几个修复。所以在 Cindy 里导出长录像，第 5 节的「无声自检」**必须做**。
+**插件版落后提醒**：插件 0.5.1 的引擎快照（`5b312e63`）已落后 main（`b3441ba`）142 个提交，快照自身还带 98 个不在 main 上的提交。它没有 #149（长录像导出不再静音）、#156（`Highlights…` 菜单修复）、#152（中途停掉的录像怎么读时长）这几个修复；main 后来修的 **#157**（〔帮我修好〕一键修复）、**#178**（失败的导出立刻停掉 ffmpeg、不留半成品）、**#179**（单声道只从左边出声）、**#173**（播放器上方的「导出画面」下拉框在中文界面也显示中文），插件版都没有。所以在 Cindy 里导出长录像，第 5 节的「无声自检」**必须做**；单声道素材导完还要**双耳各听一下**。
 
 ---
 
@@ -69,6 +69,7 @@ description: 用 MontClip 现有功能把一场录像（多为直播回放）剪
 1. **导入**：界面点「+ 导入」。Agent 用 `fablecut_import_media {path:"D:/录播/xxx.flv", link:true}`。
    - `link:true` 用硬链接导入，同盘的大录像不会复制第二份。
    - FLV 时间对不上时，回复会说明原因。只有主播同意之后，才可以加 `acceptReadable:true`（只用读得出的那一段）或 `allowTranscode:true`（转成 MP4，原文件保留）。
+   - 导入后如果提示「没录完整…读不出有多长，现在还剪不了」（文件会标上「不能剪」），或者文件上有「没录完整，拖动可能会慢」的小记号，先去走配方 E 修好，再继续往下剪。
 2. **弹幕（可选）**：点「文稿」页里的「导入弹幕…」，或调 `fablecut_danmaku {path:"….xml", mediaId}`。
    - 支持录播姬和 B 站的 XML。
    - 用户名和用户 id **不会存下来**，礼物和醒目留言只计数。
@@ -162,6 +163,26 @@ description: 用 MontClip 现有功能把一场录像（多为直播回放）剪
    - 只用有授权的 BGM（铁律 5）。
 6. 自检 §5 → 导出 `preset:"youtube-shorts"`（1080×1920，≤3 分钟）或 `preset:"tiktok"`，加 `delivery:{audio:{loudness:-14}}`。
 
+### 配方 E：录像读不出时长 / 拖不动——「帮我修好」一键修复（#157）
+
+录像中途停掉（比如录屏崩了）会出现两种情况，都有同一个修法：
+
+| 表现 | 界面上看到 |
+|---|---|
+| 读不出时长 | 素材上写「这个视频没录完整…现在还剪不了」，还有〔帮我修好〕按钮；拖不上时间线 |
+| 能剪但拖动慢 | 素材上一个小记号「◔」：「没录完整，拖动可能会慢」 |
+
+修法（视频专用；音频文件没有这个按钮）：
+
+1. 界面：在素材上点〔帮我修好〕（或右键 →「帮我修好…」）。Agent：`fablecut_repair_media {mediaId:"m_xxx"}`。
+   - 它是后台任务：立刻返回一个任务号，之后用 `{job:"r_…"}` 查进度，`{cancel:"r_…"}` 取消（取消就什么都不改）。同一个文件再调一次只会并入正在跑的那个任务。
+   - 先尝试快速重封装（不重编码）；不行才用本机 FFmpeg 的 libx264 或内置编码器重编码。重编码做不了（本机 FFmpeg 不行）会拒绝，原文件不动。
+2. 修好后：在原文件旁边写出一个新的 MP4（`原文件名.repaired.mp4`），时间线上所有用到它的片段自动换成新文件、位置不变；**原文件不动**，而且修之前自动存了一个版本，按 Ctrl+Z（或 `montclip_undo`）可以换回来。
+   - Agent 查任务结果时，用返回的**新** `mediaId` 和 `result.duration` 往下剪。
+3. 修完仍读不出的（比如 MP4 索引没写完的）：会明说「这种修不了，请换一个完整的文件」，原文件没有改动。
+
+**注意（Cindy 插件版）**：插件 0.5.1 的引擎还没有这个功能，`fablecut_repair_media` 调不通；遇到这类录像只能在 MontClip 桌面/浏览器版（或更新后的插件）里修。
+
 ---
 
 ## 4. 打码（main 上的做法）
@@ -216,11 +237,13 @@ fablecut_patch_project {ops:[{op:"addClip", clip:{kind:"shape", track:"V3", star
 - 导出前跑一次 `fablecut_normalize_audio {target:-14}`，或者在导出的 `delivery.audio.loudness` 里设 −14、`truePeak` 设 −1。
 - 导出回复会把成片的 loudness 和 true peak 跟目标值对一遍。**写进汇报的数字就用这里读到的**。
 
-### 5.4 导出后的黑屏、无声自检
+### 5.4 导出后的黑屏、无声、单声道自检
 
 - 先读导出回复里的检查清单（尺寸、帧率、帧数、编码、时长、响度、true peak、文件大小）。哪一项跟要求不一样，就不算完成。
+- **失败 / 取消 / 超时的导出**：main 上（#178）会立刻停掉 ffmpeg、删掉半成品 `.part` 文件——导出回复说「完成」才算完成，文件真正到位才算。**插件版 0.5.1 没有这条修复**：导出失败可能留下一个半成品文件，看到 failed/cancelled 就删掉它再重来，别把半成品当成片。
 - **黑屏**：`fablecut_frame {path:<导出文件>, frames:24, text:true}`，看每格的亮度。连续好几格接近全黑，就是有问题，不要等到 0.5 秒以上的黑段才算 [MX]。开头一格和结尾一格一定要看。
 - **无声**：回复里的 loudness 远低于目标（接近无声）就是失败。再从头到尾听一遍，3 秒以上的无声段要找到原因 [MX]。插件版导出长录像时尤其要查（§0）。
+- **单声道素材**：main 上（#179）单声道录音会居中导出。**插件版 0.5.1 没有这条修复**，单声道素材导出来可能只在左边出声——导完把左、右声道各听一下；只在一边有声就用 `fablecut_patch_project` 把该片段的 `props.pan` 设成 `0` 再重新导出。
 - 时长：要和 `fablecut_get_project {compact:true}` 里的序列时长对得上。
 
 ---
@@ -249,7 +272,6 @@ fablecut_patch_project {ops:[{op:"addClip", clip:{kind:"shape", track:"V3", star
 | 功能 | PR |
 |---|---|
 | `fablecut_blur_region` 和「给这块打码」（依赖 #155 的蒙版坐标约定） | #163 |
-| 「帮我修好」一键修复、转格式，`fablecut_repair_media` 后台任务 | #157 |
 | `fablecut_lyrics` / `fablecut_lyrics_apply`：Agent 用的歌词对齐 | #164 |
 | 导出黑屏、静音不算完成；时间戳不从 0 开始的录像导出修复 | #161 |
 | 桌面助手做 9:16 / 1:1 / 4:5 新序列（每次都先问） | #175（叠在 #172 上） |

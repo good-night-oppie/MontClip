@@ -25,6 +25,7 @@ function render(el: Element, name: string, props: Record<string, unknown> = {}, 
   const C = components[name];
   if (!C) throw Error('no such part: ' + name);
   setPartsLanguage(language);
+  el.setAttribute('data-cindy-parts', ''); // Cindy's styles apply inside (cindy-parts.css)
   let root = roots.get(el);
   if (!root) { root = createRoot(el); roots.set(el, root); }
   root.render(createElement(I18nextProvider, { i18n }, createElement(C, props)));
