@@ -110,7 +110,7 @@ test('server mode end to end: neither encoder — refused at begin with setup:"s
   const dir = makeDataDir(t, seedProject({ revision: 1 }));
   // nothing on PATH either (JJ P1 looks there)
   const nowhere = path.join(dir, 'no-such-folder');
-  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_TEST_NO_H264: '1', MONTCLIP_EXTERNAL_FFMPEG_SETTINGS: '', MONTCLIP_EXTERNAL_FFMPEG: '', PATH: nowhere, Path: nowhere });
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_TEST_NO_H264: '1', MONTCLIP_EXTERNAL_FFMPEG_SETTINGS: '', MONTCLIP_EXTERNAL_FFMPEG: '', MONTCLIP_FFMPEG: require('../ffmpeg-path').path('ffmpeg'), MONTCLIP_FFPROBE: require('../ffmpeg-path').path('ffprobe'), PATH: nowhere, Path: nowhere });
   const st = await (await fetch(base + '/api/export/h264')).json();
   a.equal(st.encoder, null); a.equal(st.reason.setup, 'server');
   const r = await fetch(base + '/api/export/begin', { method: 'POST', body: JSON.stringify({ fps: 30, duration: 1, canvasW: 640, canvasH: 360, hasAudio: false, deliveries: [{ delivery: { preset: 'youtube' }, name: 'a' }] }) });
