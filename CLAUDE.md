@@ -2636,6 +2636,12 @@ WebCodecs / Realtime export, and `/api/export/begin` all use this value; pass th
 
 ## Export
 
+In the desktop app, completed queue entries and local media have **Show in folder**.
+Workspace lookups reject symlinks and directory junctions. After a native Save dialog
+completes, the main process remembers the chosen destination for that export's `src`
+for this app session; revealing it selects the saved file even after the workspace
+copy is removed. The renderer receives no absolute path. Missing files report failure.
+
 Export is the Export button → dialog, or `fablecut_export` from an agent (below). Three engines:
 
 1. **Fast** — browser renders each frame with the normal compositor (SVG, keys,

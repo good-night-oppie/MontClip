@@ -36,4 +36,6 @@ MIT. See [LICENSE](LICENSE) and the third-party notices.
 
 ## Technical reference
 
+Desktop file reveal: workspace paths reject symlinks and junctions. The main process keeps native export-save receipts for the app session, so the original export `src` reveals the final chosen destination without exposing its path to the renderer. See [Export](CLAUDE.md#export).
+
 See the [agent and API manual](CLAUDE.md) for media repair and background duration merging, and the [timestamp repair comparison](docs/testing/repair-timestamp-jump.md) for the reproducible test and its limits.

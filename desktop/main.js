@@ -86,12 +86,28 @@ async function start() {
     if (!root || !rel) return null;
     const file = path.normalize(path.join(root, rel));
     if (!file.startsWith(path.normalize(root + path.sep))) return null;
-    try { return fs.statSync(file).isFile() ? file : null; } catch { return null; }
+    try {
+      // Reject junctions/symlinks at the allowed root and every descendant, not just lexical traversal.
+      let current = root;
+      if (fs.lstatSync(current).isSymbolicLink()) return null;
+      for (const part of path.relative(root, file).split(path.sep)) {
+        current = path.join(current, part);
+        if (fs.lstatSync(current).isSymbolicLink()) return null;
+      }
+      const realRoot = fs.realpathSync(root), realFile = fs.realpathSync(file);
+      if (!realFile.startsWith(realRoot + path.sep)) return null;
+      return fs.statSync(realFile).isFile() ? realFile : null;
+    } catch { return null; }
   };
+  // Native save receipts stay in this process. The page can only repeat the original export src.
+  const savedExports = new Map();
+  const rememberSavedExport = (copy, saved) => savedExports.set('/exports/' + encodeURIComponent(path.basename(copy)), saved);
   ipcMain.handle("montclip:reveal", (event, src) => {
     if (!settingsAllowed(event, win, origin)) return { ok: false, code: "REVEAL_FORBIDDEN" };
-    const file = workspaceFile(src);
+    const file = savedExports.get(src) || workspaceFile(src);
     if (!file) return { ok: false, code: "REVEAL_NOT_FOUND" };
+    try { if (!fs.statSync(file).isFile()) return { ok: false, code: "REVEAL_NOT_FOUND" }; }
+    catch { return { ok: false, code: "REVEAL_NOT_FOUND" }; }
     shell.showItemInFolder(file);
     return { ok: true };
   });
@@ -122,6 +138,7 @@ async function start() {
     // one download of an export at a time: a second of the same file while the first is open is cancelled
     if (!require("./export-downloads").attach(item, { origin, exportsDir: path.join(env.FABLECUT_DATA_DIR, "exports"), language: languageOf(settings.get()), downloadsDir: app.getPath("downloads"),
       busy: exportDownloads, take: (n) => expectedExports.delete(n),
+      onSaved: rememberSavedExport,
       claim: async (n) => { const r = await fetch(origin + "/api/export/claim?name=" + encodeURIComponent(n), { method: "POST", headers: { "X-MontClip-Session": token } }); return r.ok && (await r.json()).fresh === true; },
       onDone: (v) => { if (win && !win.isDestroyed()) win.webContents.send("montclip:download:done", { state: v.state, name: v.name, removed: v.removed }); } })) {
       event.preventDefault();

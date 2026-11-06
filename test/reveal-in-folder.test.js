@@ -23,7 +23,7 @@ test('main resolves only a name under exports/, media/ or library/ of this data 
   a.match(main, /p\.startsWith\("\/media\/"\) \? \[path\.join\(env\.FABLECUT_DATA_DIR, "media"\), p\.slice\(7\)\]/);
   a.match(main, /p\.startsWith\("\/library\/"\) \? \[path\.join\(env\.FABLECUT_DATA_DIR, "library"\), p\.slice\(9\)\]/);
   a.match(main, /if \(!file\.startsWith\(path\.normalize\(root \+ path\.sep\)\)\) return null;/, 'a ".." name cannot leave the folder');
-  a.match(main, /fs\.statSync\(file\)\.isFile\(\) \? file : null/, 'a missing file answers NOT_FOUND, not an Explorer error');
+  a.match(main, /fs\.statSync\(realFile\)\.isFile\(\) \? realFile : null/, 'a missing file answers NOT_FOUND, not an Explorer error');
   a.match(main, /if \(!settingsAllowed\(event, win, origin\)\) return \{ ok: false, code: "REVEAL_FORBIDDEN" \};/, 'only the editor page may ask');
   a.match(main, /shell\.showItemInFolder\(file\);\s*\n\s*return \{ ok: true \};/);
 });

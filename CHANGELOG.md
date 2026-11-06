@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Reject linked workspace paths when revealing files; remember native export save destinations in the desktop main process so Show in folder finds the saved file.
+
 - Pause conflicting private-package AI connections until resolved, show recovery instructions, and keep cleanup warnings for wiped seed files across restarts.
 
 - Preserve a private package's seed on restart when sealing verification and rollback both fail; only a matching saved connection may consume it.
