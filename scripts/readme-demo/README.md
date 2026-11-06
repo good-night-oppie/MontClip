@@ -21,7 +21,9 @@ Three passes:
    synthetic live room made by `make-synthetic-source.py` (needs Pillow and `fonts-noto-cjk`), asks `fablecut_frame` for a 12-frame
    contact sheet and the frame at 3 s, then builds a crop + keyframed zoom shot with an opaque cover over the gift bar (`redact_shot.py`)
    and exports it with `fablecut_export`.
-2. `page/demo.html` lays out those outputs; `render.cjs` seeks it to each of the 1320 frames
+2. `run-lines.py` turns the MCP replies saved in pass 1 (`m1.out.txt`, `m2.out.txt`, `m3.json`, `m3.out.txt`)
+   into `page/run-lines.js`: every "terminal" line shown in the video is the text MontClip returned in this
+   run (file names only, no directories or addresses). `page/demo.html` lays out those outputs; `render.cjs` seeks it to each of the 1320 frames
    (22 s at 60 fps) and screenshots them; `build.sh` encodes the frames into the motion layer.
    (Runtime JavaScript in this repository never runs ffmpeg by name; the shell script does.)
 3. `montclip-final.py` imports the motion layer into MontClip and exports the final MP4 with
@@ -60,6 +62,24 @@ That shows the covered text does not reach a single pixel of the export (and of 
 **in this synthetic shot with these settings**. The check uses lossless VP9 sources; the demo itself is built from an H.264 source with the
 same shot definition, so the demo video is covered by the same recipe, not checked pixel by pixel itself. It is not a guarantee for other footage, motion, crops or settings: check your own export
 frame by frame, and publishing real footage still needs per-frame review and the subjects' consent.
+
+## Acceptance gates for the finished video
+
+`final-check.py WORK OUT REPO [--names FILE]` checks the built `montclip-demo-22s.mp4` and `.webm` in `WORK`
+and exits 0 only if every gate holds: exactly 1320 frames of 1280×720 in each file (G1), one video stream
+and no audio (G2), every frame's `pts` on the 60 fps grid, so nothing is missing, duplicated or moved (G3),
+no blank frame (G4), OCR (`tesseract`, `eng+chi_sim`) ran without error on every distinct frame of the mp4
+(G5), and no local path, e-mail address, key/token word, IP address, `localhost:port` or `--names` pattern
+in the OCR text or in `page/demo.html` (G6). `--names` is a file of regular expressions, one per line,
+for your own account names, machine names and viewer nicknames; keep it outside the repository, it is not
+copied into `report.json`. `OUT/report.json` records every gate, the hashes of the inputs and the OCR text;
+`OUT/sheets/` holds contact sheets of every 6th frame for looking at the video yourself. OCR can misread
+or miss text, so G6 supports, and does not replace, watching the video.
+
+`run-final-check-controls.sh` runs synthetic negative controls (needs ffmpeg with libx264 and libvpx-vp9):
+a clean synthetic video must pass, and each of 10 deliberate defects (OCR program failing, a path or name in
+the OCR text or the page, a missing frame, a dropped frame with the count intact, an audio stream, black
+frames) must fail the named gate and nothing else. It writes only to a temporary directory.
 
 > **Not recommended (kept as a record of the problem):** an earlier version of this demo blurred the bar
 > with MontClip's documented recipe (a blurred copy of the clip on the track above, masked to the region,

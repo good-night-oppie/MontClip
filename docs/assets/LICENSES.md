@@ -10,6 +10,9 @@ diagrams are not meant for the README.
 | `diagrams/symbolic-perception-arch-{dark,light}.svg` | Written as SVG text by `anthropic/claude-opus-5.5` through the OpenRouter chat API with `scripts/readme-demo/generate-assets.py`. Not edited afterwards. |
 | `diagrams/flv-input-checks-{dark,light}.svg` | Generated the same way, then edited by hand: the "proposed" half was removed and the notes were checked against the code at d51b27a. |
 
+The four SVGs in `diagrams/` are released under the MIT License, the same license as this repository
+(see `LICENSE`). (Chosen by the author as the repository default; confirmation by Deja or QQ pending.)
+
 `provenance.json` records the prompt, request ID and model of every generated file, the SHA-256
 of what was generated, what was changed by hand, and the SHA-256 of the committed file.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rebuild docs/assets/demo/montclip-demo-22s.{mp4,webm} from scratch.
+# Build the README demo video montclip-demo-22s.{mp4,webm} from scratch into WORK_DIR (the video is not committed).
 # usage: scripts/readme-demo/build.sh WORK_DIR
 # Everything is written under WORK_DIR, which must be new or empty (outside the repository is best).
 # Nothing is deleted or overwritten, here or there.
@@ -27,6 +27,7 @@ python3 "$here/montclip-materials.py" "$work/pass1"
 # Pass 2: lay out those outputs in a deterministic page and render it frame by frame.
 page="$work/page"; mkdir "$page" "$page/fonts" "$page/f" "$page/f/src" "$page/f/rz"
 cp -n "$here/page/demo.html" "$page/"
+python3 "$here/run-lines.py" "$work/pass1" "$page/run-lines.js"   # terminal lines in the page = this run's MCP replies
 cp -n "$repo/library/fonts/Inter.woff2" "$page/fonts/"
 cp -n "$work/pass1/contact-sheet.jpg" "$work/pass1/detail-t3.jpg" "$page/"
 ffmpeg -v error -n -i "$work/pass1/synthetic-source.mp4" -q:v 3 "$page/f/src/%04d.jpg"

@@ -110,6 +110,7 @@ html,body{width:1280px;height:720px;overflow:hidden;background:#090D16;color:#F8
 </div>
 </div>
 
+<script src="run-lines.js"></script>
 <script>
 const FPS_SRC=30, FPS_RZ=60, DUR=22;
 const cl=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
@@ -130,22 +131,28 @@ const CLIPS=[['V1',0,.38,'video m_…','#3B82F6'],['V1',.42,.62,'image sheet','#
  h+='<div id="lph" class="abs" style="top:124px;width:2px;height:176px;background:#F8FAFC"></div><div id="nopix" class="chip" style="left:40px;top:318px;background:#3B82F622;color:#93C5FD;border:1px solid #3B82F6">STATE AS TEXT · NO FRAMES DECODED YET</div>';
  $('lanes').innerHTML=h;}
 
-const T2=[[4.15,'<span style="color:#3B82F6">› fablecut_get_project</span> {compact:true}'],
- [4.55,'<span style="color:#94A3B8">"demo" 1280x720@60 rev:2</span>'],
- [4.75,'<span style="color:#94A3B8">MEDIA (1):</span>'],
- [4.95,'<span style="color:#94A3B8">  video "synthetic-source.mp4"</span>'],
- [5.15,'<span style="color:#94A3B8">        12s · 1280×720 · 30 fps · h264</span>'],
- [5.35,'<span style="color:#94A3B8">CLIPS: by track/time, as text</span>'],
- [6.05,'<span style="color:#F59E0B">› fablecut_frame</span> {frames:12, cols:4,'],
- [6.1, '                  from:0, to:12}'],
- [6.45,'<span style="color:#94A3B8">  contact sheet · 12 moments</span>'],
- [6.6, '<span style="color:#94A3B8">  at 0.5s, 1.5s … 11.5s  [image]</span>'],
- [8.45,'<span style="color:#EF4444">› fablecut_frame</span> {t:3, width:1280}'],
- [8.8, '<span style="color:#94A3B8">  frame at 3s  [image]</span>']];
-const T4=[[17.15,'<span style="color:#22C55E">› fablecut_export</span> {preset:"custom", h264, 60 fps, filename:"redact-zoom"}'],
- [17.7,'<span style="color:#94A3B8">  Export done → exports/redact-zoom.mp4 (0.3 MB)</span>'],
- [17.95,'<span style="color:#94A3B8">  1280×720 · 60 fps · H.264 CRF 18 · no audio · MP4</span>'],
- [18.25,'<span style="color:#22C55E">  ✓ Checks passed:</span> 1280×720 · 60 fps · 360 frames · h264 · bt709 · 0:06.00']];
+// Terminal lines come from this run's saved MCP replies (page/run-lines.js, written by run-lines.py); nothing is typed in by hand.
+if(!window.RUN)throw new Error('run-lines.js missing: run scripts/readme-demo/run-lines.py first');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const g=(c,s)=>`<span style="color:${c}">${esc(s)}</span>`, G='#94A3B8';
+const T2=[[4.15,g('#3B82F6','› fablecut_get_project')+' {compact:true}'],
+ [4.55,g(G,`${RUN.project.name} ${RUN.project.size} ${RUN.project.rev}`)],
+ [4.75,g(G,'MEDIA (1):')],
+ [4.95,g(G,`  video "${RUN.media.name}"`)],
+ [5.15,g(G,`        ${RUN.media.duration}s · ${RUN.media.width}×${RUN.media.height} · ${RUN.media.fps} fps · ${RUN.media.codec}`)],
+ [5.35,g(G,`CLIPS (${RUN.project.clips}), by track/time, as text`)],
+ [6.05,g('#F59E0B','› fablecut_frame')+` {frames:${RUN.sheet.frames}, cols:4,`],
+ [6.1, `                  from:0, to:${RUN.media.duration}}`],
+ [6.45,g(G,`  contact sheet · ${RUN.sheet.frames} moments`)],
+ [6.6, g(G,`  at ${RUN.sheet.first}, ${RUN.sheet.second} … ${RUN.sheet.last}  [image]`)],
+ [8.45,g('#EF4444','› fablecut_frame')+` {t:${parseFloat(RUN.frame_at)}, width:${RUN.media.width}}`],
+ [8.8, g(G,`  frame at ${RUN.frame_at}  [image]`)]];
+const T4=[[17.15,g('#22C55E','› fablecut_export')+` {preset:"${esc(RUN.export.preset)}", ${esc(RUN.export.codec)}, ${RUN.export.fps} fps, filename:"${esc(RUN.export.filename)}"}`],
+ [17.7,g(G,`  Export done → exports/${RUN.export.file} (${RUN.export.size})`)],
+ [17.95,g(G,`  ${RUN.export.format}`)]];
+const CK=RUN.export.checks.split(' · ');
+T4.push([18.25,g('#22C55E','  ✓ Checks passed:')+' '+esc(CK.slice(0,5).join(' · '))],
+        [18.4, '                   '+esc(CK.slice(5).join(' · '))]);
 const typeLines=(el,L,t)=>{el.innerHTML=L.map(([t0,h])=>{const o=eo(seg(t,t0,t0+.25));return `<span class="ln" style="opacity:${o};transform:translateX(${(1-o)*-8}px)">${t>=t0?h:'&nbsp;'}</span>`}).join('')};
 
 async function setImg(el,src){if(el.getAttribute('src')!==src){el.src=src;try{await el.decode()}catch(e){}}}
