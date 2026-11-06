@@ -120,7 +120,7 @@ test('after a conversion with drift, the sentence never says the timing is right
   a.equal(V.flvConvertedMessage('zh-CN', one, undefined), V.flvConvertedMessage('zh-CN', one));
 });
 
-// JJ's drift sentences (2026-11-06, Deja 代贴), word for word. 待 JJ 确认删减: no {ms} (Deja: no number), JJ is confirming.
+// JJ's drift sentences (2026-11-06, Deja 代贴), word for word, final: no {ms} (Deja: no number; JJ agreed, 2026-11-06).
 const JJ_DRIFT = {
   'zh-CN': {
     flvConvertedDrift: '已经转好了。{time} 这里录像断了约 {N} 秒：这几秒画面会停住、没有声音。断点之后，声音和画面可能差一点点，软件没法判断哪边是准的，所以没有自动修正。导出前请看一下结尾处的口型对不对；不想要断掉的那段可以剪掉。',
@@ -143,4 +143,9 @@ test("JJ's drift sentences, verbatim; drift / no drift × one break / several br
     a.equal(V.flvConvertedMessage(lang, one, 0.067), fill(J.flvConvertedDrift, { time: '00:30', N: '2' }), lang + ' one, drift');
     a.equal(V.flvConvertedMessage(lang, many, 0.067), fill(J.flvConvertedDriftMany, { k: 2, N: '1.9' }), lang + ' many, drift');
   }
+});
+test("JJ's drift sentences are final (JJ agreed to dropping {ms}, 2026-11-06): no pending mark, no {ms}", () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'ui-preferences.js'), 'utf8');
+  a.ok(!src.includes('待 JJ 确认删减'), 'the pending mark is gone');
+  for (const lang of ['zh-CN', 'en']) for (const k of ['flvConvertedDrift', 'flvConvertedDriftMany']) a.ok(!/\{ms\}/.test(V.text[lang][k]), lang + ' ' + k);
 });

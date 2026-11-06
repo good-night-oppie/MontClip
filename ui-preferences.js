@@ -1182,7 +1182,7 @@
     exportSourceDamaged: "This wasn't exported: part of the picture in \"{name}\" around {at} is damaged and would come out garbled, so the export stopped. Your edits are all still there; you can cut that short part out and export again.",
   });
   /** About N seconds, as said to the streamer: whole seconds from 10 s, else one decimal (at least 0.1). */
-  /* JJ's drift sentences (2026-11-06, Deja 代贴), word for word; 待 JJ 确认删减: no {ms} (Deja decided not to give a
+  /* JJ's drift sentences (2026-11-06, Deja 代贴), word for word, final (JJ agreed to no {ms}, 2026-11-06; Deja decided not to give a
      number — prepareMedia's drift is a lower bound: Rea measured drift 0.067 and +98 ms at the end). Used after a
      conversion of breaks when picture and sound also move apart during the recording (prepareMedia returns drift only
      when flv-readable-range.js says drifting: drift over MAX_DRIFT 0.04 s, a fixed offset at the start not counted);
