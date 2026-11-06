@@ -51,12 +51,12 @@
 
 ## C. MontClip 的证据
 
-依据是 `good-night-oppie/MontClip` 的 `origin/main` @ `90e9ba22`（2026-11-05，和 GitHub 上一致；含 #169、#148）。读法是只读的 `git archive` 导出；本机工作区落后 main 很多个提交，所以没有用工作区。
+依据是 `good-night-oppie/MontClip` 的 `origin/main` @ `b3441ba`（2026-11-06，和 GitHub 上一致；含 #173、#169、#148）。读法是只读的浅克隆；本机工作区落后 main 很多个提交，所以没有用工作区。
 
-**插件说明**：任务里写的 `plugins/montclip-cindy` 在 main 上**不存在**。插件在单独的仓库 `good-night-oppie/MontClip-Cindy` 里（`origin/main` @ `85c8183`）：
+**插件说明**：任务里写的 `plugins/montclip-cindy` 在 main 上**不存在**。插件在单独的仓库 `good-night-oppie/MontClip-Cindy` 里（`origin/main` @ `85c8183`，2026-11-06 复查无变化）：
 - 工具定义在 `ghost.json`：`montclip_status`、`list_tools`、`call_tool`、`montclip_undo`、`montclip_redo`、`montclip_seek`、`montclip_export`、`montclip_install_ffmpeg`、`montclip_open_task_view`。
-- 分类和转发在 `main.js` 第 6–20 行和第 340–380 行。
-- 内置引擎钉在 `engine-lock.json` 的 `5b312e63`。这个提交是 main 的祖先，比 main `90e9ba22` 落后 88 个提交（`git rev-list --count 5b312e63..90e9ba22`）；`mcp-tools.js` 里的工具名和 main 一致。
+- 分类和转发在 `main.js` 第 6–20 行和第 361–378 行。
+- 内置引擎钉在 `engine-lock.json` 的 `5b312e63`（2026-11-05 03:41Z 从 main 同步的快照）。对比 main `b3441ba`：main 上有 142 个提交不在快照里，快照自身还带 98 个不在 main 上的提交（`gh api repos/good-night-oppie/MontClip/compare/5b312e63...b3441ba`，status=diverged）。上一轮写的「落后 88 个提交」是用 rev-list 算的旧数字，方向不同，不直接可比。
 
 **工具名和参数**：都在 `mcp-tools.js`（main），按行号：
 
@@ -66,44 +66,51 @@
 | `fablecut_frame` | 58 | `fablecut_transcribe` | 218 |
 | `fablecut_import_media` | 91 | `fablecut_captions` | 240 |
 | `fablecut_normalize_audio` | 112 | `fablecut_denoise` | 268 |
-| `fablecut_auto_duck` | 126 | `fablecut_versions` | 301 |
-| `fablecut_silence` | 143 | `fablecut_export` | 332 |
-| `fablecut_beats` | 160 | `fablecut_track` | 375 |
-| `fablecut_reframe` | 176 | `fablecut_danmaku` | 403 |
-| `fablecut_highlights` | 191 | | |
+| `fablecut_auto_duck` | 126 | `fablecut_repair_media` | 281 |
+| `fablecut_silence` | 143 | `fablecut_versions` | 314 |
+| `fablecut_beats` | 160 | `fablecut_export` | 345 |
+| `fablecut_reframe` | 176 | `fablecut_track` | 388 |
+| `fablecut_highlights` | 191 | `fablecut_danmaku` | 416 |
 
 - 找歌没达标的说法（0.12 / 0.38，门槛 0.6）出自 `mcp-tools.js` 里 `fablecut_songs` 的描述，以及 `auto-slices.js` 的 `SONG_GATE` / `SONG_MEASURED`。
-- 打码做法来源：`CLAUDE.md` 的 Adjustment layers（约第 523 行）、Masks（约第 1050 行）、motion tracking 那节的「blur a face or a plate」配方（约第 1259 行）；属性面板 blur 滑块的范围 0–20 px 在 `app.js` 第 7581 行。
+- 打码做法来源：`CLAUDE.md` 的 Adjustment layers（约第 525 行）、Masks（约第 1054 行）、motion tracking 那节的「blur a face or a plate」配方（约第 1261 行）；属性面板 blur 滑块的范围 0–20 px 在 `app.js` 第 7662 行。
 - 导出预设和响度：`delivery.js` 第 179–195 行（`youtube-shorts`、`tiktok` 都是 1080×1920）；第 240 行写明平台响度只是参考值，只有设了 `audio.loudness` 才会做响度归一。
+- 配方 E（〔帮我修好〕）：按钮和文案在 `ui-preferences.js` 第 256–272 行（`repair-button`「帮我修好」、`repair-menu`、`repair-done`、`media-slow-mark`、`media-duration-unknown`）；Agent 行为在 `mcp-tools.js` 第 281 行 `fablecut_repair_media` 的描述（job / result.mediaId / REPAIR_FAILED），实现是 `make-editable.js` 和 `mcp-server.js` 第 1061 行起。
+- 失败导出清理（#178）：`export-cleanup.js` 的 `stopSessions`（先停 ffmpeg 再删 `.part` 半成品，`server.js` 第 707 行调用）。
+- 单声道居中（#179）：`edit-ops.js` 第 139 行 `defaultPanForChannel(ch, count)`——单声道唯一一条 stem 的 `pan` 默认 `0`（居中）。
+- 「导出画面」下拉框按界面语言显示（#173）：`app.js` 第 262 行 `EXPORT_FRAME_ASPECTS`，文案 `ui-preferences.js` 第 941–947 行（`ef-title`「导出画面」、`ef-9-16`「9:16 竖屏」等）。
 
 **界面文案**（中文原文都在 `ui-preferences.js` 和 `ui-terms.js` 里）：
 
 | 文案 | 位置 |
 |---|---|
-| 「✨ 自动出切片」 | `as-open`，第 287 行 |
+| 「✨ 自动出切片」 | `as-open`，第 311 行 |
 | 「这场主要在干什么？」 | `as-kind-title` |
-| 「只要最好听的一部分（约 45 秒）」 | `as-len-hook`，第 328 行 |
-| 「唱歌的段落整段出」 | `as-len-song-maybe`，第 327 行；没达标时 `app.js` 的 `autoSongKey` 显示 -maybe 版本 |
-| 「按歌词校准字幕」 | `ly-open`，第 399 行 |
-| 「字幕大小和位置」 | `cq-open`，第 555 行 |
+| 「只要最好听的一部分（约 45 秒）」 | `as-len-hook`，第 352 行 |
+| 「唱歌的段落整段出」 | `as-len-song-maybe`，第 351 行；没达标时 `app.js` 的 `autoSongKey` 显示 -maybe 版本 |
+| 「按歌词校准字幕」 | `ly-open`，第 423 行 |
+| 「字幕大小和位置」 | `cq-open`，第 579 行 |
 | 「按句选段」 | `tr-sentences`，第 95 行 |
-| 「导入弹幕…」 | `dm-import`，第 612 行 |
-| 「高光候选」 | `hl-open`，第 258 行 |
+| 「导入弹幕…」 | `dm-import`，第 636 行 |
+| 「高光候选」 | `hl-open`，第 282 行 |
 | 「+ 调节层」 | `add-adjust`，第 90 行 |
-| 「发往：{domain}」 | `ap-sends-to`，第 733 行 |
-| 「AI 想做这一步」「只批准这次」「不同意」 | `ap-title` / `ap-once` / `ap-deny` |
+| 「发往：{domain}」 | `ap-sends-to`，第 757 行 |
+| 「AI 想做这一步」「只批准这次」「不同意」 | `ap-title` / `ap-once` / `ap-deny`（第 755 / 760 / 762 行） |
+| 「帮我修好」 | `repair-button` / `repair-menu` / `repair-done` / `media-slow-mark` / `media-duration-unknown`，第 259–271 行 |
+| 「导出画面」 | `ef-title`，第 947 行 |
 | 「导出单帧」「导出队列」「轨道锁」「属性面板 → 蒙版」「新建序列…」「查找词」「添加字幕」「文稿」 | `ui-terms.js` |
-| 快捷键 ←/→ 走一帧、I/O、; / ' | `index.html` 第 573、616、620 行，对应 `help-4`、`help-27`、`help-31` |
+| 快捷键 ←/→ 走一帧、I/O、; / ' | `index.html` 第 584、627、631 行，对应 `help-4`、`help-27`、`help-31` |
 
 属性面板里只有英文的标签，都在 `app.js`：
-- `Reframe` / `Follow subject`：第 7554–7565 行
-- `Normalize` / `Apply` / `Noise`：第 7612–7617 行
-- `Silence`（`Below` / `At least` / `Keep` / `Find` / `Cut N`）：第 7627–7634 行
-- `Beats`（`Find beats` / `Mark` / `Snap cuts` / `Re-cut`）：第 7644–7654 行
-- 「新建序列…」弹窗里的 `Canvas` / `Start from a copy of …` / `Follow the subject in each shot` / `Create`：第 14330–14342 行；`9:16 · Reel 1080×1920` 是第 254 行的 `ASPECT_PRESETS`
+- `Reframe` / `Follow subject`：第 7636–7647 行
+- `Normalize` / `Apply` / `Noise`：第 7693–7698 行
+- `Silence`（`Below` / `At least` / `Keep` / `Find` / `Cut N`）：第 7705–7718 行
+- `Beats`（`Find beats` / `Mark` / `Snap cuts` / `Re-cut`）：第 7729–7733 行
+- 「新建序列…」弹窗里的 `Canvas` / `Start from a copy of …` / `Follow the subject in each shot` / `Create`：第 14414–14417 行；`9:16 · Reel 1080×1920` 是第 252 行的 `ASPECT_PRESETS`
 
 **PR 证据**：
-- 已合并、本 skill 用到的：#53（弹幕导入）、#52（高光候选）、#70（本机听写）、#75（找歌）、#77（自动出切片）、#81（字幕大小和位置）、#85 / #100（按歌词校准字幕）、#127（自动出切片的首次使用修复）、#149（长录像导出不再静音）、#156（Highlights 修复）、#169（助手附上唱歌段落和音量数字，「附上唱歌段和音量」开关）。
-- 未合并，列在「即将可用」：#163、#157、#164、#161、#175、#172、#170、#146、#138、#133、#165、#125、#155。
+- 已合并、本 skill 用到的：#53（弹幕导入）、#52（高光候选）、#70（本机听写）、#75（找歌）、#77（自动出切片）、#81（字幕大小和位置）、#85 / #100（按歌词校准字幕）、#127（自动出切片的首次使用修复）、#149（长录像导出不再静音）、#156（Highlights 修复）、#169（助手附上唱歌段落和音量数字，「附上唱歌段和音量」开关）、#157（〔帮我修好〕一键修复、`fablecut_repair_media`，2026-11-05 17:22Z 合并）、#178（失败/取消导出立刻停 ffmpeg、删 `.part`，17:17Z）、#179（单声道 stem 居中导出，17:17Z）、#173（「导出画面」下拉框按界面语言显示，2026-11-06 09:43Z）。
+- 未合并，列在「即将可用」：#163、#164、#161、#175、#172、#170、#146、#138、#133、#165、#125、#155。
+- 其它本轮合并但未进 skill 的：#131（一位主播的私下测试包，桌面打包功能，与剪辑操作无关）、#174（sherpa-onnx-linux-x64 许可证文档）、#143（Windows 关机误报的排查文档）、#181（下一批特性的 ADR）。
 
-用 `gh pr list -R good-night-oppie/MontClip --state all --limit 60`（以及 `--state merged --limit 200`）查到，时间 2026-11-05。
+用 `gh pr list -R good-night-oppie/MontClip --state all --limit 60`（以及 `--state merged --limit 200`）查到，时间 2026-11-06。

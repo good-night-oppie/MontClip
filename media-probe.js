@@ -152,6 +152,8 @@ function infoForEntry(info, entry) {
   const kind = entry && entry.kind;
   if (kind !== "image" && kind !== "svg" && info.duration > 0 && !(entry && entry.duration > 0)) out.duration = info.duration;
   if (info.width > 0 && !(entry && entry.width > 0)) { out.width = info.width; out.height = info.height; }
+  // P6: an entry holding the stored size of a file whose pixels aren't square takes the display size
+  else if (entry && MediaLib.displaySize({ width: entry.width, height: entry.height }, info)) { out.width = info.width; out.height = info.height; }
   // nothing can say how long it is: marked, so it is never placed at 0 s (MediaLib.cannotCut)
   if (kind !== "image" && kind !== "svg" && info.durationUnknown && !(entry && entry.duration > 0) && !(out.duration > 0)) out.durationUnknown = true;
   return out;
