@@ -3,7 +3,7 @@ const test = require('node:test'), a = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../real-tests/meta-demo-footage.cjs'), 'utf8');
 function fixture(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'footage-'));
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'footage-')));
   t.after(() => { const out=path.join(root,'out');try{if(fs.lstatSync(out).isSymbolicLink())fs.unlinkSync(out);}catch{} fs.rmSync(root, {recursive:true, force:true}); });
   return {root, out:path.join(root,'out'), profile:path.join(root,'profile')};
 }
