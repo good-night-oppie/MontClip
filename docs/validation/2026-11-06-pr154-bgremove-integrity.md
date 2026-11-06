@@ -11,7 +11,9 @@ AGENTS.md, CLAUDE.md and CONTRIBUTING.md were read; no VERIFICATION.md or
 #151 is merged. This branch merges `origin/main` at
 `d51b27a1ef5196725d73bca2d7d96c0de8c767bc`, retaining JJ's final font wording.
 Implementation commits: `1355bb13`, merge `757324b4`, and `59b4364a`.
-Subsequent changes only add smoke evidence capture and this report/artifacts.
+At `9b3d4c7a656d665556b6dd5f7620bf8ceedc7cc6`, subsequent changes only added
+smoke evidence capture and this report/artifacts. The full-suite/render results below
+belong to that implementation and the recorded code heads, not to a new render run after copy finalization.
 The PR body records the final review head; no old approval is claimed for it.
 
 ## Reproduction before the fix
@@ -89,16 +91,31 @@ flash/beep synchronization evidence.
 - [Browser/job receipt](pr154/result.json): `x_he4zarmr`, `failed`, `src:null`, actionable error;
   confirmed tab export succeeds; explicit retry makes exactly two script attempts.
 
-## Copy handoff for JJ (pending, via Deja)
+## JJ three-key copy finalized (2026-11-06, via Deja)
 
-The task's current host surface does not expose messaging to JJ. This is a handoff,
-not a claim that JJ approved the new wording. `ui-preferences.js` contains English/Chinese drafts:
+Source: Deja's requester follow-up on task `0cda57b0-4af9-4c2d-a1dd-ce601f70a512`,
+relaying JJ's complete bilingual text and confirmation of this branch's export option names.
+Only the following three keys are finalized. This is copy approval, not functional approval.
+The earlier pending handoff is resolved by this follow-up; font wording is not reopened.
 
-| Key | Chinese draft |
-| --- | --- |
-| `own.bgremove-net-no` | 不下载的话，预览会保留背景。要保留背景导出，请先关闭这些片段的 AI 抠像。 |
-| `own.bgremove-export-unavailable` | 这个片段的 AI 抠像未准备好。请在浏览器剪辑器里开启抠像，确认下载或重试，再从同一页面导出。要保留背景，请先关闭片段的 AI 抠像。 |
-| `own.bgremove-export-realtime` | AI 抠像需要逐帧导出。请选快速导出或浏览器编码导出，或先关闭这些片段的 AI 抠像。 |
+| Key | Chinese final | English final |
+| --- | --- | --- |
+| `own.bgremove-net-no` | 不下载的话，AI 抠像用不了，预览会保留背景。想保留背景导出，请先关闭这些片段的 AI 抠像。 | Without the download, AI background removal can't run and the preview keeps the background. To export with the original background, turn it off on these clips first. |
+| `own.bgremove-export-unavailable` | 现在不能导出：这个片段的 AI 抠像还没准备好。请回到浏览器剪辑器，按提示下载，或把这个片段的 AI 抠像关掉再开一次；准备好后在同一页导出。想保留背景，先关闭这个片段的 AI 抠像。 | This clip's AI background removal isn't ready, so it can't be exported yet. Go back to the browser editor and follow the download prompt, or turn the clip's AI background removal off and on again. When it's ready, export from that same tab. To keep the original background, turn it off on this clip first. |
+| `own.bgremove-export-realtime` | 边播边录这种导出方式不支持 AI 抠像。请改用「快速（ffmpeg）」或「显卡加速编码」，或者先关闭这些片段的 AI 抠像。 | Realtime recording doesn't support AI background removal. Choose “Fast (ffmpeg)” or “WebCodecs (HW encode)”, or turn off AI background removal on these clips first. |
+
+Follow-up verification (base `9b3d4c7a`; final copy commit is recorded in the PR):
+
+- Read back all six strings through `MontClipView.t`: exact equality with the requester text.
+- `node --test test/bgremove-copy.test.js test/bgremove-consent.test.js test/font-consent.test.js`:
+  20/20 passed. The new copy/option-name assertions first failed against the draft.
+- The realtime guidance matches `ui-terms.js`'s Fast label and `ui-preferences.js`'s WebCodecs label.
+  Existing no-consent refusal and explicit retry tests remain passing.
+- `node docs/demo/sync.js` completed with no generated changes. Its existing copy list does not
+  include `ui-preferences.js`; the older demo copy has none of these keys. No unrelated demo
+  synchronization changes were added in this three-key follow-up.
+- No full suite, real model download, rendering, or visible-desktop tests were repeated.
+  The existing screenshots/job JSON remain historical evidence with the previous wording.
 
 `BG_REMOVE_UNAVAILABLE` is a stable technical marker carried in the existing error string,
 not a new response field. Existing `own.export-failed-prefix`, `font-net-deny`,
