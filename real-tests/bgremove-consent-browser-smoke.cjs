@@ -33,6 +33,14 @@ fs.writeFileSync(path.join(data, "project.json"), JSON.stringify({ name: "bg", w
 // the stand-in: what MediaPipe's script does that matters here — ask locateFile for its files and fetch them
 const FAKE = `window.SelfieSegmentation = class { constructor(o) { this.o = o; for (const f of ["selfie_segmentation_solution_simd_wasm_bin.js", "selfie_segmentation_solution_simd_wasm_bin.wasm", "selfie_segmentation_landscape.tflite", "selfie_segmentation.binarypb"]) fetch(o.locateFile(f)).catch(() => {}); }
   setOptions() {} onResults(f) { this.cb = f; } async send() { const c = document.createElement("canvas"); c.width = c.height = 8; const x=c.getContext('2d'); x.fillStyle='white'; x.fillRect(4,0,4,8); this.cb && this.cb({ segmentationMask: c }); } };`;
+// Replace only the inventory in the test page: actual fetch SRI + WebCrypto verify synthetic bytes.
+// Never claim these hashes or the fake segmentation are the production model.
+const fixtureBytes = Object.fromEntries(Object.keys(require('../bgremove-assets').FILES).map(name =>
+  [name, Buffer.from(name === 'selfie_segmentation.js' ? FAKE : 'synthetic fixture: '+name)]));
+const fixtureFiles = Object.fromEntries(Object.entries(fixtureBytes).map(([name,bytes]) =>
+  [name,{size:bytes.length,sha256:require('crypto').createHash('sha256').update(bytes).digest('base64')}]));
+const fixtureModule = fs.readFileSync(path.join(ROOT,'bgremove-assets.js'),'utf8').replace(
+  /const FILES = [\s\S]*?\n  const error =/, 'const FILES = Object.freeze('+JSON.stringify(fixtureFiles)+');\n  const error =');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {
   const srv = spawn(process.execPath, [path.join(ROOT, "server.js")], { env: { ...process.env, PORT, FABLECUT_DATA_DIR: data, FABLECUT_NO_FS_WATCH: "1" }, stdio: "ignore", windowsHide: true });
@@ -44,7 +52,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const targets = await (await fetch(`http://127.0.0.1:${DBG}/json`)).json();
     ws = new WebSocket(targets.find((t) => t.type === "page").webSocketDebuggerUrl);
     await new Promise((r) => ws.onopen = r);
-    let id = 0, failScript = !REAL; const pend = new Map(), external = [];
+    let id = 0, failScript = !REAL, corruptAsset = !REAL; const pend = new Map(), external = [];
     const send = (method, params = {}, sessionId) => new Promise((res) => { const i = ++id; pend.set(i, res); ws.send(JSON.stringify({ id: i, method, params, ...(sessionId ? { sessionId } : {}) })); });
     ws.onmessage = (e) => {
       const m = JSON.parse(e.data);
@@ -57,13 +65,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       }
       if (m.method === "Fetch.requestPaused") {
         const sid = m.sessionId, { requestId, request } = m.params;
+        if (!REAL && request.url === ORIGIN+'/bgremove-assets.js') return send('Fetch.fulfillRequest', {
+          requestId,responseCode:200,responseHeaders:[{name:'Content-Type',value:'text/javascript'}],body:Buffer.from(fixtureModule).toString('base64')},sid);
         if (request.url.startsWith(ORIGIN) || /^(data|blob):/.test(request.url)) return send("Fetch.continueRequest", { requestId }, sid);
         external.push({ url: request.url, method: request.method, body: request.postData ? request.postData.length : 0 });
         if (new URL(request.url).hostname === "cdn.jsdelivr.net") {
           if (REAL) return send("Fetch.continueRequest", { requestId }, sid);
           const js = /selfie_segmentation\.js$/.test(request.url);
           if (js && failScript) { failScript=false; return send("Fetch.failRequest", { requestId, errorReason: "InternetDisconnected" }, sid); }
-          return send("Fetch.fulfillRequest", { requestId, responseCode: 200, responseHeaders: [{ name: "Content-Type", value: js ? "text/javascript" : "application/octet-stream" }, { name: "Access-Control-Allow-Origin", value: "*" }], body: Buffer.from(js ? FAKE : "").toString("base64") }, sid);
+          const name=new URL(request.url).pathname.split('/').pop();
+          const bytes=Buffer.from(fixtureBytes[name] || 'unlisted asset');
+          if(corruptAsset && name==='selfie_segmentation_solution_wasm_bin.wasm')bytes[0]^=1;
+          return send("Fetch.fulfillRequest", { requestId, responseCode: 200, responseHeaders: [{ name: "Content-Type", value: js ? "text/javascript" : "application/octet-stream" }, { name: "Access-Control-Allow-Origin", value: "*" }], body: bytes.toString("base64") }, sid);
         }
         return send("Fetch.failRequest", { requestId, errorReason: "BlockedByClient" }, sid);
       }
@@ -91,6 +104,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     r.allowed = await ev(`window.__rb`);
     if (!REAL) {
       r.firstDownloadFailed = r.allowed === false;
+      r.corruptDownloadRejected = await ev(`requestBgRemove().then(ok=>!ok && !bgSeg.seg && typeof SelfieSegmentation==='undefined')`);
+      corruptAsset=false;
       r.allowed = await ev(`requestBgRemove()`);
       r.scriptAttempts = external.filter(x=>/selfie_segmentation\.js$/.test(x.url)).length;
     }
@@ -143,7 +158,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       ["after Load: only cdn.jsdelivr.net, only GETs with no body", r.allowed === true && r.afterAllow.length > 0 && r.afterAllow.every((x) => host(x.url) === "cdn.jsdelivr.net" && x.method === "GET" && !x.body)],
       ["the cut-out ran", r.maskReady === true],
       ["not asked twice in a session", r.askedAgain === false],
-      ["explicit download retry works", REAL || (r.firstDownloadFailed && r.allowed && r.scriptAttempts===2)],
+      ["corrupt WASM stops loading before entry JS executes", REAL || r.corruptDownloadRejected===true],
+      ["explicit download retry works", REAL || (r.firstDownloadFailed && r.allowed && r.scriptAttempts===3)],
       ["independent headless job fails with actionable error, no output", r.headless.status==='failed' && /BG_REMOVE_UNAVAILABLE/.test(r.headless.error) && !r.headless.src],
       ["synthetic preview and exported frame remove left half and retain right half", REAL || (r.preview?.left[0]<30 && r.preview?.right[0]>150 && r.exportPixels?.left[0]<30 && r.exportPixels?.right[0]>150)],
     ];

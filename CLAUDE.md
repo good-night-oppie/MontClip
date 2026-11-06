@@ -2529,7 +2529,13 @@ background footage on V1.
 `props: {bgRemove:true}` — then put anything behind it on V1.
 It works once the user has confirmed the MediaPipe download in the browser editor
 (an agent cannot confirm it). Consent belongs to that page only: use `where:"tab"`
-to export from the browser page where the user enabled it. A fresh headless page
+to export from the browser page where the user enabled it. The loader pins MediaPipe
+`0.1.1675465747` and verifies the size and SHA-256 of all nine runtime files before
+executing any downloaded code; JS, both WASM variants, both models and graph/data
+are resolved only to verified browser-local Blob URLs. Unknown resource names,
+redirects or integrity failures refuse loading; there is no unverified fallback.
+No bytes are persisted, and consent remains page-local. See `licenses/mediapipe/README.md`
+for exact sources and license/provenance limits. A fresh headless page
 cannot inherit that consent and reports `BG_REMOVE_UNAVAILABLE` instead of exporting
 the original background. Fast and WebCodecs export verify every required frame mask;
 disabled tracks/clips and clips outside the export range do not block export.

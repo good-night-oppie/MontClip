@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Pin and verify every optional browser MediaPipe runtime resource before execution; preserve explicit download consent, retry and missing-mask export refusal. Record package/license provenance and real-byte checks separately from synthetic inference tests.
+
 - Pause conflicting private-package AI connections until resolved, show recovery instructions, and keep cleanup warnings for wiped seed files across restarts.
 
 - Preserve a private package's seed on restart when sealing verification and rollback both fail; only a matching saved connection may consume it.

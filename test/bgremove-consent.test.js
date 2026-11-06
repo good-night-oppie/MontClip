@@ -32,14 +32,22 @@ class El{
  all(){return this.children.flatMap(c=>typeof c==='string'?[]:[c,...c.all()]);}
 }
 function page({desktop=false,clips=[],scriptFailures=0,sendFails=false,noResult=false}={}){
- const requests=[],toasts=[];
+ const requests=[],toasts=[],scripts=[];
  const head=new El('head'),body=new El('body');
  // a <script src> is a request; it "loads" a moment later
- head.onAppend=(x)=>{if(x.tagName==='SCRIPT'){requests.push(x.src);const fail=scriptFailures-->0;setTimeout(()=>fail?x.onerror?.():x.onload?.(),0);}};
+ head.onAppend=(x)=>{if(x.tagName==='SCRIPT'){scripts.push(x.src);setTimeout(()=>x.onload?.(),0);}};
  const document={head,body,createElement:(t)=>new El(t)};
  // what MediaPipe's script would do once loaded: fetch its wasm and model through locateFile
  class SelfieSegmentation{constructor({locateFile}){for(const f of MP_FILES)requests.push(locateFile(f));}setOptions(){}onResults(cb){this.cb=cb;}async send(){if(sendFails)throw Error('synthetic model failure');if(!noResult)this.cb({segmentationMask:{width:8,height:8}});}}
  const window=desktop?{montclipViewSettings:{}}:{};
+ const assets=require('../bgremove-assets');
+ // Asset byte verification is covered separately with real WebCrypto and synthetic fixtures.
+ window.MontClipBgAssets={async load(consent){
+  a.equal(consent,true);requests.push(assets.source('selfie_segmentation.js'));
+  if(scriptFailures-->0)throw Error('synthetic network failure');
+  for(const name of Object.keys(assets.FILES).slice(1))requests.push(assets.source(name));
+  return {locateFile(name){assets.source(name);return 'blob:local/'+name;},dispose(){}};
+ }};
  const runtime={mediaAux:new Map()};
  const uiText=(k,v)=>k+(v?' '+JSON.stringify(v):'');
  const stubs={window,document,runtime,uiText,SelfieSegmentation,
@@ -51,10 +59,10 @@ function page({desktop=false,clips=[],scriptFailures=0,sendFails=false,noResult=
  const names=['ensureBgSeg','requestMask','requestBgRemove','noteBgRemove','noteExportBgRemove','prepareFrameAssets','bgSeg'];
  const code=BG+'\n'+fn('askNetConsent')+'\nasync '+fn('prepareFrameAssets')+'\nreturn {'+names.map(n=>`${n}: typeof ${n}!=="undefined"?${n}:undefined`).join(',')+'};';
  const api=new Function(...Object.keys(stubs),code)(...Object.values(stubs));
- const external=()=>requests.filter(u=>!String(u).startsWith(LOCAL));
+ const external=()=>requests.filter(u=>/^https?:/.test(String(u))&&!String(u).startsWith(LOCAL));
  const dialog=()=>body.all().find(e=>e.tagName==='DIALOG'&&e.open);
  const button=(which)=>dialog().all().find(e=>e.tagName==='BUTTON'&&Object.values(e.dataset).includes(which));
- return {api,requests,external,toasts,dialog,button};
+ return {api,requests,scripts,external,toasts,dialog,button};
 }
 const tick=(ms=5)=>new Promise(r=>setTimeout(r,ms));
 const hostOf=(u)=>new URL(u).hostname;
@@ -152,11 +160,19 @@ test('browser mode: after Yes, only cdn.jsdelivr.net; not asked twice this sessi
  const r=p.api.requestBgRemove();await tick();
  p.button('allow').click();
  a.equal(await r,true);
+ a.ok(p.scripts.every(u=>u.startsWith('blob:local/')),'scripts execute only from verified local bytes');
  const ext=p.external();
  a.ok(ext.length>=1+MP_FILES.length,'the script and its files were requested');
  for(const u of ext){a.equal(hostOf(u),'cdn.jsdelivr.net',u);a.ok(new URL(u).pathname.startsWith('/npm/@mediapipe/selfie_segmentation'),u);}
  a.equal(await p.api.requestBgRemove(),true);a.equal(p.dialog(),undefined,'not asked twice');
  a.equal(p.external().length,ext.length,'and not fetched twice');
+});
+
+test('consented downloads never resolve the floating MediaPipe package',async()=>{
+ const p=page();const r=p.api.requestBgRemove();await tick();p.button('allow').click();
+ a.equal(await r,true);
+ for(const url of p.external())
+  a.match(url,/\/npm\/@mediapipe\/selfie_segmentation@0\.1\.1675465747\//,'every runtime resource has an exact version');
 });
 
 test('desktop: no box that can only fail, no request, a plain hint',async()=>{
@@ -170,7 +186,8 @@ test('desktop: no box that can only fail, no request, a plain hint',async()=>{
 });
 
 test('call sites: the checkbox asks; nothing else builds the CDN address; the page code has no other outside address',()=>{
- a.equal((SRC.match(/https:\/\/cdn\.jsdelivr\.net/g)||[]).length,1,'one place builds the address');
+ a.equal((SRC.match(/https:\/\/cdn\.jsdelivr\.net/g)||[]).length,0,'app cannot build an unverified CDN address');
+ a.match(SRC,/MontClipBgAssets\.load\(bgSeg.consent\)/,'verified assets are behind the consent gate');
  a.match(slice('function ensureBgSeg(','\n}\n'),/bgSeg\.consent/,'and ensureBgSeg only goes there after a yes');
  a.match(SRC,/k === "bgRemove"[\s\S]{0,200}requestBgRemove\(/,'the inspector checkbox asks');
  // every https:// address the editor page could reach: Google Fonts (#151) and MediaPipe, both behind a box.

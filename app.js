@@ -13451,11 +13451,11 @@ async function prepareSvgFrame(c, t) {
 }
 
 /* ═════════════ AI BACKGROUND REMOVAL (MediaPipe selfie segmentation) ════════
-   Loaded lazily from CDN (cdn.jsdelivr.net: a script, then its wasm and model
-   files) — only after the streamer said yes this session (Deja, 11-04: before
+   Fixed-version CDN bytes are all verified, then served to MediaPipe from local
+   blob URLs — only after the streamer said yes this session (Deja, 11-04: before
    going online, show where and what is sent). Turning it on in the Inspector
    asks; opening a project, drawing and exporting never do, and never go online:
-   the clip shows and exports uncut, and the streamer is told. Desktop never
+   preview stays uncut; export refuses unavailable masks. Desktop never
    tries (desktop/main.js blocks every non-local request). Produces a per-clip
    person mask consumed by the pixel pipeline below; the frames stay on this
    computer. */
@@ -13473,9 +13473,10 @@ function ensureBgSeg() {
   if (bgSeg.seg || bgSeg.failed) return bgSeg.loading || Promise.resolve();
   if (bgRemoveDesktop() || !bgSeg.consent) return Promise.resolve();   // never online without a yes
   if (!bgSeg.loading) {
-    const base = "https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation";
-    bgSeg.loading = loadScript(`${base}/selfie_segmentation.js`).then(() => {
-      const seg = new SelfieSegmentation({ locateFile: (f) => `${base}/${f}` });
+    bgSeg.loading = window.MontClipBgAssets.load(bgSeg.consent).then(async (assets) => {
+      bgSeg.assets = assets;
+      await loadScript(assets.locateFile("selfie_segmentation.js"));
+      const seg = new SelfieSegmentation({ locateFile: (f) => assets.locateFile(f) });
       seg.setOptions({ modelSelection: 1 });
       seg.onResults((r) => {
         if (!bgSeg.currentClip) return;
@@ -13486,8 +13487,9 @@ function ensureBgSeg() {
       });
       bgSeg.seg = seg;
     }).catch(() => {
+      bgSeg.assets?.dispose(); bgSeg.assets = null;
       bgSeg.failed = true;
-      toast("Background removal unavailable — couldn't load MediaPipe (offline?). Using chroma key still works.");
+      toast(uiText("own.bgremove-assets-failed"));
     });
   }
   return bgSeg.loading;
