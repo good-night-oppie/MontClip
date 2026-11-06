@@ -2,8 +2,7 @@
 
    Every test runs against a throwaway FABLECUT_DATA_DIR and a private port, so
    the suite never touches the developer's real project.json or collides with an
-   editor they already have open on 7777. Readiness is always established by
-   polling for a real response — never by sleeping for a guessed interval. */
+   editor they already have open on 7777. Readiness is reported over the child's private IPC channel. */
 "use strict";
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -52,50 +51,25 @@ function freePort() {
 /* Start server.js on its own port + data dir and wait until it actually
    answers. Rejects fast if the child dies instead of hanging until timeout. */
 async function startServer(t, dataDir, extraEnv = {}, { serverJs = path.join(ROOT, "server.js") } = {}) {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const port = await freePort();
-    const child = spawn(process.execPath, [serverJs], {
-      cwd: ROOT,
-      env: {
-        ...process.env, ...extraEnv,
-        PORT: String(port), HOST: "127.0.0.1",
-        FABLECUT_DATA_DIR: dataDir,
-      },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    let exited = null;
-    child.on("exit", (code, signal) => { exited = code ?? signal ?? "exited"; });   // killed: code is null, so stop() twice would wait forever
-    let stderr = "";
-    child.stderr.on("data", (c) => { stderr += c; });
-    child.stdout.resume();
-
-    const base = `http://127.0.0.1:${port}`;
-    const stop = () => new Promise((resolve) => {
-      if (exited !== null) return resolve();
-      child.once("exit", () => resolve());
-      child.kill();
-    });
-
-    const deadline = Date.now() + 20_000;
-    let ready = false;
-    while (Date.now() < deadline && exited === null) {
-      try {
-        const r = await fetch(base + "/api/project");
-        if (r.status === 200) { await r.text(); ready = true; break; }
-      } catch { /* not listening yet */ }
-      await new Promise((r) => setTimeout(r, 50));
-    }
-    if (ready) {
-      t.after(stop);
-      return { base, port, child, stop };
-    }
-    await stop();
-    // A lost port race is the only retryable failure; anything else is a bug.
-    if (!/EADDRINUSE/.test(stderr)) {
-      throw new Error(`server.js did not become ready (exit=${exited})\n${stderr}`);
-    }
-  }
-  throw new Error("could not find a free port for server.js after 3 attempts");
+  const child = spawn(process.execPath, [serverJs], {
+    cwd: ROOT, env: { ...process.env, ...extraEnv, PORT: "0", HOST: "127.0.0.1", FABLECUT_DATA_DIR: dataDir },
+    stdio: ["ignore", "pipe", "pipe", "ipc"], windowsHide: true,
+  });
+  let exited = false, stderr = "";
+  child.on("exit", () => { exited = true; });
+  child.stderr.on("data", c => { stderr += c; }); child.stdout.resume();
+  const stop = () => new Promise(resolve => { if (exited) return resolve(); child.once("exit", resolve); child.kill(); });
+  t.after(stop);
+  const ready = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { cleanup(); reject(new Error("missing IPC readiness: " + stderr)); }, 20000);
+    const onMessage = m => { if (m.type === "montclip-ready") { cleanup(); resolve(m); } };
+    const onExit = () => { cleanup(); reject(new Error("server exited before readiness: " + stderr)); };
+    const cleanup = () => { clearTimeout(timer); child.removeListener("message", onMessage); child.removeListener("exit", onExit); };
+    child.on("message", onMessage); child.once("exit", onExit); child.once("error", reject);
+  });
+  const url = new URL(ready.origin);
+  assert.equal(url.hostname, "127.0.0.1"); assert.ok(Number(url.port) > 0);
+  return { base: ready.origin, port: Number(url.port), child, stop };
 }
 
 /* A raw HTTP GET that sends the request line and headers verbatim.

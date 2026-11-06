@@ -2145,10 +2145,9 @@ server.listen(PORT, HOST, () => {
   writerLock.update({ port: boundPort });
   console.log(`\n  MontClip running →  http://localhost:${boundPort}\n`);
   const ready = { type: "montclip-ready", origin: serverOrigin() };
-  if (DESKTOP) {
-    process.parentPort?.postMessage(ready);
-    if (process.send) process.send(ready);
-  }
+  if (DESKTOP) process.parentPort?.postMessage(ready);
+  if (process.send) process.send(ready);
+  process.emit("montclip-ready", ready);
   if (!["127.0.0.1", "localhost", "::1"].includes(HOST))
     console.log(`  ⚠ WARNING: HOST=${HOST} exposes the editor (and its file APIs) to the network.\n`);
   console.log(`  project file : ${PROJECT_FILE}`);
