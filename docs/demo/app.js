@@ -1617,7 +1617,17 @@ function syncExportFrameSel() {
   if (ef && i < 0)
     html += `<option value="custom" selected>${escapeHtml(uiText("own.ef-custom", { w: ef.w, h: ef.h }))}</option>`;
   els.exportFrameSel.innerHTML = html;
+  els.exportFrameSel.setAttribute("aria-label", uiText("own.ef-label"));
   els.exportFrameSel.title = uiText("own.ef-title");
+}
+/** The export-frame drop-down's name and its 9:16 option, as the drop-down shows them now — for the assistant's
+ *  「改竖屏」 sentence (agent-limits.js), so it names what is on screen in whatever words the drop-down uses. */
+function exportFrameNames(sel = els.exportFrameSel) {
+  const i = EXPORT_FRAME_ASPECTS.findIndex((a) => a.w === 9 && a.h === 16);
+  const opt = sel && sel.querySelector('option[value="' + i + '"]');
+  const options = Object.fromEntries(EXPORT_FRAME_ASPECTS.map((a, n) => [a.w + ':' + a.h,
+    sel?.querySelector('option[value="' + n + '"]')?.textContent || '']));
+  return { dropdown: (sel && sel.getAttribute("aria-label")) || "", option: (opt && opt.textContent) || "", options };
 }
 function applyProject(data, opts = {}) {
   if (state.compCtx && !opts.ctx && SeqLib.activeId(data) !== SeqLib.activeId(state.compCtx.root)) {
@@ -4914,14 +4924,18 @@ async function reconcileAudioChannels(videoClip, onlyTargeted = false) {
   }
   state.dirtyTimeline = true;
   scheduleSave(); renderInspector();
+  // channels this clip actually has linked now — not wantCh (untargeted lanes are skipped on add)
+  // and not `added` (A1/A2 were linked before the decode resolved)
+  const linked = project.clips.filter((c) => c.linkGroup === lg && c.kind === "audio").length;
+  const say = (key, counts, vars) => MontClipView.tp(mcView.get().language, key, counts, vars);
   if (chCount > ids.length)
-    toast(`${m.name}: ${chCount} audio channels, only ${MAX_TRACKS_PER_KIND} tracks supported — extra channel(s) dropped`);
+    toast(say("own.channels-over-limit", { extra: chCount - MAX_TRACKS_PER_KIND }, { name: m.name, n: chCount, max: MAX_TRACKS_PER_KIND, extra: chCount - MAX_TRACKS_PER_KIND }));
   else if (added)
     toast(newTracks
-      ? `${m.name}: added ${newTracks} audio track${newTracks === 1 ? "" : "s"} and linked ${wantCh} channels`
-      : `Linked ${wantCh} audio channel${wantCh === 1 ? "" : "s"} from ${m.name}`);
+      ? say("own.channels-added-tracks", { tracks: newTracks }, { name: m.name, tracks: newTracks, linked })
+      : say("own.channels-linked", { linked }, { name: m.name, linked }));
   else if (removed)
-    toast(`${m.name} has fewer channels — removed ${removed} linked audio clip(s)`);
+    toast(say("own.channels-fewer", { n: removed }, { name: m.name, n: removed }));
 }
 /* Apply a named title style: reset the props a style owns, merge the style,
    place it (canvas-aware), and make sure its fonts are loaded.
@@ -11594,6 +11608,12 @@ function autoPlace(clips, { select = null, fine = false } = {}) {
 }
 /** A toast with one button (the editor's toast is text only). The button acts once; the toast goes after 8 s. */
 let toastHold = null;
+/** Take the toast away now, with or without its button (VV, 2026-11-04: a new approval box came up over the last step's toast). */
+function dismissToast() {
+  clearTimeout(toastTimer); toastTimer = null;
+  if (toastHold) toastHold.stop();
+  if (els.toast) els.toast.classList.remove("show", "has-action");
+}
 function toastAction(msg, label, onClick) {
   if (!els.toast) return;
   els.toast.textContent = "";
@@ -20081,6 +20101,7 @@ async function fastExport(opts = {}) {
         canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav, job,
       } : {
         fps,
+        frames,
         name: exportBaseName("export"),
         profile: profileId,
         hasAudio: !!wav,
@@ -20088,7 +20109,7 @@ async function fastExport(opts = {}) {
       }),
       signal,
     }).then((r) => r.json());
-    if (!begin.id) throw new Error(MontClipView.h264Message(mcView.get().language, begin) || begin.error || "export begin failed");
+    if (!begin.id) throw Object.assign(new Error(MontClipView.h264Message(mcView.get().language, begin) || begin.error || "export begin failed"), { code: begin.code });
     sessId = begin.id;
     const jpegQ = delivery ? begin.jpegQuality ?? 0.95 : exportProfileMeta(profileId).jpegQuality ?? 0.95;
     const rgba = begin.input === "rgba";
@@ -20194,10 +20215,14 @@ async function fastExport(opts = {}) {
     else saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true });
   } catch (e) {
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
-    const msg = e?.name === "AbortError" ? "cancelled" : String(e.message || e);
-    result = { error: msg, cancelled: msg === "cancelled" };
+    const unsupportedProfile = e?.code === "PROFILE_FILTER_MAPPING_UNSUPPORTED";
+    // JJ final copy (#190): one full sentence for alert and queue; the
+    // technical code stays only in the structured result for logs.
+    const msg = unsupportedProfile ? uiText("own.export-profile-unsupported")
+      : e?.name === "AbortError" ? "cancelled" : String(e.message || e);
+    result = { error: msg, cancelled: msg === "cancelled", ...(unsupportedProfile ? { code: e.code } : {}) };
     if (job) await reportExportJob(job, { status: "failed", error: msg }, true);
-    else if (msg !== "cancelled" && !opts.silent) alert(uiText("own.export-failed-prefix") + msg);
+    else if (msg !== "cancelled" && !opts.silent) alert(unsupportedProfile ? msg : uiText("own.export-failed-prefix") + msg);
   } finally {
     exportAbort = null;
     exportFullCanvas = false;
@@ -23333,6 +23358,16 @@ function agentProposalStep(response,result){
  if(ev)proposal.eventId=ev.id;
  return {proposal,ev,c,version};
 }
+/** A reply's proposal that, checked against the project as it is now, would leave the timeline as it is (chat-proposal.js
+ *  unchanged): {duration} of the timeline now, so the pane shows no 〔查看剪辑建议〕 and says so; null otherwise (also for one
+ *  the check refuses — the button then reports why, as before). Records nothing. */
+function agentProposalUnchanged(result){
+ try{
+  const c=agentProjectContext();if(JSON.stringify(result.context)!==JSON.stringify(c))return null;
+  const p=MontClipProposal.prepare(MontClipConversation.parseProposal(result.text),{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references||[]});
+  return p.unchanged?{duration:p.duration}:null;
+ }catch{return null;}
+}
 /* P4: the assistant's permission mode (agent-policy.js; docs/decisions/2026-11-03-agent-permission-modes.md). The main
    process keeps the mode and the approvals (window.montclipAgentPolicy); the page shows the switch, the Yolo mark and the
    host's approval box. Without the desktop host there is no mode: replies wait for 〔查看剪辑建议〕 as before. */
@@ -23348,6 +23383,8 @@ function paintAgentMode(){const mark=document.getElementById('mcYoloMark');if(ma
 /** The host's approval box (QQ 4: only the host shows it). It shows the capability's plain sentence (never its internal
  *  name), what it changes or where it sends, and for an external step what is sent. Resolves to once | session | deny. */
 function askAgentApproval(d,{summary='',content=null,detail=''}={}){
+ // the last step's toast goes first, so the two never sit one over the other (VV)
+ dismissToast();
  return new Promise((resolve)=>{
   const dialog=document.createElement('dialog');dialog.className='agent-approval';dialog.setAttribute('data-agent-approval','');
   const say=(k,v)=>escapeHtml(uiText(k,v)),choice=(c)=>'<button type="button" class="btn'+(c==='once'?' primary':'')+'" data-choice="'+c+'">'+say('own.ap-'+c)+'</button>';
@@ -23390,13 +23427,18 @@ async function onAgentReply(result){
  if(!window.montclipAgentPolicy||!result||typeof result.text!=='string')return;
  let response;try{response=MontClipConversation.parseProposal(result.text);}catch{return;}
  if(!response||!MontClipConversation.proposalSummary(result.text,result.references||[]))return;
+ // nothing to do: not applied in any mode; the pane says so where the button would be
+ if(agentProposalUnchanged(result))return;
  let d;try{d=await window.montclipAgentPolicy.decide({sessionId:result.sessionId,capability:response.type,target:{kind:'project',value:runtime.projectId}});}catch{d=null;}
  if(!d||!d.ok){toast(uiText('own.ap-refused-mode'));return;}
  if(MontClipPolicy.MODES.includes(d.mode)&&d.mode!==agentPolicy.mode){agentPolicy.mode=d.mode;paintAgentMode();}
  if(d.action==='list'){toast(uiText('own.ap-listed'));return;}
  if(d.action==='refuse'){toast(agentRefusalText(d));return;}
  let step;try{step=agentProposalStep(response,result);}catch(error){toast(uiText(error.message==='STALE'?'own.ap-stale':'own.ap-invalid'));return;}
- if(d.action==='ask'){
+ // the toast after applying says why it ran (JJ's words, 2026-11-04): asked now and approved; allowed earlier for this chat
+ // (d.byApproval, 「这个聊天中都批准」); or run by 自动 / Yolo without asking
+ const asked=d.action==='ask';
+ if(asked){
   const choice=await askAgentApproval(d,{summary:agentProposalText(result),detail:MontClipPlan.stepDetail({capability:response.type,args:response},mcView.get().language)});
   let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}
   if(!a||!a.ok||!a.run){if(step.ev)moveEvent(step.ev.id,'rejected');toast(uiText('own.ap-denied'));return;}
@@ -23413,7 +23455,7 @@ async function onAgentReply(result){
  let plan;try{plan=MontClipRangePlan.create(projectJSON(),proposal.keep);plan.keep=proposal.keep;}catch{if(ev)moveEvent(ev.id,'failed');toast(uiText('own.ap-invalid'));return;}
  const token=commitRangePlan(plan,proposal);
  officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});
- toastAction(uiText('own.ap-applied',{mode:MontClipPolicy.modeLabel(agentPolicy.mode,mcView.get().language)}),uiText('own.ap-undo'),()=>{if(canUndoOfficialProposal(result)){if(!ev||!undoEvent(ev.id).ok)undo();}});
+ toastAction(asked?uiText('own.ap-applied-approved'):d.byApproval?uiText('own.ap-applied-allowed'):uiText('own.ap-applied',{mode:MontClipPolicy.modeLabel(agentPolicy.mode,mcView.get().language)}),uiText('own.ap-undo'),()=>{if(canUndoOfficialProposal(result)){if(!ev||!undoEvent(ev.id).ok)undo();}});
  mcAgent.render();
 }
 /* P4, second half: the AI's plan (agent-plan.js). A reply that is a plan shows as a list in the assistant; the streamer can
@@ -23529,6 +23571,8 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  onHide:()=>{setSideTab("inspector");document.getElementById("mcAssistant").focus();},
  getProjectName:id=>id===runtime.projectId?project.name:null,
  canUndoProposal:canUndoOfficialProposal,
+ noChange:agentProposalUnchanged,
+ limitNames:()=>exportFrameNames(),
  // only the selected clips' numbers (the 「AI 数据说明」 says so): none selected, none sent
  getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts,s=runtime.soundFacts;return MontClipFacts.build(doc,{selected:selectedClips().map(c=>c.id),highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[],sound:soundFactsOn()&&s&&s.signature===JSON.stringify(MontClipFacts.soundMedia(doc))?s.sound:null});},
  soundFactsOff:()=>!soundFactsOn(),

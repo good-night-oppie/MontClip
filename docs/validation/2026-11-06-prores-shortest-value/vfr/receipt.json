@@ -1,0 +1,228 @@
+{
+  "completed": true,
+  "simulated": true,
+  "runnerSha256": "1d12eb44b52ed54c6b2a35e7e22f2b1f5cc0a24168e2d2dc32891e876acac51c",
+  "operations": [],
+  "checks": [
+    {
+      "name": "source has variable decoded PTS intervals",
+      "ok": true
+    },
+    {
+      "name": "actual compositor export has exact project frames",
+      "ok": true
+    },
+    {
+      "name": "actual export audio ends at quantized project sample",
+      "ok": true
+    },
+    {
+      "name": "actual final tone preserved, zero-offset correlation",
+      "ok": true
+    }
+  ],
+  "exports": [
+    {
+      "name": "result",
+      "sha256": "299acf709678b7dbcc22058bdadaee891344215ae3aa52212608cacbf7cc6997",
+      "seconds": 2.426,
+      "result": {
+        "outputs": [
+          {
+            "file": "synthetic-tail.mov",
+            "ok": true,
+            "src": "/exports/synthetic-tail.mov"
+          }
+        ]
+      },
+      "probe": {
+        "streams": [
+          {
+            "index": 0,
+            "codec_name": "prores",
+            "codec_long_name": "Apple ProRes (iCodec Pro)",
+            "profile": "HQ",
+            "codec_type": "video",
+            "codec_tag_string": "apch",
+            "codec_tag": "0x68637061",
+            "width": 320,
+            "height": 180,
+            "coded_width": 320,
+            "coded_height": 180,
+            "has_b_frames": 0,
+            "sample_aspect_ratio": "1:1",
+            "display_aspect_ratio": "16:9",
+            "pix_fmt": "yuv422p10le",
+            "level": -99,
+            "color_range": "tv",
+            "color_space": "bt709",
+            "color_transfer": "bt709",
+            "color_primaries": "bt709",
+            "field_order": "progressive",
+            "id": "0x1",
+            "r_frame_rate": "30000/1001",
+            "avg_frame_rate": "30000/1001",
+            "time_base": "1/30000",
+            "start_pts": 0,
+            "start_time": "0.000000",
+            "duration_ts": 37037,
+            "duration": "1.234567",
+            "bit_rate": "7428394",
+            "bits_per_raw_sample": "10",
+            "nb_frames": "37",
+            "disposition": {
+              "default": 1,
+              "dub": 0,
+              "original": 0,
+              "comment": 0,
+              "lyrics": 0,
+              "karaoke": 0,
+              "forced": 0,
+              "hearing_impaired": 0,
+              "visual_impaired": 0,
+              "clean_effects": 0,
+              "attached_pic": 0,
+              "timed_thumbnails": 0,
+              "non_diegetic": 0,
+              "captions": 0,
+              "descriptions": 0,
+              "metadata": 0,
+              "dependent": 0,
+              "still_image": 0,
+              "multilayer": 0
+            },
+            "tags": {
+              "handler_name": "VideoHandler",
+              "vendor_id": "FFMP",
+              "encoder": "Lavc63.1.101 prores_ks"
+            }
+          },
+          {
+            "index": 1,
+            "codec_name": "pcm_s16le",
+            "codec_long_name": "PCM signed 16-bit little-endian",
+            "codec_type": "audio",
+            "codec_tag_string": "sowt",
+            "codec_tag": "0x74776f73",
+            "sample_fmt": "s16",
+            "sample_rate": "48000",
+            "channels": 2,
+            "channel_layout": "stereo",
+            "bits_per_sample": 16,
+            "initial_padding": 0,
+            "id": "0x2",
+            "r_frame_rate": "0/0",
+            "avg_frame_rate": "0/0",
+            "time_base": "1/48000",
+            "start_pts": 0,
+            "start_time": "0.000000",
+            "duration_ts": 59259,
+            "duration": "1.234563",
+            "bit_rate": "1536000",
+            "nb_frames": "59259",
+            "disposition": {
+              "default": 1,
+              "dub": 0,
+              "original": 0,
+              "comment": 0,
+              "lyrics": 0,
+              "karaoke": 0,
+              "forced": 0,
+              "hearing_impaired": 0,
+              "visual_impaired": 0,
+              "clean_effects": 0,
+              "attached_pic": 0,
+              "timed_thumbnails": 0,
+              "non_diegetic": 0,
+              "captions": 0,
+              "descriptions": 0,
+              "metadata": 0,
+              "dependent": 0,
+              "still_image": 0,
+              "multilayer": 0
+            },
+            "tags": {
+              "handler_name": "SoundHandler",
+              "vendor_id": "[0][0][0][0]"
+            }
+          }
+        ],
+        "format": {
+          "nb_streams": 2,
+          "nb_programs": 0,
+          "nb_stream_groups": 0,
+          "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+          "format_long_name": "QuickTime / MOV",
+          "start_time": "0.000000",
+          "duration": "1.234567",
+          "size": "1385096",
+          "bit_rate": "8975428",
+          "probe_score": 100,
+          "tags": {
+            "major_brand": "qt  ",
+            "minor_version": "512",
+            "compatible_brands": "qt  ",
+            "encoder": "Lavf63.1.101"
+          }
+        }
+      }
+    }
+  ],
+  "pids": {
+    "server": 49280,
+    "browser": 45032
+  },
+  "timing": {},
+  "limits": [
+    "Automated CDP input and existing functions, not human usability measurement",
+    "Synthetic export boundary test; not human experience or full service restart acceptance"
+  ],
+  "codeHashes": {
+    "app.js": "6b328722e82a9639dc00a8af67fd9767d2dfc6b01afca2b85921950f47c30c78",
+    "server.js": "8369c05a89bd88a79a35cd9efd98f139e518142d3378670ad3be4f195eade34e",
+    "encode-profiles.js": "2b72403bfbc757fcf92e65221ef4db4aa41cdbac5fe1e81927673f6a2c405adf"
+  },
+  "tools": {
+    "ffmpegSha256": "57c56e369d5b4873b4d93fc1a1d833cb7cd8bc9325c14b05c34ce60b22842d8a",
+    "ffprobeSha256": "afe05347caaabe479b3c4eae71992b6ec1e11c57266a1d665deb0f9fe9847208",
+    "ffmpegVersion": "ffmpeg version 9.0.1-full_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers"
+  },
+  "sources": [
+    {
+      "file": "source.mp4",
+      "sha256": "71e8e9a790293090041fecc30081d80d28b7dcc036882142e3f410ff5f5af1ab",
+      "kind": "VFR"
+    },
+    {
+      "file": "tone.wav",
+      "sha256": "0adb2445e77975d31a31c1db533f7ab7b23e5ea832ad61bedb77cc974656db0b"
+    }
+  ],
+  "serverOwnership": {
+    "ipc": "montclip-ready",
+    "host": "127.0.0.1",
+    "portRequested": 0
+  },
+  "browserVersion": {
+    "protocolVersion": "1.3",
+    "product": "Chrome/156.0.8078.80",
+    "revision": "@fb096c0011f9d50f0a264a9376420cdea9c421e3",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+    "jsVersion": "15.6.75.27"
+  },
+  "result": {
+    "fps": 29.97002997002997,
+    "frames": 37,
+    "duration": 1.2345666666666666,
+    "samples": 59259,
+    "decodedSamples": 59259,
+    "correlation": 0.9999999972286017,
+    "gain": 0.9999364315391912,
+    "pcmSha256": "978ae68098d2b72210c6cac8b4b7c45865b891e4690cb3f7579adffbd12c1583",
+    "lastPTS": "1.201200"
+  },
+  "cleanup": {
+    "browserExited": true,
+    "serverExited": true
+  }
+}
