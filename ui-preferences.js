@@ -91,6 +91,32 @@
     "add-adjust-title": ["Add an adjustment layer (grades everything below it)", "添加调节层（调节它下面的所有画面）"],
     "add-import": ["+ Import", "+ 导入"],
     "add-url": ["+ URL", "+ 网址"],
+    // a file that can't be found (JJ, 2026-11-05, second round). English JJ did not give is a draft (草稿，待 JJ 定稿);
+    // where English already said it (badge, its hover, the slate) it stays as it was.
+    "off-bar-one": ["Can't find “{file}”. It may have been moved or deleted. Your edits are still there; find the file and you can carry on.", "「{file}」找不到了，可能被移走或删掉了。你剪好的都还在，把文件找回来就能接着用。"],
+    "off-find-it": ["Find it…", "找到它…"],
+    "off-bar-many": ["{n} media files can't be found. They may have been moved or deleted. Your edits are still there; find the files and you can carry on.", "有 {n} 个素材找不到了，可能被移走或删掉了。你剪好的都还在，把文件找回来就能接着用。"],   // en: draft
+    "off-find-each": ["Find them one by one…", "一个个找回来…"],   // en: draft
+    "off-badge": ["OFFLINE", "找不到"],
+    "off-badge-title": ["The file is missing — right-click → Relink…", "这个文件找不到了。右键选〔重新链接…〕，把它找回来。"],
+    // the file's name only, never its path: streamers send screenshots, and a full path holds their user name (Deja, 2026-11-05)
+    "off-item-title": ["⚠ Offline: {file} is missing — right-click → Relink…", "这个文件找不到了。右键选〔重新链接…〕，把它找回来。"],
+    "off-filter": ["⚠ Offline ({n})", "⚠ 找不到（{n}）"],
+    "off-clip": ["⚠ Offline · ", "⚠ 找不到 · "],
+    "off-export": ["{n} media files can't be found. In the export those parts will show a “missing” picture with no sound. Find them first, then export.", "有 {n} 个素材找不到了，导出时这几段会显示「找不到」的画面、没有声音。先把它们找回来再导出吧。"],
+    "off-export-one": ["1 media file can't be found. In the export that part will show a “missing” picture with no sound. Find it first, then export.", "有 1 个素材找不到了，导出时这一段会显示「找不到」的画面、没有声音。先把它找回来再导出吧。"],   // n = 1: JJ's final wording (Deja, 2026-11-05)
+    "off-find-first": ["Find them first…", "先找回来…"],   // en: draft
+    "off-export-anyway": ["Export anyway", "照样导出"],   // en: draft
+    "off-other-copy": ["Use the same recording from elsewhere…", "用另一处的同一段录像…"],
+    "off-other-copy-title": ["The same recording saved somewhere else (a backup on another drive, for example). Point to that one; your cuts stay the same.", "同一段录像存在别的地方（比如移动硬盘上的备份），指到那一份，剪辑点都不变。"],
+    "off-replace-title": ["Swap in a different recording; every clip that uses it changes too.", "换成另一段录像，用到它的片段都会跟着换。"],
+    "off-none": ["All your media is here; nothing is missing.", "素材都在，没有找不到的。"],   // en: draft
+    "off-finding-k": ["Looking for “{file}” ({k} of {n})", "正在找：「{file}」（第 {k} 个，共 {n} 个）"],
+    "off-auto-found": ["Found {m} automatically.", "已经自动找回 {m} 个"],   // en: draft
+    "off-slate": ["Media offline", "找不到"],
+    // the bin's two other English lines VV saw (Deja, 2026-11-05; JJ's wording)
+    "bin-drop-root": ["Drop here to move it out of the folder", "拖到这里，移出文件夹"],   // JJ, 2026-11-05
+    "bin-dbl-hint": ["Double-click to preview it, or drag it onto the timeline.", "双击可以先预览，或者直接拖到时间线上。"],   // JJ, 2026-11-05
     // the Transcript tab's sentence button, one language at a time (for JJ to review)
     "tr-sentences": ["Select sentences", "按句选段"],
     // the Save dialog's outcome in the desktop app (VV, 012ba18; for JJ to review)
@@ -110,12 +136,15 @@
     "or-click": ["or click", "或点击"],
     "lift-title": ["Lift (;) — remove IN→OUT on targeted tracks, leave the gap", "提起（;）— 删除目标轨道上入点到出点的内容，留下空隙"],
     "extract-title": ["Extract (') — remove IN→OUT on targeted tracks and close the gap", "提取（'）— 删除目标轨道上入点到出点的内容，并补上空隙"],
-    "inspector-empty": ["Select a clip to edit its transform, effects & audio.", "选中一个片段以编辑它的画面、特效与音频。"],
+    "inspector-empty": ["Select a clip to edit its picture, effects and audio.", "选中一个片段以编辑它的画面、特效与音频。"],
     "exporting-pct": ["Exporting… {pct}%", "正在导出… {pct}%"],
     "rendering-pct": ["Rendering… {pct}%", "正在渲染… {pct}%"],
     "encoding": ["Encoding…", "正在编码…"],
     "encoding-pct": ["Encoding… {pct}%", "正在编码… {pct}%"],
     "mixing-audio": ["Mixing audio…", "正在混音…"],
+    // DRAFT for JJ (Deja 2026-11-05): a clip's sound could not be read, so the export stops instead of coming out silent
+    "export-audio-failed": ["Export stopped: the sound of “{name}” couldn't be read, so the file would have had no sound. Nothing was exported. Try again; if it keeps happening, re-import that recording.",
+      "导出停下了：「{name}」的声音读不出来，导出来会没有声音，所以这次没有导出。请再试一次；如果还是这样，重新导入这段录像。"],
     "finishing": ["Finishing…", "正在收尾…"],
     // narrow windows: tools that do not fit a bar (JJ to review)
     "more": ["More", "更多"],
@@ -184,6 +213,19 @@
     "asr-go-install": ["Install", "去装"],
     "tr-missing": ["No transcript yet: {names}", "还没有文稿：{names}"],
     "tr-more": [" +{n} more", " 等 {n} 个"],
+    // Google Fonts goes online (Deja, 2026-11-04): the box before it, and the fallback hints. JJ's wording (on #151, last round on 488ae6c).
+    "font-list-sep": [", ", "、"],
+    "font-net-title": ["Download fonts from the internet?", "要联网下载字体吗？"],
+    "font-net-fonts": ["Fonts: {names}", "要下载的字体：{names}"],
+    "font-net-hosts": ["MontClip will connect to Google Fonts: {hosts}.", "会连接 Google 字体的网站：{hosts}。"],
+    "font-net-sent": ["Only the font names are sent, plus what every browser sends when it goes online, such as your IP address. Your projects, recordings and captions are not sent.", "发出去的只有字体名，加上浏览器联网时都会带的基本信息，比如你的 IP 地址。项目、录像和字幕都不会发出去。"],
+    "font-net-no": ["If you don't download them, this text shows and exports in the default font.", "不下载的话，这些文字会用默认字体显示和导出。"],
+    "font-net-deny": ["Not now", "先不用"],
+    "font-net-allow": ["Download", "联网下载"],
+    "font-fallback": ["These fonts aren't on this computer: {names}. This text uses the default font for now.", "这台电脑上没有这些字体：{names}。现在先用默认字体显示。"],
+    "font-fallback-load": ["Download from the internet…", "联网下载…"],
+    "font-desktop-missing": ["These fonts aren't on this computer: {names}. This text shows and exports in the default font.", "这台电脑上没有这些字体：{names}。文字会用默认字体显示和导出。"],
+    "font-export-fallback": ["This export can't use these fonts: {names}. It uses the default font instead.", "这次导出用不了这些字体：{names}，会用默认字体代替。"],
     // a transcription with parts the engine could not read (asr-local.js gaps); JJ's words (tr-gaps-more: placeholder)
     "tr-gaps-toast": ["Transcription finished, but {n} part(s) ({dur} in all) couldn't be transcribed and have no subtitles. Click a time under “Transcript” on the right to jump there, and add subtitles yourself if you need them.", "听写完了，但有 {n} 段没听写出来（共 {dur}），这几段没有字幕。可以在右边「文稿」里点时间跳过去看，需要的话自己补上字幕。"],
     "tr-gaps-note": ["{n} part(s) ({dur} in all) couldn't be transcribed and have no subtitles. Click a time to jump there:", "有 {n} 段没听写出来（共 {dur}），这几段没有字幕。点时间可以跳过去："],
@@ -227,12 +269,39 @@
     "err-editor-no-accept": ["The editor did not take the task. Wait until it is ready, then try again.", "编辑窗口没接到这个任务。等它准备好，再试一次。"],
     "map-no-media": ["This project has no audio or video, so there is no time mapping to export.", "这个项目里没有音视频，导不出时间对照表。"],
     "connected": ["Ready", "就绪"],
+    // 设置 › AI 助手 (JJ v2, 2026-11-04): the switch the main process keeps (desktop/agent-switch.js) and the 「AI 数据说明」 again
+    "ai-set-title": ["AI assistant", "AI 助手"],
+    "ai-set-enabled": ["Use the AI assistant", "用 AI 助手"],
+    "ai-set-hint": ["When it's off, the assistant sends nothing; editing works as usual.", "关掉以后，助手不会往外发任何东西；剪辑照常能用。"],
+    "ai-set-notice": ["Data notice", "数据说明"],
+    "ai-set-notice-tip": ["See again who gets your data, what is sent, and whether it may be used for training", "再看一遍：发给谁、发什么、会不会被拿去训练"],
     // a recording nothing could read the length of, not even its packets' times (cut off before it was saved: europa P3).
-    // media-incomplete is JJ's sentence (定稿 2026-11-05) — on the file in the bin, and when it is dragged onto the
-    // timeline; the English is a draft for JJ. The two toasts are built from it, drafts for JJ too.
+    // media-incomplete is JJ's sentence (定稿 2026-11-05, her review of the trial), on the file in the bin; the English
+    // is a draft for JJ.
     "media-incomplete": ["This video wasn't recorded to the end (the screen recording may have stopped early), so its length can't be read. It can't be cut yet.", "这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
-    "media-duration-unknown": ["“{name}”: this video wasn't recorded to the end (the screen recording may have stopped early), so its length can't be read. It can't be cut yet.", "「{name}」：这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
-    "media-duration-unknown-n": ["{n} videos weren't recorded to the end (the screen recordings may have stopped early), so their length can't be read. They can't be cut yet.", "有 {n} 个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。"],
+    // 〔帮我修好〕 (JJ 定稿 2026-11-05, via Deja): one button for every repair and conversion, FLV breaks included —
+    // the button, its menu item, done and failed are JJ's, word for word; the tip, progress, Cancel, "no encoder" and
+    // the English of the slow-to-seek mark are drafts for JJ
+    "repair-button": ["Fix it for me", "帮我修好"],
+    "repair-menu": ["Fix it for me…", "帮我修好…"],
+    "repair-button-tip": ["Saves a complete MP4 beside it and uses that instead. The original file is not changed, and Ctrl+Z puts it back.", "另存一份完整的 MP4 来替换它。原文件不动，按 Ctrl+Z 可以换回来。"],
+    "repair-progress": ["Fixing… {n}%", "正在修…{n}%"],
+    "repair-cancel": ["Cancel", "取消"],
+    "repair-done": ["Fixed. Clips that use it now use the fixed copy, in the same place. The original is still there.", "修好了。时间线上用到它的片段已经换成修好的这份，位置没变；原文件还在。"],
+    "repair-failed": ["\"{name}\" stopped recording before it was saved, and this kind can't be fixed. The original file is unchanged — please use a complete file.", "「{name}」录到一半就停了，没存好，这种修不了。原文件没有改动，请换一个完整的文件。"],
+    "repair-encoder-missing": ["“{name}” needs re-encoding to be fixed, and the FFmpeg on this computer can't do that, so nothing was fixed or saved. The original file is unchanged. Switch to a full version of FFmpeg and try again.", "「{name}」要重新编码才能修，这台电脑上的 FFmpeg 做不了，所以没有修，也没有生成新文件。原文件没有改动。换成完整版 FFmpeg 以后再试。"],
+    // cases 1 and 2: it can be cut, only seeking in it may be slow — a small mark on the file, no dialog
+    "media-slow-mark": ["This recording didn't finish properly, so scrubbing may be slow. Right-click → “Fix it for me” to save a complete copy.", "没录完整，拖动可能会慢。右键〔帮我修好〕，会另存一份完整的。"],
+    // JJ 定稿 (2026-11-05, via Deja), word for word: the toast when files nothing can read the length of are imported,
+    // and the toast when one is dragged onto the timeline
+    "media-duration-unknown": ["\"{name}\" may not have finished recording (for example, a screen recording that was stopped), so its length can't be read and it can't be edited yet. The original file is unchanged. Click “Fix it for me” to try.", "「{name}」可能没录完整（比如录屏中途停了），读不出有多长，现在还剪不了。原文件没有改动。点〔帮我修好〕试试。"],
+    "media-duration-unknown-n": ["{n} videos may not have finished recording, so their length can't be read and they can't be edited yet. The original files are unchanged. Click “Fix it for me” to try.", "有 {n} 个视频可能没录完整，读不出有多长，现在还剪不了。原文件都没有改动。点〔帮我修好〕试试。"],
+    // Rea (#152): the same for a sound file, and for several files that are not all videos — drafts for JJ (no
+    // 〔帮我修好〕: it repairs videos)
+    "media-incomplete-audio": ["This audio wasn't recorded to the end (the recording may have stopped early), so its length can't be read. It can't be cut yet.", "这段音频没录完整（可能录音中途停了），读不出时长，现在还剪不了。"],
+    "media-duration-unknown-audio": ["\"{name}\" may not have finished recording (for example, a recording that was stopped), so its length can't be read and it can't be edited yet. The original file is unchanged.", "「{name}」可能没录完整（比如录音中途停了），读不出有多长，现在还剪不了。原文件没有改动。"],
+    "media-duration-unknown-n-mixed": ["{n} files may not have finished recording, so their length can't be read and they can't be edited yet. The original files are unchanged.", "有 {n} 个文件可能没录完整，读不出有多长，现在还剪不了。原文件都没有改动。"],
+    "media-cannot-cut": ["Can't read how long \"{name}\" is, so it can't go on the timeline. The original file is unchanged.", "读不出「{name}」有多长，放不上时间线。原文件没有改动。"],
     "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],
     "tl-above-captions": ["Captions above, click to show", "上方有字幕轨，点这里显示"],
     // P2 highlight cards (for JJ to review)
@@ -260,6 +329,11 @@
     "hl-r-speech": ["Talking faster than usual (about {ratio}×)", "说话比平时快（约 {ratio} 倍）"],
     "hl-r-singing": ["Singing throughout, hardly pausing", "一直在唱，几乎没有停顿"],
     // 「✨ 自动出切片」 (P3; frozen design v7, v7.5 last; the Chinese is the design's and JJ's, the English is for JJ)
+    // 「附上唱歌段和音量」 in 设置 (QQ's five on #169; Deja, 2026-11-05). JJ定稿 (2026-11-05)
+    "sf-title": ["AI assistant", "AI 助手"],
+    "sf-label": ["Attach singing parts and loudness", "附上唱歌段和音量"],
+    "sf-hint": ["When on, what is sent to the AI includes which parts may be singing and the loudness (one number every second or every few seconds): numbers only, not the recording. When off, the assistant can't tell where it is quiet or where the singing starts.", "开着的时候，发给 AI 的内容里会附上哪几段可能在唱歌，以及音量大小（每秒或每隔几秒一个数）：只是数字，不是录音。关掉以后，助手判断不了哪里安静、从哪里开始唱。"],
+    "sf-off-note": ["“{switch}” is off, so the assistant can't tell where it is quiet or where the singing starts. To use it, turn on “{switch}” in “{settings}”, then send again.", "「{switch}」现在关着，助手判断不了哪里安静、从哪里开始唱。要用的话，到〔{settings}〕里打开「{switch}」，再发一次。"],
     "as-open": ["✨ Auto clips", "✨ 自动出切片"],
     "as-open-done": ["✨ Auto clips · done", "✨ 自动出切片 · 找完了"],
     "as-step-start": ["Recordings", "选录像"],
@@ -843,6 +917,61 @@
     "help-85": ["", "剪掉选中的字和后面的停顿（在目标轨道上提取）· <kbd>Esc</kbd> 取消选择"],
     "help-86": ["", "<kbd>Enter</kbd> / <kbd>⇧</kbd>+<kbd>Enter</kbd> 跳到下一个 / 上一个找到的地方 · 〔剪切〕把找到的全部剪掉"],
     "help-87": ["", "选一个样式，再点〔添加字幕〕（撤销一次就能全部撤回；会替换那里原有的字幕）· 点 SRT / VTT 可以下载字幕 · 〔导入…〕把字幕文件里的字幕放上来"],
+    // 第 1 批定稿 by JJ (2026-11-05, sha256 5eb9771d…) of the second scan by Rea: the help layer (left column, heading
+    // notes), the Show filter of the bin, the right-click menus. The wording of JJ where JJ changed a line, else the draft
+    // by Rea (51372521). An empty English keeps the markup of the page (data-i18n-html).
+    "help-l-7": ["", "<kbd>0</kbd>–<kbd>9</kbd> / 点击时间码"],
+    "help-l-24": ["", "<kbd>Ctrl</kbd>+点击片段"],
+    "help-l-36": ["", "<kbd>Ctrl</kbd>+滚动滚轮"],
+    "help-l-46": ["", "<kbd>Ctrl/Cmd</kbd>+点击属性面板的名称或滑块"],
+    "help-l-47": ["", "<kbd>⇧</kbd>+点击名称"],
+    "help-l-51": ["", "<kbd>Ctrl</kbd>+点击素材库"],
+    "help-l-52": ["", "右键<b data-i18n=\"term.project\">项目</b>标签页"],
+    "help-l-63": ["", "<b data-i18n=\"term.templates\">模板</b>标签页"],
+    "help-l-69": ["", "<kbd>Enter</kbd> 在卡片上"],
+    "help-l-55": ["☆ / uses badge on a bin file", "素材上的 ☆ / 用了几次的小标"],
+    "help-l-56": ["☰ in the bin", "素材库里的 ☰"],
+    "help-l-68": ["Project card", "项目卡片"],
+    "help-sequence-menu": ["sequence menu", "序列菜单"],
+    "help-h-editing": ["Editing", "编辑"],
+    "help-n-projects": ["top bar → Projects", "顶栏 → 〔项目〕"],
+    "help-n-shapes": ["bin → Shapes · Inspector", "素材库 → 形状 · 属性面板"],
+    "help-n-tracking": ["Inspector → Tracking · a mask’s Track buttons", "属性面板 → 跟踪 · 蒙版上的〔跟踪〕按钮"],
+    "help-n-transcript": ["side panel → Transcript", "侧边栏 → 文稿"],
+    "bin-all": ["All media", "全部素材"], "bin-fav": ["★ Favorites", "★ 收藏"],
+    "bin-used": ["Used in the edit", "时间线上用到的"], "bin-unused": ["Unused", "时间线上没用到的"],
+    "bin-proxy": ["Has a proxy", "有代理的"], "bin-noproxy": ["Video without a proxy", "还没做代理的视频"], "bin-image": ["Image", "图片"],
+    "bin-group-kind": ["Kind", "类型"], "bin-group-collections": ["Collections", "分组"], "bin-group-tags": ["Tags", "标签"], // JJ
+    "seq-duplicate": ["Duplicate “{name}”", "复制一份「{name}」"], "seq-rename": ["Rename “{name}”…", "重命名「{name}」…"],
+    "seq-delete": ["Delete “{name}”…", "删除「{name}」…"], "seq-keep-one": ["A project keeps at least one sequence", "一个项目至少要留一个序列"],
+    "snap-to": ["Snap to", "吸附到"], "snap-clips": ["Clip edges", "片段边缘"], "snap-playhead": ["Playhead", "播放头"],
+    // VV's four (JJ agreed): the export frame's first choice
+    "ef-full-canvas": ["Full canvas", "完整画布"],
+    "snap-targets-title": ["Snap targets — clip edges, playhead, markers, IN/OUT, keyframes, frame grid", "吸附目标 — 片段边缘、播放头、标记、入点/出点、关键帧、每一帧"],
+    "seq-button-title": ["Sequence: {name} — open another one, or add, duplicate, rename", "序列：{name} — 打开别的序列，或新建、复制一份、重命名"],
+    "snap-inout": ["IN / OUT", "入点 / 出点"], "snap-keyframes": ["Keyframes", "关键帧"], "snap-frames": ["Frame grid", "每一帧"],
+    "markers-empty": ["No markers yet — press <kbd>M</kbd> at the playhead.", "还没有标记 — 按 <kbd>M</kbd> 在播放头处加一个。"],
+    "mm-open-source": ["Open in Source", "在源监视器中打开"], "mm-instances": ["Find timeline instances ({n})", "在时间线上找到它（{n} 处）"],
+    "mm-info": ["Media info…", "素材信息…"], "mm-relink-copy": ["Relink to another copy…", "重新链接到另一份文件…"],
+    "mm-proxy-540": ["Create proxy (540p)", "创建代理（540p）"], "mm-proxy-720": ["Create proxy (720p)", "创建代理（720p）"], // term.create-proxy (Rea)
+    "mm-fav-add": ["Add to favorites", "加入收藏"], "mm-tags": ["Tags…", "标签…"], "mm-new-collection": ["New collection…", "新建分组…"],
+    "mm-remove": ["Remove from project", "从项目里移除"],
+    // English draft, for JJ
+    "mm-remove-title": ["Takes it out of this project only, together with the clips that use it on the timeline (you can undo this). The file on your computer is not touched.",
+      "只从这个项目里拿掉，时间线上用到它的片段也会一起拿掉（可以撤销）。电脑上的原文件不动。"],
+    "track-remove": ["Remove track", "删除轨道"],
+    // the sequence menu's Highlights… and the dialog it opens: one name (English drafts, for JJ)
+    "hl-menu": ["Auto short…", "自动拼短片…"], "hl-title": ["Auto short", "自动拼短片"], "hl-make": ["Make", "拼好"],
+    "hl-desc": ["From the selected clips (or the whole timeline, if none is selected), picks the parts with the most movement and the loudest sound and puts them together in a new sequence. The sequence you are in stays as it is.",
+      "从选中的片段里（没选就用整条时间线），挑出画面动得多、声音大的几段，拼成一个新序列。原来的序列不动。"],
+    // the export-frame drop-down above the player (app.js EXPORT_FRAME_ASPECTS): JJ定稿 (2026-11-05, via Deja), English
+    // included — no platform names (Reel, IG). ef-full-canvas is the key VV's four (#148, JJ agreed) use for the same words.
+    "ef-9-16": ["9:16 Vertical", "9:16 竖屏"],
+    "ef-16-9": ["16:9 Landscape", "16:9 横屏"],
+    "ef-4-5": ["4:5 Portrait", "4:5 竖图"],
+    "ef-1-1": ["1:1 Square", "1:1 方形"],
+    "ef-custom": ["Custom · {w}×{h}", "自定义 · {w}×{h}"],
+    "ef-title": ["Export frame: the part of the canvas that gets exported.", "导出画面：在画布里框出要导出的那一块。"],
   });
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
   // English by number (JJ, 2026-11-04; MontClipView.tp): 〔加字幕〕, by the captions added, then by the ones replaced. The
@@ -974,11 +1103,20 @@
   Object.assign(text.en,{paneLocalTemporary:'Saved sessions could not be read. Sessions and drafts from this window will not be saved; copy anything you want to keep before closing. The existing session file was not changed.',paneLocalPolicy:'Local storage applies to sessions, drafts and explicit references with a project ID; content without a project ID lasts only in this window. This describes storage scope, not confirmation that the current content was saved. Nothing is sent automatically.',paneSessionFailed:'Session saving is unconfirmed. Edits remain in this window. Keep your draft and retry; a newer stored snapshot will not be overwritten.',paneRetry:'Retry saving sessions',paneUser:'You',paneAssistant:'Assistant'});
 
   // Official-source port strings share the workbench locale and stable namespace.
-  const officialPaneText={en:{undoLast:'Undo last edit (same as toolbar)',new:'New session',config:'AI service',save:'Save connection',provider:'Provider',model:'Model ID',key:'API key (leave blank to retain)',review:'Review exact outgoing messages',confirm:'Send these messages',cancel:'Cancel',draft:'Message',search:'Search sessions',close:'Collapse assistant',pending:'Request in progress…',failed:'Request failed or cancelled. Your draft is retained.',unconfigured:'No service configured. Nothing was sent.',saved:'Connection saved locally. No request was sent.',local:'Sessions are stored locally for this project. This is a policy, not a save receipt.',temporary:'Session storage could not be read. Drafts stay in this window only; copy what you need before closing.',unsaved:'Session save is not confirmed. Keep this window open and retry.',retry:'Retry save',proposal:'Review suggested edit',reference:'Quote selected captions',range:'Selected range',project:'Project identity',remove:'Remove',limit:'Text or session capacity exceeded; shorten the text or return to an existing session.',scope:'Open or create a project before sending.',configured:'Configured (connection not tested)',configFailed:'Configuration was not saved. Existing settings retained.',cancelUnknown:'The request status is not confirmed. Already sent requests cannot be recalled.',cancelled:'Generation cancelled; any already sent request cannot be recalled.'},
-'zh-CN':{undoLast:'撤销上一步（与顶部撤销相同）',new:'新会话',config:'AI 服务',save:'保存连接配置',provider:'服务商',model:'模型 ID',key:'API 密钥（留空保留已有密钥）',review:'核对本次实际发送内容',confirm:'发送以上内容',cancel:'取消',draft:'输入消息',search:'搜索会话',close:'收起助手',pending:'正在请求…',failed:'请求失败或已取消，草稿仍保留。',unconfigured:'尚未配置服务，没有发送。',saved:'连接配置已保存在本机，没有发起请求。',local:'此项目的会话保存在本机。这是保存规则，不代表本次保存已确认。',temporary:'会话文件读取失败，本次草稿只在这个窗口保留。关闭前请复制要留的内容。',unsaved:'会话保存尚未确认。请保留窗口并重试。',retry:'重试保存',proposal:'查看剪辑建议',reference:'引用选中字幕',range:'引用所选范围',project:'引用项目身份',remove:'移除',limit:'文字或会话数量已到上限，请删减文字或返回已有会话。',scope:'请先打开或创建项目，再发送。',configured:'已配置（连接尚未验证）',configFailed:'配置未保存，原有设置保留。',cancelUnknown:'请求状态尚未确认，已发给服务的请求无法撤回。',cancelled:'已取消后续生成；已发给服务的请求无法撤回。'}};
+  const officialPaneText={en:{undoLast:'Undo last edit (same as toolbar)',new:'New session',config:'AI service',save:'Save connection',provider:'Provider',model:'Model ID',key:'API key (leave blank to retain)',review:'Review exact outgoing messages',confirm:'Send these messages',cancel:'Cancel',draft:'Message',search:'Search sessions',close:'Collapse assistant',pending:'Request in progress…',failed:'Request failed or cancelled. Your draft is retained.',unconfigured:'No service configured. Nothing was sent.',saved:'Connection saved locally. No request was sent.',local:'Sessions are stored locally for this project. This is a policy, not a save receipt.',temporary:'Session storage could not be read. Drafts stay in this window only; copy what you need before closing.',unsaved:'Session save is not confirmed. Keep this window open and retry.',retry:'Retry save',proposal:'Review suggested edit',reference:'Let the AI see it',range:'Selected range',project:'Project identity',remove:'Remove',limit:'Text or session capacity exceeded; shorten the text or return to an existing session.',scope:'Open or create a project before sending.',configured:'Configured (connection not tested)',configFailed:'Configuration was not saved. Existing settings retained.',configKeyStore:'This computer can\'t store the key safely right now (its built-in password storage isn\'t available), so nothing was saved. Your previous settings are unchanged.',configKeyRequired:'Fill in “{field}” first, then save.',configInvalid:'The model ID can only contain letters, digits and . _ : / - (up to 100 characters). This is often caused by an extra space or a full-width punctuation mark.',configWriteFailed:'The settings file couldn\'t be written, so nothing was saved. Your previous settings are unchanged.',configCopyDetails:'Click “Copy problem details” and send it to us.',cancelUnknown:'The request status is not confirmed. Already sent requests cannot be recalled.',cancelled:'Generation cancelled; any already sent request cannot be recalled.'},
+'zh-CN':{undoLast:'撤销上一步（与顶部撤销相同）',new:'新会话',config:'AI 服务',save:'保存连接配置',provider:'服务商',model:'模型 ID',key:'API 密钥（留空保留已有密钥）',review:'核对本次实际发送内容',confirm:'发送以上内容',cancel:'取消',draft:'输入消息',search:'搜索会话',close:'收起助手',pending:'正在请求…',failed:'请求失败或已取消，草稿仍保留。',unconfigured:'尚未配置服务，没有发送。',saved:'连接配置已保存在本机，没有发起请求。',local:'此项目的会话保存在本机。这是保存规则，不代表本次保存已确认。',temporary:'会话文件读取失败，本次草稿只在这个窗口保留。关闭前请复制要留的内容。',unsaved:'会话保存尚未确认。请保留窗口并重试。',retry:'重试保存',proposal:'查看剪辑建议',reference:'让 AI 看',range:'引用所选范围',project:'引用项目身份',remove:'移除',limit:'文字或会话数量已到上限，请删减文字或返回已有会话。',scope:'请先打开或创建项目，再发送。',configured:'已配置（连接尚未验证）',configFailed:'配置未保存，原有设置保留。',configKeyStore:'这台电脑现在没法安全地保存密钥（系统自带的密码保管用不了），所以没有保存，原有设置不变。',configKeyRequired:'请先在「{field}」一栏填好密钥，再保存。',configInvalid:'模型 ID 里只能有英文字母、数字和 . _ : / - 这几个符号，最多 100 个字符。常见原因是多了空格，或者用了中文标点。',configWriteFailed:'设置文件写不进去，所以没有保存，原有设置不变。',configCopyDetails:'请点〔复制问题信息〕发给我们。',cancelUnknown:'请求状态尚未确认，已发给服务的请求无法撤回。',cancelled:'已取消后续生成；已发给服务的请求无法撤回。'}};
   Object.assign(officialPaneText.en,{"notSent":"Chat content contains only the text shown above. No audio, video or screenshots are attached, and no file paths or account details are added automatically. Any such details you included in the text or history will still be sent. Your API key is used to authenticate with the service.","format":"In the chat, say which sentences to keep. It works best to select the captions on the timeline and click \"{reference}\" so whole sentences are quoted. Only whole quoted captions can be applied; half a sentence or a description from memory can't.","formatNext":"After the reply, click \"{proposal}\" below to check whether it can be applied.","formatTech":"For the technically minded: the AI's reply uses this format: {\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"…\",\"sourceCaptionId\":\"…\",\"from\":0,\"to\":1}]}","model":"Model name","project":"Reference current project","currentProject":"Current project","otherProject":"Original project","invalid":"This reply has no suggested edit that can be applied directly.","fees":"Your own AI account is responsible for service charges.","user":"You","assistant":"Assistant","formatTitle":"How to get a suggestion you can apply"});
   Object.assign(officialPaneText['zh-CN'],{"notSent":"聊天内容只包含上面显示的文字。不附加声音、画面和截图，不自动附加文件路径和账号。你写进文字或历史的这类信息仍会发送。API 密钥用于向服务验证身份。","format":"在聊天里说清楚要保留哪几句。最好先在时间线上选中字幕，点「{reference}」，把整句引用进来。只有整句引用的字幕，才能直接套用；只引用半句，或者凭记忆描述的，都套用不了。","formatNext":"收到回复后，点下面的「{proposal}」，看看能不能直接用。","formatTech":"给懂技术的人：AI 的回复要用这个格式：{\"type\":\"keep_sentences\",\"ranges\":[{\"clipId\":\"…\",\"sourceCaptionId\":\"…\",\"from\":0,\"to\":1}]}","model":"模型名称","project":"引用当前项目","currentProject":"当前项目","otherProject":"原项目","invalid":"这条回复里没有能直接套用的剪辑建议。","fees":"费用由你自己的 AI 账号承担。","user":"你","assistant":"助手","formatTitle":"怎样让 AI 给出能直接套用的建议"});
+  // the 「AI 数据说明」 shown before the first request to DeepSeek, and the AI-made label (DeepSeek open-platform terms 3.5,
+  // 5.5, 8.1). JJ's v3, word for word: europa ~/montclip-labels/jj/2026-11-04-AI数据说明-DeepSeek私下包-v3-JJ.md (sha256
+  // 98da6840…, QQ passed). A bold label is its own key; the text after it starts with its separator, as JJ wrote it.
+  // From JJ's v4 increment (sha256 e9c59973…) only the review's link and the line when it is off. The panel's own line,
+  // 「回复由 AI 生成」, is Deja's (2026-11-04: one line in the panel, no label on each reply); its English is a draft for JJ.
+  Object.assign(officialPaneText['zh-CN'],{"aiGenerated":"AI 生成","dataNoticeTitle":"用 AI 之前，先说清楚这几件事","dataNoticeWhatLabel":"发了什么","dataNoticeWhat":"：你在助手里写的话，加上你选中的片段的时间、长度这类数字。字幕（听写出来的文字）和弹幕的原文，只有你点了〔让 AI 看〕才会发。录像、声音和文件本身，从来不发。","dataNoticeWhoLabel":"发给谁","dataNoticeWho":"：直接发给 DeepSeek（深度求索）的官方接口 api.deepseek.com，中间不经过 MontClip 团队或别的服务器；数据存在中国境内。","dataNoticeUseLabel":"DeepSeek 会怎么用","dataNoticeUse":"：DeepSeek 的隐私政策写着，你发过去的内容和 AI 的回复「可能」用于训练模型和改进服务，用之前会加密、去掉能认出你的信息。用这种方式发过去的内容，没有开关能让它不拿去训练，它也没公布会存多久。我们只是照实转述，没法替 DeepSeek 保证什么。","dataNoticeSo":"所以：不想让别人看到的话，别写进助手；不想发的字幕和弹幕，就别点〔让 AI 看〕。","dataNoticeOffLabel":"怎么关","dataNoticeOff":"：在「设置 › AI 助手」里关掉「用 AI 助手」，就一次都不发了。开着的时候，每次发出去之前也都会先给你看要发什么、发到哪个网站，你可以不发。不用 AI，剪辑照常能用。","dataNoticeAiLabel":"标「AI 生成」","dataNoticeAi":"：助手面板顶上写着「回复由 AI 生成」；它给的剪辑计划，单独标「AI 生成」。","dataNoticeBasis":"依据：DeepSeek 隐私政策（2026 年 2 月 10 日版）、DeepSeek 开放平台服务条款（2026 年 4 月 29 日生效）。它们改了，这页也会跟着改。","dataNoticeOk":"我知道了","noticeLink":"数据说明","aiRepliesLine":"回复由 AI 生成","aiOff":"AI 助手关着，什么都不会发出去。要用的话，到「设置 › AI 助手」里打开。"});
+  Object.assign(officialPaneText.en,{"aiGenerated":"AI-generated","dataNoticeTitle":"Before you use the AI, a few things to know","dataNoticeWhatLabel":"What is sent","dataNoticeWhat":": what you write to the assistant, plus numbers about the clips you selected, such as their times and lengths. Caption text (from transcription) and live-comment text are sent only when you click [Let the AI see it]. Your video, audio and files themselves are never sent.","dataNoticeWhoLabel":"Who gets it","dataNoticeWho":": DeepSeek's official API (api.deepseek.com), directly. Nothing passes through the MontClip team or any other server. The data is stored in mainland China.","dataNoticeUseLabel":"What DeepSeek does with it","dataNoticeUse":": DeepSeek's privacy policy says what you send and what the AI replies \"may\" be used to train its models and improve its service, after being encrypted and stripped of anything that identifies you. For data sent this way there is no switch to keep it out of training, and DeepSeek hasn't said how long it is kept. We're only passing on what the policy says; we can't promise anything on DeepSeek's behalf.","dataNoticeSo":"So: don't write anything to the assistant that you wouldn't want others to see, and don't click [Let the AI see it] for captions or live comments you'd rather not send.","dataNoticeOffLabel":"How to turn it off","dataNoticeOff":": turn off \"Use the AI assistant\" in Settings › AI assistant and nothing is ever sent. While it's on, you're shown what will be sent and to which site before every send, and you can choose not to send. Editing works as usual without the AI.","dataNoticeAiLabel":"Marked \"AI-generated\"","dataNoticeAi":": The assistant panel says \"Replies are AI-generated\" at the top; editing plans it gives are marked \"AI-generated\" on their own.","dataNoticeBasis":"Based on: DeepSeek Privacy Policy (version of 10 Feb 2026) and DeepSeek Open Platform Terms of Service (effective 29 Apr 2026). If they change, this page will change too.","dataNoticeOk":"Got it","noticeLink":"Data notice","aiRepliesLine":"Replies are AI-generated","aiOff":"The AI assistant is off, so nothing is sent. To use it, turn it on in Settings › AI assistant."});
   Object.assign(officialPaneText['zh-CN'],{removeConnection:'删除这个连接',removeConfirm:'删除后，这台电脑上保存的密钥会被清掉，AI 助手要重新设置才能用。剪辑不受影响，聊天记录也还在。',connectionRemoved:'连接已删除，这台电脑上保存的密钥已清掉。AI 助手要重新设置才能用。',connectionRemoveFailed:'连接没能删除，密钥可能还在这台电脑上。请看看软件的设置文件夹是不是被占用或不能写入，然后再试。'});
+  Object.assign(officialPaneText["zh-CN"],{"seedConflict": "这里的 AI 服务设置和包里带的不一样，先暂停使用 AI。要改用包里的设置：点「删除这个连接」，再关掉 MontClip 重新打开。"});
+  Object.assign(officialPaneText["en"],{"seedConflict": "These AI service settings don't match the ones in the package, so the AI is paused. To use the package's settings: click “Remove this connection”, then close MontClip and open it again."});
   Object.assign(officialPaneText.en,{removeConnection:'Remove this connection',removeConfirm:'This clears the key saved on this computer. You will need to set up the AI service again to use the assistant. Editing is not affected, and your chat history stays.',connectionRemoved:'Connection removed. The key saved on this computer is cleared; set up the AI service again to use the assistant.',connectionRemoveFailed:'The connection could not be removed, so the key may still be on this computer. Check that the app\'s settings folder is not in use or read-only, then try again.'});
   Object.assign(officialPaneText['zh-CN'],{recommended:'（推荐）',retention:'服务商可能会保存你发送的文字。',noCaptionSelected:'先在时间线上选中字幕。'});
   Object.assign(officialPaneText.en,{recommended:' (recommended)',retention:'The provider may keep the text you send.',noCaptionSelected:'Select captions on the timeline first.'});
@@ -988,6 +1126,15 @@
   Object.assign(officialPaneText['zh-CN'],{notSent:'这次发送的只有上面显示的文字。不附带声音、画面和截图；软件不会自动加上文件路径和账号，但你自己写进文字或历史里的这类信息会照样发出。API 密钥只用来向服务验证身份。',undoLast:'撤销这次应用（和顶部撤销相同）',captionLabel:'字幕',rangeLabel:'范围',projectLabel:'项目'});
   Object.assign(officialPaneText.en,{reviewSummary:'This will send a fixed formatting note, your message, {captions} quoted subtitles, and {history} earlier messages (including their quotes).',rawRequest:'View exact request',proposalSummary:'Suggested edit: keep {count} sentences, about {duration} in the final cut. Look it over before applying.',proposalRanges:'Suggested edit: keep {count} ranges joined into one video, about {duration}. Look it over before applying.',proposalSlices:'Suggested edit: {count} separate clips, one file each, about {duration} in total. Look it over before applying.',factsOmittedOne:"Timing for 1 clip wasn't included, so the AI won't see where it is. Sending still works.",factsOmitted:"Timing for {n} clips wasn't included, so the AI won't see where they are. Sending still works.",factsTitle:'Timeline numbers are also sent · click to see them',factsExplain:'How long each recording is, which part each clip uses, and the start, end and score of the highlight candidates already found. No file names, subtitle text, pictures or sound. This is exactly what is sent:',goConfig:'Go to settings',staleProposal:'The project changed after this reply, so this suggested edit can no longer be used.',reask:'Ask again using the current project',reaskReady:'A new draft is ready with no history or references. Select current subtitles and review before sending. The original conversation is still in the session list.'});
   Object.assign(officialPaneText['zh-CN'],{reviewSummary:'这次会发送一段固定的格式说明、消息文字、引用的 {captions} 条字幕，以及之前的 {history} 条消息（包含其中的引用）。',rawRequest:'查看原始请求',proposalSummary:'已生成剪辑建议：保留 {count} 句，成片大约 {duration}。请先看一遍再应用。',proposalRanges:'已生成剪辑建议：保留 {count} 段，拼成一条，大约 {duration}。请先看一遍再应用。',proposalSlices:'已生成剪辑建议：切出 {count} 条切片，每条一个文件，一共大约 {duration}。请先看一遍再应用。',factsOmittedOne:'有 1 个片段这次没附上时间信息，AI 看不到它在哪。不影响发送。',factsOmitted:'有 {n} 个片段这次没附上时间信息，AI 看不到它们在哪。不影响发送。',factsTitle:'还会附上时间线的数字 · 点开看原文',factsExplain:'每段录像有多长、每个片段用到哪一部分，以及已经找到的高光候选的起止和分数。不含文件名、字幕文字、画面和声音。下面就是原样发出去的内容：',goConfig:'去设置',staleProposal:'项目在回复之后改过了，这条剪辑建议不能用了。',reask:'按现在的项目重新问',reaskReady:'已新建草稿，不带历史和引用。请重新选择当前字幕，确认后再发送。原来的对话还在会话列表里。'});
+  // JJ via Deja (2026-11-05): when the facts carry the singing parts and the loudness, the review box says so, outside the
+  // fold (JJ's words; JJ定稿 2026-11-05: 「音量大小（每秒或每隔几秒一个数）」, since a long video gets one every few seconds). factsLimit: over capabilities.js FACTS nothing is sent (JJ定稿, 2026-11-05).
+  Object.assign(officialPaneText.en,{factsSound:'Also sent: which parts may be singing (start and end seconds only) and the loudness (one number every second or every few seconds) (a list of numbers). The sound itself is not sent.',factsLimit:'There are too many numbers to attach, more than can be sent, so nothing was sent. What you wrote is still here. Select a shorter range and send again.'});
+  Object.assign(officialPaneText['zh-CN'],{factsSound:'还会发送：哪几段可能在唱歌（只有开始和结束的秒数）、音量大小（每秒或每隔几秒一个数）（一串数字）。不发声音本身。',factsLimit:'要附上的数字太多，超过了能发的上限，这次没有发送。你写的话还在，选短一点的范围再发就行。'});
+  // QQ's five on #169 (Deja, 2026-11-05), JJ定稿 (2026-11-05): the review box lists the sound numbers in plain words; when they are
+  // switched off, it says so; a reply to a message about the sound says, while they are off, that it can't be done and how
+  // to turn them on ({settings} and {switch}: the button's and the switch's own words, filled in by app.js).
+  Object.assign(officialPaneText.en,{factsCounts:'This time: {parts} possible singing parts, {duration} in total; {values} loudness numbers, one every {step} s.',factsLong:'The video is longer than 8 hours, so singing parts and loudness are not attached this time.',factsOff:'Singing parts and loudness are not attached: they are switched off in Settings.'});
+  Object.assign(officialPaneText['zh-CN'],{factsCounts:'这次附上：可能在唱歌的段落 {parts} 段，共 {duration}；音量数字 {values} 个，每 {step} 秒一个。',factsLong:'片子超过 8 小时，这次没有附上唱歌段和音量。',factsOff:'这次没有附上唱歌段和音量：设置里关着。'});
   // VV real-model test (2026-11-02): the format note that goes with every request, a reply without a usable proposal, and errors told apart
   Object.assign(officialPaneText.en,{errModel:'The model name is wrong. Check it in settings. Your draft is kept.',formatNote:'Format note sent with every request',formatNoteExplain:'The text below is a fixed note MontClip adds to every request. It only tells the AI how to format editing suggestions. It contains none of your recordings, subtitles or project content.',noProposal:'This reply is not an editing suggestion. To have it cut for you, say which sentences to keep.',errAuth:'The key is wrong or has no access. Check it in settings. Your draft is kept.',errRateLimit:'The service is limiting requests for now. Try again in a little while. Your draft is kept.',errTimeout:'The service did not answer in time. Check your connection and try again. Your draft is kept.',errNetwork:'Could not reach the service. Check your internet connection, then try again. Your draft is kept.',errUpstream:'The service is having trouble right now. Try again later, or choose another model in settings. Your draft is kept.'});
   Object.assign(officialPaneText['zh-CN'],{errModel:'模型名称不对，请去设置里检查。草稿仍保留。',formatNote:'每次请求都会附带的格式说明',formatNoteExplain:'下面这段英文是 MontClip 每次自动附上的固定说明，只是告诉 AI 怎么写剪辑建议。里面没有你的录像、字幕或项目内容，你不用看懂。',noProposal:'这条回复不是剪辑建议。想让它直接剪，可以说清要保留哪几句。',errAuth:'密钥不对或没有权限，请去设置里检查。草稿仍保留。',errRateLimit:'服务暂时限流，请过一会再试。草稿仍保留。',errTimeout:'服务没有及时回应，请检查网络后再试。草稿仍保留。',errNetwork:'连不上服务，请检查网络连接后再试。草稿仍保留。',errUpstream:'服务那边暂时出了问题，请稍后再试，或去设置里换一个模型。草稿仍保留。'});
@@ -1001,6 +1148,8 @@
    modePlanTip:'只出计划，不改项目。',modeManualTip:'改项目前先问你；撤不回的每次都问。默认是这个。',modeAutoTip:'能撤销的直接做，撤不回的先问你。',modeYoloTip:'每一步都直接做，不问你；往外发的内容照样先给你看。打开前会再确认一次。',
    yoloOn:'Yolo 开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。',planTitle:'计划',planSummary:'已排好计划，共 {count} 步，见下面的清单。',planInvalid:'这条回复像是计划，但用不了，什么都没做。',planRemove:'删掉',planStart:'开始',planDiscard:'不要这个计划',formatPlan:'想让 AI 一次做好几步，可以让它先排一个计划：它会列出每一步，你看一遍、删掉不要的，再点「开始」。每一步怎么做，还是看你选的模式。',formatPlanTech:'以下是给 AI 的格式说明，不用看。',planUndo:'撤销整个计划',modeDeclined:'没有打开 Yolo。',modeUnavailable:'这次没换成，模式还是原来那个。关掉 MontClip 再打开，再试一次。'});
   for(const language of ['en','zh-CN']) for(const [key,value] of Object.entries(officialPaneText[language])) text[language]['officialPane_'+key]=value;
+  // JJ (2026-11-05): 「没填密钥」 names the key field by its own label, read from the same text, never a second copy.
+  for(const language of ['en','zh-CN']) text[language].officialPane_configKeyRequired=officialPaneText[language].configKeyRequired.split('{field}').join(officialPaneText[language].key);
   Object.assign(text['zh-CN'], { paneNew:'新建会话', paneSearch:'搜索本项目会话', paneDraft:'输入消息', paneSend:'发送', paneCancel:'取消', paneConfig:'助手设置', paneModel:'模型', paneNone:'未配置服务', paneWidth:'面板宽度', paneEmpty:'暂无消息。', paneTools:'暂无工具执行', paneLocal:'会话和草稿仅保留到本次窗口关闭，不会自动附加项目内容。', paneLimitSessions:'这次打开的会话数到上限了，暂时不能新建。回到已有会话继续；要留的内容先复制出来。', paneScopeCapacity:'会话已满，当前项目无法新建会话。请返回已有会话的项目，选择会话并复制保存需要留存的草稿。', panePasteTooLong:'粘贴后会超过 16000 字符，这次没有粘贴，原草稿未改动。请把要粘贴的内容分成几段。', paneLimitChars:'这条太长了，发不出去。删掉一部分，或者分成几条。', paneReferenceLimit:'最多可引用 20 项，请移除部分引用后再添加。', paneActionFailed:'这次操作未完成，请检查当前会话后重试。', paneSaveFailed:'面板宽度未能记住，下次打开可能恢复默认。' });
   Object.assign(text.en, { paneNew:'New session', paneSearch:'Search project sessions', paneDraft:'Message', paneSend:'Send', paneCancel:'Cancel', paneConfig:'Assistant settings', paneModel:'Model', paneNone:'Service not configured', paneWidth:'Pane width', paneEmpty:'No messages.', paneTools:'No tool activity', paneLocal:'Sessions and drafts last until this window closes. Project content is not attached automatically.', paneLimitSessions:"This window has reached its session limit, so no new session can be created for now. Go back to an existing session; copy anything you want to keep first.", paneScopeCapacity:'Sessions are full; a session cannot be created for this project. Return to a project with existing sessions, select one and copy any drafts you need to keep.', panePasteTooLong:'This paste would exceed 16000 characters. Nothing was pasted and your draft was kept. Split the text into smaller parts.', paneLimitChars:'This message is too long to send. Shorten it or split it into a few messages.', paneReferenceLimit:'Up to 20 references are allowed. Remove some before adding more.', paneActionFailed:'This action did not complete. Check the current session and try again.', paneSaveFailed:'Pane width could not be saved; the next launch may use the default.' });
   Object.assign(text['zh-CN'], { paneProjectRef:'引用项目标识', paneCaptionRef:'引用所选字幕', paneRangeRef:'引用工作区间', paneRemoveRef:'移除引用', paneNoReference:'没有可引用的已识别项目、字幕或有效区间。', paneReferences:'本次明确引用（尚未发送）', paneStale:'引用来自较早版本，请移除后重新选择。' });
@@ -1020,13 +1169,14 @@
   }
   function create(storage) {
     let saved; try { saved = JSON.parse(storage.getItem(KEY)); } catch {}
-    let value = { mode: saved?.mode === "advanced" ? "advanced" : "simple", language: saved?.language === "en" ? "en" : "zh-CN" };
+    // soundFacts (QQ on #169): 「附上唱歌段和音量」, on by default; kept only when switched off
+    let value = { mode: saved?.mode === "advanced" ? "advanced" : "simple", language: saved?.language === "en" ? "en" : "zh-CN", ...(saved?.soundFacts === false ? { soundFacts: false } : {}) };
     return {
       get: () => ({ ...value }),
       set(patch) {
         const next = { ...value, ...patch };
-        if (!["simple", "advanced"].includes(next.mode) || !text[next.language]) throw new Error("Invalid view preference");
-        value = { mode: next.mode, language: next.language };
+        if (!["simple", "advanced"].includes(next.mode) || !text[next.language] || ![undefined, true, false].includes(next.soundFacts)) throw new Error("Invalid view preference");
+        value = { mode: next.mode, language: next.language, ...(next.soundFacts === false ? { soundFacts: false } : {}) };
         try { storage.setItem(KEY, JSON.stringify(value)); return true; } catch { return false; }
       },
     };
@@ -1078,12 +1228,31 @@
       return whole.slice(0, whole.indexOf(open)) + open + kept.join(sep) + close;
     });
   }
-  /** A new project's name (Deja, 第四批): 未命名项目, Untitled Project in English. Chinese first when the language is unknown. */
-  const defaultProjectName = (language) => (language === "en" ? "Untitled Project" : "未命名项目");
-  const isDefaultProjectName = (name) => name === "未命名项目" || name === "Untitled Project";
+  /** A new project's name (Deja, 第四批): 未命名项目, Untitled project in English (JJ, 插件试用 P7: lower-case p). Chinese first
+   *  when the language is unknown. "Untitled Project", what older English projects were called, is a default name too. */
+  const defaultProjectName = (language) => (language === "en" ? "Untitled project" : "未命名项目");
+  const isDefaultProjectName = (name) => name === "未命名项目" || name === "Untitled project" || name === "Untitled Project";
+  /** A project's name as the page shows it (P7): a stored default reads as the default of the interface language; the
+   *  project keeps what it has. Any other name is the user's, shown as it is. */
+  const projectName = (language, name) => (isDefaultProjectName(name) ? defaultProjectName(language) : name);
+  /** The name an export takes (P7, Deja): the project's own name; never a default one — then the first media's name
+   *  (without its extension), else MontClip, followed by the date (月-日, as 直播切片 {月-日}). */
+  const exportProjectName = (name, mediaNames = [], date = new Date()) => {
+    if (typeof name === "string" && name.trim() && !isDefaultProjectName(name)) return name;
+    const first = (mediaNames || []).find((n) => typeof n === "string" && n.trim());
+    const stem = first ? first.trim().replace(/\.[A-Za-z0-9]{1,10}$/, "").trim() : "";
+    return (stem || "MontClip") + " " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+  };
+  /** A stored name as the page shows it (Deja, 2026-11-05): exactly the default "Main" (a sequence) or "Title" (a new
+   *  title) reads as the existing term in Chinese; any other name is the user's and is shown as it is. Only for display —
+   *  the project keeps "Main" / "Title". */
+  const DEFAULT_NAMES = { Main: "term.main", Title: "term.title" };
+  const defaultName = (language, name) => (typeof name === "string" && Object.hasOwn(DEFAULT_NAMES, name) ? t(language, DEFAULT_NAMES[name]) || name : name);
+  /** An encoder in the export dialog: its plain Chinese name above when there is one; delivery.js's label otherwise and in English. */
+  const encoderLabel = (language, id, label) => (lang(language) === "zh-CN" && ENCODER_NAMES["zh-CN"][id]) || label;
   /** The file name used when a project's name leaves nothing usable (all slashes): 直播切片 {月-日} in Chinese, the old
    *  English word (export, captions…) in English. */
   const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
-  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, defaultProjectName, isDefaultProjectName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
+  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, projectName, exportProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
 });

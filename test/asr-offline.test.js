@@ -57,7 +57,7 @@ test('packaging: the engine and the VAD always; the models only in the 完整版
   a.match(pkg, /const full = process\.argv\.includes\('--full'\)/);
   a.match(pkg, /Asr\.verify\(\{ models: full \}\)/);
   a.match(pkg, /Asr\.verify\(\{ dir: path\.join\(appDir, 'resources', 'asr'\), models: full \}\)/);
-  a.match(pkg, /MontClip-internal-win-x64\$\{full \? '-full' : ''\}-\$\{buildId\}/, 'the 完整版 zip has its own name');
+  a.match(pkg, /MontClip-\$\{seed \? 'private' : 'internal'\}-win-x64\$\{full \? '-full' : ''\}-\$\{buildId\}/, 'the 完整版 zip has its own name (a private one too)');
   a.ok(pkg.includes("const asrKeep = (f) => !isUnder(f, 'test_wavs') && (full || !isUnder(f, 'models'));") && pkg.includes('filter: asrKeep'), 'no test sentence; models only in the 完整版');
   const fetchAsr = read('desktop/fetch-asr.cjs');
   a.match(fetchAsr, /integrityOk\(/); a.match(fetchAsr, /--models/);
@@ -130,4 +130,15 @@ test('the page can stop a download; the part is kept for 「接着下载」', ()
   const main = read('desktop/main.js'), pre = read('desktop/view-preload.js');
   a.match(main, /ipcMain\.handle\("montclip:asr:cancel", async \(event\) =>/);
   a.match(pre, /cancel:\(\)=>ipcRenderer\.invoke\('montclip:asr:cancel'\)/);
+});
+// Deja, 2026-11-05: the Linux engine (sherpa-onnx-linux-x64, which the Cindy plugin downloads on first use, MontClip-Cindy#8)
+// has its own row, its files named, under the same licences as the Windows one.
+test('licences: sherpa-onnx-linux-x64 has its own row with its four files, Apache-2.0 with ONNX Runtime under MIT', () => {
+  const md = read('LICENSES.md');
+  const row = md.split('\n').find((l) => l.startsWith('|') && l.includes('sherpa-onnx-linux-x64'));
+  a.ok(row, 'a row for sherpa-onnx-linux-x64');
+  for (const f of ['sherpa-onnx.node', 'libsherpa-onnx-c-api.so', 'libsherpa-onnx-cxx-api.so', 'libonnxruntime.so']) a.ok(row.includes('`' + f + '`'), f);
+  a.match(row, /Apache-2\.0/); a.match(row, /licenses\/asr\/sherpa-onnx-Apache-2\.0\.txt/);
+  const ort = md.split('\n').find((l) => l.startsWith('| ONNX Runtime'));
+  a.ok(ort && ort.includes('`libonnxruntime.so`') && /\| MIT \|/.test(ort), 'libonnxruntime.so under ONNX Runtime, MIT');
 });
