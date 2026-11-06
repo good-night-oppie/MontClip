@@ -11677,7 +11677,10 @@ function autoExportConfirm() {
 async function autoExport() {
   const go = AUTO.el && AUTO.el.querySelector('[data-as-act="ex-go"]');
   if (go) { if (go.disabled) return; go.disabled = true; }
-  const req = autoExNext(), refused = await exportH264Refusal(deliveryIsH264(sliceDeliverySpec()));
+  const req = autoExNext();
+  if (!deliveryInfo.encoders) await fetchDeliveryInfo();
+  if (!autoExLive(req)) return;
+  const refused = await exportH264Refusal(deliveryIsH264(sliceDeliverySpec()));
   // 〔返回〕, closing the dialog or another 〔导出〕 while the precheck was out: nothing is placed or exported
   if (!autoExLive(req)) return;
   if (refused) { autoExportConfirm(); return; }
@@ -11689,7 +11692,6 @@ async function autoExport() {
   let at = r.at0;
   const segments = on.map((c) => { const d = Math.round((c.e - c.s) * 1000) / 1000, s = { output: { start: at, end: Math.round((at + d) * 1000) / 1000 } }; at = s.output.end; return s; });
   const before = new Set(exportQueue.map((q) => q.id));
-  if (!deliveryInfo.encoders) await fetchDeliveryInfo();   // sliceDeliverySpec needs to know the encoders
   queueSlices(segments, names, { open: false });
   st.exportIds = exportQueue.filter((q) => !before.has(q.id)).map((q) => q.id);
   st.exportNames = on.map(autoName);
