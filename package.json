@@ -11,6 +11,7 @@
     "*.js",
     "index.html",
     "style.css",
+    "cindy-parts.css",
     "favicon.svg",
     "icons/",
     "encoding-profiles.json",

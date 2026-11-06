@@ -10,6 +10,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png">
 <meta name="theme-color" content="#0e0e10">
+<link rel="stylesheet" href="cindy-parts.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -101,7 +102,7 @@
         <div class="bin-empty" id="binEmpty">
           <div class="bin-empty-icon">🎬</div>
           <p><span data-i18n="term.drop-video-audio-or-images-here">Drop video, audio or images here</span><br><span data-i18n="own.or-click">or click</span> <b data-i18n="own.add-import">+ Import</b> / <b data-i18n="own.add-url">+ URL</b></p>
-          <p class="hint" data-i18n="term.double-click-to-open-in-source-or-drag-onto-the-timeline">Double-click to open in Source, or drag onto the timeline.</p>
+          <p class="hint" data-i18n="own.bin-dbl-hint">Double-click to preview it, or drag it onto the timeline.</p>
         </div>
       </div>
       <div class="bin-list hidden" id="libList"></div>
@@ -780,6 +781,7 @@
 <script src="agent-session-schema.js"></script>
 <script src="agent-pane.js"></script>
 <script src="agent-format.js"></script>
+<script src="agent-limits.js"></script>
 <script src="agent-conversation.js"></script>
 <script src="agent-facts.js"></script>
 <script src="capabilities-page.js"></script>

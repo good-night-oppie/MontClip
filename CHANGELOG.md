@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - Pin and verify every optional browser MediaPipe runtime resource before execution; preserve explicit download consent, retry and missing-mask export refusal. Record package/license provenance and real-byte checks separately from synthetic inference tests.
+- MCP reframe selects the displayed source tail by decoded PTS, including mixed frame rates and VFR, without reading the following shot; empty tail reads fail explicitly.
+
+- Refuse stale assistant reframe plans when clips are added during reading; check the sequence limit before reading footage and render JJ-approved guidance from that same limit.
+
+- Count accumulated gaps before hiding an unchanged assistant suggestion; match manual aspect-ratio guidance to the request.
+- Preserve the final partial audio packet in JPEG ProRes exports by using the selected range's explicit frame/sample end instead of shortest-stream termination. Other profiles and legacy calls without a frame count keep their existing behavior.
+- Preserve the last matching bounded-ProRes audio filter across output-index and type selectors; reject mappings or option forms that cannot be interpreted safely instead of restoring muted sound.
 
 - Pause conflicting private-package AI connections until resolved, show recovery instructions, and keep cleanup warnings for wiped seed files across restarts.
 
