@@ -1,0 +1,137 @@
+TAP version 13
+# Subtest: privacy server rejects external 200 before any write
+not ok 1 - privacy server rejects external 200 before any write
+  ---
+  duration_ms: 94.0446
+  type: 'test'
+  location: '[private-local-path]\\test\\privacy-runtime.test.js:19:67'
+  failureType: 'testCodeFailure'
+  error: |-
+    foreign service must receive zero write requests
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> ([private-local-path]\test\privacy-runtime.test.js:29:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: privacy server rejects wrong handshake before any write
+not ok 2 - privacy server rejects wrong handshake before any write
+  ---
+  duration_ms: 47.2797
+  type: 'test'
+  location: '[private-local-path]\\test\\privacy-runtime.test.js:19:67'
+  failureType: 'testCodeFailure'
+  error: |-
+    foreign service must receive zero write requests
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> ([private-local-path]\test\privacy-runtime.test.js:29:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: privacy server rejects child exit before any write
+not ok 3 - privacy server rejects child exit before any write
+  ---
+  duration_ms: 45.0125
+  type: 'test'
+  location: '[private-local-path]\\test\\privacy-runtime.test.js:19:67'
+  failureType: 'testCodeFailure'
+  error: |-
+    foreign service must receive zero write requests
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> ([private-local-path]\test\privacy-runtime.test.js:29:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: privacy tools honor absolute overrides with PATH=empty
+not ok 4 - privacy tools honor absolute overrides with PATH=empty
+  ---
+  duration_ms: 0.6789
+  type: 'test'
+  location: '[private-local-path]\\test\\privacy-runtime.test.js:33:74'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'ffmpeg'
+    - 'C:\\Program Files\\nodejs\\node.exe'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'C:\\Program Files\\nodejs\\node.exe'
+  actual: 'ffmpeg'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> ([private-local-path]\test\privacy-runtime.test.js:36:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: privacy tools honor absolute overrides with PATH=different
+not ok 5 - privacy tools honor absolute overrides with PATH=different
+  ---
+  duration_ms: 0.4143
+  type: 'test'
+  location: '[private-local-path]\\test\\privacy-runtime.test.js:33:74'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'ffmpeg'
+    - 'C:\\Program Files\\nodejs\\node.exe'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'C:\\Program Files\\nodejs\\node.exe'
+  actual: 'ffmpeg'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> ([private-local-path]\test\privacy-runtime.test.js:36:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 0
+# fail 5
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 259.0432

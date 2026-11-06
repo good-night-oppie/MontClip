@@ -33,7 +33,7 @@ for(const kind of ['external 200','wrong handshake','child exit'])test(`privacy 
 
 for(const different of [false,true])test(`privacy tools honor absolute overrides with PATH=${different?'different':'empty'}`,t=>{
   const PATH=different?makeDataDir(t):'';
-  if(different)for(const name of ['ffmpeg','ffprobe'])fs.linkSync(process.execPath,path.join(PATH,name+(process.platform==='win32'?'.exe':'')));
+  if(different)for(const name of ['ffmpeg','ffprobe'])fs.copyFileSync(process.execPath,path.join(PATH,name+(process.platform==='win32'?'.exe':'')));
   const env={PATH,MONTCLIP_FFMPEG:process.execPath,MONTCLIP_FFPROBE:process.execPath};
   const tools=resolveMediaTools(env);
   assert.equal(tools.ffmpeg,process.execPath);

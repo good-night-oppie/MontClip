@@ -1,5 +1,10 @@
 # Privacy covers: independent investigation and decision
 
+**Review follow-up:** the original harness had service-ownership and tool-path
+defects. See [privacy-runtime-review.md](privacy-runtime-review.md) for the
+append-only fixes, corrected CI explanation and a separate new rendering run.
+The evidence below is preserved as the original source, not overwritten.
+
 Date: 2026-11-05. Base: `origin/main` fetched as
 `d51b27a1ef5196725d73bca2d7d96c0de8c767bc` in the isolated
 `bold-goodall` worktree. The parent worktree was not edited.
