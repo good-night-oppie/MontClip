@@ -16,9 +16,10 @@
   function create({ onChange = () => {}, context = () => "" } = {}) {
     const cards = new WeakMap(), loose = {};
     let pending = null;
-    const settle = (card, choice) => {
+    const settle = (card, choice, why) => {
       if (!card || card.answered) return false;
       card.answered = card.d.choices.includes(choice) ? choice : "deny";
+      card.why = why || null;  // settled by the host, not clicked: 'stale' | 'left' — the line says so (QQ/DD on #120)
       if (pending === card) pending = null;
       onChange();
       card.resolve(card.answered);
@@ -28,7 +29,7 @@
       /** A card for a decision with a ticket; resolves to once | session | deny. */
       ask(d, { result = null, summary = "", content = null, detail = "" } = {}) {
         if (!d || typeof d.ticket !== "string" || !Array.isArray(d.choices) || !d.choices.length) return Promise.resolve("deny");
-        if (pending) settle(pending, "deny");
+        if (pending) settle(pending, "deny", "stale");
         return new Promise((resolve) => {
           const card = { id: "approval-" + (++seq), d, summary, content, detail, answered: null, context: context(), resolve };
           const key = result && typeof result === "object" ? result : loose;
@@ -39,9 +40,9 @@
       },
       /** A card's own button: the waiting card only, once. */
       answer(id, choice) { return !!pending && pending.id === id && settle(pending, choice); },
-      leave() { return settle(pending, "deny"); },
+      leave() { return settle(pending, "deny", "left"); },
       /** Called now and then: the project changed under a waiting card → 「不同意」. */
-      check() { return !!pending && pending.context !== context() && settle(pending, "deny"); },
+      check() { return !!pending && pending.context !== context() && settle(pending, "deny", "stale"); },
       waiting() { return !!pending; },
       /** What the pane draws for a reply: its cards, the waiting one with its buttons, the answered ones as one line.
        *  say(key, vars) gives the words; projectName for 「改的是项目」. */
@@ -57,7 +58,7 @@
             more: [d.risk === "external" ? say("own.ap-sends-to", { domain: d.target }) : "", d.choices.includes("session") ? "" : say("own.ap-every-time")].filter(Boolean),
             content: card.content, contentLabel: say("own.ap-content"),
             actions: card.answered ? [] : ORDER.filter((c) => d.choices.includes(c)).map((c) => ({ id: c, label: say("own.ap-" + c), kind: c === "once" ? "primary" : c === "session" ? "secondary" : "plain" })),
-            answered: card.answered ? say("own.ap-done-" + card.answered) : null,
+            answered: card.answered ? say("own.ap-done-" + (card.why || card.answered)) : null,
           };
         });
       },

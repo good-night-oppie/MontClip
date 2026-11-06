@@ -84,9 +84,38 @@ test('leaving the chat, the project changing, or a newer card while one waits: �
   cards.answer(cards.view(r, say('en')).at(-1).id, 'once');
   a.equal(await p4, 'once');
   a.ok(redraws >= 6);
-  // the page: a session switch leaves; the project is checked twice a second
-  a.match(read('agent-ui/pane.tsx'), /const act=\(f:\(\)=>void\)=>\{try\{host\.sync\(\);options\.approvalLeave\?\.\(\);f\(\);/);
+  // the page: only leaving the chat settles the card (QQ/DD on #120: a save-retry or a reference click must not);
+  // the project is checked twice a second
+  const paneSrc = read('agent-ui/pane.tsx');
+  a.match(paneSrc, /const act=\(f:\(\)=>void,leaveChat=false\)=>\{try\{host\.sync\(\);if\(leaveChat\)options\.approvalLeave\?\.\(\);f\(\);/);
+  a.match(paneSrc, /act\(\(\)=>state\.newSession\(\),true\)/);
+  a.match(paneSrc, /act\(\(\)=>state\.select\(s\.id\),true\)/);
+  a.doesNotMatch(paneSrc, /act\(\(\)=>state\.retry\(\),true\)/, 'a save retry does not settle the card');
   a.match(read('app.js'), /setInterval\(\(\)=>\{agentApprovals\.check\(\);mcAgent\.sync\(\);\},500\);/);
+});
+
+test('settled by the host, not clicked: the line says what happened, not 「你没有同意」 (QQ/DD on #120)', async () => {
+  // the project changed under the waiting card → stale
+  let ctx = 'p1';
+  const cards = Approval.create({ context: () => ctx }), r = {};
+  const p1 = cards.ask(decision(), { result: r });
+  ctx = 'p2'; cards.check();
+  a.equal(await p1, 'deny', 'the wire answer is still deny');
+  a.equal(cards.view(r, say('zh-CN'))[0].answered, '项目改过了，这一步没有做');
+  // leaving the chat → left
+  const p2 = cards.ask(decision(), { result: r });
+  cards.leave();
+  a.equal(cards.view(r, say('zh-CN')).slice(-1)[0].answered, '你离开了这个聊天，这一步没有做');
+  a.equal(await p2, 'deny');
+  // a newer card settles the older one → stale, not 「你没有同意」
+  const p3 = cards.ask(decision(), { result: r });
+  void cards.ask(decision({ ticket: 't2' }), { result: r });
+  a.equal(await p3, 'deny');
+  a.equal(cards.view(r, say('zh-CN')).slice(-2)[0].answered, '项目改过了，这一步没有做');
+  // and in English
+  const en = Approval.create({ context: () => 'x' }), re = {};
+  void en.ask(decision(), { result: re }); en.leave();
+  a.equal(en.view(re, say('en')).slice(-1)[0].answered, 'You left this chat; this step was not done');
 });
 
 test('what the card says: what changes, the sentence under it, the buttons; answered, one line (zh-CN and en, for JJ)', () => {
@@ -112,12 +141,20 @@ test('what the card says: what changes, the sentence under it, the buttons; answ
   a.equal(c.content, '第 12 句'); a.equal(c.contentLabel, '要发出去的内容：');
 });
 
-test('the card: Cindy\'s card shell and buttons, focus on the main button, a group named by its title and first line', () => {
+test('the card: Cindy\'s card shell and buttons; focus lands on the card itself, never an approve button (QQ/DD on #120)', () => {
   const card = read('agent-ui/HostCard.tsx');
   a.match(card, /import \{ InteractionPromptCardShell \} from '\.\/cindy-43001ea\/apps\/desktop\/src\/renderer\/components\/interaction-portal';/);
   a.match(card, /import \{ Button \} from '\.\/cindy-43001ea\/apps\/desktop\/src\/renderer\/components\/ui\/button';/);
   a.match(card, /role="group" aria-labelledby=\{ids \+ 't'\} aria-describedby=\{ids \+ 'f'\}/);
-  a.match(card, /root\.current\?\.scrollIntoView\(\{ block: 'nearest' \}\);\s*main\.current\?\.focus\(\{ preventScroll: true \}\);/);
+  // the card is scrolled into view; the focus goes to the card (tabIndex=-1), so a stray Space hits no button —
+  // and while the user is typing in an editor or input, their focus stays put
+  a.match(card, /root\.current\?\.scrollIntoView\(\{ block: 'nearest' \}\);/);
+  a.match(card, /tabIndex=\{-1\}/);
+  a.match(card, /root\.current\?\.focus\(\{ preventScroll: true \}\);/);
+  a.match(card, /el\.tagName === 'INPUT' \|\| el\.tagName === 'TEXTAREA' \|\| el\.isContentEditable/);
+  a.equal((card.match(/\.focus\(/g) || []).length, 1, 'the card is the only focus target — no button is focused');
+  // Esc on the card is 〔不同意〕 (and does not bubble to the pane's own Esc, which would only hide the panel)
+  a.match(card, /if \(e\.key === 'Escape'\) \{ e\.preventDefault\(\); e\.stopPropagation\(\); onAction\('deny'\); \}/);
   // outside the conversation's live log, so it is not read out again with every message
   const pane = read('agent-ui/pane.tsx'), log = pane.indexOf('<div role="log" aria-live="polite">'), end = pane.indexOf('</div>\n', log);
   a.ok(pane.indexOf('<HostCard ') > end, 'after the log');

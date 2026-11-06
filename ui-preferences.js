@@ -708,6 +708,9 @@
     "ap-done-once": ["✓ You allowed this once", "✓ 你批准了这一次"],
     "ap-done-session": ["✓ You allowed this for this chat", "✓ 这个聊天中你都批准了"],
     "ap-done-deny": ["You didn't allow it; this step was not done", "你没有同意，这一步没有做"],
+    // settled by the host, not clicked (QQ/DD on #120): the line must not say 「你没有同意」. Copy for JJ to finalize.
+    "ap-done-stale": ["The project moved on; this step was not done", "项目改过了，这一步没有做"],
+    "ap-done-left": ["You left this chat; this step was not done", "你离开了这个聊天，这一步没有做"],
     "ap-denied": ["Not done. Nothing changed.", "没有做这一步，什么都没改。"],
     "ap-listed": ["Plan mode: this step is only listed, not done. Switch to another mode at the top of the assistant to do it.", "计划模式：这一步只列出来，没有做。要做的话，在助手顶部换一种模式。"],
     "ap-refused": ["This step is never allowed, in any mode. Nothing changed.", "这一步任何模式下都不允许，什么都没改。"],

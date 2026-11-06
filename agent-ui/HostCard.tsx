@@ -24,27 +24,31 @@ const KIND: Record<HostCardAction['kind'], { variant: 'cta' | 'secondary'; tone?
   primary: { variant: 'cta' }, secondary: { variant: 'secondary' }, plain: { variant: 'secondary', tone: 'quiet' },
 };
 
-/** One card. While it waits it is brought into view, and the main button takes the focus (once per card); a screen reader
- *  hears its title and first line when the focus arrives (a group named by them, outside the conversation's live log). */
+/** One card. While it waits it is brought into view and the card itself takes the focus (once per card) — never an
+ *  approve button: one stray Space would settle the step (QQ/DD on #120). Focus stays put while the user is typing
+ *  in an editor or input; Esc on the card is 〔不同意〕. A screen reader hears its title and first line when the
+ *  focus arrives (a group named by them, outside the conversation's live log). */
 export function HostCard({ card, onAction }: { card: HostCardView; onAction: (id: string) => void }) {
-  const root = useRef<HTMLDivElement>(null), main = useRef<HTMLButtonElement>(null), shown = useRef(''), ids = useId();
+  const root = useRef<HTMLDivElement>(null), shown = useRef(''), ids = useId();
   const waiting = !card.answered;
   useLayoutEffect(() => {
     if (!waiting || shown.current === card.id) return;
     shown.current = card.id;
     root.current?.scrollIntoView({ block: 'nearest' });
-    main.current?.focus({ preventScroll: true });
+    const el = document.activeElement as HTMLElement | null;
+    const typing = !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    if (!typing) root.current?.focus({ preventScroll: true });
   }, [card.id, waiting]);
   if (!waiting) return <p className="host-card-done" data-host-card-done={card.kind}>{card.answered}</p>;
-  const primary = card.actions.find((a) => a.kind === 'primary') || card.actions[0];
   return (
-    <div ref={root} data-cindy-parts="" data-host-card={card.kind} className="host-card" role="group" aria-labelledby={ids + 't'} aria-describedby={ids + 'f'}>
+    <div ref={root} tabIndex={-1} data-cindy-parts="" data-host-card={card.kind} className="host-card" role="group" aria-labelledby={ids + 't'} aria-describedby={ids + 'f'}
+      onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onAction('deny'); } }}>
       <InteractionPromptCardShell
         viewerState="expanded" onViewerStateChange={() => {}} collapsible={false}
         minimizedTitle={card.title} restoreAriaLabel={card.title} minimizeAriaLabel={card.title}
         headerLeading={<h3 id={ids + 't'} className="text-14 font-semibold text-[var(--text-primary)]">{card.title}</h3>}
         footer={<div className="flex flex-wrap items-center gap-1" data-host-card-actions>{card.actions.map((a) => (
-          <Button key={a.id} ref={a === primary ? main : undefined} variant={KIND[a.kind].variant} tone={KIND[a.kind].tone} size="sm" compact className="px-2" data-host-choice={a.id} onClick={() => onAction(a.id)}>{a.label}</Button>
+          <Button key={a.id} variant={KIND[a.kind].variant} tone={KIND[a.kind].tone} size="sm" compact className="px-2" data-host-choice={a.id} onClick={() => onAction(a.id)}>{a.label}</Button>
         ))}</div>}>
         <p id={ids + 'f'} className="text-[15px] leading-[1.45] text-[var(--text-primary)]" data-host-card-first>{card.first}</p>
         {card.second && <p className="mt-1 text-12 text-[var(--text-secondary)]" data-host-card-second>{card.second}</p>}
