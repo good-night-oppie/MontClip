@@ -240,7 +240,7 @@ function proresFilterPlan(args, hasAudio) {
   const refuse = () => { throw Object.assign(new Error("PROFILE_FILTER_MAPPING_UNSUPPORTED"), {
     status: 400, code: "PROFILE_FILTER_MAPPING_UNSUPPORTED",
   }); };
-  const maps = [], filters = [];
+  const maps = [], filters = [], shortestOptions = new Set();
   let noAudio = false;
   // Consume option values instead of mistaking (for example) a progress file
   // named "-an" for an audio-disable flag. Unknown option arity is not guessed.
@@ -266,7 +266,10 @@ function proresFilterPlan(args, hasAudio) {
       const selector = option === "-af" ? "a" : option === "-vf" ? "v" : option.slice(8);
       filters.push({ at: i, selector }); i++;
     } else if (option === "-an") noAudio = true;
-    else if (flags.has(option)) continue;
+    else if (flags.has(option)) {
+      if (option === "-shortest") shortestOptions.add(i);
+      continue;
+    }
     else if (valueOptions.has(option.split(":")[0])) {
       if (typeof args[++i] !== "string" || !args[i]) refuse();
     } else refuse();
@@ -288,7 +291,11 @@ function proresFilterPlan(args, hasAudio) {
       audioFilter = at;
     }
   }
-  return { audioFilter, hasAudio: streams.includes("a"),
+  // Remove only parsed option positions. Values such as -progress -shortest
+  // remain byte-for-byte intact; preflight and construction share this plan.
+  const output = args.filter((_, i) => !shortestOptions.has(i));
+  if (audioFilter >= 0) audioFilter -= [...shortestOptions].filter(i => i < audioFilter).length;
+  return { output, audioFilter, hasAudio: streams.includes("a"),
     defaultMaps: explicit ? [] : ["-map", "0:v:0", ...(streams.includes("a") ? ["-map", "1:a:0"] : [])] };
 }
 function buildExportArgs(profile, { fps, frames, wavPath, outPath, pixelFormat, width, height } = {}) {
@@ -314,8 +321,8 @@ function buildExportArgs(profile, { fps, frames, wavPath, outPath, pixelFormat, 
   if (end) {
     // -shortest can stop before PCM's last partial packet. Bound this known
     // project range instead; do not change legacy/unbounded profiles or pad audio.
-    output = output.filter(a => a !== "-shortest");
     const plan = proresFilterPlan(output, !!wavPath);
+    output = plan.output;
     if (plan.hasAudio) {
       const trim = `aresample=48000,atrim=end_sample=${end.samples}`;
       const af = plan.audioFilter;

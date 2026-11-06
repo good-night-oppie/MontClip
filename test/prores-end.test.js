@@ -92,3 +92,21 @@ test('option values are not mistaken for mapping/filter/disable options',()=>{
 });
 
 for(const args of [['-map','[mix]'],['-map','0'],['-map','1:a','-map','1:a','-map','0:v'],['-filter:a:m:title:x','volume=0'],['-filter:99','volume=0'],['-filter_complex','[1:a]anull[a]'],['-filter','null'],['-map','0:v','-map','-1:a'],['-filter_script:a','custom.txt'],['-/filter:a','custom.txt'],['-an','-noan']])test('unresolved mapping/selector refuses '+JSON.stringify(args),()=>{const p={...EP.resolveProfile('prores422'),args:[...EP.resolveProfile('prores422').args,...args]};assert.throws(()=>EP.buildExportArgs(p,{fps:30,frames:30,wavPath:'mix.wav',outPath:'x.mov'}),e=>e.code==='PROFILE_FILTER_MAPPING_UNSUPPORTED');});
+
+for (const disable of [true,false]) test('shortest progress filename preserves '+(disable?'disabled audio':'real tail'),t=>{
+  if(!FF.available('ffmpeg')||!FF.available('ffprobe'))return t.skip('ffmpeg/ffprobe unavailable');
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'mc-shortest-value-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const ff=FF.path('ffmpeg'),probe=FF.path('ffprobe'),audio=path.join(dir,'mix.wav');fs.writeFileSync(audio,wav(48000));
+  const jpg=execFileSync(ff,['-v','error','-f','lavfi','-i','color=s=160x90','-frames:v','1','-c:v','mjpeg','-f','image2pipe','-']);
+  const base=EP.resolveProfile('prores422'),profile={...base,args:[...base.args,'-progress','-shortest',...(disable?['-an']:[])]};
+  assert.equal(EP.proresFilterPlan(profile.args,true).hasAudio,!disable,'preflight audio decision');
+  for(const frames of [undefined,30]){
+    const out=path.join(dir,frames?'bounded.mov':'legacy.mov');
+    const args=EP.buildExportArgs(profile,{fps:30,frames,wavPath:audio,outPath:out});
+    const r=spawnSync(ff,args,{cwd:dir,input:Buffer.concat(Array(30).fill(jpg)),timeout:30000,windowsHide:true});assert.equal(r.status,0,r.stderr?.toString());
+    const streams=JSON.parse(execFileSync(probe,['-v','error','-show_streams','-of','json',out])).streams;
+    assert.equal(streams.filter(s=>s.codec_type==='audio').length,disable?0:1,'real audio streams agree with preflight');
+    if(!disable){const pcm=execFileSync(ff,['-v','error','-i',out,'-map','0:a:0','-f','s16le','-']);assert.ok(pcm.some(x=>x!==0),'real tone remains audible');if(frames)assert.ok(pcm.equals(fs.readFileSync(audio).subarray(44)),'bounded output preserves complete tail PCM');}
+    assert.ok(fs.readFileSync(path.join(dir,'-shortest'),'utf8').includes('progress=end'),'progress filename preserved verbatim');
+  }
+});
