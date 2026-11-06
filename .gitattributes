@@ -6,10 +6,19 @@ licenses/ffmpeg/texts/** -text
 agent-ui/upstream/** -text
 agent-ui/cindy-43001ea/** -text
 
-# Generated / verbatim-vendored files: collapse in review, exclude from review-size counts
+# Vendored verbatim external source (Cindy, Apache-2.0, sources and hashes in agent-ui/SOURCES.json):
+# folded as vendored, not generated — verbatim copies are not build output
+agent-ui/upstream/** linguist-vendored
+agent-ui/cindy-43001ea/** linguist-vendored
+
+# True generated files: build outputs (build.cjs, styles.cjs, npm install) and machine-written records
+# (vendor-cindy.cjs, licenses.cjs)
 cindy-official.js linguist-generated
 cindy-parts.css linguist-generated
 package-lock.json linguist-generated
 agent-ui/package-lock.json linguist-generated
-agent-ui/upstream/** linguist-generated
-agent-ui/cindy-43001ea/** linguist-generated
+agent-ui/cindy-strings.json linguist-generated
+agent-ui/SOURCES.json linguist-generated
+agent-ui/BUNDLED-LICENSES.json linguist-generated
+agent-ui/THIRD-PARTY-NOTICES.txt linguist-generated
+agent-ui/STYLE-PACKAGES.json linguist-generated
