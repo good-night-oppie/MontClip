@@ -156,7 +156,7 @@ gate("G6 sensitive", not hits, f"hits: {json.dumps(hits, ensure_ascii=False)[:50
 
 inputs = {n: work / n for n in ("pass1/synthetic-source.mp4", "pass1/data/exports/redact-zoom.mp4", "motion-layer.mp4",
                                 "montclip-demo-22s.mp4", "montclip-demo-22s.webm")}
-report.update({"distinct_frames_by_sha1": len(distinct), "sensitive_patterns": {k: v for k, v in PAT.items() if k != "names"}, "names_file": a.names, "sensitive_hits": hits,
+report.update({"distinct_frames_by_sha1": len(distinct), "sensitive_patterns": {k: v for k, v in PAT.items() if k != "names"}, "names_file": os.path.basename(a.names) if a.names else None, "sensitive_hits": hits,
                "ocr_program": a.ocr, "gates": gates, "ok": all(g["ok"] for g in gates.values()),
                "hashes": {n: sha(p) for n, p in inputs.items() if p.exists()},
                "visual_review": {"sheet_frames_every_6th": keys}})
