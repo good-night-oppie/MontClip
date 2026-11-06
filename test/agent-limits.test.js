@@ -38,6 +38,14 @@ test('a proposal that keeps the whole timeline, in order and without a gap, chan
  a.equal(ranges([[100,150]],'one_file',gap).unchanged,false);
 });
 
+test('small gaps must be counted together before hiding a proposal',()=>{
+ const d=doc([{id:'c',kind:'video',mediaId:'m',track:'V1',start:0,in:0,duration:10.09,props:{}}]);
+ const keep=Array.from({length:10},(_,i)=>[i*1.01,i*1.01+1]);
+ const p=ranges(keep,'one_file',d);
+ a.ok(Math.abs(p.duration-10)<1e-9,'the range engine removes nine 0.01-second gaps');
+ a.equal(p.unchanged,false,'0.09 seconds removed exceeds half a frame at 30 fps');
+});
+
 test('keep_sentences that keep every sentence of a fully captioned edit are unchanged too',()=>{
  const d=doc([{id:'c',kind:'video',mediaId:'m',track:'V1',start:0,in:0,duration:6,props:{}},
   {id:'s1',kind:'text',track:'V2',start:0,in:0,duration:3,props:{text:'一',caption:true}},{id:'s2',kind:'text',track:'V2',start:3,in:0,duration:3,props:{text:'二',caption:true}}]);
@@ -101,7 +109,7 @@ test('a mixed message, with a substitute transport: the format note sent carries
  // the pane keeps the place for a host sentence, for something missing later
  const pane=read('agent-ui/pane.tsx');
  a.match(pane,/const limit=m\.role==='assistant'\?W\.MontClipLimits\?\.note\(MontClipAgentPane\.displayMessage\(session\.messages\[i-1\]\?\.text\|\|''\)\.text,t\):'';/);
- a.match(pane,/<strong>\{m\.role==='user'\?t\.user:t\.assistant\}<\/strong>\{limit&&<p data-host-limit>\{limit\}<\/p>\}<ThinkingText content=\{shown\.text\}\/>/);
+ a.match(pane,/<strong>\{m\.role==='user'\?t\.user:t\.assistant\}<\/strong>\{limit&&<p data-host-limit>\{limit\}<\/p>\}\{soundNote&&<p data-sound-off>\{soundNote\}<\/p>\}<ThinkingText content=\{shown\.text\}\/>/);
  a.match(read('cindy-official.js'),/data-host-limit/);
  a.match(read('index.html'),/<script src="agent-limits\.js"><\/script>/);
 });
