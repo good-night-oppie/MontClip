@@ -107,3 +107,24 @@ the browser and is not QQ's approval. Linux rendering, Cindy visible-window
 acceptance and real footage remain untested. Existing evidence-checker checks
 are not relabelled as new rendering. Draft remains pending QQ and the named
 team's review; no merge, installation or deployment.
+
+## VV historical cross-check and UI boundary
+
+Deja relayed VV's independent old-head run: 20 fastExports, cover with no
+differences in 60 preview and 60 export frames, blur with differences in both,
+and readable static digits. This is VV's reported historical comparison, not
+a new run by this task and not ownership validation of the old harness. VV was
+informed of the old runtime risk and is not asked to rerun that script.
+
+VV's DOM observation of the ordinary shape button was V2, 4 seconds,
+420×240, radius 24 and yellow. It is not a privacy preset. One undo removed
+the whole shape; independent fill-change undo was not tested. Precise manual
+placement, motion following and Cindy visible-window operation were not tested.
+
+The manual and Skill §4 now explicitly limit their claim to the Agent recipe,
+spell out `radius:0`, opacity 1, normal blend, opaque fill, top layer, full time
+coverage and region/edge margin. They do not supply unverified button steps or
+claim a new product feature. New Chinese wording remains pending JJ.
+The owned-runtime rendering evidence above was generated after the P1/P2 fixes;
+this documentation-only clarification does not relabel it as another rendering
+run. The explicit radius 0 matches the existing default used by that fixture.

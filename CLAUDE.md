@@ -1072,13 +1072,18 @@ copy of the content, with normal blend, opacity 1, no blur, feather or fade,
 and extra coverage around all edges. Shape item x/y are centres in pixels
 relative to the canvas centre (unlike mask fractions). For a 320×180 canvas,
 this covers canvas pixels x=0…96, y=0…42:
-`{kind:"shape", track:"V3", start:0, duration:1, props:{opacity:1, blend:"normal", shapes:[{type:"rect", x:-112, y:-69, w:96, h:42, fill:"#000000"}]}}`.
+`{kind:"shape", track:"V3", start:0, duration:1, props:{opacity:1, blend:"normal", shapes:[{type:"rect", x:-112, y:-69, w:96, h:42, radius:0, fill:"#000000"}]}}`.
 V3 must actually be above every relevant layer; extend the time range to cover
 every sensitive frame. Reposition/animate the cover after crop, movement,
 scaling or reframing. Inspect every frame in preview and in the decoded final
 export, including cuts and edges. Tracking confidence is not privacy evidence.
 Neither a blur strength nor an unverified mosaic setting guarantees unreadable
 text. See `reference/privacy-cover.md` for the synthetic test and its limits.
+This is an agent recipe, not an accepted end-to-end button workflow. The ordinary
+shape button is not a privacy preset: set square corners (`radius:0`), and do
+not assume its default track, duration or geometry covers the sensitive content.
+Manual precise placement, motion following, independent fill-change undo and
+Cindy visible-window operation have not been validated by this recipe test.
 
 ```jsonc
 "masks": [
