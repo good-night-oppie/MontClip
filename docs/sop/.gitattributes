@@ -1,0 +1,3 @@
+v2-source-original.txt -text -whitespace
+*.md text eol=lf
+SHA256SUMS text eol=lf
