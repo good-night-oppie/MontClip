@@ -1,5 +1,20 @@
 # 既有能力 simulated 闭环：操作与画面通过，尾音未通过
 
+## 退出确认与源码对应补核
+
+以下 SHA256 已逐一与 `git show <commit>:real-tests/draft-existing-loop.cjs` 核对，而非用旧成功记录代表当前源码：
+
+| 运行 | runner 提交 / SHA256 | 范围与退出结果 |
+|---|---|---|
+| run06 | 当时未记录runner hash | 14项检查、cleanup双true；仅历史证据，不能给后续源码背书 |
+| run07 | a93c70d8 / `571dcbabfc4503396305c7c5cecc27dd03d1c68ee25cd564af3c715c1d073795` | 14项检查；browserExited=false，completed=false，始终保留失败 |
+| v2-03 | 4ec65433 / `7242ef7ea469c8b729a076b1a8c1fae718fb26d97ae1bae6111e0e71c01f44fc` | 新独立完整交互运行21项通过、cleanup双true，包含新页面上下文及旧插卡撤销实测 |
+| audio-tail-01 | aa36b8e3 / `a2919e7c620161efa7cf33c2be15d415e44b1e3a25f546e1ec64c6df2654396b` | 当前runner诊断模式一次导出，cleanup双true；**不是当前源码完整交互回归** |
+
+退出顺序由源码确认：创建CDP包装器时已安装child `exit`监听，其作用是拒绝尚未完成的CDP请求；finally先等待 `Browser.close` 的响应/异常，再调用 `stopOwned(browser)`，最后调用 `stopOwned(server)`。stopOwned先检查exitCode/signalCode，仍运行则向自己持有的child发kill，在10秒内每50ms查询这些属性。10秒并非从Browser.close发出时计算；Browser.close的CDP请求另有180秒上限。这里没有先等待exit后才订阅exit的明显监听顺序问题；但没有记录kill返回值、close/exit时间戳、Browser.close返回方式或错误，也没有记录退出后stdio close状态。
+
+run07只留下最终browserExited=false；之后按原PID只读检查未发现进程，无法反推出它在10秒内的实际事件顺序。不能把“后来不存在”改写为当时安全清理成功，也不能凭现有记录断言是Chrome/Windows/事件竞态哪一种根因。v2-03与诊断运行成功也不证明偶发清理问题已修复。没有增加超时，没有修改stopOwned，没有为排查启动重复渲染；本Draft继续明确此限制。若独立修runner，应先补事件/kill返回值记录及受控退出顺序回归，再取得该源码的新成功运行。
+
 ## VV v2 补测（追加，不覆盖旧记录）
 
 已读取 VV《2026-11-05-草稿三项最小交互补充-VV-v2.md》，SHA256 `cbb7929f26e36402c4917fe7d5057d1c3edf2bc4c5e0e293c208e293dcf7d7a7`，工程语义经 Deja 通过、文案待 JJ。v1 已被替代；后续非 ripple ±项目帧及按钮仍未实施。
