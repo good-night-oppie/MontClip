@@ -1,0 +1,19 @@
+/* MontClip's colours over Cindy's (助手面板 v7.2 §1; Deja): the accent is MontClip's #7b6cff, not Cindy's blue focus ring or
+   its white main button; MontClip's own buttons keep .btn.primary's gradient (#7b6cff → #4f8cff). Yolo is MontClip's red,
+   as its bar and the top-bar mark. Cindy's neutrals (surfaces, text, lines) stay.
+   13px regular text passes WCAG AA 4.5:1 (QQ on #109, DD's measurements): the mode names take the lighter same-hue tints —
+   #9b8fff is 5.52 on the hover pill #272727 and 6.10 on the open menu row #1f1f1f, #ff6b70 is 5.40 / 5.96 (#7b6cff and
+   #e5484d there were 3.86 / 3.82). Icons and focus rings keep #7b6cff / #e5484d — they only need 3:1. The confirm
+   button's purple is deepened to #6a5bf0 so its white label is 4.81:1 (white on #7b6cff was 3.87). */
+:root {
+  --focus-ring: #7b6cff;
+  --focus-ring-soft: rgba(123, 108, 255, 0.5);
+  --ring: 246 100% 71%;
+  --perm-auto-selected-text: #9b8fff;
+  --perm-bypass-selected-text: #ff6b70;
+  --accent-cta-bg-pure: #6a5bf0;
+  --accent-pure-cta-fg: #ffffff;
+  --confirm-btn-primary-bg: #6a5bf0;
+  --confirm-btn-primary-text: #ffffff;
+  --confirm-btn-primary-hover: #5948e8;
+}
