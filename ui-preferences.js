@@ -760,6 +760,7 @@
     "meter-rms": ["RMS", "音量"],
     "media-kind-video": ["video", "视频"],
     "fps-value": ["{n} fps", "{n} 帧/秒"],
+    "resolution-stored": ["{display} (stored as {stored})", "{display}（文件里存的是 {stored}）"],
     "export-range-full": ["Full timeline · {from} → {to}", "整条时间线 · {from} → {to}"],
     "engine-fast-note": ["Frame-accurate. Server encodes from JPEG frames. Keeps going if you switch tabs.", "逐帧准确。由本机程序一帧帧编码，切到别的页面也会继续导出。"],
     "engine-webcodecs": ["WebCodecs (HW encode)", "显卡加速编码"],

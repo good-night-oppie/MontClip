@@ -148,19 +148,28 @@ function backfillDurations({ wait = BACKFILL_WAIT_MS } = {}) {
   return Promise.race([pass, new Promise((r) => setTimeout(() => r(null), wait).unref())]);
 }
 async function backfillNow() {
-  const todo = (readProject().media || []).filter((m) => (m.kind === "video" || m.kind === "audio") &&
-    !(Number.isFinite(m.duration) && m.duration > 0) && !m.durationUnknown && mediaFile(m.src));
+  const noLength = (m) => (m.kind === "video" || m.kind === "audio") && !(Number.isFinite(m.duration) && m.duration > 0) && !m.durationUnknown;
+  // P6: a video with a size but no stored size beside it may hold the stored size of non-square pixels (read once
+  // per file version — probeFile caches it — so this costs nothing after the first call)
+  const sizeUnchecked = (m) => m.kind === "video" && m.width > 0 && m.storedWidth == null;
+  const todo = (readProject().media || []).filter((m) => (noLength(m) || sizeUnchecked(m)) && mediaFile(m.src));
   if (!todo.length) return [];
   const found = new Map();
   await Promise.all(todo.map(async (m) => {
     const info = await probeFile(mediaFile(m.src));
-    if (info && (info.duration > 0 || info.durationUnknown)) found.set(m.id, info);
+    if (info && ((noLength(m) && (info.duration > 0 || info.durationUnknown)) || (sizeUnchecked(m) && info.storedWidth > 0))) found.set(m.id, info);
   }));
   if (!found.size) return [];
   const updates = [...found].map(([id, info]) => {
     const m = todo.find((x) => x.id === id);
-    return info.duration > 0 ? { id, src: m.src, duration: info.duration, ...(info.durationFrom ? { durationFrom: info.durationFrom } : {}) }
-      : { id, src: m.src, durationUnknown: true };
+    const u = { id, src: m.src };
+    if (noLength(m)) {
+      if (info.duration > 0) { u.duration = info.duration; if (info.durationFrom) u.durationFrom = info.durationFrom; }
+      else if (info.durationUnknown) u.durationUnknown = true;
+    }
+    // P6: the display size and the stored one, applied by MediaLib.applyBackfill (MediaLib.displaySize)
+    if (sizeUnchecked(m) && info.storedWidth > 0) Object.assign(u, { width: info.width, height: info.height, storedWidth: info.storedWidth, storedHeight: info.storedHeight });
+    return u;
   });
   // QQ (#152): through the server, so an editor's unsaved step is never written over — it merges them itself, or the
   // server does when none is open. Only a refused connection permits a direct write: a timeout or HTTP error may
