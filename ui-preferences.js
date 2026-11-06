@@ -130,6 +130,11 @@
     "export-save-cancelled": ["Not saved. The exported video is still here: open the export queue and click Save on this item to save it again.", "没有保存。导出的视频还在，打开『导出队列』，在这一条后面点『保存』就能再存一次。"],
     "captions-save-cancelled": ["Captions not saved. Click export captions again to save them.", "字幕没有保存。可以再点一次导出字幕。"],
     "save-busy": ["Close the save window that is already open first.", "先关掉上一个保存窗口"],
+    // a media file's channel count changed and its linked per-channel audio clips were synced (JJ's final wording, 2026-11-06)
+    "channels-fewer": ["\"{name}\" has fewer channels now. {n} linked audio clips were removed.", "「{name}」的声道变少了，已删掉 {n} 条多余的关联音频片段。"],
+    "channels-over-limit": ["\"{name}\" has {n} audio channels, but MontClip supports up to {max} audio tracks, so the extra {extra} channels weren't added to the timeline. The original file is unchanged.", "「{name}」有 {n} 个声道，MontClip 最多放 {max} 条音频轨，多出的 {extra} 个声道没有放进时间线。原文件没有变化。"],
+    "channels-added-tracks": ["\"{name}\" has more channels than there were audio tracks. Added {tracks} audio tracks and linked {linked} of its channels.", "「{name}」的声道比现有音频轨多，已新增 {tracks} 条音频轨，并关联了 {linked} 个声道。"],
+    "channels-linked": ["Linked {linked} audio channels from \"{name}\".", "已关联「{name}」的 {linked} 个声道。"],
     "export-save-failed": ["The save did not finish. The exported video is still here: open the export queue and click Save on this item to try again. If it still fails, choose another location or check that it has enough space.", "没有保存成功。导出的视频还在，打开『导出队列』，在这一条后面点『保存』再试一次；还不行的话，换个位置保存，或者看看那里的空间够不够。"],
     "import-url-title": ["Download media from an HTTPS URL into the project", "从 HTTPS 网址下载素材到项目"],
     "fit": ["Fit", "适配"],
@@ -1006,6 +1011,16 @@
     "own.cap-added-replaced_one_other": "Added {n} caption on {track}, replacing the {m} that were there",
     "own.cap-added-replaced_other_one": "Added {n} captions on {track}, replacing the one that was there",
     "own.cap-added-replaced_other_other": "Added {n} captions on {track}, replacing the {m} that were there",
+    // English singular/plural of the channel toasts (JJ, 2026-11-06, #139): fewer by {n}, over-limit by {extra},
+    // added-tracks by {tracks} ("of its channels" reads for any {linked}), linked by {linked}. Chinese has one form.
+    "own.channels-fewer_one": "\"{name}\" has fewer channels now. 1 linked audio clip was removed.",
+    "own.channels-fewer_other": "\"{name}\" has fewer channels now. {n} linked audio clips were removed.",
+    "own.channels-over-limit_one": "\"{name}\" has {n} audio channels, but MontClip supports up to {max} audio tracks, so the extra channel wasn't added to the timeline. The original file is unchanged.",
+    "own.channels-over-limit_other": "\"{name}\" has {n} audio channels, but MontClip supports up to {max} audio tracks, so the extra {extra} channels weren't added to the timeline. The original file is unchanged.",
+    "own.channels-added-tracks_one": "\"{name}\" has more channels than there were audio tracks. Added 1 audio track and linked {linked} of its channels.",
+    "own.channels-added-tracks_other": "\"{name}\" has more channels than there were audio tracks. Added {tracks} audio tracks and linked {linked} of its channels.",
+    "own.channels-linked_one": "Linked 1 audio channel from \"{name}\".",
+    "own.channels-linked_other": "Linked {linked} audio channels from \"{name}\".",
   });
   /** Keyed lookup: the language's string, else the English one, else "" (never the key). */
   /** A length as mm:ss, h:mm:ss from an hour; "" for none. The same as the Agent pane's durationText (agent-conversation.js, #26). */

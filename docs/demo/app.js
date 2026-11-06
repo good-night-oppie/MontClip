@@ -5171,14 +5171,18 @@ async function reconcileAudioChannels(videoClip, onlyTargeted = false) {
   }
   state.dirtyTimeline = true;
   scheduleSave(); renderInspector();
+  // channels this clip actually has linked now — not wantCh (untargeted lanes are skipped on add)
+  // and not `added` (A1/A2 were linked before the decode resolved)
+  const linked = project.clips.filter((c) => c.linkGroup === lg && c.kind === "audio").length;
+  const say = (key, counts, vars) => MontClipView.tp(mcView.get().language, key, counts, vars);
   if (chCount > ids.length)
-    toast(`${m.name}: ${chCount} audio channels, only ${MAX_TRACKS_PER_KIND} tracks supported — extra channel(s) dropped`);
+    toast(say("own.channels-over-limit", { extra: chCount - MAX_TRACKS_PER_KIND }, { name: m.name, n: chCount, max: MAX_TRACKS_PER_KIND, extra: chCount - MAX_TRACKS_PER_KIND }));
   else if (added)
     toast(newTracks
-      ? `${m.name}: added ${newTracks} audio track${newTracks === 1 ? "" : "s"} and linked ${wantCh} channels`
-      : `Linked ${wantCh} audio channel${wantCh === 1 ? "" : "s"} from ${m.name}`);
+      ? say("own.channels-added-tracks", { tracks: newTracks }, { name: m.name, tracks: newTracks, linked })
+      : say("own.channels-linked", { linked }, { name: m.name, linked }));
   else if (removed)
-    toast(`${m.name} has fewer channels — removed ${removed} linked audio clip(s)`);
+    toast(say("own.channels-fewer", { n: removed }, { name: m.name, n: removed }));
 }
 /* Apply a named title style: reset the props a style owns, merge the style,
    place it (canvas-aware), and make sure its fonts are loaded.
