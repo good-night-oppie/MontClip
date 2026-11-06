@@ -45,7 +45,11 @@ function acquire(dir, { shell = "server", port = null, pid = process.pid } = {})
     } catch (e) {
       if (e.code !== "EEXIST") throw e;
       const holder = readLock(file);
-      if (holder && holder.pid !== pid && alive(holder.pid)) {
+      if (!holder || !Number.isInteger(holder.pid) || holder.pid <= 0) {
+        throw Object.assign(new Error(`Writer lock ownership cannot be verified for ${dir}. Leave the lock intact and inspect its owner.`), { code: "DATA_DIR_IN_USE" });
+      }
+      // A reused PID (including our own) is not evidence that the old owner is gone.
+      if (alive(holder.pid)) {
         const where = holder.port ? ` on port ${holder.port}` : "";
         throw Object.assign(new Error(`Another MontClip (${holder.shell || "server"}, pid ${holder.pid}${where}) is already editing ${dir}. ` +
           "Close it first, or give this one its own data folder (FABLECUT_DATA_DIR)."), { code: "DATA_DIR_IN_USE", holder });
