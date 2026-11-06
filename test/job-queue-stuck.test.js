@@ -253,9 +253,13 @@ test('a disconnected owner releases even a visible tab, and unknown presence is 
     const j = q.jobs.request({}); q.jobs.claim(j.id, { tabId:'a', hidden:false });
     q.tick(25000); q.jobs.sweep(); assert.equal(q.jobs.get(j.id).status, 'failed');
   } finally { q.done(); }
+  // unknown presence (a claim without tabId / hidden): not released at 20 s, but main's 120 s stall still applies (P11),
+  // so a page that never says who it is cannot hold the queue forever
   const q2 = queue(); try {
-    const j = q2.jobs.request({}); q2.jobs.claim(j.id);
-    q2.tick(130000); q2.jobs.sweep(); assert.equal(q2.jobs.get(j.id).status, 'running');
+    const j = q2.jobs.request({}); q2.jobs.claim(j.id); q2.jobs.report(j.id, { progress: 0.42, at: 19.37 });
+    q2.tick(25000); q2.jobs.sweep(); assert.equal(q2.jobs.get(j.id).status, 'running');
+    q2.tick(100000); q2.jobs.sweep(); assert.equal(q2.jobs.get(j.id).status, 'failed');
+    assert.equal(q2.jobs.get(j.id).error, 'the editor stopped reporting progress at 42% (timeline 19.37 s) (tab closed or browser crashed)');
   } finally { q2.done(); }
 });
 

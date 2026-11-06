@@ -3165,7 +3165,7 @@ until the streamer applies; then the part's captions are replaced in one undo st
 
 ### Editor job presence
 
-A claimed tab job is released after 20 seconds without a report only when its owning tab is hidden or its SSE connection has closed. A visible connected tab keeps its job, even beyond 120 seconds. The busy reply still names the cancellation request. The editor sends a page-specific `tabId` on `/api/events`, job claim and report; claim/report also carry `hidden`. Unknown presence is treated conservatively.
+A claimed tab job is released after 20 seconds without a report only when its owning tab is hidden or its SSE connection has closed. A visible connected tab keeps its job, even beyond 120 seconds. The busy reply still names the cancellation request. The editor sends a page-specific `tabId` on `/api/events`, job claim and report; claim/report also carry `hidden`. A claim without that presence (no `tabId`, no `hidden`) is not released at 20 seconds, but still ends after 120 seconds without a report, like a headless job.
 
 ### Desktop AI data notice and switch
 

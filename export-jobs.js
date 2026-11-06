@@ -58,7 +58,7 @@ function findBrowser(env = process.env) {
  *  onEnd(job) → a job ended without its file (failed or cancelled): stop what it left running,
  *  finished(src) → is the file an export job says it made really in place (renamed from .part)?} */
 function createExportJobs(opts) {
-  const clock = typeof opts.now === "function" ? opts.now : Date.now;
+  const clock = typeof opts.now === "function" ? opts.now : () => Date.now();   // late-bound: tests may stub Date.now
   function assertWhere(where = "auto") {
     if (opts.allowHeadless !== false) return;
     // English for agents and logs; the page says errorCode in the interface language (app.js codeText)
@@ -108,7 +108,9 @@ function createExportJobs(opts) {
         end(j, "failed", { errorCode: "EDITOR_STOPPED_ANSWERING", error: `the editor tab stopped answering for ${TAB_SILENT_MS / 1000} s ` +
           "(it may be in the background, minimized or paused), so the job was ended to free the queue — bring the editor to the front and retry" +
           (opts.allowHeadless === false ? "" : ", or retry with where:\"headless\"") });
-      else if (j.status === "running" && j.via === "headless" && now - j.updated > STALL_MS)
+      // headless, or a tab that never said who it is (no tabId, no hidden): main's 120 s stall (P11). Only a tab known to be
+      // visible and connected keeps its job past that.
+      else if (j.status === "running" && (j.via === "headless" || (!j.tabId && typeof j.hidden !== "boolean")) && now - j.updated > STALL_MS)
         end(j, "failed", { error: "the editor stopped reporting progress" +
           (j.kind === "export" ? ` at ${Math.round(j.progress * 100)}%${j.at != null ? ` (timeline ${j.at} s)` : ""}` : "") + " (tab closed or browser crashed)" });
       else if (isEnded(j) && now - j.updated > KEEP_MS) jobs.delete(j.id);
