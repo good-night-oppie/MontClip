@@ -104,3 +104,18 @@ test("JJ (8 PRs): 正在转成能剪的格式…", () => {
   a.equal(V.t('en', 'flvPhasePrepare'), 'Converting to a format you can edit…');
   for (const l of ['zh-CN', 'en']) for (const s of Object.values(V.text[l])) a.ok(typeof s !== 'string' || !s.includes('兼容副本'), s);
 });
+
+// Rea's review of 064306bd (5804186201): a big break and drift together — the break is held, but picture and sound
+// still move apart (drift is not corrected, Deja's decision), so the sentence must not say the timing is right.
+const RIGHT = /前后的时间是对的|timing (before and after|around them) is right/;
+test('after a conversion with drift, the sentence never says the timing is right; without drift it is JJ’s as before', () => {
+  const one = [{ stream: 'video', at: 30, len: 2 }, { stream: 'audio', at: 30, len: 2 }], two = [{ stream: 'video', at: 3, len: 0.6 }, { stream: 'video', at: 40, len: 1.25 }];
+  for (const lang of ['zh-CN', 'en']) for (const gaps of [one, two]) {
+    const plain = V.flvConvertedMessage(lang, gaps), drifting = V.flvConvertedMessage(lang, gaps, 0.067);
+    a.match(plain, RIGHT, lang + ': no drift keeps JJ’s sentence');
+    a.doesNotMatch(drifting, RIGHT, lang + ': ' + drifting);
+    a.equal(drifting, V.t(lang, gaps === one ? 'flvConvertedDrift' : 'flvConvertedDriftMany', gaps === one ? { N: '2', time: '00:30' } : { k: 2, N: '1.9' }));
+  }
+  a.equal(V.flvConvertedMessage('zh-CN', one, 0), V.flvConvertedMessage('zh-CN', one), 'drift 0 / missing: as before');
+  a.equal(V.flvConvertedMessage('zh-CN', one, undefined), V.flvConvertedMessage('zh-CN', one));
+});

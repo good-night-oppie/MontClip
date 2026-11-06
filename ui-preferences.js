@@ -1150,16 +1150,30 @@
     exportSourceDamaged: "This wasn't exported: part of the picture in \"{name}\" around {at} is damaged and would come out garbled, so the export stopped. Your edits are all still there; you can cut that short part out and export again.",
   });
   /** About N seconds, as said to the streamer: whole seconds from 10 s, else one decimal (at least 0.1). */
+  /* DRAFT (Deja, 2026-11-06, for JJ — to be replaced word for word with JJ's final): after a conversion of breaks in a
+     recording whose picture and sound also move apart during it (prepareMedia's drift: not corrected, Deja's decision),
+     JJ's 「前后的时间是对的」 is not true (Rea, review 5804186201: drift 0.067, +98 ms at the end). No number of ms: the
+     drift measure is a lower bound of what an export shows. */
+  Object.assign(text["zh-CN"], {
+    flvConvertedDrift: "已经转好了。{time} 这里录像断了约 {N} 秒：这几秒画面会停住、没有声音。另外，这场录像里声音和画面本来就慢慢错开了一点，MontClip 没有改动这一点。不想要断的那段可以剪掉。",
+    flvConvertedDriftMany: "已经转好了。录像一共断了 {k} 处，加起来约 {N} 秒：这些地方画面会停住、没有声音。另外，这场录像里声音和画面本来就慢慢错开了一点，MontClip 没有改动这一点。不想要断的地方可以剪掉。",
+  });
+  Object.assign(text.en, {
+    flvConvertedDrift: "Converted. The recording dropped out for about {N} s at {time}: for those seconds the picture freezes and there's no sound. The sound and picture in this recording also drift apart a little; MontClip did not change that. You can cut the dropout out if you don't want it.",
+    flvConvertedDriftMany: "Converted. The recording dropped out {k} times, about {N} s in total: in those places the picture freezes and there's no sound. The sound and picture in this recording also drift apart a little; MontClip did not change that. You can cut the dropouts out if you don't want them.",
+  });
   const flvSeconds = (s) => s >= 10 ? String(Math.round(s)) : String(Math.max(0.1, Math.round(s * 10) / 10));
   /** After a recording with breaks was converted: where it broke, in JJ's words ("" when it had none). A break the
-   *  picture and the sound both have (they overlap in time) is one break. */
-  function flvConvertedMessage(language, gaps) {
+   *  picture and the sound both have (they overlap in time) is one break. `drift` (seconds, prepareMedia's result; only
+   *  there when over 40 ms): picture and sound still move apart, so the sentence does not say the timing is right. */
+  function flvConvertedMessage(language, gaps, drift) {
     const list = (Array.isArray(gaps) ? gaps : []).filter((g) => g && g.len > 0).map((g) => [g.at, g.at + g.len]).sort((a, b) => a[0] - b[0]);
     const merged = [];
     for (const [a, b] of list) { const last = merged.at(-1); if (last && a <= last[1]) last[1] = Math.max(last[1], b); else merged.push([a, b]); }
     if (!merged.length) return "";
     const N = flvSeconds(merged.reduce((s, [a, b]) => s + b - a, 0));
-    return merged.length === 1 ? t(language, "flvConverted", { N, time: clock(merged[0][0]) }) : t(language, "flvConvertedMany", { k: merged.length, N });
+    const apart = Number(drift) > 0 ? "Drift" : "";
+    return merged.length === 1 ? t(language, `flvConverted${apart}`, { N, time: clock(merged[0][0]) }) : t(language, `flvConverted${apart}Many`, { k: merged.length, N });
   }
   /** A break's words on the timeline: the label of a converted one (Deja: 「这里录像断了约 N 秒」), the tooltip of a small drop. */
   function flvGapMark(language, gap) { return t(language, gap && gap.big ? "flvGapMark" : "flvDropMark", { N: flvSeconds(gap ? gap.len : 0) }); }

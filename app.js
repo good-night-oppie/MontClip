@@ -2304,7 +2304,7 @@ async function desktopFlvImport(file, { convert = false } = {}) {
       failed = { ...out, convert: !fix && out.code === "FLV_PREPARATION_FAILED" };
       return null;
     }
-    if (fix) converted = MontClipView.flvConvertedMessage(lang(), gaps);
+    if (fix) converted = MontClipView.flvConvertedMessage(lang(), gaps, out.drift);   // drift: not "the timing is right" (Rea)
     return { src: out.src, originalSrc: out.originalSrc, preparation: out.preparation, importId: id, gaps: out.gaps || gaps };
   } finally {
     clearInterval(poll); dlg.close(); dlg.remove();
@@ -2387,7 +2387,7 @@ async function importFiles(fileList) {
               let body = null; try { body = await res.json(); } catch { }
               if (!res.ok) throw refused(res.status, body);
               ({src, originalSrc, preparation, gaps} = body);
-              const done = code === "FLV_TIMELINE_GAP" && MontClipView.flvConvertedMessage(mcView.get().language, gaps || error.gaps);
+              const done = code === "FLV_TIMELINE_GAP" && MontClipView.flvConvertedMessage(mcView.get().language, gaps || error.gaps, body && body.drift);
               if (done) flvNotice(done, { name: file.name, done: true });   // where it broke (JJ v2); the import goes on
             } catch (again) { await flvFailure(again?.code || "UPLOAD_FAILED", { name: file.name, check: again?.check }); continue; }
           }

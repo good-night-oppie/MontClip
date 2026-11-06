@@ -24,6 +24,15 @@ test('browser: a recording with breaks is offered as a conversion; 〔帮我转�
  assert.equal(w.project.media.length,1);assert.equal(w.project.media[0].preparation,'remux');
  assert.deepEqual(w.project.media[0].gaps,gaps,'the timeline marks come from here');
 });
+test('browser: a conversion that reports drift does not say the timing is right (Rea, 5804186201)',async()=>{
+ const w=world(),notes=[],gaps=[{stream:'video',at:30,len:2,big:true},{stream:'audio',at:30,len:2,big:true}];
+ w.context.fetch=async(url)=>url.startsWith('/api/upload')?{ok:false,status:409,json:async()=>({code:'FLV_TIMELINE_GAP',originalSrc:'/media/source.flv',gaps,fix:['break']})}
+   :{ok:true,status:200,json:async()=>({src:'/media/compat.mp4',originalSrc:'/media/source.flv',preparation:'remux',audio:'filled',gapsHeld:true,gaps,drift:0.067})};
+ w.context.flvNotice=async(m,o)=>{notes.push([m,o]);return true;};
+ await w.context.importFiles([{name:'断过.flv',type:''}]);
+ assert.equal(notes[1][0],w.context.MontClipView.flvConvertedMessage('zh-CN',gaps,0.067));
+ assert.ok(!/前后的时间是对的/.test(notes[1][0]),notes[1][0]);
+});
 test('browser: declining the conversion imports nothing',async()=>{
  const w=world();w.context.fetch=async()=>({ok:false,status:409,json:async()=>({code:'FLV_TIMELINE_GAP',originalSrc:'/media/source.flv',gaps:[]})});
  await w.context.importFiles([{name:'断过.flv',type:''}]);assert.equal(w.project.media.length,0);assert.equal(w.calls.saved,0);

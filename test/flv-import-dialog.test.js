@@ -53,6 +53,22 @@ test("a recording that has to be converted: JJ's sentence, 〔帮我转〕〔先
   assert.deepEqual(w.toasts, []);
 });
 
+test("desktop: a conversion that reports drift does not say the timing is right (Rea, 5804186201)", async () => {
+  const bridge = {
+    inspect: async (file, id) => ({ ok: true, id, compatible: true, needsReadableConsent: false, gaps: BIG, fix: ["break"] }),
+    status: async () => null,
+    prepare: async () => ({ ok: true, src: "/media/compat.mp4", originalSrc: "/media/a.flv", preparation: "remux", audio: "filled", gapsHeld: true, gaps: BIG, drift: 0.067 }),
+    cancel: async () => {},
+  };
+  const w = world(bridge);
+  const pending = w.context.desktopFlvImport({ name: "断过又错开.flv" });
+  (await until(() => w.made.find((b) => b.dataset.flvContinue !== undefined && !b.hidden))).onclick();
+  await pending;
+  const said = w.reason(await until(() => w.notices()[0]));
+  assert.equal(said, V.flvConvertedMessage("zh-CN", BIG, 0.067));
+  assert.doesNotMatch(said, /前后的时间是对的/);
+});
+
 test("small drops import without a question, and without 「已经转好了」", async () => {
   const small = [{ stream: "video", at: 30, len: 0.034, big: false }];
   const bridge = {

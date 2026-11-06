@@ -246,3 +246,14 @@ test("Rea on ea1c84d9: a recording that is re-encoded fills its sound's holes to
   const read = samplesAV(path.join(dir, decodeURIComponent(r.src.slice("/media/".length))));
   assert.ok(read.worst <= 0.04, `read as the export reads it: ${Math.round(read.worst * 1000)} ms apart (last pair ${JSON.stringify(read.pairs.at(-1))})`);
 });
+
+test("Rea on 064306bd: a big break with drift — the drift is returned with the conversion, and the sentence after it does not say the timing is right", async (t) => {
+  if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
+  const dir = tmp(t);
+  const { file } = make(dir, "break-and-drift.flv", [["jump", { streams: ["video", "audio"], at: 30000, len: 2000 }], ["creep", { from: 0, to: 62000, by: 100 }]]);
+  const r = await P.prepareMedia(file, { fixGaps: true, acceptReadable: true, allowTranscode: true });
+  assert.equal(r.gapsHeld, true);
+  assert.ok(r.drift > 0.04, `drift returned: ${r.drift}`);
+  const said = require("../ui-preferences").flvConvertedMessage("zh-CN", r.gaps, r.drift);
+  assert.doesNotMatch(said, /前后的时间是对的/, said);
+});
