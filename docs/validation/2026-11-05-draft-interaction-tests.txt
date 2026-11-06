@@ -1,0 +1,364 @@
+TAP version 13
+# Subtest: two entries: the top bar right of 项目, and the transcript tab beside 高光候选 (which stays)
+ok 1 - two entries: the top bar right of 项目, and the transcript tab beside 高光候选 (which stays)
+  ---
+  duration_ms: 69.1996
+  type: 'test'
+  ...
+# Subtest: JJ's words for the bottom bar and what placing says
+ok 2 - JJ's words for the bottom bar and what placing says
+  ---
+  duration_ms: 1.9847
+  type: 'test'
+  ...
+# Subtest: every 自动出切片 string has English too, and the English is not the Chinese
+ok 3 - every 自动出切片 string has English too, and the English is not the Chinese
+  ---
+  duration_ms: 5.9831
+  type: 'test'
+  ...
+# Subtest: finished while the window is not in front: one local notification; the dialog is kept when closed
+ok 4 - finished while the window is not in front: one local notification; the dialog is kept when closed
+  ---
+  duration_ms: 9.5176
+  type: 'test'
+  ...
+# Subtest: placing is one undo step for the whole batch, an editor event like any other
+ok 5 - placing is one undo step for the whole batch, an editor event like any other
+  ---
+  duration_ms: 9.1595
+  type: 'test'
+  ...
+# Subtest: the module loads in the page before app.js
+ok 6 - the module loads in the page before app.js
+  ---
+  duration_ms: 3.0397
+  type: 'test'
+  ...
+# Subtest: desktop: the notification comes from the main process over one fixed channel that takes a count only (web permissions stay denied)
+ok 7 - desktop: the notification comes from the main process over one fixed channel that takes a count only (web permissions stay denied)
+  ---
+  duration_ms: 4.2561
+  type: 'test'
+  ...
+# Subtest: Deja's song-card words until JJ's final copy: a time, 可能在唱歌, three tags, the lyrics button kept with 如果这段是唱歌
+ok 8 - Deja's song-card words until JJ's final copy: a time, 可能在唱歌, three tags, the lyrics button kept with 如果这段是唱歌
+  ---
+  duration_ms: 11.7862
+  type: 'test'
+  ...
+# Subtest: v8 (frozen, JJ-approved): a level beside each start and end time; the likely hint; 你调过 grey with no hint; 不确定, not 拿不准
+ok 9 - v8 (frozen, JJ-approved): a level beside each start and end time; the likely hint; 你调过 grey with no hint; 不确定, not 拿不准
+  ---
+  duration_ms: 34.242
+  type: 'test'
+  ...
+# Subtest: v9 (JJ final; Deja): below the gate every promise of telling songs apart says 可能在唱歌 — the singing hint, the length hint, the search step, the lyrics button; at the gate the song wording comes back
+ok 10 - v9 (JJ final; Deja): below the gate every promise of telling songs apart says 可能在唱歌 — the singing hint, the length hint, the search step, the lyrics button; at the gate the song wording comes back
+  ---
+  duration_ms: 12.9085
+  type: 'test'
+  ...
+# Subtest: JJ's v11 visual review: the 估的 note once, above the cards; the cards keep only their tags
+ok 11 - JJ's v11 visual review: the 估的 note once, above the cards; the cards keep only their tags
+  ---
+  duration_ms: 10.1842
+  type: 'test'
+  ...
+# Subtest: v12: a pencil on hovering a name, 〔▶ 试看〕 stronger, the lyrics button in the button row with the subtitle line as its tooltip
+ok 12 - v12: a pencil on hovering a name, 〔▶ 试看〕 stronger, the lyrics button in the button row with the subtitle line as its tooltip
+  ---
+  duration_ms: 12.4766
+  type: 'test'
+  ...
+# Subtest: no wording the streamer sees mentions laughter (笑声)
+ok 13 - no wording the streamer sees mentions laughter (笑声)
+  ---
+  duration_ms: 153.4752
+  type: 'test'
+  ...
+# Subtest: nothing the AI reads says the software hears laughter: the MCP tools and the manual
+ok 14 - nothing the AI reads says the software hears laughter: the MCP tools and the manual
+  ---
+  duration_ms: 15.2748
+  type: 'test'
+  ...
+# Subtest: English 自动出切片 strings quote with “ ”, never 「」; the 估的 note in JJ's words
+ok 15 - English 自动出切片 strings quote with “ ”, never 「」; the 估的 note in JJ's words
+  ---
+  duration_ms: 1.0102
+  type: 'test'
+  ...
+# Subtest: the notes name the card's own buttons, word for word
+ok 16 - the notes name the card's own buttons, word for word
+  ---
+  duration_ms: 0.6727
+  type: 'test'
+  ...
+# Subtest: the name hint and the name tooltip in JJ's English; "in the video", never "in the picture"
+ok 17 - the name hint and the name tooltip in JJ's English; "in the video", never "in the picture"
+  ---
+  duration_ms: 0.8453
+  type: 'test'
+  ...
+# Subtest: the card's lyrics button: none until the card can use it; then short, the long sentence in its tooltip; disabled looks disabled
+ok 18 - the card's lyrics button: none until the card can use it; then short, the long sentence in its tooltip; disabled looks disabled
+  ---
+  duration_ms: 51.2038
+  type: 'test'
+  ...
+# Subtest: the review's title: JJ's words, and the ticked set against the search's, not the count
+ok 19 - the review's title: JJ's words, and the ticked set against the search's, not the count
+  ---
+  duration_ms: 105.5127
+  type: 'test'
+  ...
+# Subtest: found and 圈出 count every card the search found, the ones taken out too; zh and en
+ok 20 - found and 圈出 count every card the search found, the ones taken out too; zh and en
+  ---
+  duration_ms: 36.4829
+  type: 'test'
+  ...
+# Subtest: the footer: the empty states in JJ's words, the short words for a narrow window; 先勾选要导出的 gone
+ok 21 - the footer: the empty states in JJ's words, the short words for a narrow window; 先勾选要导出的 gone
+  ---
+  duration_ms: 20.1666
+  type: 'test'
+  ...
+# Subtest: 设置 › 自动出切片: 开着 / 关着 beside 〔记住我的剪辑习惯〕
+ok 22 - 设置 › 自动出切片: 开着 / 关着 beside 〔记住我的剪辑习惯〕
+  ---
+  duration_ms: 21.2822
+  type: 'test'
+  ...
+# Subtest: the line under 全拿掉 in JJ's words; every name it quotes is the screen's own
+ok 23 - the line under 全拿掉 in JJ's words; every name it quotes is the screen's own
+  ---
+  duration_ms: 8.3633
+  type: 'test'
+  ...
+# Subtest: the choices: what the stream is mostly, how many at most, how long each
+ok 24 - the choices: what the stream is mostly, how many at most, how long each
+  ---
+  duration_ms: 4.5136
+  type: 'test'
+  ...
+# Subtest: let it look (auto): songs and highlights together, best first; a highlight inside a song is left out; at most `count`; the best 3 ticked
+ok 25 - let it look (auto): songs and highlights together, best first; a highlight inside a song is left out; at most `count`; the best 3 ticked
+  ---
+  duration_ms: 6.6537
+  type: 'test'
+  ...
+# Subtest: singing: songs only; chatting, games, watching together: highlights only
+ok 26 - singing: songs only; chatting, games, watching together: highlights only
+  ---
+  duration_ms: 6.7126
+  type: 'test'
+  ...
+# Subtest: fewer good ones than asked: all of them, all ticked, and it says how many it found against the most asked
+ok 27 - fewer good ones than asked: all of them, all ticked, and it says how many it found against the most asked
+  ---
+  duration_ms: 1.8774
+  type: 'test'
+  ...
+# Subtest: each end starts at its found level (v8: songs with nothing guessed and highlights 比较可能); songs are numbered by their place in the recording
+ok 28 - each end starts at its found level (v8: songs with nothing guessed and highlights 比较可能); songs are numbered by their place in the recording
+  ---
+  duration_ms: 7.5182
+  type: 'test'
+  ...
+# Subtest: only the best part (hook) and 30 s – 1 min (short): a song becomes its loudest 45 s, inside the song
+ok 29 - only the best part (hook) and 30 s – 1 min (short): a song becomes its loudest 45 s, inside the song
+  ---
+  duration_ms: 6.0994
+  type: 'test'
+  ...
+# Subtest: a song card gives why: it sings throughout, and it is louder than usual when it is
+ok 30 - a song card gives why: it sings throughout, and it is louder than usual when it is
+  ---
+  duration_ms: 1.5521
+  type: 'test'
+  ...
+# Subtest: times: h:mm:ss over an hour, m:ss under; nudging an end keeps it inside the recording and 5 s long at least
+ok 31 - times: h:mm:ss over an hour, m:ss under; nudging an end keeps it inside the recording and 5 s long at least
+  ---
+  duration_ms: 0.7579
+  type: 'test'
+  ...
+# Subtest: the whole-stream overview: the sound as an area, a numbered box per card (ticked or not), clicks find the card
+ok 32 - the whole-stream overview: the sound as an area, a numbered box per card (ticked or not), clicks find the card
+  ---
+  duration_ms: 3.0991
+  type: 'test'
+  ...
+# Subtest: the bottom bar adds up the ticked ones; file names are numbered in the review order
+ok 33 - the bottom bar adds up the ticked ones; file names are numbered in the review order
+  ---
+  duration_ms: 14.1435
+  type: 'test'
+  ...
+# Subtest: a recording with nothing found, or no sound read: nothing to show, no crash
+ok 34 - a recording with nothing found, or no sound read: nothing to show, no crash
+  ---
+  duration_ms: 0.5906
+  type: 'test'
+  ...
+# Subtest: the naming gate: precision@15 ≥ 0.6 and recall@10 ≥ 0.6; below it a song card is named by its time
+ok 35 - the naming gate: precision@15 ≥ 0.6 and recall@10 ≥ 0.6; below it a song card is named by its time
+  ---
+  duration_ms: 3.0602
+  type: 'test'
+  ...
+# Subtest: each start and each end has its level (v8): estimated (估的) where songs.js marked it, likely (比较可能) otherwise, adjusted (你调过) while it is moved
+ok 36 - each start and each end has its level (v8): estimated (估的) where songs.js marked it, likely (比较可能) otherwise, adjusted (你调过) while it is moved
+  ---
+  duration_ms: 2.7863
+  type: 'test'
+  ...
+# Subtest: strict sentence suggestion builds existing range plan without mutating and preserves user order
+ok 37 - strict sentence suggestion builds existing range plan without mutating and preserves user order
+  ---
+  duration_ms: 11.7474
+  type: 'test'
+  ...
+# Subtest: untrusted extra operations, unknown/unquoted identities, partial sentences and invalid times reject
+ok 38 - untrusted extra operations, unknown/unquoted identities, partial sentences and invalid times reject
+  ---
+  duration_ms: 3.0305
+  type: 'test'
+  ...
+# Subtest: locked tracks and speed ramps retain existing range-plan refusal, edits invalidate binding
+ok 39 - locked tracks and speed ramps retain existing range-plan refusal, edits invalidate binding
+  ---
+  duration_ms: 2.769
+  type: 'test'
+  ...
+# Subtest: card undo identifies only its own top shared history record, including redo
+ok 40 - card undo identifies only its own top shared history record, including redo
+  ---
+  duration_ms: 6.3663
+  type: 'test'
+  ...
+# Subtest: a checked proposal becomes an event with a result to preview: exact keys, checked args only
+ok 41 - a checked proposal becomes an event with a result to preview: exact keys, checked args only
+  ---
+  duration_ms: 7.8768
+  type: 'test'
+  ...
+# Subtest: keep_sentences becomes the same shape
+ok 42 - keep_sentences becomes the same shape
+  ---
+  duration_ms: 3.7828
+  type: 'test'
+  ...
+# Subtest: a refused reply is a failed event that carries the reason, never the reply
+ok 43 - a refused reply is a failed event that carries the reason, never the reply
+  ---
+  duration_ms: 1.5446
+  type: 'test'
+  ...
+# Subtest: the states move only forward: result → applied (with revisionAfter) → undone, or result → rejected
+ok 44 - the states move only forward: result → applied (with revisionAfter) → undone, or result → rejected
+  ---
+  duration_ms: 2.8089
+  type: 'test'
+  ...
+# Subtest: the page keeps one event per reviewed proposal and moves it on apply, cancel and undo
+ok 45 - the page keeps one event per reviewed proposal and moves it on apply, cancel and undo
+  ---
+  duration_ms: 19.0006
+  type: 'test'
+  ...
+# Subtest: a range that is exactly a caption is not reported as cutting it, or its neighbours
+ok 46 - a range that is exactly a caption is not reported as cutting it, or its neighbours
+  ---
+  duration_ms: 35.194
+  type: 'test'
+  ...
+# Subtest: a second pass over captions that already carry provenance stays exact too
+ok 47 - a second pass over captions that already carry provenance stays exact too
+  ---
+  duration_ms: 5.1728
+  type: 'test'
+  ...
+# Subtest: a boundary within half a frame counts as the same boundary; a real cut is still reported
+ok 48 - a boundary within half a frame counts as the same boundary; a real cut is still reported
+  ---
+  duration_ms: 1.8115
+  type: 'test'
+  ...
+# Subtest: the dialog counts only the captions that are shown and really cut
+ok 49 - the dialog counts only the captions that are shown and really cut
+  ---
+  duration_ms: 7.0958
+  type: 'test'
+  ...
+# Subtest: the tolerance has a ceiling below the shortest clip the engine keeps, at any frame rate
+ok 50 - the tolerance has a ceiling below the shortest clip the engine keeps, at any frame rate
+  ---
+  duration_ms: 1.906
+  type: 'test'
+  ...
+# Subtest: QQ's repro: a 40 ms keep with a 10 ms audio sliver is refused at 30, 5 and 1 fps, never emptied
+ok 51 - QQ's repro: a 40 ms keep with a 10 ms audio sliver is refused at 30, 5 and 1 fps, never emptied
+  ---
+  duration_ms: 2.2559
+  type: 'test'
+  ...
+# Subtest: at 1 fps a caption cut by 0.4 s is marked truncated
+ok 52 - at 1 fps a caption cut by 0.4 s is marked truncated
+  ---
+  duration_ms: 26.4248
+  type: 'test'
+  ...
+# Subtest: independent M0 truth: user order and all eight exact caption intersections
+ok 53 - independent M0 truth: user order and all eight exact caption intersections
+  ---
+  duration_ms: 63.4473
+  type: 'test'
+  ...
+# Subtest: half-open boundaries, repeated source ranges and collapsed millisecond intersections
+ok 54 - half-open boundaries, repeated source ranges and collapsed millisecond intersections
+  ---
+  duration_ms: 4.387
+  type: 'test'
+  ...
+# Subtest: later native caption timing changes refuse stale provenance; markers follow user order
+ok 55 - later native caption timing changes refuse stale provenance; markers follow user order
+  ---
+  duration_ms: 4.0467
+  type: 'test'
+  ...
+# Subtest: container-time selections retain a nonzero first-video timestamp and caption offset
+ok 56 - container-time selections retain a nonzero first-video timestamp and caption offset
+  ---
+  duration_ms: 1.6585
+  type: 'test'
+  ...
+# Subtest: nonadjacent sentences join only selected ranges, audio/video stay aligned and SRT rebases
+ok 57 - nonadjacent sentences join only selected ranges, audio/video stay aligned and SRT rebases
+  ---
+  duration_ms: 54.4876
+  type: 'test'
+  ...
+# Subtest: selection refuses missing, disabled, locked and unrepresentable ranges before mutation
+ok 58 - selection refuses missing, disabled, locked and unrepresentable ranges before mutation
+  ---
+  duration_ms: 3.0873
+  type: 'test'
+  ...
+# Subtest: mapping supports constant speed and refuses unsupported ramps or past-source windows
+ok 59 - mapping supports constant speed and refuses unsupported ramps or past-source windows
+  ---
+  duration_ms: 1.5819
+  type: 'test'
+  ...
+1..59
+# tests 59
+# suites 0
+# pass 59
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1344.499
