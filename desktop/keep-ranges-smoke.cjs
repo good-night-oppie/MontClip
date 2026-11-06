@@ -43,7 +43,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   const media=path.join(profile,'workspace','media');fs.mkdirSync(media,{recursive:true});makeSource(path.join(media,'合成 歌单.mp4'));
   await read(`(async()=>{const doc=projectJSON();Object.assign(doc,{width:320,height:180,fps:30,media:[{id:'m1',src:'/media/合成 歌单.mp4',kind:'video',name:'合成 歌单.mp4',duration:${SECONDS},width:320,height:180}],
    clips:[{id:'v1',kind:'video',mediaId:'m1',track:'V1',start:0,in:0,duration:${SECONDS},props:{volume:0},linkGroup:'g1'},{id:'a1',kind:'audio',mediaId:'m1',track:'A1',start:0,in:0,duration:${SECONDS},props:{volume:1},linkGroup:'g1'}]});
-   applyProject(doc);scheduleSave();if(!await flushSave())throw Error('SAVE');})()`);
+   applyProject(doc);state.selIds=new Set(['v1','a1']);scheduleSave();if(!await flushSave())throw Error('SAVE');})()`);
   const cfg=await read(`montclipAgentService.configure({provider:'openai',model:'synthetic-model',apiKey:'synthetic-test-key-not-real'})`);assert.equal(cfg.configured,true);
   await read(`setSideTab('assistant');mcAgent.render();true`);await wait();
   await read(`(()=>{const e=document.querySelector('[data-cindy-draft]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'把每首歌一首一个切片剪出来');e.dispatchEvent(new Event('input',{bubbles:true}));})()`);await wait();
