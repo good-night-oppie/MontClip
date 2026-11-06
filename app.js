@@ -13526,7 +13526,14 @@ function bgRemoveExportError(clipId, realtime = false) {
 }
 /* A fresh/headless page cannot inherit consent. Refuse before starting an encoder, then verify every frame below. */
 function noteExportBgRemove(range = exportRange(), realtime = false) {
-  const c = bgRemoveClips().find((c) => clipRenders(c) && c.start < range.end && clipEnd(c) > range.start);
+  const c = mediaClips().find((c) => {
+    if (!clipRenders(c) || (c.kind !== "video" && c.kind !== "image")) return false;
+    const start = Math.max(c.start, range.start), end = Math.min(clipEnd(c), range.end);
+    if (start >= end) return false;
+    // File/API keyframes can override even a false static prop. Use the same effective value as drawing.
+    return evalProps(c, start).bgRemove || evalProps(c, Math.max(start, end - 1e-9)).bgRemove ||
+      (c.keyframes?.bgRemove || []).some((k) => k.t + c.start >= start && k.t + c.start < end && k.v);
+  });
   if (c && (!bgSeg.seg || realtime)) throw bgRemoveExportError(c.id, realtime);
 }
 /* Serialize sends; returns a promise that resolves once the mask is refreshed.
@@ -20075,7 +20082,7 @@ async function prepareFrameAssets(t) {
   for (const c of mediaClips()) {
     if (!activeAt(c, t) || !clipRenders(c)) continue;
     if (c.kind === "svg") await prepareSvgFrame(c, t);
-    if (c.props?.bgRemove && (c.kind === "video" || c.kind === "image")) {
+    if ((c.kind === "video" || c.kind === "image") && evalProps(c, t).bgRemove) {
       const el = c.kind === "video" ? getClipEl(c) : runtime.mediaAux.get(c.mediaId)?.img;
       await requestMask(c.id, el, true);
     }

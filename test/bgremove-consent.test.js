@@ -46,6 +46,7 @@ function page({desktop=false,clips=[],scriptFailures=0,sendFails=false,noResult=
   toast:(m)=>toasts.push({m}),toastAction:(m,label,fn)=>toasts.push({m,label,fn}),
   mediaClips:()=>clips,clipRenders:c=>!c.disabled&&!c.hidden,clipEnd:c=>c.start+c.duration,
   activeAt:(c,t)=>t>=c.start&&t<c.start+c.duration,getClipEl:()=>null,
+  evalProps:c=>({...c.props,...(c.keyframes?.bgRemove?.length?{bgRemove:c.keyframes.bgRemove[0].v}:{})}),
   exportRange:()=>({start:0,end:3}),fontDesktop:()=>!!window.montclipViewSettings,setTimeout,clearTimeout};
  const names=['ensureBgSeg','requestMask','requestBgRemove','noteBgRemove','noteExportBgRemove','prepareFrameAssets','bgSeg'];
  const code=BG+'\n'+fn('askNetConsent')+'\nasync '+fn('prepareFrameAssets')+'\nreturn {'+names.map(n=>`${n}: typeof ${n}!=="undefined"?${n}:undefined`).join(',')+'};';
@@ -117,6 +118,13 @@ test('frame preparation rejects missing media; realtime refuses even a loaded mo
  a.throws(()=>p.api.noteExportBgRemove({start:0,end:3},true),/bgremove-export-realtime/);
  await a.rejects(p.api.prepareFrameAssets(1),/BG_REMOVE_UNAVAILABLE/);
  await p.api.prepareFrameAssets(4);
+});
+
+test('a numeric bgRemove keyframe cannot bypass export mask checks',async()=>{
+ const p=page({clips:[{...video,props:{bgRemove:false},keyframes:{bgRemove:[{t:0,v:1}]}}]});
+ a.throws(()=>p.api.noteExportBgRemove(),/BG_REMOVE_UNAVAILABLE/);
+ await a.rejects(p.api.prepareFrameAssets(1),/BG_REMOVE_UNAVAILABLE/);
+ a.deepEqual(p.external(),[]);
 });
 
 test('browser mode: turning it on asks first — the box names cdn.jsdelivr.net and says download only; No sends nothing',async()=>{

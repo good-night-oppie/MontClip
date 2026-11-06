@@ -3,8 +3,9 @@
 // Every request is intercepted over CDP. By default nothing leaves this computer: cdn.jsdelivr.net is answered with a
 // stand-in for MediaPipe's script (which then asks for its wasm and model files, as the real one does), anything else
 // non-local is failed. Checks: opening a project with a bgRemove clip and getting ready for an export send nothing out
-// (and say the clip stays uncut); the box names the host; "Not now" sends nothing; after "Load", only cdn.jsdelivr.net,
-// only GETs; not asked twice in a session.
+// (export fails with a caller-visible reason); the box names the host; "Not now" sends nothing; an explicit retry
+// recovers a failed script download. Synthetic masks remove the left half in preview and exported ProRes pixels;
+// a separate where:"headless" job must fail instead of inheriting consent. No speech/audio timing is involved.
 //   node real-tests/bgremove-consent-browser-smoke.cjs            (FABLECUT_CHROME picks the browser)
 //   MONTCLIP_SMOKE_REAL_NET=1 node real-tests/bgremove-consent-browser-smoke.cjs
 //     lets the cdn.jsdelivr.net requests through to the real MediaPipe, runs a cut-out on a frame, and records every
@@ -34,9 +35,9 @@ const FAKE = `window.SelfieSegmentation = class { constructor(o) { this.o = o; f
   setOptions() {} onResults(f) { this.cb = f; } async send() { const c = document.createElement("canvas"); c.width = c.height = 8; const x=c.getContext('2d'); x.fillStyle='white'; x.fillRect(4,0,4,8); this.cb && this.cb({ segmentationMask: c }); } };`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {
-  const srv = spawn(process.execPath, [path.join(ROOT, "server.js")], { env: { ...process.env, PORT, FABLECUT_DATA_DIR: data, FABLECUT_NO_FS_WATCH: "1" }, stdio: "ignore" });
+  const srv = spawn(process.execPath, [path.join(ROOT, "server.js")], { env: { ...process.env, PORT, FABLECUT_DATA_DIR: data, FABLECUT_NO_FS_WATCH: "1" }, stdio: "ignore", windowsHide: true });
   const prof = fs.mkdtempSync(path.join(os.tmpdir(), "fc-prof-"));
-  const ch = spawn(CHROME, ["--headless=new", `--remote-debugging-port=${DBG}`, "--user-data-dir=" + prof, "--no-first-run", "about:blank"], { stdio: "ignore" });
+  const ch = spawn(CHROME, ["--headless=new", `--remote-debugging-port=${DBG}`, "--user-data-dir=" + prof, "--no-first-run", "about:blank"], { stdio: "ignore", windowsHide: true });
   let ws;
   try {
     await sleep(2500);
