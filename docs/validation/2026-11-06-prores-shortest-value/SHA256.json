@@ -36,8 +36,20 @@
   },
   {
     "file": "qq-shortest-full.log",
-    "bytes": 401753,
-    "sha256": "85de291f871f4afea924cd98afb02d2a5bda8e73b8653b741f75ae4bbf45f711"
+    "bytes": 401750,
+    "sha256": "acf7f483d2b5d434e15e2c50468fb485a5b213165d601d2dc71cd5bf50504e5d",
+    "originalArchive": {
+      "commit": "b2ad3fc65a1b5109f6aaa064c3ccf754c384b63a",
+      "bytes": 401753,
+      "sha256": "85de291f871f4afea924cd98afb02d2a5bda8e73b8653b741f75ae4bbf45f711",
+      "registeredBytes": 401753,
+      "registeredSha256": "85de291f871f4afea924cd98afb02d2a5bda8e73b8653b741f75ae4bbf45f711"
+    },
+    "sanitization": {
+      "kind": "user-directory-prefix-only",
+      "placeholder": "%USERPROFILE%",
+      "replacements": 1
+    }
   },
   {
     "file": "qq-shortest-green.log",
@@ -46,13 +58,37 @@
   },
   {
     "file": "qq-shortest-pcm-pair.log",
-    "bytes": 405,
-    "sha256": "9a94afcf3cd4179069d7b02ebad8c7c998712e4eeb71d5c69f9c737b15d4a2dd"
+    "bytes": 403,
+    "sha256": "adf3d00ee695c95eeb87de7149a3702aaccb8031ca56f6e9442f272f5d64eea6",
+    "originalArchive": {
+      "commit": "b2ad3fc65a1b5109f6aaa064c3ccf754c384b63a",
+      "bytes": 405,
+      "sha256": "9a94afcf3cd4179069d7b02ebad8c7c998712e4eeb71d5c69f9c737b15d4a2dd",
+      "registeredBytes": 405,
+      "registeredSha256": "9a94afcf3cd4179069d7b02ebad8c7c998712e4eeb71d5c69f9c737b15d4a2dd"
+    },
+    "sanitization": {
+      "kind": "user-directory-prefix-only",
+      "placeholder": "%USERPROFILE%",
+      "replacements": 2
+    }
   },
   {
     "file": "qq-shortest-red.log",
-    "bytes": 2303,
-    "sha256": "591a37923840299acdaeeeeffb90024fbe7ad617b06e2eaf1ddc5df259866532"
+    "bytes": 2292,
+    "sha256": "d30aaa9cf840ca89f9063f9773caf920a2ed6477371734acc371ac76239d4cc2",
+    "originalArchive": {
+      "commit": "b2ad3fc65a1b5109f6aaa064c3ccf754c384b63a",
+      "bytes": 2303,
+      "sha256": "591a37923840299acdaeeeeffb90024fbe7ad617b06e2eaf1ddc5df259866532",
+      "registeredBytes": 2303,
+      "registeredSha256": "591a37923840299acdaeeeeffb90024fbe7ad617b06e2eaf1ddc5df259866532"
+    },
+    "sanitization": {
+      "kind": "user-directory-prefix-only",
+      "placeholder": "%USERPROFILE%",
+      "replacements": 7
+    }
   },
   {
     "file": "qq-shortest-release.log",

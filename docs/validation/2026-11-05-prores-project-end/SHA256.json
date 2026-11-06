@@ -46,8 +46,20 @@
   },
   {
     "file": "prores-filter-red.log",
-    "bytes": 1151,
-    "sha256": "128f48d8c5338e9346940e51168184ed2c2f72afdc81b0da65ad175f65aa3f69"
+    "bytes": 1148,
+    "sha256": "b38f25085bdb7c4542d9db7ebd476389a63b99645e1d253cc7ea20beea6b3e97",
+    "originalArchive": {
+      "commit": "b2ad3fc65a1b5109f6aaa064c3ccf754c384b63a",
+      "bytes": 1151,
+      "sha256": "128f48d8c5338e9346940e51168184ed2c2f72afdc81b0da65ad175f65aa3f69",
+      "registeredBytes": 1151,
+      "registeredSha256": "128f48d8c5338e9346940e51168184ed2c2f72afdc81b0da65ad175f65aa3f69"
+    },
+    "sanitization": {
+      "kind": "user-directory-prefix-only",
+      "placeholder": "%USERPROFILE%",
+      "replacements": 1
+    }
   },
   {
     "file": "prores-focused-final.log",
@@ -56,23 +68,71 @@
   },
   {
     "file": "prores-full-final.log",
-    "bytes": 397322,
-    "sha256": "17e2928a938cae1ae7cd20b5fc0ec8b8e0bc748bba3bbce1d8e09e9ebf797908"
+    "bytes": 397319,
+    "sha256": "f6ff6994ae463d7c9202eca16909ef1b8445ae12c380f27c62bc48fe2aa1e826",
+    "originalArchive": {
+      "commit": "b2ad3fc65a1b5109f6aaa064c3ccf754c384b63a",
+      "bytes": 397322,
+      "sha256": "17e2928a938cae1ae7cd20b5fc0ec8b8e0bc748bba3bbce1d8e09e9ebf797908",
+      "registeredBytes": 397322,
+      "registeredSha256": "17e2928a938cae1ae7cd20b5fc0ec8b8e0bc748bba3bbce1d8e09e9ebf797908"
+    },
+    "sanitization": {
+      "kind": "user-directory-prefix-only",
+      "placeholder": "%USERPROFILE%",
+      "replacements": 1
+    }
   },
   {
     "file": "prores-rate-red.log",
-    "bytes": 984,
-    "sha256": "f8d6a2e8f400d48ce34d75ce16d93a43c86b9c2b31e7e9f8ff2404309593a8fc"
+    "bytes": 981,
+    "sha256": "3e6d9703e048098b5eba33979f4bdff72a68b71f02a04d8762cf9fcca471bcd0",
+    "originalArchive": {
+      "commit": "b2ad3fc65a1b5109f6aaa064c3ccf754c384b63a",
+      "bytes": 984,
+      "sha256": "f8d6a2e8f400d48ce34d75ce16d93a43c86b9c2b31e7e9f8ff2404309593a8fc",
+      "registeredBytes": 984,
+      "registeredSha256": "f8d6a2e8f400d48ce34d75ce16d93a43c86b9c2b31e7e9f8ff2404309593a8fc"
+    },
+    "sanitization": {
+      "kind": "user-directory-prefix-only",
+      "placeholder": "%USERPROFILE%",
+      "replacements": 1
+    }
   },
   {
     "file": "prores-red-expanded.log",
-    "bytes": 9366,
-    "sha256": "9eee38d3fb6c90ce379fe43624cd059565f36d2a3c68754ebcf39d6fadab03ce"
+    "bytes": 9336,
+    "sha256": "472b70814f35775b88f76afc0027b07135e71850af41e7ce494fedb0b3301581",
+    "originalArchive": {
+      "commit": "b2ad3fc65a1b5109f6aaa064c3ccf754c384b63a",
+      "bytes": 9366,
+      "sha256": "9eee38d3fb6c90ce379fe43624cd059565f36d2a3c68754ebcf39d6fadab03ce",
+      "registeredBytes": 9366,
+      "registeredSha256": "9eee38d3fb6c90ce379fe43624cd059565f36d2a3c68754ebcf39d6fadab03ce"
+    },
+    "sanitization": {
+      "kind": "user-directory-prefix-only",
+      "placeholder": "%USERPROFILE%",
+      "replacements": 10
+    }
   },
   {
     "file": "prores-red.log",
-    "bytes": 1008,
-    "sha256": "d750a0129ba26b26f6540070889b932999bd1e6c30d83fd95bed1c6549e08586"
+    "bytes": 1005,
+    "sha256": "d1a203a36eb657dc49d308379018c4fe832e78da39982a1fa4da349404c74537",
+    "originalArchive": {
+      "commit": "b2ad3fc65a1b5109f6aaa064c3ccf754c384b63a",
+      "bytes": 1008,
+      "sha256": "d750a0129ba26b26f6540070889b932999bd1e6c30d83fd95bed1c6549e08586",
+      "registeredBytes": 1008,
+      "registeredSha256": "d750a0129ba26b26f6540070889b932999bd1e6c30d83fd95bed1c6549e08586"
+    },
+    "sanitization": {
+      "kind": "user-directory-prefix-only",
+      "placeholder": "%USERPROFILE%",
+      "replacements": 1
+    }
   },
   {
     "file": "prores-release-final.log",

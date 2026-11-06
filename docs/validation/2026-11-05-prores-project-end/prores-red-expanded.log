@@ -4,7 +4,7 @@ not ok 1 - ProRes boundary: 12s real tail and extra mix sample
   ---
   duration_ms: 256.3934
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:12:4'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:12:4'
   failureType: 'testCodeFailure'
   error: |-
     must preserve available source samples through project end
@@ -28,7 +28,7 @@ not ok 2 - ProRes boundary: fractional rate and noninteger seconds
   ---
   duration_ms: 164.3106
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:12:4'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:12:4'
   failureType: 'testCodeFailure'
   error: |-
     must preserve available source samples through project end
@@ -54,7 +54,7 @@ not ok 3 - ProRes boundary: long audio ends at project boundary
   ---
   duration_ms: 179.0096
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:12:4'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:12:4'
   failureType: 'testCodeFailure'
   error: |-
     must preserve available source samples through project end
@@ -80,7 +80,7 @@ not ok 4 - ProRes boundary: short audio stays short; video remains complete
   ---
   duration_ms: 224.8573
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:12:4'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:12:4'
   failureType: 'testCodeFailure'
   error: |-
     Expected values to be strictly equal:
@@ -112,7 +112,7 @@ not ok 6 - ProRes rejects invalid frames 0
   ---
   duration_ms: 0.5415
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:30:50'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:30:50'
   failureType: 'testCodeFailure'
   error: 'Missing expected exception.'
   code: 'ERR_ASSERTION'
@@ -133,7 +133,7 @@ not ok 7 - ProRes rejects invalid frames -1
   ---
   duration_ms: 0.1622
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:30:50'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:30:50'
   failureType: 'testCodeFailure'
   error: 'Missing expected exception.'
   code: 'ERR_ASSERTION'
@@ -154,7 +154,7 @@ not ok 8 - ProRes rejects invalid frames 1.5
   ---
   duration_ms: 0.1346
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:30:50'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:30:50'
   failureType: 'testCodeFailure'
   error: 'Missing expected exception.'
   code: 'ERR_ASSERTION'
@@ -175,7 +175,7 @@ not ok 9 - ProRes rejects invalid frames Infinity
   ---
   duration_ms: 0.2194
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:30:50'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:30:50'
   failureType: 'testCodeFailure'
   error: 'Missing expected exception.'
   code: 'ERR_ASSERTION'
@@ -196,7 +196,7 @@ not ok 10 - ProRes rejects invalid frames NaN
   ---
   duration_ms: 0.36
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:30:50'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:30:50'
   failureType: 'testCodeFailure'
   error: 'Missing expected exception.'
   code: 'ERR_ASSERTION'
@@ -217,7 +217,7 @@ not ok 11 - ProRes rejects invalid frames 30
   ---
   duration_ms: 0.5881
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:30:50'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:30:50'
   failureType: 'testCodeFailure'
   error: 'Missing expected exception.'
   code: 'ERR_ASSERTION'

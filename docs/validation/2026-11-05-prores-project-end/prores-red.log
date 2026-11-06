@@ -4,7 +4,7 @@ not ok 1 - ProRes keeps the real final 100ms and removes only the mix extra samp
   ---
   duration_ms: 267.2273
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:6:1'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:6:1'
   failureType: 'testCodeFailure'
   error: |-
     must keep all source samples through project end

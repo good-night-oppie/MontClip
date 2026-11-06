@@ -4,7 +4,7 @@ not ok 1 - shortest progress filename preserves disabled audio
   ---
   duration_ms: 300.169
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:96:37'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:96:37'
   failureType: 'testCodeFailure'
   error: |-
     real audio streams agree with preflight
@@ -17,7 +17,7 @@ not ok 1 - shortest progress filename preserves disabled audio
   actual: 1
   operator: 'strictEqual'
   stack: |-
-    TestContext.<anonymous> (C:\Users\tyb90\orca\projects\MontClip\.cindy-worktrees\prores-project-end\test\prores-end.test.js:108:12)
+    TestContext.<anonymous> (%USERPROFILE%\orca\projects\MontClip\.cindy-worktrees\prores-project-end\test\prores-end.test.js:108:12)
     Test.runInAsyncScope (node:async_hooks:214:14)
     Test.run (node:internal/test_runner/test:1047:25)
     Test.start (node:internal/test_runner/test:944:17)
@@ -28,15 +28,15 @@ not ok 2 - shortest progress filename preserves real tail
   ---
   duration_ms: 178.7727
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:96:37'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:96:37'
   failureType: 'testCodeFailure'
   error: 'PROFILE_FILTER_MAPPING_UNSUPPORTED'
   code: 'PROFILE_FILTER_MAPPING_UNSUPPORTED'
   stack: |-
-    refuse (C:\Users\tyb90\orca\projects\MontClip\.cindy-worktrees\prores-project-end\encode-profiles.js:240:46)
-    proresFilterPlan (C:\Users\tyb90\orca\projects\MontClip\.cindy-worktrees\prores-project-end\encode-profiles.js:272:12)
-    Object.buildExportArgs (C:\Users\tyb90\orca\projects\MontClip\.cindy-worktrees\prores-project-end\encode-profiles.js:318:18)
-    TestContext.<anonymous> (C:\Users\tyb90\orca\projects\MontClip\.cindy-worktrees\prores-project-end\test\prores-end.test.js:105:19)
+    refuse (%USERPROFILE%\orca\projects\MontClip\.cindy-worktrees\prores-project-end\encode-profiles.js:240:46)
+    proresFilterPlan (%USERPROFILE%\orca\projects\MontClip\.cindy-worktrees\prores-project-end\encode-profiles.js:272:12)
+    Object.buildExportArgs (%USERPROFILE%\orca\projects\MontClip\.cindy-worktrees\prores-project-end\encode-profiles.js:318:18)
+    TestContext.<anonymous> (%USERPROFILE%\orca\projects\MontClip\.cindy-worktrees\prores-project-end\test\prores-end.test.js:105:19)
     Test.runInAsyncScope (node:async_hooks:214:14)
     Test.run (node:internal/test_runner/test:1047:25)
     Test.processPendingSubtests (node:internal/test_runner/test:744:18)

@@ -4,7 +4,7 @@ not ok 1 - ProRes boundary: bounded audio has explicit 48kHz clock
   ---
   duration_ms: 172.7813
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:16:4'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:16:4'
   failureType: 'testCodeFailure'
   error: |-
     must preserve available source samples through project end

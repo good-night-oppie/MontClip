@@ -4,7 +4,7 @@ not ok 1 - unsupported profile code stays out of zh-CN alert
   ---
   duration_ms: 2.4323
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-rejection-ui.test.js:5:74'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-rejection-ui.test.js:5:74'
   failureType: 'testCodeFailure'
   error: 'queue-facing result must not expose machine code'
   code: 'ERR_ASSERTION'
@@ -13,7 +13,7 @@ not ok 1 - unsupported profile code stays out of zh-CN alert
   actual: false
   operator: '=='
   stack: |-
-    TestContext.<anonymous> (C:\Users\tyb90\orca\projects\MontClip\.cindy-worktrees\prores-project-end\test\prores-rejection-ui.test.js:15:10)
+    TestContext.<anonymous> (%USERPROFILE%\orca\projects\MontClip\.cindy-worktrees\prores-project-end\test\prores-rejection-ui.test.js:15:10)
     async Test.run (node:internal/test_runner/test:1054:7)
     async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
   ...
@@ -22,7 +22,7 @@ not ok 2 - unsupported profile code stays out of zh-CN job/queue
   ---
   duration_ms: 0.7167
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-rejection-ui.test.js:5:74'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-rejection-ui.test.js:5:74'
   failureType: 'testCodeFailure'
   error: 'queue-facing result must not expose machine code'
   code: 'ERR_ASSERTION'
@@ -31,7 +31,7 @@ not ok 2 - unsupported profile code stays out of zh-CN job/queue
   actual: false
   operator: '=='
   stack: |-
-    TestContext.<anonymous> (C:\Users\tyb90\orca\projects\MontClip\.cindy-worktrees\prores-project-end\test\prores-rejection-ui.test.js:15:10)
+    TestContext.<anonymous> (%USERPROFILE%\orca\projects\MontClip\.cindy-worktrees\prores-project-end\test\prores-rejection-ui.test.js:15:10)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
   ...
@@ -40,7 +40,7 @@ not ok 3 - unsupported profile code stays out of en alert
   ---
   duration_ms: 0.5968
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-rejection-ui.test.js:5:74'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-rejection-ui.test.js:5:74'
   failureType: 'testCodeFailure'
   error: 'queue-facing result must not expose machine code'
   code: 'ERR_ASSERTION'
@@ -49,7 +49,7 @@ not ok 3 - unsupported profile code stays out of en alert
   actual: false
   operator: '=='
   stack: |-
-    TestContext.<anonymous> (C:\Users\tyb90\orca\projects\MontClip\.cindy-worktrees\prores-project-end\test\prores-rejection-ui.test.js:15:10)
+    TestContext.<anonymous> (%USERPROFILE%\orca\projects\MontClip\.cindy-worktrees\prores-project-end\test\prores-rejection-ui.test.js:15:10)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
   ...
@@ -58,7 +58,7 @@ not ok 4 - unsupported profile code stays out of en job/queue
   ---
   duration_ms: 1.2106
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-rejection-ui.test.js:5:74'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-rejection-ui.test.js:5:74'
   failureType: 'testCodeFailure'
   error: 'queue-facing result must not expose machine code'
   code: 'ERR_ASSERTION'
@@ -67,7 +67,7 @@ not ok 4 - unsupported profile code stays out of en job/queue
   actual: false
   operator: '=='
   stack: |-
-    TestContext.<anonymous> (C:\Users\tyb90\orca\projects\MontClip\.cindy-worktrees\prores-project-end\test\prores-rejection-ui.test.js:15:10)
+    TestContext.<anonymous> (%USERPROFILE%\orca\projects\MontClip\.cindy-worktrees\prores-project-end\test\prores-rejection-ui.test.js:15:10)
     async Test.run (node:internal/test_runner/test:1054:7)
     async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
   ...

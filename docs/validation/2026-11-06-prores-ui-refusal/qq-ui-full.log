@@ -10145,7 +10145,7 @@ ok 1688 - cut.mkv, cut off mid-way with no length anywhere: the length is read f
   type: 'test'
   ...
 # [mov,mp4,m4a,3gp,3g2,mj2 @ 000001e12f1dce80] moov atom not found
-# C:\\Users\\tyb90\\AppData\\Local\\Temp\\mc-cut-bhwj0I\\cut.mp4: Invalid data found when processing input
+# %USERPROFILE%\\AppData\\Local\\Temp\\mc-cut-bhwj0I\\cut.mp4: Invalid data found when processing input
 # Subtest: cut.webm: fablecut_frame shows a moment inside it, and a moment past it says the real end, not 0 s
 ok 1689 - cut.webm: fablecut_frame shows a moment inside it, and a moment past it says the real end, not 0 s
   ---

@@ -1,13 +1,37 @@
 [
   {
     "file": "qq-sample-edge.log",
-    "bytes": 5265,
-    "sha256": "7d7e6909412667396b719d1288c375d3e5bc4a9699edf6091d3e8ae7d68079dc"
+    "bytes": 5223,
+    "sha256": "9f029f085599ae7a94c1ea50374cc455cd36aa74c09b3e525393b9fd4fa58621",
+    "originalArchive": {
+      "commit": "b2ad3fc65a1b5109f6aaa064c3ccf754c384b63a",
+      "bytes": 5265,
+      "sha256": "7d7e6909412667396b719d1288c375d3e5bc4a9699edf6091d3e8ae7d68079dc",
+      "registeredBytes": 5265,
+      "registeredSha256": "7d7e6909412667396b719d1288c375d3e5bc4a9699edf6091d3e8ae7d68079dc"
+    },
+    "sanitization": {
+      "kind": "user-directory-prefix-only",
+      "placeholder": "%USERPROFILE%",
+      "replacements": 6
+    }
   },
   {
     "file": "qq-edge-full.log",
-    "bytes": 406997,
-    "sha256": "0ea4f218cc215b482c8866bdf3345b77023d7f67a962a562b3aa5ef0dec4adac"
+    "bytes": 406952,
+    "sha256": "9f96a287c500133b0d73f83a44b567d291c10dfb379c8f12ea6762405a36929b",
+    "originalArchive": {
+      "commit": "b2ad3fc65a1b5109f6aaa064c3ccf754c384b63a",
+      "bytes": 406997,
+      "sha256": "0ea4f218cc215b482c8866bdf3345b77023d7f67a962a562b3aa5ef0dec4adac",
+      "registeredBytes": 406997,
+      "registeredSha256": "0ea4f218cc215b482c8866bdf3345b77023d7f67a962a562b3aa5ef0dec4adac"
+    },
+    "sanitization": {
+      "kind": "user-directory-prefix-only",
+      "placeholder": "%USERPROFILE%",
+      "replacements": 7
+    }
   },
   {
     "file": "qq-edge-release.log",

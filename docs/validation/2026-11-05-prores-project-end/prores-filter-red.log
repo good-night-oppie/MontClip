@@ -4,7 +4,7 @@ not ok 1 - ProRes boundary: audio filter alias remains effective
   ---
   duration_ms: 2019.7466
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:15:4'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:15:4'
   failureType: 'testCodeFailure'
   error: 'real tail waveform or explicit profile mute, not accidental filter override'
   code: 'ERR_ASSERTION'

@@ -4,7 +4,7 @@ not ok 1 - ProRes boundary: QQ output index mute remains silent
   ---
   duration_ms: 169.156
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:20:4'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:20:4'
   failureType: 'testCodeFailure'
   error: 'real tail waveform or explicit profile mute, not accidental filter override'
   code: 'ERR_ASSERTION'
@@ -30,7 +30,7 @@ not ok 3 - ProRes boundary: reordered mapped audio index zero
   ---
   duration_ms: 150.6193
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:20:4'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:20:4'
   failureType: 'testCodeFailure'
   error: 'real tail waveform or explicit profile mute, not accidental filter override'
   code: 'ERR_ASSERTION'
@@ -54,7 +54,7 @@ not ok 4 - unresolved mapping/selector refuses ["-map","[mix]"]
   ---
   duration_ms: 0.5275
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:64:271'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:64:271'
   failureType: 'testCodeFailure'
   error: 'Missing expected exception.'
   code: 'ERR_ASSERTION'
@@ -70,7 +70,7 @@ not ok 5 - unresolved mapping/selector refuses ["-map","0"]
   ---
   duration_ms: 0.1853
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:64:271'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:64:271'
   failureType: 'testCodeFailure'
   error: 'Missing expected exception.'
   code: 'ERR_ASSERTION'
@@ -89,7 +89,7 @@ not ok 6 - unresolved mapping/selector refuses ["-map","1:a","-map","1:a","-map"
   ---
   duration_ms: 0.2983
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:64:271'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:64:271'
   failureType: 'testCodeFailure'
   error: 'Missing expected exception.'
   code: 'ERR_ASSERTION'
@@ -108,7 +108,7 @@ not ok 7 - unresolved mapping/selector refuses ["-filter:a:m:title:x","volume=0"
   ---
   duration_ms: 0.3208
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:64:271'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:64:271'
   failureType: 'testCodeFailure'
   error: 'Missing expected exception.'
   code: 'ERR_ASSERTION'
@@ -127,7 +127,7 @@ not ok 8 - unresolved mapping/selector refuses ["-filter:99","volume=0"]
   ---
   duration_ms: 0.2312
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:64:271'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:64:271'
   failureType: 'testCodeFailure'
   error: 'Missing expected exception.'
   code: 'ERR_ASSERTION'
@@ -146,7 +146,7 @@ not ok 9 - unresolved mapping/selector refuses ["-filter_complex","[1:a]anull[a]
   ---
   duration_ms: 0.2395
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:64:271'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:64:271'
   failureType: 'testCodeFailure'
   error: 'Missing expected exception.'
   code: 'ERR_ASSERTION'
@@ -165,7 +165,7 @@ not ok 10 - unresolved mapping/selector refuses ["-filter","null"]
   ---
   duration_ms: 0.2872
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:64:271'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:64:271'
   failureType: 'testCodeFailure'
   error: 'Missing expected exception.'
   code: 'ERR_ASSERTION'
@@ -184,7 +184,7 @@ not ok 11 - unresolved mapping/selector refuses ["-map","0:v","-map","-1:a"]
   ---
   duration_ms: 0.168
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:64:271'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:64:271'
   failureType: 'testCodeFailure'
   error: 'Missing expected exception.'
   code: 'ERR_ASSERTION'
@@ -203,7 +203,7 @@ not ok 12 - unresolved mapping/selector refuses ["-filter_script:a","custom.txt"
   ---
   duration_ms: 0.1416
   type: 'test'
-  location: 'C:\\Users\\tyb90\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:64:271'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-end.test.js:64:271'
   failureType: 'testCodeFailure'
   error: 'Missing expected exception.'
   code: 'ERR_ASSERTION'

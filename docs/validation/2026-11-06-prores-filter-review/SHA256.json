@@ -41,13 +41,37 @@
   },
   {
     "file": "qq-filter-red.log",
-    "bytes": 10072,
-    "sha256": "5e8cdc43be05784006663d249511dc6241b18f433aee41622cddc3a82704446e"
+    "bytes": 10039,
+    "sha256": "64a365092dd5809db6fbd18d9a666861190707c87a71597e2ab60cc3c97619b5",
+    "originalArchive": {
+      "commit": "b2ad3fc65a1b5109f6aaa064c3ccf754c384b63a",
+      "bytes": 10072,
+      "sha256": "5e8cdc43be05784006663d249511dc6241b18f433aee41622cddc3a82704446e",
+      "registeredBytes": 10072,
+      "registeredSha256": "5e8cdc43be05784006663d249511dc6241b18f433aee41622cddc3a82704446e"
+    },
+    "sanitization": {
+      "kind": "user-directory-prefix-only",
+      "placeholder": "%USERPROFILE%",
+      "replacements": 11
+    }
   },
   {
     "file": "qq-full-final.log",
-    "bytes": 400705,
-    "sha256": "58acba0eef895612721573fcf181319760a1f17e7e92e10625f70b2deb058be8"
+    "bytes": 400702,
+    "sha256": "c8be3c1acdcb61b088bb609e95f5d3729e50993e3e68e35ae3c0e1c48d986a55",
+    "originalArchive": {
+      "commit": "b2ad3fc65a1b5109f6aaa064c3ccf754c384b63a",
+      "bytes": 400705,
+      "sha256": "58acba0eef895612721573fcf181319760a1f17e7e92e10625f70b2deb058be8",
+      "registeredBytes": 400705,
+      "registeredSha256": "58acba0eef895612721573fcf181319760a1f17e7e92e10625f70b2deb058be8"
+    },
+    "sanitization": {
+      "kind": "user-directory-prefix-only",
+      "placeholder": "%USERPROFILE%",
+      "replacements": 1
+    }
   },
   {
     "file": "qq-release-final.log",

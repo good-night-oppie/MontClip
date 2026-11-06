@@ -36,8 +36,20 @@
   },
   {
     "file": "qq-ui-full.log",
-    "bytes": 401396,
-    "sha256": "83abbeef6dafd9a88795fcb38342119a1ecf0607c2feec24b17147a506d9258f"
+    "bytes": 401393,
+    "sha256": "81925647327877062a2330ffa1ebfe5891731e65b5e1bf1cda7e02cdf2776b22",
+    "originalArchive": {
+      "commit": "b2ad3fc65a1b5109f6aaa064c3ccf754c384b63a",
+      "bytes": 401396,
+      "sha256": "83abbeef6dafd9a88795fcb38342119a1ecf0607c2feec24b17147a506d9258f",
+      "registeredBytes": 401396,
+      "registeredSha256": "83abbeef6dafd9a88795fcb38342119a1ecf0607c2feec24b17147a506d9258f"
+    },
+    "sanitization": {
+      "kind": "user-directory-prefix-only",
+      "placeholder": "%USERPROFILE%",
+      "replacements": 1
+    }
   },
   {
     "file": "qq-ui-green.log",
@@ -46,8 +58,20 @@
   },
   {
     "file": "qq-ui-red.log",
-    "bytes": 3278,
-    "sha256": "cc52da83f4d04f6e877a4d7c2eb7f24de8ccd1e471d6dcddf857827bdd1579eb"
+    "bytes": 3262,
+    "sha256": "3799124eb90f59fbe9789b960368265734f72ebaed357d868944d538a4b514ec",
+    "originalArchive": {
+      "commit": "b2ad3fc65a1b5109f6aaa064c3ccf754c384b63a",
+      "bytes": 3278,
+      "sha256": "cc52da83f4d04f6e877a4d7c2eb7f24de8ccd1e471d6dcddf857827bdd1579eb",
+      "registeredBytes": 3278,
+      "registeredSha256": "cc52da83f4d04f6e877a4d7c2eb7f24de8ccd1e471d6dcddf857827bdd1579eb"
+    },
+    "sanitization": {
+      "kind": "user-directory-prefix-only",
+      "placeholder": "%USERPROFILE%",
+      "replacements": 8
+    }
   },
   {
     "file": "qq-ui-release.log",
