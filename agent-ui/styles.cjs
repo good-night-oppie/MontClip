@@ -27,7 +27,18 @@ function firstCompoundEnd(s) {
   let depth = 0, quote = '';
   for (let i = 0; i < s.length; i++) {
     const c = s[i];
-    if (c === '\\') { i++; continue; }
+    // a CSS code-point escape: \ + 1–6 hex digits + one optional trailing whitespace (Tailwind writes a comma in an
+    // arbitrary value as `\2c `). The whole escape is part of the class name; its trailing whitespace is NOT a
+    // descendant combinator (QQ on #109: 22 rules were split at that space, e.g. `.hover\:bg-\[var\(--x\2c …`).
+    if (c === '\\') {
+      if (/[0-9a-fA-F]/.test(s[i + 1] || '')) {
+        let j = i + 1;
+        while (j < s.length && j - i <= 6 && /[0-9a-fA-F]/.test(s[j])) j++;
+        if (j < s.length && /\s/.test(s[j])) j++;
+        i = j - 1;
+      } else i++;
+      continue;
+    }
     if (quote) { if (c === quote) quote = ''; continue; }
     if (c === '"' || c === "'") quote = c;
     else if (c === '[' || c === '(') depth++;
@@ -77,10 +88,17 @@ export const colors = exportThemeColors(theme as any); export const id = (theme 
   // from Cindy's globals.css (its whole app's rules) only ThinkingCard's three dots, the 「…」 of 「正在想…」: their rules,
   // their animation, and the reduced-motion rule that stops it (VV on f3df7db)
   const DOTS = ['.thinking-dot', '.thinking-dot-1', '.thinking-dot-2', '.thinking-dot-3'];
+  // and the menu panel's surface (QQ on #109): MorphPopover's panel reads var(--menu-panel-surface) — defined only in
+  // globals.css, so without it the 计划/手动/自动/Yolo menu is transparent over the timeline. Its :root rule (scoped
+  // below, → the opaque --cmd-palette-bg) and the [data-menu-surface] blur come along; the [data-theme=…] variants
+  // never match here (MontClip sets no data-theme), so the panel is solid, as on Cindy's win32 path.
+  const menuSurface = (rule) => rule.selectors.some((s) => /\[data-menu-surface\]/.test(s)) ||
+    (rule.nodes || []).some((n) => n.type === 'decl' && n.prop === '--menu-panel-surface');
   const globals = postcss.parse(fs.readFileSync(path.join(R, 'styles/globals.css'), 'utf8'));
   globals.walkAtRules((a) => { if (/keyframes$/.test(a.name) ? a.params !== 'thinking-dot-wave' : a.name !== 'media') a.remove(); });
   globals.walkRules((rule) => {
     if (rule.parent.type === 'atrule' && /keyframes$/.test(rule.parent.name)) return;
+    if (menuSurface(rule)) return;
     const sel = rule.selectors.filter((s) => DOTS.includes(s));
     if (!sel.length) rule.remove(); else rule.selectors = sel;
   });

@@ -60,6 +60,9 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     await read(`document.querySelector('#partBox_PermissionSelector button').click();true`); await wait(400);
     report.modes = await read(`[...document.querySelectorAll('[role=menuitemradio],[role=option],[role=menuitem]')].map(e=>e.innerText.replace(/\\s+/g,' ').trim()).filter(Boolean)`);
     for (const label of ['计划', '手动', '自动', 'Yolo']) assert.ok(report.modes.some((t) => t.startsWith(label)), 'mode ' + label + ' in ' + JSON.stringify(report.modes));
+    // the open menu is opaque over the timeline (QQ on #109): the panel reads --menu-panel-surface, which the parts set
+    report.menuSurface = await read(`(()=>{const m=document.querySelector('[data-menu-surface]');return m?getComputedStyle(m).backgroundColor:'absent';})()`);
+    assert.ok(report.menuSurface !== 'absent' && report.menuSurface !== 'transparent' && !/rgba\(0,\s*0,\s*0,\s*0\)/.test(report.menuSurface), 'the mode menu has an opaque surface, not ' + report.menuSurface);
     await shot('cindy-parts-modes-menu');
     await read(`[...document.querySelectorAll('[role=menuitemradio],[role=option],[role=menuitem]')].find(e=>e.innerText.trim().startsWith('Yolo')).click();true`); await wait();
     report.picked = await read(`window.__mode`);
@@ -81,7 +84,7 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     assert.ok(report.styles.cindyBorder && report.styles.textPrimary, "Cindy's theme is there, in a part");
     assert.deepEqual(report.styles.onRoot, [], "no Cindy variable on the page's root (VV on f3df7db: --muted)");
     assert.equal(report.styles.focusRing, '#7b6cff', "the focus ring is MontClip's accent");
-    assert.equal(report.styles.yolo, 'rgb(229, 72, 77)', "Yolo in MontClip's red");
+    assert.equal(report.styles.yolo, 'rgb(255, 107, 112)', "Yolo's text in the AA-passing tint #ff6b70 (QQ on #109; icons keep #e5484d)");
     assert.equal(report.styles.partButtonBg, 'rgba(0, 0, 0, 0)', "a part's button has no browser face (preflight, inside the parts)");
     // MontClip's own page with cindy-parts.css on and off: the same (a few of its controls, measured both ways)
     report.ownPage = await read(`(()=>{const link=document.querySelector('link[href="cindy-parts.css"]'),ids=['mcUndo','btnExport','btnPlay','projectName','sideTabs'];
@@ -120,6 +123,8 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     assert.match(shown.WorkGroupBlock.text, /用了 58 秒/);
     report.thoughtDone = (await show('ThinkingCard', `()=>({content:'看了项目和字幕',isStreaming:false,durationMs:58000,blockKey:'think-2'})`)).text.replace(/\s+/g, ' ');
     assert.match(report.thoughtDone, /想了 58 秒/, 'the finished thinking card (JJ)');
+    report.thoughtStopped = (await show('ThinkingCard', `()=>({content:'看了项目',isStreaming:false,aborted:true,durationMs:12000,blockKey:'think-3'})`)).text.replace(/\s+/g, ' ');
+    assert.match(report.thoughtStopped, /想了 12 秒，停下了/, 'the stopped thinking card (JJ)');
     assert.doesNotMatch(shown.WorkGroupBlock.text, /\d+s\b/);
     assert.match(shown.AskUserQuestionPrompt.text, /这段要不要留/);
     report.voiceButton = await read(`(()=>{const b=document.querySelector('#partBox_AskUserQuestionPrompt [data-testid="ask-user-voice"]');return b?getComputedStyle(b).display:'absent';})()`);

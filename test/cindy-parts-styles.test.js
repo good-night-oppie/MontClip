@@ -75,7 +75,7 @@ test('every rule applies inside the parts only: no selector, class or element, w
   assert.doesNotMatch(css, /(^|\})\s*(:root|html|body)\s*[,{]/, 'no rule for :root, html or body');
 });
 
-test("MontClip's colours come last (v7.2 §1): its accent #7b6cff for the focus ring, 自动 and the main buttons; Yolo in its red", () => {
+test("MontClip's colours come last (v7.2 §1): its accent #7b6cff for the focus ring and icons; AA-passing tints for 自动 / Yolo text", () => {
   const own = rules(read('agent-ui/montclip-theme.css'));
   assert.equal(own.length, 1);
   // the file's last rule is montclip-theme.css's, on the parts
@@ -84,9 +84,35 @@ test("MontClip's colours come last (v7.2 §1): its accent #7b6cff for the focus 
   assert.equal(root.replace(/\s+/g, ''), own[0][1].replace(/\s+/g, ''));
   const v = (n) => new RegExp('--' + n + ':\\s*([^;]+);').exec(root)?.[1].trim();
   assert.equal(v('focus-ring'), '#7b6cff');
-  assert.equal(v('perm-auto-selected-text'), '#7b6cff');
-  assert.equal(v('perm-bypass-selected-text'), '#e5484d', "Yolo: MontClip's red, as its bar");
-  assert.equal(v('confirm-btn-primary-bg'), '#7b6cff');
-  assert.equal(v('accent-cta-bg-pure'), '#7b6cff');
+  // WCAG AA at 13px regular (QQ on #109): #9b8fff is 5.52 on the hover pill #272727, #ff6b70 5.40;
+  // #7b6cff / #e5484d there were 3.86 / 3.82 — they stay for icons and focus rings only (3:1)
+  assert.equal(v('perm-auto-selected-text'), '#9b8fff');
+  assert.equal(v('perm-bypass-selected-text'), '#ff6b70', "Yolo: MontClip's red hue, lightened to pass AA");
+  // white on #6a5bf0 is 4.81:1; white on the old #7b6cff was 3.87
+  assert.equal(v('confirm-btn-primary-bg'), '#6a5bf0');
+  assert.equal(v('accent-cta-bg-pure'), '#6a5bf0');
   assert.match(read('style.css'), /--accent: #7b6cff;/, "MontClip's accent is that one");
+});
+
+test('the mode menu has a surface (QQ on #109): --menu-panel-surface on the parts, opaque; the panel rule present', () => {
+  // MorphPopover reads var(--menu-panel-surface) for its panel; without it the 计划/手动/自动/Yolo menu is
+  // transparent over the timeline. The scoped base rule makes it the opaque --cmd-palette-bg (as on Cindy's win32
+  // path; the [data-theme=…] translucent variants never match — MontClip sets no data-theme).
+  const base = rules(css).find(([s, b]) => s === SCOPE && /--menu-panel-surface:/.test(b));
+  assert.ok(base, '--menu-panel-surface defined on the parts');
+  assert.match(base[1], /--menu-panel-surface:\s*var\(--cmd-palette-bg\)/);
+  assert.ok(rules(css).some(([s]) => split(s).some((x) => /\[data-menu-surface\]/.test(x) && x.includes(SCOPE))), '[data-menu-surface] rule, scoped');
+  // and every variable a rule reads is one the parts set — or runtime-owned (Radix sets --radix-*, Tailwind's shadow
+  // internals --tw-*), or read with an explicit fallback (var(--app-font-code, var(--app-font-code-default)))
+  const defined = new Set([...css.matchAll(/(^|[;{\s])--([\w-]+)\s*:/g)].map((m) => m[2]));
+  const bare = [...css.matchAll(/var\(\s*--([\w-]+)(\s*\))/g)].map((m) => m[1]);
+  assert.deepEqual([...new Set(bare)].filter((n) => !defined.has(n) && !/^(radix|tw)-/.test(n)).sort(), [], 'a var the parts read but never set');
+});
+
+test('no selector is split at a CSS hex escape (QQ on #109): `\\2c ` ends with a space that is not a combinator', () => {
+  // styles.cjs:firstCompoundEnd used to read that space as a descendant combinator and insert SCOPE mid-class
+  // (22 rules, e.g. `.hover\:bg-\[var\(--composer-pill-bg\2c:where(…) \#FCFCFC\)\]:hover`)
+  for (const s of selectors()) assert.doesNotMatch(s, /\\[0-9a-fA-F]{1,6}:where\(/, s);
+  // and the escapes are still there, whole (this guards the guard: the fixture classes exist)
+  assert.ok(selectors().filter((s) => /\\[0-9a-fA-F]{1,6}\s/.test(s)).length >= 20, 'escaped class names present');
 });

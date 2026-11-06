@@ -80,7 +80,7 @@ test("the strings: Cindy's own for zh-CN and en, at 43001ea, the same keys in bo
   assert.ok(keys(strings['zh-CN']).length > 100);
   assert.deepEqual(keys(own['zh-CN']).sort(), keys(own.en).sort());
   // the mode switch words, and the two words the build puts in ThinkingCard's JSX (PATCHES)
-  assert.ok(keys(own['zh-CN']).every((k) => k.startsWith('newChat.permissionSelector.') || ['chat.thinking.inProgress', 'chat.thinking.hidden', 'chat.thinking.completed', 'chat.workGroup.worked'].includes(k)), 'MontClip replaces only the mode switch words here');
+  assert.ok(keys(own['zh-CN']).every((k) => k.startsWith('newChat.permissionSelector.') || ['chat.thinking.inProgress', 'chat.thinking.hidden', 'chat.thinking.completed', 'chat.thinking.aborted', 'chat.workGroup.worked'].includes(k)), 'MontClip replaces only the mode switch words here');
   assert.equal(own['zh-CN'].newChat.permissionSelector.modes['claude-code'].bypassPermissions.label, 'Yolo');
   assert.equal(own['zh-CN'].newChat.permissionSelector.modes['claude-code'].ask.label, '手动');
 });
@@ -154,6 +154,8 @@ test('how long the AI took: words in Chinese (58 秒, 1 分 29 秒), Cindy\'s ow
   const own = require('../agent-ui/montclip-strings.json'), M = (l) => own[l].chat;
   assert.equal(M('zh-CN').workGroup.worked, '用了 {{duration}}'); assert.equal(M('en').workGroup.worked, 'Took {{duration}}');
   assert.equal(M('zh-CN').thinking.completed, '想了 {{duration}}'); assert.equal(M('en').thinking.completed, 'Thought for {{duration}}');
+  assert.equal(M('zh-CN').thinking.aborted, '想了 {{duration}}，停下了'); assert.equal(M('en').thinking.aborted, 'Thought for {{duration}}, then stopped');
+  assert.equal(fill(M('zh-CN').thinking.aborted, durationZh(58000)), '想了 58 秒，停下了');
   assert.equal(fill(M('zh-CN').workGroup.worked, durationZh(58000)), '用了 58 秒');
   assert.equal(fill(M('zh-CN').thinking.completed, durationZh(58000)), '想了 58 秒');
   assert.equal(fill(M('en').workGroup.worked, '58s'), 'Took 58s');
@@ -165,4 +167,15 @@ test('how long the AI took: words in Chinese (58 秒, 1 分 29 秒), Cindy\'s ow
   assert.match(standIn, /import \{ formatDuration \} from '@cindy\/maker-shared\/message-render';/);
   assert.match(standIn, /return i18n\.language === 'zh-CN' \? durationZh\(ms, options\) : formatDuration\(ms, options\);/);
   assert.ok(STAND_INS['apps/desktop/src/renderer/lib/sessionDurationFormat']);
+});
+
+test('every MontClip string is in the built bundle (QQ on #109 7ab67eb: a string added without rebuilding never reached the pane)', () => {
+  const strings = JSON.parse(fs.readFileSync(path.join(UI, 'montclip-strings.json'), 'utf8'));
+  const bundle = fs.readFileSync(path.join(__dirname, '..', 'cindy-official.js'), 'utf8');
+  // esbuild writes non-ASCII characters as \uXXXX with upper-case hex digits
+  const escaped = (s) => s.replace(/[^\x00-\x7f]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'));
+  const missing = [];
+  const walk = (o, at) => { for (const [k, v] of Object.entries(o)) { if (typeof v === 'string') { if (!bundle.includes(v) && !bundle.includes(escaped(v))) missing.push(at + k); } else if (v && typeof v === 'object') walk(v, at + k + '.'); } };
+  for (const lang of ['zh-CN', 'en']) walk(strings[lang], lang + '.');
+  assert.deepEqual(missing, [], 'rebuild with node agent-ui/build.cjs');
 });

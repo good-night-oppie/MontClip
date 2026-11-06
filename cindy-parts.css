@@ -1542,7 +1542,7 @@ video:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .max-h-\[85vh\], .max-h-\[85vh\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   max-height: 85vh;
 }
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .max-h-\[min\(320px\2c 42vh\)\], .max-h-\[min\(320px\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) 42vh\)\] {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .max-h-\[min\(320px\2c 42vh\)\], .max-h-\[min\(320px\2c 42vh\)\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   max-height: min(320px, 42vh);
 }
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .max-h-full, .max-h-full:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
@@ -1641,7 +1641,7 @@ video:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .max-w-\[914px\], .max-w-\[914px\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   max-width: 914px;
 }
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .max-w-\[min\(420px\2c calc\(100vw-32px\)\)\], .max-w-\[min\(420px\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) calc\(100vw-32px\)\)\] {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .max-w-\[min\(420px\2c calc\(100vw-32px\)\)\], .max-w-\[min\(420px\2c calc\(100vw-32px\)\)\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   max-width: min(420px, calc(100vw - 32px));
 }
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .max-w-full, .max-w-full:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
@@ -2459,7 +2459,7 @@ video:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph
   transition-timing-function: var(--motion-ease-move, cubic-bezier(0.4, 0, 0.2, 1));
   transition-duration: var(--motion-fast, 150ms);
 }
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .transition-\[background-color\2c font-weight\], .transition-\[background-color\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) font-weight\] {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .transition-\[background-color\2c font-weight\], .transition-\[background-color\2c font-weight\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   transition-property: background-color,font-weight;
   transition-timing-function: var(--motion-ease-move, cubic-bezier(0.4, 0, 0.2, 1));
   transition-duration: var(--motion-fast, 150ms);
@@ -2469,7 +2469,7 @@ video:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph
   transition-timing-function: var(--motion-ease-move, cubic-bezier(0.4, 0, 0.2, 1));
   transition-duration: var(--motion-fast, 150ms);
 }
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .transition-\[opacity\2c transform\], .transition-\[opacity\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) transform\] {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .transition-\[opacity\2c transform\], .transition-\[opacity\2c transform\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   transition-property: opacity,transform;
   transition-timing-function: var(--motion-ease-move, cubic-bezier(0.4, 0, 0.2, 1));
   transition-duration: var(--motion-fast, 150ms);
@@ -2516,7 +2516,7 @@ video:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .duration-\[var\(--motion-base\)\], .duration-\[var\(--motion-base\)\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   transition-duration: var(--motion-base);
 }
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .duration-\[var\(--motion-base\2c 200ms\)\], .duration-\[var\(--motion-base\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) 200ms\)\] {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .duration-\[var\(--motion-base\2c 200ms\)\], .duration-\[var\(--motion-base\2c 200ms\)\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   transition-duration: var(--motion-base,200ms);
 }
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .duration-\[var\(--motion-fast\)\], .duration-\[var\(--motion-fast\)\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
@@ -2528,7 +2528,7 @@ video:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .ease-\[var\(--motion-ease-move\)\], .ease-\[var\(--motion-ease-move\)\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   transition-timing-function: var(--motion-ease-move);
 }
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .ease-\[var\(--motion-ease-move\2c cubic-bezier\(0\.4\2c 0\2c 0\.2\2c 1\)\)\], .ease-\[var\(--motion-ease-move\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) cubic-bezier\(0\.4\2c 0\2c 0\.2\2c 1\)\)\] {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .ease-\[var\(--motion-ease-move\2c cubic-bezier\(0\.4\2c 0\2c 0\.2\2c 1\)\)\], .ease-\[var\(--motion-ease-move\2c cubic-bezier\(0\.4\2c 0\2c 0\.2\2c 1\)\)\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   transition-timing-function: var(--motion-ease-move,cubic-bezier(0.4,0,0.2,1));
 }
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .ease-\[var\(--motion-ease-out\)\], .ease-\[var\(--motion-ease-out\)\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
@@ -2537,7 +2537,7 @@ video:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .ease-out, .ease-out:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
 }
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .\[--button-face-bg\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_15\%\2c var\(--surface-elevated\)\)\], .\[--button-face-bg\:color-mix\(in_srgb\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) hsl\(var\(--destructive\)\)_15\%\2c var\(--surface-elevated\)\)\] {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .\[--button-face-bg\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_15\%\2c var\(--surface-elevated\)\)\], .\[--button-face-bg\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_15\%\2c var\(--surface-elevated\)\)\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: color-mix(in srgb,hsl(var(--destructive)) 15%,var(--surface-elevated));
 }
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .\[--button-face-bg\:hsl\(var\(--destructive\)\)\], .\[--button-face-bg\:hsl\(var\(--destructive\)\)\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
@@ -2670,191 +2670,177 @@ video:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph
     opacity: 1;
   }
 }
-
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
+  --menu-panel-surface: var(--cmd-palette-bg);
+}
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) [data-theme='cindy-light'],
+[data-theme='cindy-light']:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim),
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) [data-theme='cindy-dark'],
+[data-theme='cindy-dark']:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
+  --menu-panel-surface: var(--surface-translucent-overlay);
+}
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) [data-platform='win32'][data-theme='cindy-light'],
+[data-platform='win32'][data-theme='cindy-light']:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim),
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) [data-platform='win32'][data-theme='cindy-dark'],
+[data-platform='win32'][data-theme='cindy-dark']:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
+  --menu-panel-surface: var(--cmd-palette-bg);
+}
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) [data-theme='cindy-light'] [data-menu-surface],
+[data-theme='cindy-light']:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) [data-menu-surface],
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) [data-theme='cindy-dark'] [data-menu-surface],
+[data-theme='cindy-dark']:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) [data-menu-surface] {
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) [data-platform='win32'][data-theme='cindy-light'] [data-menu-surface],
+[data-platform='win32'][data-theme='cindy-light']:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) [data-menu-surface],
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) [data-platform='win32'][data-theme='cindy-dark'] [data-menu-surface],
+[data-platform='win32'][data-theme='cindy-dark']:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) [data-menu-surface] {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .placeholder\:text-\[var\(--ask-input-placeholder\)\]::placeholder, .placeholder\:text-\[var\(--ask-input-placeholder\)\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim)::placeholder {
   color: var(--ask-input-placeholder);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .placeholder\:text-\[var\(--text-placeholder\)\]::placeholder, .placeholder\:text-\[var\(--text-placeholder\)\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim)::placeholder {
   color: var(--text-placeholder);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .after\:pointer-events-none::after, .after\:pointer-events-none:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim)::after {
   content: var(--tw-content);
   pointer-events: none;
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .after\:invisible::after, .after\:invisible:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim)::after {
   content: var(--tw-content);
   visibility: hidden;
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .after\:block::after, .after\:block:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim)::after {
   content: var(--tw-content);
   display: block;
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .after\:h-0::after, .after\:h-0:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim)::after {
   content: var(--tw-content);
   height: var(--space-0);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .after\:select-none::after, .after\:select-none:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim)::after {
   content: var(--tw-content);
   user-select: none;
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .after\:overflow-hidden::after, .after\:overflow-hidden:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim)::after {
   content: var(--tw-content);
   overflow: hidden;
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .after\:font-medium::after, .after\:font-medium:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim)::after {
   content: var(--tw-content);
   font-weight: var(--font-weight-medium);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .after\:content-\[attr\(data-menu-label\)_\/_\"\"\]::after, .after\:content-\[attr\(data-menu-label\)_\/_\"\"\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim)::after {
   --tw-content: attr(data-menu-label) / "";
   content: var(--tw-content);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .empty\:hidden:empty, .empty\:hidden:empty:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   display: none;
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .hover\:border-\[var\(--border-default\)\]:hover, .hover\:border-\[var\(--border-default\)\]:hover:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   border-color: var(--border-default);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .hover\:bg-\[var\(--ask-option-hover\)\]:hover, .hover\:bg-\[var\(--ask-option-hover\)\]:hover:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   background-color: var(--ask-option-hover);
 }
-
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .hover\:bg-\[var\(--composer-pill-bg\2c \#FCFCFC\)\]:hover, .hover\:bg-\[var\(--composer-pill-bg\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) \#FCFCFC\)\]:hover {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .hover\:bg-\[var\(--composer-pill-bg\2c \#FCFCFC\)\]:hover, .hover\:bg-\[var\(--composer-pill-bg\2c \#FCFCFC\)\]:hover:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   background-color: var(--composer-pill-bg,#FCFCFC);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .hover\:bg-\[var\(--confirm-btn-secondary-hover\)\]:hover, .hover\:bg-\[var\(--confirm-btn-secondary-hover\)\]:hover:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   background-color: var(--confirm-btn-secondary-hover);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .hover\:bg-\[var\(--model-item-hover\)\]:hover, .hover\:bg-\[var\(--model-item-hover\)\]:hover:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   background-color: var(--model-item-hover);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .hover\:bg-\[var\(--msg-code-inline-bg\)\]:hover, .hover\:bg-\[var\(--msg-code-inline-bg\)\]:hover:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   background-color: var(--msg-code-inline-bg);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .hover\:bg-\[var\(--plan-toolbar-btn-hover-bg\)\]:hover, .hover\:bg-\[var\(--plan-toolbar-btn-hover-bg\)\]:hover:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   background-color: var(--plan-toolbar-btn-hover-bg);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .hover\:bg-\[var\(--surface-hover\)\]:hover, .hover\:bg-\[var\(--surface-hover\)\]:hover:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   background-color: var(--surface-hover);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .hover\:bg-\[var\(--surface-hover-soft\)\]:hover, .hover\:bg-\[var\(--surface-hover-soft\)\]:hover:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   background-color: var(--surface-hover-soft);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .hover\:bg-transparent:hover, .hover\:bg-transparent:hover:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   background-color: transparent;
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .hover\:text-\[var\(--msg-tool-card-text\)\]:hover, .hover\:text-\[var\(--msg-tool-card-text\)\]:hover:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   color: var(--msg-tool-card-text);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .hover\:text-\[var\(--text-primary\)\]:hover, .hover\:text-\[var\(--text-primary\)\]:hover:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   color: var(--text-primary);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .hover\:opacity-80:hover, .hover\:opacity-80:hover:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   opacity: 0.8;
 }
-
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .hover\:\[background-image\:linear-gradient\(var\(--cmd-palette-item-hover\)\2c var\(--cmd-palette-item-hover\)\)\]:hover, .hover\:\[background-image\:linear-gradient\(var\(--cmd-palette-item-hover\)\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) var\(--cmd-palette-item-hover\)\)\]:hover {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .hover\:\[background-image\:linear-gradient\(var\(--cmd-palette-item-hover\)\2c var\(--cmd-palette-item-hover\)\)\]:hover, .hover\:\[background-image\:linear-gradient\(var\(--cmd-palette-item-hover\)\2c var\(--cmd-palette-item-hover\)\)\]:hover:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   background-image: linear-gradient(var(--cmd-palette-item-hover),var(--cmd-palette-item-hover));
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .focus-visible\:outline-none:focus-visible, .focus-visible\:outline-none:focus-visible:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   outline: 2px solid transparent;
   outline-offset: 2px;
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .focus-visible\:ring-2:focus-visible, .focus-visible\:ring-2:focus-visible:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
   --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
   box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .focus-visible\:ring-inset:focus-visible, .focus-visible\:ring-inset:focus-visible:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --tw-ring-inset: inset;
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .focus-visible\:ring-\[hsl\(var\(--ring\)\)\]:focus-visible, .focus-visible\:ring-\[hsl\(var\(--ring\)\)\]:focus-visible:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --tw-ring-color: hsl(var(--ring));
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .focus-visible\:ring-\[var\(--focus-ring\)\]:focus-visible, .focus-visible\:ring-\[var\(--focus-ring\)\]:focus-visible:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --tw-ring-color: var(--focus-ring);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .focus-visible\:ring-\[var\(--focus-ring-soft\)\]:focus-visible, .focus-visible\:ring-\[var\(--focus-ring-soft\)\]:focus-visible:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --tw-ring-color: var(--focus-ring-soft);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .active\:scale-\[0\.98\]:active, .active\:scale-\[0\.98\]:active:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --tw-scale-x: 0.98;
   --tw-scale-y: 0.98;
   transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
 }
-
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:hover\:bg-\[color-mix\(in_srgb\2c var\(--msg-tool-card-text\)_90\%\2c var\(--msg-tool-card-bg\)\)\]:hover:enabled, .enabled\:hover\:bg-\[color-mix\(in_srgb\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) var\(--msg-tool-card-text\)_90\%\2c var\(--msg-tool-card-bg\)\)\]:hover:enabled {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:hover\:bg-\[color-mix\(in_srgb\2c var\(--msg-tool-card-text\)_90\%\2c var\(--msg-tool-card-bg\)\)\]:hover:enabled, .enabled\:hover\:bg-\[color-mix\(in_srgb\2c var\(--msg-tool-card-text\)_90\%\2c var\(--msg-tool-card-bg\)\)\]:hover:enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   background-color: color-mix(in srgb,var(--msg-tool-card-text) 90%,var(--msg-tool-card-bg));
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:hover\:bg-\[var\(--msg-code-inline-bg\)\]:hover:enabled, .enabled\:hover\:bg-\[var\(--msg-code-inline-bg\)\]:hover:enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   background-color: var(--msg-code-inline-bg);
 }
-
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:active\:bg-\[color-mix\(in_srgb\2c var\(--msg-tool-card-text\)_80\%\2c var\(--msg-tool-card-bg\)\)\]:active:enabled, .enabled\:active\:bg-\[color-mix\(in_srgb\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) var\(--msg-tool-card-text\)_80\%\2c var\(--msg-tool-card-bg\)\)\]:active:enabled {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:active\:bg-\[color-mix\(in_srgb\2c var\(--msg-tool-card-text\)_80\%\2c var\(--msg-tool-card-bg\)\)\]:active:enabled, .enabled\:active\:bg-\[color-mix\(in_srgb\2c var\(--msg-tool-card-text\)_80\%\2c var\(--msg-tool-card-bg\)\)\]:active:enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   background-color: color-mix(in srgb,var(--msg-tool-card-text) 80%,var(--msg-tool-card-bg));
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .disabled\:cursor-default:disabled, .disabled\:cursor-default:disabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   cursor: default;
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .disabled\:cursor-not-allowed:disabled, .disabled\:cursor-not-allowed:disabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   cursor: not-allowed;
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .disabled\:opacity-60:disabled, .disabled\:opacity-60:disabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   opacity: 0.6;
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .group:hover .group-hover\:bg-\[var\(--cmd-palette-item-hover\)\], .group:hover:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .group-hover\:bg-\[var\(--cmd-palette-item-hover\)\] {
   background-color: var(--cmd-palette-item-hover);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .data-\[state\=closed\]\:pointer-events-none[data-state="closed"], .data-\[state\=closed\]\:pointer-events-none[data-state="closed"]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   pointer-events: none;
 }
-
 @keyframes float-out {
 
   to {
     opacity: 0;
   }
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .data-\[state\=closed\]\:animate-float-out[data-state="closed"], .data-\[state\=closed\]\:animate-float-out[data-state="closed"]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   animation: float-out var(--motion-instant, 80ms) var(--motion-ease-in, cubic-bezier(0.4, 0, 1, 1)) forwards;
 }
-
 @keyframes float-in {
 
   from {
@@ -2867,36 +2853,28 @@ video:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph
     transform: scale(1);
   }
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .data-\[state\=open\]\:animate-float-in[data-state="open"], .data-\[state\=open\]\:animate-float-in[data-state="open"]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   animation: float-in var(--motion-fast, 150ms) var(--motion-ease-out, cubic-bezier(0.16, 1, 0.3, 1));
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .data-\[highlighted\]\:font-medium[data-highlighted], .data-\[highlighted\]\:font-medium[data-highlighted]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   font-weight: var(--font-weight-medium);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .data-\[menu-active\]\:font-medium[data-menu-active], .data-\[menu-active\]\:font-medium[data-menu-active]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   font-weight: var(--font-weight-medium);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .data-\[state\=checked\]\:font-medium[data-state="checked"], .data-\[state\=checked\]\:font-medium[data-state="checked"]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   font-weight: var(--font-weight-medium);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .data-\[state\=open\]\:font-medium[data-state="open"], .data-\[state\=open\]\:font-medium[data-state="open"]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   font-weight: var(--font-weight-medium);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .group[data-state="open"] .group-data-\[state\=open\]\:translate-y-0, .group[data-state="open"]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .group-data-\[state\=open\]\:translate-y-0 {
   --tw-translate-y: var(--space-0);
   transform: translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .group[data-state="open"] .group-data-\[state\=open\]\:opacity-100, .group[data-state="open"]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .group-data-\[state\=open\]\:opacity-100 {
   opacity: 1;
 }
-
 @media (prefers-reduced-motion: reduce) {
 
   :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .motion-reduce\:animate-none, .motion-reduce\:animate-none:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
@@ -2911,111 +2889,84 @@ video:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph
     transition-duration: 0s;
   }
 }
-
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .dark\:hover\:bg-\[var\(--composer-pill-bg\2c \#393838\)\]:hover:is(.dark *), .dark\:hover\:bg-\[var\(--composer-pill-bg\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) \#393838\)\]:hover:is(.dark *) {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .dark\:hover\:bg-\[var\(--composer-pill-bg\2c \#393838\)\]:hover:is(.dark *), .dark\:hover\:bg-\[var\(--composer-pill-bg\2c \#393838\)\]:hover:is(.dark *):where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   background-color: var(--composer-pill-bg,#393838);
 }
-
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_25\%\2c var\(--surface-elevated\)\)\]:hover:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:color-mix\(in_srgb\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) hsl\(var\(--destructive\)\)_25\%\2c var\(--surface-elevated\)\)\]:hover:not([aria-disabled=true]):enabled {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_25\%\2c var\(--surface-elevated\)\)\]:hover:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_25\%\2c var\(--surface-elevated\)\)\]:hover:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: color-mix(in srgb,hsl(var(--destructive)) 25%,var(--surface-elevated));
 }
-
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_90\%\2c var\(--text-primary\)\)\]:hover:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:color-mix\(in_srgb\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) hsl\(var\(--destructive\)\)_90\%\2c var\(--text-primary\)\)\]:hover:not([aria-disabled=true]):enabled {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_90\%\2c var\(--text-primary\)\)\]:hover:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_90\%\2c var\(--text-primary\)\)\]:hover:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: color-mix(in srgb,hsl(var(--destructive)) 90%,var(--text-primary));
 }
-
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:color-mix\(in_srgb\2c var\(--perm-allow-btn-bg\)_92\%\2c var\(--perm-allow-btn-text\)\)\]:hover:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:color-mix\(in_srgb\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) var\(--perm-allow-btn-bg\)_92\%\2c var\(--perm-allow-btn-text\)\)\]:hover:not([aria-disabled=true]):enabled {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:color-mix\(in_srgb\2c var\(--perm-allow-btn-bg\)_92\%\2c var\(--perm-allow-btn-text\)\)\]:hover:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:color-mix\(in_srgb\2c var\(--perm-allow-btn-bg\)_92\%\2c var\(--perm-allow-btn-text\)\)\]:hover:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: color-mix(in srgb,var(--perm-allow-btn-bg) 92%,var(--perm-allow-btn-text));
 }
-
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:color-mix\(in_srgb\2c var\(--text-danger\)_12\%\2c transparent\)\]:hover:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:color-mix\(in_srgb\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) var\(--text-danger\)_12\%\2c transparent\)\]:hover:not([aria-disabled=true]):enabled {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:color-mix\(in_srgb\2c var\(--text-danger\)_12\%\2c transparent\)\]:hover:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:color-mix\(in_srgb\2c var\(--text-danger\)_12\%\2c transparent\)\]:hover:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: color-mix(in srgb,var(--text-danger) 12%,transparent);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:var\(--button-cta-hover\)\]:hover:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:var\(--button-cta-hover\)\]:hover:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: var(--button-cta-hover);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:var\(--button-primary-hover\)\]:hover:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:var\(--button-primary-hover\)\]:hover:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: var(--button-primary-hover);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:var\(--button-secondary-hover\)\]:hover:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:var\(--button-secondary-hover\)\]:hover:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: var(--button-secondary-hover);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:var\(--confirm-btn-primary-hover\)\]:hover:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:var\(--confirm-btn-primary-hover\)\]:hover:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: var(--confirm-btn-primary-hover);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:var\(--confirm-btn-secondary-hover\)\]:hover:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-bg\:var\(--confirm-btn-secondary-hover\)\]:hover:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: var(--confirm-btn-secondary-hover);
 }
-
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-border\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_90\%\2c var\(--text-primary\)\)\]:hover:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-border\:color-mix\(in_srgb\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) hsl\(var\(--destructive\)\)_90\%\2c var\(--text-primary\)\)\]:hover:not([aria-disabled=true]):enabled {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-border\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_90\%\2c var\(--text-primary\)\)\]:hover:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-border\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_90\%\2c var\(--text-primary\)\)\]:hover:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-border: color-mix(in srgb,hsl(var(--destructive)) 90%,var(--text-primary));
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-border\:var\(--button-cta-hover\)\]:hover:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-border\:var\(--button-cta-hover\)\]:hover:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-border: var(--button-cta-hover);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-border\:var\(--button-primary-hover\)\]:hover:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:hover\:\[--button-face-border\:var\(--button-primary-hover\)\]:hover:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-border: var(--button-primary-hover);
 }
-
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_35\%\2c var\(--surface-elevated\)\)\]:active:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:color-mix\(in_srgb\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) hsl\(var\(--destructive\)\)_35\%\2c var\(--surface-elevated\)\)\]:active:not([aria-disabled=true]):enabled {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_35\%\2c var\(--surface-elevated\)\)\]:active:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_35\%\2c var\(--surface-elevated\)\)\]:active:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: color-mix(in srgb,hsl(var(--destructive)) 35%,var(--surface-elevated));
 }
-
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_80\%\2c var\(--text-primary\)\)\]:active:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:color-mix\(in_srgb\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) hsl\(var\(--destructive\)\)_80\%\2c var\(--text-primary\)\)\]:active:not([aria-disabled=true]):enabled {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_80\%\2c var\(--text-primary\)\)\]:active:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_80\%\2c var\(--text-primary\)\)\]:active:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: color-mix(in srgb,hsl(var(--destructive)) 80%,var(--text-primary));
 }
-
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:color-mix\(in_srgb\2c var\(--perm-allow-btn-bg\)_82\%\2c var\(--perm-allow-btn-text\)\)\]:active:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:color-mix\(in_srgb\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) var\(--perm-allow-btn-bg\)_82\%\2c var\(--perm-allow-btn-text\)\)\]:active:not([aria-disabled=true]):enabled {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:color-mix\(in_srgb\2c var\(--perm-allow-btn-bg\)_82\%\2c var\(--perm-allow-btn-text\)\)\]:active:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:color-mix\(in_srgb\2c var\(--perm-allow-btn-bg\)_82\%\2c var\(--perm-allow-btn-text\)\)\]:active:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: color-mix(in srgb,var(--perm-allow-btn-bg) 82%,var(--perm-allow-btn-text));
 }
-
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:color-mix\(in_srgb\2c var\(--text-danger\)_20\%\2c transparent\)\]:active:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:color-mix\(in_srgb\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) var\(--text-danger\)_20\%\2c transparent\)\]:active:not([aria-disabled=true]):enabled {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:color-mix\(in_srgb\2c var\(--text-danger\)_20\%\2c transparent\)\]:active:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:color-mix\(in_srgb\2c var\(--text-danger\)_20\%\2c transparent\)\]:active:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: color-mix(in srgb,var(--text-danger) 20%,transparent);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:var\(--button-cta-pressed\)\]:active:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:var\(--button-cta-pressed\)\]:active:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: var(--button-cta-pressed);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:var\(--button-primary-pressed\)\]:active:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:var\(--button-primary-pressed\)\]:active:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: var(--button-primary-pressed);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:var\(--button-secondary-pressed\)\]:active:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:var\(--button-secondary-pressed\)\]:active:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: var(--button-secondary-pressed);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:var\(--confirm-btn-primary-hover\)\]:active:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:var\(--confirm-btn-primary-hover\)\]:active:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: var(--confirm-btn-primary-hover);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:var\(--confirm-btn-secondary-hover\)\]:active:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-bg\:var\(--confirm-btn-secondary-hover\)\]:active:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-bg: var(--confirm-btn-secondary-hover);
 }
-
-:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-border\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_80\%\2c var\(--text-primary\)\)\]:active:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-border\:color-mix\(in_srgb\2c:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) hsl\(var\(--destructive\)\)_80\%\2c var\(--text-primary\)\)\]:active:not([aria-disabled=true]):enabled {
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-border\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_80\%\2c var\(--text-primary\)\)\]:active:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-border\:color-mix\(in_srgb\2c hsl\(var\(--destructive\)\)_80\%\2c var\(--text-primary\)\)\]:active:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-border: color-mix(in srgb,hsl(var(--destructive)) 80%,var(--text-primary));
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-border\:var\(--button-cta-pressed\)\]:active:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-border\:var\(--button-cta-pressed\)\]:active:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-border: var(--button-cta-pressed);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-border\:var\(--button-primary-pressed\)\]:active:not([aria-disabled=true]):enabled, .enabled\:\[\&\:not\(\[aria-disabled\=true\]\)\]\:active\:\[--button-face-border\:var\(--button-primary-pressed\)\]:active:not([aria-disabled=true]):enabled:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --button-face-border: var(--button-primary-pressed);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .\[\&\>svg\]\:h-3\.5>svg, .\[\&\>svg\]\:h-3\.5:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim)>svg {
   height: var(--space-3_5);
 }
-
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .\[\&\>svg\]\:w-3\.5>svg, .\[\&\>svg\]\:w-3\.5:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim)>svg {
   width: var(--space-3_5);
 }
@@ -3023,17 +2974,21 @@ video:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph
 
 /* MontClip's colours over Cindy's (助手面板 v7.2 §1; Deja): the accent is MontClip's #7b6cff, not Cindy's blue focus ring or
    its white main button; MontClip's own buttons keep .btn.primary's gradient (#7b6cff → #4f8cff). Yolo is MontClip's red,
-   as its bar and the top-bar mark. Cindy's neutrals (surfaces, text, lines) stay. */
+   as its bar and the top-bar mark. Cindy's neutrals (surfaces, text, lines) stay.
+   13px regular text passes WCAG AA 4.5:1 (QQ on #109, DD's measurements): the mode names take the lighter same-hue tints —
+   #9b8fff is 5.52 on the hover pill #272727 and 6.10 on the open menu row #1f1f1f, #ff6b70 is 5.40 / 5.96 (#7b6cff and
+   #e5484d there were 3.86 / 3.82). Icons and focus rings keep #7b6cff / #e5484d — they only need 3:1. The confirm
+   button's purple is deepened to #6a5bf0 so its white label is 4.81:1 (white on #7b6cff was 3.87). */
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   --focus-ring: #7b6cff;
   --focus-ring-soft: rgba(123, 108, 255, 0.5);
   --ring: 246 100% 71%;
-  --perm-auto-selected-text: #7b6cff;
-  --perm-bypass-selected-text: #e5484d;
-  --accent-cta-bg-pure: #7b6cff;
+  --perm-auto-selected-text: #9b8fff;
+  --perm-bypass-selected-text: #ff6b70;
+  --accent-cta-bg-pure: #6a5bf0;
   --accent-pure-cta-fg: #ffffff;
-  --confirm-btn-primary-bg: #7b6cff;
+  --confirm-btn-primary-bg: #6a5bf0;
   --confirm-btn-primary-text: #ffffff;
-  --confirm-btn-primary-hover: #6a5bf0;
+  --confirm-btn-primary-hover: #5948e8;
 }
 
