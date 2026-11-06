@@ -62,7 +62,7 @@ Real initialization/inference and live CDN delivery remain untested and unauthor
 
 ## JJ and integration handoff
 
-Final local checks on the integrity change based on b783bd36 (final commit in PR receipt):
+Local checks on the integrity change based on b783bd36 (scope corrected below):
 - `npm test -- --test-concurrency=4 --test-timeout=120000`: 1752 tests, 1745 pass,
   7 skip, 0 fail, using installed local FFmpeg/FFprobe via MONTCLIP_FFMPEG/MONTCLIP_FFPROBE.
 - `node .github/scripts/release-check.js`: passed, 27 MCP tools.
@@ -72,6 +72,25 @@ Final local checks on the integrity change based on b783bd36 (final commit in PR
 - Not run: real MediaPipe execution/inference, visible desktop, installation, cross-platform
   browser smoke or live CDN runtime delivery. No merge/approval, no license acceptance on behalf
   of the user. New CI results must be read against the new head, not inherited.
+
+### CI correction after add981df
+
+Run https://github.com/good-night-oppie/MontClip/actions/runs/42187166174 failed in all
+four test jobs: Linux Node 18 (127790148926), Node 20 (127790148937), Node 22
+(127790148896), Windows Node 22 (127790148922). Each failed only the same
+`test/public-copy.test.js` case: `README (English) and README.zh-CN are JJ's text,
+word for word`. Syntax and release jobs passed. Read with
+`gh run view 42187166174 -R good-night-oppie/MontClip --log-failed`.
+
+Cause: the author appended a README paragraph after the local full test run completed.
+The 1745-pass result above therefore does NOT validate the final add981df tree. The
+previous PR receipt's claim that it did was incorrect. No CI failure is waived by it.
+The regression reproduces locally with `node --test test/public-copy.test.js` (one
+failure). Minimal correction removes only the added README paragraph, restoring JJ's
+approved public copy; the fixture and runtime implementation remain unchanged. This
+integrity fix does not add a schema/prop/API/MCP surface requiring new README content.
+Technical details remain in this document, CLAUDE.md and licenses/mediapipe/README.md.
+After correction the same public-copy test passes. New CI and SHA are in the PR receipt.
 
 The three finalized `bgremove-net-no`, `bgremove-export-unavailable`,
 `bgremove-export-realtime` strings are unchanged. One new draft key:

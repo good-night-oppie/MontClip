@@ -30,11 +30,6 @@ These are still in progress or not yet verified, and are not available now:
 
 MontClip is a modified version of FableCut and keeps its MIT license. FableCut has many more features that MontClip has not verified one by one, so they are not listed here. See the [upstream FableCut documentation](https://github.com/ronak-create/FableCut).
 
-The browser editor's optional AI background removal asks before downloading MediaPipe.
-Its program, WASM and model files use a fixed version and must all pass integrity checks
-before use. Consent lasts only in that page; export refuses clips whose required mask is
-unavailable. See [package provenance and verification limits](licenses/mediapipe/README.md).
-
 ## License
 
 MIT. See [LICENSE](LICENSE) and the third-party notices.
