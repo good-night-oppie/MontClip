@@ -33,3 +33,14 @@ MontClip is a modified version of FableCut and keeps its MIT license. FableCut h
 ## License
 
 MIT. See [LICENSE](LICENSE) and the third-party notices.
+
+## Technical reference
+
+See the [agent and API manual](CLAUDE.md) for media repair and background duration merging, and the [timestamp repair comparison](docs/testing/repair-timestamp-jump.md) for the reproducible test and its limits.
+
+JPEG ProRes exports use the selected range's frame count to preserve audio through
+the project end. Direct REST callers can supply `frames` with `fps`; see the
+[export boundary decision](docs/decisions/2026-11-05-prores-project-end.md) for scope and compatibility.
+Bounded ProRes preserves filters selected by the output stream index, including
+muted audio after explicit stream reordering. Unsupported mappings or filter
+selectors are refused instead of silently replacing an existing audio filter.

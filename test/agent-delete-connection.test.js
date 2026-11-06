@@ -102,7 +102,11 @@ test('the page cannot delete by itself: one fixed, guarded IPC with no argument,
  assert.ok(loop,'agent operations go through the sender/frame/origin guard');
  assert.deepEqual(loop[1].split(',').map(s=>s.trim().replace(/'/g,'')),['get','configure','reset','deleteConnection','send','cancel'],'the IPC list is fixed');
  assert.match(preload,/deleteConnection:\(\)=>ipcRenderer\.invoke\('montclip:agent:deleteConnection'\)/,'the page passes nothing: no path, no file name');
- assert.equal((preload.match(/montclip:agent:/g)||[]).length,6);
+ // six for the service, two for the 「AI 数据说明」 (desktop/agent-data-notice.js) and two for the 设置 › AI 助手 switch
+ // (desktop/agent-switch.js; QQ via DD and Deja, 2026-11-04)
+ assert.equal((preload.match(/montclip:agent:/g)||[]).length,10);
+ assert.deepEqual((preload.match(/montclip:agent:switch[A-Za-z]+/g)||[]).sort(),['montclip:agent:switchGet','montclip:agent:switchSet']);
+ assert.deepEqual((preload.match(/montclip:agent:notice[A-Za-z]+/g)||[]).sort(),['montclip:agent:noticeAck','montclip:agent:noticeGet']);
  for(const src of [preload,pane])assert.doesNotMatch(src,/agent-connection|require\(['"]node:fs|unlink|rmdir|rmSync/,'no file names or file calls in the page or preload');
  const svc=read('desktop/agent-service.js');
  assert.match(svc,/deleteConnection\(\)\{/,'the service method takes no argument');
@@ -126,7 +130,7 @@ test('the pane asks first: the button only opens the confirmation, and only its 
  assert.match(button[1],/showModal\(\);removeDialog\.current\?\.querySelector<HTMLButtonElement>\('\[data-remove-cancel\]'\)\?\.focus\(\)/);
  assert.equal((pane.match(/deleteConnection\(\)/g)||[]).length,1,'one call');
  assert.match(pane,/<button data-remove-confirm onClick=\{async\(\)=>\{removeDialog\.current\?\.close\(\);const result=await W\.montclipAgentService\?\.deleteConnection\(\);/);
- assert.match(pane,/\(cfg\?\.configured\|\|cfg\?\.code==='CONFIG_READ_FAILED'\)&&<button data-remove-connection/,'shown while a connection is saved or unreadable');
+ assert.match(pane,/\(cfg\?\.configured\|\|cfg\?\.code==='CONFIG_READ_FAILED'\|\|cfg\?\.code==='SEED_CONFLICT'\)&&<button data-remove-connection/,'shown while a connection is saved or unreadable');
  assert.match(pane,/if\(result\?\.ok\)\{setCfg\(result\);setModel\(''\);setKey\(''\);setNotice\('connectionRemoved'\);\}else\{setCfg\(await W\.montclipAgentService\?\.get\(\)\);setNotice\('connectionRemoveFailed'\);\}/,'a failure shows its own notice and re-reads the real state');
  assert.match(pane,/<button data-remove-cancel onClick=\{\(\)=>removeDialog\.current\?\.close\(\)\}>/);
 });
