@@ -4513,7 +4513,7 @@ function onUiCommand(data) {
   let ok = true, code = null;
   if (c.cmd === "undo") { if (runtime.undo.length) undo(); else { ok = false; code = "NOTHING_TO_UNDO"; } }
   else if (c.cmd === "redo") { if (runtime.redo.length) redo(); else { ok = false; code = "NOTHING_TO_REDO"; } }
-  else if (c.cmd === "seek") setTime(+c.t || 0);
+  else if (c.cmd === "seek") { if (state.compCtx) { ok = false; code = "TIMELINE_CONTEXT"; } else setTime(+c.t || 0); }
   else if (c.cmd !== "state") { ok = false; code = "UNKNOWN_CMD"; }
   fetch("/api/ui/command/result", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
     id: c.id, session: c.session, project: runtime.projectId, ok, ...(code ? { code } : {}), cmd: c.cmd, time: state.time, undo: runtime.undo.length, redo: runtime.redo.length,
@@ -4568,13 +4568,13 @@ function startHostChannel() {
   let last = "";
   const post = (force) => {
     const msg = { type: "editor-state", time: Math.round(state.time * 100) / 100, playing: !!state.playing, selId: state.selId ?? null,
-      revision: project.revision ?? null, projectId: runtime.projectId || null };
+      revision: project.revision ?? null, projectId: runtime.projectId || null, compOpen: !!state.compCtx };
     const key = JSON.stringify(msg);
     if (force || key !== last) { last = key; ch.postMessage(msg); }
   };
   ch.onmessage = (e) => {
     const m = e.data || {};
-    if (m.type === "seek" && Number.isFinite(+m.t) && +m.t >= 0) { setTime(Math.min(+m.t, projDur())); post(true); }
+    if (m.type === "seek" && Number.isFinite(+m.t) && +m.t >= 0) { if (!state.compCtx) setTime(Math.min(+m.t, projDur())); post(true); }
     else if (m.type === "hello") post(true);
   };
   // a change goes out at once; with nothing changing, once a second anyway, so the panel knows the editor is still open
