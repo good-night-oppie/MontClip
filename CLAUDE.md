@@ -3023,23 +3023,31 @@ Desktop export downloads: the Save dialog is titled 保存导出的视频 / Save
 ## Guarded local FLV preparation (clean core split)
 
 Local FLV uploads and fablecut_import_media share prepare-media.js. Compatible
-single-video H.264 4:2:0 plus optional AAC streams are remuxed; other codecs need
-boolean allowTranscode:true. The check reads packet headers only (ffprobe
-packets, no decoding: seconds for a 2-hour recording). A break is more than 5 ms
-between one packet's end and the next one's start, per stream, measured in whole
-milliseconds. Every break of 0.5 s or less (exactly 0.5 s included), however
-many, imports as it is without a question: an H.264/AAC file stays a plain
-remux, the break is logged and marked faintly on the timeline. A break over
-0.5 s, or picture and sound more than 40 ms apart by their packet times (clocks
-jumping by different amounts where both break, or starts or ends not lining up)
-answer FLV_TIMELINE_GAP (REST: 409) with `gaps` and `fix` (`break` / `drift`)
-before any MP4 is written. With fixGaps:true or allowTranscode:true it is
-converted: an H.264/AAC file with a big break is remuxed keeping its timestamps
-(both streams copied; the picture holds its last frame, no sound across the
-break), while drift, other codecs and a failed check are re-encoded with the
-encoders that work here (silence across the break). The MP4 is then scanned
-and must match the original's readable length within 1 s and keep sound against
-picture within 40 ms; a remux that fails is re-encoded once, then
+single-video H.264 4:2:0 plus optional AAC streams keep their picture as a
+stream copy; other codecs need boolean allowTranscode:true. The check reads
+packet headers only (ffprobe packets, no decoding: seconds for a 2-hour
+recording). A break is more than 5 ms between one packet's end and the next
+one's start, per stream, measured in whole milliseconds. Every break of 0.5 s or
+less (exactly 0.5 s included), however many, imports without a question, is
+logged and marked faintly on the timeline. A break over 0.5 s answers
+FLV_TIMELINE_GAP (REST: 409) with `gaps` and `fix` (`break`) before any MP4 is
+written; with fixGaps:true or allowTranscode:true it is converted. Either way
+the picture is copied (`-c:v copy`; it holds its last frame across a break) and
+the sound is re-encoded to AAC with its holes filled with silence
+(`aresample=async=1:min_hard_comp=0.01:first_pts=0`), because the export reads
+sound with decodeAudioData, which puts samples back to back and ignores their
+timestamps: a hole left in the MP4 would make the sound after it come early.
+The sound is copied only when it is whole (no break in either stream, not
+starting after the picture, no drift); `audio` in the result says
+`copy` / `filled` / `none`. Picture and sound moving more than 40 ms apart
+during the recording (clocks jumping by different amounts, an end offset unlike
+the start's) is reported as `drifting` / `drift` (seconds) and logged, not
+converted: no conversion can know which clock is right. A fixed offset at the
+start (live recordings often start their picture 0.06–0.09 s after the sound)
+is not drift. Other codecs and a failed check re-encode the picture with the
+encoders that work here (the sound always filled). A conversion of breaks is
+then scanned and must match the original's readable length within 0.1 s and
+keep sound against picture within 40 ms; a copy that fails is re-encoded once, then
 FLV_FIX_UNVERIFIED with `check` {durationDiff, avOffset}. A conversion decodes the
 whole recording strictly: damaged bytes behind normal timestamps fail it with
 FLV_SOURCE_DAMAGED and leave no file (an export stops with

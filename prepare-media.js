@@ -5,6 +5,7 @@ const path = require("path");
 const { randomUUID } = require("crypto");
 const { execFile } = require("node:child_process");
 const FF = require("./ffmpeg-path"); // the bundled ffmpeg/ffprobe, never PATH (#28)
+const { MARK } = require("./flv-readable-range");
 const url = file => "/media/" + encodeURIComponent(path.basename(file));
 /* H.264 for an FLV that needs transcoding. The bundled LGPL FFmpeg has no libx264 (ADR
    2026-11-02-h264-encoder): the first encoder that works here, graphics card first, then Windows' h264_mf —
@@ -57,17 +58,22 @@ function run(cmd, args, signal, { timeout = 15 * 60 * 1000, onProgress } = {}) {
     child.once("close", () => { if (aborted) reject(aborted); });
   });
 }
-/* What an FLV becomes (Deja, 2026-11-04), by source:
-   - H.264 + AAC: a remux (-c copy, picture and sound both), with small drops or big breaks alike. The MP4 keeps the
-     original's timestamps: across a break the picture holds its last frame and there is no sound. Nothing is
-     re-encoded or re-stamped, so no quality is lost, it is quick, and picture and sound stay where they were.
-   - re-encoded, with the encoders that work here (across a break the sound is silence, FILL_AUDIO), only when: the
-     codecs cannot go into an MP4 as they are (FLV1, MP3…, after the transcode consent); picture and sound sit more
-     than 40 ms apart by their packet times (range.fix "drift"); or a remux fails the check below. With no encoder
-     that is FLV_ENCODER_MISSING, before anything is written.
+/* What an FLV becomes (Deja, 2026-11-04; QQ's review of #130 and Deja 2026-11-05 00:16), by source:
+   - H.264 + AAC: the picture is copied (-c:v copy: no quality lost, quick, on the original's timestamps; across a break
+     it holds its last frame). The sound is copied only when it is whole: no break in either stream, it does not start
+     after the picture, no drift. Otherwise it is re-encoded with its holes filled with silence (FILL_AUDIO), with
+     small drops and big breaks alike. decodeAudioData puts the decoded samples back to back and ignores their
+     timestamps, so a hole left in the MP4 makes everything after it come early wherever a whole file is decoded in the
+     page — the waveform, the analyses, and the export when /api/audio-window fails (QQ: ~245 ms at the end of
+     typical-live, 2 s after G-gap2.000s; measured in the app: desktop/flv-export-av-sync-smoke.cjs MONTCLIP_AV_WHOLE=1).
+     The export's window (audio-window.js) fills holes on its own; filled here, the file itself is continuous.
+   - the picture is re-encoded, with the encoders that work here, only when the codecs cannot go into an MP4 as they
+     are (FLV1…, after the transcode consent) or a copy fails the check below; its sound is always filled (Rea on
+     ea1c84d9: an MP3 recording's 58 ms hole). With no encoder that is FLV_ENCODER_MISSING, before anything is written.
    Converting breaks (range.fix, or asked for by hand) ends with a check against the original: the same length within
-   1 s, sound against picture within 40 ms; else FLV_FIX_UNVERIFIED. */
-const FILL_AUDIO = ["-af", "aresample=async=1:min_hard_comp=0.01", "-c:a", "aac", "-b:a", "192k"];
+   0.1 s (QQ: ±1 frame), sound against picture within 40 ms; else FLV_FIX_UNVERIFIED. */
+// first_pts=0: a sound that starts after the picture gets silence in front, so its first sample is the file's time 0
+const FILL_AUDIO = ["-af", "aresample=async=1:min_hard_comp=0.01:first_pts=0", "-c:a", "aac", "-b:a", "192k"];
 /* Rea's rule ⑥: the packet scan cannot see a packet whose timestamps are fine but whose bytes are damaged. A
    conversion (breaks fixed, or a re-encode) therefore decodes the whole recording with the decoders' error detection
    turned up and stops on the first error (-xerror); a remuxed picture is decoded alongside into a null output. A
@@ -79,20 +85,22 @@ const damaged = (error) => !error.missingTool && error.code !== "ENOSPC" && DAMA
 /** Every break goes to the log; small drops go nowhere else but a faint mark on the timeline. On stderr: the MCP
  *  server speaks JSON-RPC on stdout. */
 function logGaps(file, range, fixing) {
+  if (range.drifting) console.error(`[MontClip] FLV ${path.basename(file)}: picture and sound move ${Math.round(range.drift * 1000)} ms apart during the recording (imported on its own clock)`);
   if (!range.gaps.length) return;
   const at = (s) => `${Math.floor(s / 60)}:${(s % 60).toFixed(3).padStart(6, "0")}`;
   console.error(`[MontClip] FLV ${path.basename(file)}: ${range.gaps.length} break(s)` + (fixing ? ` (converted: ${range.fix.join(", ") || "asked"})` : " (imported as is)") +
     " — " + range.gaps.map((g) => `${g.stream} ${at(g.at)} +${Math.round(g.len * 1000)}ms`).join(", "));
 }
-const MAX_LENGTH_DIFF = 1, MAX_AV_OFFSET = 0.04;
+const MAX_LENGTH_DIFF = 0.1, MAX_AV_OFFSET = 0.04;
 /** How a conversion compares with the original's readable range (both from scanReadableRange): its length, and how
- *  far sound and picture moved against each other at its start and its end. */
+ *  far sound and picture moved against each other at its start and its end. Silence put in front of a sound that
+ *  started late (FILL_AUDIO's first_pts) moves no sound: at the start, only a sound that starts later counts. */
 function conversionCheck(range, out) {
   const durationDiff = Math.abs(out.duration - range.duration);
   const a = range.tracks?.audio, v = range.tracks?.video, oa = out.tracks?.audio, ov = out.tracks?.video;
   let avOffset = 0;
   if (a && v) avOffset = !oa || !ov ? Infinity
-    : Math.max(Math.abs((oa.start - ov.start) - (a.start - v.start)), Math.abs((oa.end - ov.end) - (a.end - v.end)));
+    : Math.max(Math.max(0, (oa.start - ov.start) - (a.start - v.start)), Math.abs((oa.end - ov.end) - (a.end - v.end)));
   return { ok: durationDiff <= MAX_LENGTH_DIFF && avOffset <= MAX_AV_OFFSET, durationDiff, avOffset };
 }
 async function checkConversion(range, file, signal) {
@@ -110,23 +118,28 @@ async function inspectFlv(file, {signal, readableRange = false, onProgress} = {}
   if (video.length !== 1 || audio.length > 1) throw failure("FLV_STREAMS_UNSUPPORTED", originalSrc);
   const compatible = video[0].codec_name === "h264" && ["yuv420p", "yuvj420p"].includes(video[0].pix_fmt) && (!audio.length || audio[0].codec_name === "aac");
   const range = readableRange ? await require('./flv-readable-range').scanReadableRange(file,streams,format?.duration,{signal,onProgress}) : undefined;
-  return {compatible, ...(range?{range}:{})};
+  return {compatible, hasAudio: audio.length > 0, ...(range?{range}:{})};
 }
-/** → {src, originalSrc, preparation: "remux" | "transcode", gapsHeld?: true, gaps?: [{stream, at, len, big}]}.
- *  gapsHeld: this import converted breaks (range.fix, or fixGaps); gaps: every break (seconds, from the file's first
- *  packet), small or big, for the timeline's marks. */
+/** → {src, originalSrc, preparation: "remux" | "transcode", audio: "copy" | "filled" | "none", gapsHeld?: true,
+ *  gaps?: [{stream, at, len, big}], drift?: seconds}. preparation: whether the picture was copied or re-encoded; audio:
+ *  whether the sound was copied or re-encoded with its holes filled; gapsHeld: this import converted breaks (range.fix,
+ *  or fixGaps); gaps: every break (seconds, from the file's first packet), small or big, for the timeline's marks;
+ *  drift: how far picture and sound move apart during the recording, when over 40 ms (left as it is, logged). */
 async function prepareMedia(file, { allowTranscode = false, acceptReadable = false, fixGaps = false, signal, chooseEncoder, onProgress, onPhase } = {}) {
   const originalSrc = url(file);
   if (path.extname(file).toLowerCase() !== ".flv") return { src: originalSrc };
-  const {compatible, range} = await inspectFlv(file, {signal, readableRange:true});
+  const {compatible, hasAudio, range} = await inspectFlv(file, {signal, readableRange:true});
   // Shared by REST and MCP as well as native snapshot preparation. Small drops (every break ≤ 0.5 s, picture and sound
   // within 40 ms) import as they are, without a question. Anything more is converted, with the user's yes: fixGaps
   // (〔帮我转〕), or allowTranscode — the app's yes to converting (Deja, 2026-11-04; range.fix says why).
   if (range.fix.length && fixGaps !== true && allowTranscode !== true) throw Object.assign(failure("FLV_TIMELINE_GAP", originalSrc), {gaps: range.gaps, fix: range.fix, range});
   if (range.needsConsent && acceptReadable !== true) throw Object.assign(failure("FLV_READABLE_CONSENT_REQUIRED", originalSrc), {range});
   if (!compatible && allowTranscode !== true) throw failure("FLV_TRANSCODE_REQUIRED", originalSrc);
-  // picture and sound already apart by their packet times: a remux would keep that, so this is re-encoded
-  const reencode = !compatible || range.fix.includes("drift");
+  // the picture is re-encoded only when it cannot go into an MP4 as it is
+  const reencode = !compatible;
+  // the sound is filled unless it is whole (see above): a break in either stream, a sound starting after the picture, drift
+  const a = range.tracks?.audio, v = range.tracks?.video;
+  const fill = hasAudio && (reencode || range.gaps.length > 0 || range.drifting || !!(a && v && a.start - v.start > MARK));
   let encoders = null;
   const pick = async () => (encoders ??= [].concat(await (chooseEncoder || usableH264)()).filter(Boolean));
   if (reencode && !(await pick()).length) throw failure("FLV_ENCODER_MISSING", originalSrc);
@@ -138,7 +151,7 @@ async function prepareMedia(file, { allowTranscode = false, acceptReadable = fal
   // a long recording that has to be re-encoded can take longer than 15 minutes
   const timeout = Math.max(15 * 60, 1.5 * range.duration) * 1000;
   const args = (encoder) => ["-v", "error", "-nostdin", "-n", ...progress, ...(strict ? DECODE_STRICT : []), "-i", file, "-map", "0:v:0", "-map", "0:a:0?",
-    ...(encoder ? [...transcodeVideoArgs(encoder), ...(fixing ? FILL_AUDIO : ["-c:a", "aac", "-b:a", "192k"])] : ["-c", "copy"]),
+    ...(encoder ? transcodeVideoArgs(encoder) : ["-c:v", "copy"]), ...(!hasAudio ? [] : fill || encoder ? FILL_AUDIO : ["-c:a", "copy"]),
     "-movflags", "+faststart", part,
     // a remuxed picture is decoded too, into nothing, so damage in it stops the conversion
     ...(strict && !encoder ? ["-map", "0:v:0", "-f", "null", "-"] : [])];
@@ -178,6 +191,7 @@ async function prepareMedia(file, { allowTranscode = false, acceptReadable = fal
     if (strict && damaged(error)) throw failure("FLV_SOURCE_DAMAGED", originalSrc, error);
     throw failure(error.missingTool ? "FLV_COMPONENT_MISSING" : error.code === "ENOSPC" ? "FLV_DISK_FULL" : "FLV_PREPARATION_FAILED", originalSrc, error);
   }
-  return { src: url(out), originalSrc, preparation: reencoded ? "transcode" : "remux", ...(fixing ? {gapsHeld: true} : {}), ...(range.gaps.length ? {gaps: range.gaps} : {}) };
+  return { src: url(out), originalSrc, preparation: reencoded ? "transcode" : "remux", audio: !hasAudio ? "none" : fill || reencoded ? "filled" : "copy",
+    ...(fixing ? {gapsHeld: true} : {}), ...(range.gaps.length ? {gaps: range.gaps} : {}), ...(range.drifting ? {drift: Math.round(range.drift * 1000) / 1000} : {}) };
 }
 module.exports = { prepareMedia, inspectFlv, publicPreparationError, PUBLIC_CODES, usableH264, transcodeVideoArgs, conversionCheck };

@@ -8,9 +8,11 @@ const ratio=value=>{const [a,b=1]=String(value||0).split('/').map(Number);return
 // the next one's start. It decides nothing about importing: only BIG_GAP and MAX_DRIFT below do.
 const MARK=0.005;
 /* Deja, 2026-11-04 (VV measured five real recordings: up to 29 picture drops of ~100 ms, sound holes of 58–65 ms — all
-   to be imported as they are): a recording is imported as it is unless a break is longer than BIG_GAP in either stream,
-   or picture and sound sit more than MAX_DRIFT apart by their packet times (DRIFT, below); then it is converted
-   (〔帮我转〕; an H.264/AAC recording is remuxed with its own timestamps, prepare-media.js). Lengths are compared in whole
+   to be imported without a question): a recording is imported unless a break is longer than BIG_GAP in either stream;
+   then it is converted after 〔帮我转〕 (prepare-media.js: the picture copied, the sound filled on its own timestamps).
+   Picture and sound moving more than MAX_DRIFT apart during the recording (DRIFT, below) is reported (drifting) and
+   logged, not converted: no conversion can know which of the two clocks is right (Deja on QQ's #130 review, point 3).
+   Lengths are compared in whole
    milliseconds (FLV's clock unit), so a 0.500 s break is never "over 0.5 s" (Rea's G-gap0.500s). How many small drops
    there are, or how long they add up to, does not matter: players keep picture and sound together by their timestamps,
    and a dropped frame moves nothing. Small drops are only marked faintly on the timeline and logged. */
@@ -18,14 +20,15 @@ const BIG_GAP=0.5, MAX_DRIFT=0.04;
 const ms=(s)=>Math.round(s*1000);
 /* Reads packet lines (codec_type, pts/dts, duration) — or decoded frame lines (media_type), as before. Packets come in
    decode order: with B-frames pts jumps around, so breaks are measured on the decode clock (dts), per stream.
-   DRIFT, how far apart picture and sound sit by their packet times, is the largest of:
+   DRIFT, how far picture and sound move apart by their packet times during the recording, is the largest of:
    - at the same moment: a break in one stream alone is content lost while the clock ran on (a dropped frame, a hole in
      the sound) and leaves both on the same clock; where both break at once (their breaks overlap in time) the clock
      jumped, by the same amount in both if they are to stay together. The running sum of what they did not (picture
      minus sound), largest absolute value in file order;
-   - at the start: how far apart the first picture and the first sound are;
    - at the end: how far apart the last picture and the last sound end, less the longer of the two last packets (each
-     stream can end up to one packet short of the other: a frame is 33 ms, an AAC packet 21–23 ms). */
+     stream can end up to one packet short of the other: a frame is 33 ms, an AAC packet 21–23 ms).
+   Where they start is not drift (Deja, 2026-11-05): live recordings often start their picture 0.06–0.09 s after their
+   sound, on the same clock and ending together. */
 function accumulator(streams, declaredDuration) {
   const tick=Math.max(...streams.map(s=>ratio(s.time_base)),0);
   let start=Infinity,end=-Infinity,count=0,uncertain=false;
@@ -77,13 +80,12 @@ function accumulator(streams, declaredDuration) {
         run+=v.len-paired.reduce((s,a)=>s+a.len,0); drift=Math.max(drift,Math.abs(run));
       }
       const tv=tracks.video,ta=tracks.audio;
-      if(tv && ta) drift=Math.max(drift,Math.abs(tv.start-ta.start),
-        Math.abs(tv.end-ta.end)-Math.max(tails.get('video').duration,tails.get('audio').duration));
-      // why it has to be converted (empty: imported as it is)
+      if(tv && ta) drift=Math.max(drift,Math.abs(tv.end-ta.end)-Math.max(tails.get('video').duration,tails.get('audio').duration));
+      // why it has to be converted (empty: imported without a question)
       const fix=[];
       if(gaps.some(g=>g.big)) fix.push('break');
-      if(ms(drift)>ms(MAX_DRIFT)) fix.push('drift');
-      return {start,end,duration,frames:count,tolerance,maxGap,gaps,totals,drift,fix,tracks,estimatedTail:uncertain,
+      const drifting=ms(drift)>ms(MAX_DRIFT);
+      return {start,end,duration,frames:count,tolerance,maxGap,gaps,totals,drift,drifting,fix,tracks,estimatedTail:uncertain,
         declaredDuration:Number.isFinite(declared)&&declared>0?declared:null,
         needsConsent:uncertain || Number.isFinite(declared)&&declared>0&&Math.abs(declared-duration)>tolerance};
     },

@@ -37,6 +37,7 @@ Linux 上不用加 `--password-store`：在 Electron 认不出来的桌面上（
 | `drop-reveal-smoke.cjs` | `REVEAL_COMPLETE` | 在用 |
 | `events-smoke.cjs` | `EVENTS_PASS` | 在用 |
 | `export-av-sync-smoke.cjs` | `AV_EXPORT_PASS` | 在用 |
+| `flv-export-av-sync-smoke.cjs` | `FLV_EXPORT_AV_PASS` | 在用 |
 | `export-close-smoke.cjs` | `CLOSE_PASS` | 在用 |
 | `export-download-smoke.cjs` | `EXPORT_DOWNLOAD_COMPLETE` | 在用 |
 | `flv-native-smoke.cjs` | `FLV_NATIVE_COMPLETE` | 在用 |

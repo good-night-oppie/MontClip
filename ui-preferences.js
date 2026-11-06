@@ -1100,11 +1100,12 @@
     flvPct: " {pct}%", flvEta: "，还要约 {eta}", flvEtaMin: "{n} 分钟", flvEtaSec: "{n} 秒",
     flvPhaseCheck: "正在和原片核对转出来的 MP4…",
     flvConvert: "帮我转", flvNotNow: "先不转", flvGotIt: "知道了",
-    flvConverted: "已经转好了。这里录像断了约 {N} 秒，已经接上。",
-    flvConvertedMany: "已经转好了。录像一共断了 {k} 处，加起来约 {N} 秒，都已经接上。",
+    // JJ 定稿 (2026-11-05, Deja 代贴 on #130): the break is held — the picture stops, no sound — not squeezed out
+    flvConverted: "已经转好了。{time} 这里录像断了约 {N} 秒：这几秒画面会停住、没有声音，前后的时间是对的。不想要可以剪掉。",
+    flvConvertedMany: "已经转好了。录像一共断了 {k} 处，加起来约 {N} 秒：这些地方画面会停住、没有声音，前后的时间是对的。不想要可以剪掉。",
     flvStreamsUnsupported: "这个录像现在导不进来：它里面不止一路画面或声音，MontClip 还不能只挑其中一路来剪。原片没有改动。可以换一场别的录像试试。",
     flvFixUnverified: "转出来的 MP4 和原片对不上，这次没导入，转出来的文件已删除。原片没有改动，可以再试一次。",
-    flvFixBy: "差了多少：时长 {sec} 秒，声音和画面 {ms} 毫秒（要求时长差不超过 1 秒、声音和画面差不超过 40 毫秒）。",
+    flvFixBy: "差了多少：时长 {sec} 秒，声音和画面 {ms} 毫秒（要求时长差不超过 0.1 秒、声音和画面差不超过 40 毫秒）。",
     flvRetryConvert: "也可以让 MontClip 替你转一下再导入，原片不动。",
     flvGapMark: "这里录像断了约 {N} 秒", flvDropMark: "这里录像掉了一点（约 {N} 秒），照原样导入",
     // Rea's rule ⑥: damaged bytes behind normal timestamps, found while converting or exporting. New codes for #129's table.
@@ -1115,11 +1116,11 @@
     flvPct: " {pct}%", flvEta: " — about {eta} left", flvEtaMin: "{n} min", flvEtaSec: "{n} s",
     flvPhaseCheck: "Checking the converted MP4 against the original…",
     flvConvert: "Convert it for me", flvNotNow: "Not now", flvGotIt: "OK",
-    flvConverted: "Converted. The recording had a break of about {N} s here; it's joined up now.",
-    flvConvertedMany: "Converted. The recording had {k} breaks, about {N} s in total; they're joined up now.",
+    flvConverted: "Converted. The recording dropped out for about {N} s at {time}: for those seconds the picture freezes and there's no sound, and the timing before and after is right. You can cut it out if you don't want it.",
+    flvConvertedMany: "Converted. The recording dropped out {k} times, about {N} s in total: in those places the picture freezes and there's no sound, and the timing around them is right. You can cut them out if you don't want them.",
     flvStreamsUnsupported: "This recording can't be imported right now: it has more than one picture or sound track, and MontClip can't pick just one of them to edit yet. The original is unchanged. Try another recording.",
     flvFixUnverified: "The converted MP4 does not match the original, so it was not imported and the converted file was removed. The original is unchanged; you can try again.",
-    flvFixBy: "Off by: {sec} s in length, {ms} ms between sound and picture (at most 1 s and 40 ms are allowed).",
+    flvFixBy: "Off by: {sec} s in length, {ms} ms between sound and picture (at most 0.1 s and 40 ms are allowed).",
     flvRetryConvert: "MontClip can also convert it for you and import that; the original stays as it is.",
     flvGapMark: "The recording broke here for about {N} s", flvDropMark: "A little of the recording dropped here (about {N} s); imported as it is",
     flvSourceDamaged: "Part of the picture or sound in this recording is damaged, so converting it would come out garbled; it was not converted or imported. The original is unchanged. Try another recording.",
@@ -1135,7 +1136,7 @@
     for (const [a, b] of list) { const last = merged.at(-1); if (last && a <= last[1]) last[1] = Math.max(last[1], b); else merged.push([a, b]); }
     if (!merged.length) return "";
     const N = flvSeconds(merged.reduce((s, [a, b]) => s + b - a, 0));
-    return merged.length === 1 ? t(language, "flvConverted", { N }) : t(language, "flvConvertedMany", { k: merged.length, N });
+    return merged.length === 1 ? t(language, "flvConverted", { N, time: clock(merged[0][0]) }) : t(language, "flvConvertedMany", { k: merged.length, N });
   }
   /** A break's words on the timeline: the label of a converted one (Deja: 「这里录像断了约 N 秒」), the tooltip of a small drop. */
   function flvGapMark(language, gap) { return t(language, gap && gap.big ? "flvGapMark" : "flvDropMark", { N: flvSeconds(gap ? gap.len : 0) }); }

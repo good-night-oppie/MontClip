@@ -70,6 +70,26 @@ function jump(f, { streams = ["video", "audio"], at, len }) {
     return { stream, after: list[i - 1], len: len / 1000 };
   });
 }
+/** The picture starts later than the sound while both stay on one clock (a live recording whose first keyframe came
+ *  after its first sound, VV: 0.058 / 0.092 s): every packet moves later until the first picture is at `to` ms, the
+ *  first sound packets are repeated in front, so the sound still starts at 0, and the packets moved past the old end are
+ *  lost, so it still ends where it did (its stated length stays right). */
+function lead(f, { to }) {
+  const by = to - media(f, "video").find((t) => !t.dropped && f.buf[t.off + 12] === 1).ts;
+  const end = Object.fromEntries(["video", "audio"].map((s) => [s, Math.max(...media(f, s).map((t) => t.ts))]));
+  for (const t of f.tags) if (TYPE[t.type] && t.ts + by > end[TYPE[t.type]]) t.dropped = true;
+  for (const t of f.tags) if (TYPE[t.type] && t.ts > 0 || TYPE[t.type] === "audio" && f.buf[t.off + 12] === 1) t.ts += by;
+  const raw = media(f, "audio").filter((t) => f.buf[t.off + 12] === 1), at = f.tags.indexOf(raw[0]), front = [];
+  for (let k = 0; Math.round(k * 1024000 / 44100) < by; k++) front.push({ ...raw[k], ts: Math.round(k * 1024000 / 44100) });
+  f.tags.splice(at, 0, ...front);
+}
+/** The sound starts later than the picture, on the same clock: its packets before `before` ms are lost. */
+function late(f, { before }) { for (const t of media(f, "audio")) if (f.buf[t.off + 12] === 1 && t.ts < before) t.dropped = true; }
+/** The sound's clock creeps against the picture's: from `from` ms on, each sound packet a little later, `by` ms in all
+ *  by `to` and after it (picture and sound move apart during the recording). */
+function creep(f, { from, to, by }) {
+  for (const t of media(f, "audio")) if (f.buf[t.off + 12] === 1 && t.ts >= from) t.ts += Math.round(by * Math.min(1, (t.ts - from) / (to - from)));
+}
 /** Every second picture between `from` and `to` (ms) late by `late` ms: the jitter of a variable-rate recorder. */
 function jitter(f, { from, to, late }) {
   media(f, "video").filter((t) => t.ts >= from && t.ts < to).forEach((t, k) => { if (k % 2) t.ts += late; });
@@ -90,7 +110,7 @@ function damage(f, { at, count }) {
 function make(dir, name, edits) {
   const f = parse(fs.readFileSync(CLEAN)), made = [];
   for (const [what, opts] of edits) {
-    const r = { drop, jump, jitter, damage, shift }[what](f, opts);
+    const r = { drop, jump, jitter, damage, shift, lead, late, creep }[what](f, opts);
     if (Array.isArray(r)) made.push(...r); else if (r) made.push(r);
   }
   const file = path.join(dir, name);
@@ -100,4 +120,29 @@ function make(dir, name, edits) {
   return { file, made: at.sort((a, b) => a.at - b.at || (a.stream < b.stream ? -1 : 1)) };
 }
 const probe = (file) => JSON.parse(execFileSync(FF.path("ffprobe"), ["-v", "error", "-show_streams", "-show_format", "-of", "json", file], { encoding: "utf8" }));
-module.exports = { CLEAN, make, probe };
+/* Edits in make()'s form, shared by the tests and desktop/flv-export-av-sync-smoke.cjs. */
+const V = (at, len) => ["drop", { stream: "video", at, len }], A = (at, len) => ["drop", { stream: "audio", at, len, exact: true }];
+// Rea's flash + beep are at 2, 7, … 57 s for 100 ms: breaks are put clear of them, so the A/V offset can be measured
+// (slots at these offsets after each marker, 2 … 52 s, so a break of up to 0.43 s ends well before the next one)
+const times = (n, offsets) => { const out = []; for (let k = 0; out.length < n; k++) for (const o of offsets) if (out.length < n) out.push(Math.round((2 + 5 * k + o) * 1000)); return out; };
+// a typical live recording, as VV measured five real ones (europa, 2026-11-04): 25 picture drops of 34–100 ms, one of
+// them 0.133 s between two frames (a 100 ms gap), and 4 holes in the sound of 58–65 ms
+const LIVE = [...times(25, [0.5, 1.8, 3.1]).map((t, i) => V(t, i === 12 ? 100 : [34, 67, 34, 34, 67][i % 5])),
+  A(9600, 58), A(24600, 60), A(39600, 62), A(54600, 65)];
+module.exports = { CLEAN, make, probe, V, A, times, LIVE };
+/* QQ (#130, 2026-11-05): the export reads sound with decodeAudioData, which puts the decoded samples back to back and
+   ignores their timestamps — a hole in the sound is squeezed out and everything after it comes early. This measures a
+   file that way: the flashes by their frames' times (as the picture plays), the beeps by sample count from the first
+   sample (asetpts=N/SR/TB). Returns every flash with its nearest beep and the worst distance (seconds). */
+function samplesAV(file) {
+  const { spawnSync } = require("node:child_process");
+  const flashes = [];
+  const lines = execFileSync(FF.path("ffprobe"), ["-v", "error", "-f", "lavfi", "-i", `movie=${file.replace(/\\/g, "/").replace(/:/g, "\\\\:")},signalstats`,
+    "-show_entries", "frame=pts_time:frame_tags=lavfi.signalstats.YAVG", "-of", "csv=p=0"], { encoding: "utf8", maxBuffer: 64 << 20 }).trim().split(/\r?\n/);
+  for (const [t, y] of lines.map((l) => l.split(",").map(Number))) if (y > 128 && (!flashes.length || t - flashes.at(-1) > 1)) flashes.push(t);
+  const r = spawnSync(FF.path("ffmpeg"), ["-hide_banner", "-nostats", "-i", file, "-vn", "-af", "asetpts=N/SR/TB,silencedetect=n=-30dB:d=0.5", "-f", "null", "-"], { encoding: "utf8", maxBuffer: 64 << 20 });
+  const beeps = [...String(r.stderr).matchAll(/silence_end: ([\d.]+)/g)].map((m) => Number(m[1]));
+  const pairs = flashes.map((f) => { const b = beeps.reduce((best, s) => Math.abs(s - f) < Math.abs(best - f) ? s : best, Infinity); return { flash: f, beep: b, off: b - f }; });
+  return { flashes, beeps, pairs, worst: Math.max(0, ...pairs.map((p) => Math.abs(p.off))) };
+}
+module.exports.samplesAV = samplesAV;

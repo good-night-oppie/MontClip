@@ -49,7 +49,7 @@ test("a recording that has to be converted: JJ's sentence, 〔帮我转〕〔先
   assert.deepEqual(r.gaps, BIG, "the breaks go to the media entry for the timeline");
   assert.equal(calls[1][1].fixGaps, true);
   const done = await until(() => w.notices()[0]);
-  assert.equal(w.reason(done), "已经转好了。这里录像断了约 2 秒，已经接上。");
+  assert.equal(w.reason(done), "已经转好了。30:00 这里录像断了约 2 秒：这几秒画面会停住、没有声音，前后的时间是对的。不想要可以剪掉。");
   assert.deepEqual(w.toasts, []);
 });
 

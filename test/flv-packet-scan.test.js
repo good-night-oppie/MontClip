@@ -2,11 +2,13 @@
 // FLV import, VV's walk on europa (2026-11-04): a 2-hour 8.2 GB FLV took 13 minutes in `ffprobe -show_frames` and was
 // then refused for one timestamp jump. Deja's rules (2026-11-04, with Rea's ⑥, and VV's five real recordings), per
 // stream, in whole milliseconds:
-//   ① every break ≤ 0.5 s, however many → imported as it is (an H.264/AAC file stays a remux), a faint mark, a log line;
-//   ② a break > 0.5 s → converted (an H.264/AAC file: a remux of both streams keeping their timestamps), checked
-//      (length ±1 s, sound against picture ≤ 40 ms), a labelled mark;
-//   ⑤ picture and sound > 40 ms apart by their packet times (clocks jumping unequally, starts or ends not lining up)
-//      → re-encoded;
+//   ① every break ≤ 0.5 s, however many → imported without a question, a faint mark, a log line;
+//   ② a break > 0.5 s → converted after 〔帮我转〕, checked (length ±0.1 s, sound against picture ≤ 40 ms), a labelled mark;
+//   either way (QQ on #130, Deja 2026-11-05 00:16): the picture is a stream copy, the sound is re-encoded with its holes
+//   filled with silence (aresample async) — the export reads sound with decodeAudioData, which squeezes holes out;
+//   ⑤ picture and sound moving apart during the recording (clocks jumping unequally, an end that does not line up with
+//      the start) is reported (range.drifting) and imported on its own clock: a conversion cannot know which clock is
+//      right, so it does not claim to fix it (Deja on QQ's point 3); a fixed offset at the start is not drift;
 //   ⑥ damaged bytes behind normal timestamps → a conversion decodes everything and fails plainly, leaving no file.
 // The fixtures are cut out of Rea's C0-clean.flv (test/flv-fixtures.js), so this runs without an H.264 encoder.
 const test = require("node:test"), assert = require("node:assert/strict");
@@ -16,7 +18,7 @@ const FF = require("../ffmpeg-path");
 const { accumulator, scanReadableRange } = require("../flv-readable-range");
 const P = require("../prepare-media");
 const MediaLib = require("../media-lib");
-const { make, probe } = require("./flv-fixtures");
+const { make, probe, samplesAV } = require("./flv-fixtures");
 const REA = path.join(__dirname, "fixtures", "flv-truth-v2");
 const available = () => FF.available("ffmpeg") && FF.available("ffprobe");
 const tmp = (t) => { const d = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-flvscan-")); t.after(() => fs.rmSync(d, { recursive: true, force: true })); return d; };
@@ -26,14 +28,7 @@ const copyOf = (t, name) => { const d = tmp(t), f = path.join(d, name); fs.copyF
 
 /* 「夹具 → 新规则下的期望值」: what each fixture must become, and its marks (stream:faint|labelled). The PR body's table
    is this list. `rea` = Rea's file as is; else edits of C0-clean (test/flv-fixtures.js), times in ms. */
-const V = (at, len) => ["drop", { stream: "video", at, len }], A = (at, len) => ["drop", { stream: "audio", at, len, exact: true }];
-// Rea's flash + beep are at 2, 7, … 57 s for 100 ms: breaks are put clear of them, so the A/V offset can be measured
-// (slots at these offsets after each marker, 2 … 52 s, so a break of up to 0.43 s ends well before the next one)
-const times = (n, offsets) => { const out = []; for (let k = 0; out.length < n; k++) for (const o of offsets) if (out.length < n) out.push(Math.round((2 + 5 * k + o) * 1000)); return out; };
-// a typical live recording, as VV measured five real ones (europa, 2026-11-04): 25 picture drops of 34–100 ms, one of
-// them 0.133 s between two frames (a 100 ms gap), and 4 holes in the sound of 58–65 ms
-const LIVE = [...times(25, [0.5, 1.8, 3.1]).map((t, i) => V(t, i === 12 ? 100 : [34, 67, 34, 34, 67][i % 5])),
-  A(9600, 58), A(24600, 60), A(39600, 62), A(54600, 65)];
+const { V, A, times, LIVE } = require("./flv-fixtures");
 const CASES = [
   { name: "C0-clean.flv", rea: true, expect: "import", fix: [], marks: "" },
   { name: "G-gap0.034s.flv", rea: true, expect: "import", fix: [], marks: "audio:faint video:faint" },
@@ -49,12 +44,20 @@ const CASES = [
   { name: "typical-live.flv", edits: LIVE, expect: "import", fix: [], marks: "29 faint", av: true },
   { name: "typical-live-plus-2s.flv", edits: [...LIVE, ["jump", { at: 32000, len: 2000 }]], expect: "convert", fix: ["break"], marks: "29 faint, audio:labelled video:labelled" },
   { name: "20x-0.4s-video.flv", edits: times(20, [0.5, 2.3]).map((t) => V(t, 400)), expect: "import", fix: [], marks: "20 faint", av: true },
-  { name: "audio-late-100ms.flv", edits: [["shift", { stream: "audio", by: 100 }]], expect: "convert", fix: ["drift"], marks: "" },
-  { name: "clocks-jump-apart-60ms.flv", edits: [["jump", { streams: ["video"], at: 30000, len: 200 }], ["jump", { streams: ["audio"], at: 30000, len: 140 }]], expect: "convert", fix: ["drift"], marks: "audio:faint video:faint" },
+  // a fixed offset at the start is not drift (Deja 00:03, VV's five recordings: the picture starts 0.058 / 0.092 s late)
+  { name: "video-starts-58ms-late.flv", edits: [["lead", { to: 58 }]], expect: "import", fix: [], marks: "", av: true, audio: "copy" },
+  { name: "video-starts-92ms-late.flv", edits: [["lead", { to: 92 }]], expect: "import", fix: [], marks: "", av: true, audio: "copy" },
+  { name: "audio-starts-93ms-late.flv", edits: [["late", { before: 100 }]], expect: "import", fix: [], marks: "", av: true, audio: "filled" },
+  // every sound packet 100 ms late: it ends 100 ms after the picture, which is reported as drift too
+  { name: "audio-shifted-100ms.flv", edits: [["shift", { stream: "audio", by: 100 }]], expect: "import", fix: [], drifting: true, marks: "", audio: "filled" },
+  // moving apart during the recording: reported, imported on its own clock
+  { name: "clocks-jump-apart-60ms.flv", edits: [["jump", { streams: ["video"], at: 30000, len: 200 }], ["jump", { streams: ["audio"], at: 30000, len: 140 }]], expect: "import", fix: [], drifting: true, consent: true, marks: "audio:faint video:faint" },
+  { name: "audio-creeps-100ms.flv", edits: [["creep", { from: 10000, to: 50000, by: 100 }]], expect: "import", fix: [], drifting: true, consent: true, marks: "", audio: "filled" },
   { name: "jitter-3ms.flv", edits: [["jitter", { from: 10000, to: 20000, late: 3 }]], expect: "import", fix: [], marks: "" },
 ];
-/* Rea's measure (test/flv-truth-v2.test.js), for the imports that should stay together: the flashes by their frames'
-   brightness, the beeps where silence ends; the worst distance from a flash to its nearest beep. */
+/* Rea's measure (test/flv-truth-v2.test.js): the flashes by their frames' brightness, the beeps where silence ends (by
+   their timestamps, as a player has them); the worst distance from a flash to its nearest beep. samplesAV
+   (flv-fixtures.js) measures the sound the way the export reads it. */
 function worstAV(file) {
   const run = (bin, args) => execFileSync(FF.path(bin), args, { encoding: "utf8", maxBuffer: 64 << 20, stdio: ["ignore", "pipe", "pipe"] });
   const flashes = [];
@@ -102,59 +105,67 @@ test("「夹具 → 新规则下的期望值」: every fixture is scanned, impor
     const { file, made } = c.rea ? { file: copyOf(t, c.name).file, made: null } : make(dir, c.name, c.edits);
     const r = await scan(file);
     assert.deepEqual(r.fix, c.fix, `${c.name}: why it converts (${JSON.stringify(r.gaps)})`);
+    assert.equal(r.drifting, !!c.drifting, `${c.name}: drifting (${r.drift})`);
     assert.equal(markText(r.gaps), c.marks, `${c.name}: marks`);
     if (made) for (const m of made) {   // every break made is found, in its stream, where and as long as it was made
       const g = r.gaps.find((g) => g.stream === m.stream && Math.abs(g.at - m.at) < 0.002);
       assert.ok(g && Math.abs(g.len - m.len) < 0.0015, `${c.name}: ${JSON.stringify(m)} in ${JSON.stringify(r.gaps)}`);
     }
     // what prepareMedia does with it, without and with the app's yes
-    const plain = await P.prepareMedia(file).catch((e) => e);
+    // (a stated length the packets do not confirm asks its own question first: acceptReadable, the app's yes to it)
+    const plain = await P.prepareMedia(file, c.consent ? { acceptReadable: true } : {}).catch((e) => e);
     if (c.expect === "import") {
-      assert.equal(plain.preparation, "remux", `${c.name}: imported as it is (${plain.code || ""})`);
+      assert.equal(plain.preparation, "remux", `${c.name}: the picture is copied (${plain.code || ""})`);
       assert.equal(plain.gapsHeld, undefined);
+      // the sound is re-encoded and filled whenever there is a break, a late start of the sound or drift; else copied
+      assert.equal(plain.audio, c.audio || (r.gaps.length ? "filled" : "copy"), `${c.name}: the sound`);
       assert.deepEqual(MediaLib.normalizeGaps(plain.gaps).map((g) => g.big), r.gaps.map((g) => g.big), `${c.name}: marks returned`);
-      if (c.av) {   // a plain stream copy keeps picture and sound together, measured the way Rea does
+      if (c.drifting) assert.ok(plain.drift > 0.04, `${c.name}: the drift is returned (${plain.drift})`);
+      if (c.av) {   // picture and sound together, as a player has them and as the export reads the sound
         const mp4 = path.join(path.dirname(file), decodeURIComponent(plain.src.slice("/media/".length)));
-        const worst = worstAV(mp4);
+        const worst = worstAV(mp4), read = samplesAV(mp4).worst;
         assert.ok(worst <= 0.04, `${c.name}: flash and beep ${Math.round(worst * 1000)} ms apart`);
-        c.measured = Math.round(worst * 1000);
+        assert.ok(read <= 0.04, `${c.name}: read as the export reads it, flash and beep ${Math.round(read * 1000)} ms apart`);
+        c.measured = Math.round(Math.max(worst, read) * 1000);
       }
     } else {
       assert.equal(plain.code, "FLV_TIMELINE_GAP", `${c.name}: asks before converting`);
       assert.deepEqual(plain.fix, c.fix);
-      if (c.fix.includes("drift")) {
-        // picture and sound already apart: re-encoded (Deja), which needs an encoder — none (a Linux runner): refused first
-        const encoders = await P.usableH264();
-        const files = () => fs.readdirSync(path.dirname(file)).filter((n) => n.startsWith("compat-")).length, before = files();
-        const yes = await P.prepareMedia(file, { allowTranscode: true, acceptReadable: true }).catch((e) => e);
-        if (!encoders.length) { assert.equal(yes.code, "FLV_ENCODER_MISSING", c.name); assert.equal(files(), before, "nothing written"); }
-        else { assert.equal(yes.preparation, "transcode", `${c.name}: ${yes.code || ""}`); assert.equal(yes.gapsHeld, true); }
-        continue;
-      }
       const yes = await P.prepareMedia(file, { allowTranscode: true, acceptReadable: true });
-      assert.equal(yes.preparation, "remux", `${c.name}: an H.264/AAC recording is remuxed, not re-encoded`);
+      assert.equal(yes.preparation, "remux", `${c.name}: an H.264/AAC recording's picture is copied, not re-encoded`);
+      assert.equal(yes.audio, "filled", `${c.name}: its sound is filled across the break`);
       assert.equal(yes.gapsHeld, true);
       assert.equal(yes.gaps.length, r.gaps.length);
+      const mp4 = path.join(path.dirname(file), decodeURIComponent(yes.src.slice("/media/".length)));
+      const read = samplesAV(mp4).worst;
+      assert.ok(read <= 0.04, `${c.name}: read as the export reads it, flash and beep ${Math.round(read * 1000)} ms apart`);
     }
   }
 });
 
-test("small and big breaks alike come out as stream copies: same codecs, parameters, avcC and packets", async (t) => {
+test("small and big breaks alike: the picture is a stream copy (same parameters, avcC and packets); the sound is continuous", async (t) => {
   if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
   const info = (file) => JSON.parse(execFileSync(FF.path("ffprobe"), ["-v", "error", "-show_data_hash", "sha256",
     "-show_entries", "stream=codec_type,codec_name,profile,width,height,pix_fmt,sample_rate,channels,extradata_hash", "-of", "json", file], { encoding: "utf8" })).streams
-    .map((s) => ({ ...s, index: undefined })).sort((a, b) => (a.codec_type < b.codec_type ? -1 : 1));
+    .map((s) => ({ ...s, index: undefined })).filter((s) => s.codec_type === "video");
   const sizes = (file, type) => execFileSync(FF.path("ffprobe"), ["-v", "error", "-select_streams", type, "-show_entries", "packet=size", "-of", "csv=p=0", file], { encoding: "utf8" }).split(/\r?\n/).map((l) => l.split(",")[0]).filter((l) => /^\d+$/.test(l)).map(Number);
   for (const [name, opts] of [["G-gap0.100s.flv", {}], ["G-gap2.000s.flv", { allowTranscode: true, acceptReadable: true }]]) {
     const { dir, file } = copyOf(t, name);
     const r = await P.prepareMedia(file, opts);
     const mp4 = path.join(dir, decodeURIComponent(r.src.slice("/media/".length)));
-    assert.deepEqual(info(mp4), info(file), name + ": codec parameters and extradata");
+    assert.deepEqual(info(mp4), info(file), name + ": the picture's codec parameters and extradata");
     // the FLV ends with AVC's 4-byte end-of-sequence tag, which MP4 has no place for
     const src = sizes(file, "v"), got = sizes(mp4, "v");
     if (src.length === got.length + 1 && src.at(-1) === 4) src.pop();
     assert.deepEqual(got, src, name + ": every picture packet, byte for byte the same size");
-    assert.deepEqual(sizes(mp4, "a"), sizes(file, "a"), name + ": every sound packet too (nothing re-encoded or filled)");
+    // the sound: AAC, re-encoded and filled, so its samples read back to back last as long as its timestamps say
+    const p = probe(mp4), a = p.streams.find((s) => s.codec_type === "audio"), v = p.streams.find((s) => s.codec_type === "video");
+    assert.equal(a.codec_name, "aac");
+    const samples = execFileSync(FF.path("ffprobe"), ["-v", "error", "-select_streams", "a", "-show_entries", "frame=nb_samples", "-of", "csv=p=0", mp4], { encoding: "utf8" })
+      .split(/\r?\n/).filter(Boolean).reduce((sum, n) => sum + Number(n), 0);
+    const read = samples / Number(a.sample_rate), span = Number(v.start_time) + Number(v.duration) - Number(a.start_time);
+    assert.ok(Math.abs(read - span) <= 0.05, `${name}: ${read.toFixed(3)} s of samples for ${span.toFixed(3)} s of picture`);
+    assert.equal(Number(a.start_time), 0, name + ": the sound starts at 0");
   }
 });
 
@@ -198,11 +209,16 @@ test("⑥ export: a decoder error on damaged bytes stops the export with a plain
   assert.match(V2.t("zh-CN", "exportSourceDamaged", { name: "早早晴.flv", at: "00:12:03" }), /^这次没导出来：「早早晴\.flv」在 00:12:03 附近有一段画面坏了/);
 });
 
-test("the conversion check: same length within 1 s, picture and sound not moved apart by more than 40 ms", () => {
+test("the conversion check: same length within 0.1 s, picture and sound not moved apart by more than 40 ms", () => {
   const range = { duration: 62, tracks: { video: { start: 0.023, end: 62.023 }, audio: { start: 0, end: 62.01 } } };
   const out = (o = {}) => ({ duration: 62, tracks: { video: { start: 0.023, end: 62.023 }, audio: { start: 0, end: 62.01, ...o } } });
   assert.equal(P.conversionCheck(range, out()).ok, true);
-  assert.equal(P.conversionCheck(range, { ...out(), duration: 60.5 }).ok, false, "1.5 s short");
+  assert.equal(P.conversionCheck(range, { ...out(), duration: 61.85 }).ok, false, "0.15 s short (QQ: ±1 frame, at most 0.1 s)");
+  assert.equal(P.conversionCheck(range, { ...out(), duration: 61.92 }).ok, true, "0.08 s short");
+  // silence put in front of a sound that started late moves no sound: the end still has to line up
+  const padded = { duration: 62, tracks: { video: { start: 0, end: 62 }, audio: { start: 0.1, end: 62 } } };
+  assert.equal(P.conversionCheck(padded, { duration: 62, tracks: { video: { start: 0, end: 62 }, audio: { start: 0, end: 62 } } }).ok, true, "padded in front");
+  assert.equal(P.conversionCheck(padded, { duration: 62, tracks: { video: { start: 0, end: 62 }, audio: { start: 0.16, end: 62.06 } } }).ok, false, "started later still");
   const late = P.conversionCheck(range, out({ start: 0.06 }));
   assert.equal(late.ok, false); assert.ok(late.avOffset > 0.04);
   assert.equal(P.conversionCheck(range, { duration: 62, tracks: { video: range.tracks.video } }).ok, false, "the sound went missing");
@@ -215,4 +231,18 @@ test("an incompatible codec still needs an encoder: without one, FLV_ENCODER_MIS
   await assert.rejects(P.prepareMedia(legacy, { allowTranscode: true, acceptReadable: true, chooseEncoder: async () => [] }), { code: "FLV_ENCODER_MISSING" });
   assert.deepEqual(fs.readdirSync(dir), ["legacy.flv"]);
   assert.equal(crypto.createHash("sha256").update(fs.readFileSync(legacy)).digest("hex").length, 64);
+});
+
+test("Rea on ea1c84d9: a recording that is re-encoded fills its sound's holes too (the export reads samples back to back)", async (t) => {
+  if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
+  if (!(await P.usableH264()).length) { t.skip("no H.264 encoder here (a Linux runner)"); return; }
+  const dir = tmp(t);
+  // a 58 ms hole in the sound (VV's real recordings), in a recording whose picture cannot be copied (Sorenson Spark)
+  const { file: holed } = make(dir, "holed.flv", [A(30000, 58)]), legacy = path.join(dir, "legacy-holed.flv");
+  execFileSync(FF.path("ffmpeg"), ["-v", "error", "-i", holed, "-c:v", "flv", "-q:v", "3", "-c:a", "copy", legacy]);
+  const r = await P.prepareMedia(legacy, { allowTranscode: true, acceptReadable: true });
+  assert.equal(r.preparation, "transcode");
+  assert.equal(r.audio, "filled");
+  const read = samplesAV(path.join(dir, decodeURIComponent(r.src.slice("/media/".length))));
+  assert.ok(read.worst <= 0.04, `read as the export reads it: ${Math.round(read.worst * 1000)} ms apart (last pair ${JSON.stringify(read.pairs.at(-1))})`);
 });

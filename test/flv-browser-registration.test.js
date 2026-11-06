@@ -20,7 +20,7 @@ test('browser: a recording with breaks is offered as a conversion; 〔帮我转�
  await w.context.importFiles([{name:'断过.flv',type:''}]);
  assert.equal(notes[0][0],w.context.MontClipView.t('zh-CN','flvTimingUnverified'),"JJ's sentence");assert.equal(notes[0][1].convert,true);
  assert.equal(sent[1].url,'/api/prepare-media');assert.deepEqual(JSON.parse(sent[1].body),{src:'/media/source.flv',fixGaps:true,acceptReadable:true,allowTranscode:true});
- assert.equal(notes[1][0],'已经转好了。这里录像断了约 8 秒，已经接上。','one break both streams share is said once');
+ assert.equal(notes[1][0],'已经转好了。01:02 这里录像断了约 8 秒：这几秒画面会停住、没有声音，前后的时间是对的。不想要可以剪掉。','one break both streams share is said once');
  assert.equal(w.project.media.length,1);assert.equal(w.project.media[0].preparation,'remux');
  assert.deepEqual(w.project.media[0].gaps,gaps,'the timeline marks come from here');
 });

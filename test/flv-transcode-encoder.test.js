@@ -34,7 +34,8 @@ test("prepareMedia refuses with FLV_ENCODER_MISSING when no H.264 encoder works,
   const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "prepare-media.js"), "utf8");
   // Deja, 2026-11-04: the encoders are asked for only when something has to be re-encoded, and none means a refusal first
   a.match(src, /const pick = async \(\) => \(encoders \?\?= \[\]\.concat\(await \(chooseEncoder \|\| usableH264\)\(\)\)\.filter\(Boolean\)\);\n  if \(reencode && !\(await pick\(\)\)\.length\) throw failure\("FLV_ENCODER_MISSING", originalSrc\);/);
-  a.match(src, /const reencode = !compatible \|\| range\.fix\.includes\("drift"\);/, "re-encoded: other codecs, or picture and sound already apart");
+  // QQ on #130 / Deja 2026-11-05: drift no longer re-encodes the picture (the sound is filled instead)
+  a.match(src, /const reencode = !compatible;/, "the picture is re-encoded only for other codecs");
   a.match(src, /if \(!\(await pick\(\)\)\.length\) throw failure\("FLV_ENCODER_MISSING", originalSrc\);\n\s+try \{ fs\.rmSync\(part/, "a remux that fails its check is re-encoded only with an encoder");
   a.match(src, /if \(!list\[i\] \|\| i \+ 1 >= list\.length \|\| error\.missingTool/, "the next encoder is tried only for a re-encode, and only when one is left");
   a.doesNotMatch(src, /"-c:v", "libx264"/);

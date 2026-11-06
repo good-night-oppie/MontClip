@@ -15,8 +15,9 @@ const JJ = {
     flvTimingUnverified: '这场录像中间断过（可能断过网，或者录制停过），要先转一下才能剪，MontClip 可以替你转。转好的是一份新文件，原片不动；要等几分钟。',
     flvNeedsConvert: '这个录像要先转一下格式才能剪，MontClip 可以替你转。转好的是一份新文件，原片不动；画质基本不变，要等几分钟。',
     flvNoEncoder: '这台电脑上找不到 MontClip 能用的视频编码器，所以这次没能转换。可以先更新显卡驱动再试。',
-    flvConverted: '已经转好了。这里录像断了约 {N} 秒，已经接上。',
-    flvConvertedMany: '已经转好了。录像一共断了 {k} 处，加起来约 {N} 秒，都已经接上。',
+    // JJ 定稿 2026-11-05 (Deja 代贴 on #130, replacing 「已经接上」: the break is held — a still picture and silence — not squeezed out)
+    flvConverted: '已经转好了。{time} 这里录像断了约 {N} 秒：这几秒画面会停住、没有声音，前后的时间是对的。不想要可以剪掉。',
+    flvConvertedMany: '已经转好了。录像一共断了 {k} 处，加起来约 {N} 秒：这些地方画面会停住、没有声音，前后的时间是对的。不想要可以剪掉。',
     flvConvert: '帮我转', flvNotNow: '先不转',
     flvNeedsDesktop: '导入 FLV 需要用 MontClip 桌面版打开。',
     flvDiskFull: '电脑空间不够，这个文件没导进来。清理一些空间后再试。',
@@ -25,8 +26,8 @@ const JJ = {
     flvTimingUnverified: 'This recording has a break in it (the stream or the recorder may have stopped for a moment), so it needs converting before you can edit it, and MontClip can do it for you. The result is a new file and the original stays as it is; it takes a few minutes.',
     flvNeedsConvert: 'This recording needs converting before you can edit it, and MontClip can do it for you. The result is a new file and the original stays as it is. The picture stays about the same; it takes a few minutes.',
     flvNoEncoder: "This computer has no video encoder MontClip can use, so it couldn't convert this time. Update the graphics driver and try again.",
-    flvConverted: "Converted. The recording had a break of about {N} s here; it's joined up now.",
-    flvConvertedMany: "Converted. The recording had {k} breaks, about {N} s in total; they're joined up now.",
+    flvConverted: "Converted. The recording dropped out for about {N} s at {time}: for those seconds the picture freezes and there's no sound, and the timing before and after is right. You can cut it out if you don't want it.",
+    flvConvertedMany: "Converted. The recording dropped out {k} times, about {N} s in total: in those places the picture freezes and there's no sound, and the timing around them is right. You can cut them out if you don't want them.",
     flvNeedsDesktop: 'Importing FLV needs the MontClip desktop app.',
   },
 };
@@ -53,9 +54,12 @@ test('JJ v2: nothing tells the streamer to convert the file herself; JJ’s two 
     a.ok(!/媒体功能包|Media Feature Pack|同一场.*(分成|其他)文件/.test(s) || k.startsWith('h264'), `${lang} ${k}`);
   }
   a.match(V.t('zh-CN', 'flvStreamsUnsupported'), /^这个录像现在导不进来：/, 'what MontClip cannot convert says so');
-  a.equal(V.flvConvertedMessage('zh-CN', [{ stream: 'video', at: 30, len: 2 }, { stream: 'audio', at: 30, len: 2 }]), '已经转好了。这里录像断了约 2 秒，已经接上。', 'one break both streams share is one');
-  a.equal(V.flvConvertedMessage('zh-CN', [{ stream: 'video', at: 3, len: 0.6 }, { stream: 'video', at: 40, len: 1.25 }]), '已经转好了。录像一共断了 2 处，加起来约 1.9 秒，都已经接上。');
-  a.equal(V.flvConvertedMessage('en', [{ stream: 'video', at: 3, len: 0.6 }]), "Converted. The recording had a break of about 0.6 s here; it's joined up now.");
+  a.equal(V.flvConvertedMessage('zh-CN', [{ stream: 'video', at: 30, len: 2 }, { stream: 'audio', at: 30, len: 2 }]), '已经转好了。00:30 这里录像断了约 2 秒：这几秒画面会停住、没有声音，前后的时间是对的。不想要可以剪掉。', 'one break both streams share is one');
+  a.equal(V.flvConvertedMessage('zh-CN', [{ stream: 'video', at: 3, len: 0.6 }, { stream: 'video', at: 40, len: 1.25 }]), '已经转好了。录像一共断了 2 处，加起来约 1.9 秒：这些地方画面会停住、没有声音，前后的时间是对的。不想要可以剪掉。');
+  a.equal(V.flvConvertedMessage('en', [{ stream: 'video', at: 3, len: 0.6 }]), "Converted. The recording dropped out for about 0.6 s at 00:03: for those seconds the picture freezes and there's no sound, and the timing before and after is right. You can cut it out if you don't want it.");
+  // QQ (#130 point 2): the conversion check allows ±0.1 s of length (±1 frame), said as such
+  a.match(V.t('zh-CN', 'flvFixBy', { sec: '0.2', ms: '10' }), /要求时长差不超过 0\.1 秒、声音和画面差不超过 40 毫秒/);
+  a.match(V.t('en', 'flvFixBy', { sec: '0.2', ms: '10' }), /at most 0\.1 s and 40 ms/);
 });
 
 test('zh-CN FLV and export strings: no English word of three letters or more except names', () => {
