@@ -109,16 +109,33 @@ def _process_sockets(pid):
 
 
 def _processes():
-    """pid -> (ppid, network namespace) for every process we can see."""
+    """pid -> (ppid, network namespace or None) for every process we can see. The parent always counts, even
+    when the namespace cannot be read (e.g. Chrome's non-dumpable helpers), so the process tree stays whole."""
     out = {}
     for d in pathlib.Path("/proc").iterdir():
         if d.name.isdigit():
             try:
                 ppid = int((d / "stat").read_text().rsplit(")", 1)[1].split()[1])
-                out[int(d.name)] = (ppid, os.readlink(d / "ns" / "net"))
             except (OSError, IndexError, ValueError):
-                pass
+                continue
+            try:
+                ns = os.readlink(d / "ns" / "net")
+            except OSError:
+                ns = None
+            out[int(d.name)] = (ppid, ns)
     return out
+
+
+def _describe(pid, procs):
+    """Command line and parent chain of a process, for the record."""
+    try:
+        cmd = pathlib.Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ").decode(errors="replace")[:160]
+    except OSError:
+        cmd = "?"
+    chain, p = [], procs.get(pid, (None,))[0]
+    while p and len(chain) < 8:
+        chain.append(p); p = procs.get(p, (None,))[0]
+    return {"pid": pid, "cmdline": cmd, "parents": chain}
 
 
 def _tree(root, procs):
@@ -226,7 +243,8 @@ class Session:
         ours = _tree(self.iso["pid"], procs)
         strangers = sorted(p for p, (_, ns) in procs.items() if ns == self.iso["netns"] and p not in ours)
         if strangers:
-            self.foreign.append({"time": time.time(), "processes_in_our_netns_outside_our_tree": strangers})
+            self.foreign.append({"time": time.time(), "processes_in_our_netns_outside_our_tree":
+                                 [_describe(p, procs) for p in strangers], "our_root": self.iso["pid"]})
             return self._kill(f"processes in our network namespace are not ours: {strangers}")
         mine = set().union(*[_process_sockets(p) for p in ours])
         clients = _table("01", int(self.port), 2)
