@@ -87,3 +87,23 @@ breaking release drops the old name:
 globals rename does not trip it; `test/ui-terms-page.test.js` keeps checking the
 user-visible name is `MontClip`. The full suite (`npm test`) and the desktop
 smokes are run before this ships.
+
+## Addendum 2026-11-05: the script keeps upstream credits (Deja)
+
+Run before merging `main` into #146, the script rewrote the upstream credit in
+`docs/hackathon/README.md` — "a modified version of [FableCut](https://github.com/ronak-create/FableCut)"
+became "[MontClip](…)" — and would do so on every run. Two rules now keep credits:
+
+- **A line carrying `fablecut-keep` is left exactly as it is.** The marker sits in a
+  comment the reader doesn't see: `<!-- fablecut-keep: upstream credit -->` at the end of
+  a Markdown line, `// fablecut-keep` in code. Both credit lines in
+  `docs/hackathon/README.md` carry it. Mark any new credit the same way. Chosen over a
+  list of excluded files because it keeps exactly that line, wherever it is, and the
+  rest of the file is still renamed (the README's other mentions are not credits).
+- **Licence and notice files are skipped whole** (`LICENSE*`, `LICENSES*`, `NOTICE*`,
+  any folder): they name the upstream by definition, so they need no marker.
+
+`renameTree({root, regenerate})` now takes the repository to rewrite, so
+`test/rename-script-keep.test.js` runs it on a scratch repository: the marked line and
+the licence files keep "FableCut", everything else is renamed, a second run changes
+nothing, and the repository's own credit lines are marked.
