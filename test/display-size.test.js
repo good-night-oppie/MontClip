@@ -72,6 +72,28 @@ test("an entry that already has the stored size (imported before) is corrected t
   a.match(app, /MediaLib\.displaySize\(m, i\)/, "refreshMediaInfo uses it");
 });
 
+/* The agent's backfill goes through MediaLib.applyBackfill (#152: the server, or the open editor, merges it), so the
+   sizes ride in the same updates as the lengths. */
+test("applyBackfill: the display size and the stored one, once, for a video with no stored size yet", () => {
+  const doc = { media: [
+    { id: "m_r", kind: "video", src: "/media/r.mp4", duration: 20, width: 1080, height: 1920 },
+    { id: "m_n", kind: "video", src: "/media/n.mp4", width: 1080, height: 1920 },
+    { id: "m_x", kind: "video", src: "/media/x-relinked.mp4", width: 1080, height: 1920 },
+  ] };
+  const size = { width: 2389, height: 1920, storedWidth: 1080, storedHeight: 1920 };
+  const n = MediaLib.applyBackfill(doc, [
+    { id: "m_r", src: "/media/r.mp4", ...size },
+    { id: "m_n", src: "/media/n.mp4", duration: 3, ...size },
+    { id: "m_x", src: "/media/x.mp4", ...size },
+  ]);
+  a.equal(n, 3, "m_r: size · m_n: length and size · m_x: another file now, left alone");
+  a.deepEqual([doc.media[0].width, doc.media[0].storedWidth, doc.media[0].duration], [2389, 1080, 20]);
+  a.deepEqual([doc.media[1].width, doc.media[1].storedHeight, doc.media[1].duration], [2389, 1920, 3]);
+  a.equal(doc.media[2].storedWidth, undefined);
+  a.equal(MediaLib.applyBackfill(doc, [{ id: "m_r", src: "/media/r.mp4", ...size }]), 0, "once");
+  a.equal(MediaLib.applyBackfill(doc, [{ id: "m_x", src: "/media/x-relinked.mp4", ...size, storedWidth: "1080" }]), 0, "sizes must be whole pixels");
+});
+
 /* An entry already in a project (europa: the replay imported as 1080×1920) is put right on the agent's next call,
    no editor needed — the same pass that reads missing lengths (mcp-server backfillDurations). */
 test("no editor open: an entry with the stored size gets the display size when the agent reads the project", { skip }, async (t) => {
