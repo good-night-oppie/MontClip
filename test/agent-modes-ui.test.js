@@ -52,8 +52,20 @@ test('自动 / Yolo apply only after a CAS on the project, as one undo step; per
  a.match(body,/if\(step\.version\)await step\.version;/,'the agent version is kept before anything is applied');
 });
 
+test('a step approved through the card never says 「没有问你」; only a direct run (auto/Yolo) may (issuecomment-6644967814)',()=>{
+ const app=read('app.js'),i=app.indexOf('async function onAgentReply'),body=app.slice(i,app.indexOf('function canUndoOfficialProposal',i));
+ a.match(body,/d\.action==='ask'\?'own\.ap-applied-approved':'own\.ap-applied'/,'the applied toast picks the approved wording after the card, the direct wording only on run');
+ for(const l of ['zh-CN','en']){
+  const approved=t(l,'own.ap-applied-approved');
+  a.ok(approved&&approved!=='own.ap-applied-approved',l+': ap-applied-approved exists');
+  a.ok(!/没有问你|without asking/i.test(approved),l+': an approved step was just asked about');
+ }
+ // the direct-run line keeps saying it (auto/Yolo really does not ask)
+ a.match(t('zh-CN','own.ap-applied'),/没有问你/);a.match(t('en','own.ap-applied'),/without asking/);
+});
+
 test('new words, both languages (for JJ)',()=>{
- const keys=['ap-title','ap-project','ap-sends-to','ap-content','ap-every-time','ap-once','ap-session','ap-deny','ap-denied','ap-listed','ap-refused','ap-refused-mode','ap-applied','ap-stale','ap-yolo-on','ap-sum-sentences','ap-sum-ranges','ap-sum-slices','ap-undo','ap-invalid'];
+ const keys=['ap-title','ap-project','ap-sends-to','ap-content','ap-every-time','ap-once','ap-session','ap-deny','ap-denied','ap-listed','ap-refused','ap-refused-mode','ap-applied','ap-applied-approved','ap-stale','ap-yolo-on','ap-sum-sentences','ap-sum-ranges','ap-sum-slices','ap-undo','ap-invalid'];
  for(const k of keys){const zh=t('zh-CN','own.'+k),en=t('en','own.'+k);a.ok(zh&&zh!=='own.'+k,k);a.ok(en&&!/[一-鿿]/.test(en),k);}
  a.equal(t('zh-CN','own.ap-once'),'只批准这次');a.equal(t('zh-CN','own.ap-session'),'这个聊天中都批准');a.equal(t('zh-CN','own.ap-deny'),'不同意');
  for(const k of ['modes','modePlan','modeManual','modeAuto','modeYolo','modePlanTip','modeManualTip','modeAutoTip','modeYoloTip','yoloOn','modeDeclined','modeUnavailable'])
