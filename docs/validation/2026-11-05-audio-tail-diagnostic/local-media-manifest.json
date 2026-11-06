@@ -1,0 +1,56 @@
+[
+  {
+    "file": "00-original.mov",
+    "bytes": 34185332,
+    "sha256": "d5f92eb84adee31da340fa135fa7f150257d81459042ce8bb8020afd4e1be056",
+    "stored": "local out/audio-tail-01; not committed"
+  },
+  {
+    "file": "captured-frames.mjpeg",
+    "bytes": 30403460,
+    "sha256": "f5a9cf6eb41a586a87354bad870916523ad07b0ec84e755d037f286e514bbc44",
+    "stored": "local out/audio-tail-01; not committed"
+  },
+  {
+    "file": "captured-mix.wav",
+    "bytes": 2304048,
+    "sha256": "4442cdcf3dd24f9cf4394c704a82a91143d1afbdbcec1f444a05eac1b3d63a41",
+    "stored": "local out/audio-tail-01; not committed"
+  },
+  {
+    "file": "with-shortest-debug.mov",
+    "bytes": 34185332,
+    "sha256": "d5f92eb84adee31da340fa135fa7f150257d81459042ce8bb8020afd4e1be056",
+    "stored": "local out/audio-tail-01; not committed"
+  },
+  {
+    "file": "with-shortest-trace.mov",
+    "bytes": 34185332,
+    "sha256": "d5f92eb84adee31da340fa135fa7f150257d81459042ce8bb8020afd4e1be056",
+    "stored": "local out/audio-tail-01; not committed"
+  },
+  {
+    "file": "with-shortest.mov",
+    "bytes": 34185332,
+    "sha256": "d5f92eb84adee31da340fa135fa7f150257d81459042ce8bb8020afd4e1be056",
+    "stored": "local out/audio-tail-01; not committed"
+  },
+  {
+    "file": "without-shortest-debug.mov",
+    "bytes": 34195608,
+    "sha256": "0bcf11690e1f5839494e08d20f38503d574f0ff54dd57d0ade8f0a30ddcee332",
+    "stored": "local out/audio-tail-01; not committed"
+  },
+  {
+    "file": "without-shortest-trace.mov",
+    "bytes": 34195608,
+    "sha256": "0bcf11690e1f5839494e08d20f38503d574f0ff54dd57d0ade8f0a30ddcee332",
+    "stored": "local out/audio-tail-01; not committed"
+  },
+  {
+    "file": "without-shortest.mov",
+    "bytes": 34195608,
+    "sha256": "0bcf11690e1f5839494e08d20f38503d574f0ff54dd57d0ade8f0a30ddcee332",
+    "stored": "local out/audio-tail-01; not committed"
+  }
+]

@@ -7,6 +7,7 @@ const cp=require('node:child_process');
 const {execFileSync}=cp;
 const assert=require('node:assert/strict');
 const ROOT=path.resolve(__dirname,'..');
+const audioTailDiagnostic=process.argv.includes('--audio-tail-diagnostic');
 const OUT=path.resolve(process.argv[2]||'out/draft-existing-loop');
 if(fs.existsSync(OUT))throw Error('Output must be a new directory');
 fs.mkdirSync(OUT,{recursive:true});
@@ -92,7 +93,7 @@ async function stopOwned(child){if(!child)return true;if(!child.pid||child.exitC
 (async()=>{try{
   encode(['-f','lavfi','-i','testsrc2=size=640x360:rate=30:duration=12','-c:v','libx264','-preset','ultrafast','-pix_fmt','yuv420p','-an',path.join(MEDIA,'original.mp4')]);
   encode(['-f','lavfi','-i','color=c=gold:size=640x360:rate=30:duration=2','-c:v','libx264','-preset','ultrafast','-pix_fmt','yuv420p','-an',path.join(MEDIA,'replacement.mp4')]);
-  encode(['-f','lavfi','-i','sine=frequency=440:sample_rate=48000:duration=12','-c:a','pcm_s16le',path.join(MEDIA,'original.wav')]);
+  encode(['-f','lavfi','-i',audioTailDiagnostic?"aevalsrc=if(gte(t\\,11.9)\\,0.5*sin(2*PI*1000*t)\\,0):s=48000:d=12":'sine=frequency=440:sample_rate=48000:duration=12','-c:a','pcm_s16le',path.join(MEDIA,'original.wav')]);
   receipt.sources=fs.readdirSync(MEDIA).map(file=>({file,sha256:sha(path.join(MEDIA,file)),origin:'program-generated',frameRate:file.endsWith('.mp4')?'CFR 30':'audio'}));
   const lines=['这里还没补画面（审片版）','要补：手部近景，完整保留落拍动作','位置：成片 00:08.000—00:10.000（2.00 秒）','声音：沿用原片声音','恢复办法还没验','simulated'];
   const comp={id:'synthetic_card',name:'simulated',width:640,height:360,duration:2,background:'#202020',clips:lines.map((text,i)=>({id:'line'+i,kind:'text',track:'V1',start:0,duration:2,
@@ -105,8 +106,8 @@ async function stopOwned(child){if(!child)return true;if(!child.pid||child.exitC
     clips:[{id:'original_picture',kind:'video',track:'V1',mediaId:'original',start:0,in:0,duration:12,unlinked:true,props:{fit:'contain'}},
       {id:'original_sound',kind:'audio',track:'A1',mediaId:'sound',start:0,in:0,duration:12,unlinked:true,props:{volume:1,pan:0}}]};
   fs.writeFileSync(path.join(DATA,'project.json'),JSON.stringify(seed));
-  server=cp.spawn(process.execPath,[path.join(ROOT,'server.js')],{cwd:ROOT,windowsHide:true,
-    env:{...process.env,HOST:'127.0.0.1',PORT:'0',FABLECUT_DATA_DIR:DATA,MONTCLIP_DESKTOP:'1',MONTCLIP_SESSION_TOKEN:token},stdio:['ignore','pipe','pipe','ipc']});
+  server=cp.spawn(process.execPath,[...(audioTailDiagnostic?['--require',path.join(__dirname,'audio-tail-capture.cjs')]:[]),path.join(ROOT,'server.js')],{cwd:ROOT,windowsHide:true,
+    env:{...process.env,HOST:'127.0.0.1',PORT:'0',FABLECUT_DATA_DIR:DATA,MONTCLIP_DESKTOP:'1',MONTCLIP_SESSION_TOKEN:token,...(audioTailDiagnostic?{MONTCLIP_TAIL_CAPTURE_DIR:OUT}:{})},stdio:['ignore','pipe','pipe','ipc']});
   receipt.pids.server=server.pid;server.stdout.resume();server.stderr.resume();
   origin=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('owned server IPC timeout')),30000);
     server.once('error',()=>{clearTimeout(timer);reject(Error('owned server spawn failed'));});
@@ -124,6 +125,7 @@ async function stopOwned(child){if(!child)return true;if(!child.pid||child.exitC
   await cdp('Page.navigate',{url:origin},session);await ready();
   await evaluate('updateMontClipView({mode:"advanced",language:"zh-CN"}); project.untargetedTracks=TRACKS.filter(t=>t.kind==="audio").map(t=>t.id);state.untargetedTracks=new Set(project.untargetedTracks);scheduleSave();');
   const base=await snapshot('00-original');await exportVideo('00-original');
+  if(audioTailDiagnostic){receipt.diagnostic='last 100ms tone; actual compositor export; no editing loop';receipt.completed=true;return;}
   const version=await api('/api/versions',{action:'save',name:'synthetic-original'});json('baseline-version.json',version);
   await evaluate('runtime.undo.length=0;runtime.redo.length=0;setTime(8);renderBin();');
   await action('insert card: existing composition + button',()=>click('[data-comp-id="synthetic_card"] .lib-add'));
