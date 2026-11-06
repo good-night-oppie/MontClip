@@ -17,7 +17,7 @@ for(const language of ['zh-CN','en'])for(const job of [null,'agent-job'])test('u
     renderAudioMix:async()=>null,effectiveEncodeProfileId:()=> 'prores422',deliveryCanvas:()=>({w:160,h:90}),exportBaseName:()=> 'test',
     MontClipView:{h264Message:()=>''},mcView:{get:()=>({language})},uiText:k=>k==='own.export-failed-prefix'?prefix:k==='own.export-profile-unsupported'?(language==='zh-CN'?ZH:EN):k,
     fetch:async(url,request)=>{posts.push(url);return{json:async()=>({code:'PROFILE_FILTER_MAPPING_UNSUPPORTED',error:'PROFILE_FILTER_MAPPING_UNSUPPORTED'})};},
-    alert:s=>alerts.push(s),reportExportJob:async(id,data)=>reports.push(data),exportDecodeEnd:noop,endExportWindow:noop,releaseOriginalPlayers:noop};
+    alert:s=>alerts.push(s),reportExportJob:async(id,data)=>reports.push(data),exportDecodeEnd:noop,endExportWindow:noop,releaseOriginalPlayers:noop,noteExportBgRemove:noop};
   vm.createContext(box);vm.runInContext(source,box);const result=await box.fastExport({profile:'prores422',job});
   assert.ok(!result.error.includes('PROFILE_'),'queue-facing result must not expose machine code');
   assert.equal(result.code,'PROFILE_FILTER_MAPPING_UNSUPPORTED','structured diagnostic code remains available');
