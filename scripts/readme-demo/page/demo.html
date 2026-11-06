@@ -1,0 +1,245 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Inter;src:url(fonts/Inter.woff2) format('woff2');font-weight:100 900}
+@font-face{font-family:JBM;src:local('JetBrains Mono'),local('JetBrainsMono-Regular'),local('DejaVu Sans Mono');font-weight:400}
+@font-face{font-family:JBM;src:local('JetBrains Mono Bold'),local('JetBrainsMono-Bold'),local('DejaVu Sans Mono Bold');font-weight:700}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1280px;height:720px;overflow:hidden;background:#090D16;color:#F8FAFC;font-family:Inter,sans-serif}
+#stage{position:absolute;inset:0;overflow:hidden}
+.grid{position:absolute;inset:0;background-image:linear-gradient(#ffffff08 1px,transparent 1px),linear-gradient(90deg,#ffffff08 1px,transparent 1px);background-size:40px 40px}
+.abs{position:absolute}
+.panel{position:absolute;border:1px solid #1E293B;border-radius:10px;overflow:hidden;background:#0B1220}
+.panel img{display:block;width:100%;height:100%;object-fit:cover}
+.chip{position:absolute;font:600 13px/1 JBM,monospace;letter-spacing:.04em;padding:7px 10px;border-radius:6px;white-space:nowrap}
+.mono{font-family:JBM,monospace}
+.term{position:absolute;background:#0B1220;border:1px solid #1E293B;border-radius:10px;overflow:hidden}
+.term .bar{height:34px;border-bottom:1px solid #1E293B;display:flex;align-items:center;gap:7px;padding:0 14px;font:500 12px JBM;color:#64748B}
+.term .bar i{width:10px;height:10px;border-radius:50%;background:#1E293B;display:inline-block}
+.term .body{padding:14px 16px;font:400 15px/1.55 JBM,monospace;white-space:pre}
+.ln{display:block;overflow:hidden}
+.h1{font:700 40px/1.12 Inter;letter-spacing:-.02em}
+.h2{font:700 26px/1.2 Inter;letter-spacing:-.01em}
+.lab{font:600 13px JBM;letter-spacing:.08em;text-transform:uppercase}
+</style></head>
+<body><div id="stage">
+<div class="grid"></div>
+
+<!-- ===== persistent chrome ===== -->
+<div id="brand" class="abs mono" style="left:28px;top:20px;font:700 14px JBM;letter-spacing:.12em;color:#94A3B8">MONTCLIP<span style="color:#3B82F6"> ▍</span></div>
+<div id="shotlab" class="abs lab" style="right:28px;top:22px;color:#64748B"></div>
+<div id="track" class="abs" style="left:28px;right:28px;top:684px;height:6px;border-radius:3px;background:#111827"></div>
+<div id="segs"></div>
+<div id="ph" class="abs" style="top:678px;width:2px;height:18px;background:#3B82F6;box-shadow:0 0 0 3px #3B82F633"></div>
+<div id="foot" class="abs mono" style="right:28px;top:658px;font-size:11px;color:#475569">synthetic live room · placeholder viewers · materials from real MontClip MCP calls</div>
+
+<!-- ===== S1 hook ===== -->
+<div id="s1" class="abs" style="inset:0">
+  <div class="abs h1" style="left:60px;top:58px;width:1160px">
+    <span id="w1" style="display:inline-block">A long stream in.</span>
+    <span id="w2" style="display:inline-block;color:#3B82F6">A short clip out.</span>
+  </div>
+  <div id="synth" class="chip" style="left:60px;top:120px;background:#1E293B;color:#CBD5E1">合成素材效果示意 · SYNTHETIC ILLUSTRATION</div>
+  <div id="p1l" class="panel" style="left:60px;top:170px;width:540px;height:304px"><img id="srcimg"></div>
+  <div id="p1r" class="panel" style="left:680px;top:170px;width:540px;height:304px;border-color:#3B82F6"><img id="rzimg1"></div>
+  <div id="c_raw" class="chip" style="left:60px;top:486px;background:#1E293B;color:#CBD5E1">RAW · SYNTHETIC LIVE ROOM</div>
+  <div id="c_key" class="chip" style="left:290px;top:486px;background:#EF444422;color:#FCA5A5;border:1px solid #EF4444">NICKNAME VISIBLE</div>
+  <div id="c_out" class="chip" style="left:680px;top:486px;background:#3B82F622;color:#93C5FD;border:1px solid #3B82F6">MONTCLIP EXPORT · CROP + ZOOM + MASK</div>
+  <div id="arrow" class="abs mono" style="left:604px;top:300px;width:72px;text-align:center;font:700 13px JBM;color:#F59E0B">MCP<br><span style="font-size:26px">→</span></div>
+  <div id="edited" class="abs h1" style="left:60px;top:560px;color:#F59E0B">Edited by MontClip.</div>
+</div>
+
+<!-- ===== S2 perceive ===== -->
+<div id="s2" class="abs" style="inset:0">
+  <div id="s2h" class="abs h2" style="left:60px;top:58px">Look at <span style="color:#3B82F6">state</span> first. Pixels only <span style="color:#F59E0B">on demand</span>.</div>
+  <div id="term2" class="term" style="left:60px;top:118px;width:540px;height:520px">
+    <div class="bar"><i></i><i></i><i></i>&nbsp;agent ⇄ montclip mcp-server (stdio)</div>
+    <div class="body" id="t2body"></div>
+  </div>
+  <div id="r2" class="abs" style="left:630px;top:118px;width:590px;height:520px;overflow:hidden">
+    <!-- symbolic lanes -->
+    <div id="lanes" class="abs" style="inset:0"></div>
+    <!-- contact sheet -->
+    <div id="sheetwrap" class="abs" style="left:0;top:110px;width:590px;height:249px;transform-origin:0 0">
+      <img id="sheet" src="contact-sheet.jpg" style="width:590px;height:249px;display:block;border-radius:6px;border:1px solid #1E293B">
+      <div id="scan" class="abs" style="border:2px solid #F59E0B;border-radius:3px;box-shadow:0 0 0 4px #F59E0B33"></div>
+    </div>
+    <div id="sheetlab" class="chip" style="left:0;top:372px;background:#F59E0B22;color:#FCD34D;border:1px solid #F59E0B">CONTACT SHEET · 12 MOMENTS · 0.5S → 11.5S</div>
+    <div id="detwrap" class="abs" style="left:0;top:80px;width:590px;height:332px">
+      <img src="detail-t3.jpg" style="width:590px;height:332px;display:block;border-radius:6px;border:1px solid #EF4444">
+      <div id="keybox" class="abs" style="left:9px;top:295px;width:378px;height:28px;border:2px solid #EF4444;border-radius:3px"></div>
+    </div>
+    <div id="detlab" class="chip" style="left:0;top:426px;background:#EF444422;color:#FCA5A5;border:1px solid #EF4444">FRAME @ T=3S · NICKNAME IN GIFT BAR</div>
+  </div>
+</div>
+
+<!-- ===== S3 redact ===== -->
+<div id="s3" class="abs" style="inset:0">
+  <div id="s3h" class="abs h2" style="left:60px;top:58px">Crop · zoom · blurred nickname — <span style="color:#3B82F6">rendered by MontClip</span></div>
+  <div id="mini" class="abs" style="left:60px;top:124px;width:420px;height:236px">
+    <img src="detail-t3.jpg" style="width:420px;height:236px;display:block;border-radius:6px;border:1px solid #1E293B;opacity:.85">
+    <div id="cropR" class="abs" style="left:0;top:18.9px;width:281.4px;height:217.1px;border:2px solid #F59E0B"></div>
+    <div id="maskR" class="abs" style="left:4.5px;top:207.8px;width:272.9px;height:24.1px;background:repeating-linear-gradient(45deg,#EF4444aa 0 4px,transparent 4px 8px);border:1px solid #EF4444"></div>
+  </div>
+  <div id="minilab" class="chip" style="left:60px;top:372px;background:#1E293B;color:#CBD5E1">SOURCE · <span style="color:#FCD34D">CROP</span> · <span style="color:#FCA5A5">BLUR</span></div>
+  <div id="ops" class="term" style="left:60px;top:414px;width:420px;height:224px">
+    <div class="bar"><i></i><i></i><i></i>&nbsp;fablecut_patch_project · ops</div>
+    <div class="body" style="font-size:12.5px;line-height:1.5"><span style="color:#FCD34D">both: "cropR": 33, "cropT": 8</span>
+<span style="color:#93C5FD">both: "keyframes": { "scale": [
+  {"t":0,"v":0.6},{"t":4.5,"v":1.0}] }</span>
+<span style="color:#94A3B8">V1:</span> <span style="color:#FCA5A5">"masks": [{ rect, "mode": "subtract" }]</span>
+<span style="color:#94A3B8">V2:</span> <span style="color:#FCA5A5">"blur": 32,
+    "masks": [{ rect, "mode": "add" }]</span></div>
+  </div>
+  <div id="p3" class="panel" style="left:510px;top:124px;width:710px;height:400px;border-color:#3B82F6"><img id="rzimg3"></div>
+  <div id="c3" class="chip" style="left:510px;top:536px;background:#3B82F622;color:#93C5FD;border:1px solid #3B82F6">FABLECUT_EXPORT → REDACT-ZOOM.MP4 · 60 FPS</div>
+  <div id="n3" class="abs mono" style="left:510px;top:578px;width:710px;font-size:12px;color:#64748B">The blur is a masked copy of the clip; the mask is placed relative to the cropped picture.</div>
+</div>
+
+<!-- ===== S4 ship ===== -->
+<div id="s4" class="abs" style="inset:0">
+  <div id="term4" class="term" style="left:190px;top:150px;width:900px;height:190px">
+    <div class="bar"><i></i><i></i><i></i>&nbsp;agent ⇄ montclip mcp-server</div>
+    <div class="body" id="t4body" style="font-size:16px"></div>
+  </div>
+  <div id="cta" class="abs" style="left:0;right:0;top:372px;text-align:center">
+    <div id="ctaw" style="font:800 76px/1 Inter;letter-spacing:-.04em">Mont<span style="color:#3B82F6">Clip</span></div>
+    <div id="ctat" style="margin-top:14px;font:600 26px Inter;color:#E2E8F0">Clip your own live streams. On your own computer.</div>
+    <div id="ctat2" style="margin-top:8px;font:500 18px Inter;color:#94A3B8">AI agents can drive it too.</div>
+    <div id="ctas" style="display:inline-block;margin-top:24px;padding:14px 26px;border-radius:999px;border:1.5px solid #F59E0B;background:#F59E0B1A;color:#FCD34D;font:700 22px Inter">★ Star good-night-oppie/MontClip on GitHub</div>
+  </div>
+</div>
+</div>
+
+<script>
+const FPS_SRC=30, FPS_RZ=60, DUR=22;
+const cl=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const seg=(t,a,b)=>cl((t-a)/(b-a));
+const eo=x=>x>=1?1:1-Math.pow(2,-10*x);            // expoOut
+const eio=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;  // cubic in-out
+const $=id=>document.getElementById(id);
+const set=(el,o,tx=0,ty=0,s=1)=>{el.style.opacity=o;el.style.transform=`translate(${tx}px,${ty}px) scale(${s})`;el.style.visibility=o<=0.001?'hidden':'visible'};
+const pad=n=>String(n).padStart(4,'0');
+const SHOTS=[[0,4,'01 · HOOK','#F59E0B'],[4,11,'02 · PERCEIVE','#3B82F6'],[11,17,'03 · CROP · ZOOM · MASK','#EF4444'],[17,22,'04 · SHIP','#22C55E']];
+// timeline segments (static)
+{const W=1280-56;let h='';for(const[a,b,,c] of SHOTS){h+=`<div class="abs" style="left:${28+W*a/DUR+1}px;width:${W*(b-a)/DUR-2}px;top:684px;height:6px;border-radius:3px;background:${c};opacity:.28" data-a="${a}" data-b="${b}"></div>`;}$('segs').innerHTML=h;}
+// symbolic lanes (static html, animated per t)
+const CLIPS=[['V1',0,.38,'video m_…','#3B82F6'],['V1',.42,.62,'image sheet','#3B82F6'],['V1',.66,.95,'video crop+mask','#EF4444'],['V2',.1,.5,'text','#64748B'],['V2',.55,.8,'image detail','#3B82F6'],['V3',0,1,'text caption','#64748B']];
+{let h='<div class="lab abs" style="left:0;top:96px;color:#64748B">symbolic timeline · from fablecut_get_project</div>';
+ ['V1','V2','V3'].forEach((v,i)=>{h+=`<div class="abs mono" style="left:0;top:${140+i*58}px;font-size:13px;color:#64748B">${v}</div><div class="abs" style="left:40px;right:0;top:${132+i*58}px;height:40px;border-radius:6px;background:#0F172A;border:1px solid #1E293B"></div>`});
+ CLIPS.forEach((c,i)=>{const r=['V1','V2','V3'].indexOf(c[0]);h+=`<div class="abs mono lc" id="lc${i}" style="left:${40+550*c[1]}px;width:${550*(c[2]-c[1])-4}px;top:${136+r*58}px;height:32px;border-radius:5px;background:${c[4]}26;border:1px solid ${c[4]};color:#E2E8F0;font-size:12px;padding:8px 8px;white-space:nowrap;overflow:hidden">${c[3]}</div>`});
+ h+='<div id="lph" class="abs" style="top:124px;width:2px;height:176px;background:#F8FAFC"></div><div id="nopix" class="chip" style="left:40px;top:318px;background:#3B82F622;color:#93C5FD;border:1px solid #3B82F6">STATE AS TEXT · NO FRAMES DECODED YET</div>';
+ $('lanes').innerHTML=h;}
+
+const T2=[[4.15,'<span style="color:#3B82F6">› fablecut_get_project</span> {compact:true}'],
+ [4.55,'<span style="color:#94A3B8">"demo" 1280x720@60 rev:2</span>'],
+ [4.75,'<span style="color:#94A3B8">MEDIA (1):</span>'],
+ [4.95,'<span style="color:#94A3B8">  video "synthetic-source.mp4"</span>'],
+ [5.15,'<span style="color:#94A3B8">        12s · 1280×720 · 30 fps · h264</span>'],
+ [5.35,'<span style="color:#94A3B8">CLIPS: by track/time, as text</span>'],
+ [6.05,'<span style="color:#F59E0B">› fablecut_frame</span> {frames:12, cols:4,'],
+ [6.1, '                  from:0, to:12}'],
+ [6.45,'<span style="color:#94A3B8">  contact sheet · 12 moments</span>'],
+ [6.6, '<span style="color:#94A3B8">  at 0.5s, 1.5s … 11.5s  [image]</span>'],
+ [8.45,'<span style="color:#EF4444">› fablecut_frame</span> {t:3, width:1280}'],
+ [8.8, '<span style="color:#94A3B8">  frame at 3s  [image]</span>']];
+const T4=[[17.15,'<span style="color:#22C55E">› fablecut_export</span> {preset:"custom", h264, 60 fps, filename:"redact-zoom"}'],
+ [17.7,'<span style="color:#94A3B8">  Export done → exports/redact-zoom.mp4 (0.3 MB)</span>'],
+ [17.95,'<span style="color:#94A3B8">  1280×720 · 60 fps · H.264 CRF 18 · no audio · MP4</span>'],
+ [18.25,'<span style="color:#22C55E">  ✓ Checks passed:</span> 1280×720 · 60 fps · 360 frames · h264 · bt709 · 0:06.00']];
+const typeLines=(el,L,t)=>{el.innerHTML=L.map(([t0,h])=>{const o=eo(seg(t,t0,t0+.25));return `<span class="ln" style="opacity:${o};transform:translateX(${(1-o)*-8}px)">${t>=t0?h:'&nbsp;'}</span>`}).join('')};
+
+async function setImg(el,src){if(el.getAttribute('src')!==src){el.src=src;try{await el.decode()}catch(e){}}}
+
+window.__seek=async function(t){
+  // chrome
+  const W=1280-56; $('ph').style.left=(28+W*t/DUR-1)+'px';
+  const cur=SHOTS.find(s=>t>=s[0]&&t<s[1])||SHOTS[3]; $('shotlab').textContent=cur[2]; $('shotlab').style.color=cur[3];
+  document.querySelectorAll('#segs > div').forEach(d=>{d.style.opacity=(t>=+d.dataset.a&&t<+d.dataset.b)?1:.28});
+
+  // ===== S1 0-4
+  const in1=1, out1=eio(seg(t,3.65,4.0));
+  $('s1').style.visibility=t<4.05?'visible':'hidden';
+  set($('w1'),eo(seg(t,0,.45))*(1-out1),0,(1-eo(seg(t,0,.45)))*16-out1*30);
+  set($('w2'),eo(seg(t,.25,.7))*(1-out1),0,(1-eo(seg(t,.25,.7)))*16-out1*30);
+  set($('synth'),eo(seg(t,.4,.8))*(1-out1),0,-out1*30);
+  const pl=eo(seg(t,.05,.55)), pr=eo(seg(t,.55,1.05));
+  set($('p1l'),pl*(1-out1),(1-pl)*-40,-out1*30);
+  set($('p1r'),pr*(1-out1),(1-pr)*40,-out1*30, .96+.04*pr);
+  set($('arrow'),eo(seg(t,.8,1.1))*(1-out1),(eo(seg(t,.8,1.1))-1)*10+Math.sin(t*6)*2);
+  const sT=1.4+cl(t,0,4)*1.6; // source fast-forward 1.6x → passes the gift (2.4s)
+  await setImg($('srcimg'),`f/src/${pad(cl(Math.round(sT*FPS_SRC)+1,1,360))}.jpg`);
+  const rT=1.0+cl(t,0,4)*1.1;
+  await setImg($('rzimg1'),`f/rz/${pad(cl(Math.round(rT*FPS_RZ)+1,1,360))}.jpg`);
+  set($('c_raw'),pl*(1-out1));
+  set($('c_key'),eo(seg(sT,2.4,2.7))*(1-out1),0,0,1+.08*Math.max(0,1-Math.abs(sT-2.55)*6));
+  set($('c_out'),pr*(1-out1));
+  const ed=eo(seg(t,1.3,1.8)); set($('edited'),ed*(1-out1),(1-ed)*-20,-out1*30);
+
+  // ===== S2 4-11
+  const in2=eo(seg(t,4.0,4.4)), out2=eio(seg(t,10.65,11.0));
+  $('s2').style.visibility=(t>=3.95&&t<11.05)?'visible':'hidden';
+  set($('s2h'),in2*(1-out2),0,(1-in2)*16-out2*30);
+  set($('term2'),in2*(1-out2),(1-in2)*-30,-out2*30);
+  typeLines($('t2body'),T2,t);
+  // lanes 4.3-6.0
+  const lin=eo(seg(t,4.3,4.7)), lout=eio(seg(t,5.85,6.15));
+  $('lanes').style.opacity=lin*(1-lout); $('lanes').style.visibility=(lin*(1-lout))>0?'visible':'hidden';
+  CLIPS.forEach((c,i)=>{const o=eo(seg(t,4.5+i*.12,4.8+i*.12));const e=$('lc'+i);e.style.opacity=o;e.style.transform=`scaleX(${.6+.4*o})`;e.style.transformOrigin='0 50%'});
+  $('lph').style.left=(40+550*cl((t-4.6)/1.3))+'px';
+  set($('nopix'),eo(seg(t,5.2,5.5)));
+  // contact sheet 6.2-9.4
+  const sin=eo(seg(t,6.25,6.75));
+  const z=eio(seg(t,8.7,9.35)); // zoom into cell (row0,col2)
+  const cw=590/4, ch=249/3, cx=2*cw, cy=0;
+  const zs=1+z*(590/cw-1);
+  const sw=$('sheetwrap');
+  sw.style.opacity=sin*(1-seg(t,9.2,9.4)); sw.style.visibility=sw.style.opacity>0?'visible':'hidden';
+  sw.style.transform=`translate(${-cx*zs*z+(1-sin)*40}px,${-cy*zs*z+(1-sin)*0 - 110*z + 80*z}px) scale(${zs})`;
+  // scanning box: sweeps cells 0..5 then locks on cell 2
+  const sc=seg(t,6.9,7.9); let idx=Math.min(5,Math.floor(sc*6)); if(t>=7.9)idx=2;
+  const lock=eo(seg(t,7.9,8.15));
+  const bx=(idx%4)*cw, by=Math.floor(idx/4)*ch;
+  const s=$('scan'); s.style.left=bx+'px'; s.style.top=by+'px'; s.style.width=cw+'px'; s.style.height=ch+'px';
+  s.style.opacity=(t>=6.9?1:0)*(1-z); s.style.borderWidth=(2+lock*1.5)+'px';
+  set($('sheetlab'),sin*(1-seg(t,8.6,8.8)));
+  $('sheetlab').innerHTML=t>=7.9?'LOCKED · CELL 3 · GIFT APPEARS ≈ 2.5S':'CONTACT SHEET · 12 MOMENTS · 0.5S → 11.5S';
+  // detail 9.2-11
+  const din=eo(seg(t,9.2,9.5));
+  set($('detwrap'),din*(1-out2),0,-out2*30,.98+.02*din);
+  const kb=eo(seg(t,9.6,9.95)); $('keybox').style.opacity=kb; $('keybox').style.transform=`scale(${1.25-.25*kb})`;
+  set($('detlab'),eo(seg(t,9.8,10.1))*(1-out2));
+
+  // ===== S3 11-17
+  const in3=eo(seg(t,11.0,11.4)), out3=eio(seg(t,16.7,17.0));
+  $('s3').style.visibility=(t>=10.95&&t<17.05)?'visible':'hidden';
+  set($('s3h'),in3*(1-out3),0,(1-in3)*16-out3*30);
+  set($('mini'),in3*(1-out3),(1-in3)*-30,-out3*30);
+  set($('minilab'),in3*(1-out3));
+  const cr=eo(seg(t,11.4,11.8)); $('cropR').style.opacity=cr; $('cropR').style.transform=`scale(${1.3-.3*cr})`;
+  const mr=eo(seg(t,11.9,12.3)); $('maskR').style.opacity=mr;
+  set($('ops'),eo(seg(t,11.6,12.0))*(1-out3),0,(1-eo(seg(t,11.6,12.0)))*20-out3*30);
+  const pin=eo(seg(t,11.15,11.6));
+  set($('p3'),pin*(1-out3),(1-pin)*40,-out3*30);
+  await setImg($('rzimg3'),`f/rz/${pad(cl(Math.round(cl(t-11,0,6)*FPS_RZ)+1,1,360))}.jpg`);
+  set($('c3'),eo(seg(t,11.5,11.9))*(1-out3));
+  set($('n3'),eo(seg(t,12.4,12.8))*(1-out3));
+
+  // ===== S4 17-22
+  $('s4').style.visibility=t>=16.95?'visible':'hidden';
+  const in4=eo(seg(t,17.0,17.35));
+  const up=eio(seg(t,19.0,19.6));
+  set($('term4'),in4*(1-.0*up),0,(1-in4)*20-up*90,1-.08*up);
+  typeLines($('t4body'),T4,t);
+  const c1=eo(seg(t,19.2,19.7)), c2=eo(seg(t,19.45,19.95)), c3=eo(seg(t,19.8,20.3));
+  set($('cta'),t>=19.2?1:0);
+  set($('ctaw'),c1,0,(1-c1)*24);
+  set($('ctat'),c2,0,(1-c2)*16);
+  set($('ctat2'),c2,0,(1-c2)*12);
+  const pulse=t>20.3?1+.025*Math.sin((t-20.3)*5):1;
+  set($('ctas'),c3,0,(1-c3)*16,(.9+.1*c3)*pulse);
+};
+window.__duration=DUR;
+document.fonts.ready.then(()=>window.__seek(0)).then(()=>{window.__ready=true});
+</script>
+</body></html>
