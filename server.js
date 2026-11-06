@@ -497,7 +497,10 @@ async function ffmpegStatus() {
 /** 「重新检测」: look again, forget the encoder list, answer the new state. */
 async function redetectFfmpeg() {
   detectFfmpeg();   // encodersOf() probes again only a program it hasn't seen (path, size, time)
-  return ffmpegStatus();
+  const status = await ffmpegStatus();
+  broadcast("ffmpeg-state");
+  broadcast("delivery-presets");
+  return status;
 }
 function runFfmpeg(args, timeout = 15000, bin = FF.path("ffmpeg")) {
   return new Promise((resolve) => {

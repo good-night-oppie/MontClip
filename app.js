@@ -2019,6 +2019,7 @@ function projectJSONHere() {
 }
 function listenSSE() {
   const es = new EventSource("/api/events");
+  es.addEventListener("ffmpeg-state", () => refreshFfmpegCard());
   // Named events: "change" = project/media/library; "profiles" = encoding-profiles.json only
   es.addEventListener("change", () => { noteActivity(); syncFromServer(); scheduleOfflineCheck(); });
   es.addEventListener("proxy", (e) => onProxyEvent(e.data));
