@@ -9,9 +9,14 @@
 const ASSISTANT=Object.freeze(['keep_sentences','keep_ranges']);
 // a vertical or square picture: 竖屏 / 横屏 / 方屏, 9:16 and the like (also with ： or 比), 画面比例, reframe, vertical, portrait,
 // aspect ratio; 竖版 / 竖版视频 too
+// An aspect ratio is one of 9:16 16:9 1:1 4:5 5:4 (with :, ： or 比), never part of a longer number or time: 「把 4:16 到 5:30
+// 剪掉」, 「从 05:16 开始」, 「删掉 11:16 那句」, 19:16, 9:160 and 1:1:1 are not (QQ, review of 663bdf8e). Group 1 is the ratio.
+// No lookbehind (older Safari): the character before is matched instead.
+const SEP='\\s*(?::|：|比)\\s*';
+const RATIO_SRC='(?:^|[^\\d.:：比])((?:9'+SEP+'16|16'+SEP+'9|1'+SEP+'1|4'+SEP+'5|5'+SEP+'4))(?!\\d|\\.\\d|'+SEP+'\\d)';
 const UNSUPPORTED=Object.freeze([
  Object.freeze({id:'reframe',capability:'fablecut_reframe',
-  match:/竖屏|竖版|横屏|方屏|画面比例|改比例|(?:9|16|4|5|1)\s*(?::|：|比)\s*(?:16|9|5|4|1)\b|\breframe|\bvertical\b|\bportrait\b|aspect[ -]ratio/i,key:'limitReframe'}),
+  match:new RegExp('竖屏|竖版|横屏|方屏|画面比例|改比例|'+RATIO_SRC+'|\\breframe|\\bvertical\\b|\\bportrait\\b|aspect[ -]ratio','i'),key:'limitReframe'}),
 ]);
 /** The things the message asks for that the assistant cannot do: [{id, capability, key}], in UNSUPPORTED's order. */
 function unsupported(text,available=ASSISTANT){
@@ -24,7 +29,7 @@ function note(text,strings,names={}){
  return unsupported(text).map(u=>{
   let key=u.key,values=names;
   if(u.id==='reframe'){
-   const ratios=[...new Set([...text.matchAll(/\b(9|16|4|5|1)\s*(?::|：|比)\s*(16|9|5|4|1)\b/g)].map(m=>m[1]+':'+m[2]))];
+   const ratios=[...new Set([...text.matchAll(new RegExp(RATIO_SRC,'g'))].map(m=>m[1].match(/\d+/g).join(':')))];
    const aspect=ratios.length?ratios.length===1?ratios[0]:null:/横屏|\blandscape\b/i.test(text)?'16:9':/方屏|\bsquare\b/i.test(text)?'1:1':/竖屏|竖版|\bvertical\b|\bportrait\b/i.test(text)?'9:16':null;
    const option=names.options?.[aspect]||(aspect==='9:16'?names.option:null);
    key=aspect==='9:16'&&option?'limitReframe':option?'limitReframeAspect':'limitReframeAny';

@@ -100,6 +100,20 @@ test('the assistant cannot reframe: fablecut_reframe exists in MCP, not among wh
  a.deepEqual(L.unsupported('竖屏',[...L.ASSISTANT,'fablecut_reframe']),[],'once the assistant can, it is no longer reported');
 });
 
+// QQ (review of 663bdf8e): times are not aspect ratios. Only 9:16 16:9 1:1 4:5 5:4 count (with : ： or 比), and never as part
+// of a longer number or time.
+test('a time is not an aspect ratio: only 9:16 16:9 1:1 4:5 5:4 count, never inside a longer number or time',()=>{
+ for(const t of ['把 4:16 到 5:30 剪掉','从 05:16 开始','删掉 11:16 那句','19:16','9:160','1:1:1','剪掉 01:16','保留 2:16 到 3:45','1:10 那里','16:90','14:50 之后'])
+  a.deepEqual(L.unsupported(t),[],t);
+ for(const [t,r] of [['做个 9:16 的','9:16'],['16:9 横版','16:9'],['改成 1:1','1:1'],['4:5 发小红书','4:5'],['5:4','5:4'],
+                     ['9：16','9:16'],['16比9','16:9'],['1 : 1','1:1'],['4 比 5','4:5'],['(9:16)','9:16'],['ratio 5:4, please','5:4']])
+  a.deepEqual(L.unsupported(t).map(u=>u.id),['reframe'],t);
+ const strings={limitReframe:'vertical: {option}',limitReframeAspect:'aspect: {option}',limitReframeAny:'choose in {dropdown}'};
+ const names={dropdown:'Export frame',option:'Vertical',options:{'9:16':'Vertical','16:9':'Landscape','1:1':'Square','4:5':'Portrait','5:4':'Wide'}};
+ for(const [t,o] of [['4:5 发小红书','aspect: Portrait'],['16比9','aspect: Landscape'],['5:4','aspect: Wide'],['从 05:16 开始改成 1:1','aspect: Square'],['把 4:16 到 5:30 剪掉，再改竖屏','vertical: Vertical']])
+  a.equal(L.note(t,strings,names),o,t);
+});
+
 test('a mixed message, with a substitute transport: the format note sent carries the rule, and the reply as shown starts with what can\'t be done',async()=>{
  const draft='剪到 1 分钟以内，发快手和 B 站竖屏',edit={type:'keep_ranges',output_mode:'one_file',ranges:[{clipId:'c',from:100,to:150}]};
  // the desktop service with an injected request: what would go to the provider
