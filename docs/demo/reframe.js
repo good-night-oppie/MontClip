@@ -126,7 +126,7 @@
    *  of `len` source seconds, and always its last frame, at len − `frame` (one frame of the timeline, in source seconds):
    *  read once more when the regular samples stop short of it. Without it the camera stopped at the last regular sample
    *  (up to 1/SAMPLE_FPS before the end) and a subject still moving left the picture in the shot's last frames. Not an
-   *  extrapolation: that frame is read like the others. The editor and fablecut_reframe both sample at these times. */
+   *  extrapolation: that frame is read like the others. The editor samples at these times; MCP resolves the tail against actual decoded source PTS. */
   function sampleTimes(len, { fps = SAMPLE_FPS, frame = 1 / 30 } = {}) {
     const n = Math.max(1, Math.floor(len * fps + 1e-6)), out = [];
     for (let i = 0; i < n; i++) out.push(Math.round((i / fps) * 1000) / 1000);
