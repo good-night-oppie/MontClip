@@ -1,0 +1,224 @@
+{
+  "ok": false,
+  "checks": [
+    {
+      "name": "00-original PTS establishes 30fps [0,12)",
+      "ok": true,
+      "detail": {
+        "timeBase": "1/15360",
+        "first": "0.000000",
+        "last": "11.966667"
+      }
+    },
+    {
+      "name": "01-card PTS establishes 30fps [0,12)",
+      "ok": true,
+      "detail": {
+        "timeBase": "1/15360",
+        "first": "0.000000",
+        "last": "11.966667"
+      }
+    },
+    {
+      "name": "02-replaced PTS establishes 30fps [0,12)",
+      "ok": true,
+      "detail": {
+        "timeBase": "1/15360",
+        "first": "0.000000",
+        "last": "11.966667"
+      }
+    },
+    {
+      "name": "09-version-restored PTS establishes 30fps [0,12)",
+      "ok": true,
+      "detail": {
+        "timeBase": "1/15360",
+        "first": "0.000000",
+        "last": "11.966667"
+      }
+    },
+    {
+      "name": "00-original has 360 decoded frames",
+      "ok": true,
+      "detail": 360
+    },
+    {
+      "name": "01-card has 360 decoded frames",
+      "ok": true,
+      "detail": 360
+    },
+    {
+      "name": "02-replaced has 360 decoded frames",
+      "ok": true,
+      "detail": 360
+    },
+    {
+      "name": "09-version-restored has 360 decoded frames",
+      "ok": true,
+      "detail": 360
+    },
+    {
+      "name": "restored output equals baseline at all 360 frames",
+      "ok": true
+    },
+    {
+      "name": "01-card changes precisely [8,10) / frames 240..299",
+      "ok": true,
+      "detail": [
+        240,
+        241,
+        242,
+        243,
+        244,
+        245,
+        246,
+        247,
+        248,
+        249,
+        250,
+        251,
+        252,
+        253,
+        254,
+        255,
+        256,
+        257,
+        258,
+        259,
+        260,
+        261,
+        262,
+        263,
+        264,
+        265,
+        266,
+        267,
+        268,
+        269,
+        270,
+        271,
+        272,
+        273,
+        274,
+        275,
+        276,
+        277,
+        278,
+        279,
+        280,
+        281,
+        282,
+        283,
+        284,
+        285,
+        286,
+        287,
+        288,
+        289,
+        290,
+        291,
+        292,
+        293,
+        294,
+        295,
+        296,
+        297,
+        298,
+        299
+      ]
+    },
+    {
+      "name": "02-replaced changes precisely [8,10) / frames 240..299",
+      "ok": true,
+      "detail": [
+        240,
+        241,
+        242,
+        243,
+        244,
+        245,
+        246,
+        247,
+        248,
+        249,
+        250,
+        251,
+        252,
+        253,
+        254,
+        255,
+        256,
+        257,
+        258,
+        259,
+        260,
+        261,
+        262,
+        263,
+        264,
+        265,
+        266,
+        267,
+        268,
+        269,
+        270,
+        271,
+        272,
+        273,
+        274,
+        275,
+        276,
+        277,
+        278,
+        279,
+        280,
+        281,
+        282,
+        283,
+        284,
+        285,
+        286,
+        287,
+        288,
+        289,
+        290,
+        291,
+        292,
+        293,
+        294,
+        295,
+        296,
+        297,
+        298,
+        299
+      ]
+    },
+    {
+      "name": "all four exports preserve baseline-identical decoded audio",
+      "ok": true,
+      "detail": {
+        "00-original": "7e4e3aca1108d94cc6626a6a1d683d2f5cb1845c567086555e395f00cbc9c1d2",
+        "01-card": "7e4e3aca1108d94cc6626a6a1d683d2f5cb1845c567086555e395f00cbc9c1d2",
+        "02-replaced": "7e4e3aca1108d94cc6626a6a1d683d2f5cb1845c567086555e395f00cbc9c1d2",
+        "09-version-restored": "7e4e3aca1108d94cc6626a6a1d683d2f5cb1845c567086555e395f00cbc9c1d2"
+      }
+    },
+    {
+      "name": "baseline audio matches non-silent source waveform at zero offset for 12s",
+      "ok": false,
+      "detail": {
+        "correlation": 0.9999999651721648,
+        "gain": 0.999784952183032,
+        "sourceSamplesPerChannel": 576000,
+        "exportSamplesPerChannel": 573440,
+        "missingMilliseconds": 53.333333333333336,
+        "sourceSha256": "00f74e7980b190b8a2bc881ccdb38a1b0f76161b98621f610ec01da48cc3fbdc",
+        "exportSha256": "7e4e3aca1108d94cc6626a6a1d683d2f5cb1845c567086555e395f00cbc9c1d2"
+      }
+    }
+  ],
+  "limits": [
+    "Pixel equality here is only for this synthetic fixture",
+    "Not a human experience score; no speed baseline or source-VFR acceptance claim"
+  ]
+}

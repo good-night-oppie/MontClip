@@ -1,0 +1,145 @@
+{
+  "name": "02-replaced",
+  "sha256": "7777cb58318888b499a0897359a44afd996811a66dbd43c4bde53ac78f386828",
+  "seconds": 3.392,
+  "result": {
+    "outputs": [
+      {
+        "file": "simulated-internal-review_2.mov",
+        "ok": true,
+        "src": "/exports/simulated-internal-review_2.mov"
+      }
+    ]
+  },
+  "probe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "prores",
+        "codec_long_name": "Apple ProRes (iCodec Pro)",
+        "profile": "HQ",
+        "codec_type": "video",
+        "codec_tag_string": "apch",
+        "codec_tag": "0x68637061",
+        "width": 640,
+        "height": 360,
+        "coded_width": 640,
+        "coded_height": 360,
+        "has_b_frames": 0,
+        "sample_aspect_ratio": "1:1",
+        "display_aspect_ratio": "16:9",
+        "pix_fmt": "yuv422p10le",
+        "level": -99,
+        "color_range": "tv",
+        "color_space": "bt709",
+        "color_transfer": "bt709",
+        "color_primaries": "bt709",
+        "field_order": "progressive",
+        "id": "0x1",
+        "r_frame_rate": "30/1",
+        "avg_frame_rate": "30/1",
+        "time_base": "1/15360",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 184320,
+        "duration": "12.000000",
+        "bit_rate": "18087480",
+        "bits_per_raw_sample": "10",
+        "nb_frames": "360",
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "handler_name": "VideoHandler",
+          "vendor_id": "FFMP",
+          "encoder": "Lavc63.1.101 prores_ks"
+        }
+      },
+      {
+        "index": 1,
+        "codec_name": "pcm_s16le",
+        "codec_long_name": "PCM signed 16-bit little-endian",
+        "codec_type": "audio",
+        "codec_tag_string": "sowt",
+        "codec_tag": "0x74776f73",
+        "sample_fmt": "s16",
+        "sample_rate": "48000",
+        "channels": 2,
+        "channel_layout": "stereo",
+        "bits_per_sample": 16,
+        "initial_padding": 0,
+        "id": "0x2",
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/48000",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 573440,
+        "duration": "11.946667",
+        "bit_rate": "1536000",
+        "nb_frames": "573440",
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "handler_name": "SoundHandler",
+          "vendor_id": "[0][0][0][0]"
+        }
+      }
+    ],
+    "format": {
+      "nb_streams": 2,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+      "format_long_name": "QuickTime / MOV",
+      "start_time": "0.000000",
+      "duration": "12.000000",
+      "size": "29430285",
+      "bit_rate": "19620190",
+      "probe_score": 100,
+      "tags": {
+        "major_brand": "qt  ",
+        "minor_version": "512",
+        "compatible_brands": "qt  ",
+        "encoder": "Lavf63.1.101"
+      }
+    }
+  }
+}

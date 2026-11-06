@@ -45,6 +45,13 @@ async function evaluate(expression){const r=await cdp('Runtime.evaluate',{expres
 async function ready(){const until=Date.now()+30000;while(Date.now()<until){
   try{if(await evaluate('typeof projectJSON==="function" && state.connected && project.media.length===3'))return;}catch{}
   await wait(100);}throw Error('Editor readiness timeout');}
+async function reloadOwnedPage(){
+  await evaluate('window.__acceptanceBeforeReload=true');
+  await cdp('Page.reload',{},session);
+  const until=Date.now()+30000;let fresh=false;
+  while(Date.now()<until){try{fresh=await evaluate('window.__acceptanceBeforeReload!==true');if(fresh)break;}catch{}await wait(50);}
+  check('reload created a fresh page execution context',fresh);await ready();
+}
 async function click(selector){const pos=await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e)throw Error('missing button');e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();if(e.disabled||!r.width||!r.height)throw Error('button unavailable');return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
   for(const type of ['mousePressed','mouseReleased'])await cdp('Input.dispatchMouseEvent',{type,...pos,button:'left',clickCount:1},session);}
 async function api(route,body){const r=await fetch(origin+route,{method:body?'POST':'GET',headers:{'Content-Type':'application/json','X-MontClip-Session':token},...(body?{body:JSON.stringify(body)}:{})});
@@ -133,7 +140,7 @@ async function stopOwned(child){if(!child)return true;if(!child.pid||child.exitC
   await action('redo card insertion: existing Redo button',()=>click('#mcRedo'));await snapshot('05-redo-card');
   await action('redo replacement: existing Redo button',()=>click('#mcRedo'));
   const redone=await snapshot('06-redo-replace');check('redo restores replacement snapshot',clipsKey(redone)===clipsKey(replaced));
-  await action('save and reopen: flushSave and page reload',async()=>{await evaluate('flushSave()');await cdp('Page.reload',{},session);await ready();});
+  await action('save and reopen: flushSave and page reload',async()=>{await evaluate('flushSave()');await reloadOwnedPage();});
   const reopened=await snapshot('07-reopened');check('reopen keeps replacement and audio',clipsKey(reopened)===clipsKey(replaced));
   await evaluate('selectClip(project.clips.find(c=>c.mediaId==="replacement").id);');
   await action('delete explicitly selected replacement only: existing Delete button',()=>click('#btnDelete'));
@@ -142,9 +149,27 @@ async function stopOwned(child){if(!child)return true;if(!child.pid||child.exitC
   check('delete leaves explicit [8,10) gap',!deleted.clips.some(c=>c.kind!=='audio'&&c.start<10&&c.start+c.duration>8));
   await evaluate('runtime.undo.length=0;runtime.redo.length=0;');
   const versionId=version.v||version.version?.v||version.version;
-  await action('independent saved-version restore with empty undo stack',async()=>{await api('/api/versions',{action:'restore',version:versionId});await cdp('Page.reload',{},session);await ready();});
+  await action('independent saved-version restore with empty undo stack',async()=>{await api('/api/versions',{action:'restore',version:versionId});await reloadOwnedPage();});
   const restored=await snapshot('09-version-restored');check('version restores original clips',clipsKey(restored)===clipsKey(base));
   await exportVideo('09-version-restored');
+  // Separate persistence probe: do not reload between the two original undos.
+  await evaluate('setTime(8);renderBin();');
+  await action('card persistence setup: existing composition + button',()=>click('[data-comp-id="synthetic_card"] .lib-add'));
+  const cardBeforeReload=await snapshot('10-card-before-reopen');
+  await action('save card and reopen independently',async()=>{await evaluate('flushSave()');await reloadOwnedPage();});
+  const cardReopened=await snapshot('11-card-reopened');
+  check('card reopen keeps clip references, timing, props and audio',clipsKey(cardReopened)===clipsKey(cardBeforeReload));
+  receipt.cardReopenUndoObservation=await evaluate('({undo:runtime.undo.length,redo:runtime.redo.length,undoDisabled:document.querySelector("#mcUndo").disabled})');
+  await evaluate('selectClip(project.clips.find(c=>c.kind==="comp").id);');
+  await action('reopened card remains editable: selected Delete button',()=>click('#btnDelete'));
+  const cardDeleted=await snapshot('12-reopened-card-deleted');
+  check('deleting reopened overlay reveals retained original',clipsKey(cardDeleted)===clipsKey(base));
+  await action('undo new post-reopen delete: restores card, not old insertion history',()=>click('#mcUndo'));
+  const cardEditUndo=await snapshot('13-reopened-card-edit-undo');
+  check('post-reopen edit undo restores card',clipsKey(cardEditUndo)===clipsKey(cardReopened));
+  await action('probe persisted pre-reopen insertion undo: existing Undo button',()=>click('#mcUndo'));
+  const persistedUndo=await snapshot('14-persisted-insertion-undo');
+  check('same-profile reload retains usable insertion undo',clipsKey(persistedUndo)===clipsKey(base));
   receipt.completed=true;receipt.timing.totalSeconds=(Date.now()-started)/1000;
 }catch(e){receipt.error=String(e.message).replaceAll(ROOT,'<worktree>').replaceAll(OUT,'<output>').replaceAll(token,'<redacted>');process.exitCode=1;}
 finally{if(cdp)try{await cdp('Browser.close');}catch{}
