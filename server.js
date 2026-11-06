@@ -38,6 +38,8 @@ const {
   listProfilesPublic,
   profileSummary,
   buildExportArgs,
+  proresProjectEnd,
+  proresFilterPlan,
   dryRunProfile,
 } = require("./encode-profiles");
 const { downloadImportUrl, maybeFaststart } = require("./import-url");
@@ -597,6 +599,11 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
     throw new Error("export width/height required for rgba");
   }
   if (m === "jpeg" && (extra.delivery || extra.deliveries)) return beginDeliveryExport(rate, name, hasAudio, extra);
+  if (m === "jpeg") {
+    const rawProfile = resolveProfile(profileId);
+    if (proresProjectEnd(rawProfile, { fps: rate, frames: extra.frames, pixelFormat }))
+      proresFilterPlan(rawProfile.args, !!hasAudio);
+  }
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const safe = exportName(name || "export");
   // Same filesystem as the finished file so renameSync(partPath, out) cannot EXDEV.
@@ -629,7 +636,7 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
   const { outPath, partPath } = reserveExportPaths(EXPORTS_DIR, safe, profile.extension);
   const sess = {
     mode: m, proc: null, fps: rate, profile, name: safe, hasAudio: !!hasAudio, binary,
-    pixelFormat, width, height,
+    pixelFormat, width, height, frames: extra.frames,
     dir, wav: null, partPath, outPath,
     stderr: "", done: null, lastTouch: Date.now(),
     err: () => sess.stderr.trim().split("\n").filter(Boolean).slice(-3)
@@ -644,7 +651,7 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
 function startEncoder(sess) {
   if (sess.outputs) return startDeliveryEncoders(sess);
   const args = buildExportArgs(sess.profile, {
-    fps: sess.fps, wavPath: sess.wav, outPath: sess.partPath,
+    fps: sess.fps, frames: sess.frames, wavPath: sess.wav, outPath: sess.partPath,
     pixelFormat: sess.pixelFormat, width: sess.width, height: sess.height,
   });
   const proc = spawn(sess.binary || FF.path("ffmpeg"), args, { stdio: ["pipe", "ignore", "pipe"] });
