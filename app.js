@@ -20159,6 +20159,7 @@ async function fastExport(opts = {}) {
         canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav, job,
       } : {
         fps,
+        frames,
         name: exportBaseName("export"),
         profile: profileId,
         hasAudio: !!wav,
@@ -20166,7 +20167,7 @@ async function fastExport(opts = {}) {
       }),
       signal,
     }).then((r) => r.json());
-    if (!begin.id) throw new Error(MontClipView.h264Refusal(mcView.get().language, begin) || begin.error || "export begin failed");
+    if (!begin.id) throw Object.assign(new Error(MontClipView.h264Refusal(mcView.get().language, begin) || begin.error || "export begin failed"), { code: begin.code });
     sessId = begin.id;
     const jpegQ = delivery ? begin.jpegQuality ?? 0.95 : exportProfileMeta(profileId).jpegQuality ?? 0.95;
     const rgba = begin.input === "rgba";
@@ -20272,10 +20273,15 @@ async function fastExport(opts = {}) {
     else saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true });
   } catch (e) {
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
-    const msg = e?.name === "AbortError" ? "cancelled" : String(e.message || e);
-    result = { error: msg, cancelled: msg === "cancelled" };
+    const unsupportedProfile = e?.code === "PROFILE_FILTER_MAPPING_UNSUPPORTED";
+    // Detailed recovery copy is pending JJ. Until then use only the existing
+    // generic failure label; never expose the technical code or suggest that
+    // a default profile preserves a user's mute/filter choices.
+    const msg = unsupportedProfile ? uiText("own.export-failed-prefix").replace(/[:：]\s*$/, "")
+      : e?.name === "AbortError" ? "cancelled" : String(e.message || e);
+    result = { error: msg, cancelled: msg === "cancelled", ...(unsupportedProfile ? { code: e.code } : {}) };
     if (job) await reportExportJob(job, { status: "failed", error: msg }, true);
-    else if (msg !== "cancelled" && !opts.silent) alert(uiText("own.export-failed-prefix") + msg);
+    else if (msg !== "cancelled" && !opts.silent) alert(unsupportedProfile ? msg : uiText("own.export-failed-prefix") + msg);
   } finally {
     exportAbort = null;
     exportFullCanvas = false;
