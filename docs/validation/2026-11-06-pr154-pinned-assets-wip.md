@@ -62,6 +62,34 @@ Real initialization/inference and live CDN delivery remain untested and unauthor
 
 ## JJ and integration handoff
 
+### Two-key final copy, source bound to 3bf4f508
+
+Deja relayed JJ's exact bilingual text from
+`europa ~/montclip-labels/jj/2026-11-06-PR154-抠像文案定稿-JJ.md` on 2026-11-06.
+Only `own.bgremove-assets-failed` and `own.bgremove-net-what` are now finalized;
+the draft text below is retained as history and superseded for these two keys.
+The other keys and the prior three finalized messages are unchanged. Exact four
+sentences are locked in test/bgremove-copy.test.js and read through the translation API.
+
+Behavior basis: Inspector's checkbox input calls requestBgRemove when bgRemove turns
+true. Turning false does not clear consent or initiate a request; a subsequent true
+calls requestBgRemove, which clears failed/loading only on this explicit path.
+The existing synthetic retry test verifies a second download after failure and no
+automatic preview retry. bgSeg and the loader's verified bytes/Blob maps are page-local,
+with no persistence of resources/consent. The new recreated-page test verifies consent
+and seg reset, zero requests before approval, and nine new resource requests after it.
+This conclusion uses initialization and resource ownership, not cache:no-store alone.
+Returning to a still-live tab is not a recreated page; browser history restoration or
+host-specific reopen behavior has not been tested. No contradiction was found in the
+normal fresh-page path; real-window truncation/retry and real-model execution remain unverified.
+
+`node --test test/bgremove-copy.test.js` first failed on the old draft (1 pass, 1 fail).
+After exact replacement, `node --test test/bgremove-copy.test.js test/bgremove-consent.test.js
+test/bgremove-assets.test.js test/font-consent.test.js` passed 28/28. Demo sync ran with
+no generated change (existing copy list does not include ui-preferences.js). No real
+download/model/desktop or full-media rerun. Prior full and CI results remain bound to
+their recorded heads; QQ must assess safety coverage incrementally on the new head.
+
 Local checks on the integrity change based on b783bd36 (scope corrected below):
 - `npm test -- --test-concurrency=4 --test-timeout=120000`: 1752 tests, 1745 pass,
   7 skip, 0 fail, using installed local FFmpeg/FFprobe via MONTCLIP_FFMPEG/MONTCLIP_FFPROBE.

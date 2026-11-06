@@ -203,10 +203,10 @@
     // AI background removal goes online (Deja, 2026-11-04): MediaPipe from cdn.jsdelivr.net. Drafts — JJ to finalise.
     // The buttons reuse font-net-deny / font-net-allow, the hint's button font-fallback-load.
     // JJ via Deja, 2026-11-06: net-no, export-unavailable and export-realtime finalized verbatim; other drafts unchanged.
-    // New integrity/load failure draft for JJ; the three finalized messages above are not reopened.
-    "bgremove-assets-failed": ["AI background removal files could not be loaded and verified. Loading stopped. Turn AI background removal off and on again to retry.", "AI 抠像文件未能完成下载和校验，已停止加载。请关闭再开启 AI 抠像重试。"],
+    // JJ final two-key copy, relayed by Deja 2026-11-06, bound to 3bf4f508; prior three unchanged.
+    "bgremove-assets-failed": ["AI background removal isn't ready: the downloaded files didn't all pass the check, so it wasn't turned on and the background stays for now. Turn AI background removal off and on again to retry; it may still fail.","AI 抠像没能准备好：下载的文件没有全部通过检查，所以没有启用，画面先保留背景。把 AI 抠像关掉再开一次，可以重试，但不一定成功。"],
     "bgremove-net-title": ["Download AI background removal?", "要联网下载 AI 抠像吗？"],
-    "bgremove-net-what": ["AI background removal uses Google's MediaPipe: a program and a model that MontClip downloads the first time.", "AI 抠像要用 Google 的 MediaPipe：第一次用时，MontClip 要下载它的程序和模型。"],
+    "bgremove-net-what": ["AI background removal uses Google's MediaPipe: each time you reopen MontClip, the first use downloads its program and model, and MontClip checks every file first. It's only used if all of them pass.","AI 抠像要用 Google 的 MediaPipe：每次重新打开 MontClip 后第一次用，都要下载它的程序和模型，并先检查文件，全部通过才使用。"],
     "bgremove-net-hosts": ["MontClip will connect to jsDelivr: {hosts}.", "会连接 jsDelivr 的下载网站：{hosts}。"],
     "bgremove-net-sent": ["It only downloads. The background is removed on this computer: your recordings, captions and projects are not sent. The site sees what every browser sends when it goes online, such as your IP address.", "只下载，不上传。抠像在这台电脑上算，录像、字幕和项目都不会发出去。对方网站能看到浏览器联网时都会带的基本信息，比如你的 IP 地址。"],
     "bgremove-net-no": ["Without the download, AI background removal can't run and the preview keeps the background. To export with the original background, turn it off on these clips first.", "不下载的话，AI 抠像用不了，预览会保留背景。想保留背景导出，请先关闭这些片段的 AI 抠像。"],
