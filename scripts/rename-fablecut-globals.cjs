@@ -15,7 +15,8 @@
      Upstream references, kept forever:
        - `ronak-create/FableCut`, `*.fablecut.space`, `io.github.ronak-create/fablecut`
        - the `FableCut` that names the upstream inside JJ's public copy
-       - the brand-guard tests (test/brand.test.js, test/ui-terms-page.test.js)
+       - the brand-guard tests (test/brand.test.js, test/ui-terms-page.test.js) and
+         this script's own test (test/rename-script-keep.test.js), whose fixtures hold the old name
        - historical records (docs/decisions/, docs/backlog/, docs/validation/)
        - licence and notice files (LICENSE*, LICENSES*, NOTICE*), skipped whole
        - any line carrying `fablecut-keep` (Deja, 2026-11-05): an upstream credit
@@ -51,6 +52,8 @@ const EXCLUDE_FILES = new Set([
   // Brand-guard tests: they assert the old name is *absent*; do not rename them.
   'test/brand.test.js',
   'test/ui-terms-page.test.js',
+  // This script's own test: its fixtures hold the old name on purpose.
+  'test/rename-script-keep.test.js',
   // JJ's public copy — the "FableCut" here names the upstream, so it stays.
   'README.md',
   'docs/index.html',

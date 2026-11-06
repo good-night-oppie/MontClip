@@ -50,3 +50,22 @@ test('the repository\'s own upstream credit lines carry the marker, so the scrip
   R.renameTree({ root: d, regenerate: false });
   a.equal(fs.readFileSync(path.join(d, 'docs/hackathon/README.md'), 'utf8'), readme);
 });
+
+// The script promises a no-op on a tree that is already renamed. On main after #182 it was not: it renamed the
+// fixtures of this very test file (FableCutCaptions, "FableCut notice."), which then failed. Every tracked file that
+// still says FableCut, copied into a scratch repository and run through the script, must come out unchanged.
+test('on this repository the script is a no-op: every file that still says FableCut is meant to', (t) => {
+  const tracked = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
+  const files = {};
+  for (const f of tracked) {
+    let text;
+    try { text = fs.readFileSync(path.join(ROOT, f), 'utf8'); } catch { continue; }
+    if (text.includes('FableCut')) files[f] = text;
+  }
+  a.ok(Object.keys(files).length > 20, 'the repository still names the upstream in places');
+  const d = repo(t, files);
+  R.renameTree({ root: d, regenerate: false });
+  const changed = Object.keys(files).filter((f) => fs.readFileSync(path.join(d, f), 'utf8') !== files[f]);
+  a.deepEqual(changed, [], 'the script would rewrite these files');
+  a.ok(R.EXCLUDE_FILES.has('test/rename-script-keep.test.js'), "this test's own fixtures keep the old name");
+});
