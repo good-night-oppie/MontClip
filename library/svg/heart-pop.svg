@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="500" height="600" viewBox="0 0 500 600">
-  <!-- FableCut animated SVG · loops · beating heart with floating hearts (like / reaction) -->
+  <!-- MontClip animated SVG · loops · beating heart with floating hearts (like / reaction) -->
   <style>
     .beat { transform-box: fill-box; transform-origin: center;
             animation: beat 1.2s ease-in-out infinite; }

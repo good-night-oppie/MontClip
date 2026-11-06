@@ -1,6 +1,6 @@
-/* FableCut highlights — the best moments of long footage, cut into a short
+/* MontClip highlights — the best moments of long footage, cut into a short
    edit. Zero dependencies; loaded by the editor as a plain script (global
-   `FableCutHighlights`) and required by the MCP server, so the editor,
+   `MontClipHighlights`) and required by the MCP server, so the editor,
    fablecut_highlights and Studio pick the same moments.
 
    picture: small RGB frames sampled through each source (PIC_FPS a second) →
@@ -14,7 +14,7 @@
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else root.FableCutHighlights = api;
+  else root.MontClipHighlights = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 

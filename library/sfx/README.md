@@ -2,7 +2,7 @@
 
 This folder is **not** distributed with the repo — sound-effect sites usually
 license their files for use *in your videos* but prohibit redistributing the
-files themselves in a public collection, so FableCut doesn't ship any.
+files themselves in a public collection, so MontClip doesn't ship any.
 
 Drop `.mp3` / `.wav` files in here and they appear in the editor's **Sound FX**
 tab instantly (the open UI live-refreshes). Subfolders are fine.

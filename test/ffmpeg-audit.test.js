@@ -129,3 +129,17 @@ test('the manifest points at our own build without openh264: release assets of t
  }
  a.match(man.builder, /41397853139/); a.match(man.builder, /disable-libopenh264/);
 });
+
+test('every build in the manifest pins its url, SHA-256 and exact byte count (a download is checked against both)', () => {
+ const man = require('../desktop/ffmpeg-manifest.json');
+ const builds = Object.entries(man.builds);
+ a.ok(builds.length >= 2);
+ for (const [plat, b] of builds) {
+  a.match(String(b.url), /^https:\/\//, plat + ': url');
+  a.match(String(b.sha256), /^[0-9a-f]{64}$/, plat + ': sha256');
+  a.ok(Number.isSafeInteger(b.bytes) && b.bytes > 0, plat + ': bytes');
+ }
+ // measured from the release assets (Linux: downloaded on a Linux x64 machine, SHA-256 matched)
+ a.equal(man.builds['win32-x64'].bytes, 167488790);
+ a.equal(man.builds['linux-x64'].bytes, 134885400);
+});

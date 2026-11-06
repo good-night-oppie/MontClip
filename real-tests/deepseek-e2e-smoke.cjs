@@ -31,9 +31,9 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   assert.equal(conf.configured,true);assert.equal(conf.provider,'deepseek');
   await click(byText('AI 服务'));
   // two synthetic subtitles on the default project
-  await read(`(()=>{const cues=FableCutCaptions.parse('1\\n00:00:01,000 --> 00:00:03,200\\n今天我们来看三个剪辑技巧。\\n\\n2\\n00:00:03,200 --> 00:00:05,000\\n第一个是删掉停顿。\\n\\n3\\n00:00:05,000 --> 00:00:07,000\\n这一句不要。\\n');project.clips=cues.map((c,i)=>FableCutCaptions.clip(c,{id:'e2e_c'+i,track:'V1'}));rebuildClips();setSelection(['e2e_c0','e2e_c1']);scheduleSave();})()`);
+  await read(`(()=>{const cues=MontClipCaptions.parse('1\\n00:00:01,000 --> 00:00:03,200\\n今天我们来看三个剪辑技巧。\\n\\n2\\n00:00:03,200 --> 00:00:05,000\\n第一个是删掉停顿。\\n\\n3\\n00:00:05,000 --> 00:00:07,000\\n这一句不要。\\n');project.clips=cues.map((c,i)=>MontClipCaptions.clip(c,{id:'e2e_c'+i,track:'V1'}));rebuildClips();setSelection(['e2e_c0','e2e_c1']);scheduleSave();})()`);
   assert.ok(await read('flushSave()'));
-  await click(byText('引用选中字幕'));
+  await click(byText('让 AI 看'));
   await setValue(`document.querySelector('[data-cindy-draft]')`,'只保留这两句');
   await click(`document.querySelector('.cindy-send button')`);await wait(500);
   const review=await read(`(()=>{const d=document.querySelector('.cindy-confirm[open]');return d?{domain:d.querySelector('p').textContent,formatNote:!!d.querySelector('[data-format-note]'),raw:d.querySelector('[data-raw-request] pre').textContent.includes('"role": "system"')}:null;})()`);

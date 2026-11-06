@@ -19,13 +19,13 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
    const r=await fetch('/api/media-info?src='+encodeURIComponent('/media/'+${JSON.stringify(name)}));const j=await r.json();return j.info;})()`);
   const duration=Math.round(info.duration);
   await read(`(async()=>{const doc=projectJSON(),D=${duration},sentences=[];
-   for(let t=0;t+5<=D;t+=6)sentences.push(FableCutCaptions.clip({start:t,end:t+5,text:'合成句子'+t},{id:'s'+t,track:'V2',width:1280,height:720}));
+   for(let t=0;t+5<=D;t+=6)sentences.push(MontClipCaptions.clip({start:t,end:t+5,text:'合成句子'+t},{id:'s'+t,track:'V2',width:1280,height:720}));
    Object.assign(doc,{media:[{id:'m',src:'/media/'+${JSON.stringify(name)},kind:'video',name:${JSON.stringify(name)},duration:D,width:160,height:90}],
     clips:[{id:'v',kind:'video',mediaId:'m',track:'V1',start:0,in:0,duration:D,props:{volume:0}},{id:'a',kind:'audio',mediaId:'m',track:'A1',start:0,in:0,duration:D,props:{volume:1}},...sentences]});
    applyProject(doc);scheduleSave();if(!await flushSave())throw Error('save');})()`);
   const sample=()=>{let total=0;for(const m of app.getAppMetrics()){const ws=(m.memory&&m.memory.workingSetSize||0)*1024;total+=ws;const k=m.type==='Tab'?'renderer':m.type==='Browser'?'browser':m.type==='GPU'?'gpu':null;if(k)peak[k]=Math.max(peak[k],ws);}peak.total=Math.max(peak.total,total);};
   sample();const base={...peak};timer=setInterval(sample,250);
-  const r=await read(`(async()=>{const t0=performance.now();const sig=await highlightSignals();const t1=performance.now();const cards=MontClipHighlights.candidates(sig);const t2=performance.now();
+  const r=await read(`(async()=>{const t0=performance.now();const sig=await highlightSignals();const t1=performance.now();const cards=MontClipHighlightCandidates.candidates(sig);const t2=performance.now();
    return{readMs:Math.round(t1-t0),candidatesMs:Math.round(t2-t1),bins:sig.loudness?sig.loudness.values.length:0,beats:sig.beats.length,sentences:sig.sentences.length,cards:cards.length,
     first:cards.slice(0,5).map(c=>[c.from,c.to,c.reasons.map(x=>x.signal).join('+')])};})()`);
   clearInterval(timer);sample();

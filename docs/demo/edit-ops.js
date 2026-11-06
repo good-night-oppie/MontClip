@@ -1,7 +1,7 @@
-/* FableCut timeline edit operations — split, ripple delete, close gap,
+/* MontClip timeline edit operations — split, ripple delete, close gap,
    lift / extract, insert / overwrite, ripple / roll / slip / slide trims and
    crossfades. Zero dependencies. Loaded by the editor as a plain script
-   (global `FableCutEdit`) and required by the MCP server, so an agent's patch
+   (global `MontClipEdit`) and required by the MCP server, so an agent's patch
    op and the editor's keyboard shortcut run the very same code.
 
    The ops mutate a project document in place and know nothing about the DOM,
@@ -20,10 +20,10 @@
    lockedTracks and untargetedTracks) for headless callers. */
 (function (root, factory) {
   const node = typeof module === "object" && module.exports;
-  const api = factory(node ? require("./mask") : root.FableCutMask, node ? require("./tracker") : root.FableCutTracker,
-    node ? require("./motion") : root.FableCutMotion);
+  const api = factory(node ? require("./mask") : root.MontClipMask, node ? require("./tracker") : root.MontClipTracker,
+    node ? require("./motion") : root.MontClipMotion);
   if (node) module.exports = api;
-  else root.FableCutEdit = api;
+  else root.MontClipEdit = api;
 })(typeof self !== "undefined" ? self : this, function (MaskLib, TrackLib, MotionLib) {
   "use strict";
 
@@ -132,11 +132,21 @@
     }
     return n;
   }
-  /** Default stereo pan for an isolated linked stem (L −1, R +1, else center). */
-  function defaultPanForChannel(ch) {
+  /** Default stereo pan for an isolated linked stem of a source with `count`
+   *  channels: a mono source's only stem sits in the centre (hard left would put a
+   *  mono microphone in one ear — europa, preview.3); when a file is split into
+   *  several stems, L −1, R +1, the rest centre. `count` unknown → as stereo. */
+  function defaultPanForChannel(ch, count) {
+    if (Number.isFinite(count) && count <= 1) return 0;
     if (ch === 0) return -1;
     if (ch === 1) return 1;
     return 0;
+  }
+
+  /** Stems a video brings when the caller does not say: one for a file known to be
+   *  mono, else a stereo pair (the editor grows or trims them once it has decoded the file). */
+  function defaultStemCount(m) {
+    return m && (m.channels === 1 || (m.channels == null && m.audioChannels === 1)) ? 1 : 2;
   }
 
   function create(env) {
@@ -507,7 +517,7 @@
      *  that is. Resolved against the live track list, since any lane can be
      *  removed. For video, `picture` is null when no video lane is a target (the
      *  edit lands audio-only); for other media an empty list means nowhere to go. */
-    function sourceEditTracks(m, stems = 2) {
+    function sourceEditTracks(m, stems = defaultStemCount(m)) {
       const byNum = (x, y) => (parseInt(x.slice(1), 10) || 0) - (parseInt(y.slice(1), 10) || 0);
       const targets = (kind) => env.tracks().filter((t) => t.kind === kind && isEditTarget(t.id))
         .map((t) => t.id).sort(byNum);
@@ -560,7 +570,7 @@
           const stem = {
             id: "c_" + uid(), mediaId: m.id, kind: "audio", track: stemTracks[ch],
             start, in: innR, duration: durR, name,
-            props: { ...base(), audioChannel: ch, pan: defaultPanForChannel(ch) },
+            props: { ...base(), audioChannel: ch, pan: defaultPanForChannel(ch, stemTracks.length) },
             linkGroup: lg,
           };
           project.clips.push(stem);

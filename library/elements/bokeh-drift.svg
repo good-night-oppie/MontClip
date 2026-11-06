@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
-  <!-- FableCut element · drifting bokeh (loops ~8s) · blend:"screen", fit:"cover" -->
+  <!-- MontClip element · drifting bokeh (loops ~8s) · blend:"screen", fit:"cover" -->
   <style>
     .b { animation: drift 8s ease-in-out infinite alternate; }
     @keyframes drift {

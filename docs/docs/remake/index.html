@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Remake a reference video - FableCut docs</title>
-<meta name="description" content="Turn a video you like into a blueprint of shots, beats and energy, then rebuild it with your own footage. FableCut v1.18.0.">
+<title>Remake a reference video - MontClip docs</title>
+<meta name="description" content="Turn a video you like into a blueprint of shots, beats and energy, then rebuild it with your own footage. MontClip v1.18.0.">
 <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#0a0a0b" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
 <link rel="canonical" href="https://fablecut.space/docs/remake/">
 <meta property="og:type" content="article">
-<meta property="og:site_name" content="FableCut">
+<meta property="og:site_name" content="MontClip">
 <meta property="og:url" content="https://fablecut.space/docs/remake/">
-<meta property="og:title" content="Remake a reference video - FableCut docs">
-<meta property="og:description" content="Turn a video you like into a blueprint of shots, beats and energy, then rebuild it with your own footage. FableCut v1.18.0.">
+<meta property="og:title" content="Remake a reference video - MontClip docs">
+<meta property="og:description" content="Turn a video you like into a blueprint of shots, beats and energy, then rebuild it with your own footage. MontClip v1.18.0.">
 <meta property="og:image" content="https://fablecut.space/screenshot.png">
 <meta property="og:image:width" content="1600">
 <meta property="og:image:height" content="900">
@@ -51,7 +51,7 @@
 
 <header class="nav" id="nav">
   <div class="wrap nav-inner">
-    <a class="brand" href="../../" aria-label="FableCut home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>FableCut</span></a>
+    <a class="brand" href="../../" aria-label="MontClip home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>MontClip</span></a>
     <nav class="nav-links" id="navLinks" aria-label="Primary">
       <a href="../../#playground">Playground</a>
       <a href="../../start/">Get started</a>
@@ -59,7 +59,7 @@
       <a href="../" aria-current="page">Docs</a>
     </nav>
     <div class="nav-end">
-      <a class="gh" href="https://github.com/good-night-oppie/MontClip" rel="noopener" target="_blank" aria-label="FableCut on GitHub">
+      <a class="gh" href="https://github.com/good-night-oppie/MontClip" rel="noopener" target="_blank" aria-label="MontClip on GitHub">
         <svg class="i" aria-hidden="true"><use href="#i-gh"/></svg><span class="gh-label">GitHub</span><span class="gh-count" data-stars></span>
       </a>
       <button class="menu-btn" id="menuBtn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navLinks"><svg class="i" aria-hidden="true"><use href="#i-menu"/></svg></button>
@@ -75,7 +75,7 @@
   <article class="docs-main prose">
     <h1>Remake a reference video</h1>
     <p class="docs-lede">Turn a video you like into a blueprint of shots, beats and energy, then rebuild it with your own footage.</p>
-    <p>Given a reference edit (a reel/montage the user likes), FableCut can analyze it and hand back an <strong>edit blueprint</strong> so the same idea can be rebuilt with different footage over the same music.</p><p><strong>Run the analysis</strong> (any of):</p><ul><li>MCP: <code class="ic">fablecut_analyze_reference {path:"C:\\…\\ref.mp4"}</code> (absolute path or an existing <code class="ic">/media/...</code> src; copies the file into <code class="ic">media/</code> if needed)</li><li>REST: <code class="ic">POST /api/analyze</code> body <code class="ic">{"src":"/media/ref.mp4", "threshold":0.3, "music":true}</code> (GET <code class="ic">/api/analyze?src=/media/ref.mp4</code> returns the cached result)</li><li>CLI: <code class="ic">node analyze.js media/ref.mp4</code> (results also cached in <code class="ic">./analysis/&lt;name&gt;.json</code>)</li></ul><p><strong>The blueprint</strong> (needs ffmpeg on PATH):</p><div class="code code-card"><pre><code>{
+    <p>Given a reference edit (a reel/montage the user likes), MontClip can analyze it and hand back an <strong>edit blueprint</strong> so the same idea can be rebuilt with different footage over the same music.</p><p><strong>Run the analysis</strong> (any of):</p><ul><li>MCP: <code class="ic">fablecut_analyze_reference {path:"C:\\…\\ref.mp4"}</code> (absolute path or an existing <code class="ic">/media/...</code> src; copies the file into <code class="ic">media/</code> if needed)</li><li>REST: <code class="ic">POST /api/analyze</code> body <code class="ic">{"src":"/media/ref.mp4", "threshold":0.3, "music":true}</code> (GET <code class="ic">/api/analyze?src=/media/ref.mp4</code> returns the cached result)</li><li>CLI: <code class="ic">node analyze.js media/ref.mp4</code> (results also cached in <code class="ic">./analysis/&lt;name&gt;.json</code>)</li></ul><p><strong>The blueprint</strong> (needs ffmpeg on PATH):</p><div class="code code-card"><pre><code>{
   <span class="tk-k">"duration"</span>: <span class="tk-n">21.4</span>, <span class="tk-k">"fps"</span>: <span class="tk-n">30</span>, <span class="tk-k">"width"</span>: <span class="tk-n">1080</span>, <span class="tk-k">"height"</span>: <span class="tk-n">1920</span>,
   <span class="tk-k">"cuts"</span>: [<span class="tk-n">1.8</span>, <span class="tk-n">3.1</span>, ...],            <span class="tk-c">// detected shot boundaries, seconds</span>
   <span class="tk-k">"shots"</span>: [                           <span class="tk-c">// one entry per shot between cuts</span>
@@ -88,7 +88,7 @@
   <span class="tk-k">"music"</span>: { <span class="tk-k">"name"</span>: <span class="tk-s">"ref-music.m4a"</span>, <span class="tk-k">"src"</span>: <span class="tk-s">"/media/…"</span>, <span class="tk-k">"mediaId"</span>: <span class="tk-s">"m_x"</span> }
 }                                      <span class="tk-c">// ^ extracted + registered by the MCP tool</span></code></pre><button class="copy" type="button" aria-label="Copy this example"><svg class="i i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i i-ok" aria-hidden="true"><use href="#i-check"/></svg></button></div><p><code class="ic">threshold</code> tunes cut sensitivity (default adapts 0.30→0.20→0.12): lower it if obvious cuts were missed, raise it if motion is being misread as cuts.</p><p><strong>Rebuild recipe</strong> - the analysis is deterministic; the creative mapping is yours:</p><ol><li><code class="ic">setProject</code>: copy the reference's <code class="ic">width/height/fps</code>; write <code class="ic">beats</code> (or the <code class="ic">cuts</code>) into <code class="ic">markers</code> so the user sees the grid.</li><li>Music: the extracted track on A1, <code class="ic">in:0, duration:&lt;ref duration&gt;</code>.</li><li>Structure: one clip per <code class="ic">shots[]</code> entry on V1 at the same <code class="ic">start</code>/<code class="ic">duration</code> (hard cuts by default - that's what shot detection saw). Pick source footage whose motion matches each shot's <code class="ic">energy</code> (calm ≤40, action ≥70), and choose each clip's <code class="ic">in</code> so something interesting happens inside the window. <strong>Then look</strong>: <code class="ic">fablecut_frame {path, frames:12}</code> to survey a candidate clip, <code class="ic">{path, t}</code> at the exact moment you want, before committing to an <code class="ic">in</code>.</li><li>The <code class="ic">drop</code>: put the hero shot there; classic garnish = a speed ramp landing on it, an impact <code class="ic">adjust</code> layer (shake+rgbSplit), or a whip transition.</li><li>Pacing garnish to taste: shots shorter than ~0.6 s read as beat-flashes; <code class="ic">avgShotLen</code> tells you the reference's overall pace. Captions/grade/SFX per the Recipes section - the blueprint gives structure, not style.</li></ol>
     <div class="docs-end">
-      <a class="more" href="https://github.com/good-night-oppie/MontClip/blob/main/CLAUDE.md#L2194" rel="noopener" target="_blank">Edit this in CLAUDE.md <svg class="i i-ne" aria-hidden="true"><use href="#i-ne"/></svg></a>
+      <a class="more" href="https://github.com/good-night-oppie/MontClip/blob/main/CLAUDE.md#L2227" rel="noopener" target="_blank">Edit this in CLAUDE.md <svg class="i i-ne" aria-hidden="true"><use href="#i-ne"/></svg></a>
       <a class="more" href="https://raw.githubusercontent.com/good-night-oppie/MontClip/main/CLAUDE.md" rel="noopener" target="_blank">The whole manual as Markdown <svg class="i i-ne" aria-hidden="true"><use href="#i-ne"/></svg></a>
     </div>
     <nav class="docs-pn" aria-label="Previous and next page"><a class="docs-pn-prev" href="../recipes/"><span>Previous</span><b>Recipes</b></a><a class="docs-pn-next" href="../frames/"><span>Next</span><b>Look at the footage</b></a></nav>
@@ -99,7 +99,7 @@
 <footer class="footer">
   <div class="wrap">
     <div class="foot">
-      <a class="brand" href="../../" aria-label="FableCut home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>FableCut</span></a>
+      <a class="brand" href="../../" aria-label="MontClip home"><svg aria-hidden="true"><use href="#i-logo"/></svg><span>MontClip</span></a>
       <nav class="foot-links" aria-label="Footer">
         <a href="https://github.com/good-night-oppie/MontClip" rel="noopener" target="_blank">GitHub</a>
         <a href="../">Docs</a>

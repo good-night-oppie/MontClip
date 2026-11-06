@@ -160,7 +160,7 @@ function requestOnce(u, { signal, timeoutMs }) {
     port: u.port || undefined,
     path: u.pathname + u.search,
     method: "GET",
-    headers: { "User-Agent": "FableCut", Accept: "*/*" },
+    headers: { "User-Agent": "MontClip", Accept: "*/*" },
   };
   if (u.protocol === "https:" && !net.isIP(host)) opts.servername = host;
   return new Promise((resolve, reject) => {
@@ -275,18 +275,23 @@ function ffmpegAvailable() {
   }
   return hasFfmpeg;
 }
-async function maybeFaststart(file) {
+/** `onProgress(frac)` (optional): how much of the tidied copy is written, every half second, then 1 once it is in place. */
+async function maybeFaststart(file, { onProgress } = {}) {
   if (!ffmpegAvailable() || !FASTSTART_EXT.has(path.extname(file).toLowerCase()))
     return { optimized: false, reason: "not-applicable" };
   // Exclusive directory creation establishes ownership; a random name alone does not.
   const dir = path.join(path.dirname(file), ".faststart-" + require("crypto").randomUUID());
   const tmp = path.join(dir, "output.part" + path.extname(file));
-  let ownedDir = false, outputMayBeOwned = false;
+  let ownedDir = false, outputMayBeOwned = false, timer = null;
   try {
     fs.mkdirSync(dir, { mode: 0o700 });
     ownedDir = true;
     if (fs.existsSync(tmp)) return { optimized: false, reason: "temporary-collision" };
     outputMayBeOwned = true;
+    if (onProgress) {
+      const total = fs.statSync(file).size || 1;
+      timer = setInterval(() => { try { const n = fs.statSync(tmp).size; if (n) onProgress(Math.min(0.99, n / total)); } catch {} }, 500);
+    }
     await new Promise((resolve, reject) => {
       execFile(FF.path("ffmpeg"), ["-nostdin", "-n", "-i", file, "-c", "copy", "-movflags", "+faststart", tmp],
         { maxBuffer: 1 << 24, windowsHide: true }, (err) => {
@@ -300,10 +305,12 @@ async function maybeFaststart(file) {
     // unoptimized upload; never remove it to make replacement work on Windows.
     fs.renameSync(tmp, file);
     outputMayBeOwned = false;
+    if (onProgress) { clearInterval(timer); timer = null; onProgress(1); }
     return { optimized: true };
   } catch {
     return { optimized: false, reason: "optimization-failed" };
   } finally {
+    if (timer) clearInterval(timer);
     if (outputMayBeOwned) try { fs.rmSync(tmp, { force: true }); } catch {}
     if (ownedDir) try { fs.rmdirSync(dir); } catch {} // nonrecursive: never delete foreign entries
   }

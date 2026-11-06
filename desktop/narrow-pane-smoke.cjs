@@ -19,7 +19,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
  await wait(400);
  log('NARROW_START',{visible:win.isVisible(),projectId:await read('runtime.projectId')});
  await read(`montclipAgentService.configure({provider:'openai',model:'synthetic-model',apiKey:'synthetic-test-key-not-real'})`);
- await read(`(()=>{const cues=FableCutCaptions.parse('1\\n00:00:01,000 --> 00:00:02,800\\n合成句子一\\n\\n2\\n00:00:03,000 --> 00:00:04,000\\n合成句子二\\n');project.clips=cues.map((c,i)=>FableCutCaptions.clip(c,{id:'synthetic_c'+i,track:'V1'}));rebuildClips();setSelection(project.clips.map(c=>c.id));scheduleSave();})()`);
+ await read(`(()=>{const cues=MontClipCaptions.parse('1\\n00:00:01,000 --> 00:00:02,800\\n合成句子一\\n\\n2\\n00:00:03,000 --> 00:00:04,000\\n合成句子二\\n');project.clips=cues.map((c,i)=>MontClipCaptions.clip(c,{id:'synthetic_c'+i,track:'V1'}));rebuildClips();setSelection(project.clips.map(c=>c.id));scheduleSave();})()`);
  assert.ok(await read('flushSave()'));
  await read(`updateMontClipView({language:'zh-CN'});setSideTab('assistant');mcAgent.render();true`);await wait();
  // real window coordinates of an element's centre, after checking it is the topmost element there
@@ -32,10 +32,10 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   win.setContentSize(w,h);await wait(600);
   if(process.env.MONTCLIP_NARROW_DEBUG)log('NARROW_DEBUG',await read(`[...Array.from(document.querySelector('.upper > .inspector').children).map((e,i)=>'.upper > .inspector > :nth-child('+(i+1)+')'),'#mcAssistantPanel','#mcAssistantClose','#mcAgentContent','.cindy-port','.cindy-port > .agent-toolbar','.cindy-thread','[data-reference-actions]','.cindy-composer','.upper > .inspector'].map(s=>{const e=document.querySelector(s);if(!e)return s+':none';const r=e.getBoundingClientRect(),c=getComputedStyle(e);return s+':'+[r.x,r.y,r.width,r.height].map(Math.round).join(',')+' pos='+c.position+' scrollTop='+e.scrollTop+' sh='+e.scrollHeight+' ch='+e.clientHeight;})`));
   await click(byText('新会话'),'new session');
-  const refs=[];for(const t of ['引用选中字幕','引用所选范围','引用当前项目'])refs.push(await point(byText(t)));
+  const refs=[];for(const t of ['让 AI 看','引用所选范围','引用当前项目'])refs.push(await point(byText(t)));
   const fullyVisible=sel=>read(`(()=>{const e=${sel};if(!e)return false;const r=e.getBoundingClientRect();let p=e.parentElement;while(p){const s=getComputedStyle(p);if(/(auto|scroll|hidden)/.test(s.overflow+s.overflowY)){const q=p.getBoundingClientRect();if(r.top<q.top-0.5||r.bottom>q.bottom+0.5)return false;}p=p.parentElement;}return r.top>=0&&r.bottom<=innerHeight&&r.height>0;})()`);
-  const refsVisible=[];for(const t of ['引用选中字幕','引用所选范围','引用当前项目'])refsVisible.push(await fullyVisible(byText(t)));
-  await click(byText('引用选中字幕'),'caption reference');
+  const refsVisible=[];for(const t of ['让 AI 看','引用所选范围','引用当前项目'])refsVisible.push(await fullyVisible(byText(t)));
+  await click(byText('让 AI 看'),'caption reference');
   const chips=await read(`document.querySelector('[data-reference-chips], .cindy-references')?.textContent||''`);
   await read(`(()=>{const e=document.querySelector('[data-cindy-draft]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'保留这两句');e.dispatchEvent(new Event('input',{bubbles:true}));})()`);await wait();
   const before=requests;await click(`document.querySelector('.cindy-send button')`,'send');
@@ -47,7 +47,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   assert.equal(requests,before+1);
   const view=await read(`(()=>{const t=document.querySelector('.cindy-thread').getBoundingClientRect(),m=Array.from(document.querySelectorAll('[role=log] .cindy-message.assistant')).at(-1),r=m.getBoundingClientRect();return{thread:[t.top,t.height],reply:[r.top,r.height],replyInside:r.top>=t.top-0.5&&r.bottom<=t.bottom+0.5,text:m.textContent};})()`);
   const proposal=await point(`document.querySelector('[data-review-proposal]')`),proposalVisible=await fullyVisible(`document.querySelector('[data-review-proposal]')`);
-  const refHits=[];for(const t of ['引用选中字幕','引用所选范围','引用当前项目'])refHits.push((await point(byText(t)))?.hit);
+  const refHits=[];for(const t of ['让 AI 看','引用所选范围','引用当前项目'])refHits.push((await point(byText(t)))?.hit);
   const overflow=await read('document.documentElement.scrollHeight-innerHeight');
   log('NARROW_VIEW',{size:[w,h],view,proposal,proposalVisible,refsVisible,refHits,overflow});
   await shoot(`pr26-narrow-${w}x${h}`);
@@ -60,7 +60,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
  // composer out; Esc folds More first, then hides the pane; the pane reopens folded.
  {win.setContentSize(630,452);await wait(600);await click(byText('新会话'),'new session');
   if(await read(`document.querySelector('[data-more]').getAttribute('aria-expanded')`)==='false')await click(`document.querySelector('[data-more]')`,'More');
-  await click(byText('引用选中字幕'),'caption reference');
+  await click(byText('让 AI 看'),'caption reference');
   const fv=sel=>read(`(()=>{const e=${sel};if(!e)return false;const r=e.getBoundingClientRect();let p=e.parentElement;while(p){const s=getComputedStyle(p);if(/(auto|scroll|hidden)/.test(s.overflow+s.overflowY)){const q=p.getBoundingClientRect();if(r.top<q.top-0.5||r.bottom>q.bottom+0.5)return false;}p=p.parentElement;}return r.top>=0&&r.bottom<=innerHeight&&r.height>0;})()`);
   const r={moreOpen:await read(`document.querySelector('[data-more]').getAttribute('aria-expanded')`),chips:await read(`document.querySelectorAll('[data-reference-chips] > div').length`),
    draft:{visible:await fv(`document.querySelector('[data-cindy-draft]')`),...(await point(`document.querySelector('[data-cindy-draft]')`))},

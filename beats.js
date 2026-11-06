@@ -1,6 +1,6 @@
-/* FableCut beats — the music's beat, and cuts that land on it. Zero
+/* MontClip beats — the music's beat, and cuts that land on it. Zero
    dependencies; loaded by the editor as a plain script (global
-   `FableCutBeats`) and required by the MCP server and analyze.js, so the
+   `MontClipBeats`) and required by the MCP server and analyze.js, so the
    Inspector's Beats section, `fablecut_beats` and the reference analyzer hear
    the same beats.
 
@@ -12,7 +12,7 @@
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else root.FableCutBeats = api;
+  else root.MontClipBeats = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 

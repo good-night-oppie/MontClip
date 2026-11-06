@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="560" height="160" viewBox="0 0 560 160">
-  <!-- FableCut animated SVG · one-shot (~1.4s) · subscribe pill + ringing bell -->
+  <!-- MontClip animated SVG · one-shot (~1.4s) · subscribe pill + ringing bell -->
   <style>
     .pill { transform-box: fill-box; transform-origin: center; animation: pop 0.5s cubic-bezier(.34,1.56,.64,1) both; }
     .txt  { animation: fadein 0.35s ease both; }

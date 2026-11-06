@@ -10,7 +10,7 @@ function setup(){
  ctx.pushUndo=(snap)=>{ctx.runtime.undo.push(snap);if(ctx.runtime.undo.length>100)ctx.runtime.undo.shift();ctx.runtime.redo.length=0;}; // app.js: gestures record their step through pushUndo (P1 events)
  vm.runInNewContext(source.match(/function syncTimelineTrackView\(\) \{[\s\S]*?\n\}/)[0],ctx);
  // the helpers it calls (VV 630: lanes folded above, and the hint that says so); no hint button in this harness
- Object.assign(ctx,{document:{getElementById:()=>null},uiText:k=>k,FableCutCaptions:{isCaption:c=>!!c.caption||c.kind==='text'}});
+ Object.assign(ctx,{document:{getElementById:()=>null},uiText:k=>k,MontClipCaptions:{isCaption:c=>!!c.caption||c.kind==='text'}});
  for(const name of ['captionOnlyTrack','foldTrackRow','updateTracksAboveHint'])vm.runInNewContext(source.match(new RegExp('function '+name+'\\([^\\n]*\\) \\{[\\s\\S]*?\\n\\}'))[0],ctx);
  return{ctx,rows,headers,scroll,run:()=>ctx.syncTimelineTrackView(),mode:v=>{mode=v;},seq:v=>{seq=v;}};
 }

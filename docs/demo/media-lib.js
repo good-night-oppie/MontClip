@@ -1,6 +1,6 @@
-/* FableCut media management — the Project bin's metadata, search, filters,
+/* MontClip media management — the Project bin's metadata, search, filters,
    sorting, tags, collections and usage. Zero dependencies. Loaded by the
-   editor as a plain script (global `FableCutMedia`) and required by the
+   editor as a plain script (global `MontClipMedia`) and required by the
    server, the MCP server and the tests.
 
    A media entry may carry, beside id/name/kind/src/duration/width/height:
@@ -20,13 +20,13 @@
   const node = typeof module === "object" && module.exports;
   const api = factory();
   if (node) module.exports = api;
-  else root.FableCutMedia = api;
+  else root.MontClipMedia = api;
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
   const KINDS = ["video", "audio", "image", "svg"];
   /** Fields the server probes. Written back to the entry; never user-set. */
-  const INFO_KEYS = ["size", "fps", "codec", "audioCodec", "audioChannels", "sampleRate", "bitrate"];
+  const INFO_KEYS = ["size", "fps", "codec", "audioCodec", "audioChannels", "sampleRate", "bitrate", "durationFrom"];
   const MAX_TAGS = 24, MAX_TAG_LEN = 32;
   const SORT_KEYS = ["name", "kind", "duration", "resolution", "fps", "codec", "audio", "size", "usage"];
 
@@ -36,8 +36,129 @@
   };
   const round = (v, n) => Math.round(v * 10 ** n) / 10 ** n;
 
+  /** An MKV stream's DURATION tag, "HH:MM:SS.nnnnnnnnn", in seconds (0 when it is not one). */
+  function tagSeconds(s) {
+    const m = /^(\d+):([0-5]\d):([0-5]\d(?:\.\d+)?)$/.exec(String(s || "").trim());
+    return m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : 0;
+  }
+  /** How long a file plays, in seconds, or 0 when nothing in the probe says (JJ / Rea, 2026-11-04). A Matroska
+   *  file's format.duration (and each stream's DURATION tag) is where its last timestamp ends, so the start time comes
+   *  off: one whose timestamps start at 3600 s says 3620 s for 20 s. MP4, MOV and TS already give the length. A
+   *  recording cut off mid-way may not say it in the header: then the streams' own durations, then the DURATION tags. */
+  function probeDuration(fmt, streams) {
+    const mkv = /\bmatroska\b|\bwebm\b/.test(String(fmt.format_name || ""));
+    const less = (d, start) => (mkv && start > 0 && d > start ? d - start : d);
+    const dur = less(Number(fmt.duration), Number(fmt.start_time) || 0);
+    if (dur > 0) return dur;
+    // from the earliest start to the latest end across the streams (QQ, #126): each stream less its own start would lose
+    // the gap between them (video 0–20 s, audio 10–30 s plays 30 s, not 20 s)
+    const av = streams.filter((s) => (s.codec_type === "video" || s.codec_type === "audio") && !(s.disposition && s.disposition.attached_pic));
+    const span = (end) => {
+      let first = Infinity, last = -Infinity;
+      for (const s of av) {
+        const start = Number(s.start_time) || 0, e = end(s, start);
+        if (e > start) { first = Math.min(first, start); last = Math.max(last, e); }
+      }
+      return last > first ? last - first : 0;
+    };
+    // a stream's duration is its length; an MKV's DURATION tag is where its timestamps end (a length when it is shorter than the start)
+    return span((s, start) => Number(s.duration) > 0 ? start + Number(s.duration) : 0) ||
+      span((s, start) => { const d = tagSeconds(s.tags && (s.tags.DURATION || s.tags.duration)); return d > 0 ? (mkv && d > start ? d : start + d) : 0; });
+  }
+  const timed = (m) => m && m.kind !== "image" && m.kind !== "svg";
+  const matroska = (m) => /\.(mkv|webm)$/i.test(String(m.src || "").split(/[?#]/)[0]) || /\.(mkv|webm)$/i.test(String(m.name || ""));
+  /** Should the editor ask the server about this entry? One with no size yet (as always), and, once (durationChecked),
+   *  an MKV / WebM (the browser counts the start of its timestamps: 3620 s for 20 s) or a recording with no usable length.
+   *  Old projects and MCP imports already have a size, so the size alone never reached them (QQ, #126). */
+  function needsInfo(m) {
+    if (!m) return false;
+    if (m.size == null) return true;
+    if (!timed(m) || m.durationChecked) return false;
+    return matroska(m) || !(Number.isFinite(m.duration) && m.duration > 0);
+  }
+  /** Take the server's length (info from parseProbe) into the entry: where the browser has none, or one more than a second
+   *  longer (an MKV's start counted). Marks entries asked for their length so they are asked once.
+   *  → {changed, unknown, length} — length: the entry's length itself changed (its clips then need fitClips) */
+  function serverDuration(m, info) {
+    const out = { changed: false, unknown: false, length: false };
+    if (!timed(m) || !info) return out;
+    const known = Number.isFinite(m.duration) && m.duration > 0;
+    if (info.duration > 0 && (!known || m.duration - info.duration > 1)) { m.duration = info.duration; out.changed = out.length = true; }
+    else if (info.durationUnknown && !known) out.unknown = true;
+    // the mark that keeps a file with no length off the timeline (cannotCut): set while nothing says it, gone once one does
+    if (out.unknown && !m.durationUnknown) { m.durationUnknown = true; out.changed = true; }
+    if (m.durationUnknown && Number.isFinite(m.duration) && m.duration > 0) { delete m.durationUnknown; out.changed = true; }
+    if ((info.duration > 0 || info.durationUnknown) && !m.durationChecked && (matroska(m) || !(Number.isFinite(m.duration) && m.duration > 0) || out.unknown)) {
+      m.durationChecked = true; out.changed = true;
+    }
+    return out;
+  }
+  /** A video or sound nothing could read the length of (europa P3, 2026-11-05): it can't be placed or cut — not at 0 s,
+   *  nor at a stand-in length. One not read yet (no mark) is not this. */
+  /** Cases 1 and 2 (JJ, 2026-11-05): it can be cut, but its length came from its packets — a recording cut off
+   *  before it was saved — so seeking in it may be slow. A small mark on the file and 〔帮我修好…〕 in its menu. */
+  const slowToSeek = (m) => !!(m && m.kind === "video" && m.durationFrom === "packets" && Number.isFinite(m.duration) && m.duration > 0);
+  const cannotCut = (m) => !!(m && timed(m) && m.durationUnknown && !(Number.isFinite(m.duration) && m.duration > 0));
+  /** Lengths read for files that had none (the agent's backfill: QQ, #152) into a project: only an entry that still has
+   *  no length and still shows the same file; once each. updates: [{id, src, duration?, durationFrom?, durationUnknown?}].
+   *  Shared by the server (no editor open), the editor (onMediaBackfill) and the agent (no server). → how many changed */
+  function applyBackfill(doc, updates) {
+    let n = 0;
+    if (!doc || !Array.isArray(updates)) return 0;
+    for (const u of updates) {
+      if (!u || typeof u.id !== "string") continue;
+      const m = (doc.media || []).find((x) => x.id === u.id);
+      if (!m || m.src !== u.src || !timed(m) || (Number.isFinite(m.duration) && m.duration > 0) || m.durationUnknown) continue;
+      if (Number.isFinite(u.duration) && u.duration > 0) { m.duration = u.duration; if (u.durationFrom === "packets") m.durationFrom = "packets"; }
+      else if (u.durationUnknown === true) m.durationUnknown = true;
+      else continue;
+      n++;
+    }
+    return n;
+  }
+  /** A repaired (or converted) file takes an entry's place (〔帮我修好〕, fablecut_repair_media): `entry` goes
+   *  where the old one was, with its organization (favorite, tags, folder, collections) and `derivedFrom` / `replaced`
+   *  naming what it replaced; every clip that showed the old one — the open timeline, compositions, the other sequences —
+   *  shows the new one, fitted to its length. The old file stays on disk. Mutates `root`; → {clips: how many re-pointed} */
+  function swapMedia(root, oldId, entry) {
+    const list = root.media || (root.media = []);
+    const i = list.findIndex((m) => m.id === oldId);
+    if (i < 0) throw new Error("no media " + oldId);
+    const old = list[i];
+    const neu = { ...entry, derivedFrom: oldId, replaced: { id: old.id, name: old.name, src: old.src } };
+    for (const k of ["favorite", "tags", "folderId"]) if (old[k] != null && neu[k] == null) neu[k] = Array.isArray(old[k]) ? old[k].slice() : old[k];
+    delete neu.durationUnknown; delete neu.durationChecked;
+    list[i] = neu;
+    let clips = 0;
+    const repoint = (arr) => {
+      for (const c of arr || []) if (c && c.mediaId === oldId) { c.mediaId = neu.id; clips++; }
+      fitClips(neu, arr);
+    };
+    repoint(root.clips);
+    for (const k of root.comps || []) repoint(k.clips);
+    for (const s of root.sequences || []) repoint(s.clips);
+    for (const col of root.collections || []) if (Array.isArray(col.media)) col.media = col.media.map((id) => (id === oldId ? neu.id : id));
+    return { clips };
+  }
+  /** Fit the clips of media m into its length, as a replaced file's clips are (in + duration×speed ≤ m.duration; a linked
+   *  sound shares the media and its timing, so it fits the same). Pictures are left alone. → how many edges moved */
+  function fitClips(m, clips) {
+    let trimmed = 0;
+    if (!timed(m) || !(m.duration > 0)) return 0;
+    for (const c of clips || []) {
+      if (c.mediaId !== m.id || c.kind === "image" || c.kind === "svg") continue;
+      const speed = (c.props && +c.props.speed) || 1;
+      const maxIn = Math.max(0, m.duration - 0.001);
+      if ((+c.in || 0) > maxIn) { c.in = maxIn; trimmed++; }
+      const maxDur = Math.max(0.05, (m.duration - (+c.in || 0)) / speed);
+      if (c.duration > maxDur + 1e-6) { c.duration = maxDur; trimmed++; }
+    }
+    return trimmed;
+  }
+
   /** ffprobe -show_format -show_streams -of json output → the INFO_KEYS (+ duration,
-   *  width, height). `size` falls back to the stat size the caller passes. */
+   *  width, height). `size` falls back to the stat size the caller passes. A video or a
+   *  sound whose length nothing says gets durationUnknown: true (never duration 0). */
   function parseProbe(json, statSize) {
     const out = {};
     const streams = Array.isArray(json && json.streams) ? json.streams : [];
@@ -46,7 +167,7 @@
     const a = streams.find((s) => s.codec_type === "audio");
     const size = Number(fmt.size) || Number(statSize) || 0;
     if (size > 0) out.size = size;
-    const dur = Number(fmt.duration);
+    const dur = probeDuration(fmt, streams);
     if (dur > 0) out.duration = round(dur, 3);
     const br = Number(fmt.bit_rate);
     if (br > 0) out.bitrate = Math.round(br);
@@ -68,6 +189,7 @@
       const sr = Number(a.sample_rate);
       if (sr > 0) out.sampleRate = sr;
     } else if (v && !still) out.audioChannels = 0;   // a video without sound says so; a picture has no audio to speak of
+    if (!(dur > 0) && (a || (v && !still))) out.durationUnknown = true;
     return out;
   }
 
@@ -319,10 +441,20 @@
     return { score, why };
   }
 
+  /* An import in the bin (「正在导入… n%」): the copy into the project, then — for the files the server tidies with
+     faststart (import-url.js FASTSTART_EXT) — the tidy, which writes about as many bytes again, so each is half. It
+     stops at 99 until the file is in the bin. */
+  const importTidies = (name) => /\.(mp4|mov|m4v)$/i.test(String(name || ""));
+  function importPercent({ sent = 0, tidy = 0, tidies = false } = {}) {
+    const f = (x) => (Number.isFinite(x) ? Math.min(1, Math.max(0, x)) : 0);
+    return Math.min(99, Math.floor(100 * (tidies ? f(sent) / 2 + f(tidy) / 2 : f(sent))));
+  }
+
   return {
+    importTidies, importPercent,
     KINDS, INFO_KEYS, SORT_KEYS, MAX_TAGS,
     srcName, relinkScore, kindFromName,
-    parseProbe, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
+    parseProbe, needsInfo, serverDuration, cannotCut, slowToSeek, swapMedia, applyBackfill, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
     STANDARD_FPS, standardFps, sourceCanvas, canvasFollowsSource,
     normalizeTags, allTags, normalizeCollections,
     placements, usageCounts,

@@ -1,4 +1,4 @@
-/* FableCut project operations: what `fablecut_patch_project` does to a
+/* MontClip project operations: what `fablecut_patch_project` does to a
    project document, the compact project view, and `fablecut_set_project`'s
    checks. No I/O: the MCP server reads and writes project.json around them,
    and the module runs unchanged anywhere else a document needs the same ops,
@@ -21,23 +21,28 @@
      describeScopes(job) · describeScopeLines(stats) · TEXT_ONLY_NOTE · describeTrack(result)
                        → what fablecut_scopes, fablecut_frame and fablecut_track say
 
-   In a browser it loads as a plain script (global `FableCutProjectOps`)
+   In a browser it loads as a plain script (global `MontClipProjectOps`)
    after the modules it uses, the same way edit-ops.js does. */
 (function (root, factory) {
   const node = typeof module === "object" && module.exports;
   const dep = (file, name) => (node ? require(file) : root[name]);
-  const api = factory(dep("./audio-fx", "FableCutFx"), dep("./edit-ops", "FableCutEdit"), dep("./color", "FableCutColor"),
-    dep("./mask", "FableCutMask"), dep("./tracker", "FableCutTracker"), dep("./motion", "FableCutMotion"),
-    dep("./comp", "FableCutComp"), dep("./templates", "FableCutTemplates"), dep("./media-lib", "FableCutMedia"),
-    dep("./delivery", "FableCutDelivery"), dep("./sequences", "FableCutSeq"), dep("./songs", "MontClipSongs"));
+  const api = factory(dep("./audio-fx", "MontClipFx"), dep("./edit-ops", "MontClipEdit"), dep("./color", "MontClipColor"),
+    dep("./mask", "MontClipMask"), dep("./tracker", "MontClipTracker"), dep("./motion", "MontClipMotion"),
+    dep("./comp", "MontClipComp"), dep("./templates", "MontClipTemplates"), dep("./media-lib", "MontClipMedia"),
+    dep("./delivery", "MontClipDelivery"), dep("./sequences", "MontClipSeq"), dep("./songs", "MontClipSongs"));
   if (node) module.exports = api;
-  else root.FableCutProjectOps = api;
+  else root.MontClipProjectOps = api;
 })(typeof self !== "undefined" ? self : this, function (FX, EditOps, Color, Mask, Tracker, Motion, CompLib, Templates, MediaLib, Delivery, SeqLib, Songs) {
   "use strict";
 
   const DEFAULT_TRACKS = EditOps.DEFAULT_TRACKS;
   const uid = () => Math.random().toString(36).slice(2, 9);
   const basename = (p) => String(p).split(/[\\/]/).pop();
+  /** A file nothing could read the length of can't be placed — not at 0 s, not at a length made up for it (europa P3). */
+  function cutRefused(name, m) {
+    if (MediaLib.cannotCut(m))
+      throw new Error(`${name}: ${m.id} ("${m.name}") has no length MontClip could read — it may be a recording cut off before it was saved — so it can't be placed or cut`);
+  }
 
   // the UI persists default-valued props on every clip; the compact view hides
   // them so it only shows what actually deviates
@@ -135,6 +140,7 @@
       case "insert": case "overwrite": {
         const m = proj.media.find((x) => x.id === op.mediaId);
         if (!m) throw new Error(`${name}: unknown mediaId ${op.mediaId}`);
+        cutRefused(name, m);
         const timed = m.kind === "video" || m.kind === "audio";
         const inn = op.in == null ? 0 : num(op.in, "in");
         if (inn < 0) throw new Error(`${name}: in must be ≥ 0`);
@@ -318,6 +324,7 @@
           refuseLocked("addClip", lockedTracks().has(c.track) ? `track ${c.track} is locked` : null, op);
           if (!NO_MEDIA.includes(c.kind) && !proj.media.some((m) => m.id === c.mediaId))
             throw new Error(`addClip: unknown mediaId ${c.mediaId}`);
+          if (!NO_MEDIA.includes(c.kind)) cutRefused("addClip", proj.media.find((m) => m.id === c.mediaId));
           if (NO_MEDIA.includes(c.kind)) c.mediaId = null;
           checkMasks(c, "addClip");
           checkShapes(c, "addClip");
