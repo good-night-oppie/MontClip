@@ -47,23 +47,31 @@ async function httpsRequest(config,payload,signal,{fetch:get=fetch,providers=PUB
  if(typeof text!=='string'||text.length>16000||!text.trim())throw Error('INVALID_RESPONSE');return{text};
 }
 function createService({read,write,backup,erase,seal,unseal,providers=PUBLIC_PROVIDERS,request=(c,p,signal)=>httpsRequest(c,p,signal,{providers}),timeoutMs=60000}){
- let config=null,bad=false,original;const jobs=new Map();
+ let config=null,bad=false,seedConflict=false,original;const jobs=new Map();
  try{const raw=read();original=raw;if(raw){if(raw.length>40000)throw Error();const v=JSON.parse(raw);if(!v||Object.keys(v).sort().join(',')!=='model,provider,secret,version'||v.version!==1||!Object.hasOwn(ENDPOINTS,v.provider)||typeof v.model!=='string'||!/^[a-zA-Z0-9_.:/-]{1,100}$/.test(v.model)||typeof v.secret!=='string'||!v.secret||v.secret.length>32768)throw Error();config=providers.includes(v.provider)?v:null;}}catch{bad=true;}
  return {
- get(){return{ok:!bad,configured:!!config,provider:config?.provider||DEFAULT_PROVIDER,model:config?.model||'',providers:[...providers],recommended:DEFAULT_PROVIDER,defaultModels:{...DEFAULT_MODELS},code:bad?'CONFIG_READ_FAILED':null};},
+ get(){return{ok:!bad&&!seedConflict,configured:!!config&&!seedConflict,provider:config?.provider||DEFAULT_PROVIDER,model:config?.model||'',providers:[...providers],recommended:DEFAULT_PROVIDER,defaultModels:{...DEFAULT_MODELS},code:seedConflict?'SEED_CONFLICT':bad?'CONFIG_READ_FAILED':null};},
  reset(){if(!bad)return fail('RESET_NOT_REQUIRED');try{if(typeof original!=='string'||typeof backup!=='function')throw Error();backup(original);bad=false;config=null;original=undefined;return{...this.get(),code:'CONFIG_BACKED_UP'};}catch{return fail('CONFIG_BACKUP_FAILED');}},
  // Deja 2026-11-02: removes the saved key and connection settings. A running request is cancelled first.
  // Only once the connection file is confirmed gone does the state read "not configured"; a failure is reported as one.
  deleteConnection(){for(const job of jobs.values())if(job.running){job.cancelled=true;job.controller.abort();}
- try{if(typeof erase!=='function')throw Error();erase();}catch(e){if(e&&e.mainGone===true){config=null;bad=false;original=undefined;}return{ok:false,code:'CONFIG_DELETE_FAILED',configured:!!config};}
- config=null;bad=false;original=undefined;return{...this.get(),code:'CONNECTION_DELETED'};},
- configure(v){if(bad)return fail('CONFIG_READ_FAILED');if(!v||Object.keys(v).sort().join(',')!=='apiKey,model,provider'||!Object.hasOwn(ENDPOINTS,v.provider)||!providers.includes(v.provider)||typeof v.model!=='string'||!/^[a-zA-Z0-9_.:/-]{1,100}$/.test(v.model)||typeof v.apiKey!=='string'||v.apiKey.length>4096||/[\r\n]/.test(v.apiKey))return fail('CONFIG_INVALID');
- try{const secret=v.apiKey?seal(v.apiKey):config?.provider===v.provider?config.secret:null;if(!secret)return fail('KEY_REQUIRED');const next={version:1,provider:v.provider,model:v.model,secret};write(JSON.stringify(next));config=next;return this.get();}catch{return fail('CONFIG_WRITE_FAILED');}},
- async send(payload){if(!validPayload(payload))return fail('PAYLOAD_INVALID');if(!config)return fail('UNCONFIGURED');if(jobs.has(payload.requestId))return fail('DUPLICATE');if(jobs.size>=2000)return fail('REQUEST_CAPACITY');if([...jobs.values()].some(j=>j.running))return fail('BUSY');
+ try{if(typeof erase!=='function')throw Error();erase();}catch(e){if(e&&e.mainGone===true){config=null;bad=false;original=undefined;}return{ok:false,code:'CONFIG_DELETE_FAILED',configured:!!config&&!seedConflict};}
+ config=null;bad=false;seedConflict=false;original=undefined;return{...this.get(),code:'CONNECTION_DELETED'};},
+ configure(v){if(seedConflict)return fail('SEED_CONFLICT');if(bad)return fail('CONFIG_READ_FAILED');if(!v||Object.keys(v).sort().join(',')!=='apiKey,model,provider'||!Object.hasOwn(ENDPOINTS,v.provider)||!providers.includes(v.provider)||typeof v.model!=='string'||!/^[a-zA-Z0-9_.:/-]{1,100}$/.test(v.model)||typeof v.apiKey!=='string'||v.apiKey.length>4096||/[\r\n]/.test(v.apiKey))return fail('CONFIG_INVALID');
+ try{const secret=v.apiKey?seal(v.apiKey):config?.provider===v.provider?config.secret:null;if(!secret)return fail('KEY_REQUIRED');const next={version:1,provider:v.provider,model:v.model,secret};write(JSON.stringify(next));config=next;return this.get();}catch(e){return fail(e&&e.code==='KEY_STORE_UNAVAILABLE'?e.code:'CONFIG_WRITE_FAILED');}},
+ async send(payload){if(seedConflict)return fail('SEED_CONFLICT');if(!validPayload(payload))return fail('PAYLOAD_INVALID');if(!config)return fail('UNCONFIGURED');if(jobs.has(payload.requestId))return fail('DUPLICATE');if(jobs.size>=2000)return fail('REQUEST_CAPACITY');if([...jobs.values()].some(j=>j.running))return fail('BUSY');
  const controller=new AbortController(),job={running:true,cancelled:false,timedOut:false,controller};jobs.set(payload.requestId,job);const timer=setTimeout(()=>{job.timedOut=true;controller.abort();},timeoutMs);
  try{const key=unseal(config.secret);if(!key)throw Error();// the fixed format note goes first; the page's own messages follow unchanged
  const outgoing={...JSON.parse(JSON.stringify(payload)),messages:Format.withFormat(JSON.parse(JSON.stringify(payload.messages)))};
  const result=await request({...config,key},outgoing,controller.signal);if(job.timedOut)return fail('TIMEOUT');if(job.cancelled)return fail('CANCELLED');if(typeof result.text!=='string'||!result.text.trim()||result.text.length>16000)return fail('INVALID_RESPONSE');return {ok:true,text:result.text,requestId:payload.requestId};}catch(e){return fail(job.timedOut?'TIMEOUT':job.cancelled?'CANCELLED':KNOWN.has(e&&e.message)?e.message:'REQUEST_FAILED');}finally{clearTimeout(timer);job.running=false;job.controller=null;}},
+ // Startup-only gate: preserve disk bytes, but require conflict resolution before use or reconfiguration.
+ blockSeedConnection(){seedConflict=true;for(const job of jobs.values())if(job.running){job.cancelled=true;job.controller.abort();}},
+ // the main process's own read-back (desktop/agent-seed.js): the file on disk holds this provider, model and key, sealed. Not an
+ // IPC operation: the page's list of operations is fixed in main.js.
+ // which connection file this is (SHA-256 of its sealed bytes; never the key), so the seed can tell a leftover it wrote
+ // from one set up later; null when there is none
+ fingerprint(){try{const raw=read();return raw?require('node:crypto').createHash('sha256').update(raw).digest('hex'):null;}catch{return null;}},
+ matches(v){try{const raw=read();if(!raw)return false;const c=JSON.parse(raw);return c.version===1&&c.provider===v.provider&&c.model===v.model&&typeof c.secret==='string'&&unseal(c.secret)===v.apiKey;}catch{return false;}},
  cancel(id){const job=jobs.get(id);if(!job)return fail('UNKNOWN_REQUEST');if(!job.running)return{ok:true,code:'COMPLETED'};job.cancelled=true;job.controller.abort();return{ok:true,code:'CANCELLED'};},
  dispose(){for(const job of jobs.values())if(job.running){job.cancelled=true;job.controller.abort();}}
  };
@@ -81,6 +89,10 @@ function createDiskService(root,safeStorage,fs=require('node:fs'),{providers=PUB
  catch{throw Object.assign(Error('PARTIAL'),{mainGone:true});}},
  read(){try{return fs.readFileSync(file,'utf8');}catch(e){if(e.code==='ENOENT')return null;throw e;}},
  write(raw){const tmp=file+'.'+randomUUID()+'.tmp';let owned=false;try{fs.writeFileSync(tmp,raw,{flag:'wx',mode:0o600});owned=true;fs.renameSync(tmp,file);owned=false;}finally{if(owned)try{fs.unlinkSync(tmp);}catch{}}},
- seal(key){if(!safeStorage.isEncryptionAvailable())throw Error();return safeStorage.encryptString(key).toString('base64');},unseal(secret){return safeStorage.decryptString(Buffer.from(secret,'base64'));}
+ // No key store (europa P9: Linux without a reachable keyring, e.g. no --password-store): never written in plain text,
+ // and said as such, not as a write failure.
+ // Linux's basic_text backend is a fixed, built-in password: as good as plain text, so it counts as no key store (JJ, 2026-11-05).
+ seal(key){let backend=null;try{backend=safeStorage.getSelectedStorageBackend?.();}catch{}
+  if(!safeStorage.isEncryptionAvailable()||backend==='basic_text')throw Object.assign(Error(),{code:'KEY_STORE_UNAVAILABLE'});return safeStorage.encryptString(key).toString('base64');},unseal(secret){return safeStorage.decryptString(Buffer.from(secret,'base64'));}
  });}
 module.exports={createService,createDiskService,validPayload,httpsRequest,ENDPOINTS,RESPONSE_LIMIT_BYTES,PUBLIC_PROVIDERS,TEST_PROVIDERS,ALL_PROVIDERS,DEFAULT_SERVICE,DEFAULT_PROVIDER,DEFAULT_MODELS,testProvidersEnabled};
