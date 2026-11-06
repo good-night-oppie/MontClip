@@ -114,6 +114,38 @@
     "off-finding-k": ["Looking for “{file}” ({k} of {n})", "正在找：「{file}」（第 {k} 个，共 {n} 个）"],
     "off-auto-found": ["Found {m} automatically.", "已经自动找回 {m} 个"],   // en: draft
     "off-slate": ["Media offline", "找不到"],
+    // the Relink dialog, 「找回录像」 (JJ's 18 lines on #137, 2026-11-06). JJ gave no English: every English line here is
+    // what the dialog said before, a draft (草稿，待 JJ 定稿). rl-folder-none: the English counts the folder's files
+    // ({files}), JJ's Chinese the recordings being found ({n}).
+    "rl-title": ["Relink media", "找回录像"],   // en: draft
+    "rl-intro-many": ["Point these {n} files at the footage where it is now. Clips keep their In points and edits.", "选一下这 {n} 个录像现在放在哪，时间线上的片段和剪辑都不会变。"],   // en: draft
+    "rl-intro-one": ["Point this file at the footage where it is now. Clips keep their In points and edits.", "选一下这个录像现在放在哪，时间线上的片段和剪辑都不会变。"],   // en: draft
+    "rl-folder": ["Choose folder…", "选文件夹…"],   // en: draft
+    "rl-folder-title": ["Pick the folder the files are in now — they are matched by name and copied into the project", "选录像现在所在的文件夹，按文件名对上后复制进项目"],   // en: draft
+    "rl-pre": ["Found {pre} of {n} in the project folders.", "已在项目文件夹里找到 {pre} 个（共 {n} 个）"],   // en: draft
+    "rl-folder-none": ["None of the {files} files in that folder match by name.", "这个文件夹里没有和这 {n} 个录像同名的文件。换个文件夹，或点〔选文件…〕一个个找。"],   // en: draft
+    "rl-copying-k": ["Copying {i}/{n}: {name}…", "正在复制第 {i} 个（共 {n} 个）：{name}…"],   // en: draft
+    "rl-matched": ["Matched {x} of {n} by name.", "按文件名对上了 {x} 个（共 {n} 个）"],   // en: draft
+    "rl-copying": ["Copying {name}…", "正在复制 {name}…"],   // en: draft
+    "rl-copy-failed": ["Couldn't copy {name}", "{name} 没能复制进项目。请再点〔选文件…〕试一次。"],   // en: draft
+    // the file's name only, never its path (Deja, 2026-11-06), so 「原文件」 rather than 「原来在」 (JJ)
+    "rl-was": ["was {file}", "原文件：{file}"],   // en: draft
+    "rl-new-loc": ["New location", "新位置"],   // en: draft
+    "rl-leave": ["— leave it —", "— 先不处理 —"],   // en: draft
+    "rl-not-found": ["— not found: Browse… or Choose folder… —", "— 没找到：点〔选文件…〕或〔选文件夹…〕 —"],   // en: draft
+    // why a file is offered (MediaLib.relinkWhyKeys maps relinkScore's ids to these)
+    "rl-why-same": ["same name", "同名"],   // en: draft
+    "rl-why-other-type": ["same name, other type", "同名，格式不同"],   // en: draft
+    "rl-why-similar": ["similar name", "名字相近"],   // en: draft
+    "rl-why-size": ["same size", "大小一样"],   // en: draft
+    "rl-why-and-size": [" and size", "，大小也一样"],   // en: draft
+    "rl-chosen": ["{name} (chosen)", "{name}（你选的）"],   // en: draft
+    "rl-from-folder": ["{name} (from the folder)", "{name}（从文件夹里找到）"],   // en: draft
+    "rl-browse": ["Browse…", "选文件…"],   // en: draft
+    "rl-browse-title": ["Pick the file (it is copied into the project)", "选这个录像文件（会复制进项目）"],   // en: draft
+    "rl-cancel": ["Cancel", "取消"],   // en: draft
+    "rl-apply": ["Relink", "找回"],   // en: draft
+    "rl-apply-n": ["Relink {n}", "找回 {n} 个"],   // en: draft
     // the bin's two other English lines VV saw (Deja, 2026-11-05; JJ's wording)
     "bin-drop-root": ["Drop here to move it out of the folder", "拖到这里，移出文件夹"],   // JJ, 2026-11-05
     "bin-dbl-hint": ["Double-click to preview it, or drag it onto the timeline.", "双击可以先预览，或者直接拖到时间线上。"],   // JJ, 2026-11-05
@@ -818,6 +850,10 @@
     "ap-listed": ["Plan mode: this step is only listed, not done. Switch to another mode at the top of the assistant to do it.", "计划模式：这一步只列出来，没有做。要做的话，在助手顶部换一种模式。"],
     "ap-refused": ["This step is never allowed, in any mode. Nothing changed.", "这一步任何模式下都不允许，什么都没改。"],
     "ap-refused-mode": ["The assistant has no mode chosen right now, so nothing was done. Choose a mode at the top of the assistant.", "助手现在没有选模式，所以什么都没做。请在助手顶部选一种模式。"],
+    // the toast after an AI step is applied, by why it ran (QQ found it, JJ worded it, 2026-11-04): approved in the box just now;
+    // allowed earlier for this chat (「这个聊天中都批准」); ap-applied: run by 自动 / Yolo without asking
+    "ap-applied-approved": ["Done as you approved. Undo is available.", "已按你批准的改好。可以撤销。"],
+    "ap-applied-allowed": ["Done as the AI suggested. You allowed this kind of change for this chat, so you weren't asked again. Undo is available.", "已按 AI 的建议改好。你在这个聊天中批准过这类修改，所以没再问你。可以撤销。"],
     "ap-applied": ["Done as the AI suggested, without asking ({mode} mode). Undo is available.", "已按 AI 的建议改好，没有问你（{mode}模式）。可以撤销。"],
     "ap-stale": ["The project changed after this reply, so this step was not done.", "项目在回复之后改过了，所以没有做这一步。"],
     "ap-yolo-on": ["Yolo is on", "Yolo 开着"],
