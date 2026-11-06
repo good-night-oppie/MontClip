@@ -32,26 +32,31 @@ class El{
  all(){return this.children.flatMap(c=>typeof c==='string'?[]:[c,...c.all()]);}
 }
 function page({desktop=false,clips=[],installed=[]}={}){
- const requests=[],toasts=[];
+ const requests=[],toasts=[],links=[];
  const head=new El('head'),body=new El('body');
- // a stylesheet <link> is a request; it "loads" a moment later (and its CSS would fetch the font files)
- head.onAppend=(x)=>{if(x.tagName==='LINK'){requests.push(x.href);setTimeout(()=>x.onload?.(),0);}};
+ // a stylesheet <link> is a request (unless it is a blob: of this page); it "loads" a moment later (and its CSS
+ // would fetch the font files)
+ head.onAppend=(x)=>{if(x.tagName==='LINK'){if(!String(x.href).startsWith('blob:'))requests.push(x.href);links.push(x);setTimeout(()=>x.onload?.(),0);}};
  const canvas={getContext:()=>({font:'',measureText(){const f=this.font;return{width:installed.some(n=>f.includes('"'+n+'"'))?123:100};}})};
  const fontSet=[];fontSet.load=async()=>[];fontSet.ready=Promise.resolve();fontSet.add=()=>{};
  const document={head,body,fonts:fontSet,createElement:(t)=>t==='canvas'?canvas:new El(t)};
- const fetch=async(u)=>{const url=new URL(u,LOCAL).href;requests.push(url);
-  if(url.startsWith(LOCAL+'/api/library'))return{json:async()=>[],arrayBuffer:async()=>new ArrayBuffer(0)};throw new Error('offline');};
+ const fetches=[];
+ const fetch=async(u,init)=>{const url=new URL(u,LOCAL).href;requests.push(url);fetches.push({url,init});
+  if(url.startsWith(LOCAL+'/api/library'))return{json:async()=>[],arrayBuffer:async()=>new ArrayBuffer(0)};
+  if(url.startsWith('https://fonts.googleapis.com/'))return{ok:true,status:200,text:async()=>"@font-face{src:url(https://fonts.gstatic.com/x.woff2)}"};
+  throw new Error('offline');};
+ let blobs=0;const URL_={createObjectURL:()=>'blob:'+LOCAL+'/'+(++blobs),revokeObjectURL(){}};
  const window=desktop?{montclipViewSettings:{}}:{};
  const runtime={fontReq:new Map(),libraryFontReq:new Set(),customFonts:[],googleLoaded:new Set(),fontConsent:new Set(),fontHinted:new Set()};
  const uiText=(k,v)=>k+(v?' '+JSON.stringify(v):'');
- const stubs={window,document,fetch,runtime,SYSTEM_FONTS,GOOGLE_FONTS,FONT_CUT_DEFAULT,uiText,
+ const stubs={window,document,fetch,URL:URL_,Blob:class{},runtime,SYSTEM_FONTS,GOOGLE_FONTS,FONT_CUT_DEFAULT,uiText,
   toast:(m)=>toasts.push({m}),toastAction:(m,label,fn)=>toasts.push({m,label,fn}),
   escapeHtml:(s)=>String(s),mediaClips:()=>clips,textFontWeight:(p)=>p.weight||(p.bold===false?400:700),FontFace:class{},setTimeout,clearTimeout};
  const names=['ensureFont','loadProjectFonts','requestFonts','fontFamilyRowsHtml'];
  const api=new Function(...Object.keys(stubs),FONTS+'\nreturn {'+names.map(n=>`${n}: typeof ${n}==="function"?${n}:undefined`).join(',')+'};')(...Object.values(stubs));
  const external=()=>requests.filter(u=>!u.startsWith(LOCAL));
  const dialog=()=>body.all().find(e=>e.tagName==='DIALOG'&&e.open);
- return {api,requests,external,toasts,body,dialog,runtime};
+ return {api,requests,external,toasts,body,dialog,runtime,links,fetches};
 }
 const tick=(ms=5)=>new Promise(r=>setTimeout(r,ms));
 const hostOf=(u)=>new URL(u).hostname;
@@ -101,6 +106,15 @@ test('browser mode: after Yes, only fonts.googleapis.com / fonts.gstatic.com, an
  const ext=p.external();
  a.ok(ext.length>=1,'the font was requested');
  for(const u of ext){a.ok(['fonts.googleapis.com','fonts.gstatic.com'].includes(hostOf(u)),u);a.ok(/family=Lobster[:&]/.test(u),u);}
+ // Deja (on #151): no Referer and no cookies to Google Fonts. The stylesheet is fetched with no-referrer and no
+ // credentials, then put in from a blob: address, so the font files it pulls from fonts.gstatic.com name no referrer
+ // either (real-tests/font-consent-browser-smoke.cjs checks the headers a browser really sends)
+ const google=p.fetches.filter(x=>x.url.startsWith('https://fonts.googleapis.com/'));
+ a.equal(google.length,1);a.equal(google[0].init?.referrerPolicy,'no-referrer');a.equal(google[0].init?.credentials,'omit');
+ a.ok(p.links.length>=1);
+ for(const l of p.links){a.match(l.href,/^blob:/,'the sheet comes from this page');a.equal(l.referrerPolicy,'no-referrer');}
+ // and the page as a whole says no Referer (Deja, on #151: the document-level policy as well)
+ a.match(fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8'),/<meta name="referrer" content="no-referrer">/);
  // the same font again: no box this session; another font: the box again
  const n=p.requests.length;
  a.equal(await p.api.requestFonts(['Lobster']),true);a.equal(p.dialog(),undefined,'not asked twice for one font');
@@ -140,4 +154,26 @@ test('every call site that reaches Google Fonts on a click goes through requestF
  // the playground loads no title fonts from Google behind the streamer's back either
  const shim=fs.readFileSync(path.join(__dirname,'..','docs','demo','static-shim.js'),'utf8');
  a.ok(!/googleapis|gstatic/.test(shim),'docs/demo/static-shim.js preloads nothing from Google');
+});
+
+// JJ (on #151): sentences 1–7 and 9 as drafted; 8, 10 and 11 say first which fonts are missing, then what happens.
+// JJ's last round (on 488ae6c): the export hint reworded; in English "this text", and "Download" for "Load".
+test('the copy JJ settled, both languages',()=>{
+ const V=require('../ui-preferences.js'),t=(l,k,v)=>V.t(l,'own.'+k,v);
+ const zh={
+  'font-net-title':'要联网下载字体吗？','font-net-fonts':'要下载的字体：{names}','font-net-hosts':'会连接 Google 字体的网站：{hosts}。',
+  'font-net-sent':'发出去的只有字体名，加上浏览器联网时都会带的基本信息，比如你的 IP 地址。项目、录像和字幕都不会发出去。',
+  'font-net-no':'不下载的话，这些文字会用默认字体显示和导出。','font-net-deny':'先不用','font-net-allow':'联网下载',
+  'font-fallback':'这台电脑上没有这些字体：{names}。现在先用默认字体显示。','font-fallback-load':'联网下载…',
+  'font-desktop-missing':'这台电脑上没有这些字体：{names}。文字会用默认字体显示和导出。',
+  'font-export-fallback':'这次导出用不了这些字体：{names}，会用默认字体代替。'};
+ const en={
+  'font-net-title':'Download fonts from the internet?','font-net-fonts':'Fonts: {names}','font-net-hosts':'MontClip will connect to Google Fonts: {hosts}.',
+  'font-net-sent':'Only the font names are sent, plus what every browser sends when it goes online, such as your IP address. Your projects, recordings and captions are not sent.',
+  'font-net-no':"If you don't download them, this text shows and exports in the default font.",'font-net-deny':'Not now','font-net-allow':'Download',
+  'font-fallback':"These fonts aren't on this computer: {names}. This text uses the default font for now.",'font-fallback-load':'Download from the internet…',
+  'font-desktop-missing':"These fonts aren't on this computer: {names}. This text shows and exports in the default font.",
+  'font-export-fallback':"This export can't use these fonts: {names}. It uses the default font instead."};
+ for(const [lang,table,names] of [['zh-CN',zh,'“Lobster”、“Cinzel”'],['en',en,'"A", "B"']])
+  for(const [k,v] of Object.entries(table))a.equal(t(lang,k,{names,hosts:'x'}),v.replace('{names}',names).replace('{hosts}','x'),lang+' '+k);
 });
