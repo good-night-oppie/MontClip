@@ -441,6 +441,15 @@
     return { score, why };
   }
 
+  /** The candidate a missing media `m` is linked to without asking, or null. Only the same file: the same name
+   *  and the same size (score >= 150, and m.size known) — a same-named recording with other contents is never
+   *  linked silently. Two or more such candidates are ambiguous, so the dialog asks. */
+  function autoRelinkPick(m, opts) {
+    if (!(m && m.size > 0)) return null;
+    const sure = (opts || []).filter((o) => o && o.score >= 150 && o.size === m.size);
+    return sure.length === 1 ? sure[0] : null;
+  }
+
   /* An import in the bin (「正在导入… n%」): the copy into the project, then — for the files the server tidies with
      faststart (import-url.js FASTSTART_EXT) — the tidy, which writes about as many bytes again, so each is half. It
      stops at 99 until the file is in the bin. */
@@ -453,7 +462,7 @@
   return {
     importTidies, importPercent,
     KINDS, INFO_KEYS, SORT_KEYS, MAX_TAGS,
-    srcName, relinkScore, kindFromName,
+    srcName, relinkScore, autoRelinkPick, kindFromName,
     parseProbe, needsInfo, serverDuration, cannotCut, slowToSeek, swapMedia, applyBackfill, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
     STANDARD_FPS, standardFps, sourceCanvas, canvasFollowsSource,
     normalizeTags, allTags, normalizeCollections,
