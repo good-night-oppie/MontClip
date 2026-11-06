@@ -2862,8 +2862,24 @@ ffmpeg -y -f image2pipe -framerate <fps> -i - [-i audio.wav] <jpeg-color> <argsâ
   (`range: "tv"`). Use `"range": "pc"` for full-range masters. Do **not** put those
   flags in `args` â€” the engine strips them and applies `color` so vf and tags stay
   aligned. `-pix_fmt` stays in `args` (sampling / bit depth only).
-- Nothing else is injected for you: `+faststart`, `-shortest`, `-strict -2` for Opus
-  in MP4 and pixel-format choices are all yours to write.
+- Normally `+faststart`, `-shortest`, `-strict -2` for Opus in MP4 and pixel-format
+  choices are yours to write. One bounded exception: JPEG `prores422` export with
+  a positive integer `frames` in `/api/export/begin` uses `frames / fps` as its
+  output end, replacing `-shortest` for that invocation. Audio is resampled to
+  48 kHz and trimmed to `round(frames / fps * 48000)` samples, preserving the
+  final partial PCM packet while removing the browser mix's extra sample.
+  Fast export supplies the already-quantized export-range frame count, including
+  when invoked by an agent. Direct REST callers should pass `frames` too.
+  Short uploaded WAVs remain short (no padding); the browser already mixes short
+  source clips into its full-range audio buffer. Missing `frames`, RGBA, Annex-B,
+  delivery presets and other encoding profiles retain their existing behavior.
+  Bounded ProRes pins default output maps to input0's first video and input1's
+  first audio. Explicit single-video/at-most-single-audio maps can reorder them;
+  numeric `-filter:N` selects that output index. The last matching audio filter
+  receives the trim, without modifying video chains. Unsupported maps, graph
+  labels, script filters or selectors return HTTP400
+  `PROFILE_FILTER_MAPPING_UNSUPPORTED`; see the export-boundary ADR for the
+  supported forms. There is no guessing or silent removal of a mute filter.
 - Frames arrive as **JPEG (4:2:0)**, so `yuv422p`/`yuv444p` cannot recover chroma the
   source never had; raise `jpegQuality` before reaching for a wider pixel format.
   Optional `pixelFormat:"rgba"` on `/api/export/begin` pipes uncompressed canvas
