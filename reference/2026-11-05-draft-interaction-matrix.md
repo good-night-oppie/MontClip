@@ -2,6 +2,8 @@
 
 状态：调查交接，尚未实现截图中的完整流程。2026-11-05（America/Los_Angeles）。
 
+最新执行范围与结果：Deja 已明确不新增模型，只验证既有能力；接口等待解除。见 [既有能力 simulated 闭环](2026-11-05-draft-existing-loop.md)：插卡、替换、undo/redo、保存重开、普通选中删除与独立版本恢复已有真实工程和导出证据；尾音全长检查失败待决定修法。下文“推荐下一步”是早期调查记录，不得覆盖这一最新范围；旧 shot-slot 提案已 DEFERRED。
+
 ## 检查基线与来源
 
 - 独立分支 `cindy/vigilant-wozniak`；fetch 后快进到 `origin/main`：`d51b27a1ef5196725d73bca2d7d96c0de8c767bc`。初始工作树无未提交改动。没有修改父工作树。

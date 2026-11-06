@@ -1,5 +1,7 @@
 # 最小缺镜头契约提案 v1（待 Deja 审核）
 
+> DEFERRED / 不实施：Deja 最新决定替代本提案。不得新增 shotSlot、全轨 ripple 删除、导出拦截/新 review 模式、版本删除限制或 split 限制。当前执行范围仅为现有 clip/project/version 的 simulated 插卡、单处替换、普通选中删除、undo/redo、保存重开及独立版本恢复实测。本文件保留为被否决的历史提案，下面内容不构成当前执行要求；接口等待已解除。
+
 基线：main `d51b27a1`；关联现状矩阵 `2026-11-05-draft-interaction-matrix.md`。本提案尚未实施，不是已支持 schema/API，产品文字均待 JJ；VV 已定稿的纯色卡规范直接复用。收到 Cindy 的在制接口后优先统一，禁止同时落两种模型。
 
 ## 建议决策
