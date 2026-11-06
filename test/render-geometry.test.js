@@ -214,10 +214,12 @@ test("render geometry: crop, masks and transforms land where documented — fabl
   }
 });
 
-/* ── Redactions, 打码 (props.redactions, fablecut_blur_region): where a redaction is, the stripes of a striped
-   source are gone (flat grey); everywhere else they remain. Same coordinates as masks (centre, fractions of the
-   picture after the crop). A push at its start, middle and end; crop; crop + push; a time window; past the
-   picture's edge — on both render paths (compositor still, real export). ── */
+/* ── Redactions, 打码 (props.redactions, fablecut_blur_region): an opaque black block (#186). Where a redaction
+   is, the frame is solid black over a blue background; everywhere else the stripes remain. Same coordinates as
+   masks (centre, fractions of the picture after the crop). A push at its start, middle and end; crop; crop +
+   push; a time window; past the picture's edge — on both render paths (compositor still, real export). And on
+   EVERY frame of the export: inside each block (less a 6 px edge) the stripes never show, not even on a clip at
+   half opacity, where the block is see-through to the background but the picture is not drawn under it. ── */
 function runFf(args) {
   return new Promise((resolve, reject) => {
     const child = spawn(ffmpegBin(), args, { stdio: ["ignore", "pipe", "pipe"] });
@@ -227,20 +229,17 @@ function runFf(args) {
     child.on("close", (code) => code === 0 ? resolve(Buffer.concat(out)) : reject(new Error(Buffer.concat(err).toString())));
   });
 }
-const coverRgb = (file, n) => runFf(["-hide_banner", "-loglevel", "error", "-i", file,
+const coverRgb = (file, n, every = false) => runFf(["-hide_banner", "-loglevel", "error", "-i", file,
   ...(n == null ? ["-vf", `scale=${W}:${H}`] : ["-vf", `select=eq(n\\,${n}),scale=${W}:${H}`, "-fps_mode", "passthrough"]),
-  "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]);
-/** The box of "flat mid-grey" pixels: where the stripes were covered (black canvas and the stripes are not flat grey). */
-function flatBox(rgb) {
-  const L = new Float32Array(W * H);
-  for (let i = 0; i < W * H; i++) L[i] = (rgb[i * 3] + rgb[i * 3 + 1] + rgb[i * 3 + 2]) / 3;
+  ...(every ? [] : ["-frames:v", "1"]), "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]);
+/** The box of black pixels: the block. The stripes are grey and white and the background blue, so black is only
+ *  ever the block. */
+function flatBox(rgb, off = 0) {
+  const M = new Float32Array(W * H);   // the brightest channel
+  for (let i = 0; i < W * H; i++) { const j = off + i * 3; M[i] = Math.max(rgb[j], rgb[j + 1], rgb[j + 2]); }
   const b = { x0: W, y0: H, x1: -1, y1: -1 };
-  for (let y = 0; y < H; y++) for (let x = 6; x < W - 6; x++) {
-    const v = L[y * W + x];
-    if (v < 60 || v > 200) continue;
-    let lo = 255, hi = 0;
-    for (let k = -6; k <= 6; k++) { const q = L[y * W + x + k]; if (q < lo) lo = q; if (q > hi) hi = q; }
-    if (hi - lo > 40) continue;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (M[y * W + x] > 40) continue;
     if (x < b.x0) b.x0 = x; if (y < b.y0) b.y0 = y; if (x > b.x1) b.x1 = x; if (y > b.y1) b.y1 = y;
   }
   return b.x1 < 0 ? null : { x0: b.x0, y0: b.y0, x1: b.x1 + 1, y1: b.y1 + 1 };
@@ -261,6 +260,18 @@ function expectedCover(c, t) {
   const out = { x0: Math.max(0, r.x0), y0: Math.max(0, r.y0), x1: Math.min(W, r.x1), y1: Math.min(H, r.y1) };
   return out.x1 > out.x0 && out.y1 > out.y0 ? out : null;
 }
+/** Inside the block (less `inset` px each side — the model is matched to ±1 %), the stripes must not show: on every row the luma varies by
+ *  less than `tol`. Returns the worst row's spread. */
+function stripesHidden(rgb, off, box, inset = 6) {
+  let worst = 0;
+  const x0 = Math.ceil(box.x0) + inset, x1 = Math.floor(box.x1) - inset, y0 = Math.ceil(box.y0) + inset, y1 = Math.floor(box.y1) - inset;
+  for (let y = y0; y < y1; y++) {
+    let lo = 255, hi = 0;
+    for (let x = x0; x < x1; x++) { const j = off + (y * W + x) * 3, l = (rgb[j] + rgb[j + 1] + rgb[j + 2]) / 3; if (l < lo) lo = l; if (l > hi) hi = l; }
+    if (x1 > x0) worst = Math.max(worst, hi - lo);
+  }
+  return worst;
+}
 function nearBox(got, want, what) {
   if (!want) { assert.equal(got, null, `${what}: expected nothing covered, got ${JSON.stringify(got)}`); return; }
   assert.ok(got, `${what}: nothing covered, expected ${JSON.stringify(want)}`);
@@ -273,7 +284,7 @@ const COVER_CASES = [
     props: { redactions: [{ x: 0.65, y: 0.65, w: 0.2, h: 0.2 }] },
     keyframes: { scale: [{ t: 0, v: 1 }, { t: 1.9, v: 2, ease: "linear" }], x: [{ t: 0, v: 0 }, { t: 1.9, v: -120, ease: "linear" }],
       y: [{ t: 0, v: 0 }, { t: 1.9, v: -60, ease: "linear" }] } },
-  // a cropped clip, blur style: fractions of the picture left after the crop
+  // a cropped clip: fractions of the picture left after the crop (saved with an earlier build's blur style: still a block)
   { id: "c_cropped", start: 2, duration: 1, samples: [2.5],
     props: { cropL: 30, cropT: 20, redactions: [{ x: 0.35, y: 0.425, w: 0.3, h: 0.25, style: "blur", strength: 80 }] } },
   // a time window (seconds from the clip's start): not there before `from`, there after it
@@ -286,16 +297,18 @@ const COVER_CASES = [
       y: [{ t: 0, v: 0 }, { t: 1, v: -50, ease: "linear" }] } },
   // past the picture's right and bottom edges (on a cropped clip): only the part on the picture is drawn
   { id: "c_over", start: 6, duration: 1, samples: [6.5], props: { cropL: 40, redactions: [{ x: 0.9, y: 0.85, w: 0.4, h: 0.5 }] } },
+  // half opacity: the block is half see-through (to the blue background), but the picture is never drawn under it
+  { id: "c_faded", start: 7, duration: 1, samples: [], props: { opacity: 0.5, redactions: [{ x: 0.4, y: 0.5, w: 0.3, h: 0.3 }] } },
 ];
 
 test("a redaction hides the picture there and follows the clip — fablecut_frame still and Fast export", { skip: SKIP, timeout: 900_000 }, async (t) => {
   const dir = makeDataDir(t, { name: "x", width: W, height: H, fps: FPS, revision: 0, media: [], clips: [] });
   fs.mkdirSync(path.join(dir, "media"), { recursive: true });
-  // vertical black / white stripes, 8 px each: nothing flat anywhere until something covers it
+  // vertical grey / white stripes, 8 px each, over a blue background: nothing black anywhere until a block covers it
   await runFf(["-y", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", `color=c=black:s=${W}x${H}:r=${FPS}:d=10`,
-    "-vf", "geq=lum='if(lt(mod(X,16),8),235,16)':cb=128:cr=128", "-c:v", "libvpx-vp9", "-pix_fmt", "yuv420p", "-crf", "12", "-b:v", "0",
+    "-vf", "geq=lum='if(lt(mod(X,16),8),235,128)':cb=128:cr=128", "-c:v", "libvpx-vp9", "-pix_fmt", "yuv420p", "-crf", "12", "-b:v", "0",
     "-deadline", "realtime", "-cpu-used", "8", "-g", String(FPS), "-f", "mp4", path.join(dir, "media", "stripes.mp4")]);
-  const doc = { name: "Covers", width: W, height: H, fps: FPS, revision: 1, maskSchema: 2, background: "#000000",
+  const doc = { name: "Covers", width: W, height: H, fps: FPS, revision: 1, maskSchema: 2, background: "#2050c0",
     media: [{ id: "m_s", name: "stripes.mp4", kind: "video", src: "/media/stripes.mp4", duration: 10, width: W, height: H }],
     clips: COVER_CASES.map((cs) => ({ id: cs.id, mediaId: "m_s", kind: "video", track: "V1", start: cs.start, in: 0, duration: cs.duration,
       props: { volume: 0, ...cs.props }, ...(cs.keyframes ? { keyframes: cs.keyframes } : {}) })) };
@@ -319,6 +332,20 @@ test("a redaction hides the picture there and follows the clip — fablecut_fram
     const n = Math.round(ts * FPS);
     nearBox(flatBox(await coverRgb(file, n)), expectedCover(doc.clips.find((c) => c.id === cs.id), n / FPS), `export · ${cs.id} · t=${n / FPS}`);
   }
+  // every frame of the export (逐帧): wherever a block should be, the picture does not show through it
+  const all = await coverRgb(file, null, true), size = W * H * 3, frames = all.length / size;
+  assert.equal(frames, Math.round(8 * FPS), "the whole timeline was decoded");
+  let checked = 0;
+  for (let n = 0; n < frames; n++) {
+    const tt = n / FPS, c = doc.clips.find((x) => tt >= x.start - 1e-6 && tt < x.start + x.duration - 1e-6);
+    const want = c && expectedCover(c, tt);
+    if (!want) continue;
+    const spread = stripesHidden(all, n * size, want);
+    assert.ok(spread < 24, `export frame ${n} (${c.id}, t=${tt.toFixed(2)}): the stripes show inside the block (row spread ${spread.toFixed(0)})`);
+    if (c.props.opacity == null) assert.ok(all[n * size + ((Math.round((want.y0 + want.y1) / 2) * W + Math.round((want.x0 + want.x1) / 2)) * 3)] < 30, `export frame ${n}: the block is black`);
+    checked++;
+  }
+  assert.ok(checked >= 50, `checked ${checked} frames with a block`);
 });
 
 module.exports = { expected, boxes };

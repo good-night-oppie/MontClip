@@ -5,8 +5,9 @@
 //  - dragging a box adds 第 1 块: the timeline clip says 打码·1, the Inspector title 打码区域（1）, and the section has
 //    been scrolled into view; a second box makes it 第 1 块 / 第 2 块, 打码·2, 打码区域（2）;
 //  - 第 N 块 picks it (the monitor draws its box highlighted);
-//  - 〔重新框选〕 then a new box replaces that area: same number of areas, its style and strength kept, the other one
-//    untouched; one Ctrl+Z puts the old area back (style and strength still the same);
+//  - each area is an opaque block (#186): no style or strength controls in its row;
+//  - 〔重新框选〕 then a new box replaces that area: same number of areas, its number, name and time window kept, the
+//    other one untouched; one Ctrl+Z puts the old area back (name and time window still the same);
 //  - 〔重新框选〕 then Esc: nothing changes, and the tool is off.
 //   electron desktop/cover-region-smoke.cjs --montclip-smoke --user-data-dir=<fresh>     → COVER_REGION_PASS / COVER_REGION_FAIL
 //   MONTCLIP_SHOTS_OUT=<dir> also saves the menu, the panel after adding, and a picked area (synthetic picture only).
@@ -77,9 +78,10 @@ BrowserWindow.prototype.loadURL=async function(...args){
   await shot(win,'cover-panel-two.png');
   assert.deepEqual(s.rows,[await read(`uiText('own.cover-area-n',{n:1})`),await read(`uiText('own.cover-area-n',{n:2})`)]);
   assert.equal(s.title,await read(`uiText('own.cover-section-n',{n:2})`));assert.ok(s.badge.includes(await read(`uiText('own.cover-badge',{n:2})`)),s.badge);
-  // style and strength on 第 1 块, then pick it: highlighted
-  await read(`(()=>{const o=els.inspector.querySelector('[data-cover-opts="0"]');const sel=o.querySelector('[data-cover-style]');sel.value='blur';sel.dispatchEvent(new Event('change'));return true;})()`);
-  await read(`(()=>{const o=els.inspector.querySelector('[data-cover-opts="0"]');const r=o.querySelector('[data-cover-strength]');r.value='30';r.dispatchEvent(new Event('change'));return true;})()`);
+  // an opaque block: nothing to pick in the panel (no mosaic / blur, no strength — #186)
+  assert.equal(await read(`els.inspector.querySelectorAll('[data-cover-opts],[data-cover-style],[data-cover-strength]').length`),0,'no style / strength controls');
+  // a name and a time window on 第 1 块 (as an agent would set them), then pick it: highlighted
+  await read(`(()=>{const c=project.clips.find(c=>c.kind==='image'),l=clipCovers(c);Object.assign(l[0],{name:'co-host',from:0.5,to:5});writeCovers(c,l);renderInspector();return true;})()`);
   await click('[data-cover="0"] [data-cover-pick]');
   assert.equal((await look()).sel,0,'第 1 块 picked');
   await wait(200);await shot(win,'cover-picked.png');
@@ -94,17 +96,17 @@ BrowserWindow.prototype.loadURL=async function(...args){
   if((await look()).sel!==0)await click('[data-cover="0"] [data-cover-pick]');   // picking again toggles; keep 第 1 块 picked
   assert.equal((await look()).sel,0);
   const before=(await look()).list;
-  // 3. 重新框选 第 1 块: a new area, style and strength kept, 第 2 块 untouched; one undo puts it back
+  // 3. 重新框选 第 1 块: a new area, its number, name and time window kept, 第 2 块 untouched; one undo puts it back
   await click('[data-cover="0"] [data-cover-redo]');
   assert.equal(await read(`coverUi.replace`),0);
   const depth=(await look()).undo;
   await drag(0.1,0.1,0.3,0.3);
   s=await look();report.redo=s;
-  assert.equal(s.list.length,2);assert.equal(s.list[0].style,'blur');assert.equal(s.list[0].strength,30);
+  assert.equal(s.list.length,2);assert.equal(s.list[0].id,1);assert.equal(s.list[0].name,'co-host');assert.deepEqual([s.list[0].from,s.list[0].to],[0.5,5]);
   assert.ok(Math.abs(s.list[0].x-0.2)<0.01&&Math.abs(s.list[0].w-0.2)<0.01,'the new area: '+JSON.stringify(s.list[0]));
   assert.deepEqual(s.list[1],before[1],'第 2 块 untouched');assert.equal(s.undo,depth+1,'one undo step');assert.equal(s.sel,0);
   await read(`undo();true`);await wait(150);
-  s=await look();report.undone=s;assert.deepEqual(s.list,before,'one undo puts the old area back, style and strength as they were');
+  s=await look();report.undone=s;assert.deepEqual(s.list,before,'one undo puts the old area back, name and time window as they were');
   // 4. 重新框选 then Esc: nothing changes, the tool is off
   await click('[data-cover="0"] [data-cover-redo]');
   // the note under the rows says what to do, Esc in the interface's key style

@@ -15231,7 +15231,7 @@ function drawOfflineSlate(c, p, W, H) {
   const m = getMedia(c.mediaId);
   const mw = m && m.width > 0 ? m.width : W, mh = m && m.height > 0 ? m.height : H, sc = p.scale || 1;
   let dw, dh;
-  if (p.fit === "redaction") { const f = Math.max(W / mw, H / mh) * sc; dw = mw * f; dh = mh * f; }
+  if (p.fit === "cover") { const f = Math.max(W / mw, H / mh) * sc; dw = mw * f; dh = mh * f; }
   else if (p.fit === "stretch") { dw = W * sc; dh = H * sc; }
   else if (p.fit === "none") { dw = mw * sc; dh = mh * sc; }
   else { const f = Math.min(W / mw, H / mh) * sc; dw = mw * f; dh = mh * f; }
@@ -15338,7 +15338,7 @@ function drawClipPicture(c, W, H, t, layered) {
     // fit → destination size
     const sc = p.scale || 1;
     let dw, dh;
-    if (p.fit === "redaction") { const f = Math.max(W / cw, H / ch) * sc; dw = cw * f; dh = ch * f; }
+    if (p.fit === "cover") { const f = Math.max(W / cw, H / ch) * sc; dw = cw * f; dh = ch * f; }
     else if (p.fit === "stretch") { dw = W * sc; dh = H * sc; }
     else if (p.fit === "none") { const k = src._fcScale || 1; dw = cw * sc / k; dh = ch * sc / k; }
     else { const f = Math.min(W / cw, H / ch) * sc; dw = cw * f; dh = ch * f; }
@@ -15353,9 +15353,12 @@ function drawClipPicture(c, W, H, t, layered) {
     ctx2d.filter = buildFilter(p);
     const grade = activeGrade(c, p, t), matte = gradeMatte(c);
     let graded = null;
-    let shown = null;   // the image just drawn and the part of it that fills the picture (covers re-draw from it)
     noteGradeGeom(c, ctx2d.getTransform(), dw, dh, -dw / 2, -dh / 2);
     geom = noteMaskGeom(c, ctx2d.getTransform(), -dw / 2, -dh / 2, dw, dh);
+    // redactions (打码): the picture is never drawn there — clipped out — and an opaque block is filled in its place
+    const covers = Mask.COVER_KINDS.includes(c.kind) ? Mask.normalizeCovers(p.redactions) : null;
+    const coverAt = covers ? coverRects(covers.filter((cv) => Mask.coverActive(cv, t - c.start)), dw, dh) : [];
+    if (coverAt.length) { ctx2d.save(); clipOutCovers(coverAt, dw, dh); }
     if (needsPixelPass(p, c)) { // key / cut-out first, so the grade never shifts the key colour
       let processed = pixelPass(c, p, src, sx, sy, cw, ch, dw, dh);
       if (runtime.gradeCapture) { // pixelPass reuses its canvas — keep a copy
@@ -15365,16 +15368,12 @@ function drawClipPicture(c, W, H, t, layered) {
       }
       if (grade) processed = gradeSource(processed, 0, 0, processed.width, processed.height, processed.width, processed.height, dw, dh, grade, matte) || processed;
       ctx2d.drawImage(processed, 0, 0, processed.width, processed.height, -dw / 2, -dh / 2, dw, dh);
-      shown = [processed, 0, 0, processed.width, processed.height];
     } else if (captureGradeInput(c, [src, sx, sy, cw, ch, sw, sh, dw, dh]), grade && (graded = gradeSource(src, sx, sy, cw, ch, sw, sh, dw, dh, grade, matte))) {
       ctx2d.drawImage(graded, 0, 0, graded.width, graded.height, -dw / 2, -dh / 2, dw, dh);
-      shown = [graded, 0, 0, graded.width, graded.height];
     } else {
       ctx2d.drawImage(src, sx, sy, cw, ch, -dw / 2, -dh / 2, dw, dh);
-      shown = [src, sx, sy, cw, ch];
     }
-    const covers = Mask.COVER_KINDS.includes(c.kind) ? Mask.normalizeCovers(p.redactions) : null;
-    if (covers) drawCovers(covers.filter((cv) => Mask.coverActive(cv, t - c.start)), shown, { sx, sy, cw, ch, sw, sh, dw, dh });
+    if (coverAt.length) { ctx2d.restore(); drawCovers(coverAt); }
     ctx2d.filter = "none";
     if (p.vignette > 0) {
       const g = ctx2d.createRadialGradient(0, 0, Math.min(dw, dh) * 0.35, 0, 0, Math.hypot(dw, dh) * 0.55);
@@ -15390,46 +15389,42 @@ function drawClipPicture(c, W, H, t, layered) {
 }
 
 /* ═══════════ REDACTIONS, 打码 (props.redactions — validation in mask.js) ═══════════
-   A redaction is re-drawn over the picture from the picture's own pixels, as
-   a mosaic or a blur, inside the clip's transform: so it moves, scales and turns
-   with the clip and its keys, in preview and export alike. Its x, y (centre), w, h are
-   0…1 of the clip's picture after the crop — the same coordinates as masks. */
-const coverCv = document.createElement("canvas");
-const coverCtx = coverCv.getContext("2d");
-function drawCovers(covers, shown, { sx, sy, cw, ch, sw, sh, dw, dh }) {
-  if (!shown) return;
-  const [img, ix, iy, iw, ih] = shown;
-  const m = ctx2d.getTransform(), k = Math.hypot(m.a, m.b) || 1;   // output px per picture px
-  const outW = ctx2d.canvas.width;
+   A redaction is an opaque black block (team rule, #186 — a mosaic or a blur can leave text readable). The
+   picture is drawn with the redactions clipped out, so not one of its pixels reaches the frame there — also
+   when the clip is faded, at opacity < 1 or blended — and the block is filled in its place with the clip's own
+   opacity and blend. Both happen inside the clip's transform: the block moves, scales and turns with the clip
+   and its keys, in preview and export alike. Its x, y (centre), w, h are 0…1 of the clip's picture after the
+   crop — the same coordinates as masks. */
+/** The redactions' rectangles in the picture's own box (−dw/2, −dh/2, dw, dh): the part past the picture's
+ *  edge is not drawn; nothing left, nothing drawn. */
+function coverRects(covers, dw, dh) {
+  const out = [];
   for (const cv of covers) {
     if (cv.on === false) continue;
-    // The same coordinates as masks: x, y the centre, w, h the size, 0…1 of the picture as drawn — the crop is
-    // already cut away, and the picture sits at (−dw/2, −dh/2, dw, dh) in the clip's own transform (scale,
-    // position, rotation and keys). The part past the picture's edge is not drawn; nothing left, nothing drawn.
     const u1 = clamp(cv.x - cv.w / 2, 0, 1), u2 = clamp(cv.x + cv.w / 2, 0, 1);
     const v1 = clamp(cv.y - cv.h / 2, 0, 1), v2 = clamp(cv.y + cv.h / 2, 0, 1);
     if (u2 <= u1 || v2 <= v1) continue;
-    const X = -dw / 2 + u1 * dw, Y = -dh / 2 + v1 * dh, RW = (u2 - u1) * dw, RH = (v2 - v1) * dh;
-    // the pixels to sample, in the image just drawn (the source frame's crop window [sx, sx + cw] × [sy, sy + ch],
-    // or a keyed / graded copy of just that window)
-    const SX = ix + u1 * iw, SY = iy + v1 * ih, SW = (u2 - u1) * iw, SH = (v2 - v1) * ih;
-    const g = Mask.coverGrain(cv, Math.min(RW, RH) * k, outW);
-    ctx2d.save();
-    // shrink the area to a few cells (from its own pixels only, so nothing dark bleeds in at the picture's edge),
-    // then draw them back: as hard blocks (mosaic) or smoothed (blur)
-    const cell = cv.style === "blur" ? g.blur : g.block;
-    const tw = Math.max(1, Math.round(RW * k / cell)), th = Math.max(1, Math.round(RH * k / cell));
-    // exactly the cells' size: a smoothed draw samples past a sub-rectangle's edge, and must find the area there, not old pixels
-    if (coverCv.width !== tw) coverCv.width = tw;
-    if (coverCv.height !== th) coverCv.height = th;
-    coverCtx.clearRect(0, 0, tw, th);
-    coverCtx.imageSmoothingEnabled = true; coverCtx.imageSmoothingQuality = "high";
-    coverCtx.drawImage(img, SX, SY, SW, SH, 0, 0, tw, th);
-    ctx2d.imageSmoothingEnabled = cv.style === "blur";
-    if (cv.style === "blur") ctx2d.imageSmoothingQuality = "high";
-    ctx2d.drawImage(coverCv, X, Y, RW, RH);
-    ctx2d.restore();
+    out.push([-dw / 2 + u1 * dw, -dh / 2 + v1 * dh, (u2 - u1) * dw, (v2 - v1) * dh]);
   }
+  return out;
+}
+/** Keep the picture out of every redaction: one even-odd clip per area (the picture's box with that hole in
+ *  it), so where two areas overlap the picture stays out too. */
+function clipOutCovers(rects, dw, dh) {
+  for (const [X, Y, RW, RH] of rects) {
+    const hole = new Path2D();
+    hole.rect(-dw / 2 - 1, -dh / 2 - 1, dw + 2, dh + 2);
+    hole.rect(X, Y, RW, RH);
+    ctx2d.clip(hole, "evenodd");
+  }
+}
+/** The blocks themselves: opaque black, unfiltered (a filter could soften or brighten them). */
+function drawCovers(rects) {
+  ctx2d.save();
+  ctx2d.filter = "none";
+  ctx2d.fillStyle = "#000000";
+  for (const [X, Y, RW, RH] of rects) ctx2d.fillRect(X, Y, RW, RH);
+  ctx2d.restore();
 }
 
 /* ── Redactions in the editor: right-click a clip → 「给这块打码」, drag a box on the monitor.
@@ -15574,12 +15569,7 @@ function coverSectionHtml(c) {
     return `<div class="cl-row" data-cover="${j}">
       <button type="button" class="btn tiny cl-chip${j === sel ? " toggle on" : ""}" data-cover-pick title="${escapeHtml(uiText("own.cover-pick-tip"))}">${escapeHtml(uiText("own.cover-area-n", { n: cv.id }))}</button>
       <button type="button" class="btn tiny${redoing ? " toggle on" : ""}" data-cover-redo title="${escapeHtml(uiText("own.cover-redo-tip"))}">${escapeHtml(uiText("own.cover-redo"))}</button>
-      <button type="button" class="btn tiny" data-cover-del>${escapeHtml(uiText("own.cover-remove"))}</button></div>
-    <div class="cl-row" data-cover-opts="${j}">
-      <select data-cover-style title="${escapeHtml(uiText("own.cover-area-tip"))}">${Mask.COVER_STYLES.map((st) =>
-        `<option value="${st}" ${cv.style === st ? "selected" : ""}>${escapeHtml(uiText("own.cover-" + st))}</option>`).join("")}</select>
-      <label class="cl-note">${escapeHtml(uiText("own.cover-strength"))}</label>
-      <input type="range" data-cover-strength min="1" max="100" step="1" value="${cv.strength}"></div>`;
+      <button type="button" class="btn tiny" data-cover-del>${escapeHtml(uiText("own.cover-remove"))}</button></div>`;
   }).join("");
   const note = on ? (coverUi.replace != null && list[coverUi.replace] ? uiText("own.cover-redo-drag", { n: list[coverUi.replace].id }) : uiText("own.cover-drag")) : "";
   return `<div class="insp-section" data-cover-section><h3 data-cover-title>${escapeHtml(uiText("own.cover-section-n", { n: list.length }))}</h3>
@@ -15617,11 +15607,6 @@ function bindCoverControls(c) {
       startCoverTool(c, j); renderInspector();
     });
     row.querySelector("[data-cover-del]").addEventListener("click", () => edit(j, null));
-  }
-  for (const opts of root.querySelectorAll("[data-cover-opts]")) {
-    const j = +opts.dataset.coverOpts;
-    opts.querySelector("[data-cover-style]").addEventListener("change", (e) => edit(j, { style: e.target.value }));
-    opts.querySelector("[data-cover-strength]").addEventListener("change", (e) => edit(j, { strength: +e.target.value }));
   }
 }
 
@@ -16213,7 +16198,7 @@ function pictureRect(c, p) {
   if (!sw || !sh) return null;
   const k = cropFrac(p), cw = Math.max(1, sw * (1 - k.l - k.r)), ch = Math.max(1, sh * (1 - k.t - k.b)), sc = p.scale || 1;
   let dw, dh;
-  if (p.fit === "redaction") { const f = Math.max(W / cw, H / ch) * sc; dw = cw * f; dh = ch * f; }
+  if (p.fit === "cover") { const f = Math.max(W / cw, H / ch) * sc; dw = cw * f; dh = ch * f; }
   else if (p.fit === "stretch") { dw = W * sc; dh = H * sc; }
   else if (p.fit === "none") { const ps = el._fcScale || 1; dw = cw * sc / ps; dh = ch * sc / ps; }   // a proxy is drawn at the original's size
   else { const f = Math.min(W / cw, H / ch) * sc; dw = cw * f; dh = ch * f; }

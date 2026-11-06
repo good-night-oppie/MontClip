@@ -740,14 +740,11 @@
     "cover-area-n": ["Area {n}", "第 {n} 块"],   // JJ定稿
     "cover-pick-tip": ["Show this area's box on the monitor", "在画面上标出这一块"],   // JJ定稿
     "cover-redo": ["Redraw", "重新框选"],   // JJ定稿
-    "cover-redo-tip": ["Drag a new box for this area on the monitor. Its style and strength stay the same. Press Esc to cancel.", "在画面上给这一块重新拖一个框，样式和强度不变。按 Esc 取消。"],   // JJ定稿
+    "cover-redo-tip": ["Drag a new box for this area on the monitor. Press Esc to cancel.", "在画面上给这一块重新拖一个框。按 Esc 取消。"],   // DRAFT: JJ定稿的句子去掉了「样式和强度不变」（#186 后没有样式和强度），待 JJ 定稿
     "cover-redo-drag": ["Drag a new box for area {n} on the monitor. Press Esc to cancel and keep the old box.", "在画面上给第 {n} 块重新拖一个框。按 Esc 取消，原来那块不变。"],   // JJ定稿
     // {menu}: the right-click item's own text (own.cover-area), filled in by app.js — never copied here
     "cover-none": ["Nothing hidden yet. Right-click the clip → “{menu}”, then drag a box on the monitor.", "还没有打码。在片段上点右键 →〔{menu}〕，再在画面上拖一个框。"],   // JJ定稿
     "cover-add": ["+ Hide another area", "+ 再打一块"],   // JJ定稿
-    "cover-mosaic": ["Mosaic", "马赛克"],   // JJ定稿
-    "cover-blur": ["Blur", "模糊"],   // JJ定稿
-    "cover-strength": ["Strength", "强度"],   // JJ定稿
     "cover-remove": ["Remove", "去掉"],   // JJ定稿
     "cover-max": ["This clip already has {n} hidden areas, the most allowed. Remove one to add another.", "这个片段已经打了 {n} 块码，最多就是 {n} 块。要再打，先去掉一块。"],   // JJ定稿
     "meter-rms": ["RMS", "音量"],

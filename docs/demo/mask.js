@@ -400,31 +400,31 @@
   }
 
   /* ── Redactions, 打码 (props.redactions) ──
-     An area of the clip's picture hidden behind a mosaic (default) or a blur — a co-host's window, viewers'
-     names. The same coordinates as masks: x, y = the area's CENTRE, w, h its size, 0…1 of the clip's picture
+     An area of the clip's picture hidden behind an opaque black block — a co-host's window, viewers' names.
+     Always an opaque block (team rule, #186): a mosaic or a blur can leave text readable, so there is no style
+     and no strength to pick. The same coordinates as masks: x, y = the area's CENTRE, w, h its size, 0…1 of the clip's picture
      (for video / image / svg / comp the picture left after the crop). It is drawn with the picture, so it
      moves, scales and turns with the clip and its keys; a part past the picture's edge is not drawn.
-       { id, x, y, w, h, style?: "mosaic" | "blur" (default mosaic), strength?: 1…100 (default 60),
-         from?, to?: seconds from the clip's start (left out: the whole clip), name?, on? }
+       { id, x, y, w, h, from?, to?: seconds from the clip's start (left out: the whole clip), name?, on? }
+     An earlier build of #163 saved style / strength: read leniently they are dropped and the area is still drawn
+     (as a block) — never lost; written strictly (agents, patches) they are refused.
      id is the redaction's number (第 {id} 块), given once when it is made — the largest number on the clip + 1 —
      and kept for good: removing another one never renumbers it (Deja, 2026-11-05). A list saved without numbers
      gets them in order when it is read (normalizeCovers). */
   const MAX_COVERS = 16;
-  const COVER_STYLES = ["mosaic", "blur"];
   const COVER_KINDS = ["video", "image", "svg", "comp"];
   function normalizeCover(cv, strict = false, where = "redaction") {
     const bad = (msg) => { if (strict) throw new Error(`${where}${msg}`); return null; };
     if (!isObj(cv)) return bad(" must be an object like {x:0.75, y:0.3, w:0.3, h:0.4} (x, y = its centre)");
-    const known = ["id", "x", "y", "w", "h", "style", "strength", "from", "to", "name", "on"];
-    for (const k of Object.keys(cv)) if (!known.includes(k)) return bad(`.${k}: unknown key (${known.join(", ")})`);
+    const known = ["id", "x", "y", "w", "h", "from", "to", "name", "on"];
+    if (strict && (cv.style != null || cv.strength != null))
+      throw new Error(`${where}: a redaction is always an opaque block — no style or strength (a mosaic or a blur can leave text readable)`);
+    for (const k of Object.keys(cv)) if (!known.includes(k) && k !== "style" && k !== "strength") return bad(`.${k}: unknown key (${known.join(", ")})`);
     for (const k of ["x", "y", "w", "h"]) if (!isNum(cv[k])) return bad(`.${k} must be a number (0…1 of the clip's picture)`);
     // like a mask: x, y the centre, in the picture; the part past the picture's edge is not drawn
     if (cv.x < 0 || cv.x > 1 || cv.y < 0 || cv.y > 1) return bad(": x, y (its centre) must be 0…1 of the clip's picture");
     if (cv.w < 0.002 || cv.h < 0.002 || cv.w > 2 || cv.h > 2) return bad(": w, h must be > 0 (fractions of the clip's picture)");
-    const style = cv.style == null ? "mosaic" : cv.style;
-    if (!COVER_STYLES.includes(style)) return bad(`.style must be ${COVER_STYLES.join(" | ")}`);
-    if (cv.strength != null && !isNum(cv.strength)) return bad(".strength must be a number 1…100");
-    const out = { x: r4(cv.x), y: r4(cv.y), w: r4(cv.w), h: r4(cv.h), style, strength: Math.round(clamp(cv.strength == null ? 60 : cv.strength, 1, 100)) };
+    const out = { x: r4(cv.x), y: r4(cv.y), w: r4(cv.w), h: r4(cv.h) };
     for (const k of ["from", "to"]) {
       if (cv[k] == null) continue;
       if (!isNum(cv[k]) || cv[k] < 0) return bad(`.${k} must be seconds from the clip's start (≥ 0)`);
@@ -452,7 +452,7 @@
       return { ...cv, id: top };
     });
   }
-  /** A redaction with a new area (a box drawn again): its style, strength, name, time window and on stay. */
+  /** A redaction with a new area (a box drawn again): its number, name, time window and on stay. */
   function replaceCoverArea(cv, area) {
     return { ...cv, x: area.x, y: area.y, w: area.w, h: area.h };
   }
@@ -462,27 +462,18 @@
   }
   function normalizeCovers(list, strict = false) {
     if (list == null) return null;
-    if (!Array.isArray(list)) { if (strict) throw new Error("redactions must be a list of {x, y, w, h, style?, strength?}"); return null; }
+    if (!Array.isArray(list)) { if (strict) throw new Error("redactions must be a list of {x, y, w, h, from?, to?, name?}"); return null; }
     if (list.length > MAX_COVERS) { if (strict) throw new Error(`redactions has ${list.length} areas (at most ${MAX_COVERS})`); list = list.slice(0, MAX_COVERS); }
     const out = list.map((cv, i) => normalizeCover(cv, strict, `redactions[${i}]`)).filter(Boolean);
     return out.length ? numberCovers(out) : null;
   }
-  /** "2 redactions: mosaic 60 "names", blur 40". */
+  /** "2 redactions: #1 "names" at 0.3,0.86 0.44×0.07, #2 at …". */
   function describeCovers(list) {
     if (!Array.isArray(list) || !list.length) return "";
     return `${list.length} redaction${list.length > 1 ? "s" : ""}: ` + list.map((cv) =>
-      `${cv.id != null ? "#" + cv.id + " " : ""}${cv.style} ${cv.strength}${cv.name ? ` "${cv.name}"` : ""} at ${cv.x},${cv.y} ${cv.w}×${cv.h}` +
+      `${cv.id != null ? "#" + cv.id + " " : ""}${cv.name ? `"${cv.name}" ` : ""}at ${cv.x},${cv.y} ${cv.w}×${cv.h}` +
       (cv.from != null || cv.to != null ? ` ${cv.from ?? 0}–${cv.to ?? "end"} s` : "") + (cv.on === false ? " off" : "")).join(", ");
   }
-  /** The mosaic block (output px) and blur radius for a cover whose shorter side is `short` px on an output `outW` px wide. */
-  function coverGrain(cv, short, outW) {
-    const k = clamp(cv.strength == null ? 60 : cv.strength, 1, 100) / 100;
-    // blocks: at least a few per short side, and never so small that letters survive (≥ ~1.4 % of the frame width at 60)
-    const block = Math.max(3, short / (2 + 10 * (1 - k)), outW * (0.004 + 0.016 * k));
-    const blur = Math.max(2, short * (0.05 + 0.3 * k), outW * (0.003 + 0.012 * k));
-    return { block, blur };
-  }
-
   /** One line per clip for status readouts: "2 masks: ellipse, bezier(12) −". */
   function describe(list) {
     if (!Array.isArray(list) || !list.length) return "";
@@ -546,7 +537,7 @@
   return {
     MAX_MASKS, MAX_POINTS, SHAPES, MODES, KEYED, BLENDS, MATTES, matteTrackFor, checkCompositing, NUM_KEYED, RANGE, DEFAULTS, EASES,
     normalizeMasks, normalizeMask, mergeMask, maskAt, masksAt, shiftKeys,
-    MAX_COVERS, COVER_STYLES, COVER_KINDS, normalizeCover, normalizeCovers, numberCovers, describeCovers, coverGrain, coverActive, replaceCoverArea,
+    MAX_COVERS, COVER_KINDS, normalizeCover, normalizeCovers, numberCovers, describeCovers, coverActive, replaceCoverArea,
     anchors, tracePath, flatten, polyDist, maskCoverage, combine, matteAt, fitStroke, rasterize, describe, splitPoints, editTopology,
   };
 });

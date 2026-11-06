@@ -665,7 +665,7 @@
         }
         case "setRedaction":
         case "removeRedaction": {
-          // {op:"setRedaction", id | ids, redaction?: index | "name", set:{x, y, w, h, style?, strength?, name?, on?}, remove?:true}
+          // {op:"setRedaction", id | ids, redaction?: index | "name", set:{x, y, w, h, from?, to?, name?, on?}, remove?:true} — always an opaque block
           // {op:"removeRedaction", id | ids, redaction: index | "name" | "all"}
           const name = op.op;
           const ids = Array.isArray(op.ids) ? op.ids : op.id != null ? [op.id] : [];
@@ -675,7 +675,7 @@
           const byName = typeof op.redaction === "string" && op.redaction.trim() !== "" && !all;
           if (op.redaction != null && !all && !byName && !(Number.isInteger(op.redaction) && op.redaction >= 0)) throw new Error(`${name}: redaction is an index (0 = first), a name, or "all" to remove every one`);
           if (remove && op.redaction == null) throw new Error(`${name} needs redaction: an index, a name or "all"`);
-          if (!remove && (op.set == null || typeof op.set !== "object" || Array.isArray(op.set))) throw new Error("setRedaction needs set:{x, y, w, h, style?, strength?} (or remove:true)");
+          if (!remove && (op.set == null || typeof op.set !== "object" || Array.isArray(op.set))) throw new Error("setRedaction needs set:{x, y, w, h, from?, to?, name?} (or remove:true)");
           for (const id of ids) {
             const c = proj.clips.find((x) => x.id === id);
             if (!c) throw new Error(`${name}: no clip ${id}`);

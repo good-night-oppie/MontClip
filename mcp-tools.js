@@ -386,17 +386,15 @@ const TOOLS = [
   },
   {
     name: "fablecut_blur_region",
-    description: "Hide an area of a clip's picture in one step — a co-host's window, viewers' names, a licence plate. The area is drawn over with a mosaic (default; a light blur can leave text readable) or a blur, from the clip's own pixels, in preview and export alike. It FOLLOWS THE CLIP: it is drawn with the picture, inside the clip's own transform, so when the clip is zoomed, moved, pushed in with keyframes or sped up it stays on the same part of the footage — no keys to write. rect uses the SAME COORDINATES AS MASKS: x, y the area's CENTRE, w, h its size, 0…1 of the clip's picture (the picture left after its crop, before its scale and position) — read them off fablecut_frame {path, t} of the source (on a cropped clip x = (u_frame − cropL/100) / (1 − cropL/100 − cropR/100)), not off the timeline. Stored on the clip as props.redactions (up to 16). Pass remove (an index, a name or \"all\") to take redactions off. Locked clips are refused unless force:true. Check the result with fablecut_frame {time}. Video, image, svg and comp clips.",
+    description: "Hide an area of a clip's picture in one step — a co-host's window, viewers' names, a licence plate. The area is covered with an OPAQUE BLACK BLOCK — the clip's picture is never drawn there, also at opacity < 1 or with a blend mode — in preview and export alike. There is no mosaic or blur (they can leave text readable): style and strength are refused. Leave a small margin round what you hide, and check every frame where it matters. It FOLLOWS THE CLIP: it is drawn with the picture, inside the clip's own transform, so when the clip is zoomed, moved, pushed in with keyframes or sped up it stays on the same part of the footage — no keys to write. rect uses the SAME COORDINATES AS MASKS: x, y the area's CENTRE, w, h its size, 0…1 of the clip's picture (the picture left after its crop, before its scale and position) — read them off fablecut_frame {path, t} of the source (on a cropped clip x = (u_frame − cropL/100) / (1 − cropL/100 − cropR/100)), not off the timeline. Stored on the clip as props.redactions (up to 16). Pass remove (an index, a name or \"all\") to take redactions off. Locked clips are refused unless force:true. Check the result with fablecut_frame {time}. Video, image, svg and comp clips.",
     inputSchema: {
       type: "object",
       properties: {
         clipId: { type: "string", description: "The clip to hide an area of (video, image, svg or comp)" },
         rect: { type: "object", description: "The area like a mask: x, y = its centre, w, h = its size, all 0…1 of the clip's picture (after its crop, before its scale and position)",
           properties: { x: { type: "number" }, y: { type: "number" }, w: { type: "number" }, h: { type: "number" } }, required: ["x", "y", "w", "h"] },
-        strength: { type: "number", description: "1…100 (default 60): bigger mosaic blocks / a stronger blur" },
         from: { type: "number", description: "Seconds from the CLIP's start when the cover begins (left out: the clip's start) — e.g. a private window that pops up for a few seconds" },
         to: { type: "number", description: "Seconds from the clip's start when it ends (left out: the clip's end)" },
-        style: { type: "string", enum: ["mosaic", "blur"], description: "mosaic (default) or blur" },
         name: { type: "string", description: "A label, e.g. \"co-host\" or \"names\"; a name that is already there replaces that area" },
         remove: { description: "Instead of adding: take a cover off — its index (0 = first), its name, or \"all\"" },
         force: { type: "boolean", description: "Edit a locked clip — only when the user asked" },

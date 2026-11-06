@@ -67,7 +67,7 @@ Every Claude Code session then has these tools:
   cast), as the editor's scopes see it; also what a grade layer or a clip's masks
   select. See "Color" and "Masks" below.
 - `fablecut_blur_region` — hide an area of a clip's picture (a co-host, viewers' names)
-  with a mosaic or blur that follows the clip. See "Redactions (打码)" below.
+  with an opaque block that follows the clip. See "Redactions (打码)" below.
 - `fablecut_track` — motion tracking: follow a region of a video clip, store it as
   a track, and make a mask or another clip follow it. See "Tracking" below.
 - `fablecut_repair_media` — make a video MontClip can cut: a recording cut off mid-way, or any format the editor
@@ -1170,9 +1170,11 @@ it; **vignette through an adjustment layer** — an inverted ellipse with
 
 ### Redactions (打码)
 
-A **redaction** hides part of a clip's picture behind a **mosaic** (the
-default — a light blur can leave text readable) or a **blur**: a co-host's
-window, viewers' names, a number plate. It is drawn from the clip's own pixels,
+A **redaction** hides part of a clip's picture behind an **opaque black
+block**: a co-host's window, viewers' names, a number plate. It is always a
+block — never a mosaic or a blur, which can leave text readable (team rule,
+#186) — so there is no style or strength to pick. The picture is never drawn
+inside it, also when the clip is faded, at opacity < 1 or blended. It is drawn
 with the picture, so it **follows the clip**: when the clip is zoomed, moved,
 pushed in with keyframes or sped up, the redaction stays on the same part of
 the footage — no keys to write. Preview, `fablecut_frame` and export draw it
@@ -1182,27 +1184,28 @@ the same way. Redactions live in `props.redactions` on video, image, svg and com
 ```jsonc
 "redactions": [
   { "name": "co-host", "x": 0.68, "y": 0.47, "w": 0.31, "h": 0.65 },
-  { "name": "names", "x": 0.32, "y": 0.86, "w": 0.44, "h": 0.07, "style": "blur", "strength": 80 }
+  { "name": "names", "x": 0.32, "y": 0.86, "w": 0.44, "h": 0.07, "from": 2, "to": 9.5 }
 ]
 ```
 
 | key | default | does |
 |---|---|---|
 | `x` · `y` · `w` · `h` | — | **the same coordinates as masks** (see "Mask and crop coordinates" under Masks): `x`, `y` the area's **centre**, `w`, `h` its size, 0…1 of the clip's picture — the picture left after the crop, before the clip's scale and position. The part past the picture's edge is not drawn |
-| `style` | `mosaic` | `mosaic` (hard blocks) · `blur` (smooth) |
-| `strength` | 60 | 1…100: bigger blocks / a stronger blur. At 60 a block is at least ~1.4 % of the frame's width, so letters don't survive |
 | `from` · `to` | the whole clip | seconds from the clip's start: cover only while a private window is up, without cutting the clip |
 | `name` · `on` | — | a label; `on:false` turns it off |
 | `id` | given | the redaction's number (第 `id` 块 / Area `id`): given when it is made — the largest on the clip + 1 — and kept for good; removing another never renumbers it. A list without numbers (an older project) is numbered in order when read |
 
 How it is drawn: `u1 = clamp(x − w/2, 0, 1)`, `u2 = clamp(x + w/2, 0, 1)`
 (likewise `v1`, `v2` from `y`, `h`), nothing when `u2 ≤ u1` or `v2 ≤ v1`; the
-pixels of that part of the picture are shrunk to a few cells and drawn back at
-`(−dw/2 + u1·dw, −dh/2 + v1·dh)`, size `(u2 − u1)·dw × (v2 − v1)·dh`, inside
-the clip's own transform — where the picture itself is drawn — so scale,
+picture is drawn with that rectangle — `(−dw/2 + u1·dw, −dh/2 + v1·dh)`, size
+`(u2 − u1)·dw × (v2 − v1)·dh` — clipped out, then the rectangle is filled black
+with the clip's opacity and blend, inside the clip's own transform — where the picture itself is drawn — so scale,
 position, rotation and keyframes carry it. As with masks, changing the crop
 changes the picture the fractions refer to. Under the clip's masks a
-redaction is cut like the rest of the picture.
+redaction is cut like the rest of the picture. Only this clip is hidden: the
+same footage on another track, or a copy under it, still shows — hide it there
+too. Leave a small margin round what you hide (a block's edge pixel is shared
+with the picture), and check the final export **frame by frame** where it matters.
 
 In the editor: right-click a clip → **给这块打码** (English: **Hide this area**;
 its own group, right after Disable / Lock), then drag a box on the monitor over
@@ -1211,20 +1214,20 @@ what to hide (Esc cancels). A clip with redactions says so on the timeline
 section scrolls into view when one is added and lists them by their numbers (which stay — remove 第 1 块
 and the next is still 第 2 块): **第 1 块**
 (**Area 1**; click it to highlight its box on the monitor), **重新框选**
-(**Redraw**: drag a new box for that area — its style and strength stay; Esc
-keeps the old box), **去掉** (**Remove**), and below each its style (mosaic or
-blur) and strength; **+ 再打一块** draws another. One undo step each.
+(**Redraw**: drag a new box for that area — its number, name and time window
+stay; Esc keeps the old box), **去掉** (**Remove**); **+ 再打一块** draws another. One undo step each.
 
-**Agents:** `fablecut_blur_region {clipId, rect:{x, y, w, h}, strength?, style?, from?, to?, name?}`
+**Agents:** `fablecut_blur_region {clipId, rect:{x, y, w, h}, from?, to?, name?}`
 adds one (a name already there replaces that area); `{clipId, remove: index | name | "all"}`
 takes them off. Read `rect` off the source with `fablecut_frame {path, t}` (see
 "Where the numbers come from" under Masks), then check it with
 `fablecut_frame {time}` at a moment the clip is on screen. Patch ops do the same:
-`{op:"setRedaction", id | ids, redaction?: index | name, set:{x, y, w, h, style?, strength?, from?, to?, name?, on?}}`,
+`{op:"setRedaction", id | ids, redaction?: index | name, set:{x, y, w, h, from?, to?, name?, on?}}`,
 `{op:"removeRedaction", id | ids, redaction: index | name | "all"}`; `props.redactions`
 written through `addClip` / `updateClip` is validated the same way. Locks
-apply (`force:true` only when the user asked). The compact view lists them as
-`[2 redactions: mosaic 60 "co-host" at 0.52,0.14 0.31×0.65, …]`.
+apply (`force:true` only when the user asked). `style` or `strength` (an earlier
+mosaic / blur) is refused; one saved that way is read as a block. The compact
+view lists them as `[2 redactions: #1 "co-host" at 0.52,0.14 0.31×0.65, …]`.
 
 ### Track mattes and blending
 
