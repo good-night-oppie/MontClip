@@ -2034,7 +2034,8 @@ project's shorter side kept: 1920×1080 → 1080×1920 for 9:16, 1080×1080 for
 open sequence on its own canvas. Each full-frame shot — a video or still that
 isn't moved, scaled, cropped or keyed by hand — gets `fit:"cover"` and an `x`
 (or `y`) that keeps its subject in view. Frames are sampled 5 times a second at
-96 px; the subject is where motion (against the shot's own movement, so a pan
+96 px, plus the shot's last frame (reframe.js sampleTimes: read once more at its length − 1 frame, so the
+camera follows to the end; the editor and this tool share it); the subject is where motion (against the shot's own movement, so a pan
 or a flicker doesn't count), detail and colour gather, pulled gently toward
 the centre. A virtual camera operator then holds still while the subject
 stays inside a dead zone and eases after it no faster than a pan speed, and
@@ -2050,6 +2051,8 @@ another shape has **Follow the subject in each shot**; the Inspector's
 **Reframe** section on a video or picture of another shape than the canvas
 has **Follow subject**, **Centre** and Lively / Balanced / Steady (the selected
 clips, one undo step, with Cancel).
+
+MCP reframe tail sampling decodes from the preceding keyframe and selects the source frame displayed at the final timeline sample. Selection uses decoded PTS within the clip window, normalized to source playback time, including VFR and mismatched source/project frame rates. The tail sample carries its decoded timestamp; empty or failed tail reads are refused. This changes newly computed reframe plans only. A source window with no decoded PTS is refused rather than extended into the next shot.
 
 **Highlights** — `fablecut_highlights {duration?, shot?, clipIds?, mediaIds?, name?, aspect?}`
 finds the best moments of long footage and cuts them into a short edit: a new
@@ -3139,6 +3142,7 @@ The times stay the transcript's; misheard characters become the lyrics' ones; on
 shows what was heard and what it becomes; lines that align poorly are marked 「可能不对」 and not ticked. Nothing changes
 until the streamer applies; then the part's captions are replaced in one undo step. See
 `docs/decisions/2026-11-03-lyrics-captions.md`.
+
 
 ### Desktop AI data notice and switch
 

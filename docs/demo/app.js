@@ -15676,7 +15676,7 @@ const Reframe = self.MontClipReframe;
 const reframeRun = { busy: false, cancel: false, done: 0, of: 0 };
 /** RGB frames of clip c (SAMPLE_FPS across its window; one for a still), w×h each. With `onRgb`,
  *  each frame goes to it as it is read and nothing is kept (a long shot needn't sit in memory). */
-async function sampleClipFrames(c, w, h, onFrame, onRgb, { fps = Reframe.SAMPLE_FPS, cancelled = () => reframeRun.cancel } = {}) {
+async function sampleClipFrames(c, w, h, onFrame, onRgb, { fps = Reframe.SAMPLE_FPS, times = null, cancelled = () => reframeRun.cancel } = {}) {
   const m = getMedia(c.mediaId);
   const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
   const x = cv.getContext("2d", { willReadFrequently: true });
@@ -15702,13 +15702,14 @@ async function sampleClipFrames(c, w, h, onFrame, onRgb, { fps = Reframe.SAMPLE_
       el.addEventListener("loadeddata", () => { clearTimeout(tm); res(); }, { once: true });
       el.addEventListener("error", () => { clearTimeout(tm); rej(new Error("the video could not be read")); }, { once: true });
     });
-    const n = Math.max(1, Math.floor(c.duration * clipSpeed(c) * fps + 1e-6));
-    const frames = [];
+    // times (seconds from the in point): a reframe's, with the clip's last frame (Reframe.sampleTimes); else fps a second
+    const at = Array.isArray(times) && times.length ? times : Array.from({ length: Math.max(1, Math.floor(c.duration * clipSpeed(c) * fps + 1e-6)) }, (_, i) => i / fps);
+    const n = at.length, frames = [];
     for (let i = 0; i < n; i++) {
       if (cancelled()) break;
-      await seekFrame(el, Math.max(0, (c.in || 0) + i / fps) + 0.001);
+      await seekFrame(el, Math.max(0, (c.in || 0) + at[i]) + 0.001);
       x.drawImage(el, 0, 0, w, h);
-      if (onRgb) onRgb(rgb()); else frames.push(rgb());
+      if (onRgb) onRgb(rgb(), at[i]); else frames.push(rgb());
       if (onFrame) onFrame(i + 1, n);
     }
     return frames;
@@ -15764,7 +15765,8 @@ async function reframeClips(clips, { follow = true, smooth = 0.5 } = {}) {
         const w = Reframe.SAMPLE_W, h = Math.max(8, Math.round(w * src.height / src.width / 2) * 2);
         // each frame is looked at as it is read, between seeks, so Cancel answers and nothing piles up
         const tr = Reframe.tracker(w, h);
-        await sampleClipFrames(c, w, h, (i, n) => { reframeRun.frac = i / n; if (i % 10 === 0) renderInspector(); }, (f) => tr.push(f));
+        await sampleClipFrames(c, w, h, (i, n) => { reframeRun.frac = i / n; if (i % 10 === 0) renderInspector(); }, (f, t) => tr.push(f, t),
+          { times: Reframe.sampleTimes(c.duration * clipSpeed(c), { frame: clipSpeed(c) / fps }) });
         if (reframeRun.cancel) break;
         samples = tr.samples;
       }
@@ -23517,7 +23519,7 @@ async function runAgentReframe(aspect,{eventId=null,token=null}={}){
    let samples=null;
    if(Math.max(cover.maxX,cover.maxY)>0.5){
     const w=Reframe.SAMPLE_W,h=Math.max(8,Math.round(w*src.height/src.width/2)*2),tr=Reframe.tracker(w,h);
-    await sampleClipFrames(c,w,h,(k,n)=>{if(k%5===0)say(i,k/n);},(f)=>tr.push(f),{cancelled:()=>agentReframeRun.cancel});
+    await sampleClipFrames(c,w,h,(k,n)=>{if(k%5===0)say(i,k/n);},(f,t)=>tr.push(f,t),{times:Reframe.sampleTimes(c.duration*clipSpeed(c),{frame:clipSpeed(c)/fps}),cancelled:()=>agentReframeRun.cancel});
     samples=tr.samples;
    }
    if(agentReframeRun.cancel)break;
