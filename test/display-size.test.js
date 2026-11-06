@@ -109,7 +109,10 @@ test("no editor open: an entry with the stored size gets the display size when t
   ];
   proj.revision = 3;
   fs.writeFileSync(path.join(data, "project.json"), JSON.stringify(proj));
-  const mcp = startMcp(t, data, { FABLECUT_NO_AUTOSTART: "1" });
+  // no editor: a port nothing listens on, so the backfill is refused and written directly (#152). Not startMcp's
+  // FABLECUT_PORT "0": http to port 0 goes to port 80, which a CI runner may answer (Windows CI: never written)
+  const closedPort = await new Promise((r) => { const s = require("node:net").createServer().listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => r(p)); }); });
+  const mcp = startMcp(t, data, { FABLECUT_NO_AUTOSTART: "1", FABLECUT_PORT: String(closedPort) });
   await mcp.request("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "t", version: "1" } });
   await mcp.callTool("fablecut_get_project", { compact: true });
   // #152: the call waits at most BACKFILL_WAIT_MS; a slower ffprobe (a cold CI runner) writes it in the background
