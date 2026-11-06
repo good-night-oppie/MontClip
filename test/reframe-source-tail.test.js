@@ -37,6 +37,9 @@ test('nonzero clip in and slow playback still use the last displayed source fram
 test('empty tail output is an explicit failure',options,t=>{
  a.throws(()=>sample(fixture(t,6),{id:'c',kind:'video',in:8,duration:1,props:{}}),/displayed tail frame/);
 });
+test('a short window with no source PTS is refused instead of sampling the next shot',options,t=>{
+ a.throws(()=>sample(fixture(t,7),{id:'c',kind:'video',in:5.97,duration:.02,props:{}}),/displayed tail frame/);
+});
 test('nonzero container timestamps are normalized to source playback time',options,t=>{
  const input=fixture(t,7),file=path.join(path.dirname(input),'offset.mkv');
  const r=spawnSync(FF.path('ffmpeg'),['-v','error','-i',input,'-c','copy','-output_ts_offset','3600',file]);a.equal(r.status,0,String(r.stderr));

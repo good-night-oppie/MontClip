@@ -456,7 +456,8 @@ const REFRAME_MAX_SECS = 15 * 60;
 function sampleFrames(file, c, w, h, fps = 30) {
   const R = require("./reframe.js");
   const sp = Math.min(8, Math.max(0.1, +c.props?.speed || 1));
-  const len = Math.max(0.1, Math.min(REFRAME_MAX_SECS, c.duration * sp));
+  const len = Math.min(REFRAME_MAX_SECS, c.duration * sp);
+  if (!(len > 0)) throw new Error('reframe requires a positive clip duration');
   const args = c.kind === "image"
     ? ["-v", "error", "-i", file, "-frames:v", "1", "-vf", `scale=${w}:${h}`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
     : ["-v", "error", "-ss", String(Math.max(0, +c.in || 0)), "-t", String(len), "-i", file, "-an",

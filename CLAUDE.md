@@ -2051,6 +2051,8 @@ another shape has **Follow the subject in each shot**; the Inspector's
 has **Follow subject**, **Centre** and Lively / Balanced / Steady (the selected
 clips, one undo step, with Cancel).
 
+MCP reframe tail sampling decodes from the preceding keyframe and selects the source frame displayed at the final timeline sample. Selection uses decoded PTS within the clip window, normalized to source playback time, including VFR and mismatched source/project frame rates. The tail sample carries its decoded timestamp; empty or failed tail reads are refused. This changes newly computed reframe plans only. A source window with no decoded PTS is refused rather than extended into the next shot.
+
 **Highlights** — `fablecut_highlights {duration?, shot?, clipIds?, mediaIds?, name?, aspect?}`
 finds the best moments of long footage and cuts them into a short edit: a new
 sequence (`Highlights 30 s`, or `name`), opened, so the timeline it came from
@@ -3124,7 +3126,6 @@ shows what was heard and what it becomes; lines that align poorly are marked 「
 until the streamer applies; then the part's captions are replaced in one undo step. See
 `docs/decisions/2026-11-03-lyrics-captions.md`.
 
-MCP reframe tail sampling decodes from the preceding keyframe and selects the source frame displayed at the final timeline sample. Selection uses decoded PTS within the clip window, normalized to source playback time, including VFR and mismatched source/project frame rates. The tail sample carries its decoded timestamp; empty or failed tail reads are refused. This changes newly computed reframe plans only.
 
 ### Desktop AI data notice and switch
 
