@@ -797,6 +797,23 @@
     "ap-sum-sentences": ["Keep {count} sentences, about {duration} in the final cut.", "保留 {count} 句，成片大约 {duration}。"],
     "ap-sum-ranges": ["Keep {count} ranges joined into one video, about {duration}.", "保留 {count} 段，拼成一条，大约 {duration}。"],
     "ap-sum-slices": ["Cut {count} separate clips, one file each, about {duration} in total.", "切出 {count} 条切片，每条一个文件，一共大约 {duration}。"],
+    // the assistant's reframe (Deja, 2026-11-05; app.js runAgentReframe). JJ定稿 (2026-11-05), except rf-failed-name (待 JJ 定稿)
+    "ap-sum-reframe": ["Make a {aspect} copy of the sequence whose shots follow the person, then switch to it. The original stays as it is. It looks at the footage frame by frame, which can take a while.", "做一份 {aspect} 的新序列，画面跟着人走，做好后切换过去；原来的序列不动。要逐帧看画面，可能要等一会儿。"],
+    "rf-progress": ["Making the {aspect} version: shot {n} of {of} · {pct}%", "正在做 {aspect} 的版本：第 {n}/{of} 个镜头 · {pct}%"],
+    "rf-cancel": ["Cancel", "取消"],
+    "rf-done": ["Made the {aspect} copy “{name}” and switched to it. Undo once to go back to the original sequence.", "已做好 {aspect} 的新序列「{name}」并切换过去。撤销一次就回到原来的序列。"],
+    "rf-cancelled": ["Cancelled. No sequence was made; nothing changed.", "已取消，没有新建序列，什么都没改。"],
+    "rf-changed": ["The project changed while this was being made, so to be safe no sequence was made. Ask again.", "做的过程中项目被改过，为了不出错，没有新建序列。可以再让助手做一次。"],
+    "rf-nothing": ["No shot here can be reframed (only titles, picture-in-picture or clips placed by hand), so no sequence was made.", "这里没有能改比例的镜头（只有字幕、画中画或手动摆过的片段），所以没有新建序列。"],
+    "rf-busy": ["Something else is running (an export, or another reframe). Try again when it's done.", "现在有别的事在进行（导出，或者另一个改比例），等它做完再试。"],
+    "rf-failed": ["The footage couldn't be read, so no sequence was made.", "画面读不出来，所以没有新建序列。"],
+    // 待 JJ 定稿 (2026-11-06).
+    "rf-sequence-limit": ["This project already has 64 sequences. Remove an unneeded sequence, then try again.", "这个工程已有 64 个序列，暂时不能再新建。请先删除一个不需要的序列，再试。"],
+    // added after rf-failed when the clip whose file couldn't be opened is known: its name as the bin shows it, no path. 待 JJ 定稿
+    "rf-failed-name": ["The clip that couldn't be opened is “{name}”.", "打不开的素材是「{name}」。"],
+    "rf-same": ["The sequence already has that shape; there is nothing to make.", "这个序列已经是这个比例了，不用再做。"],
+    "rf-undone": ["Undone: the {aspect} copy was deleted and “{name}” is open again.", "已撤销：删掉了 {aspect} 的新序列，回到「{name}」。"],
+    "rf-undo-failed": ["Couldn't go back to the original sequence. Open “{name}” from the sequence menu (▾) at the top left of the timeline.", "回不到原来的序列了。可以从时间线左上角的序列菜单（▾）里打开「{name}」。"],
     "ap-undo": ["Undo", "撤销"],
     // P4, second half: the plan list. New copy, for JJ.
     "pl-step-of": ["Step {n} of {total} of the plan.", "计划的第 {n} 步，共 {total} 步。"],
@@ -964,6 +981,9 @@
     "hl-menu": ["Auto short…", "自动拼短片…"], "hl-title": ["Auto short", "自动拼短片"], "hl-make": ["Make", "拼好"],
     "hl-desc": ["From the selected clips (or the whole timeline, if none is selected), picks the parts with the most movement and the loudest sound and puts them together in a new sequence. The sequence you are in stays as it is.",
       "从选中的片段里（没选就用整条时间线），挑出画面动得多、声音大的几段，拼成一个新序列。原来的序列不动。"],
+    // the export-frame drop-down above the player: its name (aria-label; Deja, 2026-11-05). JJ定稿 (2026-11-05); its tooltip is
+    // own.ef-title (#173)
+    "ef-label": ["Export frame", "导出画面"],
   });
   for (const [k, [en, zh]] of Object.entries(own)) { text.en["own." + k] = en; text["zh-CN"]["own." + k] = zh; }
   // English by number (JJ, 2026-11-04; MontClipView.tp): 〔加字幕〕, by the captions added, then by the ones replaced. The
@@ -1109,6 +1129,13 @@
   Object.assign(officialPaneText['zh-CN'],{notSent:'这次发送的只有上面显示的文字。不附带声音、画面和截图；软件不会自动加上文件路径和账号，但你自己写进文字或历史里的这类信息会照样发出。API 密钥只用来向服务验证身份。',undoLast:'撤销这次应用（和顶部撤销相同）',captionLabel:'字幕',rangeLabel:'范围',projectLabel:'项目'});
   Object.assign(officialPaneText.en,{reviewSummary:'This will send a fixed formatting note, your message, {captions} quoted subtitles, and {history} earlier messages (including their quotes).',rawRequest:'View exact request',proposalSummary:'Suggested edit: keep {count} sentences, about {duration} in the final cut. Look it over before applying.',proposalRanges:'Suggested edit: keep {count} ranges joined into one video, about {duration}. Look it over before applying.',proposalSlices:'Suggested edit: {count} separate clips, one file each, about {duration} in total. Look it over before applying.',factsOmittedOne:"Timing for 1 clip wasn't included, so the AI won't see where it is. Sending still works.",factsOmitted:"Timing for {n} clips wasn't included, so the AI won't see where they are. Sending still works.",factsTitle:'Timeline numbers are also sent · click to see them',factsExplain:'How long each recording is, which part each clip uses, and the start, end and score of the highlight candidates already found. No file names, subtitle text, pictures or sound. This is exactly what is sent:',goConfig:'Go to settings',staleProposal:'The project changed after this reply, so this suggested edit can no longer be used.',reask:'Ask again using the current project',reaskReady:'A new draft is ready with no history or references. Select current subtitles and review before sending. The original conversation is still in the session list.'});
   Object.assign(officialPaneText['zh-CN'],{reviewSummary:'这次会发送一段固定的格式说明、消息文字、引用的 {captions} 条字幕，以及之前的 {history} 条消息（包含其中的引用）。',rawRequest:'查看原始请求',proposalSummary:'已生成剪辑建议：保留 {count} 句，成片大约 {duration}。请先看一遍再应用。',proposalRanges:'已生成剪辑建议：保留 {count} 段，拼成一条，大约 {duration}。请先看一遍再应用。',proposalSlices:'已生成剪辑建议：切出 {count} 条切片，每条一个文件，一共大约 {duration}。请先看一遍再应用。',factsOmittedOne:'有 1 个片段这次没附上时间信息，AI 看不到它在哪。不影响发送。',factsOmitted:'有 {n} 个片段这次没附上时间信息，AI 看不到它们在哪。不影响发送。',factsTitle:'还会附上时间线的数字 · 点开看原文',factsExplain:'每段录像有多长、每个片段用到哪一部分，以及已经找到的高光候选的起止和分数。不含文件名、字幕文字、画面和声音。下面就是原样发出去的内容：',goConfig:'去设置',staleProposal:'项目在回复之后改过了，这条剪辑建议不能用了。',reask:'按现在的项目重新问',reaskReady:'已新建草稿，不带历史和引用。请重新选择当前字幕，确认后再发送。原来的对话还在会话列表里。'});
+  // JJ定稿 (2026-11-05, via Deja). noChange: a suggested edit that would change nothing. (#172's 「改竖屏」 sentence went with
+  // the assistant's own reframe, as Deja decided.)
+  Object.assign(officialPaneText.en,{noChange:"This suggestion wouldn't change the timeline (it's {duration} now), so there's nothing to apply."});
+  Object.assign(officialPaneText['zh-CN'],{noChange:'按这个建议剪，时间线不会有任何变化（现在一共 {duration}），所以不用应用。'});
+  // the assistant's reframe proposal (Deja, 2026-11-05), JJ定稿 (2026-11-05)
+  Object.assign(officialPaneText.en,{proposalReframe:'Suggested edit: a {aspect} copy of the sequence whose shots follow the person; the original stays as it is. You are asked before anything is made.'});
+  Object.assign(officialPaneText['zh-CN'],{proposalReframe:'已生成剪辑建议：做一份 {aspect} 的新序列，画面跟着人走，原来的序列不动。动手之前会先问你。'});
   // VV real-model test (2026-11-02): the format note that goes with every request, a reply without a usable proposal, and errors told apart
   Object.assign(officialPaneText.en,{errModel:'The model name is wrong. Check it in settings. Your draft is kept.',formatNote:'Format note sent with every request',formatNoteExplain:'The text below is a fixed note MontClip adds to every request. It only tells the AI how to format editing suggestions. It contains none of your recordings, subtitles or project content.',noProposal:'This reply is not an editing suggestion. To have it cut for you, say which sentences to keep.',errAuth:'The key is wrong or has no access. Check it in settings. Your draft is kept.',errRateLimit:'The service is limiting requests for now. Try again in a little while. Your draft is kept.',errTimeout:'The service did not answer in time. Check your connection and try again. Your draft is kept.',errNetwork:'Could not reach the service. Check your internet connection, then try again. Your draft is kept.',errUpstream:'The service is having trouble right now. Try again later, or choose another model in settings. Your draft is kept.'});
   Object.assign(officialPaneText['zh-CN'],{errModel:'模型名称不对，请去设置里检查。草稿仍保留。',formatNote:'每次请求都会附带的格式说明',formatNoteExplain:'下面这段英文是 MontClip 每次自动附上的固定说明，只是告诉 AI 怎么写剪辑建议。里面没有你的录像、字幕或项目内容，你不用看懂。',noProposal:'这条回复不是剪辑建议。想让它直接剪，可以说清要保留哪几句。',errAuth:'密钥不对或没有权限，请去设置里检查。草稿仍保留。',errRateLimit:'服务暂时限流，请过一会再试。草稿仍保留。',errTimeout:'服务没有及时回应，请检查网络后再试。草稿仍保留。',errNetwork:'连不上服务，请检查网络连接后再试。草稿仍保留。',errUpstream:'服务那边暂时出了问题，请稍后再试，或去设置里换一个模型。草稿仍保留。'});

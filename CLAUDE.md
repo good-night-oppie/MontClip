@@ -1,5 +1,7 @@
 # MontClip — browser video editor, drivable by Claude Code
 
+Candidate integration (#154/#172/#175/#176): AI background removal only downloads MediaPipe after explicit session consent. Missing, stale or failed masks refuse export; headless pages do not inherit another tab's consent, and realtime background-removal export is refused. Retry the download explicitly or disable the effect; never report an uncut background as successful removal. Assistant replies may propose `{"type":"reframe","aspect":"9:16"}` (also `1:1`, `4:5`): this is sensitive, always confirmed, creates a new sequence and can be undone once. It is not a plan step. Unchanged keep proposals are suppressed using total half-frame tolerance. Reframe refuses stale projects and sequence-limit overflow; editor sampling includes the last timeline frame and MCP resolves actual source PTS within the source window. Existing sequences are not recalculated automatically.
+
 A production-style non-linear video editor (Premiere-style) that runs in the
 browser. An AI agent edits videos by **editing `project.json`** (or calling the
 REST API / MCP tools) — the open browser UI live-reloads within ~150 ms via SSE.

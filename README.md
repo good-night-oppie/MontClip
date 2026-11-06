@@ -37,3 +37,6 @@ MIT. See [LICENSE](LICENSE) and the third-party notices.
 ## Technical notes
 
 Cindy task operations retain their originating task and project. Export refuses a project changed while choosing a folder; editor status and undo/redo replies are scoped to that task.
+# Independent Cindy candidate integration
+
+This branch includes the focused product changes from PRs #154, #172, #175 and #176, without merging their unrelated main history. Background removal requires explicit network consent and refuses export without fresh valid masks (realtime is refused). The assistant suppresses unchanged edits and can propose a separately confirmed 9:16 / 1:1 / 4:5 sequence; one Undo returns to the original. Reframe checks project changes and the sequence limit, samples the tail, and MCP selects actual source timestamps within the clip window. No new project schema or automatic old-project migration is introduced. This is a review candidate, not installation or replacement approval.

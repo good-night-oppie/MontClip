@@ -98,6 +98,7 @@ function refreshLanguageText() {
   if (els.projectName) els.projectName.textContent = projectStatusText();
   if (els.projectName?.classList.contains("clickable")) els.projectName.setAttribute("title", uiText("term.projects"));
   if (trState.built) renderTranscript(true);
+  syncExportFrameSel();
 }
 function updateMontClipView(patch) {
   if(patch.mode && patch.mode!==mcView.get().mode){
@@ -1729,6 +1730,7 @@ function syncExportFrameSel() {
   if (ef && i < 0)
     html += `<option value="custom" selected>Custom · ${ef.w}×${ef.h}</option>`;
   els.exportFrameSel.innerHTML = html;
+  els.exportFrameSel.setAttribute("aria-label", uiText("own.ef-label"));
 }
 function applyProject(data, opts = {}) {
   if (state.compCtx && !opts.ctx && SeqLib.activeId(data) !== SeqLib.activeId(state.compCtx.root)) {
@@ -4483,6 +4485,9 @@ function undoRun(runId) {
 function undo() {
   if (!runtime.undo.length) return;
   const snap = runtime.undo.pop(), id = eventIdOf(snap);
+  // the assistant's reframe: back to the sequence it was made from, the copy deleted (no redo)
+  const rf = typeof snap === "string" && snap.includes('"agentReframeBack":') ? agentReframeBackOf(snap) : null;
+  if (rf) { if (undoAgentReframe(snap, rf)) { runtime.redo.length = 0; if (id) moveEvent(id, "undone"); } return; }
   runtime.redo.push(id ? withEventId(counterSnapshot(snap), id) : counterSnapshot(snap));
   if (id) moveEvent(id, "undone");
   restoreSnapshot(snap);
@@ -15786,7 +15791,7 @@ const Reframe = self.MontClipReframe;
 const reframeRun = { busy: false, cancel: false, done: 0, of: 0 };
 /** RGB frames of clip c (SAMPLE_FPS across its window; one for a still), w×h each. With `onRgb`,
  *  each frame goes to it as it is read and nothing is kept (a long shot needn't sit in memory). */
-async function sampleClipFrames(c, w, h, onFrame, onRgb, { fps = Reframe.SAMPLE_FPS, cancelled = () => reframeRun.cancel } = {}) {
+async function sampleClipFrames(c, w, h, onFrame, onRgb, { fps = Reframe.SAMPLE_FPS, times = null, cancelled = () => reframeRun.cancel } = {}) {
   const m = getMedia(c.mediaId);
   const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
   const x = cv.getContext("2d", { willReadFrequently: true });
@@ -15812,13 +15817,14 @@ async function sampleClipFrames(c, w, h, onFrame, onRgb, { fps = Reframe.SAMPLE_
       el.addEventListener("loadeddata", () => { clearTimeout(tm); res(); }, { once: true });
       el.addEventListener("error", () => { clearTimeout(tm); rej(new Error("the video could not be read")); }, { once: true });
     });
-    const n = Math.max(1, Math.floor(c.duration * clipSpeed(c) * fps + 1e-6));
-    const frames = [];
+    // times (seconds from the in point): a reframe's, with the clip's last frame (Reframe.sampleTimes); else fps a second
+    const at = Array.isArray(times) && times.length ? times : Array.from({ length: Math.max(1, Math.floor(c.duration * clipSpeed(c) * fps + 1e-6)) }, (_, i) => i / fps);
+    const n = at.length, frames = [];
     for (let i = 0; i < n; i++) {
       if (cancelled()) break;
-      await seekFrame(el, Math.max(0, (c.in || 0) + i / fps) + 0.001);
+      await seekFrame(el, Math.max(0, (c.in || 0) + at[i]) + 0.001);
       x.drawImage(el, 0, 0, w, h);
-      if (onRgb) onRgb(rgb()); else frames.push(rgb());
+      if (onRgb) onRgb(rgb(), at[i]); else frames.push(rgb());
       if (onFrame) onFrame(i + 1, n);
     }
     return frames;
@@ -15874,7 +15880,8 @@ async function reframeClips(clips, { follow = true, smooth = 0.5 } = {}) {
         const w = Reframe.SAMPLE_W, h = Math.max(8, Math.round(w * src.height / src.width / 2) * 2);
         // each frame is looked at as it is read, between seeks, so Cancel answers and nothing piles up
         const tr = Reframe.tracker(w, h);
-        await sampleClipFrames(c, w, h, (i, n) => { reframeRun.frac = i / n; if (i % 10 === 0) renderInspector(); }, (f) => tr.push(f));
+        await sampleClipFrames(c, w, h, (i, n) => { reframeRun.frac = i / n; if (i % 10 === 0) renderInspector(); }, (f, t) => tr.push(f, t),
+          { times: Reframe.sampleTimes(c.duration * clipSpeed(c), { frame: clipSpeed(c) / fps }) });
         if (reframeRun.cancel) break;
         samples = tr.samples;
       }
@@ -23514,6 +23521,16 @@ function agentProposalStep(response,result){
  if(ev)proposal.eventId=ev.id;
  return {proposal,ev,c,version};
 }
+/** A reply's proposal that, checked against the project as it is now, would leave the timeline as it is (chat-proposal.js
+ *  unchanged): {duration} of the timeline now, so the pane shows no 〔查看剪辑建议〕 and says so; null otherwise (also for one
+ *  the check refuses — the button then reports why, as before). Records nothing. */
+function agentProposalUnchanged(result){
+ try{
+  const c=agentProjectContext();if(JSON.stringify(result.context)!==JSON.stringify(c))return null;
+  const p=MontClipProposal.prepare(MontClipConversation.parseProposal(result.text),{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references||[]});
+  return p.unchanged?{duration:p.duration}:null;
+ }catch{return null;}
+}
 /* P4: the assistant's permission mode (agent-policy.js; docs/decisions/2026-11-03-agent-permission-modes.md). The main
    process keeps the mode and the approvals (window.montclipAgentPolicy); the page shows the switch, the Yolo mark and the
    host's approval box. Without the desktop host there is no mode: replies wait for 〔查看剪辑建议〕 as before. */
@@ -23561,6 +23578,7 @@ function agentRefusalText(d,bytes=0){
 /** The plain summary of a proposal for the approval box. */
 function agentProposalText(result){
  const p=MontClipConversation.proposalSummary(result.text,result.references||[]);if(!p)return '';
+ if(p.mode==='reframe')return uiText('own.ap-sum-reframe',{aspect:p.aspect});
  return uiText(p.mode==='per_range'?'own.ap-sum-slices':p.mode?'own.ap-sum-ranges':'own.ap-sum-sentences',{count:p.count,duration:MontClipConversation.durationText(p.duration)});
 }
 /** P4: a reply that is a usable proposal is the AI's step. The main process says what happens to it, from the mode and the
@@ -23571,6 +23589,9 @@ async function onAgentReply(result){
  if(!window.montclipAgentPolicy||!result||typeof result.text!=='string')return;
  let response;try{response=MontClipConversation.parseProposal(result.text);}catch{return;}
  if(!response||!MontClipConversation.proposalSummary(result.text,result.references||[]))return;
+ if(response.type==='reframe'){await agentReframeFlow(response,result);return;}
+ // nothing to do: not applied in any mode; the pane says so where the button would be
+ if(agentProposalUnchanged(result))return;
  let d;try{d=await window.montclipAgentPolicy.decide({sessionId:result.sessionId,capability:response.type,target:{kind:'project',value:runtime.projectId}});}catch{d=null;}
  if(!d||!d.ok){toast(uiText('own.ap-refused-mode'));return;}
  if(MontClipPolicy.MODES.includes(d.mode)&&d.mode!==agentPolicy.mode){agentPolicy.mode=d.mode;paintAgentMode();}
@@ -23596,6 +23617,126 @@ async function onAgentReply(result){
  officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});
  toastAction(uiText('own.ap-applied',{mode:MontClipPolicy.modeLabel(agentPolicy.mode,mcView.get().language)}),uiText('own.ap-undo'),()=>{if(canUndoOfficialProposal(result)){if(!ev||!undoEvent(ev.id).ok)undo();}});
  mcAgent.render();
+}
+/* The assistant's reframe (Deja, 2026-11-05): {"type":"reframe","aspect"} → a copy of the open sequence on that shape whose
+   shots follow the subject (reframe.js, as the editor's New sequence… and fablecut_reframe), opened. The streamer confirms
+   it every time, in every mode (capabilities.js CONFIRM_EVERY_TIME). The footage is read first, with a progress line and
+   〔取消〕 that stay on screen (Yolo too); nothing is made until it has all been read, so 〔取消〕, a failure or an edit
+   meanwhile leave no half-made sequence. Then, at once: the copy is added and opened, the plans written to its clips, and
+   one undo step put on its history that deletes it and opens the original again (the sequence's own undo cannot reach
+   the other sequence, so this step does it; it has no redo). */
+const agentReframeRun={busy:false,cancel:false,el:null};
+function agentReframeProgress(text){
+ let el=agentReframeRun.el;
+ if(!el){
+  el=document.createElement('dialog');el.className='agent-approval agent-reframe-progress';el.setAttribute('data-agent-reframe','');
+  el.innerHTML='<p data-rf-progress></p><div class="tr-row"><button type="button" class="btn" data-rf-cancel></button></div>';
+  el.querySelector('[data-rf-cancel]').textContent=uiText('own.rf-cancel');
+  el.querySelector('[data-rf-cancel]').addEventListener('click',()=>{agentReframeRun.cancel=true;el.querySelector('[data-rf-cancel]').disabled=true;});
+  el.addEventListener('cancel',(e)=>e.preventDefault());
+  document.body.append(el);el.show();agentReframeRun.el=el;
+ }
+ el.querySelector('[data-rf-progress]').textContent=text;
+}
+function agentReframeDone(){if(agentReframeRun.el){agentReframeRun.el.remove();agentReframeRun.el=null;}}
+/** Read the footage, then make and open the copy. → {ok:true, sequence, name} | {ok:false, code}. */
+async function runAgentReframe(aspect,{eventId=null,token=null}={}){
+ if(state.exporting||state.gesture||reframeRun.busy||agentReframeRun.busy)return {ok:false,code:'BUSY'};
+ if(state.compCtx)exitComp(state.compCtx.path.length);
+ if(SeqLib.entries(seqRoot()).length>=SeqLib.MAX)return {ok:false,code:'SEQUENCE_LIMIT'};
+ let canvas;try{canvas=Reframe.canvasFor(aspect,project.width,project.height);}catch{return {ok:false,code:'INVALID'};}
+ const {take}=Reframe.targets({clips:project.clips,lockedTracks:[...state.lockedTracks]},{});
+ if(!take.length)return {ok:false,code:'NOTHING'};
+ Object.assign(agentReframeRun,{busy:true,cancel:false});
+ const fps=projectFps()||30,gen=runtime.projectGen,seqId=SeqLib.activeId(seqRoot()),size=JSON.stringify([project.width,project.height]),lanes=JSON.stringify([...state.lockedTracks]);
+ const stamp=(c)=>{const m=getMedia(c.mediaId)||{};return JSON.stringify([c.mediaId,m.src,m.width,m.height,c.track,c.start,c.in,c.duration,!!c.locked,c.props||{},c.keyframes||{}]);};
+ const stamps=new Map(take.map((c)=>[c.id,stamp(c)])),plans=[],snapshot=JSON.stringify(projectJSON());
+ const say=(i,frac)=>agentReframeProgress(uiText('own.rf-progress',{aspect,n:i+1,of:take.length,pct:Math.round(frac*100)}));
+ let failed=false,reading=null;
+ try{
+  for(let i=0;i<take.length&&!agentReframeRun.cancel;i++){
+   const c=take[i];reading=c;say(i,0);
+   const src=await pictureSize(c),cover=Reframe.coverRect(src.width,src.height,canvas.width,canvas.height,1);
+   let samples=null;
+   if(Math.max(cover.maxX,cover.maxY)>0.5){
+    const w=Reframe.SAMPLE_W,h=Math.max(8,Math.round(w*src.height/src.width/2)*2),tr=Reframe.tracker(w,h);
+    await sampleClipFrames(c,w,h,(k,n)=>{if(k%5===0)say(i,k/n);},(f,t)=>tr.push(f,t),{times:Reframe.sampleTimes(c.duration*clipSpeed(c),{frame:clipSpeed(c)/fps}),cancelled:()=>agentReframeRun.cancel});
+    samples=tr.samples;
+   }
+   if(agentReframeRun.cancel)break;
+   plans.push({id:c.id,...Reframe.clipPlan(c,samples,src,canvas,{smooth:0.5,fps,follow:true})});
+  }
+ }catch{failed=true;}
+ finally{agentReframeRun.busy=false;agentReframeDone();}
+ // the clip whose file couldn't be read, by the name the bin shows (never a path)
+ const failedName=()=>{const m=reading&&getMedia(reading.mediaId);const n=m&&typeof m.name==='string'?m.name.split(/[\\/]/).pop().trim():'';return n||null;};
+ if(agentReframeRun.cancel){agentReframeRun.cancel=false;return {ok:false,code:'CANCELLED'};}
+ if(failed||!plans.length)return {ok:false,code:'FAILED',...(failed&&failedName()?{name:failedName()}:{})};
+ if(snapshot!==JSON.stringify(projectJSON())||gen!==runtime.projectGen||seqId!==SeqLib.activeId(seqRoot())||size!==JSON.stringify([project.width,project.height])||(projectFps()||30)!==fps||
+   lanes!==JSON.stringify([...state.lockedTracks])||plans.some((p)=>{const c=getClip(p.id);return !c||stamp(c)!==stamps.get(p.id);}))return {ok:false,code:'CHANGED'};
+ if(state.exporting||state.gesture)return {ok:false,code:'BUSY'};
+ // made in one go: add the copy, open it, write the plans
+ const back=seqId,backName=openSequenceName(),name=(backName+' '+aspect).slice(0,120);
+ const doc=projectJSONHere();let s;
+ try{s=SeqLib.add(doc,{name,from:'open',width:canvas.width,height:canvas.height});}catch{return {ok:false,code:'FAILED'};}
+ project.sequences=doc.sequences;project.sequence=doc.sequence;
+ if(!openSequence(s.id)){const d2=projectJSONHere();try{SeqLib.remove(d2,s.id);}catch{}project.sequences=d2.sequences||null;project.sequence=d2.sequence||null;scheduleSave();return {ok:false,code:'BUSY'};}
+ for(const p of plans){
+  const c=getClip(p.id);if(!c)continue;
+  for(const [k,v] of Object.entries(p.set.props||{})){if(v!==null)c.props[k]=v;else if(Object.hasOwn(DEFAULT_PROPS,k))c.props[k]=DEFAULT_PROPS[k];else delete c.props[k];}
+  if('keyframes' in p.set){if(p.set.keyframes===null)delete c.keyframes;else c.keyframes=p.set.keyframes;}
+ }
+ if(eventId)moveEvent(eventId,'applied',{revision:null});
+ pushUndo(JSON.stringify({agentReframeBack:{sequence:s.id,back,aspect,backName},...(token?{agentApplyId:token}:{})}),eventId?{eventId}:{capability:'reframe',args:{aspect}});
+ state.dirtyTimeline=true;scheduleSave();renderInspector();syncCompCrumb();
+ return {ok:true,sequence:s.id,name};
+}
+/** The undo step runAgentReframe puts on the copy's history, or null. */
+function agentReframeBackOf(snap){
+ if(typeof snap!=='string'||!snap.includes('"agentReframeBack":'))return null;
+ try{const v=JSON.parse(snap).agentReframeBack;return v&&typeof v.sequence==='string'&&typeof v.back==='string'?v:null;}catch{return null;}
+}
+/** Undo of the reframe: open the original sequence again, then delete the copy (its undo history goes with it). */
+function undoAgentReframe(snap,b){
+ if(SeqLib.activeId(seqRoot())!==b.sequence||!SeqLib.find(seqRoot(),b.back)||!openSequence(b.back)){runtime.undo.push(snap);toast(uiText('own.rf-undo-failed',{name:shownName(b.backName||'')}));return false;}
+ const doc=projectJSONHere();
+ try{SeqLib.remove(doc,b.sequence);}catch{}
+ project.sequences=doc.sequences||null;project.sequence=doc.sequence||null;
+ runtime.seqUndo.delete(b.sequence);
+ syncCompCrumb();scheduleSave();renderInspector();
+ toast(uiText('own.rf-undone',{aspect:b.aspect||'',name:shownName(b.backName||'')}));
+ return true;
+}
+/** A reframe reply: the host's decision (it asks every time), the streamer's yes in the host's box, then the work. */
+const agentReframeFlows=new WeakSet();
+async function agentReframeFlow(response,result){
+ if(agentReframeFlows.has(result)||officialProposalApplications.has(result))return;
+ agentReframeFlows.add(result);
+ const lang=mcView.get().language;
+ try{
+  let d=null;
+  if(window.montclipAgentPolicy){
+   try{d=await window.montclipAgentPolicy.decide({sessionId:result.sessionId,capability:'reframe',target:{kind:'project',value:runtime.projectId}});}catch{d=null;}
+   if(!d||!d.ok){toast(uiText('own.ap-refused-mode'));return;}
+   if(MontClipPolicy.MODES.includes(d.mode)&&d.mode!==agentPolicy.mode){agentPolicy.mode=d.mode;paintAgentMode();}
+   if(d.action==='list'){toast(uiText('own.ap-listed'));return;}
+   if(d.action!=='ask'){toast(agentRefusalText(d));return;}
+  }
+  let step;try{step=agentProposalStep(response,result);}catch(error){toast(uiText(error.message==='STALE'?'own.ap-stale':error.message==='PROPOSAL_UNCHANGED'?'own.rf-same':'own.ap-invalid'));return;}
+  const {proposal,ev}=step,aspect=proposal.aspect;
+  const box=d||{choices:['once','deny'],label:MontClipCapabilities.label('reframe',lang),risk:'sensitive'};
+  const choice=await askAgentApproval(box,{summary:uiText('own.ap-sum-reframe',{aspect}),detail:MontClipPlan.stepDetail({capability:'reframe',args:{aspect}},lang)});
+  let yes=choice==='once';
+  if(d){let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}yes=!!(a&&a.ok&&a.run);}
+  if(!yes){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.ap-denied'));return;}
+  if(step.version)await step.version;
+  if(!MontClipProposal.current(proposal,projectJSON(),{...agentProjectContext(),generation:agentProjectContext().gen})){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.ap-stale'));return;}
+  const token=crypto.randomUUID(),r=await runAgentReframe(aspect,{eventId:ev&&ev.id,token});
+  if(!r.ok){if(ev)moveEvent(ev.id,r.code==='CANCELLED'?'rejected':'failed');toast(uiText('own.rf-'+({CANCELLED:'cancelled',CHANGED:'changed',NOTHING:'nothing',BUSY:'busy',SEQUENCE_LIMIT:'sequence-limit'}[r.code]||'failed'),{aspect})+(r.code==='FAILED'&&r.name?' '+uiText('own.rf-failed-name',{name:r.name}):''));return;}
+  const c=agentProjectContext();
+  officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});
+  toast(uiText('own.rf-done',{aspect,name:shownName(r.name)}));
+ }finally{agentReframeFlows.delete(result);mcAgent.render();}
 }
 /* P4, second half: the AI's plan (agent-plan.js). A reply that is a plan shows as a list in the assistant; the streamer can
    delete steps or drop it, then 〔开始〕 runs the steps in order, one at a time. Each step is decided by the host like any AI
@@ -23696,6 +23837,7 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  onHide:()=>{setSideTab("inspector");document.getElementById("mcAssistant").focus();},
  getProjectName:id=>id===runtime.projectId?project.name:null,
  canUndoProposal:canUndoOfficialProposal,
+ noChange:agentProposalUnchanged,
  getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[]});},
  ...(window.montclipAgentPolicy?{getMode:()=>agentPolicy.mode,setMode:setAgentMode,onReply:result=>{void onAgentReply(result);},
   getPlan:agentPlanView,planStart:runAgentPlan,planUndo:undoAgentPlan,
@@ -23703,6 +23845,7 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  getFactsOmitted:()=>MontClipFacts.omitted(projectJSON()),
  onUndo:result=>{if(canUndoOfficialProposal(result)){const entry=officialProposalApplications.get(result);if(!entry?.eventId||!undoEvent(entry.eventId).ok)undo();}},
  onProposal:(response,result)=>{
+   if(response&&response.type==='reframe'){void agentReframeFlow(response,result);return;}
    const {proposal,ev,c}=agentProposalStep(response,result);
    showSentenceSelection(proposal,token=>{officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});},
     ()=>{if(ev)moveEvent(ev.id,'rejected');});
