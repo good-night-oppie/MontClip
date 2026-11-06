@@ -40,7 +40,23 @@ function run(cmd, args, { binary = false } = {}) {
 }
 
 /* ── ffprobe: container + stream facts ── */
+/* Rea (#152): kept per file version (path, size, modification time), so a truncated recording's packets are read
+   once, not on every fablecut_frame. */
+const probeCache = new Map();
 async function probe(file) {
+  let key = null;
+  try { const st = fs.statSync(file); key = `${st.size}:${st.mtimeMs}`; } catch { /* read it; ffprobe says why */ }
+  const hit = key && probeCache.get(file);
+  if (hit && hit.key === key) return { ...(await hit.info) };
+  const info = probeNow(file);
+  if (key) {
+    if (probeCache.size >= 500) probeCache.delete(probeCache.keys().next().value);
+    probeCache.set(file, { key, info });
+    info.catch(() => { if (probeCache.get(file)?.info === info) probeCache.delete(file); });   // a failure is not kept
+  }
+  return { ...(await info) };
+}
+async function probeNow(file) {
   const r = await run(FF.path("ffprobe"), ["-v", "error", "-show_streams", "-show_format", "-of", "json", file]);
   if (r.code !== 0) throw new Error("ffprobe failed: " + r.stderr.slice(-400));
   const info = JSON.parse(r.stdout);

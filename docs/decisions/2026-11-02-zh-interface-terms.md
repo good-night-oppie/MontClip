@@ -79,7 +79,7 @@ The full list of new strings (key, English, Chinese, source) is
   - `connected` / `offline` status next to the project name (`app.js`, set
     with the project name, which itself stays as written);
   - `Full canvas` and the other export-frame options (`app.js`, built from a
-    constant list);
+    constant list) — done in #173 (own.ef-*, JJ定稿 2026-11-05: 完整画布 / 9:16 竖屏 / 16:9 横屏 / 4:5 竖图 / 1:1 方形);
   - `All media`, `★ Favorites`, `Used in the edit`, `Unused` and the other bin
     filter options (`app.js`, built at run time);
   - `Double-click to open in Source, or drag onto the timeline.` (bin hint);

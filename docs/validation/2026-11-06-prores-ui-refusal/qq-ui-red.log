@@ -1,0 +1,82 @@
+TAP version 13
+# Subtest: unsupported profile code stays out of zh-CN alert
+not ok 1 - unsupported profile code stays out of zh-CN alert
+  ---
+  duration_ms: 2.4323
+  type: 'test'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-rejection-ui.test.js:5:74'
+  failureType: 'testCodeFailure'
+  error: 'queue-facing result must not expose machine code'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (%USERPROFILE%\orca\projects\MontClip\.cindy-worktrees\prores-project-end\test\prores-rejection-ui.test.js:15:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: unsupported profile code stays out of zh-CN job/queue
+not ok 2 - unsupported profile code stays out of zh-CN job/queue
+  ---
+  duration_ms: 0.7167
+  type: 'test'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-rejection-ui.test.js:5:74'
+  failureType: 'testCodeFailure'
+  error: 'queue-facing result must not expose machine code'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (%USERPROFILE%\orca\projects\MontClip\.cindy-worktrees\prores-project-end\test\prores-rejection-ui.test.js:15:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: unsupported profile code stays out of en alert
+not ok 3 - unsupported profile code stays out of en alert
+  ---
+  duration_ms: 0.5968
+  type: 'test'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-rejection-ui.test.js:5:74'
+  failureType: 'testCodeFailure'
+  error: 'queue-facing result must not expose machine code'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (%USERPROFILE%\orca\projects\MontClip\.cindy-worktrees\prores-project-end\test\prores-rejection-ui.test.js:15:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: unsupported profile code stays out of en job/queue
+not ok 4 - unsupported profile code stays out of en job/queue
+  ---
+  duration_ms: 1.2106
+  type: 'test'
+  location: '%USERPROFILE%\\orca\\projects\\MontClip\\.cindy-worktrees\\prores-project-end\\test\\prores-rejection-ui.test.js:5:74'
+  failureType: 'testCodeFailure'
+  error: 'queue-facing result must not expose machine code'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (%USERPROFILE%\orca\projects\MontClip\.cindy-worktrees\prores-project-end\test\prores-rejection-ui.test.js:15:10)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 0
+# fail 4
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 73.0017

@@ -146,11 +146,9 @@ test("no length in the header: from the earliest start to the latest end, across
 /* JJ rule 1: what happened, then what she can do now, and that the original is unchanged. Drafts, for JJ. */
 test("the hint for a file with no length, both languages, plain words with the next step (drafts for JJ)", () => {
   const V = require("../ui-preferences");
-  // europa P3: such a file can't be placed (MediaLib.cannotCut); the toasts are built from JJ's sentence (own.media-incomplete)
-  a.equal(V.t("zh-CN", "own.media-duration-unknown", { name: "录像.mkv" }), "「录像.mkv」：这个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。");
-  a.equal(V.t("zh-CN", "own.media-duration-unknown-n", { n: 3 }), "有 3 个视频没录完整（可能录屏中途停了），读不出时长，现在还剪不了。");
-  a.equal(V.t("en", "own.media-duration-unknown", { name: "rec.mkv" }), "“rec.mkv”: this video wasn't recorded to the end (the screen recording may have stopped early), so its length can't be read. It can't be cut yet.");
-  for (const k of ["own.media-duration-unknown", "own.media-duration-unknown-n", "own.media-incomplete"]) {
+  // JJ's final wording (2026-11-05): word for word in test/jj-length-strings.test.js
+  a.equal(V.t("zh-CN", "own.media-duration-unknown", { name: "录像.mkv" }), "「录像.mkv」可能没录完整（比如录屏中途停了），读不出有多长，现在还剪不了。原文件没有改动。点〔帮我修好〕试试。");
+  for (const k of ["own.media-duration-unknown", "own.media-duration-unknown-n", "own.media-incomplete", "own.media-cannot-cut"]) {
     const zh = V.t("zh-CN", k, { name: "x", n: 2 });
     a.doesNotMatch(zh, /NaN|0:00|undefined/);
     a.equal(zh.replace(/MontClip/g, "").match(/[A-Za-z]{3,}/), null, "no English word in the Chinese: " + zh);
