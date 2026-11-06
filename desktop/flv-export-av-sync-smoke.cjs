@@ -26,7 +26,7 @@ const ENCODER = process.env.MONTCLIP_AV_ENCODER || 'h264_mf', LIMIT = 0.04, LENG
 const WHOLE = process.env.MONTCLIP_AV_WHOLE === '1';
 const Measure = require('./av-sync-measure.cjs');
 const FF = require('../ffmpeg-path'), ffmpeg = FF.path('ffmpeg');
-const { make, CLEAN, LIVE } = require('../test/flv-fixtures');
+const { make, CLEAN, LIVE, withSound } = require('../test/flv-fixtures');
 const out = (k, v) => process.stdout.write(k + ' ' + JSON.stringify(v) + '\n');
 const CASES = [
   { name: 'G-gap2.000s.flv', rea: true },
@@ -34,6 +34,9 @@ const CASES = [
   { name: 'video-starts-58ms-late.flv', edits: [['lead', { to: 58 }]] },
   { name: 'video-starts-92ms-late.flv', edits: [['lead', { to: 92 }]] },
   { name: 'audio-starts-93ms-late.flv', edits: [['late', { before: 100 }]] },
+  // H.264 + MP3, as VV's five real recordings (the sound re-encoded with libmp3lame; holes kept)
+  { name: 'G-gap2.000s-mp3.flv', from: 'G-gap2.000s.flv', mp3: true },
+  { name: 'typical-live-mp3.flv', edits: LIVE, mp3: true },
 ];
 const duration = (file) => Number(cp.execFileSync(FF.path('ffprobe'), ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file], { encoding: 'utf8', windowsHide: true }).trim());
 
@@ -76,7 +79,8 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
     const media = path.join(profile, 'workspace', 'media'); fs.mkdirSync(media, { recursive: true });
     for (const c of CASES) {
-      const file = c.rea ? path.join(path.dirname(CLEAN), c.name) : make(tmp, c.name, c.edits).file;
+      const base = c.rea || c.from ? path.join(path.dirname(CLEAN), c.from || c.name) : make(tmp, c.mp3 ? 'aac-' + c.name : c.name, c.edits).file;
+      const file = c.mp3 ? withSound(base, path.join(tmp, c.name)) : base;
       fs.copyFileSync(file, path.join(media, 'source-' + c.name));
       const res = await read(`(${exercise.toString()})(${JSON.stringify({ name: c.name, encoder: ENCODER, whole: WHOLE })})`);
       const exported = path.join(profile, 'workspace', 'exports', decodeURIComponent(res.src.replace(/^\/exports\//, '')));

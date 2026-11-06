@@ -146,3 +146,13 @@ function samplesAV(file) {
   return { flashes, beeps, pairs, worst: Math.max(0, ...pairs.map((p) => Math.abs(p.off))) };
 }
 module.exports.samplesAV = samplesAV;
+/** The same recording with its sound as MP3 (VV's five real recordings are H.264 + MP3, europa 2026-11-06): the picture
+ *  copied, the sound encoded with the bundled libmp3lame at 44.1 kHz. Its holes stay where they were (the encoder keeps
+ *  the frames' timestamps). `codec` picks another sound codec for the tests that need one MontClip cannot copy or fill
+ *  without a picture encoder. Returns the new file. */
+function withSound(file, out, codec = "libmp3lame") {
+  execFileSync(FF.path("ffmpeg"), ["-v", "error", "-nostdin", "-i", file, "-map", "0:v", "-map", "0:a", "-c:v", "copy", "-c:a", codec,
+    ...(codec === "libmp3lame" ? ["-b:a", "128k"] : []), out]);
+  return out;
+}
+module.exports.withSound = withSound;

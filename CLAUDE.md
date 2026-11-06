@@ -3040,8 +3040,8 @@ Desktop export downloads: the Save dialog is titled 保存导出的视频 / Save
 ## Guarded local FLV preparation (clean core split)
 
 Local FLV uploads and fablecut_import_media share prepare-media.js. Compatible
-single-video H.264 4:2:0 plus optional AAC streams keep their picture as a
-stream copy; other codecs need boolean allowTranscode:true. The check reads
+single-video H.264 4:2:0 plus optional AAC or MP3 streams keep their picture as
+a stream copy (MP3 sound is always filled into AAC); other codecs need boolean allowTranscode:true. The check reads
 packet headers only (ffprobe packets, no decoding: seconds for a 2-hour
 recording). A break is more than 5 ms between one packet's end and the next
 one's start, per stream, measured in whole milliseconds. Every break of 0.5 s or

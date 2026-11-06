@@ -59,16 +59,17 @@ function run(cmd, args, signal, { timeout = 15 * 60 * 1000, onProgress } = {}) {
   });
 }
 /* What an FLV becomes (Deja, 2026-11-04; QQ's review of #130 and Deja 2026-11-05 00:16), by source:
-   - H.264 + AAC: the picture is copied (-c:v copy: no quality lost, quick, on the original's timestamps; across a break
-     it holds its last frame). The sound is copied only when it is whole: no break in either stream, it does not start
-     after the picture, no drift. Otherwise it is re-encoded with its holes filled with silence (FILL_AUDIO), with
+   - H.264 + AAC or MP3: the picture is copied (-c:v copy: no quality lost, quick, on the original's timestamps; across a
+     break it holds its last frame). The sound is copied only when it is whole AAC: no break in either stream, it does
+     not start after the picture, no drift. Otherwise (MP3 always: VV's real recordings) it is re-encoded to AAC with its
+     holes filled with silence (FILL_AUDIO), with
      small drops and big breaks alike. decodeAudioData puts the decoded samples back to back and ignores their
      timestamps, so a hole left in the MP4 makes everything after it come early wherever a whole file is decoded in the
      page — the waveform, the analyses, and the export when /api/audio-window fails (QQ: ~245 ms at the end of
      typical-live, 2 s after G-gap2.000s; measured in the app: desktop/flv-export-av-sync-smoke.cjs MONTCLIP_AV_WHOLE=1).
      The export's window (audio-window.js) fills holes on its own; filled here, the file itself is continuous.
    - the picture is re-encoded, with the encoders that work here, only when the codecs cannot go into an MP4 as they
-     are (FLV1…, after the transcode consent) or a copy fails the check below; its sound is always filled (Rea on
+     are (FLV1, or a sound codec other than AAC / MP3, after the transcode consent) or a copy fails the check below; its sound is always filled (Rea on
      ea1c84d9: an MP3 recording's 58 ms hole). With no encoder that is FLV_ENCODER_MISSING, before anything is written.
    Converting breaks (range.fix, or asked for by hand) ends with a check against the original: the same length within
    0.1 s (QQ: ±1 frame), sound against picture within 40 ms; else FLV_FIX_UNVERIFIED. */
@@ -116,9 +117,12 @@ async function inspectFlv(file, {signal, readableRange = false, onProgress} = {}
   const audio = streams?.filter(s => s.codec_type === "audio") || [];
   // Refuse silently dropping additional streams; multi-track policy is separate.
   if (video.length !== 1 || audio.length > 1) throw failure("FLV_STREAMS_UNSUPPORTED", originalSrc);
-  const compatible = video[0].codec_name === "h264" && ["yuv420p", "yuvj420p"].includes(video[0].pix_fmt) && (!audio.length || audio[0].codec_name === "aac");
+  // MP3 sound counts as compatible: it is always filled into AAC (FILL_AUDIO) while the picture is copied (VV on 064306bd:
+  // the five real recordings are H.264 + MP3; Deja, 2026-11-06). Other sound codecs still need the conversion's yes.
+  const soundCodec = audio.length ? audio[0].codec_name : null;
+  const compatible = video[0].codec_name === "h264" && ["yuv420p", "yuvj420p"].includes(video[0].pix_fmt) && (!audio.length || ["aac", "mp3"].includes(soundCodec));
   const range = readableRange ? await require('./flv-readable-range').scanReadableRange(file,streams,format?.duration,{signal,onProgress}) : undefined;
-  return {compatible, hasAudio: audio.length > 0, ...(range?{range}:{})};
+  return {compatible, hasAudio: audio.length > 0, soundCodec, ...(range?{range}:{})};
 }
 /** → {src, originalSrc, preparation: "remux" | "transcode", audio: "copy" | "filled" | "none", gapsHeld?: true,
  *  gaps?: [{stream, at, len, big}], drift?: seconds}. preparation: whether the picture was copied or re-encoded; audio:
@@ -128,7 +132,7 @@ async function inspectFlv(file, {signal, readableRange = false, onProgress} = {}
 async function prepareMedia(file, { allowTranscode = false, acceptReadable = false, fixGaps = false, signal, chooseEncoder, onProgress, onPhase } = {}) {
   const originalSrc = url(file);
   if (path.extname(file).toLowerCase() !== ".flv") return { src: originalSrc };
-  const {compatible, hasAudio, range} = await inspectFlv(file, {signal, readableRange:true});
+  const {compatible, hasAudio, soundCodec, range} = await inspectFlv(file, {signal, readableRange:true});
   // Shared by REST and MCP as well as native snapshot preparation. Small drops (every break ≤ 0.5 s, picture and sound
   // within 40 ms) import as they are, without a question. Anything more is converted, with the user's yes: fixGaps
   // (〔帮我转〕), or allowTranscode — the app's yes to converting (Deja, 2026-11-04; range.fix says why).
@@ -137,9 +141,10 @@ async function prepareMedia(file, { allowTranscode = false, acceptReadable = fal
   if (!compatible && allowTranscode !== true) throw failure("FLV_TRANSCODE_REQUIRED", originalSrc);
   // the picture is re-encoded only when it cannot go into an MP4 as it is
   const reencode = !compatible;
-  // the sound is filled unless it is whole (see above): a break in either stream, a sound starting after the picture, drift
+  // the sound is filled unless it is whole AAC (see above): MP3, a break in either stream, a sound starting after the
+  // picture, drift
   const a = range.tracks?.audio, v = range.tracks?.video;
-  const fill = hasAudio && (reencode || range.gaps.length > 0 || range.drifting || !!(a && v && a.start - v.start > MARK));
+  const fill = hasAudio && (reencode || soundCodec !== "aac" || range.gaps.length > 0 || range.drifting || !!(a && v && a.start - v.start > MARK));
   let encoders = null;
   const pick = async () => (encoders ??= [].concat(await (chooseEncoder || usableH264)()).filter(Boolean));
   if (reencode && !(await pick()).length) throw failure("FLV_ENCODER_MISSING", originalSrc);

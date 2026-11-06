@@ -18,7 +18,7 @@ const FF = require("../ffmpeg-path");
 const { accumulator, scanReadableRange } = require("../flv-readable-range");
 const P = require("../prepare-media");
 const MediaLib = require("../media-lib");
-const { make, probe, samplesAV } = require("./flv-fixtures");
+const { make, probe, samplesAV, withSound } = require("./flv-fixtures");
 const REA = path.join(__dirname, "fixtures", "flv-truth-v2");
 const available = () => FF.available("ffmpeg") && FF.available("ffprobe");
 const tmp = (t) => { const d = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-flvscan-")); t.after(() => fs.rmSync(d, { recursive: true, force: true })); return d; };
@@ -256,4 +256,65 @@ test("Rea on 064306bd: a big break with drift — the drift is returned with the
   assert.ok(r.drift > 0.04, `drift returned: ${r.drift}`);
   const said = require("../ui-preferences").flvConvertedMessage("zh-CN", r.gaps, r.drift);
   assert.doesNotMatch(said, /前后的时间是对的/, said);
+});
+
+/* VV on 064306bd (europa, five real recordings, issuecomment-6691463508): they are all H.264 + MP3, so they were judged
+   incompatible — 〔帮我转〕 and the whole picture re-encoded, FLV_ENCODER_MISSING on a computer without an H.264 encoder.
+   Deja (2026-11-06): H.264 + MP3 copies the picture and fills the sound into AAC (FILL_AUDIO), like any recording with
+   holes; other sound codecs stay as they were. */
+const noEncoder = () => { const asked = []; return { asked, chooseEncoder: async () => { asked.push(1); return []; } }; };
+test("VV: H.264 + MP3 imports without a question — the picture copied, the sound filled into AAC, no picture encoder asked for", async (t) => {
+  if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
+  const dir = tmp(t);
+  const { file: aac } = make(dir, "live-aac.flv", LIVE), file = withSound(aac, path.join(dir, "live-mp3.flv"));
+  const p = probe(file);
+  assert.deepEqual(p.streams.map((s) => s.codec_name).sort(), ["h264", "mp3"]);
+  assert.equal((await P.inspectFlv(file)).compatible, true, "no conversion question for H.264 + MP3");
+  const enc = noEncoder();
+  const r = await P.prepareMedia(file, { chooseEncoder: enc.chooseEncoder });
+  assert.equal(r.preparation, "remux", "the picture is copied");
+  assert.equal(r.audio, "filled");
+  assert.deepEqual(enc.asked, [], "no H.264 encoder is looked for, so none can be missing");
+  const mp4 = path.join(dir, decodeURIComponent(r.src.slice("/media/".length)));
+  const out = probe(mp4);
+  assert.deepEqual(out.streams.map((s) => s.codec_name).sort(), ["aac", "h264"]);
+  const sizes = (f) => execFileSync(FF.path("ffprobe"), ["-v", "error", "-select_streams", "v", "-show_entries", "packet=size", "-of", "csv=p=0", f], { encoding: "utf8" }).split(/\r?\n/).filter((l) => /^\d+/.test(l)).map((l) => Number(l.split(",")[0]));
+  const src = sizes(file), got = sizes(mp4);
+  if (src.length === got.length + 1 && src.at(-1) === 4) src.pop();
+  assert.deepEqual(got, src, "every picture packet as it was");
+  const read = samplesAV(mp4);
+  assert.ok(read.worst <= 0.04, `read as the export reads it: ${Math.round(read.worst * 1000)} ms apart (last pair ${JSON.stringify(read.pairs.at(-1))})`);
+});
+test("VV: H.264 + MP3 with a 2 s break asks as a break, then converts without a picture encoder", async (t) => {
+  if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
+  const dir = tmp(t);
+  const { file: aac } = make(dir, "gap2-aac.flv", [["jump", { at: 30000, len: 2000 }]]), file = withSound(aac, path.join(dir, "gap2-mp3.flv"));
+  const enc = noEncoder();
+  const asked = await P.prepareMedia(file, { chooseEncoder: enc.chooseEncoder }).catch((e) => e);
+  assert.equal(asked.code, "FLV_TIMELINE_GAP", "the break's question, not the format's");
+  const r = await P.prepareMedia(file, { fixGaps: true, acceptReadable: true, allowTranscode: true, chooseEncoder: enc.chooseEncoder });
+  assert.equal(r.preparation, "remux"); assert.equal(r.audio, "filled"); assert.equal(r.gapsHeld, true);
+  assert.deepEqual(enc.asked, [], "never FLV_ENCODER_MISSING for this");
+  const read = samplesAV(path.join(dir, decodeURIComponent(r.src.slice("/media/".length))));
+  assert.ok(read.worst <= 0.04, `${Math.round(read.worst * 1000)} ms apart`);
+});
+test("other sound codecs are as before: H.264 + PCM still needs the conversion's yes and a picture encoder", async (t) => {
+  if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
+  const dir = tmp(t);
+  const { file: aac } = make(dir, "clean-aac.flv", []), file = withSound(aac, path.join(dir, "clean-pcm.flv"), "pcm_s16le");
+  assert.equal((await P.inspectFlv(file)).compatible, false);
+  await assert.rejects(P.prepareMedia(file), { code: "FLV_TRANSCODE_REQUIRED" });
+  await assert.rejects(P.prepareMedia(file, { allowTranscode: true, acceptReadable: true, chooseEncoder: async () => [] }), { code: "FLV_ENCODER_MISSING" });
+});
+test("a picture that has to be re-encoded (FLV1) with MP3 sound: still a transcode, its sound filled", async (t) => {
+  if (!available()) { t.skip("ffmpeg/ffprobe unavailable"); return; }
+  const dir = tmp(t), { file: aac } = make(dir, "holed.flv", [A(30000, 58)]), legacy = path.join(dir, "legacy-mp3.flv");
+  execFileSync(FF.path("ffmpeg"), ["-v", "error", "-i", aac, "-c:v", "flv", "-q:v", "3", "-c:a", "libmp3lame", "-b:a", "128k", legacy]);
+  assert.equal((await P.inspectFlv(legacy)).compatible, false);
+  await assert.rejects(P.prepareMedia(legacy, { allowTranscode: true, acceptReadable: true, chooseEncoder: async () => [] }), { code: "FLV_ENCODER_MISSING" });
+  if (!(await P.usableH264()).length) return;   // a Linux runner: the rest needs an encoder
+  const r = await P.prepareMedia(legacy, { allowTranscode: true, acceptReadable: true });
+  assert.equal(r.preparation, "transcode"); assert.equal(r.audio, "filled");
+  const read = samplesAV(path.join(dir, decodeURIComponent(r.src.slice("/media/".length))));
+  assert.ok(read.worst <= 0.04, `${Math.round(read.worst * 1000)} ms apart`);
 });
