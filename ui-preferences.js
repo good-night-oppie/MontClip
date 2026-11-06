@@ -247,6 +247,8 @@
     // AI background removal goes online (Deja, 2026-11-04): MediaPipe from cdn.jsdelivr.net. Drafts — JJ to finalise.
     // The buttons reuse font-net-deny / font-net-allow, the hint's button font-fallback-load.
     // JJ via Deja, 2026-11-06: net-no, export-unavailable and export-realtime finalized verbatim; other drafts unchanged.
+    // New integrity/load failure draft for JJ; the three finalized messages above are not reopened.
+    "bgremove-assets-failed": ["AI background removal files could not be loaded and verified. Loading stopped. Turn AI background removal off and on again to retry.", "AI 抠像文件未能完成下载和校验，已停止加载。请关闭再开启 AI 抠像重试。"],
     "bgremove-net-title": ["Download AI background removal?", "要联网下载 AI 抠像吗？"],
     "bgremove-net-what": ["AI background removal uses Google's MediaPipe: a program and a model that MontClip downloads the first time.", "AI 抠像要用 Google 的 MediaPipe：第一次用时，MontClip 要下载它的程序和模型。"],
     "bgremove-net-hosts": ["MontClip will connect to jsDelivr: {hosts}.", "会连接 jsDelivr 的下载网站：{hosts}。"],
