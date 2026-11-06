@@ -11,7 +11,7 @@
 //   common.json is 2 MB per language.
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto'), { execFileSync } = require('node:child_process');
 const esbuild = require('esbuild'), ts = require('typescript');
-const { COMMIT, ENTRIES, plugin, rel } = require('./cindy-resolve.cjs');
+const { COMMIT, ENTRIES, STYLE_ENTRIES, STYLE_FILES, plugin, rel } = require('./cindy-resolve.cjs');
 const src = path.resolve(process.argv[2] || ''), out = path.join(__dirname, 'cindy-43001ea');
 const git = (...a) => execFileSync('git', ['-C', src, ...a], { encoding: 'utf8' }).trim();
 if (git('rev-parse', 'HEAD') !== COMMIT) throw Error('the checkout is not at ' + COMMIT);
@@ -20,7 +20,14 @@ if (git('rev-parse', 'HEAD') !== COMMIT) throw Error('the checkout is not at ' +
   const r = await esbuild.build({ entryPoints: ENTRIES.map((e) => path.join(src, e)), bundle: true, write: false, metafile: true, outdir: 'x',
     format: 'esm', jsx: 'automatic', platform: 'browser', logLevel: 'error', loader: { '.css': 'empty' },
     nodePaths: [path.join(__dirname, 'node_modules')], plugins: [plugin({ root: src })] });
-  const files = new Set(Object.keys(r.metafile.inputs).map((f) => path.resolve(f)).filter((f) => !f.includes('node_modules') && !rel(src, f).startsWith('..')).map((f) => rel(src, f)));
+  const own = (meta) => Object.keys(meta.inputs).map((f) => path.resolve(f)).filter((f) => !f.includes('node_modules') && !rel(src, f).startsWith('..')).map((f) => rel(src, f));
+  const pageFiles = new Set(own(r.metafile));
+  // what styles.cjs runs at build time (Cindy's Tailwind config and theme code; none of it goes into the page) and the css
+  // it reads; a picture a theme file imports is not needed (its loader is empty) and is not copied
+  const b = await esbuild.build({ entryPoints: STYLE_ENTRIES.map((e) => path.join(src, e)), bundle: true, write: false, metafile: true, outdir: 'y',
+    format: 'cjs', platform: 'node', logLevel: 'error', loader: { '.png': 'empty', '.svg': 'empty', '.jpg': 'empty', '.webp': 'empty' },
+    nodePaths: [path.join(__dirname, 'node_modules')], plugins: [plugin({ root: src })] });
+  const files = new Set([...pageFiles, ...own(b.metafile).filter((f) => !/\.(png|svg|jpe?g|webp)$/.test(f)), ...STYLE_FILES]);
   const packages = new Set([...files].map((f) => /^packages\/([^/]+)\//.exec(f)?.[1]).filter(Boolean));
   for (const p of packages) files.add(`packages/${p}/package.json`);
   files.add('LICENSE'); files.add('NOTICE');
@@ -40,7 +47,7 @@ if (git('rev-parse', 'HEAD') !== COMMIT) throw Error('the checkout is not at ' +
   const tables = { 'zh-CN': JSON.parse(git('show', `${COMMIT}:${locale('zh-CN')}`)), en: JSON.parse(git('show', `${COMMIT}:${locale('en')}`)) };
   const literals = new Set(), prefixes = new Set();
   for (const { file } of list) {
-    if (!/\.(tsx?|mjs|js)$/.test(file)) continue;
+    if (!pageFiles.has(file) || !/\.(tsx?|mjs|js)$/.test(file)) continue; // the strings the page's parts can ask for
     // TypeScript's parser finds the string literals (a regex pairs quotes wrongly at escapes and apostrophes in comments)
     const sf = ts.createSourceFile(file, fs.readFileSync(path.join(out, file), 'utf8'), ts.ScriptTarget.Latest, false, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
     const visit = (node) => {

@@ -14,15 +14,29 @@ function createConversation({state,getContext,service,getFacts=()=>null,id=()=>c
  sync(){if(pending&&pending.signature!==signature())void this.cancel();if(review&&review.signature!==signature())review=null;}
  };
 }
-/** A reply that is exactly one JSON object, optionally inside a ``` / ```json fence. → object | null */
+/* One short paragraph may come before the JSON (JJ, 2026-11-05: 「这次先帮你剪短。…」 when a message asks to cut and for
+   another shape): at most LEAD_MAX characters, no { } or ` in it, then a blank line. It is only words for the streamer —
+   shown above the proposal's summary, never read for the edit. */
+const LEAD_MAX=200;
+function splitLead(text){
+ const m=/^\s*([^{}`]{1,400}?)\r?\n\s*\r?\n(\s*[{`][\s\S]*)$/.exec(text);
+ return m&&m[1].trim().length<=LEAD_MAX&&!/\n\s*\n/.test(m[1])?{lead:m[1].trim(),body:m[2]}:{lead:'',body:text};
+}
+/** The short paragraph before a proposal's JSON, or '' (also for a reply that is not a proposal). */
+function proposalLead(text){return typeof text==='string'&&parseProposal(text)?splitLead(text).lead:'';}
+/** A reply that is exactly one JSON object, optionally inside a ``` / ```json fence, optionally after one short
+ *  paragraph (splitLead). → object | null */
 function parseProposal(text){
  if(typeof text!=='string'||text.length>16000)return null;
+ text=splitLead(text).body;
  const m=/^\s*```(?:json)?\s*([\s\S]*?)\s*```\s*$/i.exec(text),body=(m?m[1]:text).trim();
  if(!body.startsWith('{'))return null;
  try{const v=JSON.parse(body);return v&&typeof v==='object'&&!Array.isArray(v)?v:null;}catch{return null;}
 }
 function proposalSummary(text,references){
  try{const p=parseProposal(text);if(!p)return null;
+ // reframe: exactly {type, aspect}, a shape from the list (chat-proposal.js checks it again against the project)
+ if(p.type==='reframe')return Object.keys(p).sort().join(',')==='aspect,type'&&['9:16','1:1','4:5'].includes(p.aspect)?{count:1,duration:0,mode:'reframe',aspect:p.aspect}:null;
  if(p.type==='keep_ranges'){const keys=Object.keys(p).sort().join(',');if(keys!=='output_mode,ranges,type'||!['one_file','per_range'].includes(p.output_mode)||!Array.isArray(p.ranges)||!p.ranges.length||p.ranges.length>100)return null;
   let duration=0;for(const r of p.ranges){const k=r&&typeof r==='object'?Object.keys(r).sort().join(','):'';if(k!=='clipId,from,to'&&k!=='clipId,from,label,to'||typeof r.from!=='number'||typeof r.to!=='number'||!Number.isFinite(r.from)||!Number.isFinite(r.to)||r.from<0||r.to-r.from<0.5)return null;duration+=r.to-r.from;}
   return{count:p.ranges.length,duration,mode:p.output_mode};}
@@ -32,4 +46,4 @@ function proposalSummary(text,references){
 function clock(seconds){if(!Number.isFinite(seconds)||seconds<0)return '';const n=Math.floor(seconds),h=Math.floor(n/3600),m=Math.floor(n/60)%60,sec=n%60;return(h?h+':':'')+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');}
 function durationText(seconds){return Number.isFinite(seconds)&&seconds>0?clock(Math.max(1,Math.round(seconds))):'';}
 function referenceText(r,labels,projectName){if(r.type==='project')return labels.project+' · '+projectName;return (r.type==='caption'?labels.caption:labels.range)+' · '+clock(r.start)+'–'+clock(r.end)+(r.type==='caption'?' · '+r.text:'');}
-return{createConversation,referenceText,proposalSummary,durationText,parseProposal};});
+return{createConversation,referenceText,proposalSummary,proposalLead,durationText,parseProposal};});
