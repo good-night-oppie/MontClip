@@ -111,6 +111,9 @@ test("no editor open: an entry with the stored size gets the display size when t
   fs.writeFileSync(path.join(data, "project.json"), JSON.stringify(proj));
   const mcp = startMcp(t, data, { FABLECUT_NO_AUTOSTART: "1" });
   await mcp.request("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "t", version: "1" } });
+  await mcp.callTool("fablecut_get_project", { compact: true });
+  // #152: the call waits at most BACKFILL_WAIT_MS; a slower ffprobe (a cold CI runner) writes it in the background
+  for (const t0 = Date.now(); readProject(data).media[0].storedWidth == null && Date.now() - t0 < 30_000;) await new Promise((r) => setTimeout(r, 100));
   const view = await mcp.callTool("fablecut_get_project", { compact: true });
   a.match(view.text, /239×192 \(stored as 108×192\)/, view.text);
   const after = readProject(data);
