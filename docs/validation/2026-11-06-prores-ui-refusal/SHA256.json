@@ -1,0 +1,116 @@
+[
+  {
+    "file": "cfr/output-pts.json",
+    "bytes": 306199,
+    "sha256": "f1db82879fb30e61b6fa3306ebf15548286c56d9633852b511241c60b2dcbcaf"
+  },
+  {
+    "file": "cfr/project-preview.png",
+    "bytes": 37359,
+    "sha256": "4e4aa394643d88d1cab4b7113b53be7a30c805d979c2d60bb6c552b69d3ed837"
+  },
+  {
+    "file": "cfr/project.json",
+    "bytes": 5439,
+    "sha256": "caca22d3f356fda2d2fce0e47c80e9f15d36b2a426d9be7683ac5c64ede0257a"
+  },
+  {
+    "file": "cfr/receipt.json",
+    "bytes": 6928,
+    "sha256": "360dca4ea308d1c76109799eb71f52eb14ca29dd941cd249cc900706f47d6171"
+  },
+  {
+    "file": "cfr/result-export.json",
+    "bytes": 3901,
+    "sha256": "012bc8be14e7ac0949b53b0bae230ba7d212c7aae87ff5606b460b8500a0d3a4"
+  },
+  {
+    "file": "cfr/result-export.png",
+    "bytes": 95722,
+    "sha256": "8434a9993abab91da03e8eb9654512aa286353ab7847be4de80a29c64e329271"
+  },
+  {
+    "file": "cfr/source-pts.json",
+    "bytes": 295514,
+    "sha256": "acf20a1575afba7042b9e3531f7ad8a0546333aa7dceb75b9630536c45d531d3"
+  },
+  {
+    "file": "qq-ui-full.log",
+    "bytes": 401393,
+    "sha256": "81925647327877062a2330ffa1ebfe5891731e65b5e1bf1cda7e02cdf2776b22",
+    "originalArchive": {
+      "commit": "b2ad3fc65a1b5109f6aaa064c3ccf754c384b63a",
+      "bytes": 401396,
+      "sha256": "83abbeef6dafd9a88795fcb38342119a1ecf0607c2feec24b17147a506d9258f",
+      "registeredBytes": 401396,
+      "registeredSha256": "83abbeef6dafd9a88795fcb38342119a1ecf0607c2feec24b17147a506d9258f"
+    },
+    "sanitization": {
+      "kind": "user-directory-prefix-only",
+      "placeholder": "%USERPROFILE%",
+      "replacements": 1
+    }
+  },
+  {
+    "file": "qq-ui-green.log",
+    "bytes": 788,
+    "sha256": "99fde85ad820f7ce8b8a062b473d125e9b40ae81cd1306f81838737a3e6fcb13"
+  },
+  {
+    "file": "qq-ui-red.log",
+    "bytes": 3262,
+    "sha256": "3799124eb90f59fbe9789b960368265734f72ebaed357d868944d538a4b514ec",
+    "originalArchive": {
+      "commit": "b2ad3fc65a1b5109f6aaa064c3ccf754c384b63a",
+      "bytes": 3278,
+      "sha256": "cc52da83f4d04f6e877a4d7c2eb7f24de8ccd1e471d6dcddf857827bdd1579eb",
+      "registeredBytes": 3278,
+      "registeredSha256": "cc52da83f4d04f6e877a4d7c2eb7f24de8ccd1e471d6dcddf857827bdd1579eb"
+    },
+    "sanitization": {
+      "kind": "user-directory-prefix-only",
+      "placeholder": "%USERPROFILE%",
+      "replacements": 8
+    }
+  },
+  {
+    "file": "qq-ui-release.log",
+    "bytes": 3161,
+    "sha256": "36bc89a7effb9eba979b49bfba2c837b835b47731840796104f25902dfdc8926"
+  },
+  {
+    "file": "vfr/output-pts.json",
+    "bytes": 32882,
+    "sha256": "581ad5879b26eada8cb3e9b3a6a097ef29b890011039eb36d0ba8f8f1cfc23d9"
+  },
+  {
+    "file": "vfr/project-preview.png",
+    "bytes": 37709,
+    "sha256": "f95fb797bd952480c5195fdfd320a0a8395c6e6dcbe19e28f38884a7bf50e034"
+  },
+  {
+    "file": "vfr/project.json",
+    "bytes": 5486,
+    "sha256": "a657ac0cac24788c555636f6d3cb6e3e2ed4641fc1334a392c01abe995721e72"
+  },
+  {
+    "file": "vfr/receipt.json",
+    "bytes": 7049,
+    "sha256": "d41c5f360f46c7c6383afe0dca5612a4d4445b11fef8569e09f6369ac4a6ceae"
+  },
+  {
+    "file": "vfr/result-export.json",
+    "bytes": 3905,
+    "sha256": "6ab43e4d1afb486b1f19a73b2273241cb8d34d1ae2e6aa1e90596aacd80c4093"
+  },
+  {
+    "file": "vfr/result-export.png",
+    "bytes": 98731,
+    "sha256": "055780130f85599b4e1d0a8c9b156a2e902019e37fa6f1bb7c06eb052c216b2f"
+  },
+  {
+    "file": "vfr/source-pts.json",
+    "bytes": 251988,
+    "sha256": "b593d6bb40f5c7f0dac44d0648331458cceec149be7a3742ae1b3644684b28d6"
+  }
+]

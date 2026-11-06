@@ -1,0 +1,11 @@
+# #190 QQ P1: option versus value
+
+Started from clean local/remote a191ada5e9296627bbc36c4e134c6cb5da08c8eb after fetch. QQ report bound to 9dd795af; later commits had not changed the affected product code. #189 untouched.
+
+## Author response
+
+1. Confirmed: deleting every token equal to -shortest turned a progress filename into a missing value and consumed the following -an. The new test first failed with real audio stream count 1 instead of 0. The no-an variant passed preflight but failed final construction with PROFILE_FILTER_MAPPING_UNSUPPORTED. Both red failures are archived.
+2. Fixed: the existing arity walk records only shortest option positions and returns normalized output. Parameter values remain intact; the last effective audio filter index is rebased after removal. buildExportArgs consumes this same plan used by preflight. No second generic parser or broader supported grammar.
+3. Actual PCM: ran QQ's original script unchanged except resolving its EP import in memory to git-show a191ada5 versus working source. Old bounded output has one nonzero PCM track; fixed bounded and both legacy outputs have zero audio tracks. No-an case now exports, preserves all 48000 source samples including the real tail, and writes progress=end to the literal -shortest filename. Own newly generated diagnostic fixtures retained at VCGT1U and Z27uiJ paths recorded in pcm-pair log; QQ's original fixtures/scripts were not modified or deleted.
+4. Windows system FFmpeg: targeted42/42, full1778 tests (1771 pass,0 fail,7 skip),67.061s; release-check passes. Current source CFR360/576000 and VFR37/59259 frames/samples plus real tail checks pass. Receipt code hashes verified; own browser/server exit confirmed. 19 artifacts plus SHA256 in docs/validation/2026-11-06-prores-shortest-value/. Original MOVs remain under out/qq-shortest-cfr and out/qq-shortest-vfr, hashes in receipts. Bundled tools/Linux/macOS not rerun; old Rea results remain old-head evidence.
+5. Keep Draft. JJ detailed refusal copy pending; current generic existing UI label unchanged. Ask QQ/Rea to review current appended head; no approval/merge/install. Existing strict tail assertions preserved, one-sample edge remains the separately documented Rea finding; this patch does not widen -t.

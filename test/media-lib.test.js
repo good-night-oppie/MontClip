@@ -271,6 +271,18 @@ test("relinkScore: same name beats another extension beats a similar name; size 
   assert.equal(M.kindFromName("/media/x.MOV"), "video");
 });
 
+test("autoRelinkPick (QQ #137): only the same file is linked silently — same name and size, exactly one", () => {
+  const m = { name: "live.mp4", src: "/media/live.mp4", size: 10, kind: "video" };
+  const c = (name, size, src) => ({ src: src || "/library/" + name, name, size, ...M.relinkScore(m, { name, size }) });
+  const same = c("live.mp4", 10);
+  assert.equal(M.autoRelinkPick(m, [same]), same, "same name and size: linked");
+  assert.equal(M.autoRelinkPick(m, [c("live.mp4", 99)]), null, "negative: same name, other contents (size) — never silent");
+  assert.equal(M.autoRelinkPick(m, [c("live.mov", 10)]), null, "negative: same stem and size (110) is not the same file");
+  assert.equal(M.autoRelinkPick(m, [same, c("live.mp4", 10, "/media/old/live.mp4")]), null, "negative: two same files — ambiguous, ask");
+  assert.equal(M.autoRelinkPick({ ...m, size: 0 }, [c("live.mp4", 10)]), null, "negative: original size unknown — ask");
+  assert.equal(M.autoRelinkPick(m, []), null);
+});
+
 test("relinkMedia points the entry at the found file, keeps clips, re-reads the details; refuses a missing file or another kind", () => {
   const doc = DOC();
   const before = JSON.stringify(doc.clips);
