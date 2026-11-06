@@ -52,6 +52,8 @@
       <button class="btn primary" id="btnExport" data-i18n="term.export-2">⬇ Export</button>
     </div>
   </header>
+  <!-- FFmpeg not found / no MP4 export: filled by renderFfmpegCard() from ffmpeg-card.js -->
+  <div class="ffmpeg-card hidden" id="ffmpegCard" role="region" aria-live="polite"></div>
 
   <button class="btn tiny mc-media-toggle" id="mcMediaToggle" type="button">素材</button>
   <div class="mc-history" role="group" aria-label="Undo / Redo">
@@ -777,6 +779,7 @@
 <script src="ui-terms.js"></script>
 <script src="narrow-layout.js"></script>
 <script src="ui-preferences.js"></script>
+<script src="ffmpeg-card.js"></script>
 <script src="agent-session-schema.js"></script>
 <script src="agent-pane.js"></script>
 <script src="agent-format.js"></script>

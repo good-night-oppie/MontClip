@@ -108,6 +108,7 @@ function updateMontClipView(patch) {
   }
   const saved = mcView.set(patch); renderMontClipView();
   try { renderQueue(); } catch { /* not built yet */ }
+  try { applyFfmpegState(); } catch { }   // the mode decides what no H.264 turns off
   refreshLanguageText();
   refreshLocalizedViews();
   // simple mode has the selection tool only: back to V; the project, selection and history stay as they are
@@ -1370,6 +1371,7 @@ async function connectServer() {
     if (window.montclipAsr) setTimeout(maybeOpenAsrSetup, 800);
     fetch("/api/export/ffmpeg").then((r) => r.json())
       .then((j) => { state.ffmpeg = !!j.available; }).catch(() => { });
+    refreshFfmpegCard();
     fetchEncodeProfiles();
     detectWebCodecs();
   } catch {
@@ -1379,6 +1381,117 @@ async function connectServer() {
   initSequencesUi();
   await probeMissingMeta();
 }
+/* ── The FFmpeg card (JJ P1, 2026-11-04; ffmpeg-card.js) ──
+   One state for the desktop app, web / server mode and the Cindy plugin (GET /api/ffmpeg). Ready: no card at all.
+   Otherwise the card's text and its controls come from one model, so every 「X」 it mentions is right there. Only
+   export is switched off (and says why); browsing media and marking clips carry on. 「重新检测」 asks the server to look
+   again — no reload, no restart. Without a file dialog (web, the plugin) 「手动选择」 opens a path box. */
+const ffmpegUi = { status: null, line: "", input: false, hide: 0 };
+async function refreshFfmpegCard() {
+  try { ffmpegUi.status = await (await fetch("/api/ffmpeg", { cache: "no-store" })).json(); } catch { return; }
+  applyFfmpegState();
+  renderFfmpegCard();
+}
+function applyFfmpegState() {
+  const st = ffmpegUi.status, b = $("btnExport");
+  if (!st || !b) return;
+  // JJ (2026-11-05): no FFmpeg → Export off in both modes; no H.264 → off in simple mode, on in advanced mode (where only
+  // the MP4 choices are off, see populateExportProfileSelect). Runs again on every mode switch.
+  const r = MontClipFfmpegCard.exportButton(st, mcView.get().mode, mcView.get().language);
+  if (b.dataset.titleBefore === undefined) b.dataset.titleBefore = b.title || "";
+  b.disabled = r.disabled;
+  b.title = r.title || b.dataset.titleBefore;
+  state.ffmpeg = st.state !== "missing" && st.state !== "noProbe" && st.state !== "tooOld";
+}
+function renderFfmpegCard() {
+  const box = $("ffmpegCard");
+  if (!box) return;
+  const st = ffmpegUi.status, lang = mcView.get().language;
+  const picker = !!window.montclipExternalFfmpeg || !!(st && st.picker);
+  const m = st ? MontClipFfmpegCard.model({ ...st, picker }, lang) : null;
+  clearTimeout(ffmpegUi.hide);
+  if (!m && !ffmpegUi.line) { box.classList.add("hidden"); box.replaceChildren(); return; }
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const kids = [];
+  if (m) {
+    kids.push(el("h3", "ffc-title", m.title), el("p", "ffc-body", m.body));
+    if (m.howto) {   // "…运行 `cmd`，装好后点「重新检测」。": the `…` part as code, 〔复制〕 beside it
+      const line = el("p", "ffc-howto");
+      m.howto.split("`").forEach((part, i) => {
+        if (!(i % 2)) { if (part) line.append(part); return; }
+        const code = el("code", null, part), copy = el("button", "btn tiny", m.copy || "Copy");
+        copy.type = "button"; copy.dataset.ffc = "copy";
+        line.append(code, copy);
+      });
+      kids.push(line);
+    }
+    if (m.command && !(m.howto || "").includes("`")) {   // macOS: the command in its own box under the sentence (JJ)
+      const row = el("div", "ffc-cmd");
+      const copy = el("button", "btn tiny", m.copy); copy.type = "button"; copy.dataset.ffc = "copy";
+      row.append(el("code", null, m.command), copy);
+      kids.push(row);
+    }
+    const btns = el("div", "ffc-actions");
+    for (const b of m.buttons) { const e = el("button", "btn" + (b.id === "detect" ? " primary" : ""), b.label); e.type = "button"; e.dataset.ffc = b.id; btns.append(e); }
+    kids.push(btns);
+    if (m.input && ffmpegUi.input) {
+      const row = el("div", "ffc-path"), lab = el("label", null, m.input.label), inp = el("input");
+      inp.type = "text"; inp.id = "ffcPath"; inp.placeholder = m.input.placeholder; inp.spellcheck = false; lab.htmlFor = "ffcPath";
+      inp.addEventListener("keydown", (e) => { if (e.key === "Enter") ffmpegCardAction("use"); });
+      const use = el("button", "btn", m.input.button); use.type = "button"; use.dataset.ffc = "use";
+      row.append(lab, inp, use);
+      kids.push(row);
+    }
+  }
+  if (ffmpegUi.line) kids.push(el("p", "ffc-line", ffmpegUi.line));
+  box.replaceChildren(...kids);
+  box.classList.remove("hidden");
+  if (!m) ffmpegUi.hide = setTimeout(() => { ffmpegUi.line = ""; renderFfmpegCard(); }, 5000);   // 「找到了」, then gone
+}
+/** A click in the card: copy · detect · choose (the desktop file dialog, or the path box) · use (the typed path). */
+async function ffmpegCardAction(id) {
+  const st0 = ffmpegUi.status || {}, lang = mcView.get().language;
+  const R = MontClipFfmpegCard.results(lang, st0.platform);
+  const say = (st, result) => {
+    ffmpegUi.status = st;
+    const r = result || (st.state === "ready" ? "found" : st.state);
+    ffmpegUi.line = r === "found" ? R.found : r === "noProbe" ? R.noProbe : r === "noH264" ? R.noH264
+      : r === "notFfmpeg" ? R.notFfmpeg : r === "missing" ? R.stillMissing : (MontClipView.h264Message(lang, { code: r }) || R.stillMissing);
+    if (st.state === "ready") ffmpegUi.input = false;
+    applyFfmpegState();
+    renderFfmpegCard();
+  };
+  try {
+    if (id === "copy") {
+      const m = MontClipFfmpegCard.model({ ...st0, picker: true }, lang);
+      if (m && m.command && navigator.clipboard) await navigator.clipboard.writeText(m.command).catch(() => { });
+      return;
+    }
+    if (id === "detect") return say(await (await fetch("/api/ffmpeg/detect", { method: "POST" })).json());
+    if (id === "choose") {
+      if (window.montclipExternalFfmpeg) {   // the desktop app: the same file dialog as Settings → H.264 export
+        const r = await window.montclipExternalFfmpeg?.choose();
+        if (!r || r.code === "CANCELLED") return;
+        const st = await (await fetch("/api/ffmpeg/detect", { method: "POST" })).json();
+        return say(st, r.ok ? null : r.code === "extNotFfmpeg" || r.code === "extNotFullPath" ? "notFfmpeg" : r.code);
+      }
+      ffmpegUi.input = true;
+      renderFfmpegCard();
+      $("ffcPath")?.focus();
+      return;
+    }
+    if (id === "use") {
+      const v = ($("ffcPath")?.value || "").trim();
+      if (!v) return;
+      const r = await (await fetch("/api/ffmpeg/choose", { method: "POST", body: JSON.stringify({ path: v }) })).json();
+      return say(r, r.result);
+    }
+  } catch { }
+}
+$("ffmpegCard")?.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-ffc]");
+  if (b) ffmpegCardAction(b.dataset.ffc);
+});
 /* Main-profile AVC level by canvas height; Annex-B is required so ffmpeg
    can ingest the elementary stream with `-f h264` and no avcC converter. */
 function webCodecsAvcCodec() {
@@ -11460,10 +11573,10 @@ function autoClick(e) {
   if (act === "place") { autoPlace(st.clips.filter((x) => x.on)); return; }
   if (act === "export") { autoExportConfirm(); return; }
   if (act === "ex-go") { autoExport(); return; }
-  if (act === "ex-cancel") { autoRender("review"); return; }
+  if (act === "ex-cancel") { autoExNext(); autoRender("review"); return; }
   if (act === "retry") { autoExportRun(); return; }
   if (act === "open-queue") { AUTO.el.close(); openQueue(); return; }
-  if (act === "back-review") { autoRender("review"); return; }
+  if (act === "back-review") { autoExNext(); autoRender("review"); return; }
   if (act === "another") { st.clips = []; st.recs = []; st.dropped = []; autoRender("start"); return; }
   if (!c) return;
   if (act === "nudge") {
@@ -11626,7 +11739,12 @@ function toastAction(msg, label, onClick) {
 }
 
 /* step 4: export — the ticked parts put on the timeline (one undo step), then one file each through the export queue */
+/** A new request number for the export confirm page: drawing it, 〔导出〕, 〔返回〕 each make the earlier ones stale. */
+function autoExNext() { const st = autoState(); st.exReq = (st.exReq || 0) + 1; return st.exReq; }
+/** After an await: the dialog is still open, still on the export confirm page, and nothing was asked since request `req`. */
+const autoExLive = (req) => !!(AUTO.el && AUTO.el.open && autoState().exReq === req && AUTO.el.querySelector("[data-as-body] .as-ex"));
 function autoExportConfirm() {
+  const req = autoExNext();
   const st = autoState(), on = st.clips.filter((c) => c.on), body = AUTO.el.querySelector("[data-as-body]");
   body.innerHTML = `<section class="as-card-box as-ex"><h2>${autoSay("as-ex-title", { n: on.length })}</h2>
     <ul>${on.map((c) => `<li>${escapeHtml(autoName(c))} <span class="as-muted">· ${escapeHtml(autoDur(c.e - c.s))}</span></li>`).join("")}</ul>
@@ -11634,8 +11752,25 @@ function autoExportConfirm() {
     ${st.subs && autoSubMode() === "none" ? `<p class="as-small as-warn" data-as-ex-nosub>${autoSay("as-ex-nosub")}</p>` : ""}
     <div class="as-row"><button type="button" class="btn primary" data-as-act="ex-go">${autoSay("as-ex-go")}</button><button type="button" class="btn" data-as-act="ex-cancel">${autoSay("as-ex-cancel")}</button></div></section>`;
   AUTO.el.querySelector("[data-as-footer]").hidden = true;
+  // no H.264 encoder: said on this page, and 〔导出〕 is off — nothing is put on the timeline or rendered
+  exportH264Refusal(deliveryIsH264(sliceDeliverySpec())).then((refused) => {
+    if (!refused || !autoExLive(req)) return;   // left the page, or 〔导出〕 was clicked meanwhile (it says it itself)
+    const go = AUTO.el.querySelector('[data-as-act="ex-go"]');
+    if (!go || AUTO.el.querySelector("[data-as-ex-noh264]")) return;
+    go.disabled = true;
+    go.closest(".as-row").insertAdjacentHTML("beforebegin", `<p class="as-small as-warn" data-as-ex-noh264 role="alert">${escapeHtml(refused)}</p>`);
+  });
 }
 async function autoExport() {
+  const go = AUTO.el && AUTO.el.querySelector('[data-as-act="ex-go"]');
+  if (go) { if (go.disabled) return; go.disabled = true; }
+  const req = autoExNext();
+  if (!deliveryInfo.encoders) await fetchDeliveryInfo();
+  if (!autoExLive(req)) return;
+  const refused = await exportH264Refusal(deliveryIsH264(sliceDeliverySpec()));
+  // 〔返回〕, closing the dialog or another 〔导出〕 while the precheck was out: nothing is placed or exported
+  if (!autoExLive(req)) return;
+  if (refused) { autoExportConfirm(); return; }
   const st = autoState(), on = st.clips.filter((c) => c.on);
   const r = placeAutoSlices(on);
   if (!r.ok) { autoToast(uiText("own.as-place-failed", { why: r.why }), false); autoRender("review"); return; }
@@ -11644,7 +11779,6 @@ async function autoExport() {
   let at = r.at0;
   const segments = on.map((c) => { const d = Math.round((c.e - c.s) * 1000) / 1000, s = { output: { start: at, end: Math.round((at + d) * 1000) / 1000 } }; at = s.output.end; return s; });
   const before = new Set(exportQueue.map((q) => q.id));
-  if (!deliveryInfo.encoders) await fetchDeliveryInfo();   // sliceDeliverySpec needs to know the encoders
   queueSlices(segments, names, { open: false });
   st.exportIds = exportQueue.filter((q) => !before.has(q.id)).map((q) => q.id);
   st.exportNames = on.map(autoName);
@@ -11656,7 +11790,7 @@ async function autoExportRun() {
   autoRender("done");
   // the page follows the queue while it runs (each file's percent), then shows what was made
   const live = setInterval(() => { if (AUTO.el && AUTO.el.open && autoState().step === "done") autoRender("done"); }, 700);
-  try { if (!queueRunning) await runQueue(); } finally { clearInterval(live); }
+  try { if (!queueRunning) await runQueue({ quiet: true }); } finally { clearInterval(live); }
   if (AUTO.el && AUTO.el.open) autoRender("done");
 }
 /** Why exports failed, in plain words (the queue keeps the detail). */
@@ -11673,7 +11807,7 @@ function autoDoneHtml() {
   const title = busy ? autoSay("as-exporting", { n: items.length }) : failed.length ? autoSay("as-done-partial", { n: done.length, failed: failed.length }) : autoSay("as-done-title", { n: done.length });
   return `<h1>${title}</h1><p class="as-sub">${busy ? "" : autoSay("as-done-sub")}</p>
     <section class="as-card-box">${items.map((q) => `<div class="as-row"><span><b>${escapeHtml(q.name)}</b></span><span class="as-small">${q.status === "running" ? Math.round((q.progress || 0) * 100) + "%" : ""}</span></div>`).join("")}</section>
-    ${failed.length ? `<section class="as-card-box as-warn"><b>${autoSay("as-fail", { failed: failed.length, name: failed.slice(0, 3).map((q) => q.name).join("」「") + (failed.length > 3 ? "…" : ""), why: uiText("own." + autoFailWhy(failed)) })}</b>
+    ${failed.length ? `<section class="as-card-box as-warn"><b>${autoSay("as-fail", { failed: failed.length, name: failed.slice(0, 3).map((q) => q.name).join("」「") + (failed.length > 3 ? "…" : ""), why: failed.some((q) => q.noH264) ? failed.find((q) => q.noH264).error.replace(/[。.]$/, "") : uiText("own." + autoFailWhy(failed)) })}</b>
       <div class="as-row"><button type="button" class="btn primary" data-as-act="retry">${autoSay("as-retry")}</button></div></section>` : ""}
     <div class="as-cta"><button type="button" class="btn primary" data-as-act="open-queue">${autoSay("as-open-queue")}</button>
       <button type="button" class="btn" data-as-act="back-review">${autoSay("as-back-review")}</button><button type="button" class="btn" data-as-act="another">${autoSay("as-another")}</button></div>`;
@@ -18688,7 +18822,12 @@ function populateExportProfileSelect() {
     dlvSpec = n.spec; dlvNotes = n.notes;
     cur = "d:" + dlvSpec.preset;
   } else cur = "p:" + choice.id;
-  const opt = (v, label) => `<option value="${escapeHtml(v)}">${escapeHtml(label)}</option>`;
+  // advanced mode with no H.264: the MP4 choices are off, with JJ's note beside them (MontClipFfmpegCard.exportOption)
+  const view = mcView.get();
+  const optState = (v) => MontClipFfmpegCard.exportOption(ffmpegUi.status, view.mode, v.startsWith("d:")
+    ? normalizeDelivery(v.slice(2)).spec.video.codec === "h264" : profileIsH264(v.slice(2)), view.language);
+  const opt = (v, label) => { const o = optState(v);
+    return `<option value="${escapeHtml(v)}"${o.disabled ? " disabled" : ""}>${escapeHtml(o.note ? label + " — " + o.note : label)}</option>`; };
   let html = Delivery.presetGroups(deliveryInfo.saved).map((g) =>
     `<optgroup label="${escapeHtml(g.group)}">${g.items.map((it) => opt("d:" + it.id, it.label)).join("")}</optgroup>`).join("");
   const ids = Object.keys(encodeProfiles.profiles);
@@ -18702,6 +18841,8 @@ function populateExportProfileSelect() {
   sel.innerHTML = html;
   sel.value = cur;
   if (sel.value !== cur) sel.value = "d:" + Delivery.DEFAULT_PRESET;
+  // a choice that can't export here (MP4 with no H.264) gives way to the first that can (Archive …)
+  if (sel.selectedOptions[0]?.disabled) { const ok = [...sel.options].find((o) => !o.disabled); if (ok) { sel.value = ok.value; sel.dispatchEvent(new Event("change")); } }
   syncExportChoiceUi(choice.source);
 }
 /** source: where the current settings came from, for the hint line. */
@@ -20066,6 +20207,17 @@ async function prepareFrameAssets(t) {
  *  opts.deliveries: [{delivery, name?}] — several files from one render (same fps).
  *  opts.silent: no overlay, alert or download (the export queue shows it);
  *  opts.onProgress(0…1). Resolves {outputs:[{file, ok, src?, error?}]} or {error, cancelled}. */
+/* No H.264 encoder on this computer (Linux with the bundled LGPL FFmpeg and no graphics card, Windows N without Media
+   Foundation): an H.264 export is refused when it is clicked, in plain words, before the audio mix or any frame is
+   rendered (ADR 2026-11-02 point 3). null = go ahead; the server still refuses at /api/export/begin. */
+const deliveryIsH264 = (spec) => !!spec && normalizeDelivery(spec).spec.video.codec === "h264";
+const profileIsH264 = (id) => /-c:v\s+(libx264|h264_\w+)/.test(exportProfileMeta(id).summary || "");
+async function exportH264Refusal(h264) {
+  if (!h264 || !state.connected || !state.ffmpeg) return null;
+  let st = null;
+  try { st = await (await fetch("/api/export/h264", { cache: "no-store" })).json(); } catch { return null; }
+  return st && !st.encoder && st.reason ? MontClipView.h264Refusal(mcView.get().language, st.reason) : null;
+}
 async function fastExport(opts = {}) {
   if (state.exporting) return { error: "an export is already running" };
   const job = opts.job || null;
@@ -20086,10 +20238,13 @@ async function fastExport(opts = {}) {
   let uploadError = null;
   const setError = (err) => { if (!uploadError) uploadError = err; };
   try {
+    const profileId = opts.profile || effectiveEncodeProfileId();
+    // no H.264 encoder here: said now, before the audio mix and the frames (the server refuses at begin too)
+    const refused = await exportH264Refusal(deliveries ? deliveries.some((d) => deliveryIsH264(d.delivery)) : profileIsH264(profileId));
+    if (refused) throw new Error(refused);
     els.exportTitle.textContent = uiText("own.mixing-audio");
     const wav = await renderAudioMix(t0, t1);
     if (renderCancelled) throw new Error("cancelled");
-    const profileId = opts.profile || effectiveEncodeProfileId();
     const cv = deliveryCanvas();
     const begin = await fetch("/api/export/begin", {
       method: "POST",
@@ -20107,7 +20262,7 @@ async function fastExport(opts = {}) {
       }),
       signal,
     }).then((r) => r.json());
-    if (!begin.id) throw Object.assign(new Error(MontClipView.h264Message(mcView.get().language, begin) || begin.error || "export begin failed"), { code: begin.code });
+    if (!begin.id) throw Object.assign(new Error(MontClipView.h264Refusal(mcView.get().language, begin) || begin.error || "export begin failed"), { code: begin.code });
     sessId = begin.id;
     const jpegQ = delivery ? begin.jpegQuality ?? 0.95 : exportProfileMeta(profileId).jpegQuality ?? 0.95;
     const rgba = begin.input === "rgba";
@@ -20343,12 +20498,21 @@ function renderQueueProgress() {
     if (st) st.textContent = `Rendering… ${Math.round(q.progress * 100)}%`;
   }
 }
-async function runQueue() {
+async function runQueue(opts) {
+  const quiet = !!(opts && opts.quiet);   // the auto-slices dialog says a refusal on its own page
   if (queueRunning || state.exporting) return;
   if (!(state.connected && state.ffmpeg)) { alert("The export queue needs the server and ffmpeg (Fast export)."); return; }
   queueRunning = true; queueStop = false;
   renderQueue();
   try {
+    // no H.264 encoder: every waiting H.264 output is refused now, in plain words, and none is rendered; the others go out
+    const h264Waiting = exportQueue.filter((q) => q.status === "pending" && deliveryIsH264(q.spec));
+    const refused = h264Waiting.length ? await exportH264Refusal(true) : null;
+    if (refused) {
+      for (const q of h264Waiting) Object.assign(q, { status: "failed", error: refused, noH264: true });
+      renderQueue();
+      if (!quiet) alert(refused);
+    }
     while (!queueStop) {
       const first = exportQueue.find((q) => q.status === "pending");
       if (!first) break;
@@ -20359,7 +20523,7 @@ async function runQueue() {
         renderQueue(); continue;
       }
       const group = exportQueue.filter((q) => q.status === "pending" && (q.spec.fps || projectFps()) === fps && queueRangeKey(q.range) === queueRangeKey(first.range) && (q.guard || null) === (first.guard || null)).slice(0, 8);
-      for (const q of group) { q.status = "running"; q.progress = 0; q.error = null; }
+      for (const q of group) { q.status = "running"; q.progress = 0; q.error = null; q.noH264 = false; }
       renderQueue();
       exportRangeForced = first.range && typeof first.range === "object" ? first.range : first.range === "in-out" && hasWorkArea() ? "in-out" : "entire";
       let res;
@@ -20832,7 +20996,7 @@ async function webCodecsExport() {
       }),
       signal,
     }).then((r) => r.json());
-    if (!begin.id) throw new Error(MontClipView.h264Message(mcView.get().language, begin) || begin.error || "export begin failed");
+    if (!begin.id) throw new Error(MontClipView.h264Refusal(mcView.get().language, begin) || begin.error || "export begin failed");
     sessId = begin.id;
     if (wav) {
       const r = await fetch("/api/export/audio?id=" + sessId, { method: "POST", body: wav, signal });

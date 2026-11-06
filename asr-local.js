@@ -129,7 +129,7 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
     clearTimeout(idle);
     const S = engine(), r = await recognizer(dir), p = punctuator(store.dir("punct"));
     const vad = new S.Vad({ sileroVad: { model: vadFile, ...VAD }, sampleRate: RATE, debug: false, numThreads: 1 }, 60);
-    const proc = spawn(ffmpeg, ["-nostdin", "-v", "error", "-i", file, "-vn", "-ac", "1", "-ar", String(RATE), "-f", "s16le", "-acodec", "pcm_s16le", "-"],
+    const proc = spawn(typeof ffmpeg === "function" ? ffmpeg() : ffmpeg, ["-nostdin", "-v", "error", "-i", file, "-vn", "-ac", "1", "-ar", String(RATE), "-f", "s16le", "-acodec", "pcm_s16le", "-"],
       { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     let stderr = "", spawnError = null;
     proc.stderr.on("data", (c) => { if (stderr.length < 4000) stderr += c; });
