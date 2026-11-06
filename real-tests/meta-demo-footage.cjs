@@ -10,6 +10,8 @@
 //     real-tests/meta-demo-footage.cjs --montclip-smoke --user-data-dir=<fresh> --no-sandbox     (europa: with the session DBUS)
 const electron=require('electron'),{app,BrowserWindow}=electron,assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
 if(!process.argv.includes('--montclip-smoke')||process.env.MONTCLIP_REAL_MODELS!=='1')throw Error('Explicit run with MONTCLIP_REAL_MODELS=1 required');
+// POSIX mode checks do not establish Windows ACL privacy. Refuse before even consulting the key reader.
+if(process.platform==='win32'){process.stdout.write('FOOTAGE SKIPPED: PRIVATE_PROFILE_UNSUPPORTED_ON_WINDOWS\n');process.exit(2);}
 const profileArg=process.argv.find(a=>a.startsWith('--user-data-dir='));
 if(!profileArg||!profileArg.slice('--user-data-dir='.length).trim())throw Error('A fresh --user-data-dir is required');
 const requestedProfile=profileArg.slice('--user-data-dir='.length).trim();

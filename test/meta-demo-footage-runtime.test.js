@@ -7,13 +7,13 @@ function fixture(t) {
   t.after(() => { const out=path.join(root,'out');try{if(fs.lstatSync(out).isSymbolicLink())fs.unlinkSync(out);}catch{} fs.rmSync(root, {recursive:true, force:true}); });
   return {root, out:path.join(root,'out'), profile:path.join(root,'profile')};
 }
-function boot(f, {missingKey=false, encodeStatus=1, lifecycle=false, recordingFails=false, loadFails=false, cleanupFails=false,reportFails=false}={}) {
+function boot(f, {missingKey=false, encodeStatus=1, lifecycle=false, recordingFails=false, loadFails=false, cleanupFails=false,reportFails=false,platform='linux'}={}) {
   const output=[]; let exited, keyReads=0, userData, service;
   const handlers={};
   const agentModule={...require('../desktop/agent-service')};
   class BrowserWindow { async loadURL() {if(loadFails)throw Error('LOAD_FAILED');} }
   const context = {Buffer, console, setInterval:()=>1, clearInterval(){}, setTimeout:fn=>fn(),
-    process:{argv:['node','script','--montclip-smoke','--user-data-dir='+f.profile],env:{MONTCLIP_REAL_MODELS:'1',MONTCLIP_FOOTAGE_OUT:f.out},stdout:{write:s=>output.push(s)},exit:n=>{exited=n;throw Error('EXIT');}},
+    process:{platform,argv:['node','script','--montclip-smoke','--user-data-dir='+f.profile],env:{MONTCLIP_REAL_MODELS:'1',MONTCLIP_FOOTAGE_OUT:f.out},stdout:{write:s=>output.push(s)},exit:n=>{exited=n;throw Error('EXIT');}},
     require(id) {
       if(id==='electron') return {app:{setPath:(_k,v)=>{userData=v;},getPath:()=>userData,exit:n=>{exited=n;},on:(name,fn)=>handlers[name]=fn},BrowserWindow};
       if(id==='node:fs'&&reportFails)return {...fs,writeFileSync(p,...args){if(p===path.join(f.out,'footage-result.json'))throw Error('synthetic report denied');return fs.writeFileSync(p,...args);}};
@@ -58,6 +58,11 @@ for(const kind of ['file','directory','nonempty','junction','dangling']) test('r
 test('invalid profile never consults the real-key adapter',t=>{
   const f=fixture(t);fs.mkdirSync(f.profile);fs.writeFileSync(path.join(f.profile,'keep'),'original');
   const b=boot(f);a.throws(b.run);a.equal(b.keyReads(),0);
+});
+test('Windows recording refuses before key access or profile/output creation',t=>{
+ const f=fixture(t),b=boot(f,{platform:'win32'});a.throws(b.run,/EXIT/);
+ a.equal(b.exited(),2);a.equal(b.keyReads(),0);a.ok(!fs.existsSync(f.profile));a.ok(!fs.existsSync(f.out));
+ a.ok(b.output.join('').includes('PRIVATE_PROFILE_UNSUPPORTED_ON_WINDOWS'));
 });
 for(const condition of ['success','recording failure','load failure'])test('sentinel credentials removed after '+condition,async t=>{
   const f=fixture(t),b=boot(f,{lifecycle:true,recordingFails:condition==='recording failure',loadFails:condition==='load failure'});
