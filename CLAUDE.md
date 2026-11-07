@@ -194,6 +194,13 @@ line or an error. A headless export or measurement browser gets a one-time ticke
 (one use, one minute) in its URL instead of the token. Without
 `MONTCLIP_HOST=cindy` none of this applies.
 
+The editor page opened with `?host=cindy` (`host-embed.js`) hides its built-in
+assistant (Cindy's chat takes its place) and follows Cindy's theme: `?theme=light|dark`
+at load (any other value is ignored), then `postMessage({type:"montclip-host-theme", scheme})`,
+taken only when it comes from the framing page: `event.source` is `window.parent` and
+`event.origin` is that page's origin (`location.ancestorOrigins`, else the referrer;
+when neither names one, no message is taken).
+
 `mcp-server.js` run as a program speaks MCP on stdio; required as a module (the
 Cindy plugin's Node worker does) it only hands over `{TOOLS, callTool,
 ensureUIServer}` and leaves stdin alone.
