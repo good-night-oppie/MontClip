@@ -2517,8 +2517,8 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
   run again elsewhere, since the quiet tab may be half-way through it. A tab that reports
   after that is answered `{cancel:true, code, error}` and tells whoever is at it in plain words
   (JJ v2: no code or raw English on the page), with 〔复制问题信息〕 / "Copy problem details",
-  which copies the log line — time, code and raw error, with paths cut to the file name and
-  keys / tokens removed (`problem-details.js`) — under the small print 「复制的内容不含你的文件夹路径、密钥和观众信息。」.
+  which copies the log line — code and raw error, with viewer names and uids, keys / tokens and
+  the home folder taken out (`problem-redact.js`, `POST /api/problem-details`) — under the small print 「复制的内容不含你的文件夹路径、密钥和观众信息。」.
   The raw line goes to the console. A headless job may stay quiet 120 s. The MCP
   tools cancel the job they started when their wait times out, loses track of it, or the
   caller cancels the call (an export past its `timeout` keeps running; its id is in the reply).

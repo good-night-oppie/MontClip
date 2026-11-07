@@ -61,7 +61,7 @@ function createExportJobs(opts) {
   const clock = typeof opts.now === "function" ? opts.now : () => Date.now();   // late-bound: tests may stub Date.now
   function assertWhere(where = "auto") {
     if (opts.allowHeadless !== false) return;
-    // English for agents and logs; the page says errorCode in the interface language (app.js codeText)
+    // English for agents and logs; the page says errorCode in the interface language (app.js jobProblem, errorText)
     if (where === "headless") throw Object.assign(new Error("Headless system browsers are disabled in desktop mode."), { code: 409, errorCode: "HEADLESS_DISABLED" });
     if (!opts.editors()) throw Object.assign(new Error("The editor is not ready; open it and retry."), { code: 409, errorCode: "EDITOR_NOT_READY" });
   }
@@ -104,7 +104,7 @@ function createExportJobs(opts) {
             : "no editor tab picked up the job — is it busy exporting? Retry with where:\"headless\"" });
       else if (j.status === "running" && j.via === "tab" && now - j.updated > TAB_SILENT_MS &&
         (j.hidden === true || (j.tabId && opts.editorConnected?.(j.tabId) === false)))
-        // English for agents and logs; the page says errorCode in the interface language (app.js codeText)
+        // English for agents and logs; the page says errorCode in the interface language (app.js jobProblem, errorText)
         end(j, "failed", { errorCode: "EDITOR_STOPPED_ANSWERING", error: `the editor tab stopped answering for ${TAB_SILENT_MS / 1000} s ` +
           "(it may be in the background, minimized or paused), so the job was ended to free the queue — bring the editor to the front and retry" +
           (opts.allowHeadless === false ? "" : ", or retry with where:\"headless\"") });
@@ -201,7 +201,7 @@ function createExportJobs(opts) {
       const j = jobs.get(id);
       if (!j) return null;
       // cancelled, or ended for it (it stopped answering): the tab stops, and what it sends late is not taken.
-      // Ended by the queue, it is also told why, so it can say so to whoever is at it (app.js showProblem).
+      // Ended by the queue, it is also told why, so it can say so to whoever is at it (app.js jobProblem).
       if (j.status === "failed" && j.errorCode) return { cancel: true, code: j.errorCode, error: j.error };
       if (j.status === "cancelled" || j.status === "failed") return { cancel: true };
       if (j.status !== "running") return { cancel: false };

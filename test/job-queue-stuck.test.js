@@ -105,10 +105,10 @@ test("the busy refusal names the job, its kind and the exact cancel call", () =>
 });
 
 test("the page has plain Chinese for both new codes", () => {
-  const app = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   for (const [code, key] of [["JOB_BUSY", "err-job-busy"], ["EDITOR_STOPPED_ANSWERING", "err-editor-stopped"]]) {
-    assert.ok(app.includes(`${code}: "own.${key}"`), code);
     const zh = V.text["zh-CN"]["own." + key], en = V.text.en["own." + key];
+    // said through #129's errorText (app.js jobProblem), with 〔复制问题信息〕
+    assert.equal(V.errorText("zh-CN", { code }).text, zh, code); assert.equal(V.errorText("en", { code }).text, en, code);
     assert.ok(zh && en, key);
     assert.equal(zh.replace(/MontClip/g, "").match(/[A-Za-z]{2,}/), null, "no tool names or English in: " + zh);
     assert.ok(!/[一-鿿]/.test(en), en);

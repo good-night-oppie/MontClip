@@ -65,13 +65,6 @@ const shownProject = (name) => MontClipView.projectName(mcView.get().language, n
 /** On-device transcription: on in development and the browser editor; a packaged desktop build has it
  *  off unless the main process turned it on (desktop/features.js). Off means no entry and no download. */
 function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
-/** A server refusal's reason code, said in the interface language; "" when the code has no text of its own. */
-const CODE_TEXT = { NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready", EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept",
-  JOB_BUSY: "own.err-job-busy", EDITOR_STOPPED_ANSWERING: "own.err-editor-stopped" };
-function codeText(error) {
-  const code = error && (error.code || error.errorCode);
-  return typeof code === "string" && CODE_TEXT[code] ? uiText(CODE_TEXT[code]) : "";
-}
 /** Any failure for the streamer (Deja, decision B; JJ's table v2): plain words from MontClipView.errorText. The raw error
  *  goes to the log only, never on screen; r.line is that log line, for 〔复制问题信息〕 (copyProblem). */
 function sayError(error, where = "error") {
@@ -11812,29 +11805,6 @@ function toastAction(msg, label, onClick, note = "") {
   if (!toastHold) toastHold = holdToast(els.toast, () => { if (els.toast.classList.contains("has-action")) els.toast.classList.remove("show", "has-action"); });
   toastHold.start();
 }
-/** Something went wrong (JJ v2, section 1, rule 2): the raw line goes to the console; the page says, in plain words,
- *  what happened and what to do (the code's own sentence, else the catch-all), with 〔复制问题信息〕, which copies the
- *  line with the code and the raw error, scrubbed of paths and keys (problem-details.js), and the small print. */
-function showProblem(problem) {
-  console.warn(MontClipProblem.logLine(problem));
-  if (!els.toast) return;
-  const words = codeText(problem) || uiText("own.err-unexpected");
-  els.toast.textContent = "";
-  const span = document.createElement("span"), btn = document.createElement("button"), small = document.createElement("small");
-  span.textContent = words;
-  btn.type = "button"; btn.className = "btn tiny toast-action"; btn.textContent = uiText("own.copy-problem");
-  small.className = "toast-small"; small.textContent = uiText("own.copy-problem-note");
-  btn.addEventListener("click", () => {
-    const done = (key) => { span.textContent = uiText(key); };
-    try { navigator.clipboard.writeText(MontClipProblem.copyLine(problem)).then(() => done("own.copy-problem-done"), () => done("own.copy-problem-failed")); }
-    catch { done("own.copy-problem-failed"); }
-  });
-  els.toast.append(span, btn, small);
-  els.toast.classList.add("show", "has-action", "has-problem");
-  clearTimeout(toastTimer);
-  if (!toastHold) toastHold = holdToast(els.toast, () => { if (els.toast.classList.contains("has-action")) els.toast.classList.remove("show", "has-action"); });
-  toastHold.start();
-}
 
 /* step 4: export — the ticked parts put on the timeline (one undo step), then one file each through the export queue */
 /** A new request number for the export confirm page: drawing it, 〔导出〕, 〔返回〕 each make the earlier ones stale. */
@@ -20831,12 +20801,15 @@ async function reportExportJob(id, body, force = false) {
   } catch { }
 }
 /* The queue ended this tab's job for it (it stopped answering, export-jobs.js) and said why: tell whoever is at the
-   tab, once per job. A cancel the agent asked for carries no code and says nothing here. */
+   tab, once per job, in errorText's words with 〔复制问题信息〕 (copyProblem: viewers, keys and user folders out,
+   problem-redact.js) — the sentence sends her to that button, so it is always there. A cancel the agent asked for
+   carries no code and says nothing here. */
 const jobProblemShown = new Set();
 function jobProblem(id, reply) {
   if (!reply || !reply.code || jobProblemShown.has(id)) return;
   jobProblemShown.add(id);
-  showProblem({ code: reply.code, error: reply.error });
+  const r = sayError({ code: reply.code, error: reply.error }, "job " + id);
+  toastAction(r.text, uiText("btnCopyProblem"), () => copyProblem(r), uiText("copyProblemNote"));
 }
 /* While this tab runs a job it says so every JOB_HEARTBEAT_MS, apart from its progress (a scope reading has none, an
    export has none while it mixes the sound). The queue ends a hidden or disconnected tab job that stays quiet for 20 s (export-jobs.js

@@ -342,14 +342,6 @@
       "上一个任务还没做完，这个要等它做完才能开始。把 MontClip 的编辑窗口切到前面，过半分钟再试一次；还不行，点「复制问题信息」发给我们。"],
     "err-editor-stopped": ["The editor didn't respond for 20 seconds, so this task stopped. The original is unchanged. Bring the MontClip editor window to the front (don't minimize it) and try again; if it still fails, use \"Copy problem details\" and send it to us.",
       "编辑窗口有 20 秒没有回应，这个任务停下了。原片没有改动。把 MontClip 的编辑窗口切到前面（不要最小化），再试一次；还不行，点「复制问题信息」发给我们。"],
-    // JJ v2 (2026-11-04), finalised: anything not listed, and the copy button with its small print
-    "err-unexpected": ["This didn't finish because of a problem we didn't expect. The original is unchanged. Try again; if it still fails, use \"Copy problem details\" and send it to us.",
-      "这次没有做完，出了个我们没预料到的问题。原片没有改动。再试一次；还不行，点「复制问题信息」发给我们。"],
-    "copy-problem": ["Copy problem details", "复制问题信息"],
-    "copy-problem-note": ["What's copied leaves out your folder paths, keys and viewer details.", "复制的内容不含你的文件夹路径、密钥和观众信息。"],
-    // drafts, waiting for JJ to finalise
-    "copy-problem-done": ["Copied. Paste it in a message to us.", "已经复制好了，粘贴到发给我们的消息里就行。"],
-    "copy-problem-failed": ["It couldn't be copied this time. Try the button again.", "这次没能复制，再点一次按钮试试。"],
     "map-no-media": ["This project has no audio or video, so there is no time mapping to export.", "这个项目里没有音视频，导不出时间对照表。"],
     "connected": ["Ready", "就绪"],
     // 设置 › AI 助手 (JJ v2, 2026-11-04): the switch the main process keeps (desktop/agent-switch.js) and the 「AI 数据说明」 again
@@ -1361,7 +1353,7 @@
     FLV_IMPORT_BUSY: "flvBusy", FLV_IMPORT_EXPIRED: "flvExpired", FLV_DISK_FULL: "errDiskFull" });
   /** Codes with a sentence of their own besides the h264 and FLV families (the others are v2's last row). */
   const ERROR_TEXT = { NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready",
-    EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept", DISK_FULL: "errDiskFull", EXPORT_TIMELINE_CHANGED: "errExportChanged", frameTooSmall: "errFrameTooSmall",
+    EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept", JOB_BUSY: "own.err-job-busy", EDITOR_STOPPED_ANSWERING: "own.err-editor-stopped", DISK_FULL: "errDiskFull", EXPORT_TIMELINE_CHANGED: "errExportChanged", frameTooSmall: "errFrameTooSmall",
     extGone: "errExtFailed", extNotFfmpeg: "errExtFailed", extNoX264: "errExtFailed", extSettingBad: "errExtFailed", extNotFullPath: "errExtFailed",
     // AI background removal at export (#154): JJ's two sentences, as they are (Deja, 2026-11-07)
     BG_REMOVE_UNAVAILABLE: "own.bgremove-export-unavailable", BG_REMOVE_REALTIME: "own.bgremove-export-realtime",

@@ -5090,9 +5090,6 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 .as-preview video, .as-preview audio { width: 100%; max-height: 60vh; background: #000; }
 #toast.has-action { pointer-events: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
 #toast .toast-note { flex-basis: 100%; font-size: 11px; opacity: .75; }
-/* showProblem: the words, 〔复制问题信息〕, and the small print on a line of its own */
-#toast.has-problem { flex-wrap: wrap; }
-#toast .toast-small { flex-basis: 100%; font-size: 11px; color: var(--text-dim, var(--text)); opacity: .8; }
 .mc-auto-slices { white-space: nowrap; }
 .auto-slices .as-tag-estimated { color: #f4a261; border-color: #f4a261; }
 .auto-slices .as-tag-likely { color: var(--dim); border-color: var(--border); }
