@@ -57,7 +57,7 @@ test('2. allowed earlier for this chat, not asked again: 「…你在这个聊�
 });
 
 test('3. run by 自动 / Yolo without asking: the old line, 「已按 AI 的建议改好，没有问你（{mode}模式）。可以撤销。」',async()=>{
- for(const [mode,name] of [['auto','自动'],['yolo','Yolo']]){
+ for(const [mode,name] of [['auto','自动'],['yolo','全自动']]){
   const r=await reply(await hostIn(mode),{mode});
   a.equal(r.asked,0);a.equal(r.commits,1);a.deepEqual(r.toasts,['已按 AI 的建议改好，没有问你（'+name+'模式）。可以撤销。']);
  }

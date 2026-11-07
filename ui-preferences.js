@@ -861,7 +861,7 @@
     "ap-applied-allowed": ["Done as the AI suggested. You allowed this kind of change for this chat, so you weren't asked again. Undo is available.", "已按 AI 的建议改好。你在这个聊天中批准过这类修改，所以没再问你。可以撤销。"],
     "ap-applied": ["Done as the AI suggested, without asking ({mode} mode). Undo is available.", "已按 AI 的建议改好，没有问你（{mode}模式）。可以撤销。"],
     "ap-stale": ["The project changed after this reply, so this step was not done.", "项目在回复之后改过了，所以没有做这一步。"],
-    "ap-yolo-on": ["Yolo is on", "Yolo 开着"],
+    "ap-yolo-on": ["Full auto is on", "全自动开着"],
     "ap-sum-sentences": ["Keep {count} sentences, about {duration} in the final cut.", "保留 {count} 句，成片大约 {duration}。"],
     "ap-sum-ranges": ["Keep {count} ranges joined into one video, about {duration}.", "保留 {count} 段，拼成一条，大约 {duration}。"],
     "ap-sum-slices": ["Cut {count} separate clips, one file each, about {duration} in total.", "切出 {count} 条切片，每条一个文件，一共大约 {duration}。"],
@@ -892,7 +892,7 @@
     "pl-busy": ["MontClip was busy with something else. When it's done, ask the assistant to plan again.", "软件正在忙别的事。等它做完，再让助手重新排一次。"],
     "pl-cancelled": ["You closed the preview without applying.", "你关掉了预览，没有应用。"],
     "pl-stale": ["It doesn't fit the project as it is now.", "和现在的项目对不上。"],
-    "pl-plan-mode": ["Plan mode only makes plans. To carry it out, switch to Manual, Auto or Yolo at the top of the assistant.", "计划模式只出计划。要执行的话，在助手顶部换成手动、自动或 Yolo。"],
+    "pl-plan-mode": ["Plan mode only makes plans. To carry it out, switch to Manual, Auto or Full auto at the top of the assistant.", "计划模式只出计划。要执行的话，在助手顶部换成手动、自动或全自动。"],
     "pl-discarded": ["You dropped this plan. Nothing was done.", "这个计划不要了，什么都没做。"],
     "pl-done": ["Every step is done. You can undo the whole plan at once.", "每一步都做完了。可以一次撤销整个计划。"],
     "pl-stopped": ["The plan stopped at this step; the steps after it were not done. You can ask the assistant to plan again from the project as it is now.", "计划停在了这一步，后面的步骤没有做。可以让助手按现在的项目重新排一次计划。"],
@@ -1257,12 +1257,12 @@
   Object.assign(officialPaneText.en,{more:'More',projectNotReady:'This project is not saved yet, so nothing was sent. Your edits are still here. Click Save project and try again.',saveProject:'Save project'});
   Object.assign(officialPaneText['zh-CN'],{more:'更多',projectNotReady:'这个项目还没保存好，所以没有发送。你的剪辑都还在。请点「保存项目」后再试。',saveProject:'保存项目'});
   // P4: the mode switch at the top of the assistant (the AI cannot change it). New copy, for JJ.
-  Object.assign(officialPaneText.en,{approvalWaiting:'Waiting for your decision',modes:'How the AI works',modePlan:'Plan',modeManual:'Manual',modeAuto:'Auto',modeYolo:'Yolo',
+  Object.assign(officialPaneText.en,{approvalWaiting:'Waiting for your decision',modes:'How the AI works',modePlan:'Plan',modeManual:'Manual',modeAuto:'Auto',modeYolo:'Full auto',
    modePlanTip:'Only plans; changes nothing.',modeManualTip:'Asks before changing the project; asks every time for anything that can\'t be undone. This is the default.',modeAutoTip:'Does what can be undone; asks before what can\'t.',modeYoloTip:'Does every step without asking you; anything sent out is still shown to you first. You\'ll be asked once more before it turns on.',
-   yoloOn:'Yolo is on: the AI does every step without asking you; anything sent out is still shown to you first.',planTitle:'Plan',planSummary_one:'Made a plan of {count} step. See the list below.',planSummary_other:'Made a plan of {count} steps. See the list below.',planInvalid:'This reply looks like a plan but can\'t be used. Nothing was done.',planRemove:'Delete',planStart:'Start',planDiscard:'Drop this plan',formatPlan:'To have the AI do several steps at once, ask it to make a plan first: it lists every step; you look them over, delete the ones you don\'t want, then click "Start". Each step still follows the mode you chose.',formatPlanTech:'Below is the format note for the AI; you don\'t need to read it.',planUndo:'Undo the whole plan',modeDeclined:'Yolo was not turned on.',modeUnavailable:'The mode didn\'t change; it\'s still the one it was. Close MontClip, open it again and try once more.'});
-  Object.assign(officialPaneText['zh-CN'],{approvalWaiting:'等你决定',modes:'AI 怎么做',modePlan:'计划',modeManual:'手动',modeAuto:'自动',modeYolo:'Yolo',
+   yoloOn:'Full auto is on: the AI does every step without asking you; anything sent out is still shown to you first.',planTitle:'Plan',planSummary_one:'Made a plan of {count} step. See the list below.',planSummary_other:'Made a plan of {count} steps. See the list below.',planInvalid:'This reply looks like a plan but can\'t be used. Nothing was done.',planRemove:'Delete',planStart:'Start',planDiscard:'Drop this plan',formatPlan:'To have the AI do several steps at once, ask it to make a plan first: it lists every step; you look them over, delete the ones you don\'t want, then click "Start". Each step still follows the mode you chose.',formatPlanTech:'Below is the format note for the AI; you don\'t need to read it.',planUndo:'Undo the whole plan',modeDeclined:'Full auto was not turned on.',modeUnavailable:'The mode didn\'t change; it\'s still the one it was. Close MontClip, open it again and try once more.'});
+  Object.assign(officialPaneText['zh-CN'],{approvalWaiting:'等你决定',modes:'AI 怎么做',modePlan:'计划',modeManual:'手动',modeAuto:'自动',modeYolo:'全自动',
    modePlanTip:'只出计划，不改项目。',modeManualTip:'改项目前先问你；撤不回的每次都问。默认是这个。',modeAutoTip:'能撤销的直接做，撤不回的先问你。',modeYoloTip:'每一步都直接做，不问你；往外发的内容照样先给你看。打开前会再确认一次。',
-   yoloOn:'Yolo 开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。',planTitle:'计划',planSummary:'已排好计划，共 {count} 步，见下面的清单。',planInvalid:'这条回复像是计划，但用不了，什么都没做。',planRemove:'删掉',planStart:'开始',planDiscard:'不要这个计划',formatPlan:'想让 AI 一次做好几步，可以让它先排一个计划：它会列出每一步，你看一遍、删掉不要的，再点「开始」。每一步怎么做，还是看你选的模式。',formatPlanTech:'以下是给 AI 的格式说明，不用看。',planUndo:'撤销整个计划',modeDeclined:'没有打开 Yolo。',modeUnavailable:'这次没换成，模式还是原来那个。关掉 MontClip 再打开，再试一次。'});
+   yoloOn:'全自动开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。',planTitle:'计划',planSummary:'已排好计划，共 {count} 步，见下面的清单。',planInvalid:'这条回复像是计划，但用不了，什么都没做。',planRemove:'删掉',planStart:'开始',planDiscard:'不要这个计划',formatPlan:'想让 AI 一次做好几步，可以让它先排一个计划：它会列出每一步，你看一遍、删掉不要的，再点「开始」。每一步怎么做，还是看你选的模式。',formatPlanTech:'以下是给 AI 的格式说明，不用看。',planUndo:'撤销整个计划',modeDeclined:'没有打开全自动。',modeUnavailable:'这次没换成，模式还是原来那个。关掉 MontClip 再打开，再试一次。'});
   for(const language of ['en','zh-CN']) for(const [key,value] of Object.entries(officialPaneText[language])) text[language]['officialPane_'+key]=value;
   // JJ (2026-11-05): 「没填密钥」 names the key field by its own label, read from the same text, never a second copy.
   for(const language of ['en','zh-CN']) text[language].officialPane_configKeyRequired=officialPaneText[language].configKeyRequired.split('{field}').join(officialPaneText[language].key);
