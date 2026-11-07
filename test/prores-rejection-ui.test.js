@@ -15,7 +15,7 @@ for(const language of ['zh-CN','en'])for(const job of [null,'agent-job'])test('u
     els:{exportOverlay:{classList:{add:noop,remove:noop}},exportProgress:{style:{}},exportNote:{},exportTitle:{}},
     pause:noop,restoreExportVideoState:noop,projectFps:()=>30,beginExportWindow:()=>({start:0,end:1,frames:30}),
     renderAudioMix:async()=>null,effectiveEncodeProfileId:()=> 'prores422',deliveryCanvas:()=>({w:160,h:90}),exportBaseName:()=> 'test',
-    MontClipView:{h264Message:()=>''},mcView:{get:()=>({language})},uiText:k=>k==='own.export-failed-prefix'?prefix:k==='own.export-profile-unsupported'?(language==='zh-CN'?ZH:EN):k,
+    MontClipView:{h264Message:()=>'',h264Refusal:()=>''},exportH264Refusal:async()=>null,profileIsH264:()=>false,deliveryIsH264:()=>false,mcView:{get:()=>({language})},uiText:k=>k==='own.export-failed-prefix'?prefix:k==='own.export-profile-unsupported'?(language==='zh-CN'?ZH:EN):k,
     fetch:async(url,request)=>{posts.push(url);return{json:async()=>({code:'PROFILE_FILTER_MAPPING_UNSUPPORTED',error:'PROFILE_FILTER_MAPPING_UNSUPPORTED'})};},
     alert:s=>alerts.push(s),reportExportJob:async(id,data)=>reports.push(data),exportDecodeEnd:noop,endExportWindow:noop,releaseOriginalPlayers:noop,noteExportBgRemove:noop};
   vm.createContext(box);vm.runInContext(source,box);const result=await box.fastExport({profile:'prores422',job});

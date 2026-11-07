@@ -77,6 +77,7 @@
         "real-tests/openrouter.integration.cjs",
         "real-tests/run-deepseek-e2e.cjs",
         "scripts/readme-demo/mcp-call.cjs",
+        "scripts/readme-demo/generate-assets.py",
         "scripts/pr-sop/*.mjs"
       ],
       "exclude": [
@@ -86,7 +87,8 @@
         "test/**",
         "desktop/*-smoke.cjs",
         "desktop/*-perf.cjs",
-        "desktop/m0-smoke.js"
+        "desktop/m0-smoke.js",
+        "scripts/readme-demo/montclip_session.py"
       ]
     },
     "good-night-oppie/MontClip-Cindy": {
