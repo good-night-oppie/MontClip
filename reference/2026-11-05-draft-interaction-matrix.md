@@ -79,7 +79,7 @@ node --test test/chat-proposal.test.js test/range-plan.test.js test/range-plan-b
 tests 59; pass 59; fail 0; skipped 0
 ```
 
-原始测试记录：`docs/validation/2026-11-05-draft-interaction-tests.txt`。本轮没有功能改动、失败先行测试或新增运行依赖。未跑全量 npm test / release-check，未开 PR。
+原始测试记录：`2026-11-05-draft-interaction-tests.txt`（已移出仓库，见 [PR189 证据摘要](2026-11-05-pr189-evidence-summary.md)）。本轮没有功能改动、失败先行测试或新增运行依赖。未跑全量 npm test / release-check，未开 PR。
 
 没有启动服务或浏览器，没有连接用户工程。合成素材、CFR/VFR PTS 验收、实际预览导出、操作录像、操作计数、素材/截图/视频 hash、Linux/macOS、人工体验全部未运行/未产生。不能把 59 项测试说成截图任务验收；没有可比基线，不报告提速、30 秒骨架或 90% 准确率。
 

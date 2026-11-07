@@ -1,5 +1,7 @@
 # 既有能力 simulated 闭环：操作与画面通过，尾音未通过
 
+> 2026-11-07 更新：ProRes 结尾丢声音已由 #190 修复，本分支的尾音诊断脚本与材料已删除。原始证据已移出仓库，文件用途、sha256 和存放位置见 [PR189 证据摘要](2026-11-05-pr189-evidence-summary.md)。合并 #190 后在 Windows 本机复跑，runner 21/21、解码检查 13/13（源与导出均 576000 样本/声道），checker 的尾音项按原阈值通过。下文保留当时的记录。
+
 ## 退出确认与源码对应补核
 
 以下 SHA256 已逐一与 `git show <commit>:real-tests/draft-existing-loop.cjs` 核对，而非用旧成功记录代表当前源码：
@@ -9,7 +11,7 @@
 | run06 | 当时未记录runner hash | 14项检查、cleanup双true；仅历史证据，不能给后续源码背书 |
 | run07 | a93c70d8 / `571dcbabfc4503396305c7c5cecc27dd03d1c68ee25cd564af3c715c1d073795` | 14项检查；browserExited=false，completed=false，始终保留失败 |
 | v2-03 | 4ec65433 / `7242ef7ea469c8b729a076b1a8c1fae718fb26d97ae1bae6111e0e71c01f44fc` | 新独立完整交互运行21项通过、cleanup双true，包含新页面上下文及旧插卡撤销实测 |
-| audio-tail-01 | aa36b8e3 / `a2919e7c620161efa7cf33c2be15d415e44b1e3a25f546e1ec64c6df2654396b` | 当前runner诊断模式一次导出，cleanup双true；**不是当前源码完整交互回归** |
+| audio-tail-01 | aa36b8e3 / `a2919e7c620161efa7cf33c2be15d415e44b1e3a25f546e1ec64c6df2654396b` | 当前runner诊断模式一次导出，cleanup双true；**不是当前源码完整交互回归**。已由 #190 修复，诊断模式已删除 |
 
 退出顺序由源码确认：创建CDP包装器时已安装child `exit`监听，其作用是拒绝尚未完成的CDP请求；finally先等待 `Browser.close` 的响应/异常，再调用 `stopOwned(browser)`，最后调用 `stopOwned(server)`。stopOwned先检查exitCode/signalCode，仍运行则向自己持有的child发kill，在10秒内每50ms查询这些属性。10秒并非从Browser.close发出时计算；Browser.close的CDP请求另有180秒上限。这里没有先等待exit后才订阅exit的明显监听顺序问题；但没有记录kill返回值、close/exit时间戳、Browser.close返回方式或错误，也没有记录退出后stdio close状态。
 
@@ -23,7 +25,7 @@ run07只留下最终browserExited=false；之后按原PID只读检查未发现�
 
 卡重开后引用、时间、属性及声音保持一致；明确选中卡删除，保留的原画面出现；撤销该新删除恢复卡；再点击 Undo，撤销重开前插卡，恢复原工程。重开时实际观察 undo=2、redo=0、Undo按钮可用。该证据只证明同一隔离服务/工程的页面重载后这笔撤销可用，**未测完整应用/服务重启、跨设备或任意历史持久化**，也没有借版本恢复冒充撤销。独立版本恢复仍在原步骤另验。卡为未链接普通 comp；原视频和原音频明确 unlinked，所有音轨排除于 Source Replace，覆盖仅 V1 [8,10)，不声称已经验证 linked/锁定/余量不足的全组合。
 
-本轮实际四份导出重新解码，仍12项通过/1项失败：尾音短2560样本/声道（53.333ms），未修复。证据 `docs/validation/2026-11-05-draft-existing-loop-v2/` 包含工程、预览、截图、实际导出抽帧/PTS/帧哈希、receipt、失败报告与制品哈希；原始 MOV 留于上述本机输出目录，哈希在receipt。新一轮没有另制观看副本。两个拥有的进程退出均已确认。
+本轮实际四份导出重新解码，仍12项通过/1项失败：尾音短2560样本/声道（53.333ms），未修复。证据（`2026-11-05-draft-existing-loop-v2/`，已移出仓库，见 [PR189 证据摘要](2026-11-05-pr189-evidence-summary.md)）包含工程、预览、截图、实际导出抽帧/PTS/帧哈希、receipt、失败报告与制品哈希；原始 MOV 留于上述本机输出目录，哈希在receipt。新一轮没有另制观看副本。两个拥有的进程退出均已确认。
 
 补测中 v2-01 先记录卡重开栈状态，v2-02 加实际旧插卡 Undo，v2-03 再加新页面上下文验证，最终仅 v2-03 作为本段证据。新增脚本语法、隔离profile守卫2/2、diff检查与release-check通过；本次仅补验收脚本，未重复完整产品单元测试，下文1741通过/7跳过为上一head结果。未跑项及尾音阻塞保持原结论。
 
@@ -79,7 +81,7 @@ runner 是现有能力的内部验收，不是可发布演示。checker 对比�
 
 ## 证据与早期运行
 
-提交证据位于 `docs/validation/2026-11-05-draft-existing-loop/`，取自本地 `out/draft-loop-06`：各步工程JSON/浏览器截图/预览PNG、4份导出抽帧、逐帧framemd5和PTS、receipt、decoded-checks、源PTS及SHA256清单。runner 14项检查通过、cleanup两进程均已退出；解码检查12通过/1失败（源音频全长）。`*-viewing-copy.mp4` 是实际MOV的H.264观看副本，**不是MontClip直接输出**；MOV哈希在各自export.json/receipt中，原始MOV保留在该本地输出目录。观看副本有独立哈希，不能代替MOV逐帧测量。
+证据（`2026-11-05-draft-existing-loop/`，已移出仓库，见 [PR189 证据摘要](2026-11-05-pr189-evidence-summary.md)）取自本地 `out/draft-loop-06`：各步工程JSON/浏览器截图/预览PNG、4份导出抽帧、逐帧framemd5和PTS、receipt、decoded-checks、源PTS及SHA256清单。runner 14项检查通过、cleanup两进程均已退出；解码检查12通过/1失败（源音频全长）。`*-viewing-copy.mp4` 是实际MOV的H.264观看副本，**不是MontClip直接输出**；MOV哈希在各自export.json/receipt中，原始MOV保留在该本地输出目录。观看副本有独立哈希，不能代替MOV逐帧测量。
 
 早期运行如实保留在本机 out/，不计成功：
 

@@ -83,6 +83,6 @@ node --test test/cut-frame-contract.test.js test/trim-tools.test.js test/undo-ou
 tests 58; pass 58; fail 0; skipped 0
 ```
 
-完整成功日志：`docs/validation/2026-11-05-cut-frame-regression.txt`。首次未配置工具的回归为 55 通过、1 跳过；增加实际生成测试后的首次 VFR 生成因 FFmpeg select 表达式转义失败（57 通过、1 失败），修正测试表达式后全量重跑得到上述 58/58。这不是产品功能先红后绿；新槽功能仍须契约审核后另写失败测试。
+完整成功日志：`2026-11-05-cut-frame-regression.txt`（已移出仓库，见 [PR189 证据摘要](2026-11-05-pr189-evidence-summary.md)）。首次未配置工具的回归为 55 通过、1 跳过；增加实际生成测试后的首次 VFR 生成因 FFmpeg select 表达式转义失败（57 通过、1 失败），修正测试表达式后全量重跑得到上述 58/58。这不是产品功能先红后绿；新槽功能仍须契约审核后另写失败测试。
 
 没有新运行依赖。未跑全量 npm test/release-check、Linux/macOS、浏览器接缝播放按钮、实际 MontClip 导出、保存重开或人类操作计时；没有开 Draft PR。本轮仅推进契约与现有能力测试，不报截图任务完成。
