@@ -158,3 +158,25 @@ test('auto-slices: an old precheck cannot act on a newly opened confirmation pag
   h.pending[0](null);h.pending[1](null);await old;await tick();
   a.deepEqual(h.calls,{place:0,queue:0,run:0,notices:0});
 });
+
+// Both checks would refuse (no H.264 encoder, and a clip whose AI background removal isn't ready): the H.264 sentence
+// comes first (Deja, 2026-11-07) — without an encoder nothing can export, so the streamer isn't stopped twice.
+test('fastExport: with no H.264 encoder and an unready AI background removal, the H.264 sentence is said first', async () => {
+  const vm = require('node:vm'), source = app.slice(app.indexOf('async function fastExport(opts = {})'), app.indexOf('/* ── Export queue'));
+  const calls = [], reports = [], noop = () => {};
+  const box = { AbortController, state: {}, runtime: {}, renderCancelled: false, exportAbort: null, exportFullCanvas: false,
+    els: { exportOverlay: { classList: { add: noop, remove: noop } }, exportProgress: { style: {} }, exportNote: {}, exportTitle: {} },
+    pause: noop, restoreExportVideoState: noop, projectFps: () => 30, beginExportWindow: () => ({ start: 0, end: 1, frames: 30 }),
+    effectiveEncodeProfileId: () => 'h264', profileIsH264: () => true, deliveryIsH264: () => true,
+    exportH264Refusal: async (h264) => { calls.push('h264'); return h264 ? JJ_ZH : null; },
+    noteExportBgRemove: () => { calls.push('bgremove'); throw new Error('BG_REMOVE_UNAVAILABLE: not ready (c1)'); },
+    renderAudioMix: async () => { calls.push('mix'); return null; },
+    fetch: async () => { calls.push('begin'); return { json: async () => ({}) }; },
+    MontClipView: { h264Message: () => '', h264Refusal: () => '' }, mcView: { get: () => ({ language: 'zh-CN' }) }, uiText: (k) => k,
+    alert: noop, reportExportJob: async (id, d) => reports.push(d), exportDecodeEnd: noop, endExportWindow: noop, releaseOriginalPlayers: noop };
+  vm.createContext(box); vm.runInContext(source, box);
+  const result = await box.fastExport({ job: 'agent-job' });
+  a.equal(result.error, JJ_ZH);
+  a.deepEqual(reports.map((r) => r.error), [JJ_ZH]);
+  a.deepEqual(calls, ['h264'], 'the background-removal check, the audio mix and /api/export/begin are never reached');
+});

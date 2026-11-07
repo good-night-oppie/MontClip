@@ -20241,11 +20241,12 @@ async function fastExport(opts = {}) {
   let uploadError = null;
   const setError = (err) => { if (!uploadError) uploadError = err; };
   try {
-    noteExportBgRemove({ start: t0, end: t1 });
     const profileId = opts.profile || effectiveEncodeProfileId();
-    // no H.264 encoder here: said now, before the audio mix and the frames (the server refuses at begin too)
+    // no H.264 encoder here: said now, before the audio mix and the frames (the server refuses at begin too). Said before
+    // the AI background-removal check too (Deja, 2026-11-07): without an encoder nothing can export, so that comes first.
     const refused = await exportH264Refusal(deliveries ? deliveries.some((d) => deliveryIsH264(d.delivery)) : profileIsH264(profileId));
     if (refused) throw new Error(refused);
+    noteExportBgRemove({ start: t0, end: t1 });
     els.exportTitle.textContent = uiText("own.mixing-audio");
     const wav = await renderAudioMix(t0, t1);
     if (renderCancelled) throw new Error("cancelled");
