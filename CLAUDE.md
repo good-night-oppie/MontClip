@@ -3176,10 +3176,10 @@ Official-pane history presentation separates validated trailing reference envelo
 
 The desktop assistant has four modes, switched at the top of the assistant: 计划 (Plan: only lists steps), 手动 (Manual, the
 default: asks the first time, and every time for steps that can't be undone), 自动 (Auto: does what can be undone, asks before
-what can't) and Yolo (does everything; turning it on needs a yes in the app's own box, and a mark shows the whole time). The
+what can't) and Full auto (internal id `yolo`; does everything; turning it on needs a yes in the app's own box, and a mark shows the whole time). The
 main process keeps the mode and the approvals in memory only, so a restart is back to 手动. The risk of each step comes from
 `capabilities.js`; the AI cannot change the mode or any list. The host asks with an approval card in the assistant's message stream (not a box over the page; docs/decisions/2026-11-04-approval-card-in-stream.md): 只批准这次 / 这个聊天中都批准 / 不同意;
-「都批准」 holds for one chat, one capability and one target. Anything sent out is always shown first, Yolo included, and is
+「都批准」 holds for one chat, one capability and one target. Anything sent out is always shown first, Full auto included, and is
 capped per send and per chat or project by each capability's own caps in `capabilities.js` (text 128 KiB / 4 MiB a chat;
 audio 25 MiB a part / 2 GiB a project while open); over a cap it is refused, never cut down. MCP tools and the REST API are not affected. See `docs/decisions/2026-11-03-agent-permission-modes.md`.
 
