@@ -1316,6 +1316,13 @@ async function frameTool(args) {
     const res = job.result || {};
     const onScreen = (res.clips || []).map((c) => `${c.id} ${c.track} ${c.kind}`).join(", ") || "nothing";
     const head = `Timeline at ${res.time}s (${res.frame?.w}x${res.frame?.h}) — on screen: ${onScreen}`;
+    /* Say how the image maps to the frame: it is the whole frame scaled down, and an agent that reads a position
+       off the picture (to place a mask or a crop) must divide by these sizes, not by the `width` default. */
+    const sized = res.imageSize && res.frame
+      ? `
+Image ${res.imageSize.w}x${res.imageSize.h} px = the whole ${res.frame.w}x${res.frame.h} frame (1 image px = ${(res.frame.w / res.imageSize.w).toFixed(2)} frame px). ` +
+        "Crop and mask numbers are not canvas positions: crop is a percent of each clip's whole source frame, and a mask's x, y (its centre), w, h are fractions of the picture left after the crop, before the clip's scale and x / y — see \"Mask and crop coordinates\" in the docs."
+      : "";
 
     /* Text mode: the scopes reading measured this exact frame already, and its
        numbers are the same family as the source-frame measurements — so a
@@ -1326,7 +1333,7 @@ async function frameTool(args) {
     }
     const img = imageBlockFromDataUrl(res.image);
     if (!img) throw new Error("the editor rendered the frame but could not encode it as an image (a cross-origin source taints the canvas)");
-    return [{ type: "text", text: head }, img];
+    return [{ type: "text", text: head + sized }, img];
   }
 
   /* Source mode: ffmpeg on the server. Looking must not have side effects, so
