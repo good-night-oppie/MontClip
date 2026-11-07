@@ -41,8 +41,6 @@ MIT. See [LICENSE](LICENSE) and the third-party notices.
 
 ## Technical reference
 
-Desktop file reveal: workspace paths reject symlinks and junctions. The main process keeps native export-save receipts for the app session, so the original export `src` reveals the final chosen destination without exposing its path to the renderer. See [Export](CLAUDE.md#export).
-
 ### Diagrams (for developers)
 
 <picture>
@@ -54,6 +52,7 @@ Desktop file reveal: workspace paths reject symlinks and junctions. The main pro
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagrams/flv-input-checks-dark.svg">
   <img src="docs/assets/diagrams/flv-input-checks-light.svg" width="880" alt="Diagram (current version): how an imported FLV recording is checked. MontClip looks at the streams, then scans the readable range; if a gap is longer than 5 ms it refuses and explains why; with no gap and compatible streams it remuxes, otherwise it transcodes only with your explicit consent; the output is then checked.">
 </picture>
+
 See the [agent and API manual](CLAUDE.md) for media repair and background duration merging, and the [timestamp repair comparison](docs/testing/repair-timestamp-jump.md) for the reproducible test and its limits.
 
 JPEG ProRes exports use the selected range's frame count to preserve audio through
