@@ -86,6 +86,16 @@ describe("PR SOP：逐项正负控", () => {
     for (const note of ["", "外发：内容：文本", "外发：接收方：服务商；能否关闭：可以"]) assert.ok(missing(run(BODY + "\n" + note, { files }), "outbound"));
     assert.equal(run(BODY + "\n外发：内容：PR元数据；接收方：api.github.com；能否关闭：可取消检查", { files }).status, "passed");
   });
+  it("改动工作流或动作文件必须等QQ核验，摘要只列文件名", () => {
+    for (const files of [[".github/workflows/other.yml"], [".github/actions/setup/action.yml"], [{ filename: "docs/x.md", previous_filename: ".github/workflows/old.yml" }]]) {
+      const r = run(BODY, { files });
+      assert.equal(r.status, "needs_qq"); assert.equal(r.issues.length, 0);
+      const text = formatReport(r);
+      assert.match(text, /工作流\/动作文件/); assert.match(text, /\.github\/(?:workflows|actions)\//);
+      assert.doesNotMatch(text, /\n\s*(?:on|jobs|steps):/);
+    }
+    assert.equal(run(BODY, { files: ["docs/a.md"] }).status, "passed");
+  });
   it("重命名不能通过换路径逃过剪辑/外发分类", () => {
     const c = classifyFiles([{ filename: "docs/moved.txt", previous_filename: "desktop/agent-service.js" }], policy.repositories[REPO]);
     assert.equal(c.outbound, true);
@@ -150,6 +160,7 @@ describe("只读API及工作流安全", () => {
     const yml = workflowText();
     assert.match(yml, /types: \[opened, edited, synchronize, ready_for_review, reopened, review_requested, review_request_removed\]/);
     assert.match(yml,/^  pull_request_target:/m);
+    assert.match(yml,/^  merge_group:\n    types: \[checks_requested\]/m);
     assert.doesNotMatch(yml,/^  pull_request:|^  pull_request_review:|uses:|checkout@|actions\/(?:cache|upload-artifact|download-artifact)|npm (?:ci|install)|secrets\./m);
     assert.match(yml, /pull-requests: read/); assert.match(yml, /contents: read/);
     assert.match(yml, /issues: read/); assert.match(yml, /name: sop-pr-lint/);
@@ -188,6 +199,15 @@ describe("只读API及工作流安全", () => {
       const original = fs.readFileSync(new URL(name, import.meta.url)); const embedded = Buffer.from(payload[name].base64, "base64");
       assert.ok(embedded.equals(original)); assert.equal(payload[name].sha256, createHash("sha256").update(original).digest("hex"));
     }
+  });
+  it("merge_group直接通过且不调用API、不读PR正文", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sop-merge-group-")), summary = path.join(dir, "summary.md"), original = globalThis.fetch;
+    let calls = 0; globalThis.fetch = async () => { calls++; throw Error("no API"); };
+    try {
+      assert.equal(await main({ GITHUB_EVENT_NAME: "merge_group", GITHUB_STEP_SUMMARY: summary }), 0);
+      assert.equal(calls, 0);
+      assert.match(fs.readFileSync(summary, "utf8"), /合并队列阶段不重复检查，PR 阶段已检查/);
+    } finally { globalThis.fetch = original; }
   });
   it("真实执行嵌入工作流的Node代码：Draft只核当前状态、不执行PR文件", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pr-sop-workflow-test-"));

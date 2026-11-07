@@ -93,8 +93,17 @@ function matches(path, glob) {
 }
 
 export function classifyFiles(files, profile) {
-  const paths = files.flatMap((f) => typeof f === "string" ? [f] : f && typeof f === "object" ? [f.filename, f.previous_filename].filter((p) => typeof p === "string") : []).filter(p => !(profile.exclude || []).some(g => matches(p, g)));
+  const paths = changedPaths(files).filter(p => !(profile.exclude || []).some(g => matches(p, g)));
   return { av: paths.some((p) => profile.av.some((g) => matches(p, g))), outbound: paths.some((p) => profile.outbound.some((g) => matches(p, g))) };
+}
+
+function changedPaths(files) {
+  return (files || []).flatMap((f) => typeof f === "string" ? [f] : f && typeof f === "object" ? [f.filename, f.previous_filename].filter((p) => typeof p === "string") : []);
+}
+
+// Any workflow or action file change can redefine jobs/checks; the machine cannot clear it.
+export function workflowFilesChanged(files) {
+  return [...new Set(changedPaths(files).filter((p) => /^\.github\/(?:workflows|actions)\//.test(p)))].sort();
 }
 
 // These review rows are read from GitHub, never from claims in the PR body.
@@ -154,10 +163,15 @@ export function checkPR({ pr, files, repo, policy, teammates }) {
     }
   }
   const verified = exceptionVerified(pr, exception.valid);
-  return { status: issues.length ? "failed" : exception.valid.length && !verified ? "needs_qq" : "passed", issues, warnings, exceptions: exception.valid, exceptionVerified: verified, owner, categories };
+  const workflowFiles = workflowFilesChanged(files);
+  return { status: issues.length ? "failed" : (exception.valid.length && !verified) || workflowFiles.length ? "needs_qq" : "passed", issues, warnings, exceptions: exception.valid, exceptionVerified: verified, workflowFiles, owner, categories };
 }
 
 export function formatReport(result) {
-  const label = { passed: "模板检查通过（不代替审查批准）", skipped: "Draft：跳过送审模板检查", failed: "模板检查需补齐", needs_qq: "需要 QQ 核验：仅确认例外格式，机器未证明例外成立" }[result.status];
-  return [label, ...result.issues.map((i) => `- ${i.message}`), ...(result.warnings || []).map(w => `- 提示：${w.message}`), ...result.exceptions.map((e) => `- ${e.label}使用SOP例外，${result.exceptionVerified ? "已核对审批账号当前head的逐项review标记；不等于正式批准" : `等 QQ 核验：请GoodNightOppie在当前head的APPROVED或COMMENTED review中写精确一行「SOP 例外已核验：${e.label}」`}`)].join("\n");
+  const label = result.status === "passed" ? "模板检查通过（不代替审查批准）"
+    : result.status === "skipped" ? "Draft：跳过送审模板检查"
+    : result.status === "failed" ? "模板检查需补齐"
+    : (result.workflowFiles || []).length && !(result.exceptions || []).length ? "需要 QQ 核验：工作流或动作文件改动，机器不能放行"
+    : "需要 QQ 核验：仅确认例外格式，机器未证明例外成立";
+  return [label, ...result.issues.map((i) => `- ${i.message}`), ...(result.warnings || []).map(w => `- 提示：${w.message}`), ...((result.workflowFiles || []).length ? [`- 改动的工作流/动作文件（仅文件名）：${result.workflowFiles.join("、")}`] : []), ...result.exceptions.map((e) => `- ${e.label}使用SOP例外，${result.exceptionVerified ? "已核对审批账号当前head的逐项review标记；不等于正式批准" : `等 QQ 核验：请GoodNightOppie在当前head的APPROVED或COMMENTED review中写精确一行「SOP 例外已核验：${e.label}」`}`)].join("\n");
 }

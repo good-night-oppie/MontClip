@@ -39,6 +39,12 @@ export async function collectMetadata({ get, repo, number, eventPR }) {
 }
 
 export async function main(env = process.env) {
+  if (env.GITHUB_EVENT_NAME === "merge_group") {
+    const text = "合并队列阶段不重复检查，PR 阶段已检查";
+    console.log(text);
+    if (env.GITHUB_STEP_SUMMARY) fs.appendFileSync(env.GITHUB_STEP_SUMMARY, `## sop-pr-lint\n\n${text}\n`);
+    return 0;
+  }
   const event = JSON.parse(fs.readFileSync(env.GITHUB_EVENT_PATH, "utf8"));
   const pr = event.pull_request;
   if (env.GITHUB_EVENT_NAME !== "pull_request_target" || !pr || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(env.GITHUB_REPOSITORY || "") || !Number.isInteger(pr.number) || pr.number <= 0 || !/^[a-f0-9]{40}$/.test(pr.head?.sha || "")) throw Error("EVENT_SHAPE");

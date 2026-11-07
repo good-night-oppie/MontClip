@@ -28,8 +28,12 @@ on:
   # Trusted default/base workflow only. Never checkout or run PR code/dependencies.
   # No cache, artifacts, secrets, or PR text interpolated into shell commands.
   # Owner decision: target-only; QQ manually reruns the trusted check after exception review.
+  # Never add pull_request_review here: it runs the PR merge-commit workflow and reopens the bypass.
   pull_request_target:
     types: [opened, edited, synchronize, ready_for_review, reopened, review_requested, review_request_removed]
+  # Merge queue has no PR body; the PR-stage result stands. No checkout, same read-only permissions.
+  merge_group:
+    types: [checks_requested]
 permissions:
   pull-requests: read
   contents: read
