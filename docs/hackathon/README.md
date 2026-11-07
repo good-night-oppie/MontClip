@@ -61,7 +61,7 @@ creator selects subtitles / range ──► request + quoted lines
 ```
 
 - The API key is stored with Electron `safeStorage` (Windows DPAPI). It is never written to logs, screenshots or test fixtures. Real-model tests read it only from a `0600` key file and refuse a wider one.
-- Permission modes: **Plan** (suggest only), **Manual** (ask before applying; optional per-chat allow), **Auto**, **Yolo**. Even with *allow all*, every send still shows its content and destination.
+- Permission modes: **Plan** (suggest only), **Manual** (ask before applying; optional per-chat allow), **Auto**, **Full auto**. Even with *allow all*, every send still shows its content and destination.
 - Editing works fully without any AI service. The assistant is optional, and service charges are billed to the creator's own account.
 
 ![The creator keeps the decision](creator-decides.png)
