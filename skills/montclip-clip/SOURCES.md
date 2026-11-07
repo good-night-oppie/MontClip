@@ -73,7 +73,7 @@
 | `fablecut_highlights` | 191 | `fablecut_danmaku` | 416 |
 
 - 找歌没达标的说法（0.12 / 0.38，门槛 0.6）出自 `mcp-tools.js` 里 `fablecut_songs` 的描述，以及 `auto-slices.js` 的 `SONG_GATE` / `SONG_MEASURED`。
-- 打码做法来源：`CLAUDE.md` 的 Adjustment layers（约第 525 行）、Masks（约第 1054 行）、motion tracking 那节的「blur a face or a plate」配方（约第 1261 行）；属性面板 blur 滑块的范围 0–20 px 在 `app.js` 第 7662 行。
+- 隐私覆盖做法：`CLAUDE.md` Masks 的不透明覆盖块说明，以及 `reference/privacy-cover.md` 的本仓合成逐帧验证。旧版调节层模糊、模糊副本与追踪配方已撤回作为隐私推荐；模糊滑块上限不代表安全阈值。
 - 导出预设和响度：`delivery.js` 第 179–195 行（`youtube-shorts`、`tiktok` 都是 1080×1920）；第 240 行写明平台响度只是参考值，只有设了 `audio.loudness` 才会做响度归一。
 - 配方 E（〔帮我修好〕）：按钮和文案在 `ui-preferences.js` 第 256–272 行（`repair-button`「帮我修好」、`repair-menu`、`repair-done`、`media-slow-mark`、`media-duration-unknown`）；Agent 行为在 `mcp-tools.js` 第 281 行 `fablecut_repair_media` 的描述（job / result.mediaId / REPAIR_FAILED），实现是 `make-editable.js` 和 `mcp-server.js` 第 1061 行起。
 - 失败导出清理（#178）：`export-cleanup.js` 的 `stopSessions`（先停 ffmpeg 再删 `.part` 半成品，`server.js` 第 707 行调用）。
