@@ -1,6 +1,6 @@
 // Static data inspection only: never import/eval the inspected repository source.
 import { execFileSync, spawnSync } from "node:child_process";
-import { classifyFiles } from "./rules.mjs";
+import { classifyFiles, pathMatches } from "./rules.mjs";
 
 export function withoutComments(source) {
   let out = "", quote = "", regex = false, cls = false;
@@ -65,8 +65,9 @@ export function networkUses(source) {
 
 export function coverage(files, profile) {
   const missing = [], found = [], skipped = [];
+  const excluded = [...(profile.exclude || []), ...(profile.outboundExclude || [])];
   for (const { path, source } of files) {
-    if ((profile.exclude || []).some(g => g === "docs/demo/**" && path.startsWith("docs/demo/"))) { skipped.push(path); continue; }
+    if (excluded.some(g => pathMatches(path, g))) { skipped.push(path); continue; }
     if (!/\.(?:js|cjs|mjs)$/.test(path)) continue;
     const uses = networkUses(source);
     if (!uses.length) continue;

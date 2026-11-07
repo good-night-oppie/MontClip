@@ -37,10 +37,22 @@ it("docs/demo原样副本不触发，重命名前的实际代码仍触发", () =
   assert.equal(classifyFiles(["docs/demo/app.js"],profile).outbound,false);
   assert.equal(classifyFiles([{filename:"docs/demo/app.js",previous_filename:"app.js"}],profile).outbound,true);
 });
+it("测试驱动不计外发；扫描跳过并在结果中列出，产品文件仍从严", () => {
+  const profile = {outbound:["app.js"],av:[],outboundExclude:["test/**","desktop/*-smoke.cjs","desktop/*-perf.cjs","desktop/m0-smoke.js"]};
+  const files=[{path:"test/a.test.js",source:"fetch(url)"},{path:"desktop/export-smoke.cjs",source:"fetch(url)"},
+    {path:"desktop/highlights-perf.cjs",source:"fetch(url)"},{path:"desktop/m0-smoke.js",source:"fetch(url)"},
+    {path:"app.js",source:"fetch(remoteUrl)"}];
+  const r=coverage(files,profile);
+  assert.deepEqual(r.missing,[]);
+  assert.deepEqual(r.skipped.sort(),["desktop/export-smoke.cjs","desktop/highlights-perf.cjs","desktop/m0-smoke.js","test/a.test.js"]);
+  for(const f of files.slice(0,4)) assert.equal(classifyFiles([f.path],profile).outbound,false,f.path);
+  assert.equal(classifyFiles(["app.js"],profile).outbound,true);
+  assert.equal(coverage([{path:"app.js",source:"fetch(remoteUrl)"}],{outbound:[],av:[]}).missing.length,1);
+});
 it("main全部JS/CJS/MJS联网接口均在外发路径表中（只读，不执行源码）", t => {
   const snapshot = readMainSources(fileURLToPath(new URL("../../", import.meta.url)));
   const policy = JSON.parse(fs.readFileSync(new URL("policy.json", import.meta.url), "utf8"));
   const result = coverage(snapshot.files, policy.repositories[snapshot.repo]);
-  t.diagnostic(JSON.stringify({repo:snapshot.repo,main:snapshot.head,total:snapshot.total,scanned:result.scanned,excluded:snapshot.excluded.length,networkFiles:result.found.length,missing:result.missing.length}));
+  t.diagnostic(JSON.stringify({repo:snapshot.repo,main:snapshot.head,total:snapshot.total,scanned:result.scanned,excluded:snapshot.excluded.length,skipped:result.skipped.length,skippedPaths:result.skipped,networkFiles:result.found.length,missing:result.missing.length}));
   assert.deepEqual(result.missing, [], "联网路径漏分类（文件/API/行号）："+JSON.stringify(result.missing));
 });

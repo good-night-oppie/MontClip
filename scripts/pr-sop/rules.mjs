@@ -91,10 +91,11 @@ function matches(path, glob) {
   const pattern = glob.split("**").map((chunk) => chunk.split("*").map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("[^/]*")).join(".*");
   return new RegExp(`^${pattern}$`).test(path);
 }
+export { matches as pathMatches };
 
 export function classifyFiles(files, profile) {
   const paths = changedPaths(files).filter(p => !(profile.exclude || []).some(g => matches(p, g)));
-  return { av: paths.some((p) => profile.av.some((g) => matches(p, g))), outbound: paths.some((p) => profile.outbound.some((g) => matches(p, g))) };
+  return { av: paths.some((p) => profile.av.some((g) => matches(p, g))), outbound: paths.some((p) => !(profile.outboundExclude || []).some((g) => matches(p, g)) && profile.outbound.some((g) => matches(p, g))) };
 }
 
 function changedPaths(files) {

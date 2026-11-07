@@ -8,7 +8,7 @@
 
 改动、复现、测试非空；测试每行有结果数字或「没跑」加原因；依赖写无或#编号并说明类型。审查请求或历史GoodNightOppie review满足送审；只有旧head review时只提示重新请审，不冒充当前批准。
 
-policy.json和classification文档列出路径。MontClip的server.js明确同时触发音画同步和外发，两段必须提供；docs/demo/**原样副本排除，重命名前路径也检查。改动文件里出现`.github/workflows/**`或`.github/actions/**`（含重命名前路径）时，机器不能放行，状态为needs_qq，摘要只列文件名、不打印文件内容；这类改动可能新增或改写同名检查job。确需合入时，按同一格式写`SOP 例外：工作流 — 原因 — 证据：<HTTPS链接或消息号>`，并由GoodNightOppie在当前head的APPROVED或COMMENTED review中写精确一行`SOP 例外已核验：工作流`；旧head不算，缺任一项仍为needs_qq。联网扫描在普通测试中只读main blob，不导入执行源码，非元数据工作流checkout。
+policy.json和classification文档列出路径。MontClip的server.js明确同时触发音画同步和外发，两段必须提供；docs/demo/**原样副本排除，重命名前路径也检查。外发类排除测试驱动：`test/**`、`desktop/*-smoke.cjs`、`desktop/*-perf.cjs`、`desktop/m0-smoke.js`，它们只连本地服务；联网扫描同样跳过并在测试诊断里列出跳过清单，产品文件仍从严，动态 URL 也算外发。改动文件里出现`.github/workflows/**`或`.github/actions/**`（含重命名前路径）时，机器不能放行，状态为needs_qq，摘要只列文件名、不打印文件内容；这类改动可能新增或改写同名检查job。确需合入时，按同一格式写`SOP 例外：工作流 — 原因 — 证据：<HTTPS链接或消息号>`，并由GoodNightOppie在当前head的APPROVED或COMMENTED review中写精确一行`SOP 例外已核验：工作流`；旧head不算，缺任一项仍为needs_qq。联网扫描在普通测试中只读main blob，不导入执行源码，非元数据工作流checkout。
 
 ## 例外改用当前head的review
 
