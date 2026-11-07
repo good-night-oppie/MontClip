@@ -225,7 +225,7 @@ test('〔复制问题信息〕: no viewer name or uid, no key, user folders as m
     `uid=34567890 nickname=粉丝三号 用户名：某某某 昵称：小梨的粉丝`,
     `Authorization: Bearer abc.DEF-123_xyz token=tk_live_998877 "apiKey":"sk-ABCDEF0123456789"`,
   ].join('\n');
-  const opts = { home: 'C:\\Users\\tyb', platform: 'win32' };
+  const opts = { home: 'C:\\Users\\bob', platform: 'win32' };
   for (const out of [R.redactProblem(line, opts), R.redactProblem(line, {})]) {
     for (const gone of ['12345678', '87654321', '23456789', '34567890', '小梨的粉丝', '某某某', '粉丝二号', '粉丝三号', 'alice',
       'abc.DEF-123_xyz', 'tk_live_998877', 'sk-ABCDEF0123456789', '8f3a2b1c', '4455667788']) a.ok(!out.includes(gone), gone + ' in: ' + out);
