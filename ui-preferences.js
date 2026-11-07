@@ -1405,6 +1405,9 @@
     flvSourceChanged: 1, flvCopyMismatch: 1, flvCanceled: 1, flvCleanupFailed: 1, flvUnreadable: 1, flvBusy: 1, flvExpired: 1, flvUploadFailed: 1,
     h264None: 1, h264NoneWin: 1, h264NoneOther: 1, h264ExternalFailed: 1, extGone: 1, extNotFfmpeg: 1, extNoX264: 1, extSettingBad: 1,
     frameTooSmall: 1, ffmpegMissing: 1, extNeeded: 1, extSaveFailed: 1, extRemoveFailed: 1, extNotUsedNote: 1,
+    // main's codes merged in after #161 (#154 AI background removal, #129 EXPORT_NO_H264, the FLV rows): their first sentence, as for the others
+    "own.bgremove-export-unavailable": 1, "own.bgremove-export-realtime": 1, h264Refuse: 1,
+    flvFixUnverified: 1, flvStreamsUnsupported: 1, flvSourceDamaged: 1,
   };
   /* JJ's own words for what happened (#161), where the sentence's first part also says what to do: copied instead. */
   const WHAT_TEXT = {
