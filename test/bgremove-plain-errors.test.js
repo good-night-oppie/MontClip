@@ -57,9 +57,9 @@ test('realtime recording: said in plain words with the realtime sentence, not an
   a.match(box.bgRemoveExportError('c1').message, /^BG_REMOVE_UNAVAILABLE: /, 'the message stays for the log');
 });
 
-// The export queue (Fast, silent): its line and the run's summary say a reason without the code or the clip id. The
-// queue's reason is v2's table row (batchReason), which doesn't list BG_REMOVE_UNAVAILABLE, so it says the last row.
-for (const language of ['zh-CN', 'en']) test('the export queue, ' + language + ': no BG_REMOVE_ code, no clip id', async () => {
+// The export queue (Fast, silent): its line says JJ's short reason (#129 issuecomment-6700533141), a clause like
+// errExportChanged — 「没导出来：AI 抠像还没准备好」 — and neither it nor the run's summary has the code or the clip id.
+for (const language of ['zh-CN', 'en']) test('the export queue, ' + language + ': the short reason, no BG_REMOVE_ code, no clip id', async () => {
   const noop = () => {};
   const box = { AbortController, state: {}, runtime: {}, renderCancelled: false, exportAbort: null, exportFullCanvas: false,
     els: { exportOverlay: { classList: { add: noop, remove: noop } }, exportProgress: { style: {} }, exportNote: {}, exportTitle: {} },
@@ -78,5 +78,9 @@ for (const language of ['zh-CN', 'en']) test('the export queue, ' + language + '
   a.equal(q.code, 'BG_REMOVE_UNAVAILABLE');
   const why = V.batchReason(language, q);
   noLeak(why, 'queue line'); noLeak(V.exportResult(language, { done: 0, failed: 1, why }), 'queue summary');
-  a.equal(why, V.text[language === 'en' ? 'en' : 'zh-CN'].errOther, 'the last row of v2 (not in the batch table)');
+  const SHORT = language === 'en' ? "AI background removal isn't ready" : 'AI 抠像还没准备好';
+  a.equal(why, SHORT, "JJ's short reason, not v2's last row");
+  const line = V.t(language, 'qFailed') + why;   // renderQueue: uiText("qFailed") + why
+  a.equal(line, language === 'en' ? "Didn't export: AI background removal isn't ready" : '没导出来：AI 抠像还没准备好');
+  noLeak(line, 'queue row');
 });

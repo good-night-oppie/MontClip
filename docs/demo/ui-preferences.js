@@ -1201,6 +1201,8 @@
     // three more rows (JJ, 2026-11-04), so these are not the last row: the timeline changed (JJ's sentence for #77,
     // as-fail-why-changed, f953b1b), a picture smaller than the encoder takes, the FFmpeg chosen in Settings not working
     errExportChanged: "加进导出以后，时间线又改过了，所以没导",
+    // the queue's short reason for BG_REMOVE_UNAVAILABLE, a clause like errExportChanged (JJ, #129 issuecomment-6700533141)
+    errBgRemoveNotReady: "AI 抠像还没准备好",
     errFrameTooSmall: "画面太小，导不出来：宽和高都至少要 {n} 像素。把画面大小改大一点再导出。原片没有改动。",
     errExtFailed: "设置里选的 FFmpeg 用不了，这次没有做完。在设置里改回 MontClip 自带的，或者重新选一个。原片没有改动。",
     btnCopyProblem: "复制问题信息", copyProblemNote: "复制的内容不含你的文件夹路径、密钥和观众信息。",
@@ -1220,6 +1222,7 @@
     exWarned: "({n} have a note — open to see)",
     exportSaveFolderFailed: "The video was exported, but it couldn't be saved to the folder you picked. It's in MontClip's own exports folder; you can export again to another folder.",
     errExportChanged: "The timeline changed after it was queued, so it wasn't exported",
+    errBgRemoveNotReady: "AI background removal isn't ready",
     errFrameTooSmall: "The picture is too small to export: width and height must each be at least {n} pixels. Make it larger and export again. The original is unchanged.",
     errExtFailed: "The FFmpeg chosen in Settings doesn't work, so this didn't finish. Switch back to the one that comes with MontClip in Settings, or choose another. The original is unchanged.",
     btnCopyProblem: "Copy problem details", copyProblemNote: "What's copied leaves out your folder paths, keys and viewer details.",
@@ -1240,7 +1243,9 @@
   /** The codes whose sentence is one of v2's rows: a batch says only these as a reason, anything else as the last row. */
   const TABLE_REASONS = new Set(["DISK_FULL", "FLV_DISK_FULL", "FLV_ENCODER_MISSING", "FLV_COMPONENT_MISSING", "h264NoneWin", "h264NoneOther", "ffmpegMissing",
     "FLV_PROBE_FAILED", "FLV_NOT_FLV", "FLV_NOT_FOUND", "FLV_IMPORT_BUSY", "FLV_IMPORT_EXPIRED", "EXPORT_TIMELINE_CHANGED", "frameTooSmall",
-    "extGone", "extNotFfmpeg", "extNoX264", "extSettingBad", "extNotFullPath"]);
+    "extGone", "extNotFfmpeg", "extNoX264", "extSettingBad", "extNotFullPath", "BG_REMOVE_UNAVAILABLE"]);
+  /** A batch's own short reason where the toast's sentence is too long for a queue line (JJ, #129 issuecomment-6700533141). */
+  const BATCH_TEXT = { BG_REMOVE_UNAVAILABLE: "errBgRemoveNotReady" };
   const DISK_FULL = /ENOSPC|no space left|disk is full|not enough space/i;
   /** A failure in plain words: {code, text, known, log}. `error` is an Error, a server answer ({code | errorCode, error,
    *  params, featurePack}) or a string. `known`: a sentence of its own (else v2's last row). `log` is the raw error, for
@@ -1262,6 +1267,7 @@
    *  Media Feature Pack line (JJ took it out of v2 until it is checked). */
   function batchReason(language, error) {
     const e = error && typeof error === "object" ? { ...error, featurePack: false } : error, r = errorText(language, e);
+    if (Object.hasOwn(BATCH_TEXT, r.code)) return text[lang(language)][BATCH_TEXT[r.code]];
     return TABLE_REASONS.has(r.code) ? r.text : text[lang(language)].errOther;
   }
   /** An export run: 「{N} 条导出好了」, 「{N} 条导出好了，{M} 条没导出来」, or v2's 「这次一条都没导出来：{第一个原因}。…」
