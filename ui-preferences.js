@@ -551,6 +551,18 @@
     // QQ on #85 / Deja (2026-11-03): only the picked captions change — said under the comparison (new, pending JJ)
     "ly-outside": ["{n} lyric lines match captions you didn't select; they are left unchanged.", "有 {n} 行歌词对应的是你没选的字幕，没改"],
     "ly-held": ["{n} selected captions are left unchanged: a lyric line runs past them.", "有 {n} 条选中的字幕没改：里面有歌词行跨出了这条字幕"],
+    // lyrics onto a new caption track, for the agent (JJ's final copy, 2026-11-05; docs/decisions/2026-11-05-lyrics-align-agent-tool.md)
+    "lt-preview": ["{k} of {n} lyric lines lined up. The {m} grey lines didn't match. You can drag them into place.", "歌词对上了 {k}/{n} 行。没对上的 {m} 行是灰色的，可以自己拖到位置上。"],
+    "lt-done": ["The lyrics are on a new caption track. Your existing captions weren't changed. Press Ctrl+Z to undo.", "歌词放到了一条新的字幕轨上，原来的字幕没动。按 ⟨Ctrl⟩+⟨Z⟩ 可以撤销。"],
+    "lt-too-few": ["Only {k} of {n} lines matched. It may be a different song or a different version, so nothing was added to the timeline.", "只对上了 {k}/{n} 行，可能不是这首歌，或者唱的版本不一样，所以没有放到时间线上。"],
+    "lt-no-vocals": ["No singing was heard in this part, so the lyrics can't be lined up. Try another part.", "这段里没听出有人在唱，歌词对不上。换一段试试。"],
+    "lt-no-lyrics": ["No lyrics yet. Paste them in, one line per line of the song.", "还没有歌词。把歌词粘贴进来，一行一句。"],
+    // JJ final (#164 issuecomment-6691316743): ASR_UNAVAILABLE also covers no editor to run in, so it names both causes
+    "lt-asr-unavailable": ["Transcription can't run right now, so the lyrics can't be lined up. The editor may not be open, or transcription may not be installed yet.", "现在没法听写，歌词对不上。可能是编辑器没打开，或听写还没装好。"],
+    // JJ final (#164 issuecomment-6691316743): the card's two buttons and the line after 〔先不用〕
+    "lt-place": ["Add to the timeline", "放到时间线上"],
+    "lt-not-now": ["Not now", "先不用"],
+    "lt-not-placed": ["Not added. Nothing changed.", "没有放到时间线上，什么都没改。"],
     "as-lyrics-soon": ["Coming in a later version", "这个功能还在做，后面的版本才能用"],
     "as-a-moment": ["A lively part", "热闹的一段"],
     "as-why": ["Why: ", "为什么选："],
