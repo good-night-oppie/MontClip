@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { it } from "node:test";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { networkUses, coverage, readMainSources } from "./network-scan.mjs";
 import { classifyFiles } from "./rules.mjs";
@@ -49,10 +52,31 @@ it("测试驱动不计外发；扫描跳过并在结果中列出，产品文件�
   assert.equal(classifyFiles(["app.js"],profile).outbound,true);
   assert.equal(coverage([{path:"app.js",source:"fetch(remoteUrl)"}],{outbound:[],av:[]}).missing.length,1);
 });
-it("main全部JS/CJS/MJS联网接口均在外发路径表中（只读，不执行源码）", t => {
+it("Python 常见联网接口可发现", () => {
+  for (const source of ["import requests\nrequests.get('https://example.org')", "urllib.request.urlopen(url)", "httpx.post(url)", "aiohttp.ClientSession()", "socket.create_connection((host, 443))"]) assert.ok(networkUses(source).length, source);
+});
+it("扫描当前检出的 HEAD，不是 origin/main；PR 新增未登记的 .py 联网文件会被发现", () => {  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pr-sop-head-"));
+  const git = (...args) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", windowsHide: true });
+  git("init", "-q");
+  git("config", "user.email", "t@example.com"); git("config", "user.name", "t");
+  git("remote", "add", "origin", "https://github.com/good-night-oppie/MontClip.git");
+  fs.writeFileSync(path.join(dir, "new-probe.py"), "import requests\nrequests.get('https://example.org')\n");
+  git("add", "."); git("commit", "-q", "-m", "probe");
+  const snap = readMainSources(dir);
+  assert.match(snap.head, /^[a-f0-9]{40}$/);
+  assert.ok(snap.files.some((f) => f.path === "new-probe.py"));
+  const r = coverage(snap.files, { av: [], outbound: [] });
+  assert.deepEqual(r.missing.map((x) => x.path), ["new-probe.py"]);
+});
+it("PR 新增未登记的联网文件必须失败；登记后通过（一正一负）", () => {
+  const files = [{ path: "scripts/readme-demo/new-probe.py", source: "import requests\nrequests.get('https://example.org')\n" }];
+  assert.deepEqual(coverage(files, { av: [], outbound: [] }).missing.map((x) => x.path), ["scripts/readme-demo/new-probe.py"]);
+  assert.equal(coverage(files, { av: [], outbound: ["scripts/readme-demo/*.py"] }).missing.length, 0);
+});
+it("HEAD 全部 JS/CJS/MJS/PY 联网接口均在外发路径表中（只读，不执行源码）", t => {
   const snapshot = readMainSources(fileURLToPath(new URL("../../", import.meta.url)));
   const policy = JSON.parse(fs.readFileSync(new URL("policy.json", import.meta.url), "utf8"));
   const result = coverage(snapshot.files, policy.repositories[snapshot.repo]);
-  t.diagnostic(JSON.stringify({repo:snapshot.repo,main:snapshot.head,total:snapshot.total,scanned:result.scanned,excluded:snapshot.excluded.length,skipped:result.skipped.length,skippedPaths:result.skipped,networkFiles:result.found.length,missing:result.missing.length}));
+  t.diagnostic(JSON.stringify({repo:snapshot.repo,head:snapshot.head,total:snapshot.total,scanned:result.scanned,excluded:snapshot.excluded.length,skipped:result.skipped.length,networkFiles:result.found.length,missing:result.missing.length}));
   assert.deepEqual(result.missing, [], "联网路径漏分类（文件/API/行号）："+JSON.stringify(result.missing));
 });

@@ -42,7 +42,9 @@ function loopbackArgument(text) {
 export function networkUses(source) {
   const text = withoutComments(source), hits = [];
   const add = (api, index, local = false) => { if (!local) hits.push({ api, line: text.slice(0, index).split("\n").length }); };
-  const patterns = [["fetch", /\bfetch\s*(?:\?\.\s*)?\(/g], ["https", /\bhttps\s*\.\s*(?:request|get)\s*\(/g], ["http", /\bhttp\s*\.\s*(?:request|get)\s*\(/g], ["net", /\bnet\s*\.\s*(?:connect|createConnection)\s*\(/g], ["WebSocket", /\bnew\s+WebSocket\s*\(/g]];
+  const patterns = [["fetch", /\bfetch\s*(?:\?\.\s*)?\(/g], ["https", /\bhttps\s*\.\s*(?:request|get)\s*\(/g], ["http", /\bhttp\s*\.\s*(?:request|get)\s*\(/g], ["net", /\bnet\s*\.\s*(?:connect|createConnection)\s*\(/g], ["WebSocket", /\bnew\s+WebSocket\s*\(/g],
+    ["requests", /\brequests\s*\.\s*(?:get|post|put|patch|delete|head|request|Session)\s*\(/g], ["urllib", /\burllib\s*\.\s*request\s*\.\s*urlopen\s*\(/g], ["urlopen", /\burlopen\s*\(/g],
+    ["httpclient", /\bhttp\s*\.\s*client\s*\.\s*HTTPS?Connection\s*\(/g], ["aiohttp", /\baiohttp\s*\.\s*(?:ClientSession|request)\s*\(/g], ["httpx", /\bhttpx\s*\.\s*(?:get|post|put|patch|delete|request|Client)\s*\(/g], ["socket", /\bsocket\s*\.\s*(?:socket|create_connection)\s*\(/g]];
   for (const [api, re] of patterns) for (const m of text.matchAll(re)) add(api, m.index, api === "http" && loopbackArgument(text.slice(m.index + m[0].length)));
   // Standard Node import/require aliases; unknown destinations stay conservative.
   const aliases = [];
@@ -68,7 +70,7 @@ export function coverage(files, profile) {
   const excluded = [...(profile.exclude || []), ...(profile.outboundExclude || [])];
   for (const { path, source } of files) {
     if (excluded.some(g => pathMatches(path, g))) { skipped.push(path); continue; }
-    if (!/\.(?:js|cjs|mjs)$/.test(path)) continue;
+    if (!/\.(?:js|cjs|mjs|py)$/.test(path)) continue;
     const uses = networkUses(source);
     if (!uses.length) continue;
     const row = { path, uses }; found.push(row);
@@ -77,27 +79,27 @@ export function coverage(files, profile) {
   return { scanned: files.length - skipped.length, skipped, found, missing };
 }
 
-export function readMainSources(root, { refresh = process.env.GITHUB_ACTIONS === "true" } = {}) {
+export function readMainSources(root) {
   const git = args => execFileSync("git", ["-C", root, ...args], { windowsHide: true, encoding: "utf8", timeout: 60000, maxBuffer: 8 << 20, stdio: ["pipe", "pipe", "pipe"] });
   const remote = git(["remote", "get-url", "origin"]).trim();
   const match = /^(?:https:\/\/github\.com\/|git@github\.com:)good-night-oppie\/(MontClip(?:-Cindy)?)(?:\.git)?$/.exec(remote);
   if (!match) throw Error("main扫描仓库不是明确的good-night-oppie/MontClip或MontClip-Cindy");
-  if (refresh) git(["fetch", "--no-tags", "--depth=1", "origin", "main:refs/remotes/origin/main"]);
-  const head = git(["rev-parse", "--verify", "refs/remotes/origin/main^{commit}"]).trim();
+  // Scan the checked-out commit (PR head / merge-group commit), never a fetched origin/main: a PR-added file must be caught at PR stage.
+  const head = git(["rev-parse", "--verify", "HEAD^{commit}"]).trim();
   const entries = git(["ls-tree", "-rz", "--full-tree", head]).split("\0").filter(Boolean).map(row => {
     const m = /^\d+ blob ([a-f0-9]{40})\t([\s\S]+)$/.exec(row); return m && { sha: m[1], path: m[2] };
-  }).filter(e => e && /\.(?:js|cjs|mjs)$/.test(e.path));
+  }).filter(e => e && /\.(?:js|cjs|mjs|py)$/.test(e.path));
   // Do not read source bodies of copied demos or prohibited reverse materials.
   const excluded = entries.filter(e => e.path.startsWith("docs/demo/") || /(?:^|\/)(?:capcut|reverse-engineering)(?:\/|[-_.])/i.test(e.path));
   const selected = entries.filter(e => !excluded.includes(e));
   const result = spawnSync("git", ["-C", root, "cat-file", "--batch"], { input: selected.map(e => e.sha + "\n").join(""), windowsHide: true, timeout: 60000, maxBuffer: 64 << 20 });
-  if (result.status !== 0 || result.error) throw Error("main源文件读取失败或不完整");
+  if (result.status !== 0 || result.error) throw Error("HEAD源文件读取失败或不完整");
   let offset = 0; const files = [];
   for (const entry of selected) {
-    const end = result.stdout.indexOf(10, offset); if (end < 0) throw Error("main源数据截断");
+    const end = result.stdout.indexOf(10, offset); if (end < 0) throw Error("HEAD源数据截断");
     const header = result.stdout.subarray(offset, end).toString("utf8");
     const m = /^([a-f0-9]{40}) blob (\d+)$/.exec(header);
-    if (!m || m[1] !== entry.sha) throw Error("main源blob与清单不一致");
+    if (!m || m[1] !== entry.sha) throw Error("HEAD源blob与清单不一致");
     const size = Number(m[2]); offset = end + 1;
     if (offset + size >= result.stdout.length) throw Error("main源数据截断");
     files.push({ path: entry.path, source: result.stdout.subarray(offset, offset + size).toString("utf8") }); offset += size + 1;
