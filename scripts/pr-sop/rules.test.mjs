@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { checkPR, classifyFiles, ownerDeclaration, testLineHasResult, EXCEPTION_LABEL } from "./rules.mjs";
+import { checkPR, classifyFiles, ownerDeclaration, testLineHasResult, EXCEPTION_LABEL, formatReport } from "./rules.mjs";
 import { collectMetadata, main } from "./run.mjs";
 import { workflowText, FILES } from "./make-workflow.mjs";
 import { createHash } from "node:crypto";
@@ -56,6 +56,25 @@ describe("PR SOP：逐项正负控", () => {
   it("审查人须API请求或已有review，正文提名不算", () => {
     assert.ok(missing(run(BODY, { pr: { body: BODY + "\nGoodNightOppie", reviewRequests: [] } }), "reviewer"));
     assert.equal(run(BODY, { pr: { body: BODY, reviewRequests: [], reviews: [{ author: { login: "GoodNightOppie" } }] } }).status, "passed");
+  });
+  it("批准后请求被GitHub清空：已有当前head review仍通过", () => {
+    const head = "a".repeat(40);
+    const r = run(BODY, { pr: { body: BODY, headRefOid: head, reviewRequests: [], reviews: [{ author: { login: "GoodNightOppie" }, state: "APPROVED", commit: { oid: head }, submittedAt: "2026-11-07T00:00:00Z" }] } });
+    assert.equal(r.status, "passed"); assert.deepEqual(r.warnings, []);
+  });
+  it("从没请过且没有review失败，正文提名不能冒充审查请求", () => {
+    const r = run(BODY, { pr: { body: BODY + "\n## 备注\nGoodNightOppie", headRefOid: "a".repeat(40), reviewRequests: [], reviews: [] } });
+    assert.equal(r.status, "failed"); assert.ok(missing(r, "reviewer"));
+  });
+  it("新head没有请求、最近review在旧head：只提示不失败；重新请求后消除提示", () => {
+    const head = "a".repeat(40), older = "b".repeat(40);
+    const pr = { body: BODY, headRefOid: head, reviewRequests: [], reviews: [
+      { author: { login: "GoodNightOppie" }, commit: { oid: older }, submittedAt: "2026-11-07T01:00:00Z" },
+      { author: { login: "GoodNightOppie" }, commit: { oid: head }, submittedAt: "2026-11-07T00:00:00Z" }
+    ] };
+    const r = run(BODY, { pr }); assert.equal(r.status, "passed"); assert.equal(r.issues.length, 0);
+    assert.equal(r.warnings.length, 1); assert.match(formatReport(r), /请重新请审查人/);
+    assert.deepEqual(run(BODY, { pr: { ...pr, reviewRequests: [{ login: "GoodNightOppie" }] } }).warnings, []);
   });
   it("改剪辑/导出须音画同步行，纯文档不加门槛", () => {
     assert.ok(missing(run(BODY, { files: ["export.js"] }), "avsync"));
@@ -156,12 +175,12 @@ describe("只读API及工作流安全", () => {
   it("runner缺负责人及待QQ例外返回1，QQ标签核验后返回0", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pr-sop-exit-test-"));
     const event = path.join(dir, "event.json"); const original = globalThis.fetch;
-    let current, events = [];
+    let current, events = [], requested = [{ login: "GoodNightOppie" }], reviewRows = [];
     globalThis.fetch = async (url) => ({ ok: true, json: async () => {
       const route = String(url);
       if (route.includes("/files?")) return [];
-      if (route.endsWith("requested_reviewers")) return { users: [{ login: "GoodNightOppie" }] };
-      if (route.includes("/reviews?")) return [];
+      if (route.endsWith("requested_reviewers")) return { users: requested };
+      if (route.includes("/reviews?")) return reviewRows;
       if (route.includes("/events?")) return events;
       return { ...current, changed_files: 0 };
     } });
@@ -173,6 +192,10 @@ describe("只读API及工作流安全", () => {
       fs.writeFileSync(event, JSON.stringify({ pull_request: current })); assert.equal(await main(env), 1);
       events = [{ id: 1, event: "labeled", actor: { login: "GoodNightOppie" }, label: { name: EXCEPTION_LABEL } }];
       assert.equal(await main(env), 0);
+      current = { ...eventPR, body: BODY };
+      requested = []; reviewRows = [{ user: { login: "GoodNightOppie" }, commit_id: "b".repeat(40), submitted_at: "2026-11-07T00:00:00Z" }];
+      fs.writeFileSync(event, JSON.stringify({ pull_request: current }));
+      assert.equal(await main(env), 0, "old-head review notice must not fail the check");
     } finally { globalThis.fetch = original; }
   });
   it("嵌入的规则/名单/分类/runner逐字节等于源文件，校验SHA256", () => {

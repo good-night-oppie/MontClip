@@ -21,3 +21,7 @@
 无checkout、PR代码执行、安装依赖或打印token。静态检查器字节嵌入工作流并核哈希，支持首次新增检查器PR；哈希只证明一致性，QQ仍需核工作流本身。规则源改动后运行node scripts/pr-sop/make-workflow.mjs，并运行node --test scripts/pr-sop/rules.test.mjs。
 
 主人已同意必过方向，但生效顺序仍为BB交PR→QQ审→Deja定合并及生效时间→QQ用GoodNightOppie设置两仓main必过检查并读回。BB不改规则集；工作流返回失败不等于规则集已经生效。生效前现有PR缺项仅列清单，不改别人的PR。
+
+## 审查人补充口径
+
+requested_reviewers有GoodNightOppie或本PR历史reviews有其已提交审查，任一满足即算送审；正文提名不算。若当前未请求、最近一次review不在当前head，仅提示“请重新请审查人”，不增加失败项，不改变退出码。按submittedAt取最近记录；已重新请求则不再提示。这个通知不证明当前head已批准，也不撤销CI/Inbox/角色验收/正式批准的独立门禁。

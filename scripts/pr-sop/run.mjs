@@ -34,8 +34,8 @@ export async function collectMetadata({ get, repo, number, eventPR }) {
   if (!same(last, first)) throw Error("PR_CHANGED");
   if (!Array.isArray(requested.users)) throw Error("API_SHAPE");
   return {
-    pr: { body: eventPR.body || "", isDraft: !!eventPR.draft, author: { login: eventPR.user?.login },
-      labels: first.labels || [], reviewRequests: requested.users.map((u) => ({ login: u.login })), reviews: reviews.map((r) => ({ author: { login: r.user?.login } })) },
+    pr: { body: eventPR.body || "", isDraft: !!eventPR.draft, headRefOid: eventPR.head.sha, author: { login: eventPR.user?.login },
+      labels: first.labels || [], reviewRequests: requested.users.map((u) => ({ login: u.login })), reviews: reviews.map((r) => ({ author: { login: r.user?.login }, commit: { oid: r.commit_id }, submittedAt: r.submitted_at })) },
     labelEvents,
     files: fileRows.map((f) => ({ filename: f.filename, previous_filename: f.previous_filename }))
   };
@@ -55,6 +55,7 @@ export async function main(env = process.env) {
   const result = checkPR({ ...metadata, repo: env.GITHUB_REPOSITORY, policy, teammates });
   const text = formatReport(result);
   console.log(text); // only fixed messages; never PR body, token, exception reasons or URLs
+  for (const warning of result.warnings || []) console.log(`::notice::${warning.message}`);
   const fingerprints = ["rules.mjs", "policy.json", "teammates.json"].map((name) => `${name}: ${createHash("sha256").update(fs.readFileSync(new URL(name, import.meta.url))).digest("hex")}`).join("\n");
   if (env.GITHUB_STEP_SUMMARY) fs.appendFileSync(env.GITHUB_STEP_SUMMARY, `## sop-pr-lint\n\n${text}\n\nHead: ${pr.head.sha}\n\n\`\`\`text\n${fingerprints}\n\`\`\`\n例外须QQ标签核验；此结果不等于正式批准。\n`);
   if (!["passed", "skipped"].includes(result.status)) {

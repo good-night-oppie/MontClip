@@ -25,6 +25,19 @@ export function reviewerRequested(pr, reviewer = "GoodNightOppie", allowReviewHi
     || (allowReviewHistory && (pr.reviews || []).some((r) => r.author?.login === reviewer));
 }
 
+// Historical review satisfies handoff; a new head can still need a fresh request.
+// This is a notice only. Current-head approval remains a separate merge gate.
+export function reviewerNotice(pr, reviewer = "GoodNightOppie") {
+  if ((pr.reviewRequests || []).some(r => r.login === reviewer)) return null;
+  const history = (pr.reviews || []).filter(r => r.author?.login === reviewer);
+  const head = pr.headRefOid || pr.head?.sha;
+  if (!history.length || !/^[a-f0-9]{40}$/.test(head || "")) return null;
+  const latest = history.map((review, index) => ({ review, index, time: Date.parse(review.submittedAt || "") || 0 }))
+    .sort((a, b) => a.time - b.time || a.index - b.index).at(-1).review;
+  const reviewHead = latest.commit?.oid || latest.commit_id;
+  return reviewHead && reviewHead !== head ? { item: "reviewer", message: "请重新请审查人：GoodNightOppie最近一次review不在当前head；仅提示，不判失败" } : null;
+}
+
 function sectionsOf(body) {
   const sections = {}; let current;
   for (const line of String(body || "").replace(/<!--[\s\S]*?-->/g, "").split(/\r?\n/).slice(2)) {
@@ -97,6 +110,8 @@ export function exceptionVerified(pr, events) {
 export function checkPR({ pr, files, repo, policy, teammates, labelEvents }) {
   if (pr.isDraft) return { status: "skipped", issues: [], exceptions: [], owner: { state: "skipped" } };
   const issues = [], exception = exceptionsOf(pr.body);
+  const notice = policy?.allowReviewHistory ? reviewerNotice(pr, policy.reviewer) : null;
+  const warnings = notice ? [notice] : [];
   const add = (item, message) => { if (!exception.valid.some((e) => e.item === item)) issues.push({ item, message }); };
   if (!policy?.repositories?.[repo] || !Array.isArray(teammates) || !teammates.length) {
     return { status: "failed", issues: [{ item: "configuration", message: "仓库或伙伴名单未配置，请维护者补规则，不能当检查通过" }], exceptions: [], owner: { state: "unknown" } };
@@ -122,10 +137,10 @@ export function checkPR({ pr, files, repo, policy, teammates, labelEvents }) {
     }
   }
   const verified = exception.valid.length > 0 && exceptionVerified(pr, labelEvents);
-  return { status: issues.length ? "failed" : exception.valid.length && !verified ? "needs_qq" : "passed", issues, exceptions: exception.valid, exceptionVerified: verified, owner, categories };
+  return { status: issues.length ? "failed" : exception.valid.length && !verified ? "needs_qq" : "passed", issues, warnings, exceptions: exception.valid, exceptionVerified: verified, owner, categories };
 }
 
 export function formatReport(result) {
   const label = { passed: "模板检查通过（不代替审查批准）", skipped: "Draft：跳过送审模板检查", failed: "模板检查需补齐", needs_qq: "需要 QQ 核验：仅确认例外格式，机器未证明例外成立" }[result.status];
-  return [label, ...result.issues.map((i) => `- ${i.message}`), ...result.exceptions.map((e) => `- ${e.label}使用SOP例外，${result.exceptionVerified ? "已核对标签由GoodNightOppie添加；不等于正式批准" : "等 QQ 核验：请GoodNightOppie添加sop-exception-verified标签后重跑"}`)].join("\n");
+  return [label, ...result.issues.map((i) => `- ${i.message}`), ...(result.warnings || []).map(w => `- 提示：${w.message}`), ...result.exceptions.map((e) => `- ${e.label}使用SOP例外，${result.exceptionVerified ? "已核对标签由GoodNightOppie添加；不等于正式批准" : "等 QQ 核验：请GoodNightOppie添加sop-exception-verified标签后重跑"}`)].join("\n");
 }
