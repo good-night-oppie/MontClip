@@ -77,6 +77,6 @@ test('the four modes, in JJ\'s final words from the frozen prototype c604fd65 (M
   a.equal(T('en', 'modeAutoTip'), "Does what can be undone; asks before what can't.");
   a.equal(T('en', 'modeYoloTip'), "Does every step without asking you; anything sent out is still shown to you first. You'll be asked once more before it turns on.");
   // the Yolo bar is another sentence, as it was
-  a.equal(T('zh-CN', 'yoloOn'), 'Yolo 开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。');
-  a.equal(T('en', 'yoloOn'), 'Yolo is on: the AI does every step without asking you; anything sent out is still shown to you first.');
+  a.equal(T('zh-CN', 'yoloOn'), '全自动开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。');
+  a.equal(T('en', 'yoloOn'), 'Full auto is on: the AI does every step without asking you; anything sent out is still shown to you first.');
 });

@@ -72,6 +72,30 @@ function codeText(error) {
   const code = error && (error.code || error.errorCode);
   return typeof code === "string" && CODE_TEXT[code] ? uiText(CODE_TEXT[code]) : "";
 }
+/** Any failure for the streamer (Deja, decision B; JJ's table v2): plain words from MontClipView.errorText. The raw error
+ *  goes to the log only, never on screen; r.line is that log line, for 〔复制问题信息〕 (copyProblem). */
+function sayError(error, where = "error") {
+  const r = MontClipView.errorText(mcView.get().language, error);
+  r.line = "[" + where + "] " + r.code + (r.log ? ": " + r.log : "");
+  if (r.log) console.warn(r.line);
+  return r;
+}
+/** 〔复制问题信息〕: the log line with viewers, keys and user folders taken out (problem-redact.js) — by the server, which
+ *  knows the home folder; by the same rules here when the server can't be reached. */
+async function copyProblem(r) {
+  let out = null;
+  try {
+    const res = await fetch("/api/problem-details", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: r.line || "" }) });
+    if (res.ok) out = (await res.json()).text;
+  } catch { /* offline: the page's copy of the rules */ }
+  if (typeof out !== "string") out = MontClipRedact.redactProblem(r.line || "", { platform: /win/i.test(navigator.platform || "") ? "win32" : "" });
+  try { await navigator.clipboard.writeText(out); toast(uiText("own.copy-problem-done")); } catch { toast(uiText("own.copy-problem-failed")); }
+}
+/** A failure in a toast: the words, and for one without its own sentence 〔复制问题信息〕 with JJ's small print under it. */
+function toastProblem(r, prefix = "") {
+  if (r.known) toast(prefix + r.text);
+  else toastAction(prefix + r.text, uiText("btnCopyProblem"), () => copyProblem(r), uiText("copyProblemNote"));
+}
 /** Simple mode: no tooltip offers a shortcut it holds back (Deja, #55); advanced mode shows the full text again. The
  *  full tooltip is kept beside the shown one, and a tooltip rewritten since (a new language) is taken as the full one. */
 function syncShortcutTitles(mode) {
@@ -1338,7 +1362,12 @@ window.montclipDownloads?.onDone(({ state, name, removed }) => {
   renderQueue();
   if (state === "completed") { if (msg) toast(msg); }
   else if (state === "cancelled") toast(uiText(wasExport ? "own.export-save-cancelled" : kind === "captions" ? "own.captions-save-cancelled" : "own.save-canceled"));
-  else toast(uiText(wasExport ? "own.export-save-failed" : "own.save-failed"));
+  else if (wasExport) {
+    const q = exportQueue.find((x) => x.file === name && x.src);
+    if (q) toastAction(uiText("exportSaveFolderFailed"), uiText("btnOtherFolder"), () => { if (!q.saving) saveDownload(q.src, name, { exportFile: true }); });
+    else toast(uiText("exportSaveFolderFailed"));
+  }
+  else toast(uiText("own.save-failed"));
 });
 /** A toast with 〔撤销〕 (VV / Deja, 2026-11-03): it stays UNDO_TOAST_MS, and the time stops while the pointer is on it or
  *  focus is inside it; once it leaves, the full time starts again. → {start, stop} for that toast element. */
@@ -2521,7 +2550,7 @@ async function importFromUrl(url) {
   } catch (e) {
     if (e && e.name === "AbortError") return;
     setImportUrlBusy(false);
-    toast(codeText(e) || (e && e.message ? e.message : "Couldn't import URL"));
+    toastProblem(sayError(e, "import-url"));
   } finally {
     runtime.importUrlAbort = null;
   }
@@ -10905,6 +10934,9 @@ async function showHighlightCandidates() {
    notification (montclip:notify:found). Every song card is 「估的」 at both ends (Deja: songs.js is not accurate yet). */
 const AUTO = { el: null, st: null };
 function autoState() {
+  // a project that only now gets its id is the same project (placing slices saves a version, which starts the project
+  // list): keep the page, or a finished export reads 「导出好了，0 条」 (VV, 2026-11-04)
+  if (AUTO.st && !AUTO.st.projectId && runtime.projectId && runtime.projectId !== "?") AUTO.st.projectId = runtime.projectId;
   if (!AUTO.st || AUTO.st.projectId !== runtime.projectId)
     AUTO.st = { projectId: runtime.projectId, step: "start", picked: null, kind: "auto", count: MontClipAutoSlices.DEFAULTS.count,
       len: MontClipAutoSlices.DEFAULTS.len, subs: true, run: null, recs: [], clips: [], dropped: [], few: null, ask: false, hist: [], histKept: [], exportIds: null };
@@ -11615,6 +11647,8 @@ function autoClick(e) {
   if (act === "ex-go") { autoExport(); return; }
   if (act === "ex-cancel") { autoExNext(); autoRender("review"); return; }
   if (act === "retry") { autoExportRun(); return; }
+  if (act === "retry-one") { autoExportRun(b.dataset.q); return; }
+  if (act === "copy-problem") { const q = autoDoneItems().find((x) => x.status === "failed"); if (q) copyProblem(sayError(q, "auto-slices")); return; }
   if (act === "open-queue") { AUTO.el.close(); openQueue(); return; }
   if (act === "back-review") { autoExNext(); autoRender("review"); return; }
   if (act === "another") { st.clips = []; st.recs = []; st.dropped = []; autoRender("start"); return; }
@@ -11765,13 +11799,14 @@ function dismissToast() {
   if (toastHold) toastHold.stop();
   if (els.toast) els.toast.classList.remove("show", "has-action");
 }
-function toastAction(msg, label, onClick) {
+function toastAction(msg, label, onClick, note = "") {
   if (!els.toast) return;
   els.toast.textContent = "";
   const span = document.createElement("span"), btn = document.createElement("button");
   span.textContent = msg; btn.type = "button"; btn.className = "btn tiny toast-action"; btn.textContent = label;
   btn.addEventListener("click", () => { els.toast.classList.remove("show", "has-action"); onClick(); }, { once: true });
   els.toast.append(span, " ", btn);
+  if (note) { const small = document.createElement("small"); small.className = "toast-note"; small.textContent = note; els.toast.append(small); }
   els.toast.classList.add("show", "has-action");
   clearTimeout(toastTimer);
   if (!toastHold) toastHold = holdToast(els.toast, () => { if (els.toast.classList.contains("has-action")) els.toast.classList.remove("show", "has-action"); });
@@ -11847,31 +11882,31 @@ async function autoExport() {
   st.exportNames = on.map(autoName);
   autoExportRun();
 }
-async function autoExportRun() {
+async function autoExportRun(only = null) {
   const st = autoState();
-  for (const q of exportQueue) if (st.exportIds.includes(q.id) && q.status === "failed") { q.status = "pending"; q.progress = 0; }
+  for (const q of exportQueue) if (st.exportIds.includes(q.id) && q.status === "failed" && (!only || q.id === only)) { q.status = "pending"; q.progress = 0; }
   autoRender("done");
   // the page follows the queue while it runs (each file's percent), then shows what was made
   const live = setInterval(() => { if (AUTO.el && AUTO.el.open && autoState().step === "done") autoRender("done"); }, 700);
   try { if (!queueRunning) await runQueue({ quiet: true }); } finally { clearInterval(live); }
   if (AUTO.el && AUTO.el.open) autoRender("done");
 }
-/** Why exports failed, in plain words (the queue keeps the detail). */
-function autoFailWhy(failed) {
-  const errors = failed.map((q) => String(q.error || ""));
-  if (errors.some((e) => /ENOSPC|no space|disk is full|空间不够/i.test(e))) return "as-fail-why-space";
-  if (errors.some((e) => e === uiText("own.ssel-queue-changed"))) return "as-fail-why-changed";
-  return "as-fail-why-other";
-}
+const autoDoneItems = () => (autoState().exportIds || []).map((id) => exportQueue.find((q) => q.id === id)).filter(Boolean);
+/** The end page (table v2 by JJ, rule 4): 「{N} 条导出好了，{M} 条没导出来」, each failed one with the reason from v2 and
+ *  〔重试这条〕; none made it: 「这次一条都没导出来：{第一个原因}。你的剪辑都还在，没有丢。」 with 〔重试〕〔复制问题信息〕. */
 function autoDoneHtml() {
-  const st = autoState(), items = (st.exportIds || []).map((id) => exportQueue.find((q) => q.id === id)).filter(Boolean);
+  const items = autoDoneItems(), lang = mcView.get().language;
   const done = items.filter((q) => q.status === "done"), failed = items.filter((q) => q.status === "failed");
   const busy = items.some((q) => q.status === "pending" || q.status === "running");
-  const title = busy ? autoSay("as-exporting", { n: items.length }) : failed.length ? autoSay("as-done-partial", { n: done.length, failed: failed.length }) : autoSay("as-done-title", { n: done.length });
-  return `<h1>${title}</h1><p class="as-sub">${busy ? "" : autoSay("as-done-sub")}</p>
+  const title = busy ? autoSay("as-exporting", { n: items.length })
+    : escapeHtml(MontClipView.exportResult(lang, { done: done.length, failed: failed.length, why: failed.length ? MontClipView.batchReason(lang, failed[0]) : "" }));
+  const say = (k) => escapeHtml(uiText(k));
+  return `<h1>${title}</h1><p class="as-sub">${busy || !done.length ? "" : autoSay("as-done-sub")}</p>
     <section class="as-card-box">${items.map((q) => `<div class="as-row"><span><b>${escapeHtml(q.name)}</b></span><span class="as-small">${q.status === "running" ? Math.round((q.progress || 0) * 100) + "%" : ""}</span></div>`).join("")}</section>
-    ${failed.length ? `<section class="as-card-box as-warn"><b>${autoSay("as-fail", { failed: failed.length, name: failed.slice(0, 3).map((q) => q.name).join("」「") + (failed.length > 3 ? "…" : ""), why: failed.some((q) => q.noH264) ? failed.find((q) => q.noH264).error.replace(/[。.]$/, "") : uiText("own." + autoFailWhy(failed)) })}</b>
-      <div class="as-row"><button type="button" class="btn primary" data-as-act="retry">${autoSay("as-retry")}</button></div></section>` : ""}
+    ${!busy && failed.length && done.length ? `<section class="as-card-box as-warn" data-as-failed>${failed.map((q) => `<div class="as-row"><span><b>${escapeHtml(q.name)}</b>：${escapeHtml(MontClipView.batchReason(lang, q))}</span>
+      <button type="button" class="btn" data-as-act="retry-one" data-q="${q.id}">${say("btnRetryThis")}</button></div>`).join("")}</section>` : ""}
+    ${!busy && failed.length && !done.length ? `<section class="as-card-box as-warn" data-as-failed><div class="as-row"><button type="button" class="btn primary" data-as-act="retry">${say("btnRetry")}</button>
+      <button type="button" class="btn" data-as-act="copy-problem">${say("btnCopyProblem")}</button></div><p class="as-small">${say("copyProblemNote")}</p></section>` : ""}
     <div class="as-cta"><button type="button" class="btn primary" data-as-act="open-queue">${autoSay("as-open-queue")}</button>
       <button type="button" class="btn" data-as-act="back-review">${autoSay("as-back-review")}</button><button type="button" class="btn" data-as-act="another">${autoSay("as-another")}</button></div>`;
 }
@@ -13757,7 +13792,9 @@ async function noteBgRemove() {
   else toastAction(uiText("own.bgremove-fallback"), uiText("own.font-fallback-load"), () => requestBgRemove());
 }
 function bgRemoveExportError(clipId, realtime = false) {
-  return new Error(`BG_REMOVE_UNAVAILABLE: ${uiText(realtime ? "own.bgremove-export-realtime" : "own.bgremove-export-unavailable")} (${clipId})`);
+  // the code picks JJ's sentence in the plain-words table (ui-preferences.js ERROR_TEXT); the message stays for the log
+  return Object.assign(new Error(`BG_REMOVE_UNAVAILABLE: ${uiText(realtime ? "own.bgremove-export-realtime" : "own.bgremove-export-unavailable")} (${clipId})`),
+    { code: realtime ? "BG_REMOVE_REALTIME" : "BG_REMOVE_UNAVAILABLE" });
 }
 /* A fresh/headless page cannot inherit consent. Refuse before starting an encoder, then verify every frame below. */
 function noteExportBgRemove(range = exportRange(), realtime = false) {
@@ -20342,13 +20379,15 @@ async function prepareFrameAssets(t) {
     }
   }
 }
+/** A failed export, said in plain words (导出失败：…), with 〔复制问题信息〕 when it has no sentence of its own. */
+function sayExportFailure(e) { toastProblem(sayError(e, "export"), uiText("own.export-failed-prefix")); }
 /** opts.job: an agent's export job id — progress and the result go back to
  *  the server instead of an alert / download (nobody may be watching).
  *  opts.profile: encoding profile id for this run.
  *  opts.delivery: a delivery spec (delivery.js) instead of a profile.
  *  opts.deliveries: [{delivery, name?}] — several files from one render (same fps).
  *  opts.silent: no overlay, alert or download (the export queue shows it);
- *  opts.onProgress(0…1). Resolves {outputs:[{file, ok, src?, error?}]} or {error, cancelled}. */
+ *  opts.onProgress(0…1). Resolves {outputs:[{file, ok, src?, error?}]} or {error, code?, cancelled}. */
 /* No H.264 encoder on this computer (Linux with the bundled LGPL FFmpeg and no graphics card, Windows N without Media
    Foundation): an H.264 export is refused when it is clicked, in plain words, before the audio mix or any frame is
    rendered (ADR 2026-11-02 point 3). null = go ahead; the server still refuses at /api/export/begin. */
@@ -20360,8 +20399,11 @@ async function exportH264Refusal(h264) {
   try { st = await (await fetch("/api/export/h264", { cache: "no-store" })).json(); } catch { return null; }
   return st && !st.encoder && st.reason ? MontClipView.h264Refusal(mcView.get().language, st.reason) : null;
 }
+/** The no-encoder refusal carries its own code, so errorText and batchReason say h264Refuse, not Settings' h264None*
+ *  sentence or the last row (Deja on #129). */
+const exportRefusalCode = (code) => (code === "h264NoneWin" || code === "h264NoneOther" ? "EXPORT_NO_H264" : code);
 async function fastExport(opts = {}) {
-  if (state.exporting) return { error: "an export is already running" };
+  if (state.exporting) return { error: "an export is already running", code: "EXPORT_BUSY" };
   const job = opts.job || null;
   pause();
   state.exporting = true; state.rendering = true; renderCancelled = false;
@@ -20384,7 +20426,7 @@ async function fastExport(opts = {}) {
     // no H.264 encoder here: said now, before the audio mix and the frames (the server refuses at begin too). Said before
     // the AI background-removal check too (Deja, 2026-11-07): without an encoder nothing can export, so that comes first.
     const refused = await exportH264Refusal(deliveries ? deliveries.some((d) => deliveryIsH264(d.delivery)) : profileIsH264(profileId));
-    if (refused) throw new Error(refused);
+    if (refused) throw Object.assign(new Error(refused), { code: "EXPORT_NO_H264" });
     noteExportBgRemove({ start: t0, end: t1 });
     els.exportTitle.textContent = uiText("own.mixing-audio");
     const wav = await renderAudioMix(t0, t1);
@@ -20406,7 +20448,7 @@ async function fastExport(opts = {}) {
       }),
       signal,
     }).then((r) => r.json());
-    if (!begin.id) throw Object.assign(new Error(MontClipView.h264Refusal(mcView.get().language, begin) || begin.error || "export begin failed"), { code: begin.code });
+    if (!begin.id) throw Object.assign(new Error(MontClipView.h264Refusal(mcView.get().language, begin) || begin.error || "export begin failed"), { code: exportRefusalCode(begin.code), params: begin.params, featurePack: begin.featurePack });
     sessId = begin.id;
     const jpegQ = delivery ? begin.jpegQuality ?? 0.95 : exportProfileMeta(profileId).jpegQuality ?? 0.95;
     const rgba = begin.input === "rgba";
@@ -20517,9 +20559,9 @@ async function fastExport(opts = {}) {
     // technical code stays only in the structured result for logs.
     const msg = unsupportedProfile ? uiText("own.export-profile-unsupported")
       : e?.name === "AbortError" ? "cancelled" : String(e.message || e);
-    result = { error: msg, cancelled: msg === "cancelled", ...(unsupportedProfile ? { code: e.code } : {}) };
+    result = { error: msg, code: e && e.code, params: e && e.params, featurePack: e && e.featurePack, cancelled: msg === "cancelled" };
     if (job) await reportExportJob(job, { status: "failed", error: msg }, true);
-    else if (msg !== "cancelled" && !opts.silent) alert(unsupportedProfile ? msg : uiText("own.export-failed-prefix") + msg);
+    else if (msg !== "cancelled" && !opts.silent) { if (unsupportedProfile) alert(msg); else sayExportFailure(e); }
   } finally {
     exportAbort = null;
     exportFullCanvas = false;
@@ -20614,15 +20656,17 @@ function renderQueue() {
   list.innerHTML = exportQueue.map((q) => {
     const ext = Delivery.CONTAINERS[q.spec.container].ext;
     const fr = deliveryFrame(q.spec), fps = q.spec.fps || projectFps();
-    const status = q.status === "running" ? `Rendering… ${Math.round(q.progress * 100)}%`
-      : q.status === "done" ? (q.saved ? "" : `Done → exports/${q.file || q.name + ext}`)
-        : q.status === "failed" ? `Failed: ${q.error || "unknown error"}`
-          : q.status === "cancelled" ? "Stopped" : "Waiting";
+    // a failure in plain words: v2's sentence for its code, else its last row (MontClipView.batchReason); nothing raw
+    const why = q.status === "failed" ? MontClipView.batchReason(mcView.get().language, q) : null;
+    const status = q.status === "running" ? uiText("qRendering", { pct: Math.round(q.progress * 100) })
+      : q.status === "done" ? (q.saved ? "" : uiText("qDone", { file: q.file || q.name + ext }))
+        : why ? uiText("qFailed") + why
+          : q.status === "cancelled" ? uiText("qStopped") : uiText("qWaiting");
     const actions = [
       // 保存 opens the save window again; once a save went through, 已保存
       q.status === "done" && q.src ? (q.saved ? `<span class="dlv-q-saved">${escapeHtml(uiText("own.q-saved"))}</span>` : `<button type="button" class="btn tiny" data-q-save="${q.id}"${q.saving ? ` disabled title="${escapeHtml(uiText("own.save-busy"))}"` : ""}>${escapeHtml(uiText("own.q-save"))}</button>`) : "",
       q.status === "done" && q.src && window.montclipReveal ? `<button type="button" class="btn tiny" data-q-reveal="${q.id}">${escapeHtml(uiText("own.q-reveal"))}</button>` : "",
-      q.status === "failed" || q.status === "cancelled" ? `<button type="button" class="btn tiny" data-q-retry="${q.id}">Retry</button>` : "",
+      q.status === "failed" || q.status === "cancelled" ? `<button type="button" class="btn tiny" data-q-retry="${q.id}">${escapeHtml(uiText("btnRetryThis"))}</button>` : "",
       q.status !== "running" ? `<button type="button" class="btn tiny" data-q-remove="${q.id}" title="Remove from the queue">✕</button>` : "",
     ].join("");
     return `<li class="${q.status}" data-q="${q.id}"><div class="xq-main"><b>${escapeHtml(q.label)} — ${escapeHtml(q.name + ext)}</b>` +
@@ -20640,13 +20684,13 @@ function renderQueueProgress() {
     if (!li) continue;
     const fill = li.querySelector(".progress-fill"), st = li.querySelector(".xq-status");
     if (fill) fill.style.width = (q.progress * 100).toFixed(1) + "%";
-    if (st) st.textContent = `Rendering… ${Math.round(q.progress * 100)}%`;
+    if (st) st.textContent = uiText("qRendering", { pct: Math.round(q.progress * 100) });
   }
 }
 async function runQueue(opts) {
   const quiet = !!(opts && opts.quiet);   // the auto-slices dialog says a refusal on its own page
   if (queueRunning || state.exporting) return;
-  if (!(state.connected && state.ffmpeg)) { alert("The export queue needs the server and ffmpeg (Fast export)."); return; }
+  if (!(state.connected && state.ffmpeg)) { toastProblem(sayError({ code: "EXPORT_NEEDS_SERVER", error: "the export queue needs the server and ffmpeg" }, "export-queue")); return; }
   queueRunning = true; queueStop = false;
   renderQueue();
   try {
@@ -20654,7 +20698,7 @@ async function runQueue(opts) {
     const h264Waiting = exportQueue.filter((q) => q.status === "pending" && deliveryIsH264(q.spec));
     const refused = h264Waiting.length ? await exportH264Refusal(true) : null;
     if (refused) {
-      for (const q of h264Waiting) Object.assign(q, { status: "failed", error: refused, noH264: true });
+      for (const q of h264Waiting) Object.assign(q, { status: "failed", error: refused, code: "EXPORT_NO_H264", noH264: true });
       renderQueue();
       if (!quiet) alert(refused);
     }
@@ -20664,11 +20708,11 @@ async function runQueue(opts) {
       const fps = first.spec.fps || projectFps();
       const clips = JSON.stringify(project.clips);
       if (first.guard && first.guard !== clips) {
-        Object.assign(first, { status: "failed", error: uiText("own.ssel-queue-changed") });
+        Object.assign(first, { status: "failed", code: "EXPORT_TIMELINE_CHANGED", error: uiText("own.ssel-queue-changed") });
         renderQueue(); continue;
       }
       const group = exportQueue.filter((q) => q.status === "pending" && (q.spec.fps || projectFps()) === fps && queueRangeKey(q.range) === queueRangeKey(first.range) && (q.guard || null) === (first.guard || null)).slice(0, 8);
-      for (const q of group) { q.status = "running"; q.progress = 0; q.error = null; q.noH264 = false; }
+      for (const q of group) { q.status = "running"; q.progress = 0; q.error = null; q.code = q.params = q.featurePack = null; q.noH264 = false; }
       renderQueue();
       exportRangeForced = first.range && typeof first.range === "object" ? first.range : first.range === "in-out" && hasWorkArea() ? "in-out" : "entire";
       let res;
@@ -20682,7 +20726,10 @@ async function runQueue(opts) {
         const o = res && res.outputs && res.outputs[i];
         if (o && o.ok) Object.assign(q, { status: "done", src: o.src, file: o.file, progress: 1, report: o.report || null });
         else if (res && res.cancelled) q.status = "cancelled";
-        else Object.assign(q, { status: "failed", error: (o && o.error) || (res && res.error) || "export failed" });
+        // a refusal of the whole render (no encoder, a bad setting) has a code; one output that failed has its own error
+        else Object.assign(q, { status: "failed", error: (o && o.error) || (res && res.error) || "export failed",
+          ...(o || !res ? {} : { code: res.code, params: res.params, featurePack: res.featurePack }) });
+        if (q.status === "failed") sayError(q, "export-queue");
       });
       renderQueue();
     }
@@ -20692,7 +20739,11 @@ async function runQueue(opts) {
   }
   const done = exportQueue.filter((q) => q.status === "done").length, failed = exportQueue.filter((q) => q.status === "failed").length;
   const warned = exportQueue.filter((q) => q.status === "done" && q.report && !q.report.ok).length;
-  if (done || failed) toast(`Export queue: ${done} done${failed ? `, ${failed} failed` : ""}${warned ? ` — ${warned} with warnings` : ""}`);
+  const lang = mcView.get().language, firstFailed = exportQueue.find((q) => q.status === "failed");
+  const msg = MontClipView.exportResult(lang, { done, failed, warned, why: firstFailed ? MontClipView.batchReason(lang, firstFailed) : "" });
+  // none made it: v2's sentence with the copy button for the first one
+  if (failed && !done) toastAction(msg, uiText("btnCopyProblem"), () => copyProblem(sayError(firstFailed, "export-queue")), uiText("copyProblemNote"));
+  else if (done || failed) toast(msg);
 }
 function stopQueue() {
   queueStop = true;
@@ -20822,6 +20873,7 @@ async function runClaimedJob(ticket) {
   if (ticket.kind === "scopes") return runScopesJob(ticket, fail);
   if (ticket.kind === "track") return runTrackJob(ticket, fail);
   if (ticket.kind === "transcribe") return runTranscribeJob(ticket, fail);
+  if (ticket.kind === "lyrics") return runLyricsJob(ticket, fail);
   if (!state.ffmpeg) {
     const j = await fetch("/api/export/ffmpeg").then((r) => r.json()).catch(() => ({}));
     state.ffmpeg = !!j.available;
@@ -20867,6 +20919,78 @@ async function runClaimedJob(ticket) {
 }
 /* fablecut_track: follow a region of a clip in this tab, store the track,
    optionally bake it into a mask or another clip, save, and report. */
+/* fablecut_lyrics_apply (JJ, 2026-11-05; docs/decisions/2026-11-05-lyrics-align-agent-tool.md): the agent's lyrics proposal
+   (lyrics-track.js) is put on the timeline only when the streamer agrees on this card — 〔放到时间线上〕 / 〔先不用〕 under
+   「AI 想做这一步」. The host's permission mode is asked first (fablecut_lyrics_apply is undoable in capabilities.js): plan
+   mode only lists it, a refused step is refused; in every other mode the card is shown, because asking before changing
+   is this feature's own rule. Agreed, the lines go on a NEW caption track — existing captions are not touched — the
+   lines that didn't match grey (disabled) for her to drag, in one undo step. */
+function lyricsCard(p, d) {
+  return new Promise((resolve) => {
+    const dialog = document.createElement("dialog");
+    dialog.className = "lt-card"; dialog.setAttribute("data-lt-card", "");
+    const say = (k, v) => escapeHtml(uiText("own." + k, v));
+    dialog.innerHTML = `<form method="dialog"><h3>${say("ap-title")}</h3><p class="lt-detail" data-lt-summary></p>
+      <p class="lt-what" data-lt-label></p><ol class="lt-lines" data-lt-lines></ol><p data-lt-target></p>
+      <div class="tr-row"><button type="button" class="btn primary" data-lt-choice="place">${say("lt-place")}</button>
+      <button type="button" class="btn" data-lt-choice="not-now">${say("lt-not-now")}</button></div></form>`;
+    dialog.querySelector("[data-lt-summary]").textContent = uiText("own.lt-preview", { k: p.k, n: p.n, m: p.m });
+    dialog.querySelector("[data-lt-label]").textContent = d ? d.label : "";   // the capability's plain sentence, from the host
+    dialog.querySelector("[data-lt-target]").textContent = uiText("own.ap-project", { name: project.name || "" });
+    const list = dialog.querySelector("[data-lt-lines]");
+    for (const l of p.lines) {
+      const li = document.createElement("li");
+      li.textContent = l.text;
+      if (!l.matched) { li.className = "lt-grey"; li.dataset.ltGrey = ""; }
+      list.append(li);
+    }
+    let answer = "not-now";
+    for (const b of dialog.querySelectorAll("[data-lt-choice]")) b.addEventListener("click", () => { answer = b.dataset.ltChoice; dialog.close(); });
+    dialog.addEventListener("close", () => { dialog.remove(); resolve(answer); });
+    document.body.append(dialog); dialog.showModal(); dialog.querySelector('[data-lt-choice="not-now"]').focus();
+    lyricsCard.close = () => { if (dialog.open) dialog.close(); };
+  });
+}
+async function runLyricsJob(ticket, fail) {
+  const p = ticket.lyrics, LT = typeof MontClipLyricsTrack !== "undefined" ? MontClipLyricsTrack : null;
+  if (!LT) return fail("the lyrics module is missing — reload the editor");
+  if (!p || p.code !== "OK" || !Array.isArray(p.lines)) return fail("not a lyrics proposal that can be placed");
+  const changed = () => LT.scopeSig(projectJSON(), p.clipIds) !== p.sig;
+  if (changed()) return fail("the clips with the singing changed since the proposal (moved, trimmed or cut) — nothing placed; run fablecut_lyrics again");
+  if (!LT.newTrack(projectJSON())) return fail(`there are ${MAX_TRACKS_PER_KIND} video tracks already — no room for a new caption track`);
+  const done = (result) => reportExportJob(ticket.id, { status: "done", result }, true);
+  // the host's permission mode first (desktop only): plan mode lists the step, a refused step is refused. The step comes
+  // from MCP, not from a chat, so it has the fixed session "mcp" (the card offers only once / deny, never 「都批准」)
+  let d = null;
+  if (window.montclipAgentPolicy) {
+    try { d = await window.montclipAgentPolicy.decide({ sessionId: "mcp", capability: "fablecut_lyrics_apply", target: { kind: "project", value: runtime.projectId } }); } catch { d = null; }
+    if (!d || !d.ok || d.action === "refuse") { toast(d && d.ok ? agentRefusalText(d) : uiText("own.ap-refused-mode")); return done({ applied: false, reason: "REFUSED" }); }
+    if (d.action === "list") { toast(uiText("own.ap-listed")); return done({ applied: false, reason: "LISTED" }); }
+  }
+  // the card waits for her: a heartbeat keeps the job alive, and the agent's cancel closes it
+  renderCancelled = false;
+  const beat = setInterval(() => { reportExportJob(ticket.id, { progress: 0 }, true).then(() => { if (renderCancelled) lyricsCard.close?.(); }); }, 10000);
+  let answer;
+  try { answer = await lyricsCard(p, d); } finally { clearInterval(beat); }
+  // the host's ticket gets the card's answer: 〔放到时间线上〕 is 「只批准这次」, 〔先不用〕 is 「不同意」
+  const choice = answer === "place" ? "once" : "deny";
+  if (d && d.action === "ask" && d.ticket) { try { await window.montclipAgentPolicy.answer({ticket:d.ticket,choice}); } catch { } }
+  if (renderCancelled) return;
+  if (answer !== "place") { toast(uiText("own.lt-not-placed")); return done({ applied: false, reason: "DECLINED" }); }
+  // the CAS: nothing the proposal rests on changed while the card was open
+  if (changed()) { toast(uiText("own.ap-stale")); return fail("the clips with the singing changed while the card was open — nothing placed; run fablecut_lyrics again"); }
+  const snap = undoSnapshot();
+  const tr = addTimelineTrack("video");
+  if (!tr) return fail("no room for a new caption track");
+  const list = LT.clips(p, { track: tr.id, width: project.width, height: project.height, id: () => "c_" + uid() });
+  project.clips.push(...list);
+  pushUndo(snap, { capability: "fablecut_lyrics_apply", args: { proposalId: p.id } });
+  const depth = runtime.undo.length;
+  state.dirtyTimeline = true; scheduleSave(); renderTranscript(true); renderInspector(); drawFrame();
+  toastAction(uiText("own.lt-done"), uiText("own.as-undo"), () => { if (runtime.undo.length === depth) undo(); });
+  const saved = await flushSave();
+  return done({ applied: true, track: tr.id, placed: list.filter((c) => !c.disabled).length, grey: list.filter((c) => c.disabled).length, saved, revision: project.revision });
+}
 async function runTrackJob(ticket, fail) {
   const spec = ticket.track || {}, c = getClip(spec.clip);
   if (!c) return fail(`no clip ${spec.clip}`);
@@ -21174,7 +21298,7 @@ async function webCodecsExport() {
       }),
       signal,
     }).then((r) => r.json());
-    if (!begin.id) throw new Error(MontClipView.h264Refusal(mcView.get().language, begin) || begin.error || "export begin failed");
+    if (!begin.id) throw Object.assign(new Error(MontClipView.h264Refusal(mcView.get().language, begin) || begin.error || "export begin failed"), { code: exportRefusalCode(begin.code), params: begin.params, featurePack: begin.featurePack });
     sessId = begin.id;
     if (wav) {
       const r = await fetch("/api/export/audio?id=" + sessId, { method: "POST", body: wav, signal });
@@ -21263,7 +21387,7 @@ async function webCodecsExport() {
     try { encoder?.close(); } catch { }
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
     const msg = e?.name === "AbortError" ? "cancelled" : String(e.message || e);
-    if (msg !== "cancelled") alert(uiText("own.export-failed-prefix") + msg);
+    if (msg !== "cancelled") sayExportFailure(e);
   } finally {
     exportAbort = null;
     exportDecodeEnd();
@@ -21291,7 +21415,7 @@ async function startExport() {
   if (!project.clips.length) { alert("Timeline is empty — add some clips first."); return; }
   // Realtime recording uses asynchronous preview masks, so it cannot promise frame-exact cut-outs.
   try { noteExportBgRemove(exportRange(), true); }
-  catch (e) { alert(uiText("own.export-failed-prefix") + e.message); return; }
+  catch (e) { sayExportFailure(e); return; }   // in plain words, no alert (#129: an export failure never pops up)
   const mime = pickMime();
   if (!mime) { alert("MediaRecorder is not supported in this browser."); return; }
   ensureAudio();

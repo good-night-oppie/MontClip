@@ -29,10 +29,10 @@ test('the page asks only with the capability and the project: the reply’s word
  a.match(app,/window\.montclipAgentPolicy\.decide\(\{sessionId:result\.sessionId,capability:response\.type,target:\{kind:'project',value:runtime\.projectId\}\}\)/);
  // an approval is the host box's answer through its ticket, nothing else
  a.match(app,/window\.montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/);
- // the plan's steps (P4, second half) and the reframe reply (test/agent-reframe.test.js) ask the same way: three
- // answers, each the box's answer to its ticket
- a.equal((app.match(/montclipAgentPolicy\.answer\(/g)||[]).length,3);
- a.equal((app.match(/montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/g)||[]).length,3);
+ // the plan's steps (P4, second half), the reframe reply (test/agent-reframe.test.js) and the agent's lyrics card
+ // (fablecut_lyrics_apply) ask the same way: four answers, each the answer to its own ticket
+ a.equal((app.match(/montclipAgentPolicy\.answer\(/g)||[]).length,4);
+ a.equal((app.match(/montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/g)||[]).length,4);
  a.match(app,/window\.montclipAgentPolicy\.decide\(\{sessionId:result\.sessionId,capability:s\.capability,target:\{kind:'project',value:runtime\.projectId\}\}\)/);
 });
 
@@ -73,9 +73,9 @@ test('new words, both languages (for JJ)',()=>{
  a.equal(t('zh-CN','own.ap-once'),'只批准这次');a.equal(t('zh-CN','own.ap-session'),'这个聊天中都批准');a.equal(t('zh-CN','own.ap-deny'),'不同意');
  for(const k of ['modes','modePlan','modeManual','modeAuto','modeYolo','modePlanTip','modeManualTip','modeAutoTip','modeYoloTip','yoloOn','modeDeclined','modeUnavailable'])
   for(const l of ['zh-CN','en'])a.ok(View.text[l]['officialPane_'+k],l+' '+k);
- a.deepEqual(['modePlan','modeManual','modeAuto','modeYolo'].map(k=>View.text['zh-CN']['officialPane_'+k]),['计划','手动','自动','Yolo']);
+ a.deepEqual(['modePlan','modeManual','modeAuto','modeYolo'].map(k=>View.text['zh-CN']['officialPane_'+k]),['计划','手动','自动','全自动']);
  const {yoloText}=require('../desktop/agent-mode-text');
- a.deepEqual(yoloText('zh-CN').buttons,['取消','打开 Yolo']);a.deepEqual(yoloText('en').buttons,['Cancel','Turn on Yolo']);
+ a.deepEqual(yoloText('zh-CN').buttons,['取消','打开全自动']);a.deepEqual(yoloText('en').buttons,['Cancel','Turn on Full auto']);
  a.match(yoloText('zh-CN').detail,/重新打开 MontClip 后，会回到「手动」/);
 });
 
@@ -95,9 +95,9 @@ test('JJ’s final words (5d360cd7) for the changed lines; the Yolo box follows 
  // shown when the main process refused the switch or the channel failed (the switch exists in the desktop app only)
  a.equal(T('zh-CN','modeUnavailable'),'这次没换成，模式还是原来那个。关掉 MontClip 再打开，再试一次。');
  a.equal(T('en','modeUnavailable'),"The mode didn't change; it's still the one it was. Close MontClip, open it again and try once more.");
- a.equal(T('zh-CN','modeYolo'),'Yolo','the owner’s own name for it');
+ a.equal(T('zh-CN','modeYolo'),'全自动','JJ’s name for it (#212)');a.equal(T('en','modeYolo'),'Full auto');
  const {yoloText}=require('../desktop/agent-mode-text');
- a.deepEqual(yoloText('zh-CN').buttons,['取消','打开 Yolo']);a.deepEqual(yoloText('en').buttons,['Cancel','Turn on Yolo']);
+ a.deepEqual(yoloText('zh-CN').buttons,['取消','打开全自动']);a.deepEqual(yoloText('en').buttons,['Cancel','Turn on Full auto']);
  a.match(read('desktop/main.js'),/const t = yoloText\(languageOf\(settings\.get\(\)\)\);/,'the box takes the interface language');
 });
 
@@ -109,9 +109,9 @@ test('no approval box over the page any more: the card is in the stream (v7.2 §
 });
 test('Yolo (v7.2; Deja, 2026-11-04): the bar, and the mode tip in JJ final words (it adds that it asks once more)',()=>{
  const zh=View.text['zh-CN'],en=View.text.en;
- a.equal(zh.officialPane_yoloOn,'Yolo 开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。');
+ a.equal(zh.officialPane_yoloOn,'全自动开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。');
  a.equal(zh.officialPane_modeYoloTip,'每一步都直接做，不问你；往外发的内容照样先给你看。打开前会再确认一次。');
- a.equal(en.officialPane_yoloOn,'Yolo is on: the AI does every step without asking you; anything sent out is still shown to you first.');
+ a.equal(en.officialPane_yoloOn,'Full auto is on: the AI does every step without asking you; anything sent out is still shown to you first.');
  a.equal(en.officialPane_modeYoloTip,"Does every step without asking you; anything sent out is still shown to you first. You'll be asked once more before it turns on.");
 });
 

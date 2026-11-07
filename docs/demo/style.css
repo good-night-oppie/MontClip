@@ -5088,7 +5088,8 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 .as-preview { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(720px, 92vw); padding: 14px; }
 .as-preview::backdrop { background: #000a; }
 .as-preview video, .as-preview audio { width: 100%; max-height: 60vh; background: #000; }
-#toast.has-action { pointer-events: auto; display: flex; align-items: center; gap: 10px; }
+#toast.has-action { pointer-events: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
+#toast .toast-note { flex-basis: 100%; font-size: 11px; opacity: .75; }
 /* showProblem: the words, 〔复制问题信息〕, and the small print on a line of its own */
 #toast.has-problem { flex-wrap: wrap; }
 #toast .toast-small { flex-basis: 100%; font-size: 11px; color: var(--text-dim, var(--text)); opacity: .8; }
@@ -5112,6 +5113,18 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 .agent-approval-waiting { flex-shrink: 0; font-size: 12px; color: var(--dim); margin: 0; }
 /* while a card waits nothing can be sent or quoted: the proposal and reference rows step aside, so the card fits the stream whole */
 #mcAgentContent .cindy-port:has([data-host-card="approval"]) > :is(.cindy-proposal-actions, .cindy-ref-actions, .cindy-references) { display: none; }
+/* the agent's lyrics card (#164; Deja 2026-11-07): its own box, not the host's approval card — a step from MCP has no reply
+   to sit under, it asks in every mode, and its buttons and grey lines are JJ's. The same colours and spacing as the cards
+   above (--text, --panel, --border, --dim), no colour of its own. */
+dialog.lt-card { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(560px, 90vw); max-height: 85vh; padding: 16px 18px; overflow: auto; }
+dialog.lt-card h3 { margin: 0 0 6px; font-size: 14px; }
+/* what the card does first, in 15 px; the step's plain sentence under it, small */
+.lt-card .lt-detail { font-size: 15px; color: var(--text); margin: 4px 0 0; }
+.lt-card .lt-what { font-size: 12px; color: var(--dim); margin: 4px 0 0; }
+.lt-card .tr-row { display: flex; flex-wrap: wrap; gap: 8px; }
+/* the lines that did not match are grey, as they will be on the timeline */
+.lt-lines { max-height: 40vh; overflow: auto; margin: 8px 0; padding-left: 24px; }
+.lt-lines .lt-grey { color: var(--dim); }
 /* in a small assistant with the AI settings open, the switch and the pane's Yolo mark step aside (the rule with .cindy-thread above); the top bar's Yolo mark stays */
 /* P4, second half: the plan list in the assistant */
 /* step 3: the plan and the approval card sit in .cindy-thread, after the live log (the thread scrolls; the list is whole in it).

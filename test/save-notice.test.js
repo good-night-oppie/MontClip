@@ -54,9 +54,10 @@ test('the page: success only once saved; a cancel says how to save again; captio
   a.match(fn, /if \(kind\) pendingKinds\.set\(name, kind\);/);
   a.match(fn, /else if \(savedMsg\) toast\(savedMsg\);/, 'the browser keeps its old order');
   a.match(app, /state === "cancelled"\) toast\(uiText\(wasExport \? "own\.export-save-cancelled" : kind === "captions" \? "own\.captions-save-cancelled" : "own\.save-canceled"\)\)/);
-  a.match(app, /else toast\(uiText\(wasExport \? "own\.export-save-failed" : "own\.save-failed"\)\);/, 'a failed save: the export line for an export, the general one otherwise');
+  // an export's failed save: JJ's table v2 (#116 row, with 〔换个文件夹〕; test/error-text.test.js); the general one otherwise
+  a.match(app, /else if \(wasExport\) \{[^]*?toastAction\(uiText\("exportSaveFolderFailed"\)[^]*?else toast\(uiText\("own\.save-failed"\)\);/, 'a failed save: the export line for an export, the general one otherwise');
   a.match(app, /saveDownload\(url, name, \{ kind: "captions", savedMsg:/);
-  a.equal((app.match(/exportFile: true/g) || []).length, 4, 'three export paths and the queue\'s Save');
+  a.equal((app.match(/exportFile: true/g) || []).length, 5, 'three export paths, the queue\'s Save and 〔换个文件夹〕 after a failed save');
   a.doesNotMatch(app, /toast\(o\.report && !o\.report\.ok \? `Exported/);
 });
 
@@ -65,7 +66,7 @@ test("VV on 71cd650: the queue's Save is greyed while its save is open; a saved 
   a.match(app, /if \(s\) \{ if \(q\.saving\) return; q\.saving = true; renderQueue\(\); saveDownload\(/, 'a second click does nothing while the first save is open');
   a.match(app, /for \(const q of exportQueue\) if \(q\.file === name\) \{ q\.saving = false; if \(removed\) q\.saved = true; \}/, 'the end of that save frees the button');
   a.match(app, /<button type="button" class="btn tiny" data-q-save="\$\{q\.id\}"\$\{q\.saving \? ` disabled/);
-  a.match(app, /: q\.status === "done" \? \(q\.saved \? "" : `Done → exports\/\$\{q\.file \|\| q\.name \+ ext\}`\)/, 'no path for a saved item');
+  a.match(app, /: q\.status === "done" \? \(q\.saved \? "" : uiText\("qDone", \{ file: q\.file \|\| q\.name \+ ext \}\)\)/, 'no path for a saved item');
 });
 
 test('VV on 2333c24: Save is greyed while any save of that export is open, with the reason; a refused one says so', () => {

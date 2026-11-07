@@ -26,6 +26,7 @@ const ownedProcesses = process.env.MONTCLIP_DESKTOP === "1"
 const { spawn, spawnSync, execFile } = require("child_process");
 const FF = require("./ffmpeg-path");
 const X = require("./external-ffmpeg");
+const Redact = require("./problem-redact");   // 〔复制问题信息〕: viewers, keys and user folders out
 /* A local FFmpeg the user chose for libx264, H.264 export only (external-ffmpeg.js). */
 const externalFfmpeg = X.createExternal();
 
@@ -492,7 +493,9 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
       frame = Delivery.reframe(spec, canvasW, canvasH, region);
     }
     if (avail !== available && !avail.has(spec.video.encoder))
-      throw Object.assign(new Error(`The exported picture (${frame.outW}×${frame.outH}) is smaller than this computer's H.264 encoder accepts (${[...available].filter((e) => Delivery.ENCODERS[e]?.min).map((e) => Delivery.ENCODERS[e].label + " needs " + Delivery.ENCODERS[e].min.join("×")).join(", ")}). Export a larger size, or choose another format.`), { status: 400, code: "frameTooSmall", params: { w: frame.outW, h: frame.outH } });
+      throw Object.assign(new Error(`The exported picture (${frame.outW}×${frame.outH}) is smaller than this computer's H.264 encoder accepts (${[...available].filter((e) => Delivery.ENCODERS[e]?.min).map((e) => Delivery.ENCODERS[e].label + " needs " + Delivery.ENCODERS[e].min.join("×")).join(", ")}). Export a larger size, or choose another format.`), { status: 400, code: "frameTooSmall",
+        // n: the smallest side the page names (JJ: one number for width and height): the largest minimum of the encoders refused
+        params: { w: frame.outW, h: frame.outH, n: Math.max(...[...available].map((e) => Delivery.ENCODERS[e]?.min || []).flat()) } });
     return { spec, notes, noteCodes: [], name: d && typeof d.name === "string" ? d.name : name, frame };
   });
   // one render has one frame rate: an output asking for another needs a render of its own
@@ -1196,6 +1199,22 @@ async function handleRequest(req, res) {
     }
     return;
   }
+  /* API: put a lyrics proposal on a new caption track (fablecut_lyrics_apply) — a "lyrics" job on the export-job queue,
+     open tabs only: the tab asks the streamer on a card and does it only when she agrees. */
+  if (p === "/api/lyrics/request" && req.method === "POST") {
+    try {
+      const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
+      const pr = opts.proposal;
+      if (!pr || typeof pr !== "object" || pr.ok !== true || pr.code !== "OK" || typeof pr.id !== "string" || !Array.isArray(pr.lines) || !pr.lines.length || pr.lines.length > 300 || typeof pr.sig !== "string" || !Array.isArray(pr.clipIds)) {
+        sendJSON(res, 400, { error: "proposal must be a fablecut_lyrics proposal whose code is OK" }); return;
+      }
+      if (JSON.stringify(pr).length > 2_000_000) { sendJSON(res, 413, { error: "proposal too large" }); return; }
+      sendJSON(res, 200, exportJobs.request({ kind: "lyrics", where: "tab", lyrics: pr }));
+    } catch (e) {
+      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e) });
+    }
+    return;
+  }
   /* API: proxies (see proxy.js).
        POST /api/proxy {srcs:[…], height?:540|720|1080} → {status:{src: status}} — queue them
        POST /api/proxy/status {srcs:[…]} → {status:{src: status | null}}
@@ -1585,6 +1604,14 @@ async function handleRequest(req, res) {
       touchExport(sess);
       sendJSON(res, 200, { ok: true });
     } catch (e) { sendJSON(res, 500, { error: String(e) }); }
+    return;
+  }
+  /* 〔复制问题信息〕 (JJ's table v2): {text} → the same text with viewers, keys and user folders taken out, by the rules
+     the page has too (problem-redact.js), with this computer's home folder. */
+  if (p === "/api/problem-details" && req.method === "POST") {
+    let body;
+    try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "the body must be JSON: {text}" }); return; }
+    sendJSON(res, 200, { text: Redact.redactProblem(String(body.text || "").slice(0, 8000), { home: os.homedir(), platform: process.platform }) });
     return;
   }
   /* {fresh:true} once for a file this session exported (then forgotten); {fresh:false} for anything else */

@@ -42,7 +42,7 @@ test('the page asks before the audio mix: the Export dialog, the export queue an
   const queue = body(app, 'async function runQueue(');
   const qAsk = queue.indexOf('exportH264Refusal('), loop = queue.indexOf('while (!queueStop)');
   a.ok(qAsk > 0 && qAsk < loop, 'the queue refuses every waiting H.264 output once, before rendering any');
-  a.match(queue, /status: "failed", error: refused, noH264: true/);
+  a.match(queue, /status: "failed", error: refused, (code: "EXPORT_NO_H264", )?noH264: true/);
   a.match(queue, /if \(!quiet\) alert\(refused\)/, 'said once, not per file');
   const confirm = body(app, 'function autoExportConfirm(');
   a.match(confirm, /exportH264Refusal\(deliveryIsH264\(sliceDeliverySpec\(\)\)\)/); a.match(confirm, /go\.disabled = true/);
