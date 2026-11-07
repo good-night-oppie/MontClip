@@ -61,3 +61,5 @@ the project end. Direct REST callers can supply `frames` with `fps`; see the
 Bounded ProRes preserves filters selected by the output stream index, including
 muted audio after explicit stream reordering. Unsupported mappings or filter
 selectors are refused instead of silently replacing an existing audio filter.
+
+A busy visible editor keeps its queued job. Silent hidden or disconnected editors release the queue after 20 seconds; the busy response includes cancellation instructions.

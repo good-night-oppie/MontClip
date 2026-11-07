@@ -895,6 +895,7 @@ const exportJobs = createExportJobs({
   url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}${embed ? "&token=" + embed.launchTicket() : ""}`,
   broadcast,
   editors: () => sseClients.size,
+  editorConnected: (id) => [...sseClients].some((res) => res.montclipTabId === id),
   // a job that failed or was cancelled stops its encode now: ffmpeg and the half-finished file did wait for the
   // 10-minute idle sweep, while a retry was already writing the next file (P11, europa 2026-11-05)
   onEnd: (j) => { for (const [id, s] of [...exportSessions]) if (s.job === j.id) cleanupExport(id); },
@@ -1333,7 +1334,7 @@ async function handleRequest(req, res) {
       } catch (e) { sendJSON(res, 400, { error: e.message }); return; }
       sendJSON(res, 200, exportJobs.request({ kind: "transcribe", where: opts.where, transcribe: spec }));
     } catch (e) {
-      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e) });
+      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e), busy: e.busy });
     }
     return;
   }
@@ -1499,7 +1500,9 @@ async function handleRequest(req, res) {
 
   /* API: agent-requested export jobs (see export-jobs.js).
      POST /api/export/request {range?, profile?, where?} → job; GET /api/export/job?id=
-     polls it; the editor tab claims, reports and finishes it. */
+     polls it; the editor tab claims, reports and finishes it. One job at a time on this queue (all four request
+     endpoints): another unfinished one answers 409 {code:"JOB_BUSY", busy:{id, kind, status, …}, error} with the
+     cancel call in error. */
   if (p === "/api/export/request" && req.method === "POST") {
     try {
       const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
@@ -1541,7 +1544,7 @@ async function handleRequest(req, res) {
         : delivery ? { ...job, delivery: Delivery.describe(delivery), notes } : job);
     } catch (e) {
       const code = e.code === 409 || e.code === 400 ? e.code : /^Unknown encoding profile/.test(e.message || "") ? 400 : 500;
-      sendJSON(res, code, { code: e.errorCode, error: String(e.message || e) });
+      sendJSON(res, code, { code: e.errorCode, error: String(e.message || e), busy: e.busy });
     }
     return;
   }
@@ -1566,7 +1569,7 @@ async function handleRequest(req, res) {
       }
       sendJSON(res, 200, exportJobs.request({ kind: "scopes", time, where: opts.where, revision, matte: m || null, mask: mk || null, image: opts.image === true }));
     } catch (e) {
-      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e) });
+      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e), busy: e.busy });
     }
     return;
   }
@@ -1584,7 +1587,7 @@ async function handleRequest(req, res) {
       if (body.length > 8192) { sendJSON(res, 400, { error: "track spec too large" }); return; }
       sendJSON(res, 200, exportJobs.request({ kind: "track", where: opts.where, revision, track: JSON.parse(body) }));
     } catch (e) {
-      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e) });
+      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e), busy: e.busy });
     }
     return;
   }
@@ -1595,7 +1598,7 @@ async function handleRequest(req, res) {
     try {
       got = action === "" && req.method === "GET" ? exportJobs.get(id)
         : action === "/ticket" && req.method === "GET" ? exportJobs.ticket(id)
-        : action === "/claim" && req.method === "POST" ? (exportJobs.claim(id) ? { ok: true } : undefined)
+        : action === "/claim" && req.method === "POST" ? (exportJobs.claim(id, JSON.parse((await readBody(req)).toString("utf8") || "{}")) ? { ok: true } : undefined)
         : action === "/report" && req.method === "POST" ? exportJobs.report(id, JSON.parse((await readBody(req)).toString("utf8") || "{}"))
         : action === "/cancel" && req.method === "POST" ? exportJobs.cancel(id)
         : false;
@@ -2131,6 +2134,7 @@ async function handleRequest(req, res) {
       Connection: "keep-alive",
     });
     res.write("data: hello\n\n");
+    res.montclipTabId = url.searchParams.get("tabId") || null;
     sseClients.add(res);
     req.on("close", () => sseClients.delete(res));
     return;

@@ -16,6 +16,7 @@ const fs = require("fs");
 const path = require("path");
 const http = require("http");
 const { spawn, spawnSync } = require("child_process");
+const { AsyncLocalStorage } = require("async_hooks");
 const FF = require("./ffmpeg-path");
 const { loadEncodeProfiles, listProfilesPublic, resolveProfile, profileSummary } = require("./encode-profiles");
 
@@ -68,6 +69,50 @@ function negotiateProtocolVersion(requested) {
 
 /* ── Helpers ── */
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* The editor's job queue (export-jobs.js) runs ONE job at a time — exports, scope readings and timeline frames,
+   tracking, transcription — so a job nobody waits for any more must not keep it. Whatever ends a wait early cancels
+   the job it waited on: its deadline, a lost poll, or the caller cancelling the call (MCP notifications/cancelled,
+   the MCP process being stopped with SIGTERM / SIGINT, or the signal a host passes to callTool). The caller's signal rides along in callScope,
+   so the tools need not pass it down. keepOnTimeout leaves a long export running past the deadline (the reply gives
+   its id to check on later); cancelOnExit:false leaves a job this call did not start alone. */
+const callScope = new AsyncLocalStorage();
+const callSignal = () => callScope.getStore()?.signal || null;
+function napOrAbort(ms, signal) {
+  return new Promise((r) => {
+    if (!signal) return setTimeout(r, ms);
+    if (signal.aborted) return r();
+    const done = () => { clearTimeout(t); signal.removeEventListener("abort", done); r(); };
+    const t = setTimeout(done, ms);
+    signal.addEventListener("abort", done);
+  });
+}
+async function cancelJob(id) {
+  try { await apiJSON("POST", "/api/export/job/cancel?id=" + encodeURIComponent(id)); } catch { /* the server is gone: nothing holds its queue */ }
+}
+async function waitJob(job, { every, timeout, what, timeoutError, keepOnTimeout = false, cancelOnExit = true }) {
+  const signal = callSignal();
+  const deadline = Date.now() + 1000 * timeout;
+  const open = (j) => j.status === "pending" || j.status === "running";
+  let keep = !cancelOnExit;
+  try {
+    while (open(job)) {
+      if (signal?.aborted) throw new Error(`the call was cancelled, so its ${what} ${job.id} was cancelled too`);
+      if (Date.now() > deadline) {
+        if (keepOnTimeout) { keep = true; break; }
+        throw new Error(timeoutError);
+      }
+      await napOrAbort(every, signal);
+      if (signal?.aborted) continue;
+      const q = await apiJSON("GET", "/api/export/job?id=" + encodeURIComponent(job.id));
+      if (q.status !== 200) throw new Error(q.body?.error || `lost track of the ${what}`);
+      job = q.body;
+    }
+    return job;
+  } finally {
+    if (!keep && open(job)) await cancelJob(job.id);
+  }
+}
 function readProject() {
   const raw = fs.readFileSync(PROJECT_FILE, "utf8").replace(new RegExp("^\\uFEFF"), "");
   return JSON.parse(raw);
@@ -790,18 +835,8 @@ async function speechWords(args, fileMode) {
     const r = await apiJSON("POST", "/api/transcribe/request", { where: args.where || "auto",
       transcribe: { srcs: todo, model, language, again: args.again === true, ...(Object.keys(ask).length ? { ranges: ask } : {}) } });
     if (r.status !== 200) throw new Error(r.body?.error || `transcribe request failed (${r.status})`);
-    let job = r.body;
-    const deadline = Date.now() + 1000 * (Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 1800);
-    while (job.status === "pending" || job.status === "running") {
-      if (Date.now() > deadline) {
-        await apiJSON("POST", "/api/export/job/cancel?id=" + encodeURIComponent(job.id));
-        throw new Error("timed out waiting for the transcription — try fewer clips, or a larger timeout");
-      }
-      await sleep(1000);
-      const q = await apiJSON("GET", "/api/export/job?id=" + encodeURIComponent(job.id));
-      if (q.status !== 200) throw new Error(q.body?.error || "lost track of the transcription job");
-      job = q.body;
-    }
+    const job = await waitJob(r.body, { every: 1000, timeout: Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 1800,
+      what: "transcription job", timeoutError: "timed out waiting for the transcription — try fewer clips, or a larger timeout" });
     if (job.status !== "done") {
       const why = String(job.error || "");
       const S = require("./asr-status");
@@ -1092,7 +1127,9 @@ function describeExportJob(j) {
     return `Export ${j.id} done → ${file}${size}${j.result && j.result.summary ? `\n${j.result.summary}` : ""}` +
       `${rep ? `\n${rep.ok ? "Checks passed" : "CHECK"}: ${rep.line}` : ""}\nServed at ${BASE}${j.src}`;
   }
-  if (j.status === "failed" || j.status === "cancelled") return `Export ${j.id} ${j.status}: ${j.error || "no reason given"}`;
+  // fablecut_export {cancel} also frees the queue of a scope reading, frame, tracking or transcription job
+  const noun = { scopes: "Scope reading / frame", track: "Tracking job", transcribe: "Transcription" }[j.kind] || "Export";
+  if (j.status === "failed" || j.status === "cancelled") return `${noun} ${j.id} ${j.status}: ${j.error || "no reason given"}`;
   return `Export ${j.id} ${j.status}${j.status === "running" ? ` — ${pct}%` : ""} (in ${j.via === "headless" ? "a headless browser" : "the open editor tab"}). ` +
     `Check again with fablecut_export {job:"${j.id}"}, or stop it with {cancel:"${j.id}"}.`;
 }
@@ -1304,15 +1341,10 @@ async function exportTool(args) {
     if (job.notes && job.notes.length) startNote = `Settings adjusted: ${job.notes.join("; ")}\n`;
     if (args.wait === false) return (job.delivery ? `Output: ${job.delivery}\n` : "") + startNote + describeExportJob(job);
   }
-  const deadline = Date.now() + 1000 * (Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 900);
-  while (job.status === "pending" || job.status === "running") {
-    if (args.job && args.wait !== true) break; // a status check answers right away
-    if (Date.now() > deadline) break;
-    await sleep(1000);
-    const r = await apiJSON("GET", "/api/export/job?id=" + encodeURIComponent(job.id));
-    if (r.status !== 200) throw new Error(r.body?.error || "lost track of the export job");
-    job = r.body;
-  }
+  // a status check answers right away; past the deadline the export goes on (its id is in the reply)
+  if (!(args.job && args.wait !== true))
+    job = await waitJob(job, { every: 1000, timeout: Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 900,
+      what: "export job", keepOnTimeout: true, cancelOnExit: !args.job });
   return startNote + describeExportJob(job);
 }
 
@@ -1361,18 +1393,8 @@ async function frameTool(args) {
     if (args.time != null) body.time = args.time;
     const r = await apiJSON("POST", "/api/scopes/request", body);
     if (r.status !== 200) throw new Error(r.body?.error || `frame request failed (${r.status})`);
-    let job = r.body;
-    const deadline = Date.now() + 1000 * (Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 60);
-    while (job.status === "pending" || job.status === "running") {
-      if (Date.now() > deadline) {
-        await apiJSON("POST", "/api/export/job/cancel?id=" + encodeURIComponent(job.id));
-        throw new Error("timed out waiting for the editor to render the frame");
-      }
-      await sleep(300);
-      const q = await apiJSON("GET", "/api/export/job?id=" + encodeURIComponent(job.id));
-      if (q.status !== 200) throw new Error(q.body?.error || "lost track of the frame render");
-      job = q.body;
-    }
+    const job = await waitJob(r.body, { every: 300, timeout: Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 60,
+      what: "frame render", timeoutError: "timed out waiting for the editor to render the frame" });
     if (job.status !== "done") throw new Error(`frame render ${job.status}: ${job.error || "no reason given"}`);
     const res = job.result || {};
     const onScreen = (res.clips || []).map((c) => `${c.id} ${c.track} ${c.kind}`).join(", ") || "nothing";
@@ -1470,18 +1492,8 @@ async function scopesTool(args) {
   if (args.mask != null) body.mask = args.mask;
   const r = await apiJSON("POST", "/api/scopes/request", body);
   if (r.status !== 200) throw new Error(r.body?.error || `scope request failed (${r.status})`);
-  let job = r.body;
-  const deadline = Date.now() + 1000 * (Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 60);
-  while (job.status === "pending" || job.status === "running") {
-    if (Date.now() > deadline) {
-      await apiJSON("POST", "/api/export/job/cancel?id=" + encodeURIComponent(job.id));
-      throw new Error("timed out waiting for the editor to measure the frame");
-    }
-    await sleep(300);
-    const q = await apiJSON("GET", "/api/export/job?id=" + encodeURIComponent(job.id));
-    if (q.status !== 200) throw new Error(q.body?.error || "lost track of the scope reading");
-    job = q.body;
-  }
+  const job = await waitJob(r.body, { every: 300, timeout: Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 60,
+    what: "scope reading", timeoutError: "timed out waiting for the editor to measure the frame" });
   if (job.status !== "done") throw new Error(`scope reading ${job.status}: ${job.error || "no reason given"}`);
   return describeScopes(job);
 }
@@ -1499,18 +1511,8 @@ async function trackTool(args) {
   for (const k of ["clip", "region", "point", "size", "at", "direction", "to", "scale", "rotation", "name", "apply", "force"]) if (args[k] != null) track[k] = args[k];
   const r = await apiJSON("POST", "/api/track/request", { where: args.where || "auto", track });
   if (r.status !== 200) throw new Error(r.body?.error || `track request failed (${r.status})`);
-  let job = r.body;
-  const deadline = Date.now() + 1000 * (Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 300);
-  while (job.status === "pending" || job.status === "running") {
-    if (Date.now() > deadline) {
-      await apiJSON("POST", "/api/export/job/cancel?id=" + encodeURIComponent(job.id));
-      throw new Error("timed out waiting for the editor to track — try a shorter range (to), or a larger timeout");
-    }
-    await sleep(500);
-    const q = await apiJSON("GET", "/api/export/job?id=" + encodeURIComponent(job.id));
-    if (q.status !== 200) throw new Error(q.body?.error || "lost track of the tracking job");
-    job = q.body;
-  }
+  const job = await waitJob(r.body, { every: 500, timeout: Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 300,
+    what: "tracking job", timeoutError: "timed out waiting for the editor to track — try a shorter range (to), or a larger timeout" });
   if (job.status !== "done") throw new Error(`tracking ${job.status}: ${job.error || "no reason given"}`);
   return ProjectOps.describeTrack(job.result || {});
 }
@@ -1590,7 +1592,15 @@ async function lyricsApplyTool(args) {
 }
 
 /* ── Tool implementations ── */
-async function callTool(name, args, attempt = 0) {
+/** callTool(name, args, {signal}?) — signal (an AbortSignal) is the caller giving up on the call: a job it started on
+ *  the editor's queue is cancelled then (see waitJob). The MCP stdio loop passes one per tools/call; a host that
+ *  requires this module (the Cindy plugin's worker) may pass its own. A number in its place is the old `attempt`. */
+async function callTool(name, args, opts = {}) {
+  const o = typeof opts === "number" ? { attempt: opts } : opts || {};
+  if (o.signal && callSignal() !== o.signal) return callScope.run({ signal: o.signal }, () => runTool(name, args, o.attempt || 0));
+  return runTool(name, args, o.attempt || 0);
+}
+async function runTool(name, args, attempt = 0) {
   switch (name) {
     case "fablecut_track":
       return trackTool(args);
@@ -1755,7 +1765,7 @@ async function callTool(name, args, attempt = 0) {
       // Without a baseRevision the ops just re-apply on the newer document.
       const diskRev = readProject().revision || 0;   // a failed read stops it: never write over what we can't see
       if (diskRev !== readRev) {
-        if (base == null && attempt < 3) return callTool(name, args, attempt + 1);
+        if (base == null && attempt < 3) return runTool(name, args, attempt + 1);
         throw conflict(diskRev);
       }
       proj.revision = readRev + 1;
@@ -2103,8 +2113,10 @@ async function handle(msg) {
     if (method === "tools/list") return send({ jsonrpc: "2.0", id, result: { tools: TOOLS } });
     if (method === "tools/call") {
       pending++;
+      const ac = new AbortController();
+      if (isRequest) inFlight.set(id, ac);
       try {
-        const out = await callTool(params.name, params.arguments || {});
+        const out = await callTool(params.name, params.arguments || {}, { signal: ac.signal });
         /* A tool may answer with ready-made content blocks (fablecut_frame
            returns an image); everything else answers with a string. */
         const content = Array.isArray(out) ? out : [{ type: "text", text: String(out) }];
@@ -2112,10 +2124,13 @@ async function handle(msg) {
       } catch (e) {
         send({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text: "Error: " + e.message }], isError: true } });
       } finally {
+        if (isRequest && inFlight.get(id) === ac) inFlight.delete(id);
         if (--pending === 0 && stdinClosed) process.exit(0);
       }
       return;
     }
+    // the client gave up on a call: a job it started on the editor's queue is cancelled (waitJob)
+    if (method === "notifications/cancelled") { inFlight.get(params?.requestId)?.abort(); return; }
     if (method === "ping") return send({ jsonrpc: "2.0", id, result: {} });
     if (!isRequest) return; // ignore other notifications (e.g. notifications/initialized)
     send({ jsonrpc: "2.0", id, error: { code: -32601, message: "Method not found: " + method } });
@@ -2125,6 +2140,7 @@ async function handle(msg) {
 }
 
 let buf = "", pending = 0, stdinClosed = false;
+const inFlight = new Map();   // tools/call request id → its AbortController
 /* Run as a program (`node mcp-server.js`, the Claude Code / Desktop registration): MCP over stdio.
    Required by another shell (the Cindy plugin's Node worker) it only hands over the same tools —
    that shell speaks its own protocol on stdio and calls them in-process. */
@@ -2140,6 +2156,18 @@ if (require.main === module) {
       try { handle(JSON.parse(line)); } catch { /* skip malformed line */ }
     }
   });
+  // stdin ending lets the calls in flight finish (a piped one-shot `echo … | node mcp-server.js` waits for its answer)
   process.stdin.on("end", () => { stdinClosed = true; if (pending === 0) process.exit(0); });
+  /* Stopped with calls in flight (the client's shutdown sends SIGTERM after closing stdin): nobody will read their
+     answers, so they are given up — each cancels the job it started on the editor's queue — and the process ends.
+     Where the process is killed outright (Windows), the queue's own limit frees it (export-jobs.js TAB_SILENT_MS). */
+  const stop = () => {
+    stdinClosed = true;
+    for (const ac of inFlight.values()) ac.abort();
+    if (pending === 0) process.exit(0);
+    setTimeout(() => process.exit(0), 5000).unref();   // the cancels have had their chance
+  };
+  process.stdout.on("error", () => {});   // EPIPE: the reader is gone; the answer has nowhere to go
+  for (const sig of ["SIGTERM", "SIGINT", "SIGHUP"]) process.on(sig, stop);
 }
 module.exports = { TOOLS, callTool, ensureUIServer };

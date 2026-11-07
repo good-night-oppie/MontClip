@@ -209,7 +209,10 @@ when neither names one, no message is taken).
 
 `mcp-server.js` run as a program speaks MCP on stdio; required as a module (the
 Cindy plugin's Node worker does) it only hands over `{TOOLS, callTool,
-ensureUIServer}` and leaves stdin alone.
+ensureUIServer}` and leaves stdin alone. `callTool(name, args, {signal})` takes an
+`AbortSignal` for the host giving up on a call: a job the call started on the
+editor's queue (export, scope reading, timeline frame, tracking, transcription)
+is cancelled then. On stdio, `notifications/cancelled` and SIGTERM / SIGINT do the same.
 
 Tests (and nothing else) may set **`FABLECUT_NO_FS_WATCH=1`** to skip `fs.watch`.
 On Windows, libuv can abort the process when a file is created under a temp
@@ -2572,11 +2575,29 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
 - Export jobs (what `fablecut_export` drives): `POST /api/export/request`
   `{range?, profile?, where?:"auto"|"tab"|"headless"}` → `{id, status, via, …}`
   (409 if one is already running, or nothing can render it) · `GET /api/export/job?id=`
-  → `{status: pending|running|done|failed|cancelled, progress 0–1, src, error}` ·
+  → `{status: pending|running|done|failed|cancelled, progress 0–1, src, error, code}` ·
   `POST /api/export/job/cancel?id=`. The editor tab side: SSE event `export`
   (a ticket), `GET /api/export/job/ticket?id=`, `POST /api/export/job/claim?id=`
   (first tab wins, else 409), `POST /api/export/job/report?id=`
-  `{progress} | {status:"done", src} | {status:"failed", error}` → `{cancel}`.
+  `{progress} | {status:"done", src} | {status:"failed", error}` → `{cancel}`; an empty
+  report `{}` is the tab's heartbeat, sent every 5 s while it runs a job.
+- **One job at a time** on that queue: exports, scope readings (`/api/scopes/request`,
+  `fablecut_scopes`, `fablecut_frame {time}`), tracking and transcription. While one is
+  unfinished every request answers **409** `{code:"JOB_BUSY", busy:{id, kind, status, via,
+  progress, since}, error}`; `error` gives the exact cancel call (`fablecut_export
+  {cancel:"x_…"}` · `POST /api/export/job/cancel?id=x_…`), which works for any kind.
+  A tab that does not claim a job within 20 s, or claims it and then sends no report for
+  20 s while its owning tab is hidden or its SSE connection is closed,
+  frees the queue: the job ends `failed` with `code:"EDITOR_STOPPED_ANSWERING"` (or
+  `EDITOR_DID_NOT_ACCEPT` in desktop mode when no tab took it) and a reason; it is not
+  run again elsewhere, since the quiet tab may be half-way through it. A tab that reports
+  after that is answered `{cancel:true, code, error}` and tells whoever is at it in plain words
+  (JJ v2: no code or raw English on the page), with 〔复制问题信息〕 / "Copy problem details",
+  which copies the log line — code and raw error, with viewer names and uids, keys / tokens and
+  the home folder taken out (`problem-redact.js`, `POST /api/problem-details`) — under the small print 「复制的内容不含你的文件夹路径、密钥和观众信息。」.
+  The raw line goes to the console. A headless job may stay quiet 120 s. The MCP
+  tools cancel the job they started when their wait times out, loses track of it, or the
+  caller cancels the call (an export past its `timeout` keeps running; its id is in the reply).
 
 ## Recipes
 
@@ -2862,7 +2883,10 @@ agent last wrote, so an export right after a patch includes that patch.
 - `where:"headless"` renders in the background and leaves the user's tab alone;
   `where:"tab"` refuses if no tab is open.
 - Long edits: `wait:false` returns a job id at once; poll with `{job:"x_…"}`
-  and stop one with `{cancel:"x_…"}`. One export runs at a time.
+  and stop one with `{cancel:"x_…"}`. One job runs at a time — an export, or a
+  scope reading / timeline frame / tracking / transcription on the same queue. A
+  refusal names the busy job and the call that cancels it; a hidden or disconnected tab that stops answering
+  frees the queue after 20 s (see "REST API").
 
 ### Delivery presets
 
@@ -3352,6 +3376,9 @@ shows what was heard and what it becomes; lines that align poorly are marked 「
 until the streamer applies; then the part's captions are replaced in one undo step. See
 `docs/decisions/2026-11-03-lyrics-captions.md`.
 
+### Editor job presence
+
+A claimed tab job is released after 20 seconds without a report only when its owning tab is hidden or its SSE connection has closed. A visible connected tab keeps its job, even beyond 120 seconds. The busy reply still names the cancellation request. The editor sends a page-specific `tabId` on `/api/events`, job claim and report; claim/report also carry `hidden`. A claim without that presence (no `tabId`, no `hidden`) is not released at 20 seconds, but still ends after 120 seconds without a report, like a headless job.
 
 ### Desktop AI data notice and switch
 

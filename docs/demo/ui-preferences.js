@@ -384,6 +384,11 @@
     "err-headless-disabled": ["Background browser tasks are turned off in the desktop app.", "桌面版不能在后台打开浏览器做这件事。"],
     "err-editor-not-ready": ["The editor is not ready yet. Open it, then try again.", "编辑窗口还没准备好。先打开 MontClip 的编辑窗口，再试一次。"],
     "err-editor-no-accept": ["The editor did not take the task. Wait until it is ready, then try again.", "编辑窗口没接到这个任务。等它准备好，再试一次。"],
+    // the job queue's busy refusal and a tab job that went quiet (export-jobs.js): JJ定稿 on #132
+    "err-job-busy": ["The previous task (an export or a transcription, for example) is still running, so this one can't start until it finishes. Wait for it to finish, then try again. If it seems stuck, bring the MontClip editor window to the front and try again in half a minute; if it still doesn't work, use \"Copy problem details\" and send it to us.",
+      "上一个任务（导出、听写这类）还在进行，这个要等它做完才能开始。等它做完再点一次就行。如果它很久没动静，把 MontClip 的编辑窗口切到前面，过半分钟再试；还不行，点「复制问题信息」发给我们。"],
+    "err-editor-stopped": ["The editor didn't respond for 20 seconds, so this task stopped. The original is unchanged. The window may be in the background, minimized, or closed: bring the MontClip editor window to the front (don't minimize it; reopen it if it was closed) and try again. If it still fails, use \"Copy problem details\" and send it to us.",
+      "编辑窗口有 20 秒没有回应，这个任务停下了。原片没有改动。窗口可能在后台、被最小化，或者已经关掉了：把 MontClip 的编辑窗口切到前面（不要最小化；关掉了就重新打开），再试一次；还不行，点「复制问题信息」发给我们。"],
     "map-no-media": ["This project has no audio or video, so there is no time mapping to export.", "这个项目里没有音视频，导不出时间对照表。"],
     "connected": ["Ready", "就绪"],
     // 设置 › AI 助手 (JJ v2, 2026-11-04): the switch the main process keeps (desktop/agent-switch.js) and the 「AI 数据说明」 again
@@ -1431,7 +1436,7 @@
   /** Codes with a sentence of their own besides the h264 and FLV families (the others are v2's last row). */
   const ERROR_TEXT = { EXPORT_BLANK_PICTURE: "own.export-blank-picture", EXPORT_BLANK_SOUND: "own.export-blank-sound", EXPORT_BLANK_BOTH: "own.export-blank-both",
     NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready",
-    EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept", DISK_FULL: "errDiskFull", EXPORT_TIMELINE_CHANGED: "errExportChanged", frameTooSmall: "errFrameTooSmall",
+    EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept", JOB_BUSY: "own.err-job-busy", EDITOR_STOPPED_ANSWERING: "own.err-editor-stopped", DISK_FULL: "errDiskFull", EXPORT_TIMELINE_CHANGED: "errExportChanged", frameTooSmall: "errFrameTooSmall",
     extGone: "errExtFailed", extNotFfmpeg: "errExtFailed", extNoX264: "errExtFailed", extSettingBad: "errExtFailed", extNotFullPath: "errExtFailed",
     // AI background removal at export (#154): JJ's two sentences, as they are (Deja, 2026-11-07)
     BG_REMOVE_UNAVAILABLE: "own.bgremove-export-unavailable", BG_REMOVE_REALTIME: "own.bgremove-export-realtime",
@@ -1479,6 +1484,8 @@
     // main's codes merged in after #161 (#154 AI background removal, #129 EXPORT_NO_H264, the FLV rows): their first sentence, as for the others
     "own.bgremove-export-unavailable": 1, "own.bgremove-export-realtime": 1, h264Refuse: 1,
     flvFixUnverified: 1, flvStreamsUnsupported: 1, flvSourceDamaged: 1,
+    // #132's two queue codes (JOB_BUSY, EDITOR_STOPPED_ANSWERING), merged in after #161: their first sentence, as for the others
+    "own.err-job-busy": 1, "own.err-editor-stopped": 1,
   };
   /* JJ's own words for what happened (#161), where the sentence's first part also says what to do: copied instead. */
   const WHAT_TEXT = {
