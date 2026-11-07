@@ -11,6 +11,10 @@
      • sound: silent = the measured loudness says so (delivery report), or the mix sent with the export peaks under
        QUIET_DB, or there was no mix although the plan has sound. Only then are the sources' stretches read
        (volumedetect): one louder than QUIET_DB means the footage had sound the export lost.
+     • each piece (MC-14): the editor names the pieces (第 N 段) whose sound was silent where the mix played them
+       (app.js exportSilentSegments). Each one's part of its file is read (volumedetect): louder than QUIET_DB there means
+       the mix lost it — the export failed (EXPORT_AUDIO_FAILED, with N; the file is deleted); silent there too is a
+       warning in the report (EXPORT_CLIP_SILENT, 「第 N 段是无声的」), so loud music over the whole export never hides it.
    A normal export pays for the 8 frame reads of the picture check (and, without a delivery report, one read of the mix);
    the sources are read only when the file looks blank. Zero dependencies. */
 "use strict";
@@ -58,16 +62,21 @@ async function pool(items, fn) {
 /** The editor's plan, checked: numbers where numbers go, at most MAX_POINTS of each. */
 function cleanPlan(plan) {
   const num = (v) => (Number.isFinite(+v) && +v >= 0 ? +v : null);
-  const video = [], audio = [];
+  const video = [], audio = [], silent = [];
   for (const p of (plan && Array.isArray(plan.video) ? plan.video : []).slice(0, MAX_POINTS)) {
     if (p && typeof p.src === "string" && num(p.t) != null && num(p.at) != null) video.push({ t: num(p.t), src: p.src, at: num(p.at) });
   }
   for (const p of (plan && Array.isArray(plan.audio) ? plan.audio : []).slice(0, MAX_POINTS)) {
     if (p && typeof p.src === "string" && num(p.at) != null && num(p.dur) > 0) audio.push({ src: p.src, at: num(p.at), dur: Math.min(30, num(p.dur)) });
   }
-  return { video, audio };
+  for (const p of (plan && Array.isArray(plan.silent) ? plan.silent : []).slice(0, MAX_POINTS)) {
+    if (p && Number.isInteger(p.n) && p.n > 0 && typeof p.src === "string" && num(p.at) != null && num(p.dur) > 0)
+      silent.push({ n: p.n, src: p.src, at: num(p.at), dur: Math.min(30, num(p.dur)) });
+  }
+  return { video, audio, silent };
 }
-/** → {ok, picture, sound, ms}: picture / sound true when the file lost the footage's picture / sound.
+/** → {ok, picture, sound, lost, quiet, ms}: picture / sound true when the file lost the footage's picture / sound;
+ *  lost: the pieces (N) whose sound the mix lost; quiet: the pieces silent in their files too (a warning).
  *  o: {ffmpeg, file (the export), plan (cleanPlan), resolve(src) → file | null,
  *      silent: true | false | null (null: measure the mix), mix: the WAV sent with the export, or null} */
 async function check(o) {
@@ -94,17 +103,36 @@ async function check(o) {
       sound = peaks.some((db) => db != null && db > QUIET_DB);
     }
   }
-  return { ok: !picture && !sound, picture, sound, ms: Date.now() - t0 };
+  const lost = [], quiet = [];
+  const silent = plan.silent || [];
+  if (silent.length) {
+    const peaks = await pool(silent, (p) => { const f = o.resolve(p.src); return f ? soundPeak(o.ffmpeg, f, p.at, p.dur) : null; });
+    silent.forEach((p, i) => (peaks[i] != null && peaks[i] > QUIET_DB ? lost : quiet).push(p.n));
+  }
+  return { ok: !picture && !sound && !lost.length, picture, sound, lost, quiet, ms: Date.now() - t0 };
 }
 /** The reason code of a failed check (app.js CODE_TEXT says it in the interface language). */
 function failCode(r) {
+  if (r.lost && r.lost.length) return "EXPORT_AUDIO_FAILED";
   return r.picture && r.sound ? "EXPORT_BLANK_BOTH" : r.picture ? "EXPORT_BLANK_PICTURE" : r.sound ? "EXPORT_BLANK_SOUND" : null;
 }
+/** The failure's params for the interface sentence: {n} of the first lost piece. */
+function failParams(r) { return r.lost && r.lost.length ? { n: r.lost[0] } : null; }
 /** English, for agents and logs. */
 function failText(r) {
+  if (r.lost && r.lost.length) return `the sound of clip ${r.lost.join(", ")} could not be read (the export is silent there, ` +
+    "its file is not) — the export stopped and no file was kept; the originals are unchanged";
   const what = r.picture && r.sound ? "black and silent" : r.picture ? "black" : "silent";
   return `the exported file is ${what} from start to end, but the footage on the timeline is not — the export went wrong; ` +
     "don't use this file (the originals are unchanged)";
 }
 
-module.exports = { check, cleanPlan, frameMax, soundPeak, failCode, failText, BLACK, SOURCE_LIT, QUIET_DB };
+/** A delivery report with a warning for each silent piece (EXPORT_CLIP_SILENT, n): the report is then not "passed",
+ *  however loud the whole export measured. The page says it in the interface language (app.js exportCheckText). */
+function withQuiet(report, quiet) {
+  if (!report || !quiet || !quiet.length) return report;
+  const checks = [...report.checks, ...quiet.map((n) => ({ ok: false, code: "EXPORT_CLIP_SILENT", n, text: `clip ${n} is silent — check that it is meant to be` }))];
+  return { ...report, ok: false, checks, line: checks.map((x) => (x.ok ? "" : "⚠ ") + x.text).join(" · ") };
+}
+
+module.exports = { check, cleanPlan, frameMax, soundPeak, failCode, failParams, failText, withQuiet, BLACK, SOURCE_LIT, QUIET_DB };

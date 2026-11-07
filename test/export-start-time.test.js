@@ -149,7 +149,7 @@ test("the self-check: black or silent only counts when the footage at those mome
   const dark = await ExportCheck.check({ ffmpeg: ffmpeg(), file: black, resolve: (s) => (s === "/media/black.mp4" ? black : null),
     plan: ExportCheck.cleanPlan({ video: [{ t: 1, src: "/media/black.mp4", at: 1 }, { t: 2, src: "/media/gone.mp4", at: 2 }], audio: [{ src: "/media/black.mp4", at: 0, dur: 5 }] }), silent: true });
   a.equal(dark.ok, true, JSON.stringify(dark));
-  a.deepEqual(ExportCheck.cleanPlan({ video: [{ t: -1, src: "/m", at: 1 }, { t: 1, src: 3, at: 1 }, null], audio: [{ src: "/m", at: 0, dur: 0 }] }), { video: [], audio: [] });
+  a.deepEqual(ExportCheck.cleanPlan({ video: [{ t: -1, src: "/m", at: 1 }, { t: 1, src: 3, at: 1 }, null], audio: [{ src: "/m", at: 0, dur: 0 }] }), { video: [], audio: [], silent: [] });
 });
 
 test("parseProbe: start and audioOffset only when a file's clock is not at 0", () => {
@@ -188,8 +188,8 @@ test("the editor reads every player and the export's decoder on media time, and 
   a.match(app, /setPlayerStart\(el, playerStart\(m, want\)\);/, "the Source monitor");
   a.match(app, /src\.frameAt\(mediaTimeAt\(c, t\) \+ playerStart\(m, m && m\.src\)\)/, "the MP4 decoder of the export");
   a.match(app, /\.then\(\(buf\) => \(off \? shiftAudioBuffer\(buf, off\) : buf\)\)/, "the decoded sound");
-  a.match(app, /await mediaInfoSettled\(\);\n    const wav = await renderAudioMix\(t0, t1\);/, "an export waits for the files' details");
-  a.equal((app.match(/check: exportCheckPlan\(t0, t1\)/g) || []).length, 3, "every export sends its self-check plan");
+  a.match(app, /await mediaInfoSettled\(\);\n    const silent = \[\];\n    const wav = await renderAudioMix\(t0, t1, \{ silent \}\);/, "an export waits for the files' details");
+  a.equal((app.match(/check: \{ \.\.\.exportCheckPlan\(t0, t1\), silent \}/g) || []).length, 3, "every export sends its self-check plan");
   // a proxy is written from 0: no shift
   const fn = /function playerStart\(m, src\) \{[^}]*\}/.exec(app)[0];
   const playerStart = new Function("return " + fn)();

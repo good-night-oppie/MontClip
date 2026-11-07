@@ -227,9 +227,14 @@
     "encoding": ["Encoding…", "正在编码…"],
     "encoding-pct": ["Encoding… {pct}%", "正在编码… {pct}%"],
     "mixing-audio": ["Mixing audio…", "正在混音…"],
-    // DRAFT for JJ (Deja 2026-11-05): a clip's sound could not be read, so the export stops instead of coming out silent
-    "export-audio-failed": ["Export stopped: the sound of “{name}” couldn't be read, so the file would have had no sound. Nothing was exported. Try again; if it keeps happening, re-import that recording.",
-      "导出停下了：「{name}」的声音读不出来，导出来会没有声音，所以这次没有导出。请再试一次；如果还是这样，重新导入这段录像。"],
+    // MC-14 (JJ's Dev Spec 2026-11-07, sha256 94d1468e): JJ定稿 Chinese, word for word, {n} = the clip's number on the timeline
+    // (app.js exportSegmentNumbers). English: Deja's draft, 待 JJ 确认. Never 解码 / buffer.
+    "export-audio-failed": ["The sound of clip {n} couldn't be read, so this export stopped and no file was made. The originals are unchanged.",
+      "第 {n} 段的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。"],
+    "export-clip-silent": ["Clip {n} is silent. Please check that this is what you want.", "第 {n} 段是无声的，请确认是不是你想要的。"],
+    // MC-15: the export page crashed (the browser that ran it exited, or stopped answering). Deja's draft, both languages 待 JJ 定稿
+    "err-export-page-crashed": ["The page doing the export closed unexpectedly, so this export stopped and no file was made. The originals are unchanged. Try again; if it happens again, use \"Copy problem details\" and send it to us.",
+      "做导出的页面意外关掉了，这次导出已停下，没有生成文件。原片没有改动。请再试一次；还是这样的话，点〔复制问题信息〕发给我们。"],
     // JJ定稿 (2026-11-05, via Deja), word for word: an old project with mono sounds in the left ear only — asked once, on open
     "mono-left": ["{n} sounds in this project only play in the left ear. Make them play in both?", "这个项目里有 {n} 段声音只在左边耳机里有。要改成两边都有吗？"],
     "mono-left-centre": ["Play in both", "改成两边都有"],
@@ -1434,7 +1439,7 @@
   Object.assign(FLV_REASONS, { FLV_PROBE_FAILED: "flvUnreadable", FLV_NOT_FLV: "flvUnreadable", FLV_NOT_FOUND: "flvUnreadable",
     FLV_IMPORT_BUSY: "flvBusy", FLV_IMPORT_EXPIRED: "flvExpired", FLV_DISK_FULL: "errDiskFull" });
   /** Codes with a sentence of their own besides the h264 and FLV families (the others are v2's last row). */
-  const ERROR_TEXT = { EXPORT_BLANK_PICTURE: "own.export-blank-picture", EXPORT_BLANK_SOUND: "own.export-blank-sound", EXPORT_BLANK_BOTH: "own.export-blank-both",
+  const ERROR_TEXT = { EXPORT_AUDIO_FAILED: "own.export-audio-failed", EXPORT_PAGE_CRASHED: "own.err-export-page-crashed", EXPORT_BLANK_PICTURE: "own.export-blank-picture", EXPORT_BLANK_SOUND: "own.export-blank-sound", EXPORT_BLANK_BOTH: "own.export-blank-both",
     NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready",
     EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept", JOB_BUSY: "own.err-job-busy", EDITOR_STOPPED_ANSWERING: "own.err-editor-stopped", DISK_FULL: "errDiskFull", EXPORT_TIMELINE_CHANGED: "errExportChanged", frameTooSmall: "errFrameTooSmall",
     extGone: "errExtFailed", extNotFfmpeg: "errExtFailed", extNoX264: "errExtFailed", extSettingBad: "errExtFailed", extNotFullPath: "errExtFailed",
@@ -1443,7 +1448,7 @@
     // no H.264 encoder, said when export is clicked: JJ v2's export sentence h264Refuse, not Settings' h264None* (Deja on #129)
     EXPORT_NO_H264: "h264Refuse" };
   /** The codes whose sentence is one of v2's rows: a batch says only these as a reason, anything else as the last row. */
-  const TABLE_REASONS = new Set(["EXPORT_BLANK_PICTURE", "EXPORT_BLANK_SOUND", "EXPORT_BLANK_BOTH", "DISK_FULL", "FLV_DISK_FULL", "FLV_ENCODER_MISSING", "FLV_COMPONENT_MISSING", "h264NoneWin", "h264NoneOther", "ffmpegMissing",
+  const TABLE_REASONS = new Set(["EXPORT_AUDIO_FAILED", "EXPORT_PAGE_CRASHED", "EXPORT_BLANK_PICTURE", "EXPORT_BLANK_SOUND", "EXPORT_BLANK_BOTH", "DISK_FULL", "FLV_DISK_FULL", "FLV_ENCODER_MISSING", "FLV_COMPONENT_MISSING", "h264NoneWin", "h264NoneOther", "ffmpegMissing",
     "FLV_PROBE_FAILED", "FLV_NOT_FLV", "FLV_NOT_FOUND", "FLV_IMPORT_BUSY", "FLV_IMPORT_EXPIRED", "EXPORT_TIMELINE_CHANGED", "frameTooSmall",
     "extGone", "extNotFfmpeg", "extNoX264", "extSettingBad", "extNotFullPath", "BG_REMOVE_UNAVAILABLE", "EXPORT_NO_H264"]);
   /** A batch's own short reason where the toast's sentence is too long for a queue line (JJ, #129 issuecomment-6700533141). */
@@ -1486,6 +1491,8 @@
     flvFixUnverified: 1, flvStreamsUnsupported: 1, flvSourceDamaged: 1,
     // #132's two queue codes (JOB_BUSY, EDITOR_STOPPED_ANSWERING), merged in after #161: their first sentence, as for the others
     "own.err-job-busy": 1, "own.err-editor-stopped": 1,
+    // MC-14 / MC-15: what happened is the first sentence
+    "own.export-audio-failed": 1, "own.err-export-page-crashed": 1,
   };
   /* JJ's own words for what happened (#161), where the sentence's first part also says what to do: copied instead. */
   const WHAT_TEXT = {

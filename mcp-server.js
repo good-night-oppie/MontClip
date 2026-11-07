@@ -815,10 +815,12 @@ async function speechWords(args, fileMode) {
   // the parts its transcript has not covered yet; a short file, or mediaIds, is listened to whole
   const rangesOf = new Map();
   if (!fileMode) for (const m of files) {
-    const dur = +m.duration || 0;
-    if (!(dur > LONG_FILE_S)) continue;
+    // a file whose length the project doesn't know yet is listened to in its clips' windows too, never whole (MC-11:
+    // 16 s of captions read a whole 2-hour file)
+    const dur = +m.duration > 0 ? +m.duration : null;
+    if (dur != null && !(dur > LONG_FILE_S)) continue;
     const rs = T.clipRanges(entries.filter((e) => e.media.src === m.src).map((e) => e.clip), { duration: dur });
-    if (rs.length && T.rangeSeconds(rs) < dur / 2) rangesOf.set(m.src, rs);
+    if (rs.length && (dur == null || T.rangeSeconds(rs) < dur / 2)) rangesOf.set(m.src, rs);
   }
   const ask = {};
   const todo = srcs.filter((s) => {
