@@ -3,7 +3,8 @@
 // into cindy-official.js (BUNDLED-PACKAGES.json). Run after build.cjs:  node agent-ui/licenses.cjs
 // A package that ships no license file gets its project's LICENSE from licenses/<name>.LICENSE, and the notice says so.
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
-const dir = __dirname, packages = require('./BUNDLED-PACKAGES.json');
+// and for the npm packages whose code styles.cjs put into cindy-parts.css (STYLE-PACKAGES.json)
+const dir = __dirname, packages = [...new Set([...require('./BUNDLED-PACKAGES.json'), ...require('./STYLE-PACKAGES.json')])].sort();
 const FETCHED = { 'react-remove-scroll-bar': 'the npm package ships no license file; package.json and README say MIT. Text: LICENSE of github.com/theKashey/react-remove-scroll-bar @ 8ca9ba5ea52de03308fe8ced94f7b159a44d28ff' };
 const HEAD = fs.readFileSync(path.join(dir, 'THIRD-PARTY-NOTICES.txt'), 'utf8').replace(/\r\n/g, '\n').split('\n--- End original Cindy NOTICE ---\n')[0] + '\n--- End original Cindy NOTICE ---\n';
 const registry = {}, blocks = [];
@@ -24,7 +25,7 @@ const intro = [
   'Full original terms: upstream/LICENSE and upstream/NOTICE (and the same files in cindy-43001ea/). File inventory: SOURCES.json.',
   'Generated cindy-official.js is a modified bundled combination with MontClip adapters and stand-ins (agent-ui/stand-ins); original copied source files are unchanged.',
   '',
-  'npm packages bundled into cindy-official.js (BUNDLED-PACKAGES.json; versions in BUNDLED-LICENSES.json and package-lock.json):',
+  'npm packages bundled into cindy-official.js (BUNDLED-PACKAGES.json) and cindy-parts.css (STYLE-PACKAGES.json); versions in BUNDLED-LICENSES.json and package-lock.json:',
   '',
 ].join('\n');
 fs.writeFileSync(path.join(dir, 'BUNDLED-LICENSES.json'), JSON.stringify(registry, null, 2) + '\n');

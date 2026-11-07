@@ -128,7 +128,7 @@ test('switching back to English restores the cell\'s own markup (i18n-html stash
 
 // B section: the other 21 index.html spots. [where, key, en, zh]
 const B = [
-  ['html:binEmpty', 'term.double-click-to-open-in-source-or-drag-onto-the-timeline', 'Double-click to open in Source, or drag onto the timeline.', '双击可以先预览，或者直接拖到时间线上。'],
+  ['html:binEmpty', 'own.bin-dbl-hint', 'Double-click to preview it, or drag it onto the timeline.', '双击可以先预览，或者直接拖到时间线上。'], // #137: JJ's final English as well as Chinese
   ['html:btnZoom100', 'term.fit-window', 'Fit', '适合窗口'],
   ['html:tcIo IN', 'term.in-lab', 'IN', '入点'],
   ['html:tcIo OUT', 'term.out-lab', 'OUT', '出点'],
@@ -157,7 +157,7 @@ test('the 21 other index.html spots are wired to keys with JJ\'s wording (定稿
     a.equal(view.t('en', key), en, where + ' en');
   }
   const wired = [
-    ['binEmpty', 'term.double-click-to-open-in-source-or-drag-onto-the-timeline'],
+    ['binEmpty', 'own.bin-dbl-hint'],
     ['btnZoom100', 'term.fit-window'], ['btnTrimIO', 'term.trim-io'],
     ['importUrlDialog', 'term.import-url-stored-locally'], ['exportRangeSel', 'term.in-out-range'],
     ['engineFastNote', 'term.engine-fast-note'], ['engineWebCodecsNote', 'term.engine-webcodecs-note'],

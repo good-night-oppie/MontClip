@@ -45,7 +45,7 @@ test('fenced JSON is accepted as a proposal',()=>{
 });
 
 test('the proposal button shows only for a usable proposal; otherwise a plain line says so',()=>{
- a.match(pane,/usable&&<button data-review-proposal/);a.ok(pane.includes('data-no-proposal'));
+ a.match(pane,/usable&&!unchanged&&<button data-review-proposal/); // an unchanged one says so instead (agent-limits.test.js)a.ok(pane.includes('data-no-proposal'));
  a.equal(view['zh-CN'].officialPane_noProposal,'这条回复不是剪辑建议。想让它直接剪，可以说清要保留哪几句。');
  a.ok(view.en.officialPane_noProposal);
 });

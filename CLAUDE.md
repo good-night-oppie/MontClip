@@ -419,7 +419,7 @@ Examples in `library/svg/`: `sparkles.svg` (loop), `lower-third.svg`,
 | prop | default | notes |
 |---|---|---|
 | `fit` | "contain" | contain · cover (fill canvas, crop overflow) · stretch · none (native px) |
-| `cropL` `cropR` `cropT` `cropB` | 0 | % of the source trimmed off each edge |
+| `cropL` `cropR` `cropT` `cropB` | 0 | % of the source file's whole frame trimmed off each edge (the encoded frame, padding included), before `fit` / `scale` / `x` / `y`; what is left is fitted and centred |
 | `cornerRadius` | 0 | px, rounded corners — the PiP look |
 | `reframe` | — | set by Reframe (`"follow"` or `"centre"`): the clip's `fit` and position are Reframe's own, so running it again replaces them (see "Sequences") |
 | `flipH`, `flipV` | false | mirror |
@@ -1073,11 +1073,11 @@ the masks cut it, and then its `opacity` and `blend` composite it.
 | key | default | does |
 |---|---|---|
 | `shape` | — | `rect` · `ellipse` · `bezier` (write `freehand` with a `stroke` to have one drawn for you) |
-| `x` · `y` | 0.5 | centre, as fractions of the clip's picture (0…1, y down) |
-| `w` · `h` | 0.5 | size, fractions of the picture's width / height (rect, ellipse) |
+| `x` · `y` | 0.5 | the mask's **centre**, 0…1 of the clip's picture — for video / image / svg / comp the picture left after the crop (origin its top-left corner, y down); see "Mask and crop coordinates" below |
+| `w` · `h` | 0.5 | size, fractions of that picture's width / height (rect, ellipse) |
 | `points` | — | bezier: 3–64 anchors around `x, y`, each `[dx, dy]` (a corner) or `[dx, dy, inX, inY, outX, outY]` (with curve handles relative to the anchor), all fractions of the picture's width / height |
 | `stroke` | — | freehand only: `[[u, v], …]` picture fractions along an outline; it is simplified and stored as an editable `bezier` |
-| `scale` · `rotation` | 1 · 0 | about the centre; degrees clockwise |
+| `scale` · `rotation` | 1 · 0 | about the mask's centre (`x`, `y`); degrees clockwise |
 | `mode` | `add` | how this mask combines with the ones before it: `add` · `subtract` · `intersect` · `difference` |
 | `invert` | false | use everything outside the shape |
 | `opacity` | 1 | 0…1, how strongly this mask counts |
@@ -1090,10 +1090,41 @@ Masks combine bottom-up (first in the list first). The first one starts from
 nothing when it adds and from the whole picture otherwise, so a lone
 `subtract` cuts a hole in a full picture. At most 8 masks per clip.
 
-The picture a mask lives in is the clip's drawn rectangle for video, image
-and svg (after fit and crop), the text block for text, and the whole canvas
-for an adjustment layer. Masks follow the clip when it is moved, scaled,
-rotated or flipped, and keep the clip's keyframes.
+**Mask and crop coordinates** (measured, and locked by `test/render-geometry.test.js`
+on the `fablecut_frame {time}` still and on a real export):
+
+| | origin and units | measured on |
+|---|---|---|
+| `cropL` `cropR` `cropT` `cropB` | percent (0…95) trimmed off each edge | the source file's **whole encoded frame**, padding included |
+| mask `x`, `y` | the mask's **centre**, 0…1, origin top-left, y down | the picture **left after the crop** (video, image, svg, comp) · the text block (text) · the canvas (adjustment layer) |
+| mask `w`, `h` | 0…1 of that picture's width / height | the same picture |
+| mask `feather`, `expand` | project pixels | — |
+
+Order, for a video / image / svg / comp clip: the crop is cut out of the source
+frame; what is left is fitted to the canvas (`fit`) and scaled (`scale`); the
+masks cut that picture in its own box; then rotation, flips and `x` / `y` (and
+their keyframes, at the clip's own speed) move the picture **and its masks
+together**. So a mask follows a push-in, a move or a zoom with no keys of its
+own. Changing the crop changes the picture the fractions refer to: a mask at
+`x: 0.5` stays in the middle of whatever the crop keeps. With `fit: "cover"`
+the picture runs past the canvas and the fractions still span the whole
+picture, the hidden part included.
+
+**Where the numbers come from.** Mask and crop numbers are never canvas
+positions. Read them off the **source**, not the timeline:
+`fablecut_frame {path, t}` (the clip's `in` + seconds into it × `speed`), and
+divide a pixel position by that image's own width and height — that gives
+`u_frame`, `v_frame` on the whole frame (what crop uses). For a mask on a
+cropped clip, turn it into the picture's fractions:
+`x = (u_frame − cropL/100) / (1 − cropL/100 − cropR/100)`, and `y` the same
+with `cropT` / `cropB`. A file can carry padding in its frame — a screen
+recording whose picture fills only part of 1920×1080, black bars, a
+pillarboxed phone video — and the padding counts as part of the frame: crop
+it off first (e.g. `cropR: 20, cropB: 20` for a recording that fills the
+top-left 80 %), then the mask fractions are of the real picture. A
+`fablecut_frame {time}` still shows the composed timeline (zoomed, moved,
+cropped); its reply gives the image size and the frame size. Check a mask with
+`fablecut_scopes {time, mask:{clip}}` or `fablecut_frame {time}`.
 
 In the editor, the **Masks** section of the Inspector has **+ Rect**,
 **+ Ellipse**, **Pen** (click points on the monitor, drag while placing one to
@@ -1679,7 +1710,8 @@ entry. These fields are read-only — they describe the file:
 | `codec` | video codec (`h264`, `hevc`, `prores`, `vp9` …), or the image format (`png`, `mjpeg`) |
 | `audioCodec` · `audioChannels` · `sampleRate` | first audio stream: codec, channel count (`0` = the file has no audio), Hz |
 | `size` · `bitrate` | file size in bytes · overall bitrate, bits per second |
-| `width` · `height` · `duration` | as before; filled in when missing (phone footage shot rotated reports its upright size). An MKV whose timestamps start late (3600 s) is as long as it plays; one whose header has no length takes it from its streams (their durations, then their DURATION tags), from the earliest start to the latest end; when nothing there says it either (a recording stopped before it was saved), it is read from the packets' times, first to last (`fablecut_import_media` says so). When even that fails — or ffprobe can't open the file at all, as with an MP4 whose index was never written — there is no `duration`, the entry gets `durationUnknown: true`, the editor says so, and the file can't be placed: `addClip`, `insert` and `overwrite` refuse it, and so does dragging it onto the timeline. Without ffprobe nothing is marked; the browser's length is used. The editor asks once about every MKV / WebM and every recording without a length, old projects included (`durationChecked` marks it), and MCP imports read the length the same way. Clips already placed from a wrong (too long) length are fitted to the corrected one, as one undo step |
+| `storedWidth` · `storedHeight` | only when the pixels aren't square: the size the file stores (the compact view prints `2389×1920 (stored as 1080×1920)`). Agents read `width` / `height` |
+| `width` · `height` · `duration` | as before; filled in when missing (phone footage shot rotated reports its upright size). `width` × `height` is the **display** size: a file with non-square pixels shows as it is drawn (a replay stored as 1080×1920 with pixels 896:405 is 2389×1920), and an entry that still holds the stored size is corrected when the agent or the editor reads it. An MKV whose timestamps start late (3600 s) is as long as it plays; one whose header has no length takes it from its streams (their durations, then their DURATION tags), from the earliest start to the latest end; when nothing there says it either (a recording stopped before it was saved), it is read from the packets' times, first to last (`fablecut_import_media` says so). When even that fails — or ffprobe can't open the file at all, as with an MP4 whose index was never written — there is no `duration`, the entry gets `durationUnknown: true`, the editor says so, and the file can't be placed: `addClip`, `insert` and `overwrite` refuse it, and so does dragging it onto the timeline. Without ffprobe nothing is marked; the browser's length is used. The editor asks once about every MKV / WebM and every recording without a length, old projects included (`durationChecked` marks it), and MCP imports read the length the same way. Clips already placed from a wrong (too long) length are fitted to the corrected one, as one undo step |
 
 Without ffprobe on PATH only `size` is filled in; the browser still probes
 `duration`, `width` and `height`.
@@ -2033,7 +2065,8 @@ project's shorter side kept: 1920×1080 → 1080×1920 for 9:16, 1080×1080 for
 open sequence on its own canvas. Each full-frame shot — a video or still that
 isn't moved, scaled, cropped or keyed by hand — gets `fit:"cover"` and an `x`
 (or `y`) that keeps its subject in view. Frames are sampled 5 times a second at
-96 px; the subject is where motion (against the shot's own movement, so a pan
+96 px, plus the shot's last frame (reframe.js sampleTimes: read once more at its length − 1 frame, so the
+camera follows to the end; the editor and this tool share it); the subject is where motion (against the shot's own movement, so a pan
 or a flicker doesn't count), detail and colour gather, pulled gently toward
 the centre. A virtual camera operator then holds still while the subject
 stays inside a dead zone and eases after it no faster than a pan speed, and
@@ -2049,6 +2082,8 @@ another shape has **Follow the subject in each shot**; the Inspector's
 **Reframe** section on a video or picture of another shape than the canvas
 has **Follow subject**, **Centre** and Lively / Balanced / Steady (the selected
 clips, one undo step, with Cancel).
+
+MCP reframe tail sampling decodes from the preceding keyframe and selects the source frame displayed at the final timeline sample. Selection uses decoded PTS within the clip window, normalized to source playback time, including VFR and mismatched source/project frame rates. The tail sample carries its decoded timestamp; empty or failed tail reads are refused. This changes newly computed reframe plans only. A source window with no decoded PTS is refused rather than extended into the next shot.
 
 **Highlights** — `fablecut_highlights {duration?, shot?, clipIds?, mediaIds?, name?, aspect?}`
 finds the best moments of long footage and cuts them into a short edit: a new
@@ -2199,13 +2234,20 @@ inferring it from an `energy` value.
 | `{path:"/media/x.mp4", frames:12}` | a 4×3 contact sheet across the whole clip |
 | `{path:"/media/x.mp4", frames:12, from:30, to:90}` | a contact sheet across part of it |
 | `{time:8.5}` (no `path`) | the **composed timeline** at 8.5 s, graded, all tracks |
+
+**Checking masks, crops or captions: use `{time}`.** The `path` modes
+(one frame, contact sheet) decode the source file with ffmpeg, so they show the
+raw footage — no masks, no crop, no blur, no titles. Only `{time}` goes
+through the editor's compositor and shows what export renders.
 | `{path}` with an absolute path | the file is read in place without copying into `media/` |
 | `{path, text:true}` | text-only statistics (luma, colors, texture, saturation, motion) for non-vision agents |
 
 Each answer leads with a text line naming the source, the timestamp(s) and (in
 timeline mode) the clips on screen, so you always know what you are looking at.
-`width` sets the pixel width (default 768 for one frame, 320 per contact-sheet
-cell); `text:true` returns descriptive statistics instead of an image block, for
+`width` sets the pixel width in the source modes (default 768 for one frame,
+320 per contact-sheet cell); a timeline still is the whole frame at up to 960 px
+wide, and its reply says `Image 960x540 px = the whole 1920x1080 frame` so a
+position read off it can be converted; `text:true` returns descriptive statistics instead of an image block, for
 agents without vision capability — luma levels (min, p1, median, mean, p99, max,
 all 0–1 like `fablecut_scopes`), dominant colors, texture, saturation and
 per-cell motion; `where`/`timeout` apply to timeline mode only.
@@ -2861,8 +2903,24 @@ ffmpeg -y -f image2pipe -framerate <fps> -i - [-i audio.wav] <jpeg-color> <args�
   (`range: "tv"`). Use `"range": "pc"` for full-range masters. Do **not** put those
   flags in `args` — the engine strips them and applies `color` so vf and tags stay
   aligned. `-pix_fmt` stays in `args` (sampling / bit depth only).
-- Nothing else is injected for you: `+faststart`, `-shortest`, `-strict -2` for Opus
-  in MP4 and pixel-format choices are all yours to write.
+- Normally `+faststart`, `-shortest`, `-strict -2` for Opus in MP4 and pixel-format
+  choices are yours to write. One bounded exception: JPEG `prores422` export with
+  a positive integer `frames` in `/api/export/begin` uses `frames / fps` as its
+  output end, replacing `-shortest` for that invocation. Audio is resampled to
+  48 kHz and trimmed to `round(frames / fps * 48000)` samples, preserving the
+  final partial PCM packet while removing the browser mix's extra sample.
+  Fast export supplies the already-quantized export-range frame count, including
+  when invoked by an agent. Direct REST callers should pass `frames` too.
+  Short uploaded WAVs remain short (no padding); the browser already mixes short
+  source clips into its full-range audio buffer. Missing `frames`, RGBA, Annex-B,
+  delivery presets and other encoding profiles retain their existing behavior.
+  Bounded ProRes pins default output maps to input0's first video and input1's
+  first audio. Explicit single-video/at-most-single-audio maps can reorder them;
+  numeric `-filter:N` selects that output index. The last matching audio filter
+  receives the trim, without modifying video chains. Unsupported maps, graph
+  labels, script filters or selectors return HTTP400
+  `PROFILE_FILTER_MAPPING_UNSUPPORTED`; see the export-boundary ADR for the
+  supported forms. There is no guessing or silent removal of a mute filter.
 - Frames arrive as **JPEG (4:2:0)**, so `yuv422p`/`yuv444p` cannot recover chroma the
   source never had; raise `jpegQuality` before reaching for a wider pixel format.
   Optional `pixelFormat:"rgba"` on `/api/export/begin` pipes uncompressed canvas
@@ -3088,7 +3146,7 @@ Only text chat is available through this adapter. Two proposal shapes are accept
 
 **Editor events and the capability table (P1).** `capabilities.js` lists what the buttons, the AI and MCP may do: every MCP tool (definitions in `mcp-tools.js`, which `mcp-server.js` serves) plus keep_ranges / keep_sentences, each with its input schema, one plain sentence (zh-CN / en) and a risk level fixed in the program — read, undoable, sensitive (writes, deletes or replaces files, switches projects) or external (network). Unknown names are blocked; `BLOCKED` lists what no mode may allow. The desktop main process holds the table and gives the page a read-only copy (`montclipCapabilities.get()`). `agent-events.js` is the event log: every undo step is an event `{id, runId, step, capability, args, actor: streamer|ai|recipe, risk, state, revisionBefore, revisionAfter, at}` — the streamer's edits as `manual_edit` (or the capability they used), the AI's reviewed proposals, a redo as a new event; the host sets the risk from the table. Each undo snapshot starts with its event id; Undo moves the event to undone; `undoRun(runId)` undoes a whole AI run while its steps are the newest undo steps (else `RUN_INTERLEAVED`, nothing undone). Edits that arrive from outside (an agent, another tab) stay undo steps but are not logged here. Before an AI run the host saves an agent version (`POST /api/versions {action:"before_agent"}`). The log is saved in project.json as `agentLog` (the newest 500 events, args over 2 KB kept as a size note; never pictures, sound or recordings) and is not part of the document proposals are checked against. Smoke: `electron desktop/events-smoke.cjs --montclip-smoke --user-data-dir=<fresh>`. Decisions: docs/decisions/2026-11-03-unified-backend-architecture.md, 2026-11-03-local-capability-boundary.md.
 
-Host-only bridge: montclipAgentService.get/configure/send/cancel; no REST/MCP key endpoint. send requires version1, requestId, projectId, sequenceId, revision, gen and bounded user/assistant messages. Proposal schema is {type:"keep_sentences",ranges:[{clipId,sourceCaptionId,from,to}]}; timestamps are timeline seconds and every boundary must equal the explicitly referenced whole sentence. Or {type:"keep_ranges",output_mode:"one_file"|"per_range",ranges:[{clipId,from,to,label?}]}: from/to are seconds of the clip's media, inside both the media (0 ≤ from < to ≤ duration) and the part the clip shows; no overlap; each ≥ 0.5 s; ≤ 100 ranges; ≤ 32 KB; the clip must be an enabled video/audio clip on an enabled track; label ≤ 80 characters without control characters. Every key is checked (chat-proposal.js); the reply is never run. one_file joins the ranges like keep_sentences; per_range applies the same cut (one undo step) and adds one export-queue item per range, named fileSafeName(label or project name)-NN; a queued slice refuses to render once the timeline differs from the one it was queued from. Each request also carries a numbers-only `facts` block (agent-facts.js: each shot's clipId, kind, media length, the part it shows and where it starts; highlight candidates found in this session, in source seconds) — no file names, paths, caption text, pictures or sound; the review dialog says so. A clip whose id is not a short id (the proposals' rule, [A-Za-z0-9_-]{1,128}) is left out, and the review dialog says how many were left out, outside the facts fold. When the server has them, the facts also carry two measures of the sound, never the sound itself: `singing` — the parts the 「✨ 自动出切片」 「唱歌」 scan already found (/api/songs, a file read to its end; no scan is started), as {clipId, from, to} in source seconds — and `loudness` — {clipId, from, step, values}, one 0–100 value every second or every few seconds (signals.js RMS levels joined by power; 0 = −60 dBFS or quieter, 100 = full scale), each covering more seconds when the clips together are longer than the cap. The caps are capabilities.js `FACTS` (100 singing parts; 2400 loudness values, whole numbers — one a second up to 40 min, one every 3 s for 2 h, 6 s for 4 h, 12 s for 8 h; a message is at most 16000 characters); clips longer than 8 h together get neither, and the review box says so; over the other caps the send is refused (FACTS_LIMIT), never cut down. The review box lists them in plain numbers (how many singing parts, how long together, how many loudness values and how many seconds each covers) before every send. 设置 › 「附上唱歌段和音量」 (on by default; kept in the view settings only when off) stops them being read or sent; while it is off, a reply to a message about the quiet part or the singing gets the editor's note above it, saying so and where to turn it on. When the facts carry either, the review dialog says so outside the fold. The format note tells the model to say it cannot hear the sound when these do not settle an edit, and to send the streamer to 〔✨ 自动出切片〕 → 「唱歌」 → 〔开始找高光〕 first. Each reviewed proposal is also an editor event `{id, runId, step, capability, args, actor, risk, state, revisionBefore, revisionAfter, at}` (chat-proposal.js `event` / `failedEvent` / `transition`; states planned → awaiting_confirmation → running → has_result → applied / rejected / undone / failed, forward only): has_result when reviewed, applied with the revision its save wrote, rejected when the review closes unapplied, undone by the card's undo, failed with the refusal code. args holds checked values only. Kept in memory (newest 200) until the event log lands. Smoke: `MONTCLIP_FFMPEG_DIR=<bundled> electron desktop/keep-ranges-smoke.cjs --montclip-smoke --user-data-dir=<fresh>` (mock reply, three slices, lengths and A/V sync ≤ 40 ms). Existing MCP/REST operations are unchanged.
+Host-only bridge: montclipAgentService.get/configure/send/cancel; no REST/MCP key endpoint. send requires version1, requestId, projectId, sequenceId, revision, gen and bounded user/assistant messages. Proposal schema is {type:"keep_sentences",ranges:[{clipId,sourceCaptionId,from,to}]}; timestamps are timeline seconds and every boundary must equal the explicitly referenced whole sentence. Or {type:"keep_ranges",output_mode:"one_file"|"per_range",ranges:[{clipId,from,to,label?}]}: from/to are seconds of the clip's media, inside both the media (0 ≤ from < to ≤ duration) and the part the clip shows; no overlap; each ≥ 0.5 s; ≤ 100 ranges; ≤ 32 KB; the clip must be an enabled video/audio clip on an enabled track; label ≤ 80 characters without control characters. Every key is checked (chat-proposal.js); the reply is never run. one_file joins the ranges like keep_sentences; per_range applies the same cut (one undo step) and adds one export-queue item per range, named fileSafeName(label or project name)-NN; a queued slice refuses to render once the timeline differs from the one it was queued from. Each request also carries a numbers-only `facts` block (agent-facts.js: each shot's clipId, kind, media length, the part it shows and where it starts; highlight candidates found in this session, in source seconds) — no file names, paths, caption text, pictures or sound; the review dialog says so. A clip whose id is not a short id (the proposals' rule, [A-Za-z0-9_-]{1,128}) is left out, and the review dialog says how many were left out, outside the facts fold. When the server has them, the facts also carry two measures of the sound, never the sound itself: `singing` — the parts the 「✨ 自动出切片」 「唱歌」 scan already found (/api/songs, a file read to its end; no scan is started), as {clipId, from, to} in source seconds — and `loudness` — {clipId, from, step, values}, one 0–100 value every second or every few seconds (signals.js RMS levels joined by power; 0 = −60 dBFS or quieter, 100 = full scale), each covering more seconds when the clips together are longer than the cap. The caps are capabilities.js `FACTS` (100 singing parts; 2400 loudness values, whole numbers — one a second up to 40 min, one every 3 s for 2 h, 6 s for 4 h, 12 s for 8 h; a message is at most 16000 characters); clips longer than 8 h together get neither, and the review box says so; over the other caps the send is refused (FACTS_LIMIT), never cut down. The review box lists them in plain numbers (how many singing parts, how long together, how many loudness values and how many seconds each covers) before every send. 设置 › 「附上唱歌段和音量」 (on by default; kept in the view settings only when off) stops them being read or sent; while it is off, a reply to a message about the quiet part or the singing gets the editor's note above it, saying so and where to turn it on. When the facts carry either, the review dialog says so outside the fold. The format note tells the model to say it cannot hear the sound when these do not settle an edit, and to send the streamer to 〔✨ 自动出切片〕 → 「唱歌」 → 〔开始找高光〕 first. Each reviewed proposal is also an editor event `{id, runId, step, capability, args, actor, risk, state, revisionBefore, revisionAfter, at}` (chat-proposal.js `event` / `failedEvent` / `transition`; states planned → awaiting_confirmation → running → has_result → applied / rejected / undone / failed, forward only): has_result when reviewed, applied with the revision its save wrote, rejected when the review closes unapplied, undone by the card's undo, failed with the refusal code. args holds checked values only. Kept in memory (newest 200) until the event log lands. Smoke: `MONTCLIP_FFMPEG_DIR=<bundled> electron desktop/keep-ranges-smoke.cjs --montclip-smoke --user-data-dir=<fresh>` (mock reply, three slices, lengths and A/V sync ≤ 40 ms). Existing MCP/REST operations are unchanged. A proposal that would leave the timeline playing as it does (one_file, its ranges back to back from the timeline's start to its end — chat-proposal.js `unchanged`) gets no 〔查看剪辑建议〕: the pane says nothing would change, and no mode applies it. The unchanged check compares total removed duration against the half-frame tolerance. What the assistant cannot do is said first: the format note asks for it in a reply in words; agent-limits.js recognises a request the assistant has no capability for from its words and the pane puts the editor's own sentence above the reply — its list is empty now: a vertical picture was the one, and its check and sentence went with the assistant's own reframe. The export-frame drop-down above the player has a label of its own (own.ef-label, aria-label and tooltip). The assistant's third reply is {"type":"reframe","aspect":"9:16"|"1:1"|"4:5"} — nothing else, only those shapes (chat-proposal.js; a sequence already that shape is refused): a copy of the open sequence on that shape whose shots follow the subject (reframe.js), opened. It is sensitive (it switches what is open; fablecut_reframe too) and in capabilities.js CONFIRM_EVERY_TIME, so the host's box asks every time in every mode, Yolo included, with no 「都批准」. Projects already holding 64 sequences are refused before footage is read, with a separate sequence-limit message. A complete project snapshot is compared before copying; additions and saved revision changes invalidate the plan. The footage is read first, with a progress line and 〔取消〕 on screen; the copy is made only after that (cancelled, failed or edited meanwhile: no sequence is made), and its history gets one undo step that opens the original sequence and deletes the copy (no redo). Not a plan step: a message asking to cut and for another shape gets the cut first, with JJ's sentence before it (「这次先帮你剪短。改竖屏要另做一份序列，剪好以后再跟我说「改成竖屏」就行。」). A proposal may start with one short paragraph (at most 200 characters, no { } or `, then a blank line; agent-conversation.js proposalLead): the pane shows it above the proposal's summary, and it is never read for the edit. When a file can't be read, the refusal names it by the name the bin shows (rf-failed-name).
 
 **Remove this connection** (删除这个连接) in AI service asks for confirmation, then the main process cancels a running request and deletes the saved connection file, which holds the sealed key, together with any write temporaries and reset backups. Only when the file is confirmed gone does the state return to not configured; sending is then refused. A failed delete is reported and still shows what remains saved. The fixed `montclip:agent:deleteConnection` IPC takes no argument.
 
@@ -3122,6 +3180,7 @@ The times stay the transcript's; misheard characters become the lyrics' ones; on
 shows what was heard and what it becomes; lines that align poorly are marked 「可能不对」 and not ticked. Nothing changes
 until the streamer applies; then the part's captions are replaced in one undo step. See
 `docs/decisions/2026-11-03-lyrics-captions.md`.
+
 
 ### Desktop AI data notice and switch
 
