@@ -39,3 +39,10 @@ MontClip npm test 1995项：1848通过、15失败、132跳过；15项失败名�
 真源：https://docs.github.com/en/rest/using-the-rest-api/issue-event-types#committed
 
 标签绑定本轮：规则46/46，联网覆盖9/9，两仓各55/55通过；督查共享适配5/5。全库媒体证据沿用上轮70a40253/444abc9c，不冒称在新head重新执行。只改标签元数据路径，相关增量回归已执行。
+
+
+## QQ CHANGES_REQUESTED与Deja替代裁决：review核验版
+
+替代pull_request为可信pull_request_target；替代标签/时间为GoodNightOppie当前head APPROVED/COMMENTED review的精确逐项行；QQ从实现名册移除；server.js双类均要求。仅read权限，无checkout、PR代码/依赖执行、cache/artifact/secrets。
+
+尚待裁决：pull_request_review同样取PR merge workflow，直接并入同名检查会重开绕过，当前候选没有启用此不可信自动入口。澄清投递被WAIT_FOR_PEER阻止；不是已获得新裁决。主分支无此工作流，首次PR不能取得自身target实测；提供本地可信基线实际执行与攻击负控，旧CI只算历史。来源：https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target 。此增量的测试数字见送审包，未宣布生效。

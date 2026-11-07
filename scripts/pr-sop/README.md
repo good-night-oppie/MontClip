@@ -1,27 +1,35 @@
-# PR 送审检查 sop-pr-lint
+# PR送审检查 sop-pr-lint（review核验版，待复审）
 
-两仓与本地督查使用逐字节一致的共享规则，无新增依赖。固定检查名为 sop-pr-lint；缺项、API失败、未核验例外返回非零退出码。没有允许失败或路径过滤。草稿成功跳过，转为待审重新检查。
+来源：QQ在MontClip#200 @183af9ac和MontClip-Cindy#21 @1075445c的CHANGES_REQUESTED，以及Deja本轮裁决。取代原pull_request触发、标签/时间核验、QQ可作实现负责人三项；原缺项失败、当前head证据和职责分工保留。本次仍不修改规则集或执行合并。
 
-正文前两行必须为「QQ 请审」和「负责人：<伙伴名>」。名单为 Deja、QQ、Rea、VV、JJ、DD、BB、GG、Cindy；共用账号无效。改动、复现、测试不能为空；测试每个非空行须有结果数字，或「没跑」加具体原因。依赖写「无」或「#123（硬依赖，类型：代码）」；软依赖写清软依赖。请求审查人须有GoodNightOppie，或已留下review（Deja已确认；不代表批准）。
+## 正文与分类
 
-文件分类见policy.json和docs/validation/2026-11-06-pr-sop-classification.md。剪辑/导出须音画同步行；联网/外发须「外发：内容：…；接收方：…；能否关闭：…」。重命名前路径也核对。机器只核格式，不证明说明或测试真实。
+第一物理行「QQ 请审」，第二物理行「负责人：<伙伴名>」。实现名单：Deja、Rea、VV、JJ、DD、BB、GG、Cindy。QQ是审查人，不作负责人；QQ写PR时由Deja指定实际负责人，共用作者账号也无效。
 
-## 例外与标签
+改动、复现、测试非空；测试每行有结果数字或「没跑」加原因；依赖写无或#编号并说明类型。审查请求或历史GoodNightOppie review满足送审；只有旧head review时只提示重新请审，不冒充当前批准。
 
-格式：「SOP 例外：测试 — 当前先做文档核读 — 证据：https://github.com/good-night-oppie/MontClip/issues/200」。项目可为首行、负责人、改动、复现、测试、依赖、审查人、音画同步、外发；证据须HTTPS链接或稳定消息号。
+policy.json和classification文档列出路径。MontClip的server.js明确同时触发音画同步和外发，两段必须提供；docs/demo/**原样副本排除，重命名前路径也检查。联网扫描在普通测试中只读main blob，不导入执行源码，非元数据工作流checkout。
 
-格式错失败。格式正确也先失败并提示「等 QQ 核验」。只有当前存在sop-exception-verified标签，且完整issue events里最后一次相关增删记录为GoodNightOppie添加，例外项才放行。他人重加、标签已移除、事件不全不放行。标签不能豁免其他缺项或API错误。
+## 例外改用当前head的review
 
-标签必须由GoodNightOppie最后添加，且当前仍存在，添加事件时间严格晚于当前head进入PR的可靠timeline事件时间。只看timeline最后一条committed/head_ref_force_pushed；完整SHA不匹配、缺事件时间或API不完整均等QQ重新核验。committer/author date不是进入PR时间，不能代用，普通REST committed记录常缺事件时间，故从严失败。推新head须QQ重新加标签。正文不自动绑定：例外内容以 QQ 加标签时的正文为准，改了例外行请重新请 QQ 核验。此提醒会进入job摘要，人工把关不代表正式批准。
+PR中格式：「SOP 例外：测试 — 原因 — 证据：<HTTPS链接或消息号>」。机器只核格式；每个项目都要有匹配的核验。
 
-## 安全、权限与生效
+只有GitHub API中GoodNightOppie提交的review、commit_id等于当前完整head、state为APPROVED或COMMENTED、正文有精确整行「SOP 例外已核验：测试」，才覆盖对应项目。多个项目逐项对齐，可由多个有效review覆盖。旧head、其他账号、DISMISSED/PENDING/CHANGES_REQUESTED、项目不符、引用或代码块均不算。标签和timeline不再参与。QQ负责人资格不能靠例外恢复。
 
-只监听pull_request：opened、edited、synchronize、ready_for_review、reopened、labeled、unlabeled、review_requested、review_request_removed。无路径过滤。只读contents、pull-requests和issues；增加issues:read仅为读取每个PR的标签增删执行人事件，不开写权限。API固定GitHub官方地址，仅GET，分页有界，前后核head/正文/Draft/标签和事件变动。旧正文事件不能覆盖新正文检查。
+不做PR正文SHA绑定。job摘要固定提醒：「例外内容以 QQ 提交核验review时的正文为准，改了例外内容请重新请 QQ 核验」。其他缺项不因一个例外被放行。前后读取review的账号、head、state、正文并比较，撤销/编辑竞态导致失败。不打印PR正文、review正文、例外理由、token或证据URL。
 
-无checkout、PR代码执行、安装依赖或打印token。静态检查器字节嵌入工作流并核哈希，支持首次新增检查器PR；哈希只证明一致性，QQ仍需核工作流本身。规则源改动后运行node scripts/pr-sop/make-workflow.mjs，并运行node --test scripts/pr-sop/rules.test.mjs。
+已知限制：GoodNightOppie是团队共享审批账号，只证明该账号做过操作，不能证明QQ本人。主人已接受该分工；QQ仍须在review说明核了什么，真实性靠人工把关。机器通过不替代正式批准、媒体/界面验收或main CI。
 
-主人已同意必过方向，但生效顺序仍为BB交PR→QQ审→Deja定合并及生效时间→QQ用GoodNightOppie设置两仓main必过检查并读回。BB不改规则集；工作流返回失败不等于规则集已经生效。生效前现有PR缺项仅列清单，不改别人的PR。
+## 信任边界与尚待裁决的触发
 
-## 审查人补充口径
+当前候选只启用pull_request_target的opened、edited、synchronize、ready_for_review、reopened、review_requested、review_request_removed，工作流与job名固定sop-pr-lint。静态Node检查器内嵌并核SHA256；不checkout、不执行PR代码/依赖、不使用cache/artifact/secrets。只有contents:read、pull-requests:read、issues:read，无写权限、无路径过滤。PR正文、标题、分支名不插入shell；正文只从事件/API JSON读取。
 
-requested_reviewers有GoodNightOppie或本PR历史reviews有其已提交审查，任一满足即算送审；正文提名不算。若当前未请求、最近一次review不在当前head，仅提示“请重新请审查人”，不增加失败项，不改变退出码。按submittedAt取最近记录；已重新请求则不再提示。这个通知不证明当前head已批准，也不撤销CI/Inbox/角色验收/正式批准的独立门禁。
+**尚未完成Deja要求的pull_request_review自动触发。** GitHub官方明确该事件仍从PR merge commit取workflow，若让它生成同名必过检查，会重新引入PR自改检查的绕过。因此没有直接启用该入口，需Deja/QQ单点裁决；向Deja的澄清消息被WAIT_FOR_PEER阻止，未重发绕过。当前可用的人工方式是QQ留下review后重跑最新可信target运行，或编辑PR正文触发target edited；不冒称自动重查已完成。
+
+官方来源：https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target
+
+两仓main目前都不存在本工作流，因此首次交审不能触发自身新增target工作流。本地可信基线夹具会实际执行内嵌检查器，证明PR伪造workflow/rules为exit0不会被执行；这不是已在main上线的真实target CI。旧pull_request CI链接仅作历史，不冒充新target实测。合入及真实验证仍由QQ审、Deja定顺序后执行，BB不合并或设置必过。
+
+## 复现
+
+运行 `node scripts/pr-sop/make-workflow.mjs` 后执行 `node --test scripts/pr-sop/*.test.mjs`。规则、runner、名单和分类应两仓逐字节一致。首次main启用与review自动触发的可信方案尚待处理，不能宣布统一生效。

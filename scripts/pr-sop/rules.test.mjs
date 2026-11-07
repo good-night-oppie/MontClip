@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { checkPR, classifyFiles, ownerDeclaration, testLineHasResult, EXCEPTION_LABEL, formatReport, exceptionVerified, headEnteredAt } from "./rules.mjs";
+import { checkPR, classifyFiles, ownerDeclaration, testLineHasResult, formatReport, exceptionVerified, verifiedExceptionItems } from "./rules.mjs";
 import { collectMetadata, main } from "./run.mjs";
 import { workflowText, FILES } from "./make-workflow.mjs";
 import { createHash } from "node:crypto";
@@ -105,18 +105,13 @@ describe("PR SOP：逐项正负控", () => {
       const r = run(BODY + "\n" + line); assert.ok(missing(r, "exception")); assert.equal(r.status, "failed");
     }
   });
-  it("例外只有QQ最后添加且当前仍存在的标签才放行", () => {
-    const body = BODY.replace("- 单元：23/23", "- 单元：没跑") + "\nSOP 例外：测试 — 当前先做文档核读 — 证据：https://github.com/good-night-oppie/MontClip/issues/200";
-    const pr = { body, headRefOid: "a".repeat(40), labels: [{ name: EXCEPTION_LABEL }], reviewRequests: [{ login: "GoodNightOppie" }] };
-    const event = (id, actor, kind = "labeled") => ({ id, created_at:"2026-11-07T00:02:00Z", event: kind, actor: { login: actor }, label: { name: EXCEPTION_LABEL } });
-    assert.equal(run(body, { pr }).status, "needs_qq");
-    assert.equal(run(body, { pr, timeline:[{event:"head_ref_force_pushed",commit_id:"a".repeat(40),created_at:"2026-11-07T00:01:00Z"}], labelEvents: [event(1, "BB")] }).status, "needs_qq");
-    assert.equal(run(body, { pr, timeline:[{event:"head_ref_force_pushed",commit_id:"a".repeat(40),created_at:"2026-11-07T00:01:00Z"}], labelEvents: [event(1, "GoodNightOppie")] }).status, "passed");
-    assert.equal(run(body, { pr, timeline:[{event:"head_ref_force_pushed",commit_id:"a".repeat(40),created_at:"2026-11-07T00:01:00Z"}], labelEvents: [event(1, "GoodNightOppie"), event(2, "BB", "unlabeled")] }).status, "needs_qq");
-    assert.equal(run(body, { pr, timeline:[{event:"head_ref_force_pushed",commit_id:"a".repeat(40),created_at:"2026-11-07T00:01:00Z"}], labelEvents: [event(3, "BB"), event(1, "GoodNightOppie")] }).status, "needs_qq");
-    assert.equal(run(body, { pr: { ...pr, labels: [] }, labelEvents: [event(1, "GoodNightOppie")] }).status, "needs_qq");
-    assert.equal(run(body, { pr, timeline:[{event:"head_ref_force_pushed",commit_id:"a".repeat(40),created_at:"2026-11-07T00:01:00Z"}], labelEvents: [event("bad", "GoodNightOppie")] }).status, "needs_qq");
-    assert.equal(run(body, { pr: { ...pr, body: body.replace("负责人：BB", "负责人：EdwardTang") }, labelEvents: [event(1, "GoodNightOppie")] }).status, "failed");
+  it("例外只有审批账号当前head的逐项有效review才放行",()=>{
+    const body=BODY+"\nSOP 例外：测试 — 人工核读 — 证据：c1c25e38",head="a".repeat(40);
+    const review={author:{login:"GoodNightOppie"},commit:{oid:head},state:"COMMENTED",body:"SOP 例外已核验：测试"};
+    const pr={body,headRefOid:head,reviewRequests:[{login:"GoodNightOppie"}],reviews:[review]};
+    assert.equal(run(body,{pr}).status,"passed");
+    assert.equal(run(body,{pr:{...pr,reviews:[]}}).status,"needs_qq");
+    assert.equal(run(body,{pr:{...pr,reviews:[{...review,commit:{oid:"b".repeat(40)}}]}}).status,"needs_qq");
   });
   it("文件列表未知不能通过，事件正文改动立即重算", () => {
     assert.ok(missing(run(BODY, { files: undefined }), "files"));
@@ -142,7 +137,8 @@ describe("只读API及工作流安全", () => {
     };
     const m = await collectMetadata({ get, repo: REPO, number: 1, eventPR });
     assert.deepEqual(m.files, [{ filename: "docs/a.md", previous_filename: undefined }]);
-    assert.equal(m.pr.body, BODY); assert.equal(calls.length, 9);
+    assert.equal(m.pr.body, BODY); assert.equal(calls.length, 6);
+    assert.ok(!calls.some(route => /\/(?:events|timeline)\?/.test(route)));
   });
   it("文件未取全、PR已push时明确失败", async () => {
     await assert.rejects(collectMetadata({ get: async () => ({ head: { sha: "b".repeat(40) } }), repo: REPO, number: 1, eventPR }), /PR_CHANGED/);
@@ -150,54 +146,39 @@ describe("只读API及工作流安全", () => {
     await assert.rejects(collectMetadata({ get, repo: REPO, number: 1, eventPR }), /API_INCOMPLETE/);
     await assert.rejects(collectMetadata({ get: async () => ({ ...eventPR, draft: false }), repo: REPO, number: 1, eventPR: { ...eventPR, draft: true } }), /PR_CHANGED/);
   });
-  it("只监听指定pull_request事件、只读权限、无checkout/install/PR代码执行", () => {
+  it("可信target事件、只读权限、无checkout/install/PR代码执行", () => {
     const yml = workflowText();
-    assert.match(yml, /types: \[opened, edited, synchronize, ready_for_review, reopened, labeled, unlabeled, review_requested, review_request_removed\]/);
-    assert.doesNotMatch(yml, /pull_request_target|uses:|checkout@|npm (?:ci|install)|secrets\./);
+    assert.match(yml, /types: \[opened, edited, synchronize, ready_for_review, reopened, review_requested, review_request_removed\]/);
+    assert.match(yml,/^  pull_request_target:/m);
+    assert.doesNotMatch(yml,/^  pull_request:|^  pull_request_review:|uses:|checkout@|actions\/(?:cache|upload-artifact|download-artifact)|npm (?:ci|install)|secrets\./m);
     assert.match(yml, /pull-requests: read/); assert.match(yml, /contents: read/);
     assert.match(yml, /issues: read/); assert.match(yml, /name: sop-pr-lint/);
     assert.doesNotMatch(yml, /continue-on-error|paths:|paths-ignore:|: write/);
     assert.equal(fs.readFileSync(new URL("../../.github/workflows/pr-sop.yml", import.meta.url), "utf8"), yml);
   });
-  it("同head正文已改、标签事件读取间变化和未取全都失败", async () => {
-    await assert.rejects(collectMetadata({ get: async () => ({ ...eventPR, body: BODY + "changed" }), repo: REPO, number: 1, eventPR }), /PR_CHANGED/);
-    let reads = 0;
-    const get = async (r) => {
-      if (/files\?/.test(r)) return [];
-      if (r.endsWith("requested_reviewers")) return { users: [] };
-      if (/(?:reviews|timeline)\?/.test(r)) return [];
-      if (/events\?/.test(r)) return ++reads === 1 ? [] : [{ id: 2, event: "labeled", actor: { login: "BB" }, label: { name: EXCEPTION_LABEL } }];
-      return { ...eventPR, changed_files: 0 };
-    };
-    await assert.rejects(collectMetadata({ get, repo: REPO, number: 1, eventPR }), /LABEL_CHANGED/);
-    await assert.rejects(collectMetadata({ get: async (r) => /events\?/.test(r) ? Array.from({ length: 100 }, (_, id) => ({ id })) : get(r), repo: REPO, number: 1, eventPR }), /API_INCOMPLETE/);
+  it("同head正文变化、review撤销/编辑和未取全均失败",async()=>{
+    await assert.rejects(collectMetadata({get:async()=>({...eventPR,body:BODY+"changed"}),repo:REPO,number:1,eventPR}),/PR_CHANGED/);
+    for(const changed of [{state:"DISMISSED"},{body:"removed"},{commit_id:"b".repeat(40)},{user:{login:"BB"}}]){
+      let reads=0;const row={id:1,user:{login:"GoodNightOppie"},commit_id:eventPR.head.sha,state:"COMMENTED",body:"SOP 例外已核验：测试"};
+      const get=async route=>route.includes('/files?')?[]:route.endsWith('/requested_reviewers')?{users:[]}:route.includes('/reviews?')?[++reads===1?row:{...row,...changed}]:{...eventPR,changed_files:0};
+      await assert.rejects(collectMetadata({get,repo:REPO,number:1,eventPR}),/REVIEWS_CHANGED/);
+    }
+    await assert.rejects(collectMetadata({get:async route=>route.includes('/reviews?')?Array.from({length:100},(_,id)=>({id})):route.includes('/files?')?[]:route.endsWith('/requested_reviewers')?{users:[]}:{...eventPR,changed_files:0},repo:REPO,number:1,eventPR}),/API_INCOMPLETE/);
   });
-  it("runner缺负责人及待QQ例外返回1，QQ标签核验后返回0", async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pr-sop-exit-test-"));
-    const event = path.join(dir, "event.json"); const original = globalThis.fetch;
-    let current, events = [], requested = [{ login: "GoodNightOppie" }], reviewRows = [];
-    globalThis.fetch = async (url) => ({ ok: true, json: async () => {
-      const route = String(url);
-      if (route.includes("/files?")) return [];
-      if (route.endsWith("requested_reviewers")) return { users: requested };
-      if (route.includes("/reviews?")) return reviewRows;
-      if (route.includes("/timeline?")) return [{event:"head_ref_force_pushed",commit_id:"a".repeat(40),created_at:"2026-11-07T00:01:00Z"}];
-      if (route.includes("/events?")) return events;
-      return { ...current, changed_files: 0 };
-    } });
-    const env = { GITHUB_EVENT_PATH: event, GITHUB_EVENT_NAME: "pull_request", GITHUB_REPOSITORY: REPO };
-    try {
-      current = { ...eventPR, body: BODY.replace("负责人：BB", "") };
-      fs.writeFileSync(event, JSON.stringify({ pull_request: current })); assert.equal(await main(env), 1);
-      current = { ...eventPR, body: BODY + "\nSOP 例外：测试 — 暂时人工核验 — 证据：c1c25e38", labels: [{ name: EXCEPTION_LABEL }] };
-      fs.writeFileSync(event, JSON.stringify({ pull_request: current })); assert.equal(await main(env), 1);
-      events = [{ id: 1, created_at:"2026-11-07T00:02:00Z", event: "labeled", actor: { login: "GoodNightOppie" }, label: { name: EXCEPTION_LABEL } }];
-      assert.equal(await main(env), 0);
-      current = { ...eventPR, body: BODY };
-      requested = []; reviewRows = [{ user: { login: "GoodNightOppie" }, commit_id: "b".repeat(40), submitted_at: "2026-11-07T00:00:00Z" }];
-      fs.writeFileSync(event, JSON.stringify({ pull_request: current }));
-      assert.equal(await main(env), 0, "old-head review notice must not fail the check");
-    } finally { globalThis.fetch = original; }
+  it("runner缺负责人或例外review返回1，逐项核验后返回0",async()=>{
+    const dir=fs.mkdtempSync(path.join(os.tmpdir(),"sop-review-test-")),event=path.join(dir,"event.json"),original=globalThis.fetch;
+    let current,reviewRows=[],requested=[{login:"GoodNightOppie"}];
+    globalThis.fetch=async url=>({ok:true,json:async()=>String(url).includes('/files?')?[]:String(url).endsWith('/requested_reviewers')?{users:requested}:String(url).includes('/reviews?')?reviewRows:{...current,changed_files:0}});
+    const env={GITHUB_EVENT_PATH:event,GITHUB_EVENT_NAME:"pull_request_target",GITHUB_REPOSITORY:REPO,GITHUB_STEP_SUMMARY:path.join(dir,"summary.md")};
+    try{
+      current={...eventPR,body:BODY.replace("负责人：BB","")};fs.writeFileSync(event,JSON.stringify({pull_request:current}));assert.equal(await main(env),1);
+      current={...eventPR,body:BODY+"\nSOP 例外：测试 — 人工核验 — 证据：c1c25e38"};fs.writeFileSync(event,JSON.stringify({pull_request:current}));assert.equal(await main(env),1);
+      reviewRows=[{id:1,user:{login:"GoodNightOppie"},commit_id:eventPR.head.sha,state:"COMMENTED",body:"SOP 例外已核验：测试"}];assert.equal(await main(env),0);
+      reviewRows=[{...reviewRows[0],state:"DISMISSED"}];assert.equal(await main(env),1);
+      current={...eventPR,body:BODY};requested=[];reviewRows=[{user:{login:"GoodNightOppie"},commit_id:"b".repeat(40),state:"COMMENTED",submitted_at:"2026-11-07T00:00:00Z"}];fs.writeFileSync(event,JSON.stringify({pull_request:current}));assert.equal(await main(env),0);
+      assert.match(fs.readFileSync(env.GITHUB_STEP_SUMMARY,"utf8"),/改了例外内容请重新请 QQ 核验/);
+      await assert.rejects(main({...env,GITHUB_EVENT_NAME:"pull_request"}),/EVENT_SHAPE/);
+    }finally{globalThis.fetch=original;}
   });
   it("嵌入的规则/名单/分类/runner逐字节等于源文件，校验SHA256", () => {
     const yml = workflowText();
@@ -214,7 +195,7 @@ describe("只读API及工作流安全", () => {
     fs.writeFileSync(event, JSON.stringify({ pull_request: { ...eventPR, draft: true, body: "$(touch do-not-execute)" } }));
     const code = workflowText().split("          node --input-type=module <<'PR_SOP_NODE'\n")[1].split("          PR_SOP_NODE")[0].split("\n").map((l) => l.slice(10)).join("\n");
     fs.writeFileSync(script, `globalThis.fetch = async () => ({ ok: true, json: async () => JSON.parse((await import('node:fs')).readFileSync(process.env.GITHUB_EVENT_PATH)).pull_request });\n` + code);
-    const r = spawnSync(process.execPath, [script], { windowsHide: true, encoding: "utf8", env: { ...process.env, GITHUB_EVENT_PATH: event, GITHUB_EVENT_NAME: "pull_request", GITHUB_REPOSITORY: REPO, GITHUB_STEP_SUMMARY: path.join(dir, "summary.md"), GITHUB_TOKEN: "" } });
+    const r = spawnSync(process.execPath, [script], { windowsHide: true, encoding: "utf8", env: { ...process.env, GITHUB_EVENT_PATH: event, GITHUB_EVENT_NAME: "pull_request_target", GITHUB_REPOSITORY: REPO, GITHUB_STEP_SUMMARY: path.join(dir, "summary.md"), GITHUB_TOKEN: "" } });
     assert.equal(r.status, 0, r.stderr); assert.match(r.stdout, /Draft/); assert.ok(!fs.existsSync(path.join(dir, "do-not-execute")));
   });
 });
@@ -225,39 +206,7 @@ describe("Deja追加的七项独立阻断回归", () => {
   it("测试没有数字或没跑原因必须失败",()=>assert.equal(run(BODY.replace("23/23", "已经通过")).status,"failed"));
   it("例外格式错必须失败",()=>assert.equal(run(BODY+"\nSOP 例外：测试 — 没空").status,"failed"));
   const body=BODY+"\nSOP 例外：测试 — 人工核对 — 证据：https://github.com/good-night-oppie/MontClip/issues/200";
-  it("例外格式对但没有标签仍等QQ",()=>assert.equal(run(body).status,"needs_qq"));
-  it("标签由非GoodNightOppie添加仍等QQ",()=>assert.equal(run(body,{pr:{body,labels:[{name:EXCEPTION_LABEL}],reviewRequests:[{login:"GoodNightOppie"}]},labelEvents:[{id:1,event:"labeled",actor:{login:"BB"},label:{name:EXCEPTION_LABEL}}]}).status,"needs_qq"));
+  it("例外格式对但没有review仍等QQ",()=>assert.equal(run(body).status,"needs_qq"));
+  it("核验review不是GoodNightOppie提交仍等QQ",()=>assert.equal(run(body,{pr:{body,headRefOid:"a".repeat(40),reviewRequests:[{login:"GoodNightOppie"}],reviews:[{author:{login:"BB"},commit:{oid:"a".repeat(40)},state:"COMMENTED",body:"SOP 例外已核验：测试"}]}}).status,"needs_qq"));
   it("材料齐全无例外通过",()=>assert.equal(run().status,"passed"));
-});
-
-describe("例外标签绑定当前head的正负控", () => {
-  const head="a".repeat(40), other="b".repeat(40);
-  const pr={headRefOid:head,labels:[{name:EXCEPTION_LABEL}]};
-  const move=(sha=head,time="2026-11-07T00:01:00Z")=>({event:"head_ref_force_pushed",commit_id:sha,created_at:time});
-  const label=(time="2026-11-07T00:02:00Z",actor="GoodNightOppie")=>({id:1,event:"labeled",created_at:time,actor:{login:actor},label:{name:EXCEPTION_LABEL}});
-  it("QQ在当前head进入之后加标签才有效",()=>assert.equal(exceptionVerified(pr,[label()],[move()]),true));
-  it("先加标签再推新head无效",()=>assert.equal(exceptionVerified(pr,[label("2026-11-07T00:00:00Z")],[move()]),false));
-  it("同秒不是晚于，不放行",()=>assert.equal(exceptionVerified(pr,[label("2026-11-07T00:01:00Z")],[move()]),false));
-  it("有QQ标签但没有可靠timeline时间仍失败",()=>{for(const timeline of [undefined,[],[{event:"committed",sha:head,committer:{date:"2026-11-07T00:01:00Z"}}]])assert.equal(exceptionVerified(pr,[label()],timeline),false);});
-  it("最新强推事件是别的head不能沿用早前匹配事件",()=>assert.equal(exceptionVerified(pr,[label()],[move(),move(other)]),false));
-  it("推新head后QQ重新加标签有效，移除或他人重加无效",()=>{
-    const old=label("2026-11-07T00:00:00Z"), remove={...label(),id:2,event:"unlabeled"}, again={...label(),id:3};
-    assert.equal(exceptionVerified(pr,[old,remove,again],[move()]),true);
-    assert.equal(exceptionVerified(pr,[old,remove],[move()]),false);
-    assert.equal(exceptionVerified(pr,[old,remove,{...again,actor:{login:"BB"}}],[move()]),false);
-  });
-  it("缺失/非法/未来事件时间与不完整head从严失败",()=>{
-    for(const time of [undefined,"bad","2099-01-01T00:00:00Z"])assert.equal(exceptionVerified(pr,[{...label(),created_at:time}],[{...move(),created_at:time}]),false);
-    assert.equal(headEnteredAt({...pr,headRefOid:"abcd"},[move()]),null);
-  });
-  it("正文不绑定，但job摘要保留人工核验提醒",()=>{
-    assert.equal(exceptionVerified({...pr,body:"例外行文字被修改"},[label()],[move()]),true);
-    assert.match(fs.readFileSync(new URL("run.mjs",import.meta.url),"utf8"),/例外内容以 QQ 加标签时的正文为准，改了例外行请重新请 QQ 核验/);
-  });
-  it("timeline前后不一致、或API缺失均不能完成检查",async()=>{
-    const e={number:1,head:{sha:head},body:BODY,user:{login:"EdwardTang"}};let reads=0;
-    const get=async route=>{if(route.includes('/timeline?'))return ++reads===1?[move()]:[move(other)];if(route.includes('/files?')||route.includes('/reviews?')||route.includes('/events?'))return [];if(route.endsWith('/requested_reviewers'))return {users:[]};return {...e,changed_files:0};};
-    await assert.rejects(collectMetadata({get,repo:REPO,number:1,eventPR:e}),/TIMELINE_CHANGED/);
-    await assert.rejects(collectMetadata({get:async route=>route.includes('/timeline?')?{}:get(route),repo:REPO,number:1,eventPR:e}),/API_SHAPE/);
-  });
 });

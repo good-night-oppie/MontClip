@@ -97,34 +97,32 @@ export function classifyFiles(files, profile) {
   return { av: paths.some((p) => profile.av.some((g) => matches(p, g))), outbound: paths.some((p) => profile.outbound.some((g) => matches(p, g))) };
 }
 
-export const EXCEPTION_LABEL = "sop-exception-verified";
-// Commit author/committer dates are author-controlled, not PR arrival times.
-// Only an explicit timeline event timestamp can establish a head boundary.
-export function headEnteredAt(pr, timeline) {
-  if (!/^[a-f0-9]{40}$/.test(pr.headRefOid || "") || !Array.isArray(timeline)) return null;
-  const moves = timeline.filter(e => ["committed", "head_ref_force_pushed"].includes(e.event));
-  const last = moves.at(-1);
-  if (!last) return null;
-  const sha = last.event === "committed" ? last.sha : last.commit_id;
-  const time = eventTime(last.created_at);
-  return sha === pr.headRefOid && time !== null ? time : null;
+// These review rows are read from GitHub, never from claims in the PR body.
+// The shared approval account proves account identity, not which teammate used it.
+export function verifiedExceptionItems(pr) {
+  const items = new Set(), head = pr.headRefOid || pr.head?.sha;
+  if (!/^[a-f0-9]{40}$/.test(head || "")) return items;
+  for (const review of pr.reviews || []) {
+    const actor = review.author?.login || review.user?.login;
+    const sha = review.commit?.oid || review.commit_id;
+    if (actor !== "GoodNightOppie" || sha !== head || !["APPROVED", "COMMENTED"].includes(review.state)) continue;
+    let fence = null;
+    for (const line of String(review.body || "").split(/\r?\n/)) {
+      const boundary = /^\s*(`{3,}|~{3,})/.exec(line);
+      if (boundary) { if (!fence) fence = boundary[1][0]; else if (boundary[1][0] === fence) fence = null; continue; }
+      if (fence) continue;
+      const match = /^SOP 例外已核验：(.+)$/.exec(line);
+      if (match && ITEM[match[1]]) items.add(ITEM[match[1]]);
+    }
+  }
+  return items;
 }
-function eventTime(value) {
-  if (typeof value !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,3})?Z$/.test(value)) return null;
-  const n = Date.parse(value);
-  return Number.isFinite(n) && n <= Date.now() ? n : null;
-}
-export function exceptionVerified(pr, events, timeline) {
-  if (!(pr.labels || []).some((label) => (typeof label === "string" ? label : label?.name) === EXCEPTION_LABEL) || !Array.isArray(events)) return false;
-  const changes = events.filter((e) => ["labeled", "unlabeled"].includes(e.event) && e.label?.name === EXCEPTION_LABEL);
-  if (!changes.length || changes.some((e) => !/^\d+$/.test(String(e.id)) || !e.actor?.login)) return false;
-  changes.sort((a, b) => BigInt(a.id) < BigInt(b.id) ? -1 : BigInt(a.id) > BigInt(b.id) ? 1 : 0);
-  const last = changes.at(-1);
-  const entered = headEnteredAt(pr, timeline), labeled = eventTime(last.created_at);
-  return last.event === "labeled" && last.actor.login === "GoodNightOppie" && entered !== null && labeled !== null && labeled > entered;
+export function exceptionVerified(pr, exceptions) {
+  const items = verifiedExceptionItems(pr);
+  return Array.isArray(exceptions) && exceptions.length > 0 && exceptions.every(e => items.has(e.item));
 }
 
-export function checkPR({ pr, files, repo, policy, teammates, labelEvents, timeline }) {
+export function checkPR({ pr, files, repo, policy, teammates }) {
   if (pr.isDraft) return { status: "skipped", issues: [], exceptions: [], owner: { state: "skipped" } };
   const issues = [], exception = exceptionsOf(pr.body);
   const notice = policy?.allowReviewHistory ? reviewerNotice(pr, policy.reviewer) : null;
@@ -137,7 +135,9 @@ export function checkPR({ pr, files, repo, policy, teammates, labelEvents, timel
   exception.invalid.forEach((message) => issues.push({ item: "exception", message }));
   if (!reviewHeaderValid(pr.body)) add("header", "第一行请写QQ 请审，不带@、空行或其他文字");
   const owner = ownerDeclaration(pr.body, teammates, [...policy.sharedAccounts, pr.author?.login].filter(Boolean));
-  if (owner.state !== "registered") add("owner", owner.reason + "；请Deja协调补负责人登记");
+  if (/^负责人：\s*QQ\s*$/.test(String(pr.body || "").split(/\r?\n/)[1] || "")) {
+    issues.push({item:"owner",message:"QQ是审查人，不能登记为负责人；QQ写PR时请Deja指定实际负责人"});
+  } else if (owner.state !== "registered") add("owner", owner.reason + "；请Deja协调补负责人登记");
   const sections = sectionsOf(pr.body);
   for (const [key, label] of [["changes", "改动"], ["reproduce", "复现"], ["tests", "测试"]]) {
     if (!sections[key]?.length || sections[key].every(placeholder)) add(key, `请补非空的${label}：段`);
@@ -153,11 +153,11 @@ export function checkPR({ pr, files, repo, policy, teammates, labelEvents, timel
       add("outbound", "改了联网或外发文件，请补外发：内容：…；接收方：…；能否关闭：…");
     }
   }
-  const verified = exception.valid.length > 0 && exceptionVerified(pr, labelEvents, timeline);
+  const verified = exceptionVerified(pr, exception.valid);
   return { status: issues.length ? "failed" : exception.valid.length && !verified ? "needs_qq" : "passed", issues, warnings, exceptions: exception.valid, exceptionVerified: verified, owner, categories };
 }
 
 export function formatReport(result) {
   const label = { passed: "模板检查通过（不代替审查批准）", skipped: "Draft：跳过送审模板检查", failed: "模板检查需补齐", needs_qq: "需要 QQ 核验：仅确认例外格式，机器未证明例外成立" }[result.status];
-  return [label, ...result.issues.map((i) => `- ${i.message}`), ...(result.warnings || []).map(w => `- 提示：${w.message}`), ...result.exceptions.map((e) => `- ${e.label}使用SOP例外，${result.exceptionVerified ? "已核对QQ标签晚于当前head进入PR；不等于正式批准" : "等 QQ 重新核验：需可靠的当前head进入PR时间，及此后由GoodNightOppie重新添加的sop-exception-verified标签"}`)].join("\n");
+  return [label, ...result.issues.map((i) => `- ${i.message}`), ...(result.warnings || []).map(w => `- 提示：${w.message}`), ...result.exceptions.map((e) => `- ${e.label}使用SOP例外，${result.exceptionVerified ? "已核对审批账号当前head的逐项review标记；不等于正式批准" : `等 QQ 核验：请GoodNightOppie在当前head的APPROVED或COMMENTED review中写精确一行「SOP 例外已核验：${e.label}」`}`)].join("\n");
 }
