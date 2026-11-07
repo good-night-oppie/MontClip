@@ -14,8 +14,8 @@ const READ=of('read'),UNDO=of('undoable'),SENS=of('sensitive'),EXT=of('external'
 test('four modes, 手动 first and the default; names in both languages',()=>{
  a.deepEqual(P.MODES,['plan','manual','auto','yolo']);
  a.equal(P.DEFAULT_MODE,'manual');
- a.deepEqual(P.MODES.map(m=>P.modeLabel(m,'zh-CN')),['计划','手动','自动','Yolo']);
- a.deepEqual(P.MODES.map(m=>P.modeLabel(m,'en')),['Plan','Manual','Auto','Yolo']);
+ a.deepEqual(P.MODES.map(m=>P.modeLabel(m,'zh-CN')),['计划','手动','自动','全自动']);
+ a.deepEqual(P.MODES.map(m=>P.modeLabel(m,'en')),['Plan','Manual','Auto','Full auto']);
 });
 
 test('计划: reading runs; everything else is only listed, never run',()=>{

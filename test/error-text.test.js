@@ -55,7 +55,11 @@ test('JJ v2, word for word: the rows this PR owns', () => {
     'This didn\'t finish because of a problem we didn\'t expect. The original is unchanged. Try again; if it still fails, use "Copy problem details" and send it to us.'];
   for (const e of [{ code: 'SOMETHING_NEW' }, new Error("Unknown encoder 'libx264'"), 'boom', null, { code: 'FLV_PREPARATION_FAILED' }])
     a.deepEqual([V.errorText('zh-CN', e).text, V.errorText('en', e).text], other, String(e && (e.code || e.message || e)));
-  a.deepEqual([V.flvImportMessage('zh-CN', 'FLV_PREPARATION_FAILED'), V.flvImportMessage('en', 'FLV_PREPARATION_FAILED')], other, 'never 「先把它转成 MP4」');
+  // an FLV that didn't import keeps main's sentence: it is said in a dialog with no 〔复制问题信息〕, so not the last row,
+  // which sends her to that button (Deja on #129)
+  const flvFailed = ['这个 FLV 没导进来：MontClip 处理这个文件时出了问题。原片没有改动。再试一次。',
+    'This FLV was not imported: something went wrong while MontClip was handling it. The original is unchanged. Try again.'];
+  a.deepEqual([V.flvImportMessage('zh-CN', 'FLV_PREPARATION_FAILED'), V.flvImportMessage('en', 'FLV_PREPARATION_FAILED')], flvFailed, 'never 「先把它转成 MP4」');
   // the copy button and its small print
   a.deepEqual([zh('btnCopyProblem'), en('btnCopyProblem')], ['复制问题信息', 'Copy problem details']);
   a.deepEqual([zh('copyProblemNote'), en('copyProblemNote')], ['复制的内容不含你的文件夹路径、密钥和观众信息。', "What's copied leaves out your folder paths, keys and viewer details."]);
@@ -167,17 +171,20 @@ test('every public code: words in both languages, no English in the Chinese, not
 // in test/zh-shown.js — names in their own casing, key names, 中文（ABC）, officialPane_formatTech, the logo and "English".
 const Z = require('./zh-shown');
 // Strings outside this PR that still break the rule, for JJ to finalise in a PR of their own (key → the words): not rewritten here.
-// (main fixed every earlier one: #144, wip2-zh-labels; #151's font sentence names Google, for JJ: a product name, (a)?;
-// main's 「AI 数据说明」 names DeepSeek and its address, which main's own no-bilingual test allows as names)
-const KNOWN = { 'own.font-net-hosts': 'Google', officialPane_dataNoticeWho: 'DeepSeek,api,deepseek,com',
-  officialPane_dataNoticeUseLabel: 'DeepSeek', officialPane_dataNoticeUse: 'DeepSeek', officialPane_dataNoticeBasis: 'DeepSeek',
-  officialPane_dataNoticeSound: 'DeepSeek' /* #170 */ };
+// (main fixed every earlier one: #144, wip2-zh-labels; #151's font sentence names Google, for JJ: a product name, (a)?)
+const KNOWN = { 'own.font-net-hosts': 'Google',
+  // #154's 「要联网下载 AI 抠像吗」 (JJ's words): the products it names and the site it downloads from
+  'own.bgremove-net-what': 'Google,MediaPipe', 'own.bgremove-net-hosts': 'jsDelivr',
+  // main's 「AI 数据说明」 for the private DeepSeek package (c446c0c9, JJ's words): the product name, and its address
+  'officialPane_dataNoticeWho': 'DeepSeek,api,deepseek,com', 'officialPane_dataNoticeUseLabel': 'DeepSeek',
+  'officialPane_dataNoticeUse': 'DeepSeek', 'officialPane_dataNoticeBasis': 'DeepSeek', 'officialPane_dataNoticeSound': 'DeepSeek' };
+// the same notice writes the address api.deepseek.com: "api" there is part of a host name, not API in another casing
+const KNOWN_CASE = { 'officialPane_dataNoticeWho': ['api'] };
 test('the Chinese interface: no English word of three letters or more, beyond JJ\'s categories; names in their own casing', () => {
   const found = {};
   for (const [k, v] of Object.entries(V.text['zh-CN'])) {
     if (typeof v !== 'string' || Z.EXEMPT_ZH.has(k)) continue;
-    // a web address is written as it is (main's 「AI 数据说明」: api.deepseek.com), not a name in another casing
-    a.deepEqual(Z.wrongCase(v.replace(/\b[a-z0-9-]+(\.[a-z0-9-]+)*\.(com|cn|net|org|io)\b/g, " ")), [], `zh-CN "${k}" writes a name in another casing: ${v}`);
+    a.deepEqual(Z.wrongCase(v), KNOWN_CASE[k] || [], `zh-CN "${k}" writes a name in another casing: ${v}`);
     // key caps and code samples are not prose (main's help rows carry <kbd>, #144): the words around them are what counts
     const w = Z.englishLeft(v.replace(/<(kbd|code)\b[^>]*>[\s\S]*?<\/\1>/g, ' ').replace(/<[^>]+>/g, ' '));
     if (w) found[k] = w;
@@ -219,7 +226,7 @@ test('〔复制问题信息〕: no viewer name or uid, no key, and (#161) no pat
     `uid=34567890 nickname=粉丝三号 用户名：某某某 昵称：小梨的粉丝`,
     `Authorization: Bearer abc.DEF-123_xyz token=tk_live_998877 "apiKey":"sk-ABCDEF0123456789"`,
   ].join('\n');
-  const opts = { home: 'C:\\Users\\tyb', platform: 'win32' };
+  const opts = { home: 'C:\\Users\\bob', platform: 'win32' };
   for (const out of [R.redactProblem(line, opts), R.redactProblem(line, {})]) {
     for (const gone of ['12345678', '87654321', '23456789', '34567890', '小梨的粉丝', '某某某', '粉丝二号', '粉丝三号', 'alice',
       'abc.DEF-123_xyz', 'tk_live_998877', 'sk-ABCDEF0123456789', '8f3a2b1c', '4455667788']) a.ok(!out.includes(gone), gone + ' in: ' + out);
@@ -246,7 +253,8 @@ test('the page: nothing raw on screen; the copy button with its small print; the
   a.match(queue, /MontClipView\.batchReason\(/);
   a.match(queue, /uiText\("btnRetryThis"\)/);
   const run = fnBody(app, 'async function runQueue(');
-  a.ok(!/Export queue: |alert\(/.test(run));
+  // the one alert is main's no-encoder precheck (#125), and it says h264Refuse, not a raw error
+  a.ok(!/Export queue: |alert\((?!refused\))/.test(run));
   a.match(run, /MontClipView\.exportResult\(/);
   a.match(run, /uiText\("btnCopyProblem"\)/);
   const done = fnBody(app, 'function autoDoneHtml(');

@@ -24,6 +24,7 @@ const {
 } = require("./paths");
 const { downloadImportUrl, kindFromName, maybeFaststart } = require("./import-url");
 const { prepareMedia } = require("./prepare-media");
+const MediaLib = require("./media-lib");
 const Danmaku = require("./danmaku");
 const { readDanmakuFile } = require("./danmaku-file");
 const FX = require("./audio-fx");
@@ -31,7 +32,6 @@ const EditOps = require("./edit-ops");
 const ProjectOps = require("./project-ops");
 const Denoise = require("./denoise");
 const MakeEditable = require("./make-editable");
-const MediaLib = require("./media-lib");
 const { createProjects } = require("./projects");
 const { createHistory } = require("./history");
 const Color = require("./color");
@@ -148,19 +148,28 @@ function backfillDurations({ wait = BACKFILL_WAIT_MS } = {}) {
   return Promise.race([pass, new Promise((r) => setTimeout(() => r(null), wait).unref())]);
 }
 async function backfillNow() {
-  const todo = (readProject().media || []).filter((m) => (m.kind === "video" || m.kind === "audio") &&
-    !(Number.isFinite(m.duration) && m.duration > 0) && !m.durationUnknown && mediaFile(m.src));
+  const noLength = (m) => (m.kind === "video" || m.kind === "audio") && !(Number.isFinite(m.duration) && m.duration > 0) && !m.durationUnknown;
+  // P6: a video with a size but no stored size beside it may hold the stored size of non-square pixels (read once
+  // per file version — probeFile caches it — so this costs nothing after the first call)
+  const sizeUnchecked = (m) => m.kind === "video" && m.width > 0 && m.storedWidth == null;
+  const todo = (readProject().media || []).filter((m) => (noLength(m) || sizeUnchecked(m)) && mediaFile(m.src));
   if (!todo.length) return [];
   const found = new Map();
   await Promise.all(todo.map(async (m) => {
     const info = await probeFile(mediaFile(m.src));
-    if (info && (info.duration > 0 || info.durationUnknown)) found.set(m.id, info);
+    if (info && ((noLength(m) && (info.duration > 0 || info.durationUnknown)) || (sizeUnchecked(m) && info.storedWidth > 0))) found.set(m.id, info);
   }));
   if (!found.size) return [];
   const updates = [...found].map(([id, info]) => {
     const m = todo.find((x) => x.id === id);
-    return info.duration > 0 ? { id, src: m.src, duration: info.duration, ...(info.durationFrom ? { durationFrom: info.durationFrom } : {}) }
-      : { id, src: m.src, durationUnknown: true };
+    const u = { id, src: m.src };
+    if (noLength(m)) {
+      if (info.duration > 0) { u.duration = info.duration; if (info.durationFrom) u.durationFrom = info.durationFrom; }
+      else if (info.durationUnknown) u.durationUnknown = true;
+    }
+    // P6: the display size and the stored one, applied by MediaLib.applyBackfill (MediaLib.displaySize)
+    if (sizeUnchecked(m) && info.storedWidth > 0) Object.assign(u, { width: info.width, height: info.height, storedWidth: info.storedWidth, storedHeight: info.storedHeight });
+    return u;
   });
   // QQ (#152): through the server, so an editor's unsaved step is never written over — it merges them itself, or the
   // server does when none is open. Only a refused connection permits a direct write: a timeout or HTTP error may
@@ -452,21 +461,47 @@ async function beatsTool(args) {
 /* fablecut_reframe: a new sequence on the canvas asked for (or the open one), then reframe.js on frames
    ffmpeg samples from each full-frame shot's window. */
 const REFRAME_MAX_SECS = 15 * 60;
-function sampleFrames(file, c, w, h) {
+/** → {frames, times}: SAMPLE_FPS a second, then the clip's last frame (reframe.js sampleTimes), read once more. */
+function sampleFrames(file, c, w, h, fps = 30) {
   const R = require("./reframe.js");
   const sp = Math.min(8, Math.max(0.1, +c.props?.speed || 1));
-  const len = Math.max(0.1, Math.min(REFRAME_MAX_SECS, c.duration * sp));
+  const len = Math.min(REFRAME_MAX_SECS, c.duration * sp);
+  if (!(len > 0)) throw new Error('reframe requires a positive clip duration');
   const args = c.kind === "image"
     ? ["-v", "error", "-i", file, "-frames:v", "1", "-vf", `scale=${w}:${h}`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
     : ["-v", "error", "-ss", String(Math.max(0, +c.in || 0)), "-t", String(len), "-i", file, "-an",
        "-vf", `fps=${R.SAMPLE_FPS},scale=${w}:${h}`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"];
-  const r = require("child_process").spawnSync(FF.path("ffmpeg"), args, { maxBuffer: 1 << 29, timeout: Math.max(120000, len * 2000) });
+  const r = require("child_process").spawnSync(FF.path("ffmpeg"), args, { maxBuffer: 1 << 29, timeout: sampleTimeoutMs(len) });
   if (r.error?.code === "ENOENT") throw new Error(FF.why("ffmpeg", "to look at the footage"));
   if (r.error) throw new Error(`ffmpeg couldn't read ${c.id}: ${r.error.code === "ETIMEDOUT" ? "it took too long" : r.error.message}`);
   if (r.status !== 0) throw new Error(`ffmpeg couldn't read ${c.id}: ${String(r.stderr).trim().split("\n").pop()}`);
   const fb = w * h * 3, frames = [];
   for (let o = 0; o + fb <= r.stdout.length; o += fb) frames.push(r.stdout.subarray(o, o + fb));
-  return frames;
+  if (c.kind === "image") return { frames, times: null };
+  const times = frames.map((_, i) => Math.round((i / R.SAMPLE_FPS) * 1000) / 1000);
+  // A timeline sample time is not a source-frame index. Decode from the preceding keyframe:
+  // accurate seek would discard the frame displayed at target and can return the next shot.
+  const start = Math.max(0, +c.in || 0), end = start + len;
+  const target = start + Math.max(0, len - sp / (fps > 0 ? fps : 30));
+  const q = require("child_process").spawnSync(FF.path("ffmpeg"), ["-hide_banner", "-v", "info", "-noaccurate_seek", "-ss", String(target), "-i", file,
+    "-copyts", "-start_at_zero", "-to", String(end), "-an", "-vf", `select='gte(t,${start})*lte(t,${target + 1e-7})*lt(t,${end})',scale=${w}:${h},showinfo`,
+    "-fps_mode", "passthrough", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 26, timeout: 60000, windowsHide: true });
+  const log = String(q.stderr || ''), clock = /config in time_base:\s*(\d+)\/(\d+)/.exec(log);
+  const tick = clock && Number(clock[1]) / Number(clock[2]);
+  const stamps = [...log.matchAll(/\bn:\s*\d+\s+pts:\s*(-?\d+)\s+pts_time:/g)].map(m => Number(m[1]) * tick);
+  const count = q.stdout ? q.stdout.length / fb : 0, pts = stamps[count - 1];
+  if (q.error || q.status !== 0 || !Number.isInteger(count) || !count || stamps.length !== count || !Number.isFinite(pts) || pts < start || pts >= end || pts > target + 1e-5)
+    throw new Error(`ffmpeg couldn't read the displayed tail frame of ${c.id}`);
+  const last = pts - start;
+  // fps=5 may repeat a VFR tail beyond its actual PTS. Replace those copies with the real tail.
+  while (times.length && times[times.length - 1] >= last) { times.pop(); frames.pop(); }
+  frames.push(q.stdout.subarray((count - 1) * fb, count * fb)); times.push(last);
+  return { frames, times };
+}
+/** The frame sampling's time limit: 2 s per second of clip, at least 2 minutes, in whole ms (spawnSync refuses a
+ *  fraction with ERR_OUT_OF_RANGE — the same as #130's FLV import, VV on europa, 2026-11-06). */
+function sampleTimeoutMs(len) {
+  return Math.ceil(Math.max(120000, len * 2000));
 }
 async function reframeTool(args) {
   const R = require("./reframe.js");
@@ -507,7 +542,7 @@ async function reframeTool(args) {
     const cover = R.coverRect(src.width, src.height, canvas.width, canvas.height, 1);
     if (args.follow !== false && Math.max(cover.maxX, cover.maxY) > 0.5) {   // no room to pan: nothing to look at
       const w = R.SAMPLE_W, h = Math.max(8, Math.round(w * src.height / src.width / 2) * 2);
-      try { samples = R.subjectTrack(sampleFrames(file, c, w, h), w, h); }
+      try { const s = sampleFrames(file, c, w, h, work.fps || 30); samples = R.subjectTrack(s.frames, w, h, s.times ? { times: s.times } : {}); }
       catch (e) { skip.push({ id: c.id, why: e.message }); continue; }
     }
     const p = R.clipPlan(c, samples, src, canvas, { smooth, fps: work.fps || 30, follow: args.follow !== false });
@@ -633,6 +668,8 @@ function timelineSig(doc) {
   return JSON.stringify([doc.fps, doc.lockedTracks || [], doc.untargetedTracks || [], doc.disabledTracks || [],
     (doc.clips || []).map((c) => [c.id, c.track, c.start, c.in, c.duration, c.mediaId, c.props?.speed ?? 1, c.keyframes?.speed ?? null, !!c.locked, !!c.disabled])]);
 }
+/** A file longer than this is listened to only where its clips play, when they cover less than half of it. */
+const LONG_FILE_S = 600;
 /* The words said on the timeline (or in whole files, mediaIds): transcribes what has no
    transcript yet as a job in an open tab, else headless, then lays the words out. Shared by
    fablecut_transcribe and fablecut_captions. */
@@ -673,10 +710,29 @@ async function speechWords(args, fileMode) {
   if (st.status !== 200) throw new Error(st.body?.error || "could not read the transcripts");
   const gone = srcs.filter((s) => st.body.status[s] === null);
   if (gone.length) throw new Error("these files are missing (offline): " + gone.join(", "));
-  const todo = args.again === true ? srcs : srcs.filter((s) => !st.body.status[s]);
+  // a long recording's clips are listened to in their windows only (P8: three clips of a two-hour replay), and only
+  // the parts its transcript has not covered yet; a short file, or mediaIds, is listened to whole
+  const rangesOf = new Map();
+  if (!fileMode) for (const m of files) {
+    const dur = +m.duration || 0;
+    if (!(dur > LONG_FILE_S)) continue;
+    const rs = T.clipRanges(entries.filter((e) => e.media.src === m.src).map((e) => e.clip), { duration: dur });
+    if (rs.length && T.rangeSeconds(rs) < dur / 2) rangesOf.set(m.src, rs);
+  }
+  const ask = {};
+  const todo = srcs.filter((s) => {
+    const info = st.body.status[s], rs = rangesOf.get(s);
+    if (rs) {
+      const left = args.again === true ? rs : T.missingSpans(info || null, rs);
+      if (left.length) ask[s] = left;
+      return left.length > 0;
+    }
+    return args.again === true || !info || Array.isArray(info.spans);   // parts of it only: now the whole file
+  });
   let note = "";
   if (todo.length) {
-    const r = await apiJSON("POST", "/api/transcribe/request", { where: args.where || "auto", transcribe: { srcs: todo, model, language, again: args.again === true } });
+    const r = await apiJSON("POST", "/api/transcribe/request", { where: args.where || "auto",
+      transcribe: { srcs: todo, model, language, again: args.again === true, ...(Object.keys(ask).length ? { ranges: ask } : {}) } });
     if (r.status !== 200) throw new Error(r.body?.error || `transcribe request failed (${r.status})`);
     let job = r.body;
     const deadline = Date.now() + 1000 * (Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 1800);
@@ -690,7 +746,13 @@ async function speechWords(args, fileMode) {
       if (q.status !== 200) throw new Error(q.body?.error || "lost track of the transcription job");
       job = q.body;
     }
-    if (job.status !== "done") throw new Error(`transcription ${job.status}: ${job.error || "no reason given"}`);
+    if (job.status !== "done") {
+      const why = String(job.error || "");
+      const S = require("./asr-status");
+      const code = Object.keys(S.SAY).find((c) => new RegExp("\\b" + c + "\\b").test(why));   // ASR_MANIFEST_MISSING · ASR_ENGINE_MISSING · ASR_MODEL_MISSING
+      if (code) throw new Error(S.SAY[code]);
+      throw new Error(`transcription ${job.status}: ${why || "no reason given"}`);
+    }
     const res = job.result || {};
     const partial = (res.done || []).filter((d) => d.gaps);
     note = (partial.length ? `PARTLY transcribed: ${partial.reduce((n, d) => n + d.gaps, 0)} part(s) could not be read (${Math.round(partial.reduce((t, d) => t + (d.gapSeconds || 0), 0))} s in all) and have no words — no subtitles there; the rest is below. ` : "") +
@@ -1259,6 +1321,13 @@ async function frameTool(args) {
     const res = job.result || {};
     const onScreen = (res.clips || []).map((c) => `${c.id} ${c.track} ${c.kind}`).join(", ") || "nothing";
     const head = `Timeline at ${res.time}s (${res.frame?.w}x${res.frame?.h}) — on screen: ${onScreen}`;
+    /* Say how the image maps to the frame: it is the whole frame scaled down, and an agent that reads a position
+       off the picture (to place a mask or a crop) must divide by these sizes, not by the `width` default. */
+    const sized = res.imageSize && res.frame
+      ? `
+Image ${res.imageSize.w}x${res.imageSize.h} px = the whole ${res.frame.w}x${res.frame.h} frame (1 image px = ${(res.frame.w / res.imageSize.w).toFixed(2)} frame px). ` +
+        "Crop and mask numbers are not canvas positions: crop is a percent of each clip's whole source frame, and a mask's x, y (its centre), w, h are fractions of the picture left after the crop, before the clip's scale and x / y — see \"Mask and crop coordinates\" in the docs."
+      : "";
 
     /* Text mode: the scopes reading measured this exact frame already, and its
        numbers are the same family as the source-frame measurements — so a
@@ -1269,7 +1338,7 @@ async function frameTool(args) {
     }
     const img = imageBlockFromDataUrl(res.image);
     if (!img) throw new Error("the editor rendered the frame but could not encode it as an image (a cross-origin source taints the canvas)");
-    return [{ type: "text", text: head }, img];
+    return [{ type: "text", text: head + sized }, img];
   }
 
   /* Source mode: ffmpeg on the server. Looking must not have side effects, so
@@ -1390,6 +1459,80 @@ async function trackTool(args) {
   return ProjectOps.describeTrack(job.result || {});
 }
 
+/* fablecut_lyrics / fablecut_lyrics_apply (JJ, 2026-11-05; docs/decisions/2026-11-05-lyrics-align-agent-tool.md): the
+   pasted lyrics lined up with the transcript on this computer (lyrics-track.js), first as a proposal that changes nothing,
+   then — only after the streamer agrees on the editor's card — on a new caption track, one undo step. Proposals are kept
+   in analysis/lyrics-proposals/ (the newest 50), so the apply can come from another session. */
+const LYRICS_DIR = path.join(ANALYSIS_DIR, "lyrics-proposals");
+function lyricsMessage(key, v) {
+  const View = require("./ui-preferences.js");
+  return { "zh-CN": View.t("zh-CN", "own." + key, v), en: View.t("en", "own." + key, v) };
+}
+function lyricsReply(p, extra = {}) {
+  const LT = require("./lyrics-track.js");
+  const body = { ...extra, ...LT.forAgent(p) };
+  if (!p.ok) body.code = p.code;
+  body.message = lyricsMessage(LT.messageKey(p), p.ok ? { k: p.k, n: p.n, m: p.m } : {});
+  if (p.code === "OK") body.next = "Show the user the message and a few lines (never the whole lyrics), then call fablecut_lyrics_apply {proposalId} — the editor asks the user on a card before anything is placed.";
+  return JSON.stringify(body, null, 1);
+}
+async function lyricsTool(args) {
+  const LT = require("./lyrics-track.js"), LA = require("./lyrics-align.js");
+  if (typeof args.lyrics !== "string") throw new Error("lyrics must be the pasted lyrics, one line per line of the song");
+  if (!LA.lines(args.lyrics).length) return lyricsReply({ ok: false, code: "NO_LYRICS" });
+  let r;
+  try { r = await speechWords({ clipIds: args.clipIds, language: args.language, timeout: args.timeout }, false); }
+  catch (e) {
+    // the transcription itself could not run (the engine, the job, the editor server): say so in the streamer's words
+    if (/transcri|editor server is not running|EDITOR_NOT_READY|HEADLESS_DISABLED/i.test(String(e.message || e))) return lyricsReply({ ok: false, code: "ASR_UNAVAILABLE" }, { detail: String(e.message || e) });
+    throw e;
+  }
+  const lo = Number.isFinite(args.from) ? args.from : -Infinity, hi = Number.isFinite(args.to) ? args.to : Infinity;
+  const words = r.words.filter((w) => (w.s + w.e) / 2 >= lo && (w.s + w.e) / 2 <= hi);
+  const p = LT.propose(words, args.lyrics);
+  if (!p.ok || p.code !== "OK") return lyricsReply(p);
+  const clipIds = [...new Set(words.map((w) => w.clip).filter(Boolean))];
+  const id = "ly_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const stored = { ...p, id, created: new Date().toISOString(), clipIds, sig: LT.scopeSig(r.doc, clipIds), revision: r.readRev };
+  fs.mkdirSync(LYRICS_DIR, { recursive: true });
+  fs.writeFileSync(path.join(LYRICS_DIR, id + ".json"), JSON.stringify(stored));
+  // keep the newest 50
+  const old = fs.readdirSync(LYRICS_DIR).filter((f) => /^ly_[a-z0-9]+\.json$/.test(f)).sort().slice(0, -50);
+  for (const f of old) try { fs.unlinkSync(path.join(LYRICS_DIR, f)); } catch {}
+  return lyricsReply(p, { proposalId: id });
+}
+async function lyricsApplyTool(args) {
+  const LT = require("./lyrics-track.js");
+  const id = String(args.proposalId || "");
+  if (!/^ly_[a-z0-9]{6,40}$/.test(id)) throw new Error("proposalId must be the id fablecut_lyrics returned");
+  let p;
+  try { p = JSON.parse(fs.readFileSync(path.join(LYRICS_DIR, id + ".json"), "utf8")); }
+  catch { throw new Error("no such proposal " + id + " — run fablecut_lyrics again"); }
+  if (p.code !== "OK") return lyricsReply(p, { proposalId: id, applied: false });
+  if (LT.scopeSig(readProject(), p.clipIds) !== p.sig) throw new Error("the clips with the singing changed since this proposal (moved, trimmed or cut) — nothing placed; run fablecut_lyrics again");
+  if (!(await ensureUIServer())) throw new Error(`the editor server is not running and could not be started on port ${PORT}`);
+  const r0 = await apiJSON("POST", "/api/lyrics/request", { proposal: p });
+  if (r0.status !== 200) throw new Error(r0.body?.error || `lyrics request failed (${r0.status})`);
+  let job = r0.body;
+  const deadline = Date.now() + 1000 * (Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 600);
+  while (job.status === "pending" || job.status === "running") {
+    if (Date.now() > deadline) {
+      await apiJSON("POST", "/api/export/job/cancel?id=" + encodeURIComponent(job.id));
+      throw new Error("the user did not answer the lyrics card in time — nothing placed");
+    }
+    await sleep(500);
+    const q = await apiJSON("GET", "/api/export/job?id=" + encodeURIComponent(job.id));
+    if (q.status !== 200) throw new Error(q.body?.error || "lost track of the lyrics card");
+    job = q.body;
+  }
+  if (job.status !== "done") throw new Error(`lyrics card ${job.status}: ${job.error || "no reason given"}`);
+  const res = job.result || {};
+  if (res.revision) lastReadRevision = res.revision;
+  return JSON.stringify({ proposalId: id, applied: res.applied === true, track: res.track || null, placed: res.placed || 0, grey: res.grey || 0,
+    ...(res.reason ? { reason: res.reason } : {}),
+    message: res.applied === true ? lyricsMessage("lt-done") : lyricsMessage("lt-not-placed") }, null, 1);
+}
+
 /* ── Tool implementations ── */
 async function callTool(name, args, attempt = 0) {
   switch (name) {
@@ -1413,6 +1556,10 @@ async function callTool(name, args, attempt = 0) {
       return songsTool(args);
     case "fablecut_transcribe":
       return transcribeTool(args);
+    case "fablecut_lyrics":
+      return lyricsTool(args);
+    case "fablecut_lyrics_apply":
+      return lyricsApplyTool(args);
     case "fablecut_captions":
       return captionsTool(args);
     case "fablecut_denoise":
@@ -1802,7 +1949,7 @@ async function callTool(name, args, attempt = 0) {
         else fs.copyFileSync(src, target);
       }
       if (!kind) throw new Error("Unsupported media type");
-      const prepared = await prepareMedia(target, { allowTranscode: args.allowTranscode, acceptReadable: args.acceptReadable });
+      const prepared = await prepareMedia(target, { allowTranscode: args.allowTranscode, acceptReadable: args.acceptReadable, fixGaps: args.fixGaps });
       const originalName = path.basename(target);
       if (prepared.originalSrc) target = path.join(MEDIA_DIR, decodeURIComponent(prepared.src.slice(7)));
       const entry = {
@@ -1814,6 +1961,9 @@ async function callTool(name, args, attempt = 0) {
         // offset is not counted (QQ, #126: format=duration alone stored 3620 s for 20 s)
       };
       if (prepared.originalSrc) Object.assign(entry, {originalSrc: prepared.originalSrc, preparation: prepared.preparation});
+      // where the recording broke, for the timeline's marks (prepare-media.js; faint: small drop, labelled: converted)
+      const gaps = MediaLib.normalizeGaps(prepared.gaps);
+      if (gaps.length) entry.gaps = gaps;
       const probed = await probeFile(target);
       Object.assign(entry, infoForEntry(probed, entry));
       const proj = readProject();

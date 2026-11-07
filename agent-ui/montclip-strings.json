@@ -1,5 +1,5 @@
 {
- "about": "MontClip's own words for Cindy keys whose Cindy wording does not fit MontClip, laid over cindy-strings.json. The four permission modes are MontClip's, in JJ's final words from the frozen prototype c604fd65 (MODES), full stops included: word for word the mode tips of ui-preferences.js (officialPane_mode*Tip, #110), test/cindy-parts.test.js; the stand-in useAgentCapabilities gives them under Cindy's ids plan / ask / auto / bypassPermissions.",
+ "about": "MontClip's own words for Cindy keys whose Cindy wording does not fit MontClip, laid over cindy-strings.json. The four permission modes are MontClip's, in JJ's final words from the frozen prototype c604fd65 (MODES), full stops included: word for word the mode tips of ui-preferences.js (officialPane_mode*Tip, #110), test/cindy-parts.test.js; the stand-in useAgentCapabilities gives them under Cindy's ids plan / ask / auto / bypassPermissions. chat.thinking.inProgress / hidden are not Cindy keys: Cindy writes Thinking / Thinking hidden in ThinkingCard's JSX, and the build puts these two t() calls in their place (cindy-resolve.cjs PATCHES; VV on f3df7db). chat.workGroup.worked (only WorkGroupBlock, the whole reply's row) and chat.thinking.completed (only ThinkingCard, finished) are JJ's words (2026-11-04): 用了 / Took, 想了 / Thought for; chat.thinking.aborted (only ThinkingCard, stopped) 想了 …，停下了 / Thought for …, then stopped.",
  "zh-CN": {
   "newChat": {
    "permissionSelector": {
@@ -20,11 +20,22 @@
        "description": "能撤销的直接做，撤不回的先问你。"
       },
       "bypassPermissions": {
-       "label": "Yolo",
+       "label": "全自动",
        "description": "每一步都直接做，不问你；往外发的内容照样先给你看。打开前会再确认一次。"
       }
      }
     }
+   }
+  },
+  "chat": {
+   "thinking": {
+    "inProgress": "正在想",
+    "hidden": "这段思考没有显示",
+    "completed": "想了 {{duration}}",
+    "aborted": "想了 {{duration}}，停下了"
+   },
+   "workGroup": {
+    "worked": "用了 {{duration}}"
    }
   }
  },
@@ -48,11 +59,22 @@
        "description": "Does what can be undone; asks before what can't."
       },
       "bypassPermissions": {
-       "label": "Yolo",
+       "label": "Full auto",
        "description": "Does every step without asking you; anything sent out is still shown to you first. You'll be asked once more before it turns on."
       }
      }
     }
+   }
+  },
+  "chat": {
+   "thinking": {
+    "inProgress": "Thinking",
+    "hidden": "Thinking hidden",
+    "completed": "Thought for {{duration}}",
+    "aborted": "Thought for {{duration}}, then stopped"
+   },
+   "workGroup": {
+    "worked": "Took {{duration}}"
    }
   }
  }

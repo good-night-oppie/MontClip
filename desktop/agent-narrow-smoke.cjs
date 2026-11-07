@@ -31,7 +31,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
  let ok=false;const report={};
  try{
   await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
-  await read(`(async()=>{if(!await flushSaveBeforeSwitch())throw Error('SAVE');await pjPost({action:'new',name:'窄窗 smoke',open:true});if(!await syncFromServer(true))throw Error('CREATE');})()`);await wait();
+  await read(`(async()=>{if(!await flushSaveBeforeSwitch())throw Error('SAVE');const made=await pjPost({action:'new',name:'窄窗 smoke',open:true});if(!made||!made.id)throw Error('CREATE');for(let i=0;i<50&&runtime.projectId!==made.id;i++){await syncFromServer(true);await new Promise(r=>setTimeout(r,100));}if(runtime.projectId!==made.id)throw Error('CREATE');})()`);await wait();
   await read(`(async()=>{const doc=projectJSON();Object.assign(doc,{media:[{id:'m1',src:'/media/none.mp4',kind:'video',name:'合成.mp4',duration:120}],clips:[{id:'v1',kind:'video',mediaId:'m1',track:'V1',start:0,in:0,duration:120,props:{volume:0}}]});applyProject(doc);scheduleSave();if(!await flushSave())throw Error('SAVE');})()`);
   await read(`updateMontClipView({language:'zh-CN'});setSideTab('assistant');mcAgent.render();true`);await wait();
   assert.equal((await read(`montclipAgentService.configure({provider:'openrouter',model:'synthetic-model',apiKey:'synthetic-test-key-not-real'})`)).configured,true);
@@ -88,7 +88,31 @@ BrowserWindow.prototype.loadURL=async function(...args){
   // and the plan's buttons are in sight without scrolling (VV on #84 53f641d: at 1280 〔开始〕 needed a scroll)
   report.wideStart=await read(`(()=>{const b=document.querySelector('[data-plan-start]'),r=b.getBoundingClientRect();let top=r.top,bottom=r.bottom;for(let p=b.parentElement;p;p=p.parentElement){const s=getComputedStyle(p);if(s.overflowY!=='visible'){const q=p.getBoundingClientRect();top=Math.max(top,q.top);bottom=Math.min(bottom,q.bottom);}}return{h:Math.round(r.height),visible:Math.round(Math.max(0,Math.min(bottom,innerHeight)-Math.max(top,0)))};})()`);
   assert.ok(report.wideStart.visible>=report.wideStart.h-1,'〔开始〕 in sight at 1280: '+JSON.stringify(report.wideStart));
-  report.requests=requests;report.transport='mock-test-only';
+  // step 3 (Deja): the approval card in the stream, whole and above the input box, at 1280×820 and 630×460
+  await read(`setAgentMode('manual')`);await wait(300);
+  assert.equal(await read('agentPolicy.mode'),'manual');
+  await read(`document.querySelector('[data-plan-start]').click();true`);
+  const cardSeen=()=>read(`(()=>{const c=document.querySelector('[data-host-card="approval"]');if(!c)return null;const r=c.getBoundingClientRect();let top=r.top,bottom=r.bottom;
+   for(let p=c.parentElement;p;p=p.parentElement){const s=getComputedStyle(p);if(s.overflowY!=='visible'){const q=p.getBoundingClientRect();top=Math.max(top,q.top);bottom=Math.min(bottom,q.bottom);}}
+   const comp=document.querySelector('[data-cindy-draft]').getBoundingClientRect();
+   return{h:Math.round(r.height),visible:Math.round(Math.max(0,Math.min(bottom,innerHeight)-Math.max(top,0))),bottom:Math.round(r.bottom),composerTop:Math.round(comp.top),composerH:Math.round(comp.height),
+    sizes:[...c.querySelectorAll('[data-host-card-first],[data-host-card-second]')].map(e=>getComputedStyle(e).fontSize),focus:document.activeElement?.dataset?.hostChoice||null,cardFocus:document.activeElement?.dataset?.hostCard||null,step:document.querySelector('[data-plan] li [data-step-state-text]')?.textContent||null};})()`);
+  for(let i=0;i<30&&!await cardSeen();i++)await wait(100);
+  for(const [w,h,name] of [[1280,820,'wide'],[630,460,'narrow']]){
+   if(name==='narrow'){await size(w,h);await read(`setSideTab('assistant');mcAgent.render();true`);await wait(300);}
+   const c=await cardSeen();report['card_'+name]=c;await shot('card-'+w+'x'+h);
+   assert.ok(c,name+': the card is shown');
+   assert.ok(c.visible>=c.h-1,name+': the card is whole: '+JSON.stringify(c));
+   assert.ok(c.bottom<=c.composerTop+1&&c.composerH>=28,name+': above the input box, which is in sight: '+JSON.stringify(c));
+   assert.equal(c.step,'进行中');
+   assert.deepEqual(c.sizes,['15px','12px'],name+': what changes in 15 px, the sentence under it in 12 px (v7.2)');
+  }
+  assert.equal(report.card_wide.cardFocus,'approval','the card itself has the focus');
+  assert.equal(report.card_wide.focus,null,'no approve button is focused');
+  await read(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:' ',bubbles:true}));true`);await wait(200);
+  assert.ok(await read(`!!document.querySelector('[data-host-card="approval"] [data-host-choice="once"]')`),'a stray Space approves nothing');
+  await read(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));true`);await wait(300);
+  assert.ok(await read(`(document.querySelector('[data-host-card-done="approval"]')||{textContent:''}).textContent.includes('你没有同意')`),'Esc on the card counts as 不同意');
   ok=true;
  }catch(e){report.error=String(e&&e.stack||e).slice(0,1500);}
  finally{out(ok?'NARROW_PASS':'NARROW_FAIL',report);process.exitCode=ok?0:1;app.exit(ok?0:1);}

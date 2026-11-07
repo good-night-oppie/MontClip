@@ -42,7 +42,10 @@ test('a stand-in replaces each Cindy file that is not copied, and says what it r
 });
 
 test('every npm package in the bundle has its version and full license recorded', () => {
-  const packages = require('../agent-ui/BUNDLED-PACKAGES.json'), registry = require('../agent-ui/BUNDLED-LICENSES.json'), lock = require('../agent-ui/package-lock.json');
+  // in cindy-official.js (BUNDLED-PACKAGES) and in cindy-parts.css (STYLE-PACKAGES: Tailwind's preflight and rules)
+  const packages = [...new Set([...require('../agent-ui/BUNDLED-PACKAGES.json'), ...require('../agent-ui/STYLE-PACKAGES.json')])];
+  const registry = require('../agent-ui/BUNDLED-LICENSES.json'), lock = require('../agent-ui/package-lock.json');
+  assert.ok(packages.includes('tailwindcss'));
   const notice = fs.readFileSync(path.join(UI, 'THIRD-PARTY-NOTICES.txt'), 'utf8').replace(/\r\n/g, '\n');
   assert.deepEqual(Object.keys(registry).sort(), [...packages].sort(), 'the registry lists exactly the bundled packages');
   for (const name of ['@radix-ui/react-popover', '@radix-ui/react-tooltip', '@radix-ui/react-alert-dialog', 'i18next', 'react-i18next']) assert.ok(packages.includes(name), name);
@@ -76,8 +79,10 @@ test("the strings: Cindy's own for zh-CN and en, at 43001ea, the same keys in bo
   assert.deepEqual(en.filter((k) => !zh.has(k) && !k.endsWith('_one')), []);
   assert.ok(keys(strings['zh-CN']).length > 100);
   assert.deepEqual(keys(own['zh-CN']).sort(), keys(own.en).sort());
-  assert.ok(keys(own['zh-CN']).every((k) => k.startsWith('newChat.permissionSelector.')), 'MontClip replaces only the mode switch words here');
-  assert.equal(own['zh-CN'].newChat.permissionSelector.modes['claude-code'].bypassPermissions.label, 'Yolo');
+  // the mode switch words, and the two words the build puts in ThinkingCard's JSX (PATCHES)
+  assert.ok(keys(own['zh-CN']).every((k) => k.startsWith('newChat.permissionSelector.') || ['chat.thinking.inProgress', 'chat.thinking.hidden', 'chat.thinking.completed', 'chat.thinking.aborted', 'chat.workGroup.worked'].includes(k)), 'MontClip replaces only the mode switch words here');
+  assert.equal(own['zh-CN'].newChat.permissionSelector.modes['claude-code'].bypassPermissions.label, '全自动');
+  assert.equal(own.en.newChat.permissionSelector.modes['claude-code'].bypassPermissions.label, 'Full auto');
   assert.equal(own['zh-CN'].newChat.permissionSelector.modes['claude-code'].ask.label, '手动');
 });
 
@@ -102,7 +107,76 @@ test("the mode capsule says each mode in JJ's final words (c604fd65 MODES): word
   assert.equal(desc('en', 'auto'), "Does what can be undone; asks before what can't.");
   assert.equal(desc('en', 'bypassPermissions'), "Does every step without asking you; anything sent out is still shown to you first. You'll be asked once more before it turns on.");
   // the Yolo bar is its own sentence, unchanged
-  assert.equal(View.text['zh-CN'].officialPane_yoloOn, 'Yolo 开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。');
+  assert.equal(View.text['zh-CN'].officialPane_yoloOn, '全自动开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。');
   // the old wording is gone
   assert.ok(!JSON.stringify(own).includes('全都直接做'));
+});
+
+test('Chinese words where Cindy writes English in its JSX: ThinkingCard\'s title, put in by the build, the copied file unchanged (VV on f3df7db)', () => {
+  const { PATCHES, patched } = require('../agent-ui/cindy-resolve.cjs'), own = require('../agent-ui/montclip-strings.json');
+  assert.deepEqual(Object.keys(PATCHES), ['apps/desktop/src/renderer/components/chat/ThinkingCard.tsx']);
+  const file = Object.keys(PATCHES)[0], text = fs.readFileSync(path.join(ROOT, file), 'utf8');
+  // each piece is there exactly once, and only that piece changes: Thinking → t('chat.thinking.inProgress'), Thinking hidden → t('chat.thinking.hidden')
+  for (const [from] of PATCHES[file]) assert.equal(text.split(from).length, 2, from);
+  const out = patched(file, text);
+  assert.equal(out.split('\n').length, text.split('\n').length);
+  const changed = out.split('\n').map((l, i) => [text.split('\n')[i], l]).filter(([a, b]) => a !== b);
+  assert.deepEqual(changed.map(([a, b]) => [a.trim(), b.trim()]), [['Thinking hidden', "{t('chat.thinking.hidden')}"], ['Thinking', "{t('chat.thinking.inProgress')}"]]);
+  // the same with a Windows checkout's CRLF (vendor-cindy.cjs reads one)
+  assert.equal(patched(file, text.replace(/\n/g, '\r\n')), out.replace(/\n/g, '\r\n'));
+  // the words, in both languages
+  assert.equal(own['zh-CN'].chat.thinking.inProgress, '正在想');
+  assert.equal(own.en.chat.thinking.inProgress, 'Thinking');
+  assert.ok(own['zh-CN'].chat.thinking.hidden && !/[a-z]/i.test(own['zh-CN'].chat.thinking.hidden));
+  assert.equal(own.en.chat.thinking.hidden, 'Thinking hidden');
+  // in the bundle
+  const bundle = fs.readFileSync(path.join(__dirname, '../cindy-official.js'), 'utf8');
+  assert.match(bundle, /chat\.thinking\.inProgress/);
+  assert.doesNotMatch(bundle, /children:"Thinking"/);
+});
+
+test('how long the AI took: words in Chinese (58 秒, 1 分 29 秒), Cindy\'s own in English (58s, 1m 29s) (v7.2; VV on f3df7db)', () => {
+  const { durationZh } = require('../agent-ui/stand-ins/durationWords.cjs'), strings = require('../agent-ui/cindy-strings.json');
+  assert.equal(durationZh(12000), '12 秒');
+  assert.equal(durationZh(58000), '58 秒');
+  assert.equal(durationZh(89000), '1 分 29 秒');
+  assert.equal(durationZh(88400), '1 分 28 秒');
+  assert.equal(durationZh(120000), '2 分');
+  assert.equal(durationZh(120000, { alwaysShowRemainder: true }), '2 分 0 秒');
+  assert.equal(durationZh(0), '1 秒', "Cindy's minimum");
+  assert.equal(durationZh(0, { minimumSeconds: 0 }), '0 秒');
+  assert.equal(durationZh(NaN), '1 秒');
+  assert.equal(durationZh(3_900_000), '1 小时 5 分');
+  assert.equal(durationZh(90_000_000), '1 天 1 小时 0 分');
+  // what the cards say with it: Cindy's own strings around the time
+  const z = strings['zh-CN'].chat, fill = (s, d) => s.replace('{{duration}}', d);
+  // JJ (2026-11-04): the whole reply's row says 用了 / Took, the finished thinking card 想了 / Thought for — montclip-strings.json over
+  // Cindy's 已工作 / 思考 (cindy-strings.json is Cindy's own and stays). Each key is used in one place only.
+  const own = require('../agent-ui/montclip-strings.json'), M = (l) => own[l].chat;
+  assert.equal(M('zh-CN').workGroup.worked, '用了 {{duration}}'); assert.equal(M('en').workGroup.worked, 'Took {{duration}}');
+  assert.equal(M('zh-CN').thinking.completed, '想了 {{duration}}'); assert.equal(M('en').thinking.completed, 'Thought for {{duration}}');
+  assert.equal(M('zh-CN').thinking.aborted, '想了 {{duration}}，停下了'); assert.equal(M('en').thinking.aborted, 'Thought for {{duration}}, then stopped');
+  assert.equal(fill(M('zh-CN').thinking.aborted, durationZh(58000)), '想了 58 秒，停下了');
+  assert.equal(fill(M('zh-CN').workGroup.worked, durationZh(58000)), '用了 58 秒');
+  assert.equal(fill(M('zh-CN').thinking.completed, durationZh(58000)), '想了 58 秒');
+  assert.equal(fill(M('en').workGroup.worked, '58s'), 'Took 58s');
+  assert.equal(z.workGroup.worked, '已工作 {{duration}}', "Cindy's own file unchanged");
+  const R = path.join(ROOT, 'apps/desktop/src/renderer/components/chat'), uses = (k) => ['WorkGroupBlock.tsx', 'ThinkingCard.tsx'].filter((f) => fs.readFileSync(path.join(R, f), 'utf8').includes("'" + k + "'"));
+  assert.deepEqual(uses('chat.workGroup.worked'), ['WorkGroupBlock.tsx']); assert.deepEqual(uses('chat.thinking.completed'), ['ThinkingCard.tsx']);
+  // the stand-in: Chinese window → durationWords; otherwise Cindy's formatDuration, unchanged
+  const standIn = fs.readFileSync(path.join(UI, 'stand-ins/sessionDurationFormat.ts'), 'utf8');
+  assert.match(standIn, /import \{ formatDuration \} from '@cindy\/maker-shared\/message-render';/);
+  assert.match(standIn, /return i18n\.language === 'zh-CN' \? durationZh\(ms, options\) : formatDuration\(ms, options\);/);
+  assert.ok(STAND_INS['apps/desktop/src/renderer/lib/sessionDurationFormat']);
+});
+
+test('every MontClip string is in the built bundle (QQ on #109 7ab67eb: a string added without rebuilding never reached the pane)', () => {
+  const strings = JSON.parse(fs.readFileSync(path.join(UI, 'montclip-strings.json'), 'utf8'));
+  const bundle = fs.readFileSync(path.join(__dirname, '..', 'cindy-official.js'), 'utf8');
+  // esbuild writes non-ASCII characters as \uXXXX with upper-case hex digits
+  const escaped = (s) => s.replace(/[^\x00-\x7f]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0'));
+  const missing = [];
+  const walk = (o, at) => { for (const [k, v] of Object.entries(o)) { if (typeof v === 'string') { if (!bundle.includes(v) && !bundle.includes(escaped(v))) missing.push(at + k); } else if (v && typeof v === 'object') walk(v, at + k + '.'); } };
+  for (const lang of ['zh-CN', 'en']) walk(strings[lang], lang + '.');
+  assert.deepEqual(missing, [], 'rebuild with node agent-ui/build.cjs');
 });

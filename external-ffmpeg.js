@@ -100,6 +100,12 @@ function argsUseX264(args) {
   return false;
 }
 
+/** Do these raw encoding-profile args encode H.264 (libx264, a graphics-card or Windows' own encoder)? */
+function argsUseH264(args) {
+  for (let i = 0; i < args.length - 1; i++) if ((args[i] === "-c:v" || args[i] === "-vcodec" || args[i] === "-codec:v") && /^(libx264|h264_\w+)$/.test(args[i + 1])) return true;
+  return false;
+}
+
 /** Why there is no H.264 encoder, as a code for the page. */
 function noH264({ platform = process.platform, mediaFoundation = true } = {}) {
   return platform === "win32" ? { code: "h264NoneWin", featurePack: !mediaFoundation } : { code: "h264NoneOther", featurePack: false };
@@ -114,4 +120,4 @@ function noH264Reason({ platform = process.platform } = {}) {
   return s + " You can choose your own FFmpeg with libx264 in Settings, or export in another format (for example Archive).";
 }
 
-module.exports = { maskUserPath, forPage, noH264, check, createExternal, isExternalJob, argsUseX264, noH264Reason, readSetting };
+module.exports = { maskUserPath, forPage, noH264, check, createExternal, isExternalJob, argsUseX264, argsUseH264, noH264Reason, readSetting };
