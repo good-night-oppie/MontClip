@@ -69,13 +69,13 @@ test('every reason code reads in the interface language; zh-CN has no English se
 
 test('the local FFmpeg check returns codes, and the page gets codes, not English reasons',async t=>{
  const d=fs.mkdtempSync(path.join(os.tmpdir(),'mc-code-'));t.after(()=>fs.rmSync(d,{recursive:true,force:true}));
- const exe=path.join(d,'ffmpeg.exe');fs.writeFileSync(exe,'x');
+ const exe=path.join(d,'ffmpeg.exe');fs.writeFileSync(exe,'x',{mode:0o755});
  a.equal((await X.check('ffmpeg')).code,'extNotFullPath');
  a.equal((await X.check(path.join(d,'gone.exe'))).code,'extGone');
  a.equal((await X.check(exe,{run:async()=>({code:1,stdout:''})})).code,'extNotFfmpeg');
  a.equal((await X.check(exe,{run:async(f,args)=>({code:0,stdout:args.includes('-version')?'ffmpeg version 7':' V....D h264_mf  H.264'})})).code,'extNoX264');
  const settings=path.join(d,'s.json');fs.writeFileSync(settings,'{bad');
- a.equal((await X.createExternal({settingsFile:settings}).current()).code,'extSettingBad');
+ a.equal((await X.createExternal({settingsFile:settings,setup:'settings'}).current()).code,'extSettingBad');
  const page=X.forPage(await X.check(path.join(d,'gone.exe')));
  a.deepEqual(Object.keys(page).sort(),['code','ok','path'],'no English reason reaches the page');
  a.deepEqual(X.noH264({platform:'win32',mediaFoundation:false}),{code:'h264NoneWin',featurePack:true});
@@ -85,7 +85,7 @@ test('the local FFmpeg check returns codes, and the page gets codes, not English
 test('server: H.264 status and export refusals carry codes; the page shows them by code',async t=>{
  // /api/export/h264 sends codes only
  const h=server.slice(server.indexOf('async function h264Status()'),server.indexOf('\n}',server.indexOf('async function h264Status()')));
- a.match(h,/external: ext\.ok \? \{ ok: true \} : \{ ok: false, code: ext\.code \}/);a.match(h,/reason: list\.length \? null : X\.noH264\(/);a.ok(!/maskUserPath|noH264Reason/.test(h),'no English in the status');
+ a.match(h,/external: ext\.ok \? \{ ok: true, source: ext\.source \} : \{ ok: false, code: ext\.code \}/);a.match(h,/reason: list\.length \? null : X\.noH264\(/);a.ok(!/maskUserPath|noH264Reason/.test(h),'no English in the status');
  a.match(server,/code: "frameTooSmall",[^]{0,200}params: \{ w: frame\.outW, h: frame\.outH, n: /);   // n: the smallest side (#129)
  a.match(server,/noteCodes/);a.match(server,/code: "extNotUsedNote", params: \{ reason: ext\.code, encoder: o\.spec\.video\.encoder \}/);
  a.match(server,/\{ error: String\(e\.message \|\| e\), code: e\.code, params: e\.params \}|code: e\.code/);

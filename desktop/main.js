@@ -254,30 +254,20 @@ async function start() {
     note.show();
   });
   const externalFile = path.join(app.getPath("userData"), "external-ffmpeg.json");
-  const externalStatus = async () => {
-    const saved = External.readSetting(externalFile);
-    if (!saved) return { ok: false, code: "none" };
-    if (saved.bad) return { ok: false, code: "extSettingBad" };
-    return External.check(saved.path);
-  };
+  // the check and the file are the same routines the Cindy plugin's worker uses (external-ffmpeg.js)
   const forbidden = { ok: false, code: "EXTERNAL_FFMPEG_FORBIDDEN" };
-  ipcMain.handle("montclip:ffmpeg:get", async (event) => settingsAllowed(event, win, origin) ? External.forPage(await externalStatus()) : forbidden);
+  ipcMain.handle("montclip:ffmpeg:get", async (event) => settingsAllowed(event, win, origin) ? External.forPage(await External.savedStatus(externalFile)) : forbidden);
   ipcMain.handle("montclip:ffmpeg:choose", async (event) => {
     if (!settingsAllowed(event, win, origin)) return forbidden;
     // only a file the user picks in this dialog; nothing is searched or guessed
     const pick = await dialog.showOpenDialog(win, { title: "FFmpeg (libx264)", properties: ["openFile"],
       filters: process.platform === "win32" ? [{ name: "FFmpeg", extensions: ["exe"] }] : [] });
     if (pick.canceled || !pick.filePaths[0]) return { ok: false, code: "CANCELLED" };
-    const result = await External.check(pick.filePaths[0]);
-    if (!result.ok) return External.forPage(result);
-    const temp = externalFile + "." + crypto.randomUUID() + ".tmp";
-    try { fs.writeFileSync(temp, JSON.stringify({ version: 1, path: result.path }), { flag: "wx" }); fs.renameSync(temp, externalFile); }
-    catch { try { fs.unlinkSync(temp); } catch { } return { ok: false, code: "extSaveFailed" }; }
-    return External.forPage(result);
+    return External.forPage(await External.saveChoice(externalFile, pick.filePaths[0]));
   });
   ipcMain.handle("montclip:ffmpeg:clear", async (event) => {
     if (!settingsAllowed(event, win, origin)) return forbidden;
-    try { fs.rmSync(externalFile, { force: true }); return { ok: false, code: "none" }; } catch { return { ok: false, code: "extRemoveFailed" }; }
+    return External.clearChoice(externalFile);
   });
   const paneSettings = createStore(app.getPath("userData"), {pane:true});
   for (const operation of ["get", "set"]) ipcMain.on("montclip:pane:" + operation, (event, value) => {

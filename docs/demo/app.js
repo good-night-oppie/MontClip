@@ -166,6 +166,7 @@ function updateMontClipView(patch) {
   }
   const saved = mcView.set(patch); renderMontClipView();
   try { renderQueue(); } catch { /* not built yet */ }
+  try { applyFfmpegState(); } catch { }   // the mode decides what no H.264 turns off
   refreshLanguageText();
   refreshLocalizedViews();
   // simple mode has the selection tool only: back to V; the project, selection and history stay as they are
@@ -1467,6 +1468,7 @@ async function connectServer() {
     if (window.montclipAsr) setTimeout(maybeOpenAsrSetup, 800);
     fetch("/api/export/ffmpeg").then((r) => r.json())
       .then((j) => { state.ffmpeg = !!j.available; }).catch(() => { });
+    refreshFfmpegCard();
     fetchEncodeProfiles();
     detectWebCodecs();
   } catch {
@@ -1476,6 +1478,117 @@ async function connectServer() {
   initSequencesUi();
   await probeMissingMeta();
 }
+/* ── The FFmpeg card (JJ P1, 2026-11-04; ffmpeg-card.js) ──
+   One state for the desktop app, web / server mode and the Cindy plugin (GET /api/ffmpeg). Ready: no card at all.
+   Otherwise the card's text and its controls come from one model, so every 「X」 it mentions is right there. Only
+   export is switched off (and says why); browsing media and marking clips carry on. 「重新检测」 asks the server to look
+   again — no reload, no restart. Without a file dialog (web, the plugin) 「手动选择」 opens a path box. */
+const ffmpegUi = { status: null, line: "", input: false, hide: 0 };
+async function refreshFfmpegCard() {
+  try { ffmpegUi.status = await (await fetch("/api/ffmpeg", { cache: "no-store" })).json(); } catch { return; }
+  applyFfmpegState();
+  renderFfmpegCard();
+}
+function applyFfmpegState() {
+  const st = ffmpegUi.status, b = $("btnExport");
+  if (!st || !b) return;
+  // JJ (2026-11-05): no FFmpeg → Export off in both modes; no H.264 → off in simple mode, on in advanced mode (where only
+  // the MP4 choices are off, see populateExportProfileSelect). Runs again on every mode switch.
+  const r = MontClipFfmpegCard.exportButton(st, mcView.get().mode, mcView.get().language);
+  if (b.dataset.titleBefore === undefined) b.dataset.titleBefore = b.title || "";
+  b.disabled = r.disabled;
+  b.title = r.title || b.dataset.titleBefore;
+  state.ffmpeg = st.state !== "missing" && st.state !== "noProbe" && st.state !== "tooOld";
+}
+function renderFfmpegCard() {
+  const box = $("ffmpegCard");
+  if (!box) return;
+  const st = ffmpegUi.status, lang = mcView.get().language;
+  const picker = !!window.montclipExternalFfmpeg || !!(st && st.picker);
+  const m = st ? MontClipFfmpegCard.model({ ...st, picker }, lang) : null;
+  clearTimeout(ffmpegUi.hide);
+  if (!m && !ffmpegUi.line) { box.classList.add("hidden"); box.replaceChildren(); return; }
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const kids = [];
+  if (m) {
+    kids.push(el("h3", "ffc-title", m.title), el("p", "ffc-body", m.body));
+    if (m.howto) {   // "…运行 `cmd`，装好后点「重新检测」。": the `…` part as code, 〔复制〕 beside it
+      const line = el("p", "ffc-howto");
+      m.howto.split("`").forEach((part, i) => {
+        if (!(i % 2)) { if (part) line.append(part); return; }
+        const code = el("code", null, part), copy = el("button", "btn tiny", m.copy || "Copy");
+        copy.type = "button"; copy.dataset.ffc = "copy";
+        line.append(code, copy);
+      });
+      kids.push(line);
+    }
+    if (m.command && !(m.howto || "").includes("`")) {   // macOS: the command in its own box under the sentence (JJ)
+      const row = el("div", "ffc-cmd");
+      const copy = el("button", "btn tiny", m.copy); copy.type = "button"; copy.dataset.ffc = "copy";
+      row.append(el("code", null, m.command), copy);
+      kids.push(row);
+    }
+    const btns = el("div", "ffc-actions");
+    for (const b of m.buttons) { const e = el("button", "btn" + (b.id === "detect" ? " primary" : ""), b.label); e.type = "button"; e.dataset.ffc = b.id; btns.append(e); }
+    kids.push(btns);
+    if (m.input && ffmpegUi.input) {
+      const row = el("div", "ffc-path"), lab = el("label", null, m.input.label), inp = el("input");
+      inp.type = "text"; inp.id = "ffcPath"; inp.placeholder = m.input.placeholder; inp.spellcheck = false; lab.htmlFor = "ffcPath";
+      inp.addEventListener("keydown", (e) => { if (e.key === "Enter") ffmpegCardAction("use"); });
+      const use = el("button", "btn", m.input.button); use.type = "button"; use.dataset.ffc = "use";
+      row.append(lab, inp, use);
+      kids.push(row);
+    }
+  }
+  if (ffmpegUi.line) kids.push(el("p", "ffc-line", ffmpegUi.line));
+  box.replaceChildren(...kids);
+  box.classList.remove("hidden");
+  if (!m) ffmpegUi.hide = setTimeout(() => { ffmpegUi.line = ""; renderFfmpegCard(); }, 5000);   // 「找到了」, then gone
+}
+/** A click in the card: copy · detect · choose (the desktop file dialog, or the path box) · use (the typed path). */
+async function ffmpegCardAction(id) {
+  const st0 = ffmpegUi.status || {}, lang = mcView.get().language;
+  const R = MontClipFfmpegCard.results(lang, st0.platform);
+  const say = (st, result) => {
+    ffmpegUi.status = st;
+    const r = result || (st.state === "ready" ? "found" : st.state);
+    ffmpegUi.line = r === "found" ? R.found : r === "noProbe" ? R.noProbe : r === "noH264" ? R.noH264
+      : r === "notFfmpeg" ? R.notFfmpeg : r === "missing" ? R.stillMissing : (MontClipView.h264Message(lang, { code: r }) || R.stillMissing);
+    if (st.state === "ready") ffmpegUi.input = false;
+    applyFfmpegState();
+    renderFfmpegCard();
+  };
+  try {
+    if (id === "copy") {
+      const m = MontClipFfmpegCard.model({ ...st0, picker: true }, lang);
+      if (m && m.command && navigator.clipboard) await navigator.clipboard.writeText(m.command).catch(() => { });
+      return;
+    }
+    if (id === "detect") return say(await (await fetch("/api/ffmpeg/detect", { method: "POST" })).json());
+    if (id === "choose") {
+      if (window.montclipExternalFfmpeg) {   // the desktop app: the same file dialog as Settings → H.264 export
+        const r = await window.montclipExternalFfmpeg?.choose();
+        if (!r || r.code === "CANCELLED") return;
+        const st = await (await fetch("/api/ffmpeg/detect", { method: "POST" })).json();
+        return say(st, r.ok ? null : r.code === "extNotFfmpeg" || r.code === "extNotFullPath" ? "notFfmpeg" : r.code);
+      }
+      ffmpegUi.input = true;
+      renderFfmpegCard();
+      $("ffcPath")?.focus();
+      return;
+    }
+    if (id === "use") {
+      const v = ($("ffcPath")?.value || "").trim();
+      if (!v) return;
+      const r = await (await fetch("/api/ffmpeg/choose", { method: "POST", body: JSON.stringify({ path: v }) })).json();
+      return say(r, r.result);
+    }
+  } catch { }
+}
+$("ffmpegCard")?.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-ffc]");
+  if (b) ffmpegCardAction(b.dataset.ffc);
+});
 /* Main-profile AVC level by canvas height; Annex-B is required so ffmpeg
    can ingest the elementary stream with `-f h264` and no avcC converter. */
 function webCodecsAvcCodec() {
@@ -19408,7 +19521,12 @@ function populateExportProfileSelect() {
     dlvSpec = n.spec; dlvNotes = n.notes;
     cur = "d:" + dlvSpec.preset;
   } else cur = "p:" + choice.id;
-  const opt = (v, label) => `<option value="${escapeHtml(v)}">${escapeHtml(label)}</option>`;
+  // advanced mode with no H.264: the MP4 choices are off, with JJ's note beside them (MontClipFfmpegCard.exportOption)
+  const view = mcView.get();
+  const optState = (v) => MontClipFfmpegCard.exportOption(ffmpegUi.status, view.mode, v.startsWith("d:")
+    ? normalizeDelivery(v.slice(2)).spec.video.codec === "h264" : profileIsH264(v.slice(2)), view.language);
+  const opt = (v, label) => { const o = optState(v);
+    return `<option value="${escapeHtml(v)}"${o.disabled ? " disabled" : ""}>${escapeHtml(o.note ? label + " — " + o.note : label)}</option>`; };
   let html = Delivery.presetGroups(deliveryInfo.saved).map((g) =>
     `<optgroup label="${escapeHtml(g.group)}">${g.items.map((it) => opt("d:" + it.id, it.label)).join("")}</optgroup>`).join("");
   const ids = Object.keys(encodeProfiles.profiles);
@@ -19422,6 +19540,8 @@ function populateExportProfileSelect() {
   sel.innerHTML = html;
   sel.value = cur;
   if (sel.value !== cur) sel.value = "d:" + Delivery.DEFAULT_PRESET;
+  // a choice that can't export here (MP4 with no H.264) gives way to the first that can (Archive …)
+  if (sel.selectedOptions[0]?.disabled) { const ok = [...sel.options].find((o) => !o.disabled); if (ok) { sel.value = ok.value; sel.dispatchEvent(new Event("change")); } }
   syncExportChoiceUi(choice.source);
 }
 /** source: where the current settings came from, for the hint line. */

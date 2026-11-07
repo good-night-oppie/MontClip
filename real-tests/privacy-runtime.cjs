@@ -34,10 +34,11 @@ async function serverLease(child,{token,proofPath,proof,timeoutMs=20000}) {
     return {origin,headers,...life};
   } finally {clearTimeout(timer);remove();}
 }
-function resolveMediaTools(env=process.env) {
+// opts.usable: tests only, for a stand-in program that is not a real FFmpeg (#146's gate checks the version and options)
+function resolveMediaTools(env=process.env,opts={}) {
   const result={};
   for(const name of ['ffmpeg','ffprobe']) {
-    const resolved=resolveTool(name,{env});
+    const resolved=resolveTool(name,{...opts,env});
     if(!resolved.ok)throw Error(resolved.error);
     result[name]=resolved.path;
   }
