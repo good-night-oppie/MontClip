@@ -31,7 +31,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
  let ok=false;const report={};
  try{
   await read(`(async()=>{const until=Date.now()+15000;while(!state.connected&&Date.now()<until)await new Promise(r=>setTimeout(r,25));if(!state.connected)throw Error('NOT_CONNECTED');})()`);
-  await read(`(async()=>{if(!await flushSaveBeforeSwitch())throw Error('SAVE');await pjPost({action:'new',name:'窄窗 smoke',open:true});if(!await syncFromServer(true))throw Error('CREATE');})()`);await wait();
+  await read(`(async()=>{if(!await flushSaveBeforeSwitch())throw Error('SAVE');const made=await pjPost({action:'new',name:'窄窗 smoke',open:true});if(!made||!made.id)throw Error('CREATE');for(let i=0;i<50&&runtime.projectId!==made.id;i++){await syncFromServer(true);await new Promise(r=>setTimeout(r,100));}if(runtime.projectId!==made.id)throw Error('CREATE');})()`);await wait();
   await read(`(async()=>{const doc=projectJSON();Object.assign(doc,{media:[{id:'m1',src:'/media/none.mp4',kind:'video',name:'合成.mp4',duration:120}],clips:[{id:'v1',kind:'video',mediaId:'m1',track:'V1',start:0,in:0,duration:120,props:{volume:0}}]});applyProject(doc);scheduleSave();if(!await flushSave())throw Error('SAVE');})()`);
   await read(`updateMontClipView({language:'zh-CN'});setSideTab('assistant');mcAgent.render();true`);await wait();
   assert.equal((await read(`montclipAgentService.configure({provider:'openrouter',model:'synthetic-model',apiKey:'synthetic-test-key-not-real'})`)).configured,true);
