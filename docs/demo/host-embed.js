@@ -15,6 +15,11 @@
     const h = new URLSearchParams(search || "").get("host");
     return HOSTS.includes(h) ? h : null;
   }
+  /** Whether a page address (a full URL) is the editor inside another app; false for anything unreadable. Used by the
+   *  desktop main process, which refuses the built-in assistant's requests from such a page (QQ on #219). */
+  function embeddedUrl(url) {
+    try { return !!hostFrom(new URL(String(url)).search); } catch { return false; }
+  }
   /** "light" or "dark" — exactly one of those two values — or null for anything else. */
   function schemeFrom(value) {
     return typeof value === "string" && SCHEMES.includes(value) ? value : null;
@@ -52,7 +57,7 @@
     return { embedded: true, host };
   }
 
-  const api = { hostFrom, schemeFrom, themeMessage, parentOrigin, fromParent, install, embedded: false, host: null };
+  const api = { hostFrom, embeddedUrl, schemeFrom, themeMessage, parentOrigin, fromParent, install, embedded: false, host: null };
   if (typeof window !== "undefined" && window.document) Object.assign(api, install(window));
   return api;
 });

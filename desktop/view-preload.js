@@ -1,6 +1,7 @@
 'use strict';
 const {contextBridge,ipcRenderer,webUtils}=require('electron');
-contextBridge.exposeInMainWorld('montclipAgentService',Object.freeze({
+// The editor inside another app (?host=cindy, host-embed.js) gets no assistant service: its assistant sends nothing (QQ on #219).
+if(new URLSearchParams(location.search).get('host')!=='cindy')contextBridge.exposeInMainWorld('montclipAgentService',Object.freeze({
  reset:()=>ipcRenderer.invoke('montclip:agent:reset'),
  deleteConnection:()=>ipcRenderer.invoke('montclip:agent:deleteConnection'),
  get:()=>ipcRenderer.invoke('montclip:agent:get'),

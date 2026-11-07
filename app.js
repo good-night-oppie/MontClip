@@ -24164,6 +24164,11 @@ function agentProposalUnchanged(result){
    process keeps the mode and the approvals (window.montclipAgentPolicy); the page shows the switch, the Yolo mark and the
    host's approval box. Without the desktop host there is no mode: replies wait for 〔查看剪辑建议〕 as before. */
 const agentPolicy={mode:'manual'};
+/* Inside Cindy (?host=cindy, host-embed.js) the built-in assistant is hidden and sends nothing (QQ on #219): its pane is
+   not mounted, so no service key is read, no AI service is reached and no message goes out; its mode is not read, its
+   sound facts are not fetched, its settings box stays hidden. AI goes through Cindy's own chat. The lyrics card (#164)
+   is the page's own dialog and still asks. */
+const agentEmbedded=typeof MontClipHost!=='undefined'&&MontClipHost.embedded===true;
 async function loadAgentMode(){try{const r=await window.montclipAgentPolicy.get();if(r&&r.ok&&MontClipPolicy.MODES.includes(r.mode))agentPolicy.mode=r.mode;}catch{}paintAgentMode();}
 async function setAgentMode(mode){
  let r;try{r=await window.montclipAgentPolicy.setMode(mode);}catch{r={ok:false,code:'MODE_UNAVAILABLE'};}
@@ -24180,7 +24185,9 @@ function paintAgentMode(){const mark=document.getElementById('mcYoloMark');if(ma
    Leaving the chat, or the project changing, while a card waits is a 「不同意」. The card says what this step changes
    (MontClipPlan.stepDetail, 「保留 0:00–1:55」, 15 px), the capability's plain sentence under it (never its internal name), what
    it changes or where it sends, and for an external step what is sent. Resolves to once | session | deny. */
-const agentApprovals=MontClipApproval.create({onChange:()=>{if(typeof mcAgent!=='undefined'&&mcAgent)mcAgent.render();},context:()=>JSON.stringify(agentProjectContext())});
+const agentApprovals=MontClipApproval.create({onChange:()=>{if(typeof mcAgent!=='undefined'&&mcAgent)mcAgent.render();},context:()=>JSON.stringify(agentProjectContext()),
+ // inside Cindy: 「不同意」 at once (HOST_EMBEDDED), and her line about it (own.ap-embedded-declined, JJ's words)
+ embedded:()=>agentEmbedded,onEmbedded:()=>toast(uiText('own.ap-embedded-declined'))});
 // the last step's toast goes first, so the two never sit one over the other (VV, #134)
 function askAgentApproval(d,options={}){dismissToast();return agentApprovals.ask(d,options);}
 const agentApprovalView=(result)=>agentApprovals.view(result,uiText,project.name||'');
@@ -24449,6 +24456,7 @@ function canUndoOfficialProposal(result){
    file's loudness (/api/signals/loudness, read once and kept by the server) and the songs the 「唱歌」 scan already found
    (/api/songs; only a file read to its end). Never starts a song scan. A file not ready within 15 s is left out this time. */
 async function agentSoundFacts(){
+ if(agentEmbedded){runtime.soundFacts=null;return;}   // inside Cindy: the assistant reads nothing
  if(!soundFactsOn()){runtime.soundFacts=null;return;}   // switched off: nothing is read
  const want=MontClipFacts.soundMedia(projectJSON()),sound={};
  const get=async(url)=>{const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),15000);try{const r=await fetch(url,{signal:ctrl.signal});return r.ok?await r.json():null;}catch{return null;}finally{clearTimeout(timer);}};
@@ -24467,7 +24475,8 @@ document.querySelector(".topbar-right").insertBefore(document.querySelector(".mc
 {const bar=document.querySelector(".app > .topbar"),set=()=>document.documentElement.style.setProperty("--mc-topbar-h",Math.ceil(bar.getBoundingClientRect().bottom)+"px");set();if(typeof ResizeObserver!=="undefined")new ResizeObserver(set).observe(bar);addEventListener("resize",set);}
 document.getElementById("mcMediaToggle").onclick=()=>document.getElementById("app").classList.toggle("media-open");
 new MutationObserver(syncMediaToggle).observe(document.getElementById("app"),{attributes:true,attributeFilter:["class"]});mcMediaNarrow.addEventListener("change",syncMediaToggle);syncMediaToggle();
-mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentContent'),
+// inside Cindy: no pane — an inert stand-in for the calls the editor makes on it
+mcAgent=agentEmbedded?{render(){},sync(){},identify(){},flush:()=>true,showNotice(){},refreshSwitch(){}}:MontClipOfficialPane.mount({panel:document.getElementById('mcAgentContent'),
  getContext:agentProjectContext,ensureProject:ensureAgentProject,
  getLanguage:()=>mcView.get().language,settings:window.montclipPaneSettings,sessionStorage:window.montclipAgentSessions,
  onHide:()=>{setSideTab("inspector");document.getElementById("mcAssistant").focus();},
@@ -24499,7 +24508,7 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
 setInterval(()=>{agentApprovals.check();mcAgent.sync();},500);
 /* 设置 › AI 助手 (Deja and JJ, 2026-11-04): the switch the main process keeps — off, it refuses every send — and the
    「AI 数据说明」 again. Desktop only: the browser editor has no assistant service. */
-{ const box=$("setAi"),box2=$("setAiEnabled"),svc=window.montclipAgentService;
+{ const box=$("setAi"),box2=$("setAiEnabled"),svc=agentEmbedded?null:window.montclipAgentService;
   if(box&&svc?.switchGet){
     box.classList.remove("hidden");
     const show=async()=>{const r=await svc.switchGet();box2.checked=r?.enabled!==false;};
@@ -24510,4 +24519,4 @@ setInterval(()=>{agentApprovals.check();mcAgent.sync();},500);
     $("btnSettings")?.addEventListener("click",()=>{void show();});
     void show();
   } }
-if(window.montclipAgentPolicy)void loadAgentMode();
+if(window.montclipAgentPolicy&&!agentEmbedded)void loadAgentMode();

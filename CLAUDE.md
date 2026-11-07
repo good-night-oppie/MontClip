@@ -198,7 +198,10 @@ line or an error. A headless export or measurement browser gets a one-time ticke
 `MONTCLIP_HOST=cindy` none of this applies.
 
 The editor page opened with `?host=cindy` (`host-embed.js`) hides its built-in
-assistant (Cindy's chat takes its place) and follows Cindy's theme: `?theme=light|dark`
+assistant (Cindy's chat takes its place) and keeps it from sending anything: it reads no
+service key, reaches no AI service and sends no message (the desktop main process refuses its
+requests from such a page too); an approval it would ask for is 「不同意」 at once, with code
+`HOST_EMBEDDED`. The lyrics card is the page's own dialog and still asks. The editor follows Cindy's theme: `?theme=light|dark`
 at load (any other value is ignored), then `postMessage({type:"montclip-host-theme", scheme})`,
 taken only when it comes from the framing page: `event.source` is `window.parent` and
 `event.origin` is that page's origin (`location.ancestorOrigins`, else the referrer;

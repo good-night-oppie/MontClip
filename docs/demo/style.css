@@ -5241,7 +5241,7 @@ html[data-host-theme="light"] .btn.toggle.on, html[data-host-theme="light"] .bin
 html[data-host-theme="light"] .ruler { background: var(--panel-head); }
 html[data-host-theme="light"] .track-headers, html[data-host-theme="light"] .track-head { background: var(--panel-sub); }
 /* light: what the dark theme writes in pale text or dark chips of its own (VV's contrast check of #113; every visible
-   text at least 3:1 — test/cindy-embed-contrast.test.js). Accent-tinted text goes to a deep accent, pale text to the
+   text at least 4.5:1 — test/cindy-embed-contrast.test.js). Accent-tinted text goes to a deep accent, pale text to the
    text colour, pale red to a deep red, dark chips to the light chip colour. */
 html[data-host-theme="light"] { --dim: #55555c; }
 html[data-host-theme="light"] .logo b,
@@ -5274,3 +5274,8 @@ html[data-host-theme="light"] .ver-badge,
 html[data-host-theme="light"] .bin-folder-add:hover { background: var(--panel-2); color: var(--text); }
 /* the thumbnail stays a dark picture well: its placeholder glyph stays light on it */
 html[data-host-theme="light"] .bin-thumb { color: #e8e8ee; }
+/* light: white text on the accent and on the offline red reach 4.5:1 (VV on #219: 3.87 and 3.91 before) */
+html[data-host-theme="light"] .monitor-mode .btn.on { background: #6352e6; border-color: #6352e6; }
+html[data-host-theme="light"] .bin-offline { background: #c8363b; }
+/* light: the track separators follow the theme instead of the dark theme's #232328 (VV on #219) */
+html[data-host-theme="light"] .track-head, html[data-host-theme="light"] .track { border-bottom-color: var(--border); }

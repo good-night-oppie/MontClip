@@ -4,16 +4,20 @@
    is about, and waits until one of its own buttons is clicked: answer(id, choice) settles the waiting card once, with one of
    the choices the main process offered (anything else counts as 「不同意」). The caller then sends that answer to the main
    process with the ticket, which answers once too. While a card waits the AI's step waits, and the page lets nothing be sent.
-   Leaving the chat, the project changing, or a newer card while one waits: 「不同意」. */
+   Leaving the chat, the project changing, or a newer card while one waits: 「不同意」.
+   Inside another app (?host=cindy, host-embed.js) the pane is hidden, so no card could be seen (QQ on #219): ask() is
+   「不同意」 at once, with code HOST_EMBEDDED — no card, nothing waits, nothing runs. */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.MontClipApproval = factory();
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
   const ORDER = ["once", "session", "deny"];
+  const HOST_EMBEDDED = "HOST_EMBEDDED";
   let seq = 0;
-  /** onChange(): the page redraws. context(): the project the card is about, as a string (a change denies the card). */
-  function create({ onChange = () => {}, context = () => "" } = {}) {
+  /** onChange(): the page redraws. context(): the project the card is about, as a string (a change denies the card).
+   *  embedded(): true inside another app's page — every ask() is denied at once, and onEmbedded() is told. */
+  function create({ onChange = () => {}, context = () => "", embedded = () => false, onEmbedded = () => {} } = {}) {
     const cards = new WeakMap(), loose = {};
     let pending = null;
     const settle = (card, choice, why) => {
@@ -26,8 +30,10 @@
       return true;
     };
     return {
-      /** A card for a decision with a ticket; resolves to once | session | deny. */
+      /** A card for a decision with a ticket; resolves to once | session | deny. Embedded: deny now, and the promise
+       *  carries code HOST_EMBEDDED. */
       ask(d, { result = null, summary = "", content = null, detail = "" } = {}) {
+        if (embedded()) { onEmbedded(); return Object.assign(Promise.resolve("deny"), { code: HOST_EMBEDDED }); }
         if (!d || typeof d.ticket !== "string" || !Array.isArray(d.choices) || !d.choices.length) return Promise.resolve("deny");
         if (pending) settle(pending, "deny", "stale");
         return new Promise((resolve) => {
@@ -64,5 +70,5 @@
       },
     };
   }
-  return Object.freeze({ create, ORDER });
+  return Object.freeze({ create, ORDER, HOST_EMBEDDED });
 });
