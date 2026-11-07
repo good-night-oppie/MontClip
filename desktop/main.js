@@ -1,6 +1,6 @@
 /* Desktop host for the existing editor and compositor. No renderer Node API. */
 "use strict";
-const { app, BrowserWindow, dialog, session, utilityProcess, ipcMain, safeStorage, Notification } = require("electron");
+const { app, BrowserWindow, dialog, session, utilityProcess, ipcMain, safeStorage, Notification, shell } = require("electron");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { createStore, allowed: settingsAllowed } = require("./view-settings");
@@ -75,6 +75,42 @@ async function start() {
   ses.setPermissionRequestHandler((_, __, callback) => callback(false));
   ses.setPermissionCheckHandler(() => false);
   const local = (url) => { try { return new URL(url).origin === origin; } catch { return false; } };
+  // The shell shows one of the workspace's own files in its folder: a name under exports/ or media/ or library/ of this
+  // data dir, nothing else; the page never learns a path. (browser shell: no bridge — the buttons stay disabled / absent)
+  const workspaceFile = (src) => {
+    let p; try { p = decodeURIComponent(String(src || "").split("?")[0]); } catch { return null; }
+    const [root, rel] = p.startsWith("/exports/") ? [path.join(env.FABLECUT_DATA_DIR, "exports"), p.slice(9)]
+      : p.startsWith("/media/") ? [path.join(env.FABLECUT_DATA_DIR, "media"), p.slice(7)]
+      : p.startsWith("/library/") ? [path.join(env.FABLECUT_DATA_DIR, "library"), p.slice(9)] : [null, null];
+    // subfolders are normal (media/archive/a.mp4, library/svg/x.svg); the prefix check below stops ".." escaping
+    if (!root || !rel) return null;
+    const file = path.normalize(path.join(root, rel));
+    if (!file.startsWith(path.normalize(root + path.sep))) return null;
+    try {
+      // Reject junctions/symlinks at the allowed root and every descendant, not just lexical traversal.
+      let current = root;
+      if (fs.lstatSync(current).isSymbolicLink()) return null;
+      for (const part of path.relative(root, file).split(path.sep)) {
+        current = path.join(current, part);
+        if (fs.lstatSync(current).isSymbolicLink()) return null;
+      }
+      const realRoot = fs.realpathSync(root), realFile = fs.realpathSync(file);
+      if (!realFile.startsWith(realRoot + path.sep)) return null;
+      return fs.statSync(realFile).isFile() ? realFile : null;
+    } catch { return null; }
+  };
+  // Native save receipts stay in this process. The page can only repeat the original export src.
+  const savedExports = new Map();
+  const rememberSavedExport = (copy, saved) => savedExports.set('/exports/' + encodeURIComponent(path.basename(copy)), saved);
+  ipcMain.handle("montclip:reveal", (event, src) => {
+    if (!settingsAllowed(event, win, origin)) return { ok: false, code: "REVEAL_FORBIDDEN" };
+    const file = savedExports.get(src) || workspaceFile(src);
+    if (!file) return { ok: false, code: "REVEAL_NOT_FOUND" };
+    try { if (!fs.statSync(file).isFile()) return { ok: false, code: "REVEAL_NOT_FOUND" }; }
+    catch { return { ok: false, code: "REVEAL_NOT_FOUND" }; }
+    shell.showItemInFolder(file);
+    return { ok: true };
+  });
   ses.webRequest.onBeforeRequest((details, callback) => {
     const embedded = /^(blob:|data:)/.test(details.url);
     callback({ cancel: !local(details.url) && !embedded });
@@ -102,6 +138,7 @@ async function start() {
     // one download of an export at a time: a second of the same file while the first is open is cancelled
     if (!require("./export-downloads").attach(item, { origin, exportsDir: path.join(env.FABLECUT_DATA_DIR, "exports"), language: languageOf(settings.get()), downloadsDir: app.getPath("downloads"),
       busy: exportDownloads, take: (n) => expectedExports.delete(n),
+      onSaved: rememberSavedExport,
       claim: async (n) => { const r = await fetch(origin + "/api/export/claim?name=" + encodeURIComponent(n), { method: "POST", headers: { "X-MontClip-Session": token } }); return r.ok && (await r.json()).fresh === true; },
       onDone: (v) => { if (win && !win.isDestroyed()) win.webContents.send("montclip:download:done", { state: v.state, name: v.name, removed: v.removed }); } })) {
       event.preventDefault();

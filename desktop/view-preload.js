@@ -82,3 +82,5 @@ contextBridge.exposeInMainWorld('montclipFlv',Object.freeze({
 // copy was removed; and, before its own export's download, which file that is
 contextBridge.exposeInMainWorld('montclipDownloads',Object.freeze({onDone:cb=>{ipcRenderer.on('montclip:download:done',(_e,v)=>cb({state:String(v&&v.state),name:String(v&&v.name),removed:v&&v.removed===true}));},expect:name=>ipcRenderer.send('montclip:downloads:expect',String(name))}));
 contextBridge.exposeInMainWorld('montclipAgentSessions',Object.freeze({get:()=>ipcRenderer.sendSync('montclip:sessions:get'),set:value=>ipcRenderer.sendSync('montclip:sessions:set',value)}));
+// The desktop shell's own "show in folder": only a workspace name (/exports/…, /media/…, /library/…), resolved in main.
+contextBridge.exposeInMainWorld('montclipReveal',Object.freeze({show:src=>ipcRenderer.invoke('montclip:reveal',String(src))}));
