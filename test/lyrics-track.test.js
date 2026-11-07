@@ -263,3 +263,11 @@ test('the lyrics card is its own lt-card, never the old approval box, and keeps 
  a.equal(View.t('zh-CN','own.lt-place'),'放到时间线上');a.equal(View.t('zh-CN','own.lt-not-now'),'先不用');
  a.match(css,/dialog\.lt-card \{/);a.ok(!/^\.agent-approval[ ,{.]/m.test(css),'the old box\'s rules stay deleted');
 });
+
+test('the grey (unmatched) lyric lines are not faded further: no opacity on .lt-grey (VV on #164: 2.76 with it, 5.57 without)', () => {
+  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'style.css'), 'utf8');
+  const rule = /\.lt-lines \.lt-grey\s*\{([^}]*)\}/.exec(css);
+  require('node:assert/strict').ok(rule, '.lt-lines .lt-grey rule exists');
+  require('node:assert/strict').doesNotMatch(rule[1], /opacity/);
+  require('node:assert/strict').match(rule[1], /color:\s*var\(--dim\)/);
+});

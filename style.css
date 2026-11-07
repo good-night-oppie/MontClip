@@ -5120,7 +5120,7 @@ dialog.lt-card h3 { margin: 0 0 6px; font-size: 14px; }
 .lt-card .tr-row { display: flex; flex-wrap: wrap; gap: 8px; }
 /* the lines that did not match are grey, as they will be on the timeline */
 .lt-lines { max-height: 40vh; overflow: auto; margin: 8px 0; padding-left: 24px; }
-.lt-lines .lt-grey { color: var(--dim); opacity: .6; }
+.lt-lines .lt-grey { color: var(--dim); }
 /* in a small assistant with the AI settings open, the switch and the pane's Yolo mark step aside (the rule with .cindy-thread above); the top bar's Yolo mark stays */
 /* P4, second half: the plan list in the assistant */
 /* step 3: the plan and the approval card sit in .cindy-thread, after the live log (the thread scrolls; the list is whole in it).
