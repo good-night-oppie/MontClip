@@ -3,7 +3,7 @@
 作者：JJ　日期：2026-11-02　交给：Deja（实施侧照原样落到 PR #31，JJ 再按增量核）
 依据：Deja 11-02 给定的「已验证能力」清单；主人原话「我们不应该是 MontClip 吗？」；关键安全句 §6、§8。
 
-版本：v2 = v1 全文（sha256 3ec69dbf9c2ca9b670530f97d3ad09fb6bba0030c9fc7b654f8d158ac8d57d26，JJ 2026-11-02）+ README 的封面图与两张示意图（JJ 2026-11-07 定稿，PR #201 issuecomment-6699400448）。v1 文件保留不改。
+版本：v2 = v1 全文（sha256 3ec69dbf9c2ca9b670530f97d3ad09fb6bba0030c9fc7b654f8d158ac8d57d26，JJ 2026-11-02）+ README 的封面图与两张示意图（JJ 2026-11-07 定稿，PR #201 issuecomment-6699400448）；2026-11-07 按 Deja 裁定 issuecomment-6704689435 把两张示意图挪到「Technical reference / 技术参考」一节，节标题与小标题见 JJ issuecomment-6704704979，发布后封面说明行见 JJ issuecomment-6704713780。v1 文件保留不改。
 
 ## 落地规则（实施必读，不进页面）
 
@@ -30,18 +30,8 @@
 
 <p align="center">
   <img src="../../docs/assets/demo/readme-demo-cover.png" width="720" alt="MontClip 演示片的一帧：左边是合成直播间的原画，右边是 MontClip 裁切、放大并遮住一块区域后的导出画面。画面是合成的，不是真实录像。">
-  <br><sub>演示片（22 秒，合成素材，不是真实录像）。视频待发布。</sub>
+  <br><sub>演示片（22 秒，合成素材，不是真实录像）。<a href="https://github.com/good-night-oppie/MontClip/releases/tag/readme-demo-2026-11-07">观看演示片</a></sub>
 </p>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/diagrams/symbolic-perception-arch-dark.svg">
-  <img src="../../docs/assets/diagrams/symbolic-perception-arch-light.svg" width="880" alt="示意图（给开发者看）：通过 MCP 接口控制 MontClip 的智能体，先读项目的文字摘要，只有拿不准时才请求几张画面；这些画面会返回给它。">
-</picture>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/diagrams/flv-input-checks-dark.svg">
-  <img src="../../docs/assets/diagrams/flv-input-checks-light.svg" width="880" alt="示意图（当前版本）：导入 FLV 录像时的检查流程。先看有哪些流，再扫描能读的范围；断点超过 5 毫秒就拒绝并说明原因；没有断点、流也兼容就直接重新封装，否则只在你明确同意后才转码；最后检查输出。">
-</picture>
 
 ## MontClip 是什么
 
@@ -70,6 +60,20 @@ MontClip 基于 FableCut 修改而来，并沿用它的 MIT 许可。FableCut �
 ## 许可
 
 MIT。详见 [LICENSE](LICENSE) 和第三方许可说明。
+
+## 技术参考
+
+### 示意图（给开发者）
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/diagrams/symbolic-perception-arch-dark.svg">
+  <img src="../../docs/assets/diagrams/symbolic-perception-arch-light.svg" width="880" alt="示意图（给开发者看）：通过 MCP 接口控制 MontClip 的智能体，先读项目的文字摘要，只有拿不准时才请求几张画面；这些画面会返回给它。">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../../docs/assets/diagrams/flv-input-checks-dark.svg">
+  <img src="../../docs/assets/diagrams/flv-input-checks-light.svg" width="880" alt="示意图（当前版本）：导入 FLV 录像时的检查流程。先看有哪些流，再扫描能读的范围；断点超过 5 毫秒就拒绝并说明原因；没有断点、流也兼容就直接重新封装，否则只在你明确同意后才转码；最后检查输出。">
+</picture>
 ```
 
 ### English version (README.md)
@@ -83,18 +87,8 @@ Based on [ronak-create/FableCut]({upstream}) (MIT).
 
 <p align="center">
   <img src="docs/assets/demo/readme-demo-cover.png" width="720" alt="One frame from the MontClip demo: on the left, the original picture of a synthetic live room; on the right, the MontClip export after cropping, zooming in and hiding one area. The footage is synthetic, not a real recording.">
-  <br><sub>Demo (22 seconds, synthetic footage, not a real recording). Video pending release.</sub>
+  <br><sub>Demo (22 seconds, synthetic footage, not a real recording). <a href="https://github.com/good-night-oppie/MontClip/releases/tag/readme-demo-2026-11-07">Watch the demo video</a></sub>
 </p>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagrams/symbolic-perception-arch-dark.svg">
-  <img src="docs/assets/diagrams/symbolic-perception-arch-light.svg" width="880" alt="Diagram (for developers): an agent that controls MontClip through the MCP interface reads a text summary of the project first, and asks for a few frames only when it is unsure. Those frames are returned to that agent.">
-</picture>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagrams/flv-input-checks-dark.svg">
-  <img src="docs/assets/diagrams/flv-input-checks-light.svg" width="880" alt="Diagram (current version): how an imported FLV recording is checked. MontClip looks at the streams, then scans the readable range; if a gap is longer than 5 ms it refuses and explains why; with no gap and compatible streams it remuxes, otherwise it transcodes only with your explicit consent; the output is then checked.">
-</picture>
 
 ## What MontClip is
 
@@ -123,6 +117,20 @@ MontClip is a modified version of FableCut and keeps its MIT license. FableCut h
 ## License
 
 MIT. See [LICENSE](LICENSE) and the third-party notices.
+
+## Technical reference
+
+### Diagrams (for developers)
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagrams/symbolic-perception-arch-dark.svg">
+  <img src="docs/assets/diagrams/symbolic-perception-arch-light.svg" width="880" alt="Diagram (for developers): an agent that controls MontClip through the MCP interface reads a text summary of the project first, and asks for a few frames only when it is unsure. Those frames are returned to that agent.">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagrams/flv-input-checks-dark.svg">
+  <img src="docs/assets/diagrams/flv-input-checks-light.svg" width="880" alt="Diagram (current version): how an imported FLV recording is checked. MontClip looks at the streams, then scans the readable range; if a gap is longer than 5 ms it refuses and explains why; with no gap and compatible streams it remuxes, otherwise it transcodes only with your explicit consent; the output is then checked.">
+</picture>
 ```
 
 ---

@@ -52,9 +52,11 @@ test('the copy file is the one JJ delivered',()=>{a.equal(src.sha(),src.SHA256);
 
 test('README (English) and README.zh-CN are JJ\'s text, word for word',()=>{
  for(const lang of ['en','zh']){
-  // The approved product copy stays intact; developer documentation follows it in its own appendix.
-  const text=read(READMES[lang]);
-  a.equal(lang==='en'?text.split('\n## Technical reference\n')[0]:text,expectedReadme(lang),READMES[lang]);
+  // The approved product copy stays intact. In English it ends with the two diagrams at the top of
+  // "Technical reference" (Deja, #201 issuecomment-6704689435); the developer documentation follows them.
+  const text=read(READMES[lang]),expected=expectedReadme(lang);
+  if(lang==='en'){a.equal(text.slice(0,expected.length),expected,READMES[lang]);a.match(text.slice(expected.length),/^\n\S/,READMES[lang]+': developer docs after the diagrams');}
+  else a.equal(text,expected,READMES[lang]);
  }
 });
 
