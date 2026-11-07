@@ -20802,7 +20802,9 @@ function exportCheckPlan(t0, t1) {
 }
 /** An /api/export/end that failed, as an Error with the server's reason code (sayError says it in the interface language). */
 function exportEndError(end, fallback) {
-  return Object.assign(new Error(end.error || fallback), end.code ? { code: end.code } : {}, end.params ? { params: end.params } : {});
+  // the self-check's lost pieces ({clips: [{n, t}]}) become the words of JJ's sentence (exportClipWords)
+  const params = end.params && Array.isArray(end.params.clips) ? exportClipWords(end.params.clips) : end.params;
+  return Object.assign(new Error(end.error || fallback), end.code ? { code: end.code } : {}, params ? { params } : {});
 }
 /* The export mix asks the server for only the part of each file it plays (/api/audio-window), on the container's clock.
    Every local file goes this way (QQ, 2026-11-05): decodeAudioData on a whole file put a late-starting audio stream's
@@ -20846,7 +20848,10 @@ function showOneSidedWarning(c) {
 /** A check from the export report in the interface language, where it has a code; else its text. */
 function exportCheckText(c) {
   if (c.code === "AUDIO_ONE_SIDED") return oneSidedWarning(c).text;
-  if (c.code === "EXPORT_CLIP_SILENT") return uiText("own.export-clip-silent", { n: c.n });   // MC-14: JJ's sentence
+  if (c.code === "EXPORT_CLIP_SILENT") {   // MC-14: JJ's sentence, by number and time, or time only for a sound on its own
+    const p = exportClipWords([{ n: c.n ?? null, t: +c.t || 0 }]);
+    return uiText(p.n != null ? "own.export-clip-silent" : "own.export-clip-silent-track", p);
+  }
   return c.text;
 }
 function exportReportLine(r) {
@@ -20856,16 +20861,19 @@ function exportAudioHeard(c, m) {
   if (m && m.audioChannels === 0) return false;
   return c.kind === "audio" || !(c.props && c.props.volume === 0);
 }
-/** The first heard clip that failed → an Error for the export, in the interface language, with its number (第 N 段,
- *  exportSegmentNumbers) — JJ's sentence, MC-14; else null. */
+/** The heard clips that failed → an Error for the export in the interface language, JJ's sentence (#231): the pieces
+ *  with a picture by number and time, else the sound's time (exportClipWords); null when none did. */
 function exportMixFailure(results) {
-  const bad = results.find((r) => r && r.failed && r.heard);
-  if (!bad) return null;
-  return Object.assign(new Error(uiText("own.export-audio-failed", { n: bad.n })), { code: "EXPORT_AUDIO_FAILED", params: { n: bad.n }, cause: bad.failed });
+  const bad = results.filter((r) => r && r.failed && r.heard);
+  if (!bad.length) return null;
+  const seen = new Set(), list = [];
+  for (const r of bad) { const k = r.n != null ? "n" + r.n : "t" + r.t; if (!seen.has(k)) { seen.add(k); list.push({ n: r.n ?? null, t: r.t }); } }
+  const p = exportClipWords(list);
+  return Object.assign(new Error(uiText(p.n != null ? "own.export-audio-failed" : "own.export-audio-failed-track", p)), { code: "EXPORT_AUDIO_FAILED", params: p, cause: bad[0].failed });
 }
-/** 第 N 段 (MC-14): the pieces of t0…t1 as the streamer sees them on the timeline — each picture or sound clip, a video and
- *  its linked stems one piece — numbered from 1 by where they start (pictures before sounds at the same time, then by
- *  track). → Map clip id → n. */
+/** 第 N 段 (MC-14, JJ on #231): the streamer counts the pieces in the picture — a video clip and its linked sound are one
+ *  piece, numbered from 1 by where they start (then by track); a sound on its own (music, a voice-over) takes no
+ *  number, it is said by its time. → Map clip id → {n (null for a sound on its own), t: where the piece starts}. */
 function exportSegmentNumbers(clips, t0, t1) {
   const groups = new Map();
   for (const c of clips) {
@@ -20875,9 +20883,21 @@ function exportSegmentNumbers(clips, t0, t1) {
     else { g.ids.push(c.id); g.start = Math.min(g.start, c.start); g.video ||= c.kind === "video"; }
   }
   const out = new Map();
-  [...groups.values()].sort((x, y) => x.start - y.start || (y.video - x.video) || x.track.localeCompare(y.track))
-    .forEach((g, i) => { for (const id of g.ids) out.set(id, i + 1); });
+  let n = 0;
+  for (const g of [...groups.values()].sort((x, y) => x.start - y.start || x.track.localeCompare(y.track))) {
+    const seg = { n: g.video ? ++n : null, t: g.start };
+    for (const id of g.ids) out.set(id, seg);
+  }
   return out;
+}
+/** The words a sentence names the pieces with (JJ, #231): those with a picture, at most 5, by number and by time on the
+ *  timeline (MontClipAutoSlices.hms, as the page writes times elsewhere: 1:12:04 past an hour), in timeline order,
+ *  listed 「3、5、8」 ("3, 5, 8" in English); when none has a picture, the sounds' times only. [{n, t}] → {n, time} | {time}. */
+function exportClipWords(list) {
+  const sep = mcView.get().language === "en" ? ", " : "、";
+  const pic = list.filter((x) => x.n != null), use = (pic.length ? pic : list).slice().sort((x, y) => x.t - y.t).slice(0, 5);
+  const time = use.map((x) => MontClipAutoSlices.hms(x.t)).join(sep);
+  return pic.length ? { n: use.map((x) => x.n).join(sep), time } : { time };
 }
 /** The peak of buf from `off` seconds for `dur` seconds, every channel, dBFS (−Infinity for digital silence). */
 function exportClipPeak(buf, off, dur) {
@@ -20901,18 +20921,20 @@ function exportWindowShort(buf, at, end, mediaDur) {
    check (export-check.js), which measures that part of its file — silent there too: a warning, 「第 N 段是无声的」;
    sound there: the export failed. Loud music over the whole export never hides it. */
 const EXPORT_QUIET_DB = -50;   // export-check.js QUIET_DB
-/** → [{n, src, at, dur}]: the pieces whose heard sound is silent where it plays (dur at most 30 s, as the check reads). */
+/** → [{n, t, src, at, dur}]: the pieces whose heard sound is silent where it plays, in timeline order — n null for a
+ *  sound on its own, t where the piece starts on the timeline (dur at most 30 s, as the check reads). */
 function exportSilentSegments(results) {
   const seg = new Map();
   for (const r of results) {
     if (!r || r.failed || !r.heard || !r.buf) continue;
-    const peak = exportClipPeak(r.buf, r.m0 - r.at, r.m1 - r.m0), s = seg.get(r.n);
-    if (!s) seg.set(r.n, { quiet: peak < EXPORT_QUIET_DB, r });
+    const k = r.n != null ? "n" + r.n : "c" + r.c.id;
+    const peak = exportClipPeak(r.buf, r.m0 - r.at, r.m1 - r.m0), s = seg.get(k);
+    if (!s) seg.set(k, { quiet: peak < EXPORT_QUIET_DB, r });
     else s.quiet &&= peak < EXPORT_QUIET_DB;
   }
   const round = (v) => Math.round(v * 1000) / 1000;
-  return [...seg.entries()].filter(([, s]) => s.quiet).sort((x, y) => x[0] - y[0])
-    .map(([n, { r }]) => ({ n, src: r.src, at: round(Math.max(0, r.m0)), dur: round(Math.min(30, r.m1 - r.m0)) }));
+  return [...seg.values()].filter((s) => s.quiet).map(({ r }) => r).sort((x, y) => x.t - y.t)
+    .map((r) => ({ n: r.n ?? null, t: round(r.t), src: r.src, at: round(Math.max(0, r.m0)), dur: round(Math.min(30, r.m1 - r.m0)) }));
 }
 /** → {buf, at, m0, m1}: an AudioBuffer of clip c's audio for timeline a…b, the media time its first sample is at, and the
  *  part of the file the clip plays (m0…m1). With a server only that part is read (/api/audio-window): a window that
@@ -20949,9 +20971,9 @@ async function renderAudioMix(t0, t1, opts = {}) {
     if (!m || isMediaOffline(m.id)) continue;   // silent, even when its sound was decoded before it went missing
     const a = Math.max(c.start, t0), b = Math.min(c.start + c.duration, t1);
     if (b - a <= 1e-6) continue;
-    const n = nums.get(c.id), heard = exportAudioHeard(c, m);
-    jobs.push(exportAudioSource(m, c, a, b, windows).then(({ buf, at, m0, m1 }) => ({ c, n, heard, buf, at, m0, m1, src: m.src }))
-      .catch((e) => { console.warn(`[MontClip] the sound of clip ${n} (${c.id}) could not be read:`, e && e.message); return { c, n, failed: e, heard }; }));
+    const { n, t } = nums.get(c.id) || { n: null, t: c.start }, heard = exportAudioHeard(c, m);
+    jobs.push(exportAudioSource(m, c, a, b, windows).then(({ buf, at, m0, m1 }) => ({ c, n, t, heard, buf, at, m0, m1, src: m.src }))
+      .catch((e) => { console.warn(`[MontClip] the sound of clip ${n ?? "-"} at ${t} s (${c.id}) could not be read:`, e && e.message); return { c, n, t, failed: e, heard }; }));
   }
   const results = await Promise.all(jobs);
   const failed = exportMixFailure(results);

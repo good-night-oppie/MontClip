@@ -81,17 +81,17 @@ test('a clip whose sound cannot be decoded stops the export, said in plain words
   const V = require('../ui-preferences');
   for (const language of ['zh-CN', 'en']) {
     const uiText = (k, v) => V.t(language, k, v);
-    const { exportAudioHeard, exportMixFailure } = new Function('uiText', src + '\nreturn { exportAudioHeard, exportMixFailure };')(uiText);
+    const { exportAudioHeard, exportMixFailure } = new Function('uiText', 'mcView', 'MontClipAutoSlices', src + '\nreturn { exportAudioHeard, exportMixFailure };')(uiText, { get: () => ({ language }) }, require('../auto-slices'));
     const vid = { kind: 'video', props: {} }, pic = { kind: 'video', props: { volume: 0 } }, aud = { kind: 'audio', name: '直播录像', props: {} };
     a.equal(exportAudioHeard(aud, { audioChannels: 2 }), true);
     a.equal(exportAudioHeard(vid, { audioChannels: 2 }), true);
     a.equal(exportAudioHeard(pic, { audioChannels: 2 }), false, 'the picture of a linked video is silent');
     a.equal(exportAudioHeard(aud, { audioChannels: 0 }), false, 'a file with no audio stream');
     a.equal(exportMixFailure([{ c: aud, buf: {} }]), null);
-    const e = exportMixFailure([{ c: aud, n: 1, buf: {} }, { c: aud, n: 2, failed: new Error('decode failed'), heard: true }, { c: pic, failed: new Error('x'), heard: false }]);
+    const e = exportMixFailure([{ c: aud, n: 1, t: 0, buf: {} }, { c: aud, n: 2, t: 10, failed: new Error('decode failed'), heard: true }, { c: pic, failed: new Error('x'), heard: false }]);
     a.ok(e instanceof Error); a.equal(e.code, 'EXPORT_AUDIO_FAILED');
     // MC-14 (JJ 2026-11-07): the clip is said by its number on the timeline, 第 N 段 (test/export-clip-sound.test.js)
-    a.equal(e.message, V.t(language, 'own.export-audio-failed', { n: 2 }));
+    a.equal(e.message, V.t(language, 'own.export-audio-failed', { n: 2, time: '0:10' }));
     a.match(e.message, language === 'en' ? /clip 2/ : /第 2 段/);
     a.equal(exportMixFailure([{ c: pic, failed: new Error('x'), heard: false }]), null, 'an unheard failure is not one');
   }

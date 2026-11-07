@@ -19,6 +19,7 @@
    the sources are read only when the file looks blank. Zero dependencies. */
 "use strict";
 const { execFile } = require("child_process");
+const { hms } = require("./auto-slices");   // times as the page writes them (1:12:04 past an hour)
 
 const BLACK = 40;          // 8-bit luma: limited-range black is 16; a dark but real shot has cells far above 40
 const SOURCE_LIT = 60;
@@ -73,8 +74,9 @@ function cleanPlan(plan) {
     if (p && typeof p.src === "string" && num(p.at) != null && num(p.dur) > 0) audio.push({ src: p.src, at: num(p.at), dur: Math.min(30, num(p.dur)) });
   }
   for (const p of (plan && Array.isArray(plan.silent) ? plan.silent : []).slice(0, MAX_POINTS)) {
-    if (p && Number.isInteger(p.n) && p.n > 0 && typeof p.src === "string" && num(p.at) != null && num(p.dur) > 0)
-      silent.push({ n: p.n, src: p.src, at: num(p.at), dur: Math.min(30, num(p.dur)) });
+    // n: the number of a piece with a picture, null for a sound on its own; t: where it starts on the timeline
+    if (p && (p.n == null || (Number.isInteger(p.n) && p.n > 0)) && num(p.t) != null && typeof p.src === "string" && num(p.at) != null && num(p.dur) > 0)
+      silent.push({ n: p.n ?? null, t: num(p.t), src: p.src, at: num(p.at), dur: Math.min(30, num(p.dur)) });
   }
   return { video, audio, silent };
 }
@@ -113,7 +115,7 @@ async function check(o) {
   if (silent.length) {
     const peaks = await pool(silent, (p) => { const f = o.resolve(p.src); return f ? soundPeak(o.ffmpeg, f, p.at, p.dur) : null; });
     // sound there, or its file couldn't be read: lost — never "silent in its file too"
-    silent.forEach((p, i) => (peaks[i] == null || peaks[i] > QUIET_DB ? lost : quiet).push(p.n));
+    silent.forEach((p, i) => (peaks[i] == null || peaks[i] > QUIET_DB ? lost : quiet).push({ n: p.n, t: p.t }));
   }
   return { ok: !picture && !sound && !lost.length, picture, sound, lost, quiet, ms: Date.now() - t0 };
 }
@@ -122,11 +124,17 @@ function failCode(r) {
   if (r.lost && r.lost.length) return "EXPORT_AUDIO_FAILED";
   return r.picture && r.sound ? "EXPORT_BLANK_BOTH" : r.picture ? "EXPORT_BLANK_PICTURE" : r.sound ? "EXPORT_BLANK_SOUND" : null;
 }
-/** The failure's params for the interface sentence: {n} of the first lost piece. */
-function failParams(r) { return r.lost && r.lost.length ? { n: r.lost[0] } : null; }
+/** The failure's params: every lost piece {n, t} — the page names them (app.js exportClipWords: the pieces with a
+ *  picture, at most 5, 「第 3、5、8 段」; else the sounds' times). */
+function failParams(r) { return r.lost && r.lost.length ? { clips: r.lost.map((x) => ({ n: x.n, t: x.t })) } : null; }
+/** English, for agents and logs: "clip 3, 5 (at 1:12, 1:30)", or "the sound at 0:10". */
+function clipsText(list) {
+  const pic = list.filter((x) => x.n != null);
+  return pic.length ? `clip ${pic.map((x) => x.n).join(", ")} (at ${pic.map((x) => hms(x.t)).join(", ")})` : `the sound at ${list.map((x) => hms(x.t)).join(", ")}`;
+}
 /** English, for agents and logs. */
 function failText(r) {
-  if (r.lost && r.lost.length) return `the sound of clip ${r.lost.join(", ")} could not be read (the export is silent there, ` +
+  if (r.lost && r.lost.length) return `${r.lost.some((x) => x.n != null) ? "the sound of " : ""}${clipsText(r.lost)} could not be read (the export is silent there, ` +
     "its file is not) — the export stopped and no file was kept; the originals are unchanged";
   const what = r.picture && r.sound ? "black and silent" : r.picture ? "black" : "silent";
   return `the exported file is ${what} from start to end, but the footage on the timeline is not — the export went wrong; ` +
@@ -137,7 +145,7 @@ function failText(r) {
  *  however loud the whole export measured. The page says it in the interface language (app.js exportCheckText). */
 function withQuiet(report, quiet) {
   if (!report || !quiet || !quiet.length) return report;
-  const checks = [...report.checks, ...quiet.map((n) => ({ ok: false, code: "EXPORT_CLIP_SILENT", n, text: `clip ${n} is silent — check that it is meant to be` }))];
+  const checks = [...report.checks, ...quiet.map(({ n, t }) => ({ ok: false, code: "EXPORT_CLIP_SILENT", n, t, text: `${clipsText([{ n, t }])} is silent — check that it is meant to be` }))];
   return { ...report, ok: false, checks, line: checks.map((x) => (x.ok ? "" : "⚠ ") + x.text).join(" · ") };
 }
 

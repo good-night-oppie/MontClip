@@ -171,6 +171,8 @@ function mixHarness(clips, offline, decode) {
     mediaClips: () => clips, clipRenders: () => true,
     getMedia: id => ({ id, audioChannels: 2 }), isMediaOffline: id => offline.has(id),
     exportAudioSource: decode, uiText: k => k,
+    // the clip-naming helpers (#231): the page's own language and time writing
+    mcView: { get: () => ({ language: 'zh-CN' }) }, MontClipAutoSlices: require('../auto-slices'),
     OfflineAudioContext: function () { throw rendered; },
   };
   const run = vm.runInNewContext(failures + '\n' + mix + '\nrenderAudioMix', context);

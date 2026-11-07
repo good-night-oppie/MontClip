@@ -18,42 +18,61 @@ const V = require('../ui-preferences');
 /** The page's pure export-sound helpers, run outside the browser. */
 function helpers(language = 'zh-CN') {
   const src = ['function exportAudioHeard(', 'function exportMixFailure(', 'function exportSegmentNumbers(', 'function exportClipPeak(',
-    'function exportWindowShort(', 'function exportSilentSegments('].map((h) => body(app, h)).join('\n');
+    'function exportWindowShort(', 'function exportSilentSegments(', 'function exportClipWords('].map((h) => body(app, h)).join('\n');
   a.match(app, /const EXPORT_QUIET_DB = -50;/);
-  return new Function('uiText', 'EXPORT_QUIET_DB', src + '\nreturn { exportAudioHeard, exportMixFailure, exportSegmentNumbers, exportClipPeak, exportWindowShort, exportSilentSegments };')(
-    (k, v) => V.t(language, k, v), -50);
+  return new Function('uiText', 'EXPORT_QUIET_DB', 'mcView', 'MontClipAutoSlices', src + '\nreturn { exportAudioHeard, exportMixFailure, exportSegmentNumbers, exportClipPeak, exportWindowShort, exportSilentSegments, exportClipWords };')(
+    (k, v) => V.t(language, k, v), -50, { get: () => ({ language }) }, require('../auto-slices'));
 }
 /** A stand-in AudioBuffer: channels of Float32Array at 48 kHz. */
 const buffer = (channels, rate = 48000) => ({ sampleRate: rate, numberOfChannels: channels.length, length: channels[0].length,
   duration: channels[0].length / rate, getChannelData: (i) => channels[i] });
 const tone = (sec, amp, rate = 48000) => { const x = new Float32Array(Math.round(sec * rate)); for (let i = 0; i < x.length; i++) x[i] = amp * Math.sin(2 * Math.PI * 440 * i / rate); return x; };
 
-test('JJ\'s sentences, word for word, with the real clip number; English drafts beside them; no 解码 / buffer', () => {
-  a.equal(V.t('zh-CN', 'own.export-audio-failed', { n: 3 }), '第 3 段的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。');
-  a.equal(V.t('zh-CN', 'own.export-clip-silent', { n: 3 }), '第 3 段是无声的，请确认是不是你想要的。');
-  a.equal(V.t('en', 'own.export-audio-failed', { n: 3 }), "The sound of clip 3 couldn't be read, so this export stopped and no file was made. The originals are unchanged.");
-  a.equal(V.t('en', 'own.export-clip-silent', { n: 3 }), 'Clip 3 is silent. Please check that this is what you want.');
-  for (const k of ['own.export-audio-failed', 'own.export-clip-silent', 'own.err-export-page-crashed'])
-    for (const l of ['zh-CN', 'en']) a.doesNotMatch(V.t(l, k, { n: 3 }), /解码|buffer|decode|\{n\}/i, `${l} ${k}`);
-  // registered like the other error texts: the code says JJ's sentence through errorText, the number filled in
-  a.equal(V.errorText('zh-CN', { code: 'EXPORT_AUDIO_FAILED', params: { n: 2 } }).text, '第 2 段的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。');
-  a.equal(V.errorText('zh-CN', { code: 'EXPORT_AUDIO_FAILED', params: { n: 2 } }).known, true);
-  a.equal(V.errorText('zh-CN', { code: 'EXPORT_PAGE_CRASHED' }).known, true);
+/* JJ 定稿 (#231 issuecomment-6714366423), word for word, punctuation included: a piece with a picture by its number and
+   its time on the timeline; a sound clip on its own (music, a voice-over) by its time only (the -track sentences). */
+test('JJ\'s final sentences, word for word: number and time for a piece with a picture, time only for a sound on its own', () => {
+  const zh = (k, v) => V.t('zh-CN', k, v), en = (k, v) => V.t('en', k, v), v = { n: 3, time: '1:12:04' };
+  a.equal(zh('own.export-audio-failed', v), '第 3 段（时间线 1:12:04 处）的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。');
+  a.equal(zh('own.export-audio-failed-track', v), '时间线 1:12:04 处的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。');
+  a.equal(zh('own.export-clip-silent', v), '第 3 段（时间线 1:12:04 处）是无声的，请确认是不是你想要的。');
+  a.equal(zh('own.export-clip-silent-track', v), '时间线 1:12:04 处的声音是无声的，请确认是不是你想要的。');
+  a.equal(en('own.export-audio-failed', v), "The sound of clip 3 (at 1:12:04 on the timeline) couldn't be read, so this export stopped and no file was made. The originals are unchanged.");
+  a.equal(en('own.export-audio-failed-track', v), "The sound at 1:12:04 on the timeline couldn't be read, so this export stopped and no file was made. The originals are unchanged.");
+  a.equal(en('own.export-clip-silent', v), 'Clip 3 (at 1:12:04 on the timeline) is silent. Please check that this is what you want.');
+  a.equal(en('own.export-clip-silent-track', v), 'The sound at 1:12:04 on the timeline is silent. Please check that this is what you want.');
+  a.equal(zh('own.err-export-page-crashed'), '导出时出了意外，这次导出已停下，没有生成文件。原片没有改动。可以直接重新导出；还是这样的话，点「复制问题信息」发给我们。');
+  a.equal(en('own.err-export-page-crashed'), 'Something went wrong while exporting, so this export stopped and no file was made. The originals are unchanged. You can start the export again; if it happens again, use "Copy problem details" and send it to us.');
+  for (const k of ['own.export-audio-failed', 'own.export-audio-failed-track', 'own.export-clip-silent', 'own.export-clip-silent-track', 'own.err-export-page-crashed'])
+    for (const l of ['zh-CN', 'en']) a.doesNotMatch(V.t(l, k, v), /解码|buffer|decode|页面|\bpage\b|\{n\}|\{time\}/i, `${l} ${k}`);
+  // registered like the other error texts: the code says JJ's sentence through errorText; no number → the -track sentence
+  a.equal(V.errorText('zh-CN', { code: 'EXPORT_AUDIO_FAILED', params: { n: '2', time: '0:10' } }).text, '第 2 段（时间线 0:10 处）的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。');
+  a.equal(V.errorText('zh-CN', { code: 'EXPORT_AUDIO_FAILED', params: { time: '0:10' } }).text, '时间线 0:10 处的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。');
+  a.equal(V.errorText('zh-CN', { code: 'EXPORT_AUDIO_FAILED', params: { n: '2', time: '0:10' } }).known, true);
+  a.equal(V.errorText('zh-CN', { code: 'EXPORT_PAGE_CRASHED' }).text, zh('own.err-export-page-crashed'));
 });
 
-test('a clip whose sound can\'t be read stops the export, with its number (第 N 段), in both languages', () => {
+test('a clip whose sound can\'t be read stops the export, with its number and time; a sound on its own by its time only', () => {
   for (const language of ['zh-CN', 'en']) {
     const { exportMixFailure } = helpers(language);
     const aud = { kind: 'audio', props: {} }, pic = { kind: 'video', props: { volume: 0 } };
-    a.equal(exportMixFailure([{ c: aud, n: 1, buf: {} }]), null);
-    const e = exportMixFailure([{ c: aud, n: 1, buf: {} }, { c: aud, n: 3, failed: new Error('audio window 422'), heard: true }, { c: pic, n: 2, failed: new Error('x'), heard: false }]);
-    a.ok(e instanceof Error); a.equal(e.code, 'EXPORT_AUDIO_FAILED'); a.deepEqual(e.params, { n: 3 });
-    a.equal(e.message, V.t(language, 'own.export-audio-failed', { n: 3 }));
-    a.equal(exportMixFailure([{ c: pic, n: 2, failed: new Error('x'), heard: false }]), null, 'an unheard failure is not one');
+    a.equal(exportMixFailure([{ c: aud, n: 1, t: 0, buf: {} }]), null);
+    const e = exportMixFailure([{ c: aud, n: 1, t: 0, buf: {} }, { c: aud, n: 3, t: 72, failed: new Error('audio window 422'), heard: true }, { c: pic, n: 2, t: 10, failed: new Error('x'), heard: false }]);
+    a.ok(e instanceof Error); a.equal(e.code, 'EXPORT_AUDIO_FAILED'); a.deepEqual(e.params, { n: '3', time: '1:12' });
+    a.equal(e.message, V.t(language, 'own.export-audio-failed', { n: 3, time: '1:12' }));
+    a.equal(exportMixFailure([{ c: pic, n: 2, t: 10, failed: new Error('x'), heard: false }]), null, 'an unheard failure is not one');
+    // the music on its own: no number, its time
+    const m = exportMixFailure([{ c: aud, n: null, t: 4332, failed: new Error('x'), heard: true }]);
+    a.deepEqual(m.params, { time: '1:12:12' }); a.equal(m.message, V.t(language, 'own.export-audio-failed-track', { time: '1:12:12' }));
+    // several: the pieces with a picture, at most 5, in timeline order (JJ: 「第 3、5、8 段」); a sound on its own then isn't listed
+    const many = [3, 5, 8, 9, 11, 12].map((n) => ({ c: aud, n, t: n * 10, failed: new Error('x'), heard: true }));
+    const e2 = exportMixFailure([{ c: aud, n: null, t: 1, failed: new Error('x'), heard: true }, ...many.reverse()]);
+    const sep = language === 'en' ? ', ' : '、';
+    a.deepEqual(e2.params, { n: [3, 5, 8, 9, 11].join(sep), time: ['0:30', '0:50', '1:20', '1:30', '1:50'].join(sep) });
   }
 });
 
-test('第 N 段 is the streamer\'s count: pieces on the timeline by where they start, a video and its stems one piece', () => {
+/* JJ (#231): she counts the pieces in the picture. Music from 0 s beside the first video must not take a number. */
+test('第 N 段 counts only pieces with a picture (a video and its linked sound); a sound on its own gets its time, no number', () => {
   const { exportSegmentNumbers } = helpers();
   const clips = [
     { id: 'music', kind: 'audio', track: 'A3', start: 0, duration: 30 },
@@ -61,12 +80,14 @@ test('第 N 段 is the streamer\'s count: pieces on the timeline by where they s
     { id: 'a2', kind: 'audio', track: 'A1', start: 10, duration: 10, linkGroup: 'g2' },
     { id: 'v1', kind: 'video', track: 'V1', start: 0, duration: 10, linkGroup: 'g1' },
     { id: 'a1', kind: 'audio', track: 'A1', start: 0, duration: 10, linkGroup: 'g1' },
+    { id: 'vo', kind: 'audio', track: 'A2', start: 12, duration: 5 },
     { id: 'v3', kind: 'video', track: 'V1', start: 20, duration: 10 },
     { id: 'title', kind: 'text', track: 'V2', start: 0, duration: 5 },
     { id: 'late', kind: 'audio', track: 'A1', start: 40, duration: 5 },
   ];
   const n = exportSegmentNumbers(clips, 0, 30);
-  a.deepEqual(Object.fromEntries(n), { v1: 1, a1: 1, music: 2, v2: 3, a2: 3, v3: 4 });
+  a.deepEqual(Object.fromEntries(n), { v1: { n: 1, t: 0 }, a1: { n: 1, t: 0 }, v2: { n: 2, t: 10 }, a2: { n: 2, t: 10 }, v3: { n: 3, t: 20 },
+    music: { n: null, t: 0 }, vo: { n: null, t: 12 } });
   a.equal(n.has('late'), false, 'outside the range: not counted');
 });
 
@@ -79,12 +100,13 @@ test('a timeline with one silent clip and loud music: the silent clip is still f
   const tail = buffer([Float32Array.from({ length: 48000 * 10 }, (_, i) => (i > 48000 * 8 ? 0.5 : 0))]);
   a.equal(exportClipPeak(tail, 1, 5), -Infinity);
   const results = [
-    { c: { id: 'music', kind: 'audio', props: {} }, n: 1, heard: true, buf: loud, at: 0, m0: 0, m1: 20, src: '/media/music.wav' },
-    { c: { id: 'v', kind: 'video', props: { volume: 0 } }, n: 2, heard: false, buf: quiet, at: 0, m0: 1, m1: 11, src: '/media/rec.mp4' },
-    { c: { id: 'a', kind: 'audio', props: {} }, n: 2, heard: true, buf: quiet, at: 0, m0: 1, m1: 11, src: '/media/rec.mp4' },
-    { c: { id: 'b', kind: 'audio', props: {} }, n: 3, heard: true, buf: loud, at: 0, m0: 2, m1: 12, src: '/media/rec2.mp4' },
+    { c: { id: 'music', kind: 'audio', props: {} }, n: null, t: 0, heard: true, buf: loud, at: 0, m0: 0, m1: 20, src: '/media/music.wav' },
+    { c: { id: 'v', kind: 'video', props: { volume: 0 } }, n: 2, t: 10, heard: false, buf: quiet, at: 0, m0: 1, m1: 11, src: '/media/rec.mp4' },
+    { c: { id: 'a', kind: 'audio', props: {} }, n: 2, t: 10, heard: true, buf: quiet, at: 0, m0: 1, m1: 11, src: '/media/rec.mp4' },
+    { c: { id: 'b', kind: 'audio', props: {} }, n: 3, t: 20, heard: true, buf: loud, at: 0, m0: 2, m1: 12, src: '/media/rec2.mp4' },
+    { c: { id: 'vo', kind: 'audio', props: {} }, n: null, t: 25, heard: true, buf: quiet, at: 0, m0: 0, m1: 5, src: '/media/vo.wav' },
   ];
-  a.deepEqual(exportSilentSegments(results), [{ n: 2, src: '/media/rec.mp4', at: 1, dur: 10 }]);
+  a.deepEqual(exportSilentSegments(results), [{ n: 2, t: 10, src: '/media/rec.mp4', at: 1, dur: 10 }, { n: null, t: 25, src: '/media/vo.wav', at: 0, dur: 5 }]);
 });
 
 test('a read that stops short of the clip is not silence: it stops the export', () => {
@@ -124,20 +146,32 @@ test('server check: each silent clip is measured at its source — silent there 
   // the export: loud music all through (its loudness passes) — the silent clip sits under it
   const out = path.join(dir, 'out.wav'); fs.copyFileSync(path.join(dir, 'music.wav'), out);
   const resolve = (src) => path.join(dir, src.replace('/media/', ''));
-  const plan = C.cleanPlan({ video: [], audio: [{ src: '/media/music.wav', at: 0, dur: 10 }], silent: [{ n: 2, src: '/media/quiet.wav', at: 1, dur: 10 }, { n: 'x' }] });
-  a.deepEqual(plan.silent, [{ n: 2, src: '/media/quiet.wav', at: 1, dur: 10 }], 'cleaned');
+  const plan = C.cleanPlan({ video: [], audio: [{ src: '/media/music.wav', at: 0, dur: 10 }],
+    silent: [{ n: 2, t: 10, src: '/media/quiet.wav', at: 1, dur: 10 }, { n: null, t: 4332, src: '/media/quiet.wav', at: 0, dur: 5 }, { n: 'x', t: 1 }] });
+  a.deepEqual(plan.silent, [{ n: 2, t: 10, src: '/media/quiet.wav', at: 1, dur: 10 }, { n: null, t: 4332, src: '/media/quiet.wav', at: 0, dur: 5 }], 'cleaned');
   const r = await C.check({ ffmpeg: FF.path('ffmpeg'), file: out, plan, resolve, silent: false, mix: null });
-  a.equal(r.ok, true, 'a clip silent in its file too is not a failure'); a.deepEqual(r.quiet, [2]); a.deepEqual(r.lost, []);
+  a.equal(r.ok, true, 'a clip silent in its file too is not a failure'); a.deepEqual(r.quiet, [{ n: 2, t: 10 }, { n: null, t: 4332 }]); a.deepEqual(r.lost, []);
   const report = C.withQuiet({ ok: true, checks: [{ ok: true, text: '-14.0 LUFS' }], line: '-14.0 LUFS' }, r.quiet);
   a.equal(report.ok, false, 'overall loudness passing is not enough');
-  a.deepEqual(report.checks[1], { ok: false, code: 'EXPORT_CLIP_SILENT', n: 2, text: 'clip 2 is silent — check that it is meant to be' });
-  a.match(report.line, /⚠ clip 2 is silent/);
+  a.deepEqual(report.checks[1], { ok: false, code: 'EXPORT_CLIP_SILENT', n: 2, t: 10, text: 'clip 2 (at 0:10) is silent — check that it is meant to be' });
+  a.deepEqual(report.checks[2], { ok: false, code: 'EXPORT_CLIP_SILENT', n: null, t: 4332, text: 'the sound at 1:12:12 is silent — check that it is meant to be' });
+  a.match(report.line, /⚠ clip 2 \(at 0:10\) is silent/);
+  // the page says each one in the interface language, with the same numbers and times
+  const text = new Function('uiText', 'mcView', 'MontClipAutoSlices', 'oneSidedWarning', [body(app, 'function exportClipWords('), body(app, 'function exportCheckText(')].join('\n') + '\nreturn exportCheckText;')(
+    (k, v) => V.t('zh-CN', k, v), { get: () => ({ language: 'zh-CN' }) }, require('../auto-slices'), null);
+  a.equal(text(report.checks[1]), '第 2 段（时间线 0:10 处）是无声的，请确认是不是你想要的。');
+  a.equal(text(report.checks[2]), '时间线 1:12:12 处的声音是无声的，请确认是不是你想要的。');
   // the page heard nothing where the file has sound (the MC-14 export): lost, the export fails with the clip's number
-  const lostPlan = C.cleanPlan({ video: [], audio: [], silent: [{ n: 3, src: '/media/rec.wav', at: 1, dur: 10 }] });
+  const lostPlan = C.cleanPlan({ video: [], audio: [], silent: [{ n: 3, t: 72, src: '/media/rec.wav', at: 1, dur: 10 }, { n: 5, t: 90, src: '/media/rec.wav', at: 2, dur: 5 }] });
   const r2 = await C.check({ ffmpeg: FF.path('ffmpeg'), file: out, plan: lostPlan, resolve, silent: false, mix: null });
-  a.equal(r2.ok, false); a.deepEqual(r2.lost, [3]);
-  a.equal(C.failCode(r2), 'EXPORT_AUDIO_FAILED'); a.deepEqual(C.failParams(r2), { n: 3 });
-  a.match(C.failText(r2), /clip 3/);
+  a.equal(r2.ok, false); a.deepEqual(r2.lost, [{ n: 3, t: 72 }, { n: 5, t: 90 }]);
+  a.equal(C.failCode(r2), 'EXPORT_AUDIO_FAILED'); a.deepEqual(C.failParams(r2), { clips: [{ n: 3, t: 72 }, { n: 5, t: 90 }] }, 'every lost piece, not only the first');
+  a.match(C.failText(r2), /clip 3, 5 \(at 1:12, 1:30\)/);
+  // the page turns the server's list into JJ's sentence: 「第 3、5 段（时间线 1:12、1:30 处）」
+  const endErr = new Function('mcView', 'MontClipAutoSlices', [body(app, 'function exportClipWords('), body(app, 'function exportEndError(')].join('\n') + '\nreturn exportEndError;')(
+    { get: () => ({ language: 'zh-CN' }) }, require('../auto-slices'));
+  const e = endErr({ error: C.failText(r2), code: 'EXPORT_AUDIO_FAILED', params: C.failParams(r2) }, 'x');
+  a.equal(V.errorText('zh-CN', e).text, '第 3、5 段（时间线 1:12、1:30 处）的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。');
   // the server deletes that file instead of handing it over
   const server = read('server.js');
   a.match(server, /blank\.code === "EXPORT_AUDIO_FAILED"[\s\S]{0,200}fs\.unlinkSync\(o\.outPath\)/);
@@ -199,6 +233,32 @@ test('MC-15: an export page that crashes ends its own job with a reason; the eng
   a.match(read('export-jobs.js'), /EXPORT_PAGE_CRASHED[\s\S]{0,300}\(tab closed or browser crashed\)/);
 });
 
+/* JJ asked (#231): when the headless page crashes, is the half-written file cleaned up? A crash ends the job
+   (export-jobs.js: the browser's exit → end(j, "failed") → opts.onEnd); the server's onEnd stops that job's export
+   sessions (server.js cleanupExport → export-cleanup.js stopSessions), which kills ffmpeg and deletes the .part. */
+test('MC-15: a crashed export page\'s half-written file is deleted (onEnd → cleanupExport → stopSessions removes the .part)', async (t) => {
+  const { createExportJobs } = require('../export-jobs'), { stopSessions } = require('../export-cleanup');
+  const saved = process.env.FABLECUT_CHROME;
+  process.env.FABLECUT_CHROME = process.execPath;
+  t.after(() => { if (saved == null) delete process.env.FABLECUT_CHROME; else process.env.FABLECUT_CHROME = saved; });
+  const dir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'mc15-')), part = path.join(dir, 'clip.part.mp4');
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  fs.writeFileSync(part, Buffer.alloc(4096));
+  const sessions = new Map(), stopped = [];
+  const jobs = createExportJobs({ url: (id) => 'http://127.0.0.1:1/?exportJob=' + id, broadcast() {}, editors: () => 0,
+    // the server's own onEnd (server.js), with its session map
+    onEnd: (j) => { for (const [id, s] of [...sessions]) if (s.job === j.id) { sessions.delete(id); stopped.push(stopSessions([s], { timeoutMs: 2000 })); } } });
+  const j = jobs.request({ kind: 'export', where: 'headless' });
+  sessions.set('sess1', { job: j.id, partPath: part, outputs: [] });   // /api/export/begin with opts.job
+  for (let i = 0; i < 100 && jobs.get(j.id).status === 'pending'; i++) await new Promise((r) => setTimeout(r, 100));
+  a.equal(jobs.get(j.id).code, 'EXPORT_PAGE_CRASHED');
+  await Promise.all(stopped);
+  a.equal(stopped.length, 1, 'the crashed job\'s session was stopped'); a.equal(fs.existsSync(part), false, 'the .part is gone');
+  const server = read('server.js');
+  a.match(server, /onEnd: \(j\) => \{ for \(const \[id, s\] of \[\.\.\.exportSessions\]\) if \(s\.job === j\.id\) cleanupExport\(id\); \}/);
+  a.match(server, /exportSessions\.get\(begun\.id\)\.job = opts\.job/, 'a session knows its job from /api/export/begin');
+});
+
 test('MC-15 on Linux: the headless browser is started as the first thing the kernel kills when memory runs out, not the engine', () => {
   const { browserCommand } = require('../export-jobs');
   const lin = browserCommand('/usr/bin/chromium', ['--headless=new', 'http://x/'], 'linux');
@@ -239,8 +299,8 @@ test('the self-check never counts a source it couldn\'t read as silent: the expo
   a.equal(r.ok, false); a.equal(r.sound, true); a.equal(C.failCode(r), 'EXPORT_BLANK_SOUND');
   // one piece the page heard as silent, its file unreadable: lost (第 N 段没读出来), never "silent in its file too"
   const r2 = await C.check({ ffmpeg: FF.path('ffmpeg'), file: exp, resolve, silent: false, mix: null,
-    plan: C.cleanPlan({ video: [], audio: [], silent: [{ n: 4, src: '/media/broken.wav', at: 1, dur: 5 }] }) });
-  a.deepEqual(r2.lost, [4]); a.deepEqual(r2.quiet, []); a.equal(C.failCode(r2), 'EXPORT_AUDIO_FAILED');
+    plan: C.cleanPlan({ video: [], audio: [], silent: [{ n: 4, t: 30, src: '/media/broken.wav', at: 1, dur: 5 }] }) });
+  a.deepEqual(r2.lost, [{ n: 4, t: 30 }]); a.deepEqual(r2.quiet, []); a.equal(C.failCode(r2), 'EXPORT_AUDIO_FAILED');
   // a mix the check can't read is not taken as "has sound": the sources are read
   const r3 = await C.check({ ffmpeg: FF.path('ffmpeg'), file: exp, resolve, silent: null, mix: F('broken.wav'),
     plan: C.cleanPlan({ video: [], audio: [{ src: '/media/broken.wav', at: 1, dur: 5 }] }) });

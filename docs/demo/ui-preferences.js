@@ -227,14 +227,18 @@
     "encoding": ["Encoding…", "正在编码…"],
     "encoding-pct": ["Encoding… {pct}%", "正在编码… {pct}%"],
     "mixing-audio": ["Mixing audio…", "正在混音…"],
-    // MC-14 (JJ, Dev Spec 2026-11-07, sha256 94d1468e): the Chinese is JJ's, word for word; {n} is the number of the clip
-    // on the timeline (app.js exportSegmentNumbers). The English is Deja's draft, for JJ to confirm. Never 解码 / buffer.
-    "export-audio-failed": ["The sound of clip {n} couldn't be read, so this export stopped and no file was made. The originals are unchanged.",
-      "第 {n} 段的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。"],
-    "export-clip-silent": ["Clip {n} is silent. Please check that this is what you want.", "第 {n} 段是无声的，请确认是不是你想要的。"],
-    // MC-15: the export page crashed (the browser that ran it exited, or stopped answering). Deja's draft, both languages 待 JJ 定稿
-    "err-export-page-crashed": ["The page doing the export closed unexpectedly, so this export stopped and no file was made. The originals are unchanged. Try again; if it happens again, use \"Copy problem details\" and send it to us.",
-      "做导出的页面意外关掉了，这次导出已停下，没有生成文件。原片没有改动。请再试一次；还是这样的话，点〔复制问题信息〕发给我们。"],
+    // MC-14 / MC-15: JJ 定稿, both languages, word for word (#231 issuecomment-6714366423). {n}: the number of a piece with a
+    // picture (app.js exportSegmentNumbers), {time}: where it is on the timeline (MontClipAutoSlices.hms) — several are
+    // listed (「3、5、8」, app.js exportClipWords). A sound on its own (music, a voice-over) has no number: the -track
+    // sentences. Never 解码 / buffer.
+    "export-audio-failed": ["The sound of clip {n} (at {time} on the timeline) couldn't be read, so this export stopped and no file was made. The originals are unchanged.",
+      "第 {n} 段（时间线 {time} 处）的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。"],
+    "export-audio-failed-track": ["The sound at {time} on the timeline couldn't be read, so this export stopped and no file was made. The originals are unchanged.",
+      "时间线 {time} 处的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。"],
+    "export-clip-silent": ["Clip {n} (at {time} on the timeline) is silent. Please check that this is what you want.", "第 {n} 段（时间线 {time} 处）是无声的，请确认是不是你想要的。"],
+    "export-clip-silent-track": ["The sound at {time} on the timeline is silent. Please check that this is what you want.", "时间线 {time} 处的声音是无声的，请确认是不是你想要的。"],
+    "err-export-page-crashed": ["Something went wrong while exporting, so this export stopped and no file was made. The originals are unchanged. You can start the export again; if it happens again, use \"Copy problem details\" and send it to us.",
+      "导出时出了意外，这次导出已停下，没有生成文件。原片没有改动。可以直接重新导出；还是这样的话，点「复制问题信息」发给我们。"],
     // JJ定稿 (2026-11-05, via Deja), word for word: an old project with mono sounds in the left ear only — asked once, on open
     "mono-left": ["{n} sounds in this project only play in the left ear. Make them play in both?", "这个项目里有 {n} 段声音只在左边耳机里有。要改成两边都有吗？"],
     "mono-left-centre": ["Play in both", "改成两边都有"],
@@ -1469,7 +1473,11 @@
     let s = null, key = "errOther";
     if (/DISK_FULL$/.test(code) && p.size) { s = fill(t.errDiskFullSize, { size: String(p.size) }); key = "errDiskFullSize"; }
     // an export's own rows before the Settings sentences (h264Message): frameTooSmall says the smallest size it takes
-    if (!s && Object.hasOwn(ERROR_TEXT, code) && (code !== "frameTooSmall" || p.n)) { s = fill(t[ERROR_TEXT[code]], { n: String(p.n) }); key = ERROR_TEXT[code]; }
+    if (!s && Object.hasOwn(ERROR_TEXT, code) && (code !== "frameTooSmall" || p.n)) {
+      // a sound on its own has no number: JJ's -track sentence, by its time on the timeline (#231)
+      key = ERROR_TEXT[code] + (code === "EXPORT_AUDIO_FAILED" && (p.n == null || p.n === "") ? "-track" : "");
+      s = fill(t[key], { n: String(p.n), time: String(p.time) });
+    }
     if (!s && code) { s = h264Message(l, { code, params: e.params, featurePack: e.featurePack }); if (s) key = code; }
     if (!s && Object.hasOwn(FLV_REASONS, code)) { s = flvImportMessage(l, code); key = FLV_REASONS[code]; }
     const said = s || t.errOther;
@@ -1492,7 +1500,7 @@
     // #132's two queue codes (JOB_BUSY, EDITOR_STOPPED_ANSWERING), merged in after #161: their first sentence, as for the others
     "own.err-job-busy": 1, "own.err-editor-stopped": 1,
     // MC-14 / MC-15: what happened is the first sentence
-    "own.export-audio-failed": 1, "own.err-export-page-crashed": 1,
+    "own.export-audio-failed": 1, "own.export-audio-failed-track": 1, "own.err-export-page-crashed": 1,
   };
   /* JJ's own words for what happened (#161), where the sentence's first part also says what to do: copied instead. */
   const WHAT_TEXT = {
