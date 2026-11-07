@@ -51,12 +51,13 @@
 
 ## C. MontClip 的证据
 
-依据是 `good-night-oppie/MontClip` 的 `origin/main` @ `101a0826`（2026-11-06，和 GitHub 上一致；含 #109、#176、#175、#159、#193、#190、#172、#170、#137）。读法是只读的浅克隆；本机工作区落后 main 很多个提交，所以没有用工作区。
+依据是 `good-night-oppie/MontClip` 的 `origin/main` @ `aba1d4c8b3329c756d425f6737a981621ebfa0be`（2026-11-06，和 GitHub 上一致；本区间新增 #154、#155、#182、#165、#162、#140，另含上一轮 #109、#176、#175、#159、#193、#190、#172、#170、#137）。读法是只读的浅克隆；本机工作区落后 main 很多个提交，所以没有用工作区。
 
-**插件说明**：任务里写的 `plugins/montclip-cindy` 在 main 上**不存在**。插件在单独的仓库 `good-night-oppie/MontClip-Cindy` 里（`origin/main` @ `762bc090`，2026-11-06 复查）：
+**插件说明**：任务里写的 `plugins/montclip-cindy` 在 main 上**不存在**。插件在单独的仓库 `good-night-oppie/MontClip-Cindy` 里（`origin/main` @ `78b044ad`，2026-11-06 复查）：
 - 工具定义在 `ghost.json`：`montclip_status`、`list_tools`、`call_tool`、`montclip_undo`、`montclip_redo`、`montclip_seek`、`montclip_export`、`montclip_install_ffmpeg`、`montclip_open_task_view`。
 - 分类和转发在 `main.js` 第 6–20 行和第 361–378 行。
-- 内置引擎钉在 `engine-lock.json` 的 `5b312e63`（2026-11-05 03:41Z 从 main 同步的快照）。对比 main `101a0826`：main 上有 263 个提交不在快照里，快照自身还带 98 个不在 main 上的提交（`gh api repos/good-night-oppie/MontClip/compare/5b312e63...101a0826`，status=diverged）。MontClip-Cindy 本轮实质增量只有 #11（独立插件包隐藏状态覆盖层），没有更新引擎；#10 是 skill 文档合并。
+- 内置引擎钉在 `engine-lock.json` 的 `5b312e63`（2026-11-05 03:41Z 从 main 同步的快照）。对比 main `aba1d4c8`：main 上有 344 个提交不在快照里，快照自身还带 98 个不在 main 上的提交（`gh api repos/good-night-oppie/MontClip/compare/5b312e63...aba1d4c8`，status=diverged）。
+- MontClip-Cindy 本轮实质增量（`762bc090..78b044ad`）：#7（状态卡「听写」行，约 240 MB；`montclip_status` 回复新增 `transcription`）、#9（`montclip_export` 改为后台 job，`{job}` 查、`{cancel}` 停，`done` 只在文件落进所选文件夹后；`copyFailed` 报 `failed`；worker 停止时调用引擎 shutdown 清掉仍在跑的 ffmpeg）、#22（目标盘不支持硬链接时回退复制交付）。引擎锁、版本 0.5.1 不变。
 
 **工具名和参数**：都在 `mcp-tools.js`（main），按行号：
 
@@ -73,7 +74,10 @@
 | `fablecut_highlights` | 191 | `fablecut_danmaku` | 416 |
 
 - 找歌没达标的说法（0.12 / 0.38，门槛 0.6）出自 `mcp-tools.js` 里 `fablecut_songs` 的描述，以及 `auto-slices.js` 的 `SONG_GATE` / `SONG_MEASURED`。
-- 打码做法来源：`CLAUDE.md` 的 Adjustment layers（约第 525 行）、Masks（约第 1054 行）、motion tracking 那节的「blur a face or a plate」配方（约第 1261 行）；属性面板 blur 滑块的范围 0–20 px 在 `app.js` 第 7710 行。
+- 打码做法来源：`CLAUDE.md` 的 Adjustment layers（约第 525 行）、Masks（约第 1054 行）、motion tracking 那节的「blur a face or a plate」配方（约第 1261 行）；属性面板 blur 滑块的范围 0–20 px 在 `app.js` 第 7710 行。蒙版/裁切坐标约定由 #155（合并提交 `bc5d74c5`）实测锁定：蒙版 `x/y` 为中心点、0…1，基准是裁切后剩下的画面，`cropL/R/T/B` 为整帧各边裁掉的百分比（0…95），换算公式见 `CLAUDE.md`「Mask and crop coordinates」表（约第 1093–1125 行）；`test/render-geometry.test.js` 与 `docs/validation/2026-11-05-render-geometry/README.md` 为像素级证据。`fablecut_frame {time}` 回复新增 `imageSize` 映射说明（`mcp-server.js` 第 1319–1327 行），且说明拼图是原始素材、查合成效果用 `{time}`（`mcp-tools.js` `fablecut_frame` schema，`CLAUDE.md` 第 2234–2238 行）。
+- 长录像听写与不可用文案（#165，合并提交 `29ae0939`）：`mcp-server.js` 第 667 行 `LONG_FILE_S = 600`（>10 分钟且片段窗口 < 全片一半时只读片段窗口，`pad` 默认 1.5 秒，`transcribe.js` 第 144 行）；`/api/asr/transcribe` 与 `/api/transcribe/request` 接受 `ranges`（1–500 段，`server.js` 第 1968、1176 行）；听写缺失的三种 code 与定稿文案在 `asr-status.js`（「还没装听写模型（约 240 MB）」「这台电脑上的 MontClip 还没有听写程序…剪辑、导出照常能用」，模型大小按 1,000,000 字节/MB 取整到 10），离开本机的错误一律脱路径（`hidePaths`）；server 顶层不再被听写异常打崩（`server.js` 第 810 行附近）。
+- AI 抠像（#154，合并提交 `aba1d4c8`）：同意流程与文案在 `app.js` 第 13580–13621 行与 `ui-preferences.js` 第 266–279 行（「要联网下载 AI 抠像吗？」「只下载，不上传…录像、字幕和项目都不会发出去」「边播边录这种导出方式不支持 AI 抠像…」）；MediaPipe 资产钉死与字节校验在 `bgremove-assets.js`（9 个文件精确字节数 + SHA-256）；导出/合成完整性拒绝在 `noteExportBgRemove`。Whisper 已不在听写路径（听写只走本机 Paraformer）。
+- 窄窗口素材面板（#162，合并提交 `59ba9890`）：≤560 px 时素材面板占满宽度，顶栏「素材」按钮变「返回播放器」，双击载入 Source 素材自动收起面板（`app.js` 第 43–58 行、`ui-preferences.js` 第 359–362 行、`style.css` 第 4768 行起）。
 - 导出预设和响度：`delivery.js` 第 179–195 行（`youtube-shorts`、`tiktok` 都是 1080×1920）；第 240 行写明平台响度只是参考值，只有设了 `audio.loudness` 才会做响度归一。
 - 配方 E（〔帮我修好〕）：按钮和文案在 `ui-preferences.js` 第 322–334 行（`repair-button`「帮我修好」、`repair-menu`、`repair-done`、`media-slow-mark`、`media-duration-unknown`）；Agent 行为在 `mcp-tools.js` 第 281 行 `fablecut_repair_media` 的描述（job / result.mediaId / REPAIR_FAILED），实现是 `make-editable.js` 和 `mcp-server.js` 第 1061 行起。
 - 失败导出清理（#178）：`export-cleanup.js` 的 `stopSessions`（先停 ffmpeg 再删 `.part` 半成品，`server.js` 第 707 行调用）。
@@ -118,10 +122,11 @@
 
 **PR 证据**：
 - 已合并、本 skill 用到的：#53（弹幕导入）、#52（高光候选）、#70（本机听写）、#75（找歌）、#77（自动出切片）、#81（字幕大小和位置）、#85 / #100（按歌词校准字幕）、#127（自动出切片的首次使用修复）、#149（长录像导出不再静音）、#156（Highlights 修复）、#169（助手附上唱歌段落和音量数字，「附上唱歌段和音量」开关）、#157（〔帮我修好〕一键修复、`fablecut_repair_media`，2026-11-05 17:22Z 合并）、#178（失败/取消导出立刻停 ffmpeg、删 `.part`，17:17Z）、#179（单声道 stem 居中导出，17:17Z）、#173（「导出画面」下拉框按界面语言显示，2026-11-06 09:43Z）。
-- 本轮新增收进：#137 / #193（找回录像与中文对话框）、#159（显示尺寸）、#170（AI 数据说明 v3）、#172（空方案不出按钮、做不到的事先说）、#175 / #176（桌面助手改比例与末帧跟随）、#190（限定路径的 ProRes 末尾声音修复）。合并提交见上方逐条证据。
-- 未合并，列在「即将可用」：#163、#164、#161、#146、#138、#133、#165、#125、#155。#170、#172、#175 已在本轮移除。
-- 仍开放且改到 `skills/` 的 PR：#186（撤回隐私模糊配方，改不透明覆盖块）和 #163（一步打码）。本轮只以 main 为底本，没有采用或回写它们的未合并改动，也没有改 §4 的打码配方，避免互相覆盖。
-- 其它本轮合并但未进 skill 的：#109（Cindy 助手面板样式与主题）、#134（批准后的 toast 措辞）、#139（声道提示中文）、#195（ProRes 参数优先级文档）、#197（测试桩）、#192（上一轮 skill 同步，只改 `skills/`）。纯样式、文案微调、测试和内部文档不作为新剪辑能力。
-- MontClip-Cindy：#11（隐藏独立插件包状态覆盖层）不改变剪辑操作，未收；#10 是上一轮 skill 文档合并。仓库 main 现为 `762bc090`，插件版本和引擎锁未变。
+- 上一轮新增收进：#137 / #193（找回录像与中文对话框）、#159（显示尺寸）、#170（AI 数据说明 v3）、#172（空方案不出按钮、做不到的事先说）、#175 / #176（桌面助手改比例与末帧跟随）、#190（限定路径的 ProRes 末尾声音修复）。合并提交见上方逐条证据。
+- 本轮新增收进（MontClip `101a0826..aba1d4c8`）：#165（长录像只听写用到的片段窗口 ±1.5 秒；缺听写时引擎不再崩，三种 code 与定稿文案，错误脱路径）、#155（蒙版/裁切坐标约定实测锁定，`fablecut_frame {time}` 尺寸映射与「拼图是原始素材」说明）、#154（AI 抠像联网下载需主播本人确认、资产钉死字节校验、边播边录导出拒绝；Whisper 已不在听写路径）、#162（窄窗口素材面板 / 「返回播放器」）。
+- 未合并，列在「即将可用」：#163（依赖的坐标约定 #155 已合并）、#164、#161、#146、#138、#133、#125。#165 已合并进 main，从「即将可用」移除。
+- 仍开放且改到 `skills/` 的 PR：#186 与 #202（撤回隐私模糊配方，改不透明覆盖块）和 #163（一步打码）。本轮只以 main 为底本，没有采用或回写它们的未合并改动，也没有改 §4 的打码配方，避免互相覆盖。
+- 其它本轮合并但未进 skill 的：#140（Meta 演示录像脚本，纯测试/营销资产）、#182（改名脚本保留上游署名，仓库维护工具；只确认 `fablecut_*` 工具名永久不改）。纯测试、文档重建、打包清单与内部决策文档不作为新剪辑能力。
+- MontClip-Cindy：本轮实质增量为 #7（状态卡「听写」行与 `montclip_status` 的 `transcription` 字段，模型约 240 MB）、#9（`montclip_export` 后台 job 化：`{job}` 查、`{cancel}` 停、`done` 只在文件落进所选文件夹后、`copyFailed` 报 `failed`、worker 停止时调用引擎 shutdown）、#22（目标盘不支持硬链接时回退复制交付）。仓库 main 现为 `78b044ad`，插件版本 0.5.1 与引擎锁 `5b312e63` 均未变。#10 是上一轮 skill 文档合并，#11（隐藏独立插件包状态覆盖层）不改变剪辑操作。
 
 用 `gh api repos/good-night-oppie/<repo>/compare/<旧>...main` 读增量，并用 `gh pr list` / `gh pr view` 核对合并与开放 PR，时间 2026-11-06。

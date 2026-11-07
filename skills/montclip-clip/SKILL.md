@@ -5,7 +5,7 @@ description: 用 MontClip 现有功能把一场录像（多为直播回放）剪
 
 # MontClip 切片：从导入到导出
 
-本 skill 的事实依据：MontClip `main` @ `101a0826`（2026-11-06，含 #109、#176、#175、#159、#193、#190、#172、#170、#137），Cindy 插件 MontClip-Cindy `0.5.1`（仓库 main @ `762bc090`，内置引擎 @ `5b312e63`）。证据见同目录 `SOURCES.md`。
+本 skill 的事实依据：MontClip `main` @ `aba1d4c8`（2026-11-06，含 #154、#155、#182、#165、#162、#140；含上一轮 #109、#176、#175、#159、#193、#190、#172、#170、#137），Cindy 插件 MontClip-Cindy `0.5.1`（仓库 main @ `78b044ad`，内置引擎 @ `5b312e63`）。证据见同目录 `SOURCES.md`。
 「好切片」的标准蒸馏自 8 个公开 skill，每条后面用方括号标来源：
 [CS] ClipSkills · [DK] video-editing-analyzer · [CF] videocut-skills（chengfeng）· [VU] video-use · [SC] video-shotcraft · [MX] maxazure video-editing-skill · [MK] mediakit-cli。
 
@@ -17,11 +17,15 @@ description: 用 MontClip 现有功能把一场录像（多为直播回放）剪
 |---|---|
 | **界面**（桌面版 / 浏览器） | 按本文写的按钮点。中文界面里，**属性面板**的 `Audio / Time`、`Silence`、`Beats`、`Reframe`、`Filter / Color`、`Tracking` 这几节**目前仍显示英文**，本文就照屏幕上的英文写。 |
 | **Agent，MontClip MCP** | 直接调 `fablecut_*`，例：`fablecut_songs {mediaIds:[…]}` |
-| **Agent，Cindy 里的 MontClip 插件** | 先调 `montclip_status`，再调 `montclip_open_task_view`（撤销/重做要用到它）。剪辑操作一律用 `call_tool({name:"fablecut_songs", args:{…}})`，参数说明用 `list_tools({category})` 查。插件还有自己的 `montclip_undo` / `montclip_redo` / `montclip_seek {t}` / `montclip_export {preset, range, folder}`。 |
+| **Agent，Cindy 里的 MontClip 插件** | 先调 `montclip_status`，再调 `montclip_open_task_view`（撤销/重做要用到它）。剪辑操作一律用 `call_tool({name:"fablecut_songs", args:{…}})`，参数说明用 `list_tools({category})` 查。插件还有自己的 `montclip_undo` / `montclip_redo` / `montclip_seek {t}` / `montclip_export {preset, range, folder, job, cancel}`；`{job}` 查导出，`{cancel}` 停导出。 |
 
 本文写成 `fablecut_xxx {参数}`。在 Cindy 里，把它包进 `call_tool` 就行。
 
-**插件版落后提醒**：插件 0.5.1 的引擎快照（`5b312e63`）已落后 main（`101a0826`）263 个提交，快照自身还带 98 个不在 main 上的提交。它没有 #149（长录像导出不再静音）、#156（`Highlights…` 菜单修复）、#152（中途停掉的录像怎么读时长）这几个修复；main 后来修的 **#157**（〔帮我修好〕一键修复）、**#178**（失败的导出立刻停掉 ffmpeg、不留半成品）、**#179**（单声道只从左边出声）、**#173**（播放器上方的「导出画面」下拉框在中文界面也显示中文），插件版都没有。本轮合并的 **#175 / #176**（桌面助手改比例、跟随到片段最后一帧）、**#137 / #193**（找回录像）、**#159**（显示尺寸）和 **#190**（ProRes 末尾声音）也不在插件引擎里。所以在 Cindy 里导出长录像，第 5 节的「无声自检」**必须做**；单声道素材导完还要**双耳各听一下**。这些新功能要在 MontClip 桌面 / 浏览器版用，不要假装插件已经支持。
+**插件版落后提醒**：插件 0.5.1 的引擎快照（`5b312e63`）已落后 main（`aba1d4c8`）344 个提交，快照自身还带 98 个不在 main 上的提交。它没有 #149（长录像导出不再静音）、#156（`Highlights…` 菜单修复）、#152（中途停掉的录像怎么读时长）这几个修复；main 后来修的 **#157**（〔帮我修好〕一键修复）、**#178**（失败的导出立刻停掉 ffmpeg、不留半成品）、**#179**（单声道只从左边出声）、**#173**（播放器上方的「导出画面」下拉框在中文界面也显示中文），插件版都没有。上一轮合并的 **#175 / #176**（桌面助手改比例、跟随到片段最后一帧）、**#137 / #193**（找回录像）、**#159**（显示尺寸）和 **#190**（ProRes 末尾声音）也不在插件引擎里。本轮 main 又合并了 **#165**（长录像只听写用到的片段窗口，缺听写时引擎不再崩、错误也不带本机路径）、**#155**（遮罩/裁切坐标约定、时间线抽帧自带尺寸映射）、**#154**（AI 抠像联网下载需主播本人确认、资产字节校验、边播边录导出拒绝）和 **#162**（窄窗口素材面板 / 「返回播放器」），插件引擎也都没有。所以在 Cindy 里导出长录像，第 5 节的「无声自检」**必须做**；单声道素材导完还要**双耳各听一下**；长录像听写在插件里会整段跑，进度慢且更容易卡；用编辑器合成结果做遮罩/打码验收时，插件引擎的坐标与抽帧说明也不是最新。这些新功能要在 MontClip 桌面 / 浏览器版用，不要假装插件已经支持。
+
+**Cindy 插件导出（#9、#22）**：`montclip_export` 开始后台导出后立刻返回 `job`，用 `montclip_export {job:"…"}` 查、`{cancel:"…"}` 停；同一任务还在导出时再调会返回同一个 `job`，不会重复开。`status:"done"` 只表示文件已经放进所选文件夹；复制失败是 `status:"failed"`、`phase:"copyFailed"`。插件重载后如果无法确认是否交付，会返回 `status:"exported"`、`copied:null`，要去目标文件夹或 MontClip 数据目录的 `exports/` 人工确认。目标盘不支持硬链接时会改为复制，仍不覆盖同名文件。经 `call_tool` 调 `fablecut_export` 也会立刻返回引擎 `job`（插件自动加 `wait:false`），之后用 `fablecut_export {job}` 查；这条直接引擎路径不等于 `montclip_export` 的选文件夹交付。
+
+**Cindy 插件听写状态（#7）**：`montclip_status` 卡片有「听写」行，显示「已装好」「还没装模型（约 240 MB）」「还没装听写程序」或「现在查不到」；回复新增 `transcription` 字段。缺引擎或模型时只做字幕和按话找位置受影响，剪辑、导出不受影响；插件和 Agent 都不要自行下载，仍按配方 C 让主播自己安装。
 
 **桌面助手（#172）**：如果建议应用后时间线完全不变，面板不出〔查看剪辑建议〕，直接说明不用剪；一句话里有做不到的事，会先把做不到的部分说清楚。改比例的新能力见配方 D。
 
@@ -132,7 +136,8 @@ description: 用 MontClip 现有功能把一场录像（多为直播回放）剪
 
 1. 先做通用开场 → `fablecut_versions {action:"save", name:"粗剪前"}`。
 2. 听写：「文稿」→「听写」，Agent 用 `fablecut_transcribe {}`。
-   - 没装听写时会提示「还没装听写」，按提示去「设置 › 听写」装，要主播自己点下载或导入。Agent 不要替她去下载。
+   - 没装听写模型时会提示「还没装听写模型（约 240 MB），现在还不能把说的话转成文字。装好以后再试一次。」没有听写程序时会提示「这台电脑上的 MontClip 还没有听写程序，现在还不能把说的话转成文字。剪辑、导出照常能用。」按提示去「设置 › 听写」，让主播自己点下载或导入；Agent 不要替她去下载。
+   - 长录像（>10 分钟）且时间线上的片段只覆盖全片不到一半时，main 只听写片段用到的窗口（每段前后多取 1.5 秒）；增量补读不会再整段重听。`mediaIds` 整文件听写不适用这条。
 3. 去重说、去说错（删前面那遍，留后面那遍 [CF]）：
    - 逐句读文稿，找重复、半句、说错重说的地方。
    - 「文稿」→「按句选段」：勾上要留的句子 →「试听选段」→「保留选段」，一步就能撤销。
@@ -218,7 +223,7 @@ fablecut_patch_project {ops:[{op:"addClip", clip:{kind:"shape", track:"V3", star
 1. 点「+ 调节层」，放到画面上方的轨道。
 2. 属性面板 `Filter / Color` 把 blur 拉到最大（界面上限 20 px）。
 3. 在「属性面板 → 蒙版」里画一个矩形，盖住要打码的区域。
-4. Agent 版：`addClip {kind:"adjust", track:"V3", props:{blur:20}}`，再加 `{op:"setMask", id, set:{shape:"rect", x, y, w, h, feather:4}}`。蒙版的 x / y 是**中心点**，取值 0…1。
+4. Agent 版：`addClip {kind:"adjust", track:"V3", props:{blur:20}}`，再加 `{op:"setMask", id, set:{shape:"rect", x, y, w, h, feather:4}}`。蒙版的 x / y 是**中心点**，取值 0…1，y 向下，基准是**裁切后剩下的画面**：若片段还设了 `cropL/R/T/B`，要从整帧分数换算（如 `x = (u_frame − cropL/100) / (1 − cropL/100 − cropR/100)`）。
 5. 糊完以后用 `fablecut_frame {time}` 看：**字还能认出来，就叠第二层，或者改用做法 1。**
 
 **会动的东西**（连麦窗口在动，镜头推近、拉远）：用 docs 里「给人脸、车牌打码」那套做法。
@@ -238,7 +243,7 @@ fablecut_patch_project {ops:[{op:"addClip", clip:{kind:"shape", track:"V3", star
 - **有缩放或位移关键帧，或者做过 Reframe 的镜头**：要看每一帧。
   - 界面：播放头放到这段开头，按「→」一帧一帧走到结尾（Shift+→ 是 1 秒，不算逐帧）。
   - Agent：从这段的起点开始，每次加 1/fps 秒，调 `fablecut_frame {time}`，逐帧看蒙版有没有露出昵称、礼物或榜单。
-- **导出后对成片再查一遍**：调 `fablecut_frame {path:<导出文件>, frames:N, from:a, to:b}`，让 (b−a)×fps ≤ N ≤ 60，这样拼图里一格就是一帧。缩放段要分几个窗口查完。
+- **导出后对成片再查一遍**：调 `fablecut_frame {path:<导出文件>, frames:N, from:a, to:b}`，让 (b−a)×fps ≤ N ≤ 60，这样拼图里一格就是一帧。缩放段要分几个窗口查完。要在编辑器里核对蒙版、裁切、字幕这类合成效果，用 `fablecut_frame {time}`（合成路径，回复会带 `Image WxH px = the whole WxH frame` 的映射）；`{path}` 模式是 ffmpeg 直接解码，看不到未导出的蒙版效果。
 - 位置固定、也没做过 Reframe 的镜头，至少抽开头、中间、结尾三帧，以及每个剪辑点前后各一帧。
 
 ### 5.2 原声里有没有念出观众名字
@@ -250,13 +255,13 @@ fablecut_patch_project {ops:[{op:"addClip", clip:{kind:"shape", track:"V3", star
 ### 5.3 响度约 −14 LUFS
 
 - 导出前跑一次 `fablecut_normalize_audio {target:-14}`，或者在导出的 `delivery.audio.loudness` 里设 −14、`truePeak` 设 −1。
-- 导出回复会把成片的 loudness 和 true peak 跟目标值对一遍。**写进汇报的数字就用这里读到的**。
+- 导出完成回复会把成片的 loudness 和 true peak 跟目标值对一遍。Cindy 插件里先用 `{job}` 查到完成再读；`montclip_export` 要到 `done` 且文件到位才算完成，不能把 `running` 或重载后的 `exported` 当成已交付。**写进汇报的数字就用完成回复里读到的**。
 
 ### 5.4 导出后的黑屏、无声、单声道自检
 
 - 先读导出回复里的检查清单（尺寸、帧率、帧数、编码、时长、响度、true peak、文件大小）。哪一项跟要求不一样，就不算完成。
 - **自定义 JPEG / ProRes 422 导出**：main 上（#190）会按项目选定的帧数截住声音，修掉末尾 PCM 尾包丢失和音频过滤链映射错误；预设里无法保证照做的自定义声音或滤镜设置会直接拒绝，不生成文件。这条只适用于带明确 `frames` 的这条导出路径，其他预设不变。插件引擎没有这项修复；ProRes 导出后仍要核对项目时长，并听完结尾。
-- **失败 / 取消 / 超时的导出**：main 上（#178）会立刻停掉 ffmpeg、删掉半成品 `.part` 文件——导出回复说「完成」才算完成，文件真正到位才算。**插件版 0.5.1 没有这条修复**：导出失败可能留下一个半成品文件，看到 failed/cancelled 就删掉它再重来，别把半成品当成片。
+- **失败 / 取消 / 超时的导出**：main 上（#178）会立刻停掉 ffmpeg、删掉半成品 `.part` 文件——导出回复说「完成」才算完成，文件真正到位才算。**插件版 0.5.1 的引擎没有 #178**：导出失败可能留下一个半成品文件，看到 failed/cancelled 就删掉它再重来，别把半成品当成片。插件外壳现在会在 worker 停止时调用引擎 shutdown，清掉仍在跑的 ffmpeg（#9）；这不等于引擎已经合并 #178，主动 failed/cancelled 后仍要检查半成品。
 - **黑屏**：`fablecut_frame {path:<导出文件>, frames:24, text:true}`，看每格的亮度。连续好几格接近全黑，就是有问题，不要等到 0.5 秒以上的黑段才算 [MX]。开头一格和结尾一格一定要看。
 - **无声**：回复里的 loudness 远低于目标（接近无声）就是失败。再从头到尾听一遍，3 秒以上的无声段要找到原因 [MX]。插件版导出长录像时尤其要查（§0）。
 - **单声道素材**：main 上（#179）单声道录音会居中导出。**插件版 0.5.1 没有这条修复**，单声道素材导出来可能只在左边出声——导完把左、右声道各听一下；只在一边有声就用 `fablecut_patch_project` 把该片段的 `props.pan` 设成 `0` 再重新导出。
@@ -277,6 +282,7 @@ fablecut_patch_project {ops:[{op:"addClip", clip:{kind:"shape", track:"V3", star
 | 字幕每秒字数、闪屏检查 [MX] | 加完字幕后，读 `fablecut_get_project {compact:true}`，挑出短于 0.5 秒或一屏字太多的字幕，手动合并。 |
 | 中文按字精确剪（README 说中文目前只有句级时间） | 用「按句选段」按句子剪。要细到字时，在时间线上按「←/→」逐帧找切点，再用 `split` 切开。 |
 | AI 生成画面、配音、BGM 库、去原字幕、人声分离 [MK][MX] | 不在 MontClip 里做。用有授权的外部素材，「+ 导入」进来。 |
+| AI 人像抠像 | 只在浏览器版用：每次重开 MontClip 后第一次启用都要联网下载 MediaPipe 资产，弹窗会先问主播本人（「要联网下载 AI 抠像吗？」，会写明连接 jsDelivr、只下载不上传、抠像在本机算）；她点「联网下载」才下载，Esc / 「先不用」就不启用。资产按钉死版本逐字节校验，校验失败不能用。桌面版没有这个入口（提示可改用按颜色抠像）。导出若包含 AI 抠像片段，「边播边录」会被拒绝，预览/导出的蒙版缺失也会拒绝；Agent 不能代答同意。它抠的是人像，不是观众昵称/礼物打码。 |
 | 导出剪映草稿、EDL、FCPXML、OTIO [MX][SC] | 没有。只能导出成片和 SRT/VTT 字幕（`fablecut_captions {export:"srt"}`）。 |
 | 去掉画面里已有的观众昵称弹幕层 | 只能盖住（§4），不能擦除。 |
 | 导出后自动发到平台 | 没有。在「导出队列」里「保存」后，人工上传。 |
@@ -287,11 +293,10 @@ fablecut_patch_project {ops:[{op:"addClip", clip:{kind:"shape", track:"V3", star
 
 | 功能 | PR |
 |---|---|
-| `fablecut_blur_region` 和「给这块打码」（依赖 #155 的蒙版坐标约定） | #163 |
+| `fablecut_blur_region` 和「给这块打码」（坐标约定 #155 已合并，依赖已就位） | #163 |
 | `fablecut_lyrics` / `fablecut_lyrics_apply`：Agent 用的歌词对齐 | #164 |
 | 导出黑屏、静音不算完成；时间戳不从 0 开始的录像导出修复 | #161 |
 | 自动找 FFmpeg | #146 |
 | 导出后「在文件夹里显示」 | #138 |
 | 第二个听写模型 Meta Omnilingual ASR（可选） | #133 |
-| 没有听写引擎时不再把引擎带崩；长录像只听写用到的那段 | #165 |
 | 没有 H.264 编码器时，点导出就先说明 | #125 |
