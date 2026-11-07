@@ -51,10 +51,10 @@ function freePort() {
 
 /* Start server.js on its own port + data dir and wait until it actually
    answers. Rejects fast if the child dies instead of hanging until timeout. */
-async function startServer(t, dataDir, extraEnv = {}) {
+async function startServer(t, dataDir, extraEnv = {}, { serverJs = path.join(ROOT, "server.js") } = {}) {
   for (let attempt = 0; attempt < 3; attempt++) {
     const port = await freePort();
-    const child = spawn(process.execPath, [path.join(ROOT, "server.js")], {
+    const child = spawn(process.execPath, [serverJs], {
       cwd: ROOT,
       env: {
         ...process.env, ...extraEnv,
@@ -124,7 +124,9 @@ function rawGet(port, rawPath, headers = {}) {
 function startMcp(t, dataDir, env = {}) {
   const child = spawn(process.execPath, [path.join(ROOT, "mcp-server.js")], {
     cwd: ROOT,
-    env: { ...process.env, FABLECUT_DATA_DIR: dataDir, ...env },
+    // Standalone MCP tests must not reach an editor someone happens to have open on port 7777.
+    // Server-backed tests explicitly supply their own temporary server's port.
+    env: { ...process.env, FABLECUT_DATA_DIR: dataDir, FABLECUT_PORT: "0", FABLECUT_NO_AUTOSTART: "1", ...env },
     stdio: ["pipe", "pipe", "pipe"],
   });
   const pending = new Map();

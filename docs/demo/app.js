@@ -39,10 +39,29 @@ let mcAgent = null;
 const mcView = MontClipView.create(window.montclipViewSettings ? MontClipView.desktopStorage(window.montclipViewSettings) : localStorage);
 /** Keyed interface text in the current language (ui-terms.js / ui-preferences.js). Never for user content. */
 const uiText = (key, vars) => MontClipView.t(mcView.get().language, key, vars);
+/** At ≤560 px (style.css) the open bin takes the whole width and the player gives way (VV on #162). */
+const mcMediaNarrow = matchMedia("(max-width:560px)");
+/** The top bar's media button: 返回播放器 / ← Player while the open bin covers the player (JJ: aria-label and tooltip
+ *  say it in full, Back to player), else 素材; aria-expanded either way. */
+function syncMediaToggle() {
+  const b = document.getElementById("mcMediaToggle"), open = document.getElementById("app").classList.contains("media-open");
+  const back = open && mcMediaNarrow.matches, label = uiText(back ? "own.media-back" : "own.media-toggle");
+  if (b.textContent !== label) b.textContent = label;
+  if (back) { const full = uiText("own.media-back-full"); b.setAttribute("aria-label", full); b.title = full; }
+  else { b.removeAttribute("aria-label"); b.removeAttribute("title"); }
+  b.setAttribute("aria-expanded", String(open));
+}
+/** A double-click that loaded a file into Source puts the covering bin away, so the player shows it (VV on #162). */
+function closeNarrowMedia(id) {
+  if (state.source.mediaId !== id || !mcMediaNarrow.matches) return;
+  document.getElementById("app").classList.remove("media-open");
+}
 /** A keyed term in Chinese, the page's own English word in English (for a term whose English row reads differently). */
 const uiOr = (key, english) => (mcView.get().language === "en" ? english : uiText(key));
 /** A stored default name ("Main", "Title") as the interface language shows it; the user's own names as they are. */
 const shownName = (name) => MontClipView.defaultName(mcView.get().language, name);
+/** A project's name as shown: a stored default (未命名项目 / Untitled project) in the interface language (P7). */
+const shownProject = (name) => MontClipView.projectName(mcView.get().language, name);
 /** On-device transcription: on in development and the browser editor; a packaged desktop build has it
  *  off unless the main process turned it on (desktop/features.js). Off means no entry and no download. */
 function transcribeAvailable() { return !window.montclipViewSettings || !!(window.montclipFeatures && window.montclipFeatures.transcribe); }
@@ -87,7 +106,7 @@ function shortcutKeys(keys) {
 }
 function renderMontClipView() {
   const { mode, language } = mcView.get(), t = MontClipView.text[language];
-  document.getElementById("mcAssistantTab").textContent=t.assistant;document.getElementById("mcMediaToggle").textContent=mcView.get().language==="en"?"Media":"素材";
+  document.getElementById("mcAssistantTab").textContent=t.assistant;syncMediaToggle();
   mcAgent?.render();
   document.querySelector(".mc-history").setAttribute("aria-label", t.undo + " / " + t.redo);
   document.documentElement.lang = language;
@@ -107,13 +126,14 @@ function renderMontClipView() {
 }
 /** The project name (user content, never translated) and the connection status in the current language. */
 function projectStatusText() {
-  return project.name + (state.connected ? "  ·  🟢 " + uiText("own.connected") : "  ·  ⚪ " + uiText("own.local-session"));
+  return shownProject(project.name) + (state.connected ? "  ·  🟢 " + uiText("own.connected") : "  ·  ⚪ " + uiText("own.local-session"));
 }
 /** Text computed from state (not data-i18n) after a language switch: the top bar status and the Transcript panel. */
 function refreshLanguageText() {
   if (els.projectName) els.projectName.textContent = projectStatusText();
   if (els.projectName?.classList.contains("clickable")) els.projectName.setAttribute("title", uiText("term.projects"));
   if (trState.built) renderTranscript(true);
+  syncExportFrameSel();
 }
 function updateMontClipView(patch) {
   if(patch.mode && patch.mode!==mcView.get().mode){
@@ -132,15 +152,22 @@ function updateMontClipView(patch) {
 }
 /** Texts built in code (not data-i18n markers) for the views that are on screen, after a language switch. */
 function refreshLocalizedViews() {
-  renderBin();
-  if (typeof renderInspector === "function" && els.inspector) renderInspector();
-  if (typeof renderColorPage === "function" && colorState.open) renderColorPage(true);
-  if (typeof syncSequenceButton === "function") syncSequenceButton();
+  // each view on its own: one that fails to redraw must not leave the others in the old language (Rea, #148: the export
+  // range row stayed 「整条时间线」 in English)
+  const step = (f) => { try { f(); } catch (e) { console.error("language switch:", e); } };
+  // the export dialog's range row, hidden or not: the dialog may still be opening (its lists load first), and it would
+  // then show the line written before the switch
+  step(() => { renderExportEngineText(); syncExportRangeUi(); });
+  step(() => renderBin());
+  if (typeof renderInspector === "function" && els.inspector) step(() => renderInspector());
+  if (typeof renderColorPage === "function" && colorState.open) step(() => renderColorPage(true));
+  if (typeof syncSequenceButton === "function") step(() => syncSequenceButton());
+  if (typeof syncExportFrameSel === "function") step(() => syncExportFrameSel());
   state.dirtyTimeline = true; // clip labels ("T · Title")
-  if (meterState.modeBtn) meterState.modeBtn.textContent = meterModeLabel(meterState.mode);
-  if (projectsOpen()) renderProjects();
+  if (meterState.modeBtn) step(() => { meterState.modeBtn.textContent = meterModeLabel(meterState.mode); });
+  if (projectsOpen()) step(() => renderProjects());
   if (els.exportSetup && !els.exportSetup.classList.contains("hidden")) {
-    renderExportEngineText(); syncExportRangeUi(); if (dlvSpec) fillDeliveryControls(); refreshDeliveryNotes(); renderDeliveryTokens(); renderBatchList();
+    step(() => { if (dlvSpec) fillDeliveryControls(); refreshDeliveryNotes(); renderDeliveryTokens(); renderBatchList(); });
   }
 }
 document.getElementById("mcMode").addEventListener("click", e => {
@@ -265,13 +292,14 @@ const ASPECT_PRESETS = [
   { label: "1:1 · 1080×1080", w: 1080, h: 1080 },
 ];
 const FPS_PRESETS = [24, 25, 30, 50, 60];
-/** Delivery-aspect presets fitted inside the composition canvas (export crop). */
+/* Delivery-aspect presets fitted inside the composition canvas (export crop). The drop-down above the player shows each
+   one's own.ef-* words in the interface language (JJ定稿, 2026-11-05). */
 const EXPORT_FRAME_ASPECTS = [
-  { label: "Full canvas", w: 0, h: 0 },
-  { label: "9:16 Reel", w: 9, h: 16 },
-  { label: "16:9", w: 16, h: 9 },
-  { label: "4:5 IG", w: 4, h: 5 },
-  { label: "1:1 Square", w: 1, h: 1 },
+  { key: "ef-full-canvas", w: 0, h: 0 },
+  { key: "ef-9-16", w: 9, h: 16 },
+  { key: "ef-16-9", w: 16, h: 9 },
+  { key: "ef-4-5", w: 4, h: 5 },
+  { key: "ef-1-1", w: 1, h: 1 },
 ];
 const WAVE_PEAKS_PER_SEC = 50;
 /* ── Mixer levels (dB). Clip gain is a trim before volume; track and master
@@ -502,7 +530,7 @@ function showTrackCtxMenu(clientX, clientY, track) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "ctx-item";
-  btn.textContent = "Remove track";
+  btn.textContent = uiText("own.track-remove");
   if (!check.ok) {
     btn.disabled = true;
     btn.title = check.reason;
@@ -1624,11 +1652,23 @@ function syncExportFrameSel() {
   const i = exportFrameAspectIndex(ef);
   let html = EXPORT_FRAME_ASPECTS.map((a, j) => {
     const sel = ef ? (i === j) : (j === 0);
-    return `<option value="${j}" ${sel ? "selected" : ""}>${a.label}</option>`;
+    return `<option value="${j}" ${sel ? "selected" : ""}>${escapeHtml(uiText("own." + a.key))}</option>`;
   }).join("");
   if (ef && i < 0)
-    html += `<option value="custom" selected>Custom · ${ef.w}×${ef.h}</option>`;
+    html += `<option value="custom" selected>${escapeHtml(uiText("own.ef-custom", { w: ef.w, h: ef.h }))}</option>`;
   els.exportFrameSel.innerHTML = html;
+  els.exportFrameSel.setAttribute("aria-label", uiText("own.ef-label"));
+  els.exportFrameSel.title = uiText("own.ef-title");
+}
+/** The export-frame drop-down's name and its 9:16 option, as the drop-down shows them now — for the assistant's
+ *  manual-way sentence (agent-limits.js: a shape the assistant can't make, e.g. 16:9), so it names what is on screen in
+ *  whatever words the drop-down uses. */
+function exportFrameNames(sel = els.exportFrameSel) {
+  const i = EXPORT_FRAME_ASPECTS.findIndex((a) => a.w === 9 && a.h === 16);
+  const opt = sel && sel.querySelector('option[value="' + i + '"]');
+  const options = Object.fromEntries(EXPORT_FRAME_ASPECTS.map((a, n) => [a.w + ':' + a.h,
+    sel?.querySelector('option[value="' + n + '"]')?.textContent || '']));
+  return { dropdown: (sel && sel.getAttribute("aria-label")) || "", option: (opt && opt.textContent) || "", options };
 }
 function applyProject(data, opts = {}) {
   if (state.compCtx && !opts.ctx && SeqLib.activeId(data) !== SeqLib.activeId(state.compCtx.root)) {
@@ -1719,7 +1759,7 @@ function applyProject(data, opts = {}) {
       if (g) c.props.grade = g; else delete c.props.grade;
     }
     if (migratePan && !Object.hasOwn(raw, "pan") && Number.isInteger(raw.audioChannel) && raw.audioChannel >= 0)
-      c.props.pan = defaultPanForChannel(raw.audioChannel);
+      c.props.pan = defaultPanForChannel(raw.audioChannel, getMedia(c.mediaId)?.channels ?? getMedia(c.mediaId)?.audioChannels);
     if (c.keyframes) for (const arr of Object.values(c.keyframes))
       if (Array.isArray(arr)) arr.sort((a, b) => a.t - b.t);
     if (c.kind === "text") ensureFont(c.props.font);
@@ -1922,6 +1962,7 @@ function listenSSE() {
   // Named events: "change" = project/media/library; "profiles" = encoding-profiles.json only
   es.addEventListener("change", () => { noteActivity(); syncFromServer(); scheduleOfflineCheck(); });
   es.addEventListener("proxy", (e) => onProxyEvent(e.data));
+  es.addEventListener("media-backfill", (e) => onMediaBackfill(e.data));
   es.addEventListener("upload", (e) => onUploadEvent(e.data));
   es.addEventListener("transcript", (e) => onTranscriptEvent(e.data));
   es.addEventListener("asr", (e) => onAsrEvent(e.data));
@@ -2132,7 +2173,12 @@ function getAudioBuffer(m) {
   }
   return p;
 }
+/* A page the server opened only to run one export job (export-jobs.js, ?exportJob=<id>): nobody sees its timeline. */
+const EXPORT_JOB_PAGE = typeof location !== "undefined" && new URLSearchParams(location.search).has("exportJob");
 function ensureWave(m) {
+  // the export page draws no timeline: decoding a whole file for its waveform only competed with the export
+  // (a 2-hour recording: 5 GB read and 4.5 GB in the tab, europa 2026-11-04)
+  if (EXPORT_JOB_PAGE) return;
   // Also decode peaks from video files when their audio is placed on an A track
   if (m.kind !== "audio" && m.kind !== "video") return;
   const have = runtime.wavePeaks.get(m.id), src = m.src;
@@ -2418,6 +2464,16 @@ async function importFromUrl(url) {
   }
 }
 
+function mediaResolution(m) {
+  if (!(m && m.width > 0 && m.height > 0)) return "";
+  const display = `${m.width}×${m.height}`;
+  if (!(m.storedWidth > 0 && m.storedHeight > 0) || (m.storedWidth === m.width && m.storedHeight === m.height)) return display;
+  return uiText("own.resolution-stored", { display, stored: `${m.storedWidth}×${m.storedHeight}` });
+}
+function mediaDescription(m) {
+  return [mediaResolution(m), m.fps ? uiText("own.fps-value", { n: MediaLib.fmtFps(m.fps) }) : "",
+    m.codec || "", MediaLib.fmtAudio(m), MediaLib.fmtSize(m.size)].filter(Boolean).join(" · ");
+}
 function renderBin() {
   els.binList.querySelectorAll(".bin-item, .bin-folder, .bin-drop-root, .comp-item, .bin-filterbar, .bin-colhead, .bin-noresult, .bin-importing").forEach((n) => n.remove());
   syncBinTools();
@@ -2432,9 +2488,10 @@ function renderBin() {
   if (mediaOffline.size && binView.filter !== "offline") {
     const warn = document.createElement("div");
     warn.className = "bin-filterbar bin-offline-bar";
-    warn.innerHTML = `<span>⚠ ${mediaOffline.size} file${mediaOffline.size === 1 ? " is" : "s are"} offline</span>
-      <button type="button" class="btn tiny" data-show>Show</button><button type="button" class="btn tiny accent" data-relink>Relink…</button>`;
-    warn.querySelector("[data-show]").addEventListener("click", () => setBinFilter("offline"));
+    // JJ (2026-11-05): which file, or how many, and a button that opens Relink; the dialog lists them in order
+    const one = mediaOffline.size === 1 ? getMedia([...mediaOffline][0]) : null;
+    warn.innerHTML = `<span>⚠ ${escapeHtml(one ? uiText("own.off-bar-one", { file: one.name }) : uiText("own.off-bar-many", { n: mediaOffline.size }))}</span>
+      <button type="button" class="btn tiny accent" data-relink>${escapeHtml(uiText(one ? "own.off-find-it" : "own.off-find-each"))}</button>`;
     warn.querySelector("[data-relink]").addEventListener("click", () => openRelinkDialog());
     els.binList.appendChild(warn);
   }
@@ -2495,6 +2552,7 @@ function renderBin() {
   const makeMediaItem = (m, depth) => {
     const item = document.createElement("div");
     const offline = isMediaOffline(m.id);
+    const offlineHtml = offline ? `<span class="bin-offline" title="${escapeHtml(uiText("own.off-badge-title"))}">${escapeHtml(uiText("own.off-badge"))}</span>` : "";
     item.className = "bin-item" + (binView.list ? " bin-row" : "") + (offline ? " offline" : "");
     item.draggable = true;
     item.dataset.mediaId = m.id;
@@ -2506,37 +2564,41 @@ function renderBin() {
     const folder = flat && m.folderId ? getFolder(m.folderId) : null;
     const usesHtml = `<button type="button" class="bin-uses${uses ? "" : " none"}" title="${uses ? `Used ${uses}× — click to find every instance` : "Not used on the timeline"}">${uses}</button>`;
     // JJ (P3, 2026-11-05): a recording nothing could read the length of says so on the file itself
-    const incomplete = MediaLib.cannotCut(m) ? `<div class="bin-incomplete">${escapeHtml(uiText("own.media-incomplete"))}</div>` : "";
+    const rep = repairing.get(m.id);
+    const repairHtml = rep ? `<div class="bin-repair"><span class="bin-repair-pct">${escapeHtml(uiText("own.repair-progress", { n: Math.round(rep.progress * 100) }))}</span><button type="button" class="btn tiny" data-repair-cancel>${escapeHtml(uiText("own.repair-cancel"))}</button></div>` : "";
+    // Rea (#152): a sound file is not called a video, and gets no 〔帮我修好〕 (it repairs videos)
+    const incomplete = repairHtml || (MediaLib.cannotCut(m) ? (m.kind === "video" ? `<div class="bin-incomplete">${escapeHtml(uiText("own.media-incomplete"))}<button type="button" class="btn tiny" data-repair title="${escapeHtml(uiText("own.repair-button-tip"))}">${escapeHtml(uiText("own.repair-button"))}</button></div>` : `<div class="bin-incomplete">${escapeHtml(uiText("own.media-incomplete-audio"))}</div>`) : "");
+    if (incomplete) item.classList.add("has-note");
+    const slowMark = MediaLib.slowToSeek(m) ? `<span class="bin-slow" title="${escapeHtml(uiText("own.media-slow-mark"))}" aria-label="${escapeHtml(uiText("own.media-slow-mark"))}">◔</span>` : "";
     const favHtml = `<button type="button" class="bin-fav${m.favorite ? " on" : ""}" title="${m.favorite ? "Favorite — click to unstar" : "Mark as favorite"}" aria-pressed="${!!m.favorite}">${m.favorite ? "★" : "☆"}</button>`;
     if (binView.list) {
       const cell = (v, cls = "") => `<span class="bin-cell${cls}">${escapeHtml(v || "—")}</span>`;
       item.innerHTML = `
-        <span class="bin-cell bin-cell-name">${favHtml}<span class="bin-thumb sm"></span>${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span>` : ""}<span class="bin-name"></span></span>
-        ${cell(MediaLib.fmtDur(m.duration), " num c-duration")}${cell(MediaLib.fmtRes(m), " num c-resolution")}${cell(MediaLib.fmtFps(m.fps), " num c-fps")}
+        <span class="bin-cell bin-cell-name">${favHtml}<span class="bin-thumb sm"></span>${slowMark}${offlineHtml}<span class="bin-name"></span></span>
+        ${cell(MediaLib.fmtDur(m.duration), " num c-duration")}${cell(mediaResolution(m), " num c-resolution")}${cell(MediaLib.fmtFps(m.fps), " num c-fps")}
         ${cell(m.codec, " c-codec")}${cell(MediaLib.fmtAudio(m).replace(/^stereo\b/, uiOr("term.stereo", "stereo")), " c-audio")}${cell(MediaLib.fmtSize(m.size), " num c-size")}
         <span class="bin-cell c-proxy">${proxyBadgeHtml(m) || escapeHtml(m.kind === "video" ? "—" : "")}</span>
         <span class="bin-cell num c-usage">${usesHtml}</span>
         <span class="bin-del" title="Remove (and its clips)">✕</span>${incomplete}`;
     } else {
-      const sub = [folder ? "📁 " + folder.name : "", m.kind === "video" ? uiText("own.media-kind-video") : m.kind, m.duration ? fmt(m.duration) : "", MediaLib.fmtRes(m), m.fps ? uiText("own.fps-value", { n: MediaLib.fmtFps(m.fps) }) : ""]
+      const sub = [folder ? "📁 " + folder.name : "", m.kind === "video" ? uiText("own.media-kind-video") : m.kind, m.duration ? fmt(m.duration) : "", mediaResolution(m), m.fps ? uiText("own.fps-value", { n: MediaLib.fmtFps(m.fps) }) : ""]
         .filter(Boolean).join(" · ");
       item.innerHTML = `
         <div class="bin-thumb"></div>
         <div class="bin-meta">
           <div class="bin-name"></div>
-          <div class="bin-sub">${offline ? `<span class="bin-offline" title="The file is missing — right-click → Relink…">OFFLINE</span> ` : ""}${escapeHtml(sub)}</div>
-          ${incomplete}
+          <div class="bin-sub">${slowMark}${offline ? offlineHtml + " " : ""}${escapeHtml(sub)}</div>
           ${m.tags && m.tags.length ? `<div class="bin-tags">${m.tags.map((t) => `<span class="bin-tag">#${escapeHtml(t)}</span>`).join("")}</div>` : ""}
         </div>
         <div class="bin-side">${favHtml}${usesHtml}${proxyBadgeHtml(m)}</div>
-        <span class="bin-del" title="Remove (and its clips)">✕</span>`;
+        <span class="bin-del" title="Remove (and its clips)">✕</span>${incomplete}`;
     }
     const thumbEl = item.querySelector(".bin-thumb");
     if (thumbSrc) thumbEl.style.backgroundImage = `url(${JSON.stringify(thumbSrc)})`;
     else thumbEl.textContent = icon;
     const nameEl = item.querySelector(".bin-name");
     nameEl.textContent = m.name;
-    item.title = [m.name, offline ? "⚠ Offline: " + decodeURIComponent(String(m.src).split("?")[0]) + " is missing — right-click → Relink…" : "", MediaLib.describe(m), m.tags && m.tags.length ? m.tags.map((t) => "#" + t).join(" ") : ""].filter(Boolean).join("\n");
+    item.title = [m.name, offline ? uiText("own.off-item-title", { file: m.name }) : "", mediaDescription(m), m.tags && m.tags.length ? m.tags.map((t) => "#" + t).join(" ") : ""].filter(Boolean).join("\n");
     item.addEventListener("dragstart", (e) => {
       runtime.binDragFolderId = null;
       e.dataTransfer.setData("text/fablecut-media", m.id);
@@ -2551,7 +2613,7 @@ function renderBin() {
     // Don't bubble to the root drop zone while hovering a media row
     item.addEventListener("dragover", (e) => e.stopPropagation());
     item.addEventListener("click", (e) => {
-      if (e.target.closest(".bin-del, .bin-fav, .bin-uses")) return;
+      if (e.target.closest(".bin-del, .bin-fav, .bin-uses, .bin-repair, .bin-incomplete .btn")) return;
       if (e.ctrlKey || e.metaKey) return; // reserved for import
       if (!getSetting("linkSelect")) return;
       e.preventDefault();
@@ -2565,9 +2627,12 @@ function renderBin() {
       } else {
         loadSourceFromMedia(m);
       }
+      closeNarrowMedia(m.id);
       if (getSetting("linkSelect")) flashMonitorAttention();
     });
     item.addEventListener("contextmenu", (e) => { e.preventDefault(); e.stopPropagation(); showMediaMenu(e.clientX, e.clientY, m); });
+    item.querySelector("[data-repair]")?.addEventListener("click", (e) => { e.stopPropagation(); repairMediaFile(m); });
+    item.querySelector("[data-repair-cancel]")?.addEventListener("click", (e) => { e.stopPropagation(); cancelRepair(m.id); });
     item.querySelector(".bin-fav").addEventListener("click", (e) => { e.stopPropagation(); setMediaFavorite([m.id], !m.favorite); });
     item.querySelector(".bin-uses").addEventListener("click", (e) => {
       e.stopPropagation();
@@ -2648,7 +2713,7 @@ function renderBin() {
     if (!hits.length) {
       const none = document.createElement("div");
       none.className = "bin-noresult";
-      none.textContent = "No media matches.";
+      none.textContent = binView.filter === "offline" ? uiText("own.off-none") : "No media matches.";
       els.binList.appendChild(none);
     }
   } else {
@@ -2658,7 +2723,7 @@ function renderBin() {
     // Root drop zone at the bottom so items can be moved out of folders
     const root = document.createElement("div");
     root.className = "bin-drop-root";
-    root.textContent = "Drop here to move to root";
+    root.textContent = uiText("own.bin-drop-root");
     bindFolderDropTarget(root, null);
     els.binList.appendChild(root);
   }
@@ -2699,13 +2764,13 @@ function syncBinTools() {
   if ((f.startsWith("tag:") && !tags.some((t) => t.toLowerCase() === f.slice(4).toLowerCase())) ||
     (f.startsWith("col:") && !getCollection(f.slice(4)))) binView.filter = "";
   const opt = (v, label) => `<option value="${escapeHtml(v)}"${v === binView.filter ? " selected" : ""}>${escapeHtml(label)}</option>`;
-  const html = opt("", "All media") + opt("fav", "★ Favorites") + opt("used", "Used in the edit") + opt("unused", "Unused") +
-    (mediaOffline.size || binView.filter === "offline" ? opt("offline", `⚠ Offline (${mediaOffline.size})`) : "") +
-    (project.media.some((m) => m.kind === "video") ? opt("proxy", "Has a proxy") + opt("noproxy", "Video without a proxy") : "") +
-    `<optgroup label="Kind">${MediaLib.KINDS.map((k) => opt("kind:" + k, k === "svg" ? "SVG" : k === "video" || k === "audio" ? uiText("term." + k) : k[0].toUpperCase() + k.slice(1))).join("")}</optgroup>` +
-    (cols.length ? `<optgroup label="Collections">${cols.map((c) => opt("col:" + c.id, c.name + ` (${c.media.length})`)).join("")}</optgroup>` : "") +
-    (tags.length ? `<optgroup label="Tags">${tags.map((t) => opt("tag:" + t, "#" + t)).join("")}</optgroup>` : "");
-  if (els.binFilter.innerHTML !== html) els.binFilter.innerHTML = html;
+  const html = opt("", uiText("own.bin-all")) + opt("fav", uiText("own.bin-fav")) + opt("used", uiText("own.bin-used")) + opt("unused", uiText("own.bin-unused")) +
+    (mediaOffline.size || binView.filter === "offline" ? opt("offline", uiText("own.off-filter", { n: mediaOffline.size })) : "") +
+    (project.media.some((m) => m.kind === "video") ? opt("proxy", uiText("own.bin-proxy")) + opt("noproxy", uiText("own.bin-noproxy")) : "") +
+    `<optgroup label="${escapeHtml(uiText("own.bin-group-kind"))}">${MediaLib.KINDS.map((k) => opt("kind:" + k, k === "svg" ? "SVG" : k === "video" || k === "audio" ? uiText("term." + k) : k === "image" ? uiText("own.bin-image") : k[0].toUpperCase() + k.slice(1))).join("")}</optgroup>` +
+    (cols.length ? `<optgroup label="${escapeHtml(uiText("own.bin-group-collections"))}">${cols.map((c) => opt("col:" + c.id, c.name + ` (${c.media.length})`)).join("")}</optgroup>` : "") +
+    (tags.length ? `<optgroup label="${escapeHtml(uiText("own.bin-group-tags"))}">${tags.map((t) => opt("tag:" + t, "#" + t)).join("")}</optgroup>` : "");
+  if (els.binFilter.innerHTML !== html) { els.binFilter.innerHTML = html; fitBinFilter(); }
   els.binFilter.value = binView.filter;
   els.binFilter.classList.toggle("on", !!binView.filter);
   els.binSort.value = binView.sort;
@@ -2714,6 +2779,16 @@ function syncBinTools() {
   els.binViewBtn.classList.toggle("on", binView.list);
   els.binViewBtn.title = binView.list ? "Thumbnail view" : uiText("term.list-view-metadata-columns");
   if (els.binSearch.value !== binView.q && document.activeElement !== els.binSearch) els.binSearch.value = binView.q;
+}
+/** The Show box is as wide as its longest built-in choice, plus room for the native arrow (VV, #148: at the default width
+ *  「全部素材」 was cut). A collection's or a tag's own name may still be cut; the box never grows past the row. */
+function fitBinFilter() {
+  const sel = els.binFilter, cs = getComputedStyle(sel);
+  const ctx = (fitBinFilter.ctx ||= document.createElement("canvas").getContext("2d"));
+  ctx.font = cs.font || "11px 'Segoe UI', sans-serif";
+  const box = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) + (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0);
+  const text = Math.max(0, ...[...sel.options].filter((o) => !/^(col|tag):/.test(o.value)).map((o) => ctx.measureText(o.textContent).width));
+  sel.style.minWidth = Math.ceil(text + box + 22) + "px";
 }
 function setBinFilter(filter) {
   binView.filter = filter || "";
@@ -2728,7 +2803,7 @@ function makeFilterBar(n) {
     (col ? `<span class="bin-filter-name" title="Collection">▣ ${escapeHtml(col.name)}</span>
       <button type="button" class="btn tiny" data-col-rename>Rename</button>
       <button type="button" class="btn tiny" data-col-delete title="Delete the collection (keeps the media)">Delete</button>` : "") +
-    (binView.filter === "offline" && mediaOffline.size ? `<button type="button" class="btn tiny accent" data-relink-all>Relink…</button>` : "") +
+    (binView.filter === "offline" && mediaOffline.size ? `<button type="button" class="btn tiny accent" data-relink-all>${escapeHtml(uiText(mediaOffline.size === 1 ? "own.off-find-it" : "own.off-find-each"))}</button>` : "") +
     `<button type="button" class="btn tiny" data-clear title="Show everything (Esc in the search box)">Clear</button>`;
   bar.querySelector("[data-relink-all]")?.addEventListener("click", () => openRelinkDialog());
   bar.querySelector("[data-clear]").addEventListener("click", () => { binView.q = ""; els.binSearch.value = ""; setBinFilter(""); });
@@ -2799,6 +2874,7 @@ async function refreshMediaInfo(list) {
       if (!i) continue;
       for (const k of MediaLib.INFO_KEYS) if (i[k] != null && m[k] !== i[k]) { m[k] = i[k]; changed = true; }
       if (!(m.width > 0) && i.width > 0) { m.width = i.width; m.height = i.height; changed = true; }
+      if (MediaLib.displaySize(m, i)) changed = true;   // P6: the display size, not the stored one
       // the server's length wins where the browser has none, or counted the start of an MKV's timestamps (one that
       // starts at 3600 s plays 20 s; Chromium says 3620 s): media-lib.js parseProbe / serverDuration
       const d = MediaLib.serverDuration(m, i);
@@ -2820,7 +2896,13 @@ async function refreshMediaInfo(list) {
       state.dirtyTimeline = true;
     }
     // nothing says how long it is: tell the user once, in plain words (never 0:00 or NaN)
-    if (unknown.length) toast(unknown.length === 1 ? uiText("own.media-duration-unknown", { name: unknown[0].name }) : uiText("own.media-duration-unknown-n", { n: unknown.length }));
+    // the words follow the kind (Rea, #152): video toasts end with the repair button, sound files are never called video
+    if (unknown.length) {
+      const videos = unknown.every((x) => x.kind === "video");
+      toast(unknown.length === 1
+        ? uiText(videos ? "own.media-duration-unknown" : "own.media-duration-unknown-audio", { name: unknown[0].name })
+        : uiText(videos ? "own.media-duration-unknown-n" : "own.media-duration-unknown-n-mixed", { n: unknown.length }));
+    }
     if (changed) { renderBin(); scheduleSave(); if (state.selId) renderInspector(); }
     followSourceCanvas();
   } catch { } finally {
@@ -2954,37 +3036,42 @@ function showMediaMenu(x, y, m) {
     return b;
   };
   const sep = () => { const d = document.createElement("div"); d.className = "ctx-sep"; menu.appendChild(d); };
-  item("Open in Source", () => loadSourceFromMedia(m));
-  item(`Find timeline instances (${uses})`, () => showMediaInstances(m, x, y), uses ? null : "Not used on the timeline");
-  item("Media info…", () => showMediaInfo(m, x, y));
-  item(isMediaOffline(m.id) ? "Relink…" : "Relink to another copy…", () => openRelinkDialog([m]), state.connected ? null : uiText("own.needs-server"));
-  item(uiText("term.replace-file"), () => replaceMediaFile(m), state.connected ? null : uiText("own.needs-server"));
+  item(uiText("own.mm-open-source"), () => loadSourceFromMedia(m));
+  item(uiText("own.mm-instances", { n: uses }), () => showMediaInstances(m, x, y), uses ? null : "Not used on the timeline");
+  item(uiText("own.mm-info"), () => showMediaInfo(m, x, y));
+  const relinkItem = item(isMediaOffline(m.id) ? uiText("term.relink") : uiText("own.off-other-copy"), () => openRelinkDialog([m]), state.connected ? null : uiText("own.needs-server"));
+  if (!relinkItem.disabled && !isMediaOffline(m.id)) relinkItem.title = uiText("own.off-other-copy-title");
+  const replaceItem = item(uiText("term.replace-file"), () => replaceMediaFile(m), state.connected ? null : uiText("own.needs-server"));
+  if (!replaceItem.disabled) replaceItem.title = uiText("own.off-replace-title");
   if (m.kind === "video") {
+    // 〔帮我修好…〕 for any video (JJ, 2026-11-05): one button for every repair and conversion — FLV or not, no allowTranscode
+    item(uiText("own.repair-menu"), () => repairMediaFile(m),
+      !state.connected ? uiText("own.needs-server") : !state.ffmpeg ? "Needs MontClip's bundled FFmpeg" : isMediaOffline(m.id) ? "The file is offline" : repairing.has(m.id) ? uiText("own.repair-progress", { n: Math.round(repairing.get(m.id).progress * 100) }) : null);
     const ps = proxyStatus.get(m.id);
     const why = !state.connected ? uiText("own.needs-server") : !state.ffmpeg ? "Needs MontClip's bundled FFmpeg" : isMediaOffline(m.id) ? "The file is offline" : null;
     if (ps && (ps.state === "ready" || ps.state === "running" || ps.state === "queued")) item(ps.state === "ready" ? "Delete proxy" : "Stop making the proxy", () => deleteProxies([m]));
     else {
-      item("Create proxy (540p)", () => createProxies([m], 540), why);
-      item("Create proxy (720p)", () => createProxies([m], 720), why);
+      item(uiText("own.mm-proxy-540"), () => createProxies([m], 540), why);
+      item(uiText("own.mm-proxy-720"), () => createProxies([m], 720), why);
     }
   }
   sep();
-  item(m.favorite ? "Remove from favorites" : "Add to favorites", () => setMediaFavorite([m.id], !m.favorite));
-  item("Tags…", () => promptBinText(x, y, `Tags for ${m.name}`, (m.tags || []).join(", "), (v) => setMediaTags(m, v),
+  item(m.favorite ? "Remove from favorites" : uiText("own.mm-fav-add"), () => setMediaFavorite([m.id], !m.favorite));
+  item(uiText("own.mm-tags"), () => promptBinText(x, y, `Tags for ${m.name}`, (m.tags || []).join(", "), (v) => setMediaTags(m, v),
     { allowEmpty: true, max: 400, ok: "Save", placeholder: "interview, b-roll, day 1", hint: "Comma-separated. Search #tag to find them.",
       chips: MediaLib.allTags(project.media) }));
   for (const col of project.collections || []) {
     const inIt = col.media.includes(m.id);
     item(inIt ? `Remove from “${col.name}”` : `Add to “${col.name}”`, () => addToCollection(col.id, m.id, !inIt));
   }
-  item("New collection…", () => promptBinText(x, y, "New collection", "", (name) => {
+  item(uiText("own.mm-new-collection"), () => promptBinText(x, y, "New collection", "", (name) => {
     const col = newCollection(name, [m.id]);
     toast(`Added ${m.name} to the collection “${col.name}”`);
   }, { placeholder: "Selects, Interviews…", ok: "Create" }));
   const dm = (project.danmaku || []).find((e) => e.mediaId === m.id);
   if (dm) { sep(); item(uiText("own.dm-remove", { n: dm.count }), () => removeDanmaku(m)); }
   sep();
-  item("Remove from project", () => removeMediaFromBin(m));
+  item(uiText("own.mm-remove"), () => removeMediaFromBin(m)).title = uiText("own.mm-remove-title");
   document.body.appendChild(menu);
   menu.id = "trackCtxMenu";
   trackCtxMenu = menu;
@@ -3003,7 +3090,7 @@ function showMediaInfo(m, x, y) {
   const rows = [
     ["Kind", m.kind], ["File", decodeURIComponent(String(m.src || "").split("?")[0]) + (isMediaOffline(m.id) ? " — MISSING (offline)" : "")],
     ["Duration", m.duration > 0 ? MediaLib.fmtDur(m.duration) + ` (${(+m.duration).toFixed(3)} s)` : ""],
-    ["Resolution", MediaLib.fmtRes(m)], ["Frame rate", m.fps ? MediaLib.fmtFps(m.fps) + " fps" : ""],
+    ["Resolution", mediaResolution(m)], ["Frame rate", m.fps ? MediaLib.fmtFps(m.fps) + " fps" : ""],
     ["Video codec", m.kind === "video" ? m.codec : ""], ["Format", m.kind !== "video" && m.codec ? m.codec : ""],
     ["Audio", audio], ["Bitrate", m.bitrate ? (m.bitrate >= 1e6 ? (m.bitrate / 1e6).toFixed(1) + " Mb/s" : Math.round(m.bitrate / 1000) + " kb/s") : ""],
     ["Size", MediaLib.fmtSize(m.size)], ["Used", uses.length ? uses.length + "×" : "not used"],
@@ -3117,11 +3204,7 @@ async function checkOffline() {
     // a file that came back (put back, or relinked by an agent): reload what was cached from it
     for (const id of was) if (!mediaOffline.has(id)) { const m = getMedia(id); if (m) reloadMediaSource(m); }
     const changed = was.size !== mediaOffline.size || [...was].some((id) => !mediaOffline.has(id));
-    if (changed) {
-      renderBin(); state.dirtyTimeline = true;
-      const fresh = [...mediaOffline].filter((id) => !was.has(id));
-      if (fresh.length) toast(`${fresh.length === 1 ? `“${getMedia(fresh[0])?.name}” is` : fresh.length + " files are"} offline — right-click it in the bin → Relink…`);
-    }
+    if (changed) { renderBin(); state.dirtyTimeline = true; }   // the bin's strip says which (JJ, 2026-11-05: it replaces the toast)
   } catch { } finally { offlineChecking = false; }
 }
 /* Everything cached from a media file (players, picture, waveform, thumbnail) is dropped and read again. */
@@ -3145,7 +3228,7 @@ function reloadMediaSource(m, oldSrc) {
 }
 
 /** Point a media entry at another file. mode "relink" (same footage) or "replace" (a new file). */
-async function setMediaSource(m, src, mode, name) {
+async function setMediaSource(m, src, mode, name, quiet = false) {
   const oldSrc = m.src, oldDur = m.duration;
   pushUndo(JSON.stringify({ clips: project.clips, markers: project.markers || [], comps: project.comps || [], media: project.media, seqClips: otherSequenceClips() }));
   m.src = src;
@@ -3183,7 +3266,7 @@ async function setMediaSource(m, src, mode, name) {
   state.dirtyTimeline = true;
   renderBin(); scheduleSave(); renderInspector();
   refreshMediaInfo([m]);
-  toast(msg);
+  if (!quiet) toast(msg);
 }
 
 /* Upload local files into media/ (like import, without adding bin entries) → [{file, src}]. */
@@ -3214,6 +3297,53 @@ function pickFilesForRelink({ folder = false, accept = els.fileInput.accept } = 
   });
 }
 
+/* 〔帮我修好〕 (JJ, P3, 2026-11-05): the server writes a new MP4 beside the original (make-editable.js:
+   a quick remux first, a re-encode only when that doesn't hold; the original is never touched), and it takes this
+   entry's place — every clip, composition and sequence that used it — as one undo step. Progress and Cancel sit on the
+   file in the bin. The same swap as fablecut_repair_media's (MediaLib.swapMedia). */
+const repairing = new Map();   // media id → {job, progress}
+async function repairMediaFile(m) {
+  if (!m || repairing.has(m.id)) return;
+  const st = { job: null, progress: 0 };
+  repairing.set(m.id, st);
+  renderBin();
+  let j = null;
+  try {
+    const res = await fetch("/api/repair", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ src: m.src }) });
+    if (res.ok) j = await res.json();
+    st.job = j && j.job;
+    while (j && (j.status === "running" || j.status === "pending")) {
+      await new Promise((r) => setTimeout(r, 500));
+      const q = await fetch("/api/repair/job?id=" + encodeURIComponent(st.job));
+      j = q.ok ? await q.json() : null;
+      if (j) { st.progress = j.progress || 0; const pct = document.querySelector(`.bin-item[data-media-id="${CSS.escape(m.id)}"] .bin-repair-pct`); if (pct) pct.textContent = uiText("own.repair-progress", { n: Math.round(st.progress * 100) }); }
+    }
+  } catch { j = null; }
+  repairing.delete(m.id);
+  if (j && j.status === "done" && j.result) {
+    const root = seqRoot();
+    pushUndo(JSON.stringify({ clips: project.clips, markers: project.markers || [], comps: project.comps || [], media: project.media, seqClips: otherSequenceClips() }));
+    const entry = { id: "m_" + uid(), ...j.result };
+    if ((root.media || []).some((x) => x.id === m.id)) {
+      MediaLib.swapMedia(root, m.id, entry);
+      // an open composition's clips are edited in `project` until it closes
+      if (project !== root) for (const c of project.clips) if (c.mediaId === m.id) c.mediaId = entry.id;
+    } else root.media.push(entry);
+    runtime.compGen = (runtime.compGen || 0) + 1;
+    state.dirtyTimeline = true;
+    renderBin(); scheduleSave(); renderInspector();
+    toast(uiText("own.repair-done"));
+    return;
+  }
+  renderBin();
+  if (j && j.status === "cancelled") return;
+  toast(uiText(j && j.error && j.error.code === "REPAIR_ENCODER_MISSING" ? "own.repair-encoder-missing" : "own.repair-failed", { name: m.name }));
+}
+async function cancelRepair(mediaId) {
+  const st = repairing.get(mediaId);
+  if (st && st.job) { try { await fetch("/api/repair/cancel?id=" + encodeURIComponent(st.job), { method: "POST" }); } catch { } }
+}
+
 /* Replace file…: a different file behind this media entry, for every clip that uses it. */
 async function replaceMediaFile(m) {
   const files = await pickFilesForRelink({ accept: m.kind === "audio" ? "audio/*,.mp3,.wav,.m4a,.flac,.ogg" : els.fileInput.accept });
@@ -3232,27 +3362,52 @@ async function replaceMediaFile(m) {
    Browse… for one file and Choose folder… to match a whole folder by name. */
 async function openRelinkDialog(list) {
   list = (list || project.media.filter((m) => isMediaOffline(m.id))).filter(Boolean);
-  if (!list.length) { toast("Nothing is offline"); return; }
+  if (!list.length) { toast(uiText("own.off-none")); return; }
+  // candidates found on disk (same name, other extension, similar name, same size)
+  let candidates = null;
+  if (state.connected) {
+    try {
+      const res = await fetch("/api/relink/candidates", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ media: list.map((m) => ({ id: m.id, name: m.name, src: m.src, size: m.size, kind: m.kind })) }),
+      });
+      ({ candidates } = await res.json());
+    } catch { }
+  }
+  const used = new Set(project.media.map((x) => x.src));
+  const optsOf = (m) => ((candidates && candidates[m.id]) || []).filter((o) => o.src !== m.src && (!used.has(o.src) || !isMediaOffline(m.id)));
+  // JJ (2026-11-05): a missing file found under the same name is linked straight away, without asking — QQ (#137):
+  // only when it is the same file (same name and size, one such candidate); the round ends
+  // with one sentence, 「已经自动找回 {m} 个」, and the dialog asks only about the rest
+  const found = new Set();
+  for (const m of list.filter((x) => isMediaOffline(x.id))) {
+    const o = MediaLib.autoRelinkPick(m, optsOf(m));
+    if (o && !used.has(o.src)) { await setMediaSource(m, o.src, "relink", undefined, true); used.add(o.src); found.add(m.id); }
+  }
+  const sayAuto = () => { if (found.size) toast(uiText("own.off-auto-found", { m: found.size })); };
+  list = list.filter((m) => !found.has(m.id));
+  if (!list.length) { scheduleOfflineCheck(0); sayAuto(); return; }
   document.getElementById("relinkOverlay")?.remove();
   const overlay = document.createElement("div");
   overlay.className = "overlay";
   overlay.id = "relinkOverlay";
   overlay.innerHTML = `<div class="dialog relink" role="dialog" aria-modal="true" aria-labelledby="relinkTitle" tabindex="-1">
-    <h2 id="relinkTitle">Relink media</h2>
-    <p class="dim">Point ${list.length === 1 ? "this file" : `these ${list.length} files`} at the footage where it is now. Clips keep their In points and edits.</p>
+    <h2 id="relinkTitle">${escapeHtml(uiText("own.rl-title"))}</h2>
+    <p class="dim">${escapeHtml(list.length === 1 ? uiText("own.rl-intro-one") : uiText("own.rl-intro-many", { n: list.length }))}</p>
     <div class="relink-tools">
-      <button type="button" class="btn tiny" data-folder title="Pick the folder the files are in now — they are matched by name and copied into the project">Choose folder…</button>
+      <button type="button" class="btn tiny" data-folder title="${escapeHtml(uiText("own.rl-folder-title"))}">${escapeHtml(uiText("own.rl-folder"))}</button>
       <span class="relink-status dim"></span>
     </div>
     <div class="relink-rows"></div>
-    <div class="dialog-actions"><button type="button" class="btn" data-cancel>Cancel</button><button type="button" class="btn primary" data-apply>Relink</button></div>
+    <div class="dialog-actions"><button type="button" class="btn" data-cancel>${escapeHtml(uiText("own.rl-cancel"))}</button><button type="button" class="btn primary" data-apply>${escapeHtml(uiText("own.rl-apply"))}</button></div>
   </div>`;
   document.body.appendChild(overlay);
   const dialog = overlay.querySelector(".dialog");
   const rowsEl = overlay.querySelector(".relink-rows"), status = overlay.querySelector(".relink-status");
+  const missing = list.filter((m) => isMediaOffline(m.id));
   const pick = new Map();   // media id → {src, label} | null
   const cands = new Map();  // media id → [{src, name, size, why}]
-  const close = () => { overlay.remove(); };
+  const close = () => { overlay.remove(); scheduleOfflineCheck(0); sayAuto(); };
   const render = () => {
     rowsEl.innerHTML = "";
     for (const m of list) {
@@ -3262,16 +3417,20 @@ async function openRelinkDialog(list) {
       const options = (cands.get(m.id) || []);
       row.innerHTML = `<div class="relink-name"><b></b><span class="dim relink-was"></span></div>
         <div class="relink-pick">
-          <select aria-label="New location"></select>
-          <button type="button" class="btn tiny" data-browse title="Pick the file (it is copied into the project)">Browse…</button>
+          <select aria-label="${escapeHtml(uiText("own.rl-new-loc"))}"></select>
+          <button type="button" class="btn tiny" data-browse title="${escapeHtml(uiText("own.rl-browse-title"))}">${escapeHtml(uiText("own.rl-browse"))}</button>
         </div>`;
-      row.querySelector("b").textContent = (isMediaOffline(m.id) ? "⚠ " : "") + m.name;
-      row.querySelector(".relink-was").textContent = "was " + decodeURIComponent(String(m.src).split("?")[0]) + (m.duration ? " · " + fmt(m.duration) : "") + (m.size ? " · " + MediaLib.fmtSize(m.size) : "");
+      // missing files, in order (JJ, 2026-11-05): 「正在找：「{file}」（第 k 个，共 n 个）」
+      const k = missing.indexOf(m) + 1;
+      row.querySelector("b").textContent = k ? uiText("own.off-finding-k", { file: m.name, k, n: missing.length }) : m.name;   // JJ's words exactly: no ⚠, the count even for one
+      // the file's name only (never its /media/… path) · its length as h:mm:ss, no frames · its size
+      const [was, ...rest] = MediaLib.relinkWasParts(m);
+      row.querySelector(".relink-was").textContent = [uiText("own.rl-was", { file: was }), ...rest].join(" · ");
       const sel = row.querySelector("select");
       const opt = (v, label) => { const o = document.createElement("option"); o.value = v; o.textContent = label; sel.appendChild(o); };
-      opt("", options.length || cur ? "— leave it —" : "— not found: Browse… or Choose folder… —");
+      opt("", uiText(options.length || cur ? "own.rl-leave" : "own.rl-not-found"));
       if (cur && !options.some((o) => o.src === cur.src)) opt(cur.src, cur.label);
-      for (const o of options) opt(o.src, `${decodeURIComponent(o.path || o.src)} · ${MediaLib.fmtSize(o.size)} (${o.why})`);
+      for (const o of options) opt(o.src, `${decodeURIComponent(o.path || o.src)} · ${MediaLib.fmtSize(o.size)} (${MediaLib.relinkWhyKeys(o.why).map((k) => uiText("own." + k)).join("")})`);
       sel.value = cur ? cur.src : "";
       sel.addEventListener("change", () => {
         const o = options.find((x) => x.src === sel.value);
@@ -3281,10 +3440,10 @@ async function openRelinkDialog(list) {
       row.querySelector("[data-browse]").addEventListener("click", async () => {
         const [file] = await pickFilesForRelink({});
         if (!file) return;
-        status.textContent = `Copying ${file.name}…`;
+        status.textContent = uiText("own.rl-copying", { name: file.name });
         const [up] = await uploadForRelink([file]);
-        status.textContent = up?.src ? "" : "Couldn't copy " + file.name;
-        if (up?.src) { pick.set(m.id, { src: up.src, label: `${file.name} (chosen)` }); render(); }
+        status.textContent = up?.src ? "" : uiText("own.rl-copy-failed", { name: file.name });
+        if (up?.src) { pick.set(m.id, { src: up.src, label: uiText("own.rl-chosen", { name: file.name }) }); render(); }
       });
       rowsEl.appendChild(row);
     }
@@ -3294,7 +3453,7 @@ async function openRelinkDialog(list) {
     const n = list.filter((m) => pick.get(m.id)).length;
     const b = overlay.querySelector("[data-apply]");
     b.disabled = !n;
-    b.textContent = n ? `Relink ${n}` : "Relink";
+    b.textContent = n ? uiText("own.rl-apply-n", { n }) : uiText("own.rl-apply");
   };
   overlay.querySelector("[data-cancel]").addEventListener("click", close);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
@@ -3312,41 +3471,31 @@ async function openRelinkDialog(list) {
       }
       if (best) want.push([m, best]);
     }
-    if (!want.length) { status.textContent = `None of the ${files.length} files in that folder match by name.`; return; }
+    if (!want.length) { status.textContent = uiText("own.rl-folder-none", { n: list.length, files: files.length }); return; }
     let i = 0;
-    const ups = await uploadForRelink(want.map(([, f]) => f), (f) => { status.textContent = `Copying ${++i}/${want.length}: ${f.name}…`; });
-    want.forEach(([m, f], k) => { if (ups[k].src) pick.set(m.id, { src: ups[k].src, label: `${f.name} (from the folder)` }); });
-    status.textContent = `Matched ${ups.filter((u) => u.src).length} of ${list.length} by name.`;
+    const ups = await uploadForRelink(want.map(([, f]) => f), (f) => { status.textContent = uiText("own.rl-copying-k", { i: ++i, n: want.length, name: f.name }); });
+    want.forEach(([m, f], k) => { if (ups[k].src) pick.set(m.id, { src: ups[k].src, label: uiText("own.rl-from-folder", { name: f.name }) }); });
+    status.textContent = uiText("own.rl-matched", { x: ups.filter((u) => u.src).length, n: list.length });
     render();
   });
   overlay.querySelector("[data-apply]").addEventListener("click", async () => {
     const todo = list.filter((m) => pick.get(m.id));
-    close();
+    overlay.remove();
     for (const m of todo) await setMediaSource(m, pick.get(m.id).src, "relink");
-    scheduleOfflineCheck(0);
+    scheduleOfflineCheck(0); sayAuto();
   });
   render();
   dialog.focus();
-  // candidates found on disk (same name, other extension, similar name, same size)
-  if (state.connected) {
-    status.textContent = "Looking for the files…";
-    try {
-      const res = await fetch("/api/relink/candidates", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ media: list.map((m) => ({ id: m.id, name: m.name, src: m.src, size: m.size, kind: m.kind })) }),
-      });
-      const { candidates } = await res.json();
-      const used = new Set(project.media.map((x) => x.src));
-      let found = 0;
-      for (const m of list) {
-        const opts = (candidates[m.id] || []).filter((o) => o.src !== m.src && (!used.has(o.src) || !isMediaOffline(m.id)));
-        cands.set(m.id, opts);
-        // a confident match is picked for you (same name, or same name with a matching size)
-        if (opts[0] && opts[0].score >= 100 && !pick.get(m.id)) { pick.set(m.id, { src: opts[0].src, label: opts[0].name }); found++; }
-      }
-      status.textContent = found ? `Found ${found} of ${list.length} in the project folders.` : "";
-      if (overlay.isConnected) render();
-    } catch { status.textContent = ""; }
+  // a confident match the dialog still shows (a file that is there: 〔用另一处的同一段录像…〕) is picked for you
+  if (candidates) {
+    let pre = 0;
+    for (const m of list) {
+      const opts = optsOf(m);
+      cands.set(m.id, opts);
+      if (opts[0] && opts[0].score >= 100 && !pick.get(m.id)) { pick.set(m.id, { src: opts[0].src, label: opts[0].name }); pre++; }
+    }
+    status.textContent = pre ? uiText("own.rl-pre", { pre, n: list.length }) : "";
+    render();
   }
 }
 
@@ -3396,6 +3545,16 @@ async function refreshProxyStatus() {
   } catch { }
 }
 /** SSE "proxy": one file's proxy moved on (queued, progress, ready, failed, deleted). */
+/* Lengths the agent read for files that had none (QQ, #152): into the project open here — an unsaved step stays — and
+   one save carries both. Not an undo step: a file's details, as when the editor reads them itself. */
+function onMediaBackfill(data) {
+  let msg;
+  try { msg = JSON.parse(data); } catch { return; }
+  const n = MediaLib.applyBackfill(seqRoot(), msg && msg.updates);
+  if (!n) return;
+  renderBin();
+  scheduleSave();
+}
 function onProxyEvent(data) {
   let ev; try { ev = JSON.parse(data); } catch { return; }
   let hit = false;
@@ -3772,7 +3931,7 @@ function renderProjectGrid() {
   grid.innerHTML = rows.length ? rows.map((p) => `
     <button type="button" class="pj-card${p.id === pj.sel && pj.mode === "detail" ? " sel" : ""}${p.active ? " open" : ""}" data-pj="${escapeHtml(p.id)}" title="${p.active ? escapeHtml(uiText("own.pj-currently-open")) : "Double-click to open"}">
       ${pjThumbHtml(p)}
-      <span class="pj-card-name">${escapeHtml(p.name)}${p.active ? ` <span class="pj-badge">${escapeHtml(uiText("own.pj-open"))}</span>` : ""}</span>
+      <span class="pj-card-name">${escapeHtml(shownProject(p.name))}${p.active ? ` <span class="pj-badge">${escapeHtml(uiText("own.pj-open"))}</span>` : ""}</span>
       <span class="pj-card-meta">${p.unreadable ? "file unreadable" : `${pjCanvas(p)} · ${pjFmtDur(p.duration)}`}</span>
       <span class="pj-card-when dim">${escapeHtml(pj.sort === "created" ? uiText("own.pj-when-created", { when: pjWhen(p.created) }) : pj.sort === "modified" || !p.opened ? uiText("own.pj-when-modified", { when: pjWhen(p.modified) }) : uiText("own.pj-when-opened", { when: pjWhen(p.opened) }))}</span>
     </button>`).join("")
@@ -3783,7 +3942,7 @@ function pjDetailHtml(p) {
   const fact = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
   const tpl = p.template && pj.templates.find((t) => t.id === p.template);
   return `${pjThumbHtml(p, true)}
-    <label class="pj-field"><span>${uiText("term.name")}</span><input type="text" id="pjName" value="${escapeHtml(p.name)}" maxlength="120" spellcheck="false"></label>
+    <label class="pj-field"><span>${uiText("term.name")}</span><input type="text" id="pjName" value="${escapeHtml(shownProject(p.name))}" maxlength="120" spellcheck="false"></label>
     <dl class="pj-facts">
       ${fact(escapeHtml(uiText("own.pj-canvas")), p.unreadable ? "—" : pjCanvas(p))}
       ${fact(escapeHtml(uiText("own.pj-length")), escapeHtml((p.clips === 1 ? uiText("own.pj-length-value-1", { dur: pjFmtDur(p.duration), clips: 1, media: p.media }) : uiText("own.pj-length-value", { dur: pjFmtDur(p.duration), clips: p.clips, media: p.media }))))}
@@ -3915,7 +4074,7 @@ async function pjSaveField(field) {
   const el = $({ name: "pjName", notes: "pjNotes", tags: "pjTags" }[field]);
   if (!el) return;
   const v = el.value;
-  if (field === "name" && (!v.trim() || v.trim() === p.name)) { if (!v.trim()) el.value = p.name; return; }
+  if (field === "name" && (!v.trim() || v.trim() === p.name || v.trim() === shownProject(p.name))) { if (!v.trim()) el.value = shownProject(p.name); return; }
   if (field === "notes" && v === (p.notes || "")) return;
   if (field === "tags" && v === (p.tags || []).join(", ")) return;
   const out = await pjPost({ action: "update", id: p.id, [field]: field === "name" ? v.trim() : v });
@@ -3991,7 +4150,7 @@ function pjVersionsHtml() {
   return `<div class="ver-view">
     <div class="ver-head">
       <button type="button" class="btn tiny" data-ver-act="back">← All projects</button>
-      <h3>Versions of ${escapeHtml(p.name)}</h3>
+      <h3>Versions of ${escapeHtml(shownProject(p.name))}</h3>
     </div>
     <div class="ver-save">
       <input type="text" id="verName" maxlength="120" placeholder="Name (optional), e.g. Client cut" spellcheck="false" aria-label="Version name">
@@ -4366,6 +4525,9 @@ function undoRun(runId) {
 function undo() {
   if (!runtime.undo.length) return;
   const snap = runtime.undo.pop(), id = eventIdOf(snap);
+  // the assistant's reframe: back to the sequence it was made from, the copy deleted (no redo)
+  const rf = typeof snap === "string" && snap.includes('"agentReframeBack":') ? agentReframeBackOf(snap) : null;
+  if (rf) { if (undoAgentReframe(snap, rf)) { runtime.redo.length = 0; if (id) moveEvent(id, "undone"); } return; }
   runtime.redo.push(id ? withEventId(counterSnapshot(snap), id) : counterSnapshot(snap));
   if (id) moveEvent(id, "undone");
   restoreSnapshot(snap);
@@ -4533,12 +4695,9 @@ function audioChannelLong(ch) {
   if (!Number.isInteger(ch) || ch < 0) return null;
   return CHANNEL_LONG[ch] || `Channel ${ch + 1}`;
 }
-/** Default stereo pan for an isolated linked stem (L −1, R +1, else center). */
-function defaultPanForChannel(ch) {
-  if (ch === 0) return -1;
-  if (ch === 1) return 1;
-  return 0;
-}
+/** Default stereo pan for an isolated linked stem — one rule with edit-ops.js:
+ *  a mono source's only stem is centred; several stems go L −1, R +1, rest centre. */
+const defaultPanForChannel = MontClipEdit.defaultPanForChannel;
 function clipPan(v) { return clamp(+v || 0, -1, 1); }
 /** Grow A-tracks to at least `need` (capped at MAX_TRACKS_PER_KIND). Returns how many were added. */
 function ensureAudioTrackCount(need) {
@@ -4585,7 +4744,7 @@ function attachLinkedAudioChannels(videoClip, m, nCh) {
       id: "c_" + uid(), mediaId: m.id, kind: "audio", track: ids[ch],
       start: videoClip.start, in: videoClip.in, duration: videoClip.duration,
       name: videoClip.name,
-      props: { ...DEFAULT_PROPS, audioChannel: ch, pan: defaultPanForChannel(ch) },
+      props: { ...DEFAULT_PROPS, audioChannel: ch, pan: defaultPanForChannel(ch, n) },
       linkGroup: lg,
     };
     if (videoClip.props?.speed != null) a.props.speed = videoClip.props.speed;
@@ -4620,7 +4779,7 @@ function addClipFromMedia(m, trackId, at) {
   if (kind === "video") {
     c.props.volume = 0;
     c.linkGroup = "lg_" + uid();
-    const nCh = m.channels > 0 ? m.channels : 2;
+    const nCh = m.channels > 0 ? m.channels : m.audioChannels > 0 ? m.audioChannels : 2;
     const added = ensureAudioTrackCount(Math.min(nCh, MAX_TRACKS_PER_KIND));
     if (added) {
       toast(added === 1
@@ -4802,10 +4961,18 @@ async function reconcileAudioChannels(videoClip, onlyTargeted = false) {
     project.clips.push({
       id: "c_" + uid(), mediaId, kind: "audio", track: ids[ch],
       start: live.start, in: live.in, duration: live.duration, name: live.name,
-      props: { ...DEFAULT_PROPS, audioChannel: ch, pan: defaultPanForChannel(ch) },
+      props: { ...DEFAULT_PROPS, audioChannel: ch, pan: defaultPanForChannel(ch, wantCh) },
       linkGroup: lg,
     });
     added++;
+  }
+  // The drop planted a stereo placeholder before the file was decoded; a mono file
+  // keeps only channel 0, which still has the placeholder's hard-left pan. Centre it —
+  // only here, where this run just dropped the placeholder's other half, so a pan
+  // the user set on an existing stem is never touched.
+  if (removed && wantCh === 1) {
+    const only = project.clips.find((c) => c.linkGroup === lg && c.kind === "audio" && (c.props?.audioChannel ?? 0) === 0);
+    if (only && only.props.pan === defaultPanForChannel(0, 2) && !only.keyframes?.pan?.length) only.props.pan = defaultPanForChannel(0, 1);
   }
   if (!added && !removed) {
     if (newTracks > 0) scheduleSave();
@@ -4813,14 +4980,18 @@ async function reconcileAudioChannels(videoClip, onlyTargeted = false) {
   }
   state.dirtyTimeline = true;
   scheduleSave(); renderInspector();
+  // channels this clip actually has linked now — not wantCh (untargeted lanes are skipped on add)
+  // and not `added` (A1/A2 were linked before the decode resolved)
+  const linked = project.clips.filter((c) => c.linkGroup === lg && c.kind === "audio").length;
+  const say = (key, counts, vars) => MontClipView.tp(mcView.get().language, key, counts, vars);
   if (chCount > ids.length)
-    toast(`${m.name}: ${chCount} audio channels, only ${MAX_TRACKS_PER_KIND} tracks supported — extra channel(s) dropped`);
+    toast(say("own.channels-over-limit", { extra: chCount - MAX_TRACKS_PER_KIND }, { name: m.name, n: chCount, max: MAX_TRACKS_PER_KIND, extra: chCount - MAX_TRACKS_PER_KIND }));
   else if (added)
     toast(newTracks
-      ? `${m.name}: added ${newTracks} audio track${newTracks === 1 ? "" : "s"} and linked ${wantCh} channels`
-      : `Linked ${wantCh} audio channel${wantCh === 1 ? "" : "s"} from ${m.name}`);
+      ? say("own.channels-added-tracks", { tracks: newTracks }, { name: m.name, tracks: newTracks, linked })
+      : say("own.channels-linked", { linked }, { name: m.name, linked }));
   else if (removed)
-    toast(`${m.name} has fewer channels — removed ${removed} linked audio clip(s)`);
+    toast(say("own.channels-fewer", { n: removed }, { name: m.name, n: removed }));
 }
 /* Apply a named title style: reset the props a style owns, merge the style,
    place it (canvas-aware), and make sure its fonts are loaded.
@@ -5663,7 +5834,7 @@ function rebuildClips() {
     }
     const hasWave = c.kind === "audio" && !!wavePeaksFor(c);
     if (hasWave) body += `<canvas class="wave"></canvas>`;
-    const badge = (isMediaOffline(c.mediaId) ? "⚠ Offline · " : "") + (c.keyframes && Object.keys(c.keyframes).length ? "◆ " : "") +
+    const badge = (isMediaOffline(c.mediaId) ? uiText("own.off-clip") : "") + (c.keyframes && Object.keys(c.keyframes).length ? "◆ " : "") +
                   (c.transitionIn || c.transitionOut ? "⇄ " : "") +
                   (clipMatte(c) ? "◐ " : "");
     const chTag = (() => {
@@ -6198,6 +6369,8 @@ const SNAP_TARGET_LABELS = {
   clips: "Clip edges", playhead: "Playhead", markers: "Markers",
   inout: "IN / OUT", keyframes: "Keyframes", frames: "Frame grid",
 };
+const SNAP_TARGET_TERMS = { clips: "own.snap-clips", playhead: "own.snap-playhead", markers: "term.markers",
+  inout: "own.snap-inout", keyframes: "own.snap-keyframes", frames: "own.snap-frames" };
 function snapTargets() { return getSetting("snapTargets") || DEFAULT_SETTINGS.snapTargets; }
 /* → {t, hit}: `hit` is true when a target (not the frame grid) caught t.
    ignore: clip id, Set of ids, or null. opts.skipMarker: a marker being dragged. */
@@ -6258,9 +6431,9 @@ function openSnapMenu(anchor) {
   const menu = document.createElement("div");
   menu.className = "ctx-menu snap-menu";
   const on = snapTargets();
-  menu.innerHTML = `<div class="snap-menu-head dim">Snap to</div>` +
+  menu.innerHTML = `<div class="snap-menu-head dim">${escapeHtml(uiText("own.snap-to"))}</div>` +
     Object.entries(SNAP_TARGET_LABELS).map(([k, label]) =>
-      `<label class="ctx-item snap-opt"><input type="checkbox" data-snap="${k}"${on[k] ? " checked" : ""}> <span>${k === "markers" ? escapeHtml(uiText("term.markers")) : label}</span></label>`).join("");
+      `<label class="ctx-item snap-opt"><input type="checkbox" data-snap="${k}"${on[k] ? " checked" : ""}> <span>${escapeHtml(SNAP_TARGET_TERMS[k] ? uiText(SNAP_TARGET_TERMS[k]) : label)}</span></label>`).join("");
   menu.addEventListener("change", (e) => {
     const k = e.target.dataset.snap;
     if (k) toggleSnapTarget(k);
@@ -6986,7 +7159,7 @@ function openMarkerList(anchor) {
   menu.className = "ctx-menu marker-list";
   const list = project.markers || [];
   if (!list.length) {
-    menu.innerHTML = `<div class="marker-empty dim">No markers yet — press <kbd>M</kbd> at the playhead.</div>`;
+    menu.innerHTML = `<div class="marker-empty dim">${uiText("own.markers-empty")}</div>`; // repo-authored, with its <kbd>
   } else {
     menu.innerHTML = list.map((m, i) =>
       `<div class="marker-row" data-i="${i}">` +
@@ -8516,7 +8689,7 @@ function routeSourceChannels(ctx, src, m, nCh, audio, collect) {
 
     const panner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
     if (panner) {
-      panner.pan.value = defaultPanForChannel(ch);
+      panner.pan.value = defaultPanForChannel(ch, nCh);
       g.connect(panner);
       panner.connect(bus);
       collect(panner, "panner");
@@ -9982,9 +10155,10 @@ async function asrGetPunct() {
   await loadAsrStatus();
   paintSettingsAsr();
 }
-/** Transcribe one file in the local server, which saves its transcript. Resolves to {doc, saved}. */
-async function transcribeFile(src) {
-  const r = await fetch("/api/asr/transcribe", { method: "POST", body: JSON.stringify({ src }) });
+/** Transcribe one file in the local server, which saves its transcript. Resolves to {doc, saved}. `ranges`: only those
+ *  parts of it ([[from, to], …] file seconds — a long recording's clips), added to what its transcript covers. */
+async function transcribeFile(src, ranges = null, again = false) {
+  const r = await fetch("/api/asr/transcribe", { method: "POST", body: JSON.stringify({ src, ...(ranges ? { ranges } : {}), ...(again ? { again: true } : {}) }) });
   let j = {};
   try { j = await r.json(); } catch { }
   if (!r.ok) throw Object.assign(new Error(j.error || "transcription failed"), { code: j.code });
@@ -10007,14 +10181,14 @@ async function transcribeSrcs(srcs, opts = transcribeSettings(), beat = null) {
       paintTranscribeBusy();
       busy.beat();
       try {
-        const r = await transcribeFile(srcs[i]);
+        const r = await transcribeFile(srcs[i], (opts.ranges && opts.ranges[srcs[i]]) || null, !!opts.again);
         const gaps = r.doc.gaps || [];
         out.done.push({ src: srcs[i], words: r.doc.words.length, language: r.doc.language, saved: r.saved,
           status: gaps.length ? "partial" : "complete", gaps: gaps.length, gapSeconds: Math.round(gaps.reduce((t, g) => t + g[1] - g[0], 0) * 10) / 10 });
       } catch (e) {
         if (busy.cancel || e.code === "ASR_CANCELLED") { out.cancelled = true; break; }
         out.failed.push({ src: srcs[i], error: String((e && e.message) || e), code: e.code || null });
-        if (e.code === "ASR_MODEL_MISSING" || e.code === "ASR_ENGINE_MISSING") break;   // the rest would fail the same way
+        if (e.code === "ASR_MODEL_MISSING" || e.code === "ASR_ENGINE_MISSING" || e.code === "ASR_MANIFEST_MISSING") break;   // the rest would fail the same way
       }
     }
   } finally {
@@ -10057,7 +10231,9 @@ function transcribeTargets() {
   }
   const srcs = [...new Set(groups.map((g) => getMedia(g[0].mediaId).src))];
   const sel = srcs.filter((s) => picked.has(s));
-  return sel.length ? { srcs: sel, selected: true } : { srcs: srcs.filter((s) => transcriptCache.get(s) === false), selected: false };
+  // a transcript of some parts only (a long recording's clips) counts as none here: the whole file is wanted
+  const none = (s) => { const d = transcriptCache.get(s); return d === false || (!!d && !(d instanceof Promise) && Array.isArray(d.spans)); };
+  return sel.length ? { srcs: sel, selected: true } : { srcs: srcs.filter(none), selected: false };
 }
 /** What the words' places depend on: the timeline and the transcripts. */
 function transcriptWordsSig() {
@@ -10873,7 +11049,8 @@ async function autoRun() {
       const danmaku = autoDanmaku(m);
       run.phase = 1; tick();
       // 听写成文字: with subtitles on and the model installed, a recording without a transcript is transcribed (#70)
-      if (st.subs && autoSubMode() === "local" && !(await loadTranscript(m.src))) {
+      const had = st.subs && autoSubMode() === "local" ? await loadTranscript(m.src) : null;
+      if (st.subs && autoSubMode() === "local" && (!had || had.spans)) {
         try { await transcribeSrcs([m.src]); } catch { }
         if (run.stop) throw Object.assign(new Error("stopped"), { stopped: true });
       }
@@ -11496,6 +11673,12 @@ function autoPlace(clips, { select = null, fine = false } = {}) {
 }
 /** A toast with one button (the editor's toast is text only). The button acts once; the toast goes after 8 s. */
 let toastHold = null;
+/** Take the toast away now, with or without its button (VV, 2026-11-04: a new approval box came up over the last step's toast). */
+function dismissToast() {
+  clearTimeout(toastTimer); toastTimer = null;
+  if (toastHold) toastHold.stop();
+  if (els.toast) els.toast.classList.remove("show", "has-action");
+}
 function toastAction(msg, label, onClick, note = "") {
   if (!els.toast) return;
   els.toast.textContent = "";
@@ -11520,7 +11703,7 @@ function autoExportConfirm() {
     <div class="as-row"><button type="button" class="btn primary" data-as-act="ex-go">${autoSay("as-ex-go")}</button><button type="button" class="btn" data-as-act="ex-cancel">${autoSay("as-ex-cancel")}</button></div></section>`;
   AUTO.el.querySelector("[data-as-footer]").hidden = true;
 }
-function autoExport() {
+async function autoExport() {
   const st = autoState(), on = st.clips.filter((c) => c.on);
   const r = placeAutoSlices(on);
   if (!r.ok) { autoToast(uiText("own.as-place-failed", { why: r.why }), false); autoRender("review"); return; }
@@ -11529,6 +11712,7 @@ function autoExport() {
   let at = r.at0;
   const segments = on.map((c) => { const d = Math.round((c.e - c.s) * 1000) / 1000, s = { output: { start: at, end: Math.round((at + d) * 1000) / 1000 } }; at = s.output.end; return s; });
   const before = new Set(exportQueue.map((q) => q.id));
+  if (!deliveryInfo.encoders) await fetchDeliveryInfo();   // sliceDeliverySpec needs to know the encoders
   queueSlices(segments, names, { open: false });
   st.exportIds = exportQueue.filter((q) => !before.has(q.id)).map((q) => q.id);
   st.exportNames = on.map(autoName);
@@ -11703,23 +11887,25 @@ async function runTranscribeJob(ticket, fail) {
   const spec = ticket.transcribe || {};
   if (typeof MontClipTranscribe === "undefined") return fail("the transcript module is missing — reload the editor");
   if (trState.busy) return fail("this editor tab is already transcribing — wait for it, or cancel it there");
-  const srcs = [], skipped = [];
+  const srcs = [], skipped = [], ranges = spec.ranges || {};
   for (const src of spec.srcs || []) {
-    if (!spec.again && await loadTranscript(src, true)) { skipped.push(src); continue; }
+    const have = spec.again ? null : await loadTranscript(src, true);
+    // a long recording's clips (P8): only their windows, and only what its transcript does not cover yet
+    if (have && (ranges[src] ? !MontClipTranscribe.missingSpans(have, ranges[src]).length : !have.spans)) { skipped.push(src); continue; }
     srcs.push(src);
   }
   const report = (body, force) => fetch("/api/export/job/report?id=" + encodeURIComponent(ticket.id), { method: "POST", body: JSON.stringify(body) })
     .then((r) => r.json()).then((r) => { if (r?.cancel) cancelTranscribe(); }).catch(() => { });
   if (!srcs.length) return report({ status: "done", result: { done: [], skipped, failed: [] } });
   let last = 0;
-  const out = await transcribeSrcs(srcs, { model: MontClipTranscribe.model(spec.model), language: spec.language || null }, (f) => {
+  const out = await transcribeSrcs(srcs, { model: MontClipTranscribe.model(spec.model), language: spec.language || null, ranges, again: !!spec.again }, (f) => {
     const t = performance.now();
     if (t - last > 1000) { last = t; report({ progress: f }); }
   }).catch((e) => ({ done: [], failed: srcs.map((src) => ({ src, error: e.message })) }));
   for (const d of out.done) if (!d.saved) out.failed.push({ src: d.src, error: "transcribed, but the server didn't save it" });
   out.done = out.done.filter((d) => d.saved);
   if (out.cancelled) return report({ status: "failed", error: "cancelled" });
-  if (!out.done.length && out.failed.length) return fail(out.failed.map((f) => `${f.src}: ${f.error}`).join(" · "));
+  if (!out.done.length && out.failed.length) return fail(out.failed.map((f) => `${f.src}: ${f.error}${f.code ? ` (${f.code})` : ""}`).join(" · "));
   return report({ status: "done", result: { done: out.done, skipped, failed: out.failed } });
 }
 function clearSilences() {
@@ -14282,7 +14468,9 @@ function syncSequenceButton() {
   const n = SeqLib.entries(seqRoot()).length;
   b.querySelector(".seq-name").textContent = openSequenceName();
   b.querySelector(".seq-count").textContent = n > 1 ? String(n) : "";
-  b.title = `Sequence: ${openSequenceName()}${n > 1 ? ` (one of ${n})` : ""} — open another one, or add, duplicate, rename`;
+  // English keeps "(one of N)"; the Chinese line (Rea #327) has no count
+  b.title = mcView.get().language === "en" ? `Sequence: ${openSequenceName()}${n > 1 ? ` (one of ${n})` : ""} — open another one, or add, duplicate, rename`
+    : uiText("own.seq-button-title", { name: openSequenceName() });
 }
 /** The sequence menu: the project's sequences (click one to open it), then what to do with them. */
 function showSequenceMenu(x, y) {
@@ -14309,15 +14497,15 @@ function showSequenceMenu(x, y) {
   }
   sep();
   item(`<span>${escapeHtml(uiText("term.new-sequence"))}</span>`, () => promptNewSequence(x, y));
-  item(`<span>Highlights…</span>`, () => promptHighlights(x, y),
+  item(`<span>${escapeHtml(uiText("own.hl-menu"))}</span>`, () => promptHighlights(x, y),
     state.compCtx ? "Close the composition first" : !project.clips.some((c) => c.kind === "video") ? "Put video on the timeline first" : null);
-  item(`<span>Duplicate “${escapeHtml(shownName(open.name))}”</span>`, () => newSequence({ from: "open" }));
-  item(`<span>Rename “${escapeHtml(shownName(open.name))}”…</span>`, () => promptBinText(x, y, "Sequence name", open.name, (v) => renameSequence(openId, v), { max: 120, ok: "Rename" }));
-  item(`<span>Delete “${escapeHtml(shownName(open.name))}”…</span>`, (b) => {
+  item(`<span>${escapeHtml(uiText("own.seq-duplicate", { name: shownName(open.name) }))}</span>`, () => newSequence({ from: "open" }));
+  item(`<span>${escapeHtml(uiText("own.seq-rename", { name: shownName(open.name) }))}</span>`, () => promptBinText(x, y, "Sequence name", open.name, (v) => renameSequence(openId, v), { max: 120, ok: "Rename" }));
+  item(`<span>${escapeHtml(uiText("own.seq-delete", { name: shownName(open.name) }))}</span>`, (b) => {
     if (b.dataset.armed !== "1") { b.dataset.armed = "1"; b.querySelector("span").textContent = "Click again to delete it"; return; }
     hideTrackCtxMenu();
     deleteSequence(openId);
-  }, rows.length < 2 ? "A project keeps at least one sequence" : null, true);
+  }, rows.length < 2 ? uiText("own.seq-keep-one") : null, true);
   showPopover(menu, x, y);
 }
 /** New sequence: a name, a canvas, and whether it starts empty or as a copy of the open one. */
@@ -14374,13 +14562,13 @@ function promptHighlights(x, y) {
   const sizes = [{ label: `Same as “${openSequenceName()}” · ${project.width}×${project.height}`, w: 0, h: 0 }, ...ASPECT_PRESETS];
   const pop = document.createElement("div");
   pop.className = "ctx-menu bin-pop seq-new";
-  pop.innerHTML = `<label class="bin-pop-label" for="hlLen">Highlights</label>
+  pop.innerHTML = `<label class="bin-pop-label" for="hlLen">${escapeHtml(uiText("own.hl-title"))}</label>
     <select id="hlLen" class="bin-pop-input">${[15, 30, 60, 90].map((s) => `<option value="${s}" ${s === 30 ? "selected" : ""}>${s} s</option>`).join("")}</select>
     <label class="bin-pop-label" for="hlSize">Canvas</label>
     <select id="hlSize" class="bin-pop-input">${sizes.map((s, i) => `<option value="${i}">${escapeHtml(s.label)}</option>`).join("")}</select>
     <label class="seq-new-copy" title="Each shot is fitted to the new shape and keyed to keep what matters in it in view (Inspector → Reframe)"><input type="checkbox" id="hlFollow" checked> Follow the subject in each shot</label>
-    <div class="bin-pop-hint" data-hl-status>From ${from ? `the ${n} selected video clip${n === 1 ? "" : "s"}` : `every video clip on this timeline (${n})`}: the moments with the most movement and sound, in story order, never across a cut. They go into a new sequence; this one stays as it is.</div>
-    <div class="bin-pop-btns"><button type="button" class="btn tiny" data-cancel>Cancel</button><button type="button" class="btn tiny accent" data-ok ${n ? "" : "disabled"}>Make</button></div>`;
+    <div class="bin-pop-hint" data-hl-status>${escapeHtml(uiText("own.hl-desc"))}</div>
+    <div class="bin-pop-btns"><button type="button" class="btn tiny" data-cancel>${escapeHtml(uiText("term.cancel"))}</button><button type="button" class="btn tiny accent" data-ok ${n ? "" : "disabled"}>${escapeHtml(uiText("own.hl-make"))}</button></div>`;
   const size = () => sizes[+pop.querySelector("#hlSize").value] || sizes[0];
   const reshaped = () => { const s = size(); return !!(s.w && s.w * project.height !== s.h * project.width); };
   const syncFollow = () => { pop.querySelector("#hlFollow").closest("label").hidden = !reshaped(); };
@@ -15101,7 +15289,7 @@ function shapeKeyed(c) {
   const any = (list) => (list || []).some((it) => (it.keys && it.keys.length) || (it.type === "group" && any(it.items)));
   return any(c.props.shapes);
 }
-/** A missing file's picture: the box it would fill, marked "Media offline" (preview and export). */
+/** A missing file's picture: the box it would fill, marked 「找不到」 / "Media offline" (preview and export). */
 function drawOfflineSlate(c, p, W, H) {
   const m = getMedia(c.mediaId);
   const mw = m && m.width > 0 ? m.width : W, mh = m && m.height > 0 ? m.height : H, sc = p.scale || 1;
@@ -15118,7 +15306,7 @@ function drawOfflineSlate(c, p, W, H) {
   ctx2d.fillStyle = "#ff8a8d";
   ctx2d.textAlign = "center"; ctx2d.textBaseline = "middle";
   ctx2d.font = `700 ${fs}px "Segoe UI", system-ui, sans-serif`;
-  ctx2d.fillText("Media offline", 0, -fs * 0.35, dw * 0.9);
+  ctx2d.fillText(uiText("own.off-slate"), 0, -fs * 0.35, dw * 0.9);
   ctx2d.font = `400 ${fs * 0.42}px "Segoe UI", system-ui, sans-serif`;
   ctx2d.fillStyle = "#f2c4c5";
   ctx2d.fillText(m ? m.name : "", 0, fs * 0.55, dw * 0.9);
@@ -15541,7 +15729,7 @@ const Reframe = self.MontClipReframe;
 const reframeRun = { busy: false, cancel: false, done: 0, of: 0 };
 /** RGB frames of clip c (SAMPLE_FPS across its window; one for a still), w×h each. With `onRgb`,
  *  each frame goes to it as it is read and nothing is kept (a long shot needn't sit in memory). */
-async function sampleClipFrames(c, w, h, onFrame, onRgb, { fps = Reframe.SAMPLE_FPS, cancelled = () => reframeRun.cancel } = {}) {
+async function sampleClipFrames(c, w, h, onFrame, onRgb, { fps = Reframe.SAMPLE_FPS, times = null, cancelled = () => reframeRun.cancel } = {}) {
   const m = getMedia(c.mediaId);
   const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
   const x = cv.getContext("2d", { willReadFrequently: true });
@@ -15567,13 +15755,14 @@ async function sampleClipFrames(c, w, h, onFrame, onRgb, { fps = Reframe.SAMPLE_
       el.addEventListener("loadeddata", () => { clearTimeout(tm); res(); }, { once: true });
       el.addEventListener("error", () => { clearTimeout(tm); rej(new Error("the video could not be read")); }, { once: true });
     });
-    const n = Math.max(1, Math.floor(c.duration * clipSpeed(c) * fps + 1e-6));
-    const frames = [];
+    // times (seconds from the in point): a reframe's, with the clip's last frame (Reframe.sampleTimes); else fps a second
+    const at = Array.isArray(times) && times.length ? times : Array.from({ length: Math.max(1, Math.floor(c.duration * clipSpeed(c) * fps + 1e-6)) }, (_, i) => i / fps);
+    const n = at.length, frames = [];
     for (let i = 0; i < n; i++) {
       if (cancelled()) break;
-      await seekFrame(el, Math.max(0, (c.in || 0) + i / fps) + 0.001);
+      await seekFrame(el, Math.max(0, (c.in || 0) + at[i]) + 0.001);
       x.drawImage(el, 0, 0, w, h);
-      if (onRgb) onRgb(rgb()); else frames.push(rgb());
+      if (onRgb) onRgb(rgb(), at[i]); else frames.push(rgb());
       if (onFrame) onFrame(i + 1, n);
     }
     return frames;
@@ -15629,7 +15818,8 @@ async function reframeClips(clips, { follow = true, smooth = 0.5 } = {}) {
         const w = Reframe.SAMPLE_W, h = Math.max(8, Math.round(w * src.height / src.width / 2) * 2);
         // each frame is looked at as it is read, between seeks, so Cancel answers and nothing piles up
         const tr = Reframe.tracker(w, h);
-        await sampleClipFrames(c, w, h, (i, n) => { reframeRun.frac = i / n; if (i % 10 === 0) renderInspector(); }, (f) => tr.push(f));
+        await sampleClipFrames(c, w, h, (i, n) => { reframeRun.frac = i / n; if (i % 10 === 0) renderInspector(); }, (f, t) => tr.push(f, t),
+          { times: Reframe.sampleTimes(c.duration * clipSpeed(c), { frame: clipSpeed(c) / fps }) });
         if (reframeRun.cancel) break;
         samples = tr.samples;
       }
@@ -16728,7 +16918,7 @@ function shapeSectionHtml(c, p, row) {
   };
   let html = `<div class="insp-section" data-shape-section><h3>Shape layer</h3>
     <div class="cl-row">${Object.entries(SHAPE_PRESETS).map(([k, pre]) => btn(`data-sadd="${k}"`, "+ " + pre.label, `Add a ${pre.label.toLowerCase()} to this layer`, false, full)).join("")}
-      ${btn('data-stool="pen"', "Pen", "Click points on the monitor (drag to curve); click the first point to close, Enter for an open path", ui.tool === "pen", full)}</div>
+      ${btn('data-stool="pen"', uiText("term.pen"), "Click points on the monitor (drag to curve); click the first point to close, Enter for an open path", ui.tool === "pen", full)}</div>
     ${ui.tool === "pen" ? `<p class="cl-note">Pen: click to add points, drag to curve. Click the first point to close, Enter keeps the path open. Backspace / Ctrl+Z removes the last point, Esc cancels.</p>` : ""}
     ${list.length ? `<div class="cl-row shape-items">${chips}</div>` : ui.tool ? "" : `<p class="cl-note">No shapes yet — add one above.</p>`}
     ${slider("trimStart", 0, 100, 0.5, "%")}${slider("trimEnd", 0, 100, 0.5, "%")}${slider("trimOffset", -100, 100, 0.5, "%")}`;
@@ -17363,7 +17553,7 @@ function textPathSectionHtml(c, p, row) {
   const btn = (attr, label, title, on, dis) => `<button type="button" class="btn tiny${on ? " toggle on" : ""}" ${attr} title="${title}" ${dis ? "disabled" : ""}>${label}</button>`;
   return `<div class="insp-section" data-textpath-section><h3>Text path</h3>
     <div class="cl-row">${Object.entries(TEXT_PATH_PRESETS).map(([k, pre]) => btn(`data-tpath="${k}"`, pre.label, `Set the title on ${/^[aeiou]/i.test(pre.label) ? "an" : "a"} ${pre.label.toLowerCase()}`)).join("")}
-      ${btn('data-tpath="pen"', "Pen", "Draw the path on the monitor: click points (drag to curve), Enter to finish, click the first point to close it", shapeUi.clip === c.id && shapeUi.tool === "pen")}</div>
+      ${btn('data-tpath="pen"', uiText("term.pen"), "Draw the path on the monitor: click points (drag to curve), Enter to finish, click the first point to close it", shapeUi.clip === c.id && shapeUi.tool === "pen")}</div>
     ${has ? `<div class="cl-row">${btn('data-tpath="edit"', "Edit path", "Show the path's points and handles on the monitor", editing)}${btn('data-tpath="off"', "Remove", "Back to a normal title")}</div>
       ${row("Offset", `<input type="range" data-k="pathOffset" min="-100" max="200" step="0.5" value="${fmtInspNum(p.pathOffset, 0.5)}" title="Slide the text along the path, % of its length — key it to make the text travel">
         <span class="val" data-val="pathOffset" data-unit="%">${fmtInspNum(p.pathOffset, 0.5)}%</span>`, "pathOffset")}
@@ -18617,7 +18807,9 @@ function deliveryFrame(spec) {
   return Delivery.reframe(spec, cv.w, cv.h, cv.region);
 }
 /** The project's name as a file name: Chinese kept, only what Windows cannot have replaced. */
-const exportBaseName = (fallback) => Delivery.fileSafeName(project.name, MontClipView.exportFallback(mcView.get().language, fallback));
+/** An export's file name from the project's name — never a default one (P7: then the first media's name, else MontClip, and the date). */
+const exportBaseName = (fallback) => Delivery.fileSafeName(MontClipView.exportProjectName(project.name, (project.media || []).map((m) => m.name)),
+  MontClipView.exportFallback(mcView.get().language, fallback));
 function deliveryFileName(spec, fps) {
   const fr = deliveryFrame(spec);
   return Delivery.renderFilename(spec.filename, spec, {
@@ -18937,12 +19129,20 @@ async function openExportSetup() {
     warn.textContent = "";
     warn.classList.add("hidden");
   }
-  // missing files export as their "Media offline" slate — say so before the render
+  // missing files export as their 「找不到」 slate, silent — say so before the render, with a way to find them (JJ, 2026-11-05)
   const offUsed = project.media.filter((m) => isMediaOffline(m.id) && MediaLib.placements(usageDoc(), m.id).length);
-  if (offUsed.length && warn) {
-    warn.textContent = (warn.textContent ? warn.textContent + " " : "") +
-      `${offUsed.length === 1 ? `“${offUsed[0].name}” is` : offUsed.length + " files are"} offline and will export as “Media offline” — relink first (right-click in the bin → Relink…).`;
-    warn.classList.remove("hidden");
+  let offWarn = $("exportOfflineWarn");
+  if (!offWarn && $("exportSetupTitle")) {   // under the title: seen before anything else, without scrolling
+    offWarn = document.createElement("div");
+    offWarn.id = "exportOfflineWarn"; offWarn.className = "export-track-warn export-offline-warn hidden"; offWarn.setAttribute("role", "status");
+    $("exportSetupTitle").after(offWarn);
+  }
+  if (offWarn) {
+    offWarn.classList.toggle("hidden", !offUsed.length);
+    offWarn.innerHTML = offUsed.length ? `<span>${escapeHtml(offUsed.length === 1 ? uiText("own.off-export-one") : uiText("own.off-export", { n: offUsed.length }))}</span>
+      <span class="export-offline-actions"><button type="button" class="btn tiny accent" data-off-find>${escapeHtml(uiText("own.off-find-first"))}</button><button type="button" class="btn tiny" data-off-go>${escapeHtml(uiText("own.off-export-anyway"))}</button></span>` : "";
+    offWarn.querySelector("[data-off-find]")?.addEventListener("click", () => { closeExportSetup(); openRelinkDialog(offUsed); });
+    offWarn.querySelector("[data-off-go]")?.addEventListener("click", () => startChosenExport());
   }
   fillExportRangeSelect();
   syncExportRangeUi();
@@ -19796,15 +19996,56 @@ function encodeWAV(buf) {
    (clip chains → track buses → master fader), honoring volume / pan keyframes
    and fades. t0/t1 are timeline seconds (export window); mix time 0 is t0. */
 const FX_AUTOMATION_STEP = 0.02; // export automation resolution, seconds
+/* The export mix asks the server for only the part of each file it plays (/api/audio-window), on the container's clock.
+   Every local file goes this way (QQ, 2026-11-05): decodeAudioData on a whole file put a late-starting audio stream's
+   sound 60–80 ms early, so short files and long ones would have been mixed with two different offsets. It also never
+   decodes a 2-hour recording whole in the tab (europa, 2026-11-04). Only without a server does it decode the file. */
+const AUDIO_WINDOW_PAD = 0.5;
+/* A clip whose sound could not be decoded used to be dropped from the mix, and the export came out silent and said
+   it succeeded (europa, 2026-11-04). Now the export stops and says which clip (Deja, 2026-11-05). Only clips that are
+   heard count: a linked video's picture (volume 0) or a file with no audio stream never stop an export. */
+function exportAudioHeard(c, m) {
+  if (m && m.audioChannels === 0) return false;
+  return c.kind === "audio" || !(c.props && c.props.volume === 0);
+}
+/** The first heard clip that failed → an Error for the export, in the interface language; else null. */
+function exportMixFailure(results) {
+  const bad = results.find((r) => r && r.failed && r.heard);
+  if (!bad) return null;
+  return Object.assign(new Error(uiText("own.export-audio-failed", { name: bad.c.name || bad.c.id || "" })), { code: "EXPORT_AUDIO_FAILED" });
+}
+/** → {buf, at}: an AudioBuffer of clip c's audio for timeline a…b, and the media time its first sample is at. */
+async function exportAudioSource(m, c, a, b, windows = new Map()) {
+  if (state.connected && !isCrossOriginSrc(m.src)) {
+    const m0 = Math.min(mediaTimeAt(c, a), mediaTimeAt(c, b)), m1 = Math.max(mediaTimeAt(c, a), mediaTimeAt(c, b));
+    const from = Math.max(0, Math.floor((m0 - AUDIO_WINDOW_PAD) * 1000) / 1000), to = Math.ceil((m1 + AUDIO_WINDOW_PAD) * 1000) / 1000;
+    if (to - from <= 3600) {
+      const key = `${m.src}|${from}|${to}`;
+      if (!windows.has(key)) windows.set(key, fetch(`/api/audio-window?src=${encodeURIComponent(m.src)}&from=${from}&to=${to}`)
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error("audio window " + r.status))))
+        .then((ab) => getDecodeCtx().decodeAudioData(ab)).catch((e) => { console.warn("[MontClip] audio window failed, decoding the whole file:", e && e.message); return null; }));
+      const buf = await windows.get(key);
+      if (buf) return { buf, at: from };
+    }
+  }
+  return { buf: await getAudioBuffer(m), at: 0 };
+}
 async function renderAudioMix(t0, t1, opts = {}) {
-  const jobs = [];
+  const jobs = [], windows = new Map();
   for (const c of mediaClips()) {
     if (c.kind !== "audio" && c.kind !== "video") continue;
     if (!clipRenders(c)) continue;
-    const m = getMedia(c.mediaId); if (!m) continue;
-    jobs.push(getAudioBuffer(m).then((buf) => ({ c, buf })).catch(() => null));
+    const m = getMedia(c.mediaId);
+    if (!m || isMediaOffline(m.id)) continue;   // silent, even when its sound was decoded before it went missing
+    const a = Math.max(c.start, t0), b = Math.min(c.start + c.duration, t1);
+    if (b - a <= 1e-6) continue;
+    jobs.push(exportAudioSource(m, c, a, b, windows).then(({ buf, at }) => ({ c, buf, at }))
+      .catch((e) => ({ c, failed: e, heard: exportAudioHeard(c, m) })));
   }
-  const sources = (await Promise.all(jobs)).filter(Boolean);
+  const results = await Promise.all(jobs);
+  const failed = exportMixFailure(results);
+  if (failed && !opts.raw) throw failed;
+  const sources = results.filter((r) => r && !r.failed);
   if (!sources.length) return null;
   const dur = Math.max(0, t1 - t0);
   if (dur <= 0) return null;
@@ -19816,7 +20057,7 @@ async function renderAudioMix(t0, t1, opts = {}) {
   mix.masterOut.connect(off.destination);
   let scheduled = false;
   const exportChains = [];
-  for (const { c, buf } of sources) {
+  for (const { c, buf, at } of sources) {
     const a = Math.max(c.start, t0), b = Math.min(c.start + c.duration, t1);
     if (b - a <= 1e-6) continue;
     const mixWhen = Math.max(0, a - t0);
@@ -19847,12 +20088,12 @@ async function renderAudioMix(t0, t1, opts = {}) {
       for (let i = 0; i < n; i++)
         rc[i] = clamp(kfChannel(c, "speed", local0 + (i / (n - 1)) * mixDur, clipSpeed(c)), 0.1, 8);
       src.playbackRate.setValueCurveAtTime(rc, mixWhen, Math.max(0.01, mixDur));
-      src.start(mixWhen, Math.max(0, mediaTimeAt(c, a)));
+      src.start(mixWhen, Math.max(0, mediaTimeAt(c, a) - at));
       src.stop(mixWhen + mixDur);
     } else {
       const sp = clipSpeed(c);
       src.playbackRate.value = sp;
-      src.start(mixWhen, Math.max(0, c.in + local0 * sp), mixDur * sp);
+      src.start(mixWhen, Math.max(0, c.in + local0 * sp - at), mixDur * sp);
     }
     scheduled = true;
   }
@@ -19929,12 +20170,14 @@ async function fastExport(opts = {}) {
       body: JSON.stringify(delivery ? {
         fps, duration: frames / fps,
         deliveries: deliveries.map((d) => ({ delivery: d.delivery, name: d.name || deliveryFileName(d.delivery, fps) })),
-        canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav,
+        canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav, job,
       } : {
         fps,
+        frames,
         name: exportBaseName("export"),
         profile: profileId,
         hasAudio: !!wav,
+        job,
       }),
       signal,
     }).then((r) => r.json());
@@ -20015,7 +20258,7 @@ async function fastExport(opts = {}) {
       els.exportProgress.style.width = pct.toFixed(1) + "%";
       els.exportTitle.textContent = uiText("own.rendering-pct", { pct: pct.toFixed(0) });
       if (opts.onProgress) opts.onProgress(0.97 * (f + 1) / frames);
-      if (job) reportExportJob(job, { progress: 0.97 * (f + 1) / frames });
+      if (job) reportExportJob(job, { progress: 0.97 * (f + 1) / frames, at: +t.toFixed(2) });
     }
     await pixelChain;
     if (uploadError) throw uploadError;
@@ -20044,10 +20287,14 @@ async function fastExport(opts = {}) {
     else saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true });
   } catch (e) {
     if (sessId) fetch("/api/export/end?id=" + sessId + "&discard=1", { method: "POST" }).catch(() => { });
-    const msg = e?.name === "AbortError" ? "cancelled" : String(e.message || e);
+    const unsupportedProfile = e?.code === "PROFILE_FILTER_MAPPING_UNSUPPORTED";
+    // JJ final copy (#190): one full sentence for alert and queue; the
+    // technical code stays only in the structured result for logs.
+    const msg = unsupportedProfile ? uiText("own.export-profile-unsupported")
+      : e?.name === "AbortError" ? "cancelled" : String(e.message || e);
     result = { error: msg, code: e && e.code, params: e && e.params, featurePack: e && e.featurePack, cancelled: msg === "cancelled" };
     if (job) await reportExportJob(job, { status: "failed", error: msg }, true);
-    else if (msg !== "cancelled" && !opts.silent) sayExportFailure(e);
+    else if (msg !== "cancelled" && !opts.silent) { if (unsupportedProfile) alert(msg); else sayExportFailure(e); }
   } finally {
     exportAbort = null;
     exportFullCanvas = false;
@@ -20090,9 +20337,20 @@ function queueAdd(spec, name) {
 }
 /** Slices from an applied keep_ranges per_range proposal: one queue item per range, each its own file. An item
  *  remembers the timeline it was made from and refuses to render once the timeline is different (Undo, an edit). */
-function queueSlices(segments, names, { open = true } = {}) {
+/* The delivery spec auto-slices export with. When nobody chose one (the master default) and this machine's only H.264
+   encoder is libx264 (no graphics card: europa), x264 runs at veryfast instead of slow, CRF unchanged — the frame phase
+   of a 30 s slice went from 67 s to 36 s; the files come out somewhat larger (Deja, 2026-11-05). A graphics-card or
+   Windows encoder, a preset the user or the project chose, and encoders not known yet are left alone. */
+function sliceDeliverySpec() {
   const choice = exportChoice();
+  const chosen = choice.kind === "delivery" && choice.source !== "default";
   const spec = normalizeDelivery(choice.kind === "delivery" ? choice.spec : Delivery.DEFAULT_PRESET).spec;
+  const enc = deliveryInfo.encoders ? Delivery.encodersFor("h264", new Set(deliveryInfo.encoders)) : null;
+  if (chosen || !enc || enc.length !== 1 || enc[0] !== "libx264" || spec.video.encoder !== "libx264") return spec;
+  return normalizeDelivery({ ...spec, video: { ...spec.video, speed: "fast" } }).spec;
+}
+function queueSlices(segments, names, { open = true } = {}) {
+  const spec = sliceDeliverySpec();
   const guard = JSON.stringify(project.clips);
   segments.forEach((s, i) => exportQueue.push({
     id: "q" + Math.random().toString(36).slice(2, 8), label: queueLabel(spec), spec, name: names[i],
@@ -21017,7 +21275,8 @@ function filterHelp() {
     const h3 = sec.querySelector("h3");
     // a translated layer still answers English searches: match the shown text AND the saved
     // English source (the heading's keyed English, and each cell's stashed original markup)
-    const headEn = h3 && (h3.dataset.i18n || h3.dataset.i18nTail) ? MontClipView.t("en", h3.dataset.i18n || h3.dataset.i18nTail) : "";
+    const headEn = h3 ? [h3, ...h3.querySelectorAll("[data-i18n]")].map((el) => (el.dataset.i18n || el.dataset.i18nTail
+      ? MontClipView.t("en", el.dataset.i18n || el.dataset.i18nTail) : "")).join(" ") : "";
     const head = ((h3 ? h3.textContent : "") + " " + headEn).toLowerCase();
     let shown = 0;
     for (const tr of sec.querySelectorAll("tr")) {
@@ -21065,6 +21324,8 @@ function onSettingsTabTrap(e) {
 function openSettings() {
   const cb = $("setLinkSelect");
   if (cb) cb.checked = !!getSetting("linkSelect");
+  const sf = $("setSoundFactsOn");
+  if (sf) sf.checked = soundFactsOn();
   const overlay = $("settingsOverlay");
   overlay.classList.remove("hidden");
   overlay.addEventListener("keydown", onSettingsTabTrap);
@@ -21128,6 +21389,12 @@ function closeTopOverlay() {
   else return false;
   return true;
 }
+/** 「附上唱歌段和音量」 (QQ on #169): on unless switched off in 设置. Off, no sound numbers are read or sent. */
+function soundFactsOn() { return mcView.get().soundFacts !== false; }
+$("setSoundFactsOn")?.addEventListener("change", (e) => {
+  mcView.set({ soundFacts: !!e.target.checked });
+  if (!e.target.checked) runtime.soundFacts = null;
+});
 $("setLinkSelect").addEventListener("change", (e) => {
   setSetting("linkSelect", !!e.target.checked);
   if (!getSetting("linkSelect")) {
@@ -23172,6 +23439,16 @@ function agentProposalStep(response,result){
  if(ev)proposal.eventId=ev.id;
  return {proposal,ev,c,version};
 }
+/** A reply's proposal that, checked against the project as it is now, would leave the timeline as it is (chat-proposal.js
+ *  unchanged): {duration} of the timeline now, so the pane shows no 〔查看剪辑建议〕 and says so; null otherwise (also for one
+ *  the check refuses — the button then reports why, as before). Records nothing. */
+function agentProposalUnchanged(result){
+ try{
+  const c=agentProjectContext();if(JSON.stringify(result.context)!==JSON.stringify(c))return null;
+  const p=MontClipProposal.prepare(MontClipConversation.parseProposal(result.text),{doc:projectJSON(),context:{...c,generation:c.gen},references:result.references||[]});
+  return p.unchanged?{duration:p.duration}:null;
+ }catch{return null;}
+}
 /* P4: the assistant's permission mode (agent-policy.js; docs/decisions/2026-11-03-agent-permission-modes.md). The main
    process keeps the mode and the approvals (window.montclipAgentPolicy); the page shows the switch, the Yolo mark and the
    host's approval box. Without the desktop host there is no mode: replies wait for 〔查看剪辑建议〕 as before. */
@@ -23187,6 +23464,8 @@ function paintAgentMode(){const mark=document.getElementById('mcYoloMark');if(ma
 /** The host's approval box (QQ 4: only the host shows it). It shows the capability's plain sentence (never its internal
  *  name), what it changes or where it sends, and for an external step what is sent. Resolves to once | session | deny. */
 function askAgentApproval(d,{summary='',content=null,detail=''}={}){
+ // the last step's toast goes first, so the two never sit one over the other (VV)
+ dismissToast();
  return new Promise((resolve)=>{
   const dialog=document.createElement('dialog');dialog.className='agent-approval';dialog.setAttribute('data-agent-approval','');
   const say=(k,v)=>escapeHtml(uiText(k,v)),choice=(c)=>'<button type="button" class="btn'+(c==='once'?' primary':'')+'" data-choice="'+c+'">'+say('own.ap-'+c)+'</button>';
@@ -23219,6 +23498,7 @@ function agentRefusalText(d,bytes=0){
 /** The plain summary of a proposal for the approval box. */
 function agentProposalText(result){
  const p=MontClipConversation.proposalSummary(result.text,result.references||[]);if(!p)return '';
+ if(p.mode==='reframe')return uiText('own.ap-sum-reframe',{aspect:p.aspect});
  return uiText(p.mode==='per_range'?'own.ap-sum-slices':p.mode?'own.ap-sum-ranges':'own.ap-sum-sentences',{count:p.count,duration:MontClipConversation.durationText(p.duration)});
 }
 /** P4: a reply that is a usable proposal is the AI's step. The main process says what happens to it, from the mode and the
@@ -23229,13 +23509,19 @@ async function onAgentReply(result){
  if(!window.montclipAgentPolicy||!result||typeof result.text!=='string')return;
  let response;try{response=MontClipConversation.parseProposal(result.text);}catch{return;}
  if(!response||!MontClipConversation.proposalSummary(result.text,result.references||[]))return;
+ if(response.type==='reframe'){await agentReframeFlow(response,result);return;}
+ // nothing to do: not applied in any mode; the pane says so where the button would be
+ if(agentProposalUnchanged(result))return;
  let d;try{d=await window.montclipAgentPolicy.decide({sessionId:result.sessionId,capability:response.type,target:{kind:'project',value:runtime.projectId}});}catch{d=null;}
  if(!d||!d.ok){toast(uiText('own.ap-refused-mode'));return;}
  if(MontClipPolicy.MODES.includes(d.mode)&&d.mode!==agentPolicy.mode){agentPolicy.mode=d.mode;paintAgentMode();}
  if(d.action==='list'){toast(uiText('own.ap-listed'));return;}
  if(d.action==='refuse'){toast(agentRefusalText(d));return;}
  let step;try{step=agentProposalStep(response,result);}catch(error){toast(uiText(error.message==='STALE'?'own.ap-stale':'own.ap-invalid'));return;}
- if(d.action==='ask'){
+ // the toast after applying says why it ran (JJ's words, 2026-11-04): asked now and approved; allowed earlier for this chat
+ // (d.byApproval, 「这个聊天中都批准」); or run by 自动 / Yolo without asking
+ const asked=d.action==='ask';
+ if(asked){
   const choice=await askAgentApproval(d,{summary:agentProposalText(result),detail:MontClipPlan.stepDetail({capability:response.type,args:response},mcView.get().language)});
   let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}
   if(!a||!a.ok||!a.run){if(step.ev)moveEvent(step.ev.id,'rejected');toast(uiText('own.ap-denied'));return;}
@@ -23252,8 +23538,128 @@ async function onAgentReply(result){
  let plan;try{plan=MontClipRangePlan.create(projectJSON(),proposal.keep);plan.keep=proposal.keep;}catch{if(ev)moveEvent(ev.id,'failed');toast(uiText('own.ap-invalid'));return;}
  const token=commitRangePlan(plan,proposal);
  officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});
- toastAction(uiText('own.ap-applied',{mode:MontClipPolicy.modeLabel(agentPolicy.mode,mcView.get().language)}),uiText('own.ap-undo'),()=>{if(canUndoOfficialProposal(result)){if(!ev||!undoEvent(ev.id).ok)undo();}});
+ toastAction(asked?uiText('own.ap-applied-approved'):d.byApproval?uiText('own.ap-applied-allowed'):uiText('own.ap-applied',{mode:MontClipPolicy.modeLabel(agentPolicy.mode,mcView.get().language)}),uiText('own.ap-undo'),()=>{if(canUndoOfficialProposal(result)){if(!ev||!undoEvent(ev.id).ok)undo();}});
  mcAgent.render();
+}
+/* The assistant's reframe (Deja, 2026-11-05): {"type":"reframe","aspect"} → a copy of the open sequence on that shape whose
+   shots follow the subject (reframe.js, as the editor's New sequence… and fablecut_reframe), opened. The streamer confirms
+   it every time, in every mode (capabilities.js CONFIRM_EVERY_TIME). The footage is read first, with a progress line and
+   〔取消〕 that stay on screen (Yolo too); nothing is made until it has all been read, so 〔取消〕, a failure or an edit
+   meanwhile leave no half-made sequence. Then, at once: the copy is added and opened, the plans written to its clips, and
+   one undo step put on its history that deletes it and opens the original again (the sequence's own undo cannot reach
+   the other sequence, so this step does it; it has no redo). */
+const agentReframeRun={busy:false,cancel:false,el:null};
+function agentReframeProgress(text){
+ let el=agentReframeRun.el;
+ if(!el){
+  el=document.createElement('dialog');el.className='agent-approval agent-reframe-progress';el.setAttribute('data-agent-reframe','');
+  el.innerHTML='<p data-rf-progress></p><div class="tr-row"><button type="button" class="btn" data-rf-cancel></button></div>';
+  el.querySelector('[data-rf-cancel]').textContent=uiText('own.rf-cancel');
+  el.querySelector('[data-rf-cancel]').addEventListener('click',()=>{agentReframeRun.cancel=true;el.querySelector('[data-rf-cancel]').disabled=true;});
+  el.addEventListener('cancel',(e)=>e.preventDefault());
+  document.body.append(el);el.show();agentReframeRun.el=el;
+ }
+ el.querySelector('[data-rf-progress]').textContent=text;
+}
+function agentReframeDone(){if(agentReframeRun.el){agentReframeRun.el.remove();agentReframeRun.el=null;}}
+/** Read the footage, then make and open the copy. → {ok:true, sequence, name} | {ok:false, code}. */
+async function runAgentReframe(aspect,{eventId=null,token=null}={}){
+ if(state.exporting||state.gesture||reframeRun.busy||agentReframeRun.busy)return {ok:false,code:'BUSY'};
+ if(state.compCtx)exitComp(state.compCtx.path.length);
+ if(SeqLib.entries(seqRoot()).length>=SeqLib.MAX)return {ok:false,code:'SEQUENCE_LIMIT'};
+ let canvas;try{canvas=Reframe.canvasFor(aspect,project.width,project.height);}catch{return {ok:false,code:'INVALID'};}
+ const {take}=Reframe.targets({clips:project.clips,lockedTracks:[...state.lockedTracks]},{});
+ if(!take.length)return {ok:false,code:'NOTHING'};
+ Object.assign(agentReframeRun,{busy:true,cancel:false});
+ const fps=projectFps()||30,gen=runtime.projectGen,seqId=SeqLib.activeId(seqRoot()),size=JSON.stringify([project.width,project.height]),lanes=JSON.stringify([...state.lockedTracks]);
+ const stamp=(c)=>{const m=getMedia(c.mediaId)||{};return JSON.stringify([c.mediaId,m.src,m.width,m.height,c.track,c.start,c.in,c.duration,!!c.locked,c.props||{},c.keyframes||{}]);};
+ const stamps=new Map(take.map((c)=>[c.id,stamp(c)])),plans=[],snapshot=JSON.stringify(projectJSON());
+ const say=(i,frac)=>agentReframeProgress(uiText('own.rf-progress',{aspect,n:i+1,of:take.length,pct:Math.round(frac*100)}));
+ let failed=false,reading=null;
+ try{
+  for(let i=0;i<take.length&&!agentReframeRun.cancel;i++){
+   const c=take[i];reading=c;say(i,0);
+   const src=await pictureSize(c),cover=Reframe.coverRect(src.width,src.height,canvas.width,canvas.height,1);
+   let samples=null;
+   if(Math.max(cover.maxX,cover.maxY)>0.5){
+    const w=Reframe.SAMPLE_W,h=Math.max(8,Math.round(w*src.height/src.width/2)*2),tr=Reframe.tracker(w,h);
+    await sampleClipFrames(c,w,h,(k,n)=>{if(k%5===0)say(i,k/n);},(f,t)=>tr.push(f,t),{times:Reframe.sampleTimes(c.duration*clipSpeed(c),{frame:clipSpeed(c)/fps}),cancelled:()=>agentReframeRun.cancel});
+    samples=tr.samples;
+   }
+   if(agentReframeRun.cancel)break;
+   plans.push({id:c.id,...Reframe.clipPlan(c,samples,src,canvas,{smooth:0.5,fps,follow:true})});
+  }
+ }catch{failed=true;}
+ finally{agentReframeRun.busy=false;agentReframeDone();}
+ // the clip whose file couldn't be read, by the name the bin shows (never a path)
+ const failedName=()=>{const m=reading&&getMedia(reading.mediaId);const n=m&&typeof m.name==='string'?m.name.split(/[\\/]/).pop().trim():'';return n||null;};
+ if(agentReframeRun.cancel){agentReframeRun.cancel=false;return {ok:false,code:'CANCELLED'};}
+ if(failed||!plans.length)return {ok:false,code:'FAILED',...(failed&&failedName()?{name:failedName()}:{})};
+ if(snapshot!==JSON.stringify(projectJSON())||gen!==runtime.projectGen||seqId!==SeqLib.activeId(seqRoot())||size!==JSON.stringify([project.width,project.height])||(projectFps()||30)!==fps||
+   lanes!==JSON.stringify([...state.lockedTracks])||plans.some((p)=>{const c=getClip(p.id);return !c||stamp(c)!==stamps.get(p.id);}))return {ok:false,code:'CHANGED'};
+ if(state.exporting||state.gesture)return {ok:false,code:'BUSY'};
+ // made in one go: add the copy, open it, write the plans
+ const back=seqId,backName=openSequenceName(),name=(backName+' '+aspect).slice(0,120);
+ const doc=projectJSONHere();let s;
+ try{s=SeqLib.add(doc,{name,from:'open',width:canvas.width,height:canvas.height});}catch{return {ok:false,code:'FAILED'};}
+ project.sequences=doc.sequences;project.sequence=doc.sequence;
+ if(!openSequence(s.id)){const d2=projectJSONHere();try{SeqLib.remove(d2,s.id);}catch{}project.sequences=d2.sequences||null;project.sequence=d2.sequence||null;scheduleSave();return {ok:false,code:'BUSY'};}
+ for(const p of plans){
+  const c=getClip(p.id);if(!c)continue;
+  for(const [k,v] of Object.entries(p.set.props||{})){if(v!==null)c.props[k]=v;else if(Object.hasOwn(DEFAULT_PROPS,k))c.props[k]=DEFAULT_PROPS[k];else delete c.props[k];}
+  if('keyframes' in p.set){if(p.set.keyframes===null)delete c.keyframes;else c.keyframes=p.set.keyframes;}
+ }
+ if(eventId)moveEvent(eventId,'applied',{revision:null});
+ pushUndo(JSON.stringify({agentReframeBack:{sequence:s.id,back,aspect,backName},...(token?{agentApplyId:token}:{})}),eventId?{eventId}:{capability:'reframe',args:{aspect}});
+ state.dirtyTimeline=true;scheduleSave();renderInspector();syncCompCrumb();
+ return {ok:true,sequence:s.id,name};
+}
+/** The undo step runAgentReframe puts on the copy's history, or null. */
+function agentReframeBackOf(snap){
+ if(typeof snap!=='string'||!snap.includes('"agentReframeBack":'))return null;
+ try{const v=JSON.parse(snap).agentReframeBack;return v&&typeof v.sequence==='string'&&typeof v.back==='string'?v:null;}catch{return null;}
+}
+/** Undo of the reframe: open the original sequence again, then delete the copy (its undo history goes with it). */
+function undoAgentReframe(snap,b){
+ if(SeqLib.activeId(seqRoot())!==b.sequence||!SeqLib.find(seqRoot(),b.back)||!openSequence(b.back)){runtime.undo.push(snap);toast(uiText('own.rf-undo-failed',{name:shownName(b.backName||'')}));return false;}
+ const doc=projectJSONHere();
+ try{SeqLib.remove(doc,b.sequence);}catch{}
+ project.sequences=doc.sequences||null;project.sequence=doc.sequence||null;
+ runtime.seqUndo.delete(b.sequence);
+ syncCompCrumb();scheduleSave();renderInspector();
+ toast(uiText('own.rf-undone',{aspect:b.aspect||'',name:shownName(b.backName||'')}));
+ return true;
+}
+/** A reframe reply: the host's decision (it asks every time), the streamer's yes in the host's box, then the work. */
+const agentReframeFlows=new WeakSet();
+async function agentReframeFlow(response,result){
+ if(agentReframeFlows.has(result)||officialProposalApplications.has(result))return;
+ agentReframeFlows.add(result);
+ const lang=mcView.get().language;
+ try{
+  let d=null;
+  if(window.montclipAgentPolicy){
+   try{d=await window.montclipAgentPolicy.decide({sessionId:result.sessionId,capability:'reframe',target:{kind:'project',value:runtime.projectId}});}catch{d=null;}
+   if(!d||!d.ok){toast(uiText('own.ap-refused-mode'));return;}
+   if(MontClipPolicy.MODES.includes(d.mode)&&d.mode!==agentPolicy.mode){agentPolicy.mode=d.mode;paintAgentMode();}
+   if(d.action==='list'){toast(uiText('own.ap-listed'));return;}
+   if(d.action!=='ask'){toast(agentRefusalText(d));return;}
+  }
+  let step;try{step=agentProposalStep(response,result);}catch(error){toast(uiText(error.message==='STALE'?'own.ap-stale':error.message==='PROPOSAL_UNCHANGED'?'own.rf-same':'own.ap-invalid'));return;}
+  const {proposal,ev}=step,aspect=proposal.aspect;
+  const box=d||{choices:['once','deny'],label:MontClipCapabilities.label('reframe',lang),risk:'sensitive'};
+  const choice=await askAgentApproval(box,{summary:uiText('own.ap-sum-reframe',{aspect}),detail:MontClipPlan.stepDetail({capability:'reframe',args:{aspect}},lang)});
+  let yes=choice==='once';
+  if(d){let a;try{a=await window.montclipAgentPolicy.answer({ticket:d.ticket,choice});}catch{a=null;}yes=!!(a&&a.ok&&a.run);}
+  if(!yes){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.ap-denied'));return;}
+  if(step.version)await step.version;
+  if(!MontClipProposal.current(proposal,projectJSON(),{...agentProjectContext(),generation:agentProjectContext().gen})){if(ev)moveEvent(ev.id,'rejected');toast(uiText('own.ap-stale'));return;}
+  const token=crypto.randomUUID(),r=await runAgentReframe(aspect,{eventId:ev&&ev.id,token});
+  if(!r.ok){if(ev)moveEvent(ev.id,r.code==='CANCELLED'?'rejected':'failed');toast(uiText('own.rf-'+({CANCELLED:'cancelled',CHANGED:'changed',NOTHING:'nothing',BUSY:'busy',SEQUENCE_LIMIT:'sequence-limit'}[r.code]||'failed'),{aspect,limit:SeqLib.MAX})+(r.code==='FAILED'&&r.name?' '+uiText('own.rf-failed-name',{name:r.name}):''));return;}
+  const c=agentProjectContext();
+  officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});
+  toast(uiText('own.rf-done',{aspect,name:shownName(r.name)}));
+ }finally{agentReframeFlows.delete(result);mcAgent.render();}
 }
 /* P4, second half: the AI's plan (agent-plan.js). A reply that is a plan shows as a list in the assistant; the streamer can
    delete steps or drop it, then 〔开始〕 runs the steps in order, one at a time. Each step is decided by the host like any AI
@@ -23341,6 +23747,20 @@ function canUndoOfficialProposal(result){
  if(!entry||entry.projectId!==c.projectId||entry.sequenceId!==c.sequenceId||entry.gen!==c.gen)return false;
  try{return JSON.parse(runtime.undo.at(-1)).agentApplyId===entry.token;}catch{return false;}
 }
+/* The sound numbers for the facts (JJ via Deja, 2026-11-05; agent-facts.js): before the review box opens, each sent clip's
+   file's loudness (/api/signals/loudness, read once and kept by the server) and the songs the 「唱歌」 scan already found
+   (/api/songs; only a file read to its end). Never starts a song scan. A file not ready within 15 s is left out this time. */
+async function agentSoundFacts(){
+ if(!soundFactsOn()){runtime.soundFacts=null;return;}   // switched off: nothing is read
+ const want=MontClipFacts.soundMedia(projectJSON()),sound={};
+ const get=async(url)=>{const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),15000);try{const r=await fetch(url,{signal:ctrl.signal});return r.ok?await r.json():null;}catch{return null;}finally{clearTimeout(timer);}};
+ await Promise.all(want.map(async({mediaId,src})=>{
+  const [l,g]=await Promise.all([get("/api/signals/loudness?src="+encodeURIComponent(src)),get("/api/songs?src="+encodeURIComponent(src))]);
+  sound[mediaId]={loudness:l&&Number.isFinite(l.step)&&Array.isArray(l.values)?{step:l.step,values:l.values}:null,
+   songs:g&&g.state==="done"&&Array.isArray(g.songs)?g.songs.map((x)=>({from:x.from,to:x.to})):null};
+ }));
+ runtime.soundFacts={signature:JSON.stringify(want),sound};
+}
 const mcAgentPanel=document.getElementById('mcAssistantPanel');
 document.querySelector(".upper > .inspector").append(mcAgentPanel);
 document.querySelector(".topbar-right").prepend(document.getElementById("mcMediaToggle"));
@@ -23348,19 +23768,29 @@ document.querySelector(".topbar-right").insertBefore(document.querySelector(".mc
 // a narrow window's assistant lies over the editor under the top bar (style.css, max-width 760px): the bar's height, kept current
 {const bar=document.querySelector(".app > .topbar"),set=()=>document.documentElement.style.setProperty("--mc-topbar-h",Math.ceil(bar.getBoundingClientRect().bottom)+"px");set();if(typeof ResizeObserver!=="undefined")new ResizeObserver(set).observe(bar);addEventListener("resize",set);}
 document.getElementById("mcMediaToggle").onclick=()=>document.getElementById("app").classList.toggle("media-open");
+new MutationObserver(syncMediaToggle).observe(document.getElementById("app"),{attributes:true,attributeFilter:["class"]});mcMediaNarrow.addEventListener("change",syncMediaToggle);syncMediaToggle();
 mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentContent'),
  getContext:agentProjectContext,ensureProject:ensureAgentProject,
  getLanguage:()=>mcView.get().language,settings:window.montclipPaneSettings,sessionStorage:window.montclipAgentSessions,
  onHide:()=>{setSideTab("inspector");document.getElementById("mcAssistant").focus();},
  getProjectName:id=>id===runtime.projectId?project.name:null,
  canUndoProposal:canUndoOfficialProposal,
- getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts;return MontClipFacts.build(doc,{highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[]});},
+ noChange:agentProposalUnchanged,
+ limitNames:()=>exportFrameNames(),
+ // only the selected clips' numbers (the 「AI 数据说明」 says so): none selected, none sent
+ getFacts:()=>{const doc=projectJSON(),h=runtime.highlightFacts,s=runtime.soundFacts;return MontClipFacts.build(doc,{selected:selectedClips().map(c=>c.id),highlights:h&&h.signature===JSON.stringify(doc)?h.cards:[],sound:soundFactsOn()&&s&&s.signature===JSON.stringify(MontClipFacts.soundMedia(doc))?s.sound:null});},
+ soundFactsOff:()=>!soundFactsOn(),
+ soundTooLong:()=>{const doc=projectJSON(),s=runtime.soundFacts;return soundFactsOn()&&!!s&&s.signature===JSON.stringify(MontClipFacts.soundMedia(doc))&&MontClipFacts.tooLong(doc,s.sound,undefined,selectedClips().map(c=>c.id));},
+ soundOffNote:(text)=>soundFactsOn()||!MontClipFacts.asksAboutSound(text)?'':uiText('own.sf-off-note',{settings:uiText('term.settings'),switch:uiText('own.sf-label')}),
+ beforeReview:agentSoundFacts,
  ...(window.montclipAgentPolicy?{getMode:()=>agentPolicy.mode,setMode:setAgentMode,onReply:result=>{void onAgentReply(result);},
   getPlan:agentPlanView,planStart:runAgentPlan,planUndo:undoAgentPlan,
   planRemove:(result,i)=>{agentPlanOf(result)?.run.remove(i);},planDiscard:(result)=>{agentPlanOf(result)?.run.discard();}}:{}),
- getFactsOmitted:()=>MontClipFacts.omitted(projectJSON()),
+ getFactsOmitted:()=>MontClipFacts.omitted(projectJSON(),{selected:selectedClips().map(c=>c.id)}),
+ isOpen:()=>!document.getElementById("mcAssistantPanel").classList.contains("hidden"),
  onUndo:result=>{if(canUndoOfficialProposal(result)){const entry=officialProposalApplications.get(result);if(!entry?.eventId||!undoEvent(entry.eventId).ok)undo();}},
  onProposal:(response,result)=>{
+   if(response&&response.type==='reframe'){void agentReframeFlow(response,result);return;}
    const {proposal,ev,c}=agentProposalStep(response,result);
    showSentenceSelection(proposal,token=>{officialProposalApplications.set(result,{token,projectId:c.projectId,sequenceId:c.sequenceId,gen:c.gen,eventId:ev&&ev.id});},
     ()=>{if(ev)moveEvent(ev.id,'rejected');});
@@ -23368,4 +23798,17 @@ mcAgent=MontClipOfficialPane.mount({panel:document.getElementById('mcAgentConten
  getReferences:kind=>MontClipAgentPane.referenceChips(kind,{...agentProjectContext(),
  start:project.inPoint,end:project.outPoint,captions:selectedClips().filter(MontClipCaptions.isCaption).map(c=>({id:c.id,sourceCaptionId:c.props.captionSource?.sourceCaptionId||c.id,text:c.props.text,start:c.start,end:c.start+c.duration}))})});
 setInterval(()=>mcAgent.sync(),500);
+/* 设置 › AI 助手 (Deja and JJ, 2026-11-04): the switch the main process keeps — off, it refuses every send — and the
+   「AI 数据说明」 again. Desktop only: the browser editor has no assistant service. */
+{ const box=$("setAi"),box2=$("setAiEnabled"),svc=window.montclipAgentService;
+  if(box&&svc?.switchGet){
+    box.classList.remove("hidden");
+    const show=async()=>{const r=await svc.switchGet();box2.checked=r?.enabled!==false;};
+    box2.addEventListener("change",async()=>{const r=await svc.switchSet(box2.checked);box2.checked=r?.enabled!==false;mcAgent.refreshSwitch?.();
+      if(!box2.checked&&!$("mcAssistantPanel").classList.contains("hidden"))setSideTab("inspector");});   // off: the panel folds away
+    // the notice lives in the assistant panel: it is opened first, or a hidden panel would hide the notice too
+    $("btnAiNotice").addEventListener("click",()=>{$("btnCloseSettings")?.click();setSideTab("assistant");mcAgent.render();void mcAgent.showNotice();});
+    $("btnSettings")?.addEventListener("click",()=>{void show();});
+    void show();
+  } }
 if(window.montclipAgentPolicy)void loadAgentMode();

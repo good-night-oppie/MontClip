@@ -26,7 +26,8 @@
 
   const KINDS = ["video", "audio", "image", "svg"];
   /** Fields the server probes. Written back to the entry; never user-set. */
-  const INFO_KEYS = ["size", "fps", "codec", "audioCodec", "audioChannels", "sampleRate", "bitrate"];
+  // storedWidth / storedHeight: what the file stores, when its pixels aren't square (P6); width / height show
+  const INFO_KEYS = ["size", "fps", "codec", "audioCodec", "audioChannels", "sampleRate", "bitrate", "durationFrom", "storedWidth", "storedHeight"];
   const MAX_TAGS = 24, MAX_TAG_LEN = 32;
   const SORT_KEYS = ["name", "kind", "duration", "resolution", "fps", "codec", "audio", "size", "usage"];
 
@@ -95,7 +96,58 @@
   }
   /** A video or sound nothing could read the length of (europa P3, 2026-11-05): it can't be placed or cut — not at 0 s,
    *  nor at a stand-in length. One not read yet (no mark) is not this. */
+  /** Cases 1 and 2 (JJ, 2026-11-05): it can be cut, but its length came from its packets — a recording cut off
+   *  before it was saved — so seeking in it may be slow. A small mark on the file and 〔帮我修好…〕 in its menu. */
+  const slowToSeek = (m) => !!(m && m.kind === "video" && m.durationFrom === "packets" && Number.isFinite(m.duration) && m.duration > 0);
   const cannotCut = (m) => !!(m && timed(m) && m.durationUnknown && !(Number.isFinite(m.duration) && m.duration > 0));
+  /** Lengths read for files that had none (the agent's backfill: QQ, #152) into a project: only an entry that still has
+   *  no length and still shows the same file; once each. updates: [{id, src, duration?, durationFrom?, durationUnknown?,
+   *  width?, height?, storedWidth?, storedHeight?}] — the sizes (P6) go only to a video with no stored size yet.
+   *  Shared by the server (no editor open), the editor (onMediaBackfill) and the agent (no server). → how many changed */
+  function applyBackfill(doc, updates) {
+    let n = 0;
+    if (!doc || !Array.isArray(updates)) return 0;
+    const px = (v) => Number.isInteger(v) && v > 0;
+    for (const u of updates) {
+      if (!u || typeof u.id !== "string") continue;
+      const m = (doc.media || []).find((x) => x.id === u.id);
+      if (!m || m.src !== u.src || !timed(m)) continue;
+      if (!(Number.isFinite(m.duration) && m.duration > 0) && !m.durationUnknown) {
+        if (Number.isFinite(u.duration) && u.duration > 0) { m.duration = u.duration; if (u.durationFrom === "packets") m.durationFrom = "packets"; n++; }
+        else if (u.durationUnknown === true) { m.durationUnknown = true; n++; }
+      }
+      if (m.kind === "video" && m.storedWidth == null && px(u.storedWidth) && px(u.storedHeight) && px(u.width) && px(u.height)) {
+        displaySize(m, u);
+        m.storedWidth = u.storedWidth; m.storedHeight = u.storedHeight;
+        n++;
+      }
+    }
+    return n;
+  }
+  /** A repaired (or converted) file takes an entry's place (〔帮我修好〕, fablecut_repair_media): `entry` goes
+   *  where the old one was, with its organization (favorite, tags, folder, collections) and `derivedFrom` / `replaced`
+   *  naming what it replaced; every clip that showed the old one — the open timeline, compositions, the other sequences —
+   *  shows the new one, fitted to its length. The old file stays on disk. Mutates `root`; → {clips: how many re-pointed} */
+  function swapMedia(root, oldId, entry) {
+    const list = root.media || (root.media = []);
+    const i = list.findIndex((m) => m.id === oldId);
+    if (i < 0) throw new Error("no media " + oldId);
+    const old = list[i];
+    const neu = { ...entry, derivedFrom: oldId, replaced: { id: old.id, name: old.name, src: old.src } };
+    for (const k of ["favorite", "tags", "folderId"]) if (old[k] != null && neu[k] == null) neu[k] = Array.isArray(old[k]) ? old[k].slice() : old[k];
+    delete neu.durationUnknown; delete neu.durationChecked;
+    list[i] = neu;
+    let clips = 0;
+    const repoint = (arr) => {
+      for (const c of arr || []) if (c && c.mediaId === oldId) { c.mediaId = neu.id; clips++; }
+      fitClips(neu, arr);
+    };
+    repoint(root.clips);
+    for (const k of root.comps || []) repoint(k.clips);
+    for (const s of root.sequences || []) repoint(s.clips);
+    for (const col of root.collections || []) if (Array.isArray(col.media)) col.media = col.media.map((id) => (id === oldId ? neu.id : id));
+    return { clips };
+  }
   /** Fit the clips of media m into its length, as a replaced file's clips are (in + duration×speed ≤ m.duration; a linked
    *  sound shares the media and its timing, so it fits the same). Pictures are left alone. → how many edges moved */
   function fitClips(m, clips) {
@@ -132,9 +184,16 @@
     if (v) {
       if (v.codec_name) out.codec = String(v.codec_name);
       let w = Number(v.width) || 0, h = Number(v.height) || 0;
+      // P6 (JJ, 2026-11-05): non-square pixels (sample_aspect_ratio "896:405") show wider than stored — the size is
+      // what shows (1080×1920 at 896:405 shows as 2389×1920, as the browser draws it); the stored one goes beside it
+      const [sa, sb] = String(v.sample_aspect_ratio || "").split(":").map(Number);
+      let dw = w;
+      if (sa > 0 && sb > 0 && sa !== sb) dw = Math.round(w * sa / sb);
       const rot = Number(((v.side_data_list || []).find((d) => d.rotation != null) || {}).rotation ?? (v.tags && v.tags.rotate)) || 0;
-      if (Math.abs(rot) % 180 === 90) [w, h] = [h, w];
-      if (w > 0 && h > 0) { out.width = w; out.height = h; }
+      let sw = w, sh = h;
+      if (Math.abs(rot) % 180 === 90) { [dw, h] = [h, dw]; [sw, sh] = [sh, sw]; }
+      if (dw > 0 && h > 0) { out.width = dw; out.height = h; }
+      if (dw > 0 && h > 0 && (dw !== sw || h !== sh)) { out.storedWidth = sw; out.storedHeight = sh; }
       const fps = ratio(v.avg_frame_rate) || ratio(v.r_frame_rate);
       if (!still && fps > 0 && fps < 1000) out.fps = round(fps, 3);
     }
@@ -161,7 +220,20 @@
     if (!(f > 0)) return "";
     return String(round(f, 2));
   }
-  function fmtRes(m) { return m && m.width > 0 && m.height > 0 ? `${m.width}×${m.height}` : ""; }
+  function fmtRes(m) {
+    if (!(m && m.width > 0 && m.height > 0)) return "";
+    const stored = m.storedWidth > 0 && m.storedHeight > 0 && (m.storedWidth !== m.width || m.storedHeight !== m.height);
+    return `${m.width}×${m.height}` + (stored ? ` (stored as ${m.storedWidth}×${m.storedHeight})` : "");
+  }
+  /** P6: an entry that took the stored size (an import before display sizes, or one read without its pixel shape)
+   *  takes the display size from the server's reading. → whether it changed */
+  function displaySize(m, info) {
+    if (!m || !info || !(info.storedWidth > 0) || !(info.width > 0)) return false;
+    if (m.width === info.storedWidth && m.height === info.storedHeight && (m.width !== info.width || m.height !== info.height)) {
+      m.width = info.width; m.height = info.height; return true;
+    }
+    return false;
+  }
   function fmtAudio(m) {
     if (!m || m.audioChannels == null) return "";
     if (m.audioChannels === 0) return "no audio";
@@ -397,6 +469,34 @@
     return { score, why };
   }
 
+  /** relinkScore's `why` (an English id the tests lock) → the keys the Relink dialog shows, in order:
+   *  "same name and size" → ["rl-why-same", "rl-why-and-size"] (「同名，大小也一样」). */
+  function relinkWhyKeys(why) {
+    const w = String(why || ""), base = w.replace(/ and size$/, "");
+    const keys = { "same name": "rl-why-same", "same name, other type": "rl-why-other-type", "similar name": "rl-why-similar", "same size": "rl-why-size" };
+    if (!keys[base]) return [];
+    return base === w ? [keys[base]] : [keys[base], "rl-why-and-size"];
+  }
+  /** A length as h:mm:ss, or m:ss under an hour, whole seconds (the Relink dialog; not the timeline's timecode). */
+  function fmtHms(t) {
+    if (!(t > 0)) return "";
+    const n = Math.floor(t), h = Math.floor(n / 3600), m = Math.floor((n % 3600) / 60), s = String(n % 60).padStart(2, "0");
+    return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+  }
+  /** The Relink dialog's small line under a file: [its file name (never its path), length, size], the unknown ones left out. */
+  function relinkWasParts(m) {
+    return [srcName(m.src) || m.name || "", fmtHms(m.duration), m.size ? fmtSize(m.size) : ""].filter(Boolean);
+  }
+
+  /** The candidate a missing media `m` is linked to without asking, or null. Only the same file: the same name
+   *  and the same size (score >= 150, and m.size known) — a same-named recording with other contents is never
+   *  linked silently. Two or more such candidates are ambiguous, so the dialog asks. */
+  function autoRelinkPick(m, opts) {
+    if (!(m && m.size > 0)) return null;
+    const sure = (opts || []).filter((o) => o && o.score >= 150 && o.size === m.size);
+    return sure.length === 1 ? sure[0] : null;
+  }
+
   /* An import in the bin (「正在导入… n%」): the copy into the project, then — for the files the server tidies with
      faststart (import-url.js FASTSTART_EXT) — the tidy, which writes about as many bytes again, so each is half. It
      stops at 99 until the file is in the bin. */
@@ -409,8 +509,8 @@
   return {
     importTidies, importPercent,
     KINDS, INFO_KEYS, SORT_KEYS, MAX_TAGS,
-    srcName, relinkScore, kindFromName,
-    parseProbe, needsInfo, serverDuration, cannotCut, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
+    srcName, relinkScore, relinkWhyKeys, relinkWasParts, fmtHms, autoRelinkPick, kindFromName,
+    parseProbe, needsInfo, serverDuration, cannotCut, displaySize, slowToSeek, swapMedia, applyBackfill, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
     STANDARD_FPS, standardFps, sourceCanvas, canvasFollowsSource,
     normalizeTags, allTags, normalizeCollections,
     placements, usageCounts,

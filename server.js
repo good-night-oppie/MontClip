@@ -39,12 +39,15 @@ const {
   listProfilesPublic,
   profileSummary,
   buildExportArgs,
+  proresProjectEnd,
+  proresFilterPlan,
   dryRunProfile,
 } = require("./encode-profiles");
 const { downloadImportUrl, maybeFaststart } = require("./import-url");
 const { prepareMedia, publicPreparationError } = require("./prepare-media");
 const { pruneCache } = require("./frame-cache");
 const { createExportJobs } = require("./export-jobs");
+const AudioWindow = require("./audio-window");
 const { denoiseFile, AMOUNT_IDS: DENOISE_AMOUNTS } = require("./denoise");
 
 const {
@@ -63,7 +66,9 @@ try {
   }
 } catch {}
 const Templates = require("./templates");
-const { probeFile } = require("./media-probe");
+const { probeFile, infoForEntry } = require("./media-probe");
+const MakeEditable = require("./make-editable");
+const repairJobs = MakeEditable.createJobs({ prefix: "r_" });
 const MediaLib = require("./media-lib");
 const { createProxies } = require("./proxy");
 const { createTranscripts } = require("./transcripts");
@@ -143,6 +148,19 @@ const ASR_DIR = path.resolve(process.env.MONTCLIP_ASR_DIR || path.join(APP_DIR, 
 const ASR_MODELS_DIR = path.resolve(process.env.MONTCLIP_ASR_MODELS_DIR || path.join(DATA_DIR, "asr-models"));
 let asrLocal = null;
 const asr = () => asrLocal || (asrLocal = require("./asr-local").createAsr({ asrDir: ASR_DIR, modelsDir: ASR_MODELS_DIR, ffmpeg: FF.path("ffmpeg"), cacheDir: path.join(DATA_DIR, "asr-cache") }));
+/** The speech engine's front, or null when this copy of MontClip cannot even load it (P8: a copy without
+ *  desktop/asr-manifest.json threw here and took the whole server down). Never throws. */
+let asrLoadError = null, asrLoadCode = null;
+const AsrStatus = require("./asr-status");
+const asrOrNull = () => {
+  try { return asr(); }
+  catch (e) {
+    asrLoadError = AsrStatus.hidePaths(String((e && e.message) || e).split("\n")[0]).slice(0, 200);   // never a local path
+    asrLoadCode = /asr-manifest\.json/.test(asrLoadError) ? "ASR_MANIFEST_MISSING" : "ASR_ENGINE_MISSING";
+    return null;
+  }
+};
+const ASR_NONE = { ready: false, where: null, missing: [], bad: [] };
 const asrJob = { running: null };
 
 ensureDirs();
@@ -583,6 +601,11 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
     throw new Error("export width/height required for rgba");
   }
   if (m === "jpeg" && (extra.delivery || extra.deliveries)) return beginDeliveryExport(rate, name, hasAudio, extra);
+  if (m === "jpeg") {
+    const rawProfile = resolveProfile(profileId);
+    if (proresProjectEnd(rawProfile, { fps: rate, frames: extra.frames, pixelFormat }))
+      proresFilterPlan(rawProfile.args, !!hasAudio);
+  }
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const safe = exportName(name || "export");
   // Same filesystem as the finished file so renameSync(partPath, out) cannot EXDEV.
@@ -615,7 +638,7 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
   const { outPath, partPath } = reserveExportPaths(EXPORTS_DIR, safe, profile.extension);
   const sess = {
     mode: m, proc: null, fps: rate, profile, name: safe, hasAudio: !!hasAudio, binary,
-    pixelFormat, width, height,
+    pixelFormat, width, height, frames: extra.frames,
     dir, wav: null, partPath, outPath,
     stderr: "", done: null, lastTouch: Date.now(),
     err: () => sess.stderr.trim().split("\n").filter(Boolean).slice(-3)
@@ -630,7 +653,7 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
 function startEncoder(sess) {
   if (sess.outputs) return startDeliveryEncoders(sess);
   const args = buildExportArgs(sess.profile, {
-    fps: sess.fps, wavPath: sess.wav, outPath: sess.partPath,
+    fps: sess.fps, frames: sess.frames, wavPath: sess.wav, outPath: sess.partPath,
     pixelFormat: sess.pixelFormat, width: sess.width, height: sess.height,
   });
   const proc = spawn(sess.binary || FF.path("ffmpeg"), args, { stdio: ["pipe", "ignore", "pipe"] });
@@ -740,6 +763,16 @@ const exportJobs = createExportJobs({
   url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}`,
   broadcast,
   editors: () => sseClients.size,
+  // a job that failed or was cancelled stops its encode now: ffmpeg and the half-finished file did wait for the
+  // 10-minute idle sweep, while a retry was already writing the next file (P11, europa 2026-11-05)
+  onEnd: (j) => { for (const [id, s] of [...exportSessions]) if (s.job === j.id) cleanupExport(id); },
+  // an export is done when its file is in exports/ under its own name (the .part is renamed only after ffmpeg exits)
+  finished: (src) => {
+    let name = "";
+    try { name = decodeURIComponent(String(src).split("?")[0].replace(/^\/exports\//, "")); } catch { return false; }
+    if (!name || name !== path.basename(name) || /\.part\.[^.]+$/i.test(name)) return false;
+    try { return fs.statSync(path.join(EXPORTS_DIR, name)).isFile(); } catch { return false; }
+  },
 });
 
 /* Static file with HTTP Range support (required for <video> seeking) */
@@ -776,7 +809,16 @@ function serveFile(req, res, filePath) {
 }
 
 /* ── Server ── */
-const server = http.createServer(async (req, res) => {
+/* Every request's handler runs here: whatever it throws is answered (500, JSON) and logged, never left as an
+   unhandled rejection that ends the process (P8: a missing speech manifest took the Cindy plugin's engine down). */
+const server = http.createServer((req, res) => {
+  handleRequest(req, res).catch((e) => {
+    console.error("[montclip] request failed: " + req.method + " " + String(req.url).split("?")[0] + ": " + ((e && e.stack) || e));
+    if (!res.headersSent) { try { sendJSON(res, 500, { code: "INTERNAL", error: String((e && e.message) || e) }); } catch { } }
+    else { try { res.end(); } catch { } }
+  });
+});
+async function handleRequest(req, res) {
   if (!requestAllowed(req)) {
     sendJSON(res, 403, { error: "forbidden: request must come from this machine (bad Host or Origin header)" });
     return;
@@ -1125,8 +1167,21 @@ const server = http.createServer(async (req, res) => {
       if (missing) { sendJSON(res, 404, { error: "no such file: " + missing }); return; }
       const TR = require("./transcribe.js");
       let spec;
-      try { spec = { srcs: [...new Set(t.srcs)], model: TR.model(t.model), language: TR.language(t.language), again: t.again === true }; }
-      catch (e) { sendJSON(res, 400, { error: e.message }); return; }
+      try {
+        spec = { srcs: [...new Set(t.srcs)], model: TR.model(t.model), language: TR.language(t.language), again: t.again === true };
+        // ranges: {src: [[from, to], …]} — a long file's clips are listened to in their windows only (P8)
+        if (t.ranges != null) {
+          if (!t.ranges || typeof t.ranges !== "object" || Array.isArray(t.ranges)) throw new Error("ranges must be {src: [[from, to], …]}");
+          const out = {};
+          for (const [src, list] of Object.entries(t.ranges)) {
+            if (!spec.srcs.includes(src)) throw new Error("ranges for a file not in srcs: " + src);
+            if (!Array.isArray(list) || !list.length || list.length > 500 || !list.every((x) => Array.isArray(x) && Number.isFinite(x[0]) && Number.isFinite(x[1]) && x[0] >= 0 && x[1] > x[0]))
+              throw new Error("ranges must be {src: [[from, to], …]} in file seconds (1–500 each), with to > from ≥ 0");
+            out[src] = list.map((x) => [x[0], x[1]]);
+          }
+          if (Object.keys(out).length) spec.ranges = out;
+        }
+      } catch (e) { sendJSON(res, 400, { error: e.message }); return; }
       sendJSON(res, 200, exportJobs.request({ kind: "transcribe", where: opts.where, transcribe: spec }));
     } catch (e) {
       sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e) });
@@ -1463,7 +1518,10 @@ const server = http.createServer(async (req, res) => {
       const mode = opts.mode === "annexb" ? "annexb" : "jpeg";
       if (mode !== "annexb" && opts.profile) resolveProfile(opts.profile); // 400, not 500, on a bad id — even without ffmpeg
       if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
-      sendJSON(res, 200, await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts));
+      const begun = await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts);
+      // the agent's export job this encode belongs to (export-jobs.js): when that job ends without a file, so does this
+      if (typeof opts.job === "string" && opts.job && exportSessions.has(begun.id)) exportSessions.get(begun.id).job = opts.job;
+      sendJSON(res, 200, begun);
     } catch (e) {
       // an unusable profile is the caller's problem, not a server fault
       const bad = /^Unknown encoding profile|was rejected by ffmpeg|ffmpeg rejected these settings|at most \d+ outputs|deliveries is empty|render each frame rate separately|export fps required|export width\/height required/.test(e.message || "");
@@ -1640,6 +1698,46 @@ const server = http.createServer(async (req, res) => {
      file answers "did the source change underneath this?". The cache is capped
      (500 files / 128 MB, oldest mtime first — see frame-cache.js), so no
      combination of arguments can fill the disk. */
+  /* API: part of a file's audio, for the fast-export mix. The page used to fetch and decode the whole file, which on a
+     2-hour recording (8 GB) read gigabytes, ran the tab out of memory and exported no sound (europa, 2026-11-04).
+     WAV, 32-bit float, the file's own channels, 48 kHz; at most an hour (the page falls back to the whole file). */
+  if (p === "/api/audio-window" && req.method === "GET") {
+    const file = resolveSrc(url.searchParams.get("src") || "");
+    if (!file) { sendJSON(res, 404, { error: "src must name an existing file under /media/ or /library/" }); return; }
+    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
+    const from = Number(url.searchParams.get("from")), to = Number(url.searchParams.get("to"));
+    if (!Number.isFinite(from) || !Number.isFinite(to) || from < 0 || to <= from || to - from > 3600) {
+      sendJSON(res, 400, { error: "from and to are seconds, 0 ≤ from < to, at most an hour apart" }); return;
+    }
+    // written to a file (never held in memory: an hour of stereo is 1.4 GB), then streamed and removed
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-aw-")), out = path.join(tmpDir, "window.wav");
+    const cleanup = () => { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { } };
+    const proc = spawn(FF.path("ffmpeg"), AudioWindow.windowArgs(file, from, to - from, out), { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
+    let err = "", gone = false;
+    proc.stderr.on("data", (d) => { err = (err + d).slice(-1000); });
+    proc.on("error", () => { cleanup(); if (!res.headersSent) sendJSON(res, 500, { error: "ffmpeg could not be started" }); });
+    res.on("close", () => { gone = true; if (proc.exitCode === null) proc.kill(); });
+    proc.on("close", (code) => {
+      if (gone || res.headersSent) { cleanup(); return; }
+      let head = null, size = 0;
+      try {
+        size = fs.statSync(out).size;
+        const fd = fs.openSync(out, "r"), buf = Buffer.alloc(Math.min(size, 64 * 1024));
+        fs.readSync(fd, buf, 0, buf.length, 0); fs.closeSync(fd);
+        head = AudioWindow.wavChunks(buf);
+      } catch { }
+      if (code !== 0 || !head || head.data.size === 0) {
+        cleanup();
+        sendJSON(res, 422, { error: "no audio in that part of the file: " + X.maskUserPath(err.trim().split("\n").pop() || "exit " + code) });
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "audio/wav", "Content-Length": size, "Cache-Control": "no-store" });
+      const rs = fs.createReadStream(out);
+      rs.on("close", cleanup); rs.on("error", () => { cleanup(); res.destroy(); });
+      rs.pipe(res);
+    });
+    return;
+  }
   if (p === "/api/frame" && req.method === "GET") {
     const pathArg = url.searchParams.get("path");
     /* `path=` reads any file on this machine, so it is only answered for the
@@ -1754,6 +1852,63 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  /* API: 〔帮我修好〕 (JJ, P3) — POST {src} starts a job (or joins the one running for that
+     file) → {job, status, progress, phase}; GET /api/repair/job?id= → the same, with result {src, name, kind, duration,
+     preparation, encoder?, …file details} once done, or error {code}; POST /api/repair/cancel?id= stops it. The new MP4
+     is written into media/; the original is never touched. Swapping it into the project is the editor's job
+     (MediaLib.swapMedia, one undo step), as fablecut_repair_media does for agents. */
+  if (p === "/api/repair" && req.method === "POST") {
+    if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
+    let opts;
+    try { opts = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "body must be JSON {src}" }); return; }
+    const file = resolveSrc(opts.src);
+    if (!file) { sendJSON(res, 404, { error: "src must name an existing file under /media/ or /library/" }); return; }
+    sendJSON(res, 200, repairJobs.start(file, async ({ signal, onProgress }) => {
+      const r = await MakeEditable.makeEditable(file, { outDir: MEDIA_DIR, signal, onProgress });
+      const name = path.basename(r.file);
+      const out = { src: "/media/" + encodeURIComponent(name), name, kind: "video", duration: r.duration, preparation: r.preparation, ...(r.encoder ? { encoder: r.encoder } : {}) };
+      return { ...infoForEntry(await probeFile(r.file), out), ...out };
+    }));
+    return;
+  }
+  if (p === "/api/repair/job" && req.method === "GET") {
+    const j = repairJobs.get(url.searchParams.get("id"));
+    if (!j) { sendJSON(res, 404, { error: "no such repair job" }); return; }
+    sendJSON(res, 200, j);
+    return;
+  }
+  if (p === "/api/repair/cancel" && req.method === "POST") {
+    const j = repairJobs.cancel(url.searchParams.get("id"));
+    if (!j) { sendJSON(res, 404, { error: "no such repair job" }); return; }
+    sendJSON(res, 200, j);
+    return;
+  }
+
+  /* API: lengths the agent read for files that had none (QQ, #152 review): POST {updates:[{id, src, duration?,
+     durationFrom?, durationUnknown?}]}. With an editor open they go to it (SSE "media-backfill"): it puts them into the
+     project it has open, an unsaved step included, and saves once — the agent no longer writes over that step. With
+     none open they are merged onto the project on disk here, as a PUT would write it. → {via:"editor"|"server", changed?} */
+  if (p === "/api/media-backfill" && req.method === "POST") {
+    let body;
+    try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "body must be JSON {updates}" }); return; }
+    const updates = body && Array.isArray(body.updates) ? body.updates.filter((u) => u && typeof u.id === "string" && typeof u.src === "string").slice(0, 2000) : null;
+    if (!updates) { sendJSON(res, 400, { error: "updates must be a list of {id, src, duration | durationUnknown}" }); return; }
+    if (sseClients.size) { broadcast("media-backfill", JSON.stringify({ updates })); sendJSON(res, 200, { via: "editor", editors: sseClients.size }); return; }
+    try {
+      const cur = JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(new RegExp("^\\uFEFF"), ""));
+      const changed = MediaLib.applyBackfill(cur, updates);
+      if (changed) {
+        cur.revision = (cur.revision || 0) + 1;
+        const tmp = PROJECT_FILE + ".tmp";
+        fs.writeFileSync(tmp, JSON.stringify(cur, null, 2));
+        fs.renameSync(tmp, PROJECT_FILE);
+        broadcast("change");
+      }
+      sendJSON(res, 200, { via: "server", changed, revision: cur.revision || 0 });
+    } catch (e) { sendJSON(res, 500, { error: String(e.message || e) }); }
+    return;
+  }
+
   /* API: SSE live-reload channel */
   if (p === "/api/events") {
     res.writeHead(200, {
@@ -1790,13 +1945,21 @@ const server = http.createServer(async (req, res) => {
 
   /* API: on-device transcription (asr-local.js; #70). One file at a time; the transcript is saved like a tab's.
        GET  /api/asr/status            → {model, engine, vad, asr, punct}   (asr / punct: {ready, where, missing, bad})
-       POST /api/asr/transcribe {src}  → {src, status, gaps, gapSeconds, skippedSegments, words, duration, speech, punctuated} once the
+       POST /api/asr/transcribe {src, ranges?, again?} → {src, status, gaps, gapSeconds, skippedSegments, words, duration, speech, punctuated, spans}
+                                         (ranges: [[from, to], …] file seconds — only those parts are read and added to what the
+                                         file's transcript already covers; spans: what it covers now, null = the whole file) once the
                                          transcript is saved; status complete or partial (gaps: how many parts could not
                                          be read, kept with the transcript); 500 {code: ASR_FAILED} when nothing could;
                                          progress as SSE "asr" ({src, frac}); 409 {code} when busy, when the model or the
                                          engine is missing, or when cancelled. Nothing is downloaded here.
        POST /api/asr/cancel            → {cancelled} */
-  if (p === "/api/asr/status" && req.method === "GET") { sendJSON(res, 200, asr().status()); return; }
+  if (p === "/api/asr/status" && req.method === "GET") {
+    const A = asrOrNull();
+    const st = A ? A.status() : { model: null, engine: { ready: false, why: asrLoadError }, vad: { ready: false }, asr: ASR_NONE, punct: ASR_NONE };
+    // code: why transcription cannot run here (asr-status.js), null when it can
+    sendJSON(res, 200, { ...st, code: A ? AsrStatus.code(st) : asrLoadCode });
+    return;
+  }
   if (p === "/api/asr/cancel" && req.method === "POST") {
     const j = asrJob.running;
     if (j) j.ac.abort();
@@ -1808,26 +1971,49 @@ const server = http.createServer(async (req, res) => {
     try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "the body must be JSON: {src}" }); return; }
     const src = typeof body.src === "string" ? body.src : "", file = src ? resolveSrc(src) : null;
     if (!file || !fs.existsSync(file)) { sendJSON(res, 404, { error: "no such file: " + src }); return; }
+    // ranges: [[from, to], …] file seconds — listen only there (a long recording's clips, P8); none: the whole file
+    let ranges = null;
+    if (body.ranges != null) {
+      const ok = Array.isArray(body.ranges) && body.ranges.length >= 1 && body.ranges.length <= 500
+        && body.ranges.every((x) => Array.isArray(x) && Number.isFinite(x[0]) && Number.isFinite(x[1]) && x[0] >= 0 && x[1] > x[0]);
+      if (!ok) { sendJSON(res, 400, { error: "ranges must be [[from, to], …] in file seconds (1–500), each with to > from ≥ 0" }); return; }
+      ranges = body.ranges.map((x) => [x[0], x[1]]);
+    }
     if (asrJob.running) { sendJSON(res, 409, { code: "ASR_BUSY", error: "already transcribing " + asrJob.running.src }); return; }
-    const st = asr().status();
+    const A = asrOrNull(), st = A ? A.status() : null;
+    if (!st) { sendJSON(res, 409, { code: asrLoadCode, error: "the speech engine cannot be loaded in this copy of MontClip: " + asrLoadError }); return; }
     if (!st.engine.ready || !st.vad.ready) { sendJSON(res, 409, { code: "ASR_ENGINE_MISSING", error: "the speech engine is missing from this copy of MontClip" }); return; }
     if (!st.asr.ready) { sendJSON(res, 409, { code: "ASR_MODEL_MISSING", error: "no speech model yet: the user downloads it or imports it (USB drive / a file) in the Transcript tab; MontClip never fetches it by itself", missing: st.asr.missing, bad: st.asr.bad }); return; }
     const ac = new AbortController(), job = asrJob.running = { src, ac };
     res.on("close", () => { if (!res.writableFinished) ac.abort(); });   // the page went away: stop
     let last = 0;
     try {
-      const info = await probeFile(file);
-      const r = await asr().transcribe(file, { signal: ac.signal, duration: info && info.duration,
-        onProgress: (frac) => { const now = Date.now(); if (now - last > 250) { last = now; broadcast("asr", JSON.stringify({ src, frac })); } } });
       const TR = require("./transcribe.js");
-      const doc = transcripts.put(src, { src, model: TR.DEFAULT_MODEL, language: r.language, duration: r.duration, created: new Date().toISOString(), words: r.words,
-        gaps: r.gaps.map((g) => [g.start, g.end, g.reason]) });
+      // the parts of the ranges this file's transcript has not listened to yet (all of them with again:true), read with a
+      // pad either side; only each part's core is kept (Rea on #165: no lead-in doubled a word cut at the border)
+      const had = ranges ? transcripts.get(src) || null : null;
+      const info = await probeFile(file);
+      const dur = info && info.duration;
+      let plan = ranges ? TR.refillPlan(body.again === true ? null : had, ranges, { pad: 1.5, duration: dur }) : null;
+      if (plan && !plan.read.length && !had) plan = { read: ranges, core: ranges };   // only slivers asked for, and nothing yet: read them as asked
+      if (plan && !plan.read.length) {
+        sendJSON(res, 200, { src, status: TR.status(had), gaps: had.gaps.length, gapSeconds: Math.round(had.gaps.reduce((t, g) => t + g[1] - g[0], 0) * 10) / 10,
+          skippedSegments: 0, words: had.words.length, duration: had.duration, speech: 0, punctuated: null, spans: had.spans || null, already: true });
+        return;
+      }
+      const r = await A.transcribe(file, { signal: ac.signal, duration: dur, ranges: plan ? plan.read : null,
+        onProgress: (frac) => { const now = Date.now(); if (now - last > 250) { last = now; broadcast("asr", JSON.stringify({ src, frac })); } } });
+      let add = TR.validate({ src, model: TR.DEFAULT_MODEL, language: r.language, duration: r.duration, created: new Date().toISOString(), words: r.words,
+        gaps: r.gaps.map((g) => [g.start, g.end, g.reason]), ...(r.spans ? { spans: r.spans } : {}) });
+      if (r.spans && plan) add = TR.keepIn(add, plan.core);
+      // what was listened to before (other clips' windows of this file) stays; a new part replaces its own stretch
+      const doc = transcripts.put(src, r.spans ? TR.mergeDocs(transcripts.get(src) || null, add) : add);
       broadcast("transcript", JSON.stringify({ src }));
       const gapSeconds = Math.round(doc.gaps.reduce((t, g) => t + g[1] - g[0], 0) * 10) / 10;
-      sendJSON(res, 200, { src, status: TR.status(doc), gaps: doc.gaps.length, gapSeconds, skippedSegments: r.skippedSegments, words: doc.words.length, duration: doc.duration, speech: Math.round(r.speech * 10) / 10, punctuated: r.punctuated });
+      sendJSON(res, 200, { src, status: TR.status(doc), gaps: doc.gaps.length, gapSeconds, skippedSegments: r.skippedSegments, words: doc.words.length, duration: doc.duration, speech: Math.round(r.speech * 10) / 10, punctuated: r.punctuated, spans: doc.spans || null });
     } catch (e) {
       const code = e.code === "ASR_CANCELLED" || ac.signal.aborted ? "ASR_CANCELLED" : e.code || "ASR_FAILED";
-      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING)$/.test(code) ? 409 : 500, { code, error: String(e.message || e) });
+      if (!res.writableEnded) sendJSON(res, /^ASR_(CANCELLED|MODEL_MISSING|ENGINE_MISSING)$/.test(code) ? 409 : 500, { code, error: AsrStatus.hidePaths(String(e.message || e)) });
     } finally { if (asrJob.running === job) asrJob.running = null; }
     return;
   }
@@ -1845,7 +2031,7 @@ const server = http.createServer(async (req, res) => {
   file = path.normalize(path.join(ROOT, file));
   if (!file.startsWith(ROOT + path.sep)) { res.writeHead(403); res.end(); return; }
   serveFile(req, res, file);
-});
+}
 
 /* Auto-save versions of the open project while it changes (every FABLECUT_AUTO_VERSION_MIN
    minutes at most, default 10), whoever edits it: the editor, an agent, a script. */

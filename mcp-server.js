@@ -30,6 +30,8 @@ const FX = require("./audio-fx");
 const EditOps = require("./edit-ops");
 const ProjectOps = require("./project-ops");
 const Denoise = require("./denoise");
+const MakeEditable = require("./make-editable");
+const MediaLib = require("./media-lib");
 const { createProjects } = require("./projects");
 const { createHistory } = require("./history");
 const Color = require("./color");
@@ -128,32 +130,69 @@ const KIND_BY_EXT = {
 };
 const uid = () => Math.random().toString(36).slice(2, 9);
 /** Media entries with no length read yet get it from ffprobe here, so the agent never waits for an editor tab to probe
- *  them (JJ, P1 / P3, 2026-11-05). An entry nothing can read is marked durationUnknown (MediaLib.cannotCut). Written back
- *  as an edit only when something changed, onto the latest document (the probing may take a while). → how many changed */
-async function backfillDurations() {
-  const todo = (readProject().media || []).filter((m) => (m.kind === "video" || m.kind === "audio") &&
-    !(Number.isFinite(m.duration) && m.duration > 0) && !m.durationUnknown && mediaFile(m.src));
-  if (!todo.length) return 0;
+ *  them (JJ, P1 / P3, 2026-11-05). An entry nothing can read is marked durationUnknown (MediaLib.cannotCut).
+ *  Rea (#152): never hold the call up — the probes run side by side (media-probe runs at most PROBE_CONCURRENCY ffprobes
+ *  at once, the rest queue), the caller waits at most BACKFILL_WAIT_MS, and whatever takes longer is written when it
+ *  is done, in the background. One pass at a time; a call while one runs waits on the same pass (up to the same wait).
+ *  Written back as an edit only when something changed, onto the latest document, re-checked just before the write
+ *  (as fablecut_patch_project does): an editor save that lands meanwhile is re-read and kept. → the pass's promise */
+const BACKFILL_WAIT_MS = 1500;
+let backfillPass = null;
+function backfillDurations({ wait = BACKFILL_WAIT_MS } = {}) {
+  if (!backfillPass) {
+    backfillPass = backfillNow().catch((e) => { console.error("[MontClip] reading missing lengths failed: " + e.message); return 0; })
+      .finally(() => { backfillPass = null; });
+  }
+  const pass = backfillPass;
+  if (!wait) return Promise.resolve(null);
+  return Promise.race([pass, new Promise((r) => setTimeout(() => r(null), wait).unref())]);
+}
+async function backfillNow() {
+  const noLength = (m) => (m.kind === "video" || m.kind === "audio") && !(Number.isFinite(m.duration) && m.duration > 0) && !m.durationUnknown;
+  // P6: a video with a size but no stored size beside it may hold the stored size of non-square pixels (read once
+  // per file version — probeFile caches it — so this costs nothing after the first call)
+  const sizeUnchecked = (m) => m.kind === "video" && m.width > 0 && m.storedWidth == null;
+  const todo = (readProject().media || []).filter((m) => (noLength(m) || sizeUnchecked(m)) && mediaFile(m.src));
+  if (!todo.length) return [];
   const found = new Map();
-  for (const m of todo) {
+  await Promise.all(todo.map(async (m) => {
     const info = await probeFile(mediaFile(m.src));
-    if (info && (info.duration > 0 || info.durationUnknown)) found.set(m.id, info);
+    if (info && ((noLength(m) && (info.duration > 0 || info.durationUnknown)) || (sizeUnchecked(m) && info.storedWidth > 0))) found.set(m.id, info);
+  }));
+  if (!found.size) return [];
+  const updates = [...found].map(([id, info]) => {
+    const m = todo.find((x) => x.id === id);
+    const u = { id, src: m.src };
+    if (noLength(m)) {
+      if (info.duration > 0) { u.duration = info.duration; if (info.durationFrom) u.durationFrom = info.durationFrom; }
+      else if (info.durationUnknown) u.durationUnknown = true;
+    }
+    // P6: the display size and the stored one, applied by MediaLib.applyBackfill (MediaLib.displaySize)
+    if (sizeUnchecked(m) && info.storedWidth > 0) Object.assign(u, { width: info.width, height: info.height, storedWidth: info.storedWidth, storedHeight: info.storedHeight });
+    return u;
+  });
+  // QQ (#152): through the server, so an editor's unsaved step is never written over — it merges them itself, or the
+  // server does when none is open. Only a refused connection permits a direct write: a timeout or HTTP error may
+  // mean an editor is still open, so it must never turn into an outside write over that editor's pending save.
+  try {
+    const r = await apiJSON("POST", "/api/media-backfill", { updates });
+    if (r.status === 200) return updates;
+    throw new Error("media backfill refused by server: " + r.status);
+  } catch (e) { if (e.code !== "ECONNREFUSED") throw e; }
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const proj = readProject();
+    const readRev = proj.revision || 0;
+    const wasCurrent = lastReadRevision === readRev;
+    const n = MediaLib.applyBackfill(proj, updates);
+    if (!n) return updates;
+    // someone saved while this was being put together: start again from what they saved
+    if ((readProject().revision || 0) !== readRev) continue;
+    proj.revision = readRev + 1;
+    writeProject(proj);
+    if (wasCurrent) lastReadRevision = proj.revision;
+    return updates;
   }
-  if (!found.size) return 0;
-  const proj = readProject();
-  const wasCurrent = lastReadRevision === (proj.revision || 0);
-  let n = 0;
-  for (const m of proj.media || []) {
-    const info = found.get(m.id);
-    if (!info || (m.duration > 0) || m.durationUnknown) continue;
-    if (info.duration > 0) m.duration = info.duration; else m.durationUnknown = true;
-    n++;
-  }
-  if (!n) return 0;
-  proj.revision = (proj.revision || 0) + 1;
-  writeProject(proj);
-  if (wasCurrent) lastReadRevision = proj.revision;
-  return n;
+  return updates;   // the project kept changing: the next call writes them (probeFile has them cached)
 }
 /** What fablecut_import_media says about the length it found (europa P3, 2026-11-05: "no ffprobe" was said whenever
  *  the header had no length, though ffprobe had run). Say what actually happened. */
@@ -422,10 +461,12 @@ async function beatsTool(args) {
 /* fablecut_reframe: a new sequence on the canvas asked for (or the open one), then reframe.js on frames
    ffmpeg samples from each full-frame shot's window. */
 const REFRAME_MAX_SECS = 15 * 60;
-function sampleFrames(file, c, w, h) {
+/** → {frames, times}: SAMPLE_FPS a second, then the clip's last frame (reframe.js sampleTimes), read once more. */
+function sampleFrames(file, c, w, h, fps = 30) {
   const R = require("./reframe.js");
   const sp = Math.min(8, Math.max(0.1, +c.props?.speed || 1));
-  const len = Math.max(0.1, Math.min(REFRAME_MAX_SECS, c.duration * sp));
+  const len = Math.min(REFRAME_MAX_SECS, c.duration * sp);
+  if (!(len > 0)) throw new Error('reframe requires a positive clip duration');
   const args = c.kind === "image"
     ? ["-v", "error", "-i", file, "-frames:v", "1", "-vf", `scale=${w}:${h}`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
     : ["-v", "error", "-ss", String(Math.max(0, +c.in || 0)), "-t", String(len), "-i", file, "-an",
@@ -436,7 +477,26 @@ function sampleFrames(file, c, w, h) {
   if (r.status !== 0) throw new Error(`ffmpeg couldn't read ${c.id}: ${String(r.stderr).trim().split("\n").pop()}`);
   const fb = w * h * 3, frames = [];
   for (let o = 0; o + fb <= r.stdout.length; o += fb) frames.push(r.stdout.subarray(o, o + fb));
-  return frames;
+  if (c.kind === "image") return { frames, times: null };
+  const times = frames.map((_, i) => Math.round((i / R.SAMPLE_FPS) * 1000) / 1000);
+  // A timeline sample time is not a source-frame index. Decode from the preceding keyframe:
+  // accurate seek would discard the frame displayed at target and can return the next shot.
+  const start = Math.max(0, +c.in || 0), end = start + len;
+  const target = start + Math.max(0, len - sp / (fps > 0 ? fps : 30));
+  const q = require("child_process").spawnSync(FF.path("ffmpeg"), ["-hide_banner", "-v", "info", "-noaccurate_seek", "-ss", String(target), "-i", file,
+    "-copyts", "-start_at_zero", "-to", String(end), "-an", "-vf", `select='gte(t,${start})*lte(t,${target + 1e-7})*lt(t,${end})',scale=${w}:${h},showinfo`,
+    "-fps_mode", "passthrough", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], { maxBuffer: 1 << 26, timeout: 60000, windowsHide: true });
+  const log = String(q.stderr || ''), clock = /config in time_base:\s*(\d+)\/(\d+)/.exec(log);
+  const tick = clock && Number(clock[1]) / Number(clock[2]);
+  const stamps = [...log.matchAll(/\bn:\s*\d+\s+pts:\s*(-?\d+)\s+pts_time:/g)].map(m => Number(m[1]) * tick);
+  const count = q.stdout ? q.stdout.length / fb : 0, pts = stamps[count - 1];
+  if (q.error || q.status !== 0 || !Number.isInteger(count) || !count || stamps.length !== count || !Number.isFinite(pts) || pts < start || pts >= end || pts > target + 1e-5)
+    throw new Error(`ffmpeg couldn't read the displayed tail frame of ${c.id}`);
+  const last = pts - start;
+  // fps=5 may repeat a VFR tail beyond its actual PTS. Replace those copies with the real tail.
+  while (times.length && times[times.length - 1] >= last) { times.pop(); frames.pop(); }
+  frames.push(q.stdout.subarray((count - 1) * fb, count * fb)); times.push(last);
+  return { frames, times };
 }
 async function reframeTool(args) {
   const R = require("./reframe.js");
@@ -477,7 +537,7 @@ async function reframeTool(args) {
     const cover = R.coverRect(src.width, src.height, canvas.width, canvas.height, 1);
     if (args.follow !== false && Math.max(cover.maxX, cover.maxY) > 0.5) {   // no room to pan: nothing to look at
       const w = R.SAMPLE_W, h = Math.max(8, Math.round(w * src.height / src.width / 2) * 2);
-      try { samples = R.subjectTrack(sampleFrames(file, c, w, h), w, h); }
+      try { const s = sampleFrames(file, c, w, h, work.fps || 30); samples = R.subjectTrack(s.frames, w, h, s.times ? { times: s.times } : {}); }
       catch (e) { skip.push({ id: c.id, why: e.message }); continue; }
     }
     const p = R.clipPlan(c, samples, src, canvas, { smooth, fps: work.fps || 30, follow: args.follow !== false });
@@ -603,6 +663,8 @@ function timelineSig(doc) {
   return JSON.stringify([doc.fps, doc.lockedTracks || [], doc.untargetedTracks || [], doc.disabledTracks || [],
     (doc.clips || []).map((c) => [c.id, c.track, c.start, c.in, c.duration, c.mediaId, c.props?.speed ?? 1, c.keyframes?.speed ?? null, !!c.locked, !!c.disabled])]);
 }
+/** A file longer than this is listened to only where its clips play, when they cover less than half of it. */
+const LONG_FILE_S = 600;
 /* The words said on the timeline (or in whole files, mediaIds): transcribes what has no
    transcript yet as a job in an open tab, else headless, then lays the words out. Shared by
    fablecut_transcribe and fablecut_captions. */
@@ -643,10 +705,29 @@ async function speechWords(args, fileMode) {
   if (st.status !== 200) throw new Error(st.body?.error || "could not read the transcripts");
   const gone = srcs.filter((s) => st.body.status[s] === null);
   if (gone.length) throw new Error("these files are missing (offline): " + gone.join(", "));
-  const todo = args.again === true ? srcs : srcs.filter((s) => !st.body.status[s]);
+  // a long recording's clips are listened to in their windows only (P8: three clips of a two-hour replay), and only
+  // the parts its transcript has not covered yet; a short file, or mediaIds, is listened to whole
+  const rangesOf = new Map();
+  if (!fileMode) for (const m of files) {
+    const dur = +m.duration || 0;
+    if (!(dur > LONG_FILE_S)) continue;
+    const rs = T.clipRanges(entries.filter((e) => e.media.src === m.src).map((e) => e.clip), { duration: dur });
+    if (rs.length && T.rangeSeconds(rs) < dur / 2) rangesOf.set(m.src, rs);
+  }
+  const ask = {};
+  const todo = srcs.filter((s) => {
+    const info = st.body.status[s], rs = rangesOf.get(s);
+    if (rs) {
+      const left = args.again === true ? rs : T.missingSpans(info || null, rs);
+      if (left.length) ask[s] = left;
+      return left.length > 0;
+    }
+    return args.again === true || !info || Array.isArray(info.spans);   // parts of it only: now the whole file
+  });
   let note = "";
   if (todo.length) {
-    const r = await apiJSON("POST", "/api/transcribe/request", { where: args.where || "auto", transcribe: { srcs: todo, model, language, again: args.again === true } });
+    const r = await apiJSON("POST", "/api/transcribe/request", { where: args.where || "auto",
+      transcribe: { srcs: todo, model, language, again: args.again === true, ...(Object.keys(ask).length ? { ranges: ask } : {}) } });
     if (r.status !== 200) throw new Error(r.body?.error || `transcribe request failed (${r.status})`);
     let job = r.body;
     const deadline = Date.now() + 1000 * (Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 1800);
@@ -660,7 +741,13 @@ async function speechWords(args, fileMode) {
       if (q.status !== 200) throw new Error(q.body?.error || "lost track of the transcription job");
       job = q.body;
     }
-    if (job.status !== "done") throw new Error(`transcription ${job.status}: ${job.error || "no reason given"}`);
+    if (job.status !== "done") {
+      const why = String(job.error || "");
+      const S = require("./asr-status");
+      const code = Object.keys(S.SAY).find((c) => new RegExp("\\b" + c + "\\b").test(why));   // ASR_MANIFEST_MISSING · ASR_ENGINE_MISSING · ASR_MODEL_MISSING
+      if (code) throw new Error(S.SAY[code]);
+      throw new Error(`transcription ${job.status}: ${why || "no reason given"}`);
+    }
     const res = job.result || {};
     const partial = (res.done || []).filter((d) => d.gaps);
     note = (partial.length ? `PARTLY transcribed: ${partial.reduce((n, d) => n + d.gaps, 0)} part(s) could not be read (${Math.round(partial.reduce((t, d) => t + (d.gapSeconds || 0), 0))} s in all) and have no words — no subtitles there; the rest is below. ` : "") +
@@ -1028,6 +1115,75 @@ function versionBeforeAgent(rewrite) {
     return ` Warning: no version was saved before this edit (${e.message}) — fablecut_versions {action:"save"} keeps one.`;
   }
 }
+/* fablecut_repair_media (JJ, P3, 2026-11-05): 〔帮我修好〕 for agents — repairs and the general conversion, one path (the old 〔帮我转〕 — any
+   video, FLV or not, without allowTranscode. A background job (the long-operation convention, MontClip-Cindy #3):
+   {mediaId} answers at once with the job; {job} says how far it got and, once done, the new mediaId; {cancel} stops
+   it; the same {mediaId} again while it runs joins that job. Done: the new MP4 takes the entry's place (MediaLib.swapMedia),
+   a version of the project kept first, so the swap can be undone (fablecut_versions; in the editor, Ctrl+Z). */
+const repairJobs = MakeEditable.createJobs({ prefix: "r_" });
+const repairNames = new Map();   // job → the file's name, for the words when it fails
+const REPAIR_WORDS = {
+  REPAIR_FAILED: (name) => `"${name}" stopped recording before it was saved, and this kind can't be fixed. The original file is unchanged — please use a complete file.`,
+  REPAIR_ENCODER_MISSING: (name) => `This computer has no encoder MontClip can use to fix "${name}", so nothing was written. The original file is unchanged.`,
+  REPAIR_CANCELLED: () => "Stopped; nothing was changed.",
+};
+function repairLine(j) {
+  const pct = Math.round(j.progress * 100);
+  const head = j.status === "done" ? `Fixed. Clips that use it now use the fixed copy, in the same place. The original is still there. (Usable part ${j.result.duration}s; now media ${j.result.mediaId}, it replaced ${j.result.replaced}${j.result.clips ? `; ${j.result.clips} clip(s) switched` : ""}.)`
+    : j.status === "failed" || j.status === "cancelled" ? (REPAIR_WORDS[j.error.code] ? REPAIR_WORDS[j.error.code](repairNames.get(j.job) || "this video") : j.error.message)
+    : `Repair job ${j.job}: ${j.status} ${pct}% (${j.phase}). Call again with job "${j.job}" for progress and the result, or cancel "${j.job}" to stop it.`;
+  return head + "\n" + JSON.stringify(j);
+}
+async function repairTool(args) {
+  if (args.cancel != null) {
+    const j = repairJobs.cancel(args.cancel);
+    if (!j) throw new Error("no repair job " + args.cancel);
+    return repairLine(j);
+  }
+  if (args.job != null) {
+    const j = repairJobs.get(args.job);
+    if (!j) throw new Error("no repair job " + args.job + " (jobs live as long as this MCP server runs; start it again with {mediaId})");
+    return repairLine(j);
+  }
+  const id = args.mediaId != null ? String(args.mediaId) : "";
+  if (!id) throw new Error("mediaId is required (or job / cancel)");
+  const doc = readProject();
+  const m = (doc.media || []).find((x) => x.id === id);
+  if (!m) throw new Error("no media " + id);
+  if (m.kind !== "video") throw new Error(`${id} is ${m.kind}: only a video can be repaired or converted`);
+  const file = mediaFile(m.src);
+  if (!file) throw new Error(`${id}: its file is missing (offline) — relinkMedia first`);
+  const lockedTracks = new Set(Array.isArray(doc.lockedTracks) ? doc.lockedTracks : []);
+  const locked = (doc.clips || []).filter((c) => c.mediaId === id && (c.locked === true || lockedTracks.has(c.track)));
+  if (locked.length && args.force !== true)
+    throw new Error(`${locked.map((c) => c.id).join(", ")} locked — the user locked it. Leave it alone, or pass force:true if they asked you to change it`);
+  const j = repairJobs.start(id, async ({ signal, onProgress }) => {
+    const r = await MakeEditable.makeEditable(file, { outDir: MEDIA_DIR, signal, onProgress });
+    const name = path.basename(r.file);
+    const entry = { id: "m_" + uid(), name, kind: "video", src: "/media/" + encodeURIComponent(name), duration: r.duration, preparation: r.preparation };
+    Object.assign(entry, infoForEntry(await probeFile(r.file), entry));
+    versionBeforeAgent(true);
+    // re-read: the project may have changed while it ran; re-checked just before the write (as fablecut_patch_project
+    // does), so an editor save that lands meanwhile is re-read and kept
+    let proj, clips = 0, replaced = id;
+    for (let attempt = 0; ; attempt++) {
+      proj = readProject();
+      const readRev = proj.revision || 0;
+      const wasCurrent = lastReadRevision === readRev;
+      clips = 0; replaced = id;
+      if ((proj.media || []).some((x) => x.id === id)) clips = MediaLib.swapMedia(proj, id, entry).clips;
+      else { proj.media.push(entry); replaced = null; }   // the original was removed meanwhile: just added
+      if ((readProject().revision || 0) !== readRev && attempt < 3) continue;
+      proj.revision = readRev + 1;
+      writeProject(proj);
+      if (wasCurrent) lastReadRevision = proj.revision;
+      break;
+    }
+    return { mediaId: entry.id, replaced, duration: r.duration, preparation: r.preparation, ...(r.encoder ? { encoder: r.encoder } : {}), src: entry.src, clips };
+  });
+  repairNames.set(j.job, m.name);
+  return repairLine(j);
+}
 async function proxyTool(args) {
   if (!(await ensureUIServer())) throw new Error(`the editor server is not running and could not be started on port ${PORT}`);
   const proj = readProject();
@@ -1318,6 +1474,8 @@ async function callTool(name, args, attempt = 0) {
       return captionsTool(args);
     case "fablecut_denoise":
       return denoiseTool(args);
+    case "fablecut_repair_media":
+      return repairTool(args);
     case "fablecut_proxy":
       return proxyTool(args);
     case "fablecut_projects":
@@ -1326,7 +1484,7 @@ async function callTool(name, args, attempt = 0) {
       return versionsTool(args);
     case "fablecut_status": {
       const up = await ensureUIServer();
-      await backfillDurations();
+      backfillDurations({ wait: 0 });   // status only reports: the lengths are written when they are read
       const proj = readProject();
       const dur = proj.clips.reduce((m, c) => Math.max(m, c.start + c.duration), 0);
       const files = fs.existsSync(MEDIA_DIR)
@@ -1402,8 +1560,10 @@ async function callTool(name, args, attempt = 0) {
         parts.filter((s) => s.startsWith("## ")).map((s) => s.slice(3, s.indexOf("\n"))).join(" · ");
     }
     case "fablecut_get_project": {
-      await backfillDurations();
+      const filled = await backfillDurations();
       const doc = readProject();
+      // read just now, maybe not saved yet (an open editor saves them a moment later): shown already
+      if (Array.isArray(filled)) MediaLib.applyBackfill(doc, filled);
       lastReadRevision = doc.revision || 0;
       if (!args.compact) return JSON.stringify(doc);
       return ProjectOps.compactView(doc, {
@@ -1418,8 +1578,10 @@ async function callTool(name, args, attempt = 0) {
         throw new Error("`baseRevision` must be an integer revision (from fablecut_get_project, fablecut_status or the last patch result)");
       // ops get filled in as they apply (auto ids …); a retry must start from the originals
       const ops = structuredClone(args.ops);
-      if (base == null) await backfillDurations();   // with a baseRevision, a write here would itself be the conflict
+      const filled = base == null ? await backfillDurations() : null;   // with a baseRevision, a write here would itself be the conflict
       const proj = readProject();
+      // the ops see the lengths just read, and this patch's write carries them
+      if (Array.isArray(filled)) MediaLib.applyBackfill(proj, filled);
       const readRev = proj.revision || 0;
       const conflict = (rev) => new Error(
         `CONFLICT — not saved. project.json is at revision ${rev}, but this patch was based on ` +

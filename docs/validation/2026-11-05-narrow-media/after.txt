@@ -1,0 +1,9 @@
+NARROW_MEDIA {"size":[360,640],"language":"zh-CN","mode":"simple","open":true,"innerWidth":360,"bin":[6,354],"controls":15,"outside":[],"overflowX":0}
+NARROW_MEDIA {"size":[360,640],"language":"zh-CN","mode":"advanced","open":true,"innerWidth":360,"bin":[6,354],"controls":15,"outside":[],"overflowX":0}
+NARROW_MEDIA {"size":[360,640],"language":"en","mode":"simple","open":true,"innerWidth":360,"bin":[6,354],"controls":15,"outside":[],"overflowX":0}
+NARROW_MEDIA {"size":[360,640],"language":"en","mode":"advanced","open":true,"innerWidth":360,"bin":[6,354],"controls":15,"outside":[],"overflowX":0}
+NARROW_MEDIA {"size":[630,460],"language":"zh-CN","mode":"simple","open":true,"innerWidth":630,"bin":[377,627],"controls":15,"outside":[],"overflowX":0}
+NARROW_MEDIA {"size":[630,460],"language":"zh-CN","mode":"advanced","open":true,"innerWidth":630,"bin":[377,627],"controls":15,"outside":[],"overflowX":0}
+NARROW_MEDIA {"size":[630,460],"language":"en","mode":"simple","open":true,"innerWidth":630,"bin":[377,627],"controls":10,"outside":[],"overflowX":0}
+NARROW_MEDIA {"size":[630,460],"language":"en","mode":"advanced","open":true,"innerWidth":630,"bin":[377,627],"controls":10,"outside":[],"overflowX":0}
+NARROW_MEDIA_PASS 8 cases

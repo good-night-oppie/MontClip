@@ -2,7 +2,7 @@
 // VV (2026-11-02, 630×452): three checks in a hidden offscreen window with a fresh profile, synthetic clips only.
 //  1. simple mode, a caption lane (V3) above V1/A1 that do not all fit: no visible lane is partly behind the sticky
 //     ruler. Either V3 is shown whole, or it is folded away and 「字幕轨在上方」 says so; clicking that shows V3 whole.
-//  2. 「引用选中字幕」 with no caption selected says 「先在时间线上选中字幕」 instead of doing nothing.
+//  2. 「让 AI 看」（原「引用选中字幕」） with no caption selected says 「先在时间线上选中字幕」 instead of doing nothing.
 //  3. AI service settings: the API key box and the save button are fully visible without scrolling.
 const electron=require('electron'),{app,BrowserWindow}=electron,assert=require('node:assert/strict');
 if(!process.argv.includes('--montclip-smoke'))throw Error('Explicit smoke required');
@@ -54,7 +54,7 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
    await read(`setSideTab('assistant');mcAgent.render();true`);await wait(300);
    await read(`(()=>{const b=[...document.querySelectorAll('.cindy-port [data-reference-actions] button')].find(b=>b.textContent===${JSON.stringify(T.caption)});b.click();return true;})()`);await wait(400);
    const status=await read(`[...document.querySelectorAll('.cindy-port [role=status]')].map(e=>e.textContent).join('|')`);
-   assert.ok(status.includes(T.noCaption),language+': 「引用选中字幕」 with nothing selected says so: '+status);
+   assert.ok(status.includes(T.noCaption),language+': 「让 AI 看」 with nothing selected says so: '+status);
    // 3. settings: key box and save button visible without scrolling
    await read(`(()=>{const b=[...document.querySelectorAll('.cindy-port button')].find(b=>b.textContent===${JSON.stringify(T.config)});b.click();return true;})()`);await wait(400);
    const box=await read(`(()=>{const box=document.querySelector('.cindy-config'),r=box.getBoundingClientRect(),port=document.querySelector('.cindy-port').getBoundingClientRect();
