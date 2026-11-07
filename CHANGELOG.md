@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Embedded in Cindy (`MONTCLIP_HOST=cindy`): the engine answers only requests with the plugin's session token (`X-MontClip-Session`, or the HttpOnly `montclip_embed` cookie — a random session of its own, not the token — a `?token=` page load trades for, with a 302 to the URL without it); `mcp-server.js` sends the header; headless browsers get a one-time ticket instead of the token. Unchanged without the variable.
 - Withdraw blur-over-original recipes as privacy guarantees; document opaque covers and per-frame preview/export checks without changing artistic compositing.
 
 - Reject linked workspace paths when revealing files; remember native export save destinations in the desktop main process so Show in folder finds the saved file.

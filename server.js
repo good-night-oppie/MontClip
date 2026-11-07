@@ -76,6 +76,7 @@ const Delivery = require("./delivery");
 const ExportCleanup = require("./export-cleanup");
 const { createProjects } = require("./projects");
 const { createHistory } = require("./history");
+const { createEmbed } = require("./embed");
 
 /* Static app files are served from the install dir; everything the user creates
    lives under DATA_DIR. The two are the same unless FABLECUT_DATA_DIR is set. */
@@ -86,6 +87,12 @@ const DESKTOP = process.env.MONTCLIP_DESKTOP === "1";
 const DESKTOP_TOKEN = process.env.MONTCLIP_SESSION_TOKEN;
 if (DESKTOP && (HOST !== "127.0.0.1" || !/^[a-f0-9]{64}$/.test(DESKTOP_TOKEN || "")))
   throw new Error("Desktop requires loopback binding and a fresh session token");
+/* Embedded in Cindy (MONTCLIP_HOST=cindy, the MontClip-Cindy plugin): only requests carrying the plugin's session
+   token get in — X-MontClip-Session, or the cookie a page load with ?token= trades for (embed.js). Unset, nothing
+   here changes. */
+const EMBED = process.env.MONTCLIP_HOST === "cindy";
+if (EMBED && (DESKTOP || HOST !== "127.0.0.1"))
+  throw new Error("Embedding in Cindy requires loopback binding (HOST=127.0.0.1) and cannot run in desktop mode");
 let boundPort = PORT;
 const serverOrigin = () => `http://127.0.0.1:${boundPort}`;
 
@@ -103,6 +110,7 @@ function hostAllowed(value) {
   const host = value.replace(/^(\[[^\]]*\]|[^:]+)(:\d+)?$/, "$1").toLowerCase();
   return ALLOWED_HOSTS.has(host);
 }
+const embed = EMBED ? createEmbed({ token: process.env.MONTCLIP_EMBED_TOKEN, hostAllowed }) : null;
 function requestAllowed(req) {
   if (DESKTOP) {
     if (req.headers.host !== `127.0.0.1:${boundPort}` ||
@@ -110,6 +118,7 @@ function requestAllowed(req) {
     return !req.headers.origin || req.headers.origin === serverOrigin();
   }
   if (!hostAllowed(req.headers.host)) return false;
+  if (embed && !embed.authorized(req)) return false;
   const origin = req.headers.origin;
   if (origin) {
     try { return hostAllowed(new URL(origin).host); } catch { return false; }
@@ -776,7 +785,8 @@ const freshExports = new Set();
    headless browser the server starts (export-jobs.js). */
 const exportJobs = createExportJobs({
   allowHeadless: !DESKTOP,
-  url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}`,
+  // embedded: a one-time ticket the page trades for the session cookie — the token itself stays off the command line
+  url: (id) => `${DESKTOP ? serverOrigin() : `http://localhost:${boundPort}`}/?exportJob=${encodeURIComponent(id)}${embed ? "&token=" + embed.launchTicket() : ""}`,
   broadcast,
   editors: () => sseClients.size,
   // a job that failed or was cancelled stops its encode now: ffmpeg and the half-finished file did wait for the
@@ -835,6 +845,10 @@ const server = http.createServer((req, res) => {
   });
 });
 async function handleRequest(req, res) {
+  if (embed) {
+    res.setHeader("Referrer-Policy", "no-referrer");  // embedded pages never pass their address on
+    if (embed.bootstrap(req, res)) return;
+  }
   if (!requestAllowed(req)) {
     sendJSON(res, 403, { error: "forbidden: request must come from this machine (bad Host or Origin header)" });
     return;
