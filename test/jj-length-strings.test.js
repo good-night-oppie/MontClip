@@ -36,7 +36,7 @@ test("the agent's import notes never reach the interface", () => {
   // importNote is used in one place only: the text fablecut_import_media answers the agent with
   const uses = [...src.matchAll(/importNote\(/g)].length;
   a.equal(uses, 2, "its definition and the import tool's reply");
-  a.match(src, /return `Imported → \$\{JSON\.stringify\(entry\)\}\\n` \+\s*importNote\(entry, probed\);/);
+  a.match(src, /return `Imported → \$\{JSON\.stringify\(entry\)\}\\n` \+\s*importNote\(entry, probed\)( \+ audioTracksNote\(entry\))?;/);   // + the audio tracks (#177)
   // and the editor never shows a tool's text to the user: the server has no route that passes it on
   a.doesNotMatch(read("server.js"), /importNote/);
 });
