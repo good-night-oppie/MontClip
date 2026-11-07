@@ -11,7 +11,8 @@ Date: 2026-11-03. Spec: Deja's architecture draft (sha256 cccbc16f…), sections
   behind the usual sender / frame / origin guard.
 - Yolo only after the streamer's yes in the main process's own message box (Cancel is the default). The page cannot answer it.
 - The page shows the switch (top of the assistant), the Yolo mark (in the pane and in the top bar, the whole time Yolo is on) and
-  the host's approval box. The box shows `Capabilities.label` (the plain sentence), never an internal name.
+  the host's approval card (in the message stream since 2026-11-04-approval-card-in-stream.md; before, a box over the page). It shows
+  `Capabilities.label` (the plain sentence), never an internal name.
 
 | mode | read | undoable | sensitive | external |
 |---|---|---|---|---|
