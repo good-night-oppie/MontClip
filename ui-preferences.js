@@ -1276,7 +1276,8 @@
     const l = lang(language), t = text[l];
     if (failed && !done) {
       let w = String(why || t.errOther).replace(/[。.]$/, "");
-      if (l === "en") w = w.charAt(0).toLowerCase() + w.slice(1);
+      // mid-sentence in English: a lower-case first letter, except a word in capitals ("AI background removal…")
+      if (l === "en" && !/^[A-Z]{2}/.test(w)) w = w.charAt(0).toLowerCase() + w.slice(1);
       return fill(t.exNone, { why: w });
     }
     let s = failed ? fill(t.exSome, { n: done, failed }) : fill(t.exAll, { n: done });

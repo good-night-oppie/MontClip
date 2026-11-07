@@ -78,6 +78,10 @@ for (const language of ['zh-CN', 'en']) test('the export queue, ' + language + '
   a.equal(q.code, 'BG_REMOVE_UNAVAILABLE');
   const why = V.batchReason(language, q);
   noLeak(why, 'queue line'); noLeak(V.exportResult(language, { done: 0, failed: 1, why }), 'queue summary');
+  // the summary when none went out keeps "AI" in capitals mid-sentence (exportResult lower-cases an English reason)
+  a.equal(V.exportResult(language, { done: 0, failed: 1, why }), language === 'en'
+    ? "Nothing was exported this time: AI background removal isn't ready. Your edits are all still there."
+    : '这次一条都没导出来：AI 抠像还没准备好。你的剪辑都还在，没有丢。');
   const SHORT = language === 'en' ? "AI background removal isn't ready" : 'AI 抠像还没准备好';
   a.equal(why, SHORT, "JJ's short reason, not v2's last row");
   const line = V.t(language, 'qFailed') + why;   // renderQueue: uiText("qFailed") + why
