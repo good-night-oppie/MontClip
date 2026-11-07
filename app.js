@@ -20378,6 +20378,11 @@ function sameSourceFrame(el, mt, shown) {
   return el.readyState >= 2 && !el.seeking && Math.abs(el.currentTime - mt) < 0.002 &&
     mt >= shown - 1e-4 && mt < shown + dur - 1e-4;
 }
+/* Where a hard seek aims: 1 ms past the frame time, not onto it. WebM / MKV keep times in whole milliseconds, so at
+   30 fps every third frame starts 0.33 ms after n / fps (frame 29 at 0.967 s, not 0.96667 s); a seek to exactly
+   n / fps shows the frame before it, and the export captured that stale frame (#224). 1 ms is less than a frame
+   at any rate the editor plays. */
+const SEEK_INSIDE_FRAME_S = 0.001;
 function hardSeekVideo(el, mt, attempt = 0, shown = el._fcPresentedTime) {
   const hasRvfc = typeof el.requestVideoFrameCallback === "function";
   const maxAttempts = 3;
@@ -20418,12 +20423,13 @@ function hardSeekVideo(el, mt, attempt = 0, shown = el._fcPresentedTime) {
     el.addEventListener("seeked", done);
     try {
       if (!el.paused) el.pause();
+      const at = mt + SEEK_INSIDE_FRAME_S;
       // Same currentTime does not fire seeked — nudge so the decoder must present mt.
-      if (Math.abs(el.currentTime - mt) < 1e-4) {
-        const nudge = mt >= 0.001 ? mt - 0.001 : mt + 0.001;
+      if (Math.abs(el.currentTime - at) < 1e-4) {
+        const nudge = at >= 0.001 ? at - 0.001 : at + 0.001;
         try { el.currentTime = nudge; } catch { }
       }
-      assignVideoTime(el, mt, true);
+      assignVideoTime(el, at, true);
     } catch { done(); }
   });
 }

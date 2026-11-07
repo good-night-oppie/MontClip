@@ -192,3 +192,37 @@ test("hardSeekVideo: a seek that never lands still fails", async () => {
   const el = seekingVideo({ currentTime: 0, presented: 0, completes: false });
   await assert.rejects(hardSeekVideo(el, 2.0), /presented frame timeout/);
 });
+
+/* #224: WebM / MKV keep times in whole milliseconds, so at 30 fps frame 29 starts at 0.967 s, after 29 / 30 =
+   0.96667 s. A paused element seeked to t shows the last frame that starts at or before t (Chrome / Edge), so a seek
+   to exactly n / fps showed frame n − 1 for every third frame, and the export drew that stale frame. */
+function msGridVideo(fps = 30, frames = 300) {
+  const starts = Array.from({ length: frames }, (_, n) => Math.round(n * 1000 / fps) / 1000);
+  const shownAt = (t) => { let k = 0; while (k + 1 < starts.length && starts[k + 1] <= t) k++; return k; };
+  const listeners = new Map();
+  const el = {
+    _t: 0, paused: true, readyState: 2, seeking: false, _fcPresentedTime: null, shown: 0,
+    pause() { el.paused = true; },
+    get currentTime() { return el._t; },
+    set currentTime(v) {
+      el._t = v; el.seeking = true;
+      setTimeout(() => { el.seeking = false; el.shown = shownAt(v); for (const f of [...(listeners.get("seeked") || [])]) f(); }, 1);
+    },
+    addEventListener(n, f) { (listeners.get(n) || listeners.set(n, []).get(n)).push(f); },
+    removeEventListener(n, f) { const a = listeners.get(n) || []; const i = a.indexOf(f); if (i >= 0) a.splice(i, 1); },
+    requestVideoFrameCallback(cb) { setTimeout(() => cb(0, { mediaTime: starts[el.shown] }), 1); },
+  };
+  return el;
+}
+
+test("hardSeekVideo: every output frame of 30 fps WebM shows its own source frame, not the one before (#224)", async () => {
+  const { hardSeekVideo } = loadHard();
+  const el = msGridVideo();
+  const wrong = [];
+  for (let n = 0; n < 90; n++) {
+    el._fcPresentedTime = null;   // a hard seek each time, as when the export falls back from playing forward
+    await hardSeekVideo(el, n / 30);
+    if (el.shown !== n) wrong.push(`${n}→${el.shown}`);
+  }
+  assert.deepEqual(wrong, [], "output frames that showed another source frame");
+});
