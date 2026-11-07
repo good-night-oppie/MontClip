@@ -1,5 +1,5 @@
 // Shared pure PR metadata rules. No I/O, dependencies, evaluation, or PR code execution.
-const ITEM = { "首行": "header", "负责人": "owner", "改动": "changes", "复现": "reproduce", "测试": "tests", "依赖": "dependencies", "审查人": "reviewer", "音画同步": "avsync", "外发": "outbound" };
+const ITEM = { "首行": "header", "负责人": "owner", "改动": "changes", "复现": "reproduce", "测试": "tests", "依赖": "dependencies", "审查人": "reviewer", "音画同步": "avsync", "外发": "outbound", "工作流": "workflows" };
 const LABEL = { "改动": "changes", "复现": "reproduce", "测试": "tests", "依赖": "dependencies", "音画同步": "avsync", "外发": "outbound" };
 const clean = (s) => String(s || "").replace(/^\s*(?:[-*]|\d+[.)])\s+/, "").trim();
 const placeholder = (s) => /^(?:TODO|待补|原因|无|N\/A|<[^>]+>)$/i.test(s);
@@ -164,7 +164,8 @@ export function checkPR({ pr, files, repo, policy, teammates }) {
   }
   const verified = exceptionVerified(pr, exception.valid);
   const workflowFiles = workflowFilesChanged(files);
-  return { status: issues.length ? "failed" : (exception.valid.length && !verified) || workflowFiles.length ? "needs_qq" : "passed", issues, warnings, exceptions: exception.valid, exceptionVerified: verified, workflowFiles, owner, categories };
+  const workflowCleared = exception.valid.some((e) => e.item === "workflows") && verified;
+  return { status: issues.length ? "failed" : (exception.valid.length && !verified) || (workflowFiles.length && !workflowCleared) ? "needs_qq" : "passed", issues, warnings, exceptions: exception.valid, exceptionVerified: verified, workflowFiles, owner, categories };
 }
 
 export function formatReport(result) {

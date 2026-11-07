@@ -97,6 +97,7 @@
         "mcp-server.js",
         "real-tests/bgremove-assets-byte-audit.cjs",
         "real-tests/bgremove-consent-browser-smoke.cjs",
+        "real-tests/draft-existing-loop.cjs",
         "real-tests/font-consent-browser-smoke.cjs",
         "real-tests/openrouter.integration.cjs",
         "real-tests/run-deepseek-e2e.cjs",

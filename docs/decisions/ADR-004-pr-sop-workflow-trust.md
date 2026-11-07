@@ -14,7 +14,7 @@ sop-pr-lint 用 `pull_request_target` 读取 PR 元数据，只读权限，不 c
 ## 决定
 
 1. 不启用 `pull_request_review`（submitted、dismissed）。QQ 提交例外 review 后，用 GoodNightOppie 执行 `gh run rerun <run-id>`，重跑最近一次 sop-pr-lint；先核对 run 的完整 head、事件和工作流哈希，不重跑旧 `pull_request` 运行。这一步是人工操作，脚本不代为触发。
-2. 改动文件里出现 `.github/workflows/**` 或 `.github/actions/**`（含重命名前路径）时，状态为 `needs_qq`，运行返回 1；摘要只列出这些文件名，不打印文件内容。正控覆盖 workflows、actions、重命名前路径；负控确认普通文档改动仍可通过。
+2. 改动文件里出现 `.github/workflows/**` 或 `.github/actions/**`（含重命名前路径）时，状态为 `needs_qq`，运行返回 1；摘要只列出这些文件名，不打印文件内容。正控覆盖 workflows、actions、重命名前路径；负控确认普通文档改动仍可通过。确需合入时，PR 写 `SOP 例外：工作流 — 原因 — 证据：…`，并由 GoodNightOppie 在当前 head 的 APPROVED 或 COMMENTED review 中写精确一行 `SOP 例外已核验：工作流`；旧 head、缺行或项目不齐都不放行。
 3. 根治方向是仓库规则集的「Require workflows to pass before merging」：指定默认分支上的 `.github/workflows/pr-sop.yml`，合并时校验的是 main 的那一份，而不是 PR 里的同名 job。该设置由 QQ 向主人申请后执行，BB 不改规则集。
 
 ## 规则集能力核查（2026-11-07）

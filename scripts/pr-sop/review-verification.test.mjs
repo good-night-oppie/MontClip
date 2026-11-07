@@ -45,6 +45,14 @@ it('QQ不在实现名册，连负责人例外也不能把QQ当负责人',()=>{
  const text=body.replace('负责人：BB','负责人：QQ');assert.equal(run(text).status,'failed');
  assert.equal(run(text+'\nSOP 例外：负责人 — 人工安排 — 证据：c1c25e38',{reviews:[review({body:'SOP 例外已核验：负责人'})]}).status,'failed');
 });
+it('工作流文件改动可凭当前head的「工作流」review行放行，旧head不算',()=>{
+ const text=body+'\nSOP 例外：工作流 — 经QQ核验 — 证据：c1c25e38',files=['.github/workflows/other.yml'];
+ const line=review({body:'SOP 例外已核验：工作流'});
+ assert.equal(run(text,{reviews:[line]},files).status,'passed');
+ assert.equal(run(text,{reviews:[{...line,commit:{oid:old}}]},files).status,'needs_qq');
+ assert.equal(run(text,{},files).status,'needs_qq');
+ assert.equal(run(body,{reviews:[line]},files).status,'needs_qq');
+});
 it('server.js同时要求音画同步和外发，缺任一都失败',()=>{
  const files=['server.js'],av='\n音画同步：没跑：未修改实际媒体路径',out='\n外发：内容：API元数据；接收方：api.github.com；能否关闭：能';
  assert.deepEqual(classifyFiles(files,policy.repositories[repo]),{av:true,outbound:true});
