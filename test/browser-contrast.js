@@ -63,9 +63,10 @@ async function cdpPage(prof) {
   throw new Error("the headless browser did not open the page");
 }
 
-/** Open `url` in a headless browser at `width`×`height`, wait `settleMs`, run MEASURE — once, or after each of
- *  `states` ({name, run}: an expression that puts the page in that state). → {texts, skipped} | {[name]: {texts, skipped}} */
-async function measureContrast({ browser, url, width = 1280, height = 800, settleMs = 3000, before = "", states = null }) {
+/** Open `url` in a headless browser at `width`×`height`, wait until the editor has drawn and `settleMs` more, then
+ *  run(page): page.evaluate(expression) and page.requests (every URL the page asked for since it was opened). `init`:
+ *  a script run in the page before its own (Page.addScriptToEvaluateOnNewDocument). → what run returns */
+async function withPage({ browser, url, width = 1280, height = 800, settleMs = 3000, init = "" }, run) {
   const prof = fs.mkdtempSync(path.join(os.tmpdir(), "montclip-contrast-"));
   const b = spawn(browser, ["--headless=new", "--no-first-run", "--no-default-browser-check", "--disable-extensions", "--hide-scrollbars",
     `--user-data-dir=${prof}`, "--remote-debugging-port=0", `--window-size=${width},${height}`, "about:blank"], { stdio: "ignore" });
@@ -76,6 +77,10 @@ async function measureContrast({ browser, url, width = 1280, height = 800, settl
     ws.addEventListener("message", (e) => { const m = JSON.parse(e.data); pend.get(m.id)?.(m); });
     const send = (method, params) => new Promise((r) => { const k = ++n; pend.set(k, r); ws.send(JSON.stringify({ id: k, method, params })); });
     const evaluate = (expression) => send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true }).then((m) => m.result?.result?.value);
+    const requests = [];
+    ws.addEventListener("message", (e) => { const m = JSON.parse(e.data); if (m.method === "Network.requestWillBeSent") requests.push(m.params.request.url); });
+    await send("Network.enable", {});
+    if (init) { await send("Page.enable", {}); await send("Page.addScriptToEvaluateOnNewDocument", { source: init }); }
     await send("Page.navigate", { url });
     // the editor has drawn when its track headers are there (a loaded machine takes longer than settleMs alone)
     for (const until = Date.now() + 20000; Date.now() < until;) {
@@ -83,6 +88,20 @@ async function measureContrast({ browser, url, width = 1280, height = 800, settl
       await new Promise((r) => setTimeout(r, 250));
     }
     await new Promise((r) => setTimeout(r, settleMs));
+    const out = await run({ evaluate, requests });
+    ws.close();
+    return out;
+  } finally {
+    b.kill();
+    await new Promise((r) => setTimeout(r, 500));
+    try { fs.rmSync(prof, { recursive: true, force: true }); } catch { }
+  }
+}
+
+/** Open `url` (withPage), run MEASURE — once, or after each of `states` ({name, run}: an expression that puts the page
+ *  in that state). → {texts, skipped} | {[name]: {texts, skipped}} */
+async function measureContrast({ browser, url, width = 1280, height = 800, settleMs = 3000, before = "", states = null }) {
+  return withPage({ browser, url, width, height, settleMs }, async ({ evaluate }) => {
     let out;
     if (states) {
       out = {};
@@ -95,13 +114,8 @@ async function measureContrast({ browser, url, width = 1280, height = 800, settl
       if (before) { await evaluate(before); await new Promise((r) => setTimeout(r, 500)); }
       out = await evaluate(MEASURE);
     }
-    ws.close();
     return out;
-  } finally {
-    b.kill();
-    await new Promise((r) => setTimeout(r, 500));
-    try { fs.rmSync(prof, { recursive: true, force: true }); } catch { }
-  }
+  });
 }
 
-module.exports = { measureContrast };
+module.exports = { measureContrast, withPage };

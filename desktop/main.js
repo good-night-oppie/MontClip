@@ -9,7 +9,8 @@ const { dataDirInUse, exitedAtStart, startFailureBox } = require("./startup-fail
 const { transcribeEnabled } = require("./features");
 const { createCloseController } = require("./close-controller");
 const External = require("../external-ffmpeg");
-const Capabilities = require("../capabilities");   // risk levels are fixed here; the page gets a read-only copy
+const Capabilities = require("../capabilities");
+const HostEmbed = require("../host-embed");   // ?host=cindy: the built-in assistant's requests are refused   // risk levels are fixed here; the page gets a read-only copy
 const fs = require("node:fs");
 let worker, win, stopping = false, closing = false, workerExited = false, flvImports = null, flvShutdown = null;
 const smoke = !app.isPackaged && process.argv.includes("--montclip-smoke");
@@ -317,6 +318,8 @@ async function start() {
   ipcMain.handle('montclip:agent:noticeAck', (event, version) => settingsAllowed(event, win, origin) ? dataNotice.ack(version) : { ok: false, code: 'AGENT_FORBIDDEN' });
   for(const operation of ['get','configure','reset','deleteConnection','send','cancel']) ipcMain.handle('montclip:agent:'+operation,(event,value)=>{
     if(!settingsAllowed(event,win,origin))return {ok:false,code:'AGENT_FORBIDDEN'};
+    // the editor inside another app (?host=cindy) has no built-in assistant: no key read, nothing sent (QQ on #219)
+    if(HostEmbed.embeddedUrl(event.senderFrame&&event.senderFrame.url))return {ok:false,code:'HOST_EMBEDDED'};
     // nothing goes out with the assistant switched off, nor to DeepSeek before she has read the 「AI 数据说明」 (QQ via Deja)
     if(operation==='send'){if(!agentSwitch.get().enabled)return {ok:false,code:'AI_OFF'};if(agentService.get().provider==='deepseek'&&!dataNotice.get().accepted)return {ok:false,code:'NOTICE_REQUIRED'};}
     return agentService[operation](value);
