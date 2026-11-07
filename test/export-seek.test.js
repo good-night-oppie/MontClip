@@ -226,3 +226,92 @@ test("hardSeekVideo: every output frame of 30 fps WebM shows its own source fram
   }
   assert.deepEqual(wrong, [], "output frames that showed another source frame");
 });
+
+/* #224: the frame callback said the target was presented and the element was paused on it, yet the frame it held
+   (and the export drew) was already the next one — a flash a frame early, or missing. Measured with
+   new VideoFrame(el).timestamp just before the draw: it matched the exported picture every time. So the export takes
+   that frame, checks its timestamp, seeks back if it is ahead, and draws the frame it took. */
+const HOLD = slice("/** Take the frame a video element holds", "/** Decode the frame of video clip c");
+/** An element that holds source frame `holding` (start times on a 30 fps millisecond grid). */
+function holdingVideo(holding) {
+  const el = { holding, paused: true, readyState: 2, _fcPresentedTime: null, videoWidth: 320, videoHeight: 180 };
+  return el;
+}
+class FakeVideoFrame {
+  constructor(el) {
+    this.timestamp = Math.round(Math.round(el.holding * 1000 / 30) * 1000); this.closed = false;
+    Object.assign(this, { displayWidth: 320, displayHeight: 180, rotation: el.rotation || 0, flip: false });
+    FakeVideoFrame.made.push(this);
+  }
+  close() { this.closed = true; }
+}
+FakeVideoFrame.made = [];
+function loadHold(seek) {
+  const runtime = { exportHeld: new Map(), exportFrames: new Map() };
+  const fns = new Function("runtime", "VideoFrame", "hardSeekVideo", `${HOLD}
+    return { holdElementFrame, dropHeldFrame };`)(runtime, FakeVideoFrame, seek);
+  return { runtime, ...fns };
+}
+
+test("holdElementFrame: a frame that starts after the target is sought back, and the frame drawn is the target (#224)", async () => {
+  let seeks = 0;
+  const el = holdingVideo(31);   // asked for frame 30 (1.000 s), holds 31
+  const { runtime, holdElementFrame } = loadHold(async (e, mt) => { seeks++; e.holding = Math.round(mt * 30); });
+  await holdElementFrame({ id: "v" }, el, 1);
+  assert.equal(seeks, 1);
+  assert.equal(runtime.exportFrames.get("v").timestamp, 1e6, "frame 30 is drawn");
+  assert.equal(FakeVideoFrame.made.filter((f) => !f.closed).length, 1, "the frame of 31 was closed");
+});
+
+test("holdElementFrame: the target frame is taken as it is, ms-rounded or not, and the last one is closed", async () => {
+  let seeks = 0;
+  const { runtime, holdElementFrame, dropHeldFrame } = loadHold(async () => { seeks++; });
+  const el = holdingVideo(29);   // frame 29 starts at 0.967 s, after 29 / 30
+  await holdElementFrame({ id: "v" }, el, 29 / 30);
+  const first = runtime.exportFrames.get("v");
+  el.holding = 30;
+  await holdElementFrame({ id: "v" }, el, 1);
+  assert.equal(seeks, 0);
+  assert.equal(first.closed, true, "the frame of the last tick is closed when the next is taken");
+  assert.equal(runtime.exportFrames.get("v").timestamp, 1e6);
+  dropHeldFrame({ id: "v" });
+  assert.equal(runtime.exportFrames.has("v"), false);
+});
+
+test("holdElementFrame: a seek that never gets there still draws something after two tries", async () => {
+  let seeks = 0;
+  const { runtime, holdElementFrame } = loadHold(async () => { seeks++; });   // the element stays on 31
+  await holdElementFrame({ id: "v" }, holdingVideo(31), 1);
+  assert.equal(seeks, 2);
+  assert.ok(runtime.exportFrames.get("v"), "the export goes on rather than failing");
+});
+
+test("seekVideosTo: an element whose callback says it is on the frame but holds the next one draws the frame (#224)", async () => {
+  const el = holdingVideo(31);
+  Object.assign(el, { currentTime: 1, paused: false, _fcPresentedTime: 1 });   // callback: frame 30; holds 31
+  const clip = { id: "v", kind: "video", start: 0, duration: 10 };
+  const runtime = { exportDecode: null, exportHeld: new Map(), exportFrames: new Map(), clipGain: new Map() };
+  const seekTo = new Function("el", "clip", "runtime", "VideoFrame", `
+    let exportSeekClock = 0;
+    const projectFps = () => 30, exportLoopLag = () => ({ lagMs: 1, fast: true, behind: false });
+    const mediaClips = () => [clip], clipRenders = () => true, getClipEl = () => el, activeAt = () => true;
+    const mediaTimeAt = (c, t) => t, clipSpeed = () => 1, kfChannel = (c, k, l, d) => d, evalProps = () => ({});
+    const clamp = (v, a, b) => Math.min(b, Math.max(a, v)), videoRangeBuffered = () => true, prefetchExportVideos = () => {};
+    const playAdvanceVideo = () => Promise.resolve(), driveClipChain = () => {}, muteClipChain = () => {};
+    const hardSeekVideo = async (e, mt) => { e.holding = Math.round(mt * 30); };
+    const presentedClose = (e, mt, eps) => e._fcPresentedTime != null && Math.abs(e._fcPresentedTime - mt) <= eps;
+    ${HOLD}
+    ${slice("async function seekVideosTo(", "function encodeWAV(")}
+    return seekVideosTo;`)(el, clip, runtime, FakeVideoFrame);
+  await seekTo(1);
+  assert.equal(runtime.exportFrames.get("v")?.timestamp, 1e6, "frame 30 is what gets drawn, not 31");
+});
+
+test("holdElementFrame: a turned picture (phone footage) is checked, but the element is drawn as before", async () => {
+  let seeks = 0;
+  const { runtime, holdElementFrame } = loadHold(async (e, mt) => { seeks++; e.holding = Math.round(mt * 30); });
+  const el = Object.assign(holdingVideo(31), { rotation: 90 });
+  await holdElementFrame({ id: "v" }, el, 1);
+  assert.equal(seeks, 1, "still sought back onto the frame");
+  assert.equal(runtime.exportFrames.has("v"), false, "the element draws itself, turned");
+});

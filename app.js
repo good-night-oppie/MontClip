@@ -20633,12 +20633,45 @@ class ExportFrameSource {
 function exportDecodeBegin() {
   runtime.exportDecode = runtime.noExportDecode ? null : { sources: new Map(), opening: new Map() };
   runtime.exportFrames = new Map();
+  runtime.exportHeld = new Map();   // clip id → the frame taken from its element (holdElementFrame)
 }
 function exportDecodeEnd() {
   const d = runtime.exportDecode;
   if (d) for (const s of d.sources.values()) s?.close();
+  if (runtime.exportHeld) for (const f of runtime.exportHeld.values()) f.close();
   runtime.exportDecode = null;
   runtime.exportFrames = null;
+  runtime.exportHeld = null;
+}
+/** Take the frame a video element holds and draw that one (#224). Its frame callback said mt was presented, but a
+ *  pause just after can still hand over the next frame, and the export drew that one a frame early. The frame's own
+ *  timestamp says which it is: one that starts after mt is sought back (twice at most), and the frame taken here is
+ *  the one drawn, so nothing the element does before the draw can change it. */
+async function holdElementFrame(c, el, mt) {
+  const held = runtime.exportHeld;
+  if (!held || typeof VideoFrame !== "function") return;
+  for (let attempt = 0; ; attempt++) {
+    let frame;
+    try { frame = new VideoFrame(el); } catch { dropHeldFrame(c); return; }   // nothing to take: draw the element
+    if (frame.timestamp / 1e6 - (el._fcStart || 0) <= mt + 0.002 || attempt >= 2) {
+      // a turned or mirrored picture (phone footage) is turned by the element: it is checked, but the element is drawn
+      if (frame.rotation || frame.flip || frame.displayWidth !== el.videoWidth || frame.displayHeight !== el.videoHeight) {
+        frame.close(); dropHeldFrame(c); return;
+      }
+      held.get(c.id)?.close();
+      held.set(c.id, frame);
+      runtime.exportFrames.set(c.id, frame);
+      return;
+    }
+    frame.close();
+    el._fcPresentedTime = null;   // not the frame its callback reported
+    await hardSeekVideo(el, mt);
+  }
+}
+function dropHeldFrame(c) {
+  const f = runtime.exportHeld?.get(c.id);
+  if (!f) return;
+  f.close(); runtime.exportHeld.delete(c.id); runtime.exportFrames.delete(c.id);
 }
 /** Decode the frame of video clip c for timeline time t; false when the clip
  *  stays on the <video> path. Frames go to runtime.exportFrames for drawing. */
@@ -20685,6 +20718,7 @@ async function seekVideosTo(t, { queueBusy } = {}) {
   const waits = [];
   const restoreGain = [];
   const decoded = new Set();
+  const holds = [];
   const dec = runtime.exportDecode;
   if (dec) {
     const jobs = [];
@@ -20706,6 +20740,7 @@ async function seekVideosTo(t, { queueBusy } = {}) {
     if (decoded.has(c.id)) continue;
     const el = getClipEl(c); if (!el) continue;
     if (!activeAt(c, t)) {
+      dropHeldFrame(c);
       if (!el.paused) el.pause();
       if (el._fcPrevMuted != null) {
         try { el.muted = el._fcPrevMuted; } catch { }
@@ -20722,6 +20757,8 @@ async function seekVideosTo(t, { queueBusy } = {}) {
     const mediaFrame = sp / fps;
     const eps = 0.5 * mediaFrame;
     const slop = Math.min(eps, 0.002);
+    if (evalProps(c, t).bgRemove) dropHeldFrame(c);   // the cut-out reads the element itself
+    else holds.push([c, el, mt]);
     // Skip only when the *presented* picture is already the target. currentTime
     // within ½ frame is not enough — Fast export used to snapshot the previous
     // decoded frame twice while the clock had already ticked.
@@ -20752,6 +20789,7 @@ async function seekVideosTo(t, { queueBusy } = {}) {
     }
   }
   await Promise.all(waits);
+  await Promise.all(holds.map(([c, el, mt]) => holdElementFrame(c, el, mt)));
   for (const c of restoreGain) {
     const chain = runtime.clipGain.get(c.id);
     if (chain?.vol) driveClipChain(chain, c, evalProps(c, t), t);
