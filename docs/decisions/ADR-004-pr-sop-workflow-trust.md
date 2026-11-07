@@ -16,6 +16,7 @@ sop-pr-lint 用 `pull_request_target` 读取 PR 元数据，只读权限，不 c
 1. 不启用 `pull_request_review`（submitted、dismissed）。QQ 提交例外 review 后，用 GoodNightOppie 执行 `gh run rerun <run-id>`，重跑最近一次 sop-pr-lint；先核对 run 的完整 head、事件和工作流哈希，不重跑旧 `pull_request` 运行。这一步是人工操作，脚本不代为触发。
 2. 改动文件里出现 `.github/workflows/**` 或 `.github/actions/**`（含重命名前路径）时，状态为 `needs_qq`，运行返回 1；摘要只列出这些文件名，不打印文件内容。正控覆盖 workflows、actions、重命名前路径；负控确认普通文档改动仍可通过。确需合入时，PR 写 `SOP 例外：工作流 — 原因 — 证据：…`，并由 GoodNightOppie 在当前 head 的 APPROVED 或 COMMENTED review 中写精确一行 `SOP 例外已核验：工作流`；旧 head、缺行或项目不齐都不放行。
 3. 根治方向是仓库规则集的「Require workflows to pass before merging」：指定默认分支上的 `.github/workflows/pr-sop.yml`，合并时校验的是 main 的那一份，而不是 PR 里的同名 job。该设置由 QQ 向主人申请后执行，BB 不改规则集。
+4. 支持 GitHub 合并队列：工作流增加 `merge_group: checks_requested`。该事件下没有 PR 正文，runner 直接返回 0，摘要写「合并队列阶段不重复检查，PR 阶段已检查」；不读取事件文件、不调 API、不 checkout。merge_group 跑的是队列中的合并引用，PR 改动也在里面，所以这一路只允许直接通过，不读也不执行任何 PR 内容；真正的门禁仍在 PR 阶段的 pull_request_target。回归用例断言 merge_group 返回 0 且 API 调用次数为 0。
 
 ## 规则集能力核查（2026-11-07）
 
@@ -36,6 +37,7 @@ sop-pr-lint 用 `pull_request_target` 读取 PR 元数据，只读权限，不 c
 - 工作流或动作文件改动一律升级为 QQ 人工核验，不因模板齐全而机器放行。
 - QQ 必审，wf 改动按高风险人工审；核对具体 run 的 event、完整 head、工作流文件哈希，不接受同名 job 的成功结果。
 - 分支保护把 sop-pr-lint 设为必过之前，先完成首次 main 启用和一次真实 target 运行核验。
+- 合并队列必须产出 sop-pr-lint 结果，否则设成必过后所有 PR 会卡在队列里；merge_group 分支只返回通过，把门禁留在 PR 阶段。
 
 ## 未做
 
