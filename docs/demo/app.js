@@ -21637,8 +21637,8 @@ $("btnQueueClear")?.addEventListener("click", () => {
   renderQueue();
 });
 $("exportQueueList")?.addEventListener("click", (e) => {
-  const r = e.target.dataset.qRetry, x = e.target.dataset.qRemove, s = e.target.dataset.qSave, rv = e.target.dataset.qReveal, c = e.target.dataset.qCopy;
-  const q = exportQueue.find((v) => v.id === (r || x || s || rv || c));
+  const r = e.target.dataset.qRetry, x = e.target.dataset.qRemove, s = e.target.dataset.qSave, c = e.target.dataset.qCopy, rv = e.target.dataset.qReveal;
+  const q = exportQueue.find((v) => v.id === (r || x || s || c || rv));
   if (!q) return;
   if (c) { copyProblem(sayError(q, "export-queue")); return; }
   // show the exported file in its folder (desktop shell; a browser keeps the status line)
