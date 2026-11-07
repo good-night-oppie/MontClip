@@ -54,6 +54,8 @@ function page(fetch, language = "zh-CN") {
     navigator: { platform: WIN ? "Win32" : "Linux x86_64", clipboard: { writeText: async (s) => { copied = s; } } },
     fetch, JSON, String, Set, console: { warn: (s) => warned.push(s) },
     toast: (s) => toasts.push(s),
+    // since #161 a copy that worked says so in toastProblemSent (the mailbox to send it to); here it only records that
+    toastProblemSent: () => toasts.push("sent"),
     toastAction: (msg, label, onClick, note) => shown.push({ msg, label, onClick, note }),
   };
   vm.createContext(ctx);
@@ -68,13 +70,13 @@ function page(fetch, language = "zh-CN") {
 function assertClean(out, { home }) {
   for (const gone of VIEWERS) a.ok(!out.includes(gone), `"${gone}" left in: ${out}`);
   a.ok(!/\bbob\b/.test(out.replace(/bob的粉丝/g, "")), "no user folder name in: " + out);
-  a.match(out, /user="…"/); a.match(out, /uid="…"/); a.match(out, /user=…/); a.match(out, /uid=…/);
-  a.match(out, /"uid":"…"/); a.match(out, /"uname":"…"/); a.match(out, /昵称：…/);
+  // since #161 the copy carries no raw error: errorText's sentence, the version line, the files as type and size, the code
+  a.ok(out.startsWith(R.HEADER["zh-CN"]), "the fixed first line");
+  a.ok(out.includes(V.t("zh-CN", "own.err-editor-stopped").split("。")[0] + "。"), "what happened, in errorText's words");
   a.match(out, /EDITOR_STOPPED_ANSWERING/, "the code stays");
-  a.match(out, /the editor tab stopped answering for 20 s/, "the queue's own words stay");
-  a.match(out, /rec\.flv/); a.match(out, /a\.mp4/);
-  if (home) a.ok(out.includes(R.maskUserPath(`open ${HOME}`, { home: HOME, platform: process.platform })), "the home folder as maskUserPath has it");
-  a.match(out, /%USERPROFILE%\\Desktop\\a\.mp4/); a.match(out, /~\/b\.mp4/); a.match(out, /~\/c\.mp4/);
+  a.ok(!/stopped answering|user=|uid|uname|昵称|rec\.flv|a\.mp4/.test(out), "no raw error line in: " + out);
+  a.match(out, /一个 flv 文件/); a.match(out, /一个 mp4 文件/);
+  if (home) a.ok(!out.includes(HOME), "the home folder is gone");
 }
 
 test("the queue's reply: the code and why, for the tab to say", () => {
@@ -108,7 +110,7 @@ test("offline: the page's copy of #129's rules takes viewers and user folders ou
   const out = p.copied();
   a.ok(out, "copied");
   assertClean(out, { home: false });
-  a.deepEqual(p.toasts, [V.t("zh-CN", "own.copy-problem-done")]);
+  a.deepEqual(p.toasts, ["sent"]);
 });
 
 test("through the server: POST /api/problem-details masks viewers and this computer's home folder", async (t) => {
@@ -122,7 +124,6 @@ test("through the server: POST /api/problem-details masks viewers and this compu
   a.deepEqual(calls, ["/api/problem-details"]);
   const out = p.copied();
   assertClean(out, { home: true });
-  a.equal(out, R.redactProblem(p.warned[0], { home: HOME, platform: process.platform }), "the server's answer is #129's rules with its home folder");
   a.ok(!out.includes(HOME), "the home folder is gone");
 });
 
