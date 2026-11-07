@@ -6,6 +6,23 @@ Based on [ronak-create/FableCut](https://github.com/ronak-create/FableCut) (MIT)
 
 [简体中文](docs/i18n/README.zh-CN.md)
 
+<!-- README visuals (draft for PR review). Every TBD below is copy that JJ writes; Rea checks it word for word. -->
+<!-- Video: link added only after Deja approves publishing the Release asset. Until then the cover is not a link. -->
+<p align="center">
+  <img src="docs/assets/demo/readme-demo-cover.png" width="720" alt="TBD (JJ): demo cover alt text">
+  <br><sub>TBD (JJ): demo caption · video pending release</sub>
+</p>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagrams/symbolic-perception-arch-dark.svg">
+  <img src="docs/assets/diagrams/symbolic-perception-arch-light.svg" width="880" alt="TBD (JJ): diagram 1 alt text">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagrams/flv-input-checks-dark.svg">
+  <img src="docs/assets/diagrams/flv-input-checks-light.svg" width="880" alt="TBD (JJ): diagram 2 alt text">
+</picture>
+
 ## What MontClip is
 
 MontClip is an editor you install and run on your own computer. Bring in your stream recordings, pick the parts you want to keep sentence by sentence from the subtitles, and export the finished clip with its subtitle file. Your recordings are processed on your computer and are not uploaded.
