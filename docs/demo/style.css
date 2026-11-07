@@ -1,7 +1,7 @@
 /* ══════════════════ MontClip — Premiere-style dark theme ══════════════════ */
 .mc-history { display: flex; gap: 6px; flex: 0 0 auto; }
 .mc-assistant { position: absolute; top: 100px; left: 6px; width: min(340px, calc(100vw - 12px)); max-height: calc(100vh - 120px); overflow: auto; padding: 12px; z-index: 20; }
-.mc-assistant p { margin-top: 12px; }
+.mc-assistant p:where(:not([data-cindy-parts] *)) { margin-top: 12px; }
 body[data-mc-mode="simple"] .upper > .inspector { grid-column: 1; grid-row: 1; }
 body[data-mc-mode="simple"] .upper > .monitor { grid-column: 2; grid-row: 1; }
 body[data-mc-mode="simple"] .upper > .bin { grid-column: 3; grid-row: 1; }
@@ -2750,6 +2750,11 @@ body.track-size-s .clip .fade-grip {
 }
 
 /* transition wedges — width from transition duration × pps (see transitionMarksHtml) */
+/* where an FLV recording broke (gapMarksHtml): faint for a small drop, a labelled band for a converted break */
+.clip .gap-mark { position: absolute; top: 0; bottom: 0; pointer-events: none; z-index: 2; }
+.clip .gap-mark.small { width: 1px; background: rgba(255, 255, 255, .28); }
+.clip .gap-mark.big { background: rgba(255, 176, 64, .2); border-left: 1px solid rgba(255, 176, 64, .75); }
+.clip .gap-mark.big span { position: absolute; left: 3px; bottom: 2px; font-size: 10px; line-height: 1; white-space: nowrap; color: #ffd08a; }
 .clip .trans-mark {
   position: absolute;
   top: 0;
@@ -4725,7 +4730,7 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 #mcAssistantStatus,#mcAssistantPending { display:none; }
 #mcAgentContent { display:flex; flex-direction:column; min-height:0; overflow:auto; gap:4px; }
 #mcAgentContent .agent-toolbar { display:flex; gap:4px; flex-wrap:wrap; flex-shrink:0; }
-#mcAgentContent p { margin:0; font-size:11px; }
+#mcAgentContent p:where(:not([data-cindy-parts] *)) { margin:0; font-size:11px; }
 #mcAgentContent input,#mcAgentContent textarea,#mcAgentContent select { color:var(--text); background:var(--panel-2); border:1px solid var(--border); border-radius:5px; padding:4px 6px; font:inherit; min-width:0; user-select:text; }
 #mcAgentContent textarea { width:100%; min-height:44px; height:56px; resize:vertical; flex-shrink:0; }
 #mcAgentContent [data-sessions] { display:flex; gap:4px; overflow:auto; flex-shrink:0; max-height:32px; }
@@ -4793,9 +4798,9 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 #mcAgentContent [hidden] { display:none !important; }
 /* Official Cindy component island: scoped host tokens; no second right sidebar. */
 .cindy-port {display:flex;flex-direction:column;min-height:0;height:100%;gap:4px;overflow:hidden;--chat-input-bg:var(--panel);--chat-input-border:var(--border);--chat-input-border-focus:var(--accent);--send-btn-bg:var(--accent);--send-btn-icon:white;--send-btn-hover-bg:var(--accent);--send-btn-pressed-bg:var(--accent);}
-.cindy-port button,.cindy-port input,.cindy-port select,.cindy-port textarea {font:inherit;color:inherit;background:var(--panel);border:1px solid var(--border);border-radius:5px;max-width:100%;}
-.cindy-port button {cursor:pointer;padding:4px 6px;}
-.cindy-port button:focus-visible,.cindy-port input:focus-visible,.cindy-port textarea:focus-visible {outline:2px solid var(--accent);outline-offset:1px;}
+.cindy-port :is(button,input,select,textarea):where(:not([data-cindy-parts] *)) {font:inherit;color:inherit;background:var(--panel);border:1px solid var(--border);border-radius:5px;max-width:100%;}
+.cindy-port button:where(:not([data-cindy-parts] *)) {cursor:pointer;padding:4px 6px;}
+.cindy-port :is(button,input,textarea):where(:not([data-cindy-parts] *)):focus-visible {outline:2px solid var(--accent);outline-offset:1px;}
 .cindy-thread {flex:1 1 0;min-height:0;overflow:auto;overflow-wrap:anywhere;}
 .cindy-message {display:flex;flex-direction:column;white-space:pre-wrap;padding:6px;border-bottom:1px solid var(--border);}
 .cindy-composer {flex:none;border:1px solid var(--border);border-radius:8px;position:relative;padding:4px;display:grid;grid-template-columns:minmax(0,1fr) 30px;align-items:end;}
@@ -4812,7 +4817,7 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .cindy-references {max-height:60px;overflow:auto;overflow-wrap:anywhere;}
 .cindy-confirm {max-width:min(620px,90vw);max-height:85vh;color:var(--text);background:var(--panel);}
 .cindy-confirm pre {white-space:pre-wrap;overflow-wrap:anywhere;max-height:55vh;overflow:auto;}
-.cindy-port p {margin:2px 0;font-size:11px;}
+.cindy-port p:where(:not([data-cindy-parts] *)) {margin:2px 0;font-size:11px;}
 
 /* Review is a centered themed modal; reply actions stay outside the scrolling history. */
 .cindy-confirm {position:fixed;inset:0;margin:auto;width:min(620px,90vw);box-sizing:border-box;padding:16px;border:1px solid var(--border);border-radius:8px;overflow:auto;background:var(--panel);color:var(--text);}
@@ -4880,7 +4885,7 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .cindy-port.compact .cindy-references {max-height:36px;}
 .cindy-port.compact .cindy-message {padding:2px 4px;}
 .cindy-port.compact .agent-toolbar {gap:2px;}
-.cindy-port.compact button {padding:1px 4px;font-size:11px;}
+.cindy-port.compact button:where(:not([data-cindy-parts] *)) {padding:1px 4px;font-size:11px;}
 .upper .mc-assistant {position:relative;inset:auto;}
 @media (max-height:560px) {
  .upper .mc-assistant #mcAssistantClose {position:absolute;top:3px;right:3px;z-index:1;padding:1px 4px;}
@@ -4901,6 +4906,7 @@ body[data-mc-mode] .upper > .inspector { grid-column:3; grid-row:1; }
 .flv-import-dialog [data-flv-ask] { white-space: pre-line; line-height: 1.5; }
 .flv-import-dialog .flv-import-row { display: flex; gap: 8px; justify-content: flex-end; }
 .flv-import-dialog [hidden] { display: none; }
+.flv-import-dialog .flv-import-gaps { margin: 0 0 10px; padding-left: 18px; line-height: 1.5; max-height: 9em; overflow: auto; }
 /* the box before Google Fonts goes online (app.js askFontConsent) */
 .font-consent-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; width: min(460px, 92vw); padding: 14px 16px; }
 .font-consent-dialog h3 { margin: 0 0 8px; font-size: 15px; }
@@ -5082,7 +5088,8 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 .as-preview { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(720px, 92vw); padding: 14px; }
 .as-preview::backdrop { background: #000a; }
 .as-preview video, .as-preview audio { width: 100%; max-height: 60vh; background: #000; }
-#toast.has-action { pointer-events: auto; display: flex; align-items: center; gap: 10px; }
+#toast.has-action { pointer-events: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
+#toast .toast-note { flex-basis: 100%; font-size: 11px; opacity: .75; }
 .mc-auto-slices { white-space: nowrap; }
 .auto-slices .as-tag-estimated { color: #f4a261; border-color: #f4a261; }
 .auto-slices .as-tag-likely { color: var(--dim); border-color: var(--border); }
@@ -5096,17 +5103,32 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 .cindy-port .agent-yolo-on, .mc-yolo-mark { color: #fff; background: var(--danger); border-radius: 4px; padding: 2px 6px; margin: 0; font-size: 12px; }
 .mc-yolo-mark { white-space: nowrap; align-self: center; }
 .mc-yolo-mark[hidden] { display: none; }
-.agent-approval { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(560px, 90vw); max-height: 85vh; padding: 20px; overflow: auto; }
-/* v7.2 (VV on #84): what the step changes first, in 15 px; the plain sentence under it, small */
-.agent-approval-detail { font-size: 15px; color: var(--text); margin: 4px 0 0; }
-.agent-approval-what { font-size: 12px; color: var(--dim); margin-top: 2px; }
-.agent-approval pre { white-space: pre-wrap; word-break: break-word; max-height: 40vh; overflow: auto; background: var(--bg, #111); padding: 8px; border-radius: 4px; }
-.agent-approval .tr-row { display: flex; flex-wrap: wrap; gap: 8px; }
+/* v7.2 §2, step 3: the host's approval card sits in the message stream (agent-ui/HostCard.tsx, Cindy's card shell and buttons);
+   once answered it is one line. While it waits, 「等你点头」 above the input. */
+.host-card { margin: 8px 0; }
+.host-card-done { margin: 6px 0; font-size: 12px; color: var(--dim); }
+.agent-approval-waiting { flex-shrink: 0; font-size: 12px; color: var(--dim); margin: 0; }
+/* while a card waits nothing can be sent or quoted: the proposal and reference rows step aside, so the card fits the stream whole */
+#mcAgentContent .cindy-port:has([data-host-card="approval"]) > :is(.cindy-proposal-actions, .cindy-ref-actions, .cindy-references) { display: none; }
+/* the agent's lyrics card (#164; Deja 2026-11-07): its own box, not the host's approval card — a step from MCP has no reply
+   to sit under, it asks in every mode, and its buttons and grey lines are JJ's. The same colours and spacing as the cards
+   above (--text, --panel, --border, --dim), no colour of its own. */
+dialog.lt-card { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 8px; width: min(560px, 90vw); max-height: 85vh; padding: 16px 18px; overflow: auto; }
+dialog.lt-card h3 { margin: 0 0 6px; font-size: 14px; }
+/* what the card does first, in 15 px; the step's plain sentence under it, small */
+.lt-card .lt-detail { font-size: 15px; color: var(--text); margin: 4px 0 0; }
+.lt-card .lt-what { font-size: 12px; color: var(--dim); margin: 4px 0 0; }
+.lt-card .tr-row { display: flex; flex-wrap: wrap; gap: 8px; }
+/* the lines that did not match are grey, as they will be on the timeline */
+.lt-lines { max-height: 40vh; overflow: auto; margin: 8px 0; padding-left: 24px; }
+.lt-lines .lt-grey { color: var(--dim); }
 /* in a small assistant with the AI settings open, the switch and the pane's Yolo mark step aside (the rule with .cindy-thread above); the top bar's Yolo mark stays */
 /* P4, second half: the plan list in the assistant */
-/* the steps scroll inside the card; its note and buttons (〔开始〕〔撤销整个计划〕) stay in sight at its bottom (VV on #84 53f641d) */
-.cindy-plan { flex-shrink: 0; max-height: 40%; overflow: hidden; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; }
-.cindy-plan ol { margin: 0; padding-left: 20px; overflow: auto; min-height: 0; flex: 1 1 auto; }
+/* step 3: the plan and the approval card sit in .cindy-thread, after the live log (the thread scrolls; the list is whole in it).
+   .cindy-port stays overflow:hidden, so a long plan (at most 30 steps) outside the thread would push 〔开始〕 and the input out of the panel.
+   The live log stays its own aria-live region: the card is not read out again with every message. */
+.cindy-plan { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; margin: 6px 0; }
+.cindy-plan ol { margin: 0; padding-left: 20px; }
 .cindy-plan > p, .cindy-plan > .agent-toolbar { flex-shrink: 0; }
 /* a step: what it changes first; the capability's plain sentence under it in 12 px (v7.2 §2) */
 .cindy-plan-what { display: block; font-size: 12px; color: var(--muted, #9aa0aa); font-weight: 400; }
@@ -5136,9 +5158,6 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 .cq-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; width: min(440px, 92vw); padding: 14px 16px; }
 .cq-dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
 .cq-dialog .dialog-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
-/* the page's `* { margin: 0 }` would pin a modal dialog to the top-left corner: the approval box centres itself (Win11 shots) */
-.agent-approval { margin: auto; }
-.agent-approval::backdrop { background: #0009; }
 
 /* P6a: correct captions from the lyrics */
 .ly-outside { white-space: pre-line; color: var(--warn, #c98a2b); }
@@ -5164,7 +5183,7 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
   .app.agent-open .upper > .inspector > .mc-assistant { flex: 1 1 auto; min-height: 0; }
   /* the Yolo bar: one line, cut short with … ; the whole sentence is its tooltip */
   .cindy-port .agent-yolo-on { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
-  /* the plan keeps its steps in sight; the conversation takes what is left, and always at least 3 lines */
+  /* the plan is inside the thread, which scrolls; do not cap the list here. The thread itself keeps at least 3 lines. */
   .app.agent-open .cindy-plan { max-height: none; }
   /* each step on one line here: the capability's sentence under it is the step's tooltip instead */
   .app.agent-open .cindy-plan-what { display: none; }

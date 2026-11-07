@@ -63,9 +63,11 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   await pick(bad);
   await until(`!!document.querySelector('[data-flv-ask]:not([hidden])')`);
   const ask=await read(`(()=>{const d=document.querySelector('[data-flv-import]');return{text:d.querySelector('[data-flv-ask]').textContent,focus:document.activeElement&&document.activeElement.hasAttribute('data-flv-cancel'),go:!d.querySelector('[data-flv-continue]').hidden};})()`);
-  // the re-encode question; main's readable-range check may add the unconfirmed-ending one (it does for this synthetic flv1 file)
-  assert.ok(ask.text.startsWith(await read(`MontClipView.t(mcView.get().language,'flvAskTranscode')`)),ask.text);
-  out.askedReadable=ask.text.includes(await read(`MontClipView.t(mcView.get().language,'flvAskReadable')`));
+  // JJ v2 (2026-11-04): one sentence — the re-encode one, or the break one when the end is unconfirmed (it is for this
+  // synthetic flv1 file); both offer 〔帮我转〕
+  const transcodeAsk=await read(`MontClipView.t(mcView.get().language,'flvAskTranscode')`),readableAsk=await read(`MontClipView.t(mcView.get().language,'flvAskReadable')`);
+  assert.ok([transcodeAsk,readableAsk].includes(ask.text),ask.text);
+  out.askedReadable=ask.text===readableAsk;
   assert.equal(ask.focus,true,'Cancel is focused');assert.equal(ask.go,true);
   assert.deepEqual(listMedia(),mid,'nothing copied before the answer');
   await read(`document.querySelector('[data-flv-cancel]').click();true`);

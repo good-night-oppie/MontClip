@@ -26,6 +26,7 @@ const ownedProcesses = process.env.MONTCLIP_DESKTOP === "1"
 const { spawn, spawnSync, execFile } = require("child_process");
 const FF = require("./ffmpeg-path");
 const X = require("./external-ffmpeg");
+const Redact = require("./problem-redact");   // 〔复制问题信息〕: viewers, keys and user folders out
 /* A local FFmpeg the user chose for libx264, H.264 export only (external-ffmpeg.js). */
 const externalFfmpeg = X.createExternal();
 
@@ -434,7 +435,9 @@ async function deliveryEncoders() {
 function bundledEncoders() {
   if (deliveryEncodersP) return deliveryEncodersP;
   deliveryEncodersP = (async () => {
-    const listed = Delivery.parseEncoders((await runFfmpeg(["-hide_banner", "-encoders"])).stdout);
+    let listed = Delivery.parseEncoders((await runFfmpeg(["-hide_banner", "-encoders"])).stdout);
+    // test/export-h264-precheck.test.js: a computer with no H.264 encoder (Linux with the LGPL build, no graphics card)
+    if (process.env.MONTCLIP_TEST_NO_H264 === "1") listed = new Set([...listed].filter((e) => !Delivery.encodersFor("h264", new Set([e])).length));
     const usable = new Set([...listed].filter((e) => !Delivery.ENCODERS[e]?.hw));
     await Promise.all([...listed].filter((e) => Delivery.ENCODERS[e]?.hw).map(async (e) => {
       const r = await runFfmpeg(["-hide_banner", "-v", "error", "-f", "lavfi", "-i", "color=c=black:s=256x144:r=30:d=0.1",
@@ -456,6 +459,11 @@ async function exportBinary(useX264) {
   throw Object.assign(new Error(ext.reason === "none"
     ? "libx264 is only available from your own FFmpeg: choose it in Settings, or use a delivery preset (MontClip then uses the graphics card or Windows' own H.264 encoder)."
     : "Your local FFmpeg cannot be used: " + X.maskUserPath(ext.reason)), { status: 400, code: ext.reason === "none" ? "extNeeded" : ext.code });
+}
+/** No H.264 encoder at all (bundled, graphics card or the user's x264): the refusal, before anything renders (ADR 2026-11-02, 3). */
+async function noH264Error() {
+  if (Delivery.encodersFor("h264", await deliveryEncoders()).length) return null;
+  return Object.assign(new Error(X.noH264Reason({ mediaFoundation: hasMediaFoundation() })), { status: 400, ...X.noH264({ mediaFoundation: hasMediaFoundation() }) });
 }
 /** What H.264 export will use here, for the export dialog and agents. */
 async function h264Status() {
@@ -494,7 +502,9 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
       frame = Delivery.reframe(spec, canvasW, canvasH, region);
     }
     if (avail !== available && !avail.has(spec.video.encoder))
-      throw Object.assign(new Error(`The exported picture (${frame.outW}×${frame.outH}) is smaller than this computer's H.264 encoder accepts (${[...available].filter((e) => Delivery.ENCODERS[e]?.min).map((e) => Delivery.ENCODERS[e].label + " needs " + Delivery.ENCODERS[e].min.join("×")).join(", ")}). Export a larger size, or choose another format.`), { status: 400, code: "frameTooSmall", params: { w: frame.outW, h: frame.outH } });
+      throw Object.assign(new Error(`The exported picture (${frame.outW}×${frame.outH}) is smaller than this computer's H.264 encoder accepts (${[...available].filter((e) => Delivery.ENCODERS[e]?.min).map((e) => Delivery.ENCODERS[e].label + " needs " + Delivery.ENCODERS[e].min.join("×")).join(", ")}). Export a larger size, or choose another format.`), { status: 400, code: "frameTooSmall",
+        // n: the smallest side the page names (JJ: one number for width and height): the largest minimum of the encoders refused
+        params: { w: frame.outW, h: frame.outH, n: Math.max(...[...available].map((e) => Delivery.ENCODERS[e]?.min || []).flat()) } });
     return { spec, notes, noteCodes: [], name: d && typeof d.name === "string" ? d.name : name, frame };
   });
   // one render has one frame rate: an output asking for another needs a render of its own
@@ -502,8 +512,8 @@ async function beginDeliveryExport(rate, name, hasAudio, extra) {
   if (off.length) throw new Error(off.map(([o, i]) => `output ${i + 1} asks for ${o.spec.fps} fps but this render is ${rate} fps`).join("; ") + " — render each frame rate separately");
   const input = outs.some((o) => Delivery.frameInput(o.spec) === "rgba") ? "rgba" : "jpeg";
   // H.264 with no encoder at all: say why now, not after the render
-  if (outs.some((o) => o.spec.video.codec === "h264") && !Delivery.encodersFor("h264", available).length)
-    throw Object.assign(new Error(X.noH264Reason({ mediaFoundation: hasMediaFoundation() })), { status: 400, ...X.noH264({ mediaFoundation: hasMediaFoundation() }) });
+  const noH264 = outs.some((o) => o.spec.video.codec === "h264") && await noH264Error();
+  if (noH264) throw noH264;
   const ext = await externalFfmpeg.current();
   for (const o of outs) {
     o.binary = await exportBinary(X.isExternalJob(o.spec));
@@ -635,6 +645,9 @@ async function beginExport(fps, name, profileId, hasAudio, mode, extra = {}) {
   const profile = resolveProfile(profileId);
   const never = Delivery.forbiddenEncoder(profile.args);
   if (never) throw Object.assign(new Error(`profile "${profile.id}" encodes with ${never}, which MontClip never uses`), { status: 400 });
+  // a raw H.264 profile on a computer with no H.264 encoder at all: say why, not "choose your own FFmpeg" for x264 alone
+  const noH264 = X.argsUseH264(profile.args) && await noH264Error();
+  if (noH264) throw noH264;
   // a raw profile that encodes with libx264 needs the user's local FFmpeg
   const binary = await exportBinary(X.argsUseX264(profile.args));
   const dry = await dryRunProfile(profile, { fps: rate, hasAudio, bin: binary });
@@ -1199,6 +1212,22 @@ async function handleRequest(req, res) {
     }
     return;
   }
+  /* API: put a lyrics proposal on a new caption track (fablecut_lyrics_apply) — a "lyrics" job on the export-job queue,
+     open tabs only: the tab asks the streamer on a card and does it only when she agrees. */
+  if (p === "/api/lyrics/request" && req.method === "POST") {
+    try {
+      const opts = JSON.parse((await readBody(req)).toString("utf8") || "{}");
+      const pr = opts.proposal;
+      if (!pr || typeof pr !== "object" || pr.ok !== true || pr.code !== "OK" || typeof pr.id !== "string" || !Array.isArray(pr.lines) || !pr.lines.length || pr.lines.length > 300 || typeof pr.sig !== "string" || !Array.isArray(pr.clipIds)) {
+        sendJSON(res, 400, { error: "proposal must be a fablecut_lyrics proposal whose code is OK" }); return;
+      }
+      if (JSON.stringify(pr).length > 2_000_000) { sendJSON(res, 413, { error: "proposal too large" }); return; }
+      sendJSON(res, 200, exportJobs.request({ kind: "lyrics", where: "tab", lyrics: pr }));
+    } catch (e) {
+      sendJSON(res, e.code === 409 || e.code === 400 ? e.code : 500, { code: e.errorCode, error: String(e.message || e) });
+    }
+    return;
+  }
   /* API: proxies (see proxy.js).
        POST /api/proxy {srcs:[…], height?:540|720|1080} → {status:{src: status}} — queue them
        POST /api/proxy/status {srcs:[…]} → {status:{src: status | null}}
@@ -1294,7 +1323,7 @@ async function handleRequest(req, res) {
       const ticket = url.searchParams.get("ticket");
       await faststart(target, /^[A-Za-z0-9_-]{1,40}$/.test(ticket || "") ? { onProgress: (frac) => broadcast("upload", JSON.stringify({ ticket, frac })) } : undefined);
       sendJSON(res, 200, { ok: true, ...await prepareMedia(target) });
-    } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
+    } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED","FLV_TIMELINE_GAP"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
     return;
   }
 
@@ -1306,8 +1335,8 @@ async function handleRequest(req, res) {
         sendJSON(res, 400, { code:"FLV_SOURCE_REQUIRED", error:"FLV_SOURCE_REQUIRED" });
         return;
       }
-      sendJSON(res, 200, { ok: true, ...await prepareMedia(file, {allowTranscode: body.allowTranscode, acceptReadable: body.acceptReadable}) });
-    } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
+      sendJSON(res, 200, { ok: true, ...await prepareMedia(file, {allowTranscode: body.allowTranscode, acceptReadable: body.acceptReadable, fixGaps: body.fixGaps}) });
+    } catch (e) { sendJSON(res, ["FLV_TRANSCODE_REQUIRED","FLV_READABLE_CONSENT_REQUIRED","FLV_TIMELINE_GAP"].includes(e.code) ? 409 : 500, publicPreparationError(e)); }
     return;
   }
 
@@ -1586,6 +1615,14 @@ async function handleRequest(req, res) {
       touchExport(sess);
       sendJSON(res, 200, { ok: true });
     } catch (e) { sendJSON(res, 500, { error: String(e) }); }
+    return;
+  }
+  /* 〔复制问题信息〕 (JJ's table v2): {text} → the same text with viewers, keys and user folders taken out, by the rules
+     the page has too (problem-redact.js), with this computer's home folder. */
+  if (p === "/api/problem-details" && req.method === "POST") {
+    let body;
+    try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "the body must be JSON: {text}" }); return; }
+    sendJSON(res, 200, { text: Redact.redactProblem(String(body.text || "").slice(0, 8000), { home: os.homedir(), platform: process.platform }) });
     return;
   }
   /* {fresh:true} once for a file this session exported (then forgotten); {fresh:false} for anything else */

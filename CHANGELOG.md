@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - Embedded in Cindy (`MONTCLIP_HOST=cindy`): the engine answers only requests with the plugin's session token (`X-MontClip-Session`, or the HttpOnly `montclip_embed` cookie — a random session of its own, not the token — a `?token=` page load trades for, with a 302 to the URL without it); `mcp-server.js` sends the header; headless browsers get a one-time ticket instead of the token. Unchanged without the variable.
+- Withdraw blur-over-original recipes as privacy guarantees; document opaque covers and per-frame preview/export checks without changing artistic compositing.
+
+- Reject linked workspace paths when revealing files; remember native export save destinations in the desktop main process so Show in folder finds the saved file.
+- Pin and verify every optional browser MediaPipe runtime resource before execution; preserve explicit download consent, retry and missing-mask export refusal. Record package/license provenance and real-byte checks separately from synthetic inference tests.
 
 - MCP reframe selects the displayed source tail by decoded PTS, including mixed frame rates and VFR, without reading the following shot; empty tail reads fail explicitly.
 
@@ -32,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Partial official Apache-2.0 Cindy composer/configuration component port, local session restoration, explicit full-payload confirmation, fixed-provider desktop transport and guarded sentence proposal preview/apply/undo. Live-provider and visible-window acceptance remain pending.
 
 ### Fixed
+
+- Refuse exports and composed-frame requests when a required AI background-removal mask is unavailable, instead of silently exporting the original background. Preserve page-local download consent, allow explicit download retries after failure, and require Fast/WebCodecs for frame-exact cut-outs.
 - Generate missing presentation timestamps on the repair remux path; reject non-finite output durations while
   retaining the minimum length, ±1 s duration check and strict full decode. A reproducible timestamp-jump test
   confirms that a short but decodable remux is still refused.

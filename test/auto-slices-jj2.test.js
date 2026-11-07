@@ -1,7 +1,7 @@
 'use strict';
 // JJ's re-review of #77 (documents/2026-11-03-MontClip-PR71-74-75-77-复审-JJ.md), with Deja's checked wording for items 5
 // and 6 (its 追加 section). Eight changes: no 「每首歌」 before the song gate (two new -maybe forms, the hook length one
-// sentence), failures that say what to do next (as-fail, as-found-none, as-run-failed, as-busy), as-no-lane, and kind
+// sentence), failures that say what to do next (as-found-none, as-run-failed, as-busy), as-no-lane, and kind
 // hints that never mention danmaku when the recordings have none.
 const test = require('node:test'), a = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 const V = require('../ui-preferences');
@@ -15,7 +15,6 @@ const WORDS = {
   'as-len-song-maybe': '唱歌的段落整段出',
   'as-len-hook': '只要最好听的一部分（约 45 秒）',
   'as-len-hint-hook-maybe': '每段只切最好听的一部分，大约 45 秒（声音最响的那部分）。适合发动态、出竖屏。',
-  'as-fail': '有 {failed} 条没导出来：「{name}」。{why}。你的剪辑都还在，点「再试一次」，或者打开导出队列看原因。',
   'as-found-none-next': '可以换一场录像，或者在「更多设置」里改一下每条多长，再找一次。',
   'as-run-failed': '「{name}」的声音没读出来，可能是文件坏了、没有声音，或者被移走了。可以换一场试试。',
   'as-run-nospace': '{drive} 盘空间不够，分析结果存不下。腾出一些空间再试。',
@@ -76,15 +75,12 @@ test('a failed search says it in plain words; the raw error only goes to the log
   a.match(server, /drive: songDrive\(\)/);
 });
 
+// as-fail gave way to JJ's error table v2 (2026-11-04): each one that failed with its reason and 〔重试这条〕
 test('an export that fails: the count, a reason in plain words, the next step; no raw error on the card', () => {
   const done = fnBody(read('app.js'), 'function autoDoneHtml(');
-  a.ok(!/escapeHtml\(failed\[0\]\.error\)/.test(done), 'no raw error');
-  a.match(done, /"as-fail", \{ failed: failed\.length/);
-  a.match(done, /autoFailWhy\(/);
-  for (const k of ['as-fail-why-space', 'as-fail-why-changed', 'as-fail-why-other']) a.ok(zh(k) && en(k), k);
-  a.equal(V.t('zh-CN', 'own.as-fail', { failed: 2, name: '01 1：12：04 那段', why: zh('as-fail-why-other') }),
-    '有 2 条没导出来：「01 1：12：04 那段」。' + zh('as-fail-why-other') + '。你的剪辑都还在，点「再试一次」，或者打开导出队列看原因。');
-  a.ok(!/[。.]$/.test(zh('as-fail-why-other')), 'the sentence adds its own 。');
+  a.ok(!/\.error\)|\.log\b|\.line\b/.test(done), 'no raw error');
+  a.match(done, /MontClipView\.batchReason\(lang, q\)/);
+  a.match(done, /data-as-act="retry-one"/);
 });
 
 test('nothing found says what to try next', () => {
@@ -142,13 +138,11 @@ test('the kind hints never mention danmaku when the chosen recordings have none'
   a.ok(!/弹幕/.test(zh('as-run-hot-nodm')) && !/danmaku/i.test(en('as-run-hot-nodm')));
 });
 
-// JJ approved #77 at 4184aac with four sentences to change word for word (Deja, 11-03)
+// JJ approved #77 at 4184aac with four sentences to change word for word (Deja, 11-03). The three as-fail-why reasons
+// gave way to JJ's error table v2 (2026-11-04: a batch says only that table's sentences; test/error-text.test.js).
 test("JJ's last four sentences for #77", () => {
   const four = {
     'as-kind-hint-watch-nodm': ['会找你声音最大的段落', 'It finds where you are loudest.'],
-    'as-fail-why-space': ['存视频的那个盘空间不够了', 'The drive it saves to is out of space'],
-    'as-fail-why-changed': ['加进导出以后，时间线又改过了，所以没导', "The timeline changed after it was queued, so it wasn't exported"],
-    'as-fail-why-other': ['导出到一半停下了', 'The export stopped partway'],
   };
   for (const [k, [z, e]] of Object.entries(four)) { a.equal(zh(k), z, k); a.equal(en(k), e, k); }
 });

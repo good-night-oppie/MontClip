@@ -35,7 +35,7 @@ function exportCopy(url, { origin, exportsDir }) {
    One download of an export file at a time (VV, 71cd650): while one is open, attach refuses another of the same file
    (returns false; the caller cancels it), so a copy is never removed while a second save is still reading it.
    `busy` holds the open ones; `take(name)` uses up the page's expectation — only for a download that goes ahead. */
-function attach(item, { origin, exportsDir, language, downloadsDir, onDone, expected, take = () => false, claim = async () => false, busy = new Set(),
+function attach(item, { origin, exportsDir, language, downloadsDir, onDone, onSaved, expected, take = () => false, claim = async () => false, busy = new Set(),
   stallMs = 120000, checkMs = 5000 } = {}) {
   const copy = exportCopy(item.getURL(), { origin, exportsDir });
   const key = copy ? path.resolve(copy).toLowerCase() : null;
@@ -61,6 +61,8 @@ function attach(item, { origin, exportsDir, language, downloadsDir, onDone, expe
     if (cancel) { try { item.cancel(); } catch { /* already gone */ } }
     let removed = false;
     const saved = state === 'completed' ? item.getSavePath() : '';
+    // Main-process-only receipt, never part of onDone's renderer payload.
+    if (copy && expected && path.basename(copy) === name && saved && onSaved) onSaved(copy, saved);
     // one name throughout (QQ, 71cd650): the file the URL points at must be the one the page asked for and the server
     // made; when the download's file name differs, nothing is removed
     if (copy && expected && path.basename(copy) === name && saved && path.resolve(saved).toLowerCase() !== path.resolve(copy).toLowerCase()) {
