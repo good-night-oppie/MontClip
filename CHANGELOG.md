@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Pin and verify every optional browser MediaPipe runtime resource before execution; preserve explicit download consent, retry and missing-mask export refusal. Record package/license provenance and real-byte checks separately from synthetic inference tests.
 - MCP reframe selects the displayed source tail by decoded PTS, including mixed frame rates and VFR, without reading the following shot; empty tail reads fail explicitly.
 
 - Refuse stale assistant reframe plans when clips are added during reading; check the sequence limit before reading footage and render JJ-approved guidance from that same limit.
@@ -30,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Partial official Apache-2.0 Cindy composer/configuration component port, local session restoration, explicit full-payload confirmation, fixed-provider desktop transport and guarded sentence proposal preview/apply/undo. Live-provider and visible-window acceptance remain pending.
 
 ### Fixed
+
+- Refuse exports and composed-frame requests when a required AI background-removal mask is unavailable, instead of silently exporting the original background. Preserve page-local download consent, allow explicit download retries after failure, and require Fast/WebCodecs for frame-exact cut-outs.
 - Generate missing presentation timestamps on the repair remux path; reject non-finite output durations while
   retaining the minimum length, ±1 s duration check and strict full decode. A reproducible timestamp-jump test
   confirms that a short but decodable remux is still refused.
