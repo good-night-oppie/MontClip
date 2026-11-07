@@ -36,6 +36,8 @@ test('the server: model status, one transcription at a time, cancel; it reads mo
   // a stand-in engine folder: status() only looks for the engine's package.json and a VAD file of the pinned size
   const asrDir = path.join(dataDir, 'asr'); fs.mkdirSync(path.join(asrDir, 'engine', 'node_modules', 'sherpa-onnx-node'), { recursive: true });
   fs.writeFileSync(path.join(asrDir, 'engine', 'node_modules', 'sherpa-onnx-node', 'package.json'), '{}');
+  // and its native part for this computer (P8: without it the engine is not ready)
+  const native = path.join(asrDir, 'engine', 'node_modules', require('../asr-local').nativePackage()); fs.mkdirSync(native); fs.writeFileSync(path.join(native, 'package.json'), '{}');
   fs.writeFileSync(path.join(asrDir, 'silero_vad.onnx'), Buffer.alloc(643854));
   const s = await startServer(t, dataDir, { MONTCLIP_ASR_DIR: asrDir, MONTCLIP_ASR_MODELS_DIR: path.join(dataDir, 'no-models') });
   const st = await (await fetch(s.base + '/api/asr/status')).json();
@@ -130,4 +132,15 @@ test('the page can stop a download; the part is kept for 「接着下载」', ()
   const main = read('desktop/main.js'), pre = read('desktop/view-preload.js');
   a.match(main, /ipcMain\.handle\("montclip:asr:cancel", async \(event\) =>/);
   a.match(pre, /cancel:\(\)=>ipcRenderer\.invoke\('montclip:asr:cancel'\)/);
+});
+// Deja, 2026-11-05: the Linux engine (sherpa-onnx-linux-x64, which the Cindy plugin downloads on first use, MontClip-Cindy#8)
+// has its own row, its files named, under the same licences as the Windows one.
+test('licences: sherpa-onnx-linux-x64 has its own row with its four files, Apache-2.0 with ONNX Runtime under MIT', () => {
+  const md = read('LICENSES.md');
+  const row = md.split('\n').find((l) => l.startsWith('|') && l.includes('sherpa-onnx-linux-x64'));
+  a.ok(row, 'a row for sherpa-onnx-linux-x64');
+  for (const f of ['sherpa-onnx.node', 'libsherpa-onnx-c-api.so', 'libsherpa-onnx-cxx-api.so', 'libonnxruntime.so']) a.ok(row.includes('`' + f + '`'), f);
+  a.match(row, /Apache-2\.0/); a.match(row, /licenses\/asr\/sherpa-onnx-Apache-2\.0\.txt/);
+  const ort = md.split('\n').find((l) => l.startsWith('| ONNX Runtime'));
+  a.ok(ort && ort.includes('`libonnxruntime.so`') && /\| MIT \|/.test(ort), 'libonnxruntime.so under ONNX Runtime, MIT');
 });
