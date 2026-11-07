@@ -140,6 +140,8 @@ async function prepareMedia(file, { allowTranscode = false, acceptReadable = fal
   // Shared by REST and MCP as well as native snapshot preparation. Small drops (every break ≤ 0.5 s, picture and sound
   // within 40 ms) import as they are, without a question. Anything more is converted, with the user's yes: fixGaps
   // (〔帮我转〕), or allowTranscode — the app's yes to converting (Deja, 2026-11-04; range.fix says why).
+  // a clock that runs back cannot be converted or imported on its own timestamps (Rea on #130): refused, whatever was agreed to
+  if (range.rewinds && range.rewinds.length) throw Object.assign(failure("FLV_SOURCE_DAMAGED", originalSrc), {rewinds: range.rewinds});
   if (range.fix.length && fixGaps !== true && allowTranscode !== true) throw Object.assign(failure("FLV_TIMELINE_GAP", originalSrc), {gaps: range.gaps, fix: range.fix, range});
   if (range.needsConsent && acceptReadable !== true) throw Object.assign(failure("FLV_READABLE_CONSENT_REQUIRED", originalSrc), {range});
   if (!compatible && allowTranscode !== true) throw failure("FLV_TRANSCODE_REQUIRED", originalSrc);

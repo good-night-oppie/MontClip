@@ -33,6 +33,9 @@ function accumulator(streams, declaredDuration) {
   const tick=Math.max(...streams.map(s=>ratio(s.time_base)),0);
   let start=Infinity,end=-Infinity,count=0,uncertain=false;
   const tails=new Map(),clocks=new Map(),tracks={},breaks=[],totals={video:0,audio:0};
+  // Rea on #130 @076ee672: a decode clock that runs back (DTS to 8 s, then 0.5 s again) is not a break; read as it is,
+  // picture and sound come out up to seconds apart. Deja, 2026-11-07: such a recording is refused, never imported.
+  const lastClock=new Map(),rewinds=[];
   let maxGap=0;
   return {
     frame(line) {
@@ -50,6 +53,9 @@ function accumulator(streams, declaredDuration) {
       }
       if(!(duration>0 && Number.isFinite(duration))) return;
       const dts=Number(f.dts_time),clock=Number.isFinite(dts)?dts:pts;
+      // only a decode clock (or decoded frames, in display order) must not run back: without dts, pts jumps with B-frames
+      if((Number.isFinite(dts)||f.media_type) && lastClock.has(type) && clock<lastClock.get(type)-MARK) rewinds.push({stream:type,at:lastClock.get(type),back:lastClock.get(type)-clock});
+      lastClock.set(type,clock);
       if(clocks.has(type)) {
         const gap=clock-clocks.get(type);
         maxGap=Math.max(maxGap,gap);
@@ -86,6 +92,7 @@ function accumulator(streams, declaredDuration) {
       if(gaps.some(g=>g.big)) fix.push('break');
       const drifting=ms(drift)>ms(MAX_DRIFT);
       return {start,end,duration,frames:count,tolerance,maxGap,gaps,totals,drift,drifting,fix,tracks,estimatedTail:uncertain,
+        rewinds:rewinds.map(r=>({stream:r.stream,at:Math.max(0,r.at-start),back:r.back})),
         declaredDuration:Number.isFinite(declared)&&declared>0?declared:null,
         needsConsent:uncertain || Number.isFinite(declared)&&declared>0&&Math.abs(declared-duration)>tolerance};
     },

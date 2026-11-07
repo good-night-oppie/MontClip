@@ -70,6 +70,8 @@ function jump(f, { streams = ["video", "audio"], at, len }) {
     return { stream, after: list[i - 1], len: len / 1000 };
   });
 }
+/** The clock runs back (Rea on #130): from `at` ms on, every packet of both streams is put back to start again at `to` ms. */
+function rewind(f, { at, to }) { for (const t of f.tags) if (TYPE[t.type] && t.ts >= at) t.ts -= at - to; }
 /** The picture starts later than the sound while both stay on one clock (a live recording whose first keyframe came
  *  after its first sound, VV: 0.058 / 0.092 s): every packet moves later until the first picture is at `to` ms, the
  *  first sound packets are repeated in front, so the sound still starts at 0, and the packets moved past the old end are
@@ -110,7 +112,7 @@ function damage(f, { at, count }) {
 function make(dir, name, edits) {
   const f = parse(fs.readFileSync(CLEAN)), made = [];
   for (const [what, opts] of edits) {
-    const r = { drop, jump, jitter, damage, shift, lead, late, creep }[what](f, opts);
+    const r = { drop, jump, jitter, damage, shift, lead, late, creep, rewind }[what](f, opts);
     if (Array.isArray(r)) made.push(...r); else if (r) made.push(r);
   }
   const file = path.join(dir, name);

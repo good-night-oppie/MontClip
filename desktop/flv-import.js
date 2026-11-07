@@ -48,6 +48,8 @@ function createFlvImports({ mediaDir, inspect = (file, o) => inspectFlv(file, { 
       try {
         // packet headers only: `done` follows their byte position through the file
         const { compatible, range } = await inspect(real, { signal: job.controller.signal, onProgress: (f) => { job.done = Math.round(f * job.size); } });
+        // a clock that runs back is refused before anything is hashed or copied (prepare-media.js refuses it too)
+        if (range && range.rewinds && range.rewinds.length) throw fail("FLV_SOURCE_DAMAGED");
         enter(job, "hash");
         job.hash = await hashFile(real, job.controller.signal, (n) => { job.done += n; });
         if (aborted(job)) throw fail("FLV_IMPORT_CANCELED");
