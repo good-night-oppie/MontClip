@@ -1,10 +1,10 @@
 'use strict';
 // JJ's public copy for README / docs home / docs/start (test/fixtures/montclip-public-copy-v2.md,
-// sha256 5766152b…: v1 of 2026-11-02, sha256 3ec69dbf…, plus the README cover and diagrams of 2026-11-07). Parsed, not retyped, so the pages and the tests
+// sha256 2612a60b…: v1 of 2026-11-02, sha256 3ec69dbf…, plus the README cover and diagrams of 2026-11-07). Parsed, not retyped, so the pages and the tests
 // read the same sentences. Placeholders are filled with the values Deja confirmed.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const FILE=path.join(__dirname,'fixtures','montclip-public-copy-v2.md');
-const SHA256='5766152b28097c3f3042645e4330f97adfd95193cb42720722059eff3cdbfc3e';
+const SHA256='2612a60b26752eb5f60ed674b9b6afcec384f362b772020abcc95892c7458eed';
 const VALUES={'{repo}':'https://github.com/good-night-oppie/MontClip','{upstream}':'https://github.com/ronak-create/FableCut','{upstream-docs}':'https://github.com/ronak-create/FableCut'};
 const fill=s=>s.replace(/\{repo\}|\{upstream-docs\}|\{upstream\}/g,k=>VALUES[k]);
 function source(){return fs.readFileSync(FILE,'utf8').replace(/\r\n/g,'\n');}
