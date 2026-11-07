@@ -1387,8 +1387,24 @@ function holdToast(el, hide) {
   };
   return { start: () => { stop(); since = Date.now(); timer = setTimeout(tick, 250); }, stop };
 }
+/** The held toasts (〔撤销〕 ones, and toastHeld) go when their time is up; a plain toast shown since keeps its own timer. */
+function hideHeldToast() {
+  if (els.toast.classList.contains("has-action") || els.toast.classList.contains("held")) els.toast.classList.remove("show", "has-action", "held");
+}
+/** A line she must read to the end, with no button (VV, #221, 2026-11-07): it stays UNDO_TOAST_MS like a 〔撤销〕 toast,
+ *  and the time stops while the pointer is on it. */
+function toastHeld(msg) {
+  if (!els.toast) return;
+  els.toast.textContent = msg;
+  els.toast.classList.remove("has-action");
+  els.toast.classList.add("show", "held");
+  clearTimeout(toastTimer);
+  if (!toastHold) toastHold = holdToast(els.toast, hideHeldToast);
+  toastHold.start();
+}
 function toast(msg) {
   if (!els.toast) return;
+  els.toast.classList.remove("held");
   els.toast.textContent = msg;
   els.toast.classList.add("show");
   if (toastHold) toastHold.stop();
@@ -12117,7 +12133,7 @@ function toastAction(msg, label, onClick, note = "") {
   if (note) { const small = document.createElement("small"); small.className = "toast-note"; small.textContent = note; els.toast.append(small); }
   els.toast.classList.add("show", "has-action");
   clearTimeout(toastTimer);
-  if (!toastHold) toastHold = holdToast(els.toast, () => { if (els.toast.classList.contains("has-action")) els.toast.classList.remove("show", "has-action"); });
+  if (!toastHold) toastHold = holdToast(els.toast, hideHeldToast);
   toastHold.start();
 }
 /** A toast with a button per [label, onClick]; it stays while hovered, and any button closes it. */
@@ -12135,7 +12151,7 @@ function toastActions(msg, actions) {
   }
   els.toast.classList.add("show", "has-action");
   clearTimeout(toastTimer);
-  if (!toastHold) toastHold = holdToast(els.toast, () => { if (els.toast.classList.contains("has-action")) els.toast.classList.remove("show", "has-action"); });
+  if (!toastHold) toastHold = holdToast(els.toast, hideHeldToast);
   toastHold.start();
 }
 
@@ -24187,7 +24203,7 @@ function paintAgentMode(){const mark=document.getElementById('mcYoloMark');if(ma
    it changes or where it sends, and for an external step what is sent. Resolves to once | session | deny. */
 const agentApprovals=MontClipApproval.create({onChange:()=>{if(typeof mcAgent!=='undefined'&&mcAgent)mcAgent.render();},context:()=>JSON.stringify(agentProjectContext()),
  // inside Cindy: 「不同意」 at once (HOST_EMBEDDED), and her line about it (own.ap-embedded-declined, JJ's words)
- embedded:()=>agentEmbedded,onEmbedded:()=>toast(uiText('own.ap-embedded-declined'))});
+ embedded:()=>agentEmbedded,onEmbedded:()=>toastHeld(uiText('own.ap-embedded-declined'))});
 // the last step's toast goes first, so the two never sit one over the other (VV, #134)
 function askAgentApproval(d,options={}){dismissToast();return agentApprovals.ask(d,options);}
 const agentApprovalView=(result)=>agentApprovals.view(result,uiText,project.name||'');

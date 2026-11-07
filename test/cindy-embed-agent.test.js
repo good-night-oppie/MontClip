@@ -73,8 +73,14 @@ test("her line names none of the code's words: agentApprovals, embedded, 内置,
     for (const word of ["agentApprovals", "embedded", "内置", "嵌入"]) assert.ok(!line.toLowerCase().includes(word.toLowerCase()), `${lang}: ${word}`);
   }
 });
-test("the editor shows her line when ask() is denied inside Cindy", () => {
-  assert.match(read("app.js"), /embedded:\(\)=>agentEmbedded,onEmbedded:\(\)=>toast\(uiText\('own\.ap-embedded-declined'\)\)\}\);/);
+test("the editor shows her line when ask() is denied inside Cindy — held like a 〔撤销〕 toast (VV, #221)", () => {
+  const app = read("app.js");
+  assert.match(app, /embedded:\(\)=>agentEmbedded,onEmbedded:\(\)=>toastHeld\(uiText\('own\.ap-embedded-declined'\)\)\}\);/);
+  assert.ok(Number(app.match(/const UNDO_TOAST_MS = (\d+);/)[1]) >= 8000, "it stays 8 s or more");
+  const held = app.slice(app.indexOf("function toastHeld("), app.indexOf("function toast(msg)"));
+  assert.match(held, /toastHold = holdToast\(els\.toast, hideHeldToast\)/, "the pointer on it stops the time");
+  assert.match(held, /toastHold\.start\(\)/);
+  assert.match(read("style.css"), /#toast\.held \{ pointer-events: auto; \}/, "the pointer can rest on it");
 });
 
 test("the desktop: no assistant service for an embedded page, and the main process refuses its requests", () => {
@@ -129,6 +135,11 @@ test("inside Cindy the built-in assistant sends nothing: no bridge call, no requ
     r.ask = await evaluate(`(async () => { const p = askAgentApproval({ ticket: "t", choices: ["once", "session", "deny"], label: "x" }, {});
       const v = await Promise.race([p, new Promise((res) => setTimeout(() => res("HUNG"), 200))]);
       return { v, code: p.code, waiting: agentApprovals.waiting(), line: document.getElementById("toast").textContent, lang: mcView.get().language }; })()`);
+    // her line stays past a plain toast's 3.2 s, and while the pointer is on it, past UNDO_TOAST_MS too (VV, #221)
+    r.held = await evaluate(`(async () => { const el = document.getElementById("toast"), on = () => el.classList.contains("show");
+      await new Promise((res) => setTimeout(res, 3600)); const at36 = on();
+      el.dispatchEvent(new MouseEvent("mouseenter")); await new Promise((res) => setTimeout(res, UNDO_TOAST_MS - 3600 + 600)); const hovered = on();
+      el.dispatchEvent(new MouseEvent("mouseleave")); return { at36, hovered, pointer: getComputedStyle(el).pointerEvents }; })()`);
     // the lyrics card (#164): its own <dialog>, shown and answered as before
     r.lyrics = await evaluate(`(async () => { const p = lyricsCard({ k: 1, n: 2, m: 1, lines: [{ text: "第一句", matched: true }, { text: "第二句", matched: false }] }, null);
       await new Promise((res) => setTimeout(res, 100));
@@ -148,6 +159,7 @@ test("inside Cindy the built-in assistant sends nothing: no bridge call, no requ
   assert.equal(out.paneMounted, 0, "the pane is not mounted");
   assert.equal(out.panelHidden, true);
   assert.deepEqual([out.ask.v, out.ask.code, out.ask.waiting], ["deny", "HOST_EMBEDDED", false]);
+  assert.deepEqual(out.held, { at36: true, hovered: true, pointer: "auto" }, "her line: still there at 3.6 s, and while the pointer is on it");
   assert.equal(out.ask.line, DECLINED[out.ask.lang === "en" ? "en" : "zh-CN"], "her line is shown, in the editor's language");
   assert.deepEqual(out.lyrics, { shown: true, lines: 2, answer: "place" });
 });
