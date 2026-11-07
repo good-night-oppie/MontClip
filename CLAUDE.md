@@ -420,7 +420,7 @@ Examples in `library/svg/`: `sparkles.svg` (loop), `lower-third.svg`,
 | prop | default | notes |
 |---|---|---|
 | `fit` | "contain" | contain · cover (fill canvas, crop overflow) · stretch · none (native px) |
-| `cropL` `cropR` `cropT` `cropB` | 0 | % of the source trimmed off each edge |
+| `cropL` `cropR` `cropT` `cropB` | 0 | % of the source file's whole frame trimmed off each edge (the encoded frame, padding included), before `fit` / `scale` / `x` / `y`; what is left is fitted and centred |
 | `cornerRadius` | 0 | px, rounded corners — the PiP look |
 | `reframe` | — | set by Reframe (`"follow"` or `"centre"`): the clip's `fit` and position are Reframe's own, so running it again replaces them (see "Sequences") |
 | `flipH`, `flipV` | false | mirror |
@@ -452,7 +452,7 @@ These are quick looks. For real grading use `props.grade` (see "Color" below).
 | `chromaKey` | "" | hex key color, e.g. `"#00ff00"` for green screen ("" = off) |
 | `chromaTolerance` | 26 | 0–100, how much color distance is keyed out |
 | `chromaSoftness` | 12 | 0–100, edge feather + spill suppression |
-| `bgRemove` | false | AI person cut-out (MediaPipe, loads from CDN on first use; needs internet once) |
+| `bgRemove` | false | AI person cut-out (MediaPipe from cdn.jsdelivr.net, downloaded only after the user confirms in the browser editor; preview stays uncut until ready, but export fails if a required mask cannot be generated; the desktop app never loads it) |
 
 **Audio / time** (video/audio):
 | prop | default | notes |
@@ -1086,11 +1086,11 @@ the masks cut it, and then its `opacity` and `blend` composite it.
 | key | default | does |
 |---|---|---|
 | `shape` | — | `rect` · `ellipse` · `bezier` (write `freehand` with a `stroke` to have one drawn for you) |
-| `x` · `y` | 0.5 | centre, as fractions of the clip's picture (0…1, y down) |
-| `w` · `h` | 0.5 | size, fractions of the picture's width / height (rect, ellipse) |
+| `x` · `y` | 0.5 | the mask's **centre**, 0…1 of the clip's picture — for video / image / svg / comp the picture left after the crop (origin its top-left corner, y down); see "Mask and crop coordinates" below |
+| `w` · `h` | 0.5 | size, fractions of that picture's width / height (rect, ellipse) |
 | `points` | — | bezier: 3–64 anchors around `x, y`, each `[dx, dy]` (a corner) or `[dx, dy, inX, inY, outX, outY]` (with curve handles relative to the anchor), all fractions of the picture's width / height |
 | `stroke` | — | freehand only: `[[u, v], …]` picture fractions along an outline; it is simplified and stored as an editable `bezier` |
-| `scale` · `rotation` | 1 · 0 | about the centre; degrees clockwise |
+| `scale` · `rotation` | 1 · 0 | about the mask's centre (`x`, `y`); degrees clockwise |
 | `mode` | `add` | how this mask combines with the ones before it: `add` · `subtract` · `intersect` · `difference` |
 | `invert` | false | use everything outside the shape |
 | `opacity` | 1 | 0…1, how strongly this mask counts |
@@ -1103,10 +1103,41 @@ Masks combine bottom-up (first in the list first). The first one starts from
 nothing when it adds and from the whole picture otherwise, so a lone
 `subtract` cuts a hole in a full picture. At most 8 masks per clip.
 
-The picture a mask lives in is the clip's drawn rectangle for video, image
-and svg (after fit and crop), the text block for text, and the whole canvas
-for an adjustment layer. Masks follow the clip when it is moved, scaled,
-rotated or flipped, and keep the clip's keyframes.
+**Mask and crop coordinates** (measured, and locked by `test/render-geometry.test.js`
+on the `fablecut_frame {time}` still and on a real export):
+
+| | origin and units | measured on |
+|---|---|---|
+| `cropL` `cropR` `cropT` `cropB` | percent (0…95) trimmed off each edge | the source file's **whole encoded frame**, padding included |
+| mask `x`, `y` | the mask's **centre**, 0…1, origin top-left, y down | the picture **left after the crop** (video, image, svg, comp) · the text block (text) · the canvas (adjustment layer) |
+| mask `w`, `h` | 0…1 of that picture's width / height | the same picture |
+| mask `feather`, `expand` | project pixels | — |
+
+Order, for a video / image / svg / comp clip: the crop is cut out of the source
+frame; what is left is fitted to the canvas (`fit`) and scaled (`scale`); the
+masks cut that picture in its own box; then rotation, flips and `x` / `y` (and
+their keyframes, at the clip's own speed) move the picture **and its masks
+together**. So a mask follows a push-in, a move or a zoom with no keys of its
+own. Changing the crop changes the picture the fractions refer to: a mask at
+`x: 0.5` stays in the middle of whatever the crop keeps. With `fit: "cover"`
+the picture runs past the canvas and the fractions still span the whole
+picture, the hidden part included.
+
+**Where the numbers come from.** Mask and crop numbers are never canvas
+positions. Read them off the **source**, not the timeline:
+`fablecut_frame {path, t}` (the clip's `in` + seconds into it × `speed`), and
+divide a pixel position by that image's own width and height — that gives
+`u_frame`, `v_frame` on the whole frame (what crop uses). For a mask on a
+cropped clip, turn it into the picture's fractions:
+`x = (u_frame − cropL/100) / (1 − cropL/100 − cropR/100)`, and `y` the same
+with `cropT` / `cropB`. A file can carry padding in its frame — a screen
+recording whose picture fills only part of 1920×1080, black bars, a
+pillarboxed phone video — and the padding counts as part of the frame: crop
+it off first (e.g. `cropR: 20, cropB: 20` for a recording that fills the
+top-left 80 %), then the mask fractions are of the real picture. A
+`fablecut_frame {time}` still shows the composed timeline (zoomed, moved,
+cropped); its reply gives the image size and the frame size. Check a mask with
+`fablecut_scopes {time, mask:{clip}}` or `fablecut_frame {time}`.
 
 In the editor, the **Masks** section of the Inspector has **+ Rect**,
 **+ Ellipse**, **Pen** (click points on the monitor, drag while placing one to
@@ -2216,13 +2247,20 @@ inferring it from an `energy` value.
 | `{path:"/media/x.mp4", frames:12}` | a 4×3 contact sheet across the whole clip |
 | `{path:"/media/x.mp4", frames:12, from:30, to:90}` | a contact sheet across part of it |
 | `{time:8.5}` (no `path`) | the **composed timeline** at 8.5 s, graded, all tracks |
+
+**Checking masks, crops or captions: use `{time}`.** The `path` modes
+(one frame, contact sheet) decode the source file with ffmpeg, so they show the
+raw footage — no masks, no crop, no blur, no titles. Only `{time}` goes
+through the editor's compositor and shows what export renders.
 | `{path}` with an absolute path | the file is read in place without copying into `media/` |
 | `{path, text:true}` | text-only statistics (luma, colors, texture, saturation, motion) for non-vision agents |
 
 Each answer leads with a text line naming the source, the timestamp(s) and (in
 timeline mode) the clips on screen, so you always know what you are looking at.
-`width` sets the pixel width (default 768 for one frame, 320 per contact-sheet
-cell); `text:true` returns descriptive statistics instead of an image block, for
+`width` sets the pixel width in the source modes (default 768 for one frame,
+320 per contact-sheet cell); a timeline still is the whole frame at up to 960 px
+wide, and its reply says `Image 960x540 px = the whole 1920x1080 frame` so a
+position read off it can be converted; `text:true` returns descriptive statistics instead of an image block, for
 agents without vision capability — luma levels (min, p1, median, mean, p99, max,
 all 0–1 like `fablecut_scopes`), dominant colors, texture, saturation and
 per-cell motion; `where`/`timeout` apply to timeline mode only.
@@ -2544,6 +2582,22 @@ background footage on V1.
 
 **Remove background without a green screen** (people):
 `props: {bgRemove:true}` — then put anything behind it on V1.
+It works once the user has confirmed the MediaPipe download in the browser editor
+(an agent cannot confirm it). Consent belongs to that page only: use `where:"tab"`
+to export from the browser page where the user enabled it. The loader pins MediaPipe
+`0.1.1675465747` and verifies the size and SHA-256 of all nine runtime files before
+executing any downloaded code; JS, both WASM variants, both models and graph/data
+are resolved only to verified browser-local Blob URLs. Unknown resource names,
+redirects or integrity failures refuse loading; there is no unverified fallback.
+No bytes are persisted, and consent remains page-local. See `licenses/mediapipe/README.md`
+for exact sources and license/provenance limits. A fresh headless page
+cannot inherit that consent and reports `BG_REMOVE_UNAVAILABLE` instead of exporting
+the original background. Fast and WebCodecs export verify every required frame mask;
+disabled tracks/clips and clips outside the export range do not block export.
+Realtime recording cannot guarantee exact masks and refuses these clips. Composed
+frame/scopes requests also fail if a required mask is unavailable. After a download
+failure, the user can enable AI background removal again to retry; preview and export
+do not initiate retries. To export with the background, explicitly turn off `bgRemove`.
 
 **Picture-in-picture**: clip on V3 with
 `props: {scale:0.35, x:380, y:-200, cornerRadius:24}` — add

@@ -1,5 +1,17 @@
 # Third-party components shipped with MontClip
 
+## MediaPipe selfie segmentation (optional browser download)
+
+`@mediapipe/selfie_segmentation@0.1.1675465747` declares **Apache-2.0** in its
+exact npm package metadata. It is not bundled or fetched until the user confirms
+in the current browser page. All JS, WASM, graph and model bytes are size/SHA-256
+pinned in `bgremove-assets.js` and verified before local Blob URLs are used.
+
+See [exact sources, integrity and license limits](licenses/mediapipe/README.md)
+and the [official project license text](licenses/mediapipe/LICENSE). The npm package
+has no LICENSE/NOTICE file or source-commit mapping; the cited upstream source
+commit is a license reference, not a verified build provenance claim.
+
 ## FFmpeg (bundled `ffmpeg` and `ffprobe`)
 
 The desktop app runs only the FFmpeg it ships in `resources/ffmpeg/`
