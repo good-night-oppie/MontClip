@@ -3,7 +3,7 @@
 作者：JJ　日期：2026-11-02　交给：Deja（实施侧照原样落到 PR #31，JJ 再按增量核）
 依据：Deja 11-02 给定的「已验证能力」清单；主人原话「我们不应该是 MontClip 吗？」；关键安全句 §6、§8。
 
-版本：v2 = v1 全文（sha256 3ec69dbf9c2ca9b670530f97d3ad09fb6bba0030c9fc7b654f8d158ac8d57d26，JJ 2026-11-02）+ README 的封面图与两张示意图（JJ 2026-11-07 定稿，PR #201 issuecomment-6699400448；封面换成主人提供的合成图后，封面替代文字和说明行按 issuecomment-6702997243 更新）。v1 文件保留不改。
+版本：v2 = v1 全文（sha256 3ec69dbf9c2ca9b670530f97d3ad09fb6bba0030c9fc7b654f8d158ac8d57d26，JJ 2026-11-02）+ README 的封面图与两张示意图（JJ 2026-11-07 定稿，PR #201 issuecomment-6699400448）。v1 文件保留不改。
 
 ## 落地规则（实施必读，不进页面）
 
@@ -29,8 +29,8 @@
 基于 [ronak-create/FableCut]({upstream})（MIT 许可）。
 
 <p align="center">
-  <img src="../../docs/assets/demo/readme-demo-cover.png" width="720" alt="示意图（合成，不是真实录像，也不是 MontClip 导出的画面）：左边是合成直播间的原画，有直播画面、弹幕和礼物栏；右边是把同一画面裁切、放大到只剩主播的效果示意。">
-  <br><sub>上图是合成示意图，不是 MontClip 导出的画面。演示片（22 秒，合成素材，不是真实录像）：视频待发布。</sub>
+  <img src="../../docs/assets/demo/readme-demo-cover.png" width="720" alt="MontClip 演示片的一帧：左边是合成直播间的原画，右边是 MontClip 裁切、放大并遮住一块区域后的导出画面。画面是合成的，不是真实录像。">
+  <br><sub>演示片（22 秒，合成素材，不是真实录像）。视频待发布。</sub>
 </p>
 
 <picture>
@@ -82,8 +82,8 @@ A video editor for streamers who cut their own streams. Chinese first, English o
 Based on [ronak-create/FableCut]({upstream}) (MIT).
 
 <p align="center">
-  <img src="docs/assets/demo/readme-demo-cover.png" width="720" alt="Illustration (synthetic; not a real recording and not a frame exported by MontClip): on the left, a synthetic live room with the stream picture, chat and gift bar; on the right, a mock-up of the same picture cropped and zoomed in to the streamer.">
-  <br><sub>The picture above is a synthetic illustration, not a frame exported by MontClip. Demo video (22 seconds, synthetic footage, not a real recording): pending release.</sub>
+  <img src="docs/assets/demo/readme-demo-cover.png" width="720" alt="One frame from the MontClip demo: on the left, the original picture of a synthetic live room; on the right, the MontClip export after cropping, zooming in and hiding one area. The footage is synthetic, not a real recording.">
+  <br><sub>Demo (22 seconds, synthetic footage, not a real recording). Video pending release.</sub>
 </p>
 
 <picture>
