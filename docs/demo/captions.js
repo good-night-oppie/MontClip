@@ -168,6 +168,7 @@
     const props = Object.assign({}, S.props, {
       text: cue.text, fontSize: m.fontSize, y: Math.round((height || 1080) * S.y),
       ...(timing ? { wordTimes: timing } : { textAnim: "none" }), caption: true, captionStyle: k,
+      captionMade: cue.text,   // the text it was made with: one that differs was edited (#177: redo only unedited captions)
     });
     return { ...(id ? { id } : {}), kind: "text", mediaId: null, track: track || "V2", start: r4(cue.start), duration: r4(cue.end - cue.start), name: "Caption", props };
   }

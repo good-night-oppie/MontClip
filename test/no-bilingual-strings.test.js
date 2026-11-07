@@ -21,7 +21,8 @@ const PENDING_37 = !fs.existsSync(path.join(ROOT, 'desktop', 'native-text.js'))
 
 // {name} placeholders (uiText vars, e.g. #70's {got}) are filled in, not words of either language
 function bilingual(t) {
-  const u = t.replace(TAGS, '').replace(/\$\{[^}]*\}/g, '').replace(/\{\w+\}/g, '').replace(KEY_NAMES, '');
+  // 「MontClip导出」 is the export folder's own name, written so in English too (Deja, 2026-11-04; #129)
+  const u = t.replace(TAGS, '').replace(/\$\{[^}]*\}/g, '').replace(/\{\w+\}/g, '').replace(/MontClip导出/g, '').replace(KEY_NAMES, '');
   if (!/[一-鿿]/.test(u)) return false;
   return /[A-Za-z]{2,}[ ,;.:'’-]+[A-Za-z]{2,}/.test(u) || /[一-鿿][^\n]*\s\/\s*[A-Za-z]{2,}/.test(u) || /[A-Za-z]{2,}[^\n]*\s\/\s*[一-鿿]/.test(u);
 }

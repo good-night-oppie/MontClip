@@ -210,6 +210,11 @@
     "license": "MIT",
     "licenseSha256": "b25c1d68b3530dcc000a7bfa7780656ecab42a5d217a9c04301e022d88560344"
   },
+  "tailwindcss": {
+    "version": "3.4.19",
+    "license": "MIT",
+    "licenseSha256": "fdd854c84f367147ac4376837dee5002b0d2db39e8effed810ebc48f9bb70318"
+  },
   "tslib": {
     "version": "2.9.1",
     "license": "0BSD",

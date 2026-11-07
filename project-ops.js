@@ -348,6 +348,9 @@
               refuseLocked("updateClip", `track ${op.set.track} is locked`, op);
           }
           mergeInto(c, op.set);
+          // a pan set on purpose is no longer the program's default (panAuto), unless the op says so
+          const setPan = op.set && ((op.set.props && "pan" in op.set.props && !("panAuto" in op.set.props)) || (op.set.keyframes && "pan" in op.set.keyframes));
+          if (setPan && c.props) delete c.props.panAuto;
           checkMasks(c, "updateClip");
           if (op.set && op.set.props && "tracks" in op.set.props) checkTracks(c, "updateClip");
           if (op.set && op.set.props && "shapes" in op.set.props) checkShapes(c, "updateClip");
@@ -406,6 +409,23 @@
             if (tags.length) m.tags = tags; else delete m.tags;
             notes.push("~" + id);
           }
+          break;
+        }
+        case "setAudioTrack": {
+          // {op:"setAudioTrack", id, track} — which audio stream of a multi-track recording (OBS can write six) is the
+          // streamer's voice; 0 = the first, the default. Songs, loudness, the transcript and the export mix all read
+          // this one stream (docs/validation/2026-11-05-audio-tracks). The songs found from another stream are
+          // dropped; loudness and transcripts are kept per stream on the server, so they are read again as needed.
+          const m = proj.media.find((x) => x.id === op.id);
+          if (!m) throw new Error("setAudioTrack: no media " + op.id);
+          const n = Array.isArray(m.audioTracks) ? m.audioTracks.length : 1;
+          const t = op.track;
+          if (!Number.isInteger(t) || t < 0 || t >= n)
+            throw new Error(`setAudioTrack: track is 0…${n - 1} for ${m.id} (${n === 1 ? "it has one audio stream" : n + " audio streams"})`);
+          if (MediaLib.audioTrackOf(m) === t) { notes.push(`=${m.id} track ${t}`); break; }
+          if (t) m.audioTrack = t; else delete m.audioTrack;
+          if (proj.songs && proj.songs[m.id]) { delete proj.songs[m.id]; if (!Object.keys(proj.songs).length) delete proj.songs; }
+          notes.push(`~${m.id} track ${t}`);
           break;
         }
         case "setCollection": {
@@ -1111,9 +1131,10 @@
           break;
         }
         case "setProject": {
-          const allowed =["name", "width", "height", "fps", "background", "markers", "disabledTracks", "lockedTracks", "untargetedTracks", "exportFrame", "encodeProfile", "delivery", "outputs", "master", "inPoint", "outPoint"];
+          const allowed =["name", "width", "height", "fps", "background", "markers", "disabledTracks", "lockedTracks", "untargetedTracks", "exportFrame", "encodeProfile", "delivery", "outputs", "master", "inPoint", "outPoint", "monoPanReviewed"];
           for (const [k, v] of Object.entries(op.set || {})) {
             if (!allowed.includes(k)) throw new Error(`setProject: '${k}' not settable (allowed: ${allowed.join(", ")})`);
+            if (k === "monoPanReviewed" && v != null && typeof v !== "boolean") throw new Error("setProject: monoPanReviewed is true or false (null clears it)");
             if ((k === "inPoint" || k === "outPoint") && v != null && (typeof v !== "number" || !Number.isFinite(v) || v < 0))
               throw new Error(`setProject: ${k} must be seconds ≥ 0 (null clears it)`);
             if (k === "encodeProfile" && v != null) {
@@ -1172,6 +1193,7 @@
             "addSequence|openSequence|updateSequence|removeSequence|inSequence)");
       }
     } };
+    EditOps.settleMonoPanReview(proj);   // before the ops: a −1 they set on a mono stem is then the agent's on purpose
     applyOps(ops);
     return { notes, toSave };
   }
@@ -1240,6 +1262,8 @@
             (opts.proxy && m.kind === "video" && opts.proxy(m) ? ` proxy:${opts.proxy(m)}p` : "") +
             (m.favorite ? " ★" : "") + (m.tags && m.tags.length ? " " + m.tags.map((t) => "#" + t.replace(/\s+/g, "_")).join(" ") : "") +
             (m.folderId ? ` folder:${m.folderId}` : "") + ` uses:${uses.get(m.id) || 0}` +
+            (Array.isArray(m.audioTracks) && m.audioTracks.length > 1 ? ` audioTrack:${MediaLib.audioTrackOf(m)} of [` +
+              m.audioTracks.map((t, i) => `${i}:${t.channels}ch${t.title ? " " + JSON.stringify(t.title) : ""}`).join(", ") + "]" : "") +
             (m.derivedFrom ? ` (${m.denoise ? "denoised " + m.denoise : "derived"} from ${m.derivedFrom})` : "");
         });
       })(),

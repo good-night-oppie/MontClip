@@ -22,7 +22,6 @@
     h264Clear: "不再使用这个 FFmpeg",
     h264NoneWin: "这台电脑上找不到能用的 H.264 编码器：显卡编码器没有响应，Windows 自带的编码器也用不了。你可以在下面选一个带 x264 的 FFmpeg，或者导出时换一种格式。",
     h264NoneOther: "这台电脑上找不到能用的 H.264 编码器。你可以在下面选一个带 x264 的 FFmpeg，或者导出时换一种格式。",
-    h264NeedFeaturePack: "你的 Windows 好像是不带媒体组件的「N 版」。请在 Windows 设置 › 应用 › 可选功能里安装「媒体功能包」（Media Feature Pack），然后重新打开 MontClip。",
     extNotFullPath: "请选 FFmpeg 程序文件本身（ffmpeg.exe）。",
     extGone: "之前选的 FFmpeg 已经不在原来的位置了。请重新选一次，或者点「不再使用这个 FFmpeg」。",
     extNotFfmpeg: "选的程序打不开，或者它不是 FFmpeg。请重新选。",
@@ -47,7 +46,6 @@
     h264Clear: "Stop using this FFmpeg",
     h264NoneWin: "This computer has no H.264 encoder MontClip can use: no graphics-card encoder answered, and Windows' built-in encoder is not available. You can choose an FFmpeg with x264 below, or export in another format.",
     h264NoneOther: "This computer has no H.264 encoder MontClip can use. You can choose an FFmpeg with x264 below, or export in another format.",
-    h264NeedFeaturePack: " Your Windows looks like an \"N\" edition without media components. Install the Media Feature Pack in Windows Settings › Apps › Optional features, then open MontClip again.",
     extNotFullPath: "Choose the FFmpeg program file itself (ffmpeg.exe).",
     extGone: "The FFmpeg you chose is no longer where it was. Choose it again, or click \"Stop using this FFmpeg\".",
     extNotFfmpeg: "The chosen program could not be started, or it is not FFmpeg. Choose again.",
@@ -113,7 +111,7 @@
     let s = t[r.code];
     if (r.code === "extNotUsedNote") s = fill(s, { reason: (h264Message(language, { code: p.reason }) || "").replace(/[。.]$/, ""), encoder: h264Encoder(language, p.encoder) });
     else s = fill(s, Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])));
-    if (/^h264None/.test(r.code) && r.featurePack) s += t.h264NeedFeaturePack;
+    // (the Windows "N" edition / Media Feature Pack line is gone until it is checked: JJ, 2026-11-04)
     return s;
   }
   /** An export refused before it started: "no H.264 encoder" in export words, any other code as h264Message says it. */
@@ -158,6 +156,38 @@
     "off-finding-k": ["Looking for “{file}” ({k} of {n})", "正在找：「{file}」（第 {k} 个，共 {n} 个）"],
     "off-auto-found": ["Found {m} automatically.", "已经自动找回 {m} 个"],   // en: draft
     "off-slate": ["Media offline", "找不到"],
+    // the Relink dialog, 「找回录像」 (JJ's 18 lines on #137, 2026-11-06). JJ gave no English: every English line here is
+    // what the dialog said before, a draft (草稿，待 JJ 定稿). rl-folder-none: the English counts the folder's files
+    // ({files}), JJ's Chinese the recordings being found ({n}).
+    "rl-title": ["Relink media", "找回录像"],   // en: draft
+    "rl-intro-many": ["Point these {n} files at the footage where it is now. Clips keep their In points and edits.", "选一下这 {n} 个录像现在放在哪，时间线上的片段和剪辑都不会变。"],   // en: draft
+    "rl-intro-one": ["Point this file at the footage where it is now. Clips keep their In points and edits.", "选一下这个录像现在放在哪，时间线上的片段和剪辑都不会变。"],   // en: draft
+    "rl-folder": ["Choose folder…", "选文件夹…"],   // en: draft
+    "rl-folder-title": ["Pick the folder the files are in now — they are matched by name and copied into the project", "选录像现在所在的文件夹，按文件名对上后复制进项目"],   // en: draft
+    "rl-pre": ["Found {pre} of {n} in the project folders.", "已在项目文件夹里找到 {pre} 个（共 {n} 个）"],   // en: draft
+    "rl-folder-none": ["None of the {files} files in that folder match by name.", "这个文件夹里没有和这 {n} 个录像同名的文件。换个文件夹，或点〔选文件…〕一个个找。"],   // en: draft
+    "rl-copying-k": ["Copying {i}/{n}: {name}…", "正在复制第 {i} 个（共 {n} 个）：{name}…"],   // en: draft
+    "rl-matched": ["Matched {x} of {n} by name.", "按文件名对上了 {x} 个（共 {n} 个）"],   // en: draft
+    "rl-copying": ["Copying {name}…", "正在复制 {name}…"],   // en: draft
+    "rl-copy-failed": ["Couldn't copy {name}", "{name} 没能复制进项目。请再点〔选文件…〕试一次。"],   // en: draft
+    // the file's name only, never its path (Deja, 2026-11-06), so 「原文件」 rather than 「原来在」 (JJ)
+    "rl-was": ["was {file}", "原文件：{file}"],   // en: draft
+    "rl-new-loc": ["New location", "新位置"],   // en: draft
+    "rl-leave": ["— leave it —", "— 先不处理 —"],   // en: draft
+    "rl-not-found": ["— not found: Browse… or Choose folder… —", "— 没找到：点〔选文件…〕或〔选文件夹…〕 —"],   // en: draft
+    // why a file is offered (MediaLib.relinkWhyKeys maps relinkScore's ids to these)
+    "rl-why-same": ["same name", "同名"],   // en: draft
+    "rl-why-other-type": ["same name, other type", "同名，格式不同"],   // en: draft
+    "rl-why-similar": ["similar name", "名字相近"],   // en: draft
+    "rl-why-size": ["same size", "大小一样"],   // en: draft
+    "rl-why-and-size": [" and size", "，大小也一样"],   // en: draft
+    "rl-chosen": ["{name} (chosen)", "{name}（你选的）"],   // en: draft
+    "rl-from-folder": ["{name} (from the folder)", "{name}（从文件夹里找到）"],   // en: draft
+    "rl-browse": ["Browse…", "选文件…"],   // en: draft
+    "rl-browse-title": ["Pick the file (it is copied into the project)", "选这个录像文件（会复制进项目）"],   // en: draft
+    "rl-cancel": ["Cancel", "取消"],   // en: draft
+    "rl-apply": ["Relink", "找回"],   // en: draft
+    "rl-apply-n": ["Relink {n}", "找回 {n} 个"],   // en: draft
     // the bin's two other English lines VV saw (Deja, 2026-11-05; JJ's wording)
     "bin-drop-root": ["Drop here to move it out of the folder", "拖到这里，移出文件夹"],   // JJ, 2026-11-05
     "bin-dbl-hint": ["Double-click to preview it, or drag it onto the timeline.", "双击可以先预览，或者直接拖到时间线上。"],   // JJ, 2026-11-05
@@ -171,6 +201,12 @@
     "q-list": ["Export queue", "导出队列"],
     "q-list-n": ["Export queue · {n}", "导出队列 · {n}"],
     "q-saved": ["Saved", "已保存"],
+    "q-reveal": ["Show in folder", "在文件夹里显示"],
+    "reveal-in-folder": ["Show in folder", "在文件夹里显示"],
+    "reveal-offline": ["The file is offline", "文件不在，先重新链接"],
+    "reveal-failed": ["Couldn't open the folder", "没能打开文件夹"],
+    "reveal-not-found": ["The file isn't there any more", "文件已经不在了"],
+    "needs-desktop": ["Only in the desktop app", "只在桌面版里能用"],
     "export-save-cancelled": ["Not saved. The exported video is still here: open the export queue and click Save on this item to save it again.", "没有保存。导出的视频还在，打开『导出队列』，在这一条后面点『保存』就能再存一次。"],
     "captions-save-cancelled": ["Captions not saved. Click export captions again to save them.", "字幕没有保存。可以再点一次导出字幕。"],
     "save-busy": ["Close the save window that is already open first.", "先关掉上一个保存窗口"],
@@ -194,6 +230,23 @@
     // DRAFT for JJ (Deja 2026-11-05): a clip's sound could not be read, so the export stops instead of coming out silent
     "export-audio-failed": ["Export stopped: the sound of “{name}” couldn't be read, so the file would have had no sound. Nothing was exported. Try again; if it keeps happening, re-import that recording.",
       "导出停下了：「{name}」的声音读不出来，导出来会没有声音，所以这次没有导出。请再试一次；如果还是这样，重新导入这段录像。"],
+    // JJ定稿 (2026-11-05, via Deja), word for word: an old project with mono sounds in the left ear only — asked once, on open
+    "mono-left": ["{n} sounds in this project only play in the left ear. Make them play in both?", "这个项目里有 {n} 段声音只在左边耳机里有。要改成两边都有吗？"],
+    "mono-left-centre": ["Play in both", "改成两边都有"],
+    "mono-left-keep": ["Not now", "不用"],
+    // JJ定稿 (2026-11-05, via Deja), word for word: the check after an export finds sound in one ear only (a warning, the file is kept).
+    // No dB in the sentence: the numbers stay on the check (L, R) for the developer line of 复制问题信息 (#161).
+    // -fix: the cause was found (mono sounds put there), with the button; the plain one: no cause found, no button.
+    "export-one-sided-left-fix": ["The exported video only has sound in the left ear; the right is almost silent. If you didn't mean it, make the sound play in both ears and export again.", "导出的视频只有左边耳机有声音，右边几乎听不到。如果不是你故意这样放的，可以先改成两边都有再导出一次。"],
+    "export-one-sided-right-fix": ["The exported video only has sound in the right ear; the left is almost silent. If you didn't mean it, make the sound play in both ears and export again.", "导出的视频只有右边耳机有声音，左边几乎听不到。如果不是你故意这样放的，可以先改成两边都有再导出一次。"],
+    "export-one-sided-fix": ["Play in both", "改成两边都有"],
+    "export-one-sided-left": ["The exported video only has sound in the left ear; the right is almost silent.", "导出的视频只有左边耳机有声音，右边几乎听不到。"],
+    "export-one-sided-right": ["The exported video only has sound in the right ear; the left is almost silent.", "导出的视频只有右边耳机有声音，左边几乎听不到。"],
+    // JJ定稿 (2026-11-05, via Deja; zh and en), word for word. Shown after the plain sentence only once 〔复制问题信息〕 sits next
+    // to the export result (#161): until then ONE_SIDED_COPY_TAIL in app.js keeps it off. The button's name comes from its
+    // key (export-one-sided-copy-button; when #161 lands, the button's own key there).
+    "export-one-sided-copy-tail": ["If you didn't mean it, click “{button}” and send it to us.", "如果不是你故意的，点〔{button}〕发给我们。"],
+    "export-one-sided-copy-button": ["Copy problem details", "复制问题信息"],
     "finishing": ["Finishing…", "正在收尾…"],
     // narrow windows: tools that do not fit a bar (JJ to review)
     "more": ["More", "更多"],
@@ -275,6 +328,20 @@
     "font-fallback-load": ["Download from the internet…", "联网下载…"],
     "font-desktop-missing": ["These fonts aren't on this computer: {names}. This text shows and exports in the default font.", "这台电脑上没有这些字体：{names}。文字会用默认字体显示和导出。"],
     "font-export-fallback": ["This export can't use these fonts: {names}. It uses the default font instead.", "这次导出用不了这些字体：{names}，会用默认字体代替。"],
+    // AI background removal goes online (Deja, 2026-11-04): MediaPipe from cdn.jsdelivr.net. Drafts — JJ to finalise.
+    // The buttons reuse font-net-deny / font-net-allow, the hint's button font-fallback-load.
+    // JJ via Deja, 2026-11-06: net-no, export-unavailable and export-realtime finalized verbatim; other drafts unchanged.
+    // JJ final two-key copy, relayed by Deja 2026-11-06, bound to 3bf4f508; prior three unchanged.
+    "bgremove-assets-failed": ["AI background removal isn't ready: the downloaded files didn't all pass the check, so it wasn't turned on and the background stays for now. Turn AI background removal off and on again to retry; it may still fail.","AI 抠像没能准备好：下载的文件没有全部通过检查，所以没有启用，画面先保留背景。把 AI 抠像关掉再开一次，可以重试，但不一定成功。"],
+    "bgremove-net-title": ["Download AI background removal?", "要联网下载 AI 抠像吗？"],
+    "bgremove-net-what": ["AI background removal uses Google's MediaPipe: each time you reopen MontClip, the first use downloads its program and model, and MontClip checks every file first. It's only used if all of them pass.","AI 抠像要用 Google 的 MediaPipe：每次重新打开 MontClip 后第一次用，都要下载它的程序和模型，并先检查文件，全部通过才使用。"],
+    "bgremove-net-hosts": ["MontClip will connect to jsDelivr: {hosts}.", "会连接 jsDelivr 的下载网站：{hosts}。"],
+    "bgremove-net-sent": ["It only downloads. The background is removed on this computer: your recordings, captions and projects are not sent. The site sees what every browser sends when it goes online, such as your IP address.", "只下载，不上传。抠像在这台电脑上算，录像、字幕和项目都不会发出去。对方网站能看到浏览器联网时都会带的基本信息，比如你的 IP 地址。"],
+    "bgremove-net-no": ["Without the download, AI background removal can't run and the preview keeps the background. To export with the original background, turn it off on these clips first.", "不下载的话，AI 抠像用不了，预览会保留背景。想保留背景导出，请先关闭这些片段的 AI 抠像。"],
+    "bgremove-fallback": ["Some clips here use AI background removal, which needs a download first, so they show with their background for now.", "这个项目里有片段开了 AI 抠像，要先联网下载才能用，现在先显示原画面。"],
+    "bgremove-export-unavailable": ["This clip's AI background removal isn't ready, so it can't be exported yet. Go back to the browser editor and follow the download prompt, or turn the clip's AI background removal off and on again. When it's ready, export from that same tab. To keep the original background, turn it off on this clip first.", "现在不能导出：这个片段的 AI 抠像还没准备好。请回到浏览器剪辑器，按提示下载，或把这个片段的 AI 抠像关掉再开一次；准备好后在同一页导出。想保留背景，先关闭这个片段的 AI 抠像。"],
+    "bgremove-export-realtime": ["Realtime recording doesn't support AI background removal. Choose “Fast (FFmpeg)” or “WebCodecs (HW encode)”, or turn off AI background removal on these clips first.", "边播边录这种导出方式不支持 AI 抠像。请改用「快速（FFmpeg）」或「显卡加速编码」，或者先关闭这些片段的 AI 抠像。"],
+    "bgremove-desktop": ["AI background removal isn't available in the desktop app yet. To cut out a green screen, key it by color instead.", "桌面版暂时用不了 AI 抠像。要抠绿幕，可以改用按颜色抠像。"],
     // a transcription with parts the engine could not read (asr-local.js gaps); JJ's words (tr-gaps-more: placeholder)
     "tr-gaps-toast": ["Transcription finished, but {n} part(s) ({dur} in all) couldn't be transcribed and have no subtitles. Click a time under “Transcript” on the right to jump there, and add subtitles yourself if you need them.", "听写完了，但有 {n} 段没听写出来（共 {dur}），这几段没有字幕。可以在右边「文稿」里点时间跳过去看，需要的话自己补上字幕。"],
     "tr-gaps-note": ["{n} part(s) ({dur} in all) couldn't be transcribed and have no subtitles. Click a time to jump there:", "有 {n} 段没听写出来（共 {dur}），这几段没有字幕。点时间可以跳过去："],
@@ -312,7 +379,8 @@
     "rp-source-invalid": ["A clip's timing doesn't match its file. Check the clip, then select again.", "有片段的时间和它的文件对不上，请检查后重新选择。"],
     "rp-source-loop": ["A clip runs past the end of its file; selecting sentences doesn't support that yet.", "有片段比它的原文件还长，按句选段暂时处理不了。"],
     // refusals the server sends as a code (JJ to review); the Chinese is the old message's Chinese half
-    "err-offline": ["Offline mode: import a local file.", "这一版不联网，不能从网址下载。请导入电脑里的文件。"],
+    // English: JJ, #161 (the Chinese unchanged)
+    "err-offline": ["This version works offline, so it can't download from a web address. Import a file from your computer.", "这一版不联网，不能从网址下载。请导入电脑里的文件。"],
     "err-headless-disabled": ["Background browser tasks are turned off in the desktop app.", "桌面版不能在后台打开浏览器做这件事。"],
     "err-editor-not-ready": ["The editor is not ready yet. Open it, then try again.", "编辑窗口还没准备好。先打开 MontClip 的编辑窗口，再试一次。"],
     "err-editor-no-accept": ["The editor did not take the task. Wait until it is ready, then try again.", "编辑窗口没接到这个任务。等它准备好，再试一次。"],
@@ -350,9 +418,37 @@
     "media-incomplete-audio": ["This audio wasn't recorded to the end (the recording may have stopped early), so its length can't be read. It can't be cut yet.", "这段音频没录完整（可能录音中途停了），读不出时长，现在还剪不了。"],
     "media-duration-unknown-audio": ["\"{name}\" may not have finished recording (for example, a recording that was stopped), so its length can't be read and it can't be edited yet. The original file is unchanged.", "「{name}」可能没录完整（比如录音中途停了），读不出有多长，现在还剪不了。原文件没有改动。"],
     "media-duration-unknown-n-mixed": ["{n} files may not have finished recording, so their length can't be read and they can't be edited yet. The original files are unchanged.", "有 {n} 个文件可能没录完整，读不出有多长，现在还剪不了。原文件都没有改动。"],
+    // 分轨录像 (#177): which audio track is the streamer's voice. JJ定稿 (2026-11-05, via Deja), word for word, both
+    // languages; the menu name in at-found / at-found-n is the menu item's own key (mm-info), the button's its own
+    "at-title": ["Which track is the streamer's voice", "主播的声音在哪条轨"],
+    "at-hint": ["Song finding, loudness and subtitles listen to this one track; the exported sound is not affected. In an OBS recording, track 1 is usually all the sound mixed together. If you recorded your mic on its own track, pick that one.", "找歌、音量和字幕只听这一条轨，导出的声音不受影响。OBS 录的第 1 轨通常是混好的全部声音；如果你把麦克风单独录成了一条轨，就选那一条。"],
+    "at-track": ["Track {n}", "第 {n} 轨"],
+    "at-listen": ["Listen", "试听"],
+    "at-channels": ["{n} ch", "{n} 声道"],
+    "at-listen-failed": ["This track can't be played. It may be empty.", "这条轨放不出来，可能是空的。"],
+    "at-changed": ["Now using track {n}. Finding songs and loudness again for this track.", "已改成第 {n} 轨，正在按这条轨重新找歌、算音量。"],
+    // JJ定稿 (2026-11-05, via Deja), word for word: VV's review of #177 — the badge, the bar, the menu item, listening,
+    // undo. Button and menu names inside sentences come from their own keys ({go} = at-go, {menu} = at-menu)
+    "at-badge": ["{n} audio tracks · using track {k}", "{n} 条音轨 · 用第 {k} 条"],
+    "at-badge-busy": ["updating for the new track…", "正在按新轨重算…"],
+    "at-go": ["Choose", "去选"],
+    "at-menu": ["Choose audio track…", "选音轨…"],
+    "at-stop": ["■ Stop", "■ 停止"],
+    "at-undone": ["Back to track {n}.", "已改回第 {n} 轨。"],
+    "at-dismiss": ["Close", "关闭"],
+    "at-captions-redo": ["Redo subtitles from this track", "按这条轨重做字幕"],
+    "at-captions-edited": ["You've edited the subtitles, so they weren't redone automatically. To redo them from track {n}, click “{button}”. The current subtitles will be replaced.", "字幕你改过，所以没有自动重做。要按第 {n} 轨重做，点〔{button}〕；原来的字幕会被替换。"],
+    "at-found": ["“{name}” has {n} audio tracks; track 1 is in use. If the streamer's voice is on another track, click “{go}” to switch. You can also right-click the file → “{menu}” later.", "「{name}」有 {n} 条音轨，现在用的是第 1 轨。主播的声音如果在别的轨上，点〔{go}〕换一条；以后也可以右键文件 →〔{menu}〕。"],
+    // the bar for several files has the at-go button too (it opens them one after another), so it is written like at-found (JJ)
+    "at-found-n": ["{n} files have several audio tracks; track 1 is in use for all of them. If the streamer's voice is on another track, click “{go}” to switch. You can also right-click the file → “{menu}” later.", "有 {n} 个文件有好几条音轨，现在用的都是第 1 轨。主播的声音如果在别的轨上，点〔{go}〕换一条；以后也可以右键文件 →〔{menu}〕。"],
     "media-cannot-cut": ["Can't read how long \"{name}\" is, so it can't go on the timeline. The original file is unchanged.", "读不出「{name}」有多长，放不上时间线。原文件没有改动。"],
     "local-session": ["The local program isn't responding. Reopen MontClip", "本机程序没响应，请重开 MontClip"],
     "tl-above-captions": ["Captions above, click to show", "上方有字幕轨，点这里显示"],
+    // the top bar's media button (below 1100 px); at ≤560 px the open panel covers the player and the button says so
+    "media-toggle": ["Media", "素材"],
+    // JJ (定稿 2026-11-05): the button says media-back; its aria-label and tooltip say media-back-full
+    "media-back": ["← Player", "返回播放器"],
+    "media-back-full": ["Back to player", "返回播放器"],
     // P2 highlight cards (for JJ to review)
     "hl-open": ["Highlight candidates", "高光候选"],
     "hl-title": ["Highlight candidates (worked out on this computer; no AI)", "高光候选（只在本机判断，不调用 AI）"],
@@ -523,6 +619,18 @@
     // QQ on #85 / Deja (2026-11-03): only the picked captions change — said under the comparison (new, pending JJ)
     "ly-outside": ["{n} lyric lines match captions you didn't select; they are left unchanged.", "有 {n} 行歌词对应的是你没选的字幕，没改"],
     "ly-held": ["{n} selected captions are left unchanged: a lyric line runs past them.", "有 {n} 条选中的字幕没改：里面有歌词行跨出了这条字幕"],
+    // lyrics onto a new caption track, for the agent (JJ's final copy, 2026-11-05; docs/decisions/2026-11-05-lyrics-align-agent-tool.md)
+    "lt-preview": ["{k} of {n} lyric lines lined up. The {m} grey lines didn't match. You can drag them into place.", "歌词对上了 {k}/{n} 行。没对上的 {m} 行是灰色的，可以自己拖到位置上。"],
+    "lt-done": ["The lyrics are on a new caption track. Your existing captions weren't changed. Press Ctrl+Z to undo.", "歌词放到了一条新的字幕轨上，原来的字幕没动。按 ⟨Ctrl⟩+⟨Z⟩ 可以撤销。"],
+    "lt-too-few": ["Only {k} of {n} lines matched. It may be a different song or a different version, so nothing was added to the timeline.", "只对上了 {k}/{n} 行，可能不是这首歌，或者唱的版本不一样，所以没有放到时间线上。"],
+    "lt-no-vocals": ["No singing was heard in this part, so the lyrics can't be lined up. Try another part.", "这段里没听出有人在唱，歌词对不上。换一段试试。"],
+    "lt-no-lyrics": ["No lyrics yet. Paste them in, one line per line of the song.", "还没有歌词。把歌词粘贴进来，一行一句。"],
+    // JJ final (#164 issuecomment-6691316743): ASR_UNAVAILABLE also covers no editor to run in, so it names both causes
+    "lt-asr-unavailable": ["Transcription can't run right now, so the lyrics can't be lined up. The editor may not be open, or transcription may not be installed yet.", "现在没法听写，歌词对不上。可能是编辑器没打开，或听写还没装好。"],
+    // JJ final (#164 issuecomment-6691316743): the card's two buttons and the line after 〔先不用〕
+    "lt-place": ["Add to the timeline", "放到时间线上"],
+    "lt-not-now": ["Not now", "先不用"],
+    "lt-not-placed": ["Not added. Nothing changed.", "没有放到时间线上，什么都没改。"],
     "as-lyrics-soon": ["Coming in a later version", "这个功能还在做，后面的版本才能用"],
     "as-a-moment": ["A lively part", "热闹的一段"],
     "as-why": ["Why: ", "为什么选："],
@@ -689,14 +797,7 @@
     "as-ex-nosub": ["No subtitles this time: transcription is not installed on this computer. The videos export as usual. For subtitles, install it in Settings › Transcription (one download, about 230 MB), then come back and export.", "这次没有字幕：这台电脑还没装听写。成片照样能导出。要字幕的话，到「设置 › 听写」装上（要联网下载一次，约 230 MB），再回来导出。"],
     "as-sub-line": ["Subtitles: {n} sentences, transcribed; the singing may have wrong words", "字幕：{n} 句，是听写出来的，唱歌部分可能有错字"],
     "as-exporting": ["Exporting {n}…", "正在导出 {n} 条…"],
-    "as-done-title": ["Exported: {n}", "导出好了，{n} 条"],
-    "as-done-partial": ["Exported {n}; {failed} didn't", "导出好了 {n} 条，{failed} 条没成功"],
     "as-done-sub": ["They are in the export queue; save each one where you like.", "都在导出队列里，可以逐条存到你想放的地方。"],
-    "as-fail": ["{failed} didn't export: “{name}”. {why}. Your edits are all still here. Click Try again, or open the export queue to see why.", "有 {failed} 条没导出来：「{name}」。{why}。你的剪辑都还在，点「再试一次」，或者打开导出队列看原因。"],
-    "as-fail-why-space": ["The drive it saves to is out of space", "存视频的那个盘空间不够了"],
-    "as-fail-why-changed": ["The timeline changed after it was queued, so it wasn't exported", "加进导出以后，时间线又改过了，所以没导"],
-    "as-fail-why-other": ["The export stopped partway", "导出到一半停下了"],
-    "as-retry": ["Try again", "再试一次"],
     "as-open-queue": ["Open the export queue", "打开导出队列"],
     "as-back-review": ["Back to review", "回去再改改"],
     "as-another": ["Another stream", "再切一场"],
@@ -709,11 +810,11 @@
     "as-dur-s": ["{s} s", "{s} 秒"],
     // danmaku import (for JJ to review)
     "dm-import": ["Import danmaku…", "导入弹幕…"],
-    "dm-import-title": ["Import danmaku for the recording of the selected clip (a BililiveRecorder or Bilibili .xml file)", "给选中片段所在的那场录像导入弹幕（录播姬或 B 站的 .xml 文件）"],
+    "dm-import-title": ["Import danmaku for the recording of the selected clip (a BililiveRecorder or Bilibili .xml file)", "给选中片段所在的那场录像导入弹幕（录播姬或 B 站的 .XML 文件）"],
     "dm-reading": ["Reading {name}…", "正在读取 {name}…"],
     "dm-imported": ["{n} danmaku imported for {name}.", "已为 {name} 导入 {n} 条弹幕。"],
     "dm-pick-clip": ["Select a clip of this recording on the timeline first, then import the danmaku.", "先在时间线上选中这场录像的片段，再导入弹幕。"],
-    "dm-bad": ["This is not a BililiveRecorder or Bilibili danmaku file. For BililiveRecorder, pick the .xml file with the same name next to the recording.", "这不是录播姬或 B 站的弹幕文件。录播姬的话，选录像旁边那个同名的 .xml 文件。"],
+    "dm-bad": ["This is not a BililiveRecorder or Bilibili danmaku file. For BililiveRecorder, pick the .xml file with the same name next to the recording.", "这不是录播姬或 B 站的弹幕文件。录播姬的话，选录像旁边那个同名的 .XML 文件。"],
     "dm-too-many": ["More than {n} danmaku in one file: not imported.", "一个文件里的弹幕超过 {n} 条，没有导入。"],
     "dm-remove": ["Remove danmaku ({n})", "移除弹幕（{n} 条）"],
     "dm-removed": ["Danmaku removed from {name}.", "已移除 {name} 的弹幕。"],
@@ -772,11 +873,12 @@
     "meter-rms": ["RMS", "音量"],
     "media-kind-video": ["video", "视频"],
     "fps-value": ["{n} fps", "{n} 帧/秒"],
+    "resolution-stored": ["{display} (stored as {stored})", "{display}（文件里存的是 {stored}）"],
     "export-range-full": ["Full timeline · {from} → {to}", "整条时间线 · {from} → {to}"],
     "engine-fast-note": ["Frame-accurate. Server encodes from JPEG frames. Keeps going if you switch tabs.", "逐帧准确。由本机程序一帧帧编码，切到别的页面也会继续导出。"],
     "engine-webcodecs": ["WebCodecs (HW encode)", "显卡加速编码"],
     // 「快速（ffmpeg）」 is the Fast radio's own Chinese label (term.fast-ffmpeg)
-    "engine-webcodecs-note": ["Frame-accurate. Browser HW-encodes H.264; server muxes with audio. Faster upload than Fast.", "逐帧准确。用显卡编码，比「快速（ffmpeg）」那一项更快。"],
+    "engine-webcodecs-note": ["Frame-accurate. Browser HW-encodes H.264; server muxes with audio. Faster upload than Fast.", "逐帧准确。用显卡编码，比「快速（FFmpeg）」那一项更快。"],
     // delivery.js keeps the English note for agents; the dialog shows this one
     "dlv-note-master": ["Project size · H.264 CRF 16 · AAC 320k", "和项目一样大 · 高画质 · H.264 恒定画质（CRF）16 · AAC 320k"],
     "dlv-resolution": ["Resolution", "分辨率"],
@@ -810,6 +912,16 @@
     "export-checked": ["Export checked", "导出勾选的版本"],
     "export-checked-n": ["Export checked ({n})", "导出勾选的版本（{n}）"],
     "export-failed-prefix": ["Export failed: ", "导出失败："],
+    // the export self-check (export-check.js): the file came out black / silent from start to end while the footage is not.
+    // JJ 定稿 (2026-11-04, #161), word for word, except the English button's name: “Copy problem details”, its real name on
+    // screen (btnCopyProblem; JJ's rule, Deja) — test/export-start-time.test.js
+    "export-blank-picture": ["The export went wrong: the video is black from start to finish, but the clips on the timeline have picture. Don't use this file. Your originals are unchanged. Export again, and if it's still black, click “Copy problem details” and send it to us.", "导出出了问题：成片从头到尾都是黑屏，但时间线上的素材是有画面的。这个文件先别用，原片没有改动。请再导出一次；还是黑屏的话，点〔复制问题信息〕发给我们。"],
+    "export-blank-sound": ["The export went wrong: the video has no sound from start to finish, but the clips on the timeline have sound. Don't use this file. Your originals are unchanged. Export again, and if there's still no sound, click “Copy problem details” and send it to us.", "导出出了问题：成片从头到尾都没有声音，但时间线上的素材是有声音的。这个文件先别用，原片没有改动。请再导出一次；还是没声音的话，点〔复制问题信息〕发给我们。"],
+    "export-blank-both": ["The export went wrong: the video is black and silent from start to finish, but the clips on the timeline have picture and sound. Don't use this file. Your originals are unchanged. Export again, and if it happens again, click “Copy problem details” and send it to us.", "导出出了问题：成片从头到尾都是黑屏、也没有声音，但时间线上的素材有画面也有声音。这个文件先别用，原片没有改动。请再导出一次；还是这样的话，点〔复制问题信息〕发给我们。"],
+    // after 〔复制问题信息〕: what was taken out and where to send it (JJ 定稿, #161; the brackets only since
+    // test/problem-details.test.js shows it). {email} is PROBLEM_EMAIL, shown so it can be selected — never a second copy
+    // button, which would overwrite what was just copied.
+    "copy-problem-sent": ["Copied (file paths and account details removed). Send it to {email} and we'll look at it as soon as we can.", "复制好了（文件路径和账号已经去掉）。把它发到 {email}，我们会尽快看。"],
     "export-profile-unsupported": ["Export didn't run: MontClip can't guarantee the custom audio or filter settings in this preset. So that the exported sound doesn't differ from what you set, no file was made. Remove the custom audio and filter settings from the preset, or pick another preset, then listen to the result to check the sound is what you want.", "导出没有进行：这个预设里自定义的声音或滤镜设置，MontClip 没法保证照做。为了不让导出的声音和你设的不一样，没有生成文件。请去掉预设里自定义的声音和滤镜设置，或者换一个预设，导出后再听一下声音是不是你要的。"],
     // JJ (#74): the version kept before the AI's edits, named in the interface language only
     "before-ai": ["Before AI changes", "AI 改之前"],
@@ -836,16 +948,46 @@
     "ap-once": ["Allow this once", "只批准这次"],
     "ap-session": ["Allow for this chat", "这个聊天中都批准"],
     "ap-deny": ["Don't allow", "不同意"],
+    // v7.2 §2, step 3: the card, once answered, is one line saying what was chosen. New copy, for JJ.
+    "ap-done-once": ["✓ You allowed this once", "✓ 你批准了这一次"],
+    "ap-done-session": ["✓ You allowed this kind of change for this chat", "✓ 这个聊天中，这类修改你都批准了"],
+    "ap-done-deny": ["You didn't allow it; this step was not done", "你没有同意，这一步没有做"],
+    // settled by the host, not clicked (QQ/DD on #120): the line must not say 「你没有同意」. Copy for JJ to finalize.
+    "ap-done-stale": ["The project changed; this step was not done", "项目改过了，这一步没有做"],
+    "ap-done-left": ["You left this chat; this step was not done", "你离开了这个聊天，这一步没有做"],
     "ap-denied": ["Not done. Nothing changed.", "没有做这一步，什么都没改。"],
+    // the line for her when ask() is denied inside Cindy (HOST_EMBEDDED; QQ on #219). JJ定稿 (2026-11-07, via Deja; zh and en), word for word
+    "ap-embedded-declined": ["This step was not done; nothing was changed. In Cindy, ask the AI in Cindy's own chat instead.", "这一步没有做，什么都没改。在 Cindy 里用 AI，请直接在 Cindy 的对话里说你想做什么。"],
     "ap-listed": ["Plan mode: this step is only listed, not done. Switch to another mode at the top of the assistant to do it.", "计划模式：这一步只列出来，没有做。要做的话，在助手顶部换一种模式。"],
     "ap-refused": ["This step is never allowed, in any mode. Nothing changed.", "这一步任何模式下都不允许，什么都没改。"],
     "ap-refused-mode": ["The assistant has no mode chosen right now, so nothing was done. Choose a mode at the top of the assistant.", "助手现在没有选模式，所以什么都没做。请在助手顶部选一种模式。"],
+    // the toast after an AI step is applied, by why it ran (QQ found it, JJ worded it, 2026-11-04): approved in the box just now;
+    // allowed earlier for this chat (「这个聊天中都批准」); ap-applied: run by 自动 / Yolo without asking
+    "ap-applied-approved": ["Done as you approved. Undo is available.", "已按你批准的改好。可以撤销。"],
+    "ap-applied-allowed": ["Done as the AI suggested. You allowed this kind of change for this chat, so you weren't asked again. Undo is available.", "已按 AI 的建议改好。你在这个聊天中批准过这类修改，所以没再问你。可以撤销。"],
     "ap-applied": ["Done as the AI suggested, without asking ({mode} mode). Undo is available.", "已按 AI 的建议改好，没有问你（{mode}模式）。可以撤销。"],
     "ap-stale": ["The project changed after this reply, so this step was not done.", "项目在回复之后改过了，所以没有做这一步。"],
-    "ap-yolo-on": ["Yolo is on", "Yolo 开着"],
+    "ap-yolo-on": ["Full auto is on", "全自动开着"],
     "ap-sum-sentences": ["Keep {count} sentences, about {duration} in the final cut.", "保留 {count} 句，成片大约 {duration}。"],
     "ap-sum-ranges": ["Keep {count} ranges joined into one video, about {duration}.", "保留 {count} 段，拼成一条，大约 {duration}。"],
     "ap-sum-slices": ["Cut {count} separate clips, one file each, about {duration} in total.", "切出 {count} 条切片，每条一个文件，一共大约 {duration}。"],
+    // the assistant's reframe (Deja, 2026-11-05; app.js runAgentReframe). JJ定稿 (2026-11-05), except rf-failed-name (待 JJ 定稿)
+    "ap-sum-reframe": ["Make a {aspect} copy of the sequence whose shots follow the person, then switch to it. The original stays as it is. It looks at the footage frame by frame, which can take a while.", "做一份 {aspect} 的新序列，画面跟着人走，做好后切换过去；原来的序列不动。要逐帧看画面，可能要等一会儿。"],
+    "rf-progress": ["Making the {aspect} version: shot {n} of {of} · {pct}%", "正在做 {aspect} 的版本：第 {n}/{of} 个镜头 · {pct}%"],
+    "rf-cancel": ["Cancel", "取消"],
+    "rf-done": ["Made the {aspect} copy “{name}” and switched to it. Undo once to go back to the original sequence.", "已做好 {aspect} 的新序列「{name}」并切换过去。撤销一次就回到原来的序列。"],
+    "rf-cancelled": ["Cancelled. No sequence was made; nothing changed.", "已取消，没有新建序列，什么都没改。"],
+    "rf-changed": ["The project changed while this was being made, so to be safe no sequence was made. Ask again.", "做的过程中项目被改过，为了不出错，没有新建序列。可以再让助手做一次。"],
+    "rf-nothing": ["No shot here can be reframed (only titles, picture-in-picture or clips placed by hand), so no sequence was made.", "这里没有能改比例的镜头（只有字幕、画中画或手动摆过的片段），所以没有新建序列。"],
+    "rf-busy": ["Something else is running (an export, or another reframe). Try again when it's done.", "现在有别的事在进行（导出，或者另一个改比例），等它做完再试。"],
+    "rf-failed": ["The footage couldn't be read, so no sequence was made.", "画面读不出来，所以没有新建序列。"],
+    // JJ定稿 (2026-11-06).
+    "rf-sequence-limit": ["This project already has {limit} sequences. Remove an unneeded sequence, then try again.", "这个工程已有 {limit} 个序列，暂时不能再新建。请先删除一个不需要的序列，再试。"],
+    // added after rf-failed when the clip whose file couldn't be opened is known: its name as the bin shows it, no path. 待 JJ 定稿
+    "rf-failed-name": ["The clip that couldn't be opened is “{name}”.", "打不开的素材是「{name}」。"],
+    "rf-same": ["The sequence already has that shape; there is nothing to make.", "这个序列已经是这个比例了，不用再做。"],
+    "rf-undone": ["Undone: the {aspect} copy was deleted and “{name}” is open again.", "已撤销：删掉了 {aspect} 的新序列，回到「{name}」。"],
+    "rf-undo-failed": ["Couldn't go back to the original sequence. Open “{name}” from the sequence menu (▾) at the top left of the timeline.", "回不到原来的序列了。可以从时间线左上角的序列菜单（▾）里打开「{name}」。"],
     "ap-undo": ["Undo", "撤销"],
     // P4, second half: the plan list. New copy, for JJ.
     "pl-step-of": ["Step {n} of {total} of the plan.", "计划的第 {n} 步，共 {total} 步。"],
@@ -856,7 +998,7 @@
     "pl-busy": ["MontClip was busy with something else. When it's done, ask the assistant to plan again.", "软件正在忙别的事。等它做完，再让助手重新排一次。"],
     "pl-cancelled": ["You closed the preview without applying.", "你关掉了预览，没有应用。"],
     "pl-stale": ["It doesn't fit the project as it is now.", "和现在的项目对不上。"],
-    "pl-plan-mode": ["Plan mode only makes plans. To carry it out, switch to Manual, Auto or Yolo at the top of the assistant.", "计划模式只出计划。要执行的话，在助手顶部换成手动、自动或 Yolo。"],
+    "pl-plan-mode": ["Plan mode only makes plans. To carry it out, switch to Manual, Auto or Full auto at the top of the assistant.", "计划模式只出计划。要执行的话，在助手顶部换成手动、自动或全自动。"],
     "pl-discarded": ["You dropped this plan. Nothing was done.", "这个计划不要了，什么都没做。"],
     "pl-done": ["Every step is done. You can undo the whole plan at once.", "每一步都做完了。可以一次撤销整个计划。"],
     "pl-stopped": ["The plan stopped at this step; the steps after it were not done. You can ask the assistant to plan again from the project as it is now.", "计划停在了这一步，后面的步骤没有做。可以让助手按现在的项目重新排一次计划。"],
@@ -1113,53 +1255,274 @@
   }
   // FLV import failures (JJ, 2026-11-02): the server sends a reason code, the page says it here.
   // The first three are JJ's wording; flvNeedsConvert, flvUploadFailed and flvComponentMissing are for JJ to review.
+  // JJ v2 (2026-11-04, 错误白话表 sha256 d99c25d1…): the streamer cannot convert a file herself, so where MontClip can
+  // convert it says so and offers 〔帮我转〕; flvTimingUnverified, flvNeedsConvert and flvNoEncoder are JJ's v2 sentences.
   Object.assign(text["zh-CN"], {
-    flvTimingUnverified: "这个 FLV 这次没导进来：MontClip 没法确认它的时间是否完整。换一个录完整的文件，或者先把它转成 MP4 再导入。",
+    flvTimingUnverified: "这场录像中间断过（可能断过网，或者录制停过），要先转一下才能剪，MontClip 可以替你转。转好的是一份新文件，原片不动；要等几分钟。",
     flvNeedsDesktop: "导入 FLV 需要用 MontClip 桌面版打开。",
     flvDiskFull: "电脑空间不够，这个文件没导进来。清理一些空间后再试。",
-    flvNeedsConvert: "这个 FLV 这次没导进来：它的编码 MontClip 现在不能直接用。先把它转成 MP4 再导入。",
-    flvUploadFailed: "这个 FLV 没导进来：MontClip 处理这个文件时出了问题。再试一次；还不行就先把它转成 MP4 再导入。",
+    flvNeedsConvert: "这个录像要先转一下格式才能剪，MontClip 可以替你转。转好的是一份新文件，原片不动；画质基本不变，要等几分钟。",
+    // interim, for JJ: the convert instruction is gone (the v2 row for other problems needs the copy button from #129)
+    flvUploadFailed: "这个 FLV 没导进来：MontClip 处理这个文件时出了问题。原片没有改动。再试一次。",
     flvComponentMissing: "MontClip 缺少处理 FLV 的组件，这个文件没导进来。请重新安装 MontClip。",
     // desktop FLV import (for JJ to review)
     flvTitle: "导入 FLV", flvCancel: "取消", flvContinue: "继续导入",
     flvPhaseInspect: "正在检查原片…", flvPhaseHash: "正在核对原片… {pct}%", flvPhaseCopy: "正在复制到项目… {pct}%",
     flvPhaseVerify: "正在核对复制出的文件… {pct}%", flvPhasePrepare: "正在转成能剪的格式…",
-    flvAskTranscode: "这个 FLV 要转成兼容的 MP4 才能剪，可能会改变画质，需要等一会儿。原片不会改动。",
-    flvAskReadable: "MontClip 没能确认这个 FLV 的结尾是完整的（可能还在录，或者录制中断过）。继续的话，只导入能读到的部分。原片不会改动。",
+    // the question before converting is JJ's v2 sentence for the same reason (set from flvNeedsConvert / flvTimingUnverified below)
+    flvAskTranscode: "", flvAskReadable: "",
     flvSourceChanged: "原片在检查之后变了（可能还在录制），这次没导入，复制出的文件已删除。录完后再试。",
     flvCopyMismatch: "复制出的文件和原片对不上，这次没导入，复制出的文件已删除。再试一次。",
     flvCanceled: "已取消。这次导入建的文件都已删除，原片没有改动。",
     flvCleanupFailed: "这次导入建的文件有一部分没能删除，可能正被占用。关掉 MontClip 时会再删一次。",
     // #28: the bundled FFmpeg has no x264, so converting needs this computer's own encoder (for JJ to review)
-    flvNoEncoder: "这个 FLV 需要转换格式才能用，但这台电脑上找不到能用的 H.264 编码器（显卡编码器和 Windows 自带的编码器都用不了）。先把它转成 MP4 再导入。",
+    flvNoEncoder: "这台电脑上找不到 MontClip 能用的视频编码器，所以这次没能转换。可以先更新显卡驱动再试。",
   });
   Object.assign(text.en, {
-    flvTimingUnverified: "This FLV was not imported: MontClip could not confirm its timing is complete. Try a fully recorded file, or convert it to MP4 first.",
+    flvTimingUnverified: "This recording has a break in it (the stream or the recorder may have stopped for a moment), so it needs converting before you can edit it, and MontClip can do it for you. The result is a new file and the original stays as it is; it takes a few minutes.",
     flvNeedsDesktop: "Importing FLV needs the MontClip desktop app.",
     flvDiskFull: "There is not enough space on this computer, so the file was not imported. Free up some space and try again.",
-    flvNeedsConvert: "This FLV was not imported: MontClip cannot use its encoding directly yet. Convert it to MP4 first.",
-    flvUploadFailed: "This FLV was not imported: something went wrong while MontClip was handling it. Try again; if it still fails, convert it to MP4 first.",
+    flvNeedsConvert: "This recording needs converting before you can edit it, and MontClip can do it for you. The result is a new file and the original stays as it is. The picture stays about the same; it takes a few minutes.",
+    flvUploadFailed: "This FLV was not imported: something went wrong while MontClip was handling it. The original is unchanged. Try again.",
     flvComponentMissing: "MontClip is missing the component that handles FLV, so the file was not imported. Reinstall MontClip.",
     flvTitle: "Import FLV", flvCancel: "Cancel", flvContinue: "Continue",
     flvPhaseInspect: "Checking the original…", flvPhaseHash: "Checking the original… {pct}%", flvPhaseCopy: "Copying into the project… {pct}%",
     flvPhaseVerify: "Checking the copy… {pct}%", flvPhasePrepare: "Converting to a format you can edit…",
-    flvAskTranscode: "This FLV has to be converted to a compatible MP4 before it can be edited. The picture may change a little, and it takes a while. The original is not changed.",
-    flvAskReadable: "MontClip could not confirm that this FLV ends properly (it may still be recording, or the recording was interrupted). If you continue, only the part that can be read is imported. The original is not changed.",
+    flvAskTranscode: "", flvAskReadable: "",
     flvSourceChanged: "The original changed after it was checked (it may still be recording), so it was not imported and the copy was removed. Try again once the recording is finished.",
     flvCopyMismatch: "The copy did not match the original, so it was not imported and the copy was removed. Try again.",
     flvCanceled: "Canceled. The files this import made were removed; the original is unchanged.",
     flvCleanupFailed: "Some files this import made could not be removed; they may be in use. MontClip tries again when it closes.",
-    flvNoEncoder: "This FLV needs converting before it can be used, but this computer has no H.264 encoder MontClip can use (no graphics-card encoder answered and Windows' built-in encoder is unavailable). Convert it to MP4 first.",
+    flvNoEncoder: "This computer has no video encoder MontClip can use, so it couldn't convert this time. Update the graphics driver and try again.",
   });
-  // A readable-range or timestamp problem is "timing unverified": the consent screens are deferred, so
-  // nothing here asks for permission the user has nowhere to give. Unknown codes read as a failed import.
-  const FLV_REASONS = { FLV_TIMELINE_GAP: "flvTimingUnverified", FLV_READABLE_CONSENT_REQUIRED: "flvTimingUnverified",
+  for (const l of ["zh-CN", "en"]) Object.assign(text[l], { flvAskTranscode: text[l].flvNeedsConvert, flvAskReadable: text[l].flvTimingUnverified });
+  // FLV import, Deja's decision A (2026-11-04, VV's walk on europa): how far the check is and how long it still takes;
+  // a recording with breaks is converted on the original's clock instead of refused, and every refusal or failure is a
+  // dialog with a reason, not a passing toast. flvConverted / flvConvertedMany are JJ's v2 sentences (sha256 d99c25d1…);
+  // the rest is new copy for JJ to review. FLV_STREAMS_UNSUPPORTED (more than one picture or sound track) is not
+  // something the conversion handles, so it says 「现在导不进来」 and why instead of offering 〔帮我转〕.
+  Object.assign(text["zh-CN"], {
+    flvPct: " {pct}%", flvEta: "，还要约 {eta}", flvEtaMin: "{n} 分钟", flvEtaSec: "{n} 秒",
+    flvPhaseCheck: "正在和原片核对转出来的 MP4…",
+    flvConvert: "帮我转", flvNotNow: "先不转", flvGotIt: "知道了",
+    // JJ 定稿 (2026-11-05, Deja 代贴 on #130): the break is held — the picture stops, no sound — not squeezed out
+    flvConverted: "已经转好了。{time} 这里录像断了约 {N} 秒：这几秒画面会停住、没有声音，前后的时间是对的。不想要可以剪掉。",
+    flvConvertedMany: "已经转好了。录像一共断了 {k} 处，加起来约 {N} 秒：这些地方画面会停住、没有声音，前后的时间是对的。不想要可以剪掉。",
+    flvStreamsUnsupported: "这个录像现在导不进来：它里面不止一路画面或声音，MontClip 还不能只挑其中一路来剪。原片没有改动。可以换一场别的录像试试。",
+    flvFixUnverified: "转出来的 MP4 和原片对不上，这次没导入，转出来的文件已删除。原片没有改动，可以再试一次。",
+    flvFixBy: "差了多少：时长 {sec} 秒，声音和画面 {ms} 毫秒（要求时长差不超过 0.1 秒、声音和画面差不超过 40 毫秒）。",
+    flvRetryConvert: "也可以让 MontClip 替你转一下再导入，原片不动。",
+    flvGapMark: "这里录像断了约 {N} 秒", flvDropMark: "这里录像掉了一点（约 {N} 秒），照原样导入",
+    // Rea's rule ⑥: damaged bytes behind normal timestamps, found while converting or exporting. New codes for #129's table.
+    flvSourceDamaged: "这个录像里有一段画面或声音坏了，转出来会花屏或有杂音，所以这次没转，也没导进来。原片没有改动。可以换一场录像试试。",
+    exportSourceDamaged: "这次没导出来：「{name}」在 {at} 附近有一段画面坏了，导出来会花屏，所以停下了。你的剪辑都还在，可以把那一小段剪掉再导出。",
+  });
+  Object.assign(text.en, {
+    flvPct: " {pct}%", flvEta: " — about {eta} left", flvEtaMin: "{n} min", flvEtaSec: "{n} s",
+    flvPhaseCheck: "Checking the converted MP4 against the original…",
+    flvConvert: "Convert it for me", flvNotNow: "Not now", flvGotIt: "OK",
+    flvConverted: "Converted. The recording dropped out for about {N} s at {time}: for those seconds the picture freezes and there's no sound, and the timing before and after is right. You can cut it out if you don't want it.",
+    flvConvertedMany: "Converted. The recording dropped out {k} times, about {N} s in total: in those places the picture freezes and there's no sound, and the timing around them is right. You can cut them out if you don't want them.",
+    flvStreamsUnsupported: "This recording can't be imported right now: it has more than one picture or sound track, and MontClip can't pick just one of them to edit yet. The original is unchanged. Try another recording.",
+    flvFixUnverified: "The converted MP4 does not match the original, so it was not imported and the converted file was removed. The original is unchanged; you can try again.",
+    flvFixBy: "Off by: {sec} s in length, {ms} ms between sound and picture (at most 0.1 s and 40 ms are allowed).",
+    flvRetryConvert: "MontClip can also convert it for you and import that; the original stays as it is.",
+    flvGapMark: "The recording broke here for about {N} s", flvDropMark: "A little of the recording dropped here (about {N} s); imported as it is",
+    flvSourceDamaged: "Part of the picture or sound in this recording is damaged, so converting it would come out garbled; it was not converted or imported. The original is unchanged. Try another recording.",
+    exportSourceDamaged: "This wasn't exported: part of the picture in \"{name}\" around {at} is damaged and would come out garbled, so the export stopped. Your edits are all still there; you can cut that short part out and export again.",
+  });
+  /** About N seconds, as said to the streamer: whole seconds from 10 s, else one decimal (at least 0.1). */
+  /* JJ's drift sentences (2026-11-06, Deja 代贴), word for word, final (JJ agreed to no {ms}, 2026-11-06; Deja decided not to give a
+     number — prepareMedia's drift is a lower bound: Rea measured drift 0.067 and +98 ms at the end). Used after a
+     conversion of breaks when picture and sound also move apart during the recording (prepareMedia returns drift only
+     when flv-readable-range.js says drifting: drift over MAX_DRIFT 0.04 s, a fixed offset at the start not counted);
+     drift is not corrected (Deja's decision), so JJ's 「前后的时间是对的」 would not be true there (Rea, 5804186201). */
+  Object.assign(text["zh-CN"], {
+    flvConvertedDrift: "已经转好了。{time} 这里录像断了约 {N} 秒：这几秒画面会停住、没有声音。断点之后，声音和画面可能差一点点，软件没法判断哪边是准的，所以没有自动修正。导出前请看一下结尾处的口型对不对；不想要断掉的那段可以剪掉。",
+    flvConvertedDriftMany: "已经转好了。录像一共断了 {k} 处，加起来约 {N} 秒：这些地方画面会停住、没有声音。断点之后，声音和画面可能差一点点，软件没法判断哪边是准的，所以没有自动修正。导出前请看一下结尾处的口型对不对；不想要断掉的地方可以剪掉。",
+  });
+  Object.assign(text.en, {
+    flvConvertedDrift: "Converted. The recording dropped out for about {N} s at {time}: for those seconds the picture freezes and there's no sound. After that, the sound and picture may be slightly out of step, and MontClip can't tell which one is right, so nothing was corrected. Before you export, check that the mouth movements still match at the end; you can cut out the dropped part if you don't want it.",
+    flvConvertedDriftMany: "Converted. The recording dropped out {k} times, about {N} s in total: in those places the picture freezes and there's no sound. After that, the sound and picture may be slightly out of step, and MontClip can't tell which one is right, so nothing was corrected. Before you export, check that the mouth movements still match at the end; you can cut out the dropped places if you don't want them.",
+  });
+  const flvSeconds = (s) => s >= 10 ? String(Math.round(s)) : String(Math.max(0.1, Math.round(s * 10) / 10));
+  /** After a recording with breaks was converted: where it broke, in JJ's words ("" when it had none). A break the
+   *  picture and the sound both have (they overlap in time) is one break. `drift` (seconds, prepareMedia's result; only
+   *  there when flv-readable-range.js's drifting holds: over MAX_DRIFT 0.04 s): picture and sound still move apart, so the sentence does not say the timing is right. */
+  function flvConvertedMessage(language, gaps, drift) {
+    const list = (Array.isArray(gaps) ? gaps : []).filter((g) => g && g.len > 0).map((g) => [g.at, g.at + g.len]).sort((a, b) => a[0] - b[0]);
+    const merged = [];
+    for (const [a, b] of list) { const last = merged.at(-1); if (last && a <= last[1]) last[1] = Math.max(last[1], b); else merged.push([a, b]); }
+    if (!merged.length) return "";
+    const N = flvSeconds(merged.reduce((s, [a, b]) => s + b - a, 0));
+    const apart = Number(drift) > 0 ? "Drift" : "";
+    return merged.length === 1 ? t(language, `flvConverted${apart}`, { N, time: clock(merged[0][0]) }) : t(language, `flvConverted${apart}Many`, { k: merged.length, N });
+  }
+  /** A break's words on the timeline: the label of a converted one (Deja: 「这里录像断了约 N 秒」), the tooltip of a small drop. */
+  function flvGapMark(language, gap) { return t(language, gap && gap.big ? "flvGapMark" : "flvDropMark", { N: flvSeconds(gap ? gap.len : 0) }); }
+  /** "still about 3 min" for a step that needs `seconds` more; "" when not known yet. */
+  function flvEta(language, seconds) {
+    if (!(seconds > 0)) return "";
+    return t(language, "flvEta", { eta: seconds >= 60 ? t(language, "flvEtaMin", { n: Math.ceil(seconds / 60) }) : t(language, "flvEtaSec", { n: Math.ceil(seconds) }) });
+  }
+  // A break in the recording, an end that could not be confirmed and a codec MontClip cannot cut are offered as a
+  // conversion (JJ v2: 〔帮我转〕〔先不转〕). Unknown codes read as a failed import.
+  const FLV_REASONS = { FLV_TIMELINE_GAP: "flvTimingUnverified", FLV_FIX_UNVERIFIED: "flvFixUnverified", FLV_READABLE_CONSENT_REQUIRED: "flvTimingUnverified",
     FLV_DISK_FULL: "flvDiskFull", NO_SERVER: "flvNeedsDesktop", FLV_TRANSCODE_REQUIRED: "flvNeedsConvert",
-    FLV_STREAMS_UNSUPPORTED: "flvNeedsConvert", FLV_COMPONENT_MISSING: "flvComponentMissing", FLV_ENCODER_MISSING: "flvNoEncoder",
+    FLV_STREAMS_UNSUPPORTED: "flvStreamsUnsupported", FLV_SOURCE_DAMAGED: "flvSourceDamaged", FLV_COMPONENT_MISSING: "flvComponentMissing", FLV_ENCODER_MISSING: "flvNoEncoder",
     FLV_SOURCE_CHANGED: "flvSourceChanged", FLV_COPY_MISMATCH: "flvCopyMismatch", FLV_IMPORT_CANCELED: "flvCanceled", FLV_CLEANUP_FAILED: "flvCleanupFailed" };
   function flvImportMessage(language, code) {
     const t = text[language] || text.en;
     return t[Object.hasOwn(FLV_REASONS, code) ? FLV_REASONS[code] : "flvUploadFailed"];
+  }
+  // Every failure the streamer sees goes through errorText (Deja, decision B), in JJ's final words (错误白话表 v2,
+  // 2026-11-04, sha256 d99c25d1…): first what happened, then what she can do now; whether the original was touched.
+  // The raw error, codes and English go to the log only; 〔复制问题信息〕 copies that line with viewers, keys and user
+  // folders taken out (problem-redact.js). Nothing raw is shown.
+  Object.assign(text["zh-CN"], {
+    flvUnreadable: "这个录像读不了，可能还没录完，或者文件坏了。原片没有改动。如果是还在录的，录完以后再导入。",
+    flvBusy: "上一个文件还在导入，等它做完再导这个。",
+    flvExpired: "这次导入停太久已经失效了，重新导入一次就行。原片没有改动。",
+    errDiskFullSize: "电脑空间不够，这次没有做完。要空出大约 {size}，空出来以后点重试。原片没有改动。",
+    // v2's sentence without 「要空出大约 {需要的大小}，」: MontClip does not know the size yet (for JJ)
+    errDiskFull: "电脑空间不够，这次没有做完。空出来以后点重试。原片没有改动。",
+    errOther: "这次没有做完，出了个我们没预料到的问题。原片没有改动。再试一次；还不行，点「复制问题信息」发给我们。",
+    exAll: "{n} 条导出好了", exSome: "{n} 条导出好了，{failed} 条没导出来", exNone: "这次一条都没导出来：{why}。你的剪辑都还在，没有丢。",
+    exWarned: "（其中 {n} 条有提醒，点开看看）",
+    // #116: without 「（{一句原因}）」 (the save window does not say why); the desktop folder is exports, so no name here
+    // (「MontClip导出」 is the plugin's folder; JJ, 2026-11-04)
+    exportSaveFolderFailed: "视频已经导出好了，但没能存进你选的文件夹。文件还在 MontClip 自己的导出文件夹里，可以换一个文件夹再导出一次。",
+    // three more rows (JJ, 2026-11-04), so these are not the last row: the timeline changed (JJ's sentence for #77,
+    // as-fail-why-changed, f953b1b), a picture smaller than the encoder takes, the FFmpeg chosen in Settings not working
+    errExportChanged: "加进导出以后，时间线又改过了，所以没导",
+    // the queue's short reason for BG_REMOVE_UNAVAILABLE, a clause like errExportChanged (JJ, #129 issuecomment-6700533141)
+    errBgRemoveNotReady: "AI 抠像还没准备好",
+    errFrameTooSmall: "画面太小，导不出来：宽和高都至少要 {n} 像素。把画面大小改大一点再导出。原片没有改动。",
+    errExtFailed: "设置里选的 FFmpeg 用不了，这次没有做完。在设置里改回 MontClip 自带的，或者重新选一个。原片没有改动。",
+    btnCopyProblem: "复制问题信息", copyProblemNote: "复制的内容不含你的文件夹路径、密钥和观众信息。",
+    btnRetry: "重试", btnRetryThis: "重试这条", btnOtherFolder: "换个文件夹",
+    // after a copy: the same key and words as #132 and the plugin (one string for every copy button)
+    "own.copy-problem-done": "已经复制好了，粘贴到发给我们的消息里就行。", "own.copy-problem-failed": "这次没能复制，再点一次按钮试试。",
+    qFailed: "没导出来：", qRendering: "正在导出… {pct}%", qDone: "导好了：{file}", qStopped: "已停下", qWaiting: "排队等导出",
+  });
+  Object.assign(text.en, {
+    flvUnreadable: "This recording can't be read. It may still be recording, or the file is damaged. The original is unchanged. If it's still recording, import it once it's done.",
+    flvBusy: "The previous file is still importing. Import this one once it's done.",
+    flvExpired: "This import waited too long and expired. Import it again; the original is unchanged.",
+    errDiskFullSize: "There isn't enough space on this computer, so this didn't finish. Free up about {size}, then try again. The original is unchanged.",
+    errDiskFull: "There isn't enough space on this computer, so this didn't finish. Free up some space, then try again. The original is unchanged.",
+    errOther: "This didn't finish because of a problem we didn't expect. The original is unchanged. Try again; if it still fails, use \"Copy problem details\" and send it to us.",
+    exAll: "{n} exported", exSome: "{n} exported, {failed} didn't", exNone: "Nothing was exported this time: {why}. Your edits are all still there.",
+    exWarned: "({n} have a note — open to see)",
+    exportSaveFolderFailed: "The video was exported, but it couldn't be saved to the folder you picked. It's in MontClip's own exports folder; you can export again to another folder.",
+    errExportChanged: "The timeline changed after it was queued, so it wasn't exported",
+    errBgRemoveNotReady: "AI background removal isn't ready",
+    errFrameTooSmall: "The picture is too small to export: width and height must each be at least {n} pixels. Make it larger and export again. The original is unchanged.",
+    errExtFailed: "The FFmpeg chosen in Settings doesn't work, so this didn't finish. Switch back to the one that comes with MontClip in Settings, or choose another. The original is unchanged.",
+    btnCopyProblem: "Copy problem details", copyProblemNote: "What's copied leaves out your folder paths, keys and viewer details.",
+    btnRetry: "Retry", btnRetryThis: "Retry this one", btnOtherFolder: "Choose another folder",
+    "own.copy-problem-done": "Copied. Paste it in a message to us.", "own.copy-problem-failed": "It couldn't be copied this time. Try the button again.",
+    qFailed: "Didn't export: ", qRendering: "Exporting… {pct}%", qDone: "Done → exports/{file}", qStopped: "Stopped", qWaiting: "Waiting",
+  });
+  // v2's own rows for these codes (PROBE_FAILED used to fall to flvUploadFailed). A code it doesn't list keeps main's
+  // flvUploadFailed: it is said in a dialog with no 〔复制问题信息〕, so not errOther, which sends her to that button (Deja on #129)
+  Object.assign(FLV_REASONS, { FLV_PROBE_FAILED: "flvUnreadable", FLV_NOT_FLV: "flvUnreadable", FLV_NOT_FOUND: "flvUnreadable",
+    FLV_IMPORT_BUSY: "flvBusy", FLV_IMPORT_EXPIRED: "flvExpired", FLV_DISK_FULL: "errDiskFull" });
+  /** Codes with a sentence of their own besides the h264 and FLV families (the others are v2's last row). */
+  const ERROR_TEXT = { EXPORT_BLANK_PICTURE: "own.export-blank-picture", EXPORT_BLANK_SOUND: "own.export-blank-sound", EXPORT_BLANK_BOTH: "own.export-blank-both",
+    NETWORK_DISABLED: "own.err-offline", HEADLESS_DISABLED: "own.err-headless-disabled", EDITOR_NOT_READY: "own.err-editor-not-ready",
+    EDITOR_DID_NOT_ACCEPT: "own.err-editor-no-accept", DISK_FULL: "errDiskFull", EXPORT_TIMELINE_CHANGED: "errExportChanged", frameTooSmall: "errFrameTooSmall",
+    extGone: "errExtFailed", extNotFfmpeg: "errExtFailed", extNoX264: "errExtFailed", extSettingBad: "errExtFailed", extNotFullPath: "errExtFailed",
+    // AI background removal at export (#154): JJ's two sentences, as they are (Deja, 2026-11-07)
+    BG_REMOVE_UNAVAILABLE: "own.bgremove-export-unavailable", BG_REMOVE_REALTIME: "own.bgremove-export-realtime",
+    // no H.264 encoder, said when export is clicked: JJ v2's export sentence h264Refuse, not Settings' h264None* (Deja on #129)
+    EXPORT_NO_H264: "h264Refuse" };
+  /** The codes whose sentence is one of v2's rows: a batch says only these as a reason, anything else as the last row. */
+  const TABLE_REASONS = new Set(["EXPORT_BLANK_PICTURE", "EXPORT_BLANK_SOUND", "EXPORT_BLANK_BOTH", "DISK_FULL", "FLV_DISK_FULL", "FLV_ENCODER_MISSING", "FLV_COMPONENT_MISSING", "h264NoneWin", "h264NoneOther", "ffmpegMissing",
+    "FLV_PROBE_FAILED", "FLV_NOT_FLV", "FLV_NOT_FOUND", "FLV_IMPORT_BUSY", "FLV_IMPORT_EXPIRED", "EXPORT_TIMELINE_CHANGED", "frameTooSmall",
+    "extGone", "extNotFfmpeg", "extNoX264", "extSettingBad", "extNotFullPath", "BG_REMOVE_UNAVAILABLE", "EXPORT_NO_H264"]);
+  /** A batch's own short reason where the toast's sentence is too long for a queue line (JJ, #129 issuecomment-6700533141). */
+  const BATCH_TEXT = { BG_REMOVE_UNAVAILABLE: "errBgRemoveNotReady" };
+  const DISK_FULL = /ENOSPC|no space left|disk is full|not enough space/i;
+  /** An export that came out black / silent (export-check.js): its sentence asks for 〔复制问题信息〕, so the button comes
+   *  with it although the sentence is its own (`copy`), and it is said as it is, not after 「导出失败：」/「没导出来：」. */
+  const COPY_CODES = new Set(["EXPORT_BLANK_PICTURE", "EXPORT_BLANK_SOUND", "EXPORT_BLANK_BOTH"]);
+  /** A failure in plain words: {code, text, known, log}. `error` is an Error, a server answer ({code | errorCode, error,
+   *  params, featurePack}) or a string. `known`: a sentence of its own (else v2's last row). `log` is the raw error, for
+   *  the log and 〔复制问题信息〕 only — never shown. */
+  function errorText(language, error) {
+    const l = lang(language), t = text[l], e = error && typeof error === "object" ? error : {};
+    const log = String(typeof error === "string" ? error : e.message || (typeof e.error === "string" ? e.error : "") || "").trim();
+    let code = [e.code, e.errorCode].find((c) => typeof c === "string" && c) || "";
+    if (!code && DISK_FULL.test(log)) code = "DISK_FULL";
+    const p = e.params || {};
+    let s = null, key = "errOther";
+    if (/DISK_FULL$/.test(code) && p.size) { s = fill(t.errDiskFullSize, { size: String(p.size) }); key = "errDiskFullSize"; }
+    // an export's own rows before the Settings sentences (h264Message): frameTooSmall says the smallest size it takes
+    if (!s && Object.hasOwn(ERROR_TEXT, code) && (code !== "frameTooSmall" || p.n)) { s = fill(t[ERROR_TEXT[code]], { n: String(p.n) }); key = ERROR_TEXT[code]; }
+    if (!s && code) { s = h264Message(l, { code, params: e.params, featurePack: e.featurePack }); if (s) key = code; }
+    if (!s && Object.hasOwn(FLV_REASONS, code)) { s = flvImportMessage(l, code); key = FLV_REASONS[code]; }
+    const said = s || t.errOther;
+    return { code: code || "UNKNOWN", text: said, what: whatHappened(l, key, said), known: !!s, copy: COPY_CODES.has(code), log };
+  }
+  /* What happened, without what to do (JJ, #161): the line 〔复制问题信息〕 copies after the version. For each sentence a
+     failure is said in, how many of its first sentences say what happened (checked one by one, both languages); the
+     screen keeps the whole sentence. A sentence not listed keeps everything but the part that asks for the button. */
+  const WHAT_SENTENCES = {
+    "own.export-blank-picture": 1, "own.export-blank-sound": 1, "own.export-blank-both": 1,
+    "own.err-offline": 1, "own.err-headless-disabled": 1, "own.err-editor-not-ready": 1, "own.err-editor-no-accept": 1,
+    errOther: 1, errDiskFull: 1, errDiskFullSize: 1, errExportChanged: 1, errFrameTooSmall: 1, errExtFailed: 1,
+    flvTimingUnverified: 1, flvDiskFull: 1, flvNeedsDesktop: 1, flvNeedsConvert: 1, flvComponentMissing: 1, flvNoEncoder: 1,
+    flvSourceChanged: 1, flvCopyMismatch: 1, flvCanceled: 1, flvCleanupFailed: 1, flvUnreadable: 1, flvBusy: 1, flvExpired: 1, flvUploadFailed: 1,
+    h264None: 1, h264NoneWin: 1, h264NoneOther: 1, h264ExternalFailed: 1, extGone: 1, extNotFfmpeg: 1, extNoX264: 1, extSettingBad: 1,
+    frameTooSmall: 1, ffmpegMissing: 1, extNeeded: 1, extSaveFailed: 1, extRemoveFailed: 1, extNotUsedNote: 1,
+    // main's codes merged in after #161 (#154 AI background removal, #129 EXPORT_NO_H264, the FLV rows): their first sentence, as for the others
+    "own.bgremove-export-unavailable": 1, "own.bgremove-export-realtime": 1, h264Refuse: 1,
+    flvFixUnverified: 1, flvStreamsUnsupported: 1, flvSourceDamaged: 1,
+  };
+  /* JJ's own words for what happened (#161), where the sentence's first part also says what to do: copied instead. */
+  const WHAT_TEXT = {
+    "own.err-offline": { "zh-CN": "这一版不联网，不能从网址下载。", en: "This version works offline, so it can't download from a web address." },
+    flvExpired: { "zh-CN": "这次导入停太久已经失效了。", en: "This import waited too long and expired." },
+    extSaveFailed: { "zh-CN": "这次的选择没能保存。", en: "This choice couldn't be saved." },
+    extRemoveFailed: { "zh-CN": "没能停用这个 FFmpeg。", en: "Could not stop using this FFmpeg." },
+    extNeeded: { "zh-CN": "这个导出设置要用 x264，需要一个带 x264 的 FFmpeg。", en: "This export setting uses x264, which needs an FFmpeg that includes x264." },
+    extNotFullPath: { "zh-CN": "选的不是 FFmpeg 程序文件本身。", en: "The selected item isn't the FFmpeg program file itself." },
+  };
+  const sentencesOf = (s) => String(s || "").split(/(?<=[。！？])|(?<=[.!?])\s+(?=\S)/).filter((x) => x.trim());
+  /* Reassurance (「原片没有改动」, "the original is unchanged") is for the streamer, not for the developers the copy goes to
+     (JJ, #161): a whole sentence that says it is never copied. Shared with the tests. */
+  const REASSURE = /原片没有改动|原片没改|原有设置不变|原来的不动|原有[^。！？]{0,6}不变|没有改动|没有丢|\bunchanged\b|\buntouched\b|\bnot (?:been )?changed\b|\bnothing (?:has been |was )?changed\b|\bstill (?:all )?there\b|\bnothing (?:was )?lost\b/i;
+  function whatHappened(language, key, said) {
+    const l = lang(language), en = l === "en", parts = sentencesOf(said).filter((x) => !REASSURE.test(x));
+    if (Object.hasOwn(WHAT_TEXT, key)) return WHAT_TEXT[key][l];
+    if (Object.hasOwn(WHAT_SENTENCES, key)) return parts.slice(0, WHAT_SENTENCES[key]).join(en ? " " : "").trim();
+    // not listed: drop the clauses that ask for 〔复制问题信息〕 (a sentence or the half of one after 「；」)
+    const btn = [text["zh-CN"].btnCopyProblem, text.en.btnCopyProblem, "复制问题信息", "Copy problem"];
+    const kept = parts.map((x) => x.split(/(?<=[；;])\s*/).filter((c) => !btn.some((b) => b && c.includes(b))).join(en ? " " : "")
+      .replace(/[；;]\s*$/, en ? "." : "。")).filter((x) => x.trim());
+    return kept.join(en ? " " : "").trim();
+  }
+  /** One item's reason in a batch: v2's sentence for its code when the table has one, else v2's last row. Never the
+   *  Media Feature Pack line (JJ took it out of v2 until it is checked). */
+  function batchReason(language, error) {
+    const e = error && typeof error === "object" ? { ...error, featurePack: false } : error, r = errorText(language, e);
+    if (Object.hasOwn(BATCH_TEXT, r.code)) return text[lang(language)][BATCH_TEXT[r.code]];
+    return TABLE_REASONS.has(r.code) ? r.text : text[lang(language)].errOther;
+  }
+  /** An export run: 「{N} 条导出好了」, 「{N} 条导出好了，{M} 条没导出来」, or v2's 「这次一条都没导出来：{第一个原因}。…」
+   *  (`why`: batchReason of the first that failed). */
+  function exportResult(language, { done = 0, failed = 0, warned = 0, why = "" } = {}) {
+    const l = lang(language), t = text[l];
+    if (failed && !done) {
+      let w = String(why || t.errOther).replace(/[。.]$/, "");
+      // mid-sentence in English: a lower-case first letter, except a word in capitals ("AI background removal…")
+      if (l === "en" && !/^[A-Z]{2}/.test(w)) w = w.charAt(0).toLowerCase() + w.slice(1);
+      return fill(t.exNone, { why: w });
+    }
+    let s = failed ? fill(t.exSome, { n: done, failed }) : fill(t.exAll, { n: done });
+    if (warned) s += (l === "en" ? " " : "") + fill(t.exWarned, { n: warned });
+    return s;
   }
   Object.assign(text['zh-CN'],{paneLocalTemporary:'没能读取已存的会话。本次会话和草稿只在这次打开期间保留，关闭前请复制要留的内容。原有会话文件未改动。',paneLocalPolicy:'本机保存适用于已有项目 ID 的会话、草稿和明确引用；尚无项目 ID 的内容仅在本次窗口保留。这是保存范围说明，不表示本次内容已保存。不会自动发送。',paneSessionFailed:'会话保存尚未确认，当前编辑仍在此窗口。请保留草稿后重试；不会覆盖另一份更新的记录。',paneRetry:'重试保存会话',paneUser:'你',paneAssistant:'助手'});
   Object.assign(text.en,{paneLocalTemporary:'Saved sessions could not be read. Sessions and drafts from this window will not be saved; copy anything you want to keep before closing. The existing session file was not changed.',paneLocalPolicy:'Local storage applies to sessions, drafts and explicit references with a project ID; content without a project ID lasts only in this window. This describes storage scope, not confirmation that the current content was saved. Nothing is sent automatically.',paneSessionFailed:'Session saving is unconfirmed. Edits remain in this window. Keep your draft and retry; a newer stored snapshot will not be overwritten.',paneRetry:'Retry saving sessions',paneUser:'You',paneAssistant:'Assistant'});
@@ -1193,15 +1556,19 @@
   Object.assign(officialPaneText['zh-CN'],{notSent:'这次发送的只有上面显示的文字。不附带声音、画面和截图；软件不会自动加上文件路径和账号，但你自己写进文字或历史里的这类信息会照样发出。API 密钥只用来向服务验证身份。',undoLast:'撤销这次应用（和顶部撤销相同）',captionLabel:'字幕',rangeLabel:'范围',projectLabel:'项目'});
   Object.assign(officialPaneText.en,{reviewSummary:'This will send a fixed formatting note, your message, {captions} quoted subtitles, and {history} earlier messages (including their quotes).',rawRequest:'View exact request',proposalSummary:'Suggested edit: keep {count} sentences, about {duration} in the final cut. Look it over before applying.',proposalRanges:'Suggested edit: keep {count} ranges joined into one video, about {duration}. Look it over before applying.',proposalSlices:'Suggested edit: {count} separate clips, one file each, about {duration} in total. Look it over before applying.',factsOmittedOne:"Timing for 1 clip wasn't included, so the AI won't see where it is. Sending still works.",factsOmitted:"Timing for {n} clips wasn't included, so the AI won't see where they are. Sending still works.",factsTitle:'Timeline numbers are also sent · click to see them',factsExplain:'How long each recording is, which part each clip uses, and the start, end and score of the highlight candidates already found. No file names, subtitle text, pictures or sound. This is exactly what is sent:',goConfig:'Go to settings',staleProposal:'The project changed after this reply, so this suggested edit can no longer be used.',reask:'Ask again using the current project',reaskReady:'A new draft is ready with no history or references. Select current subtitles and review before sending. The original conversation is still in the session list.'});
   Object.assign(officialPaneText['zh-CN'],{reviewSummary:'这次会发送一段固定的格式说明、消息文字、引用的 {captions} 条字幕，以及之前的 {history} 条消息（包含其中的引用）。',rawRequest:'查看原始请求',proposalSummary:'已生成剪辑建议：保留 {count} 句，成片大约 {duration}。请先看一遍再应用。',proposalRanges:'已生成剪辑建议：保留 {count} 段，拼成一条，大约 {duration}。请先看一遍再应用。',proposalSlices:'已生成剪辑建议：切出 {count} 条切片，每条一个文件，一共大约 {duration}。请先看一遍再应用。',factsOmittedOne:'有 1 个片段这次没附上时间信息，AI 看不到它在哪。不影响发送。',factsOmitted:'有 {n} 个片段这次没附上时间信息，AI 看不到它们在哪。不影响发送。',factsTitle:'还会附上时间线的数字 · 点开看原文',factsExplain:'每段录像有多长、每个片段用到哪一部分，以及已经找到的高光候选的起止和分数。不含文件名、字幕文字、画面和声音。下面就是原样发出去的内容：',goConfig:'去设置',staleProposal:'项目在回复之后改过了，这条剪辑建议不能用了。',reask:'按现在的项目重新问',reaskReady:'已新建草稿，不带历史和引用。请重新选择当前字幕，确认后再发送。原来的对话还在会话列表里。'});
-  // JJ定稿 (2026-11-05, via Deja). limitReframe: the editor's own first sentence above a reply to a message that asks for a
-  // vertical picture (agent-limits.js). {dropdown} and {option} are filled in from the export-frame drop-down as it shows
-  // (app.js exportFrameNames: its label and its 9:16 option's text), never written here. noChange: a suggested edit that
-  // would change nothing.
-  Object.assign(officialPaneText.en,{limitReframe:"The assistant can't switch to vertical yet. You can do it yourself: in the “{dropdown}” list above the player, choose “{option}”, then export.",noChange:"This suggestion wouldn't change the timeline (it's {duration} now), so there's nothing to apply."});
-  Object.assign(officialPaneText['zh-CN'],{limitReframe:'改竖屏这一步，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选「{option}」，再导出。',noChange:'按这个建议剪，时间线不会有任何变化（现在一共 {duration}），所以不用应用。'});
-  // Non-vertical / unspecified reframe requests. JJ定稿 (2026-11-06).
-  Object.assign(officialPaneText.en,{limitReframeAspect:"The assistant can't change the aspect ratio yet. You can do it yourself: in the “{dropdown}” list above the player, choose “{option}”, then export.",limitReframeAny:"The assistant can't change the aspect ratio yet. You can do it yourself: choose the aspect ratio you need in the “{dropdown}” list above the player, then export."});
-  Object.assign(officialPaneText['zh-CN'],{limitReframeAspect:'改画面比例这一步，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选「{option}」，再导出。',limitReframeAny:'改画面比例这一步，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选择需要的画面比例，再导出。'});
+  // JJ定稿 (2026-11-05, via Deja). noChange: a suggested edit that would change nothing. (#172's 「改竖屏」 sentence went with
+  // the assistant's own reframe, as Deja decided.)
+  Object.assign(officialPaneText.en,{noChange:"This suggestion wouldn't change the timeline (it's {duration} now), so there's nothing to apply."});
+  Object.assign(officialPaneText['zh-CN'],{noChange:'按这个建议剪，时间线不会有任何变化（现在一共 {duration}），所以不用应用。'});
+  // #175 makes 9:16 / 1:1 / 4:5 itself; a message that asks only for another shape (16:9, 5:4, 横屏) still gets the manual
+  // way first (agent-limits.js, Deja 2026-11-06). The sentences below are unchanged from #172.
+  // Another shape than the assistant makes (16:9, 5:4, 横屏). JJ定稿 (2026-11-06, for #175 at ac2df195; posted by Deja): only this
+  // shape can't be made. Two or more such shapes in one message get limitReframeAny (agent-limits.js note).
+  Object.assign(officialPaneText.en,{limitReframeAspect:"The assistant can't change it to “{option}” yet. You can do it yourself: in the “{dropdown}” list above the player, choose it, then export.",limitReframeAny:"The assistant can't make that aspect ratio yet. You can do it yourself: choose the aspect ratio you need in the “{dropdown}” list above the player, then export."});
+  Object.assign(officialPaneText['zh-CN'],{limitReframeAspect:'改成「{option}」这一步，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选它，再导出。',limitReframeAny:'这个画面比例，助手现在还做不了。可以自己改：在播放器上方的「{dropdown}」里选择需要的画面比例，再导出。'});
+  // the assistant's reframe proposal (Deja, 2026-11-05), JJ定稿 (2026-11-05)
+  Object.assign(officialPaneText.en,{proposalReframe:'Suggested edit: a {aspect} copy of the sequence whose shots follow the person; the original stays as it is. You are asked before anything is made.'});
+  Object.assign(officialPaneText['zh-CN'],{proposalReframe:'已生成剪辑建议：做一份 {aspect} 的新序列，画面跟着人走，原来的序列不动。动手之前会先问你。'});
   // JJ via Deja (2026-11-05): when the facts carry the singing parts and the loudness, the review box says so, outside the
   // fold (JJ's words; JJ定稿 2026-11-05: 「音量大小（每秒或每隔几秒一个数）」, since a long video gets one every few seconds). factsLimit: over capabilities.js FACTS nothing is sent (JJ定稿, 2026-11-05).
   Object.assign(officialPaneText.en,{factsSound:'Also sent: which parts may be singing (start and end seconds only) and the loudness (one number every second or every few seconds) (a list of numbers). The sound itself is not sent.',factsLimit:'There are too many numbers to attach, more than can be sent, so nothing was sent. What you wrote is still here. Select a shorter range and send again.'});
@@ -1217,12 +1584,12 @@
   Object.assign(officialPaneText.en,{more:'More',projectNotReady:'This project is not saved yet, so nothing was sent. Your edits are still here. Click Save project and try again.',saveProject:'Save project'});
   Object.assign(officialPaneText['zh-CN'],{more:'更多',projectNotReady:'这个项目还没保存好，所以没有发送。你的剪辑都还在。请点「保存项目」后再试。',saveProject:'保存项目'});
   // P4: the mode switch at the top of the assistant (the AI cannot change it). New copy, for JJ.
-  Object.assign(officialPaneText.en,{modes:'How the AI works',modePlan:'Plan',modeManual:'Manual',modeAuto:'Auto',modeYolo:'Yolo',
+  Object.assign(officialPaneText.en,{approvalWaiting:'Waiting for your decision',modes:'How the AI works',modePlan:'Plan',modeManual:'Manual',modeAuto:'Auto',modeYolo:'Full auto',
    modePlanTip:'Only plans; changes nothing.',modeManualTip:'Asks before changing the project; asks every time for anything that can\'t be undone. This is the default.',modeAutoTip:'Does what can be undone; asks before what can\'t.',modeYoloTip:'Does every step without asking you; anything sent out is still shown to you first. You\'ll be asked once more before it turns on.',
-   yoloOn:'Yolo is on: the AI does every step without asking you; anything sent out is still shown to you first.',planTitle:'Plan',planSummary_one:'Made a plan of {count} step. See the list below.',planSummary_other:'Made a plan of {count} steps. See the list below.',planInvalid:'This reply looks like a plan but can\'t be used. Nothing was done.',planRemove:'Delete',planStart:'Start',planDiscard:'Drop this plan',formatPlan:'To have the AI do several steps at once, ask it to make a plan first: it lists every step; you look them over, delete the ones you don\'t want, then click "Start". Each step still follows the mode you chose.',formatPlanTech:'Below is the format note for the AI; you don\'t need to read it.',planUndo:'Undo the whole plan',modeDeclined:'Yolo was not turned on.',modeUnavailable:'The mode didn\'t change; it\'s still the one it was. Close MontClip, open it again and try once more.'});
-  Object.assign(officialPaneText['zh-CN'],{modes:'AI 怎么做',modePlan:'计划',modeManual:'手动',modeAuto:'自动',modeYolo:'Yolo',
+   yoloOn:'Full auto is on: the AI does every step without asking you; anything sent out is still shown to you first.',planTitle:'Plan',planSummary_one:'Made a plan of {count} step. See the list below.',planSummary_other:'Made a plan of {count} steps. See the list below.',planInvalid:'This reply looks like a plan but can\'t be used. Nothing was done.',planRemove:'Delete',planStart:'Start',planDiscard:'Drop this plan',formatPlan:'To have the AI do several steps at once, ask it to make a plan first: it lists every step; you look them over, delete the ones you don\'t want, then click "Start". Each step still follows the mode you chose.',formatPlanTech:'Below is the format note for the AI; you don\'t need to read it.',planUndo:'Undo the whole plan',modeDeclined:'Full auto was not turned on.',modeUnavailable:'The mode didn\'t change; it\'s still the one it was. Close MontClip, open it again and try once more.'});
+  Object.assign(officialPaneText['zh-CN'],{approvalWaiting:'等你决定',modes:'AI 怎么做',modePlan:'计划',modeManual:'手动',modeAuto:'自动',modeYolo:'全自动',
    modePlanTip:'只出计划，不改项目。',modeManualTip:'改项目前先问你；撤不回的每次都问。默认是这个。',modeAutoTip:'能撤销的直接做，撤不回的先问你。',modeYoloTip:'每一步都直接做，不问你；往外发的内容照样先给你看。打开前会再确认一次。',
-   yoloOn:'Yolo 开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。',planTitle:'计划',planSummary:'已排好计划，共 {count} 步，见下面的清单。',planInvalid:'这条回复像是计划，但用不了，什么都没做。',planRemove:'删掉',planStart:'开始',planDiscard:'不要这个计划',formatPlan:'想让 AI 一次做好几步，可以让它先排一个计划：它会列出每一步，你看一遍、删掉不要的，再点「开始」。每一步怎么做，还是看你选的模式。',formatPlanTech:'以下是给 AI 的格式说明，不用看。',planUndo:'撤销整个计划',modeDeclined:'没有打开 Yolo。',modeUnavailable:'这次没换成，模式还是原来那个。关掉 MontClip 再打开，再试一次。'});
+   yoloOn:'全自动开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。',planTitle:'计划',planSummary:'已排好计划，共 {count} 步，见下面的清单。',planInvalid:'这条回复像是计划，但用不了，什么都没做。',planRemove:'删掉',planStart:'开始',planDiscard:'不要这个计划',formatPlan:'想让 AI 一次做好几步，可以让它先排一个计划：它会列出每一步，你看一遍、删掉不要的，再点「开始」。每一步怎么做，还是看你选的模式。',formatPlanTech:'以下是给 AI 的格式说明，不用看。',planUndo:'撤销整个计划',modeDeclined:'没有打开全自动。',modeUnavailable:'这次没换成，模式还是原来那个。关掉 MontClip 再打开，再试一次。'});
   for(const language of ['en','zh-CN']) for(const [key,value] of Object.entries(officialPaneText[language])) text[language]['officialPane_'+key]=value;
   // JJ (2026-11-05): 「没填密钥」 names the key field by its own label, read from the same text, never a second copy.
   for(const language of ['en','zh-CN']) text[language].officialPane_configKeyRequired=officialPaneText[language].configKeyRequired.split('{field}').join(officialPaneText[language].key);
@@ -1330,5 +1697,7 @@
    *  English word (export, captions…) in English. */
   const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
-  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Refusal, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, projectName, exportProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
+  /** Where 〔复制问题信息〕's copy goes (#161; JJ): a mailbox a program watches for 「MontClip 问题信息 v1」. */
+  const PROBLEM_EMAIL = "etang.build.bot@gmail.com";
+  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, flvConvertedMessage, flvGapMark, flvEta, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, projectName, exportProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints, h264Refusal, PROBLEM_EMAIL, WHAT_SENTENCES, WHAT_TEXT, REASSURE, whatHappened, errorText, batchReason, exportResult, ERROR_CODES: Object.keys(ERROR_TEXT).concat(Object.keys(FLV_REASONS)) };
 });

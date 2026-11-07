@@ -107,7 +107,10 @@ test("MCP FLV import shares the explicit conversion gate", async t => {
   const denied = await mcp.callTool("fablecut_import_media", {path:original});
   assert.equal(denied.isError, true);
   assert.deepEqual(readProject(dir), before);
-  const result = await mcp.callTool("fablecut_import_media", {path:original, acceptReadable:true, allowTranscode:true});
+  // a transcode probes the graphics-card encoders and decodes the whole source strictly (Rea's rule ⑥): with the whole
+  // suite running in parallel that can pass the 15 s a plain tool call gets, so this one waits up to 60 s
+  const res = await mcp.request("tools/call", {name:"fablecut_import_media", arguments:{path:original, acceptReadable:true, allowTranscode:true}}, {timeout:60_000});
+  const result = {isError:res.result.isError, text:((res.result.content || []).find(c => c.type === "text") || {}).text || ""};
   assert.ok(!result.isError, result.text);
   const entry = readProject(dir).media.at(-1);
   assert.equal(entry.preparation, "transcode");

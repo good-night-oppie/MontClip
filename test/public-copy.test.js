@@ -1,6 +1,6 @@
 'use strict';
 // The README, the docs home and the docs/start page say only what JJ's copy says
-// (test/fixtures/montclip-public-copy-v1.md), word for word, in Chinese and English.
+// (test/fixtures/montclip-public-copy-v2.md), word for word, in Chinese and English.
 // Rule 7 of that copy: the optional AI assistant is a verified ability only once PR #26
 // (desktop/agent-service.js) is on this branch; until then it sits under "Planned".
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
@@ -52,9 +52,11 @@ test('the copy file is the one JJ delivered',()=>{a.equal(src.sha(),src.SHA256);
 
 test('README (English) and README.zh-CN are JJ\'s text, word for word',()=>{
  for(const lang of ['en','zh']){
-  // The approved product copy stays intact; developer documentation follows it in its own appendix.
-  const text=read(READMES[lang]);
-  a.equal(lang==='en'?text.split('\n## Technical reference\n')[0]:text,expectedReadme(lang),READMES[lang]);
+  // The approved product copy stays intact. In English it ends with the two diagrams at the top of
+  // "Technical reference" (Deja, #201 issuecomment-6704689435); the developer documentation follows them.
+  const text=read(READMES[lang]),expected=expectedReadme(lang);
+  if(lang==='en'){a.equal(text.slice(0,expected.length),expected,READMES[lang]);a.match(text.slice(expected.length),/^\n\S/,READMES[lang]+': developer docs after the diagrams');}
+  else a.equal(text,expected,READMES[lang]);
  }
 });
 

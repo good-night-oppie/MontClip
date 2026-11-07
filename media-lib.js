@@ -9,6 +9,10 @@
      codec         video codec (h264, hevc, vp9, prores …) — or the image format
      audioCodec    aac, mp3, pcm_s16le, opus …
      audioChannels channel count of the first audio stream, 0 = no audio
+     audioTracks   only when the file has two or more audio streams (OBS records up to six):
+                   [{channels, title?, default?}] in stream order, title being the name OBS writes
+     audioTrack    which of audioTracks is the streamer's voice (0 = the first, the default; set by the user).
+                   Every reading of the sound — songs, loudness, transcript, export — uses this one stream
      sampleRate    Hz
      bitrate       bits per second (whole file)
      favorite      true = starred in the bin
@@ -26,7 +30,9 @@
 
   const KINDS = ["video", "audio", "image", "svg"];
   /** Fields the server probes. Written back to the entry; never user-set. */
-  const INFO_KEYS = ["size", "fps", "codec", "audioCodec", "audioChannels", "sampleRate", "bitrate", "durationFrom"];
+  // storedWidth / storedHeight: what the file stores, when its pixels aren't square (P6); width / height show.
+  // start / audioOffset: where a file's clock starts, when it isn't 0 (#161)
+  const INFO_KEYS = ["size", "fps", "codec", "audioCodec", "audioChannels", "sampleRate", "bitrate", "durationFrom", "start", "audioOffset", "storedWidth", "storedHeight", "audioTracks"];
   const MAX_TAGS = 24, MAX_TAG_LEN = 32;
   const SORT_KEYS = ["name", "kind", "duration", "resolution", "fps", "codec", "audio", "size", "usage"];
 
@@ -100,19 +106,26 @@
   const slowToSeek = (m) => !!(m && m.kind === "video" && m.durationFrom === "packets" && Number.isFinite(m.duration) && m.duration > 0);
   const cannotCut = (m) => !!(m && timed(m) && m.durationUnknown && !(Number.isFinite(m.duration) && m.duration > 0));
   /** Lengths read for files that had none (the agent's backfill: QQ, #152) into a project: only an entry that still has
-   *  no length and still shows the same file; once each. updates: [{id, src, duration?, durationFrom?, durationUnknown?}].
+   *  no length and still shows the same file; once each. updates: [{id, src, duration?, durationFrom?, durationUnknown?,
+   *  width?, height?, storedWidth?, storedHeight?}] — the sizes (P6) go only to a video with no stored size yet.
    *  Shared by the server (no editor open), the editor (onMediaBackfill) and the agent (no server). → how many changed */
   function applyBackfill(doc, updates) {
     let n = 0;
     if (!doc || !Array.isArray(updates)) return 0;
+    const px = (v) => Number.isInteger(v) && v > 0;
     for (const u of updates) {
       if (!u || typeof u.id !== "string") continue;
       const m = (doc.media || []).find((x) => x.id === u.id);
-      if (!m || m.src !== u.src || !timed(m) || (Number.isFinite(m.duration) && m.duration > 0) || m.durationUnknown) continue;
-      if (Number.isFinite(u.duration) && u.duration > 0) { m.duration = u.duration; if (u.durationFrom === "packets") m.durationFrom = "packets"; }
-      else if (u.durationUnknown === true) m.durationUnknown = true;
-      else continue;
-      n++;
+      if (!m || m.src !== u.src || !timed(m)) continue;
+      if (!(Number.isFinite(m.duration) && m.duration > 0) && !m.durationUnknown) {
+        if (Number.isFinite(u.duration) && u.duration > 0) { m.duration = u.duration; if (u.durationFrom === "packets") m.durationFrom = "packets"; n++; }
+        else if (u.durationUnknown === true) { m.durationUnknown = true; n++; }
+      }
+      if (m.kind === "video" && m.storedWidth == null && px(u.storedWidth) && px(u.storedHeight) && px(u.width) && px(u.height)) {
+        displaySize(m, u);
+        m.storedWidth = u.storedWidth; m.storedHeight = u.storedHeight;
+        n++;
+      }
     }
     return n;
   }
@@ -158,8 +171,9 @@
 
   /** ffprobe -show_format -show_streams -of json output → the INFO_KEYS (+ duration,
    *  width, height). `size` falls back to the stat size the caller passes. A video or a
-   *  sound whose length nothing says gets durationUnknown: true (never duration 0). */
-  function parseProbe(json, statSize) {
+   *  sound whose length nothing says gets durationUnknown: true (never duration 0).
+   *  firstAudioPts: the first sound packet's time, when the caller read it (needsFirstAudioPts). */
+  function parseProbe(json, statSize, firstAudioPts) {
     const out = {};
     const streams = Array.isArray(json && json.streams) ? json.streams : [];
     const fmt = (json && json.format) || {};
@@ -176,9 +190,16 @@
     if (v) {
       if (v.codec_name) out.codec = String(v.codec_name);
       let w = Number(v.width) || 0, h = Number(v.height) || 0;
+      // P6 (JJ, 2026-11-05): non-square pixels (sample_aspect_ratio "896:405") show wider than stored — the size is
+      // what shows (1080×1920 at 896:405 shows as 2389×1920, as the browser draws it); the stored one goes beside it
+      const [sa, sb] = String(v.sample_aspect_ratio || "").split(":").map(Number);
+      let dw = w;
+      if (sa > 0 && sb > 0 && sa !== sb) dw = Math.round(w * sa / sb);
       const rot = Number(((v.side_data_list || []).find((d) => d.rotation != null) || {}).rotation ?? (v.tags && v.tags.rotate)) || 0;
-      if (Math.abs(rot) % 180 === 90) [w, h] = [h, w];
-      if (w > 0 && h > 0) { out.width = w; out.height = h; }
+      let sw = w, sh = h;
+      if (Math.abs(rot) % 180 === 90) { [dw, h] = [h, dw]; [sw, sh] = [sh, sw]; }
+      if (dw > 0 && h > 0) { out.width = dw; out.height = h; }
+      if (dw > 0 && h > 0 && (dw !== sw || h !== sh)) { out.storedWidth = sw; out.storedHeight = sh; }
       const fps = ratio(v.avg_frame_rate) || ratio(v.r_frame_rate);
       if (!still && fps > 0 && fps < 1000) out.fps = round(fps, 3);
     }
@@ -189,8 +210,53 @@
       const sr = Number(a.sample_rate);
       if (sr > 0) out.sampleRate = sr;
     } else if (v && !still) out.audioChannels = 0;   // a video without sound says so; a picture has no audio to speak of
+    const all = streams.filter((s) => s.codec_type === "audio");
+    if (all.length > 1) out.audioTracks = all.map((s) => {
+      const t = { channels: Number(s.channels) || 0 };
+      const tags = s.tags || {}, title = String(tags.title || tags.TITLE || tags.handler_name || "").trim();
+      // a muxer's own handler names ("SoundHandler") say nothing about what is on the track
+      if (title && !/^(SoundHandler|Sound Media Handler|Core Media Audio|soun)$/i.test(title)) t.title = title.slice(0, 64);
+      if (s.disposition && s.disposition.default) t.default = true;
+      return t;
+    });
     if (!(dur > 0) && (a || (v && !still))) out.durationUnknown = true;
+    Object.assign(out, probeClock(fmt, a, firstAudioPts));
     return out;
+  }
+  /** Where the file's media time 0 sits on its own clock, and where a decoded copy of its sound starts (Deja, black export).
+   *  MontClip's media time starts at the file's start (format.start_time, the 0 of ffmpeg -ss, as #126 measures the length
+   *  from it). Chromium's <video> and the MP4 demuxer keep the file's timestamps: an OBS recording that starts at 3600 s
+   *  shows its first frame at 3600 s, so seeking to 2 s shows nothing → start: 3600. decodeAudioData has no timestamps: its
+   *  first sample is that of the first packet, the encoder's priming included, unless it lies before 0 (an AAC track
+   *  that starts at 3600 s with 1024 samples of priming decodes from 3599.979 s) → audioOffset: −0.021, in media time.
+   *  Opus is different: its decoder drops its own pre-skip (a WebM measured 6.5 ms early when it was counted). Both are
+   *  left out when they are (within half a millisecond) 0, as for almost every file.
+   *  firstPts: the first sound packet's time. Without it, the stream's start less the AAC priming (ffprobe 9 counts the
+   *  priming out of an MKV's start; ffprobe 7 doesn't, which is why the packet is read when it matters). */
+  function probeClock(fmt, a, firstPts) {
+    const out = {};
+    const start = Number(fmt.start_time) > 0 ? Number(fmt.start_time) : 0;
+    if (start >= 0.0005) out.start = round(start, 6);
+    const aStart = Number(a && a.start_time), sr = Number(a && a.sample_rate);
+    const pad = a && Number(a.initial_padding) > 0 && sr > 0 ? Number(a.initial_padding) / sr : 0;
+    const opus = !!a && a.codec_name === "opus";
+    let first = null;
+    const pts = firstPts == null ? NaN : Number(firstPts);
+    // ffprobe 9 counted the priming out of the start (the start is then the exact one, the packet's time rounded to the ms)
+    if (a && Number.isFinite(pts)) first = opus ? pts + pad : a.codec_name === "aac" && aStart - pts > pad / 2 ? aStart - pad : pts;
+    else if (a && Number.isFinite(aStart)) first = aStart - (a.codec_name === "aac" ? pad : 0);
+    if (first != null) {
+      const off = Math.max(0, first) - start;
+      if (Math.abs(off) >= 0.0005) out.audioOffset = round(off, 6);
+    }
+    return out;
+  }
+  /** Is the first sound packet's time worth an extra read (ffprobe -show_packets, one packet)? Only when a clock is
+   *  not at 0 — the file's or its sound's — so an ordinary file costs nothing more. */
+  function needsFirstAudioPts(json) {
+    const streams = Array.isArray(json && json.streams) ? json.streams : [];
+    const a = streams.find((s) => s.codec_type === "audio");
+    return !!a && (Number(json.format && json.format.start_time) >= 0.0005 || Number(a.start_time) >= 0.0005);
   }
 
   /* ── formatting ── */
@@ -205,7 +271,20 @@
     if (!(f > 0)) return "";
     return String(round(f, 2));
   }
-  function fmtRes(m) { return m && m.width > 0 && m.height > 0 ? `${m.width}×${m.height}` : ""; }
+  function fmtRes(m) {
+    if (!(m && m.width > 0 && m.height > 0)) return "";
+    const stored = m.storedWidth > 0 && m.storedHeight > 0 && (m.storedWidth !== m.width || m.storedHeight !== m.height);
+    return `${m.width}×${m.height}` + (stored ? ` (stored as ${m.storedWidth}×${m.storedHeight})` : "");
+  }
+  /** P6: an entry that took the stored size (an import before display sizes, or one read without its pixel shape)
+   *  takes the display size from the server's reading. → whether it changed */
+  function displaySize(m, info) {
+    if (!m || !info || !(info.storedWidth > 0) || !(info.width > 0)) return false;
+    if (m.width === info.storedWidth && m.height === info.storedHeight && (m.width !== info.width || m.height !== info.height)) {
+      m.width = info.width; m.height = info.height; return true;
+    }
+    return false;
+  }
   function fmtAudio(m) {
     if (!m || m.audioChannels == null) return "";
     if (m.audioChannels === 0) return "no audio";
@@ -219,6 +298,15 @@
     return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
   }
   /** One-line summary: "1920×1080 · 29.97 fps · h264 · stereo 48 kHz · 45 MB". */
+  /** Which audio stream of the file every reading uses: m.audioTrack when the file has that many, else 0. */
+  function audioTrackOf(m) {
+    const t = m && m.audioTrack;
+    return Number.isInteger(t) && t > 0 && Array.isArray(m.audioTracks) && t < m.audioTracks.length ? t : 0;
+  }
+  /** Two probed values the same (audioTracks is a list, compared by content). */
+  function sameInfo(a, b) {
+    return a === b || (a != null && b != null && typeof a === "object" && JSON.stringify(a) === JSON.stringify(b));
+  }
   function describe(m) {
     return [fmtRes(m), m.fps ? fmtFps(m.fps) + " fps" : "", m.codec || "", fmtAudio(m), fmtSize(m.size)]
       .filter(Boolean).join(" · ");
@@ -254,6 +342,23 @@
     if ((doc.media || []).some((m) => m && m.kind !== "audio")) return false;
     if ((doc.sequences || []).length > 1) return false;
     return true;
+  }
+
+  /* ── where a recording broke (FLV import, Deja 2026-11-04) ──
+     gaps: [{stream:"video"|"audio", at, len, big}] in seconds of the media (prepare-media.js); big = longer than 0.5 s
+     in whole milliseconds (converted, labelled on the timeline), else a small drop imported as is (a faint mark).
+     Rounded to the millisecond, at most 500. */
+  function normalizeGaps(v) {
+    if (!Array.isArray(v)) return [];
+    const out = [];
+    for (const g of v) {
+      const at = Number(g && g.at), len = Number(g && g.len);
+      if (!(at >= 0) || !(len > 0) || !Number.isFinite(at + len)) continue;
+      out.push({ stream: g.stream === "audio" ? "audio" : "video", at: Math.round(at * 1000) / 1000, len: Math.round(len * 1000) / 1000,
+        big: g.big === true || Math.round(len * 1000) > 500 });
+      if (out.length >= 500) break;
+    }
+    return out;
   }
 
   /* ── tags and collections ── */
@@ -441,6 +546,25 @@
     return { score, why };
   }
 
+  /** relinkScore's `why` (an English id the tests lock) → the keys the Relink dialog shows, in order:
+   *  "same name and size" → ["rl-why-same", "rl-why-and-size"] (「同名，大小也一样」). */
+  function relinkWhyKeys(why) {
+    const w = String(why || ""), base = w.replace(/ and size$/, "");
+    const keys = { "same name": "rl-why-same", "same name, other type": "rl-why-other-type", "similar name": "rl-why-similar", "same size": "rl-why-size" };
+    if (!keys[base]) return [];
+    return base === w ? [keys[base]] : [keys[base], "rl-why-and-size"];
+  }
+  /** A length as h:mm:ss, or m:ss under an hour, whole seconds (the Relink dialog; not the timeline's timecode). */
+  function fmtHms(t) {
+    if (!(t > 0)) return "";
+    const n = Math.floor(t), h = Math.floor(n / 3600), m = Math.floor((n % 3600) / 60), s = String(n % 60).padStart(2, "0");
+    return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+  }
+  /** The Relink dialog's small line under a file: [its file name (never its path), length, size], the unknown ones left out. */
+  function relinkWasParts(m) {
+    return [srcName(m.src) || m.name || "", fmtHms(m.duration), m.size ? fmtSize(m.size) : ""].filter(Boolean);
+  }
+
   /** The candidate a missing media `m` is linked to without asking, or null. Only the same file: the same name
    *  and the same size (score >= 150, and m.size known) — a same-named recording with other contents is never
    *  linked silently. Two or more such candidates are ambiguous, so the dialog asks. */
@@ -462,10 +586,10 @@
   return {
     importTidies, importPercent,
     KINDS, INFO_KEYS, SORT_KEYS, MAX_TAGS,
-    srcName, relinkScore, autoRelinkPick, kindFromName,
-    parseProbe, needsInfo, serverDuration, cannotCut, slowToSeek, swapMedia, applyBackfill, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
+    srcName, relinkScore, relinkWhyKeys, relinkWasParts, fmtHms, autoRelinkPick, kindFromName,
+    parseProbe, probeClock, needsFirstAudioPts, needsInfo, audioTrackOf, sameInfo, serverDuration, cannotCut, displaySize, slowToSeek, swapMedia, applyBackfill, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
     STANDARD_FPS, standardFps, sourceCanvas, canvasFollowsSource,
-    normalizeTags, allTags, normalizeCollections,
+    normalizeTags, allTags, normalizeCollections, normalizeGaps,
     placements, usageCounts,
     matchesQuery, matchesFilter, sortValue, sortMedia, query,
   };

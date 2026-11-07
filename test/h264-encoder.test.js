@@ -81,8 +81,9 @@ test('the local FFmpeg only ever encodes an H.264 export; preview, decoding and 
  for(const f of ['proxy.js','denoise.js','analyze.js','media-probe.js','import-url.js','mcp-server.js'])a.ok(!/external-ffmpeg|externalFfmpeg/.test(fs.readFileSync(path.join(ROOT,f),'utf8')),f);
 });
 
-test('no H.264 encoder at all: a plain reason, and Windows N is pointed at the Media Feature Pack',()=>{
- a.match(X.noH264Reason({platform:'win32',mediaFoundation:false}),/Media Feature Pack/);
+// The Windows "N" / Media Feature Pack line was a guess; JJ (2026-11-04, #129) took it out until it is checked.
+test('no H.264 encoder at all: a plain reason, and no unchecked Media Feature Pack guess',()=>{
+ a.ok(!/Media Feature Pack/.test(X.noH264Reason({platform:'win32',mediaFoundation:false})));
  const w=X.noH264Reason({platform:'win32',mediaFoundation:true});a.ok(!/Media Feature Pack/.test(w));a.match(w,/H\.264/);
  a.match(X.noH264Reason({platform:'linux'}),/H\.264/);
 });

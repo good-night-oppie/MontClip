@@ -30,22 +30,10 @@ const os = require("os");
 const { execFile } = require("child_process");
 
 /* A path can carry the user's name (C:\Users\<name>\…). What reaches the page, an export note
-   or a log says %USERPROFILE% (Windows) or ~ instead; only the main process keeps the real path. */
-const SHARED_PROFILES = /^(public|default|default user|all users)$/i;
-const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-function maskUserPath(s) {
-  if (typeof s !== "string") return s;
-  let out = s;
-  const home = os.homedir();
-  if (home && home.length > 3) {
-    const pattern = home.split(/[\\/]/).map(escapeRe).join("[\\\\/]") + "(?=[\\\\/]|$|\\s)";
-    out = out.replace(new RegExp(pattern, process.platform === "win32" ? "gi" : "g"), process.platform === "win32" ? "%USERPROFILE%" : "~");
-  }
-  out = out.replace(/\b[A-Za-z]:([\\/])Users[\\/]([^\\/:*?"<>|\r\n]+)(?=[\\/]|$)/gi,
-    (m, sep, name) => (SHARED_PROFILES.test(name) ? m : "%USERPROFILE%"));
-  out = out.replace(/(^|[\s("'=])\/(?:home|Users)\/[^/\s]+(?=\/|$)/g, "$1~");
-  return out;
-}
+   or a log says %USERPROFILE% (Windows) or ~ instead; only the main process keeps the real path. The rule is shared with
+   the page's 〔复制问题信息〕 (problem-redact.js). */
+const Redact = require("./problem-redact");
+const maskUserPath = (s) => Redact.maskUserPath(s, { home: os.homedir(), platform: process.platform });
 /** A check result as the page may see it: ok, the reason code, and the path masked; no English reason. */
 function forPage(r) {
   if (!r || typeof r !== "object") return r;
@@ -217,11 +205,11 @@ function noH264({ platform = process.platform, mediaFoundation = true, setup } =
   return setup === "server" || setup === "plugin" ? { ...r, setup } : r;
 }
 /** The same in English, for agents and logs. */
-function noH264Reason({ platform = process.platform, mediaFoundation = true, setup } = {}) {
+// (the Windows "N" edition / Media Feature Pack guess is gone until it is checked: JJ, 2026-11-04)
+function noH264Reason({ platform = process.platform, setup } = {}) {
   let s = "This computer has no H.264 encoder MontClip can use: no graphics-card encoder answered";
   if (platform === "win32") {
     s += " and Windows' own H.264 encoder is not available.";
-    if (!mediaFoundation) s += " This looks like a Windows \"N\" edition without media components: install the Media Feature Pack from Windows Settings (Optional features), then restart MontClip.";
   } else s += ".";
   if (setup === "plugin") return s + " In Cindy, name an FFmpeg with libx264 on this computer for MontClip to use, or export in another format (for example Archive).";
   if (setup === "server") return s + " Start the MontClip server with MONTCLIP_EXTERNAL_FFMPEG set to the full path of an FFmpeg that has libx264 (for example /usr/bin/ffmpeg), or export in another format (for example Archive).";

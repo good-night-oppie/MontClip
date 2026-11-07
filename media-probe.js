@@ -63,6 +63,15 @@ function runProbeNow(file) {
   });
 }
 
+/** The time of the first packet of the first sound stream, or null (media-lib.js probeClock). */
+function firstAudioPts(file) {
+  return new Promise((resolve) => {
+    execFile(FF.path("ffprobe"), ["-v", "error", "-select_streams", "a:0", "-show_entries", "packet=pts_time", "-read_intervals", "%+#1", "-of", "csv=p=0", file],
+      { encoding: "utf8", timeout: 15_000, windowsHide: true },
+      (err, stdout) => { const line = String(stdout || "").trim().split(/\s+/)[0], t = Number(line); resolve(!err && line && Number.isFinite(t) ? t : null); });
+  });
+}
+
 /* A recording stopped before its file was closed (a screen recorder killed mid-way: europa P3, 2026-11-05) may say
    its length nowhere — not in the header, the streams or their tags. Its packets still carry their times: the length
    is from the first packet's time to where the last one ends, across the video and sound. Only the packets' headers
@@ -124,7 +133,8 @@ async function probeFile(file) {
         try {
           const r = await runProbe(file);
           if (r.json) {
-            info = { ...MediaLib.parseProbe(r.json, st.size), probe: "ffprobe" };
+            const pts = MediaLib.needsFirstAudioPts(r.json) ? await firstAudioPts(file) : null;
+            info = { ...MediaLib.parseProbe(r.json, st.size, pts), probe: "ffprobe" };
             if (info.durationUnknown) {
               const d = await packetDuration(file, st.size);
               if (d > 0) { delete info.durationUnknown; info.duration = Math.round(d * 1000) / 1000; info.durationFrom = "packets"; }
@@ -152,6 +162,8 @@ function infoForEntry(info, entry) {
   const kind = entry && entry.kind;
   if (kind !== "image" && kind !== "svg" && info.duration > 0 && !(entry && entry.duration > 0)) out.duration = info.duration;
   if (info.width > 0 && !(entry && entry.width > 0)) { out.width = info.width; out.height = info.height; }
+  // P6: an entry holding the stored size of a file whose pixels aren't square takes the display size
+  else if (entry && MediaLib.displaySize({ width: entry.width, height: entry.height }, info)) { out.width = info.width; out.height = info.height; }
   // nothing can say how long it is: marked, so it is never placed at 0 s (MediaLib.cannotCut)
   if (kind !== "image" && kind !== "svg" && info.durationUnknown && !(entry && entry.duration > 0) && !(out.duration > 0)) out.durationUnknown = true;
   return out;

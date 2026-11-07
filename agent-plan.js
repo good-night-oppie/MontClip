@@ -50,6 +50,8 @@
       const each = s.args.output_mode === "per_range" ? (zh ? "，各成一条" : ", each its own clip") : "";
       return (zh ? "保留 " : "Keep ") + shown + more + each;
     }
+    if (s && s.capability === "reframe" && s.args && typeof s.args.aspect === "string")
+      return zh ? "做一份 " + s.args.aspect + " 的新序列" : "Make a " + s.args.aspect + " copy of the sequence";
     if (s && s.capability === "keep_sentences" && ranges.length)
       return zh ? "保留 " + ranges.length + " 句" : "Keep " + ranges.length + (ranges.length === 1 ? " sentence" : " sentences");
     return "";

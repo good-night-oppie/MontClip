@@ -29,19 +29,22 @@ test('the page asks only with the capability and the project: the reply’s word
  a.match(app,/window\.montclipAgentPolicy\.decide\(\{sessionId:result\.sessionId,capability:response\.type,target:\{kind:'project',value:runtime\.projectId\}\}\)/);
  // an approval is the host box's answer through its ticket, nothing else
  a.match(app,/window\.montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/);
- // the plan's steps (P4, second half) ask the same way: two answers, each the box's answer to its ticket
- a.equal((app.match(/montclipAgentPolicy\.answer\(/g)||[]).length,2);
- a.equal((app.match(/montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/g)||[]).length,2);
+ // the plan's steps (P4, second half), the reframe reply (test/agent-reframe.test.js) and the agent's lyrics card
+ // (fablecut_lyrics_apply) ask the same way: four answers, each the answer to its own ticket
+ a.equal((app.match(/montclipAgentPolicy\.answer\(/g)||[]).length,4);
+ a.equal((app.match(/montclipAgentPolicy\.answer\(\{ticket:d\.ticket,choice\}\)/g)||[]).length,4);
  a.match(app,/window\.montclipAgentPolicy\.decide\(\{sessionId:result\.sessionId,capability:s\.capability,target:\{kind:'project',value:runtime\.projectId\}\}\)/);
 });
 
-test('the approval box shows the plain sentence and the domain or project, never an internal name',()=>{
- const app=read('app.js');
- a.match(app,/dialog\.querySelector\('\[data-ap-label\]'\)\.textContent=d\.label;/);
- a.ok(!/data-ap-label[^\n]*capability/.test(app));
- a.match(app,/d\.risk==='external'\?uiText\('own\.ap-sends-to',\{domain:d\.target\}\)/);
+test('the approval card shows the plain sentence and the domain or project, never an internal name', () => {
+ const Approval=require('../agent-approval'),cards=Approval.create(),result={};
+ void cards.ask({ticket:'t',label:'保留几段',risk:'project',choices:['once','session','deny']},{result});
+ void cards.ask({ticket:'u',label:'发给 AI',risk:'external',target:'openrouter.ai',choices:['once','deny']},{result,content:'原文'});
+ const say=(k,v)=>t('zh-CN',k,v),[c1,c2]=cards.view(result,say,'今晚');
+ a.equal(c1.first,'保留几段');a.deepEqual(c1.more,[],'v7.2: what changes and the buttons; the project is the open one');
+ a.equal(c2.first,'发给 AI');a.ok(c2.more.includes('发往：openrouter.ai'));a.equal(c2.content,'原文');a.ok(c2.more.includes(t('zh-CN','own.ap-every-time')));
+ for(const c of [c1,c2])a.ok(!/keep_|fablecut_|capability/.test(JSON.stringify(c)));
 });
-
 test('自动 / Yolo apply only after a CAS on the project, as one undo step; per_range (exports) always opens the dialog',()=>{
  const app=read('app.js'),i=app.indexOf('async function onAgentReply'),body=app.slice(i,app.indexOf('function canUndoOfficialProposal',i));
  a.match(body,/MontClipProposal\.current\(proposal,projectJSON\(\),/);
@@ -50,15 +53,29 @@ test('自动 / Yolo apply only after a CAS on the project, as one undo step; per
  a.match(body,/if\(step\.version\)await step\.version;/,'the agent version is kept before anything is applied');
 });
 
+test('a step approved through the card never says 「没有问你」; only a direct run (auto/Yolo) may (issuecomment-6644967814)',()=>{
+ const app=read('app.js'),i=app.indexOf('async function onAgentReply'),body=app.slice(i,app.indexOf('function canUndoOfficialProposal',i));
+ // #134 (JJ): asked now → approved; allowed earlier for this chat → allowed; only a direct run (自动/Yolo) → 「没有问你」
+ a.match(body,/const asked=d\.action==='ask';/);
+ a.match(body,/toastAction\(asked\?uiText\('own\.ap-applied-approved'\):d\.byApproval\?uiText\('own\.ap-applied-allowed'\):uiText\('own\.ap-applied',/,'the applied toast picks the approved wording after the card, the direct wording only on run');
+ for(const l of ['zh-CN','en']){
+  const approved=t(l,'own.ap-applied-approved');
+  a.ok(approved&&approved!=='own.ap-applied-approved',l+': ap-applied-approved exists');
+  a.ok(!/没有问你|without asking/i.test(approved),l+': an approved step was just asked about');
+ }
+ // the direct-run line keeps saying it (auto/Yolo really does not ask)
+ a.match(t('zh-CN','own.ap-applied'),/没有问你/);a.match(t('en','own.ap-applied'),/without asking/);
+});
+
 test('new words, both languages (for JJ)',()=>{
- const keys=['ap-title','ap-project','ap-sends-to','ap-content','ap-every-time','ap-once','ap-session','ap-deny','ap-denied','ap-listed','ap-refused','ap-refused-mode','ap-applied','ap-stale','ap-yolo-on','ap-sum-sentences','ap-sum-ranges','ap-sum-slices','ap-undo','ap-invalid'];
+ const keys=['ap-title','ap-project','ap-sends-to','ap-content','ap-every-time','ap-once','ap-session','ap-deny','ap-denied','ap-listed','ap-refused','ap-refused-mode','ap-applied','ap-applied-approved','ap-stale','ap-yolo-on','ap-sum-sentences','ap-sum-ranges','ap-sum-slices','ap-undo','ap-invalid'];
  for(const k of keys){const zh=t('zh-CN','own.'+k),en=t('en','own.'+k);a.ok(zh&&zh!=='own.'+k,k);a.ok(en&&!/[一-鿿]/.test(en),k);}
  a.equal(t('zh-CN','own.ap-once'),'只批准这次');a.equal(t('zh-CN','own.ap-session'),'这个聊天中都批准');a.equal(t('zh-CN','own.ap-deny'),'不同意');
  for(const k of ['modes','modePlan','modeManual','modeAuto','modeYolo','modePlanTip','modeManualTip','modeAutoTip','modeYoloTip','yoloOn','modeDeclined','modeUnavailable'])
   for(const l of ['zh-CN','en'])a.ok(View.text[l]['officialPane_'+k],l+' '+k);
- a.deepEqual(['modePlan','modeManual','modeAuto','modeYolo'].map(k=>View.text['zh-CN']['officialPane_'+k]),['计划','手动','自动','Yolo']);
+ a.deepEqual(['modePlan','modeManual','modeAuto','modeYolo'].map(k=>View.text['zh-CN']['officialPane_'+k]),['计划','手动','自动','全自动']);
  const {yoloText}=require('../desktop/agent-mode-text');
- a.deepEqual(yoloText('zh-CN').buttons,['取消','打开 Yolo']);a.deepEqual(yoloText('en').buttons,['Cancel','Turn on Yolo']);
+ a.deepEqual(yoloText('zh-CN').buttons,['取消','打开全自动']);a.deepEqual(yoloText('en').buttons,['Cancel','Turn on Full auto']);
  a.match(yoloText('zh-CN').detail,/重新打开 MontClip 后，会回到「手动」/);
 });
 
@@ -78,26 +95,30 @@ test('JJ’s final words (5d360cd7) for the changed lines; the Yolo box follows 
  // shown when the main process refused the switch or the channel failed (the switch exists in the desktop app only)
  a.equal(T('zh-CN','modeUnavailable'),'这次没换成，模式还是原来那个。关掉 MontClip 再打开，再试一次。');
  a.equal(T('en','modeUnavailable'),"The mode didn't change; it's still the one it was. Close MontClip, open it again and try once more.");
- a.equal(T('zh-CN','modeYolo'),'Yolo','the owner’s own name for it');
+ a.equal(T('zh-CN','modeYolo'),'全自动','JJ’s name for it (#212)');a.equal(T('en','modeYolo'),'Full auto');
  const {yoloText}=require('../desktop/agent-mode-text');
- a.deepEqual(yoloText('zh-CN').buttons,['取消','打开 Yolo']);a.deepEqual(yoloText('en').buttons,['Cancel','Turn on Yolo']);
+ a.deepEqual(yoloText('zh-CN').buttons,['取消','打开全自动']);a.deepEqual(yoloText('en').buttons,['Cancel','Turn on Full auto']);
  a.match(read('desktop/main.js'),/const t = yoloText\(languageOf\(settings\.get\(\)\)\);/,'the box takes the interface language');
 });
 
-test('the approval box is centred over a dimmed page (the page resets every margin to 0)',()=>{
- const css=read('style.css');
- a.match(css,/^\* \{[^}]*margin: 0;/m);
- a.match(css,/\.agent-approval \{ margin: auto; \}/);a.match(css,/\.agent-approval::backdrop \{ background: #0009; \}/);
+test('no approval box over the page any more: the card is in the stream (v7.2 §2; Deja, step 3)',()=>{
+ const app=read('app.js'),css=read('style.css');
+ a.ok(!app.includes('data-agent-approval')&&!app.includes("className='agent-approval'"),'the old box is gone');
+ a.ok(!/\.agent-approval[ :{]/.test(css));
+ a.ok(read('agent-ui/pane.tsx').includes('<HostCard key={c.id} card={c}'));
 });
-
 test('Yolo (v7.2; Deja, 2026-11-04): the bar, and the mode tip in JJ final words (it adds that it asks once more)',()=>{
  const zh=View.text['zh-CN'],en=View.text.en;
- a.equal(zh.officialPane_yoloOn,'Yolo 开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。');
+ a.equal(zh.officialPane_yoloOn,'全自动开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。');
  a.equal(zh.officialPane_modeYoloTip,'每一步都直接做，不问你；往外发的内容照样先给你看。打开前会再确认一次。');
- a.equal(en.officialPane_yoloOn,'Yolo is on: the AI does every step without asking you; anything sent out is still shown to you first.');
+ a.equal(en.officialPane_yoloOn,'Full auto is on: the AI does every step without asking you; anything sent out is still shown to you first.');
  a.equal(en.officialPane_modeYoloTip,"Does every step without asking you; anything sent out is still shown to you first. You'll be asked once more before it turns on.");
 });
 
-test('the approval box has one main button: 〔只批准这次〕 (VV on #84 53f641d; 「这个聊天中都批准」 and 〔不同意〕 are plain)',()=>{
- a.match(read('app.js'),/choice=\(c\)=>'<button type="button" class="btn'\+\(c==='once'\?' primary':''\)\+'" data-choice="'/);
+test('the approval card has one main button: 〔只批准这次〕 (VV on #84 53f641d; 「这个聊天中都批准」 outlined, 〔不同意〕 plain)',()=>{
+ const Approval=require('../agent-approval'),cards=Approval.create(),result={};
+ void cards.ask({ticket:'t',label:'L',risk:'project',choices:['deny','session','once']},{result});
+ a.deepEqual(cards.view(result,(k)=>k)[0].actions.map(x=>[x.id,x.kind]),[['once','primary'],['session','secondary'],['deny','plain']]);
+ const card=read('agent-ui/HostCard.tsx');
+ a.ok(card.includes("primary: { variant: 'cta' }, secondary: { variant: 'secondary' }, plain: { variant: 'secondary', tone: 'quiet' }"));
 });

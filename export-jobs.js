@@ -123,18 +123,22 @@ function createExportJobs(opts) {
     /** Queue an export. where: auto (open tab, else headless) · tab · headless.
      *  kind "scopes" measures one still at `time` instead (fablecut_scopes);
      *  kind "track" follows a region of a clip and saves it (fablecut_track);
-     *  kind "transcribe" turns files' speech into words and saves them (fablecut_transcribe).
+     *  kind "transcribe" turns files' speech into words and saves them (fablecut_transcribe);
+     *  kind "lyrics" asks the streamer on a card whether to put a lyrics proposal on a new caption track, and does it
+     *  when she agrees (fablecut_lyrics_apply) — always in an open tab: a headless page has no one to ask.
      *  A scopes job's `image` flag also returns that still as a JPEG data URL,
      *  which is how fablecut_frame shows an agent the composed program picture. */
-    request({ kind = "export", range, profile, delivery = null, deliveries = null, time, revision, where = "auto", matte = null, mask = null, track = null, transcribe = null, image = false }) {
+    request({ kind = "export", range, profile, delivery = null, deliveries = null, time, revision, where = "auto", matte = null, mask = null, track = null, transcribe = null, lyrics = null, image = false }) {
       if (!["auto", "tab", "headless"].includes(where)) throw Object.assign(new Error("where must be auto, tab or headless"), { code: 400 });
       assertWhere(where);
-      if (!["export", "scopes", "track", "transcribe"].includes(kind)) throw Object.assign(new Error("kind must be export, scopes, track or transcribe"), { code: 400 });
+      if (!["export", "scopes", "track", "transcribe", "lyrics"].includes(kind)) throw Object.assign(new Error("kind must be export, scopes, track, transcribe or lyrics"), { code: 400 });
+      if (kind === "lyrics" && where === "headless") throw Object.assign(new Error("the lyrics card needs an open editor window: someone has to answer it"), { code: 409, errorCode: "EDITOR_NOT_READY" });
       if (time != null && !(Number.isFinite(time) && time >= 0)) throw Object.assign(new Error("time must be seconds ≥ 0"), { code: 400 });
       if (range != null && range !== "entire" && range !== "in-out") throw Object.assign(new Error("range must be \"entire\" or \"in-out\""), { code: 400 });
       const busy = [...jobs.values()].find((j) => !isEnded(j));
-      if (busy) throw Object.assign(new Error(`${busy.kind === "scopes" ? "scope reading" : busy.kind === "track" ? "tracking job" : busy.kind === "transcribe" ? "transcription" : "export"} ${busy.id} is still ${busy.status} — wait for it, or cancel it`), { code: 409 });
+      if (busy) throw Object.assign(new Error(`${busy.kind === "scopes" ? "scope reading" : busy.kind === "track" ? "tracking job" : busy.kind === "transcribe" ? "transcription" : busy.kind === "lyrics" ? "lyrics card" : "export"} ${busy.id} is still ${busy.status} — wait for it, or cancel it`), { code: 409 });
       const tabs = opts.editors();
+      if (kind === "lyrics" && !tabs) throw Object.assign(new Error("no editor window is open — the lyrics card needs one: open the editor, then try again"), { code: 409, errorCode: "EDITOR_NOT_READY" });
       if (where === "tab" && !tabs) throw Object.assign(new Error("no editor tab is open — open the editor, or use where:\"headless\""), { code: 409 });
       const now = Date.now();
       const j = {
@@ -145,6 +149,7 @@ function createExportJobs(opts) {
         mask: kind === "scopes" && mask ? { clip: String(mask.clip) } : null,
         track: kind === "track" && track ? track : null,
         transcribe: kind === "transcribe" && transcribe ? transcribe : null,
+        lyrics: kind === "lyrics" && lyrics ? lyrics : null,
         image: kind === "scopes" && !!image,
         via: where === "headless" || (where === "auto" && !tabs) ? "headless" : "tab",
         created: now, updated: now,
@@ -157,7 +162,7 @@ function createExportJobs(opts) {
     },
     get(id) { const j = jobs.get(id); return j ? view(j) : null; },
     /** What a tab needs to run the job (headless pages fetch it by id). */
-    ticket(id) { const j = jobs.get(id); return j ? { id: j.id, kind: j.kind, range: j.range, profile: j.profile, delivery: j.delivery || null, deliveries: j.deliveries || null, time: j.time, revision: j.revision, matte: j.matte || null, mask: j.mask || null, track: j.track || null, transcribe: j.transcribe || null, image: !!j.image, status: j.status } : null; },
+    ticket(id) { const j = jobs.get(id); return j ? { id: j.id, kind: j.kind, range: j.range, profile: j.profile, delivery: j.delivery || null, deliveries: j.deliveries || null, time: j.time, revision: j.revision, matte: j.matte || null, mask: j.mask || null, track: j.track || null, transcribe: j.transcribe || null, lyrics: j.lyrics || null, image: !!j.image, status: j.status } : null; },
     /** First tab to claim a pending job runs it. */
     claim(id) {
       const j = jobs.get(id);
