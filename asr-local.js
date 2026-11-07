@@ -197,7 +197,7 @@ function createAsr({ asrDir, modelsDir, ffmpeg, threads = 4, store, sherpa: engi
     const plan = readArgs({ file, from: part ? part[0] : null, to: part ? part[1] : null, track });
     const at = plan.start;
     const vad = new S.Vad({ sileroVad: { model: vadFile, ...VAD }, sampleRate: RATE, debug: false, numThreads: 1 }, 60);
-    const proc = spawn(ffmpeg, plan.args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+    const proc = spawn(typeof ffmpeg === "function" ? ffmpeg() : ffmpeg, plan.args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     let stderr = "", spawnError = null;
     proc.stderr.on("data", (c) => { if (stderr.length < 4000) stderr += c; });
     const exited = new Promise((resolve) => {

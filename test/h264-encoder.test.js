@@ -32,10 +32,11 @@ test('h264_mf gets rate control it understands',()=>{
  const cbr=args({preset:'youtube',video:{rate:'cbr',bitrate:8000}});a.ok(cbr.join(' ').includes('-rate_control cbr'));
 });
 
-test('the local FFmpeg is only a file the user chose: no PATH, no names, no discovery',async()=>{
+// JJ P1 (2026-11-04): PATH is now looked at too — by ffmpeg-path.js, folder by folder, to an absolute path; never a bare name
+test('the local FFmpeg is a full path that checks out: no bare names, no shell lookup',async()=>{
  for(const bad of ['ffmpeg','./ffmpeg','x264/ffmpeg.exe',''])a.equal((await X.check(bad,{run:async()=>({code:0,stdout:' V..... libx264 '})})).ok,false,bad);
  const src=fs.readFileSync(path.join(ROOT,'external-ffmpeg.js'),'utf8');
- a.ok(!/process\.env\.PATH|["']which["']|["']where(\.exe)?["']|\$PATH/.test(src),'never searches PATH');
+ a.ok(!/process\.env\.PATH|["']which["']|["']where(\.exe)?["']|\$PATH/.test(src),'no shell lookup: PATH goes through ffmpeg-path.js findOnPath');
  const ext=X.createExternal({settingsFile:null,run:async()=>{throw new Error('must not run');}});
  a.deepEqual(await ext.current(),{ok:false,code:'none',reason:'none'});
 });
@@ -45,7 +46,7 @@ const withX264=async(file,args)=>args.includes('-encoders')?{code:0,stdout:' V..
 const withoutX264=async(file,args)=>args.includes('-encoders')?{code:0,stdout:' V....D h264_mf\n'}:{code:0,stdout:'ffmpeg version n9 lgpl\n'};
 
 test('a program without libx264, or one that will not run, is refused with a plain reason',async t=>{
- const d=tmp(t),exe=path.join(d,'ffmpeg.exe');fs.writeFileSync(exe,'x');
+ const d=tmp(t),exe=path.join(d,'ffmpeg.exe');fs.writeFileSync(exe,'x',{mode:0o755});
  const no=await X.check(exe,{run:withoutX264});a.equal(no.ok,false);a.match(no.reason,/libx264/);
  const dead=await X.check(exe,{run:async()=>({code:1,stdout:'',error:'ENOENT'})});a.equal(dead.ok,false);a.match(dead.reason,/could not be started|did not run/);
  const yes=await X.check(exe,{run:withX264});a.equal(yes.ok,true);a.match(yes.version,/ffmpeg version/);
@@ -53,7 +54,7 @@ test('a program without libx264, or one that will not run, is refused with a pla
 });
 
 test('when the chosen file disappears the export falls back and says why',async t=>{
- const d=tmp(t),exe=path.join(d,'ffmpeg.exe'),settings=path.join(d,'external-ffmpeg.json');fs.writeFileSync(exe,'x');
+ const d=tmp(t),exe=path.join(d,'ffmpeg.exe'),settings=path.join(d,'external-ffmpeg.json');fs.writeFileSync(exe,'x',{mode:0o755});
  fs.writeFileSync(settings,JSON.stringify({version:1,path:exe}));
  const ext=X.createExternal({settingsFile:settings,run:withX264});
  a.deepEqual((await ext.current()).ok,true);a.equal((await ext.current()).path,exe);
@@ -71,9 +72,11 @@ test('the local FFmpeg only ever encodes an H.264 export; preview, decoding and 
  a.equal(X.argsUseX264(['-c:v','libx264','-crf','18']),true);a.equal(X.argsUseX264(['-c:v','ffv1']),false);
  // every place server.js starts the local program is an export encoder or its dry run
  const enclosing=idx=>{let name=null;for(const m of server.slice(0,idx).matchAll(/\n(?:async )?function (\w+)\(/g))name=m[1];return name;};
+ // and the proxy encoder: proxies are H.264, and without a bundled H.264 encoder the local FFmpeg makes them (ADR 2026-11-02 as amended 2026-11-05)
  const uses=[...server.matchAll(/externalFfmpeg\.\w+\(|(?<!function )exportBinary\(/g)].map(m=>enclosing(m.index));
  a.ok(uses.length>=4,'wired into the export paths');
- for(const f of uses)a.ok(['deliveryEncoders','exportBinary','h264Status','beginDeliveryExport','beginExport'].includes(f),'external FFmpeg used in '+f);
+ for(const f of uses)a.ok(['deliveryEncoders','exportBinary','h264Status','beginDeliveryExport','beginExport','noH264Where','logH264AtStart','proxyEncoder'].includes(f),'external FFmpeg used in '+f);
+ a.ok(uses.includes('proxyEncoder'),'proxies: the local FFmpeg when the bundled build has no H.264');
  for(const fn of ['frameAt','framesSheet','ffprobeJSON','measureLoudness'])if(server.includes('function '+fn)){const body=server.slice(server.indexOf('function '+fn),server.indexOf('\n}',server.indexOf('function '+fn)));a.ok(!/externalFfmpeg|exportBinary/.test(body),fn);}
  for(const f of ['proxy.js','denoise.js','analyze.js','media-probe.js','import-url.js','mcp-server.js'])a.ok(!/external-ffmpeg|externalFfmpeg/.test(fs.readFileSync(path.join(ROOT,f),'utf8')),f);
 });
@@ -89,7 +92,9 @@ test('server: without a local FFmpeg, libx264 profiles are refused in plain word
  const {makeDataDir,seedProject,startServer}=require('./helpers');
  if(!require('../ffmpeg-path').available('ffmpeg'))return t.skip('bundled ffmpeg not installed');
  const dir=makeDataDir(t,seedProject({revision:1}));
- const {base}=await startServer(t,dir,{FABLECUT_NO_FS_WATCH:'1',MONTCLIP_EXTERNAL_FFMPEG_SETTINGS:path.join(dir,'no-setting.json')});
+ // "no local FFmpeg": nothing chosen and nothing on PATH (JJ P1 looks there too)
+ const nowhere=path.join(dir,'no-such-folder');
+ const {base}=await startServer(t,dir,{FABLECUT_NO_FS_WATCH:'1',MONTCLIP_EXTERNAL_FFMPEG_SETTINGS:path.join(dir,'no-setting.json'),PATH:nowhere,Path:nowhere});
  const st=await (await fetch(base+'/api/export/h264')).json();
  a.deepEqual(st.external,{ok:false,code:'none'});a.ok(!st.encoders.includes('libx264'));
  if(st.encoder)a.equal(st.reason,null);else a.match(st.reason.code,/^h264None(Win|Other)$/);

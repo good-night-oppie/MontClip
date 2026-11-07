@@ -35,7 +35,8 @@ for(const different of [false,true])test(`privacy tools honor absolute overrides
   const PATH=different?makeDataDir(t):'';
   if(different)for(const name of ['ffmpeg','ffprobe'])fs.copyFileSync(process.execPath,path.join(PATH,name+(process.platform==='win32'?'.exe':'')));
   const env={PATH,MONTCLIP_FFMPEG:process.execPath,MONTCLIP_FFPROBE:process.execPath};
-  const tools=resolveMediaTools(env);
+  // node stands in for both tools: which path is chosen is under test here, not #146's FFmpeg version gate
+  const tools=resolveMediaTools(env,{usable:()=>true});
   assert.equal(tools.ffmpeg,process.execPath);
   assert.equal(tools.ffprobe,process.execPath);
   for(const tool of Object.values(tools))assert.equal(execFileSync(tool,['-e','process.stdout.write(process.execPath)'],{env,encoding:'utf8',windowsHide:true}),process.execPath);

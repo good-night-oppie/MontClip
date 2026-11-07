@@ -23,7 +23,7 @@ function createSignals({ dir, ffmpeg = require("./ffmpeg-path").path("ffmpeg") }
     return new Promise((resolve, reject) => {
       const values = [];
       let acc = 0, n = 0, carry = null;
-      const proc = spawn(ffmpeg, ["-v", "error", "-nostdin", "-i", file, "-vn", "-map", "0:a:" + track, "-ac", "1", "-ar", String(RATE), "-f", "s16le", "-"],
+      const proc = spawn(typeof ffmpeg === "function" ? ffmpeg() : ffmpeg, ["-v", "error", "-nostdin", "-i", file, "-vn", "-map", "0:a:" + track, "-ac", "1", "-ar", String(RATE), "-f", "s16le", "-"],
         { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
       let err = "";
       proc.stderr.on("data", (d) => { if (err.length < 4000) err += d; });

@@ -54,7 +54,7 @@ test('the page asks before the audio mix: the Export dialog, the export queue an
 });
 
 test('server: every H.264 export path refuses with the same code before rendering', () => {
-  a.match(body(server, 'async function noH264Error('), /\.\.\.X\.noH264\(\{ mediaFoundation: hasMediaFoundation\(\) \}\)/);
+  a.match(body(server, 'async function noH264Error('), /\.\.\.X\.noH264\(noH264Where\(\)\)/);
   a.match(body(server, 'async function beginDeliveryExport('), /await noH264Error\(\)/);
   const raw = body(server, 'async function beginExport(');
   a.ok(raw.indexOf('X.argsUseH264(profile.args) && await noH264Error()') < raw.indexOf('exportBinary('), 'a raw H.264 profile: no encoder at all comes before "choose your own FFmpeg"');
@@ -64,7 +64,9 @@ test('server, no H.264 encoder: H.264 refused at begin with a code, Archive (FFV
   const { makeDataDir, seedProject, startServer } = require('./helpers');
   if (!require('../ffmpeg-path').available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
   const dir = makeDataDir(t, seedProject({ revision: 1 }));
-  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_TEST_NO_H264: '1', MONTCLIP_EXTERNAL_FFMPEG_SETTINGS: path.join(dir, 'no-setting.json') });
+  // no H.264 anywhere: hidden in the bundled build, and nothing on PATH (JJ P1 looks there too)
+  const nowhere = path.join(dir, 'no-such-folder');
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_TEST_NO_H264: '1', MONTCLIP_EXTERNAL_FFMPEG_SETTINGS: path.join(dir, 'no-setting.json'), PATH: nowhere, Path: nowhere });
   const st = await (await fetch(base + '/api/export/h264')).json();
   a.equal(st.encoder, null); a.match(st.reason.code, /^h264None(Win|Other)$/);
   const begin = (b) => fetch(base + '/api/export/begin', { method: 'POST', body: JSON.stringify(b) });
@@ -73,7 +75,9 @@ test('server, no H.264 encoder: H.264 refused at begin with a code, Archive (FFV
     { fps: 30, name: 'x', profile: 'delivery', hasAudio: false }]) {
     const r = await begin(req); a.equal(r.status, 400); const j = await r.json();
     a.match(j.code, /^h264None(Win|Other)$/, JSON.stringify(j)); a.ok(!/[一-鿿]/.test(j.error), 'English for agents and logs');
-    a.equal(V.h264Refusal('zh-CN', j), JJ_ZH);
+    // node server.js without the desktop app is server mode; the desktop app keeps JJ's sentence
+    a.equal(j.setup, 'server'); a.equal(V.h264Refusal('zh-CN', j), V.text['zh-CN'].h264RefuseServer);
+    a.equal(V.h264Refusal('zh-CN', { code: j.code }), JJ_ZH);
   }
   const r = await begin({ ...canvas, deliveries: [{ delivery: { preset: 'archive' }, name: 'c' }] });
   const j = await r.json(); a.equal(r.status, 200, JSON.stringify(j)); a.ok(j.id);
@@ -84,7 +88,9 @@ test('server, an H.264 encoder present but no local FFmpeg: a libx264 profile st
   const { makeDataDir, seedProject, startServer } = require('./helpers');
   if (!require('../ffmpeg-path').available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
   const dir = makeDataDir(t, seedProject({ revision: 1 }));
-  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_EXTERNAL_FFMPEG_SETTINGS: path.join(dir, 'no-setting.json') });
+  // "no local FFmpeg": nothing chosen and nothing on PATH (JJ P1 looks there too)
+  const nowhere = path.join(dir, 'no-such-folder');
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1', MONTCLIP_EXTERNAL_FFMPEG_SETTINGS: path.join(dir, 'no-setting.json'), PATH: nowhere, Path: nowhere });
   const st = await (await fetch(base + '/api/export/h264')).json();
   if (!st.encoder) return t.skip('this computer has no H.264 encoder (covered above)');
   const r = await fetch(base + '/api/export/begin', { method: 'POST', body: JSON.stringify({ fps: 30, name: 'x', profile: 'draft', hasAudio: false }) });
