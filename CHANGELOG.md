@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Withdraw blur-over-original recipes as privacy guarantees; document opaque covers and per-frame preview/export checks without changing artistic compositing.
+
+- Reject linked workspace paths when revealing files; remember native export save destinations in the desktop main process so Show in folder finds the saved file.
 - Pin and verify every optional browser MediaPipe runtime resource before execution; preserve explicit download consent, retry and missing-mask export refusal. Record package/license provenance and real-byte checks separately from synthetic inference tests.
+
 - MCP reframe selects the displayed source tail by decoded PTS, including mixed frame rates and VFR, without reading the following shot; empty tail reads fail explicitly.
 
 - Refuse stale assistant reframe plans when clips are added during reading; check the sequence limit before reading footage and render JJ-approved guidance from that same limit.

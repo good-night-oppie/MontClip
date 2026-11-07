@@ -24,6 +24,7 @@ const {
 } = require("./paths");
 const { downloadImportUrl, kindFromName, maybeFaststart } = require("./import-url");
 const { prepareMedia } = require("./prepare-media");
+const MediaLib = require("./media-lib");
 const Danmaku = require("./danmaku");
 const { readDanmakuFile } = require("./danmaku-file");
 const FX = require("./audio-fx");
@@ -31,7 +32,6 @@ const EditOps = require("./edit-ops");
 const ProjectOps = require("./project-ops");
 const Denoise = require("./denoise");
 const MakeEditable = require("./make-editable");
-const MediaLib = require("./media-lib");
 const { createProjects } = require("./projects");
 const { createHistory } = require("./history");
 const Color = require("./color");
@@ -471,7 +471,7 @@ function sampleFrames(file, c, w, h, fps = 30) {
     ? ["-v", "error", "-i", file, "-frames:v", "1", "-vf", `scale=${w}:${h}`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
     : ["-v", "error", "-ss", String(Math.max(0, +c.in || 0)), "-t", String(len), "-i", file, "-an",
        "-vf", `fps=${R.SAMPLE_FPS},scale=${w}:${h}`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"];
-  const r = require("child_process").spawnSync(FF.path("ffmpeg"), args, { maxBuffer: 1 << 29, timeout: Math.max(120000, len * 2000) });
+  const r = require("child_process").spawnSync(FF.path("ffmpeg"), args, { maxBuffer: 1 << 29, timeout: sampleTimeoutMs(len) });
   if (r.error?.code === "ENOENT") throw new Error(FF.why("ffmpeg", "to look at the footage"));
   if (r.error) throw new Error(`ffmpeg couldn't read ${c.id}: ${r.error.code === "ETIMEDOUT" ? "it took too long" : r.error.message}`);
   if (r.status !== 0) throw new Error(`ffmpeg couldn't read ${c.id}: ${String(r.stderr).trim().split("\n").pop()}`);
@@ -497,6 +497,11 @@ function sampleFrames(file, c, w, h, fps = 30) {
   while (times.length && times[times.length - 1] >= last) { times.pop(); frames.pop(); }
   frames.push(q.stdout.subarray((count - 1) * fb, count * fb)); times.push(last);
   return { frames, times };
+}
+/** The frame sampling's time limit: 2 s per second of clip, at least 2 minutes, in whole ms (spawnSync refuses a
+ *  fraction with ERR_OUT_OF_RANGE — the same as #130's FLV import, VV on europa, 2026-11-06). */
+function sampleTimeoutMs(len) {
+  return Math.ceil(Math.max(120000, len * 2000));
 }
 async function reframeTool(args) {
   const R = require("./reframe.js");
@@ -1866,7 +1871,7 @@ async function callTool(name, args, attempt = 0) {
         else fs.copyFileSync(src, target);
       }
       if (!kind) throw new Error("Unsupported media type");
-      const prepared = await prepareMedia(target, { allowTranscode: args.allowTranscode, acceptReadable: args.acceptReadable });
+      const prepared = await prepareMedia(target, { allowTranscode: args.allowTranscode, acceptReadable: args.acceptReadable, fixGaps: args.fixGaps });
       const originalName = path.basename(target);
       if (prepared.originalSrc) target = path.join(MEDIA_DIR, decodeURIComponent(prepared.src.slice(7)));
       const entry = {
@@ -1878,6 +1883,9 @@ async function callTool(name, args, attempt = 0) {
         // offset is not counted (QQ, #126: format=duration alone stored 3620 s for 20 s)
       };
       if (prepared.originalSrc) Object.assign(entry, {originalSrc: prepared.originalSrc, preparation: prepared.preparation});
+      // where the recording broke, for the timeline's marks (prepare-media.js; faint: small drop, labelled: converted)
+      const gaps = MediaLib.normalizeGaps(prepared.gaps);
+      if (gaps.length) entry.gaps = gaps;
       const probed = await probeFile(target);
       Object.assign(entry, infoForEntry(probed, entry));
       const proj = readProject();

@@ -62,6 +62,17 @@ test('saved: only this session\'s registered export is removed, once the save co
   a.deepEqual(r.v, { state: 'completed', name: 'Untitled Project_master_720p.mp4', removed: true });
 });
 
+test('completed expected export supplies its final save path privately to the main process', async t => {
+  const exportsDir=dir(t), copy=path.join(exportsDir,'a.mp4'), saved=path.join(dir(t),'chosen.mp4');
+  fs.writeFileSync(copy,'synthetic');fs.writeFileSync(saved,'synthetic');
+  const it=item(ORIGIN+'/exports/a.mp4','a.mp4'),receipts=[];
+  const done=new Promise(resolve=>X.attach(it,{origin:ORIGIN,exportsDir,expected:true,claim:async()=>true,
+    onSaved:(from,to)=>receipts.push([from,to]),onDone:resolve}));
+  it.savePath=saved;it.emit('done',{},'completed');const result=await done;
+  a.deepEqual(receipts,[[copy,saved]]);a.ok(!fs.existsSync(copy));a.ok(fs.existsSync(saved));
+  a.equal(JSON.stringify(result).includes(saved),false,'public result never carries a local path');
+});
+
 test('cancelled or interrupted: the export is kept (it may be the only copy)', async (t) => {
   for (const state of ['cancelled', 'interrupted']) {
     const r = await run(t, { state });

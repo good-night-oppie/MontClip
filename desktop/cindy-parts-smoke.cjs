@@ -59,12 +59,12 @@ BrowserWindow.prototype.loadURL = async function (...args) {
     assert.match(shown.PermissionSelector.text, /手动/);
     await read(`document.querySelector('#partBox_PermissionSelector button').click();true`); await wait(400);
     report.modes = await read(`[...document.querySelectorAll('[role=menuitemradio],[role=option],[role=menuitem]')].map(e=>e.innerText.replace(/\\s+/g,' ').trim()).filter(Boolean)`);
-    for (const label of ['计划', '手动', '自动', 'Yolo']) assert.ok(report.modes.some((t) => t.startsWith(label)), 'mode ' + label + ' in ' + JSON.stringify(report.modes));
+    for (const label of ['计划', '手动', '自动', '全自动']) assert.ok(report.modes.some((t) => t.startsWith(label)), 'mode ' + label + ' in ' + JSON.stringify(report.modes));
     // the open menu is opaque over the timeline (QQ on #109): the panel reads --menu-panel-surface, which the parts set
     report.menuSurface = await read(`(()=>{const m=document.querySelector('[data-menu-surface]');return m?getComputedStyle(m).backgroundColor:'absent';})()`);
     assert.ok(report.menuSurface !== 'absent' && report.menuSurface !== 'transparent' && !/rgba\(0,\s*0,\s*0,\s*0\)/.test(report.menuSurface), 'the mode menu has an opaque surface, not ' + report.menuSurface);
     await shot('cindy-parts-modes-menu');
-    await read(`[...document.querySelectorAll('[role=menuitemradio],[role=option],[role=menuitem]')].find(e=>e.innerText.trim().startsWith('Yolo')).click();true`); await wait();
+    await read(`[...document.querySelectorAll('[role=menuitemradio],[role=option],[role=menuitem]')].find(e=>e.innerText.trim().startsWith('全自动')).click();true`); await wait();
     report.picked = await read(`window.__mode`);
     assert.equal(report.picked, 'bypassPermissions');
     assert.equal(await read(`MontClipCindyParts.montclipModeOf(window.__mode)`), 'yolo');
