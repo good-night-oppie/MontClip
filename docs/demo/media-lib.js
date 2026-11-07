@@ -26,8 +26,9 @@
 
   const KINDS = ["video", "audio", "image", "svg"];
   /** Fields the server probes. Written back to the entry; never user-set. */
-  // storedWidth / storedHeight: what the file stores, when its pixels aren't square (P6); width / height show
-  const INFO_KEYS = ["size", "fps", "codec", "audioCodec", "audioChannels", "sampleRate", "bitrate", "durationFrom", "storedWidth", "storedHeight"];
+  // storedWidth / storedHeight: what the file stores, when its pixels aren't square (P6); width / height show.
+  // start / audioOffset: where a file's clock starts, when it isn't 0 (#161)
+  const INFO_KEYS = ["size", "fps", "codec", "audioCodec", "audioChannels", "sampleRate", "bitrate", "durationFrom", "start", "audioOffset", "storedWidth", "storedHeight"];
   const MAX_TAGS = 24, MAX_TAG_LEN = 32;
   const SORT_KEYS = ["name", "kind", "duration", "resolution", "fps", "codec", "audio", "size", "usage"];
 
@@ -166,8 +167,9 @@
 
   /** ffprobe -show_format -show_streams -of json output → the INFO_KEYS (+ duration,
    *  width, height). `size` falls back to the stat size the caller passes. A video or a
-   *  sound whose length nothing says gets durationUnknown: true (never duration 0). */
-  function parseProbe(json, statSize) {
+   *  sound whose length nothing says gets durationUnknown: true (never duration 0).
+   *  firstAudioPts: the first sound packet's time, when the caller read it (needsFirstAudioPts). */
+  function parseProbe(json, statSize, firstAudioPts) {
     const out = {};
     const streams = Array.isArray(json && json.streams) ? json.streams : [];
     const fmt = (json && json.format) || {};
@@ -205,7 +207,43 @@
       if (sr > 0) out.sampleRate = sr;
     } else if (v && !still) out.audioChannels = 0;   // a video without sound says so; a picture has no audio to speak of
     if (!(dur > 0) && (a || (v && !still))) out.durationUnknown = true;
+    Object.assign(out, probeClock(fmt, a, firstAudioPts));
     return out;
+  }
+  /** Where the file's media time 0 sits on its own clock, and where a decoded copy of its sound starts (Deja, black export).
+   *  MontClip's media time starts at the file's start (format.start_time, the 0 of ffmpeg -ss, as #126 measures the length
+   *  from it). Chromium's <video> and the MP4 demuxer keep the file's timestamps: an OBS recording that starts at 3600 s
+   *  shows its first frame at 3600 s, so seeking to 2 s shows nothing → start: 3600. decodeAudioData has no timestamps: its
+   *  first sample is that of the first packet, the encoder's priming included, unless it lies before 0 (an AAC track
+   *  that starts at 3600 s with 1024 samples of priming decodes from 3599.979 s) → audioOffset: −0.021, in media time.
+   *  Opus is different: its decoder drops its own pre-skip (a WebM measured 6.5 ms early when it was counted). Both are
+   *  left out when they are (within half a millisecond) 0, as for almost every file.
+   *  firstPts: the first sound packet's time. Without it, the stream's start less the AAC priming (ffprobe 9 counts the
+   *  priming out of an MKV's start; ffprobe 7 doesn't, which is why the packet is read when it matters). */
+  function probeClock(fmt, a, firstPts) {
+    const out = {};
+    const start = Number(fmt.start_time) > 0 ? Number(fmt.start_time) : 0;
+    if (start >= 0.0005) out.start = round(start, 6);
+    const aStart = Number(a && a.start_time), sr = Number(a && a.sample_rate);
+    const pad = a && Number(a.initial_padding) > 0 && sr > 0 ? Number(a.initial_padding) / sr : 0;
+    const opus = !!a && a.codec_name === "opus";
+    let first = null;
+    const pts = firstPts == null ? NaN : Number(firstPts);
+    // ffprobe 9 counted the priming out of the start (the start is then the exact one, the packet's time rounded to the ms)
+    if (a && Number.isFinite(pts)) first = opus ? pts + pad : a.codec_name === "aac" && aStart - pts > pad / 2 ? aStart - pad : pts;
+    else if (a && Number.isFinite(aStart)) first = aStart - (a.codec_name === "aac" ? pad : 0);
+    if (first != null) {
+      const off = Math.max(0, first) - start;
+      if (Math.abs(off) >= 0.0005) out.audioOffset = round(off, 6);
+    }
+    return out;
+  }
+  /** Is the first sound packet's time worth an extra read (ffprobe -show_packets, one packet)? Only when a clock is
+   *  not at 0 — the file's or its sound's — so an ordinary file costs nothing more. */
+  function needsFirstAudioPts(json) {
+    const streams = Array.isArray(json && json.streams) ? json.streams : [];
+    const a = streams.find((s) => s.codec_type === "audio");
+    return !!a && (Number(json.format && json.format.start_time) >= 0.0005 || Number(a.start_time) >= 0.0005);
   }
 
   /* ── formatting ── */
@@ -527,7 +565,7 @@
     importTidies, importPercent,
     KINDS, INFO_KEYS, SORT_KEYS, MAX_TAGS,
     srcName, relinkScore, relinkWhyKeys, relinkWasParts, fmtHms, autoRelinkPick, kindFromName,
-    parseProbe, needsInfo, serverDuration, cannotCut, displaySize, slowToSeek, swapMedia, applyBackfill, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
+    parseProbe, probeClock, needsFirstAudioPts, needsInfo, serverDuration, cannotCut, displaySize, slowToSeek, swapMedia, applyBackfill, fitClips, fmtSize, fmtFps, fmtRes, fmtAudio, fmtDur, describe,
     STANDARD_FPS, standardFps, sourceCanvas, canvasFollowsSource,
     normalizeTags, allTags, normalizeCollections, normalizeGaps,
     placements, usageCounts,

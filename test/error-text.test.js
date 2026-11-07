@@ -1,6 +1,6 @@
 'use strict';
-// Deja, 2026-11-04 (decision B), in JJ's final words: 错误白话表 v2 (europa ~/montclip-labels/jj/
-// 2026-11-04-错误白话表-默认条数-发到手机-JJ.md, sha256 d99c25d114f865bd6388bc98822b04308f6ca96c3e3ac02a802dd92cc736cb13).
+// Deja, 2026-11-04 (decision B), in JJ's final words: 错误白话表 v2
+// (2026-11-04-错误白话表-默认条数-发到手机-JJ.md, sha256 d99c25d114f865bd6388bc98822b04308f6ca96c3e3ac02a802dd92cc736cb13).
 // Every failure the streamer sees goes through MontClipView.errorText: what happened, then what she can do now. Raw errors,
 // codes and English go to the log only; 〔复制问题信息〕 copies that line with viewers, keys and user folders taken out.
 // The rows this PR owns are locked word for word. (FLV gaps / conversion rows: #130; the export "no encoder" row: #125.)
@@ -107,7 +107,8 @@ test('after a copy: one key and one string, the same as #132 and the plugin', ()
     a.ok(!('copyProblemDone' in V.text[l]) && !('copyProblemFailed' in V.text[l]), l);
   }
   // every copy button goes through copyProblem, which says only these two
-  a.match(fnBody(app, 'async function copyProblem('), /toast\(uiText\("own\.copy-problem-done"\)\); \} catch \{ toast\(uiText\("own\.copy-problem-failed"\)\); \}/);
+  // #161: after a copy, JJ's sentence with the mailbox (toastProblemSent); own.copy-problem-done stays for #132 and the plugin
+  a.match(fnBody(app, 'async function copyProblem('), /toastProblemSent\(\); \} catch \{ toast\(uiText\("own\.copy-problem-failed"\)\); \}/);
   a.equal((app.match(/copyProblem\(/g) || []).length - 1, (app.match(/uiText\("btnCopyProblem"\)|data-as-act="copy-problem"/g) || []).length, 'each copy button calls copyProblem');
   a.ok(!/已复制|copyProblemDone|copyProblemFailed/.test(app));
 });
@@ -213,7 +214,7 @@ test('the Chinese interface of index.html (help layer included): English left in
   for (const k of Object.keys(known)) a.ok(found[k], k + ' is fixed now: drop it from test/fixtures/zh-index-english.json');
 });
 
-test('〔复制问题信息〕: no viewer name or uid, no key, user folders as maskUserPath has them', () => {
+test('〔复制问题信息〕: no viewer name or uid, no key, and (#161) no path on the computer at all', () => {
   // synthetic lines in the shapes viewers reach a log in: 录播姬 danmaku / gift / super chat XML, Bilibili live JSON,
   // key=value, Chinese labels; with a Windows and a home path and keys
   const win = 'C:\\Users\\alice\\Videos\\a.flv', nix = '/home/alice/rec/b.flv', mac = '/Users/alice/Movies/c.flv';
@@ -229,7 +230,9 @@ test('〔复制问题信息〕: no viewer name or uid, no key, user folders as m
   for (const out of [R.redactProblem(line, opts), R.redactProblem(line, {})]) {
     for (const gone of ['12345678', '87654321', '23456789', '34567890', '小梨的粉丝', '某某某', '粉丝二号', '粉丝三号', 'alice',
       'abc.DEF-123_xyz', 'tk_live_998877', 'sk-ABCDEF0123456789', '8f3a2b1c', '4455667788']) a.ok(!out.includes(gone), gone + ' in: ' + out);
-    for (const p of [win, nix, mac]) a.ok(out.includes(X.maskUserPath(p)), 'the path as maskUserPath has it: ' + X.maskUserPath(p));
+    // #161 (JJ: 「文件路径已经去掉」): not even the masked path; only the file's extension stays
+    for (const p of [win, nix, mac]) a.ok(!out.includes(X.maskUserPath(p)) && !out.includes(p), 'no path: ' + out);
+    a.equal((out.match(/<path \.flv>/g) || []).length, 3);
     a.match(out, /FLV_PROBE_FAILED/, 'the rest of the line stays');
   }
   // one rule, two places: Node's maskUserPath is the shared one with this computer's home folder
@@ -242,7 +245,7 @@ test('the page: nothing raw on screen; the copy button with its small print; the
   a.match(fnBody(app, 'function sayError('), /console\.warn\(r\.line\)/, 'the raw error goes to the log');
   const copy = fnBody(app, 'async function copyProblem(');
   a.match(copy, /fetch\("\/api\/problem-details"/);
-  a.match(copy, /MontClipRedact\.redactProblem\(/, 'the same rules in the page when the server can\'t be reached');
+  a.match(copy, /MontClipRedact\.problemDetails\(/, 'the same rules in the page when the server can\'t be reached (#161: with its first line)');
   a.match(copy, /navigator\.clipboard\.writeText\(out\)/);
   a.match(fnBody(app, 'function toastProblem('), /uiText\("btnCopyProblem"\)[^;]*uiText\("copyProblemNote"\)/);
   const queue = fnBody(app, 'function renderQueue(');
@@ -262,7 +265,8 @@ test('the page: nothing raw on screen; the copy button with its small print; the
   a.match(app, /toastAction\(uiText\("exportSaveFolderFailed"\), uiText\("btnOtherFolder"\)/, '#116: 〔换个文件夹〕 opens the save window again');
   const server = read('server.js');
   a.match(server, /p === "\/api\/problem-details"/);
-  a.match(server, /Redact\.redactProblem\(String\(body\.text \|\| ""\)\.slice\(0, 8000\), \{ home: os\.homedir\(\), platform: process\.platform \}\)/);
+  // #161: the plain sentence, the files as type and size, the code — with the user name too (test/problem-details.test.js)
+  a.match(server, /Redact\.problemDetails\(p, \{ home: os\.homedir\(\), platform: process\.platform, user: userName\(\), language: body\.language \}\)/);
   a.match(read('index.html'), /<script src="problem-redact\.js"><\/script>/);
 });
 

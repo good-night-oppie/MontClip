@@ -27,6 +27,7 @@ const { spawn, spawnSync, execFile } = require("child_process");
 const FF = require("./ffmpeg-path");
 const X = require("./external-ffmpeg");
 const Redact = require("./problem-redact");   // 〔复制问题信息〕: viewers, keys and user folders out
+const ProblemFiles = require("./problem-files");   // 〔复制问题信息〕: a named file's size, by its name only (#161)
 /* A local FFmpeg the user chose for libx264, H.264 export only (external-ffmpeg.js). */
 const externalFfmpeg = X.createExternal();
 
@@ -74,6 +75,7 @@ const { createProxies } = require("./proxy");
 const { createTranscripts } = require("./transcripts");
 const Delivery = require("./delivery");
 const ExportCleanup = require("./export-cleanup");
+const ExportCheck = require("./export-check");
 const { createProjects } = require("./projects");
 const { createHistory } = require("./history");
 
@@ -570,6 +572,7 @@ async function verifyDeliveryOutput(sess, o, file) {
     const loudWanted = o.spec.audio.codec !== "none" && !!sess.wav;
     const [probe, loud, channelLevels] = await Promise.all([ffprobeJSON(file), loudWanted ? measureLoudness(file, VERIFY_LOUDNESS_MS) : null,
       loudWanted && o.spec.audio.channels === 2 ? measureChannelLevels(file, VERIFY_LOUDNESS_MS) : null]);
+    o.loud = loud;   // the self-check reads its silence (blankCheck)
     if (!probe) return failed("could not read the file back to check it (ffprobe)");
     let size = 0;
     try { size = fs.statSync(file).size; } catch {}
@@ -578,6 +581,19 @@ async function verifyDeliveryOutput(sess, o, file) {
       size, loud, loudWanted, frame: o.frame, hasAudio: !!sess.wav, channelLevels, panIntent: sess.panIntent,
     });
   } catch (e) { return failed("could not check the file: " + (e.message || e)); }
+}
+/** The self-check of a finished file (export-check.js): null when it may be called done, else {code, error, check}.
+ *  `loud`: the file's measured loudness (a delivery report), when there is one; `soundless`: the output was asked to
+ *  have no sound (a delivery with audio codec none), so its silence is not checked. */
+async function blankCheck(sess, file, loud, soundless = false) {
+  const plan = sess.check && (soundless ? { ...sess.check, audio: [] } : sess.check);
+  if (!plan || (!plan.video.length && !plan.audio.length)) return null;
+  try {
+    const r = await ExportCheck.check({ ffmpeg: FF.path("ffmpeg"), file, plan, resolve: resolveSrc,
+      silent: !sess.wav ? true : loud ? !!loud.silent : null, mix: sess.wav });
+    if (process.env.MONTCLIP_EXPORT_CHECK_LOG) console.log("[export-check] " + JSON.stringify(r));
+    return r.ok ? null : { code: ExportCheck.failCode(r), error: ExportCheck.failText(r), check: r };
+  } catch { return null; }   // a check that cannot run never fails an export
 }
 /** Spawn one ffmpeg per output of a delivery session. */
 function startDeliveryEncoders(sess) {
@@ -1551,6 +1567,8 @@ async function handleRequest(req, res) {
       if (mode !== "annexb" && opts.profile) resolveProfile(opts.profile); // 400, not 500, on a bad id — even without ffmpeg
       if (!HAS_FFMPEG) { sendJSON(res, 400, { error: FFMPEG_MISSING, code: FFMPEG_MISSING_CODE }); return; }
       const begun = await beginExport(opts.fps, opts.name, opts.profile, opts.hasAudio !== false, mode, opts);
+      const sess = exportSessions.get(begun.id);
+      if (sess) sess.check = ExportCheck.cleanPlan(opts.check);   // what the finished file is checked against (export-check.js)
       // the agent's export job this encode belongs to (export-jobs.js): when that job ends without a file, so does this
       if (typeof opts.job === "string" && opts.job && exportSessions.has(begun.id)) exportSessions.get(begun.id).job = opts.job;
       sendJSON(res, 200, begun);
@@ -1609,12 +1627,25 @@ async function handleRequest(req, res) {
     } catch (e) { sendJSON(res, 500, { error: String(e) }); }
     return;
   }
-  /* 〔复制问题信息〕 (JJ's table v2): {text} → the same text with viewers, keys and user folders taken out, by the rules
-     the page has too (problem-redact.js), with this computer's home folder. */
+  /* 〔复制问题信息〕 (JJ's table v2; #161): {text, language} → what is copied: its first line (the mail watcher's mark),
+     then the text with viewers, keys, accounts and paths taken out, by the rules the page has too (problem-redact.js),
+     with this computer's home folder and user name. */
   if (p === "/api/problem-details" && req.method === "POST") {
     let body;
     try { body = JSON.parse((await readBody(req)).toString("utf8") || "{}"); } catch { sendJSON(res, 400, { error: "the body must be JSON: {text}" }); return; }
-    sendJSON(res, 200, { text: Redact.redactProblem(String(body.text || "").slice(0, 8000), { home: os.homedir(), platform: process.platform }) });
+    const userName = () => { try { return os.userInfo().username; } catch { return ""; } };
+    // the files the raw error names, as their type and size only (JJ, #161): looked up here, never copied by name
+    // never a path the page sent, only a file name where the server keeps files (problem-files.js; QQ, #161)
+    let srcs = [];
+    try { srcs = (JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8").replace(/^\uFEFF/, "")).media || []).map((m) => m && m.src); } catch {}
+    const where = { mediaDir: MEDIA_DIR, exportsDir: EXPORTS_DIR, srcs, resolve: resolveSrc };
+    const sizeOf = (name) => ProblemFiles.sizeOf(name, where, fs.statSync);
+    const files = Redact.fileMentions(String(body.log || "").slice(0, 8000)).map((f) => ({ ext: f.ext, size: sizeOf(f.name) }));
+    // the version line (JJ / QQ, #161): package.json's version and the system's family only (problem-redact.js versionLine)
+    const version = (() => { try { return require("./package.json").version; } catch { return ""; } })();
+    const app = { version, platform: process.platform, release: os.release() };
+    const p = { text: String(body.text || "").slice(0, 2000), code: body.code, files, app };
+    sendJSON(res, 200, { text: Redact.problemDetails(p, { home: os.homedir(), platform: process.platform, user: userName(), language: body.language }) });
     return;
   }
   /* {fresh:true} once for a file this session exported (then forgotten); {fresh:false} for anything else */
@@ -1649,12 +1680,14 @@ async function handleRequest(req, res) {
           exportedThisRun.add(file);
           freshExports.add(file);
           const report = await verifyDeliveryOutput(sess, o, o.outPath);
+          const blank = await blankCheck(sess, o.outPath, o.loud, o.spec.audio.codec === "none");
+          if (blank) return { file, ok: false, src: "/exports/" + encodeURIComponent(file), error: blank.error, code: blank.code, ...(report ? { report } : {}) };
           return { file, ok: true, src: "/exports/" + encodeURIComponent(file), ...(report ? { report } : {}),
             ...(o.loudnorm ? { mixLoudness: o.loudnorm.input_i } : {}) };
         }));
         cleanupExport(id);
         const ok = results.filter((x) => x.ok);
-        if (!ok.length) throw new Error(results.map((x) => `${x.file}: ${x.error}`).join(" · "));
+        if (!ok.length) throw Object.assign(new Error(results.map((x) => `${x.file}: ${x.error}`).join(" · ")), { code: results.find((x) => x.code)?.code });
         sendJSON(res, 200, { ok: true, src: ok[0].src, outputs: results });
         return;
       }
@@ -1666,9 +1699,11 @@ async function handleRequest(req, res) {
       sess.partPath = null; // renamed — cleanup must not delete the finished file
       exportedThisRun.add(path.basename(out));
       freshExports.add(path.basename(out));
+      const blank = await blankCheck(sess, out, null);
       cleanupExport(id);
+      if (blank) throw Object.assign(new Error(`${path.basename(out)}: ${blank.error}`), { code: blank.code });
       sendJSON(res, 200, { ok: true, src: "/exports/" + encodeURIComponent(path.basename(out)) });
-    } catch (e) { cleanupExport(id); sendJSON(res, 500, { error: String(e) }); }
+    } catch (e) { cleanupExport(id); sendJSON(res, 500, { error: String(e), ...(e && e.code ? { code: e.code } : {}) }); }
     return;
   }
 
