@@ -5672,12 +5672,17 @@ function gapMarksHtml(c) {
   const m = (c.kind === "video" || c.kind === "audio") && c.mediaId ? getMedia(c.mediaId) : null;
   if (!m || !Array.isArray(m.gaps) || !m.gaps.length || c.keyframes?.speed?.length) return "";
   const speed = Number(c.props?.speed) > 0 ? Number(c.props.speed) : 1, lang = mcView.get().language, inSrc = c.in || 0;
+  const outSrc = inSrc + c.duration * speed, clipW = c.duration * state.pps;
   let html = "";
   for (const g of m.gaps) {
-    if (g.stream !== c.kind || g.at + g.len < inSrc || g.at > inSrc + c.duration * speed) continue;
-    const x = Math.max(0, (g.at - inSrc) / speed * state.pps), words = escapeHtml(MontClipView.flvGapMark(lang, g));
+    // only the part of the break inside the clip's source window [in, in + duration × speed] (QQ on #130: a band
+    // that started before the clip's in point, or ran past its end, was drawn outside the clip)
+    const from = Math.max(g.at, inSrc), to = Math.min(g.at + g.len, outSrc);
+    if (g.stream !== c.kind || to < from) continue;
+    const x = (from - inSrc) / speed * state.pps, words = escapeHtml(MontClipView.flvGapMark(lang, g));
+    const w = Math.min(Math.max(2, (to - from) / speed * state.pps), clipW);
     html += g.big
-      ? `<div class="gap-mark big" style="left:${x}px;width:${Math.max(2, g.len / speed * state.pps)}px" title="${words}"><span>${words}</span></div>`
+      ? `<div class="gap-mark big" style="left:${Math.max(0, Math.min(x, clipW - w))}px;width:${w}px" title="${words}"><span>${words}</span></div>`
       : `<div class="gap-mark small" style="left:${x}px" title="${words}"></div>`;
   }
   return html;

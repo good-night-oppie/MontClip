@@ -161,3 +161,28 @@ test("the timeline draws a clip's own stream's breaks: faint for a small drop, l
   assert.match(html, /gap-mark big" style="left:200px;width:20px"[^>]*><span>这里录像断了约 2 秒<\/span>/);
   assert.equal(ctx.gapMarksHtml({ kind: "video", mediaId: "m", in: 0, duration: 30, start: 0, props: {}, keyframes: { speed: [{ t: 0, v: 1 }] } }), "", "a keyed speed shows none");
 });
+
+// QQ on #130: a band is cut to the clip's source window [in, in + duration × speed] before its x and width are worked
+// out, so a break that starts before the clip's in point or runs past its end is never drawn outside the clip.
+test("a break's band stays inside its clip: cut to the clip's source window first", () => {
+  const ctx = { MontClipView: V, mcView: { get: () => ({ language: "en" }) }, state: { pps: 10 },
+    escapeHtml: (s) => String(s), getMedia: () => ({ gaps: [{ stream: "video", at: 9, len: 2, big: true }, { stream: "video", at: 30, len: 2, big: true }, { stream: "video", at: 45, len: 2, big: true }] }) };
+  vm.createContext(ctx);
+  const at = source.indexOf("function gapMarksHtml("), end = source.indexOf("\nfunction transitionMarksHtml(", at);
+  vm.runInContext(source.slice(at, end), ctx);
+  const bands = (clip) => [...ctx.gapMarksHtml({ kind: "video", mediaId: "m", start: 0, props: {}, ...clip }).matchAll(/left:([\d.]+)px;width:([\d.]+)px/g)]
+    .map((m) => [Number(m[1]), Number(m[2])]);
+  const inside = (clip, list) => { const w = clip.duration * ctx.state.pps; for (const [x, bw] of list) assert.ok(x >= 0 && x + bw <= w + 1e-9, `${x}+${bw} within ${w}`); };
+  // source 10 … 31: the break at 9 s is cut to 10 … 11, the one at 30 s to 30 … 31, the one at 45 s is not there
+  let clip = { in: 10, duration: 21 };
+  assert.deepEqual(bands(clip), [[0, 10], [200, 10]]); inside(clip, bands(clip));
+  // source 31 … 41: only the end of the break at 30 s, at the clip's start
+  clip = { in: 31, duration: 10 };
+  assert.deepEqual(bands(clip), [[0, 10]]); inside(clip, bands(clip));
+  // at 2× speed, source 10 … 30 in 10 s: the break at 30 s only touches the end; the one at 9 s is cut to 10 … 11
+  clip = { in: 10, duration: 10, props: { speed: 2 } };
+  const b = bands(clip);
+  assert.deepEqual(b[0], [0, 5]); inside(clip, b);
+  // a source window between the breaks shows none
+  assert.deepEqual(bands({ in: 33, duration: 10 }), []);
+});
