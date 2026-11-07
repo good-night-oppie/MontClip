@@ -206,3 +206,43 @@ test('MC-15 on Linux: the headless browser is started as the first thing the ker
   a.deepEqual(lin.args, ['-c', 'echo 1000 > /proc/self/oom_score_adj 2>/dev/null; exec "$0" "$@"', '/usr/bin/chromium', '--headless=new', 'http://x/']);
   for (const p of ['win32', 'darwin']) a.deepEqual(browserCommand('C:/b.exe', ['--x'], p), { cmd: 'C:/b.exe', args: ['--x'] });
 });
+
+/* QQ on #229: why did #161's self-check say "passed"? (1) It only reads the sources when the WHOLE export is silent
+   (export-check.js on main: `if (silent) {`), so loud music hid a silent clip. (2) A source it couldn't read counted as
+   silent: soundPeak gave −Infinity when ffmpeg ran but volumedetect said nothing, and null (a failed or timed-out read)
+   was skipped by `peaks.some((db) => db != null && db > QUIET_DB)`. A source the check can't read must never count as
+   silent. Synthetic media only. */
+test('the self-check never counts a source it couldn\'t read as silent: the export fails instead of passing', async (t) => {
+  const FF = require('../ffmpeg-path'), C = require('../export-check');
+  if (!FF.available('ffmpeg')) return t.skip('bundled ffmpeg not installed');
+  const dir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'mc14u-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const ff = (args) => execFileSync(FF.path('ffmpeg'), ['-v', 'error', '-y', ...args]);
+  ff(['-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-t', '10', '-c:a', 'pcm_s16le', path.join(dir, 'silent-export.wav')]);
+  ff(['-f', 'lavfi', '-i', "aevalsrc='0':s=48000:d=10", '-c:a', 'pcm_s16le', path.join(dir, 'quiet.wav')]);
+  ff(['-f', 'lavfi', '-i', 'testsrc2=s=160x90:r=30:d=4', '-an', '-c:v', 'mpeg4', path.join(dir, 'picture-only.mp4')]);
+  // a "recording" whose bytes ffmpeg can't read: a WAV header over garbage
+  const good = fs.readFileSync(path.join(dir, 'quiet.wav'));
+  fs.writeFileSync(path.join(dir, 'broken.wav'), Buffer.concat([Buffer.from('not a media file at all'), good.subarray(0, 4000)]));
+  const F = (n) => path.join(dir, n), exp = F('silent-export.wav');
+  const q = await C.soundPeak(FF.path('ffmpeg'), F('quiet.wav'), 1, 5);
+  a.ok(q != null && q < C.QUIET_DB, `digital silence is silence (volumedetect says ${q} dB)`);
+  a.equal(await C.soundPeak(FF.path('ffmpeg'), F('picture-only.mp4'), 0, 2), -Infinity, 'no sound stream: nothing to lose');
+  a.equal(await C.soundPeak(FF.path('ffmpeg'), F('broken.wav'), 1, 5), null, 'unreadable: not known');
+  a.equal(await C.soundPeak(FF.path('ffmpeg'), F('quiet.wav'), 60, 5), null, 'nothing decoded there (past its end): not known');
+  const resolve = (src) => F(src.replace('/media/', ''));
+  const run = (plan) => C.check({ ffmpeg: FF.path('ffmpeg'), file: exp, plan: C.cleanPlan(plan), resolve, silent: true, mix: null });
+  // a silent export whose source is silent too: fine (the streamer's choice)
+  a.equal((await run({ video: [], audio: [{ src: '/media/quiet.wav', at: 1, dur: 5 }] })).ok, true);
+  // a silent export whose source couldn't be read: on main this passed; now it fails (EXPORT_BLANK_SOUND)
+  const r = await run({ video: [], audio: [{ src: '/media/broken.wav', at: 1, dur: 5 }] });
+  a.equal(r.ok, false); a.equal(r.sound, true); a.equal(C.failCode(r), 'EXPORT_BLANK_SOUND');
+  // one piece the page heard as silent, its file unreadable: lost (第 N 段没读出来), never "silent in its file too"
+  const r2 = await C.check({ ffmpeg: FF.path('ffmpeg'), file: exp, resolve, silent: false, mix: null,
+    plan: C.cleanPlan({ video: [], audio: [], silent: [{ n: 4, src: '/media/broken.wav', at: 1, dur: 5 }] }) });
+  a.deepEqual(r2.lost, [4]); a.deepEqual(r2.quiet, []); a.equal(C.failCode(r2), 'EXPORT_AUDIO_FAILED');
+  // a mix the check can't read is not taken as "has sound": the sources are read
+  const r3 = await C.check({ ffmpeg: FF.path('ffmpeg'), file: exp, resolve, silent: null, mix: F('broken.wav'),
+    plan: C.cleanPlan({ video: [], audio: [{ src: '/media/broken.wav', at: 1, dur: 5 }] }) });
+  a.equal(r3.sound, true);
+});

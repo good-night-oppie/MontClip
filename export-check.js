@@ -42,13 +42,16 @@ async function frameMax(ffmpeg, file, t) {
   for (let i = 0; i < 144; i++) max = Math.max(max, r.stdout[i]);
   return max;
 }
-/** The peak of the first sound of file from `at` for `dur` seconds, dBFS (−Infinity for digital silence); null when it
- *  could not be read. */
+/** The peak of the first sound of file from `at` for `dur` seconds, dBFS: −Infinity for digital silence, or for a file
+ *  with no sound stream at all; null when it could not be read (MC-14, QQ on #229): ffmpeg failed or ran out of time,
+ *  or decoded nothing there — volumedetect says nothing then. A read that failed used to count as silence, so a
+ *  source that couldn't be read never showed that the export had lost its sound. */
 async function soundPeak(ffmpeg, file, at = 0, dur = null) {
   const r = await run(ffmpeg, ["-hide_banner", "-nostdin", "-nostats", ...(at > 0 ? ["-ss", String(at)] : []), "-i", file,
     ...(dur > 0 ? ["-t", String(dur)] : []), "-map", "0:a:0", "-af", "volumedetect", "-f", "null", "-"], "utf8");
   const m = /max_volume:\s*(-?[\d.]+|-inf)\s*dB/.exec(r.stderr);
-  if (!m) return r.ok && !/Stream map '0:a:0' matches no streams|does not contain any stream/i.test(r.stderr) ? -Infinity : null;
+  // no sound stream at all, in older ffmpeg's words and in 8 / 9's ("Failed to set value '0:a:0' for option 'map'")
+  if (!m) return /Stream map '0:a:0' matches no streams|does not contain any stream|value '0:a:0' for option 'map'/i.test(r.stderr) ? -Infinity : null;
   return m[1] === "-inf" ? -Infinity : Number(m[1]);
 }
 async function pool(items, fn) {
@@ -95,19 +98,22 @@ async function check(o) {
   }
   if (plan.audio.length) {
     let silent = o.silent;
-    if (silent == null) silent = o.mix ? await soundPeak(o.ffmpeg, o.mix).then((db) => db != null && db < QUIET_DB) : true;
+    // a mix that can't be read is not known to have sound: the sources are read
+    if (silent == null) silent = o.mix ? await soundPeak(o.ffmpeg, o.mix).then((db) => db == null || db < QUIET_DB) : true;
     if (silent) {
       const seen = new Map();
       for (const p of plan.audio) { const f = o.resolve(p.src); if (f) seen.set(f + "\0" + p.at.toFixed(3), [f, p.at, p.dur]); }
       const peaks = await pool([...seen.values()], ([f, at, dur]) => soundPeak(o.ffmpeg, f, at, dur));
-      sound = peaks.some((db) => db != null && db > QUIET_DB);
+      // a source that couldn't be read never counts as silent (MC-14): the export can't be shown to be right
+      sound = peaks.some((db) => db == null || db > QUIET_DB);
     }
   }
   const lost = [], quiet = [];
   const silent = plan.silent || [];
   if (silent.length) {
     const peaks = await pool(silent, (p) => { const f = o.resolve(p.src); return f ? soundPeak(o.ffmpeg, f, p.at, p.dur) : null; });
-    silent.forEach((p, i) => (peaks[i] != null && peaks[i] > QUIET_DB ? lost : quiet).push(p.n));
+    // sound there, or its file couldn't be read: lost — never "silent in its file too"
+    silent.forEach((p, i) => (peaks[i] == null || peaks[i] > QUIET_DB ? lost : quiet).push(p.n));
   }
   return { ok: !picture && !sound && !lost.length, picture, sound, lost, quiet, ms: Date.now() - t0 };
 }
