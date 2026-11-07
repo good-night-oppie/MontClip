@@ -84,12 +84,13 @@ const DECODE_STRICT = ["-err_detect", "explode", "-xerror"];
 const DAMAGED = /error while decoding|invalid data found|corrupt|concealing|decode_slice_header error|no frame!|missing picture|illegal|non-existing (pps|sps)|error (in|decoding) (channel|frame|element)|Reserved bit set|Prediction is not allowed|Number of bands|Input buffer exhausted/i;
 const damaged = (error) => !error.missingTool && error.code !== "ENOSPC" && DAMAGED.test(String(error.stderr || ""));
 /** Every break goes to the log; small drops go nowhere else but a faint mark on the timeline. On stderr: the MCP
- *  server speaks JSON-RPC on stdout. */
-function logGaps(file, range, fixing) {
-  if (range.drifting) console.error(`[MontClip] FLV ${path.basename(file)}: picture and sound move ${Math.round(range.drift * 1000)} ms apart during the recording (imported on its own clock)`);
+ *  server speaks JSON-RPC on stdout. The log names an import only by a random id made for it: never the file's name
+ *  or path — a streamer's recording is often named after their account or nickname (QQ's review of #130). */
+function logGaps(importId, range, fixing) {
+  if (range.drifting) console.error(`[MontClip] FLV import ${importId}: picture and sound move ${Math.round(range.drift * 1000)} ms apart during the recording (imported on its own clock)`);
   if (!range.gaps.length) return;
   const at = (s) => `${Math.floor(s / 60)}:${(s % 60).toFixed(3).padStart(6, "0")}`;
-  console.error(`[MontClip] FLV ${path.basename(file)}: ${range.gaps.length} break(s)` + (fixing ? ` (converted: ${range.fix.join(", ") || "asked"})` : " (imported as is)") +
+  console.error(`[MontClip] FLV import ${importId}: ${range.gaps.length} break(s)` + (fixing ? ` (converted: ${range.fix.join(", ") || "asked"})` : " (imported as is)") +
     " — " + range.gaps.map((g) => `${g.stream} ${at(g.at)} +${Math.round(g.len * 1000)}ms`).join(", "));
 }
 /** A conversion's time limit: 1.5 × the recording's length, at least 15 minutes, in whole ms — execFile refuses a
@@ -152,7 +153,7 @@ async function prepareMedia(file, { allowTranscode = false, acceptReadable = fal
   const pick = async () => (encoders ??= [].concat(await (chooseEncoder || usableH264)()).filter(Boolean));
   if (reencode && !(await pick()).length) throw failure("FLV_ENCODER_MISSING", originalSrc);
   const fixing = range.fix.length > 0 || fixGaps === true, strict = fixing || reencode;
-  logGaps(file, range, fixing);
+  logGaps(randomUUID().slice(0, 8), range, fixing);
   const out = path.join(path.dirname(file), "compat-" + randomUUID() + ".mp4");
   const part = out + ".part.mp4";
   const progress = onProgress ? ["-progress", "pipe:1", "-stats_period", "1"] : [];
