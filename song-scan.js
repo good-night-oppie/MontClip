@@ -5,7 +5,9 @@
  * zero-crossing rate (the prototype's features; songs.js uses the level). The file is read in segments of SEGMENT
  * seconds and each finished segment is kept at once in analysis/songs/<file version>/, so a scan that is stopped (or
  * crashes) carries on from the first segment not read yet. The version is the file's name, size and modification time:
- * a replaced file is read again. One ffmpeg at a time per file; it is stopped with the scan. */
+ * a replaced file is read again. One ffmpeg at a time per file; it is stopped with the scan.
+ * `track` is which audio stream (media entry's audioTrack, 0 = the first): another stream is another key, and stream 0
+ * keeps the key it always had, so what was read before is still used. */
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -24,9 +26,10 @@ const stopped = () => Object.assign(new Error("the song scan was stopped; run it
 
 function createSongScan({ dir, ffmpeg = require("./ffmpeg-path").path("ffmpeg") }) {
   const running = new Map();
-  const keyOf = (file) => {
+  const keyOf = (file, track = 0) => {
     const st = fs.statSync(file);
-    return crypto.createHash("sha256").update(path.basename(file) + "\0" + st.size + "\0" + Math.round(st.mtimeMs)).digest("hex").slice(0, 32);
+    return crypto.createHash("sha256").update(path.basename(file) + "\0" + st.size + "\0" + Math.round(st.mtimeMs) + (track > 0 ? "\0a" + track : ""))
+      .digest("hex").slice(0, 32);
   };
   const folder = (key) => path.join(dir, key);
   const segFile = (key, i) => path.join(folder(key), String(i).padStart(4, "0") + ".json");
@@ -48,16 +51,16 @@ function createSongScan({ dir, ffmpeg = require("./ffmpeg-path").path("ffmpeg") 
     for (let s; (s = readSeg(key, i)); i++) { rows.push(...s.rows); if (s.last) { complete = true; i++; break; } }
     return { done: i, complete, rows };
   }
-  function cached(file) {
-    const s = stored(keyOf(file));
+  function cached(file, track = 0) {
+    const s = stored(keyOf(file, track));
     return { done: s.done, complete: s.complete, scanned: Math.round(s.rows.length * STEP * 1000) / 1000 };
   }
   /* One ffmpeg from segment `from` to the end of the file; each full segment is written as soon as it is read. */
-  function read(file, key, from, { signal, onSegment }) {
+  function read(file, key, from, { signal, onSegment, track = 0 }) {
     return new Promise((resolve, reject) => {
       if (signal && signal.aborted) return reject(stopped());
       const proc = spawn(ffmpeg, ["-v", "error", "-nostdin", ...(from ? ["-ss", String(from * SEGMENT)] : []), "-i", file,
-        "-vn", "-map", "0:a:0", "-af", FILTER, "-f", "null", "-"], { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+        "-vn", "-map", "0:a:" + track, "-af", FILTER, "-f", "null", "-"], { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
       let seg = from, rows = [], row = null, buf = "", err = "", aborted = false, failed = null;
       const onAbort = () => { aborted = true; proc.kill(); };
       if (signal) signal.addEventListener("abort", onAbort, { once: true });
@@ -102,12 +105,12 @@ function createSongScan({ dir, ffmpeg = require("./ffmpeg-path").path("ffmpeg") 
     });
   }
   /** Read what is not read yet, then answer every row: {key, step, keys, rows, complete, scanned}. */
-  async function scan(file, { signal, onSegment } = {}) {
-    const key = keyOf(file);
+  async function scan(file, { signal, onSegment, track = 0 } = {}) {
+    const key = keyOf(file, track);
     while (running.has(key)) { try { await running.get(key); } catch { } }   // one reader per file version
     const job = (async () => {
       const have = stored(key);
-      if (!have.complete) await read(file, key, have.done, { signal, onSegment });
+      if (!have.complete) await read(file, key, have.done, { signal, onSegment, track });
     })();
     running.set(key, job);
     try { await job; } finally { if (running.get(key) === job) running.delete(key); }
@@ -115,12 +118,12 @@ function createSongScan({ dir, ffmpeg = require("./ffmpeg-path").path("ffmpeg") 
     return { key, step: STEP, keys: KEYS.slice(), rows: s.rows, complete: s.complete, scanned: Math.round(s.rows.length * STEP * 1000) / 1000 };
   }
   /** What has been read so far, without reading more: {key, step, keys, rows, complete, scanned, done}. */
-  function load(file) {
-    const key = keyOf(file), s = stored(key);
+  function load(file, track = 0) {
+    const key = keyOf(file, track), s = stored(key);
     return { key, step: STEP, keys: KEYS.slice(), rows: s.rows, complete: s.complete, scanned: Math.round(s.rows.length * STEP * 1000) / 1000, done: s.done };
   }
   /** Forget what was read of this file (to read it again). */
-  function forget(file) { fs.rmSync(folder(keyOf(file)), { recursive: true, force: true }); }
+  function forget(file, track = 0) { fs.rmSync(folder(keyOf(file, track)), { recursive: true, force: true }); }
   return { scan, cached, load, forget, keyOf, STEP, SEGMENT };
 }
 module.exports = { createSongScan, STEP, SEGMENT, KEYS };
