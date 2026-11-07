@@ -77,8 +77,8 @@ BrowserWindow.prototype.loadURL=async function(...args){
   assert.equal(b1.focus,null,'no approve button is focused');
   await read(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:' ',bubbles:true}));true`);await wait(200);
   assert.ok(await read(`!!document.querySelector('[data-host-card="approval"] [data-host-choice="once"]')`),'a stray Space approves nothing — the card still waits');
-  // v7.2 §2, step 3: a card in the message stream, not a box over the page; 「等你点头」 above the input, nothing can be sent
-  assert.equal(b1.inStream,true,'the card is in the stream');assert.equal(b1.dialogs,0,'no box over the page');assert.equal(b1.waiting,'等你点头');
+  // v7.2 §2, step 3: a card in the message stream, not a box over the page; 「等你决定」 above the input, nothing can be sent
+  assert.equal(b1.inStream,true,'the card is in the stream');assert.equal(b1.dialogs,0,'no box over the page');assert.equal(b1.waiting,'等你决定');
   assert.equal(await read(`document.querySelector('.cindy-send button').disabled`),true,'nothing can be sent while the card waits');
   await shot('approval-manual');
   report.manualCard=await read(`(()=>{const c=document.querySelector('[data-host-card="approval"]'),r=c.getBoundingClientRect();let top=r.top,bottom=r.bottom;for(let p=c.parentElement;p;p=p.parentElement){const s=getComputedStyle(p);if(s.overflowY!=='visible'){const q=p.getBoundingClientRect();top=Math.max(top,q.top);bottom=Math.min(bottom,q.bottom);}}return{h:Math.round(r.height),visible:Math.round(Math.max(0,Math.min(bottom,innerHeight)-Math.max(top,0))),size:[innerWidth,innerHeight]};})()`);

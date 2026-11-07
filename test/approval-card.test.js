@@ -122,8 +122,8 @@ test('settled by the host, not clicked: the line says what happened, not 「你�
 
 test('what the card says: what changes, the sentence under it, the buttons; answered, one line (zh-CN and en, for JJ)', () => {
   const words = {
-    'zh-CN': { title: 'AI 想做这一步', once: '只批准这次', session: '这个聊天中都批准', deny: '不同意', done: ['✓ 你批准了这一次', '✓ 这个聊天中你都批准了', '你没有同意，这一步没有做'], waiting: '等你点头' },
-    en: { title: 'The AI wants to do this step', once: 'Allow this once', session: 'Allow for this chat', deny: "Don't allow", done: ['✓ You allowed this once', '✓ You allowed this for this chat', "You didn't allow it; this step was not done"], waiting: 'Waiting for your answer' },
+    'zh-CN': { title: 'AI 想做这一步', once: '只批准这次', session: '这个聊天中都批准', deny: '不同意', done: ['✓ 你批准了这一次', '✓ 这个聊天中，这类修改你都批准了', '你没有同意，这一步没有做'], waiting: '等你决定' },
+    en: { title: 'The AI wants to do this step', once: 'Allow this once', session: 'Allow for this chat', deny: "Don't allow", done: ['✓ You allowed this once', '✓ You allowed this kind of change for this chat', "You didn't allow it; this step was not done"], waiting: 'Waiting for your decision' },
   };
   for (const [lang, w] of Object.entries(words)) {
     const cards = Approval.create(), r = {};
@@ -134,6 +134,12 @@ test('what the card says: what changes, the sentence under it, the buttons; answ
     a.deepEqual(c.more, []);
     ['once', 'session', 'deny'].forEach((k, i) => a.equal(View.t(lang, 'own.ap-done-' + k), w.done[i]));
     a.equal(View.text[lang].officialPane_approvalWaiting, w.waiting);
+    // JJ finalized 2026-11-07 (#120): all six lines, both languages. stale and left must not say 「你没有同意」.
+    for (const key of ['once', 'session', 'deny', 'stale', 'left']) a.equal(View.t(lang, 'own.ap-done-' + key), {
+      'zh-CN': { once: '✓ 你批准了这一次', session: '✓ 这个聊天中，这类修改你都批准了', deny: '你没有同意，这一步没有做', stale: '项目改过了，这一步没有做', left: '你离开了这个聊天，这一步没有做' },
+      en: { once: '✓ You allowed this once', session: '✓ You allowed this kind of change for this chat', deny: "You didn't allow it; this step was not done", stale: 'The project changed; this step was not done', left: 'You left this chat; this step was not done' },
+    }[lang][key]);
+    a.ok(!View.t(lang, 'own.ap-done-stale').includes('你没有同意') && !View.t(lang, 'own.ap-done-left').includes('你没有同意'));
   }
   // a step that sends something out: where to, what is sent, and (no 都批准) that it asks every time
   const cards = Approval.create(), r = {};
