@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "reviewer": "GoodNightOppie",
+  "allowReviewHistory": true,
+  "sharedAccounts": [
+    "EdwardTang",
+    "GoodNightOppie",
+    "good-night-oppie"
+  ],
+  "repositories": {
+    "good-night-oppie/MontClip": {
+      "av": [
+        "export*.js",
+        "render*.js",
+        "compositor*.js",
+        "clip*.js",
+        "timeline*.js",
+        "trim*.js",
+        "segment-edits.js",
+        "sequences.js",
+        "reframe.js",
+        "ffmpeg*.js",
+        "media*.js",
+        "desktop/ffmpeg*.js",
+        "desktop/repair*.js",
+        "desktop/desktop-export*.js",
+        "server.js",
+        "audio*.js",
+        "auto-slices.js",
+        "range-plan.js",
+        "retime.js",
+        "silence.js",
+        "desktop/*export*",
+        "desktop/*ffmpeg*",
+        "desktop/*repair*",
+        "desktop/*flv*",
+        "plugins/montclip-cindy/node/**",
+        "plugins/montclip-cindy/embed/*.js",
+        "plugins/montclip-cindy/main*.js",
+        "plugins/montclip-cindy/frame*.js",
+        "plugins/montclip-cindy/build.cjs",
+        "app.js",
+        "flv*.js",
+        "proxy*.js",
+        "denoise*.js",
+        "mcp-server.js"
+      ],
+      "outbound": [
+        "agent*.js",
+        "external-limits.js",
+        "import-url*.js",
+        "transcribe.js",
+        "desktop/agent*.js",
+        "desktop/asr*.js",
+        "desktop/asr*.json",
+        "desktop/*download*.js",
+        "desktop/*fetch*.cjs",
+        "desktop/main.js",
+        ".github/workflows/pr-sop.yml",
+        "server.js",
+        "desktop/*consent*",
+        "plugins/montclip-cindy/node/**",
+        "plugins/montclip-cindy/main.js",
+        "plugins/montclip-cindy/build.cjs",
+        "app.js",
+        "bgremove-assets.js",
+        "docs/main.js",
+        "docs/validation/2026-11-02-h264/sync-mf.cjs",
+        "docs/validation/2026-11-02-keepalive-race.cjs",
+        "docs/validation/2026-11-03-server-memory/mem-repro.cjs",
+        "docs/validation/2026-11-03-server-memory/mem-upload.cjs",
+        "mcp-server.js",
+        "real-tests/bgremove-assets-byte-audit.cjs",
+        "real-tests/bgremove-consent-browser-smoke.cjs",
+        "real-tests/draft-existing-loop.cjs",
+        "real-tests/font-consent-browser-smoke.cjs",
+        "real-tests/openrouter.integration.cjs",
+        "real-tests/run-deepseek-e2e.cjs",
+        "scripts/readme-demo/mcp-call.cjs",
+        "scripts/readme-demo/generate-assets.py",
+        "scripts/pr-sop/*.mjs"
+      ],
+      "exclude": [
+        "docs/demo/**"
+      ],
+      "outboundExclude": [
+        "test/**",
+        "desktop/*-smoke.cjs",
+        "desktop/*-perf.cjs",
+        "desktop/m0-smoke.js",
+        "scripts/readme-demo/montclip_session.py",
+        "real-tests/privacy-runtime.cjs"
+      ]
+    },
+    "good-night-oppie/MontClip-Cindy": {
+      "av": [
+        "node/lib.cjs",
+        "node/worker.cjs",
+        "embed/panel*.js",
+        "main.js",
+        "frame.js",
+        "build.cjs",
+        "engine"
+      ],
+      "outbound": [
+        "node/lib.cjs",
+        "node/worker.cjs",
+        "main.js",
+        "build.cjs",
+        "ffmpeg-banner.js",
+        ".github/workflows/pr-sop.yml",
+        "engine",
+        "scripts/pr-sop/*.mjs",
+        "embed/panel.js",
+        "frame.js",
+        "main-view.js",
+        "test-tools/panel-e2e.cjs",
+        "test-tools/panel-play-e2e.cjs",
+        "test/packed.test.cjs"
+      ]
+    }
+  }
+}

@@ -45,6 +45,8 @@
     { "name": "fablecut_songs", "description": "Find where each song in a long recording starts and ends, from the sound alone, with the guessed spots marked; kept in the project" },
     { "name": "fablecut_transcribe", "description": "Transcribe speech word by word in the browser, read it on the timeline, find a phrase and cut it out (text-based editing)" },
     { "name": "fablecut_captions", "description": "Make captions from the transcript (subtitle, karaoke, word highlight, word pop), timed word by word; export or import SRT / WebVTT" },
+    { "name": "fablecut_lyrics", "description": "Line up lyrics the user pasted with the singing, on this computer: a proposal only, each line with its time, whether it matched and how sure" },
+    { "name": "fablecut_lyrics_apply", "description": "Put a lyrics proposal on a new caption track after the user agrees on the editor's card; unmatched lines grey; one undo step" },
     { "name": "fablecut_danmaku", "description": "Import, list or remove a Bilibili recording's danmaku (录播姬 or Bilibili XML, read as a stream); the highlight candidates use them" },
     { "name": "fablecut_repair_media", "description": "Fix an incomplete recording as a new MP4 and replace its project reference; start, poll or cancel the background job" },
     { "name": "fablecut_proxy", "description": "Make, check or delete proxies: light copies of heavy footage the editor plays while editing (export always uses the originals)" },

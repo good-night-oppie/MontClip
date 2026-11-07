@@ -20,7 +20,7 @@
        "description": "能撤销的直接做，撤不回的先问你。"
       },
       "bypassPermissions": {
-       "label": "Yolo",
+       "label": "全自动",
        "description": "每一步都直接做，不问你；往外发的内容照样先给你看。打开前会再确认一次。"
       }
      }
@@ -59,7 +59,7 @@
        "description": "Does what can be undone; asks before what can't."
       },
       "bypassPermissions": {
-       "label": "Yolo",
+       "label": "Full auto",
        "description": "Does every step without asking you; anything sent out is still shown to you first. You'll be asked once more before it turns on."
       }
      }

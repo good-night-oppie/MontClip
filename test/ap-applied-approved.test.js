@@ -57,7 +57,7 @@ test('2. allowed earlier for this chat, not asked again: 「…你在这个聊�
 });
 
 test('3. run by 自动 / Yolo without asking: the old line, 「已按 AI 的建议改好，没有问你（{mode}模式）。可以撤销。」',async()=>{
- for(const [mode,name] of [['auto','自动'],['yolo','Yolo']]){
+ for(const [mode,name] of [['auto','自动'],['yolo','全自动']]){
   const r=await reply(await hostIn(mode),{mode});
   a.equal(r.asked,0);a.equal(r.commits,1);a.deepEqual(r.toasts,['已按 AI 的建议改好，没有问你（'+name+'模式）。可以撤销。']);
  }
@@ -84,6 +84,7 @@ test('a new approval box takes the last toast away first',async()=>{
  vm.createContext(ctx);vm.runInContext('var toastTimer=7;var toastHold={stop:()=>stopped.push(1)};'+fnSync('dismissToast'),Object.assign(ctx,{stopped}));
  ctx.dismissToast();
  a.equal(classes.size,0,'the toast is hidden, its button too');a.deepEqual(cleared,[7],'its timer stopped');a.equal(stopped.length,1,'its hold stopped');
- const box=fnSync('askAgentApproval');
- a.ok(box.indexOf('dismissToast();')>=0&&box.indexOf('dismissToast();')<box.indexOf('new Promise'),'before the box is shown');
+ // since #120 the approval is a card in the message stream (agentApprovals.ask), no longer a box over the page
+ const line=src.slice(src.indexOf('function askAgentApproval('),src.indexOf('\n',src.indexOf('function askAgentApproval(')));
+ a.ok(line.indexOf('dismissToast();')>=0&&line.indexOf('dismissToast();')<line.indexOf('agentApprovals.ask('),'before the card is shown');
 });

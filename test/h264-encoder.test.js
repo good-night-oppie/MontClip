@@ -78,8 +78,9 @@ test('the local FFmpeg only ever encodes an H.264 export; preview, decoding and 
  for(const f of ['proxy.js','denoise.js','analyze.js','media-probe.js','import-url.js','mcp-server.js'])a.ok(!/external-ffmpeg|externalFfmpeg/.test(fs.readFileSync(path.join(ROOT,f),'utf8')),f);
 });
 
-test('no H.264 encoder at all: a plain reason, and Windows N is pointed at the Media Feature Pack',()=>{
- a.match(X.noH264Reason({platform:'win32',mediaFoundation:false}),/Media Feature Pack/);
+// The Windows "N" / Media Feature Pack line was a guess; JJ (2026-11-04, #129) took it out until it is checked.
+test('no H.264 encoder at all: a plain reason, and no unchecked Media Feature Pack guess',()=>{
+ a.ok(!/Media Feature Pack/.test(X.noH264Reason({platform:'win32',mediaFoundation:false})));
  const w=X.noH264Reason({platform:'win32',mediaFoundation:true});a.ok(!/Media Feature Pack/.test(w));a.match(w,/H\.264/);
  a.match(X.noH264Reason({platform:'linux'}),/H\.264/);
 });
@@ -93,7 +94,11 @@ test('server: without a local FFmpeg, libx264 profiles are refused in plain word
  a.deepEqual(st.external,{ok:false,code:'none'});a.ok(!st.encoders.includes('libx264'));
  if(st.encoder)a.equal(st.reason,null);else a.match(st.reason.code,/^h264None(Win|Other)$/);
  const r=await fetch(base+'/api/export/begin',{method:'POST',body:JSON.stringify({fps:30,name:'x',profile:'draft',hasAudio:false})});
- a.equal(r.status,400);const j=await r.json();a.match(j.error,/libx264 is only available from your own FFmpeg/);a.equal(j.code,'extNeeded');
+ a.equal(r.status,400);const j=await r.json();
+ // with no H.264 encoder at all (Linux CI: LGPL build, no graphics card) the reason is that, not x264 alone
+ // (both branches pinned in test/export-h264-precheck.test.js with MONTCLIP_TEST_NO_H264)
+ if(st.encoder){a.match(j.error,/libx264 is only available from your own FFmpeg/);a.equal(j.code,'extNeeded');}
+ else{a.equal(j.code,st.reason.code);a.match(j.error,/no H\.264 encoder/);}
 });
 
 test('desktop: the path comes only from the main-process file dialog and is stored by the main process',()=>{

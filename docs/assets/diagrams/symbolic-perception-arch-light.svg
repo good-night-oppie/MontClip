@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <rect x="0" y="0" width="1280" height="720" fill="#F8FAFC"/>
+
+  <!-- Title -->
+  <text x="60" y="68" font-family="Helvetica, Arial, sans-serif" font-size="34" font-weight="700" fill="#090D16">Inspect first. Request images when needed.</text>
+  <text x="60" y="100" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#475569">State first, images on demand</text>
+  <line x1="60" y1="118" x2="1220" y2="118" stroke="#090D16" stroke-width="1.5"/>
+
+  <!-- Agent -->
+  <rect x="60" y="140" width="200" height="140" fill="#FFFFFF" stroke="#090D16" stroke-width="2"/>
+  <text x="80" y="180" font-family="Helvetica, Arial, sans-serif" font-size="26" font-weight="700" fill="#090D16">Agent</text>
+  <text x="80" y="210" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#334155">Reads state first</text>
+  <text x="80" y="232" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#334155">Plans and patches</text>
+  <text x="80" y="254" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#334155">Asks for frames</text>
+
+  <!-- Agent <-> MCP arrows -->
+  <line x1="262" y1="198" x2="328" y2="198" stroke="#090D16" stroke-width="2"/>
+  <polygon points="338,198 326,192 326,204" fill="#090D16"/>
+  <text x="300" y="188" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#334155">call</text>
+  <line x1="338" y1="226" x2="272" y2="226" stroke="#3B82F6" stroke-width="2"/>
+  <polygon points="262,226 274,220 274,232" fill="#3B82F6"/>
+  <text x="300" y="248" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#3B82F6">summary</text>
+
+  <!-- MCP state inspection -->
+  <rect x="340" y="140" width="400" height="140" fill="#FFFFFF" stroke="#090D16" stroke-width="2"/>
+  <rect x="340" y="140" width="8" height="140" fill="#3B82F6"/>
+  <text x="364" y="176" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#090D16">MCP state inspection</text>
+  <text x="364" y="214" font-family="Menlo, Consolas, monospace" font-size="15" fill="#090D16">fablecut_get_project {compact:true}</text>
+  <text x="364" y="248" font-family="Menlo, Consolas, monospace" font-size="15" fill="#090D16">fablecut_patch_project</text>
+
+  <!-- MCP <-> Timeline arrows -->
+  <line x1="742" y1="198" x2="808" y2="198" stroke="#090D16" stroke-width="2"/>
+  <polygon points="818,198 806,192 806,204" fill="#090D16"/>
+  <text x="780" y="188" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#334155">patch</text>
+  <line x1="818" y1="226" x2="752" y2="226" stroke="#3B82F6" stroke-width="2"/>
+  <polygon points="742,226 754,220 754,232" fill="#3B82F6"/>
+  <text x="780" y="248" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#3B82F6">read</text>
+
+  <!-- Symbolic timeline -->
+  <rect x="820" y="140" width="400" height="140" fill="#FFFFFF" stroke="#090D16" stroke-width="2"/>
+  <text x="840" y="170" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#090D16">Symbolic timeline</text>
+  <text x="840" y="196" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#64748B">V2</text>
+  <text x="840" y="220" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#64748B">V1</text>
+  <text x="840" y="244" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#64748B">A1</text>
+  <rect x="870" y="185" width="90" height="14" fill="#3B82F6"/>
+  <rect x="1010" y="185" width="120" height="14" fill="#3B82F6"/>
+  <rect x="870" y="209" width="150" height="14" fill="#3B82F6"/>
+  <rect x="1026" y="209" width="170" height="14" fill="#3B82F6"/>
+  <rect x="870" y="233" width="326" height="14" fill="#BFDBFE"/>
+  <line x1="1060" y1="180" x2="1060" y2="252" stroke="#090D16" stroke-width="2"/>
+  <polygon points="1054,178 1066,178 1060,186" fill="#090D16"/>
+  <text x="840" y="270" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#334155">Clips, times and layers as data</text>
+
+  <!-- Branch on visual uncertainty -->
+  <line x1="540" y1="282" x2="540" y2="296" stroke="#F59E0B" stroke-width="2"/>
+  <rect x="410" y="296" width="260" height="32" fill="#FFFFFF" stroke="#F59E0B" stroke-width="2"/>
+  <text x="540" y="317" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#090D16">Only on visual uncertainty</text>
+  <line x1="540" y1="328" x2="540" y2="346" stroke="#F59E0B" stroke-width="2"/>
+  <line x1="500" y1="346" x2="870" y2="346" stroke="#F59E0B" stroke-width="2"/>
+  <line x1="500" y1="346" x2="500" y2="360" stroke="#F59E0B" stroke-width="2"/>
+  <polygon points="500,370 494,358 506,358" fill="#F59E0B"/>
+  <line x1="870" y1="346" x2="870" y2="360" stroke="#F59E0B" stroke-width="2"/>
+  <polygon points="870,370 864,358 876,358" fill="#F59E0B"/>
+
+  <!-- Contact sheet -->
+  <rect x="330" y="370" width="340" height="120" fill="#FFFFFF" stroke="#090D16" stroke-width="2"/>
+  <text x="346" y="396" font-family="Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#090D16">Contact sheet</text>
+  <text x="346" y="420" font-family="Menlo, Consolas, monospace" font-size="14" fill="#090D16">fablecut_frame {path,frames,from,to}</text>
+  <rect x="346" y="436" width="44" height="40" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5"/>
+  <rect x="398" y="436" width="44" height="40" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5"/>
+  <rect x="450" y="436" width="44" height="40" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5"/>
+  <rect x="502" y="436" width="44" height="40" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5"/>
+  <rect x="554" y="436" width="44" height="40" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5"/>
+  <rect x="606" y="436" width="44" height="40" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5"/>
+
+  <!-- Selected source frame -->
+  <rect x="700" y="370" width="340" height="120" fill="#FFFFFF" stroke="#090D16" stroke-width="2"/>
+  <text x="716" y="396" font-family="Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#090D16">Selected source frame</text>
+  <text x="716" y="420" font-family="Menlo, Consolas, monospace" font-size="14" fill="#090D16">fablecut_frame {path,t}</text>
+  <rect x="716" y="434" width="76" height="44" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5"/>
+  <line x1="722" y1="440" x2="734" y2="440" stroke="#F59E0B" stroke-width="2.5"/>
+  <line x1="722" y1="440" x2="722" y2="450" stroke="#F59E0B" stroke-width="2.5"/>
+  <line x1="786" y1="472" x2="774" y2="472" stroke="#F59E0B" stroke-width="2.5"/>
+  <line x1="786" y1="472" x2="786" y2="462" stroke="#F59E0B" stroke-width="2.5"/>
+  <text x="806" y="452" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#334155">One frame at time t</text>
+  <text x="806" y="472" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#334155">for a precise check</text>
+
+  <!-- Return arrows to Agent -->
+  <line x1="330" y1="418" x2="190" y2="418" stroke="#F59E0B" stroke-width="2"/>
+  <line x1="190" y1="418" x2="190" y2="294" stroke="#F59E0B" stroke-width="2"/>
+  <polygon points="190,284 184,296 196,296" fill="#F59E0B"/>
+  <line x1="870" y1="490" x2="870" y2="506" stroke="#F59E0B" stroke-width="2"/>
+  <line x1="870" y1="506" x2="130" y2="506" stroke="#F59E0B" stroke-width="2"/>
+  <line x1="130" y1="506" x2="130" y2="294" stroke="#F59E0B" stroke-width="2"/>
+  <polygon points="130,284 124,296 136,296" fill="#F59E0B"/>
+  <text x="200" y="408" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#B45309">images back</text>
+  <text x="60" y="320" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#B45309">visual</text>
+  <text x="60" y="336" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#B45309">results</text>
+
+  <!-- Local processing note -->
+  <rect x="1070" y="370" width="150" height="120" fill="#FFFFFF" stroke="#EF4444" stroke-width="2"/>
+  <text x="1084" y="394" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#EF4444">Runs locally</text>
+  <text x="1084" y="414" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#090D16">FFmpeg</text>
+  <text x="1084" y="432" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#090D16">Browser compositor</text>
+  <line x1="1084" y1="444" x2="1206" y2="444" stroke="#FCA5A5" stroke-width="1"/>
+  <text x="1084" y="462" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#090D16">External AI</text>
+  <text x="1084" y="480" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#090D16">service: optional</text>
+
+  <!-- Bottom comparison -->
+  <rect x="60" y="522" width="560" height="114" fill="#FFFFFF" stroke="#090D16" stroke-width="1.5"/>
+  <text x="80" y="550" font-family="Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#090D16">Full-frame sampling</text>
+  <text x="80" y="572" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#475569">Image evidence throughout</text>
+  <rect x="80" y="586" width="36" height="34" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1"/>
+  <rect x="124" y="586" width="36" height="34" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1"/>
+  <rect x="168" y="586" width="36" height="34" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1"/>
+  <rect x="212" y="586" width="36" height="34" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1"/>
+  <rect x="256" y="586" width="36" height="34" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1"/>
+  <rect x="300" y="586" width="36" height="34" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1"/>
+  <rect x="344" y="586" width="36" height="34" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1"/>
+  <rect x="388" y="586" width="36" height="34" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1"/>
+  <rect x="432" y="586" width="36" height="34" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1"/>
+  <rect x="476" y="586" width="36" height="34" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1"/>
+  <rect x="520" y="586" width="36" height="34" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1"/>
+  <rect x="564" y="586" width="36" height="34" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1"/>
+
+  <rect x="660" y="522" width="560" height="114" fill="#FFFFFF" stroke="#090D16" stroke-width="1.5"/>
+  <text x="680" y="550" font-family="Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#090D16">MontClip workflow</text>
+  <text x="680" y="572" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#475569">State summary, then selected images</text>
+  <rect x="680" y="586" width="320" height="34" fill="#3B82F6"/>
+  <text x="696" y="608" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#FFFFFF">State summary</text>
+  <line x1="1006" y1="603" x2="1040" y2="603" stroke="#090D16" stroke-width="2"/>
+  <polygon points="1050,603 1038,597 1038,609" fill="#090D16"/>
+  <rect x="1060" y="586" width="36" height="34" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5"/>
+  <rect x="1106" y="586" width="36" height="34" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.5"/>
+  <text x="1154" y="608" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#B45309">if needed</text>
+
+  <!-- Footer notes -->
+  <text x="60" y="668" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#090D16">No token or latency benchmark claimed.</text>
+  <text x="60" y="690" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#334155">Local FFmpeg and browser compositor; external AI service is optional. Frames are rendered locally; interpreting them is up to the agent's model.</text>
+</svg>

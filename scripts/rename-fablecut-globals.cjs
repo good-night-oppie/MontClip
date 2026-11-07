@@ -62,6 +62,7 @@ const EXCLUDE_FILES = new Set([
   'docs/en/start/index.html',
   'docs/i18n/README.zh-CN.md',
   'test/fixtures/montclip-public-copy-v1.md',
+  'test/fixtures/montclip-public-copy-v2.md', // v1 + README cover and diagrams (JJ, 2026-11-07)
 ]);
 
 // Licence and notice files credit the upstream by name; never rewritten.
