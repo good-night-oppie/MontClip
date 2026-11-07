@@ -76,6 +76,7 @@
         "real-tests/font-consent-browser-smoke.cjs",
         "real-tests/openrouter.integration.cjs",
         "real-tests/run-deepseek-e2e.cjs",
+        "scripts/readme-demo/mcp-call.cjs",
         "scripts/pr-sop/*.mjs"
       ],
       "exclude": [
