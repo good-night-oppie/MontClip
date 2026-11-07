@@ -9,7 +9,7 @@ demo cover (decision by Deja, 2026-11-07; this replaces the earlier note that th
 |---|---|
 | `diagrams/symbolic-perception-arch-{dark,light}.svg` | Written as SVG text by `anthropic/claude-opus-5.5` through the OpenRouter chat API with `scripts/readme-demo/generate-assets.py`, then one line edited by hand: the subtitle now reads "State first, images on demand" (JJ, 2026-11-07). |
 | `diagrams/flv-input-checks-{dark,light}.svg` | Generated the same way, then edited by hand: the "proposed" half was removed and the notes were checked against the code at d51b27a. |
-| `demo/readme-demo-cover.png` | Synthetic image supplied by the repository owner on 2026-11-07 to replace the earlier cover (a frame of the 22 s demo video). Scaled to 1280×720; the original is 2048×1154, sha256 `4128ed3337ef0ca2baae0c09b565b20e88d5c3126ee7b411c1e0d863b1fb0842`. It is not a frame of the demo video and not MontClip output; how it was generated and under which terms is not recorded yet. |
+| `demo/readme-demo-cover.png` | One frame (t = 2.0 s) of the synthetic 22 s demo video built by `scripts/readme-demo/build.sh` at `cdc3aea1`; the video passed the six acceptance gates (`report.json` sha256 `e431ede66f27e9208b72001055881c3461324a3b22299e2c4d9fc27fce597cec`). The frame shows the synthetic / placeholder notices. |
 
 The four SVGs in `diagrams/` are released under the MIT License, the same license as this repository
 (see `LICENSE`), as decided by Deja on 2026-11-06 (recorded in the PR #187 discussion).
