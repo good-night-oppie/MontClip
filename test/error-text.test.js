@@ -1,6 +1,6 @@
 'use strict';
-// Deja, 2026-11-04 (decision B), in JJ's final words: 错误白话表 v2 (europa ~/montclip-labels/jj/
-// 2026-11-04-错误白话表-默认条数-发到手机-JJ.md, sha256 d99c25d114f865bd6388bc98822b04308f6ca96c3e3ac02a802dd92cc736cb13).
+// Deja, 2026-11-04 (decision B), in JJ's final words: 错误白话表 v2
+// (2026-11-04-错误白话表-默认条数-发到手机-JJ.md, sha256 d99c25d114f865bd6388bc98822b04308f6ca96c3e3ac02a802dd92cc736cb13).
 // Every failure the streamer sees goes through MontClipView.errorText: what happened, then what she can do now. Raw errors,
 // codes and English go to the log only; 〔复制问题信息〕 copies that line with viewers, keys and user folders taken out.
 // The rows this PR owns are locked word for word. (FLV gaps / conversion rows: #130; the export "no encoder" row: #125.)

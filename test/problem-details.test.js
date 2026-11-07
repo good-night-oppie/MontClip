@@ -10,13 +10,13 @@ const R = require("../problem-redact");
 const V = require("../ui-preferences");
 const { makeDataDir, seedProject, startServer } = require("./helpers");
 
-// a computer user "alice"; her files, account, keys and tokens, in a raw error with a call stack
+// a computer user "someone"; her files, account, keys and tokens, in a raw error with a call stack
 const LOG = [
-  `Error: probe C:\\Users\\alice\\Videos\\直播 录像\\小梨生日会.flv failed: Invalid data found when processing input`,
-  `open "D:\\OBS Rec\\2026-11-04 20-00.mkv" and /home/alice/rec/b.flv and /Users/alice/Movies/c.mov and \\\\NAS-01\\share\\x.mp4`,
-  `    at Object.<anonymous> (C:\\Users\\alice\\AppData\\Local\\MontClip\\resources\\app\\server.js:1234:56)`,
+  `Error: probe C:\\Users\\someone\\Videos\\直播 录像\\小梨生日会.flv failed: Invalid data found when processing input`,
+  `open "D:\\OBS Rec\\2026-11-04 20-00.mkv" and /home/someone/rec/b.flv and /Users/someone/Movies/c.mov and \\\\NAS-01\\share\\x.mp4`,
+  `    at Object.<anonymous> (C:\\Users\\someone\\AppData\\Local\\MontClip\\resources\\app\\server.js:1234:56)`,
   `    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)`,
-  `host alice-PC user=alice login=alice_live account=alice2026 mail alice@example.com 账号：13812345678`,
+  `host someone-PC user=someone login=someone_live account=someone2026 mail someone@example.com 账号：13812345678`,
   `Authorization: Bearer abc.DEF-123_xyz token=tk_live_998877 "apiKey":"sk-ABCDEF0123456789" ghp_ABCDEFGHIJKLMNOP1234`,
   `Cookie: SESSDATA=abcd1234%2C99; bili_jct=ffeeddcc eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.c2lnbmF0dXJlMTIz password=hunter2`,
   `viewer uid=34567890 uname=小梨的粉丝`,
@@ -27,10 +27,10 @@ const GONE = [
   // paths and file names
   "C:\\", "D:\\", "\\\\NAS", "/home/", "/Users/", "AppData", "Videos", "Movies", "直播 录像", "小梨生日会", "OBS Rec", "2026-11-04 20-00", "b.flv", "c.mov", "x.mp4",
   // the user, her accounts, keys, tokens, viewers
-  "alice", "alice_live", "alice2026", "example.com", "13812345678", "abc.DEF-123_xyz", "tk_live_998877", "sk-ABCDEF0123456789",
+  "someone", "someone_live", "someone2026", "example.com", "13812345678", "abc.DEF-123_xyz", "tk_live_998877", "sk-ABCDEF0123456789",
   "ghp_ABCDEFGHIJKLMNOP1234", "abcd1234", "ffeeddcc", "eyJhbGciOiJIUzI1NiJ9", "hunter2", "34567890", "小梨的粉丝",
 ];
-const SERVER = { home: "C:\\Users\\alice", platform: "win32", user: "alice" };
+const SERVER = { home: "C:\\Users\\someone", platform: "win32", user: "someone" };
 const APP = { version: "1.18.0", platform: "win32", release: "10.0.22631" };
 /** The copy for an export that came out black, as copyProblem builds it from sayError's result (r.what, not r.text). */
 function copy(language, extra = {}) {
@@ -66,9 +66,9 @@ test("JJ 1: what happened in plain words — not what to do, no raw error, call 
   a.ok(zh.text.startsWith(zh.what) && zh.text.length > zh.what.length, "the screen's sentence is unchanged");
   a.equal(V.errorText("en", { code: "EXPORT_BLANK_SOUND" }).what, "The export went wrong: the video has no sound from start to finish, but the clips on the timeline have sound.");
   // a code with a path or junk in it is not copied
-  const out = R.problemDetails({ text: "这次没有做完。", code: "C:\\Users\\alice\\ERR_X <b>", app: APP }, { ...SERVER, language: "zh-CN" });
+  const out = R.problemDetails({ text: "这次没有做完。", code: "C:\\Users\\someone\\ERR_X <b>", app: APP }, { ...SERVER, language: "zh-CN" });
   a.equal(out.split("\n").pop(), "给开发者看（不用管）：UNKNOWN");
-  a.doesNotMatch(out, /alice|ERR_X|<b>/);
+  a.doesNotMatch(out, /someone|ERR_X|<b>/);
 });
 
 test("what happened: each failure sentence has its part (never cut mid-sentence), and none asks for the button", () => {
@@ -109,7 +109,7 @@ test("JJ 2: nothing of hers — no file name, user name, account or key; a file 
   a.equal(named.split("\n")[2], "「一个 flv 文件」里没写时长。");
   // without the server (the page alone): the same, without the user name it can't know
   const page = R.problemDetails({ text: "x", code: "EXPORT_BLANK_PICTURE", log: LOG }, { language: "zh-CN" });
-  for (const g of GONE.filter((x) => x !== "alice")) a.ok(!page.includes(g), `「${g}」 is in:\n${page}`);
+  for (const g of GONE.filter((x) => x !== "someone")) a.ok(!page.includes(g), `「${g}」 is in:\n${page}`);
 });
 
 test("the version line: MontClip's version and the system's family — nothing slipped into them gets through", () => {
@@ -120,16 +120,16 @@ test("the version line: MontClip's version and the system's family — nothing s
   a.equal(R.versionLine({}, "zh-CN"), "版本：MontClip 版本不明");
   // paths, a user name, a host, a build, a locale put into where the version and the system come from
   const dirty = [
-    { version: "1.18.0 C:\\Users\\alice\\AppData\\Local\\MontClip", platform: "win32", release: "10.0.22631.4460 alice-PC" },
-    { version: "/home/alice/montclip/1.18.0", platform: "linux alice", release: "6.8.0 (alice@build-host) zh_CN.UTF-8" },
-    { version: "1.18.0\nalice@example.com", platform: "darwin /Users/alice", release: "24.1.0 /Users/alice/Library" },
-    { version: "sk-ABCDEF0123456789", platform: "Win32 C:\\Users\\alice", release: "C:\\Users\\alice\\10.0.22631" },
+    { version: "1.18.0 C:\\Users\\someone\\AppData\\Local\\MontClip", platform: "win32", release: "10.0.22631.4460 someone-PC" },
+    { version: "/home/someone/montclip/1.18.0", platform: "linux someone", release: "6.8.0 (someone@build-host) zh_CN.UTF-8" },
+    { version: "1.18.0\nsomeone@example.com", platform: "darwin /Users/someone", release: "24.1.0 /Users/someone/Library" },
+    { version: "sk-ABCDEF0123456789", platform: "Win32 C:\\Users\\someone", release: "C:\\Users\\someone\\10.0.22631" },
   ];
   for (const app of dirty) for (const language of ["zh-CN", "en"]) {
     const out = R.problemDetails({ text: "x", code: "E", app }, { ...SERVER, language }), v = out.split("\n")[1];
     a.match(v, language === "en" ? /^Version: MontClip (\d+\.\d+\.\d+|version unknown)( · (Windows 11|Windows 10|Windows|macOS|Linux))?$/
       : /^版本：MontClip (\d+\.\d+\.\d+|版本不明)( · (Windows 11|Windows 10|Windows|macOS|Linux))?$/, v);
-    for (const g of ["alice", "C:\\", "/home", "/Users", "AppData", "Library", "PC", "build", "4460", "zh_CN", "UTF", "example.com", "sk-", "generic"])
+    for (const g of ["someone", "C:\\", "/home", "/Users", "AppData", "Library", "PC", "build", "4460", "zh_CN", "UTF", "example.com", "sk-", "generic"])
       a.ok(!v.includes(g), `「${g}」 in the version line: ${v}`);
   }
   // the server reads package.json and the system; the page alone has no version to say
@@ -271,7 +271,7 @@ test("a file's size: never a path the page sent — only its name, only where th
   const os = require("node:os");
   const where = { mediaDir: path.join(os.tmpdir(), "mc-media"), exportsDir: path.join(os.tmpdir(), "mc-exports"),
     srcs: ["/media/archive/rec.mkv", "/media/other.mp4"], resolve: (src) => path.join(os.tmpdir(), "mc-media", ...src.slice(7).split("/")) };
-  for (const asked of ["C:\\Windows\\win.ini", "/etc/passwd", "C:\\Users\\alice\\Videos\\a.mp4", "\\\\NAS\\share\\x.mp4", "../../etc/hosts", "/home/alice/.ssh/id_rsa"]) {
+  for (const asked of ["C:\\Windows\\win.ini", "/etc/passwd", "C:\\Users\\someone\\Videos\\a.mp4", "\\\\NAS\\share\\x.mp4", "../../etc/hosts", "/home/someone/.ssh/id_rsa"]) {
     const looked = [];
     const spy = (f) => { looked.push(f); throw Object.assign(new Error("ENOENT"), { code: "ENOENT" }); };
     a.equal(PF.sizeOf(asked, where, spy), null, asked + ": 大小不明");
@@ -279,7 +279,7 @@ test("a file's size: never a path the page sent — only its name, only where th
       a.ok(f.startsWith(where.mediaDir) || f.startsWith(where.exportsDir), `${asked}: only the server's folders are looked at, not ${f}`);
       a.notEqual(path.resolve(f), path.resolve(asked), asked + " itself is never looked at");
     }
-    a.ok(!looked.some((f) => /Windows|etc[\\/]|\.ssh|NAS|alice/.test(path.relative(where.mediaDir, f)) && !f.startsWith(where.exportsDir)), looked.join(", "));
+    a.ok(!looked.some((f) => /Windows|etc[\\/]|\.ssh|NAS|someone/.test(path.relative(where.mediaDir, f)) && !f.startsWith(where.exportsDir)), looked.join(", "));
   }
   // what is looked at for a name the project knows: media/, exports/, and that entry's own file in a subfolder
   a.deepEqual(PF.candidates("D:\\anything\\rec.mkv", where), [path.join(where.mediaDir, "rec.mkv"), path.join(where.exportsDir, "rec.mkv"), path.join(where.mediaDir, "archive", "rec.mkv")]);

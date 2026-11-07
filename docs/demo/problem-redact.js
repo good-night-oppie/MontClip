@@ -74,7 +74,7 @@
   }
   /** The text with viewers, keys, accounts and paths on this computer taken out. opts: {home, platform, user} — the
    *  computer's user name (and the last folder of its home), when known — the server knows them, the page alone does
-   *  not — is taken out wherever it is left after that (alice-PC, a mail's name part). */
+   *  not — is taken out wherever it is left after that (someone-PC, a mail's name part). */
   function redactProblem(s, opts = {}) {
     let out = String(s == null ? "" : s);
     for (const [re, to] of RULES) out = out.replace(re, to);
