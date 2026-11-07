@@ -55,18 +55,23 @@ it("测试驱动不计外发；扫描跳过并在结果中列出，产品文件�
 it("Python 常见联网接口可发现", () => {
   for (const source of ["import requests\nrequests.get('https://example.org')", "urllib.request.urlopen(url)", "httpx.post(url)", "aiohttp.ClientSession()", "socket.create_connection((host, 443))"]) assert.ok(networkUses(source).length, source);
 });
-it("扫描当前检出的 HEAD，不是 origin/main；PR 新增未登记的 .py 联网文件会被发现", () => {  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pr-sop-head-"));
-  const git = (...args) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", windowsHide: true });
-  git("init", "-q");
-  git("config", "user.email", "t@example.com"); git("config", "user.name", "t");
-  git("remote", "add", "origin", "https://github.com/good-night-oppie/MontClip.git");
-  fs.writeFileSync(path.join(dir, "new-probe.py"), "import requests\nrequests.get('https://example.org')\n");
-  git("add", "."); git("commit", "-q", "-m", "probe");
-  const snap = readMainSources(dir);
-  assert.match(snap.head, /^[a-f0-9]{40}$/);
-  assert.ok(snap.files.some((f) => f.path === "new-probe.py"));
-  const r = coverage(snap.files, { av: [], outbound: [] });
-  assert.deepEqual(r.missing.map((x) => x.path), ["new-probe.py"]);
+it("扫描当前检出的 HEAD，不是 origin/main；PR 新增未登记的 .py 联网文件会被发现", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pr-sop-head-"));
+  try {
+    const git = (...args) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", windowsHide: true });
+    git("init", "-q");
+    git("config", "user.email", "t@example.com"); git("config", "user.name", "t");
+    git("remote", "add", "origin", "https://github.com/good-night-oppie/MontClip.git");
+    fs.writeFileSync(path.join(dir, "new-probe.py"), "import requests\nrequests.get('https://example.org')\n");
+    git("add", "."); git("commit", "-q", "-m", "probe");
+    const snap = readMainSources(dir);
+    assert.match(snap.head, /^[a-f0-9]{40}$/);
+    assert.ok(snap.files.some((f) => f.path === "new-probe.py"));
+    const r = coverage(snap.files, { av: [], outbound: [] });
+    assert.deepEqual(r.missing.map((x) => x.path), ["new-probe.py"]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 it("PR 新增未登记的联网文件必须失败；登记后通过（一正一负）", () => {
   const files = [{ path: "scripts/readme-demo/new-probe.py", source: "import requests\nrequests.get('https://example.org')\n" }];
