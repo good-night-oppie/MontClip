@@ -84,6 +84,7 @@ test('a new approval box takes the last toast away first',async()=>{
  vm.createContext(ctx);vm.runInContext('var toastTimer=7;var toastHold={stop:()=>stopped.push(1)};'+fnSync('dismissToast'),Object.assign(ctx,{stopped}));
  ctx.dismissToast();
  a.equal(classes.size,0,'the toast is hidden, its button too');a.deepEqual(cleared,[7],'its timer stopped');a.equal(stopped.length,1,'its hold stopped');
- const box=fnSync('askAgentApproval');
- a.ok(box.indexOf('dismissToast();')>=0&&box.indexOf('dismissToast();')<box.indexOf('new Promise'),'before the box is shown');
+ // since #120 the approval is a card in the message stream (agentApprovals.ask), no longer a box over the page
+ const line=src.slice(src.indexOf('function askAgentApproval('),src.indexOf('\n',src.indexOf('function askAgentApproval(')));
+ a.ok(line.indexOf('dismissToast();')>=0&&line.indexOf('dismissToast();')<line.indexOf('agentApprovals.ask('),'before the card is shown');
 });

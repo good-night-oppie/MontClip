@@ -44,8 +44,14 @@ BrowserWindow.prototype.loadURL=async function(...args){await original.apply(thi
   await read(`document.querySelector('.cindy-confirm button:last-child').click();true`);assert.equal(requests,0);
   await read(`document.querySelector('.cindy-send button').click();true`);await wait();await read(`document.querySelector('.cindy-confirm button').click();true`);await wait();assert.equal(requests,1);
   // P4: 手动 (the default) — the reply is the AI's step, so the host's approval box comes first; 不同意 keeps the reply and its 〔查看剪辑建议〕
-  for(let i=0;i<20&&!await read(`!!document.querySelector('[data-agent-approval][open]')`);i++)await wait();
-  assert.ok(await read(`!!document.querySelector('[data-agent-approval][open]')`),'the host asks first in 手动');await read(`document.querySelector('[data-agent-approval][open] [data-choice="deny"]').click();true`);await wait();process.stdout.write('OFFICIAL_APPROVAL manual: asked, declined\n');
+  for(let i=0;i<20&&!await read(`!!document.querySelector('[data-host-card="approval"]')`);i++)await wait();
+  assert.ok(await read(`!!document.querySelector('[data-host-card="approval"]')`),'the host asks first in 手动');
+  // QQ/DD on #120: the card itself holds the focus (never an approve button) — a stray Space settles nothing, Esc is 〔不同意〕
+  assert.equal(await read(`document.activeElement&&document.activeElement.dataset?document.activeElement.dataset.hostCard||'':''`),'approval','the card itself has the focus');
+  await read(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:' ',bubbles:true}));true`);await wait();
+  assert.ok(await read(`!!document.querySelector('[data-host-card="approval"] [data-host-choice="once"]')`),'a stray Space approves nothing — the card still waits');
+  await read(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));true`);await wait();
+  assert.ok(await read(`(document.querySelector('[data-host-card-done="approval"]')||{textContent:''}).textContent.includes('你没有同意')`),'Esc on the card counts as 不同意');process.stdout.write('OFFICIAL_APPROVAL manual: asked, space did not approve, Esc declined\n');
   win.webContents.debugger.attach('1.3');
   for(const [width,height] of [[804,535],[630,452]]){await win.webContents.debugger.sendCommand('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});await wait();const observed=await read(`(()=>{const thread=document.querySelector('.cindy-thread'),last=document.querySelector('.cindy-message:last-child'),b=document.querySelector('[data-review-proposal]'),t=thread.getBoundingClientRect(),r=last.getBoundingClientRect(),v=b.getBoundingClientRect();return{thread:[t.y,t.height],reply:[r.y,r.height],pane:document.querySelector('.cindy-port').clientHeight,bottom:thread.scrollHeight-thread.scrollTop-thread.clientHeight,replyVisible:Math.min(r.bottom,t.bottom)>Math.max(r.top,t.top),hit:document.elementFromPoint(v.x+v.width/2,v.y+v.height/2)===b,noJSON:!document.querySelector('[role=log]').textContent.includes('references')};})()`);process.stdout.write('OFFICIAL_REPLY_VIEW '+JSON.stringify({width,...observed})+'\n');assert.ok(observed.replyVisible&&observed.hit&&observed.noJSON);}
   await win.webContents.debugger.sendCommand('Emulation.clearDeviceMetricsOverride');win.webContents.debugger.detach();

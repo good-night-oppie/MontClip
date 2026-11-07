@@ -248,3 +248,18 @@ test('the page loads the module before app.js, and the server queues the card fo
  a.equal(j.via,'tab');a.deepEqual(open.ticket(j.id).lyrics,{id:'ly_x'});
  open.cancel?.(j.id);
 });
+/* Deja, 2026-11-07, merging main (#120): the lyrics card stays its own box (a step from MCP has no reply for #120's card to
+   sit under, it asks in every mode, and its buttons and grey lines are JJ's), but never under the old approval box's class. */
+test('the lyrics card is its own lt-card, never the old approval box, and keeps JJ\'s buttons',()=>{
+ const app=read('app.js'),css=read('style.css');
+ for(const f of ['app.js','index.html','docs/demo/app.js','docs/demo/index.html']){
+  const s=read(f);
+  a.ok(!/class(Name)?\s*=\s*(["'])agent-approval\2/.test(s),f+': the old box (class "agent-approval") is gone');
+ }
+ const card=app.slice(app.indexOf('function lyricsCard('),app.indexOf('async function runLyricsJob('));
+ a.ok(card.length>0&&!card.includes('agent-approval'),'the lyrics card uses nothing of the old approval box');
+ a.match(card,/dialog\.className = "lt-card"/);a.match(card,/showModal\(\)/);
+ a.match(card,/data-lt-choice="place">\$\{say\("lt-place"\)\}/);a.match(card,/data-lt-choice="not-now">\$\{say\("lt-not-now"\)\}/);
+ a.equal(View.t('zh-CN','own.lt-place'),'放到时间线上');a.equal(View.t('zh-CN','own.lt-not-now'),'先不用');
+ a.match(css,/dialog\.lt-card \{/);a.ok(!/^\.agent-approval[ ,{.]/m.test(css),'the old box\'s rules stay deleted');
+});

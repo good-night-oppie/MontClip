@@ -93,7 +93,7 @@ test('server: H.264 status and export refusals carry codes; the page shows them 
  // the page: settings and export use the codes
  const r=app.slice(app.indexOf('async function renderH264Settings'),app.indexOf('$("btnH264Choose")?.addEventListener'));
  a.match(r,/MontClipView\.h264Message\(/);a.match(r,/MontClipView\.h264Encoder\(/);a.ok(!/ext\.reason|\(st && st\.reason\) \|\|/.test(r),'no English reason in the settings text');
- a.ok((app.match(/h264Message\(mcView\.get\(\)\.language, begin\)/g)||[]).length>=2,'both export paths say a refusal in the interface language');
+ a.ok((app.match(/h264Refusal\(mcView\.get\(\)\.language, begin\)/g)||[]).length>=2,'both export paths say a refusal in the interface language (export words, test/export-h264-precheck.test.js)');
  a.ok(!app.includes('"MontClip\'s bundled FFmpeg is not available — export needs it"'),'the queue says it by code too');
 });
 

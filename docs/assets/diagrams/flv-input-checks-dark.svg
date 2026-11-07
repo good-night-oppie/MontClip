@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="720" viewBox="0 0 640 720">
+  <rect x="0" y="0" width="640" height="720" fill="#090D16" />
+
+  <text x="60" y="66" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="700" fill="#F8FAFC">FLV import checks today</text>
+  <line x1="60" y1="88" x2="600" y2="88" stroke="#1E293B" stroke-width="1" />
+  <text x="60" y="126" font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="2" fill="#3B82F6">CURRENT IMPLEMENTATION</text>
+
+  <rect x="80" y="150" width="240" height="40" fill="none" stroke="#3B82F6" stroke-width="2" />
+  <text x="200" y="176" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="17" fill="#F8FAFC">Recording</text>
+  <line x1="200" y1="190" x2="200" y2="203" stroke="#3B82F6" stroke-width="2" />
+  <polygon points="194,202 206,202 200,210" fill="#3B82F6" />
+
+  <rect x="80" y="210" width="240" height="40" fill="none" stroke="#3B82F6" stroke-width="2" />
+  <text x="200" y="236" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="17" fill="#F8FAFC">Probe streams</text>
+  <line x1="200" y1="250" x2="200" y2="263" stroke="#3B82F6" stroke-width="2" />
+  <polygon points="194,262 206,262 200,270" fill="#3B82F6" />
+
+  <rect x="80" y="270" width="240" height="40" fill="none" stroke="#3B82F6" stroke-width="2" />
+  <text x="200" y="296" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="17" fill="#F8FAFC">Scan readable range</text>
+  <line x1="200" y1="310" x2="200" y2="323" stroke="#3B82F6" stroke-width="2" />
+  <polygon points="194,322 206,322 200,330" fill="#3B82F6" />
+
+  <polygon points="200,330 310,375 200,420 90,375" fill="none" stroke="#3B82F6" stroke-width="2" />
+  <text x="200" y="381" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#F8FAFC">Gaps above 5 ms?</text>
+
+  <line x1="310" y1="375" x2="352" y2="375" stroke="#F8FAFC" stroke-width="2" />
+  <polygon points="351,369 351,381 360,375" fill="#F8FAFC" />
+  <text x="333" y="366" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#F8FAFC">Yes</text>
+  <rect x="360" y="352" width="240" height="46" fill="none" stroke="#F8FAFC" stroke-width="2" />
+  <text x="480" y="381" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#F8FAFC">Reject with explanation</text>
+
+  <line x1="200" y1="420" x2="200" y2="443" stroke="#3B82F6" stroke-width="2" />
+  <polygon points="194,442 206,442 200,450" fill="#3B82F6" />
+  <text x="212" y="440" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#F8FAFC">No</text>
+
+  <rect x="70" y="450" width="260" height="80" fill="none" stroke="#3B82F6" stroke-width="2" />
+  <text x="200" y="474" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#F8FAFC">Compatible streams: remux</text>
+  <text x="200" y="497" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#F8FAFC">Otherwise: transcode only</text>
+  <text x="200" y="519" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#F8FAFC">with explicit consent</text>
+  <line x1="200" y1="530" x2="200" y2="548" stroke="#3B82F6" stroke-width="2" />
+  <polygon points="194,547 206,547 200,555" fill="#3B82F6" />
+
+  <rect x="80" y="555" width="240" height="40" fill="none" stroke="#3B82F6" stroke-width="2" />
+  <text x="200" y="581" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="17" fill="#F8FAFC">Inspect output</text>
+
+  <line x1="60" y1="628" x2="600" y2="628" stroke="#1E293B" stroke-width="1" />
+  <text x="60" y="652" font-family="Helvetica, Arial, sans-serif" font-size="15" fill="#94A3B8">Repair (#157) adds +genpts; it does not fix timestamp jumps.</text>
+
+  <text x="60" y="676" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#94A3B8">5 ms: prepare-media.js rejects larger FLV gaps (FLV_TIMELINE_GAP) @ d51b27a.</text></svg>

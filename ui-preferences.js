@@ -60,6 +60,15 @@
     extSaveFailed: "The choice could not be saved. Choose again.",
     extRemoveFailed: "Could not stop using this FFmpeg. Try again.",
   });
+  // No H.264 encoder at all, said when export is clicked, before anything renders (ADR 2026-11-02, point 3; Deja C,
+  // 2026-11-04). h264None* are worded for Settings ("below"); this one is for the export itself, one sentence on every
+  // platform. JJ, 2026-11-04 错误白话表 v2 (FLV_ENCODER_MISSING row, export variant).
+  Object.assign(text["zh-CN"], {
+    h264Refuse: "这台电脑上找不到 MontClip 能用的视频编码器，所以这次没能导出。可以先更新显卡驱动再试。",
+  });
+  Object.assign(text.en, {
+    h264Refuse: "This computer has no video encoder MontClip can use, so it couldn't export this time. Update the graphics driver and try again.",
+  });
   // encoders by name: plain words in Chinese, the technical names (delivery.js labels) in English
   const ENCODER_NAMES = {
     "zh-CN": { h264_nvenc: "显卡编码（NVIDIA）", h264_mf: "Windows 自带编码", h264_qsv: "显卡编码（Intel）", h264_amf: "显卡编码（AMD）",
@@ -80,6 +89,12 @@
     else s = fill(s, Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])));
     if (/^h264None/.test(r.code) && r.featurePack) s += t.h264NeedFeaturePack;
     return s;
+  }
+  /** An export refused before it started: "no H.264 encoder" in export words, any other code as h264Message says it. */
+  function h264Refusal(language, r) {
+    const t = text[lang(language)];
+    if (r && (r.code === "h264NoneWin" || r.code === "h264NoneOther")) return t.h264Refuse;
+    return h264Message(language, r);
   }
   // MontClip's own wording for keyed strings the terms SPEC does not cover.
   const own = {
@@ -159,6 +174,12 @@
     "q-list": ["Export queue", "导出队列"],
     "q-list-n": ["Export queue · {n}", "导出队列 · {n}"],
     "q-saved": ["Saved", "已保存"],
+    "q-reveal": ["Show in folder", "在文件夹里显示"],
+    "reveal-in-folder": ["Show in folder", "在文件夹里显示"],
+    "reveal-offline": ["The file is offline", "文件不在，先重新链接"],
+    "reveal-failed": ["Couldn't open the folder", "没能打开文件夹"],
+    "reveal-not-found": ["The file isn't there any more", "文件已经不在了"],
+    "needs-desktop": ["Only in the desktop app", "只在桌面版里能用"],
     "export-save-cancelled": ["Not saved. The exported video is still here: open the export queue and click Save on this item to save it again.", "没有保存。导出的视频还在，打开『导出队列』，在这一条后面点『保存』就能再存一次。"],
     "captions-save-cancelled": ["Captions not saved. Click export captions again to save them.", "字幕没有保存。可以再点一次导出字幕。"],
     "save-busy": ["Close the save window that is already open first.", "先关掉上一个保存窗口"],
@@ -856,6 +877,13 @@
     "ap-once": ["Allow this once", "只批准这次"],
     "ap-session": ["Allow for this chat", "这个聊天中都批准"],
     "ap-deny": ["Don't allow", "不同意"],
+    // v7.2 §2, step 3: the card, once answered, is one line saying what was chosen. New copy, for JJ.
+    "ap-done-once": ["✓ You allowed this once", "✓ 你批准了这一次"],
+    "ap-done-session": ["✓ You allowed this kind of change for this chat", "✓ 这个聊天中，这类修改你都批准了"],
+    "ap-done-deny": ["You didn't allow it; this step was not done", "你没有同意，这一步没有做"],
+    // settled by the host, not clicked (QQ/DD on #120): the line must not say 「你没有同意」. Copy for JJ to finalize.
+    "ap-done-stale": ["The project changed; this step was not done", "项目改过了，这一步没有做"],
+    "ap-done-left": ["You left this chat; this step was not done", "你离开了这个聊天，这一步没有做"],
     "ap-denied": ["Not done. Nothing changed.", "没有做这一步，什么都没改。"],
     "ap-listed": ["Plan mode: this step is only listed, not done. Switch to another mode at the top of the assistant to do it.", "计划模式：这一步只列出来，没有做。要做的话，在助手顶部换一种模式。"],
     "ap-refused": ["This step is never allowed, in any mode. Nothing changed.", "这一步任何模式下都不允许，什么都没改。"],
@@ -1154,49 +1182,121 @@
   }
   // FLV import failures (JJ, 2026-11-02): the server sends a reason code, the page says it here.
   // The first three are JJ's wording; flvNeedsConvert, flvUploadFailed and flvComponentMissing are for JJ to review.
+  // JJ v2 (2026-11-04, 错误白话表 sha256 d99c25d1…): the streamer cannot convert a file herself, so where MontClip can
+  // convert it says so and offers 〔帮我转〕; flvTimingUnverified, flvNeedsConvert and flvNoEncoder are JJ's v2 sentences.
   Object.assign(text["zh-CN"], {
-    flvTimingUnverified: "这个 FLV 这次没导进来：MontClip 没法确认它的时间是否完整。换一个录完整的文件，或者先把它转成 MP4 再导入。",
+    flvTimingUnverified: "这场录像中间断过（可能断过网，或者录制停过），要先转一下才能剪，MontClip 可以替你转。转好的是一份新文件，原片不动；要等几分钟。",
     flvNeedsDesktop: "导入 FLV 需要用 MontClip 桌面版打开。",
     flvDiskFull: "电脑空间不够，这个文件没导进来。清理一些空间后再试。",
-    flvNeedsConvert: "这个 FLV 这次没导进来：它的编码 MontClip 现在不能直接用。先把它转成 MP4 再导入。",
-    flvUploadFailed: "这个 FLV 没导进来：MontClip 处理这个文件时出了问题。再试一次；还不行就先把它转成 MP4 再导入。",
+    flvNeedsConvert: "这个录像要先转一下格式才能剪，MontClip 可以替你转。转好的是一份新文件，原片不动；画质基本不变，要等几分钟。",
+    // interim, for JJ: the convert instruction is gone (the v2 row for other problems needs the copy button from #129)
+    flvUploadFailed: "这个 FLV 没导进来：MontClip 处理这个文件时出了问题。原片没有改动。再试一次。",
     flvComponentMissing: "MontClip 缺少处理 FLV 的组件，这个文件没导进来。请重新安装 MontClip。",
     // desktop FLV import (for JJ to review)
     flvTitle: "导入 FLV", flvCancel: "取消", flvContinue: "继续导入",
     flvPhaseInspect: "正在检查原片…", flvPhaseHash: "正在核对原片… {pct}%", flvPhaseCopy: "正在复制到项目… {pct}%",
     flvPhaseVerify: "正在核对复制出的文件… {pct}%", flvPhasePrepare: "正在转成能剪的格式…",
-    flvAskTranscode: "这个 FLV 要转成兼容的 MP4 才能剪，可能会改变画质，需要等一会儿。原片不会改动。",
-    flvAskReadable: "MontClip 没能确认这个 FLV 的结尾是完整的（可能还在录，或者录制中断过）。继续的话，只导入能读到的部分。原片不会改动。",
+    // the question before converting is JJ's v2 sentence for the same reason (set from flvNeedsConvert / flvTimingUnverified below)
+    flvAskTranscode: "", flvAskReadable: "",
     flvSourceChanged: "原片在检查之后变了（可能还在录制），这次没导入，复制出的文件已删除。录完后再试。",
     flvCopyMismatch: "复制出的文件和原片对不上，这次没导入，复制出的文件已删除。再试一次。",
     flvCanceled: "已取消。这次导入建的文件都已删除，原片没有改动。",
     flvCleanupFailed: "这次导入建的文件有一部分没能删除，可能正被占用。关掉 MontClip 时会再删一次。",
     // #28: the bundled FFmpeg has no x264, so converting needs this computer's own encoder (for JJ to review)
-    flvNoEncoder: "这个 FLV 需要转换格式才能用，但这台电脑上找不到能用的 H.264 编码器（显卡编码器和 Windows 自带的编码器都用不了）。先把它转成 MP4 再导入。",
+    flvNoEncoder: "这台电脑上找不到 MontClip 能用的视频编码器，所以这次没能转换。可以先更新显卡驱动再试。",
   });
   Object.assign(text.en, {
-    flvTimingUnverified: "This FLV was not imported: MontClip could not confirm its timing is complete. Try a fully recorded file, or convert it to MP4 first.",
+    flvTimingUnverified: "This recording has a break in it (the stream or the recorder may have stopped for a moment), so it needs converting before you can edit it, and MontClip can do it for you. The result is a new file and the original stays as it is; it takes a few minutes.",
     flvNeedsDesktop: "Importing FLV needs the MontClip desktop app.",
     flvDiskFull: "There is not enough space on this computer, so the file was not imported. Free up some space and try again.",
-    flvNeedsConvert: "This FLV was not imported: MontClip cannot use its encoding directly yet. Convert it to MP4 first.",
-    flvUploadFailed: "This FLV was not imported: something went wrong while MontClip was handling it. Try again; if it still fails, convert it to MP4 first.",
+    flvNeedsConvert: "This recording needs converting before you can edit it, and MontClip can do it for you. The result is a new file and the original stays as it is. The picture stays about the same; it takes a few minutes.",
+    flvUploadFailed: "This FLV was not imported: something went wrong while MontClip was handling it. The original is unchanged. Try again.",
     flvComponentMissing: "MontClip is missing the component that handles FLV, so the file was not imported. Reinstall MontClip.",
     flvTitle: "Import FLV", flvCancel: "Cancel", flvContinue: "Continue",
     flvPhaseInspect: "Checking the original…", flvPhaseHash: "Checking the original… {pct}%", flvPhaseCopy: "Copying into the project… {pct}%",
     flvPhaseVerify: "Checking the copy… {pct}%", flvPhasePrepare: "Converting to a format you can edit…",
-    flvAskTranscode: "This FLV has to be converted to a compatible MP4 before it can be edited. The picture may change a little, and it takes a while. The original is not changed.",
-    flvAskReadable: "MontClip could not confirm that this FLV ends properly (it may still be recording, or the recording was interrupted). If you continue, only the part that can be read is imported. The original is not changed.",
+    flvAskTranscode: "", flvAskReadable: "",
     flvSourceChanged: "The original changed after it was checked (it may still be recording), so it was not imported and the copy was removed. Try again once the recording is finished.",
     flvCopyMismatch: "The copy did not match the original, so it was not imported and the copy was removed. Try again.",
     flvCanceled: "Canceled. The files this import made were removed; the original is unchanged.",
     flvCleanupFailed: "Some files this import made could not be removed; they may be in use. MontClip tries again when it closes.",
-    flvNoEncoder: "This FLV needs converting before it can be used, but this computer has no H.264 encoder MontClip can use (no graphics-card encoder answered and Windows' built-in encoder is unavailable). Convert it to MP4 first.",
+    flvNoEncoder: "This computer has no video encoder MontClip can use, so it couldn't convert this time. Update the graphics driver and try again.",
   });
-  // A readable-range or timestamp problem is "timing unverified": the consent screens are deferred, so
-  // nothing here asks for permission the user has nowhere to give. Unknown codes read as a failed import.
-  const FLV_REASONS = { FLV_TIMELINE_GAP: "flvTimingUnverified", FLV_READABLE_CONSENT_REQUIRED: "flvTimingUnverified",
+  for (const l of ["zh-CN", "en"]) Object.assign(text[l], { flvAskTranscode: text[l].flvNeedsConvert, flvAskReadable: text[l].flvTimingUnverified });
+  // FLV import, Deja's decision A (2026-11-04, VV's walk on europa): how far the check is and how long it still takes;
+  // a recording with breaks is converted on the original's clock instead of refused, and every refusal or failure is a
+  // dialog with a reason, not a passing toast. flvConverted / flvConvertedMany are JJ's v2 sentences (sha256 d99c25d1…);
+  // the rest is new copy for JJ to review. FLV_STREAMS_UNSUPPORTED (more than one picture or sound track) is not
+  // something the conversion handles, so it says 「现在导不进来」 and why instead of offering 〔帮我转〕.
+  Object.assign(text["zh-CN"], {
+    flvPct: " {pct}%", flvEta: "，还要约 {eta}", flvEtaMin: "{n} 分钟", flvEtaSec: "{n} 秒",
+    flvPhaseCheck: "正在和原片核对转出来的 MP4…",
+    flvConvert: "帮我转", flvNotNow: "先不转", flvGotIt: "知道了",
+    // JJ 定稿 (2026-11-05, Deja 代贴 on #130): the break is held — the picture stops, no sound — not squeezed out
+    flvConverted: "已经转好了。{time} 这里录像断了约 {N} 秒：这几秒画面会停住、没有声音，前后的时间是对的。不想要可以剪掉。",
+    flvConvertedMany: "已经转好了。录像一共断了 {k} 处，加起来约 {N} 秒：这些地方画面会停住、没有声音，前后的时间是对的。不想要可以剪掉。",
+    flvStreamsUnsupported: "这个录像现在导不进来：它里面不止一路画面或声音，MontClip 还不能只挑其中一路来剪。原片没有改动。可以换一场别的录像试试。",
+    flvFixUnverified: "转出来的 MP4 和原片对不上，这次没导入，转出来的文件已删除。原片没有改动，可以再试一次。",
+    flvFixBy: "差了多少：时长 {sec} 秒，声音和画面 {ms} 毫秒（要求时长差不超过 0.1 秒、声音和画面差不超过 40 毫秒）。",
+    flvRetryConvert: "也可以让 MontClip 替你转一下再导入，原片不动。",
+    flvGapMark: "这里录像断了约 {N} 秒", flvDropMark: "这里录像掉了一点（约 {N} 秒），照原样导入",
+    // Rea's rule ⑥: damaged bytes behind normal timestamps, found while converting or exporting. New codes for #129's table.
+    flvSourceDamaged: "这个录像里有一段画面或声音坏了，转出来会花屏或有杂音，所以这次没转，也没导进来。原片没有改动。可以换一场录像试试。",
+    exportSourceDamaged: "这次没导出来：「{name}」在 {at} 附近有一段画面坏了，导出来会花屏，所以停下了。你的剪辑都还在，可以把那一小段剪掉再导出。",
+  });
+  Object.assign(text.en, {
+    flvPct: " {pct}%", flvEta: " — about {eta} left", flvEtaMin: "{n} min", flvEtaSec: "{n} s",
+    flvPhaseCheck: "Checking the converted MP4 against the original…",
+    flvConvert: "Convert it for me", flvNotNow: "Not now", flvGotIt: "OK",
+    flvConverted: "Converted. The recording dropped out for about {N} s at {time}: for those seconds the picture freezes and there's no sound, and the timing before and after is right. You can cut it out if you don't want it.",
+    flvConvertedMany: "Converted. The recording dropped out {k} times, about {N} s in total: in those places the picture freezes and there's no sound, and the timing around them is right. You can cut them out if you don't want them.",
+    flvStreamsUnsupported: "This recording can't be imported right now: it has more than one picture or sound track, and MontClip can't pick just one of them to edit yet. The original is unchanged. Try another recording.",
+    flvFixUnverified: "The converted MP4 does not match the original, so it was not imported and the converted file was removed. The original is unchanged; you can try again.",
+    flvFixBy: "Off by: {sec} s in length, {ms} ms between sound and picture (at most 0.1 s and 40 ms are allowed).",
+    flvRetryConvert: "MontClip can also convert it for you and import that; the original stays as it is.",
+    flvGapMark: "The recording broke here for about {N} s", flvDropMark: "A little of the recording dropped here (about {N} s); imported as it is",
+    flvSourceDamaged: "Part of the picture or sound in this recording is damaged, so converting it would come out garbled; it was not converted or imported. The original is unchanged. Try another recording.",
+    exportSourceDamaged: "This wasn't exported: part of the picture in \"{name}\" around {at} is damaged and would come out garbled, so the export stopped. Your edits are all still there; you can cut that short part out and export again.",
+  });
+  /** About N seconds, as said to the streamer: whole seconds from 10 s, else one decimal (at least 0.1). */
+  /* JJ's drift sentences (2026-11-06, Deja 代贴), word for word, final (JJ agreed to no {ms}, 2026-11-06; Deja decided not to give a
+     number — prepareMedia's drift is a lower bound: Rea measured drift 0.067 and +98 ms at the end). Used after a
+     conversion of breaks when picture and sound also move apart during the recording (prepareMedia returns drift only
+     when flv-readable-range.js says drifting: drift over MAX_DRIFT 0.04 s, a fixed offset at the start not counted);
+     drift is not corrected (Deja's decision), so JJ's 「前后的时间是对的」 would not be true there (Rea, 5804186201). */
+  Object.assign(text["zh-CN"], {
+    flvConvertedDrift: "已经转好了。{time} 这里录像断了约 {N} 秒：这几秒画面会停住、没有声音。断点之后，声音和画面可能差一点点，软件没法判断哪边是准的，所以没有自动修正。导出前请看一下结尾处的口型对不对；不想要断掉的那段可以剪掉。",
+    flvConvertedDriftMany: "已经转好了。录像一共断了 {k} 处，加起来约 {N} 秒：这些地方画面会停住、没有声音。断点之后，声音和画面可能差一点点，软件没法判断哪边是准的，所以没有自动修正。导出前请看一下结尾处的口型对不对；不想要断掉的地方可以剪掉。",
+  });
+  Object.assign(text.en, {
+    flvConvertedDrift: "Converted. The recording dropped out for about {N} s at {time}: for those seconds the picture freezes and there's no sound. After that, the sound and picture may be slightly out of step, and MontClip can't tell which one is right, so nothing was corrected. Before you export, check that the mouth movements still match at the end; you can cut out the dropped part if you don't want it.",
+    flvConvertedDriftMany: "Converted. The recording dropped out {k} times, about {N} s in total: in those places the picture freezes and there's no sound. After that, the sound and picture may be slightly out of step, and MontClip can't tell which one is right, so nothing was corrected. Before you export, check that the mouth movements still match at the end; you can cut out the dropped places if you don't want them.",
+  });
+  const flvSeconds = (s) => s >= 10 ? String(Math.round(s)) : String(Math.max(0.1, Math.round(s * 10) / 10));
+  /** After a recording with breaks was converted: where it broke, in JJ's words ("" when it had none). A break the
+   *  picture and the sound both have (they overlap in time) is one break. `drift` (seconds, prepareMedia's result; only
+   *  there when flv-readable-range.js's drifting holds: over MAX_DRIFT 0.04 s): picture and sound still move apart, so the sentence does not say the timing is right. */
+  function flvConvertedMessage(language, gaps, drift) {
+    const list = (Array.isArray(gaps) ? gaps : []).filter((g) => g && g.len > 0).map((g) => [g.at, g.at + g.len]).sort((a, b) => a[0] - b[0]);
+    const merged = [];
+    for (const [a, b] of list) { const last = merged.at(-1); if (last && a <= last[1]) last[1] = Math.max(last[1], b); else merged.push([a, b]); }
+    if (!merged.length) return "";
+    const N = flvSeconds(merged.reduce((s, [a, b]) => s + b - a, 0));
+    const apart = Number(drift) > 0 ? "Drift" : "";
+    return merged.length === 1 ? t(language, `flvConverted${apart}`, { N, time: clock(merged[0][0]) }) : t(language, `flvConverted${apart}Many`, { k: merged.length, N });
+  }
+  /** A break's words on the timeline: the label of a converted one (Deja: 「这里录像断了约 N 秒」), the tooltip of a small drop. */
+  function flvGapMark(language, gap) { return t(language, gap && gap.big ? "flvGapMark" : "flvDropMark", { N: flvSeconds(gap ? gap.len : 0) }); }
+  /** "still about 3 min" for a step that needs `seconds` more; "" when not known yet. */
+  function flvEta(language, seconds) {
+    if (!(seconds > 0)) return "";
+    return t(language, "flvEta", { eta: seconds >= 60 ? t(language, "flvEtaMin", { n: Math.ceil(seconds / 60) }) : t(language, "flvEtaSec", { n: Math.ceil(seconds) }) });
+  }
+  // A break in the recording, an end that could not be confirmed and a codec MontClip cannot cut are offered as a
+  // conversion (JJ v2: 〔帮我转〕〔先不转〕). Unknown codes read as a failed import.
+  const FLV_REASONS = { FLV_TIMELINE_GAP: "flvTimingUnverified", FLV_FIX_UNVERIFIED: "flvFixUnverified", FLV_READABLE_CONSENT_REQUIRED: "flvTimingUnverified",
     FLV_DISK_FULL: "flvDiskFull", NO_SERVER: "flvNeedsDesktop", FLV_TRANSCODE_REQUIRED: "flvNeedsConvert",
-    FLV_STREAMS_UNSUPPORTED: "flvNeedsConvert", FLV_COMPONENT_MISSING: "flvComponentMissing", FLV_ENCODER_MISSING: "flvNoEncoder",
+    FLV_STREAMS_UNSUPPORTED: "flvStreamsUnsupported", FLV_SOURCE_DAMAGED: "flvSourceDamaged", FLV_COMPONENT_MISSING: "flvComponentMissing", FLV_ENCODER_MISSING: "flvNoEncoder",
     FLV_SOURCE_CHANGED: "flvSourceChanged", FLV_COPY_MISMATCH: "flvCopyMismatch", FLV_IMPORT_CANCELED: "flvCanceled", FLV_CLEANUP_FAILED: "flvCleanupFailed" };
   function flvImportMessage(language, code) {
     const t = text[language] || text.en;
@@ -1262,10 +1362,10 @@
   Object.assign(officialPaneText.en,{more:'More',projectNotReady:'This project is not saved yet, so nothing was sent. Your edits are still here. Click Save project and try again.',saveProject:'Save project'});
   Object.assign(officialPaneText['zh-CN'],{more:'更多',projectNotReady:'这个项目还没保存好，所以没有发送。你的剪辑都还在。请点「保存项目」后再试。',saveProject:'保存项目'});
   // P4: the mode switch at the top of the assistant (the AI cannot change it). New copy, for JJ.
-  Object.assign(officialPaneText.en,{modes:'How the AI works',modePlan:'Plan',modeManual:'Manual',modeAuto:'Auto',modeYolo:'Yolo',
+  Object.assign(officialPaneText.en,{approvalWaiting:'Waiting for your decision',modes:'How the AI works',modePlan:'Plan',modeManual:'Manual',modeAuto:'Auto',modeYolo:'Yolo',
    modePlanTip:'Only plans; changes nothing.',modeManualTip:'Asks before changing the project; asks every time for anything that can\'t be undone. This is the default.',modeAutoTip:'Does what can be undone; asks before what can\'t.',modeYoloTip:'Does every step without asking you; anything sent out is still shown to you first. You\'ll be asked once more before it turns on.',
    yoloOn:'Yolo is on: the AI does every step without asking you; anything sent out is still shown to you first.',planTitle:'Plan',planSummary_one:'Made a plan of {count} step. See the list below.',planSummary_other:'Made a plan of {count} steps. See the list below.',planInvalid:'This reply looks like a plan but can\'t be used. Nothing was done.',planRemove:'Delete',planStart:'Start',planDiscard:'Drop this plan',formatPlan:'To have the AI do several steps at once, ask it to make a plan first: it lists every step; you look them over, delete the ones you don\'t want, then click "Start". Each step still follows the mode you chose.',formatPlanTech:'Below is the format note for the AI; you don\'t need to read it.',planUndo:'Undo the whole plan',modeDeclined:'Yolo was not turned on.',modeUnavailable:'The mode didn\'t change; it\'s still the one it was. Close MontClip, open it again and try once more.'});
-  Object.assign(officialPaneText['zh-CN'],{modes:'AI 怎么做',modePlan:'计划',modeManual:'手动',modeAuto:'自动',modeYolo:'Yolo',
+  Object.assign(officialPaneText['zh-CN'],{approvalWaiting:'等你决定',modes:'AI 怎么做',modePlan:'计划',modeManual:'手动',modeAuto:'自动',modeYolo:'Yolo',
    modePlanTip:'只出计划，不改项目。',modeManualTip:'改项目前先问你；撤不回的每次都问。默认是这个。',modeAutoTip:'能撤销的直接做，撤不回的先问你。',modeYoloTip:'每一步都直接做，不问你；往外发的内容照样先给你看。打开前会再确认一次。',
    yoloOn:'Yolo 开着：AI 每一步都直接做，不问你；往外发的内容照样先给你看。',planTitle:'计划',planSummary:'已排好计划，共 {count} 步，见下面的清单。',planInvalid:'这条回复像是计划，但用不了，什么都没做。',planRemove:'删掉',planStart:'开始',planDiscard:'不要这个计划',formatPlan:'想让 AI 一次做好几步，可以让它先排一个计划：它会列出每一步，你看一遍、删掉不要的，再点「开始」。每一步怎么做，还是看你选的模式。',formatPlanTech:'以下是给 AI 的格式说明，不用看。',planUndo:'撤销整个计划',modeDeclined:'没有打开 Yolo。',modeUnavailable:'这次没换成，模式还是原来那个。关掉 MontClip 再打开，再试一次。'});
   for(const language of ['en','zh-CN']) for(const [key,value] of Object.entries(officialPaneText[language])) text[language]['officialPane_'+key]=value;
@@ -1375,5 +1475,5 @@
    *  English word (export, captions…) in English. */
   const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
-  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, projectName, exportProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
+  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, flvConvertedMessage, flvGapMark, flvEta, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, projectName, exportProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints, h264Refusal };
 });
