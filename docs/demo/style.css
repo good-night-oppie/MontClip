@@ -5090,8 +5090,9 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
 #mcAgentContent .cindy-port:has([data-host-card="approval"]) > :is(.cindy-proposal-actions, .cindy-ref-actions, .cindy-references) { display: none; }
 /* in a small assistant with the AI settings open, the switch and the pane's Yolo mark step aside (the rule with .cindy-thread above); the top bar's Yolo mark stays */
 /* P4, second half: the plan list in the assistant */
-/* the steps scroll inside the card; its note and buttons (〔开始〕〔撤销整个计划〕) stay in sight at its bottom (VV on #84 53f641d) */
-/* step 3: the plan list is in the message stream (the stream scrolls; the list is whole in it), under the reply */
+/* step 3: the plan and the approval card sit in .cindy-thread, after the live log (the thread scrolls; the list is whole in it).
+   .cindy-port stays overflow:hidden, so a long plan (at most 30 steps) outside the thread would push 〔开始〕 and the input out of the panel.
+   The live log stays its own aria-live region: the card is not read out again with every message. */
 .cindy-plan { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; margin: 6px 0; }
 .cindy-plan ol { margin: 0; padding-left: 20px; }
 .cindy-plan > p, .cindy-plan > .agent-toolbar { flex-shrink: 0; }
@@ -5148,7 +5149,7 @@ dialog.as-learn .as-warn { color: #f4a261; margin: 0 0 8px; }
   .app.agent-open .upper > .inspector > .mc-assistant { flex: 1 1 auto; min-height: 0; }
   /* the Yolo bar: one line, cut short with … ; the whole sentence is its tooltip */
   .cindy-port .agent-yolo-on { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
-  /* the plan keeps its steps in sight; the conversation takes what is left, and always at least 3 lines */
+  /* the plan is inside the thread, which scrolls; do not cap the list here. The thread itself keeps at least 3 lines. */
   .app.agent-open .cindy-plan { max-height: none; }
   /* each step on one line here: the capability's sentence under it is the step's tooltip instead */
   .app.agent-open .cindy-plan-what { display: none; }

@@ -96,7 +96,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
    for(let p=c.parentElement;p;p=p.parentElement){const s=getComputedStyle(p);if(s.overflowY!=='visible'){const q=p.getBoundingClientRect();top=Math.max(top,q.top);bottom=Math.min(bottom,q.bottom);}}
    const comp=document.querySelector('[data-cindy-draft]').getBoundingClientRect();
    return{h:Math.round(r.height),visible:Math.round(Math.max(0,Math.min(bottom,innerHeight)-Math.max(top,0))),bottom:Math.round(r.bottom),composerTop:Math.round(comp.top),composerH:Math.round(comp.height),
-    sizes:[...c.querySelectorAll('[data-host-card-first],[data-host-card-second]')].map(e=>getComputedStyle(e).fontSize),focus:document.activeElement?.dataset?.hostChoice||null,step:document.querySelector('[data-plan] li [data-step-state-text]')?.textContent||null};})()`);
+    sizes:[...c.querySelectorAll('[data-host-card-first],[data-host-card-second]')].map(e=>getComputedStyle(e).fontSize),focus:document.activeElement?.dataset?.hostChoice||null,cardFocus:document.activeElement?.dataset?.hostCard||null,step:document.querySelector('[data-plan] li [data-step-state-text]')?.textContent||null};})()`);
   for(let i=0;i<30&&!await cardSeen();i++)await wait(100);
   for(const [w,h,name] of [[1280,820,'wide'],[630,460,'narrow']]){
    if(name==='narrow'){await size(w,h);await read(`setSideTab('assistant');mcAgent.render();true`);await wait(300);}
@@ -107,8 +107,12 @@ BrowserWindow.prototype.loadURL=async function(...args){
    assert.equal(c.step,'进行中');
    assert.deepEqual(c.sizes,['15px','12px'],name+': what changes in 15 px, the sentence under it in 12 px (v7.2)');
   }
-  assert.equal(report.card_wide.focus,'once','the main button has the focus');
-  await read(`document.querySelector('[data-host-card="approval"] [data-host-choice="deny"]').click();true`);await wait(300);
+  assert.equal(report.card_wide.cardFocus,'approval','the card itself has the focus');
+  assert.equal(report.card_wide.focus,null,'no approve button is focused');
+  await read(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:' ',bubbles:true}));true`);await wait(200);
+  assert.ok(await read(`!!document.querySelector('[data-host-card="approval"] [data-host-choice="once"]')`),'a stray Space approves nothing');
+  await read(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));true`);await wait(300);
+  assert.ok(await read(`(document.querySelector('[data-host-card-done="approval"]')||{textContent:''}).textContent.includes('你没有同意')`),'Esc on the card counts as 不同意');
   ok=true;
  }catch(e){report.error=String(e&&e.stack||e).slice(0,1500);}
  finally{out(ok?'NARROW_PASS':'NARROW_FAIL',report);process.exitCode=ok?0:1;app.exit(ok?0:1);}

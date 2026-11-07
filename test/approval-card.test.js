@@ -160,9 +160,19 @@ test('the card: Cindy\'s card shell and buttons; focus lands on the card itself,
   // outside the conversation's live log, so it is not read out again with every message
   const pane = read('agent-ui/pane.tsx'), log = pane.indexOf('<div role="log" aria-live="polite">'), end = pane.indexOf('</div>\n', log);
   a.ok(pane.indexOf('<HostCard ') > end, 'after the log');
+  // Review Inbox on #120: the plan and the card are in the scrolling thread, not in the live log.
+  // .cindy-port is overflow:hidden; outside the thread a 30-step plan pushes 〔开始〕 and the input out of the panel.
+  const planAt = pane.indexOf('className="cindy-plan"'), cardAt = pane.indexOf('<HostCard '), threadClose = pane.indexOf('</div>\n', cardAt);
+  a.ok(planAt > end && planAt < threadClose, 'the plan is in the thread, after the live log');
+  a.ok(cardAt < threadClose, 'the card is in the thread');
+  a.ok(pane.indexOf('<ComposerCard') > threadClose, 'the input stays outside the scroller');
+  a.ok(!pane.slice(log, end).includes('cindy-plan') && !pane.slice(log, end).includes('<HostCard '), 'not inside the live log');
   // the Tailwind classes it uses are generated, inside the parts' scope; MontClip's pane rules leave its paragraphs and buttons alone
   a.match(read('agent-ui/styles.cjs'), /path\.join\(__dirname, 'HostCard\.tsx'\)\]/);
   const css = read('style.css');
+  a.match(css, /\.cindy-thread \{flex:1 1 0;min-height:0;overflow:auto;/);
+  a.match(css, /\.cindy-port \{display:flex;flex-direction:column;min-height:0;height:100%;gap:4px;overflow:hidden;/);
+  a.match(css, /the plan and the approval card sit in \.cindy-thread/);
   for (const rule of ['#mcAgentContent p:where(:not([data-cindy-parts] *))', '.cindy-port p:where(:not([data-cindy-parts] *))', '.cindy-port button:where(:not([data-cindy-parts] *))', '.cindy-port.compact button:where(:not([data-cindy-parts] *))', '.mc-assistant p:where(:not([data-cindy-parts] *))'])
     a.ok(css.includes(rule), rule);
   // while a card waits, the proposal and reference rows step aside so the card fits the stream whole

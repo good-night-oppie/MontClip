@@ -21,6 +21,7 @@ Linux 上不用加 `--password-store`：在 Electron 认不出来的桌面上（
 | `agent-no-key-network-smoke.cjs` | `AGENT_NO_KEY_NETWORK_PASS` | 在用 |
 | `agent-reframe-review-smoke.cjs` | `REFRAME_REVIEW_PASS` | 在用；仅合成素材，需 `MONTCLIP_FFMPEG_DIR`；启动前拒绝已有内容的 profile；改画幅、导出、一次撤销 |
 | `agent-plan-smoke.cjs` | `PLAN_PASS` | 在用 |
+| `plan-long-layout-smoke.cjs` | `PLAN_LONG_LAYOUT_PASS` | 在用；30 步计划时〔开始〕、审批按钮和输入区仍可点，不读录像 |
 | `agent-paste-smoke.cjs` | `MONTCLIP_PASTE_HARNESS_DISABLED (SKIPPED)`，退出码 0 | 已停用：会动系统剪贴板（138514e 起停用，没有开关能打开） |
 | `asr-gaps-smoke.cjs` | `ASR_GAPS_PASS` | 在用 |
 | `asr-smoke.cjs` | `ASR_SMOKE_PASS` | 在用 |
