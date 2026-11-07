@@ -20846,7 +20846,9 @@ function exportCheckPlan(t0, t1) {
 }
 /** An /api/export/end that failed, as an Error with the server's reason code (sayError says it in the interface language). */
 function exportEndError(end, fallback) {
-  return Object.assign(new Error(end.error || fallback), end.code ? { code: end.code } : {});
+  // the self-check's lost pieces ({clips: [{n, t}]}) become the words of JJ's sentence (exportClipWords)
+  const params = end.params && Array.isArray(end.params.clips) ? exportClipWords(end.params.clips) : end.params;
+  return Object.assign(new Error(end.error || fallback), end.code ? { code: end.code } : {}, params ? { params } : {});
 }
 /* The export mix asks the server for only the part of each file it plays (/api/audio-window), on the container's clock.
    Every local file goes this way (QQ, 2026-11-05): decodeAudioData on a whole file put a late-starting audio stream's
@@ -20890,6 +20892,10 @@ function showOneSidedWarning(c) {
 /** A check from the export report in the interface language, where it has a code; else its text. */
 function exportCheckText(c) {
   if (c.code === "AUDIO_ONE_SIDED") return oneSidedWarning(c).text;
+  if (c.code === "EXPORT_CLIP_SILENT") {   // MC-14: JJ's sentence, by number and time, or time only for a sound on its own
+    const p = exportClipWords([{ n: c.n ?? null, t: +c.t || 0 }]);
+    return uiText(p.n != null ? "own.export-clip-silent" : "own.export-clip-silent-track", p);
+  }
   return c.text;
 }
 function exportReportLine(r) {
@@ -20899,31 +20905,109 @@ function exportAudioHeard(c, m) {
   if (m && m.audioChannels === 0) return false;
   return c.kind === "audio" || !(c.props && c.props.volume === 0);
 }
-/** The first heard clip that failed → an Error for the export, in the interface language; else null. */
+/** The heard clips that failed → an Error for the export in the interface language, JJ's sentence (#231): the pieces
+ *  with a picture by number and time, else the sound's time (exportClipWords); null when none did. */
 function exportMixFailure(results) {
-  const bad = results.find((r) => r && r.failed && r.heard);
-  if (!bad) return null;
-  return Object.assign(new Error(uiText("own.export-audio-failed", { name: bad.c.name || bad.c.id || "" })), { code: "EXPORT_AUDIO_FAILED" });
+  const bad = results.filter((r) => r && r.failed && r.heard);
+  if (!bad.length) return null;
+  const seen = new Set(), list = [];
+  for (const r of bad) { const k = r.n != null ? "n" + r.n : "t" + r.t; if (!seen.has(k)) { seen.add(k); list.push({ n: r.n ?? null, t: r.t }); } }
+  const p = exportClipWords(list);
+  return Object.assign(new Error(uiText(p.n != null ? "own.export-audio-failed" : "own.export-audio-failed-track", p)), { code: "EXPORT_AUDIO_FAILED", params: p, cause: bad[0].failed });
 }
-/** → {buf, at}: an AudioBuffer of clip c's audio for timeline a…b, and the media time its first sample is at. */
+/** 第 N 段 (MC-14, JJ on #231): the streamer counts the pieces in the picture — a video clip and its linked sound are one
+ *  piece, numbered from 1 by where they start (then by track); a sound on its own (music, a voice-over) takes no
+ *  number, it is said by its time. → Map clip id → {n (null for a sound on its own), t: where the piece starts}. */
+function exportSegmentNumbers(clips, t0, t1) {
+  const groups = new Map();
+  for (const c of clips) {
+    if ((c.kind !== "audio" && c.kind !== "video") || Math.min(c.start + c.duration, t1) - Math.max(c.start, t0) <= 1e-6) continue;
+    const k = c.linkGroup || c.id, g = groups.get(k);
+    if (!g) groups.set(k, { start: c.start, video: c.kind === "video", track: String(c.track || ""), ids: [c.id] });
+    else { g.ids.push(c.id); g.start = Math.min(g.start, c.start); g.video ||= c.kind === "video"; }
+  }
+  const out = new Map();
+  let n = 0;
+  for (const g of [...groups.values()].sort((x, y) => x.start - y.start || x.track.localeCompare(y.track))) {
+    const seg = { n: g.video ? ++n : null, t: g.start };
+    for (const id of g.ids) out.set(id, seg);
+  }
+  return out;
+}
+/** The words a sentence names the pieces with (JJ, #231): those with a picture, at most 5, by number and by time on the
+ *  timeline (MontClipAutoSlices.hms, as the page writes times elsewhere: 1:12:04 past an hour), in timeline order,
+ *  listed 「3、5、8」 ("3, 5, 8" in English); when none has a picture, the sounds' times only. [{n, t}] → {n, time} | {time}. */
+function exportClipWords(list) {
+  const sep = mcView.get().language === "en" ? ", " : "、";
+  const pic = list.filter((x) => x.n != null), use = (pic.length ? pic : list).slice().sort((x, y) => x.t - y.t).slice(0, 5);
+  const time = use.map((x) => MontClipAutoSlices.hms(x.t)).join(sep);
+  return pic.length ? { n: use.map((x) => x.n).join(sep), time } : { time };
+}
+/** The peak of buf from `off` seconds for `dur` seconds, every channel, dBFS (−Infinity for digital silence). */
+function exportClipPeak(buf, off, dur) {
+  const sr = buf.sampleRate, i0 = Math.max(0, Math.floor(off * sr)), i1 = Math.min(buf.length, Math.ceil((off + dur) * sr));
+  let mx = 0;
+  for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = i0; i < i1; i++) { const v = d[i] < 0 ? -d[i] : d[i]; if (v > mx) mx = v; }
+  }
+  return mx > 0 ? 20 * Math.log10(mx) : -Infinity;
+}
+/** A read whose sound stops before the clip does (MC-14: a whole-file decode that gave up part way was played as
+ *  silence) → why, in English for the log; null when it covers the clip. `at`: the media time of buf's first sample;
+ *  `end`: the media time the clip plays to; the file's own length (mediaDur) ends it earlier. 1 s of slack: a sound
+ *  stream may end a little before the picture. */
+function exportWindowShort(buf, at, end, mediaDur) {
+  const have = at + buf.duration, need = Number.isFinite(mediaDur) && mediaDur > 0 ? Math.min(end, mediaDur) : end;
+  return have + 1 < need ? `the sound read ends at ${have.toFixed(2)} s, the clip plays to ${need.toFixed(2)} s` : null;
+}
+/* The check looks at every piece (MC-14): one whose heard clips are all silent where they play is sent to the server's
+   check (export-check.js), which measures that part of its file — silent there too: a warning, 「第 N 段是无声的」;
+   sound there: the export failed. Loud music over the whole export never hides it. */
+const EXPORT_QUIET_DB = -50;   // export-check.js QUIET_DB
+/** → [{n, t, src, at, dur}]: the pieces whose heard sound is silent where it plays, in timeline order — n null for a
+ *  sound on its own, t where the piece starts on the timeline (dur at most 30 s, as the check reads). */
+function exportSilentSegments(results) {
+  const seg = new Map();
+  for (const r of results) {
+    if (!r || r.failed || !r.heard || !r.buf) continue;
+    const k = r.n != null ? "n" + r.n : "c" + r.c.id;
+    const peak = exportClipPeak(r.buf, r.m0 - r.at, r.m1 - r.m0), s = seg.get(k);
+    if (!s) seg.set(k, { quiet: peak < EXPORT_QUIET_DB, r });
+    else s.quiet &&= peak < EXPORT_QUIET_DB;
+  }
+  const round = (v) => Math.round(v * 1000) / 1000;
+  return [...seg.values()].filter((s) => s.quiet).map(({ r }) => r).sort((x, y) => x.t - y.t)
+    .map((r) => ({ n: r.n ?? null, t: round(r.t), src: r.src, at: round(Math.max(0, r.m0)), dur: round(Math.min(30, r.m1 - r.m0)) }));
+}
+/** → {buf, at, m0, m1}: an AudioBuffer of clip c's audio for timeline a…b, the media time its first sample is at, and the
+ *  part of the file the clip plays (m0…m1). With a server only that part is read (/api/audio-window): a window that
+ *  fails, or comes back short, stops the export — never a whole-file decode in its place (MC-14 / MC-15: a 3–6 GB
+ *  recording or a 1.4 GB FLAC read whole in the page came out silent, or crashed it). */
 async function exportAudioSource(m, c, a, b, windows = new Map()) {
+  const m0 = Math.min(mediaTimeAt(c, a), mediaTimeAt(c, b)), m1 = Math.max(mediaTimeAt(c, a), mediaTimeAt(c, b));
   if (state.connected && !isCrossOriginSrc(m.src)) {
-    const m0 = Math.min(mediaTimeAt(c, a), mediaTimeAt(c, b)), m1 = Math.max(mediaTimeAt(c, a), mediaTimeAt(c, b));
     const from = Math.max(0, Math.floor((m0 - AUDIO_WINDOW_PAD) * 1000) / 1000), to = Math.ceil((m1 + AUDIO_WINDOW_PAD) * 1000) / 1000;
     if (to - from <= 3600) {
       // track 0 whatever the entry picks for analysis: the export keeps the whole sound (JJ on #177)
       const key = `${m.src}|${from}|${to}`;
       if (!windows.has(key)) windows.set(key, fetch(`/api/audio-window?src=${encodeURIComponent(m.src)}&from=${from}&to=${to}&track=0`)
-        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error("audio window " + r.status))))
-        .then((ab) => getDecodeCtx().decodeAudioData(ab)).catch((e) => { console.warn("[MontClip] audio window failed, decoding the whole file:", e && e.message); return null; }));
-      const buf = await windows.get(key);
-      if (buf) return { buf, at: from };
+        .then((r) => (r.ok ? r.arrayBuffer() : r.json().catch(() => ({})).then((j) => Promise.reject(new Error(`audio window ${r.status}${j && j.error ? ": " + j.error : ""}`)))))
+        .then((ab) => getDecodeCtx().decodeAudioData(ab)));
+      const buf = await windows.get(key), short = exportWindowShort(buf, from, m1, m.duration);
+      if (short) throw new Error(short);
+      return { buf, at: from, m0, m1 };
     }
   }
-  return { buf: await getAudioBuffer(m), at: 0 };
+  // no server (or a cross-origin file), or one span over an hour: the file decoded in the page, checked the same way
+  const buf = await getAudioBuffer(m), short = exportWindowShort(buf, 0, m1, m.duration);
+  if (short) throw new Error(short);
+  return { buf, at: 0, m0, m1 };
 }
+/** opts.silent: an array the pieces whose sound is silent where they play are pushed to (exportSilentSegments).
+ *  opts.raw: the AudioBuffer itself (highlight signals); a failed clip is then left out instead of stopping. */
 async function renderAudioMix(t0, t1, opts = {}) {
-  const jobs = [], windows = new Map();
+  const jobs = [], windows = new Map(), nums = exportSegmentNumbers(mediaClips().filter(clipRenders), t0, t1);
   for (const c of mediaClips()) {
     if (c.kind !== "audio" && c.kind !== "video") continue;
     if (!clipRenders(c)) continue;
@@ -20931,12 +21015,14 @@ async function renderAudioMix(t0, t1, opts = {}) {
     if (!m || isMediaOffline(m.id)) continue;   // silent, even when its sound was decoded before it went missing
     const a = Math.max(c.start, t0), b = Math.min(c.start + c.duration, t1);
     if (b - a <= 1e-6) continue;
-    jobs.push(exportAudioSource(m, c, a, b, windows).then(({ buf, at }) => ({ c, buf, at }))
-      .catch((e) => ({ c, failed: e, heard: exportAudioHeard(c, m) })));
+    const { n, t } = nums.get(c.id) || { n: null, t: c.start }, heard = exportAudioHeard(c, m);
+    jobs.push(exportAudioSource(m, c, a, b, windows).then(({ buf, at, m0, m1 }) => ({ c, n, t, heard, buf, at, m0, m1, src: m.src }))
+      .catch((e) => { console.warn(`[MontClip] the sound of clip ${n ?? "-"} at ${t} s (${c.id}) could not be read:`, e && e.message); return { c, n, t, failed: e, heard }; }));
   }
   const results = await Promise.all(jobs);
   const failed = exportMixFailure(results);
   if (failed && !opts.raw) throw failed;
+  if (Array.isArray(opts.silent)) opts.silent.push(...exportSilentSegments(results));
   const sources = results.filter((r) => r && !r.failed);
   if (!sources.length) return null;
   const dur = Math.max(0, t1 - t0);
@@ -21074,7 +21160,8 @@ async function fastExport(opts = {}) {
     noteExportBgRemove({ start: t0, end: t1 });
     els.exportTitle.textContent = uiText("own.mixing-audio");
     await mediaInfoSettled();
-    const wav = await renderAudioMix(t0, t1);
+    const silent = [];
+    const wav = await renderAudioMix(t0, t1, { silent });
     if (renderCancelled) throw new Error("cancelled");
     const cv = deliveryCanvas();
     const begin = await fetch("/api/export/begin", {
@@ -21082,7 +21169,7 @@ async function fastExport(opts = {}) {
       body: JSON.stringify(delivery ? {
         fps, duration: frames / fps,
         deliveries: deliveries.map((d) => ({ delivery: d.delivery, name: d.name || deliveryFileName(d.delivery, fps) })),
-        canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav, job, check: exportCheckPlan(t0, t1), panIntent: exportPanIntent(),
+        canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav, job, check: { ...exportCheckPlan(t0, t1), silent }, panIntent: exportPanIntent(),
       } : {
         fps,
         frames,
@@ -21090,7 +21177,7 @@ async function fastExport(opts = {}) {
         profile: profileId,
         hasAudio: !!wav,
         job,
-        check: exportCheckPlan(t0, t1),
+        check: { ...exportCheckPlan(t0, t1), silent },
       }),
       signal,
     }).then((r) => r.json());
@@ -21943,7 +22030,8 @@ async function webCodecsExport() {
     noteExportBgRemove({ start: t0, end: t1 });
     els.exportTitle.textContent = uiText("own.mixing-audio");
     await mediaInfoSettled();
-    const wav = await renderAudioMix(t0, t1);
+    const silent = [];
+    const wav = await renderAudioMix(t0, t1, { silent });
     if (renderCancelled) throw new Error("cancelled");
 
     const begin = await fetch("/api/export/begin", {
@@ -21953,7 +22041,7 @@ async function webCodecsExport() {
         name: exportBaseName("export"),
         mode: "annexb",
         hasAudio: !!wav,
-        check: exportCheckPlan(t0, t1),
+        check: { ...exportCheckPlan(t0, t1), silent },
       }),
       signal,
     }).then((r) => r.json());

@@ -52,6 +52,17 @@ function findBrowser(env = process.env) {
   return candidates.find((p) => { try { return fs.statSync(p).isFile(); } catch { return false; } }) || null;
 }
 
+/** How to start the headless browser (MC-15). On Linux it is started as the first thing the kernel's out-of-memory
+ *  killer takes (oom_score_adj 1000, which its pages inherit), so an export page that runs the machine out of memory
+ *  ends itself and its job, not the shared engine that started it (europa, 2026-11-07: the engine's process id changed
+ *  twice while exports read 1.2–1.4 GB FLACs). Raising one's own score needs no privilege; where /proc is not writable
+ *  the browser starts as before. `exec` keeps the browser's own process id, so ending the job still ends the browser.
+ *  → {cmd, args}. */
+function browserCommand(exe, args, platform = process.platform) {
+  if (platform !== "linux") return { cmd: exe, args };
+  return { cmd: "/bin/sh", args: ["-c", 'echo 1000 > /proc/self/oom_score_adj 2>/dev/null; exec "$0" "$@"', exe, ...args] };
+}
+
 /** opts: {url(id) → page to open headless, broadcast(event, data), editors() → open tab count,
  *  keepProfile(kind) → a browser profile dir that outlives the job (a model cache), or null for a throwaway one,
  *  now() → the clock (tests),
@@ -111,7 +122,7 @@ function createExportJobs(opts) {
       // headless, or a tab that never said who it is (no tabId, no hidden): main's 120 s stall (P11). Only a tab known to be
       // visible and connected keeps its job past that.
       else if (j.status === "running" && (j.via === "headless" || (!j.tabId && typeof j.hidden !== "boolean")) && now - j.updated > STALL_MS)
-        end(j, "failed", { error: "the editor stopped reporting progress" +
+        end(j, "failed", { ...(j.via === "headless" ? { errorCode: "EXPORT_PAGE_CRASHED" } : {}), error: "the editor stopped reporting progress" +
           (j.kind === "export" ? ` at ${Math.round(j.progress * 100)}%${j.at != null ? ` (timeline ${j.at} s)` : ""}` : "") + " (tab closed or browser crashed)" });
       else if (isEnded(j) && now - j.updated > KEEP_MS) jobs.delete(j.id);
     }
@@ -125,16 +136,19 @@ function createExportJobs(opts) {
     const kept = opts.keepProfile ? opts.keepProfile(j.kind) : null;
     if (kept) fs.mkdirSync(kept, { recursive: true });
     const profileDir = kept || fs.mkdtempSync(path.join(os.tmpdir(), "fablecut-export-"));
-    const proc = spawn(exe, [
+    const run = browserCommand(exe, [
       "--headless=new", `--user-data-dir=${profileDir}`, "--no-first-run", "--no-default-browser-check",
       "--disable-extensions", "--mute-audio", "--autoplay-policy=no-user-gesture-required",
       "--disable-background-timer-throttling", "--disable-renderer-backgrounding",
       "--disable-backgrounding-occluded-windows", "--window-size=1600,900",
       opts.url(j.id),
-    ], { stdio: "ignore", windowsHide: true });
+    ]);
+    const proc = spawn(run.cmd, run.args, { stdio: "ignore", windowsHide: true });
     j.browser = { proc, profileDir, keep: !!kept };
     proc.on("error", (e) => end(j, "failed", { error: "could not start the headless browser: " + e.message }));
-    proc.on("exit", () => { if (j.browser) { j.browser = null; if (!isEnded(j)) end(j, "failed", { error: "the headless browser exited before the export finished" }); } });
+    // the page crashed with its browser (MC-15): this job ends, said in the interface language (EXPORT_PAGE_CRASHED); the
+    // engine and the queue carry on
+    proc.on("exit", () => { if (j.browser) { j.browser = null; if (!isEnded(j)) end(j, "failed", { errorCode: "EXPORT_PAGE_CRASHED", error: "the headless browser exited before the export finished" }); } });
   }
 
   return {
@@ -229,4 +243,4 @@ function createExportJobs(opts) {
   };
 }
 
-module.exports = { createExportJobs, findBrowser, TAB_SILENT_MS, JOB_HEARTBEAT_MS };
+module.exports = { createExportJobs, findBrowser, browserCommand, TAB_SILENT_MS, JOB_HEARTBEAT_MS };

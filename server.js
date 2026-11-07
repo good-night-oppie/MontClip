@@ -685,13 +685,14 @@ async function verifyDeliveryOutput(sess, o, file) {
  *  `loud`: the file's measured loudness (a delivery report), when there is one; `soundless`: the output was asked to
  *  have no sound (a delivery with audio codec none), so its silence is not checked. */
 async function blankCheck(sess, file, loud, soundless = false) {
-  const plan = sess.check && (soundless ? { ...sess.check, audio: [] } : sess.check);
-  if (!plan || (!plan.video.length && !plan.audio.length)) return null;
+  const plan = sess.check && (soundless ? { ...sess.check, audio: [], silent: [] } : sess.check);
+  if (!plan || (!plan.video.length && !plan.audio.length && !plan.silent.length)) return null;
   try {
     const r = await ExportCheck.check({ ffmpeg: FF.path("ffmpeg"), file, plan, resolve: resolveSrc,
       silent: !sess.wav ? true : loud ? !!loud.silent : null, mix: sess.wav });
     if (process.env.MONTCLIP_EXPORT_CHECK_LOG) console.log("[export-check] " + JSON.stringify(r));
-    return r.ok ? null : { code: ExportCheck.failCode(r), error: ExportCheck.failText(r), check: r };
+    sess.quiet = r.quiet;   // pieces silent in their files too: a warning in the report (ExportCheck.withQuiet)
+    return r.ok ? null : { code: ExportCheck.failCode(r), params: ExportCheck.failParams(r), error: ExportCheck.failText(r), check: r };
   } catch { return null; }   // a check that cannot run never fails an export
 }
 /** Spawn one ffmpeg per output of a delivery session. */
@@ -1829,13 +1830,19 @@ async function handleRequest(req, res) {
           freshExports.add(file);
           const report = await verifyDeliveryOutput(sess, o, o.outPath);
           const blank = await blankCheck(sess, o.outPath, o.loud, o.spec.audio.codec === "none");
+          // MC-14: a piece whose sound was lost is not handed over — the file goes (「没有生成文件」)
+          if (blank && blank.code === "EXPORT_AUDIO_FAILED") {
+            try { fs.unlinkSync(o.outPath); } catch { }
+            exportedThisRun.delete(file); freshExports.delete(file);
+            return { file, ok: false, error: blank.error, code: blank.code, params: blank.params };
+          }
           if (blank) return { file, ok: false, src: "/exports/" + encodeURIComponent(file), error: blank.error, code: blank.code, ...(report ? { report } : {}) };
-          return { file, ok: true, src: "/exports/" + encodeURIComponent(file), ...(report ? { report } : {}),
+          return { file, ok: true, src: "/exports/" + encodeURIComponent(file), ...(report ? { report: o.spec.audio.codec === "none" ? report : ExportCheck.withQuiet(report, sess.quiet) } : {}),
             ...(o.loudnorm ? { mixLoudness: o.loudnorm.input_i } : {}) };
         }));
         cleanupExport(id);
         const ok = results.filter((x) => x.ok);
-        if (!ok.length) throw Object.assign(new Error(results.map((x) => `${x.file}: ${x.error}`).join(" · ")), { code: results.find((x) => x.code)?.code });
+        if (!ok.length) throw Object.assign(new Error(results.map((x) => `${x.file}: ${x.error}`).join(" · ")), { code: results.find((x) => x.code)?.code, params: results.find((x) => x.params)?.params });
         sendJSON(res, 200, { ok: true, src: ok[0].src, outputs: results });
         return;
       }
@@ -1849,9 +1856,10 @@ async function handleRequest(req, res) {
       freshExports.add(path.basename(out));
       const blank = await blankCheck(sess, out, null);
       cleanupExport(id);
-      if (blank) throw Object.assign(new Error(`${path.basename(out)}: ${blank.error}`), { code: blank.code });
+      if (blank && blank.code === "EXPORT_AUDIO_FAILED") { try { fs.unlinkSync(out); } catch { } exportedThisRun.delete(path.basename(out)); freshExports.delete(path.basename(out)); }
+      if (blank) throw Object.assign(new Error(`${path.basename(out)}: ${blank.error}`), { code: blank.code, params: blank.params });
       sendJSON(res, 200, { ok: true, src: "/exports/" + encodeURIComponent(path.basename(out)) });
-    } catch (e) { cleanupExport(id); sendJSON(res, 500, { error: String(e), ...(e && e.code ? { code: e.code } : {}) }); }
+    } catch (e) { cleanupExport(id); sendJSON(res, 500, { error: String(e), ...(e && e.code ? { code: e.code } : {}), ...(e && e.params ? { params: e.params } : {}) }); }
     return;
   }
 

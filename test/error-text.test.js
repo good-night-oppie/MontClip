@@ -29,7 +29,7 @@ function publicCodes() {
   codes.delete('ffmpegDev');   // a development checkout without the bundled FFmpeg: stays English (ffmpeg-path.js)
   return [...codes].sort();
 }
-const PARAMS = { w: 120, h: 40, n: 145, reason: 'extGone', encoder: 'h264_mf' };
+const PARAMS = { w: 120, h: 40, n: 145, time: '1:12:04', reason: 'extGone', encoder: 'h264_mf' };
 
 test('JJ v2, word for word: the rows this PR owns', () => {
   const unreadable = ['这个录像读不了，可能还没录完，或者文件坏了。原片没有改动。如果是还在录的，录完以后再导入。',

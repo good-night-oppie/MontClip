@@ -62,7 +62,7 @@ test('the export mix asks for a window for every local file (with a server), and
   // fallback without a server, so one project never mixes two offsets
   a.ok(!/AUDIO_WINDOW_MIN_SEC|AUDIO_WINDOW_MIN_BYTES/.test(app), 'no size / length split any more');
   a.match(helper, /if \(state\.connected && !isCrossOriginSrc\(m\.src\)\)/);
-  a.match(helper, /getAudioBuffer\(m\)/, 'no server: the whole-file decode');
+  a.match(helper, /getAudioBuffer\(m\)/, 'no server: the whole-file decode (MC-14: never in place of a failed window)');
 });
 
 test('a headless export page (?exportJob=) draws no waveforms, so it never decodes whole files for them', () => {
@@ -81,23 +81,24 @@ test('a clip whose sound cannot be decoded stops the export, said in plain words
   const V = require('../ui-preferences');
   for (const language of ['zh-CN', 'en']) {
     const uiText = (k, v) => V.t(language, k, v);
-    const { exportAudioHeard, exportMixFailure } = new Function('uiText', src + '\nreturn { exportAudioHeard, exportMixFailure };')(uiText);
+    const { exportAudioHeard, exportMixFailure } = new Function('uiText', 'mcView', 'MontClipAutoSlices', src + '\nreturn { exportAudioHeard, exportMixFailure };')(uiText, { get: () => ({ language }) }, require('../auto-slices'));
     const vid = { kind: 'video', props: {} }, pic = { kind: 'video', props: { volume: 0 } }, aud = { kind: 'audio', name: '直播录像', props: {} };
     a.equal(exportAudioHeard(aud, { audioChannels: 2 }), true);
     a.equal(exportAudioHeard(vid, { audioChannels: 2 }), true);
     a.equal(exportAudioHeard(pic, { audioChannels: 2 }), false, 'the picture of a linked video is silent');
     a.equal(exportAudioHeard(aud, { audioChannels: 0 }), false, 'a file with no audio stream');
     a.equal(exportMixFailure([{ c: aud, buf: {} }]), null);
-    const e = exportMixFailure([{ c: aud, buf: {} }, { c: aud, failed: new Error('decode failed'), heard: true }, { c: pic, failed: new Error('x'), heard: false }]);
+    const e = exportMixFailure([{ c: aud, n: 1, t: 0, buf: {} }, { c: aud, n: 2, t: 10, failed: new Error('decode failed'), heard: true }, { c: pic, failed: new Error('x'), heard: false }]);
     a.ok(e instanceof Error); a.equal(e.code, 'EXPORT_AUDIO_FAILED');
-    a.ok(e.message.includes('直播录像'), e.message);
-    a.match(e.message, language === 'en' ? /no sound/ : /没有声音/);
+    // MC-14 (JJ 2026-11-07): the clip is said by its number on the timeline, 第 N 段 (test/export-clip-sound.test.js)
+    a.equal(e.message, V.t(language, 'own.export-audio-failed', { n: 2, time: '0:10' }));
+    a.match(e.message, language === 'en' ? /clip 2/ : /第 2 段/);
     a.equal(exportMixFailure([{ c: pic, failed: new Error('x'), heard: false }]), null, 'an unheard failure is not one');
   }
   const mix = body(app, 'async function renderAudioMix(');
   a.match(mix, /const failed = exportMixFailure\(results\);/); a.match(mix, /if \(failed && !opts\.raw\) throw failed;/, 'export stops; highlight signals (raw) carry on');
   // both export paths call it without raw, so the error reaches the export's own failure handling (queue: failed)
-  a.equal((app.match(/const wav = await renderAudioMix\(t0, t1\);/g) || []).length, 2);
+  a.equal((app.match(/const wav = await renderAudioMix\(t0, t1, \{ silent \}\);/g) || []).length, 2);
 });
 
 /* Deja 2026-11-05: auto-slices on a machine whose only H.264 encoder is libx264 (no graphics card) export with x264
@@ -224,7 +225,7 @@ test('server: audio 59 / 80 ms late, clip from 0 s, 0.3 s or mid-file — the wi
   const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: '1' });
   const PAD = 0.5, fromFor = (m0) => Math.max(0, Math.floor((m0 - PAD) * 1000) / 1000);   // app.js exportAudioSource
   a.match(app, /const AUDIO_WINDOW_PAD = 0\.5;/); a.match(app, /const from = Math\.max\(0, Math\.floor\(\(m0 - AUDIO_WINDOW_PAD\) \* 1000\) \/ 1000\)/);
-  a.match(app, /if \(buf\) return \{ buf, at: from \};/, 'the page plays sample 0 of the window at container time `from`');
+  a.match(app, /return \{ buf, at: from, m0, m1 \};/, 'the page plays sample 0 of the window at container time `from`');
   const seen = [];
   // [file, where the container says the audio starts, where the sound really is (what the flash is aligned to)]. The
   // remuxed FLV's audio "starts" at 0.059 s: its first samples are AAC priming, 21 ms before the sound at 0.080 s — the
