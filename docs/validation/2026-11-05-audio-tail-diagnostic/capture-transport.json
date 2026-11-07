@@ -1,6 +1,0 @@
-{
-  "code": 0,
-  "bytes": 30403460,
-  "writes": 56,
-  "method": "tee stdin.write bytes; original write return/backpressure preserved"
-}
