@@ -24,6 +24,8 @@ PR中格式：「SOP 例外：测试 — 原因 — 证据：<HTTPS链接或消�
 
 当前候选只启用pull_request_target的opened、edited、synchronize、ready_for_review、reopened、review_requested、review_request_removed，以及merge_group的checks_requested；工作流与job名固定sop-pr-lint。静态Node检查器内嵌并核SHA256；不checkout、不执行PR代码/依赖、不使用cache/artifact/secrets。只有contents:read、pull-requests:read、issues:read，无写权限、无路径过滤。PR正文、标题、分支名不插入shell；正文只从事件/API JSON读取。merge_group阶段没有PR正文，直接返回通过并在摘要写「合并队列阶段不重复检查，PR 阶段已检查」；权限不变，不读取API。
 
+已知限制：Python 别名写法（如 `from requests import get as g`）暂不识别；仅连本机 loopback 的测试驱动目前靠路径排除，后续考虑单独标 `loopbackOnly`，与真实外发分开。
+
 **主人本轮已选择「仅target，人工重跑」**，取代此前追加pull_request_review自动触发的要求。唯一PR检查入口为pull_request_target；不启用pull_request_review。该事件运行时GITHUB_SHA是PR最后merge commit、GITHUB_REF是refs/pull/N/merge，即使用PR可修改的工作流，会重新打开「PR改检查放行自己」的入口；QQ在当前head的CHANGES_REQUESTED也确认当前没有review触发是对的。QQ提交当前head的例外核验review后，人工重跑匹配当前完整head、正文及规则版本的最新可信target运行。若head、正文或可信规则版本已变，先触发新的target（例如编辑PR正文），不重用旧结果。
 
 同名伪造残余风险：PR可新增`on: pull_request`工作流，把job也取名sop-pr-lint并让它永远成功。当前防线是工作流/动作文件改动一律判needs_qq、QQ必审、按run核对event与head，不接受同名成功；根治为规则集「Require workflows to pass before merging」，能力核查与未决项见`docs/decisions/ADR-004-pr-sop-workflow-trust.md`。BB不改规则集。
