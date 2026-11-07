@@ -54,6 +54,9 @@ Every Claude Code session then has these tools:
   on that canvas whose shots follow the subject. See "Sequences" below.
 - `fablecut_highlights` — the best moments of long footage cut into a short edit, in a new
   sequence. See "Sequences" below.
+- `fablecut_audio_track` — a recording with several audio tracks (OBS: microphone, game,
+  music…): list them, cut a few seconds of each to listen to, pick the streamer's voice.
+  See "Media management" below.
 - `fablecut_songs` — where each song in a long recording starts and ends, from the sound
   alone, with the guessed spots marked; kept in the project. See "Songs in a recording" below.
 - `fablecut_transcribe` — turn speech into words with times (on this computer: sherpa-onnx Paraformer zh),
@@ -178,6 +181,31 @@ reports the real paths.
 `MONTCLIP_SHELL`, else `desktop` or `server`). Another one started on the same
 folder — the Windows app and the Cindy plugin pointed at one folder, say —
 refuses to start and names the first. A lock whose process is gone is taken over.
+
+**Embedded in Cindy** (the MontClip-Cindy plugin, see its README) the engine runs
+with `MONTCLIP_HOST=cindy` and a fresh 64-hex `MONTCLIP_EMBED_TOKEN`, bound to
+`127.0.0.1` only (anything else, or desktop mode, refuses to start). It answers
+only requests that carry the token: as `X-MontClip-Session` (the plugin worker, and
+`mcp-server.js` when it runs with the same two variables), or as the
+`montclip_embed` cookie (HttpOnly, `SameSite=None; Secure; Partitioned`), which a
+page load (GET) of any URL with `?token=<token>` receives together with a 302 to the
+same URL without it. The cookie is not the token: each such page load gets its own
+random session, which the server remembers (the newest 64) and can end on its own.
+Everything else gets 403. Every answer says
+`Referrer-Policy: no-referrer`, and the token is never put in a redirect, a log
+line or an error. A headless export or measurement browser gets a one-time ticket
+(one use, one minute) in its URL instead of the token. Without
+`MONTCLIP_HOST=cindy` none of this applies.
+
+The editor page opened with `?host=cindy` (`host-embed.js`) hides its built-in
+assistant (Cindy's chat takes its place) and keeps it from sending anything: it reads no
+service key, reaches no AI service and sends no message (the desktop main process refuses its
+requests from such a page too); an approval it would ask for is 「不同意」 at once, with code
+`HOST_EMBEDDED`. The lyrics card is the page's own dialog and still asks. The editor follows Cindy's theme: `?theme=light|dark`
+at load (any other value is ignored), then `postMessage({type:"montclip-host-theme", scheme})`,
+taken only when it comes from the framing page: `event.source` is `window.parent` and
+`event.origin` is that page's origin (`location.ancestorOrigins`, else the referrer;
+when neither names one, no message is taken).
 
 `mcp-server.js` run as a program speaks MCP on stdio; required as a module (the
 Cindy plugin's Node worker does) it only hands over `{TOOLS, callTool,
@@ -316,6 +344,7 @@ Examples in `library/svg/`: `sparkles.svg` (loop), `lower-third.svg`,
   "background": "#000000",                    // canvas color behind all clips (optional)
   "revision": 7,                              // bump on every write!
   "panSchema": 1,                             // 1 = pan-aware; omit only on pre-pan projects (UI migrates once)
+  "monoPanReviewed": true,                    // optional — the left-ear mono question is settled (see "Audio mix")
   "markers": [ { "t": 2.5 }, { "t": 5.0, "label": "drop", "color": "red" } ],
   // ^ beat/cue markers: diamonds on the ruler (label shown beside them), snap
   //   targets for clip edges. color: gold (default) · red · orange · green ·
@@ -366,6 +395,7 @@ Examples in `library/svg/`: `sparkles.svg` (loop), `lower-third.svg`,
       "duration": 12.4, "width": 1920, "height": 1080,
       "fps": 29.97, "codec": "h264", "audioCodec": "aac", "audioChannels": 2, "sampleRate": 48000,
       "size": 45200000, "bitrate": 29300000, // probed from the file (read-only; see "Media management")
+      // "audioTracks": [ {"channels": 2, "title": "Mic"}, … ], "audioTrack": 1,  // several audio streams: which one is read
       "favorite": true, "tags": [ "interview", "day 1" ],   // optional: bin organization
       "folderId": null },                    // optional: id of a folders[] entry
     { "id": "m_abd", "name": "intro.denoise-medium.flac", "kind": "audio", "src": "/media/intro.denoise-medium.flac",
@@ -467,7 +497,7 @@ These are quick looks. For real grading use `props.grade` (see "Color" below).
 | `gain` | 0 | clip gain in dB (−60…+24), applied **before** `volume`, so keyframes and fades ride on top. Set by Normalize. |
 | `channelMode` | "stereo" | stereo · mono (L+R folded to one channel) · left · right (use one side) · swap (exchange L/R). Ignored on linked stems — `audioChannel` already picks their channel. |
 | `duck` | 0 | ducking in dB (≤ 0), multiplied into `volume`. Normally keyframed by Auto-duck (`keyframes.duck`), so the clip's own volume, keyframes and fades are untouched. |
-| `pan` | 0 | −1 (full left) … 0 (center) … +1 (full right). Linked stems default L `−1` / R `+1` / other `0`; the only stem of a mono file defaults to `0` (centre). Projects saved before pan migrate once on load (`panSchema`); keep `panSchema: 1` (and explicit `pan` on stems) when rewriting the document so a centered stem is not re-hard-panned. |
+| `pan` | 0 | −1 (full left) … 0 (center) … +1 (full right). Linked stems default L `−1` / R `+1` / other `0`; the only stem of a mono file defaults to `0` (centre). A pan the program gave a stem carries `panAuto: true`; editing the pan (the slider, a reset, a keyframe, or an agent's `updateClip` with a `pan`) removes it. Projects saved before pan migrate once on load (`panSchema`); keep `panSchema: 1` (and explicit `pan` on stems) when rewriting the document so a centered stem is not re-hard-panned. |
 | `speed` | 1 | 0.25–4× playback rate. **Keyframable → speed ramps**: with `keyframes.speed` the engine time-remaps (media time = `in` + ∫speed dt), in preview and in the export audio mix. Static case: source window consumed = `duration × speed`, so `in + duration×speed ≤ media.duration`. |
 
 **Text clips only:**
@@ -715,6 +745,18 @@ edits the key under the playhead. Agents:
   after ducking): drag it to change the level, Ctrl/Cmd-click to add a keyframe,
   drag a point to move it, Alt-click or double-click to remove one. The corner
   **fade grips** drag a constant-power fade in or out. Both edit linked stems together.
+- **Mono in the left ear (old projects)** — projects saved before mono files got a
+  centred stem can have one at `pan: -1`, which exports with sound on the left only. A
+  stem of a mono file on channel 0, at exactly −1, with no pan keyframes and no other stem
+  in its link group, might be the program's old default or the streamer's choice (no
+  `panAuto` then), so on open the editor asks once, in a toast that blocks nothing:
+  centre them (one undo step) or keep them. Showing the question writes nothing; either
+  answer sets `monoPanReviewed: true` in project.json (never the window's storage);
+  a project with no such stem (and every stem's channel count known) is set quietly, by
+  the editor or the next `fablecut_patch_project`. Until then `fablecut_status` warns;
+  centre them (`updateClip set:{props:{pan:0}}`, then `setProject {monoPanReviewed:true}`)
+  only when the user asks. The check after an export never reports these stems (no
+  `panAuto`, so the streamer's): the open-project question is their only path.
 - Use **gain** for "this clip is too quiet / loud", **volume keyframes** for
   shaping, **duck** for dipping under dialogue, the **track fader** to
   balance whole lanes (dialogue against the music bed), and a **bus** when
@@ -1743,7 +1785,9 @@ entry. These fields are read-only — they describe the file:
 | `fps` | video frame rate (29.97, 25, 59.94 …); absent for stills and audio |
 | `codec` | video codec (`h264`, `hevc`, `prores`, `vp9` …), or the image format (`png`, `mjpeg`) |
 | `audioCodec` · `audioChannels` · `sampleRate` | first audio stream: codec, channel count (`0` = the file has no audio), Hz |
+| `audioTracks` | only for a file with two or more audio streams (OBS records up to six): `[{channels, title?, default?}]` in stream order, `title` being the name the recorder wrote |
 | `size` · `bitrate` | file size in bytes · overall bitrate, bits per second |
+| `start` · `audioOffset` | only on a file whose clock doesn't start at 0 (an OBS recording whose timestamps start at 3600 s, an MP4 edit list): `start` is where media time 0 — the file's start, the 0 of `ffmpeg -ss` — sits on the file's own clock, seconds; `audioOffset` is where its decoded sound starts in media time (−0.021 for the AAC priming ahead of such a recording). The editor's players, the export's decoder and its audio mix are shifted by them, so `in` and every media time mean the same thing as for any other file |
 | `storedWidth` · `storedHeight` | only when the pixels aren't square: the size the file stores (the compact view prints `2389×1920 (stored as 1080×1920)`). Agents read `width` / `height` |
 | `width` · `height` · `duration` | as before; filled in when missing (phone footage shot rotated reports its upright size). `width` × `height` is the **display** size: a file with non-square pixels shows as it is drawn (a replay stored as 1080×1920 with pixels 896:405 is 2389×1920), and an entry that still holds the stored size is corrected when the agent or the editor reads it. An MKV whose timestamps start late (3600 s) is as long as it plays; one whose header has no length takes it from its streams (their durations, then their DURATION tags), from the earliest start to the latest end; when nothing there says it either (a recording stopped before it was saved), it is read from the packets' times, first to last (`fablecut_import_media` says so). When even that fails — or ffprobe can't open the file at all, as with an MP4 whose index was never written — there is no `duration`, the entry gets `durationUnknown: true`, the editor says so, and the file can't be placed: `addClip`, `insert` and `overwrite` refuse it, and so does dragging it onto the timeline. Without ffprobe nothing is marked; the browser's length is used. The editor asks once about every MKV / WebM and every recording without a length, old projects included (`durationChecked` marks it), and MCP imports read the length the same way. Clips already placed from a wrong (too long) length are fitted to the corrected one, as one undo step |
 
@@ -1870,6 +1914,28 @@ proxy only changes how smoothly the preview runs, never the result.
 - `{op:"updateMedia", id | ids, set:{name?, favorite?, tags?, folderId?}, addTags?, removeTags?}`
   — organize files (`favorite:false` unstars; `tags:[]` clears). Metadata keys
   are refused: they come from the file.
+- **Audio tracks.** A recording with several audio streams (`audioTracks`) has
+  one its sound is *analysed* from: `audioTrack` (0 = the first, the default,
+  and not stored). Songs, loudness, the transcript and captions, beats,
+  silences and highlights listen to it. The *exported* sound — the export mix,
+  the waveform, the stems, and normalize / auto-duck, which work on it — is
+  always track 0, so picking the microphone for better song finding never
+  strips the game and the music out of the video. In an OBS recording the first
+  track is usually everything mixed together, so change it only when the
+  streamer's voice is on its own track. `{op:"setAudioTrack", id, track}` picks
+  one (only tracks the file has; the songs found from the old one are dropped),
+  or `fablecut_audio_track {mediaId}` lists them, `{mediaId, listen: seconds}`
+  cuts 6 s of each into `analysis/listen/` to play, `{mediaId, track}` picks one.
+  Loudness, songs and transcripts are kept per track, so going back finds the
+  first results again. The REST readers `/api/signals/loudness`, `/api/songs`,
+  `/api/transcript` and `/api/asr/transcribe` take `track`, and without it read
+  the open project's `audioTrack` for that file; `/api/audio-window` reads
+  track 0 unless `track` names another. In the editor: right-click the file →
+  **Media info…** lists the tracks with **Listen**. Picking one reads the songs
+  and loudness again in the background; captions are made again from the new
+  track unless they were edited (a caption keeps the text it was made with in
+  `props.captionMade`; captions without it, or imported from a subtitle file,
+  count as edited), and then **Redo subtitles from this track** offers it.
 - `{op:"setCollection", id?, name?, media?, add?, remove?}` creates a collection
   (a new `id`, or a `name` no collection has) or changes one: `media` replaces
   its list, `add` / `remove` edit it. `{op:"removeCollection", id}` deletes it;
@@ -1879,7 +1945,7 @@ proxy only changes how smoothly the preview runs, never the result.
   `m_abc video "intro.mp4" 12.4s 1920×1080 29.97 fps h264 stereo 48 kHz 45 MB ★ #interview uses:2`.
 - `fablecut_import_media` probes the file as it imports it, so the entry it
   returns already has these fields.
-- `fablecut_status` lists offline media, and the compact view marks each
+- `fablecut_status` warns about **mono audio in the left ear only** (see "Audio mix"), and lists offline media, and the compact view marks each
   `OFFLINE (file missing — relinkMedia)` and each video with a proxy `proxy:540p`.
 - `fablecut_proxy {}` reports every video's proxy; `{create:true, mediaIds?, height?}`
   makes them (waits until done unless `wait:false`); `{delete:true, mediaIds?}`
@@ -2486,7 +2552,7 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
 - Fast / WebCodecs export (browser compositor → server ffmpeg):
   `GET /api/export/ffmpeg` → `{available}` · `GET /api/export/profiles[?detail=1]` →
   `{default, profiles, issues}` · `POST /api/export/begin`
-  `{fps,name,mode?,profile?,hasAudio?,pixelFormat?,width?,height?}` → `{id,mode,profile?,label,summary}`
+  `{fps,name,mode?,profile?,hasAudio?,pixelFormat?,width?,height?,check?}` → `{id,mode,profile?,label,summary}`
   (`fps` is required — pass `project.fps`, no server-side default;
   `mode` is `"jpeg"` (default, Fast) or `"annexb"` (WebCodecs H.264 elementary stream);
   jpeg **400** if `profile` is not a defined id, or if ffmpeg rejects its args in the dry run;
@@ -2495,7 +2561,9 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
   used `pixelFormat:"rgba"`; Annex-B for annexb — one POST may concatenate frames
   or AUs. Must be after audio; ffmpeg is spawned on the first frame in both modes)
   · `POST /api/export/audio?id=` (WAV body — must be sent before the first frame)
-  · `POST /api/export/end?id=[&discard=1]` → `{src}` under `/exports/`
+  · `POST /api/export/end?id=[&discard=1]` → `{src}` under `/exports/`; **500** with `code`
+  `EXPORT_BLANK_PICTURE` / `EXPORT_BLANK_SOUND` / `EXPORT_BLANK_BOTH` when the file came out black or
+  silent from start to end while the footage in `check` (`{video:[{t, src, at}], audio:[{src, at, dur}]}`) is not
 - Export jobs (what `fablecut_export` drives): `POST /api/export/request`
   `{range?, profile?, where?:"auto"|"tab"|"headless"}` → `{id, status, via, …}`
   (409 if one is already running, or nothing can render it) · `GET /api/export/job?id=`
@@ -2882,8 +2950,22 @@ A spec (every key optional — what is left out comes from its `preset`):
   size, frame rate, frame count, codec, color tags, audio codec / rate / channels,
   length, loudness against the target (±1 LU) and the true-peak ceiling, and file size
   against the platform's limit. Without a target the report says where the platform
-  plays it ("YouTube plays it 4.2 dB quieter"). The report shows in the queue, a toast
-  after a single export, and the `fablecut_export` reply.
+  plays it ("YouTube plays it 4.2 dB quieter"). A stereo file whose left and right are
+  more than 20 dB apart (each channel of the finished file measured with ffmpeg astats; the
+  louder side above −60 dB) gets a warning — "only the left channel has sound" — unless the
+  timeline puts the sound there on purpose (pan keyframes, any clip pan without `panAuto`,
+  a track or bus pan). Better to miss one than to warn wrongly: a file under 2 s, of unknown
+  length or silent all through is not judged. The file is kept either way.
+  In the editor it reads in plain words, without the numbers; when mono sounds put in that ear
+  are the cause, it has a **Play in both** button — the same fix, one undo step, as the
+  open-project question in "Audio mix".
+  The report shows in the queue, a toast after a single export, and the `fablecut_export` reply.
+- **Never done when blank.** An export whose file is black from start to end, or silent, while the footage on the
+  timeline at those moments is not, fails instead of finishing: the editor says so in plain words (`EXPORT_BLANK_PICTURE`
+  / `EXPORT_BLANK_SOUND` / `EXPORT_BLANK_BOTH`), `fablecut_export` returns the reason, and the file stays in
+  `exports/`. The editor sends what to compare with (`check` on `/api/export/begin`: at 8 moments, the video clips on
+  screen and where in their file they are; up to 8 stretches of sound), and the server reads 8 frames of the finished
+  file — about 0.4 s for 10 minutes of 1080p — and the sources only when the file looks blank.
 - **Saved presets**: "Save preset…" in the dialog writes `library/delivery/<id>.json`,
   listed under "Saved" in every project (`GET / POST /api/export/presets`,
   `POST /api/export/presets/delete {id}`).
@@ -2926,7 +3008,7 @@ ones and starts.
 - REST: `POST /api/export/begin {deliveries:[{delivery, name}, …], canvasW, canvasH,
   region?, duration, fps, hasAudio}` → `{id, input, jpegQuality, outputs:[{file, spec,
   summary, notes, size}]}`; frames and audio as for one output; `/api/export/end` →
-  `{src, outputs:[{file, ok, src, report:{ok, checks:[{ok, text}], line}, mixLoudness?} | {file, ok:false, error}]}`.
+  `{src, outputs:[{file, ok, src, report:{ok, checks:[{ok, text}], line}, mixLoudness?} | {file, ok:false, error, code?}]}`.
 
 ### Encoding profiles (`encoding-profiles.json`)
 

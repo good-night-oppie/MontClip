@@ -39,7 +39,7 @@ function channelDb(file, ch) {
   return m[1] === "-inf" ? -91 : Math.max(-91, +m[1]);
 }
 
-async function importPlaceExport(t, channels) {
+async function importPlaceExport(t, channels, before) {
   const dir = makeDataDir(t, seedProject({ width: 320, height: 180, fps: 30, panSchema: 1, media: [], clips: [] }));
   const src = path.join(dir, `tone-${channels}ch.webm`);
   makeSource(src, channels);
@@ -55,6 +55,10 @@ async function importPlaceExport(t, channels) {
   assert.equal(ins.isError, false, ins.text);
   const stems = readProject(dir).clips.filter((c) => c.kind === "audio" && c.mediaId === m.id);
   assert.equal(stems.length, channels, `one stem per channel: ${JSON.stringify(stems.map((s) => s.props))}`);
+  if (before) {
+    const r = await mcp.callTool("fablecut_patch_project", { ops: before(stems) });
+    assert.equal(r.isError, false, r.text);
+  }
 
   const out = await mcp.request("tools/call", { name: "fablecut_export", arguments: { where: "headless", preset: "archive" } }, { timeout: 240_000 });
   const text = (out.result.content.find((c) => c.type === "text") || {}).text || "";
@@ -63,22 +67,33 @@ async function importPlaceExport(t, channels) {
   assert.ok(rel, `the reply names the file: ${text}`);
   const file = path.join(dir, decodeURIComponent(rel[0]));
   assert.ok(fs.existsSync(file), file);
-  return { stems, L: channelDb(file, 0), R: channelDb(file, 1) };
+  return { stems, text, L: channelDb(file, 0), R: channelDb(file, 1) };
 }
 
 test("a mono source exports in both ears: left and right within 1 dB", { skip, timeout: 300_000 }, async (t) => {
-  const { stems, L, R } = await importPlaceExport(t, 1);
+  const { stems, text, L, R } = await importPlaceExport(t, 1);
   t.diagnostic(`exported: L ${L} dB, R ${R} dB`);
+  assert.doesNotMatch(text, /channel has sound/, "both ears: the check after the export says nothing about sides");
+  assert.equal(stems[0].props.panAuto, true, "the program's pan is marked as such");
   assert.ok(L > -40, `there is sound at all (L ${L} dB)`);
   assert.ok(Math.abs(L - R) < 1, `L ${L} dB, R ${R} dB`);
   assert.equal(stems[0].props.pan, 0, "the only stem of a mono file sits in the centre");
 });
 
 test("a stereo source still keeps its channels apart: left stays left, right stays right", { skip, timeout: 300_000 }, async (t) => {
-  const { stems, L, R } = await importPlaceExport(t, 2);
+  const { stems, text, L, R } = await importPlaceExport(t, 2);
   t.diagnostic(`exported: L ${L} dB, R ${R} dB`);
+  // sound on the left channel only, with the program's own pans: the check after the export warns, the file is kept
+  assert.match(text, /CHECK: .*only the left channel has sound \(left -?[\d.]+ dB, right -91 dB\)/, text);
   const byCh = Object.fromEntries(stems.map((s) => [s.props.audioChannel, s.props.pan]));
   assert.deepEqual(byCh, { 0: -1, 1: 1 }, "channel 0 hard left, channel 1 hard right");
   assert.ok(L > -40, `the left channel has the tone (L ${L} dB)`);
   assert.ok(R < L - 40, `the right channel stays silent (L ${L} dB, R ${R} dB)`);
+});
+
+test("sound put in one ear on purpose (a pan the streamer set) exports there without a warning", { skip, timeout: 300_000 }, async (t) => {
+  const { text, L, R } = await importPlaceExport(t, 1, (stems) => [{ op: "updateClip", id: stems[0].id, set: { props: { pan: -1 } } }]);
+  t.diagnostic(`exported: L ${L} dB, R ${R} dB`);
+  assert.ok(L > -40 && R < L - 40, `it really is in the left ear only (L ${L} dB, R ${R} dB)`);
+  assert.doesNotMatch(text, /channel has sound/, text);
 });
