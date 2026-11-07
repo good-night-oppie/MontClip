@@ -227,8 +227,8 @@
     "encoding": ["Encoding…", "正在编码…"],
     "encoding-pct": ["Encoding… {pct}%", "正在编码… {pct}%"],
     "mixing-audio": ["Mixing audio…", "正在混音…"],
-    // MC-14 (JJ's Dev Spec 2026-11-07, sha256 94d1468e): JJ定稿 Chinese, word for word, {n} = the clip's number on the timeline
-    // (app.js exportSegmentNumbers). English: Deja's draft, 待 JJ 确认. Never 解码 / buffer.
+    // MC-14 (JJ, Dev Spec 2026-11-07, sha256 94d1468e): the Chinese is JJ's, word for word; {n} is the number of the clip
+    // on the timeline (app.js exportSegmentNumbers). The English is Deja's draft, for JJ to confirm. Never 解码 / buffer.
     "export-audio-failed": ["The sound of clip {n} couldn't be read, so this export stopped and no file was made. The originals are unchanged.",
       "第 {n} 段的声音没读出来，这次导出已停下，没有生成文件。原片没有改动。"],
     "export-clip-silent": ["Clip {n} is silent. Please check that this is what you want.", "第 {n} 段是无声的，请确认是不是你想要的。"],
