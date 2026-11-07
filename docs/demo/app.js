@@ -12305,6 +12305,7 @@ function parseDbInput(s) {
   return Number.isFinite(v) ? clampFaderDb(v) : null;
 }
 function setSideTab(tab) {
+  if (tab === "assistant" && typeof MontClipHost !== "undefined" && MontClipHost.embedded) tab = "inspector";   // in Cindy the chat is Cindy's own
   document.getElementById("app").classList.remove("media-open");
   const assistant=tab==="assistant";document.getElementById("mcAssistantPanel").classList.toggle("hidden",!assistant);document.getElementById("app").classList.toggle("agent-open",assistant);
   const mixer = tab === "mixer", color = tab === "color", transcript = tab === "transcript";
