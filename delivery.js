@@ -608,6 +608,29 @@
     return out;
   }
   const LOUDNESS_ARGS = (file) => ["-hide_banner", "-nostats", "-i", file, "-map", "0:a:0", "-af", "ebur128=peak=true:framelog=quiet", "-f", "null", "-"];
+  /** Each channel's RMS level of a file's first audio stream (ffmpeg astats). The loudness
+   *  check sums the channels, so a file with sound in one ear only passes it (europa, preview.3). */
+  const CHANNEL_LEVEL_ARGS = (file) => ["-hide_banner", "-nostats", "-i", file, "-map", "0:a:0", "-af", "astats=measure_perchannel=RMS_level:measure_overall=none", "-f", "null", "-"];
+  /** astats stderr → [dB per channel] (−inf → −91, as volumedetect floors it), or null. */
+  function parseChannelLevels(stderr) {
+    const out = [];
+    for (const m of String(stderr || "").matchAll(/Channel:\s*(\d+)[\s\S]*?RMS level dB:\s*(-?[\d.]+|-inf)/g))
+      out[+m[1] - 1] = m[2] === "-inf" ? -91 : Math.max(-91, +m[2]);
+    return out.length ? out : null;
+  }
+  const ONE_SIDED_DB = 20;      // left and right this far apart: one ear has (almost) nothing
+  const ONE_SIDED_HEARD = -60;  // …and the louder side is actually heard (a silent file is never reported)
+  const ONE_SIDED_MIN_S = 2;    // a file shorter than this is not judged (QQ, 2026-11-05)
+  /** A stereo file with sound on one side only → {side:"left"|"right", L, R}, else null.
+   *  levels are measured on the finished file (CHANNEL_LEVEL_ARGS); seconds is its own length —
+   *  under ONE_SIDED_MIN_S, or unknown when given as null, nothing is reported: better to miss one. */
+  function oneSided(levels, seconds) {
+    if (seconds !== undefined && !(+seconds >= ONE_SIDED_MIN_S)) return null;
+    if (!Array.isArray(levels) || levels.length !== 2) return null;
+    const [L, R] = levels;
+    if (!(Math.max(L, R) > ONE_SIDED_HEARD) || Math.abs(L - R) <= ONE_SIDED_DB) return null;
+    return { side: L > R ? "left" : "right", L: Math.round(L * 10) / 10, R: Math.round(R * 10) / 10 };
+  }
 
   /** What came out vs what was asked: ffprobe JSON of the file (+ its loudness)
    *  against the spec. ctx: {fps, frames, duration, size (bytes), loud:{lufs,
@@ -661,6 +684,12 @@
         if (tp != null && tp > 0) add(false, `true peak ${tp.toFixed(1)} dBTP — over 0, it will clip after encoding`);
       }
     }
+    // sound in one ear only, measured on the file itself: a warning, unless the timeline puts it there
+    // on purpose (ctx.panIntent). The file's own length decides "too short to judge" (stream, else container).
+    const fileSeconds = a ? (+a.duration > 0 ? +a.duration : +(probe.format && probe.format.duration) > 0 ? +probe.format.duration : null) : null;
+    const side = a && +a.channels === 2 && !ctx.panIntent ? oneSided(ctx.channelLevels, fileSeconds) : null;
+    if (side) checks.push({ ok: false, code: "AUDIO_ONE_SIDED", side: side.side, L: side.L, R: side.R,
+      text: `only the ${side.side} channel has sound (left ${side.L} dB, right ${side.R} dB)` });
     const lim = (PRESETS[spec.preset] && PRESETS[spec.preset].limits) || {};
     if (ctx.size) add(!(lim.size && ctx.size > lim.size), `${fmtBytes(ctx.size)}${lim.size && ctx.size > lim.size ? ` (over ${PRESETS[spec.preset].label}'s ${fmtBytes(lim.size)})` : ""}`);
     const bad = checks.filter((x) => !x.ok);
@@ -844,6 +873,7 @@
     NEVER_ENCODERS, forbiddenEncoder, normalize, encodersFor, reframe, ffmpegArgs, videoFilter, frameInput, jpegQuality, fpsRational,
     renderFilename, projectFilename, fileSafeName, mediaFileName, describe, estimateSize, checks, presetGroups, presetId, savedPresets, parseEncoders,
     PLATFORM_LOUDNESS, LOUDNESS_TARGETS, LOUDNESS_ARGS, LOUDNORM_ARGS, parseLoudnorm, loudnormFilter, parseEbur128, verify,
+    CHANNEL_LEVEL_ARGS, parseChannelLevels, oneSided, ONE_SIDED_DB, ONE_SIDED_HEARD, ONE_SIDED_MIN_S,
     fmtBytes, fmtDur,
   };
 });

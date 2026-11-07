@@ -1165,6 +1165,11 @@ const inspStampNow = () => {
 function refreshAudioHoldFor(k) {
   if (k === "volume" || k === "pan" || k === "speed") scheduleAudioHoldRefresh();
 }
+/* A pan the program gave a stem carries panAuto:true; any edit of the clip's pan (the
+   slider, a reset, a keyframe) makes it the streamer's, so the marker goes. */
+function panByHand(c, k) {
+  if (k === "pan" && c?.props) delete c.props.panAuto;
+}
 /* Write an animatable prop: static if the channel has no keyframes; otherwise
    update the keyframe under the playhead or insert one (auto-key). Returns
    false when the write was refused — a keyed channel with the playhead off
@@ -1179,7 +1184,7 @@ function setAnimProp(c, k, v) {
   const arr = c.keyframes?.[k];
   if (Array.isArray(arr) && arr.length && !playheadOverClip(c)) return false;
   inspPropGen++;
-  refreshAudioHoldFor(k);
+  refreshAudioHoldFor(k); panByHand(c, k);
   if (!Array.isArray(arr) || !arr.length) {
     c.props[k] = v;
     return true;
@@ -1210,7 +1215,7 @@ function resetPropChannel(c, k) {
   }
   if (!Object.hasOwn(DEFAULT_PROPS, k)) return;
   c.props[k] = DEFAULT_PROPS[k];
-  refreshAudioHoldFor(k);
+  refreshAudioHoldFor(k); panByHand(c, k);
   if (c.keyframes?.[k]) {
     delete c.keyframes[k];
     if (!Object.keys(c.keyframes).length) c.keyframes = undefined;
@@ -1233,7 +1238,7 @@ function resetPropAtPlayhead(c, k) {
   const def = DEFAULT_PROPS[k];
   if (ANIMATABLE.includes(k) && c.keyframes?.[k]?.length) {
     if (!setAnimProp(c, k, def)) return false;
-  } else { c.props[k] = def; refreshAudioHoldFor(k); }
+  } else { c.props[k] = def; refreshAudioHoldFor(k); panByHand(c, k); }
   if (k === "text" || k === "font") state.dirtyTimeline = true;
   if (k === "font") ensureFont(String(def));
   return true;
@@ -1259,7 +1264,7 @@ function toggleKfAtPlayhead(c, k) {
   const near = kfAtPlayhead(c, k);
   if (near) {
     inspPropGen++;
-    refreshAudioHoldFor(k);
+    refreshAudioHoldFor(k); panByHand(c, k);
     const rest = c.keyframes[k].filter((kf) => kf !== near);
     if (rest.length) c.keyframes[k] = rest;
     else {
@@ -1274,7 +1279,7 @@ function toggleKfAtPlayhead(c, k) {
   const v = kfChannel(c, k, state.time - c.start, fallback);
   if (typeof v !== "number" || isNaN(v)) return false;
   inspPropGen++;
-  refreshAudioHoldFor(k);
+  refreshAudioHoldFor(k); panByHand(c, k);
   if (!c.keyframes) c.keyframes = {};
   const arr = (c.keyframes[k] = c.keyframes[k] || []);
   const lt = +clamp(state.time - c.start, 0, c.duration).toFixed(3);
@@ -1366,8 +1371,12 @@ function saveDownload(href, name, { savedMsg, exportFile = false, kind = null } 
     if (kind) pendingKinds.set(name, kind);
     if (exportFile) { window.montclipDownloads.expect(name); pendingExports.add(name); for (const q of exportQueue) if (q.file === name) q.saving = true; renderQueue(); }
   }
-  else if (savedMsg) toast(savedMsg);
+  else if (savedMsg) saySaved(savedMsg);
   document.body.appendChild(a); a.click(); a.remove();
+}
+/** A success message is text, or a function that shows its own toast (a warning with a button). */
+function saySaved(msg) {
+  if (typeof msg === "function") msg(); else toast(msg);
 }
 window.montclipDownloads?.onDone(({ state, name, removed }) => {
   // another save of this file is open: main refused this one; that one keeps its state
@@ -1376,7 +1385,7 @@ window.montclipDownloads?.onDone(({ state, name, removed }) => {
   pendingSaves.delete(name); pendingExports.delete(name); pendingKinds.delete(name);
   for (const q of exportQueue) if (q.file === name) { q.saving = false; if (removed) q.saved = true; }
   renderQueue();
-  if (state === "completed") { if (msg) toast(msg); }
+  if (state === "completed") { if (msg) saySaved(msg); }
   else if (state === "cancelled") toast(uiText(wasExport ? "own.export-save-cancelled" : kind === "captions" ? "own.captions-save-cancelled" : "own.save-canceled"));
   else if (wasExport) {
     const q = exportQueue.find((x) => x.file === name && x.src);
@@ -1432,6 +1441,7 @@ async function connectServer() {
     els.projectName.textContent = projectStatusText();
     runtime.projectId = res.headers.get("X-FableCut-Project");
     await restoreUndoStack();   // a reloaded page gets its undo history back
+    checkMonoLeftStems();       // applyProject ran before the page was connected
     window.addEventListener("pagehide", keepPlayheadOnLeave);
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") keepPlayheadOnLeave(); });
     if (res.headers.get("X-FableCut-Projects")) initProjectsUi();
@@ -1731,6 +1741,7 @@ function applyProject(data, opts = {}) {
     fps: (Number(data.fps) > 0 ? Number(data.fps) : project.fps),
     // the canvas or rate was chosen (menus, a template, an agent): the first recording imported does not replace it
     canvasUser: data.canvasUser === true,
+    monoPanReviewed: data.monoPanReviewed === true,
     background: data.background || "#000000",
     revision: data.revision || 0,
     folders: normalizeFolders(data.folders),
@@ -1790,8 +1801,10 @@ function applyProject(data, opts = {}) {
       const g = self.MontClipColor.normalizeGrade(c.props.grade);
       if (g) c.props.grade = g; else delete c.props.grade;
     }
-    if (migratePan && !Object.hasOwn(raw, "pan") && Number.isInteger(raw.audioChannel) && raw.audioChannel >= 0)
+    if (migratePan && !Object.hasOwn(raw, "pan") && Number.isInteger(raw.audioChannel) && raw.audioChannel >= 0) {
       c.props.pan = defaultPanForChannel(raw.audioChannel, getMedia(c.mediaId)?.channels ?? getMedia(c.mediaId)?.audioChannels);
+      c.props.panAuto = true;
+    }
     if (c.keyframes) for (const arr of Object.values(c.keyframes))
       if (Array.isArray(arr)) arr.sort((a, b) => a.t - b.t);
     if (c.kind === "text") ensureFont(c.props.font);
@@ -1829,6 +1842,43 @@ function applyProject(data, opts = {}) {
   syncExportRangeSelect();
   syncExportRangeUi();
   syncAllTrackDisabledUI();
+  checkMonoLeftStems();
+}
+/* Projects saved before mono stems were centred can have a mono recording in the left ear
+   only. Whether that −1 was the program's or the streamer's can't be told (no panAuto
+   then), so ask once — a toast that blocks nothing: Centre (one undo step) or Keep. Either
+   answer is remembered in the project (monoPanReviewed). A project with none of these
+   stems, once every stem's channel count is known, is marked too: from then on a mono
+   stem only gets −1 from the streamer (new stems are centred, with panAuto). */
+function checkMonoLeftStems() {
+  if (project.monoPanReviewed || !state.connected || state.compCtx || EXPORT_JOB_PAGE) return;
+  const key = runtime.projectId || "";
+  runtime.monoLeftAsked = runtime.monoLeftAsked || new Set();
+  if (runtime.monoLeftAsked.has(key)) return;
+  const stems = MontClipEdit.monoLeftStems(project);
+  if (!stems.length) {
+    if (MontClipEdit.settleMonoPanReview(project)) scheduleSave();
+    return;
+  }
+  runtime.monoLeftAsked.add(key);
+  const ids = new Set(stems.map((c) => c.id));
+  toastActions(uiText("own.mono-left", { n: stems.length }), [
+    [uiText("own.mono-left-centre"), () => centreMonoStems(ids)],
+    [uiText("own.mono-left-keep"), () => { project.monoPanReviewed = true; scheduleSave(); }],
+  ]);
+}
+/** Centre the mono stems `ids` that are still hard `side` (as they were when asked) — one undo
+ *  step — and settle the question. The open-project toast and the export warning both use it. */
+function centreMonoStems(ids, side = "left") {
+  const now = MontClipEdit.monoSideStems(project, side).filter((c) => ids.has(c.id));
+  if (now.length) pushUndo();   // the pans are one undo step; the answer stays (Ctrl+Z does not ask again)
+  project.monoPanReviewed = true;
+  if (now.length) {
+    for (const c of now) { c.props.pan = 0; delete c.props.panAuto; }
+    state.dirtyTimeline = true;
+    renderInspector();
+  }
+  scheduleSave();
 }
 function scheduleSave() {
   state.dirtyTimeline = true;
@@ -1973,6 +2023,7 @@ function projectJSONHere() {
   const ef = getExportFrame();
   if (ef) out.exportFrame = ef;
   if (project.canvasUser) out.canvasUser = true;
+  if (project.monoPanReviewed) out.monoPanReviewed = true;   // the left-ear mono question was answered (checkMonoLeftStems)
   if (encodeProfile) out.encodeProfile = encodeProfile;
   if (delivery) out.delivery = delivery;
   if (outputs && outputs.length) out.outputs = outputs;
@@ -4906,7 +4957,7 @@ function attachLinkedAudioChannels(videoClip, m, nCh) {
       id: "c_" + uid(), mediaId: m.id, kind: "audio", track: ids[ch],
       start: videoClip.start, in: videoClip.in, duration: videoClip.duration,
       name: videoClip.name,
-      props: { ...DEFAULT_PROPS, audioChannel: ch, pan: defaultPanForChannel(ch, n) },
+      props: { ...DEFAULT_PROPS, audioChannel: ch, pan: defaultPanForChannel(ch, n), panAuto: true },
       linkGroup: lg,
     };
     if (videoClip.props?.speed != null) a.props.speed = videoClip.props.speed;
@@ -5123,18 +5174,18 @@ async function reconcileAudioChannels(videoClip, onlyTargeted = false) {
     project.clips.push({
       id: "c_" + uid(), mediaId, kind: "audio", track: ids[ch],
       start: live.start, in: live.in, duration: live.duration, name: live.name,
-      props: { ...DEFAULT_PROPS, audioChannel: ch, pan: defaultPanForChannel(ch, wantCh) },
+      props: { ...DEFAULT_PROPS, audioChannel: ch, pan: defaultPanForChannel(ch, wantCh), panAuto: true },
       linkGroup: lg,
     });
     added++;
   }
-  // The drop planted a stereo placeholder before the file was decoded; a mono file
-  // keeps only channel 0, which still has the placeholder's hard-left pan. Centre it —
-  // only here, where this run just dropped the placeholder's other half, so a pan
-  // the user set on an existing stem is never touched.
+  // A stereo stem trimmed to one channel (the drop's placeholder once the file decodes
+  // mono, or Replace file… with a mono file): channel 0 keeps its hard-left pan. Centre it
+  // only when that pan is still the program's own (panAuto) — one the streamer set, or
+  // one from a project saved before panAuto, is left as it is.
   if (removed && wantCh === 1) {
     const only = project.clips.find((c) => c.linkGroup === lg && c.kind === "audio" && (c.props?.audioChannel ?? 0) === 0);
-    if (only && only.props.pan === defaultPanForChannel(0, 2) && !only.keyframes?.pan?.length) only.props.pan = defaultPanForChannel(0, 1);
+    if (only && only.props.panAuto === true && only.props.pan === defaultPanForChannel(0, 2) && !only.keyframes?.pan?.length) only.props.pan = defaultPanForChannel(0, 1);
   }
   if (!added && !removed) {
     if (newTracks > 0) scheduleSave();
@@ -11881,6 +11932,24 @@ function toastAction(msg, label, onClick, note = "") {
   btn.addEventListener("click", () => { els.toast.classList.remove("show", "has-action"); onClick(); }, { once: true });
   els.toast.append(span, " ", btn);
   if (note) { const small = document.createElement("small"); small.className = "toast-note"; small.textContent = note; els.toast.append(small); }
+  els.toast.classList.add("show", "has-action");
+  clearTimeout(toastTimer);
+  if (!toastHold) toastHold = holdToast(els.toast, () => { if (els.toast.classList.contains("has-action")) els.toast.classList.remove("show", "has-action"); });
+  toastHold.start();
+}
+/** A toast with a button per [label, onClick]; it stays while hovered, and any button closes it. */
+function toastActions(msg, actions) {
+  if (!els.toast) return;
+  els.toast.textContent = "";
+  const span = document.createElement("span");
+  span.textContent = msg;
+  els.toast.append(span);
+  for (const [label, onClick] of actions) {
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "btn tiny toast-action"; btn.textContent = label;
+    btn.addEventListener("click", () => { els.toast.classList.remove("show", "has-action"); onClick(); }, { once: true });
+    els.toast.append(" ", btn);
+  }
   els.toast.classList.add("show", "has-action");
   clearTimeout(toastTimer);
   if (!toastHold) toastHold = holdToast(els.toast, () => { if (els.toast.classList.contains("has-action")) els.toast.classList.remove("show", "has-action"); });
@@ -20341,6 +20410,45 @@ const AUDIO_WINDOW_PAD = 0.5;
 /* A clip whose sound could not be decoded used to be dropped from the mix, and the export came out silent and said
    it succeeded (europa, 2026-11-04). Now the export stops and says which clip (Deja, 2026-11-05). Only clips that are
    heard count: a linked video's picture (volume 0) or a file with no audio stream never stop an export. */
+/** Does the timeline put sound to one side on purpose? Then the check after the export does not
+ *  warn about a file with sound in one ear. On purpose: pan keyframes, any clip pan without
+ *  panAuto, or a track or bus pan. Better to miss one than to warn wrongly (QQ, 2026-11-05): a
+ *  pan without panAuto is always the streamer's, old projects' left-ear mono stems included —
+ *  those are only the open-project question's (checkMonoLeftStems). */
+function exportPanIntent() {
+  const clipIntent = project.clips.some((c) => (c.kind === "audio" || c.kind === "video") && clipRenders(c)
+    && (c.keyframes?.pan?.length || (Math.abs(+c.props?.pan || 0) > 1e-3 && !c.props.panAuto)));
+  return !!(clipIntent || (project.tracks || []).some((t) => t.kind === "audio" && Math.abs(+t.pan || 0) > 1e-3)
+    || (project.buses || []).some((b) => Math.abs(+b.pan || 0) > 1e-3));
+}
+/* The plain one-sided warning's second half, 「…点〔复制问题信息〕发给我们」, waits for that button next to the export
+   result (#161); turn this on when it is there. */
+const ONE_SIDED_COPY_TAIL = false;
+/** "Only one ear has sound" after an export → {text, side, ids}: when mono sounds the editor can centre put it
+ *  there (the cause), JJ's sentence that says so and ids for its 〔改成两边都有〕 button; else the plain sentence
+ *  and no button. The dB stay on the check (c.L, c.R), for the developer line of 复制问题信息. */
+function oneSidedWarning(c) {
+  const side = c.side === "right" ? "right" : "left";
+  const stems = MontClipEdit.monoSideStems(project, side);
+  if (stems.length) return { text: uiText(`own.export-one-sided-${side}-fix`), side, ids: new Set(stems.map((x) => x.id)) };
+  let text = uiText(`own.export-one-sided-${side}`);
+  if (ONE_SIDED_COPY_TAIL) text += (mcView.get().language === "en" ? " " : "") + uiText("own.export-one-sided-copy-tail", { button: uiText("own.export-one-sided-copy-button") });
+  return { text, side, ids: null };
+}
+/** Show it: a toast, with the button when there is something to centre. */
+function showOneSidedWarning(c) {
+  const w = oneSidedWarning(c);
+  if (w.ids) toastActions(w.text, [[uiText("own.export-one-sided-fix"), () => centreMonoStems(w.ids, w.side)]]);
+  else toast(w.text);
+}
+/** A check from the export report in the interface language, where it has a code; else its text. */
+function exportCheckText(c) {
+  if (c.code === "AUDIO_ONE_SIDED") return oneSidedWarning(c).text;
+  return c.text;
+}
+function exportReportLine(r) {
+  return r.checks.some((c) => c.code) ? r.checks.map((c) => (c.ok ? "" : "⚠ ") + exportCheckText(c)).join(" · ") : r.line;
+}
 function exportAudioHeard(c, m) {
   if (m && m.audioChannels === 0) return false;
   return c.kind === "audio" || !(c.props && c.props.volume === 0);
@@ -20527,7 +20635,7 @@ async function fastExport(opts = {}) {
       body: JSON.stringify(delivery ? {
         fps, duration: frames / fps,
         deliveries: deliveries.map((d) => ({ delivery: d.delivery, name: d.name || deliveryFileName(d.delivery, fps) })),
-        canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav, job, check: exportCheckPlan(t0, t1),
+        canvasW: cv.w, canvasH: cv.h, region: cv.region, hasAudio: !!wav, job, check: exportCheckPlan(t0, t1), panIntent: exportPanIntent(),
       } : {
         fps,
         frames,
@@ -20639,8 +20747,9 @@ async function fastExport(opts = {}) {
         name: String(o.file || "").replace(/\.[^.]+$/, ""), range: exportRangeMode(), status: "done", progress: 1,
         src: o.src, file: o.file, report: o.report || null });
       renderQueue();
-      saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true, savedMsg:
-        o.report && !o.report.ok ? `Exported ${o.file} — check: ${o.report.checks.filter((c) => !c.ok).map((c) => c.text).join("; ")} (Export → Queue)` : `Exported ${o.file}${o.report ? " — checks passed" : ""}` });
+      const oneSided = o.report && o.report.checks.find((c) => !c.ok && c.code === "AUDIO_ONE_SIDED");
+      saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true, savedMsg: oneSided ? () => showOneSidedWarning(oneSided) :
+        o.report && !o.report.ok ? `Exported ${o.file} — check: ${o.report.checks.filter((c) => !c.ok).map(exportCheckText).join("; ")} (Export → Queue)` : `Exported ${o.file}${o.report ? " — checks passed" : ""}` });
     }
     else saveDownload(end.src, decodeURIComponent(end.src.split("/").pop()), { exportFile: true });
   } catch (e) {
@@ -20768,7 +20877,9 @@ function renderQueue() {
       `<span class="xq-sub">${escapeHtml(Delivery.describe(q.spec, { width: fr.outW, height: fr.outH, fps }))} · ${q.range && typeof q.range === "object" ? `${fmt(q.range.start)}–${fmt(q.range.end)}` : q.range === "in-out" ? "IN–OUT" : "entire timeline"}</span>` +
       (q.status === "running" ? `<div class="progress"><div class="progress-fill" style="width:${(q.progress * 100).toFixed(1)}%"></div></div>` : "") +
       `<span class="xq-status">${escapeHtml(status)}</span>` +
-      (q.report ? `<span class="xq-report${q.report.ok ? "" : " warn"}">${q.report.ok ? "✓ " : ""}${escapeHtml(q.report.line)}</span>` : "") +
+      (q.report ? `<span class="xq-report${q.report.ok ? "" : " warn"}">${q.report.ok ? "✓ " : ""}${escapeHtml(exportReportLine(q.report))}</span>` : "") +
+      (q.report && q.report.checks.some((c) => !c.ok && c.code === "AUDIO_ONE_SIDED" && oneSidedWarning(c).ids)
+        ? `<button type="button" class="btn tiny" data-q-fix="${q.id}">${escapeHtml(uiText("own.export-one-sided-fix"))}</button>` : "") +
       `</div><div class="xq-actions">${actions}</div></li>`;
   }).join("");
 }
@@ -21637,10 +21748,17 @@ $("btnQueueClear")?.addEventListener("click", () => {
   renderQueue();
 });
 $("exportQueueList")?.addEventListener("click", (e) => {
-  const r = e.target.dataset.qRetry, x = e.target.dataset.qRemove, s = e.target.dataset.qSave, c = e.target.dataset.qCopy, rv = e.target.dataset.qReveal;
-  const q = exportQueue.find((v) => v.id === (r || x || s || c || rv));
+  const r = e.target.dataset.qRetry, x = e.target.dataset.qRemove, s = e.target.dataset.qSave, c = e.target.dataset.qCopy, f = e.target.dataset.qFix, rv = e.target.dataset.qReveal;
+  const q = exportQueue.find((v) => v.id === (r || x || s || c || f || rv));
   if (!q) return;
   if (c) { copyProblem(sayError(q, "export-queue")); return; }
+  // 〔改成两边都有〕 under a one-sided warning: the same fix as the open-project question (one undo step)
+  if (f) {
+    const c = q.report && q.report.checks.find((x) => !x.ok && x.code === "AUDIO_ONE_SIDED"), w = c && oneSidedWarning(c);
+    if (w && w.ids) centreMonoStems(w.ids, w.side);
+    renderQueue();
+    return;
+  }
   // show the exported file in its folder (desktop shell; a browser keeps the status line)
   if (rv) { revealFileBySrc(q.src); return; }
   // save this export again: it names itself, so the copy goes only once a save completes
