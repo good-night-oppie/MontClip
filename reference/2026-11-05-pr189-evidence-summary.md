@@ -2,7 +2,7 @@
 
 #189 原先在 `docs/validation/` 下提交了 135 个原始证据文件（15,691,196 字节；其中文本 73 个、149,149 行）。为免撑大仓库，原件已从分支删除，完整复制到：
 
-`europa:/home/admin/montclip-review/raw/pr189/`
+europa 审查机上的 `montclip-review/raw/pr189/` 目录
 
 目录结构与原 `docs/validation/` 相同。同目录 `SHA256SUMS`（sha256 `bf2bb9ff70af7dfd987f937c1cecf7ddcfdc54ce3f235c9d1db1fce566e457ec`）列出全部 135 个文件；2026-11-07 在 europa 上 `sha256sum -c SHA256SUMS` 读回 135/135 OK。删除前的原件在提交 `7da4463406fbbfaf0b56d0dab9d82d6bc9438221` 的 git 历史中也仍可取回。
 
