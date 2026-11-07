@@ -93,7 +93,7 @@ function matches(path, glob) {
 }
 
 export function classifyFiles(files, profile) {
-  const paths = files.flatMap((f) => typeof f === "string" ? [f] : f && typeof f === "object" ? [f.filename, f.previous_filename].filter((p) => typeof p === "string") : []);
+  const paths = files.flatMap((f) => typeof f === "string" ? [f] : f && typeof f === "object" ? [f.filename, f.previous_filename].filter((p) => typeof p === "string") : []).filter(p => !(profile.exclude || []).some(g => matches(p, g)));
   return { av: paths.some((p) => profile.av.some((g) => matches(p, g))), outbound: paths.some((p) => profile.outbound.some((g) => matches(p, g))) };
 }
 

@@ -217,3 +217,14 @@ describe("只读API及工作流安全", () => {
     assert.equal(r.status, 0, r.stderr); assert.match(r.stdout, /Draft/); assert.ok(!fs.existsSync(path.join(dir, "do-not-execute")));
   });
 });
+
+describe("Deja追加的七项独立阻断回归", () => {
+  it("缺负责人必须失败",()=>assert.equal(run(BODY.replace("负责人：BB", "")).status,"failed"));
+  it("共用账号不能代替负责人",()=>assert.equal(run(BODY.replace("负责人：BB", "负责人：GoodNightOppie")).status,"failed"));
+  it("测试没有数字或没跑原因必须失败",()=>assert.equal(run(BODY.replace("23/23", "已经通过")).status,"failed"));
+  it("例外格式错必须失败",()=>assert.equal(run(BODY+"\nSOP 例外：测试 — 没空").status,"failed"));
+  const body=BODY+"\nSOP 例外：测试 — 人工核对 — 证据：https://github.com/good-night-oppie/MontClip/issues/200";
+  it("例外格式对但没有标签仍等QQ",()=>assert.equal(run(body).status,"needs_qq"));
+  it("标签由非GoodNightOppie添加仍等QQ",()=>assert.equal(run(body,{pr:{body,labels:[{name:EXCEPTION_LABEL}],reviewRequests:[{login:"GoodNightOppie"}]},labelEvents:[{id:1,event:"labeled",actor:{login:"BB"},label:{name:EXCEPTION_LABEL}}]}).status,"needs_qq"));
+  it("材料齐全无例外通过",()=>assert.equal(run().status,"passed"));
+});
