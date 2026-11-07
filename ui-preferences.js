@@ -60,6 +60,15 @@
     extSaveFailed: "The choice could not be saved. Choose again.",
     extRemoveFailed: "Could not stop using this FFmpeg. Try again.",
   });
+  // No H.264 encoder at all, said when export is clicked, before anything renders (ADR 2026-11-02, point 3; Deja C,
+  // 2026-11-04). h264None* are worded for Settings ("below"); this one is for the export itself, one sentence on every
+  // platform. JJ, 2026-11-04 错误白话表 v2 (FLV_ENCODER_MISSING row, export variant).
+  Object.assign(text["zh-CN"], {
+    h264Refuse: "这台电脑上找不到 MontClip 能用的视频编码器，所以这次没能导出。可以先更新显卡驱动再试。",
+  });
+  Object.assign(text.en, {
+    h264Refuse: "This computer has no video encoder MontClip can use, so it couldn't export this time. Update the graphics driver and try again.",
+  });
   // encoders by name: plain words in Chinese, the technical names (delivery.js labels) in English
   const ENCODER_NAMES = {
     "zh-CN": { h264_nvenc: "显卡编码（NVIDIA）", h264_mf: "Windows 自带编码", h264_qsv: "显卡编码（Intel）", h264_amf: "显卡编码（AMD）",
@@ -80,6 +89,12 @@
     else s = fill(s, Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])));
     if (/^h264None/.test(r.code) && r.featurePack) s += t.h264NeedFeaturePack;
     return s;
+  }
+  /** An export refused before it started: "no H.264 encoder" in export words, any other code as h264Message says it. */
+  function h264Refusal(language, r) {
+    const t = text[lang(language)];
+    if (r && (r.code === "h264NoneWin" || r.code === "h264NoneOther")) return t.h264Refuse;
+    return h264Message(language, r);
   }
   // MontClip's own wording for keyed strings the terms SPEC does not cover.
   const own = {
@@ -1370,5 +1385,5 @@
    *  English word (export, captions…) in English. */
   const exportFallback = (language, english, date = new Date()) => (language === "en" ? english
     : "直播切片 " + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"));
-  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, projectName, exportProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
+  return { create, desktopStorage, text, formatBody, KEY, t, tp, ago, when, applyI18n, durationText, flvImportMessage, h264Message, h264Refusal, h264Encoder, encoderLabel, defaultProjectName, isDefaultProjectName, projectName, exportProjectName, defaultName, exportFallback, advancedShortcut, blockedHint, stripBlockedHints };
 });
