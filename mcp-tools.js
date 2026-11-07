@@ -92,7 +92,7 @@ const TOOLS = [
     description: "Import a media file into MontClip's media library and register it in the project. Pass a local absolute path (copied, including .svg) or an https:// URL (downloaded into ./media/; video/audio/image only — remote SVG is refused). The URL is never kept as the playback src — CORS would break export. Returns the created media entry (use its id in clips).",
     inputSchema: {
       type: "object",
-      properties: { path: { type: "string", description: "Absolute path to a local file, or an https:// URL to download" }, link: { type: "boolean", description: "Local file only: hard-link it into media/ instead of copying when it is on the same drive (a several-GB recording imports at once, no second copy on disk; falls back to a copy). Only for files that will not be edited in place." }, acceptReadable: {type:"boolean", description:"Explicitly accept the currently readable FLV range when timing is uncertain. Does not authorize timestamp gaps or transcoding."}, allowTranscode: {type: "boolean", description: "For incompatible local FLV only: explicitly consent to a compatible MP4 transcode. Default false; original retained."} },
+      properties: { path: { type: "string", description: "Absolute path to a local file, or an https:// URL to download" }, link: { type: "boolean", description: "Local file only: hard-link it into media/ instead of copying when it is on the same drive (a several-GB recording imports at once, no second copy on disk; falls back to a copy). Only for files that will not be edited in place." }, acceptReadable: {type:"boolean", description:"Explicitly accept the currently readable FLV range when timing is uncertain. Does not authorize timestamp gaps or transcoding."}, fixGaps: {type:"boolean", description:"For a local FLV whose recording broke (FLV_TIMELINE_GAP: a break over 0.5 s, or picture and sound over 40 ms apart by their packet times; gaps and fix listed): consent to converting it — an H.264/AAC file with a big break is remuxed keeping its timestamps (the picture holds, no sound across a break), anything else re-encoded — then checking it against the original (length within 1 s, sound against picture within 40 ms; else FLV_FIX_UNVERIFIED). allowTranscode:true also consents. Breaks of 0.5 s or less import as they are. Default false; original retained."},allowTranscode: {type: "boolean", description: "For incompatible local FLV only: explicitly consent to a compatible MP4 transcode. Default false; original retained."} },
       required: ["path"],
     },
   },
@@ -200,6 +200,19 @@ const TOOLS = [
         name: { type: "string", description: "The new sequence's name (default: Highlights <duration> s)" },
         aspect: { type: "string", enum: ["9:16", "1:1", "4:5", "16:9", "4:3", "2:3"], description: "The new sequence's shape (default: the open one's canvas)" },
       },
+    },
+  },
+  {
+    name: "fablecut_audio_track",
+    description: "A recording with several audio tracks (OBS can record up to six — e.g. the microphone, the game and the music each on its own): list them, cut a few seconds of each to play to the streamer, or pick the one that is the streamer's voice. It is the track the sound is analysed from — songs, loudness, the transcript and captions, beats, silences, highlights; the exported sound (and normalize / auto-duck, which work on it) always uses track 0, so picking the microphone never strips the game and music out of the video. The default is the first (track 0), which in an OBS recording is usually everything mixed together, so change it only when the streamer says her voice is on another track. {mediaId} lists the tracks (number, channels, the name OBS wrote) · {mediaId, listen: seconds} writes 6 s of each track from that point to analysis/listen/ · {mediaId, track} picks one (one undo step; the songs found from the old track are dropped — run fablecut_songs and fablecut_transcribe again). Numbers here start at 0; the editor shows them from 1 (its 「第 1 轨」 is track 0), so say 「第 N+1 轨」 to the streamer. The compact view shows it as audioTrack:N of [...].",
+    inputSchema: {
+      type: "object",
+      properties: {
+        mediaId: { type: "string", description: "The recording (a video or audio media entry)" },
+        track: { type: "integer", minimum: 0, description: "The audio track that is the streamer's voice, 0 = the first" },
+        listen: { type: "number", minimum: 0, description: "Cut 6 s of each audio track from this many seconds in, to play" },
+      },
+      required: ["mediaId"],
     },
   },
   {
@@ -422,6 +435,34 @@ const TOOLS = [
         mediaId: { type: "string", description: "The recording the danmaku belong to (a media id)" },
         remove: { type: "boolean", description: "Remove this recording's danmaku" },
       },
+    },
+  },
+  {
+    name: "fablecut_lyrics",
+    description: "Line up lyrics the user pasted with the singing in the recording, ON THIS COMPUTER (nothing is sent anywhere): the transcript's words (transcribed first where a clip has none, with the local engine) are aligned to the lyrics character by character, the same aligner as the editor's 〔按歌词校准字幕〕. Returns a PROPOSAL only — the project is NOT changed: {proposalId, code, n, k, m, lines:[{text, start, end, matched, confidence}], message}. start / end are timeline seconds (null for a line that didn't match); confidence 0–1. code: OK (show the user the message and the lines, then call fablecut_lyrics_apply with the proposalId) · TOO_FEW (fewer than THRESHOLD of the lines matched — maybe another song or version; nothing will be placed) · NO_VOCALS (no singing heard in that part) · NO_LYRICS (paste the lyrics first) · ASR_UNAVAILABLE (transcription can't run here). This tool never names or recognises a song: the lyrics are the user's own paste. Show only a few lines of copyrighted lyrics back to the user, never the whole song.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        lyrics: { type: "string", description: "The lyrics as the user pasted them, one line per line of the song (LRC time tags are ignored)" },
+        clipIds: { type: "array", items: { type: "string" }, description: "The clips with the singing (default: every clip with sound)" },
+        from: { type: "number", description: "Timeline seconds: only words from here (default: the start)" },
+        to: { type: "number", description: "Timeline seconds: only words up to here (default: the end)" },
+        language: { type: "string", description: "Transcription language when a clip has no transcript yet (e.g. zh)" },
+        timeout: { type: "number", description: "Seconds to wait for a transcription (default 1800)" },
+      },
+      required: ["lyrics"],
+    },
+  },
+  {
+    name: "fablecut_lyrics_apply",
+    description: "Put a fablecut_lyrics proposal on the timeline — only after the user agrees: the open editor shows the user a card (〔放到时间线上〕 / 〔先不用〕) and nothing changes unless they press 〔放到时间线上〕. Then the lyric lines go on a NEW caption track (existing captions stay as they are), matched lines at their times, the lines that didn't match grey (disabled) for the user to drag into place; it is one undo step (Ctrl+Z). Needs an open editor window (someone has to answer the card). Refused when the proposal's code isn't OK, or when the clips it was made from changed since. Returns {applied, track, placed, grey, message}.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        proposalId: { type: "string", description: "The proposalId fablecut_lyrics returned" },
+        timeout: { type: "number", description: "Seconds to wait for the user's answer (default 600)" },
+      },
+      required: ["proposalId"],
     },
   },
 ];

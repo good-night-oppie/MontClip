@@ -54,6 +54,7 @@
     reframe: ["sensitive", "做一份竖屏或方形的新序列，画面跟着人走，并切换过去", "Make a vertical or square copy of the sequence that follows the person, and switch to it"],
     fablecut_highlights: ["undoable", "从长录像里挑精彩片段，剪成一个新序列", "Cut the best moments of long footage into a new sequence"],
     fablecut_danmaku: ["undoable", "给一场录像导入录播姬或 B 站的弹幕文件，也可以移除已经导入的弹幕", "Import BililiveRecorder or Bilibili danmaku for a recording, or remove them"],
+    fablecut_audio_track: ["undoable", "分轨录像里，选哪条音轨是主播的声音", "In a multi-track recording, pick the audio track that is the streamer's voice"],
     fablecut_songs: ["undoable","找出录像里可能在唱歌的段落，标出估的地方", "Find the parts of a recording that are possibly singing, marking the guessed spots"],
     fablecut_transcribe: ["undoable", "把说话听写成带时间的文字，可按文字剪", "Turn speech into timed words; cut by text"],
     fablecut_captions: ["sensitive", "加字幕、导入字幕，或把字幕导出成文件", "Add or import captions, or export them as a file"],
@@ -71,6 +72,10 @@
     // the 「自动出切片」 card edits (the owner / Deja, 2026-11-03): the streamer's buttons and the AI, the same capabilities
     set_segment_kind: ["undoable", "改一张候选卡的类型：唱歌、互动、聊天、整活、普通高光或其他", "Change a candidate card's kind: singing, interaction, chat, stunt, highlight or other"],
     add_segment: ["undoable", "用 IN–OUT 补一张候选卡，带上类型", "Add a candidate card from IN–OUT, with its kind"],
+    // lyrics onto a new caption track (JJ, 2026-11-05): the proposal only reads; applying is one undo step, and the
+    // editor asks the streamer on its own card first, whatever the mode (docs/decisions/2026-11-05-lyrics-align-agent-tool.md)
+    fablecut_lyrics: ["read", "按贴进来的歌词，对出每一行唱在哪里（只出方案，不改项目）", "Line up pasted lyrics with the singing (a proposal only; the project is not changed)"],
+    fablecut_lyrics_apply: ["undoable", "把对好的歌词放到一条新的字幕轨上", "Put the lined-up lyrics on a new caption track"],
     fablecut_track: ["undoable", "跟着画面里的人或物体动，让马赛克、贴纸也跟着它走", "Follow a person or thing in the picture, so a mosaic or sticker moves with it"],
   };
   // External caps (Deja, 2026-11-03, on #83): per capability, fixed here with the risk levels, in bytes. perSend is one send

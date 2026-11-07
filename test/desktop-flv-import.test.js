@@ -75,10 +75,45 @@ test("an incompatible or uncertain file needs the user's yes before anything is 
   assert.equal(out.preparation, "transcode");
 });
 
-test("a gap in the timeline is refused at inspection, before any copy", async (t) => {
-  const w = setup(t, { range: { maxGap: 0.2, needsConsent: false } });
-  await assert.rejects(w.service.inspect(w.file), { code: "FLV_TIMELINE_GAP" });
-  assert.deepEqual(w.others(), []);
+test("a recording with breaks is not refused: they are reported, and converting them needs the user's yes before any copy", async (t) => {
+  const gaps = [{ stream: "video", at: 62.5, len: 8, big: true }, { stream: "audio", at: 62.5, len: 8, big: true }];
+  const w = setup(t, { range: { maxGap: 8, gaps, fix: ["break"], needsConsent: false } });
+  const r = await w.service.inspect(w.file);
+  assert.deepEqual(r.gaps, gaps);
+  assert.deepEqual(r.fix, ["break"]);
+  await assert.rejects(w.service.prepare(r.id, {}), { code: "FLV_TIMELINE_GAP" });
+  assert.deepEqual(w.others(), [], "refused before copying");
+  await w.service.prepare(r.id, { fixGaps: true });
+  assert.equal(w.seen.prepare[0].opts.fixGaps, true, "the conversion is asked of prepareMedia");
+});
+
+test("small drops import without asking: no fix, nothing to agree to", async (t) => {
+  const gaps = [{ stream: "video", at: 30, len: 0.034, big: false }];
+  const w = setup(t, { range: { maxGap: 0.034, gaps, fix: [], needsConsent: false } });
+  const r = await w.service.inspect(w.file);
+  assert.deepEqual(r.gaps, gaps);
+  await w.service.prepare(r.id, {});
+  assert.equal(w.seen.prepare[0].opts.fixGaps, false);
+});
+
+test("progress: the check follows the packets' position, every step says how long it still needs, and the page can name the import", async (t) => {
+  let report, release;
+  const gate = new Promise((r) => { release = r; });
+  const w = setup(t);
+  const service = createFlvImports({ mediaDir: w.media, inspect: async (f, o) => { report = o.onProgress; await gate; return { compatible: true, range: { gaps: [], needsConsent: false } }; } });
+  t.after(() => service.shutdown());
+  const id = "0b5c3a0e-8d55-4f62-9d55-4e0a8d2b6a11";
+  const pending = service.inspect(w.file, { id });
+  while (!report) await new Promise((r) => setImmediate(r));
+  report(0.25);
+  const st = service.status(id);
+  assert.equal(st.phase, "inspect");
+  assert.equal(st.done, Math.round(0.25 * st.size));
+  assert.equal(st.remaining, null, "not guessed in the first 2 s");
+  assert.equal(service.status(id, Date.now() + 8000).remaining, 24, "8 s for a quarter: about 24 s more");
+  await assert.rejects(service.inspect(w.file, { id }), { code: "FLV_IMPORT_BUSY" }, "one import per name");
+  release();
+  assert.equal((await pending).id, id);
 });
 
 test("a source changed after inspection is caught by the hash, and its copy removed", async (t) => {

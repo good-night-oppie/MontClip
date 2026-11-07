@@ -54,11 +54,18 @@ Every Claude Code session then has these tools:
   on that canvas whose shots follow the subject. See "Sequences" below.
 - `fablecut_highlights` — the best moments of long footage cut into a short edit, in a new
   sequence. See "Sequences" below.
+- `fablecut_audio_track` — a recording with several audio tracks (OBS: microphone, game,
+  music…): list them, cut a few seconds of each to listen to, pick the streamer's voice.
+  See "Media management" below.
 - `fablecut_songs` — where each song in a long recording starts and ends, from the sound
   alone, with the guessed spots marked; kept in the project. See "Songs in a recording" below.
 - `fablecut_transcribe` — turn speech into words with times (on this computer: sherpa-onnx Paraformer zh),
   read them on the timeline, find a phrase and cut it out. See "Transcripts and
   text-based editing" below.
+- `fablecut_lyrics` — line up lyrics the user pasted with the singing (on this computer, nothing
+  sent): a proposal only, each line `{text, start, end, matched, confidence}` with `n` and `k`.
+  `fablecut_lyrics_apply {proposalId}` then asks the user on the editor's card and, if they agree,
+  puts the lines on a new caption track (unmatched lines grey), one undo step. It never names a song.
 - `fablecut_captions` — caption clips from the transcript, timed word by word (subtitle,
   karaoke, highlight, word pop); export or import SRT / WebVTT. See "Captions" below.
 - `fablecut_export` — render the timeline to a file in `exports/` with the editor's own
@@ -174,6 +181,31 @@ reports the real paths.
 `MONTCLIP_SHELL`, else `desktop` or `server`). Another one started on the same
 folder — the Windows app and the Cindy plugin pointed at one folder, say —
 refuses to start and names the first. A lock whose process is gone is taken over.
+
+**Embedded in Cindy** (the MontClip-Cindy plugin, see its README) the engine runs
+with `MONTCLIP_HOST=cindy` and a fresh 64-hex `MONTCLIP_EMBED_TOKEN`, bound to
+`127.0.0.1` only (anything else, or desktop mode, refuses to start). It answers
+only requests that carry the token: as `X-MontClip-Session` (the plugin worker, and
+`mcp-server.js` when it runs with the same two variables), or as the
+`montclip_embed` cookie (HttpOnly, `SameSite=None; Secure; Partitioned`), which a
+page load (GET) of any URL with `?token=<token>` receives together with a 302 to the
+same URL without it. The cookie is not the token: each such page load gets its own
+random session, which the server remembers (the newest 64) and can end on its own.
+Everything else gets 403. Every answer says
+`Referrer-Policy: no-referrer`, and the token is never put in a redirect, a log
+line or an error. A headless export or measurement browser gets a one-time ticket
+(one use, one minute) in its URL instead of the token. Without
+`MONTCLIP_HOST=cindy` none of this applies.
+
+The editor page opened with `?host=cindy` (`host-embed.js`) hides its built-in
+assistant (Cindy's chat takes its place) and keeps it from sending anything: it reads no
+service key, reaches no AI service and sends no message (the desktop main process refuses its
+requests from such a page too); an approval it would ask for is 「不同意」 at once, with code
+`HOST_EMBEDDED`. The lyrics card is the page's own dialog and still asks. The editor follows Cindy's theme: `?theme=light|dark`
+at load (any other value is ignored), then `postMessage({type:"montclip-host-theme", scheme})`,
+taken only when it comes from the framing page: `event.source` is `window.parent` and
+`event.origin` is that page's origin (`location.ancestorOrigins`, else the referrer;
+when neither names one, no message is taken).
 
 `mcp-server.js` run as a program speaks MCP on stdio; required as a module (the
 Cindy plugin's Node worker does) it only hands over `{TOOLS, callTool,
@@ -309,6 +341,7 @@ Examples in `library/svg/`: `sparkles.svg` (loop), `lower-third.svg`,
   "background": "#000000",                    // canvas color behind all clips (optional)
   "revision": 7,                              // bump on every write!
   "panSchema": 1,                             // 1 = pan-aware; omit only on pre-pan projects (UI migrates once)
+  "monoPanReviewed": true,                    // optional — the left-ear mono question is settled (see "Audio mix")
   "markers": [ { "t": 2.5 }, { "t": 5.0, "label": "drop", "color": "red" } ],
   // ^ beat/cue markers: diamonds on the ruler (label shown beside them), snap
   //   targets for clip edges. color: gold (default) · red · orange · green ·
@@ -359,6 +392,7 @@ Examples in `library/svg/`: `sparkles.svg` (loop), `lower-third.svg`,
       "duration": 12.4, "width": 1920, "height": 1080,
       "fps": 29.97, "codec": "h264", "audioCodec": "aac", "audioChannels": 2, "sampleRate": 48000,
       "size": 45200000, "bitrate": 29300000, // probed from the file (read-only; see "Media management")
+      // "audioTracks": [ {"channels": 2, "title": "Mic"}, … ], "audioTrack": 1,  // several audio streams: which one is read
       "favorite": true, "tags": [ "interview", "day 1" ],   // optional: bin organization
       "folderId": null },                    // optional: id of a folders[] entry
     { "id": "m_abd", "name": "intro.denoise-medium.flac", "kind": "audio", "src": "/media/intro.denoise-medium.flac",
@@ -460,7 +494,7 @@ These are quick looks. For real grading use `props.grade` (see "Color" below).
 | `gain` | 0 | clip gain in dB (−60…+24), applied **before** `volume`, so keyframes and fades ride on top. Set by Normalize. |
 | `channelMode` | "stereo" | stereo · mono (L+R folded to one channel) · left · right (use one side) · swap (exchange L/R). Ignored on linked stems — `audioChannel` already picks their channel. |
 | `duck` | 0 | ducking in dB (≤ 0), multiplied into `volume`. Normally keyframed by Auto-duck (`keyframes.duck`), so the clip's own volume, keyframes and fades are untouched. |
-| `pan` | 0 | −1 (full left) … 0 (center) … +1 (full right). Linked stems default L `−1` / R `+1` / other `0`; the only stem of a mono file defaults to `0` (centre). Projects saved before pan migrate once on load (`panSchema`); keep `panSchema: 1` (and explicit `pan` on stems) when rewriting the document so a centered stem is not re-hard-panned. |
+| `pan` | 0 | −1 (full left) … 0 (center) … +1 (full right). Linked stems default L `−1` / R `+1` / other `0`; the only stem of a mono file defaults to `0` (centre). A pan the program gave a stem carries `panAuto: true`; editing the pan (the slider, a reset, a keyframe, or an agent's `updateClip` with a `pan`) removes it. Projects saved before pan migrate once on load (`panSchema`); keep `panSchema: 1` (and explicit `pan` on stems) when rewriting the document so a centered stem is not re-hard-panned. |
 | `speed` | 1 | 0.25–4× playback rate. **Keyframable → speed ramps**: with `keyframes.speed` the engine time-remaps (media time = `in` + ∫speed dt), in preview and in the export audio mix. Static case: source window consumed = `duration × speed`, so `in + duration×speed ≤ media.duration`. |
 
 **Text clips only:**
@@ -708,6 +742,18 @@ edits the key under the playhead. Agents:
   after ducking): drag it to change the level, Ctrl/Cmd-click to add a keyframe,
   drag a point to move it, Alt-click or double-click to remove one. The corner
   **fade grips** drag a constant-power fade in or out. Both edit linked stems together.
+- **Mono in the left ear (old projects)** — projects saved before mono files got a
+  centred stem can have one at `pan: -1`, which exports with sound on the left only. A
+  stem of a mono file on channel 0, at exactly −1, with no pan keyframes and no other stem
+  in its link group, might be the program's old default or the streamer's choice (no
+  `panAuto` then), so on open the editor asks once, in a toast that blocks nothing:
+  centre them (one undo step) or keep them. Showing the question writes nothing; either
+  answer sets `monoPanReviewed: true` in project.json (never the window's storage);
+  a project with no such stem (and every stem's channel count known) is set quietly, by
+  the editor or the next `fablecut_patch_project`. Until then `fablecut_status` warns;
+  centre them (`updateClip set:{props:{pan:0}}`, then `setProject {monoPanReviewed:true}`)
+  only when the user asks. The check after an export never reports these stems (no
+  `panAuto`, so the streamer's): the open-project question is their only path.
 - Use **gain** for "this clip is too quiet / loud", **volume keyframes** for
   shaping, **duck** for dipping under dialogue, the **track fader** to
   balance whole lanes (dialogue against the music bed), and a **bus** when
@@ -1060,6 +1106,31 @@ text or adjustment clip. On an adjustment layer they limit where its effects
 and grade apply. They run in preview and export alike. The clip draws as usual,
 the masks cut it, and then its `opacity` and `blend` composite it.
 
+**Privacy:** masks and blur are compositing effects, not a privacy guarantee.
+A blurred duplicate over a sharp original can reveal the original through
+partial alpha, including blur near the picture boundary even with zero mask
+feather. Increasing blur can make this worse. Feather, reduced opacity and
+blend modes can also expose layers underneath. Do not automatically cut holes
+in lower tracks: that changes legitimate compositions.
+
+For sensitive content, use a fully opaque, hard-edged solid shape above every
+copy of the content, with normal blend, opacity 1, no blur, feather or fade,
+and extra coverage around all edges. Shape item x/y are centres in pixels
+relative to the canvas centre (unlike mask fractions). For a 320×180 canvas,
+this covers canvas pixels x=0…96, y=0…42:
+`{kind:"shape", track:"V3", start:0, duration:1, props:{opacity:1, blend:"normal", shapes:[{type:"rect", x:-112, y:-69, w:96, h:42, radius:0, fill:"#000000"}]}}`.
+V3 must actually be above every relevant layer; extend the time range to cover
+every sensitive frame. Reposition/animate the cover after crop, movement,
+scaling or reframing. Inspect every frame in preview and in the decoded final
+export, including cuts and edges. Tracking confidence is not privacy evidence.
+Neither a blur strength nor an unverified mosaic setting guarantees unreadable
+text. See `reference/privacy-cover.md` for the synthetic test and its limits.
+This is an agent recipe, not an accepted end-to-end button workflow. The ordinary
+shape button is not a privacy preset: set square corners (`radius:0`), and do
+not assume its default track, duration or geometry covers the sensitive content.
+Manual precise placement, motion following, independent fill-change undo and
+Cindy visible-window operation have not been validated by this recipe test.
+
 ```jsonc
 "masks": [
   { "name": "Subject", "shape": "ellipse", "x": 0.52, "y": 0.45, "w": 0.4, "h": 0.7, "feather": 40 },
@@ -1289,8 +1360,10 @@ headless Chrome / Edge) and saves the result:
   `[tracks: "Logo" point 0.00–4.20 s (127 samples)]`, never their samples.
 
 Recipes: **a title that follows a car** — track a point on the car, attach
-the title; **blur a face or a plate** — an ellipse mask on a blurred copy of
-the shot on the track above, then `apply:{mask:"Face"}`; **a screen replacement** —
+the title; **a tracked artistic blur (not privacy redaction)** — an ellipse
+mask on a blurred copy of the shot on the track above, then
+`apply:{mask:"Effect"}`; for sensitive content use the opaque-cover procedure
+in Masks and check every exported frame; **a screen replacement** —
 track the screen with Scale and Rotate on and attach the new picture, cropped
 to fit; **a highlight that stays on a UI element** in a screen recording —
 track the button, attach a rect svg.
@@ -1709,7 +1782,9 @@ entry. These fields are read-only — they describe the file:
 | `fps` | video frame rate (29.97, 25, 59.94 …); absent for stills and audio |
 | `codec` | video codec (`h264`, `hevc`, `prores`, `vp9` …), or the image format (`png`, `mjpeg`) |
 | `audioCodec` · `audioChannels` · `sampleRate` | first audio stream: codec, channel count (`0` = the file has no audio), Hz |
+| `audioTracks` | only for a file with two or more audio streams (OBS records up to six): `[{channels, title?, default?}]` in stream order, `title` being the name the recorder wrote |
 | `size` · `bitrate` | file size in bytes · overall bitrate, bits per second |
+| `start` · `audioOffset` | only on a file whose clock doesn't start at 0 (an OBS recording whose timestamps start at 3600 s, an MP4 edit list): `start` is where media time 0 — the file's start, the 0 of `ffmpeg -ss` — sits on the file's own clock, seconds; `audioOffset` is where its decoded sound starts in media time (−0.021 for the AAC priming ahead of such a recording). The editor's players, the export's decoder and its audio mix are shifted by them, so `in` and every media time mean the same thing as for any other file |
 | `storedWidth` · `storedHeight` | only when the pixels aren't square: the size the file stores (the compact view prints `2389×1920 (stored as 1080×1920)`). Agents read `width` / `height` |
 | `width` · `height` · `duration` | as before; filled in when missing (phone footage shot rotated reports its upright size). `width` × `height` is the **display** size: a file with non-square pixels shows as it is drawn (a replay stored as 1080×1920 with pixels 896:405 is 2389×1920), and an entry that still holds the stored size is corrected when the agent or the editor reads it. An MKV whose timestamps start late (3600 s) is as long as it plays; one whose header has no length takes it from its streams (their durations, then their DURATION tags), from the earliest start to the latest end; when nothing there says it either (a recording stopped before it was saved), it is read from the packets' times, first to last (`fablecut_import_media` says so). When even that fails — or ffprobe can't open the file at all, as with an MP4 whose index was never written — there is no `duration`, the entry gets `durationUnknown: true`, the editor says so, and the file can't be placed: `addClip`, `insert` and `overwrite` refuse it, and so does dragging it onto the timeline. Without ffprobe nothing is marked; the browser's length is used. The editor asks once about every MKV / WebM and every recording without a length, old projects included (`durationChecked` marks it), and MCP imports read the length the same way. Clips already placed from a wrong (too long) length are fitted to the corrected one, as one undo step |
 
@@ -1836,6 +1911,28 @@ proxy only changes how smoothly the preview runs, never the result.
 - `{op:"updateMedia", id | ids, set:{name?, favorite?, tags?, folderId?}, addTags?, removeTags?}`
   — organize files (`favorite:false` unstars; `tags:[]` clears). Metadata keys
   are refused: they come from the file.
+- **Audio tracks.** A recording with several audio streams (`audioTracks`) has
+  one its sound is *analysed* from: `audioTrack` (0 = the first, the default,
+  and not stored). Songs, loudness, the transcript and captions, beats,
+  silences and highlights listen to it. The *exported* sound — the export mix,
+  the waveform, the stems, and normalize / auto-duck, which work on it — is
+  always track 0, so picking the microphone for better song finding never
+  strips the game and the music out of the video. In an OBS recording the first
+  track is usually everything mixed together, so change it only when the
+  streamer's voice is on its own track. `{op:"setAudioTrack", id, track}` picks
+  one (only tracks the file has; the songs found from the old one are dropped),
+  or `fablecut_audio_track {mediaId}` lists them, `{mediaId, listen: seconds}`
+  cuts 6 s of each into `analysis/listen/` to play, `{mediaId, track}` picks one.
+  Loudness, songs and transcripts are kept per track, so going back finds the
+  first results again. The REST readers `/api/signals/loudness`, `/api/songs`,
+  `/api/transcript` and `/api/asr/transcribe` take `track`, and without it read
+  the open project's `audioTrack` for that file; `/api/audio-window` reads
+  track 0 unless `track` names another. In the editor: right-click the file →
+  **Media info…** lists the tracks with **Listen**. Picking one reads the songs
+  and loudness again in the background; captions are made again from the new
+  track unless they were edited (a caption keeps the text it was made with in
+  `props.captionMade`; captions without it, or imported from a subtitle file,
+  count as edited), and then **Redo subtitles from this track** offers it.
 - `{op:"setCollection", id?, name?, media?, add?, remove?}` creates a collection
   (a new `id`, or a `name` no collection has) or changes one: `media` replaces
   its list, `add` / `remove` edit it. `{op:"removeCollection", id}` deletes it;
@@ -1845,7 +1942,7 @@ proxy only changes how smoothly the preview runs, never the result.
   `m_abc video "intro.mp4" 12.4s 1920×1080 29.97 fps h264 stereo 48 kHz 45 MB ★ #interview uses:2`.
 - `fablecut_import_media` probes the file as it imports it, so the entry it
   returns already has these fields.
-- `fablecut_status` lists offline media, and the compact view marks each
+- `fablecut_status` warns about **mono audio in the left ear only** (see "Audio mix"), and lists offline media, and the compact view marks each
   `OFFLINE (file missing — relinkMedia)` and each video with a proxy `proxy:540p`.
 - `fablecut_proxy {}` reports every video's proxy; `{create:true, mediaIds?, height?}`
   makes them (waits until done unless `wait:false`); `{delete:true, mediaIds?}`
@@ -2452,7 +2549,7 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
 - Fast / WebCodecs export (browser compositor → server ffmpeg):
   `GET /api/export/ffmpeg` → `{available}` · `GET /api/export/profiles[?detail=1]` →
   `{default, profiles, issues}` · `POST /api/export/begin`
-  `{fps,name,mode?,profile?,hasAudio?,pixelFormat?,width?,height?}` → `{id,mode,profile?,label,summary}`
+  `{fps,name,mode?,profile?,hasAudio?,pixelFormat?,width?,height?,check?}` → `{id,mode,profile?,label,summary}`
   (`fps` is required — pass `project.fps`, no server-side default;
   `mode` is `"jpeg"` (default, Fast) or `"annexb"` (WebCodecs H.264 elementary stream);
   jpeg **400** if `profile` is not a defined id, or if ffmpeg rejects its args in the dry run;
@@ -2461,7 +2558,9 @@ Request bodies are limited: 1 MB, except `PUT /api/project` and `PUT /api/ui/und
   used `pixelFormat:"rgba"`; Annex-B for annexb — one POST may concatenate frames
   or AUs. Must be after audio; ffmpeg is spawned on the first frame in both modes)
   · `POST /api/export/audio?id=` (WAV body — must be sent before the first frame)
-  · `POST /api/export/end?id=[&discard=1]` → `{src}` under `/exports/`
+  · `POST /api/export/end?id=[&discard=1]` → `{src}` under `/exports/`; **500** with `code`
+  `EXPORT_BLANK_PICTURE` / `EXPORT_BLANK_SOUND` / `EXPORT_BLANK_BOTH` when the file came out black or
+  silent from start to end while the footage in `check` (`{video:[{t, src, at}], audio:[{src, at, dur}]}`) is not
 - Export jobs (what `fablecut_export` drives): `POST /api/export/request`
   `{range?, profile?, where?:"auto"|"tab"|"headless"}` → `{id, status, via, …}`
   (409 if one is already running, or nothing can render it) · `GET /api/export/job?id=`
@@ -2694,6 +2793,12 @@ WebCodecs / Realtime export, and `/api/export/begin` all use this value; pass th
 
 ## Export
 
+In the desktop app, completed queue entries and local media have **Show in folder**.
+Workspace lookups reject symlinks and directory junctions. After a native Save dialog
+completes, the main process remembers the chosen destination for that export's `src`
+for this app session; revealing it selects the saved file even after the workspace
+copy is removed. The renderer receives no absolute path. Missing files report failure.
+
 Export is the Export button → dialog, or `fablecut_export` from an agent (below). Three engines:
 
 1. **Fast** — browser renders each frame with the normal compositor (SVG, keys,
@@ -2821,8 +2926,22 @@ A spec (every key optional — what is left out comes from its `preset`):
   size, frame rate, frame count, codec, color tags, audio codec / rate / channels,
   length, loudness against the target (±1 LU) and the true-peak ceiling, and file size
   against the platform's limit. Without a target the report says where the platform
-  plays it ("YouTube plays it 4.2 dB quieter"). The report shows in the queue, a toast
-  after a single export, and the `fablecut_export` reply.
+  plays it ("YouTube plays it 4.2 dB quieter"). A stereo file whose left and right are
+  more than 20 dB apart (each channel of the finished file measured with ffmpeg astats; the
+  louder side above −60 dB) gets a warning — "only the left channel has sound" — unless the
+  timeline puts the sound there on purpose (pan keyframes, any clip pan without `panAuto`,
+  a track or bus pan). Better to miss one than to warn wrongly: a file under 2 s, of unknown
+  length or silent all through is not judged. The file is kept either way.
+  In the editor it reads in plain words, without the numbers; when mono sounds put in that ear
+  are the cause, it has a **Play in both** button — the same fix, one undo step, as the
+  open-project question in "Audio mix".
+  The report shows in the queue, a toast after a single export, and the `fablecut_export` reply.
+- **Never done when blank.** An export whose file is black from start to end, or silent, while the footage on the
+  timeline at those moments is not, fails instead of finishing: the editor says so in plain words (`EXPORT_BLANK_PICTURE`
+  / `EXPORT_BLANK_SOUND` / `EXPORT_BLANK_BOTH`), `fablecut_export` returns the reason, and the file stays in
+  `exports/`. The editor sends what to compare with (`check` on `/api/export/begin`: at 8 moments, the video clips on
+  screen and where in their file they are; up to 8 stretches of sound), and the server reads 8 frames of the finished
+  file — about 0.4 s for 10 minutes of 1080p — and the sources only when the file looks blank.
 - **Saved presets**: "Save preset…" in the dialog writes `library/delivery/<id>.json`,
   listed under "Saved" in every project (`GET / POST /api/export/presets`,
   `POST /api/export/presets/delete {id}`).
@@ -2865,7 +2984,7 @@ ones and starts.
 - REST: `POST /api/export/begin {deliveries:[{delivery, name}, …], canvasW, canvasH,
   region?, duration, fps, hasAudio}` → `{id, input, jpegQuality, outputs:[{file, spec,
   summary, notes, size}]}`; frames and audio as for one output; `/api/export/end` →
-  `{src, outputs:[{file, ok, src, report:{ok, checks:[{ok, text}], line}, mixLoudness?} | {file, ok:false, error}]}`.
+  `{src, outputs:[{file, ok, src, report:{ok, checks:[{ok, text}], line}, mixLoudness?} | {file, ok:false, error, code?}]}`.
 
 ### Encoding profiles (`encoding-profiles.json`)
 
@@ -3097,20 +3216,48 @@ Desktop export downloads: the Save dialog is titled 保存导出的视频 / Save
 ## Guarded local FLV preparation (clean core split)
 
 Local FLV uploads and fablecut_import_media share prepare-media.js. Compatible
-single-video H.264 4:2:0 plus optional AAC streams are remuxed; other codecs need
-boolean allowTranscode:true. Decoded timestamp gaps above5ms are refused with
-FLV_TIMELINE_GAP before any MP4 allocation; this is clock quantization, not an
-AV quality guarantee. Multiple video/audio streams are refused. Source bytes
-are retained; output is a distinct MP4 and metadata carries originalSrc and
-preparation (remux/transcode), preserved by renderer serialization.
+single-video H.264 4:2:0 plus optional AAC or MP3 streams keep their picture as
+a stream copy (MP3 sound is always filled into AAC); other codecs need boolean allowTranscode:true. The check reads
+packet headers only (ffprobe packets, no decoding: seconds for a 2-hour
+recording). A break is more than 5 ms between one packet's end and the next
+one's start, per stream, measured in whole milliseconds. Every break of 0.5 s or
+less (exactly 0.5 s included), however many, imports without a question, is
+logged and marked faintly on the timeline. A break over 0.5 s answers
+FLV_TIMELINE_GAP (REST: 409) with `gaps` and `fix` (`break`) before any MP4 is
+written; with fixGaps:true or allowTranscode:true it is converted. Either way
+the picture is copied (`-c:v copy`; it holds its last frame across a break) and
+the sound is re-encoded to AAC with its holes filled with silence
+(`aresample=async=1:min_hard_comp=0.01:first_pts=0`), because the export reads
+sound with decodeAudioData, which puts samples back to back and ignores their
+timestamps: a hole left in the MP4 would make the sound after it come early.
+The sound is copied only when it is whole (no break in either stream, not
+starting after the picture, no drift); `audio` in the result says
+`copy` / `filled` / `none`. Picture and sound moving more than 40 ms apart
+during the recording (clocks jumping by different amounts, an end offset unlike
+the start's) is reported as `drifting` / `drift` (seconds) and logged, not
+converted: no conversion can know which clock is right. A fixed offset at the
+start (live recordings often start their picture 0.06–0.09 s after the sound)
+is not drift. Other codecs and a failed check re-encode the picture with the
+encoders that work here (the sound always filled). A conversion of breaks is
+then scanned and must match the original's readable length within 0.1 s and
+keep sound against picture within 40 ms; a copy that fails is re-encoded once, then
+FLV_FIX_UNVERIFIED with `check` {durationDiff, avOffset}. A conversion decodes the
+whole recording strictly: damaged bytes behind normal timestamps fail it with
+FLV_SOURCE_DAMAGED and leave no file (an export stops with
+EXPORT_SOURCE_DAMAGED when its decoder reports damage). Multiple video/audio
+streams are refused. Source bytes are retained; output is a distinct MP4 and
+metadata carries originalSrc, preparation (remux/transcode) and `gaps`
+`[{stream:"video"|"audio", at, len, big}]` (seconds from the file's first packet;
+big = over 0.5 s), preserved by renderer serialization; prepareMedia also returns
+gapsHeld:true when it converted breaks.
 
 Uncertain decoded tails/header lengths/warnings require acceptReadable:true,
 separately from codec consent. REST upload returns409 with
 FLV_READABLE_CONSENT_REQUIRED, originalSrc and decoded range. POST
-/api/prepare-media accepts {src, acceptReadable, allowTranscode}; src must resolve
+/api/prepare-media accepts {src, acceptReadable, allowTranscode, fixGaps}; src must resolve
 to a local /media/ FLV. Booleans must be true, not strings. MCP accepts the same
-two booleans on fablecut_import_media. Callers must show the detected limitation
-before accepting; these flags do not make source timing verified or authorize gaps.
+three booleans on fablecut_import_media. Callers must show the detected limitation
+before accepting; acceptReadable and allowTranscode do not make source timing verified or authorize gaps (only fixGaps converts them).
 
 Legacy upload/MCP copies are already stored before probing and remain on refusal;
 this is not native zero-allocation consent. Repeated MCP attempts can retain extra
@@ -3162,7 +3309,7 @@ Only text chat is available through this adapter. Two proposal shapes are accept
 
 **Editor events and the capability table (P1).** `capabilities.js` lists what the buttons, the AI and MCP may do: every MCP tool (definitions in `mcp-tools.js`, which `mcp-server.js` serves) plus keep_ranges / keep_sentences, each with its input schema, one plain sentence (zh-CN / en) and a risk level fixed in the program — read, undoable, sensitive (writes, deletes or replaces files, switches projects) or external (network). Unknown names are blocked; `BLOCKED` lists what no mode may allow. The desktop main process holds the table and gives the page a read-only copy (`montclipCapabilities.get()`). `agent-events.js` is the event log: every undo step is an event `{id, runId, step, capability, args, actor: streamer|ai|recipe, risk, state, revisionBefore, revisionAfter, at}` — the streamer's edits as `manual_edit` (or the capability they used), the AI's reviewed proposals, a redo as a new event; the host sets the risk from the table. Each undo snapshot starts with its event id; Undo moves the event to undone; `undoRun(runId)` undoes a whole AI run while its steps are the newest undo steps (else `RUN_INTERLEAVED`, nothing undone). Edits that arrive from outside (an agent, another tab) stay undo steps but are not logged here. Before an AI run the host saves an agent version (`POST /api/versions {action:"before_agent"}`). The log is saved in project.json as `agentLog` (the newest 500 events, args over 2 KB kept as a size note; never pictures, sound or recordings) and is not part of the document proposals are checked against. Smoke: `electron desktop/events-smoke.cjs --montclip-smoke --user-data-dir=<fresh>`. Decisions: docs/decisions/2026-11-03-unified-backend-architecture.md, 2026-11-03-local-capability-boundary.md.
 
-Host-only bridge: montclipAgentService.get/configure/send/cancel; no REST/MCP key endpoint. send requires version1, requestId, projectId, sequenceId, revision, gen and bounded user/assistant messages. Proposal schema is {type:"keep_sentences",ranges:[{clipId,sourceCaptionId,from,to}]}; timestamps are timeline seconds and every boundary must equal the explicitly referenced whole sentence. Or {type:"keep_ranges",output_mode:"one_file"|"per_range",ranges:[{clipId,from,to,label?}]}: from/to are seconds of the clip's media, inside both the media (0 ≤ from < to ≤ duration) and the part the clip shows; no overlap; each ≥ 0.5 s; ≤ 100 ranges; ≤ 32 KB; the clip must be an enabled video/audio clip on an enabled track; label ≤ 80 characters without control characters. Every key is checked (chat-proposal.js); the reply is never run. one_file joins the ranges like keep_sentences; per_range applies the same cut (one undo step) and adds one export-queue item per range, named fileSafeName(label or project name)-NN; a queued slice refuses to render once the timeline differs from the one it was queued from. Each request also carries a numbers-only `facts` block (agent-facts.js: each shot's clipId, kind, media length, the part it shows and where it starts; highlight candidates found in this session, in source seconds) — no file names, paths, caption text, pictures or sound; the review dialog says so. A clip whose id is not a short id (the proposals' rule, [A-Za-z0-9_-]{1,128}) is left out, and the review dialog says how many were left out, outside the facts fold. When the server has them, the facts also carry two measures of the sound, never the sound itself: `singing` — the parts the 「✨ 自动出切片」 「唱歌」 scan already found (/api/songs, a file read to its end; no scan is started), as {clipId, from, to} in source seconds — and `loudness` — {clipId, from, step, values}, one 0–100 value every second or every few seconds (signals.js RMS levels joined by power; 0 = −60 dBFS or quieter, 100 = full scale), each covering more seconds when the clips together are longer than the cap. The caps are capabilities.js `FACTS` (100 singing parts; 2400 loudness values, whole numbers — one a second up to 40 min, one every 3 s for 2 h, 6 s for 4 h, 12 s for 8 h; a message is at most 16000 characters); clips longer than 8 h together get neither, and the review box says so; over the other caps the send is refused (FACTS_LIMIT), never cut down. The review box lists them in plain numbers (how many singing parts, how long together, how many loudness values and how many seconds each covers) before every send. 设置 › 「附上唱歌段和音量」 (on by default; kept in the view settings only when off) stops them being read or sent; while it is off, a reply to a message about the quiet part or the singing gets the editor's note above it, saying so and where to turn it on. When the facts carry either, the review dialog says so outside the fold. The format note tells the model to say it cannot hear the sound when these do not settle an edit, and to send the streamer to 〔✨ 自动出切片〕 → 「唱歌」 → 〔开始找高光〕 first. Each reviewed proposal is also an editor event `{id, runId, step, capability, args, actor, risk, state, revisionBefore, revisionAfter, at}` (chat-proposal.js `event` / `failedEvent` / `transition`; states planned → awaiting_confirmation → running → has_result → applied / rejected / undone / failed, forward only): has_result when reviewed, applied with the revision its save wrote, rejected when the review closes unapplied, undone by the card's undo, failed with the refusal code. args holds checked values only. Kept in memory (newest 200) until the event log lands. Smoke: `MONTCLIP_FFMPEG_DIR=<bundled> electron desktop/keep-ranges-smoke.cjs --montclip-smoke --user-data-dir=<fresh>` (mock reply, three slices, lengths and A/V sync ≤ 40 ms). Existing MCP/REST operations are unchanged. A proposal that would leave the timeline playing as it does (one_file, its ranges back to back from the timeline's start to its end — chat-proposal.js `unchanged`) gets no 〔查看剪辑建议〕: the pane says nothing would change, and no mode applies it. The unchanged check compares total removed duration against the half-frame tolerance. What the assistant cannot do is said first: the format note asks for it in a reply in words; agent-limits.js recognises a request the assistant has no capability for from its words and the pane puts the editor's own sentence above the reply — its list is empty now: a vertical picture was the one, and its check and sentence went with the assistant's own reframe. The export-frame drop-down above the player has a label of its own (own.ef-label, aria-label and tooltip). The assistant's third reply is {"type":"reframe","aspect":"9:16"|"1:1"|"4:5"} — nothing else, only those shapes (chat-proposal.js; a sequence already that shape is refused): a copy of the open sequence on that shape whose shots follow the subject (reframe.js), opened. It is sensitive (it switches what is open; fablecut_reframe too) and in capabilities.js CONFIRM_EVERY_TIME, so the host's box asks every time in every mode, Yolo included, with no 「都批准」. Projects already holding 64 sequences are refused before footage is read, with a separate sequence-limit message. A complete project snapshot is compared before copying; additions and saved revision changes invalidate the plan. The footage is read first, with a progress line and 〔取消〕 on screen; the copy is made only after that (cancelled, failed or edited meanwhile: no sequence is made), and its history gets one undo step that opens the original sequence and deletes the copy (no redo). Not a plan step: a message asking to cut and for another shape gets the cut first, with JJ's sentence before it (「这次先帮你剪短。改竖屏要另做一份序列，剪好以后再跟我说「改成竖屏」就行。」). A proposal may start with one short paragraph (at most 200 characters, no { } or `, then a blank line; agent-conversation.js proposalLead): the pane shows it above the proposal's summary, and it is never read for the edit. When a file can't be read, the refusal names it by the name the bin shows (rf-failed-name).
+Host-only bridge: montclipAgentService.get/configure/send/cancel; no REST/MCP key endpoint. send requires version1, requestId, projectId, sequenceId, revision, gen and bounded user/assistant messages. Proposal schema is {type:"keep_sentences",ranges:[{clipId,sourceCaptionId,from,to}]}; timestamps are timeline seconds and every boundary must equal the explicitly referenced whole sentence. Or {type:"keep_ranges",output_mode:"one_file"|"per_range",ranges:[{clipId,from,to,label?}]}: from/to are seconds of the clip's media, inside both the media (0 ≤ from < to ≤ duration) and the part the clip shows; no overlap; each ≥ 0.5 s; ≤ 100 ranges; ≤ 32 KB; the clip must be an enabled video/audio clip on an enabled track; label ≤ 80 characters without control characters. Every key is checked (chat-proposal.js); the reply is never run. one_file joins the ranges like keep_sentences; per_range applies the same cut (one undo step) and adds one export-queue item per range, named fileSafeName(label or project name)-NN; a queued slice refuses to render once the timeline differs from the one it was queued from. Each request also carries a numbers-only `facts` block (agent-facts.js: each shot's clipId, kind, media length, the part it shows and where it starts; highlight candidates found in this session, in source seconds) — no file names, paths, caption text, pictures or sound; the review dialog says so. A clip whose id is not a short id (the proposals' rule, [A-Za-z0-9_-]{1,128}) is left out, and the review dialog says how many were left out, outside the facts fold. When the server has them, the facts also carry two measures of the sound, never the sound itself: `singing` — the parts the 「✨ 自动出切片」 「唱歌」 scan already found (/api/songs, a file read to its end; no scan is started), as {clipId, from, to} in source seconds — and `loudness` — {clipId, from, step, values}, one 0–100 value every second or every few seconds (signals.js RMS levels joined by power; 0 = −60 dBFS or quieter, 100 = full scale), each covering more seconds when the clips together are longer than the cap. The caps are capabilities.js `FACTS` (100 singing parts; 2400 loudness values, whole numbers — one a second up to 40 min, one every 3 s for 2 h, 6 s for 4 h, 12 s for 8 h; a message is at most 16000 characters); clips longer than 8 h together get neither, and the review box says so; over the other caps the send is refused (FACTS_LIMIT), never cut down. The review box lists them in plain numbers (how many singing parts, how long together, how many loudness values and how many seconds each covers) before every send. 设置 › 「附上唱歌段和音量」 (on by default; kept in the view settings only when off) stops them being read or sent; while it is off, a reply to a message about the quiet part or the singing gets the editor's note above it, saying so and where to turn it on. When the facts carry either, the review dialog says so outside the fold. The format note tells the model to say it cannot hear the sound when these do not settle an edit, and to send the streamer to 〔✨ 自动出切片〕 → 「唱歌」 → 〔开始找高光〕 first. Each reviewed proposal is also an editor event `{id, runId, step, capability, args, actor, risk, state, revisionBefore, revisionAfter, at}` (chat-proposal.js `event` / `failedEvent` / `transition`; states planned → awaiting_confirmation → running → has_result → applied / rejected / undone / failed, forward only): has_result when reviewed, applied with the revision its save wrote, rejected when the review closes unapplied, undone by the card's undo, failed with the refusal code. args holds checked values only. Kept in memory (newest 200) until the event log lands. Smoke: `MONTCLIP_FFMPEG_DIR=<bundled> electron desktop/keep-ranges-smoke.cjs --montclip-smoke --user-data-dir=<fresh>` (mock reply, three slices, lengths and A/V sync ≤ 40 ms). Existing MCP/REST operations are unchanged. A proposal that would leave the timeline playing as it does (one_file, its ranges back to back from the timeline's start to its end — chat-proposal.js `unchanged`) gets no 〔查看剪辑建议〕: the pane says nothing would change, and no mode applies it. The unchanged check compares total removed duration against the half-frame tolerance. What the assistant cannot do is said first: the format note asks for it in a reply in words; agent-limits.js recognises a request the assistant has no capability for from its words and the pane puts the editor's own sentence above the reply — its list is empty now: a vertical picture was the one, and its check and sentence went with the assistant's own reframe. The export-frame drop-down above the player has a label of its own (own.ef-label, aria-label and tooltip). The assistant's third reply is {"type":"reframe","aspect":"9:16"|"1:1"|"4:5"} — nothing else, only those shapes (chat-proposal.js; a sequence already that shape is refused): a copy of the open sequence on that shape whose shots follow the subject (reframe.js), opened. It is sensitive (it switches what is open; fablecut_reframe too) and in capabilities.js CONFIRM_EVERY_TIME, so the host's box asks every time in every mode, Full auto included, with no 「都批准」. Projects already holding 64 sequences are refused before footage is read, with a separate sequence-limit message. A complete project snapshot is compared before copying; additions and saved revision changes invalidate the plan. The footage is read first, with a progress line and 〔取消〕 on screen; the copy is made only after that (cancelled, failed or edited meanwhile: no sequence is made), and its history gets one undo step that opens the original sequence and deletes the copy (no redo). Not a plan step: a message asking to cut and for another shape gets the cut first, with JJ's sentence before it (「这次先帮你剪短。改竖屏要另做一份序列，剪好以后再跟我说「改成竖屏」就行。」). A proposal may start with one short paragraph (at most 200 characters, no { } or `, then a blank line; agent-conversation.js proposalLead): the pane shows it above the proposal's summary, and it is never read for the edit. When a file can't be read, the refusal names it by the name the bin shows (rf-failed-name).
 
 **Remove this connection** (删除这个连接) in AI service asks for confirmation, then the main process cancels a running request and deletes the saved connection file, which holds the sealed key, together with any write temporaries and reset backups. Only when the file is confirmed gone does the state return to not configured; sending is then refused. A failed delete is reported and still shows what remains saved. The fixed `montclip:agent:deleteConnection` IPC takes no argument.
 
@@ -3176,10 +3323,10 @@ Official-pane history presentation separates validated trailing reference envelo
 
 The desktop assistant has four modes, switched at the top of the assistant: 计划 (Plan: only lists steps), 手动 (Manual, the
 default: asks the first time, and every time for steps that can't be undone), 自动 (Auto: does what can be undone, asks before
-what can't) and Yolo (does everything; turning it on needs a yes in the app's own box, and a mark shows the whole time). The
+what can't) and Full auto (internal id `yolo`; does everything; turning it on needs a yes in the app's own box, and a mark shows the whole time). The
 main process keeps the mode and the approvals in memory only, so a restart is back to 手动. The risk of each step comes from
-`capabilities.js`; the AI cannot change the mode or any list. The approval box offers 只批准这次 / 这个聊天中都批准 / 不同意;
-「都批准」 holds for one chat, one capability and one target. Anything sent out is always shown first, Yolo included, and is
+`capabilities.js`; the AI cannot change the mode or any list. The host asks with an approval card in the assistant's message stream (not a box over the page; docs/decisions/2026-11-04-approval-card-in-stream.md): 只批准这次 / 这个聊天中都批准 / 不同意;
+「都批准」 holds for one chat, one capability and one target. Anything sent out is always shown first, Full auto included, and is
 capped per send and per chat or project by each capability's own caps in `capabilities.js` (text 128 KiB / 4 MiB a chat;
 audio 25 MiB a part / 2 GiB a project while open); over a cap it is refused, never cut down. MCP tools and the REST API are not affected. See `docs/decisions/2026-11-03-agent-permission-modes.md`.
 

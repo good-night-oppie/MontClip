@@ -93,7 +93,7 @@ test('every batch-3 key has the exact English and JJ final Chinese text',()=>{
 
 test('the WebCodecs note names the Fast engine by its own Chinese label',()=>{
  const fast=view.t('zh-CN','term.fast-ffmpeg');
- a.equal(fast,'快速（ffmpeg）');
+ a.equal(fast,'快速（FFmpeg）');   // FFmpeg in its own casing (JJ, 2026-11-04, #129)
  a.equal(zh('engine-webcodecs-note'),'逐帧准确。用显卡编码，比「'+fast+'」那一项更快。');
  a.equal(en('engine-webcodecs-note'),'Frame-accurate. Browser HW-encodes H.264; server muxes with audio. Faster upload than Fast.');
  a.ok(html.includes('data-i18n="term.fast-ffmpeg"'),'the Fast radio keeps that label');
@@ -126,7 +126,10 @@ test('static labels carry data-i18n markers and dynamic strings go through uiTex
  for(const s of ['item(anyEnabled ? "Disable clip"','item(anyUnlocked ? "Lock clip"','item("Parent to a new null"','alert("Export failed: "','"→ exports/" +','"Tokens: " +',
   '`Full timeline ·','"Frame-accurate. Server encodes','"Frame-accurate. Browser HW-encodes','No batch outputs yet','"Currently open"','"open now"',' min ago`','fact("Canvas"','>Download backup<'])
   a.ok(!app.includes(s),'no literal: '+s);
- a.equal((app.match(/uiText\("own\.export-failed-prefix"\) \+ msg/g)||[]).length,2,'both export paths say 导出失败：');
+ // both export paths say 导出失败：, then the failure in plain words (Deja, 2026-11-04: MontClipView.errorText), never the raw message;
+ // so does realtime recording's AI background-removal refusal (#154; Deja, 2026-11-07: no export failure pops up)
+ a.equal((app.match(/ sayExportFailure\(e\);/g)||[]).length,3,'both export paths and the realtime refusal say 导出失败：');
+ a.match(app,/toastProblem\(sayError\(e, "export"\), uiText\("own\.export-failed-prefix"\)\)/);
  a.ok(/function refreshLocalizedViews\(\)/.test(app)&&/refreshLocalizedViews\(\)/.test(app.slice(app.indexOf('function updateMontClipView'))),'a language switch re-renders the dynamic texts');
 });
 

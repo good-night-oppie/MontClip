@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Embedded editor (`?host=cindy`): the built-in assistant sends nothing — no service key read, no AI service reached, no message sent (the desktop main process refuses its requests from such a page too) — and an approval it would ask for is denied at once with `HOST_EMBEDDED` (QQ on #219). Light theme inside Cindy: every text at least 4.5:1, and track separators follow the theme (VV on #219).
+- Embedded editor (`?host=cindy`, `host-embed.js`): inside Cindy the built-in assistant is hidden (Cindy's chat takes that place) and the editor follows Cindy's light / dark theme — `?theme=light|dark` at load, then theme messages only from the framing page (its window and its origin). Light theme re-maps the surface colours and fixes low-contrast text. Unchanged without `?host=cindy`.
+- Embedded in Cindy (`MONTCLIP_HOST=cindy`): the engine answers only requests with the plugin's session token (`X-MontClip-Session`, or the HttpOnly `montclip_embed` cookie — a random session of its own, not the token — a `?token=` page load trades for, with a 302 to the URL without it); `mcp-server.js` sends the header; headless browsers get a one-time ticket instead of the token. Unchanged without the variable.
+- Withdraw blur-over-original recipes as privacy guarantees; document opaque covers and per-frame preview/export checks without changing artistic compositing.
+
+- Reject linked workspace paths when revealing files; remember native export save destinations in the desktop main process so Show in folder finds the saved file.
 - Pin and verify every optional browser MediaPipe runtime resource before execution; preserve explicit download consent, retry and missing-mask export refusal. Record package/license provenance and real-byte checks separately from synthetic inference tests.
+
 - MCP reframe selects the displayed source tail by decoded PTS, including mixed frame rates and VFR, without reading the following shot; empty tail reads fail explicitly.
 
 - Refuse stale assistant reframe plans when clips are added during reading; check the sequence limit before reading footage and render JJ-approved guidance from that same limit.
@@ -38,6 +45,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   confirms that a short but decodable remux is still refused.
 - Send background duration metadata through the editor server so an open editor can save it alongside pending
   timeline edits. Server errors no longer fall back to a direct project write.
+- A recording whose timestamps don't start at 0 (an OBS MKV that starts at 3600 s, an MP4 edit list) exported as
+  black, its sound 21 ms late, and the export said done. The file's start and the offset of its decoded sound are now
+  read with ffprobe (`start`, `audioOffset`), and the players, the export's decoder and its audio mix use them; the
+  preview showed the first frame frozen and is fixed with it. An export that comes out black or silent from start to
+  end while the footage is not now fails and says so in plain words, instead of finishing (Deja; Rea, #152).
 - A reload no longer adds an empty undo step: loading relinks the picture to its audio stems under new ids, which the
   kept undo history took for an edit made elsewhere (VV, #111). The undo of a real outside edit now says so in the
   interface language.

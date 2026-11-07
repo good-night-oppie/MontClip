@@ -24,6 +24,7 @@ const {
 } = require("./paths");
 const { downloadImportUrl, kindFromName, maybeFaststart } = require("./import-url");
 const { prepareMedia } = require("./prepare-media");
+const MediaLib = require("./media-lib");
 const Danmaku = require("./danmaku");
 const { readDanmakuFile } = require("./danmaku-file");
 const FX = require("./audio-fx");
@@ -31,7 +32,6 @@ const EditOps = require("./edit-ops");
 const ProjectOps = require("./project-ops");
 const Denoise = require("./denoise");
 const MakeEditable = require("./make-editable");
-const MediaLib = require("./media-lib");
 const { createProjects } = require("./projects");
 const { createHistory } = require("./history");
 const Color = require("./color");
@@ -82,9 +82,12 @@ function writeProject(doc) {
    the full document. If the file has moved past it by write time, someone else
    (usually the user, in the editor UI) edited in between — refuse to clobber. */
 let lastReadRevision = null;
+/* Embedded in Cindy the editor server answers only requests that carry its session token (server.js, embed.js). */
+const session = () => process.env.MONTCLIP_HOST === "cindy" && process.env.MONTCLIP_EMBED_TOKEN
+  ? { "X-MontClip-Session": process.env.MONTCLIP_EMBED_TOKEN } : {};
 function httpOk(url) {
   return new Promise((resolve) => {
-    const req = http.get(url, (r) => { r.resume(); resolve(r.statusCode < 500); });
+    const req = http.get(url, { headers: session() }, (r) => { r.resume(); resolve(r.statusCode < 500); });
     req.on("error", () => resolve(false));
     req.setTimeout(1200, () => { req.destroy(); resolve(false); });
   });
@@ -93,7 +96,7 @@ function httpOk(url) {
  *  endpoints that gate on them — /api/frame?path= needs X-FableCut-Client. */
 function apiJSON(method, urlPath, payload, headers) {
   return new Promise((resolve, reject) => {
-    const req = http.request(API + urlPath, { method, headers: { "Content-Type": "application/json", ...headers } }, (r) => {
+    const req = http.request(API + urlPath, { method, headers: { "Content-Type": "application/json", ...session(), ...headers } }, (r) => {
       let data = "";
       r.setEncoding("utf8");
       r.on("data", (d) => { data += d; });
@@ -210,6 +213,55 @@ function importNote(entry, probed) {
   return "Note: nothing in this file says how long it is — not the header, the streams or the packets' times. With no length it can't be placed or cut; the original file is unchanged.";
 }
 
+/** A recording with several audio streams: which one is read, and how to pick another (fablecut_audio_track). */
+function audioTracksNote(m) {
+  if (!Array.isArray(m.audioTracks) || m.audioTracks.length < 2) return "";
+  return `\nIt has ${m.audioTracks.length} audio tracks: ` +
+    m.audioTracks.map((t, i) => `${i}: ${t.channels} ch${t.title ? ` "${t.title}"` : ""}${t.default ? " (default)" : ""}`).join(" · ") +
+    `. Songs, loudness and the transcript listen to track ${MediaLib.audioTrackOf(m)}; the export always uses track 0. If the streamer's voice is on another one, ` +
+    `ask the streamer which (fablecut_audio_track {mediaId, listen} cuts a few seconds of each to play), then fablecut_audio_track {mediaId, track}.`;
+}
+/* fablecut_audio_track: list a recording's audio streams, cut a few seconds of each to listen to, or pick the one
+   every reader uses (setAudioTrack, one undo step). */
+async function audioTrackTool(args) {
+  const doc = readProject(), readRev = doc.revision || 0;
+  const m = doc.media.find((x) => x.id === String(args.mediaId || ""));
+  if (!m) throw new Error("`mediaId` must name a media entry (fablecut_get_project {compact:true} lists them)");
+  if (m.kind !== "video" && m.kind !== "audio") throw new Error(`${m.id} is ${m.kind} — it has no sound`);
+  const file = mediaFile(m.src);
+  if (!file) throw new Error(`${m.id}: the file is missing (offline)`);
+  const info = await probeFile(file);
+  const tracks = info && Array.isArray(info.audioTracks) ? info.audioTracks : null;
+  const n = tracks ? tracks.length : info && info.audioChannels === 0 ? 0 : 1;
+  const list = () => (tracks || [{ channels: info && info.audioChannels }]).map((t, i) =>
+    `  ${i}: ${t.channels || "?"} ch${t.title ? ` "${t.title}"` : ""}${t.default ? " (default)" : ""}${i === MediaLib.audioTrackOf({ ...m, audioTracks: tracks }) ? "  ← read now" : ""}`).join("\n");
+  if (!n) return `${m.id} "${m.name}" has no audio.`;
+  if (args.listen != null) {
+    const at = Math.max(0, Number(args.listen) || 0), len = 6;
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const dest = require("./audio-window").listenPath(path.join(ANALYSIS_DIR, "listen"), m.id, i, at);   // id cleaned, kept inside listen/
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      const r = spawnSync(FF.path("ffmpeg"), require("./audio-window").windowArgs(file, at, len, dest, i), { timeout: 60000 });
+      out.push(`  ${i}: ${r.status === 0 ? dest : "could not be read"}`);
+    }
+    return `${m.id} "${m.name}" — ${len} s of each audio track from ${at} s, to play to the streamer:\n${out.join("\n")}\nTracks:\n${list()}`;
+  }
+  if (args.track == null) return `${m.id} "${m.name}" — ${n} audio track${n === 1 ? "" : "s"}:\n${list()}` +
+    (n > 1 ? "\nPick the streamer's voice with {mediaId, track}; listen first with {mediaId, listen: <seconds>}." : "");
+  const proj = readProject();
+  if ((proj.revision || 0) !== readRev) throw new Error(`the project changed meanwhile (revision ${readRev} → ${proj.revision}) — nothing changed; run fablecut_audio_track again`);
+  const pm = proj.media.find((x) => x.id === m.id);
+  if (tracks) pm.audioTracks = tracks;   // an entry probed before audio tracks were read
+  const { notes } = ProjectOps.applyPatch(proj, [{ op: "setAudioTrack", id: m.id, track: args.track }], { savedItems });
+  const verWarn = versionBeforeAgent(false);
+  proj.revision = readRev + 1;
+  writeProject(proj);
+  lastReadRevision = proj.revision;
+  return `${notes.join(" ")} — songs, loudness, the transcript, beats and silences of ${m.id} now listen to audio track ${args.track}; the export keeps track 0 (revision ${proj.revision}; one undo step). ` +
+    `Songs found from the other track were dropped: run fablecut_songs / fablecut_transcribe again for this one.` + (verWarn || "");
+}
+
 /* ── Tool definitions ── */
 const TOOLS = require("./mcp-tools");
 
@@ -245,24 +297,27 @@ function clipSourceLen(c) {
   for (let i = 0; i < n; i++) sum += Math.min(8, Math.max(0.1, at((i + 0.5) * c.duration / n))) * c.duration / n;
   return sum;
 }
-function probeChannels(file) {
-  const r = spawnSync(FF.path("ffprobe"), ["-v", "error", "-select_streams", "a:0", "-show_entries", "stream=channels",
+function probeChannels(file, track = 0) {
+  const r = spawnSync(FF.path("ffprobe"), ["-v", "error", "-select_streams", "a:" + track, "-show_entries", "stream=channels",
     "-of", "csv=p=0", file], { encoding: "utf8" });
   if (r.error) throw new Error(FF.why("ffprobe", "to measure audio"));
   const n = parseInt(String(r.stdout).trim(), 10);
   return n > 0 ? n : 0;
 }
 /** Decode a clip's source window with ffmpeg and hand each chunk to
- *  `onChunk(channels)`. Resolves to the channel count (0 = no audio stream). */
-function streamClipAudio(proj, c0, onStart, onChunk) {
+ *  `onChunk(channels)`. Resolves to the channel count (0 = no audio stream).
+ *  `analysis`: listening to the sound (silence, beats, highlights) reads the entry's audioTrack; working on the
+ *  exported sound (normalize, auto-duck) reads track 0, the one the export uses (JJ on #177). */
+function streamClipAudio(proj, c0, onStart, onChunk, { analysis = false } = {}) {
   const media = proj.media.find((m) => m.id === c0.mediaId);
   const file = media && mediaFile(media.src);
   if (!file) return Promise.reject(new Error(`clip ${c0.id}: media file not found`));
-  const nCh = probeChannels(file);
+  const track = analysis ? MediaLib.audioTrackOf(media) : 0;
+  const nCh = probeChannels(file, track);
   if (!nCh || onStart(nCh) === false) return Promise.resolve(0);
   return new Promise((resolve, reject) => {
     const proc = spawn(FF.path("ffmpeg"), ["-v", "error", "-ss", String(Math.max(0, +c0.in || 0)),
-      "-t", String(Math.max(0.01, clipSourceLen(c0))), "-i", file, "-vn", "-map", "0:a:0",
+      "-t", String(Math.max(0.01, clipSourceLen(c0))), "-i", file, "-vn", "-map", "0:a:" + track,
       "-ar", String(NORM_SR), "-f", "f32le", "-acodec", "pcm_f32le", "-"]);
     let rest = Buffer.alloc(0), err = "";
     const frameBytes = 4 * nCh;
@@ -295,7 +350,7 @@ async function measureClipGroup(proj, clips) {
   return meter ? meter.result() : null;
 }
 /** Timeline spans with sound on these voice clips (ducking.js pipeline). */
-async function voiceRegions(proj, voices, threshold, minLen, heard) {
+async function voiceRegions(proj, voices, threshold, minLen, heard, { analysis = false } = {}) {
   const L = require("./loudness.js"), D = require("./ducking.js");
   const lists = [];
   for (const v of voices) {
@@ -345,7 +400,7 @@ async function silenceTool(args) {
   const rampedN = enabled.length - live.length;
   if (!live.length) throw new Error("those clips have a speed ramp (speed keyframes) — silence removal works on clips at a steady speed");
   const heard = new Set();
-  const sound = await voiceRegions(doc, live.flat(), opts.threshold, S.MIN_SOUND, heard);
+  const sound = await voiceRegions(doc, live.flat(), opts.threshold, S.MIN_SOUND, heard, { analysis: true });
   // only time that was actually listened to can be silent: a clip with no audio stream is left alone
   const usable = live.filter((g) => g.every((x) => heard.has(x.id)));
   if (!usable.length) throw new Error("those clips have no audio stream — nothing to listen to");
@@ -396,8 +451,9 @@ async function songsTool(args) {
   for (const m of files) {
     const file = mediaFile(m.src);
     if (!file) { lines.push(`${m.id} "${m.name}": the file is missing (offline) — skipped`); continue; }
-    if (args.again === true) scanner.forget(file);
-    const r = await scanner.scan(file);
+    const track = MediaLib.audioTrackOf(m);
+    if (args.again === true) scanner.forget(file, track);
+    const r = await scanner.scan(file, { track });
     const songs = Songs.find(r.rows.map((x) => x[0]), { step: r.step, complete: r.complete });
     ops.push({ op: "setSongs", mediaId: m.id, songs: { key: r.key, complete: r.complete, scanned: r.scanned, songs } });
     const est = songs.filter((s) => s.confidence === "estimated").length;
@@ -430,7 +486,7 @@ async function beatsTool(args) {
   const sp = Math.min(8, Math.max(0.1, +clip.props?.speed || 1));
   if (clip.duration * sp > BEATS_MAX_SECS) throw new Error(`clip ${clip.id} is longer than ${BEATS_MAX_SECS / 60} minutes of music — split it, or find the beat on a part of it`);
   const parts = [];
-  const nCh = await streamClipAudio(doc, clip, () => true, (chs) => parts.push(Bt.mono(chs)));
+  const nCh = await streamClipAudio(doc, clip, () => true, (chs) => parts.push(Bt.mono(chs)), { analysis: true });
   if (!nCh) throw new Error(`clip ${clip.id} has no audio stream — nothing to listen to`);
   const len = parts.reduce((n, p) => n + p.length, 0), all = new Float32Array(len);
   let at = 0;
@@ -471,7 +527,7 @@ function sampleFrames(file, c, w, h, fps = 30) {
     ? ["-v", "error", "-i", file, "-frames:v", "1", "-vf", `scale=${w}:${h}`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
     : ["-v", "error", "-ss", String(Math.max(0, +c.in || 0)), "-t", String(len), "-i", file, "-an",
        "-vf", `fps=${R.SAMPLE_FPS},scale=${w}:${h}`, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"];
-  const r = require("child_process").spawnSync(FF.path("ffmpeg"), args, { maxBuffer: 1 << 29, timeout: Math.max(120000, len * 2000) });
+  const r = require("child_process").spawnSync(FF.path("ffmpeg"), args, { maxBuffer: 1 << 29, timeout: sampleTimeoutMs(len) });
   if (r.error?.code === "ENOENT") throw new Error(FF.why("ffmpeg", "to look at the footage"));
   if (r.error) throw new Error(`ffmpeg couldn't read ${c.id}: ${r.error.code === "ETIMEDOUT" ? "it took too long" : r.error.message}`);
   if (r.status !== 0) throw new Error(`ffmpeg couldn't read ${c.id}: ${String(r.stderr).trim().split("\n").pop()}`);
@@ -497,6 +553,11 @@ function sampleFrames(file, c, w, h, fps = 30) {
   while (times.length && times[times.length - 1] >= last) { times.pop(); frames.pop(); }
   frames.push(q.stdout.subarray((count - 1) * fb, count * fb)); times.push(last);
   return { frames, times };
+}
+/** The frame sampling's time limit: 2 s per second of clip, at least 2 minutes, in whole ms (spawnSync refuses a
+ *  fraction with ERR_OUT_OF_RANGE — the same as #130's FLV import, VV on europa, 2026-11-06). */
+function sampleTimeoutMs(len) {
+  return Math.ceil(Math.max(120000, len * 2000));
 }
 async function reframeTool(args) {
   const R = require("./reframe.js");
@@ -628,7 +689,7 @@ async function highlightsTool(args) {
     catch (e) { skip.push({ id: s.id, why: e.message }); continue; }
     if (pic.motion.length < 2) { skip.push({ id: s.id, why: "too short to look at" }); continue; }
     let aud = H.sound(NORM_SR);
-    try { if (!(await streamClipAudio(doc, s.clip, () => true, (chs) => aud.push(Bt.mono(chs))))) aud = null; }
+    try { if (!(await streamClipAudio(doc, s.clip, () => true, (chs) => aud.push(Bt.mono(chs)), { analysis: true }))) aud = null; }
     catch { aud = null; }   // no sound to read: the picture alone decides
     sources.push({ id: s.id, len, pic, aud, speed: Math.min(8, Math.max(0.1, +s.clip.props?.speed || 1)) });
   }
@@ -1278,7 +1339,7 @@ function imageBlockFromDataUrl(url) {
  *  arbitrary files nor probe which ones exist. */
 function apiBytes(urlPath) {
   return new Promise((resolve, reject) => {
-    const req = http.request(API + urlPath, { method: "GET", headers: { "X-FableCut-Client": "mcp" } }, (r) => {
+    const req = http.request(API + urlPath, { method: "GET", headers: { "X-FableCut-Client": "mcp", ...session() } }, (r) => {
       const chunks = [];
       r.on("data", (c) => chunks.push(c));
       r.on("end", () => resolve({ status: r.statusCode, headers: r.headers, body: Buffer.concat(chunks) }));
@@ -1454,6 +1515,80 @@ async function trackTool(args) {
   return ProjectOps.describeTrack(job.result || {});
 }
 
+/* fablecut_lyrics / fablecut_lyrics_apply (JJ, 2026-11-05; docs/decisions/2026-11-05-lyrics-align-agent-tool.md): the
+   pasted lyrics lined up with the transcript on this computer (lyrics-track.js), first as a proposal that changes nothing,
+   then — only after the streamer agrees on the editor's card — on a new caption track, one undo step. Proposals are kept
+   in analysis/lyrics-proposals/ (the newest 50), so the apply can come from another session. */
+const LYRICS_DIR = path.join(ANALYSIS_DIR, "lyrics-proposals");
+function lyricsMessage(key, v) {
+  const View = require("./ui-preferences.js");
+  return { "zh-CN": View.t("zh-CN", "own." + key, v), en: View.t("en", "own." + key, v) };
+}
+function lyricsReply(p, extra = {}) {
+  const LT = require("./lyrics-track.js");
+  const body = { ...extra, ...LT.forAgent(p) };
+  if (!p.ok) body.code = p.code;
+  body.message = lyricsMessage(LT.messageKey(p), p.ok ? { k: p.k, n: p.n, m: p.m } : {});
+  if (p.code === "OK") body.next = "Show the user the message and a few lines (never the whole lyrics), then call fablecut_lyrics_apply {proposalId} — the editor asks the user on a card before anything is placed.";
+  return JSON.stringify(body, null, 1);
+}
+async function lyricsTool(args) {
+  const LT = require("./lyrics-track.js"), LA = require("./lyrics-align.js");
+  if (typeof args.lyrics !== "string") throw new Error("lyrics must be the pasted lyrics, one line per line of the song");
+  if (!LA.lines(args.lyrics).length) return lyricsReply({ ok: false, code: "NO_LYRICS" });
+  let r;
+  try { r = await speechWords({ clipIds: args.clipIds, language: args.language, timeout: args.timeout }, false); }
+  catch (e) {
+    // the transcription itself could not run (the engine, the job, the editor server): say so in the streamer's words
+    if (/transcri|editor server is not running|EDITOR_NOT_READY|HEADLESS_DISABLED/i.test(String(e.message || e))) return lyricsReply({ ok: false, code: "ASR_UNAVAILABLE" }, { detail: String(e.message || e) });
+    throw e;
+  }
+  const lo = Number.isFinite(args.from) ? args.from : -Infinity, hi = Number.isFinite(args.to) ? args.to : Infinity;
+  const words = r.words.filter((w) => (w.s + w.e) / 2 >= lo && (w.s + w.e) / 2 <= hi);
+  const p = LT.propose(words, args.lyrics);
+  if (!p.ok || p.code !== "OK") return lyricsReply(p);
+  const clipIds = [...new Set(words.map((w) => w.clip).filter(Boolean))];
+  const id = "ly_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const stored = { ...p, id, created: new Date().toISOString(), clipIds, sig: LT.scopeSig(r.doc, clipIds), revision: r.readRev };
+  fs.mkdirSync(LYRICS_DIR, { recursive: true });
+  fs.writeFileSync(path.join(LYRICS_DIR, id + ".json"), JSON.stringify(stored));
+  // keep the newest 50
+  const old = fs.readdirSync(LYRICS_DIR).filter((f) => /^ly_[a-z0-9]+\.json$/.test(f)).sort().slice(0, -50);
+  for (const f of old) try { fs.unlinkSync(path.join(LYRICS_DIR, f)); } catch {}
+  return lyricsReply(p, { proposalId: id });
+}
+async function lyricsApplyTool(args) {
+  const LT = require("./lyrics-track.js");
+  const id = String(args.proposalId || "");
+  if (!/^ly_[a-z0-9]{6,40}$/.test(id)) throw new Error("proposalId must be the id fablecut_lyrics returned");
+  let p;
+  try { p = JSON.parse(fs.readFileSync(path.join(LYRICS_DIR, id + ".json"), "utf8")); }
+  catch { throw new Error("no such proposal " + id + " — run fablecut_lyrics again"); }
+  if (p.code !== "OK") return lyricsReply(p, { proposalId: id, applied: false });
+  if (LT.scopeSig(readProject(), p.clipIds) !== p.sig) throw new Error("the clips with the singing changed since this proposal (moved, trimmed or cut) — nothing placed; run fablecut_lyrics again");
+  if (!(await ensureUIServer())) throw new Error(`the editor server is not running and could not be started on port ${PORT}`);
+  const r0 = await apiJSON("POST", "/api/lyrics/request", { proposal: p });
+  if (r0.status !== 200) throw new Error(r0.body?.error || `lyrics request failed (${r0.status})`);
+  let job = r0.body;
+  const deadline = Date.now() + 1000 * (Number.isFinite(args.timeout) && args.timeout > 0 ? args.timeout : 600);
+  while (job.status === "pending" || job.status === "running") {
+    if (Date.now() > deadline) {
+      await apiJSON("POST", "/api/export/job/cancel?id=" + encodeURIComponent(job.id));
+      throw new Error("the user did not answer the lyrics card in time — nothing placed");
+    }
+    await sleep(500);
+    const q = await apiJSON("GET", "/api/export/job?id=" + encodeURIComponent(job.id));
+    if (q.status !== 200) throw new Error(q.body?.error || "lost track of the lyrics card");
+    job = q.body;
+  }
+  if (job.status !== "done") throw new Error(`lyrics card ${job.status}: ${job.error || "no reason given"}`);
+  const res = job.result || {};
+  if (res.revision) lastReadRevision = res.revision;
+  return JSON.stringify({ proposalId: id, applied: res.applied === true, track: res.track || null, placed: res.placed || 0, grey: res.grey || 0,
+    ...(res.reason ? { reason: res.reason } : {}),
+    message: res.applied === true ? lyricsMessage("lt-done") : lyricsMessage("lt-not-placed") }, null, 1);
+}
+
 /* ── Tool implementations ── */
 async function callTool(name, args, attempt = 0) {
   switch (name) {
@@ -1475,8 +1610,14 @@ async function callTool(name, args, attempt = 0) {
       return highlightsTool(args);
     case "fablecut_songs":
       return songsTool(args);
+    case "fablecut_audio_track":
+      return audioTrackTool(args);
     case "fablecut_transcribe":
       return transcribeTool(args);
+    case "fablecut_lyrics":
+      return lyricsTool(args);
+    case "fablecut_lyrics_apply":
+      return lyricsApplyTool(args);
     case "fablecut_captions":
       return captionsTool(args);
     case "fablecut_denoise":
@@ -1541,6 +1682,11 @@ async function callTool(name, args, attempt = 0) {
           const off = proj.media.filter((m) => /^\/(media|library)\//.test(m.src || "") && !mediaFile(m.src));
           return off.length ? [`OFFLINE media (file missing — find it and relinkMedia): ${cap(off.map((m) => `${m.id} ${m.src}`), 25).join("; ")}`] : [];
         })(),
+        ...(() => {
+          // a project saved before mono stems were centred; the streamer hasn't answered the editor's question yet
+          const left = proj.monoPanReviewed ? [] : EditOps.monoLeftStems(proj);
+          return left.length ? [`WARNING — mono audio in the left ear only: ${cap(left.map((c) => c.id), 25).join(", ")} (a mono file's stem at pan −1; it exports with sound on one side). Only if the user asks: updateClip set:{props:{pan:0}} on each, then setProject {monoPanReviewed:true}.`] : [];
+        })(),
         `Files in media/: ${cap(files, 25).join(", ") || "none"}`,
         `Library assets (./library): ${libSummary}`,
         ...(() => {
@@ -1598,7 +1744,7 @@ async function callTool(name, args, attempt = 0) {
       if (base != null && readRev !== base) throw conflict(readRev);
       const { notes, toSave } = ProjectOps.applyPatch(proj, ops, {
         savedItems,
-        audioChannels: (m) => { const f = mediaFile(m.src); return f ? probeChannels(f) || 0 : null; },
+        audioChannels: (m) => { const f = mediaFile(m.src); return f ? probeChannels(f) || 0 : null; },   // stems carry the exported sound: track 0
         checkProfile: resolveProfile,
         deliveryPresets: savedDeliveryPresets(),
         mediaInfo: (src) => { const f = mediaFile(src); return f ? probeFile(f) : null; },
@@ -1866,7 +2012,7 @@ async function callTool(name, args, attempt = 0) {
         else fs.copyFileSync(src, target);
       }
       if (!kind) throw new Error("Unsupported media type");
-      const prepared = await prepareMedia(target, { allowTranscode: args.allowTranscode, acceptReadable: args.acceptReadable });
+      const prepared = await prepareMedia(target, { allowTranscode: args.allowTranscode, acceptReadable: args.acceptReadable, fixGaps: args.fixGaps });
       const originalName = path.basename(target);
       if (prepared.originalSrc) target = path.join(MEDIA_DIR, decodeURIComponent(prepared.src.slice(7)));
       const entry = {
@@ -1878,6 +2024,9 @@ async function callTool(name, args, attempt = 0) {
         // offset is not counted (QQ, #126: format=duration alone stored 3620 s for 20 s)
       };
       if (prepared.originalSrc) Object.assign(entry, {originalSrc: prepared.originalSrc, preparation: prepared.preparation});
+      // where the recording broke, for the timeline's marks (prepare-media.js; faint: small drop, labelled: converted)
+      const gaps = MediaLib.normalizeGaps(prepared.gaps);
+      if (gaps.length) entry.gaps = gaps;
       const probed = await probeFile(target);
       Object.assign(entry, infoForEntry(probed, entry));
       const proj = readProject();
@@ -1890,7 +2039,7 @@ async function callTool(name, args, attempt = 0) {
       writeProject(proj);
       if (wasCurrent) lastReadRevision = proj.revision;
       return `Imported → ${JSON.stringify(entry)}\n` +
-        importNote(entry, probed);
+        importNote(entry, probed) + audioTracksNote(entry);
     }
     case "fablecut_encode_profiles": {
       if (args.preset) {

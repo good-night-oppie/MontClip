@@ -1,6 +1,6 @@
 /* Desktop host for the existing editor and compositor. No renderer Node API. */
 "use strict";
-const { app, BrowserWindow, dialog, session, utilityProcess, ipcMain, safeStorage, Notification } = require("electron");
+const { app, BrowserWindow, dialog, session, utilityProcess, ipcMain, safeStorage, Notification, shell } = require("electron");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { createStore, allowed: settingsAllowed } = require("./view-settings");
@@ -9,7 +9,8 @@ const { dataDirInUse, exitedAtStart, startFailureBox } = require("./startup-fail
 const { transcribeEnabled } = require("./features");
 const { createCloseController } = require("./close-controller");
 const External = require("../external-ffmpeg");
-const Capabilities = require("../capabilities");   // risk levels are fixed here; the page gets a read-only copy
+const Capabilities = require("../capabilities");
+const HostEmbed = require("../host-embed");   // ?host=cindy: the built-in assistant's requests are refused   // risk levels are fixed here; the page gets a read-only copy
 const fs = require("node:fs");
 let worker, win, stopping = false, closing = false, workerExited = false, flvImports = null, flvShutdown = null;
 const smoke = !app.isPackaged && process.argv.includes("--montclip-smoke");
@@ -75,6 +76,42 @@ async function start() {
   ses.setPermissionRequestHandler((_, __, callback) => callback(false));
   ses.setPermissionCheckHandler(() => false);
   const local = (url) => { try { return new URL(url).origin === origin; } catch { return false; } };
+  // The shell shows one of the workspace's own files in its folder: a name under exports/ or media/ or library/ of this
+  // data dir, nothing else; the page never learns a path. (browser shell: no bridge — the buttons stay disabled / absent)
+  const workspaceFile = (src) => {
+    let p; try { p = decodeURIComponent(String(src || "").split("?")[0]); } catch { return null; }
+    const [root, rel] = p.startsWith("/exports/") ? [path.join(env.FABLECUT_DATA_DIR, "exports"), p.slice(9)]
+      : p.startsWith("/media/") ? [path.join(env.FABLECUT_DATA_DIR, "media"), p.slice(7)]
+      : p.startsWith("/library/") ? [path.join(env.FABLECUT_DATA_DIR, "library"), p.slice(9)] : [null, null];
+    // subfolders are normal (media/archive/a.mp4, library/svg/x.svg); the prefix check below stops ".." escaping
+    if (!root || !rel) return null;
+    const file = path.normalize(path.join(root, rel));
+    if (!file.startsWith(path.normalize(root + path.sep))) return null;
+    try {
+      // Reject junctions/symlinks at the allowed root and every descendant, not just lexical traversal.
+      let current = root;
+      if (fs.lstatSync(current).isSymbolicLink()) return null;
+      for (const part of path.relative(root, file).split(path.sep)) {
+        current = path.join(current, part);
+        if (fs.lstatSync(current).isSymbolicLink()) return null;
+      }
+      const realRoot = fs.realpathSync(root), realFile = fs.realpathSync(file);
+      if (!realFile.startsWith(realRoot + path.sep)) return null;
+      return fs.statSync(realFile).isFile() ? realFile : null;
+    } catch { return null; }
+  };
+  // Native save receipts stay in this process. The page can only repeat the original export src.
+  const savedExports = new Map();
+  const rememberSavedExport = (copy, saved) => savedExports.set('/exports/' + encodeURIComponent(path.basename(copy)), saved);
+  ipcMain.handle("montclip:reveal", (event, src) => {
+    if (!settingsAllowed(event, win, origin)) return { ok: false, code: "REVEAL_FORBIDDEN" };
+    const file = savedExports.get(src) || workspaceFile(src);
+    if (!file) return { ok: false, code: "REVEAL_NOT_FOUND" };
+    try { if (!fs.statSync(file).isFile()) return { ok: false, code: "REVEAL_NOT_FOUND" }; }
+    catch { return { ok: false, code: "REVEAL_NOT_FOUND" }; }
+    shell.showItemInFolder(file);
+    return { ok: true };
+  });
   ses.webRequest.onBeforeRequest((details, callback) => {
     const embedded = /^(blob:|data:)/.test(details.url);
     callback({ cancel: !local(details.url) && !embedded });
@@ -102,6 +139,7 @@ async function start() {
     // one download of an export at a time: a second of the same file while the first is open is cancelled
     if (!require("./export-downloads").attach(item, { origin, exportsDir: path.join(env.FABLECUT_DATA_DIR, "exports"), language: languageOf(settings.get()), downloadsDir: app.getPath("downloads"),
       busy: exportDownloads, take: (n) => expectedExports.delete(n),
+      onSaved: rememberSavedExport,
       claim: async (n) => { const r = await fetch(origin + "/api/export/claim?name=" + encodeURIComponent(n), { method: "POST", headers: { "X-MontClip-Session": token } }); return r.ok && (await r.json()).fresh === true; },
       onDone: (v) => { if (win && !win.isDestroyed()) win.webContents.send("montclip:download:done", { state: v.state, name: v.name, removed: v.removed }); } })) {
       event.preventDefault();
@@ -280,6 +318,8 @@ async function start() {
   ipcMain.handle('montclip:agent:noticeAck', (event, version) => settingsAllowed(event, win, origin) ? dataNotice.ack(version) : { ok: false, code: 'AGENT_FORBIDDEN' });
   for(const operation of ['get','configure','reset','deleteConnection','send','cancel']) ipcMain.handle('montclip:agent:'+operation,(event,value)=>{
     if(!settingsAllowed(event,win,origin))return {ok:false,code:'AGENT_FORBIDDEN'};
+    // the editor inside another app (?host=cindy) has no built-in assistant: no key read, nothing sent (QQ on #219)
+    if(HostEmbed.embeddedUrl(event.senderFrame&&event.senderFrame.url))return {ok:false,code:'HOST_EMBEDDED'};
     // nothing goes out with the assistant switched off, nor to DeepSeek before she has read the 「AI 数据说明」 (QQ via Deja)
     if(operation==='send'){if(!agentSwitch.get().enabled)return {ok:false,code:'AI_OFF'};if(agentService.get().provider==='deepseek'&&!dataNotice.get().accepted)return {ok:false,code:'NOTICE_REQUIRED'};}
     return agentService[operation](value);
@@ -311,17 +351,21 @@ async function start() {
     if (!settingsAllowed(event, win, origin)) return { ok: false, code: "FLV_FORBIDDEN" };
     try {
       if (op === "inspect") {
-        if (typeof value !== "string" || !value) return { ok: false, code: "FLV_NOT_FOUND" };
-        return { ok: true, ...(await flvImports.inspect(value)) };
+        // the path, or {path, id} when the page names the import to follow its progress
+        const file = typeof value === "string" ? value : value && typeof value.path === "string" ? value.path : "";
+        const id = value && typeof value.id === "string" && /^[0-9a-f-]{36}$/.test(value.id) ? value.id : undefined;
+        if (!file) return { ok: false, code: "FLV_NOT_FOUND" };
+        return { ok: true, ...(await flvImports.inspect(file, id ? { id } : {})) };
       }
       const id = value && typeof value.id === "string" ? value.id : null;
       if (!id) return { ok: false, code: "FLV_IMPORT_EXPIRED" };
-      if (op === "prepare") return { ok: true, ...(await flvImports.prepare(id, { allowTranscode: value.allowTranscode === true, acceptReadable: value.acceptReadable === true })) };
+      if (op === "prepare") return { ok: true, ...(await flvImports.prepare(id, { allowTranscode: value.allowTranscode === true, acceptReadable: value.acceptReadable === true, fixGaps: value.fixGaps === true })) };
       if (op === "status") return { ok: true, status: flvImports.status(id) };
       flvImports[op](id);
       return { ok: true };
     } catch (error) {
-      return { ok: false, code: FLV_CODES.has(error.code) ? error.code : publicPreparationError(error).code };
+      // a converted MP4 that did not match its original: by how much, for the page to say
+      return { ok: false, code: FLV_CODES.has(error.code) ? error.code : publicPreparationError(error).code, ...(error.check ? { check: error.check } : {}) };
     }
   });
   win.webContents.on("render-process-gone", () => { flvImports.shutdown().catch(() => {}); });

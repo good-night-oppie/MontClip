@@ -9,7 +9,8 @@
 //     and every exported frame the next source frame (no frame shown twice, none skipped).
 //  2. A VFR FLV like 录播姬's (odd frames 3 ms late: intervals alternating ~19.7 / 13.7 ms around a 59.94 grid): the
 //     project becomes 59.94 fps; 1 s to 5 s exported has round(4 × 59.94) = 240 frames, each the next source frame.
-//     Measured only: an FLV with one dropped frame is not imported (FLV_TIMELINE_GAP).
+//     Measured only: an FLV with one dropped frame. Before decision A (2026-11-04) it was refused (FLV_TIMELINE_GAP);
+//     now a late picture with the sound running on is not a break, so it imports.
 //  3. A 1280×720 25 fps recording: the canvas becomes 1280×720 at 25 (never scaled up); a 45 fps one: 30, and the toast
 //     says the rate is unusual (each case checks its toast).
 //  4. A canvas the streamer chose (9:16 in the aspect menu) is kept; 5. a project with something on its timeline is kept.
@@ -87,7 +88,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
    return read(`({w:project.width,h:project.height,fps:project.fps,toast:document.getElementById('toast').textContent,media:(({fps,width,height,sampleRate})=>({fps,width,height,sampleRate}))(project.media.at(-1))})`);};
   /** 〔直接导出〕 of [s, e] of the last imported recording, through 自动出切片's own export; the file's path. */
   const direct=async(s,e)=>{const r=await read(`(async()=>{const m=project.media.at(-1);openAutoSlices();const st=autoState();
-    st.clips=[{id:'sf1',mediaId:m.id,s:${s},e:${e},on:true,kind:'talk',title:'跟随 smoke',reasons:[]}];autoExport();
+    st.clips=[{id:'sf1',mediaId:m.id,s:${s},e:${e},on:true,kind:'talk',title:'跟随 smoke',reasons:[]}];autoExportConfirm();autoExport();
     const end=Date.now()+20*60000;while(Date.now()<end){const q=(st.exportIds||[]).map(id=>exportQueue.find(x=>x.id===id));if(q.length&&q.every(x=>x&&(x.status==='done'||x.status==='failed')))break;await new Promise(r=>setTimeout(r,300));}
     const q=st.exportIds.map(id=>exportQueue.find(x=>x.id===id))[0];AUTO.el&&AUTO.el.close();return{status:q.status,error:q.error||null,label:q.label};})()`);
    direct.label=r.label;
@@ -105,8 +106,8 @@ BrowserWindow.prototype.loadURL=async function(...args){
   report.defaultCanvas=await fresh('跟随 1');
   report.p1=await imported(s1.file);
   const e1=check(await direct(0,5),{fps:60,seconds:5,events:s1.events.filter(t=>t<5)});report.e1=e1;
-  // 2. VFR FLV around 59.94: odd frames 3 ms late, so the intervals alternate 19.7 / 13.7 ms (the FLV import refuses a
-  //    frame more than 5 ms late: FLV_TIMELINE_GAP, recorded below)
+  // 2. VFR FLV around 59.94: odd frames 3 ms late, so the intervals alternate 19.7 / 13.7 ms (a break in the recording
+  //    is where the sound stops; a late picture is not one — recorded below)
   const s2=make(path.join(dir,'录播姬 VFR.flv'),{w:1280,h:720,num:60000,den:1001,seconds:6,vfr:0.003,first:12,every:30,container:'flv'});
   report.s2probe=(({avg_frame_rate,r_frame_rate,start_time})=>({avg_frame_rate,r_frame_rate,start_time}))(probe(s2.file).streams.find(s=>s.codec_type==='video'));
   await fresh('跟随 2');report.p2=await imported(s2.file);
@@ -114,7 +115,7 @@ BrowserWindow.prototype.loadURL=async function(...args){
   // 1024-sample head: first frame at start_time), so a flash is at its frame's time + start_time in the file.
   const v2=+report.s2probe.start_time||0;
   const e2=check(await direct(1,5),{fps:60000/1001,seconds:4,events:s2.events.map(t=>t+v2-1).filter(t=>t>=0&&t<4)});report.e2=e2;
-  // measured, not checked here: an FLV with one dropped frame (a 33 ms interval) is not imported today
+  // measured, not checked here: an FLV with one dropped frame (a 33 ms interval, the sound running on)
   {const s=make(path.join(dir,'掉一帧.flv'),{w:640,h:360,num:60000,den:1001,seconds:2,gapAt:40,first:12,every:30,container:'flv'});
    await fresh('掉帧');await pick(s.file);await wait(4000);
    report.droppedFrameFlv=await read(`({imported:project.media.length,toast:document.getElementById('toast').textContent})`);}

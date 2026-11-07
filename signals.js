@@ -2,7 +2,8 @@
  *
  * loudness(file): the file's first audio stream, decoded once by ffmpeg as a stream (8 kHz mono 16-bit, never the
  * whole file in memory), one dBFS value per 0.5 s. Cached in analysis/signals/ by the file's name, size and
- * modification time, so a replaced file is read again. Two requests for the same file share one decode. */
+ * modification time, so a replaced file is read again. Two requests for the same file share one decode.
+ * loudness(file, {track}) reads that audio stream instead (the media entry's audioTrack); stream 0 keeps its old key. */
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -13,15 +14,16 @@ const STEP = 0.5, RATE = 8000, PER = STEP * RATE, FLOOR = -90;
 
 function createSignals({ dir, ffmpeg = require("./ffmpeg-path").path("ffmpeg") }) {
   const pending = new Map();
-  const keyOf = (file) => {
+  const keyOf = (file, track = 0) => {
     const st = fs.statSync(file);
-    return crypto.createHash("sha256").update(path.basename(file) + "\0" + st.size + "\0" + Math.round(st.mtimeMs)).digest("hex").slice(0, 32);
+    return crypto.createHash("sha256").update(path.basename(file) + "\0" + st.size + "\0" + Math.round(st.mtimeMs) + (track > 0 ? "\0a" + track : ""))
+      .digest("hex").slice(0, 32);
   };
-  function decode(file) {
+  function decode(file, track) {
     return new Promise((resolve, reject) => {
       const values = [];
       let acc = 0, n = 0, carry = null;
-      const proc = spawn(ffmpeg, ["-v", "error", "-nostdin", "-i", file, "-vn", "-map", "0:a:0", "-ac", "1", "-ar", String(RATE), "-f", "s16le", "-"],
+      const proc = spawn(ffmpeg, ["-v", "error", "-nostdin", "-i", file, "-vn", "-map", "0:a:" + track, "-ac", "1", "-ar", String(RATE), "-f", "s16le", "-"],
         { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
       let err = "";
       proc.stderr.on("data", (d) => { if (err.length < 4000) err += d; });
@@ -43,12 +45,12 @@ function createSignals({ dir, ffmpeg = require("./ffmpeg-path").path("ffmpeg") }
       });
     });
   }
-  async function loudness(file) {
-    const key = keyOf(file), out = path.join(dir, key + ".loudness.json");
+  async function loudness(file, { track = 0 } = {}) {
+    const key = keyOf(file, track), out = path.join(dir, key + ".loudness.json");
     try { return JSON.parse(fs.readFileSync(out, "utf8")); } catch { /* not cached yet */ }
     if (pending.has(key)) return pending.get(key);
     const job = (async () => {
-      const values = await decode(file);
+      const values = await decode(file, track);
       const doc = { v: 1, step: STEP, values, duration: Math.round(values.length * STEP * 1000) / 1000 };
       fs.mkdirSync(dir, { recursive: true });
       const tmp = out + "." + crypto.randomUUID() + ".tmp";

@@ -2218,6 +2218,9 @@ video:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .text-15, .text-15:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   font-size: var(--text-15);
 }
+:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .text-\[15px\], .text-\[15px\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
+  font-size: 15px;
+}
 :where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) .text-\[length\:calc\(var\(--app-code-font-size\)_-_1px\)\], .text-\[length\:calc\(var\(--app-code-font-size\)_-_1px\)\]:where([data-cindy-parts], [data-radix-popper-content-wrapper], [data-morph-side], [role="alertdialog"], .modal-scrim) {
   font-size: calc(var(--app-code-font-size) - 1px);
 }
