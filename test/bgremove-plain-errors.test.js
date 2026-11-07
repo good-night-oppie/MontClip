@@ -7,6 +7,9 @@ const V = require('../ui-preferences.js');
 const app = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8');
 const slice = (from, to) => { const i = app.indexOf(from), j = app.indexOf(to, i); a.ok(i >= 0 && j > i, from); return app.slice(i, j); };
 const errorFn = slice('function bgRemoveExportError(', '/* A fresh/headless page');
+// main's no-H.264 precheck (#125) runs first in fastExport; these outputs are not H.264, so it lets them through
+const precheck = slice('const deliveryIsH264 = ', 'async function fastExport(opts = {})');
+const notH264 = { normalizeDelivery: () => ({ spec: { video: { codec: 'prores' } } }), exportProfileMeta: () => ({}) };
 
 const CLIP = 'clip_7f3a9e';
 const noLeak = (shown, where) => { a.ok(!/BG_REMOVE_/.test(shown), where + ': no BG_REMOVE_ code: ' + shown); a.ok(!shown.includes(CLIP), where + ': no clip id: ' + shown); };
@@ -33,9 +36,9 @@ for (const language of ['zh-CN', 'en']) for (const engine of ['Fast', 'WebCodecs
     renderAudioMix: async () => { throw new Error('the audio mix must not start'); },
     fetch: async () => { throw new Error('nothing is asked of the server'); },
     sayExportFailure: (e) => said.push(V.errorText(language, e)), alert: (s) => alerts.push(s),
-    reportExportJob: async () => {}, exportDecodeEnd: noop, endExportWindow: noop, releaseOriginalPlayers: noop };
+    reportExportJob: async () => {}, exportDecodeEnd: noop, endExportWindow: noop, releaseOriginalPlayers: noop, ...notH264 };
   vm.createContext(box);
-  vm.runInContext(errorFn + slice('function noteExportBgRemove(', '/* Serialize sends') +
+  vm.runInContext(errorFn + precheck + slice('function noteExportBgRemove(', '/* Serialize sends') +
     (engine === 'Fast' ? slice('async function fastExport(opts = {})', '/* ── Export queue') : slice('async function webCodecsExport(', 'function pickMime(')), box);
   await (engine === 'Fast' ? box.fastExport({}) : box.webCodecsExport());
   a.deepEqual(alerts, []);
@@ -69,9 +72,9 @@ for (const language of ['zh-CN', 'en']) test('the export queue, ' + language + '
     uiText: (k) => V.t(language, k), mcView: { get: () => ({ language }) }, MontClipView: V,
     renderAudioMix: async () => { throw new Error('the audio mix must not start'); }, fetch: async () => { throw new Error('no server'); },
     sayExportFailure: () => { throw new Error('a silent export says nothing itself'); }, alert: () => { throw new Error('no alert'); },
-    reportExportJob: async () => {}, exportDecodeEnd: noop, endExportWindow: noop, releaseOriginalPlayers: noop };
+    reportExportJob: async () => {}, exportDecodeEnd: noop, endExportWindow: noop, releaseOriginalPlayers: noop, ...notH264 };
   vm.createContext(box);
-  vm.runInContext(errorFn + slice('function noteExportBgRemove(', '/* Serialize sends') + slice('async function fastExport(opts = {})', '/* ── Export queue'), box);
+  vm.runInContext(errorFn + precheck + slice('function noteExportBgRemove(', '/* Serialize sends') + slice('async function fastExport(opts = {})', '/* ── Export queue'), box);
   const res = await box.fastExport({ deliveries: [{ delivery: {}, name: 'a' }], silent: true });
   // what runQueue makes of a refused render (app.js: status, error, code, params, featurePack)
   const q = { status: 'failed', error: res.error, code: res.code, params: res.params, featurePack: res.featurePack };
