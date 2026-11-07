@@ -17,9 +17,18 @@ function candidates(name, o = {}) {
   const base = fileName(name);
   if (!base) return [];
   const out = [];
-  for (const dir of [o.mediaDir, o.exportsDir]) if (dir) out.push(path.join(dir, base));
+  // resolved and checked: a name that would land outside the folder (a drive prefix, a NUL…) is refused, not looked up
+  const inside = (dir, f) => path.dirname(path.resolve(f)) === path.resolve(dir) && !/[\0]/.test(f);
+  for (const dir of [o.mediaDir, o.exportsDir]) {
+    if (!dir) continue;
+    const f = path.join(dir, base);
+    if (inside(dir, f)) out.push(f);
+  }
   for (const src of o.srcs || []) {
-    if (typeof src !== "string" || fileName(decodeURIComponent(src.split(/[?#]/)[0])) !== base) continue;
+    if (typeof src !== "string") continue;
+    let srcBase;
+    try { srcBase = fileName(decodeURIComponent(src.split(/[?#]/)[0])); } catch { continue; }
+    if (srcBase !== base) continue;
     const f = o.resolve && o.resolve(src);
     if (f) out.push(f);
   }

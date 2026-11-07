@@ -304,3 +304,35 @@ test("the server: a file named by an absolute path outside its folders has no si
   a.deepEqual(text.split("\n").filter((l) => l.startsWith("相关文件：")), ["相关文件：一个 mp4 文件，大小不明"], text);
   a.doesNotMatch(text, /3\.0 MB|secret|Windows\\|passwd/);
 });
+
+/* Deja (#161, QQ's 要改): a request that climbs out with ../ or names an absolute path gets no size, and nothing outside
+   the server's folders is looked at — checked on the names as written and on what they resolve to. */
+test("a file's size: ../ and absolute names resolve inside the server's folders or are refused", () => {
+  const PF = require("../problem-files");
+  const os = require("node:os");
+  const where = { mediaDir: path.join(os.tmpdir(), "mc-media"), exportsDir: path.join(os.tmpdir(), "mc-exports"), srcs: [] };
+  for (const asked of ["../beside.mp4", "..\..\beside.mp4", "media/../../beside.mp4", "C:beside.mp4", "/tmp/../beside.mp4",
+    path.join(os.tmpdir(), "beside.mp4"), "..", "../", "a.mp4\0../../x"]) {
+    const looked = [];
+    const spy = (f) => { looked.push(f); throw Object.assign(new Error("ENOENT"), { code: "ENOENT" }); };
+    a.equal(PF.sizeOf(asked, where, spy), null, JSON.stringify(asked) + ": 大小不明");
+    for (const f of looked) {
+      const d = path.dirname(path.resolve(f));
+      a.ok(d === path.resolve(where.mediaDir) || d === path.resolve(where.exportsDir), `${JSON.stringify(asked)}: looked at ${f}, outside the folders`);
+    }
+  }
+});
+
+test("the server: ../ names get no size, even when the file they point at exists beside media/", { timeout: 60_000 }, async (t) => {
+  const dir = makeDataDir(t, seedProject({ media: [], clips: [] }));
+  fs.mkdirSync(path.join(dir, "media"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "beside.mp4"), Buffer.alloc(2_000_000));
+  const { base } = await startServer(t, dir, { FABLECUT_NO_FS_WATCH: "1" });
+  const res = await fetch(base + "/api/problem-details", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: "这次没有做完。", code: "E", log: `probe ../beside.mp4 and ..\beside.mp4 and media/../beside.mp4 and ${path.join(dir, "beside.mp4")} failed`, language: "zh-CN" }) });
+  const { text } = await res.json();
+  const files = text.split("\n").filter((l) => l.startsWith("相关文件："));
+  a.ok(files.length >= 1, text);
+  for (const l of files) a.equal(l, "相关文件：一个 mp4 文件，大小不明", text);
+  a.doesNotMatch(text, /2\.0 MB|beside/);
+});
